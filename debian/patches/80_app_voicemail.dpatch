@@ -1,0 +1,96 @@
+#! /bin/sh -e
+## 80_app_voicemail.dpatch by Kilian Krause <kk@verfaction.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: include italian voicemail support.
+
+if [ $# -lt 1 ]; then
+    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+    exit 1
+fi
+
+[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
+patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
+
+case "$1" in
+    -patch) patch -p1 ${patch_opts} < $0;;
+    -unpatch) patch -R -p1 ${patch_opts} < $0;;
+    *)
+        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+        exit 1;;
+esac
+
+exit 0
+
+@DPATCH@
+--- app_voicemail.c	2005-03-02 23:24:02.000000000 +0100
++++ app_voicemail-tmp.c	2005-03-26 11:12:41.331409862 +0100
+@@ -2723,6 +2723,59 @@
+ 	return res;
+ }
+ 
++/* ITALIAN syntax */
++static int vm_intro_it(struct ast_channel *chan,struct vm_state *vms)
++{
++        /* Introduce messages they have */
++        int res;
++        if (!vms->oldmessages && !vms->newmessages) {
++		res = ast_play_and_wait(chan, "vm-no");
++		if (!res)
++			res = ast_play_and_wait(chan, "vm-message");
++        } else {
++                res = ast_play_and_wait(chan, "vm-youhave");
++        }
++        if (!res) {
++                if (vms->newmessages) {
++                        if (!res) {
++                                if ((vms->newmessages == 1)) {
++                                        res = ast_play_and_wait(chan, "digits/un");
++                                        if (!res)
++                                                res = ast_play_and_wait(chan, "vm-message");
++                                        if (!res)
++                                                res = ast_play_and_wait(chan, "vm-nuovo");
++                                } else {
++                                        res = say_and_wait(chan, vms->newmessages, chan->language);
++                                        if (!res)
++                                                res = ast_play_and_wait(chan, "vm-messages");
++                                        if (!res)
++                                                res = ast_play_and_wait(chan, "vm-nuovi");
++                                }
++                        }
++                        if (vms->oldmessages && !res)
++                                res = ast_play_and_wait(chan, "vm-and");
++                }
++                if (vms->oldmessages) {
++                        if (!res) {
++                                if (vms->oldmessages == 1) {
++                                        res = ast_play_and_wait(chan, "digits/un");
++                                        if (!res)
++                                                res = ast_play_and_wait(chan, "vm-message");
++                                        if (!res)
++                                                res = ast_play_and_wait(chan, "vm-vecchio");
++                                } else {
++                                        res = say_and_wait(chan, vms->oldmessages, chan->language);
++                                        if (!res)
++                                                res = ast_play_and_wait(chan, "vm-messages");
++                                        if (!res)
++                                                res = ast_play_and_wait(chan, "vm-vecchi");
++                                }
++                        }
++                }
++        }
++	return res;
++}
++
+ /* GERMAN syntax */
+ static int vm_intro_de(struct ast_channel *chan,struct vm_state *vms)
+ {
+@@ -3050,6 +3103,8 @@
+ 		return vm_intro_de(chan, vms);
+ 	} else if (!strcasecmp(chan->language, "es")) { /* SPANISH syntax */
+ 		return vm_intro_es(chan, vms);
++	} else if (!strcasecmp(chan->language, "it")) { /* ITALIAN syntax */
++		return vm_intro_it(chan, vms);
+ 	} else if (!strcasecmp(chan->language, "fr")) {	/* FRENCH syntax */
+ 		return vm_intro_fr(chan, vms);
+ 	} else if (!strcasecmp(chan->language, "nl")) {	/* DUTCH syntax */
