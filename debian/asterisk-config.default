@@ -16,3 +16,10 @@ AST_REALTIME=no
 #
 # RUNASTSAFE: run safe_asterisk rather than asterisk (will auto-restart upon crash)
 RUNASTSAFE=no
+
+# Additional commands
+# put additional commands here like
+#
+#rmmod zaphfc
+#modprobe zaphfc modes=1
+#/usr/sbin/ztcfg -v >/dev/null
