@@ -9,8 +9,9 @@ asterisk (1:1.0.7-1) unstable; urgency=low
     changes to source. (Closes: #299184)
   * debian/patches/80_skinny.dpatch: removed. Incorporated in the 1.0.7
     release.
+  * No more problems to build on AMD64 with gcc-4.0 (Closes: #297561)
 
- -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Sat, 19 Mar 2005 21:46:27 +0100
+ -- Kilian Krause <kk@verfaction.de>  Sat, 19 Mar 2005 21:51:47 +0100
 
 asterisk (1:1.0.6-2) unstable; urgency=low
 
