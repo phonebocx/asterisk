@@ -5,93 +5,6 @@
 ## DP: Add bristuff for HFC and BRI cards.
 
 @DPATCH@
-diff -urN asterisk-1.0.5.orig/.version asterisk-1.0.5/.version
---- asterisk-1.0.5.orig/.version	2005-01-24 04:24:43.000000000 +0100
-+++ asterisk-1.0.5/.version	2005-01-25 21:56:27.000000000 +0100
-@@ -1 +1 @@
--1.0.5
-+1.0.5-BRIstuffed-0.2.0-RC6
-diff -urN asterisk-1.0.5.orig/HARDWARE asterisk-1.0.5/HARDWARE
---- asterisk-1.0.5.orig/HARDWARE	2004-08-03 08:31:20.000000000 +0200
-+++ asterisk-1.0.5/HARDWARE	2005-01-25 21:55:55.000000000 +0100
-@@ -37,6 +37,13 @@
-    * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
-      RBS signalling, as well as PPP, FR, and HDLC data modes.
- 
-+-- Junghanns.NET
-+	http://www.junghanns.net
-+	
-+    * quadBRI PCI ISDN - 4port BRI ISDN interface, supports NT and TE mode
-+    
-+    * octoBRI PCI ISDN - 8port BRI ISDN interface, supports NT and TE mode
-+
- Non-zaptel compatible hardware
- ==============================
- 
-diff -urN asterisk-1.0.5.orig/Makefile asterisk-1.0.5/Makefile
---- asterisk-1.0.5.orig/Makefile	2005-01-21 06:18:35.000000000 +0100
-+++ asterisk-1.0.5/Makefile	2005-01-25 21:55:55.000000000 +0100
-@@ -459,6 +459,8 @@
- 	echo "astspooldir => $(ASTSPOOLDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
- 	echo "astrundir => $(ASTVARRUNDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
- 	echo "astlogdir => $(ASTLOGDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
-+	echo "[options]" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
-+	echo "uniquename = asterisk" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
- 	for x in sounds/demo-*; do \
- 		if grep -q "^%`basename $$x`%" sounds.txt; then \
- 			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
-diff -urN asterisk-1.0.5.orig/README asterisk-1.0.5/README
---- asterisk-1.0.5.orig/README	2004-08-25 16:14:57.000000000 +0200
-+++ asterisk-1.0.5/README	2005-01-25 21:55:55.000000000 +0100
-@@ -1,6 +1,7 @@
- The Asterisk Open Source PBX
- by Mark Spencer <markster@digium.com>
--Copyright (C) 2001-2004 Digium
-+Copyright (C) 2001-2004 Digium and others....
-+Copyright (C) 2002-2004 Junghanns.NET GmbH and others....
- ================================================================
- * SECURITY
-   It is imperative that you read and fully understand the contents of
-@@ -23,14 +24,6 @@
-   Asterisk is distributed under GNU General Public License.  The GPL also
- must apply to all loadable modules as well, except as defined below.
- 
--  Digium, Inc. (formerly Linux Support Services) retains copyright to all 
--of the core Asterisk system, and therefore can grant, at its sole discretion, 
--the ability for companies, individuals, or organizations to create proprietary
--or Open Source (but non-GPL'd) modules which may be dynamically linked at
--runtime with the portions of Asterisk which fall under our copyright
--umbrella, or are distributed under more flexible licenses than GPL.  
--
--
-   If you wish to use our code in other GPL programs, don't worry -- there
- is no requirement that you provide the same exemption in your GPL'd
- products (although if you've written a module for Asterisk we would
-@@ -39,12 +32,6 @@
-   Specific permission is also granted to OpenSSL and OpenH323 to link to
- Asterisk.
- 
--  If you have any questions, whatsoever, regarding our licensing policy,
--please contact us.
--
--  Modules that are GPL-licensed and not available under Digium's 
--licensing scheme are added to the Asterisk-addons CVS module.
--  
- * REQUIRED COMPONENTS
- 
- == Linux ==
-diff -urN asterisk-1.0.5.orig/apps/Makefile asterisk-1.0.5/apps/Makefile
---- asterisk-1.0.5.orig/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
-+++ asterisk-1.0.5/apps/Makefile	2005-01-25 21:55:54.000000000 +0100
-@@ -29,7 +29,7 @@
-      app_nbscat.so app_sendtext.so app_exec.so app_sms.so \
-      app_groupcount.so app_txtcidname.so app_controlplayback.so \
-      app_talkdetect.so app_alarmreceiver.so app_userevent.so app_verbose.so \
--     app_test.so app_forkcdr.so
-+     app_test.so app_forkcdr.so app_pickup.so
- 
- ifneq (${OSARCH},Darwin)
- APPS+=app_intercom.so
 diff -urN asterisk-1.0.5.orig/apps/app_chanisavail.c asterisk-1.0.5/apps/app_chanisavail.c
 --- asterisk-1.0.5.orig/apps/app_chanisavail.c	2004-12-30 22:46:39.000000000 +0100
 +++ asterisk-1.0.5/apps/app_chanisavail.c	2005-01-25 21:55:54.000000000 +0100
@@ -579,18 +492,18 @@ diff -urN asterisk-1.0.5.orig/apps/app_queue.c asterisk-1.0.5/apps/app_queue.c
  	if (!tmp->chan) {			/* If we can't, just go on to the next call */
  #if 0
  		ast_log(LOG_NOTICE, "Unable to create channel of type '%s'\n", cur->tech);
-diff -urN asterisk-1.0.5.orig/apps/app_zapras.c asterisk-1.0.5/apps/app_zapras.c
---- asterisk-1.0.5.orig/apps/app_zapras.c	2004-06-22 21:32:52.000000000 +0200
-+++ asterisk-1.0.5/apps/app_zapras.c	2005-02-02 15:13:03.000000000 +0100
-@@ -159,7 +159,7 @@
- 				}
- 			}
- 			/* Throw back into audio mode */
--			x = 1;
-+			x = 0;
- 			ioctl(chan->fds[0], ZT_AUDIOMODE, &x);
+diff -urN asterisk-1.0.5.orig/apps/Makefile asterisk-1.0.5/apps/Makefile
+--- asterisk-1.0.5.orig/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
++++ asterisk-1.0.5/apps/Makefile	2005-01-25 21:55:54.000000000 +0100
+@@ -29,7 +29,7 @@
+      app_nbscat.so app_sendtext.so app_exec.so app_sms.so \
+      app_groupcount.so app_txtcidname.so app_controlplayback.so \
+      app_talkdetect.so app_alarmreceiver.so app_userevent.so app_verbose.so \
+-     app_test.so app_forkcdr.so
++     app_test.so app_forkcdr.so app_pickup.so
  
- 			/* Double check buffering too */
+ ifneq (${OSARCH},Darwin)
+ APPS+=app_intercom.so
 diff -urN asterisk-1.0.5.orig/astconf.h asterisk-1.0.5/astconf.h
 --- asterisk-1.0.5.orig/astconf.h	2003-01-30 16:03:20.000000000 +0100
 +++ asterisk-1.0.5/astconf.h	2005-01-25 21:55:54.000000000 +0100
@@ -948,7 +861,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_sip.c asterisk-1.0.5/channels/chan_s
  		bytes = snprintf(t, maxbytes, "</dialog>\n</dialog-info>\n");	
 diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_zap.c
 --- asterisk-1.0.5.orig/channels/chan_zap.c	2005-01-22 02:27:08.000000000 +0100
-+++ asterisk-1.0.5/channels/chan_zap.c	2005-02-06 18:44:43.996770184 +0100
++++ asterisk-1.0.5/channels/chan_zap.c	2005-01-25 21:55:55.000000000 +0100
 @@ -7,6 +7,10 @@
   *
   * Mark Spencer <markster@digium.com>
@@ -1196,13 +1109,10 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  static int zt_get_index(struct ast_channel *ast, struct zt_pvt *p, int nullok)
  {
  	int res;
-@@ -1722,6 +1873,14 @@
+@@ -1722,6 +1873,11 @@
  #ifdef ZAPATA_PRI
  	if (p->pri) {
  		struct pri_sr *sr;
-+		int pridialplan;
-+		int dp_strip;
-+
 +		if ((p->pri->nodetype == BRI_NETWORK_PTMP) || (p->pri->nodetype == BRI_NETWORK)) {
 +		    // pass NO audio when ringing an isdn phone
 +		    p->dialing = 1;
@@ -1211,7 +1121,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		c = strchr(dest, '/');
  		if (c)
  			c++;
-@@ -1742,6 +1901,7 @@
+@@ -1742,6 +1898,7 @@
  			ast_mutex_unlock(&p->lock);
  			return -1;
  		}
@@ -1219,37 +1129,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		if (p->sig != SIG_FXSKS) {
  			p->dop.op = ZT_DIAL_OP_REPLACE;
  			s = strchr(c + p->stripmsd, 'w');
-@@ -1785,13 +1945,27 @@
- 		pri_sr_set_bearer(sr, p->digital ? PRI_TRANS_CAP_DIGITAL : PRI_TRANS_CAP_SPEECH, 
- 					(p->digital ? -1 : 
- 						((p->law == ZT_LAW_ALAW) ? PRI_LAYER_1_ALAW : PRI_LAYER_1_ULAW)));
--		pri_sr_set_called(sr, c + p->stripmsd, p->pri->dialplan - 1,  s ? 1 : 0);
-+		pridialplan = p->pri->dialplan - 1;
-+		dp_strip = 0;
-+		if (pridialplan == -1) { // compute dynamically
-+			if (strncmp(c + p->stripmsd, p->pri->internationalprefix, strlen(p->pri->internationalprefix)) == 0) {
-+				dp_strip = strlen(p->pri->internationalprefix);
-+				pridialplan = PRI_INTERNATIONAL_ISDN;
-+			} else if (strncmp(c + p->stripmsd, p->pri->nationalprefix, strlen(p->pri->nationalprefix)) == 0) {
-+				dp_strip = strlen(p->pri->nationalprefix);
-+				pridialplan = PRI_NATIONAL_ISDN;
-+			} else {
-+                                pridialplan = PRI_LOCAL_ISDN;
-+			}
-+		}
-+		pri_sr_set_called(sr, c + p->stripmsd + dp_strip, pridialplan,  s ? 1 : 0);
- 		pri_sr_set_caller(sr, l, n, p->pri->localdialplan - 1, 
- 					l ? (ast->restrictcid ? PRES_PROHIB_USER_NUMBER_PASSED_SCREEN : 
- 						(p->use_callingpres ? ast->callingpres : PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN)) : 
- 						 PRES_NUMBER_NOT_AVAILABLE);
- 		if (pri_setup(p->pri->pri, p->call,  sr)) {
--			ast_log(LOG_WARNING, "Unable to setup call to %s\n", c + p->stripmsd);
-+			ast_log(LOG_WARNING, "Unable to setup call to %s (using pridialplan %d)\n", 
-+						c + p->stripmsd + dp_strip, pridialplan);
- 			pri_rel(p->pri);
- 			ast_mutex_unlock(&p->lock);
- 			pri_sr_free(sr);
-@@ -1926,8 +2100,9 @@
+@@ -1926,8 +2083,9 @@
  	}
  	if (newslot < 0) {
  		newslot = 0;
@@ -1261,7 +1141,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	}
  	if (old && (oldslot != newslot))
  		ast_log(LOG_NOTICE, "Switching from from d-channel %d to channel %d!\n",
-@@ -2121,6 +2296,13 @@
+@@ -2121,6 +2279,13 @@
  								icause = atoi(cause);
  						}
  						pri_hangup(p->pri->pri, p->call, icause);
@@ -1275,7 +1155,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					}
  					if (res < 0) 
  						ast_log(LOG_WARNING, "pri_disconnect failed\n");
-@@ -2313,6 +2495,8 @@
+@@ -2313,6 +2478,8 @@
  			p->proceeding = 2;
  			res = pri_answer(p->pri->pri, p->call, 0, 1);
  			pri_rel(p->pri);
@@ -1284,7 +1164,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		} else {
  			ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->span);
  			res= -1;
-@@ -2572,7 +2756,7 @@
+@@ -2572,7 +2739,7 @@
  	int os1 = -1, os2 = -1;
  	struct ast_channel *oc1, *oc2;
  
@@ -1293,7 +1173,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	if (flags & (AST_BRIDGE_DTMF_CHANNEL_0 | AST_BRIDGE_DTMF_CHANNEL_1))
  		return -2;
  		
-@@ -4019,8 +4203,9 @@
+@@ -4019,8 +4186,9 @@
  				}
  			} else if (f->frametype == AST_FRAME_DTMF) {
  #ifdef ZAPATA_PRI
@@ -1305,7 +1185,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					f->frametype = AST_FRAME_NULL;
  					f->subclass = 0;
  				}
-@@ -4348,6 +4533,9 @@
+@@ -4348,6 +4516,9 @@
  	int res;
  	int x,y;
  	int features;
@@ -1315,7 +1195,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	ZT_PARAMS ps;
  	tmp = ast_channel_alloc(0);
  	if (tmp) {
-@@ -4427,7 +4615,21 @@
+@@ -4427,7 +4598,21 @@
  			tmp->rings = 1;
  		tmp->pvt->pvt = i;
  		tmp->pvt->send_digit = zt_digit;
@@ -1338,7 +1218,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		tmp->pvt->call = zt_call;
  		tmp->pvt->hangup = zt_hangup;
  		tmp->pvt->answer = zt_answer;
-@@ -4438,8 +4640,12 @@
+@@ -4438,8 +4623,12 @@
  		tmp->pvt->indicate = zt_indicate;
  		tmp->pvt->fixup = zt_fixup;
  		tmp->pvt->setoption = zt_setoption;
@@ -1353,7 +1233,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			tmp->callgroup = i->callgroup;
  			tmp->pickupgroup = i->pickupgroup;
  		}
-@@ -4612,8 +4818,28 @@
+@@ -4612,8 +4801,28 @@
  		while((len < AST_MAX_EXTENSION-1) && ast_matchmore_extension(chan, chan->context, exten, 1, p->callerid)) {
  			if (len && !ast_ignore_pattern(chan->context, exten))
  				tone_zone_play_tone(p->subs[index].zfd, -1);
@@ -1383,7 +1263,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			if (ast_exists_extension(chan, chan->context, exten, 1, p->callerid))
  				timeout = matchdigittimeout;
  			else
-@@ -4642,6 +4868,10 @@
+@@ -4642,6 +4851,10 @@
  			ast_log(LOG_DEBUG, "No such possible extension '%s' in context '%s'\n", exten, chan->context);
  			chan->hangupcause = AST_CAUSE_UNALLOCATED;
  			ast_hangup(chan);
@@ -1394,7 +1274,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		}
  		return NULL;
  		break;
-@@ -6045,6 +6275,8 @@
+@@ -6045,6 +6258,8 @@
  		} else {
  			if (si->totalchans == 31) { /* if it's an E1 */
  				pris[*span].dchannels[0] = 16 + offset;
@@ -1403,7 +1283,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			} else {
  				pris[*span].dchannels[0] = 24 + offset;
  			}
-@@ -6295,6 +6527,11 @@
+@@ -6295,6 +6510,11 @@
  						destroy_zt_pvt(&tmp);
  						return NULL;
  					}
@@ -1415,7 +1295,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					if (!ast_strlen_zero(pris[span].idledial) && strcmp(pris[span].idledial, idledial)) {
  						ast_log(LOG_ERROR, "Span %d already has idledial '%s'.\n", span + 1, idledial);
  						destroy_zt_pvt(&tmp);
-@@ -6322,6 +6559,11 @@
+@@ -6322,6 +6542,11 @@
  						return NULL;
  					}
  					pris[span].nodetype = pritype;
@@ -1427,7 +1307,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					pris[span].switchtype = myswitchtype;
  					pris[span].nsf = nsf;
  					pris[span].dialplan = dialplan;
-@@ -6330,8 +6572,15 @@
+@@ -6330,8 +6555,15 @@
  					pris[span].minunused = minunused;
  					pris[span].minidle = minidle;
  					pris[span].overlapdial = overlapdial;
@@ -1443,7 +1323,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					
  					tmp->pri = &pris[span];
  					tmp->prioffset = offset;
-@@ -6726,7 +6975,7 @@
+@@ -6726,7 +6958,7 @@
  			break;
  		if (!backwards && (x >= pri->numchans))
  			break;
@@ -1452,7 +1332,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			ast_log(LOG_DEBUG, "Found empty available channel %d/%d\n", 
  				pri->pvts[x]->logicalspan, pri->pvts[x]->prioffset);
  			return x;
-@@ -6771,7 +7020,7 @@
+@@ -6771,7 +7003,7 @@
  	end = ifend;
  	/* We do signed linear */
  	oldformat = format;
@@ -1461,7 +1341,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	if (!format) {
  		ast_log(LOG_NOTICE, "Asked to get a channel of unsupported format '%d'\n", oldformat);
  		return NULL;
-@@ -6994,6 +7243,8 @@
+@@ -6994,6 +7226,8 @@
  	span = PRI_SPAN(channel);
  	channel = PRI_CHANNEL(channel);
  	
@@ -1470,7 +1350,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	for (x=0;x<pri->numchans;x++) {
  		if (pri->pvts[x] && (pri->pvts[x]->prioffset == channel) && (pri->pvts[x]->logicalspan == span)) {
  			principle = x;
-@@ -7007,7 +7258,9 @@
+@@ -7007,7 +7241,9 @@
  static int pri_fixup_principle(struct zt_pri *pri, int principle, q931_call *c)
  {
  	int x;
@@ -1480,7 +1360,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	if (!c) {
  		if (principle < 0)
  			return -1;
-@@ -7021,6 +7274,7 @@
+@@ -7021,6 +7257,7 @@
  	/* First, check for other bearers */
  	for (x=0;x<pri->numchans;x++) {
  		if (!pri->pvts[x]) continue;
@@ -1488,7 +1368,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		if (pri->pvts[x]->call == c) {
  			/* Found our call */
  			if (principle != x) {
-@@ -7034,17 +7288,47 @@
+@@ -7034,17 +7271,47 @@
  				}
  				/* Fix it all up now */
  				pri->pvts[principle]->owner = pri->pvts[x]->owner;
@@ -1537,7 +1417,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			}
  			return principle;
  		}
-@@ -7073,7 +7357,9 @@
+@@ -7073,7 +7340,9 @@
  		}
  		crv = crv->next;
  	}
@@ -1548,7 +1428,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	return -1;
  }
  
-@@ -7144,6 +7430,9 @@
+@@ -7144,6 +7413,9 @@
  
  static int pri_check_restart(struct zt_pri *pri)
  {
@@ -1558,7 +1438,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	do {
  		pri->resetpos++;
  	} while((pri->resetpos < pri->numchans) &&
-@@ -7187,6 +7476,29 @@
+@@ -7187,6 +7459,29 @@
  	return 0;
  }
  
@@ -1588,7 +1468,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  static void *pri_dchannel(void *vpri)
  {
  	struct zt_pri *pri = vpri;
-@@ -7272,6 +7584,8 @@
+@@ -7272,6 +7567,8 @@
  				} else if (pri->pvts[x] && pri->pvts[x]->owner && pri->pvts[x]->isidlecall)
  					activeidles++;
  			}
@@ -1597,7 +1477,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #if 0
  			printf("nextidle: %d, haveidles: %d, minunsed: %d\n",
  				nextidle, haveidles, minunused);
-@@ -7404,37 +7718,80 @@
+@@ -7404,37 +7701,80 @@
  					break;
  			}
  		} else if (errno != EINTR)
@@ -1694,7 +1574,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					pri->resetting = 0;
  					/* Hangup active channels and put them in alarm mode */
  					for (i=0; i<pri->numchans; i++) {
-@@ -7455,6 +7812,7 @@
+@@ -7455,6 +7795,7 @@
  							p->inalarm = 1;
  						}
  					}
@@ -1702,7 +1582,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  				}
  				break;
  			case PRI_EVENT_RESTART:
-@@ -7505,9 +7863,11 @@
+@@ -7505,9 +7846,11 @@
  				} else {
  					chanpos = pri_fixup_principle(pri, chanpos, e->ring.call);
  					if (chanpos > -1) {
@@ -1715,7 +1595,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							/* how to do that */
  							int digitlen = strlen(e->ring.callednum);
  							char digit;
-@@ -7519,6 +7879,14 @@
+@@ -7519,6 +7862,14 @@
  									zap_queue_frame(pri->pvts[chanpos], &f, pri);
  								}
  							}
@@ -1730,7 +1610,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						}
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					}
-@@ -7532,8 +7900,16 @@
+@@ -7532,8 +7883,16 @@
  					chanpos = pri_find_principle(pri, e->ring.channel);
  				/* if no channel specified find one empty */
  				if (chanpos < 0) {
@@ -1739,7 +1619,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +					    if (option_verbose > 2)
 +						ast_verbose(VERBOSE_PREFIX_3 "Ignoring callwaiting SETUP on channel %d/%d span %d %d\n", PRI_SPAN(e->ring.channel), PRI_CHANNEL(e->ring.channel), pri->span, e->ring.channel);
 +					    
-+					    pri_hangup(pri->pri, e->ring.call, PRI_CAUSE_USER_BUSY);
++					    pri_hangup(pri->pri, e->ring.call, -1);
 +					    break;
 +					} else {
 +					    ast_log(LOG_WARNING, "Ring requested on unconfigured channel %d/%d span %d\n", 
@@ -1748,7 +1628,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  				} else {
  					ast_mutex_lock(&pri->pvts[chanpos]->lock);
  					if (pri->pvts[chanpos]->owner) {
-@@ -7559,6 +7935,9 @@
+@@ -7559,6 +7918,9 @@
  					chanpos = pri_find_empty_chan(pri, 1);
  				if (chanpos > -1) {
  					ast_mutex_lock(&pri->pvts[chanpos]->lock);
@@ -1758,7 +1638,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					if (pri->switchtype == PRI_SWITCH_GR303_TMC) {
  						/* Should be safe to lock CRV AFAIK while bearer is still locked */
  						crv = pri_find_crv(pri, pri_get_crv(pri->pri, e->ring.call, NULL));
-@@ -7580,15 +7959,20 @@
+@@ -7580,15 +7942,20 @@
  						}
  					}
  					pri->pvts[chanpos]->call = e->ring.call;
@@ -1786,7 +1666,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					/* If immediate=yes go to s|1 */
  					if (pri->pvts[chanpos]->immediate) {
  						if (option_verbose > 2)
-@@ -7598,10 +7982,52 @@
+@@ -7598,10 +7965,52 @@
  					}
  					/* Get called number */
  					else if (!ast_strlen_zero(e->ring.callednum)) {
@@ -1843,7 +1723,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					/* No number yet, but received "sending complete"? */
  					if (e->ring.complete && (ast_strlen_zero(e->ring.callednum))) {
  						if (option_verbose > 2)
-@@ -7630,17 +8056,36 @@
+@@ -7630,17 +8039,36 @@
  						res = set_actual_gain(pri->pvts[chanpos]->subs[SUB_REAL].zfd, 0, pri->pvts[chanpos]->rxgain, pri->pvts[chanpos]->txgain, law);
  						if (res < 0)
  							ast_log(LOG_WARNING, "Unable to set gains on channel %d\n", pri->pvts[chanpos]->channel);
@@ -1882,7 +1762,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						/* Start PBX */
  						if (pri->overlapdial && ast_matchmore_extension(NULL, pri->pvts[chanpos]->context, pri->pvts[chanpos]->exten, 1, pri->pvts[chanpos]->callerid)) {
  							/* Release the PRI lock while we create the channel */
-@@ -7657,6 +8102,16 @@
+@@ -7657,6 +8085,16 @@
  							if(!ast_strlen_zero(e->ring.callingsubaddr)) {
  								pbx_builtin_setvar_helper(c, "CALLINGSUBADDR", e->ring.callingsubaddr);
  							}
@@ -1899,12 +1779,10 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							ast_mutex_lock(&pri->lock);
  							if (c && !ast_pthread_create(&threadid, &attr, ss_thread, c)) {
  								if (option_verbose > 2)
-@@ -7683,7 +8138,23 @@
- 									ast_verbose(VERBOSE_PREFIX_3 "Accepting call from '%s' to '%s' on channel %d/%d, span %d\n",
+@@ -7684,6 +8122,22 @@
  										e->ring.callingnum, pri->pvts[chanpos]->exten, 
  											pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
--								zt_enable_ec(pri->pvts[chanpos]);
-+							    zt_enable_ec(pri->pvts[chanpos]);
+ 								zt_enable_ec(pri->pvts[chanpos]);
 +							    if (e->ring.useruserinfo) {
 +								pbx_builtin_setvar_helper(c, "UUI", e->ring.useruserinfo);
 +							    }
@@ -1924,16 +1802,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							} else {
  								ast_log(LOG_WARNING, "Unable to start PBX on channel %d/%d, span %d\n", 
  									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
-@@ -7721,7 +8192,7 @@
- 					} else {
- 						ast_mutex_lock(&pri->pvts[chanpos]->lock);
- 						if (ast_strlen_zero(pri->pvts[chanpos]->dop.dialstr)) {
--							zt_enable_ec(pri->pvts[chanpos]);
-+				//			zt_enable_ec(pri->pvts[chanpos]);
- 							pri->pvts[chanpos]->subs[SUB_REAL].needringing =1;
- 							pri->pvts[chanpos]->proceeding=2;
- 						} else
-@@ -7748,7 +8219,14 @@
+@@ -7748,7 +8202,14 @@
  			case PRI_EVENT_PROCEEDING:
  				chanpos = pri_find_principle(pri, e->proceeding.channel);
  				if (chanpos > -1) {
@@ -1949,7 +1818,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_PROGRESS, };
  						
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
-@@ -7759,6 +8237,7 @@
+@@ -7759,6 +8220,7 @@
  						zap_queue_frame(pri->pvts[chanpos], &f, pri);
  						pri->pvts[chanpos]->proceeding=2;
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
@@ -1957,7 +1826,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					}
  				}
  				break;
-@@ -7784,7 +8263,307 @@
+@@ -7784,7 +8246,307 @@
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					}
  				}
@@ -2266,7 +2135,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			case PRI_EVENT_ANSWER:
  				chanpos = pri_find_principle(pri, e->answer.channel);
  				if (chanpos < 0) {
-@@ -7800,6 +8579,8 @@
+@@ -7800,6 +8562,8 @@
  						chanpos = -1;
  					} else {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
@@ -2275,7 +2144,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						if (pri->pvts[chanpos]->master && (pri->pvts[chanpos]->master->sig == SIG_FXSKS)) {
  							ast_log(LOG_DEBUG, "Starting up GR-303 trunk now that we got CONNECT...\n");
  							x = ZT_START;
-@@ -7822,9 +8603,12 @@
+@@ -7822,9 +8586,12 @@
  						} else if (pri->pvts[chanpos]->confirmanswer) {
  							ast_log(LOG_DEBUG, "Waiting on answer confirmation on channel %d!\n", pri->pvts[chanpos]->channel);
  						} else {
@@ -2288,7 +2157,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						}
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					}
-@@ -7847,6 +8631,9 @@
+@@ -7847,6 +8614,9 @@
  							if (pri->pvts[chanpos]->master) 
  								pri_hangup_all(pri->pvts[chanpos]->master, pri);
  							else if (pri->pvts[chanpos]->owner) {
@@ -2298,7 +2167,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  								/* Queue a BUSY instead of a hangup if our cause is appropriate */
  								pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
  								switch(e->hangup.cause) {
-@@ -7873,11 +8660,13 @@
+@@ -7873,11 +8643,13 @@
  							pri->pvts[chanpos]->call = NULL;
  						}
  						if (e->hangup.cause == PRI_CAUSE_REQUESTED_CHAN_UNAVAIL) {
@@ -2315,7 +2184,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						}
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
-@@ -7892,8 +8681,12 @@
+@@ -7892,8 +8664,12 @@
  			case PRI_EVENT_HANGUP_REQ:
  				chanpos = pri_find_principle(pri, e->hangup.channel);
  				if (chanpos < 0) {
@@ -2329,7 +2198,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					chanpos = -1;
  				}
  				if (chanpos > -1) {
-@@ -7903,6 +8696,9 @@
+@@ -7903,6 +8679,9 @@
  						if (pri->pvts[chanpos]->master) 
  							pri_hangup_all(pri->pvts[chanpos]->master, pri);
  						else if (pri->pvts[chanpos]->owner) {
@@ -2339,7 +2208,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
  							switch(e->hangup.cause) {
  							case PRI_CAUSE_USER_BUSY:
-@@ -7921,20 +8717,117 @@
+@@ -7921,20 +8700,117 @@
  							}
  							if (option_verbose > 2) 
  								ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d got hangup\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
@@ -2461,7 +2330,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					}
  				} 
  				break;
-@@ -8023,17 +8916,31 @@
+@@ -8023,17 +8899,31 @@
  					ast_log(LOG_WARNING, "Received SETUP_ACKNOWLEDGE on unconfigured channel %d/%d span %d\n", 
  						PRI_SPAN(e->setup_ack.channel), PRI_CHANNEL(e->setup_ack.channel), pri->span);
  				} else {
@@ -2498,7 +2367,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			default:
  				ast_log(LOG_DEBUG, "Event: %d\n", e->e);
  			}
-@@ -8302,6 +9209,18 @@
+@@ -8302,6 +9192,18 @@
  	"Usage: pri show span <span>\n"
  	"       Displays PRI Information\n";
  
@@ -2517,7 +2386,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  static struct ast_cli_entry pri_debug = {
  	{ "pri", "debug", "span", NULL }, handle_pri_debug, "Enables PRI debugging on a span", pri_debug_help, complete_span_4 };
  
-@@ -8314,6 +9233,15 @@
+@@ -8314,6 +9216,15 @@
  static struct ast_cli_entry pri_show_span = {
  	{ "pri", "show", "span", NULL }, handle_pri_show_span, "Displays PRI Information", pri_show_span_help, complete_span_4 };
  
@@ -2533,7 +2402,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif /* ZAPATA_PRI */
  
  
-@@ -8877,6 +9805,10 @@
+@@ -8877,6 +9788,10 @@
  	ast_cli_unregister(&pri_no_debug);
  	ast_cli_unregister(&pri_really_debug);
  	ast_cli_unregister(&pri_show_span);
@@ -2544,7 +2413,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif
  #ifdef ZAPATA_R2
  	ast_cli_unregister(&r2_debug);
-@@ -9419,6 +10351,22 @@
+@@ -9419,6 +10334,22 @@
  				cur_signalling = SIG_GR303FXSKS;
  				cur_radio = 0;
  				pritype = PRI_CPE;
@@ -2567,16 +2436,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif
  #ifdef ZAPATA_R2
  			} else if (!strcasecmp(v->value, "r2")) {
-@@ -9447,6 +10395,8 @@
- 				dialplan = PRI_INTERNATIONAL_ISDN + 1;
- 			} else if (!strcasecmp(v->value, "local")) {
- 				dialplan = PRI_LOCAL_ISDN + 1;
-+			} else if (!strcasecmp(v->value, "dynamic")) {
-+				dialplan = 0;
- 			} else {
- 				ast_log(LOG_WARNING, "Unknown PRI dialplan '%s' at line %d.\n", v->value, v->lineno);
- 			}
-@@ -9462,8 +10412,16 @@
+@@ -9462,8 +10393,16 @@
  			} else if (!strcasecmp(v->value, "local")) {
  				localdialplan = PRI_LOCAL_ISDN + 1;
  			} else {
@@ -2594,7 +2454,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		} else if (!strcasecmp(v->name, "switchtype")) {
  			if (!strcasecmp(v->value, "national")) 
  				switchtype = PRI_SWITCH_NI2;
-@@ -9510,6 +10468,8 @@
+@@ -9510,6 +10449,8 @@
  			strncpy(idleext, v->value, sizeof(idleext) - 1);
  		} else if (!strcasecmp(v->name, "idledial")) {
  			strncpy(idledial, v->value, sizeof(idledial) - 1);
@@ -2603,7 +2463,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		} else if (!strcasecmp(v->name, "overlapdial")) {
  			overlapdial = ast_true(v->value);
  #endif		
-@@ -9665,12 +10625,12 @@
+@@ -9665,12 +10606,12 @@
  	if(res) {
  	  return -1;
  	}
@@ -2618,7 +2478,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		ast_log(LOG_ERROR, "Unable to register channel class %s\n", typecompat);
  		__unload_module();
  		return -1;
-@@ -9680,6 +10640,10 @@
+@@ -9680,6 +10621,10 @@
  	ast_cli_register(&pri_no_debug);
  	ast_cli_register(&pri_really_debug);
  	ast_cli_register(&pri_show_span);
@@ -2629,7 +2489,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif	
  #ifdef ZAPATA_R2
  	ast_cli_register(&r2_debug);
-@@ -9964,6 +10928,22 @@
+@@ -9964,6 +10909,22 @@
  			} else if (!strcasecmp(v->value, "pri_cpe")) {
  				cur_signalling = SIG_PRI;
  				pritype = PRI_CPE;
@@ -2652,7 +2512,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif
  			} else {
  				ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
-@@ -10038,6 +11018,25 @@
+@@ -10038,6 +10999,25 @@
  }
  #endif
  
@@ -2690,6 +2550,23 @@ diff -urN asterisk-1.0.5.orig/codecs/codec_ilbc.c asterisk-1.0.5/codecs/codec_il
  
  AST_MUTEX_DEFINE_STATIC(localuser_lock);
  static int localusecnt=0;
+diff -urN asterisk-1.0.5.orig/HARDWARE asterisk-1.0.5/HARDWARE
+--- asterisk-1.0.5.orig/HARDWARE	2004-08-03 08:31:20.000000000 +0200
++++ asterisk-1.0.5/HARDWARE	2005-01-25 21:55:55.000000000 +0100
+@@ -37,6 +37,13 @@
+    * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
+      RBS signalling, as well as PPP, FR, and HDLC data modes.
+ 
++-- Junghanns.NET
++	http://www.junghanns.net
++	
++    * quadBRI PCI ISDN - 4port BRI ISDN interface, supports NT and TE mode
++    
++    * octoBRI PCI ISDN - 8port BRI ISDN interface, supports NT and TE mode
++
+ Non-zaptel compatible hardware
+ ==============================
+ 
 diff -urN asterisk-1.0.5.orig/include/asterisk/channel.h asterisk-1.0.5/include/asterisk/channel.h
 --- asterisk-1.0.5.orig/include/asterisk/channel.h	2004-11-08 01:08:58.000000000 +0100
 +++ asterisk-1.0.5/include/asterisk/channel.h	2005-01-25 21:55:55.000000000 +0100
@@ -2837,6 +2714,18 @@ diff -urN asterisk-1.0.5.orig/include/asterisk/pbx.h asterisk-1.0.5/include/aste
  
  /* Functions for returning values from structures */
  char *ast_get_context_name(struct ast_context *con);
+diff -urN asterisk-1.0.5.orig/Makefile asterisk-1.0.5/Makefile
+--- asterisk-1.0.5.orig/Makefile	2005-01-21 06:18:35.000000000 +0100
++++ asterisk-1.0.5/Makefile	2005-01-25 21:55:55.000000000 +0100
+@@ -459,6 +459,8 @@
+ 	echo "astspooldir => $(ASTSPOOLDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
+ 	echo "astrundir => $(ASTVARRUNDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
+ 	echo "astlogdir => $(ASTLOGDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
++	echo "[options]" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
++	echo "uniquename = asterisk" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
+ 	for x in sounds/demo-*; do \
+ 		if grep -q "^%`basename $$x`%" sounds.txt; then \
+ 			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
 diff -urN asterisk-1.0.5.orig/manager.c asterisk-1.0.5/manager.c
 --- asterisk-1.0.5.orig/manager.c	2004-09-22 16:11:44.000000000 +0200
 +++ asterisk-1.0.5/manager.c	2005-01-25 21:55:55.000000000 +0100
@@ -3395,6 +3284,46 @@ diff -urN asterisk-1.0.5.orig/pbx.c asterisk-1.0.5/pbx.c
  	return res;
  }
  	
+diff -urN asterisk-1.0.5.orig/README asterisk-1.0.5/README
+--- asterisk-1.0.5.orig/README	2004-08-25 16:14:57.000000000 +0200
++++ asterisk-1.0.5/README	2005-01-25 21:55:55.000000000 +0100
+@@ -1,6 +1,7 @@
+ The Asterisk Open Source PBX
+ by Mark Spencer <markster@digium.com>
+-Copyright (C) 2001-2004 Digium
++Copyright (C) 2001-2004 Digium and others....
++Copyright (C) 2002-2004 Junghanns.NET GmbH and others....
+ ================================================================
+ * SECURITY
+   It is imperative that you read and fully understand the contents of
+@@ -23,14 +24,6 @@
+   Asterisk is distributed under GNU General Public License.  The GPL also
+ must apply to all loadable modules as well, except as defined below.
+ 
+-  Digium, Inc. (formerly Linux Support Services) retains copyright to all 
+-of the core Asterisk system, and therefore can grant, at its sole discretion, 
+-the ability for companies, individuals, or organizations to create proprietary
+-or Open Source (but non-GPL'd) modules which may be dynamically linked at
+-runtime with the portions of Asterisk which fall under our copyright
+-umbrella, or are distributed under more flexible licenses than GPL.  
+-
+-
+   If you wish to use our code in other GPL programs, don't worry -- there
+ is no requirement that you provide the same exemption in your GPL'd
+ products (although if you've written a module for Asterisk we would
+@@ -39,12 +32,6 @@
+   Specific permission is also granted to OpenSSL and OpenH323 to link to
+ Asterisk.
+ 
+-  If you have any questions, whatsoever, regarding our licensing policy,
+-please contact us.
+-
+-  Modules that are GPL-licensed and not available under Digium's 
+-licensing scheme are added to the Asterisk-addons CVS module.
+-  
+ * REQUIRED COMPONENTS
+ 
+ == Linux ==
 diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features.c
 --- asterisk-1.0.5.orig/res/res_features.c	2004-12-20 01:27:19.000000000 +0100
 +++ asterisk-1.0.5/res/res_features.c	2005-01-25 21:55:55.000000000 +0100
@@ -4325,3 +4254,9 @@ diff -urN asterisk-1.0.5.orig/rtp.c asterisk-1.0.5/rtp.c
  	
  	/* Cache where the header will go */
  	res = recvfrom(rtp->s, rtp->rawdata + AST_FRIENDLY_OFFSET, sizeof(rtp->rawdata) - AST_FRIENDLY_OFFSET,
+diff -urN asterisk-1.0.5.orig/.version asterisk-1.0.5/.version
+--- asterisk-1.0.5.orig/.version	2005-01-24 04:24:43.000000000 +0100
++++ asterisk-1.0.5/.version	2005-01-25 21:56:27.000000000 +0100
+@@ -1 +1 @@
+-1.0.5
++1.0.5-BRIstuffed-0.2.0-RC5
