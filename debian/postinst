@@ -14,8 +14,12 @@ set -e
 case "$1" in
     configure)
 
-    	adduser --system --group --home /var/lib/asterisk --gecos "Asterisk PBX daemon" asterisk
-	adduser asterisk audio
+	if (getent passwd asterisk >/dev/null);then
+		usermod -d /var/lib/asterisk asterisk
+	else
+	    	adduser --system --group --home /var/lib/asterisk --gecos "Asterisk PBX daemon" asterisk
+		adduser asterisk audio
+	fi
 	test -d /var/log/asterisk || mkdir /var/log/asterisk
 	test -d /var/log/asterisk/cdr-csv || mkdir /var/log/asterisk/cdr-csv
 	chown -R asterisk.asterisk /var/log/asterisk /var/run/asterisk \
