@@ -1,6 +1,7 @@
 asterisk (1:1.0.3-1) unstable; urgency=high
 
-  * New upstream version.
+  * Debian VoIP Team upload.
+  * New upstream version. (Closes: #284889)
 
   * Kilian Krause:
     - ACK NMU. (Thanks Steve!):
@@ -10,11 +11,24 @@ asterisk (1:1.0.3-1) unstable; urgency=high
   * Jose Carlos Garcia Sogo
     - Using again dpatch.
     - debian/patches: populated with different patches.
-    - 08_debian-zaptel: Using zaptel.h file from version 1:1.0.0-2
+    - 08_debian-zaptel: Using zaptel.h file from version 1:1.0.0-2 of
+      zaptel-source package.
     - removed sounds licensed from FreePlayMusic from source,
       as the license for them is not DFSG compliant (Closes: #288429)
+    - applied patch to make asterisk compile on amd64 with 
+      gcc-4.0 (Closes: #288831)
+    - debian/asterisk.init:
+      + Changed how daemon is restarted in init file. (Closes: #287025)
+      + Using -r in checks in init file. (Closes: #287456)
+    - debian/asterisk-config.default
+      + Run by default as group asterisk.
+    - Fix some lintian warnings and errors:
+      + Description: should start with lowercase letter.
+      + Bumped Standars-Version to 3.6.1. No changes needed.
+      + Removed duplicate dependencies.
+      + Recompress asterisk.8 manpage with max level (--best option)
 
- -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Sat, 15 Jan 2005 01:40:19 +0100
+ -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Sat, 15 Jan 2005 13:11:49 +0100
 
 asterisk (1:1.0.2-3.1) unstable; urgency=high
 

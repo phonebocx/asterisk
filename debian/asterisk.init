@@ -25,7 +25,7 @@ DESC="Asterisk PBX"
 # by default: use real-time priority
 PARAMS=""
 AST_REALTIME="yes"
-if [ -x /etc/default/asterisk ]; then . /etc/default/asterisk; fi
+if [ -r /etc/default/asterisk ]; then . /etc/default/asterisk; fi
 
 if [ "$AST_REALTIME" != "no" ]
 then
@@ -65,7 +65,8 @@ case "$1" in
 	$DAEMON -rx 'extensions reload'
 	;;
   restart|force-reload)
-	$DAEMON -rx 'restart gracefully' > /dev/null && echo -n "$NAME"
+	$0 stop
+	$0 start
 	;;
   *)
 	N=/etc/init.d/$NAME

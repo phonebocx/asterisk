@@ -11,3 +11,4 @@
 #         The example here may help you in debugging, but is not intended for 
 #         production use.
 #PARAMS="-g -vvv"
+PARAMS="-G asterisk"

@@ -1,0 +1,20 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## 110_fpm-sounds.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Don't try to install removed sounds from source
+
+@DPATCH@
+diff -urNad asterisk-1.0.3/Makefile /tmp/dpep.r0xJTd/asterisk-1.0.3/Makefile
+--- asterisk-1.0.3/Makefile	2005-01-15 11:02:32.000000000 +0100
++++ /tmp/dpep.r0xJTd/asterisk-1.0.3/Makefile	2005-01-15 11:02:32.000000000 +0100
+@@ -433,9 +433,6 @@
+ 			exit 1; \
+ 		fi; \
+ 	done
+-	for x in sounds/*.mp3; do \
+-		install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/mohmp3 ; \
+-	done
+ 	rm -f $(DESTDIR)$(ASTDATADIR)/mohmp3/sample-hold.mp3
+ 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/INBOX
+ 	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm

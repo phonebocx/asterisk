@@ -57,6 +57,9 @@ build-indep-stamp:
 	#  anything for this package.
 	#/usr/bin/docbook-to-man debian/asterisk.sgml > asterisk.1
 	$(MAKE) progdocs
+
+	gunzip asterisk.8.gz
+	gzip --best asterisk.8
 	
 	touch build-indep-stamp
 

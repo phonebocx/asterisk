@@ -3,15 +3,15 @@ Priority: optional
 Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kk@verfaction.de>, Jose Carlos Garcia Sogo <jsogo@debian.org>, Santiago Garcia Mantinan <manty@debian.org>
-Standards-Version: 3.5.6
+Standards-Version: 3.6.1
 Build-Depends: debhelper (>= 4.0.4), libgtk1.2-dev | libgtk-dev, libreadline4-dev | libreadline-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev, doxygen, bison, libedit-dev, libasound2-dev, postgresql-dev, unixodbc-dev, libpri-dev (>= 0.6.0+1.0), libopenh323-dev (>= 1.13.5.4-1), libspeex-dev, dpatch (>= 2.0.10)
 
 Package: asterisk
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, asterisk-sounds-main (>= 1:1.0.2), libpri1 (>= 0.6), asterisk-config
+Depends: ${shlibs:Depends}, asterisk-sounds-main (>= 1:1.0.2), asterisk-config
 Suggests: gnomemeeting, ohphone, kphone, asterisk-doc, asterisk-dev, rate-engine, mpg123
-Description: Open Source Private Branch Exchange (PBX)
+Description: open source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
  and Internet and telephony applications at the top.
@@ -39,8 +39,8 @@ Architecture: any
 Recommends: asterisk
 Replaces: asterisk (<= 1:1.0.2-2)
 Section: comm
-Depends: ${shlibs:Depends}, libpt-1.6.3 (>= 1.6.6.4-2)
-Description: Asterisk H.323 VoIP channel
+Depends: ${shlibs:Depends}
+Description: asterisk H.323 VoIP channel
  This package provides a h323 support for the Asterisk Open Source PBX system.
  .
  It was separated out into its own package to avoid having the main package
@@ -52,7 +52,7 @@ Recommends: asterisk
 Replaces: asterisk (<= 1.0.2-1)
 Section: comm
 Depends: ${shlibs:Depends}
-Description: Gtk based console for asterisk
+Description: gtk based console for asterisk
  This package provides a limited GTK based console for the Asterisk Open Source
  PBX system.
  .
@@ -65,7 +65,7 @@ Conflicts: asterisk (<=0.1.12-3)
 Replaces: asterisk (<=0.1.12-3)
 Section: doc
 Architecture: all
-Description: Documentation for asterisk
+Description: documentation for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the source documentation needed if you wish to
@@ -77,7 +77,7 @@ Recommends: asterisk
 Conflicts: asterisk (<=0.1.12-3)
 Replaces: asterisk (<=0.1.12-3)
 Section: devel
-Description: Development files for asterisk
+Description: development files for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the include files used if you wish to compile a
@@ -89,7 +89,7 @@ Recommends: asterisk
 Conflicts: asterisk (<=0.1.12-3), asterisk-sounds (<= 1:1.0.2-1)
 Replaces: asterisk (<=0.4.0-5), asterisk-sounds (<= 1:1.0.2-1)
 Section: comm
-Description: Sound files for asterisk
+Description: sound files for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the default sound files for operation of asterisk
@@ -99,7 +99,7 @@ Recommends: asterisk
 Architecture: all
 Depends: httpd-cgi
 Section: comm
-Description: Web based (GCI) voice mail interface for asterisk
+Description: web based (GCI) voice mail interface for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains a web-based interface for the voice-mail system
@@ -109,7 +109,7 @@ Recommends: asterisk
 Replaces: asterisk (<= 1:1.0.2-2)
 Architecture: all
 Section: comm
-Description: Config files for asterisk
+Description: config files for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the configuration files of Asterisk
