@@ -1,3 +1,11 @@
-10_rollup-1.0-1
+10_DPIC
+08_debian-zaptel
 11_makefile-sanitize
 20_chan_sip
+30_ast-data-dir
+40_debian-libedit
+50_debian-libgsm
+60_debian-libopenh323
+70_debian-libpe-fe
+90_dot-nonfree
+110_nonroot

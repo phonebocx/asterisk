@@ -1,0 +1,38 @@
+#! /bin/sh -e
+## debian-libgsm.dpatch by Mark Purcell <msp@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Patch asterisk to use installed libgsm
+
+if [ $# -lt 1 ]; then
+    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+    exit 1
+fi
+
+[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
+patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
+
+case "$1" in
+    -patch) patch -p1 ${patch_opts} < $0;;
+    -unpatch) patch -R -p1 ${patch_opts} < $0;;
+    *)
+        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+        exit 1;;
+esac
+
+exit 0
+
+@DPATCH@
+
+--- asterisk-0.9.1+1.0RC2.orig/codecs/codec_gsm.c
++++ asterisk-0.9.1+1.0RC2/codecs/codec_gsm.c
+@@ -30,8 +30,8 @@
+ #include <netinet/in.h>
+ #include <string.h>
+ #include <stdio.h>
++#include <gsm/gsm.h>
+ 
+-#include "gsm/inc/gsm.h"
+ #include "../formats/msgsm.h"
+ 
+ /* Sample frame data */

@@ -1,8 +1,8 @@
 #! /bin/sh -e
-## 10_rollup-1.0-1.dpatch by Kilian Krause <kk@verfaction.de>
+## debian-zaptel.dpatch by Mark Purcell <msp@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: New patch generated from asterisk 0.9.1+1.0RC1-5 diff.gz
+## DP: Patch asterisk to use installed zaptel
 
 if [ $# -lt 1 ]; then
     echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
@@ -23,9 +23,21 @@ esac
 exit 0
 
 @DPATCH@
-
---- asterisk-0.9.1+1.0RC1.orig/apps/app_zapbarge.c
-+++ asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_flash.c asterisk-0.9.1+1.0RC1/apps/app_flash.c
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_flash.c	2004-09-22 18:32:24.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/apps/app_flash.c	2004-09-22 18:32:31.000000000 +1000
+@@ -22,7 +22,7 @@
+ #include <asterisk/options.h>
+ #include <sys/ioctl.h>
+ #ifdef __linux__
+-#include <linux/zaptel.h>
++#include "linux/zaptel.h"
+ #else
+ #include <zaptel.h>
+ #endif /* __linux__ */
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c	2004-09-22 18:32:24.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c	2004-09-22 18:32:31.000000000 +1000
 @@ -34,7 +34,7 @@
  #include <sys/ioctl.h>
  
@@ -35,8 +47,9 @@ exit 0
  #else
  #include <zaptel.h>
  #endif /* __linux__ */
---- asterisk-0.9.1+1.0RC1.orig/apps/Makefile
-+++ asterisk-0.9.1+1.0RC1/apps/Makefile
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/Makefile asterisk-0.9.1+1.0RC1/apps/Makefile
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/Makefile	2004-09-22 18:32:24.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/apps/Makefile	2004-09-22 18:32:31.000000000 +1000
 @@ -34,10 +34,11 @@
  APPS+=app_intercom.so
  endif
@@ -50,108 +63,28 @@ exit 0
  APPS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
  APPS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
  APPS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
---- asterisk-0.9.1+1.0RC1.orig/apps/app_flash.c
-+++ asterisk-0.9.1+1.0RC1/apps/app_flash.c
-@@ -22,7 +22,7 @@
- #include <asterisk/options.h>
- #include <sys/ioctl.h>
- #ifdef __linux__
--#include <linux/zaptel.h>
-+#include "linux/zaptel.h"
- #else
- #include <zaptel.h>
- #endif /* __linux__ */
---- asterisk-0.9.1+1.0RC1.orig/apps/app_sql_postgres.c
-+++ asterisk-0.9.1+1.0RC1/apps/app_sql_postgres.c
-@@ -26,7 +26,7 @@
- #include <sys/types.h>
- #include <stdio.h>
- #include <unistd.h>
--#include "libpq-fe.h"
-+#include "postgresql/libpq-fe.h"
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/channels/Makefile asterisk-0.9.1+1.0RC1/channels/Makefile
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/channels/Makefile	2004-09-22 18:32:24.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/channels/Makefile	2004-09-22 18:32:31.000000000 +1000
+@@ -66,6 +66,7 @@
+ CFLAGS+=$(shell [ -f alsa-monitor.h ] && echo " -DALSA_MONITOR")
+ ZAPPRI=$(shell [ -f /usr/lib/libpri.so.1 ] && echo "-lpri")
+ ZAPR2=$(shell [ -f /usr/lib/libmfcr2.so.1 ] && echo "-lmfcr2")
++CFLAGS+=$(shell [ -f ../include/linux/zaptel.h ] && echo "-DIAX_TRUNKING")
+ CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "-DIAX_TRUNKING")
+ CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "-DIAX_TRUNKING")
+ CHANNEL_LIBS+=$(shell [ -f /usr/include/vpbapi.h ] && echo "chan_vpb.so" )
+@@ -89,6 +90,7 @@
  
- #define EXTRA_LOG 0
+ ZAPDIR=/usr/lib
  
---- asterisk-0.9.1+1.0RC1.orig/astconf.h
-+++ asterisk-0.9.1+1.0RC1/astconf.h
-@@ -28,5 +28,6 @@
- extern char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
- extern char ast_config_AST_SOCKET[AST_CONFIG_MAX_PATH];
- extern char ast_config_AST_RUN_DIR[AST_CONFIG_MAX_PATH];
-+extern char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
++CHANNEL_LIBS+=$(shell [ -f ../include/linux/zaptel.h ] && echo "chan_zap.so")
+ CHANNEL_LIBS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "chan_zap.so")
+ CHANNEL_LIBS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "chan_zap.so")
  
- #endif
---- asterisk-0.9.1+1.0RC1.orig/codecs/codec_gsm.c
-+++ asterisk-0.9.1+1.0RC1/codecs/codec_gsm.c
-@@ -30,8 +30,8 @@
- #include <netinet/in.h>
- #include <string.h>
- #include <stdio.h>
-+#include <gsm/gsm.h>
- 
--#include "gsm/inc/gsm.h"
- #include "../formats/msgsm.h"
- 
- /* Sample frame data */
---- asterisk-0.9.1+1.0RC1.orig/image.c
-+++ asterisk-0.9.1+1.0RC1/image.c
-@@ -95,9 +95,9 @@
- 			snprintf(buf, len, "%s.%s", filename, ext);
- 	} else {
- 		if (preflang && strlen(preflang))
--			snprintf(buf, len, "%s/%s/%s-%s.%s", ast_config_AST_VAR_DIR, "images", filename, preflang, ext);
-+			snprintf(buf, len, "%s/%s/%s-%s.%s", ast_config_AST_DATA_DIR, "images", filename, preflang, ext);
- 		else
--			snprintf(buf, len, "%s/%s/%s.%s", ast_config_AST_VAR_DIR, "images", filename, ext);
-+			snprintf(buf, len, "%s/%s/%s.%s", ast_config_AST_DATA_DIR, "images", filename, ext);
- 	}
- }
- 
---- asterisk-0.9.1+1.0RC1.orig/asterisk.c
-+++ asterisk-0.9.1+1.0RC1/asterisk.c
-@@ -120,6 +120,7 @@
- char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
- char ast_config_AST_SOCKET[AST_CONFIG_MAX_PATH];
- char ast_config_AST_RUN_DIR[AST_CONFIG_MAX_PATH];
-+char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
- 
- static char *_argv[256];
- static int shuttingdown = 0;
-@@ -1453,6 +1454,7 @@
- 	strncpy((char *)ast_config_AST_PID,AST_PID,sizeof(ast_config_AST_PID)-1);
- 	strncpy((char *)ast_config_AST_SOCKET,AST_SOCKET,sizeof(ast_config_AST_SOCKET)-1);
- 	strncpy((char *)ast_config_AST_RUN_DIR,AST_RUN_DIR,sizeof(ast_config_AST_RUN_DIR)-1);
-+	strncpy((char *)ast_config_AST_DATA_DIR,AST_DATA_DIR,sizeof(ast_config_AST_DATA_DIR)-1);
- 	
- 	/* no asterisk.conf? no problem, use buildtime config! */
- 	if (!cfg) {
-@@ -1520,13 +1522,6 @@
- 	tdd_init();
- 	if (getenv("HOME")) 
- 		snprintf(filename, sizeof(filename), "%s/.asterisk_history", getenv("HOME"));
--	/* Check if we're root */
--	/*
--	if (geteuid()) {
--		ast_log(LOG_ERROR, "Must be run as root\n");
--		exit(1);
--	}
--	*/
- 	/* Check for options */
- 	while((c=getopt(argc, argv, "hfdvqprRgcinx:C:")) != -1) {
- 		switch(c) {
---- asterisk-0.9.1+1.0RC1.orig/cli.c
-+++ asterisk-0.9.1+1.0RC1/cli.c
-@@ -27,7 +27,7 @@
- #include <signal.h>
- #include <string.h>
- /* For rl_filename_completion */
--#include "editline/readline/readline.h"
-+#include "readline/readline.h"
- /* For module directory */
- #include "asterisk.h"
- #include "build.h"
---- asterisk-0.9.1+1.0RC1.orig/include/linux/zaptel.h
-+++ asterisk-0.9.1+1.0RC1/include/linux/zaptel.h
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/include/linux/zaptel.h asterisk-0.9.1+1.0RC1/include/linux/zaptel.h
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/include/linux/zaptel.h	2004-09-22 18:32:24.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/include/linux/zaptel.h	2004-09-22 18:32:31.000000000 +1000
 @@ -0,0 +1,1424 @@
 +/*
 + * Zapata Telephony Interface
@@ -1577,285 +1510,29 @@ exit 0
 +#endif /* __KERNEL__ */
 +
 +#endif /* _LINUX_ZAPTEL_H */
---- asterisk-0.9.1+1.0RC1.orig/contrib/asterisk-ng-doxygen
-+++ asterisk-0.9.1+1.0RC1/contrib/asterisk-ng-doxygen
-@@ -707,7 +707,7 @@
- # toolkit from AT&T and Lucent Bell Labs. The other options in this section 
- # have no effect if this option is set to NO (the default)
- 
--HAVE_DOT               = YES
-+HAVE_DOT               = NO
- 
- # If the CLASS_GRAPH and HAVE_DOT tags are set to YES then doxygen 
- # will generate a graph for each documented class showing the direct and 
---- asterisk-0.9.1+1.0RC1.orig/file.c
-+++ asterisk-0.9.1+1.0RC1/file.c
-@@ -282,7 +282,7 @@
- 	int fnsize = 0;
- 	char tmp[AST_CONFIG_MAX_PATH]="";
- 
--	snprintf(tmp, sizeof(tmp), "%s/%s", ast_config_AST_VAR_DIR, "sounds");
-+	snprintf(tmp, sizeof(tmp), "%s/%s", ast_config_AST_DATA_DIR, "sounds");
- 	fnsize = strlen(tmp) + strlen(filename) + strlen(ext) + 10;
- 	fn = malloc(fnsize);
- 	if (fn) {
---- asterisk-0.9.1+1.0RC1.orig/res/Makefile
-+++ asterisk-0.9.1+1.0RC1/res/Makefile
-@@ -18,9 +18,10 @@
- 
- CRYPTO_LIBS=-lssl -lcrypto
- 
--CFLAGS+=
-+CFLAGS+=-fPIC -DPIC
- CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
- CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
-+CFLAGS+=$(shell [ -f ../include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
- #
- # Work around buggy RedHat 9.0
- #
---- asterisk-0.9.1+1.0RC1.orig/Makefile
-+++ asterisk-0.9.1+1.0RC1/Makefile
-@@ -107,10 +109,11 @@
- ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
- ASTBINDIR=$(INSTALL_PREFIX)/usr/bin
- ASTSBINDIR=$(INSTALL_PREFIX)/usr/sbin
--ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run
-+ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run/asterisk
-+ASTDATADIR=$(INSTALL_PREFIX)/usr/share/asterisk
- 
- MODULES_DIR=$(ASTLIBDIR)/modules
--AGI_DIR=$(ASTVARLIBDIR)/agi-bin
-+AGI_DIR=$(ASTDATADIR)/agi-bin
- 
- INCLUDE=-Iinclude -I../include
- CFLAGS=-pipe  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations $(DEBUG) $(INCLUDE) -D_REENTRANT -D_GNU_SOURCE #-DMAKE_VALGRIND_HAPPY
-@@ -149,6 +152,7 @@
- CFLAGS+=-DASTVARLIBDIR=\"$(ASTVARLIBDIR)\"
- CFLAGS+=-DASTVARRUNDIR=\"$(ASTVARRUNDIR)\"
- CFLAGS+=-DASTSPOOLDIR=\"$(ASTSPOOLDIR)\"
-+CFLAGS+=-DASTDATADIR=\"$(ASTDATADIR)\"
- CFLAGS+=-DASTLOGDIR=\"$(ASTLOGDIR)\"
- CFLAGS+=-DASTCONFPATH=\"$(ASTCONFPATH)\"
- CFLAGS+=-DASTMODDIR=\"$(MODULES_DIR)\"
-@@ -256,7 +260,7 @@
- 		exit 1; \
- 	fi
- 
--asterisk: editline/libedit.a db1-ast/libdb1.a stdtime/libtime.a $(OBJS)
-+asterisk: db1-ast/libdb1.a stdtime/libtime.a $(OBJS)
- 	$(CC) $(DEBUG) -o asterisk $(ASTLINK) $(OBJS) $(LIBEDIT) db1-ast/libdb1.a stdtime/libtime.a $(LIBS)
- 
- muted: muted.o
-@@ -275,10 +279,10 @@
- 	$(MAKE) -C stdtime clean
- 
- datafiles: all
--	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits
-+	mkdir -p $(DESTDIR)$(ASTDATADIR)/sounds/digits
- 	for x in sounds/digits/*.gsm; do \
- 		if grep -q "^%`basename $$x`%" sounds.txt; then \
--			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits ; \
-+			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds/digits ; \
- 		else \
- 			echo "No description for $$x"; \
- 			exit 1; \
-@@ -304,16 +308,16 @@
- 	done
- 	for x in sounds/vm-* sounds/transfer* sounds/pbx-* sounds/ss-* sounds/beep* sounds/dir-* sounds/conf-* sounds/agent-* sounds/invalid* sounds/tt-* sounds/auth-* sounds/privacy-* sounds/queue-*; do \
- 		if grep -q "^%`basename $$x`%" sounds.txt; then \
--			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
-+			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds ; \
- 		else \
- 			echo "No description for $$x"; \
- 			exit 1; \
- 		fi; \
- 	done
--	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/mohmp3
--	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/images
-+	mkdir -p $(DESTDIR)$(ASTDATADIR)/mohmp3
-+	mkdir -p $(DESTDIR)$(ASTDATADIR)/images
- 	for x in images/*.jpg; do \
--		install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/images ; \
-+		install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/images ; \
- 	done
- 	mkdir -p $(DESTDIR)$(AGI_DIR)
- 
-@@ -333,6 +337,7 @@
- 	mkdir -p $(DESTDIR)$(ASTBINDIR)
- 	mkdir -p $(DESTDIR)$(ASTSBINDIR)
- 	mkdir -p $(DESTDIR)$(ASTVARRUNDIR)
-+	mkdir -p $(DESTDIR)$(ASTDATADIR)
- 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail
- 	install -m 755 asterisk $(DESTDIR)$(ASTSBINDIR)/
- 	install -m 755 contrib/scripts/astgenkey $(DESTDIR)$(ASTSBINDIR)/
-@@ -342,15 +347,15 @@
- 	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
- 	install -d $(DESTDIR)$(ASTHEADERDIR)
- 	install -m 644 include/asterisk/*.h $(DESTDIR)$(ASTHEADERDIR)
--	rm -f $(DESTDIR)$(ASTVARLIBDIR)/sounds/vm
--	rm -f $(DESTDIR)$(ASTVARLIBDIR)/sounds/voicemail
-+	rm -f $(DESTDIR)$(ASTDATADIR)/sounds/vm
-+	rm -f $(DESTDIR)$(ASTDATADIR)/sounds/voicemail
- 	if [ ! -h $(DESTDIR)$(ASTSPOOLDIR)/vm ] && [ -d $(DESTDIR)$(ASTSPOOLDIR)/vm ]; then \
- 		mv $(DESTDIR)$(ASTSPOOLDIR)/vm $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default; \
- 	else \
- 		mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default; \
- 		rm -f $(DESTDIR)$(ASTSPOOLDIR)/vm; \
- 	fi
--	ln -s $(ASTSPOOLDIR)/voicemail/default $(DESTDIR)$(ASTSPOOLDIR)/vm
-+	ln -s ../voicemail/default $(DESTDIR)$(ASTSPOOLDIR)/vm
- 	rm -f $(DESTDIR)$(MODULES_DIR)/chan_ixj.so
- 	rm -f $(DESTDIR)$(MODULES_DIR)/chan_tor.so
- 	rm -f $(DESTDIR)$(MODULES_DIR)/cdr_mysql.so
-@@ -358,7 +363,7 @@
- 	rm -f $(DESTDIR)$(MODULES_DIR)/codec_mp3_d.so
- 	rm -f $(DESTDIR)$(MODULES_DIR)/format_mp3.so
- 	rm -f $(DESTDIR)$(MODULES_DIR)/app_voicemail2.so
--	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds
-+	mkdir -p $(DESTDIR)$(ASTDATADIR)/sounds
- 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-csv
- 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/keys
- 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/firmware
-@@ -370,8 +375,8 @@
- 	else \
- 		echo "You need to do cvs update -d not just cvs update" ; \
- 	fi 
--	( cd $(DESTDIR)$(ASTVARLIBDIR)/sounds  ; ln -s $(ASTSPOOLDIR)/vm . )
--	( cd $(DESTDIR)$(ASTVARLIBDIR)/sounds  ; ln -s $(ASTSPOOLDIR)/voicemail . )
-+	( cd $(DESTDIR)$(ASTDATADIR)/sounds  ; ln -s /var/spool/asterisk/vm . )
-+	( cd $(DESTDIR)$(ASTDATADIR)/sounds  ; ln -s /var/spool/asterisk/voicemail . )
- 	@echo " +---- Asterisk Installation Complete -------+"  
- 	@echo " +                                           +"
- 	@echo " +    YOU MUST READ THE SECURITY DOCUMENT    +"
-@@ -424,23 +429,23 @@
- 	echo "astlogdir => $(ASTLOGDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
- 	for x in sounds/demo-*; do \
- 		if grep -q "^%`basename $$x`%" sounds.txt; then \
--			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
-+			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds ; \
- 		else \
- 			echo "No description for $$x"; \
- 			exit 1; \
- 		fi; \
- 	done
- 	for x in sounds/*.mp3; do \
--		install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/mohmp3 ; \
-+		install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/mohmp3 ; \
- 	done
- 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/INBOX
- 	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm
- 	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isunavail; do \
--		cat $(DESTDIR)$(ASTVARLIBDIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm ; \
-+		cat $(DESTDIR)$(ASTDATADIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm ; \
- 	done
- 	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm
- 	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isonphone; do \
--		cat $(DESTDIR)$(ASTVARLIBDIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm ; \
-+		cat $(DESTDIR)$(ASTDATADIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm ; \
- 	done
- 
- webvmail:
---- asterisk-0.9.1+1.0RC1.orig/pbx/Makefile
-+++ asterisk-0.9.1+1.0RC1/pbx/Makefile
-@@ -27,7 +27,7 @@
- MOC=$(QTDIR)/bin/moc
- KDE_FLAGS=-I$(KDEDIR)/include -I$(KDEDIR)/include/kde -I$(QTDIR)/include
- KDE_LIBS=-L$(KDEDIR)/lib -L$(QTDIR)/lib -lqt -lkdecore -lkdeui
--CFLAGS+=-fPIC
-+CFLAGS+=-fPIC -DPIC
- 
- KDE_CONSOLE_OBJS=pbx_kdeconsole_main.o pbx_kdeconsole.o 
- 
---- asterisk-0.9.1+1.0RC1.orig/pbx/pbx_wilcalu.c
-+++ asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c
-@@ -12,7 +12,7 @@
-  * the GNU General Public License
- 
-  *  Autodialer for Asterisk 
-- *  Redirect dialstring thru fifo "/var/run/autodial.ctl"
-+ *  Redirect dialstring thru fifo "/var/run/asterisk/autodial.ctl"
-  *  Format of string is :
-  *  "tech/tele,filename&" ie. "tor1/23,file&"
-  */
---- asterisk-0.9.1+1.0RC1.orig/cdr/Makefile
-+++ asterisk-0.9.1+1.0RC1/cdr/Makefile
-@@ -12,10 +12,10 @@
- #
- 
- #ADD cdr_pgsql.so to MODS= to include PostgreSQL support: REQUIRES PostgreSQL libs
--MODS=cdr_csv.so
-+MODS=cdr_csv.so cdr_pgsql.so
- 
- 
--CFLAGS+=-fPIC
-+CFLAGS+=-fPIC -DPIC
- 
- OSARCH=$(shell uname -s)
- ifeq (${OSARCH},FreeBSD)
---- asterisk-0.9.1+1.0RC1.orig/channels/Makefile
-+++ asterisk-0.9.1+1.0RC1/channels/Makefile
-@@ -66,6 +67,7 @@
- CFLAGS+=$(shell [ -f alsa-monitor.h ] && echo " -DALSA_MONITOR")
- ZAPPRI=$(shell [ -f /usr/lib/libpri.so.1 ] && echo "-lpri")
- ZAPR2=$(shell [ -f /usr/lib/libmfcr2.so.1 ] && echo "-lmfcr2")
-+CFLAGS+=$(shell [ -f ../include/linux/zaptel.h ] && echo "-DIAX_TRUNKING")
- CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "-DIAX_TRUNKING")
- CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "-DIAX_TRUNKING")
- CHANNEL_LIBS+=$(shell [ -f /usr/include/vpbapi.h ] && echo "chan_vpb.so" )
-@@ -89,6 +91,7 @@
- 
- ZAPDIR=/usr/lib
- 
-+CHANNEL_LIBS+=$(shell [ -f ../include/linux/zaptel.h ] && echo "chan_zap.so")
- CHANNEL_LIBS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "chan_zap.so")
- CHANNEL_LIBS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "chan_zap.so")
- 
---- asterisk-0.9.1+1.0RC1.orig/channels/h323/Makefile
-+++ asterisk-0.9.1+1.0RC1/channels/h323/Makefile
-@@ -1,5 +1,9 @@
- # include the Makefile of OpenH323 
- 
-+OPENH323DIR=/usr/share/openh323
-+PWLIBDIR=/usr/share/pwlib
-+
-+
- ifndef OPENH323DIR
- OPENH323DIR=$(HOME)/openh323
- endif
-@@ -57,10 +61,11 @@
- CFLAGS += -DP_HAS_SEMAPHORES -DP_SSL -DP_PTHREADS
- CFLAGS += -DPHAS_TEMPLATES -DPTRACING -DP_USE_PRAGMA
- CFLAGS += -I../../include
--CFLAGS += -I$(PWLIBDIR)/include/ptlib/unix -I$(PWLIBDIR)/include
--CFLAGS += -I$(OPENH323DIR)/include
--CFLAGS += -Wno-missing-prototypes -Wno-missing-declarations
--LIBS+= -lcrypto -lssl -lexpat
-+CFLAGS += -I/usr/include/pwlib -I/usr/share/pwlib/include -I/usr/include/openh323
-+#CFLAGS += -I$(PWLIBDIR)/include/ptlib/unix -I$(PWLIBDIR)/include
-+#CFLAGS += -I$(OPENH323DIR)/include
-+#CFLAGS += -Wno-missing-prototypes -Wno-missing-declarations
-+LIBS+= -lcrypto -lssl -lexpat -lpt -lopenh323
- 
- all:   	libchanh323.a
- 
---- asterisk-0.9.1+1.0RC1.orig/asterisk.h
-+++ asterisk-0.9.1+1.0RC1/asterisk.h
-@@ -28,11 +28,12 @@
- #define AST_AGI_DIR	ASTAGIDIR
- #define AST_KEY_DIR	ASTVARLIBDIR "/keys"
- #define AST_DB		ASTVARLIBDIR "/astdb"
-+#define AST_DATA_DIR	ASTDATADIR
- 
- #define AST_CONFIG_FILE ASTCONFPATH
- 
--#define AST_SOUNDS AST_VAR_DIR "/sounds"
--#define AST_IMAGES AST_VAR_DIR "/images"
-+#define AST_SOUNDS ASTDATADIR "/sounds"
-+#define AST_IMAGES ASTDATADIR "/images"
- 
- /* Provided by module.c */
- extern int load_modules(void);
---- asterisk-0.9.1+1.0RC1.orig/.version.debdiff
-+++ asterisk-0.9.1+1.0RC1/.version.debdiff
-@@ -0,0 +1 @@
-+CVS-05/31/04-22:00:51
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile.rej asterisk-0.9.1+1.0RC1/res/Makefile.rej
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile.rej	1970-01-01 10:00:00.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/res/Makefile.rej	2004-09-22 18:32:31.000000000 +1000
+@@ -0,0 +1,22 @@
++***************
++*** 18,26 ****
++  
++  CRYPTO_LIBS=-lssl -lcrypto
++  
++- CFLAGS+=
++  CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
++  CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
++  #
++  # Work around buggy RedHat 9.0
++  #
++--- 18,27 ----
++  
++  CRYPTO_LIBS=-lssl -lcrypto
++  
+++ CFLAGS+=-fPIC -DPIC
++  CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
++  CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
+++ CFLAGS+=$(shell [ -f ../include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
++  #
++  # Work around buggy RedHat 9.0
++  #

@@ -1,0 +1,37 @@
+#! /bin/sh -e
+## debian-libpq-fe.dpatch by Mark Purcell <msp@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Patch asterisk to use installed postgresql/libpq-fe
+
+if [ $# -lt 1 ]; then
+    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+    exit 1
+fi
+
+[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
+patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
+
+case "$1" in
+    -patch) patch -p1 ${patch_opts} < $0;;
+    -unpatch) patch -R -p1 ${patch_opts} < $0;;
+    *)
+        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+        exit 1;;
+esac
+
+exit 0
+
+@DPATCH@
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_sql_postgres.c asterisk-0.9.1+1.0RC1/apps/app_sql_postgres.c
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_sql_postgres.c	2004-09-22 18:26:52.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/apps/app_sql_postgres.c	2004-09-22 18:32:56.000000000 +1000
+@@ -26,7 +26,7 @@
+ #include <sys/types.h>
+ #include <stdio.h>
+ #include <unistd.h>
+-#include "libpq-fe.h"
++#include "postgresql/libpq-fe.h"
+ 
+ #define EXTRA_LOG 0
+ 

@@ -1,0 +1,54 @@
+#! /bin/sh -e
+## debian-libopenh323.dpatch by Mark Purcell <msp@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Patch asterisk to use installed libopenh323
+
+if [ $# -lt 1 ]; then
+    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+    exit 1
+fi
+
+[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
+patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
+
+case "$1" in
+    -patch) patch -p1 ${patch_opts} < $0;;
+    -unpatch) patch -R -p1 ${patch_opts} < $0;;
+    *)
+        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+        exit 1;;
+esac
+
+exit 0
+
+@DPATCH@
+
+--- asterisk-0.9.1+1.0RC2.orig/channels/h323/Makefile
++++ asterisk-0.9.1+1.0RC2/channels/h323/Makefile
+@@ -1,5 +1,9 @@
+ # include the Makefile of OpenH323 
+ 
++OPENH323DIR=/usr/share/openh323
++PWLIBDIR=/usr/share/pwlib
++
++
+ ifndef OPENH323DIR
+ OPENH323DIR=$(HOME)/openh323
+ endif
+@@ -57,10 +61,11 @@
+ CFLAGS += -DP_HAS_SEMAPHORES -DP_SSL -DP_PTHREADS
+ CFLAGS += -DPHAS_TEMPLATES -DPTRACING -DP_USE_PRAGMA
+ CFLAGS += -I../../include
+-CFLAGS += -I$(PWLIBDIR)/include/ptlib/unix -I$(PWLIBDIR)/include
+-CFLAGS += -I$(OPENH323DIR)/include
+-CFLAGS += -Wno-missing-prototypes -Wno-missing-declarations
+-LIBS+= -lcrypto -lssl -lexpat
++CFLAGS += -I/usr/include/pwlib -I/usr/share/pwlib/include -I/usr/include/openh323
++#CFLAGS += -I$(PWLIBDIR)/include/ptlib/unix -I$(PWLIBDIR)/include
++#CFLAGS += -I$(OPENH323DIR)/include
++#CFLAGS += -Wno-missing-prototypes -Wno-missing-declarations
++LIBS+= -lcrypto -lssl -lexpat -lpt -lopenh323
+ 
+ all:   	libchanh323.a
+ 

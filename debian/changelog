@@ -1,3 +1,15 @@
+asterisk (1:0.9.1+1.0RC1-10) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- root <root@toshiba>  Wed, 22 Sep 2004 19:00:46 +1000
+
+asterisk (1:0.9.1+1.0RC1-9) unstable; urgency=low
+
+  * Breakup monolithic patch into components.
+
+ -- Mark Purcell <msp@debian.org>  Wed, 22 Sep 2004 18:47:31 +1000
+
 asterisk (1:0.9.1+1.0RC1-8) unstable; urgency=medium
 
   * debian/patches/11_makefile-sanitize.dpatch: fixed patch to make gsm work

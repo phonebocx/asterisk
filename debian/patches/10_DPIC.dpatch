@@ -1,0 +1,80 @@
+#! /bin/sh -e
+## DPIC.dpatch by Mark Purcell <msp@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Patch asterisk to force CFLAGS -DPIC
+
+if [ $# -lt 1 ]; then
+    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+    exit 1
+fi
+
+[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
+patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
+
+case "$1" in
+    -patch) patch -p1 ${patch_opts} < $0;;
+    -unpatch) patch -R -p1 ${patch_opts} < $0;;
+    *)
+        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+        exit 1;;
+esac
+
+exit 0
+
+@DPATCH@
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/cdr/Makefile asterisk-0.9.1+1.0RC1/cdr/Makefile
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/cdr/Makefile	2004-09-22 17:54:21.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/cdr/Makefile	2004-09-22 17:54:44.000000000 +1000
+@@ -12,10 +12,10 @@
+ #
+ 
+ #ADD cdr_pgsql.so to MODS= to include PostgreSQL support: REQUIRES PostgreSQL libs
+-MODS=cdr_csv.so
++MODS=cdr_csv.so cdr_pgsql.so
+ 
+ 
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ 
+ OSARCH=$(shell uname -s)
+ ifeq (${OSARCH},FreeBSD)
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/Makefile asterisk-0.9.1+1.0RC1/pbx/Makefile
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/Makefile	2004-09-22 17:54:21.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/pbx/Makefile	2004-09-22 17:54:44.000000000 +1000
+@@ -27,7 +27,7 @@
+ MOC=$(QTDIR)/bin/moc
+ KDE_FLAGS=-I$(KDEDIR)/include -I$(KDEDIR)/include/kde -I$(QTDIR)/include
+ KDE_LIBS=-L$(KDEDIR)/lib -L$(QTDIR)/lib -lqt -lkdecore -lkdeui
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ 
+ KDE_CONSOLE_OBJS=pbx_kdeconsole_main.o pbx_kdeconsole.o 
+ 
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c	2004-09-22 17:54:21.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c	2004-09-22 17:54:44.000000000 +1000
+@@ -12,7 +12,7 @@
+  * the GNU General Public License
+ 
+  *  Autodialer for Asterisk 
+- *  Redirect dialstring thru fifo "/var/run/autodial.ctl"
++ *  Redirect dialstring thru fifo "/var/run/asterisk/autodial.ctl"
+  *  Format of string is :
+  *  "tech/tele,filename&" ie. "tor1/23,file&"
+  */
+diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile asterisk-0.9.1+1.0RC1/res/Makefile
+--- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile	2004-09-22 17:54:21.000000000 +1000
++++ asterisk-0.9.1+1.0RC1/res/Makefile	2004-09-22 17:54:44.000000000 +1000
+@@ -18,9 +18,10 @@
+ 
+ CRYPTO_LIBS=-lssl -lcrypto
+ 
+-CFLAGS+=
++CFLAGS+=-fPIC -DPIC
+ CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
+ CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
++CFLAGS+=$(shell [ -f ../include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
+ #
+ # Work around buggy RedHat 9.0
+ #
