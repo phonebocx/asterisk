@@ -1,6 +1,6 @@
 asterisk (1:1.0.5-4) unstable; urgency=low
 
-  * debian/patches/00list,debian/control: Enable bristuff by default.
+  * debian/patches/00list,debian/control: Enable bristuff RC7f by default.
   * debian/asterisk.init, debian/asterisk.default: Cleanup zaphfc preloading
     as inspired by Tzafrir Cohen.
   * debian/control: Remove speex as B-D, it's broken when imported from
@@ -9,7 +9,7 @@ asterisk (1:1.0.5-4) unstable; urgency=low
     editline's configure.
   * reintroduce chan_zap (Closes: #296656)
 
- -- Kilian Krause <kk@verfaction.de>  Thu, 24 Feb 2005 01:16:49 +0100
+ -- Kilian Krause <kk@verfaction.de>  Thu, 24 Feb 2005 01:24:45 +0100
 
 asterisk (1:1.0.5-3) unstable; urgency=low
 

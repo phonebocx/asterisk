@@ -2,9 +2,96 @@
 ## 97_bristuff.dpatch by Kilian Krause <kk@verfaction.de>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: Add bristuff for HFC and BRI cards.
+## DP: Add bristuff RC7f for HFC and BRI cards.
 
 @DPATCH@
+diff -urN asterisk-1.0.5.orig/.version asterisk-1.0.5/.version
+--- asterisk-1.0.5.orig/.version	2005-01-24 04:24:43.000000000 +0100
++++ asterisk-1.0.5/.version	2005-02-20 15:41:02.697771840 +0100
+@@ -1 +1 @@
+-1.0.5
++1.0.5-BRIstuffed-0.2.0-RC7e
+diff -urN asterisk-1.0.5.orig/HARDWARE asterisk-1.0.5/HARDWARE
+--- asterisk-1.0.5.orig/HARDWARE	2004-08-03 08:31:20.000000000 +0200
++++ asterisk-1.0.5/HARDWARE	2005-01-25 21:55:55.000000000 +0100
+@@ -37,6 +37,13 @@
+    * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
+      RBS signalling, as well as PPP, FR, and HDLC data modes.
+ 
++-- Junghanns.NET
++	http://www.junghanns.net
++	
++    * quadBRI PCI ISDN - 4port BRI ISDN interface, supports NT and TE mode
++    
++    * octoBRI PCI ISDN - 8port BRI ISDN interface, supports NT and TE mode
++
+ Non-zaptel compatible hardware
+ ==============================
+ 
+diff -urN asterisk-1.0.5.orig/Makefile asterisk-1.0.5/Makefile
+--- asterisk-1.0.5.orig/Makefile	2005-01-21 06:18:35.000000000 +0100
++++ asterisk-1.0.5/Makefile	2005-01-25 21:55:55.000000000 +0100
+@@ -459,6 +459,8 @@
+ 	echo "astspooldir => $(ASTSPOOLDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
+ 	echo "astrundir => $(ASTVARRUNDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
+ 	echo "astlogdir => $(ASTLOGDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
++	echo "[options]" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
++	echo "uniquename = asterisk" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
+ 	for x in sounds/demo-*; do \
+ 		if grep -q "^%`basename $$x`%" sounds.txt; then \
+ 			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
+diff -urN asterisk-1.0.5.orig/README asterisk-1.0.5/README
+--- asterisk-1.0.5.orig/README	2004-08-25 16:14:57.000000000 +0200
++++ asterisk-1.0.5/README	2005-01-25 21:55:55.000000000 +0100
+@@ -1,6 +1,7 @@
+ The Asterisk Open Source PBX
+ by Mark Spencer <markster@digium.com>
+-Copyright (C) 2001-2004 Digium
++Copyright (C) 2001-2004 Digium and others....
++Copyright (C) 2002-2004 Junghanns.NET GmbH and others....
+ ================================================================
+ * SECURITY
+   It is imperative that you read and fully understand the contents of
+@@ -23,14 +24,6 @@
+   Asterisk is distributed under GNU General Public License.  The GPL also
+ must apply to all loadable modules as well, except as defined below.
+ 
+-  Digium, Inc. (formerly Linux Support Services) retains copyright to all 
+-of the core Asterisk system, and therefore can grant, at its sole discretion, 
+-the ability for companies, individuals, or organizations to create proprietary
+-or Open Source (but non-GPL'd) modules which may be dynamically linked at
+-runtime with the portions of Asterisk which fall under our copyright
+-umbrella, or are distributed under more flexible licenses than GPL.  
+-
+-
+   If you wish to use our code in other GPL programs, don't worry -- there
+ is no requirement that you provide the same exemption in your GPL'd
+ products (although if you've written a module for Asterisk we would
+@@ -39,12 +32,6 @@
+   Specific permission is also granted to OpenSSL and OpenH323 to link to
+ Asterisk.
+ 
+-  If you have any questions, whatsoever, regarding our licensing policy,
+-please contact us.
+-
+-  Modules that are GPL-licensed and not available under Digium's 
+-licensing scheme are added to the Asterisk-addons CVS module.
+-  
+ * REQUIRED COMPONENTS
+ 
+ == Linux ==
+diff -urN asterisk-1.0.5.orig/apps/Makefile asterisk-1.0.5/apps/Makefile
+--- asterisk-1.0.5.orig/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
++++ asterisk-1.0.5/apps/Makefile	2005-02-20 15:02:10.861264872 +0100
+@@ -29,7 +29,7 @@
+      app_nbscat.so app_sendtext.so app_exec.so app_sms.so \
+      app_groupcount.so app_txtcidname.so app_controlplayback.so \
+      app_talkdetect.so app_alarmreceiver.so app_userevent.so app_verbose.so \
+-     app_test.so app_forkcdr.so
++     app_test.so app_forkcdr.so app_pickup.so
+ 
+ ifneq (${OSARCH},Darwin)
+ APPS+=app_intercom.so
 diff -urN asterisk-1.0.5.orig/apps/app_chanisavail.c asterisk-1.0.5/apps/app_chanisavail.c
 --- asterisk-1.0.5.orig/apps/app_chanisavail.c	2004-12-30 22:46:39.000000000 +0100
 +++ asterisk-1.0.5/apps/app_chanisavail.c	2005-01-25 21:55:54.000000000 +0100
@@ -492,18 +579,18 @@ diff -urN asterisk-1.0.5.orig/apps/app_queue.c asterisk-1.0.5/apps/app_queue.c
  	if (!tmp->chan) {			/* If we can't, just go on to the next call */
  #if 0
  		ast_log(LOG_NOTICE, "Unable to create channel of type '%s'\n", cur->tech);
-diff -urN asterisk-1.0.5.orig/apps/Makefile asterisk-1.0.5/apps/Makefile
---- asterisk-1.0.5.orig/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
-+++ asterisk-1.0.5/apps/Makefile	2005-01-25 21:55:54.000000000 +0100
-@@ -29,7 +29,7 @@
-      app_nbscat.so app_sendtext.so app_exec.so app_sms.so \
-      app_groupcount.so app_txtcidname.so app_controlplayback.so \
-      app_talkdetect.so app_alarmreceiver.so app_userevent.so app_verbose.so \
--     app_test.so app_forkcdr.so
-+     app_test.so app_forkcdr.so app_pickup.so
+diff -urN asterisk-1.0.5.orig/apps/app_zapras.c asterisk-1.0.5/apps/app_zapras.c
+--- asterisk-1.0.5.orig/apps/app_zapras.c	2004-06-22 21:32:52.000000000 +0200
++++ asterisk-1.0.5/apps/app_zapras.c	2005-02-02 15:13:03.000000000 +0100
+@@ -159,7 +159,7 @@
+ 				}
+ 			}
+ 			/* Throw back into audio mode */
+-			x = 1;
++			x = 0;
+ 			ioctl(chan->fds[0], ZT_AUDIOMODE, &x);
  
- ifneq (${OSARCH},Darwin)
- APPS+=app_intercom.so
+ 			/* Double check buffering too */
 diff -urN asterisk-1.0.5.orig/astconf.h asterisk-1.0.5/astconf.h
 --- asterisk-1.0.5.orig/astconf.h	2003-01-30 16:03:20.000000000 +0100
 +++ asterisk-1.0.5/astconf.h	2005-01-25 21:55:54.000000000 +0100
@@ -555,7 +642,7 @@ diff -urN asterisk-1.0.5.orig/asterisk.h asterisk-1.0.5/asterisk.h
  
 diff -urN asterisk-1.0.5.orig/channel.c asterisk-1.0.5/channel.c
 --- asterisk-1.0.5.orig/channel.c	2005-01-22 02:44:12.000000000 +0100
-+++ asterisk-1.0.5/channel.c	2005-01-25 21:55:54.000000000 +0100
++++ asterisk-1.0.5/channel.c	2005-02-18 14:43:37.000000000 +0100
 @@ -38,6 +38,7 @@
  #include <asterisk/causes.h>
  #include <asterisk/utils.h>
@@ -653,15 +740,22 @@ diff -urN asterisk-1.0.5.orig/channel.c asterisk-1.0.5/channel.c
  	if (chan) {
  		if (oh) {
  			char *tmp, *var;
-@@ -1772,6 +1805,8 @@
+@@ -1772,6 +1805,7 @@
  		if (callerid && !ast_strlen_zero(callerid))
  			ast_set_callerid(chan, callerid, 1);
  
 +		chan->callingpres = callingpres;
-+//		ast_log(LOG_NOTICE, "setting callingpres to %d before ast_call()\n",chan->callingpres);
  		if (!ast_call(chan, data, 0)) {
  			while(timeout && (chan->_state != AST_STATE_UP)) {
  				res = ast_waitfor(chan, timeout);
+@@ -1794,6 +1828,7 @@
+ 					if (f->subclass == AST_CONTROL_RINGING)
+ 						state = AST_CONTROL_RINGING;
+ 					else if ((f->subclass == AST_CONTROL_BUSY) || (f->subclass == AST_CONTROL_CONGESTION)) {
++						res = 0;
+ 						state = f->subclass;
+ 						ast_frfree(f);
+ 						break;
 @@ -1853,12 +1888,12 @@
  	return chan;
  }
@@ -811,7 +905,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_iax2.c asterisk-1.0.5/channels/chan_
  				iax2_destroy_nolock(fr.callno);
 diff -urN asterisk-1.0.5.orig/channels/chan_sip.c asterisk-1.0.5/channels/chan_sip.c
 --- asterisk-1.0.5.orig/channels/chan_sip.c	2005-01-17 20:29:10.000000000 +0100
-+++ asterisk-1.0.5/channels/chan_sip.c	2005-01-25 21:55:55.000000000 +0100
++++ asterisk-1.0.5/channels/chan_sip.c	2005-02-08 20:49:30.000000000 +0100
 @@ -3799,6 +3799,7 @@
  	char *mfrom, *mto;
  	struct sip_request req;
@@ -854,14 +948,14 @@ diff -urN asterisk-1.0.5.orig/channels/chan_sip.c asterisk-1.0.5/channels/chan_s
  		t += bytes;
  		maxbytes -= bytes;
 -		bytes = snprintf(t, maxbytes, "<state>%s</state>\n", state ? "confirmed" : "terminated");
-+ 		ast_log(LOG_NOTICE, "State: %d %s\n", state,StateString);
++ //		ast_log(LOG_NOTICE, "State: %d %s\n", state,StateString);
 + 		bytes = snprintf(t, maxbytes, "<state>%s</state>\n", StateString);
  		t += bytes;
  		maxbytes -= bytes;
  		bytes = snprintf(t, maxbytes, "</dialog>\n</dialog-info>\n");	
 diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_zap.c
 --- asterisk-1.0.5.orig/channels/chan_zap.c	2005-01-22 02:27:08.000000000 +0100
-+++ asterisk-1.0.5/channels/chan_zap.c	2005-01-25 21:55:55.000000000 +0100
++++ asterisk-1.0.5/channels/chan_zap.c	2005-02-20 15:37:10.638050280 +0100
 @@ -7,6 +7,10 @@
   *
   * Mark Spencer <markster@digium.com>
@@ -915,7 +1009,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  static int zt_sendtext(struct ast_channel *c, char *text);
  
  static inline int zt_get_event(int fd)
-@@ -325,6 +336,26 @@
+@@ -325,6 +336,27 @@
  #define PRI_CHANNEL(p) ((p) & 0xff)
  #define PRI_SPAN(p) (((p) >> 8) & 0xff)
  
@@ -933,6 +1027,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +	char uniqueid[AST_MAX_EXTENSION];	/* unique id of the onhold channel */
 +	int tei;
 +	int cref;
++	int alreadyhungup;
 +	struct ast_channel *channel;
 +	struct ast_channel *bridge;
 +	q931_call *call;	/* this also covers tei mumbojumbo */
@@ -942,7 +1037,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  struct zt_pri {
  	pthread_t master;			/* Thread of master */
  	ast_mutex_t lock;		/* Mutex */
-@@ -338,6 +369,10 @@
+@@ -338,6 +370,10 @@
  	int nsf;			/* Network-Specific Facilities */
  	int dialplan;			/* Dialing plan */
  	int localdialplan;		/* Local dialing plan */
@@ -953,7 +1048,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	int dchannels[NUM_DCHANS];	/* What channel are the dchannels on */
  	int trunkgroup;			/* What our trunkgroup is */
  	int mastertrunkgroup;	/* What trunk group is our master */
-@@ -353,10 +388,13 @@
+@@ -353,10 +389,13 @@
  	int span;
  	int resetting;
  	int resetpos;
@@ -967,7 +1062,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  };
  
  
-@@ -379,6 +417,8 @@
+@@ -379,6 +418,8 @@
  static int nsf = PRI_NSF_NONE;
  static int dialplan = PRI_NATIONAL_ISDN + 1;
  static int localdialplan = PRI_NATIONAL_ISDN + 1;
@@ -976,7 +1071,19 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  
  #else
  /* Shut up the compiler */
-@@ -551,7 +591,9 @@
+@@ -539,8 +580,9 @@
+ 	int distinctivering;	/* Which distinctivering to use */
+ 	int cidrings;			/* Which ring to deliver CID on */
+ 	
+-	int faxhandled;			/* Has a fax tone already been handled? */
+-	
++	int faxhandled;			/* Has a fax tone already been handled? If yes, we should never enable EC. */
++					/* KPJ: i will abuse this flag to implement a zapata option for dialing out
++					   on a zap channel with EC to be off no matter what happens. */
+ 	char mate;			/* flag to say its in MATE mode */
+ 	int pulsedial;		/* whether a pulse dial phone is detected */
+ 	int dtmfrelax;		/* whether to run in relaxed DTMF mode */
+@@ -551,7 +593,9 @@
  	struct zt_pri *pri;
  	struct zt_pvt *bearer;
  	struct zt_pvt *realcall;
@@ -986,7 +1093,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	int isidlecall;
  	int resetting;
  	int prioffset;
-@@ -578,6 +620,13 @@
+@@ -578,6 +622,13 @@
  struct zt_pvt *round_robin[32];
  
  #ifdef ZAPATA_PRI
@@ -1000,7 +1107,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  static inline int pri_grab(struct zt_pvt *pvt, struct zt_pri *pri)
  {
  	int res;
-@@ -627,6 +676,108 @@
+@@ -627,6 +678,108 @@
  #define CANBUSYDETECT(p) (ISTRUNK(p) || (p->sig & (SIG_EM | SIG_EM_E1 | SIG_SF)) /* || (p->sig & __ZT_SIG_FXO) */)
  #define CANPROGRESSDETECT(p) (ISTRUNK(p) || (p->sig & (SIG_EM | SIG_EM_E1 | SIG_SF)) /* || (p->sig & __ZT_SIG_FXO) */)
  
@@ -1109,10 +1216,39 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  static int zt_get_index(struct ast_channel *ast, struct zt_pvt *p, int nullok)
  {
  	int res;
-@@ -1722,6 +1873,11 @@
+@@ -1202,11 +1355,15 @@
+ {
+ 	int x;
+ 	int res;
++	if (p->faxhandled)  {
++		ast_log(LOG_DEBUG, "Not enabling echo cancellation on a fax/modem call\n");
++		return;
++	}
+ 	if (p->echocanon) {
+ 		ast_log(LOG_DEBUG, "Echo cancellation already on\n");
+ 		return;
+ 	}
+-	if (p && p->echocancel) {
++	if (p && p->echocancel && !p->digital) {
+ 		if (p->sig == SIG_PRI) {
+ 			x = 1;
+ 			res = ioctl(p->subs[SUB_REAL].zfd, ZT_AUDIOMODE, &x);
+@@ -1229,7 +1386,7 @@
+ {
+ 	int x;
+ 	int res;
+-	if (p && p->echocancel && p->echotraining) {
++	if (p && p->echocancel && p->echotraining && (!p->digital) && (!p->faxhandled)) {
+ 		x = p->echotraining;
+ 		res = ioctl(p->subs[SUB_REAL].zfd, ZT_ECHOTRAIN, &x);
+ 		if (res) 
+@@ -1722,6 +1879,14 @@
  #ifdef ZAPATA_PRI
  	if (p->pri) {
  		struct pri_sr *sr;
++		int pridialplan;
++		int dp_strip;
++
 +		if ((p->pri->nodetype == BRI_NETWORK_PTMP) || (p->pri->nodetype == BRI_NETWORK)) {
 +		    // pass NO audio when ringing an isdn phone
 +		    p->dialing = 1;
@@ -1121,7 +1257,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		c = strchr(dest, '/');
  		if (c)
  			c++;
-@@ -1742,6 +1898,7 @@
+@@ -1742,6 +1907,7 @@
  			ast_mutex_unlock(&p->lock);
  			return -1;
  		}
@@ -1129,7 +1265,47 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		if (p->sig != SIG_FXSKS) {
  			p->dop.op = ZT_DIAL_OP_REPLACE;
  			s = strchr(c + p->stripmsd, 'w');
-@@ -1926,8 +2083,9 @@
+@@ -1765,6 +1931,8 @@
+ 			pri_rel(p->pri);
+ 			ast_mutex_unlock(&p->lock);
+ 			return -1;
++		} else {
++		//	ast_log(LOG_NOTICE, "call %d\n", p->call);
+ 		}
+ 		if (!(sr = pri_sr_new())) {
+ 			ast_log(LOG_WARNING, "Failed to allocate setup request channel %d\n", p->channel);
+@@ -1785,13 +1953,28 @@
+ 		pri_sr_set_bearer(sr, p->digital ? PRI_TRANS_CAP_DIGITAL : PRI_TRANS_CAP_SPEECH, 
+ 					(p->digital ? -1 : 
+ 						((p->law == ZT_LAW_ALAW) ? PRI_LAYER_1_ALAW : PRI_LAYER_1_ULAW)));
+-		pri_sr_set_called(sr, c + p->stripmsd, p->pri->dialplan - 1,  s ? 1 : 0);
++		pridialplan = p->pri->dialplan - 1;
++//  ast_log(LOG_NOTICE, "p->digital = %d\n", p->digital);
++		dp_strip = 0;
++		if (pridialplan == -1) { // compute dynamically
++			if (strncmp(c + p->stripmsd, p->pri->internationalprefix, strlen(p->pri->internationalprefix)) == 0) {
++				dp_strip = strlen(p->pri->internationalprefix);
++				pridialplan = PRI_INTERNATIONAL_ISDN;
++			} else if (strncmp(c + p->stripmsd, p->pri->nationalprefix, strlen(p->pri->nationalprefix)) == 0) {
++				dp_strip = strlen(p->pri->nationalprefix);
++				pridialplan = PRI_NATIONAL_ISDN;
++			} else {
++                                pridialplan = PRI_LOCAL_ISDN;
++			}
++		}
++		pri_sr_set_called(sr, c + p->stripmsd + dp_strip, pridialplan,  s ? 1 : 0);
+ 		pri_sr_set_caller(sr, l, n, p->pri->localdialplan - 1, 
+ 					l ? (ast->restrictcid ? PRES_PROHIB_USER_NUMBER_PASSED_SCREEN : 
+ 						(p->use_callingpres ? ast->callingpres : PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN)) : 
+ 						 PRES_NUMBER_NOT_AVAILABLE);
+ 		if (pri_setup(p->pri->pri, p->call,  sr)) {
+-			ast_log(LOG_WARNING, "Unable to setup call to %s\n", c + p->stripmsd);
++			ast_log(LOG_WARNING, "Unable to setup call to %s (using pridialplan %d)\n", 
++						c + p->stripmsd + dp_strip, pridialplan);
+ 			pri_rel(p->pri);
+ 			ast_mutex_unlock(&p->lock);
+ 			pri_sr_free(sr);
+@@ -1926,8 +2109,9 @@
  	}
  	if (newslot < 0) {
  		newslot = 0;
@@ -1141,7 +1317,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	}
  	if (old && (oldslot != newslot))
  		ast_log(LOG_NOTICE, "Switching from from d-channel %d to channel %d!\n",
-@@ -2121,6 +2279,13 @@
+@@ -2121,6 +2305,13 @@
  								icause = atoi(cause);
  						}
  						pri_hangup(p->pri->pri, p->call, icause);
@@ -1155,7 +1331,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					}
  					if (res < 0) 
  						ast_log(LOG_WARNING, "pri_disconnect failed\n");
-@@ -2313,6 +2478,8 @@
+@@ -2313,10 +2504,14 @@
  			p->proceeding = 2;
  			res = pri_answer(p->pri->pri, p->call, 0, 1);
  			pri_rel(p->pri);
@@ -1164,7 +1340,13 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		} else {
  			ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->span);
  			res= -1;
-@@ -2572,7 +2739,7 @@
+ 		}
++		/* the audio path is complete now, train the echo canceler */
++		zt_train_ec(p);
+ 		break;
+ #endif
+ #ifdef ZAPATA_R2
+@@ -2572,7 +2767,7 @@
  	int os1 = -1, os2 = -1;
  	struct ast_channel *oc1, *oc2;
  
@@ -1173,7 +1355,26 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	if (flags & (AST_BRIDGE_DTMF_CHANNEL_0 | AST_BRIDGE_DTMF_CHANNEL_1))
  		return -2;
  		
-@@ -4019,8 +4186,9 @@
+@@ -2817,8 +3012,17 @@
+ 
+ static int zt_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
+ {
+-	struct zt_pvt *p = newchan->pvt->pvt;
++	struct zt_pvt *p = NULL;
+ 	int x;
++	if (newchan && newchan->pvt) {
++	    p = newchan->pvt->pvt;
++	}
++	if (!p) {
++	    if (newchan) {
++		ast_log(LOG_ERROR, "channel %s has no pvt->pvt structure\n", newchan->name);
++	    }
++	    return 0;
++	}
+ 	ast_mutex_lock(&p->lock);
+ 	ast_log(LOG_DEBUG, "New owner for channel %d is %s\n", p->channel, newchan->name);
+ 	if (p->owner == oldchan) {
+@@ -4019,8 +4223,9 @@
  				}
  			} else if (f->frametype == AST_FRAME_DTMF) {
  #ifdef ZAPATA_PRI
@@ -1185,7 +1386,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					f->frametype = AST_FRAME_NULL;
  					f->subclass = 0;
  				}
-@@ -4348,6 +4516,9 @@
+@@ -4348,6 +4553,9 @@
  	int res;
  	int x,y;
  	int features;
@@ -1195,7 +1396,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	ZT_PARAMS ps;
  	tmp = ast_channel_alloc(0);
  	if (tmp) {
-@@ -4427,7 +4598,21 @@
+@@ -4427,7 +4635,21 @@
  			tmp->rings = 1;
  		tmp->pvt->pvt = i;
  		tmp->pvt->send_digit = zt_digit;
@@ -1218,7 +1419,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		tmp->pvt->call = zt_call;
  		tmp->pvt->hangup = zt_hangup;
  		tmp->pvt->answer = zt_answer;
-@@ -4438,8 +4623,12 @@
+@@ -4438,8 +4660,12 @@
  		tmp->pvt->indicate = zt_indicate;
  		tmp->pvt->fixup = zt_fixup;
  		tmp->pvt->setoption = zt_setoption;
@@ -1233,7 +1434,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			tmp->callgroup = i->callgroup;
  			tmp->pickupgroup = i->pickupgroup;
  		}
-@@ -4612,8 +4801,28 @@
+@@ -4612,8 +4838,28 @@
  		while((len < AST_MAX_EXTENSION-1) && ast_matchmore_extension(chan, chan->context, exten, 1, p->callerid)) {
  			if (len && !ast_ignore_pattern(chan->context, exten))
  				tone_zone_play_tone(p->subs[index].zfd, -1);
@@ -1263,7 +1464,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			if (ast_exists_extension(chan, chan->context, exten, 1, p->callerid))
  				timeout = matchdigittimeout;
  			else
-@@ -4642,6 +4851,10 @@
+@@ -4642,6 +4888,10 @@
  			ast_log(LOG_DEBUG, "No such possible extension '%s' in context '%s'\n", exten, chan->context);
  			chan->hangupcause = AST_CAUSE_UNALLOCATED;
  			ast_hangup(chan);
@@ -1274,7 +1475,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		}
  		return NULL;
  		break;
-@@ -6045,6 +6258,8 @@
+@@ -6045,6 +6295,8 @@
  		} else {
  			if (si->totalchans == 31) { /* if it's an E1 */
  				pris[*span].dchannels[0] = 16 + offset;
@@ -1283,7 +1484,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			} else {
  				pris[*span].dchannels[0] = 24 + offset;
  			}
-@@ -6295,6 +6510,11 @@
+@@ -6295,6 +6547,11 @@
  						destroy_zt_pvt(&tmp);
  						return NULL;
  					}
@@ -1295,7 +1496,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					if (!ast_strlen_zero(pris[span].idledial) && strcmp(pris[span].idledial, idledial)) {
  						ast_log(LOG_ERROR, "Span %d already has idledial '%s'.\n", span + 1, idledial);
  						destroy_zt_pvt(&tmp);
-@@ -6322,6 +6542,11 @@
+@@ -6322,6 +6579,11 @@
  						return NULL;
  					}
  					pris[span].nodetype = pritype;
@@ -1307,7 +1508,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					pris[span].switchtype = myswitchtype;
  					pris[span].nsf = nsf;
  					pris[span].dialplan = dialplan;
-@@ -6330,8 +6555,15 @@
+@@ -6330,8 +6592,15 @@
  					pris[span].minunused = minunused;
  					pris[span].minidle = minidle;
  					pris[span].overlapdial = overlapdial;
@@ -1323,7 +1524,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					
  					tmp->pri = &pris[span];
  					tmp->prioffset = offset;
-@@ -6726,7 +6958,7 @@
+@@ -6726,7 +6995,7 @@
  			break;
  		if (!backwards && (x >= pri->numchans))
  			break;
@@ -1332,7 +1533,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			ast_log(LOG_DEBUG, "Found empty available channel %d/%d\n", 
  				pri->pvts[x]->logicalspan, pri->pvts[x]->prioffset);
  			return x;
-@@ -6771,7 +7003,7 @@
+@@ -6771,7 +7040,7 @@
  	end = ifend;
  	/* We do signed linear */
  	oldformat = format;
@@ -1341,7 +1542,78 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	if (!format) {
  		ast_log(LOG_NOTICE, "Asked to get a channel of unsupported format '%d'\n", oldformat);
  		return NULL;
-@@ -6994,6 +7226,8 @@
+@@ -6928,6 +7197,12 @@
+ 				} else if (opt == 'd') {
+ 					/* If this is an ISDN call, make it digital */
+ 					p->digital = 1;
++					if (tmp) { 
++					    ast_set_flag(tmp, AST_FLAG_DIGITAL);
++					}
++				} else if (opt == 'm') {
++					/* If this is a modem/fax call, pretend to have the fax handled and dont do EC */
++					p->faxhandled = 1;
+ 				} else {
+ 					ast_log(LOG_WARNING, "Unknown option '%c' in '%s'\n", opt, (char *)data);
+ 				}
+@@ -6985,6 +7260,57 @@
+ 	return NULL;
+ }
+ 
++static int pri_find_tei(struct zt_pri *pri, q931_call *c, int tei)
++{
++	int x=0;
++	for (x=0;x<pri->numchans;x++) {
++		if (!pri->pvts[x]) continue;
++		if ((pri->pvts[x]->tei == tei) && (pri->pvts[x]-> call != c)) {
++		    return x;
++		}
++	}
++	return -1;
++}
++
++static struct zt_holded_call *pri_get_callonhold(struct zt_pri *pri, int cref, int tei) {
++	struct zt_holded_call *zhc = pri->holded_calls;
++	struct zt_holded_call *zhctemp = NULL;
++
++	while (zhc) {
++	    if ((zhc->tei == tei) && ((zhc->cref == cref) || (cref == -1))) {
++		return zhc;
++	    }			
++	    zhctemp = zhc;
++	    if (zhc) zhc = zhc->next;
++	}
++	return NULL;	
++}
++
++static int pri_destroy_callonhold(struct zt_pri *pri, struct zt_holded_call *onhold) {
++	struct zt_holded_call *zhc = pri->holded_calls;
++	struct zt_holded_call *zhctemp = NULL;
++
++	while (zhc) {
++	    if (zhc == onhold) {
++		if (zhctemp) {
++		    zhctemp->next = zhc->next;
++		    zhc = zhctemp;
++		} else {
++		    pri->holded_calls = zhc->next;
++		    zhc = pri->holded_calls;
++		    zhctemp = NULL;
++		}
++	    }			
++	    zhctemp = zhc;
++	    if (zhc) zhc = zhc->next;
++	}
++	if (onhold) {
++	    free(onhold);
++	    onhold = NULL;
++	    return 1;	
++	}
++	return 0;	
++}
+ 
+ static int pri_find_principle(struct zt_pri *pri, int channel)
+ {
+@@ -6994,6 +7320,8 @@
  	span = PRI_SPAN(channel);
  	channel = PRI_CHANNEL(channel);
  	
@@ -1350,7 +1622,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	for (x=0;x<pri->numchans;x++) {
  		if (pri->pvts[x] && (pri->pvts[x]->prioffset == channel) && (pri->pvts[x]->logicalspan == span)) {
  			principle = x;
-@@ -7007,7 +7241,9 @@
+@@ -7007,7 +7335,9 @@
  static int pri_fixup_principle(struct zt_pri *pri, int principle, q931_call *c)
  {
  	int x;
@@ -1360,7 +1632,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	if (!c) {
  		if (principle < 0)
  			return -1;
-@@ -7021,6 +7257,7 @@
+@@ -7021,6 +7351,7 @@
  	/* First, check for other bearers */
  	for (x=0;x<pri->numchans;x++) {
  		if (!pri->pvts[x]) continue;
@@ -1368,7 +1640,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		if (pri->pvts[x]->call == c) {
  			/* Found our call */
  			if (principle != x) {
-@@ -7034,17 +7271,47 @@
+@@ -7034,17 +7365,47 @@
  				}
  				/* Fix it all up now */
  				pri->pvts[principle]->owner = pri->pvts[x]->owner;
@@ -1417,7 +1689,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			}
  			return principle;
  		}
-@@ -7073,7 +7340,9 @@
+@@ -7073,7 +7434,9 @@
  		}
  		crv = crv->next;
  	}
@@ -1428,7 +1700,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	return -1;
  }
  
-@@ -7144,6 +7413,9 @@
+@@ -7144,6 +7507,9 @@
  
  static int pri_check_restart(struct zt_pri *pri)
  {
@@ -1438,7 +1710,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  	do {
  		pri->resetpos++;
  	} while((pri->resetpos < pri->numchans) &&
-@@ -7187,6 +7459,29 @@
+@@ -7187,6 +7553,29 @@
  	return 0;
  }
  
@@ -1468,7 +1740,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  static void *pri_dchannel(void *vpri)
  {
  	struct zt_pri *pri = vpri;
-@@ -7272,6 +7567,8 @@
+@@ -7272,6 +7661,8 @@
  				} else if (pri->pvts[x] && pri->pvts[x]->owner && pri->pvts[x]->isidlecall)
  					activeidles++;
  			}
@@ -1477,7 +1749,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #if 0
  			printf("nextidle: %d, haveidles: %d, minunsed: %d\n",
  				nextidle, haveidles, minunused);
-@@ -7404,37 +7701,80 @@
+@@ -7404,37 +7795,82 @@
  					break;
  			}
  		} else if (errno != EINTR)
@@ -1552,12 +1824,14 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +							if (p->pri && p->pri->pri) {
 +								pri_hangup(p->pri->pri, p->call, -1);
 +								pri_destroycall(p->pri->pri, p->call);
++								p->tei = -1;
 +								p->call = NULL;
 +							} else
 +								ast_log(LOG_WARNING, "The PRI Call have not been destroyed\n");
 +						}
 +						if (p->owner)
 +						    p->owner->_softhangup |= AST_SOFTHANGUP_DEV;
++						p->inalarm = 1;
 +						p->tei = 0;
 +					    }
 +					}
@@ -1574,7 +1848,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					pri->resetting = 0;
  					/* Hangup active channels and put them in alarm mode */
  					for (i=0; i<pri->numchans; i++) {
-@@ -7455,6 +7795,7 @@
+@@ -7455,6 +7891,7 @@
  							p->inalarm = 1;
  						}
  					}
@@ -1582,7 +1856,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  				}
  				break;
  			case PRI_EVENT_RESTART:
-@@ -7505,9 +7846,11 @@
+@@ -7505,9 +7942,11 @@
  				} else {
  					chanpos = pri_fixup_principle(pri, chanpos, e->ring.call);
  					if (chanpos > -1) {
@@ -1595,7 +1869,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							/* how to do that */
  							int digitlen = strlen(e->ring.callednum);
  							char digit;
-@@ -7519,6 +7862,14 @@
+@@ -7519,6 +7958,14 @@
  									zap_queue_frame(pri->pvts[chanpos], &f, pri);
  								}
  							}
@@ -1610,7 +1884,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						}
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					}
-@@ -7532,8 +7883,16 @@
+@@ -7532,8 +7979,16 @@
  					chanpos = pri_find_principle(pri, e->ring.channel);
  				/* if no channel specified find one empty */
  				if (chanpos < 0) {
@@ -1619,7 +1893,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +					    if (option_verbose > 2)
 +						ast_verbose(VERBOSE_PREFIX_3 "Ignoring callwaiting SETUP on channel %d/%d span %d %d\n", PRI_SPAN(e->ring.channel), PRI_CHANNEL(e->ring.channel), pri->span, e->ring.channel);
 +					    
-+					    pri_hangup(pri->pri, e->ring.call, -1);
++					    pri_hangup(pri->pri, e->ring.call, PRI_CAUSE_USER_BUSY);
 +					    break;
 +					} else {
 +					    ast_log(LOG_WARNING, "Ring requested on unconfigured channel %d/%d span %d\n", 
@@ -1628,17 +1902,17 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  				} else {
  					ast_mutex_lock(&pri->pvts[chanpos]->lock);
  					if (pri->pvts[chanpos]->owner) {
-@@ -7559,6 +7918,9 @@
+@@ -7559,6 +8014,9 @@
  					chanpos = pri_find_empty_chan(pri, 1);
  				if (chanpos > -1) {
  					ast_mutex_lock(&pri->pvts[chanpos]->lock);
 +					/* this channel is owned by this TEI */
 +					pri->pvts[chanpos]->tei = e->ring.tei;
-+				//	ast_log(LOG_NOTICE, "setting tei %d for chan %d\n",e->ring.tei, chanpos);
++					// ast_log(LOG_NOTICE, "setting tei %d for chan %d\n",e->ring.tei, chanpos);
  					if (pri->switchtype == PRI_SWITCH_GR303_TMC) {
  						/* Should be safe to lock CRV AFAIK while bearer is still locked */
  						crv = pri_find_crv(pri, pri_get_crv(pri->pri, e->ring.call, NULL));
-@@ -7580,15 +7942,20 @@
+@@ -7580,15 +8038,23 @@
  						}
  					}
  					pri->pvts[chanpos]->call = e->ring.call;
@@ -1662,11 +1936,14 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +					    pri->pvts[chanpos]->callerid[0] = '\0';
 +					}
 +					strncpy(pri->pvts[chanpos]->rdnis, e->ring.redirectingnum, sizeof(pri->pvts[chanpos]->rdnis)-1);
++					if (pri->pvts[chanpos]->owner) {
++						pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "PRI_REDIRECTING_NUM", e->ring.redirectingnum);
++					}
 +
  					/* If immediate=yes go to s|1 */
  					if (pri->pvts[chanpos]->immediate) {
  						if (option_verbose > 2)
-@@ -7598,10 +7965,52 @@
+@@ -7598,10 +8064,50 @@
  					}
  					/* Get called number */
  					else if (!ast_strlen_zero(e->ring.callednum)) {
@@ -1679,8 +1956,6 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "UUI", e->ring.useruserinfo);
 +						    }
 +						}
-+					//	strncpy(pri->pvts[chanpos]->exten, e->ring.callednum, sizeof(pri->pvts[chanpos]->exten)-1);
-+					//	strncpy(pri->pvts[chanpos]->dnid, e->ring.callednum, sizeof(pri->pvts[chanpos]->dnid) - 1);
 +						pri_make_callerid(pri, pri->pvts[chanpos]->dnid, e->ring.callednum, "", e->ring.calledplan, 0, pri->pvts[chanpos]->stripmsd);
 +						pri_make_callerid(pri, pri->pvts[chanpos]->exten, e->ring.callednum, "", e->ring.calledplan, 0, pri->pvts[chanpos]->stripmsd);
 +						if ((pri->nodetype == BRI_NETWORK_PTMP) || (pri->nodetype == BRI_NETWORK)) {
@@ -1723,7 +1998,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					/* No number yet, but received "sending complete"? */
  					if (e->ring.complete && (ast_strlen_zero(e->ring.callednum))) {
  						if (option_verbose > 2)
-@@ -7630,17 +8039,36 @@
+@@ -7630,17 +8136,36 @@
  						res = set_actual_gain(pri->pvts[chanpos]->subs[SUB_REAL].zfd, 0, pri->pvts[chanpos]->rxgain, pri->pvts[chanpos]->txgain, law);
  						if (res < 0)
  							ast_log(LOG_WARNING, "Unable to set gains on channel %d\n", pri->pvts[chanpos]->channel);
@@ -1762,7 +2037,12 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						/* Start PBX */
  						if (pri->overlapdial && ast_matchmore_extension(NULL, pri->pvts[chanpos]->context, pri->pvts[chanpos]->exten, 1, pri->pvts[chanpos]->callerid)) {
  							/* Release the PRI lock while we create the channel */
-@@ -7657,6 +8085,16 @@
+@@ -7653,15 +8178,26 @@
+ 								ast_log(LOG_DEBUG, "Started up crv %d:%d on bearer channel %d\n", pri->trunkgroup, crv->channel, crv->bearer->channel);
+ 							} else {
+ 								c = zt_new(pri->pvts[chanpos], AST_STATE_RESERVED, 0, SUB_REAL, law, e->ring.ctype);
++								zt_enable_ec(pri->pvts[chanpos]);
+ 							}
  							if(!ast_strlen_zero(e->ring.callingsubaddr)) {
  								pbx_builtin_setvar_helper(c, "CALLINGSUBADDR", e->ring.callingsubaddr);
  							}
@@ -1779,10 +2059,24 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							ast_mutex_lock(&pri->lock);
  							if (c && !ast_pthread_create(&threadid, &attr, ss_thread, c)) {
  								if (option_verbose > 2)
-@@ -7684,6 +8122,22 @@
- 										e->ring.callingnum, pri->pvts[chanpos]->exten, 
+-									ast_verbose(VERBOSE_PREFIX_3 "Accepting overlap call from '%s' to '%s' on channel %d/%d, span %d\n",
+-										e->ring.callingnum, !ast_strlen_zero(pri->pvts[chanpos]->exten) ? pri->pvts[chanpos]->exten : "<unspecified>", 
++									ast_verbose(VERBOSE_PREFIX_3 "Accepting overlap %s call from '%s' to '%s' on channel %d/%d, span %d\n",
++										pri->pvts[chanpos]->digital ? "data" : "voice", e->ring.callingnum, !ast_strlen_zero(pri->pvts[chanpos]->exten) ? pri->pvts[chanpos]->exten : "<unspecified>", 
+ 										pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
+ 							} else {
+ 								ast_log(LOG_WARNING, "Unable to start PBX on channel %d/%d, span %d\n", 
+@@ -7680,10 +8216,26 @@
+ 							ast_mutex_lock(&pri->lock);
+ 							if (c) {
+ 								if (option_verbose > 2)
+-									ast_verbose(VERBOSE_PREFIX_3 "Accepting call from '%s' to '%s' on channel %d/%d, span %d\n",
+-										e->ring.callingnum, pri->pvts[chanpos]->exten, 
++									ast_verbose(VERBOSE_PREFIX_3 "Accepting %s call from '%s' to '%s' on channel %d/%d, span %d\n",
++										pri->pvts[chanpos]->digital ? "data" : "voice", e->ring.callingnum, pri->pvts[chanpos]->exten, 
  											pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
- 								zt_enable_ec(pri->pvts[chanpos]);
+-								zt_enable_ec(pri->pvts[chanpos]);
++							    zt_enable_ec(pri->pvts[chanpos]);
 +							    if (e->ring.useruserinfo) {
 +								pbx_builtin_setvar_helper(c, "UUI", e->ring.useruserinfo);
 +							    }
@@ -1802,7 +2096,16 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							} else {
  								ast_log(LOG_WARNING, "Unable to start PBX on channel %d/%d, span %d\n", 
  									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
-@@ -7748,7 +8202,14 @@
+@@ -7721,7 +8273,7 @@
+ 					} else {
+ 						ast_mutex_lock(&pri->pvts[chanpos]->lock);
+ 						if (ast_strlen_zero(pri->pvts[chanpos]->dop.dialstr)) {
+-							zt_enable_ec(pri->pvts[chanpos]);
++				//			zt_enable_ec(pri->pvts[chanpos]);
+ 							pri->pvts[chanpos]->subs[SUB_REAL].needringing =1;
+ 							pri->pvts[chanpos]->proceeding=2;
+ 						} else
+@@ -7748,7 +8300,14 @@
  			case PRI_EVENT_PROCEEDING:
  				chanpos = pri_find_principle(pri, e->proceeding.channel);
  				if (chanpos > -1) {
@@ -1818,7 +2121,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_PROGRESS, };
  						
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
-@@ -7759,6 +8220,7 @@
+@@ -7759,6 +8318,7 @@
  						zap_queue_frame(pri->pvts[chanpos], &f, pri);
  						pri->pvts[chanpos]->proceeding=2;
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
@@ -1826,7 +2129,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					}
  				}
  				break;
-@@ -7784,7 +8246,307 @@
+@@ -7784,7 +8344,292 @@
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					}
  				}
@@ -1862,6 +2165,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +					    snprintf(tmpstr, sizeof(tmpstr), "Parked at %d", zpc->parked_at);
 +					    pri_suspend_acknowledge(pri->pri, e->suspend_req.call,tmpstr);
 +					    pri->pvts[chanpos]->call = NULL;
++					    pri->pvts[chanpos]->tei = -1;
 +					    pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
 +					} else {
 +					    pri_suspend_reject(pri->pri, e->suspend_req.call, "cant park a non-bridge");
@@ -1922,6 +2226,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +						    pri->pvts[chanpos]->owner = c;
 +						    pri->pvts[chanpos]->call = e->resume_req.call;
 +						    zt_enable_ec(pri->pvts[chanpos]);
++						    zt_train_ec(pri->pvts[chanpos]);
 +						} else {
 +						    ast_log(LOG_ERROR, "unable to start pbx\n");
 +						}
@@ -1974,31 +2279,29 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +//					ast_log(LOG_NOTICE,"HOLD request from channel %s tei %d\n",p->owner->name, e->hold_req.tei);
 +				    	if (p->owner->bridge) {
 +					    zhc = malloc(sizeof(struct zt_holded_call));
-+					    memset(zhc, 0, sizeof(zhc));
 +					    if (!zhc) {
 +						ast_log(LOG_ERROR, "unable to malloc zt_holded_call\n");
 +						break;
 +					    }
++					    memset(zhc, 0, sizeof(zhc));
 +					    strncpy(zhc->msn,  pri->pvts[chanpos]->callerid, sizeof(zhc->msn));
 +					    strncpy(zhc->uniqueid,  p->owner->bridge->uniqueid, sizeof(zhc->uniqueid));
 +					    zhc->tei = e->hold_req.tei;
 +					    zhc->cref = e->hold_req.cref;
 +					    zhc->call = e->hold_req.call;
 +					    zhc->channel = p->owner;
++					    zhc->alreadyhungup = 0;
 +					    zhc->bridge = p->owner->bridge;
 +					    zhc->next = pri->holded_calls;
 +					    pri->holded_calls = zhc;
 +
-+//					    ast_log(LOG_NOTICE,"putting channel %s on hold\n",p->owner->bridge->name);
++					    /* put channel on hold */
 +					    ast_masq_hold_call(p->owner->bridge, p->owner);
 +
-+//				    	    ast_log(LOG_NOTICE, "sending hold ack for channel %d\n",e->hold_req.channel);
 +					    pri_hold_acknowledge(pri->pri, e->hold_req.call);
 +					    holdacked = 1;
-+			//		    p->holdedcall = e->hold_req.call; // last call put on hold
 +					    p->call = NULL; // free the bchannel withouth destroying the call
-+			//		    p->owner->bridge = NULL;
-+					    p->owner->_softhangup |= AST_SOFTHANGUP_DEV;
++					    p->tei = -1;
 +					} else {
 +					    // cant hold a non-bridge,...yet
 +					    
@@ -2027,93 +2330,78 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +					pri_retrieve_reject(pri->pri, e->retrieve_req.call);
 +					ast_log(LOG_WARNING, "Retrieve requested on odd channel number %d span %d\n", chanpos, pri->span);
 +					chanpos = -1;
++					break;
 +				} else if (!pri->pvts[chanpos]) {
 +					ast_log(LOG_WARNING, "Retrieve requested on unconfigured channel number %d span %d\n", chanpos, pri->span);
 +					pri_retrieve_reject(pri->pri, e->retrieve_req.call);
 +					chanpos = -1;
++					break;
 +				}
 +				if (chanpos > -1) {
-+				//    if (pri->pvts[chanpos]->owner)
-+				//	ast_log(LOG_NOTICE,"RETRIEVE request on channel %s for %d\n",pri->pvts[chanpos]->owner->name,e->retrieve_req.cref);
-+				// go through holded_calls, find call, connect
-+				    struct zt_holded_call *zhc = pri->holded_calls;
-+				    struct zt_holded_call *zhctemp = NULL;
++				    struct zt_holded_call *onhold = NULL;
 +				    int retrieved = 0;
-+				    ast_mutex_lock(&pri->pvts[chanpos]->lock);
++				    int res = -1;
++				    struct app_tmp *tmp;
++				    pthread_attr_t attr;
++				    int law;
 +
-+				    while (zhc) {
-+//					if (zhc->call == e->retrieve_req.call) {
-+					if ((zhc->cref == e->retrieve_req.cref) && (zhc->tei == e->retrieve_req.tei)) {
-+					    struct zt_holded_call *onhold;
-+					    onhold = zhc;
-+					    if (zhctemp) {
-+						zhctemp->next = zhc->next;
-+						zhc = zhctemp;
-+					    } else {
-+						pri->holded_calls = zhc->next;
-+						zhc = pri->holded_calls;
-+						zhctemp = NULL;
-+					    }
-+    					    
-+					    if (!pri->pvts[chanpos]->owner) {
-+						struct app_tmp *tmp;
-+						int res = -1;
-+						pthread_attr_t attr;
++				    onhold = pri_get_callonhold(pri, e->retrieve_req.cref, e->retrieve_req.tei);
 +
-+						int law;
-+						// found a parked call
-+    					        law = 1;
-+					        if (ioctl(pri->pvts[chanpos]->subs[SUB_REAL].zfd, ZT_AUDIOMODE, &law) == -1)
-+					    	    ast_log(LOG_WARNING, "Unable to set audio mode on channel %d to %d\n", PVT_TO_CHANNEL(pri->pvts[chanpos]), law);
-+					// uhh ohh...what shall we do without the bearer cap???
-+						law = ZT_LAW_ALAW;
-+						res = zt_setlaw(pri->pvts[chanpos]->subs[SUB_REAL].zfd, law);
-+						if (res < 0) 
-+						    ast_log(LOG_WARNING, "Unable to set law on channel %d\n", PVT_TO_CHANNEL(pri->pvts[chanpos]));
-+						res = set_actual_gain(pri->pvts[chanpos]->subs[SUB_REAL].zfd, 0, pri->pvts[chanpos]->rxgain, pri->pvts[chanpos]->txgain, law);
-+						if (res < 0)
-+						    ast_log(LOG_WARNING, "Unable to set gains on channel %d\n", PVT_TO_CHANNEL(pri->pvts[chanpos]));
-+						/* Start PBX */
-+						c = zt_new(pri->pvts[chanpos], AST_STATE_UP, 0, SUB_REAL, law, PRI_TRANS_CAP_SPEECH);
-+						if (c) {
-+						    pri->pvts[chanpos]->owner = c;
-+						    pri->pvts[chanpos]->outgoing = 1; /* for not sending proceedings... */
-+						    pri->pvts[chanpos]->call = e->retrieve_req.call;
-+				    		    zt_enable_ec(pri->pvts[chanpos]);
-+						} else {
-+						    ast_log(LOG_ERROR, "unable to start pbx\n");
-+						}
-+
-+						retrieved = 1;
-+				//		ast_log(LOG_NOTICE, "sending RETRIEVE ACK on channel %d, span %d for tei %d cref %d\n",chanpos,pri->span, e->retrieve_req.tei,  e->retrieve_req.cref);
-+						pri_retrieve_acknowledge(pri->pri, e->retrieve_req.call, chanpos + 1);
-+
-+						// the magic begins here: ....
-+						tmp = malloc(sizeof(struct app_tmp));
-+						if (tmp) {
-+						    memset(tmp, 0, sizeof(struct app_tmp));
-+						    strncpy(tmp->app, "holdedcall", sizeof(tmp->app) - 1);
-+						    strncpy(tmp->data, onhold->uniqueid, sizeof(tmp->data) - 1);
-+						    tmp->chan = c;
-+						}
-+						pthread_attr_init(&attr);
-+						pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-+						if (ast_pthread_create(&tmp->t, &attr, ast_pbx_run_app, tmp)) {
-+						    ast_log(LOG_WARNING, "Unable to spawn execute thread on %s: %s\n", c->name, strerror(errno));
-+						    free(tmp);
-+						    ast_hangup(c);
-+						    res = -1;
-+						}
-+						
-+					    } else {
-+						// uhh ohh ahh :(
-+					    }
-+					    break;
-+					}
-+					zhctemp = zhc;
-+					if (zhc) zhc = zhc->next;
++				    if (!onhold) {
++					pri_retrieve_reject(pri->pri, e->retrieve_req.call);
++					break;
 +				    }
-+				    ast_mutex_unlock(&pri->pvts[chanpos]->lock);
++				    ast_mutex_lock(&pri->pvts[chanpos]->lock);
++					// found a parked call
++    					law = 1;
++					if (ioctl(pri->pvts[chanpos]->subs[SUB_REAL].zfd, ZT_AUDIOMODE, &law) == -1)
++					    ast_log(LOG_WARNING, "Unable to set audio mode on channel %d to %d\n", PVT_TO_CHANNEL(pri->pvts[chanpos]), law);
++					// uhh ohh...what shall we do without the bearer cap???
++					law = ZT_LAW_ALAW;
++					res = zt_setlaw(pri->pvts[chanpos]->subs[SUB_REAL].zfd, law);
++					if (res < 0) 
++					    ast_log(LOG_WARNING, "Unable to set law on channel %d\n", PVT_TO_CHANNEL(pri->pvts[chanpos]));
++					res = set_actual_gain(pri->pvts[chanpos]->subs[SUB_REAL].zfd, 0, pri->pvts[chanpos]->rxgain, pri->pvts[chanpos]->txgain, law);
++					if (res < 0)
++					    ast_log(LOG_WARNING, "Unable to set gains on channel %d\n", PVT_TO_CHANNEL(pri->pvts[chanpos]));
++					/* Start PBX */
++					c = zt_new(pri->pvts[chanpos], AST_STATE_UP, 0, SUB_REAL, law, PRI_TRANS_CAP_SPEECH);
++					if (c) {
++					    pri->pvts[chanpos]->owner = c;
++					    pri->pvts[chanpos]->outgoing = 1; /* for not sending proceedings... */
++					    pri->pvts[chanpos]->call = e->retrieve_req.call;
++					    pri->pvts[chanpos]->tei = e->retrieve_req.tei;
++				    	    zt_enable_ec(pri->pvts[chanpos]);
++				    	    zt_train_ec(pri->pvts[chanpos]);
++					} else {
++					    ast_log(LOG_ERROR, "unable to start pbx\n");
++					}
++
++					retrieved = 1;
++				//	ast_log(LOG_NOTICE, "sending RETRIEVE ACK on channel %d, span %d for tei %d cref %d\n",chanpos,pri->span, e->retrieve_req.tei,  e->retrieve_req.cref);
++					pri_retrieve_acknowledge(pri->pri, e->retrieve_req.call, chanpos + 1);
++
++					// the magic begins here: ....
++					tmp = malloc(sizeof(struct app_tmp));
++					if (tmp) {
++					    memset(tmp, 0, sizeof(struct app_tmp));
++					    strncpy(tmp->app, "holdedcall", sizeof(tmp->app) - 1);
++					    strncpy(tmp->data, onhold->uniqueid, sizeof(tmp->data) - 1);
++					    tmp->chan = c;
++					}
++					pri_destroy_callonhold(pri, onhold);
++					onhold = NULL;
++
++					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
++					pthread_attr_init(&attr);
++					pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
++					if (ast_pthread_create(&tmp->t, &attr, ast_pbx_run_app, tmp)) {
++					    ast_log(LOG_WARNING, "Unable to spawn execute thread on %s: %s\n", c->name, strerror(errno));
++					    free(tmp);
++					    ast_hangup(c);
++					    retrieved = 0;
++					}
++
 +				    if (!retrieved) {
 +					pri_retrieve_reject(pri->pri, e->retrieve_req.call);
 +				    }
@@ -2135,7 +2423,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  			case PRI_EVENT_ANSWER:
  				chanpos = pri_find_principle(pri, e->answer.channel);
  				if (chanpos < 0) {
-@@ -7800,6 +8562,8 @@
+@@ -7800,6 +8645,8 @@
  						chanpos = -1;
  					} else {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
@@ -2144,7 +2432,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						if (pri->pvts[chanpos]->master && (pri->pvts[chanpos]->master->sig == SIG_FXSKS)) {
  							ast_log(LOG_DEBUG, "Starting up GR-303 trunk now that we got CONNECT...\n");
  							x = ZT_START;
-@@ -7822,9 +8586,12 @@
+@@ -7822,9 +8669,13 @@
  						} else if (pri->pvts[chanpos]->confirmanswer) {
  							ast_log(LOG_DEBUG, "Waiting on answer confirmation on channel %d!\n", pri->pvts[chanpos]->channel);
  						} else {
@@ -2152,12 +2440,13 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							pri->pvts[chanpos]->subs[SUB_REAL].needanswer =1;
  							/* Enable echo cancellation if it's not on already */
  							zt_enable_ec(pri->pvts[chanpos]);
++							zt_train_ec(pri->pvts[chanpos]);
 +							// stop ignoring inband dtmf
 +							pri->pvts[chanpos]->ignoredtmf = 0;
  						}
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					}
-@@ -7847,6 +8614,9 @@
+@@ -7847,6 +8698,9 @@
  							if (pri->pvts[chanpos]->master) 
  								pri_hangup_all(pri->pvts[chanpos]->master, pri);
  							else if (pri->pvts[chanpos]->owner) {
@@ -2167,8 +2456,11 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  								/* Queue a BUSY instead of a hangup if our cause is appropriate */
  								pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
  								switch(e->hangup.cause) {
-@@ -7873,11 +8643,13 @@
+@@ -7871,18 +8725,33 @@
+ 						} else {
+ 							pri_hangup(pri->pri, pri->pvts[chanpos]->call, e->hangup.cause);
  							pri->pvts[chanpos]->call = NULL;
++							pri->pvts[chanpos]->tei = -1;
  						}
  						if (e->hangup.cause == PRI_CAUSE_REQUESTED_CHAN_UNAVAIL) {
 -							if (option_verbose > 2)
@@ -2184,7 +2476,25 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  						}
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
-@@ -7892,8 +8664,12 @@
+-						ast_log(LOG_WARNING, "Hangup on bad channel %d/%d on span %d\n", 
++						struct zt_holded_call *onhold = NULL;
++						/* check calls on hold */
++						onhold = pri_get_callonhold(pri, e->hangup.cref, e->hangup.tei);
++						
++						if (onhold) {
++						    // ast_log(LOG_NOTICE, "hangup, found cref %d, tei %d\n",e->hangup.cref, e->hangup.tei);
++						    pri_hangup(pri->pri, onhold->call, e->hangup.cause);
++						    pri_destroy_callonhold(pri, onhold);
++						    onhold = NULL;
++						} else {
++						    ast_log(LOG_NOTICE, "hangup, did not find cref %d, tei %d\n",e->hangup.cref, e->hangup.tei);
++						    ast_log(LOG_WARNING, "Hangup on bad channel %d/%d on span %d\n", 
+ 							PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
++						}
+ 					}
+ 				} 
+ 				break;
+@@ -7892,8 +8761,12 @@
  			case PRI_EVENT_HANGUP_REQ:
  				chanpos = pri_find_principle(pri, e->hangup.channel);
  				if (chanpos < 0) {
@@ -2198,7 +2508,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  					chanpos = -1;
  				}
  				if (chanpos > -1) {
-@@ -7903,6 +8679,9 @@
+@@ -7903,6 +8776,9 @@
  						if (pri->pvts[chanpos]->master) 
  							pri_hangup_all(pri->pvts[chanpos]->master, pri);
  						else if (pri->pvts[chanpos]->owner) {
@@ -2208,7 +2518,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  							pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
  							switch(e->hangup.cause) {
  							case PRI_CAUSE_USER_BUSY:
-@@ -7921,20 +8700,117 @@
+@@ -7921,20 +8797,81 @@
  							}
  							if (option_verbose > 2) 
  								ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d got hangup\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
@@ -2216,67 +2526,48 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +							    // check for bri transfers, not everybody uses ECT...
 +							    if (pri->pvts[chanpos]->owner) {
 +								// find on hold call
-+								struct zt_holded_call *zhc = pri->holded_calls;
-+								struct zt_holded_call *zhctemp = NULL;
++								struct zt_holded_call *onhold = NULL;
 +								struct ast_channel *transferee = NULL;
 +
-+							//	ast_log(LOG_NOTICE, "looking for call from tei %d\n", e->hangup.tei);
-+							        while (zhc) {
-+							//	    ast_log(LOG_NOTICE, "tei %d\n", zhc->tei);
-+								    // find the first call belonging to this tei
-+								    if ((zhc->tei == e->hangup.tei)) {
-+									struct zt_holded_call *onhold;
-+									onhold = zhc;
-+									if (zhctemp) {
-+									    zhctemp->next = zhc->next;
-+									    zhc = zhctemp;
-+									} else {
-+									    pri->holded_calls = zhc->next;
-+									    zhc = pri->holded_calls;
-+									    zhctemp = NULL;
-+									}
++								onhold = pri_get_callonhold(pri, -1, e->hangup.tei);
++
++								if (onhold) {
 +									
-+									if (((pri->pvts[chanpos]->owner->_state != AST_STATE_RING) && (pri->pvts[chanpos]->owner->_state != AST_STATE_RESERVED)) || ((!ast_strlen_zero(pri->pvts[chanpos]->exten)) && (strncasecmp(pri->pvts[chanpos]->exten, "s", sizeof(pri->pvts[chanpos]->exten))))) {
-+									    transferee = ast_get_holded_call(onhold->uniqueid);
-+									//    ast_log(LOG_NOTICE, "transferee %d\n", transferee);
++								    if (((pri->pvts[chanpos]->owner->_state != AST_STATE_RING) && (pri->pvts[chanpos]->owner->_state != AST_STATE_RESERVED)) || ((!ast_strlen_zero(pri->pvts[chanpos]->exten)) && (strncasecmp(pri->pvts[chanpos]->exten, "s", sizeof(pri->pvts[chanpos]->exten))))) {
++								        transferee = ast_get_holded_call(onhold->uniqueid);
 +
-+//								    		ast_log(LOG_NOTICE, "transferee->name %s\n", transferee->name);
-+									    if (transferee) {
-+
-+								    	//	ast_log(LOG_NOTICE, "exten %s\n", pri->pvts[chanpos]->exten);
-+										    if (pri->pvts[chanpos]->owner->_state == AST_STATE_RINGING) {
-+											ast_indicate(transferee, AST_CONTROL_RINGING);
-+										    }
-+
-+										    pri->pvts[chanpos]->owner->_softhangup &= ~AST_SOFTHANGUP_DEV;
-+    
-+										    ast_mutex_unlock(&transferee->lock);
-+										    if (ast_channel_masquerade(pri->pvts[chanpos]->owner, transferee)) {
-+											ast_log(LOG_WARNING, "unable to masquerade\n");
-+										    } else {
-+											/* beware of zombies!!! */
-+											transferee->zombie = 1;
-+											pri->pvts[chanpos]->owner = NULL;
-+										    }
++									if (transferee) {
++									    if (pri->pvts[chanpos]->owner->_state == AST_STATE_RINGING) {
++									    	ast_indicate(transferee, AST_CONTROL_RINGING);
 +									    }
-+									} else {
-+									    ast_retrieve_call_to_death(onhold->uniqueid);
-+								//	    pri->pvts[chanpos]->owner = NULL;
-+									    
++
++									    pri->pvts[chanpos]->owner->_softhangup &= ~AST_SOFTHANGUP_DEV;
++    
++    									    ast_mutex_unlock(&transferee->lock);
++									    if (ast_channel_masquerade(pri->pvts[chanpos]->owner, transferee)) {
++										ast_log(LOG_WARNING, "unable to masquerade\n");
++									    } else {
++										/* beware of zombies!!! */
++										transferee->zombie = 1;
++										pri->pvts[chanpos]->owner = NULL;
++										pri->pvts[chanpos]->tei = -1;
++									    }
 +									}
-+									pri_hangup(pri->pri, onhold->call, e->hangup.cause);
-+									free(onhold);
-+									onhold = NULL;
-+									break;
++								    } else {
++									ast_retrieve_call_to_death(onhold->uniqueid);
 +								    }
-+								    zhctemp = zhc;
-+								    if (zhc) zhc = zhc->next;
++								    onhold->alreadyhungup = 1;	
++								    pri_hangup(pri->pri, onhold->call, e->hangup.cause);
++								    onhold = NULL;
++								    ast_mutex_unlock(&pri->pvts[chanpos]->lock);
++								    break;
 +								}
 +							    }
 +							}
  						} else {
  							pri_hangup(pri->pri, pri->pvts[chanpos]->call, e->hangup.cause);
  							pri->pvts[chanpos]->call = NULL;
++							pri->pvts[chanpos]->tei = -1;
  						}
  						if (e->hangup.cause == PRI_CAUSE_REQUESTED_CHAN_UNAVAIL) {
 -							if (option_verbose > 2)
@@ -2297,40 +2588,31 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +						    ast_log(LOG_WARNING, "Hangup REQ on bad channel %d/%d on span %d\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
 +						} else {
 +						    // check holded_calls!!!
-+						    struct zt_holded_call *zhc = pri->holded_calls;
-+						    struct zt_holded_call *zhctemp = NULL;
-+						    int found = 0;
++						    struct zt_holded_call *onhold = NULL;
 +
-+						    while (zhc) {
-+							if ((zhc->call == e->hangup.call)) {
-+							    struct zt_holded_call *onhold;
-+							    onhold = zhc;
-+							    if (zhctemp) {
-+								zhctemp->next = zhc->next;
-+								zhc = zhctemp;
-+							    } else {
-+								pri->holded_calls = zhc->next;
-+								zhc = pri->holded_calls;
-+								zhctemp = NULL;
-+							    }
-+							    found = 1;
-+							    // destroy it!
++						    onhold = pri_get_callonhold(pri, e->hangup.cref, e->hangup.tei);
++
++						    if (onhold) {
 +							    pri_hangup(pri->pri, e->hangup.call, e->hangup.cause);
-+							    if (onhold) {
-+								ast_retrieve_call_to_death(onhold->uniqueid);
-+								free(onhold);
-+								onhold = NULL;
-+							    }
-+							}
-+							zhctemp = zhc;
-+							if (zhc) zhc = zhc->next;
++							    ast_retrieve_call_to_death(onhold->uniqueid);
++							    pri_destroy_callonhold(pri, onhold);
++							    onhold = NULL;
++						    } else {
++							ast_log(LOG_WARNING, "Hangup REQ on bad channel %d/%d on span %d\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
 +						    }
-+						    if (!found) ast_log(LOG_WARNING, "Hangup REQ on bad channel %d/%d on span %d\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
 +						}
  					}
  				} 
  				break;
-@@ -8023,17 +8899,31 @@
+@@ -7949,6 +8886,7 @@
+ 					chanpos = pri_fixup_principle(pri, chanpos, e->hangup.call);
+ 					if (chanpos > -1) {
+ 						ast_mutex_lock(&pri->pvts[chanpos]->lock);
++						pri->pvts[chanpos]->tei = -1;
+ 						pri->pvts[chanpos]->call = NULL;
+ 						pri->pvts[chanpos]->resetting = 0;
+ 						if (pri->pvts[chanpos]->owner) {
+@@ -8023,17 +8961,87 @@
  					ast_log(LOG_WARNING, "Received SETUP_ACKNOWLEDGE on unconfigured channel %d/%d span %d\n", 
  						PRI_SPAN(e->setup_ack.channel), PRI_CHANNEL(e->setup_ack.channel), pri->span);
  				} else {
@@ -2361,13 +2643,77 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  				}
  				break;
 +			case PRI_EVENT_FACILITY:
-+				if (option_verbose > 2) 
-+				    ast_log(LOG_NOTICE, "Facility %d requested for cref %d\n",e->facility.operation, e->facility.cref);
++				    if (e->facility.operation == 0x06) {
++					struct ast_channel *chan = NULL;
++					struct zt_holded_call *onhold = NULL;
++					if (option_verbose > 2) {
++					    ast_verbose(VERBOSE_PREFIX_3 "ECT requested by TEI %d for cref %d\n", e->facility.tei, e->facility.cref);
++					}
++					/* search for cref/tei in held calls */
++					onhold = pri_get_callonhold(pri, e->facility.cref, e->facility.tei);
++					if (onhold) {
++					    chan = ast_get_holded_call(onhold->uniqueid);
++					    onhold->alreadyhungup = 1;
++					    onhold = NULL;
++					    if (!chan) {
++						/* hang up */
++					        pri_hangup(pri->pri, e->facility.call, 16);
++						break;
++					    }
++					} else {
++					    /* unknown cref/tei */
++					    ast_log(LOG_WARNING, "did not find call on hold for cref %d tei %d\n", e->facility.tei, e->facility.cref);
++					    /* hang up */
++					    pri_hangup(pri->pri, e->facility.call, 16);
++					    break;
++					}
++
++					/* find an active call for the same tei */
++					chanpos = pri_find_tei(pri, e->facility.call, e->facility.tei);
++					if (chanpos < 0) {
++					    /* did not find active call, hangup call on hold */
++					    if (chan) {
++						ast_hangup(chan);
++						chan = NULL;
++					    }
++					} else {
++					    ast_mutex_lock(&pri->pvts[chanpos]->lock);
++					    /* transfer */
++					    if (pri->pvts[chanpos]->owner) {
++						if (option_verbose > 3) {
++						    ast_verbose(VERBOSE_PREFIX_3 "ECT: found %s on channel %d for tei %d\n", pri->pvts[chanpos]->owner->name ,chanpos, e->facility.tei);
++						}
++						/* pass callprogress if the channel is not up yet */
++						if (pri->pvts[chanpos]->owner->_state == AST_STATE_RINGING) {
++						    ast_indicate(chan, AST_CONTROL_RINGING);
++						}
++						/* unlock the channel we removed from hold */
++						ast_mutex_unlock(&chan->lock);
++						if (ast_channel_masquerade(pri->pvts[chanpos]->owner, chan)) {
++					    	    ast_log(LOG_WARNING, "unable to masquerade\n");
++						} else {
++						    /* beware of zombies !!! */
++						    chan->zombie = 1;
++						}
++					    }
++					    ast_mutex_unlock(&pri->pvts[chanpos]->lock);
++					}
++					/* disconnect */
++					pri_hangup(pri->pri, e->facility.call, 16);
++				    }
 +				break;
  			default:
  				ast_log(LOG_DEBUG, "Event: %d\n", e->e);
  			}
-@@ -8302,6 +9192,18 @@
+@@ -8182,6 +9190,7 @@
+ 
+ 
+ 
++
+ static int handle_pri_no_debug(int fd, int argc, char *argv[])
+ {
+ 	int span;
+@@ -8302,6 +9311,18 @@
  	"Usage: pri show span <span>\n"
  	"       Displays PRI Information\n";
  
@@ -2386,7 +2732,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  static struct ast_cli_entry pri_debug = {
  	{ "pri", "debug", "span", NULL }, handle_pri_debug, "Enables PRI debugging on a span", pri_debug_help, complete_span_4 };
  
-@@ -8314,6 +9216,15 @@
+@@ -8314,8 +9335,53 @@
  static struct ast_cli_entry pri_show_span = {
  	{ "pri", "show", "span", NULL }, handle_pri_show_span, "Displays PRI Information", pri_show_span_help, complete_span_4 };
  
@@ -2401,8 +2747,46 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
 +
  #endif /* ZAPATA_PRI */
  
++static int app_zapEC(struct ast_channel *chan, void *data)
++{
++    int res=-1;
++    struct zt_pvt *p = NULL;
++
++    if (!data) {
++	ast_log(LOG_WARNING, "zapEC requires one argument (on | off)\n");
++    }
++    if (chan && !strcasecmp("ZAP",chan->type)) {
++	p = chan->pvt->pvt;
++	if (!p) return res;
++	if (!strcasecmp("on",(char *)data)) {
++	    zt_enable_ec(p);
++	    res = 0;
++	    if (option_verbose > 3) {
++		ast_verbose(VERBOSE_PREFIX_3 "Enabled echo cancelation on channel %s.\n", chan->name);
++	    }
++	} else if (!strcasecmp("off",(char *)data)) {
++	    zt_disable_ec(p);
++	    res = 0;
++	    if (option_verbose > 3) {
++		ast_verbose(VERBOSE_PREFIX_3 "Disabled echo cancelation on channel %s.\n", chan->name);
++	    }
++	} else {
++    	    ast_log(LOG_WARNING, "Unknown argument %s to zapEC\n", (char *)data);
++	}
++    } else {
++        ast_log(LOG_WARNING, "zapNoEC only works on ZAP channels, check your extensions.conf!\n");
++    }
++
++    return res;
++}
++
++static char *zapEC_tdesc = "Enable/disable Echo cancelation";
++static char *zapEC_app = "zapEC";
++static char *zapEC_synopsis = "Enable/Disable Echo Cancelation on a Zap channel";
  
-@@ -8877,6 +9788,10 @@
+ #ifdef ZAPATA_R2
+ static int handle_r2_no_debug(int fd, int argc, char *argv[])
+@@ -8877,6 +9943,10 @@
  	ast_cli_unregister(&pri_no_debug);
  	ast_cli_unregister(&pri_really_debug);
  	ast_cli_unregister(&pri_show_span);
@@ -2413,7 +2797,24 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif
  #ifdef ZAPATA_R2
  	ast_cli_unregister(&r2_debug);
-@@ -9419,6 +10334,22 @@
+@@ -8893,6 +9963,7 @@
+ 	ast_manager_unregister( "ZapDNDon" );
+ 	ast_manager_unregister("ZapShowChannels");
+ 	ast_unregister_application(app_callingpres);
++	ast_unregister_application(zapEC_app);
+ 	ast_channel_unregister(typecompat);
+ 	ast_channel_unregister(type);
+ 	if (!ast_mutex_lock(&iflock)) {
+@@ -9240,7 +10311,7 @@
+ 			}
+ 		} else if (!strcasecmp(v->name, "echotraining")) {
+ 			if (sscanf(v->value, "%i", &y) == 1) {
+-				if ((y < 10) || (y > 4000)) {
++				if ((y < 10) || (y > 2000)) {
+ 					ast_log(LOG_WARNING, "Echo training time must be within the range of 10 to 2000 ms at line %d\n", v->lineno);					
+ 				} else {
+ 					echotraining = y;
+@@ -9419,6 +10490,22 @@
  				cur_signalling = SIG_GR303FXSKS;
  				cur_radio = 0;
  				pritype = PRI_CPE;
@@ -2436,7 +2837,16 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif
  #ifdef ZAPATA_R2
  			} else if (!strcasecmp(v->value, "r2")) {
-@@ -9462,8 +10393,16 @@
+@@ -9447,6 +10534,8 @@
+ 				dialplan = PRI_INTERNATIONAL_ISDN + 1;
+ 			} else if (!strcasecmp(v->value, "local")) {
+ 				dialplan = PRI_LOCAL_ISDN + 1;
++			} else if (!strcasecmp(v->value, "dynamic")) {
++				dialplan = 0;
+ 			} else {
+ 				ast_log(LOG_WARNING, "Unknown PRI dialplan '%s' at line %d.\n", v->value, v->lineno);
+ 			}
+@@ -9462,8 +10551,16 @@
  			} else if (!strcasecmp(v->value, "local")) {
  				localdialplan = PRI_LOCAL_ISDN + 1;
  			} else {
@@ -2454,7 +2864,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		} else if (!strcasecmp(v->name, "switchtype")) {
  			if (!strcasecmp(v->value, "national")) 
  				switchtype = PRI_SWITCH_NI2;
-@@ -9510,6 +10449,8 @@
+@@ -9510,6 +10607,8 @@
  			strncpy(idleext, v->value, sizeof(idleext) - 1);
  		} else if (!strcasecmp(v->name, "idledial")) {
  			strncpy(idledial, v->value, sizeof(idledial) - 1);
@@ -2463,7 +2873,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		} else if (!strcasecmp(v->name, "overlapdial")) {
  			overlapdial = ast_true(v->value);
  #endif		
-@@ -9665,12 +10606,12 @@
+@@ -9665,12 +10764,12 @@
  	if(res) {
  	  return -1;
  	}
@@ -2478,7 +2888,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  		ast_log(LOG_ERROR, "Unable to register channel class %s\n", typecompat);
  		__unload_module();
  		return -1;
-@@ -9680,6 +10621,10 @@
+@@ -9680,6 +10779,10 @@
  	ast_cli_register(&pri_no_debug);
  	ast_cli_register(&pri_really_debug);
  	ast_cli_register(&pri_show_span);
@@ -2489,7 +2899,15 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif	
  #ifdef ZAPATA_R2
  	ast_cli_register(&r2_debug);
-@@ -9964,6 +10909,22 @@
+@@ -9691,6 +10794,7 @@
+ 	ast_cli_register(&zap_show_cadences_cli);
+ 
+ 	ast_register_application(app_callingpres, change_callingpres, synopsis_callingpres, descrip_callingpres);
++	ast_register_application(zapEC_app, app_zapEC, zapEC_synopsis, zapEC_tdesc);
+ 	memset(round_robin, 0, sizeof(round_robin));
+ 	ast_manager_register( "ZapTransfer", 0, action_transfer, "Transfer Zap Channel" );
+ 	ast_manager_register( "ZapHangup", 0, action_transferhangup, "Hangup Zap Channel" );
+@@ -9964,6 +11068,22 @@
  			} else if (!strcasecmp(v->value, "pri_cpe")) {
  				cur_signalling = SIG_PRI;
  				pritype = PRI_CPE;
@@ -2512,7 +2930,7 @@ diff -urN asterisk-1.0.5.orig/channels/chan_zap.c asterisk-1.0.5/channels/chan_z
  #endif
  			} else {
  				ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
-@@ -10038,6 +10999,25 @@
+@@ -10038,6 +11158,25 @@
  }
  #endif
  
@@ -2550,23 +2968,6 @@ diff -urN asterisk-1.0.5.orig/codecs/codec_ilbc.c asterisk-1.0.5/codecs/codec_il
  
  AST_MUTEX_DEFINE_STATIC(localuser_lock);
  static int localusecnt=0;
-diff -urN asterisk-1.0.5.orig/HARDWARE asterisk-1.0.5/HARDWARE
---- asterisk-1.0.5.orig/HARDWARE	2004-08-03 08:31:20.000000000 +0200
-+++ asterisk-1.0.5/HARDWARE	2005-01-25 21:55:55.000000000 +0100
-@@ -37,6 +37,13 @@
-    * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
-      RBS signalling, as well as PPP, FR, and HDLC data modes.
- 
-+-- Junghanns.NET
-+	http://www.junghanns.net
-+	
-+    * quadBRI PCI ISDN - 4port BRI ISDN interface, supports NT and TE mode
-+    
-+    * octoBRI PCI ISDN - 8port BRI ISDN interface, supports NT and TE mode
-+
- Non-zaptel compatible hardware
- ==============================
- 
 diff -urN asterisk-1.0.5.orig/include/asterisk/channel.h asterisk-1.0.5/include/asterisk/channel.h
 --- asterisk-1.0.5.orig/include/asterisk/channel.h	2004-11-08 01:08:58.000000000 +0100
 +++ asterisk-1.0.5/include/asterisk/channel.h	2005-01-25 21:55:55.000000000 +0100
@@ -2714,18 +3115,6 @@ diff -urN asterisk-1.0.5.orig/include/asterisk/pbx.h asterisk-1.0.5/include/aste
  
  /* Functions for returning values from structures */
  char *ast_get_context_name(struct ast_context *con);
-diff -urN asterisk-1.0.5.orig/Makefile asterisk-1.0.5/Makefile
---- asterisk-1.0.5.orig/Makefile	2005-01-21 06:18:35.000000000 +0100
-+++ asterisk-1.0.5/Makefile	2005-01-25 21:55:55.000000000 +0100
-@@ -459,6 +459,8 @@
- 	echo "astspooldir => $(ASTSPOOLDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
- 	echo "astrundir => $(ASTVARRUNDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
- 	echo "astlogdir => $(ASTLOGDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
-+	echo "[options]" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
-+	echo "uniquename = asterisk" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
- 	for x in sounds/demo-*; do \
- 		if grep -q "^%`basename $$x`%" sounds.txt; then \
- 			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
 diff -urN asterisk-1.0.5.orig/manager.c asterisk-1.0.5/manager.c
 --- asterisk-1.0.5.orig/manager.c	2004-09-22 16:11:44.000000000 +0200
 +++ asterisk-1.0.5/manager.c	2005-01-25 21:55:55.000000000 +0100
@@ -3284,49 +3673,9 @@ diff -urN asterisk-1.0.5.orig/pbx.c asterisk-1.0.5/pbx.c
  	return res;
  }
  	
-diff -urN asterisk-1.0.5.orig/README asterisk-1.0.5/README
---- asterisk-1.0.5.orig/README	2004-08-25 16:14:57.000000000 +0200
-+++ asterisk-1.0.5/README	2005-01-25 21:55:55.000000000 +0100
-@@ -1,6 +1,7 @@
- The Asterisk Open Source PBX
- by Mark Spencer <markster@digium.com>
--Copyright (C) 2001-2004 Digium
-+Copyright (C) 2001-2004 Digium and others....
-+Copyright (C) 2002-2004 Junghanns.NET GmbH and others....
- ================================================================
- * SECURITY
-   It is imperative that you read and fully understand the contents of
-@@ -23,14 +24,6 @@
-   Asterisk is distributed under GNU General Public License.  The GPL also
- must apply to all loadable modules as well, except as defined below.
- 
--  Digium, Inc. (formerly Linux Support Services) retains copyright to all 
--of the core Asterisk system, and therefore can grant, at its sole discretion, 
--the ability for companies, individuals, or organizations to create proprietary
--or Open Source (but non-GPL'd) modules which may be dynamically linked at
--runtime with the portions of Asterisk which fall under our copyright
--umbrella, or are distributed under more flexible licenses than GPL.  
--
--
-   If you wish to use our code in other GPL programs, don't worry -- there
- is no requirement that you provide the same exemption in your GPL'd
- products (although if you've written a module for Asterisk we would
-@@ -39,12 +32,6 @@
-   Specific permission is also granted to OpenSSL and OpenH323 to link to
- Asterisk.
- 
--  If you have any questions, whatsoever, regarding our licensing policy,
--please contact us.
--
--  Modules that are GPL-licensed and not available under Digium's 
--licensing scheme are added to the Asterisk-addons CVS module.
--  
- * REQUIRED COMPONENTS
- 
- == Linux ==
 diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features.c
 --- asterisk-1.0.5.orig/res/res_features.c	2004-12-20 01:27:19.000000000 +0100
-+++ asterisk-1.0.5/res/res_features.c	2005-01-25 21:55:55.000000000 +0100
++++ asterisk-1.0.5/res/res_features.c	2005-02-09 11:17:18.000000000 +0100
 @@ -7,6 +7,10 @@
   *
   * Mark Spencer <markster@digium.com>
@@ -3518,7 +3867,7 @@ diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features
  						res = -1;
  					} else {
  						/* Set the channel's new extension, since it exists, using transferer context */
-@@ -696,6 +758,280 @@
+@@ -696,6 +758,282 @@
  	return res;
  }
  
@@ -3606,6 +3955,7 @@ diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features
 +	}
 +
 +	if (peer) {
++		ast_mutex_unlock(&peer->lock);
 +		ast_moh_stop(peer);
 +		res = ast_channel_make_compatible(chan, peer);
 +		if (res < 0) {
@@ -3657,6 +4007,7 @@ diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features
 +		res=0;
 +		if (option_verbose > 2) 
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s removed from hold.\n", peer->name);
++		ast_mutex_unlock(&peer->lock);
 +		ast_hangup(peer);
 +	} else {
 +		ast_log(LOG_WARNING, "Could not find channel with uniqueid %s to retrieve.\n", uniqueid);
@@ -3799,7 +4150,7 @@ diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features
  static int park_exec(struct ast_channel *chan, void *data)
  {
  	int res=0;
-@@ -851,11 +1187,12 @@
+@@ -851,11 +1189,12 @@
  			"Channel: %s\r\n"
  			"Timeout: %ld\r\n"
  			"CallerID: %s\r\n"
@@ -3813,7 +4164,7 @@ diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features
  			,idText);
  			ast_mutex_unlock(&s->lock);
  
-@@ -873,6 +1210,386 @@
+@@ -873,6 +1212,386 @@
  }
  
  
@@ -4200,7 +4551,7 @@ diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features
  
  int load_module(void)
  {
-@@ -883,6 +1600,7 @@
+@@ -883,6 +1602,7 @@
  	struct ast_variable *var;
  
  	ast_cli_register(&showparked);
@@ -4208,7 +4559,7 @@ diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features
  
  	cfg = ast_load("features.conf");
  	if (!cfg) {
-@@ -937,12 +1655,19 @@
+@@ -937,12 +1657,19 @@
  	}
  	ast_add_extension2(con, 1, ast_parking_ext(), 1, NULL, parkcall, strdup(""),free, registrar);
  	ast_pthread_create(&parking_thread, NULL, do_parking_thread, NULL);
@@ -4228,7 +4579,7 @@ diff -urN asterisk-1.0.5.orig/res/res_features.c asterisk-1.0.5/res/res_features
  	return res;
  }
  
-@@ -985,7 +1710,10 @@
+@@ -985,7 +1712,10 @@
  	STANDARD_HANGUP_LOCALUSERS;
  
  	ast_manager_unregister( "ParkedCalls" );
@@ -4254,9 +4605,3 @@ diff -urN asterisk-1.0.5.orig/rtp.c asterisk-1.0.5/rtp.c
  	
  	/* Cache where the header will go */
  	res = recvfrom(rtp->s, rtp->rawdata + AST_FRIENDLY_OFFSET, sizeof(rtp->rawdata) - AST_FRIENDLY_OFFSET,
-diff -urN asterisk-1.0.5.orig/.version asterisk-1.0.5/.version
---- asterisk-1.0.5.orig/.version	2005-01-24 04:24:43.000000000 +0100
-+++ asterisk-1.0.5/.version	2005-01-25 21:56:27.000000000 +0100
-@@ -1 +1 @@
--1.0.5
-+1.0.5-BRIstuffed-0.2.0-RC5
