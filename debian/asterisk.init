@@ -34,7 +34,7 @@ fi
 
 if [ "x$USER" != x ] && [ "x$USER" != xroot ]
 then
-  PARAMS="$PARAMS -U $USER"
+  PARAMS="$PARAMS --chuid $USER"
 fi
 
 test -x $DAEMON || exit 0

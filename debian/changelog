@@ -1,3 +1,10 @@
+asterisk (1:1.0.3-3) UNRELEASED; urgency=low
+
+  * debian/asterisk.init: fixed UID and GID when starting asterisk problem (as
+    reported by Raoul Bönisch and Simon Peter).
+
+ -- Kilian Krause <kk@verfaction.de>  Thu, 20 Jan 2005 11:20:00 +0100
+
 asterisk (1:1.0.3-2) unstable; urgency=low
 
   * Apply missing 25_subdirs_Makefile patch. 
