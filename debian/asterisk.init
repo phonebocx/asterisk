@@ -56,7 +56,9 @@ set -e
 
 case "$1" in
   start)
-	$MODULEINIT
+	$MODULEUNLOAD 1>&2>/dev/null||true
+	$MODULELOAD 1>&2>/dev/null||true
+	$MODULEINIT 1>&2>/dev/null||true
 	echo -n "Starting $DESC: "
 	start-stop-daemon --start --exec $DAEMON -- $PARAMS
 	echo "$NAME."

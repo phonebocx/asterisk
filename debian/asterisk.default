@@ -10,7 +10,7 @@ RUNASTERISK=no
 #               real-time priority (pass '-p' to asterisk). un-rem the 
 #               following line to disable asterisk from running in real-time 
 #               priority
-#AST_REALTIME=no
+#AST_REALTIME=yes
 #
 # PARAMS: exra parameters to pass to asterisk
 #         The example here may help you in debugging, but is not intended for
@@ -29,4 +29,6 @@ RUNASTERISK=no
 # You need to run ztcfg exactelly ONCE after loading the module.
 # zaphfc and qozap will _NOT_ work when running ztcfg twice or more.
 #
-#MODULEINIT="rmmod zaphfc; modprobe zaphfc modes=1;/usr/sbin/ztcfg -v >/dev/null"
+#MODULEUNLOAD="rmmod zaphfc"
+#MODULELOAD="modprobe zaphfc modes=1"
+#MODULEINIT="/sbin/ztcfg -v"
