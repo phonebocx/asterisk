@@ -1,31 +1,13 @@
-#! /bin/sh -e
-## dot-nonfree.dpatch by Mark Purcell <msp@debian.org>
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## asterisk-ng-doxygen.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: Patch asterisk to not use nonfree/dot
-
-if [ $# -lt 1 ]; then
-    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
-    exit 1
-fi
-
-[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
-patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
-
-case "$1" in
-    -patch) patch -p1 ${patch_opts} < $0;;
-    -unpatch) patch -R -p1 ${patch_opts} < $0;;
-    *)
-        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
-        exit 1;;
-esac
-
-exit 0
+## DP: No description.
 
 @DPATCH@
-
---- asterisk-0.9.1+1.0RC2.orig/contrib/asterisk-ng-doxygen
-+++ asterisk-0.9.1+1.0RC2/contrib/asterisk-ng-doxygen
+diff -urNad asterisk-1.0.2/contrib/asterisk-ng-doxygen /tmp/dpep.hpZYrp/asterisk-1.0.2/contrib/asterisk-ng-doxygen
+--- asterisk-1.0.2/contrib/asterisk-ng-doxygen	2001-10-24 19:10:36.000000000 +0200
++++ /tmp/dpep.hpZYrp/asterisk-1.0.2/contrib/asterisk-ng-doxygen	2005-01-04 21:40:21.000000000 +0100
 @@ -707,7 +707,7 @@
  # toolkit from AT&T and Lucent Bell Labs. The other options in this section 
  # have no effect if this option is set to NO (the default)

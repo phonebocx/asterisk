@@ -1,8 +1,104 @@
-asterisk (1:0.9.1+1.0RC1-10) UNRELEASED; urgency=low
+asterisk (1:1.0.2-4) UNRELEASED; urgency=high
 
-  * NOT RELEASED YET
+  * Patched to fix logging strings vulnerability. (Closes: #)
+  * Urgency high due to security bug also present in Sarge.
+  * Using again dpatch.
+  * debian/patches: populated with different patches
 
- -- root <root@toshiba>  Wed, 22 Sep 2004 19:00:46 +1000
+ -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Tue,  4 Jan 2005 22:01:08 +0100
+
+asterisk (1:1.0.2-3) unstable; urgency=low
+
+  * Closes: #281524: running asterisk with realtime priority
+  * Include changes from Tzafrir Cohen
+
+ -- Mark Purcell <msp@debian.org>  Thu,  2 Dec 2004 02:10:12 +1100
+
+asterisk (1:1.0.2-2) unstable; urgency=low
+
+  * fixup init.d/asterisk to logger reload. Thanks Daniel Pocock
+  * Closes: #260575: chan_zap.so: undefined symbol
+  * Build-Depends: libpri1 >= 0.6
+  * Closes: #279905: dependency issue breaks voicemail setup
+  * Build-Depends: asterisk-sounds-main (>= 1.0.2)
+  * Closes: #269942: package Debian asterisk-sounds
+  * Rename asterisk-sounds to asterisk-sounds-main to avoid upstream
+    conflict
+  * Closes: #277404: Please split out GTK console
+  * Split off asterisk-gtk-console package to contain all X11
+    dependancies
+
+ -- Mark Purcell <msp@debian.org>  Sat,  6 Nov 2004 13:20:33 +1100
+
+asterisk (1:1.0.2-1) unstable; urgency=low
+
+  * New upstream release
+  * Closes: #279540: Please package newer version of asterisk
+  * Closes: #275808: logrotate errors and emails
+
+ -- Mark Purcell <msp@debian.org>  Thu,  4 Nov 2004 18:19:09 +1100
+
+asterisk (1:1.0.1-2) unstable; urgency=low
+
+  * Closes: #275808: logrotate errors and emails
+  * Add init.d/asterisk logger-reload|extensions-reload options & use
+    logger reload in asterisk.logrotate. Thanks Daniel Pocock
+
+ -- Mark Purcell <msp@debian.org>  Wed, 13 Oct 2004 22:31:22 +1000
+
+asterisk (1:1.0.1-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Mark Purcell <msp@debian.org>  Wed,  6 Oct 2004 14:39:12 +1000
+
+asterisk (1:1.0.0-4) unstable; urgency=high
+
+  * Urgency high for sarge release
+  * Closes: #273570: asterisk-sounds: sounds/letters directory is missing
+
+ -- Mark Purcell <msp@debian.org>  Wed, 29 Sep 2004 07:48:16 +1000
+
+asterisk (1:1.0.0-3) unstable; urgency=low
+
+  * Closes: #273780: under ALSA, infinite-loops immediately on
+    installation
+  * Comment out autoload of chan_oss from modules.conf
+  * Closes: #272999: asterisk_1:0.9.1+1.0RC2-2_hppa: FTBFS:
+    [anaFilter.o] Error 1
+  * Version 1.0.0 now builds on hppa
+  * Closes: #273576: chan_zap.so module is missing
+  * check for ../include/linux/zaptel.h in channels/Makefile
+  * Closes: #273572: Music on hold has wrong default directory
+  * refer to correct /usr/share/asterisk/mohmp3 directory
+
+ -- Mark Purcell <msp@debian.org>  Tue, 28 Sep 2004 23:06:03 +1000
+
+asterisk (1:1.0.0-2) unstable; urgency=medium
+
+  * Rebuild with zaptel.h_1.0.0 and libpri-dev_1.0.0
+
+ -- Mark Purcell <msp@debian.org>  Sun, 26 Sep 2004 08:32:11 +1000
+
+asterisk (1:1.0.0-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- Mark Purcell <msp@debian.org>  Fri, 24 Sep 2004 20:23:31 +1000
+
+asterisk (1:0.9.1+1.0RC2-2) unstable; urgency=low
+
+  * Use asterisk.8.gz man page
+  * Remove back PROC optomizations from Makefile, enable build on hppa
+
+ -- Mark Purcell <msp@debian.org>  Thu, 23 Sep 2004 18:20:45 +1000
+
+asterisk (1:0.9.1+1.0RC2-1) unstable; urgency=low
+
+  * New upstream release
+  * Back out dpatch (Makes new upstream release straight forward)
+
+ -- Mark Purcell <msp@debian.org>  Thu, 23 Sep 2004 08:35:08 +1000
 
 asterisk (1:0.9.1+1.0RC1-9) unstable; urgency=low
 
@@ -12,8 +108,8 @@ asterisk (1:0.9.1+1.0RC1-9) unstable; urgency=low
 
 asterisk (1:0.9.1+1.0RC1-8) unstable; urgency=medium
 
-  * debian/patches/11_makefile-sanitize.dpatch: fixed patch to make gsm work
-    again. (Closes: #266167)
+  * debian/patches/11_makefile-sanitize.dpatch: fixed patch to make gsm
+     work again. (Closes: #266167)
 
  -- Kilian Krause <kk@verfaction.de>  Tue, 17 Aug 2004 15:34:21 +0200
 

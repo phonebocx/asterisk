@@ -23,25 +23,81 @@ esac
 exit 0
 
 @DPATCH@
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/cdr/Makefile asterisk-0.9.1+1.0RC1/cdr/Makefile
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/cdr/Makefile	2004-09-22 17:54:21.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/cdr/Makefile	2004-09-22 17:54:44.000000000 +1000
-@@ -12,10 +12,10 @@
- #
+diff -urNad asterisk-1.0.2/apps/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/apps/Makefile
+--- asterisk-1.0.2/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/apps/Makefile	2005-01-04 21:07:01.000000000 +0100
+@@ -43,7 +43,7 @@
+ APPS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
+ APPS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
  
- #ADD cdr_pgsql.so to MODS= to include PostgreSQL support: REQUIRES PostgreSQL libs
--MODS=cdr_csv.so
-+MODS=cdr_csv.so cdr_pgsql.so
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ 
+ ifeq ($(USE_POSTGRES_VM_INTERFACE),1)
+ CFLAGS+=-DUSEPOSTGRESVM
+diff -urNad asterisk-1.0.2/cdr/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/cdr/Makefile
+--- asterisk-1.0.2/cdr/Makefile	2004-08-31 18:33:00.000000000 +0200
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/cdr/Makefile	2005-01-04 21:07:01.000000000 +0100
+@@ -15,7 +15,7 @@
+ MODS=cdr_csv.so cdr_manager.so
  
  
 -CFLAGS+=-fPIC
 +CFLAGS+=-fPIC -DPIC
  
+ PROC=$(shell uname -m)
  OSARCH=$(shell uname -s)
- ifeq (${OSARCH},FreeBSD)
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/Makefile asterisk-0.9.1+1.0RC1/pbx/Makefile
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/Makefile	2004-09-22 17:54:21.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/pbx/Makefile	2004-09-22 17:54:44.000000000 +1000
+diff -urNad asterisk-1.0.2/channels/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/channels/Makefile
+--- asterisk-1.0.2/channels/Makefile	2004-08-31 18:33:00.000000000 +0200
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/channels/Makefile	2005-01-04 21:07:01.000000000 +0100
+@@ -92,7 +92,7 @@
+ ALSA_SRC+=$(shell [ -f alsa-monitor.h ] && echo "alsa-monitor.h")
+ 
+ CFLAGS+=-DCRYPTO
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ 
+ ifeq ($(USE_MYSQL_FRIENDS),1)
+ CFLAGS+=-DMYSQL_FRIENDS
+diff -urNad asterisk-1.0.2/codecs/lpc10/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/codecs/lpc10/Makefile
+--- asterisk-1.0.2/codecs/lpc10/Makefile	2004-08-31 18:33:00.000000000 +0200
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/codecs/lpc10/Makefile	2005-01-04 21:07:01.000000000 +0100
+@@ -22,7 +22,7 @@
+ # 
+ 
+ WARNINGS = -Wall -Wno-comment -Wno-error
+-CFLAGS += $(OPTIMIZE) -I$(LIB_TARGET_DIR) $(WARNINGS) -fPIC
++CFLAGS += $(OPTIMIZE) -I$(LIB_TARGET_DIR) $(WARNINGS) -fPIC -DPIC
+ #CFLAGS+= $(shell if uname -m | grep -q 86; then echo "-mpentium" ; fi)
+ 
+ #fix for PPC processors and ALPHA, And UltraSparc too
+diff -urNad asterisk-1.0.2/codecs/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/codecs/Makefile
+--- asterisk-1.0.2/codecs/Makefile	2004-07-19 17:52:57.000000000 +0200
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/codecs/Makefile	2005-01-04 21:07:01.000000000 +0100
+@@ -21,7 +21,7 @@
+ MODG723+=$(shell [ -f g723.1b/coder2.c ] && echo "codec_g723_1b.so")
+ MODSPEEX=$(shell [ -f /usr/include/speex.h ] || [ -f /usr/local/include/speex.h ] && echo "codec_speex.so")
+ MODILBC=$(shell [ -f ilbc/iLBC_decode.h ] && echo "codec_ilbc.so")
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ CFLAGS+=$(shell [ -f /usr/local/include/speex.h ] && echo "-I/usr/local/include")
+ 
+ LIBG723=g723.1/libg723.a
+diff -urNad asterisk-1.0.2/formats/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/formats/Makefile
+--- asterisk-1.0.2/formats/Makefile	2004-09-05 20:00:55.000000000 +0200
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/formats/Makefile	2005-01-04 21:07:01.000000000 +0100
+@@ -23,7 +23,7 @@
+ 
+ GSMLIB=../codecs/gsm/lib/libgsm.a
+ 
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ 
+ all: depend $(FORMAT_LIBS)
+ 
+diff -urNad asterisk-1.0.2/pbx/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/pbx/Makefile
+--- asterisk-1.0.2/pbx/Makefile	2003-10-26 19:50:49.000000000 +0100
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/pbx/Makefile	2005-01-04 21:07:01.000000000 +0100
 @@ -27,7 +27,7 @@
  MOC=$(QTDIR)/bin/moc
  KDE_FLAGS=-I$(KDEDIR)/include -I$(KDEDIR)/include/kde -I$(QTDIR)/include
@@ -51,9 +107,9 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/Makefile ast
  
  KDE_CONSOLE_OBJS=pbx_kdeconsole_main.o pbx_kdeconsole.o 
  
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c	2004-09-22 17:54:21.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.c	2004-09-22 17:54:44.000000000 +1000
+diff -urNad asterisk-1.0.2/pbx/pbx_wilcalu.c /tmp/dpep.YCeVNe/asterisk-1.0.2/pbx/pbx_wilcalu.c
+--- asterisk-1.0.2/pbx/pbx_wilcalu.c	2004-08-08 19:15:02.000000000 +0200
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/pbx/pbx_wilcalu.c	2005-01-04 21:07:01.000000000 +0100
 @@ -12,7 +12,7 @@
   * the GNU General Public License
  
@@ -63,10 +119,10 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/pbx/pbx_wilcalu.
   *  Format of string is :
   *  "tech/tele,filename&" ie. "tor1/23,file&"
   */
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile asterisk-0.9.1+1.0RC1/res/Makefile
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile	2004-09-22 17:54:21.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/res/Makefile	2004-09-22 17:54:44.000000000 +1000
-@@ -18,9 +18,10 @@
+diff -urNad asterisk-1.0.2/res/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/res/Makefile
+--- asterisk-1.0.2/res/Makefile	2004-07-17 22:58:01.000000000 +0200
++++ /tmp/dpep.YCeVNe/asterisk-1.0.2/res/Makefile	2005-01-04 21:07:25.000000000 +0100
+@@ -19,7 +19,7 @@
  
  CRYPTO_LIBS=-lssl -lcrypto
  
@@ -74,7 +130,4 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile ast
 +CFLAGS+=-fPIC -DPIC
  CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
  CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
-+CFLAGS+=$(shell [ -f ../include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
- #
- # Work around buggy RedHat 9.0
  #

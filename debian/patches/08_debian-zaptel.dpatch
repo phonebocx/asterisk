@@ -23,9 +23,9 @@ esac
 exit 0
 
 @DPATCH@
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_flash.c asterisk-0.9.1+1.0RC1/apps/app_flash.c
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_flash.c	2004-09-22 18:32:24.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/apps/app_flash.c	2004-09-22 18:32:31.000000000 +1000
+diff -urNad asterisk-1.0.2/apps/app_flash.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_flash.c
+--- asterisk-1.0.2/apps/app_flash.c	2004-06-22 21:32:52.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_flash.c	2005-01-04 20:57:11.000000000 +0100
 @@ -22,7 +22,7 @@
  #include <asterisk/options.h>
  #include <sys/ioctl.h>
@@ -35,9 +35,33 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_flash.c
  #else
  #include <zaptel.h>
  #endif /* __linux__ */
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c	2004-09-22 18:32:24.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/apps/app_zapbarge.c	2004-09-22 18:32:31.000000000 +1000
+diff -urNad asterisk-1.0.2/apps/app_meetme.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_meetme.c
+--- asterisk-1.0.2/apps/app_meetme.c	2004-10-23 14:42:16.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_meetme.c	2005-01-04 20:57:11.000000000 +0100
+@@ -33,7 +33,7 @@
+ #include <sys/ioctl.h>
+ 
+ #ifdef __linux__
+-#include <linux/zaptel.h>
++#include "linux/zaptel.h"
+ #else
+ #include <zaptel.h>
+ #endif /* __linux__ */
+diff -urNad asterisk-1.0.2/apps/app_rpt.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_rpt.c
+--- asterisk-1.0.2/apps/app_rpt.c	2004-09-13 14:12:17.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_rpt.c	2005-01-04 20:57:11.000000000 +0100
+@@ -135,7 +135,7 @@
+ #include <sys/io.h>
+ #include <math.h>
+ #include <tonezone.h>
+-#include <linux/zaptel.h>
++#include "linux/zaptel.h"
+ 
+ static  char *tdesc = "Radio Repeater / Remote Base  version 0.17  09/13/2004";
+ static char *app = "Rpt";
+diff -urNad asterisk-1.0.2/apps/app_zapbarge.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapbarge.c
+--- asterisk-1.0.2/apps/app_zapbarge.c	2004-07-14 09:34:34.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapbarge.c	2005-01-04 20:57:11.000000000 +0100
 @@ -34,7 +34,7 @@
  #include <sys/ioctl.h>
  
@@ -47,10 +71,34 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/app_zapbarg
  #else
  #include <zaptel.h>
  #endif /* __linux__ */
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/Makefile asterisk-0.9.1+1.0RC1/apps/Makefile
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/Makefile	2004-09-22 18:32:24.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/apps/Makefile	2004-09-22 18:32:31.000000000 +1000
-@@ -34,10 +34,11 @@
+diff -urNad asterisk-1.0.2/apps/app_zapras.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapras.c
+--- asterisk-1.0.2/apps/app_zapras.c	2004-06-22 21:32:52.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapras.c	2005-01-04 20:57:11.000000000 +0100
+@@ -36,7 +36,7 @@
+ 
+ /* Need some zaptel help here */
+ #ifdef __linux__
+-#include <linux/zaptel.h>
++#include "linux/zaptel.h"
+ #else
+ #include <zaptel.h>
+ #endif /* __linux__ */
+diff -urNad asterisk-1.0.2/apps/app_zapscan.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapscan.c
+--- asterisk-1.0.2/apps/app_zapscan.c	2004-07-14 09:34:34.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapscan.c	2005-01-04 20:57:11.000000000 +0100
+@@ -35,7 +35,7 @@
+ #include <sys/ioctl.h>
+ 
+ #ifdef __linux__
+-#include <linux/zaptel.h>
++#include "linux/zaptel.h"
+ #else
+ #include <zaptel.h>
+ #endif /* __linux__ */
+diff -urNad asterisk-1.0.2/apps/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/apps/Makefile
+--- asterisk-1.0.2/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/Makefile	2005-01-04 20:57:11.000000000 +0100
+@@ -35,10 +35,11 @@
  APPS+=app_intercom.so
  endif
  
@@ -63,10 +111,10 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/apps/Makefile as
  APPS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
  APPS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
  APPS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/channels/Makefile asterisk-0.9.1+1.0RC1/channels/Makefile
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/channels/Makefile	2004-09-22 18:32:24.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/channels/Makefile	2004-09-22 18:32:31.000000000 +1000
-@@ -66,6 +66,7 @@
+diff -urNad asterisk-1.0.2/channels/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/channels/Makefile
+--- asterisk-1.0.2/channels/Makefile	2004-08-31 18:33:00.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/channels/Makefile	2005-01-04 20:57:11.000000000 +0100
+@@ -83,6 +83,7 @@
  CFLAGS+=$(shell [ -f alsa-monitor.h ] && echo " -DALSA_MONITOR")
  ZAPPRI=$(shell [ -f /usr/lib/libpri.so.1 ] && echo "-lpri")
  ZAPR2=$(shell [ -f /usr/lib/libmfcr2.so.1 ] && echo "-lmfcr2")
@@ -74,7 +122,7 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/channels/Makefil
  CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "-DIAX_TRUNKING")
  CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "-DIAX_TRUNKING")
  CHANNEL_LIBS+=$(shell [ -f /usr/include/vpbapi.h ] && echo "chan_vpb.so" )
-@@ -89,6 +90,7 @@
+@@ -106,6 +107,7 @@
  
  ZAPDIR=/usr/lib
  
@@ -82,9 +130,9 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/channels/Makefil
  CHANNEL_LIBS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "chan_zap.so")
  CHANNEL_LIBS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "chan_zap.so")
  
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/include/linux/zaptel.h asterisk-0.9.1+1.0RC1/include/linux/zaptel.h
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/include/linux/zaptel.h	2004-09-22 18:32:24.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/include/linux/zaptel.h	2004-09-22 18:32:31.000000000 +1000
+diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.2/include/linux/zaptel.h
+--- asterisk-1.0.2/include/linux/zaptel.h	1970-01-01 01:00:00.000000000 +0100
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/include/linux/zaptel.h	2005-01-04 20:57:11.000000000 +0100
 @@ -0,0 +1,1424 @@
 +/*
 + * Zapata Telephony Interface
@@ -1510,29 +1558,25 @@ diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/include/linux/za
 +#endif /* __KERNEL__ */
 +
 +#endif /* _LINUX_ZAPTEL_H */
-diff -urNad /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile.rej asterisk-0.9.1+1.0RC1/res/Makefile.rej
---- /home/msp/src/debian/asterisk/asterisk-0.9.1+1.0RC1/res/Makefile.rej	1970-01-01 10:00:00.000000000 +1000
-+++ asterisk-0.9.1+1.0RC1/res/Makefile.rej	2004-09-22 18:32:31.000000000 +1000
-@@ -0,0 +1,22 @@
-+***************
-+*** 18,26 ****
-+  
-+  CRYPTO_LIBS=-lssl -lcrypto
-+  
-+- CFLAGS+=
-+  CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
-+  CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
-+  #
-+  # Work around buggy RedHat 9.0
-+  #
-+--- 18,27 ----
-+  
-+  CRYPTO_LIBS=-lssl -lcrypto
-+  
-++ CFLAGS+=-fPIC -DPIC
-+  CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
-+  CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
-++ CFLAGS+=$(shell [ -f ../include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
-+  #
-+  # Work around buggy RedHat 9.0
-+  #
+diff -urNad asterisk-1.0.2/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/Makefile
+--- asterisk-1.0.2/Makefile	2004-10-03 20:37:37.000000000 +0200
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/Makefile	2005-01-04 20:57:11.000000000 +0100
+@@ -158,6 +158,7 @@
+ 
+ CFLAGS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
+ CFLAGS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
++CFLAGS+=$(shell if [ -f ../include/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
+ 
+ LIBEDIT=editline/libedit.a
+ 
+diff -urNad asterisk-1.0.2/res/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/res/Makefile
+--- asterisk-1.0.2/res/Makefile	2005-01-04 20:46:06.000000000 +0100
++++ /tmp/dpep.wTubdh/asterisk-1.0.2/res/Makefile	2005-01-04 20:57:11.000000000 +0100
+@@ -22,6 +22,7 @@
+ CFLAGS+=
+ CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
+ CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
++CFLAGS+=$(shell [ -f ../include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
+ #
+ # Work around buggy RedHat 9.0
+ #

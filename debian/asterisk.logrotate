@@ -4,6 +4,6 @@
         rotate 4
         sharedscripts
         postrotate
-                /usr/sbin/invoke-rc.d asterisk restart
+                /usr/sbin/invoke-rc.d asterisk logger-reload
         endscript
 }

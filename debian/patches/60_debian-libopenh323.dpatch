@@ -1,31 +1,37 @@
-#! /bin/sh -e
-## debian-libopenh323.dpatch by Mark Purcell <msp@debian.org>
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## channels_Makefile.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: Patch asterisk to use installed libopenh323
-
-if [ $# -lt 1 ]; then
-    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
-    exit 1
-fi
-
-[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
-patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
-
-case "$1" in
-    -patch) patch -p1 ${patch_opts} < $0;;
-    -unpatch) patch -R -p1 ${patch_opts} < $0;;
-    *)
-        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
-        exit 1;;
-esac
-
-exit 0
+## DP: No description.
 
 @DPATCH@
-
---- asterisk-0.9.1+1.0RC2.orig/channels/h323/Makefile
-+++ asterisk-0.9.1+1.0RC2/channels/h323/Makefile
+diff -urNad asterisk-1.0.2/channels/Makefile /tmp/dpep.rfBy0Q/asterisk-1.0.2/channels/Makefile
+--- asterisk-1.0.2/channels/Makefile	2004-08-31 18:33:00.000000000 +0200
++++ /tmp/dpep.rfBy0Q/asterisk-1.0.2/channels/Makefile	2005-01-04 21:32:54.000000000 +0100
+@@ -14,9 +14,6 @@
+ # the GNU General Public License
+ #
+ 
+-OSARCH=$(shell uname -s)
+-PROC=$(shell uname -m)
+-
+ USE_MYSQL_FRIENDS=0
+ USE_SIP_MYSQL_FRIENDS=0
+ 
+@@ -46,8 +43,8 @@
+ endif
+ ifeq (${OSARCH},Linux)
+ MYSQLLIB=-L/usr/lib/mysql -lmysqlclient
+-PTLIB=-lpt_linux_x86_r
+-H323LIB=-lh323_linux_x86_r
++PTLIB=-lpt
++H323LIB=-lopenh323
+ CHANH323LIB=-ldl
+ 
+ ifeq ($(PROC),sparc64)
+diff -urNad asterisk-1.0.2/channels/h323/Makefile /tmp/dpep.a59vmL/asterisk-1.0.2/channels/h323/Makefile
+--- asterisk-1.0.2/channels/h323/Makefile	2004-08-31 15:32:11.000000000 +0200
++++ /tmp/dpep.a59vmL/asterisk-1.0.2/channels/h323/Makefile	2005-01-04 21:30:30.000000000 +0100
 @@ -1,5 +1,9 @@
  # include the Makefile of OpenH323 
  
@@ -36,7 +42,16 @@ exit 0
  ifndef OPENH323DIR
  OPENH323DIR=$(HOME)/openh323
  endif
-@@ -57,10 +61,11 @@
+@@ -22,7 +26,7 @@
+ OSARCH=$(shell uname -s)
+ ifneq (${OSARCH},FreeBSD)
+ ifneq (${OSARCH},NetBSD)
+-CFLAGS += -march=$(shell uname -m)
++CFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1;
+ endif
+ endif
+ CFLAGS += -DPBYTE_ORDER=PLITTLE_ENDIAN
+@@ -59,10 +63,11 @@
  CFLAGS += -DP_HAS_SEMAPHORES -DP_SSL -DP_PTHREADS
  CFLAGS += -DPHAS_TEMPLATES -DPTRACING -DP_USE_PRAGMA
  CFLAGS += -I../../include

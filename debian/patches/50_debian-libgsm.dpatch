@@ -1,31 +1,13 @@
-#! /bin/sh -e
-## debian-libgsm.dpatch by Mark Purcell <msp@debian.org>
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## codecs_Makefile.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: Patch asterisk to use installed libgsm
-
-if [ $# -lt 1 ]; then
-    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
-    exit 1
-fi
-
-[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
-patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
-
-case "$1" in
-    -patch) patch -p1 ${patch_opts} < $0;;
-    -unpatch) patch -R -p1 ${patch_opts} < $0;;
-    *)
-        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
-        exit 1;;
-esac
-
-exit 0
+## DP: No description.
 
 @DPATCH@
-
---- asterisk-0.9.1+1.0RC2.orig/codecs/codec_gsm.c
-+++ asterisk-0.9.1+1.0RC2/codecs/codec_gsm.c
+diff -urNad asterisk-1.0.2/codecs/codec_gsm.c /tmp/dpep.5l651S/asterisk-1.0.2/codecs/codec_gsm.c
+--- asterisk-1.0.2/codecs/codec_gsm.c	2004-06-22 20:49:00.000000000 +0200
++++ /tmp/dpep.5l651S/asterisk-1.0.2/codecs/codec_gsm.c	2005-01-04 21:41:03.000000000 +0100
 @@ -30,8 +30,8 @@
  #include <netinet/in.h>
  #include <string.h>
@@ -36,3 +18,43 @@ exit 0
  #include "../formats/msgsm.h"
  
  /* Sample frame data */
+diff -urNad asterisk-1.0.2/codecs/Makefile /tmp/dpep.5l651S/asterisk-1.0.2/codecs/Makefile
+--- asterisk-1.0.2/codecs/Makefile	2004-07-19 17:52:57.000000000 +0200
++++ /tmp/dpep.5l651S/asterisk-1.0.2/codecs/Makefile	2005-01-04 21:41:03.000000000 +0100
+@@ -26,8 +26,9 @@
+ 
+ LIBG723=g723.1/libg723.a
+ LIBG723B=g723.1b/libg723b.a
+-LIBGSM=gsm/lib/libgsm.a
+-LIBGSMT=gsm/lib/libgsm.a
++LIBGSM=-lgsm
++# We don't build libgsm but use the system's one.
++LIBGSMT=
+ LIBLPC10=lpc10/liblpc10.a
+ LIBSPEEX=$(shell [ -f /usr/local/lib/libspeex.a ] && echo "-L/usr/local/lib")
+ LIBSPEEX+=-lspeex -lm
+diff -urNad asterisk-1.0.2/formats/Makefile /tmp/dpep.5l651S/asterisk-1.0.2/formats/Makefile
+--- asterisk-1.0.2/formats/Makefile	2004-09-05 20:00:55.000000000 +0200
++++ /tmp/dpep.5l651S/asterisk-1.0.2/formats/Makefile	2005-01-04 21:41:50.000000000 +0100
+@@ -21,8 +21,6 @@
+ #
+ #FORMAT_LIBS+=format_g723.so
+ 
+-GSMLIB=../codecs/gsm/lib/libgsm.a
+-
+ CFLAGS+=-fPIC
+ 
+ all: depend $(FORMAT_LIBS)
+@@ -37,6 +35,12 @@
+ include .depend
+ endif
+ 
++format_gsm.so : format_gsm.o
++       $(CC) $(SOLINK) -o $@ $< -lgsm
++
++format_wav_gsm.so : format_wav_gsm.o
++       $(CC) $(SOLINK) -o $@ $< -lgsm
++
+ format_mp3.so : format_mp3.o
+ 	$(CC) $(SOLINK) -o $@ $< -lm
+ 

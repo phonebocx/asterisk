@@ -10,6 +10,8 @@ export DH_COMPAT=4
 
 DEB_HOST_ARCH := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 
+export PROC := $(shell dpkg-architecture -qDEB_HOST_ARCH)
+
 OPTFLAGS= -O2
 
 ifeq ($(DEB_HOST_ARCH),amd64)
@@ -30,14 +32,13 @@ export PWLIBDIR=/usr/share/pwlib
 
 include /usr/share/dpatch/dpatch.make
 
-configure: configure-stamp
-configure-stamp: patch-stamp
+configure: patch 
 	dh_testdir
 	# Add here commands to configure the package.
 
 	touch configure-stamp
 
-build-arch: configure-stamp  build-arch-stamp
+build-arch: configure  build-arch-stamp
 build-arch-stamp:
 	dh_testdir
 
@@ -47,7 +48,7 @@ build-arch-stamp:
 
 	touch build-arch-stamp
 
-build-indep:  configure-stamp build-indep-stamp
+build-indep:  configure build-indep-stamp
 build-indep-stamp:
 	dh_testdir
 
@@ -62,11 +63,11 @@ build-indep-stamp:
 
 build: build-arch build-indep
 
-clean: cleaned unpatch
+clean: unpatch cleaned 
 cleaned:
 	dh_testdir
 	dh_testroot
-	rm -f build-arch-stamp build-indep-stamp configure-stamp patch-stamp
+	rm -f build-arch-stamp build-indep-stamp configure 
 
 	# Add here commands to clean up after the build process.
 	-$(MAKE) -C channels/h323 clean
@@ -85,6 +86,13 @@ install: build
 	$(MAKE) INSTALL_PREFIX=$(CURDIR)/debian/tmp install samples
 	cp debian/asterisk.conf $(CURDIR)/debian/tmp/etc/asterisk/asterisk.conf
 	cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
+	cp contrib/scripts/addmailbox $(CURDIR)/debian/tmp/usr/sbin/
+	chmod +x $(CURDIR)/debian/tmp/usr/sbin/addmailbox
+	mkdir -p $(CURDIR)/debian/tmp/etc/default/
+	cp debian/asterisk-config.default $(CURDIR)/debian/tmp/etc/default/asterisk
+	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
+	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
+	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
 
 
 	dh_install --sourcedir=debian/tmp
@@ -94,6 +102,7 @@ binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
 	dh_installdocs -i
+	dh_installman asterisk.8.gz
 	dh_installexamples -i -XCVS
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
@@ -120,10 +129,12 @@ binary-arch: build install
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a
+	rm debian/asterisk/usr/lib/asterisk/modules/pbx_gtkconsole.so
+	rm debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a
 	dh_builddeb -a
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install configure clean unpatch
+.PHONY: build clean binary-indep binary-arch binary install configure clean 

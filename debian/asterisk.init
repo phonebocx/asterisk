@@ -19,7 +19,23 @@
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 DAEMON=/usr/sbin/asterisk
 NAME=asterisk
+USER=$NAME
 DESC="Asterisk PBX"
+
+# by default: use real-time priority
+PARAMS=""
+AST_REALTIME="yes"
+if [ -x /etc/default/asterisk ]; then . /etc/default/asterisk; fi
+
+if [ "$AST_REALTIME" != "no" ]
+then
+  PARAMS="$PARAMS -p"
+fi
+
+if [ "x$USER" != x ] && [ "x$USER" != xroot ]
+then
+  PARAMS="$PARAMS -U $USER"
+fi
 
 test -x $DAEMON || exit 0
 
@@ -28,8 +44,7 @@ set -e
 case "$1" in
   start)
 	echo -n "Starting $DESC: "
-	start-stop-daemon --start --chuid $NAME \
-		--exec $DAEMON
+	start-stop-daemon --start --exec $DAEMON -- $PARAMS
 	echo "$NAME."
 	;;
   stop)
@@ -40,14 +55,21 @@ case "$1" in
 	;;
   reload)
 	echo "Reloading $DESC configuration files."
-	$DAEMON -rx reload
+	$DAEMON -rx 'reload'
+	;;
+  logger-reload)
+	$DAEMON -rx 'logger reload'
+	;;
+  extensions-reload)
+	echo "Reloading $DESC configuration files."
+	$DAEMON -rx 'extensions reload'
 	;;
   restart|force-reload)
 	$DAEMON -rx 'restart gracefully' > /dev/null && echo -n "$NAME"
 	;;
   *)
 	N=/etc/init.d/$NAME
-	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	# echo "Usage: $N {start|stop|restart|reload|logger-reload|extensions-reload|force-reload}" >&2
 	echo "Usage: $N {start|stop|restart|force-reload}" >&2
 	exit 1
 	;;
