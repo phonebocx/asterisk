@@ -24,8 +24,8 @@ exit 0
 
 @DPATCH@
 
---- channels/chan_sip.c 22 Jul 2004 23:16:40 -0000      1.460
-+++ channels/chan_sip.c 27 Jul 2004 04:04:45 -0000      1.461
+--- asterisk-0.9.1+1.0RC1.orig/channels/chan_sip.c 22 Jul 2004 23:16:40 -0000      1.460
++++ asterisk-0.9.1+1.0RC1/channels/chan_sip.c 27 Jul 2004 04:04:45 -0000      1.461
 @@ -3107,4 +3107,6 @@ static int reqprep(struct sip_request *r
         }
 -
