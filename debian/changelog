@@ -15,8 +15,10 @@ asterisk (1:1.0.5-3) UNRELEASED; urgency=low
   * debian/rules: Remove the asterisk.8.gz recompression. (Closes: #295220)
   * debian/README.Debian: Added first version. Thanks to Tzafrir Cohen for the
     template! (Closes: #270072)
+  * debian/asterisk.deafult: moved the /etc/default to the asterisk package,
+    as /etc/init.d/asterisk in there needs it.
 
- -- Kilian Krause <kk@verfaction.de>  Tue, 15 Feb 2005 13:56:20 +0100
+ -- Kilian Krause <kk@verfaction.de>  Tue, 15 Feb 2005 15:31:12 +0100
 
 asterisk (1:1.0.5-2) unstable; urgency=low
 

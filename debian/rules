@@ -96,7 +96,7 @@ install: build
 	cp contrib/scripts/addmailbox $(CURDIR)/debian/tmp/usr/sbin/
 	chmod +x $(CURDIR)/debian/tmp/usr/sbin/addmailbox
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
-	cp debian/asterisk-config.default $(CURDIR)/debian/tmp/etc/default/asterisk
+	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
