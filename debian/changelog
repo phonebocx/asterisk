@@ -1,14 +1,14 @@
 asterisk (1:1.0.6-1) unstable; urgency=low
 
-  * New upstream release. (Closes: #298128)
+  * New upstream release. (asterisk 1.0.6, bristuff RC7k, Closes: #298128)
   * debian/control: explicitly depend on zlib1g-dev. (Closes: #296967)
   * Make sure we have the newer asterisk-config to not conflict
     /etc/default/asterisk. (Closes: #297719)
   * as there is no longer a conflict with libnewt-dev, it was added to the
     build deps for astman
-  * debian/control: add astman (Closes: #259342)
+  * debian/control: add astman and cdr_sqlite (Closes: #259342)
 
- -- Kilian Krause <kk@verfaction.de>  Fri,  4 Mar 2005 02:07:00 +0100
+ -- Kilian Krause <kk@verfaction.de>  Sat,  5 Mar 2005 13:40:46 +0100
 
 asterisk (1:1.0.5-4) unstable; urgency=low
 
@@ -44,7 +44,7 @@ asterisk (1:1.0.5-3) unstable; urgency=low
     as /etc/init.d/asterisk in there needs it.
   * debian/80_skinny.dpatch: Added
     http://bugs.digium.com/bug_view_page.php?bug_id=0003496. Thanks to Johan
-    Thelmén <johan.thelmen@cygate.se>. (Closes:#295658)
+    ThelmÃ©n <johan.thelmen@cygate.se>. (Closes:#295658)
   * debian/control: remove chan_h323 from being built for now. For now it's
     being replaced by asterisk-oh323 until chan_h323 does build and work ok
     with latest OpenH323 again.
@@ -71,7 +71,7 @@ asterisk (1:1.0.5-1) unstable; urgency=low
 
   * Kilian Krause:
     - debian/asterisk.init: fixed multiple GID problem when starting asterisk (as
-      reported by Raoul Bönisch and Simon Peter). Unfortunatelly this does
+      reported by Raoul BÃ¶nisch and Simon Peter). Unfortunatelly this does
       remove the chance to run as real-time prio.
     - debian/asterisk.init: fixed stale stop by using start-stop-server after
       soft shutdown (Closes: #263879)
