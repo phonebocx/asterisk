@@ -7,8 +7,10 @@ asterisk (1:1.0.6-1) unstable; urgency=low
   * as there is no longer a conflict with libnewt-dev, it was added to the
     build deps for astman
   * debian/control: add astman and cdr_sqlite (Closes: #259342)
+  * asterisk.default, asterisk.init: removed hack to load zaphfc correctly.
+    We'll leave this to zaptel and it's modprobe.d features.
 
- -- Kilian Krause <kk@verfaction.de>  Sat,  5 Mar 2005 13:40:46 +0100
+ -- Kilian Krause <kk@verfaction.de>  Sat,  5 Mar 2005 20:03:42 +0100
 
 asterisk (1:1.0.5-4) unstable; urgency=low
 

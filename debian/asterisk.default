@@ -22,13 +22,3 @@ RUNASTERISK=no
 # RUNASTSAFE: run safe_asterisk rather than asterisk (will auto-restart upon
 #             crash)
 #RUNASTSAFE=yes
-
-# Additional commands to preload modules before starting asterisk
-# put additional commands here like
-# Especially ZapHFC does _NOT_ support multiple init. 
-# You need to run ztcfg exactelly ONCE after loading the module.
-# zaphfc and qozap will _NOT_ work when running ztcfg twice or more.
-#
-#MODULEUNLOAD="rmmod zaphfc"
-#MODULELOAD="modprobe zaphfc modes=1"
-#MODULEINIT="/sbin/ztcfg -v"
