@@ -11,4 +11,5 @@
 #         The example here may help you in debugging, but is not intended for 
 #         production use.
 #PARAMS="-g -vvv"
-PARAMS="-G asterisk"
+#
+# removed -G as now a full chuid to the asterisk user is performed (which implies -G)

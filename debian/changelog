@@ -1,9 +1,14 @@
 asterisk (1:1.0.3-3) UNRELEASED; urgency=low
 
-  * debian/asterisk.init: fixed UID and GID when starting asterisk problem (as
+  * debian/asterisk.init: fixed multiple GID problem when starting asterisk (as
     reported by Raoul Bönisch and Simon Peter).
+  * debian/asterisk.init: fixed stale stop by using start-stop-server after
+    soft shutdown (Closes: #263879)
+  * debian/asterisk.init: Fixed running as root problem for #279052. At least
+    through the /etc/init.d/asterisk you won't be able to run asterisk as
+    root (not even with another username).
 
- -- Kilian Krause <kk@verfaction.de>  Thu, 20 Jan 2005 11:20:00 +0100
+ -- Kilian Krause <kk@verfaction.de>  Thu, 20 Jan 2005 11:42:33 +0100
 
 asterisk (1:1.0.3-2) unstable; urgency=low
 
