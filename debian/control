@@ -4,7 +4,7 @@ Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kk@verfaction.de>, Jose Carlos Garcia Sogo <jsogo@debian.org>, Santiago Garcia Mantinan <manty@debian.org>
 Standards-Version: 3.6.1
-Build-Depends: debhelper (>= 4.0.4), libgtk1.2-dev | libgtk-dev, libreadline4-dev | libreadline-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev (>= 1.0.4-1), doxygen, bison, libasound2-dev, postgresql-dev, unixodbc-dev, libpri-dev (>= 1.0.4-2), libopenh323-dev (>= 1.13.5.4-1), libspeex-dev, dpatch (>= 2.0.10), zaptel-source (>= 1.0.4-1)
+Build-Depends: debhelper (>= 4.0.4), libgtk1.2-dev | libgtk-dev, libreadline4-dev | libreadline-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev (>= 1.0.4-1), doxygen, bison, libasound2-dev, postgresql-dev, unixodbc-dev, libpri-dev (>= 1.0.4-2), libspeex-dev, dpatch (>= 2.0.10), zaptel-source (>= 1.0.4-1)
 
 Package: asterisk
 Architecture: any
@@ -36,15 +36,16 @@ Description: open source Private Branch Exchange (PBX)
 
 Package: asterisk-h323
 Architecture: any
-Recommends: asterisk
+Recommends: asterisk, asterisk-oh323
 Replaces: asterisk (<= 1:1.0.2-2)
 Section: comm
 Depends: ${shlibs:Depends}
 Description: asterisk H.323 VoIP channel
- This package provides a h323 support for the Asterisk Open Source PBX system.
+ This package provided h323 support for the Asterisk Open Source PBX system.
  .
  It was separated out into its own package to avoid having the main package
- depend on the many openh323 dependencies
+ depend on the many openh323 dependencies. For now asterisk-oh323 replaces this
+ version until chan_h323 does support the current OpenH323 version again.
 
 Package: asterisk-gtk-console
 Architecture: any

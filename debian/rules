@@ -27,8 +27,8 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	INSTALL_PROGRAM += -s
 endif
 
-export OPENH323DIR=/usr/share/openh323
-export PWLIBDIR=/usr/share/pwlib
+#export OPENH323DIR=/usr/share/openh323
+#export PWLIBDIR=/usr/share/pwlib
 
 include /usr/share/dpatch/dpatch.make
 
@@ -50,7 +50,7 @@ build-arch-stamp:
 	dh_testdir
 
 	# Add here command to compile/build the package.
-	cd channels/h323; make
+	#cd channels/h323; make
 	$(MAKE)
 
 	touch build-arch-stamp
@@ -77,7 +77,7 @@ cleaned:
 	-$(RM) -f build-arch-stamp build-indep-stamp configure 
 
 	# Add here commands to clean up after the build process.
-	-$(MAKE) -C channels/h323 clean
+	#-$(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
 	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
 
@@ -92,7 +92,7 @@ install: build
 	# Add here commands to install the package into debian/<packagename>
 	$(MAKE) INSTALL_PREFIX=$(CURDIR)/debian/tmp install samples
 	cp debian/asterisk.conf $(CURDIR)/debian/tmp/etc/asterisk/asterisk.conf
-	cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
+	#cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
 	cp contrib/scripts/addmailbox $(CURDIR)/debian/tmp/usr/sbin/
 	chmod +x $(CURDIR)/debian/tmp/usr/sbin/addmailbox
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
@@ -137,7 +137,7 @@ binary-arch: build install
 	dh_fixperms -a
 	dh_installdeb -a
 	rm debian/asterisk/usr/lib/asterisk/modules/pbx_gtkconsole.so
-	rm debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
+	#rm debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a

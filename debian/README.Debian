@@ -43,9 +43,9 @@ files first.
 
 External Libraries
 ==================
-The package includes support for h323, sip and iax (v1 and v2). The h323
-support is reported to be mostly broken, so please try asterisk-oh323 for a
-better H323 support.
+The package no longer includes support for h323, but for sip and iax (v1 and
+v2). The h323 support is reported to be mostly broken, so please try
+asterisk-oh323 for a better H323 support.
 
 Getting started with config and more features
 =============================================
