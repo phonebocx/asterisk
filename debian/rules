@@ -110,7 +110,7 @@ cleaned:
 	   mv config.guess.old config.guess; \
 	fi; \
 	cd ..)
-	chmod -x configs/*.conf
+	-chmod -x configs/*.conf
 
 	dh_clean
 
