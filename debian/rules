@@ -36,7 +36,7 @@ check-sounds:
 	( [ ! -f sounds/fpm-calm-river.mp3 ] && \
 	  [ ! -f sounds/fpm-sunshine.mp3 ]   && \
 	  [ ! -f sounds/fpm-world-mix.mp3 ] ) || \
-		(echo "WARNING: fpm sounds must to be removed from sources" ; false )
+		(echo "WARNING: fpm sounds must to be removed from sources before packaging." ; false )
 	
 
 configure: check-sounds patch 
@@ -65,9 +65,6 @@ build-indep-stamp:
 	#/usr/bin/docbook-to-man debian/asterisk.sgml > asterisk.1
 	$(MAKE) progdocs
 
-	gunzip asterisk.8.gz
-	gzip --best asterisk.8
-	
 	touch build-indep-stamp
 
 
@@ -82,9 +79,6 @@ cleaned:
 	# Add here commands to clean up after the build process.
 	-$(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
-	-$(RM) -f sounds/fpm-calm-river.mp3 
-	-$(RM) -f sounds/fpm-sunshine.mp3
-	-$(RM) -f sounds/fpm-world-mix.mp3
 	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
 
 	dh_clean
