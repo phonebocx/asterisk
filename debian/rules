@@ -80,6 +80,7 @@ cleaned:
 	#-$(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
 	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
+	-$(RM) debian/asterisk.8.gz
 
 	dh_clean
 
@@ -101,6 +102,7 @@ install: build
 	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
 
+	zcat asterisk.8.gz|gzip -9c >debian/asterisk.8.gz
 
 	dh_install --sourcedir=debian/tmp
 
@@ -109,7 +111,7 @@ binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
 	dh_installdocs -i
-	dh_installman asterisk.8.gz
+	dh_installman debian/asterisk.8.gz
 	dh_installexamples -i -XCVS
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
