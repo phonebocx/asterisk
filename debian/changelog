@@ -20,8 +20,11 @@ asterisk (1:1.0.5-3) unstable; urgency=low
   * debian/80_skinny.dpatch: Added
     http://bugs.digium.com/bug_view_page.php?bug_id=0003496. Thanks to Johan
     Thelmén <johan.thelmen@cygate.se>. (Closes:#295658)
+  * debian/control: remove chan_h323 from being built for now. For now it's
+    being replaced by asterisk-oh323 until chan_h323 does build and work ok
+    with latest OpenH323 again.
 
- -- Kilian Krause <kk@verfaction.de>  Mon, 21 Feb 2005 22:46:15 +0100
+ -- Kilian Krause <kk@verfaction.de>  Mon, 21 Feb 2005 23:13:57 +0100
 
 asterisk (1:1.0.5-2) unstable; urgency=low
 
