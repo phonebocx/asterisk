@@ -1,10 +1,13 @@
 asterisk (1:1.0.7.dfsg.1-2) UNRELEASED; urgency=low
 
-  * debian/rules: fixed restart problem with breaking up after stop.
   * Mark Purcell
     + Update debian/watch to use svn-upgrade
+  * Kilian Krause
+    + debian/asterisk.init: fixed restart problem with breaking up after stop.
+    + debian/asterisk.init: fixed reference to WRAPPER_DEAMON which is only
+      DEAMON for us. (Closes:#300707)
 
- -- Kilian Krause <kk@verfaction.de>  Sun, 20 Mar 2005 14:25:05 +0100
+ -- Kilian Krause <kk@verfaction.de>  Mon, 21 Mar 2005 10:59:01 +0100
 
 asterisk (1:1.0.7.dfsg.1-1) unstable; urgency=low
 

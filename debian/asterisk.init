@@ -74,13 +74,13 @@ case "$1" in
 		$REALDAEMON -rx 'stop now' > /dev/null  || true
 	else
 		# Try gracefully
-		$DAEMON -rx 'stop now' > /dev/null 2>&1 
+		$DAEMON -rx 'stop now' > /dev/null 2>&1 || true
 	fi
 	echo -n "$NAME"
 	# giving a small grace time to shut down cleanly.
 	sleep 2
 	if [ "$RUNASTSAFE" = "yes" ];then
-		start-stop-daemon --quiet --oknodo --stop --exec $WRAPPER_DAEMON 
+		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON
 	fi
 	# just making sure it's really, really dead. 
 	# KILL is necessary just in case there's an asterisk -r in the background
