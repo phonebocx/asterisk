@@ -57,12 +57,15 @@ case "$1" in
 	;;
   stop)
 	echo -n "Stopping $DESC: "
-	$DAEMON -rx 'stop now' > /dev/null  || true
+	if [ "x$RUNASTSAFE" = "xyes" ];then
+		$REALDAEMON -rx 'stop now' > /dev/null  || true
+	else
+		$DAEMON -rx 'stop now' > /dev/null  || true
+	fi
 	echo -n "$NAME"
 	# just making sure it's really, really dead. 
 	sleep 2
 	if [ "x$RUNASTSAFE" = "xyes" ];then
-		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
 		start-stop-daemon --quiet --oknodo --stop --exec $REALDAEMON 
 	else
 		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
