@@ -4,11 +4,12 @@ asterisk (1:1.0.5-4) unstable; urgency=low
   * debian/asterisk.init, debian/asterisk.default: Cleanup zaphfc preloading
     as inspired by Tzafrir Cohen.
   * debian/control: Remove speex as B-D, it's broken when imported from
-    debian.
-  * deiban/rules: fix asterisk.8.gz error in lintian.
+    debian. Added autotools-dev for editline.
+  * deiban/rules: fix asterisk.8.gz error in lintian. Bring new autotools for
+    editline's configure.
   * reintroduce chan_zap (Closes: #296656)
 
- -- Kilian Krause <kk@verfaction.de>  Wed, 23 Feb 2005 22:03:02 +0100
+ -- Kilian Krause <kk@verfaction.de>  Thu, 24 Feb 2005 01:16:49 +0100
 
 asterisk (1:1.0.5-3) unstable; urgency=low
 
