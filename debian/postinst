@@ -15,7 +15,7 @@ case "$1" in
     configure)
 
 	if (getent passwd asterisk >/dev/null);then
-		if ("`getent passwd root|awk -F: '{print $6}'`" = "/var/run/asterisk");then
+		if [ "`getent passwd asterisk|awk -F: '{print $6}'`" = "/var/run/asterisk" ];then
 			usermod -d /var/lib/asterisk asterisk
 		fi
 	else
