@@ -100,6 +100,7 @@ cleaned:
 	# Add here commands to clean up after the build process.
 	#-test -d channels/h323 && $(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
+	-$(RM) -f fxstest ztmonitor ztspeed zttest
 	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
 	-$(RM) debian/asterisk.8.gz
 	-(test -d editline &&cd editline; \
