@@ -6,8 +6,9 @@ asterisk (1:1.0.5-4) unstable; urgency=low
   * debian/control: Remove speex as B-D, it's broken when imported from
     debian.
   * deiban/rules: fix asterisk.8.gz error in lintian.
+  * reintroduce chan_zap (Closes: #296656)
 
- -- Kilian Krause <kk@verfaction.de>  Tue, 22 Feb 2005 02:38:34 +0100
+ -- Kilian Krause <kk@verfaction.de>  Wed, 23 Feb 2005 22:03:02 +0100
 
 asterisk (1:1.0.5-3) unstable; urgency=low
 
