@@ -1,0 +1,6 @@
+H.323 support moved towards asterisk-oh323
+==========================================
+The asterisk source package no longer includes support for H323, but only for
+SIP and IAX (v1 and v2). The H323 support was reported to be mostly broken
+anyway, so please try asterisk-oh323 as a replacement for chan_h323.
+
