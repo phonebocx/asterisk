@@ -3227,15 +3227,6 @@ diff -urN asterisk-1.0.6.orig/include/asterisk/channel.h asterisk-1.0.6/include/
  #include <asterisk/cdr.h>
  #include <asterisk/monitor.h>
  
-@@ -52,6 +55,8 @@
- 	int (*generate)(struct ast_channel *chan, void *data, int len, int samples);
- };
- 
-+extern ast_mutex_t uniquelock;			
-+
- //! Main Channel structure associated with a channel.
- /*! 
-  * This is the side of it mostly used by the pbx and call management.
 @@ -217,7 +222,7 @@
  	unsigned int fout;
  
