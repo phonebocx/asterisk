@@ -23,9 +23,9 @@ esac
 exit 0
 
 @DPATCH@
-diff -urNad asterisk-1.0.2/apps/app_flash.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_flash.c
---- asterisk-1.0.2/apps/app_flash.c	2004-06-22 21:32:52.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_flash.c	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/apps/app_flash.c /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_flash.c
+--- asterisk-1.0.3/apps/app_flash.c	2004-06-22 21:32:52.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_flash.c	2005-01-15 01:32:39.000000000 +0100
 @@ -22,7 +22,7 @@
  #include <asterisk/options.h>
  #include <sys/ioctl.h>
@@ -35,9 +35,9 @@ diff -urNad asterisk-1.0.2/apps/app_flash.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps
  #else
  #include <zaptel.h>
  #endif /* __linux__ */
-diff -urNad asterisk-1.0.2/apps/app_meetme.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_meetme.c
---- asterisk-1.0.2/apps/app_meetme.c	2004-10-23 14:42:16.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_meetme.c	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/apps/app_meetme.c /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_meetme.c
+--- asterisk-1.0.3/apps/app_meetme.c	2004-11-25 19:27:22.000000000 +0100
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_meetme.c	2005-01-15 01:32:39.000000000 +0100
 @@ -33,7 +33,7 @@
  #include <sys/ioctl.h>
  
@@ -47,9 +47,9 @@ diff -urNad asterisk-1.0.2/apps/app_meetme.c /tmp/dpep.wTubdh/asterisk-1.0.2/app
  #else
  #include <zaptel.h>
  #endif /* __linux__ */
-diff -urNad asterisk-1.0.2/apps/app_rpt.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_rpt.c
---- asterisk-1.0.2/apps/app_rpt.c	2004-09-13 14:12:17.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_rpt.c	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/apps/app_rpt.c /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_rpt.c
+--- asterisk-1.0.3/apps/app_rpt.c	2004-09-13 14:12:17.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_rpt.c	2005-01-15 01:32:39.000000000 +0100
 @@ -135,7 +135,7 @@
  #include <sys/io.h>
  #include <math.h>
@@ -59,9 +59,9 @@ diff -urNad asterisk-1.0.2/apps/app_rpt.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/a
  
  static  char *tdesc = "Radio Repeater / Remote Base  version 0.17  09/13/2004";
  static char *app = "Rpt";
-diff -urNad asterisk-1.0.2/apps/app_zapbarge.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapbarge.c
---- asterisk-1.0.2/apps/app_zapbarge.c	2004-07-14 09:34:34.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapbarge.c	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/apps/app_zapbarge.c /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_zapbarge.c
+--- asterisk-1.0.3/apps/app_zapbarge.c	2004-07-14 09:34:34.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_zapbarge.c	2005-01-15 01:32:39.000000000 +0100
 @@ -34,7 +34,7 @@
  #include <sys/ioctl.h>
  
@@ -71,9 +71,9 @@ diff -urNad asterisk-1.0.2/apps/app_zapbarge.c /tmp/dpep.wTubdh/asterisk-1.0.2/a
  #else
  #include <zaptel.h>
  #endif /* __linux__ */
-diff -urNad asterisk-1.0.2/apps/app_zapras.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapras.c
---- asterisk-1.0.2/apps/app_zapras.c	2004-06-22 21:32:52.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapras.c	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/apps/app_zapras.c /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_zapras.c
+--- asterisk-1.0.3/apps/app_zapras.c	2004-06-22 21:32:52.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_zapras.c	2005-01-15 01:32:39.000000000 +0100
 @@ -36,7 +36,7 @@
  
  /* Need some zaptel help here */
@@ -83,9 +83,9 @@ diff -urNad asterisk-1.0.2/apps/app_zapras.c /tmp/dpep.wTubdh/asterisk-1.0.2/app
  #else
  #include <zaptel.h>
  #endif /* __linux__ */
-diff -urNad asterisk-1.0.2/apps/app_zapscan.c /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapscan.c
---- asterisk-1.0.2/apps/app_zapscan.c	2004-07-14 09:34:34.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/app_zapscan.c	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/apps/app_zapscan.c /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_zapscan.c
+--- asterisk-1.0.3/apps/app_zapscan.c	2004-07-14 09:34:34.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/app_zapscan.c	2005-01-15 01:32:39.000000000 +0100
 @@ -35,7 +35,7 @@
  #include <sys/ioctl.h>
  
@@ -95,9 +95,9 @@ diff -urNad asterisk-1.0.2/apps/app_zapscan.c /tmp/dpep.wTubdh/asterisk-1.0.2/ap
  #else
  #include <zaptel.h>
  #endif /* __linux__ */
-diff -urNad asterisk-1.0.2/apps/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/apps/Makefile
---- asterisk-1.0.2/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/apps/Makefile	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/apps/Makefile /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/Makefile
+--- asterisk-1.0.3/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/apps/Makefile	2005-01-15 01:32:39.000000000 +0100
 @@ -35,10 +35,11 @@
  APPS+=app_intercom.so
  endif
@@ -111,9 +111,9 @@ diff -urNad asterisk-1.0.2/apps/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/apps/Ma
  APPS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
  APPS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
  APPS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
-diff -urNad asterisk-1.0.2/channels/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/channels/Makefile
---- asterisk-1.0.2/channels/Makefile	2004-08-31 18:33:00.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/channels/Makefile	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/channels/Makefile /tmp/dpep.G8mBnP/asterisk-1.0.3/channels/Makefile
+--- asterisk-1.0.3/channels/Makefile	2004-08-31 18:33:00.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/channels/Makefile	2005-01-15 01:32:39.000000000 +0100
 @@ -83,6 +83,7 @@
  CFLAGS+=$(shell [ -f alsa-monitor.h ] && echo " -DALSA_MONITOR")
  ZAPPRI=$(shell [ -f /usr/lib/libpri.so.1 ] && echo "-lpri")
@@ -130,10 +130,10 @@ diff -urNad asterisk-1.0.2/channels/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/cha
  CHANNEL_LIBS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "chan_zap.so")
  CHANNEL_LIBS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "chan_zap.so")
  
-diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.2/include/linux/zaptel.h
---- asterisk-1.0.2/include/linux/zaptel.h	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/include/linux/zaptel.h	2005-01-04 20:57:11.000000000 +0100
-@@ -0,0 +1,1424 @@
+diff -urNad asterisk-1.0.3/include/linux/zaptel.h /tmp/dpep.G8mBnP/asterisk-1.0.3/include/linux/zaptel.h
+--- asterisk-1.0.3/include/linux/zaptel.h	1970-01-01 01:00:00.000000000 +0100
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/include/linux/zaptel.h	2005-01-15 01:32:57.000000000 +0100
+@@ -0,0 +1,1443 @@
 +/*
 + * Zapata Telephony Interface
 + *
@@ -160,7 +160,7 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 + * along with this program; if not, write to the Free Software
 + * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
 + *
-+ * $Id: zaptel.h,v 1.34 2004/06/30 14:08:42 malcolmd Exp $
++ * $Id: zaptel.h,v 1.37 2004/09/11 15:48:45 jim Exp $
 + */
 +
 +#ifndef _LINUX_ZAPTEL_H
@@ -179,6 +179,10 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 +#include <linux/interrupt.h>
 +#endif
 +#include <linux/fs.h>
++
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
++#define LINUX26
++#endif
 +
 +#include "ecdis.h"
 +#include "fasthdlc.h"
@@ -315,6 +319,9 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 +int	rxwinktime;
 +int	rxflashtime;
 +int	debouncetime;
++int	pulsebreaktime;
++int	pulsemaketime;
++int	pulseaftertime;
 +} ZT_PARAMS;
 +
 +typedef struct zt_spaninfo
@@ -903,6 +910,9 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 +/* Timer event -- ping ready */
 +#define ZT_EVENT_TIMER_PING		16
 +
++/* Polarity reversal event */
++#define ZT_EVENT_POLARITY  17
++
 +#define ZT_EVENT_PULSEDIGIT (1 << 16)	/* This is OR'd with the digit received */
 +#define ZT_EVENT_DTMFDIGIT  (1 << 17)	/* Ditto for DTMF */
 +
@@ -970,6 +980,9 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 +#define	ZT_DEFAULT_RXWINKTIME 300	/* 300ms longest rx wink (to work with the Atlas) */
 +#define	ZT_DEFAULT_RXFLASHTIME 1250	/* 1250ms longest rx flash */
 +#define	ZT_DEFAULT_DEBOUNCETIME 600	/* 600ms of FXS GS signalling debounce */
++#define	ZT_DEFAULT_PULSEMAKETIME 50	/* 50 ms of line closed when dial pulsing */
++#define	ZT_DEFAULT_PULSEBREAKTIME 50	/* 50 ms of line open when dial pulsing */
++#define	ZT_DEFAULT_PULSEAFTERTIME 750	/* 750ms between dial pulse digits */
 +
 +#define	ZT_MINPULSETIME (15 * 8)	/* 15 ms minimum */
 +#define	ZT_MAXPULSETIME (150 * 8)	/* 150 ms maximum */
@@ -1014,7 +1027,11 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 +
 +#ifdef CONFIG_ZAPATA_NET
 +struct zt_hdlc {
++#ifdef LINUX26	
++	struct net_device *netdev;
++#else
 +	hdlc_device netdev;
++#endif
 +	struct zt_chan *chan;
 +};
 +#endif
@@ -1135,6 +1152,9 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 +	int		tonep;					/* Current position in tone */
 +	struct zt_tone_state ts;		/* Tone state */
 +
++	/* Pulse dial stuff */
++	int	pdialcount;			/* pulse dial count */
++
 +	/* Ring cadence */
 +	int ringcadence[ZT_MAX_CADENCE];
 +
@@ -1195,6 +1215,9 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 +	int		rxwinktime;  /* rx wink time (ms) */
 +	int		rxflashtime; /* rx flash time (ms) */
 +	int		debouncetime;  /* FXS GS sig debounce time (ms) */
++	int		pulsebreaktime; /* pulse line open time (ms) */
++	int		pulsemaketime;  /* pulse line closed time (ms) */
++	int		pulseaftertime; /* pulse time between digits (ms) */
 +
 +	/* RING debounce timer */
 +	int	ringdebtimer;
@@ -1551,16 +1574,12 @@ diff -urNad asterisk-1.0.2/include/linux/zaptel.h /tmp/dpep.wTubdh/asterisk-1.0.
 +
 +#endif /* CONFIG_CALC_XLAW */
 +
-+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
-+#define LINUX26
-+#endif
-+
 +#endif /* __KERNEL__ */
 +
 +#endif /* _LINUX_ZAPTEL_H */
-diff -urNad asterisk-1.0.2/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/Makefile
---- asterisk-1.0.2/Makefile	2004-10-03 20:37:37.000000000 +0200
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/Makefile	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/Makefile /tmp/dpep.G8mBnP/asterisk-1.0.3/Makefile
+--- asterisk-1.0.3/Makefile	2004-10-03 20:37:37.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/Makefile	2005-01-15 01:32:39.000000000 +0100
 @@ -158,6 +158,7 @@
  
  CFLAGS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
@@ -1569,9 +1588,9 @@ diff -urNad asterisk-1.0.2/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/Makefile
  
  LIBEDIT=editline/libedit.a
  
-diff -urNad asterisk-1.0.2/res/Makefile /tmp/dpep.wTubdh/asterisk-1.0.2/res/Makefile
---- asterisk-1.0.2/res/Makefile	2005-01-04 20:46:06.000000000 +0100
-+++ /tmp/dpep.wTubdh/asterisk-1.0.2/res/Makefile	2005-01-04 20:57:11.000000000 +0100
+diff -urNad asterisk-1.0.3/res/Makefile /tmp/dpep.G8mBnP/asterisk-1.0.3/res/Makefile
+--- asterisk-1.0.3/res/Makefile	2004-07-17 22:58:01.000000000 +0200
++++ /tmp/dpep.G8mBnP/asterisk-1.0.3/res/Makefile	2005-01-15 01:32:39.000000000 +0100
 @@ -22,6 +22,7 @@
  CFLAGS+=
  CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")

@@ -1,5 +1,4 @@
 01_security_hotfix_287851.dpatch
-05_chan_h323.dpatch
 08_debian-zaptel.dpatch
 100_nonroot.dpatch
 10_DPIC.dpatch

@@ -1,14 +1,29 @@
-asterisk (1:1.0.2-4) UNRELEASED; urgency=high
+asterisk (1:1.0.3-1) unstable; urgency=high
+
+  * New upstream version.
 
   * Kilian Krause:
-    - debian/patches/01_security_hotfix_287851.dpatch: Patched to fix logging
-      strings vulnerability. (Closes: #287851)
-    - Urgency high due to security bug also present in Sarge.
-  * Jose Sogo
-    - Using again dpatch.
-    - debian/patches: populated with different patches
+    - ACK NMU. (Thanks Steve!):
+      + debian/patches/01_security_hotfix_287851.dpatch: Patched to
+        fix logging strings vulnerability. (Closes: #287851)
 
- -- Kilian Krause <kk@verfaction.de>  Wed,  5 Jan 2005 02:34:24 +0100
+  * Jose Carlos Garcia Sogo
+    - Using again dpatch.
+    - debian/patches: populated with different patches.
+    - 08_debian-zaptel: Using zaptel.h file from version 1:1.0.0-2
+    - removed sounds licensed from FreePlayMusic from source,
+      as the license for them is not DFSG compliant (Closes: #288429)
+
+ -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Sat, 15 Jan 2005 01:40:19 +0100
+
+asterisk (1:1.0.2-3.1) unstable; urgency=high
+
+  * Non-maintainer upload.
+  * High-urgency upload for sarge-targetted RC bugfix
+  * Fix multiple format string vulnerabilities, reported by Jan
+    Niehusmann.  Closes: #287851.
+
+ -- Steve Langasek <vorlon@debian.org>  Sat,  8 Jan 2005 02:54:45 -0800
 
 asterisk (1:1.0.2-3) unstable; urgency=low
 

@@ -47,7 +47,7 @@ diff -urNad asterisk-1.0.2/channels/h323/Makefile /tmp/dpep.a59vmL/asterisk-1.0.
  ifneq (${OSARCH},FreeBSD)
  ifneq (${OSARCH},NetBSD)
 -CFLAGS += -march=$(shell uname -m)
-+CFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1;
++CFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1;)
  endif
  endif
  CFLAGS += -DPBYTE_ORDER=PLITTLE_ENDIAN

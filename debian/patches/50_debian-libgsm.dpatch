@@ -50,10 +50,10 @@ diff -urNad asterisk-1.0.2/formats/Makefile /tmp/dpep.Td4aqv/asterisk-1.0.2/form
  endif
  
 +format_gsm.so : format_gsm.o
-+       $(CC) $(SOLINK) -o $@ $< -lgsm
++	$(CC) $(SOLINK) -o $@ $< -lgsm
 +
 +format_wav_gsm.so : format_wav_gsm.o
-+       $(CC) $(SOLINK) -o $@ $< -lgsm
++	$(CC) $(SOLINK) -o $@ $< -lgsm
 +
  format_mp3.so : format_mp3.o
  	$(CC) $(SOLINK) -o $@ $< -lm
