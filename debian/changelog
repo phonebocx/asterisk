@@ -1,11 +1,14 @@
 asterisk (1:1.0.2-4) UNRELEASED; urgency=high
 
-  * Patched to fix logging strings vulnerability. (Closes: #)
-  * Urgency high due to security bug also present in Sarge.
-  * Using again dpatch.
-  * debian/patches: populated with different patches
+  * Kilian Krause:
+    - debian/patches/01_security_hotfix_287851.dpatch: Patched to fix logging
+      strings vulnerability. (Closes: #287851)
+    - Urgency high due to security bug also present in Sarge.
+  * Jose Sogo
+    - Using again dpatch.
+    - debian/patches: populated with different patches
 
- -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Tue,  4 Jan 2005 22:01:08 +0100
+ -- Kilian Krause <kk@verfaction.de>  Wed,  5 Jan 2005 02:34:24 +0100
 
 asterisk (1:1.0.2-3) unstable; urgency=low
 
