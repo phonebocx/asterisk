@@ -138,6 +138,7 @@ binary-arch: build install
 	dh_installdeb -a
 	rm debian/asterisk/usr/lib/asterisk/modules/pbx_gtkconsole.so
 	#rm debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
+	dh_makeshlibs -a -V 'libpri1 (>= 1.0.4-2)'
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a

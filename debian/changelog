@@ -1,3 +1,11 @@
+asterisk (1:1.0.5-4) unstable; urgency=low
+
+  * debian/patches/00list,debian/control: Enable bristuff by default.
+  * debian/asterisk.init, debian/asterisk.default: Cleanup zaphfc preloading
+    as inspired by Tzafrir Cohen.
+
+ -- Kilian Krause <kk@verfaction.de>  Tue, 22 Feb 2005 02:03:42 +0100
+
 asterisk (1:1.0.5-3) unstable; urgency=low
 
   * debian/patches/08_debian-zaptel.dpatch, debian/control: fixed zaptel.h

@@ -25,6 +25,7 @@ DESC="Asterisk PBX"
 PARAMS=""
 AST_REALTIME="yes"
 RUNASTERISK="no"
+MODULEINIT=""
 if [ -r /etc/default/asterisk ]; then . /etc/default/asterisk; fi
 
 if [ "$RUNASTERISK" != "yes" ];then
@@ -55,6 +56,7 @@ set -e
 
 case "$1" in
   start)
+	$MODULEINIT
 	echo -n "Starting $DESC: "
 	start-stop-daemon --start --exec $DAEMON -- $PARAMS
 	echo "$NAME."
