@@ -5,38 +5,39 @@
 ## DP: No description.
 
 @DPATCH@
-diff -urNad asterisk-1.0.5/astconf.h /tmp/dpep.Sa3tEV/asterisk-1.0.5/astconf.h
---- asterisk-1.0.5/astconf.h	2003-01-30 16:03:20.000000000 +0100
-+++ /tmp/dpep.Sa3tEV/asterisk-1.0.5/astconf.h	2005-02-21 23:41:16.862335414 +0100
-@@ -28,5 +28,6 @@
+diff -urNad asterisk-1.0.5/astconf.h /tmp/dpep.KGxJjT/asterisk-1.0.5/astconf.h
+--- asterisk-1.0.5/astconf.h	2005-02-09 19:15:10.000000000 +0100
++++ /tmp/dpep.KGxJjT/asterisk-1.0.5/astconf.h	2005-02-09 19:15:40.000000000 +0100
+@@ -28,6 +28,7 @@
  extern char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_SOCKET[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_RUN_DIR[AST_CONFIG_MAX_PATH];
 +extern char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
+ extern char ast_config_AST_SYMBOLIC_NAME[20];
  
  #endif
-diff -urNad asterisk-1.0.5/asterisk.c /tmp/dpep.Sa3tEV/asterisk-1.0.5/asterisk.c
---- asterisk-1.0.5/asterisk.c	2005-02-21 23:40:44.779539502 +0100
-+++ /tmp/dpep.Sa3tEV/asterisk-1.0.5/asterisk.c	2005-02-21 23:42:02.547772839 +0100
+diff -urNad asterisk-1.0.5/asterisk.c /tmp/dpep.KGxJjT/asterisk-1.0.5/asterisk.c
+--- asterisk-1.0.5/asterisk.c	2005-02-09 19:15:10.000000000 +0100
++++ /tmp/dpep.KGxJjT/asterisk-1.0.5/asterisk.c	2005-02-09 19:16:53.000000000 +0100
 @@ -124,6 +124,7 @@
  char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
  char ast_config_AST_SOCKET[AST_CONFIG_MAX_PATH];
  char ast_config_AST_RUN_DIR[AST_CONFIG_MAX_PATH];
 +char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
+ char ast_config_AST_SYMBOLIC_NAME[20];
  
  static char *_argv[256];
- static int shuttingdown = 0;
-@@ -1511,6 +1512,7 @@
+@@ -1512,6 +1513,7 @@
  	strncpy((char *)ast_config_AST_PID,AST_PID,sizeof(ast_config_AST_PID)-1);
  	strncpy((char *)ast_config_AST_SOCKET,AST_SOCKET,sizeof(ast_config_AST_SOCKET)-1);
  	strncpy((char *)ast_config_AST_RUN_DIR,AST_RUN_DIR,sizeof(ast_config_AST_RUN_DIR)-1);
 +	strncpy((char *)ast_config_AST_DATA_DIR,AST_DATA_DIR,sizeof(ast_config_AST_DATA_DIR)-1);
+ 	strncpy((char *)ast_config_AST_SYMBOLIC_NAME,AST_SYMBOLIC_NAME,sizeof(ast_config_AST_SYMBOLIC_NAME)-1);
  	
  	/* no asterisk.conf? no problem, use buildtime config! */
- 	if (!cfg) {
-diff -urNad asterisk-1.0.5/asterisk.h /tmp/dpep.Sa3tEV/asterisk-1.0.5/asterisk.h
---- asterisk-1.0.5/asterisk.h	2004-09-07 17:02:53.000000000 +0200
-+++ /tmp/dpep.Sa3tEV/asterisk-1.0.5/asterisk.h	2005-02-21 23:40:45.026514837 +0100
+diff -urNad asterisk-1.0.5/asterisk.h /tmp/dpep.KGxJjT/asterisk-1.0.5/asterisk.h
+--- asterisk-1.0.5/asterisk.h	2005-02-09 19:15:10.000000000 +0100
++++ /tmp/dpep.KGxJjT/asterisk-1.0.5/asterisk.h	2005-02-09 19:15:10.000000000 +0100
 @@ -24,6 +24,7 @@
  #define AST_MODULE_DIR 	ASTMODDIR
  #define AST_SPOOL_DIR  	ASTSPOOLDIR
@@ -45,7 +46,7 @@ diff -urNad asterisk-1.0.5/asterisk.h /tmp/dpep.Sa3tEV/asterisk-1.0.5/asterisk.h
  #define AST_LOG_DIR	ASTLOGDIR
  #define AST_AGI_DIR	ASTAGIDIR
  #define AST_KEY_DIR	ASTVARLIBDIR "/keys"
-@@ -32,8 +33,8 @@
+@@ -33,8 +34,8 @@
  
  #define AST_CONFIG_FILE ASTCONFPATH
  
@@ -56,9 +57,9 @@ diff -urNad asterisk-1.0.5/asterisk.h /tmp/dpep.Sa3tEV/asterisk-1.0.5/asterisk.h
  
  /* Provided by module.c */
  extern int load_modules(void);
-diff -urNad asterisk-1.0.5/file.c /tmp/dpep.Sa3tEV/asterisk-1.0.5/file.c
+diff -urNad asterisk-1.0.5/file.c /tmp/dpep.KGxJjT/asterisk-1.0.5/file.c
 --- asterisk-1.0.5/file.c	2004-09-21 01:15:49.000000000 +0200
-+++ /tmp/dpep.Sa3tEV/asterisk-1.0.5/file.c	2005-02-21 23:40:45.027514737 +0100
++++ /tmp/dpep.KGxJjT/asterisk-1.0.5/file.c	2005-02-09 19:15:10.000000000 +0100
 @@ -284,7 +284,7 @@
  	int fnsize = 0;
  	char tmp[AST_CONFIG_MAX_PATH]="";
@@ -68,9 +69,9 @@ diff -urNad asterisk-1.0.5/file.c /tmp/dpep.Sa3tEV/asterisk-1.0.5/file.c
  	fnsize = strlen(tmp) + strlen(filename) + strlen(ext) + 10;
  	fn = malloc(fnsize);
  	if (fn) {
-diff -urNad asterisk-1.0.5/image.c /tmp/dpep.Sa3tEV/asterisk-1.0.5/image.c
+diff -urNad asterisk-1.0.5/image.c /tmp/dpep.KGxJjT/asterisk-1.0.5/image.c
 --- asterisk-1.0.5/image.c	2004-06-22 20:48:59.000000000 +0200
-+++ /tmp/dpep.Sa3tEV/asterisk-1.0.5/image.c	2005-02-21 23:40:45.028514637 +0100
++++ /tmp/dpep.KGxJjT/asterisk-1.0.5/image.c	2005-02-09 19:15:10.000000000 +0100
 @@ -95,9 +95,9 @@
  			snprintf(buf, len, "%s.%s", filename, ext);
  	} else {
