@@ -5,7 +5,6 @@
 10_DPIC.dpatch
 20_Makefile.dpatch
 30_ast-data-dir.dpatch
-40_debian-libedit.dpatch
 50_debian-libgsm.dpatch
 60_debian-libopenh323.dpatch
 70_debian-libpe-fe.dpatch

@@ -5,22 +5,9 @@
 ## DP: No description.
 
 @DPATCH@
-diff -urNad asterisk-1.0.2/codecs/codec_gsm.c /tmp/dpep.5l651S/asterisk-1.0.2/codecs/codec_gsm.c
---- asterisk-1.0.2/codecs/codec_gsm.c	2004-06-22 20:49:00.000000000 +0200
-+++ /tmp/dpep.5l651S/asterisk-1.0.2/codecs/codec_gsm.c	2005-01-04 21:41:03.000000000 +0100
-@@ -30,8 +30,8 @@
- #include <netinet/in.h>
- #include <string.h>
- #include <stdio.h>
-+#include <gsm/gsm.h>
- 
--#include "gsm/inc/gsm.h"
- #include "../formats/msgsm.h"
- 
- /* Sample frame data */
-diff -urNad asterisk-1.0.2/codecs/Makefile /tmp/dpep.5l651S/asterisk-1.0.2/codecs/Makefile
---- asterisk-1.0.2/codecs/Makefile	2004-07-19 17:52:57.000000000 +0200
-+++ /tmp/dpep.5l651S/asterisk-1.0.2/codecs/Makefile	2005-01-04 21:41:03.000000000 +0100
+diff -urNad asterisk-1.0.2/codecs/Makefile /tmp/dpep.Td4aqv/asterisk-1.0.2/codecs/Makefile
+--- asterisk-1.0.2/codecs/Makefile	2005-01-07 21:06:13.759343276 +0000
++++ /tmp/dpep.Td4aqv/asterisk-1.0.2/codecs/Makefile	2005-01-07 21:06:13.935318823 +0000
 @@ -26,8 +26,9 @@
  
  LIBG723=g723.1/libg723.a
@@ -33,16 +20,29 @@ diff -urNad asterisk-1.0.2/codecs/Makefile /tmp/dpep.5l651S/asterisk-1.0.2/codec
  LIBLPC10=lpc10/liblpc10.a
  LIBSPEEX=$(shell [ -f /usr/local/lib/libspeex.a ] && echo "-L/usr/local/lib")
  LIBSPEEX+=-lspeex -lm
-diff -urNad asterisk-1.0.2/formats/Makefile /tmp/dpep.5l651S/asterisk-1.0.2/formats/Makefile
---- asterisk-1.0.2/formats/Makefile	2004-09-05 20:00:55.000000000 +0200
-+++ /tmp/dpep.5l651S/asterisk-1.0.2/formats/Makefile	2005-01-04 21:41:50.000000000 +0100
+diff -urNad asterisk-1.0.2/codecs/codec_gsm.c /tmp/dpep.Td4aqv/asterisk-1.0.2/codecs/codec_gsm.c
+--- asterisk-1.0.2/codecs/codec_gsm.c	2004-06-22 18:49:00.000000000 +0000
++++ /tmp/dpep.Td4aqv/asterisk-1.0.2/codecs/codec_gsm.c	2005-01-07 21:06:13.934318962 +0000
+@@ -30,8 +30,8 @@
+ #include <netinet/in.h>
+ #include <string.h>
+ #include <stdio.h>
++#include <gsm/gsm.h>
+ 
+-#include "gsm/inc/gsm.h"
+ #include "../formats/msgsm.h"
+ 
+ /* Sample frame data */
+diff -urNad asterisk-1.0.2/formats/Makefile /tmp/dpep.Td4aqv/asterisk-1.0.2/formats/Makefile
+--- asterisk-1.0.2/formats/Makefile	2005-01-07 21:06:13.759343276 +0000
++++ /tmp/dpep.Td4aqv/asterisk-1.0.2/formats/Makefile	2005-01-07 21:06:29.730124031 +0000
 @@ -21,8 +21,6 @@
  #
  #FORMAT_LIBS+=format_g723.so
  
 -GSMLIB=../codecs/gsm/lib/libgsm.a
 -
- CFLAGS+=-fPIC
+ CFLAGS+=-fPIC -DPIC
  
  all: depend $(FORMAT_LIBS)
 @@ -37,6 +35,12 @@
