@@ -7,12 +7,16 @@ asterisk (1:1.0.5-3) UNRELEASED; urgency=low
   * 18_debian-libedit.dpatch: removed due to command history problem.
     (Closes:#281690)
   * debian/asterisk.init: Added grace timeout of 2 secs before hard shutting
-    down running daemons to don't scatter incorrect warnings.
+    down running daemons to don't scatter incorrect warnings. Don't run the
+    asterisk daemon unless RUNASTERISK=yes.
   * debian/asterisk-config.default: Added template for init commands for
-    zaphfc.
+    zaphfc. Disabled autostart - especially when installing in chroots this
+    was quite annoying.
   * debian/rules: Remove the asterisk.8.gz recompression. (Closes: #295220)
+  * debian/README.Debian: Added first version. Thanks to Tzafrir Cohen for the
+    template! (Closes: #270072)
 
- -- Kilian Krause <kk@verfaction.de>  Mon, 14 Feb 2005 18:03:56 +0100
+ -- Kilian Krause <kk@verfaction.de>  Tue, 15 Feb 2005 13:56:20 +0100
 
 asterisk (1:1.0.5-2) unstable; urgency=low
 

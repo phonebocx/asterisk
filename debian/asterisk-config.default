@@ -1,11 +1,16 @@
 # This file allows you to alter the configuration of the Asterisk
 # init.d script
 #
+# RUNASTERISK: run asterisk upon boot. Should be set to "yes" once you have setup
+#              your configuration.
+RUNASTERISK=no
+#
+#
 # AST_REALTIME: if set to anything other than "0", asterisk will run in 
 #               real-time priority (pass '-p' to asterisk). un-rem the 
 #               following line to disable asterisk from running in real-time 
 #               priority
-AST_REALTIME=no
+AST_REALTIME=yes
 #
 # PARAMS: exra parameters to pass to asterisk
 #         The example here may help you in debugging, but is not intended for 

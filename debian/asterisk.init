@@ -24,7 +24,13 @@ DESC="Asterisk PBX"
 # by default: use real-time priority
 PARAMS=""
 AST_REALTIME="yes"
+RUNASTERISK="no"
 if [ -r /etc/default/asterisk ]; then . /etc/default/asterisk; fi
+
+if [ "$RUNASTERISK" != "yes" ];then
+	echo "Asterisk not yet configured. Edit /etc/default/asterisk first."
+	exit 1
+fi
 
 if [ "$AST_REALTIME" != "no" ]
 then
