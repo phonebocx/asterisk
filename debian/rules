@@ -125,6 +125,7 @@ install: build
 	cp debian/asterisk.conf $(CURDIR)/debian/tmp/etc/asterisk/asterisk.conf
 	#cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
 	cp contrib/scripts/addmailbox $(CURDIR)/debian/tmp/usr/sbin/
+	sed -i -e 's#/var/lib/asterisk/sounds#/usr/share/asterisk/sounds#g' $(CURDIR)/debian/tmp/usr/sbin/addmailbox
 	chmod +x $(CURDIR)/debian/tmp/usr/sbin/addmailbox
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk

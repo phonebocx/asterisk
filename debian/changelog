@@ -1,3 +1,9 @@
+asterisk (1:1.0.6-2) unstable; urgency=low
+
+  * fixed location of sounds dir in addmailbox (Closes: #298769)
+
+ -- Kilian Krause <kk@verfaction.de>  Wed,  9 Mar 2005 22:09:05 +0100
+
 asterisk (1:1.0.6-1) unstable; urgency=low
 
   * New upstream release. (asterisk 1.0.6, bristuff RC7k, Closes: #298128)
