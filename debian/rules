@@ -46,7 +46,7 @@ check-sounds:
 		(echo "WARNING: fpm sounds must to be removed from sources before packaging." ; false )
 	
 
-config.status: configure check-sounds patch 
+config.status: check-sounds patch 
 	dh_testdir
 	# Add here commands to configure the package.
 	- (cd editline ; \
@@ -178,4 +178,4 @@ binary-arch: build install
 	dh_builddeb -a
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install config.status clean 
+.PHONY: build clean binary-indep binary-arch binary install clean 
