@@ -1,20 +1,27 @@
 asterisk (1:1.0.4-1) unstable; urgency=low
 
   * Debian VoIP Team upload.
-  * debian/asterisk.init: fixed multiple GID problem when starting asterisk (as
-    reported by Raoul Bönisch and Simon Peter). Unfortunatelly this does
-    remove the chance to run as real-time prio.
-  * debian/asterisk.init: fixed stale stop by using start-stop-server after
-    soft shutdown (Closes: #263879)
-  * debian/asterisk.init: Fixed running as root problem for #279052. At least
-    through the /etc/init.d/asterisk you won't be able to run asterisk as
-    root (not even with another username). (Closes: #279052)
-  * debian/asterisk.init: Added switch to run asterisk via safe_asterisk
-    optionally for automatic restart (Closes: #266805)
-  * debian/patches/01_security_hotfix_287851.dpatch: Removed, as is
-    incorporated in 1.0.4 upstream release.
 
- -- Kilian Krause <kk@verfaction.de>  Fri, 21 Jan 2005 13:37:24 +0100
+  * Kilian Krause:
+    - debian/asterisk.init: fixed multiple GID problem when starting asterisk (as
+      reported by Raoul Bönisch and Simon Peter). Unfortunatelly this does
+      remove the chance to run as real-time prio.
+    - debian/asterisk.init: fixed stale stop by using start-stop-server after
+      soft shutdown (Closes: #263879)
+    - debian/asterisk.init: Fixed running as root problem for #279052. At least
+      through the /etc/init.d/asterisk you won't be able to run asterisk as
+      root (not even with another username). (Closes: #279052)
+    - debian/asterisk.init: Added switch to run asterisk via safe_asterisk
+      optionally for automatic restart (Closes: #266805)
+    - debian/patches/01_security_hotfix_287851.dpatch: Removed, as is
+      incorporated in 1.0.4 upstream release.
+
+  * Jose Carlos
+    - debian/rules: add a check at build time for fpm sounds. If they exist, 
+      abort, as we must remember to remove those from sources in each new
+      upstream release.
+
+ -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Sun, 23 Jan 2005 12:16:47 +0100
 
 asterisk (1:1.0.3-2) unstable; urgency=low
 

@@ -32,7 +32,14 @@ export PWLIBDIR=/usr/share/pwlib
 
 include /usr/share/dpatch/dpatch.make
 
-configure: patch 
+check-sounds:
+	( [ ! -f sounds/fpm-calm-river.mp3 ] && \
+	  [ ! -f sounds/fpm-sunshine.mp3 ]   && \
+	  [ ! -f sounds/fpm-world-mix.mp3 ] ) || \
+		(echo "WARNING: fpm sounds must to be removed from sources" ; false )
+	
+
+configure: check-sounds patch 
 	dh_testdir
 	# Add here commands to configure the package.
 
