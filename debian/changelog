@@ -1,12 +1,16 @@
 asterisk (1:1.0.7-1) unstable; urgency=low
 
-  * New upstream release. (Closes: #300370,#287260, #300403)
+  * New upstream release. (Closes: #300403)
+     + Fixed music on hold. (Closes: #300370)
+  * Re-enabled speex codec. (Closes: #300373)
+  * As asterisk-h323 is empty, we are no longer depending on openh323, so
+    we don't have build conflicts between asterisk and zaptel. (Closes: #287260)
   * debian/rules: Fixed duplicate execution of configure and unrepresentable
     changes to source. (Closes: #299184)
   * debian/patches/80_skinny.dpatch: removed. Incorporated in the 1.0.7
     release.
 
- -- Kilian Krause <kk@verfaction.de>  Sat, 19 Mar 2005 21:30:36 +0100
+ -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Sat, 19 Mar 2005 21:46:27 +0100
 
 asterisk (1:1.0.6-2) unstable; urgency=low
 
