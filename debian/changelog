@@ -1,10 +1,10 @@
-asterisk (1:1.0.5-5) unstable; urgency=low
+asterisk (1:1.0.6-1) unstable; urgency=low
 
   * debian/control: explicitly depend on zlib1g-dev. (Closes:#296967)
   * Make sure we have the newer asterisk-config to not conflict
     /etc/default/asterisk. (Closes: #297719)
 
- -- Kilian Krause <kk@verfaction.de>  Fri,  4 Mar 2005 01:26:53 +0100
+ -- Kilian Krause <kk@verfaction.de>  Fri,  4 Mar 2005 01:43:27 +0100
 
 asterisk (1:1.0.5-4) unstable; urgency=low
 
