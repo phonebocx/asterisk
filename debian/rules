@@ -60,10 +60,9 @@ clean:
 	rm -f build-arch-stamp build-indep-stamp configure-stamp
 
 	# Add here commands to clean up after the build process.
-	cd channels/h323; make clean
+	-$(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
 	rm -fR doc/api agi/eagi-test agi/eagi-sphinx-test
-
 
 	dh_clean
 
