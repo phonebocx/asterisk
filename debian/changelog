@@ -3,7 +3,7 @@ asterisk (1:0.9.1+1.0RC1-5) unstable; urgency=low
   * debian/control: make sure we're rebuilding with rtti enabled openh323
   * debian/rules: make svn-buildpacakge not choke on failing clean target
 
- -- Kilian Krause <kk@verfaction.de>  Sat,  7 Aug 2004 18:31:00 +0200
+ -- Kilian Krause <kk@verfaction.de>  Mon,  9 Aug 2004 14:37:38 +0200
 
 asterisk (1:0.9.1+1.0RC1-4) unstable; urgency=low
 
