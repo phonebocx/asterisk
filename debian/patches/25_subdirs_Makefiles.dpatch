@@ -5,19 +5,10 @@
 ## DP: No description.
 
 @DPATCH@
-diff -urNad asterisk-1.0.2/apps/Makefile /tmp/dpep.BrtuIJ/asterisk-1.0.2/apps/Makefile
---- asterisk-1.0.2/apps/Makefile	2004-09-24 23:32:56.000000000 +0200
-+++ /tmp/dpep.BrtuIJ/asterisk-1.0.2/apps/Makefile	2005-01-04 21:09:20.000000000 +0100
-@@ -35,7 +35,7 @@
- APPS+=app_intercom.so
- endif
- 
--#APPS+=app_sql_postgres.so
-+APPS+=app_sql_postgres.so
- #APPS+=app_sql_odbc.so
- #APPS+=app_rpt.so
- 
-@@ -89,7 +89,7 @@
+diff -urNad asterisk-1.0.3/apps/Makefile /tmp/dpep.FJ3Q8L/asterisk-1.0.3/apps/Makefile
+--- asterisk-1.0.3/apps/Makefile	2005-01-15 18:28:29.000000000 +0100
++++ /tmp/dpep.FJ3Q8L/asterisk-1.0.3/apps/Makefile	2005-01-15 18:28:29.000000000 +0100
+@@ -90,7 +90,7 @@
  	$(CC) $(SOLINK) -o $@ $< -lodbc
  
  look:	look.c
@@ -26,9 +17,9 @@ diff -urNad asterisk-1.0.2/apps/Makefile /tmp/dpep.BrtuIJ/asterisk-1.0.2/apps/Ma
  
  ifneq ($(wildcard .depend),)
  include .depend
-diff -urNad asterisk-1.0.2/cdr/Makefile /tmp/dpep.gih1QV/asterisk-1.0.2/cdr/Makefile
---- asterisk-1.0.2/cdr/Makefile	2004-08-31 18:33:00.000000000 +0200
-+++ /tmp/dpep.gih1QV/asterisk-1.0.2/cdr/Makefile	2005-01-04 21:26:19.000000000 +0100
+diff -urNad asterisk-1.0.3/cdr/Makefile /tmp/dpep.FJ3Q8L/asterisk-1.0.3/cdr/Makefile
+--- asterisk-1.0.3/cdr/Makefile	2005-01-15 18:28:29.000000000 +0100
++++ /tmp/dpep.FJ3Q8L/asterisk-1.0.3/cdr/Makefile	2005-01-15 18:28:29.000000000 +0100
 @@ -12,7 +12,7 @@
  #
  
@@ -37,10 +28,10 @@ diff -urNad asterisk-1.0.2/cdr/Makefile /tmp/dpep.gih1QV/asterisk-1.0.2/cdr/Make
 +MODS=cdr_csv.so cdr_manager.so cdr_pgsql.so
  
  
- CFLAGS+=-fPIC
-diff -urNad asterisk-1.0.2/codecs/lpc10/Makefile /tmp/dpep.jsjL9g/asterisk-1.0.2/codecs/lpc10/Makefile
---- asterisk-1.0.2/codecs/lpc10/Makefile	2004-08-31 18:33:00.000000000 +0200
-+++ /tmp/dpep.jsjL9g/asterisk-1.0.2/codecs/lpc10/Makefile	2005-01-04 21:36:33.000000000 +0100
+ CFLAGS+=-fPIC -DPIC
+diff -urNad asterisk-1.0.3/codecs/lpc10/Makefile /tmp/dpep.FJ3Q8L/asterisk-1.0.3/codecs/lpc10/Makefile
+--- asterisk-1.0.3/codecs/lpc10/Makefile	2005-01-15 18:28:29.000000000 +0100
++++ /tmp/dpep.FJ3Q8L/asterisk-1.0.3/codecs/lpc10/Makefile	2005-01-15 18:28:29.000000000 +0100
 @@ -39,7 +39,7 @@
  ifeq ($(PROC),ultrasparc)
          CFLAGS+= -mtune=$(PROC) -mcpu=v8 -O3 -fomit-frame-pointer
