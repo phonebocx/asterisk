@@ -15,7 +15,9 @@ case "$1" in
     configure)
 
 	if (getent passwd asterisk >/dev/null);then
-		usermod -d /var/lib/asterisk asterisk
+		if ("`getent passwd root|awk -F: '{print $6}'`" = "/var/run/asterisk");then
+			usermod -d /var/lib/asterisk asterisk
+		fi
 	else
 	    	adduser --system --group --home /var/lib/asterisk --gecos "Asterisk PBX daemon" asterisk
 		adduser asterisk audio
