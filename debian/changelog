@@ -9,7 +9,7 @@ asterisk (1:1.0.5-3) unstable; urgency=low
     (Closes:#281690)
   * debian/asterisk.init: Added grace timeout of 2 secs before hard shutting
     down running daemons to don't scatter incorrect warnings. Don't run the
-    asterisk daemon unless RUNASTERISK=yes.
+    asterisk daemon unless RUNASTERISK=yes. (Will not bind ports from chroots)
   * debian/asterisk-config.default: Disabled autostart - especially when
     installing in chroots this was quite annoying.
   * debian/rules: Remove the asterisk.8.gz recompression. (Closes: #295220)

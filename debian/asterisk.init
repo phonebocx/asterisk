@@ -70,6 +70,7 @@ case "$1" in
 	# just making sure it's really, really dead. 
 	sleep 2
 	if [ "x$RUNASTSAFE" = "xyes" ];then
+		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
 		start-stop-daemon --quiet --oknodo --stop --exec $REALDAEMON 
 	else
 		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
