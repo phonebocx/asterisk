@@ -8,7 +8,6 @@
 50_debian-libgsm.dpatch
 60_debian-libopenh323.dpatch
 70_debian-libpe-fe.dpatch
-80_skinny.dpatch
 90_dot-nonfree.dpatch
 95_conf_sample.dpatch
 98_fpm-sounds.dpatch

@@ -3,8 +3,10 @@ asterisk (1:1.0.7-1) unstable; urgency=low
   * New upstream release. (Closes: #300370,#287260, #300403)
   * debian/rules: Fixed duplicate execution of configure and unrepresentable
     changes to source. (Closes: #299184)
+  * debian/patches/80_skinny.dpatch: removed. Incorporated in the 1.0.7
+    release.
 
- -- Kilian Krause <kk@verfaction.de>  Sat, 19 Mar 2005 21:20:18 +0100
+ -- Kilian Krause <kk@verfaction.de>  Sat, 19 Mar 2005 21:30:36 +0100
 
 asterisk (1:1.0.6-2) unstable; urgency=low
 

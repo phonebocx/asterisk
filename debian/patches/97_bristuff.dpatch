@@ -4910,5 +4910,5 @@ diff -urN asterisk-1.0.6.orig/.version asterisk-1.0.6/.version
 --- asterisk-1.0.6.orig/.version	2005-02-28 02:02:53.000000000 +0100
 +++ asterisk-1.0.6/.version	2005-03-04 12:05:18.266508720 +0100
 @@ -1 +1 @@
--1.0.6
-+1.0.6-BRIstuffed-0.2.0-RC7k
+-1.0.7
++1.0.7-BRIstuffed-0.2.0-RC7k
