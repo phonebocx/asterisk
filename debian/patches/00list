@@ -4,7 +4,7 @@
 #18_debian-libedit.dpatch
 20_Makefile.dpatch
 25_subdirs_Makefiles.dpatch
-#30_ast-data-dir.dpatch
+30_ast-data-dir.dpatch
 40_initgroups.dpatch
 50_debian-libgsm.dpatch
 60_debian-libopenh323.dpatch
