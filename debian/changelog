@@ -1,7 +1,7 @@
 asterisk (1:1.0.6-1) unstable; urgency=low
 
-  * New upstream release.
-  * debian/control: explicitly depend on zlib1g-dev. (Closes:#296967)
+  * New upstream release. (Closes: #298128)
+  * debian/control: explicitly depend on zlib1g-dev. (Closes: #296967)
   * Make sure we have the newer asterisk-config to not conflict
     /etc/default/asterisk. (Closes: #297719)
   * as there is no longer a conflict with libnewt-dev, it was added to the
