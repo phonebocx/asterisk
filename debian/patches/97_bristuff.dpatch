@@ -2985,7 +2985,6 @@ diff -urN asterisk-1.0.5.orig/include/asterisk/channel.h asterisk-1.0.5/include/
  	int (*generate)(struct ast_channel *chan, void *data, int len, int samples);
  };
  
-+extern ast_mutex_t uniquelock;			
 +
  //! Main Channel structure associated with a channel.
  /*! 
