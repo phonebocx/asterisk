@@ -9,8 +9,10 @@ asterisk (1:1.0.4-1) UNRELEASED; urgency=low
     root (not even with another username). (Closes: #279052)
   * debian/asterisk.init: Added switch to run asterisk via safe_asterisk
     optionally for automatic restart (Closes: #266805)
+  * debian/patches/01_security_hotfix_287851.dpatch: Removed, as is
+    incorporated in 1.0.4 upstream release.
 
- -- Kilian Krause <kk@verfaction.de>  Thu, 20 Jan 2005 17:49:32 +0100
+ -- Kilian Krause <kk@ganymede.kk.de>  Thu, 20 Jan 2005 18:14:39 +0100
 
 asterisk (1:1.0.3-2) unstable; urgency=low
 
