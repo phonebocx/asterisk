@@ -1,3 +1,9 @@
+asterisk (1:1.0.5-5) UNRELEASED; urgency=low
+
+  * debian/control: explicitly depend on zlib1g-dev. (Closes:#296967)
+
+ -- Kilian Krause <kk@verfaction.de>  Sat, 26 Feb 2005 17:07:14 +0100
+
 asterisk (1:1.0.5-4) unstable; urgency=low
 
   * debian/patches/00list,debian/control: Enable bristuff RC7f by default.
