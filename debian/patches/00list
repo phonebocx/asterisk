@@ -13,3 +13,4 @@
 95_conf_sample.dpatch
 98_fpm-sounds.dpatch
 99_amd64.dpatch
+08_debian-zaptel.dpatch
