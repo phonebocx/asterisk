@@ -98,11 +98,11 @@ cleaned:
 	-$(RM) -f build-arch-stamp build-indep-stamp configure 
 
 	# Add here commands to clean up after the build process.
-	#-$(MAKE) -C channels/h323 clean
+	#-test -d channels/h323 && $(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
 	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
 	-$(RM) debian/asterisk.8.gz
-	-(cd editline; \
+	-(test -d editline &&cd editline; \
 	if [ -f config.sub.old ]; then \
 	   mv config.sub.old config.sub; \
 	fi; \
@@ -110,7 +110,7 @@ cleaned:
 	   mv config.guess.old config.guess; \
 	fi; \
 	cd ..)
-	-chmod -x configs/*.conf
+	-test -d configs && chmod -x configs/*.conf
 
 	dh_clean
 
