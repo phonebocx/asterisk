@@ -8,7 +8,15 @@
 # This is the debhelper compatibility version to use.
 export DH_COMPAT=4
 
-export PROC := $(shell dpkg-architecture -qDEB_HOST_ARCH)
+DEB_HOST_ARCH := $(shell dpkg-architecture -qDEB_HOST_ARCH)
+
+OPTFLAGS= -O2
+
+ifeq ($(DEB_HOST_ARCH),amd64)
+OPTFLAGS+= -m64
+endif
+
+export OPTFLAGS
 
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g

@@ -1,0 +1,319 @@
+#! /bin/sh -e
+## 11_makefile-sanitize.dpatch by Thiemo Seufer <seufer@csv.ica.uni-stuttgart.de>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Clean up unusable cruft in the Makefiles
+
+if [ $# -lt 1 ]; then
+    echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+    exit 1
+fi
+
+[ -f debian/patches/00patch-opts ] && . debian/patches/00patch-opts
+patch_opts="${patch_opts:--f --no-backup-if-mismatch} ${2:+-d $2}"
+
+case "$1" in
+    -patch) patch -p1 ${patch_opts} < $0;;
+    -unpatch) patch -R -p1 ${patch_opts} < $0;;
+    *)
+        echo "`basename $0`: script expects -patch|-unpatch as argument" >&2
+        exit 1;;
+esac
+
+exit 0
+
+@DPATCH@
+
+--- ./apps/Makefile.old	2004-08-15 13:57:21.000000000 +0200
++++ ./apps/Makefile	2004-08-15 13:42:10.000000000 +0200
+@@ -42,7 +42,7 @@ APPS+=$(shell if [ -f /usr/include/linux
+ APPS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
+ APPS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
+ 
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ 
+ ifeq ($(USE_POSTGRES_VM_INTERFACE),1)
+ CFLAGS+=-DUSEPOSTGRESVM
+@@ -88,7 +88,7 @@ app_sql_odbc.so: app_sql_odbc.o
+ 	$(CC) $(SOLINK) -o $@ $< -lodbc
+ 
+ look:	look.c
+-	gcc -pipe -O6 -g look.c -o look -lncurses
++	$(CC) $(CFLAGS) look.c -o look -lncurses
+ 
+ ifneq ($(wildcard .depend),)
+ include .depend
+--- ./codecs/ilbc/Makefile.old	2004-08-15 11:16:45.000000000 +0200
++++ ./codecs/ilbc/Makefile	2004-08-15 12:24:43.000000000 +0200
+@@ -1,10 +1,5 @@
+-ARCH=$(PROC)
+-ifeq (${OSARCH},Darwin)
+-CFLAGS+=-Wall -Werror -fPIC -O3 -funroll-loops -fomit-frame-pointer
+-else
+-CFLAGS+=-Wall -Werror -fPIC -O3 -march=$(ARCH) -funroll-loops -fomit-frame-pointer
+-endif
+-LIB=libilbc.a
++CFLAGS+= -Werror -funroll-loops -fomit-frame-pointer
++LIB= libilbc.a
+ 
+ OBJS= anaFilter.o iCBSearch.o packing.o \
+         constants.o gainquant.o iLBC_decode.o StateConstructW.o \
+--- ./codecs/lpc10/Makefile.old	2004-08-15 11:16:45.000000000 +0200
++++ ./codecs/lpc10/Makefile	2004-08-15 12:25:34.000000000 +0200
+@@ -2,49 +2,15 @@
+ # Makefile for LPC-10 speech coder library (unix)
+ # 
+ 
+-# default C compiler
+-CC?= gcc
++CFLAGS+= -I. -Wno-comment -Wno-error
+ 
+-# 
+-# These definitions for CFLAGS and LIB_TARGET_DIR are used when one
+-# runs make in the lpc10 directory, without environment variables that
+-# override them.  When make is run in this directory from a makefile
+-# for an application that uses the LPC10 coder, there are environment
+-# variables set for CFLAGS and LIB_TARGET_DIR that override these
+-# definitions.
+-# 
+-
+-LIB_TARGET_DIR = .
+-
+-# 
+-# -I$(LIB_TARGET_DIR) option needed so that #include "machine.h"
+-# directives can find the machine.h file.
+-# 
+-
+-WARNINGS = -Wall -Wno-comment -Wno-error
+-CFLAGS += $(OPTIMIZE) -I$(LIB_TARGET_DIR) $(WARNINGS) -fPIC
+-#CFLAGS+= $(shell if uname -m | grep -q 86; then echo "-mpentium" ; fi)
+-
+-#fix for PPC processors and ALPHA too
+-ifneq ($(OSARCH),Darwin)
+-ifneq ($(findstring BSD,${OSARCH}),BSD)
+-ifneq ($(PROC),ppc)
+-ifneq ($(PROC),x86_64)
+-ifneq ($(PROC),alpha)
+-	CFLAGS+= -march=$(PROC)
+-endif
+-endif
+-endif
+-endif
+-endif
+-
+-LIB = $(LIB_TARGET_DIR)/liblpc10.a
++LIB= ./liblpc10.a
+ 
+ .PHONY: all clean
+ 
+-all:	$(LIB)
++all: $(LIB)
+ 
+-OBJ=	f2clib.o analys.o bsynz.o chanwr.o dcbias.o decode.o \
++OBJ= f2clib.o analys.o bsynz.o chanwr.o dcbias.o decode.o \
+ 		deemp.o difmag.o dyptrk.o encode.o energy.o ham84.o \
+ 		hp100.o invert.o irc2pc.o ivfilt.o lpcdec.o lpcenc.o \
+ 		lpcini.o lpfilt.o median.o mload.o onset.o pitsyn.o \
+--- ./codecs/Makefile.old	2004-08-15 11:16:45.000000000 +0200
++++ ./codecs/Makefile	2004-08-15 12:50:04.000000000 +0200
+@@ -21,13 +21,14 @@ MODG723=$(shell [ -f g723.1/coder.c ] &&
+ MODG723+=$(shell [ -f g723.1b/coder2.c ] && echo "codec_g723_1b.so")
+ MODSPEEX=$(shell [ -f /usr/include/speex.h ] || [ -f /usr/local/include/speex.h ] && echo "codec_speex.so")
+ MODILBC=$(shell [ -f ilbc/iLBC_decode.h ] && echo "codec_ilbc.so")
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ CFLAGS+=$(shell [ -f /usr/local/include/speex.h ] && echo "-I/usr/local/include")
+ 
+ LIBG723=g723.1/libg723.a
+ LIBG723B=g723.1b/libg723b.a
+-LIBGSM=gsm/lib/libgsm.a
+-LIBGSMT=gsm/lib/libgsm.a
++LIBGSM=-gsm
++# We don't build libgsm but use the system's one.
++LIBGSMT=
+ LIBLPC10=lpc10/liblpc10.a
+ LIBSPEEX=$(shell [ -f /usr/local/lib/libspeex.a ] && echo "-L/usr/local/lib")
+ LIBSPEEX+=-lspeex -lm
+--- ./formats/Makefile.old	2004-08-15 11:16:45.000000000 +0200
++++ ./formats/Makefile	2004-08-15 13:46:08.000000000 +0200
+@@ -20,9 +20,7 @@ FORMAT_LIBS+=format_jpeg.so
+ #
+ #FORMAT_LIBS+=format_g723.so
+ 
+-GSMLIB=../codecs/gsm/lib/libgsm.a
+-
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ 
+ all: depend $(FORMAT_LIBS)
+ 
+--- ./channels/h323/Makefile.old	2004-08-15 13:57:21.000000000 +0200
++++ ./channels/h323/Makefile	2004-08-15 13:13:33.000000000 +0200
+@@ -19,10 +19,6 @@ endif
+ #
+ # This needs to be updated to deal with more than just little endian machines
+ #
+-OSARCH=$(shell uname -s)
+-ifneq (${OSARCH},FreeBSD)
+-CFLAGS += -march=$(shell uname -m)
+-endif
+ CFLAGS += -DPBYTE_ORDER=PLITTLE_ENDIAN
+ 
+ ifeq (${OSARCH},Linux)
+@@ -85,7 +81,6 @@ chan_h323_d.so:	chan_h323.o ast_h323.o
+ 
+ chan_h323_s.so:	chan_h323.o ast_h323.o
+ 	$(CXX)  -shared -Xlinker -x -o chan_h323.so chan_h323.o ast_h323.o -L$(PWLIBDIR)/lib  -lpt_linux_x86_r_s -L$(OPENH323DIR)/lib -lh323_linux_x86_r_s -L/usr/lib $(CHANH323LIB)
++
+ clean:
+ 	rm -f *.o *.so core.* libchanh323.a
+-
+-
+--- ./channels/Makefile.old	2004-08-15 13:57:21.000000000 +0200
++++ ./channels/Makefile	2004-08-15 13:19:05.000000000 +0200
+@@ -11,8 +11,6 @@
+ # the GNU General Public License
+ #
+ 
+-OSARCH=$(shell uname -s)
+-
+ USE_MYSQL_FRIENDS=0
+ USE_SIP_MYSQL_FRIENDS=0
+ 
+@@ -41,8 +39,8 @@ H323LIB=-lh323_OpenBSD_x86_r
+ CHANH323LIB=-L/usr/local/lib
+ else
+ MYSQLLIB=-L/usr/lib/mysql -lmysqlclient
+-PTLIB=-lpt_linux_x86_r
+-H323LIB=-lh323_linux_x86_r
++PTLIB=-lpt
++H323LIB=-lopenh323
+ CHANH323LIB=-ldl
+ endif
+ 
+@@ -75,7 +73,7 @@ ALSA_SRC=chan_alsa.c
+ ALSA_SRC+=$(shell [ -f alsa-monitor.h ] && echo "alsa-monitor.h")
+ 
+ CFLAGS+=-DCRYPTO
+-CFLAGS+=-fPIC
++CFLAGS+=-fPIC -DPIC
+ 
+ ifeq ($(USE_MYSQL_FRIENDS),1)
+ CFLAGS+=-DMYSQL_FRIENDS
+--- ./Makefile.old	2004-08-15 13:57:21.000000000 +0200
++++ ./Makefile	2004-08-15 13:51:43.000000000 +0200
+@@ -13,24 +13,14 @@
+ 
+ .EXPORT_ALL_VARIABLES:
+ 
+-# Create OPTIONS variable
+-OPTIONS=
+-
+ OSARCH=$(shell uname -s)
+-
+-ifeq (${OSARCH},Linux)
+ PROC=$(shell uname -m)
+-ifeq ($(PROC),x86_64)
+-# You must have GCC 3.4 to use k8, otherwise use athlon
+-PROC=k8
+-#PROC=athlon
+-OPTIONS+=-m64
+-endif
+-endif
+ 
+-ifeq ($(findstring BSD,${OSARCH}),BSD)
+-PROC=$(shell uname -m)
+-endif
++#
++# Optimizations for various Architectures/CPU-types. We ignore this if
++# OPTFLAGS is already set.
++#
++ifndef OPTFLAGS
+ 
+ # Pentium Pro Optimize
+ #PROC=i686
+@@ -39,22 +29,48 @@ endif
+ #PROC=i586
+ 
+ #PROC=k6
+-#PROC=ppc
+-
+-PWD=$(shell pwd)
+ 
+ ######### More GSM codec optimization
+ ######### Uncomment to enable MMXTM optimizations for x86 architecture CPU's
+ ######### which support MMX instructions.  This should be newer pentiums,
+ ######### ppro's, etc, as well as the AMD K6 and K7.  
+-#K6OPT  = -DK6OPT
++#K6OPT= -DK6OPT
++
++ifeq ($(PROC),i386)
++OPTIMIZE+= -march=$(PROC) 
++endif
++
++ifeq ($(PROC),i486)
++OPTIMIZE+= -march=$(PROC) 
++endif
++
++ifeq ($(PROC),i586)
++OPTIMIZE+= -march=$(PROC) 
++endif
++
++ifeq ($(PROC),i686)
++OPTIMIZE+= -march=$(PROC) -DK6OPT
++endif
++
++ifeq ($(PROC),x86_64)
++# You must have GCC 3.4 to use k8, otherwise use athlon
++PROC= $(shell if $(CC) -march=k8 -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "k8"; else echo "athlon"; fi)
++OPTIMIZE+= -m64 -march=$(PROC)
++endif
+ 
+ #Tell gcc to optimize the asterisk's code
+-OPTIMIZE=-O6
++OPTIMIZE+= -O6
++
++OPTFLAGS= $(K6OPT) $(OPTIMIZE)
++
++# end of OPTFLAGS
++endif
+ 
+ #Include debug symbols in the executables (-g) and profiling info (-pg)
+ DEBUG=-g #-pg
+ 
++PWD=$(shell pwd)
++
+ # If you are running a radio application, define RADIO_RELAX so that the DTMF
+ # will be received more reliably
+ #OPTIONS += -DRADIO_RELAX
+@@ -114,9 +130,8 @@ AGI_DIR=$(ASTVARLIBDIR)/agi-bin
+ 
+ INCLUDE=-Iinclude -I../include
+ CFLAGS=-pipe  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations $(DEBUG) $(INCLUDE) -D_REENTRANT -D_GNU_SOURCE #-DMAKE_VALGRIND_HAPPY
+-CFLAGS+=$(OPTIMIZE)
+-CFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-march=$(PROC)"; fi)
+-CFLAGS+=$(shell if uname -m | grep -q ppc; then echo "-fsigned-char"; fi)
++CFLAGS+=$(OPTFLAGS)
++CFLAGS+=$(shell if echo $(PROC) | grep -q ppc\|arm\|s390\|s390x; then echo "-fsigned-char"; fi)
+ CFLAGS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "-DOSP_SUPPORT -I/usr/include/osp" ; fi)
+ 
+ ifeq (${OSARCH},FreeBSD)
+@@ -137,7 +152,7 @@ endif
+ CFLAGS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
+ CFLAGS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
+ 
+-LIBEDIT=editline/libedit.a
++LIBEDIT=-Leditline -ledit
+ 
+ ASTERISKVERSION=$(shell if [ -f .version ]; then cat .version; else if [ -d CVS ]; then if [ -f CVS/Tag ] ; then echo "CVS-`sed 's/^T//g' CVS/Tag`-`date +"%D-%T"`"; else echo "CVS-HEAD-`date +"%D-%T"`"; fi; fi; fi)
+ HTTPDIR=$(shell if [ -d /var/www ]; then echo "/var/www"; else echo "/home/httpd"; fi)
+@@ -488,7 +503,7 @@ config:
+ 	fi 
+ 
+ dont-optimize:
+-	$(MAKE) OPTIMIZE= K6OPT= install
++	$(MAKE) OPTFLAGS= install
+ 
+ valgrind: dont-optimize
+ 

@@ -37,7 +37,7 @@ exit 0
  #endif /* __linux__ */
 --- asterisk-0.9.1+1.0RC1.orig/apps/Makefile
 +++ asterisk-0.9.1+1.0RC1/apps/Makefile
-@@ -34,15 +34,16 @@
+@@ -34,10 +34,11 @@
  APPS+=app_intercom.so
  endif
  
@@ -50,21 +50,6 @@ exit 0
  APPS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
  APPS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
  APPS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
- 
--CFLAGS+=-fPIC
-+CFLAGS+=-fPIC -dPIC
- 
- ifeq ($(USE_POSTGRES_VM_INTERFACE),1)
- CFLAGS+=-DUSEPOSTGRESVM
-@@ -88,7 +89,7 @@
- 	$(CC) $(SOLINK) -o $@ $< -lodbc
- 
- look:	look.c
--	gcc -pipe -O6 -g look.c -o look -lncurses
-+	gcc -pipe $(OPTIMIZE) -g look.c -o look -lncurses
- 
- ifneq ($(wildcard .depend),)
- include .depend
 --- asterisk-0.9.1+1.0RC1.orig/apps/app_flash.c
 +++ asterisk-0.9.1+1.0RC1/apps/app_flash.c
 @@ -22,7 +22,7 @@
@@ -96,69 +81,6 @@ exit 0
 +extern char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
  
  #endif
---- asterisk-0.9.1+1.0RC1.orig/codecs/gsm/Makefile
-+++ asterisk-0.9.1+1.0RC1/codecs/gsm/Makefile
-@@ -65,7 +65,7 @@
- # CCFLAGS 	= -c -O
- 
- CC		?= gcc
--CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -funroll-loops -fPIC $(OPTIMIZE) -fomit-frame-pointer
-+CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -funroll-loops -fPIC -DPIC $(OPTIMIZE) -fomit-frame-pointer
- 
- LD 		= $(CC)
- 
---- asterisk-0.9.1+1.0RC1.orig/codecs/ilbc/Makefile
-+++ asterisk-0.9.1+1.0RC1/codecs/ilbc/Makefile
-@@ -1,8 +1,8 @@
- ARCH=$(PROC)
- ifeq (${OSARCH},Darwin)
--CFLAGS+=-Wall -Werror -fPIC -O3 -funroll-loops -fomit-frame-pointer
-+CFLAGS+=-Wall -Werror -fPIC -O2 -funroll-loops -fomit-frame-pointer
- else
--CFLAGS+=-Wall -Werror -fPIC -O3 -march=$(ARCH) -funroll-loops -fomit-frame-pointer
-+CFLAGS+=-Wall -Werror -fPIC -O2 -funroll-loops -fomit-frame-pointer
- endif
- LIB=libilbc.a
- 
---- asterisk-0.9.1+1.0RC1.orig/codecs/Makefile
-+++ asterisk-0.9.1+1.0RC1/codecs/Makefile
-@@ -21,13 +21,13 @@
- MODG723+=$(shell [ -f g723.1b/coder2.c ] && echo "codec_g723_1b.so")
- MODSPEEX=$(shell [ -f /usr/include/speex.h ] || [ -f /usr/local/include/speex.h ] && echo "codec_speex.so")
- MODILBC=$(shell [ -f ilbc/iLBC_decode.h ] && echo "codec_ilbc.so")
--CFLAGS+=-fPIC
-+CFLAGS+=-fPIC -DPIC
- CFLAGS+=$(shell [ -f /usr/local/include/speex.h ] && echo "-I/usr/local/include")
- 
- LIBG723=g723.1/libg723.a
- LIBG723B=g723.1b/libg723b.a
--LIBGSM=gsm/lib/libgsm.a
--LIBGSMT=gsm/lib/libgsm.a
-+LIBGSM=$(shell if [ -f /usr/lib/libgsm.a ]; then echo "-lgsm"; else echo "gsm/lib/libgsm.a" ; fi)
-+LIBGSMT=$(shell if [ -f /usr/lib/libgsm.a ]; then echo "-lgsm"; else echo "gsm/lib/libgsm.a" ; fi)
- LIBLPC10=lpc10/liblpc10.a
- LIBSPEEX=$(shell [ -f /usr/local/lib/libspeex.a ] && echo "-L/usr/local/lib")
- LIBSPEEX+=-lspeex -lm
---- asterisk-0.9.1+1.0RC1.orig/codecs/lpc10/Makefile
-+++ asterisk-0.9.1+1.0RC1/codecs/lpc10/Makefile
-@@ -22,7 +22,7 @@
- # 
- 
- WARNINGS = -Wall -Wno-comment -Wno-error
--CFLAGS += $(OPTIMIZE) -I$(LIB_TARGET_DIR) $(WARNINGS) -fPIC
-+CFLAGS += $(OPTIMIZE) -I$(LIB_TARGET_DIR) $(WARNINGS) -fPIC -DPIC
- #CFLAGS+= $(shell if uname -m | grep -q 86; then echo "-mpentium" ; fi)
- 
- #fix for PPC processors and ALPHA too
-@@ -31,7 +31,7 @@
- ifneq ($(PROC),ppc)
- ifneq ($(PROC),x86_64)
- ifneq ($(PROC),alpha)
--	CFLAGS+= -march=$(PROC)
-+	CFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-march=$(PROC)"; fi)
- endif
- endif
- endif
 --- asterisk-0.9.1+1.0RC1.orig/codecs/codec_gsm.c
 +++ asterisk-0.9.1+1.0RC1/codecs/codec_gsm.c
 @@ -30,8 +30,8 @@
@@ -1677,20 +1599,6 @@ exit 0
  	fnsize = strlen(tmp) + strlen(filename) + strlen(ext) + 10;
  	fn = malloc(fnsize);
  	if (fn) {
---- asterisk-0.9.1+1.0RC1.orig/formats/Makefile
-+++ asterisk-0.9.1+1.0RC1/formats/Makefile
-@@ -20,9 +20,9 @@
- #
- #FORMAT_LIBS+=format_g723.so
- 
--GSMLIB=../codecs/gsm/lib/libgsm.a
-+GSMLIB=$(shell if [ -f /usr/lib/libgsm.a ]; then echo "-lgsm"; else echo "../codecs/gsm/lib/libgsm.a" ; fi)
- 
--CFLAGS+=-fPIC
-+CFLAGS+=-fPIC -DPIC
- 
- all: depend $(FORMAT_LIBS)
- 
 --- asterisk-0.9.1+1.0RC1.orig/res/Makefile
 +++ asterisk-0.9.1+1.0RC1/res/Makefile
 @@ -18,9 +18,10 @@
@@ -1707,32 +1615,7 @@ exit 0
  #
 --- asterisk-0.9.1+1.0RC1.orig/Makefile
 +++ asterisk-0.9.1+1.0RC1/Makefile
-@@ -18,6 +18,7 @@
- 
- OSARCH=$(shell uname -s)
- 
-+ifeq ($(strip $(PROC)),)
- ifeq (${OSARCH},Linux)
- PROC=$(shell uname -m)
- ifeq ($(PROC),x86_64)
-@@ -31,6 +32,7 @@
- ifeq ($(findstring BSD,${OSARCH}),BSD)
- PROC=$(shell uname -m)
- endif
-+endif
- 
- # Pentium Pro Optimize
- #PROC=i686
-@@ -50,7 +52,7 @@
- #K6OPT  = -DK6OPT
- 
- #Tell gcc to optimize the asterisk's code
--OPTIMIZE=-O6
-+OPTIMIZE=-O2
- 
- #Include debug symbols in the executables (-g) and profiling info (-pg)
- DEBUG=-g #-pg
-@@ -107,16 +109,17 @@
+@@ -107,10 +109,11 @@
  ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
  ASTBINDIR=$(INSTALL_PREFIX)/usr/bin
  ASTSBINDIR=$(INSTALL_PREFIX)/usr/sbin
@@ -1746,22 +1629,6 @@ exit 0
  
  INCLUDE=-Iinclude -I../include
  CFLAGS=-pipe  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations $(DEBUG) $(INCLUDE) -D_REENTRANT -D_GNU_SOURCE #-DMAKE_VALGRIND_HAPPY
- CFLAGS+=$(OPTIMIZE)
- CFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-march=$(PROC)"; fi)
--CFLAGS+=$(shell if uname -m | grep -q ppc; then echo "-fsigned-char"; fi)
-+CFLAGS+=$(shell if uname -m | grep -q "ppc\|arm\|s390"; then echo "-fsigned-char"; fi)
- CFLAGS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "-DOSP_SUPPORT -I/usr/include/osp" ; fi)
- 
- ifeq (${OSARCH},FreeBSD)
-@@ -137,7 +140,7 @@
- CFLAGS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
- CFLAGS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
- 
--LIBEDIT=editline/libedit.a
-+LIBEDIT=$(shell if [ -f /usr/lib/libedit.a ]; then echo "-ledit"; else echo "editline/libedit.a"; fi)
- 
- ASTERISKVERSION=$(shell if [ -f .version ]; then cat .version; else if [ -d CVS ]; then if [ -f CVS/Tag ] ; then echo "CVS-`sed 's/^T//g' CVS/Tag`-`date +"%D-%T"`"; else echo "CVS-HEAD-`date +"%D-%T"`"; fi; fi; fi)
- HTTPDIR=$(shell if [ -d /var/www ]; then echo "/var/www"; else echo "/home/httpd"; fi)
 @@ -149,6 +152,7 @@
  CFLAGS+=-DASTVARLIBDIR=\"$(ASTVARLIBDIR)\"
  CFLAGS+=-DASTVARRUNDIR=\"$(ASTVARRUNDIR)\"
@@ -1927,25 +1794,6 @@ exit 0
  ifeq (${OSARCH},FreeBSD)
 --- asterisk-0.9.1+1.0RC1.orig/channels/Makefile
 +++ asterisk-0.9.1+1.0RC1/channels/Makefile
-@@ -41,8 +41,8 @@
- CHANH323LIB=-L/usr/local/lib
- else
- MYSQLLIB=-L/usr/lib/mysql -lmysqlclient
--PTLIB=-lpt_linux_x86_r
--H323LIB=-lh323_linux_x86_r
-+PTLIB=-lpt
-+H323LIB=-lopenh323
- CHANH323LIB=-ldl
- endif
- 
-@@ -58,6 +58,7 @@
- CHANNEL_LIBS+=$(shell [ -f /usr/local/include/ixjuser.h ] && echo chan_phone.so)
- CHANNEL_LIBS+=$(shell [ -f h323/libchanh323.a ] && echo chan_h323.so)
- 
-+CFLAGS+=-fPIC -DPIC
- CFLAGS+=-Wno-missing-prototypes -Wno-missing-declarations
- CFLAGS+=$(shell [ ! -f /usr/include/linux/if_wanpipe.h ] && echo " -DOLD_SANGOMA_API")
- CHANNEL_LIBS+=$(shell [ -f /usr/include/alsa/asoundlib.h ] && echo "chan_alsa.so")
 @@ -66,6 +67,7 @@
  CFLAGS+=$(shell [ -f alsa-monitor.h ] && echo " -DALSA_MONITOR")
  ZAPPRI=$(shell [ -f /usr/lib/libpri.so.1 ] && echo "-lpri")
@@ -1974,15 +1822,6 @@ exit 0
  ifndef OPENH323DIR
  OPENH323DIR=$(HOME)/openh323
  endif
-@@ -21,7 +25,7 @@
- #
- OSARCH=$(shell uname -s)
- ifneq (${OSARCH},FreeBSD)
--CFLAGS += -march=$(shell uname -m)
-+CFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-march=$(PROC)"; fi)
- endif
- CFLAGS += -DPBYTE_ORDER=PLITTLE_ENDIAN
- 
 @@ -57,10 +61,11 @@
  CFLAGS += -DP_HAS_SEMAPHORES -DP_SSL -DP_PTHREADS
  CFLAGS += -DPHAS_TEMPLATES -DPTRACING -DP_USE_PRAGMA
