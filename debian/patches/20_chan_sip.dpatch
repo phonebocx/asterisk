@@ -23,18 +23,18 @@ esac
 exit 0
 
 @DPATCH@
-
-
---- asterisk-0.9.1+1.0RC1.orig/channels/chan_sip.c
-+++ asterisk-0.9.1+1.0RC1/channels/chan_sip.c
-@@ -3107,4 +3107,6 @@ static int reqprep(struct sip_request *r
-        }
--
--       if (!ast_strlen_zero(p->uri)) {
-+       if (!strcasecmp(msg, "CANCEL")) {
-+               /* MUST use original URI */
-+               c = p->initreq.rlPart2;
-+       } else if (!ast_strlen_zero(p->uri)) {
-                c = p->uri;
-
-
+diff -urNad /root/pkg-voip/asterisk/build-area/asterisk-1.0-RC1/channels/chan_sip.c asterisk-1.0-RC1/channels/chan_sip.c
+--- /root/pkg-voip/asterisk/build-area/asterisk-1.0-RC1/channels/chan_sip.c	2004-07-16 15:45:37.000000000 +0000
++++ asterisk-1.0-RC1/channels/chan_sip.c	2004-08-14 14:04:07.000000000 +0000
+@@ -3103,7 +3103,10 @@
+ 			snprintf(p->via, sizeof(p->via), "SIP/2.0/UDP %s:%d;branch=z9hG4bK%08x", ast_inet_ntoa(iabuf, sizeof(iabuf), p->ourip), ourport, p->branch);
+ 	}
+ 
+-	if (!ast_strlen_zero(p->uri)) {
++        if (!strcasecmp(msg, "CANCEL")) {
++                /* MUST use original URI */
++                c = p->initreq.rlPart2;
++        } else if (!ast_strlen_zero(p->uri)) {
+ 		c = p->uri;
+ 	} else {
+ 		if (p->outgoing)

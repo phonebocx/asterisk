@@ -3,9 +3,9 @@ asterisk (1:0.9.1+1.0RC1-6) unstable; urgency=low
   * debian/control: suggest gnomemeeting. (At least tell people, which clients
     they need) Also add dpatch as Build-Dep. (Closes: #265036)
   * Closes: #262011: SIP cancels fail due to Request-URI mismatch
-  * Apply chan_sip patch from Jan Niehusmann
+  * debian/patches/20_chan_sip.dpatch: Apply chan_sip patch from Jan Niehusmann
 
- -- Kilian Krause <kk@verfaction.de>  Wed, 11 Aug 2004 16:11:13 +0200
+ -- Kilian Krause <kk@verfaction.de>  Sat, 14 Aug 2004 14:05:36 +0000
 
 asterisk (1:0.9.1+1.0RC1-5) unstable; urgency=low
 
