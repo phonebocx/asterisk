@@ -5,7 +5,7 @@
 #               real-time priority (pass '-p' to asterisk). un-rem the 
 #               following line to disable asterisk from running in real-time 
 #               priority
-#AST_REALTIME=no
+AST_REALTIME=no
 #
 # PARAMS: exra parameters to pass to asterisk
 #         The example here may help you in debugging, but is not intended for 

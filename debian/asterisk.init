@@ -29,16 +29,16 @@ if [ -r /etc/default/asterisk ]; then . /etc/default/asterisk; fi
 if [ "$AST_REALTIME" != "no" ]
 then
   PARAMS="$PARAMS -p"
+elif [ "x$USER" = x ] || [ `id -u "$USER"` = 0 ]
+then
+  echo "Starting as root not supported."
+  exit 1
 fi
 if [ "x$RUNASTSAFE" = "xyes" ];then
 	DAEMON=/usr/sbin/safe_asterisk
 	REALDAEMON=/usr/sbin/asterisk
 else
 	DAEMON=/usr/sbin/asterisk
-fi
-if [ "x$USER" != x ] && [ `id -u "$USER"` != 0 ]
-then
-  PARAMS="$PARAMS --chuid $USER"
 fi
 
 test -x $DAEMON || exit 0
@@ -48,7 +48,7 @@ set -e
 case "$1" in
   start)
 	echo -n "Starting $DESC: "
-	start-stop-daemon --start --exec $DAEMON -- $PARAMS
+	start-stop-daemon --start --chuid $USER --exec $DAEMON -- $PARAMS
 	echo "$NAME."
 	;;
   stop)
