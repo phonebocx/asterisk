@@ -4,10 +4,12 @@ asterisk (1:1.0.5-3) UNRELEASED; urgency=low
     take zaptel-source's version.
   * debian/patches/08_debian-zaptel.dpatch, debian/patches/97_bristuff.dpatch:
     include bristuff from junghanns.net (Closes: #286797)
-  * 18_debian-libedit.dpatch: removed due to command history problem. 
+  * 18_debian-libedit.dpatch: removed due to command history problem.
     (Closes:#281690)
+  * debian/asterisk.init: Added grace timeout of 2 secs before hard shutting
+    down running daemons to don't scatter incorrect warnings.
 
- -- Kilian Krause <kk@verfaction.de>  Wed,  9 Feb 2005 16:57:20 +0100
+ -- Kilian Krause <kk@verfaction.de>  Thu, 10 Feb 2005 00:45:15 +0100
 
 asterisk (1:1.0.5-2) unstable; urgency=low
 
