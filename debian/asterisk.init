@@ -20,6 +20,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 NAME=asterisk
 USER=$NAME
 DESC="Asterisk PBX"
+PIDFILE="/var/run/asterisk/asterisk.pid"
 
 # by default: use real-time priority
 PARAMS=""
@@ -37,7 +38,13 @@ if [ "$AST_REALTIME" != "no" ]
 then
   PARAMS="$PARAMS -p"
 fi
-if [ "x$USER" = "xroot" ] || [ `id -u "$USER"` = 0 ]
+
+if [ "x$USER" = "x" ]
+then
+  echo "Error: empty USER name"
+  exit 1
+fi
+if [ `id -u "$USER"` = 0 ]
 then
   echo "Starting as root not supported."
   exit 1
@@ -60,25 +67,27 @@ case "$1" in
 	$MODULELOAD 1>&2>/dev/null||true
 	$MODULEINIT 1>&2>/dev/null||true
 	echo -n "Starting $DESC: "
-	start-stop-daemon --start --exec $DAEMON -- $PARAMS
+	start-stop-daemon --start --pidfile "$PIDFILE" --exec $DAEMON -- $PARAMS
 	echo "$NAME."
 	;;
   stop)
 	echo -n "Stopping $DESC: "
-	if [ "x$RUNASTSAFE" = "xyes" ];then
+	if [ "$RUNASTSAFE" = "yes" ];then
+		# hopefully this will work. Untested
 		$REALDAEMON -rx 'stop now' > /dev/null  || true
 	else
-		$DAEMON -rx 'stop now' > /dev/null  || true
+		# Try gracefully
+		$DAEMON -rx 'stop now' > /dev/null 2>&1 
 	fi
 	echo -n "$NAME"
-	# just making sure it's really, really dead. 
+	# giving a small grace time to shut down cleanly.
 	sleep 2
-	if [ "x$RUNASTSAFE" = "xyes" ];then
-		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
-		start-stop-daemon --quiet --oknodo --stop --exec $REALDAEMON 
-	else
-		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
+	if [ "$RUNASTSAFE" = "yes" ];then
+		start-stop-daemon --quiet --oknodo --stop --exec $WRAPPER_DAEMON 
 	fi
+	# just making sure it's really, really dead. 
+	# KILL is necessary just in case there's an asterisk -r in the background
+	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $DAEMON
 	echo "."
 	exit 0
 	;;
