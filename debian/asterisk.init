@@ -1,6 +1,8 @@
 #! /bin/sh
 #
 # asterisk	start the asterisk PBX
+# (c) Mark Purcell <msp@debian.org>
+# May be distributed under the terms of this General Public License
 #
 # Based on:
 #

@@ -21,10 +21,9 @@ export OPENH323DIR=/usr/share/openh323
 export PWLIBDIR=/usr/share/pwlib
 
 include /usr/share/dpatch/dpatch.make
-PACKAGE=asterisk
 
 configure: configure-stamp
-configure-stamp: patch-stamp
+configure-stamp:
 	dh_testdir
 	# Add here commands to configure the package.
 
@@ -35,7 +34,7 @@ build-arch-stamp:
 	dh_testdir
 
 	# Add here command to compile/build the package.
-#	cd channels/h323; make
+	cd channels/h323; make
 	$(MAKE)
 
 	touch build-arch-stamp
@@ -55,15 +54,15 @@ build-indep-stamp:
 
 build: build-arch build-indep
 
-clean: unpatch
+clean:
 	dh_testdir
 	dh_testroot
 	rm -f build-arch-stamp build-indep-stamp configure-stamp
 
 	# Add here commands to clean up after the build process.
-#	cd channels/h323; make clean
-#	$(MAKE) clean
-#	rm -fR doc/api agi/eagi-test agi/eagi-sphinx-test
+	cd channels/h323; make clean
+	-$(MAKE) clean
+	rm -fR doc/api agi/eagi-test agi/eagi-sphinx-test
 
 
 	dh_clean
