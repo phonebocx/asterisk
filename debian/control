@@ -4,12 +4,12 @@ Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kk@verfaction.de>, Jose Carlos Garcia Sogo <jsogo@debian.org>, Goedson Teixeira Paixao <goedson@debian.org>, Santiago Garcia Mantinan <manty@debian.org>
 Standards-Version: 3.5.6
-Build-Depends: debhelper (>= 4.0.4), libgtk1.2-dev | libgtk-dev, libreadline4-dev | libreadline-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev, doxygen, bison, libedit-dev, libasound2-dev, postgresql-dev, unixodbc-dev, libpri-dev (>= 0.6.0+1.0), libopenh323-dev (>= 1.13.5.4-1), libspeex-dev, dpatch
+Build-Depends: debhelper (>= 4.0.4), libgtk1.2-dev | libgtk-dev, libreadline4-dev | libreadline-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev, doxygen, bison, libedit-dev, libasound2-dev, postgresql-dev, unixodbc-dev, libpri-dev (>= 0.6.0+1.0), libopenh323-dev (>= 1.13.5.4-1), libpt-1.6.3 (>=1.6.6.4-2), libspeex-dev, dpatch
 
 Package: asterisk
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, asterisk-sounds
+Depends: ${shlibs:Depends}, asterisk-sounds, libpt-1.6.3 (>= 1.6.6.4-2)
 Suggests: gnomemeeting, ohphone, kphone, asterisk-doc, asterisk-dev, rate-engine
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
