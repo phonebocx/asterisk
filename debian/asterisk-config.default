@@ -10,7 +10,7 @@ AST_REALTIME=no
 # PARAMS: exra parameters to pass to asterisk
 #         The example here may help you in debugging, but is not intended for 
 #         production use.
-#         removed -G as now a full chuid to the asterisk user is performed (which implies -G)
+#         When you give -G *only* that group will be used, else all groups of the asterisk user.
 #PARAMS="-g -vvv"
 #
 #
