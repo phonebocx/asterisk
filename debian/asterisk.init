@@ -86,7 +86,6 @@ case "$1" in
 	# KILL is necessary just in case there's an asterisk -r in the background
 	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $DAEMON
 	echo "."
-	exit 0
 	;;
   reload)
 	echo "Reloading $DESC configuration files."
