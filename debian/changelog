@@ -1,9 +1,9 @@
-asterisk (1:0.9.1+1.0RC1-8) unstable; urgency=low
+asterisk (1:0.9.1+1.0RC1-8) unstable; urgency=medium
 
   * debian/patches/11_makefile-sanitize.dpatch: fixed patch to make gsm work
     again. (Closes: #266167)
 
- -- Kilian Krause <kk@verfaction.de>  Tue, 17 Aug 2004 11:46:32 +0200
+ -- Kilian Krause <kk@verfaction.de>  Tue, 17 Aug 2004 15:34:21 +0200
 
 asterisk (1:0.9.1+1.0RC1-7) unstable; urgency=low
 
