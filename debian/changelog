@@ -17,8 +17,11 @@ asterisk (1:1.0.5-3) UNRELEASED; urgency=low
     template! (Closes: #270072)
   * debian/asterisk.deafult: moved the /etc/default to the asterisk package,
     as /etc/init.d/asterisk in there needs it.
+  * debian/80_skinny.dpatch: Added
+    http://bugs.digium.com/bug_view_page.php?bug_id=0003496. Thanks to Johan
+    Thelmén <johan.thelmen@cygate.se>. (Closes:#295658)
 
- -- Kilian Krause <kk@verfaction.de>  Tue, 15 Feb 2005 15:31:12 +0100
+ -- Kilian Krause <kk@verfaction.de>  Thu, 17 Feb 2005 23:42:44 +0100
 
 asterisk (1:1.0.5-2) unstable; urgency=low
 
