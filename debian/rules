@@ -77,12 +77,15 @@ clean: unpatch cleaned
 cleaned:
 	dh_testdir
 	dh_testroot
-	rm -f build-arch-stamp build-indep-stamp configure 
+	-$(RM) -f build-arch-stamp build-indep-stamp configure 
 
 	# Add here commands to clean up after the build process.
 	-$(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
-	rm -fR doc/api agi/eagi-test agi/eagi-sphinx-test
+	-$(RM) -f sounds/fpm-calm-river.mp3 
+	-$(RM) -f sounds/fpm-sunshine.mp3
+	-$(RM) -f sounds/fpm-world-mix.mp3
+	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
 
 	dh_clean
 
