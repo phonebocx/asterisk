@@ -17,7 +17,6 @@
 #
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/sbin/asterisk
 NAME=asterisk
 USER=$NAME
 DESC="Asterisk PBX"
@@ -31,7 +30,12 @@ if [ "$AST_REALTIME" != "no" ]
 then
   PARAMS="$PARAMS -p"
 fi
-
+if [ "x$RUNASTSAFE" = "xyes" ];then
+	DAEMON=/usr/sbin/safe_asterisk
+	REALDAEMON=/usr/sbin/asterisk
+else
+	DAEMON=/usr/sbin/asterisk
+fi
 if [ "x$USER" != x ] && [ `id -u "$USER"` != 0 ]
 then
   PARAMS="$PARAMS --chuid $USER"
@@ -52,7 +56,12 @@ case "$1" in
 	$DAEMON -rx 'stop now' > /dev/null  || true
 	echo -n "$NAME"
 	# just making sure it's really, really dead. 
-	start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
+	if [ "x$RUNASTSAFE" = "xyes" ];then
+		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
+		start-stop-daemon --quiet --oknodo --stop --exec $REALDAEMON 
+	else
+		start-stop-daemon --quiet --oknodo --stop --exec $DAEMON 
+	fi
 	echo "."
 	exit 0
 	;;

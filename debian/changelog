@@ -7,8 +7,10 @@ asterisk (1:1.0.3-3) UNRELEASED; urgency=low
   * debian/asterisk.init: Fixed running as root problem for #279052. At least
     through the /etc/init.d/asterisk you won't be able to run asterisk as
     root (not even with another username).
+  * debian/asterisk.init: Added switch to run asterisk via safe_asterisk
+    optionally for automatic restart
 
- -- Kilian Krause <kk@verfaction.de>  Thu, 20 Jan 2005 11:42:33 +0100
+ -- Kilian Krause <kk@verfaction.de>  Thu, 20 Jan 2005 12:01:33 +0100
 
 asterisk (1:1.0.3-2) unstable; urgency=low
 

@@ -10,6 +10,9 @@
 # PARAMS: exra parameters to pass to asterisk
 #         The example here may help you in debugging, but is not intended for 
 #         production use.
+#         removed -G as now a full chuid to the asterisk user is performed (which implies -G)
 #PARAMS="-g -vvv"
 #
-# removed -G as now a full chuid to the asterisk user is performed (which implies -G)
+#
+# RUNASTSAFE: run safe_asterisk rather than asterisk (will auto-restart upon crash)
+RUNASTSAFE=no
