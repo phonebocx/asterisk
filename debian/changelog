@@ -3,7 +3,7 @@ asterisk (1:0.9.1+1.0RC1-8) unstable; urgency=low
   * debian/patches/12_codec_gsm.c.dpatch: Use system libgsm functions.
     (Closes: #266167)
 
- -- Kilian Krause <kk@verfaction.de>  Tue, 17 Aug 2004 09:07:23 +0200
+ -- Kilian Krause <kk@verfaction.de>  Tue, 17 Aug 2004 09:12:16 +0200
 
 asterisk (1:0.9.1+1.0RC1-7) unstable; urgency=low
 
