@@ -1,17 +1,17 @@
-asterisk (1:1.0.5-3) UNRELEASED; urgency=low
+asterisk (1:1.0.5-3) unstable; urgency=low
 
-  * debian/08_debian-zaptel.dpatch, debian/control: fixed zaptel.h include to
-    take zaptel-source's version.
-  * debian/patches/08_debian-zaptel.dpatch, debian/patches/97_bristuff.dpatch:
-    include bristuff from junghanns.net (Closes: #286797)
+  * debian/patches/08_debian-zaptel.dpatch, debian/control: fixed zaptel.h
+    include to take zaptel-source's version.
+  * debian/patches/97_bristuff.dpatch:
+    include bristuff from junghanns.net (not enabled by default now, would
+    close: #286797). We need libpri and zaptel with bristuff patch first.
   * 18_debian-libedit.dpatch: removed due to command history problem.
     (Closes:#281690)
   * debian/asterisk.init: Added grace timeout of 2 secs before hard shutting
     down running daemons to don't scatter incorrect warnings. Don't run the
     asterisk daemon unless RUNASTERISK=yes.
-  * debian/asterisk-config.default: Added template for init commands for
-    zaphfc. Disabled autostart - especially when installing in chroots this
-    was quite annoying.
+  * debian/asterisk-config.default: Disabled autostart - especially when
+    installing in chroots this was quite annoying.
   * debian/rules: Remove the asterisk.8.gz recompression. (Closes: #295220)
   * debian/README.Debian: Added first version. Thanks to Tzafrir Cohen for the
     template! (Closes: #270072)
@@ -21,7 +21,7 @@ asterisk (1:1.0.5-3) UNRELEASED; urgency=low
     http://bugs.digium.com/bug_view_page.php?bug_id=0003496. Thanks to Johan
     Thelmén <johan.thelmen@cygate.se>. (Closes:#295658)
 
- -- Kilian Krause <kk@verfaction.de>  Thu, 17 Feb 2005 23:42:44 +0100
+ -- Kilian Krause <kk@verfaction.de>  Mon, 21 Feb 2005 22:46:15 +0100
 
 asterisk (1:1.0.5-2) unstable; urgency=low
 

@@ -1,7 +1,6 @@
-97_bristuff.dpatch
+#97_bristuff.dpatch
 100_nonroot.dpatch
 10_DPIC.dpatch
-#18_debian-libedit.dpatch
 20_Makefile.dpatch
 25_subdirs_Makefiles.dpatch
 30_ast-data-dir.dpatch
