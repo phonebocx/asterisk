@@ -4,11 +4,11 @@ asterisk (1:1.0.5-2) UNRELEASED; urgency=low
   * asterisk.init, asterisk-config.default: probably fixed start-as-user-with-
     multiple-groups-problem.
   * patches/40_intigroups.dpatch: added patch from Florian Weimer
-    <fw@deneb.enyo.de>. Thanks!
+    <fw@deneb.enyo.de>. Thanks! (Closes: #293124)
   * debian/postinst: Make asterisk user's home /var/lib/asterisk upon user
     request.
 
- -- Kilian Krause <kk@verfaction.de>  Sun,  6 Feb 2005 21:19:14 +0100
+ -- Kilian Krause <kk@verfaction.de>  Sun,  6 Feb 2005 22:34:31 +0100
 
 asterisk (1:1.0.5-1) unstable; urgency=low
 
