@@ -110,6 +110,7 @@ cleaned:
 	   mv config.guess.old config.guess; \
 	fi; \
 	cd ..)
+	chmod -x configs/*.conf
 
 	dh_clean
 
@@ -132,7 +133,6 @@ install: build
 	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
 
 	zcat asterisk.8.gz|gzip -9c >debian/asterisk.8.gz
-	chmod -x $(CURDIR)/debian/tmp/usr/share/doc/asterisk-doc/examples/festival.conf.sample
 
 	dh_install --sourcedir=debian/tmp
 
