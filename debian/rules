@@ -23,7 +23,7 @@ export PWLIBDIR=/usr/share/pwlib
 include /usr/share/dpatch/dpatch.make
 
 configure: configure-stamp
-configure-stamp:
+configure-stamp: patch-stamp
 	dh_testdir
 	# Add here commands to configure the package.
 
@@ -54,10 +54,11 @@ build-indep-stamp:
 
 build: build-arch build-indep
 
-clean:
+clean: cleaned unpatch
+cleaned:
 	dh_testdir
 	dh_testroot
-	rm -f build-arch-stamp build-indep-stamp configure-stamp
+	rm -f build-arch-stamp build-indep-stamp configure-stamp patch-stamp
 
 	# Add here commands to clean up after the build process.
 	-$(MAKE) -C channels/h323 clean
@@ -117,4 +118,4 @@ binary-arch: build install
 	dh_builddeb -a
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install configure
+.PHONY: build clean binary-indep binary-arch binary install configure clean unpatch

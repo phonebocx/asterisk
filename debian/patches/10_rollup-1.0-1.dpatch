@@ -1,5 +1,5 @@
 #! /bin/sh -e
-## 01_debian-patch.dpatch by Kilian Krause <kk@verfaction.de>
+## 10_rollup-1.0-1.dpatch by Kilian Krause <kk@verfaction.de>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
 ## DP: New patch generated from asterisk 0.9.1+1.0RC1-5 diff.gz
