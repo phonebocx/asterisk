@@ -49,6 +49,8 @@ set -e
 
 case "$1" in
   start)
+	[ -x /usr/sbin/ztcfg ]&&/usr/sbin/ztcfg
+	# make sure the zaptel channels are initialized or asterisk won't launch.
 	echo -n "Starting $DESC: "
 	start-stop-daemon --start --exec $DAEMON -- $PARAMS
 	echo "$NAME."

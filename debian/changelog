@@ -8,8 +8,10 @@ asterisk (1:1.0.5-3) UNRELEASED; urgency=low
     (Closes:#281690)
   * debian/asterisk.init: Added grace timeout of 2 secs before hard shutting
     down running daemons to don't scatter incorrect warnings.
+    On startup make sure Zaptel channels are initialized or Asterisk won't
+    launch.
 
- -- Kilian Krause <kk@verfaction.de>  Thu, 10 Feb 2005 00:45:15 +0100
+ -- Kilian Krause <kk@verfaction.de>  Fri, 11 Feb 2005 11:31:54 +0100
 
 asterisk (1:1.0.5-2) unstable; urgency=low
 
