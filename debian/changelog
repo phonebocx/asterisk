@@ -1,4 +1,4 @@
-asterisk (1:1.0.3-3) UNRELEASED; urgency=low
+asterisk (1:1.0.4-1) UNRELEASED; urgency=low
 
   * debian/asterisk.init: fixed multiple GID problem when starting asterisk (as
     reported by Raoul Bönisch and Simon Peter).
@@ -10,7 +10,7 @@ asterisk (1:1.0.3-3) UNRELEASED; urgency=low
   * debian/asterisk.init: Added switch to run asterisk via safe_asterisk
     optionally for automatic restart (Closes: #266805)
 
- -- Kilian Krause <kk@verfaction.de>  Thu, 20 Jan 2005 12:07:14 +0100
+ -- Kilian Krause <kk@verfaction.de>  Thu, 20 Jan 2005 17:49:32 +0100
 
 asterisk (1:1.0.3-2) unstable; urgency=low
 
