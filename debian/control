@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 4.0.4), zlib1g-dev, libgtk1.2-dev | libgtk-dev, lib
 Package: asterisk
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version})
+Depends: ${shlibs:Depends}, asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom
 Suggests: gnomemeeting, ohphone, kphone, asterisk-doc, asterisk-dev, rate-engine, mpg123
 Description: open source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
@@ -108,9 +108,10 @@ Description: web based (GCI) voice mail interface for asterisk
 Package: asterisk-config
 Recommends: asterisk
 Replaces: asterisk (<= 1:1.0.2-2)
+Conflicts: asterisk-config-custom
 Architecture: all
 Section: comm
 Description: config files for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
- This package contains the configuration files of Asterisk
+ This package contains the default configuration files of Asterisk.

@@ -1,3 +1,14 @@
+asterisk (1:1.0.7.dfsg.1-3) unstable; urgency=low
+
+  * Jose Carlos
+    + Fix a typo in NEWS.Readme
+    + debian/postint: Add asterisk user to dialout group too. This is needed
+      for asterisk to have enoug permissions to access zaptel devices.
+    + debian/control: allow a local asterisk-config-local package to satisfy
+      dependencies. Conflict with asterisk-config
+
+ -- Jose Carlos Garcia Sogo <jsogo@debian.org>  Sun,  8 May 2005 22:06:44 +0200
+
 asterisk (1:1.0.7.dfsg.1-2) unstable; urgency=low
 
   * Mark Purcell

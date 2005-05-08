@@ -6,7 +6,7 @@ anyway, so please try asterisk-oh323 as a replacement for chan_h323.
 
 Debian asterisk-xxx.dfsg.tar.gz
 ===============================
-The Debain version of the upstream asterisk source has had the fpm Music on Hold
+The Debian version of the upstream asterisk source has had the fpm Music on Hold
 removed as this music has only been licenced for use within asterisk which is
 incompatible with the Debian Free Software Guildlines 
 <http://www.debian.org/social_contract#guidelines>. Please drop your alternative
