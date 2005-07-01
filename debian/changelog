@@ -1,8 +1,10 @@
-asterisk (1:1.0.9.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.0.9.dfsg-1) unstable; urgency=low
 
-  * (NOT RELEASED YET) New upstream release
+  * New upstream release
+    - Closes: #315578: New version of asterisk and bristuff released
+  * Remove BRI patch while we work on it, to allow 1.0.9 to unstable
 
- -- Mark Purcell <msp@debian.org>  Fri, 24 Jun 2005 23:25:02 +0100
+ -- Mark Purcell <msp@debian.org>  Fri,  1 Jul 2005 22:38:24 +0100
 
 asterisk (1:1.0.8.dfsg-1) UNRELEASED; urgency=low
 
