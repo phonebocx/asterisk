@@ -80,7 +80,7 @@ diff -urNad asterisk-1.0.5/Makefile /tmp/dpep.jxj8cL/asterisk-1.0.5/Makefile
  endif
  
 -CFLAGS+=$(shell if uname -m | grep -q ppc; then echo "-fsigned-char"; fi)
-+CFLAGS+=$(shell if uname -m | grep -q ppc\|arm\|s390\|s390x; then echo "-fsigned-char"; fi)
++CFLAGS+=$(shell if uname -m | grep -q "ppc\|arm\|s390\|s390x"; then echo "-fsigned-char"; fi)
  CFLAGS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "-DOSP_SUPPORT -I/usr/include/osp" ; fi)
  
  ifeq (${OSARCH},FreeBSD)

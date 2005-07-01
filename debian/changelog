@@ -1,3 +1,11 @@
+asterisk (1:1.0.9.dfsg-2) unstable; urgency=low
+
+  * Closes: #301490: Please add patch for Italian syntax
+  * Closes: #305734: On PowerPC, hanging up on voicemail causes non-stop
+    log messages
+
+ -- Mark Purcell <msp@debian.org>  Fri,  1 Jul 2005 23:24:53 +0100
+
 asterisk (1:1.0.9.dfsg-1) unstable; urgency=low
 
   * New upstream release
