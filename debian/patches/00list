@@ -1,4 +1,5 @@
 80_app_voicemail.dpatch
+bristuff-0.2.0-RC8h.dpatch
 100_nonroot.dpatch
 10_DPIC.dpatch
 20_Makefile.dpatch

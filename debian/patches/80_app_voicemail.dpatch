@@ -23,9 +23,10 @@ esac
 exit 0
 
 @DPATCH@
---- app_voicemail.c	2005-03-02 23:24:02.000000000 +0100
-+++ app_voicemail-tmp.c	2005-03-26 11:12:41.331409862 +0100
-@@ -2723,6 +2723,59 @@
+diff -urNad --exclude=CVS --exclude=.svn ./apps/app_voicemail.c /tmp/dpep-work.bUuHc5/asterisk-1.0.9.dfsg/apps/app_voicemail.c
+--- ./apps/app_voicemail.c	2005-05-31 14:08:45.000000000 +0100
++++ /tmp/dpep-work.bUuHc5/asterisk-1.0.9.dfsg/apps/app_voicemail.c	2005-07-03 13:04:00.283882088 +0100
+@@ -2719,6 +2719,59 @@
  	return res;
  }
  
@@ -85,7 +86,7 @@ exit 0
  /* GERMAN syntax */
  static int vm_intro_de(struct ast_channel *chan,struct vm_state *vms)
  {
-@@ -3050,6 +3103,8 @@
+@@ -3046,6 +3099,8 @@
  		return vm_intro_de(chan, vms);
  	} else if (!strcasecmp(chan->language, "es")) { /* SPANISH syntax */
  		return vm_intro_es(chan, vms);

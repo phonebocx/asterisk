@@ -1,3 +1,9 @@
+asterisk (1:1.0.9.dfsg-3) unstable; urgency=low
+
+  * Include bristuff-0.2.0-RC8h.dpatch
+
+ -- Mark Purcell <msp@debian.org>  Sun,  3 Jul 2005 12:57:21 +0100
+
 asterisk (1:1.0.9.dfsg-2) unstable; urgency=low
 
   * Closes: #301490: Please add patch for Italian syntax
