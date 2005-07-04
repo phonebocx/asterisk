@@ -1,25 +1,35 @@
 #! /bin/sh /usr/share/dpatch/dpatch-run
 ## app_sql_postgres.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
-##   30/6/05 Mark Purcell <msp@debian.org> Debian include files changed locations should be in Makefile
+##   30/6/05 Mark Purcell <msp@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: No description.
+## DP: Setup for postgresql under Debian (autoconf would be nicer)
 
 @DPATCH@
-diff -urNad asterisk-1.0.2/apps/app_sql_postgres.c /tmp/dpep.aqEkRd/asterisk-1.0.2/apps/app_sql_postgres.c
---- asterisk-1.0.2/apps/app_sql_postgres.c	2004-07-14 09:34:34.000000000 +0200
-+++ /tmp/dpep.aqEkRd/asterisk-1.0.2/apps/app_sql_postgres.c	2005-01-04 21:10:04.000000000 +0100
-@@ -26,7 +26,7 @@
- #include <sys/types.h>
- #include <stdio.h>
- #include <unistd.h>
--#include "libpq-fe.h"
-+#include "postgresql/8.0/libpq-fe.h"
+diff -urNad --exclude=CVS --exclude=.svn ./apps/Makefile /tmp/dpep-work.ZD5tj4/asterisk-1.0.9.dfsg/apps/Makefile
+--- ./apps/Makefile	2005-07-04 01:09:46.199583056 +0100
++++ /tmp/dpep-work.ZD5tj4/asterisk-1.0.9.dfsg/apps/Makefile	2005-07-04 01:11:03.511484541 +0100
+@@ -43,6 +43,17 @@
+ APPS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
+ APPS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
  
- #define EXTRA_LOG 0
++#
++## PGSQL stuff...  Autoconf anyone??
++#
++CFLAGS+=$(shell if [ -d /usr/local/pgsql/include ]; then echo "-I/usr/local/pgsql/include"; fi)
++CFLAGS+=$(shell if [ -d /usr/include/pgsql ]; then echo "-I/usr/include/pgsql"; fi)
++CFLAGS+=$(shell if [ -d /usr/include/postgresql ]; then echo "-I/usr/include/postgresql"; fi)
++CFLAGS+=$(shell if [ -d /usr/local/include/pgsql ]; then echo "-I/usr/local/include/pgsql"; fi)
++CFLAGS+=$(shell if [ -d /opt/pgsql/include ]; then echo "-I/opt/pgsql/include"; fi)
++#CFLAGS+=$(shell if [ -f /usr/include/libpq-fe.h ]; then echo "-I/usr/include"; fi)
++CFLAGS+=$(shell if [ -f /usr/include/postgresql/8.0/libpq-fe.h ]; then echo "-I/usr/include/postgresql/8.0"; fi)
++
+ CFLAGS+=-fPIC -DPIC
  
---- ../build-area/asterisk-1.0.9.dfsg.obsolete.0.98723349401644/cdr/Makefile	2005-06-30 18:24:43.580308152 +0100
-+++ asterisk-1.0.9.dfsg/cdr/Makefile	2005-06-30 18:39:33.776977688 +0100
+ ifeq ($(USE_POSTGRES_VM_INTERFACE),1)
+diff -urNad --exclude=CVS --exclude=.svn ./cdr/Makefile /tmp/dpep-work.ZD5tj4/asterisk-1.0.9.dfsg/cdr/Makefile
+--- ./cdr/Makefile	2005-07-04 01:09:46.200582848 +0100
++++ /tmp/dpep-work.ZD5tj4/asterisk-1.0.9.dfsg/cdr/Makefile	2005-07-04 01:09:49.153967870 +0100
 @@ -56,6 +56,7 @@
  CFLAGS+=$(shell if [ -d /usr/local/include/pgsql ]; then echo "-I/usr/local/include/pgsql"; fi)
  CFLAGS+=$(shell if [ -d /opt/pgsql/include ]; then echo "-I/opt/pgsql/include"; fi)
