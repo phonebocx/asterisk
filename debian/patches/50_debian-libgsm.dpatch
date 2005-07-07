@@ -1,8 +1,8 @@
 #! /bin/sh /usr/share/dpatch/dpatch-run
-## codecs_Makefile.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
+## codecs_Makefile.dpatch by Mark Purcell <msp@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: No description.
+## DP: Use installed libgsm if availble
 
 @DPATCH@
 diff -urNad asterisk-1.0.2/codecs/Makefile /tmp/dpep.Td4aqv/asterisk-1.0.2/codecs/Makefile

@@ -2,7 +2,7 @@
 ## apps_Makefile.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: No description.
+## DP: Cleanup other subdirs Makefiles
 
 @DPATCH@
 diff -urNad asterisk-1.0.3/apps/Makefile /tmp/dpep.FJ3Q8L/asterisk-1.0.3/apps/Makefile
@@ -17,18 +17,6 @@ diff -urNad asterisk-1.0.3/apps/Makefile /tmp/dpep.FJ3Q8L/asterisk-1.0.3/apps/Ma
  
  ifneq ($(wildcard .depend),)
  include .depend
-diff -urNad asterisk-1.0.3/cdr/Makefile /tmp/dpep.FJ3Q8L/asterisk-1.0.3/cdr/Makefile
---- asterisk-1.0.3/cdr/Makefile	2005-01-15 18:28:29.000000000 +0100
-+++ /tmp/dpep.FJ3Q8L/asterisk-1.0.3/cdr/Makefile	2005-01-15 18:28:29.000000000 +0100
-@@ -12,7 +12,7 @@
- #
- 
- #ADD cdr_pgsql.so to MODS= to include PostgreSQL support: REQUIRES PostgreSQL libs
--MODS=cdr_csv.so cdr_manager.so
-+MODS=cdr_csv.so cdr_manager.so cdr_pgsql.so
- 
- 
- CFLAGS+=-fPIC -DPIC
 diff -urNad asterisk-1.0.3/codecs/lpc10/Makefile /tmp/dpep.FJ3Q8L/asterisk-1.0.3/codecs/lpc10/Makefile
 --- asterisk-1.0.3/codecs/lpc10/Makefile	2005-01-15 18:28:29.000000000 +0100
 +++ /tmp/dpep.FJ3Q8L/asterisk-1.0.3/codecs/lpc10/Makefile	2005-01-15 18:28:29.000000000 +0100

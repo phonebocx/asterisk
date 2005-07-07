@@ -107,18 +107,6 @@ diff -urNad asterisk-1.0.2/pbx/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/pbx/Make
  
  KDE_CONSOLE_OBJS=pbx_kdeconsole_main.o pbx_kdeconsole.o 
  
-diff -urNad asterisk-1.0.2/pbx/pbx_wilcalu.c /tmp/dpep.YCeVNe/asterisk-1.0.2/pbx/pbx_wilcalu.c
---- asterisk-1.0.2/pbx/pbx_wilcalu.c	2004-08-08 19:15:02.000000000 +0200
-+++ /tmp/dpep.YCeVNe/asterisk-1.0.2/pbx/pbx_wilcalu.c	2005-01-04 21:07:01.000000000 +0100
-@@ -12,7 +12,7 @@
-  * the GNU General Public License
- 
-  *  Autodialer for Asterisk 
-- *  Redirect dialstring thru fifo "/var/run/autodial.ctl"
-+ *  Redirect dialstring thru fifo "/var/run/asterisk/autodial.ctl"
-  *  Format of string is :
-  *  "tech/tele,filename&" ie. "tor1/23,file&"
-  */
 diff -urNad asterisk-1.0.2/res/Makefile /tmp/dpep.YCeVNe/asterisk-1.0.2/res/Makefile
 --- asterisk-1.0.2/res/Makefile	2004-07-17 22:58:01.000000000 +0200
 +++ /tmp/dpep.YCeVNe/asterisk-1.0.2/res/Makefile	2005-01-04 21:07:25.000000000 +0100

@@ -1,8 +1,7 @@
 #! /bin/sh /usr/share/dpatch/dpatch-run
-## bristuff-0.2.0-RC8h.dpatch by  <mark@dell.purcell.id.au>
-##
+## bristuff-0.2.0-RC8h.dpatch by  <msp@debian.org>
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: No description.
+## DP: From http://www.junghanns.net/asterisk/downloads/bristuff-0.2.0-RC8h.tar.gz
 
 @DPATCH@
 diff -urNad --exclude=CVS --exclude=.svn ./app_devstate.c /tmp/dpep-work.FwunSi/asterisk-1.0.9.dfsg/app_devstate.c

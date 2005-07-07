@@ -38,3 +38,16 @@ diff -urNad --exclude=CVS --exclude=.svn ./cdr/Makefile /tmp/dpep-work.ZD5tj4/as
  MLFLAGS=
  MLFLAGS+=$(shell if [ -d /usr/lib/pgsql ]; then echo "-L/usr/lib/pgsql"; fi)
  MLFLAGS+=$(shell if [ -d /usr/local/pgsql/lib ]; then echo "-L/usr/local/pgsql/lib"; fi)
+diff -urNad asterisk-1.0.3/cdr/Makefile /tmp/dpep.FJ3Q8L/asterisk-1.0.3/cdr/Makefile
+--- asterisk-1.0.3/cdr/Makefile 2005-01-15 18:28:29.000000000 +0100
++++ /tmp/dpep.FJ3Q8L/asterisk-1.0.3/cdr/Makefile        2005-01-15 18:28:29.000000000 +0100
+@@ -12,7 +12,7 @@
+ #
+
+ #ADD cdr_pgsql.so to MODS= to include PostgreSQL support: REQUIRES PostgreSQL libs
+-MODS=cdr_csv.so cdr_manager.so
++MODS=cdr_csv.so cdr_manager.so cdr_pgsql.so
+
+
+ CFLAGS+=-fPIC -DPIC
+:

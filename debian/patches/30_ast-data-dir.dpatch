@@ -1,13 +1,15 @@
 #! /bin/sh /usr/share/dpatch/dpatch-run
-## DATA_SOUND_DIRS.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
+## ast_data_dir.dpatch by Mark Purcell <msp@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: No description.
+## DP: Patch to make Asterisk conform with the Linux File System Hierarchy Standard (FSHS)
+## DP: Places read-only architecture-independent data under /usr/share/asterisk (autoconf --datadir)
+## DP: not /var/lib/asterisk
 
 @DPATCH@
-diff -urNad --exclude=CVS --exclude=.svn ./astconf.h /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/astconf.h
---- ./astconf.h	2003-01-30 15:03:20.000000000 +0000
-+++ /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/astconf.h	2005-06-30 11:21:16.017008305 +0100
+diff -urNad --exclude=CVS --exclude=.svn ./astconf.h /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/astconf.h
+--- ./astconf.h	2005-07-05 20:29:57.308782016 +0100
++++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/astconf.h	2005-07-05 20:29:57.666727600 +0100
 @@ -21,6 +21,7 @@
  extern char ast_config_AST_MODULE_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
@@ -16,9 +18,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./astconf.h /tmp/dpep-work.NzvO8d/aster
  extern char ast_config_AST_LOG_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_AGI_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
-diff -urNad --exclude=CVS --exclude=.svn ./asterisk.c /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/asterisk.c
---- ./asterisk.c	2005-06-30 11:20:56.000000000 +0100
-+++ /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/asterisk.c	2005-06-30 11:21:16.031005366 +0100
+diff -urNad --exclude=CVS --exclude=.svn ./asterisk.c /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/asterisk.c
+--- ./asterisk.c	2005-07-05 20:29:57.352775328 +0100
++++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/asterisk.c	2005-07-05 20:29:57.667727448 +0100
 @@ -117,6 +117,7 @@
  char ast_config_AST_MODULE_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
@@ -27,7 +29,7 @@ diff -urNad --exclude=CVS --exclude=.svn ./asterisk.c /tmp/dpep-work.NzvO8d/aste
  char ast_config_AST_LOG_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_AGI_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
-@@ -1504,6 +1505,7 @@
+@@ -1505,6 +1506,7 @@
  	strncpy((char *)ast_config_AST_SPOOL_DIR,AST_SPOOL_DIR,sizeof(ast_config_AST_SPOOL_DIR)-1);
  	strncpy((char *)ast_config_AST_MODULE_DIR,AST_MODULE_DIR,sizeof(ast_config_AST_VAR_DIR)-1);
  	strncpy((char *)ast_config_AST_VAR_DIR,AST_VAR_DIR,sizeof(ast_config_AST_VAR_DIR)-1);
@@ -35,9 +37,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./asterisk.c /tmp/dpep-work.NzvO8d/aste
  	strncpy((char *)ast_config_AST_LOG_DIR,AST_LOG_DIR,sizeof(ast_config_AST_LOG_DIR)-1);
  	strncpy((char *)ast_config_AST_AGI_DIR,AST_AGI_DIR,sizeof(ast_config_AST_AGI_DIR)-1);
  	strncpy((char *)ast_config_AST_DB,AST_DB,sizeof(ast_config_AST_DB)-1);
-diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/asterisk.h
---- ./asterisk.h	2004-09-07 16:02:53.000000000 +0100
-+++ /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/asterisk.h	2005-06-30 11:21:16.036004317 +0100
+diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/asterisk.h
+--- ./asterisk.h	2005-07-05 20:29:57.309781864 +0100
++++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/asterisk.h	2005-07-05 20:29:57.668727296 +0100
 @@ -24,6 +24,7 @@
  #define AST_MODULE_DIR 	ASTMODDIR
  #define AST_SPOOL_DIR  	ASTSPOOLDIR
@@ -46,7 +48,7 @@ diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.NzvO8d/aste
  #define AST_LOG_DIR	ASTLOGDIR
  #define AST_AGI_DIR	ASTAGIDIR
  #define AST_KEY_DIR	ASTVARLIBDIR "/keys"
-@@ -32,8 +33,8 @@
+@@ -33,8 +34,8 @@
  
  #define AST_CONFIG_FILE ASTCONFPATH
  
@@ -57,9 +59,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.NzvO8d/aste
  
  /* Provided by module.c */
  extern int load_modules(void);
-diff -urNad --exclude=CVS --exclude=.svn ./file.c /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/file.c
---- ./file.c	2005-06-14 19:41:48.000000000 +0100
-+++ /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/file.c	2005-06-30 11:21:16.048001798 +0100
+diff -urNad --exclude=CVS --exclude=.svn ./file.c /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/file.c
+--- ./file.c	2005-07-05 20:27:30.000000000 +0100
++++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/file.c	2005-07-05 20:29:57.668727296 +0100
 @@ -284,7 +284,7 @@
  	int fnsize = 0;
  	char tmp[AST_CONFIG_MAX_PATH]="";
@@ -69,9 +71,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./file.c /tmp/dpep-work.NzvO8d/asterisk
  	fnsize = strlen(tmp) + strlen(filename) + strlen(ext) + 10;
  	fn = malloc(fnsize);
  	if (fn) {
-diff -urNad --exclude=CVS --exclude=.svn ./image.c /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/image.c
---- ./image.c	2004-06-22 19:48:59.000000000 +0100
-+++ /tmp/dpep-work.NzvO8d/asterisk-1.0.8.dfsg/image.c	2005-06-30 11:21:16.056000119 +0100
+diff -urNad --exclude=CVS --exclude=.svn ./image.c /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/image.c
+--- ./image.c	2005-07-05 20:27:30.000000000 +0100
++++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/image.c	2005-07-05 20:29:57.668727296 +0100
 @@ -95,9 +95,9 @@
  			snprintf(buf, len, "%s.%s", filename, ext);
  	} else {
@@ -84,3 +86,179 @@ diff -urNad --exclude=CVS --exclude=.svn ./image.c /tmp/dpep-work.NzvO8d/asteris
  	}
  }
  
+diff -urNad --exclude=CVS --exclude=.svn ./Makefile /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/Makefile
+--- ./Makefile	2005-07-05 20:29:57.404767424 +0100
++++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/Makefile	2005-07-05 20:29:57.669727144 +0100
+@@ -84,11 +84,12 @@
+ ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
+ ASTBINDIR=$(INSTALL_PREFIX)/usr/bin
+ ASTSBINDIR=$(INSTALL_PREFIX)/usr/sbin
+-ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run
++ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run/asterisk
++ASTDATADIR=$(INSTALL_PREFIX)/usr/share/asterisk
+ ASTMANDIR=$(INSTALL_PREFIX)/usr/share/man
+ 
+ MODULES_DIR=$(ASTLIBDIR)/modules
+-AGI_DIR=$(ASTVARLIBDIR)/agi-bin
++AGI_DIR=$(ASTDATADIR)/agi-bin
+ 
+ INCLUDE=-Iinclude -I../include
+ CFLAGS=-pipe  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations $(DEBUG) $(INCLUDE) -D_REENTRANT -D_GNU_SOURCE #-DMAKE_VALGRIND_HAPPY
+@@ -138,6 +139,7 @@
+ CFLAGS+=-DASTVARLIBDIR=\"$(ASTVARLIBDIR)\"
+ CFLAGS+=-DASTVARRUNDIR=\"$(ASTVARRUNDIR)\"
+ CFLAGS+=-DASTSPOOLDIR=\"$(ASTSPOOLDIR)\"
++CFLAGS+=-DASTDATADIR=\"$(ASTDATADIR)\"
+ CFLAGS+=-DASTLOGDIR=\"$(ASTLOGDIR)\"
+ CFLAGS+=-DASTCONFPATH=\"$(ASTCONFPATH)\"
+ CFLAGS+=-DASTMODDIR=\"$(MODULES_DIR)\"
+@@ -279,28 +281,28 @@
+ 	$(MAKE) -C stdtime clean
+ 
+ datafiles: all
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits
++	mkdir -p $(DESTDIR)$(ASTDATADIR)/sounds/digits
+ 	for x in sounds/digits/*.gsm; do \
+ 		if grep -q "^%`basename $$x`%" sounds.txt; then \
+-			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits ; \
++			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds/digits ; \
+ 		else \
+ 			echo "No description for $$x"; \
+ 			exit 1; \
+ 		fi; \
+ 	done
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/letters
++	mkdir -p $(DESTDIR)$(ASTDATADIR)/sounds/letters
+ 	for x in sounds/letters/*.gsm; do \
+ 		if grep -q "^%`basename $$x`%" sounds.txt; then \
+-			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/letters ; \
++			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds/letters ; \
+ 		else \
+ 			echo "No description for $$x"; \
+ 			exit 1; \
+ 		fi; \
+ 	done
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/phonetic
++	mkdir -p $(DESTDIR)$(ASTDATADIR)/sounds/phonetic
+ 	for x in sounds/phonetic/*.gsm; do \
+ 		if grep -q "^%`basename $$x`%" sounds.txt; then \
+-			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/phonetic ; \
++			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds/phonetic ; \
+ 		else \
+ 			echo "No description for $$x"; \
+ 			exit 1; \
+@@ -308,16 +310,16 @@
+ 	done
+ 	for x in sounds/vm-* sounds/transfer* sounds/pbx-* sounds/ss-* sounds/beep* sounds/dir-* sounds/conf-* sounds/agent-* sounds/invalid* sounds/tt-* sounds/auth-* sounds/privacy-* sounds/queue-*; do \
+ 		if grep -q "^%`basename $$x`%" sounds.txt; then \
+-			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
++			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds ; \
+ 		else \
+ 			echo "No description for $$x"; \
+ 			exit 1; \
+ 		fi; \
+ 	done
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/mohmp3
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/images
++	mkdir -p $(DESTDIR)$(ASTDATADIR)/mohmp3
++	mkdir -p $(DESTDIR)$(ASTDATADIR)/images
+ 	for x in images/*.jpg; do \
+-		install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/images ; \
++		install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/images ; \
+ 	done
+ 	mkdir -p $(DESTDIR)$(AGI_DIR)
+ 
+@@ -337,6 +339,7 @@
+ 	mkdir -p $(DESTDIR)$(ASTBINDIR)
+ 	mkdir -p $(DESTDIR)$(ASTSBINDIR)
+ 	mkdir -p $(DESTDIR)$(ASTVARRUNDIR)
++	mkdir -p $(DESTDIR)$(ASTDATADIR)
+ 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail
+ 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/tmp
+ 	install -m 755 asterisk $(DESTDIR)$(ASTSBINDIR)/
+@@ -348,16 +351,16 @@
+ 	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
+ 	install -d $(DESTDIR)$(ASTHEADERDIR)
+ 	install -m 644 include/asterisk/*.h $(DESTDIR)$(ASTHEADERDIR)
+-	rm -f $(DESTDIR)$(ASTVARLIBDIR)/sounds/vm
+-	rm -f $(DESTDIR)$(ASTVARLIBDIR)/sounds/voicemail
++	rm -f $(DESTDIR)$(ASTDATADIR)/sounds/vm
++	rm -f $(DESTDIR)$(ASTDATADIR)/sounds/voicemail
+ 	if [ ! -h $(DESTDIR)$(ASTSPOOLDIR)/vm ] && [ -d $(DESTDIR)$(ASTSPOOLDIR)/vm ]; then \
+ 		mv $(DESTDIR)$(ASTSPOOLDIR)/vm $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default; \
+ 	else \
+ 		mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default; \
+ 		rm -f $(DESTDIR)$(ASTSPOOLDIR)/vm; \
+ 	fi
+-	ln -s $(ASTSPOOLDIR)/voicemail/default $(DESTDIR)$(ASTSPOOLDIR)/vm
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds
++	ln -s ../voicemail/default $(DESTDIR)$(ASTSPOOLDIR)/vm
++	mkdir -p $(DESTDIR)$(ASTDATADIR)/sounds
+ 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-csv
+ 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/keys
+ 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/firmware
+@@ -371,8 +374,8 @@
+ 	else \
+ 		echo "You need to do cvs update -d not just cvs update" ; \
+ 	fi 
+-	( cd $(DESTDIR)$(ASTVARLIBDIR)/sounds  ; ln -s $(ASTSPOOLDIR)/vm . )
+-	( cd $(DESTDIR)$(ASTVARLIBDIR)/sounds  ; ln -s $(ASTSPOOLDIR)/voicemail . )
++	( cd $(DESTDIR)$(ASTDATADIR)/sounds  ; ln -s /var/spool/asterisk/vm . )
++	( cd $(DESTDIR)$(ASTDATADIR)/sounds  ; ln -s /var/spool/asterisk/voicemail . )
+ 	if [ -f mpg123-0.59r/mpg123 ]; then $(MAKE) -C mpg123-0.59r install; fi
+ 	@echo " +---- Asterisk Installation Complete -------+"  
+ 	@echo " +                                           +"
+@@ -441,24 +444,24 @@
+ 	echo "uniquename = asterisk" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
+ 	for x in sounds/demo-*; do \
+ 		if grep -q "^%`basename $$x`%" sounds.txt; then \
+-			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
++			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds ; \
+ 		else \
+ 			echo "No description for $$x"; \
+ 			exit 1; \
+ 		fi; \
+ 	done
+ 	for x in sounds/*.mp3; do \
+-		install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/mohmp3 ; \
++		install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/mohmp3 ; \
+ 	done
+-	rm -f $(DESTDIR)$(ASTVARLIBDIR)/mohmp3/sample-hold.mp3
++	rm -f $(DESTDIR)$(ASTDATADIR)/mohmp3/sample-hold.mp3
+ 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/INBOX
+ 	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm
+ 	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isunavail; do \
+-		cat $(DESTDIR)$(ASTVARLIBDIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm ; \
++		cat $(DESTDIR)$(ASTDATADIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm ; \
+ 	done
+ 	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm
+ 	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isonphone; do \
+-		cat $(DESTDIR)$(ASTVARLIBDIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm ; \
++		cat $(DESTDIR)$(ASTDATADIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm ; \
+ 	done
+ 
+ webvmail:
+diff -urNad --exclude=CVS --exclude=.svn ./pbx/pbx_wilcalu.c /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/pbx/pbx_wilcalu.c
+--- ./pbx/pbx_wilcalu.c	2005-07-05 20:29:57.334778064 +0100
++++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/pbx/pbx_wilcalu.c	2005-07-05 20:29:57.669727144 +0100
+@@ -12,7 +12,7 @@
+  * the GNU General Public License
+ 
+  *  Autodialer for Asterisk 
+- *  Redirect dialstring thru fifo "/var/run/autodial.ctl"
++ *  Redirect dialstring thru fifo "/var/run/asterisk/autodial.ctl"
+  *  Format of string is :
+  *  "tech/tele,filename&" ie. "tor1/23,file&"
+  */
+diff -urNad asterisk-1.0.2/configs/musiconhold.conf.sample /tmp/dpep.lTPo9n/asterisk-1.0.2/configs/musiconhold.conf.sample
+--- asterisk-1.0.2/configs/musiconhold.conf.sample      2004-08-01 16:19:04.000000000 +0200
++++ /tmp/dpep.lTPo9n/asterisk-1.0.2/configs/musiconhold.conf.sample     2005-01-04 21:38:42.000000000 +0100
+@@ -2,7 +2,7 @@
+ ; Music on hold class definitions
+ ;
+ [classes]
+-default => quietmp3:/var/lib/asterisk/mohmp3
++default => quietmp3:/usr/share/asterisk/mohmp3
+ ;loud => mp3:/var/lib/asterisk/mohmp3
+ ;random => quietmp3:/var/lib/asterisk/mohmp3,-z
+ ;unbuffered => mp3nb:/var/lib/asterisk/mohmp3

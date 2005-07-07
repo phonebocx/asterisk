@@ -2,7 +2,7 @@
 ## 110_fpm-sounds.dpatch by Jose Carlos Garcia Sogo <jsogo@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: Don't try to install removed sounds from source
+## DP: Don't try to install non-dfsg sounds from source
 
 @DPATCH@
 diff -urNad asterisk-1.0.3/Makefile /tmp/dpep.r0xJTd/asterisk-1.0.3/Makefile

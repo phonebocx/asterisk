@@ -1,5 +1,5 @@
-80_app_voicemail.dpatch
-#bristuff-0.2.0-RC8h.dpatch
+80_app_voicemail-italian.dpatch
+bristuff-0.2.0-RC8h.dpatch
 100_nonroot.dpatch
 10_DPIC.dpatch
 20_Makefile.dpatch
@@ -12,4 +12,4 @@
 90_dot-nonfree.dpatch
 95_conf_sample.dpatch
 98_fpm-sounds.dpatch
-08_debian-zaptel.dpatch
+#08_debian-zaptel.dpatch

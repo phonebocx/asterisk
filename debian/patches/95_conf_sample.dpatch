@@ -17,15 +17,3 @@ diff -urNad asterisk-1.0.2/configs/modules.conf.sample /tmp/dpep.lTPo9n/asterisk
  ;
  ; Module names listed in "global" section will have symbols globally
  ; exported to modules loaded after them.
-diff -urNad asterisk-1.0.2/configs/musiconhold.conf.sample /tmp/dpep.lTPo9n/asterisk-1.0.2/configs/musiconhold.conf.sample
---- asterisk-1.0.2/configs/musiconhold.conf.sample	2004-08-01 16:19:04.000000000 +0200
-+++ /tmp/dpep.lTPo9n/asterisk-1.0.2/configs/musiconhold.conf.sample	2005-01-04 21:38:42.000000000 +0100
-@@ -2,7 +2,7 @@
- ; Music on hold class definitions
- ;
- [classes]
--default => quietmp3:/var/lib/asterisk/mohmp3
-+default => quietmp3:/usr/share/asterisk/mohmp3
- ;loud => mp3:/var/lib/asterisk/mohmp3
- ;random => quietmp3:/var/lib/asterisk/mohmp3,-z
- ;unbuffered => mp3nb:/var/lib/asterisk/mohmp3
