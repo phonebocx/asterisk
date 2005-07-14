@@ -5,9 +5,14 @@ asterisk (1:1.0.9.dfsg-3) unstable; urgency=low
   * Remove debian/patches/08_debian-zaptel.dpatch as it is no longer
     needed with new zaptel-source package
   * Add Build-Depends: zaptel-source
-  * Cleanup debian/patches/ 
+  * Cleanup debian/patches/
+  * Conflicts: asterisk-oh323 (<= 0.6.6pre3-3)
+    - Closes: #318189: asterisk-oh323: chan_oh323.so cannot find symbol
+    and Asterisk crashes
+  * Cleanup postinit error: adduser asterisk audio; adduser asterisk
+    dialout
 
- -- Mark Purcell <msp@debian.org>  Tue,  5 Jul 2005 20:44:05 +0100
+ -- Mark Purcell <mark@dell.purcell.id.au>  Thu, 14 Jul 2005 05:18:25 +0100
 
 asterisk (1:1.0.9.dfsg-2) unstable; urgency=low
 
