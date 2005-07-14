@@ -5,9 +5,9 @@
 ## DP: No description.
 
 @DPATCH@
-diff -urNad --exclude=CVS --exclude=.svn ./app_devstate.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/app_devstate.c
+diff -urNad --exclude=CVS --exclude=.svn ./app_devstate.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/app_devstate.c
 --- ./app_devstate.c	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/app_devstate.c	2005-07-14 13:11:08.903273192 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/app_devstate.c	2005-07-14 13:18:24.510050896 +0100
 @@ -0,0 +1,196 @@
 +/*
 + * Devstate application
@@ -205,9 +205,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./app_devstate.c /tmp/dpep-work.B2jNOa/
 +{
 +    return ASTERISK_GPL_KEY;
 +}
-diff -urNad --exclude=CVS --exclude=.svn ./app_pickup.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/app_pickup.c
+diff -urNad --exclude=CVS --exclude=.svn ./app_pickup.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/app_pickup.c
 --- ./app_pickup.c	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/app_pickup.c	2005-07-14 13:11:08.903273192 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/app_pickup.c	2005-07-14 13:18:24.511050744 +0100
 @@ -0,0 +1,289 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -498,9 +498,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./app_pickup.c /tmp/dpep-work.B2jNOa/as
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad --exclude=CVS --exclude=.svn ./apps/app_chanisavail.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_chanisavail.c
+diff -urNad --exclude=CVS --exclude=.svn ./apps/app_chanisavail.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_chanisavail.c
 --- ./apps/app_chanisavail.c	2004-12-30 21:46:39.000000000 +0000
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_chanisavail.c	2005-07-14 13:11:08.903273192 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_chanisavail.c	2005-07-14 13:18:24.511050744 +0100
 @@ -81,7 +81,7 @@
  			}
  			*number = '\0';
@@ -510,9 +510,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./apps/app_chanisavail.c /tmp/dpep-work
  					pbx_builtin_setvar_helper(chan, "AVAILCHAN", tempchan->name);
  					/* Store the originally used channel too */
  					snprintf(tmp, sizeof(tmp), "%s/%s", tech, number);
-diff -urNad --exclude=CVS --exclude=.svn ./apps/app_dial.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_dial.c
+diff -urNad --exclude=CVS --exclude=.svn ./apps/app_dial.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_dial.c
 --- ./apps/app_dial.c	2005-05-12 02:43:36.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_dial.c	2005-07-14 13:11:08.904273040 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_dial.c	2005-07-14 13:18:24.512050592 +0100
 @@ -7,6 +7,10 @@
   *
   * Mark Spencer <markster@digium.com>
@@ -651,9 +651,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./apps/app_dial.c /tmp/dpep-work.B2jNOa
  	time(&start_time);
  	peer = wait_for_answer(chan, outgoing, &to, &allowredir_in, &allowredir_out, &allowdisconnect_in, &allowdisconnect_out, &sentringing, &noforwardhtml, status, sizeof(status));
  
-diff -urNad --exclude=CVS --exclude=.svn ./apps/app_meetme.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_meetme.c
+diff -urNad --exclude=CVS --exclude=.svn ./apps/app_meetme.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_meetme.c
 --- ./apps/app_meetme.c	2005-04-15 08:15:39.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_meetme.c	2005-07-14 13:11:08.905272888 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_meetme.c	2005-07-14 13:18:24.515050136 +0100
 @@ -220,7 +220,7 @@
  			strncpy(cnf->confno, confno, sizeof(cnf->confno) - 1);
  			strncpy(cnf->pin, pin, sizeof(cnf->pin) - 1);
@@ -663,9 +663,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./apps/app_meetme.c /tmp/dpep-work.B2jN
  			if (cnf->chan) {
  				cnf->fd = cnf->chan->fds[0];	/* for use by conf_play() */
  			} else {
-diff -urNad --exclude=CVS --exclude=.svn ./apps/app_parkandannounce.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_parkandannounce.c
+diff -urNad --exclude=CVS --exclude=.svn ./apps/app_parkandannounce.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_parkandannounce.c
 --- ./apps/app_parkandannounce.c	2005-02-19 00:41:21.000000000 +0000
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_parkandannounce.c	2005-07-14 13:11:08.907272584 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_parkandannounce.c	2005-07-14 13:18:24.515050136 +0100
 @@ -161,7 +161,7 @@
  
  	/* Now place the call to the extention */
@@ -675,9 +675,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./apps/app_parkandannounce.c /tmp/dpep-
  
  	if(dchan) {
  		if(dchan->_state == AST_STATE_UP) {
-diff -urNad --exclude=CVS --exclude=.svn ./apps/app_qcall.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_qcall.c
+diff -urNad --exclude=CVS --exclude=.svn ./apps/app_qcall.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_qcall.c
 --- ./apps/app_qcall.c	2005-04-15 08:15:39.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_qcall.c	2005-07-14 13:11:08.908272432 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_qcall.c	2005-07-14 13:18:24.515050136 +0100
 @@ -224,7 +224,7 @@
  		pthread_exit(NULL);
  	   }
@@ -687,9 +687,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./apps/app_qcall.c /tmp/dpep-work.B2jNO
  	if (channel)
  	   {
  		ast_set_read_format(channel,AST_FORMAT_SLINEAR);
-diff -urNad --exclude=CVS --exclude=.svn ./apps/app_queue.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_queue.c
+diff -urNad --exclude=CVS --exclude=.svn ./apps/app_queue.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_queue.c
 --- ./apps/app_queue.c	2005-05-31 04:22:34.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_queue.c	2005-07-14 13:11:08.909272280 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_queue.c	2005-07-14 13:18:24.517049832 +0100
 @@ -559,7 +559,7 @@
  		return 0;
  	}
@@ -699,9 +699,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./apps/app_queue.c /tmp/dpep-work.B2jNO
  	if (!tmp->chan) {			/* If we can't, just go on to the next call */
  #if 0
  		ast_log(LOG_NOTICE, "Unable to create channel of type '%s'\n", cur->tech);
-diff -urNad --exclude=CVS --exclude=.svn ./apps/app_zapras.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_zapras.c
+diff -urNad --exclude=CVS --exclude=.svn ./apps/app_zapras.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_zapras.c
 --- ./apps/app_zapras.c	2004-06-22 20:32:52.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/apps/app_zapras.c	2005-07-14 13:11:08.909272280 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/apps/app_zapras.c	2005-07-14 13:18:24.517049832 +0100
 @@ -159,7 +159,7 @@
  				}
  			}
@@ -711,9 +711,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./apps/app_zapras.c /tmp/dpep-work.B2jN
  			ioctl(chan->fds[0], ZT_AUDIOMODE, &x);
  
  			/* Double check buffering too */
-diff -urNad --exclude=CVS --exclude=.svn ./app_segfault.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/app_segfault.c
+diff -urNad --exclude=CVS --exclude=.svn ./app_segfault.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/app_segfault.c
 --- ./app_segfault.c	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/app_segfault.c	2005-07-14 13:11:08.909272280 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/app_segfault.c	2005-07-14 13:18:24.517049832 +0100
 @@ -0,0 +1,75 @@
 +/*
 + * Segfault application
@@ -790,9 +790,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./app_segfault.c /tmp/dpep-work.B2jNOa/
 +{
 +    return ASTERISK_GPL_KEY;
 +}
-diff -urNad --exclude=CVS --exclude=.svn ./app_settransfercapability.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/app_settransfercapability.c
+diff -urNad --exclude=CVS --exclude=.svn ./app_settransfercapability.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/app_settransfercapability.c
 --- ./app_settransfercapability.c	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/app_settransfercapability.c	2005-07-14 13:11:08.910272128 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/app_settransfercapability.c	2005-07-14 13:18:24.517049832 +0100
 @@ -0,0 +1,115 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -909,9 +909,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./app_settransfercapability.c /tmp/dpep
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad --exclude=CVS --exclude=.svn ./astconf.h /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/astconf.h
+diff -urNad --exclude=CVS --exclude=.svn ./astconf.h /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/astconf.h
 --- ./astconf.h	2003-01-30 15:03:20.000000000 +0000
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/astconf.h	2005-07-14 13:11:08.910272128 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/astconf.h	2005-07-14 13:18:24.518049680 +0100
 @@ -28,5 +28,6 @@
  extern char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_SOCKET[AST_CONFIG_MAX_PATH];
@@ -919,9 +919,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./astconf.h /tmp/dpep-work.B2jNOa/aster
 +extern char ast_config_AST_SYMBOLIC_NAME[20];
  
  #endif
-diff -urNad --exclude=CVS --exclude=.svn ./asterisk.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/asterisk.c
+diff -urNad --exclude=CVS --exclude=.svn ./asterisk.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/asterisk.c
 --- ./asterisk.c	2005-05-16 04:04:58.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/asterisk.c	2005-07-14 13:11:08.911271976 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/asterisk.c	2005-07-14 13:18:24.518049680 +0100
 @@ -124,6 +124,7 @@
  char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
  char ast_config_AST_SOCKET[AST_CONFIG_MAX_PATH];
@@ -947,9 +947,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./asterisk.c /tmp/dpep-work.B2jNOa/aste
  		}
  		v = v->next;
  	}
-diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/asterisk.h
+diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/asterisk.h
 --- ./asterisk.h	2004-09-07 16:02:53.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/asterisk.h	2005-07-14 13:11:08.911271976 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/asterisk.h	2005-07-14 13:18:24.519049528 +0100
 @@ -29,6 +29,7 @@
  #define AST_KEY_DIR	ASTVARLIBDIR "/keys"
  #define AST_DB		ASTVARLIBDIR "/astdb"
@@ -958,9 +958,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.B2jNOa/aste
  
  #define AST_CONFIG_FILE ASTCONFPATH
  
-diff -urNad --exclude=CVS --exclude=.svn ./channel.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/channel.c
+diff -urNad --exclude=CVS --exclude=.svn ./channel.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/channel.c
 --- ./channel.c	2005-06-14 19:41:48.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/channel.c	2005-07-14 13:11:08.913271672 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/channel.c	2005-07-14 13:18:24.520049376 +0100
 @@ -38,6 +38,8 @@
  #include <asterisk/causes.h>
  #include <asterisk/utils.h>
@@ -1198,9 +1198,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./channel.c /tmp/dpep-work.B2jNOa/aster
  	firstpass = config->firstpass;
  	config->firstpass = 0;
  
-diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_agent.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/channels/chan_agent.c
+diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_agent.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/channels/chan_agent.c
 --- ./channels/chan_agent.c	2005-05-10 04:28:01.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/channels/chan_agent.c	2005-07-14 13:11:08.914271520 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/channels/chan_agent.c	2005-07-14 13:18:24.521049224 +0100
 @@ -1091,7 +1091,7 @@
  						chan = agent_new(p, AST_STATE_DOWN);
  					} else if (!p->owner && !ast_strlen_zero(p->loginchan)) {
@@ -1210,9 +1210,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_agent.c /tmp/dpep-work.
  						if (p->chan)
  							chan = agent_new(p, AST_STATE_DOWN);
  					}
-diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_sip.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/channels/chan_sip.c
+diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_sip.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/channels/chan_sip.c
 --- ./channels/chan_sip.c	2005-06-21 15:15:55.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/channels/chan_sip.c	2005-07-14 13:11:08.918270912 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/channels/chan_sip.c	2005-07-14 13:18:24.526048464 +0100
 @@ -296,6 +296,7 @@
  	struct sip_pvt *refer_call;		/* Call we are referring */
  	struct sip_route *route;		/* Head of linked list of routing steps (fm Record-Route) */
@@ -1315,9 +1315,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_sip.c /tmp/dpep-work.B2
  }
  
  /*--- reply_digest: reply to authentication for outbound registrations ---*/
-diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_zap.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/channels/chan_zap.c
+diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_zap.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/channels/chan_zap.c
 --- ./channels/chan_zap.c	2005-06-22 15:01:26.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/channels/chan_zap.c	2005-07-14 13:11:08.928269392 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/channels/chan_zap.c	2005-07-14 13:18:24.537046792 +0100
 @@ -7,6 +7,10 @@
   *
   * Mark Spencer <markster@digium.com>
@@ -3540,9 +3540,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./channels/chan_zap.c /tmp/dpep-work.B2
  static int zt_sendtext(struct ast_channel *c, char *text)
  {
  #define	END_SILENCE_LEN 400
-diff -urNad --exclude=CVS --exclude=.svn ./codecs/codec_ilbc.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/codecs/codec_ilbc.c
+diff -urNad --exclude=CVS --exclude=.svn ./codecs/codec_ilbc.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/codecs/codec_ilbc.c
 --- ./codecs/codec_ilbc.c	2004-06-22 19:49:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/codecs/codec_ilbc.c	2005-07-14 13:11:08.929269240 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/codecs/codec_ilbc.c	2005-07-14 13:18:24.537046792 +0100
 @@ -32,7 +32,7 @@
  #include "slin_ilbc_ex.h"
  #include "ilbc_slin_ex.h"
@@ -3552,9 +3552,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./codecs/codec_ilbc.c /tmp/dpep-work.B2
  
  AST_MUTEX_DEFINE_STATIC(localuser_lock);
  static int localusecnt=0;
-diff -urNad --exclude=CVS --exclude=.svn ./HARDWARE /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/HARDWARE
+diff -urNad --exclude=CVS --exclude=.svn ./HARDWARE /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/HARDWARE
 --- ./HARDWARE	2004-08-03 07:31:20.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/HARDWARE	2005-07-14 13:11:08.932268784 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/HARDWARE	2005-07-14 13:18:24.537046792 +0100
 @@ -37,6 +37,13 @@
     * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
       RBS signalling, as well as PPP, FR, and HDLC data modes.
@@ -3569,9 +3569,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./HARDWARE /tmp/dpep-work.B2jNOa/asteri
  Non-zaptel compatible hardware
  ==============================
  
-diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/channel.h /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/include/asterisk/channel.h
+diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/channel.h /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/include/asterisk/channel.h
 --- ./include/asterisk/channel.h	2005-06-14 19:41:48.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/include/asterisk/channel.h	2005-07-14 13:11:08.932268784 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/include/asterisk/channel.h	2005-07-14 13:18:24.538046640 +0100
 @@ -34,6 +34,9 @@
  //! Max length of an extension
  #define AST_MAX_EXTENSION 80
@@ -3677,9 +3677,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/channel.h /tmp/dpep-
  /* Options: Some low-level drivers may implement "options" allowing fine tuning of the
     low level channel.  See frame.h for options.  Note that many channel drivers may support
     none or a subset of those features, and you should not count on this if you want your
-diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/features.h /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/include/asterisk/features.h
+diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/features.h /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/include/asterisk/features.h
 --- ./include/asterisk/features.h	2004-07-18 00:56:12.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/include/asterisk/features.h	2005-07-14 13:11:08.933268632 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/include/asterisk/features.h	2005-07-14 13:18:24.538046640 +0100
 @@ -38,10 +38,17 @@
  */
  extern int ast_masq_park_call(struct ast_channel *rchan, struct ast_channel *host, int timeout, int *extout);
@@ -3706,9 +3706,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/features.h /tmp/dpep
 +extern int ast_masq_autoanswer_login(struct ast_channel *rchan, void *data);
  
  #endif /* _AST_FEATURES_H */
-diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/pbx.h /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/include/asterisk/pbx.h
+diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/pbx.h /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/include/asterisk/pbx.h
 --- ./include/asterisk/pbx.h	2004-08-21 19:55:39.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/include/asterisk/pbx.h	2005-07-14 13:11:08.933268632 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/include/asterisk/pbx.h	2005-07-14 13:18:24.539046488 +0100
 @@ -42,6 +42,8 @@
  #define AST_EXTENSION_BUSY		2
  //! All devices UNAVAILABLE/UNREGISTERED
@@ -3741,9 +3741,46 @@ diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/pbx.h /tmp/dpep-work
  
  /* Functions for returning values from structures */
  char *ast_get_context_name(struct ast_context *con);
-diff -urNad --exclude=CVS --exclude=.svn ./Makefile /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/Makefile
+diff -urNad --exclude=CVS --exclude=.svn ./include/asterisk/transcap.h /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/include/asterisk/transcap.h
+--- ./include/asterisk/transcap.h	1970-01-01 01:00:00.000000000 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/include/asterisk/transcap.h	2005-07-14 13:18:24.548045120 +0100
+@@ -0,0 +1,33 @@
++/*
++ * Asterisk -- A telephony toolkit for Linux.
++ *
++ * General Asterisk channel definitions.
++ * 
++ * Copyright (C) 1999 - 2005, Digium, Inc.
++ *
++ * Matthew Fredrickson <creslin@digium.com>
++ *
++ * This program is free software, distributed under the terms of
++ * the GNU General Public License
++ */
++
++#ifndef _ASTERISK_TRANSCAP_H
++#define _ASTERISK_TRANSCAP_H
++
++/* These definitions are taken directly out of libpri.h and used here.
++ * DO NOT change them as it will cause unexpected behavior in channels
++ * that utilize these fields.
++ */
++
++#define AST_TRANS_CAP_SPEECH				0x0
++#define AST_TRANS_CAP_DIGITAL				0x08
++#define AST_TRANS_CAP_RESTRICTED_DIGITAL		0x09
++#define AST_TRANS_CAP_3_1K_AUDIO			0x10
++#define AST_TRANS_CAP_7K_AUDIO				0x11	/* Depriciated ITU Q.931 (05/1998)*/
++#define AST_TRANS_CAP_DIGITAL_W_TONES			0x11
++#define AST_TRANS_CAP_VIDEO				0x18
++
++#define IS_DIGITAL(cap)\
++	(cap) & AST_TRANS_CAP_DIGITAL ? 1 : 0
++
++#endif /* _ASTERISK_TRANSCAP_H */
+diff -urNad --exclude=CVS --exclude=.svn ./Makefile /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/Makefile
 --- ./Makefile	2005-04-26 15:30:23.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/Makefile	2005-07-14 13:11:08.934268480 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/Makefile	2005-07-14 13:18:24.539046488 +0100
 @@ -473,6 +473,8 @@
  	echo "astspooldir => $(ASTSPOOLDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
  	echo "astrundir => $(ASTVARRUNDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf
@@ -3753,9 +3790,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./Makefile /tmp/dpep-work.B2jNOa/asteri
  	for x in sounds/demo-*; do \
  		if grep -q "^%`basename $$x`%" sounds.txt; then \
  			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
-diff -urNad --exclude=CVS --exclude=.svn ./Makefile.rej /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/Makefile.rej
+diff -urNad --exclude=CVS --exclude=.svn ./Makefile.rej /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/Makefile.rej
 --- ./Makefile.rej	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/Makefile.rej	2005-07-14 13:11:08.935268328 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/Makefile.rej	2005-07-14 13:18:24.540046336 +0100
 @@ -0,0 +1,17 @@
 +***************
 +*** 12,18 ****
@@ -3774,9 +3811,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./Makefile.rej /tmp/dpep-work.B2jNOa/as
 +  MODS+=$(shell if [ -f "/usr/include/odbcinst.h" ]; then echo "res_odbc.so res_config_odbc.so"; fi)
 +  MODS+=$(shell if [ -f "/usr/local/include/odbcinst.h" ]; then echo "res_odbc.so res_config_odbc.so"; fi)
 +  MODS+=$(shell if [ -f "/usr/include/osp/osp.h" ]; then echo "res_osp.so"; fi)
-diff -urNad --exclude=CVS --exclude=.svn ./manager.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/manager.c
+diff -urNad --exclude=CVS --exclude=.svn ./manager.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/manager.c
 --- ./manager.c	2005-04-15 08:15:39.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/manager.c	2005-07-14 13:11:08.936268176 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/manager.c	2005-07-14 13:18:24.541046184 +0100
 @@ -9,6 +9,9 @@
   *
   * Mark Spencer <markster@digium.com>
@@ -4151,9 +4188,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./manager.c /tmp/dpep-work.B2jNOa/aster
  		ast_manager_register2("ListCommands", 0, action_listcommands, "List available manager commands", mandescr_listcommands);
  
  		ast_cli_register(&show_mancmd_cli);
-diff -urNad --exclude=CVS --exclude=.svn ./pbx/pbx_spool.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/pbx/pbx_spool.c
+diff -urNad --exclude=CVS --exclude=.svn ./pbx/pbx_spool.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/pbx/pbx_spool.c
 --- ./pbx/pbx_spool.c	2005-04-02 18:41:19.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/pbx/pbx_spool.c	2005-07-14 13:11:08.936268176 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/pbx/pbx_spool.c	2005-07-14 13:18:24.541046184 +0100
 @@ -219,11 +219,11 @@
  	if (!ast_strlen_zero(o->app)) {
  		if (option_verbose > 2)
@@ -4168,9 +4205,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./pbx/pbx_spool.c /tmp/dpep-work.B2jNOa
  	}
  	if (res) {
  		ast_log(LOG_NOTICE, "Call failed to go through, reason %d\n", reason);
-diff -urNad --exclude=CVS --exclude=.svn ./pbx/pbx_wilcalu.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/pbx/pbx_wilcalu.c
+diff -urNad --exclude=CVS --exclude=.svn ./pbx/pbx_wilcalu.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/pbx/pbx_wilcalu.c
 --- ./pbx/pbx_wilcalu.c	2004-08-08 18:15:02.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/pbx/pbx_wilcalu.c	2005-07-14 13:11:08.937268024 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/pbx/pbx_wilcalu.c	2005-07-14 13:18:24.542046032 +0100
 @@ -192,7 +192,7 @@
  	}
  	ast_log(LOG_DEBUG, "Autodial Tech %s(%d) Tele %s(%d) Filename %s(%d)\n",tech, (int)strlen(tech), tele, (int)strlen(tele), filename, (int)strlen(filename));
@@ -4180,9 +4217,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./pbx/pbx_wilcalu.c /tmp/dpep-work.B2jN
  	if(channel!=NULL){
  		ast_call(channel,tele,10000);
  	} else {
-diff -urNad --exclude=CVS --exclude=.svn ./pbx.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/pbx.c
+diff -urNad --exclude=CVS --exclude=.svn ./pbx.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/pbx.c
 --- ./pbx.c	2005-06-14 19:41:48.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/pbx.c	2005-07-14 13:11:08.939267720 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/pbx.c	2005-07-14 13:18:24.544045728 +0100
 @@ -267,7 +267,8 @@
  	
  	{ "Hangup", pbx_builtin_hangup,
@@ -4335,9 +4372,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./pbx.c /tmp/dpep-work.B2jNOa/asterisk-
  	return res;
  }
  	
-diff -urNad --exclude=CVS --exclude=.svn ./README /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/README
+diff -urNad --exclude=CVS --exclude=.svn ./README /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/README
 --- ./README	2005-05-11 04:44:07.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/README	2005-07-14 13:11:08.943267112 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/README	2005-07-14 13:18:24.545045576 +0100
 @@ -1,6 +1,7 @@
  The Asterisk Open Source PBX
  by Mark Spencer <markster@digium.com>
@@ -4375,9 +4412,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./README /tmp/dpep-work.B2jNOa/asterisk
  * REQUIRED COMPONENTS
  
  == Linux ==
-diff -urNad --exclude=CVS --exclude=.svn ./res/res_features.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/res/res_features.c
+diff -urNad --exclude=CVS --exclude=.svn ./res/res_features.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/res/res_features.c
 --- ./res/res_features.c	2005-05-15 16:55:31.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/res/res_features.c	2005-07-14 13:11:08.945266808 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/res/res_features.c	2005-07-14 13:18:24.547045272 +0100
 @@ -7,6 +7,10 @@
   *
   * Mark Spencer <markster@digium.com>
@@ -5296,9 +5333,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./res/res_features.c /tmp/dpep-work.B2j
  	ast_unregister_application(parkcall);
  	return ast_unregister_application(parkedcall);
  }
-diff -urNad --exclude=CVS --exclude=.svn ./res_watchdog.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/res_watchdog.c
+diff -urNad --exclude=CVS --exclude=.svn ./res_watchdog.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/res_watchdog.c
 --- ./res_watchdog.c	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/res_watchdog.c	2005-07-14 13:11:08.946266656 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/res_watchdog.c	2005-07-14 13:18:24.547045272 +0100
 @@ -0,0 +1,151 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -5451,9 +5488,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./res_watchdog.c /tmp/dpep-work.B2jNOa/
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad --exclude=CVS --exclude=.svn ./rtp.c /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/rtp.c
+diff -urNad --exclude=CVS --exclude=.svn ./rtp.c /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/rtp.c
 --- ./rtp.c	2005-05-31 13:55:43.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/rtp.c	2005-07-14 13:11:08.946266656 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/rtp.c	2005-07-14 13:18:24.548045120 +0100
 @@ -417,6 +417,11 @@
  	struct rtpPayloadType rtpPT;
  	
@@ -5466,46 +5503,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./rtp.c /tmp/dpep-work.B2jNOa/asterisk-
  	
  	/* Cache where the header will go */
  	res = recvfrom(rtp->s, rtp->rawdata + AST_FRIENDLY_OFFSET, sizeof(rtp->rawdata) - AST_FRIENDLY_OFFSET,
-diff -urNad --exclude=CVS --exclude=.svn ./transcap.h /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/transcap.h
---- ./transcap.h	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/transcap.h	2005-07-14 13:11:08.947266504 +0100
-@@ -0,0 +1,33 @@
-+/*
-+ * Asterisk -- A telephony toolkit for Linux.
-+ *
-+ * General Asterisk channel definitions.
-+ * 
-+ * Copyright (C) 1999 - 2005, Digium, Inc.
-+ *
-+ * Matthew Fredrickson <creslin@digium.com>
-+ *
-+ * This program is free software, distributed under the terms of
-+ * the GNU General Public License
-+ */
-+
-+#ifndef _ASTERISK_TRANSCAP_H
-+#define _ASTERISK_TRANSCAP_H
-+
-+/* These definitions are taken directly out of libpri.h and used here.
-+ * DO NOT change them as it will cause unexpected behavior in channels
-+ * that utilize these fields.
-+ */
-+
-+#define AST_TRANS_CAP_SPEECH				0x0
-+#define AST_TRANS_CAP_DIGITAL				0x08
-+#define AST_TRANS_CAP_RESTRICTED_DIGITAL		0x09
-+#define AST_TRANS_CAP_3_1K_AUDIO			0x10
-+#define AST_TRANS_CAP_7K_AUDIO				0x11	/* Depriciated ITU Q.931 (05/1998)*/
-+#define AST_TRANS_CAP_DIGITAL_W_TONES			0x11
-+#define AST_TRANS_CAP_VIDEO				0x18
-+
-+#define IS_DIGITAL(cap)\
-+	(cap) & AST_TRANS_CAP_DIGITAL ? 1 : 0
-+
-+#endif /* _ASTERISK_TRANSCAP_H */
-diff -urNad --exclude=CVS --exclude=.svn ./watchdog.conf.sample /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/watchdog.conf.sample
+diff -urNad --exclude=CVS --exclude=.svn ./watchdog.conf.sample /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/watchdog.conf.sample
 --- ./watchdog.conf.sample	1970-01-01 01:00:00.000000000 +0100
-+++ /tmp/dpep-work.B2jNOa/asterisk-1.0.9.dfsg/watchdog.conf.sample	2005-07-14 13:11:08.947266504 +0100
++++ /tmp/dpep-work.4JXesi/asterisk-1.0.9.dfsg/watchdog.conf.sample	2005-07-14 13:18:24.549044968 +0100
 @@ -0,0 +1,22 @@
 +;
 +; Configuration file for res_watchdog

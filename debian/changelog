@@ -4,11 +4,11 @@ asterisk (1:1.0.9.dfsg-3) unstable; urgency=low
   * Enable bristuff-0.2.0-RC8j.dpatch
   * Remove debian/patches/08_debian-zaptel.dpatch as it is no longer
     needed with new zaptel-source package
-  * Add Build-Depends: zaptel-source
   * Cleanup debian/patches/
   * Conflicts: asterisk-oh323 (<= 0.6.6pre3-3)
     - Closes: #318189: asterisk-oh323: chan_oh323.so cannot find symbol
     and Asterisk crashes
+    - Closes: #318216: chan_oh323.so symbols
   * Cleanup postinit error: adduser asterisk audio; adduser asterisk
     dialout
   * Incorporate suggestions from Tzafrir Cohen <tzafrir.cohen@xorcom.com>
