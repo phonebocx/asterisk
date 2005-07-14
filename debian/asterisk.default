@@ -12,7 +12,7 @@ RUNASTERISK=no
 #               priority
 #AST_REALTIME=yes
 #
-# PARAMS: exra parameters to pass to asterisk
+# PARAMS: extra parameters to pass to asterisk
 #         The example here may help you in debugging, but is not intended for
 #         production use.  When you give -G *only* that group will be used,
 #         else all groups of the asterisk user.

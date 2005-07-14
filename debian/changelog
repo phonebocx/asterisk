@@ -11,8 +11,15 @@ asterisk (1:1.0.9.dfsg-3) unstable; urgency=low
     and Asterisk crashes
   * Cleanup postinit error: adduser asterisk audio; adduser asterisk
     dialout
+  * Incorporate suggestions from Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+    - postinst script has an error
+    - modified astdir patch, so it won't conflict with bristuff patch
+    - typo in the debian/asterisk.default: s/exra/extra/
+    - build-depends both on zaptel-source (>= 1.0.6) and simply
+    on zaptel-source, The latter is probably unnecessary
+    - man pages for the other executables in the package
 
- -- Mark Purcell <mark@dell.purcell.id.au>  Thu, 14 Jul 2005 05:18:25 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 14 Jul 2005 05:27:49 +0100
 
 asterisk (1:1.0.9.dfsg-2) unstable; urgency=low
 

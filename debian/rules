@@ -143,7 +143,7 @@ binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
 	dh_installdocs -i
-	dh_installman debian/asterisk.8.gz
+	dh_installman debian/asterisk.8.gz debian/*.1 debian/*.8
 	dh_installexamples -i -XCVS
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i

@@ -1,45 +1,46 @@
 #! /bin/sh /usr/share/dpatch/dpatch-run
 ## ast_data_dir.dpatch by Mark Purcell <msp@debian.org>
+## data_dir.dpatch by Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: Patch to make Asterisk conform with the Linux File System Hierarchy Standard (FSHS)
+## DP: Patch to make Asterisk conform with the Linux File System Hierarchy Standard (FHS)
 ## DP: Places read-only architecture-independent data under /usr/share/asterisk (autoconf --datadir)
 ## DP: not /var/lib/asterisk
 
 @DPATCH@
-diff -urNad --exclude=CVS --exclude=.svn ./astconf.h /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/astconf.h
---- ./astconf.h	2005-07-05 20:29:57.308782016 +0100
-+++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/astconf.h	2005-07-05 20:29:57.666727600 +0100
-@@ -21,6 +21,7 @@
+diff -urNad asterisk-1.0.8.dfsg.1/astconf.h /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/astconf.h
+--- asterisk-1.0.8.dfsg.1/astconf.h	2003-01-30 17:03:20.000000000 +0200
++++ /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/astconf.h	2005-06-25 16:04:49.000000000 +0300
+@@ -19,6 +19,7 @@
+ extern char ast_config_AST_CONFIG_DIR[AST_CONFIG_MAX_PATH];
+ extern char ast_config_AST_CONFIG_FILE[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_MODULE_DIR[AST_CONFIG_MAX_PATH];
++extern char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_VAR_DIR[AST_CONFIG_MAX_PATH];
-+extern char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_LOG_DIR[AST_CONFIG_MAX_PATH];
- extern char ast_config_AST_AGI_DIR[AST_CONFIG_MAX_PATH];
- extern char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
-diff -urNad --exclude=CVS --exclude=.svn ./asterisk.c /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/asterisk.c
---- ./asterisk.c	2005-07-05 20:29:57.352775328 +0100
-+++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/asterisk.c	2005-07-05 20:29:57.667727448 +0100
-@@ -117,6 +117,7 @@
- char ast_config_AST_MODULE_DIR[AST_CONFIG_MAX_PATH];
- char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
+diff -urNad asterisk-1.0.8.dfsg.1/asterisk.c /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/asterisk.c
+--- asterisk-1.0.8.dfsg.1/asterisk.c	2005-05-16 06:04:58.000000000 +0300
++++ /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/asterisk.c	2005-06-25 16:08:30.000000000 +0300
+@@ -119,6 +119,7 @@
  char ast_config_AST_VAR_DIR[AST_CONFIG_MAX_PATH];
-+char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_LOG_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_AGI_DIR[AST_CONFIG_MAX_PATH];
++char ast_config_AST_DATA_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
-@@ -1505,6 +1506,7 @@
- 	strncpy((char *)ast_config_AST_SPOOL_DIR,AST_SPOOL_DIR,sizeof(ast_config_AST_SPOOL_DIR)-1);
- 	strncpy((char *)ast_config_AST_MODULE_DIR,AST_MODULE_DIR,sizeof(ast_config_AST_VAR_DIR)-1);
+ char ast_config_AST_KEY_DIR[AST_CONFIG_MAX_PATH];
+ char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
+@@ -1506,6 +1507,7 @@
  	strncpy((char *)ast_config_AST_VAR_DIR,AST_VAR_DIR,sizeof(ast_config_AST_VAR_DIR)-1);
-+	strncpy((char *)ast_config_AST_DATA_DIR,AST_DATA_DIR,sizeof(ast_config_AST_DATA_DIR)-1);
  	strncpy((char *)ast_config_AST_LOG_DIR,AST_LOG_DIR,sizeof(ast_config_AST_LOG_DIR)-1);
  	strncpy((char *)ast_config_AST_AGI_DIR,AST_AGI_DIR,sizeof(ast_config_AST_AGI_DIR)-1);
++ 	strncpy((char *)ast_config_AST_DATA_DIR,AST_DATA_DIR,sizeof(ast_config_AST_DATA_DIR)-1);
  	strncpy((char *)ast_config_AST_DB,AST_DB,sizeof(ast_config_AST_DB)-1);
-diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/asterisk.h
---- ./asterisk.h	2005-07-05 20:29:57.309781864 +0100
-+++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/asterisk.h	2005-07-05 20:29:57.668727296 +0100
+ 	strncpy((char *)ast_config_AST_KEY_DIR,AST_KEY_DIR,sizeof(ast_config_AST_KEY_DIR)-1);
+ 	strncpy((char *)ast_config_AST_PID,AST_PID,sizeof(ast_config_AST_PID)-1);
+diff -urNad asterisk-1.0.8.dfsg.1/asterisk.h /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/asterisk.h
+--- asterisk-1.0.8.dfsg.1/asterisk.h	2004-09-07 18:02:53.000000000 +0300
++++ /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/asterisk.h	2005-06-25 16:03:15.000000000 +0300
 @@ -24,6 +24,7 @@
  #define AST_MODULE_DIR 	ASTMODDIR
  #define AST_SPOOL_DIR  	ASTSPOOLDIR
@@ -48,7 +49,7 @@ diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.ozrhX4/aste
  #define AST_LOG_DIR	ASTLOGDIR
  #define AST_AGI_DIR	ASTAGIDIR
  #define AST_KEY_DIR	ASTVARLIBDIR "/keys"
-@@ -33,8 +34,8 @@
+@@ -32,8 +33,8 @@
  
  #define AST_CONFIG_FILE ASTCONFPATH
  
@@ -59,9 +60,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./asterisk.h /tmp/dpep-work.ozrhX4/aste
  
  /* Provided by module.c */
  extern int load_modules(void);
-diff -urNad --exclude=CVS --exclude=.svn ./file.c /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/file.c
---- ./file.c	2005-07-05 20:27:30.000000000 +0100
-+++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/file.c	2005-07-05 20:29:57.668727296 +0100
+diff -urNad asterisk-1.0.8.dfsg.1/file.c /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/file.c
+--- asterisk-1.0.8.dfsg.1/file.c	2005-06-14 21:41:48.000000000 +0300
++++ /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/file.c	2005-06-25 16:03:15.000000000 +0300
 @@ -284,7 +284,7 @@
  	int fnsize = 0;
  	char tmp[AST_CONFIG_MAX_PATH]="";
@@ -71,9 +72,9 @@ diff -urNad --exclude=CVS --exclude=.svn ./file.c /tmp/dpep-work.ozrhX4/asterisk
  	fnsize = strlen(tmp) + strlen(filename) + strlen(ext) + 10;
  	fn = malloc(fnsize);
  	if (fn) {
-diff -urNad --exclude=CVS --exclude=.svn ./image.c /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/image.c
---- ./image.c	2005-07-05 20:27:30.000000000 +0100
-+++ /tmp/dpep-work.ozrhX4/asterisk-1.0.9.dfsg/image.c	2005-07-05 20:29:57.668727296 +0100
+diff -urNad asterisk-1.0.8.dfsg.1/image.c /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/image.c
+--- asterisk-1.0.8.dfsg.1/image.c	2004-06-22 21:48:59.000000000 +0300
++++ /tmp/dpep.RIoflc/asterisk-1.0.8.dfsg.1/image.c	2005-06-25 16:03:15.000000000 +0300
 @@ -95,9 +95,9 @@
  			snprintf(buf, len, "%s.%s", filename, ext);
  	} else {
