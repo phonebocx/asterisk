@@ -1,7 +1,7 @@
 asterisk (1:1.0.9.dfsg-3) unstable; urgency=low
 
   * Cleanup 70_debian-libpe-fe.dpatch to check in Makefile
-  * Enable bristuff-0.2.0-RC8h.dpatch
+  * Enable bristuff-0.2.0-RC8j.dpatch
   * Remove debian/patches/08_debian-zaptel.dpatch as it is no longer
     needed with new zaptel-source package
   * Add Build-Depends: zaptel-source
@@ -19,7 +19,7 @@ asterisk (1:1.0.9.dfsg-3) unstable; urgency=low
     on zaptel-source, The latter is probably unnecessary
     - man pages for the other executables in the package
 
- -- Mark Purcell <msp@debian.org>  Thu, 14 Jul 2005 05:27:49 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 14 Jul 2005 07:22:59 +0100
 
 asterisk (1:1.0.9.dfsg-2) unstable; urgency=low
 
