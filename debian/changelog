@@ -1,3 +1,9 @@
+asterisk (1:1.0.9.dfsg-3) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- Mark Purcell <msp@debian.org>  Thu, 14 Jul 2005 13:39:07 +0100
+
 asterisk (1:1.0.9.dfsg-3) unstable; urgency=low
 
   * Cleanup 70_debian-libpe-fe.dpatch to check in Makefile
