@@ -1,8 +1,10 @@
-asterisk (1:1.0.9.dfsg-4) UNRELEASED; urgency=low
+asterisk (1:1.0.9.dfsg-4) unstable; urgency=low
 
-  * NOT RELEASED YET
+  * Cleanup bristuff to build under gcc4, thanks for the suggestions
+    - Closes: #318337: FTBFS. channel.c:64: error: static declaration of
+    'uniquelock' follows non-static declaration
 
- -- Mark Purcell <msp@debian.org>  Thu, 14 Jul 2005 13:39:07 +0100
+ -- Mark Purcell <msp@debian.org>  Fri, 22 Jul 2005 10:28:15 +1000
 
 asterisk (1:1.0.9.dfsg-3) unstable; urgency=low
 
