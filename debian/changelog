@@ -1,3 +1,9 @@
+asterisk (1:1.0.9.dfsg-5) UNRELEASED; urgency=low
+
+  * debian/control: fix GCI to read CGI. (Closes: #311291)
+
+ -- Kilian Krause <kk@verfaction.de>  Sat,  6 Aug 2005 17:41:38 +0200
+
 asterisk (1:1.0.9.dfsg-4) unstable; urgency=low
 
   * Cleanup bristuff to build under gcc4, thanks for the suggestions

@@ -101,7 +101,7 @@ Recommends: asterisk
 Architecture: all
 Depends: httpd-cgi
 Section: comm
-Description: web based (GCI) voice mail interface for asterisk
+Description: Web-based (CGI) voice mail interface for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains a web-based interface for the voice-mail system
