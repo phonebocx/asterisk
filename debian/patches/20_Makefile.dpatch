@@ -5,9 +5,25 @@
 ## DP: Patch Makefile to build under Debian GNU/Linux
 
 @DPATCH@
-diff -urNad asterisk-1.0.5/Makefile /tmp/dpep.jxj8cL/asterisk-1.0.5/Makefile
---- asterisk-1.0.5/Makefile	2005-01-28 21:15:18.000000000 +0100
-+++ /tmp/dpep.jxj8cL/asterisk-1.0.5/Makefile	2005-01-28 23:28:29.000000000 +0100
+diff -urNad --exclude=CVS --exclude=.svn ./contrib/scripts/autosupport /tmp/dpep-work.Bh75kd/asterisk-1.0.9.dfsg/contrib/scripts/autosupport
+--- ./contrib/scripts/autosupport	2005-03-11 17:15:22.000000000 +0000
++++ /tmp/dpep-work.Bh75kd/asterisk-1.0.9.dfsg/contrib/scripts/autosupport	2005-08-09 21:56:26.000000000 +0100
+@@ -1,3 +1,4 @@
++#!/bin/bash
+ #
+ # Collect support information
+ #
+@@ -8,7 +9,6 @@
+ # Distributed under the terms of the GNU General Public
+ # License
+ #
+-#!/bin/bash
+ 
+ OUTPUT=$HOME/digiuminfo
+ 
+diff -urNad --exclude=CVS --exclude=.svn ./Makefile /tmp/dpep-work.Bh75kd/asterisk-1.0.9.dfsg/Makefile
+--- ./Makefile	2005-08-09 21:56:06.000000000 +0100
++++ /tmp/dpep-work.Bh75kd/asterisk-1.0.9.dfsg/Makefile	2005-08-09 21:56:07.000000000 +0100
 @@ -18,42 +18,6 @@
  
  OSARCH=$(shell uname -s)
@@ -60,7 +76,7 @@ diff -urNad asterisk-1.0.5/Makefile /tmp/dpep.jxj8cL/asterisk-1.0.5/Makefile
  
  #Include debug symbols in the executables (-g) and profiling info (-pg)
  DEBUG=-g #-pg
-@@ -134,7 +99,7 @@
+@@ -134,7 +98,7 @@
  CFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-march=$(PROC)"; fi)
  endif
  
@@ -69,16 +85,16 @@ diff -urNad asterisk-1.0.5/Makefile /tmp/dpep.jxj8cL/asterisk-1.0.5/Makefile
  CFLAGS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "-DOSP_SUPPORT -I/usr/include/osp" ; fi)
  
  ifeq (${OSARCH},FreeBSD)
-@@ -163,7 +128,7 @@
+@@ -162,7 +126,7 @@
+ CFLAGS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
  CFLAGS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
- CFLAGS+=$(shell if [ -f ../include/zaptel.h ]; then echo "-DZAPTEL_OPTIMIZATIONS"; fi)
  
 -LIBEDIT=editline/libedit.a
 +LIBEDIT=-Leditline -ledit
  
  ASTERISKVERSION=$(shell if [ -f .version ]; then cat .version; else if [ -d CVS ]; then if [ -f CVS/Tag ] ; then echo "CVS-`sed 's/^T//g' CVS/Tag`-`date +"%D-%T"`"; else echo "CVS-HEAD-`date +"%D-%T"`"; fi; fi; fi)
  HTTPDIR=$(shell if [ -d /var/www ]; then echo "/var/www"; else echo "/home/httpd"; fi)
-@@ -533,7 +500,7 @@
+@@ -548,7 +512,7 @@
  	fi 
  
  dont-optimize:
