@@ -1,8 +1,13 @@
 asterisk (1:1.0.9.dfsg-5) UNRELEASED; urgency=low
 
+  [ Kilian Krause ]
   * debian/control: fix GCI to read CGI. (Closes: #311291)
 
- -- Kilian Krause <kk@verfaction.de>  Sat,  6 Aug 2005 17:41:38 +0200
+  [ Mark Purcell ]
+  * /var/lib/dpkg/info/asterisk.postinst: line 22: adduser: command not
+    found (Closes: #322115)
+
+ -- Mark Purcell <msp@debian.org>  Tue,  9 Aug 2005 19:29:49 +0100
 
 asterisk (1:1.0.9.dfsg-4) unstable; urgency=low
 
