@@ -1,7 +1,6 @@
 #! /bin/sh -e
 
 if [ "$1" = purge ]; then
-	rm -fR /etc/asterisk
         userdel -r asterisk 2>/dev/null || true
         rm -fR /var/log/asterisk
 

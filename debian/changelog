@@ -9,10 +9,13 @@ asterisk (1:1.0.9.dfsg-5) UNRELEASED; urgency=low
   * debian/patches/chan-modem.dpatch from Simon Peter
     - chan_modem.c should set default read & write format (Closes:
     #303903)
-  * apply patch from Jérôme Warnier
+  * apply patch from JÃ©rÃ´me Warnier
     - Asterisk autosupport script not recognized as such (Closes: #316799)
+  * Updated debian/postrm:
+    - 'apt-get --purge remove asterisk' removes configuration files from
+    another package (Closes: #318455)
 
- -- Mark Purcell <msp@debian.org>  Tue,  9 Aug 2005 21:57:27 +0100
+ -- Mark Purcell <msp@debian.org>  Tue,  9 Aug 2005 22:07:13 +0100
 
 asterisk (1:1.0.9.dfsg-4) unstable; urgency=low
 
