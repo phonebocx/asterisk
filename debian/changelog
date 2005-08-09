@@ -6,8 +6,11 @@ asterisk (1:1.0.9.dfsg-5) UNRELEASED; urgency=low
   [ Mark Purcell ]
   * /var/lib/dpkg/info/asterisk.postinst: line 22: adduser: command not
     found (Closes: #322115)
+  * debian/patches/chan-modem.dpatch from Simon Peter
+    - chan_modem.c should set default read & write format (Closes:
+    #303903)
 
- -- Mark Purcell <msp@debian.org>  Tue,  9 Aug 2005 19:29:49 +0100
+ -- Mark Purcell <msp@debian.org>  Tue,  9 Aug 2005 21:35:25 +0100
 
 asterisk (1:1.0.9.dfsg-4) unstable; urgency=low
 
