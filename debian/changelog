@@ -1,4 +1,4 @@
-asterisk (1:1.0.9.dfsg-5) UNRELEASED; urgency=low
+asterisk (1:1.0.9.dfsg-5) unstable; urgency=low
 
   [ Kilian Krause ]
   * debian/control: fix GCI to read CGI. (Closes: #311291)
