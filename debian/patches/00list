@@ -14,3 +14,4 @@ bristuff-0.2.0-RC8j.dpatch
 98_fpm-sounds.dpatch
 #08_debian-zaptel.dpatch
 chan-modem.dpatch
+app_queue.memleakfix.dpatch
