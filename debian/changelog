@@ -1,8 +1,9 @@
 asterisk (1:1.0.9.dfsg-6) UNRELEASED; urgency=low
 
-  * Fix memleak bug (http://bugs.digium.com/view.php?id=4318.
+  * Fix memleak bug (http://bugs.digium.com/view.php?id=4318)
+  * Fix depends to adduser 3.64 (Closes: #326198)
 
- -- Kilian Krause <kilian@debian.org>  Tue, 30 Aug 2005 19:17:03 +0200
+ -- Kilian Krause <kilian@debian.org>  Wed,  7 Sep 2005 21:22:40 +0200
 
 asterisk (1:1.0.9.dfsg-5) unstable; urgency=low
 

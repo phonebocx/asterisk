@@ -110,6 +110,7 @@ Package: asterisk-config
 Recommends: asterisk
 Replaces: asterisk (<= 1:1.0.2-2)
 Conflicts: asterisk-config-custom
+Depends: adduser (>= 3.64)
 Architecture: all
 Section: comm
 Description: config files for asterisk
