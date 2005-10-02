@@ -7,6 +7,13 @@ Bristuff downloaded from http://www.junghanns.net/asterisk/
 Upstream Authors: Asterisk: Mark Spencer <markster@linux-support.net>
 		  Bristuff: Klaus-Peter Junghanns <kpj@junghanns.net> 
 
+Debian asterisk-xxx.dfsg.tar.gz
+===============================
+The Debian version of the upstream asterisk source has had the fpm Music on Hold
+removed as this music has only been licenced for use within asterisk which is
+incompatible with the Debian Free Software Guildlines
+<http://www.debian.org/social_contract#guidelines>.
+
 Copyright:
 
 Copyright (C) 2001-2004 Digium and others....
