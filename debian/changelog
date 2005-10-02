@@ -1,3 +1,15 @@
+asterisk (1:1.2.0.dfsg.1-0beta1-1) experimental; urgency=low
+
+  * updating to a beta of Asterisk 1.2
+  * added defaults_debian.dpatch to set pathes
+  * BuildDepends on graphviz
+  * disabled most patches: still need to review them
+  * not creating gtk-console package for now. Anybody needs it?
+  * What about h323?
+  * deleted from patches/00list a number of patches that should not go in
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun,  2 Oct 2005 01:05:26 +0300
+
 asterisk (1:1.0.9.dfsg-6) UNRELEASED; urgency=low
 
   * Fix memleak bug (http://bugs.digium.com/view.php?id=4318)

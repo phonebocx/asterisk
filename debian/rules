@@ -64,7 +64,7 @@ config.status: check-sounds patch
 	ln -s /usr/share/misc/config.guess config.guess; \
 	cd ..)
 	cd editline;./configure $(confflags)
-	touch config.status
+	touch $@
 
 build-arch: config.status  build-arch-stamp
 build-arch-stamp:
@@ -74,7 +74,7 @@ build-arch-stamp:
 	#cd channels/h323; make
 	$(MAKE)
 
-	touch build-arch-stamp
+	touch $@
 
 build-indep:  config.status build-indep-stamp
 build-indep-stamp:
@@ -86,7 +86,7 @@ build-indep-stamp:
 	#/usr/bin/docbook-to-man debian/asterisk.sgml > asterisk.1
 	$(MAKE) progdocs
 
-	touch build-indep-stamp
+	touch $@
 
 
 build: build-arch build-indep
@@ -100,7 +100,8 @@ cleaned:
 	# Add here commands to clean up after the build process.
 	#-test -d channels/h323 && $(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
-	-$(RM) -f fxstest ztmonitor ztspeed zttest
+	-$(RM) utils/streamplayer
+	#-$(RM) -f fxstest ztmonitor ztspeed zttest
 	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
 	-$(RM) debian/asterisk.8.gz
 	-(test -d editline &&cd editline; \
@@ -122,12 +123,9 @@ install: build
 	dh_installdirs var/run/asterisk
 
 	# Add here commands to install the package into debian/<packagename>
-	$(MAKE) INSTALL_PREFIX=$(CURDIR)/debian/tmp install samples
+	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install
 	cp debian/asterisk.conf $(CURDIR)/debian/tmp/etc/asterisk/asterisk.conf
 	#cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
-	cp contrib/scripts/addmailbox $(CURDIR)/debian/tmp/usr/sbin/
-	sed -i -e 's#/var/lib/asterisk/sounds#/usr/share/asterisk/sounds#g' $(CURDIR)/debian/tmp/usr/sbin/addmailbox
-	chmod +x $(CURDIR)/debian/tmp/usr/sbin/addmailbox
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
@@ -170,8 +168,9 @@ binary-arch: build install
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a
-	rm debian/asterisk/usr/lib/asterisk/modules/pbx_gtkconsole.so
+	#rm debian/asterisk/usr/lib/asterisk/modules/pbx_gtkconsole.so
 	#rm debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
+	$(RM) debian/asterisk/usr/lib/asterisk/modules/*_sqlite.so
 	dh_makeshlibs -a 
 	dh_shlibdeps -a
 	dh_gencontrol -a
@@ -179,4 +178,4 @@ binary-arch: build install
 	dh_builddeb -a
 
 binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install clean 
+.PHONY: build clean binary-indep binary-arch binary install clean patch unpatch

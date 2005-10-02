@@ -1,0 +1,45 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## defaults_debian.dpatch by  <tzafrir@localhost>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: set default pathes to the ones used in Debian.
+
+@DPATCH@
+diff -urNad asterisk-1.2.0.dfsg.1-0beta1/build_tools/make_defaults_h /tmp/dpep.viz85Q/asterisk-1.2.0.dfsg.1-0beta1/build_tools/make_defaults_h
+--- asterisk-1.2.0.dfsg.1-0beta1/build_tools/make_defaults_h	2005-10-01 18:56:13.676119820 +0300
++++ /tmp/dpep.viz85Q/asterisk-1.2.0.dfsg.1-0beta1/build_tools/make_defaults_h	2005-10-01 18:56:36.973313564 +0300
+@@ -19,7 +19,8 @@
+ 
+ #define AST_CONFIG_FILE "${INSTALL_PATH}${ASTCONFPATH}"
+ 
+-#define AST_SOUNDS     "${INSTALL_PATH}${ASTVARLIBDIR}/sounds"
+-#define AST_IMAGES     "${INSTALL_PATH}${ASTVARLIBDIR}/images"
++#define AST_SHARE_DIR    "${INSTALL_PATH}${ASTSHAREDIR}"
++#define AST_SOUNDS     "${INSTALL_PATH}${ASTSHAREDIR}/sounds"
++#define AST_IMAGES     "${INSTALL_PATH}${ASTSHAREDIR}/images"
+ 
+ END
+diff -urNad asterisk-1.2.0.dfsg.1-0beta1/Makefile /tmp/dpep.viz85Q/asterisk-1.2.0.dfsg.1-0beta1/Makefile
+--- asterisk-1.2.0.dfsg.1-0beta1/Makefile	2005-10-01 18:56:13.678119579 +0300
++++ /tmp/dpep.viz85Q/asterisk-1.2.0.dfsg.1-0beta1/Makefile	2005-10-01 19:00:42.208500707 +0300
+@@ -94,6 +94,7 @@
+ 
+ ifneq (${OSARCH},SunOS)
+ ASTLIBDIR=$(INSTALL_PREFIX)/usr/lib/asterisk
++ASTSHAREDIR=$(INSTALL_PREFIX)/usr/share/asterisk
+ ASTVARLIBDIR=$(INSTALL_PREFIX)/var/lib/asterisk
+ ASTETCDIR=$(INSTALL_PREFIX)/etc/asterisk
+ ASTSPOOLDIR=$(INSTALL_PREFIX)/var/spool/asterisk
+@@ -102,10 +103,10 @@
+ ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
+ ASTBINDIR=$(INSTALL_PREFIX)/usr/bin
+ ASTSBINDIR=$(INSTALL_PREFIX)/usr/sbin
+-ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run
++ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run/asterisk
+ ASTMANDIR=$(INSTALL_PREFIX)/usr/share/man
+ MODULES_DIR=$(ASTLIBDIR)/modules
+-AGI_DIR=$(ASTVARLIBDIR)/agi-bin
++AGI_DIR=$(ASTSHAREDIR)/agi-bin
+ else
+ ASTLIBDIR=$(INSTALL_PREFIX)/opt/asterisk/lib
+ ASTVARLIBDIR=$(INSTALL_PREFIX)/var/opt/asterisk/lib
