@@ -1,4 +1,4 @@
-asterisk (1:1.2.0.beta1.dfsg-1) experimental; urgency=low
+asterisk (1:1.2.0.BETA1.dfsg-1) experimental; urgency=low
 
   * updating to a beta of Asterisk 1.2
   * added defaults_debian.dpatch to set pathes
