@@ -3,5 +3,5 @@ version=2
 
 # Full-site-with-pattern  [Version  [Action]]
 opts=dversionmangle=s/\.dfsg// \
-	http://ftp.digium.com/pub/telephony/asterisk/asterisk-([0-9].*)\.tar\.gz \
+	http://ftp.digium.com/pub/asterisk/asterisk-([0-9].*)\.tar\.gz \
 	debian  svn-upgrade
