@@ -5,23 +5,74 @@
 ## DP: set default pathes to the ones used in Debian.
 
 @DPATCH@
-diff -urNad asterisk-1.2.0.dfsg.1-0beta1/build_tools/make_defaults_h /tmp/dpep.viz85Q/asterisk-1.2.0.dfsg.1-0beta1/build_tools/make_defaults_h
---- asterisk-1.2.0.dfsg.1-0beta1/build_tools/make_defaults_h	2005-10-01 18:56:13.676119820 +0300
-+++ /tmp/dpep.viz85Q/asterisk-1.2.0.dfsg.1-0beta1/build_tools/make_defaults_h	2005-10-01 18:56:36.973313564 +0300
-@@ -19,7 +19,8 @@
+diff -urNad asterisk-1.1.9.0beta1.dfsg.1/asterisk.c /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/asterisk.c
+--- asterisk-1.1.9.0beta1.dfsg.1/asterisk.c	2005-10-12 20:29:38.380606212 +0200
++++ /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/asterisk.c	2005-10-12 20:29:51.346029139 +0200
+@@ -141,6 +141,7 @@
+ char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
+ char ast_config_AST_MONITOR_DIR[AST_CONFIG_MAX_PATH];
+ char ast_config_AST_VAR_DIR[AST_CONFIG_MAX_PATH];
++char ast_config_AST_SHARE_DIR[AST_CONFIG_MAX_PATH];
+ char ast_config_AST_LOG_DIR[AST_CONFIG_MAX_PATH];
+ char ast_config_AST_AGI_DIR[AST_CONFIG_MAX_PATH];
+ char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
+@@ -1696,6 +1697,7 @@
+ 	ast_copy_string(ast_config_AST_MODULE_DIR, AST_MODULE_DIR, sizeof(ast_config_AST_VAR_DIR));
+  	snprintf(ast_config_AST_MONITOR_DIR, sizeof(ast_config_AST_MONITOR_DIR) - 1, "%s/monitor", ast_config_AST_SPOOL_DIR);
+ 	ast_copy_string(ast_config_AST_VAR_DIR, AST_VAR_DIR, sizeof(ast_config_AST_VAR_DIR));
++	ast_copy_string(ast_config_AST_SHARE_DIR, AST_VAR_DIR, sizeof(ast_config_AST_SHARE_DIR));
+ 	ast_copy_string(ast_config_AST_LOG_DIR, AST_LOG_DIR, sizeof(ast_config_AST_LOG_DIR));
+ 	ast_copy_string(ast_config_AST_AGI_DIR, AST_AGI_DIR, sizeof(ast_config_AST_AGI_DIR));
+ 	ast_copy_string(ast_config_AST_DB, AST_DB, sizeof(ast_config_AST_DB));
+@@ -1731,6 +1733,8 @@
+ 		} else if (!strcasecmp(v->name, "astvarlibdir")) {
+ 			ast_copy_string(ast_config_AST_VAR_DIR, v->value, sizeof(ast_config_AST_VAR_DIR));
+ 			snprintf(ast_config_AST_DB, sizeof(ast_config_AST_DB), "%s/%s", v->value, "astdb");    
++		} else if (!strcasecmp(v->name, "astsharedir")) {
++			ast_copy_string(ast_config_AST_SHARE_DIR, v->value, sizeof(ast_config_AST_SHARE_DIR));
+ 		} else if (!strcasecmp(v->name, "astlogdir")) {
+ 			ast_copy_string(ast_config_AST_LOG_DIR, v->value, sizeof(ast_config_AST_LOG_DIR));
+ 		} else if (!strcasecmp(v->name, "astagidir")) {
+diff -urNad asterisk-1.1.9.0beta1.dfsg.1/build_tools/make_defaults_h /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/build_tools/make_defaults_h
+--- asterisk-1.1.9.0beta1.dfsg.1/build_tools/make_defaults_h	2005-10-12 20:29:38.381606091 +0200
++++ /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/build_tools/make_defaults_h	2005-10-12 20:29:51.347029017 +0200
+@@ -19,7 +19,7 @@
  
  #define AST_CONFIG_FILE "${INSTALL_PATH}${ASTCONFPATH}"
  
 -#define AST_SOUNDS     "${INSTALL_PATH}${ASTVARLIBDIR}/sounds"
 -#define AST_IMAGES     "${INSTALL_PATH}${ASTVARLIBDIR}/images"
+-
 +#define AST_SHARE_DIR    "${INSTALL_PATH}${ASTSHAREDIR}"
 +#define AST_SOUNDS     "${INSTALL_PATH}${ASTSHAREDIR}/sounds"
 +#define AST_IMAGES     "${INSTALL_PATH}${ASTSHAREDIR}/images"
- 
  END
-diff -urNad asterisk-1.2.0.dfsg.1-0beta1/Makefile /tmp/dpep.viz85Q/asterisk-1.2.0.dfsg.1-0beta1/Makefile
---- asterisk-1.2.0.dfsg.1-0beta1/Makefile	2005-10-01 18:56:13.678119579 +0300
-+++ /tmp/dpep.viz85Q/asterisk-1.2.0.dfsg.1-0beta1/Makefile	2005-10-01 19:00:42.208500707 +0300
+diff -urNad asterisk-1.1.9.0beta1.dfsg.1/file.c /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/file.c
+--- asterisk-1.1.9.0beta1.dfsg.1/file.c	2005-10-12 20:29:38.383605847 +0200
++++ /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/file.c	2005-10-12 20:29:51.363027071 +0200
+@@ -301,7 +301,7 @@
+ 	} else {
+ 		char tmp[AST_CONFIG_MAX_PATH] = "";
+ 
+-		snprintf(tmp, sizeof(tmp), "%s/%s", ast_config_AST_VAR_DIR, "sounds");
++		snprintf(tmp, sizeof(tmp), "%s/%s", ast_config_AST_SHARE_DIR, "sounds");
+ 		fnsize = strlen(tmp) + strlen(filename) + strlen(type) + 3;
+ 		fn = malloc(fnsize);
+ 		if (fn)
+diff -urNad asterisk-1.1.9.0beta1.dfsg.1/include/asterisk.h /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/include/asterisk.h
+--- asterisk-1.1.9.0beta1.dfsg.1/include/asterisk.h	2005-08-23 04:30:22.000000000 +0300
++++ /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/include/asterisk.h	2005-10-12 20:30:48.222111315 +0200
+@@ -25,6 +25,7 @@
+ extern char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
+ extern char ast_config_AST_MONITOR_DIR[AST_CONFIG_MAX_PATH];
+ extern char ast_config_AST_VAR_DIR[AST_CONFIG_MAX_PATH];
++extern char ast_config_AST_SHARE_DIR[AST_CONFIG_MAX_PATH];
+ extern char ast_config_AST_LOG_DIR[AST_CONFIG_MAX_PATH];
+ extern char ast_config_AST_AGI_DIR[AST_CONFIG_MAX_PATH];
+ extern char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
+diff -urNad asterisk-1.1.9.0beta1.dfsg.1/Makefile /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/Makefile
+--- asterisk-1.1.9.0beta1.dfsg.1/Makefile	2005-10-12 20:29:38.384605726 +0200
++++ /tmp/dpep.cGGohN/asterisk-1.1.9.0beta1.dfsg.1/Makefile	2005-10-12 20:29:51.364026949 +0200
 @@ -94,6 +94,7 @@
  
  ifneq (${OSARCH},SunOS)

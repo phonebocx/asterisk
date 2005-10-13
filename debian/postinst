@@ -23,7 +23,7 @@ case "$1" in
 		adduser asterisk audio 
 		adduser asterisk dialout
 	fi
-	if (getent group dialout | grep -q asterisk); then
+	if (groups asterisk | grep -w -q -v asterisk); then
 		adduser asterisk dialout
 	fi
 

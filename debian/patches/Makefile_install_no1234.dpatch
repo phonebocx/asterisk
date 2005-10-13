@@ -1,0 +1,26 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## Makefile_install_no1234.dpatch by  <tzafrir@localhost>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: No description.
+
+@DPATCH@
+diff -urNad asterisk-1.2.0.dfsg.1-0beta1/Makefile /tmp/dpep.dngaXR/asterisk-1.2.0.dfsg.1-0beta1/Makefile
+--- asterisk-1.2.0.dfsg.1-0beta1/Makefile	2005-08-26 22:55:11.000000000 +0300
++++ /tmp/dpep.dngaXR/asterisk-1.2.0.dfsg.1-0beta1/Makefile	2005-09-21 08:02:49.859994381 +0300
+@@ -683,15 +683,6 @@
+ 		install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/mohmp3 ; \
+ 	done
+ 	rm -f $(DESTDIR)$(ASTVARLIBDIR)/mohmp3/sample-hold.mp3
+-	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/INBOX
+-	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm
+-	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isunavail; do \
+-		cat $(DESTDIR)$(ASTVARLIBDIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm ; \
+-	done
+-	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm
+-	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isonphone; do \
+-		cat $(DESTDIR)$(ASTVARLIBDIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm ; \
+-	done
+ 
+ webvmail:
+ 	@[ -d $(DESTDIR)$(HTTP_DOCSDIR)/ ] || ( printf "http docs directory not found.\nUpdate assignment of variable HTTP_DOCSDIR in Makefile!\n" && exit 1 )

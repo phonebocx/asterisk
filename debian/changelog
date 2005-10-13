@@ -1,4 +1,12 @@
-asterisk (1:1.2.0-beta1.dfsg-1) experimental; urgency=low
+asterisk (1:1.1.9.0beta1.dfsg.1-2) experimental; urgency=low
+
+  * recreated system_libgsm patch, http://bugs.digium.com/view.php?id=5434
+  * Added public key from Junction Networks (pubkey_jnctn.dpatch). 
+    Any other keys for IAX providers we can add?
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 13 Oct 2005 01:09:56 +0200
+
+asterisk (1:1.1.9.0beta1.dfsg.1-1) experimental; urgency=low
 
   * updating to a beta of Asterisk 1.2
   * added defaults_debian.dpatch to set pathes
@@ -8,7 +16,7 @@ asterisk (1:1.2.0-beta1.dfsg-1) experimental; urgency=low
   * What about h323?
   * deleted from patches/00list a number of patches that should not go in
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun,  2 Oct 2005 01:05:26 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 09 Oct 2005 04:16:31 +0200
 
 asterisk (1:1.0.9.dfsg-6) UNRELEASED; urgency=low
 
