@@ -48,19 +48,6 @@ Description: asterisk H.323 VoIP channel
  depend on the many openh323 dependencies. For now asterisk-oh323 replaces this
  version until chan_h323 does support the current OpenH323 version again.
 
-Package: asterisk-gtk-console
-Architecture: any
-Recommends: asterisk
-Replaces: asterisk (<= 1.0.2-1)
-Section: comm
-Depends: ${shlibs:Depends}
-Description: gtk based console for asterisk
- This package provides a limited GTK based console for the Asterisk Open Source
- PBX system.
- .
- It was separated out into its own package to avoid having the main package
- depend on xlibs and gtk-1.2
-
 Package: asterisk-doc
 Recommends: asterisk
 Conflicts: asterisk (<=0.1.12-3)

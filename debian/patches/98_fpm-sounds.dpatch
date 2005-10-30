@@ -5,16 +5,18 @@
 ## DP: Don't try to install non-dfsg sounds from source
 
 @DPATCH@
-diff -urNad asterisk-1.0.3/Makefile /tmp/dpep.r0xJTd/asterisk-1.0.3/Makefile
---- asterisk-1.0.3/Makefile	2005-01-15 11:02:32.000000000 +0100
-+++ /tmp/dpep.r0xJTd/asterisk-1.0.3/Makefile	2005-01-15 11:02:32.000000000 +0100
-@@ -433,9 +433,6 @@
+diff -urNad asterisk-1.2.0-beta1.dfsg~/Makefile asterisk-1.2.0-beta1.dfsg/Makefile
+--- asterisk-1.2.0-beta1.dfsg~/Makefile	2005-08-26 20:55:11.000000000 +0100
++++ asterisk-1.2.0-beta1.dfsg/Makefile	2005-10-25 20:57:34.000000000 +0100
+@@ -678,11 +678,6 @@
  			exit 1; \
  		fi; \
  	done
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/mohmp3 ; \
 -	for x in sounds/*.mp3; do \
--		install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/mohmp3 ; \
+-		install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/mohmp3 ; \
 -	done
- 	rm -f $(DESTDIR)$(ASTDATADIR)/mohmp3/sample-hold.mp3
+-	rm -f $(DESTDIR)$(ASTVARLIBDIR)/mohmp3/sample-hold.mp3
  	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/INBOX
  	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm
+ 	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isunavail; do \

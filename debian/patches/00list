@@ -1,13 +1,13 @@
-defaults_debian
-Makefile_install_no1234
+#defaults_debian
+#Makefile_install_no1234
 # Depends on defaults_debian:
-Makefile_datafiles
+#Makefile_datafiles
 #bristuff-0.2.0-RC8j.dpatch
 option_detach_12
 #10_DPIC.dpatch
 #20_Makefile.dpatch
 #25_subdirs_Makefiles.dpatch
-#30_ast-data-dir.dpatch
+30_ast-data-dir.dpatch
 40_initgroups.dpatch
 system_libgsm
 #50_debian-libgsm.dpatch
@@ -16,7 +16,7 @@ system_libgsm
 # app_sql_postgres seems "obsolete" and not used by default:
 #70_debian-libpe-fe.dpatch
 95_conf_sample.dpatch
-#98_fpm-sounds.dpatch
+98_fpm-sounds.dpatch
 ##08_debian-zaptel.dpatch
 #chan-modem.dpatch
 #app_queue.memleakfix.dpatch

@@ -123,7 +123,7 @@ install: build
 	dh_installdirs var/run/asterisk
 
 	# Add here commands to install the package into debian/<packagename>
-	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install
+	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
 	cp debian/asterisk.conf $(CURDIR)/debian/tmp/etc/asterisk/asterisk.conf
 	#cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
