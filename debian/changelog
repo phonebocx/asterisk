@@ -2,7 +2,7 @@ asterisk (1:1.2.0-beta1.dfsg-2) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
 
- -- Mark Purcell <mark@dell.purcell.id.au>  Mon, 31 Oct 2005 07:43:27 +0000
+ -- Mark Purcell <msp@debian.org>  Mon, 31 Oct 2005 07:43:50 +0000
 
 asterisk (1:1.2.0-beta1.dfsg-1) experimental; urgency=low
 
