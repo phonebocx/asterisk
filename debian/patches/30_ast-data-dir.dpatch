@@ -8,8 +8,8 @@
 
 @DPATCH@
 diff -urNad asterisk-1.2.0-beta1.dfsg~/asterisk.c asterisk-1.2.0-beta1.dfsg/asterisk.c
---- asterisk-1.2.0-beta1.dfsg~/asterisk.c	2005-10-30 22:40:47.000000000 +0000
-+++ asterisk-1.2.0-beta1.dfsg/asterisk.c	2005-10-30 22:40:48.000000000 +0000
+--- asterisk-1.2.0-beta1.dfsg~/asterisk.c	2005-10-30 23:23:10.000000000 +0000
++++ asterisk-1.2.0-beta1.dfsg/asterisk.c	2005-10-30 23:23:11.000000000 +0000
 @@ -142,6 +142,7 @@
  char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_MONITOR_DIR[AST_CONFIG_MAX_PATH];
@@ -37,7 +37,7 @@ diff -urNad asterisk-1.2.0-beta1.dfsg~/asterisk.c asterisk-1.2.0-beta1.dfsg/aste
  		} else if (!strcasecmp(v->name, "astagidir")) {
 diff -urNad asterisk-1.2.0-beta1.dfsg~/build_tools/make_defaults_h asterisk-1.2.0-beta1.dfsg/build_tools/make_defaults_h
 --- asterisk-1.2.0-beta1.dfsg~/build_tools/make_defaults_h	2005-06-20 18:26:07.000000000 +0100
-+++ asterisk-1.2.0-beta1.dfsg/build_tools/make_defaults_h	2005-10-30 22:40:48.000000000 +0000
++++ asterisk-1.2.0-beta1.dfsg/build_tools/make_defaults_h	2005-10-30 23:23:11.000000000 +0000
 @@ -11,6 +11,7 @@
  #define AST_MODULE_DIR "${INSTALL_PATH}${MODULES_DIR}"
  #define AST_SPOOL_DIR  "${INSTALL_PATH}${ASTSPOOLDIR}"
@@ -58,7 +58,7 @@ diff -urNad asterisk-1.2.0-beta1.dfsg~/build_tools/make_defaults_h asterisk-1.2.
  END
 diff -urNad asterisk-1.2.0-beta1.dfsg~/configs/musiconhold.conf.sample asterisk-1.2.0-beta1.dfsg/configs/musiconhold.conf.sample
 --- asterisk-1.2.0-beta1.dfsg~/configs/musiconhold.conf.sample	2005-08-25 17:11:46.000000000 +0100
-+++ asterisk-1.2.0-beta1.dfsg/configs/musiconhold.conf.sample	2005-10-30 22:40:48.000000000 +0000
++++ asterisk-1.2.0-beta1.dfsg/configs/musiconhold.conf.sample	2005-10-30 23:23:11.000000000 +0000
 @@ -4,7 +4,7 @@
  
  [default]
@@ -70,7 +70,7 @@ diff -urNad asterisk-1.2.0-beta1.dfsg~/configs/musiconhold.conf.sample asterisk-
  ; quietmp3 	-- default
 diff -urNad asterisk-1.2.0-beta1.dfsg~/file.c asterisk-1.2.0-beta1.dfsg/file.c
 --- asterisk-1.2.0-beta1.dfsg~/file.c	2005-08-23 16:43:47.000000000 +0100
-+++ asterisk-1.2.0-beta1.dfsg/file.c	2005-10-30 22:40:48.000000000 +0000
++++ asterisk-1.2.0-beta1.dfsg/file.c	2005-10-30 23:23:11.000000000 +0000
 @@ -301,7 +301,7 @@
  	} else {
  		char tmp[AST_CONFIG_MAX_PATH] = "";
@@ -82,7 +82,7 @@ diff -urNad asterisk-1.2.0-beta1.dfsg~/file.c asterisk-1.2.0-beta1.dfsg/file.c
  		if (fn)
 diff -urNad asterisk-1.2.0-beta1.dfsg~/image.c asterisk-1.2.0-beta1.dfsg/image.c
 --- asterisk-1.2.0-beta1.dfsg~/image.c	2005-06-06 23:12:18.000000000 +0100
-+++ asterisk-1.2.0-beta1.dfsg/image.c	2005-10-30 22:40:48.000000000 +0000
++++ asterisk-1.2.0-beta1.dfsg/image.c	2005-10-30 23:23:11.000000000 +0000
 @@ -97,9 +97,9 @@
  			snprintf(buf, len, "%s.%s", filename, ext);
  	} else {
@@ -97,7 +97,7 @@ diff -urNad asterisk-1.2.0-beta1.dfsg~/image.c asterisk-1.2.0-beta1.dfsg/image.c
  
 diff -urNad asterisk-1.2.0-beta1.dfsg~/include/asterisk.h asterisk-1.2.0-beta1.dfsg/include/asterisk.h
 --- asterisk-1.2.0-beta1.dfsg~/include/asterisk.h	2005-08-23 02:30:22.000000000 +0100
-+++ asterisk-1.2.0-beta1.dfsg/include/asterisk.h	2005-10-30 22:41:27.000000000 +0000
++++ asterisk-1.2.0-beta1.dfsg/include/asterisk.h	2005-10-30 23:23:11.000000000 +0000
 @@ -25,6 +25,7 @@
  extern char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_MONITOR_DIR[AST_CONFIG_MAX_PATH];
@@ -108,7 +108,7 @@ diff -urNad asterisk-1.2.0-beta1.dfsg~/include/asterisk.h asterisk-1.2.0-beta1.d
  extern char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
 diff -urNad asterisk-1.2.0-beta1.dfsg~/Makefile asterisk-1.2.0-beta1.dfsg/Makefile
 --- asterisk-1.2.0-beta1.dfsg~/Makefile	2005-08-26 20:55:11.000000000 +0100
-+++ asterisk-1.2.0-beta1.dfsg/Makefile	2005-10-30 22:40:48.000000000 +0000
++++ asterisk-1.2.0-beta1.dfsg/Makefile	2005-10-30 23:24:17.000000000 +0000
 @@ -95,6 +95,7 @@
  ifneq (${OSARCH},SunOS)
  ASTLIBDIR=$(INSTALL_PREFIX)/usr/lib/asterisk
@@ -189,7 +189,7 @@ diff -urNad asterisk-1.2.0-beta1.dfsg~/Makefile asterisk-1.2.0-beta1.dfsg/Makefi
  			exit 1; \
  		fi; \
  	done
-- 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/mohmp3
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/mohmp3
 -	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/images
 +	mkdir -p $(DESTDIR)$(ASTDATADIR)/mohmp3
 +	mkdir -p $(DESTDIR)$(ASTDATADIR)/images
@@ -254,3 +254,42 @@ diff -urNad asterisk-1.2.0-beta1.dfsg~/Makefile asterisk-1.2.0-beta1.dfsg/Makefi
  	done
  
  webvmail:
+diff -urNad asterisk-1.2.0-beta1.dfsg~/Makefile.rej asterisk-1.2.0-beta1.dfsg/Makefile.rej
+--- asterisk-1.2.0-beta1.dfsg~/Makefile.rej	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0-beta1.dfsg/Makefile.rej	2005-10-30 23:23:11.000000000 +0000
+@@ -0,0 +1,35 @@
++***************
++*** 482,497 ****
++  	done
++  	for x in sounds/demo-* sounds/vm-* sounds/transfer* sounds/pbx-* sounds/ss-* sounds/beep* sounds/dir-* sounds/conf-* sounds/agent-* sounds/invalid* sounds/tt-* sounds/auth-* sounds/privacy-* sounds/queue-*; do \
++  		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
++- 			install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
++  		else \
++  			echo "No description for $$x"; \
++  			exit 1; \
++  		fi; \
++  	done
++-  	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/mohmp3
++- 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/images
++  	for x in images/*.jpg; do \
++- 		install -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/images ; \
++  	done
++  	mkdir -p $(DESTDIR)$(AGI_DIR)
++  
++--- 483,498 ----
++  	done
++  	for x in sounds/demo-* sounds/vm-* sounds/transfer* sounds/pbx-* sounds/ss-* sounds/beep* sounds/dir-* sounds/conf-* sounds/agent-* sounds/invalid* sounds/tt-* sounds/auth-* sounds/privacy-* sounds/queue-*; do \
++  		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
+++ 			install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/sounds ; \
++  		else \
++  			echo "No description for $$x"; \
++  			exit 1; \
++  		fi; \
++  	done
+++ 	mkdir -p $(DESTDIR)$(ASTDATADIR)/mohmp3
+++ 	mkdir -p $(DESTDIR)$(ASTDATADIR)/images
++  	for x in images/*.jpg; do \
+++ 		install -m 644 $$x $(DESTDIR)$(ASTDATADIR)/images ; \
++  	done
++  	mkdir -p $(DESTDIR)$(AGI_DIR)
++  
