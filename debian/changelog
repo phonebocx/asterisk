@@ -1,3 +1,9 @@
+asterisk (1:1.2.0-beta2.dfsg-2) experimental; urgency=low
+
+  * NRY 
+
+ -- Mark Purcell <msp@debian.org>  Tue,  1 Nov 2005 23:53:50 +0000
+
 asterisk (1:1.2.0-beta2.dfsg-1) experimental; urgency=low
 
   * New upstream release
