@@ -1,7 +1,5 @@
-#defaults_debian
 #Makefile_install_no1234
 # Depends on defaults_debian:
-#Makefile_datafiles
 #bristuff-0.2.0-RC8j.dpatch
 #option_detach_12
 #10_DPIC.dpatch
