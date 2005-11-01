@@ -1,9 +1,10 @@
-asterisk (1:1.2.0-beta2.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.0-beta2.dfsg-1) experimental; urgency=low
 
-  * (NOT RELEASED YET) New upstream release
+  * New upstream release
   * Update Build-Depends: libpri1 >= 1.2.0-beta2
+  * Remove Build-Depends: doxygen. Takes too long for experimental ;-)
 
- -- Mark Purcell <msp@debian.org>  Tue,  1 Nov 2005 21:48:44 +0000
+ -- Mark Purcell <msp@debian.org>  Tue,  1 Nov 2005 22:27:43 +0000
 
 asterisk (1:1.2.0-beta1.dfsg-1) experimental; urgency=low
 

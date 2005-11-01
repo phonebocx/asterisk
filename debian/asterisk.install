@@ -1,5 +1,4 @@
 etc/default
 usr/lib/asterisk
 usr/sbin
-usr/share/asterisk/agi-bin
 var/lib/asterisk
