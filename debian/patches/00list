@@ -3,14 +3,13 @@
 # Depends on defaults_debian:
 #Makefile_datafiles
 #bristuff-0.2.0-RC8j.dpatch
-option_detach_12
+#option_detach_12
 #10_DPIC.dpatch
 #20_Makefile.dpatch
 #25_subdirs_Makefiles.dpatch
 30_ast-data-dir.dpatch
 40_initgroups.dpatch
-system_libgsm
-#50_debian-libgsm.dpatch
+50_debian-libgsm.dpatch
 # needs to be resorected:
 #60_debian-libopenh323.dpatch
 # app_sql_postgres seems "obsolete" and not used by default:
