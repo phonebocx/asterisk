@@ -1,8 +1,8 @@
 asterisk (1:1.2.0-beta2.dfsg-2) experimental; urgency=low
 
-  * NRY 
+  * Copyright audit into debian/copyright (Closes: #331318)
 
- -- Mark Purcell <msp@debian.org>  Tue,  1 Nov 2005 23:53:50 +0000
+ -- Mark Purcell <msp@debian.org>  Mon,  7 Nov 2005 21:52:10 +0000
 
 asterisk (1:1.2.0-beta2.dfsg-1) experimental; urgency=low
 

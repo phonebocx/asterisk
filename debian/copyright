@@ -17,7 +17,6 @@ incompatible with the Debian Free Software Guildlines
 Copyright:
 
 Copyright (C) 2001-2004 Digium and others....
-Copyright (C) 2002-2004 Junghanns.NET GmbH and others....
 
    This package is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -56,6 +55,28 @@ Public License can be found in `/usr/share/common-licenses/GPL'.
 
     If you have any questions, whatsoever, regarding our licensing policy,
   please contact us.
+
+    The 'Asterisk' name and logos are trademarks owned by Digium, Inc.,
+   and use of them is subject to our trademark licensing policies. If you
+   wish to use these trademarks for purposes other than simple
+   redistribution of Asterisk source code obtained from Digium, you
+   should contact our licensing department to determine the necessary
+   steps you must take.
+
+   If you have any questions regarding our licensing policy, please
+   contact us:
+
+   +1.877.546.8963 (via telephone in the USA)
+   +1.256.428.6000 (via telephone outside the USA)
+   +1.256.864.0464 (via FAX inside or outside the USA)
+   IAX2/misery.digium.com/6000 (via IAX2)
+   licensing@digium.com (via email)
+
+   Digium, Inc.
+   150 West Park Loop
+   Suite 100
+   Huntsville, AL  35806
+   USA
 
 Other source code in Asterisk:
 
@@ -109,3 +130,95 @@ Other source code in Asterisk:
     *
     * This program is free software and may be modified and
     * distributed under the terms of the GNU Public License.
+
+Other portions of code:
+
+aescrypt.c: Copyright (c) 2003, Dr Brian Gladman <brg@gladman.me.uk>, Worcester, UK.
+aeskey.c: Copyright (c) 2003, Dr Brian Gladman <brg@gladman.me.uk>, Worcester, UK.
+dlfcn.c:Copyright (c) 2002 Jorge Acereda  <jacereda@users.sourceforge.net> &
+                   Peter O'Gorman <ogorman@users.sourceforge.net>
+dns.c: * Copyright (C) 1999 - 2005 Thorsten Lockert
+dnsmgr.c: * Copyright (C) 2005, Kevin P. Fleming
+dsp.c:        Copyright (C) 2001  Steve Underwood <steveu@coppice.org>
+indications.c: * Copyright (C) 2002, Pauline Middelink
+jitterbuf.c: * Copyright (C) 2004-2005, Horizon Wimba, Inc.
+jitterbuf.h: * Copyright (C) 2004-2005, Horizon Wimba, Inc.
+md5.c: * written by Colin Plumb in 1993, no copyright is claimed.
+plc.c: * Copyright (C) 2004 Steve Underwood
+poll.c:		Copyright (c) 1995-2002 Brian M. Clapper
+slinfactory.c: * Copyright (C) 2005, Anthony Minessale II.
+apps/app_alarmreceiver.c: * Copyright (C)  2004 - 2005 Steve Rodgers
+apps/app_chanspy.c: * Copyright (C) 2005 Anthony Minessale II (anthmct@yahoo.com)
+apps/app_controlplayback.c: * Copyright (C) 1999 - 2005, Digium, Inc.
+apps/app_curl.c: * Copyright (C)  2004 - 2005, Tilghman Lesher
+apps/app_cut.c: * Copyright (c) 2003 Tilghman Lesher.  All rights reserved.
+apps/app_db.c: * Copyright (C) 2003, Jefferson Noxon
+apps/app_dictate.c: * Copyright (C) 2005, Anthony Minessale II
+apps/app_directed_pickup.c: * Copyright (C) 2005, Joshua Colp
+apps/app_dumpchan.c: * Copyright (C) 2004 - 2005, Anthony Minessale II.
+apps/app_eval.c: * Copyright (c) 2004 - 2005, Tilghman Lesher.  All rights reserved.
+apps/app_exec.c: * Copyright (c) 2004 - 2005, Tilghman Lesher.  All rights reserved.
+apps/app_festival.c: * Copyright (C) 2002, Christos Ricudis
+apps/app_forkcdr.c: * Copyright (C) 1999 - 2005, Anthony Minessale anthmct@yahoo.com
+apps/app_hasnewvoicemail.c: * Changes Copyright (c) 2004 - 2005 Todd Freeman <freeman@andrews.edu>
+apps/app_hasnewvoicemail.c: * Copyright (c) 2003 Tilghman Lesher.  All rights reserved.
+apps/app_math.c: * Copyright (C) 2004 - 2005, Andy Powell 
+apps/app_md5.c: * Copyright (C) 2005, Olle E. Johansson, Edvina.net
+apps/app_mixmonitor.c: * Copyright (C) 2005, Anthony Minessale II
+apps/app_random.c: * Copyright (c) 2003 - 2005 Tilghman Lesher.  All rights reserved.
+apps/app_rpt.c: * Copyright (C) 2002-2005, Jim Dixon, WB6NIL
+apps/app_sayunixtime.c: * Copyright (c) 2003 Tilghman Lesher.  All rights reserved.
+apps/app_settransfercapability.c: * Copyright (C) 2005, Frank Sautter, levigo holding gmbh, www.levigo.de
+apps/app_skel.c: * Copyright (C) <Year>, <Your Name Here>
+apps/app_sms.c: * Copyright (C) 2004 - 2005, Adrian Kennard, rights assigned to Digium
+apps/app_sql_postgres.c: * Copyright (C) 2002, Christos Ricudis
+apps/app_verbose.c: * Copyright (c) 2004 - 2005 Tilghman Lesher.  All rights reserved.
+apps/app_while.c: * Copyright 2004 - 2005, Anthony Minessale <anthmct@yahoo.com>
+cdr/cdr_sqlite.c: * Copyright (C) 2004 - 2005, Holger Schurig
+cdr/cdr_tds.c:   Copyright (C) 1994, 1996, 1997, 2000, 2001 Free Software Foundation, Inc.
+channels/chan_misdn.c: * Copyright (C) 2004, Christian Richter
+channels/chan_misdn_config.c: * Copyright (C) 2005, Christian Richter
+channels/chan_modem_bestdata.c: * Copyright (C) 1999, Mark Spencer and 2001 Jim Dixon
+channels/chan_vpb.c: * Copyright (C) 2003, Paul Bagyenda
+channels/chan_vpb.c: * Copyright (C) 2004 - 2005, Ben Kramer
+channels/DialTone.h:  * Copyright (C) 1999, Mark Spencer
+channels/Makefile:# Copyright (C) 1999-2005, Mark Spencer
+codecs/codec_ilbc.c: * The iLBC code is from The IETF code base and is copyright The Internet Society (2004)
+doc/README.backtrace:Copyright 2004 Free Software Foundation, Inc.
+editline/: * Copyright (c) 1992, 1993
+ *      The Regents of the University of California.  All rights reserved.
+editline/editline.3:.\" Copyright (c) 1997-1999 The NetBSD Foundation, Inc.
+editline/install-sh:# Copyright 1991 by the Massachusetts Institute of Technology
+formats/format_au.c: * Copyright (C) 2005, Andriy Pylypenko
+formats/format_g726.c: * Copyright (c) 2004 - 2005, inAccess Networks
+formats/format_ogg_vorbis.c: * Copyright (C) 2005, Jeff Ollie
+formats/format_sln.c: * Copyright (C) 1999 - 2005, Anthony Minessale
+funcs/func_cdr.c: * Portions Copyright (C) 2005, Anthony Minessale II
+funcs/func_db.c: * Copyright (C) 2005, Russell Bryant <russelb@clemson.edu> 
+funcs/func_db.c: * Copyright (C) 2003, Jefferson Noxon <jeff@debian.org>
+funcs/func_logic.c: * Portions Copyright (C) 2005, Anthony Minessale II
+funcs/func_math.c: * Copyright (C) 2004 - 2005, Andy Powell 
+funcs/func_md5.c: * Copyright (C) 2005, Olle E. Johansson, Edvina.net
+funcs/func_md5.c: * Copyright (C) 2005, Russell Bryant <russelb@clemson.edu> 
+funcs/func_strings.c: * Portions Copyright (C) 2005, Tilghman Lesher.  All rights reserved.
+funcs/func_strings.c: * Portions Copyright (C) 2005, Anthony Minessale II
+res/res_config_odbc.c: * Copyright (C) 2004 - 2005 Anthony Minessale II <anthmct@yahoo.com>
+res/res_indications.c: * Copyright (C) 2002, Pauline Middelink
+res/res_odbc.c: * Copyright (C) 2004 - 2005 Anthony Minessale II <anthmct@yahoo.com>
+utils/smsq.c: * Copyright (C) 2004 - 2005 Adrian Kennard
+utils/streamplayer.c:		fprintf(stderr, "Copyright (C) 2005 -- Russell Bryant -- Digium, Inc.\n\n");
+channels/misdn/: * Copyright (C) 2004, Christian Richter
+codecs/ilbc/:    Copyright (C) The Internet Society (2004). 
+contrib/scripts/managerproxy.pl:#  Copyright (c) 2004 David C. Troy &lt;dave@popvox.com>
+contrib/scripts/retrieve_extensions_from_sql.pl:# Copyright:    2004 Peter Nixon <codemonkey@petenixon.net>
+db1-ast/*/*: * Copyright (c) 1990, 1993, 1994
+ *      The Regents of the University of California.  All rights reserved.
+editline/np/: * Copyright (c) 1998 The NetBSD Foundation, Inc.
+editline/np/strlcat.c: * Copyright (c) 1998 Todd C. Miller <Todd.Miller@courtesan.com>
+include/asterisk/aes.h: Copyright (c) 2003, Dr Brian Gladman <brg@gladman.me.uk>, Worcester, UK.
+include/asterisk/dlfcn-compat.h:Copyright (c) 2002 Jorge Acereda  <jacereda@users.sourceforge.net> &
+                   Peter O'Gorman <ogorman@users.sourceforge.net>
+include/asterisk/plc.h: * Copyright (C) 2004 Steve Underwood
+include/asterisk/poll-compat.h:		Copyright (c) 1995-2002 Brian M. Clapper
+include/asterisk/res_odbc.h: * Copyright (C) 2004 - 2005, Anthony Minessale II
+include/asterisk/slinfactory.h: * Copyright (C) 2005, Anthony Minessale II
