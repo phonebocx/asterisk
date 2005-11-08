@@ -1,8 +1,10 @@
 asterisk (1:1.2.0-beta2.dfsg-3) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * Fix debian/patches/30_ast-data-dir with /var/run/asterisk. Thanks
+    Alessandro Polverini
 
- -- Mark Purcell <msp@debian.org>  Mon,  7 Nov 2005 23:15:32 +0000
+ -- Mark Purcell <mark@dell.purcell.id.au>  Tue,  8 Nov 2005 21:59:07 +0000
 
 asterisk (1:1.2.0-beta2.dfsg-2) experimental; urgency=low
 

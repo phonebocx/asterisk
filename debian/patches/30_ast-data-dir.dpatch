@@ -9,7 +9,7 @@
 @DPATCH@
 diff -urNad asterisk-1.2.0-beta2.dfsg~/asterisk.c asterisk-1.2.0-beta2.dfsg/asterisk.c
 --- asterisk-1.2.0-beta2.dfsg~/asterisk.c	2005-10-31 21:25:21.000000000 +0000
-+++ asterisk-1.2.0-beta2.dfsg/asterisk.c	2005-11-01 22:36:27.000000000 +0000
++++ asterisk-1.2.0-beta2.dfsg/asterisk.c	2005-11-08 21:54:04.000000000 +0000
 @@ -187,6 +187,7 @@
  char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_MONITOR_DIR[AST_CONFIG_MAX_PATH];
@@ -37,7 +37,7 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/asterisk.c asterisk-1.2.0-beta2.dfsg/aste
  		} else if (!strcasecmp(v->name, "astagidir")) {
 diff -urNad asterisk-1.2.0-beta2.dfsg~/build_tools/make_defaults_h asterisk-1.2.0-beta2.dfsg/build_tools/make_defaults_h
 --- asterisk-1.2.0-beta2.dfsg~/build_tools/make_defaults_h	2005-06-20 18:26:07.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/build_tools/make_defaults_h	2005-11-01 22:36:27.000000000 +0000
++++ asterisk-1.2.0-beta2.dfsg/build_tools/make_defaults_h	2005-11-08 21:54:04.000000000 +0000
 @@ -11,6 +11,7 @@
  #define AST_MODULE_DIR "${INSTALL_PATH}${MODULES_DIR}"
  #define AST_SPOOL_DIR  "${INSTALL_PATH}${ASTSPOOLDIR}"
@@ -58,7 +58,7 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/build_tools/make_defaults_h asterisk-1.2.
  END
 diff -urNad asterisk-1.2.0-beta2.dfsg~/configs/musiconhold.conf.sample asterisk-1.2.0-beta2.dfsg/configs/musiconhold.conf.sample
 --- asterisk-1.2.0-beta2.dfsg~/configs/musiconhold.conf.sample	2005-10-04 23:51:59.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/configs/musiconhold.conf.sample	2005-11-01 22:36:27.000000000 +0000
++++ asterisk-1.2.0-beta2.dfsg/configs/musiconhold.conf.sample	2005-11-08 21:54:04.000000000 +0000
 @@ -4,7 +4,7 @@
  
  [default]
@@ -70,7 +70,7 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/configs/musiconhold.conf.sample asterisk-
  ; quietmp3 	-- default
 diff -urNad asterisk-1.2.0-beta2.dfsg~/file.c asterisk-1.2.0-beta2.dfsg/file.c
 --- asterisk-1.2.0-beta2.dfsg~/file.c	2005-10-26 19:54:24.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/file.c	2005-11-01 22:36:27.000000000 +0000
++++ asterisk-1.2.0-beta2.dfsg/file.c	2005-11-08 21:54:04.000000000 +0000
 @@ -312,7 +312,7 @@
  	} else {
  		char tmp[AST_CONFIG_MAX_PATH] = "";
@@ -82,7 +82,7 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/file.c asterisk-1.2.0-beta2.dfsg/file.c
  		if (fn)
 diff -urNad asterisk-1.2.0-beta2.dfsg~/image.c asterisk-1.2.0-beta2.dfsg/image.c
 --- asterisk-1.2.0-beta2.dfsg~/image.c	2005-10-24 21:12:05.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/image.c	2005-11-01 22:36:27.000000000 +0000
++++ asterisk-1.2.0-beta2.dfsg/image.c	2005-11-08 21:54:04.000000000 +0000
 @@ -108,9 +108,9 @@
  			snprintf(buf, len, "%s.%s", filename, ext);
  	} else {
@@ -97,7 +97,7 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/image.c asterisk-1.2.0-beta2.dfsg/image.c
  
 diff -urNad asterisk-1.2.0-beta2.dfsg~/include/asterisk.h asterisk-1.2.0-beta2.dfsg/include/asterisk.h
 --- asterisk-1.2.0-beta2.dfsg~/include/asterisk.h	2005-10-26 14:03:17.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/include/asterisk.h	2005-11-01 22:36:27.000000000 +0000
++++ asterisk-1.2.0-beta2.dfsg/include/asterisk.h	2005-11-08 21:54:04.000000000 +0000
 @@ -29,6 +29,7 @@
  extern char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_MONITOR_DIR[AST_CONFIG_MAX_PATH];
@@ -108,7 +108,7 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/include/asterisk.h asterisk-1.2.0-beta2.d
  extern char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
 diff -urNad asterisk-1.2.0-beta2.dfsg~/Makefile asterisk-1.2.0-beta2.dfsg/Makefile
 --- asterisk-1.2.0-beta2.dfsg~/Makefile	2005-10-25 13:47:54.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/Makefile	2005-11-01 22:38:20.000000000 +0000
++++ asterisk-1.2.0-beta2.dfsg/Makefile	2005-11-08 21:54:41.000000000 +0000
 @@ -104,6 +104,7 @@
  ifneq (${OSARCH},SunOS)
    ASTLIBDIR=$(INSTALL_PREFIX)/usr/lib/asterisk
@@ -117,6 +117,15 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/Makefile asterisk-1.2.0-beta2.dfsg/Makefi
    ASTETCDIR=$(INSTALL_PREFIX)/etc/asterisk
    ASTSPOOLDIR=$(INSTALL_PREFIX)/var/spool/asterisk
    ASTLOGDIR=$(INSTALL_PREFIX)/var/log/asterisk
+@@ -111,7 +112,7 @@
+   ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
+   ASTBINDIR=$(INSTALL_PREFIX)/usr/bin
+   ASTSBINDIR=$(INSTALL_PREFIX)/usr/sbin
+-  ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run
++  ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run/asterisk
+   ASTMANDIR=$(INSTALL_PREFIX)/usr/share/man
+   MODULES_DIR=$(ASTLIBDIR)/modules
+   AGI_DIR=$(ASTVARLIBDIR)/agi-bin
 @@ -494,38 +495,38 @@
  
  datafiles: all
