@@ -2,8 +2,9 @@ asterisk (1:1.2.0-rc1.dfsg-1) experimental; urgency=low
 
   * New upstream release
   * Suggests: asterisk-rate-engine
+  * debian/rules touch .cleancount (upstream bug?)
 
- -- Mark Purcell <msp@debian.org>  Wed,  9 Nov 2005 19:13:19 +0000
+ -- Mark Purcell <msp@debian.org>  Wed,  9 Nov 2005 22:05:30 +0000
 
 asterisk (1:1.2.0-beta2.dfsg-3) experimental; urgency=low
 

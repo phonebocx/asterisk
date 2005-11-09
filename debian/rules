@@ -49,6 +49,7 @@ check-sounds:
 config.status: check-sounds patch 
 	dh_testdir
 	# Add here commands to configure the package.
+	touch .cleancount
 	- (cd editline ; \
 	if [ -f config.sub.old ]; then \
 	  rm -f config.sub; \
