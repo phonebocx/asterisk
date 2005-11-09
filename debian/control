@@ -11,7 +11,7 @@ Architecture: any
 Section: comm
 Depends: ${shlibs:Depends}, asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom, adduser (>= 3.64)
 Conflicts: asterisk-oh323 (<= 0.6.6pre3-3)
-Suggests: gnomemeeting, ohphone, kphone, asterisk-doc, asterisk-dev, rate-engine, mpg123
+Suggests: gnomemeeting, ohphone, kphone, asterisk-doc, asterisk-dev, asterisk-rate-engine, mpg123
 Description: open source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
