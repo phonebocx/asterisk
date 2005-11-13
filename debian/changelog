@@ -1,6 +1,6 @@
-asterisk (1:1.2.0-rc2.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.0-rc2.dfsg-1) experimental; urgency=low
 
-  * (NOT RELEASED YET) New upstream release
+  * New upstream release
 
  -- Mark Purcell <msp@debian.org>  Sun, 13 Nov 2005 17:58:08 +0000
 
