@@ -133,8 +133,6 @@ install: build
 	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
 
-	zcat asterisk.8.gz|gzip -9c >debian/asterisk.8.gz
-
 	dh_install --sourcedir=debian/tmp
 
 # Build architecture-independent files here.
@@ -142,7 +140,7 @@ binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
 	dh_installdocs -i
-	dh_installman debian/asterisk.8.gz debian/*.1 debian/*.8
+	dh_installman *.[1-8] debian/*.1 debian/*.8
 	dh_installexamples -i -XCVS
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
