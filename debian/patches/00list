@@ -16,3 +16,5 @@
 #chan-modem.dpatch
 #app_queue.memleakfix.dpatch
 pubkey_jnctn
+nomarch
+nooptimize

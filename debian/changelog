@@ -1,3 +1,9 @@
+asterisk (1:1.2.0.dfsg-3) unstable; urgency=low
+
+  * Remove -march to fix FTBFS. (Closes: #338753)
+
+ -- Kilian Krause <kilian@debian.org>  Sat, 19 Nov 2005 19:36:31 +0000
+
 asterisk (1:1.2.0.dfsg-2) unstable; urgency=low
 
   * libreadline4-dev is superseeded by libreadline5-dev. Fixed build-depends.
