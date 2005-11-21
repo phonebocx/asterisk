@@ -1,3 +1,11 @@
+asterisk (1:1.2.0.dfsg-4) unstable; urgency=low
+
+  * Fix 50_debian-libgsm.dpatch to apply correctly
+    - asterisk - FTBFS: Tries to build a i386 assembler file (Closes:
+    #340102)
+
+ -- Mark Purcell <msp@debian.org>  Mon, 21 Nov 2005 19:56:03 +0000
+
 asterisk (1:1.2.0.dfsg-3) unstable; urgency=low
 
   * Remove -march to fix FTBFS. (Closes: #338753)

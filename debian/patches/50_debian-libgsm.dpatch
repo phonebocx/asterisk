@@ -5,10 +5,10 @@
 ## DP: Use installed libgsm if availble
 
 @DPATCH@
-diff -urNad asterisk-1.2.0-beta2.dfsg~/codecs/codec_gsm.c asterisk-1.2.0-beta2.dfsg/codecs/codec_gsm.c
---- asterisk-1.2.0-beta2.dfsg~/codecs/codec_gsm.c	2005-10-26 14:03:17.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/codecs/codec_gsm.c	2005-11-01 21:05:29.000000000 +0000
-@@ -44,7 +44,7 @@
+diff -urNad asterisk-1.2.0.dfsg~/codecs/codec_gsm.c asterisk-1.2.0.dfsg/codecs/codec_gsm.c
+--- asterisk-1.2.0.dfsg~/codecs/codec_gsm.c	2005-11-06 15:09:46.000000000 +0000
++++ asterisk-1.2.0.dfsg/codecs/codec_gsm.c	2005-11-21 19:52:33.000000000 +0000
+@@ -45,7 +45,7 @@
  #include "asterisk/logger.h"
  #include "asterisk/channel.h"
  
@@ -17,34 +17,34 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/codecs/codec_gsm.c asterisk-1.2.0-beta2.d
  #include "../formats/msgsm.h"
  
  /* Sample frame data */
-diff -urNad asterisk-1.2.0-beta2.dfsg~/codecs/Makefile.rej asterisk-1.2.0-beta2.dfsg/codecs/Makefile.rej
---- asterisk-1.2.0-beta2.dfsg~/codecs/Makefile.rej	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/codecs/Makefile.rej	2005-11-01 21:04:08.000000000 +0000
-@@ -0,0 +1,20 @@
-+***************
-+*** 26,33 ****
-+  
-+  LIBG723=g723.1/libg723.a
-+  LIBG723B=g723.1b/libg723b.a
-+- LIBGSM=gsm/lib/libgsm.a
-+- LIBGSMT=gsm/lib/libgsm.a
-+  LIBLPC10=lpc10/liblpc10.a
-+  LIBSPEEX=$(shell [ -f /usr/local/lib/libspeex.a ] && echo "-L/usr/local/lib")
-+  LIBSPEEX+=-lspeex -lm
-+--- 26,34 ----
-+  
-+  LIBG723=g723.1/libg723.a
-+  LIBG723B=g723.1b/libg723b.a
-++ LIBGSM=-lgsm
-++ # We don't build libgsm but use the system's one.
-++ LIBGSMT=
-+  LIBLPC10=lpc10/liblpc10.a
-+  LIBSPEEX=$(shell [ -f /usr/local/lib/libspeex.a ] && echo "-L/usr/local/lib")
-+  LIBSPEEX+=-lspeex -lm
-diff -urNad asterisk-1.2.0-beta2.dfsg~/formats/Makefile asterisk-1.2.0-beta2.dfsg/formats/Makefile
---- asterisk-1.2.0-beta2.dfsg~/formats/Makefile	2005-08-30 03:54:02.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/formats/Makefile	2005-11-01 21:04:08.000000000 +0000
-@@ -49,6 +49,12 @@
+diff -urNad asterisk-1.2.0.dfsg~/codecs/Makefile asterisk-1.2.0.dfsg/codecs/Makefile
+--- asterisk-1.2.0.dfsg~/codecs/Makefile	2005-11-08 04:13:18.000000000 +0000
++++ asterisk-1.2.0.dfsg/codecs/Makefile	2005-11-21 19:53:31.000000000 +0000
+@@ -60,8 +60,9 @@
+ endif
+ 
+ 
+-LIBGSM=gsm/lib/libgsm.a
+-LIBGSMT=gsm/lib/libgsm.a
++LIBGSM=-lgsm
++# We don't build libgsm but use the system's one.
++LIBGSMT=
+ LIBLPC10=lpc10/liblpc10.a
+ 
+ ifeq ($(findstring BSD,${OSARCH}),BSD)
+diff -urNad asterisk-1.2.0.dfsg~/formats/Makefile asterisk-1.2.0.dfsg/formats/Makefile
+--- asterisk-1.2.0.dfsg~/formats/Makefile	2005-11-01 21:53:30.000000000 +0000
++++ asterisk-1.2.0.dfsg/formats/Makefile	2005-11-21 19:54:10.000000000 +0000
+@@ -33,8 +33,6 @@
+   CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
+ endif
+ 
+-GSMLIB=../codecs/gsm/lib/libgsm.a
+-
+ ifeq (${OSARCH},CYGWIN)
+ CYGSOLINK=-Wl,--out-implib=lib$@.a -Wl,--export-all-symbols
+ CYGSOLIB=-L.. -L. -lasterisk.dll
+@@ -53,6 +51,12 @@
    include .depend
  endif
  
@@ -55,26 +55,5 @@ diff -urNad asterisk-1.2.0-beta2.dfsg~/formats/Makefile asterisk-1.2.0-beta2.dfs
 +	$(CC) $(SOLINK) -o $@ $< -lgsm
 +
  format_mp3.so : format_mp3.o
- 	$(CC) $(SOLINK) -o $@ $< -lm
+ 	$(CC) $(SOLINK) -o $@ ${CYGSOLINK} $< ${CYGSOLIB} -lm
  
-diff -urNad asterisk-1.2.0-beta2.dfsg~/formats/Makefile.rej asterisk-1.2.0-beta2.dfsg/formats/Makefile.rej
---- asterisk-1.2.0-beta2.dfsg~/formats/Makefile.rej	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.0-beta2.dfsg/formats/Makefile.rej	2005-11-01 21:04:08.000000000 +0000
-@@ -0,0 +1,17 @@
-+***************
-+*** 21,28 ****
-+  #
-+  #FORMAT_LIBS+=format_g723.so
-+  
-+- GSMLIB=../codecs/gsm/lib/libgsm.a
-+- 
-+  CFLAGS+=-fPIC -DPIC
-+  
-+  all: depend $(FORMAT_LIBS)
-+--- 21,26 ----
-+  #
-+  #FORMAT_LIBS+=format_g723.so
-+  
-+  CFLAGS+=-fPIC -DPIC
-+  
-+  all: depend $(FORMAT_LIBS)
