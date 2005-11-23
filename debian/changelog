@@ -1,3 +1,9 @@
+asterisk (1:1.2.0.dfsg-5) unstable; urgency=low
+
+  * bristuff 
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 23 Nov 2005 06:57:22 +0200
+
 asterisk (1:1.2.0.dfsg-4) unstable; urgency=low
 
   * Fix 50_debian-libgsm.dpatch to apply correctly
