@@ -5,9 +5,9 @@
 ## DP: bristuff support in asterisk: asterisk.patch from bristuff-0.3.0-PRE-1
 
 @DPATCH@
-diff -urNad asterisk-1.2.0.dfsg/agi/Makefile /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/agi/Makefile
---- asterisk-1.2.0.dfsg/agi/Makefile	2005-08-30 05:54:01.000000000 +0300
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/agi/Makefile	2005-11-23 05:50:44.272884361 +0200
+diff -urN asterisk-1.2.0.orig/agi/Makefile asterisk-1.2.0/agi/Makefile
+--- asterisk-1.2.0.orig/agi/Makefile	2005-08-30 04:54:01.000000000 +0200
++++ asterisk-1.2.0/agi/Makefile	2005-11-20 12:28:40.000000000 +0100
 @@ -11,7 +11,7 @@
  # the GNU General Public License
  #
@@ -26,9 +26,9 @@ diff -urNad asterisk-1.2.0.dfsg/agi/Makefile /tmp/dpep.xhUJBp/asterisk-1.2.0.dfs
  
  %.so : %.o
  	$(CC) -shared -Xlinker -x -o $@ $<
-diff -urNad asterisk-1.2.0.dfsg/agi/xagi-test.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/agi/xagi-test.c
---- asterisk-1.2.0.dfsg/agi/xagi-test.c	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/agi/xagi-test.c	2005-11-23 05:50:44.273884223 +0200
+diff -urN asterisk-1.2.0.orig/agi/xagi-test.c asterisk-1.2.0/agi/xagi-test.c
+--- asterisk-1.2.0.orig/agi/xagi-test.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0/agi/xagi-test.c	2005-11-20 12:28:40.000000000 +0100
 @@ -0,0 +1,177 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -207,9 +207,9 @@ diff -urNad asterisk-1.2.0.dfsg/agi/xagi-test.c /tmp/dpep.xhUJBp/asterisk-1.2.0.
 +		return -1;
 +	exit(0);
 +}
-diff -urNad asterisk-1.2.0.dfsg/apps/app_callingpres.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_callingpres.c
---- asterisk-1.2.0.dfsg/apps/app_callingpres.c	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_callingpres.c	2005-11-23 05:50:44.275883945 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_callingpres.c asterisk-1.2.0/apps/app_callingpres.c
+--- asterisk-1.2.0.orig/apps/app_callingpres.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0/apps/app_callingpres.c	2005-11-20 13:35:33.000000000 +0100
 @@ -0,0 +1,70 @@
 +/*
 + * An application to change the CallingPresentation for an Asterisk channel.
@@ -281,9 +281,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_callingpres.c /tmp/dpep.xhUJBp/asterisk
 +{
 +    return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.0.dfsg/apps/app_chanisavail.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_chanisavail.c
---- asterisk-1.2.0.dfsg/apps/app_chanisavail.c	2005-11-10 23:39:01.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_chanisavail.c	2005-11-23 05:50:44.280883253 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_chanisavail.c asterisk-1.2.0/apps/app_chanisavail.c
+--- asterisk-1.2.0.orig/apps/app_chanisavail.c	2005-11-10 22:39:01.000000000 +0100
++++ asterisk-1.2.0/apps/app_chanisavail.c	2005-11-20 12:33:16.000000000 +0100
 @@ -118,7 +118,7 @@
  				snprintf(trychan, sizeof(trychan), "%s/%s",cur,number);
  				status = inuse = ast_device_state(trychan);
@@ -293,9 +293,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_chanisavail.c /tmp/dpep.xhUJBp/asterisk
  					pbx_builtin_setvar_helper(chan, "AVAILCHAN", tempchan->name);
  					/* Store the originally used channel too */
  					snprintf(tmp, sizeof(tmp), "%s/%s", tech, number);
-diff -urNad asterisk-1.2.0.dfsg/apps/app_devstate.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_devstate.c
---- asterisk-1.2.0.dfsg/apps/app_devstate.c	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_devstate.c	2005-11-23 05:50:44.283882837 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_devstate.c asterisk-1.2.0/apps/app_devstate.c
+--- asterisk-1.2.0.orig/apps/app_devstate.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0/apps/app_devstate.c	2005-11-20 13:41:13.000000000 +0100
 @@ -0,0 +1,215 @@
 +/*
 + * Devstate application
@@ -512,9 +512,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_devstate.c /tmp/dpep.xhUJBp/asterisk-1.
 +{
 +    return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.0.dfsg/apps/app_dial.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_dial.c
---- asterisk-1.2.0.dfsg/apps/app_dial.c	2005-11-14 12:24:59.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_dial.c	2005-11-23 05:50:44.286882421 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_dial.c asterisk-1.2.0/apps/app_dial.c
+--- asterisk-1.2.0.orig/apps/app_dial.c	2005-11-14 11:24:59.000000000 +0100
++++ asterisk-1.2.0/apps/app_dial.c	2005-11-20 12:50:07.000000000 +0100
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -616,9 +616,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_dial.c /tmp/dpep.xhUJBp/asterisk-1.2.0.
  
  	time(&start_time);
  	peer = wait_for_answer(chan, outgoing, &to, peerflags, &sentringing, status, sizeof(status), numbusy, numnochan, numcongestion, ast_test_flag(&opts, OPT_PRIORITY_JUMP), &result);
-diff -urNad asterisk-1.2.0.dfsg/apps/app_directed_pickup.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_directed_pickup.c
---- asterisk-1.2.0.dfsg/apps/app_directed_pickup.c	2005-11-11 17:52:55.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_directed_pickup.c	2005-11-23 05:50:44.289882006 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_directed_pickup.c asterisk-1.2.0/apps/app_directed_pickup.c
+--- asterisk-1.2.0.orig/apps/app_directed_pickup.c	2005-11-11 16:52:55.000000000 +0100
++++ asterisk-1.2.0/apps/app_directed_pickup.c	2005-11-20 15:41:55.000000000 +0100
 @@ -41,7 +41,7 @@
  #include "asterisk/app.h"
  
@@ -628,9 +628,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_directed_pickup.c /tmp/dpep.xhUJBp/aste
  static const char *synopsis = "Directed Call Pickup";
  static const char *descrip =
  "  Pickup(extension[@context]): This application can pickup any ringing channel\n"
-diff -urNad asterisk-1.2.0.dfsg/apps/app_meetme.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_meetme.c
---- asterisk-1.2.0.dfsg/apps/app_meetme.c	2005-11-11 02:45:02.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_meetme.c	2005-11-23 05:50:44.293881452 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_meetme.c asterisk-1.2.0/apps/app_meetme.c
+--- asterisk-1.2.0.orig/apps/app_meetme.c	2005-11-11 01:45:02.000000000 +0100
++++ asterisk-1.2.0/apps/app_meetme.c	2005-11-20 12:28:40.000000000 +0100
 @@ -451,7 +451,7 @@
  			ast_copy_string(cnf->pin, pin, sizeof(cnf->pin));
  			ast_copy_string(cnf->pinadmin, pinadmin, sizeof(cnf->pinadmin));
@@ -640,9 +640,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_meetme.c /tmp/dpep.xhUJBp/asterisk-1.2.
  			if (cnf->chan) {
  				cnf->fd = cnf->chan->fds[0];	/* for use by conf_play() */
  			} else {
-diff -urNad asterisk-1.2.0.dfsg/apps/app_page.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_page.c
---- asterisk-1.2.0.dfsg/apps/app_page.c	2005-11-08 00:01:22.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_page.c	2005-11-23 05:50:44.296881036 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_page.c asterisk-1.2.0/apps/app_page.c
+--- asterisk-1.2.0.orig/apps/app_page.c	2005-11-07 23:01:22.000000000 +0100
++++ asterisk-1.2.0/apps/app_page.c	2005-11-20 13:44:40.000000000 +0100
 @@ -83,7 +83,7 @@
  {
  	struct calloutdata *cd = data;
@@ -652,9 +652,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_page.c /tmp/dpep.xhUJBp/asterisk-1.2.0.
  	free(cd);
  	return NULL;
  }
-diff -urNad asterisk-1.2.0.dfsg/apps/app_parkandannounce.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_parkandannounce.c
---- asterisk-1.2.0.dfsg/apps/app_parkandannounce.c	2005-11-08 06:48:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_parkandannounce.c	2005-11-23 05:50:44.298880759 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_parkandannounce.c asterisk-1.2.0/apps/app_parkandannounce.c
+--- asterisk-1.2.0.orig/apps/app_parkandannounce.c	2005-11-08 05:48:00.000000000 +0100
++++ asterisk-1.2.0/apps/app_parkandannounce.c	2005-11-20 13:18:31.000000000 +0100
 @@ -183,7 +183,7 @@
  
  	memset(&oh, 0, sizeof(oh));
@@ -664,9 +664,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_parkandannounce.c /tmp/dpep.xhUJBp/aste
  
  	if(dchan) {
  		if(dchan->_state == AST_STATE_UP) {
-diff -urNad asterisk-1.2.0.dfsg/apps/app_pickup.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_pickup.c
---- asterisk-1.2.0.dfsg/apps/app_pickup.c	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_pickup.c	2005-11-23 05:50:44.301880343 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_pickup.c asterisk-1.2.0/apps/app_pickup.c
+--- asterisk-1.2.0.orig/apps/app_pickup.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0/apps/app_pickup.c	2005-11-20 13:34:44.000000000 +0100
 @@ -0,0 +1,319 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -987,9 +987,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_pickup.c /tmp/dpep.xhUJBp/asterisk-1.2.
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.0.dfsg/apps/app_queue.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_queue.c
---- asterisk-1.2.0.dfsg/apps/app_queue.c	2005-11-11 01:22:37.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_queue.c	2005-11-23 05:50:44.306879650 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_queue.c asterisk-1.2.0/apps/app_queue.c
+--- asterisk-1.2.0.orig/apps/app_queue.c	2005-11-11 00:22:37.000000000 +0100
++++ asterisk-1.2.0/apps/app_queue.c	2005-11-20 12:28:40.000000000 +0100
 @@ -1363,7 +1363,7 @@
  		location = "";
  
@@ -1008,9 +1008,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_queue.c /tmp/dpep.xhUJBp/asterisk-1.2.0
  					if (status != o->oldstatus) 
  						update_dial_status(qe->parent, o->member, status);						
  					if (!o->chan) {
-diff -urNad asterisk-1.2.0.dfsg/apps/app_readfile.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_readfile.c
---- asterisk-1.2.0.dfsg/apps/app_readfile.c	2005-11-06 17:09:46.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_readfile.c	2005-11-23 05:50:44.309879235 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_readfile.c asterisk-1.2.0/apps/app_readfile.c
+--- asterisk-1.2.0.orig/apps/app_readfile.c	2005-11-06 16:09:46.000000000 +0100
++++ asterisk-1.2.0/apps/app_readfile.c	2005-11-20 16:07:15.000000000 +0100
 @@ -40,7 +40,7 @@
  #include "asterisk/app.h"
  #include "asterisk/module.h"
@@ -1020,9 +1020,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_readfile.c /tmp/dpep.xhUJBp/asterisk-1.
  
  static char *app_readfile = "ReadFile";
  
-diff -urNad asterisk-1.2.0.dfsg/apps/app_segfault.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_segfault.c
---- asterisk-1.2.0.dfsg/apps/app_segfault.c	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_segfault.c	2005-11-23 05:50:44.312878819 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_segfault.c asterisk-1.2.0/apps/app_segfault.c
+--- asterisk-1.2.0.orig/apps/app_segfault.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0/apps/app_segfault.c	2005-11-20 13:35:08.000000000 +0100
 @@ -0,0 +1,75 @@
 +/*
 + * Segfault application
@@ -1099,9 +1099,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_segfault.c /tmp/dpep.xhUJBp/asterisk-1.
 +{
 +    return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.0.dfsg/apps/app_zapras.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_zapras.c
---- asterisk-1.2.0.dfsg/apps/app_zapras.c	2005-11-08 00:01:22.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/app_zapras.c	2005-11-23 05:50:44.314878542 +0200
+diff -urN asterisk-1.2.0.orig/apps/app_zapras.c asterisk-1.2.0/apps/app_zapras.c
+--- asterisk-1.2.0.orig/apps/app_zapras.c	2005-11-07 23:01:22.000000000 +0100
++++ asterisk-1.2.0/apps/app_zapras.c	2005-11-20 12:28:40.000000000 +0100
 @@ -182,7 +182,7 @@
  				}
  			}
@@ -1111,9 +1111,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/app_zapras.c /tmp/dpep.xhUJBp/asterisk-1.2.
  			ioctl(chan->fds[0], ZT_AUDIOMODE, &x);
  
  			/* Restore saved values */
-diff -urNad asterisk-1.2.0.dfsg/apps/Makefile /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/Makefile
---- asterisk-1.2.0.dfsg/apps/Makefile	2005-11-11 02:32:45.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/apps/Makefile	2005-11-23 05:50:44.317878126 +0200
+diff -urN asterisk-1.2.0.orig/apps/Makefile asterisk-1.2.0/apps/Makefile
+--- asterisk-1.2.0.orig/apps/Makefile	2005-11-11 01:32:45.000000000 +0100
++++ asterisk-1.2.0/apps/Makefile	2005-11-20 12:32:17.000000000 +0100
 @@ -28,6 +28,7 @@
       app_test.so app_forkcdr.so app_math.so app_realtime.so \
       app_dumpchan.so app_waitforsilence.so app_while.so app_setrdnis.so \
@@ -1122,9 +1122,9 @@ diff -urNad asterisk-1.2.0.dfsg/apps/Makefile /tmp/dpep.xhUJBp/asterisk-1.2.0.df
       app_dictate.so app_externalivr.so app_directed_pickup.so \
       app_mixmonitor.so app_stack.so
  
-diff -urNad asterisk-1.2.0.dfsg/asterisk.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/asterisk.c
---- asterisk-1.2.0.dfsg/asterisk.c	2005-11-14 21:00:38.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/asterisk.c	2005-11-23 05:50:44.320877711 +0200
+diff -urN asterisk-1.2.0.orig/asterisk.c asterisk-1.2.0/asterisk.c
+--- asterisk-1.2.0.orig/asterisk.c	2005-11-14 20:00:38.000000000 +0100
++++ asterisk-1.2.0/asterisk.c	2005-11-20 13:30:11.000000000 +0100
 @@ -215,6 +215,7 @@
  char ast_config_AST_CTL_OWNER[AST_CONFIG_MAX_PATH] = "\0";
  char ast_config_AST_CTL_GROUP[AST_CONFIG_MAX_PATH] = "\0";
@@ -1150,9 +1150,9 @@ diff -urNad asterisk-1.2.0.dfsg/asterisk.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/
  		}
  		v = v->next;
  	}
-diff -urNad asterisk-1.2.0.dfsg/build_tools/make_defaults_h /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/build_tools/make_defaults_h
---- asterisk-1.2.0.dfsg/build_tools/make_defaults_h	2005-06-20 20:26:07.000000000 +0300
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/build_tools/make_defaults_h	2005-11-23 05:50:44.323877295 +0200
+diff -urN asterisk-1.2.0.orig/build_tools/make_defaults_h asterisk-1.2.0/build_tools/make_defaults_h
+--- asterisk-1.2.0.orig/build_tools/make_defaults_h	2005-06-20 19:26:07.000000000 +0200
++++ asterisk-1.2.0/build_tools/make_defaults_h	2005-11-20 12:28:40.000000000 +0100
 @@ -16,6 +16,7 @@
  #define AST_KEY_DIR    "${INSTALL_PATH}${ASTVARLIBDIR}/keys"
  #define AST_DB         "${INSTALL_PATH}${ASTVARLIBDIR}/astdb"
@@ -1161,9 +1161,9 @@ diff -urNad asterisk-1.2.0.dfsg/build_tools/make_defaults_h /tmp/dpep.xhUJBp/ast
  
  #define AST_CONFIG_FILE "${INSTALL_PATH}${ASTCONFPATH}"
  
-diff -urNad asterisk-1.2.0.dfsg/channel.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channel.c
---- asterisk-1.2.0.dfsg/channel.c	2005-11-16 20:11:28.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channel.c	2005-11-23 05:50:44.328876602 +0200
+diff -urN asterisk-1.2.0.orig/channel.c asterisk-1.2.0/channel.c
+--- asterisk-1.2.0.orig/channel.c	2005-11-16 19:11:28.000000000 +0100
++++ asterisk-1.2.0/channel.c	2005-11-20 13:20:56.000000000 +0100
 @@ -95,6 +95,7 @@
  static int shutting_down = 0;
  
@@ -1358,9 +1358,9 @@ diff -urNad asterisk-1.2.0.dfsg/channel.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/c
  	
  	/* Stop if we're a zombie or need a soft hangup */
  	if (ast_test_flag(c0, AST_FLAG_ZOMBIE) || ast_check_hangup_locked(c0) ||
-diff -urNad asterisk-1.2.0.dfsg/channels/chan_agent.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_agent.c
---- asterisk-1.2.0.dfsg/channels/chan_agent.c	2005-11-08 06:02:35.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_agent.c	2005-11-23 05:50:44.332876048 +0200
+diff -urN asterisk-1.2.0.orig/channels/chan_agent.c asterisk-1.2.0/channels/chan_agent.c
+--- asterisk-1.2.0.orig/channels/chan_agent.c	2005-11-08 05:02:35.000000000 +0100
++++ asterisk-1.2.0/channels/chan_agent.c	2005-11-20 12:28:40.000000000 +0100
 @@ -1327,7 +1327,7 @@
  						chan = agent_new(p, AST_STATE_DOWN);
  					} else if (!p->owner && !ast_strlen_zero(p->loginchan)) {
@@ -1370,9 +1370,9 @@ diff -urNad asterisk-1.2.0.dfsg/channels/chan_agent.c /tmp/dpep.xhUJBp/asterisk-
  						if (p->chan)
  							chan = agent_new(p, AST_STATE_DOWN);
  					}
-diff -urNad asterisk-1.2.0.dfsg/channels/chan_features.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_features.c
---- asterisk-1.2.0.dfsg/channels/chan_features.c	2005-11-06 17:09:46.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_features.c	2005-11-23 05:50:44.335875633 +0200
+diff -urN asterisk-1.2.0.orig/channels/chan_features.c asterisk-1.2.0/channels/chan_features.c
+--- asterisk-1.2.0.orig/channels/chan_features.c	2005-11-06 16:09:46.000000000 +0100
++++ asterisk-1.2.0/channels/chan_features.c	2005-11-20 12:28:40.000000000 +0100
 @@ -438,7 +438,7 @@
  	}
  	ast_mutex_unlock(&featurelock);
@@ -1382,9 +1382,9 @@ diff -urNad asterisk-1.2.0.dfsg/channels/chan_features.c /tmp/dpep.xhUJBp/asteri
  		if (!chan) {
  			ast_log(LOG_NOTICE, "Unable to allocate subchannel '%s/%s'\n", tech, dest);
  			return NULL;
-diff -urNad asterisk-1.2.0.dfsg/channels/chan_iax2.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_iax2.c
---- asterisk-1.2.0.dfsg/channels/chan_iax2.c	2005-11-12 22:04:57.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_iax2.c	2005-11-23 05:50:44.343874524 +0200
+diff -urN asterisk-1.2.0.orig/channels/chan_iax2.c asterisk-1.2.0/channels/chan_iax2.c
+--- asterisk-1.2.0.orig/channels/chan_iax2.c	2005-11-12 21:04:57.000000000 +0100
++++ asterisk-1.2.0/channels/chan_iax2.c	2005-11-20 12:28:40.000000000 +0100
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -1404,9 +1404,9 @@ diff -urNad asterisk-1.2.0.dfsg/channels/chan_iax2.c /tmp/dpep.xhUJBp/asterisk-1
  		alreadygone = ast_test_flag(iaxs[callno], IAX_ALREADYGONE);
  		/* Send the hangup unless we have had a transmission error or are already gone */
   		iax_ie_append_byte(&ied, IAX_IE_CAUSECODE, (unsigned char)c->hangupcause);
-diff -urNad asterisk-1.2.0.dfsg/channels/chan_sip.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_sip.c
---- asterisk-1.2.0.dfsg/channels/chan_sip.c	2005-11-16 19:46:59.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_sip.c	2005-11-23 05:50:44.354873000 +0200
+diff -urN asterisk-1.2.0.orig/channels/chan_sip.c asterisk-1.2.0/channels/chan_sip.c
+--- asterisk-1.2.0.orig/channels/chan_sip.c	2005-11-16 18:46:59.000000000 +0100
++++ asterisk-1.2.0/channels/chan_sip.c	2005-11-20 13:52:50.000000000 +0100
 @@ -4810,7 +4810,8 @@
  
  	/* If there is a VXML URL append it to the SIP URL */
@@ -1417,9 +1417,9 @@ diff -urNad asterisk-1.2.0.dfsg/channels/chan_sip.c /tmp/dpep.xhUJBp/asterisk-1.
  	} else {
  		snprintf(to, sizeof(to), "<%s>", p->uri);
  	}
-diff -urNad asterisk-1.2.0.dfsg/channels/chan_zap.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_zap.c
---- asterisk-1.2.0.dfsg/channels/chan_zap.c	2005-11-11 20:00:07.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/channels/chan_zap.c	2005-11-23 05:50:44.369870922 +0200
+diff -urN asterisk-1.2.0.orig/channels/chan_zap.c asterisk-1.2.0/channels/chan_zap.c
+--- asterisk-1.2.0.orig/channels/chan_zap.c	2005-11-11 19:00:07.000000000 +0100
++++ asterisk-1.2.0/channels/chan_zap.c	2005-11-20 16:32:17.000000000 +0100
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -2659,6 +2659,7 @@ diff -urNad asterisk-1.2.0.dfsg/channels/chan_zap.c /tmp/dpep.xhUJBp/asterisk-1.
  							ast_verbose(VERBOSE_PREFIX_3 "Going to extension s|1 because of Complete received\n");
  						pri->pvts[chanpos]->exten[0] = 's';
  						pri->pvts[chanpos]->exten[1] = '\0';
+-					}
 + 					    }
 +  					} else {
 +  						/* Get called number */
@@ -2681,7 +2682,7 @@ diff -urNad asterisk-1.2.0.dfsg/channels/chan_zap.c /tmp/dpep.xhUJBp/asterisk-1.
 +  							}
 +  						    }
 +  						}
- 					}
++					}
 +  					/* Part 3: create channel, setup audio... */
 + 					/* Set DNID on all incoming calls -- even immediate */
 + 					if (!ast_strlen_zero(e->ring.callednum))
@@ -3868,9 +3869,9 @@ diff -urNad asterisk-1.2.0.dfsg/channels/chan_zap.c /tmp/dpep.xhUJBp/asterisk-1.
  	index = zt_get_index(c, p, 0);
  	if (index < 0) {
  		ast_log(LOG_WARNING, "Huh?  I don't exist?\n");
-diff -urNad asterisk-1.2.0.dfsg/codecs/codec_ilbc.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/codecs/codec_ilbc.c
---- asterisk-1.2.0.dfsg/codecs/codec_ilbc.c	2005-11-06 17:09:46.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/codecs/codec_ilbc.c	2005-11-23 05:50:44.372870506 +0200
+diff -urN asterisk-1.2.0.orig/codecs/codec_ilbc.c asterisk-1.2.0/codecs/codec_ilbc.c
+--- asterisk-1.2.0.orig/codecs/codec_ilbc.c	2005-11-06 16:09:46.000000000 +0100
++++ asterisk-1.2.0/codecs/codec_ilbc.c	2005-11-20 12:28:41.000000000 +0100
 @@ -49,7 +49,7 @@
  #include "slin_ilbc_ex.h"
  #include "ilbc_slin_ex.h"
@@ -3880,9 +3881,9 @@ diff -urNad asterisk-1.2.0.dfsg/codecs/codec_ilbc.c /tmp/dpep.xhUJBp/asterisk-1.
  #define ILBC_MS 			30
  /* #define ILBC_MS			20 */
  
-diff -urNad asterisk-1.2.0.dfsg/configs/watchdog.conf.sample /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/configs/watchdog.conf.sample
---- asterisk-1.2.0.dfsg/configs/watchdog.conf.sample	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/configs/watchdog.conf.sample	2005-11-23 05:50:44.375870091 +0200
+diff -urN asterisk-1.2.0.orig/configs/watchdog.conf.sample asterisk-1.2.0/configs/watchdog.conf.sample
+--- asterisk-1.2.0.orig/configs/watchdog.conf.sample	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0/configs/watchdog.conf.sample	2005-11-20 12:28:41.000000000 +0100
 @@ -0,0 +1,22 @@
 +;
 +; Configuration file for res_watchdog
@@ -3906,9 +3907,9 @@ diff -urNad asterisk-1.2.0.dfsg/configs/watchdog.conf.sample /tmp/dpep.xhUJBp/as
 +;device = /dev/watchdog
 +;interval = 100
 +
-diff -urNad asterisk-1.2.0.dfsg/db.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/db.c
---- asterisk-1.2.0.dfsg/db.c	2005-11-01 23:53:29.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/db.c	2005-11-23 05:50:44.377869813 +0200
+diff -urN asterisk-1.2.0.orig/db.c asterisk-1.2.0/db.c
+--- asterisk-1.2.0.orig/db.c	2005-11-01 22:53:29.000000000 +0100
++++ asterisk-1.2.0/db.c	2005-11-20 13:30:42.000000000 +0100
 @@ -514,11 +514,18 @@
  struct ast_cli_entry cli_database_deltree =
  { { "database", "deltree", NULL }, database_deltree, "Removes database keytree/values", database_deltree_usage };
@@ -4002,9 +4003,9 @@ diff -urNad asterisk-1.2.0.dfsg/db.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/db.c
 +	ast_manager_register("DBdel", EVENT_FLAG_SYSTEM, manager_dbdel, mandescr_dbdel);
  	return 0;
  }
-diff -urNad asterisk-1.2.0.dfsg/editline/cygdef.h /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/editline/cygdef.h
---- asterisk-1.2.0.dfsg/editline/cygdef.h	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/editline/cygdef.h	2005-11-23 05:50:44.380869398 +0200
+diff -urN asterisk-1.2.0.orig/editline/cygdef.h asterisk-1.2.0/editline/cygdef.h
+--- asterisk-1.2.0.orig/editline/cygdef.h	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0/editline/cygdef.h	2005-11-20 12:28:41.000000000 +0100
 @@ -0,0 +1,11 @@
 +/* cygdef.h. Generated automatically by configure. */ 
 +#ifndef _CYGDEF_H_
@@ -4017,9 +4018,9 @@ diff -urNad asterisk-1.2.0.dfsg/editline/cygdef.h /tmp/dpep.xhUJBp/asterisk-1.2.
 + 
 +
 +#endif /* _CYGDEF_H_ */
-diff -urNad asterisk-1.2.0.dfsg/HARDWARE /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/HARDWARE
---- asterisk-1.2.0.dfsg/HARDWARE	2004-08-03 09:31:20.000000000 +0300
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/HARDWARE	2005-11-23 05:50:44.383868982 +0200
+diff -urN asterisk-1.2.0.orig/HARDWARE asterisk-1.2.0/HARDWARE
+--- asterisk-1.2.0.orig/HARDWARE	2004-08-03 08:31:20.000000000 +0200
++++ asterisk-1.2.0/HARDWARE	2005-11-20 12:28:41.000000000 +0100
 @@ -37,6 +37,17 @@
     * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
       RBS signalling, as well as PPP, FR, and HDLC data modes.
@@ -4038,9 +4039,9 @@ diff -urNad asterisk-1.2.0.dfsg/HARDWARE /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/HA
  Non-zaptel compatible hardware
  ==============================
  
-diff -urNad asterisk-1.2.0.dfsg/include/asterisk/agi.h /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk/agi.h
---- asterisk-1.2.0.dfsg/include/asterisk/agi.h	2005-10-24 22:12:06.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk/agi.h	2005-11-23 05:50:44.385868705 +0200
+diff -urN asterisk-1.2.0.orig/include/asterisk/agi.h asterisk-1.2.0/include/asterisk/agi.h
+--- asterisk-1.2.0.orig/include/asterisk/agi.h	2005-10-24 22:12:06.000000000 +0200
++++ asterisk-1.2.0/include/asterisk/agi.h	2005-11-20 12:28:41.000000000 +0100
 @@ -29,7 +29,8 @@
  
  typedef struct agi_state {
@@ -4051,9 +4052,9 @@ diff -urNad asterisk-1.2.0.dfsg/include/asterisk/agi.h /tmp/dpep.xhUJBp/asterisk
  	int ctrl;	/* FD for input control */
  } AGI;
  
-diff -urNad asterisk-1.2.0.dfsg/include/asterisk/channel.h /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk/channel.h
---- asterisk-1.2.0.dfsg/include/asterisk/channel.h	2005-11-11 05:48:28.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk/channel.h	2005-11-23 05:50:44.390868012 +0200
+diff -urN asterisk-1.2.0.orig/include/asterisk/channel.h asterisk-1.2.0/include/asterisk/channel.h
+--- asterisk-1.2.0.orig/include/asterisk/channel.h	2005-11-11 04:48:28.000000000 +0100
++++ asterisk-1.2.0/include/asterisk/channel.h	2005-11-20 12:31:27.000000000 +0100
 @@ -86,6 +86,9 @@
  #ifndef _ASTERISK_CHANNEL_H
  #define _ASTERISK_CHANNEL_H
@@ -4124,9 +4125,9 @@ diff -urNad asterisk-1.2.0.dfsg/include/asterisk/channel.h /tmp/dpep.xhUJBp/aste
  
  /*! Gives the string form of a given cause code */
  /*! 
-diff -urNad asterisk-1.2.0.dfsg/include/asterisk/features.h /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk/features.h
---- asterisk-1.2.0.dfsg/include/asterisk/features.h	2005-10-24 22:12:06.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk/features.h	2005-11-23 05:50:44.393867597 +0200
+diff -urN asterisk-1.2.0.orig/include/asterisk/features.h asterisk-1.2.0/include/asterisk/features.h
+--- asterisk-1.2.0.orig/include/asterisk/features.h	2005-10-24 22:12:06.000000000 +0200
++++ asterisk-1.2.0/include/asterisk/features.h	2005-11-20 13:00:33.000000000 +0100
 @@ -45,6 +45,8 @@
  };
  
@@ -4156,9 +4157,9 @@ diff -urNad asterisk-1.2.0.dfsg/include/asterisk/features.h /tmp/dpep.xhUJBp/ast
  /*! \brief Determine system call pickup extension */
  extern char *ast_pickup_ext(void);
  
-diff -urNad asterisk-1.2.0.dfsg/include/asterisk/pbx.h /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk/pbx.h
---- asterisk-1.2.0.dfsg/include/asterisk/pbx.h	2005-11-09 01:37:53.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk/pbx.h	2005-11-23 05:50:44.396867181 +0200
+diff -urN asterisk-1.2.0.orig/include/asterisk/pbx.h asterisk-1.2.0/include/asterisk/pbx.h
+--- asterisk-1.2.0.orig/include/asterisk/pbx.h	2005-11-09 00:37:53.000000000 +0100
++++ asterisk-1.2.0/include/asterisk/pbx.h	2005-11-20 13:01:32.000000000 +0100
 @@ -57,7 +57,7 @@
  	AST_EXTENSION_BUSY = 1 << 1,
  	/*! All devices UNAVAILABLE/UNREGISTERED */
@@ -4191,9 +4192,9 @@ diff -urNad asterisk-1.2.0.dfsg/include/asterisk/pbx.h /tmp/dpep.xhUJBp/asterisk
  
  /* Functions for returning values from structures */
  const char *ast_get_context_name(struct ast_context *con);
-diff -urNad asterisk-1.2.0.dfsg/include/asterisk.h /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk.h
---- asterisk-1.2.0.dfsg/include/asterisk.h	2005-11-08 03:29:14.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/include/asterisk.h	2005-11-23 05:50:44.399866765 +0200
+diff -urN asterisk-1.2.0.orig/include/asterisk.h asterisk-1.2.0/include/asterisk.h
+--- asterisk-1.2.0.orig/include/asterisk.h	2005-11-08 02:29:14.000000000 +0100
++++ asterisk-1.2.0/include/asterisk.h	2005-11-20 12:28:41.000000000 +0100
 @@ -36,6 +36,7 @@
  extern char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_SOCKET[AST_CONFIG_MAX_PATH];
@@ -4202,9 +4203,9 @@ diff -urNad asterisk-1.2.0.dfsg/include/asterisk.h /tmp/dpep.xhUJBp/asterisk-1.2
  extern char ast_config_AST_CTL_PERMISSIONS[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_CTL_OWNER[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_CTL_GROUP[AST_CONFIG_MAX_PATH];
-diff -urNad asterisk-1.2.0.dfsg/LICENSE /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/LICENSE
---- asterisk-1.2.0.dfsg/LICENSE	2005-10-15 07:29:13.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/LICENSE	2005-11-23 05:50:44.401866488 +0200
+diff -urN asterisk-1.2.0.orig/LICENSE asterisk-1.2.0/LICENSE
+--- asterisk-1.2.0.orig/LICENSE	2005-10-15 07:29:13.000000000 +0200
++++ asterisk-1.2.0/LICENSE	2005-11-20 13:07:36.000000000 +0100
 @@ -1,7 +1,7 @@
 -Asterisk is distributed under the GNU General Public License version 2
 -and is also available under alternative licenses negotiated directly
@@ -4217,9 +4218,9 @@ diff -urNad asterisk-1.2.0.dfsg/LICENSE /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/LIC
  except as defined below. The GPL (version 2) is included in this
  source tree in the file COPYING.
  
-diff -urNad asterisk-1.2.0.dfsg/Makefile /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/Makefile
---- asterisk-1.2.0.dfsg/Makefile	2005-11-16 22:23:53.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/Makefile	2005-11-23 05:50:44.404866073 +0200
+diff -urN asterisk-1.2.0.orig/Makefile asterisk-1.2.0/Makefile
+--- asterisk-1.2.0.orig/Makefile	2005-11-16 21:23:53.000000000 +0100
++++ asterisk-1.2.0/Makefile	2005-11-20 13:03:01.000000000 +0100
 @@ -766,6 +766,8 @@
  		echo ";astctlowner = root" ; \
  		echo ";astctlgroup = apache" ; \
@@ -4229,9 +4230,9 @@ diff -urNad asterisk-1.2.0.dfsg/Makefile /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/Ma
  		) > $(DESTDIR)$(ASTCONFPATH) ; \
  	else \
  		echo "Skipping asterisk.conf creation"; \
-diff -urNad asterisk-1.2.0.dfsg/manager.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/manager.c
---- asterisk-1.2.0.dfsg/manager.c	2005-11-15 20:35:30.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/manager.c	2005-11-23 05:50:44.408865518 +0200
+diff -urN asterisk-1.2.0.orig/manager.c asterisk-1.2.0/manager.c
+--- asterisk-1.2.0.orig/manager.c	2005-11-15 19:35:30.000000000 +0100
++++ asterisk-1.2.0/manager.c	2005-11-20 13:29:08.000000000 +0100
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -4471,9 +4472,9 @@ diff -urNad asterisk-1.2.0.dfsg/manager.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/m
  	return 0;
  }
  
-diff -urNad asterisk-1.2.0.dfsg/pbx/pbx_spool.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/pbx/pbx_spool.c
---- asterisk-1.2.0.dfsg/pbx/pbx_spool.c	2005-10-24 22:12:06.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/pbx/pbx_spool.c	2005-11-23 05:50:44.411865103 +0200
+diff -urN asterisk-1.2.0.orig/pbx/pbx_spool.c asterisk-1.2.0/pbx/pbx_spool.c
+--- asterisk-1.2.0.orig/pbx/pbx_spool.c	2005-10-24 22:12:06.000000000 +0200
++++ asterisk-1.2.0/pbx/pbx_spool.c	2005-11-20 12:28:41.000000000 +0100
 @@ -256,11 +256,11 @@
  	if (!ast_strlen_zero(o->app)) {
  		if (option_verbose > 2)
@@ -4488,9 +4489,9 @@ diff -urNad asterisk-1.2.0.dfsg/pbx/pbx_spool.c /tmp/dpep.xhUJBp/asterisk-1.2.0.
  	}
  	if (res) {
  		ast_log(LOG_NOTICE, "Call failed to go through, reason %d\n", reason);
-diff -urNad asterisk-1.2.0.dfsg/pbx.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/pbx.c
---- asterisk-1.2.0.dfsg/pbx.c	2005-11-14 21:00:38.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/pbx.c	2005-11-23 05:50:44.417864272 +0200
+diff -urN asterisk-1.2.0.orig/pbx.c asterisk-1.2.0/pbx.c
+--- asterisk-1.2.0.orig/pbx.c	2005-11-14 20:00:38.000000000 +0100
++++ asterisk-1.2.0/pbx.c	2005-11-20 13:13:09.000000000 +0100
 @@ -350,7 +350,8 @@
  	
  	{ "Hangup", pbx_builtin_hangup,
@@ -4627,9 +4628,9 @@ diff -urNad asterisk-1.2.0.dfsg/pbx.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/pbx.c
  	return res;
  }
  	
-diff -urNad asterisk-1.2.0.dfsg/README /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/README
---- asterisk-1.2.0.dfsg/README	2005-10-19 01:58:36.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/README	2005-11-23 05:50:44.420863856 +0200
+diff -urN asterisk-1.2.0.orig/README asterisk-1.2.0/README
+--- asterisk-1.2.0.orig/README	2005-10-19 01:58:36.000000000 +0200
++++ asterisk-1.2.0/README	2005-11-20 13:04:00.000000000 +0100
 @@ -4,6 +4,8 @@
  
  Copyright (C) 2001-2005 Digium, Inc.
@@ -4639,9 +4640,9 @@ diff -urNad asterisk-1.2.0.dfsg/README /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/READ
  ================================================================
  
  * SECURITY
-diff -urNad asterisk-1.2.0.dfsg/res/Makefile /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/res/Makefile
---- asterisk-1.2.0.dfsg/res/Makefile	2005-11-16 22:49:44.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/res/Makefile	2005-11-23 05:50:44.423863440 +0200
+diff -urN asterisk-1.2.0.orig/res/Makefile asterisk-1.2.0/res/Makefile
+--- asterisk-1.2.0.orig/res/Makefile	2005-11-16 21:49:44.000000000 +0100
++++ asterisk-1.2.0/res/Makefile	2005-11-20 13:15:05.000000000 +0100
 @@ -11,7 +11,7 @@
  # the GNU General Public License
  #
@@ -4651,9 +4652,9 @@ diff -urNad asterisk-1.2.0.dfsg/res/Makefile /tmp/dpep.xhUJBp/asterisk-1.2.0.dfs
  
  ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/odbcinst.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/odbcinst.h),)
    ifneq (${OSARCH},FreeBSD)
-diff -urNad asterisk-1.2.0.dfsg/res/res_agi.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/res/res_agi.c
---- asterisk-1.2.0.dfsg/res/res_agi.c	2005-11-08 03:55:30.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/res/res_agi.c	2005-11-23 05:50:44.427862886 +0200
+diff -urN asterisk-1.2.0.orig/res/res_agi.c asterisk-1.2.0/res/res_agi.c
+--- asterisk-1.2.0.orig/res/res_agi.c	2005-11-08 02:55:30.000000000 +0100
++++ asterisk-1.2.0/res/res_agi.c	2005-11-20 13:16:27.000000000 +0100
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -5032,9 +5033,9 @@ diff -urNad asterisk-1.2.0.dfsg/res/res_agi.c /tmp/dpep.xhUJBp/asterisk-1.2.0.df
  	return ast_register_application(app, agi_exec, synopsis, descrip);
  }
  
-diff -urNad asterisk-1.2.0.dfsg/res/res_features.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/res/res_features.c
---- asterisk-1.2.0.dfsg/res/res_features.c	2005-11-11 01:26:40.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/res/res_features.c	2005-11-23 05:50:44.433862055 +0200
+diff -urN asterisk-1.2.0.orig/res/res_features.c asterisk-1.2.0/res/res_features.c
+--- asterisk-1.2.0.orig/res/res_features.c	2005-11-11 00:26:40.000000000 +0100
++++ asterisk-1.2.0/res/res_features.c	2005-11-20 13:17:03.000000000 +0100
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -5942,9 +5943,9 @@ diff -urNad asterisk-1.2.0.dfsg/res/res_features.c /tmp/dpep.xhUJBp/asterisk-1.2
  	ast_unregister_application(parkcall);
  	return ast_unregister_application(parkedcall);
  }
-diff -urNad asterisk-1.2.0.dfsg/res/res_watchdog.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/res/res_watchdog.c
---- asterisk-1.2.0.dfsg/res/res_watchdog.c	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/res/res_watchdog.c	2005-11-23 05:50:44.436861639 +0200
+diff -urN asterisk-1.2.0.orig/res/res_watchdog.c asterisk-1.2.0/res/res_watchdog.c
+--- asterisk-1.2.0.orig/res/res_watchdog.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.0/res/res_watchdog.c	2005-11-20 13:31:22.000000000 +0100
 @@ -0,0 +1,148 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -6094,9 +6095,9 @@ diff -urNad asterisk-1.2.0.dfsg/res/res_watchdog.c /tmp/dpep.xhUJBp/asterisk-1.2
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.0.dfsg/rtp.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/rtp.c
---- asterisk-1.2.0.dfsg/rtp.c	2005-11-11 06:07:03.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/rtp.c	2005-11-23 05:50:44.439861223 +0200
+diff -urN asterisk-1.2.0.orig/rtp.c asterisk-1.2.0/rtp.c
+--- asterisk-1.2.0.orig/rtp.c	2005-11-11 05:07:03.000000000 +0100
++++ asterisk-1.2.0/rtp.c	2005-11-20 12:28:41.000000000 +0100
 @@ -442,6 +442,11 @@
  	struct rtpPayloadType rtpPT;
  	
@@ -6109,9 +6110,3 @@ diff -urNad asterisk-1.2.0.dfsg/rtp.c /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/rtp.c
  	
  	/* Cache where the header will go */
  	res = recvfrom(rtp->s, rtp->rawdata + AST_FRIENDLY_OFFSET, sizeof(rtp->rawdata) - AST_FRIENDLY_OFFSET,
-diff -urNad asterisk-1.2.0.dfsg/.version /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/.version
---- asterisk-1.2.0.dfsg/.version	2005-11-17 07:37:05.000000000 +0200
-+++ /tmp/dpep.xhUJBp/asterisk-1.2.0.dfsg/.version	2005-11-23 05:50:44.442860808 +0200
-@@ -1 +1 @@
--1.2.0
-+1.2.0-BRIstuffed-0.3.0-PRE-1
