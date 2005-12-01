@@ -6,8 +6,6 @@ asterisk (1:1.2.0.dfsg-5) unstable; urgency=low
   [ Mark Purcell ]
   * asterisk-sounds-main Replaces: asterisk-sounds-extra
     - asterisk-sounds-{main,extra}: file conflict (Closes: #339791)
-  * Add Build-Depends: libcurl3-dev | libcurl-dev
-    - Should build-depend on libcurl3-dev (Closes: #341363)
 
  -- Mark Purcell <msp@debian.org>  Thu,  1 Dec 2005 17:37:13 +0000
 
