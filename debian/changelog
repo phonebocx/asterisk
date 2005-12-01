@@ -1,8 +1,15 @@
 asterisk (1:1.2.0.dfsg-5) unstable; urgency=low
 
+  [ Tzafrir Cohen ]
   * Added bristuff 0.3.0-PRE1
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 23 Nov 2005 06:57:22 +0200
+  [ Mark Purcell ]
+  * asterisk-sounds-main Replaces: asterisk-sounds-extra
+    - asterisk-sounds-{main,extra}: file conflict (Closes: #339791)
+  * Add Build-Depends: libcurl3-dev | libcurl-dev
+    - Should build-depend on libcurl3-dev (Closes: #341363)
+
+ -- Mark Purcell <msp@debian.org>  Thu,  1 Dec 2005 17:37:13 +0000
 
 asterisk (1:1.2.0.dfsg-4) unstable; urgency=low
 
