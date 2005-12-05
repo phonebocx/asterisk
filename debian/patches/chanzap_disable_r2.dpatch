@@ -1,0 +1,22 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## chanzap_disable_r2.dpatch by Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: disable the nunfunctional support for R2 in chan_zap
+
+@DPATCH@
+diff -urNad asterisk-1.2.0.dfsg/channels/Makefile /tmp/dpep.54ZD6D/asterisk-1.2.0.dfsg/channels/Makefile
+--- asterisk-1.2.0.dfsg/channels/Makefile	2005-12-05 21:44:28.371543279 +0200
++++ /tmp/dpep.54ZD6D/asterisk-1.2.0.dfsg/channels/Makefile	2005-12-05 21:47:56.185734969 +0200
+@@ -95,11 +95,6 @@
+   ZAPPRI=-lpri
+ endif
+ 
+-ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/lib/libmfcr2.so.1)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/lib/libmfcr2.so.1),)
+-  CFLAGS+=-DZAPATA_R2
+-  ZAPR2=-lmfcr2
+-endif
+-
+ ALSA_SRC=chan_alsa.c
+ 
+ ifneq ($(wildcard alsa-monitor.h),)
