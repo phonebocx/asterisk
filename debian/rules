@@ -85,7 +85,7 @@ build-indep-stamp:
 	# It's ok not to do anything here, if you don't need to build
 	#  anything for this package.
 	#/usr/bin/docbook-to-man debian/asterisk.sgml > asterisk.1
-	$(MAKE) 
+	$(MAKE) progdocs
 
 	touch $@
 

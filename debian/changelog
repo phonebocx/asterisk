@@ -2,8 +2,14 @@ asterisk (1:1.2.0.dfsg-6) unstable; urgency=low
 
   * Add Build-Depends: libcurl3-dev | libcurl-dev
     - Should build-depend on libcurl3-dev (Closes: #341363)
+  * Add Build-Depends: doxygen
+    - Missing build-dependency on doxygen (Closes: #341362)
+  * Build-Depends: adduser (>= 3.63)
+  * disable chan_zap building (in channels makefile) against old
+    libmfcr2 (Closes: #342139)
+  * seperate api docs and configuration samples (Closes: #341395)
 
- -- Mark Purcell <msp@debian.org>  Thu,  1 Dec 2005 18:03:34 +0000
+ -- Mark Purcell <msp@debian.org>  Mon,  5 Dec 2005 23:40:05 +0000
 
 asterisk (1:1.2.0.dfsg-5) unstable; urgency=low
 
