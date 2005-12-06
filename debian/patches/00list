@@ -19,3 +19,5 @@ bristuff
 pubkey_jnctn
 nomarch
 nooptimize
+chanzap_disable_r2.dpatch
+sip-1.914.dpatch

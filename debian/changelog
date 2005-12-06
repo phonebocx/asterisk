@@ -8,8 +8,9 @@ asterisk (1:1.2.0.dfsg-6) unstable; urgency=low
   * disable chan_zap building (in channels makefile) against old
     libmfcr2 (Closes: #342139)
   * seperate api docs and configuration samples (Closes: #341395)
+  * Add sip-1.913.dpatch; SIP error 400 on outgoing calls (Closes: #340574)
 
- -- Mark Purcell <msp@debian.org>  Mon,  5 Dec 2005 23:40:05 +0000
+ -- Mark Purcell <msp@debian.org>  Mon,  5 Dec 2005 23:49:40 +0000
 
 asterisk (1:1.2.0.dfsg-5) unstable; urgency=low
 
