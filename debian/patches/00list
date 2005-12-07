@@ -1,4 +1,4 @@
-bristuff
+#bristuff
 #Makefile_install_no1234
 #option_detach_12
 #10_DPIC.dpatch
@@ -20,4 +20,3 @@ pubkey_jnctn
 nomarch
 nooptimize
 chanzap_disable_r2.dpatch
-sip-1.914.dpatch

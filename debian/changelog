@@ -1,3 +1,12 @@
+asterisk (1:1.2.1.dfsg-1) unstable; urgency=low
+
+  * New upstream release
+    - Please package asterisk 1.2.1 (Closes: #342463)
+  * Temporary disable bristuff for upstream release
+  * sip-1.914.dpatch merged upstream
+
+ -- Mark Purcell <msp@debian.org>  Wed,  7 Dec 2005 21:59:20 +0000
+
 asterisk (1:1.2.0.dfsg-6) unstable; urgency=low
 
   * Add Build-Depends: libcurl3-dev | libcurl-dev
