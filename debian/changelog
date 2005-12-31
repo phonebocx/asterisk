@@ -1,12 +1,13 @@
 asterisk (1:1.2.1.dfsg-2) unstable; urgency=low
 
-  [Tzafrir Cohen]
+  [ Tzafrir Cohen ]
   * bristuff 0.3.0-PRE-1d . Still disabled by default
   * libpri_bristuffed.dpatch: link chan_zap with libpri-bristuffed.so.1
   * Use asterisk(8) as a man page for rasterisk
   * Removing binary steroize: can be done with soxmix of package sox.
   * Removing binary streamplay: can be done with netcat
-  [Kilian Kraus]
+  
+  [ Kilian Krause ]
   * Fix asterisk-dev to include asterisk.h
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 31 Dec 2005 21:17:44 +0200
