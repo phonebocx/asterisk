@@ -1,3 +1,9 @@
+asterisk (1:1.2.1.dfsg-2) unstable; urgency=low
+
+  * Fix asterisk-dev to include asterisk.h
+
+ -- Kilian Krause <kilian@debian.org>  Sat, 31 Dec 2005 15:57:04 +0000
+
 asterisk (1:1.2.1.dfsg-1) unstable; urgency=low
 
   * New upstream release
