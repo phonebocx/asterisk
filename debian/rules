@@ -132,6 +132,7 @@ install: build
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
+	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/{stereorize,streamplayer}
 
 	dh_install --sourcedir=debian/tmp
 
