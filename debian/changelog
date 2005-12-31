@@ -1,4 +1,4 @@
-asterisk (1:1.2.1.dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.2.1.dfsg-2) unstable; urgency=low
 
   [Tzafrir Cohen]
   * bristuff 0.3.0-PRE-1d . Still disabled by default
