@@ -135,6 +135,7 @@ install: build
 	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/{stereorize,streamplayer}
 
 	dh_install --sourcedir=debian/tmp
+	install -m 644 include/asterisk.h $(CURDIR)/debian/asterisk-dev/usr/include/asterisk.h
 
 # Build architecture-independent files here.
 binary-indep: build install
