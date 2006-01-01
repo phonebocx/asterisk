@@ -1,0 +1,22 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## arm.dpatch by Kilian Krause <kilian@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: No description.
+
+@DPATCH@
+diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
+--- asterisk-1.2.1.dfsg~/Makefile	2005-12-05 06:47:51.000000000 +0000
++++ asterisk-1.2.1.dfsg/Makefile	2006-01-01 20:46:52.000000000 +0000
+@@ -200,9 +200,9 @@
+       OPTIONS+=-fsigned-char -mcpu=ep9312
+     else
+       ifeq ($(SUB_PROC),xscale)
+-        OPTIONS+=-fsigned-char -msoft-float -mcpu=xscale
++        OPTIONS+=-fsigned-char -mcpu=xscale
+       else
+-        OPTIONS+=-fsigned-char -msoft-float 
++        OPTIONS+=-fsigned-char
+       endif
+     endif
+   endif

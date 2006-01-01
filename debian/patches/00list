@@ -2,7 +2,6 @@
 #libpri_bristuffed
 #Makefile_install_no1234
 #option_detach_12
-#10_DPIC.dpatch
 #20_Makefile.dpatch
 #25_subdirs_Makefiles.dpatch
 30_ast-data-dir.dpatch
@@ -21,3 +20,4 @@ pubkey_jnctn
 nomarch
 nooptimize
 chanzap_disable_r2.dpatch
+arm
