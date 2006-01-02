@@ -1,3 +1,9 @@
+asterisk (1:1.2.1.dfsg-4) UNRELEASED; urgency=low
+
+  * Fix PID display (Closes: #338646)
+
+ -- Kilian Krause <kilian@debian.org>  Mon,  2 Jan 2006 11:04:54 +0000
+
 asterisk (1:1.2.1.dfsg-3) unstable; urgency=low
 
   * Remove -msoft-float from compile flags to fix compilation on arm.
