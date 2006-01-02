@@ -1,8 +1,15 @@
 asterisk (1:1.2.1.dfsg-3) unstable; urgency=low
 
   * Remove -msoft-float from compile flags to fix compilation on arm.
+    (Closes: #343154)
+  * Provide nonexistant dirs before running chown on them. (Closes: #341810)
+  * Depend on Perl module in libapache-dbi-perl or libdbi-perl or web-vmail
+    (Closes: #337448)
+  * Fix permissions on voicemail.conf. (Closes: #304615)
+  * Build-Depend on gsfonts to have Helvetica font for doxygen
+    (Closes: #343079)
 
- -- Kilian Krause <kilian@debian.org>  Sun,  1 Jan 2006 20:52:46 +0000
+ -- Kilian Krause <kilian@debian.org>  Mon,  2 Jan 2006 00:15:59 +0000
 
 asterisk (1:1.2.1.dfsg-2) unstable; urgency=low
 

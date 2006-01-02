@@ -27,11 +27,17 @@ case "$1" in
 		adduser asterisk dialout
 	fi
 
-	test -d /var/log/asterisk || mkdir /var/log/asterisk
-	test -d /var/log/asterisk/cdr-csv || mkdir /var/log/asterisk/cdr-csv
+	test -d /var/log/asterisk/cdr-csv || mkdir -p /var/log/asterisk/cdr-csv
+	test -d /var/spool/asterisk || mkdir -p /var/spool/asterisk
+	test -d /var/lib/asterisk || mkdir -p /var/lib/asterisk
+	test -d /etc/asterisk || mkdir -p /etc/asterisk
 	chown -R asterisk.asterisk /var/log/asterisk /var/run/asterisk \
 		/var/spool/asterisk /var/lib/asterisk /etc/asterisk 
-	chmod o-rwx /etc/asterisk/*
+	chmod 0660 /etc/asterisk/*.conf
+
+	# doing web-vmail foo...
+	chown asterisk.www-data /etc/asterisk/voicemail.conf
+	chmod 0640 /etc/asterisk/voicemail.conf
 
     ;;
 
