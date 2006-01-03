@@ -133,6 +133,9 @@ install: build
 	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
 	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/{stereorize,streamplayer}
+	# override some default configurations. Leave the original ones
+	# in the sample configs:
+	cp debian/ast_config/* $(CURDIR)/debian/tmp/etc/asterisk
 
 	dh_install --sourcedir=debian/tmp
 	install -m 644 include/asterisk.h $(CURDIR)/debian/asterisk-dev/usr/include/asterisk.h
