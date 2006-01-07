@@ -8,6 +8,9 @@ asterisk (1:1.2.1.dfsg-4) UNRELEASED; urgency=low
   * debian/ast_config/manager.conf: asterisk does listen onthe manager by
     default, but only on localhost. Other packages need not edit manager.conf
     to get a manager acount
+  * bristuff 0.3.0-PRE-1f
+  * option_detach.dpatch: Adds option -D: always daemonize (even with -v,-d)
+    (conflicts with bristuff, though)
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue,  3 Jan 2006 22:56:30 +0200
 

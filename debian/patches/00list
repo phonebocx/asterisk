@@ -1,9 +1,7 @@
 #bristuff
 #libpri_bristuffed
 #Makefile_install_no1234
-#option_detach_12
-#20_Makefile.dpatch
-#25_subdirs_Makefiles.dpatch
+option_detach
 30_ast-data-dir.dpatch
 40_initgroups.dpatch
 50_debian-libgsm.dpatch

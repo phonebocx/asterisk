@@ -1,23 +1,22 @@
 #! /bin/sh /usr/share/dpatch/dpatch-run
-## option_detach_12.dpatch by Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+## option_detach.dpatch by Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: when running asterisk -D: detach, even if -v or -d was given.
-## DP: Version for Asterisk 1.2
+## DP: when running asterisk -D: detach, even if -v or -d was given
 
 @DPATCH@
-diff -urNad asterisk-1.1.9.0beta1.dfsg.1/asterisk.c /tmp/dpep.w7uc6I/asterisk-1.1.9.0beta1.dfsg.1/asterisk.c
---- asterisk-1.1.9.0beta1.dfsg.1/asterisk.c	2005-10-12 20:45:02.487260265 +0200
-+++ /tmp/dpep.w7uc6I/asterisk-1.1.9.0beta1.dfsg.1/asterisk.c	2005-10-12 20:45:52.091130067 +0200
-@@ -85,6 +85,7 @@
- int option_debug=0;
- int option_exec_includes=0;
- int option_nofork=0;
-+int option_daemonize=0;
- int option_quiet=0;
- int option_console=0;
- int option_highpriority=0;
-@@ -1660,6 +1661,7 @@
+diff -urNad asterisk/asterisk.c /tmp/dpep.ahsnFR/asterisk/asterisk.c
+--- asterisk/asterisk.c	2006-01-07 15:19:34.000000000 +0200
++++ /tmp/dpep.ahsnFR/asterisk/asterisk.c	2006-01-07 23:18:59.000000000 +0200
+@@ -147,6 +147,7 @@
+ int option_nofork=0;			/*!< Do not fork */
+ int option_quiet=0;			/*!< Keep quiet */
+ int option_console=0;			/*!< Console mode, no background */
++int option_daemonize=0;			/*!< Daemonize. Ever if -v or -d */
+ int option_highpriority=0;		/*!< Run in realtime Linux priority */
+ int option_remote=0;			/*!< Remote CLI */
+ int option_exec=0;			/*!< */
+@@ -1833,6 +1834,7 @@
  	printf("   -G <group>      Run as a group other than the caller\n");
  	printf("   -U <user>       Run as a user other than the caller\n");
  	printf("   -c              Provide console CLI\n");
@@ -25,16 +24,16 @@ diff -urNad asterisk-1.1.9.0beta1.dfsg.1/asterisk.c /tmp/dpep.w7uc6I/asterisk-1.
  	printf("   -d              Enable extra debugging\n");
  	printf("   -f              Do not fork\n");
  	printf("   -g              Dump core in case of a crash\n");
-@@ -1860,7 +1862,7 @@
+@@ -2048,7 +2050,7 @@
  	}
  	*/
  	/* Check for options */
--	while((c=getopt(argc, argv, "tThfdvVqprRgcinx:U:G:C:M:")) != -1) {
-+	while((c=getopt(argc, argv, "tThfdDvVqprRgcinx:U:G:C:M:")) != -1) {
+-	while((c=getopt(argc, argv, "tThfdvVqprRgcinx:U:G:C:L:M:")) != -1) {
++	while((c=getopt(argc, argv, "tThfdvVqprRgcDinx:U:G:C:L:M:")) != -1) {
  		switch(c) {
  		case 'd':
  			option_debug++;
-@@ -1870,6 +1872,9 @@
+@@ -2058,6 +2060,9 @@
  			option_console++;
  			option_nofork++;
  			break;
@@ -44,13 +43,13 @@ diff -urNad asterisk-1.1.9.0beta1.dfsg.1/asterisk.c /tmp/dpep.w7uc6I/asterisk-1.
  		case 'f':
  			option_nofork++;
  			break;
-@@ -2037,7 +2042,9 @@
+@@ -2250,7 +2255,9 @@
  	} else
  		ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", (char *)ast_config_AST_PID, strerror(errno));
  
 -	if (!option_verbose && !option_debug && !option_nofork && !option_console) {
 +	if (option_daemonize ||
-+		(!option_verbose && !option_debug && !option_nofork && !option_console)
++			(!option_verbose && !option_debug && !option_nofork && !option_console)
 +	) {
  		daemon(0,0);
  		/* Blindly re-write pid file since we are forking */
