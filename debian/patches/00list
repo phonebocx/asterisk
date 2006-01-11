@@ -1,5 +1,7 @@
 #bristuff
 #libpri_bristuffed
+# ukcid probably conflicts with bristuff
+ukcid
 #Makefile_install_no1234
 option_detach
 30_ast-data-dir.dpatch
