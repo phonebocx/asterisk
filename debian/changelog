@@ -1,9 +1,10 @@
 asterisk (1:1.2.1.dfsg-4) UNRELEASED; urgency=low
 
+  [ Tzafrir Cohen ]
   * Fix PID display (Closes: #338646)
   * changes to the init.d script (Tzafrir)
   * debian/ast_config/ place here configurutaion files that will override
-    the defaults from the source, though not get into the sample documentation 
+    the defaults from the source, though not get into the sample documentation
     dir
   * debian/ast_config/manager.conf: asterisk does listen onthe manager by
     default, but only on localhost. Other packages need not edit manager.conf
@@ -12,7 +13,12 @@ asterisk (1:1.2.1.dfsg-4) UNRELEASED; urgency=low
   * option_detach.dpatch: Adds option -D: always daemonize (even with -v,-d)
     (conflicts with bristuff, though)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue,  3 Jan 2006 22:56:30 +0200
+  [ Kilian Krause ]
+  * Build-Depends on libpri1.2 since new ABI caused new package name.
+  * Removed alternatives from Build-Depends since sbuild will only take first
+    anyway to ensure constant rebuilds.
+
+ -- Kilian Krause <kilian@debian.org>  Wed, 11 Jan 2006 11:57:47 +0000
 
 asterisk (1:1.2.1.dfsg-3) unstable; urgency=low
 
