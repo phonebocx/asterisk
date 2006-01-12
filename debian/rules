@@ -71,7 +71,7 @@ config.status: check-sounds patch-stamp
 debian/build/asterisk-bristuff/config.status: config.status check-sounds patch-stamp
 	# get ourselves a copy of the source to build bristuff in...
 	mkdir -p debian/build/asterisk-bristuff
-	ls -1d *|grep -v debian|grep -v ^.$|xargs cp -alt debian/build/asterisk-bristuff
+	ls -1d * .version|grep -v debian|grep -v ^.$$|xargs cp -alt debian/build/asterisk-bristuff
 	(cd debian/build/asterisk-bristuff;patch -p1 <../../patches/bristuff.dpatch)
 	
 	(cd debian/build/asterisk-bristuff/editline;./configure $(confflags))
@@ -112,7 +112,7 @@ cleaned:
 	# Add here commands to clean up after the build process.
 	#-test -d channels/h323 && $(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
-	-$(RM) -rf debian/build/asterisk-bristuff
+	-$(RM) -rf debian/build
 	-$(RM) utils/streamplayer
 	#-$(RM) -f fxstest ztmonitor ztspeed zttest
 	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test

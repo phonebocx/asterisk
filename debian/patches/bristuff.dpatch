@@ -2055,8 +2055,8 @@ diff -urN asterisk-1.2.1.orig/asterisk.c asterisk-1.2.1/asterisk.c
  	}
  	*/
  	/* Check for options */
--	while((c=getopt(argc, argv, "tThfdvVqprRgcinx:U:G:C:L:M:")) != -1) {
-+	while((c=getopt(argc, argv, "tThfdvVqprRgcinsx:U:G:C:L:M:")) != -1) {
+-	while((c=getopt(argc, argv, "tThfdvVqprRgcDinx:U:G:C:L:M:")) != -1) {
++	while((c=getopt(argc, argv, "tThfdvVqprRgcDinsx:U:G:C:L:M:")) != -1) {
  		switch(c) {
  		case 'd':
  			option_debug++;
