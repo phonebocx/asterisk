@@ -18,8 +18,10 @@ asterisk (1:1.2.1.dfsg-4) UNRELEASED; urgency=low
   * Build-Depends on libpri1.2 since new ABI caused new package name.
   * Removed alternatives from Build-Depends since sbuild will only take first
     anyway to ensure constant rebuilds.
+  * Add a noload for chan_capi by default, so that we d not stop loading when
+    no CAPI is installed. (Closes: #328835)
 
- -- Kilian Krause <kilian@debian.org>  Wed, 11 Jan 2006 11:57:47 +0000
+ -- Kilian Krause <kilian@debian.org>  Thu, 12 Jan 2006 10:55:40 +0000
 
 asterisk (1:1.2.1.dfsg-3) unstable; urgency=low
 
