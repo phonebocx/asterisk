@@ -46,7 +46,7 @@ check-sounds:
 		(echo "WARNING: fpm sounds must to be removed from sources before packaging." ; false )
 	
 
-config.status: check-sounds patch 
+config.status: check-sounds patch-stamp
 	dh_testdir
 	# Add here commands to configure the package.
 	touch .cleancount
@@ -64,21 +64,32 @@ config.status: check-sounds patch
 	ln -s /usr/share/misc/config.sub config.sub; \
 	ln -s /usr/share/misc/config.guess config.guess; \
 	cd ..)
+
 	cd editline;./configure $(confflags)
 	touch $@
 
-build-arch: config.status  build-arch-stamp
-build-arch-stamp:
+debian/build/asterisk-bristuff/config.status: config.status check-sounds patch-stamp
+	# get ourselves a copy of the source to build bristuff in...
+	mkdir -p debian/build/asterisk-bristuff
+	ls -1d *|grep -v debian|grep -v ^.$|xargs cp -alt debian/build/asterisk-bristuff
+	(cd debian/build/asterisk-bristuff;patch -p1 <../../patches/bristuff.dpatch)
+	
+	(cd debian/build/asterisk-bristuff/editline;./configure $(confflags))
+	touch $@
+
+build-arch: build-arch-stamp
+build-arch-stamp: config.status debian/build/asterisk-bristuff/config.status
 	dh_testdir
 
 	# Add here command to compile/build the package.
 	#cd channels/h323; make
 	$(MAKE)
+	$(MAKE) -C debian/build/asterisk-bristuff
 
 	touch $@
 
-build-indep:  config.status build-indep-stamp
-build-indep-stamp:
+build-indep: build-indep-stamp
+build-indep-stamp: config.status 
 	dh_testdir
 
 	# Add here command to compile/build the arch indep package.
@@ -101,6 +112,7 @@ cleaned:
 	# Add here commands to clean up after the build process.
 	#-test -d channels/h323 && $(MAKE) -C channels/h323 clean
 	-$(MAKE) clean
+	-$(RM) -rf debian/build/asterisk-bristuff
 	-$(RM) utils/streamplayer
 	#-$(RM) -f fxstest ztmonitor ztspeed zttest
 	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
@@ -125,7 +137,6 @@ install: build
 
 	# Add here commands to install the package into debian/<packagename>
 	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
-	cp debian/asterisk.conf $(CURDIR)/debian/tmp/etc/asterisk/asterisk.conf
 	#cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
