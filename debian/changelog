@@ -20,8 +20,9 @@ asterisk (1:1.2.1.dfsg-4) UNRELEASED; urgency=low
     anyway to ensure constant rebuilds.
   * Add a noload for chan_capi by default, so that we d not stop loading when
     no CAPI is installed. (Closes: #328835)
+  * Include smsq by adding Build-Depends on libpopt-dev (Closes: #348090)
 
- -- Kilian Krause <kilian@debian.org>  Thu, 12 Jan 2006 10:55:40 +0000
+ -- Kilian Krause <kilian@debian.org>  Sat, 14 Jan 2006 19:13:16 +0100
 
 asterisk (1:1.2.1.dfsg-3) unstable; urgency=low
 
