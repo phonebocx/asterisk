@@ -45,7 +45,7 @@ check-sounds:
 	  [ ! -f sounds/fpm-world-mix.mp3 ] ) || \
 		(echo "WARNING: fpm sounds must to be removed from sources before packaging." ; false )
 	
-
+BRISTUFF_DIR=debian/build/asterisk-bristuff
 config.status: check-sounds patch-stamp
 	dh_testdir
 	# Add here commands to configure the package.
@@ -70,11 +70,15 @@ config.status: check-sounds patch-stamp
 
 debian/build/asterisk-bristuff/config.status: config.status check-sounds patch-stamp
 	# get ourselves a copy of the source to build bristuff in...
-	mkdir -p debian/build/asterisk-bristuff
-	ls -1d * .version .cleancount|grep -v debian|grep -v ^.$$|xargs cp -alt debian/build/asterisk-bristuff
-	(cd debian/build/asterisk-bristuff;patch -p1 <../../patches/bristuff.dpatch)
+	rm -rf $(BRISTUFF_DIR)
+	mkdir -p $(BRISTUFF_DIR)
+	tar cf - --exclude ./debian . | (cd $(BRISTUFF_DIR); tar xf -)
+	#ls -1d * .version .cleancount|grep -v debian|grep -v ^.$$|xargs cp -alt debian/build/asterisk-bristuff
+	cd $(BRISTUFF_DIR) ; \
+	  patch -p1 <../../patches/bristuff.dpatch ; \
+	  patch -p1 <../../patches/libpri_bristuffed.dpatch 
 	
-	(cd debian/build/asterisk-bristuff/editline;./configure $(confflags))
+	cd $(BRISTUFF_DIR)/editline; ./configure $(confflags)
 	touch $@
 
 build-arch: build-arch-stamp
@@ -84,7 +88,7 @@ build-arch-stamp: config.status debian/build/asterisk-bristuff/config.status
 	# Add here command to compile/build the package.
 	#cd channels/h323; make
 	$(MAKE)
-	$(MAKE) -C debian/build/asterisk-bristuff
+	$(MAKE) -C $(BRISTUFF_DIR)
 
 	touch $@
 
