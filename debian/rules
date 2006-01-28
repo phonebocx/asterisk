@@ -138,7 +138,7 @@ install: build
 	dh_testroot
 	dh_clean -k
 	dh_installdirs var/run/asterisk
-
+	
 	# Add here commands to install the package into debian/<packagename>
 	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
 	#cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
@@ -151,7 +151,14 @@ install: build
 	# override some default configurations. Leave the original ones
 	# in the sample configs:
 	cp debian/ast_config/* $(CURDIR)/debian/tmp/etc/asterisk
-
+	
+	# bristuf
+	$(MAKE) -C $(BRISTUFF_DIR) DESTDIR=$(CURDIR)/debian/tmp/bristuff install
+	mkdir -p $(CURDIR)/debian/tmp/bristuff/etc/default/
+	cp debian/asterisk.default $(CURDIR)/debian/tmp/bristuff/etc/default/asterisk
+	$(RM) -f $(CURDIR)/debian/tmp/bristuff/usr/sbin/{stereorize,streamplayer}
+	cp debian/ast_config/* $(CURDIR)/debian/tmp/bristuff/etc/asterisk
+	
 	dh_install --sourcedir=debian/tmp
 	install -m 644 include/asterisk.h $(CURDIR)/debian/asterisk-dev/usr/include/asterisk.h
 
