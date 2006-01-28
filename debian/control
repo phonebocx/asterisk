@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 4.0.4), sed (>= 3.95), zlib1g-dev, libgtk1.2-dev, l
 Package: asterisk
 Architecture: all
 Section: comm
-Depends: asterisk-classic (= ${Source-Version})|asterisk-bristuff (= ${Source-Version}), asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom
+Depends: asterisk-classic (= ${Source-Version})|asterisk-bristuff (= ${Source-Version}), asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom, adduser (>= 3.63)
 Conflicts: asterisk-oh323 (<= 0.6.6pre3-3)
 Suggests: gnomemeeting, ohphone, kphone, asterisk-doc, asterisk-dev, asterisk-rate-engine, mpg123
 Description: Open Source Private Branch Exchange (PBX) - dummy package

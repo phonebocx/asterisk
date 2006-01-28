@@ -1,4 +1,4 @@
-bristuff/etc/default
-bristuff/usr/lib/asterisk
-bristuff/usr/sbin
-bristuff/var/lib/asterisk
+etc/default
+usr/lib/asterisk
+usr/sbin
+var/lib/asterisk

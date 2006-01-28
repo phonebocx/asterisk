@@ -167,6 +167,8 @@ binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
 	dh_installdocs -i
+	-$(RM) -f $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/README.cygwin
+	-$(RM) -f $(CURDIR)/debian/asterisk/usr/share/doc/asterisk-doc/README.cygwin
 	dh_installman *.[1-8] debian/*.1 debian/*.8
 	dh_installexamples -i -XCVS
 	dh_installcron -i
@@ -185,18 +187,19 @@ binary-arch: build install
 	dh_testdir -a
 	dh_testroot -a
 	dh_installdocs -a
+	dh_installman *.[1-8] debian/*.1 debian/*.8
 	dh_installexamples -a -XCVS
 	dh_installlogrotate -a
 	dh_installinit -a -- defaults 21
 	dh_installchangelogs ChangeLog -a
 	dh_strip -a
 	dh_link -a
-	dh_compress -a
+	dh_compress -a debian/asterisk-bristuff/usr/share/man/man8/rasterisk.8 \
+		debian/asterisk-classic/usr/share/man/man8/rasterisk.8
 	dh_fixperms -a
 	dh_installdeb -a
 	#rm debian/asterisk/usr/lib/asterisk/modules/pbx_gtkconsole.so
 	#rm debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
-	$(RM) debian/asterisk/usr/lib/asterisk/modules/*_sqlite.so
 	dh_makeshlibs -a 
 	dh_shlibdeps -a
 	dh_gencontrol -a
