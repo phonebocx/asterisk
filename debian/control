@@ -4,12 +4,12 @@ Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kilian@debian.org>, Jose Carlos Garcia Sogo <jsogo@debian.org>, Santiago Garcia Mantinan <manty@debian.org>, Simon Richter <sjr@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 Standards-Version: 3.6.1
-Build-Depends: debhelper (>= 4.0.4), sed (>= 3.95), zlib1g-dev, libgtk1.2-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev (>= 1:1.2.1-4), bison, libasound2-dev, postgresql-dev, unixodbc-dev, libpri-dev (>= 1.2.1-3), dpatch (>= 2.0.10), zaptel-source (>= 1:1.2.1-4), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl3-dev, doxygen, gsfonts, libpopt-dev
+Build-Depends: debhelper (>= 4.0.4), sed (>= 3.95), zlib1g-dev, libgtk1.2-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev (>= 1:1.2.2-1), bison, libasound2-dev, postgresql-dev, unixodbc-dev, libpri-dev (>= 1.2.2-1), dpatch (>= 2.0.10), zaptel-source (>= 1:1.2.2-1), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl3-dev, doxygen, gsfonts, libpopt-dev
 
 Package: asterisk
 Architecture: all
 Section: comm
-Depends: asterisk-classic (= ${Source-Version})|asterisk-bristuff (= ${Source-Version}), asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom, adduser (>= 3.63)
+Depends: asterisk-classic (= ${Source-Version})|asterisk-bristuff (= ${Source-Version}), adduser (>= 3.63)
 Conflicts: asterisk-oh323 (<= 0.6.6pre3-3)
 Suggests: gnomemeeting, ohphone, kphone, asterisk-doc, asterisk-dev, asterisk-rate-engine, mpg123
 Description: Open Source Private Branch Exchange (PBX) - dummy package
@@ -38,7 +38,7 @@ Description: Open Source Private Branch Exchange (PBX) - dummy package
 Package: asterisk-classic
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, adduser (>= 3.63)
+Depends: ${shlibs:Depends}, asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom, adduser (>= 3.63)
 Conflicts: asterisk-bristuff
 Description: Open Source Private Branch Exchange (PBX) - original Digium version
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
@@ -66,7 +66,7 @@ Description: Open Source Private Branch Exchange (PBX) - original Digium version
 Package: asterisk-bristuff
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, adduser (>= 3.63)
+Depends: ${shlibs:Depends}, asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom, adduser (>= 3.63)
 Conflicts: asterisk-classic
 Description: Open Source Private Branch Exchange (PBX) - BRIstuff-enabled version
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a

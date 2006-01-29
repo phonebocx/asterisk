@@ -1,4 +1,4 @@
-asterisk (1:1.2.1.dfsg-4) UNRELEASED; urgency=low
+asterisk (1:1.2.3.dfsg-1) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * Fix PID display (Closes: #338646)
@@ -15,6 +15,8 @@ asterisk (1:1.2.1.dfsg-4) UNRELEASED; urgency=low
   * ukcid.dpatch: UK Caller ID patch for the X100P. (Closes: #302380)
 
   [ Kilian Krause ]
+  * New upstream release. Bumping depends on libpri and zaptel to according
+    1.2 versions.
   * Build-Depends on libpri1.2 since new ABI caused new package name.
   * Removed alternatives from Build-Depends since sbuild will only take first
     anyway to ensure constant rebuilds.

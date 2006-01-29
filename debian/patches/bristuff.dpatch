@@ -2084,14 +2084,6 @@ diff -urN asterisk-1.2.1.orig/build_tools/make_defaults_h asterisk-1.2.1/build_t
 diff -urN asterisk-1.2.1.orig/channel.c asterisk-1.2.1/channel.c
 --- asterisk-1.2.1.orig/channel.c	2005-12-02 00:34:58.000000000 +0100
 +++ asterisk-1.2.1/channel.c	2006-01-05 10:21:35.000000000 +0100
-@@ -95,6 +95,7 @@
- static int shutting_down = 0;
- 
- static int uniqueint = 0;
-+AST_MUTEX_DEFINE_EXPORTED(uniquelock);
- 
- unsigned long global_fin = 0, global_fout = 0;
- 
 @@ -511,6 +512,17 @@
  	.description = "Null channel (should not see this)",
  };
@@ -8941,12 +8933,10 @@ diff -urN asterisk-1.2.1.orig/include/asterisk/channel.h asterisk-1.2.1/include/
  
  	/* Why is the channel hanged up */
  	int hangupcause;
-@@ -531,6 +534,11 @@
+@@ -531,6 +534,9 @@
  #define AST_STATE_MUTE		(1 << 16)	
  /*! @} */
  
-+extern ast_mutex_t uniquelock;			
-+
 +/*! \brief Change the state of a channel and the callerid of the calling channel*/
 +int ast_setstate_and_cid(struct ast_channel *chan, int state, char *cid_num, char *cid_name);
 +
