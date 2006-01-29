@@ -1,4 +1,5 @@
 etc/default
 usr/lib/asterisk
 usr/sbin
+usr/share/man
 var/lib/asterisk
