@@ -169,7 +169,6 @@ binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
 	dh_installdocs -i -XREADME.cygwin
-	dh_installman -i *.[1-8] debian/*.1 debian/*.8
 	dh_installexamples -i -XCVS
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
