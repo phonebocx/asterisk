@@ -87,8 +87,8 @@ build-arch-stamp: config.status debian/build/asterisk-bristuff/config.status
 	dh_testdir
 
 	# Add here command to compile/build the package.
-	#cd channels/h323; make
 	$(MAKE)
+	#cd channels/h323; make
 	$(MAKE) -C $(BRISTUFF_DIR)
 
 	touch $@
@@ -108,13 +108,14 @@ build-indep-stamp: config.status
 
 build: build-arch build-indep
 
-clean: unpatch cleaned 
+clean: cleaned unpatch 
 cleaned:
 	dh_testdir
 	dh_testroot
 	
 	# Add here commands to clean up after the build process.
 	#-test -d channels/h323 && $(MAKE) -C channels/h323 clean
+	-$(RM) -f channels/h323/libchanh323.a
 	-$(MAKE) clean
 	-$(RM) -rf debian/build
 	-$(RM) utils/streamplayer
@@ -197,7 +198,8 @@ binary-arch: build install
 	dh_fixperms -a
 	dh_installdeb -a
 	#rm debian/asterisk/usr/lib/asterisk/modules/pbx_gtkconsole.so
-	#rm debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
+	rm -f debian/asterisk-classic/usr/lib/asterisk/modules/chan_h323.so
+	rm -f debian/asterisk-bristuff/usr/lib/asterisk/modules/chan_h323.so
 	dh_makeshlibs -a 
 	dh_shlibdeps -a
 	dh_gencontrol -a
