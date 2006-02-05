@@ -1,4 +1,4 @@
-asterisk (1:1.2.4.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.4.dfsg-1) unstable; urgency=low
 
   [ Tzafrir Cohen ]
   * Fix PID display (Closes: #338646)
@@ -24,7 +24,7 @@ asterisk (1:1.2.4.dfsg-1) UNRELEASED; urgency=low
     no CAPI is installed. (Closes: #328835)
   * Include smsq by adding Build-Depends on libpopt-dev (Closes: #348090)
 
- -- Kilian Krause <kilian@debian.org>  Sat,  4 Feb 2006 11:47:21 +0000
+ -- Kilian Krause <kilian@debian.org>  Sun,  5 Feb 2006 11:44:28 +0100
 
 asterisk (1:1.2.1.dfsg-3) unstable; urgency=low
 
