@@ -1,15 +1,21 @@
+asterisk (1:1.2.4.dfsg-2) unstable; urgency=low
+
+  * update to bristuff 0.3.0-PRE-1k
+
+ -- Kilian Krause <kilian@debian.org>  Thu,  9 Feb 2006 18:12:08 +0000
+
 asterisk (1:1.2.4.dfsg-1) unstable; urgency=low
 
   [ Tzafrir Cohen ]
-  * bristuff 0.3.0-PRE-1k
   * Fix PID display (Closes: #338646)
-  * changes to the init.d script
+  * changes to the init.d script (Tzafrir)
   * debian/ast_config/ place here configurutaion files that will override
     the defaults from the source, though not get into the sample documentation
     dir
-  * debian/ast_config/manager.conf: asterisk does listen on the manager by
+  * debian/ast_config/manager.conf: asterisk does listen onthe manager by
     default, but only on localhost. Other packages need not edit manager.conf
     to get a manager acount
+  * bristuff 0.3.0-PRE-1f
   * option_detach.dpatch: Adds option -D: always daemonize (even with -v,-d)
     (conflicts with bristuff, though)
   * ukcid.dpatch: UK Caller ID patch for the X100P. (Closes: #302380)
@@ -20,11 +26,11 @@ asterisk (1:1.2.4.dfsg-1) unstable; urgency=low
   * Build-Depends on libpri1.2 since new ABI caused new package name.
   * Removed alternatives from Build-Depends since sbuild will only take first
     anyway to ensure constant rebuilds.
-  * Add a noload for chan_capi by default, so that we don't stop loading when
+  * Add a noload for chan_capi by default, so that we d not stop loading when
     no CAPI is installed. (Closes: #328835)
   * Include smsq by adding Build-Depends on libpopt-dev (Closes: #348090)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed,  8 Feb 2006 23:58:37 +0200
+ -- Kilian Krause <kilian@debian.org>  Sun,  5 Feb 2006 11:44:28 +0100
 
 asterisk (1:1.2.1.dfsg-3) unstable; urgency=low
 
