@@ -162,8 +162,6 @@ install: build
 	cp debian/ast_config/* $(CURDIR)/debian/tmp/bristuff/etc/asterisk
 	
 	dh_install --sourcedir=debian/tmp
-	$(RM) -rf $(CURDIR)/debian/asterisk-bristuff/usr $(CURDIR)/debian/asterisk-bristuff/var
-	dh_install -pasterisk-bristuff --sourcedir=debian/tmp/bristuff
 	
 	install -m 644 include/asterisk.h $(CURDIR)/debian/asterisk-dev/usr/include/asterisk.h
 
