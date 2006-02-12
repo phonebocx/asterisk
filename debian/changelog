@@ -1,8 +1,8 @@
-asterisk (1:1.2.4.dfsg-4) UNRELEASED; urgency=low
+asterisk (1:1.2.4.dfsg-4) unstable; urgency=low
 
-  * NOT RELEASED YET
+  * Create missing /var/spool/asterisk/voicemail in postinst (Closes: #352586)
 
- -- Kilian Krause <kilian@debian.org>  Sun, 12 Feb 2006 13:02:57 +0000
+ -- Kilian Krause <kilian@debian.org>  Sun, 12 Feb 2006 22:51:50 +0100
 
 asterisk (1:1.2.4.dfsg-3) unstable; urgency=low
 

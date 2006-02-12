@@ -28,7 +28,7 @@ case "$1" in
 	fi
 
 	test -d /var/log/asterisk/cdr-csv || mkdir -p /var/log/asterisk/cdr-csv
-	test -d /var/spool/asterisk || mkdir -p /var/spool/asterisk
+	test -d /var/spool/asterisk/voicemail || mkdir -p /var/spool/asterisk/voicemail
 	test -d /var/lib/asterisk || mkdir -p /var/lib/asterisk
 	test -d /etc/asterisk || mkdir -p /etc/asterisk
 	chown -R asterisk.asterisk /var/log/asterisk /var/run/asterisk \
