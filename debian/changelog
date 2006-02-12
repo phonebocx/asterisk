@@ -1,8 +1,8 @@
-asterisk (1:1.2.4.dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.2.4.dfsg-3) unstable; urgency=low
 
-  * NOT RELEASED YET
+  * Fix asterisk-bristuff install target to catch correct versions.
 
- -- Kilian Krause <kilian@debian.org>  Thu,  9 Feb 2006 18:40:15 +0000
+ -- Kilian Krause <kilian@debian.org>  Sun, 12 Feb 2006 12:34:31 +0000
 
 asterisk (1:1.2.4.dfsg-2) unstable; urgency=low
 
