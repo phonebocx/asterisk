@@ -1,5 +1,5 @@
-bristuff/etc/default		etc/default
-bristuff/usr/lib/asterisk	usr/lib/asterisk
-bristuff/usr/sbin		usr/sbin
-bristuff/usr/share/man		usr/share/man
-bristuff/var/lib/asterisk	var/lib/asterisk
+bristuff/etc/default		etc/
+bristuff/usr/lib/asterisk	usr/lib/
+bristuff/usr/sbin		usr/
+bristuff/usr/share/man		usr/share/
+bristuff/var/lib/asterisk	var/lib/
