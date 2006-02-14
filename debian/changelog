@@ -1,3 +1,9 @@
+asterisk (1:1.2.4.dfsg-6) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- Kilian Krause <kilian@debian.org>  Tue, 14 Feb 2006 20:38:52 +0000
+
 asterisk (1:1.2.4.dfsg-5) unstable; urgency=low
 
   * Fix install of asterisk-bristuff with dh_install.
