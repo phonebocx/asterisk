@@ -88,7 +88,7 @@ build-arch-stamp: config.status debian/build/asterisk-bristuff/config.status
 
 	# Add here command to compile/build the package.
 	$(MAKE)
-	$(MAKE) -C channels/h323
+	$(MAKE) -C channels/h323 opt
 	$(MAKE) -C $(BRISTUFF_DIR)
 
 	touch $@
