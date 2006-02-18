@@ -1,8 +1,8 @@
-asterisk (1:1.2.4.dfsg-6) UNRELEASED; urgency=low
+asterisk (1:1.2.4.dfsg-6) unstable; urgency=low
 
-  * NOT RELEASED YET
+  * Add chan_h323 back with new Atlas_devel3 OpenH323.
 
- -- Kilian Krause <kilian@debian.org>  Tue, 14 Feb 2006 20:38:52 +0000
+ -- Kilian Krause <kilian@debian.org>  Sat, 18 Feb 2006 17:55:24 +0000
 
 asterisk (1:1.2.4.dfsg-5) unstable; urgency=low
 

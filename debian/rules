@@ -34,8 +34,8 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	INSTALL_PROGRAM += -s
 endif
 
-#export OPENH323DIR=/usr/share/openh323
-#export PWLIBDIR=/usr/share/pwlib
+export OPENH323DIR=/usr/share/openh323
+export PWLIBDIR=/usr/share/pwlib
 
 include /usr/share/dpatch/dpatch.make
 
@@ -88,7 +88,7 @@ build-arch-stamp: config.status debian/build/asterisk-bristuff/config.status
 
 	# Add here command to compile/build the package.
 	$(MAKE)
-	#cd channels/h323; make
+	$(MAKE) -C channels/h323
 	$(MAKE) -C $(BRISTUFF_DIR)
 
 	touch $@
@@ -114,7 +114,7 @@ cleaned:
 	dh_testroot
 	
 	# Add here commands to clean up after the build process.
-	#-test -d channels/h323 && $(MAKE) -C channels/h323 clean
+	-test -d channels/h323 && $(MAKE) -C channels/h323 clean
 	-$(RM) -f channels/h323/libchanh323.a
 	-$(MAKE) clean
 	-$(RM) -rf debian/build
@@ -143,7 +143,7 @@ install: build
 	
 	# Add here commands to install the package into debian/<packagename>
 	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
-	#cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
+	cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
