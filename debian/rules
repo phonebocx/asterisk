@@ -190,7 +190,7 @@ binary-arch: build install
 	dh_installman -pasterisk-classic -pasterisk-bristuff *.[1-8] debian/*.1 debian/*.8
 	dh_installexamples -a -XCVS
 	dh_installlogrotate -a
-	dh_installinit -a -- defaults 21
+	dh_installinit -a --name=asterisk -- defaults 21
 	dh_installchangelogs ChangeLog -a
 	dh_strip -a
 	dh_link -a

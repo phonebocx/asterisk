@@ -1,8 +1,14 @@
 asterisk (1:1.2.4.dfsg-7) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * postinstall: Add /var/spool/asterisk/meetme if nonexistant.
+    (Closes: #355046)
+  * asterisk.init: Install both asterisk-classic and asterisk-bristuff with
+    /etc/init.d/asterisk (Closes: #354729)
+  * logroate: moved logdir for CSV to /var/log/asterisk/cdr-custom/ 
+    (Closes: #355048)
 
- -- Kilian Krause <kilian@debian.org>  Sun, 26 Feb 2006 14:28:59 +0100
+ -- Kilian Krause <kilian@debian.org>  Fri,  3 Mar 2006 10:41:36 +0100
 
 asterisk (1:1.2.4.dfsg-6) unstable; urgency=low
 
