@@ -1,12 +1,16 @@
-asterisk (1:1.2.4.dfsg-7) UNRELEASED; urgency=low
+asterisk (1:1.2.5.dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * New upstream release. 
+  * correct_pid_display.dpatch: adjusted to 1.2.5
+  * 30_ast-data-dir.dpatch: adjusted to 1.2.5
   * postinstall: Add /var/spool/asterisk/meetme if nonexistant.
     (Closes: #355046)
   * asterisk.init: Install both asterisk-classic and asterisk-bristuff with
     /etc/init.d/asterisk (Closes: #354729)
-  * logroate: moved logdir for CSV to /var/log/asterisk/cdr-custom/ 
+  * logroate: create /var/log/asterisk/cdr-custom/ as well as cdr-csv
     (Closes: #355048)
+  * delete chan_capi modules from bristuff
 
  -- Kilian Krause <kilian@debian.org>  Fri,  3 Mar 2006 10:41:36 +0100
 

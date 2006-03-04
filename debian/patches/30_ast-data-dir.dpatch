@@ -26,10 +26,10 @@ diff -urNad asterisk-1.2.1.dfsg~/asterisk.c asterisk-1.2.1.dfsg/asterisk.c
  	ast_copy_string(ast_config_AST_LOG_DIR, AST_LOG_DIR, sizeof(ast_config_AST_LOG_DIR));
  	ast_copy_string(ast_config_AST_AGI_DIR, AST_AGI_DIR, sizeof(ast_config_AST_AGI_DIR));
  	ast_copy_string(ast_config_AST_DB, AST_DB, sizeof(ast_config_AST_DB));
-@@ -1823,6 +1825,8 @@
- 		} else if (!strcasecmp(v->name, "astvarlibdir")) {
+@@ -1823,6 +1826,8 @@
  			ast_copy_string(ast_config_AST_VAR_DIR, v->value, sizeof(ast_config_AST_VAR_DIR));
- 			snprintf(ast_config_AST_DB, sizeof(ast_config_AST_DB), "%s/%s", v->value, "astdb");    
+ 			snprintf(ast_config_AST_DB, sizeof(ast_config_AST_DB), "%s/astdb", v->value);
+			snprintf(ast_config_AST_KEY_DIR, sizeof(ast_config_AST_KEY_DIR), "%s/keys", v->value);
 +		} else if (!strcasecmp(v->name, "astdatadir")) {
 +			ast_copy_string(ast_config_AST_DATA_DIR, v->value, sizeof(ast_config_AST_DATA_DIR));
  		} else if (!strcasecmp(v->name, "astlogdir")) {
@@ -129,7 +129,7 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
 @@ -539,38 +540,38 @@
  
  datafiles: all
- 	if [ x`whoami` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
+ 	if [ x`$(ID) -un` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
 -	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits
 -	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/priv-callerintros
 +	mkdir -p $(DESTDIR)$(ASTDATADIR)/sounds/digits

@@ -27,14 +27,11 @@ case "$1" in
 		adduser asterisk dialout
 	fi
 
-	if [ -d /var/log/asterisk/cdr-csv -a ! -d /var/log/asterisk/cdr-custom ];then
-		mv /var/log/asterisk/cdr-csv /var/log/asterisk/cdr-custom
-	elif [ -d /var/log/asterisk/cdr-csv -a -d /var/log/asterisk/cdr-custom ];then
-		echo 'Found obsolete /var/log/asterisk/cdr-csv.'
-		echo 'Please move files manually to new location: /var/log/asterisk/cdr-custom'
-	elif [ ! -d /var/log/asterisk/cdr-custom ];then
-		mkdir -p /var/log/asterisk/cdr-custom
-	fi
+	for cdrdir in cvs custom; do 
+		if [ ! -d /var/log/asterisk/cdr-$cdrdir ];then
+			mkdir -p /var/log/asterisk/cdr-$cdrdir
+		fi
+	done
 	test -d /var/spool/asterisk/voicemail || mkdir -p /var/spool/asterisk/voicemail
 	test -d /var/spool/asterisk/meetme || mkdir -p /var/spool/asterisk/meetme
 	test -d /var/lib/asterisk || mkdir -p /var/lib/asterisk
