@@ -1,7 +1,7 @@
 asterisk (1:1.2.5.dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
-  * New upstream release. 
+  * New upstream release. (Closes: #355299)
   * correct_pid_display.dpatch: adjusted to 1.2.5
   * 30_ast-data-dir.dpatch: adjusted to 1.2.5
   * postinstall: Add /var/spool/asterisk/meetme if nonexistant.
