@@ -10,11 +10,13 @@ asterisk (1:1.2.5.dfsg-1) UNRELEASED; urgency=low
     /etc/init.d/asterisk (Closes: #354729)
   * logroate: create /var/log/asterisk/cdr-custom/ as well as cdr-csv
     (Closes: #355048)
+  * logrotate: share location of logrotate file as /etc/logrotate.d/asterisk
+    for both classic and bristuff version (Closes: #356712)
   * delete chan_capi modules from bristuff
   * Move postinstall and postrm to asterisk-classsic, asterisk-bristuff and
     asterisk-config. (Closes: #355524)
 
- -- Kilian Krause <kilian@debian.org>  Mon,  6 Mar 2006 10:48:55 +0100
+ -- Kilian Krause <kilian@debian.org>  Wed, 15 Mar 2006 11:10:54 +0100
 
 asterisk (1:1.2.4.dfsg-6) unstable; urgency=low
 
