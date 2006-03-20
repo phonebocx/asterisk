@@ -16,7 +16,7 @@ asterisk (1:1.2.5.dfsg-1) UNRELEASED; urgency=low
   * Move postinstall and postrm to asterisk-classsic, asterisk-bristuff and
     asterisk-config. (Closes: #355524)
 
- -- Kilian Krause <kilian@debian.org>  Wed, 15 Mar 2006 11:10:54 +0100
+ -- Kilian Krause <kilian@debian.org>  Mon, 20 Mar 2006 18:58:24 +0100
 
 asterisk (1:1.2.4.dfsg-6) unstable; urgency=low
 
