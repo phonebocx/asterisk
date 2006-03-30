@@ -2,6 +2,8 @@ asterisk (1:1.2.6.dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
   * New upstream release. (Closes: #355299)
+  * correct_pid_display.dpatch: adjusted to 1.2.6
+  * 30_ast-data-dir.dpatch: adjusted to 1.2.6
 
  -- Kilian Krause <kilian@debian.org>  Mon, 20 Mar 2006 18:58:24 +0100
 
