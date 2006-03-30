@@ -5,7 +5,7 @@ asterisk (1:1.2.6.dfsg-1) UNRELEASED; urgency=low
 
  -- Kilian Krause <kilian@debian.org>  Mon, 20 Mar 2006 18:58:24 +0100
 
-asterisk (1:1.2.4.dfsg-7) UNRELEASED; urgency=low
+asterisk (1:1.2.4.dfsg-7) unstable; urgency=low
 
   * Recompile to fix missing asterisk-config from last binNMU round
     (Closes: #356712, #358413, #355524, #358145)
