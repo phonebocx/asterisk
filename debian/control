@@ -154,6 +154,7 @@ Description: Web-based (CGI) voice mail interface for Asterisk
 
 Package: asterisk-config
 Recommends: asterisk
+Depends: adduser (>= 3.63)
 Replaces: asterisk (<= 1:1.0.2-2)
 Conflicts: asterisk-config-custom
 Architecture: all
