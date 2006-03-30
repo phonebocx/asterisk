@@ -1,9 +1,16 @@
-asterisk (1:1.2.5.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.6.dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
   * New upstream release. (Closes: #355299)
-  * correct_pid_display.dpatch: adjusted to 1.2.5
-  * 30_ast-data-dir.dpatch: adjusted to 1.2.5
+
+ -- Kilian Krause <kilian@debian.org>  Mon, 20 Mar 2006 18:58:24 +0100
+
+asterisk (1:1.2.4.dfsg-7) UNRELEASED; urgency=low
+
+  * Recompile to fix missing asterisk-config from last binNMU round
+    (Closes: #356712, #358413, #355524, #358145)
+  * correct_pid_display.dpatch: adjusted to 1.2.6
+  * 30_ast-data-dir.dpatch: adjusted to 1.2.6
   * postinstall: Add /var/spool/asterisk/meetme if nonexistant.
     (Closes: #355046)
   * asterisk.init: Install both asterisk-classic and asterisk-bristuff with
@@ -16,7 +23,7 @@ asterisk (1:1.2.5.dfsg-1) UNRELEASED; urgency=low
   * Move postinstall and postrm to asterisk-classsic, asterisk-bristuff and
     asterisk-config. (Closes: #355524)
 
- -- Kilian Krause <kilian@debian.org>  Mon, 20 Mar 2006 18:58:24 +0100
+ -- Kilian Krause <kilian@debian.org>  Thu, 30 Mar 2006 11:55:03 +0200
 
 asterisk (1:1.2.4.dfsg-6) unstable; urgency=low
 
