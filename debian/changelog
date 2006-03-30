@@ -11,8 +11,6 @@ asterisk (1:1.2.4.dfsg-7) unstable; urgency=low
 
   * Recompile to fix missing asterisk-config from last binNMU round
     (Closes: #356712, #358413, #355524, #358145)
-  * correct_pid_display.dpatch: adjusted to 1.2.6
-  * 30_ast-data-dir.dpatch: adjusted to 1.2.6
   * postinstall: Add /var/spool/asterisk/meetme if nonexistant.
     (Closes: #355046)
   * asterisk.init: Install both asterisk-classic and asterisk-bristuff with
