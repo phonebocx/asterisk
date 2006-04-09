@@ -3,6 +3,7 @@
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
 ## DP: bristuff support in asterisk: asterisk.patch from bristuff-0.3.0-PRE-1k
+## DP: with some adjustments for asterisk 1.2.6
 
 @DPATCH@
 diff -urN asterisk-1.2.4.orig/agi/Makefile asterisk-1.2.4/agi/Makefile
@@ -1258,8 +1259,8 @@ diff -urN asterisk-1.2.4.orig/apps/app_page.c asterisk-1.2.4/apps/app_page.c
  {
  	struct calloutdata *cd = data;
  	ast_pbx_outgoing_app(cd->tech, AST_FORMAT_SLINEAR, cd->resource, 30000,
--		"MeetMe", cd->meetmeopts, NULL, 0, cd->cidnum, cd->cidname, cd->variables, NULL);
-+		"MeetMe", cd->meetmeopts, NULL, 0, 0, cd->cidnum, cd->cidname, cd->variables, NULL, NULL);
+-		"MeetMe", cd->meetmeopts, NULL, 0, cd->cidnum, cd->cidname, cd->variables, NULL, NULL);
++		"MeetMe", cd->meetmeopts, NULL, 0, 0, cd->cidnum, cd->cidname, cd->variables, NULL, NULL, NULL);
  	free(cd);
  	return NULL;
  }
@@ -7544,37 +7545,6 @@ diff -urN asterisk-1.2.4.orig/channels/chan_zap.c asterisk-1.2.4/channels/chan_z
  				}
  				break;
  			case PRI_EVENT_CONFIG_ERR:
-@@ -9031,15 +9963,25 @@
- 					ast_log(LOG_WARNING, "Received SETUP_ACKNOWLEDGE on unconfigured channel %d/%d span %d\n", 
- 						PRI_SPAN(e->setup_ack.channel), PRI_CHANNEL(e->setup_ack.channel), pri->span);
- 				} else {
--					ast_mutex_lock(&pri->pvts[chanpos]->lock);
--					pri->pvts[chanpos]->setup_ack = 1;
--					/* Send any queued digits */
--					for (x=0;x<strlen(pri->pvts[chanpos]->dialdest);x++) {
-+ 					chanpos = pri_fixup_principle(pri, chanpos, e->setup_ack.call);
-+ 					if (chanpos < 0) {
-+ 						ast_log(LOG_WARNING, "Received SETUP_ACK on channel %d/%d not in use on span %d\n", 
-+ 							PRI_SPAN(e->setup_ack.channel), PRI_CHANNEL(e->setup_ack.channel), pri->span);
-+ 						chanpos = -1;
-+ 					} else {
-+ 					    ast_mutex_lock(&pri->pvts[chanpos]->lock);
-+ 					    pri->pvts[chanpos]->setup_ack = 1;
-+ 					    if (pri->pvts[chanpos]->owner) {
-+ 					    //    ast_log(LOG_NOTICE, "SETUP_ACK for '%s'\n", pri->pvts[chanpos]->owner->name);
-+ 					    }
-+ 					    /* Send any queued digits */
-+ 					    for (x=0;x<strlen(pri->pvts[chanpos]->dialdest);x++) {
- 						ast_log(LOG_DEBUG, "Sending pending digit '%c'\n", pri->pvts[chanpos]->dialdest[x]);
- 						pri_information(pri->pri, pri->pvts[chanpos]->call, 
- 							pri->pvts[chanpos]->dialdest[x]);
-+					    }
-+					    ast_mutex_unlock(&pri->pvts[chanpos]->lock);
- 					}
--					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
- 				}
- 				break;
- 			case PRI_EVENT_NOTIFY:
 @@ -9063,6 +10005,78 @@
  					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  				}
@@ -8990,13 +8960,13 @@ diff -urN asterisk-1.2.4.orig/include/asterisk/pbx.h asterisk-1.2.4/include/aste
  
  /* Synchronously or asynchronously make an outbound call and send it to a
     particular extension */
--int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, struct ast_channel **locked_channel);
-+int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, struct ast_channel **locked_channel, char *uniqueid);
+-int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel);
++int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid);
  
  /* Synchronously or asynchronously make an outbound call and send it to a
     particular application with given extension */
--int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, struct ast_channel **locked_channel);
-+int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, struct ast_channel **locked_channel, char *uniqueid);
+-int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel);
++int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid);
  
  /* Functions for returning values from structures */
  const char *ast_get_context_name(struct ast_context *con);
@@ -10841,15 +10811,15 @@ diff -urN asterisk-1.2.4.orig/manager.c asterisk-1.2.4/manager.c
 +		res = ast_pbx_outgoing_app(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->app, in->appdata, &reason, 1, in->callingpres, 
  			!ast_strlen_zero(in->cid_num) ? in->cid_num : NULL, 
  			!ast_strlen_zero(in->cid_name) ? in->cid_name : NULL,
--			in->vars, &chan);
-+			in->vars, &chan, in->uniqueid);
+-			in->vars, in->account, &chan);
++			in->vars, in->account, &chan, in->uniqueid);
  	} else {
 -		res = ast_pbx_outgoing_exten(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->context, in->exten, in->priority, &reason, 1, 
 +		res = ast_pbx_outgoing_exten(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->context, in->exten, in->priority, &reason, 1, in->callingpres, 
  			!ast_strlen_zero(in->cid_num) ? in->cid_num : NULL, 
  			!ast_strlen_zero(in->cid_name) ? in->cid_name : NULL,
--			in->vars, &chan);
-+			in->vars, &chan, in->uniqueid);
+-			in->vars, in->account, &chan);
++			in->vars, in->account, &chan, in->uniqueid);
  	}   
  	if (!res)
  		manager_event(EVENT_FLAG_CALL,
@@ -10914,10 +10884,10 @@ diff -urN asterisk-1.2.4.orig/manager.c asterisk-1.2.4/manager.c
  	if (ast_true(async)) {
  		struct fast_originate_helper *fast = malloc(sizeof(struct fast_originate_helper));
  		if (!fast) {
-@@ -1072,8 +1112,10 @@
- 			fast->vars = vars;	
+@@ -1072,8 +1113,10 @@
  			ast_copy_string(fast->context, context, sizeof(fast->context));
  			ast_copy_string(fast->exten, exten, sizeof(fast->exten));
+ 			ast_copy_string(fast->account, account, sizeof(fast->account));
 +			ast_copy_string(fast->uniqueid, uniqueid, sizeof(fast->uniqueid));
  			fast->timeout = to;
  			fast->priority = pi;
@@ -10929,12 +10899,12 @@ diff -urN asterisk-1.2.4.orig/manager.c asterisk-1.2.4/manager.c
  			}
  		}
  	} else if (!ast_strlen_zero(app)) {
--        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, l, n, vars, NULL);
-+        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, cpresi, l, n, vars, NULL, uniqueid);
+-        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, l, n, vars, account, NULL);
++        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, cpresi, l, n, vars, account, NULL, uniqueid);
      	} else {
  		if (exten && context && pi)
--	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, l, n, vars, NULL);
-+	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, cpresi, l, n, vars, NULL, uniqueid);
+-	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, l, n, vars, account, NULL);
++	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, cpresi, l, n, vars, account, NULL, uniqueid);
  		else {
  			astman_send_error(s, m, "Originate with 'Exten' requires 'Context' and 'Priority'");
  			return 0;
@@ -10979,13 +10949,13 @@ diff -urN asterisk-1.2.4.orig/pbx/pbx_spool.c asterisk-1.2.4/pbx/pbx_spool.c
  	if (!ast_strlen_zero(o->app)) {
  		if (option_verbose > 2)
  			ast_verbose(VERBOSE_PREFIX_3 "Attempting call on %s/%s for application %s(%s) (Retry %d)\n", o->tech, o->dest, o->app, o->data, o->retries);
--		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, NULL);
-+		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, 0, o->cid_num, o->cid_name, o->vars, NULL, NULL);
+-		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, o->account, NULL);
++		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, 0, o->cid_num, o->cid_name, o->vars, o->account, NULL, NULL);
  	} else {
  		if (option_verbose > 2)
  			ast_verbose(VERBOSE_PREFIX_3 "Attempting call on %s/%s for %s@%s:%d (Retry %d)\n", o->tech, o->dest, o->exten, o->context,o->priority, o->retries);
--		res = ast_pbx_outgoing_exten(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->context, o->exten, o->priority, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, NULL);
-+		res = ast_pbx_outgoing_exten(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->context, o->exten, o->priority, &reason, 2 /* wait to finish */, 0, o->cid_num, o->cid_name, o->vars, NULL, NULL);
+-		res = ast_pbx_outgoing_exten(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->context, o->exten, o->priority, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, o->account, NULL);
++		res = ast_pbx_outgoing_exten(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->context, o->exten, o->priority, &reason, 2 /* wait to finish */, 0, o->cid_num, o->cid_name, o->vars, o->account, NULL, NULL);
  	}
  	if (res) {
  		ast_log(LOG_NOTICE, "Call failed to go through, reason %d\n", reason);
@@ -11047,8 +11017,8 @@ diff -urN asterisk-1.2.4.orig/pbx.c asterisk-1.2.4/pbx.c
  	return 0;  /* success */
  }
  
--int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, struct ast_channel **channel)
-+int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, struct ast_channel **channel, char *uniqueid)
+-int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **channel)
++int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **channel, char *uniqueid)
  {
  	struct ast_channel *chan;
  	struct async_stat *as;
@@ -11083,8 +11053,8 @@ diff -urN asterisk-1.2.4.orig/pbx.c asterisk-1.2.4/pbx.c
  	return NULL;
  }
  
--int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, struct ast_channel **locked_channel)
-+int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, struct ast_channel **locked_channel, char *uniqueid)
+-int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel)
++int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid)
  {
  	struct ast_channel *chan;
  	struct async_stat *as;
@@ -11380,7 +11350,7 @@ diff -urN asterisk-1.2.4.orig/res/res_agi.c asterisk-1.2.4/res/res_agi.c
 @@ -91,7 +97,9 @@
  "Returns -1 on hangup (except for DeadAGI) or if application requested\n"
  " hangup, or 0 on non-hangup exit. \n"
- "Using 'EAGI' provides enhanced AGI, with incoming audio available out of band"
+ "Using 'EAGI' provides enhanced AGI, with incoming audio available out of band\n"
 -"on file descriptor 3\n\n"
 +" on file descriptor 3\n"
 +"Using 'XAGI' provides enhanced AGI, with incoming audio available out of band"
@@ -11845,7 +11815,7 @@ diff -urN asterisk-1.2.4.orig/res/res_features.c asterisk-1.2.4/res/res_features
  		"CallerID: %s\r\n"
  		"CallerIDName: %s\r\n"
 +		"Unqiueid: %s\r\n\r\n"
- 		,pu->parkingnum, pu->chan->name, peer->name
+ 		,pu->parkingnum, pu->chan->name, peer ? peer->name : ""
  		,(long)pu->start.tv_sec + (long)(pu->parkingtime/1000) - (long)time(NULL)
  		,(pu->chan->cid.cid_num ? pu->chan->cid.cid_num : "<unknown>")
 -		,(pu->chan->cid.cid_name ? pu->chan->cid.cid_name : "<unknown>")
@@ -12856,5 +12826,5 @@ diff -urN asterisk-1.2.4.orig/.version asterisk-1.2.4/.version
 --- asterisk-1.2.4.orig/.version	2006-01-31 04:55:50.000000000 +0100
 +++ asterisk-1.2.4/.version	2006-01-31 09:41:43.000000000 +0100
 @@ -1 +1 @@
--1.2.4
-+1.2.4-BRIstuffed-0.3.0-PRE-1k
+-1.2.6
++1.2.6-BRIstuffed-0.3.0-PRE-1k
