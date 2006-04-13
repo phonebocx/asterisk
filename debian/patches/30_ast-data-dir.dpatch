@@ -203,26 +203,15 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
  	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail
  	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/dictate
  	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/system
-@@ -645,8 +647,8 @@
+@@ -645,7 +647,7 @@
  	if [ -n "$(OLDHEADERS)" ]; then \
  		rm -f $(addprefix $(DESTDIR)$(ASTHEADERDIR)/,$(OLDHEADERS)) ;\
  	fi
--	rm -f $(DESTDIR)$(ASTVARLIBDIR)/sounds/voicemail
 -	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds
-+	rm -f $(DESTDIR)$(ASTDATADIR)/sounds/voicemail
 +	mkdir -p $(DESTDIR)$(ASTDATADIR)/sounds
  	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-csv
  	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-custom
  	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/keys
-@@ -664,7 +666,7 @@
- 	else \
- 		echo "You need to do cvs update -d not just cvs update" ; \
- 	fi 
--	( cd $(DESTDIR)$(ASTVARLIBDIR)/sounds  ; ln -s $(ASTSPOOLDIR)/voicemail . )
-+	( cd $(DESTDIR)$(ASTDATADIR)/sounds  ; ln -s /var/spool/asterisk/voicemail . )
- 	if [ -f mpg123-0.59r/mpg123 ]; then $(MAKE) -C mpg123-0.59r install; fi
- 	@echo " +---- Asterisk Installation Complete -------+"  
- 	@echo " +                                           +"
 @@ -763,10 +765,10 @@
  	else \
  		echo "Skipping asterisk.conf creation"; \

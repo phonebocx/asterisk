@@ -17,7 +17,7 @@ RUNASTERISK=no
 #         *not**intended**for**production**use*.
 #         When you give -G *only* that group will be used,
 #         else all groups of the asterisk user.
-#PARAMS="-g -vvv"
+#PARAMS="-D -g -vvv"
 #
 #
 # RUNASTSAFE: run safe_asterisk rather than asterisk (will auto-restart upon

@@ -84,7 +84,7 @@ debian/build/asterisk-bristuff/config.status: config.status check-sounds patch-s
 	mkdir -p $(BRISTUFF_DIR)
 	tar cf - --exclude ./debian . | (cd $(BRISTUFF_DIR); tar xf -)
 	#ls -1d * .version .cleancount|grep -v debian|grep -v ^.$$|xargs cp -alt debian/build/asterisk-bristuff
-	cd $(BRISTUFF_DIR) ; \
+	set -e; cd $(BRISTUFF_DIR) ; \
 	  patch -p1 <../../patches/bristuff.dpatch ; \
 	  patch -p1 <../../patches/libpri_bristuffed.dpatch 
 	
@@ -161,15 +161,13 @@ install: build
 	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/{stereorize,streamplayer}
 	# override some default configurations. Leave the original ones
 	# in the sample configs:
-	cp debian/ast_config/* $(CURDIR)/debian/tmp/etc/asterisk
+	cp -a debian/ast_config/* $(CURDIR)/debian/tmp/etc/asterisk
 	
 	# bristuf
 	$(MAKE) -C $(BRISTUFF_DIR) DESTDIR=$(CURDIR)/debian/tmp/bristuff install
 	mkdir -p $(CURDIR)/debian/tmp/bristuff/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/bristuff/etc/default/asterisk
 	$(RM) -f $(CURDIR)/debian/tmp/bristuff/usr/sbin/{stereorize,streamplayer}
-	cp debian/ast_config/* $(CURDIR)/debian/tmp/bristuff/etc/asterisk
-	
 	dh_install --sourcedir=debian/tmp
 	
 	install -m 644 include/asterisk.h $(CURDIR)/debian/asterisk-dev/usr/include/asterisk.h

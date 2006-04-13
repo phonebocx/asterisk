@@ -22,3 +22,5 @@ nooptimize
 chanzap_disable_r2.dpatch
 arm
 correct_pid_display
+zap_restart
+backport_playdtmf

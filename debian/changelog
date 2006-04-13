@@ -1,13 +1,31 @@
-asterisk (1:1.2.6.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.7.dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * New upstream release.
+  * nomarch.dpatch: removed the patching to internal libgsm, as we don't use
+    it (and it broke in this version)
+  * bristuff.dpatch: based on the patch from bristuff-0.3.0-PRE1n
+  * bristuff.dpatch: A small fix in chan_sip.c
+  * bristuff.dpatch: Disabling "libgsm" until it is renamed
+  * 30_ast-data-dir.dpatch: the symlink sounds/voicemail is now gone 
+  * rules: do fail if bristuff patching hasfailed
+  * zap_restart.dpatch: allow restarting zaptel channel with "zap restart"
+  * backport_playdtmf.dpatch: a harmless backport (no impact if not used)
+  * completed the merge of logrotate and init.d scripts
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 13 Apr 2006 13:39:30 +0300
+
+asterisk (1:1.2.6.dfsg-1) unstable; urgency=low
+
   * New upstream release. (Closes: #355299)
   * correct_pid_display.dpatch: adjusted to 1.2.6
   * 30_ast-data-dir.dpatch: adjusted to 1.2.6
   * debian/control: Add adduser to depends of asterisk-config to shut up
     lintian.
+  * rules: no need to copy config to the bristuff install
+  * rules: but use cp -a for ast_config, as there may be subdirs.
 
- -- Kilian Krause <kilian@debian.org>  Thu, 30 Mar 2006 13:28:25 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 10 Apr 2006 19:00:12 +0300
 
 asterisk (1:1.2.4.dfsg-7) unstable; urgency=low
 
