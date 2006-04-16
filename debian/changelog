@@ -12,8 +12,10 @@ asterisk (1:1.2.7.1.dfsg-1) UNRELEASED; urgency=low
   * zap_restart.dpatch: allow restarting zaptel channel with "zap restart"
   * backport_playdtmf.dpatch: a harmless backport (no impact if not used)
   * completed the merge of logrotate and init.d scripts
+  * When not running asterisk, do it successfully, not by failure.
+    (closes: #360234)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 13 Apr 2006 13:39:30 +0300
+ -- Lionel Elie Mamane <lmamane@debian.org>  Sun, 16 Apr 2006 17:20:10 +0200
 
 asterisk (1:1.2.6.dfsg-1) unstable; urgency=low
 
