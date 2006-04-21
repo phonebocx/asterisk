@@ -27,8 +27,10 @@ case "$1" in
 		adduser asterisk dialout
 	fi
 
+	test -d /var/log/asterisk || mkdir -p /var/log/asterisk
 	test -d /var/lib/asterisk || mkdir -p /var/lib/asterisk
 	test -d /etc/asterisk || mkdir -p /etc/asterisk
+	test -d /var/spool/asterisk/ || mkdir -p /var/spool/asterisk/
 	chown -R asterisk.asterisk /var/log/asterisk /var/run/asterisk \
 		/var/spool/asterisk /var/lib/asterisk /etc/asterisk 
 	chmod 0660 /etc/asterisk/*.conf

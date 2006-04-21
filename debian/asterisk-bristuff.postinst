@@ -32,6 +32,7 @@ case "$1" in
 			mkdir -p /var/log/asterisk/cdr-$cdrdir
 		fi
 	done
+	test -d /var/log/asterisk/ || mkdir -p /var/log/asterisk/
 	test -d /var/spool/asterisk/voicemail || mkdir -p /var/spool/asterisk/voicemail
 	test -d /var/spool/asterisk/meetme || mkdir -p /var/spool/asterisk/meetme
 	test -d /var/lib/asterisk || mkdir -p /var/lib/asterisk

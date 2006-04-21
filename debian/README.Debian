@@ -41,21 +41,6 @@ might not be able to restart the daemon without altering permissions to the
 files first.
 
 
-External Libraries
-==================
-The package no longer includes support for H.323, but for SIP and IAX (v1 and
-v2). The H.323 support was often reported to be mostly broken, so please try
-asterisk-oh323 for your asterisk configuration.
-
-
-Enabling bristuff support
-=========================
-If you wish to enable the bristuff support (when rebuilding this package
-from source), unrem the patches bristuff and libpri_bristuffed in 
-debian/patches/00list. Also rem-out option_detach in the same file, as it
-conflicts with bristuff (both want to change the getopts line).
-
-
 Getting started with config and more features
 =============================================
 Of course the default config is far from a plug'n'play for every environment.
