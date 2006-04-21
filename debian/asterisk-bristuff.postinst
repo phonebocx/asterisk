@@ -27,7 +27,7 @@ case "$1" in
 		adduser asterisk dialout
 	fi
 
-	for cdrdir in cvs custom; do 
+	for cdrdir in csv custom; do 
 		if [ ! -d /var/log/asterisk/cdr-$cdrdir ];then
 			mkdir -p /var/log/asterisk/cdr-$cdrdir
 		fi

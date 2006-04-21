@@ -14,8 +14,9 @@ asterisk (1:1.2.7.1.dfsg-1) UNRELEASED; urgency=low
   * completed the merge of logrotate and init.d scripts
   * When not running asterisk, do it successfully, not by failure.
     (closes: #360234)
+  * Create /var/log/asterisk/cdr-csv, not cdr-cvs.
 
- -- Lionel Elie Mamane <lmamane@debian.org>  Sun, 16 Apr 2006 17:20:10 +0200
+ -- Lionel Elie Mamane <lmamane@debian.org>  Fri, 21 Apr 2006 13:27:05 +0200
 
 asterisk (1:1.2.6.dfsg-1) unstable; urgency=low
 
