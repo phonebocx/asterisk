@@ -1,22 +1,31 @@
-asterisk (1:1.2.7.1.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.7.1.dfsg-1) unstable; urgency=low
 
-  * NOT RELEASED YET
+  [ Tzafrir Cohen ]
   * New upstream release.
   * nomarch.dpatch: removed the patching to internal libgsm, as we don't use
     it (and it broke in this version)
   * bristuff.dpatch: based on the patch from bristuff-0.3.0-PRE1n
   * bristuff.dpatch: A small fix in chan_sip.c
   * bristuff.dpatch: Disabling "libgsm" until it is renamed
-  * 30_ast-data-dir.dpatch: the symlink sounds/voicemail is now gone 
+  * 30_ast-data-dir.dpatch: the symlink sounds/voicemail is now gone
   * rules: do fail if bristuff patching hasfailed
   * zap_restart.dpatch: allow restarting zaptel channel with "zap restart"
   * backport_playdtmf.dpatch: a harmless backport (no impact if not used)
   * completed the merge of logrotate and init.d scripts
+
+  [ Lionel Elie Mamane ]
   * When not running asterisk, do it successfully, not by failure.
     (closes: #360234)
   * Create /var/log/asterisk/cdr-csv, not cdr-cvs.
 
- -- Lionel Elie Mamane <lmamane@debian.org>  Fri, 21 Apr 2006 13:27:05 +0200
+  [ Mark Purcell ]
+  * Update debian/control for asterisk-h323 package description
+  * New upstream release. Fixes:
+    - Version 1.2.5 is out (Closes: #355299)
+    - since 1.2.0 no chan_modem (Closes: #343232)
+    - Undefined symbol in chan_zap.so (Closes: #339559)
+
+ -- Mark Purcell <msp@debian.org>  Fri, 21 Apr 2006 15:53:01 +0100
 
 asterisk (1:1.2.6.dfsg-1) unstable; urgency=low
 

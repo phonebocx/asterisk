@@ -104,8 +104,7 @@ Description: asterisk H.323 VoIP channel
  This package provided h323 support for the Asterisk Open Source PBX system.
  .
  It was separated out into its own package to avoid having the main package
- depend on the many openh323 dependencies. For now asterisk-oh323 replaces this
- version until chan_h323 does support the current OpenH323 version again.
+ depend on the many openh323 dependencies.
 
 Package: asterisk-doc
 Recommends: asterisk
