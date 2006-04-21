@@ -1,8 +1,13 @@
-asterisk (1:1.2.7.1.dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.2.7.1.dfsg-2) UNRELEASED; urgency=high
 
+  [ Mark Purcell ]
   * NOT RELEASED YET
 
- -- Mark Purcell <msp@debian.org>  Fri, 21 Apr 2006 18:26:09 +0100
+  [ Kilian Krause ]
+  * Urgency bumped since 1.2.7 is a security update [CVE-2006-1827]
+    (Closes: #364195)
+
+ -- Kilian Krause <kilian@debian.org>  Fri, 21 Apr 2006 22:41:40 +0200
 
 asterisk (1:1.2.7.1.dfsg-1) unstable; urgency=low
 
