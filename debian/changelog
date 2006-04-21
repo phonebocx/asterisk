@@ -28,8 +28,10 @@ asterisk (1:1.2.7.1.dfsg-1) unstable; urgency=low
     - Unapplying patches fail (Closes: #345676)
     - utils.c:619 tvfix: warning negative timestamp... (Closes: #347929)
     - creates /.asterisk_history on reboot (Closes: #307218)
+  * h323 modules can be unstable so dont load my default
+  * Cleanup debian/patches to remove obsolete/ old patches
 
- -- Mark Purcell <msp@debian.org>  Fri, 21 Apr 2006 16:17:28 +0100
+ -- Mark Purcell <msp@debian.org>  Fri, 21 Apr 2006 17:33:31 +0100
 
 asterisk (1:1.2.6.dfsg-1) unstable; urgency=low
 
