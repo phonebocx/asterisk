@@ -8,13 +8,13 @@ asterisk (1:1.2.7.1.dfsg-2) UNRELEASED; urgency=high
     (Closes: #364195)
 
   [ Mark Purcell ]
-  * Fixes:
+  * Previous Upload also fixes:
     - cannot install - directories not created (Closes: #360233)
     - package uninstallable (Closes: #359970)
-    - fails to upgrade when /etc/asterisk/voicemail.conf is deleted
-    (Closes: #360220)
+  * Update postinst to fix: fails to upgrade when /etc/asterisk/voicemail.conf
+    is deleted (Closes: #360220)
 
- -- Mark Purcell <msp@debian.org>  Sun, 23 Apr 2006 12:39:38 +0100
+ -- Mark Purcell <msp@debian.org>  Sun, 23 Apr 2006 13:00:34 +0100
 
 asterisk (1:1.2.7.1.dfsg-1) unstable; urgency=low
 
