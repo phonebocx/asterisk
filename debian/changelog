@@ -1,7 +1,4 @@
-asterisk (1:1.2.7.1.dfsg-2) UNRELEASED; urgency=high
-
-  [ Mark Purcell ]
-  * NOT RELEASED YET
+asterisk (1:1.2.7.1.dfsg-2) unstable; urgency=high
 
   [ Kilian Krause ]
   * Urgency bumped since 1.2.7 is a security update [CVE-2006-1827]
@@ -13,8 +10,11 @@ asterisk (1:1.2.7.1.dfsg-2) UNRELEASED; urgency=high
     - package uninstallable (Closes: #359970)
   * Update postinst to fix: fails to upgrade when /etc/asterisk/voicemail.conf
     is deleted (Closes: #360220)
+  * Link debian/asterisk-bristuff.asterisk.{logrotate,init} & 
+    provide debian/asterisk-classic.asterisk.logfile
+    - Fixes: init.d and logrotate.d conflicts (Closes: #360181)
 
- -- Mark Purcell <msp@debian.org>  Sun, 23 Apr 2006 13:00:34 +0100
+ -- Mark Purcell <msp@debian.org>  Sun, 23 Apr 2006 13:26:29 +0100
 
 asterisk (1:1.2.7.1.dfsg-1) unstable; urgency=low
 
