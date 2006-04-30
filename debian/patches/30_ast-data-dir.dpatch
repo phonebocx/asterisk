@@ -5,6 +5,7 @@
 ## DP: Patch to make Asterisk conform with the Linux File System Hierarchy Standard (FHS)
 ## DP: Places read-only architecture-independent data under /usr/share/asterisk (autoconf --datadir)
 ## DP: not /var/lib/asterisk
+## -- is applied upstream for 1.2
 
 @DPATCH@
 diff -urNad asterisk-1.2.1.dfsg~/asterisk.c asterisk-1.2.1.dfsg/asterisk.c

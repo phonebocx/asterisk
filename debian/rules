@@ -19,13 +19,7 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 
-OPTFLAGS= -O2
-
-ifeq ($(DEB_HOST_ARCH),amd64)
-OPTFLAGS+= -m64
-endif
-
-export OPTFLAGS
+MAKEFLAGS = OPTIMIZE=-O2
 
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
@@ -45,7 +39,7 @@ UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e
 
 FILENAME := asterisk_$(UPVERSION).dfsg.orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
-URL := http://ftp2.digium.com/pub/asterisk/asterisk-$(UPVERSION).tar.gz
+URL := http://ftp2.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
 
 check-sounds:
@@ -96,9 +90,9 @@ build-arch-stamp: config.status debian/build/asterisk-bristuff/config.status
 	dh_testdir
 
 	# Add here command to compile/build the package.
-	$(MAKE)
-	$(MAKE) -C channels/h323 opt
-	$(MAKE) -C $(BRISTUFF_DIR)
+	$(MAKE) $(MAKEFLAGS)
+	$(MAKE) $(MAKEFLAGS) -C channels/h323 opt
+	$(MAKE) $(MAKEFLAGS) -C $(BRISTUFF_DIR)
 
 	touch $@
 

@@ -5,6 +5,7 @@
 ## DP: Adds a CLI command "zap restart" that destroys all zaptel channels and
 ## DP: re-loads zaptel configuration from scratch. 
 ## DP: Thus we have a "reload" for zaptel
+## -- applied upstream in trunk (1.4.x)
 
 @DPATCH@
 --- asterisk-1.2.6/channels/chan_zap.c	2006-04-09 02:40:48.000000000 +0300

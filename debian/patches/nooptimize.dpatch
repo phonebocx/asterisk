@@ -2,7 +2,8 @@
 ## nooptimize.dpatch by Kilian Krause <kilian@debian.org>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: No description.
+## DP: Make sure we respect Debian Policy and only compile -O2
+## -- fixed upstream in 1.2 branch
 
 @DPATCH@
 diff -urNad asterisk-1.2.0.dfsg~/Makefile asterisk-1.2.0.dfsg/Makefile

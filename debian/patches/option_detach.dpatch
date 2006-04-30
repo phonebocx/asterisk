@@ -3,6 +3,8 @@
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
 ## DP: when running asterisk -D: detach, even if -v or -d was given
+## -- applied upstream as -F option to *force* forking
+## -- in trunk (will be 1.4.x)
 
 @DPATCH@
 diff -urNad asterisk/asterisk.c /tmp/dpep.ahsnFR/asterisk/asterisk.c

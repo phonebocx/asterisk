@@ -3,6 +3,7 @@
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
 ## DP: disable the nunfunctional support for R2 in chan_zap
+## -- applied upstream for trunk (1.4.x)
 
 @DPATCH@
 diff -urNad asterisk-1.2.0.dfsg/channels/Makefile /tmp/dpep.54ZD6D/asterisk-1.2.0.dfsg/channels/Makefile

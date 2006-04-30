@@ -1,8 +1,15 @@
 asterisk (1:1.2.7.1.dfsg-3) UNRELEASED; urgency=low
 
+  [ Mark Purcell ]
   * NOT RELEASED YET
 
- -- Mark Purcell <msp@debian.org>  Sun, 23 Apr 2006 15:47:42 +0100
+  [ Kilian Krause ]
+  * Remove unused correct_pid.dpatch (has apparently been fixed with 1.2
+    upstream)
+  * debian/patches/100_nonroot.dpatch, debian/patches/20_Makefile.dpatch,
+    debian/patches/25_subdirs_Makefiles.dpatch: Remove unused patches
+  * 
+ -- Kilian Krause <kilian@debian.org>  Sun, 30 Apr 2006 16:38:40 +0200
 
 asterisk (1:1.2.7.1.dfsg-2) unstable; urgency=high
 

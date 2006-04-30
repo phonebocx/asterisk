@@ -3,6 +3,7 @@
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
 ## DP: does initialize groups of asterisk user if no -G is given.
+## -- applied upstream for 1.2
 
 @DPATCH@
 diff -urN asterisk-1.0.5.orig/asterisk.c asterisk-1.0.5/asterisk.c

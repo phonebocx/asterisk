@@ -3,6 +3,7 @@
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
 ## DP: No description.
+## -- applied upstream in 1.2 branch
 
 @DPATCH@
 diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
