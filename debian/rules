@@ -170,6 +170,8 @@ install: build
 binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
+	dh_installlogrotate -i 
+	dh_installinit -i -- defaults 21
 	dh_installdocs -i -XREADME.cygwin
 	dh_installexamples -i -XCVS
 	dh_installcron -i
@@ -190,8 +192,6 @@ binary-arch: build install
 	dh_installdocs -a
 	dh_installman -pasterisk-classic -pasterisk-bristuff *.[1-8] debian/*.1 debian/*.8
 	dh_installexamples -a -XCVS
-	dh_installlogrotate -a --name=asterisk
-	dh_installinit -a --name=asterisk -- defaults 21
 	dh_installchangelogs ChangeLog -a
 	dh_strip -a
 	dh_link -a
