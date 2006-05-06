@@ -2,17 +2,18 @@ asterisk (1:1.2.7.1.dfsg-3) UNRELEASED; urgency=low
 
   [ Mark Purcell ]
   * NOT RELEASED YET
+  * Update debian/watch for numeric upstream versions
 
   [ Kilian Krause ]
   * Remove unused correct_pid.dpatch (has apparently been fixed with 1.2
     upstream)
   * debian/patches/100_nonroot.dpatch, debian/patches/20_Makefile.dpatch,
     debian/patches/25_subdirs_Makefiles.dpatch: Remove unused patches
-  
+
   [ Tzafrir Cohen ]
   * reunite init.d and logrotate scripts in the package asterisk
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon,  1 May 2006 02:38:54 +0300
+ -- Mark Purcell <msp@debian.org>  Sat,  6 May 2006 11:24:21 +0100
 
 asterisk (1:1.2.7.1.dfsg-2) unstable; urgency=high
 
