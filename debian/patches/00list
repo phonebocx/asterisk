@@ -10,6 +10,7 @@ pubkey_jnctn
 nomarch
 nooptimize
 chanzap_disable_r2.dpatch
+correct_pid_display
 arm
 zap_restart
 backport_playdtmf

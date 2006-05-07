@@ -1,0 +1,24 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## correct_ps_display.dpatch by Kilian Krause <kilian@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Display the correct pid in the asterisk console. Closes: 338646
+## DP: Upstream bug: http://bugs.digium.com/view.php?id=7098
+@DPATCH@
+diff -Naur asterisk-1.2.1.dfsg.1/asterisk.c asterisk-1.2.1.dfsg.1.patched/asterisk.c
+--- asterisk-1.2.1.dfsg.1/asterisk.c	2005-11-16 13:36:55.308985128 -0600
++++ asterisk-1.2.1.dfsg.1.patched/asterisk.c	2005-11-16 13:37:10.426686888 -0600
+@@ -2170,11 +2170,12 @@
+ 
+ 	if (!option_verbose && !option_debug && !option_nofork && !option_console) {
+ 		daemon(0,0);
++		ast_mainpid = getpid();
+ 		/* Blindly re-write pid file since we are forking */
+ 		unlink((char *)ast_config_AST_PID);
+ 		f = fopen((char *)ast_config_AST_PID, "w");
+ 		if (f) {
+-			fprintf(f, "%d\n", (int)getpid());
++			fprintf(f, "%d\n", ast_mainpid);
+ 			fclose(f);
+ 		} else
+ 			ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", (char *)ast_config_AST_PID, strerror(errno));

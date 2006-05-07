@@ -12,6 +12,7 @@ asterisk (1:1.2.7.1.dfsg-3) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * reunite init.d and logrotate scripts in the package asterisk
+  * Re-add correct_pid_display.dpatch
 
  -- Mark Purcell <msp@debian.org>  Sat,  6 May 2006 11:24:21 +0100
 
