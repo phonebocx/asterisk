@@ -13,8 +13,9 @@ asterisk (1:1.2.7.1.dfsg-3) UNRELEASED; urgency=low
   [ Tzafrir Cohen ]
   * reunite init.d and logrotate scripts in the package asterisk
   * Re-add correct_pid_display.dpatch
+  * bristuff 0.3.0-PRE1p (gsm functionality missing: needs libgstam)
 
- -- Mark Purcell <msp@debian.org>  Sat,  6 May 2006 11:24:21 +0100
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 11 May 2006 18:14:36 +0300
 
 asterisk (1:1.2.7.1.dfsg-2) unstable; urgency=high
 
