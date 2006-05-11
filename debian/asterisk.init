@@ -23,6 +23,7 @@ GROUP=$USER
 DAEMON=/usr/sbin/$NAME
 DESC="Asterisk PBX"
 PIDFILE="/var/run/asterisk/asterisk.pid"
+ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
 
 # by default: use real-time priority
 PARAMS=""
@@ -103,10 +104,15 @@ case "$1" in
 			echo "$DESC is already running. Use restart."
 			exit 1
 		fi
+		start-stop-daemon --start --group $GROUP --pidfile "$PIDFILE" \
+			--exec $REALDAEMON -- $PARAMS
+	else
+		start-stop-daemon --start --group $GROUP --make-pidfile \
+			--pidfile "$ASTSAFE_PIDFILE" \
+			--exec $REALDAEMON -- $PARAMS
 	fi
-	echo -n "Starting $DESC: "
-	start-stop-daemon --start --group $GROUP --pidfile "$PIDFILE" \
-		--exec $REALDAEMON -- $PARAMS
+		
+	
 	echo "$NAME."
 	;;
   stop)
@@ -125,11 +131,12 @@ case "$1" in
 	## giving a small grace time to shut down cleanly.
 	#sleep 2 # you can add timeouts in the comma
 	if [ "$RUNASTSAFE" = "yes" ];then
-		start-stop-daemon --quiet --oknodo --stop --exec $WRAPPER_DAEMON 
+		start-stop-daemon --quiet --pidfile $ASTSAFE_PIDFILE --oknodo \
+			--stop
 	fi
 	# just making sure it's really, really dead. 
 	# KILL is necessary just in case there's an asterisk -r in the background
-	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $REALDAEMON
+	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $DAEMON
 	echo "."
 	;;
   reload)
@@ -153,8 +160,7 @@ case "$1" in
 	;;
   *)
 	N=/etc/init.d/$NAME
-	# echo "Usage: $N {start|stop|restart|reload|logger-reload|extensions-reload|force-reload}" >&2
-	echo "Usage: $N {start|stop|status|debug|restart|force-reload}" >&2
+	echo "Usage: $N {start|stop|restart|reload|status|debug|logger-reload|extensions-reload|force-reload}" >&2
 	exit 1
 	;;
 esac
