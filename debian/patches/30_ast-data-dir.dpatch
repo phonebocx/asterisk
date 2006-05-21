@@ -8,10 +8,10 @@
 ## -- is applied upstream for 1.2
 
 @DPATCH@
-diff -urNad asterisk-1.2.1.dfsg~/asterisk.c asterisk-1.2.1.dfsg/asterisk.c
---- asterisk-1.2.1.dfsg~/asterisk.c	2005-11-29 18:24:39.000000000 +0000
-+++ asterisk-1.2.1.dfsg/asterisk.c	2005-12-07 21:52:07.000000000 +0000
-@@ -202,6 +202,7 @@
+diff -urNad asterisk-1.2.7.1.dfsg/asterisk.c /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/asterisk.c
+--- asterisk-1.2.7.1.dfsg/asterisk.c	2006-05-13 18:14:15.970288503 +0300
++++ /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/asterisk.c	2006-05-13 18:14:16.228355957 +0300
+@@ -216,6 +216,7 @@
  char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_MONITOR_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_VAR_DIR[AST_CONFIG_MAX_PATH];
@@ -19,26 +19,26 @@ diff -urNad asterisk-1.2.1.dfsg~/asterisk.c asterisk-1.2.1.dfsg/asterisk.c
  char ast_config_AST_LOG_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_AGI_DIR[AST_CONFIG_MAX_PATH];
  char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
-@@ -1788,6 +1789,7 @@
- 	ast_copy_string(ast_config_AST_MODULE_DIR, AST_MODULE_DIR, sizeof(ast_config_AST_VAR_DIR));
+@@ -1882,6 +1883,7 @@
+ 	ast_copy_string(ast_config_AST_MODULE_DIR, AST_MODULE_DIR, sizeof(ast_config_AST_MODULE_DIR));
   	snprintf(ast_config_AST_MONITOR_DIR, sizeof(ast_config_AST_MONITOR_DIR) - 1, "%s/monitor", ast_config_AST_SPOOL_DIR);
  	ast_copy_string(ast_config_AST_VAR_DIR, AST_VAR_DIR, sizeof(ast_config_AST_VAR_DIR));
 +	ast_copy_string(ast_config_AST_DATA_DIR, AST_DATA_DIR, sizeof(ast_config_AST_DATA_DIR));
  	ast_copy_string(ast_config_AST_LOG_DIR, AST_LOG_DIR, sizeof(ast_config_AST_LOG_DIR));
  	ast_copy_string(ast_config_AST_AGI_DIR, AST_AGI_DIR, sizeof(ast_config_AST_AGI_DIR));
  	ast_copy_string(ast_config_AST_DB, AST_DB, sizeof(ast_config_AST_DB));
-@@ -1823,6 +1826,8 @@
+@@ -1918,6 +1920,8 @@
  			ast_copy_string(ast_config_AST_VAR_DIR, v->value, sizeof(ast_config_AST_VAR_DIR));
  			snprintf(ast_config_AST_DB, sizeof(ast_config_AST_DB), "%s/astdb", v->value);
-			snprintf(ast_config_AST_KEY_DIR, sizeof(ast_config_AST_KEY_DIR), "%s/keys", v->value);
+ 			snprintf(ast_config_AST_KEY_DIR, sizeof(ast_config_AST_KEY_DIR), "%s/keys", v->value);
 +		} else if (!strcasecmp(v->name, "astdatadir")) {
 +			ast_copy_string(ast_config_AST_DATA_DIR, v->value, sizeof(ast_config_AST_DATA_DIR));
  		} else if (!strcasecmp(v->name, "astlogdir")) {
  			ast_copy_string(ast_config_AST_LOG_DIR, v->value, sizeof(ast_config_AST_LOG_DIR));
  		} else if (!strcasecmp(v->name, "astagidir")) {
-diff -urNad asterisk-1.2.1.dfsg~/build_tools/make_defaults_h asterisk-1.2.1.dfsg/build_tools/make_defaults_h
---- asterisk-1.2.1.dfsg~/build_tools/make_defaults_h	2005-06-20 18:26:08.000000000 +0100
-+++ asterisk-1.2.1.dfsg/build_tools/make_defaults_h	2005-12-07 21:52:07.000000000 +0000
+diff -urNad asterisk-1.2.7.1.dfsg/build_tools/make_defaults_h /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/build_tools/make_defaults_h
+--- asterisk-1.2.7.1.dfsg/build_tools/make_defaults_h	2005-06-20 20:26:08.000000000 +0300
++++ /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/build_tools/make_defaults_h	2006-05-13 18:14:16.228355957 +0300
 @@ -11,6 +11,7 @@
  #define AST_MODULE_DIR "${INSTALL_PATH}${MODULES_DIR}"
  #define AST_SPOOL_DIR  "${INSTALL_PATH}${ASTSPOOLDIR}"
@@ -57,9 +57,21 @@ diff -urNad asterisk-1.2.1.dfsg~/build_tools/make_defaults_h asterisk-1.2.1.dfsg
 +#define AST_IMAGES     "${INSTALL_PATH}${ASTDATADIR}/images"
  
  END
-diff -urNad asterisk-1.2.1.dfsg~/configs/musiconhold.conf.sample asterisk-1.2.1.dfsg/configs/musiconhold.conf.sample
---- asterisk-1.2.1.dfsg~/configs/musiconhold.conf.sample	2005-11-29 18:24:39.000000000 +0000
-+++ asterisk-1.2.1.dfsg/configs/musiconhold.conf.sample	2005-12-07 21:52:07.000000000 +0000
+diff -urNad asterisk-1.2.7.1.dfsg/channels/chan_iax2.c /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/channels/chan_iax2.c
+--- asterisk-1.2.7.1.dfsg/channels/chan_iax2.c	2006-03-31 22:11:26.000000000 +0300
++++ /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/channels/chan_iax2.c	2006-05-13 18:27:17.074963284 +0300
+@@ -1367,7 +1367,7 @@
+ 		cur = cur->next;
+ 	}
+ 	/* Now that we've freed them, load the new ones */
+-	snprintf(dir, sizeof(dir), "%s/firmware/iax", (char *)ast_config_AST_VAR_DIR);
++	snprintf(dir, sizeof(dir), "%s/firmware/iax", (char *)ast_config_AST_DATA_DIR);
+ 	fwd = opendir(dir);
+ 	if (fwd) {
+ 		while((de = readdir(fwd))) {
+diff -urNad asterisk-1.2.7.1.dfsg/configs/musiconhold.conf.sample /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/configs/musiconhold.conf.sample
+--- asterisk-1.2.7.1.dfsg/configs/musiconhold.conf.sample	2005-11-29 20:24:39.000000000 +0200
++++ /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/configs/musiconhold.conf.sample	2006-05-13 18:14:16.228355957 +0300
 @@ -4,7 +4,7 @@
  
  [default]
@@ -69,10 +81,10 @@ diff -urNad asterisk-1.2.1.dfsg~/configs/musiconhold.conf.sample asterisk-1.2.1.
  
  ; valid mode options:
  ; quietmp3 	-- default
-diff -urNad asterisk-1.2.1.dfsg~/file.c asterisk-1.2.1.dfsg/file.c
---- asterisk-1.2.1.dfsg~/file.c	2005-11-29 18:24:39.000000000 +0000
-+++ asterisk-1.2.1.dfsg/file.c	2005-12-07 21:52:07.000000000 +0000
-@@ -312,7 +312,7 @@
+diff -urNad asterisk-1.2.7.1.dfsg/file.c /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/file.c
+--- asterisk-1.2.7.1.dfsg/file.c	2006-01-10 00:07:26.000000000 +0200
++++ /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/file.c	2006-05-13 18:14:16.228355957 +0300
+@@ -313,7 +313,7 @@
  	} else {
  		char tmp[AST_CONFIG_MAX_PATH] = "";
  
@@ -81,9 +93,9 @@ diff -urNad asterisk-1.2.1.dfsg~/file.c asterisk-1.2.1.dfsg/file.c
  		fnsize = strlen(tmp) + strlen(filename) + strlen(type) + 3;
  		fn = malloc(fnsize);
  		if (fn)
-diff -urNad asterisk-1.2.1.dfsg~/image.c asterisk-1.2.1.dfsg/image.c
---- asterisk-1.2.1.dfsg~/image.c	2005-11-29 18:24:39.000000000 +0000
-+++ asterisk-1.2.1.dfsg/image.c	2005-12-07 21:52:07.000000000 +0000
+diff -urNad asterisk-1.2.7.1.dfsg/image.c /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/image.c
+--- asterisk-1.2.7.1.dfsg/image.c	2006-03-24 16:48:11.000000000 +0200
++++ /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/image.c	2006-05-13 18:14:16.228355957 +0300
 @@ -108,9 +108,9 @@
  			snprintf(buf, len, "%s.%s", filename, ext);
  	} else {
@@ -96,9 +108,9 @@ diff -urNad asterisk-1.2.1.dfsg~/image.c asterisk-1.2.1.dfsg/image.c
  	}
  }
  
-diff -urNad asterisk-1.2.1.dfsg~/include/asterisk.h asterisk-1.2.1.dfsg/include/asterisk.h
---- asterisk-1.2.1.dfsg~/include/asterisk.h	2005-11-30 03:37:37.000000000 +0000
-+++ asterisk-1.2.1.dfsg/include/asterisk.h	2005-12-07 21:52:07.000000000 +0000
+diff -urNad asterisk-1.2.7.1.dfsg/include/asterisk.h /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/include/asterisk.h
+--- asterisk-1.2.7.1.dfsg/include/asterisk.h	2005-11-30 05:37:37.000000000 +0200
++++ /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/include/asterisk.h	2006-05-13 18:14:16.228355957 +0300
 @@ -29,6 +29,7 @@
  extern char ast_config_AST_SPOOL_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_MONITOR_DIR[AST_CONFIG_MAX_PATH];
@@ -107,10 +119,10 @@ diff -urNad asterisk-1.2.1.dfsg~/include/asterisk.h asterisk-1.2.1.dfsg/include/
  extern char ast_config_AST_LOG_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_AGI_DIR[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_DB[AST_CONFIG_MAX_PATH];
-diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
---- asterisk-1.2.1.dfsg~/Makefile	2005-12-05 06:47:51.000000000 +0000
-+++ asterisk-1.2.1.dfsg/Makefile	2005-12-07 21:57:47.000000000 +0000
-@@ -108,6 +108,7 @@
+diff -urNad asterisk-1.2.7.1.dfsg/Makefile /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/Makefile
+--- asterisk-1.2.7.1.dfsg/Makefile	2006-04-12 00:58:47.000000000 +0300
++++ /tmp/dpep.um4nZ3/asterisk-1.2.7.1.dfsg/Makefile	2006-05-13 18:26:34.253802810 +0300
+@@ -110,6 +110,7 @@
  ifneq ($(OSARCH),SunOS)
    ASTLIBDIR=$(INSTALL_PREFIX)/usr/lib/asterisk
    ASTVARLIBDIR=$(INSTALL_PREFIX)/var/lib/asterisk
@@ -118,7 +130,7 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
    ASTETCDIR=$(INSTALL_PREFIX)/etc/asterisk
    ASTSPOOLDIR=$(INSTALL_PREFIX)/var/spool/asterisk
    ASTLOGDIR=$(INSTALL_PREFIX)/var/log/asterisk
-@@ -115,7 +116,7 @@
+@@ -117,10 +118,10 @@
    ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
    ASTBINDIR=$(INSTALL_PREFIX)/usr/bin
    ASTSBINDIR=$(INSTALL_PREFIX)/usr/sbin
@@ -126,8 +138,20 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
 +  ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run/asterisk
    ASTMANDIR=$(INSTALL_PREFIX)/usr/share/man
    MODULES_DIR=$(ASTLIBDIR)/modules
+-  AGI_DIR=$(ASTVARLIBDIR)/agi-bin
++  AGI_DIR=$(ASTDATADIR)/agi-bin
+ else
+   ASTLIBDIR=$(INSTALL_PREFIX)/opt/asterisk/lib
+   ASTVARLIBDIR=$(INSTALL_PREFIX)/var/opt/asterisk/lib
+@@ -136,6 +137,7 @@
+   MODULES_DIR=$(ASTLIBDIR)/modules
    AGI_DIR=$(ASTVARLIBDIR)/agi-bin
-@@ -539,38 +540,38 @@
+ endif
++FIRMWARE_DIR=$(ASTDATADIR)/firmware
+ 
+ ASTCFLAGS=
+ 
+@@ -542,38 +544,38 @@
  
  datafiles: all
  	if [ x`$(ID) -un` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
@@ -175,7 +199,7 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
  		else \
  			echo "No description for $$x"; \
  			exit 1; \
-@@ -578,16 +579,16 @@
+@@ -581,16 +583,16 @@
  	done
  	for x in sounds/demo-* sounds/vm-* sounds/transfer* sounds/pbx-* sounds/ss-* sounds/beep* sounds/dir-* sounds/conf-* sounds/agent-* sounds/invalid* sounds/tt-* sounds/auth-* sounds/privacy-* sounds/queue-* sounds/spy-* sounds/priv-* sounds/screen-* sounds/hello-*; do \
  		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
@@ -196,7 +220,7 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
  	done
  	mkdir -p $(DESTDIR)$(AGI_DIR)
  
-@@ -623,6 +624,7 @@
+@@ -626,6 +628,7 @@
  	mkdir -p $(DESTDIR)$(ASTETCDIR)
  	mkdir -p $(DESTDIR)$(ASTBINDIR)
  	mkdir -p $(DESTDIR)$(ASTVARRUNDIR)
@@ -204,7 +228,7 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
  	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail
  	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/dictate
  	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/system
-@@ -645,7 +647,7 @@
+@@ -648,12 +651,12 @@
  	if [ -n "$(OLDHEADERS)" ]; then \
  		rm -f $(addprefix $(DESTDIR)$(ASTHEADERDIR)/,$(OLDHEADERS)) ;\
  	fi
@@ -213,7 +237,23 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
  	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-csv
  	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-custom
  	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/keys
-@@ -763,10 +765,10 @@
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/firmware
+-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/firmware/iax
++	mkdir -p $(DESTDIR)$(FIRMWARE_DIR)
++	mkdir -p $(DESTDIR)$(FIRMWARE_DIR)/iax
+ 	mkdir -p $(DESTDIR)$(ASTMANDIR)/man8
+ 	$(INSTALL) -m 644 keys/iaxtel.pub $(DESTDIR)$(ASTVARLIBDIR)/keys
+ 	$(INSTALL) -m 644 keys/freeworlddialup.pub $(DESTDIR)$(ASTVARLIBDIR)/keys
+@@ -662,7 +665,7 @@
+ 	$(INSTALL) -m 644 contrib/scripts/autosupport.8 $(DESTDIR)$(ASTMANDIR)/man8
+ 	$(INSTALL) -m 644 contrib/scripts/safe_asterisk.8 $(DESTDIR)$(ASTMANDIR)/man8
+ 	if [ -d contrib/firmware/iax ]; then \
+-		$(INSTALL) -m 644 contrib/firmware/iax/iaxy.bin $(DESTDIR)$(ASTVARLIBDIR)/firmware/iax/iaxy.bin; \
++		$(INSTALL) -m 644 contrib/firmware/iax/iaxy.bin $(DESTDIR)$(FIRMWARE_DIR)/iax/iaxy.bin; \
+ 	else \
+ 		echo "You need to do cvs update -d not just cvs update" ; \
+ 	fi 
+@@ -764,10 +767,10 @@
  	else \
  		echo "Skipping asterisk.conf creation"; \
  	fi
@@ -226,7 +266,7 @@ diff -urNad asterisk-1.2.1.dfsg~/Makefile asterisk-1.2.1.dfsg/Makefile
  		else \
  			echo "No description for $$x"; \
  			exit 1; \
-@@ -780,11 +782,11 @@
+@@ -781,11 +784,11 @@
  	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/INBOX
  	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm
  	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isunavail; do \

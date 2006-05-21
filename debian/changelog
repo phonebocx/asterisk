@@ -14,8 +14,17 @@ asterisk (1:1.2.7.1.dfsg-3) UNRELEASED; urgency=low
   * reunite init.d and logrotate scripts in the package asterisk
   * Re-add correct_pid_display.dpatch
   * bristuff 0.3.0-PRE1p (gsm functionality missing: needs libgstam)
+  * sys_readline.dpatch: Realine support in the CLI. TODO: tab completion
+  * sys_editline.dpatch: alternativly, simply use the system version of
+    editline (not used).  
+  * func_odbc_12.dpatch: backport of func_odbc (Closes: #364633)
+  * brazilian_syntax.dpatch (using "pt_BR")
+  * vm_he.dpatch: Hebrew in app_voicemail
+  * The data_dir patch also moves agi-bin/ and firmware/
+  * option_detach: using -F instead of -D (the same as upstream)
+  * asterisk.init: added "zaptel-fix" to unload and reload zaptel modules
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 11 May 2006 18:14:36 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 16 May 2006 13:40:21 +0300
 
 asterisk (1:1.2.7.1.dfsg-2) unstable; urgency=high
 

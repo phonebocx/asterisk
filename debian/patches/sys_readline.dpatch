@@ -1,0 +1,356 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## sys_readline.dpatch by Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Use readline for the CLI. partially works.
+
+@DPATCH@
+diff -urNad asterisk-1.2.7.1.dfsg/asterisk.c /tmp/dpep.yLtN9f/asterisk-1.2.7.1.dfsg/asterisk.c
+--- asterisk-1.2.7.1.dfsg/asterisk.c	2006-05-16 10:34:54.818659487 +0300
++++ /tmp/dpep.yLtN9f/asterisk-1.2.7.1.dfsg/asterisk.c	2006-05-16 10:37:29.595033197 +0300
+@@ -114,7 +114,12 @@
+ #include "asterisk/file.h"
+ #include "asterisk/io.h"
+ #include "asterisk/lock.h"
++#ifdef SYS_READLINE
++#include <readline/readline.h>
++#include <readline/history.h>
++#else  /* SYS_READLINE */
+ #include "editline/histedit.h"
++#endif /* SYS_READLINE */
+ #include "asterisk/config.h"
+ #include "asterisk/version.h"
+ #include "asterisk/linkedlists.h"
+@@ -198,8 +203,12 @@
+ time_t ast_startuptime;
+ time_t ast_lastreloadtime;
+ 
++#ifdef SYS_READLINE
++static const char * rl_readline_name = "asterisk";
++#else
+ static History *el_hist = NULL;
+ static EditLine *el = NULL;
++#endif /* SYS_READLINE */
+ static char *remotehostname;
+ 
+ struct console consoles[AST_MAX_CONNECTS];
+@@ -717,6 +726,15 @@
+ 		ast_log(LOG_WARNING, "Unable to create socket: %s\n", strerror(errno));
+ 		return 0;
+ 	}
++#ifdef SYS_READLINE
++	/* If we use readline, we'll use its main loop, and non-blocking 
++	 * reads */
++	if (0 != fcntl(ast_consock, F_SETFL, O_NONBLOCK)) {
++		ast_log(LOG_WARNING, "Unable to set socket non-blocking: %s\n",
++				strerror(errno));
++		return 0;
++	}
++#endif
+ 	memset(&sunaddr, 0, sizeof(sunaddr));
+ 	sunaddr.sun_family = AF_LOCAL;
+ 	ast_copy_string(sunaddr.sun_path, (char *)ast_config_AST_SOCKET, sizeof(sunaddr.sun_path));
+@@ -889,11 +907,15 @@
+ 		if (getenv("HOME")) 
+ 			snprintf(filename, sizeof(filename), "%s/.asterisk_history", getenv("HOME"));
+ 		if (!ast_strlen_zero(filename))
++#ifdef SYS_READLINE
++			write_history(filename);	
++#else /* SYS_READLINE */
+ 			ast_el_write_history(filename);
+ 		if (el != NULL)
+ 			el_end(el);
+ 		if (el_hist != NULL)
+ 			history_end(el_hist);
++#endif /* SYS_READLINE */
+ 	}
+ 	if (option_verbose)
+ 		ast_verbose("Executing last minute cleanups\n");
+@@ -1001,7 +1023,11 @@
+ 	fflush(stdout);
+ 	/* Called when readline data is available */
+ 	if (s && !ast_all_zeros(s))
++#ifdef SYS_READLINE
++		add_history(s);
++#else /* SYS_READLINE */
+ 		ast_el_add_history(s);
++#endif /* SYS_READLINE */
+ 	/* Give the console access to the shell */
+ 	if (s) {
+ 		/* The real handler for bang */
+@@ -1021,7 +1047,11 @@
+ 	int ret = 0;
+ 	/* Called when readline data is available */
+ 	if (s && !ast_all_zeros(s))
++#ifdef SYS_READLINE
++		add_history(s);
++#else /* SYS_READLINE */
+ 		ast_el_add_history(s);
++#endif /* SYS_READLINE */
+ 	/* Give the console access to the shell */
+ 	if (s) {
+ 		/* The real handler for bang */
+@@ -1253,7 +1283,76 @@
+ #endif /* ! LOW_MEMORY */
+ };
+ 
++
++static void attempt_reconnect(void) 
++{
++	int tries;
++	int reconnects_per_second = 20;
++	fprintf(stderr, "Attempting to reconnect for 30 seconds\n");
++	for (tries=0;tries<30 * reconnects_per_second;tries++) {
++		if (ast_tryconnect()) {
++			fprintf(stderr, "Reconnect succeeded after %.3f seconds\n", 1.0 / reconnects_per_second * tries);
++			printf(term_quit());
++			WELCOME_MESSAGE;
++			break;
++		} else {
++			usleep(1000000 / reconnects_per_second);
++		}
++	}
++	if (tries >= 30 * reconnects_per_second) {
++		fprintf(stderr, "Failed to reconnect for 30 seconds.  Quitting.\n");
++		quit_handler(0, 0, 0, 0);
++	}
++}
++
++/* Called by readline every 0.1 seconds or so from its main loop. */
++static int ast_rl_event_hook(void) 
++{
++#ifdef SYS_READLINE
++	int res;
++	char buf[512];
++
++	res = read(ast_consock, buf, sizeof(buf) - 1);
++	/* if the remote side disappears exit */
++	if ((res == -1) && (errno == EAGAIN))
++		return 0; /* There was nothing to read. Maybe next time. */
++	
++	if (res < 1) {
++		fprintf(stderr, "\nDisconnected from Asterisk server: %s.\n",
++			strerror(errno));
++		if (!option_reconnect) {
++			quit_handler(0, 0, 0, 0);
++		} else {
++			attempt_reconnect();
++		}
++		/* never reached */
++	}
++
++	buf[res] = '\0';
++
++	/* Let's assume we always get complete lines in read-s */
++	fputc('\r', rl_outstream); /* to beginning of line... */
++	/* suppress an excessive linefeed: */
++	if (buf[res-1] == '\n') {
++		buf[res-1] = '\0';
++	}
++	fputs(buf, rl_outstream);     /* The text itself         */
++	if (option_exec)
++		return 0;
++	/* and refresh readline's prompt */
++	rl_forced_update_display();
++	
++	return 0;
++#endif
++}
++
++#ifdef SYS_READLINE
++/* TODO: this #define means we're doing something wrong. */
++#define CC_REFRESH 4
++static int ast_rl_read_char(char *cp)
++#else
+ static int ast_el_read_char(EditLine *el, char *cp)
++#endif
+ {
+ 	int num_read=0;
+ 	int lastpos=0;
+@@ -1332,13 +1431,15 @@
+ 	return (0);
+ }
+ 
+-static char *cli_prompt(EditLine *el)
++static char *cli_prompt(void)
+ {
+ 	static char prompt[200];
+ 	char *pfmt;
+ 	int color_used=0;
+ 	char term_code[20];
+ 
++	if (option_exec)
++		return "";
+ 	if ((pfmt = getenv("ASTERISK_PROMPT"))) {
+ 		char *t = pfmt, *p = prompt;
+ 		memset(prompt, 0, sizeof(prompt));
+@@ -1477,6 +1578,7 @@
+ 	return(prompt);	
+ }
+ 
++#ifndef SYS_READLINE
+ static char **ast_el_strtoarr(char *buf)
+ {
+ 	char **match_list = NULL, *retstr;
+@@ -1754,6 +1856,20 @@
+ 
+ 	return ret;
+ }
++#endif /* SYS_READLINE */
++
++static void ast_rl_initialize(void) 
++{
++	static int initilized = 0;
++	/* ignore races for the moment */
++	if (!initilized) {
++		rl_initialize();
++		rl_set_prompt(cli_prompt());
++		rl_event_hook = ast_rl_event_hook;
++		//fprintf(stderr, "===INITILIZING READLINE==[%s]====\n", cli_prompt());
++		initilized = 1;
++	}
++}
+ 
+ static void ast_remotecontrol(char * data)
+ {
+@@ -1768,7 +1884,7 @@
+ 	char *stringp=NULL;
+ 
+ 	char *ebuf;
+-	int num = 0;
++	//int num = 0;
+ 
+ 	read(ast_consock, buf, sizeof(buf));
+ 	if (data)
+@@ -1793,6 +1909,9 @@
+ 	remotehostname = hostname;
+ 	if (getenv("HOME")) 
+ 		snprintf(filename, sizeof(filename), "%s/.asterisk_history", getenv("HOME"));
++#ifdef SYS_READLINE
++	ast_rl_initialize();
++#else /* SYS_READLINE */
+ 	if (el_hist == NULL || el == NULL)
+ 		ast_el_initialize();
+ 
+@@ -1800,7 +1919,8 @@
+ 
+ 	if (!ast_strlen_zero(filename))
+ 		ast_el_read_history(filename);
+-
++#endif /* SYS_READLINE */
++	
+ 	if (option_exec && data) {  /* hack to print output then exit if asterisk -rx is used */
+ 		char tempchar;
+ 		struct pollfd fds[0];
+@@ -1808,12 +1928,21 @@
+ 		fds[0].events = POLLIN;
+ 		fds[0].revents = 0;
+ 		while(poll(fds, 1, 100) > 0) {
++#ifdef SYS_READLINE
++			//ast_rl_read_char(&tempchar);
++			ast_rl_event_hook();
++#else
+ 			ast_el_read_char(el, &tempchar);
++#endif
+ 		}
+ 		return;
+ 	}
+ 	for(;;) {
++#ifdef SYS_READLINE
++		ebuf = readline(cli_prompt());
++#else
+ 		ebuf = (char *)el_gets(el, &num);
++#endif
+ 
+ 		if (!ast_strlen_zero(ebuf)) {
+ 			if (ebuf[strlen(ebuf)-1] == '\n')
+@@ -2023,7 +2152,7 @@
+ 	int x;
+ 	FILE *f;
+ 	sigset_t sigs;
+-	int num;
++	//int num;
+ 	int is_child_of_nonroot=0;
+ 	char *buf;
+ 	char *runuser=NULL, *rungroup=NULL;
+@@ -2221,6 +2350,10 @@
+ 			ast_log(LOG_WARNING, "Unable to initialize supplementary group list for %s\n", runuser);
+ 			exit(1);
+ 		}
++		if (!rungroup && initgroups(runuser, pw->pw_gid)) {
++			ast_log(LOG_WARNING, "Unable to initialize supplementary group list for %s\n", runuser);
++			exit(1);
++		}
+ 		if (setuid(pw->pw_uid)) {
+ 			ast_log(LOG_WARNING, "Unable to setuid to %d (%s)\n", (int)pw->pw_uid, runuser);
+ 			exit(1);
+@@ -2254,11 +2387,15 @@
+ 	
+ 
+ 	if (option_console) {
++#ifdef SYS_READLINE
++		ast_rl_initialize();
++#else
+ 		if (el_hist == NULL || el == NULL)
+ 			ast_el_initialize();
+ 
+ 		if (!ast_strlen_zero(filename))
+ 			ast_el_read_history(filename);
++#endif /* SYS_READLINE */
+ 	}
+ 
+ 	if (ast_tryconnect()) {
+@@ -2435,7 +2573,8 @@
+ 		set_title(title);
+ 
+ 		for (;;) {
+-			buf = (char *)el_gets(el, &num);
++			//buf = (char *)el_gets(el, &num);
++			buf = readline(cli_prompt());
+ 			if (buf) {
+ 				if (buf[strlen(buf)-1] == '\n')
+ 					buf[strlen(buf)-1] = '\0';
+diff -urNad asterisk-1.2.7.1.dfsg/cli.c /tmp/dpep.yLtN9f/asterisk-1.2.7.1.dfsg/cli.c
+--- asterisk-1.2.7.1.dfsg/cli.c	2006-05-16 10:34:54.045457773 +0300
++++ /tmp/dpep.yLtN9f/asterisk-1.2.7.1.dfsg/cli.c	2006-05-16 10:34:55.592861462 +0300
+@@ -44,7 +44,15 @@
+ #include "asterisk/utils.h"
+ #include "asterisk/lock.h"
+ /* For rl_filename_completion */
++#ifndef SYS_READLINE
+ #include "editline/readline/readline.h"
++#else
++#  ifdef SYS_READLINE_EDIT
++#    include <editline/readline.h>
++#  else
++#    include <readline/readline.h>
++#  endif
++#endif
+ /* For module directory */
+ #include "asterisk/version.h"
+ 
+diff -urNad asterisk-1.2.7.1.dfsg/Makefile /tmp/dpep.yLtN9f/asterisk-1.2.7.1.dfsg/Makefile
+--- asterisk-1.2.7.1.dfsg/Makefile	2006-05-16 10:34:54.818659487 +0300
++++ /tmp/dpep.yLtN9f/asterisk-1.2.7.1.dfsg/Makefile	2006-05-16 10:34:55.850928786 +0300
+@@ -307,7 +307,11 @@
+ 
+ endif # WITHOUT_ZAPTEL
+ 
+-LIBEDIT=editline/libedit.a
++#LIBEDIT=editline/libedit.a
++#LIBS+=-ledit
++LIBS+=-lreadline
++ASTCFLAGS+=-DSYS_READLINE
++#ASTCFLAGS+=-DSYS_READLINE_EDIT
+ 
+ ifneq ($(wildcard .version),)
+   ASTERISKVERSION:=$(shell cat .version)
+@@ -515,7 +519,7 @@
+ cygwin_a:
+ 	$(MAKE) -C cygwin all
+ 
+-asterisk: $(CYGLOADER) editline/libedit.a db1-ast/libdb1.a stdtime/libtime.a $(OBJS)
++asterisk: $(CYGLOADER) db1-ast/libdb1.a stdtime/libtime.a $(OBJS)
+ 	build_tools/make_build_h > include/asterisk/build.h.tmp
+ 	if cmp -s include/asterisk/build.h.tmp include/asterisk/build.h ; then echo ; else \
+ 		mv include/asterisk/build.h.tmp include/asterisk/build.h ; \
