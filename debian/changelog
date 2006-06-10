@@ -1,7 +1,9 @@
-asterisk (1:1.2.7.1.dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.2.9.1.dfsg-1) UNRELEASED; urgency=high
+
+  * NOT RELEASED YET
+  * New  upstream release. [CVE-2006-2898]
 
   [ Mark Purcell ]
-  * NOT RELEASED YET
   * Update debian/watch for numeric upstream versions
 
   [ Kilian Krause ]
@@ -24,7 +26,7 @@ asterisk (1:1.2.7.1.dfsg-3) UNRELEASED; urgency=low
   * option_detach: using -F instead of -D (the same as upstream)
   * asterisk.init: added "zaptel-fix" to unload and reload zaptel modules
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 16 May 2006 13:40:21 +0300
+ -- Kilian Krause <kilian@debian.org>  Sat, 10 Jun 2006 15:11:40 +0200
 
 asterisk (1:1.2.7.1.dfsg-2) unstable; urgency=high
 
