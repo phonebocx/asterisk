@@ -28,6 +28,15 @@ asterisk (1:1.2.9.1.dfsg-1) UNRELEASED; urgency=high
 
  -- Kilian Krause <kilian@debian.org>  Sat, 10 Jun 2006 15:11:40 +0200
 
+asterisk (1:1.2.7.1.dfsg-3) unstable; urgency=high
+
+  * Urgency high as this is a security fix [CVE-2006-2898]
+  * Added 99_CVE-2006-2898.dpatch from Joey Schulze
+    - Fixes: Bug in the IAX2 channel allows remote attackers to craft
+     a denial of service.
+
+ -- Mark Purcell <msp@debian.org>  Tue, 13 Jun 2006 05:11:44 +0100
+
 asterisk (1:1.2.7.1.dfsg-2) unstable; urgency=high
 
   [ Kilian Krause ]
