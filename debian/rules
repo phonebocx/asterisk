@@ -19,7 +19,7 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 
-MAKEFLAGS = OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
+#MAKEFLAGS = OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
 
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
