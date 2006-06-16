@@ -1,0 +1,19 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## optim_o2.dpatch by  <tzafrir@localhost>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: No description.
+
+@DPATCH@
+diff -urNad asterisk-1.2.9.1.dfsg/Makefile /tmp/dpep.6fdqBX/asterisk-1.2.9.1.dfsg/Makefile
+--- asterisk-1.2.9.1.dfsg/Makefile	2006-06-16 21:37:39.000000000 +0300
++++ /tmp/dpep.6fdqBX/asterisk-1.2.9.1.dfsg/Makefile	2006-06-16 21:38:39.000000000 +0300
+@@ -46,7 +46,7 @@
+ #K6OPT  = -DK6OPT
+ 
+ #Tell gcc to optimize the code
+-OPTIMIZE+=-O6
++OPTIMIZE+=-O2
+ endif
+ 
+ #Overwite config files on "make samples"

@@ -19,8 +19,6 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_HOST_ARCH)
 
-MAKEFLAGS = OPTIMIZE=-O2
-
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
 endif

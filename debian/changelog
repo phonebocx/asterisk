@@ -24,6 +24,8 @@ asterisk (1:1.2.9.1.dfsg-1) unstable; urgency=high
   * The data_dir patch also moves agi-bin/ and firmware/
   * option_detach: using -F instead of -D (the same as upstream)
   * asterisk.init: added "zaptel-fix" to unload and reload zaptel modules
+  * optim_o2.dpatch: don't build with -O6 . Also a matching change in
+    debian/rules
 
  -- Kilian Krause <kilian@debian.org>  Fri, 16 Jun 2006 18:04:50 +0000
 
