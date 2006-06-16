@@ -1,6 +1,5 @@
-asterisk (1:1.2.9.1.dfsg-1) UNRELEASED; urgency=high
+asterisk (1:1.2.9.1.dfsg-1) unstable; urgency=high
 
-  * NOT RELEASED YET
   * New  upstream release. [CVE-2006-2898]
 
   [ Mark Purcell ]
@@ -18,7 +17,7 @@ asterisk (1:1.2.9.1.dfsg-1) UNRELEASED; urgency=high
   * bristuff 0.3.0-PRE1q (gsm functionality missing: needs libgstam)
   * sys_readline.dpatch: Realine support in the CLI. TODO: tab completion
   * sys_editline.dpatch: alternativly, simply use the system version of
-    editline (not used).  
+    editline (not used).
   * func_odbc_12.dpatch: backport of func_odbc (Closes: #364633)
   * brazilian_syntax.dpatch (using "pt_BR")
   * vm_he.dpatch: Hebrew in app_voicemail
@@ -26,7 +25,7 @@ asterisk (1:1.2.9.1.dfsg-1) UNRELEASED; urgency=high
   * option_detach: using -F instead of -D (the same as upstream)
   * asterisk.init: added "zaptel-fix" to unload and reload zaptel modules
 
- -- Kilian Krause <kilian@debian.org>  Fri, 16 Jun 2006 16:00:46 +0300
+ -- Kilian Krause <kilian@debian.org>  Fri, 16 Jun 2006 18:04:50 +0000
 
 asterisk (1:1.2.7.1.dfsg-3) unstable; urgency=high
 
