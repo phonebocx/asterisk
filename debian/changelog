@@ -15,7 +15,7 @@ asterisk (1:1.2.9.1.dfsg-1) UNRELEASED; urgency=high
   [ Tzafrir Cohen ]
   * reunite init.d and logrotate scripts in the package asterisk
   * Re-add correct_pid_display.dpatch
-  * bristuff 0.3.0-PRE1p (gsm functionality missing: needs libgstam)
+  * bristuff 0.3.0-PRE1q (gsm functionality missing: needs libgstam)
   * sys_readline.dpatch: Realine support in the CLI. TODO: tab completion
   * sys_editline.dpatch: alternativly, simply use the system version of
     editline (not used).  
@@ -26,7 +26,7 @@ asterisk (1:1.2.9.1.dfsg-1) UNRELEASED; urgency=high
   * option_detach: using -F instead of -D (the same as upstream)
   * asterisk.init: added "zaptel-fix" to unload and reload zaptel modules
 
- -- Kilian Krause <kilian@debian.org>  Sat, 10 Jun 2006 15:11:40 +0200
+ -- Kilian Krause <kilian@debian.org>  Fri, 16 Jun 2006 16:00:46 +0300
 
 asterisk (1:1.2.7.1.dfsg-3) unstable; urgency=high
 
