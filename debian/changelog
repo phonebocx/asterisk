@@ -1,8 +1,12 @@
 asterisk (1:1.2.9.1.dfsg-2) UNRELEASED; urgency=low
 
+  [ Kilian Krause ]
   * NOT RELEASED YET
 
- -- Kilian Krause <kilian@debian.org>  Fri, 16 Jun 2006 19:20:23 +0000
+  [ Mark Purcell ]
+  * Build-Depends: libpri-dev (>= 1.2.3-1)
+
+ -- Mark Purcell <msp@debian.org>  Wed, 21 Jun 2006 11:31:12 +0100
 
 asterisk (1:1.2.9.1.dfsg-1) unstable; urgency=high
 
