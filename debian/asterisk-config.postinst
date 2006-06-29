@@ -13,7 +13,6 @@ set -e
 
 case "$1" in
     configure)
-
 	if (getent passwd asterisk >/dev/null);then
 		if [ "`getent passwd asterisk|awk -F: '{print $6}'`" = "/var/run/asterisk" ];then
 			usermod -d /var/lib/asterisk asterisk
@@ -34,15 +33,9 @@ case "$1" in
 	chown -R asterisk.asterisk /var/log/asterisk /var/run/asterisk \
 		/var/spool/asterisk /var/lib/asterisk /etc/asterisk 
 	chmod 0660 /etc/asterisk/*.conf
-
-	# doing web-vmail foo...
-	[ -f /etc/asterisk/voicemail.conf ] && chown asterisk:www-data /etc/asterisk/voicemail.conf
-	[ -f /etc/asterisk/voicemail.conf ] && chmod 0640 /etc/asterisk/voicemail.conf
-
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
-
     ;;
 
     *)

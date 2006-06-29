@@ -40,11 +40,6 @@ case "$1" in
 	chown -R asterisk.asterisk /var/log/asterisk /var/run/asterisk \
 		/var/spool/asterisk /var/lib/asterisk /etc/asterisk 
 	chmod 0660 /etc/asterisk/*.conf
-
-	# doing web-vmail foo...
-	chown asterisk:www-data /etc/asterisk/voicemail.conf
-	chmod 0640 /etc/asterisk/voicemail.conf
-
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
