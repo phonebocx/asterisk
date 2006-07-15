@@ -1,19 +1,21 @@
-#/bin/sh 
+#! /bin/sh -x
 
-if (getent passwd asterisk >/dev/null);then
-        if [ "`getent passwd asterisk|awk -F: '{print $6}'`" = "/var/run/asterisk" ];then
-	            usermod -d /var/lib/asterisk asterisk
+if getent passwd asterisk >/dev/null ;then
+	# Some halfbaked Sarge versions needed their home dir fixed:
+        if [ "`getent passwd asterisk|awk -F: '{print $6}'`" = \
+		"/var/run/asterisk" ];then
+		usermod -d /var/lib/asterisk asterisk
         fi
 else
-        adduser --system --group --home /var/lib/asterisk --gecos "Asterisk PBX daemon" asterisk
-        adduser asterisk audio
-        adduser asterisk dialout
+        adduser --system --group --home /var/lib/asterisk \
+		--gecos "Asterisk PBX daemon" asterisk
 fi
 
-if (groups asterisk | grep -w -q -v asterisk); then
-        adduser asterisk dialout
-fi
-
+for group in dialout audio; do
+	if groups asterisk | grep -w -q -v $group; then
+        	adduser asterisk $group
+	fi
+done
 
 test -d /var/log/asterisk || mkdir -p /var/log/asterisk
 test -d /var/lib/asterisk || mkdir -p /var/lib/asterisk
@@ -22,23 +24,30 @@ test -d /var/spool/asterisk/ || mkdir -p /var/spool/asterisk/
 chown -R asterisk.asterisk \
         /var/log/asterisk \
         /var/run/asterisk \
-        /var/spool/asterisk \ 
+        /var/spool/asterisk \
         /var/lib/asterisk \
         /etc/asterisk
-chmod 0660 /etc/asterisk/*.conf
 
+# files need to be RW by the group
+# dirs need to a+rx
+#chmod -R 0664 /etc/asterisk/
+#find /etc/asterisk/ -type d | xargs chmod a+rx
+#chmod +t /etc/asterisk/
+
+# this is needed because othewise sqlite cannot write to the DB
+#chmod -R 0660 /var/lib/asterisk/
 
 ####################################
 # TODO:
 #
 # the real setup should be :
-#   if asterisk is not running - start it
+#   if asterisk is not running - start it (restart can deal with that)
 #   otherwise reload. 
 #   reload may fail, but start should not (it will be run on fist install only)
 #
+# Some changes are not fixed by a reload: e.g: adding/removing modules.
+# However a restart disconnects all calls in the pbx
+#
 # for simplicity, we just restart it by force right now.
-
-if [ -x /etc/init.d/asterisk ]; then
-##        /etc/init.d/asterisk reload || true
-        /etc/init.d/asterisk restart
-fi
+# may fail if the package asterisk is not yet configured.
+invoke-rc.d asterisk restart || true 
