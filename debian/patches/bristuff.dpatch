@@ -10,8 +10,8 @@ diff -urN asterisk-1.2.9.1.orig/.version asterisk-1.2.9.1/.version
 --- asterisk-1.2.9.1.orig/.version	2006-06-06 18:19:31.000000000 +0200
 +++ asterisk-1.2.9.1/.version	2006-06-09 10:25:16.000000000 +0200
 @@ -1 +1 @@
--1.2.9.1
-+1.2.9.1-BRIstuffed-0.3.0-PRE-1q
+-1.2.10
++1.2.10-BRIstuffed-0.3.0-PRE-1q
 diff -urN asterisk-1.2.9.1.orig/HARDWARE asterisk-1.2.9.1/HARDWARE
 --- asterisk-1.2.9.1.orig/HARDWARE	2005-11-29 19:24:39.000000000 +0100
 +++ asterisk-1.2.9.1/HARDWARE	2006-06-09 10:25:04.000000000 +0200
@@ -6039,13 +6039,14 @@ diff -urN asterisk-1.2.9.1.orig/channels/chan_sip.c asterisk-1.2.9.1/channels/ch
  /*! \brief  sip_do_history: Enable SIP History logging (CLI) ---*/
  static int sip_do_history(int fd, int argc, char *argv[])
  {
-@@ -9597,12 +9759,13 @@
+@@ -9597,13 +9759,14 @@
  		check_pendings(p);
  		ast_set_flag(p, SIP_CAN_BYE);
  		break;
 +	case 183:
  	case 180:	/* 180 Ringing */
- 		sip_cancel_destroy(p);
+ 		if (!ignore)
+ 			sip_cancel_destroy(p);
  		if (!ignore && p->owner) {
  			ast_queue_control(p->owner, AST_CONTROL_RINGING);
  			if (p->owner->_state != AST_STATE_UP)
@@ -6054,12 +6055,13 @@ diff -urN asterisk-1.2.9.1.orig/channels/chan_sip.c asterisk-1.2.9.1/channels/ch
  		}
  		if (find_sdp(req)) {
  			process_sdp(p, req);
-@@ -9616,21 +9779,6 @@
+@@ -9616,22 +9779,6 @@
  		check_pendings(p);
  		ast_set_flag(p, SIP_CAN_BYE);
  		break;
 -	case 183:	/* Session progress */
--		sip_cancel_destroy(p);
+-		if (!ignore)
+-			sip_cancel_destroy(p);
 -		/* Ignore 183 Session progress without SDP */
 -		if (find_sdp(req)) {
 -			process_sdp(p, req);
@@ -6074,8 +6076,8 @@ diff -urN asterisk-1.2.9.1.orig/channels/chan_sip.c asterisk-1.2.9.1/channels/ch
 -		ast_set_flag(p, SIP_CAN_BYE);
 -		break;
  	case 200:	/* 200 OK on invite - someone's answering our call */
- 		sip_cancel_destroy(p);
- 		p->authtries = 0;
+ 		if (!ignore)
+ 			sip_cancel_destroy(p);
 @@ -10424,9 +10572,18 @@
  		/* This is a call to ourself.  Send ourselves an error code and stop
  		   processing immediately, as SIP really has no good mechanism for
@@ -6109,10 +6111,10 @@ diff -urN asterisk-1.2.9.1.orig/channels/chan_sip.c asterisk-1.2.9.1/channels/ch
 @@ -10666,9 +10824,74 @@
  	res = get_refer_info(p, req);
  	if (res < 0)
- 		transmit_response_with_allow(p, "404 Not Found", req, 1);
+ 		transmit_response(p, "603 Declined", req);
 -	else if (res > 0)
 +	else if (res == 1)
- 		transmit_response_with_allow(p, "484 Address Incomplete", req, 1);
+ 		transmit_response(p, "484 Address Incomplete", req);
 -	else {
 +	else if (res == 2) {
 +			transmit_response(p, "202 Accepted", req);
@@ -7728,9 +7730,9 @@ diff -urN asterisk-1.2.9.1.orig/channels/chan_zap.c asterisk-1.2.9.1/channels/ch
  			}
 +	//    ast_log(LOG_NOTICE, "name = %s condition = %d index = %d (%d) zfd = %d res = %d\n",chan->name, condition, index, SUB_REAL, p->subs[index].zfd, res);
 +
- #if 0
- 			printf("nextidle: %d, haveidles: %d, minunsed: %d\n",
- 				nextidle, haveidles, minunused);
+ 			if (nextidle > -1) {
+ 				if (ast_tvdiff_ms(ast_tvnow(), lastidle) > 1000) {
+ 					/* Don't create a new idle call more than once per second */
 @@ -8209,9 +8822,36 @@
  					if (x == ZT_EVENT_ALARM) {
  						pri->dchanavail[which] &= ~(DCHAN_NOTINALARM | DCHAN_UP);
