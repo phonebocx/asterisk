@@ -3,6 +3,7 @@ asterisk (1:1.2.10.dfsg-1) UNRELEASED; urgency=low
   * NOT RELEASED YET
   * New upstream release.
   * bristuff.dpatch updated for the new version.
+  * dfsg tarball also removes ilbc.
   * Cleanups to asterisk_fix
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 15 Jul 2006 12:43:49 +0300

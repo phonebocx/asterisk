@@ -224,6 +224,7 @@ get-orig-source:
 	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
 	tar xfz ../$(UPFILENAME) 
 	@@find ../tarballs/asterisk-$(UPVERSION).tmp -type f -name 'fpm-*.mp3'|xargs -r rm 
+	@@rm -rf ../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)/codecs/ilbc 
 	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
 	tar cfz ../$(FILENAME) *
 	@@echo Cleaning up...
