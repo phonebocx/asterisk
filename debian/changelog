@@ -1,8 +1,9 @@
 asterisk (1:1.2.10.dfsg-2) unstable; urgency=high
 
   * IAX2 channel driver security patch [CVE-2006-2898]
+    - CVE-2006-2898: Denial of service in Asterisk (Closes: #380054)
 
- -- Mark Purcell <msp@debian.org>  Thu, 27 Jul 2006 08:08:54 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 27 Jul 2006 08:09:47 +0100
 
 asterisk (1:1.2.10.dfsg-1) unstable; urgency=low
 
