@@ -1,3 +1,4 @@
+patch.CVE-2006-2898.dpatch
 # ukcid probably conflicts with bristuff
 ukcid
 option_detach
