@@ -2,4 +2,4 @@ bristuff/usr/lib/asterisk	usr/lib/
 bristuff/usr/sbin		usr/
 bristuff/usr/share/man		usr/share/
 bristuff/var/lib/asterisk	var/lib/
-contrib/firmware/iax/*.bin	usr/share/asterisk/firmware/iax/
+usr/share/asterisk/firmware/iax/

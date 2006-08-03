@@ -159,7 +159,10 @@ install: build
 	# in the sample configs:
 	cp -a debian/ast_config/* $(CURDIR)/debian/tmp/etc/asterisk
 	
-	# bristuf
+	mkdir -p $(CURDIR)/debian/tmp/usr/share/asterisk/firmware/iax
+	cp contrib/firmware/iax/*.bin $(CURDIR)/debian/tmp/usr/share/asterisk/firmware/iax
+	
+	# bristuff
 	$(MAKE) -C $(BRISTUFF_DIR) DESTDIR=$(CURDIR)/debian/tmp/bristuff install
 	mkdir -p $(CURDIR)/debian/tmp/bristuff/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/bristuff/etc/default/asterisk
