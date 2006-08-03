@@ -1,3 +1,4 @@
 usr/lib/asterisk
 usr/sbin
 var/lib/asterisk
+contrib/firmware/iax/*.bin	usr/share/asterisk/firmware/iax

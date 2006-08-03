@@ -1,3 +1,10 @@
+asterisk (1:1.2.10.dfsg-3) UNRELEASED; urgency=low
+
+  * NOT  YET RELEASED
+  * Add iaxy.bin to asterisk debs to have working IAX support.
+
+ -- Kilian Krause <kilian@debian.org>  Thu,  3 Aug 2006 16:40:53 +0200
+
 asterisk (1:1.2.10.dfsg-2) unstable; urgency=high
 
   * IAX2 channel driver security patch [CVE-2006-2898]
