@@ -1,4 +1,4 @@
-#! /bin/sh -x
+#! /bin/sh
 
 if getent passwd asterisk >/dev/null ;then
 	# Some halfbaked Sarge versions needed their home dir fixed:
@@ -7,8 +7,14 @@ if getent passwd asterisk >/dev/null ;then
 		usermod -d /var/lib/asterisk asterisk
         fi
 else
-        adduser --system --group --home /var/lib/asterisk \
-		--gecos "Asterisk PBX daemon" asterisk
+	adduser-extra-opts=""
+	# Cosmetic noise reduction
+	if [ -d "/var/lib/asterisk" ]; then
+    		adduser-extra-opts="--no-create-home"
+	fi
+	adduser --system --group --home /var/lib/asterisk \
+	    $adduser-extra-opts \
+        	--gecos "Asterisk PBX daemon" asterisk		
 fi
 
 for group in dialout audio; do
@@ -17,37 +23,57 @@ for group in dialout audio; do
 	fi
 done
 
-test -d /var/log/asterisk || mkdir -p /var/log/asterisk
-test -d /var/lib/asterisk || mkdir -p /var/lib/asterisk
-test -d /etc/asterisk || mkdir -p /etc/asterisk
-test -d /var/spool/asterisk/ || mkdir -p /var/spool/asterisk/
-chown -R asterisk.asterisk \
-        /var/log/asterisk \
-        /var/run/asterisk \
-        /var/spool/asterisk \
-        /var/lib/asterisk \
+# Make sure all (possibly) used dirs exist and is owned by asterisk
+# (/var/run/asterisk is handled in sysV script /etc/init.d/asterisk)
+dirs="
+        /var/log/asterisk
+        /var/spool/asterisk
+        /var/lib/asterisk
         /etc/asterisk
+"
+
+subdirs="
+        /var/log/asterisk/cdr-csv
+        /var/log/asterisk/cdr-custom
+        /var/spool/asterisk/dictate
+        /var/spool/asterisk/meetme
+        /var/spool/asterisk/monitor
+        /var/spool/asterisk/monitor
+        /var/spool/asterisk/system
+        /var/spool/asterisk/tmp
+        /var/spool/asterisk/voicemail
+"
+
+for dir in $subdirs $dirs; do
+        mkdir -p "$dir"
+done
+
+for dir in $dirs; do
+        chown -R asterisk: "$dir"
+done
+
+
+###################################
+# this part should be reviewed, but it's basically trial and error
+# code i wrote to make freepbx work. better solutions are welcomed.
 
 # files need to be RW by the group
 # dirs need to a+rx
-#chmod -R 0664 /etc/asterisk/
-#find /etc/asterisk/ -type d | xargs chmod a+rx
-#chmod +t /etc/asterisk/
+chmod -R 0660 /etc/asterisk/
+find /etc/asterisk/ -type d | xargs chmod ug+rx
+
+#chmod g+s /etc/asterisk/
 
 # this is needed because othewise sqlite cannot write to the DB
 #chmod -R 0660 /var/lib/asterisk/
 
 ####################################
-# TODO:
-#
-# the real setup should be :
-#   if asterisk is not running - start it (restart can deal with that)
-#   otherwise reload. 
-#   reload may fail, but start should not (it will be run on fist install only)
-#
-# Some changes are not fixed by a reload: e.g: adding/removing modules.
-# However a restart disconnects all calls in the pbx
-#
-# for simplicity, we just restart it by force right now.
-# may fail if the package asterisk is not yet configured.
-invoke-rc.d asterisk restart || true 
+# If asterisk in running, reload it
+# otherwise start it
+if [ -f "/etc/init.d/asterisk" ];then
+	if [ -f /var/run/asterisk/asterisk.pid ];then
+	    invoke-rc.d asterisk reload || exit $?
+	else
+	    invoke-rc.d asterisk start || exit $?
+	fi
+fi

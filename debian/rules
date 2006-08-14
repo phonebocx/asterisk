@@ -159,6 +159,10 @@ install: build
 	# in the sample configs:
 	cp -a debian/ast_config/* $(CURDIR)/debian/tmp/etc/asterisk
 	
+	mkdir -p $(CURDIR)/debian/asterisk/usr/share/asterisk/bin
+	cp debian/asterisk_fix $(CURDIR)/debian/asterisk/usr/share/asterisk/bin
+	chmod +x $(CURDIR)/debian/asterisk/usr/share/asterisk/bin/asterisk_fix
+	
 	mkdir -p $(CURDIR)/debian/tmp/usr/share/asterisk/firmware/iax
 	cp contrib/firmware/iax/*.bin $(CURDIR)/debian/tmp/usr/share/asterisk/firmware/iax
 	

@@ -2,6 +2,8 @@ asterisk (1:1.2.10.dfsg-3) UNRELEASED; urgency=low
 
   * NOT  YET RELEASED
   * Add iaxy.bin to asterisk debs to have working IAX support.
+  * asterisk_fix is included on the main asterisk package (should fix #287025, #360233, #381861)
+  * Various fixes to asterisk_fix
 
  -- Kilian Krause <kilian@debian.org>  Thu,  3 Aug 2006 16:40:53 +0200
 
