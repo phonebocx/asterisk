@@ -7,13 +7,13 @@ if getent passwd asterisk >/dev/null ;then
 		usermod -d /var/lib/asterisk asterisk
         fi
 else
-	adduser-extra-opts=""
+	adduser_extra_opts=""
 	# Cosmetic noise reduction
 	if [ -d "/var/lib/asterisk" ]; then
-    		adduser-extra-opts="--no-create-home"
+    		adduser_extra_opts="--no-create-home"
 	fi
 	adduser --system --group --home /var/lib/asterisk \
-	    $adduser-extra-opts \
+	    $adduser_extra_opts \
         	--gecos "Asterisk PBX daemon" asterisk		
 fi
 
