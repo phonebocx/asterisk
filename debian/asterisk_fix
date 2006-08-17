@@ -24,11 +24,15 @@ for group in dialout audio; do
 done
 
 # Make sure all (possibly) used dirs exist and is owned by asterisk
+
+# /var/run/asterisk is not yet handled by init.d :-(
 # (/var/run/asterisk is handled in sysV script /etc/init.d/asterisk)
+
 dirs="
         /var/log/asterisk
         /var/spool/asterisk
         /var/lib/asterisk
+	/var/run/asterisk
         /etc/asterisk
 "
 
