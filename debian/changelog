@@ -1,7 +1,6 @@
-asterisk (1:1.2.10.dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.2.10.dfsg-3) unstable; urgency=low
 
   [ Kilian Krause ]
-  * NOT  YET RELEASED
   * Add iaxy.bin to asterisk debs to have working IAX support.
   * asterisk_fix is included on the main asterisk package
     (Closes: Bug#287025, Bug#360233, Bug#381861)
@@ -15,7 +14,7 @@ asterisk (1:1.2.10.dfsg-3) UNRELEASED; urgency=low
   * Move all doc/examples -> asterisk-doc package
   * Move doc/asterisk -> asterisk-doc package
 
- -- Mark Purcell <msp@debian.org>  Thu, 17 Aug 2006 15:43:28 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 17 Aug 2006 20:31:02 +0100
 
 asterisk (1:1.2.10.dfsg-2) unstable; urgency=high
 
