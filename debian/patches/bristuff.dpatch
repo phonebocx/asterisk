@@ -10,8 +10,8 @@ diff -urN asterisk-1.2.10.orig/.version asterisk-1.2.10/.version
 --- asterisk-1.2.10.orig/.version	2006-07-14 23:29:33.000000000 +0200
 +++ asterisk-1.2.10/.version	2006-07-31 14:13:27.000000000 +0200
 @@ -1 +1 @@
--1.2.10
-+1.2.10-BRIstuffed-0.3.0-PRE-1s
+-1.2.11
++1.2.11-BRIstuffed-0.3.0-PRE-1s
 diff -urN asterisk-1.2.10.orig/HARDWARE asterisk-1.2.10/HARDWARE
 --- asterisk-1.2.10.orig/HARDWARE	2005-11-29 19:24:39.000000000 +0100
 +++ asterisk-1.2.10/HARDWARE	2006-07-31 14:13:08.000000000 +0200
