@@ -1,16 +1,18 @@
 asterisk (1:1.2.11.dfsg-1) UNRELEASED; urgency=high
 
-  * NOT RELEASED YET
+  [ Tzafrir Cohen]
+  * apprecord_sprintf.dpatch: fix format string issue in app_record.so .
+
+  [ Mark Purcell ]
   * New Upstream Release
   * Urgency high as fixes CVE-2006-4346
   * CVE-2006-4346: Asterisk MGCP AUEP Response Handling Buffer
     Overflow (Closes: Bug#385060)
   * Please package Asterisk 1.2.11 and Zaptel 1.2.8 (Closes: #384283)
-  
-  [ Tzafrir Cohen]
-  * apprecord_sprintf.dpatch: fix format string issue in app_record.so .
+  * Better error handling on init.d reload, if asterisk isn't running
+  * Lintian cleanup: not-binnmuable-any-depends-all
 
- -- Mark Purcell <msp@debian.org>  Wed, 30 Aug 2006 19:24:42 +0100
+ -- Mark Purcell <msp@debian.org>  Sat,  2 Sep 2006 11:50:48 +0100
 
 asterisk (1:1.2.10.dfsg-3) unstable; urgency=low
 

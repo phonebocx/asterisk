@@ -141,14 +141,14 @@ case "$1" in
 	;;
   reload)
 	echo "Reloading $DESC configuration files."
-	$DAEMON -rx 'reload'
+	$DAEMON -rx 'reload' || true
 	;;
   logger-reload)
-	$DAEMON -rx 'logger reload'
+	$DAEMON -rx 'logger reload' || true
 	;;
   extensions-reload)
 	echo "Reloading $DESC configuration files."
-	$DAEMON -rx 'extensions reload'
+	$DAEMON -rx 'extensions reload' || true
 	;;
   restart|force-reload)
 	$0 stop
