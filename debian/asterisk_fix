@@ -78,6 +78,6 @@ if [ -f "/etc/init.d/asterisk" ];then
 	if [ -f /var/run/asterisk/asterisk.pid ];then
 	    invoke-rc.d asterisk reload || exit $?
 	else
-	    invoke-rc.d asterisk start || exit $?
+	    invoke-rc.d asterisk restart || exit $?
 	fi
 fi

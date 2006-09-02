@@ -12,8 +12,9 @@ asterisk (1:1.2.11.dfsg-1) unstable; urgency=high
   * Better error handling on init.d reload, if asterisk isn't running
   * Lintian cleanup: not-binnmuable-any-depends-all
   * Lintian cleanup: not-binnmuable-all-depends-any
+  * Use restart in asterisk_fix
 
- -- Mark Purcell <msp@debian.org>  Sat,  2 Sep 2006 12:29:19 +0100
+ -- Mark Purcell <msp@debian.org>  Sat,  2 Sep 2006 13:01:02 +0100
 
 asterisk (1:1.2.10.dfsg-3) unstable; urgency=low
 
