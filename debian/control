@@ -38,7 +38,7 @@ Description: Open Source Private Branch Exchange (PBX)
 Package: asterisk-classic
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, asterisk (= ${source:Version}), asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom, adduser (>= 3.63)
+Depends: ${shlibs:Depends}, asterisk (= ${source:Version}), asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser (>= 3.63), asterisk-sounds-main (>= 1:1.0.2)
 Conflicts: asterisk-bristuff
 Description: Open Source Private Branch Exchange (PBX) - original Digium version
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
@@ -66,7 +66,7 @@ Description: Open Source Private Branch Exchange (PBX) - original Digium version
 Package: asterisk-bristuff
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, asterisk (= ${source:Version}), asterisk-sounds-main (>= 1:1.0.2), asterisk-config (= ${Source-Version}) | asterisk-config-custom, adduser (>= 3.63)
+Depends: ${shlibs:Depends}, asterisk (= ${source:Version}), asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser (>= 3.63), asterisk-sounds-main (>= 1:1.0.2)
 Conflicts: asterisk-classic
 Description: Open Source Private Branch Exchange (PBX) - BRIstuff-enabled version
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a

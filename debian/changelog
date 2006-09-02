@@ -1,4 +1,4 @@
-asterisk (1:1.2.11.dfsg-1) UNRELEASED; urgency=high
+asterisk (1:1.2.11.dfsg-1) unstable; urgency=high
 
   [ Tzafrir Cohen]
   * apprecord_sprintf.dpatch: fix format string issue in app_record.so .
@@ -13,7 +13,7 @@ asterisk (1:1.2.11.dfsg-1) UNRELEASED; urgency=high
   * Lintian cleanup: not-binnmuable-any-depends-all
   * Lintian cleanup: not-binnmuable-all-depends-any
 
- -- Mark Purcell <msp@debian.org>  Sat,  2 Sep 2006 11:55:18 +0100
+ -- Mark Purcell <msp@debian.org>  Sat,  2 Sep 2006 12:29:19 +0100
 
 asterisk (1:1.2.10.dfsg-3) unstable; urgency=low
 
