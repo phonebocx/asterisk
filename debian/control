@@ -9,7 +9,7 @@ Build-Depends: debhelper (>= 4.0.4), sed (>= 3.95), zlib1g-dev, libreadline5-dev
 Package: asterisk
 Architecture: all
 Section: comm
-Depends: asterisk-classic (= ${Source-Version})|asterisk-bristuff (= ${Source-Version}), adduser (>= 3.63)
+Depends: asterisk-classic (>= ${source:Version}) | asterisk-bristuff (>= ${source:Version}), adduser (>= 3.63)
 Conflicts: asterisk-oh323 (<= 0.6.6pre3-3)
 Suggests: gnomemeeting, ekiga, ohphone, kphone, asterisk-doc, asterisk-dev, asterisk-rate-engine
 Description: Open Source Private Branch Exchange (PBX)

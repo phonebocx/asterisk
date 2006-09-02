@@ -11,8 +11,9 @@ asterisk (1:1.2.11.dfsg-1) UNRELEASED; urgency=high
   * Please package Asterisk 1.2.11 and Zaptel 1.2.8 (Closes: #384283)
   * Better error handling on init.d reload, if asterisk isn't running
   * Lintian cleanup: not-binnmuable-any-depends-all
+  * Lintian cleanup: not-binnmuable-all-depends-any
 
- -- Mark Purcell <msp@debian.org>  Sat,  2 Sep 2006 11:50:48 +0100
+ -- Mark Purcell <msp@debian.org>  Sat,  2 Sep 2006 11:55:18 +0100
 
 asterisk (1:1.2.10.dfsg-3) unstable; urgency=low
 
