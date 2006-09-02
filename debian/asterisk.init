@@ -93,7 +93,7 @@ case "$1" in
   start)
 	if status > /dev/null; then
 		echo "$DESC is already running. Use restart."
-		exit 1
+		exit 0
 	fi
 	echo -n "Starting $DESC: "
 	if [ "$RUNASTSAFE" != "yes" ];then
@@ -102,7 +102,7 @@ case "$1" in
 		# "safe mode"
 		if status > /dev/null; then
 			echo "$DESC is already running. Use restart."
-			exit 1
+			exit 0
 		fi
 		start-stop-daemon --start --group $GROUP --pidfile "$PIDFILE" \
 			--exec $REALDAEMON -- $PARAMS
