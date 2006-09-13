@@ -1,11 +1,15 @@
 asterisk (1:1.2.12.1.dfsg-1) UNRELEASED; urgency=low
 
+  [ Tzafrir Cohen ]
   * NOT RELEASED YET
   * New upstream release
   * bristuff.dpatch: version adapted.
   * apprecord_sprintf.dpatch removed: already applied.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 10 Sep 2006 01:13:08 +0300
+  [ Mark Purcell ]
+  * binary blob in asterisk-classic package (Closes: #386361)
+
+ -- Mark Purcell <msp@debian.org>  Wed, 13 Sep 2006 08:55:36 +0100
 
 asterisk (1:1.2.11.dfsg-1) unstable; urgency=high
 

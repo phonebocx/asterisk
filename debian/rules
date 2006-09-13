@@ -164,7 +164,6 @@ install: build
 	chmod +x $(CURDIR)/debian/asterisk/usr/share/asterisk/bin/asterisk_fix
 	
 	mkdir -p $(CURDIR)/debian/tmp/usr/share/asterisk/firmware/iax
-	cp contrib/firmware/iax/*.bin $(CURDIR)/debian/tmp/usr/share/asterisk/firmware/iax
 	
 	# bristuff
 	$(MAKE) -C $(BRISTUFF_DIR) DESTDIR=$(CURDIR)/debian/tmp/bristuff install
@@ -232,6 +231,7 @@ get-orig-source:
 	tar xfz ../$(UPFILENAME) 
 	@@find ../tarballs/asterisk-$(UPVERSION).tmp -type f -name 'fpm-*.mp3'|xargs -r rm 
 	@@rm -rf ../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)/codecs/ilbc 
+	@@rm -rf ../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)/contrib/firmware/iax/iaxy.bin
 	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
 	tar cfz ../$(FILENAME) *
 	@@echo Cleaning up...

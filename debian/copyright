@@ -9,13 +9,15 @@ Upstream Authors: Asterisk: Mark Spencer <markster@linux-support.net>
 
 Debian asterisk-xxx.dfsg.tar.gz
 ===============================
-The Debian version of the upstream asterisk source has had the fpm Music
+ * The Debian version of the upstream asterisk source has had the fpm Music
 on Hold removed as this music has only been licenced for use within 
 asterisk which is incompatible with the Debian Free Software Guildlines (DFSG)
 <http://www.debian.org/social_contract#guidelines>.
 
-The iLBC codec library code has been removed from the Debian asterisk
+ * The iLBC codec library code has been removed from the Debian asterisk
 package as it does not conform with the DFSG.
+
+ * The contrib/firmware/iax/iaxy.bin binary firmware without source has been removed.
 
 Copyright:
 
