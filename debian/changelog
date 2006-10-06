@@ -5,6 +5,11 @@ asterisk (1:1.3.99~beta2.dfsg-1) UNRELEASED; urgency=low
     it also uses ASTDATADIR :-) :-)
   * need to understand this menuselect and how to encorporate into debian.
   * need to discuss with upstream iLBC conflict with GPL
+  * Ugly hack in version number.
+  * get-orig-source now works, though.
+  * No maore asterisk-classic and asterisk-bristuff
+  * FreePlay Music files location changed
+  * Disabling h323 build for now, until I figure what's wrong.
 
  -- Mark Purcell <msp@debian.org>  Mon, 25 Sep 2006 08:46:16 +0100
 
