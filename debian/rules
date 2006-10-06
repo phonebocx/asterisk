@@ -12,3 +12,35 @@ DEB_DH_INSTALL_ARGS := --sourcedir=debian/tmp
 COMMON_CONFIGURE_FLAGS = --data-dir=/usr/share/asterisk
 # DEB_CONFIGURE_EXTRA_FLAGS = 
 
+DEBVERSION:=$(shell head -n 1 debian/changelog \
+		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
+# For the moment, don't trust UPVERSION parsing from the changelog.
+# Sanity is to return on 1.4.0 .
+#UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e 's/.dfsg$$//')
+UPVERSION=1.4.0-beta2
+
+FILENAME := asterisk_$(UPVERSION).dfsg.orig.tar.gz
+UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
+URL := http://ftp2.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
+
+print-version:
+	@@echo "Debian version:          $(DEBVERSION)"
+	@@echo "Upstream version:        $(UPVERSION)"
+
+get-orig-source:
+	@@dh_testdir
+	@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
+	@@echo Downloading $(UPFILENAME) from $(URL) ...
+	@@wget -N -nv -T10 -t3 -O ../tarballs/$(UPFILENAME) $(URL)
+	@@echo Repacking as DFSG-free...
+	@@mkdir -p ../tarballs/asterisk-$(UPVERSION).tmp/
+	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
+	tar xfz ../$(UPFILENAME) 
+	@@find ../tarballs/asterisk-$(UPVERSION).tmp -type f -name 'fpm-*.mp3'|xargs -r rm 
+	@@rm -rf ../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)/codecs/ilbc 
+	@@rm -rf ../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)/contrib/firmware/
+	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
+	tar cfz ../$(FILENAME) *
+	@@echo Cleaning up...
+	@@$(RM) -rf ../tarballs/asterisk-$(UPVERSION).tmp/
+

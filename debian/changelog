@@ -1,7 +1,8 @@
-asterisk (1:1.4.0~beta2.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.3.99~beta2.dfsg-1) UNRELEASED; urgency=low
 
-  * (NOT RELEASED YET) New upstream release
-  * Sandbox to start playing with 1.4, it uses autotools :-), it also uses ASTDATADIR :-) :-)
+  * (NOT RELEASED YET) New upstream release (1.4 beta)
+  * Sandbox to start playing with 1.4, it uses autotools :-), 
+    it also uses ASTDATADIR :-) :-)
   * need to understand this menuselect and how to encorporate into debian.
   * need to discuss with upstream iLBC conflict with GPL
 
