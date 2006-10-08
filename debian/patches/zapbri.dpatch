@@ -21,22 +21,3 @@ diff -urNad asterisk-1.2.12.1.dfsg/channels/chan_zap.c /tmp/dpep.8e90kC/asterisk
  			}
  			pris[*span].dchanavail[0] |= DCHAN_PROVISIONED;
  			pris[*span].offset = offset;
-@@ -10580,10 +10581,18 @@
- 					cur_radio = 0;
- 					cur_signalling = SIG_PRI;
- 					pritype = PRI_NETWORK;
-+				} else if (!strcasecmp(v->value, "bri_net")) {
-+					cur_radio = 0;
-+					cur_signalling = SIG_PRI;
-+					pritype = PRI_NETWORK;
- 				} else if (!strcasecmp(v->value, "pri_cpe")) {
- 					cur_signalling = SIG_PRI;
- 					cur_radio = 0;
- 					pritype = PRI_CPE;
-+				} else if (!strcasecmp(v->value, "bri_cpe")) {
-+					cur_signalling = SIG_PRI;
-+					cur_radio = 0;
-+					pritype = PRI_CPE;
- 				} else if (!strcasecmp(v->value, "gr303fxoks_net")) {
- 					cur_signalling = SIG_GR303FXOKS;
- 					cur_radio = 0;
