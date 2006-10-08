@@ -1,0 +1,23 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## zapbri.dpatch by Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Theoretically this should suffice to configure a ZapBRI device 
+## DP: with standard libpri/chan_zap.
+
+@DPATCH@
+diff -urNad asterisk-1.2.12.1.dfsg/channels/chan_zap.c /tmp/dpep.8e90kC/asterisk-1.2.12.1.dfsg/channels/chan_zap.c
+--- asterisk-1.2.12.1.dfsg/channels/chan_zap.c	2006-08-25 18:21:18.000000000 +0300
++++ /tmp/dpep.8e90kC/asterisk-1.2.12.1.dfsg/channels/chan_zap.c	2006-09-29 06:30:49.988574971 +0300
+@@ -6720,8 +6720,9 @@
+ 		} else {
+ 			if (si->totalchans == 31) { /* if it's an E1 */
+ 				pris[*span].dchannels[0] = 16 + offset;
+-			} else {
+-				pris[*span].dchannels[0] = 24 + offset;
++			} else { /* T1 or BRI: D Channel is the last Channel */
++				pris[*span].dchannels[0] = 
++					si->totalchans + offset;
+ 			}
+ 			pris[*span].dchanavail[0] |= DCHAN_PROVISIONED;
+ 			pris[*span].offset = offset;

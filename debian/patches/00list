@@ -1,19 +1,10 @@
-#patch.CVE-2006-2898.dpatch
 # ukcid probably conflicts with bristuff
 #ukcid
-#option_detach
-#30_ast-data-dir.dpatch
 #40_initgroups.dpatch
 #50_debian-libgsm.dpatch
 #95_conf_sample.dpatch
-#98_fpm-sounds.dpatch
 ##sys_readline
-#func_odbc_12
-#brazilian_syntax
 #vm_he
-#pubkey_jnctn
+pubkey_jnctn
 #nomarch
-#chanzap_disable_r2.dpatch
-#correct_pid_display
-#zap_restart
-#backport_playdtmf
+makefile_noiaxy

@@ -56,27 +56,31 @@ BRISTUFF_DIR=debian/build/asterisk-bristuff
 config.status: check-sounds patch-stamp
 	dh_testdir
 	# Add here commands to configure the package.
-	touch .cleancount
-	- (cd editline ; \
-	if [ -f config.sub.old ]; then \
-	  rm -f config.sub; \
-	else \
-	  mv config.sub config.sub.old; \
-	fi; \
-	if [ -f config.guess.old ]; then \
-	  rm -f config.guess; \
-	else \
-	  mv config.guess config.guess.old; \
-	fi; \
-	ln -s /usr/share/misc/config.sub config.sub; \
-	ln -s /usr/share/misc/config.guess config.guess; \
-	cd ..)
+	#touch .cleancount
+	#- (cd editline ; \
+	#if [ -f config.sub.old ]; then \
+	#  rm -f config.sub; \
+	#else \
+	#  mv config.sub config.sub.old; \
+	#fi; \
+	#if [ -f config.guess.old ]; then \
+	#  rm -f config.guess; \
+	#else \
+	#  mv config.guess config.guess.old; \
+	#fi; \
+	#ln -s /usr/share/misc/config.sub config.sub; \
+	#ln -s /usr/share/misc/config.guess config.guess; \
+	#cd ..)
 
-	cd editline;./configure $(confflags)
-	touch $@
+	#cd editline;./configure $(confflags)
+	./configure
+
+menuselect.makeopts: config.status
+	$(MAKE) menuselect.makeopts
+	sed -i -e '/^MENUSELECT_MOH=/d' menuselect.makeopts
 
 build-arch: build-arch-stamp
-build-arch-stamp: config.status
+build-arch-stamp: menuselect.makeopts
 	dh_testdir
 
 	# Add here command to compile/build the package.
@@ -86,7 +90,7 @@ build-arch-stamp: config.status
 	touch $@
 
 build-indep: build-indep-stamp
-build-indep-stamp: config.status 
+build-indep-stamp: menuselect.makeopts 
 	dh_testdir
 
 	# Add here command to compile/build the arch indep package.
@@ -125,7 +129,7 @@ cleaned:
 	fi; \
 	cd ..)
 	-test -d configs && chmod -x configs/*.sample
-	-$(RM) -f build-arch-stamp build-indep-stamp config.status check-sounds
+	-$(RM) -f build-arch-stamp build-indep-stamp config.status check-sounds menuselect.makeopts
 
 	dh_clean
 
