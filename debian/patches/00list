@@ -17,3 +17,4 @@ chanzap_disable_r2.dpatch
 correct_pid_display
 zap_restart
 backport_playdtmf
+cdr_sqlite3_custom
