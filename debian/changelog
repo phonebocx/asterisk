@@ -9,7 +9,17 @@ asterisk (1:1.2.13.dfsg-1) UNRELEASED; urgency=high
     - Urgency high as this fixes remote compromise security issue
   * Update debian/patches/bristuff.dpatch
 
- -- Mark Purcell <msp@debian.org>  Mon, 23 Oct 2006 22:27:36 +0100
+  * TODO: fixup
+chan_sip.c: In function 'handle_request_refer':
+chan_sip.c:10907: error: 'rp' undeclared (first use in this function)
+chan_sip.c:10907: error: (Each undeclared identifier is reported only once
+chan_sip.c:10907: error: for each function it appears in.)
+chan_sip.c:10940: warning: type defaults to 'int' in declaration of '__p'
+chan_sip.c:10940: warning: comparison of distinct pointer types lacks a cast
+chan_sip.c: In function 'sipsock_read':
+chan_sip.c:11618: error: too many arguments to function 'find_call' 
+
+ -- Mark Purcell <msp@debian.org>  Mon, 23 Oct 2006 22:31:03 +0100
 
 asterisk (1:1.2.12.1.dfsg-1) unstable; urgency=low
 
