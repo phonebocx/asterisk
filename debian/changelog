@@ -1,13 +1,15 @@
-asterisk (1:1.2.13.dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.13.dfsg-1) UNRELEASED; urgency=high
 
   [ Santiago Ruano Rincón ]
   * Added cdr_sqlite3_custom dpatch
 
   [ Mark Purcell ]
   * New upstream release
+    - Remote compromise (Closes: #394025)
+    - Urgency high as this fixes remote compromise security issue
   * Update debian/patches/bristuff.dpatch
 
- -- Mark Purcell <msp@debian.org>  Sun, 24 Sep 2006 15:48:34 +0100
+ -- Mark Purcell <msp@debian.org>  Mon, 23 Oct 2006 22:27:36 +0100
 
 asterisk (1:1.2.12.1.dfsg-1) unstable; urgency=low
 
