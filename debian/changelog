@@ -9,21 +9,14 @@ asterisk (1:1.2.13~dfsg-1) UNRELEASED; urgency=high
   [ Mark Purcell ]
   * New upstream release
     - Remote compromise (Closes: #394025)
+    - CVE-2006-5444/5:security issues in asterisk (Closes: #395080)
     - Urgency high as this fixes remote compromise security issue
   * Update debian/patches/bristuff.dpatch
   * bristuff-0.3.0-PRE-1v
+  * Build Depends: dpkg ( >= 1.13.19)
+    - Asterisk must build-depend upon dpkg ( >= 1.13.19) (Closes: #386113)
 
-  * TODO: fixup
-    chan_sip.c: In function 'handle_request_refer':
-    chan_sip.c:10907: error: 'rp' undeclared (first use in this function)
-    chan_sip.c:10907: error: (Each undeclared identifier is reported only once
-    chan_sip.c:10907: error: for each function it appears in.)
-    chan_sip.c:10940: warning: type defaults to 'int' in declaration of '__p'
-    chan_sip.c:10940: warning: comparison of distinct pointer types lacks a cast
-    chan_sip.c: In function 'sipsock_read':
-    chan_sip.c:11618: error: too many arguments to function 'find_call'
-
- -- Mark Purcell <msp@debian.org>  Tue, 24 Oct 2006 22:45:00 +0100
+ -- Mark Purcell <msp@debian.org>  Tue, 24 Oct 2006 23:03:11 +0100
 
 asterisk (1:1.2.12.1.dfsg-1) unstable; urgency=low
 
