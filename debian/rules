@@ -35,9 +35,9 @@ include /usr/share/dpatch/dpatch.make
 
 DEBVERSION:=$(shell head -n 1 debian/changelog \
 		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
-UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e 's/.dfsg$$//')
+UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e 's/~dfsg$$//')
 
-FILENAME := asterisk_$(UPVERSION).dfsg.orig.tar.gz
+FILENAME := asterisk_$(UPVERSION)~dfsg.orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
 URL := http://ftp2.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 

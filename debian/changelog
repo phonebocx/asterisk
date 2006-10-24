@@ -1,4 +1,7 @@
-asterisk (1:1.2.13.dfsg-1) UNRELEASED; urgency=high
+asterisk (1:1.2.13~dfsg-1) UNRELEASED; urgency=high
+
+  [ Kilian Krause ]
+  * Fixup dfsg versions with increased upstream build count.
 
   [ Santiago Ruano Rincón ]
   * Added cdr_sqlite3_custom dpatch
