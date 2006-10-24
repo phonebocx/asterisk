@@ -11,6 +11,7 @@ asterisk (1:1.2.13~dfsg-1) UNRELEASED; urgency=high
     - Remote compromise (Closes: #394025)
     - Urgency high as this fixes remote compromise security issue
   * Update debian/patches/bristuff.dpatch
+  * bristuff-0.3.0-PRE-1v
 
   * TODO: fixup
     chan_sip.c: In function 'handle_request_refer':
@@ -22,7 +23,7 @@ asterisk (1:1.2.13~dfsg-1) UNRELEASED; urgency=high
     chan_sip.c: In function 'sipsock_read':
     chan_sip.c:11618: error: too many arguments to function 'find_call'
 
- -- Kilian Krause <kilian@debian.org>  Tue, 24 Oct 2006 08:51:12 +0200
+ -- Mark Purcell <msp@debian.org>  Tue, 24 Oct 2006 22:45:00 +0100
 
 asterisk (1:1.2.12.1.dfsg-1) unstable; urgency=low
 
