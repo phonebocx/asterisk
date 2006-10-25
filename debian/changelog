@@ -1,4 +1,4 @@
-asterisk (1:1.2.13~dfsg-1) UNRELEASED; urgency=high
+asterisk (1:1.2.13~dfsg-1) unstable; urgency=high
 
   [ Kilian Krause ]
   * Fixup dfsg versions with increased upstream build count.
@@ -11,12 +11,22 @@ asterisk (1:1.2.13~dfsg-1) UNRELEASED; urgency=high
     - Remote compromise (Closes: #394025)
     - CVE-2006-5444/5:security issues in asterisk (Closes: #395080)
     - Urgency high as this fixes remote compromise security issue
+    - Information disclosure of voice mail messages through vmail.cgi
+    (Closes: #338116)
+    - package asterisk-dev should contain asterisk.h main header (Closes:
+    #342138)
+    - format_ogg_vorbis.so was present in i386, no longer in packages
+    (Closes: #375141)
   * Update debian/patches/bristuff.dpatch
   * bristuff-0.3.0-PRE-1v
+    - Please package bristuff 0.3.0PREu (Closes: #394122)
+    - please include app_pickup.c from bristuff (Closes: #348194)
   * Build Depends: dpkg ( >= 1.13.19)
     - Asterisk must build-depend upon dpkg ( >= 1.13.19) (Closes: #386113)
+  * Build-Depends: libpq-dev
+    - obsolete build dependency postgresql-dev (Closes: #389376)
 
- -- Mark Purcell <msp@debian.org>  Tue, 24 Oct 2006 23:03:11 +0100
+ -- Mark Purcell <msp@debian.org>  Wed, 25 Oct 2006 06:46:52 +0100
 
 asterisk (1:1.2.12.1.dfsg-1) unstable; urgency=low
 
