@@ -18,3 +18,4 @@ correct_pid_display
 zap_restart
 backport_playdtmf
 cdr_sqlite3_custom
+less_docs
