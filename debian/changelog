@@ -7,7 +7,12 @@ asterisk (1:1.2.13~dfsg-2) UNRELEASED; urgency=low
   * less_docs.dpatch: remove unnecessary doxygen docs. asterisk-doc's size
     is now 1.6M (7.7M installed).
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun,  5 Nov 2006 01:36:48 +0200
+  [ Mark Purcell ]
+  * asterisk-classic, asterisk-bristuff:
+    /usr/lib/asterisk/modules/format_ogg_vorbis.so gone missing when
+    rebuilt (Closes: #397147)
+
+ -- Mark Purcell <msp@debian.org>  Sun,  5 Nov 2006 23:25:54 +0000
 
 asterisk (1:1.2.13~dfsg-1) unstable; urgency=high
 
