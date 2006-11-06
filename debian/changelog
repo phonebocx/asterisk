@@ -1,7 +1,4 @@
-asterisk (1:1.2.13~dfsg-2) UNRELEASED; urgency=low
-
-  [ Mark Purcell ]
-  * NOT RELEASED YET
+asterisk (1:1.2.13~dfsg-2) unstable; urgency=low
 
   [ Tzafrir Cohen ]
   * less_docs.dpatch: remove unnecessary doxygen docs. asterisk-doc's size
@@ -12,7 +9,7 @@ asterisk (1:1.2.13~dfsg-2) UNRELEASED; urgency=low
     /usr/lib/asterisk/modules/format_ogg_vorbis.so gone missing when
     rebuilt (Closes: #397147)
 
- -- Mark Purcell <msp@debian.org>  Sun,  5 Nov 2006 23:25:54 +0000
+ -- Mark Purcell <msp@debian.org>  Mon,  6 Nov 2006 06:33:19 +0000
 
 asterisk (1:1.2.13~dfsg-1) unstable; urgency=high
 
