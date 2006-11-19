@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# Hook for automatic backports at buildserver.net
+#
+# Target dist: Debian Sarge
+
+# Remove libnewt-dev 
+sed -i -e 's#^\(Build-Depends:.*\)libnewt-dev[^\ ]* \(.*\)$#\1\2#' debian/control
+
+# libpq-dev formerly used to be postgresql-dev
+sed -i -e 's#^\(Build-Depends:.*\)libpq-dev[^\ ]* \(.*\)$#\1postgresql-dev, \2#' debian/control
+
+# Use old dpkg syntax (which was not binNMU-safe)
+sed -i -e 's#^\(Build-Depends:.*\)dpkg[^,$]*[\ ,$]\+\(.*\)$#\1\2#' -e 's#${source:Version})#${Source-Version})#' debian/control
+
+exit 0
