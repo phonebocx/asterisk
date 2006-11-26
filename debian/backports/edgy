@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+# Hook for automatic backports at buildserver.net
+#
+# Target dist: Ubuntu Edgy
+
+# Move linux/compiler.h to use asterisk/compiler.h in channels/chan_phone.c
+sed -i -e 's#linux/compiler.h#asterisk/compiler.h#' channels/chan_phone.c
+
+exit 0
