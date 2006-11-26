@@ -1,0 +1,19 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## fix_linux_compiler.h_include.dpatch by Kilian Krause <kilian@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Fix kernel header include location for Edgy
+
+@DPATCH@
+--- asterisk-1.2.13~dfsg.orig/channels/chan_phone.c
++++ asterisk-1.2.13~dfsg/channels/chan_phone.c
+@@ -38,7 +38,7 @@
+ /* Still use some IXJ specific stuff */
+ #include <linux/version.h>
+ #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+-# include <linux/compiler.h>
++# include <asterisk/compiler.h>
+ #endif
+ #include <linux/ixjuser.h>
+ 
+
