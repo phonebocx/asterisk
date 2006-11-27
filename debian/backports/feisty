@@ -1,0 +1,10 @@
+#!/bin/bash
+#
+# Hook for automatic backports at buildserver.net
+#
+# Target dist: Ubuntu Feisty
+
+# Move linux/compiler.h to use asterisk/compiler.h in channels/chan_phone.c
+echo 'fix_linux_compiler.h_include' >>debian/patches/00list
+
+exit 0
