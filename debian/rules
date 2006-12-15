@@ -21,6 +21,9 @@ export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
 MAKEFLAGS = OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
 
+# Force music files selection:
+MAKEFLAGS += MENUSELECT_MOH= MENUSELECT_CORE_SOUNDS=CORE-SOUNDS-EN-GSM
+
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
 endif
@@ -140,8 +143,8 @@ install: build
 	dh_installdirs var/run/asterisk
 	
 	# Add here commands to install the package into debian/<packagename>
+	mkdir -p $(CURDIR)/tmp/debian/usr/share/asterisk/sounds
 	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
-	cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
