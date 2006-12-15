@@ -37,7 +37,7 @@ DEBVERSION:=$(shell head -n 1 debian/changelog \
 		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
 UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e 's/.dfsg$$//')
 # TODO: ditch this variable:
-UPVERSION_REAL:=1.4.0-beta2
+UPVERSION_REAL:=1.4.0-beta3
 
 FILENAME := asterisk_$(UPVERSION).dfsg.orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION_REAL).orig.tar.gz
