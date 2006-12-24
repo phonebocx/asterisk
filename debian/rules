@@ -207,8 +207,7 @@ print-version:
 	@@echo "Debian version:          $(DEBVERSION)"
 	@@echo "Upstream version:        $(UPVERSION)"
 
-#TMP_TARBALL_TOP=../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)
-TMP_TARBALL_TOP=../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION_REAL)
+TMP_TARBALL_TOP=../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)
 get-orig-source:
 	@@dh_testdir
 	@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
