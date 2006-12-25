@@ -1,8 +1,16 @@
 asterisk (1:1.4.0~dfsg-1) UNRELEASED; urgency=low
 
   * New upstream release.
+  * A package that builds.
+  * Removed asterisk-sounds.install: does not belong here.
+  * Removed makefile_noiaxy.dpatch: applied by upstream.
+  * Config examples in a separate examples subdirectory.
+  * Generate explicitly some missing subdirectories.
+  * Man pages are included in upstream now.
+  * set ASTDATADIR=/usr/share/asterisk .
+  * A bunch of other fils moved for 1.4 .
 
- -- Tzafrir Cohen <tzafrir@boomtime.cohens.org.il>  Fri, 15 Dec 2006 05:17:30 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 25 Dec 2006 04:17:41 +0200
 
 asterisk (1:1.3.99~beta2.dfsg-1) UNRELEASED; urgency=low
 

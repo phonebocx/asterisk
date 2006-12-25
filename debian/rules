@@ -22,7 +22,7 @@ export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 MAKEFLAGS = OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
 
 # Force music files selection:
-MAKEFLAGS += MENUSELECT_MOH= MENUSELECT_CORE_SOUNDS=CORE-SOUNDS-EN-GSM
+MAKEFLAGS += MENUSELECT_MOH= ASTDARADIR=/usr/share/asterisk
 
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
@@ -141,7 +141,6 @@ install: build
 	dh_installdirs var/run/asterisk
 	
 	# Add here commands to install the package into debian/<packagename>
-	mkdir -p $(CURDIR)/tmp/debian/usr/share/asterisk/sounds
 	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
@@ -158,6 +157,8 @@ install: build
 	chmod +x $(CURDIR)/debian/asterisk/usr/share/asterisk/bin/asterisk_fix
 	
 	mkdir -p $(CURDIR)/debian/tmp/usr/share/asterisk/firmware/iax
+	mkdir -p $(CURDIR)/debian/tmp/usr/share/asterisk/mohmp3
+	mkdir -p $(CURDIR)/debian/tmp/var/lib/asterisk
 	
 	dh_install --sourcedir=debian/tmp
 	
@@ -187,7 +188,7 @@ binary-arch: build install
 	dh_testdir -a
 	dh_testroot -a
 	dh_installdocs -a
-	dh_installman *.[1-8] debian/*.1 debian/*.8
+	dh_installman utils/*.1 doc/*.8 contrib/scripts/*.8
 	dh_installexamples -a -XCVS
 	dh_installchangelogs ChangeLog -a
 	dh_strip -a
