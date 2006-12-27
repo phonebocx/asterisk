@@ -1,8 +1,9 @@
-asterisk (1:1.2.13~dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.2.14~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * New upstream release.
 
- -- Mark Purcell <msp@debian.org>  Mon,  6 Nov 2006 06:48:48 +0000
+ -- Kilian Krause <kilian@debian.org>  Wed, 27 Dec 2006 15:46:54 +0100
 
 asterisk (1:1.2.13~dfsg-2) unstable; urgency=low
 
