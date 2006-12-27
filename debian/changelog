@@ -2,6 +2,8 @@ asterisk (1:1.2.14~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
   * New upstream release.
+  * Build against libspeex-dev (>= 1.1.12-3) with updated shlibs
+    (Closes: #403544)
 
  -- Kilian Krause <kilian@debian.org>  Wed, 27 Dec 2006 15:46:54 +0100
 
