@@ -6,7 +6,7 @@
 ## DP: Places read-only architecture-independent data under /usr/share/asterisk (autoconf --datadir)
 ## DP: not /var/lib/asterisk
 ## (in short make ASTVARLIBDIR become ASTDATADIR)
-## -- is applied upstream for 1.2
+## -- was applied upstream for 1.2. Full transition in 1.4.
 
 @DPATCH@
 diff -urNad asterisk-1.2.14~dfsg~/Makefile asterisk-1.2.14~dfsg/Makefile
