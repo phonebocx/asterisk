@@ -15,7 +15,7 @@ diff -urNad asterisk-1.2.14~dfsg~/Makefile asterisk-1.2.14~dfsg/Makefile
 -CC=$(CROSS_COMPILE)gcc
 -HOST_CC=gcc
 +#CC=$(CROSS_COMPILE)gcc
-+#HOST_CC=gcc
++HOST_CC=$(CC)
  # CROSS_ARCH=Linux
  # CROSS_PROC=arm
  # SUB_PROC=xscale # or maverick
