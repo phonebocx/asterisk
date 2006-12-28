@@ -6,8 +6,9 @@ asterisk (1:1.2.14~dfsg-1) UNRELEASED; urgency=low
     (Closes: #403544)
   * Update bristuff patch to apply cleanly with 1.2.14 until new upstream
     version is out.
+  * Remove hardcoded gcc (Closes: #316802)
 
- -- Kilian Krause <kilian@debian.org>  Thu, 28 Dec 2006 11:11:12 +0100
+ -- Kilian Krause <kilian@debian.org>  Thu, 28 Dec 2006 13:40:07 +0100
 
 asterisk (1:1.2.13~dfsg-2) unstable; urgency=low
 
