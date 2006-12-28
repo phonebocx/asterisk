@@ -14734,7 +14734,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_monitor.c asterisk-1.2.14~dfsg/res/res
  			char tmp[1024];
  			char tmp2[1024];
 +			char tmp3[1024];
-+			char result[1024];
++			int result[1024];
  			const char *format = !strcasecmp(chan->monitor->format,"wav49") ? "WAV" : chan->monitor->format;
  			char *name = chan->monitor->filename_base;
  			int directory = strchr(name, '/') ? 1 : 0;
