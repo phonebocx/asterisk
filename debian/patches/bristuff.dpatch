@@ -6,15 +6,6 @@
 ## DP: cygdef.h removed ;-)
 
 @DPATCH@
-diff -urNad asterisk-1.2.14~dfsg~/.version.rej asterisk-1.2.14~dfsg/.version.rej
---- asterisk-1.2.14~dfsg~/.version.rej	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/.version.rej	2006-12-28 10:22:18.405637079 +0100
-@@ -0,0 +1,5 @@
-+***************
-+*** 1 ****
-+- 1.2.13
-+--- 1 ----
-++ 1.2.13-BRIstuffed-0.3.0-PRE-1v
 diff -urNad asterisk-1.2.14~dfsg~/HARDWARE asterisk-1.2.14~dfsg/HARDWARE
 --- asterisk-1.2.14~dfsg~/HARDWARE	2005-11-29 19:24:39.000000000 +0100
 +++ asterisk-1.2.14~dfsg/HARDWARE	2006-12-28 10:22:18.385635692 +0100
