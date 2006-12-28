@@ -4,8 +4,10 @@ asterisk (1:1.2.14~dfsg-1) UNRELEASED; urgency=low
   * New upstream release.
   * Build against libspeex-dev (>= 1.1.12-3) with updated shlibs
     (Closes: #403544)
+  * Update bristuff patch to apply cleanly with 1.2.14 until new upstream
+    version is out.
 
- -- Kilian Krause <kilian@debian.org>  Wed, 27 Dec 2006 15:46:54 +0100
+ -- Kilian Krause <kilian@debian.org>  Thu, 28 Dec 2006 11:11:12 +0100
 
 asterisk (1:1.2.13~dfsg-2) unstable; urgency=low
 
