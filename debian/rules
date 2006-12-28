@@ -77,7 +77,6 @@ debian/build/asterisk-bristuff/config.status: config.status check-sounds patch-s
 	rm -rf $(BRISTUFF_DIR)
 	mkdir -p $(BRISTUFF_DIR)
 	tar cf - --exclude ./debian . | (cd $(BRISTUFF_DIR); tar xf -)
-	#ls -1d * .version .cleancount|grep -v debian|grep -v ^.$$|xargs cp -alt debian/build/asterisk-bristuff
 	set -e; cd $(BRISTUFF_DIR) ; \
 	  patch -p1 <../../patches/bristuff.dpatch ; \
 	  patch -p1 <../../patches/libpri_bristuffed.dpatch 
