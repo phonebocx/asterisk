@@ -1,6 +1,5 @@
-asterisk (1:1.2.14~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.14~dfsg-1) unstable; urgency=low
 
-  * NOT RELEASED YET
   * New upstream release.
   * Build against libspeex-dev (>= 1.1.12-3) with updated shlibs
     (Closes: #403544)
@@ -9,7 +8,7 @@ asterisk (1:1.2.14~dfsg-1) UNRELEASED; urgency=low
   * Remove hardcoded gcc (Closes: #316802)
   * Fix upstream clean target. (Closes: #393659)
 
- -- Kilian Krause <kilian@debian.org>  Thu, 28 Dec 2006 14:49:33 +0100
+ -- Kilian Krause <kilian@debian.org>  Wed,  3 Jan 2007 21:03:19 +0100
 
 asterisk (1:1.2.13~dfsg-2) unstable; urgency=low
 
