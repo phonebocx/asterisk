@@ -7,7 +7,7 @@ option_detach
 50_debian-libgsm.dpatch
 #95_conf_sample.dpatch
 98_fpm-sounds.dpatch
-sys_editline
+#sys_readline
 func_odbc_12
 brazilian_syntax
 vm_he

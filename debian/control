@@ -4,7 +4,7 @@ Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kilian@debian.org>, Jose Carlos Garcia Sogo <jsogo@debian.org>, Santiago Garcia Mantinan <manty@debian.org>, Simon Richter <sjr@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 Standards-Version: 3.6.1
-Build-Depends: debhelper (>= 4.0.4), sed (>= 3.95), zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev (>= 1:1.2.3-1), bison, libasound2-dev, libpq-dev, unixodbc-dev, libpri-dev (>= 1.2.3-1), dpatch (>= 2.0.10), zaptel-source (>= 1:1.2.3-1), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev (>= 1.1.12-3), graphviz, libcurl3-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), dpkg ( >= 1.13.19), libogg-dev, libvorbis-dev, libedit-dev
+Build-Depends: debhelper (>= 4.0.4), sed (>= 3.95), zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libzap-dev, libtonezone-dev (>= 1:1.2.3-1), bison, libasound2-dev, libpq-dev, unixodbc-dev, libpri-dev (>= 1.2.3-1), dpatch (>= 2.0.10), zaptel-source (>= 1:1.2.3-1), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev (>= 1.1.12-3), graphviz, libcurl3-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), dpkg ( >= 1.13.19), libogg-dev, libvorbis-dev
 
 Package: asterisk
 Architecture: all
