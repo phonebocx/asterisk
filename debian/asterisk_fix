@@ -27,12 +27,8 @@ done
 #             /var/lib/asterisk/sounds/priv-callerintros
 if [ -d /usr/share/asterisk/sounds/priv-callerintros ];then
 	echo "Updating private callerinfos location to /var/lib/asterisk/sounds/priv-callerintros."
-	if [ ! -d /var/lib/asterisk/sounds/priv-callerintros ];then
-		mv /usr/share/asterisk/sounds/priv-callerintros /var/lib/asterisk/sounds/priv-callerintros
-	else
-		echo "Directory /var/lib/asterisk/sounds/priv-callerintros already exists. Please"
-		echo "move files from /usr/share/asterisk/sounds/priv-callerintros yourself and"
-		echo "remove /usr/share/asterisk/sounds/priv-callerintros manually."
+	if [ `find /usr/share/asterisk/sounds/priv-callerintros -mindepth 1|wc -l` -gt 0 ];then
+		mv /usr/share/asterisk/sounds/priv-callerintros/* /var/lib/asterisk/sounds/priv-callerintros
 	fi
 fi
 
