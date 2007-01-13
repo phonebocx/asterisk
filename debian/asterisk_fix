@@ -28,13 +28,20 @@ done
 if [ -d /usr/share/asterisk/sounds/priv-callerintros ];then
 	if [ -L /usr/share/asterisk/sounds/priv-callerintros ];then
 		# if this is a fresh install just try to move the symlink.
-		rmdir --ignore-fail-on-non-empty /var/lib/asterisk/sounds/priv-callerintros
-		if [ ! -d /var/lib/asterisk/sounds/priv-callerintros ];then
-			echo -n "Updating private callerintros location to /var/lib/asterisk/sounds/priv-callerintros"
-			ln -s `readlink /usr/share/asterisk/sounds/priv-callerintros` /var/lib/asterisk/sounds/priv-callerintros
-			rm /usr/share/asterisk/sounds/priv-callerintros
-			echo '.'
+		userprovided=0
+		if [ ! -L /var/lib/asterisk/sounds/priv-callerintros ];then
+			if [ `find /var/lib/asterisk/sounds/priv-callerintros -mindepth 1|wc -l` -gt 0 ];then
+				rmdir /var/lib/asterisk/sounds/priv-callerintros
+				echo -n "Updating private callerintros location to /var/lib/asterisk/sounds/priv-callerintros"
+				ln -s `readlink /usr/share/asterisk/sounds/priv-callerintros` /var/lib/asterisk/sounds/priv-callerintros
+				rm /usr/share/asterisk/sounds/priv-callerintros
+				echo '.'
+			else
+				userprovided=1
 		else
+			userprovided=1
+		fi
+		if [ "$userprovided" = "1" ];then
 			echo 'Found user installed private callerintros. Not updating private callerintros'
 			echo 'directory to new directory. Please adjust symlink manually to new location'
 			echo '/var/lib/asterisk/sounds/priv-callerintros.'
