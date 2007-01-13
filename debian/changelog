@@ -1,8 +1,10 @@
 asterisk (1:1.2.14~dfsg-3) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * Write a more robust version of the FHS-update for
+    /usr/share/asterisk/sounds/priv-callerintros.
 
- -- Kilian Krause <kilian@debian.org>  Sat, 13 Jan 2007 12:19:50 +0100
+ -- Kilian Krause <kilian@debian.org>  Sat, 13 Jan 2007 14:12:26 +0100
 
 asterisk (1:1.2.14~dfsg-2) unstable; urgency=low
 
