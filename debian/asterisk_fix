@@ -23,6 +23,19 @@ for group in dialout audio; do
 	fi
 done
 
+# Update from /usr/share/asterisk/sounds/priv-callerintros to 
+#             /var/lib/asterisk/sounds/priv-callerintros
+if [ -d /usr/share/asterisk/sounds/priv-callerintros ];then
+	echo "Updating private callerinfos location to /var/lib/asterisk/sounds/priv-callerintros."
+	if [ ! -d /var/lib/asterisk/sounds/priv-callerintros ];then
+		mv /usr/share/asterisk/sounds/priv-callerintros /var/lib/asterisk/sounds/priv-callerintros
+	else
+		echo "Directory /var/lib/asterisk/sounds/priv-callerintros already exists. Please"
+		echo "move files from /usr/share/asterisk/sounds/priv-callerintros yourself and"
+		echo "remove /usr/share/asterisk/sounds/priv-callerintros manually."
+	fi
+fi
+
 # Make sure all (possibly) used dirs exist and is owned by asterisk
 
 # /var/run/asterisk is not yet handled by init.d :-(
@@ -37,6 +50,7 @@ dirs="
 "
 
 subdirs="
+	/var/lib/asterisk/sounds/priv-callerintros
         /var/log/asterisk/cdr-csv
         /var/log/asterisk/cdr-custom
         /var/spool/asterisk/dictate
@@ -74,7 +88,7 @@ find /etc/asterisk/ -type d | xargs chmod ug+rx
 ####################################
 # If asterisk in running, reload it
 # otherwise start it
-if [ -f "/etc/init.d/asterisk" ];then
+if [ -x "/etc/init.d/asterisk" ];then
 	if [ -f /var/run/asterisk/asterisk.pid ];then
 	    invoke-rc.d asterisk reload || exit $?
 	else
