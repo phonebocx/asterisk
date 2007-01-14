@@ -1,3 +1,9 @@
+asterisk (1:1.2.14~dfsg-4) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- Kilian Krause <kilian@debian.org>  Sun, 14 Jan 2007 14:04:36 +0100
+
 asterisk (1:1.2.14~dfsg-3) unstable; urgency=low
 
   * Write a more robust version of the FHS-update for
