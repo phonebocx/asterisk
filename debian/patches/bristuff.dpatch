@@ -2,226 +2,13 @@
 ## bristuff.dpatch by Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 ##
 ## All lines beginning with `## DP:' are a description of the patch.
-## DP: bristuff support in asterisk: asterisk.patch from bristuff-0.3.0-PRE-1v
+## DP: bristuff support in asterisk: asterisk.patch from bristuff-0.3.0-PRE-1x
 ## DP: cygdef.h removed ;-)
 
 @DPATCH@
-diff -urNad asterisk-1.2.14~dfsg~/HARDWARE asterisk-1.2.14~dfsg/HARDWARE
---- asterisk-1.2.14~dfsg~/HARDWARE	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/HARDWARE	2006-12-28 10:22:18.385635692 +0100
-@@ -37,6 +37,19 @@
-    * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
-      RBS signalling, as well as PPP, FR, and HDLC data modes.
- 
-+-- Junghanns.NET (Primary author of BRIstuff)
-+	http://www.junghanns.net
-+	
-+    * quadBRI PCI ISDN - 4port BRI ISDN interface, supports NT and TE mode
-+    
-+    * octoBRI PCI ISDN - 8port BRI ISDN interface, supports NT and TE mode
-+
-+    * singleE1 PCI ISDN - Single E1 interface
-+
-+    * doubleE1 PCI ISDN - Double E1 interface
-+    
-+    * uno/duo/quad GSM PCI - 1/2/4 channel GSM interface cards
-+
- Non-zaptel compatible hardware
- ==============================
- 
-diff -urNad asterisk-1.2.14~dfsg~/LICENSE asterisk-1.2.14~dfsg/LICENSE
---- asterisk-1.2.14~dfsg~/LICENSE	2006-10-17 19:22:01.000000000 +0200
-+++ asterisk-1.2.14~dfsg/LICENSE	2006-12-28 10:22:18.393636246 +0100
-@@ -1,7 +1,7 @@
--Asterisk is distributed under the GNU General Public License version 2
--and is also available under alternative licenses negotiated directly
--with Digium, Inc. If you obtained Asterisk under the GPL, then the GPL
--applies to all loadable Asterisk modules used on your system as well,
-+BRIstuffed Asterisk is distributed under the GNU General Public License version 2
-+and is not available under any alternative licenses.
-+If you obtained BRIstuffed Asterisk under the GPL, then the GPL
-+applies to all loadable BRIstuffed Asterisk modules used on your system as well,
- except as defined below. The GPL (version 2) is included in this
- source tree in the file COPYING.
- 
-diff -urNad asterisk-1.2.14~dfsg~/Makefile asterisk-1.2.14~dfsg/Makefile
---- asterisk-1.2.14~dfsg~/Makefile	2006-12-11 22:55:43.000000000 +0100
-+++ asterisk-1.2.14~dfsg/Makefile	2006-12-28 10:22:18.393636246 +0100
-@@ -781,6 +781,9 @@
- 		echo ";astctlowner = root" ; \
- 		echo ";astctlgroup = apache" ; \
- 		echo ";astctl = asterisk.ctl" ; \
-+		echo "[options]" ; \
-+		echo "uniquename = `hostname`" ;\
-+		echo "silence_suppression = yes" ;\
- 		) > $(DESTDIR)$(ASTCONFPATH) ; \
- 	else \
- 		echo "Skipping asterisk.conf creation"; \
-diff -urNad asterisk-1.2.14~dfsg~/README asterisk-1.2.14~dfsg/README
---- asterisk-1.2.14~dfsg~/README	2006-03-03 09:12:33.000000000 +0100
-+++ asterisk-1.2.14~dfsg/README	2006-12-28 10:22:18.397636524 +0100
-@@ -4,6 +4,8 @@
- 
- Copyright (C) 2001-2005 Digium, Inc.
- and other copyright holders.
-+Copyright (C) 2002-2005 Junghanns.NET GmbH 
-+and other copyright holders.
- ================================================================
- 
- * SECURITY
-diff -urNad asterisk-1.2.14~dfsg~/README.chan_capi asterisk-1.2.14~dfsg/README.chan_capi
---- asterisk-1.2.14~dfsg~/README.chan_capi	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/README.chan_capi	2006-12-28 10:22:18.397636524 +0100
-@@ -0,0 +1,146 @@
-+(CAPI*) chan_capi a Common ISDN API 2.0 implementation for Asterisk
-+(C) 2002, 2003, 2004, 2005 Junghanns.NET GmbH 
-+Klaus-Peter Junghanns <kpj@junghanns.net>
-+
-+This program is free software and may be modified and distributed under
-+the terms of the GNU Public License. There is _NO_ warranty for this!
-+
-+Thanks go to the debuggers and bugfixers (listed in chronological order) :)
-+===========================================================================
-+Lele Forzani <lele@windmill.it>
-+Florian Overkamp <florian@obsimref.com>
-+Gareth Watts <gareth@omnipotent.net>
-+Jeff Noxon <jeff@planetfall.com>
-+Petr Michalek <petr.michalek@aca.cz>
-+Jan Stocker
-+(...and all the others that i forgot..) :-)
-+
-+chan_capi version 0.4.0-PRE1 includes:
-+======================================
-+
-+- multiple controller support
-+- CID,DNID (callling party, called party)
-+- CLIR/CLIP
-+- supplementary services, CD,HOLD,RETRIEVE,ECT
-+- DTMF (dependend on card) + software DTMF support
-+- early B3 connects (always,success,never)
-+- digital audio (what did you think?)
-+- incoming/outgoing calls
-+- overlap sending (dialtone)
-+- E(xplicit) C(all) T(ransfer) (...although it's done implicit .. but dont tell!)
-+- tuneable latency ;) you can configure the size of B3 blocks at compile time
-+  (in chan_capi_pvt.h, AST_CAPI_MAX_B3_BLOCK_SIZE)
-+  the default is 160 samples, for non-VoIP use you can tune it down to 130
-+- use asterisk's internal dsp functions for dtmf
-+- alaw support 
-+- ulaw support! 
-+- Eicon CAPI echo cancelation (echocancel=1)
-+- reject call waiting (ACO)
-+- DID for Point to Point mode (a.k.a overlap receiving)
-+- experimental echo squelching (echosquelch=1)
-+- call progress, no need to add ||r to your dialstring anymore
-+- rx/tx gains (rxgain=1.0)
-+- call deflection on circuitbusy (makefile option) (deflect=12345678)
-+- (inter)national dialing prefix (for callerid) configurable in capi.conf
-+- CLI command "capi info" shows B channel status
-+- capiECT will announce the callerID since it gets lost on most isdn pbxes
-+  the called party can press # to drop the call
-+- audio syncing (timing outgoing dataB3 on incoming dataB3), supposed to fix
-+  the DATA_B3_REQ (error = 0x1103) problem
-+- catch all MSN (incomingmsn=*)
-+- some configuration enhancements (msn=123,124,125 and controller=1,2,3,4)
-+- accountcode= added.
-+- finally the echo squelching works!
-+- callgroup support
-+- fixed pipe leak
-+- updated to support the new frame->delivery field
-+- compiles with latest cvs with a makefile option (LOOK AT THE MAKEFILE)
-+- fixed channel name bug in p2p mode
-+- added app_capiNoES for disabling the primitive echo suppressor, use this before
-+  you start recording voicemail or your files may get choppy
-+- fixed for latest cvs (AST_MUTEX_DEFINE_STATIC)
-+- fixed for latest cvs (asterisk/parking.h -> asterisk/features.h)
-+- fixed for latest cvs ast_pthread_create
-+
-+- ATTENTION! the dialstring syntax now uses the zaptel dialstring syntax 
-+  it used to be:  Dial(CAPI/[@]<outgoingMSN>:[b|B]<destination>)
-+ 
-+  now it is:      Dial(CAPI/g<group>/[b|B]<destination>)
-+  or:             Dial(CAPI/contr<controller>/[b|B]<destination>)
-+ 
-+  CLIP/CLIR is now uses the calling presentation of the calling channel, this can
-+  be modified using the CallingPres() application. Use CallinPres(32) for CLIR.
-+  That is why the msn= param in capi.conf is now obsolete. The callerID is also
-+  taken from the calling channel.
-+
-+- fixes for BSD (Jan Stocker)
-+
-+Helper applications
-+===================
-+kapejod says: "No No No, dont use those yet....!" (except maybe HOLD,ECT...)
-+
-+app_capiCD.c		forwards an unanswered call to another phone (does not rely on sservice CD)
-+			example:
-+			exten => s,1,Wait,1
-+			exten => s,2,capiCD,12345678
-+			
-+app_capiHOLD.c		puts an answered call on hold, this has nothing to do with asterisk's onhold thingie (music et al)
-+			after putting a call onhold, never use the Wait application!
-+
-+app_capiRETRIEVE.c	gets the holded call back
-+
-+app_capiECT.c		explicit call transfer of the holded call (must put call on hold first!)
-+			example:
-+			exten => s,1,Answer
-+			exten => s,2,capiHOLD
-+			exten => s,3,capiECT,55:50
-+			will ECT the call to 50 using 55 as the callerid/outgoing msn
-+
-+
-+Using CLIR
-+==========
-+Use the CallingPres() application before you dial:
-+exten => _X.,1,CallingPres(32)
-+exten => _X.,2,Dial(CAPI/contr1/${EXTEN})    
-+
-+Enjoying early B3 connects (inband call progress, tones and announcements)
-+==========================================================================
-+early B3 is now configurable in the dialstring :)
-+if you prefix the destination number with a 'b' early B3 will always be used, also if the call fails
-+because the number is unprovisioned, etc ...
-+if you prefix it with a 'B' early B3 will only be used on successful calls, giving you ring indication,etc...
-+
-+dont use indications in the Dial command, your local exchange will do that for you:
-+exten => _X.,1,Dial(CAPI/contr1/B${EXTEN},30)		(early B3 on success)
-+exten => _X.,1,Dial(CAPI/contr1/b${EXTEN},30)		(always early B3)
-+exten => _X.,1,Dial(CAPI/contr1/${EXTEN},30,r)		(no early B3, fake ring indication)
-+
-+exten => _X.,1,Dial(CAPI/contr1/b${EXTEN},30,r)		(always early B3, fake indicatons if the exchange
-+							does not give us indications)
-+exten => _X.,1,Dial(CAPI/contr1/B${EXTEN},30,r)		(early B3 on success, fake indicatons if the exchange
-+							does not give us indications)
-+    
-+you can totally turn B3 off in the Makefile at buildtime (-DNEVER_EVER_EARLY_B3_CONNECTS).
-+
-+For normal PBX usage you would use the "b" option, always early B3.
-+
-+Overlap sending (a.k.a. real dialtone)
-+======================================
-+when you dial an empty number, and have early B3 enabled, with:
-+    Dial(CAPI/g1/b)
-+the channel will come up at once and give you the dialtone it gets from the local exchange.
-+at this point the channel is like a legacy phone, now you can send dtmf digits to dial.    
-+
-+Example context for incoming calls on MSN 12345678:
-+===================================================
-+
-+[capi-in]
-+exten => 12345678,1,Dial(SIP/phone1)
-+exten => 12345678,2,Hangup
-+
-+
-+More information/documentation and commercial support can be found at:
-+	http://www.junghanns.net/asterisk/
-+	
-+
-+
-diff -urNad asterisk-1.2.14~dfsg~/agi/Makefile asterisk-1.2.14~dfsg/agi/Makefile
---- asterisk-1.2.14~dfsg~/agi/Makefile	2006-03-28 22:22:05.000000000 +0200
-+++ asterisk-1.2.14~dfsg/agi/Makefile	2006-12-28 10:22:18.325631530 +0100
+diff -urN asterisk-1.2.14.orig/agi/Makefile asterisk-1.2.14/agi/Makefile
+--- asterisk-1.2.14.orig/agi/Makefile	2006-03-28 22:22:05.000000000 +0200
++++ asterisk-1.2.14/agi/Makefile	2007-01-11 15:26:50.811486902 +0100
 @@ -11,7 +11,7 @@
  # the GNU General Public License
  #
@@ -240,9 +27,9 @@ diff -urNad asterisk-1.2.14~dfsg~/agi/Makefile asterisk-1.2.14~dfsg/agi/Makefile
  
  %.so : %.o
  	$(CC) -shared -Xlinker -x -o $@ $<
-diff -urNad asterisk-1.2.14~dfsg~/agi/xagi-test.c asterisk-1.2.14~dfsg/agi/xagi-test.c
---- asterisk-1.2.14~dfsg~/agi/xagi-test.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/agi/xagi-test.c	2006-12-28 10:22:18.325631530 +0100
+diff -urN asterisk-1.2.14.orig/agi/xagi-test.c asterisk-1.2.14/agi/xagi-test.c
+--- asterisk-1.2.14.orig/agi/xagi-test.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/agi/xagi-test.c	2007-01-11 15:26:50.815487847 +0100
 @@ -0,0 +1,175 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -419,29 +206,9 @@ diff -urNad asterisk-1.2.14~dfsg~/agi/xagi-test.c asterisk-1.2.14~dfsg/agi/xagi-
 +		return -1;
 +	exit(0);
 +}
-diff -urNad asterisk-1.2.14~dfsg~/apps/Makefile asterisk-1.2.14~dfsg/apps/Makefile
---- asterisk-1.2.14~dfsg~/apps/Makefile	2006-04-30 15:38:22.000000000 +0200
-+++ asterisk-1.2.14~dfsg/apps/Makefile	2006-12-28 10:22:18.333632085 +0100
-@@ -28,8 +28,15 @@
-      app_test.so app_forkcdr.so app_math.so app_realtime.so \
-      app_dumpchan.so app_waitforsilence.so app_while.so app_setrdnis.so \
-      app_md5.so app_readfile.so app_chanspy.so app_settransfercapability.so \
-+     app_pickup.so app_segfault.so app_callingpres.so app_devstate.so \
-      app_dictate.so app_externalivr.so app_directed_pickup.so \
--     app_mixmonitor.so app_stack.so
-+     app_mixmonitor.so app_stack.so 
-+
-+
-+ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/capi20.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/capi20.h),)
-+  APPS+= app_capiNoES.so app_capiCD.so app_capiECT.so
-+endif
-+    
- 
- #
- # Obsolete things...
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_callingpres.c asterisk-1.2.14~dfsg/apps/app_callingpres.c
---- asterisk-1.2.14~dfsg~/apps/app_callingpres.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_callingpres.c	2006-12-28 10:22:18.325631530 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_callingpres.c asterisk-1.2.14/apps/app_callingpres.c
+--- asterisk-1.2.14.orig/apps/app_callingpres.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/apps/app_callingpres.c	2007-01-11 15:26:50.827490682 +0100
 @@ -0,0 +1,70 @@
 +/*
 + * An application to change the CallingPresentation for an Asterisk channel.
@@ -513,9 +280,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_callingpres.c asterisk-1.2.14~dfsg/ap
 +{
 +    return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_capiCD.c asterisk-1.2.14~dfsg/apps/app_capiCD.c
---- asterisk-1.2.14~dfsg~/apps/app_capiCD.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_capiCD.c	2006-12-28 10:22:18.325631530 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_capiCD.c asterisk-1.2.14/apps/app_capiCD.c
+--- asterisk-1.2.14.orig/apps/app_capiCD.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/apps/app_capiCD.c	2007-01-11 15:26:50.831491628 +0100
 @@ -0,0 +1,172 @@
 +/*
 + * (CAPI*)
@@ -689,9 +456,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_capiCD.c asterisk-1.2.14~dfsg/apps/ap
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_capiECT.c asterisk-1.2.14~dfsg/apps/app_capiECT.c
---- asterisk-1.2.14~dfsg~/apps/app_capiECT.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_capiECT.c	2006-12-28 10:22:18.325631530 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_capiECT.c asterisk-1.2.14/apps/app_capiECT.c
+--- asterisk-1.2.14.orig/apps/app_capiECT.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/apps/app_capiECT.c	2007-01-11 15:26:50.831491628 +0100
 @@ -0,0 +1,210 @@
 +/*
 + * (CAPI*)
@@ -903,9 +670,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_capiECT.c asterisk-1.2.14~dfsg/apps/a
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_capiNoES.c asterisk-1.2.14~dfsg/apps/app_capiNoES.c
---- asterisk-1.2.14~dfsg~/apps/app_capiNoES.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_capiNoES.c	2006-12-28 10:22:18.325631530 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_capiNoES.c asterisk-1.2.14/apps/app_capiNoES.c
+--- asterisk-1.2.14.orig/apps/app_capiNoES.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/apps/app_capiNoES.c	2007-01-11 15:26:50.831491628 +0100
 @@ -0,0 +1,96 @@
 +/*
 + * (CAPI*)
@@ -1003,9 +770,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_capiNoES.c asterisk-1.2.14~dfsg/apps/
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_chanisavail.c asterisk-1.2.14~dfsg/apps/app_chanisavail.c
---- asterisk-1.2.14~dfsg~/apps/app_chanisavail.c	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_chanisavail.c	2006-12-28 10:22:18.325631530 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_chanisavail.c asterisk-1.2.14/apps/app_chanisavail.c
+--- asterisk-1.2.14.orig/apps/app_chanisavail.c	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/apps/app_chanisavail.c	2007-01-11 15:26:50.831491628 +0100
 @@ -118,7 +118,7 @@
  				snprintf(trychan, sizeof(trychan), "%s/%s",cur,number);
  				status = inuse = ast_device_state(trychan);
@@ -1015,9 +782,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_chanisavail.c asterisk-1.2.14~dfsg/ap
  					pbx_builtin_setvar_helper(chan, "AVAILCHAN", tempchan->name);
  					/* Store the originally used channel too */
  					snprintf(tmp, sizeof(tmp), "%s/%s", tech, number);
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_chanspy.c asterisk-1.2.14~dfsg/apps/app_chanspy.c
---- asterisk-1.2.14~dfsg~/apps/app_chanspy.c	2006-10-13 19:01:22.000000000 +0200
-+++ asterisk-1.2.14~dfsg/apps/app_chanspy.c	2006-12-28 10:22:18.329631807 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_chanspy.c asterisk-1.2.14/apps/app_chanspy.c
+--- asterisk-1.2.14.orig/apps/app_chanspy.c	2006-10-13 19:01:22.000000000 +0200
++++ asterisk-1.2.14/apps/app_chanspy.c	2007-01-11 15:26:50.831491628 +0100
 @@ -55,6 +55,7 @@
  
  static const char *synopsis = "Listen to the audio of an active channel\n";
@@ -1145,9 +912,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_chanspy.c asterisk-1.2.14~dfsg/apps/a
  }
  
  char *description(void)
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_devstate.c asterisk-1.2.14~dfsg/apps/app_devstate.c
---- asterisk-1.2.14~dfsg~/apps/app_devstate.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_devstate.c	2006-12-28 10:22:18.329631807 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_devstate.c asterisk-1.2.14/apps/app_devstate.c
+--- asterisk-1.2.14.orig/apps/app_devstate.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/apps/app_devstate.c	2007-01-11 15:26:50.831491628 +0100
 @@ -0,0 +1,225 @@
 +/*
 + * Devstate application
@@ -1374,9 +1141,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_devstate.c asterisk-1.2.14~dfsg/apps/
 +{
 +    return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_dial.c asterisk-1.2.14~dfsg/apps/app_dial.c
---- asterisk-1.2.14~dfsg~/apps/app_dial.c	2006-12-02 00:30:59.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_dial.c	2006-12-28 10:22:18.329631807 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_dial.c asterisk-1.2.14/apps/app_dial.c
+--- asterisk-1.2.14.orig/apps/app_dial.c	2006-12-02 00:30:59.000000000 +0100
++++ asterisk-1.2.14/apps/app_dial.c	2007-01-11 15:26:50.835492573 +0100
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -1609,9 +1376,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_dial.c asterisk-1.2.14~dfsg/apps/app_
  		if (res != AST_PBX_NO_HANGUP_PEER) {
  			if (!chan->_softhangup)
  				chan->hangupcause = peer->hangupcause;
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_directed_pickup.c asterisk-1.2.14~dfsg/apps/app_directed_pickup.c
---- asterisk-1.2.14~dfsg~/apps/app_directed_pickup.c	2006-04-06 19:00:10.000000000 +0200
-+++ asterisk-1.2.14~dfsg/apps/app_directed_pickup.c	2006-12-28 10:22:18.329631807 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_directed_pickup.c asterisk-1.2.14/apps/app_directed_pickup.c
+--- asterisk-1.2.14.orig/apps/app_directed_pickup.c	2006-04-06 19:00:10.000000000 +0200
++++ asterisk-1.2.14/apps/app_directed_pickup.c	2007-01-11 15:26:50.835492573 +0100
 @@ -41,7 +41,7 @@
  #include "asterisk/app.h"
  
@@ -1621,9 +1388,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_directed_pickup.c asterisk-1.2.14~dfs
  static const char *synopsis = "Directed Call Pickup";
  static const char *descrip =
  "  Pickup(extension[@context]): This application can pickup any ringing channel\n"
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_meetme.c asterisk-1.2.14~dfsg/apps/app_meetme.c
---- asterisk-1.2.14~dfsg~/apps/app_meetme.c	2006-09-28 18:13:55.000000000 +0200
-+++ asterisk-1.2.14~dfsg/apps/app_meetme.c	2006-12-28 10:22:18.329631807 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_meetme.c asterisk-1.2.14/apps/app_meetme.c
+--- asterisk-1.2.14.orig/apps/app_meetme.c	2006-09-28 18:13:55.000000000 +0200
++++ asterisk-1.2.14/apps/app_meetme.c	2007-01-11 15:26:50.839493518 +0100
 @@ -458,7 +458,7 @@
  			ast_copy_string(cnf->pin, pin, sizeof(cnf->pin));
  			ast_copy_string(cnf->pinadmin, pinadmin, sizeof(cnf->pinadmin));
@@ -1677,9 +1444,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_meetme.c asterisk-1.2.14~dfsg/apps/ap
  				if (res > 0) {
  					memset(&fr, 0, sizeof(fr));
  					fr.frametype = AST_FRAME_VOICE;
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_milliwatt.c asterisk-1.2.14~dfsg/apps/app_milliwatt.c
---- asterisk-1.2.14~dfsg~/apps/app_milliwatt.c	2006-01-19 05:17:45.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_milliwatt.c	2006-12-28 10:22:18.329631807 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_milliwatt.c asterisk-1.2.14/apps/app_milliwatt.c
+--- asterisk-1.2.14.orig/apps/app_milliwatt.c	2006-01-19 05:17:45.000000000 +0100
++++ asterisk-1.2.14/apps/app_milliwatt.c	2007-01-11 15:26:50.839493518 +0100
 @@ -74,20 +74,28 @@
  {
  	struct ast_frame wf;
@@ -1715,9 +1482,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_milliwatt.c asterisk-1.2.14~dfsg/apps
  	wf.src = "app_milliwatt";
  	wf.delivery.tv_sec = 0;
  	wf.delivery.tv_usec = 0;
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_page.c asterisk-1.2.14~dfsg/apps/app_page.c
---- asterisk-1.2.14~dfsg~/apps/app_page.c	2006-09-11 23:47:23.000000000 +0200
-+++ asterisk-1.2.14~dfsg/apps/app_page.c	2006-12-28 10:22:18.333632085 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_page.c asterisk-1.2.14/apps/app_page.c
+--- asterisk-1.2.14.orig/apps/app_page.c	2006-09-11 23:47:23.000000000 +0200
++++ asterisk-1.2.14/apps/app_page.c	2007-01-11 15:26:50.839493518 +0100
 @@ -85,7 +85,7 @@
  {
  	struct calloutdata *cd = data;
@@ -1727,9 +1494,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_page.c asterisk-1.2.14~dfsg/apps/app_
  	free(cd);
  	return NULL;
  }
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_parkandannounce.c asterisk-1.2.14~dfsg/apps/app_parkandannounce.c
---- asterisk-1.2.14~dfsg~/apps/app_parkandannounce.c	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_parkandannounce.c	2006-12-28 10:22:18.333632085 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_parkandannounce.c asterisk-1.2.14/apps/app_parkandannounce.c
+--- asterisk-1.2.14.orig/apps/app_parkandannounce.c	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/apps/app_parkandannounce.c	2007-01-11 15:26:50.839493518 +0100
 @@ -183,7 +183,7 @@
  
  	memset(&oh, 0, sizeof(oh));
@@ -1739,9 +1506,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_parkandannounce.c asterisk-1.2.14~dfs
  
  	if(dchan) {
  		if(dchan->_state == AST_STATE_UP) {
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_pickup.c asterisk-1.2.14~dfsg/apps/app_pickup.c
---- asterisk-1.2.14~dfsg~/apps/app_pickup.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_pickup.c	2006-12-28 10:22:18.333632085 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_pickup.c asterisk-1.2.14/apps/app_pickup.c
+--- asterisk-1.2.14.orig/apps/app_pickup.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/apps/app_pickup.c	2007-01-11 15:26:50.843494463 +0100
 @@ -0,0 +1,319 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -1882,10 +1649,10 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_pickup.c asterisk-1.2.14~dfsg/apps/ap
 +                               if(endptr) {
 +                                       *endptr = '\0';
 +                               }
-+                               endptr = strrchr(evalchan, '/');
++/*                               endptr = strrchr(evalchan, '/');
 +                               if(endptr) {
 +                                       *endptr = '\0';
-+                               }
++                               } */
 +                               /* check for each of the members if they match (probably a stristr will do ?) */
 +                               /* if we match the code, break */
 +                               if(strstr(channels, evalchan) != NULL) {
@@ -2062,9 +1829,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_pickup.c asterisk-1.2.14~dfsg/apps/ap
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_queue.c asterisk-1.2.14~dfsg/apps/app_queue.c
---- asterisk-1.2.14~dfsg~/apps/app_queue.c	2006-10-03 22:14:13.000000000 +0200
-+++ asterisk-1.2.14~dfsg/apps/app_queue.c	2006-12-28 10:22:18.333632085 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_queue.c asterisk-1.2.14/apps/app_queue.c
+--- asterisk-1.2.14.orig/apps/app_queue.c	2006-10-03 22:14:13.000000000 +0200
++++ asterisk-1.2.14/apps/app_queue.c	2007-01-11 15:26:50.843494463 +0100
 @@ -543,7 +543,7 @@
  	return NULL;
  }
@@ -2110,9 +1877,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_queue.c asterisk-1.2.14~dfsg/apps/app
  			}
  			if (qe->parent->monjoin)
  				ast_monitor_setjoinfiles(which, 1);
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_readfile.c asterisk-1.2.14~dfsg/apps/app_readfile.c
---- asterisk-1.2.14~dfsg~/apps/app_readfile.c	2006-03-23 21:13:48.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_readfile.c	2006-12-28 10:22:18.333632085 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_readfile.c asterisk-1.2.14/apps/app_readfile.c
+--- asterisk-1.2.14.orig/apps/app_readfile.c	2006-03-23 21:13:48.000000000 +0100
++++ asterisk-1.2.14/apps/app_readfile.c	2007-01-11 15:26:50.843494463 +0100
 @@ -40,7 +40,7 @@
  #include "asterisk/app.h"
  #include "asterisk/module.h"
@@ -2122,9 +1889,9 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_readfile.c asterisk-1.2.14~dfsg/apps/
  
  static char *app_readfile = "ReadFile";
  
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_segfault.c asterisk-1.2.14~dfsg/apps/app_segfault.c
---- asterisk-1.2.14~dfsg~/apps/app_segfault.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_segfault.c	2006-12-28 10:22:18.333632085 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_segfault.c asterisk-1.2.14/apps/app_segfault.c
+--- asterisk-1.2.14.orig/apps/app_segfault.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/apps/app_segfault.c	2007-01-11 15:26:50.847495408 +0100
 @@ -0,0 +1,75 @@
 +/*
 + * Segfault application
@@ -2201,9 +1968,21 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_segfault.c asterisk-1.2.14~dfsg/apps/
 +{
 +    return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/apps/app_zapras.c asterisk-1.2.14~dfsg/apps/app_zapras.c
---- asterisk-1.2.14~dfsg~/apps/app_zapras.c	2006-12-11 01:33:59.000000000 +0100
-+++ asterisk-1.2.14~dfsg/apps/app_zapras.c	2006-12-28 10:22:18.333632085 +0100
+diff -urN asterisk-1.2.14.orig/apps/app_sendtext.c asterisk-1.2.14/apps/app_sendtext.c
+--- asterisk-1.2.14.orig/apps/app_sendtext.c	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/apps/app_sendtext.c	2007-01-11 15:26:50.847495408 +0100
+@@ -112,7 +112,7 @@
+ 	}
+ 	status = "FAILURE";
+ 	ast_mutex_unlock(&chan->lock);
+-	res = ast_sendtext(chan, args.text);
++	res = ast_sendtext(chan, NULL, args.text, 0);
+ 	if (!res)
+ 		status = "SUCCESS";
+ 	pbx_builtin_setvar_helper(chan, "SENDTEXTSTATUS", status);
+diff -urN asterisk-1.2.14.orig/apps/app_zapras.c asterisk-1.2.14/apps/app_zapras.c
+--- asterisk-1.2.14.orig/apps/app_zapras.c	2006-12-11 01:33:59.000000000 +0100
++++ asterisk-1.2.14/apps/app_zapras.c	2007-01-11 15:26:50.847495408 +0100
 @@ -188,7 +188,7 @@
  				}
  			}
@@ -2213,9 +1992,29 @@ diff -urNad asterisk-1.2.14~dfsg~/apps/app_zapras.c asterisk-1.2.14~dfsg/apps/ap
  			ioctl(chan->fds[0], ZT_AUDIOMODE, &x);
  
  			/* Restore saved values */
-diff -urNad asterisk-1.2.14~dfsg~/asterisk.c asterisk-1.2.14~dfsg/asterisk.c
---- asterisk-1.2.14~dfsg~/asterisk.c	2006-10-27 19:36:07.000000000 +0200
-+++ asterisk-1.2.14~dfsg/asterisk.c	2006-12-28 10:22:18.333632085 +0100
+diff -urN asterisk-1.2.14.orig/apps/Makefile asterisk-1.2.14/apps/Makefile
+--- asterisk-1.2.14.orig/apps/Makefile	2006-04-30 15:38:22.000000000 +0200
++++ asterisk-1.2.14/apps/Makefile	2007-01-11 15:26:50.847495408 +0100
+@@ -28,8 +28,15 @@
+      app_test.so app_forkcdr.so app_math.so app_realtime.so \
+      app_dumpchan.so app_waitforsilence.so app_while.so app_setrdnis.so \
+      app_md5.so app_readfile.so app_chanspy.so app_settransfercapability.so \
++     app_pickup.so app_segfault.so app_callingpres.so app_devstate.so \
+      app_dictate.so app_externalivr.so app_directed_pickup.so \
+-     app_mixmonitor.so app_stack.so
++     app_mixmonitor.so app_stack.so 
++
++
++ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/capi20.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/capi20.h),)
++  APPS+= app_capiNoES.so app_capiCD.so app_capiECT.so
++endif
++    
+ 
+ #
+ # Obsolete things...
+diff -urN asterisk-1.2.14.orig/asterisk.c asterisk-1.2.14/asterisk.c
+--- asterisk-1.2.14.orig/asterisk.c	2006-10-27 19:36:07.000000000 +0200
++++ asterisk-1.2.14/asterisk.c	2007-01-11 15:26:50.851496353 +0100
 @@ -169,7 +169,7 @@
  int option_maxcalls = 0;			/*!< */
  double option_maxload = 0.0;			/*!< Max load avg on system */
@@ -2250,9 +2049,9 @@ diff -urNad asterisk-1.2.14~dfsg~/asterisk.c asterisk-1.2.14~dfsg/asterisk.c
  		}
  		v = v->next;
  	}
-diff -urNad asterisk-1.2.14~dfsg~/build_tools/make_defaults_h asterisk-1.2.14~dfsg/build_tools/make_defaults_h
---- asterisk-1.2.14~dfsg~/build_tools/make_defaults_h	2005-06-20 19:26:08.000000000 +0200
-+++ asterisk-1.2.14~dfsg/build_tools/make_defaults_h	2006-12-28 10:22:18.337632362 +0100
+diff -urN asterisk-1.2.14.orig/build_tools/make_defaults_h asterisk-1.2.14/build_tools/make_defaults_h
+--- asterisk-1.2.14.orig/build_tools/make_defaults_h	2005-06-20 19:26:08.000000000 +0200
++++ asterisk-1.2.14/build_tools/make_defaults_h	2007-01-11 15:26:50.851496353 +0100
 @@ -16,6 +16,7 @@
  #define AST_KEY_DIR    "${INSTALL_PATH}${ASTVARLIBDIR}/keys"
  #define AST_DB         "${INSTALL_PATH}${ASTVARLIBDIR}/astdb"
@@ -2261,9 +2060,9 @@ diff -urNad asterisk-1.2.14~dfsg~/build_tools/make_defaults_h asterisk-1.2.14~df
  
  #define AST_CONFIG_FILE "${INSTALL_PATH}${ASTCONFPATH}"
  
-diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
---- asterisk-1.2.14~dfsg~/channel.c	2006-12-13 05:23:17.000000000 +0100
-+++ asterisk-1.2.14~dfsg/channel.c	2006-12-28 10:29:05.749932951 +0100
+diff -urN asterisk-1.2.14.orig/channel.c asterisk-1.2.14/channel.c
+--- asterisk-1.2.14.orig/channel.c	2006-12-13 05:23:17.000000000 +0100
++++ asterisk-1.2.14/channel.c	2007-01-11 15:32:39.797922081 +0100
 @@ -94,8 +94,8 @@
   */
  static int shutting_down = 0;
@@ -2325,17 +2124,21 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  {
  	const char *msg = prev ? "deadlock" : "initial deadlock";
  	int retries;
-@@ -753,6 +768,9 @@
+@@ -749,7 +764,12 @@
+ 				/* found, prepare to return c->next */
+ 				c = c->next;
+ 			}
+-			if (name) { /* want match by name */
++			if (uniqueid) {
++			    if (!strcasecmp(c->uniqueid, uniqueid))
++ 			    	break;
++			    else
++				continue;
++			} else if (name) { /* want match by name */
  				if ((!namelen && strcasecmp(c->name, name)) ||
  				    (namelen && strncasecmp(c->name, name, namelen)))
  					continue;	/* name match failed */
-+			} else if (uniqueid){
-+				if (strcasecmp(c->uniqueid, uniqueid))
-+					continue;
- 			} else if (exten) {
- 				if (context && strcasecmp(c->context, context) &&
- 				    strcasecmp(c->macrocontext, context))
-@@ -787,33 +805,39 @@
+@@ -787,33 +807,39 @@
  /*--- ast_channel_walk_locked: Browse channels in use */
  struct ast_channel *ast_channel_walk_locked(const struct ast_channel *prev)
  {
@@ -2369,18 +2172,18 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  {
 -	return channel_find_locked(NULL, NULL, 0, context, exten);
 +	return channel_find_locked(NULL, NULL, 0, context, exten, NULL);
- }
- 
++}
++
 +struct ast_channel *ast_get_channel_by_uniqueid_locked(const char *uniqueid)
 +{
 +	return channel_find_locked(NULL, NULL, 0, NULL, NULL, uniqueid);
-+}
-+
+ }
+ 
 +
  /*--- ast_safe_sleep_conditional: Wait, look for hangups and condition arg */
  int ast_safe_sleep_conditional(	struct ast_channel *chan, int ms,
  	int (*cond)(void*), void *data )
-@@ -879,8 +903,9 @@
+@@ -879,8 +905,9 @@
  	char name[AST_CHANNEL_NAME];
  	
  	headp=&chan->varshead;
@@ -2391,7 +2194,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  	cur = channels;
  	while(cur) {
  		if (cur == chan) {
-@@ -893,21 +918,20 @@
+@@ -893,21 +920,20 @@
  		last = cur;
  		cur = cur->next;
  	}
@@ -2420,7 +2223,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  
  	ast_copy_string(name, chan->name, sizeof(name));
  
-@@ -928,6 +952,8 @@
+@@ -928,6 +954,8 @@
  	if (chan->pbx) 
  		ast_log(LOG_WARNING, "PBX may not have been terminated properly on '%s'\n", chan->name);
  	free_cid(&chan->cid);
@@ -2429,7 +2232,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  	ast_mutex_destroy(&chan->lock);
  	/* Close pipes if appropriate */
  	if ((fd = chan->alertpipe[0]) > -1)
-@@ -950,10 +976,10 @@
+@@ -950,10 +978,10 @@
  	while ((vardata = AST_LIST_REMOVE_HEAD(headp, entries)))
  		ast_var_delete(vardata);
  
@@ -2442,7 +2245,34 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  }
  
  int ast_channel_spy_add(struct ast_channel *chan, struct ast_channel_spy *spy)
-@@ -2422,7 +2448,7 @@
+@@ -2141,7 +2169,7 @@
+ 	return buf;
+ }
+ 
+-int ast_sendtext(struct ast_channel *chan, const char *text)
++int ast_sendtext(struct ast_channel *chan, const char *dest, const char *text, int ispdu)
+ {
+ 	int res = 0;
+ 	/* Stop if we're a zombie or need a soft hangup */
+@@ -2149,7 +2177,7 @@
+ 		return -1;
+ 	CHECK_BLOCKING(chan);
+ 	if (chan->tech->send_text)
+-		res = chan->tech->send_text(chan, text);
++		res = chan->tech->send_text(chan, dest, text, ispdu);
+ 	ast_clear_flag(chan, AST_FLAG_BLOCKING);
+ 	return res;
+ }
+@@ -2279,7 +2307,7 @@
+ 		break;
+ 	case AST_FRAME_TEXT:
+ 		if (chan->tech->send_text)
+-			res = chan->tech->send_text(chan, (char *) fr->data);
++			res = chan->tech->send_text(chan, NULL, (char *) fr->data, 0);
+ 		else
+ 			res = 0;
+ 		break;
+@@ -2422,7 +2450,7 @@
  			  &chan->writetrans, 1);
  }
  
@@ -2451,7 +2281,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  {
  	int state = 0;
  	int cause = 0;
-@@ -2430,7 +2456,7 @@
+@@ -2430,7 +2458,7 @@
  	struct ast_frame *f;
  	int res = 0;
  	
@@ -2460,7 +2290,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  	if (chan) {
  		if (oh) {
  			if (oh->vars)	
-@@ -2444,6 +2470,7 @@
+@@ -2444,6 +2472,7 @@
  		}
  		ast_set_callerid(chan, cid_num, cid_name, cid_num);
  
@@ -2468,7 +2298,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  		if (!ast_call(chan, data, 0)) {
  			res = 1;	/* in case chan->_state is already AST_STATE_UP */
  			while (timeout && (chan->_state != AST_STATE_UP)) {
-@@ -2467,6 +2494,7 @@
+@@ -2467,6 +2496,7 @@
  					if (f->subclass == AST_CONTROL_RINGING)
  						state = AST_CONTROL_RINGING;
  					else if ((f->subclass == AST_CONTROL_BUSY) || (f->subclass == AST_CONTROL_CONGESTION)) {
@@ -2476,7 +2306,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  						state = f->subclass;
  						ast_frfree(f);
  						break;
-@@ -2536,12 +2564,12 @@
+@@ -2536,12 +2566,12 @@
  	return chan;
  }
  
@@ -2492,7 +2322,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  {
  	struct chanlist *chan;
  	struct ast_channel *c;
-@@ -2578,6 +2606,7 @@
+@@ -2578,6 +2608,7 @@
  		if (!(c = chan->tech->requester(type, capabilities, data, cause)))
  			return NULL;
  
@@ -2500,7 +2330,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  		if (c->_state == AST_STATE_DOWN) {
  			manager_event(EVENT_FLAG_CALL, "Newchannel",
  				      "Channel: %s\r\n"
-@@ -2854,6 +2883,29 @@
+@@ -2854,6 +2885,29 @@
  	return res;
  }
  
@@ -2530,7 +2360,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  void ast_change_name(struct ast_channel *chan, char *newname)
  {
  	char tmp[256];
-@@ -2995,7 +3047,7 @@
+@@ -2995,7 +3049,7 @@
  	ast_copy_string(clone->name, masqn, sizeof(clone->name));
  	
  	/* Notify any managers of the change, first the masq then the other */
@@ -2539,7 +2369,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  	manager_event(EVENT_FLAG_CALL, "Rename", "Oldname: %s\r\nNewname: %s\r\nUniqueid: %s\r\n", orig, newn, original->uniqueid);
  
  	/* Swap the technlogies */	
-@@ -3243,15 +3295,14 @@
+@@ -3243,15 +3297,14 @@
  				);
  }
  
@@ -2557,7 +2387,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  	manager_event(EVENT_FLAG_CALL,
  		      (oldstate == AST_STATE_DOWN && !ast_test_flag(chan, AST_FLAG_NOTNEW)) ? "Newchannel" : "Newstate",
  		      "Channel: %s\r\n"
-@@ -3267,6 +3318,10 @@
+@@ -3267,6 +3320,10 @@
  	return 0;
  }
  
@@ -2568,7 +2398,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  /*--- Find bridged channel */
  struct ast_channel *ast_bridged_channel(struct ast_channel *chan)
  {
-@@ -3446,6 +3501,7 @@
+@@ -3446,6 +3503,7 @@
  	char caller_warning = 0;
  	char callee_warning = 0;
  
@@ -2576,7 +2406,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  	if (c0->_bridge) {
  		ast_log(LOG_WARNING, "%s is already in a bridge with %s\n", 
  			c0->name, c0->_bridge->name);
-@@ -3456,6 +3512,10 @@
+@@ -3456,6 +3514,10 @@
  			c1->name, c1->_bridge->name);
  		return -1;
  	}
@@ -2587,79 +2417,41 @@ diff -urNad asterisk-1.2.14~dfsg~/channel.c asterisk-1.2.14~dfsg/channel.c
  	
  	/* Stop if we're a zombie or need a soft hangup */
  	if (ast_test_flag(c0, AST_FLAG_ZOMBIE) || ast_check_hangup_locked(c0) ||
-diff -urNad asterisk-1.2.14~dfsg~/channels/Makefile asterisk-1.2.14~dfsg/channels/Makefile
---- asterisk-1.2.14~dfsg~/channels/Makefile	2006-08-17 23:57:19.000000000 +0200
-+++ asterisk-1.2.14~dfsg/channels/Makefile	2006-12-28 10:22:18.381635414 +0100
-@@ -102,6 +102,11 @@
-   ZAPR2=-lmfcr2
- endif
+@@ -4179,3 +4241,22 @@
  
-+ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/lib/libgsmat.so.1)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/lib/libgsmat.so.1),)
-+  CFLAGS+=-DZAPATA_GSM
-+  ZAPGSM=-lgsmat
-+endif
+ 	free(state);
+ }
 +
- ALSA_SRC=chan_alsa.c
- 
- ifneq ($(wildcard alsa-monitor.h),)
-@@ -122,6 +127,35 @@
- endif
- endif # WITHOUT_ZAPTEL
- 
-+ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/capi20.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/capi20.h),)
-+  CHANNEL_LIBS+=chan_capi.so
-+# uncomment the following line if you really never ever want early b3 connects,
-+# you can also configure it in the dialstring, this is just for performance
-+# NOTE: this is probably obsolete by using the "R" dial option
-+#CFLAGS+=-DCAPI_NEVER_EVER_EARLY_B3_CONNECTS
++int ast_send_message(const char *type, void *data, char *to, char *from, char *message, int ispdu) {
++	struct ast_channel *chan = NULL;
++	int status;
++	int res = -1;
 +
-+# uncommnet next line to force dtmf software detection/generation, can also be configured
-+# in capi.conf on a perdevice basis (softdtmf=1)
-+#CFLAGS+=-DCAPI_FORCE_SOFTWARE_DTMF
++	chan = ast_request(type, AST_FORMAT_SLINEAR, data, &status, NULL);
++	if (chan) {
++	    if (from) {
++		ast_set_callerid(chan, from, from, from);
++	    }
++	    res = ast_sendtext(chan, to, message, ispdu);
++	    /* XXX what about message CDRs ??? XXX */
++	    ast_hangup(chan);
++	    return res;
++	}
 +
-+# uncomment the next line if you are in the ulaw world
-+#CFLAGS+=-DCAPI_ULAW
-+
-+# very experimental echo squelching
-+CFLAGS+=-DCAPI_ES
-+
-+#gains
-+CFLAGS+=-DCAPI_GAIN
-+
-+# what do to with call waiting connect indications?
-+# uncomment the next line for call deflection in that case
-+CFLAGS+=-DCAPI_DEFLECT_ON_CIRCUITBUSY
-+
-+# audio sync
-+CFLAGS+=-DCAPI_SYNC
-+
-+endif
-+
- ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/vpbapi.h),)
-   CHANNEL_LIBS+=chan_vpb.so
-   CFLAGS+=-DLINUX
-@@ -204,7 +238,7 @@
- 	$(CC) -c $(CFLAGS) -o chan_zap.o chan_zap.c
- 
- chan_zap.so: chan_zap.o
--	$(CC) $(SOLINK) -o $@ $<  $(ZAPPRI) $(ZAPR2) -ltonezone
-+	$(CC) $(SOLINK) -o $@ $<  $(ZAPPRI) $(ZAPGSM) $(ZAPR2) -ltonezone
- 
- chan_sip.so: chan_sip.o
- 	$(CC) $(SOLINK) -o $@ ${CYGSOLINK} chan_sip.o ${CYGSOLIB}
-@@ -220,6 +254,9 @@
- chan_nbs.so: chan_nbs.o
- 	$(CC) $(SOLINK) -o $@ $< -lnbs
- 
-+chan_capi.so: chan_capi.o
-+	$(CC) $(SOLINK) -o $@ $< -lcapi20
-+
- chan_vpb.o: chan_vpb.c
- 	$(CXX) -c $(CFLAGS) -o $@ chan_vpb.c
- 
-diff -urNad asterisk-1.2.14~dfsg~/channels/chan_agent.c asterisk-1.2.14~dfsg/channels/chan_agent.c
---- asterisk-1.2.14~dfsg~/channels/chan_agent.c	2006-09-06 20:16:41.000000000 +0200
-+++ asterisk-1.2.14~dfsg/channels/chan_agent.c	2006-12-28 10:22:18.341632640 +0100
++	return res;
++}
+diff -urN asterisk-1.2.14.orig/channels/chan_agent.c asterisk-1.2.14/channels/chan_agent.c
+--- asterisk-1.2.14.orig/channels/chan_agent.c	2006-09-06 20:16:41.000000000 +0200
++++ asterisk-1.2.14/channels/chan_agent.c	2007-01-11 15:26:50.859498244 +0100
+@@ -248,7 +248,7 @@
+ static struct ast_frame *agent_read(struct ast_channel *ast);
+ static int agent_write(struct ast_channel *ast, struct ast_frame *f);
+ static int agent_sendhtml(struct ast_channel *ast, int subclass, const char *data, int datalen);
+-static int agent_sendtext(struct ast_channel *ast, const char *text);
++static int agent_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu);
+ static int agent_indicate(struct ast_channel *ast, int condition);
+ static int agent_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
+ static struct ast_channel *agent_bridgedchannel(struct ast_channel *chan, struct ast_channel *bridge);
 @@ -440,7 +440,7 @@
  		if ((pointer = strchr(filename, '.')))
  			*pointer = '-';
@@ -2669,6 +2461,22 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_agent.c asterisk-1.2.14~dfsg/cha
  		ast_monitor_setjoinfiles(ast, 1);
  		snprintf(tmp2, sizeof(tmp2), "%s%s.%s", urlprefix ? urlprefix : "", filename, recordformatext);
  #if 0
+@@ -564,13 +564,13 @@
+ 	return res;
+ }
+ 
+-static int agent_sendtext(struct ast_channel *ast, const char *text)
++static int agent_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu)
+ {
+ 	struct agent_pvt *p = ast->tech_pvt;
+ 	int res = -1;
+ 	ast_mutex_lock(&p->lock);
+ 	if (p->chan) 
+-		res = ast_sendtext(p->chan, text);
++		res = ast_sendtext(p->chan, dest, text, ispdu);
+ 	ast_mutex_unlock(&p->lock);
+ 	return res;
+ }
 @@ -1336,7 +1336,7 @@
  						chan = agent_new(p, AST_STATE_DOWN);
  					} else if (!p->owner && !ast_strlen_zero(p->loginchan)) {
@@ -2678,9 +2486,30 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_agent.c asterisk-1.2.14~dfsg/cha
  						if (p->chan)
  							chan = agent_new(p, AST_STATE_DOWN);
  					}
-diff -urNad asterisk-1.2.14~dfsg~/channels/chan_capi.c asterisk-1.2.14~dfsg/channels/chan_capi.c
---- asterisk-1.2.14~dfsg~/channels/chan_capi.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/channels/chan_capi.c	2006-12-28 10:22:18.345632917 +0100
+diff -urN asterisk-1.2.14.orig/channels/chan_alsa.c asterisk-1.2.14/channels/chan_alsa.c
+--- asterisk-1.2.14.orig/channels/chan_alsa.c	2005-12-21 21:01:16.000000000 +0100
++++ asterisk-1.2.14/channels/chan_alsa.c	2007-01-11 15:26:50.863499189 +0100
+@@ -172,7 +172,7 @@
+ /* ZZ */
+ static struct ast_channel *alsa_request(const char *type, int format, void *data, int *cause);
+ static int alsa_digit(struct ast_channel *c, char digit);
+-static int alsa_text(struct ast_channel *c, const char *text);
++static int alsa_text(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ static int alsa_hangup(struct ast_channel *c);
+ static int alsa_answer(struct ast_channel *c);
+ static struct ast_frame *alsa_read(struct ast_channel *chan);
+@@ -501,7 +501,7 @@
+ 	return 0;
+ }
+ 
+-static int alsa_text(struct ast_channel *c, const char *text)
++static int alsa_text(struct ast_channel *c, const char *dest, const char *text, int ispdu)
+ {
+ 	ast_mutex_lock(&alsalock);
+ 	ast_verbose( " << Console Received text %s >> \n", text);
+diff -urN asterisk-1.2.14.orig/channels/chan_capi.c asterisk-1.2.14/channels/chan_capi.c
+--- asterisk-1.2.14.orig/channels/chan_capi.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/channels/chan_capi.c	2007-01-11 15:26:50.867500134 +0100
 @@ -0,0 +1,2888 @@
 +/*
 + * (CAPI*)
@@ -5570,9 +5399,9 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_capi.c asterisk-1.2.14~dfsg/chan
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/channels/chan_features.c asterisk-1.2.14~dfsg/channels/chan_features.c
---- asterisk-1.2.14~dfsg~/channels/chan_features.c	2006-08-30 20:59:44.000000000 +0200
-+++ asterisk-1.2.14~dfsg/channels/chan_features.c	2006-12-28 10:22:18.345632917 +0100
+diff -urN asterisk-1.2.14.orig/channels/chan_features.c asterisk-1.2.14/channels/chan_features.c
+--- asterisk-1.2.14.orig/channels/chan_features.c	2006-08-30 20:59:44.000000000 +0200
++++ asterisk-1.2.14/channels/chan_features.c	2007-01-11 15:26:50.867500134 +0100
 @@ -427,7 +427,7 @@
  	}
  	ast_mutex_unlock(&featurelock);
@@ -5582,9 +5411,9 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_features.c asterisk-1.2.14~dfsg/
  		if (!chan) {
  			ast_log(LOG_NOTICE, "Unable to allocate subchannel '%s/%s'\n", tech, dest);
  			return NULL;
-diff -urNad asterisk-1.2.14~dfsg~/channels/chan_iax2.c asterisk-1.2.14~dfsg/channels/chan_iax2.c
---- asterisk-1.2.14~dfsg~/channels/chan_iax2.c	2006-12-09 16:45:37.000000000 +0100
-+++ asterisk-1.2.14~dfsg/channels/chan_iax2.c	2006-12-28 10:22:18.349633195 +0100
+diff -urN asterisk-1.2.14.orig/channels/chan_iax2.c asterisk-1.2.14/channels/chan_iax2.c
+--- asterisk-1.2.14.orig/channels/chan_iax2.c	2006-12-09 16:45:37.000000000 +0100
++++ asterisk-1.2.14/channels/chan_iax2.c	2007-01-11 15:26:50.875502024 +0100
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -5595,6 +5424,24 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_iax2.c asterisk-1.2.14~dfsg/chan
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
+@@ -746,7 +749,7 @@
+ static struct ast_channel *iax2_request(const char *type, int format, void *data, int *cause);
+ static int iax2_devicestate(void *data);
+ static int iax2_digit(struct ast_channel *c, char digit);
+-static int iax2_sendtext(struct ast_channel *c, const char *text);
++static int iax2_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ static int iax2_sendimage(struct ast_channel *c, struct ast_frame *img);
+ static int iax2_sendhtml(struct ast_channel *c, int subclass, const char *data, int datalen);
+ static int iax2_call(struct ast_channel *c, char *dest, int timeout);
+@@ -2567,7 +2570,7 @@
+ 	return send_command_locked(PTR_TO_CALLNO(c->tech_pvt), AST_FRAME_DTMF, digit, 0, NULL, 0, -1);
+ }
+ 
+-static int iax2_sendtext(struct ast_channel *c, const char *text)
++static int iax2_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu)
+ {
+ 	
+ 	return send_command_locked(PTR_TO_CALLNO(c->tech_pvt), AST_FRAME_TEXT,
 @@ -3102,7 +3105,7 @@
   	memset(&ied, 0, sizeof(ied));
  	ast_mutex_lock(&iaxsl[callno]);
@@ -5614,9 +5461,72 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_iax2.c asterisk-1.2.14~dfsg/chan
  	return &f;
  }
  
-diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/channels/chan_sip.c
---- asterisk-1.2.14~dfsg~/channels/chan_sip.c	2006-12-06 16:42:41.000000000 +0100
-+++ asterisk-1.2.14~dfsg/channels/chan_sip.c	2006-12-28 10:33:42.305401768 +0100
+diff -urN asterisk-1.2.14.orig/channels/chan_oss.c asterisk-1.2.14/channels/chan_oss.c
+--- asterisk-1.2.14.orig/channels/chan_oss.c	2006-07-05 17:31:01.000000000 +0200
++++ asterisk-1.2.14/channels/chan_oss.c	2007-01-11 15:26:50.879502969 +0100
+@@ -318,7 +318,7 @@
+ static struct ast_channel *oss_request(const char *type, int format, void *data
+ , int *cause);
+ static int oss_digit(struct ast_channel *c, char digit);
+-static int oss_text(struct ast_channel *c, const char *text);
++static int oss_text(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ static int oss_hangup(struct ast_channel *c);
+ static int oss_answer(struct ast_channel *c);
+ static struct ast_frame *oss_read(struct ast_channel *chan);
+@@ -671,7 +671,7 @@
+ 	return 0;
+ }
+ 
+-static int oss_text(struct ast_channel *c, const char *text)
++static int oss_text(struct ast_channel *c, const char *dest, const char *text, int ispdu)
+ {
+ 	/* print received messages */
+ 	ast_verbose( " << Console Received text %s >> \n", text);
+diff -urN asterisk-1.2.14.orig/channels/chan_oss_old.c asterisk-1.2.14/channels/chan_oss_old.c
+--- asterisk-1.2.14.orig/channels/chan_oss_old.c	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/channels/chan_oss_old.c	2007-01-11 15:26:50.879502969 +0100
+@@ -136,7 +136,7 @@
+ 
+ static struct ast_channel *oss_request(const char *type, int format, void *data, int *cause);
+ static int oss_digit(struct ast_channel *c, char digit);
+-static int oss_text(struct ast_channel *c, const char *text);
++static int oss_text(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ static int oss_hangup(struct ast_channel *c);
+ static int oss_answer(struct ast_channel *c);
+ static struct ast_frame *oss_read(struct ast_channel *chan);
+@@ -501,7 +501,7 @@
+ 	return 0;
+ }
+ 
+-static int oss_text(struct ast_channel *c, const char *text)
++static int oss_text(struct ast_channel *c, const char *dest, const char *text, int ispdu)
+ {
+ 	ast_verbose( " << Console Received text %s >> \n", text);
+ 	return 0;
+diff -urN asterisk-1.2.14.orig/channels/chan_phone.c asterisk-1.2.14/channels/chan_phone.c
+--- asterisk-1.2.14.orig/channels/chan_phone.c	2006-11-28 17:56:01.000000000 +0100
++++ asterisk-1.2.14/channels/chan_phone.c	2007-01-11 15:26:50.879502969 +0100
+@@ -153,7 +153,7 @@
+ static struct ast_frame *phone_read(struct ast_channel *ast);
+ static int phone_write(struct ast_channel *ast, struct ast_frame *frame);
+ static struct ast_frame *phone_exception(struct ast_channel *ast);
+-static int phone_send_text(struct ast_channel *ast, const char *text);
++static int phone_send_text(struct ast_channel *ast, const char *dest, const char *text, int ispdu);
+ static int phone_fixup(struct ast_channel *old, struct ast_channel *new);
+ 
+ static const struct ast_channel_tech phone_tech = {
+@@ -596,7 +596,7 @@
+ 	return len;
+ }
+ 
+-static int phone_send_text(struct ast_channel *ast, const char *text)
++static int phone_send_text(struct ast_channel *ast, const char *dest, const char *text, int ispdu)
+ {
+     int length = strlen(text);
+     return phone_write_buf(ast->tech_pvt, text, length, length, 0) == 
+diff -urN asterisk-1.2.14.orig/channels/chan_sip.c asterisk-1.2.14/channels/chan_sip.c
+--- asterisk-1.2.14.orig/channels/chan_sip.c	2006-12-06 16:42:41.000000000 +0100
++++ asterisk-1.2.14/channels/chan_sip.c	2007-01-11 15:36:42.459235222 +0100
 @@ -604,6 +604,7 @@
  	unsigned int flags;			/*!< SIP_ flags */	
  	int timer_t1;				/*!< SIP timer T1, ms rtt */
@@ -5651,6 +5561,15 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	char vmexten[AST_MAX_EXTENSION]; /*!< Dialplan extension for MWI notify message*/
  	char mailbox[AST_MAX_EXTENSION]; /*!< Mailbox setting for MWI checks */
  	char language[MAX_LANGUAGE];	/*!<  Default language for prompts */
+@@ -911,7 +917,7 @@
+ 
+ static struct ast_channel *sip_request_call(const char *type, int format, void *data, int *cause);
+ static int sip_devicestate(void *data);
+-static int sip_sendtext(struct ast_channel *ast, const char *text);
++static int sip_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu);
+ static int sip_call(struct ast_channel *ast, char *dest, int timeout);
+ static int sip_hangup(struct ast_channel *ast);
+ static int sip_answer(struct ast_channel *ast);
 @@ -929,7 +935,7 @@
  static int determine_firstline_parts(struct sip_request *req);
  static void sip_dump_history(struct sip_pvt *dialog);	/* Dump history to LOG_DEBUG at end of dialog, before destroying data */
@@ -5669,7 +5588,32 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		p->subscribed = NONE;
  		append_history(p, "Subscribestatus", "timeout");
  		return 10000;	/* Reschedule this destruction so that we know that it's gone */
-@@ -3179,16 +3185,30 @@
+@@ -1589,24 +1595,6 @@
+ 	}
+ }
+ 
+-/*! \brief  sip_sendtext: Send SIP MESSAGE text within a call ---*/
+-/*      Called from PBX core text message functions */
+-static int sip_sendtext(struct ast_channel *ast, const char *text)
+-{
+-	struct sip_pvt *p = ast->tech_pvt;
+-	int debug=sip_debug_test_pvt(p);
+-
+-	if (debug)
+-		ast_verbose("Sending text %s on %s\n", text, ast->name);
+-	if (!p)
+-		return -1;
+-	if (ast_strlen_zero(text))
+-		return 0;
+-	if (debug)
+-		ast_verbose("Really sending text %s on %s\n", text, ast->name);
+-	transmit_message_with_text(p, text);
+-	return 0;	
+-}
+ 
+ /*! \brief  realtime_update_peer: Update peer object in realtime storage ---*/
+ static void realtime_update_peer(const char *peername, struct sockaddr_in *sin, const char *username, const char *fullcontact, int expirey)
+@@ -3179,16 +3167,30 @@
  
  /*! \brief  find_call: Connect incoming SIP message to current dialog or create new dialog structure */
  /*               Called by handle_request, sipsock_read */
@@ -5701,7 +5645,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	if (pedanticsipchecking) {
  		/* In principle Call-ID's uniquely identify a call, but with a forking SIP proxy
  		   we need more to identify a branch - so we have to check branch, from
-@@ -4203,6 +4223,7 @@
+@@ -4203,6 +4205,7 @@
  	if (sipmethod == SIP_CANCEL) {
  		c = p->initreq.rlPart2;	/* Use original URI */
  	} else if (sipmethod == SIP_ACK) {
@@ -5709,7 +5653,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		/* Use URI from Contact: in 200 OK (if INVITE) 
  		(we only have the contacturi on INVITEs) */
  		if (!ast_strlen_zero(p->okcontacturi))
-@@ -5008,13 +5029,15 @@
+@@ -5008,13 +5011,15 @@
  		ast_build_string(&invite, &invite_max, ";%s", p->options->uri_options);
  
  	ast_copy_string(p->uri, invite_buf, sizeof(p->uri));
@@ -5726,7 +5670,53 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	} else {
  		snprintf(to, sizeof(to), "<%s>", p->uri);
  	}
-@@ -5071,6 +5094,11 @@
+@@ -5045,6 +5050,45 @@
+ 		add_header(req, "Remote-Party-ID", p->rpid);
+ }
+ 
++static int transmit_sip_request(struct sip_pvt *p,struct sip_request *req);
++
++/*! \brief  sip_sendtext: Send SIP MESSAGE text within a call ---*/
++/*      Called from PBX core text message functions */
++static int sip_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu)
++{
++	struct sip_request req;
++	struct sip_pvt *p = ast->tech_pvt;
++	int debug=sip_debug_test_pvt(p);
++
++	if (debug)
++		ast_verbose("Sending text %s on %s\n", text, ast->name);
++	if (!p)
++		return -1;
++	if (ast_strlen_zero(text))
++		return 0;
++	if (ispdu) {
++		ast_log(LOG_WARNING, "Don't know how to send PDU on channel of type SIP\n");
++		return -1;
++	}
++
++	if (debug)
++		ast_verbose("Really sending text %s on %s\n", text, ast->name);
++
++	if ((ast->_state != AST_STATE_DOWN) && (ast->_state != AST_STATE_RESERVED)) {
++	    transmit_message_with_text(p, text);
++	} else {
++	    initreqprep(&req, p, SIP_MESSAGE);
++	    if (ast_sip_ouraddrfor(&p->sa.sin_addr, &p->ourip))
++		memcpy(&p->ourip, &__ourip, sizeof(p->ourip));
++	    build_via(p, p->via, sizeof(p->via));
++	    build_callid(p->callid, sizeof(p->callid), p->ourip, p->fromdomain);
++	    add_text(&req, text);
++	    transmit_sip_request(p, &req);
++	    sip_scheddestroy(p, 15000);
++	}
++	return 0;	
++}
++
+ /*! \brief  transmit_invite: Build REFER/INVITE/OPTIONS message and transmit it ---*/
+ static int transmit_invite(struct sip_pvt *p, int sipmethod, int sdp, int init)
+ {
+@@ -5071,6 +5115,11 @@
  		if (!ast_strlen_zero(p->referred_by))
  			add_header(&req, "Referred-By", p->referred_by);
  	}
@@ -5738,7 +5728,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  #ifdef OSP_SUPPORT
  	if ((req.method != SIP_OPTIONS) && p->options && !ast_strlen_zero(p->options->osptoken)) {
  		ast_log(LOG_DEBUG,"Adding OSP Token: %s\n", p->options->osptoken);
-@@ -5145,7 +5173,7 @@
+@@ -5145,7 +5194,7 @@
  }
  
  /*! \brief  transmit_state_notify: Used in the SUBSCRIBE notification subsystem ----*/
@@ -5747,7 +5737,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  {
  	char tmp[4000], from[256], to[256];
  	char *t = tmp, *c, *a, *mfrom, *mto;
-@@ -5290,10 +5318,19 @@
+@@ -5290,10 +5339,19 @@
  	case DIALOG_INFO_XML: /* SNOM subscribes in this format */
  		ast_build_string(&t, &maxbytes, "<?xml version=\"1.0\"?>\n");
  		ast_build_string(&t, &maxbytes, "<dialog-info xmlns=\"urn:ietf:params:xml:ns:dialog-info\" version=\"%d\" state=\"%s\" entity=\"%s\">\n", p->dialogver++, full ? "full":"partial", mto);
@@ -5770,7 +5760,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		ast_build_string(&t, &maxbytes, "<state>%s</state>\n", statestring);
  		ast_build_string(&t, &maxbytes, "</dialog>\n</dialog-info>\n");
  		break;
-@@ -6123,8 +6160,10 @@
+@@ -6123,8 +6181,10 @@
  		p->expire = -1;
  	pvt->expiry = expiry;
  	snprintf(data, sizeof(data), "%s:%d:%d:%s:%s", ast_inet_ntoa(iabuf, sizeof(iabuf), p->addr.sin_addr), ntohs(p->addr.sin_port), expiry, p->username, p->fullcontact);
@@ -5782,7 +5772,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	manager_event(EVENT_FLAG_SYSTEM, "PeerStatus", "Peer: SIP/%s\r\nPeerStatus: Registered\r\n", p->name);
  	if (inaddrcmp(&p->addr, &oldsin)) {
  		sip_poke_peer(p);
-@@ -6515,7 +6554,7 @@
+@@ -6515,7 +6575,7 @@
  /*! \brief  cb_extensionstate: Callback for the devicestate notification (SUBSCRIBE) support subsystem ---*/
  /*    If you add an "hint" priority to the extension in the dial plan,
        you will get notifications on device state changes */
@@ -5791,7 +5781,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  {
  	struct sip_pvt *p = data;
  
-@@ -6534,7 +6573,7 @@
+@@ -6534,7 +6594,7 @@
  		p->laststate = state;
  		break;
  	}
@@ -5800,7 +5790,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  
  	if (option_verbose > 1)
  		ast_verbose(VERBOSE_PREFIX_1 "Extension Changed %s new state %s for Notify User %s\n", exten, ast_extension_state2str(state), p->username);
-@@ -6560,7 +6599,13 @@
+@@ -6560,7 +6620,13 @@
  	char *name, *c;
  	char *t;
  	char *domain;
@@ -5815,7 +5805,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	/* Terminate URI */
  	t = uri;
  	while(*t && (*t > 32) && (*t != ';'))
-@@ -6611,9 +6656,68 @@
+@@ -6611,9 +6677,68 @@
  		if (!ast_test_flag(&peer->flags_page2, SIP_PAGE2_DYNAMIC)) {
  			ast_log(LOG_ERROR, "Peer '%s' is trying to register, but not configured as host=dynamic\n", peer->name);
  		} else {
@@ -5885,7 +5875,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  				sip_cancel_destroy(p);
  
  				switch (parse_register_contact(p, peer, req)) {
-@@ -6634,6 +6738,7 @@
+@@ -6634,6 +6759,7 @@
  					transmit_response_with_date(p, "200 OK", req);
  					peer->lastmsgssent = -1;
  					res = 0;
@@ -5893,7 +5883,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  					break;
  				}
  			} 
-@@ -6981,6 +7086,11 @@
+@@ -6981,6 +7107,11 @@
  			/* XXX The refer_to could contain a call on an entirely different machine, requiring an 
  	    		  INVITE with a replaces header -anthm XXX */
  			/* The only way to find out is to use the dialplan - oej */
@@ -5905,7 +5895,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		}
  	} else if (ast_exists_extension(NULL, *transfercontext, refer_to, 1, NULL) || !strcmp(refer_to, ast_parking_ext())) {
  		/* This is an unsupervised transfer (blind transfer) */
-@@ -7704,6 +7814,8 @@
+@@ -7704,6 +7835,8 @@
  	int peers_offline = 0;
  	char *id;
  	char idtext[256] = "";
@@ -5914,7 +5904,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  
  	if (s) {	/* Manager - get ActionID */
  		id = astman_get_header(m,"ActionID");
-@@ -7746,6 +7858,7 @@
+@@ -7746,6 +7879,7 @@
  		else
  			ast_copy_string(name, iterator->name, sizeof(name));
  
@@ -5922,7 +5912,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		pstatus = peer_status(iterator, status, sizeof(status));
  		if (pstatus) 	
  			peers_online++;
-@@ -7762,14 +7875,24 @@
+@@ -7762,14 +7896,24 @@
  			}
  		}			
  		
@@ -5948,7 +5938,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  			ast_cli(fd, FORMAT, name, 
  			iterator->addr.sin_addr.s_addr ? ast_inet_ntoa(iabuf, sizeof(iabuf), iterator->addr.sin_addr) : "(Unspecified)",
  			ast_test_flag(&iterator->flags_page2, SIP_PAGE2_DYNAMIC) ? " D " : "   ",  /* Dynamic or not? */
-@@ -7777,6 +7900,7 @@
+@@ -7777,6 +7921,7 @@
  			iterator->ha ? " A " : "   ",       /* permit/deny */
  			
  			ntohs(iterator->addr.sin_port), status);
@@ -5956,7 +5946,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		} else {	/* Manager format */
  			/* The names here need to be the same as other channels */
  			ast_cli(fd, 
-@@ -7802,7 +7926,9 @@
+@@ -7802,7 +7947,9 @@
  
  		ASTOBJ_UNLOCK(iterator);
  
@@ -5967,7 +5957,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	} while(0) );
  
  	if (!s) {
-@@ -8837,6 +8963,7 @@
+@@ -8837,6 +8984,7 @@
  	char buf[1024];
  	unsigned int event;
  	char *c;
@@ -5975,7 +5965,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	
  	/* Need to check the media/type */
  	if (!strcasecmp(get_header(req, "Content-Type"), "application/dtmf-relay") ||
-@@ -8900,6 +9027,19 @@
+@@ -8900,6 +9048,19 @@
  			ast_queue_control(p->owner, AST_CONTROL_VIDUPDATE);
  		transmit_response(p, "200 OK", req);
  		return;
@@ -5995,7 +5985,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	} else if ((c = get_header(req, "X-ClientCode"))) {
  		/* Client code (from SNOM phone) */
  		if (ast_test_flag(p, SIP_USECLIENTCODE)) {
-@@ -8999,12 +9139,63 @@
+@@ -8999,12 +9160,63 @@
  	return RESULT_SUCCESS;
  }
  
@@ -6060,7 +6050,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	if (argc < 4)
  		return RESULT_SHOWUSAGE;
  
-@@ -9021,41 +9212,13 @@
+@@ -9021,41 +9233,13 @@
  	}
  
  	for (i = 3; i < argc; i++) {
@@ -6082,14 +6072,14 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
 -		}
 -
 -		initreqprep(&req, p, SIP_NOTIFY);
--
--		for (var = varlist; var; var = var->next)
--			add_header(&req, var->name, var->value);
 +		if (sip_send_notify(fd, argv[2], argv[i]) == RESULT_FAILURE) 
 +		    res = RESULT_FAILURE;
 +    	}
 +	return res;
 +}
+ 
+-		for (var = varlist; var; var = var->next)
+-			add_header(&req, var->name, var->value);
  
 -		add_blank_header(&req);
 -		/* Recalculate our side, and recalculate Call ID */
@@ -6101,13 +6091,13 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
 -		transmit_sip_request(p, &req);
 -		sip_scheddestroy(p, 15000);
 -	}
- 
+-
 -	return RESULT_SUCCESS;
 -}
  /*! \brief  sip_do_history: Enable SIP History logging (CLI) ---*/
  static int sip_do_history(int fd, int argc, char *argv[])
  {
-@@ -9720,7 +9883,7 @@
+@@ -9720,7 +9904,7 @@
  		if (!ignore && p->owner) {
  			ast_queue_control(p->owner, AST_CONTROL_RINGING);
  			if (p->owner->_state != AST_STATE_UP)
@@ -6116,7 +6106,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		}
  		if (find_sdp(req)) {
  			process_sdp(p, req);
-@@ -10411,6 +10574,8 @@
+@@ -10411,6 +10595,8 @@
  static int attempt_transfer(struct sip_pvt *p1, struct sip_pvt *p2)
  {
  	int res = 0;
@@ -6125,7 +6115,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	struct ast_channel 
  		*chana = NULL,
  		*chanb = NULL,
-@@ -10420,6 +10585,9 @@
+@@ -10420,6 +10606,9 @@
  		*peerb = NULL,
  		*peerc = NULL,
  		*peerd = NULL;
@@ -6135,7 +6125,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  
  	if (!p1->owner || !p2->owner) {
  		ast_log(LOG_WARNING, "Transfer attempted without dual ownership?\n");
-@@ -10448,6 +10616,12 @@
+@@ -10448,6 +10637,12 @@
  		ast_quiet_chan(peerc);
  		ast_quiet_chan(peerd);
  
@@ -6148,7 +6138,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		if (peera->cdr && peerb->cdr) {
  			peerb->cdr = ast_cdr_append(peerb->cdr, peera->cdr);
  		} else if (peera->cdr) {
-@@ -10466,6 +10640,13 @@
+@@ -10466,6 +10661,13 @@
  			ast_log(LOG_WARNING, "Failed to masquerade %s into %s\n", peerb->name, peerc->name);
  			res = -1;
  		}
@@ -6162,7 +6152,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		return res;
  	} else {
  		ast_log(LOG_NOTICE, "Transfer attempted with no appropriate bridged calls to transfer\n");
-@@ -10477,7 +10658,6 @@
+@@ -10477,7 +10679,6 @@
  	}
  	return 0;
  }
@@ -6170,7 +6160,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  /*! \brief  gettag: Get tag from packet */
  static char *gettag(struct sip_request *req, char *header, char *tagbuf, int tagbufsize) 
  {
-@@ -10777,6 +10957,7 @@
+@@ -10777,6 +10978,7 @@
  	int res;
  	struct ast_channel *transfer_to;
  	char *transfercontext = NULL;
@@ -6178,7 +6168,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  
  	if (option_debug > 2)
  		ast_log(LOG_DEBUG, "SIP call transfer received for call %s (REFER)!\n", p->callid);
-@@ -10787,9 +10968,73 @@
+@@ -10787,9 +10989,73 @@
  		transfercontext = p->context;
  	if (res < 0)
  		transmit_response(p, "603 Declined", req);
@@ -6254,7 +6244,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		int nobye = 0;
  		if (!ignore) {
  			if (p->refer_call) {
-@@ -11128,7 +11373,7 @@
+@@ -11128,7 +11394,7 @@
  			struct sip_pvt *p_old;
  
  			transmit_response(p, "200 OK", req);
@@ -6263,7 +6253,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  			append_history(p, "Subscribestatus", ast_extension_state2str(firststate));
  
  			/* remove any old subscription from this peer for the same exten/context,
-@@ -11318,6 +11563,8 @@
+@@ -11318,6 +11584,8 @@
  		res = handle_request_options(p, req, debug);
  		break;
  	case SIP_INVITE:
@@ -6272,7 +6262,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		res = handle_request_invite(p, req, debug, ignore, seqno, sin, recount, e);
  		break;
  	case SIP_REFER:
-@@ -11435,7 +11682,7 @@
+@@ -11435,7 +11703,7 @@
  	/* Process request, with netlock held */
  retrylock:
  	ast_mutex_lock(&netlock);
@@ -6281,7 +6271,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	if (p) {
  		/* Go ahead and lock the owner if it has one -- we may need it */
  		if (p->owner && ast_mutex_trylock(&p->owner->lock)) {
-@@ -11776,6 +12023,52 @@
+@@ -11776,6 +12044,52 @@
  	return 0;
  }
  
@@ -6334,7 +6324,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  /*! \brief  sip_devicestate: Part of PBX channel interface ---*/
  
  /* Return values:---
-@@ -12313,6 +12606,7 @@
+@@ -12313,6 +12627,7 @@
  
  	peer->expire = -1;
  	peer->pokeexpire = -1;
@@ -6342,7 +6332,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	ast_copy_string(peer->name, name, sizeof(peer->name));
  	ast_copy_flags(peer, &global_flags, SIP_FLAGS_TO_COPY);
  	strcpy(peer->context, default_context);
-@@ -12358,7 +12652,9 @@
+@@ -12358,7 +12673,9 @@
  
  	if (peer) {
  		/* Already in the list, remove it and it will be added back (or FREE'd)  */
@@ -6353,7 +6343,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
   	} else {
  		peer = malloc(sizeof(*peer));
  		if (peer) {
-@@ -12370,6 +12666,7 @@
+@@ -12370,6 +12687,7 @@
  			ASTOBJ_INIT(peer);
  			peer->expire = -1;
  			peer->pokeexpire = -1;
@@ -6361,7 +6351,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		} else {
  			ast_log(LOG_WARNING, "Can't allocate SIP peer memory\n");
  		}
-@@ -12515,6 +12812,10 @@
+@@ -12515,6 +12833,10 @@
  			peer->call_limit = atoi(v->value);
  			if (peer->call_limit < 0)
  				peer->call_limit = 0;
@@ -6372,7 +6362,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  		} else if (!strcasecmp(v->name, "amaflags")) {
  			format = ast_cdr_amaflags2int(v->value);
  			if (format < 0) {
-@@ -12910,8 +13211,24 @@
+@@ -12910,8 +13232,24 @@
  				if (!strcasecmp(utype, "peer") || !strcasecmp(utype, "friend")) {
  					peer = build_peer(cat, ast_variable_browse(cfg, cat), 0);
  					if (peer) {
@@ -6399,7 +6389,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  					}
  				} else if (strcasecmp(utype, "user")) {
  					ast_log(LOG_WARNING, "Unknown type '%s' for '%s' in %s\n", utype, cat, "sip.conf");
-@@ -13513,6 +13830,8 @@
+@@ -13513,6 +13851,8 @@
  			"List SIP peers (text format)", mandescr_show_peers);
  	ast_manager_register2("SIPshowpeer", EVENT_FLAG_SYSTEM, manager_sip_show_peer,
  			"Show SIP peer (text format)", mandescr_show_peer);
@@ -6408,7 +6398,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  
  	sip_poke_all_peers();	
  	sip_send_all_registers();
-@@ -13543,6 +13862,7 @@
+@@ -13543,6 +13883,7 @@
  
  	ast_rtp_proto_unregister(&sip_rtp);
  
@@ -6416,9 +6406,9 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_sip.c asterisk-1.2.14~dfsg/chann
  	ast_manager_unregister("SIPpeers");
  	ast_manager_unregister("SIPshowpeer");
  
-diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/channels/chan_zap.c
---- asterisk-1.2.14~dfsg~/channels/chan_zap.c	2006-12-10 03:14:13.000000000 +0100
-+++ asterisk-1.2.14~dfsg/channels/chan_zap.c	2006-12-28 10:22:18.381635414 +0100
+diff -urN asterisk-1.2.14.orig/channels/chan_zap.c asterisk-1.2.14/channels/chan_zap.c
+--- asterisk-1.2.14.orig/channels/chan_zap.c	2006-12-10 03:14:13.000000000 +0100
++++ asterisk-1.2.14/channels/chan_zap.c	2007-01-11 15:26:50.931515256 +0100
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -6513,7 +6503,16 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  /*! \brief Whether we answer on a Polarity Switch event */
  static int answeronpolarityswitch = 0;
  
-@@ -389,6 +399,18 @@
+@@ -355,7 +365,7 @@
+ 
+ static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, struct ast_frame **fo, struct ast_channel **rc, int timeoutms);
+ 
+-static int zt_sendtext(struct ast_channel *c, const char *text);
++static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ 
+ /*! \brief Avoid the silly zt_getevent which ignores a bunch of events */
+ static inline int zt_get_event(int fd)
+@@ -389,6 +399,19 @@
  
  struct zt_pvt;
  
@@ -6525,6 +6524,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +	int span;
 +	struct gsm_modul *modul;
 +	char pin[256];
++	int available;
 +	char exten[AST_MAX_EXTENSION];		/* Where to idle extra calls */
 +	struct zt_pvt *pvt;
 +};
@@ -6532,7 +6532,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  
  #ifdef ZAPATA_R2
  static int r2prot = -1;
-@@ -403,6 +425,28 @@
+@@ -403,6 +426,28 @@
  #define PRI_SPAN(p) (((p) >> 8) & 0xff)
  #define PRI_EXPLICIT(p) (((p) >> 16) & 0x01)
  
@@ -6561,7 +6561,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  struct zt_pri {
  	pthread_t master;						/*!< Thread of master */
  	ast_mutex_t lock;						/*!< Mutex */
-@@ -416,6 +460,8 @@
+@@ -416,6 +461,8 @@
  	int nsf;							/*!< Network-Specific Facilities */
  	int dialplan;							/*!< Dialing plan */
  	int localdialplan;						/*!< Local dialing plan */
@@ -6570,7 +6570,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	char internationalprefix[10];					/*!< country access code ('00' for european dialplans) */
  	char nationalprefix[10];					/*!< area access code ('0' for european dialplans) */
  	char localprefix[20];						/*!< area access code + area code ('0'+area code for european dialplans) */
-@@ -435,6 +481,7 @@
+@@ -435,6 +482,7 @@
  	int fds[NUM_DCHANS];						/*!< FD's for d-channels */
  	int offset;
  	int span;
@@ -6578,7 +6578,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	int resetting;
  	int resetpos;
  	time_t lastreset;						/*!< time when unused channels were last reset */
-@@ -442,6 +489,9 @@
+@@ -442,6 +490,9 @@
  	struct zt_pvt *pvts[MAX_CHANNELS];				/*!< Member channel pvt structs */
  	struct zt_pvt *crvs;						/*!< Member CRV structs */
  	struct zt_pvt *crvend;						/*!< Pointer to end of CRV structs */
@@ -6588,7 +6588,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  };
  
  
-@@ -561,6 +611,8 @@
+@@ -561,6 +612,8 @@
  	unsigned int echocanbridged:1;
  	unsigned int echocanon:1;
  	unsigned int faxhandled:1;			/*!< Has a fax tone already been handled? */
@@ -6597,7 +6597,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	unsigned int firstradio:1;
  	unsigned int hanguponpolarityswitch:1;
  	unsigned int hardwaredtmf:1;
-@@ -573,7 +625,8 @@
+@@ -573,7 +626,8 @@
  	unsigned int overlapdial:1;
  	unsigned int permcallwaiting:1;
  	unsigned int permhidecallerid:1;		/*!< Whether to hide our outgoing caller ID or not */
@@ -6607,7 +6607,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	unsigned int priexclusive:1;
  	unsigned int pulse:1;
  	unsigned int pulsedial:1;			/*!< whether a pulse dial phone is detected */
-@@ -612,6 +665,7 @@
+@@ -612,6 +666,7 @@
  #endif
  	char cid_num[AST_MAX_EXTENSION];
  	int cid_ton;					/*!< Type Of Number (TON) */
@@ -6615,7 +6615,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	char cid_name[AST_MAX_EXTENSION];
  	char lastcid_num[AST_MAX_EXTENSION];
  	char lastcid_name[AST_MAX_EXTENSION];
-@@ -672,10 +726,15 @@
+@@ -672,10 +727,15 @@
  	int polarityonanswerdelay;
  	struct timeval polaritydelaytv;
  	int sendcalleridafter;
@@ -6631,7 +6631,16 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	q931_call *call;
  	int prioffset;
  	int logicalspan;
-@@ -701,11 +760,14 @@
+@@ -691,7 +751,7 @@
+ 
+ static struct ast_channel *zt_request(const char *type, int format, void *data, int *cause);
+ static int zt_digit(struct ast_channel *ast, char digit);
+-static int zt_sendtext(struct ast_channel *c, const char *text);
++static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ static int zt_call(struct ast_channel *ast, char *rdest, int timeout);
+ static int zt_hangup(struct ast_channel *ast);
+ static int zt_answer(struct ast_channel *ast);
+@@ -701,11 +761,14 @@
  static int zt_indicate(struct ast_channel *chan, int condition);
  static int zt_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
  static int zt_setoption(struct ast_channel *chan, int option, void *data, int datalen);
@@ -6647,7 +6656,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	.requester = zt_request,
  	.send_digit = zt_digit,
  	.send_text = zt_sendtext,
-@@ -719,6 +781,7 @@
+@@ -719,6 +782,7 @@
  	.indicate = zt_indicate,
  	.fixup = zt_fixup,
  	.setoption = zt_setoption,
@@ -6655,7 +6664,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  };
  
  #ifdef ZAPATA_PRI
-@@ -730,6 +793,13 @@
+@@ -730,6 +794,13 @@
  struct zt_pvt *round_robin[32];
  
  #ifdef ZAPATA_PRI
@@ -6669,7 +6678,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  static inline int pri_grab(struct zt_pvt *pvt, struct zt_pri *pri)
  {
  	int res;
-@@ -777,6 +847,112 @@
+@@ -777,6 +848,112 @@
  #define CANBUSYDETECT(p) (ISTRUNK(p) || (p->sig & (SIG_EM | SIG_EM_E1 | SIG_SF)) /* || (p->sig & __ZT_SIG_FXO) */)
  #define CANPROGRESSDETECT(p) (ISTRUNK(p) || (p->sig & (SIG_EM | SIG_EM_E1 | SIG_SF)) /* || (p->sig & __ZT_SIG_FXO) */)
  
@@ -6782,7 +6791,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  static int zt_get_index(struct ast_channel *ast, struct zt_pvt *p, int nullok)
  {
  	int res;
-@@ -1179,6 +1355,8 @@
+@@ -1179,6 +1356,8 @@
  		return "GR-303 Signalling with FXOKS";
  	case SIG_GR303FXSKS:
  		return "GR-303 Signalling with FXSKS";
@@ -6791,7 +6800,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	case 0:
  		return "Pseudo Signalling";
  	default:
-@@ -1379,12 +1557,16 @@
+@@ -1379,12 +1558,16 @@
  	int res;
  	if (!p)
  		return;
@@ -6809,7 +6818,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		return;
  	}
  	if (p->echocancel) {
-@@ -1410,7 +1592,7 @@
+@@ -1410,7 +1593,7 @@
  {
  	int x;
  	int res;
@@ -6818,7 +6827,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		x = p->echotraining;
  		res = ioctl(p->subs[SUB_REAL].zfd, ZT_ECHOTRAIN, &x);
  		if (res) 
-@@ -1590,7 +1772,7 @@
+@@ -1590,7 +1773,7 @@
  {
  	int x, y, res;
  	x = muted;
@@ -6827,7 +6836,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		y = 1;
  		res = ioctl(p->subs[SUB_REAL].zfd, ZT_AUDIOMODE, &y);
  		if (res)
-@@ -1772,7 +1954,12 @@
+@@ -1772,7 +1955,12 @@
  		ast_log(LOG_WARNING, "Unable to flush input on channel %d\n", p->channel);
  	p->outgoing = 1;
  
@@ -6841,7 +6850,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  
  	switch(p->sig) {
  	case SIG_FXOLS:
-@@ -1996,6 +2183,26 @@
+@@ -1996,6 +2184,26 @@
  	case SIG_PRI:
  		/* We'll get it in a moment -- but use dialdest to store pre-setup_ack digits */
  		p->dialdest[0] = '\0';
@@ -6868,7 +6877,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		break;
  	default:
  		ast_log(LOG_DEBUG, "not yet implemented\n");
-@@ -2014,6 +2221,12 @@
+@@ -2014,6 +2222,12 @@
  		int ldp_strip;
  		int exclusive;
  
@@ -6881,7 +6890,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		c = strchr(dest, '/');
  		if (c)
  			c++;
-@@ -2031,6 +2244,7 @@
+@@ -2031,6 +2245,7 @@
  			ast_mutex_unlock(&p->lock);
  			return -1;
  		}
@@ -6889,7 +6898,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		if (p->sig != SIG_FXSKS) {
  			p->dop.op = ZT_DIAL_OP_REPLACE;
  			s = strchr(c + p->stripmsd, 'w');
-@@ -2054,6 +2268,8 @@
+@@ -2054,6 +2269,8 @@
  			pri_rel(p->pri);
  			ast_mutex_unlock(&p->lock);
  			return -1;
@@ -6898,7 +6907,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		}
  		if (!(sr = pri_sr_new())) {
  			ast_log(LOG_WARNING, "Failed to allocate setup request channel %d\n", p->channel);
-@@ -2083,7 +2299,7 @@
+@@ -2083,7 +2300,7 @@
  		pri_sr_set_channel(sr, p->bearer ? PVT_TO_CHANNEL(p->bearer) : PVT_TO_CHANNEL(p), exclusive, 1);
  		pri_sr_set_bearer(sr, p->digital ? PRI_TRANS_CAP_DIGITAL : ast->transfercapability, 
  					(p->digital ? -1 : 
@@ -6907,7 +6916,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		if (p->pri->facilityenable)
  			pri_facility_enable(p->pri->pri);
  
-@@ -2284,8 +2500,10 @@
+@@ -2284,8 +2501,10 @@
  	}
  	if (newslot < 0) {
  		newslot = 0;
@@ -6919,7 +6928,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	}
  	if (old && (oldslot != newslot))
  		ast_log(LOG_NOTICE, "Switching from from d-channel %d to channel %d!\n",
-@@ -2341,8 +2559,7 @@
+@@ -2341,8 +2560,7 @@
  
  	ast_log(LOG_DEBUG, "Hangup: channel: %d index = %d, normal = %d, callwait = %d, thirdcall = %d\n",
  		p->channel, index, p->subs[SUB_REAL].zfd, p->subs[SUB_CALLWAIT].zfd, p->subs[SUB_THREEWAY].zfd);
@@ -6929,7 +6938,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	if (index > -1) {
  		/* Real channel, do some fixup */
  		p->subs[index].owner = NULL;
-@@ -2439,6 +2656,7 @@
+@@ -2439,6 +2657,7 @@
  
  
  	if (!p->subs[SUB_REAL].owner && !p->subs[SUB_CALLWAIT].owner && !p->subs[SUB_THREEWAY].owner) {
@@ -6937,7 +6946,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		p->owner = NULL;
  		p->ringt = 0;
  		p->distinctivering = 0;
-@@ -2475,19 +2693,61 @@
+@@ -2475,19 +2694,61 @@
  			if (p->call && (!p->bearer || (p->bearer->call == p->call))) {
  				if (!pri_grab(p, p->pri)) {
  					if (p->alreadyhungup) {
@@ -7000,7 +7009,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						ast_log(LOG_DEBUG, "Not yet hungup...  Calling hangup once with icause, and clearing call\n");
  
  #ifdef SUPPORT_USERUSER
-@@ -2501,7 +2761,28 @@
+@@ -2501,7 +2762,28 @@
  							if (atoi(cause))
  								icause = atoi(cause);
  						}
@@ -7030,7 +7039,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					}
  					if (res < 0) 
  						ast_log(LOG_WARNING, "pri_disconnect failed\n");
-@@ -2529,7 +2810,13 @@
+@@ -2529,7 +2811,13 @@
  
  		}
  #endif
@@ -7045,7 +7054,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			res = zt_set_hook(p->subs[SUB_REAL].zfd, ZT_ONHOOK);
  		if (res < 0) {
  			ast_log(LOG_WARNING, "Unable to hangup line %s\n", ast->name);
-@@ -2698,10 +2985,14 @@
+@@ -2698,10 +2986,14 @@
  			p->proceeding = 1;
  			res = pri_answer(p->pri->pri, p->call, 0, !p->digital);
  			pri_rel(p->pri);
@@ -7060,7 +7069,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		break;
  #endif
  #ifdef ZAPATA_R2
-@@ -2711,6 +3002,13 @@
+@@ -2711,6 +3003,13 @@
  			ast_log(LOG_WARNING, "R2 Answer call failed :( on %s\n", ast->name);
  		break;
  #endif			
@@ -7074,7 +7083,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	case 0:
  		ast_mutex_unlock(&p->lock);
  		return 0;
-@@ -3277,6 +3575,15 @@
+@@ -3277,6 +3576,15 @@
  {
  	struct zt_pvt *p = newchan->tech_pvt;
  	int x;
@@ -7090,7 +7099,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	ast_mutex_lock(&p->lock);
  	ast_log(LOG_DEBUG, "New owner for channel %d is %s\n", p->channel, newchan->name);
  	if (p->owner == oldchan) {
-@@ -3637,7 +3944,7 @@
+@@ -3637,7 +3945,7 @@
  			if (p->call) {
  				if (p->pri && p->pri->pri) {
  					if (!pri_grab(p, p->pri)) {
@@ -7099,7 +7108,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						pri_destroycall(p->pri->pri, p->call);
  						p->call = NULL;
  						pri_rel(p->pri);
-@@ -4600,7 +4907,7 @@
+@@ -4600,7 +4908,7 @@
  		p->subs[index].f.data = NULL;
  		p->subs[index].f.datalen= 0;
  	}
@@ -7108,7 +7117,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		/* Perform busy detection. etc on the zap line */
  		f = ast_dsp_process(ast, p->dsp, &p->subs[index].f);
  		if (f) {
-@@ -4612,8 +4919,9 @@
+@@ -4612,8 +4920,9 @@
  				}
  			} else if (f->frametype == AST_FRAME_DTMF) {
  #ifdef ZAPATA_PRI
@@ -7120,7 +7129,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					f->frametype = AST_FRAME_NULL;
  					f->subclass = 0;
  				}
-@@ -4661,8 +4969,10 @@
+@@ -4661,8 +4970,10 @@
  						pbx_builtin_setvar_helper(ast, "FAXEXTEN", ast->exten);
  						if (ast_async_goto(ast, target_context, "fax", 1))
  							ast_log(LOG_WARNING, "Failed to async goto '%s' into fax of '%s'\n", ast->name, target_context);
@@ -7133,7 +7142,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				} else
  					ast_log(LOG_DEBUG, "Already in a fax extension, not redirecting\n");
  			} else
-@@ -4748,7 +5058,9 @@
+@@ -4748,7 +5059,9 @@
  #endif
  	/* Write a frame of (presumably voice) data */
  	if (frame->frametype != AST_FRAME_VOICE) {
@@ -7144,7 +7153,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			ast_log(LOG_WARNING, "Don't know what to do with frame type '%d'\n", frame->frametype);
  		return 0;
  	}
-@@ -4819,7 +5131,7 @@
+@@ -4819,7 +5132,7 @@
  		switch(condition) {
  		case AST_CONTROL_BUSY:
  #ifdef ZAPATA_PRI
@@ -7153,7 +7162,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				chan->hangupcause = AST_CAUSE_USER_BUSY;
  				chan->_softhangup |= AST_SOFTHANGUP_DEV;
  				res = 0;
-@@ -4900,7 +5212,7 @@
+@@ -4900,7 +5213,7 @@
  		case AST_CONTROL_CONGESTION:
  			chan->hangupcause = AST_CAUSE_CONGESTION;
  #ifdef ZAPATA_PRI
@@ -7162,7 +7171,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				chan->hangupcause = AST_CAUSE_SWITCH_CONGESTION;
  				chan->_softhangup |= AST_SOFTHANGUP_DEV;
  				res = 0;
-@@ -5085,8 +5397,12 @@
+@@ -5085,8 +5398,12 @@
  		if (state == AST_STATE_RING)
  			tmp->rings = 1;
  		tmp->tech_pvt = i;
@@ -7177,7 +7186,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			tmp->callgroup = i->callgroup;
  			tmp->pickupgroup = i->pickupgroup;
  		}
-@@ -5228,6 +5544,7 @@
+@@ -5228,6 +5545,7 @@
  	int len = 0;
  	int res;
  	int index;
@@ -7185,7 +7194,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	if (option_verbose > 2) 
  		ast_verbose( VERBOSE_PREFIX_3 "Starting simple switch on '%s'\n", chan->name);
  	index = zt_get_index(chan, p, 1);
-@@ -5246,10 +5563,17 @@
+@@ -5246,10 +5564,17 @@
  		len = strlen(exten);
  		res = 0;
  		while((len < AST_MAX_EXTENSION-1) && ast_matchmore_extension(chan, chan->context, exten, 1, p->cid_num)) {
@@ -7206,7 +7215,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			if (ast_exists_extension(chan, chan->context, exten, 1, p->cid_num))
  				timeout = matchdigittimeout;
  			else
-@@ -6346,18 +6670,44 @@
+@@ -6346,18 +6671,44 @@
  		break;
  	case ZT_EVENT_NOALARM:
  		i->inalarm = 0;
@@ -7251,7 +7260,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		/* fall thru intentionally */
  	case ZT_EVENT_ONHOOK:
  		if (i->radio) break;
-@@ -6397,8 +6747,10 @@
+@@ -6397,8 +6748,10 @@
  			zt_set_hook(i->subs[SUB_REAL].zfd, ZT_ONHOOK);
  			break;
  		case SIG_PRI:
@@ -7264,7 +7273,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			break;
  		default:
  			ast_log(LOG_WARNING, "Don't know how to handle on hook with signalling %s on channel %d\n", sig2str(i->sig), i->channel);
-@@ -6721,6 +7073,8 @@
+@@ -6721,6 +7074,8 @@
  		} else {
  			if (si->totalchans == 31) { /* if it's an E1 */
  				pris[*span].dchannels[0] = 16 + offset;
@@ -7273,7 +7282,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			} else {
  				pris[*span].dchannels[0] = 24 + offset;
  			}
-@@ -6808,6 +7162,10 @@
+@@ -6808,6 +7163,10 @@
  
  #endif
  
@@ -7284,7 +7293,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  static struct zt_pvt *mkintf(int channel, int signalling, int radio, struct zt_pri *pri, int reloading)
  {
  	/* Make a zt_pvt structure for this interface (or CRV if "pri" is specified) */
-@@ -6966,6 +7324,11 @@
+@@ -6966,6 +7325,11 @@
  							destroy_zt_pvt(&tmp);
  							return NULL;
  						}
@@ -7296,7 +7305,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						if (!ast_strlen_zero(pris[span].idledial) && strcmp(pris[span].idledial, idledial)) {
  							ast_log(LOG_ERROR, "Span %d already has idledial '%s'.\n", span + 1, idledial);
  							destroy_zt_pvt(&tmp);
-@@ -6993,6 +7356,17 @@
+@@ -6993,6 +7357,17 @@
  							return NULL;
  						}
  						pris[span].nodetype = pritype;
@@ -7314,7 +7323,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						pris[span].switchtype = myswitchtype;
  						pris[span].nsf = nsf;
  						pris[span].dialplan = dialplan;
-@@ -7001,9 +7375,14 @@
+@@ -7001,9 +7376,14 @@
  						pris[span].minunused = minunused;
  						pris[span].minidle = minidle;
  						pris[span].overlapdial = overlapdial;
@@ -7329,7 +7338,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						ast_copy_string(pris[span].internationalprefix, internationalprefix, sizeof(pris[span].internationalprefix));
  						ast_copy_string(pris[span].nationalprefix, nationalprefix, sizeof(pris[span].nationalprefix));
  						ast_copy_string(pris[span].localprefix, localprefix, sizeof(pris[span].localprefix));
-@@ -7024,6 +7403,36 @@
+@@ -7024,6 +7404,37 @@
  				tmp->prioffset = 0;
  			}
  #endif
@@ -7339,6 +7348,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +		    ast_mutex_init(&tmp->gsm.lock);
 +		    strncpy(tmp->gsm.pin, gsm_modem_pin, sizeof(tmp->gsm.pin) - 1);
 +		    strncpy(tmp->gsm.exten, gsm_modem_exten, sizeof(tmp->gsm.exten) - 1);
++		    tmp->gsm.available = 0;
 +		    snprintf(fn, sizeof(fn), "%d", channel + 1);
 +		    /* Open non-blocking */
 +		    tmp->gsm.fd = zt_open(fn);
@@ -7366,7 +7376,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  #ifdef ZAPATA_R2
  			if (signalling == SIG_R2) {
  				if (r2prot < 0) {
-@@ -7157,6 +7566,7 @@
+@@ -7157,6 +7568,7 @@
  		tmp->restrictcid = restrictcid;
  		tmp->use_callingpres = use_callingpres;
  		tmp->priindication_oob = priindication_oob;
@@ -7374,7 +7384,20 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		tmp->priexclusive = cur_priexclusive;
  		if (tmp->usedistinctiveringdetection) {
  			if (!tmp->use_callerid) {
-@@ -7430,7 +7840,7 @@
+@@ -7309,6 +7721,12 @@
+ 				return 1;
+ 		}
+ #endif
++#ifdef ZAPATA_GSM
++		if (p->gsm.modul) {
++		    return gsm_available(p->gsm.modul);
++		}
++
++#endif
+ #ifdef ZAPATA_R2
+ 		/* Trust R2 as well */
+ 		if (p->r2) {
+@@ -7430,7 +7848,7 @@
  			break;
  		if (!backwards && (x >= pri->numchans))
  			break;
@@ -7383,7 +7406,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			ast_log(LOG_DEBUG, "Found empty available channel %d/%d\n", 
  				pri->pvts[x]->logicalspan, pri->pvts[x]->prioffset);
  			return x;
-@@ -7477,7 +7887,7 @@
+@@ -7477,7 +7895,7 @@
  	end = ifend;
  	/* We do signed linear */
  	oldformat = format;
@@ -7392,7 +7415,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	if (!format) {
  		ast_log(LOG_NOTICE, "Asked to get a channel of unsupported format '%d'\n", oldformat);
  		return NULL;
-@@ -7637,6 +8047,11 @@
+@@ -7637,6 +8055,11 @@
  					p->digital = 1;
  					if (tmp)
  						tmp->transfercapability = AST_TRANS_CAP_DIGITAL;
@@ -7404,7 +7427,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				} else {
  					ast_log(LOG_WARNING, "Unknown option '%c' in '%s'\n", opt, (char *)data);
  				}
-@@ -7670,12 +8085,174 @@
+@@ -7670,12 +8093,189 @@
  				*cause = AST_CAUSE_BUSY;
  		} else if (groupmatched) {
  			*cause = AST_CAUSE_CONGESTION;
@@ -7427,10 +7450,12 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +	case GSM_EVENT_DCHAN_UP:
 +		if (option_verbose > 2)
 +		    ast_verbose(VERBOSE_PREFIX_3 "GSM Span %d registered to network!\n", gsm->span);
++		gsm->available = 1;
 +		break;
 +	case GSM_EVENT_DCHAN_DOWN:
 +		if (option_verbose > 2)
 +		    ast_verbose(VERBOSE_PREFIX_3 "GSM Span %d unregistered from network!\n", gsm->span);
++		gsm->available = 0;
 +		break;
 +	case GSM_EVENT_RING:
 +		ast_mutex_lock(&gsm->pvt->lock);
@@ -7487,7 +7512,20 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +		gsm_send_pin(gsm->modul, gsm->pin);
 +		break;
 +	case GSM_EVENT_SM_RECEIVED:
-+		ast_verbose(VERBOSE_PREFIX_3 "SMS received on span %d. PDU: %s\n", gsm->span, e->sm_received.pdu);
++		ast_verbose(VERBOSE_PREFIX_3 "SMS from %s received on span %d. (Text: %s) (PDU: %s)\n", e->sm_received.sender, gsm->span, e->sm_received.text, e->sm_received.pdu);
++		manager_event(EVENT_FLAG_CALL, "Message received",
++			"Span: %d\r\n"
++		  	"Sender: %s\r\n"
++		  	"SMSC: %s\r\n"
++		      	"Length: %d\r\n"
++		  	"Text: %s\r\n"
++		  	"PDU: %s\r\n",
++			gsm->span, 
++			e->sm_received.sender,
++			e->sm_received.smsc,
++			e->sm_received.len,
++			e->sm_received.text,
++			e->sm_received.pdu);
 +		break;
 +	default:
 +		ast_log(LOG_WARNING,"!! Unknown GSM event %d !!\n", e->e);
@@ -7579,7 +7617,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  
  #ifdef ZAPATA_PRI
  static struct zt_pvt *pri_find_crv(struct zt_pri *pri, int crv)
-@@ -7690,6 +8267,57 @@
+@@ -7690,6 +8290,57 @@
  	return NULL;
  }
  
@@ -7637,7 +7675,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  
  static int pri_find_principle(struct zt_pri *pri, int channel)
  {
-@@ -7722,7 +8350,9 @@
+@@ -7722,7 +8373,9 @@
  static int pri_fixup_principle(struct zt_pri *pri, int principle, q931_call *c)
  {
  	int x;
@@ -7647,7 +7685,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	if (!c) {
  		if (principle < 0)
  			return -1;
-@@ -7736,6 +8366,7 @@
+@@ -7736,6 +8389,7 @@
  	/* First, check for other bearers */
  	for (x=0;x<pri->numchans;x++) {
  		if (!pri->pvts[x]) continue;
@@ -7655,7 +7693,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		if (pri->pvts[x]->call == c) {
  			/* Found our call */
  			if (principle != x) {
-@@ -7749,19 +8380,56 @@
+@@ -7749,19 +8403,56 @@
  				}
  				/* Fix it all up now */
  				pri->pvts[principle]->owner = pri->pvts[x]->owner;
@@ -7713,7 +7751,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			}
  			return principle;
  		}
-@@ -7790,7 +8458,9 @@
+@@ -7790,7 +8481,9 @@
  		}
  		crv = crv->next;
  	}
@@ -7724,7 +7762,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	return -1;
  }
  
-@@ -7849,86 +8519,33 @@
+@@ -7849,86 +8542,33 @@
  #ifndef PRI_RESTART
  #error "Upgrade your libpri"
  #endif
@@ -7734,13 +7772,19 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 -	int x, y;
 -	int dchan = -1, span = -1;
 -	int dchancount = 0;
--
++	ast_verbose("%d %s", span, s);
++}
+ 
 -	if (pri) {
 -		for (x = 0; x < NUM_SPANS; x++) {
 -			for (y = 0; y < NUM_DCHANS; y++) {
 -				if (pris[x].dchans[y])
 -					dchancount++;
--
++static void zt_pri_error(char *s, int span)
++{
++	ast_log(LOG_WARNING, "%d %s", span, s);
++}
+ 
 -				if (pris[x].dchans[y] == pri)
 -					dchan = y;
 -			}
@@ -7766,11 +7810,14 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 -		write(pridebugfd, s, strlen(s));
 -
 -	ast_mutex_unlock(&pridebugfdlock);
-+	ast_verbose("%d %s", span, s);
++#ifdef ZAPATA_GSM
++static void zt_gsm_message(char *s, int channel)
++{
++	ast_verbose("GSM %d: %s", channel, s);
  }
  
 -static void zt_pri_error(struct pri *pri, char *s)
-+static void zt_pri_error(char *s, int span)
++static void zt_gsm_error(char *s, int channel)
  {
 -	int x, y;
 -	int dchan = -1, span = -1;
@@ -7802,20 +7849,11 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 -		ast_log(LOG_WARNING, "%s", s);
 -
 -	ast_mutex_lock(&pridebugfdlock);
-+	ast_log(LOG_WARNING, "%d %s", span, s);
-+}
- 
+-
 -	if (pridebugfd >= 0)
 -		write(pridebugfd, s, strlen(s));
-+#ifdef ZAPATA_GSM
-+static void zt_gsm_message(char *s, int channel)
-+{
-+	ast_verbose("GSM %d: %s", channel, s);
-+}
- 
+-
 -	ast_mutex_unlock(&pridebugfdlock);
-+static void zt_gsm_error(char *s, int channel)
-+{
 +	ast_log(LOG_WARNING, "GSM %d: %s", channel, s);
  }
 +#endif
@@ -7828,7 +7866,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	do {
  		pri->resetpos++;
  	} while((pri->resetpos < pri->numchans) &&
-@@ -8011,6 +8628,32 @@
+@@ -8011,6 +8651,32 @@
  	}
  }
  
@@ -7861,7 +7899,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  static void *pri_dchannel(void *vpri)
  {
  	struct zt_pri *pri = vpri;
-@@ -8191,15 +8834,44 @@
+@@ -8191,15 +8857,44 @@
  					/* Check for an event */
  					x = 0;
  					res = ioctl(pri->fds[which], ZT_GETEVENT, &x);
@@ -7909,7 +7947,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					}
  				
  					if (option_debug)
-@@ -8211,8 +8883,7 @@
+@@ -8211,8 +8906,7 @@
  					break;
  			}
  		} else if (errno != EINTR)
@@ -7919,7 +7957,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		if (e) {
  			if (pri->debug)
  				pri_dump_event(pri->dchans[which], e);
-@@ -8220,32 +8891,102 @@
+@@ -8220,32 +8914,102 @@
  				pri->dchanavail[which] |= DCHAN_UP;
  			switch(e->e) {
  			case PRI_EVENT_DCHAN_UP:
@@ -8046,7 +8084,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					pri->resetting = 0;
  					/* Hangup active channels and put them in alarm mode */
  					for (i=0; i<pri->numchans; i++) {
-@@ -8253,19 +8994,29 @@
+@@ -8253,19 +9017,29 @@
  						if (p) {
  							if (p->call) {
  								if (p->pri && p->pri->pri) {
@@ -8083,7 +8121,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				}
  				break;
  			case PRI_EVENT_RESTART:
-@@ -8300,8 +9051,8 @@
+@@ -8300,8 +9074,8 @@
  								pri_destroycall(pri->pri, pri->pvts[x]->call);
  								pri->pvts[x]->call = NULL;
  							}
@@ -8094,7 +8132,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
   							else if (pri->pvts[x]->owner)
  								pri->pvts[x]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
  							ast_mutex_unlock(&pri->pvts[x]->lock);
-@@ -8335,7 +9086,6 @@
+@@ -8335,7 +9109,6 @@
  					}
  				}
  				break;
@@ -8102,7 +8140,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			case PRI_EVENT_INFO_RECEIVED:
  				chanpos = pri_find_principle(pri, e->ring.channel);
  				if (chanpos < 0) {
-@@ -8344,9 +9094,11 @@
+@@ -8344,9 +9117,11 @@
  				} else {
  					chanpos = pri_fixup_principle(pri, chanpos, e->ring.call);
  					if (chanpos > -1) {
@@ -8115,7 +8153,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  							/* how to do that */
  							int digitlen = strlen(e->ring.callednum);
  							char digit;
-@@ -8358,6 +9110,14 @@
+@@ -8358,6 +9133,14 @@
  									zap_queue_frame(pri->pvts[chanpos], &f, pri);
  								}
  							}
@@ -8130,7 +8168,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						}
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					}
-@@ -8365,39 +9125,58 @@
+@@ -8365,39 +9148,58 @@
  				break;
  			case PRI_EVENT_RING:
  				crv = NULL;
@@ -8210,7 +8248,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					if (pri->switchtype == PRI_SWITCH_GR303_TMC) {
  						/* Should be safe to lock CRV AFAIK while bearer is still locked */
  						crv = pri_find_crv(pri, pri_get_crv(pri->pri, e->ring.call, NULL));
-@@ -8411,13 +9190,14 @@
+@@ -8411,13 +9213,14 @@
  								ast_log(LOG_WARNING, "Call received for busy CRV %d on span %d\n", pri_get_crv(pri->pri, e->ring.call, NULL), pri->span);
  							} else
  								ast_log(LOG_NOTICE, "Call received for unconfigured CRV %d on span %d\n", pri_get_crv(pri->pri, e->ring.call, NULL), pri->span);
@@ -8226,7 +8264,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					pri->pvts[chanpos]->call = e->ring.call;
  					apply_plan_to_number(plancallingnum, sizeof(plancallingnum), pri, e->ring.callingnum, e->ring.callingplan);
  					if (pri->pvts[chanpos]->use_callerid) {
-@@ -8442,29 +9222,78 @@
+@@ -8442,29 +9245,78 @@
  					}
  					apply_plan_to_number(pri->pvts[chanpos]->rdnis, sizeof(pri->pvts[chanpos]->rdnis), pri,
  							     e->ring.redirectingnum, e->ring.callingplanrdnis);
@@ -8287,6 +8325,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  							ast_verbose(VERBOSE_PREFIX_3 "Going to extension s|1 because of Complete received\n");
  						pri->pvts[chanpos]->exten[0] = 's';
  						pri->pvts[chanpos]->exten[1] = '\0';
+-					}
 + 					    }
 +  					} else {
 +  						/* Get called number */
@@ -8309,7 +8348,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +  							}
 +  						    }
 +  						}
- 					}
++					}
 +  					/* Part 3: create channel, setup audio... */
 + 					/* Set DNID on all incoming calls -- even immediate */
 + 					if (!ast_strlen_zero(e->ring.callednum))
@@ -8317,7 +8356,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					/* Make sure extension exists (or in overlap dial mode, can exist) */
  					if ((pri->overlapdial && ast_canmatch_extension(NULL, pri->pvts[chanpos]->context, pri->pvts[chanpos]->exten, 1, pri->pvts[chanpos]->cid_num)) ||
  						ast_exists_extension(NULL, pri->pvts[chanpos]->context, pri->pvts[chanpos]->exten, 1, pri->pvts[chanpos]->cid_num)) {
-@@ -8483,19 +9312,36 @@
+@@ -8483,19 +9335,36 @@
  						res = zt_setlaw(pri->pvts[chanpos]->subs[SUB_REAL].zfd, law);
  						if (res < 0) 
  							ast_log(LOG_WARNING, "Unable to set law on channel %d\n", pri->pvts[chanpos]->channel);
@@ -8358,7 +8397,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						/* Get the use_callingpres state */
  						pri->pvts[chanpos]->callingpres = e->ring.callingpres;
  					
-@@ -8507,14 +9353,31 @@
+@@ -8507,14 +9376,31 @@
  								/* Set bearer and such */
  								pri_assign_bearer(crv, pri, pri->pvts[chanpos]);
  								c = zt_new(crv, AST_STATE_RESERVED, 0, SUB_REAL, law, e->ring.ctype);
@@ -8390,7 +8429,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  							if(e->ring.ani2 >= 0) {
  								snprintf(ani2str, 5, "%.2d", e->ring.ani2);
  								pbx_builtin_setvar_helper(c, "ANI2", ani2str);
-@@ -8534,8 +9397,8 @@
+@@ -8534,8 +9420,8 @@
  							ast_mutex_lock(&pri->lock);
  							if (c && !ast_pthread_create(&threadid, &attr, ss_thread, c)) {
  								if (option_verbose > 2)
@@ -8401,7 +8440,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  										pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
  							} else {
  								ast_log(LOG_WARNING, "Unable to start PBX on channel %d/%d, span %d\n", 
-@@ -8543,14 +9406,18 @@
+@@ -8543,14 +9429,18 @@
  								if (c)
  									ast_hangup(c);
  								else {
@@ -8421,7 +8460,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  							ast_mutex_lock(&pri->lock);
  							if (c) {
  								char calledtonstr[10];
-@@ -8571,23 +9438,40 @@
+@@ -8571,23 +9461,40 @@
  								snprintf(calledtonstr, sizeof(calledtonstr)-1, "%d", e->ring.calledplan);
  								pbx_builtin_setvar_helper(c, "CALLEDTON", calledtonstr);
  								if (option_verbose > 2)
@@ -8466,7 +8505,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						pri->pvts[chanpos]->call = NULL;
  						pri->pvts[chanpos]->exten[0] = '\0';
  					}
-@@ -8595,7 +9479,7 @@
+@@ -8595,7 +9502,7 @@
  						ast_mutex_unlock(&crv->lock);
  					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  				} else 
@@ -8475,7 +8514,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				break;
  			case PRI_EVENT_RINGING:
  				chanpos = pri_find_principle(pri, e->ringing.channel);
-@@ -8613,7 +9497,7 @@
+@@ -8613,7 +9520,7 @@
  					} else {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
  						if (ast_strlen_zero(pri->pvts[chanpos]->dop.dialstr)) {
@@ -8484,7 +8523,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  							pri->pvts[chanpos]->subs[SUB_REAL].needringing = 1;
  							pri->pvts[chanpos]->alerting = 1;
  						} else
-@@ -8642,9 +9526,16 @@
+@@ -8642,9 +9549,16 @@
  				}
  				break;
  			case PRI_EVENT_PROGRESS:
@@ -8502,7 +8541,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  #ifdef PRI_PROGRESS_MASK
  					if ((!pri->pvts[chanpos]->progress) || (e->proceeding.progressmask & PRI_PROG_INBAND_AVAILABLE)) {
  #else
-@@ -8691,6 +9582,12 @@
+@@ -8691,6 +9605,12 @@
  			case PRI_EVENT_PROCEEDING:
  				chanpos = pri_find_principle(pri, e->proceeding.channel);
  				if (chanpos > -1) {
@@ -8515,7 +8554,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					if (!pri->pvts[chanpos]->proceeding) {
  						struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_PROCEEDING, };
  						
-@@ -8741,6 +9638,295 @@
+@@ -8741,6 +9661,295 @@
  					}
  				}
  				break;				
@@ -8811,7 +8850,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			case PRI_EVENT_ANSWER:
  				chanpos = pri_find_principle(pri, e->answer.channel);
  				if (chanpos < 0) {
-@@ -8756,6 +9942,7 @@
+@@ -8756,6 +9965,7 @@
  						chanpos = -1;
  					} else {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
@@ -8819,7 +8858,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						/* Now we can do call progress detection */
  
  						/* We changed this so it turns on the DSP no matter what... progress or no progress.
-@@ -8785,11 +9972,16 @@
+@@ -8785,11 +9995,16 @@
  								ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", pri->pvts[chanpos]->dop.dialstr);
  							pri->pvts[chanpos]->dop.dialstr[0] = '\0';
  						} else if (pri->pvts[chanpos]->confirmanswer) {
@@ -8837,7 +8876,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						}
  
  #ifdef SUPPORT_USERUSER
-@@ -8838,23 +10030,32 @@
+@@ -8838,23 +10053,32 @@
  								}
  							}
  							if (option_verbose > 2) 
@@ -8877,7 +8916,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  
  #ifdef SUPPORT_USERUSER
  						if (!ast_strlen_zero(e->hangup.useruserinfo)) {
-@@ -8864,8 +10065,20 @@
+@@ -8864,8 +10088,20 @@
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
@@ -8900,7 +8939,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  					}
  				} 
  				break;
-@@ -8875,17 +10088,25 @@
+@@ -8875,17 +10111,25 @@
  			case PRI_EVENT_HANGUP_REQ:
  				chanpos = pri_find_principle(pri, e->hangup.channel);
  				if (chanpos < 0) {
@@ -8929,7 +8968,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  							pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
  							switch(e->hangup.cause) {
  							case PRI_CAUSE_USER_BUSY:
-@@ -8904,20 +10125,87 @@
+@@ -8904,20 +10148,87 @@
  							}
  							if (option_verbose > 2) 
  								ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d got hangup request\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
@@ -9027,7 +9066,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						}
  
  #ifdef SUPPORT_USERUSER
-@@ -8928,9 +10216,39 @@
+@@ -8928,9 +10239,39 @@
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
@@ -9068,7 +9107,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				break;
  			case PRI_EVENT_HANGUP_ACK:
  				chanpos = pri_find_principle(pri, e->hangup.channel);
-@@ -8944,6 +10262,7 @@
+@@ -8944,6 +10285,7 @@
  					if (chanpos > -1) {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
  						pri->pvts[chanpos]->call = NULL;
@@ -9076,7 +9115,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						pri->pvts[chanpos]->resetting = 0;
  						if (pri->pvts[chanpos]->owner) {
  							if (option_verbose > 2) 
-@@ -8957,7 +10276,9 @@
+@@ -8957,7 +10299,9 @@
  #endif
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
@@ -9086,7 +9125,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				}
  				break;
  			case PRI_EVENT_CONFIG_ERR:
-@@ -9049,10 +10370,22 @@
+@@ -9049,10 +10393,22 @@
  					ast_mutex_lock(&pri->pvts[chanpos]->lock);
  					switch(e->notify.info) {
  					case PRI_NOTIFY_REMOTE_HOLD:
@@ -9109,7 +9148,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  						f.subclass = AST_CONTROL_UNHOLD;
  						zap_queue_frame(pri->pvts[chanpos], &f, pri);
  						break;
-@@ -9060,6 +10393,77 @@
+@@ -9060,6 +10416,77 @@
  					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  				}
  				break;
@@ -9187,7 +9226,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			default:
  				ast_log(LOG_DEBUG, "Event: %d\n", e->e);
  			}
-@@ -9121,7 +10525,7 @@
+@@ -9121,7 +10548,7 @@
  			pri->fds[i] = -1;
  			return -1;
  		}
@@ -9196,7 +9235,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  		/* Force overlap dial if we're doing GR-303! */
  		if (pri->switchtype == PRI_SWITCH_GR303_TMC)
  			pri->overlapdial = 1;
-@@ -9190,39 +10594,77 @@
+@@ -9190,39 +10617,77 @@
  
  static int handle_pri_set_debug_file(int fd, int argc, char **argv)
  {
@@ -9296,7 +9335,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	}
  
  	return RESULT_SUCCESS;
-@@ -9254,6 +10696,7 @@
+@@ -9254,6 +10719,7 @@
  
  
  
@@ -9304,7 +9343,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  static int handle_pri_no_debug(int fd, int argc, char *argv[])
  {
  	int span;
-@@ -9360,36 +10803,6 @@
+@@ -9360,36 +10826,6 @@
  	return RESULT_SUCCESS;
  }
  
@@ -9341,7 +9380,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  static char pri_debug_help[] = 
  	"Usage: pri debug span <span>\n"
  	"       Enables debugging on a given PRI span\n";
-@@ -9406,6 +10819,18 @@
+@@ -9406,6 +10842,18 @@
  	"Usage: pri show span <span>\n"
  	"       Displays PRI Information\n";
  
@@ -9360,7 +9399,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  static struct ast_cli_entry zap_pri_cli[] = {
  	{ { "pri", "debug", "span", NULL }, handle_pri_debug,
  	  "Enables PRI debugging on a span", pri_debug_help, complete_span_4 },
-@@ -9413,19 +10838,282 @@
+@@ -9413,19 +10861,301 @@
  	  "Disables PRI debugging on a span", pri_no_debug_help, complete_span_5 },
  	{ { "pri", "intense", "debug", "span", NULL }, handle_pri_really_debug,
  	  "Enables REALLY INTENSE PRI debugging", pri_really_debug_help, complete_span_5 },
@@ -9476,7 +9515,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +
 +
 +static char gsm_send_pdu_help[] = 
-+	"Usage: gsm send pdu <channel> <length> <pdu>\n"
++	"Usage: gsm send pdu <channel> <pdu>\n"
 +	"       Sends a PDU on a GSM channel\n";
 +
 +
@@ -9484,19 +9523,13 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +{
 +/* gsm send sms <channel> <destination> <message> */
 +	int channel;
-+	int len;
 +	struct zt_pvt *pvt = NULL;
-+	if (argc < 6) {
++	if (argc < 5) {
 +		return RESULT_SHOWUSAGE;
 +	}
 +	channel = atoi(argv[3]);
 +	if (channel < 1) {
 +		ast_cli(fd, "Invalid channel %s.  Should be a number.\n", argv[3]);
-+		return RESULT_SUCCESS;
-+	}
-+	len = atoi(argv[4]);
-+	if (len < 1) {
-+		ast_cli(fd, "Invalid length %s.  Should be a number.\n", argv[4]);
 +		return RESULT_SUCCESS;
 +	}
 +	pvt = iflist;
@@ -9507,7 +9540,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +		    return RESULT_FAILURE;
 +		} else {
 +		    ast_mutex_lock(&pvt->lock);
-+		    gsm_sms_send_pdu(pvt->gsm.modul, argv[5], len);
++		    gsm_sms_send_pdu(pvt->gsm.modul, argv[4]);
 +		    ast_mutex_unlock(&pvt->lock);
 +		    return RESULT_SUCCESS;
 +		}
@@ -9557,6 +9590,31 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +	}
 +	
 +	return RESULT_SUCCESS;
++}
++
++static int zt_gsm_sendtext(struct ast_channel *chan, const char * dest, const char *text, int ispdu) {
++    struct zt_pvt *pvt = NULL;
++    char *c = NULL;
++    pvt = chan->tech_pvt;
++    
++    if (!pvt) return -1;
++    
++    /* parse dialstring */
++    c = strrchr(dest, '/');
++    if (c)
++	c++;
++    else
++	c = (char *)dest;
++
++    ast_mutex_lock(&pvt->lock);
++	if (ispdu) {
++    	    gsm_sms_send_pdu(pvt->gsm.modul, (char *)text);
++	} else {
++    	    gsm_sms_send_text(pvt->gsm.modul, c, (char *)text);
++	}
++    ast_mutex_unlock(&pvt->lock);
++    gsm_wait(pvt->gsm.modul);
++    return 0;
 +}
 +
 +static struct ast_cli_entry gsm_send_sms = {
@@ -9646,7 +9704,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  #ifdef ZAPATA_R2
  static int handle_r2_no_debug(int fd, int argc, char *argv[])
  {
-@@ -10037,6 +11725,14 @@
+@@ -10037,6 +11767,14 @@
  			pthread_cancel(pris[i].master);
  	}
  	ast_cli_unregister_multiple(zap_pri_cli, sizeof(zap_pri_cli) / sizeof(zap_pri_cli[0]));
@@ -9661,7 +9719,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  #endif
  #ifdef ZAPATA_R2
  	ast_cli_unregister_multiple(zap_r2_cli, sizeof(zap_r2_cli) / sizeof(zap_r2_cli[0]));
-@@ -10048,6 +11744,7 @@
+@@ -10048,6 +11786,7 @@
  	ast_manager_unregister( "ZapDNDoff" );
  	ast_manager_unregister( "ZapDNDon" );
  	ast_manager_unregister("ZapShowChannels");
@@ -9669,7 +9727,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	ast_channel_unregister(&zap_tech);
  	if (!ast_mutex_lock(&iflock)) {
  		/* Hangup all interfaces if they have an owner */
-@@ -10406,8 +12103,8 @@
+@@ -10406,8 +12145,8 @@
  			}
  		} else if (!strcasecmp(v->name, "echotraining")) {
  			if (sscanf(v->value, "%d", &y) == 1) {
@@ -9680,7 +9738,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				} else {
  					echotraining = y;
  				}
-@@ -10593,12 +12290,33 @@
+@@ -10593,12 +12332,33 @@
  					cur_signalling = SIG_GR303FXSKS;
  					cur_radio = 0;
  					pritype = PRI_CPE;
@@ -9714,14 +9772,13 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
  				}
-@@ -10681,8 +12399,20 @@
+@@ -10681,8 +12441,20 @@
  					priindication_oob = 1;
  				else if (!strcasecmp(v->value, "inband"))
  					priindication_oob = 0;
 +				else if (!strcasecmp(v->value, "passthrough"))
 +					priindication_oob = 2;
- 				else
--					ast_log(LOG_WARNING, "'%s' is not a valid pri indication value, should be 'inband' or 'outofband' at line %d\n",
++				else
 +					ast_log(LOG_WARNING, "'%s' is not a valid pri indication value, should be 'inband' , 'outofband' or 'passthrough' at line %d\n",
 +						v->value, v->lineno);
 +			} else if (!strcasecmp(v->name, "pritransfer")) {
@@ -9731,12 +9788,13 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +					pritransfer = 1;
 +				else if (!strcasecmp(v->value, "hangup"))
 +					pritransfer = 2;
-+				else
+ 				else
+-					ast_log(LOG_WARNING, "'%s' is not a valid pri indication value, should be 'inband' or 'outofband' at line %d\n",
 +					ast_log(LOG_WARNING, "'%s' is not a valid pri transfer value, should be 'no' , 'ect' or 'hangup' at line %d\n",
  						v->value, v->lineno);
  			} else if (!strcasecmp(v->name, "priexclusive")) {
  				cur_priexclusive = ast_true(v->value);
-@@ -10696,6 +12426,14 @@
+@@ -10696,6 +12468,14 @@
  				ast_copy_string(privateprefix, v->value, sizeof(privateprefix));
  			} else if (!strcasecmp(v->name, "unknownprefix")) {
  				ast_copy_string(unknownprefix, v->value, sizeof(unknownprefix));
@@ -9751,7 +9809,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			} else if (!strcasecmp(v->name, "resetinterval")) {
  				if (!strcasecmp(v->value, "never"))
  					resetinterval = -1;
-@@ -10712,6 +12450,8 @@
+@@ -10712,6 +12492,8 @@
  				ast_copy_string(idleext, v->value, sizeof(idleext));
  			} else if (!strcasecmp(v->name, "idledial")) {
  				ast_copy_string(idledial, v->value, sizeof(idledial));
@@ -9760,7 +9818,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			} else if (!strcasecmp(v->name, "overlapdial")) {
  				overlapdial = ast_true(v->value);
  			} else if (!strcasecmp(v->name, "pritimer")) {
-@@ -10897,6 +12637,7 @@
+@@ -10897,6 +12679,7 @@
  #ifdef ZAPATA_PRI
  	if (!reload) {
  		for (x=0;x<NUM_SPANS;x++) {
@@ -9768,7 +9826,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  			if (pris[x].pvts[0]) {
  				if (start_pri(pris + x)) {
  					ast_log(LOG_ERROR, "Unable to start D-channel on span %d\n", x + 1);
-@@ -10929,6 +12670,10 @@
+@@ -10929,6 +12712,10 @@
  	pri_set_error(zt_pri_error);
  	pri_set_message(zt_pri_message);
  #endif
@@ -9779,7 +9837,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	res = setup_zap(0);
  	/* Make sure we can register our Zap channel type */
  	if(res) {
-@@ -10946,6 +12691,12 @@
+@@ -10946,6 +12733,12 @@
  	ast_cli_register_multiple(zap_r2_cli, sizeof(zap_r2_cli) / sizeof(zap_r2_cli[0]));
  #endif	
  	ast_cli_register_multiple(zap_cli, sizeof(zap_cli) / sizeof(zap_cli[0]));
@@ -9792,7 +9850,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	
  	memset(round_robin, 0, sizeof(round_robin));
  	ast_manager_register( "ZapTransfer", 0, action_transfer, "Transfer Zap Channel" );
-@@ -10954,11 +12705,47 @@
+@@ -10954,11 +12747,56 @@
  	ast_manager_register( "ZapDNDon", 0, action_zapdndon, "Toggle Zap channel Do Not Disturb status ON" );
  	ast_manager_register( "ZapDNDoff", 0, action_zapdndoff, "Toggle Zap channel Do Not Disturb status OFF" );
  	ast_manager_register("ZapShowChannels", 0, action_zapshowchannels, "Show status zapata channels");
@@ -9805,6 +9863,7 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	return res;
  }
  
+-static int zt_sendtext(struct ast_channel *c, const char *text)
 +#ifdef ZAPATA_PRI
 +static int zt_tdd_sendtext(struct ast_channel *c, const char *text);
 +
@@ -9823,25 +9882,34 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
 +	    }
 +    return 0;
 +}
++#endif
 +
-+static int zt_sendtext(struct ast_channel *c, const char *text) {
++static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu) {
 +    struct zt_pvt *p = c->tech_pvt;
 +    if (!p) return -1;
 +    if (p->sig == SIG_PRI) {
++#ifdef ZAPATA_PRI
++	if (ispdu) {
++	    ast_log(LOG_WARNING, "Dont know how to send PDU on ZAP ISDN channel\n");
++	    return -1;
++	}
 +	return zt_pri_sendtext(c, text);
++#endif
++    } else if (p->sig == SIG_GSM) {
++#ifdef ZAPATA_GSM
++        return zt_gsm_sendtext(c, dest, text, ispdu);
++#endif
 +    } else {
 +	return zt_tdd_sendtext(c, text);
 +    }
++    return -1;
 +}
 +
 +static int zt_tdd_sendtext(struct ast_channel *c, const char *text)
-+#else
- static int zt_sendtext(struct ast_channel *c, const char *text)
-+#endif
  {
  #define	END_SILENCE_LEN 400
  #define	HEADER_MS 50
-@@ -10977,6 +12764,7 @@
+@@ -10977,6 +12815,7 @@
  	float scont = 0.0;
  	int index;
  
@@ -9849,9 +9917,79 @@ diff -urNad asterisk-1.2.14~dfsg~/channels/chan_zap.c asterisk-1.2.14~dfsg/chann
  	index = zt_get_index(c, p, 0);
  	if (index < 0) {
  		ast_log(LOG_WARNING, "Huh?  I don't exist?\n");
-diff -urNad asterisk-1.2.14~dfsg~/codecs/codec_ilbc.c asterisk-1.2.14~dfsg/codecs/codec_ilbc.c
---- asterisk-1.2.14~dfsg~/codecs/codec_ilbc.c	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/codecs/codec_ilbc.c	2006-12-28 10:22:18.381635414 +0100
+diff -urN asterisk-1.2.14.orig/channels/Makefile asterisk-1.2.14/channels/Makefile
+--- asterisk-1.2.14.orig/channels/Makefile	2006-08-17 23:57:19.000000000 +0200
++++ asterisk-1.2.14/channels/Makefile	2007-01-11 15:26:50.931515256 +0100
+@@ -102,6 +102,11 @@
+   ZAPR2=-lmfcr2
+ endif
+ 
++ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/lib/libgsmat.so.1)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/lib/libgsmat.so.1),)
++  CFLAGS+=-DZAPATA_GSM
++  ZAPGSM=-lgsmat
++endif
++
+ ALSA_SRC=chan_alsa.c
+ 
+ ifneq ($(wildcard alsa-monitor.h),)
+@@ -122,6 +127,35 @@
+ endif
+ endif # WITHOUT_ZAPTEL
+ 
++ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/capi20.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/capi20.h),)
++  CHANNEL_LIBS+=chan_capi.so
++# uncomment the following line if you really never ever want early b3 connects,
++# you can also configure it in the dialstring, this is just for performance
++# NOTE: this is probably obsolete by using the "R" dial option
++#CFLAGS+=-DCAPI_NEVER_EVER_EARLY_B3_CONNECTS
++
++# uncommnet next line to force dtmf software detection/generation, can also be configured
++# in capi.conf on a perdevice basis (softdtmf=1)
++#CFLAGS+=-DCAPI_FORCE_SOFTWARE_DTMF
++
++# uncomment the next line if you are in the ulaw world
++#CFLAGS+=-DCAPI_ULAW
++
++# very experimental echo squelching
++CFLAGS+=-DCAPI_ES
++
++#gains
++CFLAGS+=-DCAPI_GAIN
++
++# what do to with call waiting connect indications?
++# uncomment the next line for call deflection in that case
++CFLAGS+=-DCAPI_DEFLECT_ON_CIRCUITBUSY
++
++# audio sync
++CFLAGS+=-DCAPI_SYNC
++
++endif
++
+ ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/vpbapi.h),)
+   CHANNEL_LIBS+=chan_vpb.so
+   CFLAGS+=-DLINUX
+@@ -204,7 +238,7 @@
+ 	$(CC) -c $(CFLAGS) -o chan_zap.o chan_zap.c
+ 
+ chan_zap.so: chan_zap.o
+-	$(CC) $(SOLINK) -o $@ $<  $(ZAPPRI) $(ZAPR2) -ltonezone
++	$(CC) $(SOLINK) -o $@ $<  $(ZAPPRI) $(ZAPGSM) $(ZAPR2) -ltonezone
+ 
+ chan_sip.so: chan_sip.o
+ 	$(CC) $(SOLINK) -o $@ ${CYGSOLINK} chan_sip.o ${CYGSOLIB}
+@@ -220,6 +254,9 @@
+ chan_nbs.so: chan_nbs.o
+ 	$(CC) $(SOLINK) -o $@ $< -lnbs
+ 
++chan_capi.so: chan_capi.o
++	$(CC) $(SOLINK) -o $@ $< -lcapi20
++
+ chan_vpb.o: chan_vpb.c
+ 	$(CXX) -c $(CFLAGS) -o $@ chan_vpb.c
+ 
+diff -urN asterisk-1.2.14.orig/codecs/codec_ilbc.c asterisk-1.2.14/codecs/codec_ilbc.c
+--- asterisk-1.2.14.orig/codecs/codec_ilbc.c	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/codecs/codec_ilbc.c	2007-01-11 15:26:50.939517146 +0100
 @@ -49,7 +49,7 @@
  #include "slin_ilbc_ex.h"
  #include "ilbc_slin_ex.h"
@@ -9861,9 +9999,9 @@ diff -urNad asterisk-1.2.14~dfsg~/codecs/codec_ilbc.c asterisk-1.2.14~dfsg/codec
  #define ILBC_MS 			30
  /* #define ILBC_MS			20 */
  
-diff -urNad asterisk-1.2.14~dfsg~/configs/capi.conf.sample asterisk-1.2.14~dfsg/configs/capi.conf.sample
---- asterisk-1.2.14~dfsg~/configs/capi.conf.sample	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/configs/capi.conf.sample	2006-12-28 10:22:18.381635414 +0100
+diff -urN asterisk-1.2.14.orig/configs/capi.conf.sample asterisk-1.2.14/configs/capi.conf.sample
+--- asterisk-1.2.14.orig/configs/capi.conf.sample	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/configs/capi.conf.sample	2007-01-11 15:26:50.939517146 +0100
 @@ -0,0 +1,44 @@
 +;
 +; CAPI config
@@ -9909,9 +10047,9 @@ diff -urNad asterisk-1.2.14~dfsg~/configs/capi.conf.sample asterisk-1.2.14~dfsg/
 +;msn=55512
 +;controller=2
 +;devices => 30
-diff -urNad asterisk-1.2.14~dfsg~/configs/esel.conf.sample asterisk-1.2.14~dfsg/configs/esel.conf.sample
---- asterisk-1.2.14~dfsg~/configs/esel.conf.sample	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/configs/esel.conf.sample	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/configs/esel.conf.sample asterisk-1.2.14/configs/esel.conf.sample
+--- asterisk-1.2.14.orig/configs/esel.conf.sample	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/configs/esel.conf.sample	2007-01-11 15:26:50.939517146 +0100
 @@ -0,0 +1,12 @@
 +;
 +; Configuration file for res_esel
@@ -9925,9 +10063,9 @@ diff -urNad asterisk-1.2.14~dfsg~/configs/esel.conf.sample asterisk-1.2.14~dfsg/
 +
 +; export the extension snom in context phones to DS/100 on asterisk-2
 +;export => snom@phones,100
-diff -urNad asterisk-1.2.14~dfsg~/configs/modules.conf.sample asterisk-1.2.14~dfsg/configs/modules.conf.sample
---- asterisk-1.2.14~dfsg~/configs/modules.conf.sample	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/configs/modules.conf.sample	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/configs/modules.conf.sample asterisk-1.2.14/configs/modules.conf.sample
+--- asterisk-1.2.14.orig/configs/modules.conf.sample	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/configs/modules.conf.sample	2007-01-11 15:26:50.939517146 +0100
 @@ -46,8 +46,12 @@
  ;
  noload => chan_alsa.so
@@ -9941,9 +10079,9 @@ diff -urNad asterisk-1.2.14~dfsg~/configs/modules.conf.sample asterisk-1.2.14~df
  ;
  [global]
 +chan_capi.so=yes
-diff -urNad asterisk-1.2.14~dfsg~/configs/watchdog.conf.sample asterisk-1.2.14~dfsg/configs/watchdog.conf.sample
---- asterisk-1.2.14~dfsg~/configs/watchdog.conf.sample	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/configs/watchdog.conf.sample	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/configs/watchdog.conf.sample asterisk-1.2.14/configs/watchdog.conf.sample
+--- asterisk-1.2.14.orig/configs/watchdog.conf.sample	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/configs/watchdog.conf.sample	2007-01-11 15:26:50.943518092 +0100
 @@ -0,0 +1,22 @@
 +;
 +; Configuration file for res_watchdog
@@ -9967,9 +10105,9 @@ diff -urNad asterisk-1.2.14~dfsg~/configs/watchdog.conf.sample asterisk-1.2.14~d
 +;device = /dev/watchdog
 +;interval = 100
 +
-diff -urNad asterisk-1.2.14~dfsg~/configs/zapata.conf.sample asterisk-1.2.14~dfsg/configs/zapata.conf.sample
---- asterisk-1.2.14~dfsg~/configs/zapata.conf.sample	2006-09-18 17:05:56.000000000 +0200
-+++ asterisk-1.2.14~dfsg/configs/zapata.conf.sample	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/configs/zapata.conf.sample asterisk-1.2.14/configs/zapata.conf.sample
+--- asterisk-1.2.14.orig/configs/zapata.conf.sample	2006-09-18 17:05:56.000000000 +0200
++++ asterisk-1.2.14/configs/zapata.conf.sample	2007-01-11 15:26:50.943518092 +0100
 @@ -123,9 +123,20 @@
  ; 
  ; outofband:      Signal Busy/Congestion out of band with RELEASE/DISCONNECT
@@ -9991,9 +10129,9 @@ diff -urNad asterisk-1.2.14~dfsg~/configs/zapata.conf.sample asterisk-1.2.14~dfs
  ; If you need to override the existing channels selection routine and force all
  ; PRI channels to be marked as exclusively selected, set this to yes.
  ; priexclusive = yes
-diff -urNad asterisk-1.2.14~dfsg~/db.c asterisk-1.2.14~dfsg/db.c
---- asterisk-1.2.14~dfsg~/db.c	2006-01-09 19:09:53.000000000 +0100
-+++ asterisk-1.2.14~dfsg/db.c	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/db.c asterisk-1.2.14/db.c
+--- asterisk-1.2.14.orig/db.c	2006-01-09 19:09:53.000000000 +0100
++++ asterisk-1.2.14/db.c	2007-01-11 15:26:50.943518092 +0100
 @@ -516,11 +516,18 @@
  struct ast_cli_entry cli_database_deltree =
  { { "database", "deltree", NULL }, database_deltree, "Removes database keytree/values", database_deltree_usage };
@@ -10087,9 +10225,9 @@ diff -urNad asterisk-1.2.14~dfsg~/db.c asterisk-1.2.14~dfsg/db.c
 +	ast_manager_register("DBdel", EVENT_FLAG_SYSTEM, manager_dbdel, mandescr_dbdel);
  	return 0;
  }
-diff -urNad asterisk-1.2.14~dfsg~/devicestate.c asterisk-1.2.14~dfsg/devicestate.c
---- asterisk-1.2.14~dfsg~/devicestate.c	2006-02-10 21:38:59.000000000 +0100
-+++ asterisk-1.2.14~dfsg/devicestate.c	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/devicestate.c asterisk-1.2.14/devicestate.c
+--- asterisk-1.2.14.orig/devicestate.c	2006-02-10 21:38:59.000000000 +0100
++++ asterisk-1.2.14/devicestate.c	2007-01-11 15:26:50.943518092 +0100
 @@ -62,6 +62,8 @@
  
  struct state_change {
@@ -10181,9 +10319,9 @@ diff -urNad asterisk-1.2.14~dfsg~/devicestate.c asterisk-1.2.14~dfsg/devicestate
  			free(cur);
  			AST_LIST_LOCK(&state_changes);
  		} else {
-diff -urNad asterisk-1.2.14~dfsg~/doc/README.asterisk.conf asterisk-1.2.14~dfsg/doc/README.asterisk.conf
---- asterisk-1.2.14~dfsg~/doc/README.asterisk.conf	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/doc/README.asterisk.conf	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/doc/README.asterisk.conf asterisk-1.2.14/doc/README.asterisk.conf
+--- asterisk-1.2.14.orig/doc/README.asterisk.conf	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/doc/README.asterisk.conf	2007-01-11 15:26:50.943518092 +0100
 @@ -62,6 +62,7 @@
  maxcalls = 255					; The maximum number of concurrent calls you want to allow 
  execincludes = yes | no 			; Allow #exec entries in configuration files
@@ -10192,9 +10330,32 @@ diff -urNad asterisk-1.2.14~dfsg~/doc/README.asterisk.conf asterisk-1.2.14~dfsg/
  
  [files]
  ; Changing the following lines may compromise your security
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/agi.h asterisk-1.2.14~dfsg/include/asterisk/agi.h
---- asterisk-1.2.14~dfsg~/include/asterisk/agi.h	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/agi.h	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/HARDWARE asterisk-1.2.14/HARDWARE
+--- asterisk-1.2.14.orig/HARDWARE	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/HARDWARE	2007-01-11 15:26:50.943518092 +0100
+@@ -37,6 +37,19 @@
+    * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
+      RBS signalling, as well as PPP, FR, and HDLC data modes.
+ 
++-- Junghanns.NET (Primary author of BRIstuff)
++	http://www.junghanns.net
++	
++    * quadBRI PCI ISDN - 4port BRI ISDN interface, supports NT and TE mode
++    
++    * octoBRI PCI ISDN - 8port BRI ISDN interface, supports NT and TE mode
++
++    * singleE1 PCI ISDN - Single E1 interface
++
++    * doubleE1 PCI ISDN - Double E1 interface
++    
++    * uno/duo/quad GSM PCI - 1/2/4 channel GSM interface cards
++
+ Non-zaptel compatible hardware
+ ==============================
+ 
+diff -urN asterisk-1.2.14.orig/include/asterisk/agi.h asterisk-1.2.14/include/asterisk/agi.h
+--- asterisk-1.2.14.orig/include/asterisk/agi.h	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/agi.h	2007-01-11 15:26:50.943518092 +0100
 @@ -29,7 +29,8 @@
  
  typedef struct agi_state {
@@ -10205,9 +10366,43 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/agi.h asterisk-1.2.14~dfsg/in
  	int ctrl;	/* FD for input control */
  } AGI;
  
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/chan_capi.h asterisk-1.2.14~dfsg/include/asterisk/chan_capi.h
---- asterisk-1.2.14~dfsg~/include/asterisk/chan_capi.h	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/chan_capi.h	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk/chan_capi_app.h asterisk-1.2.14/include/asterisk/chan_capi_app.h
+--- asterisk-1.2.14.orig/include/asterisk/chan_capi_app.h	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/chan_capi_app.h	2007-01-11 15:26:50.943518092 +0100
+@@ -0,0 +1,30 @@
++/*
++ * (CAPI*)
++ *
++ * An implementation of Common ISDN API 2.0 for Asterisk
++ *
++ * include file for helper applications
++ *
++ * Copyright (C) 2002, 2003, 2004, Junghanns.NET GmbH
++ *
++ * Klaus-Peter Junghanns <kapejod@ns1.jnetdns.de>
++ *
++ * This program is free software and may be modified and 
++ * distributed under the terms of the GNU Public License.
++ */
++
++#ifndef _ASTERISK_CAPI_IF_H
++#define _ASTERISK_CAPI_IF_H
++ 
++// exported symbols from chan_capi
++
++// important things we need
++extern unsigned ast_capi_ApplID;
++extern unsigned ast_capi_MessageNumber;
++extern int capidebug;
++
++extern int capi_call(struct ast_channel *c, char *idest, int timeout);
++extern int capi_detect_dtmf(struct ast_channel *c, int flag);
++extern MESSAGE_EXCHANGE_ERROR _capi_put_cmsg(_cmsg *CMSG);
++
++#endif
+diff -urN asterisk-1.2.14.orig/include/asterisk/chan_capi.h asterisk-1.2.14/include/asterisk/chan_capi.h
+--- asterisk-1.2.14.orig/include/asterisk/chan_capi.h	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/chan_capi.h	2007-01-11 15:26:50.943518092 +0100
 @@ -0,0 +1,276 @@
 +/*
 + * (CAPI*)
@@ -10485,43 +10680,9 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/chan_capi.h asterisk-1.2.14~d
 +#define CAPI_ETSI_NPLAN_INTERNAT	0x10
 +
 +#endif
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/chan_capi_app.h asterisk-1.2.14~dfsg/include/asterisk/chan_capi_app.h
---- asterisk-1.2.14~dfsg~/include/asterisk/chan_capi_app.h	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/chan_capi_app.h	2006-12-28 10:22:18.385635692 +0100
-@@ -0,0 +1,30 @@
-+/*
-+ * (CAPI*)
-+ *
-+ * An implementation of Common ISDN API 2.0 for Asterisk
-+ *
-+ * include file for helper applications
-+ *
-+ * Copyright (C) 2002, 2003, 2004, Junghanns.NET GmbH
-+ *
-+ * Klaus-Peter Junghanns <kapejod@ns1.jnetdns.de>
-+ *
-+ * This program is free software and may be modified and 
-+ * distributed under the terms of the GNU Public License.
-+ */
-+
-+#ifndef _ASTERISK_CAPI_IF_H
-+#define _ASTERISK_CAPI_IF_H
-+ 
-+// exported symbols from chan_capi
-+
-+// important things we need
-+extern unsigned ast_capi_ApplID;
-+extern unsigned ast_capi_MessageNumber;
-+extern int capidebug;
-+
-+extern int capi_call(struct ast_channel *c, char *idest, int timeout);
-+extern int capi_detect_dtmf(struct ast_channel *c, int flag);
-+extern MESSAGE_EXCHANGE_ERROR _capi_put_cmsg(_cmsg *CMSG);
-+
-+#endif
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/channel.h asterisk-1.2.14~dfsg/include/asterisk/channel.h
---- asterisk-1.2.14~dfsg~/include/asterisk/channel.h	2006-11-07 19:22:01.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/channel.h	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk/channel.h asterisk-1.2.14/include/asterisk/channel.h
+--- asterisk-1.2.14.orig/include/asterisk/channel.h	2006-11-07 19:22:01.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/channel.h	2007-01-11 15:26:50.947519037 +0100
 @@ -86,6 +86,9 @@
  #ifndef _ASTERISK_CHANNEL_H
  #define _ASTERISK_CHANNEL_H
@@ -10532,6 +10693,15 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/channel.h asterisk-1.2.14~dfs
  #include <unistd.h>
  #include <setjmp.h>
  #ifdef POLLCOMPAT 
+@@ -207,7 +210,7 @@
+ 	int (* const write)(struct ast_channel *chan, struct ast_frame *frame);
+ 
+ 	/*! Display or transmit text */
+-	int (* const send_text)(struct ast_channel *chan, const char *text);
++	int (* const send_text)(struct ast_channel *chan, const char *dest, const char *text, int ispdu);
+ 
+ 	/*! Display or send an image */
+ 	int (* const send_image)(struct ast_channel *chan, struct ast_frame *frame);
 @@ -381,7 +384,7 @@
  	unsigned int fout;
  
@@ -10575,19 +10745,44 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/channel.h asterisk-1.2.14~dfs
  
  /*!
   * \brief Request a channel of a given type, with data as optional information used 
-@@ -586,9 +600,9 @@
+@@ -586,9 +600,19 @@
   * \return Returns an ast_channel on success or no answer, NULL on failure.  Check the value of chan->_state
   * to know if the call was answered or not.
   */
 -struct ast_channel *ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname);
 +struct ast_channel *ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, int callingpres, const char *cidnum, const char *cidname, char *uniqueid);
++
++struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, int callingpres, const char *cidnum, const char *cidname, struct outgoing_helper *oh, char *uniqueid);
  
 -struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname, struct outgoing_helper *oh);
-+struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, int callingpres, const char *cidnum, const char *cidname, struct outgoing_helper *oh, char *uniqueid);
++/*! \brief "Requests" a channel for sending a message
++ * \param type type of channel to request
++ * \param data data to pass to the channel requester
++ * \param status status
++ * Request a channel of a given type, with data as optional information used 
++ * by the low level module
++ * \return Returns 0 on success, -1 on failure.
++ */
++int ast_send_message(const char *type, void *data, char *to, char *from, char *message, int ispdu);
  
  /*!\brief Register a channel technology (a new channel driver)
   * Called by a channel module to register the kind of channels it supports.
-@@ -841,6 +855,10 @@
+@@ -787,11 +811,13 @@
+ /*! Sends text to a channel */
+ /*! 
+  * \param chan channel to act upon
++ * \param dest destination number/user
+  * \param text string of text to send on the channel
++ * \param ispdu message is in PDU format
+  * Write text to a display on a channel
+  * Returns 0 on success, -1 on failure
+  */
+-int ast_sendtext(struct ast_channel *chan, const char *text);
++int ast_sendtext(struct ast_channel *chan, const char *dest, const char *text, int ispdu);
+ 
+ /*! Receives a text character from a channel */
+ /*! 
+@@ -841,6 +867,10 @@
  /*--- ast_get_channel_by_exten_locked: Get channel by exten (and optionally context) and lock it */
  struct ast_channel *ast_get_channel_by_exten_locked(const char *exten, const char *context);
  
@@ -10598,7 +10793,7 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/channel.h asterisk-1.2.14~dfs
  /*! Waits for a digit */
  /*! 
   * \param c channel to wait for a digit on
-@@ -911,6 +929,9 @@
+@@ -911,6 +941,9 @@
     p->owner pointer) that is affected by the change.  The physical layer of the original
     channel is hung up.  */
  int ast_channel_masquerade(struct ast_channel *original, struct ast_channel *clone);
@@ -10608,9 +10803,9 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/channel.h asterisk-1.2.14~dfs
  
  /*! Gives the string form of a given cause code */
  /*! 
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/devicestate.h asterisk-1.2.14~dfsg/include/asterisk/devicestate.h
---- asterisk-1.2.14~dfsg~/include/asterisk/devicestate.h	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/devicestate.h	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk/devicestate.h asterisk-1.2.14/include/asterisk/devicestate.h
+--- asterisk-1.2.14.orig/include/asterisk/devicestate.h	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/devicestate.h	2007-01-11 15:26:50.947519037 +0100
 @@ -42,7 +42,7 @@
  /*! Device is ringing */
  #define AST_DEVICE_RINGING	6
@@ -10629,9 +10824,9 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/devicestate.h asterisk-1.2.14
  
  /*! \brief Registers a device state change callback 
   * \param callback Callback
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/features.h asterisk-1.2.14~dfsg/include/asterisk/features.h
---- asterisk-1.2.14~dfsg~/include/asterisk/features.h	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/features.h	2006-12-28 10:22:18.385635692 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk/features.h asterisk-1.2.14/include/asterisk/features.h
+--- asterisk-1.2.14.orig/include/asterisk/features.h	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/features.h	2007-01-11 15:26:50.947519037 +0100
 @@ -45,6 +45,8 @@
  };
  
@@ -10674,9 +10869,9 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/features.h asterisk-1.2.14~df
 +extern struct ast_call_feature *ast_find_builtin_feature(char *name);
 +
  #endif /* _AST_FEATURES_H */
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/manager.h asterisk-1.2.14~dfsg/include/asterisk/manager.h
---- asterisk-1.2.14~dfsg~/include/asterisk/manager.h	2006-02-11 19:15:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/manager.h	2006-12-28 10:22:18.389635969 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk/manager.h asterisk-1.2.14/include/asterisk/manager.h
+--- asterisk-1.2.14.orig/include/asterisk/manager.h	2006-02-11 19:15:00.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/manager.h	2007-01-11 15:26:50.947519037 +0100
 @@ -54,6 +54,7 @@
  #define EVENT_FLAG_COMMAND		(1 << 4) /* Ability to read/set commands */
  #define EVENT_FLAG_AGENT		(1 << 5) /* Ability to read/set agent info */
@@ -10685,9 +10880,9 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/manager.h asterisk-1.2.14~dfs
  
  /* Export manager structures */
  #define AST_MAX_MANHEADERS 80
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/monitor.h asterisk-1.2.14~dfsg/include/asterisk/monitor.h
---- asterisk-1.2.14~dfsg~/include/asterisk/monitor.h	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/monitor.h	2006-12-28 10:22:18.389635969 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk/monitor.h asterisk-1.2.14/include/asterisk/monitor.h
+--- asterisk-1.2.14.orig/include/asterisk/monitor.h	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/monitor.h	2007-01-11 15:26:50.947519037 +0100
 @@ -35,6 +35,8 @@
  	char write_filename[FILENAME_MAX];
  	char filename_base[FILENAME_MAX];
@@ -10706,9 +10901,9 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/monitor.h asterisk-1.2.14~dfs
  
  /* Stop monitoring a channel */
  int ast_monitor_stop(struct ast_channel *chan, int need_lock);
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/pbx.h asterisk-1.2.14~dfsg/include/asterisk/pbx.h
---- asterisk-1.2.14~dfsg~/include/asterisk/pbx.h	2006-03-29 21:11:18.000000000 +0200
-+++ asterisk-1.2.14~dfsg/include/asterisk/pbx.h	2006-12-28 10:22:18.389635969 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk/pbx.h asterisk-1.2.14/include/asterisk/pbx.h
+--- asterisk-1.2.14.orig/include/asterisk/pbx.h	2006-03-29 21:11:18.000000000 +0200
++++ asterisk-1.2.14/include/asterisk/pbx.h	2007-01-11 15:26:50.947519037 +0100
 @@ -57,7 +57,7 @@
  	AST_EXTENSION_BUSY = 1 << 1,
  	/*! All devices UNAVAILABLE/UNREGISTERED */
@@ -10759,9 +10954,9 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/pbx.h asterisk-1.2.14~dfsg/in
  
  #if defined(__cplusplus) || defined(c_plusplus)
  }
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/xlaw.h asterisk-1.2.14~dfsg/include/asterisk/xlaw.h
---- asterisk-1.2.14~dfsg~/include/asterisk/xlaw.h	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk/xlaw.h	2006-12-28 10:22:18.389635969 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk/xlaw.h asterisk-1.2.14/include/asterisk/xlaw.h
+--- asterisk-1.2.14.orig/include/asterisk/xlaw.h	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/include/asterisk/xlaw.h	2007-01-11 15:26:50.951519982 +0100
 @@ -0,0 +1,1665 @@
 +#ifndef _ASTERISK_XLAW_H
 +#define _ASTERISK_XLAW_H
@@ -12428,9 +12623,9 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk/xlaw.h asterisk-1.2.14~dfsg/i
 +#endif // CAPI_ULAW
 +#endif
 +
-diff -urNad asterisk-1.2.14~dfsg~/include/asterisk.h asterisk-1.2.14~dfsg/include/asterisk.h
---- asterisk-1.2.14~dfsg~/include/asterisk.h	2005-11-30 04:37:37.000000000 +0100
-+++ asterisk-1.2.14~dfsg/include/asterisk.h	2006-12-28 10:22:18.393636246 +0100
+diff -urN asterisk-1.2.14.orig/include/asterisk.h asterisk-1.2.14/include/asterisk.h
+--- asterisk-1.2.14.orig/include/asterisk.h	2005-11-30 04:37:37.000000000 +0100
++++ asterisk-1.2.14/include/asterisk.h	2007-01-11 15:26:50.951519982 +0100
 @@ -36,6 +36,7 @@
  extern char ast_config_AST_PID[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_SOCKET[AST_CONFIG_MAX_PATH];
@@ -12439,9 +12634,37 @@ diff -urNad asterisk-1.2.14~dfsg~/include/asterisk.h asterisk-1.2.14~dfsg/includ
  extern char ast_config_AST_CTL_PERMISSIONS[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_CTL_OWNER[AST_CONFIG_MAX_PATH];
  extern char ast_config_AST_CTL_GROUP[AST_CONFIG_MAX_PATH];
-diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
---- asterisk-1.2.14~dfsg~/manager.c	2006-02-11 19:15:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/manager.c	2006-12-28 10:22:18.393636246 +0100
+diff -urN asterisk-1.2.14.orig/LICENSE asterisk-1.2.14/LICENSE
+--- asterisk-1.2.14.orig/LICENSE	2006-10-17 19:22:01.000000000 +0200
++++ asterisk-1.2.14/LICENSE	2007-01-11 15:26:50.951519982 +0100
+@@ -1,7 +1,7 @@
+-Asterisk is distributed under the GNU General Public License version 2
+-and is also available under alternative licenses negotiated directly
+-with Digium, Inc. If you obtained Asterisk under the GPL, then the GPL
+-applies to all loadable Asterisk modules used on your system as well,
++BRIstuffed Asterisk is distributed under the GNU General Public License version 2
++and is not available under any alternative licenses.
++If you obtained BRIstuffed Asterisk under the GPL, then the GPL
++applies to all loadable BRIstuffed Asterisk modules used on your system as well,
+ except as defined below. The GPL (version 2) is included in this
+ source tree in the file COPYING.
+ 
+diff -urN asterisk-1.2.14.orig/Makefile asterisk-1.2.14/Makefile
+--- asterisk-1.2.14.orig/Makefile	2006-12-11 22:55:43.000000000 +0100
++++ asterisk-1.2.14/Makefile	2007-01-11 15:26:50.951519982 +0100
+@@ -781,6 +781,9 @@
+ 		echo ";astctlowner = root" ; \
+ 		echo ";astctlgroup = apache" ; \
+ 		echo ";astctl = asterisk.ctl" ; \
++		echo "[options]" ; \
++		echo "uniquename = `hostname`" ;\
++		echo "silence_suppression = yes" ;\
+ 		) > $(DESTDIR)$(ASTCONFPATH) ; \
+ 	else \
+ 		echo "Skipping asterisk.conf creation"; \
+diff -urN asterisk-1.2.14.orig/manager.c asterisk-1.2.14/manager.c
+--- asterisk-1.2.14.orig/manager.c	2006-02-11 19:15:00.000000000 +0100
++++ asterisk-1.2.14/manager.c	2007-01-11 15:26:50.955520927 +0100
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -12498,7 +12721,57 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	if (!c) {
  		astman_send_error(s, m, "No such channel");
  		return 0;
-@@ -760,6 +773,7 @@
+@@ -672,6 +685,49 @@
+ 	return 0;
+ }
+ 
++static char mandescr_message[] = 
++"Description: Send a message\n"
++"Variables: \n"
++"	Channel: The destination channel(e.g. SIP/phone1)\n"
++"	From:	 \n"
++"	Message: The message to send\n";
++
++static int action_message(struct mansession *s, struct message *m)
++{
++	char *name = astman_get_header(m, "Channel");
++	char *from = astman_get_header(m, "From");
++	char *message = astman_get_header(m, "Message");
++	char *pdu = astman_get_header(m, "PDU");
++	char tmp[256];
++	char *tech, *data;
++	int res;
++	if (ast_strlen_zero(name) || (ast_strlen_zero(message) && ast_strlen_zero(pdu))) {
++		astman_send_error(s, m, "No channel or message/PDU specified");
++		return 0;
++	}
++	ast_copy_string(tmp, name, sizeof(tmp));
++	tech = tmp;
++	data = strchr(tmp, '/');
++	if (!data) {
++		astman_send_error(s, m, "Invalid channel\n");
++		return 0;
++	}
++	*data = '\0';
++	data++;
++	if (ast_strlen_zero(pdu)) {
++	    res = ast_send_message(tech, data, name, from, message, 0);
++	} else {
++	    res = ast_send_message(tech, data, name, from, pdu, 1);
++	}
++	
++	if (res) {
++		astman_send_error(s, m, "Error sending message");
++		return 0;
++	}
++	astman_send_ack(s, m, "Message sent");
++	return 0;
++}
++
+ static char mandescr_setvar[] = 
+ "Description: Set a global or local channel variable.\n"
+ "Variables: (Names marked with * are required)\n"
+@@ -760,6 +816,7 @@
  }
  
  
@@ -12506,7 +12779,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  /*! \brief  action_status: Manager "status" command to show channels */
  /* Needs documentation... */
  static int action_status(struct mansession *s, struct message *m)
-@@ -866,32 +880,50 @@
+@@ -866,32 +923,50 @@
  	char *exten = astman_get_header(m, "Exten");
  	char *context = astman_get_header(m, "Context");
  	char *priority = astman_get_header(m, "Priority");
@@ -12563,7 +12836,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  			else
  				res = -1;
  			if (!res)
-@@ -937,15 +969,15 @@
+@@ -937,15 +1012,15 @@
  	struct ast_channel *chan = NULL;
  
  	if (!ast_strlen_zero(in->app)) {
@@ -12583,7 +12856,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	}   
  	if (!res)
  		manager_event(EVENT_FLAG_CALL,
-@@ -956,7 +988,7 @@
+@@ -956,7 +1031,7 @@
  			"Exten: %s\r\n"
  			"Reason: %d\r\n"
  			"Uniqueid: %s\r\n",
@@ -12592,7 +12865,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	else
  		manager_event(EVENT_FLAG_CALL,
  			"OriginateFailure",
-@@ -966,7 +998,7 @@
+@@ -966,7 +1041,7 @@
  			"Exten: %s\r\n"
  			"Reason: %d\r\n"
  			"Uniqueid: %s\r\n",
@@ -12601,7 +12874,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  
  	/* Locked by ast_pbx_outgoing_exten or ast_pbx_outgoing_app */
  	if (chan)
-@@ -999,6 +1031,7 @@
+@@ -999,6 +1074,7 @@
  	char *priority = astman_get_header(m, "Priority");
  	char *timeout = astman_get_header(m, "Timeout");
  	char *callerid = astman_get_header(m, "CallerID");
@@ -12609,7 +12882,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	char *account = astman_get_header(m, "Account");
  	char *app = astman_get_header(m, "Application");
  	char *appdata = astman_get_header(m, "Data");
-@@ -1007,12 +1040,15 @@
+@@ -1007,12 +1083,15 @@
  	struct ast_variable *vars = astman_get_variables(m);
  	char *tech, *data;
  	char *l=NULL, *n=NULL;
@@ -12625,7 +12898,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	
  	pthread_t th;
  	pthread_attr_t attr;
-@@ -1028,6 +1064,10 @@
+@@ -1028,6 +1107,10 @@
  		astman_send_error(s, m, "Invalid timeout\n");
  		return 0;
  	}
@@ -12636,7 +12909,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	ast_copy_string(tmp, name, sizeof(tmp));
  	tech = tmp;
  	data = strchr(tmp, '/');
-@@ -1048,6 +1088,7 @@
+@@ -1048,6 +1131,7 @@
  		if (ast_strlen_zero(l))
  			l = NULL;
  	}
@@ -12644,7 +12917,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	if (ast_true(async)) {
  		struct fast_originate_helper *fast = malloc(sizeof(struct fast_originate_helper));
  		if (!fast) {
-@@ -1068,8 +1109,10 @@
+@@ -1068,8 +1152,10 @@
  			ast_copy_string(fast->context, context, sizeof(fast->context));
  			ast_copy_string(fast->exten, exten, sizeof(fast->exten));
  			ast_copy_string(fast->account, account, sizeof(fast->account));
@@ -12655,7 +12928,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  			pthread_attr_init(&attr);
  			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
  			if (ast_pthread_create(&th, &attr, fast_originate, fast)) {
-@@ -1079,19 +1122,28 @@
+@@ -1079,19 +1165,28 @@
  			}
  		}
  	} else if (!ast_strlen_zero(app)) {
@@ -12689,7 +12962,7 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	return 0;
  }
  
-@@ -1565,10 +1617,12 @@
+@@ -1565,10 +1660,12 @@
  	return 0;
  }
  
@@ -12704,15 +12977,64 @@ diff -urNad asterisk-1.2.14~dfsg~/manager.c asterisk-1.2.14~dfsg/manager.c
  	return 0;
  }
  
-diff -urNad asterisk-1.2.14~dfsg~/pbx/pbx_spool.c asterisk-1.2.14~dfsg/pbx/pbx_spool.c
---- asterisk-1.2.14~dfsg~/pbx/pbx_spool.c	2006-11-27 16:30:37.000000000 +0100
-+++ asterisk-1.2.14~dfsg/pbx/pbx_spool.c	2006-12-28 10:22:18.393636246 +0100
-@@ -259,11 +259,11 @@
+@@ -1653,6 +1750,7 @@
+ 		ast_manager_register2("Events", 0, action_events, "Control Event Flow", mandescr_events);
+ 		ast_manager_register2("Logoff", 0, action_logoff, "Logoff Manager", mandescr_logoff);
+ 		ast_manager_register2("Hangup", EVENT_FLAG_CALL, action_hangup, "Hangup Channel", mandescr_hangup);
++		ast_manager_register2("Message", EVENT_FLAG_CALL, action_message, "Send Message", mandescr_message);
+ 		ast_manager_register("Status", EVENT_FLAG_CALL, action_status, "Lists channel status" );
+ 		ast_manager_register2("Setvar", EVENT_FLAG_CALL, action_setvar, "Set Channel Variable", mandescr_setvar );
+ 		ast_manager_register2("Getvar", EVENT_FLAG_CALL, action_getvar, "Gets a Channel Variable", mandescr_getvar );
+diff -urN asterisk-1.2.14.orig/pbx/pbx_spool.c asterisk-1.2.14/pbx/pbx_spool.c
+--- asterisk-1.2.14.orig/pbx/pbx_spool.c	2006-11-27 16:30:37.000000000 +0100
++++ asterisk-1.2.14/pbx/pbx_spool.c	2007-01-11 15:26:50.955520927 +0100
+@@ -77,6 +77,10 @@
+ 	char app[256];
+ 	char data[256];
+ 
++	/* If SMS */
++	char message[256];
++	char pdu[256];
++
+ 	/* If extension/context/priority */
+ 	char exten[256];
+ 	char context[256];
+@@ -167,6 +171,10 @@
+ 					strncpy(o->app, c, sizeof(o->app) - 1);
+ 				} else if (!strcasecmp(buf, "data")) {
+ 					strncpy(o->data, c, sizeof(o->data) - 1);
++				} else if (!strcasecmp(buf, "message")) {
++					strncpy(o->message, c, sizeof(o->message) - 1);
++				} else if (!strcasecmp(buf, "pdu")) {
++					strncpy(o->pdu, c, sizeof(o->pdu) - 1);
+ 				} else if (!strcasecmp(buf, "maxretries")) {
+ 					if (sscanf(c, "%d", &o->maxretries) != 1) {
+ 						ast_log(LOG_WARNING, "Invalid max retries at line %d of %s\n", lineno, fn);
+@@ -224,8 +232,8 @@
+ 		}
+ 	}
+ 	strncpy(o->fn, fn, sizeof(o->fn) - 1);
+-	if (ast_strlen_zero(o->tech) || ast_strlen_zero(o->dest) || (ast_strlen_zero(o->app) && ast_strlen_zero(o->exten))) {
+-		ast_log(LOG_WARNING, "At least one of app or extension must be specified, along with tech and dest in file %s\n", fn);
++	if (ast_strlen_zero(o->tech) || ast_strlen_zero(o->dest) || ((ast_strlen_zero(o->app) && ast_strlen_zero(o->exten) && ast_strlen_zero(o->message) && ast_strlen_zero(o->pdu)))) {
++		ast_log(LOG_WARNING, "At least one of app or extension (or keyword message/pdu)must be specified, along with tech and dest in file %s\n", fn);
+ 		return -1;
+ 	}
+ 	return 0;
+@@ -259,11 +267,19 @@
  	if (!ast_strlen_zero(o->app)) {
  		if (option_verbose > 2)
  			ast_verbose(VERBOSE_PREFIX_3 "Attempting call on %s/%s for application %s(%s) (Retry %d)\n", o->tech, o->dest, o->app, o->data, o->retries);
 -		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, o->account, NULL);
 +		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, 0, o->cid_num, o->cid_name, o->vars, o->account, NULL, NULL);
++	} else if (!ast_strlen_zero(o->message)) {
++		if (option_verbose > 2)
++			ast_verbose(VERBOSE_PREFIX_3 "Attempting to send message on %s/%s (Retry %d)\n", o->tech, o->dest, o->retries);
++		res = ast_send_message(o->tech, o->dest, o->dest, (ast_strlen_zero(o->cid_name) ? o->cid_num : o->cid_name), o->message, 0);
++	} else if (!ast_strlen_zero(o->pdu)) {
++		if (option_verbose > 2)
++			ast_verbose(VERBOSE_PREFIX_3 "Attempting to send message in PDU format on %s/%s (Retry %d)\n", o->tech, o->dest, o->retries);
++		res = ast_send_message(o->tech, o->dest, o->dest, (ast_strlen_zero(o->cid_name) ? o->cid_num : o->cid_name), o->pdu, 1);
  	} else {
  		if (option_verbose > 2)
  			ast_verbose(VERBOSE_PREFIX_3 "Attempting call on %s/%s for %s@%s:%d (Retry %d)\n", o->tech, o->dest, o->exten, o->context,o->priority, o->retries);
@@ -12721,9 +13043,25 @@ diff -urNad asterisk-1.2.14~dfsg~/pbx/pbx_spool.c asterisk-1.2.14~dfsg/pbx/pbx_s
  	}
  	if (res) {
  		ast_log(LOG_NOTICE, "Call failed to go through, reason %d\n", reason);
-diff -urNad asterisk-1.2.14~dfsg~/pbx.c asterisk-1.2.14~dfsg/pbx.c
---- asterisk-1.2.14~dfsg~/pbx.c	2006-09-27 21:35:09.000000000 +0200
-+++ asterisk-1.2.14~dfsg/pbx.c	2006-12-28 10:22:18.397636524 +0100
+@@ -276,9 +292,14 @@
+ 			safe_append(o, time(NULL), "EndRetry");
+ 		}
+ 	} else {
++	    if (!ast_strlen_zero(o->message)) {
++		if (option_verbose > 2)
++		    ast_verbose(VERBOSE_PREFIX_2 "Message sent to %s/%s\n", o->tech, o->dest);
++	    } else {
+ 		ast_log(LOG_NOTICE, "Call completed to %s/%s\n", o->tech, o->dest);
+ 		ast_log(LOG_EVENT, "Queued call to %s/%s completed\n", o->tech, o->dest);
+-		unlink(o->fn);
++	    }
++	    unlink(o->fn);
+ 	}
+ 	free_outgoing(o);
+ 	return NULL;
+diff -urN asterisk-1.2.14.orig/pbx.c asterisk-1.2.14/pbx.c
+--- asterisk-1.2.14.orig/pbx.c	2006-09-27 21:35:09.000000000 +0200
++++ asterisk-1.2.14/pbx.c	2007-01-11 15:26:50.959521872 +0100
 @@ -353,7 +353,8 @@
  	
  	{ "Hangup", pbx_builtin_hangup,
@@ -12901,9 +13239,171 @@ diff -urNad asterisk-1.2.14~dfsg~/pbx.c asterisk-1.2.14~dfsg/pbx.c
  	return res;
  }
  	
-diff -urNad asterisk-1.2.14~dfsg~/res/Makefile asterisk-1.2.14~dfsg/res/Makefile
---- asterisk-1.2.14~dfsg~/res/Makefile	2005-11-29 19:24:39.000000000 +0100
-+++ asterisk-1.2.14~dfsg/res/Makefile	2006-12-28 10:22:18.397636524 +0100
+diff -urN asterisk-1.2.14.orig/README asterisk-1.2.14/README
+--- asterisk-1.2.14.orig/README	2006-03-03 09:12:33.000000000 +0100
++++ asterisk-1.2.14/README	2007-01-11 15:26:50.959521872 +0100
+@@ -4,6 +4,8 @@
+ 
+ Copyright (C) 2001-2005 Digium, Inc.
+ and other copyright holders.
++Copyright (C) 2002-2005 Junghanns.NET GmbH 
++and other copyright holders.
+ ================================================================
+ 
+ * SECURITY
+diff -urN asterisk-1.2.14.orig/README.chan_capi asterisk-1.2.14/README.chan_capi
+--- asterisk-1.2.14.orig/README.chan_capi	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/README.chan_capi	2007-01-11 15:26:50.959521872 +0100
+@@ -0,0 +1,146 @@
++(CAPI*) chan_capi a Common ISDN API 2.0 implementation for Asterisk
++(C) 2002, 2003, 2004, 2005 Junghanns.NET GmbH 
++Klaus-Peter Junghanns <kpj@junghanns.net>
++
++This program is free software and may be modified and distributed under
++the terms of the GNU Public License. There is _NO_ warranty for this!
++
++Thanks go to the debuggers and bugfixers (listed in chronological order) :)
++===========================================================================
++Lele Forzani <lele@windmill.it>
++Florian Overkamp <florian@obsimref.com>
++Gareth Watts <gareth@omnipotent.net>
++Jeff Noxon <jeff@planetfall.com>
++Petr Michalek <petr.michalek@aca.cz>
++Jan Stocker
++(...and all the others that i forgot..) :-)
++
++chan_capi version 0.4.0-PRE1 includes:
++======================================
++
++- multiple controller support
++- CID,DNID (callling party, called party)
++- CLIR/CLIP
++- supplementary services, CD,HOLD,RETRIEVE,ECT
++- DTMF (dependend on card) + software DTMF support
++- early B3 connects (always,success,never)
++- digital audio (what did you think?)
++- incoming/outgoing calls
++- overlap sending (dialtone)
++- E(xplicit) C(all) T(ransfer) (...although it's done implicit .. but dont tell!)
++- tuneable latency ;) you can configure the size of B3 blocks at compile time
++  (in chan_capi_pvt.h, AST_CAPI_MAX_B3_BLOCK_SIZE)
++  the default is 160 samples, for non-VoIP use you can tune it down to 130
++- use asterisk's internal dsp functions for dtmf
++- alaw support 
++- ulaw support! 
++- Eicon CAPI echo cancelation (echocancel=1)
++- reject call waiting (ACO)
++- DID for Point to Point mode (a.k.a overlap receiving)
++- experimental echo squelching (echosquelch=1)
++- call progress, no need to add ||r to your dialstring anymore
++- rx/tx gains (rxgain=1.0)
++- call deflection on circuitbusy (makefile option) (deflect=12345678)
++- (inter)national dialing prefix (for callerid) configurable in capi.conf
++- CLI command "capi info" shows B channel status
++- capiECT will announce the callerID since it gets lost on most isdn pbxes
++  the called party can press # to drop the call
++- audio syncing (timing outgoing dataB3 on incoming dataB3), supposed to fix
++  the DATA_B3_REQ (error = 0x1103) problem
++- catch all MSN (incomingmsn=*)
++- some configuration enhancements (msn=123,124,125 and controller=1,2,3,4)
++- accountcode= added.
++- finally the echo squelching works!
++- callgroup support
++- fixed pipe leak
++- updated to support the new frame->delivery field
++- compiles with latest cvs with a makefile option (LOOK AT THE MAKEFILE)
++- fixed channel name bug in p2p mode
++- added app_capiNoES for disabling the primitive echo suppressor, use this before
++  you start recording voicemail or your files may get choppy
++- fixed for latest cvs (AST_MUTEX_DEFINE_STATIC)
++- fixed for latest cvs (asterisk/parking.h -> asterisk/features.h)
++- fixed for latest cvs ast_pthread_create
++
++- ATTENTION! the dialstring syntax now uses the zaptel dialstring syntax 
++  it used to be:  Dial(CAPI/[@]<outgoingMSN>:[b|B]<destination>)
++ 
++  now it is:      Dial(CAPI/g<group>/[b|B]<destination>)
++  or:             Dial(CAPI/contr<controller>/[b|B]<destination>)
++ 
++  CLIP/CLIR is now uses the calling presentation of the calling channel, this can
++  be modified using the CallingPres() application. Use CallinPres(32) for CLIR.
++  That is why the msn= param in capi.conf is now obsolete. The callerID is also
++  taken from the calling channel.
++
++- fixes for BSD (Jan Stocker)
++
++Helper applications
++===================
++kapejod says: "No No No, dont use those yet....!" (except maybe HOLD,ECT...)
++
++app_capiCD.c		forwards an unanswered call to another phone (does not rely on sservice CD)
++			example:
++			exten => s,1,Wait,1
++			exten => s,2,capiCD,12345678
++			
++app_capiHOLD.c		puts an answered call on hold, this has nothing to do with asterisk's onhold thingie (music et al)
++			after putting a call onhold, never use the Wait application!
++
++app_capiRETRIEVE.c	gets the holded call back
++
++app_capiECT.c		explicit call transfer of the holded call (must put call on hold first!)
++			example:
++			exten => s,1,Answer
++			exten => s,2,capiHOLD
++			exten => s,3,capiECT,55:50
++			will ECT the call to 50 using 55 as the callerid/outgoing msn
++
++
++Using CLIR
++==========
++Use the CallingPres() application before you dial:
++exten => _X.,1,CallingPres(32)
++exten => _X.,2,Dial(CAPI/contr1/${EXTEN})    
++
++Enjoying early B3 connects (inband call progress, tones and announcements)
++==========================================================================
++early B3 is now configurable in the dialstring :)
++if you prefix the destination number with a 'b' early B3 will always be used, also if the call fails
++because the number is unprovisioned, etc ...
++if you prefix it with a 'B' early B3 will only be used on successful calls, giving you ring indication,etc...
++
++dont use indications in the Dial command, your local exchange will do that for you:
++exten => _X.,1,Dial(CAPI/contr1/B${EXTEN},30)		(early B3 on success)
++exten => _X.,1,Dial(CAPI/contr1/b${EXTEN},30)		(always early B3)
++exten => _X.,1,Dial(CAPI/contr1/${EXTEN},30,r)		(no early B3, fake ring indication)
++
++exten => _X.,1,Dial(CAPI/contr1/b${EXTEN},30,r)		(always early B3, fake indicatons if the exchange
++							does not give us indications)
++exten => _X.,1,Dial(CAPI/contr1/B${EXTEN},30,r)		(early B3 on success, fake indicatons if the exchange
++							does not give us indications)
++    
++you can totally turn B3 off in the Makefile at buildtime (-DNEVER_EVER_EARLY_B3_CONNECTS).
++
++For normal PBX usage you would use the "b" option, always early B3.
++
++Overlap sending (a.k.a. real dialtone)
++======================================
++when you dial an empty number, and have early B3 enabled, with:
++    Dial(CAPI/g1/b)
++the channel will come up at once and give you the dialtone it gets from the local exchange.
++at this point the channel is like a legacy phone, now you can send dtmf digits to dial.    
++
++Example context for incoming calls on MSN 12345678:
++===================================================
++
++[capi-in]
++exten => 12345678,1,Dial(SIP/phone1)
++exten => 12345678,2,Hangup
++
++
++More information/documentation and commercial support can be found at:
++	http://www.junghanns.net/asterisk/
++	
++
++
+diff -urN asterisk-1.2.14.orig/res/Makefile asterisk-1.2.14/res/Makefile
+--- asterisk-1.2.14.orig/res/Makefile	2005-11-29 19:24:39.000000000 +0100
++++ asterisk-1.2.14/res/Makefile	2007-01-11 15:26:50.959521872 +0100
 @@ -11,7 +11,7 @@
  # the GNU General Public License
  #
@@ -12913,9 +13413,9 @@ diff -urNad asterisk-1.2.14~dfsg~/res/Makefile asterisk-1.2.14~dfsg/res/Makefile
  
  ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/odbcinst.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/odbcinst.h),)
    ifneq (${OSARCH},FreeBSD)
-diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi.c
---- asterisk-1.2.14~dfsg~/res/res_agi.c	2006-12-11 01:33:59.000000000 +0100
-+++ asterisk-1.2.14~dfsg/res/res_agi.c	2006-12-28 10:37:49.523060462 +0100
+diff -urN asterisk-1.2.14.orig/res/res_agi.c asterisk-1.2.14/res/res_agi.c
+--- asterisk-1.2.14.orig/res/res_agi.c	2006-12-11 01:33:59.000000000 +0100
++++ asterisk-1.2.14/res/res_agi.c	2007-01-11 15:43:00.528452246 +0100
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -12972,10 +13472,10 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	int x;
  	int res;
  	sigset_t signal_set, old_set;
-@@ -276,6 +285,33 @@
- 			return -1;
- 		}
- 	}
+@@ -280,6 +289,33 @@
+ 	/* Block SIGHUP during the fork - prevents a race */
+ 	sigfillset(&signal_set);
+ 	pthread_sigmask(SIG_BLOCK, &signal_set, &old_set);
 +	if (efd2) {
 +		if (pipe(audio2)) {
 +			ast_log(LOG_WARNING, "unable to create audio pipe: %s\n", strerror(errno));
@@ -13003,22 +13503,23 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
 +			return -1;
 +		}
 +	}
+ 	pid = fork();
+ 	if (pid < 0) {
+ 		ast_log(LOG_WARNING, "Failed to fork(): %s\n", strerror(errno));
+@@ -307,6 +343,12 @@
+ 		signal(SIGPIPE, SIG_DFL);
+ 		signal(SIGXFSZ, SIG_DFL);
  
- 	/* Block SIGHUP during the fork - prevents a race */
- 	sigfillset(&signal_set);
-@@ -297,6 +333,11 @@
- 		} else {
- 			close(STDERR_FILENO + 1);
- 		}
 +		if (efd2) {
 +			dup2(audio2[1], STDERR_FILENO + 2);
-+		} else {
++ 		} else {
 +			close(STDERR_FILENO + 2);
 +		}
- 
- 		/* Before we unblock our signals, return our trapped signals back to the defaults */
- 		signal(SIGHUP, SIG_DFL);
-@@ -314,7 +355,7 @@
++
+ 		/* unblock important signal handlers */
+ 		if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL)) {
+ 			ast_log(LOG_WARNING, "unable to unblock signals for AGI script: %s\n", strerror(errno));
+@@ -314,7 +356,7 @@
  		}
  
  		/* Close everything but stdin/out/error */
@@ -13027,7 +13528,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  			close(x);
  
  		/* Execute script */
-@@ -331,6 +372,9 @@
+@@ -331,6 +373,9 @@
  	if (efd) {
  		*efd = audio[1];
  	}
@@ -13037,7 +13538,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	/* close what we're not using in the parent */
  	close(toast[1]);
  	close(fromast[0]);
-@@ -339,6 +383,9 @@
+@@ -339,6 +384,9 @@
  		/* [PHM 12/18/03] */
  		close(audio[0]);
  	}
@@ -13047,7 +13548,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  
  	*opid = pid;
  	return 0;
-@@ -369,7 +416,7 @@
+@@ -369,7 +417,7 @@
  	fdprintf(fd, "agi_context: %s\n", chan->context);
  	fdprintf(fd, "agi_extension: %s\n", chan->exten);
  	fdprintf(fd, "agi_priority: %d\n", chan->priority);
@@ -13056,7 +13557,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  
  	/* User information */
  	fdprintf(fd, "agi_accountcode: %s\n", chan->accountcode ? chan->accountcode : "");
-@@ -401,7 +448,7 @@
+@@ -401,7 +449,7 @@
  		return RESULT_SHOWUSAGE;
  	if (sscanf(argv[3], "%d", &to) != 1)
  		return RESULT_SHOWUSAGE;
@@ -13065,7 +13566,16 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	fdprintf(agi->fd, "200 result=%d\n", res);
  	if (res >= 0)
  		return RESULT_SUCCESS;
-@@ -577,7 +624,7 @@
+@@ -421,7 +469,7 @@
+ 	   would probably be to strip off the trailing newline before
+ 	   parsing, then here, add a newline at the end of the string
+ 	   before sending it to ast_sendtext --DUDE */
+-	res = ast_sendtext(chan, argv[2]);
++	res = ast_sendtext(chan, NULL, argv[2], 0);
+ 	fdprintf(agi->fd, "200 result=%d\n", res);
+ 	if (res >= 0)
+ 		return RESULT_SUCCESS;
+@@ -577,7 +625,7 @@
  		else
  			return RESULT_FAILURE;
  	}
@@ -13074,7 +13584,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	/* this is to check for if ast_waitstream closed the stream, we probably are at
  	 * the end of the stream, return that amount, else check for the amount */
  	sample_offset = (chan->stream) ? ast_tellstream(fs) : max_length;
-@@ -637,7 +684,7 @@
+@@ -637,7 +685,7 @@
                  else
                          return RESULT_FAILURE;
          }
@@ -13083,7 +13593,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
          /* this is to check for if ast_waitstream closed the stream, we probably are at
           * the end of the stream, return that amount, else check for the amount */
          sample_offset = (chan->stream)?ast_tellstream(fs):max_length;
-@@ -649,7 +696,7 @@
+@@ -649,7 +697,7 @@
  
  	/* If the user didnt press a key, wait for digitTimeout*/
  	if (res == 0 ) {
@@ -13092,7 +13602,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  		/* Make sure the new result is in the escape digits of the GET OPTION */
  		if ( !strchr(edigits,res) )
                  	res=0;
-@@ -676,7 +723,7 @@
+@@ -676,7 +724,7 @@
  		return RESULT_SHOWUSAGE;
  	if (sscanf(argv[2], "%d", &num) != 1)
  		return RESULT_SHOWUSAGE;
@@ -13101,7 +13611,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	if (res == 1)
  		return RESULT_SUCCESS;
  	fdprintf(agi->fd, "200 result=%d\n", res);
-@@ -696,7 +743,7 @@
+@@ -696,7 +744,7 @@
  	if (sscanf(argv[2], "%d", &num) != 1)
  		return RESULT_SHOWUSAGE;
  
@@ -13110,7 +13620,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	if (res == 1) /* New command */
  		return RESULT_SUCCESS;
  	fdprintf(agi->fd, "200 result=%d\n", res);
-@@ -713,7 +760,7 @@
+@@ -713,7 +761,7 @@
  	if (argc != 4)
  		return RESULT_SHOWUSAGE;
  
@@ -13119,7 +13629,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	if (res == 1) /* New command */
  		return RESULT_SUCCESS;
  	fdprintf(agi->fd, "200 result=%d\n", res);
-@@ -803,7 +850,7 @@
+@@ -803,7 +851,7 @@
  	if (argc != 4)
  		return RESULT_SHOWUSAGE;
  
@@ -13128,7 +13638,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	if (res == 1) /* New command */
  		return RESULT_SUCCESS;
  	fdprintf(agi->fd, "200 result=%d\n", res);
-@@ -830,7 +877,7 @@
+@@ -830,7 +878,7 @@
  		max = atoi(argv[4]); 
  	else
  		max = 1024;
@@ -13137,7 +13647,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	if (res == 2)			/* New command */
  		return RESULT_SUCCESS;
  	else if (res == 1)
-@@ -1868,7 +1915,12 @@
+@@ -1868,7 +1916,12 @@
  	int ms;
  	int returnstatus = 0;
  	struct ast_frame *f;
@@ -13150,7 +13660,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	FILE *readf;
  	/* how many times we'll retry if ast_waitfor_nandfs will return without either 
  	  channel or file descriptor in case select is interrupted by a system call (EINTR) */
-@@ -1882,10 +1934,22 @@
+@@ -1882,10 +1935,22 @@
  		return -1;
  	}
  	setlinebuf(readf);
@@ -13175,7 +13685,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  		if (c) {
  			retry = RETRY;
  			/* Idle the channel until we get a command */
-@@ -1896,13 +1960,24 @@
+@@ -1896,13 +1961,24 @@
  				break;
  			} else {
  				/* If it's voice, write it to the audio pipe */
@@ -13202,7 +13712,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  			retry = RETRY;
  			if (!fgets(buf, sizeof(buf), readf)) {
  				/* Program terminated */
-@@ -1924,6 +1999,7 @@
+@@ -1924,6 +2000,7 @@
  			if ((returnstatus < 0) || (returnstatus == AST_PBX_KEEPALIVE)) {
  				break;
  			}
@@ -13210,7 +13720,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  		} else {
  			if (--retry <= 0) {
  				ast_log(LOG_WARNING, "No channel, no fd?\n");
-@@ -2030,6 +2106,7 @@
+@@ -2030,6 +2107,7 @@
  	int argc = 0;
  	int fds[2];
  	int efd = -1;
@@ -13218,7 +13728,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	int pid;
          char *stringp;
  	AGI agi;
-@@ -2055,16 +2132,19 @@
+@@ -2055,16 +2133,19 @@
  		}
  	}
  #endif
@@ -13240,7 +13750,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	}
  	LOCAL_USER_REMOVE(u);
  	return res;
-@@ -2098,6 +2178,35 @@
+@@ -2098,6 +2179,35 @@
  	return res;
  }
  
@@ -13276,7 +13786,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  static int deadagi_exec(struct ast_channel *chan, void *data)
  {
  	return agi_exec_full(chan, data, 0, 1);
-@@ -2127,6 +2236,7 @@
+@@ -2127,6 +2237,7 @@
  	ast_cli_unregister(&dumpagihtml);
  	ast_cli_unregister(&cli_debug);
  	ast_cli_unregister(&cli_no_debug);
@@ -13284,7 +13794,7 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	ast_unregister_application(eapp);
  	ast_unregister_application(deadapp);
  	return ast_unregister_application(app);
-@@ -2140,6 +2250,7 @@
+@@ -2140,6 +2251,7 @@
  	ast_cli_register(&cli_no_debug);
  	ast_register_application(deadapp, deadagi_exec, deadsynopsis, descrip);
  	ast_register_application(eapp, eagi_exec, esynopsis, descrip);
@@ -13292,9 +13802,9 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_agi.c asterisk-1.2.14~dfsg/res/res_agi
  	return ast_register_application(app, agi_exec, synopsis, descrip);
  }
  
-diff -urNad asterisk-1.2.14~dfsg~/res/res_esel.c asterisk-1.2.14~dfsg/res/res_esel.c
---- asterisk-1.2.14~dfsg~/res/res_esel.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/res/res_esel.c	2006-12-28 10:22:18.401636801 +0100
+diff -urN asterisk-1.2.14.orig/res/res_esel.c asterisk-1.2.14/res/res_esel.c
+--- asterisk-1.2.14.orig/res/res_esel.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/res/res_esel.c	2007-01-11 15:26:50.963522817 +0100
 @@ -0,0 +1,399 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -13695,9 +14205,9 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_esel.c asterisk-1.2.14~dfsg/res/res_es
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/res/res_features.c asterisk-1.2.14~dfsg/res/res_features.c
---- asterisk-1.2.14~dfsg~/res/res_features.c	2006-11-30 20:04:11.000000000 +0100
-+++ asterisk-1.2.14~dfsg/res/res_features.c	2006-12-28 10:22:18.405637079 +0100
+diff -urN asterisk-1.2.14.orig/res/res_features.c asterisk-1.2.14/res/res_features.c
+--- asterisk-1.2.14.orig/res/res_features.c	2006-11-30 20:04:11.000000000 +0100
++++ asterisk-1.2.14/res/res_features.c	2007-01-11 15:26:50.967523762 +0100
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -14696,9 +15206,9 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_features.c asterisk-1.2.14~dfsg/res/re
  	ast_unregister_application(parkcall);
  	return ast_unregister_application(parkedcall);
  }
-diff -urNad asterisk-1.2.14~dfsg~/res/res_monitor.c asterisk-1.2.14~dfsg/res/res_monitor.c
---- asterisk-1.2.14~dfsg~/res/res_monitor.c	2006-11-01 19:24:17.000000000 +0100
-+++ asterisk-1.2.14~dfsg/res/res_monitor.c	2006-12-28 10:34:59.414909328 +0100
+diff -urN asterisk-1.2.14.orig/res/res_monitor.c asterisk-1.2.14/res/res_monitor.c
+--- asterisk-1.2.14.orig/res/res_monitor.c	2006-11-01 19:24:17.000000000 +0100
++++ asterisk-1.2.14/res/res_monitor.c	2007-01-11 15:43:56.093560605 +0100
 @@ -90,7 +90,7 @@
  
  /* Start monitoring a channel */
@@ -14835,9 +15345,9 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_monitor.c asterisk-1.2.14~dfsg/res/res
  	res = ast_monitor_stop(c, 1);
  	ast_mutex_unlock(&c->lock);
  	if (res) {
-diff -urNad asterisk-1.2.14~dfsg~/res/res_watchdog.c asterisk-1.2.14~dfsg/res/res_watchdog.c
---- asterisk-1.2.14~dfsg~/res/res_watchdog.c	1970-01-01 01:00:00.000000000 +0100
-+++ asterisk-1.2.14~dfsg/res/res_watchdog.c	2006-12-28 10:22:18.405637079 +0100
+diff -urN asterisk-1.2.14.orig/res/res_watchdog.c asterisk-1.2.14/res/res_watchdog.c
+--- asterisk-1.2.14.orig/res/res_watchdog.c	1970-01-01 01:00:00.000000000 +0100
++++ asterisk-1.2.14/res/res_watchdog.c	2007-01-11 15:26:50.967523762 +0100
 @@ -0,0 +1,149 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -14988,9 +15498,9 @@ diff -urNad asterisk-1.2.14~dfsg~/res/res_watchdog.c asterisk-1.2.14~dfsg/res/re
 +{
 +	return ASTERISK_GPL_KEY;
 +}
-diff -urNad asterisk-1.2.14~dfsg~/rtp.c asterisk-1.2.14~dfsg/rtp.c
---- asterisk-1.2.14~dfsg~/rtp.c	2006-11-29 17:47:10.000000000 +0100
-+++ asterisk-1.2.14~dfsg/rtp.c	2006-12-28 10:22:18.405637079 +0100
+diff -urN asterisk-1.2.14.orig/rtp.c asterisk-1.2.14/rtp.c
+--- asterisk-1.2.14.orig/rtp.c	2006-11-29 17:47:10.000000000 +0100
++++ asterisk-1.2.14/rtp.c	2007-01-11 15:26:50.967523762 +0100
 @@ -445,6 +445,11 @@
  	struct rtpPayloadType rtpPT;
  	
@@ -15003,3 +15513,9 @@ diff -urNad asterisk-1.2.14~dfsg~/rtp.c asterisk-1.2.14~dfsg/rtp.c
  	
  	/* Cache where the header will go */
  	res = recvfrom(rtp->s, rtp->rawdata + AST_FRIENDLY_OFFSET, sizeof(rtp->rawdata) - AST_FRIENDLY_OFFSET,
+diff -urN asterisk-1.2.14.orig/.version asterisk-1.2.14/.version
+--- asterisk-1.2.14.orig/.version	2006-12-14 14:06:45.000000000 +0100
++++ asterisk-1.2.14/.version	2007-01-11 15:29:51.530176485 +0100
+@@ -1 +1 @@
+-1.2.14
++1.2.14-BRIstuffed-0.3.0-PRE-1x
