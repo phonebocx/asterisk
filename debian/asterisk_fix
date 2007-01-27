@@ -49,7 +49,7 @@ if [ -d /usr/share/asterisk/sounds/priv-callerintros ];then
 		fi
 	else
 		echo -n "Updating private callerintros location to /var/lib/asterisk/sounds/priv-callerintros"
-		find /usr/share/asterisk/sounds/priv-callerintros -mindepth 1 -maxdepth 1 -exec mv "'{}'" /var/lib/asterisk/sounds/priv-callerintros \;
+		find /usr/share/asterisk/sounds/priv-callerintros -mindepth 1 -maxdepth 1 -exec mv '{}' /var/lib/asterisk/sounds/priv-callerintros \;
 		rmdir /usr/share/asterisk/sounds/priv-callerintros
 		echo "."
 	fi
