@@ -4,6 +4,7 @@
 ## All lines beginning with `## DP:' are a description of the patch.
 ## DP: Support for UK Caller-ID in X100P cards: asterisk part. 
 ## DP: From: http://www.lusyn.com/asterisk/patches.html
+## DP: Updated for Asterisk 1.2.15: the chan_conf struct.
 
 @DPATCH@
 diff -urNad asterisk/channels/chan_zap.c /tmp/dpep.KK0kwq/asterisk/channels/chan_zap.c
@@ -32,7 +33,7 @@ diff -urNad asterisk/channels/chan_zap.c /tmp/dpep.KK0kwq/asterisk/channels/chan
 +		 * the history buffer */
 +		if (p->use_callerid && p->cid_start == CID_START_USEHIST) {
 +			ast_log(LOG_DEBUG,"Using history buffer to extract UK caller ID\n");
-+			cs = callerid_new(cid_signalling);
++			cs = callerid_new(p->cid_signalling);
 +			if (cs) {
 +				unsigned char cidbuf[16384];
 +				res=0;
@@ -146,13 +147,13 @@ diff -urNad asterisk/channels/chan_zap.c /tmp/dpep.KK0kwq/asterisk/channels/chan
  		 * and we're set to use a polarity reversal to trigger the start of caller id,
  		 * grab the caller id and wait for ringing to start... */
 @@ -10299,6 +10421,8 @@
- 				cid_start = CID_START_RING;
+ 				chan_conf.cid_start = CID_START_RING;
  			else if (!strcasecmp(v->value, "polarity"))
- 				cid_start = CID_START_POLARITY;
+ 				chan_conf.cid_start = CID_START_POLARITY;
 +			else if (!strcasecmp(v->value, "usehist"))
-+				cid_start = CID_START_USEHIST;
++				chan_conf.cid_start = CID_START_USEHIST;
  			else if (ast_true(v->value))
- 				cid_start = CID_START_RING;
+ 				chan_conf.cid_start = CID_START_RING;
  		} else if (!strcasecmp(v->name, "threewaycalling")) {
 diff -urNad asterisk/include/asterisk/callerid.h /tmp/dpep.KK0kwq/asterisk/include/asterisk/callerid.h
 --- asterisk/include/asterisk/callerid.h	2006-01-06 00:41:06.000000000 +0200
