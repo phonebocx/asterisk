@@ -21,3 +21,4 @@ cdr_sqlite3_custom
 less_docs
 Makefile_hostcc
 Makefile_clean
+daemon_color
