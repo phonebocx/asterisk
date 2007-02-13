@@ -28,7 +28,7 @@ ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
 # by default: use real-time priority
 PARAMS=""
 AST_REALTIME="yes"
-RUNASTERISK="no"
+RUNASTERISK="yes"
 if [ -r /etc/default/$NAME ]; then . /etc/default/$NAME; fi
 
 if [ "$RUNASTERISK" != "yes" ];then

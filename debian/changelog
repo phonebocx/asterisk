@@ -1,10 +1,12 @@
 asterisk (1:1.2.15~dfsg-1) UNRELEASED; urgency=low
 
-  * New upstream release. 
+  * New upstream release.
   * ukcid.dpatch: adapted to chan_conf.
   * bristuff.dpatch: adapted to chan_conf.
+  * daemon_color.dpatch: make rastrisk colourful even without safe_asterisk.
+  * No need to edit a config file to start Asterisk.
 
- -- Tzafrir Cohen <tzafrir@boomtime.cohens.org.il>  Sat, 10 Feb 2007 15:58:33 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 13 Feb 2007 18:54:26 +0200
 
 asterisk (1:1.2.14~dfsg-5) UNRELEASED; urgency=low
 

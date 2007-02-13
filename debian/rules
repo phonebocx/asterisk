@@ -148,8 +148,6 @@ install: build
 	# Add here commands to install the package into debian/<packagename>
 	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
 	cp channels/h323/h323.conf.sample $(CURDIR)/debian/tmp/etc/asterisk/h323.conf
-	mkdir -p $(CURDIR)/debian/tmp/etc/default/
-	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
