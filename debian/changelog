@@ -5,8 +5,16 @@ asterisk (1:1.2.15~dfsg-1) UNRELEASED; urgency=low
   * bristuff.dpatch: adapted to chan_conf.
   * daemon_color.dpatch: make rastrisk colourful even without safe_asterisk.
   * No need to edit a config file to start Asterisk.
+  * Use asterisk.conf based on README.asterisk.conf:
+  - Set default user to asterisk.
+  - Make the control socket writabe by the group asterisk.
+  * don't remove stereorize and streamplayer.
+  * A man page for stereorize.
+  * Create /etc/asterisk/manager.d (Closes: #410715).
+  * Check that Asterisk is alive before sending a command (Closes: #389488).
+  * Use MAKEBUILDOPTS instead of MAKEFLAGS, which is a reserved gmake name.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 13 Feb 2007 18:54:26 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 22 Feb 2007 14:22:00 +0200
 
 asterisk (1:1.2.14~dfsg-5) UNRELEASED; urgency=low
 

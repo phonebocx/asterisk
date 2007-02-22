@@ -19,7 +19,7 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
-MAKEFLAGS = OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
+MAKEBUILDOPTS = OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
 
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
@@ -89,9 +89,9 @@ build-arch-stamp: config.status debian/build/asterisk-bristuff/config.status
 	dh_testdir
 
 	# Add here command to compile/build the package.
-	$(MAKE) $(MAKEFLAGS)
-	$(MAKE) $(MAKEFLAGS) -C channels/h323 opt
-	$(MAKE) $(MAKEFLAGS) -C $(BRISTUFF_DIR)
+	$(MAKE) $(MAKEBUILDOPTS)
+	$(MAKE) $(MAKEBUILDOPTS) -C channels/h323 opt
+	$(MAKE) $(MAKEBUILDOPTS) -C $(BRISTUFF_DIR)
 
 	touch $@
 
@@ -151,7 +151,6 @@ install: build
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
 	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
-	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/{stereorize,streamplayer}
 	# override some default configurations. Leave the original ones
 	# in the sample configs:
 	cp -a debian/ast_config/* $(CURDIR)/debian/tmp/etc/asterisk
@@ -164,9 +163,6 @@ install: build
 	
 	# bristuff
 	$(MAKE) -C $(BRISTUFF_DIR) DESTDIR=$(CURDIR)/debian/tmp/bristuff install
-	mkdir -p $(CURDIR)/debian/tmp/bristuff/etc/default/
-	cp debian/asterisk.default $(CURDIR)/debian/tmp/bristuff/etc/default/asterisk
-	$(RM) -f $(CURDIR)/debian/tmp/bristuff/usr/sbin/{stereorize,streamplayer}
 	dh_install --sourcedir=debian/tmp
 	
 	install -m 644 include/asterisk.h $(CURDIR)/debian/asterisk-dev/usr/include/asterisk.h

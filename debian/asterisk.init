@@ -80,6 +80,11 @@ status() {
 	fi
 }
 
+asterisk_rx() {
+	if ! status >/dev/null; then return 0; fi
+	$DAEMON -rx "$1"
+}
+
 case "$1" in
   debug)
 	# we add too many special parameters that I don't want to skip
@@ -141,14 +146,14 @@ case "$1" in
 	;;
   reload)
 	echo "Reloading $DESC configuration files."
-	$DAEMON -rx 'reload' || true
+	asterisk_rx 'reload'
 	;;
   logger-reload)
-	$DAEMON -rx 'logger reload' || true
+	asterisk_rx 'logger reload'
 	;;
   extensions-reload)
 	echo "Reloading $DESC configuration files."
-	$DAEMON -rx 'extensions reload' || true
+	asterisk_rx 'extensions reload'
 	;;
   restart|force-reload)
 	$0 stop
