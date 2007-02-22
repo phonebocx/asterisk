@@ -13,8 +13,11 @@ asterisk (1:1.2.15~dfsg-1) UNRELEASED; urgency=low
   * Create /etc/asterisk/manager.d (Closes: #410715).
   * Check that Asterisk is alive before sending a command (Closes: #389488).
   * Use MAKEBUILDOPTS instead of MAKEFLAGS, which is a reserved gmake name.
+  * Removing build depepndency on obsolete and unused libzap-dev.
+  * New transcoding interfaces from zaptel.h of zaptel 1.2.13 or 1.4 seem 
+    to be required for Asterisk 1.2.15 .
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 22 Feb 2007 14:22:00 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 22 Feb 2007 15:51:15 +0200
 
 asterisk (1:1.2.14~dfsg-5) UNRELEASED; urgency=low
 
