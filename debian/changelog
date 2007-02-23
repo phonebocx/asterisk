@@ -11,7 +11,7 @@ asterisk (1:1.2.15~dfsg-1) UNRELEASED; urgency=low
   * don't remove stereorize and streamplayer.
   * A man page for stereorize.
   * Create /etc/asterisk/manager.d (Closes: #410715).
-  * Check that Asterisk is alive before sending a command (Closes: #389488).
+  * Check that Asterisk is alive before sending a command (Closes: #389448).
   * Use MAKEBUILDOPTS instead of MAKEFLAGS, which is a reserved gmake name.
   * Removing build depepndency on obsolete and unused libzap-dev.
   * New transcoding interfaces from zaptel.h of zaptel 1.2.13 or 1.4 seem 
