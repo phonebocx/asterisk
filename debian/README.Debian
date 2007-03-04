@@ -25,6 +25,8 @@ then asterisk will automatically initialize all groups of the asterisk user.
 
 To change those values you can edit /etc/default/asterisk. 
 
+Alternatively, edit /etc/asterisk/asterisk.conf .
+
 init.d Script Commands
 ======================
 In addition to reload, that runs the asterisk CLI command 'reload' there
@@ -39,6 +41,9 @@ asterisk", or asterisk may write files with root ownership. In that case you
 might not be able to restart the daemon without altering permissions to the
 files first. Alternatively use '/etc/init.d/asterisk debug'.
 
+Asterisk is run with a umask of 002 by default, to allow writing 
+group-owned voicemail files. To change this value, set the value if 'UMASK'
+in /etc/default/asterisk .
 
 Getting started with config and more features
 =============================================

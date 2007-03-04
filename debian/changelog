@@ -4,8 +4,9 @@ asterisk (1:1.2.16~dfsg-1) unstable; urgency=high
   [ Tzafrir Cohen ]
   * New upstream release. Also fixes remote SIP security hole.
   * Updated bristuff patch.
+  * Fix umask of Asterisk for the voicemail.
 
- -- Tzafrir Cohen <tzafrir@boomtime.cohens.org.il>  Sun,  4 Mar 2007 00:35:53 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun,  4 Mar 2007 00:35:53 +0200
 
 asterisk (1:1.2.15~dfsg-1) unstable; urgency=low
 

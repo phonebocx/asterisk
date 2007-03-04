@@ -24,6 +24,8 @@ DAEMON=/usr/sbin/$NAME
 DESC="Asterisk PBX"
 PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
+UMASK=007 # by default
+
 
 # by default: use real-time priority
 PARAMS=""
@@ -68,6 +70,11 @@ fi
 test -x $DAEMON || exit 0
 
 set -e
+
+if [ "$UMASK" != '' ]
+then
+	umask $UMASK
+fi
 
 status() {
 	plist=`ps auxw | grep "$DAEMON" | grep -v grep | awk '{print $2}' | tr '\012' ' '`
