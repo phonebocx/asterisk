@@ -1,8 +1,11 @@
-asterisk (1:1.2.15~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.2.16~dfsg-1) unstable; urgency=high
 
-  * NOT RELEASED YET
 
- -- Mark Purcell <msp@debian.org>  Sat,  3 Mar 2007 18:10:52 +0000
+  [ Tzafrir Cohen ]
+  * New upstream release. Also fixes remote SIP security hole.
+  * Updated bristuff patch.
+
+ -- Tzafrir Cohen <tzafrir@boomtime.cohens.org.il>  Sun,  4 Mar 2007 00:35:53 +0200
 
 asterisk (1:1.2.15~dfsg-1) unstable; urgency=low
 
