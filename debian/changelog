@@ -1,4 +1,4 @@
-asterisk (1:1.4.0~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.1~dfsg-1) UNRELEASED; urgency=low
 
   * New upstream release.
   * A package that builds.
@@ -9,8 +9,11 @@ asterisk (1:1.4.0~dfsg-1) UNRELEASED; urgency=low
   * Man pages are included in upstream now.
   * set ASTDATADIR=/usr/share/asterisk .
   * A bunch of other fils moved for 1.4 .
+  * Use system gsm (only requires an explicit --with-gsm)
+  * Allow chrooted building with no wget.
+  * h323_no_exit.dpatch: Don't requires two rounds of building.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 25 Dec 2006 04:17:41 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 18 Mar 2007 01:20:36 +0200
 
 asterisk (1:1.3.99~beta2.dfsg-1) UNRELEASED; urgency=low
 

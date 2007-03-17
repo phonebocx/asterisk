@@ -74,11 +74,31 @@ config.status: check-sounds patch-stamp
 	#cd ..)
 
 	#cd editline;./configure $(confflags)
-	./configure
+
+	# make sure we have 'fetch' . We need to have either wget or fetch
+	# on the system. However it is generally not a good idea to actually
+	# get remote tarballs at build time. So if nither wget nor fetch 
+	# happen to be installed, the configure script will find a dummy
+	# fetch script that always returns an error.
+	PATH=$$PATH:$(CURDIR)/debian/dummyprogs
+	export PATH
+
+	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
+	./bootstrap.sh # also runs autoonf. TODO: currently not needed.
+	
+	# Without --with-gsm the internal gsm will be used
+	./configure --with-gsm
 
 menuselect.makeopts: config.status
 	$(MAKE) menuselect.makeopts
 	sed -i -e '/^MENUSELECT_MOH=/d' menuselect.makeopts
+
+	# some voodoo in order to get chan_h323 built, and make it in one
+	# build pass:
+	# enable chan_h323 (not enabled by default). Note that modules listed
+	# in MENUSELECT_CHANNEL are ones to disable:
+	sed -i -e '/MENUSELECT_CHANNELS=/s/chan_h323//' menuselect.makeopts
+	touch channels/Makefile.ast
 
 build-arch: build-arch-stamp
 build-arch-stamp: menuselect.makeopts
@@ -113,22 +133,19 @@ cleaned:
 	dh_testroot
 	
 	# Add here commands to clean up after the build process.
-	-test -d channels/h323 && $(MAKE) -C channels/h323 clean
-	-$(RM) -f channels/h323/libchanh323.a
 	-$(MAKE) clean
 	-$(RM) -rf debian/build
-	-$(RM) utils/streamplayer
-	#-$(RM) -f fxstest ztmonitor ztspeed zttest
-	-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
-	-$(RM) debian/asterisk.8.gz
-	-(test -d editline &&cd editline; \
-	if [ -f config.sub.old ]; then \
-	   mv config.sub.old config.sub; \
-	fi; \
-	if [ -f config.guess.old ]; then \
-	   mv config.guess.old config.guess; \
-	fi; \
-	cd ..)
+	#-$(RM) utils/streamplayer
+	#-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
+	#-(test -d editline &&cd editline; \
+	#if [ -f config.sub.old ]; then \
+	#   mv config.sub.old config.sub; \
+	#fi; \
+	#if [ -f config.guess.old ]; then \
+	#   mv config.guess.old config.guess; \
+	#fi; \
+	#cd ..)
+	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
 	-test -d configs && chmod -x configs/*.sample
 	-$(RM) -f build-arch-stamp build-indep-stamp config.status check-sounds menuselect.makeopts
 
