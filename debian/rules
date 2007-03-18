@@ -87,7 +87,12 @@ config.status: check-sounds patch-stamp
 	./bootstrap.sh # also runs autoonf. TODO: currently not needed.
 	
 	# Without --with-gsm the internal gsm will be used
-	./configure --with-gsm
+	./configure --with-gsm \
+		--host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) \
+                --prefix=/usr \
+                --mandir=\$${prefix}/share/man \
+                --infodir=\$${prefix}/share/info
+
 
 menuselect.makeopts: config.status
 	$(MAKE) menuselect.makeopts
