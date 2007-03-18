@@ -22,7 +22,7 @@ export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 MAKEFLAGS = OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
 
 # Force music files selection:
-MAKEFLAGS += MENUSELECT_MOH= ASTDARADIR=/usr/share/asterisk
+MAKEFLAGS += MENUSELECT_MOH= ASTDATADIR=/usr/share/asterisk
 
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
