@@ -1,11 +1,12 @@
-asterisk (1:1.2.16~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.2.17~dsfg-1) unstable; urgency=low
 
-  * NOT RELEASED YET
+  * New upstream release
+    - SIP INVITE DoS, supposedly fixed in 1.4.2 and 1.2.17, which is
+    released today 19/03/2007 (Closes: #415466)
 
- -- Mark Purcell <msp@debian.org>  Sun,  4 Mar 2007 12:34:37 +0000
+ -- Mark Purcell <msp@debian.org>  Mon, 19 Mar 2007 21:32:14 +0000
 
 asterisk (1:1.2.16~dfsg-1) unstable; urgency=high
-
 
   [ Tzafrir Cohen ]
   * New upstream release. Also fixes remote SIP security hole.
