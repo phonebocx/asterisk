@@ -1,7 +1,8 @@
-asterisk (1:1.4.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.1~dfsg-1) experimental; urgency=low
 
   [ Tzafrir Cohen ]
   * New upstream release.
+    - Please package Asterisk-1.4.0 (Closes: #405723)
   * A package that builds.
   * Removed asterisk-sounds.install: does not belong here.
   * Removed makefile_noiaxy.dpatch: applied by upstream.
@@ -19,7 +20,7 @@ asterisk (1:1.4.1~dfsg-1) UNRELEASED; urgency=low
     --prefix=/usr --mandir=\$${prefix}/share/man --
     infodir=\$${prefix}/share/info
 
- -- Mark Purcell <msp@debian.org>  Sun, 18 Mar 2007 22:48:14 +0000
+ -- Mark Purcell <msp@debian.org>  Mon, 19 Mar 2007 06:24:43 +0000
 
 asterisk (1:1.4.0~dfsg-1) UNRELEASED; urgency=low
 
