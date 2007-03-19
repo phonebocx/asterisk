@@ -4,7 +4,7 @@ asterisk (1:1.4.2~dsfg-1) experimental; urgency=low
     - SIP INVITE DoS, supposedly fixed in 1.4.2 and 1.2.17, which is
     released today 19/03/2007 (Closes: #415466)
 
- -- Mark Purcell <mark@purcell.id.au>  Mon, 19 Mar 2007 21:28:17 +0000
+ -- Mark Purcell <msp@debian.org>  Mon, 19 Mar 2007 21:32:49 +0000
 
 asterisk (1:1.4.1~dfsg-1) experimental; urgency=low
 
