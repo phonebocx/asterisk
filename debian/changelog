@@ -1,3 +1,9 @@
+asterisk (1:1.4.2~dfsg-2) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- Mark Purcell <msp@debian.org>  Tue, 20 Mar 2007 20:27:40 +0000
+
 asterisk (1:1.4.2~dfsg-1) experimental; urgency=low
 
   * New upstream release.
