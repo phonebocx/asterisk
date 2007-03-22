@@ -87,7 +87,7 @@ config.status: check-sounds patch-stamp
 	export PATH
 
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
-	./bootstrap.sh # also runs autoonf. TODO: currently not needed.
+	#./bootstrap.sh # also runs autoonf. TODO: currently not needed.
 	
 	# Without --with-gsm the internal gsm will be used
 	./configure --with-gsm \
