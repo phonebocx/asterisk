@@ -1,8 +1,12 @@
 asterisk (1:1.4.2~dfsg-2) UNRELEASED; urgency=low
 
+  [ Mark Purcell ]
   * NOT RELEASED YET
 
- -- Mark Purcell <msp@debian.org>  Tue, 20 Mar 2007 20:27:40 +0000
+  [ Tzafrir Cohen ]
+  * Fix default varrundir using make vars (Closes: #415799).
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 22 Mar 2007 08:03:22 +0200
 
 asterisk (1:1.4.2~dfsg-1) experimental; urgency=low
 
