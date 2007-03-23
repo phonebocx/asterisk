@@ -59,6 +59,25 @@ or the larger HowTos at:
 or
 	http://www.asteriskdocs.org/ (Asterisk Handbook)
 
+safe_asterisk (not so safe)
+===========================
+The asterisk source includes a script called "safe_asterisk" that is 
+intended to run asterisk in a loop in case it ever crashes. 
+
+I (Tzafrir) do not recommend using that script, as it has bad error 
+handling and it is generally badly written. It adds a layer of 
+complexity that does not add much overall sability. All too many times I 
+have found systems where safe_asterisk was running in a loop because, 
+e.g. some configuration eror. The result was that the init.d script of 
+Asterisk has become ineffective. 
+
+If there are any features that safe_asterisk provides that you think
+that the default Asterisk init.d or package should provide by default,
+please let us know. For instance, the package already supports colors
+in the CLI. I don't think that the option -g (to generate core files) 
+be of much help, but if it does, look for core_patterns in the sysctl 
+documentation (http://lxr.linux.no/source/Documentation/sysctl/kernel.txt ).
+
 
 Enjoy your PBX!
 

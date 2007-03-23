@@ -27,13 +27,19 @@ DAEMON=/usr/sbin/$NAME
 DESC="Asterisk PBX"
 PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
+PIDFILE_DIR=`dirname $PIDFILE`
 UMASK=007 # by default
 
 
 # by default: use real-time priority
 PARAMS=""
+CHDIR_PARM=""
 AST_REALTIME="yes"
 RUNASTERISK="yes"
+AST_DUMPCORE="no"
+AST_DUMPCORE_DIR="/var/spool/asterisk"
+# core_pattern. See: http://lxr.linux.no/source/Documentation/sysctl/kernel.txt
+#CORE_PATTERN=
 if [ -r /etc/default/$NAME ]; then . /etc/default/$NAME; fi
 
 if [ "$RUNASTERISK" != "yes" ];then
@@ -44,6 +50,19 @@ fi
 if [ "$AST_REALTIME" != "no" ]
 then
   PARAMS="$PARAMS -p"
+fi
+
+if [ "$AST_DUMPCORE" != "no" ]
+then
+	PARAMS="$PARAMS -g"
+	if [ "$CORE_PATTERN" != '' ]
+	then
+		echo "$CORE_PATTERN" >/proc/sys/kernel/core_pattern
+	fi
+	if [ -d "$DUMPCORE_DIR" ]
+	then
+		CHDIR_PARM="--chdir $AST_DUMPCORE_DIR"
+	fi
 fi
 
 if [ "x$USER" = "x" ]
@@ -71,6 +90,11 @@ else
 fi
 
 test -x $DAEMON || exit 0
+
+if [ ! -d "$PIDFILE_DIR" ];then
+	mkdir "$PIDFILE_DIR"
+	chown $USER:$GROUP "$PIDFILE_DIR"
+fi
 
 set -e
 
@@ -120,10 +144,11 @@ case "$1" in
 			exit 0
 		fi
 		start-stop-daemon --start --group $GROUP --pidfile "$PIDFILE" \
+			$CHDIR_PARM \
 			--exec $REALDAEMON -- $PARAMS
 	else
 		start-stop-daemon --start --group $GROUP --make-pidfile \
-			--pidfile "$ASTSAFE_PIDFILE" \
+			$CHDIR_PARM --pidfile "$ASTSAFE_PIDFILE" \
 			--exec $REALDAEMON -- $PARAMS
 	fi
 		
