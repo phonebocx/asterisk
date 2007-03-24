@@ -5,10 +5,10 @@ asterisk (1:1.4.2~dfsg-2) experimental; urgency=low
   * Don't run autoconf if you don't need (Closes: #415865).
 
   [ Mark Purcell ]
-  * Note asterisk-h323 package is currently empty
   * Include chan_h323.so in debian/asterisk-h323.install
+  * Please package Asterisk-1.4.0 (Closes: #405723)
 
- -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 16:52:32 +0000
+ -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 16:56:13 +0000
 
 asterisk (1:1.4.2~dfsg-1) experimental; urgency=low
 
