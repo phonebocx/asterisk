@@ -1,16 +1,13 @@
-asterisk (1:1.2.17~dsfg-2) UNRELEASED; urgency=low
-
-  * Allow optionally generating core files from standard init.d script.
-  * Do run Asterisk by default.
-  * Update documentation in the defaults file and in README.Debian.
-
- -- Tzafrir Cohen <tzafrir.cohe@xorcom.com>  Fri, 23 Mar 2007 10:50:00 +0200
-
 asterisk (1:1.2.17~dsfg-1) unstable; urgency=low
 
   * New upstream release
     - SIP INVITE DoS, supposedly fixed in 1.4.2 and 1.2.17, which is
     released today 19/03/2007 (Closes: #415466)
+
+  [ Tzafrir Cohen ]
+  * Allow optionally generating core files from standard init.d script.
+  * Do run Asterisk by default.
+  * Update documentation in the defaults file and in README.Debian.
 
  -- Mark Purcell <msp@debian.org>  Mon, 19 Mar 2007 21:32:14 +0000
 
