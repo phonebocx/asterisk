@@ -192,7 +192,6 @@ binary-indep: build install
 	dh_testdir -i
 	dh_testroot -i
 	dh_installlogrotate -i 
-	dh_installinit -i -- defaults 21
 	dh_installdocs -i -XREADME.cygwin
 	dh_installexamples -i -XCVS
 	dh_installcron -i
@@ -214,6 +213,7 @@ binary-arch: build install
 	dh_installman utils/*.1 doc/*.8 contrib/scripts/*.8
 	dh_installexamples -a -XCVS
 	dh_installchangelogs ChangeLog -a
+	dh_installinit -a -- defaults 21
 	dh_strip -a
 	dh_link -a
 	dh_compress -a

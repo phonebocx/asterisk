@@ -14,8 +14,9 @@ asterisk (1:1.4.2~dfsg-2) experimental; urgency=low
   * debian/asterisk.default - fix -D/-d typo in PARAMS (Closes LP#68169)
   * debian/asterisk.init:
     - create /var/run/ directory if necessary and set proper permissions
+  * Move dh_installinit to architecture dependant
 
- -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 17:37:52 +0000
+ -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 17:59:26 +0000
 
 asterisk (1:1.4.2~dfsg-1) experimental; urgency=low
 
