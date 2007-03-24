@@ -47,6 +47,8 @@ Description: asterisk H.323 VoIP channel
  .
  It was separated out into its own package to avoid having the main package
  depend on the many openh323 dependencies.
+ .
+ Note this package is currently empty as we resolve the build issues.
 
 Package: asterisk-doc
 Recommends: asterisk

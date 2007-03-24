@@ -4,7 +4,10 @@ asterisk (1:1.4.2~dfsg-2) experimental; urgency=low
   * Fix default varrundir using make vars (Closes: #415799).
   * Don't run autoconf if you don't need (Closes: #415865).
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 22 Mar 2007 08:03:22 +0200
+  [ Mark Purcell ]
+  * Note asterisk-h323 package is currently empty
+
+ -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 12:34:58 +0000
 
 asterisk (1:1.4.2~dfsg-1) experimental; urgency=low
 
