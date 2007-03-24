@@ -1,7 +1,4 @@
-asterisk (1:1.4.2~dfsg-2) UNRELEASED; urgency=low
-
-  [ Mark Purcell ]
-  * NOT RELEASED YET
+asterisk (1:1.4.2~dfsg-2) experimental; urgency=low
 
   [ Tzafrir Cohen ]
   * Fix default varrundir using make vars (Closes: #415799).
