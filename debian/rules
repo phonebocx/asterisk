@@ -91,6 +91,7 @@ config.status: check-sounds patch-stamp
 	
 	# Without --with-gsm the internal gsm will be used
 	./configure --with-gsm \
+		--with-pwlib=/usr/share/pwlib/include/ --with-h323=/usr/share/openh323/ \
 		--host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) \
                 --prefix=/usr \
                 --mandir=\$${prefix}/share/man \

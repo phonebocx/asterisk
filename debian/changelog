@@ -8,8 +8,10 @@ asterisk (1:1.4.2~dfsg-2) experimental; urgency=low
   * Include chan_h323.so in debian/asterisk-h323.install
   * Please package Asterisk-1.4.0 (Closes: #405723)
   * Add Build-Depends: libgtk2.0-dev, libc-client-dev
+  * configure --with-pwlib=/usr/share/pwlib/include/ \
+     --with-h323=/usr/share/openh323/
 
- -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 17:00:57 +0000
+ -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 17:10:09 +0000
 
 asterisk (1:1.4.2~dfsg-1) experimental; urgency=low
 
