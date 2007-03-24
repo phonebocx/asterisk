@@ -1,4 +1,4 @@
-asterisk (1:1.2.17~dsfg-1) unstable; urgency=low
+asterisk (1:1.2.17~dfsg-1) unstable; urgency=low
 
   * New upstream release
     - SIP INVITE DoS, supposedly fixed in 1.4.2 and 1.2.17, which is
