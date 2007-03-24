@@ -34,9 +34,6 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	INSTALL_PROGRAM += -s
 endif
 
-export OPENH323DIR=/usr/share/openh323
-export PWLIBDIR=/usr/share/pwlib
-
 include /usr/share/dpatch/dpatch.make
 
 DEBVERSION:=$(shell head -n 1 debian/changelog \
