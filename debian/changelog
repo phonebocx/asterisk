@@ -6,8 +6,9 @@ asterisk (1:1.4.2~dfsg-2) experimental; urgency=low
 
   [ Mark Purcell ]
   * Note asterisk-h323 package is currently empty
+  * Include chan_h323.so in debian/asterisk-h323.install
 
- -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 12:34:58 +0000
+ -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 16:52:32 +0000
 
 asterisk (1:1.4.2~dfsg-1) experimental; urgency=low
 
