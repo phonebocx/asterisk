@@ -11,8 +11,9 @@ asterisk (1:1.4.2~dfsg-2) experimental; urgency=low
   * Add Build-Depends: libgtk2.0-dev, libc-client-dev
   * configure --with-pwlib=/usr/share/pwlib/include/ \
      --with-h323=/usr/share/openh323/
+  * debian/asterisk.default - fix -D/-d typo in PARAMS (Closes LP#68169)
 
- -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 17:10:09 +0000
+ -- Mark Purcell <msp@debian.org>  Sat, 24 Mar 2007 17:35:49 +0000
 
 asterisk (1:1.4.2~dfsg-1) experimental; urgency=low
 
