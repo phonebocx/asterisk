@@ -3,6 +3,7 @@ asterisk (1:1.4.2~dfsg-2) experimental; urgency=low
   [ Tzafrir Cohen ]
   * Fix default varrundir using make vars (Closes: #415799).
   * Don't run autoconf if you don't need (Closes: #415865).
+  * Require zaptel >= 1.4.1, for ZT_EVENT_REMOVED .
 
   [ Mark Purcell ]
   * Include chan_h323.so in debian/asterisk-h323.install
