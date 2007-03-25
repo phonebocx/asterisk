@@ -44,6 +44,13 @@ FILENAME := asterisk_$(UPVERSION)~dfsg.orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
 URL := http://ftp2.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
+# make sure we have 'fetch' . We need to have either wget or fetch
+# on the system. However it is generally not a good idea to actually
+# get remote tarballs at build time. So if nither wget nor fetch 
+# happen to be installed, the configure script will find a dummy
+# fetch script that always returns an error.
+FETCH_ENV = PATH=$$PATH:$(CURDIR)/debian/dummyprogs
+
 
 check-sounds:
 	( [ ! -f sounds/asterisk-moh-freeplay-wav.tar.gz ] && \
@@ -75,19 +82,11 @@ config.status: check-sounds patch-stamp
 
 	#cd editline;./configure $(confflags)
 
-	# make sure we have 'fetch' . We need to have either wget or fetch
-	# on the system. However it is generally not a good idea to actually
-	# get remote tarballs at build time. So if nither wget nor fetch 
-	# happen to be installed, the configure script will find a dummy
-	# fetch script that always returns an error.
-	PATH=$$PATH:$(CURDIR)/debian/dummyprogs
-	export PATH
-
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
 	#./bootstrap.sh # also runs autoonf. TODO: currently not needed.
 	
 	# Without --with-gsm the internal gsm will be used
-	./configure --with-gsm \
+	$(FETCH_ENV) ./configure --with-gsm \
 		--with-pwlib=/usr/share/pwlib/include/ --with-h323=/usr/share/openh323/ \
 		--host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) \
                 --prefix=/usr \
@@ -96,7 +95,7 @@ config.status: check-sounds patch-stamp
 
 
 menuselect.makeopts: config.status
-	$(MAKE) menuselect.makeopts
+	$(FETCH_ENV) $(MAKE) menuselect.makeopts
 	sed -i -e '/^MENUSELECT_MOH=/d' menuselect.makeopts
 
 	# some voodoo in order to get chan_h323 built, and make it in one
@@ -111,7 +110,7 @@ build-arch-stamp: menuselect.makeopts
 	dh_testdir
 
 	# Add here command to compile/build the package.
-	$(MAKE) $(MAKEFLAGS)
+	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS)
 	#$(MAKE) $(MAKEFLAGS) -C channels/h323 opt
 
 	touch $@
@@ -125,7 +124,7 @@ build-indep-stamp: menuselect.makeopts
 	#  anything for this package.
 	#/usr/bin/docbook-to-man debian/asterisk.sgml > asterisk.1
 ifndef ASTERISK_NO_DOCS
-	$(MAKE) progdocs
+	$(FETCH_ENV) $(MAKE) progdocs
 endif
 
 	touch $@
@@ -164,7 +163,7 @@ install: build
 	dh_installdirs var/run/asterisk
 	
 	# Add here commands to install the package into debian/<packagename>
-	$(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
+	$(FETCH_ENV) $(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
 	mkdir -p $(CURDIR)/debian/tmp/etc/default/
 	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
 	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/

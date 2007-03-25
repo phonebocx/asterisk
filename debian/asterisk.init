@@ -2,7 +2,10 @@
 #
 # asterisk	start the asterisk PBX
 # (c) Mark Purcell <msp@debian.org>
-# May be distributed under the terms of this General Public License
+#    This package is free software; you can redistribute it and/or modify
+#   it under the terms of the GNU General Public License as published by
+#   the Free Software Foundation; either version 2 of the License, or
+#   (at your option) any later version.
 #
 # Based on:
 #
@@ -16,6 +19,18 @@
 # Version:	@(#)skeleton  1.9  26-Feb-2001  miquels@cistron.nl
 #
 
+### BEGIN INIT INFO
+# Provides:          asterisk
+# Required-Start:    $local_fs zaptel
+# Required-Stop:     $local_fs
+# Should-Start:      
+# Should-Stop:       
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Asterisk PBX
+# Description:       Controls the Asterisk PBX
+### END INIT INFO
+
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 NAME=asterisk
 USER=$NAME
@@ -24,11 +39,19 @@ DAEMON=/usr/sbin/$NAME
 DESC="Asterisk PBX"
 PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
+PIDFILE_DIR=`dirname $PIDFILE`
+UMASK=007 # by default
+
 
 # by default: use real-time priority
 PARAMS=""
+CHDIR_PARM=""
 AST_REALTIME="yes"
-RUNASTERISK="no"
+RUNASTERISK="yes"
+AST_DUMPCORE="no"
+AST_DUMPCORE_DIR="/var/spool/asterisk"
+# core_pattern. See: http://lxr.linux.no/source/Documentation/sysctl/kernel.txt
+#CORE_PATTERN=
 if [ -r /etc/default/$NAME ]; then . /etc/default/$NAME; fi
 
 if [ "$RUNASTERISK" != "yes" ];then
@@ -39,6 +62,19 @@ fi
 if [ "$AST_REALTIME" != "no" ]
 then
   PARAMS="$PARAMS -p"
+fi
+
+if [ "$AST_DUMPCORE" != "no" ]
+then
+	PARAMS="$PARAMS -g"
+	if [ "$CORE_PATTERN" != '' ]
+	then
+		echo "$CORE_PATTERN" >/proc/sys/kernel/core_pattern
+	fi
+	if [ -d "$DUMPCORE_DIR" ]
+	then
+		CHDIR_PARM="--chdir $AST_DUMPCORE_DIR"
+	fi
 fi
 
 if [ "x$USER" = "x" ]
@@ -67,11 +103,16 @@ fi
 
 test -x $DAEMON || exit 0
 
+if [ ! -d "$PIDFILE_DIR" ];then
+	mkdir "$PIDFILE_DIR"
+	chown $USER:$GROUP "$PIDFILE_DIR"
+fi
+
 set -e
 
-if [ ! -e `dirname $PIDFILE` ];then
-	mkdir `dirname $PIDFILE`
-	chown $USER.$GROUP `dirname $PIDFILE`
+if [ "$UMASK" != '' ]
+then
+	umask $UMASK
 fi
 
 status() {
@@ -83,6 +124,11 @@ status() {
 		echo "$DESC is running: $plist"
 		return 0
 	fi
+}
+
+asterisk_rx() {
+	if ! status >/dev/null; then return 0; fi
+	$DAEMON -rx "$1"
 }
 
 case "$1" in
@@ -110,10 +156,11 @@ case "$1" in
 			exit 0
 		fi
 		start-stop-daemon --start --group $GROUP --pidfile "$PIDFILE" \
+			$CHDIR_PARM \
 			--exec $REALDAEMON -- $PARAMS
 	else
 		start-stop-daemon --start --group $GROUP --make-pidfile \
-			--pidfile "$ASTSAFE_PIDFILE" \
+			$CHDIR_PARM --pidfile "$ASTSAFE_PIDFILE" \
 			--exec $REALDAEMON -- $PARAMS
 	fi
 		
@@ -146,14 +193,14 @@ case "$1" in
 	;;
   reload)
 	echo "Reloading $DESC configuration files."
-	$DAEMON -rx 'reload' || true
+	asterisk_rx 'reload'
 	;;
   logger-reload)
-	$DAEMON -rx 'logger reload' || true
+	asterisk_rx 'logger reload'
 	;;
   extensions-reload)
 	echo "Reloading $DESC configuration files."
-	$DAEMON -rx 'extensions reload' || true
+	asterisk_rx 'extensions reload'
 	;;
   restart|force-reload)
 	$0 stop
