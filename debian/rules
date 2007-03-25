@@ -103,6 +103,10 @@ menuselect.makeopts: config.status
 	# enable chan_h323 (not enabled by default). Note that modules listed
 	# in MENUSELECT_CHANNEL are ones to disable:
 	sed -i -e '/MENUSELECT_CHANNELS=/s/chan_h323//' menuselect.makeopts
+	echo menuselect.makedeps
+	cat menuselect.makedeps
+	echo menuselect.makeopts
+	cat menuselect.makeopts
 	touch channels/Makefile.ast
 
 build-arch: build-arch-stamp
