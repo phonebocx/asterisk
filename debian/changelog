@@ -1,6 +1,4 @@
-asterisk (1:1.4.2~dfsg-3) UNRELEASED; urgency=low
-
-  * NOT RELEASED YET
+asterisk (1:1.4.2~dfsg-3) experimental; urgency=low
 
   * Fix syntax of for dummy fetch (Closes: #416143).
   * LSB init section in init.d script.
