@@ -84,6 +84,8 @@ config.status: check-sounds patch-stamp
 
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
 	#./bootstrap.sh # also runs autoonf. TODO: currently not needed.
+
+	chmod 755 $(CURDIR)/debian/dummyprogs/fetch
 	
 	# Without --with-gsm the internal gsm will be used
 	$(FETCH_ENV) ./configure --with-gsm \

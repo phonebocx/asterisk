@@ -1,8 +1,12 @@
 asterisk (1:1.4.2~dfsg-4) UNRELEASED; urgency=low
 
+  [ Mark Purcell ]
   * NOT RELEASED YET
 
- -- Mark Purcell <msp@debian.org>  Sun, 25 Mar 2007 19:46:55 +0100
+  [ Tzafrir Cohen ]
+  * The dummy fetch was not executable when generated from tar+diff.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 27 Mar 2007 00:28:10 +0200
 
 asterisk (1:1.4.2~dfsg-3) experimental; urgency=low
 
