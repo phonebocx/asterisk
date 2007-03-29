@@ -1,12 +1,13 @@
-asterisk (1:1.4.2~dfsg-4) UNRELEASED; urgency=low
-
-  [ Mark Purcell ]
-  * NOT RELEASED YET
+asterisk (1:1.4.2~dfsg-4) experimental; urgency=low
 
   [ Tzafrir Cohen ]
   * The dummy fetch was not executable when generated from tar+diff.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 27 Mar 2007 00:28:10 +0200
+  [ Mark Purcell ]
+  * Create debian/rules binary-arch & binary-indep targets
+  * Move debian/rules magic to package.install files
+
+ -- Mark Purcell <msp@debian.org>  Thu, 29 Mar 2007 00:31:41 +0100
 
 asterisk (1:1.4.2~dfsg-3) experimental; urgency=low
 

@@ -19,7 +19,7 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
-MAKEFLAGS = OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
+MAKEFLAGS += OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
 
 # Force music files selection:
 MAKEFLAGS += MENUSELECT_MOH= \
@@ -63,24 +63,6 @@ check-sounds:
 BRISTUFF_DIR=debian/build/asterisk-bristuff
 config.status: check-sounds patch-stamp
 	dh_testdir
-	# Add here commands to configure the package.
-	#touch .cleancount
-	#- (cd editline ; \
-	#if [ -f config.sub.old ]; then \
-	#  rm -f config.sub; \
-	#else \
-	#  mv config.sub config.sub.old; \
-	#fi; \
-	#if [ -f config.guess.old ]; then \
-	#  rm -f config.guess; \
-	#else \
-	#  mv config.guess config.guess.old; \
-	#fi; \
-	#ln -s /usr/share/misc/config.sub config.sub; \
-	#ln -s /usr/share/misc/config.guess config.guess; \
-	#cd ..)
-
-	#cd editline;./configure $(confflags)
 
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
 	#./bootstrap.sh # also runs autoonf. TODO: currently not needed.
@@ -109,13 +91,14 @@ menuselect.makeopts: config.status
 	cat menuselect.makeopts
 	touch channels/Makefile.ast
 
+build: build-arch build-indep
+
 build-arch: build-arch-stamp
 build-arch-stamp: menuselect.makeopts
 	dh_testdir
 
 	# Add here command to compile/build the package.
 	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS)
-	#$(MAKE) $(MAKEFLAGS) -C channels/h323 opt
 
 	touch $@
 
@@ -124,17 +107,11 @@ build-indep-stamp: menuselect.makeopts
 	dh_testdir
 
 	# Add here command to compile/build the arch indep package.
-	# It's ok not to do anything here, if you don't need to build
-	#  anything for this package.
-	#/usr/bin/docbook-to-man debian/asterisk.sgml > asterisk.1
 ifndef ASTERISK_NO_DOCS
-	$(FETCH_ENV) $(MAKE) progdocs
+	$(FETCH_ENV) $(MAKE) progdocs 
 endif
-
 	touch $@
 
-
-build: build-arch build-indep
 
 clean: cleaned unpatch 
 cleaned:
@@ -144,54 +121,45 @@ cleaned:
 	# Add here commands to clean up after the build process.
 	-$(MAKE) clean
 	-$(RM) -rf debian/build
-	#-$(RM) utils/streamplayer
-	#-$(RM) -fR doc/api agi/eagi-test agi/eagi-sphinx-test
-	#-(test -d editline &&cd editline; \
-	#if [ -f config.sub.old ]; then \
-	#   mv config.sub.old config.sub; \
-	#fi; \
-	#if [ -f config.guess.old ]; then \
-	#   mv config.guess.old config.guess; \
-	#fi; \
-	#cd ..)
+
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
 	-test -d configs && chmod -x configs/*.sample
 	-$(RM) -f build-arch-stamp build-indep-stamp config.status check-sounds menuselect.makeopts
 
 	dh_clean
 
-install: build
+install: install-arch install-indep
+install-arch: build-arch
 	dh_testdir
 	dh_testroot
-	dh_clean -k
-	dh_installdirs var/run/asterisk
+	dh_clean -k -s
+	dh_installdirs -s
 	
-	# Add here commands to install the package into debian/<packagename>
-	$(FETCH_ENV) $(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
-	mkdir -p $(CURDIR)/debian/tmp/etc/default/
-	cp debian/asterisk.default $(CURDIR)/debian/tmp/etc/default/asterisk
-	mkdir -p $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
-	cp contrib/scripts/vmail.cgi $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/
-	chmod +x $(CURDIR)/debian/tmp/usr/lib/cgi-bin/asterisk/vmail.cgi
-	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/{stereorize,streamplayer}
-	# override some default configurations. Leave the original ones
-	# in the sample configs:
-	cp -a debian/ast_config/* $(CURDIR)/debian/tmp/etc/asterisk
-	
-	mkdir -p $(CURDIR)/debian/asterisk/usr/share/asterisk/bin
-	cp debian/asterisk_fix $(CURDIR)/debian/asterisk/usr/share/asterisk/bin
-	chmod +x $(CURDIR)/debian/asterisk/usr/share/asterisk/bin/asterisk_fix
-	
-	mkdir -p $(CURDIR)/debian/tmp/usr/share/asterisk/firmware/iax
-	mkdir -p $(CURDIR)/debian/tmp/usr/share/asterisk/mohmp3
-	mkdir -p $(CURDIR)/debian/tmp/var/lib/asterisk
-	
-	dh_install --sourcedir=debian/tmp
-	
-	install -m 644 include/asterisk.h $(CURDIR)/debian/asterisk-dev/usr/include/asterisk.h
+	# Add here commands to install the package into debian/tmp
+	$(FETCH_ENV) $(MAKE) DESTDIR=$(CURDIR)/debian/tmp install
 
+	dh_install -s --sourcedir=debian/tmp
+
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/{stereorize,streamplayer}
+	touch $@
+
+install-indep: build-indep
+	dh_testdir
+	dh_testroot
+	dh_clean -k -i
+	dh_installdirs -i
+
+	# Add here commands to install the package into debian/tmp
+	$(FETCH_ENV) $(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
+
+	dh_install -i --sourcedir=debian/tmp
+
+	cp $(CURDIR)/debian/asterisk.default $(CURDIR)/debian/asterisk-config/etc/default/asterisk
+	chmod +x $(CURDIR)/debian/asterisk-web-vmail/usr/lib/cgi-bin/asterisk/vmail.cgi
+	
+	
 # Build architecture-independent files here.
-binary-indep: build install
+binary-indep: install-indep
 	dh_testdir -i
 	dh_testroot -i
 	dh_installlogrotate -i 
@@ -209,7 +177,7 @@ binary-indep: build install
 
 
 # Build architecture-dependent files here.
-binary-arch: build install
+binary-arch: install-arch
 	dh_testdir -a
 	dh_testroot -a
 	dh_installdocs -a
@@ -222,7 +190,6 @@ binary-arch: build install
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a
-	#rm debian/asterisk/usr/lib/asterisk/modules/pbx_gtkconsole.so
 	rm -f debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
 	dh_makeshlibs -a 
 	dh_shlibdeps -a
