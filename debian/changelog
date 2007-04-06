@@ -11,6 +11,8 @@ asterisk (1:1.2.17~dfsg-1) UNRELEASED; urgency=low
   * Include LSB section in init.d script.
   * Do run Asterisk by default.
   * Update documentation in the defaults file and in README.Debian.
+  * Bristuff 0.3.0-PRE-1y-e
+  * Fix building of h323.
 
  -- Mark Purcell <msp@debian.org>  Mon, 19 Mar 2007 21:32:14 +0000
 
