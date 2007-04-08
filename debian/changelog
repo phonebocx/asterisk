@@ -1,7 +1,6 @@
-asterisk (1:1.2.17~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.2.17~dfsg-1) unstable; urgency=low
 
   [ Mark Purcell ]
-  * NOT RELEASED YET
   * New upstream release
     - SIP INVITE DoS, supposedly fixed in 1.4.2 and 1.2.17, which is
     released today 19/03/2007 (Closes: #415466)
@@ -12,9 +11,9 @@ asterisk (1:1.2.17~dfsg-1) UNRELEASED; urgency=low
   * Do run Asterisk by default.
   * Update documentation in the defaults file and in README.Debian.
   * Bristuff 0.3.0-PRE-1y-e
-  * Fix building of h323.
+  * Fix building of h323 (1.2.17 aparantly broken by upstream).
 
- -- Mark Purcell <msp@debian.org>  Mon, 19 Mar 2007 21:32:14 +0000
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun,  8 Apr 2007 19:26:22 +0300
 
 asterisk (1:1.2.16~dfsg-1) unstable; urgency=high
 
