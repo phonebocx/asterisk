@@ -1,0 +1,8 @@
+astvarrundir.dpatch
+#ukcid
+#50_debian-libgsm.dpatch
+#95_conf_sample.dpatch
+##sys_readline
+pubkey_jnctn
+#nomarch
+h323_no_exit

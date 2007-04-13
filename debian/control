@@ -1,0 +1,106 @@
+Source: asterisk
+Priority: optional
+Section: comm
+Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
+Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kilian@debian.org>, Jose Carlos Garcia Sogo <jsogo@debian.org>, Santiago Garcia Mantinan <manty@debian.org>, Simon Richter <sjr@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Standards-Version: 3.6.1
+Build-Depends: debhelper (>= 4.0.4), sed (>= 3.95), zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libtonezone-dev (>= 1:1.2.3-1), bison, libasound2-dev, postgresql-dev, unixodbc-dev, libpri-dev (>= 1.3), dpatch (>= 2.0.10), zaptel-source (>= 1:1.4.1~0), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl3-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), libiksemel-dev, libradiusclient-ng-dev, freetds-dev, libvorbis-dev, libsnmp9-dev, libgtk2.0-dev, libc-client-dev
+
+Package: asterisk
+Architecture: any
+Section: comm
+Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser (>= 3.63), asterisk-sounds-main (>= 1:1.0.2)
+Conflicts: asterisk-oh323 (<= 0.6.6pre3-3), asterisk-classic, asterisk-bristuff
+Replaces: asterisk-classic, asterisk-bristuff
+Suggests: gnomemeeting, ekiga, ohphone, kphone, asterisk-doc, asterisk-dev, asterisk-rate-engine
+Description: Open Source Private Branch Exchange (PBX)
+ Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
+ sense, middleware between Internet and telephony channels on the bottom,
+ and Internet and telephony applications at the top.
+ .
+ Asterisk can be used with Voice over IP (SIP, H.323, IAX) standards, or the 
+ Public Switched Telephone Network (PSTN) through Supported Hardware.
+ .
+ Supported hardware:
+ .
+  * All Wildcard (tm) products from Digium (http://www.digium.com)
+  * QuickNet Internet PhoneJack and LineJack (http://www.quicknet.net)
+  * Full Duplex Sound Card supported by Linux
+  * Adtran Atlas 800 Plus
+  * ISDN4Linux compatible ISDN card
+  * Tormenta Dual T1 card (http://www.bsdtelephony.com.mx)
+  * CAPI compatible ISDN cards can be run using the add-on package chan-capi
+ .
+ This is the main package that includes the asterisk daemon.
+ extensions, etc
+ .
+ Website: http://www.asterisk.org.
+
+Package: asterisk-h323
+Architecture: any
+Recommends: asterisk, asterisk-oh323
+Replaces: asterisk (<= 1:1.0.2-2)
+Section: comm
+Depends: ${shlibs:Depends}
+Description: asterisk H.323 VoIP channel
+ This package provided h323 support for the Asterisk Open Source PBX system.
+ .
+ It was separated out into its own package to avoid having the main package
+ depend on the many openh323 dependencies.
+
+Package: asterisk-doc
+Recommends: asterisk
+Conflicts: asterisk (<=0.1.12-3)
+Replaces: asterisk (<=0.1.12-3)
+Section: doc
+Architecture: all
+Description: documentation for asterisk
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package contains the source documentation needed if you wish to
+ extend the asterisk package.
+
+Package: asterisk-dev
+Architecture: all
+Recommends: asterisk
+Conflicts: asterisk (<=0.1.12-3)
+Replaces: asterisk (<=0.1.12-3)
+Section: devel
+Description: development files for asterisk
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package contains the include files used if you wish to compile a
+ package which requires asterisk source file headers.
+
+Package: asterisk-sounds-main
+Architecture: all
+Recommends: asterisk
+Conflicts: asterisk (<=0.1.12-3), asterisk-sounds (<= 1:1.0.2-1)
+Replaces: asterisk (<=0.4.0-5), asterisk-sounds (<= 1:1.0.2-1), asterisk-sounds-extra
+Section: comm
+Description: sound files for asterisk
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package contains the default sound files for operation of asterisk
+
+Package: asterisk-web-vmail
+Recommends: asterisk
+Architecture: all
+Depends: httpd-cgi, libapache-dbi-perl | libdbi-perl
+Section: comm
+Description: Web-based (CGI) voice mail interface for Asterisk
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package contains a web-based interface for the voice-mail system
+
+Package: asterisk-config
+Recommends: asterisk
+Depends: adduser (>= 3.63)
+Replaces: asterisk (<= 1:1.0.2-2)
+Conflicts: asterisk-config-custom
+Architecture: all
+Section: comm
+Description: config files for asterisk
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package contains the default configuration files of Asterisk.

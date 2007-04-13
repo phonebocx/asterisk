@@ -1,0 +1,22 @@
+#! /bin/sh /usr/share/dpatch/dpatch-run
+## nomarch.dpatch by Kilian Krause <kilian@debian.org>
+##
+## All lines beginning with `## DP:' are a description of the patch.
+## DP: Don't optimize for i686 anywhere
+## -- upstream will move to configure with 1.4
+
+@DPATCH@
+diff -urNad asterisk-1.2.0.dfsg~/Makefile asterisk-1.2.0.dfsg/Makefile
+--- asterisk-1.2.0.dfsg~/Makefile	2005-11-19 19:30:42.000000000 +0000
++++ asterisk-1.2.0.dfsg/Makefile	2005-11-19 19:30:51.000000000 +0000
+@@ -227,10 +227,6 @@
+   ASTCFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
+ endif
+ 
+-ifneq ($(PROC),ultrasparc)
+-  ASTCFLAGS+=$(shell if $(CC) -march=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-march=$(PROC)"; fi)
+-endif
+-
+ ifeq ($(PROC),ppc)
+   ASTCFLAGS+=-fsigned-char
+ endif
