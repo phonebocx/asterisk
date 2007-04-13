@@ -1,7 +1,0 @@
-# format version number, currently 2; this line is compulsory!
-version=2
-
-# Full-site-with-pattern  [Version  [Action]]
-opts=dversionmangle=s/\~dfsg// \
-	http://ftp.digium.com/pub/asterisk/asterisk-(1.2.*[\d])\.tar\.gz \
-	debian  svn-upgrade
