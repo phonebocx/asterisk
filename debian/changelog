@@ -1,17 +1,12 @@
-asterisk (1:1.4.2~dfsg-6) UNRELEASED; urgency=low
-
-  * NOT RELEASED YET
-
- -- Mark Purcell <msp@debian.org>  Sat, 14 Apr 2007 11:54:33 +0100
-
 asterisk (1:1.4.2~dfsg-5) unstable; urgency=low
 
   * Bump Build-Depends: libsnmp10-dev | libsnmp-dev
   * Only ship default/asterisk in asterisk-config package
     - Asterisk-config and asterisk 1:1.4.2~dfsg-4 both contain
     /etc/default/asterisk (Closes: #418656)
+  * Lintian fixes debian-rules-sets-DH_COMPAT
 
- -- Mark Purcell <msp@debian.org>  Sat, 14 Apr 2007 11:19:07 +0100
+ -- Mark Purcell <msp@debian.org>  Sat, 14 Apr 2007 16:44:18 +0100
 
 asterisk (1:1.4.2~dfsg-4) experimental; urgency=low
 
