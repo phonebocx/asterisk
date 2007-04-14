@@ -154,7 +154,7 @@ install-indep: build-indep
 
 	dh_install -i --sourcedir=debian/tmp
 
-	cp $(CURDIR)/debian/asterisk.default $(CURDIR)/debian/asterisk-config/etc/default/asterisk
+	cp $(CURDIR)/debian/asterisk-config.default $(CURDIR)/debian/asterisk-config/etc/default/asterisk
 	chmod +x $(CURDIR)/debian/asterisk-web-vmail/usr/lib/cgi-bin/asterisk/vmail.cgi
 	
 	
