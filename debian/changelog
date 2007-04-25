@@ -14,14 +14,9 @@ asterisk (1:1.4.3-1) high; urgency=low
   * Asterisk-classic, asterisk-bristuff are depreciated
     - asterisk has circular Depends on asterisk-bristuff|asterisk-classic
     (Closes: #384674)
+  * Update debian/NEWS to broadcast the demise of bristuff
 
- -- Mark Purcell <msp@debian.org>  Wed, 25 Apr 2007 16:10:27 +1000
-
-asterisk (1:1.4.2~dfsg-6) UNRELEASED; urgency=low
-
-  * NOT RELEASED YET
-
- -- Mark Purcell <msp@debian.org>  Sat, 14 Apr 2007 17:17:57 +0100
+ -- Mark Purcell <msp@debian.org>  Wed, 25 Apr 2007 16:27:19 +1000
 
 asterisk (1:1.4.2~dfsg-5) unstable; urgency=low
 
