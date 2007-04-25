@@ -9,14 +9,18 @@ asterisk (1:1.4.3-1) high; urgency=low
     - [asteriskteam@digium.com: [asterisk-announce] ASA-2007-010: Two
     stack buffer overflows in SIP channel's T.38 SDP parsing code]
     (Closes: #420868)
+    - CVE-2007-1594: Asterisk segfaults upon receipt of a certain SIP
+    packet (SIP Response code 0) (Closes: #419820)
   * Urgency high as this fixes a number of Asterisk Security Advisories (ASA)
 
+  * Update debian/NEWS to broadcast the demise of bristuff
   * Asterisk-classic, asterisk-bristuff are depreciated
     - asterisk has circular Depends on asterisk-bristuff|asterisk-classic
     (Closes: #384674)
-  * Update debian/NEWS to broadcast the demise of bristuff
+  * Ship UPGRADE.txt and refer to it in debian/NEWS
+    - UPGRADE.txt cannot be found in any package (Closes: #419164)
 
- -- Mark Purcell <msp@debian.org>  Wed, 25 Apr 2007 16:27:19 +1000
+ -- Mark Purcell <msp@debian.org>  Wed, 25 Apr 2007 16:43:16 +1000
 
 asterisk (1:1.4.2~dfsg-5) unstable; urgency=low
 

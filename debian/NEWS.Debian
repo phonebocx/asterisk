@@ -5,6 +5,10 @@ asterisk (1:1.4.2~dfsg-5) unstable; urgency=low
     are awaiting bristuff compatible with asterisk 1.4 
   * If you require bristuff, it is recommended you stick
     with the packages in etch.
+ 
+  * Note also there are significant configuration differences between
+    asterisk 1.2.x & 1.4.x, please refer to the file 
+    /usr/share/doc/asterisk/UPGRADE.txt for details
 
  -- Mark Purcell <msp@debian.org>  Sat, 14 Apr 2007 16:44:18 +0100
 
