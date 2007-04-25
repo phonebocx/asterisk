@@ -8,7 +8,7 @@ asterisk (1:1.4.2~dfsg-5) unstable; urgency=low
  
   * Note also there are significant configuration differences between
     asterisk 1.2.x & 1.4.x, please refer to the file 
-    /usr/share/doc/asterisk/UPGRADE.txt for details
+    /usr/share/doc/asterisk/UPGRADE.txt.gz for details
 
  -- Mark Purcell <msp@debian.org>  Sat, 14 Apr 2007 16:44:18 +0100
 
