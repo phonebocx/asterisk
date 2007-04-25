@@ -1,3 +1,18 @@
+asterisk (1:1.4.3-1) high; urgency=low
+
+  * New upstream release
+    - [asteriskteam@digium.com: [asterisk-announce] ASA-2007-011: Multiple
+    problems in SIP channel parser handling response codes] (Closes:
+    #420864)
+    - [asteriskteam@digium.com: [asterisk-announce] ASA-2007-012: Remote
+    Crash Vulnerability in Manager Interface] (Closes: #420866)
+    - [asteriskteam@digium.com: [asterisk-announce] ASA-2007-010: Two
+    stack buffer overflows in SIP channel's T.38 SDP parsing code]
+    (Closes: #420868)
+  * Urgency high as this fixes a number of Asterisk Security Advisories (ASA)
+
+ -- Mark Purcell <msp@debian.org>  Wed, 25 Apr 2007 16:07:07 +1000
+
 asterisk (1:1.4.2~dfsg-6) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
