@@ -1,6 +1,14 @@
-asterisk (1:1.4.3~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.4~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * New Upstream Release
+    - Fix a crash in chan_zap
+    - Fix some cases where IAX2 calls would get dropped
+    - Merge a re-write of channel group counting support that fixes a lot of
+    issues
+    - Fix some DTMF issues related to the use of chan_agent
+    - Fix a crash that occurs when using dialplan functions to set global
+    variables
 
  -- Mark Purcell <msp@debian.org>  Wed, 25 Apr 2007 18:11:44 +1000
 
