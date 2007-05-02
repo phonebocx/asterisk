@@ -1,6 +1,5 @@
-asterisk (1:1.4.4~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.4~dfsg-1) unstable; urgency=low
 
-  * NOT RELEASED YET
   * New Upstream Release
     - Fix a crash in chan_zap
     - Fix some cases where IAX2 calls would get dropped
