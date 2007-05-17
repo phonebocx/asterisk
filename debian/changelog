@@ -5,8 +5,9 @@ asterisk (1:1.4.4~dfsg-2) UNRELEASED; urgency=low
   * Upstream calls make twice to build h323, copy in debian/rules
     - Asterisks chan_h323 doesn't work because of an undefined symbol
     (Closes: #421552)
+  * Cleanup debian/patches
 
- -- Mark Purcell <msp@debian.org>  Thu, 17 May 2007 07:28:20 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 17 May 2007 07:30:12 +0100
 
 asterisk (1:1.4.4~dfsg-1) unstable; urgency=low
 
