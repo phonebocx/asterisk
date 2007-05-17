@@ -6,8 +6,11 @@ asterisk (1:1.4.4~dfsg-2) UNRELEASED; urgency=low
     - Asterisks chan_h323 doesn't work because of an undefined symbol
     (Closes: #421552)
   * Cleanup debian/patches
+  * chmod +x asterisk-fix
+    - Setting up asterisk (1.4.3~dfsg-1) -> id: asterisk: No such user
+    (Closes: #422237)
 
- -- Mark Purcell <msp@debian.org>  Thu, 17 May 2007 07:30:12 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 17 May 2007 07:32:27 +0100
 
 asterisk (1:1.4.4~dfsg-1) unstable; urgency=low
 

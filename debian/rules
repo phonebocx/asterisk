@@ -141,6 +141,8 @@ install-arch: build-arch
 
 	dh_install -s --sourcedir=debian/tmp
 
+	chmod +x $(CURDIR)/debian/asterisk/usr/share/asterisk/bin/asterisk_fix
+
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/{stereorize,streamplayer}
 	touch $@
 
