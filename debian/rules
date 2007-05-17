@@ -95,7 +95,11 @@ build-arch-stamp: menuselect.makeopts
 	dh_testdir
 
 	# Add here command to compile/build the package.
+	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS) || true
+
+	# Build a second time to pick up h323 :-(
 	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS)
+
 
 	touch $@
 
