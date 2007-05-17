@@ -1,6 +1,5 @@
-asterisk (1:1.4.4~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.4~dfsg-2) unstable; urgency=low
 
-  * NOT RELEASED YET
   * Missing debian/changelog entries
   * Upstream calls make twice to build h323, copy in debian/rules
     - Asterisks chan_h323 doesn't work because of an undefined symbol
@@ -10,7 +9,7 @@ asterisk (1:1.4.4~dfsg-2) UNRELEASED; urgency=low
     - Setting up asterisk (1.4.3~dfsg-1) -> id: asterisk: No such user
     (Closes: #422237)
 
- -- Mark Purcell <msp@debian.org>  Thu, 17 May 2007 07:32:27 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 17 May 2007 07:35:30 +0100
 
 asterisk (1:1.4.4~dfsg-1) unstable; urgency=low
 
