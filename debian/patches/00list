@@ -5,4 +5,4 @@ astvarrundir.dpatch
 ##sys_readline
 pubkey_jnctn
 #nomarch
-h323_no_exit
+#h323_no_exit

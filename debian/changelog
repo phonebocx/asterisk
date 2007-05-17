@@ -1,8 +1,9 @@
 asterisk (1:1.4.4~dfsg-2) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * Missing debian/changelog entries
 
- -- Mark Purcell <msp@debian.org>  Wed, 02 May 2007 22:21:15 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 17 May 2007 07:03:16 +0100
 
 asterisk (1:1.4.4~dfsg-1) unstable; urgency=low
 
@@ -147,6 +148,120 @@ asterisk (1:1.4.0~dfsg-1) UNRELEASED; urgency=low
   * chanzap_chanremoved.dpatch: handle ZT_EVENT_REMOVED event from zaptel
 
  -- Mark Purcell <msp@debian.org>  Mon, 25 Sep 2006 08:46:16 +0100
+
+asterisk (1:1.2.16~dfsg-1) unstable; urgency=high
+
+  [ Tzafrir Cohen ]
+  * New upstream release. Also fixes remote SIP security hole.
+  * Updated bristuff patch.
+  * Fix umask of Asterisk for the voicemail.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun,  4 Mar 2007 00:35:53 +0200
+
+asterisk (1:1.2.15~dfsg-1) unstable; urgency=low
+
+  [ Tzafrir Cohen ]
+  * New upstream release.
+  * ukcid.dpatch: adapted to chan_conf.
+  * bristuff.dpatch: adapted to chan_conf.
+  * daemon_color.dpatch: make rastrisk colourful even without safe_asterisk.
+  * No need to edit a config file to start Asterisk.
+  * Use asterisk.conf based on README.asterisk.conf:
+  - Set default user to asterisk.
+  - Make the control socket writabe by the group asterisk.
+  * don't remove stereorize and streamplayer.
+  * A man page for stereorize.
+  * Create /etc/asterisk/manager.d (Closes: #410715).
+  * Check that Asterisk is alive before sending a command (Closes: #389448).
+  * Use MAKEBUILDOPTS instead of MAKEFLAGS, which is a reserved gmake name.
+  * Removing build depepndency on obsolete and unused libzap-dev.
+  * New transcoding interfaces from zaptel.h of zaptel 1.2.13 or 1.4 seem
+    to be required for Asterisk 1.2.15 .
+
+ -- Mark Purcell <msp@debian.org>  Sat,  3 Mar 2007 17:14:25 +0000
+
+asterisk (1:1.2.14~dfsg-5) UNRELEASED; urgency=low
+
+  [ Tzafrir Cohen ]
+  * Bristuff 0.3.0-PRE-1x
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 22 Jan 2007 23:30:34 +0200
+
+asterisk (1:1.2.14~dfsg-4) unstable; urgency=high
+
+  * Add missing "fi" to asterisk_fix. (Closes: #406961)
+
+ -- Kilian Krause <kilian@debian.org>  Mon, 15 Jan 2007 12:05:18 +0100
+
+asterisk (1:1.2.14~dfsg-3) unstable; urgency=low
+
+  * Write a more robust version of the FHS-update for
+    /usr/share/asterisk/sounds/priv-callerintros.
+  * Update 30_ast-data-dir to complete fix for #406714. Thanks to Lionel!
+
+ -- Kilian Krause <kilian@debian.org>  Sun, 14 Jan 2007 13:38:57 +0100
+
+asterisk (1:1.2.14~dfsg-2) unstable; urgency=low
+
+  * Install private callerinfos in /var/lib/ where they belong acording to
+    FHS. (Closes: #406714)
+
+ -- Kilian Krause <kilian@debian.org>  Sat, 13 Jan 2007 12:01:33 +0100
+
+asterisk (1:1.2.14~dfsg-1) unstable; urgency=low
+
+  * New upstream release.
+  * Build against libspeex-dev (>= 1.1.12-3) with updated shlibs
+    (Closes: #403544)
+  * Update bristuff patch to apply cleanly with 1.2.14 until new upstream
+    version is out.
+  * Remove hardcoded gcc (Closes: #316802)
+  * Fix upstream clean target. (Closes: #393659)
+
+ -- Kilian Krause <kilian@debian.org>  Wed,  3 Jan 2007 21:03:19 +0100
+
+asterisk (1:1.2.13~dfsg-2) unstable; urgency=low
+
+  [ Tzafrir Cohen ]
+  * less_docs.dpatch: remove unnecessary doxygen docs. asterisk-doc's size
+    is now 1.6M (7.7M installed).
+
+  [ Mark Purcell ]
+  * asterisk-classic, asterisk-bristuff:
+    /usr/lib/asterisk/modules/format_ogg_vorbis.so gone missing when
+    rebuilt (Closes: #397147)
+
+ -- Mark Purcell <msp@debian.org>  Mon,  6 Nov 2006 06:33:19 +0000
+
+asterisk (1:1.2.13~dfsg-1) unstable; urgency=high
+
+  [ Kilian Krause ]
+  * Fixup dfsg versions with increased upstream build count.
+
+  [ Santiago Ruano Rincón ]
+  * Added cdr_sqlite3_custom dpatch
+
+  [ Mark Purcell ]
+  * New upstream release
+    - Remote compromise (Closes: #394025)
+    - CVE-2006-5444/5:security issues in asterisk (Closes: #395080)
+    - Urgency high as this fixes remote compromise security issue
+    - Information disclosure of voice mail messages through vmail.cgi
+    (Closes: #338116)
+    - package asterisk-dev should contain asterisk.h main header (Closes:
+    #342138)
+    - format_ogg_vorbis.so was present in i386, no longer in packages
+    (Closes: #375141)
+  * Update debian/patches/bristuff.dpatch
+  * bristuff-0.3.0-PRE-1v
+    - Please package bristuff 0.3.0PREu (Closes: #394122)
+    - please include app_pickup.c from bristuff (Closes: #348194)
+  * Build Depends: dpkg ( >= 1.13.19)
+    - Asterisk must build-depend upon dpkg ( >= 1.13.19) (Closes: #386113)
+  * Build-Depends: libpq-dev
+    - obsolete build dependency postgresql-dev (Closes: #389376)
+
+ -- Mark Purcell <msp@debian.org>  Wed, 25 Oct 2006 06:46:52 +0100
 
 asterisk (1:1.2.12.1.dfsg-1) unstable; urgency=low
 
