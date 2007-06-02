@@ -1,3 +1,9 @@
+asterisk (1:1.4.4~dfsg-4) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- Mark Purcell <msp@debian.org>  Sat, 02 Jun 2007 12:23:29 +0100
+
 asterisk (1:1.4.4~dfsg-3) unstable; urgency=low
 
   * Build-Depends: libcurl4-dev | libcurl-dev
