@@ -1,3 +1,9 @@
+asterisk (1:1.4.5~dfsg-1) UNRELEASED; urgency=low
+
+  * New upstream release.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 16 Jun 2007 01:53:18 +0300
+
 asterisk (1:1.4.4~dfsg-4) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
