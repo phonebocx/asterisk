@@ -1,14 +1,14 @@
-asterisk (1:1.4.5~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.5~dfsg-1) unstable; urgency=low
 
+  [ Tzafrir Cohen ]
   * New upstream release.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 16 Jun 2007 01:53:18 +0300
+  [ Mark Purcell ]
+  * Debconf7 Release :-)
+  * Build-Depends: libpq-dev
+    - obsolete build dependency postgresql-dev (Closes: #389376)
 
-asterisk (1:1.4.4~dfsg-4) UNRELEASED; urgency=low
-
-  * NOT RELEASED YET
-
- -- Mark Purcell <msp@debian.org>  Sat, 02 Jun 2007 12:23:29 +0100
+ -- Mark Purcell <msp@debian.org>  Mon, 18 Jun 2007 10:18:13 +0100
 
 asterisk (1:1.4.4~dfsg-3) unstable; urgency=low
 
