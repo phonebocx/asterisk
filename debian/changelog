@@ -1,3 +1,11 @@
+asterisk (1:1.4.5~dfsg-2) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+  * CVE-2007-2488 was addressed 1:1.4.5~dfsg-1
+  * CVE-2007-1595 was addressed 1:1.4.0~dfsg-1
+
+ -- Mark Purcell <msp@debian.org>  Mon, 18 Jun 2007 10:44:14 +0100
+
 asterisk (1:1.4.5~dfsg-1) unstable; urgency=low
 
   [ Tzafrir Cohen ]
