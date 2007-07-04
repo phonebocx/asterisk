@@ -1,9 +1,9 @@
-asterisk (1:1.4.6~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.6~dfsg-1) unstable; urgency=low
 
   [ Mark Purcell ]
-  * NOT RELEASED YET
   * CVE-2007-2488 was addressed 1:1.4.5~dfsg-1
   * CVE-2007-1595 was addressed 1:1.4.0~dfsg-1
+  * lintian: debian-rules-ignores-make-clean-error
 
   [ Tzafrir Cohen ]
   * New upstream release.
@@ -11,7 +11,7 @@ asterisk (1:1.4.6~dfsg-1) UNRELEASED; urgency=low
   * Updated priorities of some packages.
   * Updated list of supported hardware in description.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 04 Jul 2007 02:25:32 +0300
+ -- Mark Purcell <msp@debian.org>  Wed, 04 Jul 2007 18:31:00 +0100
 
 asterisk (1:1.4.5~dfsg-1) unstable; urgency=low
 
