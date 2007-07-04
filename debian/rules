@@ -187,7 +187,7 @@ binary-arch: install-arch
 	dh_installexamples -a -XCVS
 	dh_installchangelogs ChangeLog -a
 	dh_installinit -a -- defaults 21
-	dh_strip -a
+	dh_strip -a --dbg-package=asterisk-dbg
 	dh_link -a
 	dh_compress -a
 	dh_fixperms -a

@@ -26,9 +26,9 @@ Description: Open Source Private Branch Exchange (PBX)
   * All Wildcard (tm) products from Digium (http://www.digium.com)
   * QuickNet Internet PhoneJack and LineJack (http://www.quicknet.net)
   * Full Duplex Sound Card supported by Linux
-  * Adtran Atlas 800 Plus
   * ISDN4Linux compatible ISDN card
-  * Tormenta Dual T1 card (http://www.bsdtelephony.com.mx)
+  * Tormenta T1/E1 card (http://www.bsdtelephony.com.mx)
+  * Xorcom Astribank USB telephony adapter (http://www.xorcom.com)
   * CAPI compatible ISDN cards can be run using the add-on package chan-capi
  .
  This is the main package that includes the asterisk daemon.
@@ -53,6 +53,7 @@ Recommends: asterisk
 Conflicts: asterisk (<=0.1.12-3)
 Replaces: asterisk (<=0.1.12-3)
 Section: doc
+Priority: extra
 Architecture: all
 Description: documentation for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
@@ -66,11 +67,24 @@ Recommends: asterisk
 Conflicts: asterisk (<=0.1.12-3)
 Replaces: asterisk (<=0.1.12-3)
 Section: devel
+Priority: extra
 Description: development files for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the include files used if you wish to compile a
  package which requires asterisk source file headers.
+
+Package: asterisk-dbg
+Architecture: any
+Recommends: asterisk
+Section: devel
+Priority: extra
+Description: debugging symbols for asterisk
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package includes the debugging symbols useful for debugging
+ Asterisk. The debugging symbols are used for execution tracing and core 
+ dump analysis. 
 
 Package: asterisk-sounds-main
 Architecture: all
@@ -88,6 +102,7 @@ Recommends: asterisk
 Architecture: all
 Depends: httpd-cgi, libapache-dbi-perl | libdbi-perl
 Section: comm
+Priority: extra
 Description: Web-based (CGI) voice mail interface for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
