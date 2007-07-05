@@ -120,7 +120,7 @@ cleaned:
 	dh_testroot
 	
 	# Add here commands to clean up after the build process.
-	[ ! -f Makefile ] || $(MAKE) clean
+	-$(MAKE) clean
 	-$(RM) -rf debian/build
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi

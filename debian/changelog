@@ -3,7 +3,6 @@ asterisk (1:1.4.6~dfsg-1) unstable; urgency=low
   [ Mark Purcell ]
   * CVE-2007-2488 was addressed 1:1.4.5~dfsg-1
   * CVE-2007-1595 was addressed 1:1.4.0~dfsg-1
-  * lintian: debian-rules-ignores-make-clean-error
 
   [ Tzafrir Cohen ]
   * New upstream release.
