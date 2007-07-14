@@ -3,7 +3,7 @@ Priority: optional
 Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kilian@debian.org>, Jose Carlos Garcia Sogo <jsogo@debian.org>, Santiago Garcia Mantinan <manty@debian.org>, Simon Richter <sjr@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>
-Standards-Version: 3.6.1
+Standards-Version: 3.7.2
 Build-Depends: debhelper (>= 5.0.45), sed (>= 3.95), zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libtonezone-dev (>= 1:1.4.1~0), bison, libasound2-dev, libpq-dev, unixodbc-dev, libpri-dev (>= 1.4), dpatch (>= 2.0.10), zaptel-source (>= 1:1.4.1~0), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl4-dev | libcurl-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), libiksemel-dev, libradiusclient-ng-dev, freetds-dev, libvorbis-dev, libsnmp10-dev | libsnmp-dev, libgtk2.0-dev, libc-client-dev
 
 Package: asterisk
