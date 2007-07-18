@@ -1,10 +1,11 @@
-asterisk (1:1.4.7.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.8~dfsg-1) UNRELEASED; urgency=low
 
-  * NOT RELEASED YET
-  * New upstream release.
+  * (NOT RELEASED YET) New upstream release
+    - ASA-2007-017: Remote crash vulnerability in
+    STUN implementation (Closes: #433681)
   * Updated standard version to 3.7.2 .
 
- -- Mark Purcell <msp@debian.org>  Thu, 05 Jul 2007 09:07:13 +0100
+ -- Mark Purcell <msp@debian.org>  Wed, 18 Jul 2007 20:51:01 +0100
 
 asterisk (1:1.4.6~dfsg-1) unstable; urgency=low
 
