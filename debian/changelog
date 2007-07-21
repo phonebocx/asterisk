@@ -1,3 +1,9 @@
+asterisk (1:1.4.8~dfsg-3) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- Mark Purcell <msp@debian.org>  Sat, 21 Jul 2007 18:52:46 +0100
+
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
   * Add patch from Faidon debian/patches/dbug433884.dpatch:
