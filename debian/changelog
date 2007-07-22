@@ -9,8 +9,11 @@ asterisk (1:1.4.8~dfsg-3) UNRELEASED; urgency=low
     distclean" instead of "make clean". Also, fix some stuff in the upstream
     Makefiles (debian/patches/make-clean-fixes). Fixes a lintian warning.
   * Add XS-Vcs-Svn and XS-Vcs-Browser to debian/control.
+  * Move examples from all packages (debian/examples) to asterisk-config only.
+  * Add eagi-test.c, eagi-sphinx-test.c, fastagi-test and static-http to
+    examples.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 22 Jul 2007 07:02:07 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 22 Jul 2007 07:39:38 +0300
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
