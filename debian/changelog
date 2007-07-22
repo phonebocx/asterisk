@@ -1,8 +1,15 @@
 asterisk (1:1.4.8~dfsg-3) UNRELEASED; urgency=low
 
+  [ Mark Purcell ]
   * NOT RELEASED YET
 
- -- Mark Purcell <msp@debian.org>  Sat, 21 Jul 2007 18:52:46 +0100
+  [ Faidon Liambotis ]
+  * Add myself to Uploaders. 
+  * Fix "debian/rules clean" to cleanup correctly the tree by calling "make
+    distclean" instead of "make clean". Also, fix some stuff in the upstream
+    Makefiles (debian/patches/make-clean-fixes). Fixes a lintian warning.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 22 Jul 2007 06:25:28 +0300
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 

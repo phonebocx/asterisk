@@ -1,3 +1,4 @@
-astvarrundir.dpatch
+astvarrundir
 pubkey_jnctn
-dbug433884.dpatch
+dbug433884
+make-clean-fixes

@@ -54,7 +54,7 @@ check-sounds:
 	  [ ! -f sounds/fpm-calm-river.mp3 ] && \
 	  [ ! -f sounds/fpm-sunshine.mp3 ]   && \
 	  [ ! -f sounds/fpm-world-mix.mp3 ] ) || \
-		(echo "WARNING: fpm sounds must to be removed from sources before packaging." ; false )
+		(echo "WARNING: non-free fpm sounds must be removed from sources before packaging." ; false )
 	touch $@
 	
 BRISTUFF_DIR=debian/build/asterisk-bristuff
@@ -86,7 +86,6 @@ menuselect.makeopts: config.status
 	sed -i -e '/MENUSELECT_CHANNELS=/s/chan_h323//' menuselect.makeopts
 	cat menuselect.makedeps
 	cat menuselect.makeopts
-	touch channels/Makefile.ast
 
 build: build-arch build-indep
 
@@ -115,12 +114,13 @@ endif
 
 
 clean: cleaned unpatch 
-cleaned:
+# make clean breaks if we don't patch it up, hence the dependency
+cleaned: patch
 	dh_testdir
 	dh_testroot
 	
 	# Add here commands to clean up after the build process.
-	-$(MAKE) clean
+	$(MAKE) distclean
 	-$(RM) -rf debian/build
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
