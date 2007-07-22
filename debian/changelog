@@ -12,8 +12,11 @@ asterisk (1:1.4.8~dfsg-3) UNRELEASED; urgency=low
   * Move examples from all packages (debian/examples) to asterisk-config only.
   * Add eagi-test.c, eagi-sphinx-test.c, fastagi-test and static-http to
     examples.
+  * Remove Conflicts/Replaces/Depends to pre-sarge versions, they're useless
+    even for backports.
+  * Make asterisk-h323 Suggest asterisk-oh323, not Recommend it.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 22 Jul 2007 07:39:38 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 22 Jul 2007 07:43:51 +0300
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
