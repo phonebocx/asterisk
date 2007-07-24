@@ -41,7 +41,6 @@ Description: Open Source Private Branch Exchange (PBX)
 Package: asterisk-h323
 Architecture: any
 Recommends: asterisk
-Suggests: asterisk-oh323
 Section: comm
 Depends: ${shlibs:Depends}
 Description: asterisk H.323 VoIP channel

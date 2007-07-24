@@ -1,6 +1,5 @@
 asterisk (1:1.4.8~dfsg-3) UNRELEASED; urgency=low
 
-  [ Mark Purcell ]
   * NOT RELEASED YET
 
   [ Faidon Liambotis ]
@@ -14,9 +13,12 @@ asterisk (1:1.4.8~dfsg-3) UNRELEASED; urgency=low
     examples.
   * Remove Conflicts/Replaces/Depends to pre-sarge versions, they're useless
     even for backports.
-  * Make asterisk-h323 Suggest asterisk-oh323, not Recommend it.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 22 Jul 2007 07:43:51 +0300
+  [ Mark Purcell ]
+  * Backout asterisk-h323 Suggests:/ Recommends: asterisk-oh323. The former 
+    works, the latter does not with asterisk-1.4.x
+
+ -- Mark Purcell <msp@debian.org>  Tue, 24 Jul 2007 18:35:56 +0100
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
