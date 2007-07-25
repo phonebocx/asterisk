@@ -1,4 +1,4 @@
-asterisk (1:1.4.8~dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.4.9~dfsg-1) UNRELEASED; urgency=high
 
   * NOT RELEASED YET
 
@@ -15,10 +15,15 @@ asterisk (1:1.4.8~dfsg-3) UNRELEASED; urgency=low
     even for backports.
 
   [ Mark Purcell ]
-  * Backout asterisk-h323 Suggests:/ Recommends: asterisk-oh323. The former 
+  * Backout asterisk-h323 Suggests:/ Recommends: asterisk-oh323. The former
     works, the latter does not with asterisk-1.4.x
 
- -- Mark Purcell <msp@debian.org>  Tue, 24 Jul 2007 18:35:56 +0100
+  [ Tzafrir Cohen ]
+  * New upstream release. 
+  * [ Fill in advisory details from
+    ftp://ftp.digium.com/pub/asa/ASA-2007-018.html ]
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 25 Jul 2007 09:09:50 +0300
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
