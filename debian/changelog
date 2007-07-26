@@ -42,12 +42,13 @@ asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
     - Debug switch wrong in /etc/default/asterisk (Closes: #413544)
     - When using L option on Dial, instead of warning asterisk disconnects
     the call (Closes: #419894)
+    - Patch for fastagi handling (Closes: #368948)
   * add debian/patches/basim-safeasterisk.dpatch
     - contrib/scripts/safe_asterisk should explicitly link to a cli
     (Closes: #413543)
   * Adding a restart when convenient in Asterisk (Closes: #413816)
 
- -- Mark Purcell <msp@debian.org>  Thu, 26 Jul 2007 16:36:27 +0100
+ -- Mark Purcell <mark@purcell.id.au>  Thu, 26 Jul 2007 16:44:21 +0100
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
