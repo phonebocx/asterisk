@@ -110,6 +110,11 @@ fi
 
 set -e
 
+if [ ! -e `dirname $PIDFILE` ];then
+	mkdir `dirname $PIDFILE`
+	chown $USER.$GROUP `dirname $PIDFILE`
+fi
+
 if [ "$UMASK" != '' ]
 then
 	umask $UMASK
@@ -202,6 +207,9 @@ case "$1" in
 	echo "Reloading $DESC configuration files."
 	asterisk_rx 'extensions reload'
 	;;
+  restart-convenient)
+	asterisk_rx 'restart when convenient'
+	;;
   restart|force-reload)
 	$0 stop
 	$0 start
@@ -222,7 +230,7 @@ case "$1" in
 	;; 	 
   *)
 	N=/etc/init.d/$NAME
-	echo "Usage: $N {start|stop|restart|reload|status|debug|logger-reload|extensions-reload|force-reload}" >&2
+	echo "Usage: $N {start|stop|restart|reload|status|debug|logger-reload|extensions-reload|restart-convenient|force-reload}" >&2
 	exit 1
 	;;
 esac

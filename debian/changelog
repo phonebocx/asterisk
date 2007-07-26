@@ -1,6 +1,4 @@
-asterisk (1:1.4.9~dfsg-1) UNRELEASED; urgency=high
-
-  * NOT RELEASED YET
+asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
   [ Faidon Liambotis ]
   * Add myself to Uploaders.
@@ -14,16 +12,42 @@ asterisk (1:1.4.9~dfsg-1) UNRELEASED; urgency=high
   * Remove Conflicts/Replaces/Depends to pre-sarge versions, they're useless
     even for backports.
 
+  [ Tzafrir Cohen ]
+  * New upstream release.
+  * ASA-2007-018 - DoS Resource Exhaustion vulnerability in IAX2
+
   [ Mark Purcell ]
+  * Include asterisk.init changes from Martin
+    - Asterisk does not create /var/run/asterisk directory if not existent
+    (Closes: #413541)
   * Backout asterisk-h323 Suggests:/ Recommends: asterisk-oh323. The former
     works, the latter does not with asterisk-1.4.x
+  * Upstream fixes from 1.4.x branch:
+    - Multiple security flaws in Asterisk (Closes: #421467)
+    - Debug switch wrong in /etc/default/asterisk (Closes: #413544)
+    - Upgrading destroys astdb (Closes: #354132)
+    - Upgrading destroys astdb (Closes: #354132)
+    - asterisk bindaddr in sip and iax config is to fixed ip not
+      Interfaces (Closes: #316443)
+    - Incorrect callerid syntax in sip.conf causes incorrect error
+    (Closes: #323275)
+    - dropouts (Closes: #335079)
+    - Does not include cdr_sqlite userfield support by default (Closes:
+    #344097)
+    - Asterisk crashes on sparc when playing &#39;demo-moreinfo&#39;
+    (Closes: #344484)
+    - fresh install - crash after dialing IAX test (Closes: #350001)
+    - asterisk_fix script fails to set variables for adduser, user
+    creation fails (Closes: #383075)
+    - Debug switch wrong in /etc/default/asterisk (Closes: #413544)
+    - When using L option on Dial, instead of warning asterisk disconnects
+    the call (Closes: #419894)
+  * add debian/patches/basim-safeasterisk.dpatch
+    - contrib/scripts/safe_asterisk should explicitly link to a cli
+    (Closes: #413543)
+  * Adding a restart when convenient in Asterisk (Closes: #413816)
 
-  [ Tzafrir Cohen ]
-  * New upstream release. 
-  * [ Fill in advisory details from
-    ftp://ftp.digium.com/pub/asa/ASA-2007-018.html ]
-
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 25 Jul 2007 09:09:50 +0300
+ -- Mark Purcell <msp@debian.org>  Thu, 26 Jul 2007 16:36:27 +0100
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
