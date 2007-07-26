@@ -48,8 +48,9 @@ asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
     - contrib/scripts/safe_asterisk should explicitly link to a cli
     (Closes: #413543)
   * Adding a restart when convenient in Asterisk (Closes: #413816)
+  * asterisk-h323: libpt.so.1.10.2 => not found (Closes: #434076)
 
- -- Mark Purcell <msp@debian.org>  Thu, 26 Jul 2007 16:47:53 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 26 Jul 2007 16:52:29 +0100
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
