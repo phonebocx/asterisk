@@ -1,5 +1,9 @@
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
+  [ Tzafrir Cohen ]
+  * New upstream release.
+    - ASA-2007-018 - DoS Resource Exhaustion vulnerability in IAX2
+
   [ Faidon Liambotis ]
   * Add myself to Uploaders.
   * Fix "debian/rules clean" to cleanup correctly the tree by calling "make
@@ -11,10 +15,6 @@ asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
     examples.
   * Remove Conflicts/Replaces/Depends to pre-sarge versions, they're useless
     even for backports.
-
-  [ Tzafrir Cohen ]
-  * New upstream release.
-  * ASA-2007-018 - DoS Resource Exhaustion vulnerability in IAX2
 
   [ Mark Purcell ]
   * Include asterisk.init changes from Martin
@@ -43,12 +43,13 @@ asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
     - When using L option on Dial, instead of warning asterisk disconnects
     the call (Closes: #419894)
     - Patch for fastagi handling (Closes: #368948)
+    - bristuff patch breaks cause codes in Hangup() (Closes: #320350)
   * add debian/patches/basim-safeasterisk.dpatch
     - contrib/scripts/safe_asterisk should explicitly link to a cli
     (Closes: #413543)
   * Adding a restart when convenient in Asterisk (Closes: #413816)
 
- -- Mark Purcell <mark@purcell.id.au>  Thu, 26 Jul 2007 16:44:21 +0100
+ -- Mark Purcell <msp@debian.org>  Thu, 26 Jul 2007 16:47:53 +0100
 
 asterisk (1:1.4.8~dfsg-2) unstable; urgency=low
 
