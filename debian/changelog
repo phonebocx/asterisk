@@ -8,7 +8,7 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
   * backports/dapper replace libcurl4-dev with libcurl3-dev
 
   [ Faidon Liambotis ]
-  * Refer to /usr/share/common-licenses/GPL-2 instead of GPL. The code is 
+  * Refer to /usr/share/common-licenses/GPL-2 instead of GPL. The code is
     -for now- GPLv2-only and in light of GPLv3, pointing to GPL is misleading.
   * Switch to quilt as a patch management system instead of dpatch.
   * Split bristuff 0.4.0-test3 into individual patches and add it to the quilt
@@ -17,7 +17,10 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
     (use-libpri-bristuffed).
   * Ship xagi-test.c (from bristuff) to examples.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 05 Aug 2007 13:27:25 +0300
+  [ Kilian Krause ]
+  * backports/etch: replace libsnmp10-dev with libsnmp9-dev
+
+ -- Kilian Krause <kilian@debian.org>  Sun,  5 Aug 2007 15:58:45 +0200
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
