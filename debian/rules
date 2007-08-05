@@ -5,9 +5,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-# This is the debhelper compatibility version to use.
-export DH_COMPAT=4
-
 export DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 export DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 
@@ -57,7 +54,7 @@ check-sounds:
 	  [ ! -f sounds/fpm-calm-river.mp3 ] && \
 	  [ ! -f sounds/fpm-sunshine.mp3 ]   && \
 	  [ ! -f sounds/fpm-world-mix.mp3 ] ) || \
-		(echo "WARNING: fpm sounds must to be removed from sources before packaging." ; false )
+		(echo "WARNING: non-free fpm sounds must be removed from sources before packaging." ; false )
 	touch $@
 	
 BRISTUFF_DIR=debian/build/asterisk-bristuff
@@ -89,7 +86,6 @@ menuselect.makeopts: config.status
 	sed -i -e '/MENUSELECT_CHANNELS=/s/chan_h323//' menuselect.makeopts
 	cat menuselect.makedeps
 	cat menuselect.makeopts
-	touch channels/Makefile.ast
 
 build: build-arch build-indep
 
@@ -98,7 +94,11 @@ build-arch-stamp: menuselect.makeopts
 	dh_testdir
 
 	# Add here command to compile/build the package.
+	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS) || true
+
+	# Build a second time to pick up h323 :-(
 	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS)
+
 
 	touch $@
 
@@ -114,12 +114,13 @@ endif
 
 
 clean: cleaned unpatch 
-cleaned:
+# make clean breaks if we don't patch it up, hence the dependency
+cleaned: patch
 	dh_testdir
 	dh_testroot
 	
 	# Add here commands to clean up after the build process.
-	-$(MAKE) clean
+	$(MAKE) distclean
 	-$(RM) -rf debian/build
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
@@ -140,6 +141,8 @@ install-arch: build-arch
 
 	dh_install -s --sourcedir=debian/tmp
 
+	chmod +x $(CURDIR)/debian/asterisk/usr/share/asterisk/bin/asterisk_fix
+
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/{stereorize,streamplayer}
 	touch $@
 
@@ -154,7 +157,6 @@ install-indep: build-indep
 
 	dh_install -i --sourcedir=debian/tmp
 
-	cp $(CURDIR)/debian/asterisk.default $(CURDIR)/debian/asterisk-config/etc/default/asterisk
 	chmod +x $(CURDIR)/debian/asterisk-web-vmail/usr/lib/cgi-bin/asterisk/vmail.cgi
 	
 	
@@ -185,7 +187,7 @@ binary-arch: install-arch
 	dh_installexamples -a -XCVS
 	dh_installchangelogs ChangeLog -a
 	dh_installinit -a -- defaults 21
-	dh_strip -a
+	dh_strip -a --dbg-package=asterisk-dbg
 	dh_link -a
 	dh_compress -a
 	dh_fixperms -a

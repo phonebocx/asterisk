@@ -1,8 +1,5 @@
-astvarrundir.dpatch
-#ukcid
-#50_debian-libgsm.dpatch
-#95_conf_sample.dpatch
-##sys_readline
+astvarrundir
 pubkey_jnctn
-#nomarch
-h323_no_exit
+dbug433884
+make-clean-fixes
+bashism-safeasterisk

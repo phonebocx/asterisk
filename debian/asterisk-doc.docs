@@ -1,6 +1,8 @@
 BUGS
 README
 CREDITS
+CHANGES
+UPGRADE.txt
 doc/*
 contrib
 images/*.gif
