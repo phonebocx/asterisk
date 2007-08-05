@@ -5,6 +5,6 @@
 # Target dist: Debian Etch
 
 # Replace libcurl4-dev with libcurl3-dev
-sed -i -e 's#^\(Build-Depends:.*\)libcurl4-dev[^\ ]* \(.*\)$#\1libcurl3-dev, \2#' debian/control
+sed -i -e 's#^\(Build-Depends:.*\)libcurl4-dev[^\ ]* \(.*\)$#\1libcurl3-dev \2#' debian/control
 
 exit 0
