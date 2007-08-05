@@ -1,18 +1,18 @@
 asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
 
-  [ Mark Purcell ]
   * NOT RELEASED YET
+
+  [ Mark Purcell ]
   * debhelper(1) states Build-Depends: debhelper (>= 5)
-    - aids etch backports
-  * backports/etch replace libcurl4-dev with libcurl3-dev
-  * backports/etch replace libsnmp10-dev with libsnmp9-dev
-  * backports/dapper replace libcurl4-dev with libcurl3-dev
+    - aids backports
+  * Update debian/backports for etch, edgy, dapper and feisty
+    - http://status.buildserver.net/packages/status.php?package=asterisk&subdist=pkg-voip
 
   [ Faidon Liambotis ]
   * Refer to /usr/share/common-licenses/GPL-2 instead of GPL. The code is
     -for now- GPLv2-only and in light of GPLv3, pointing to GPL is misleading.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 05 Aug 2007 13:26:28 +0300
+ -- Mark Purcell <msp@debian.org>  Sun, 05 Aug 2007 20:35:54 +0100
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
