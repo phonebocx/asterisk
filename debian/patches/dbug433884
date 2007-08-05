@@ -1,14 +1,13 @@
-#! /bin/sh /usr/share/dpatch/dpatch-run
-## dbug433884.dpatch by  Faidon Liambotis <paravoid@debian.org>
-##
-## All lines beginning with `## DP:' are a description of the patch.
-## DP: http://bugs.debian.org/433884
+Don't link the Asterisk binary with the H.323 libraries since they are only
+used by separate shared object, chan_h323.so.
 
-@DPATCH@
-diff -urNad asterisk-1.4.8~dfsg~/main/Makefile asterisk-1.4.8~dfsg/main/Makefile
---- asterisk-1.4.8~dfsg~/main/Makefile	2007-07-03 21:17:31.000000000 +0100
-+++ asterisk-1.4.8~dfsg/main/Makefile	2007-07-21 10:20:51.000000000 +0100
-@@ -120,13 +120,6 @@
+http://bugs.debian.org/433884
+
+ -- Faidon Liambotis <paravoid@debian.org>
+
+--- asterisk-1.4.9~dfsg.orig/main/Makefile
++++ asterisk-1.4.9~dfsg/main/Makefile
+@@ -120,13 +120,6 @@ AST_EMBED_LDFLAGS:=$(foreach dep,$(EMBED
  AST_EMBED_LIBS:=$(foreach dep,$(EMBED_LIBS),$(value $(dep)))
  OBJS:=$(sort $(OBJS))
  
@@ -22,7 +21,7 @@ diff -urNad asterisk-1.4.8~dfsg~/main/Makefile asterisk-1.4.8~dfsg/main/Makefile
  asterisk: $(OBJS) editline/libedit.a db1-ast/libdb1.a $(AST_EMBED_LDSCRIPTS)
  	@$(ASTTOPDIR)/build_tools/make_build_h > $(ASTTOPDIR)/include/asterisk/build.h.tmp
  	@if cmp -s $(ASTTOPDIR)/include/asterisk/build.h.tmp $(ASTTOPDIR)/include/asterisk/build.h ; then echo ; else \
-@@ -135,7 +128,7 @@
+@@ -135,7 +128,7 @@ asterisk: $(OBJS) editline/libedit.a db1
  	@rm -f $(ASTTOPDIR)/include/asterisk/build.h.tmp
  	@$(CC) -c -o buildinfo.o $(ASTCFLAGS) buildinfo.c
  	$(ECHO_PREFIX) echo "   [LD] $^ -> $@"

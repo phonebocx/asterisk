@@ -1,0 +1,15 @@
+Move ASTVARRUNDIR to /var/run/asterisk/
+
+ -- Mark Purcell <msp@debian.org>
+
+--- asterisk-1.4.9~dfsg.orig/Makefile
++++ asterisk-1.4.9~dfsg/Makefile
+@@ -115,7 +115,7 @@ else
+   ASTSBINDIR=$(sbindir)
+   ASTSPOOLDIR=$(localstatedir)/spool/asterisk
+   ASTLOGDIR=$(localstatedir)/log/asterisk
+-  ASTVARRUNDIR=$(localstatedir)/run
++  ASTVARRUNDIR=$(localstatedir)/run/asterisk
+   ASTMANDIR=$(mandir)
+ ifneq ($(findstring BSD,$(OSARCH)),)
+   ASTVARLIBDIR=$(prefix)/share/asterisk

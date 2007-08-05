@@ -1,0 +1,16 @@
+Public key for Junction Networks. From http://www.jnctn.net/jnctn.pub
+at Wed, 12 Oct 2005 23:35:06 +0200
+
+See also http://www.junctionnetworks.com/Asterisk-config.htm
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+
+--- /dev/null
++++ asterisk-1.4.9~dfsg/keys/jnctn.pub
+@@ -0,0 +1,6 @@
++-----BEGIN PUBLIC KEY-----
++MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDWaDv4190BpeL5K+Yuq5Q7+vPs
++FVrkibbIp+Io1gCQ6CGZJbR0kUZvTdf58bBdG0zqf6azFN8XPaNz9PVLDl+KgHwU
++3Ilu//eX8ph8Wu+Oxs/ymi/hzKm+Cd6aty94zYuqiegc0KdrjvU5TLQAkIQpiB6k
++CvuIm0R0XXQjj3R7LwIDAQAB
++-----END PUBLIC KEY-----

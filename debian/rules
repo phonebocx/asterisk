@@ -31,7 +31,7 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	INSTALL_PROGRAM += -s
 endif
 
-include /usr/share/dpatch/dpatch.make
+include /usr/share/quilt/quilt.make
 
 DEBVERSION:=$(shell head -n 1 debian/changelog \
 		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
@@ -58,7 +58,7 @@ check-sounds:
 	touch $@
 	
 BRISTUFF_DIR=debian/build/asterisk-bristuff
-config.status: check-sounds patch-stamp
+config.status: check-sounds patch
 	dh_testdir
 
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
