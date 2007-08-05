@@ -5,6 +5,7 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
   * debhelper(1) states Build-Depends: debhelper (>= 5)
     - aids etch backports
   * backports/etch replace libcurl4-dev with libcurl3-dev
+  * backports/etch replace libsnmp10-dev with libsnmp9-dev
   * backports/dapper replace libcurl4-dev with libcurl3-dev
 
   [ Faidon Liambotis ]
