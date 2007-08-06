@@ -1,4 +1,5 @@
 usr/lib/asterisk
 usr/sbin
-usr/share/asterisk/firmware/iax
+usr/share/asterisk/firmware
+usr/share/asterisk/keys
 ../asterisk_fix usr/share/asterisk/bin
