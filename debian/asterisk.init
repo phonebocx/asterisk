@@ -110,11 +110,6 @@ fi
 
 set -e
 
-if [ ! -e `dirname $PIDFILE` ];then
-	mkdir `dirname $PIDFILE`
-	chown $USER.$GROUP `dirname $PIDFILE`
-fi
-
 if [ "$UMASK" != '' ]
 then
 	umask $UMASK

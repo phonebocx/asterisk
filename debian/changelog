@@ -22,8 +22,9 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
   * Add a noload directive for cdr_sqlite.so in the default modules.conf since
     it writes unconditionally to the database file without being rotated,
     resulting in unexpected waste of disk space. (Closes: #301883)
+  * Delete duplicated creation of /var/run/asterisk in the init script.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 11:08:08 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 11:21:21 +0300
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
