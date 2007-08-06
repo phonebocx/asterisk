@@ -19,6 +19,7 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
     - Add asterisk.postinst which calls adduser, chown, chmod. Improve error
       handling.
     - Don't do unnecessary stuff on asterisk-config postinst.
+      (Closes: #431506)
     - chmod /etc/asterisk on build-time to allow the user to modify the
       permissions; this required a lintian override.
     - Honor dpkg-statoverride on all the chowned/chmoded directories.
