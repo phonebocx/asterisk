@@ -103,16 +103,11 @@ fi
 
 test -x $DAEMON || exit 0
 
+set -e
+
 if [ ! -d "$PIDFILE_DIR" ];then
 	mkdir "$PIDFILE_DIR"
 	chown $USER:$GROUP "$PIDFILE_DIR"
-fi
-
-set -e
-
-if [ ! -e `dirname $PIDFILE` ];then
-	mkdir `dirname $PIDFILE`
-	chown $USER.$GROUP `dirname $PIDFILE`
 fi
 
 if [ "$UMASK" != '' ]
