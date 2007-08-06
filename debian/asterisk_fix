@@ -64,7 +64,7 @@ done
 # files need to be RW by the group
 # dirs need to a+rx
 chmod -R 0660 /etc/asterisk/
-find /etc/asterisk/ -type d | xargs chmod ug+rx
+find /etc/asterisk/ -type d -print0 | xargs -0 chmod ug+rx
 
 #chmod g+s /etc/asterisk/
 

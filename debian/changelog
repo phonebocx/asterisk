@@ -15,8 +15,10 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
     /usr/share/asterisk/keys where they should be.
   * Actually ship keys, including Junction Networks' by fixing pubkey_jnctn
     patch.
+  * Handle space/newline-delimited directories on /etc/asterisk when doing
+    chmod on postinst.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 04:39:08 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 05:30:18 +0300
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
