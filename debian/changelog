@@ -11,8 +11,12 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
   [ Faidon Liambotis ]
   * Refer to /usr/share/common-licenses/GPL-2 instead of GPL. The code is
     -for now- GPLv2-only and in light of GPLv3, pointing to GPL is misleading.
+  * Add ast_key_dir patch to move keys from /var/lib/asterisk/keys to
+    /usr/share/asterisk/keys where they should be.
+  * Actually ship keys, including Junction Networks' by fixing pubkey_jnctn
+    patch.
 
- -- Mark Purcell <msp@debian.org>  Sun, 05 Aug 2007 20:35:54 +0100
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 04:39:08 +0300
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 

@@ -7,9 +7,22 @@
 ## DP: See also http://www.junctionnetworks.com/Asterisk-config.htm
 
 @DPATCH@
-diff -urNad asterisk-1.1.9.0beta1.dfsg.1/keys/jnctn.pub /tmp/dpep.mnlLru/asterisk-1.1.9.0beta1.dfsg.1/keys/jnctn.pub
---- asterisk-1.1.9.0beta1.dfsg.1/keys/jnctn.pub	1970-01-01 02:00:00.000000000 +0200
-+++ /tmp/dpep.mnlLru/asterisk-1.1.9.0beta1.dfsg.1/keys/jnctn.pub	2005-10-12 23:35:32.236727110 +0200
+diff -urNad asterisk-1.4.9~dfsg~/Makefile asterisk-1.4.9~dfsg/Makefile
+--- asterisk-1.4.9~dfsg~/Makefile	2007-08-06 04:40:26.000000000 +0300
++++ asterisk-1.4.9~dfsg/Makefile	2007-08-06 04:41:07.000000000 +0300
+@@ -435,8 +435,7 @@
+ 	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware
+ 	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware/iax
+ 	mkdir -p $(DESTDIR)$(ASTMANDIR)/man8
+-	$(INSTALL) -m 644 keys/iaxtel.pub $(DESTDIR)$(ASTDATADIR)/keys
+-	$(INSTALL) -m 644 keys/freeworlddialup.pub $(DESTDIR)$(ASTDATADIR)/keys
++	$(INSTALL) -m 644 keys/*.pub $(DESTDIR)$(ASTDATADIR)/keys
+ 	$(INSTALL) -m 644 doc/asterisk.8 $(DESTDIR)$(ASTMANDIR)/man8
+ 	$(INSTALL) -m 644 contrib/scripts/astgenkey.8 $(DESTDIR)$(ASTMANDIR)/man8
+ 	$(INSTALL) -m 644 contrib/scripts/autosupport.8 $(DESTDIR)$(ASTMANDIR)/man8
+diff -urNad asterisk-1.4.9~dfsg~/keys/jnctn.pub asterisk-1.4.9~dfsg/keys/jnctn.pub
+--- asterisk-1.4.9~dfsg~/keys/jnctn.pub	1970-01-01 02:00:00.000000000 +0200
++++ asterisk-1.4.9~dfsg/keys/jnctn.pub	2007-08-06 04:40:27.000000000 +0300
 @@ -0,0 +1,6 @@
 +-----BEGIN PUBLIC KEY-----
 +MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDWaDv4190BpeL5K+Yuq5Q7+vPs
