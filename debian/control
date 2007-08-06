@@ -20,60 +20,61 @@ Description: Open Source Private Branch Exchange (PBX)
  sense, middleware between Internet and telephony channels on the bottom,
  and Internet and telephony applications at the top.
  .
- Asterisk can be used with Voice over IP (SIP, H.323, IAX) standards, or the 
- Public Switched Telephone Network (PSTN) through Supported Hardware.
+ Asterisk can be used with Voice over IP (SIP, H.323, IAX and more) standards,
+ or the Public Switched Telephone Network (PSTN) through supported hardware.
  .
  Supported hardware:
  .
-  * All Wildcard (tm) products from Digium (http://www.digium.com)
-  * QuickNet Internet PhoneJack and LineJack (http://www.quicknet.net)
-  * Full Duplex Sound Card supported by Linux
-  * ISDN4Linux compatible ISDN card
-  * Tormenta T1/E1 card (http://www.bsdtelephony.com.mx)
+  * All Wildcard (tm) ISDN PRI cards from Digium (http://www.digium.com)
+  * All TDM (FXO/FXS) cards from Digium
+  * Various clones of Digium cards such as those by beroNet, Junghanns.NET,
+    OpenVox etc.
   * Xorcom Astribank USB telephony adapter (http://www.xorcom.com)
-  * CAPI compatible ISDN cards can be run using the add-on package chan-capi
+  * CAPI-compatible ISDN cards (using the add-on package chan-capi)
+  * Full Duplex Sound Card (ALSA or OSS) supported by Linux
+  * Tormenta T1/E1 card (http://www.bsdtelephony.com.mx)
+  * QuickNet Internet PhoneJack and LineJack (http://www.quicknet.net)
  .
- This is the main package that includes the asterisk daemon.
- extensions, etc
+ This is the main package that includes the Asterisk daemon and most channel
+ drivers and applications.
  .
  Website: http://www.asterisk.org.
 
 Package: asterisk-h323
 Architecture: any
-Recommends: asterisk
 Section: comm
-Depends: ${shlibs:Depends}
-Description: asterisk H.323 VoIP channel
- This package provided h323 support for the Asterisk Open Source PBX system.
+Depends: asterisk, ${shlibs:Depends}
+Description: Asterisk's H.323 VoIP channel
+ Asterisk is an Open Source PBX and telephony toolkit.
  .
- It was separated out into its own package to avoid having the main package
- depend on the many openh323 dependencies.
+ This package provides H.323 support for the Asterisk Open Source PBX system.
+ It is the stock H.323 channel originally written by Nufone.
 
 Package: asterisk-doc
 Recommends: asterisk
 Section: doc
 Priority: extra
 Architecture: all
-Description: documentation for asterisk
+Description: Source code documentation for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
- This package contains the source documentation needed if you wish to
- extend the asterisk package.
+ This package contains the source code documentation needed if you wish to
+ extend Asterisk.
 
 Package: asterisk-dev
 Architecture: all
 Recommends: asterisk
 Section: devel
 Priority: extra
-Description: development files for asterisk
+Description: Development files for asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the include files used if you wish to compile a
- package which requires asterisk source file headers.
+ package which requires Asterisk's source file headers.
 
 Package: asterisk-dbg
 Architecture: any
-Recommends: asterisk
+Depends: asterisk (= ${binary:Version})
 Section: devel
 Priority: extra
 Description: debugging symbols for asterisk
@@ -88,10 +89,11 @@ Architecture: all
 Recommends: asterisk
 Replaces: asterisk-sounds-extra
 Section: comm
-Description: sound files for asterisk
+Description: Core Sound files for Asterisk (English)
  Asterisk is an Open Source PBX and telephony toolkit.
  .
- This package contains the default sound files for operation of asterisk
+ This package contains the default (core) sound files in English, useful for
+ the operation of Asterisk.
 
 Package: asterisk-web-vmail
 Recommends: asterisk
@@ -102,7 +104,7 @@ Priority: extra
 Description: Web-based (CGI) voice mail interface for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
- This package contains a web-based interface for the voice-mail system
+ This package contains a web-based interface for the voice-mail system.
 
 Package: asterisk-config
 Recommends: asterisk
