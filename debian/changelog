@@ -14,6 +14,8 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
     /usr/share/asterisk/keys where they should be.
   * Actually ship keys, including Junction Networks' by fixing pubkey_jnctn
     patch.
+  * Handle space/newline-delimited directories on /etc/asterisk when doing
+    chmod on postinst.
   * Switch to quilt as a patch management system instead of dpatch.
   * Split bristuff 0.4.0-test3 into individual patches and add it to the quilt
     patchset.
@@ -24,7 +26,7 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
   [ Kilian Krause ]
   * backports/etch: replace libsnmp10-dev with libsnmp9-dev
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 04:47:44 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 05:33:10 +0300
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
