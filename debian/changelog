@@ -17,8 +17,10 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
     patch.
   * Handle space/newline-delimited directories on /etc/asterisk when doing
     chmod on postinst.
+  * Correct descriptions of packages in debian/control, adapting them to the
+    present and correcting some spelling mistakes. (Closes: #428671)
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 05:30:18 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 10:04:20 +0300
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
