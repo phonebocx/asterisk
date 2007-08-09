@@ -1,6 +1,8 @@
-asterisk (1:1.4.10~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
-  * (NOT RELEASED YET) New upstream release
+  * New upstream release
+    - Fwd: [asterisk-announce] ASA-2007-019: Remote crash vulnerability in
+    Skinny channel driver (Closes: #436808)
 
   [ Mark Purcell ]
   * debhelper(1) states Build-Depends: debhelper (>= 5)
@@ -24,7 +26,7 @@ asterisk (1:1.4.10~dfsg-1) UNRELEASED; urgency=low
     resulting in unexpected waste of disk space. (Closes: #301883)
   * Delete duplicated creation of /var/run/asterisk in the init script.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 11:21:21 +0300
+ -- Mark Purcell <msp@debian.org>  Thu, 09 Aug 2007 22:47:00 +0100
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
