@@ -1,6 +1,6 @@
-asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.10~dfsg-1) UNRELEASED; urgency=low
 
-  * NOT RELEASED YET
+  * (NOT RELEASED YET) New upstream release
 
   [ Mark Purcell ]
   * debhelper(1) states Build-Depends: debhelper (>= 5)
