@@ -1,3 +1,9 @@
+asterisk (1:1.4.10~dfsg-2) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- Mark Purcell <msp@debian.org>  Thu, 09 Aug 2007 23:04:34 +0100
+
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
   * New upstream release
