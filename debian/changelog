@@ -1,4 +1,4 @@
-asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.10.1~dfsg-2) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
 
@@ -40,7 +40,12 @@ asterisk (1:1.4.9~dfsg-2) UNRELEASED; urgency=low
     (use-libpri-bristuffed).
   * Ship xagi-test.c (from bristuff) to examples.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 06 Aug 2007 11:19:27 +0300
+  [ Tzafrir Cohen ]
+  * New upstream release.
+  * Update patch bristuff/bristuff-notice accordingly.
+  * Remove build requirement of gtk.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 11 Aug 2007 21:01:32 +0000
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
