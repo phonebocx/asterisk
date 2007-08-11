@@ -1,8 +1,11 @@
-asterisk (1:1.4.10~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
 
-  * NOT RELEASED YET
+  [ Tzafrir Cohen ]
+  * New upstream release.
+  * Removing build requirement gtk (maybe needed for building the 
+    non-usable gtk console. If anybody needs it, please file a bug report.)
 
- -- Mark Purcell <msp@debian.org>  Thu, 09 Aug 2007 23:04:34 +0100
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 11 Aug 2007 19:59:06 +0000
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
