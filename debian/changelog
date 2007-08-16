@@ -1,26 +1,7 @@
-asterisk (1:1.4.10.1~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.10.1~dfsg-1exp) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
 
-  [ Mark Purcell ]
-  * debhelper(1) states Build-Depends: debhelper (>= 5)
-    - aids backports
-  * Update debian/backports for etch, edgy, dapper and feisty
-    - http://status.buildserver.net/packages/status.php?package=asterisk&subdist=pkg-voip
-
-  [ Faidon Liambotis ]
-  * Refer to /usr/share/common-licenses/GPL-2 instead of GPL. The code is
-    -for now- GPLv2-only and in light of GPLv3, pointing to GPL is misleading.
-  * Add ast_key_dir patch to move keys from /var/lib/asterisk/keys to
-    /usr/share/asterisk/keys where they should be.
-  * Actually ship keys, including Junction Networks' by fixing pubkey_jnctn
-    patch.
-  * Correct descriptions of packages in debian/control, adapting them to the
-    present and correcting some spelling mistakes. (Closes: #428671)
-  * Add a noload directive for cdr_sqlite.so in the default modules.conf since
-    it writes unconditionally to the database file without being rotated,
-    resulting in unexpected waste of disk space. (Closes: #301883)
-  * Delete duplicated creation of /var/run/asterisk in the init script.
   * Major overhaul of the postinst scripts, completely replacing asterisk_fix.
     - Create Asterisk's directories on asterisk.dirs to track them using dpkg.
     - Add asterisk.postinst which calls adduser, chown, chmod. Improve error
@@ -40,12 +21,46 @@ asterisk (1:1.4.10.1~dfsg-2) UNRELEASED; urgency=low
     (use-libpri-bristuffed).
   * Ship xagi-test.c (from bristuff) to examples.
 
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 16 Aug 2007 04:45:30 +0300
+
+asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
+
   [ Tzafrir Cohen ]
   * New upstream release.
-  * Update patch bristuff/bristuff-notice accordingly.
-  * Remove build requirement of gtk.
+  * Removing build requirement gtk (maybe needed for building the 
+    non-usable gtk console. If anybody needs it, please file a bug report.)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 11 Aug 2007 21:01:32 +0000
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 11 Aug 2007 19:59:06 +0000
+
+asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
+
+  * New upstream release
+    - Fwd: [asterisk-announce] ASA-2007-019: Remote crash vulnerability in
+    Skinny channel driver (Closes: #436808)
+
+  [ Mark Purcell ]
+  * debhelper(1) states Build-Depends: debhelper (>= 5)
+    - aids backports
+  * Update debian/backports for etch, edgy, dapper and feisty
+    - http://status.buildserver.net/packages/status.php?package=asterisk&subdist=pkg-voip
+
+  [ Faidon Liambotis ]
+  * Refer to /usr/share/common-licenses/GPL-2 instead of GPL. The code is
+    -for now- GPLv2-only and in light of GPLv3, pointing to GPL is misleading.
+  * Add ast_key_dir patch to move keys from /var/lib/asterisk/keys to
+    /usr/share/asterisk/keys where they should be.
+  * Actually ship keys, including Junction Networks' by fixing pubkey_jnctn
+    patch.
+  * Handle space/newline-delimited directories on /etc/asterisk when doing
+    chmod on postinst.
+  * Correct descriptions of packages in debian/control, adapting them to the
+    present and correcting some spelling mistakes. (Closes: #428671)
+  * Add a noload directive for cdr_sqlite.so in the default modules.conf since
+    it writes unconditionally to the database file without being rotated,
+    resulting in unexpected waste of disk space. (Closes: #301883)
+  * Delete duplicated creation of /var/run/asterisk in the init script.
+
+ -- Mark Purcell <msp@debian.org>  Thu, 09 Aug 2007 22:47:00 +0100
 
 asterisk (1:1.4.9~dfsg-1) unstable; urgency=high
 
