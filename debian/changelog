@@ -14,7 +14,11 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
 
   * TODO: FL: Merge bristuff/ quilt from branches/experimental
 
- -- Kilian Krause <kilian@debian.org>  Sat, 18 Aug 2007 20:29:21 +0200
+  [ Kilian Krause ]
+  * Add dpkg-dev (>= 1.13.19) to Build-Depends for binary:Version and
+    source:Version.
+
+ -- Kilian Krause <kilian@debian.org>  Sat, 18 Aug 2007 21:52:44 +0200
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
