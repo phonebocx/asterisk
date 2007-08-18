@@ -71,10 +71,9 @@ config.status: check-sounds patch-stamp
 		--host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) \
                 --prefix=/usr \
                 --mandir=\$${prefix}/share/man \
-                --infodir=\$${prefix}/share/info
-		# asterisk-h323 is broken at presnet don't ship
-		# --with-pwlib=/usr/share/pwlib/include/ 
-		# --with-h323=/usr/share/openh323/ \
+                --infodir=\$${prefix}/share/info \
+		--with-pwlib=/usr/share/pwlib/include/ \
+		--with-h323=/usr/share/openh323/ 
 
 
 menuselect.makeopts: config.status
@@ -86,8 +85,7 @@ menuselect.makeopts: config.status
 	## enable chan_h323 (not enabled by default). Note that modules listed
 	## in MENUSELECT_CHANNEL are ones to disable:
 	
-	# asterisk-h323 is broken at present - don't ship
-	#sed -i -e '/MENUSELECT_CHANNELS=/s/chan_h323//' menuselect.makeopts
+	sed -i -e '/MENUSELECT_CHANNELS=/s/chan_h323//' menuselect.makeopts
 	cat menuselect.makedeps
 	cat menuselect.makeopts
 
@@ -99,8 +97,7 @@ build-arch-stamp: menuselect.makeopts
 
 	# Add here command to compile/build the package.
 	
-	# asterisk-h323 is broken at present don't ship
-	# $(FETCH_ENV) $(MAKE) $(MAKEFLAGS) || true
+	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS) || true
 
 	# Build a second time to pick up h323 :-(
 	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS)

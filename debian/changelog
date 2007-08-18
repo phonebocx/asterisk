@@ -8,14 +8,13 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
     non-usable gtk console. If anybody needs it, please file a bug report.)
 
   [ Mark Purcell ]
-  * Reinstate asterisk-h323 package & deps
   * Remove debian/patches/dbug433884.dpatch
     - asterisk-h323: Asterisk crashes on startup with H323 package
-    installed. (Closes: #435146)
+      installed. (Closes: #435146)
 
   * TODO: FL: Merge bristuff/ quilt from branches/experimental
 
- -- Mark Purcell <msp@debian.org>  Sat, 18 Aug 2007 17:11:09 +0100
+ -- Kilian Krause <kilian@debian.org>  Sat, 18 Aug 2007 20:29:21 +0200
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
