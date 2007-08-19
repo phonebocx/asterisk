@@ -67,11 +67,12 @@ config.status: check-sounds patch
 	
 	# Without --with-gsm the internal gsm will be used
 	$(FETCH_ENV) ./configure --with-gsm \
-		--with-pwlib=/usr/share/pwlib/include/ --with-h323=/usr/share/openh323/ \
 		--host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) \
-                --prefix=/usr \
-                --mandir=\$${prefix}/share/man \
-                --infodir=\$${prefix}/share/info
+		--prefix=/usr \
+		--mandir=\$${prefix}/share/man \
+		--infodir=\$${prefix}/share/info \
+		--with-pwlib=/usr/share/pwlib/include/ \
+		--with-h323=/usr/share/openh323/ 
 
 
 menuselect.makeopts: config.status
