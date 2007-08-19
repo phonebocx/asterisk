@@ -26,6 +26,7 @@ Description: Open Source Private Branch Exchange (PBX)
  Supported hardware:
  .
   * All Wildcard (tm) ISDN PRI cards from Digium (http://www.digium.com)
+  * HFC-S/HFC-4S-based ISDN BRI cards (Junghanns.NET, beroNet, Digium etc.)
   * All TDM (FXO/FXS) cards from Digium
   * Various clones of Digium cards such as those by beroNet, Junghanns.NET,
     OpenVox etc.

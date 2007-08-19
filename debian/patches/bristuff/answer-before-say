@@ -1,0 +1,57 @@
+Answer the channel before saying things (SayNumber, SayDigits,
+SayCharacters, SayPhonetic).
+
+--- asterisk-1.4.8~dfsg.orig/main/pbx.c
++++ asterisk-1.4.8~dfsg/main/pbx.c
+@@ -6002,6 +6002,9 @@ static int pbx_builtin_saynumber(struct 
+ 			return -1;
+ 		}
+ 	}
++	if (chan->_state != AST_STATE_UP) {
++	    ast_answer(chan);
++	}
+ 	return ast_say_number(chan, atoi(tmp), "", chan->language, options);
+ }
+ 
+@@ -6009,8 +6012,12 @@ static int pbx_builtin_saydigits(struct 
+ {
+ 	int res = 0;
+ 
+-	if (data)
++	if (data) {
++		if (chan->_state != AST_STATE_UP) {
++		    ast_answer(chan);
++		}
+ 		res = ast_say_digit_str(chan, data, "", chan->language);
++	}
+ 	return res;
+ }
+ 
+@@ -6018,8 +6025,12 @@ static int pbx_builtin_saycharacters(str
+ {
+ 	int res = 0;
+ 
+-	if (data)
++	if (data) {
++		if (chan->_state != AST_STATE_UP) {
++		    ast_answer(chan);
++		}
+ 		res = ast_say_character_str(chan, data, "", chan->language);
++	}
+ 	return res;
+ }
+ 
+@@ -6027,8 +6038,12 @@ static int pbx_builtin_sayphonetic(struc
+ {
+ 	int res = 0;
+ 
+-	if (data)
++	if (data) {
++		if (chan->_state != AST_STATE_UP) {
++		    ast_answer(chan);
++		}
+ 		res = ast_say_phonetic_str(chan, data, "", chan->language);
++	}
+ 	return res;
+ }
+ 

@@ -7,8 +7,6 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Removing build requirement gtk (maybe needed for building the
     non-usable gtk console. If anybody needs it, please file a bug report.)
 
-  * TODO: FL: Merge bristuff/ quilt from branches/experimental
-
   [ Kilian Krause ]
   * Add dpkg-dev (>= 1.13.19) to Build-Depends for binary:Version and
     source:Version.
@@ -17,8 +15,13 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Switch to quilt as a patch management system instead of dpatch.
   * Disable fix for #433884, (dbug433884) because it makes Asterisk
     segfault on startup (Closes: #435146)
+  * Split bristuff 0.4.0-test3 into individual patches and add it to the
+    quilt patchset.
+  * Use libpri-bristuffed.so.1 and its respective header
+    (use-libpri-bristuffed).
+  * Ship xagi-test.c (from bristuff) to examples.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 19 Aug 2007 21:50:28 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 19 Aug 2007 22:09:48 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 

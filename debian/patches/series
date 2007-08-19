@@ -5,3 +5,63 @@ pubkey_jnctn
 #dbug433884
 make-clean-fixes
 bashism-safeasterisk
+
+### bristuff
+bristuff/bristuff-notice
+
+bristuff/configurable-AST_SYSTEM_NAME
+
+# standalone changes/applications
+# - they don't break the API
+# - they don't need other API changes
+bristuff/xagi
+bristuff/misc-app-segfault
+bristuff/misc-app-pickup
+bristuff/misc-app-devstate
+bristuff/misc-res-watchdog
+bristuff/misc-manager-dbdel
+bristuff/misc-res-esel
+
+# small non-API-breaking bug fixes
+bristuff/chan-iax2-hangup-cause
+bristuff/app-zapras-fix-audiomode
+bristuff/app-meetme-avoid-overflows
+bristuff/answer-before-say
+
+# app_dial adding of options 
+bristuff/app-dial-priority-202
+bristuff/app-dial-etc
+bristuff/app-dial-R-noinband
+bristuff/app-dial-c-callback
+
+# and here goes our API :-)
+bristuff/ast-send-message
+bristuff/ast-send-message-users # XXX: merge this with above?
+
+# don't split these up!
+bristuff/ast_monitor_start-targetscript
+bristuff/ast-device-state-CID
+bristuff/uniqueid-01-use-pid-on-uniqueid-generation
+bristuff/uniqueid-10-channel-ops-uniqueid
+bristuff/uniqueid-20-monitor
+bristuff/uniqueid-30-app-chanspy
+bristuff/uniqueid-40-manager
+
+# euroISDN, BRI support
+# they depend on the uniqueid changes; the following are a set
+bristuff/feature-autoanswer
+bristuff/feature-holdedcalls
+bristuff/zapata-bri+euroisdn
+# GSM support; it needs the above patch applied first, unfortunately.
+bristuff/zapata-gsm
+
+# don't use chan_capi from bristuff
+# bristuff/chan-capi
+
+# misc pathes that are currently unused
+#bristuff/ast_channel_masquerade_locked
+#bristuff/find-feature
+#bristuff/feature-parking_con
+
+# use /usr/include/bristuffed/libpri.h - /usr/lib/libpri-bristuffed.so.1.0
+use-libpri-bristuffed
