@@ -4,7 +4,7 @@ Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kilian@debian.org>, Jose Carlos Garcia Sogo <jsogo@debian.org>, Santiago Garcia Mantinan <manty@debian.org>, Simon Richter <sjr@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>, Faidon Liambotis <paravoid@debian.org>
 Standards-Version: 3.7.2
-Build-Depends: debhelper (>= 5), sed (>= 3.95), zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libtonezone-dev (>= 1:1.4.1~0), bison, libasound2-dev, libpq-dev, unixodbc-dev, libpri-dev (>= 1.4), quilt, zaptel-source (>= 1:1.4.1~0), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl4-dev | libcurl-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), libiksemel-dev, libradiusclient-ng-dev, freetds-dev, libvorbis-dev, libsnmp10-dev | libsnmp-dev, libc-client-dev
+Build-Depends: debhelper (>= 5), sed (>= 3.95), zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libtonezone-dev (>= 1:1.4.1~0), bison, libasound2-dev, libpq-dev, unixodbc-dev, libpri-dev (>= 1.4), quilt, zaptel-source (>= 1:1.4.1~0), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl4-dev | libcurl-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), libiksemel-dev, libradiusclient-ng-dev, freetds-dev, libvorbis-dev, libsnmp10-dev | libsnmp-dev, libc-client-dev, dpkg-dev (>= 1.13.19)
 XS-Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/
 XS-Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/
 

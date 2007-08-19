@@ -30,7 +30,11 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Removing build requirement gtk (maybe needed for building the 
     non-usable gtk console. If anybody needs it, please file a bug report.)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 11 Aug 2007 19:59:06 +0000
+  [ Kilian Krause ]
+  * Add dpkg-dev (>= 1.13.19) to Build-Depends for binary:Version and
+    source:Version.
+
+ -- Kilian Krause <kilian@debian.org>  Sat, 18 Aug 2007 21:52:44 +0200
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
