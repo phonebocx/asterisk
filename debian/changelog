@@ -7,18 +7,16 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Removing build requirement gtk (maybe needed for building the
     non-usable gtk console. If anybody needs it, please file a bug report.)
 
-  [ Mark Purcell ]
-  * Remove debian/patches/dbug433884.dpatch
-    - asterisk-h323: Asterisk crashes on startup with H323 package
-      installed. (Closes: #435146)
-
   * TODO: FL: Merge bristuff/ quilt from branches/experimental
 
   [ Kilian Krause ]
   * Add dpkg-dev (>= 1.13.19) to Build-Depends for binary:Version and
     source:Version.
 
- -- Kilian Krause <kilian@debian.org>  Sat, 18 Aug 2007 21:52:44 +0200
+  [ Faidon Liambotis ]
+  * Switch to quilt as a patch management system instead of dpatch.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 19 Aug 2007 21:44:14 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
