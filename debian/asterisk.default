@@ -32,4 +32,33 @@
 #               working directory will be set to /var/spool/asterisk, as that
 #               directory is writable and hence core files can be written there.
 #               See /etc/init.d/asterisk for some other relevant variables.
+#
+#               It is recommended that you install asterisk-dbg to be able
+#               to produce meaningful backtraces from the core file.
+#
+#               By default core files will be written to /tmp (can be 
+#               changed by setting AST_DUMPCORE_DIR). Alternatively, see 
+#               CORE_PATTERN below.
 #AST_DUMPCORE=yes
+#
+# DUMPCORE_DIR: By default asterisk runs in the directory '/' like any 
+#               daemon. Setting this allows you to tell it to tell the 
+#               Asterisk daemon to run in a different directory if 
+#               AST_DUMPCORE is enabled. The default is /tmp and is 
+#               probably a sane one.
+#
+# CORE_PATTERN: If you use AST_DUMPCORE above, this is optionally set to a 
+#               pattern of the core file. The default is not to touch the 
+#               core_pattern settings, which is generally a good idea as 
+#               it affects every core file generated on your system.
+#
+#               However if you just enable generation of core files and run 
+#               asterisk as a daemon it will fail to write core files.
+#
+#               Alternatively you can set this independently elsewhere.
+#               See http://lxr.linux.no/source/Documentation/sysctl/kernel.txt
+#               Here is what Asterisk's ast_grab_core
+#               script would expect:
+#CORE_PATTERN='/tmp/core.%p'
+#               But you might prefer something like:
+#CORE_PATTERN='/tmp/core.%e.%t'
