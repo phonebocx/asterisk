@@ -14,7 +14,6 @@ asterisk (1:1.4.10.1~dfsg-1exp) UNRELEASED; urgency=low
     - Handle asterisk-config -> asterisk installation order properly
       (Closes: #408708)
     - Don't depend on adduser from asterisk-config.
-  * Switch to quilt as a patch management system instead of dpatch.
   * Split bristuff 0.4.0-test3 into individual patches and add it to the quilt
     patchset.
   * Use libpri-bristuffed.so.1 and its respective header
@@ -34,7 +33,12 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Add dpkg-dev (>= 1.13.19) to Build-Depends for binary:Version and
     source:Version.
 
- -- Kilian Krause <kilian@debian.org>  Sat, 18 Aug 2007 21:52:44 +0200
+  [ Faidon Liambotis ]
+  * Switch to quilt as a patch management system instead of dpatch.
+  * Disable fix for #433884, (dbug433884) because it makes Asterisk
+    segfault on startup (Closes: #435146)
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 19 Aug 2007 21:50:28 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
