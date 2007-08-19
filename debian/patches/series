@@ -1,10 +1,13 @@
 #
+bashism-safeasterisk
 astvarrundir
 ast_key_dir
-pubkey_jnctn
-#dbug433884
 make-clean-fixes
-bashism-safeasterisk
+
+h323-add-missing-ptrace-guard
+#h323-no-deps-on-asterisk
+
+pubkey_jnctn
 
 ### bristuff
 bristuff/bristuff-notice

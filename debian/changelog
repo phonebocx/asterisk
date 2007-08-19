@@ -17,6 +17,8 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Remove Conflicts for an old version of asterisk-oh323 which was only
     present until sarge.
   * Remove versioned dependency on an ancient (pre-sarge) version of sed.
+  * Patch channels/h323/ast_h323.cxx to add some missing PTRACING guards
+    (h323-add-missing-ptrace-guard).
   * Switch to quilt as a patch management system instead of dpatch.
   * Disable fix for #433884, (dbug433884) because it makes Asterisk
     segfault on startup (Closes: #435146)
@@ -26,7 +28,7 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
     (use-libpri-bristuffed).
   * Ship xagi-test.c (from bristuff) to examples.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 19 Aug 2007 22:33:26 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 01:17:16 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 

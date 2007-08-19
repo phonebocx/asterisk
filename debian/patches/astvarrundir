@@ -1,5 +1,8 @@
 Move ASTVARRUNDIR to /var/run/asterisk/
 
+This is needed because we need to have write access to a directory when
+dropping uid/gid.
+
  -- Mark Purcell <msp@debian.org>
 
 --- asterisk-1.4.9~dfsg.orig/Makefile
