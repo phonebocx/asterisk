@@ -12,9 +12,9 @@ Package: asterisk
 Architecture: any
 Section: comm
 Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser (>= 3.63), asterisk-sounds-main
-Conflicts: asterisk-oh323 (<= 0.6.6pre3-3), asterisk-classic, asterisk-bristuff
+Conflicts: asterisk-classic, asterisk-bristuff
 Replaces: asterisk-classic, asterisk-bristuff
-Suggests: gnomemeeting, ekiga, ohphone, kphone, asterisk-doc, asterisk-dev, asterisk-rate-engine
+Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
