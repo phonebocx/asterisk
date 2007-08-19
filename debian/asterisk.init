@@ -49,6 +49,7 @@ CHDIR_PARM=""
 AST_REALTIME="yes"
 RUNASTERISK="yes"
 AST_DUMPCORE="no"
+AST_DUMPCORE_DIR="/tmp" # only used if AST_DUMPCORE != yes
 AST_DUMPCORE_DIR="/var/spool/asterisk"
 # core_pattern. See: http://lxr.linux.no/source/Documentation/sysctl/kernel.txt
 #CORE_PATTERN=
