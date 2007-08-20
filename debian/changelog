@@ -39,13 +39,14 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
     asterisk-rate-engine and add one for twinkle.
   * Remove Conflicts for an old version of asterisk-oh323 which was only
     present until sarge.
-  * Remove versioned dependency on an ancient (pre-sarge) version of sed.
+  * Remove versioned dependencies on ancient (pre-sarge) versions of sed and
+    adduser.
   * Patch channels/h323/ast_h323.cxx to add some missing PTRACING #ifdef
     (h323-add-missing-ptrace-guard).
   * h323-workaround-openh323-segfault patch: workaround a libopenh323 bug
     (#438815) which causes Asterisk to segfault on startup. (Closes: #435146)
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 07:33:06 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 07:34:42 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 

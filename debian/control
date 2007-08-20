@@ -11,7 +11,7 @@ XS-Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/
 Package: asterisk
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser (>= 3.63), asterisk-sounds-main
+Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main
 Conflicts: asterisk-classic, asterisk-bristuff
 Replaces: asterisk-classic, asterisk-bristuff
 Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev
