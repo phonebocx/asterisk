@@ -109,7 +109,6 @@ Description: Web-based (CGI) voice mail interface for Asterisk
 
 Package: asterisk-config
 Recommends: asterisk
-Depends: adduser (>= 3.63)
 Conflicts: asterisk-config-custom
 Architecture: all
 Section: comm
