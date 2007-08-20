@@ -1,3 +1,11 @@
+asterisk (1:1.4.10.1~dfsg-1) unstable; urgency=low
+
+  * Since this version, bristuff support has been reinstated.
+    However, in contrary with the 1.2 packages (found in etch among others),
+    there is no split between asterisk-classic and asterisk-bristuff. 
+
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 07:39:26 +0300
+
 asterisk (1:1.4.2~dfsg-5) unstable; urgency=low
 
   * With the release of asterisk 1.4.x to unstable the asterisk-classic &
