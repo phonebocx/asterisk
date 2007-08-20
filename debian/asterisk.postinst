@@ -32,7 +32,10 @@ case "$1" in
 	# chown asterisk on all $dirs and their subdirectories
 	# do not harm the files, they should be empty on new installations
 	# and we don't want to mess-up anything on old installations
-	find /var/log/asterisk /var/lib/asterisk -type d | while read dir; do
+	find /var/log/asterisk \
+	     /var/lib/asterisk \
+	     /var/run/asterisk \
+	     -type d | while read dir; do
 		# honor dpkg-statoverride
 		if ! dpkg-statoverride --list "$dir" > /dev/null ; then
 			chown asterisk: $dir
