@@ -18,3 +18,4 @@ var/spool/asterisk/monitor
 var/spool/asterisk/system
 var/spool/asterisk/tmp
 var/spool/asterisk/voicemail
+var/spool/asterisk/outgoing
