@@ -13,7 +13,7 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * Switch to quilt as a patch management system instead of dpatch.
-  * Add bristuff 0.4.0-test3 and split into smaller, individual patches
+  * Add bristuff 0.4.0-test4 and split into smaller, individual patches
     (bristuff/).
   * Add HFC-S/HFC-4S support to the Description.
   * Use libpri-bristuffed.so.1 and its respective header
