@@ -1,7 +1,7 @@
 Add or convert channel operations so they can use the unique ID.
 
---- asterisk-1.4.8~dfsg.orig/include/asterisk/channel.h
-+++ asterisk-1.4.8~dfsg/include/asterisk/channel.h
+--- asterisk-1.4.10.1~dfsg.orig/include/asterisk/channel.h
++++ asterisk-1.4.10.1~dfsg/include/asterisk/channel.h
 @@ -641,6 +641,18 @@ void  ast_channel_free(struct ast_channe
   */
  struct ast_channel *ast_request(const char *type, int format, void *data, int *status);
@@ -42,8 +42,8 @@ Add or convert channel operations so they can use the unique ID.
  
  /*! ! \brief Waits for a digit
   * \param c channel to wait for a digit on
---- asterisk-1.4.8~dfsg.orig/main/channel.c
-+++ asterisk-1.4.8~dfsg/main/channel.c
+--- asterisk-1.4.10.1~dfsg.orig/main/channel.c
++++ asterisk-1.4.10.1~dfsg/main/channel.c
 @@ -1027,7 +1027,7 @@ void ast_channel_undefer_dtmf(struct ast
   */
  static struct ast_channel *channel_find_locked(const struct ast_channel *prev,
@@ -53,8 +53,8 @@ Add or convert channel operations so they can use the unique ID.
  {
  	const char *msg = prev ? "deadlock" : "initial deadlock";
  	int retries;
-@@ -1052,7 +1052,10 @@ static struct ast_channel *channel_find_
- 				 * set this to NULL the logic would just blow up
+@@ -1055,7 +1055,10 @@ static struct ast_channel *channel_find_
+ 				 * XXX Need a better explanation for this ...
  				 */
  			}
 -			if (name) { /* want match by name */
@@ -65,7 +65,7 @@ Add or convert channel operations so they can use the unique ID.
  				if ((!namelen && strcasecmp(c->name, name)) ||
  				    (namelen && strncasecmp(c->name, name, namelen)))
  					continue;	/* name match failed */
-@@ -1102,39 +1105,44 @@ static struct ast_channel *channel_find_
+@@ -1110,39 +1113,44 @@ static struct ast_channel *channel_find_
  /*! \brief Browse channels in use */
  struct ast_channel *ast_channel_walk_locked(const struct ast_channel *prev)
  {
@@ -116,7 +116,7 @@ Add or convert channel operations so they can use the unique ID.
  }
  
  /*! \brief Wait, look for hangups and condition arg */
-@@ -1204,8 +1212,10 @@ void ast_channel_free(struct ast_channel
+@@ -1212,8 +1220,10 @@ void ast_channel_free(struct ast_channel
  		free(chan->tech_pvt);
  	}
  
@@ -129,7 +129,7 @@ Add or convert channel operations so they can use the unique ID.
  
  	ast_copy_string(name, chan->name, sizeof(name));
  
-@@ -3013,7 +3023,7 @@ int ast_set_write_format(struct ast_chan
+@@ -3034,7 +3044,7 @@ int ast_set_write_format(struct ast_chan
  			  &chan->writetrans, 1);
  }
  
@@ -138,7 +138,7 @@ Add or convert channel operations so they can use the unique ID.
  {
  	int dummy_outstate;
  	int cause = 0;
-@@ -3025,7 +3035,7 @@ struct ast_channel *__ast_request_and_di
+@@ -3046,7 +3056,7 @@ struct ast_channel *__ast_request_and_di
  	else
  		outstate = &dummy_outstate;	/* make outstate always a valid pointer */
  
@@ -147,7 +147,7 @@ Add or convert channel operations so they can use the unique ID.
  	if (!chan) {
  		ast_log(LOG_NOTICE, "Unable to request channel %s/%s\n", type, (char *)data);
  		/* compute error and return */
-@@ -3048,7 +3058,7 @@ struct ast_channel *__ast_request_and_di
+@@ -3069,7 +3079,7 @@ struct ast_channel *__ast_request_and_di
  			ast_cdr_setaccount(chan, oh->account);	
  	}
  	ast_set_callerid(chan, cid_num, cid_name, cid_num);
@@ -156,7 +156,7 @@ Add or convert channel operations so they can use the unique ID.
  	
  
  	if (!chan->cdr) { /* up till now, this insertion hasn't been done. Therefore,
-@@ -3137,12 +3147,12 @@ struct ast_channel *__ast_request_and_di
+@@ -3158,12 +3168,12 @@ struct ast_channel *__ast_request_and_di
  	return chan;
  }
  
@@ -172,7 +172,7 @@ Add or convert channel operations so they can use the unique ID.
  {
  	struct chanlist *chan;
  	struct ast_channel *c;
-@@ -3192,6 +3202,11 @@ struct ast_channel *ast_request(const ch
+@@ -3213,6 +3223,11 @@ struct ast_channel *ast_request(const ch
  	return NULL;
  }
  
@@ -184,7 +184,7 @@ Add or convert channel operations so they can use the unique ID.
  int ast_call(struct ast_channel *chan, char *addr, int timeout)
  {
  	/* Place an outgoing call, but don't wait any longer than timeout ms before returning.
-@@ -3564,7 +3579,7 @@ int ast_do_masquerade(struct ast_channel
+@@ -3585,7 +3600,7 @@ int ast_do_masquerade(struct ast_channel
  	ast_string_field_set(clone, name, masqn);
  	
  	/* Notify any managers of the change, first the masq then the other */
@@ -193,8 +193,8 @@ Add or convert channel operations so they can use the unique ID.
  	manager_event(EVENT_FLAG_CALL, "Rename", "Oldname: %s\r\nNewname: %s\r\nUniqueid: %s\r\n", orig, newn, original->uniqueid);
  
  	/* Swap the technologies */	
---- asterisk-1.4.8~dfsg.orig/apps/app_parkandannounce.c
-+++ asterisk-1.4.8~dfsg/apps/app_parkandannounce.c
+--- asterisk-1.4.10.1~dfsg.orig/apps/app_parkandannounce.c
++++ asterisk-1.4.10.1~dfsg/apps/app_parkandannounce.c
 @@ -182,7 +182,7 @@ static int parkandannounce_exec(struct a
  	memset(&oh, 0, sizeof(oh));
  	oh.parent_channel = chan;
@@ -204,8 +204,8 @@ Add or convert channel operations so they can use the unique ID.
  
  	if(dchan) {
  		if(dchan->_state == AST_STATE_UP) {
---- asterisk-1.4.8~dfsg.orig/include/asterisk/pbx.h
-+++ asterisk-1.4.8~dfsg/include/asterisk/pbx.h
+--- asterisk-1.4.10.1~dfsg.orig/include/asterisk/pbx.h
++++ asterisk-1.4.10.1~dfsg/include/asterisk/pbx.h
 @@ -715,9 +715,17 @@ int ast_async_goto_by_name(const char *c
  int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel);
  
@@ -224,8 +224,8 @@ Add or convert channel operations so they can use the unique ID.
  /*!
   * \brief Evaluate a condition
   *
---- asterisk-1.4.8~dfsg.orig/main/pbx.c
-+++ asterisk-1.4.8~dfsg/main/pbx.c
+--- asterisk-1.4.10.1~dfsg.orig/main/pbx.c
++++ asterisk-1.4.10.1~dfsg/main/pbx.c
 @@ -4957,7 +4957,7 @@ static int ast_pbx_outgoing_cdr_failed(v
  	return 0;  /* success */
  }

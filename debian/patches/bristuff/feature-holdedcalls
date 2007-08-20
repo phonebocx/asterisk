@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/include/asterisk/features.h
-+++ asterisk-1.4.8~dfsg/include/asterisk/features.h
+--- asterisk-1.4.10.1~dfsg.orig/include/asterisk/features.h
++++ asterisk-1.4.10.1~dfsg/include/asterisk/features.h
 @@ -72,6 +72,12 @@ int ast_park_call(struct ast_channel *ch
  */
  int ast_masq_park_call(struct ast_channel *rchan, struct ast_channel *host, int timeout, int *extout);
@@ -13,8 +13,8 @@
  /*! \brief Determine system parking extension
   *  Returns the call parking extension for drivers that provide special
      call parking help */
---- asterisk-1.4.8~dfsg.orig/res/res_features.c
-+++ asterisk-1.4.8~dfsg/res/res_features.c
+--- asterisk-1.4.10.1~dfsg.orig/res/res_features.c
++++ asterisk-1.4.10.1~dfsg/res/res_features.c
 @@ -62,6 +62,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include "asterisk/adsi.h"
  #include "asterisk/devicestate.h"
@@ -71,7 +71,7 @@
  char *ast_parking_ext(void)
  {
  	return parking_ext;
-@@ -1989,6 +2013,282 @@ static int park_exec(struct ast_channel 
+@@ -1985,6 +2009,282 @@ static int park_exec(struct ast_channel 
  	return res;
  }
  
@@ -354,7 +354,7 @@
  static int handle_showfeatures(int fd, int argc, char *argv[])
  {
  	int i;
-@@ -2870,6 +3170,7 @@ static int load_module(void)
+@@ -2866,6 +3166,7 @@ static int load_module(void)
  		return res;
  	ast_cli_register_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
  	ast_pthread_create(&parking_thread, NULL, do_parking_thread, NULL);
@@ -362,7 +362,7 @@
  	res = ast_register_application(parkedcall, park_exec, synopsis, descrip);
  	if (!res)
  		res = ast_register_application(parkcall, park_call_exec, synopsis2, descrip2);
-@@ -2879,6 +3180,7 @@ static int load_module(void)
+@@ -2875,6 +3176,7 @@ static int load_module(void)
  			"Park a channel", mandescr_park); 
  	}
  
@@ -370,7 +370,7 @@
  	ast_pthread_create(&autoanswer_thread, NULL, do_autoanswer_thread, NULL);
  	if (!res)
  		res |= ast_register_application(autoanswerlogin, autoanswer_login_exec, synopsis3, descrip3);
-@@ -2901,6 +3203,7 @@ static int unload_module(void)
+@@ -2897,6 +3199,7 @@ static int unload_module(void)
  	ast_unregister_application(parkcall);
   	ast_unregister_application(autoanswer);
   	ast_unregister_application(autoanswerlogin);

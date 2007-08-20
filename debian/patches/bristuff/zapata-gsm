@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/channels/chan_zap.c
-+++ asterisk-1.4.8~dfsg/channels/chan_zap.c
+--- asterisk-1.4.10.1~dfsg.orig/channels/chan_zap.c
++++ asterisk-1.4.10.1~dfsg/channels/chan_zap.c
 @@ -76,6 +76,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #ifdef HAVE_PRI
  #include <libpri.h>
@@ -92,7 +92,7 @@
  	case 0:
  		return "Pseudo Signalling";
  	default:
-@@ -1791,7 +1816,7 @@ static inline int zt_confmute(struct zt_
+@@ -1785,7 +1810,7 @@ static inline int zt_confmute(struct zt_
  {
  	int x, y, res;
  	x = muted;
@@ -101,7 +101,7 @@
  		y = 1;
  		res = ioctl(p->subs[SUB_REAL].zfd, ZT_AUDIOMODE, &y);
  		if (res)
-@@ -2206,6 +2231,25 @@ static int zt_call(struct ast_channel *a
+@@ -2200,6 +2225,25 @@ static int zt_call(struct ast_channel *a
  		p->dialdest[0] = '\0';
  		disable_dtmf_detect(p);
  		break;
@@ -127,7 +127,7 @@
  	default:
  		ast_log(LOG_DEBUG, "not yet implemented\n");
  		ast_mutex_unlock(&p->lock);
-@@ -2844,7 +2888,13 @@ static int zt_hangup(struct ast_channel 
+@@ -2838,7 +2882,13 @@ static int zt_hangup(struct ast_channel 
  			}
  		}
  #endif
@@ -142,7 +142,7 @@
  			res = zt_set_hook(p->subs[SUB_REAL].zfd, ZT_ONHOOK);
  		if (res < 0) {
  			ast_log(LOG_WARNING, "Unable to hangup line %s\n", ast->name);
-@@ -3021,6 +3071,13 @@ static int zt_answer(struct ast_channel 
+@@ -3015,6 +3065,13 @@ static int zt_answer(struct ast_channel 
  		zt_train_ec(p);
  		break;
  #endif
@@ -156,7 +156,7 @@
  	case 0:
  		ast_mutex_unlock(&p->lock);
  		return 0;
-@@ -7365,6 +7422,10 @@ static int pri_create_spanmap(int span, 
+@@ -7361,6 +7418,10 @@ static int pri_create_spanmap(int span, 
  
  #endif
  
@@ -167,7 +167,7 @@
  static struct zt_pvt *mkintf(int channel, struct zt_chan_conf conf, struct zt_pri *pri, int reloading)
  {
  	/* Make a zt_pvt structure for this interface (or CRV if "pri" is specified) */
-@@ -7593,6 +7654,37 @@ static struct zt_pvt *mkintf(int channel
+@@ -7589,6 +7650,37 @@ static struct zt_pvt *mkintf(int channel
  				tmp->prioffset = 0;
  			}
  #endif
@@ -205,7 +205,7 @@
  		} else {
  			conf.chan.sig = tmp->sig;
  			conf.chan.radio = tmp->radio;
-@@ -7876,6 +7968,12 @@ static inline int available(struct zt_pv
+@@ -7872,6 +7964,12 @@ static inline int available(struct zt_pv
  				return 1;
  		}
  #endif
@@ -218,7 +218,7 @@
  		if (!(p->radio || (p->oprmode < 0)))
  		{
  			if (!p->sig || (p->sig == SIG_FXSLS))
-@@ -8230,6 +8328,235 @@ next:
+@@ -8226,6 +8324,235 @@ next:
  	return tmp;
  }
  
@@ -454,7 +454,7 @@
  #ifdef HAVE_PRI
  static struct zt_pvt *pri_find_crv(struct zt_pri *pri, int crv)
  {
-@@ -8505,6 +8832,18 @@ static void zt_pri_error(char *s, int sp
+@@ -8501,6 +8828,18 @@ static void zt_pri_error(char *s, int sp
  	ast_log(LOG_WARNING, "%d %s", span, s);
  }
  
@@ -473,7 +473,7 @@
  static int pri_check_restart(struct zt_pri *pri)
  {
  	if ((pri->nodetype != PRI_NETWORK) && (pri->nodetype != PRI_CPE)) {
-@@ -10905,6 +11244,243 @@ static int app_zapInband(struct ast_chan
+@@ -10901,6 +11240,243 @@ static int app_zapInband(struct ast_chan
  
  #endif /* HAVE_PRI */
  
@@ -717,7 +717,7 @@
  static int app_zapEC(struct ast_channel *chan, void *data)
  {
   int res=-1;
-@@ -11525,6 +12101,12 @@ static int __unload_module(void)
+@@ -11521,6 +12097,12 @@ static int __unload_module(void)
  	ast_unregister_application(zapCD_app);
  	ast_unregister_application(zapInband_app);
  #endif
@@ -730,7 +730,7 @@
  	ast_cli_unregister_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(zapEC_app);
  	ast_manager_unregister( "ZapDialOffhook" );
-@@ -12045,6 +12627,11 @@ static int process_zap(struct zt_chan_co
+@@ -12041,6 +12623,11 @@ static int process_zap(struct zt_chan_co
   					confp->chan.radio = 0;
   					confp->pri.nodetype = BRI_CPE;
  #endif
@@ -742,7 +742,7 @@
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
  				}
-@@ -12187,6 +12774,10 @@ static int process_zap(struct zt_chan_co
+@@ -12183,6 +12770,10 @@ static int process_zap(struct zt_chan_co
    				ast_copy_string(confp->pri.nocid, v->value, sizeof(confp->pri.nocid) - 1);
    			} else if (!strcasecmp(v->name, "withheldcid")) {
    				ast_copy_string(confp->pri.withheldcid, v->value, sizeof(confp->pri.withheldcid) - 1);
@@ -753,7 +753,7 @@
  			} else if (!strcasecmp(v->name, "resetinterval")) {
  				if (!strcasecmp(v->value, "never"))
  					confp->pri.resetinterval = -1;
-@@ -12541,6 +13132,10 @@ static int load_module(void)
+@@ -12537,6 +13128,10 @@ static int load_module(void)
  	ast_register_application(zap_send_keypad_facility_app, zap_send_keypad_facility_exec,
  			zap_send_keypad_facility_synopsis, zap_send_keypad_facility_descrip);
  #endif
@@ -764,7 +764,7 @@
  	res = setup_zap(0);
  	/* Make sure we can register our Zap channel type */
  	if (res)
-@@ -12559,6 +13154,12 @@ static int load_module(void)
+@@ -12555,6 +13150,12 @@ static int load_module(void)
  #endif	
  	ast_register_application(zapEC_app, app_zapEC, zapEC_synopsis, zapEC_tdesc);
  	ast_cli_register_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
@@ -777,7 +777,7 @@
  	
  	memset(round_robin, 0, sizeof(round_robin));
  	ast_manager_register( "ZapTransfer", 0, action_transfer, "Transfer Zap Channel" );
-@@ -12572,7 +13173,48 @@ static int load_module(void)
+@@ -12568,7 +13169,48 @@ static int load_module(void)
  	return res;
  }
  
@@ -827,8 +827,8 @@
  {
  #define	END_SILENCE_LEN 400
  #define	HEADER_MS 50
---- asterisk-1.4.8~dfsg.orig/configure.ac
-+++ asterisk-1.4.8~dfsg/configure.ac
+--- asterisk-1.4.10.1~dfsg.orig/configure.ac
++++ asterisk-1.4.10.1~dfsg/configure.ac
 @@ -175,6 +175,7 @@ AST_EXT_LIB_SETUP([CURL], [cURL], [curl]
  AST_EXT_LIB_SETUP([CURSES], [curses], [curses])
  AST_EXT_LIB_SETUP([GNUTLS], [GNU TLS support (used for iksemel only)], [gnutls])
@@ -837,9 +837,9 @@
  AST_EXT_LIB_SETUP([IKSEMEL], [Iksemel Jabber Library], [iksemel])
  AST_EXT_LIB_SETUP([IMAP_TK], [UW IMAP Toolkit], [imap])
  AST_EXT_LIB_SETUP([ISDNNET], [ISDN4Linux Library], [isdnnet])
---- asterisk-1.4.8~dfsg.orig/configure
-+++ asterisk-1.4.8~dfsg/configure
-@@ -24642,6 +24642,188 @@ echo "$as_me: *** without explicitly spe
+--- asterisk-1.4.10.1~dfsg.orig/configure
++++ asterisk-1.4.10.1~dfsg/configure
+@@ -24745,6 +24745,188 @@ echo "$as_me: *** without explicitly spe
     fi
  fi
  

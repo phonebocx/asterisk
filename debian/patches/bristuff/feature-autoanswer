@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/include/asterisk/features.h
-+++ asterisk-1.4.8~dfsg/include/asterisk/features.h
+--- asterisk-1.4.10.1~dfsg.orig/include/asterisk/features.h
++++ asterisk-1.4.10.1~dfsg/include/asterisk/features.h
 @@ -47,6 +47,8 @@ struct ast_call_feature {
  };
  
@@ -9,8 +9,8 @@
  
  /*! \brief Park a call and read back parked location 
   *  \param chan the channel to actually be parked
---- asterisk-1.4.8~dfsg.orig/res/res_features.c
-+++ asterisk-1.4.8~dfsg/res/res_features.c
+--- asterisk-1.4.10.1~dfsg.orig/res/res_features.c
++++ asterisk-1.4.10.1~dfsg/res/res_features.c
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -83,7 +83,7 @@
  		);
  
  	if (peer && adsipark && ast_adsi_available(peer)) {
-@@ -1613,11 +1650,13 @@ static void post_manager_event(const cha
+@@ -1609,11 +1646,13 @@ static void post_manager_event(const cha
  		"Exten: %s\r\n"
  		"Channel: %s\r\n"
  		"CallerID: %s\r\n"
@@ -99,7 +99,7 @@
  		);
  }
  
-@@ -1868,10 +1907,12 @@ static int park_exec(struct ast_channel 
+@@ -1864,10 +1903,12 @@ static int park_exec(struct ast_channel 
  			"Channel: %s\r\n"
  			"From: %s\r\n"
  			"CallerID: %s\r\n"
@@ -114,7 +114,7 @@
  			);
  
  		free(pu);
-@@ -2022,15 +2063,10 @@ static struct ast_cli_entry cli_show_fea
+@@ -2018,15 +2059,10 @@ static struct ast_cli_entry cli_show_fea
  	handle_showfeatures, NULL,
  	NULL };
  
@@ -133,7 +133,7 @@
  
  /*! \brief Dump lot status */
  static int manager_parking_status( struct mansession *s, const struct message *m)
-@@ -2054,12 +2090,13 @@ static int manager_parking_status( struc
+@@ -2050,12 +2086,13 @@ static int manager_parking_status( struc
  			"Timeout: %ld\r\n"
  			"CallerID: %s\r\n"
  			"CallerIDName: %s\r\n"
@@ -148,7 +148,7 @@
  			idText);
  	}
  
-@@ -2134,6 +2171,427 @@ static int manager_park(struct mansessio
+@@ -2130,6 +2167,427 @@ static int manager_park(struct mansessio
  	return 0;
  }
  
@@ -576,7 +576,7 @@
  
  int ast_pickup_call(struct ast_channel *chan)
  {
-@@ -2397,6 +2855,7 @@ static int load_config(void) 
+@@ -2393,6 +2851,7 @@ static int load_config(void) 
  
  static int reload(void)
  {
@@ -584,7 +584,7 @@
  	return load_config();
  }
  
-@@ -2420,6 +2879,12 @@ static int load_module(void)
+@@ -2416,6 +2875,12 @@ static int load_module(void)
  			"Park a channel", mandescr_park); 
  	}
  
@@ -597,7 +597,7 @@
  	res |= ast_devstate_prov_add("Park", metermaidstate);
  
  	return res;
-@@ -2434,6 +2899,8 @@ static int unload_module(void)
+@@ -2430,6 +2895,8 @@ static int unload_module(void)
  	ast_manager_unregister("Park");
  	ast_cli_unregister_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(parkcall);
