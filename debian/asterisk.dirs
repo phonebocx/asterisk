@@ -8,6 +8,7 @@ var/run/asterisk
 
 usr/share/asterisk/static-http
 
+var/lib/asterisk/moh
 var/log/asterisk/cdr-csv
 var/log/asterisk/cdr-custom
 var/spool/asterisk/dictate
