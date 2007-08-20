@@ -1,6 +1,8 @@
 /bin/sh is not guranteed to handle bashisms. Switch interpreter of
 safe_asterisk to /bin/bash.
 
+Should be forwarded upstream.
+
  -- Mark Purcell <msp@debian.org>
 
 --- asterisk-1.4.9~dfsg.orig/contrib/scripts/safe_asterisk
