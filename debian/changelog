@@ -20,15 +20,15 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Patch channels/h323/ast_h323.cxx to add some missing PTRACING guards
     (h323-add-missing-ptrace-guard).
   * Switch to quilt as a patch management system instead of dpatch.
-  * Disable fix for #433884, (dbug433884) because it makes Asterisk
-    segfault on startup (Closes: #435146)
+  * h323-workaround-openh323-segfault patch: workaround libopenh323 bug
+    (#438815) which causes Asterisk to segfault on startup. (Closes: #435146)
   * Split bristuff 0.4.0-test3 into individual patches and add it to the
     quilt patchset.
   * Use libpri-bristuffed.so.1 and its respective header
     (use-libpri-bristuffed).
   * Ship xagi-test.c (from bristuff) to examples.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 01:17:16 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 04:35:21 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 

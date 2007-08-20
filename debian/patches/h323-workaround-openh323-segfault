@@ -1,0 +1,24 @@
+Flag chan_h323 as a module providing global symbols.
+
+This isn't the case, but this causes the dynamic loader (main/loader.c) to not
+call dlclose() on the first pass of loading modules.
+It is needed since libopenh323 is buggy and crashes on dlclose().
+
+This is a very very hacky workaround needed because we are removing the
+libopenh323 from the asterisk binary. (h323-no-deps-on-asterisk)
+
+Should be removed when #438815 closes.
+
+ -- Faidon Liambotis <paravoid@debian.org>
+
+--- asterisk-1.4.10.1~dfsg.orig/channels/chan_h323.c
++++ asterisk-1.4.10.1~dfsg/channels/chan_h323.c
+@@ -3271,7 +3271,7 @@ static int unload_module(void)
+ 	return 0;
+ }
+ 
+-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "The NuFone Network's OpenH323 Channel Driver",
++AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "The NuFone Network's OpenH323 Channel Driver",
+ 		.load = load_module,
+ 		.unload = unload_module,
+ 		.reload = reload,

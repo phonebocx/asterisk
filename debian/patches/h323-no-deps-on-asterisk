@@ -1,8 +1,9 @@
 Don't link the Asterisk binary with the H.323 libraries since they are only
-used by separate shared object, chan_h323.so. (#433884)
+used by separate shared object, chan_h323.so. (Closes: #433884)
 
-Currently disabled, since it makes asterisk segfault when dlopen()ing
-chan_h323.so. See #435146 for more.
+WARNING: this will make Asterisk segfault (see #435146) when loading
+chan_h323.so because libopenh323 is buggy (#438815).
+We are working around this, see patch h323-workaround-openh323-segfault.
 
  -- Faidon Liambotis <paravoid@debian.org>
 

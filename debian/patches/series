@@ -5,7 +5,8 @@ ast_key_dir
 make-clean-fixes
 
 h323-add-missing-ptrace-guard
-#h323-no-deps-on-asterisk
+h323-no-deps-on-asterisk
+h323-workaround-openh323-segfault
 
 pubkey_jnctn
 
