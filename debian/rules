@@ -167,7 +167,7 @@ binary-indep: install-indep
 	dh_testroot -i
 	dh_installlogrotate -i 
 	dh_installdocs -i -XREADME.cygwin
-	dh_installexamples -i -XCVS
+	dh_installexamples -i
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
 	dh_link -i 
@@ -188,7 +188,7 @@ binary-arch: install-arch
 	dh_testroot -a
 	dh_installdocs -a
 	dh_installman utils/*.1 doc/*.8 contrib/scripts/*.8
-	dh_installexamples -a -XCVS
+	dh_installexamples -a
 	dh_installchangelogs ChangeLog -a
 	dh_installinit -a -- defaults 21
 	dh_strip -a --dbg-package=asterisk-dbg

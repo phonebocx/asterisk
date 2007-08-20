@@ -46,8 +46,10 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
     (h323-add-missing-ptrace-guard).
   * h323-workaround-openh323-segfault patch: workaround a libopenh323 bug
     (#438815) which causes Asterisk to segfault on startup. (Closes: #435146)
+  * Remove -XCVS from dh_installexamples arguments. Upstream doesn't use CVS
+    anymore.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 07:44:22 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 07:46:41 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
