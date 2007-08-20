@@ -1,11 +1,15 @@
 asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
 
-  NOT RELEASED YET
+  * NOT RELEASED YET
+    TODO:
+    - Wait response from submitter of #438702.
+    - Heavily test it (bristuff & postinst changes) before uploading even to
+      unstable.
 
   [ Tzafrir Cohen ]
   * New upstream release.
-  * Removing build requirement gtk (maybe needed for building the
-    non-usable gtk console. If anybody needs it, please file a bug report.)
+  * Remove libgtk2.0-dev from Build-Depends since the GTK+ console was not
+    getting built anyway.
 
   [ Kilian Krause ]
   * Add dpkg-dev (>= 1.13.19) to Build-Depends for binary:Version and
@@ -15,10 +19,10 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Switch to quilt as a patch management system instead of dpatch.
   * Add bristuff 0.4.0-test4 and split into smaller, individual patches
     (bristuff/).
-  * Add HFC-S/HFC-4S support to the Description.
+  * Mention bristuff's HFC-S/HFC-4S support in the Description.
   * Use libpri-bristuffed.so.1 and its respective header
     (use-libpri-bristuffed).
-  * Ship xagi-test.c (from bristuff) to examples.
+  * Ship xagi-test.c from bristuff as an example.
   * Major overhaul of the postinst scripts, completely replacing asterisk_fix.
     - Create Asterisk's directories on asterisk.dirs to track them using dpkg.
     - Add asterisk.postinst which calls adduser, chown, chmod. Improve error
@@ -32,16 +36,16 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
       (Closes: #408708)
     - Don't depend on adduser from asterisk-config.
   * Remove Suggests to gnomemeeting (it's a dummy package nowdays),
-    asterisk-rate-engine and add for twinkle.
+    asterisk-rate-engine and add one for twinkle.
   * Remove Conflicts for an old version of asterisk-oh323 which was only
     present until sarge.
   * Remove versioned dependency on an ancient (pre-sarge) version of sed.
-  * Patch channels/h323/ast_h323.cxx to add some missing PTRACING guards
+  * Patch channels/h323/ast_h323.cxx to add some missing PTRACING #ifdef
     (h323-add-missing-ptrace-guard).
-  * h323-workaround-openh323-segfault patch: workaround libopenh323 bug
+  * h323-workaround-openh323-segfault patch: workaround a libopenh323 bug
     (#438815) which causes Asterisk to segfault on startup. (Closes: #435146)
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 06:48:15 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 07:33:06 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
