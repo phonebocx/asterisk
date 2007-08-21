@@ -1,4 +1,4 @@
-asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.11~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
     TODO:
@@ -7,7 +7,6 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
       unstable.
 
   [ Tzafrir Cohen ]
-  * New upstream release.
   * Remove libgtk2.0-dev from Build-Depends since the GTK+ console was not
     getting built anyway.
 
@@ -16,6 +15,7 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
     source:Version.
 
   [ Faidon Liambotis ]
+  * New upstream release.
   * Switch to quilt as a patch management system instead of dpatch.
   * Add bristuff 0.4.0-test4
     - Split into smaller, individual patches (bristuff/).
@@ -51,7 +51,7 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Remove -XCVS from dh_installexamples arguments. Upstream doesn't use CVS
     anymore.
 
- -- Faidon Liambotis <paravoid@debian.org>  Tue, 21 Aug 2007 08:33:43 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 21 Aug 2007 23:34:43 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
