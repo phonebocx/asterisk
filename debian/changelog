@@ -17,7 +17,6 @@ asterisk (1:1.4.11~dfsg-1) UNRELEASED; urgency=low
   [ Faidon Liambotis ]
   * New upstream release. (Closes: #439062)
     - AST-2007-020 Resource Exhaustion vulnerability in SIP channel driver
-    - Fwd: [asterisk-announce] Asterisk 1.4.11 released (Closes: #439062)
   * Switch to quilt as a patch management system instead of dpatch.
   * Add bristuff 0.4.0-test4
     - Split into smaller, individual patches (bristuff/).
