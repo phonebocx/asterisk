@@ -66,6 +66,10 @@ case "$1" in
 	while read conffile; do
 		chown asterisk: ${conffile} 2>/dev/null
 	done
+	
+	# this is not needed for new installations but is not such a bad idea
+	# removing this will _break_ upgrades from versions < 1:1.4.10.1~dfsg-1
+	chown asterisk: /etc/asterisk
 
 	set -e
     ;;
