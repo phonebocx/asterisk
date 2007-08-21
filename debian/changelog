@@ -35,6 +35,8 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
     - Honor dpkg-statoverride on all the chowned/chmoded directories.
     - Handle asterisk-config -> asterisk installation order properly
       (Closes: #408708)
+    - Don't add asterisk user to audio and dialout groups if existed before.
+      This allows the administrator to remove the membership.
     - Don't depend on adduser from asterisk-config.
   * Remove Suggests to gnomemeeting (it's a dummy package nowdays),
     asterisk-rate-engine and add one for twinkle.
@@ -49,7 +51,7 @@ asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
   * Remove -XCVS from dh_installexamples arguments. Upstream doesn't use CVS
     anymore.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 07:46:41 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 21 Aug 2007 08:33:43 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 

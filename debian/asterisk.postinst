@@ -21,13 +21,13 @@ case "$1" in
 			--no-create-home --disabled-login \
 			--gecos "Asterisk PBX daemon" \
 			asterisk
-	fi 
 
-	for group in dialout audio; do
-		if groups asterisk | grep -w -q -v $group; then
-			adduser asterisk $group
-		fi
-	done
+		for group in dialout audio; do
+			if groups asterisk | grep -w -q -v $group; then
+				adduser asterisk $group
+			fi
+		done
+	fi 
 
 	# chown asterisk on all $dirs and their subdirectories
 	# do not harm the files, they should be empty on new installations
