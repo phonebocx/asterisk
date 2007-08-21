@@ -16,6 +16,8 @@ asterisk (1:1.4.11~dfsg-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * New upstream release. (Closes: #439062)
+    - AST-2007-020 Resource Exhaustion vulnerability in SIP channel driver
+    - Fwd: [asterisk-announce] Asterisk 1.4.11 released (Closes: #439062)
   * Switch to quilt as a patch management system instead of dpatch.
   * Add bristuff 0.4.0-test4
     - Split into smaller, individual patches (bristuff/).
@@ -51,7 +53,7 @@ asterisk (1:1.4.11~dfsg-1) UNRELEASED; urgency=low
   * Remove -XCVS from dh_installexamples arguments. Upstream doesn't use CVS
     anymore.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 22 Aug 2007 01:14:42 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 21 Aug 2007 23:20:57 +0100
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
