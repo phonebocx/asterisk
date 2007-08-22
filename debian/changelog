@@ -27,7 +27,8 @@ asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
       (Closes: #431506)
     - chmod /etc/asterisk on build-time to allow the user to modify the
       permissions; this required a lintian override.
-    - Honor dpkg-statoverride on all the chowned/chmoded directories.
+    - Honor dpkg-statoverride on all the chowned/chmoded directories and
+      configuration files under /etc/asterisk.
     - Handle asterisk-config -> asterisk installation order properly
       (Closes: #408708)
     - Don't add asterisk user to audio and dialout groups if existed before.
@@ -46,7 +47,7 @@ asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
   * Remove -XCVS from dh_installexamples arguments. Upstream doesn't use CVS
     anymore.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 22 Aug 2007 18:11:41 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 22 Aug 2007 19:53:39 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
