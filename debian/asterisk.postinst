@@ -73,9 +73,7 @@ case "$1" in
 	dpkg-query -W -f='${Conffiles}\n' $ASTERISK_CONFIG 2>/dev/null | \
 	  sed -nr -e 's; (/etc/asterisk/.*) [0-9a-f]*;\1;p' | \
 	while read conffile; do
-		if ! dpkg-statoverride --list "$conffile" > /dev/null ; then
-			chown asterisk: $conffile 2>/dev/null
-		fi
+		chown asterisk: $conffile 2>/dev/null
 	done
 
 	set -e
