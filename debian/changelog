@@ -52,7 +52,7 @@ asterisk (1:1.4.11~dfsg-1) UNRELEASED; urgency=low
   * Remove -XCVS from dh_installexamples arguments. Upstream doesn't use CVS
     anymore.
 
- -- Faidon Liambotis <paravoid@debian.org>  Tue, 21 Aug 2007 23:20:57 +0100
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 22 Aug 2007 18:11:41 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 

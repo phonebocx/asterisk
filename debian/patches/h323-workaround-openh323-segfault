@@ -1,24 +1,30 @@
-Flag chan_h323 as a module providing global symbols.
+Hack dynamic loader to workaround libopenh323 bug
 
-This isn't the case, but this causes the dynamic loader (main/loader.c) to not
-call dlclose() on the first pass of loading modules.
-It is needed since libopenh323 is buggy and crashes on dlclose().
+libopenh323 is buggy and crashes on dlclose() when the library was opened with
+RTLD_LAZY (#438815). Hack around this by opening it with RTLD_NOW by matching
+the module names (chan_h323.so and the external chan_oh323.so)
 
-This is a very very hacky workaround needed because we are removing the
-libopenh323 from the asterisk binary. (h323-no-deps-on-asterisk)
+This is a very crude hack needed because we are removing libopenh323
+dependencies from the asterisk binary. (h323-no-deps-on-asterisk)
+Namely, it will have unexpected results if e.g. the user renames the module
+for any reason.
 
 Should be removed when #438815 closes.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_h323.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_h323.c
-@@ -3271,7 +3271,7 @@ static int unload_module(void)
- 	return 0;
- }
+--- asterisk-1.4.11~dfsg.orig/main/loader.c
++++ asterisk-1.4.11~dfsg/main/loader.c
+@@ -356,6 +356,12 @@ static struct ast_module *load_dynamic_m
  
--AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "The NuFone Network's OpenH323 Channel Driver",
-+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "The NuFone Network's OpenH323 Channel Driver",
- 		.load = load_module,
- 		.unload = unload_module,
- 		.reload = reload,
+ 	strcpy(resource_being_loaded->resource, resource);
+ 
++	/* libopenh323 is buggy and segfaults on dlclose() when opened with
++	 * RTLD_LAZY. Workaround this until it gets fixed */
++	if (!strcasecmp(resource, "chan_h323.so") ||
++	    !strcasecmp(resource, "chan_oh323.so"))
++		lib = dlopen(fn, RTLD_NOW | RTLD_LOCAL);
++
+ 	if (!(lib = dlopen(fn, RTLD_LAZY | RTLD_LOCAL))) {
+ 		ast_log(LOG_WARNING, "Error loading module '%s': %s\n", resource_in, dlerror());
+ 		free(resource_being_loaded);
