@@ -1,10 +1,4 @@
-asterisk (1:1.4.11~dfsg-1) UNRELEASED; urgency=low
-
-  * NOT RELEASED YET
-    TODO:
-    - Wait response from submitter of #438702.
-    - Heavily test it (bristuff & postinst changes) before uploading even to
-      unstable.
+asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
   [ Tzafrir Cohen ]
   * Remove libgtk2.0-dev from Build-Depends since the GTK+ console was not
