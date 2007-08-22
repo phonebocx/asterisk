@@ -41,6 +41,15 @@ case "$1" in
 			chown asterisk: $dir
 		fi
 	done 
+	
+	# this is not needed for new installations but is not such a bad idea
+	# removing this will _break_ upgrades from versions < 1:1.4.10.1~dfsg-1
+	#
+	# we are doing the same for subdirectories, since we are not shipping
+	# any and it's supposed to be user-modifiable
+	if ! dpkg-statoverride --list "/etc/asterisk" > /dev/null ; then
+		chown asterisk: /etc/asterisk
+	fi
 
 	# spool holds some sensitive information (e.g. monitor, voicemail etc.)
 	find /var/spool/asterisk -type d | while read dir; do
@@ -66,10 +75,6 @@ case "$1" in
 	while read conffile; do
 		chown asterisk: ${conffile} 2>/dev/null
 	done
-	
-	# this is not needed for new installations but is not such a bad idea
-	# removing this will _break_ upgrades from versions < 1:1.4.10.1~dfsg-1
-	chown asterisk: /etc/asterisk
 
 	set -e
     ;;
