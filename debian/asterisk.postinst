@@ -36,7 +36,6 @@ case "$1" in
 	     /var/lib/asterisk \
 	     /var/run/asterisk \
 	     -type d | while read dir; do
-		# honor dpkg-statoverride
 		if ! dpkg-statoverride --list "$dir" > /dev/null ; then
 			chown asterisk: $dir
 		fi
@@ -74,6 +73,12 @@ case "$1" in
 	  sed -nr -e 's; (/etc/asterisk/.*) [0-9a-f]*;\1;p' | \
 	while read conffile; do
 		chown asterisk: $conffile 2>/dev/null
+	done
+
+	# handle them in the end with a glob since it's way faster
+	dpkg-statoverride --quiet --list '/etc/asterisk/*' | while read STAT; do
+		chown `echo $STAT | cut -d' ' -f 1,2,4 | sed 's/ /:/'` \
+			2>/dev/null
 	done
 
 	set -e

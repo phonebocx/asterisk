@@ -23,6 +23,12 @@ case "$1" in
 		chown asterisk: ${conffile} 2>/dev/null
 	done
 
+	# handle them in the end with a glob since it's way faster
+	dpkg-statoverride --quiet --list '/etc/asterisk/*' | while read STAT; do
+		chown `echo $STAT | cut -d' ' -f 1,2,4 | sed 's/ /:/'` \
+			2>/dev/null
+	done
+
 	set -e
     ;;
 
