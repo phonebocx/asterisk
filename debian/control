@@ -14,7 +14,7 @@ Section: comm
 Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main
 Conflicts: asterisk-classic, asterisk-bristuff
 Replaces: asterisk-classic, asterisk-bristuff
-Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev
+Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev, asterisk-h323
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
@@ -69,14 +69,14 @@ Description: Source code documentation for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the source code documentation needed if you wish to
- extend Asterisk.
+ extend Asterisk by writing loadable modules for it.
 
 Package: asterisk-dev
 Architecture: all
 Recommends: asterisk
 Section: devel
 Priority: extra
-Description: Development files for asterisk
+Description: Development files for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the include files used if you wish to compile a
@@ -87,7 +87,7 @@ Architecture: any
 Depends: asterisk (= ${binary:Version})
 Section: devel
 Priority: extra
-Description: debugging symbols for asterisk
+Description: Debugging symbols for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package includes the debugging symbols useful for debugging
@@ -121,7 +121,7 @@ Recommends: asterisk
 Conflicts: asterisk-config-custom
 Architecture: all
 Section: comm
-Description: config files for asterisk
+Description: Configuration files for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the default configuration files of Asterisk.

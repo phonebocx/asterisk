@@ -49,9 +49,10 @@ asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
   * Add a README.Debian for asterisk-h323 that explains the differences
     between the different H.323 channel drivers, taken from the asterisk-oh323
     package.
-  * Clarify asterisk-h323's description and mention the other channel drivers. 
+  * Clarify asterisk-h323's description and mention the other channel drivers.
+  * Suggest asterisk-h323 from asterisk.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 22 Aug 2007 20:42:04 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 22 Aug 2007 20:55:12 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 
