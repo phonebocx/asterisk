@@ -1,8 +1,10 @@
 asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * Depend on libpri-dev >= 1.4.1-1 for the bristuffed header.
+    (Closes: #439197)
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 22 Aug 2007 21:20:40 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 23 Aug 2007 11:32:15 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
