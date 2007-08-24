@@ -3,8 +3,11 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   * NOT RELEASED YET
   * Depend on libpri-dev >= 1.4.1-1 for the bristuffed header.
     (Closes: #439197)
+  * Added a 1.4 backport of the DEVSTATE() dialplan function which allows
+    retrieving any device state in the dialplan, as well as creating custom
+    device states that are controllable from the dialplan.
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 23 Aug 2007 11:32:15 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 24 Aug 2007 06:40:48 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
