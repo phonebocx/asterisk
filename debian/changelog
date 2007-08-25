@@ -6,8 +6,11 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   * Added a 1.4 backport of the DEVSTATE() dialplan function which allows
     retrieving any device state in the dialplan, as well as creating custom
     device states that are controllable from the dialplan.
+  * Replace Build-Depends libc-client-dev (which wasn't used) with
+    libc-client2006j2-dev and enable Voicemail IMAP storage
+    (configure-libc-client).
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 24 Aug 2007 06:40:48 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 25 Aug 2007 13:56:11 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
