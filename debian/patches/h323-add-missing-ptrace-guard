@@ -3,7 +3,7 @@ Add a missing PTRACING guard.
 Operator << against PayloadTypes is missing on non-PTRACING builds
 (src/rtp.cxx:561 on openh323-1.18.0)
 
-Should be forwarded upstream.
+Forwarded upstream, #10559.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
