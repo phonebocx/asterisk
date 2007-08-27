@@ -1,6 +1,8 @@
 asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+
+  [ Faidon Liambotis ]
   * Depend on libpri-dev >= 1.4.1-1 for the bristuffed header.
     (Closes: #439197)
   * Added a 1.4 backport of the DEVSTATE() dialplan function which allows
@@ -13,7 +15,10 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
     virtual package. This also means using the more complete OpenSSL libcurl
     backend instead of the GnuTLS one.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Aug 2007 11:25:11 +0300
+  [ Kilian Krause ]
+  * Add backport hook for Sarge. Update Dapper.
+
+ -- Kilian Krause <kilian@debian.org>  Mon, 27 Aug 2007 19:37:40 +0200
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
