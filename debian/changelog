@@ -17,8 +17,9 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
 
   [ Kilian Krause ]
   * Add backport hook for Sarge. Update Dapper.
+  * Update backports scripts for libcurl4*-dev
 
- -- Kilian Krause <kilian@debian.org>  Mon, 27 Aug 2007 19:37:40 +0200
+ -- Kilian Krause <kilian@debian.org>  Mon, 27 Aug 2007 19:50:55 +0200
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
