@@ -9,8 +9,11 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   * Replace Build-Depends libc-client-dev (which wasn't used) with
     libc-client2006j2-dev and enable Voicemail IMAP storage
     (configure-libc-client).
+  * Build depend on libcurl4-openssl-dev instead of libcurl4-dev which is a
+    virtual package. This also means using the more complete OpenSSL libcurl
+    backend instead of the GnuTLS one.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 25 Aug 2007 13:56:11 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Aug 2007 11:25:11 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
