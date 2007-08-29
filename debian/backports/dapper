@@ -10,6 +10,9 @@ sed -i -e 's#^\(Build-Depends:.*\)libcurl4[^\ ]*-dev[^\ ]* \(.*\)$#\1libcurl3-de
 # Replace libsnmp10-dev with libsnmp9-dev
 sed -i -e 's#^\(Build-Depends:.*\)libsnmp10-dev[^\ ]* \(.*\)$#\1libsnmp9-dev \2#' debian/control
 
+# Ditch libc-client2006j2-dev
+sed -i -e 's#[, ]*libc-client2006j2-dev##' debian/control
+
 # Undo binary:Version and source:Version
 sed -i -e 's#binary:Version#Source-Version#g' \
   -e 's#binary:Version#Source-Version#g' \
