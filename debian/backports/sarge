@@ -12,6 +12,7 @@ sed -i -e 's#^\(Build-Depends:.*\)libsnmp10-dev[^\ ]* \(.*\)$#\1libsnmp9-dev \2#
 
 # Ditch libc-client2006j2-dev
 sed -i -e 's#[, ]*libc-client2006j2-dev##' debian/control
+sed -i -e '/--with-imap/d' -e '/\(sed.*MENUSELECT_OPTS_app_voicemail.*IMAP_STORAGE.*menuselect.makeopts\)/#\1' debian/rules
 
 # Undo binary:Version and source:Version
 sed -i -e 's#binary:Version#Source-Version#g' \
