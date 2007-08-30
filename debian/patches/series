@@ -71,3 +71,6 @@ bristuff/zapata-gsm
 
 # use /usr/include/bristuffed/libpri.h - /usr/lib/libpri-bristuffed.so.1.0
 use-libpri-bristuffed
+
+# fix CVE-2007-4521 (Debian bug #440187)
+CVE-2007-4521
