@@ -4,6 +4,9 @@
 #
 # Target dist: Debian Sarge
 
+# back then libpq-dev was postgresql-dev
+sed -i -e 's#^\(Build-Depends:.*)libpq-dev[^\ ,]#\1postgresql-dev#' debian/control
+
 # Replace libcurl4-openssl-dev with libcurl3-dev
 sed -i -e 's#^\(Build-Depends:.*\)libcurl4-openssl-dev[^\ ]* \(.*\)$#\1libcurl3-dev \2#' debian/control
 
