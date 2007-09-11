@@ -14,13 +14,14 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   * Build depend on libcurl4-openssl-dev instead of libcurl4-dev which is a
     virtual package. This also means using the more complete OpenSSL libcurl
     backend instead of the GnuTLS one.
+  * Add a versioned >= 1.4 dependency of asterisk in asterisk-h323.
 
   [ Kilian Krause ]
   * Add backport hook for Sarge. Update Dapper.
   * Update backports scripts for libcurl4*-dev
   * Fix IMAP crash with upstream source snipplet. (Closes: #440187)
 
- -- Kilian Krause <kilian@debian.org>  Thu, 30 Aug 2007 17:43:11 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 11 Sep 2007 18:19:49 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
