@@ -16,10 +16,10 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
-MAKEFLAGS += OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
+BUILDFLAGS += OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
 
 # Force music files selection:
-MAKEFLAGS += MENUSELECT_MOH= \
+BUILDFLAGS += MENUSELECT_MOH= \
   ASTDATADIR=/usr/share/asterisk \
   ASTVARRUNDIR=/var/run/asterisk \
 
@@ -98,10 +98,10 @@ build-arch-stamp: menuselect.makeopts
 	dh_testdir
 
 	# Add here command to compile/build the package.
-	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS) || true
+	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) || true
 
 	# Build a second time to pick up h323 :-(
-	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS)
+	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS)
 
 
 	touch $@
