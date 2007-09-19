@@ -15,13 +15,9 @@ User, Groups, Permissions
 =========================
 By default the package will create user and group 'asterisk' and will run as
 them. It will run with real-time priority (-p) by default. It will also add
-itself to the group audio to enable the daemon to access sound cards. Running
-as root is disabled in /etc/init.d/asterisk for security reasons. If you use
-zaptel devices (like zaphfc too), you need to set permissions on /dev/zap to
-root.dialout or whatever other group you like and add the asterisk user to that
-group. Then make sure all the devicenodes below /dev/zap/ are 660 or asterisk
-will not have any access still. When no -G is given to the asterisk PARAMS,
-then asterisk will automatically initialize all groups of the asterisk user. 
+itself to the group audio to enable the daemon to access sound cards and to 
+the group dialout to access Zaptel devices. Running as root is disabled in 
+/etc/init.d/asterisk for security reasons. 
 
 To change those values you can edit /etc/default/asterisk. 
 
@@ -33,7 +29,7 @@ In addition to reload, that runs the asterisk CLI command 'reload' there
 are also extensions-reload ('extensions reload') and logger-reload 
 ('logger-reload') to load only parts of the configuration file. 
 
-Asterisk supports a number of non-default paramters at startup.  For debugging
+Asterisk supports a number of non-default parameters at startup.  For debugging
 it is often useful to run 'asterisk -U asterisk -vvvgc' from the console.  Add
 more -v for even higher verbosity. You can attach a remote console to a running
 asterisk daemon with 'asterisk -vcr'.  When testing, make sure to use the "-U
@@ -64,8 +60,8 @@ or
 
 Open Files Limit
 ===============
-Asterisk uses one filehandle (and aometime more) per call. Hence if you 
-have many simultanious calls, you often bump into the per-process limit 
+Asterisk uses one file-handle (and sometimes more) per call. Hence if you 
+have many simultaneous calls, you often bump into the per-process limit 
 of 1024 file handles, and get the error: "Too man open files".
 
 To enlarge that limit, set: MAXFILES in /etc/default/zaptel.
