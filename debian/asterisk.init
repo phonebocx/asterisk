@@ -41,7 +41,7 @@ PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
 PIDFILE_DIR=`dirname $PIDFILE`
 UMASK=007 # by default
-
+#MAXFILES=1024 # (the system default)
 
 # by default: use real-time priority
 PARAMS=""

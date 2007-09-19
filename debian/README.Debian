@@ -14,7 +14,7 @@ Sounds reside at /usr/share/asterisk/sounds. Voicemail mailboxes are below
 User, Groups, Permissions
 =========================
 By default the package will create user and group 'asterisk' and will run as
-them. It will optionally run with real-time priority (-p). It will also add
+them. It will run with real-time priority (-p) by default. It will also add
 itself to the group audio to enable the daemon to access sound cards. Running
 as root is disabled in /etc/init.d/asterisk for security reasons. If you use
 zaptel devices (like zaphfc too), you need to set permissions on /dev/zap to
@@ -23,8 +23,9 @@ group. Then make sure all the devicenodes below /dev/zap/ are 660 or asterisk
 will not have any access still. When no -G is given to the asterisk PARAMS,
 then asterisk will automatically initialize all groups of the asterisk user. 
 
-To change those values you can edit /etc/default/asterisk. You need to set
-RUNASTERISK=yes to make asterisk autostart upon boot.
+To change those values you can edit /etc/default/asterisk. 
+
+Alternatively, edit /etc/asterisk/asterisk.conf .
 
 init.d Script Commands
 ======================
@@ -40,6 +41,11 @@ asterisk", or asterisk may write files with root ownership. In that case you
 might not be able to restart the daemon without altering permissions to the
 files first.
 
+Alternatively use '/etc/init.d/asterisk debug'.
+
+Asterisk is run with a umask of 007 by default, to allow writing 
+group-owned voicemail files. To change this value, set the value if 'UMASK'
+in /etc/default/asterisk .
 
 Getting started with config and more features
 =============================================
