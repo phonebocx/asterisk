@@ -56,6 +56,15 @@ or
 	http://www.asteriskdocs.org/ (Asterisk Handbook)
 
 
+Open Files Limit
+===============
+Asterisk uses one filehandle (and aometime more) per call. Hence if you 
+have many simultanious calls, you often bump into the per-process limit 
+of 1024 file handles, and get the error: "Too man open files".
+
+To enlarge that limit, set: MAXFILES in /etc/default/zaptel.
+
+
 Enjoy your PBX!
 
 Kilian Krause (for the pkg-voip team)

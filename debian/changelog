@@ -23,7 +23,10 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   * Update backports scripts for libcurl4*-dev
   * Fix IMAP crash with upstream source snipplet. (Closes: #440187)
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 12 Sep 2007 03:46:25 +0300
+  [ Tzafrir Cohen ]
+  * Support increasing open files limit from init.d script.
+
+ -- Tzafrir Cohen <tzafrir.cohens@xorcom.com>  Wed, 19 Sep 2007 10:50:48 +0200
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 

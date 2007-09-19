@@ -116,6 +116,12 @@ then
 	umask $UMASK
 fi
 
+# allow changing the per-process open files limit:
+if [ "$MAXFILES" != '' ]
+then
+	ulimit -n $MAXFILES
+fi
+
 status() {
 	plist=`ps auxw | grep "$DAEMON" | grep -v grep | awk '{print $2}' | tr '\012' ' '`
 	if [ "$plist" = "" ]; then
