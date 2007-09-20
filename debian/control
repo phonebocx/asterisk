@@ -16,6 +16,7 @@ Conflicts: asterisk-classic, asterisk-bristuff
 Replaces: asterisk-classic, asterisk-bristuff
 Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev, asterisk-h323
 Description: Open Source Private Branch Exchange (PBX)
+Homepage: http://www.asterisk.org
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
  and Internet and telephony applications at the top.
@@ -38,8 +39,6 @@ Description: Open Source Private Branch Exchange (PBX)
  .
  This is the main package that includes the Asterisk daemon and most channel
  drivers and applications.
- .
- Website: http://www.asterisk.org.
 
 Package: asterisk-h323
 Architecture: any

@@ -17,6 +17,7 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   * Add a versioned >= 1.4 dependency of asterisk in asterisk-h323.
   * Don't use MAKEFLAGS as a variable in debian/rules since it has a special
     meaning for make. Reported by Simon Richter.
+  * Add Homepage field, as supported by dpkg 1.14.6.
 
   [ Kilian Krause ]
   * Add backport hook for Sarge. Update Dapper.
@@ -26,7 +27,7 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   [ Tzafrir Cohen ]
   * Support increasing open files limit from init.d script.
 
- -- Tzafrir Cohen <tzafrir.cohens@xorcom.com>  Wed, 19 Sep 2007 10:50:48 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 20 Sep 2007 09:33:26 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
