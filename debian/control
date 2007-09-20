@@ -7,6 +7,7 @@ Standards-Version: 3.7.2
 Build-Depends: debhelper (>= 5), zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libtonezone-dev (>= 1:1.4.1~0), bison, libasound2-dev, libpq-dev, unixodbc-dev, libpri-dev (>= 1.4.1-1), quilt, zaptel-source (>= 1:1.4.1~0), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl4-openssl-dev | libcurl-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), libiksemel-dev, libradiusclient-ng-dev, freetds-dev, libvorbis-dev, libsnmp10-dev | libsnmp-dev, libc-client2006j2-dev, dpkg-dev (>= 1.13.19)
 XS-Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
 XS-Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
+Homepage: http://www.asterisk.org
 
 Package: asterisk
 Architecture: any
@@ -16,7 +17,6 @@ Conflicts: asterisk-classic, asterisk-bristuff
 Replaces: asterisk-classic, asterisk-bristuff
 Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev, asterisk-h323
 Description: Open Source Private Branch Exchange (PBX)
-Homepage: http://www.asterisk.org
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
  and Internet and telephony applications at the top.
