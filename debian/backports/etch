@@ -10,7 +10,8 @@ sed -i -e 's#^\(Build-Depends:.*\)libcurl4[^\ ]*-dev[^\ ]* \(.*\)$#\1libcurl3-de
 # Replace libsnmp10-dev with libsnmp9-dev
 sed -i -e 's#^\(Build-Depends:.*\)libsnmp10-dev[^\ ]* \(.*\)$#\1libsnmp9-dev \2#' debian/control
 
-# Remove libc-client2006
+# Remove libc-client2006 and explicit imap support:
 sed -i -e 's#^\(Build-Depends:.*\)libc-client2006[^\ ]* \(.*\)$#\1 \2#' debian/control
+sed -i -e '/--with-imap/d' debian/rules
 
 exit 0
