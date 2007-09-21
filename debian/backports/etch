@@ -10,11 +10,4 @@ sed -i -e 's#^\(Build-Depends:.*\)libcurl4[^\ ]*-dev[^\ ]* \(.*\)$#\1libcurl3-de
 # Replace libsnmp10-dev with libsnmp9-dev
 sed -i -e 's#^\(Build-Depends:.*\)libsnmp10-dev[^\ ]* \(.*\)$#\1libsnmp9-dev \2#' debian/control
 
-# Remove libc-client2006 and explicit imap support:
-sed -i -e 's#^\(Build-Depends:.*\)libc-client2006[^\ ]* \(.*\)$#\1 \2#' debian/control
-# from --configure:
-sed -i -e '/--with-imap/d' debian/rules
-# from the editing of menuselect.makeopts:
-sed -i -e '/MENUSELECT_OPTS_app_voicemail/d' debian/rules
-
 exit 0
