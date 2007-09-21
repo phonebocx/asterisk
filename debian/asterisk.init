@@ -166,7 +166,8 @@ case "$1" in
 			$CHDIR_PARM \
 			--exec $REALDAEMON -- $PARAMS
 	else
-		start-stop-daemon --start --group $GROUP --make-pidfile \
+		start-stop-daemon --start --group $GROUP \
+			--background --make-pidfile \
 			$CHDIR_PARM --pidfile "$ASTSAFE_PIDFILE" \
 			--exec $REALDAEMON -- $PARAMS
 	fi
@@ -175,23 +176,22 @@ case "$1" in
 	echo "$NAME."
 	;;
   stop)
-	echo -n "Stopping $DESC: "
+	echo -n "Stopping $DESC: $NAME"
 	if [ "$RUNASTSAFE" = "yes" ];then
 		# hopefully this will work. Untested
-		$REALDAEMON -rx 'stop now' > /dev/null  || true
+		$DAEMON -rx 'stop now' > /dev/null  || true
+		## giving a small grace time to shut down cleanly.
+		#sleep 2 # you can add timeouts in the comma
+		start-stop-daemon --stop --quiet --oknodo \
+				  --pidfile $ASTSAFE_PIDFILE
+
+		rm -f $ASTSAFE_PIDFILE
 	else
 		# Try gracefully.
 		# this may hang in some cases. Specifically, when the asterisk
 		# processes is stopped. No bother to worry about cleanup: 
 		# it will either fail or die when asterisk dies.
 		( $DAEMON -rx 'stop now' > /dev/null 2>&1 & ) &
-	fi
-	echo -n "$NAME"
-	## giving a small grace time to shut down cleanly.
-	#sleep 2 # you can add timeouts in the comma
-	if [ "$RUNASTSAFE" = "yes" ];then
-		start-stop-daemon --quiet --pidfile $ASTSAFE_PIDFILE --oknodo \
-			--stop
 	fi
 	# just making sure it's really, really dead. 
 	# KILL is necessary just in case there's an asterisk -r in the background

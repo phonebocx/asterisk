@@ -18,6 +18,7 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   * Don't use MAKEFLAGS as a variable in debian/rules since it has a special
     meaning for make. Reported by Simon Richter.
   * Add Homepage field, as supported by dpkg 1.14.6.
+  * Fix init.d stop when using safe_asterisk. (Closes: #376514)
 
   [ Kilian Krause ]
   * Add backport hook for Sarge. Update Dapper.
@@ -27,7 +28,7 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   [ Tzafrir Cohen ]
   * Support increasing open files limit from init.d script.
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 20 Sep 2007 09:33:26 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 21 Sep 2007 08:35:42 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
