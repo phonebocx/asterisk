@@ -24,15 +24,13 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   * Move static-http and sample.call to asterisk's examples.
 
   [ Kilian Krause ]
-  * Add backport hook for Sarge. Update Dapper.
   * Update backports scripts for libcurl4*-dev
   * Fix IMAP crash with upstream source snipplet. (Closes: #440187)
-  * Add Homepage field as added in dpkg-dev 1.14.6.
 
   [ Tzafrir Cohen ]
   * Support increasing open files limit from init.d script.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 24 Sep 2007 12:46:11 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 24 Sep 2007 13:13:23 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 
