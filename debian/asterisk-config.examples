@@ -6,3 +6,4 @@ agi/eagi-sphinx-test.c
 agi/xagi-test.c
 agi/fastagi-test
 static-http
+contrib/scripts/vmail.cgi

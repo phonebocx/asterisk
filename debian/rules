@@ -159,10 +159,7 @@ install-indep: build-indep
 
 	install -m 0644 -D $(CURDIR)/debian/asterisk-config.lintian-overrides \
 		$(CURDIR)/debian/asterisk-config/usr/share/lintian/overrides/asterisk-config
-	
-	chmod +x $(CURDIR)/debian/asterisk-web-vmail/usr/lib/cgi-bin/asterisk/vmail.cgi
-	
-	
+
 # Build architecture-independent files here.
 binary-indep: install-indep
 	dh_testdir -i
@@ -182,7 +179,6 @@ binary-indep: install-indep
 	dh_gencontrol -i
 	dh_md5sums -i
 	dh_builddeb -i
-
 
 # Build architecture-dependent files here.
 binary-arch: install-arch

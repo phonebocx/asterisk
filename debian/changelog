@@ -19,6 +19,8 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
     meaning for make. Reported by Simon Richter.
   * Add Homepage field, as supported by dpkg 1.14.6.
   * Fix init.d stop when using safe_asterisk. (Closes: #376514)
+  * Drop asterisk-web-vmail package and place the script in
+    /usr/share/doc/asterisk-config.
 
   [ Kilian Krause ]
   * Add backport hook for Sarge. Update Dapper.
@@ -29,7 +31,7 @@ asterisk (1:1.4.11~dfsg-2) UNRELEASED; urgency=low
   [ Tzafrir Cohen ]
   * Support increasing open files limit from init.d script.
 
- -- Kilian Krause <kilian@debian.org>  Sat, 22 Sep 2007 12:08:44 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 24 Sep 2007 11:36:38 +0300
 
 asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
 

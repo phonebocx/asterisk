@@ -104,17 +104,6 @@ Description: Core Sound files for Asterisk (English)
  This package contains the default (core) sound files in English, useful for
  the operation of Asterisk.
 
-Package: asterisk-web-vmail
-Recommends: asterisk
-Architecture: all
-Depends: httpd-cgi, libapache-dbi-perl | libdbi-perl
-Section: comm
-Priority: extra
-Description: Web-based (CGI) voice mail interface for Asterisk
- Asterisk is an Open Source PBX and telephony toolkit.
- .
- This package contains a web-based interface for the voice-mail system.
-
 Package: asterisk-config
 Recommends: asterisk
 Conflicts: asterisk-config-custom
