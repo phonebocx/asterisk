@@ -1,7 +1,7 @@
 Fix some upstream Makefiles so that make distclean correctly cleans up the
 tree as shipped by Digium.
 
-Besides the ilbc "fix", it should be forwarded upstream.
+Forwarded as #10814, except the ilbc "fix".
 
  -- Faidon Liambotis <paravoid@debian.org>
 

@@ -1,7 +1,7 @@
 /bin/sh is not guranteed to handle bashisms. Switch interpreter of
 safe_asterisk to /bin/bash.
 
-Should be forwarded upstream.
+Forwarded as #10812.
 
  -- Mark Purcell <msp@debian.org>
 

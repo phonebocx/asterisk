@@ -8,7 +8,7 @@ See also http://www.junctionnetworks.com/Asterisk-config.htm
 Also fix the Makefile to copy all keys on make install instead of mentioning
 them explicitely.
 
-Should forward upstream.
+Forwarded as a note to #10811.
 
  -- Faidon Liambotis <paravoid@debian.org>
 

@@ -1,6 +1,6 @@
 Dynamically link against libc-client.
 
-Should forward upstream; needs more discussion.
+Forwarded as #10813.
 
  -- Faidon Liambotis <paravoid@debian.org>
 

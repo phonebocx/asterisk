@@ -5,10 +5,11 @@ results in a correct pidfile since the process doesn't fork.
 
 #376514, #362281
 
-Should be forwarded upstream since it doesn't change known behavior
-when BACKGROUND=1.
+Needs more work from me to not change behavior for users but only for the
+init script. After that, it can safely go upstream.
 
  -- Faidon Liambotis <paravoid@debian.org>
+
 --- asterisk-1.4.11~dfsg.orig/contrib/scripts/safe_asterisk
 +++ asterisk-1.4.11~dfsg/contrib/scripts/safe_asterisk
 @@ -11,6 +11,7 @@ DUMPDROP=/tmp

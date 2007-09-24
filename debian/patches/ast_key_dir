@@ -2,7 +2,7 @@ Put public/private keys in DATADIR/keys (aka /usr/share/asterisk/keys) instead
 of VARLIBDIR/keys. Besided being FHS compliant, that's where the Makefile
 installs them and what src/main/asterisk.c does when parsing asterisk.conf.
 
-Should be forwarded upstream.
+Forwarded as #10811.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
