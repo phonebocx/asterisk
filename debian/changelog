@@ -1,10 +1,9 @@
-asterisk (1:1.4.11~dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.4.11~dfsg-3) unstable; urgency=low
 
-  * NOT RELEASED YET.
   * Depend on libsnmp-dev instead of libsnmp10-dev. Fixes FTBFS
     (Closes: #444322)
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 27 Sep 2007 21:53:42 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 28 Sep 2007 05:58:29 +0300
 
 asterisk (1:1.4.11~dfsg-2) unstable; urgency=low
 
