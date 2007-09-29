@@ -1,8 +1,12 @@
 asterisk (1:1.4.11~dfsg-4) UNRELEASED; urgency=low
 
+  [ Faidon Liambotis ]
   * NOT RELEASED YET
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 28 Sep 2007 06:30:48 +0300
+  [ Tzafrir Cohen ]
+  * Remove imap support to get back original files voicemail functionality.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 29 Sep 2007 03:21:59 +0200
 
 asterisk (1:1.4.11~dfsg-3) unstable; urgency=low
 

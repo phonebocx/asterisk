@@ -71,7 +71,6 @@ config.status: check-sounds patch
 		--mandir=\$${prefix}/share/man \
 		--infodir=\$${prefix}/share/info \
 		--with-gsm \
-		--with-imap=/usr/include \
 		--with-pwlib=/usr/share/pwlib/include/ \
 		--with-h323=/usr/share/openh323/ 
 
@@ -79,9 +78,6 @@ config.status: check-sounds patch
 menuselect.makeopts: config.status
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) menuselect.makeopts
 	sed -i -e '/^MENUSELECT_MOH=/d' menuselect.makeopts
-
-	# enable IMAP storage for Voicemail
-	sed -i -e '/^MENUSELECT_OPTS_app_voicemail=/s/$$/IMAP_STORAGE/' menuselect.makeopts
 
 	# some voodoo in order to get chan_h323 built, and make it in one
 	# build pass:
