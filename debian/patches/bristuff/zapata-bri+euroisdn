@@ -2730,7 +2730,7 @@
 +;
 +; no:		no transfers allowed (results in hangup)
 +; ect:  	use ECT (facility)
-+: hangup:	transfer on hangup (if your phones dont support ECT)
++; hangup:	transfer on hangup (if your phones dont support ECT)
 +;
 +; pritransfer = ect
 +;

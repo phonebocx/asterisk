@@ -5,8 +5,9 @@ asterisk (1:1.4.11~dfsg-4) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * Remove imap support to get back original files voicemail functionality.
+  * Fix comment in patches/bristuff/zapata-bri+euroisdn (by nickzxcv).
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 29 Sep 2007 03:21:59 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 30 Sep 2007 15:12:09 +0200
 
 asterisk (1:1.4.11~dfsg-3) unstable; urgency=low
 
