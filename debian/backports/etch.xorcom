@@ -3,6 +3,9 @@
 # Hook for extra backport changes of the xorcom buildd.
 #
 
+# Disable script for now:
+exit 0
+
 # Remove libc-client2006 and explicit imap support:
 sed -i -e 's#^\(Build-Depends:.*\)libc-client2006[^\ ]* \(.*\)$#\1 \2#' debian/control
 # from --configure:
