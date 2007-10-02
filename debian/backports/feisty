@@ -8,6 +8,6 @@
 sed -i -e 's#^\(Build-Depends:.*\)libcurl4[^\ ]*-dev[^\ ]* \(.*\)$#\1libcurl3-dev \2#' debian/control
 
 # Replace libsnmp-dev with libsnmp9-dev
-sed -i -e 's#^\(Build-Depends:.*\)libsnmp-dev[^\ ]* \(.*\)$#\1libsnmp9-dev \2#' debian/control
+sed -i -e 's#^\(Build-Depends:.*\)libsnmp-dev[^\ ]* \(.*\)$#\1libsnmp9-dev, \2#' debian/control
 
 exit 0
