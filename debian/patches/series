@@ -9,6 +9,7 @@ h323-workaround-openh323-segfault
 # new features
 pubkey_jnctn
 func_devstate
+tos-libcap
 
 ### bristuff
 bristuff/bristuff-notice

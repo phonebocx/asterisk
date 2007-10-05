@@ -12,8 +12,12 @@ asterisk (1:1.4.12~dfsg-1) UNRELEASED; urgency=low
     make doesn't fail on clean.
   * Pass NOISY_BUILD to make so that the GCC arguments can be examined in
     build logs.
+  * Remove versioned dependency on dpkg-dev since that particular version is
+    present since etch (sarge is not supported as a backport target anymore).
+  * Backport a patch from trunk so that Asterisk can set the IP ToS bits when
+    it is run as a simple user (as we do).
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 05 Oct 2007 05:11:56 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 05 Oct 2007 06:11:27 +0300
 
 asterisk (1:1.4.11~dfsg-4) unstable; urgency=low
 
