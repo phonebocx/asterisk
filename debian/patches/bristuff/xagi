@@ -1,5 +1,5 @@
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/agi.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/agi.h
+--- asterisk-1.4.12.orig/include/asterisk/agi.h
++++ asterisk-1.4.12/include/asterisk/agi.h
 @@ -29,7 +29,8 @@ extern "C" {
  
  typedef struct agi_state {
@@ -8,10 +8,10 @@
 +	int audio_out;	/* FD for audio output */
 +	int audio_in;	/* FD for audio output */
  	int ctrl;	/* FD for input control */
+ 	unsigned int fast:1; /* flag for fast agi or not */
  } AGI;
- 
---- asterisk-1.4.10.1~dfsg.orig/res/res_agi.c
-+++ asterisk-1.4.10.1~dfsg/res/res_agi.c
+--- asterisk-1.4.12.orig/res/res_agi.c
++++ asterisk-1.4.12/res/res_agi.c
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -22,7 +22,7 @@
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -73,16 +76,19 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
+@@ -75,16 +78,19 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  
  static char *app = "AGI";
  
@@ -43,7 +43,7 @@
  "program on a channel. AGI allows Asterisk to launch external programs\n"
  "written in any language to control a telephony channel, play audio,\n"
  "read DTMF digits, etc. by communicating with the AGI protocol on stdin\n"
-@@ -95,6 +101,8 @@ static char *descrip =
+@@ -97,6 +103,8 @@ static char *descrip =
  "variable to \"no\" before executing the AGI application.\n"
  "  Using 'EAGI' provides enhanced AGI, with incoming audio available out of band\n"
  "on file descriptor 3\n\n"
@@ -52,8 +52,8 @@
  "  Use the CLI command 'agi show' to list available agi commands\n"
  "  This application sets the following channel variable upon completion:\n"
  "     AGISTATUS      The status of the attempt to the run the AGI script\n"
-@@ -233,13 +241,14 @@ static enum agi_result launch_netscript(
- 	return AGI_RESULT_SUCCESS;
+@@ -236,13 +244,14 @@ static enum agi_result launch_netscript(
+ 	return AGI_RESULT_SUCCESS_FAST;
  }
  
 -static enum agi_result launch_script(char *script, char *argv[], int *fds, int *efd, int *opid)
@@ -68,7 +68,7 @@
  	int x;
  	int res;
  	sigset_t signal_set, old_set;
-@@ -284,6 +293,33 @@ static enum agi_result launch_script(cha
+@@ -287,6 +296,33 @@ static enum agi_result launch_script(cha
  			return AGI_RESULT_FAILURE;
  		}
  	}
@@ -102,7 +102,7 @@
  
  	/* Block SIGHUP during the fork - prevents a race */
  	sigfillset(&signal_set);
-@@ -319,6 +355,11 @@ static enum agi_result launch_script(cha
+@@ -322,6 +358,11 @@ static enum agi_result launch_script(cha
  		} else {
  			close(STDERR_FILENO + 1);
  		}
@@ -114,7 +114,7 @@
  
  		/* Before we unblock our signals, return our trapped signals back to the defaults */
  		signal(SIGHUP, SIG_DFL);
-@@ -336,7 +377,7 @@ static enum agi_result launch_script(cha
+@@ -339,7 +380,7 @@ static enum agi_result launch_script(cha
  		}
  
  		/* Close everything but stdin/out/error */
@@ -123,7 +123,7 @@
  			close(x);
  
  		/* Execute script */
-@@ -354,12 +395,19 @@ static enum agi_result launch_script(cha
+@@ -357,12 +398,19 @@ static enum agi_result launch_script(cha
  	if (efd) {
  		*efd = audio[1];
  	}
@@ -144,7 +144,7 @@
  
  	*opid = pid;
  	return AGI_RESULT_SUCCESS;
-@@ -389,7 +437,7 @@ static void setup_env(struct ast_channel
+@@ -392,7 +440,7 @@ static void setup_env(struct ast_channel
  	fdprintf(fd, "agi_context: %s\n", chan->context);
  	fdprintf(fd, "agi_extension: %s\n", chan->exten);
  	fdprintf(fd, "agi_priority: %d\n", chan->priority);
@@ -153,7 +153,7 @@
  
  	/* User information */
  	fdprintf(fd, "agi_accountcode: %s\n", chan->accountcode ? chan->accountcode : "");
-@@ -418,7 +466,7 @@ static int handle_waitfordigit(struct as
+@@ -421,7 +469,7 @@ static int handle_waitfordigit(struct as
  		return RESULT_SHOWUSAGE;
  	if (sscanf(argv[3], "%d", &to) != 1)
  		return RESULT_SHOWUSAGE;
@@ -162,7 +162,7 @@
  	fdprintf(agi->fd, "200 result=%d\n", res);
  	return (res >= 0) ? RESULT_SUCCESS : RESULT_FAILURE;
  }
-@@ -593,7 +641,7 @@ static int handle_streamfile(struct ast_
+@@ -596,7 +644,7 @@ static int handle_streamfile(struct ast_
  	if (vfs)
  		ast_playstream(vfs);
  	
@@ -171,7 +171,7 @@
  	/* this is to check for if ast_waitstream closed the stream, we probably are at
  	 * the end of the stream, return that amount, else check for the amount */
  	sample_offset = (chan->stream) ? ast_tellstream(fs) : max_length;
-@@ -654,7 +702,7 @@ static int handle_getoption(struct ast_c
+@@ -657,7 +705,7 @@ static int handle_getoption(struct ast_c
  	if (vfs)
  		ast_playstream(vfs);
  
@@ -180,7 +180,7 @@
  	/* this is to check for if ast_waitstream closed the stream, we probably are at
  	 * the end of the stream, return that amount, else check for the amount */
  	sample_offset = (chan->stream)?ast_tellstream(fs):max_length;
-@@ -666,7 +714,7 @@ static int handle_getoption(struct ast_c
+@@ -669,7 +717,7 @@ static int handle_getoption(struct ast_c
  
  	/* If the user didnt press a key, wait for digitTimeout*/
  	if (res == 0 ) {
@@ -189,7 +189,7 @@
  		/* Make sure the new result is in the escape digits of the GET OPTION */
  		if ( !strchr(edigits,res) )
  			res=0;
-@@ -690,7 +738,7 @@ static int handle_saynumber(struct ast_c
+@@ -693,7 +741,7 @@ static int handle_saynumber(struct ast_c
  		return RESULT_SHOWUSAGE;
  	if (sscanf(argv[2], "%d", &num) != 1)
  		return RESULT_SHOWUSAGE;
@@ -198,7 +198,7 @@
  	if (res == 1)
  		return RESULT_SUCCESS;
  	fdprintf(agi->fd, "200 result=%d\n", res);
-@@ -707,7 +755,7 @@ static int handle_saydigits(struct ast_c
+@@ -710,7 +758,7 @@ static int handle_saydigits(struct ast_c
  	if (sscanf(argv[2], "%d", &num) != 1)
  		return RESULT_SHOWUSAGE;
  
@@ -207,7 +207,7 @@
  	if (res == 1) /* New command */
  		return RESULT_SUCCESS;
  	fdprintf(agi->fd, "200 result=%d\n", res);
-@@ -721,7 +769,7 @@ static int handle_sayalpha(struct ast_ch
+@@ -724,7 +772,7 @@ static int handle_sayalpha(struct ast_ch
  	if (argc != 4)
  		return RESULT_SHOWUSAGE;
  
@@ -216,7 +216,7 @@
  	if (res == 1) /* New command */
  		return RESULT_SUCCESS;
  	fdprintf(agi->fd, "200 result=%d\n", res);
-@@ -799,7 +847,7 @@ static int handle_sayphonetic(struct ast
+@@ -802,7 +850,7 @@ static int handle_sayphonetic(struct ast
  	if (argc != 4)
  		return RESULT_SHOWUSAGE;
  
@@ -225,7 +225,7 @@
  	if (res == 1) /* New command */
  		return RESULT_SUCCESS;
  	fdprintf(agi->fd, "200 result=%d\n", res);
-@@ -823,7 +871,7 @@ static int handle_getdata(struct ast_cha
+@@ -826,7 +874,7 @@ static int handle_getdata(struct ast_cha
  		max = atoi(argv[4]); 
  	else
  		max = 1024;
@@ -234,20 +234,21 @@
  	if (res == 2)			/* New command */
  		return RESULT_SUCCESS;
  	else if (res == 1)
-@@ -1831,7 +1879,12 @@ static enum agi_result run_agi(struct as
+@@ -1833,8 +1881,13 @@ static enum agi_result run_agi(struct as
  	int ms;
  	enum agi_result returnstatus = AGI_RESULT_SUCCESS;
  	struct ast_frame *f;
 +	struct ast_frame fr;
- 	char buf[2048];
-+	char audiobuf[2048];
+ 	char buf[AGI_BUF_LEN];
++	char audiobuf[AGI_BUF_LEN];
+ 	char *res = NULL;
 +	int audiobytes;
 +	int fds[2];
 +	int enhanced = 0;
  	FILE *readf;
  	/* how many times we'll retry if ast_waitfor_nandfs will return without either 
  	  channel or file descriptor in case select is interrupted by a system call (EINTR) */
-@@ -1845,10 +1898,22 @@ static enum agi_result run_agi(struct as
+@@ -1848,10 +1901,22 @@ static enum agi_result run_agi(struct as
  		return AGI_RESULT_FAILURE;
  	}
  	setlinebuf(readf);
@@ -270,9 +271,9 @@
 +		    c = ast_waitfor_nandfds(&chan, dead ? 0 : 1, &agi->ctrl, 1, NULL, &outfd, &ms);
 +		}
  		if (c) {
- 			retry = RETRY;
+ 			retry = AGI_NANDFS_RETRY;
  			/* Idle the channel until we get a command */
-@@ -1859,13 +1924,24 @@ static enum agi_result run_agi(struct as
+@@ -1862,13 +1927,23 @@ static enum agi_result run_agi(struct as
  				break;
  			} else {
  				/* If it's voice, write it to the audio pipe */
@@ -288,7 +289,6 @@
 +		    if ((agi->audio_in > -1) && (outfd == agi->audio_in)) {
 +			audiobytes = read(agi->audio_in, audiobuf, sizeof(audiobuf));
 +			if (audiobytes > 0) {
-+			//    ast_log(LOG_NOTICE, "read %d bytes of audio\n", audiobytes);
 +			    fr.frametype = AST_FRAME_VOICE;
 +			    fr.subclass = AST_FORMAT_SLINEAR;
 +			    fr.datalen = audiobytes;
@@ -296,10 +296,10 @@
 +			    ast_write(chan, &fr);
 +			}
 +		    } else {
- 			retry = RETRY;
- 			if (!fgets(buf, sizeof(buf), readf)) {
- 				/* Program terminated */
-@@ -1889,6 +1965,7 @@ static enum agi_result run_agi(struct as
+ 			size_t len = sizeof(buf);
+ 			size_t buflen = 0;
+ 
+@@ -1914,6 +1989,7 @@ static enum agi_result run_agi(struct as
  			if ((returnstatus < 0) || (returnstatus == AST_PBX_KEEPALIVE)) {
  				break;
  			}
@@ -307,7 +307,7 @@
  		} else {
  			if (--retry <= 0) {
  				ast_log(LOG_WARNING, "No channel, no fd?\n");
-@@ -1997,6 +2074,7 @@ static int agi_exec_full(struct ast_chan
+@@ -2022,6 +2098,7 @@ static int agi_exec_full(struct ast_chan
  	int argc = 0;
  	int fds[2];
  	int efd = -1;
@@ -315,23 +315,23 @@
  	int pid;
          char *stringp;
  	AGI agi;
-@@ -2022,12 +2100,13 @@ static int agi_exec_full(struct ast_chan
+@@ -2047,12 +2124,13 @@ static int agi_exec_full(struct ast_chan
  		}
  	}
  #endif
 -	res = launch_script(argv[0], argv, fds, enhanced ? &efd : NULL, &pid);
 +	res = launch_script(argv[0], argv, fds, enhanced ? &efd : NULL, (enhanced == 2) ? &efd2 : NULL, &pid);
- 	if (res == AGI_RESULT_SUCCESS) {
+ 	if (res == AGI_RESULT_SUCCESS || res == AGI_RESULT_SUCCESS_FAST) {
  		int status = 0;
  		agi.fd = fds[1];
  		agi.ctrl = fds[0];
 -		agi.audio = efd;
 +		agi.audio_out = efd;
 +		agi.audio_in = efd2;
+ 		agi.fast = (res == AGI_RESULT_SUCCESS_FAST) ? 1 : 0;
  		res = run_agi(chan, argv[0], &agi, pid, &status, dead);
  		/* If the fork'd process returns non-zero, set AGISTATUS to FAILURE */
- 		if (res == AGI_RESULT_SUCCESS && status)
-@@ -2036,6 +2115,8 @@ static int agi_exec_full(struct ast_chan
+@@ -2062,6 +2140,8 @@ static int agi_exec_full(struct ast_chan
  			close(fds[1]);
  		if (efd > -1)
  			close(efd);
@@ -340,7 +340,7 @@
  		ast_unreplace_sigchld();
  	}
  	ast_module_user_remove(u);
-@@ -2083,6 +2164,35 @@ static int eagi_exec(struct ast_channel 
+@@ -2110,6 +2190,35 @@ static int eagi_exec(struct ast_channel 
  	return res;
  }
  
@@ -376,7 +376,7 @@
  static int deadagi_exec(struct ast_channel *chan, void *data)
  {
  	if (!ast_check_hangup(chan))
-@@ -2138,6 +2248,7 @@ static int unload_module(void)
+@@ -2165,6 +2274,7 @@ static int unload_module(void)
  {
  	ast_module_user_hangup_all();
  	ast_cli_unregister_multiple(cli_agi, sizeof(cli_agi) / sizeof(struct ast_cli_entry));
@@ -384,7 +384,7 @@
  	ast_unregister_application(eapp);
  	ast_unregister_application(deadapp);
  	return ast_unregister_application(app);
-@@ -2148,6 +2259,7 @@ static int load_module(void)
+@@ -2175,6 +2285,7 @@ static int load_module(void)
  	ast_cli_register_multiple(cli_agi, sizeof(cli_agi) / sizeof(struct ast_cli_entry));
  	ast_register_application(deadapp, deadagi_exec, deadsynopsis, descrip);
  	ast_register_application(eapp, eagi_exec, esynopsis, descrip);
@@ -393,7 +393,7 @@
  }
  
 --- /dev/null
-+++ asterisk-1.4.10.1~dfsg/agi/xagi-test.c
++++ asterisk-1.4.12/agi/xagi-test.c
 @@ -0,0 +1,175 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -570,8 +570,8 @@
 +		return -1;
 +	exit(0);
 +}
---- asterisk-1.4.10.1~dfsg.orig/agi/Makefile
-+++ asterisk-1.4.10.1~dfsg/agi/Makefile
+--- asterisk-1.4.12.orig/agi/Makefile
++++ asterisk-1.4.12/agi/Makefile
 @@ -13,7 +13,7 @@
  
  .PHONY: clean all uninstall

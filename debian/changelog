@@ -1,8 +1,17 @@
-asterisk (1:1.4.11~dfsg-5) UNRELEASED; urgency=low
+asterisk (1:1.4.12~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * New upstream release.
+    - Implemented Dynamic DUNDi peering support (Closes: #439331)
+    - Removed merged patches: bashism-safeasterisk, ast_key_dir,
+      h323-add-missing-ptrace-guard, CVE-2007-4521.
+    - Adapted patches: make-clean-fixes, h323-no-deps-on-asterisk.
+    - Adapted bristuff 0.4.0-test4 to apply to 1.4.12 (bristuff.notice,
+      xagi, app-dial-c-callback, app-dial-priority-202)
+  * When DFSG-ing the tarball, create a fake codecs/ilbc/Makefile so that
+    make doesn't fail on clean.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 01 Oct 2007 17:25:45 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 05 Oct 2007 05:02:26 +0300
 
 asterisk (1:1.4.11~dfsg-4) unstable; urgency=low
 

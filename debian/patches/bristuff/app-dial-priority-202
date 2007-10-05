@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_dial.c
-+++ asterisk-1.4.8~dfsg/apps/app_dial.c
+--- asterisk-1.4.12.orig/apps/app_dial.c
++++ asterisk-1.4.12/apps/app_dial.c
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -18,10 +18,10 @@
 -"    j    - Jump to priority n+101 if all of the requested channels were busy.\n"
 +"    j    - Jump to priority n+101 if the called party was busy.\n"
 +"           Jump to priority n+201 if all of the requested channels were busy.\n"
- "    L(x[:y][:z]) - Limit the call to 'x' ms. Play a warning when 'y' ms are\n"
- "           left. Repeat the warning every 'z' ms. The following special\n"
- "           variables can be used with this option:\n"
-@@ -1258,10 +1263,12 @@ static int dial_exec_full(struct ast_cha
+ "    k    - Allow the called party to enable parking of the call by sending\n"
+ "           the DTMF sequence defined for call parking in features.conf.\n"
+ "    K    - Allow the calling party to enable parking of the call by sending\n"
+@@ -1263,10 +1268,12 @@ static int dial_exec_full(struct ast_cha
  	}
  
  	if (!outgoing) {

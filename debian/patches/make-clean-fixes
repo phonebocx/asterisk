@@ -1,7 +1,5 @@
-Fix some upstream Makefiles so that make distclean correctly cleans up the
-tree as shipped by Digium.
-
-Forwarded as #10814, except the ilbc "fix".
+Don't remove sounds on dist-clean, upstream tarballs come with
+one of them.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
@@ -26,45 +24,3 @@ Forwarded as #10814, except the ilbc "fix".
  datafiles: _all
  	if [ x`$(ID) -un` = xroot ]; then CFLAGS="$(ASTCFLAGS)" sh build_tools/mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
  # Should static HTTP be installed during make samples or even with its own target ala
---- asterisk-1.4.10.1~dfsg.orig/channels/Makefile
-+++ asterisk-1.4.10.1~dfsg/channels/Makefile
-@@ -68,6 +68,7 @@ ifneq ($(wildcard h323/Makefile.ast),)
- H323LDFLAGS+=-Wl,--version-script=h323/noexport.map
- clean::
- 	$(MAKE) -C h323 clean
-+	rm -f h323/Makefile
- else
- h323/libchanh323.a h323/Makefile.ast:
- 	$(CMD_PREFIX) $(MAKE) -C h323
---- asterisk-1.4.10.1~dfsg.orig/codecs/Makefile
-+++ asterisk-1.4.10.1~dfsg/codecs/Makefile
-@@ -38,7 +38,7 @@ endif
- clean::
- 	$(MAKE) -C gsm clean
- 	$(MAKE) -C lpc10 clean
--	$(MAKE) -C ilbc clean
-+	-$(MAKE) -C ilbc clean
- 
- gsm/lib/libgsm.a:
- 	@mkdir -p gsm/lib
---- asterisk-1.4.10.1~dfsg.orig/menuselect/Makefile
-+++ asterisk-1.4.10.1~dfsg/menuselect/Makefile
-@@ -79,6 +79,6 @@ clean:
- dist-clean: distclean
- 
- distclean: clean
--	@if test -f mxml/Makefile ; then $(MAKE) -C mxml clean ; fi
-+	@if test -f mxml/Makefile ; then $(MAKE) -C mxml distclean ; fi
- 	rm -f autoconfig.h config.status config.log makeopts
- 	rm -rf autom4te.cache
---- asterisk-1.4.10.1~dfsg.orig/menuselect/mxml/Makefile.in
-+++ asterisk-1.4.10.1~dfsg/menuselect/mxml/Makefile.in
-@@ -119,6 +119,8 @@ clean:
- 	$(RM) config.cache config.log config.status config.h
- 	$(RM) -r autom4te*.cache
- 
-+distclean: clean
-+	$(RM) mxml.list Makefile
- 
- #
- # Install everything...

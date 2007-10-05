@@ -213,7 +213,9 @@ get-orig-source:
 	tar xfz ../$(UPFILENAME) 
 	@@rm -f  $(TMP_TARBALL_TOP)/sounds/fpm-*.mp3
 	@@rm -f  $(TMP_TARBALL_TOP)/sounds/asterisk-moh-freeplay-wav.tar.gz
-	@@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc 
+	@@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc/*
+	@@printf "all:\nclean:\n.PHONY: all clean\n" > \
+		$(TMP_TARBALL_TOP)/codecs/ilbc/Makefile
 	@@rm -f  $(TMP_TARBALL_TOP)/codecs/codec_ilbc.c
 	@@rm -rf $(TMP_TARBALL_TOP)/contrib/firmware/
 	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \

@@ -39,7 +39,7 @@
 +					    if (option_verbose > 2)
  						ast_verbose(VERBOSE_PREFIX_3 "%s is ringing\n", c->name);
 -					/* Setup early media if appropriate */
--					if (single)
+-					if (single && CAN_EARLY_BRIDGE(peerflags))
 +					    /* Setup early media if appropriate */
 +					    if (single)
  						ast_rtp_early_bridge(in, c);
