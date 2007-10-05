@@ -10,8 +10,10 @@ asterisk (1:1.4.12~dfsg-1) UNRELEASED; urgency=low
       xagi, app-dial-c-callback, app-dial-priority-202)
   * When DFSG-ing the tarball, create a fake codecs/ilbc/Makefile so that
     make doesn't fail on clean.
+  * Pass NOISY_BUILD to make so that the GCC arguments can be examined in
+    build logs.
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 05 Oct 2007 05:02:26 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 05 Oct 2007 05:11:56 +0300
 
 asterisk (1:1.4.11~dfsg-4) unstable; urgency=low
 
