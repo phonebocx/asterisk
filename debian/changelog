@@ -23,8 +23,9 @@ asterisk (1:1.4.12~dfsg-1) UNRELEASED; urgency=low
   * Re-enable IMAP support and enable ODBC support; this time they are
     provided as app_voicemail_imap.so and _odbc.so so that they don't break
     existing setups.
+  * Build with -O1 on hppa to workaround gcc-4.2 ICE (#445336).
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 05 Oct 2007 10:14:46 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 06 Oct 2007 00:20:43 +0300
 
 asterisk (1:1.4.11~dfsg-4) unstable; urgency=low
 
