@@ -1,6 +1,10 @@
 asterisk (1:1.4.12~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+    - DO NOT UPLOAD AS-IS. libc-client2006j2 (aka uw-imap) isn't transitioning
+      to testing yet and may hold asterisk back. Wait until the migration
+      happens.
+
   * New upstream release.
     - Implemented Dynamic DUNDi peering support (Closes: #439331)
     - Removed merged patches: bashism-safeasterisk, ast_key_dir,
