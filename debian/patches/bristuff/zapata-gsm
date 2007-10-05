@@ -84,13 +84,13 @@
  static int zt_hangup(struct ast_channel *ast);
  static int zt_answer(struct ast_channel *ast);
 @@ -1364,6 +1387,8 @@ static char *zap_sig2str(int sig)
- 		return "GR-303 Signalling with FXOKS";
+ 		return "GR-303 with FXOKS";
  	case SIG_GR303FXSKS:
- 		return "GR-303 Signalling with FXSKS";
+ 		return "GR-303 with FXSKS";
 +	case SIG_GSM:
-+		return "GSM Signalling";
++		return "GSM";
  	case 0:
- 		return "Pseudo Signalling";
+ 		return "Pseudo";
  	default:
 @@ -1785,7 +1810,7 @@ static inline int zt_confmute(struct zt_
  {

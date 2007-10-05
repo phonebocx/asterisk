@@ -41,7 +41,7 @@
 -					/* Setup early media if appropriate */
 -					if (single && CAN_EARLY_BRIDGE(peerflags))
 +					    /* Setup early media if appropriate */
-+					    if (single)
++					    if (single && CAN_EARLY_BRIDGE(peerflags))
  						ast_rtp_early_bridge(in, c);
 -					if (!(*sentringing) && !ast_test_flag(outgoing, OPT_MUSICBACK)) {
 +					    if (!(*sentringing) && !ast_test_flag(outgoing, OPT_MUSICBACK)) {

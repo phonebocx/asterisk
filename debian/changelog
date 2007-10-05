@@ -1,4 +1,4 @@
-asterisk (1:1.4.12~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.12.1~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
     - DO NOT UPLOAD AS-IS. libc-client2006j2 (aka uw-imap) isn't transitioning
@@ -25,7 +25,7 @@ asterisk (1:1.4.12~dfsg-1) UNRELEASED; urgency=low
     existing setups.
   * Build with -O1 on hppa to workaround gcc-4.2 ICE (#445336).
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 06 Oct 2007 00:20:43 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 06 Oct 2007 00:27:56 +0300
 
 asterisk (1:1.4.11~dfsg-4) unstable; urgency=low
 

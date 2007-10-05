@@ -12,8 +12,8 @@
 --- asterisk-1.4.12.orig/.version
 +++ asterisk-1.4.12/.version
 @@ -1 +1 @@
--1.4.12
-+1.4.12-BRIstuffed-0.4.0-test4
+-1.4.12.1
++1.4.12.1-BRIstuffed-0.4.0-test4
 --- asterisk-1.4.12.orig/LICENSE
 +++ asterisk-1.4.12/LICENSE
 @@ -1,7 +1,7 @@
