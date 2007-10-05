@@ -16,8 +16,11 @@ asterisk (1:1.4.12~dfsg-1) UNRELEASED; urgency=low
     present since etch (sarge is not supported as a backport target anymore).
   * Backport a patch from trunk so that Asterisk can set the IP ToS bits when
     it is run as a simple user (as we do).
+  * Re-enable IMAP support and enable ODBC support; this time they are
+    provided as app_voicemail_imap.so and _odbc.so so that they don't break
+    existing setups.
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 05 Oct 2007 06:11:27 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 05 Oct 2007 10:14:46 +0300
 
 asterisk (1:1.4.11~dfsg-4) unstable; urgency=low
 

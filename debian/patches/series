@@ -1,5 +1,6 @@
 # upstream fixes
 configure-libc-client
+hack-multiple-app-voicemail
 astvarrundir
 make-clean-fixes
 safe_asterisk-nobg

@@ -75,6 +75,7 @@ config.status: check-sounds patch
 		--infodir=\$${prefix}/share/info \
 		--with-cap \
 		--with-gsm \
+		--with-imap=/usr/include \
 		--with-pwlib=/usr/share/pwlib/include/ \
 		--with-h323=/usr/share/openh323/ 
 

@@ -3,14 +3,11 @@
 # Hook for extra backport changes of the xorcom buildd.
 #
 
-# Disable script for now:
-exit 0
-
 # Remove libc-client2006 and explicit imap support:
 sed -i -e 's#^\(Build-Depends:.*\)libc-client2006[^\ ]* \(.*\)$#\1 \2#' debian/control
 # from --configure:
 sed -i -e '/--with-imap/d' debian/rules
-# from the editing of menuselect.makeopts:
-sed -i -e '/MENUSELECT_OPTS_app_voicemail/d' debian/rules
+# disable patch that enables building of app_voicemail_{imap,odbc}.so
+sed -i -e '/hack-multiple-app-voicemail/d' debian/patches/series
 
 exit 0
