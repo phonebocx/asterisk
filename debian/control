@@ -32,6 +32,7 @@ Description: Open Source Private Branch Exchange (PBX)
   * Various clones of Digium cards such as those by beroNet, Junghanns.NET,
     OpenVox etc.
   * Xorcom Astribank USB telephony adapter (http://www.xorcom.com)
+  * Voicetronix OpenPCI cards
   * CAPI-compatible ISDN cards (using the add-on package chan-capi)
   * Full Duplex Sound Card (ALSA or OSS) supported by Linux
   * Tormenta T1/E1 card (http://www.bsdtelephony.com.mx)
