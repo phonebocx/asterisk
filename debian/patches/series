@@ -2,6 +2,7 @@
 configure-libc-client
 hack-multiple-app-voicemail
 astvarrundir
+keep-fileformat-abi
 make-clean-fixes
 safe_asterisk-nobg
 h323-no-deps-on-asterisk
