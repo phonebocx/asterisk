@@ -1,4 +1,4 @@
-asterisk (1:1.4.12.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.13~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
     - DO NOT UPLOAD AS-IS. libc-client2006j2 (aka uw-imap) isn't transitioning
@@ -26,10 +26,8 @@ asterisk (1:1.4.12.1~dfsg-1) UNRELEASED; urgency=low
   * Build with -O1 on hppa to workaround gcc-4.2 ICE (#445336).
   * Zaptel package added support for Voicetronix OpenPCI cards, mention it on
     asterisk's description.
-  * Patch upstream source to not break the ABI on externally compiled format
-    modules. Fixes a crash of format_mp3.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 10 Oct 2007 05:11:26 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 10 Oct 2007 19:59:25 +0300
 
 asterisk (1:1.4.11~dfsg-4) unstable; urgency=low
 
