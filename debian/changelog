@@ -1,3 +1,9 @@
+asterisk (1:1.4.13~dfsg-2) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET. 
+
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 11 Oct 2007 08:09:31 +0300
+
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
   * New upstream release.
