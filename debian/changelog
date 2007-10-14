@@ -1,8 +1,14 @@
 asterisk (1:1.4.13~dfsg-2) UNRELEASED; urgency=low
 
-  * NOT RELEASED YET. 
+  * NOT RELEASED YET.
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 11 Oct 2007 08:09:31 +0300
+  [ Tzafrir Cohen ]
+  * Add some sample/reference config files as documentation.
+  * Provide asterisk-bristuff for upgrading from Etch.
+  * Move libc-client to not be last, so debian/backports/xorcom.etch would
+    still work.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 14 Oct 2007 11:40:17 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
