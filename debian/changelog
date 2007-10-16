@@ -8,7 +8,12 @@ asterisk (1:1.4.13~dfsg-2) UNRELEASED; urgency=low
   * Move libc-client to not be last, so debian/backports/xorcom.etch would
     still work.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 14 Oct 2007 19:52:34 +0300
+  [ Faidon Liambotis ]
+  * Really enable the libcap/ToS functionality; the previous patch didn't
+    enable the functionality, even though the code and the libcap.so
+    dependency were there.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 16 Oct 2007 18:55:02 +0300
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
