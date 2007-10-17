@@ -12,6 +12,9 @@ pubkey_jnctn
 func_devstate
 tos-libcap
 
+# for chan_vpb
+vpb-driver-4.2.18
+
 ### bristuff
 bristuff/bristuff-notice
 

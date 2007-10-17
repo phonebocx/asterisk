@@ -1,0 +1,516 @@
+Update chan_vpb so that it can work with newer vpb-driver source like the one
+present in Debian
+
+ -- Ron <ron@debian.org>
+
+--- asterisk-1.4.13/channels/chan_vpb.cc	2007-07-06 00:58:27.000000000 +0930
++++ asterisk-1.4.13+vpb-driver-4.2.18/channels/chan_vpb.cc	2007-10-12 13:10:12.000000000 +0930
+@@ -33,6 +33,8 @@
+ 	<depend>vpbapi</depend>
+  ***/
+ 
++#include <vpbapi.h>
++
+ extern "C" {
+ 
+ #include "asterisk.h"
+@@ -66,7 +68,6 @@
+ #include <sys/ioctl.h>
+ #include <ctype.h>
+ 
+-#include <vpbapi.h>
+ #include <assert.h>
+ 
+ #ifdef pthread_create
+@@ -182,7 +183,7 @@
+ static int break_for_dtmf=1;
+ 
+ /* Set EC suppression threshold */
+-static int ec_supp_threshold=-1;
++static short ec_supp_threshold=-1;
+ 
+ /* Inter Digit Delay for collecting DTMF's */
+ static int dtmf_idd = 3000;
+@@ -192,26 +193,26 @@
+ #define TIMER_PERIOD_RING 4000
+ static int timer_period_ring = TIMER_PERIOD_RING;
+ 	  
+-#define VPB_EVENTS_ALL (VPB_MRING|VPB_MDIGIT|VPB_MDTMF|VPB_MTONEDETECT|VPB_MTIMEREXP|VPB_MPLAY_UNDERFLOW \
+-			|VPB_MRECORD_OVERFLOW|VPB_MSTATION_OFFHOOK|VPB_MSTATION_ONHOOK \
++#define VPB_EVENTS_ALL (VPB_MRING|VPB_MDIGIT|VPB_MDTMF|VPB_MTONEDETECT|VPB_MTIMEREXP \
++			|VPB_MSTATION_OFFHOOK|VPB_MSTATION_ONHOOK \
+ 			|VPB_MRING_OFF|VPB_MDROP|VPB_MSTATION_FLASH)
+-#define VPB_EVENTS_NODROP (VPB_MRING|VPB_MDIGIT|VPB_MDTMF|VPB_MTONEDETECT|VPB_MTIMEREXP|VPB_MPLAY_UNDERFLOW \
+-			|VPB_MRECORD_OVERFLOW|VPB_MSTATION_OFFHOOK|VPB_MSTATION_ONHOOK \
++#define VPB_EVENTS_NODROP (VPB_MRING|VPB_MDIGIT|VPB_MDTMF|VPB_MTONEDETECT|VPB_MTIMEREXP \
++			|VPB_MSTATION_OFFHOOK|VPB_MSTATION_ONHOOK \
+ 			|VPB_MRING_OFF|VPB_MSTATION_FLASH)
+-#define VPB_EVENTS_NODTMF (VPB_MRING|VPB_MDIGIT|VPB_MTONEDETECT|VPB_MTIMEREXP|VPB_MPLAY_UNDERFLOW \
+-			|VPB_MRECORD_OVERFLOW|VPB_MSTATION_OFFHOOK|VPB_MSTATION_ONHOOK \
++#define VPB_EVENTS_NODTMF (VPB_MRING|VPB_MDIGIT|VPB_MTONEDETECT|VPB_MTIMEREXP \
++			|VPB_MSTATION_OFFHOOK|VPB_MSTATION_ONHOOK \
+ 			|VPB_MRING_OFF|VPB_MDROP|VPB_MSTATION_FLASH)
+-#define VPB_EVENTS_STAT (VPB_MRING|VPB_MDIGIT|VPB_MDTMF|VPB_MTONEDETECT|VPB_MTIMEREXP|VPB_MPLAY_UNDERFLOW \
+-			|VPB_MRECORD_OVERFLOW|VPB_MSTATION_OFFHOOK|VPB_MSTATION_ONHOOK \
++#define VPB_EVENTS_STAT (VPB_MRING|VPB_MDIGIT|VPB_MDTMF|VPB_MTONEDETECT|VPB_MTIMEREXP \
++			|VPB_MSTATION_OFFHOOK|VPB_MSTATION_ONHOOK \
+ 			|VPB_MRING_OFF|VPB_MSTATION_FLASH)
+ 
+ 
+ /* Dialing parameters for Australia */
+ /* #define DIAL_WITH_CALL_PROGRESS */
+-VPB_TONE_MAP DialToneMap[] = { 	{ VPB_BUSY_AUST, VPB_CALL_DISCONNECT, 0 },
++VPB_TONE_MAP DialToneMap[] = { 	{ VPB_BUSY, VPB_CALL_DISCONNECT, 0 },
+   				{ VPB_DIAL, VPB_CALL_DIALTONE, 0 },
+-				{ VPB_RINGBACK_308, VPB_CALL_RINGBACK, 0 },
+-				{ VPB_BUSY_AUST, VPB_CALL_BUSY, 0 },
++				{ VPB_RINGBACK, VPB_CALL_RINGBACK, 0 },
++				{ VPB_BUSY, VPB_CALL_BUSY, 0 },
+ 				{ VPB_GRUNT, VPB_CALL_GRUNT, 0 },
+ 				{ 0, 0, 1 } };
+ #define VPB_DIALTONE_WAIT 2000 /* Wait up to 2s for a dialtone */
+@@ -339,7 +340,7 @@
+ 
+ } *iflist = NULL;
+ 
+-static struct ast_channel *vpb_new(struct vpb_pvt *i, enum ast_channel_state state, char *context);
++static struct ast_channel *vpb_new(struct vpb_pvt *i, enum ast_channel_state state, const char *context);
+ static void *do_chanreads(void *pvt);
+ static struct ast_channel *vpb_request(const char *type, int format, void *data, int *cause);
+ static int vpb_digit_begin(struct ast_channel *ast, char digit);
+@@ -378,7 +379,9 @@
+ 	queryoption: NULL,
+ 	transfer: NULL,
+ 	write_video: NULL,
+-	bridged_channel: NULL
++	bridged_channel: NULL,
++	func_channel_read: NULL,
++	func_channel_write: NULL
+ };
+ 
+ static struct ast_channel_tech vpb_tech_indicate = {
+@@ -406,7 +409,9 @@
+ 	queryoption: NULL,
+ 	transfer: NULL,
+ 	write_video: NULL,
+-	bridged_channel: NULL
++	bridged_channel: NULL,
++	func_channel_read: NULL,
++	func_channel_write: NULL
+ };
+ 
+ /* Can't get ast_vpb_bridge() working on v4pci without either a horrible 
+@@ -528,7 +533,7 @@
+ 
+ 	#else
+ 
+-	res = vpb_bridge(p0->handle, p1->handle, VPB_BRIDGE_ON, i+1 /* resource 1 & 2 only for V4PCI*/ );
++	res = vpb_bridge(p0->handle, p1->handle, VPB_BRIDGE_ON);
+ 	if (res == VPB_OK) {
+ 		/* pthread_cond_wait(&bridges[i].cond, &bridges[i].lock);*/ /* Wait for condition signal. */
+ 		while( !bridges[i].endbridge ) {
+@@ -592,7 +597,7 @@
+ 			cs[0] = cs[1];
+ 			cs[1] = cs[2];
+ 		};
+-		vpb_bridge(p0->handle, p1->handle, VPB_BRIDGE_OFF, i+1 /* resource 1 & 2 only for V4PCI*/ ); 
++		vpb_bridge(p0->handle, p1->handle, VPB_BRIDGE_OFF); 
+ 	}
+ 
+ 	#endif
+@@ -710,7 +715,7 @@
+ 			}
+ 
+ 		} else {
+-			ast_log(LOG_ERROR, "CID record - Failed to decode caller id on %s - %s\n", p->dev, vpb_strerror(rc) );
++			ast_log(LOG_ERROR, "CID record - Failed to decode caller id on %s - %d\n", p->dev, rc );
+ 			strncpy(p->callerid,"unknown", sizeof(p->callerid) - 1);
+ 		}
+ 		delete cli_struct;
+@@ -1011,7 +1016,7 @@
+ 			}
+ 			break;
+ 
+-		case VPB_PLAY_UNDERFLOW:
++/*		case VPB_PLAY_UNDERFLOW:
+ 			f.frametype = AST_FRAME_NULL;
+ 			vpb_reset_play_fifo_alarm(p->handle);
+ 			break;
+@@ -1020,7 +1025,7 @@
+ 			f.frametype = AST_FRAME_NULL;
+ 			vpb_reset_record_fifo_alarm(p->handle);
+ 			break;
+-
++*/
+ 		default:
+ 			f.frametype = AST_FRAME_NULL;
+ 			break;
+@@ -1298,7 +1303,7 @@
+ 				}
+ 			} else if (!ast_canmatch_extension(NULL, p->context, p->ext, 1, p->callerid)){
+ 				if (ast_exists_extension(NULL, "default", p->ext, 1, p->callerid)) {
+-					vpb_new(p,AST_STATE_UP, "default");	      
++					vpb_new(p,AST_STATE_UP, "default");
+ 				} else if (!ast_canmatch_extension(NULL, "default", p->ext, 1, p->callerid)) {
+ 					if (option_verbose > 3) {
+ 						ast_verbose(VERBOSE_PREFIX_4 "%s: handle_notowned: can't match anything in %s or default\n", p->dev, p->context);
+@@ -1360,8 +1365,8 @@
+ 		}
+ 
+ 		if (res != VPB_OK) {
+-			ast_log(LOG_ERROR,"Monitor get event error %s\n", vpb_strerror(res) );
+-			ast_verbose("Monitor get event error %s\n", vpb_strerror(res) );
++			ast_log(LOG_ERROR,"Monitor get event error %d\n", res );
++			ast_verbose("Monitor get event error %d\n", res );
+ 			continue;
+ 		}
+ 
+@@ -1469,7 +1474,7 @@
+ 				/* Why do other drivers kill the thread? No need says I, simply awake thread with event. */
+ 				VPB_EVENT e;
+ 				e.handle = 0;
+-				e.type = VPB_NULL_EVENT;
++				e.type = VPB_EVT_NONE;
+ 				e.data = 0;
+ 
+ 				if (option_verbose > 3)
+@@ -1526,11 +1531,7 @@
+ 			vpb_echo_canc_enable();
+ 			ast_log(LOG_NOTICE, "Voicetronix echo cancellation ON\n");
+ 			if (ec_supp_threshold > -1){
+-				#ifdef VPB_PRI
+-				vpb_echo_canc_set_sup_thresh(0,(short *)&ec_supp_threshold);
+-				#else
+-				vpb_echo_canc_set_sup_thresh((short *)&ec_supp_threshold);
+-				#endif
++				vpb_echo_canc_set_sup_thresh(0, &ec_supp_threshold);
+ 				ast_log(LOG_NOTICE, "Voicetronix EC Sup Thres set\n");
+ 			}
+ 		}
+@@ -1646,7 +1647,7 @@
+ 	}
+ 
+ 	tmp->vpb_model = vpb_model_unknown;
+-	if( vpb_get_model(buf) == VPB_OK ) {
++	if( vpb_get_model(tmp->handle, buf) == VPB_OK ) {
+ 		if(strcmp(buf,"V12PCI")==0) 
+ 			tmp->vpb_model = vpb_model_v12pci;
+ 		else if(strcmp(buf,"VPB4")==0) 
+@@ -1874,7 +1875,7 @@
+ static int vpb_call(struct ast_channel *ast, char *dest, int timeout)
+ {
+ 	struct vpb_pvt *p = (struct vpb_pvt *)ast->tech_pvt;
+-	int res = 0,i;
++	int res = 0, i;
+ 	char *s = strrchr(dest, '/');
+ 	char dialstring[254] = "";
+ 	int tmp = 0;
+@@ -1897,7 +1898,7 @@
+ 			dialstring[i] = ',';
+ 		else if ((dialstring[i] == 'f') || (dialstring[i] == 'F'))
+ 			dialstring[i] = '&';
+-	}	
++	}
+ 
+ 	if (ast->_state != AST_STATE_DOWN && ast->_state != AST_STATE_RESERVED) {
+ 		ast_log(LOG_WARNING, "vpb_call on %s neither down nor reserved!\n", ast->name);
+@@ -1908,7 +1909,7 @@
+ 		return -1;
+ 	}
+ 	if (p->mode != MODE_FXO)  /* Station port, ring it. */
+-		res = vpb_ring_station_async(p->handle, VPB_RING_STATION_ON,0);       
++		vpb_ring_station_async(p->handle, 2);
+ 	else {
+ 		VPB_CALL call;
+ 
+@@ -1961,17 +1962,17 @@
+ 		#endif
+ 
+ 		if (res != VPB_OK) {
+-			ast_log(LOG_DEBUG, "Call on %s to %s failed: %s\n", ast->name, s, vpb_strerror(res));	      
++			ast_log(LOG_DEBUG, "Call on %s to %s failed: %d\n", ast->name, s, res);
+ 			res = -1;
+-		} else 
++		} else
+ 			res = 0;
+ 	}
+ 
+ 	if (option_verbose > 2)
+-		ast_verbose(VERBOSE_PREFIX_3 "%s: VPB Calling %s [t=%d] on %s returned %d\n",p->dev , s, timeout, ast->name, res); 
++		ast_verbose(VERBOSE_PREFIX_3 "%s: VPB Calling %s [t=%d] on %s returned %d\n",p->dev , s, timeout, ast->name, res);
+ 	if (res == 0) {
+ 		ast_setstate(ast, AST_STATE_RINGING);
+-		ast_queue_control(ast,AST_CONTROL_RINGING);		
++		ast_queue_control(ast,AST_CONTROL_RINGING);
+ 	}
+ 
+ 	if (!p->readthread){
+@@ -2049,7 +2050,7 @@
+ 
+ 	if (p->mode != MODE_FXO) {
+ 		/* station port. */
+-		vpb_ring_station_async(p->handle, VPB_RING_STATION_OFF,0);	
++		vpb_ring_station_async(p->handle, 0);
+ 		if(p->state!=VPB_STATE_ONHOOK){
+ 			/* This is causing a "dial end" "play tone" loop
+ 			playtone(p->handle, &Busytone); 
+@@ -2201,7 +2202,7 @@
+ 	return &f;
+ }
+ 
+-static inline int ast2vpbformat(int ast_format)
++static inline AudioCompress ast2vpbformat(int ast_format)
+ {
+ 	switch(ast_format) {
+ 		case AST_FORMAT_ALAW:
+@@ -2213,11 +2214,11 @@
+ 		case AST_FORMAT_ADPCM:
+ 			return VPB_OKIADPCM;
+ 		default:
+-			return -1;
++			return VPB_RAW;
+ 	}
+ }
+ 
+-static inline char * ast2vpbformatname(int ast_format)
++static inline const char * ast2vpbformatname(int ast_format)
+ {
+ 	switch(ast_format) {
+ 		case AST_FORMAT_ALAW:
+@@ -2245,7 +2246,7 @@
+ 			return 4;
+ 		default:
+ 			return 8;
+-	}   
++	}
+ }
+ 
+ int a_gain_vector(float g, short *v, int n) 
+@@ -2267,7 +2268,8 @@
+ static int vpb_write(struct ast_channel *ast, struct ast_frame *frame)
+ {
+ 	struct vpb_pvt *p = (struct vpb_pvt *)ast->tech_pvt; 
+-	int res = 0, fmt = 0;
++	int res = 0;
++	AudioCompress fmt = VPB_RAW;
+ 	struct timeval play_buf_time_start;
+ 	int tdiff;
+ 
+@@ -2371,7 +2373,8 @@
+ 	struct ast_frame *fr = &p->fr;
+ 	char *readbuf = ((char *)p->buf) + AST_FRIENDLY_OFFSET;
+ 	int bridgerec = 0;
+-	int afmt, readlen, res, fmt, trycnt=0;
++	int afmt, readlen, res,trycnt=0;
++	AudioCompress fmt;
+ 	int ignore_dtmf;
+ 	const char * getdtmf_var = NULL;
+ 
+@@ -2497,7 +2500,7 @@
+ 
+ 		if (p->lastinput == -1) {
+ 			vpb_record_buf_start(p->handle, fmt);
+-			vpb_reset_record_fifo_alarm(p->handle);
++/*			vpb_reset_record_fifo_alarm(p->handle); */
+ 			p->lastinput = fmt;
+ 			if(option_verbose>1) 
+ 				ast_verbose( VERBOSE_PREFIX_2 "%s: Starting record mode (codec=%d)[%s]\n",p->dev,fmt,ast2vpbformatname(afmt));
+@@ -2621,7 +2624,7 @@
+ 	return NULL;
+ }
+ 
+-static struct ast_channel *vpb_new(struct vpb_pvt *me, enum ast_channel_state state, char *context)
++static struct ast_channel *vpb_new(struct vpb_pvt *me, enum ast_channel_state state, const char *context)
+ {
+ 	struct ast_channel *tmp; 
+ 	char cid_num[256];
+@@ -2663,11 +2666,11 @@
+ 		tmp->tech_pvt = me;
+ 		
+ 		strncpy(tmp->context, context, sizeof(tmp->context)-1);
+-		if (strlen(me->ext))
+-			strncpy(tmp->exten, me->ext, sizeof(tmp->exten)-1);
++		if (!ast_strlen_zero(me->ext))
++			ast_copy_string(tmp->exten, me->ext, sizeof(tmp->exten));
+ 		else
+-			strncpy(tmp->exten, "s",  sizeof(tmp->exten) - 1);
+-		if (strlen(me->language))
++			strcpy(tmp->exten, "s");
++		if (!ast_strlen_zero(me->language))
+ 			ast_string_field_set(tmp, language, me->language);
+ 
+ 		me->owner = tmp;
+@@ -2707,7 +2710,7 @@
+ 	int oldformat;
+ 	struct vpb_pvt *p;
+ 	struct ast_channel *tmp = NULL;
+-	char *name = strdup(data ? (char *)data : "");
++	char emptystring[] = "";
+ 	char *s, *sepstr;
+ 	int group=-1;
+ 
+@@ -2718,13 +2721,15 @@
+ 		return NULL;
+ 	}
+ 
++	char *name = strdup(data ? (char *)data : emptystring);
++
+ 	sepstr = name;
+ 	s = strsep(&sepstr, "/"); /* Handle / issues */
+-	if (!s) 
+-		s = "";
++	if (!s)
++		s = emptystring;
+ 	/* Check if we are looking for a group */
+ 	if (toupper(name[0]) == 'G' || toupper(name[0])=='R') {
+-		group=atoi(name+1);	
++		group=atoi(name+1);
+ 	}
+ 	/* Search for an unowned channel */
+ 	ast_mutex_lock(&iflock); {
+@@ -2779,7 +2784,7 @@
+ }
+ 
+ 
+-int unload_module()
++static int unload_module(void)
+ {
+ 	struct vpb_pvt *p;
+ 	/* First, take us out of the channel loop */
+@@ -2831,20 +2836,22 @@
+ 		iflist = NULL;
+ 	} ast_mutex_unlock(&iflock);
+ 
+-	ast_mutex_lock(&bridge_lock); {
+-		memset(bridges, 0, sizeof bridges);	     
+-	} ast_mutex_unlock(&bridge_lock);
+-	ast_mutex_destroy(&bridge_lock);
+-	for(int i = 0; i < max_bridges; i++ ) {
+-		ast_mutex_destroy(&bridges[i].lock);
+-		ast_cond_destroy(&bridges[i].cond);
++	if (bridges) {
++		ast_mutex_lock(&bridge_lock); {
++			memset(bridges, 0, sizeof bridges);	     
++		} ast_mutex_unlock(&bridge_lock);
++		ast_mutex_destroy(&bridge_lock);
++		for(int i = 0; i < max_bridges; i++ ) {
++			ast_mutex_destroy(&bridges[i].lock);
++			ast_cond_destroy(&bridges[i].cond);
++		}
++		free(bridges);
+ 	}
+-	free(bridges);
+ 
+ 	return 0;
+ }
+ 
+-int load_module()
++static enum ast_module_load_result load_module(void)
+ {
+ 	struct ast_config *cfg;
+ 	struct ast_variable *v;
+@@ -2858,7 +2865,7 @@
+ 	int got_gain=0;
+ 	int first_channel = 1;
+ 	int echo_cancel = DEFAULT_ECHO_CANCEL;
+-	int error = 0; /* Error flag */
++	enum ast_module_load_result error = AST_MODULE_LOAD_SUCCESS; /* Error flag */
+ 	int bal1 = -1; /* Special value - means do not set */
+ 	int bal2 = -1; 
+ 	int bal3 = -1;
+@@ -2872,8 +2879,6 @@
+ 		return AST_MODULE_LOAD_DECLINE;
+ 	}  
+ 
+-	vpb_seterrormode(VPB_ERROR_CODE);
+-
+ 	ast_mutex_lock(&iflock); {
+ 		v = ast_variable_browse(cfg, "general");
+ 		while (v){
+@@ -2909,7 +2914,7 @@
+ 				timer_period_ring = atoi(v->value);
+ 			}
+ 			else if (strcasecmp(v->name, "ecsuppthres") ==0) {
+-				ec_supp_threshold = atoi(v->value);
++				ec_supp_threshold = (short)atoi(v->value);
+ 			}
+ 			else if (strcasecmp(v->name, "dtmfidd") ==0) {
+ 				dtmf_idd = atoi(v->value);
+@@ -2947,7 +2952,7 @@
+ 					iflist = tmp;
+ 				} else {
+ 					ast_log(LOG_ERROR, "Unable to register channel '%s'\n", v->value);
+-					error = -1;
++					error = AST_MODULE_LOAD_FAILURE;
+ 					goto done;
+ 				}
+ 			} else if (strcasecmp(v->name, "language") == 0) {
+@@ -3013,18 +3018,18 @@
+ 	ast_config_destroy(cfg);
+ 
+ 	if (use_ast_ind == 1){
+-		if (!error && ast_channel_register(&vpb_tech_indicate) != 0) {
++		if (error == AST_MODULE_LOAD_SUCCESS && ast_channel_register(&vpb_tech_indicate) != 0) {
+ 			ast_log(LOG_ERROR, "Unable to register channel class 'vpb'\n");
+-			error = -1;
++			error = AST_MODULE_LOAD_FAILURE;
+ 		}
+ 		else {
+ 			ast_log(LOG_NOTICE,"VPB driver Registered (w/AstIndication)\n");
+ 		}
+ 	}
+ 	else {
+-		if (!error && ast_channel_register(&vpb_tech) != 0) {
++		if (error == AST_MODULE_LOAD_SUCCESS && ast_channel_register(&vpb_tech) != 0) {
+ 			ast_log(LOG_ERROR, "Unable to register channel class 'vpb'\n");
+-			error = -1;
++			error = AST_MODULE_LOAD_FAILURE;
+ 		}
+ 		else {
+ 			ast_log(LOG_NOTICE,"VPB driver Registered )\n");
+@@ -3032,7 +3037,7 @@
+ 	}
+ 
+ 
+-	if (error)
++	if (error != AST_MODULE_LOAD_SUCCESS)
+ 		unload_module();
+ 	else 
+ 		restart_monitor(); /* And start the monitor for the first time */
+@@ -3040,10 +3045,12 @@
+ 	return error;
+ }
+ 
++/*
+ int usecount()
+ {
+ 	return usecnt;
+ }
++*/
+ 
+ const char *description()
+ {
+@@ -3055,10 +3062,21 @@
+ 	return ASTERISK_GPL_KEY;
+ }
+ 
++static int reload_module(void)
++{
++
++	return 0;
++
++}
++
++AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Voicetronix VPB Card Driver",
++		load_module,
++		unload_module,
++		reload_module
++);
++
+ /**/
+ #if defined(__cplusplus) || defined(c_plusplus)
+  }
+ #endif
+ /**/
+-
+-
