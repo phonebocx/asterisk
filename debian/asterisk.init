@@ -177,21 +177,15 @@ case "$1" in
 	;;
   stop)
 	echo -n "Stopping $DESC: $NAME"
+	# Try gracefully.
+	# this may hang in some cases. Specifically, when the asterisk
+	# processes is stopped. No bother to worry about cleanup: 
+	# it will either fail or die when asterisk dies.
+	( $DAEMON -rx 'stop now' > /dev/null 2>&1 & ) &
 	if [ "$RUNASTSAFE" = "yes" ];then
-		# hopefully this will work. Untested
-		$DAEMON -rx 'stop now' > /dev/null  || true
-		## giving a small grace time to shut down cleanly.
-		#sleep 2 # you can add timeouts in the comma
 		start-stop-daemon --stop --quiet --oknodo \
 				  --pidfile $ASTSAFE_PIDFILE
-
 		rm -f $ASTSAFE_PIDFILE
-	else
-		# Try gracefully.
-		# this may hang in some cases. Specifically, when the asterisk
-		# processes is stopped. No bother to worry about cleanup: 
-		# it will either fail or die when asterisk dies.
-		( $DAEMON -rx 'stop now' > /dev/null 2>&1 & ) &
 	fi
 	# just making sure it's really, really dead. 
 	# KILL is necessary just in case there's an asterisk -r in the background
