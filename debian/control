@@ -30,13 +30,12 @@ Description: Open Source Private Branch Exchange (PBX)
   * All Wildcard (tm) ISDN PRI cards from Digium (http://www.digium.com)
   * HFC-S/HFC-4S-based ISDN BRI cards (Junghanns.NET, beroNet, Digium etc.)
   * All TDM (FXO/FXS) cards from Digium
-  * Various clones of Digium cards such as those by beroNet, Junghanns.NET,
-    OpenVox etc.
+  * Various clones of Digium cards such as those by OpenVox
   * Xorcom Astribank USB telephony adapter (http://www.xorcom.com)
   * Voicetronix OpenPCI, OpenLine and OpenSwitch cards
   * CAPI-compatible ISDN cards (using the add-on package chan-capi)
   * Full Duplex Sound Card (ALSA or OSS) supported by Linux
-  * Tormenta T1/E1 card (http://www.bsdtelephony.com.mx)
+  * Tormenta T1/E1 card (http://www.zapatatelephony.org)
   * QuickNet Internet PhoneJack and LineJack (http://www.quicknet.net)
  .
  This is the main package that includes the Asterisk daemon and most channel
