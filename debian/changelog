@@ -1,7 +1,6 @@
 asterisk (1:1.4.13~dfsg-2) UNRELEASED; urgency=low
 
   * NOT RELEASED YET.
-  * TODO: Add libvpb-dev dependency when it comes out of NEW.
 
   [ Tzafrir Cohen ]
   * Add some sample/reference config files as documentation.
