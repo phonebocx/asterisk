@@ -655,10 +655,10 @@ privileges.
  #if  defined(__FreeBSD__) || defined( __NetBSD__ ) || defined(SOLARIS)
  #include <netdb.h>
  #if defined(SOLARIS)
-@@ -2727,12 +2726,21 @@ int main(int argc, char *argv[])
+@@ -2734,12 +2806,21 @@ int main(int argc, char *argv[])
  	}
  
- 	if (!is_child_of_nonroot && runuser) {
+ 	if (runuser && !ast_test_flag(&ast_options, AST_OPT_FLAG_REMOTE)) {
 +#ifdef HAVE_CAP
 +		int has_cap = 1;
 +#endif /* HAVE_CAP */
@@ -674,11 +674,11 @@ privileges.
 +			has_cap = 0;
 +		}
 +#endif /* HAVE_CAP */
- 		if (!rungroup) {
- 			if (setgid(pw->pw_gid)) {
- 				ast_log(LOG_WARNING, "Unable to setgid to %d!\n", (int)pw->pw_gid);
-@@ -2750,6 +2758,19 @@ int main(int argc, char *argv[])
- 		setenv("ASTERISK_ALREADY_NONROOT", "yes", 1);
+ 		if (!isroot && pw->pw_uid != geteuid()) {
+ 			ast_log(LOG_ERROR, "Asterisk started as nonroot, but runuser '%s' requested.\n", runuser);
+ 			exit(1);
+@@ -2760,6 +2841,19 @@ int main(int argc, char *argv[])
+ 		}
  		if (option_verbose)
  			ast_verbose("Running as user '%s'\n", runuser);
 +#ifdef HAVE_CAP

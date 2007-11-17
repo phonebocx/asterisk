@@ -1,9 +1,7 @@
 asterisk (1:1.4.14~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET.
- 
-  * New Upstream Release
-    - regular maintenance release 
+  * New upstream release.
 
   [ Tzafrir Cohen ]
   * Add some sample/reference config files as documentation.
@@ -27,7 +25,7 @@ asterisk (1:1.4.14~dfsg-1) UNRELEASED; urgency=low
   [ Mark Purcell ]
   * Use fresh.t-systems-sfr.com for debian/watch
 
- -- Mark Purcell <msp@debian.org>  Wed, 07 Nov 2007 22:37:05 +0000
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 17 Nov 2007 17:31:11 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
