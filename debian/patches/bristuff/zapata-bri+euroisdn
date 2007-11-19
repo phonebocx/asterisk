@@ -551,7 +551,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		i->inalarm = 0;
 +#ifdef HAVE_PRI
 +		if (i->pri) {
-+		    if ((i->pri->nodetype == BRI_CPE_PTMP) || (i->pri->nodetype == BRI_CPE_PTMP)) {
++		    if ((i->pri->nodetype == BRI_CPE_PTMP) || (i->pri->nodetype == BRI_CPE)) {
 +			/* dont annoy BRI TE mode users with layer2layer alarms */
 +		    } else {
 +			ast_log(LOG_NOTICE, "Alarm cleared on channel %d\n", i->channel);
@@ -570,7 +570,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		res = get_alarms(i);
 +#ifdef HAVE_PRI
 +		if (i->pri) {
-+		    if ((i->pri->nodetype == BRI_CPE_PTMP) || (i->pri->nodetype == BRI_CPE_PTMP)) {
++		    if ((i->pri->nodetype == BRI_CPE_PTMP) || (i->pri->nodetype == BRI_CPE)) {
 +			/* dont annoy BRI TE mode users with layer2layer alarms */
 +		    } else {
 +			ast_log(LOG_WARNING, "Detected alarm on channel %d: %s\n", i->channel, alarm2str(res));
@@ -2286,10 +2286,8 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
 +
  		myfd = open(argv[4], O_CREAT|O_WRONLY, 0600);
  		if (myfd < 0) {
--			ast_cli(fd, "Unable to open '%s' for writing\n", argv[4]);
--			return RESULT_SUCCESS;
-+ 		    ast_cli(fd, "Unable to open '%s' for writing\n", argv[4]);
-+ 		    return RESULT_SUCCESS;
+			ast_cli(fd, "Unable to open '%s' for writing\n", argv[4]);
+			return RESULT_SUCCESS;
  		}
 -
 -		ast_mutex_lock(&pridebugfdlock);
