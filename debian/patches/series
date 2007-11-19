@@ -43,6 +43,9 @@ bristuff/app-dial-etc
 bristuff/app-dial-R-noinband
 bristuff/app-dial-c-callback
 
+# improved (?) devicestate support in chan_zap. Not used:
+bristuff/zapata-device-state
+
 # and here goes our API :-)
 bristuff/ast-send-message
 bristuff/ast-send-message-users # XXX: merge this with above?
