@@ -17,15 +17,14 @@ asterisk (1:1.4.14~dfsg-1) UNRELEASED; urgency=low
     safe_asterisk.
   * Add chan_vpb, adding support for VoiceTronix OpenSwitch and OpenLine
     cards. (Closes: #396499)
+  * Fix debian/watch by using a pkg-voip wrapper to avoid upstream's silly
+    redirections. (Closes: #449706)
 
   [ Tzafrir Cohen ]
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr .
 
-  [ Mark Purcell ]
-  * Use fresh.t-systems-sfr.com for debian/watch
-
- -- Faidon Liambotis <paravoid@debian.org>  Tue, 20 Nov 2007 13:00:04 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 29 Nov 2007 20:55:33 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 

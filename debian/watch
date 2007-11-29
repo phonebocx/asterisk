@@ -1,7 +1,5 @@
-# format version number, currently 2; this line is compulsory!
 version=3
-
-# Full-site-with-pattern  [Version  [Action]]
 opts=dversionmangle=s/\~dfsg// \
-	http://fresh.t-systems-sfr.com/unix/src/misc/ asterisk-(.*)\.tar\.gz \
-	debian  svn-upgrade
+	http://pkg-voip.alioth.debian.org/cgi-bin/digium.cgi?q=asterisk/releases \
+	http://downloads.digium.com/pub/asterisk/releases/asterisk-((?:\d+\.)*\d+)\.tar\.gz \
+	debian svn-upgrade
