@@ -19,12 +19,13 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
     cards. (Closes: #396499)
   * Fix debian/watch by using a pkg-voip wrapper to avoid upstream's silly
     redirections. (Closes: #449706)
+  * Use DEBVERSION as asterisk's version string.
 
   [ Tzafrir Cohen ]
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr .
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 30 Nov 2007 17:26:37 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 30 Nov 2007 18:00:56 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 

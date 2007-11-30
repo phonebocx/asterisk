@@ -45,6 +45,7 @@ include /usr/share/quilt/quilt.make
 
 DEBVERSION:=$(shell head -n 1 debian/changelog \
 		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
+DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
 UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e 's/.dfsg$$//')
 
 FILENAME := asterisk_$(UPVERSION)~dfsg.orig.tar.gz
@@ -69,6 +70,9 @@ check-sounds:
 	
 config.status: check-sounds patch
 	dh_testdir
+
+	[ -f .version.bak ] || cp -a .version .version.bak
+	echo $(DEB_NOEPOCH_VERSION) > .version
 
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
 	#./bootstrap.sh # also runs autoonf. TODO: currently not needed.
@@ -138,6 +142,8 @@ cleaned: patch
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
 	-test -d configs && chmod -x configs/*.sample
 	-$(RM) -f build-arch-stamp build-indep-stamp config.status check-sounds menuselect.makeopts
+
+	[ ! -f .version.bak ] || mv .version.bak .version
 
 	dh_clean
 
