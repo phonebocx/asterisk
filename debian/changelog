@@ -20,12 +20,13 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
   * Fix debian/watch by using a pkg-voip wrapper to avoid upstream's silly
     redirections. (Closes: #449706)
   * Use DEBVERSION as asterisk's version string.
+  * Disable the MD5 build sum that breaks all out-of-tree plugins (duh!).
 
   [ Tzafrir Cohen ]
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr .
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 30 Nov 2007 18:00:56 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 30 Nov 2007 18:17:06 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
