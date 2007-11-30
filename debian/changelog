@@ -1,4 +1,4 @@
-asterisk (1:1.4.14~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET.
   * New upstream release (Closes: #452054)
@@ -24,7 +24,7 @@ asterisk (1:1.4.14~dfsg-1) UNRELEASED; urgency=low
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr .
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 29 Nov 2007 22:29:33 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 30 Nov 2007 17:26:37 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
