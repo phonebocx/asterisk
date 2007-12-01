@@ -23,12 +23,13 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
   * Disable the MD5 build sum that breaks all out-of-tree plugins (duh!).
   * Create /usr/local/share/asterisk/sounds to put all site-specific
     non-modifiable sounds.
+  * Add a note about bugs.debian.org to the banner.
 
   [ Tzafrir Cohen ]
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr .
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 01 Dec 2007 11:53:42 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 01 Dec 2007 12:53:12 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
