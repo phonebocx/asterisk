@@ -1,36 +1,11 @@
-Disable the MD5 build sum that breaks all out-of-tree plugins.
+Disable the MD5 build sum check that breaks all out-of-tree plugins.
 It's not a change it should be done on a stable release, anyway...
+
+Leave the field in the struct and the macro that generates it however so
+that we can be both backward and forward API/ABI compatible.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.15~dfsg.orig/include/asterisk/module.h
-+++ asterisk-1.4.15~dfsg/include/asterisk/module.h
-@@ -204,9 +204,6 @@ struct ast_module_info {
- 
- 	const char *key;
- 	unsigned int flags;
--
--	/*! The value of AST_BUILDOPT_SUM when this module was compiled */
--	const char buildopt_sum[33];
- };
- 
- void ast_module_register(const struct ast_module_info *);
-@@ -234,7 +231,6 @@ void ast_module_unref(struct ast_module 
- 		desc,					\
- 		keystr,					\
- 		flags_to_set,				\
--		AST_BUILDOPT_SUM,			\
- 	};						\
- 	static void  __attribute__ ((constructor)) __reg_module(void) \
- 	{ \
-@@ -264,7 +260,6 @@ const static __attribute__((unused)) str
- 		.flags = flags_to_set,				\
- 		.description = desc,				\
- 		.key = keystr,					\
--		.buildopt_sum = AST_BUILDOPT_SUM,		\
- 		fields						\
- 	};							\
- 	static void  __attribute__ ((constructor)) __reg_module(void) \
 --- asterisk-1.4.15~dfsg.orig/main/loader.c
 +++ asterisk-1.4.15~dfsg/main/loader.c
 @@ -76,8 +76,6 @@ static unsigned char expected_key[] =
