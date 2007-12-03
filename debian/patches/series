@@ -16,6 +16,7 @@ tos-libcap
 
 # for chan_vpb
 vpb-driver-4.2.18
+vpb-handle-nocards
 
 ### bristuff
 bristuff/bristuff-notice
