@@ -24,12 +24,14 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
   * Create /usr/local/share/asterisk/sounds to put all site-specific
     non-modifiable sounds.
   * Add a note about bugs.debian.org to the banner.
+  * Add noload for res_config_* since loading them results in errors and
+    doesn't provide any functionality.
 
   [ Tzafrir Cohen ]
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr .
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 01 Dec 2007 12:53:12 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 18:27:18 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
