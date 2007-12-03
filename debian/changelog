@@ -26,12 +26,15 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
   * Add a note about bugs.debian.org to the banner.
   * Add noload for res_config_* since loading them results in errors and
     doesn't provide any functionality.
+  * News entries were added but we never shipped the file; ship NEWS.Debian.
+  * Add an entry to NEWS.Debian warning users about app_voicemail_*.so
+    (Closes: #452596)
 
   [ Tzafrir Cohen ]
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr .
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 18:27:18 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 18:54:32 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
