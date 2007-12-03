@@ -32,9 +32,9 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * Provide a custom sounds directory under /var/lib - user-modifieble at
-    runtime and hence not under /usr .
+    runtime and hence not under /usr. (Closes: #337209)
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 18:54:32 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 18:59:22 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
