@@ -19,13 +19,13 @@
  #define SIG_SFWINK 	(0x0100000 | ZT_SIG_SF)
  #define SIG_SF_FEATD	(0x0200000 | ZT_SIG_SF)
 @@ -235,6 +239,8 @@ static int matchdigittimeout = 3000;
- static char defaultcic[64] = "";
- static char defaultozz[64] = "";
+ /*! \brief Protect the interface list (of zt_pvt's) */
+ AST_MUTEX_DEFINE_STATIC(iflock);
  
 +static char gsm_modem_pin[20];
 +static char gsm_modem_exten[AST_MAX_EXTENSION];
  
- static char progzone[10] = "";
+ static int ifcount = 0;
  
 @@ -250,7 +256,7 @@ static int restart_monitor(void);
  

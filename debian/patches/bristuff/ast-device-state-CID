@@ -140,7 +140,7 @@
  
  struct ast_datastore *ast_channel_datastore_alloc(const struct ast_datastore_info *info, char *uid)
 @@ -3910,7 +3910,7 @@ void ast_set_callerid(struct ast_channel
- 				);
+ 	ast_channel_unlock(chan);
  }
  
 -int ast_setstate(struct ast_channel *chan, enum ast_channel_state state)
@@ -241,7 +241,7 @@
 -static int cb_extensionstate(char *context, char* exten, int state, void *data);
 +static int cb_extensionstate(char *context, char* exten, int state, void *data, char *cid_num, char *cid_name);
  static int sip_devicestate(void *data);
- static int sip_poke_noanswer(void *data);
+ static int sip_poke_noanswer(const void *data);
  static int sip_poke_peer(struct sip_peer *peer);
 @@ -8422,7 +8422,7 @@ static void sip_peer_hold(struct sip_pvt
  /*! \brief Callback for the devicestate notification (SUBSCRIBE) support subsystem
@@ -261,8 +261,8 @@
 -static int statechange_queue(const char *dev, int state, void *ign)
 +static int statechange_queue(const char *dev, int state, void *ign, char *cid_num, char *cid_name)
  {
- 	/* Avoid potential for deadlocks by spawning a new thread to handle
- 	   the event */
+ 	struct statechange *sc;
+ 
 --- a/include/asterisk/manager.h
 +++ b/include/asterisk/manager.h
 @@ -55,6 +55,7 @@

@@ -36,7 +36,7 @@
  		/* Turn off hold music, etc */
 @@ -637,7 +641,7 @@ static struct ast_channel *wait_for_answ
  					/* Setup early media if appropriate */
- 					if (single)
+ 					if (single && CAN_EARLY_BRIDGE(peerflags))
  						ast_rtp_early_bridge(in, c);
 -					if (!ast_test_flag(outgoing, OPT_RINGBACK))
 +					if (!ast_test_flag(outgoing, OPT_RINGBACK | OPT_NOINBAND))
@@ -45,7 +45,7 @@
  				case AST_CONTROL_VIDUPDATE:
 @@ -650,7 +654,7 @@ static struct ast_channel *wait_for_answ
  						ast_verbose (VERBOSE_PREFIX_3 "%s is proceeding passing it to %s\n", c->name, in->name);
- 					if (single)
+ 					if (single && CAN_EARLY_BRIDGE(peerflags))
  						ast_rtp_early_bridge(in, c);
 -					if (!ast_test_flag(outgoing, OPT_RINGBACK))
 +					if (!ast_test_flag(outgoing, OPT_RINGBACK | OPT_NOINBAND))

@@ -129,8 +129,8 @@ Add or convert channel operations so they can use the unique ID.
  
  	ast_copy_string(name, chan->name, sizeof(name));
  
-@@ -3034,7 +3044,7 @@ int ast_set_write_format(struct ast_chan
- 			  &chan->writetrans, 1);
+@@ -3079,7 +3089,7 @@ char *ast_channel_reason2str(int reason)
+ 	}
  }
  
 -struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *outstate, const char *cid_num, const char *cid_name, struct outgoing_helper *oh)

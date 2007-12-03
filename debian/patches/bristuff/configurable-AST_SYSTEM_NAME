@@ -1,7 +1,7 @@
 --- a/build_tools/make_defaults_h
 +++ b/build_tools/make_defaults_h
 @@ -17,6 +17,7 @@ cat << END
- #define AST_KEY_DIR    "${INSTALL_PATH}${ASTVARLIBDIR}/keys"
+ #define AST_KEY_DIR    "${INSTALL_PATH}${ASTDATADIR}/keys"
  #define AST_DB         "${INSTALL_PATH}${ASTVARLIBDIR}/astdb"
  #define AST_TMP_DIR    "${INSTALL_PATH}${ASTSPOOLDIR}/tmp"
 +#define AST_SYSTEM_NAME	"asterisk"
