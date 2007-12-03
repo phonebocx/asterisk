@@ -1,5 +1,5 @@
---- asterisk-1.4.12.orig/apps/app_dial.c
-+++ asterisk-1.4.12/apps/app_dial.c
+--- a/apps/app_dial.c
++++ b/apps/app_dial.c
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.

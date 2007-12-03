@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_zapras.c
-+++ asterisk-1.4.8~dfsg/apps/app_zapras.c
+--- a/apps/app_zapras.c
++++ b/apps/app_zapras.c
 @@ -183,7 +183,7 @@ static void run_ras(struct ast_channel *
  				}
  			}

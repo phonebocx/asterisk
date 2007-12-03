@@ -1,5 +1,5 @@
---- asterisk-1.4.12.orig/README
-+++ asterisk-1.4.12/README
+--- a/README
++++ b/README
 @@ -4,6 +4,8 @@ and the Asterisk.org developer community
  
  Copyright (C) 2001-2006 Digium, Inc.
@@ -9,8 +9,8 @@
  ================================================================
  
  * SECURITY
---- asterisk-1.4.12.orig/LICENSE
-+++ asterisk-1.4.12/LICENSE
+--- a/LICENSE
++++ b/LICENSE
 @@ -1,7 +1,7 @@
 -Asterisk is distributed under the GNU General Public License version 2
 -and is also available under alternative licenses negotiated directly
@@ -23,8 +23,8 @@
  except as defined below. The GPL (version 2) is included in this
  source tree in the file COPYING.
  
---- asterisk-1.4.12.orig/doc/hardware.txt
-+++ asterisk-1.4.12/doc/hardware.txt
+--- a/doc/hardware.txt
++++ b/doc/hardware.txt
 @@ -31,6 +31,19 @@ Zaptel compatible hardware
     * Wildcard TE410P - Quad T1/E1 switchable interface.  Supports PRI and 
       RBS signalling, as well as PPP, FR, and HDLC data modes.

@@ -1,5 +1,5 @@
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/devicestate.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/devicestate.h
+--- a/include/asterisk/devicestate.h
++++ b/include/asterisk/devicestate.h
 @@ -47,7 +47,7 @@ extern "C" {
  #define AST_DEVICE_ONHOLD	8
  
@@ -18,8 +18,8 @@
  
  /*! \brief Registers a device state change callback 
   * \param callback Callback
---- asterisk-1.4.10.1~dfsg.orig/main/devicestate.c
-+++ asterisk-1.4.10.1~dfsg/main/devicestate.c
+--- a/main/devicestate.c
++++ b/main/devicestate.c
 @@ -78,6 +78,8 @@ static AST_LIST_HEAD_STATIC(devstate_cbs
  
  struct state_change {
@@ -111,8 +111,8 @@
  			free(cur);
  			AST_LIST_LOCK(&state_changes);
  		} else {
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/channel.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/channel.h
+--- a/include/asterisk/channel.h
++++ b/include/asterisk/channel.h
 @@ -572,8 +572,13 @@ int ast_channel_datastore_remove(struct 
  /*! \brief Find a datastore on a channel */
  struct ast_datastore *ast_channel_datastore_find(struct ast_channel *chan, const struct ast_datastore_info *info, char *uid);
@@ -128,8 +128,8 @@
  
  /*! \brief Create a channel structure 
      \return Returns NULL on failure to allocate.
---- asterisk-1.4.10.1~dfsg.orig/main/channel.c
-+++ asterisk-1.4.10.1~dfsg/main/channel.c
+--- a/main/channel.c
++++ b/main/channel.c
 @@ -1269,7 +1269,7 @@ void ast_channel_free(struct ast_channel
  	free(chan);
  	AST_LIST_UNLOCK(&channels);
@@ -169,8 +169,8 @@
  /*! \brief Find bridged channel */
  struct ast_channel *ast_bridged_channel(struct ast_channel *chan)
  {
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/pbx.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/pbx.h
+--- a/include/asterisk/pbx.h
++++ b/include/asterisk/pbx.h
 @@ -63,7 +63,7 @@ struct ast_ignorepat;
  struct ast_sw;
  
@@ -189,8 +189,8 @@
  
  #if defined(__cplusplus) || defined(c_plusplus)
  }
---- asterisk-1.4.10.1~dfsg.orig/main/pbx.c
-+++ asterisk-1.4.10.1~dfsg/main/pbx.c
+--- a/main/pbx.c
++++ b/main/pbx.c
 @@ -1993,7 +1993,7 @@ int ast_extension_state(struct ast_chann
  	return ast_extension_state2(e);    		/* Check all devices in the hint */
  }
@@ -232,8 +232,8 @@
  				free(prevcb);
  	    		}
  		} else {
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_sip.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_sip.c
+--- a/channels/chan_sip.c
++++ b/channels/chan_sip.c
 @@ -1328,7 +1328,7 @@ static void ast_quiet_chan(struct ast_ch
  static int attempt_transfer(struct sip_dual *transferer, struct sip_dual *target);
  
@@ -252,8 +252,8 @@
  {
  	struct sip_pvt *p = data;
  
---- asterisk-1.4.10.1~dfsg.orig/apps/app_queue.c
-+++ asterisk-1.4.10.1~dfsg/apps/app_queue.c
+--- a/apps/app_queue.c
++++ b/apps/app_queue.c
 @@ -594,7 +594,7 @@ static void *changethread(void *data)
  	return NULL;
  }
@@ -263,8 +263,8 @@
  {
  	/* Avoid potential for deadlocks by spawning a new thread to handle
  	   the event */
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/manager.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/manager.h
+--- a/include/asterisk/manager.h
++++ b/include/asterisk/manager.h
 @@ -55,6 +55,7 @@
  #define EVENT_FLAG_AGENT		(1 << 5) /* Ability to read/set agent info */
  #define EVENT_FLAG_USER                 (1 << 6) /* Ability to read/set user info */
@@ -273,8 +273,8 @@
  
  /* Export manager structures */
  #define AST_MAX_MANHEADERS 128
---- asterisk-1.4.10.1~dfsg.orig/main/manager.c
-+++ asterisk-1.4.10.1~dfsg/main/manager.c
+--- a/main/manager.c
++++ b/main/manager.c
 @@ -128,6 +128,7 @@ static struct permalias {
  	{ EVENT_FLAG_AGENT, "agent" },
  	{ EVENT_FLAG_USER, "user" },
@@ -298,8 +298,8 @@
  	return 0;
  }
  
---- asterisk-1.4.10.1~dfsg.orig/apps/app_devstate.c
-+++ asterisk-1.4.10.1~dfsg/apps/app_devstate.c
+--- a/apps/app_devstate.c
++++ b/apps/app_devstate.c
 @@ -50,7 +50,7 @@ static struct ast_cli_entry  cli_dev_sta
  static int devstate_cli(int fd, int argc, char *argv[])
  {
@@ -353,8 +353,8 @@
  	    astman_append(s, "Response: Success\r\n%s\r\n", idText);
  	} else {
  	    ast_log(LOG_DEBUG, "ast_db_put failed\n");
---- asterisk-1.4.10.1~dfsg.orig/res/res_esel.c
-+++ asterisk-1.4.10.1~dfsg/res/res_esel.c
+--- a/res/res_esel.c
++++ b/res/res_esel.c
 @@ -51,6 +51,8 @@ typedef struct esel_extension_state {
      char context[AST_MAX_EXTENSION];
      char exten[AST_MAX_EXTENSION];

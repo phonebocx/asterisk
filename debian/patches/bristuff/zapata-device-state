@@ -1,7 +1,7 @@
 Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
 ===================================================================
---- asterisk-1.4.14~dfsg.orig/channels/chan_zap.c	2007-11-19 12:31:59.000000000 +0200
-+++ asterisk-1.4.14~dfsg/channels/chan_zap.c	2007-11-19 12:48:21.000000000 +0200
+--- a/channels/chan_zap.c	2007-11-19 12:31:59.000000000 +0200
++++ b/channels/chan_zap.c	2007-11-19 12:48:21.000000000 +0200
 @@ -103,6 +107,8 @@
  #include "asterisk/abstract_jb.h"
  #include "asterisk/smdi.h"

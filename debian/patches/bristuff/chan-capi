@@ -1,5 +1,5 @@
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/apps/app_capiCD.c
++++ b/apps/app_capiCD.c
 @@ -0,0 +1,164 @@
 +/*
 + * (CAPI*)
@@ -166,7 +166,7 @@
 +
 +AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, tdesc);
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/apps/app_capiECT.c
++++ b/apps/app_capiECT.c
 @@ -0,0 +1,214 @@
 +/*
 + * (CAPI*)
@@ -383,7 +383,7 @@
 +	return ASTERISK_GPL_KEY;
 +}
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/apps/app_capiNoES.c
++++ b/apps/app_capiNoES.c
 @@ -0,0 +1,100 @@
 +/*
 + * (CAPI*)
@@ -485,8 +485,8 @@
 +{
 +	return ASTERISK_GPL_KEY;
 +}
---- asterisk-1.4.8~dfsg.orig/build_tools/menuselect-deps.in
-+++ asterisk-1.4.8~dfsg/build_tools/menuselect-deps.in
+--- a/build_tools/menuselect-deps.in
++++ b/build_tools/menuselect-deps.in
 @@ -1,4 +1,5 @@
  ASOUND=@PBX_ALSA@
 +CAPI=@PBX_CAPI@
@@ -494,7 +494,7 @@
  FREETDS=@PBX_FREETDS@
  GSM=@PBX_GSM@
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/channels/chan_capi.c
++++ b/channels/chan_capi.c
 @@ -0,0 +1,2888 @@
 +/*
 + * (CAPI*)
@@ -3385,7 +3385,7 @@
 +		.unload = unload_module,
 +);
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/configs/capi.conf.sample
++++ b/configs/capi.conf.sample
 @@ -0,0 +1,44 @@
 +;
 +; CAPI config
@@ -3432,7 +3432,7 @@
 +;controller=2
 +;devices => 30
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/doc/README.chan_capi
++++ b/doc/README.chan_capi
 @@ -0,0 +1,146 @@
 +(CAPI*) chan_capi a Common ISDN API 2.0 implementation for Asterisk
 +(C) 2002, 2003, 2004, 2005 Junghanns.NET GmbH 
@@ -3581,7 +3581,7 @@
 +
 +
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/include/asterisk/chan_capi_app.h
++++ b/include/asterisk/chan_capi_app.h
 @@ -0,0 +1,30 @@
 +/*
 + * (CAPI*)
@@ -3614,7 +3614,7 @@
 +
 +#endif
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/include/asterisk/chan_capi.h
++++ b/include/asterisk/chan_capi.h
 @@ -0,0 +1,276 @@
 +/*
 + * (CAPI*)
@@ -3893,7 +3893,7 @@
 +
 +#endif
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/include/asterisk/xlaw.h
++++ b/include/asterisk/xlaw.h
 @@ -0,0 +1,1665 @@
 +#ifndef _ASTERISK_XLAW_H
 +#define _ASTERISK_XLAW_H
@@ -5560,8 +5560,8 @@
 +#endif // CAPI_ULAW
 +#endif
 +
---- asterisk-1.4.8~dfsg.orig/configure.ac
-+++ asterisk-1.4.8~dfsg/configure.ac
+--- a/configure.ac
++++ b/configure.ac
 @@ -171,6 +171,7 @@ AC_SUBST(AST_DEVMODE)
  # by the --with option name, to make things easier for the users :-)
  
@@ -5579,8 +5579,8 @@
  AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
  
  GSM_INTERNAL="yes"
---- asterisk-1.4.8~dfsg.orig/configure
-+++ asterisk-1.4.8~dfsg/configure
+--- a/configure
++++ b/configure
 @@ -720,6 +720,9 @@ ALSA_LIB
  ALSA_INCLUDE
  ALSA_DIR

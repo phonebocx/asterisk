@@ -10,8 +10,8 @@ init script. After that, it can safely go upstream.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.11~dfsg.orig/contrib/scripts/safe_asterisk
-+++ asterisk-1.4.11~dfsg/contrib/scripts/safe_asterisk
+--- a/contrib/scripts/safe_asterisk
++++ b/contrib/scripts/safe_asterisk
 @@ -11,6 +11,7 @@ DUMPDROP=/tmp
  SLEEPSECS=4
  ASTSBINDIR=__ASTERISK_SBIN_DIR__

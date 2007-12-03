@@ -1,5 +1,5 @@
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/features.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/features.h
+--- a/include/asterisk/features.h
++++ b/include/asterisk/features.h
 @@ -47,6 +47,8 @@ struct ast_call_feature {
  };
  
@@ -9,8 +9,8 @@
  
  /*! \brief Park a call and read back parked location 
   *  \param chan the channel to actually be parked
---- asterisk-1.4.10.1~dfsg.orig/res/res_features.c
-+++ asterisk-1.4.10.1~dfsg/res/res_features.c
+--- a/res/res_features.c
++++ b/res/res_features.c
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.

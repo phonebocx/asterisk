@@ -12,8 +12,8 @@ A bug should be opened with upstream so that we can discuss the matter.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.12~dfsg.orig/apps/Makefile
-+++ asterisk-1.4.12~dfsg/apps/Makefile
+--- a/apps/Makefile
++++ b/apps/Makefile
 @@ -12,6 +12,16 @@
  -include ../menuselect.makeopts ../menuselect.makedeps
  

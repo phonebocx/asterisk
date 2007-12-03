@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/res/res_monitor.c
-+++ asterisk-1.4.8~dfsg/res/res_monitor.c
+--- a/res/res_monitor.c
++++ b/res/res_monitor.c
 @@ -328,6 +328,11 @@ int ast_monitor_stop(struct ast_channel 
  			result = ast_safe_system(tmp);
  			if (result == -1)

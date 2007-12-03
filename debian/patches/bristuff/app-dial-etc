@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_dial.c
-+++ asterisk-1.4.8~dfsg/apps/app_dial.c
+--- a/apps/app_dial.c
++++ b/apps/app_dial.c
 @@ -64,6 +64,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include "asterisk/manager.h"
  #include "asterisk/privacy.h"

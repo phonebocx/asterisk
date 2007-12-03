@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/build_tools/make_defaults_h
-+++ asterisk-1.4.8~dfsg/build_tools/make_defaults_h
+--- a/build_tools/make_defaults_h
++++ b/build_tools/make_defaults_h
 @@ -17,6 +17,7 @@ cat << END
  #define AST_KEY_DIR    "${INSTALL_PATH}${ASTVARLIBDIR}/keys"
  #define AST_DB         "${INSTALL_PATH}${ASTVARLIBDIR}/astdb"
@@ -8,8 +8,8 @@
  
  #define AST_CONFIG_FILE "${INSTALL_PATH}${ASTCONFPATH}"
  
---- asterisk-1.4.8~dfsg.orig/main/asterisk.c
-+++ asterisk-1.4.8~dfsg/main/asterisk.c
+--- a/main/asterisk.c
++++ b/main/asterisk.c
 @@ -2368,6 +2368,7 @@ static void ast_readconfig(void) 
  	ast_copy_string(ast_config_AST_PID, AST_PID, sizeof(ast_config_AST_PID));
  	ast_copy_string(ast_config_AST_SOCKET, AST_SOCKET, sizeof(ast_config_AST_SOCKET));

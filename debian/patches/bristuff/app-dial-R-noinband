@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_dial.c
-+++ asterisk-1.4.8~dfsg/apps/app_dial.c
+--- a/apps/app_dial.c
++++ b/apps/app_dial.c
 @@ -187,6 +187,8 @@ static char *descrip =
  "           family/key is not specified.\n"
  "    r    - Indicate ringing to the calling party. Pass no audio to the calling\n"

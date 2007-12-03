@@ -1,5 +1,5 @@
---- asterisk-1.4.10.1~dfsg.orig/apps/app_meetme.c
-+++ asterisk-1.4.10.1~dfsg/apps/app_meetme.c
+--- a/apps/app_meetme.c
++++ b/apps/app_meetme.c
 @@ -1397,8 +1397,9 @@ static int conf_run(struct ast_channel *
  	char members[10] = "";
  	int dtmf, opt_waitmarked_timeout = 0;

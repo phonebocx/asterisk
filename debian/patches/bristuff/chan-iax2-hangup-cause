@@ -1,5 +1,5 @@
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_iax2.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_iax2.c
+--- a/channels/chan_iax2.c
++++ b/channels/chan_iax2.c
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.

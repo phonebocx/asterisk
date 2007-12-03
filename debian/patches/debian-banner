@@ -1,8 +1,8 @@
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.15~dfsg.orig/main/asterisk.c
-+++ asterisk-1.4.15~dfsg/main/asterisk.c
+--- a/main/asterisk.c
++++ b/main/asterisk.c
 @@ -146,6 +146,9 @@ int daemon(int, int);  /* defined in lib
  	ast_verbose("This is free software, with components licensed under the GNU General Public\n"); \
  	ast_verbose("License version 2 and other licenses; you are welcome to redistribute it under\n"); \

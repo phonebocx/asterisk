@@ -6,8 +6,8 @@ that we can be both backward and forward API/ABI compatible.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.15~dfsg.orig/main/loader.c
-+++ asterisk-1.4.15~dfsg/main/loader.c
+--- a/main/loader.c
++++ b/main/loader.c
 @@ -76,8 +76,6 @@ static unsigned char expected_key[] =
  { 0x87, 0x76, 0x79, 0x35, 0x23, 0xea, 0x3a, 0xd3,
    0x25, 0x2a, 0xbb, 0x35, 0x87, 0xe4, 0x22, 0x24 };

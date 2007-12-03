@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg-OK.orig/include/asterisk/features.h
-+++ asterisk-1.4.8~dfsg-OK/include/asterisk/features.h
+--- a/include/asterisk/features.h
++++ b/include/asterisk/features.h
 @@ -102,4 +102,12 @@ void ast_register_feature(struct ast_cal
      \param feature the ast_call_feature object which was registered before*/
  void ast_unregister_feature(struct ast_call_feature *feature);
@@ -13,8 +13,8 @@
 +extern struct ast_call_feature *ast_find_builtin_feature(char *name);
 +
  #endif /* _AST_FEATURES_H */
---- asterisk-1.4.8~dfsg-OK.orig/res/res_features.c
-+++ asterisk-1.4.8~dfsg-OK/res/res_features.c
+--- a/res/res_features.c
++++ b/res/res_features.c
 @@ -1008,6 +1008,18 @@ static struct ast_call_feature *find_dyn
  	return tmp;
  }

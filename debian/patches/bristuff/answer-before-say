@@ -1,8 +1,8 @@
 Answer the channel before saying things (SayNumber, SayDigits,
 SayCharacters, SayPhonetic).
 
---- asterisk-1.4.8~dfsg.orig/main/pbx.c
-+++ asterisk-1.4.8~dfsg/main/pbx.c
+--- a/main/pbx.c
++++ b/main/pbx.c
 @@ -6002,6 +6002,9 @@ static int pbx_builtin_saynumber(struct 
  			return -1;
  		}

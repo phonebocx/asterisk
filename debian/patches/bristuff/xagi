@@ -1,5 +1,5 @@
---- asterisk-1.4.12.orig/include/asterisk/agi.h
-+++ asterisk-1.4.12/include/asterisk/agi.h
+--- a/include/asterisk/agi.h
++++ b/include/asterisk/agi.h
 @@ -29,7 +29,8 @@ extern "C" {
  
  typedef struct agi_state {
@@ -10,8 +10,8 @@
  	int ctrl;	/* FD for input control */
  	unsigned int fast:1; /* flag for fast agi or not */
  } AGI;
---- asterisk-1.4.12.orig/res/res_agi.c
-+++ asterisk-1.4.12/res/res_agi.c
+--- a/res/res_agi.c
++++ b/res/res_agi.c
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -393,7 +393,7 @@
  }
  
 --- /dev/null
-+++ asterisk-1.4.12/agi/xagi-test.c
++++ b/agi/xagi-test.c
 @@ -0,0 +1,175 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
@@ -570,8 +570,8 @@
 +		return -1;
 +	exit(0);
 +}
---- asterisk-1.4.12.orig/agi/Makefile
-+++ asterisk-1.4.12/agi/Makefile
+--- a/agi/Makefile
++++ b/agi/Makefile
 @@ -13,7 +13,7 @@
  
  .PHONY: clean all uninstall

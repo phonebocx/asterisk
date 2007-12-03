@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_dial.c
-+++ asterisk-1.4.8~dfsg/apps/app_dial.c
+--- a/apps/app_dial.c
++++ b/apps/app_dial.c
 @@ -190,7 +190,8 @@ static char *descrip =
  "    R	  - indicate ringing to the calling party when the called party indicates\n"
  "            ringing, pass no audio until answered.\n"

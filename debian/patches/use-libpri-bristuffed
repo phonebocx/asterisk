@@ -1,5 +1,5 @@
---- asterisk-1.4.10.1~dfsg.orig/configure
-+++ asterisk-1.4.10.1~dfsg/configure
+--- a/configure
++++ b/configure
 @@ -24426,18 +24426,18 @@ fi
  
  
@@ -113,8 +113,8 @@
  if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
    echo $ECHO_N "(cached) $ECHO_C" >&6
  else
---- asterisk-1.4.10.1~dfsg.orig/configure.ac
-+++ asterisk-1.4.10.1~dfsg/configure.ac
+--- a/configure.ac
++++ b/configure.ac
 @@ -815,7 +815,7 @@ fi
  
  AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
@@ -124,8 +124,8 @@
  
  if test "${USE_PWLIB}" != "no"; then
  	if test -n "${PWLIB_DIR}"; then
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_zap.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_zap.c
+--- a/channels/chan_zap.c
++++ b/channels/chan_zap.c
 @@ -74,7 +74,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include <zaptel/tonezone.h>
  

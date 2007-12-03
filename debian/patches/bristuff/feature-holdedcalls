@@ -1,5 +1,5 @@
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/features.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/features.h
+--- a/include/asterisk/features.h
++++ b/include/asterisk/features.h
 @@ -72,6 +72,12 @@ int ast_park_call(struct ast_channel *ch
  */
  int ast_masq_park_call(struct ast_channel *rchan, struct ast_channel *host, int timeout, int *extout);
@@ -13,8 +13,8 @@
  /*! \brief Determine system parking extension
   *  Returns the call parking extension for drivers that provide special
      call parking help */
---- asterisk-1.4.10.1~dfsg.orig/res/res_features.c
-+++ asterisk-1.4.10.1~dfsg/res/res_features.c
+--- a/res/res_features.c
++++ b/res/res_features.c
 @@ -62,6 +62,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include "asterisk/adsi.h"
  #include "asterisk/devicestate.h"

@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/main/manager.c
-+++ asterisk-1.4.8~dfsg/main/manager.c
+--- a/main/manager.c
++++ b/main/manager.c
 @@ -86,6 +86,8 @@ struct fast_originate_helper {
  	char idtext[AST_MAX_EXTENSION];
  	char account[AST_MAX_ACCOUNT_CODE];
@@ -181,8 +181,8 @@
  	return 0;
  }
  
---- asterisk-1.4.8~dfsg.orig/include/asterisk/channel.h
-+++ asterisk-1.4.8~dfsg/include/asterisk/channel.h
+--- a/include/asterisk/channel.h
++++ b/include/asterisk/channel.h
 @@ -89,6 +89,9 @@
  
  #include "asterisk/abstract_jb.h"
@@ -202,8 +202,8 @@
  /*! \brief Report DTMF on channel 0 */
  #define AST_BRIDGE_DTMF_CHANNEL_0		(1 << 0)		
  /*! \brief Report DTMF on channel 1 */
---- asterisk-1.4.8~dfsg.orig/main/channel.c
-+++ asterisk-1.4.8~dfsg/main/channel.c
+--- a/main/channel.c
++++ b/main/channel.c
 @@ -724,6 +724,15 @@ static const struct ast_channel_tech nul
  	.description = "Null channel (should not see this)",
  };

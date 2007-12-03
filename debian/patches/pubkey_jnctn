@@ -13,7 +13,7 @@ Forwarded as a note to #10811.
  -- Faidon Liambotis <paravoid@debian.org>
 
 --- /dev/null
-+++ asterisk-1.4.9~dfsg/keys/jnctn.pub
++++ b/keys/jnctn.pub
 @@ -0,0 +1,6 @@
 +-----BEGIN PUBLIC KEY-----
 +MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDWaDv4190BpeL5K+Yuq5Q7+vPs
@@ -21,8 +21,8 @@ Forwarded as a note to #10811.
 +3Ilu//eX8ph8Wu+Oxs/ymi/hzKm+Cd6aty94zYuqiegc0KdrjvU5TLQAkIQpiB6k
 +CvuIm0R0XXQjj3R7LwIDAQAB
 +-----END PUBLIC KEY-----
---- asterisk-1.4.9~dfsg.orig/Makefile
-+++ asterisk-1.4.9~dfsg/Makefile
+--- a/Makefile
++++ b/Makefile
 @@ -435,8 +435,7 @@ bininstall: _all
  	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware
  	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware/iax

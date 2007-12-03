@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_chanspy.c
-+++ asterisk-1.4.8~dfsg/apps/app_chanspy.c
+--- a/apps/app_chanspy.c
++++ b/apps/app_chanspy.c
 @@ -55,6 +55,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  
  static const char *tdesc = "Listen to a channel, and optionally whisper into it";

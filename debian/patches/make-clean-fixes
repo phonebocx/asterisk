@@ -3,8 +3,8 @@ one of them.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.10.1~dfsg.orig/Makefile
-+++ asterisk-1.4.10.1~dfsg/Makefile
+--- a/Makefile
++++ b/Makefile
 @@ -364,7 +364,6 @@ dist-clean: distclean
  
  distclean: clean

@@ -7,8 +7,8 @@ We are working around this, see patch h323-workaround-openh323-segfault.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.12.orig/main/Makefile
-+++ asterisk-1.4.12/main/Makefile
+--- a/main/Makefile
++++ b/main/Makefile
 @@ -120,13 +120,6 @@ AST_EMBED_LDFLAGS:=$(foreach dep,$(EMBED
  AST_EMBED_LIBS:=$(foreach dep,$(EMBED_LIBS),$(value $(dep)))
  OBJS:=$(sort $(OBJS))

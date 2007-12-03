@@ -1,5 +1,5 @@
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/monitor.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/monitor.h
+--- a/include/asterisk/monitor.h
++++ b/include/asterisk/monitor.h
 @@ -38,6 +38,8 @@ struct ast_channel_monitor {
  	char write_filename[FILENAME_MAX];
  	char filename_base[FILENAME_MAX];
@@ -18,8 +18,8 @@
  
  /* Stop monitoring a channel */
  int ast_monitor_stop(struct ast_channel *chan, int need_lock);
---- asterisk-1.4.10.1~dfsg.orig/res/res_monitor.c
-+++ asterisk-1.4.10.1~dfsg/res/res_monitor.c
+--- a/res/res_monitor.c
++++ b/res/res_monitor.c
 @@ -124,7 +124,7 @@ static int ast_monitor_set_state(struct 
  
  /* Start monitoring a channel */
@@ -93,8 +93,8 @@
  		if (ast_monitor_change_fname(c, fname, 1)) {
  			astman_send_error(s, m, "Could not start monitoring channel");
  			ast_channel_unlock(c);
---- asterisk-1.4.10.1~dfsg.orig/apps/app_queue.c
-+++ asterisk-1.4.10.1~dfsg/apps/app_queue.c
+--- a/apps/app_queue.c
++++ b/apps/app_queue.c
 @@ -2583,13 +2583,13 @@ static int try_calling(struct queue_ent 
  				else
  					which = peer;
@@ -112,8 +112,8 @@
  				}
  				if (qe->parent->monjoin)
  					ast_monitor_setjoinfiles(which, 1);
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_agent.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_agent.c
+--- a/channels/chan_agent.c
++++ b/channels/chan_agent.c
 @@ -412,7 +412,7 @@ static int __agent_start_monitoring(stru
  		if ((pointer = strchr(filename, '.')))
  			*pointer = '-';

@@ -1,8 +1,8 @@
 Change the API of ast_sendtext and chan->sendtext to add dest and ispdu
 parameters, used by ast_send_message which is also introduced by this patch.
 
---- asterisk-1.4.10.1~dfsg.orig/include/asterisk/channel.h
-+++ asterisk-1.4.10.1~dfsg/include/asterisk/channel.h
+--- a/include/asterisk/channel.h
++++ b/include/asterisk/channel.h
 @@ -223,7 +223,7 @@ struct ast_channel_tech {
  	int (* const write)(struct ast_channel *chan, struct ast_frame *frame);
  
@@ -43,8 +43,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  
  /*! \brief Receives a text character from a channel
   * \param chan channel to act upon
---- asterisk-1.4.10.1~dfsg.orig/main/channel.c
-+++ asterisk-1.4.10.1~dfsg/main/channel.c
+--- a/main/channel.c
++++ b/main/channel.c
 @@ -2655,7 +2655,7 @@ char *ast_recvtext(struct ast_channel *c
  	return buf;
  }
@@ -98,8 +98,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  /*! \ brief Convert channel reloadreason (ENUM) to text string for manager event */
  const char *channelreloadreason2txt(enum channelreloadreason reason)
  {
---- asterisk-1.4.10.1~dfsg.orig/apps/app_sendtext.c
-+++ asterisk-1.4.10.1~dfsg/apps/app_sendtext.c
+--- a/apps/app_sendtext.c
++++ b/apps/app_sendtext.c
 @@ -103,7 +103,7 @@ static int sendtext_exec(struct ast_chan
  	}
  	status = "FAILURE";
@@ -109,8 +109,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  	if (!res)
  		status = "SUCCESS";
  	pbx_builtin_setvar_helper(chan, "SENDTEXTSTATUS", status);
---- asterisk-1.4.10.1~dfsg.orig/res/res_agi.c
-+++ asterisk-1.4.10.1~dfsg/res/res_agi.c
+--- a/res/res_agi.c
++++ b/res/res_agi.c
 @@ -483,7 +483,7 @@ static int handle_sendtext(struct ast_ch
  	   would probably be to strip off the trailing newline before
  	   parsing, then here, add a newline at the end of the string
@@ -120,8 +120,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  	fdprintf(agi->fd, "200 result=%d\n", res);
  	return (res >= 0) ? RESULT_SUCCESS : RESULT_FAILURE;
  }
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_agent.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_agent.c
+--- a/channels/chan_agent.c
++++ b/channels/chan_agent.c
 @@ -246,7 +246,7 @@ static int agent_answer(struct ast_chann
  static struct ast_frame *agent_read(struct ast_channel *ast);
  static int agent_write(struct ast_channel *ast, struct ast_frame *f);
@@ -147,8 +147,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  	ast_mutex_unlock(&p->lock);
  	return res;
  }
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_alsa.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_alsa.c
+--- a/channels/chan_alsa.c
++++ b/channels/chan_alsa.c
 @@ -186,7 +186,7 @@ static int nosound = 0;
  /* ZZ */
  static struct ast_channel *alsa_request(const char *type, int format, void *data, int *cause);
@@ -167,8 +167,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  {
  	ast_mutex_lock(&alsalock);
  	ast_verbose(" << Console Received text %s >> \n", text);
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_local.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_local.c
+--- a/channels/chan_local.c
++++ b/channels/chan_local.c
 @@ -77,7 +77,7 @@ static int local_write(struct ast_channe
  static int local_indicate(struct ast_channel *ast, int condition, const void *data, size_t datalen);
  static int local_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
@@ -187,8 +187,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  {
  	struct local_pvt *p = ast->tech_pvt;
  	int res = -1;
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_oss.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_oss.c
+--- a/channels/chan_oss.c
++++ b/channels/chan_oss.c
 @@ -405,7 +405,7 @@ static struct ast_channel *oss_request(c
  , int *cause);
  static int oss_digit_begin(struct ast_channel *c, char digit);
@@ -207,8 +207,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  {
  	/* print received messages */
  	ast_verbose(" << Console Received text %s >> \n", text);
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_phone.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_phone.c
+--- a/channels/chan_phone.c
++++ b/channels/chan_phone.c
 @@ -166,7 +166,7 @@ static int phone_answer(struct ast_chann
  static struct ast_frame *phone_read(struct ast_channel *ast);
  static int phone_write(struct ast_channel *ast, struct ast_frame *frame);
@@ -227,8 +227,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  {
      int length = strlen(text);
      return phone_write_buf(ast->tech_pvt, text, length, length, 0) == 
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_sip.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_sip.c
+--- a/channels/chan_sip.c
++++ b/channels/chan_sip.c
 @@ -1204,7 +1204,7 @@ static struct ast_config *notify_types;	
  /*--- PBX interface functions */
  static struct ast_channel *sip_request_call(const char *type, int format, void *data, int *cause);
@@ -247,8 +247,8 @@ parameters, used by ast_send_message which is also introduced by this patch.
  {
  	struct sip_pvt *p = ast->tech_pvt;
  	int debug = sip_debug_test_pvt(p);
---- asterisk-1.4.10.1~dfsg.orig/channels/chan_iax2.c
-+++ asterisk-1.4.10.1~dfsg/channels/chan_iax2.c
+--- a/channels/chan_iax2.c
++++ b/channels/chan_iax2.c
 @@ -817,7 +817,7 @@ static int iax2_provision(struct sockadd
  static int iax2_send(struct chan_iax2_pvt *pvt, struct ast_frame *f, unsigned int ts, int seqno, int now, int transfer, int final);
  static int iax2_sendhtml(struct ast_channel *c, int subclass, const char *data, int datalen);

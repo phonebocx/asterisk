@@ -4,8 +4,8 @@ Of course, a fix for the code was needed to bail-out on cards=0 :-)
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.15~dfsg.orig/channels/chan_vpb.cc
-+++ asterisk-1.4.15~dfsg/channels/chan_vpb.cc
+--- a/channels/chan_vpb.cc
++++ b/channels/chan_vpb.cc
 @@ -2883,7 +2883,13 @@ static enum ast_module_load_result load_
  		v = ast_variable_browse(cfg, "general");
  		while (v){
@@ -21,8 +21,8 @@ Of course, a fix for the code was needed to bail-out on cards=0 :-)
  			}
  			else if (strcasecmp(v->name, "indication") == 0) {
  				use_ast_ind = 1;
---- asterisk-1.4.15~dfsg.orig/configs/vpb.conf.sample
-+++ asterisk-1.4.15~dfsg/configs/vpb.conf.sample
+--- a/configs/vpb.conf.sample
++++ b/configs/vpb.conf.sample
 @@ -8,7 +8,7 @@
  ;
  ; Total number of Voicetronix cards in this machine

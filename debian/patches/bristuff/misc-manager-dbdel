@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/main/db.c
-+++ asterisk-1.4.8~dfsg/main/db.c
+--- a/main/db.c
++++ b/main/db.c
 @@ -573,7 +573,7 @@ static int manager_dbget(struct mansessi
  		astman_append(s, "Event: DBGetResponse\r\n"
  				"Family: %s\r\n"

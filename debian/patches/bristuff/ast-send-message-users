@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/main/manager.c
-+++ asterisk-1.4.8~dfsg/main/manager.c
+--- a/main/manager.c
++++ b/main/manager.c
 @@ -11,6 +11,9 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -68,8 +68,8 @@
  		ast_manager_register("Status", EVENT_FLAG_CALL, action_status, "Lists channel status" );
  		ast_manager_register2("Setvar", EVENT_FLAG_CALL, action_setvar, "Set Channel Variable", mandescr_setvar );
  		ast_manager_register2("Getvar", EVENT_FLAG_CALL, action_getvar, "Gets a Channel Variable", mandescr_getvar );
---- asterisk-1.4.8~dfsg.orig/pbx/pbx_spool.c
-+++ asterisk-1.4.8~dfsg/pbx/pbx_spool.c
+--- a/pbx/pbx_spool.c
++++ b/pbx/pbx_spool.c
 @@ -87,6 +87,10 @@ struct outgoing {
  	char app[256];
  	char data[256];

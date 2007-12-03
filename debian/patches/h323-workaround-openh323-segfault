@@ -13,8 +13,8 @@ Should be removed when #438815 closes.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.11~dfsg.orig/main/loader.c
-+++ asterisk-1.4.11~dfsg/main/loader.c
+--- a/main/loader.c
++++ b/main/loader.c
 @@ -356,6 +356,12 @@ static struct ast_module *load_dynamic_m
  
  	strcpy(resource_being_loaded->resource, resource);

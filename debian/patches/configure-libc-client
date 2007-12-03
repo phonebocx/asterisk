@@ -4,8 +4,8 @@ Forwarded as #10813.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.11~dfsg.orig/configure
-+++ asterisk-1.4.11~dfsg/configure
+--- a/configure
++++ b/configure
 @@ -18435,7 +18435,7 @@ echo $ECHO_N "checking for UW IMAP Toolk
        imap_ldflags=`cat ${IMAP_TK_DIR}/c-client/LDFLAGS`
     fi
@@ -24,8 +24,8 @@ Forwarded as #10813.
        IMAP_TK_INCLUDE="-I${IMAP_TK_DIR}/c-client"
        PBX_IMAP_TK=1
  
---- asterisk-1.4.11~dfsg.orig/configure.ac
-+++ asterisk-1.4.11~dfsg/configure.ac
+--- a/configure.ac
++++ b/configure.ac
 @@ -484,7 +484,7 @@ if test "${USE_IMAP_TK}" != "no"; then
        imap_ldflags=`cat ${IMAP_TK_DIR}/c-client/LDFLAGS`
     fi

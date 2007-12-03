@@ -7,8 +7,8 @@ privileges.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
---- asterisk-1.4.12~dfsg.orig/configure
-+++ asterisk-1.4.12~dfsg/configure
+--- a/configure
++++ b/configure
 @@ -724,6 +724,10 @@ CURL_LIB
  CURL_INCLUDE
  CURL_DIR
@@ -598,8 +598,8 @@ privileges.
  
  test -z "$ac_datarootdir_hack$ac_datarootdir_seen" &&
    { ac_out=`sed -n '/\${datarootdir}/p' "$tmp/out"`; test -n "$ac_out"; } &&
---- asterisk-1.4.12~dfsg.orig/configure.ac
-+++ asterisk-1.4.12~dfsg/configure.ac
+--- a/configure.ac
++++ b/configure.ac
 @@ -172,6 +172,7 @@ AC_SUBST(AST_DEVMODE)
  
  AST_EXT_LIB_SETUP([ALSA], [Advanced Linux Sound Architecture], [asound])
@@ -619,8 +619,8 @@ privileges.
  GSM_INTERNAL="yes"
  AC_SUBST(GSM_INTERNAL)
  GSM_SYSTEM="yes"
---- asterisk-1.4.12~dfsg.orig/doc/security.txt
-+++ asterisk-1.4.12~dfsg/doc/security.txt
+--- a/doc/security.txt
++++ b/doc/security.txt
 @@ -28,6 +28,13 @@ The IAX2 protocol supports strong RSA ke
  AES encryption of voice and signalling. The SIP channel does not
  support encryption in this version of Asterisk.
@@ -635,8 +635,8 @@ privileges.
  * DIALPLAN SECURITY
  
  First and foremost remember this:
---- asterisk-1.4.12~dfsg.orig/main/asterisk.c
-+++ asterisk-1.4.12~dfsg/main/asterisk.c
+--- a/main/asterisk.c
++++ b/main/asterisk.c
 @@ -82,13 +82,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include <sys/stat.h>
  #ifdef linux
@@ -697,8 +697,8 @@ privileges.
  	}
  
  #endif /* __CYGWIN__ */
---- asterisk-1.4.12~dfsg.orig/main/Makefile
-+++ asterisk-1.4.12~dfsg/main/Makefile
+--- a/main/Makefile
++++ b/main/Makefile
 @@ -55,6 +55,9 @@ ifneq ($(findstring $(OSARCH), linux-gnu
    ifneq ($(findstring LOADABLE_MODULES,$(MENUSELECT_CFLAGS)),)
    AST_LIBS+=-ldl
@@ -709,8 +709,8 @@ privileges.
    AST_LIBS+=-lpthread $(EDITLINE_LIB) -lm -lresolv
  else
    AST_LIBS+=$(EDITLINE_LIB) -lm
---- asterisk-1.4.12~dfsg.orig/makeopts.in
-+++ asterisk-1.4.12~dfsg/makeopts.in
+--- a/makeopts.in
++++ b/makeopts.in
 @@ -178,6 +178,9 @@ MISDN_LIB=@MISDN_LIB@
  SUPPSERV_INCLUDE=@SUPPSERV_INCLUDE@
  SUPPSERV_LIB=@SUPPSERV_LIB@
@@ -721,8 +721,8 @@ privileges.
  TERMCAP_INCLUDE=@TERMCAP_INCLUDE@
  TERMCAP_LIB=@TERMCAP_LIB@
  TERMCAP_DIR=@TERMCAP_DIR@
---- asterisk-1.4.12~dfsg.orig/include/asterisk/autoconfig.h.in
-+++ asterisk-1.4.12~dfsg/include/asterisk/autoconfig.h.in
+--- a/include/asterisk/autoconfig.h.in
++++ b/include/asterisk/autoconfig.h.in
 @@ -59,6 +59,12 @@
  /* Define to 1 if you have the `bzero' function. */
  #undef HAVE_BZERO

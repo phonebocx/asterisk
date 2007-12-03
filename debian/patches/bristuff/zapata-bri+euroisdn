@@ -1,7 +1,7 @@
 Index: asterisk-1.4.14~dfsg/include/asterisk/channel.h
 ===================================================================
---- asterisk-1.4.14~dfsg.orig/include/asterisk/channel.h	2007-11-19 12:33:35.000000000 +0200
-+++ asterisk-1.4.14~dfsg/include/asterisk/channel.h	2007-11-19 12:33:35.000000000 +0200
+--- a/include/asterisk/channel.h	2007-11-19 12:33:35.000000000 +0200
++++ b/include/asterisk/channel.h	2007-11-19 12:33:35.000000000 +0200
 @@ -420,6 +420,7 @@
  	unsigned int flags;				/*!< channel flags of AST_FLAG_ type */
  	unsigned short transfercapability;		/*!< ISDN Transfer Capbility - AST_FLAG_DIGITAL is not enough */
@@ -12,8 +12,8 @@ Index: asterisk-1.4.14~dfsg/include/asterisk/channel.h
  	int nativeformats;				/*!< Kinds of data this channel can natively handle */
 Index: asterisk-1.4.14~dfsg/main/pbx.c
 ===================================================================
---- asterisk-1.4.14~dfsg.orig/main/pbx.c	2007-11-19 12:33:34.000000000 +0200
-+++ asterisk-1.4.14~dfsg/main/pbx.c	2007-11-19 12:33:35.000000000 +0200
+--- a/main/pbx.c	2007-11-19 12:33:34.000000000 +0200
++++ b/main/pbx.c	2007-11-19 12:33:35.000000000 +0200
 @@ -5109,7 +5109,7 @@
  };
  
@@ -25,8 +25,8 @@ Index: asterisk-1.4.14~dfsg/main/pbx.c
  	struct ast_app *app;
 Index: asterisk-1.4.14~dfsg/include/asterisk/pbx.h
 ===================================================================
---- asterisk-1.4.14~dfsg.orig/include/asterisk/pbx.h	2007-11-19 12:33:34.000000000 +0200
-+++ asterisk-1.4.14~dfsg/include/asterisk/pbx.h	2007-11-19 12:33:35.000000000 +0200
+--- a/include/asterisk/pbx.h	2007-11-19 12:33:34.000000000 +0200
++++ b/include/asterisk/pbx.h	2007-11-19 12:33:35.000000000 +0200
 @@ -145,6 +145,8 @@
   */
  struct ast_app *pbx_findapp(const char *app);
@@ -38,8 +38,8 @@ Index: asterisk-1.4.14~dfsg/include/asterisk/pbx.h
   *
 Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
 ===================================================================
---- asterisk-1.4.14~dfsg.orig/channels/chan_zap.c	2007-11-19 12:31:59.000000000 +0200
-+++ asterisk-1.4.14~dfsg/channels/chan_zap.c	2007-11-19 12:48:21.000000000 +0200
+--- a/channels/chan_zap.c	2007-11-19 12:31:59.000000000 +0200
++++ b/channels/chan_zap.c	2007-11-19 12:48:21.000000000 +0200
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -2588,8 +2588,8 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		ast_log(LOG_WARNING, "Huh?  I don't exist?\n");
 Index: asterisk-1.4.14~dfsg/configs/zapata.conf.sample
 ===================================================================
---- asterisk-1.4.14~dfsg.orig/configs/zapata.conf.sample	2007-11-19 12:31:59.000000000 +0200
-+++ asterisk-1.4.14~dfsg/configs/zapata.conf.sample	2007-11-19 12:33:36.000000000 +0200
+--- a/configs/zapata.conf.sample	2007-11-19 12:31:59.000000000 +0200
++++ b/configs/zapata.conf.sample	2007-11-19 12:33:36.000000000 +0200
 @@ -123,9 +123,20 @@
  ; 
  ; outofband:      Signal Busy/Congestion out of band with RELEASE/DISCONNECT
@@ -2613,8 +2613,8 @@ Index: asterisk-1.4.14~dfsg/configs/zapata.conf.sample
  ; priexclusive = yes
 Index: asterisk-1.4.14~dfsg/main/channel.c
 ===================================================================
---- asterisk-1.4.14~dfsg.orig/main/channel.c	2007-11-19 12:33:35.000000000 +0200
-+++ asterisk-1.4.14~dfsg/main/channel.c	2007-11-19 12:33:36.000000000 +0200
+--- a/main/channel.c	2007-11-19 12:33:35.000000000 +0200
++++ b/main/channel.c	2007-11-19 12:33:36.000000000 +0200
 @@ -4173,6 +4173,10 @@
  			c1->name, c1->_bridge->name);
  		return -1;
