@@ -31,12 +31,14 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
   * News entries were added but we never shipped the file; ship NEWS.Debian.
   * Add an entry to NEWS.Debian warning users about app_voicemail_*.so
     (Closes: #452596)
+  * Provide options in /etc/default/asterisk for configuring safe_asterisk.
+    (Closes: #381786)
 
   [ Tzafrir Cohen ]
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr. (Closes: #337209)
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 20:16:53 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 22:54:35 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
