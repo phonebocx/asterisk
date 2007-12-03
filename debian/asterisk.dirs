@@ -19,5 +19,3 @@ var/spool/asterisk/system
 var/spool/asterisk/tmp
 var/spool/asterisk/voicemail
 var/spool/asterisk/outgoing
-
-usr/local/share/asterisk/sounds/custom

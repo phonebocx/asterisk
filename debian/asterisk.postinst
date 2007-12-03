@@ -58,6 +58,14 @@ case "$1" in
 		fi
 	done
 
+	# Create /usr/local directory; policy 9.1.2
+	if [ ! -e /usr/local/share/asterisk/sounds ]; then
+		if mkdir -p /usr/local/share/asterisk/sounds 2>/dev/null ; then
+			chown root:staff /usr/local/share/asterisk/sounds
+			chmod 2775 /usr/local/share/asterisk/sounds
+		fi
+	fi
+
 	### this is done here in case asterisk-config was installed/upgraded first
 
 	set +e # ignore errors temporarily
