@@ -2,6 +2,8 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET.
   * New upstream release (Closes: #452054)
+    - Fix a potential corrupt of voicemail.conf on simultaneous PIN updates
+      (Closes: #353227)
 
   [ Tzafrir Cohen ]
   * Add some sample/reference config files as documentation.
@@ -34,7 +36,7 @@ asterisk (1:1.4.15~dfsg-1) UNRELEASED; urgency=low
   * Provide a custom sounds directory under /var/lib - user-modifieble at
     runtime and hence not under /usr. (Closes: #337209)
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 20:15:27 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 03 Dec 2007 20:16:53 +0200
 
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
 
