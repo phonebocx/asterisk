@@ -95,7 +95,7 @@
  			ast_channel_unlock(c);
 --- a/apps/app_queue.c
 +++ b/apps/app_queue.c
-@@ -2583,13 +2583,13 @@ static int try_calling(struct queue_ent 
+@@ -2713,13 +2713,13 @@ static int try_calling(struct queue_ent 
  				else
  					which = peer;
  				if (monitorfilename)
@@ -114,7 +114,7 @@
  					ast_monitor_setjoinfiles(which, 1);
 --- a/channels/chan_agent.c
 +++ b/channels/chan_agent.c
-@@ -412,7 +412,7 @@ static int __agent_start_monitoring(stru
+@@ -416,7 +416,7 @@ static int __agent_start_monitoring(stru
  		if ((pointer = strchr(filename, '.')))
  			*pointer = '-';
  		snprintf(tmp, sizeof(tmp), "%s%s", savecallsin, filename);

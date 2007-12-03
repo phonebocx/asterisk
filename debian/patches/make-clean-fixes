@@ -5,7 +5,7 @@ one of them.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -364,7 +364,6 @@ dist-clean: distclean
+@@ -379,7 +379,6 @@ dist-clean: distclean
  
  distclean: clean
  	@$(MAKE) -C menuselect dist-clean
@@ -13,7 +13,7 @@ one of them.
  	rm -f menuselect.makeopts makeopts menuselect-tree menuselect.makedeps
  	rm -f makeopts.embed_rules
  	rm -f config.log config.status
-@@ -374,6 +373,10 @@ distclean: clean
+@@ -389,6 +388,10 @@ distclean: clean
  	rm -rf doc/api
  	rm -f build_tools/menuselect-deps
  

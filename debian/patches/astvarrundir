@@ -7,7 +7,7 @@ dropping uid/gid.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -115,7 +115,7 @@ else
+@@ -122,7 +122,7 @@ else
    ASTSBINDIR=$(sbindir)
    ASTSPOOLDIR=$(localstatedir)/spool/asterisk
    ASTLOGDIR=$(localstatedir)/log/asterisk

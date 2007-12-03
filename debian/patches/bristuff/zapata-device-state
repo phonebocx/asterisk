@@ -1,8 +1,6 @@
-Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
-===================================================================
---- a/channels/chan_zap.c	2007-11-19 12:31:59.000000000 +0200
-+++ b/channels/chan_zap.c	2007-11-19 12:48:21.000000000 +0200
-@@ -103,6 +107,8 @@
+--- a/channels/chan_zap.c
++++ b/channels/chan_zap.c
+@@ -103,6 +103,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include "asterisk/abstract_jb.h"
  #include "asterisk/smdi.h"
  #include "asterisk/astobj.h"
@@ -11,7 +9,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  #define SMDI_MD_WAIT_TIMEOUT 1500 /* 1.5 seconds */
  
  /*! Global jitterbuffer configuration - by default, jb is disabled */
-@@ -702,6 +743,7 @@
+@@ -702,6 +704,7 @@ static const struct ast_channel_tech zap
  	.fixup = zt_fixup,
  	.setoption = zt_setoption,
  	.func_channel_read = zt_func_read,
@@ -19,7 +17,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  };
  
  #ifdef HAVE_PRI
-@@ -760,6 +809,112 @@
+@@ -760,6 +763,112 @@ static int cidrings[NUM_CADENCE_MAX] = {
  #define CANBUSYDETECT(p) (ISTRUNK(p) || (p->sig & (SIG_EM | SIG_EM_E1 | SIG_SF)) /* || (p->sig & __ZT_SIG_FXO) */)
  #define CANPROGRESSDETECT(p) (ISTRUNK(p) || (p->sig & (SIG_EM | SIG_EM_E1 | SIG_SF)) /* || (p->sig & __ZT_SIG_FXO) */)
  

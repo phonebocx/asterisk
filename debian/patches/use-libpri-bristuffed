@@ -1,6 +1,6 @@
 --- a/configure
 +++ b/configure
-@@ -24426,18 +24426,18 @@ fi
+@@ -24903,18 +24903,18 @@ fi
  
  
     if test "${AST_PRI_FOUND}" = "yes"; then
@@ -25,7 +25,7 @@
  if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
    echo $ECHO_N "(cached) $ECHO_C" >&6
  fi
-@@ -24446,8 +24446,8 @@ ac_res=`eval echo '${'$as_ac_Header'}'`
+@@ -24923,8 +24923,8 @@ ac_res=`eval echo '${'$as_ac_Header'}'`
  echo "${ECHO_T}$ac_res" >&6; }
  else
    # Is the header compilable?
@@ -36,7 +36,7 @@
  cat >conftest.$ac_ext <<_ACEOF
  /* confdefs.h.  */
  _ACEOF
-@@ -24455,7 +24455,7 @@ cat confdefs.h >>conftest.$ac_ext
+@@ -24932,7 +24932,7 @@ cat confdefs.h >>conftest.$ac_ext
  cat >>conftest.$ac_ext <<_ACEOF
  /* end confdefs.h.  */
  $ac_includes_default
@@ -45,7 +45,7 @@
  _ACEOF
  rm -f conftest.$ac_objext
  if { (ac_try="$ac_compile"
-@@ -24487,15 +24487,15 @@ rm -f core conftest.err conftest.$ac_obj
+@@ -24964,15 +24964,15 @@ rm -f core conftest.err conftest.$ac_obj
  echo "${ECHO_T}$ac_header_compiler" >&6; }
  
  # Is the header present?
@@ -64,7 +64,7 @@
  _ACEOF
  if { (ac_try="$ac_cpp conftest.$ac_ext"
  case "(($ac_try" in
-@@ -24528,30 +24528,30 @@ echo "${ECHO_T}$ac_header_preproc" >&6; 
+@@ -25005,30 +25005,30 @@ echo "${ECHO_T}$ac_header_preproc" >&6; 
  # So?  What about this header?
  case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
    yes:no: )
@@ -115,7 +115,7 @@
  else
 --- a/configure.ac
 +++ b/configure.ac
-@@ -815,7 +815,7 @@ fi
+@@ -821,7 +821,7 @@ fi
  
  AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
  

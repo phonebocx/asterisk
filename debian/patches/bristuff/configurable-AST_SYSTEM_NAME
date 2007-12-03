@@ -10,7 +10,7 @@
  
 --- a/main/asterisk.c
 +++ b/main/asterisk.c
-@@ -2368,6 +2368,7 @@ static void ast_readconfig(void) 
+@@ -2387,6 +2387,7 @@ static void ast_readconfig(void) 
  	ast_copy_string(ast_config_AST_PID, AST_PID, sizeof(ast_config_AST_PID));
  	ast_copy_string(ast_config_AST_SOCKET, AST_SOCKET, sizeof(ast_config_AST_SOCKET));
  	ast_copy_string(ast_config_AST_RUN_DIR, AST_RUN_DIR, sizeof(ast_config_AST_RUN_DIR));
@@ -18,7 +18,7 @@
  
  	/* no asterisk.conf? no problem, use buildtime config! */
  	if (!cfg) {
-@@ -2492,6 +2493,8 @@ static void ast_readconfig(void) 
+@@ -2511,6 +2512,8 @@ static void ast_readconfig(void) 
  			ast_copy_string(ast_config_AST_RUN_GROUP, v->value, sizeof(ast_config_AST_RUN_GROUP));
  		} else if (!strcasecmp(v->name, "systemname")) {
  			ast_copy_string(ast_config_AST_SYSTEM_NAME, v->value, sizeof(ast_config_AST_SYSTEM_NAME));

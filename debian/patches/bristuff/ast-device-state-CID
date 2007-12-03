@@ -113,7 +113,7 @@
  		} else {
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -572,8 +572,13 @@ int ast_channel_datastore_remove(struct 
+@@ -582,8 +582,13 @@ int ast_channel_datastore_remove(struct 
  /*! \brief Find a datastore on a channel */
  struct ast_datastore *ast_channel_datastore_find(struct ast_channel *chan, const struct ast_datastore_info *info, char *uid);
  
@@ -130,7 +130,7 @@
      \return Returns NULL on failure to allocate.
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -1269,7 +1269,7 @@ void ast_channel_free(struct ast_channel
+@@ -1270,7 +1270,7 @@ void ast_channel_free(struct ast_channel
  	free(chan);
  	AST_LIST_UNLOCK(&channels);
  
@@ -139,7 +139,7 @@
  }
  
  struct ast_datastore *ast_channel_datastore_alloc(const struct ast_datastore_info *info, char *uid)
-@@ -3844,7 +3844,7 @@ void ast_set_callerid(struct ast_channel
+@@ -3910,7 +3910,7 @@ void ast_set_callerid(struct ast_channel
  				);
  }
  
@@ -148,7 +148,7 @@
  {
  	int oldstate = chan->_state;
  
-@@ -3852,7 +3852,7 @@ int ast_setstate(struct ast_channel *cha
+@@ -3918,7 +3918,7 @@ int ast_setstate(struct ast_channel *cha
  		return 0;
  
  	chan->_state = state;
@@ -157,7 +157,7 @@
  	/* setstate used to conditionally report Newchannel; this is no more */
  	manager_event(EVENT_FLAG_CALL,
  		      "Newstate",
-@@ -3869,6 +3869,11 @@ int ast_setstate(struct ast_channel *cha
+@@ -3935,6 +3935,11 @@ int ast_setstate(struct ast_channel *cha
  	return 0;
  }
  
@@ -180,7 +180,7 @@
  
  /*! \brief Data structure associated with a custom dialplan function */
  struct ast_custom_function {
-@@ -830,7 +830,7 @@ int ast_func_read(struct ast_channel *ch
+@@ -873,7 +873,7 @@ int ast_func_read(struct ast_channel *ch
   */
  int ast_func_write(struct ast_channel *chan, char *function, const char *value);
  
@@ -191,7 +191,7 @@
  }
 --- a/main/pbx.c
 +++ b/main/pbx.c
-@@ -1993,7 +1993,7 @@ int ast_extension_state(struct ast_chann
+@@ -2017,7 +2017,7 @@ int ast_extension_state(struct ast_chann
  	return ast_extension_state2(e);    		/* Check all devices in the hint */
  }
  
@@ -200,7 +200,7 @@
  {
  	struct ast_hint *hint;
  
-@@ -2024,11 +2024,11 @@ void ast_hint_state_changed(const char *
+@@ -2049,11 +2049,11 @@ void ast_hint_state_changed(const char *
  
  		/* For general callbacks */
  		for (cblist = statecbs; cblist; cblist = cblist->next)
@@ -214,7 +214,7 @@
  
  		hint->laststate = state;	/* record we saw the change */
  	}
-@@ -2223,7 +2223,7 @@ static int ast_remove_hint(struct ast_ex
+@@ -2249,7 +2249,7 @@ static int ast_remove_hint(struct ast_ex
  				/* Notify with -1 and remove all callbacks */
  				cbprev = cblist;
  				cblist = cblist->next;
@@ -223,7 +223,7 @@
  				free(cbprev);
  	    		}
  	    		hint->callbacks = NULL;
-@@ -3984,7 +3984,7 @@ void ast_merge_contexts_and_delete(struc
+@@ -4012,7 +4012,7 @@ void ast_merge_contexts_and_delete(struc
  			while (thiscb) {
  				prevcb = thiscb;
  				thiscb = thiscb->next;
@@ -234,7 +234,7 @@
  		} else {
 --- a/channels/chan_sip.c
 +++ b/channels/chan_sip.c
-@@ -1328,7 +1328,7 @@ static void ast_quiet_chan(struct ast_ch
+@@ -1333,7 +1333,7 @@ static void ast_quiet_chan(struct ast_ch
  static int attempt_transfer(struct sip_dual *transferer, struct sip_dual *target);
  
  /*--- Device monitoring and Device/extension state handling */
@@ -243,7 +243,7 @@
  static int sip_devicestate(void *data);
  static int sip_poke_noanswer(void *data);
  static int sip_poke_peer(struct sip_peer *peer);
-@@ -8337,7 +8337,7 @@ static void sip_peer_hold(struct sip_pvt
+@@ -8422,7 +8422,7 @@ static void sip_peer_hold(struct sip_pvt
  /*! \brief Callback for the devicestate notification (SUBSCRIBE) support subsystem
  \note	If you add an "hint" priority to the extension in the dial plan,
  	you will get notifications on device state changes */
@@ -254,7 +254,7 @@
  
 --- a/apps/app_queue.c
 +++ b/apps/app_queue.c
-@@ -594,7 +594,7 @@ static void *changethread(void *data)
+@@ -676,7 +676,7 @@ static void *device_state_thread(void *d
  	return NULL;
  }
  
@@ -275,7 +275,7 @@
  #define AST_MAX_MANHEADERS 128
 --- a/main/manager.c
 +++ b/main/manager.c
-@@ -128,6 +128,7 @@ static struct permalias {
+@@ -129,6 +129,7 @@ static struct permalias {
  	{ EVENT_FLAG_AGENT, "agent" },
  	{ EVENT_FLAG_USER, "user" },
  	{ EVENT_FLAG_CONFIG, "config" },
@@ -283,7 +283,7 @@
  	{ -1, "all" },
  	{ 0, "none" },
  };
-@@ -2451,10 +2452,12 @@ int ast_manager_unregister(char *action)
+@@ -2526,10 +2527,12 @@ int ast_manager_unregister(char *action)
  	return 0;
  }
  

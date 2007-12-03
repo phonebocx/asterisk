@@ -3,7 +3,7 @@ SayCharacters, SayPhonetic).
 
 --- a/main/pbx.c
 +++ b/main/pbx.c
-@@ -6002,6 +6002,9 @@ static int pbx_builtin_saynumber(struct 
+@@ -6064,6 +6064,9 @@ static int pbx_builtin_saynumber(struct 
  			return -1;
  		}
  	}
@@ -13,7 +13,7 @@ SayCharacters, SayPhonetic).
  	return ast_say_number(chan, atoi(tmp), "", chan->language, options);
  }
  
-@@ -6009,8 +6012,12 @@ static int pbx_builtin_saydigits(struct 
+@@ -6071,8 +6074,12 @@ static int pbx_builtin_saydigits(struct 
  {
  	int res = 0;
  
@@ -27,7 +27,7 @@ SayCharacters, SayPhonetic).
  	return res;
  }
  
-@@ -6018,8 +6025,12 @@ static int pbx_builtin_saycharacters(str
+@@ -6080,8 +6087,12 @@ static int pbx_builtin_saycharacters(str
  {
  	int res = 0;
  
@@ -41,7 +41,7 @@ SayCharacters, SayPhonetic).
  	return res;
  }
  
-@@ -6027,8 +6038,12 @@ static int pbx_builtin_sayphonetic(struc
+@@ -6089,8 +6100,12 @@ static int pbx_builtin_sayphonetic(struc
  {
  	int res = 0;
  

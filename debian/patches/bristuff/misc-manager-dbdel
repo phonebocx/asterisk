@@ -1,6 +1,6 @@
 --- a/main/db.c
 +++ b/main/db.c
-@@ -573,7 +573,7 @@ static int manager_dbget(struct mansessi
+@@ -574,7 +574,7 @@ static int manager_dbget(struct mansessi
  		astman_append(s, "Event: DBGetResponse\r\n"
  				"Family: %s\r\n"
  				"Key: %s\r\n"
@@ -9,7 +9,7 @@
  				"%s"
  				"\r\n",
  				family, key, tmp, idText);
-@@ -581,11 +581,35 @@ static int manager_dbget(struct mansessi
+@@ -582,11 +582,35 @@ static int manager_dbget(struct mansessi
  	return 0;
  }
  

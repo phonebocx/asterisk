@@ -1,8 +1,6 @@
-Index: asterisk-1.4.14~dfsg/include/asterisk/channel.h
-===================================================================
---- a/include/asterisk/channel.h	2007-11-19 12:33:35.000000000 +0200
-+++ b/include/asterisk/channel.h	2007-11-19 12:33:35.000000000 +0200
-@@ -420,6 +420,7 @@
+--- a/include/asterisk/channel.h
++++ b/include/asterisk/channel.h
+@@ -420,6 +420,7 @@ struct ast_channel {
  	unsigned int flags;				/*!< channel flags of AST_FLAG_ type */
  	unsigned short transfercapability;		/*!< ISDN Transfer Capbility - AST_FLAG_DIGITAL is not enough */
  	AST_LIST_HEAD_NOLOCK(, ast_frame) readq;
@@ -10,11 +8,9 @@ Index: asterisk-1.4.14~dfsg/include/asterisk/channel.h
  	int alertpipe[2];
  
  	int nativeformats;				/*!< Kinds of data this channel can natively handle */
-Index: asterisk-1.4.14~dfsg/main/pbx.c
-===================================================================
---- a/main/pbx.c	2007-11-19 12:33:34.000000000 +0200
-+++ b/main/pbx.c	2007-11-19 12:33:35.000000000 +0200
-@@ -5109,7 +5109,7 @@
+--- a/main/pbx.c
++++ b/main/pbx.c
+@@ -5136,7 +5136,7 @@ struct app_tmp {
  };
  
  /*! \brief run the application and free the descriptor once done */
@@ -23,11 +19,9 @@ Index: asterisk-1.4.14~dfsg/main/pbx.c
  {
  	struct app_tmp *tmp = data;
  	struct ast_app *app;
-Index: asterisk-1.4.14~dfsg/include/asterisk/pbx.h
-===================================================================
---- a/include/asterisk/pbx.h	2007-11-19 12:33:34.000000000 +0200
-+++ b/include/asterisk/pbx.h	2007-11-19 12:33:35.000000000 +0200
-@@ -145,6 +145,8 @@
+--- a/include/asterisk/pbx.h
++++ b/include/asterisk/pbx.h
+@@ -145,6 +145,8 @@ void ast_unregister_switch(struct ast_sw
   */
  struct ast_app *pbx_findapp(const char *app);
  
@@ -36,10 +30,8 @@ Index: asterisk-1.4.14~dfsg/include/asterisk/pbx.h
  /*!
   * \brief Execute an application
   *
-Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
-===================================================================
---- a/channels/chan_zap.c	2007-11-19 12:31:59.000000000 +0200
-+++ b/channels/chan_zap.c	2007-11-19 12:48:21.000000000 +0200
+--- a/channels/chan_zap.c
++++ b/channels/chan_zap.c
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -51,7 +43,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -189,7 +195,7 @@
+@@ -191,7 +195,7 @@ static const char config[] = "zapata.con
  #define SIG_GR303FXOKS	(0x0100000 | ZT_SIG_FXOKS)
  #define SIG_GR303FXSKS	(0x0100000 | ZT_SIG_FXSKS)
  
@@ -60,7 +52,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  #define NUM_DCHANS		4	/*!< No more than 4 d-channels */
  #define MAX_CHANNELS	672		/*!< No more than a DS3 per trunk group */
  
-@@ -215,8 +221,6 @@
+@@ -217,8 +221,6 @@ static struct ast_channel inuse;
  #ifdef PRI_GETSET_TIMERS
  static int pritimers[PRI_MAX_TIMERS];
  #endif
@@ -69,7 +61,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  #endif
  
  /*! \brief Wait up to 16 seconds for first digit (FXO logic) */
-@@ -234,10 +238,6 @@
+@@ -236,10 +238,6 @@ AST_MUTEX_DEFINE_STATIC(iflock);
  
  static int ifcount = 0;
  
@@ -80,7 +72,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  /*! \brief Protect the monitoring thread, so only one process can kill or start it, and not
     when it's doing something critical. */
  AST_MUTEX_DEFINE_STATIC(monlock);
-@@ -252,6 +252,7 @@
+@@ -254,6 +252,7 @@ static enum ast_bridge_result zt_bridge(
  
  static int zt_sendtext(struct ast_channel *c, const char *text);
  
@@ -88,7 +80,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  /*! \brief Avoid the silly zt_getevent which ignores a bunch of events */
  static inline int zt_get_event(int fd)
  {
-@@ -296,6 +297,27 @@
+@@ -298,6 +297,27 @@ static int ringt_base = DEFAULT_RINGT;
  #define PRI_SPAN(p) (((p) >> 8) & 0xff)
  #define PRI_EXPLICIT(p) (((p) >> 16) & 0x01)
  
@@ -116,7 +108,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  struct zt_pri {
  	pthread_t master;						/*!< Thread of master */
  	ast_mutex_t lock;						/*!< Mutex */
-@@ -309,6 +331,8 @@
+@@ -311,6 +331,8 @@ struct zt_pri {
  	int nsf;							/*!< Network-Specific Facilities */
  	int dialplan;							/*!< Dialing plan */
  	int localdialplan;						/*!< Local dialing plan */
@@ -125,7 +117,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	char internationalprefix[10];					/*!< country access code ('00' for european dialplans) */
  	char nationalprefix[10];					/*!< area access code ('0' for european dialplans) */
  	char localprefix[20];						/*!< area access code + area code ('0'+area code for european dialplans) */
-@@ -320,6 +344,7 @@
+@@ -322,6 +344,7 @@ struct zt_pri {
  	int prilogicalspan;						/*!< Logical span number within trunk group */
  	int numchans;							/*!< Num of channels we represent */
  	int overlapdial;						/*!< In overlap dialing mode */
@@ -133,7 +125,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	int facilityenable;						/*!< Enable facility IEs */
  	struct pri *dchans[NUM_DCHANS];					/*!< Actual d-channels */
  	int dchanavail[NUM_DCHANS];					/*!< Whether each channel is available */
-@@ -335,6 +360,9 @@
+@@ -337,6 +360,9 @@ struct zt_pri {
  	struct zt_pvt *pvts[MAX_CHANNELS];				/*!< Member channel pvt structs */
  	struct zt_pvt *crvs;						/*!< Member CRV structs */
  	struct zt_pvt *crvend;						/*!< Pointer to end of CRV structs */
@@ -143,7 +135,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  };
  
  
-@@ -452,6 +480,8 @@
+@@ -454,6 +480,8 @@ static struct zt_pvt {
  	unsigned int echocanbridged:1;
  	unsigned int echocanon:1;
  	unsigned int faxhandled:1;			/*!< Has a fax tone already been handled? */
@@ -152,7 +144,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	unsigned int firstradio:1;
  	unsigned int hanguponpolarityswitch:1;
  	unsigned int hardwaredtmf:1;
-@@ -465,7 +495,8 @@
+@@ -467,7 +495,8 @@ static struct zt_pvt {
  	unsigned int overlapdial:1;
  	unsigned int permcallwaiting:1;
  	unsigned int permhidecallerid:1;		/*!< Whether to hide our outgoing caller ID or not */
@@ -162,7 +154,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	unsigned int priexclusive:1;
  	unsigned int pulse:1;
  	unsigned int pulsedial:1;			/*!< whether a pulse dial phone is detected */
-@@ -502,6 +533,7 @@
+@@ -504,6 +533,7 @@ static struct zt_pvt {
  #endif
  	char cid_num[AST_MAX_EXTENSION];
  	int cid_ton;					/*!< Type Of Number (TON) */
@@ -170,7 +162,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	char cid_name[AST_MAX_EXTENSION];
  	char lastcid_num[AST_MAX_EXTENSION];
  	char lastcid_name[AST_MAX_EXTENSION];
-@@ -567,6 +599,8 @@
+@@ -569,6 +599,8 @@ static struct zt_pvt {
  	struct zt_pvt *bearer;
  	struct zt_pvt *realcall;
  	q931_call *call;
@@ -179,7 +171,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	int prioffset;
  	int logicalspan;
  #endif	
-@@ -612,11 +646,14 @@
+@@ -614,11 +646,14 @@ static struct zt_chan_conf zt_chan_conf_
  			.minunused = 2,
  			.idleext = "",
  			.idledial = "",
@@ -194,7 +186,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  
  			.resetinterval = 3600
  		},
-@@ -628,6 +665,8 @@
+@@ -630,6 +665,8 @@ static struct zt_chan_conf zt_chan_conf_
  			.mohinterpret = "default",
  			.mohsuggest = "",
  			.transfertobusy = 1,
@@ -203,7 +195,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  
  			.cid_signalling = CID_SIG_BELL,
  			.cid_start = CID_START_RING,
-@@ -682,6 +721,8 @@
+@@ -684,6 +721,8 @@ static int zt_indicate(struct ast_channe
  static int zt_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
  static int zt_setoption(struct ast_channel *chan, int option, void *data, int datalen);
  static int zt_func_read(struct ast_channel *chan, char *function, char *data, char *buf, size_t len); 
@@ -212,7 +204,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  
  static const struct ast_channel_tech zap_tech = {
  	.type = "Zap",
-@@ -713,6 +755,13 @@
+@@ -716,6 +755,13 @@ static const struct ast_channel_tech zap
  struct zt_pvt *round_robin[32];
  
  #ifdef HAVE_PRI
@@ -226,7 +218,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  static inline int pri_grab(struct zt_pvt *pvt, struct zt_pri *pri)
  {
  	int res;
-@@ -1415,12 +1570,16 @@
+@@ -1524,12 +1570,16 @@ static void zt_enable_ec(struct zt_pvt *
  	int res;
  	if (!p)
  		return;
@@ -244,7 +236,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		return;
  	}
  	if (p->echocancel) {
-@@ -1447,7 +1606,7 @@
+@@ -1556,7 +1606,7 @@ static void zt_train_ec(struct zt_pvt *p
  {
  	int x;
  	int res;
@@ -253,7 +245,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		x = p->echotraining;
  		res = ioctl(p->subs[SUB_REAL].zfd, ZT_ECHOTRAIN, &x);
  		if (res)
-@@ -1808,7 +1967,12 @@
+@@ -1917,7 +1967,12 @@ static int zt_call(struct ast_channel *a
  		ast_log(LOG_WARNING, "Unable to flush input on channel %d\n", p->channel);
  	p->outgoing = 1;
  
@@ -267,7 +259,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  
  	mysig = p->sig;
  	if (p->outsigmod > -1)
-@@ -2039,6 +2203,7 @@
+@@ -2148,6 +2203,7 @@ static int zt_call(struct ast_channel *a
  	case SIG_PRI:
  		/* We'll get it in a moment -- but use dialdest to store pre-setup_ack digits */
  		p->dialdest[0] = '\0';
@@ -275,7 +267,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		break;
  	default:
  		ast_log(LOG_DEBUG, "not yet implemented\n");
-@@ -2059,6 +2224,12 @@
+@@ -2168,6 +2224,12 @@ static int zt_call(struct ast_channel *a
  		const char *rr_str;
  		int redirect_reason;
  
@@ -288,7 +280,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		c = strchr(dest, '/');
  		if (c)
  			c++;
-@@ -2081,6 +2252,7 @@
+@@ -2190,6 +2252,7 @@ static int zt_call(struct ast_channel *a
  			ast_mutex_unlock(&p->lock);
  			return -1;
  		}
@@ -296,7 +288,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		if (mysig != SIG_FXSKS) {
  			p->dop.op = ZT_DIAL_OP_REPLACE;
  			s = strchr(c + p->stripmsd, 'w');
-@@ -2104,6 +2276,8 @@
+@@ -2213,6 +2276,8 @@ static int zt_call(struct ast_channel *a
  			pri_rel(p->pri);
  			ast_mutex_unlock(&p->lock);
  			return -1;
@@ -305,7 +297,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		}
  		if (!(sr = pri_sr_new())) {
  			ast_log(LOG_WARNING, "Failed to allocate setup request channel %d\n", p->channel);
-@@ -2133,7 +2307,7 @@
+@@ -2242,7 +2307,7 @@ static int zt_call(struct ast_channel *a
  		pri_sr_set_channel(sr, p->bearer ? PVT_TO_CHANNEL(p->bearer) : PVT_TO_CHANNEL(p), exclusive, 1);
  		pri_sr_set_bearer(sr, p->digital ? PRI_TRANS_CAP_DIGITAL : ast->transfercapability, 
  					(p->digital ? -1 : 
@@ -314,7 +306,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		if (p->pri->facilityenable)
  			pri_facility_enable(p->pri->pri);
  
-@@ -2397,8 +2571,10 @@
+@@ -2506,8 +2571,10 @@ static int pri_find_dchan(struct zt_pri 
  	}
  	if (newslot < 0) {
  		newslot = 0;
@@ -326,7 +318,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	}
  	if (old && (oldslot != newslot))
  		ast_log(LOG_NOTICE, "Switching from from d-channel %d to channel %d!\n",
-@@ -2408,6 +2584,16 @@
+@@ -2517,6 +2584,16 @@ static int pri_find_dchan(struct zt_pri 
  }
  #endif
  
@@ -343,7 +335,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  static int zt_hangup(struct ast_channel *ast)
  {
  	int res;
-@@ -2455,8 +2641,7 @@
+@@ -2564,8 +2641,7 @@ static int zt_hangup(struct ast_channel 
  	if (option_debug)
  		ast_log(LOG_DEBUG, "Hangup: channel: %d index = %d, normal = %d, callwait = %d, thirdcall = %d\n",
  		p->channel, index, p->subs[SUB_REAL].zfd, p->subs[SUB_CALLWAIT].zfd, p->subs[SUB_THREEWAY].zfd);
@@ -353,7 +345,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	if (index > -1) {
  		/* Real channel, do some fixup */
  		p->subs[index].owner = NULL;
-@@ -2558,6 +2743,7 @@
+@@ -2667,6 +2743,7 @@ static int zt_hangup(struct ast_channel 
  	}
  
  	if (!p->subs[SUB_REAL].owner && !p->subs[SUB_CALLWAIT].owner && !p->subs[SUB_THREEWAY].owner) {
@@ -361,7 +353,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		p->owner = NULL;
  		p->ringt = 0;
  		p->distinctivering = 0;
-@@ -2600,7 +2786,7 @@
+@@ -2709,7 +2786,7 @@ static int zt_hangup(struct ast_channel 
  						pri_call_set_useruser(p->call, useruser);
  #endif
  
@@ -370,7 +362,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						p->call = NULL;
  						if (p->bearer) 
  							p->bearer->call = NULL;
-@@ -2620,7 +2806,28 @@
+@@ -2729,7 +2806,28 @@ static int zt_hangup(struct ast_channel 
  							if (atoi(cause))
  								icause = atoi(cause);
  						}
@@ -400,7 +392,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					}
  					if (res < 0) 
  						ast_log(LOG_WARNING, "pri_disconnect failed\n");
-@@ -2804,10 +3011,14 @@
+@@ -2913,10 +3011,14 @@ static int zt_answer(struct ast_channel 
  			p->proceeding = 1;
  			res = pri_answer(p->pri->pri, p->call, 0, !p->digital);
  			pri_rel(p->pri);
@@ -415,7 +407,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		break;
  #endif
  	case 0:
-@@ -3444,6 +3655,15 @@
+@@ -3553,6 +3655,15 @@ static int zt_fixup(struct ast_channel *
  {
  	struct zt_pvt *p = newchan->tech_pvt;
  	int x;
@@ -431,7 +423,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	ast_mutex_lock(&p->lock);
  	ast_log(LOG_DEBUG, "New owner for channel %d is %s\n", p->channel, newchan->name);
  	if (p->owner == oldchan) {
-@@ -3653,8 +3873,10 @@
+@@ -3762,8 +3873,10 @@ static void zt_handle_dtmfup(struct ast_
  					pbx_builtin_setvar_helper(ast, "FAXEXTEN", ast->exten);
  					if (ast_async_goto(ast, target_context, "fax", 1))
  						ast_log(LOG_WARNING, "Failed to async goto '%s' into fax of '%s'\n", ast->name, target_context);
@@ -443,7 +435,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			} else if (option_debug)
  				ast_log(LOG_DEBUG, "Already in a fax extension, not redirecting\n");
  		} else if (option_debug)
-@@ -3808,7 +4030,7 @@
+@@ -3917,7 +4030,7 @@ static struct ast_frame *zt_handle_event
  				if (p->call) {
  					if (p->pri && p->pri->pri) {
  						if (!pri_grab(p, p->pri)) {
@@ -452,7 +444,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  							pri_destroycall(p->pri->pri, p->call);
  							p->call = NULL;
  							pri_rel(p->pri);
-@@ -4867,7 +5089,7 @@
+@@ -4976,7 +5089,7 @@ static struct ast_frame  *zt_read(struct
  		p->subs[index].f.data = NULL;
  		p->subs[index].f.datalen= 0;
  	}
@@ -461,7 +453,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		/* Perform busy detection. etc on the zap line */
  		f = ast_dsp_process(ast, p->dsp, &p->subs[index].f);
  		if (f) {
-@@ -4879,8 +5101,9 @@
+@@ -4988,8 +5101,9 @@ static struct ast_frame  *zt_read(struct
  				}
  			} else if (f->frametype == AST_FRAME_DTMF) {
  #ifdef HAVE_PRI
@@ -473,7 +465,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					f->frametype = AST_FRAME_NULL;
  					f->subclass = 0;
  				}
-@@ -4955,7 +5178,9 @@
+@@ -5064,7 +5178,9 @@ static int zt_write(struct ast_channel *
  #endif
  	/* Write a frame of (presumably voice) data */
  	if (frame->frametype != AST_FRAME_VOICE) {
@@ -484,7 +476,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			ast_log(LOG_WARNING, "Don't know what to do with frame type '%d'\n", frame->frametype);
  		return 0;
  	}
-@@ -5023,7 +5248,7 @@
+@@ -5132,7 +5248,7 @@ static int zt_indicate(struct ast_channe
  		switch (condition) {
  		case AST_CONTROL_BUSY:
  #ifdef HAVE_PRI
@@ -493,7 +485,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  				chan->hangupcause = AST_CAUSE_USER_BUSY;
  				chan->_softhangup |= AST_SOFTHANGUP_DEV;
  				res = 0;
-@@ -5105,7 +5330,7 @@
+@@ -5214,7 +5330,7 @@ static int zt_indicate(struct ast_channe
  		case AST_CONTROL_CONGESTION:
  			chan->hangupcause = AST_CAUSE_CONGESTION;
  #ifdef HAVE_PRI
@@ -502,7 +494,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  				chan->hangupcause = AST_CAUSE_SWITCH_CONGESTION;
  				chan->_softhangup |= AST_SOFTHANGUP_DEV;
  				res = 0;
-@@ -5299,8 +5524,12 @@
+@@ -5408,8 +5524,12 @@ static struct ast_channel *zt_new(struct
  	if (state == AST_STATE_RING)
  		tmp->rings = 1;
  	tmp->tech_pvt = i;
@@ -516,7 +508,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		tmp->callgroup = i->callgroup;
  		tmp->pickupgroup = i->pickupgroup;
  	}
-@@ -5430,6 +5659,7 @@
+@@ -5539,6 +5659,7 @@ static void *ss_thread(void *data)
  	int len = 0;
  	int res;
  	int index;
@@ -524,7 +516,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  
  	/* in the bizarre case where the channel has become a zombie before we
  	   even get started here, abort safely
-@@ -5458,10 +5688,17 @@
+@@ -5567,10 +5688,17 @@ static void *ss_thread(void *data)
  		len = strlen(exten);
  		res = 0;
  		while ((len < AST_MAX_EXTENSION-1) && ast_matchmore_extension(chan, chan->context, exten, 1, p->cid_num)) {
@@ -545,7 +537,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			if (ast_exists_extension(chan, chan->context, exten, 1, p->cid_num))
  				timeout = matchdigittimeout;
  			else
-@@ -6669,18 +6906,44 @@
+@@ -6778,18 +6906,44 @@ static int handle_init_event(struct zt_p
  		break;
  	case ZT_EVENT_NOALARM:
  		i->inalarm = 0;
@@ -590,7 +582,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		/* fall thru intentionally */
  	case ZT_EVENT_ONHOOK:
  		if (i->radio)
-@@ -6724,8 +6987,10 @@
+@@ -6833,8 +6987,10 @@ static int handle_init_event(struct zt_p
  			zt_set_hook(i->subs[SUB_REAL].zfd, ZT_ONHOOK);
  			break;
  		case SIG_PRI:
@@ -603,7 +595,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			break;
  		default:
  			ast_log(LOG_WARNING, "Don't know how to handle on hook with signalling %s on channel %d\n", sig2str(i->sig), i->channel);
-@@ -7017,6 +7282,8 @@
+@@ -7126,6 +7282,8 @@ static int pri_resolve_span(int *span, i
  		} else {
  			if (si->totalchans == 31) { /* if it's an E1 */
  				pris[*span].dchannels[0] = 16 + offset;
@@ -612,7 +604,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			} else {
  				pris[*span].dchannels[0] = 24 + offset;
  			}
-@@ -7269,6 +7536,11 @@
+@@ -7378,6 +7536,11 @@ static struct zt_pvt *mkintf(int channel
  							destroy_zt_pvt(&tmp);
  							return NULL;
  						}
@@ -624,7 +616,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						if (pris[span].minunused && (pris[span].minunused != conf.pri.minunused)) {
  							ast_log(LOG_ERROR, "Span %d already has minunused of %d.\n", span + 1, conf.pri.minunused);
  							destroy_zt_pvt(&tmp);
-@@ -7286,6 +7558,11 @@
+@@ -7395,6 +7558,11 @@ static struct zt_pvt *mkintf(int channel
  							return NULL;
  						}
  						pris[span].nodetype = conf.pri.nodetype;
@@ -636,7 +628,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						pris[span].switchtype = myswitchtype;
  						pris[span].nsf = conf.pri.nsf;
  						pris[span].dialplan = conf.pri.dialplan;
-@@ -7294,9 +7571,14 @@
+@@ -7403,9 +7571,14 @@ static struct zt_pvt *mkintf(int channel
  						pris[span].minunused = conf.pri.minunused;
  						pris[span].minidle = conf.pri.minidle;
  						pris[span].overlapdial = conf.pri.overlapdial;
@@ -651,7 +643,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						ast_copy_string(pris[span].internationalprefix, conf.pri.internationalprefix, sizeof(pris[span].internationalprefix));
  						ast_copy_string(pris[span].nationalprefix, conf.pri.nationalprefix, sizeof(pris[span].nationalprefix));
  						ast_copy_string(pris[span].localprefix, conf.pri.localprefix, sizeof(pris[span].localprefix));
-@@ -7432,6 +7714,7 @@
+@@ -7541,6 +7714,7 @@ static struct zt_pvt *mkintf(int channel
  		tmp->restrictcid = conf.chan.restrictcid;
  		tmp->use_callingpres = conf.chan.use_callingpres;
  		tmp->priindication_oob = conf.chan.priindication_oob;
@@ -659,7 +651,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		tmp->priexclusive = conf.chan.priexclusive;
  		if (tmp->usedistinctiveringdetection) {
  			if (!tmp->use_callerid) {
-@@ -7711,7 +7994,7 @@
+@@ -7820,7 +7994,7 @@ static int pri_find_empty_chan(struct zt
  			break;
  		if (!backwards && (x >= pri->numchans))
  			break;
@@ -668,7 +660,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			ast_log(LOG_DEBUG, "Found empty available channel %d/%d\n", 
  				pri->pvts[x]->logicalspan, pri->pvts[x]->prioffset);
  			return x;
-@@ -7907,6 +8190,11 @@
+@@ -8016,6 +8190,11 @@ static struct ast_channel *zt_request(co
  					p->digital = 1;
  					if (tmp)
  						tmp->transfercapability = AST_TRANS_CAP_DIGITAL;
@@ -680,7 +672,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  				} else {
  					ast_log(LOG_WARNING, "Unknown option '%c' in '%s'\n", opt, (char *)data);
  				}
-@@ -7940,13 +8228,14 @@
+@@ -8049,13 +8228,14 @@ next:
  				*cause = AST_CAUSE_BUSY;
  		} else if (groupmatched) {
  			*cause = AST_CAUSE_CONGESTION;
@@ -696,7 +688,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  #ifdef HAVE_PRI
  static struct zt_pvt *pri_find_crv(struct zt_pri *pri, int crv)
  {
-@@ -7960,6 +8249,58 @@
+@@ -8069,6 +8249,58 @@ static struct zt_pvt *pri_find_crv(struc
  	return NULL;
  }
  
@@ -755,7 +747,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  
  static int pri_find_principle(struct zt_pri *pri, int channel)
  {
-@@ -7991,7 +8332,9 @@
+@@ -8100,7 +8332,9 @@ static int pri_find_principle(struct zt_
  static int pri_fixup_principle(struct zt_pri *pri, int principle, q931_call *c)
  {
  	int x;
@@ -765,7 +757,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	if (!c) {
  		if (principle < 0)
  			return -1;
-@@ -8019,6 +8362,7 @@
+@@ -8128,6 +8362,7 @@ static int pri_fixup_principle(struct zt
  				}
  				/* Fix it all up now */
  				pri->pvts[principle]->owner = pri->pvts[x]->owner;
@@ -773,7 +765,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  				if (pri->pvts[principle]->owner) {
  					ast_string_field_build(pri->pvts[principle]->owner, name, 
  							       "Zap/%d:%d-%d", pri->trunkgroup,
-@@ -8026,13 +8370,48 @@
+@@ -8135,13 +8370,48 @@ static int pri_fixup_principle(struct zt
  					pri->pvts[principle]->owner->tech_pvt = pri->pvts[principle];
  					pri->pvts[principle]->owner->fds[0] = pri->pvts[principle]->subs[SUB_REAL].zfd;
  					pri->pvts[principle]->subs[SUB_REAL].owner = pri->pvts[x]->subs[SUB_REAL].owner;
@@ -823,7 +815,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			}
  			return principle;
  		}
-@@ -8061,7 +8440,9 @@
+@@ -8170,7 +8440,9 @@ static int pri_fixup_principle(struct zt
  		}
  		crv = crv->next;
  	}
@@ -834,7 +826,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	return -1;
  }
  
-@@ -8120,86 +8501,21 @@
+@@ -8229,86 +8501,21 @@ static void *do_idle_thread(void *vchan)
  #ifndef PRI_RESTART
  #error "Upgrade your libpri"
  #endif
@@ -928,7 +920,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	do {
  		pri->resetpos++;
  	} while ((pri->resetpos < pri->numchans) &&
-@@ -8283,13 +8599,30 @@
+@@ -8392,13 +8599,30 @@ static void apply_plan_to_number(char *b
  	}
  }
  
@@ -966,7 +958,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  }
  
  static void *pri_dchannel(void *vpri)
-@@ -8469,15 +8802,44 @@
+@@ -8578,15 +8802,44 @@ static void *pri_dchannel(void *vpri)
  					/* Check for an event */
  					x = 0;
  					res = ioctl(pri->fds[which], ZT_GETEVENT, &x);
@@ -1014,7 +1006,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					}
  				
  					if (option_debug)
-@@ -8489,8 +8851,7 @@
+@@ -8598,8 +8851,7 @@ static void *pri_dchannel(void *vpri)
  					break;
  			}
  		} else if (errno != EINTR)
@@ -1024,7 +1016,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		if (e) {
  			if (pri->debug)
  				pri_dump_event(pri->dchans[which], e);
-@@ -8503,32 +8864,86 @@
+@@ -8612,32 +8864,86 @@ static void *pri_dchannel(void *vpri)
  
  			switch (e->e) {
  			case PRI_EVENT_DCHAN_UP:
@@ -1128,7 +1120,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					pri->resetting = 0;
  					/* Hangup active channels and put them in alarm mode */
  					for (i = 0; i < pri->numchans; i++) {
-@@ -8538,12 +8953,13 @@
+@@ -8647,12 +8953,13 @@ static void *pri_dchannel(void *vpri)
  								/* T309 is not enabled : hangup calls when alarm occurs */
  								if (p->call) {
  									if (p->pri && p->pri->pri) {
@@ -1143,7 +1135,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  								if (p->realcall) {
  									pri_hangup_all(p->realcall, pri);
  								} else if (p->owner)
-@@ -8552,6 +8968,7 @@
+@@ -8661,6 +8968,7 @@ static void *pri_dchannel(void *vpri)
  							p->inalarm = 1;
  						}
  					}
@@ -1151,7 +1143,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  				}
  				break;
  			case PRI_EVENT_RESTART:
-@@ -8586,8 +9003,8 @@
+@@ -8695,8 +9003,8 @@ static void *pri_dchannel(void *vpri)
  								pri_destroycall(pri->pri, pri->pvts[x]->call);
  								pri->pvts[x]->call = NULL;
  							}
@@ -1162,7 +1154,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
   							else if (pri->pvts[x]->owner)
  								pri->pvts[x]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
  							ast_mutex_unlock(&pri->pvts[x]->lock);
-@@ -8621,7 +9038,6 @@
+@@ -8730,7 +9038,6 @@ static void *pri_dchannel(void *vpri)
  					}
  				}
  				break;
@@ -1170,7 +1162,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			case PRI_EVENT_INFO_RECEIVED:
  				chanpos = pri_find_principle(pri, e->ring.channel);
  				if (chanpos < 0) {
-@@ -8630,9 +9046,11 @@
+@@ -8739,9 +9046,11 @@ static void *pri_dchannel(void *vpri)
  				} else {
  					chanpos = pri_fixup_principle(pri, chanpos, e->ring.call);
  					if (chanpos > -1) {
@@ -1183,7 +1175,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  							/* how to do that */
  							int digitlen = strlen(e->ring.callednum);
  							char digit;
-@@ -8644,6 +9062,14 @@
+@@ -8753,6 +9062,14 @@ static void *pri_dchannel(void *vpri)
  									zap_queue_frame(pri->pvts[chanpos], &f, pri);
  								}
  							}
@@ -1198,7 +1190,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						}
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					}
-@@ -8651,36 +9077,59 @@
+@@ -8760,36 +9077,59 @@ static void *pri_dchannel(void *vpri)
  				break;
  			case PRI_EVENT_RING:
  				crv = NULL;
@@ -1274,7 +1266,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					if (pri->switchtype == PRI_SWITCH_GR303_TMC) {
  						/* Should be safe to lock CRV AFAIK while bearer is still locked */
  						crv = pri_find_crv(pri, pri_get_crv(pri->pri, e->ring.call, NULL));
-@@ -8694,13 +9143,14 @@
+@@ -8803,13 +9143,14 @@ static void *pri_dchannel(void *vpri)
  								ast_log(LOG_WARNING, "Call received for busy CRV %d on span %d\n", pri_get_crv(pri->pri, e->ring.call, NULL), pri->span);
  							} else
  								ast_log(LOG_NOTICE, "Call received for unconfigured CRV %d on span %d\n", pri_get_crv(pri->pri, e->ring.call, NULL), pri->span);
@@ -1290,7 +1282,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					pri->pvts[chanpos]->call = e->ring.call;
  					apply_plan_to_number(plancallingnum, sizeof(plancallingnum), pri, e->ring.callingnum, e->ring.callingplan);
  					if (pri->pvts[chanpos]->use_callerid) {
-@@ -8725,29 +9175,78 @@
+@@ -8834,29 +9175,78 @@ static void *pri_dchannel(void *vpri)
  					}
  					apply_plan_to_number(pri->pvts[chanpos]->rdnis, sizeof(pri->pvts[chanpos]->rdnis), pri,
  							     e->ring.redirectingnum, e->ring.callingplanrdnis);
@@ -1382,7 +1374,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					/* Make sure extension exists (or in overlap dial mode, can exist) */
  					if ((pri->overlapdial && ast_canmatch_extension(NULL, pri->pvts[chanpos]->context, pri->pvts[chanpos]->exten, 1, pri->pvts[chanpos]->cid_num)) ||
  						ast_exists_extension(NULL, pri->pvts[chanpos]->context, pri->pvts[chanpos]->exten, 1, pri->pvts[chanpos]->cid_num)) {
-@@ -8766,19 +9265,36 @@
+@@ -8875,19 +9265,36 @@ static void *pri_dchannel(void *vpri)
  						res = zt_setlaw(pri->pvts[chanpos]->subs[SUB_REAL].zfd, law);
  						if (res < 0) 
  							ast_log(LOG_WARNING, "Unable to set law on channel %d\n", pri->pvts[chanpos]->channel);
@@ -1422,7 +1414,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						/* Get the use_callingpres state */
  						pri->pvts[chanpos]->callingpres = e->ring.callingpres;
  					
-@@ -8790,14 +9306,31 @@
+@@ -8899,14 +9306,31 @@ static void *pri_dchannel(void *vpri)
  								/* Set bearer and such */
  								pri_assign_bearer(crv, pri, pri->pvts[chanpos]);
  								c = zt_new(crv, AST_STATE_RESERVED, 0, SUB_REAL, law, e->ring.ctype);
@@ -1454,7 +1446,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  							if (e->ring.ani2 >= 0) {
  								snprintf(ani2str, 5, "%.2d", e->ring.ani2);
  								pbx_builtin_setvar_helper(c, "ANI2", ani2str);
-@@ -8819,8 +9352,8 @@
+@@ -8928,8 +9352,8 @@ static void *pri_dchannel(void *vpri)
  							pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
  							if (c && !ast_pthread_create(&threadid, &attr, ss_thread, c)) {
  								if (option_verbose > 2)
@@ -1465,7 +1457,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  										pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
  							} else {
  								ast_log(LOG_WARNING, "Unable to start PBX on channel %d/%d, span %d\n", 
-@@ -8828,15 +9361,19 @@
+@@ -8937,15 +9361,19 @@ static void *pri_dchannel(void *vpri)
  								if (c)
  									ast_hangup(c);
  								else {
@@ -1486,7 +1478,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  							ast_mutex_lock(&pri->lock);
  							if (c) {
  								char calledtonstr[10];
-@@ -8857,23 +9394,40 @@
+@@ -8966,23 +9394,40 @@ static void *pri_dchannel(void *vpri)
  								snprintf(calledtonstr, sizeof(calledtonstr)-1, "%d", e->ring.calledplan);
  								pbx_builtin_setvar_helper(c, "CALLEDTON", calledtonstr);
  								if (option_verbose > 2)
@@ -1531,7 +1523,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						pri->pvts[chanpos]->call = NULL;
  						pri->pvts[chanpos]->exten[0] = '\0';
  					}
-@@ -8882,9 +9436,9 @@
+@@ -8991,9 +9436,9 @@ static void *pri_dchannel(void *vpri)
  					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  				} else {
  					if (e->ring.flexible)
@@ -1543,7 +1535,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  				}
  				break;
  			case PRI_EVENT_RINGING:
-@@ -8900,7 +9454,7 @@
+@@ -9009,7 +9454,7 @@ static void *pri_dchannel(void *vpri)
  					} else {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
  						if (ast_strlen_zero(pri->pvts[chanpos]->dop.dialstr)) {
@@ -1552,7 +1544,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  							pri->pvts[chanpos]->subs[SUB_REAL].needringing = 1;
  							pri->pvts[chanpos]->alerting = 1;
  						} else
-@@ -8929,9 +9483,16 @@
+@@ -9038,9 +9483,16 @@ static void *pri_dchannel(void *vpri)
  				}
  				break;
  			case PRI_EVENT_PROGRESS:
@@ -1570,7 +1562,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  #ifdef PRI_PROGRESS_MASK
  					if ((!pri->pvts[chanpos]->progress) || (e->proceeding.progressmask & PRI_PROG_INBAND_AVAILABLE)) {
  #else
-@@ -8978,6 +9539,12 @@
+@@ -9087,6 +9539,12 @@ static void *pri_dchannel(void *vpri)
  			case PRI_EVENT_PROCEEDING:
  				chanpos = pri_find_principle(pri, e->proceeding.channel);
  				if (chanpos > -1) {
@@ -1583,7 +1575,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					if (!pri->pvts[chanpos]->proceeding) {
  						struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_PROCEEDING, };
  						
-@@ -9025,6 +9592,295 @@
+@@ -9134,6 +9592,295 @@ static void *pri_dchannel(void *vpri)
  					}
  				}
  				break;				
@@ -1879,7 +1871,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			case PRI_EVENT_ANSWER:
  				chanpos = pri_find_principle(pri, e->answer.channel);
  				if (chanpos < 0) {
-@@ -9037,6 +9893,7 @@
+@@ -9146,6 +9893,7 @@ static void *pri_dchannel(void *vpri)
  							PRI_SPAN(e->answer.channel), PRI_CHANNEL(e->answer.channel), pri->span);
  					} else {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
@@ -1887,7 +1879,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						/* Now we can do call progress detection */
  
  						/* We changed this so it turns on the DSP no matter what... progress or no progress.
-@@ -9066,11 +9923,16 @@
+@@ -9175,11 +9923,16 @@ static void *pri_dchannel(void *vpri)
  								ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", pri->pvts[chanpos]->dop.dialstr);
  							pri->pvts[chanpos]->dop.dialstr[0] = '\0';
  						} else if (pri->pvts[chanpos]->confirmanswer) {
@@ -1905,7 +1897,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						}
  
  #ifdef SUPPORT_USERUSER
-@@ -9124,20 +9986,29 @@
+@@ -9233,20 +9986,29 @@ static void *pri_dchannel(void *vpri)
  								ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d got hangup, cause %d\n", 
  									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span, e->hangup.cause);
  						} else {
@@ -1942,7 +1934,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  
  #ifdef SUPPORT_USERUSER
  						if (pri->pvts[chanpos]->owner && !ast_strlen_zero(e->hangup.useruserinfo)) {
-@@ -9147,8 +10018,20 @@
+@@ -9256,8 +10018,20 @@ static void *pri_dchannel(void *vpri)
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
@@ -1965,7 +1957,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  					}
  				} 
  				break;
-@@ -9158,15 +10041,23 @@
+@@ -9267,15 +10041,23 @@ static void *pri_dchannel(void *vpri)
  			case PRI_EVENT_HANGUP_REQ:
  				chanpos = pri_find_principle(pri, e->hangup.channel);
  				if (chanpos < 0) {
@@ -1992,7 +1984,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  							pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
  							if (pri->pvts[chanpos]->owner->_state == AST_STATE_UP)
  								pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
-@@ -9193,16 +10084,86 @@
+@@ -9302,16 +10084,86 @@ static void *pri_dchannel(void *vpri)
  								if (option_verbose > 2)
  									ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d received AOC-E charging %d unit%s\n",
  										pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span, (int)e->hangup.aoc_units, (e->hangup.aoc_units == 1) ? "" : "s");
@@ -2083,7 +2075,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						}
  
  #ifdef SUPPORT_USERUSER
-@@ -9213,9 +10174,39 @@
+@@ -9322,9 +10174,39 @@ static void *pri_dchannel(void *vpri)
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
@@ -2124,7 +2116,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  				break;
  			case PRI_EVENT_HANGUP_ACK:
  				chanpos = pri_find_principle(pri, e->hangup.channel);
-@@ -9227,6 +10218,7 @@
+@@ -9336,6 +10218,7 @@ static void *pri_dchannel(void *vpri)
  					if (chanpos > -1) {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
  						pri->pvts[chanpos]->call = NULL;
@@ -2132,7 +2124,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						pri->pvts[chanpos]->resetting = 0;
  						if (pri->pvts[chanpos]->owner) {
  							if (option_verbose > 2) 
-@@ -9240,7 +10232,9 @@
+@@ -9349,7 +10232,9 @@ static void *pri_dchannel(void *vpri)
  #endif
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
@@ -2142,7 +2134,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  				}
  				break;
  			case PRI_EVENT_CONFIG_ERR:
-@@ -9330,10 +10324,22 @@
+@@ -9439,10 +10324,22 @@ static void *pri_dchannel(void *vpri)
  					ast_mutex_lock(&pri->pvts[chanpos]->lock);
  					switch (e->notify.info) {
  					case PRI_NOTIFY_REMOTE_HOLD:
@@ -2165,7 +2157,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  						f.subclass = AST_CONTROL_UNHOLD;
  						zap_queue_frame(pri->pvts[chanpos], &f, pri);
  						break;
-@@ -9341,6 +10347,77 @@
+@@ -9450,6 +10347,77 @@ static void *pri_dchannel(void *vpri)
  					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  				}
  				break;
@@ -2243,7 +2235,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			default:
  				ast_log(LOG_DEBUG, "Event: %d\n", e->e);
  			}
-@@ -9402,7 +10479,7 @@
+@@ -9511,7 +10479,7 @@ static int start_pri(struct zt_pri *pri)
  			pri->fds[i] = -1;
  			return -1;
  		}
@@ -2252,7 +2244,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  		/* Force overlap dial if we're doing GR-303! */
  		if (pri->switchtype == PRI_SWITCH_GR303_TMC)
  			pri->overlapdial = 1;
-@@ -9470,39 +10547,77 @@
+@@ -9579,39 +10547,77 @@ static char *complete_span_5(const char 
  
  static int handle_pri_set_debug_file(int fd, int argc, char **argv)
  {
@@ -2350,7 +2342,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	}
  
  	return RESULT_SUCCESS;
-@@ -9536,6 +10651,7 @@
+@@ -9645,6 +10651,7 @@ static int handle_pri_debug(int fd, int 
  
  
  
@@ -2358,7 +2350,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  static int handle_pri_no_debug(int fd, int argc, char *argv[])
  {
  	int span;
-@@ -9685,10 +10801,6 @@
+@@ -9794,10 +10801,6 @@ static int handle_pri_show_debug(int fd,
  		}
  
  	}
@@ -2369,7 +2361,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	    
  	if (!count) 
  		ast_cli(fd, "No debug set or no PRI running\n");
-@@ -9715,6 +10827,18 @@
+@@ -9824,6 +10827,18 @@ static const char pri_show_spans_help[] 
  	"Usage: pri show spans\n"
  	"       Displays PRI Information\n";
  
@@ -2388,7 +2380,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  static struct ast_cli_entry zap_pri_cli[] = {
  	{ { "pri", "debug", "span", NULL },
  	handle_pri_debug, "Enables PRI debugging on a span",
-@@ -9739,6 +10863,15 @@
+@@ -9848,6 +10863,15 @@ static struct ast_cli_entry zap_pri_cli[
  	{ { "pri", "show", "debug", NULL },
  	handle_pri_show_debug, "Displays current PRI debug settings" },
  
@@ -2404,7 +2396,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	{ { "pri", "set", "debug", "file", NULL },
  	handle_pri_set_debug_file, "Sends PRI debug output to the specified file" },
  
-@@ -9746,8 +10879,76 @@
+@@ -9855,8 +10879,76 @@ static struct ast_cli_entry zap_pri_cli[
  	handle_pri_set_debug_file, "Ends PRI debug output to file" },
  };
  
@@ -2481,7 +2473,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  static int zap_destroy_channel(int fd, int argc, char **argv)
  {
  	int channel;
-@@ -10328,8 +11529,11 @@
+@@ -10437,8 +11529,11 @@ static int __unload_module(void)
  	}
  	ast_cli_unregister_multiple(zap_pri_cli, sizeof(zap_pri_cli) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(zap_send_keypad_facility_app);
@@ -2493,7 +2485,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	ast_manager_unregister( "ZapDialOffhook" );
  	ast_manager_unregister( "ZapHangup" );
  	ast_manager_unregister( "ZapTransfer" );
-@@ -10831,6 +12035,22 @@
+@@ -10940,6 +12035,22 @@ static int process_zap(struct zt_chan_co
  					confp->chan.sig = SIG_GR303FXSKS;
  					confp->chan.radio = 0;
  					confp->pri.nodetype = PRI_CPE;
@@ -2516,7 +2508,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  #endif
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
-@@ -10943,9 +12163,21 @@
+@@ -11052,9 +12163,21 @@ static int process_zap(struct zt_chan_co
  					confp->chan.priindication_oob = 1;
  				else if (!strcasecmp(v->value, "inband"))
  					confp->chan.priindication_oob = 0;
@@ -2539,7 +2531,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			} else if (!strcasecmp(v->name, "priexclusive")) {
  				confp->chan.priexclusive = ast_true(v->value);
  			} else if (!strcasecmp(v->name, "internationalprefix")) {
-@@ -10958,6 +12190,10 @@
+@@ -11067,6 +12190,10 @@ static int process_zap(struct zt_chan_co
  				ast_copy_string(confp->pri.privateprefix, v->value, sizeof(confp->pri.privateprefix));
  			} else if (!strcasecmp(v->name, "unknownprefix")) {
  				ast_copy_string(confp->pri.unknownprefix, v->value, sizeof(confp->pri.unknownprefix));
@@ -2550,7 +2542,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			} else if (!strcasecmp(v->name, "resetinterval")) {
  				if (!strcasecmp(v->value, "never"))
  					confp->pri.resetinterval = -1;
-@@ -10974,6 +12210,8 @@
+@@ -11083,6 +12210,8 @@ static int process_zap(struct zt_chan_co
  				ast_copy_string(confp->pri.idleext, v->value, sizeof(confp->pri.idleext));
  			} else if (!strcasecmp(v->name, "idledial")) {
  				ast_copy_string(confp->pri.idledial, v->value, sizeof(confp->pri.idledial));
@@ -2559,7 +2551,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			} else if (!strcasecmp(v->name, "overlapdial")) {
  				confp->pri.overlapdial = ast_true(v->value);
  			} else if (!strcasecmp(v->name, "pritimer")) {
-@@ -11275,6 +12513,7 @@
+@@ -11384,6 +12513,7 @@ static int setup_zap(int reload)
  #ifdef HAVE_PRI
  	if (!reload) {
  		for (x = 0; x < NUM_SPANS; x++) {
@@ -2567,7 +2559,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  			if (pris[x].pvts[0]) {
  				if (start_pri(pris + x)) {
  					ast_log(LOG_ERROR, "Unable to start D-channel on span %d\n", x + 1);
-@@ -11322,7 +12561,10 @@
+@@ -11431,7 +12561,10 @@ static int load_module(void)
  	ast_string_field_init(&inuse, 16);
  	ast_string_field_set(&inuse, name, "GR-303InUse");
  	ast_cli_register_multiple(zap_pri_cli, sizeof(zap_pri_cli) / sizeof(struct ast_cli_entry));
@@ -2578,7 +2570,7 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	ast_cli_register_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
  	
  	memset(round_robin, 0, sizeof(round_robin));
-@@ -11356,6 +12598,7 @@
+@@ -11465,6 +12598,7 @@ static int zt_sendtext(struct ast_channe
  	float scont = 0.0;
  	int index;
  
@@ -2586,11 +2578,9 @@ Index: asterisk-1.4.14~dfsg/channels/chan_zap.c
  	index = zt_get_index(c, p, 0);
  	if (index < 0) {
  		ast_log(LOG_WARNING, "Huh?  I don't exist?\n");
-Index: asterisk-1.4.14~dfsg/configs/zapata.conf.sample
-===================================================================
---- a/configs/zapata.conf.sample	2007-11-19 12:31:59.000000000 +0200
-+++ b/configs/zapata.conf.sample	2007-11-19 12:33:36.000000000 +0200
-@@ -123,9 +123,20 @@
+--- a/configs/zapata.conf.sample
++++ b/configs/zapata.conf.sample
+@@ -123,9 +123,20 @@ switchtype=national
  ; 
  ; outofband:      Signal Busy/Congestion out of band with RELEASE/DISCONNECT
  ; inband:         Signal Busy/Congestion using in-band tones
@@ -2611,11 +2601,9 @@ Index: asterisk-1.4.14~dfsg/configs/zapata.conf.sample
  ; If you need to override the existing channels selection routine and force all
  ; PRI channels to be marked as exclusively selected, set this to yes.
  ; priexclusive = yes
-Index: asterisk-1.4.14~dfsg/main/channel.c
-===================================================================
---- a/main/channel.c	2007-11-19 12:33:35.000000000 +0200
-+++ b/main/channel.c	2007-11-19 12:33:36.000000000 +0200
-@@ -4173,6 +4173,10 @@
+--- a/main/channel.c
++++ b/main/channel.c
+@@ -4178,6 +4178,10 @@ enum ast_bridge_result ast_channel_bridg
  			c1->name, c1->_bridge->name);
  		return -1;
  	}

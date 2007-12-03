@@ -655,7 +655,7 @@ privileges.
  #if  defined(__FreeBSD__) || defined( __NetBSD__ ) || defined(SOLARIS)
  #include <netdb.h>
  #if defined(SOLARIS)
-@@ -2734,12 +2806,21 @@ int main(int argc, char *argv[])
+@@ -2737,12 +2736,21 @@ int main(int argc, char *argv[])
  	}
  
  	if (runuser && !ast_test_flag(&ast_options, AST_OPT_FLAG_REMOTE)) {
@@ -677,7 +677,7 @@ privileges.
  		if (!isroot && pw->pw_uid != geteuid()) {
  			ast_log(LOG_ERROR, "Asterisk started as nonroot, but runuser '%s' requested.\n", runuser);
  			exit(1);
-@@ -2760,6 +2841,19 @@ int main(int argc, char *argv[])
+@@ -2763,6 +2771,19 @@ int main(int argc, char *argv[])
  		}
  		if (option_verbose)
  			ast_verbose("Running as user '%s'\n", runuser);
