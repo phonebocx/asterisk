@@ -1,5 +1,6 @@
 # upstream fixes
 debian-banner
+keep-1.4-abi
 disable-build-sum
 configure-libc-client
 hack-multiple-app-voicemail

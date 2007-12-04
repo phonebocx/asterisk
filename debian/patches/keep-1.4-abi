@@ -1,0 +1,26 @@
+1.4.15 broke the API by renaming ast_filestream member from private to
+_private for better C++ compatibility.
+
+Fix this but also be forward-compatible and C++ friendly.
+i.e. do what it should have been done by Digium in the first place.
+
+ -- Faidon Liambotis <paravoid@debian.org>
+
+--- a/include/asterisk/file.h
++++ b/include/asterisk/file.h
+@@ -132,7 +132,14 @@ struct ast_filestream {
+ 	FILE *f;
+ 	struct ast_frame fr;	/* frame produced by read, typically */
+ 	char *buf;		/* buffer pointed to by ast_frame; */
+-	void *_private;	/* pointer to private buffer */
++	/* pointer to private buffer */
++	union {
++		void *_private;
++#ifndef __cplusplus
++		/* be compatible with <= 1.4.14 */
++		void *private;
++#endif
++	};
+ 	const char *orig_chan_name;
+ };
+ 
