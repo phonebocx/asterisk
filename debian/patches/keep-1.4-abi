@@ -18,7 +18,7 @@ i.e. do what it should have been done by Digium in the first place.
 +		void *_private;
 +#ifndef __cplusplus
 +		/* be compatible with <= 1.4.14 */
-+		void *private;
++		void *private __attribute__ ((deprecated));
 +#endif
 +	};
  	const char *orig_chan_name;
