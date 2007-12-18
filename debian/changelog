@@ -1,3 +1,10 @@
+asterisk (1:1.4.15~dfsg-2) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+  * Make the init script's detection of a running daemon to be more precise.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 18 Dec 2007 23:00:16 +0200
+
 asterisk (1:1.4.15~dfsg-1) unstable; urgency=low
 
   * New upstream release (Closes: #452054)

@@ -123,7 +123,7 @@ then
 fi
 
 status() {
-	plist=`ps auxw | grep "$DAEMON" | grep -v grep | awk '{print $2}' | tr '\012' ' '`
+	plist==`ps ax | awk "{ if (\\$5 == \"$DAEMON\") print \\$1 }"`
 	if [ "$plist" = "" ]; then
 		echo "$DESC is stopped"
 		return 1
