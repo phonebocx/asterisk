@@ -9,8 +9,9 @@ asterisk (1:1.4.16~dfsg-1) UNRELEASED; urgency=low
   * Silence upstream's build sum warning but generate one on all modules so
     that we can enable it at a later point.
   * Make the init script's detection of a running daemon to be more precise.
+  * Backport a chan_iax2 segfault fix from upstream, upstream issue #11602.
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 20 Dec 2007 07:28:32 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 20 Dec 2007 07:33:40 +0200
 
 asterisk (1:1.4.15~dfsg-1) unstable; urgency=low
 
