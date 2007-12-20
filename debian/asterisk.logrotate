@@ -1,4 +1,4 @@
-/var/log/asterisk/debug /var/log/asterisk/messages /var/log/asterisk/*_log {
+/var/log/asterisk/debug /var/log/asterisk/messages /var/log/asterisk/full /var/log/asterisk/*_log {
         weekly
         missingok
         rotate 4
