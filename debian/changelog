@@ -1,10 +1,14 @@
 asterisk (1:1.4.16~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
-  * New upstream release.
+  * New upstream release (Fixes CVE-2007-6430)
+    - Remove keep-1.4-abi, merged upstream.
+    - Adapt hack-multiple-app-voicemail, use-libpri-bristuffed.
+  * Silence upstream's build sum warning but generate one on all modules so
+    that we can enable it at a later point.
   * Make the init script's detection of a running daemon to be more precise.
 
- -- Faidon Liambotis <paravoid@debian.org>  Tue, 18 Dec 2007 23:02:42 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 20 Dec 2007 07:17:03 +0200
 
 asterisk (1:1.4.15~dfsg-1) unstable; urgency=low
 
