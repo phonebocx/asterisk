@@ -9,9 +9,9 @@
 -	char __buf[CONF_SIZE + AST_FRIENDLY_OFFSET];
 +	char __buf[ZT_MAX_BUF_SPACE / ZT_DEFAULT_NUM_BUFS + AST_FRIENDLY_OFFSET];
  	char *buf = __buf + AST_FRIENDLY_OFFSET;
+ 	int setusercount = 0;
  
- 	if (!(user = ast_calloc(1, sizeof(*user))))
-@@ -1598,7 +1599,7 @@ static int conf_run(struct ast_channel *
+@@ -1604,7 +1605,7 @@ static int conf_run(struct ast_channel *
  		}
  		/* Setup buffering information */
  		memset(&bi, 0, sizeof(bi));
@@ -20,7 +20,7 @@
  		bi.txbufpolicy = ZT_POLICY_IMMEDIATE;
  		bi.rxbufpolicy = ZT_POLICY_IMMEDIATE;
  		bi.numbufs = audio_buffers;
-@@ -1907,6 +1908,14 @@ static int conf_run(struct ast_channel *
+@@ -1913,6 +1914,14 @@ static int conf_run(struct ast_channel *
  					f = ast_read(c);
  				if (!f)
  					break;

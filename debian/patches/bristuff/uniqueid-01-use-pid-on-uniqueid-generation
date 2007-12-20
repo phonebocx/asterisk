@@ -2,7 +2,7 @@ Use Asterisk's process ID when building the unique ID.
 
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -804,10 +804,10 @@ struct ast_channel *ast_channel_alloc(in
+@@ -808,10 +808,10 @@ struct ast_channel *ast_channel_alloc(in
  	tmp->fout = global_fout;
  
  	if (ast_strlen_zero(ast_config_AST_SYSTEM_NAME)) {

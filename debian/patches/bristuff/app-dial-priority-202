@@ -11,7 +11,7 @@
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -124,7 +128,8 @@ static char *descrip =
+@@ -125,7 +129,8 @@ static char *descrip =
  "    H    - Allow the calling party to hang up by hitting the '*' DTMF digit.\n"
  "    i    - Asterisk will ignore any forwarding requests it may receive on this\n"
  "           dial attempt.\n"

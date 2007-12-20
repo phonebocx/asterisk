@@ -113,7 +113,7 @@
  		} else {
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -582,8 +582,13 @@ int ast_channel_datastore_remove(struct 
+@@ -590,8 +590,13 @@ int ast_channel_datastore_remove(struct 
  /*! \brief Find a datastore on a channel */
  struct ast_datastore *ast_channel_datastore_find(struct ast_channel *chan, const struct ast_datastore_info *info, char *uid);
  
@@ -130,7 +130,7 @@
      \return Returns NULL on failure to allocate.
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -1270,7 +1270,7 @@ void ast_channel_free(struct ast_channel
+@@ -1274,7 +1274,7 @@ void ast_channel_free(struct ast_channel
  	free(chan);
  	AST_LIST_UNLOCK(&channels);
  
@@ -139,7 +139,7 @@
  }
  
  struct ast_datastore *ast_channel_datastore_alloc(const struct ast_datastore_info *info, char *uid)
-@@ -3910,7 +3910,7 @@ void ast_set_callerid(struct ast_channel
+@@ -3938,7 +3938,7 @@ void ast_set_callerid(struct ast_channel
  	ast_channel_unlock(chan);
  }
  
@@ -148,7 +148,7 @@
  {
  	int oldstate = chan->_state;
  
-@@ -3918,7 +3918,7 @@ int ast_setstate(struct ast_channel *cha
+@@ -3946,7 +3946,7 @@ int ast_setstate(struct ast_channel *cha
  		return 0;
  
  	chan->_state = state;
@@ -157,7 +157,7 @@
  	/* setstate used to conditionally report Newchannel; this is no more */
  	manager_event(EVENT_FLAG_CALL,
  		      "Newstate",
-@@ -3935,6 +3935,11 @@ int ast_setstate(struct ast_channel *cha
+@@ -3963,6 +3963,11 @@ int ast_setstate(struct ast_channel *cha
  	return 0;
  }
  
@@ -191,7 +191,7 @@
  }
 --- a/main/pbx.c
 +++ b/main/pbx.c
-@@ -2017,7 +2017,7 @@ int ast_extension_state(struct ast_chann
+@@ -2007,7 +2007,7 @@ int ast_extension_state(struct ast_chann
  	return ast_extension_state2(e);    		/* Check all devices in the hint */
  }
  
@@ -200,7 +200,7 @@
  {
  	struct ast_hint *hint;
  
-@@ -2049,11 +2049,11 @@ void ast_hint_state_changed(const char *
+@@ -2039,11 +2039,11 @@ void ast_hint_state_changed(const char *
  
  		/* For general callbacks */
  		for (cblist = statecbs; cblist; cblist = cblist->next)
@@ -214,7 +214,7 @@
  
  		hint->laststate = state;	/* record we saw the change */
  	}
-@@ -2249,7 +2249,7 @@ static int ast_remove_hint(struct ast_ex
+@@ -2239,7 +2239,7 @@ static int ast_remove_hint(struct ast_ex
  				/* Notify with -1 and remove all callbacks */
  				cbprev = cblist;
  				cblist = cblist->next;
@@ -223,7 +223,7 @@
  				free(cbprev);
  	    		}
  	    		hint->callbacks = NULL;
-@@ -4012,7 +4012,7 @@ void ast_merge_contexts_and_delete(struc
+@@ -4002,7 +4002,7 @@ void ast_merge_contexts_and_delete(struc
  			while (thiscb) {
  				prevcb = thiscb;
  				thiscb = thiscb->next;
@@ -234,7 +234,7 @@
  		} else {
 --- a/channels/chan_sip.c
 +++ b/channels/chan_sip.c
-@@ -1333,7 +1333,7 @@ static void ast_quiet_chan(struct ast_ch
+@@ -1338,7 +1338,7 @@ static void ast_quiet_chan(struct ast_ch
  static int attempt_transfer(struct sip_dual *transferer, struct sip_dual *target);
  
  /*--- Device monitoring and Device/extension state handling */
@@ -243,7 +243,7 @@
  static int sip_devicestate(void *data);
  static int sip_poke_noanswer(const void *data);
  static int sip_poke_peer(struct sip_peer *peer);
-@@ -8422,7 +8422,7 @@ static void sip_peer_hold(struct sip_pvt
+@@ -8463,7 +8463,7 @@ static void sip_peer_hold(struct sip_pvt
  /*! \brief Callback for the devicestate notification (SUBSCRIBE) support subsystem
  \note	If you add an "hint" priority to the extension in the dial plan,
  	you will get notifications on device state changes */
@@ -254,7 +254,7 @@
  
 --- a/apps/app_queue.c
 +++ b/apps/app_queue.c
-@@ -676,7 +676,7 @@ static void *device_state_thread(void *d
+@@ -682,7 +682,7 @@ static void *device_state_thread(void *d
  	return NULL;
  }
  
@@ -283,7 +283,7 @@
  	{ -1, "all" },
  	{ 0, "none" },
  };
-@@ -2526,10 +2527,12 @@ int ast_manager_unregister(char *action)
+@@ -2524,10 +2525,12 @@ int ast_manager_unregister(char *action)
  	return 0;
  }
  

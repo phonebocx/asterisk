@@ -5,7 +5,7 @@ Upstream issue #11602, fixed in upstream r93949.
 
 --- a/channels/chan_iax2.c
 +++ b/channels/chan_iax2.c
-@@ -2696,7 +2696,7 @@
+@@ -2696,7 +2696,7 @@ static struct iax2_peer *realtime_peer(c
  			}
  		}
  	}

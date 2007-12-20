@@ -83,7 +83,7 @@
  		);
  
  	if (peer && adsipark && ast_adsi_available(peer)) {
-@@ -1626,11 +1663,13 @@ static void post_manager_event(const cha
+@@ -1629,11 +1666,13 @@ static void post_manager_event(const cha
  		"Exten: %s\r\n"
  		"Channel: %s\r\n"
  		"CallerID: %s\r\n"
@@ -99,7 +99,7 @@
  		);
  }
  
-@@ -1885,10 +1924,12 @@ static int park_exec(struct ast_channel 
+@@ -1888,10 +1927,12 @@ static int park_exec(struct ast_channel 
  			"Channel: %s\r\n"
  			"From: %s\r\n"
  			"CallerID: %s\r\n"
@@ -114,7 +114,7 @@
  			);
  
  		free(pu);
-@@ -2042,15 +2083,10 @@ static struct ast_cli_entry cli_show_fea
+@@ -2045,15 +2086,10 @@ static struct ast_cli_entry cli_show_fea
  	handle_showfeatures, NULL,
  	NULL };
  
@@ -133,7 +133,7 @@
  
  /*! \brief Dump lot status */
  static int manager_parking_status( struct mansession *s, const struct message *m)
-@@ -2074,12 +2110,13 @@ static int manager_parking_status( struc
+@@ -2077,12 +2113,13 @@ static int manager_parking_status( struc
  			"Timeout: %ld\r\n"
  			"CallerID: %s\r\n"
  			"CallerIDName: %s\r\n"
@@ -148,7 +148,7 @@
  			idText);
  	}
  
-@@ -2154,6 +2191,427 @@ static int manager_park(struct mansessio
+@@ -2157,6 +2194,427 @@ static int manager_park(struct mansessio
  	return 0;
  }
  
@@ -576,7 +576,7 @@
  
  int ast_pickup_call(struct ast_channel *chan)
  {
-@@ -2417,6 +2875,7 @@ static int load_config(void) 
+@@ -2420,6 +2878,7 @@ static int load_config(void) 
  
  static int reload(void)
  {
@@ -584,7 +584,7 @@
  	return load_config();
  }
  
-@@ -2440,6 +2899,12 @@ static int load_module(void)
+@@ -2443,6 +2902,12 @@ static int load_module(void)
  			"Park a channel", mandescr_park); 
  	}
  
@@ -597,7 +597,7 @@
  	res |= ast_devstate_prov_add("Park", metermaidstate);
  
  	return res;
-@@ -2454,6 +2919,8 @@ static int unload_module(void)
+@@ -2457,6 +2922,8 @@ static int unload_module(void)
  	ast_manager_unregister("Park");
  	ast_cli_unregister_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(parkcall);

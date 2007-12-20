@@ -3,7 +3,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
 
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -224,7 +224,7 @@ struct ast_channel_tech {
+@@ -227,7 +227,7 @@ struct ast_channel_tech {
  	int (* const write)(struct ast_channel *chan, struct ast_frame *frame);
  
  	/*! \brief Display or transmit text */
@@ -12,7 +12,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  
  	/*! \brief Display or send an image */
  	int (* const send_image)(struct ast_channel *chan, struct ast_frame *frame);
-@@ -663,6 +663,16 @@ struct ast_channel *ast_request_and_dial
+@@ -671,6 +671,16 @@ struct ast_channel *ast_request_and_dial
  
  struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname, struct outgoing_helper *oh);
  
@@ -29,7 +29,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  /*!\brief Register a channel technology (a new channel driver)
   * Called by a channel module to register the kind of channels it supports.
   * \param tech Structure defining channel technology or "type"
-@@ -879,10 +889,12 @@ int ast_set_write_format(struct ast_chan
+@@ -887,10 +897,12 @@ int ast_set_write_format(struct ast_chan
  /*! \brief Sends text to a channel 
   * Write text to a display on a channel
   * \param chan channel to act upon
@@ -45,7 +45,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
   * \param chan channel to act upon
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -2666,7 +2666,7 @@ char *ast_recvtext(struct ast_channel *c
+@@ -2691,7 +2691,7 @@ char *ast_recvtext(struct ast_channel *c
  	return buf;
  }
  
@@ -54,7 +54,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  {
  	int res = 0;
  	/* Stop if we're a zombie or need a soft hangup */
-@@ -2674,7 +2674,7 @@ int ast_sendtext(struct ast_channel *cha
+@@ -2699,7 +2699,7 @@ int ast_sendtext(struct ast_channel *cha
  		return -1;
  	CHECK_BLOCKING(chan);
  	if (chan->tech->send_text)
@@ -63,7 +63,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  	ast_clear_flag(chan, AST_FLAG_BLOCKING);
  	return res;
  }
-@@ -2843,7 +2843,7 @@ int ast_write(struct ast_channel *chan, 
+@@ -2878,7 +2878,7 @@ int ast_write(struct ast_channel *chan, 
  		break;
  	case AST_FRAME_TEXT:
  		res = (chan->tech->send_text == NULL) ? 0 :
@@ -72,7 +72,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  		break;
  	case AST_FRAME_HTML:
  		res = (chan->tech->send_html == NULL) ? 0 :
-@@ -4874,6 +4874,25 @@ void ast_channel_stop_silence_generator(
+@@ -4902,6 +4902,25 @@ void ast_channel_stop_silence_generator(
  }
  
  
@@ -229,7 +229,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
      return phone_write_buf(ast->tech_pvt, text, length, length, 0) == 
 --- a/channels/chan_sip.c
 +++ b/channels/chan_sip.c
-@@ -1209,7 +1209,7 @@ static struct ast_config *notify_types;	
+@@ -1215,7 +1215,7 @@ static struct ast_config *notify_types;	
  /*--- PBX interface functions */
  static struct ast_channel *sip_request_call(const char *type, int format, void *data, int *cause);
  static int sip_devicestate(void *data);
@@ -238,7 +238,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  static int sip_call(struct ast_channel *ast, char *dest, int timeout);
  static int sip_hangup(struct ast_channel *ast);
  static int sip_answer(struct ast_channel *ast);
-@@ -2342,7 +2342,7 @@ static char *get_in_brackets(char *tmp)
+@@ -2347,7 +2347,7 @@ static char *get_in_brackets(char *tmp)
  
  /*! \brief Send SIP MESSAGE text within a call
  	Called from PBX core sendtext() application */
@@ -249,7 +249,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  	int debug = sip_debug_test_pvt(p);
 --- a/channels/chan_iax2.c
 +++ b/channels/chan_iax2.c
-@@ -830,7 +830,7 @@ static int iax2_provision(struct sockadd
+@@ -831,7 +831,7 @@ static int iax2_provision(struct sockadd
  static int iax2_send(struct chan_iax2_pvt *pvt, struct ast_frame *f, unsigned int ts, int seqno, int now, int transfer, int final);
  static int iax2_sendhtml(struct ast_channel *c, int subclass, const char *data, int datalen);
  static int iax2_sendimage(struct ast_channel *c, struct ast_frame *img);
@@ -258,7 +258,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  static int iax2_setoption(struct ast_channel *c, int option, void *data, int datalen);
  static int iax2_transfer(struct ast_channel *c, const char *dest);
  static int iax2_write(struct ast_channel *c, struct ast_frame *f);
-@@ -2639,7 +2639,7 @@ static int iax2_digit_end(struct ast_cha
+@@ -2642,7 +2642,7 @@ static int iax2_digit_end(struct ast_cha
  	return send_command_locked(PTR_TO_CALLNO(c->tech_pvt), AST_FRAME_DTMF_END, digit, 0, NULL, 0, -1);
  }
  

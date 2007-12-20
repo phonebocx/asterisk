@@ -9,7 +9,7 @@
  	struct ast_variable *vars;
  };
  
-@@ -1417,11 +1419,20 @@ static int action_hangup(struct mansessi
+@@ -1415,11 +1417,20 @@ static int action_hangup(struct mansessi
  {
  	struct ast_channel *c = NULL;
  	const char *name = astman_get_header(m, "Channel");
@@ -33,7 +33,7 @@
  	if (!c) {
  		astman_send_error(s, m, "No such channel");
  		return 0;
-@@ -1672,12 +1683,18 @@ static int action_redirect(struct manses
+@@ -1670,12 +1681,18 @@ static int action_redirect(struct manses
  	const char *exten = astman_get_header(m, "Exten");
  	const char *context = astman_get_header(m, "Context");
  	const char *priority = astman_get_header(m, "Priority");
@@ -54,7 +54,7 @@
  		return 0;
  	}
  	if (!ast_strlen_zero(priority) && (sscanf(priority, "%d", &pi) != 1)) {
-@@ -1687,7 +1704,11 @@ static int action_redirect(struct manses
+@@ -1685,7 +1702,11 @@ static int action_redirect(struct manses
  		}
  	}
  	/* XXX watch out, possible deadlock!!! */
@@ -67,7 +67,7 @@
  	if (!chan) {
  		char buf[BUFSIZ];
  		snprintf(buf, sizeof(buf), "Channel does not exist: %s", name);
-@@ -1709,9 +1730,9 @@ static int action_redirect(struct manses
+@@ -1707,9 +1728,9 @@ static int action_redirect(struct manses
  	}
  	res = ast_async_goto(chan, context, exten, pi);
  	if (!res) {
@@ -79,7 +79,7 @@
  			else
  				res = -1;
  			if (!res)
-@@ -1790,15 +1811,15 @@ static void *fast_originate(void *data)
+@@ -1788,15 +1809,15 @@ static void *fast_originate(void *data)
  	char requested_channel[AST_CHANNEL_NAME];
  
  	if (!ast_strlen_zero(in->app)) {
@@ -99,7 +99,7 @@
  	}
  
  	if (!chan)
-@@ -1858,6 +1879,7 @@ static int action_originate(struct manse
+@@ -1856,6 +1877,7 @@ static int action_originate(struct manse
  	const char *appdata = astman_get_header(m, "Data");
  	const char *async = astman_get_header(m, "Async");
  	const char *id = astman_get_header(m, "ActionID");
@@ -107,7 +107,7 @@
  	struct ast_variable *vars = astman_get_variables(m);
  	char *tech, *data;
  	char *l = NULL, *n = NULL;
-@@ -1867,6 +1889,9 @@ static int action_originate(struct manse
+@@ -1865,6 +1887,9 @@ static int action_originate(struct manse
  	int reason = 0;
  	char tmp[256];
  	char tmp2[256];
@@ -117,7 +117,7 @@
  	
  	pthread_t th;
  	pthread_attr_t attr;
-@@ -1884,6 +1909,10 @@ static int action_originate(struct manse
+@@ -1882,6 +1907,10 @@ static int action_originate(struct manse
  		astman_send_error(s, m, "Invalid timeout\n");
  		return 0;
  	}
@@ -128,7 +128,7 @@
  	ast_copy_string(tmp, name, sizeof(tmp));
  	tech = tmp;
  	data = strchr(tmp, '/');
-@@ -1903,6 +1932,7 @@ static int action_originate(struct manse
+@@ -1901,6 +1930,7 @@ static int action_originate(struct manse
  		if (ast_strlen_zero(l))
  			l = NULL;
  	}
@@ -136,7 +136,7 @@
  	if (ast_true(async)) {
  		struct fast_originate_helper *fast = ast_calloc(1, sizeof(*fast));
  		if (!fast) {
-@@ -1922,8 +1952,10 @@ static int action_originate(struct manse
+@@ -1920,8 +1950,10 @@ static int action_originate(struct manse
  			ast_copy_string(fast->context, context, sizeof(fast->context));
  			ast_copy_string(fast->exten, exten, sizeof(fast->exten));
  			ast_copy_string(fast->account, account, sizeof(fast->account));
@@ -147,7 +147,7 @@
  			pthread_attr_init(&attr);
  			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
  			if (ast_pthread_create(&th, &attr, fast_originate, fast)) {
-@@ -1934,19 +1966,28 @@ static int action_originate(struct manse
+@@ -1932,19 +1964,28 @@ static int action_originate(struct manse
  			pthread_attr_destroy(&attr);
  		}
  	} else if (!ast_strlen_zero(app)) {
@@ -193,7 +193,7 @@
  #include <unistd.h>
  #ifdef POLLCOMPAT 
  #include "asterisk/poll-compat.h"
-@@ -996,6 +999,8 @@ int ast_waitfordigit_full(struct ast_cha
+@@ -1004,6 +1007,8 @@ int ast_waitfordigit_full(struct ast_cha
  int ast_readstring(struct ast_channel *c, char *s, int len, int timeout, int rtimeout, char *enders);
  int ast_readstring_full(struct ast_channel *c, char *s, int len, int timeout, int rtimeout, char *enders, int audiofd, int ctrlfd);
  

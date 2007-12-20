@@ -9,7 +9,7 @@ privileges.
 
 --- a/configure
 +++ b/configure
-@@ -724,6 +724,10 @@ CURL_LIB
+@@ -725,6 +725,10 @@ CURL_LIB
  CURL_INCLUDE
  CURL_DIR
  PBX_CURL
@@ -20,7 +20,7 @@ privileges.
  CURSES_LIB
  CURSES_INCLUDE
  CURSES_DIR
-@@ -1504,6 +1508,7 @@ Optional Packages:
+@@ -1507,6 +1511,7 @@ Optional Packages:
    --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
    --with-asound=PATH      use Advanced Linux Sound Architecture files in PATH
    --with-curl=PATH        use cURL files in PATH
@@ -28,7 +28,7 @@ privileges.
    --with-curses=PATH      use curses files in PATH
    --with-gnutls=PATH      use GNU TLS support (used for iksemel only) files in
                            PATH
-@@ -7635,6 +7640,34 @@ PBX_CURL=0
+@@ -7693,6 +7698,34 @@ PBX_CURL=0
  
  
  
@@ -63,7 +63,7 @@ privileges.
  CURSES_DESCRIP="curses"
  CURSES_OPTION="curses"
  
-@@ -16967,6 +17000,417 @@ echo "$as_me: *** without explicitly spe
+@@ -17132,6 +17165,417 @@ echo "$as_me: *** without explicitly spe
  fi
  
  
@@ -481,7 +481,7 @@ privileges.
  GSM_INTERNAL="yes"
  
  GSM_SYSTEM="yes"
-@@ -33705,6 +34149,10 @@ CURL_LIB!$CURL_LIB$ac_delim
+@@ -34220,6 +34664,10 @@ CURL_LIB!$CURL_LIB$ac_delim
  CURL_INCLUDE!$CURL_INCLUDE$ac_delim
  CURL_DIR!$CURL_DIR$ac_delim
  PBX_CURL!$PBX_CURL$ac_delim
@@ -492,7 +492,7 @@ privileges.
  CURSES_LIB!$CURSES_LIB$ac_delim
  CURSES_INCLUDE!$CURSES_INCLUDE$ac_delim
  CURSES_DIR!$CURSES_DIR$ac_delim
-@@ -33790,10 +34238,6 @@ PWLIB_INCLUDE!$PWLIB_INCLUDE$ac_delim
+@@ -34305,10 +34753,6 @@ PWLIB_INCLUDE!$PWLIB_INCLUDE$ac_delim
  PWLIB_DIR!$PWLIB_DIR$ac_delim
  PBX_PWLIB!$PBX_PWLIB$ac_delim
  OPENH323_LIB!$OPENH323_LIB$ac_delim
@@ -503,7 +503,7 @@ privileges.
  _ACEOF
  
    if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
-@@ -33835,6 +34279,10 @@ _ACEOF
+@@ -34350,6 +34794,10 @@ _ACEOF
  ac_delim='%!_!# '
  for ac_last_try in false false false false false :; do
    cat >conf$$subs.sed <<_ACEOF
@@ -514,7 +514,7 @@ privileges.
  QT_INCLUDE!$QT_INCLUDE$ac_delim
  QT_DIR!$QT_DIR$ac_delim
  PBX_QT!$PBX_QT$ac_delim
-@@ -33928,12 +34376,53 @@ GTK_LIB!$GTK_LIB$ac_delim
+@@ -34443,12 +34891,53 @@ GTK_LIB!$GTK_LIB$ac_delim
  PKGCONFIG!$PKGCONFIG$ac_delim
  PBX_GTK2!$PBX_GTK2$ac_delim
  GTK2_INCLUDE!$GTK2_INCLUDE$ac_delim
@@ -569,7 +569,7 @@ privileges.
      break
    elif $ac_last_try; then
      { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
-@@ -33951,8 +34440,8 @@ if test -n "$ac_eof"; then
+@@ -34466,8 +34955,8 @@ if test -n "$ac_eof"; then
  fi
  
  cat >>$CONFIG_STATUS <<_ACEOF
@@ -580,7 +580,7 @@ privileges.
  _ACEOF
  sed '
  s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g
-@@ -33965,6 +34454,8 @@ N; s/^.*\n//; s/[,\\&]/\\&/g; s/@/@|#_!!
+@@ -34480,6 +34969,8 @@ N; s/^.*\n//; s/[,\\&]/\\&/g; s/@/@|#_!!
  ' >>$CONFIG_STATUS <conf$$subs.sed
  rm -f conf$$subs.sed
  cat >>$CONFIG_STATUS <<_ACEOF
@@ -589,7 +589,7 @@ privileges.
  CEOF$ac_eof
  _ACEOF
  
-@@ -34212,7 +34703,7 @@ s&@abs_builddir@&$ac_abs_builddir&;t t
+@@ -34727,7 +35218,7 @@ s&@abs_builddir@&$ac_abs_builddir&;t t
  s&@abs_top_builddir@&$ac_abs_top_builddir&;t t
  s&@INSTALL@&$ac_INSTALL&;t t
  $ac_datarootdir_hack
@@ -600,7 +600,7 @@ privileges.
    { ac_out=`sed -n '/\${datarootdir}/p' "$tmp/out"`; test -n "$ac_out"; } &&
 --- a/configure.ac
 +++ b/configure.ac
-@@ -172,6 +172,7 @@ AC_SUBST(AST_DEVMODE)
+@@ -169,6 +169,7 @@ AC_SUBST(AST_DEVMODE)
  
  AST_EXT_LIB_SETUP([ALSA], [Advanced Linux Sound Architecture], [asound])
  AST_EXT_LIB_SETUP([CURL], [cURL], [curl])
@@ -608,7 +608,7 @@ privileges.
  AST_EXT_LIB_SETUP([CURSES], [curses], [curses])
  AST_EXT_LIB_SETUP([GNUTLS], [GNU TLS support (used for iksemel only)], [gnutls])
  AST_EXT_LIB_SETUP([GSM], [GSM], [gsm], [, or 'internal'])
-@@ -396,6 +397,10 @@ AST_EXT_LIB_CHECK([ALSA], [asound], [snd
+@@ -394,6 +395,10 @@ AST_EXT_LIB_CHECK([ALSA], [asound], [snd
  
  AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
  
@@ -711,7 +711,7 @@ privileges.
    AST_LIBS+=$(EDITLINE_LIB) -lm
 --- a/makeopts.in
 +++ b/makeopts.in
-@@ -178,6 +178,9 @@ MISDN_LIB=@MISDN_LIB@
+@@ -179,6 +179,9 @@ MISDN_LIB=@MISDN_LIB@
  SUPPSERV_INCLUDE=@SUPPSERV_INCLUDE@
  SUPPSERV_LIB=@SUPPSERV_LIB@
  
@@ -723,7 +723,7 @@ privileges.
  TERMCAP_DIR=@TERMCAP_DIR@
 --- a/include/asterisk/autoconfig.h.in
 +++ b/include/asterisk/autoconfig.h.in
-@@ -59,6 +59,12 @@
+@@ -62,6 +62,12 @@
  /* Define to 1 if you have the `bzero' function. */
  #undef HAVE_BZERO
  
