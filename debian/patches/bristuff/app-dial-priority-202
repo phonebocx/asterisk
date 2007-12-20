@@ -21,12 +21,16 @@
  "    k    - Allow the called party to enable parking of the call by sending\n"
  "           the DTMF sequence defined for call parking in features.conf.\n"
  "    K    - Allow the calling party to enable parking of the call by sending\n"
-@@ -1283,10 +1288,12 @@ static int dial_exec_full(struct ast_cha
+@@ -1300,14 +1305,16 @@ static int dial_exec_full(struct ast_cha
  	}
  
  	if (!outgoing) {
 -		strcpy(status, "CHANUNAVAIL");
 +		ast_copy_string(status, "CHANUNAVAIL", sizeof(status));
+ 		if(fulldial == num_dialed) {
+ 			res = -1;
+ 			goto out;
+ 		}
 +		/* See if there is a special message */
 +		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 201);
  	} else {

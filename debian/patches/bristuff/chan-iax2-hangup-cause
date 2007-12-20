@@ -11,11 +11,11 @@
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
 @@ -3179,7 +3182,7 @@ static int iax2_hangup(struct ast_channe
-  	memset(&ied, 0, sizeof(ied));
  	ast_mutex_lock(&iaxsl[callno]);
  	if (callno && iaxs[callno]) {
--		ast_log(LOG_DEBUG, "We're hanging up %s now...\n", c->name);
-+ 		ast_log(LOG_DEBUG, "We're hanging up %s with cause %i now...\n", c->name, c->hangupcause);
+ 		if (option_debug)
+-			ast_log(LOG_DEBUG, "We're hanging up %s now...\n", c->name);
++ 			ast_log(LOG_DEBUG, "We're hanging up %s with cause %i now...\n", c->name, c->hangupcause);
  		alreadygone = ast_test_flag(iaxs[callno], IAX_ALREADYGONE);
  		/* Send the hangup unless we have had a transmission error or are already gone */
   		iax_ie_append_byte(&ied, IAX_IE_CAUSECODE, (unsigned char)c->hangupcause);

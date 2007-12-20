@@ -1282,7 +1282,7 @@
  					pri->pvts[chanpos]->call = e->ring.call;
  					apply_plan_to_number(plancallingnum, sizeof(plancallingnum), pri, e->ring.callingnum, e->ring.callingplan);
  					if (pri->pvts[chanpos]->use_callerid) {
-@@ -8834,29 +9175,78 @@ static void *pri_dchannel(void *vpri)
+@@ -8847,34 +9188,82 @@ static void *pri_dchannel(void *vpri)
  					}
  					apply_plan_to_number(pri->pvts[chanpos]->rdnis, sizeof(pri->pvts[chanpos]->rdnis), pri,
  							     e->ring.redirectingnum, e->ring.callingplanrdnis);
@@ -1310,8 +1310,13 @@
 -					else if (!ast_strlen_zero(e->ring.callednum)) {
 -						ast_copy_string(pri->pvts[chanpos]->exten, e->ring.callednum, sizeof(pri->pvts[chanpos]->exten));
 -						ast_copy_string(pri->pvts[chanpos]->dnid, e->ring.callednum, sizeof(pri->pvts[chanpos]->dnid));
--					} else
+-					} else if (pri->overlapdial)
 -						pri->pvts[chanpos]->exten[0] = '\0';
+-					else {
+-						/* Some PRI circuits are set up to send _no_ digits.  Handle them as 's'. */
+-						pri->pvts[chanpos]->exten[0] = 's';
+-						pri->pvts[chanpos]->exten[1] = '\0';
+-					}
 -					/* Set DNID on all incoming calls -- even immediate */
 -					if (!ast_strlen_zero(e->ring.callednum))
 -						ast_copy_string(pri->pvts[chanpos]->dnid, e->ring.callednum, sizeof(pri->pvts[chanpos]->dnid));
@@ -1333,8 +1338,12 @@
 +  						    /* fix for .at p2p bri lines */
 +  						    pri->pvts[chanpos]->exten[0] = 's';
 +  						    pri->pvts[chanpos]->exten[1] = '\0';
-+  						} else {
++  						} else if (pri->overlapdial) {
 +  						    pri->pvts[chanpos]->exten[0] = '\0';
++  						} else {
++						    /* Some PRI circuits are set up to send _no_ digits.  Handle them as 's'. */
++  						    pri->pvts[chanpos]->exten[0] = 's';
++  						    pri->pvts[chanpos]->exten[1] = '\0';
 +  						}
 +  					    }
 +  					    /* No number yet, but received "sending complete"? */

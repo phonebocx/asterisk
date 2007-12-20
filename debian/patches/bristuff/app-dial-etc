@@ -1,9 +1,9 @@
 --- a/apps/app_dial.c
 +++ b/apps/app_dial.c
 @@ -65,6 +65,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
- #include "asterisk/manager.h"
  #include "asterisk/privacy.h"
  #include "asterisk/stringfields.h"
+ #include "asterisk/global_datastores.h"
 +#include "asterisk/transcap.h"
  
  static char *app = "Dial";
