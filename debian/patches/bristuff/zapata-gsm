@@ -473,7 +473,7 @@
  static int pri_check_restart(struct zt_pri *pri)
  {
  	if ((pri->nodetype != PRI_NETWORK) && (pri->nodetype != PRI_CPE)) {
-@@ -10928,6 +11267,243 @@ static int app_zapInband(struct ast_chan
+@@ -10957,6 +11296,243 @@ static int app_zapInband(struct ast_chan
  
  #endif /* HAVE_PRI */
  
@@ -717,7 +717,7 @@
  static int app_zapEC(struct ast_channel *chan, void *data)
  {
   int res=-1;
-@@ -11549,6 +12125,12 @@ static int __unload_module(void)
+@@ -11578,6 +12154,12 @@ static int __unload_module(void)
  	ast_unregister_application(zapCD_app);
  	ast_unregister_application(zapInband_app);
  #endif
@@ -730,7 +730,7 @@
  	ast_cli_unregister_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(zapEC_app);
  	ast_manager_unregister( "ZapDialOffhook" );
-@@ -12069,6 +12651,11 @@ static int process_zap(struct zt_chan_co
+@@ -12098,6 +12680,11 @@ static int process_zap(struct zt_chan_co
   					confp->chan.radio = 0;
   					confp->pri.nodetype = BRI_CPE;
  #endif
@@ -742,7 +742,7 @@
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
  				}
-@@ -12211,6 +12798,10 @@ static int process_zap(struct zt_chan_co
+@@ -12240,6 +12827,10 @@ static int process_zap(struct zt_chan_co
    				ast_copy_string(confp->pri.nocid, v->value, sizeof(confp->pri.nocid));
    			} else if (!strcasecmp(v->name, "withheldcid")) {
    				ast_copy_string(confp->pri.withheldcid, v->value, sizeof(confp->pri.withheldcid));
@@ -753,7 +753,7 @@
  			} else if (!strcasecmp(v->name, "resetinterval")) {
  				if (!strcasecmp(v->value, "never"))
  					confp->pri.resetinterval = -1;
-@@ -12565,6 +13156,10 @@ static int load_module(void)
+@@ -12594,6 +13185,10 @@ static int load_module(void)
  	ast_register_application(zap_send_keypad_facility_app, zap_send_keypad_facility_exec,
  			zap_send_keypad_facility_synopsis, zap_send_keypad_facility_descrip);
  #endif
@@ -764,7 +764,7 @@
  	res = setup_zap(0);
  	/* Make sure we can register our Zap channel type */
  	if (res)
-@@ -12583,6 +13178,12 @@ static int load_module(void)
+@@ -12612,6 +13207,12 @@ static int load_module(void)
  #endif	
  	ast_register_application(zapEC_app, app_zapEC, zapEC_synopsis, zapEC_tdesc);
  	ast_cli_register_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
@@ -777,7 +777,7 @@
  	
  	memset(round_robin, 0, sizeof(round_robin));
  	ast_manager_register( "ZapTransfer", 0, action_transfer, "Transfer Zap Channel" );
-@@ -12596,7 +13197,48 @@ static int load_module(void)
+@@ -12625,7 +13226,48 @@ static int load_module(void)
  	return res;
  }
  
@@ -829,7 +829,7 @@
  #define	HEADER_MS 50
 --- a/configure.ac
 +++ b/configure.ac
-@@ -173,6 +173,7 @@ AST_EXT_LIB_SETUP([CAP], [POSIX 1.e capa
+@@ -178,6 +178,7 @@ AST_EXT_LIB_SETUP([CAP], [POSIX 1.e capa
  AST_EXT_LIB_SETUP([CURSES], [curses], [curses])
  AST_EXT_LIB_SETUP([GNUTLS], [GNU TLS support (used for iksemel only)], [gnutls])
  AST_EXT_LIB_SETUP([GSM], [GSM], [gsm], [, or 'internal'])
@@ -839,7 +839,7 @@
  AST_EXT_LIB_SETUP([ISDNNET], [ISDN4Linux Library], [isdnnet])
 --- a/configure
 +++ b/configure
-@@ -25562,6 +25562,188 @@ echo "$as_me: *** without explicitly spe
+@@ -25667,6 +25667,188 @@ echo "$as_me: *** without explicitly spe
     fi
  fi
  

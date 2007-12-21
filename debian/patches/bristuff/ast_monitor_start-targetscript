@@ -20,7 +20,7 @@
  int ast_monitor_stop(struct ast_channel *chan, int need_lock);
 --- a/res/res_monitor.c
 +++ b/res/res_monitor.c
-@@ -124,7 +124,7 @@ static int ast_monitor_set_state(struct 
+@@ -129,7 +129,7 @@ static int ast_monitor_set_state(struct 
  
  /* Start monitoring a channel */
  int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
@@ -29,7 +29,7 @@
  {
  	int res = 0;
  	char tmp[256];
-@@ -148,6 +148,11 @@ int ast_monitor_start(	struct ast_channe
+@@ -153,6 +153,11 @@ int ast_monitor_start(	struct ast_channe
  			return -1;
  		}
  
@@ -41,7 +41,7 @@
  		/* Determine file names */
  		if (!ast_strlen_zero(fname_base)) {
  			int directory = strchr(fname_base, '/') ? 1 : 0;
-@@ -290,6 +295,8 @@ int ast_monitor_stop(struct ast_channel 
+@@ -295,6 +300,8 @@ int ast_monitor_stop(struct ast_channel 
  		if (chan->monitor->joinfiles && !ast_strlen_zero(chan->monitor->filename_base)) {
  			char tmp[1024];
  			char tmp2[1024];
@@ -50,7 +50,7 @@
  			const char *format = !strcasecmp(chan->monitor->format,"wav49") ? "WAV" : chan->monitor->format;
  			char *name = chan->monitor->filename_base;
  			int directory = strchr(name, '/') ? 1 : 0;
-@@ -313,8 +320,13 @@ int ast_monitor_stop(struct ast_channel 
+@@ -322,8 +329,13 @@ int ast_monitor_stop(struct ast_channel 
  				snprintf(tmp2,sizeof(tmp2), "( %s& rm -f \"%s/%s-\"* ) &",tmp, dir ,name); /* remove legs when done mixing */
  				ast_copy_string(tmp, tmp2, sizeof(tmp));
  			}
@@ -66,7 +66,7 @@
  				ast_log(LOG_WARNING, "Execute of %s failed.\n",tmp);
  		}
  		
-@@ -443,7 +455,7 @@ static int start_monitor_exec(struct ast
+@@ -452,7 +464,7 @@ static int start_monitor_exec(struct ast
  		return 0;
  	}
  
@@ -75,7 +75,7 @@
  	if (res < 0)
  		res = ast_monitor_change_fname(chan, fname_base, 1);
  	ast_monitor_setjoinfiles(chan, joinfiles);
-@@ -482,6 +494,8 @@ static int start_monitor_action(struct m
+@@ -491,6 +503,8 @@ static int start_monitor_action(struct m
  	const char *fname = astman_get_header(m, "File");
  	const char *format = astman_get_header(m, "Format");
  	const char *mix = astman_get_header(m, "Mix");
@@ -84,7 +84,7 @@
  	char *d;
  	
  	if (ast_strlen_zero(name)) {
-@@ -506,7 +520,7 @@ static int start_monitor_action(struct m
+@@ -515,7 +529,7 @@ static int start_monitor_action(struct m
  			*d = '-';
  	}
  	
