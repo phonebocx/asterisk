@@ -492,29 +492,27 @@ privileges.
  CURSES_LIB!$CURSES_LIB$ac_delim
  CURSES_INCLUDE!$CURSES_INCLUDE$ac_delim
  CURSES_DIR!$CURSES_DIR$ac_delim
-@@ -34305,10 +34753,6 @@ PWLIB_INCLUDE!$PWLIB_INCLUDE$ac_delim
+@@ -34305,9 +34753,6 @@ PWLIB_INCLUDE!$PWLIB_INCLUDE$ac_delim
  PWLIB_DIR!$PWLIB_DIR$ac_delim
  PBX_PWLIB!$PBX_PWLIB$ac_delim
  OPENH323_LIB!$OPENH323_LIB$ac_delim
 -OPENH323_INCLUDE!$OPENH323_INCLUDE$ac_delim
 -OPENH323_DIR!$OPENH323_DIR$ac_delim
 -PBX_OPENH323!$PBX_OPENH323$ac_delim
--QT_LIB!$QT_LIB$ac_delim
  _ACEOF
  
    if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
-@@ -34350,6 +34794,10 @@ _ACEOF
+@@ -34350,6 +34794,9 @@ _ACEOF
  ac_delim='%!_!# '
  for ac_last_try in false false false false false :; do
    cat >conf$$subs.sed <<_ACEOF
 +OPENH323_INCLUDE!$OPENH323_INCLUDE$ac_delim
 +OPENH323_DIR!$OPENH323_DIR$ac_delim
 +PBX_OPENH323!$PBX_OPENH323$ac_delim
-+QT_LIB!$QT_LIB$ac_delim
+ QT_LIB!$QT_LIB$ac_delim
  QT_INCLUDE!$QT_INCLUDE$ac_delim
  QT_DIR!$QT_DIR$ac_delim
- PBX_QT!$PBX_QT$ac_delim
-@@ -34443,12 +34891,53 @@ GTK_LIB!$GTK_LIB$ac_delim
+@@ -34443,6 +34891,47 @@ GTK_LIB!$GTK_LIB$ac_delim
  PKGCONFIG!$PKGCONFIG$ac_delim
  PBX_GTK2!$PBX_GTK2$ac_delim
  GTK2_INCLUDE!$GTK2_INCLUDE$ac_delim
@@ -562,13 +560,6 @@ privileges.
  GTK2_LIB!$GTK2_LIB$ac_delim
  CURL_CONFIG!$CURL_CONFIG$ac_delim
  LTLIBOBJS!$LTLIBOBJS$ac_delim
- _ACEOF
- 
--  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 96; then
-+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 3; then
-     break
-   elif $ac_last_try; then
-     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
 @@ -34466,8 +34955,8 @@ if test -n "$ac_eof"; then
  fi
  

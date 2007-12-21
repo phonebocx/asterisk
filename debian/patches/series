@@ -1,6 +1,3 @@
-# backported fixes from 1.4 branch
-fix-chan-iax2-segfault
-
 # upstream fixes
 debian-banner
 silence-buildsum-warning

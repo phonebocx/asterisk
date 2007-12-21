@@ -1423,7 +1423,7 @@
  						/* Get the use_callingpres state */
  						pri->pvts[chanpos]->callingpres = e->ring.callingpres;
  					
-@@ -8917,14 +9323,31 @@ static void *pri_dchannel(void *vpri)
+@@ -8917,17 +9323,34 @@ static void *pri_dchannel(void *vpri)
  								/* Set bearer and such */
  								pri_assign_bearer(crv, pri, pri->pvts[chanpos]);
  								c = zt_new(crv, AST_STATE_RESERVED, 0, SUB_REAL, law, e->ring.ctype);
@@ -1439,6 +1439,9 @@
 +								}
 + 								zt_enable_ec(pri->pvts[chanpos]);  /* XXX rethink */
  							}
+
+ 							ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+
  							if (!ast_strlen_zero(e->ring.callingsubaddr)) {
  								pbx_builtin_setvar_helper(c, "CALLINGSUBADDR", e->ring.callingsubaddr);
  							}
@@ -1484,12 +1487,12 @@
 +							if (c && (e->ring.lowlayercompat[0] > 0)) {
 +							    memcpy(c->lowlayercompat, e->ring.lowlayercompat, sizeof(c->lowlayercompat));
 +							}
- 							ast_mutex_lock(&pri->lock);
  							if (c) {
  								char calledtonstr[10];
-@@ -8984,23 +9411,40 @@ static void *pri_dchannel(void *vpri)
- 								snprintf(calledtonstr, sizeof(calledtonstr)-1, "%d", e->ring.calledplan);
- 								pbx_builtin_setvar_helper(c, "CALLEDTON", calledtonstr);
+
+@@ -8984,26 +9411,43 @@ static void *pri_dchannel(void *vpri)
+ 								ast_mutex_lock(&pri->pvts[chanpos]->lock);
+ 								ast_mutex_lock(&pri->lock);
  								if (option_verbose > 2)
 -									ast_verbose(VERBOSE_PREFIX_3 "Accepting call from '%s' to '%s' on channel %d/%d, span %d\n",
 -										plancallingnum, pri->pvts[chanpos]->exten, 
@@ -1514,6 +1517,9 @@
 +							        pbx_builtin_setvar_helper(c, "UUI", e->ring.useruserinfo);
 +							    }
  							} else {
+
+ 								ast_mutex_lock(&pri->lock);
+
  								ast_log(LOG_WARNING, "Unable to start PBX on channel %d/%d, span %d\n", 
  									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
 -								pri_hangup(pri->pri, e->ring.call, PRI_CAUSE_SWITCH_CONGESTION);
