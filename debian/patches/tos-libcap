@@ -492,7 +492,7 @@ privileges.
  CURSES_LIB!$CURSES_LIB$ac_delim
  CURSES_INCLUDE!$CURSES_INCLUDE$ac_delim
  CURSES_DIR!$CURSES_DIR$ac_delim
-@@ -34411,9 +34859,6 @@ PWLIB_INCLUDE!$PWLIB_INCLUDE$ac_delim
+@@ -34411,12 +34859,9 @@ PWLIB_INCLUDE!$PWLIB_INCLUDE$ac_delim
  PWLIB_DIR!$PWLIB_DIR$ac_delim
  PBX_PWLIB!$PBX_PWLIB$ac_delim
  OPENH323_LIB!$OPENH323_LIB$ac_delim
@@ -501,7 +501,11 @@ privileges.
 -PBX_OPENH323!$PBX_OPENH323$ac_delim
  _ACEOF
  
-   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
+-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
++  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 98; then
+     break
+   elif $ac_last_try; then
+     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
 @@ -34455,6 +34900,9 @@ _ACEOF
  ac_delim='%!_!# '
  for ac_last_try in false false false false false :; do
@@ -512,13 +516,29 @@ privileges.
  QT_LIB!$QT_LIB$ac_delim
  QT_INCLUDE!$QT_INCLUDE$ac_delim
  QT_DIR!$QT_DIR$ac_delim
-@@ -34549,6 +34997,47 @@ GTK_LIB!$GTK_LIB$ac_delim
+@@ -34549,9 +34997,6 @@ GTK_LIB!$GTK_LIB$ac_delim
  PKGCONFIG!$PKGCONFIG$ac_delim
  PBX_GTK2!$PBX_GTK2$ac_delim
  GTK2_INCLUDE!$GTK2_INCLUDE$ac_delim
+-GTK2_LIB!$GTK2_LIB$ac_delim
+-CURL_CONFIG!$CURL_CONFIG$ac_delim
+-LTLIBOBJS!$LTLIBOBJS$ac_delim
+ _ACEOF
+ 
+   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
+@@ -34590,6 +35035,52 @@ CEOF$ac_eof
+ _ACEOF
+ 
+ 
++ac_delim='%!_!# '
++for ac_last_try in false false false false false :; do
++  cat >conf$$subs.sed <<_ACEOF
++GTK2_LIB!$GTK2_LIB$ac_delim
++CURL_CONFIG!$CURL_CONFIG$ac_delim
++LTLIBOBJS!$LTLIBOBJS$ac_delim
 +_ACEOF
 +
-+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
++  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 3; then
 +    break
 +  elif $ac_last_try; then
 +    { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
@@ -536,8 +556,8 @@ privileges.
 +fi
 +
 +cat >>$CONFIG_STATUS <<_ACEOF
-+cat >"\$tmp/subs-3.sed" <<\CEOF$ac_eof
-+/@[a-zA-Z_][a-zA-Z_0-9]*@/!b
++cat >"\$tmp/subs-4.sed" <<\CEOF$ac_eof
++/@[a-zA-Z_][a-zA-Z_0-9]*@/!b end
 +_ACEOF
 +sed '
 +s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g
@@ -550,36 +570,15 @@ privileges.
 +' >>$CONFIG_STATUS <conf$$subs.sed
 +rm -f conf$$subs.sed
 +cat >>$CONFIG_STATUS <<_ACEOF
++:end
++s/|#_!!_#|//g
 +CEOF$ac_eof
 +_ACEOF
 +
 +
-+ac_delim='%!_!# '
-+for ac_last_try in false false false false false :; do
-+  cat >conf$$subs.sed <<_ACEOF
- GTK2_LIB!$GTK2_LIB$ac_delim
- CURL_CONFIG!$CURL_CONFIG$ac_delim
- LTLIBOBJS!$LTLIBOBJS$ac_delim
-@@ -34572,8 +35061,8 @@ if test -n "$ac_eof"; then
- fi
- 
- cat >>$CONFIG_STATUS <<_ACEOF
--cat >"\$tmp/subs-3.sed" <<\CEOF$ac_eof
--/@[a-zA-Z_][a-zA-Z_0-9]*@/!b
-+cat >"\$tmp/subs-4.sed" <<\CEOF$ac_eof
-+/@[a-zA-Z_][a-zA-Z_0-9]*@/!b end
- _ACEOF
- sed '
- s/[,\\&]/\\&/g; s/@/@|#_!!_#|/g
-@@ -34586,6 +35075,8 @@ N; s/^.*\n//; s/[,\\&]/\\&/g; s/@/@|#_!!
- ' >>$CONFIG_STATUS <conf$$subs.sed
- rm -f conf$$subs.sed
- cat >>$CONFIG_STATUS <<_ACEOF
-+:end
-+s/|#_!!_#|//g
- CEOF$ac_eof
- _ACEOF
- 
+ # VPATH may cause trouble with some makes, so we remove $(srcdir),
+ # ${srcdir} and @srcdir@ from VPATH if srcdir is ".", strip leading and
+ # trailing colons and then remove the whole line if VPATH becomes empty
 @@ -34833,7 +35324,7 @@ s&@abs_builddir@&$ac_abs_builddir&;t t
  s&@abs_top_builddir@&$ac_abs_top_builddir&;t t
  s&@INSTALL@&$ac_INSTALL&;t t
