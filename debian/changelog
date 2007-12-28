@@ -8,7 +8,7 @@ asterisk (1:1.4.16.2~dfsg-1) unstable; urgency=low
 
   * New upstream release. (Closes: #457063) (Fixes CVE-2007-6430)
     - Remove keep-1.4-abi, merged upstream.
-    - Adapt hack-multiple-app-voicemail, use-libpri-bristuffed.
+    - Adapt hack-multiple-app-voicemail, use-libpri-bristuffed, tos-libcap.
     - Adapt bristuff patches app-dial-etc, chan-iax2-hangup-cause,
       app-dial-priority-202, zapata-bri+euroisdn.
   * Silence upstream's build sum warning but generate one on all modules so
