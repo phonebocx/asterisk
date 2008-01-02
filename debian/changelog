@@ -1,3 +1,9 @@
+asterisk (1:1.4.17~dfsg-1) UNRELEASED; urgency=high
+
+  * New upstream release. Fixes ASA-2008-001.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed,  2 Jan 2008 23:30:54 +0200
+
 asterisk (1:1.4.16.2~dfsg-2) unstable; urgency=low
 
   * asterisk.init: fix start so that it works again. (Closes: #458022)
