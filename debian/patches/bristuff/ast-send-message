@@ -45,7 +45,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
   * \param chan channel to act upon
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -2691,7 +2691,7 @@ char *ast_recvtext(struct ast_channel *c
+@@ -2694,7 +2694,7 @@ char *ast_recvtext(struct ast_channel *c
  	return buf;
  }
  
@@ -54,7 +54,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  {
  	int res = 0;
  	/* Stop if we're a zombie or need a soft hangup */
-@@ -2699,7 +2699,7 @@ int ast_sendtext(struct ast_channel *cha
+@@ -2702,7 +2702,7 @@ int ast_sendtext(struct ast_channel *cha
  		return -1;
  	CHECK_BLOCKING(chan);
  	if (chan->tech->send_text)
@@ -63,7 +63,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  	ast_clear_flag(chan, AST_FLAG_BLOCKING);
  	return res;
  }
-@@ -2878,7 +2878,7 @@ int ast_write(struct ast_channel *chan, 
+@@ -2881,7 +2881,7 @@ int ast_write(struct ast_channel *chan, 
  		break;
  	case AST_FRAME_TEXT:
  		res = (chan->tech->send_text == NULL) ? 0 :
@@ -72,7 +72,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  		break;
  	case AST_FRAME_HTML:
  		res = (chan->tech->send_html == NULL) ? 0 :
-@@ -4902,6 +4902,25 @@ void ast_channel_stop_silence_generator(
+@@ -4908,6 +4908,25 @@ void ast_channel_stop_silence_generator(
  }
  
  

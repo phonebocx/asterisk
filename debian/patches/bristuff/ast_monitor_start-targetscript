@@ -95,7 +95,7 @@
  			ast_channel_unlock(c);
 --- a/apps/app_queue.c
 +++ b/apps/app_queue.c
-@@ -2789,13 +2789,13 @@ static int try_calling(struct queue_ent 
+@@ -2804,13 +2804,13 @@ static int try_calling(struct queue_ent 
  				else
  					which = peer;
  				if (monitorfilename)

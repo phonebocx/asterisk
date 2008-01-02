@@ -10,7 +10,7 @@
  	int nativeformats;				/*!< Kinds of data this channel can natively handle */
 --- a/main/pbx.c
 +++ b/main/pbx.c
-@@ -5126,7 +5126,7 @@ struct app_tmp {
+@@ -5132,7 +5132,7 @@ struct app_tmp {
  };
  
  /*! \brief run the application and free the descriptor once done */
@@ -2618,7 +2618,7 @@
  ; priexclusive = yes
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -4206,6 +4206,10 @@ enum ast_bridge_result ast_channel_bridg
+@@ -4209,6 +4209,10 @@ enum ast_bridge_result ast_channel_bridg
  			c1->name, c1->_bridge->name);
  		return -1;
  	}
