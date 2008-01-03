@@ -4,7 +4,7 @@
 #
 
 # Remove libc-client2006 and explicit imap support:
-sed -i -e 's#^\(Build-Depends:.*\)libc-client2006[^\ ]* | libc-client2007-dev,\(.*\)$#\1 \2#' debian/control
+sed -i -e 's#^\(Build-Depends:.*\)libc-client2007[^\ ]* \(.*\)$#\1 \2#' debian/control
 # from --configure:
 sed -i -e '/--with-imap/d' debian/rules
 # disable patch that enables building of app_voicemail_{imap,odbc}.so
