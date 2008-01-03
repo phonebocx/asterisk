@@ -1,4 +1,4 @@
-asterisk (1:1.4.17~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.17~dfsg-1) unstable; urgency=low
 
   * New upstream release. Fixes ASA-2008-001.
 
