@@ -1,4 +1,4 @@
-asterisk (1:1.4.17~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.17~dfsg-2) unstable; urgency=low
 
   * Allow building vs. libc-client2007 (Closes: #458877).
 
