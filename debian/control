@@ -3,7 +3,7 @@ Priority: optional
 Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kilian@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>, Faidon Liambotis <paravoid@debian.org>
-Build-Depends: debhelper (>= 5), quilt, zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libtonezone-dev (>= 1:1.4.1~0), bison, libasound2-dev, libpq-dev, unixodbc-dev, libpri-dev (>= 1.4.1-1), libvpb-dev, zaptel-source (>= 1:1.4.1~0), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl4-openssl-dev | libcurl-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), libiksemel-dev, libradiusclient-ng-dev, freetds-dev, libvorbis-dev, libsnmp-dev, libc-client2007-dev, libcap-dev
+Build-Depends: debhelper (>= 5), quilt, zlib1g-dev, libreadline5-dev, libgsm1-dev, libssl-dev, libtonezone-dev (>= 1:1.4.1~0), bison, libasound2-dev, libpq-dev, unixodbc-dev, libpri-dev (>= 1.4.1-1), libvpb-dev, zaptel-source (>= 1:1.4.1~0), autotools-dev, libnewt-dev, libsqlite-dev, libspeex-dev, graphviz, libcurl4-openssl-dev | libcurl-dev, doxygen, gsfonts, libpopt-dev, libopenh323-dev (>= 1.17.4-1), libiksemel-dev, libradiusclient-ng-dev, freetds-dev, libvorbis-dev, libsnmp-dev, libc-client2007-dev | libc-client-dev, libcap-dev
 Standards-Version: 3.7.3
 Homepage: http://www.asterisk.org/
 Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
