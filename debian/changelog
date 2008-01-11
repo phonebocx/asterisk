@@ -1,3 +1,9 @@
+asterisk (1:1.4.17~dfsg-3) UNRELEASED; urgency=low
+
+  * Update debian/copyright with the packaging copyright.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 11 Jan 2008 21:37:00 +0200
+
 asterisk (1:1.4.17~dfsg-2) unstable; urgency=low
 
   * Allow building vs. libc-client2007 (Closes: #458877).
