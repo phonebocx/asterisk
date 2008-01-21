@@ -2,7 +2,6 @@
 debian-banner
 silence-buildsum-warning
 configure-libc-client
-hack-multiple-app-voicemail
 astvarrundir
 make-clean-fixes
 safe_asterisk-config
@@ -47,8 +46,11 @@ bristuff/app-dial-etc
 bristuff/app-dial-R-noinband
 bristuff/app-dial-c-callback
 
-# improved (?) devicestate support in chan_zap. Not used:
-bristuff/zapata-device-state
+bristuff/zapata_num_spans
+
+# use /usr/include/bristuffed/libpri.h - /usr/lib/libpri-bristuffed.so.1.0
+use-libpri-bristuffed
+bristuff/zapata-bri+euroisdn
 
 # and here goes our API :-)
 bristuff/ast-send-message
@@ -67,7 +69,7 @@ bristuff/uniqueid-40-manager
 # they depend on the uniqueid changes; the following are a set
 bristuff/feature-autoanswer
 bristuff/feature-holdedcalls
-bristuff/zapata-bri+euroisdn
+bristuff/zapata_euroisdn_holded
 # GSM support; it needs the above patch applied first, unfortunately.
 bristuff/zapata-gsm
 
@@ -79,5 +81,3 @@ bristuff/zapata-gsm
 #bristuff/find-feature
 #bristuff/feature-parking_con
 
-# use /usr/include/bristuffed/libpri.h - /usr/lib/libpri-bristuffed.so.1.0
-use-libpri-bristuffed
