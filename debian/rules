@@ -16,13 +16,6 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
-ifneq ($(PROC),hppa)
-	BUILDFLAGS += OPTIMIZE=-O2
-else
-	# gcc-4.2 ICE on -O2, #445336
-	BUILDFLAGS += OPTIMIZE=-O1
-endif
-
 BUILDFLAGS += MAKECMDGOALS=dont-optimize
 
 # show full gcc arguments instead of [CC] and [LD]

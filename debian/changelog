@@ -2,9 +2,11 @@ asterisk (1:1.4.17~dfsg-3) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * Update debian/copyright (packaging copyright, formatting etc.)
+  * Remove workaround for gcc ICE on hppa (#445336), since apparently that has
+    been fixed.
 
   [ Tzafrir Cohen ]
-  * Break bristuff BRI/EuroISDN patch: 
+  * Break bristuff BRI/EuroISDN patch:
   - zapata_num_spans - already accepted by upstream. Independent of libpri
     bristuff patch.
   - zapata-bri+euroisdn - now does not depend on most bristuff interface
@@ -14,7 +16,7 @@ asterisk (1:1.4.17~dfsg-3) UNRELEASED; urgency=low
   * patch use-libpri-bristuffed right next to zapata-bri+euroisdn, as
     zapata-bri+euroisdn depends on it to build.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 21 Jan 2008 17:40:29 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 29 Jan 2008 05:34:48 +0200
 
 asterisk (1:1.4.17~dfsg-2) unstable; urgency=low
 
