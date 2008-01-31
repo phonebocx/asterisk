@@ -119,7 +119,7 @@
  else
 --- a/configure.ac
 +++ b/configure.ac
-@@ -824,7 +824,7 @@ fi
+@@ -823,7 +823,7 @@ fi
  
  AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
  
@@ -130,12 +130,12 @@
  	if test -n "${PWLIB_DIR}"; then
 --- a/channels/chan_zap.c
 +++ b/channels/chan_zap.c
-@@ -75,7 +75,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
+@@ -71,7 +71,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include <zaptel/tonezone.h>
  
  #ifdef HAVE_PRI
 -#include <libpri.h>
 +#include <bristuffed/libpri.h>
  #endif
- #ifdef HAVE_GSMAT
- #include <libgsmat.h>
+ 
+ #include "asterisk/lock.h"

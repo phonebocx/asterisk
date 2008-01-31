@@ -5,7 +5,7 @@
 
 --- a/channels/chan_zap.c
 +++ b/channels/chan_zap.c
-@@ -190,7 +194,7 @@ static const char config[] = "zapata.con
+@@ -190,7 +190,7 @@ static const char config[] = "zapata.con
  #define SIG_GR303FXOKS	(0x0100000 | ZT_SIG_FXOKS)
  #define SIG_GR303FXSKS	(0x0100000 | ZT_SIG_FXSKS)
  

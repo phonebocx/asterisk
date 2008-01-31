@@ -12,7 +12,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  
  	/*! \brief Display or send an image */
  	int (* const send_image)(struct ast_channel *chan, struct ast_frame *frame);
-@@ -671,6 +671,16 @@ struct ast_channel *ast_request_and_dial
+@@ -672,6 +672,16 @@ struct ast_channel *ast_request_and_dial
  
  struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname, struct outgoing_helper *oh);
  
@@ -29,7 +29,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  /*!\brief Register a channel technology (a new channel driver)
   * Called by a channel module to register the kind of channels it supports.
   * \param tech Structure defining channel technology or "type"
-@@ -887,10 +897,12 @@ int ast_set_write_format(struct ast_chan
+@@ -888,10 +898,12 @@ int ast_set_write_format(struct ast_chan
  /*! \brief Sends text to a channel 
   * Write text to a display on a channel
   * \param chan channel to act upon

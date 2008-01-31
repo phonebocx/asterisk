@@ -2,7 +2,7 @@ Add or convert channel operations so they can use the unique ID.
 
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -659,6 +659,18 @@ void  ast_channel_free(struct ast_channe
+@@ -660,6 +660,18 @@ void  ast_channel_free(struct ast_channe
   */
  struct ast_channel *ast_request(const char *type, int format, void *data, int *status);
  
@@ -21,7 +21,7 @@ Add or convert channel operations so they can use the unique ID.
  /*!
   * \brief Request a channel of a given type, with data as optional information used 
   * by the low level module and attempt to place a call on it
-@@ -672,9 +684,9 @@ struct ast_channel *ast_request(const ch
+@@ -673,9 +685,9 @@ struct ast_channel *ast_request(const ch
   * \return Returns an ast_channel on success or no answer, NULL on failure.  Check the value of chan->_state
   * to know if the call was answered or not.
   */
@@ -33,7 +33,7 @@ Add or convert channel operations so they can use the unique ID.
  
  /*! \brief "Requests" a channel for sending a message
   * \param type type of channel to request
-@@ -959,6 +971,8 @@ struct ast_channel *ast_get_channel_by_e
+@@ -960,6 +972,8 @@ struct ast_channel *ast_get_channel_by_e
  /*! \brief Get next channel by exten (and optionally context) and lock it */
  struct ast_channel *ast_walk_channel_by_exten_locked(const struct ast_channel *chan, const char *exten,
  						     const char *context);

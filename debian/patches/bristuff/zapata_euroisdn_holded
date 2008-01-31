@@ -1,6 +1,6 @@
 --- a/main/pbx.c
 +++ b/main/pbx.c
-@@ -5128,7 +5128,7 @@
+@@ -5132,7 +5132,7 @@ struct app_tmp {
  };
  
  /*! \brief run the application and free the descriptor once done */
@@ -11,7 +11,7 @@
  	struct ast_app *app;
 --- a/include/asterisk/pbx.h
 +++ b/include/asterisk/pbx.h
-@@ -145,6 +145,8 @@
+@@ -145,6 +145,8 @@ void ast_unregister_switch(struct ast_sw
   */
  struct ast_app *pbx_findapp(const char *app);
  
@@ -22,7 +22,7 @@
   *
 --- a/channels/chan_zap.c
 +++ b/channels/chan_zap.c
-@@ -304,6 +304,19 @@
+@@ -304,6 +304,19 @@ struct zt_suspended_call {
  	struct zt_suspended_call *next;
  };
  
@@ -42,7 +42,7 @@
  struct zt_pri {
  	pthread_t master;						/*!< Thread of master */
  	ast_mutex_t lock;						/*!< Mutex */
-@@ -347,6 +360,7 @@
+@@ -347,6 +360,7 @@ struct zt_pri {
  	struct zt_pvt *crvs;						/*!< Member CRV structs */
  	struct zt_pvt *crvend;						/*!< Pointer to end of CRV structs */
   	struct zt_suspended_call *suspended_calls; /* Calls parked with SUSPEND messages */
@@ -50,7 +50,7 @@
  	int debugfd;
  };
  
-@@ -7463,6 +7477,7 @@
+@@ -7463,6 +7477,7 @@ static struct zt_pvt *mkintf(int channel
  						pris[span].overlapdial = conf.pri.overlapdial;
  						pris[span].usercid = conf.pri.usercid;
  						pris[span].suspended_calls = NULL;
@@ -58,7 +58,7 @@
  						pris[span].facilityenable = conf.pri.facilityenable;
  						ast_copy_string(pris[span].idledial, conf.pri.idledial, sizeof(pris[span].idledial));
  						ast_copy_string(pris[span].idleext, conf.pri.idleext, sizeof(pris[span].idleext));
-@@ -8138,6 +8153,58 @@
+@@ -8138,6 +8153,58 @@ static struct zt_pvt *pri_find_crv(struc
  	return NULL;
  }
  
@@ -117,7 +117,7 @@
  
  static int pri_find_principle(struct zt_pri *pri, int channel)
  {
-@@ -9582,18 +9649,150 @@
+@@ -9582,18 +9649,150 @@ static void *pri_dchannel(void *vpri)
  				    pri_hold_reject(pri->pri, e->hold_req.call);
  				    break;
  				}
@@ -274,7 +274,7 @@
  			case PRI_EVENT_DISPLAY_RECEIVED:
  				ast_log(LOG_NOTICE, "DISPLAY IE: [ %s ] received\n",e->display.text);
  				chanpos = pri_find_principle(pri, e->display.channel);
-@@ -9750,9 +9949,20 @@
+@@ -9750,9 +9949,20 @@ static void *pri_dchannel(void *vpri)
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
@@ -298,7 +298,7 @@
  					}
  				} 
  				break;
-@@ -9815,11 +10025,63 @@
+@@ -9815,11 +10025,63 @@ static void *pri_dchannel(void *vpri)
  							    	ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d received AOC-E charging %d unit%s\n",
  									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span, (int)e->hangup.aoc_units, (e->hangup.aoc_units == 1) ? "" : "s");
  							}
@@ -367,7 +367,7 @@
  						} else {
  							pri_hangup(pri->pri, pri->pvts[chanpos]->call, e->hangup.cause, -1);
  							pri->pvts[chanpos]->call = NULL;
-@@ -9849,7 +10111,19 @@
+@@ -9849,7 +10111,19 @@ static void *pri_dchannel(void *vpri)
   						if (pri->nodetype != BRI_NETWORK_PTMP) {
    						    ast_log(LOG_WARNING, "Hangup REQ on bad channel %d/%d on span %d\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
   						} else {
@@ -388,7 +388,7 @@
   						}
  					}
  				} 
-@@ -10011,16 +10285,73 @@
+@@ -10011,16 +10285,73 @@ static void *pri_dchannel(void *vpri)
  				}
  				break;
   			case PRI_EVENT_FACILITY:

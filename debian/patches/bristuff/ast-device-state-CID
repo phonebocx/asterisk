@@ -113,7 +113,7 @@
  		} else {
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -590,8 +590,13 @@ int ast_channel_datastore_remove(struct 
+@@ -591,8 +591,13 @@ int ast_channel_datastore_remove(struct 
  /*! \brief Find a datastore on a channel */
  struct ast_datastore *ast_channel_datastore_find(struct ast_channel *chan, const struct ast_datastore_info *info, char *uid);
  

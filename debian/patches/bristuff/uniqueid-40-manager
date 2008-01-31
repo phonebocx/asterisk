@@ -193,7 +193,7 @@
  #include <unistd.h>
  #ifdef POLLCOMPAT 
  #include "asterisk/poll-compat.h"
-@@ -1004,6 +1007,8 @@ int ast_waitfordigit_full(struct ast_cha
+@@ -1005,6 +1008,8 @@ int ast_waitfordigit_full(struct ast_cha
  int ast_readstring(struct ast_channel *c, char *s, int len, int timeout, int rtimeout, char *enders);
  int ast_readstring_full(struct ast_channel *c, char *s, int len, int timeout, int rtimeout, char *enders, int audiofd, int ctrlfd);
  
