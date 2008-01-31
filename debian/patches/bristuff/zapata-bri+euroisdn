@@ -1,7 +1,5 @@
-Index: asterisk-14/include/asterisk/channel.h
-===================================================================
---- asterisk-14.orig/include/asterisk/channel.h	2008-01-20 21:55:17.000000000 +0200
-+++ asterisk-14/include/asterisk/channel.h	2008-01-20 21:56:58.000000000 +0200
+--- a/include/asterisk/channel.h
++++ b/include/asterisk/channel.h
 @@ -417,6 +417,7 @@
  	unsigned int flags;				/*!< channel flags of AST_FLAG_ type */
  	unsigned short transfercapability;		/*!< ISDN Transfer Capbility - AST_FLAG_DIGITAL is not enough */
@@ -10,10 +8,8 @@ Index: asterisk-14/include/asterisk/channel.h
  	int alertpipe[2];
  
  	int nativeformats;				/*!< Kinds of data this channel can natively handle */
-Index: asterisk-14/channels/chan_zap.c
-===================================================================
---- asterisk-14.orig/channels/chan_zap.c	2008-01-20 21:55:17.000000000 +0200
-+++ asterisk-14/channels/chan_zap.c	2008-01-20 22:33:53.000000000 +0200
+--- a/channels/chan_zap.c
++++ b/channels/chan_zap.c
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -2229,10 +2225,8 @@ Index: asterisk-14/channels/chan_zap.c
  	index = zt_get_index(c, p, 0);
  	if (index < 0) {
  		ast_log(LOG_WARNING, "Huh?  I don't exist?\n");
-Index: asterisk-14/configs/zapata.conf.sample
-===================================================================
---- asterisk-14.orig/configs/zapata.conf.sample	2008-01-20 21:55:17.000000000 +0200
-+++ asterisk-14/configs/zapata.conf.sample	2008-01-20 21:56:58.000000000 +0200
+--- a/configs/zapata.conf.sample
++++ b/configs/zapata.conf.sample
 @@ -123,9 +123,20 @@
  ; 
  ; outofband:      Signal Busy/Congestion out of band with RELEASE/DISCONNECT

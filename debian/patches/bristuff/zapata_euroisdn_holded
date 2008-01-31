@@ -1,7 +1,5 @@
-Index: asterisk-14/main/pbx.c
-===================================================================
---- asterisk-14.orig/main/pbx.c	2008-01-21 12:12:16.000000000 +0200
-+++ asterisk-14/main/pbx.c	2008-01-21 14:43:39.000000000 +0200
+--- a/main/pbx.c
++++ b/main/pbx.c
 @@ -5128,7 +5128,7 @@
  };
  
@@ -11,10 +9,8 @@ Index: asterisk-14/main/pbx.c
  {
  	struct app_tmp *tmp = data;
  	struct ast_app *app;
-Index: asterisk-14/include/asterisk/pbx.h
-===================================================================
---- asterisk-14.orig/include/asterisk/pbx.h	2008-01-21 12:12:16.000000000 +0200
-+++ asterisk-14/include/asterisk/pbx.h	2008-01-21 14:43:39.000000000 +0200
+--- a/include/asterisk/pbx.h
++++ b/include/asterisk/pbx.h
 @@ -145,6 +145,8 @@
   */
  struct ast_app *pbx_findapp(const char *app);
@@ -24,10 +20,8 @@ Index: asterisk-14/include/asterisk/pbx.h
  /*!
   * \brief Execute an application
   *
-Index: asterisk-14/channels/chan_zap.c
-===================================================================
---- asterisk-14.orig/channels/chan_zap.c	2008-01-21 12:26:22.000000000 +0200
-+++ asterisk-14/channels/chan_zap.c	2008-01-21 14:54:48.000000000 +0200
+--- a/channels/chan_zap.c
++++ b/channels/chan_zap.c
 @@ -304,6 +304,19 @@
  	struct zt_suspended_call *next;
  };
