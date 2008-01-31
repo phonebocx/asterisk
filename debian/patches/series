@@ -46,6 +46,9 @@ bristuff/app-dial-etc
 bristuff/app-dial-R-noinband
 bristuff/app-dial-c-callback
 
+# improved (?) devicestate support in chan_zap. Not used:
+#bristuff/zapata-device-state
+
 bristuff/zapata_num_spans
 
 # use /usr/include/bristuffed/libpri.h - /usr/lib/libpri-bristuffed.so.1.0
