@@ -20,7 +20,7 @@
  int ast_monitor_stop(struct ast_channel *chan, int need_lock);
 --- a/res/res_monitor.c
 +++ b/res/res_monitor.c
-@@ -129,7 +129,7 @@ static int ast_monitor_set_state(struct 
+@@ -130,7 +130,7 @@ static int ast_monitor_set_state(struct 
  
  /* Start monitoring a channel */
  int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
@@ -29,7 +29,7 @@
  {
  	int res = 0;
  	char tmp[256];
-@@ -153,6 +153,11 @@ int ast_monitor_start(	struct ast_channe
+@@ -154,6 +154,11 @@ int ast_monitor_start(	struct ast_channe
  			return -1;
  		}
  
@@ -41,7 +41,7 @@
  		/* Determine file names */
  		if (!ast_strlen_zero(fname_base)) {
  			int directory = strchr(fname_base, '/') ? 1 : 0;
-@@ -295,6 +300,8 @@ int ast_monitor_stop(struct ast_channel 
+@@ -297,6 +302,8 @@ int ast_monitor_stop(struct ast_channel 
  		if (chan->monitor->joinfiles && !ast_strlen_zero(chan->monitor->filename_base)) {
  			char tmp[1024];
  			char tmp2[1024];
@@ -50,8 +50,8 @@
  			const char *format = !strcasecmp(chan->monitor->format,"wav49") ? "WAV" : chan->monitor->format;
  			char *name = chan->monitor->filename_base;
  			int directory = strchr(name, '/') ? 1 : 0;
-@@ -322,8 +329,13 @@ int ast_monitor_stop(struct ast_channel 
- 				snprintf(tmp2,sizeof(tmp2), "( %s& rm -f \"%s/%s-\"* ) &",tmp, dir ,name); /* remove legs when done mixing */
+@@ -325,8 +332,13 @@ int ast_monitor_stop(struct ast_channel 
+ 				snprintf(tmp2,sizeof(tmp2), "( %s& rm -f \"%s%s%s-\"* ) &",tmp, dir, absolute, name); /* remove legs when done mixing */
  				ast_copy_string(tmp, tmp2, sizeof(tmp));
  			}
 -			ast_log(LOG_DEBUG,"monitor executing %s\n",tmp);
@@ -66,7 +66,7 @@
  				ast_log(LOG_WARNING, "Execute of %s failed.\n",tmp);
  		}
  		
-@@ -452,7 +464,7 @@ static int start_monitor_exec(struct ast
+@@ -467,7 +479,7 @@ static int start_monitor_exec(struct ast
  		return 0;
  	}
  
@@ -75,7 +75,7 @@
  	if (res < 0)
  		res = ast_monitor_change_fname(chan, fname_base, 1);
  	ast_monitor_setjoinfiles(chan, joinfiles);
-@@ -491,6 +503,8 @@ static int start_monitor_action(struct m
+@@ -506,6 +518,8 @@ static int start_monitor_action(struct m
  	const char *fname = astman_get_header(m, "File");
  	const char *format = astman_get_header(m, "Format");
  	const char *mix = astman_get_header(m, "Mix");
@@ -84,7 +84,7 @@
  	char *d;
  	
  	if (ast_strlen_zero(name)) {
-@@ -515,7 +529,7 @@ static int start_monitor_action(struct m
+@@ -530,7 +544,7 @@ static int start_monitor_action(struct m
  			*d = '-';
  	}
  	
@@ -95,7 +95,7 @@
  			ast_channel_unlock(c);
 --- a/apps/app_queue.c
 +++ b/apps/app_queue.c
-@@ -2804,13 +2804,13 @@ static int try_calling(struct queue_ent 
+@@ -2901,13 +2901,13 @@ static int try_calling(struct queue_ent 
  				else
  					which = peer;
  				if (monitorfilename)
@@ -114,7 +114,7 @@
  					ast_monitor_setjoinfiles(which, 1);
 --- a/channels/chan_agent.c
 +++ b/channels/chan_agent.c
-@@ -416,7 +416,7 @@ static int __agent_start_monitoring(stru
+@@ -419,7 +419,7 @@ static int __agent_start_monitoring(stru
  		if ((pointer = strchr(filename, '.')))
  			*pointer = '-';
  		snprintf(tmp, sizeof(tmp), "%s%s", savecallsin, filename);

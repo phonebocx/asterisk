@@ -2,7 +2,7 @@
 +++ b/channels/chan_zap.c
 @@ -77,6 +77,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #ifdef HAVE_PRI
- #include <libpri.h>
+ #include <bristuffed/libpri.h>
  #endif
 +#ifdef HAVE_GSMAT
 +#include <libgsmat.h>
@@ -839,7 +839,7 @@
  AST_EXT_LIB_SETUP([ISDNNET], [ISDN4Linux Library], [isdnnet])
 --- a/configure
 +++ b/configure
-@@ -25667,6 +25667,188 @@ echo "$as_me: *** without explicitly spe
+@@ -25666,6 +25666,188 @@ echo "$as_me: *** without explicitly spe
     fi
  fi
  

@@ -11,7 +11,7 @@
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -125,7 +129,8 @@ static char *descrip =
+@@ -130,7 +134,8 @@ static char *descrip =
  "    H    - Allow the calling party to hang up by hitting the '*' DTMF digit.\n"
  "    i    - Asterisk will ignore any forwarding requests it may receive on this\n"
  "           dial attempt.\n"
@@ -21,7 +21,7 @@
  "    k    - Allow the called party to enable parking of the call by sending\n"
  "           the DTMF sequence defined for call parking in features.conf.\n"
  "    K    - Allow the calling party to enable parking of the call by sending\n"
-@@ -1300,14 +1305,16 @@ static int dial_exec_full(struct ast_cha
+@@ -1305,14 +1310,16 @@ static int dial_exec_full(struct ast_cha
  	}
  
  	if (!outgoing) {

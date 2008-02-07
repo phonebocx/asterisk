@@ -1,6 +1,6 @@
 --- a/apps/app_dial.c
 +++ b/apps/app_dial.c
-@@ -193,6 +193,8 @@ static char *descrip =
+@@ -198,6 +198,8 @@ static char *descrip =
  "           family/key is not specified.\n"
  "    r    - Indicate ringing to the calling party. Pass no audio to the calling\n"
  "           party until the called channel has answered.\n"
@@ -9,7 +9,7 @@
  "    S(x) - Hang up the call after 'x' seconds *after* the called party has\n"
  "           answered the call.\n"  	
  "    t    - Allow the called party to transfer the calling party by sending the\n"
-@@ -249,6 +251,7 @@ enum {
+@@ -254,6 +256,7 @@ enum {
  	OPT_CALLEE_PARK =	(1 << 25),
  	OPT_CALLER_PARK =	(1 << 26),
  	OPT_IGNORE_FORWARDING = (1 << 27),
@@ -17,7 +17,7 @@
  } dial_exec_option_flags;
  
  #define DIAL_STILLGOING			(1 << 30)
-@@ -292,6 +295,7 @@ AST_APP_OPTIONS(dial_exec_options, {
+@@ -297,6 +300,7 @@ AST_APP_OPTIONS(dial_exec_options, {
  	AST_APP_OPTION('p', OPT_SCREENING),
  	AST_APP_OPTION_ARG('P', OPT_PRIVACY, OPT_ARG_PRIVACY),
  	AST_APP_OPTION('r', OPT_RINGBACK),
@@ -25,7 +25,7 @@
  	AST_APP_OPTION_ARG('S', OPT_DURATION_STOP, OPT_ARG_DURATION_STOP),
  	AST_APP_OPTION('t', OPT_CALLEE_TRANSFER),
  	AST_APP_OPTION('T', OPT_CALLER_TRANSFER),
-@@ -407,7 +411,7 @@ static struct ast_channel *wait_for_answ
+@@ -412,7 +416,7 @@ static struct ast_channel *wait_for_answ
  	int orig = *to;
  	struct ast_channel *peer = NULL;
  	/* single is set if only one destination is enabled */
@@ -34,7 +34,7 @@
  	
  	if (single) {
  		/* Turn off hold music, etc */
-@@ -628,7 +632,7 @@ static struct ast_channel *wait_for_answ
+@@ -633,7 +637,7 @@ static struct ast_channel *wait_for_answ
  					/* Setup early media if appropriate */
  					if (single && CAN_EARLY_BRIDGE(peerflags))
  						ast_rtp_early_bridge(in, c);
@@ -43,7 +43,7 @@
  						ast_indicate(in, AST_CONTROL_PROGRESS);
  					break;
  				case AST_CONTROL_VIDUPDATE:
-@@ -641,7 +645,7 @@ static struct ast_channel *wait_for_answ
+@@ -646,7 +650,7 @@ static struct ast_channel *wait_for_answ
  						ast_verbose (VERBOSE_PREFIX_3 "%s is proceeding passing it to %s\n", c->name, in->name);
  					if (single && CAN_EARLY_BRIDGE(peerflags))
  						ast_rtp_early_bridge(in, c);
@@ -52,7 +52,7 @@
  						ast_indicate(in, AST_CONTROL_PROCEEDING);
  					break;
  				case AST_CONTROL_HOLD:
-@@ -659,7 +663,7 @@ static struct ast_channel *wait_for_answ
+@@ -664,7 +668,7 @@ static struct ast_channel *wait_for_answ
  					/* Ignore going off hook and flash */
  					break;
  				case -1:
@@ -61,7 +61,7 @@
  						if (option_verbose > 2)
  							ast_verbose(VERBOSE_PREFIX_3 "%s stopped sounds\n", c->name);
  						ast_indicate(in, -1);
-@@ -1099,7 +1103,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1104,7 +1108,7 @@ static int dial_exec_full(struct ast_cha
  		outbound_group = pbx_builtin_getvar_helper(chan, "OUTBOUND_GROUP");
  	}
  	    
@@ -70,7 +70,7 @@
  	/* loop through the list of dial destinations */
  	rest = args.peers;
  	while ((cur = strsep(&rest, "&")) ) {
-@@ -1124,7 +1128,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1129,7 +1133,7 @@ static int dial_exec_full(struct ast_cha
  				       OPT_CALLEE_HANGUP | OPT_CALLER_HANGUP |
  				       OPT_CALLEE_MONITOR | OPT_CALLER_MONITOR |
  				       OPT_CALLEE_PARK | OPT_CALLER_PARK |
@@ -79,7 +79,7 @@
  			ast_set2_flag(tmp, args.url, DIAL_NOFORWARDHTML);	
  		}
  		ast_copy_string(numsubst, number, sizeof(numsubst));
-@@ -1327,7 +1331,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1332,7 +1336,7 @@ static int dial_exec_full(struct ast_cha
  				ast_moh_start(chan, NULL, NULL);
  			}
  			ast_indicate(chan, AST_CONTROL_PROGRESS);
@@ -88,7 +88,7 @@
  			ast_indicate(chan, AST_CONTROL_RINGING);
  			sentringing++;
  		}
-@@ -1444,7 +1448,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1449,7 +1453,7 @@ static int dial_exec_full(struct ast_cha
  
  			if (ast_test_flag(&opts, OPT_MUSICBACK)) {
  				ast_moh_stop(chan);

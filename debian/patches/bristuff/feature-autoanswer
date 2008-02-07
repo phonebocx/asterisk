@@ -22,7 +22,7 @@
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -128,6 +132,20 @@ static char *descrip2 = "Park():"
+@@ -132,6 +136,20 @@ static char *descrip2 = "Park():"
  "it already exists. In that case, execution will continue at next\n"
  "priority.\n" ;
  
@@ -43,7 +43,7 @@
  static struct ast_app *monitor_app = NULL;
  static int monitor_ok = 1;
  
-@@ -146,6 +164,23 @@ struct parkeduser {
+@@ -150,6 +168,23 @@ struct parkeduser {
  	struct parkeduser *next;
  };
  
@@ -67,7 +67,7 @@
  static struct parkeduser *parkinglot;
  
  AST_MUTEX_DEFINE_STATIC(parking_lock);	/*!< protects all static variables above */
-@@ -401,11 +436,13 @@ static int park_call_full(struct ast_cha
+@@ -405,11 +440,13 @@ static int park_call_full(struct ast_cha
  		"From: %s\r\n"
  		"Timeout: %ld\r\n"
  		"CallerID: %s\r\n"
@@ -83,7 +83,7 @@
  		);
  
  	if (peer && adsipark && ast_adsi_available(peer)) {
-@@ -1628,11 +1665,13 @@ static void post_manager_event(const cha
+@@ -1636,11 +1673,13 @@ static void post_manager_event(const cha
  		"Exten: %s\r\n"
  		"Channel: %s\r\n"
  		"CallerID: %s\r\n"
@@ -99,7 +99,7 @@
  		);
  }
  
-@@ -1887,10 +1926,12 @@ static int park_exec(struct ast_channel 
+@@ -1908,10 +1947,12 @@ static int park_exec(struct ast_channel 
  			"Channel: %s\r\n"
  			"From: %s\r\n"
  			"CallerID: %s\r\n"
@@ -114,7 +114,7 @@
  			);
  
  		free(pu);
-@@ -2044,15 +2085,10 @@ static struct ast_cli_entry cli_show_fea
+@@ -2065,15 +2106,10 @@ static struct ast_cli_entry cli_show_fea
  	handle_showfeatures, NULL,
  	NULL };
  
@@ -133,7 +133,7 @@
  
  /*! \brief Dump lot status */
  static int manager_parking_status( struct mansession *s, const struct message *m)
-@@ -2076,12 +2112,13 @@ static int manager_parking_status( struc
+@@ -2097,12 +2133,13 @@ static int manager_parking_status( struc
  			"Timeout: %ld\r\n"
  			"CallerID: %s\r\n"
  			"CallerIDName: %s\r\n"
@@ -148,7 +148,7 @@
  			idText);
  	}
  
-@@ -2156,6 +2193,427 @@ static int manager_park(struct mansessio
+@@ -2177,6 +2214,427 @@ static int manager_park(struct mansessio
  	return 0;
  }
  
@@ -576,7 +576,7 @@
  
  int ast_pickup_call(struct ast_channel *chan)
  {
-@@ -2419,6 +2877,7 @@ static int load_config(void) 
+@@ -2440,6 +2898,7 @@ static int load_config(void) 
  
  static int reload(void)
  {
@@ -584,7 +584,7 @@
  	return load_config();
  }
  
-@@ -2442,6 +2901,12 @@ static int load_module(void)
+@@ -2463,6 +2922,12 @@ static int load_module(void)
  			"Park a channel", mandescr_park); 
  	}
  
@@ -597,7 +597,7 @@
  	res |= ast_devstate_prov_add("Park", metermaidstate);
  
  	return res;
-@@ -2456,6 +2921,8 @@ static int unload_module(void)
+@@ -2477,6 +2942,8 @@ static int unload_module(void)
  	ast_manager_unregister("Park");
  	ast_cli_unregister_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(parkcall);

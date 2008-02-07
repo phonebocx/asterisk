@@ -9,7 +9,7 @@ We are working around this, see patch h323-workaround-openh323-segfault.
 
 --- a/main/Makefile
 +++ b/main/Makefile
-@@ -122,13 +122,6 @@ AST_EMBED_LDFLAGS:=$(foreach dep,$(EMBED
+@@ -126,13 +126,6 @@ AST_EMBED_LDFLAGS:=$(foreach dep,$(EMBED
  AST_EMBED_LIBS:=$(foreach dep,$(EMBED_LIBS),$(value $(dep)))
  OBJS:=$(sort $(OBJS))
  
@@ -23,7 +23,7 @@ We are working around this, see patch h323-workaround-openh323-segfault.
  asterisk: $(OBJS) editline/libedit.a db1-ast/libdb1.a $(AST_EMBED_LDSCRIPTS)
  	@$(ASTTOPDIR)/build_tools/make_build_h > $(ASTTOPDIR)/include/asterisk/build.h.tmp
  	@if cmp -s $(ASTTOPDIR)/include/asterisk/build.h.tmp $(ASTTOPDIR)/include/asterisk/build.h ; then echo ; else \
-@@ -137,11 +130,7 @@ asterisk: $(OBJS) editline/libedit.a db1
+@@ -141,11 +134,7 @@ asterisk: $(OBJS) editline/libedit.a db1
  	@rm -f $(ASTTOPDIR)/include/asterisk/build.h.tmp
  	@$(CC) -c -o buildinfo.o $(ASTCFLAGS) buildinfo.c
  	$(ECHO_PREFIX) echo "   [LD] $^ -> $@"

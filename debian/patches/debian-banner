@@ -3,7 +3,7 @@
 
 --- a/main/asterisk.c
 +++ b/main/asterisk.c
-@@ -146,6 +146,9 @@ int daemon(int, int);  /* defined in lib
+@@ -145,6 +145,9 @@ int daemon(int, int);  /* defined in lib
  	ast_verbose("This is free software, with components licensed under the GNU General Public\n"); \
  	ast_verbose("License version 2 and other licenses; you are welcome to redistribute it under\n"); \
  	ast_verbose("certain conditions. Type 'core show license' for details.\n"); \

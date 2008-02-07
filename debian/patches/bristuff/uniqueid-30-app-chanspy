@@ -36,7 +36,7 @@
  static const char *app_ext = "ExtenSpy";
  static const char *desc_ext = 
  "  ExtenSpy(exten[@context][|options]): This application is used to listen to the\n"
-@@ -404,7 +426,7 @@ static int channel_spy(struct ast_channe
+@@ -344,7 +366,7 @@ static int channel_spy(struct ast_channe
  }
  
  static struct ast_channel *next_channel(const struct ast_channel *last, const char *spec,
@@ -45,7 +45,7 @@
  {
  	struct ast_channel *this;
  
-@@ -413,6 +435,8 @@ static struct ast_channel *next_channel(
+@@ -353,6 +375,8 @@ static struct ast_channel *next_channel(
  		this = ast_walk_channel_by_name_prefix_locked(last, spec, strlen(spec));
  	else if (exten)
  		this = ast_walk_channel_by_exten_locked(last, exten, context);
@@ -54,7 +54,7 @@
  	else
  		this = ast_channel_walk_locked(last);
  
-@@ -427,7 +451,7 @@ static struct ast_channel *next_channel(
+@@ -367,7 +391,7 @@ static struct ast_channel *next_channel(
  
  static int common_exec(struct ast_channel *chan, const struct ast_flags *flags,
  		       int volfactor, const int fd, const char *mygroup, const char *spec,
@@ -63,9 +63,9 @@
  {
  	struct ast_channel *peer, *prev, *next;
  	char nameprefix[AST_NAME_STRLEN];
-@@ -466,9 +490,9 @@ static int common_exec(struct ast_channe
- 		waitms = 100;
+@@ -408,9 +432,9 @@ static int common_exec(struct ast_channe
  		peer = prev = next = NULL;
+ 		num_spyed_upon = 0;
  
 -		for (peer = next_channel(peer, spec, exten, context);
 +		for (peer = next_channel(peer, spec, exten, context, NULL);
@@ -75,7 +75,7 @@
  			const char *group;
  			int igrp = !mygroup;
  			char *groups[25];
-@@ -625,7 +649,7 @@ static int chanspy_exec(struct ast_chann
+@@ -568,7 +592,7 @@ static int chanspy_exec(struct ast_chann
  		}
  	}
  
@@ -84,7 +84,7 @@
  
  	if (fd)
  		close(fd);
-@@ -710,7 +734,92 @@ static int extenspy_exec(struct ast_chan
+@@ -653,7 +677,92 @@ static int extenspy_exec(struct ast_chan
  		}
  	}
  
@@ -178,7 +178,7 @@
  
  	if (fd)
  		close(fd);
-@@ -723,14 +832,15 @@ static int extenspy_exec(struct ast_chan
+@@ -666,14 +775,15 @@ static int extenspy_exec(struct ast_chan
  	return res;
  }
  
@@ -195,7 +195,7 @@
  
  	return res;
  }
-@@ -741,6 +851,7 @@ static int load_module(void)
+@@ -684,6 +794,7 @@ static int load_module(void)
  
  	res |= ast_register_application(app_chan, chanspy_exec, tdesc, desc_chan);
  	res |= ast_register_application(app_ext, extenspy_exec, tdesc, desc_ext);
