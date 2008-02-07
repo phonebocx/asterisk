@@ -1,4 +1,4 @@
-asterisk (1:1.4.17~dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.4.18~dfsg-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * Update debian/copyright (packaging copyright, formatting etc.)
@@ -6,6 +6,7 @@ asterisk (1:1.4.17~dfsg-3) UNRELEASED; urgency=low
     been fixed.
 
   [ Tzafrir Cohen ]
+  * New upstream release.
   * Break bristuff BRI/EuroISDN patch:
   - zapata_num_spans - already accepted by upstream. Independent of libpri
     bristuff patch.
@@ -15,8 +16,10 @@ asterisk (1:1.4.17~dfsg-3) UNRELEASED; urgency=low
     Depends on some other bristuff patches, and adds another interface change.
   * patch use-libpri-bristuffed right next to zapata-bri+euroisdn, as
     zapata-bri+euroisdn depends on it to build.
+  * patch tos-libcap remeved: merged by upstream.
+  * Adjusted patch bristuff/ast-device-state-CID to Asterisk 1.4.18.
 
- -- Faidon Liambotis <paravoid@debian.org>  Tue, 29 Jan 2008 05:34:48 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Fri,  8 Feb 2008 00:31:56 +0200
 
 asterisk (1:1.4.17~dfsg-2) unstable; urgency=low
 

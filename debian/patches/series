@@ -2,7 +2,6 @@
 debian-banner
 silence-buildsum-warning
 configure-libc-client
-hack-multiple-app-voicemail
 astvarrundir
 make-clean-fixes
 safe_asterisk-config
@@ -13,7 +12,6 @@ h323-workaround-openh323-segfault
 # new features
 pubkey_jnctn
 func_devstate
-tos-libcap
 
 # for chan_vpb
 vpb-driver-4.2.18
