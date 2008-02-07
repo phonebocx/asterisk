@@ -2,6 +2,7 @@
 debian-banner
 silence-buildsum-warning
 configure-libc-client
+hack-multiple-app-voicemail
 astvarrundir
 make-clean-fixes
 safe_asterisk-config
