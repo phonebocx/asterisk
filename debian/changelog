@@ -4,6 +4,11 @@ asterisk (1:1.4.18~dfsg-1) UNRELEASED; urgency=low
   * Update debian/copyright (packaging copyright, formatting etc.)
   * Remove workaround for gcc ICE on hppa (#445336), since apparently that has
     been fixed.
+  * Do not provide asterisk-classic/asterisk-bristuff, we don't want to
+    satisfy those dependencies anymore.
+  * Provide asterisk-1.4 virtual package, so that all reverse-dependencies
+    that use 1.4's ABI can depend on that.
+  * Switch asterisk-h323 to the new asterisk-1.4 dependency.
 
   [ Tzafrir Cohen ]
   * New upstream release.
@@ -19,7 +24,7 @@ asterisk (1:1.4.18~dfsg-1) UNRELEASED; urgency=low
   * patch tos-libcap remeved: merged by upstream.
   * Adjusted patch bristuff/ast-device-state-CID to Asterisk 1.4.18.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Fri,  8 Feb 2008 00:31:56 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 17 Feb 2008 11:01:36 +0200
 
 asterisk (1:1.4.17~dfsg-2) unstable; urgency=low
 
