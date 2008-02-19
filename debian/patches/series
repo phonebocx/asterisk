@@ -84,3 +84,6 @@ bristuff/zapata-gsm
 #bristuff/find-feature
 #bristuff/feature-parking_con
 
+# FOP fix on chan_misdn.c from bugs.digium.org
+# 0011142: [PATCH] Better handling of temporary channel name.
+#misdn_FOP
