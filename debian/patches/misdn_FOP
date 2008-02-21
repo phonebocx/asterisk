@@ -1,5 +1,3 @@
-0011142: [PATCH] Better handling of temporary channel name. Fixes FOP. 
-Description:
 When dialing out a misdn channel, either by using a group (g:group), 
 or a port, asterisk creates the channel with a tmp channel number: mISDN/X-uY,
 with X being (port-1)*2. Y not important.
@@ -18,9 +16,11 @@ Also, it will rename the channel using the ast_change_name()
 function, which generates "rename" events, and can be followed by manager events.
  
 As a plus, it will make FOP work correctly with misdn channels.
-URL: http://bugs.digium.com/view.php?id=0011142 ( julianjm )
+
+http://bugs.digium.com/view.php?id=0011142
 
  -- Victor Seva <linuxmaniac@torreviejawireless.org>
+
 --- a/channels/chan_misdn.c
 +++ b/channels/chan_misdn.c
 @@ -3340,17 +3340,19 @@ static void update_name(struct ast_chann

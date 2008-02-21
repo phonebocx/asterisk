@@ -18,6 +18,9 @@ func_devstate
 vpb-driver-4.2.18
 vpb-handle-nocards
 
+# for chan_misdn (even though it's not enabled yet)
+misdn_FOP
+
 ### bristuff
 bristuff/bristuff-notice
 
@@ -83,7 +86,3 @@ bristuff/zapata-gsm
 #bristuff/ast_channel_masquerade_locked
 #bristuff/find-feature
 #bristuff/feature-parking_con
-
-# FOP fix on chan_misdn.c from bugs.digium.org
-# 0011142: [PATCH] Better handling of temporary channel name.
-#misdn_FOP
