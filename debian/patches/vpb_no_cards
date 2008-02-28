@@ -1,0 +1,48 @@
+# On startup of Asterisk, if chan_vpb is loaded without any Voicetronix
+# cards in the system, it crashes Asterisk. The same also happens if
+# cards or ports are declared in vpb.conf that don't exist (or if the
+# appropriate vpb driver is not loaded).
+#
+# This patch checks the number of cards and ports. If there are no cards
+# detected, then chan_vpb declines to load so we get a warning rather than
+# a segfault. If there are cards and/or ports declared in
+# /etc/asterisk/vpb.conf that don't exist, then chan_vpb fails out of the
+# module load with a warning rather than a segfault.
+# 
+# Upstream bug: http://bugs.digium.com/12096
+
+Index: chan_vpb.cc
+===================================================================
+--- asterisk/channels/chan_vpb.cc	(revision 104869)
++++ asterisk/channels/chan_vpb.cc	(working copy)
+@@ -2706,6 +2706,18 @@
+ 	int bal3 = -1;
+ 	char * callerid = NULL;
+ 
++	int num_cards = 0;
++	try {
++		num_cards = vpb_get_num_cards();
++	} catch (VpbException e) {
++		ast_log(LOG_ERROR, "No Voicetronix cards detected\n");
++		return AST_MODULE_LOAD_DECLINE;
++	}
++
++	int ports_per_card[num_cards];
++	for (int i = 0; i < num_cards; ++i)
++		ports_per_card[i] = vpb_get_ports_per_card(i);
++
+ 	cfg = ast_config_load(config);
+ 
+ 	/* We *must* have a config file otherwise stop immediately */
+@@ -2768,6 +2780,11 @@
+ 				UseNativeBridge = atoi(v->value);
+ 			} else if (strcasecmp(v->name, "channel") == 0) {
+ 				int channel = atoi(v->value);
++				if (board >= num_cards || board < 0 || channel < 0 || channel >= ports_per_card[board]) {
++					ast_log(LOG_ERROR, "Invalid board/channel (%d/%d) for channel '%s'\n", board, channel, v->value);
++					error = AST_MODULE_LOAD_FAILURE;
++					goto done;
++				}
+ 				tmp = mkif(board, channel, mode, got_gain, txgain, rxgain, txswgain, rxswgain, bal1, bal2, bal3, callerid, echo_cancel,group,callgroup,pickupgroup);
+ 				if (tmp) {
+ 					if(first_channel) {
