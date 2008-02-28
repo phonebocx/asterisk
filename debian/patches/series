@@ -17,6 +17,7 @@ func_devstate
 # for chan_vpb
 vpb-driver-4.2.18
 vpb-handle-nocards
+vpb_no_cards
 
 # for chan_misdn (even though it's not enabled yet)
 misdn_FOP
