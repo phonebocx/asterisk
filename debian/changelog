@@ -1,4 +1,4 @@
-asterisk (1:1.4.18~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.18~dfsg-1) unstable; urgency=low
 
   [ Faidon Liambotis ]
   * Update debian/copyright (packaging copyright, formatting etc.)
