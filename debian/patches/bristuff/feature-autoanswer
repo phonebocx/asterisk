@@ -137,7 +137,7 @@
  			"Timeout: %ld\r\n"
  			"CallerID: %s\r\n"
  			"CallerIDName: %s\r\n"
-+			"Unqiueid: %s\r\n\r\n"
++			"Uniqueid: %s\r\n\r\n"
  			"%s"
  			"\r\n",
  			cur->parkingnum, cur->chan->name, cur->peername,
