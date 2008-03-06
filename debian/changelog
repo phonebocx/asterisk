@@ -13,6 +13,7 @@ asterisk (1:1.4.18~dfsg-1) UNRELEASED; urgency=low
     version (2002) incompatible to the one that works. (Closes: #465524)
   * Backport upstream's patch for chan_vpb to avoid crashes when no
     VoiceTronix cards are present. (Closes: #466729)
+  * Backport feature Bridge from 1.6, thanks to Jon Webster. (Closes: #458475)
 
   [ Tzafrir Cohen ]
   * New upstream release.
@@ -28,7 +29,7 @@ asterisk (1:1.4.18~dfsg-1) UNRELEASED; urgency=low
   * patch tos-libcap remeved: merged by upstream.
   * Adjusted patch bristuff/ast-device-state-CID to Asterisk 1.4.18.
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 28 Feb 2008 13:42:11 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 06 Mar 2008 04:32:33 +0200
 
 asterisk (1:1.4.17~dfsg-2) unstable; urgency=low
 
