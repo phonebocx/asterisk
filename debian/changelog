@@ -2,14 +2,14 @@ asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
 
   * New upstream release.
     - Fixes a vulnerability in the RTP codec payload type handling
-      (AST-2008-002).
+      (AST-2008-002, CVE-2008-1289).
     - Fixes a critical vulnerability that could be exploited to bypass SIP
-      authentication (AST-2008-003).
+      authentication (AST-2008-003, CVE-2008-1332).
     - Fixes a potential DoS vulnerability in the Manager interface
-      (AST-2008-004).
+      (AST-2008-004, CVE-2008-1333).
   * Urgency high because of critical security fixes.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 19 Mar 2008 00:46:16 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 19 Mar 2008 00:49:17 +0200
 
 asterisk (1:1.4.18~dfsg-1) unstable; urgency=low
 
