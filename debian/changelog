@@ -5,9 +5,11 @@ asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
       (AST-2008-002).
     - Fixes a critical vulnerability that could be exploited to bypass SIP
       authentication (AST-2008-003).
+    - Fixes a potential DoS vulnerability in the Manager interface
+      (AST-2008-004).
   * Urgency high because of critical security fixes.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 19 Mar 2008 00:38:25 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 19 Mar 2008 00:46:16 +0200
 
 asterisk (1:1.4.18~dfsg-1) unstable; urgency=low
 
