@@ -1,7 +1,8 @@
 # upstream fixes
+allow-tilde-destdir
+
 debian-banner
 silence-buildsum-warning
-configure-libc-client
 hack-multiple-app-voicemail
 astvarrundir
 make-clean-fixes

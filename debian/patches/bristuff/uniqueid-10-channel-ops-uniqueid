@@ -273,19 +273,15 @@ Add or convert channel operations so they can use the unique ID.
  {
  	struct ast_channel *chan;
  	struct app_tmp *tmp;
-@@ -5164,10 +5168,10 @@ int ast_pbx_outgoing_app(const char *typ
+@@ -5164,7 +5168,7 @@ int ast_pbx_outgoing_app(const char *typ
  		goto outgoing_app_cleanup;
  	}
  	if (sync) {
 -		chan = __ast_request_and_dial(type, format, data, timeout, reason, cid_num, cid_name, &oh);
 +		chan = __ast_request_and_dial(type, format, data, timeout, reason, callingpres, cid_num, cid_name, &oh, uniqueid);
  		if (chan) {
- 			if (chan->cdr) { /* check if the channel already has a cdr record, if not give it one */
--				ast_log(LOG_WARNING, "%s already has a call record??\n", chan->name);
-+				ast_log(LOG_WARNING, "%s already has a call detail record??\n", chan->name);
- 			} else {
+ 			if (!chan->cdr) { /* check if the channel already has a cdr record, if not give it one */
  				chan->cdr = ast_cdr_alloc();   /* allocate a cdr for the channel */
- 				if(!chan->cdr) {
 @@ -5248,7 +5252,7 @@ int ast_pbx_outgoing_app(const char *typ
  			res = -1;
  			goto outgoing_app_cleanup;

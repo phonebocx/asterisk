@@ -36,12 +36,13 @@
  static const char *app_ext = "ExtenSpy";
  static const char *desc_ext = 
  "  ExtenSpy(exten[@context][|options]): This application is used to listen to the\n"
-@@ -344,7 +366,7 @@ static int channel_spy(struct ast_channe
- }
+@@ -457,7 +479,8 @@ static struct chanspy_ds *setup_chanspy_
  
- static struct ast_channel *next_channel(const struct ast_channel *last, const char *spec,
--					const char *exten, const char *context)
-+					const char *exten, const char *context, const char *uniqueid)
+ static struct chanspy_ds *next_channel(struct ast_channel *chan,
+ 	const struct ast_channel *last, const char *spec,
+-	const char *exten, const char *context, struct chanspy_ds *chanspy_ds)
++	const char *exten, const char *context, struct chanspy_ds *chanspy_ds,
++	const char *uniqueid)
  {
  	struct ast_channel *this;
  
@@ -61,17 +62,19 @@
 -		       const char *exten, const char *context)
 +		       const char *exten, const char *context, const char *uniqueid)
  {
- 	struct ast_channel *peer, *prev, *next;
  	char nameprefix[AST_NAME_STRLEN];
-@@ -408,9 +432,9 @@ static int common_exec(struct ast_channe
- 		peer = prev = next = NULL;
+ 	char peer_name[AST_NAME_STRLEN + 5];
+@@ -531,11 +556,11 @@ static int common_exec(struct ast_channe
+ 		waitms = 100;
  		num_spyed_upon = 0;
  
--		for (peer = next_channel(peer, spec, exten, context);
-+		for (peer = next_channel(peer, spec, exten, context, NULL);
- 		     peer;
--		     prev = peer, peer = next ? next : next_channel(peer, spec, exten, context), next = NULL) {
-+		     prev = peer, peer = next ? next : next_channel(peer, spec, exten, context, NULL), next = NULL) {
+-		for (peer_chanspy_ds = next_channel(chan, prev, spec, exten, context, &chanspy_ds);
++		for (peer_chanspy_ds = next_channel(chan, prev, spec, exten, context, &chanspy_ds, NULL);
+ 		     peer_chanspy_ds;
+ 			 chanspy_ds_free(peer_chanspy_ds), prev = peer,
+ 		     peer_chanspy_ds = next_chanspy_ds ? next_chanspy_ds : 
+-			 	next_channel(chan, prev, spec, exten, context, &chanspy_ds), next_chanspy_ds = NULL) {
++			 	next_channel(chan, prev, spec, exten, context, &chanspy_ds, NULL), next_chanspy_ds = NULL) {
  			const char *group;
  			int igrp = !mygroup;
  			char *groups[25];

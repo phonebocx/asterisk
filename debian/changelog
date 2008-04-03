@@ -1,12 +1,15 @@
-asterisk (1:1.4.18.1~dfsg-2) UNRELEASED; urgency=high
+asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
 
-  * Urgency high because of serious bugfix-only upload.
+  * New upstream release.
+    - Dropped configure-libc-client, incorporated upstream.
+    - Adapted bristuff patches uniqueid-10-channel-ops-uniqueid,
+      uniqueid-30-app-chanspy, zapata-bri+euroisdn.
   * Build with -O2 instead of the default -O6 (bug introduced in
     1.4.18~dfsg-1).
   * Fix a bug in the bristuff/zapata-bri+euroisdn patch where a significant
     portion of chan_zap code was ignored because of bad block nesting.
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 03 Apr 2008 05:12:18 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 03 Apr 2008 05:51:33 +0300
 
 asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
 
