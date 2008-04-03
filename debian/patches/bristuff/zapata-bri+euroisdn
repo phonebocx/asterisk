@@ -1472,7 +1472,13 @@
  #ifdef PRI_PROGRESS_MASK
  					if ((!pri->pvts[chanpos]->progress) || (e->proceeding.progressmask & PRI_PROG_INBAND_AVAILABLE)) {
  #else
-@@ -9013,6 +9397,12 @@ static void *pri_dchannel(void *vpri)
+@@ -9008,11 +9392,18 @@ static void *pri_dchannel(void *vpri)
+ 						pri->pvts[chanpos]->progress = 1;
+ 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+ 					}
++				    }
+ 				}
+ 				break;
  			case PRI_EVENT_PROCEEDING:
  				chanpos = pri_find_principle(pri, e->proceeding.channel);
  				if (chanpos > -1) {
@@ -1485,7 +1491,15 @@
  					if (!pri->pvts[chanpos]->proceeding) {
  						struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_PROCEEDING, };
  						
-@@ -9060,6 +9450,163 @@ static void *pri_dchannel(void *vpri)
+@@ -9037,6 +9428,7 @@ static void *pri_dchannel(void *vpri)
+ 						pri->pvts[chanpos]->proceeding = 1;
+ 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+ 					}
++				    }
+ 				}
+ 				break;
+ 			case PRI_EVENT_FACNAME:
+@@ -9060,6 +9452,163 @@ static void *pri_dchannel(void *vpri)
  					}
  				}
  				break;				
@@ -1827,16 +1841,6 @@
  						pri->pvts[chanpos]->resetting = 0;
  						if (pri->pvts[chanpos]->owner) {
  							if (option_verbose > 2) 
-@@ -9287,7 +9895,9 @@ static void *pri_dchannel(void *vpri)
- #endif
- 
- 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
-+					    }
- 					}
-+				    }
- 				}
- 				break;
- 			case PRI_EVENT_CONFIG_ERR:
 @@ -9377,10 +9987,22 @@ static void *pri_dchannel(void *vpri)
  					ast_mutex_lock(&pri->pvts[chanpos]->lock);
  					switch (e->notify.info) {
