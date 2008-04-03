@@ -16,6 +16,7 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
+BUILDFLAGS += OPTIMIZE=-O2
 BUILDFLAGS += MAKECMDGOALS=dont-optimize
 
 # show full gcc arguments instead of [CC] and [LD]
