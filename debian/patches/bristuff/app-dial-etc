@@ -8,7 +8,7 @@
  
  static char *app = "Dial";
  
-@@ -1659,23 +1660,25 @@ static int dial_exec_full(struct ast_cha
+@@ -1646,23 +1647,25 @@ static int dial_exec_full(struct ast_cha
  				ast_set_flag(&(config.features_caller), AST_FEATURE_PLAY_WARNING);
  			if (play_to_callee)
  				ast_set_flag(&(config.features_callee), AST_FEATURE_PLAY_WARNING);

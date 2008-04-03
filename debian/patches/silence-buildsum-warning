@@ -6,7 +6,7 @@ when most of the modules will get a compilation with the new headers.
 
 --- a/main/loader.c
 +++ b/main/loader.c
-@@ -617,7 +617,9 @@ static unsigned int inspect_module(const
+@@ -625,7 +625,9 @@ static unsigned int inspect_module(const
  	}
  
  	if (!ast_test_flag(mod->info, AST_MODFLAG_BUILDSUM)) {

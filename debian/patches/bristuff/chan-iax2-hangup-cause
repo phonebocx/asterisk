@@ -10,7 +10,7 @@
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -3235,7 +3238,7 @@ static int iax2_hangup(struct ast_channe
+@@ -3243,7 +3246,7 @@ static int iax2_hangup(struct ast_channe
  	ast_mutex_lock(&iaxsl[callno]);
  	if (callno && iaxs[callno]) {
  		if (option_debug)
@@ -19,7 +19,7 @@
  		alreadygone = ast_test_flag(iaxs[callno], IAX_ALREADYGONE);
  		/* Send the hangup unless we have had a transmission error or are already gone */
   		iax_ie_append_byte(&ied, IAX_IE_CAUSECODE, (unsigned char)c->hangupcause);
-@@ -3289,7 +3292,8 @@ static int iax2_setoption(struct ast_cha
+@@ -3297,7 +3300,8 @@ static int iax2_setoption(struct ast_cha
  
  static struct ast_frame *iax2_read(struct ast_channel *c) 
  {

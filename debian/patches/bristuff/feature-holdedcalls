@@ -71,7 +71,7 @@
  char *ast_parking_ext(void)
  {
  	return parking_ext;
-@@ -2032,6 +2056,282 @@ static int park_exec(struct ast_channel 
+@@ -2034,6 +2058,282 @@ static int park_exec(struct ast_channel 
  	return res;
  }
  
@@ -354,7 +354,7 @@
  static int handle_showfeatures(int fd, int argc, char *argv[])
  {
  	int i;
-@@ -2913,6 +3213,7 @@ static int load_module(void)
+@@ -2915,6 +3215,7 @@ static int load_module(void)
  		return res;
  	ast_cli_register_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
  	ast_pthread_create(&parking_thread, NULL, do_parking_thread, NULL);
@@ -362,7 +362,7 @@
  	res = ast_register_application(parkedcall, park_exec, synopsis, descrip);
  	if (!res)
  		res = ast_register_application(parkcall, park_call_exec, synopsis2, descrip2);
-@@ -2922,6 +3223,7 @@ static int load_module(void)
+@@ -2924,6 +3225,7 @@ static int load_module(void)
  			"Park a channel", mandescr_park); 
  	}
  
@@ -370,7 +370,7 @@
  	ast_pthread_create(&autoanswer_thread, NULL, do_autoanswer_thread, NULL);
  	if (!res)
  		res |= ast_register_application(autoanswerlogin, autoanswer_login_exec, synopsis3, descrip3);
-@@ -2944,6 +3246,7 @@ static int unload_module(void)
+@@ -2946,6 +3248,7 @@ static int unload_module(void)
  	ast_unregister_application(parkcall);
   	ast_unregister_application(autoanswer);
   	ast_unregister_application(autoanswerlogin);

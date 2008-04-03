@@ -43,7 +43,7 @@
  						ast_indicate(in, AST_CONTROL_PROGRESS);
  					break;
  				case AST_CONTROL_VIDUPDATE:
-@@ -646,7 +650,7 @@ static struct ast_channel *wait_for_answ
+@@ -651,7 +655,7 @@ static struct ast_channel *wait_for_answ
  						ast_verbose (VERBOSE_PREFIX_3 "%s is proceeding passing it to %s\n", c->name, in->name);
  					if (single && CAN_EARLY_BRIDGE(peerflags))
  						ast_rtp_early_bridge(in, c);
@@ -52,7 +52,7 @@
  						ast_indicate(in, AST_CONTROL_PROCEEDING);
  					break;
  				case AST_CONTROL_HOLD:
-@@ -664,7 +668,7 @@ static struct ast_channel *wait_for_answ
+@@ -669,7 +673,7 @@ static struct ast_channel *wait_for_answ
  					/* Ignore going off hook and flash */
  					break;
  				case -1:
@@ -61,7 +61,7 @@
  						if (option_verbose > 2)
  							ast_verbose(VERBOSE_PREFIX_3 "%s stopped sounds\n", c->name);
  						ast_indicate(in, -1);
-@@ -1104,7 +1108,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1091,7 +1095,7 @@ static int dial_exec_full(struct ast_cha
  		outbound_group = pbx_builtin_getvar_helper(chan, "OUTBOUND_GROUP");
  	}
  	    
@@ -70,7 +70,7 @@
  	/* loop through the list of dial destinations */
  	rest = args.peers;
  	while ((cur = strsep(&rest, "&")) ) {
-@@ -1129,7 +1133,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1116,7 +1120,7 @@ static int dial_exec_full(struct ast_cha
  				       OPT_CALLEE_HANGUP | OPT_CALLER_HANGUP |
  				       OPT_CALLEE_MONITOR | OPT_CALLER_MONITOR |
  				       OPT_CALLEE_PARK | OPT_CALLER_PARK |
@@ -79,7 +79,7 @@
  			ast_set2_flag(tmp, args.url, DIAL_NOFORWARDHTML);	
  		}
  		ast_copy_string(numsubst, number, sizeof(numsubst));
-@@ -1332,7 +1336,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1319,7 +1323,7 @@ static int dial_exec_full(struct ast_cha
  				ast_moh_start(chan, NULL, NULL);
  			}
  			ast_indicate(chan, AST_CONTROL_PROGRESS);
@@ -88,7 +88,7 @@
  			ast_indicate(chan, AST_CONTROL_RINGING);
  			sentringing++;
  		}
-@@ -1449,7 +1453,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1436,7 +1440,7 @@ static int dial_exec_full(struct ast_cha
  
  			if (ast_test_flag(&opts, OPT_MUSICBACK)) {
  				ast_moh_stop(chan);

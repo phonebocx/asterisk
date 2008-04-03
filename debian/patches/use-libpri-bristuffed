@@ -1,6 +1,6 @@
 --- a/configure
 +++ b/configure
-@@ -25337,18 +25337,18 @@ fi
+@@ -25650,18 +25650,18 @@ fi
  
  
     if test "${AST_PRI_FOUND}" = "yes"; then
@@ -25,7 +25,7 @@
  if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
    echo $ECHO_N "(cached) $ECHO_C" >&6
  fi
-@@ -25357,8 +25357,8 @@ ac_res=`eval echo '${'$as_ac_Header'}'`
+@@ -25670,8 +25670,8 @@ ac_res=`eval echo '${'$as_ac_Header'}'`
  echo "${ECHO_T}$ac_res" >&6; }
  else
    # Is the header compilable?
@@ -36,7 +36,7 @@
  cat >conftest.$ac_ext <<_ACEOF
  /* confdefs.h.  */
  _ACEOF
-@@ -25366,7 +25366,7 @@ cat confdefs.h >>conftest.$ac_ext
+@@ -25679,7 +25679,7 @@ cat confdefs.h >>conftest.$ac_ext
  cat >>conftest.$ac_ext <<_ACEOF
  /* end confdefs.h.  */
  $ac_includes_default
@@ -45,7 +45,7 @@
  _ACEOF
  rm -f conftest.$ac_objext
  if { (ac_try="$ac_compile"
-@@ -25398,15 +25398,15 @@ rm -f core conftest.err conftest.$ac_obj
+@@ -25711,15 +25711,15 @@ rm -f core conftest.err conftest.$ac_obj
  echo "${ECHO_T}$ac_header_compiler" >&6; }
  
  # Is the header present?
@@ -64,7 +64,7 @@
  _ACEOF
  if { (ac_try="$ac_cpp conftest.$ac_ext"
  case "(($ac_try" in
-@@ -25439,25 +25439,25 @@ echo "${ECHO_T}$ac_header_preproc" >&6; 
+@@ -25752,25 +25752,25 @@ echo "${ECHO_T}$ac_header_preproc" >&6; 
  # So?  What about this header?
  case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
    yes:no: )
@@ -106,7 +106,7 @@
      ( cat <<\_ASBOX
  ## ------------------------------- ##
  ## Report this to www.asterisk.org ##
-@@ -25466,8 +25466,8 @@ _ASBOX
+@@ -25779,8 +25779,8 @@ _ASBOX
       ) | sed "s/^/$as_me: WARNING:     /" >&2
      ;;
  esac
@@ -119,7 +119,7 @@
  else
 --- a/configure.ac
 +++ b/configure.ac
-@@ -823,7 +823,7 @@ fi
+@@ -1210,7 +1210,7 @@ fi
  
  AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
  

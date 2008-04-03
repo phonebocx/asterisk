@@ -23,7 +23,7 @@ http://bugs.digium.com/view.php?id=0011142
 
 --- a/channels/chan_misdn.c
 +++ b/channels/chan_misdn.c
-@@ -3340,17 +3340,19 @@ static void update_name(struct ast_chann
+@@ -3334,17 +3334,19 @@ static void update_name(struct ast_chann
  {
  	int chan_offset=0;
  	int tmp_port = misdn_cfg_get_next_port(0);
@@ -48,7 +48,7 @@ http://bugs.digium.com/view.php?id=0011142
  }
  
  static struct ast_channel *misdn_new(struct chan_list *chlist, int state,  char *exten, char *callerid, int format, int port, int c)
-@@ -3370,7 +3372,10 @@ static struct ast_channel *misdn_new(str
+@@ -3364,7 +3366,10 @@ static struct ast_channel *misdn_new(str
  	if (callerid) 
  		ast_callerid_parse(callerid, &cid_name, &cid_num);
  

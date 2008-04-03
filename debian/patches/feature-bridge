@@ -61,7 +61,7 @@ Backport of asterisk 1.5/1.6 feature that Bridges together two channels already 
  	return NULL;
  }
  
-@@ -2369,6 +2391,125 @@ static int handle_showfeatures(int fd, i
+@@ -2371,6 +2393,125 @@ static int handle_showfeatures(int fd, i
  	return RESULT_SUCCESS;
  }
  
@@ -187,7 +187,7 @@ Backport of asterisk 1.5/1.6 feature that Bridges together two channels already 
  static char showfeatures_help[] =
  "Usage: feature list\n"
  "       Lists currently configured features.\n";
-@@ -3196,6 +3337,154 @@ static int load_config(void) 
+@@ -3198,6 +3339,154 @@ static int load_config(void) 
  
  }
  
@@ -342,7 +342,7 @@ Backport of asterisk 1.5/1.6 feature that Bridges together two channels already 
  static int reload(void)
  {
  	autoanswer_reregister_extensions();
-@@ -3206,6 +3495,8 @@ static int load_module(void)
+@@ -3208,6 +3497,8 @@ static int load_module(void)
  {
  	int res;
  	
@@ -351,7 +351,7 @@ Backport of asterisk 1.5/1.6 feature that Bridges together two channels already 
  	memset(parking_ext, 0, sizeof(parking_ext));
  	memset(parking_con, 0, sizeof(parking_con));
  
-@@ -3221,6 +3512,7 @@ static int load_module(void)
+@@ -3223,6 +3514,7 @@ static int load_module(void)
  		ast_manager_register("ParkedCalls", 0, manager_parking_status, "List parked calls" );
  		ast_manager_register2("Park", EVENT_FLAG_CALL, manager_park,
  			"Park a channel", mandescr_park); 
@@ -359,7 +359,7 @@ Backport of asterisk 1.5/1.6 feature that Bridges together two channels already 
  	}
  
   	res |= ast_register_application(holdedcall, retrieve_call_exec, synopsis, descrip);
-@@ -3241,9 +3533,11 @@ static int unload_module(void)
+@@ -3243,9 +3535,11 @@ static int unload_module(void)
  	ast_module_user_hangup_all();
  
  	ast_manager_unregister("ParkedCalls");
