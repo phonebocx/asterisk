@@ -1663,7 +1663,7 @@
  			case PRI_EVENT_ANSWER:
  				chanpos = pri_find_principle(pri, e->answer.channel);
  				if (chanpos < 0) {
-@@ -9072,6 +9619,7 @@ static void *pri_dchannel(void *vpri)
+@@ -9072,6 +9621,7 @@ static void *pri_dchannel(void *vpri)
  							PRI_SPAN(e->answer.channel), PRI_CHANNEL(e->answer.channel), pri->span);
  					} else {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
@@ -1671,7 +1671,7 @@
  						/* Now we can do call progress detection */
  
  						/* We changed this so it turns on the DSP no matter what... progress or no progress.
-@@ -9101,11 +9649,16 @@ static void *pri_dchannel(void *vpri)
+@@ -9101,11 +9651,16 @@ static void *pri_dchannel(void *vpri)
  								ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", pri->pvts[chanpos]->dop.dialstr);
  							pri->pvts[chanpos]->dop.dialstr[0] = '\0';
  						} else if (pri->pvts[chanpos]->confirmanswer) {
@@ -1689,7 +1689,7 @@
  						}
  
  #ifdef SUPPORT_USERUSER
-@@ -9162,20 +9715,29 @@ static void *pri_dchannel(void *vpri)
+@@ -9162,20 +9717,29 @@ static void *pri_dchannel(void *vpri)
  								ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d got hangup, cause %d\n", 
  									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span, e->hangup.cause);
  						} else {
@@ -1726,7 +1726,7 @@
  
  #ifdef SUPPORT_USERUSER
  						if (pri->pvts[chanpos]->owner && !ast_strlen_zero(e->hangup.useruserinfo)) {
-@@ -9188,8 +9750,9 @@ static void *pri_dchannel(void *vpri)
+@@ -9188,8 +9752,9 @@ static void *pri_dchannel(void *vpri)
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
@@ -1738,7 +1738,7 @@
  					}
  				} 
  				break;
-@@ -9199,15 +9762,23 @@ static void *pri_dchannel(void *vpri)
+@@ -9199,15 +9764,23 @@ static void *pri_dchannel(void *vpri)
  			case PRI_EVENT_HANGUP_REQ:
  				chanpos = pri_find_principle(pri, e->hangup.channel);
  				if (chanpos < 0) {
@@ -1765,7 +1765,7 @@
  							pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
  							if (pri->pvts[chanpos]->owner->_state == AST_STATE_UP)
  								pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
-@@ -9234,16 +9805,34 @@ static void *pri_dchannel(void *vpri)
+@@ -9234,16 +9807,34 @@ static void *pri_dchannel(void *vpri)
  								if (option_verbose > 2)
  									ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d received AOC-E charging %d unit%s\n",
  										pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span, (int)e->hangup.aoc_units, (e->hangup.aoc_units == 1) ? "" : "s");
@@ -1804,7 +1804,7 @@
  						}
  
  #ifdef SUPPORT_USERUSER
-@@ -9257,9 +9846,27 @@ static void *pri_dchannel(void *vpri)
+@@ -9257,9 +9848,27 @@ static void *pri_dchannel(void *vpri)
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
@@ -1833,7 +1833,7 @@
  				break;
  			case PRI_EVENT_HANGUP_ACK:
  				chanpos = pri_find_principle(pri, e->hangup.channel);
-@@ -9271,6 +9878,7 @@ static void *pri_dchannel(void *vpri)
+@@ -9271,6 +9880,7 @@ static void *pri_dchannel(void *vpri)
  					if (chanpos > -1) {
  						ast_mutex_lock(&pri->pvts[chanpos]->lock);
  						pri->pvts[chanpos]->call = NULL;

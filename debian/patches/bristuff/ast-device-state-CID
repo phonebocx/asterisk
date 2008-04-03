@@ -241,7 +241,7 @@
  		} else {
 --- a/channels/chan_sip.c
 +++ b/channels/chan_sip.c
-@@ -1341,7 +1341,7 @@ static void ast_quiet_chan(struct ast_ch
+@@ -1343,7 +1343,7 @@ static void ast_quiet_chan(struct ast_ch
  static int attempt_transfer(struct sip_dual *transferer, struct sip_dual *target);
  
  /*--- Device monitoring and Device/extension state handling */
@@ -250,7 +250,7 @@
  static int sip_devicestate(void *data);
  static int sip_poke_noanswer(const void *data);
  static int sip_poke_peer(struct sip_peer *peer);
-@@ -8463,7 +8463,7 @@ static void sip_peer_hold(struct sip_pvt
+@@ -8471,7 +8471,7 @@ static void sip_peer_hold(struct sip_pvt
  /*! \brief Callback for the devicestate notification (SUBSCRIBE) support subsystem
  \note	If you add an "hint" priority to the extension in the dial plan,
  	you will get notifications on device state changes */
@@ -259,7 +259,7 @@
  {
  	struct sip_pvt *p = data;
  
-@@ -12636,7 +12636,7 @@ static void handle_response(struct sip_p
+@@ -12642,7 +12642,7 @@ static void handle_response(struct sip_p
  					if (ast_test_flag(&p->flags[1], SIP_PAGE2_STATECHANGEQUEUE)) {
  						/* Ready to send the next state we have on queue */
  						ast_clear_flag(&p->flags[1], SIP_PAGE2_STATECHANGEQUEUE);
