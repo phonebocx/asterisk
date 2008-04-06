@@ -1,5 +1,6 @@
 asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
 
+  [ Faidon Liambotis ]
   * New upstream release.
     - Dropped configure-libc-client, incorporated upstream.
     - Adapted bristuff patches uniqueid-10-channel-ops-uniqueid,
@@ -7,7 +8,10 @@ asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
   * Build with -O2 instead of the default -O6 (bug introduced in
     1.4.18~dfsg-1).
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 03 Apr 2008 16:23:59 +0300
+  [ Lionel Elie Mamane ]
+  * debian/rules: fix get-orig-source to actually work
+
+ -- Lionel Elie Mamane <lmamane@debian.org>  Sun, 06 Apr 2008 13:59:37 +0200
 
 asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
 
