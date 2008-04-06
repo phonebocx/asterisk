@@ -10,6 +10,7 @@ asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
 
   [ Lionel Elie Mamane ]
   * debian/rules: fix get-orig-source to actually work
+  * Fix genastkey so that keys are not world-readable by default.
 
  -- Lionel Elie Mamane <lmamane@debian.org>  Sun, 06 Apr 2008 13:59:37 +0200
 
