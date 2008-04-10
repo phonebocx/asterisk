@@ -1,5 +1,7 @@
 asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
 
+  * NOT READY YET, needs a libspeex update, waiting for JM.
+
   [ Faidon Liambotis ]
   * New upstream release.
     - Dropped configure-libc-client, incorporated upstream.
@@ -7,12 +9,14 @@ asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
       uniqueid-30-app-chanspy, zapata-bri+euroisdn.
   * Build with -O2 instead of the default -O6 (bug introduced in
     1.4.18~dfsg-1).
+  * Depend on libspeexdsp-dev because of the use of preprocessor features,
+    which were split from libspeex >= 1.2. (Closes: #474789)
 
   [ Lionel Elie Mamane ]
   * debian/rules: fix get-orig-source to actually work
   * Fix genastkey so that keys are not world-readable by default.
 
- -- Lionel Elie Mamane <lmamane@debian.org>  Sun, 06 Apr 2008 13:59:37 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 10 Apr 2008 20:47:04 +0300
 
 asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
 
