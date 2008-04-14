@@ -18,8 +18,9 @@ asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * Watching downloads.digium.com directly again.
+  * Patch apptest_sleep: A woraround for TestServer fail on SEND DTMF 8.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 14 Apr 2008 15:23:46 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 15 Apr 2008 00:52:32 +0300
 
 asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
 
