@@ -21,6 +21,9 @@ asterisk (1:1.4.19.1~dfsg-1) UNRELEASED; urgency=low
   * Watching downloads.digium.com directly again.
   * Patch apptest_sleep: A woraround for TestServer fail on SEND DTMF 8.
 
+  [ Mark Purcell ]
+  * AST-2008-006 - 3-way handshake in IAX2 incomplete (Closes: #477472)
+
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 15 Apr 2008 00:52:32 +0300
 
 asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
