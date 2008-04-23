@@ -1,4 +1,4 @@
-asterisk (1:1.4.19.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 
   [ Faidon Liambotis ]
   * New upstream release.
@@ -6,7 +6,6 @@ asterisk (1:1.4.19.1~dfsg-1) UNRELEASED; urgency=low
     - Adapted bristuff patches uniqueid-10-channel-ops-uniqueid,
       uniqueid-30-app-chanspy, zapata-bri+euroisdn.
     - Fixes CVE-2008-1897 / AST-2008-006 (Closes: #477472).
-    -   AST-2008-006 - 3-way handshake in IAX2 incomplete (Closes: #477472)
   * Build with -O2 instead of the default -O6 (bug introduced in
     1.4.18~dfsg-1).
   * Depend on libspeexdsp-dev because of the use of preprocessor features,
@@ -24,9 +23,7 @@ asterisk (1:1.4.19.1~dfsg-1) UNRELEASED; urgency=low
   * Watching downloads.digium.com directly again.
   * Patch apptest_sleep: A woraround for TestServer fail on SEND DTMF 8.
 
-  [ Mark Purcell ]
-
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 15 Apr 2008 00:52:32 +0300
+ -- Mark Purcell <msp@debian.org>  Wed, 23 Apr 2008 22:50:35 +1000
 
 asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
 
