@@ -1,17 +1,20 @@
 asterisk (1:1.4.19.1~dfsg-1) UNRELEASED; urgency=low
 
-  * NOT READY YET, needs a libspeex update, waiting for JM.
-
   [ Faidon Liambotis ]
   * New upstream release.
     - Dropped configure-libc-client, incorporated upstream.
     - Adapted bristuff patches uniqueid-10-channel-ops-uniqueid,
       uniqueid-30-app-chanspy, zapata-bri+euroisdn.
     - Fixes CVE-2008-1897 / AST-2008-006 (Closes: #477472).
+    -   AST-2008-006 - 3-way handshake in IAX2 incomplete (Closes: #477472)
   * Build with -O2 instead of the default -O6 (bug introduced in
     1.4.18~dfsg-1).
   * Depend on libspeexdsp-dev because of the use of preprocessor features,
-    which were split from libspeex >= 1.2. (Closes: #474789)
+    which were split from libspeex >= 1.2. 
+    - FTBFS: codec_speex.c:99: error: expected specifier-qualifier-list
+      before 'SpeexPreprocessState' (Closes: #474789)
+    - Asterisk fails to install due to broken libspeex dependency 
+      (Closes: #477086)
 
   [ Lionel Elie Mamane ]
   * debian/rules: fix get-orig-source to actually work
@@ -22,7 +25,6 @@ asterisk (1:1.4.19.1~dfsg-1) UNRELEASED; urgency=low
   * Patch apptest_sleep: A woraround for TestServer fail on SEND DTMF 8.
 
   [ Mark Purcell ]
-  * AST-2008-006 - 3-way handshake in IAX2 incomplete (Closes: #477472)
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 15 Apr 2008 00:52:32 +0300
 
