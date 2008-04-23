@@ -1,4 +1,4 @@
-asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.19.1~dfsg-1) UNRELEASED; urgency=low
 
   * NOT READY YET, needs a libspeex update, waiting for JM.
 
@@ -7,6 +7,7 @@ asterisk (1:1.4.19~dfsg-1) UNRELEASED; urgency=low
     - Dropped configure-libc-client, incorporated upstream.
     - Adapted bristuff patches uniqueid-10-channel-ops-uniqueid,
       uniqueid-30-app-chanspy, zapata-bri+euroisdn.
+    - Fixes CVE-2008-1897 (AST-2008-006).
   * Build with -O2 instead of the default -O6 (bug introduced in
     1.4.18~dfsg-1).
   * Depend on libspeexdsp-dev because of the use of preprocessor features,
