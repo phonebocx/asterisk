@@ -96,5 +96,5 @@ bristuff/zapata-gsm
 astgenkey-security
 apptest_sleep
 
-# docs
-iax_doc
+# pointing to wrong doc files
+samples
