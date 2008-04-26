@@ -96,5 +96,8 @@ bristuff/zapata-gsm
 astgenkey-security
 apptest_sleep
 
-# pointing to wrong doc files
+# pointing to wrong doc files ( solved upstream rev 114649 )
 samples
+
+# adding armel support
+armel_support
