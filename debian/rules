@@ -152,7 +152,8 @@ install-arch: build-arch
 
 	dh_install -s --sourcedir=debian/tmp
 
-	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/{stereorize,streamplayer}
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/streamplayer
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/stereorize
 	touch $@
 
 install-indep: build-indep
