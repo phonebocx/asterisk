@@ -1,13 +1,8 @@
 asterisk (1:1.4.19.1~dfsg-2) UNRELEASED; urgency=low
 
-  [ Mark Purcell ]
-  * NOT RELEASED YET
-
   [ Victor Seva ]
   * Patch sample files pointing now to the correct doc files. (Closes: #475681)
-  * Added support for armel (Closes: #477389).
-    Patch from Riku Voipio <riku.voipio@iki.fi>
-    - Added armel_support patch.
+  * Added support for armel, thanks to Riku Voipio. (Closes: #477389)
 
   [ Tzafrir Cohen ]
   * Provide /usr/include/asterisk.h as well (through a symlink).
