@@ -1,3 +1,10 @@
+asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
+
+  * New upstream version.
+    - Fix IAX performance issues introduced by security fix in 1.4.19.1
+
+ -- Lionel Elie Mamane <lmamane@debian.org>  Sun, 18 May 2008 00:31:08 +0200
+
 asterisk (1:1.4.19.1~dfsg-2) UNRELEASED; urgency=low
 
   [ Victor Seva ]
