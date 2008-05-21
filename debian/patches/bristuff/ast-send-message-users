@@ -14,7 +14,7 @@
  	return 0;
  }
  
-+static char mandescr_message[] = 
++static char mandescr_message[] =
 +"Description: Send a message\n"
 +"Variables: \n"
 +"	Channel: The destination channel(e.g. SIP/phone1)\n"
@@ -48,7 +48,7 @@
 +	} else {
 +	    res = ast_send_message(tech, (char *)data, (char *)name, (char *)from, (char *)pdu, 1);
 +	}
-+	
++
 +	if (res) {
 +		astman_send_error(s, m, "Error sending message");
 +		return 0;
