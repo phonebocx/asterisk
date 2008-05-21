@@ -249,7 +249,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  	int debug = sip_debug_test_pvt(p);
 --- a/channels/chan_iax2.c
 +++ b/channels/chan_iax2.c
-@@ -833,7 +833,7 @@ static int iax2_provision(struct sockadd
+@@ -846,7 +846,7 @@ static int iax2_provision(struct sockadd
  static int iax2_send(struct chan_iax2_pvt *pvt, struct ast_frame *f, unsigned int ts, int seqno, int now, int transfer, int final);
  static int iax2_sendhtml(struct ast_channel *c, int subclass, const char *data, int datalen);
  static int iax2_sendimage(struct ast_channel *c, struct ast_frame *img);
@@ -258,7 +258,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  static int iax2_setoption(struct ast_channel *c, int option, void *data, int datalen);
  static int iax2_transfer(struct ast_channel *c, const char *dest);
  static int iax2_write(struct ast_channel *c, struct ast_frame *f);
-@@ -2629,7 +2629,7 @@ static int iax2_digit_end(struct ast_cha
+@@ -2728,7 +2728,7 @@ static int iax2_digit_end(struct ast_cha
  	return send_command_locked(PTR_TO_CALLNO(c->tech_pvt), AST_FRAME_DTMF_END, digit, 0, NULL, 0, -1);
  }
  
