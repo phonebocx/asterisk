@@ -2,11 +2,11 @@ astgenkey should generate a private key that is not world-readable.
 
 Upstream bug: http://bugs.digium.com/view.php?id=12373
 
-Index: asterisk-1.4.19~dfsg/contrib/scripts/astgenkey
-===================================================================
---- asterisk-1.4.19~dfsg.orig/contrib/scripts/astgenkey	2008-04-06 14:12:56.316323355 +0200
-+++ asterisk-1.4.19~dfsg/contrib/scripts/astgenkey	2008-04-06 14:18:24.212318949 +0200
-@@ -47,7 +47,10 @@
+ -- Lionel Elie Mamane <lionel@mamane.lu>
+
+--- a/contrib/scripts/astgenkey
++++ b/contrib/scripts/astgenkey
+@@ -47,7 +47,10 @@ done
  rm -f ${KEY}.key ${KEY}.pub
  
  echo "Generating SSL key '$KEY': "

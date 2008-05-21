@@ -1,4 +1,4 @@
-# upstream fixes
+### upstream fixes
 allow-tilde-destdir
 
 debian-banner
@@ -11,7 +11,12 @@ safe_asterisk-nobg
 h323-no-deps-on-asterisk
 h323-workaround-openh323-segfault
 
-# new features
+astgenkey-security
+apptest_sleep
+samples
+armel_support
+
+### new features
 pubkey_jnctn
 func_devstate
 
@@ -92,12 +97,3 @@ bristuff/zapata-gsm
 #bristuff/ast_channel_masquerade_locked
 #bristuff/find-feature
 #bristuff/feature-parking_con
-
-astgenkey-security
-apptest_sleep
-
-# pointing to wrong doc files ( solved upstream rev 114649 )
-samples
-
-# adding armel support
-armel_support

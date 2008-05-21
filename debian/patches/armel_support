@@ -1,3 +1,7 @@
+Add support for the armel architecture.
+
+ -- Victor Seva <linuxmaniac@torreviejawireless.org> 
+
 --- a/main/Makefile
 +++ b/main/Makefile
 @@ -52,7 +52,7 @@ ifeq ($(wildcard /usr/include/dlfcn.h),)
