@@ -1,22 +1,25 @@
-asterisk (1:1.4.20~dfsg-1) UNRELEASED; urgency=low
-
-  [ Mark Purcell ]
-  * New Upstream Release 
+asterisk (1:1.4.19~dfsg-2) UNRELEASED; urgency=low
 
   [ Lionel Elie Mamane ]
   * New upstream version.
     - Fix IAX performance issues introduced by security fix in 1.4.19.1
 
+  [ Tzafrir Cohen ]   
+  * Fixed name of section in doc-base files.   
+      
+ -- Lionel Elie Mamane <lmamane@debian.org>  Sun, 18 May 2008 00:31:08 +0200   
+      
+asterisk (1:1.4.19.1~dfsg-2) UNRELEASED; urgency=low   
+   
   [ Victor Seva ]
   * Patch sample files pointing now to the correct doc files. (Closes: #475681)
   * Added support for armel, thanks to Riku Voipio. (Closes: #477389)
 
   [ Tzafrir Cohen ]
-  * Fixed name of section in doc-base files.
   * Provide /usr/include/asterisk.h as well (through a symlink).
   * Remove {,} bashism from debian/rules (Closes: #478361). 
 
- -- Mark Purcell <msp@debian.org>  Wed, 21 May 2008 20:30:39 +1000
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 29 Apr 2008 01:57:43 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 
