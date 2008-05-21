@@ -3,17 +3,16 @@ parameters, used by ast_send_message which is also introduced by this patch.
 
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -247,6 +247,9 @@ struct ast_channel_tech {
- 	/*! \brief Display or transmit text */
- 	int (* const send_text)(struct ast_channel *chan, const char *text);
+@@ -245,7 +245,7 @@ struct ast_channel_tech {
+ 	int (* const write)(struct ast_channel *chan, struct ast_frame *frame);
  
-+	/*! \brief send a message */
-+	int (* const send_message)(struct ast_channel *chan, const char *dest, const char *text, int ispdu);
-+
+ 	/*! \brief Display or transmit text */
+-	int (* const send_text)(struct ast_channel *chan, const char *text);
++	int (* const send_text)(struct ast_channel *chan, const char *dest, const char *text, int ispdu);
+ 
  	/*! \brief Display or send an image */
  	int (* const send_image)(struct ast_channel *chan, struct ast_frame *frame);
- 
-@@ -689,6 +692,16 @@ struct ast_channel *ast_request_and_dial
+@@ -689,6 +689,16 @@ struct ast_channel *ast_request_and_dial
  
  struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname, struct outgoing_helper *oh);
  
@@ -21,55 +20,59 @@ parameters, used by ast_send_message which is also introduced by this patch.
 + * \param type type of channel to request
 + * \param data data to pass to the channel requester
 + * \param status status
-+ * Request a channel of a given type, with data as optional information used
++ * Request a channel of a given type, with data as optional information used 
 + * by the low level module
 + * \return Returns 0 on success, -1 on failure.
 + */
 +int ast_send_message(const char *type, void *data, char *to, char *from, char *message, int ispdu);
-+
++ 
  /*!\brief Register a channel technology (a new channel driver)
   * Called by a channel module to register the kind of channels it supports.
   * \param tech Structure defining channel technology or "type"
-@@ -910,6 +923,16 @@ int ast_set_write_format(struct ast_chan
-  */
- int ast_sendtext(struct ast_channel *chan, const char *text);
- 
-+/*! \brief Sends message to a channel
-+ * Write text to a display on a channel
-+ * \param chan channel to act upon
+@@ -905,10 +915,12 @@ int ast_set_write_format(struct ast_chan
+ /*! \brief Sends text to a channel 
+  * Write text to a display on a channel
+  * \param chan channel to act upon
 + * \param dest destination number/user
-+ * \param text string of text to send on the channel
+  * \param text string of text to send on the channel
 + * \param ispdu message is in PDU format
-+ * \return Returns 0 on success, -1 on failure
-+ */
-+int ast_sendmessage(struct ast_channel *chan, const char *dest, const char *text, int ispdu);
-+
+  * \return Returns 0 on success, -1 on failure
+  */
+-int ast_sendtext(struct ast_channel *chan, const char *text);
++int ast_sendtext(struct ast_channel *chan, const char *dest, const char *text, int ispdu);
+ 
  /*! \brief Receives a text character from a channel
   * \param chan channel to act upon
-  * \param timeout timeout in milliseconds (0 for infinite wait)
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -2448,6 +2448,19 @@ int ast_sendtext(struct ast_channel *cha
- 	return res;
+@@ -2435,7 +2435,7 @@ char *ast_recvtext(struct ast_channel *c
+ 	return buf;
  }
  
-+int ast_sendmessage(struct ast_channel *chan, const char *dest, const char *text, int ispdu)
-+{
-+	int res = 0;
-+	/* Stop if we're a zombie or need a soft hangup */
-+	if (ast_test_flag(chan, AST_FLAG_ZOMBIE) || ast_check_hangup(chan))
-+		return -1;
-+	CHECK_BLOCKING(chan);
-+	if (chan->tech->send_message)
-+		res = chan->tech->send_message(chan, dest, text, ispdu);
-+	ast_clear_flag(chan, AST_FLAG_BLOCKING);
-+	return res;
-+}
-+
- int ast_senddigit_begin(struct ast_channel *chan, char digit)
+-int ast_sendtext(struct ast_channel *chan, const char *text)
++int ast_sendtext(struct ast_channel *chan, const char *dest, const char *text, int ispdu)
  {
- 	/* Device does not support DTMF tones, lets fake
-@@ -4487,6 +4500,25 @@ void ast_channel_stop_silence_generator(
+ 	int res = 0;
+ 	/* Stop if we're a zombie or need a soft hangup */
+@@ -2443,7 +2443,7 @@ int ast_sendtext(struct ast_channel *cha
+ 		return -1;
+ 	CHECK_BLOCKING(chan);
+ 	if (chan->tech->send_text)
+-		res = chan->tech->send_text(chan, text);
++		res = chan->tech->send_text(chan, dest, text, ispdu);
+ 	ast_clear_flag(chan, AST_FLAG_BLOCKING);
+ 	return res;
+ }
+@@ -2634,7 +2634,7 @@ int ast_write(struct ast_channel *chan, 
+ 		break;
+ 	case AST_FRAME_TEXT:
+ 		res = (chan->tech->send_text == NULL) ? 0 :
+-			chan->tech->send_text(chan, (char *) fr->data);
++			chan->tech->send_text(chan, NULL, (char *) fr->data, 0);
+ 		break;
+ 	case AST_FRAME_HTML:
+ 		res = (chan->tech->send_html == NULL) ? 0 :
+@@ -4487,6 +4487,25 @@ void ast_channel_stop_silence_generator(
  }
  
  
@@ -83,7 +86,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
 +	    if (from) {
 +		ast_set_callerid(chan, from, from, from);
 +	    }
-+	    res = ast_sendmessage(chan, to, message, ispdu);
++	    res = ast_sendtext(chan, to, message, ispdu);
 +	    /* XXX what about message CDRs ??? XXX */
 +	    ast_hangup(chan);
 +	    return res;
@@ -95,3 +98,172 @@ parameters, used by ast_send_message which is also introduced by this patch.
  /*! \ brief Convert channel reloadreason (ENUM) to text string for manager event */
  const char *channelreloadreason2txt(enum channelreloadreason reason)
  {
+--- a/apps/app_sendtext.c
++++ b/apps/app_sendtext.c
+@@ -103,7 +103,7 @@ static int sendtext_exec(struct ast_chan
+ 	}
+ 	status = "FAILURE";
+ 	ast_channel_unlock(chan);
+-	res = ast_sendtext(chan, args.text);
++	res = ast_sendtext(chan, NULL, args.text, 0);
+ 	if (!res)
+ 		status = "SUCCESS";
+ 	pbx_builtin_setvar_helper(chan, "SENDTEXTSTATUS", status);
+--- a/res/res_agi.c
++++ b/res/res_agi.c
+@@ -486,7 +486,7 @@ static int handle_sendtext(struct ast_ch
+ 	   would probably be to strip off the trailing newline before
+ 	   parsing, then here, add a newline at the end of the string
+ 	   before sending it to ast_sendtext --DUDE */
+-	res = ast_sendtext(chan, argv[2]);
++	res = ast_sendtext(chan, NULL, argv[2], 0);
+ 	fdprintf(agi->fd, "200 result=%d\n", res);
+ 	return (res >= 0) ? RESULT_SUCCESS : RESULT_FAILURE;
+ }
+--- a/channels/chan_agent.c
++++ b/channels/chan_agent.c
+@@ -249,7 +249,7 @@ static int agent_answer(struct ast_chann
+ static struct ast_frame *agent_read(struct ast_channel *ast);
+ static int agent_write(struct ast_channel *ast, struct ast_frame *f);
+ static int agent_sendhtml(struct ast_channel *ast, int subclass, const char *data, int datalen);
+-static int agent_sendtext(struct ast_channel *ast, const char *text);
++static int agent_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu);
+ static int agent_indicate(struct ast_channel *ast, int condition, const void *data, size_t datalen);
+ static int agent_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
+ static struct ast_channel *agent_bridgedchannel(struct ast_channel *chan, struct ast_channel *bridge);
+@@ -558,13 +558,13 @@ static int agent_sendhtml(struct ast_cha
+ 	return res;
+ }
+ 
+-static int agent_sendtext(struct ast_channel *ast, const char *text)
++static int agent_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu)
+ {
+ 	struct agent_pvt *p = ast->tech_pvt;
+ 	int res = -1;
+ 	ast_mutex_lock(&p->lock);
+ 	if (p->chan) 
+-		res = ast_sendtext(p->chan, text);
++		res = ast_sendtext(p->chan, dest, text, ispdu);
+ 	ast_mutex_unlock(&p->lock);
+ 	return res;
+ }
+--- a/channels/chan_alsa.c
++++ b/channels/chan_alsa.c
+@@ -186,7 +186,7 @@ static int nosound = 0;
+ /* ZZ */
+ static struct ast_channel *alsa_request(const char *type, int format, void *data, int *cause);
+ static int alsa_digit(struct ast_channel *c, char digit, unsigned int duration);
+-static int alsa_text(struct ast_channel *c, const char *text);
++static int alsa_text(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ static int alsa_hangup(struct ast_channel *c);
+ static int alsa_answer(struct ast_channel *c);
+ static struct ast_frame *alsa_read(struct ast_channel *chan);
+@@ -496,7 +496,7 @@ static int alsa_digit(struct ast_channel
+ 	return 0;
+ }
+ 
+-static int alsa_text(struct ast_channel *c, const char *text)
++static int alsa_text(struct ast_channel *c, const char *dest, const char *text, int ispdu)
+ {
+ 	ast_mutex_lock(&alsalock);
+ 	ast_verbose(" << Console Received text %s >> \n", text);
+--- a/channels/chan_local.c
++++ b/channels/chan_local.c
+@@ -77,7 +77,7 @@ static int local_write(struct ast_channe
+ static int local_indicate(struct ast_channel *ast, int condition, const void *data, size_t datalen);
+ static int local_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
+ static int local_sendhtml(struct ast_channel *ast, int subclass, const char *data, int datalen);
+-static int local_sendtext(struct ast_channel *ast, const char *text);
++static int local_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu);
+ static int local_devicestate(void *data);
+ 
+ /* PBX interface structure for channel registration */
+@@ -407,7 +407,7 @@ static int local_digit_end(struct ast_ch
+ 	return res;
+ }
+ 
+-static int local_sendtext(struct ast_channel *ast, const char *text)
++static int local_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu)
+ {
+ 	struct local_pvt *p = ast->tech_pvt;
+ 	int res = -1;
+--- a/channels/chan_oss.c
++++ b/channels/chan_oss.c
+@@ -405,7 +405,7 @@ static struct ast_channel *oss_request(c
+ , int *cause);
+ static int oss_digit_begin(struct ast_channel *c, char digit);
+ static int oss_digit_end(struct ast_channel *c, char digit, unsigned int duration);
+-static int oss_text(struct ast_channel *c, const char *text);
++static int oss_text(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ static int oss_hangup(struct ast_channel *c);
+ static int oss_answer(struct ast_channel *c);
+ static struct ast_frame *oss_read(struct ast_channel *chan);
+@@ -773,7 +773,7 @@ static int oss_digit_end(struct ast_chan
+ 	return 0;
+ }
+ 
+-static int oss_text(struct ast_channel *c, const char *text)
++static int oss_text(struct ast_channel *c, const char *dest, const char *text, int ispdu)
+ {
+ 	/* print received messages */
+ 	ast_verbose(" << Console Received text %s >> \n", text);
+--- a/channels/chan_phone.c
++++ b/channels/chan_phone.c
+@@ -166,7 +166,7 @@ static int phone_answer(struct ast_chann
+ static struct ast_frame *phone_read(struct ast_channel *ast);
+ static int phone_write(struct ast_channel *ast, struct ast_frame *frame);
+ static struct ast_frame *phone_exception(struct ast_channel *ast);
+-static int phone_send_text(struct ast_channel *ast, const char *text);
++static int phone_send_text(struct ast_channel *ast, const char *dest, const char *text, int ispdu);
+ static int phone_fixup(struct ast_channel *old, struct ast_channel *new);
+ static int phone_indicate(struct ast_channel *chan, int condition, const void *data, size_t datalen);
+ 
+@@ -643,7 +643,7 @@ static int phone_write_buf(struct phone_
+ 	return len;
+ }
+ 
+-static int phone_send_text(struct ast_channel *ast, const char *text)
++static int phone_send_text(struct ast_channel *ast, const char *dest, const char *text, int ispdu)
+ {
+     int length = strlen(text);
+     return phone_write_buf(ast->tech_pvt, text, length, length, 0) == 
+--- a/channels/chan_sip.c
++++ b/channels/chan_sip.c
+@@ -1219,7 +1219,7 @@ static struct ast_config *notify_types;	
+ /*--- PBX interface functions */
+ static struct ast_channel *sip_request_call(const char *type, int format, void *data, int *cause);
+ static int sip_devicestate(void *data);
+-static int sip_sendtext(struct ast_channel *ast, const char *text);
++static int sip_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu);
+ static int sip_call(struct ast_channel *ast, char *dest, int timeout);
+ static int sip_hangup(struct ast_channel *ast);
+ static int sip_answer(struct ast_channel *ast);
+@@ -2371,7 +2371,7 @@ static char *get_in_brackets(char *tmp)
+ 
+ /*! \brief Send SIP MESSAGE text within a call
+ 	Called from PBX core sendtext() application */
+-static int sip_sendtext(struct ast_channel *ast, const char *text)
++static int sip_sendtext(struct ast_channel *ast, const char *dest, const char *text, int ispdu)
+ {
+ 	struct sip_pvt *p = ast->tech_pvt;
+ 	int debug = sip_debug_test_pvt(p);
+--- a/channels/chan_iax2.c
++++ b/channels/chan_iax2.c
+@@ -846,7 +846,7 @@ static int iax2_provision(struct sockadd
+ static int iax2_send(struct chan_iax2_pvt *pvt, struct ast_frame *f, unsigned int ts, int seqno, int now, int transfer, int final);
+ static int iax2_sendhtml(struct ast_channel *c, int subclass, const char *data, int datalen);
+ static int iax2_sendimage(struct ast_channel *c, struct ast_frame *img);
+-static int iax2_sendtext(struct ast_channel *c, const char *text);
++static int iax2_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu);
+ static int iax2_setoption(struct ast_channel *c, int option, void *data, int datalen);
+ static int iax2_transfer(struct ast_channel *c, const char *dest);
+ static int iax2_write(struct ast_channel *c, struct ast_frame *f);
+@@ -2728,7 +2728,7 @@ static int iax2_digit_end(struct ast_cha
+ 	return send_command_locked(PTR_TO_CALLNO(c->tech_pvt), AST_FRAME_DTMF_END, digit, 0, NULL, 0, -1);
+ }
+ 
+-static int iax2_sendtext(struct ast_channel *c, const char *text)
++static int iax2_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu)
+ {
+ 	
+ 	return send_command_locked(PTR_TO_CALLNO(c->tech_pvt), AST_FRAME_TEXT,
