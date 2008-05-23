@@ -7,6 +7,8 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
   [ Victor Seva ]
   * Patch sample files pointing now to the correct doc files. (Closes: #475681)
   * Added support for armel, thanks to Riku Voipio. (Closes: #477389)
+  * Added asterisk-config.dirs in order to create etc/asterisk/manager.d dir,
+    and added a README.conf on it on rule install-indep.
 
   [ Tzafrir Cohen ]
   * Fixed name of section in doc-base files.   

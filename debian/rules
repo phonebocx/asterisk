@@ -169,6 +169,9 @@ install-indep: build-indep
 	install -m 0644 -D $(CURDIR)/debian/asterisk-config.lintian-overrides \
 		$(CURDIR)/debian/asterisk-config/usr/share/lintian/overrides/asterisk-config
 
+	# create a simple config
+	echo "; please read doc/manager.txt" > $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d/README.conf
+
 # Build architecture-independent files here.
 binary-indep: install-indep
 	dh_testdir -i
