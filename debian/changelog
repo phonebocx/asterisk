@@ -18,12 +18,13 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
   [ Faidon Liambotis ]
   * Update to bristuff-0.4.0-RC1:
     - Revert API changes to res_agi (xagi).
+    - Revert API changes to ast_sendtext() (ast-send-message).
     - Remove disabled chan-capi patch, obsoleted by upstream.
     - Remove uniqueid-01-use-pid-on-uniqueid-generation patch, dropped by
       upstream.
     - Other minor and cosmetic fixes.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 20:41:49 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 20:55:42 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 

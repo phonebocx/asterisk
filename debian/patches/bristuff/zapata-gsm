@@ -27,16 +27,15 @@
  
  static int ifcount = 0;
  
-@@ -249,7 +255,7 @@ static int restart_monitor(void);
+@@ -251,6 +257,7 @@ static enum ast_bridge_result zt_bridge(
  
- static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, struct ast_frame **fo, struct ast_channel **rc, int timeoutms);
+ static int zt_sendtext(struct ast_channel *c, const char *text);
  
--static int zt_sendtext(struct ast_channel *c, const char *text);
-+static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu);
- 
++static int zt_sendmessage(struct ast_channel *c, const char *dest, const char *text, int ispdu);
  
  /*! \brief Avoid the silly zt_getevent which ignores a bunch of events */
-@@ -364,6 +370,19 @@ struct zt_pri {
+ static inline int zt_get_event(int fd)
+@@ -364,6 +371,19 @@ struct zt_pri {
  	int debugfd;
  };
  
@@ -74,16 +73,24 @@
  	int polarity;
  	int dsp_features;
  	char begindigit;
-@@ -710,7 +733,7 @@ static struct zt_chan_conf zt_chan_conf_
+@@ -710,7 +734,7 @@ static struct zt_chan_conf zt_chan_conf_
  static struct ast_channel *zt_request(const char *type, int format, void *data, int *cause);
  static int zt_digit_begin(struct ast_channel *ast, char digit);
  static int zt_digit_end(struct ast_channel *ast, char digit, unsigned int duration);
 -static int zt_sendtext(struct ast_channel *c, const char *text);
-+static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu);
++static int zt_sendmessage(struct ast_channel *c, const char *dest, const char *text, int ispdu);
  static int zt_call(struct ast_channel *ast, char *rdest, int timeout);
  static int zt_hangup(struct ast_channel *ast);
  static int zt_answer(struct ast_channel *ast);
-@@ -1262,6 +1285,8 @@ static char *zap_sig2str(int sig)
+@@ -732,6 +756,7 @@ static const struct ast_channel_tech zap
+ 	.send_digit_begin = zt_digit_begin,
+ 	.send_digit_end = zt_digit_end,
+ 	.send_text = zt_sendtext,
++	.send_message = zt_sendmessage,
+ 	.call = zt_call,
+ 	.hangup = zt_hangup,
+ 	.answer = zt_answer,
+@@ -1262,6 +1287,8 @@ static char *zap_sig2str(int sig)
  		return "GR-303 with FXOKS";
  	case SIG_GR303FXSKS:
  		return "GR-303 with FXSKS";
@@ -802,7 +809,21 @@
 +}
 +#endif
 +
-+static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu) {
++static int zt_sendtext(struct ast_channel *c, const char *text) {
++ struct zt_pvt *p = c->tech_pvt;
++ if (!p) return -1;
++ if (p->sig == SIG_PRI) {
++#ifdef HAVE_PRI
++	return zt_pri_sendtext(c, text);
++#endif
++ } else if (p->sig == SIG_GSM) {
++ } else {
++	return zt_tdd_sendtext(c, text);
++ }
++ return -1;
++}
++
++static int zt_sendmessage(struct ast_channel *c, const char *dest, const char *text, int ispdu) {
 + struct zt_pvt *p = c->tech_pvt;
 + if (!p) return -1;
 + if (p->sig == SIG_PRI) {
@@ -818,6 +839,10 @@
 +     return zt_gsm_sendtext(c, dest, text, ispdu);
 +#endif
 + } else {
++	if (ispdu) {
++	    ast_log(LOG_WARNING, "Dont know how to send PDU on ZAP channel\n");
++	    return -1;
++	}
 +	return zt_tdd_sendtext(c, text);
 + }
 + return -1;
