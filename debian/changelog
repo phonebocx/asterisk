@@ -20,7 +20,9 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
     - Revert API changes to res_agi (xagi).
     - Revert API changes to ast_sendtext() (ast-send-message).
     - Merge several chan_zap changes (zapata-bri+euroisdn, zapata-gsm).
-    - Remove disabled chan-capi patch, obsoleted by upstream.
+    - Remove unused zapata-device-state, feature-parking_con, find-feature,
+      chan-capi, ast_channel_masquerade_locked, find-feature patches,
+      obsoleted by upstream.
     - Remove uniqueid-01-use-pid-on-uniqueid-generation patch, dropped by
       upstream.
     - Rename app-zapras-fix-audiomode to isdn-fixes and include another fix
@@ -29,7 +31,7 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
       split.
     - Other minor and cosmetic fixes.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 23:33:22 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 23:35:28 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 

@@ -56,9 +56,6 @@ bristuff/app-dial-etc
 bristuff/app-dial-R-noinband
 bristuff/app-dial-c-callback
 
-# improved (?) devicestate support in chan_zap. Not used:
-#bristuff/zapata-device-state
-
 bristuff/zapata_num_spans
 
 # use /usr/include/bristuffed/libpri.h - /usr/lib/libpri-bristuffed.so.1.0
@@ -84,11 +81,6 @@ bristuff/zapata_euroisdn_holded
 
 # GSM support; it needs the above patch applied first, unfortunately.
 bristuff/zapata-gsm
-
-# misc pathes that are currently unused
-#bristuff/ast_channel_masquerade_locked
-#bristuff/find-feature
-#bristuff/feature-parking_con
 
 # bridging app backported from 1.6
 # it needs the above feature patches applied first.
