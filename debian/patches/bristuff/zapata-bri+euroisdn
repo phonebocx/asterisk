@@ -21,6 +21,15 @@
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
+@@ -190,7 +194,7 @@ static const char config[] = "zapata.con
+ #define SIG_GR303FXOKS	(0x0100000 | ZT_SIG_FXOKS)
+ #define SIG_GR303FXSKS	(0x0100000 | ZT_SIG_FXSKS)
+ 
+-#define NUM_SPANS 		ZT_MAX_SPANS
++#define NUM_SPANS 		128	/*!<"32 spans", muahahaha, us alaws like to have some more... */
+ #define NUM_DCHANS		4	/*!< No more than 4 d-channels */
+ #define MAX_CHANNELS	672		/*!< No more than a DS3 per trunk group */
+ 
 @@ -216,8 +220,6 @@ static struct ast_channel inuse;
  #ifdef PRI_GETSET_TIMERS
  static int pritimers[PRI_MAX_TIMERS];
