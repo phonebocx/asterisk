@@ -117,20 +117,7 @@ Add or convert channel operations so they can use the unique ID.
  }
  
  /*! \brief Wait, look for hangups and condition arg */
-@@ -1213,8 +1221,10 @@ void ast_channel_free(struct ast_channel
- 		free(chan->tech_pvt);
- 	}
- 
--	if (chan->sched)
--		sched_context_destroy(chan->sched);
-+	if (chan->sched) {
-+		sched_context_destroy(chan->sched);	
-+		chan->sched = NULL;
-+	}
- 
- 	ast_copy_string(name, chan->name, sizeof(name));
- 
-@@ -2823,6 +2833,12 @@ char *ast_channel_reason2str(int reason)
+@@ -2836,6 +2844,12 @@ char *ast_channel_reason2str(int reason)
  
  struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *outstate, const char *cid_num, const char *cid_name, struct outgoing_helper *oh)
  {
@@ -152,16 +139,7 @@ Add or convert channel operations so they can use the unique ID.
  	if (!chan) {
  		ast_log(LOG_NOTICE, "Unable to request channel %s/%s\n", type, (char *)data);
  		/* compute error and return */
-@@ -2857,7 +2873,7 @@ struct ast_channel *__ast_request_and_di
- 			ast_cdr_setaccount(chan, oh->account);	
- 	}
- 	ast_set_callerid(chan, cid_num, cid_name, cid_num);
--
-+	chan->cid.cid_pres = callingpres;
- 	
- 
- 	if (!chan->cdr) { /* up till now, this insertion hasn't been done. Therefore,
-@@ -2954,8 +2970,12 @@ struct ast_channel *ast_request_and_dial
+@@ -2967,8 +2981,12 @@ struct ast_channel *ast_request_and_dial
  {
  	return __ast_request_and_dial(type, format, data, timeout, outstate, cidnum, cidname, NULL);
  }
@@ -175,7 +153,15 @@ Add or convert channel operations so they can use the unique ID.
  {
  	struct chanlist *chan;
  	struct ast_channel *c;
-@@ -3005,6 +3025,11 @@ struct ast_channel *ast_request(const ch
+@@ -3007,6 +3025,7 @@ struct ast_channel *ast_request(const ch
+ 		if (!(c = chan->tech->requester(type, capabilities | videoformat, data, cause)))
+ 			return NULL;
+ 
++		if (uniqueid) strncpy(c->uniqueid, uniqueid, sizeof(c->uniqueid));
+ 		/* no need to generate a Newchannel event here; it is done in the channel_alloc call */
+ 		return c;
+ 	}
+@@ -3018,6 +3037,11 @@ struct ast_channel *ast_request(const ch
  	return NULL;
  }
  
@@ -187,15 +173,6 @@ Add or convert channel operations so they can use the unique ID.
  int ast_call(struct ast_channel *chan, char *addr, int timeout)
  {
  	/* Place an outgoing call, but don't wait any longer than timeout ms before returning.
-@@ -3390,7 +3415,7 @@ int ast_do_masquerade(struct ast_channel
- 	ast_string_field_set(clone, name, masqn);
- 	
- 	/* Notify any managers of the change, first the masq then the other */
--	manager_event(EVENT_FLAG_CALL, "Rename", "Oldname: %s\r\nNewname: %s\r\nUniqueid: %s\r\n", newn, masqn, clone->uniqueid);
-+	manager_event(EVENT_FLAG_CALL, "Rename", "Oldname: %s\r\nNewname: %s\r\nUniqueid: %s\r\nNewUniqueid: %s\r\n", newn, masqn, clone->uniqueid, original->uniqueid);
- 	manager_event(EVENT_FLAG_CALL, "Rename", "Oldname: %s\r\nNewname: %s\r\nUniqueid: %s\r\n", orig, newn, original->uniqueid);
- 
- 	/* Swap the technologies */	
 --- asterisk.orig/include/asterisk/pbx.h
 +++ asterisk/include/asterisk/pbx.h
 @@ -717,9 +717,17 @@ int ast_async_goto_by_name(const char *c
