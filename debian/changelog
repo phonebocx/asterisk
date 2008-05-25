@@ -25,9 +25,11 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
       upstream.
     - Rename app-zapras-fix-audiomode to isdn-fixes and include another fix
       that we dropped earlier by mistake (r5162).
+    - Merge ast-send-message with ast-send-message-users, following upstream
+      split.
     - Other minor and cosmetic fixes.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 22:31:46 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 23:33:22 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 

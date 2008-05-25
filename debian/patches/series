@@ -63,11 +63,10 @@ bristuff/zapata_num_spans
 
 # use /usr/include/bristuffed/libpri.h - /usr/lib/libpri-bristuffed.so.1.0
 use-libpri-bristuffed
+# euroISDN, BRI support
 bristuff/zapata-bri+euroisdn
 
-# and here goes our API :-)
 bristuff/ast-send-message
-bristuff/ast-send-message-users # XXX: merge this with above?
 
 # don't split these up!
 bristuff/ast_monitor_start-targetscript
@@ -77,12 +76,12 @@ bristuff/uniqueid-20-monitor
 bristuff/uniqueid-30-app-chanspy
 bristuff/uniqueid-40-manager
 
-# euroISDN, BRI support
-# they depend on the uniqueid changes; the following are a set
+# these depend on the uniqueid changes; the following are a set
 bristuff/feature-autoanswer
 bristuff/feature-holdedcalls
 
 bristuff/zapata_euroisdn_holded
+
 # GSM support; it needs the above patch applied first, unfortunately.
 bristuff/zapata-gsm
 
