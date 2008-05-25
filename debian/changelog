@@ -21,8 +21,9 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
     - Remove disabled chan-capi patch, obsoleted by upstream.
     - Remove uniqueid-01-use-pid-on-uniqueid-generation patch, dropped by
       upstream.
+    - Other minor and cosmetic fixes.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 18:50:46 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 20:41:49 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 

@@ -36,13 +36,12 @@
  static const char *app_ext = "ExtenSpy";
  static const char *desc_ext = 
  "  ExtenSpy(exten[@context][|options]): This application is used to listen to the\n"
-@@ -457,7 +479,8 @@ static struct chanspy_ds *setup_chanspy_
+@@ -457,7 +479,7 @@ static struct chanspy_ds *setup_chanspy_
  
  static struct chanspy_ds *next_channel(struct ast_channel *chan,
  	const struct ast_channel *last, const char *spec,
 -	const char *exten, const char *context, struct chanspy_ds *chanspy_ds)
-+	const char *exten, const char *context, struct chanspy_ds *chanspy_ds,
-+	const char *uniqueid)
++	const char *exten, const char *context, struct chanspy_ds *chanspy_ds, const char *uniqueid)
  {
  	struct ast_channel *this;
  

@@ -127,7 +127,7 @@
 +extern ast_mutex_t uniquelock;			
 +
 +/*! \brief Change the state of a channel and the callerid of the calling channel*/
-+int ast_setstate_and_cid(struct ast_channel *chan, enum ast_channel_state state, char *cid_num, char *cid_name);
++int ast_setstate_and_callerid(struct ast_channel *chan, enum ast_channel_state state, char *cid_num, char *cid_name);
 +
  /*! \brief Change the state of a channel */
 -int ast_setstate(struct ast_channel *chan, enum ast_channel_state);
@@ -151,7 +151,7 @@
  }
  
 -int ast_setstate(struct ast_channel *chan, enum ast_channel_state state)
-+int ast_setstate_and_cid(struct ast_channel *chan, enum ast_channel_state state, char *cid_num, char *cid_name)
++int ast_setstate_and_callerid(struct ast_channel *chan, enum ast_channel_state state, char *cid_num, char *cid_name)
  {
  	int oldstate = chan->_state;
  
@@ -170,7 +170,7 @@
  
 +int ast_setstate(struct ast_channel *chan, enum ast_channel_state state)
 +{
-+    return ast_setstate_and_cid(chan, state, NULL, NULL);
++    return ast_setstate_and_callerid(chan, state, NULL, NULL);
 +}
 +
  /*! \brief Find bridged channel */
