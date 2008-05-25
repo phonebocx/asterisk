@@ -23,9 +23,11 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
     - Remove disabled chan-capi patch, obsoleted by upstream.
     - Remove uniqueid-01-use-pid-on-uniqueid-generation patch, dropped by
       upstream.
+    - Rename app-zapras-fix-audiomode to isdn-fixes and include another fix
+      that we dropped earlier by mistake (r5162).
     - Other minor and cosmetic fixes.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 22:05:02 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 22:31:46 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 
