@@ -120,7 +120,7 @@
  		} else {
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -608,8 +608,13 @@ int ast_channel_datastore_remove(struct 
+@@ -611,8 +611,13 @@ int ast_channel_datastore_remove(struct 
  /*! \brief Find a datastore on a channel */
  struct ast_datastore *ast_channel_datastore_find(struct ast_channel *chan, const struct ast_datastore_info *info, char *uid);
  
@@ -146,7 +146,7 @@
  }
  
  struct ast_datastore *ast_channel_datastore_alloc(const struct ast_datastore_info *info, char *uid)
-@@ -3634,7 +3634,7 @@ void ast_set_callerid(struct ast_channel
+@@ -3647,7 +3647,7 @@ void ast_set_callerid(struct ast_channel
  	ast_channel_unlock(chan);
  }
  
@@ -155,7 +155,7 @@
  {
  	int oldstate = chan->_state;
  
-@@ -3642,7 +3642,7 @@ int ast_setstate(struct ast_channel *cha
+@@ -3655,7 +3655,7 @@ int ast_setstate(struct ast_channel *cha
  		return 0;
  
  	chan->_state = state;
@@ -164,7 +164,7 @@
  	/* setstate used to conditionally report Newchannel; this is no more */
  	manager_event(EVENT_FLAG_CALL,
  		      "Newstate",
-@@ -3659,6 +3659,11 @@ int ast_setstate(struct ast_channel *cha
+@@ -3672,6 +3672,11 @@ int ast_setstate(struct ast_channel *cha
  	return 0;
  }
  

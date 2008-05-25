@@ -69,7 +69,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
  int ast_senddigit_begin(struct ast_channel *chan, char digit)
  {
  	/* Device does not support DTMF tones, lets fake
-@@ -4487,6 +4500,25 @@ void ast_channel_stop_silence_generator(
+@@ -4491,6 +4504,25 @@ void ast_channel_stop_silence_generator(
  }
  
  

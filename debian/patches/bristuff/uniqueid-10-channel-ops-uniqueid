@@ -1,8 +1,8 @@
 Add or convert channel operations so they can use the unique ID.
 
---- asterisk.orig/include/asterisk/channel.h
-+++ asterisk/include/asterisk/channel.h
-@@ -677,6 +677,18 @@ void  ast_channel_free(struct ast_channe
+--- a/include/asterisk/channel.h
++++ b/include/asterisk/channel.h
+@@ -680,6 +680,18 @@ void  ast_channel_free(struct ast_channe
   */
  struct ast_channel *ast_request(const char *type, int format, void *data, int *status);
  
@@ -21,7 +21,7 @@ Add or convert channel operations so they can use the unique ID.
  /*!
   * \brief Request a channel of a given type, with data as optional information used 
   * by the low level module and attempt to place a call on it
-@@ -692,8 +704,12 @@ struct ast_channel *ast_request(const ch
+@@ -695,8 +707,12 @@ struct ast_channel *ast_request(const ch
   */
  struct ast_channel *ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname);
  
@@ -34,7 +34,7 @@ Add or convert channel operations so they can use the unique ID.
  /*! \brief "Requests" a channel for sending a message
   * \param type type of channel to request
   * \param data data to pass to the channel requester
-@@ -977,6 +993,8 @@ struct ast_channel *ast_get_channel_by_e
+@@ -988,6 +1004,8 @@ struct ast_channel *ast_get_channel_by_e
  /*! \brief Get next channel by exten (and optionally context) and lock it */
  struct ast_channel *ast_walk_channel_by_exten_locked(const struct ast_channel *chan, const char *exten,
  						     const char *context);
@@ -43,8 +43,8 @@ Add or convert channel operations so they can use the unique ID.
  
  /*! ! \brief Waits for a digit
   * \param c channel to wait for a digit on
---- asterisk.orig/main/channel.c
-+++ asterisk/main/channel.c
+--- a/main/channel.c
++++ b/main/channel.c
 @@ -1017,7 +1017,7 @@ void ast_channel_undefer_dtmf(struct ast
   */
  static struct ast_channel *channel_find_locked(const struct ast_channel *prev,
@@ -130,7 +130,7 @@ Add or convert channel operations so they can use the unique ID.
  	int dummy_outstate;
  	int cause = 0;
  	struct ast_channel *chan;
-@@ -2834,7 +2850,7 @@ struct ast_channel *__ast_request_and_di
+@@ -2847,7 +2861,7 @@ struct ast_channel *__ast_request_and_di
  	else
  		outstate = &dummy_outstate;	/* make outstate always a valid pointer */
  
@@ -173,8 +173,8 @@ Add or convert channel operations so they can use the unique ID.
  int ast_call(struct ast_channel *chan, char *addr, int timeout)
  {
  	/* Place an outgoing call, but don't wait any longer than timeout ms before returning.
---- asterisk.orig/include/asterisk/pbx.h
-+++ asterisk/include/asterisk/pbx.h
+--- a/include/asterisk/pbx.h
++++ b/include/asterisk/pbx.h
 @@ -717,9 +717,17 @@ int ast_async_goto_by_name(const char *c
  int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel);
  
@@ -193,8 +193,8 @@ Add or convert channel operations so they can use the unique ID.
  /*!
   * \brief Evaluate a condition
   *
---- asterisk.orig/main/pbx.c
-+++ asterisk/main/pbx.c
+--- a/main/pbx.c
++++ b/main/pbx.c
 @@ -4990,7 +4990,7 @@ static int ast_pbx_outgoing_cdr_failed(v
  	return 0;  /* success */
  }

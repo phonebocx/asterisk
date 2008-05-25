@@ -50,7 +50,7 @@
  	int debugfd;
  };
  
-@@ -7485,6 +7499,7 @@ static struct zt_pvt *mkintf(int channel
+@@ -7491,6 +7505,7 @@ static struct zt_pvt *mkintf(int channel
  						pris[span].overlapdial = conf.pri.overlapdial;
  						pris[span].usercid = conf.pri.usercid;
  						pris[span].suspended_calls = NULL;
@@ -58,7 +58,7 @@
  						pris[span].facilityenable = conf.pri.facilityenable;
  						ast_copy_string(pris[span].idledial, conf.pri.idledial, sizeof(pris[span].idledial));
  						ast_copy_string(pris[span].idleext, conf.pri.idleext, sizeof(pris[span].idleext));
-@@ -8169,6 +8184,58 @@ static struct zt_pvt *pri_find_crv(struc
+@@ -8175,6 +8190,58 @@ static struct zt_pvt *pri_find_crv(struc
  	return NULL;
  }
  
@@ -117,7 +117,7 @@
  
  static int pri_find_principle(struct zt_pri *pri, int channel)
  {
-@@ -9620,18 +9687,150 @@ static void *pri_dchannel(void *vpri)
+@@ -9590,18 +9657,150 @@ static void *pri_dchannel(void *vpri)
  				    pri_hold_reject(pri->pri, e->hold_req.call);
  				    break;
  				}
@@ -274,7 +274,7 @@
  			case PRI_EVENT_DISPLAY_RECEIVED:
  				ast_log(LOG_NOTICE, "DISPLAY IE: [ %s ] received\n",e->display.text);
  				chanpos = pri_find_principle(pri, e->display.channel);
-@@ -9788,9 +9987,20 @@ static void *pri_dchannel(void *vpri)
+@@ -9758,9 +9957,20 @@ static void *pri_dchannel(void *vpri)
  
  						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
  					} else {
@@ -298,7 +298,7 @@
  					}
  				} 
  				break;
-@@ -9853,11 +10063,63 @@ static void *pri_dchannel(void *vpri)
+@@ -9823,11 +10033,63 @@ static void *pri_dchannel(void *vpri)
  							    	ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d received AOC-E charging %d unit%s\n",
  									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span, (int)e->hangup.aoc_units, (e->hangup.aoc_units == 1) ? "" : "s");
  							}
@@ -367,7 +367,7 @@
  						} else {
  							pri_hangup(pri->pri, pri->pvts[chanpos]->call, e->hangup.cause, -1);
  							pri->pvts[chanpos]->call = NULL;
-@@ -9887,7 +10149,19 @@ static void *pri_dchannel(void *vpri)
+@@ -9857,7 +10119,19 @@ static void *pri_dchannel(void *vpri)
   						if (pri->nodetype != BRI_NETWORK_PTMP) {
    						    ast_log(LOG_WARNING, "Hangup REQ on bad channel %d/%d on span %d\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
   						} else {
@@ -388,7 +388,7 @@
   						}
  					}
  				} 
-@@ -10047,16 +10321,73 @@ static void *pri_dchannel(void *vpri)
+@@ -10017,16 +10291,73 @@ static void *pri_dchannel(void *vpri)
  				}
  				break;
   			case PRI_EVENT_FACILITY:
