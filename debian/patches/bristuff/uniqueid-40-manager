@@ -54,9 +54,16 @@
  		return 0;
  	}
  	if (!ast_strlen_zero(priority) && (sscanf(priority, "%d", &pi) != 1)) {
-@@ -1685,7 +1702,11 @@ static int action_redirect(struct manses
+@@ -1683,8 +1700,18 @@ static int action_redirect(struct manses
+ 			return 0;
  		}
  	}
++	if (!ast_strlen_zero(priority2) && (sscanf(priority2, "%d", &pi2) != 1)) {
++		if ((pi = ast_findlabel_extension(NULL, context2, exten2, priority2, NULL)) < 1) {
++			astman_send_error(s, m, "Invalid extra priority\n");
++			return 0;
++		}
++	}
  	/* XXX watch out, possible deadlock!!! */
 -	chan = ast_get_channel_by_name_locked(name);
 + 	if (!ast_strlen_zero(uniqueid)) {
