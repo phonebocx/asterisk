@@ -501,21 +501,28 @@
  			if (ast_exists_extension(chan, chan->context, exten, 1, p->cid_num))
  				timeout = matchdigittimeout;
  			else
-@@ -6697,6 +6811,13 @@ static int handle_init_event(struct zt_p
- 		break;
+@@ -6698,9 +6812,20 @@ static int handle_init_event(struct zt_p
  	case ZT_EVENT_NOALARM:
  		i->inalarm = 0;
-+#ifdef HAVE_PRI
-+		if (i->pri &&
-+		    (i->pri->nodetype == BRI_CPE_PTMP || i->pri->nodetype == BRI_CPE)) {
-+			/* dont annoy BRI TE mode users with layer2layer alarms */
-+			break;
-+		}
-+#endif
  		if (!i->unknown_alarm) {
++#ifdef HAVE_PRI
++		    if (i->pri) {
++			if ((i->pri->nodetype == BRI_CPE_PTMP) || (i->pri->nodetype == BRI_CPE)) {
++			/* dont annoy BRI TE mode users with layer2layer alarms */
++			} else {
++#endif
  			ast_log(LOG_NOTICE, "Alarm cleared on channel %d\n", i->channel);
  			manager_event(EVENT_FLAG_SYSTEM, "AlarmClear",
-@@ -6711,6 +6832,14 @@ static int handle_init_event(struct zt_p
+ 				"Channel: %d\r\n", i->channel);
++#ifdef HAVE_PRI
++			}
++		    }
++#endif
++
+ 		} else {
+ 			i->unknown_alarm = 0;
+ 		}
+@@ -6711,6 +6836,14 @@ static int handle_init_event(struct zt_p
  		do {
  			const char *alarm_str = alarm2str(res);
  
