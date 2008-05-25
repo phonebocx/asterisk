@@ -522,22 +522,33 @@
  		} else {
  			i->unknown_alarm = 0;
  		}
-@@ -6711,6 +6836,14 @@ static int handle_init_event(struct zt_p
+@@ -6709,7 +6834,13 @@ static int handle_init_event(struct zt_p
+ 		i->inalarm = 1;
+ 		res = get_alarms(i);
  		do {
- 			const char *alarm_str = alarm2str(res);
- 
+-			const char *alarm_str = alarm2str(res);
 +#ifdef HAVE_PRI
-+			if (i->pri &&
-+			    (i->pri->nodetype == BRI_CPE_PTMP || i->pri->nodetype == BRI_CPE)) {
++		    if (i->pri) {
++			if ((i->pri->nodetype == BRI_CPE_PTMP) || (i->pri->nodetype == BRI_CPE)) {
 +				/* dont annoy BRI TE mode users with layer2layer alarms */
-+				break;
-+			}
-+
++			} else {
 +#endif
++			    const char *alarm_str = alarm2str(res);
+ 
  			/* hack alert!  Zaptel 1.4 now exposes FXO battery as an alarm, but asterisk 1.4
  			 * doesn't know what to do with it.  Don't confuse users with log messages. */
- 			if (!strcasecmp(alarm_str, "No Alarm") || !strcasecmp(alarm_str, "Unknown Alarm")) {
-@@ -6769,8 +6898,10 @@ static int handle_init_event(struct zt_p
+@@ -6725,6 +6856,10 @@ static int handle_init_event(struct zt_p
+ 				"Alarm: %s\r\n"
+ 				"Channel: %d\r\n",
+ 				alarm_str, i->channel);
++#ifdef HAVE_PRI
++			}
++		    }
++#endif
+ 		} while (0);
+ 		/* fall thru intentionally */
+ 	case ZT_EVENT_ONHOOK:
+@@ -6769,8 +6904,10 @@ static int handle_init_event(struct zt_p
  			zt_set_hook(i->subs[SUB_REAL].zfd, ZT_ONHOOK);
  			break;
  		case SIG_PRI:
