@@ -74,7 +74,20 @@
  	if (!chan) {
  		char buf[BUFSIZ];
  		snprintf(buf, sizeof(buf), "Channel does not exist: %s", name);
-@@ -1707,9 +1728,9 @@ static int action_redirect(struct manses
+@@ -1697,8 +1724,11 @@ static int action_redirect(struct manses
+ 		ast_channel_unlock(chan);
+ 		return 0;
+ 	}
+-	if (!ast_strlen_zero(name2))
++ 	if (!ast_strlen_zero(uniqueid2)) {
++ 	    chan2 = ast_get_channel_by_uniqueid_locked(uniqueid2);
++ 	} else if (!ast_strlen_zero(name2)) {
+ 		chan2 = ast_get_channel_by_name_locked(name2);
++	}
+ 	if (chan2 && ast_check_hangup(chan2)) {
+ 		astman_send_error(s, m, "Redirect failed, extra channel not up.\n");
+ 		ast_channel_unlock(chan);
+@@ -1707,9 +1737,9 @@ static int action_redirect(struct manses
  	}
  	res = ast_async_goto(chan, context, exten, pi);
  	if (!res) {
