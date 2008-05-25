@@ -81,9 +81,6 @@ bristuff/uniqueid-40-manager
 # they depend on the uniqueid changes; the following are a set
 bristuff/feature-autoanswer
 bristuff/feature-holdedcalls
-# bridging app backported from 1.6
-# it needs the above feature patches applied first.
-feature-bridge
 
 bristuff/zapata_euroisdn_holded
 # GSM support; it needs the above patch applied first, unfortunately.
@@ -93,3 +90,7 @@ bristuff/zapata-gsm
 #bristuff/ast_channel_masquerade_locked
 #bristuff/find-feature
 #bristuff/feature-parking_con
+
+# bridging app backported from 1.6
+# it needs the above feature patches applied first.
+feature-bridge
