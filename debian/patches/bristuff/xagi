@@ -82,7 +82,7 @@
 +			return AGI_RESULT_FAILURE;
 +		}
 +		res = fcntl(audio2[0], F_GETFL);
-+		if (res > -1) 
++		if (res > -1)
 +			res = fcntl(audio2[0], F_SETFL, res | O_NONBLOCK);
 +		if (res < 0) {
 +			ast_log(LOG_WARNING, "unable to set audio pipe parameters: %s\n", strerror(errno));
@@ -117,7 +117,7 @@
  
  		/* Close everything but stdin/out/error */
 -		for (x=STDERR_FILENO + 2;x<1024;x++) 
-+		for (x=STDERR_FILENO + 3;x<1024;x++) 
++		for (x=STDERR_FILENO + 3;x<1024;x++)
  			close(x);
  
  		/* Execute script */
@@ -305,8 +305,8 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.
 + *
-+ * XAGI sample script 
-+ * 
++ * XAGI sample script
++ *
 + * Copyright (C) 2005 Junghanns.NET GmbH
 + * Klaus-Peter Junghanns <kpj@junghanns.net>
 + *
@@ -355,7 +355,7 @@
 +
 +		/* Load into normal environment */
 +		setenv(buf, val, 1);
-+		
++
 +	}
 +	/* Never reached */
 +	return 0;
@@ -430,7 +430,7 @@
 +			/* drop it, like it's hot */
 +		}
 +	}
-+		
++
 +}
 +
 +static char *run_command(char *command)

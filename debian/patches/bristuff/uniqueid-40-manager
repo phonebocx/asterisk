@@ -28,7 +28,7 @@
 +	} else {
 +	    if (!ast_strlen_zero(name))
 +		c = ast_get_channel_by_name_locked(name);
-+	}	
++	}
 +
  	if (!c) {
  		astman_send_error(s, m, "No such channel");

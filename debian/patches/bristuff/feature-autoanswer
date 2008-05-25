@@ -59,7 +59,7 @@
 +	struct aauser *next;
 +};
 +
-+ 
++
 +static struct aauser *aalot;
 +AST_MUTEX_DEFINE_STATIC(autoanswer_lock);
 +static pthread_t autoanswer_thread;
@@ -229,7 +229,7 @@
 +	}
 +	res = ast_masq_autoanswer_login(chan, data);
 +	ast_module_user_remove(u);
-+	return res; 
++	return res;
 +}
 +
 +int ast_autoanswer_login(struct ast_channel *chan, void *data)
@@ -288,7 +288,7 @@
 +		memset(pu, 0, sizeof(pu));
 +		ast_mutex_lock(&autoanswer_lock);
 +		chan->appl = "Autoanswer";
-+		chan->data = NULL; 
++		chan->data = NULL;
 +
 +		pu->chan = chan;
 +		if (chan->_state != AST_STATE_UP) {
@@ -317,7 +317,7 @@
 +		ast_mutex_unlock(&autoanswer_lock);
 +		/* Wake up the (presumably select()ing) thread */
 +		pthread_kill(autoanswer_thread, SIGURG);
-+		if (option_verbose > 1) 
++		if (option_verbose > 1)
 +			ast_verbose(VERBOSE_PREFIX_2 "Autoanswer login from %s for %s@%s.\n", pu->chan->name, pu->exten, pu->context);
 +			manager_event(EVENT_FLAG_CALL, "AutoanswerLogin",
 +                                "Channel: %s\r\n"
@@ -397,7 +397,7 @@
 +					f = ast_read(pu->chan);
 +					if (!f || ((f->frametype == AST_FRAME_CONTROL) && (f->subclass ==  AST_CONTROL_HANGUP))) {
 +						/* There's a problem, hang them up*/
-+						if (option_verbose > 1) 
++						if (option_verbose > 1)
 +							ast_verbose(VERBOSE_PREFIX_2 "%s logged out of autoanswer app\n", pu->chan->name);
 +						manager_event(EVENT_FLAG_CALL, "AutoanswerLogout",
 +                            			    "Channel: %s\r\n"
@@ -415,7 +415,7 @@
 +							ast_log(LOG_WARNING, "Whoa, no %s context?\n", pu->exten);
 +						}
 +						/* And take them out of the parking lot */
-+						if (pl) 
++						if (pl)
 +							pl->next = pu->next;
 +						else
 +							aalot = pu->next;
@@ -518,7 +518,7 @@
 +
 +	if (peer) {
 +		ast_moh_stop(peer);
-+		/* Play a courtesy beep in the callED channel to prefix the bridge connecting */	
++		/* Play a courtesy beep in the callED channel to prefix the bridge connecting */
 +		if (!ast_strlen_zero(courtesytone)) {
 +			if (!ast_streamfile(peer, courtesytone, peer->language)) {
 +				if (ast_waitstream(peer, "") < 0) {
@@ -528,7 +528,7 @@
 +				}
 +			}
 +		}
-+ 
++
 +		res = ast_channel_make_compatible(chan, peer);
 +		if (res < 0) {
 +			ast_log(LOG_WARNING, "Could not make channels %s and %s compatible for bridge\n", chan->name, peer->name);
@@ -537,7 +537,7 @@
 +		}
 +		/* This runs sorta backwards, since we give the incoming channel control, as if it
 +		   were the person called. */
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s autoanswered  %s\n", peer->name, chan->name);
 +		manager_event(EVENT_FLAG_CALL, "Autoanswer",
 +                    "Channel: %s\r\n"
@@ -558,14 +558,14 @@
 +		config.warning_sound=NULL;
 +		res = ast_bridge_call(chan,peer,&config);
 +
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "returning from bridge %s\n", peer->name);
 +			/* relogin */
 +		snprintf(datastring, sizeof(datastring) - 1, "%s|%s", aacontext, aaexten);
 +		ast_autoanswer_login(peer, datastring);
 +		return res;
 +	} else {
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Nobody logged in for autoanswer %s@%s\n", aaexten, aacontext);
 +		res = -1;
 +	}

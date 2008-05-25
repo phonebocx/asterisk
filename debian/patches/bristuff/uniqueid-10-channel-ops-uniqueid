@@ -6,13 +6,13 @@ Add or convert channel operations so they can use the unique ID.
   */
  struct ast_channel *ast_request(const char *type, int format, void *data, int *status);
  
-+/*! \brief Requests a channel 
++/*! \brief Requests a channel
 + * \param type type of channel to request
 + * \param format requested channel format (codec)
 + * \param data data to pass to the channel requester
 + * \param status status
 + * \param uniqueid uniqueid
-+ * Request a channel of a given type, with data as optional information used 
++ * Request a channel of a given type, with data as optional information used
 + * by the low level module. Sets the channels uniqueid to 'uniqueid'.
 + * \return Returns an ast_channel on success, NULL on failure.
 + */
@@ -59,7 +59,7 @@ Add or convert channel operations so they can use the unique ID.
  				 */
  			}
 -			if (name) { /* want match by name */
-+			if (uniqueid) { 
++			if (uniqueid) {
 +			    if (!strcasecmp(c->uniqueid, uniqueid))
 +				break;
 +			} else if (name) { /* want match by name */

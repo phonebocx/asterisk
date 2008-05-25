@@ -508,7 +508,7 @@
 +#ifdef HAVE_PRI
 +		    if (i->pri) {
 +			if ((i->pri->nodetype == BRI_CPE_PTMP) || (i->pri->nodetype == BRI_CPE)) {
-+			/* dont annoy BRI TE mode users with layer2layer alarms */
++			    /* dont annoy BRI TE mode users with layer2layer alarms */
 +			} else {
 +#endif
  			ast_log(LOG_NOTICE, "Alarm cleared on channel %d\n", i->channel);
@@ -530,7 +530,7 @@
 +#ifdef HAVE_PRI
 +		    if (i->pri) {
 +			if ((i->pri->nodetype == BRI_CPE_PTMP) || (i->pri->nodetype == BRI_CPE)) {
-+				/* dont annoy BRI TE mode users with layer2layer alarms */
++			    /* dont annoy BRI TE mode users with layer2layer alarms */
 +			} else {
 +#endif
 +			    const char *alarm_str = alarm2str(res);
@@ -674,40 +674,40 @@
  
  				/* Copy any DSP that may be present */
 -				new->dsp = old->dsp;
-+  				new->dsp = old->dsp;
++				new->dsp = old->dsp;
  				new->dsp_features = old->dsp_features;
  				old->dsp = NULL;
  				old->dsp_features = 0;
 -			}
 +
 +				/* Copy faxhandled/digial, alreadyhungup */
-+  				new->faxhandled = old->faxhandled;
++				new->faxhandled = old->faxhandled;
 +				new->digital = old->digital;
 +				new->alreadyhungup = old->alreadyhungup;
 +
 +				/* Copy law, gains, etc */
-+  				    new->law = old->law;
++				new->law = old->law;
 +				if (ioctl(new->subs[SUB_REAL].zfd, ZT_AUDIOMODE, &new->law) == -1)
 +				    ast_log(LOG_WARNING, "Unable to set audio mode on channel %d to %d\n", new->channel, new->law);
 +				res = zt_setlaw(new->subs[SUB_REAL].zfd, new->law);
-+  				    if (res < 0)
-+  					ast_log(LOG_WARNING, "Unable to set law on channel %d\n", new->channel);
-+				    if (!new->digital) {
++				if (res < 0)
++				    ast_log(LOG_WARNING, "Unable to set law on channel %d\n", new->channel);
++				if (!new->digital) {
 +				    res = set_actual_gain(new->subs[SUB_REAL].zfd, 0, new->rxgain, new->txgain, new->law);
-+  				    } else {
++				} else {
 +				    res = set_actual_gain(new->subs[SUB_REAL].zfd, 0, 0, 0, new->law);
-+				    }
-+				    if (res < 0)
-+  					ast_log(LOG_WARNING, "Unable to set gains on channel %d\n", new->channel);
++				}
++				if (res < 0)
++				    ast_log(LOG_WARNING, "Unable to set gains on channel %d\n", new->channel);
 +
 +				/* Shutdown old channel */
-+  				    zt_confmute(old, 0);
-+  				    update_conf(old);
-+  				    reset_conf(old);
-+  				    restore_gains(old);
-+  				    zt_disable_ec(old);
-+  				    zt_setlinear(old->subs[SUB_REAL].zfd, 0);
-+  				}
++				zt_confmute(old, 0);
++				update_conf(old);
++				reset_conf(old);
++				restore_gains(old);
++				zt_disable_ec(old);
++				zt_setlinear(old->subs[SUB_REAL].zfd, 0);
++			}
  			return principle;
  		}
  	}
@@ -912,59 +912,34 @@
  		if (e) {
  			if (pri->debug)
  				pri_dump_event(pri->dchans[which], e);
-@@ -8560,13 +8732,13 @@ static void *pri_dchannel(void *vpri)
- 			if (e->e != PRI_EVENT_DCHAN_DOWN) {
- 				if (!(pri->dchanavail[which] & DCHAN_UP)) {
- 					if (option_verbose > 1) 
--						ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d up\n", pri_order(which), pri->span);
--				}
-+							ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d up\n", pri_order(which), pri->span);
-+					}
- 				pri->dchanavail[which] |= DCHAN_UP;
- 			} else {
- 				if (pri->dchanavail[which] & DCHAN_UP) {
- 					if (option_verbose > 1) 
--						ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d down\n", pri_order(which), pri->span);
-+							ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d down\n", pri_order(which), pri->span);
- 				}
- 				pri->dchanavail[which] &= ~DCHAN_UP;
- 			}
 @@ -8577,41 +8749,60 @@ static void *pri_dchannel(void *vpri)
  
  			switch (e->e) {
  			case PRI_EVENT_DCHAN_UP:
-+  				if (pri->nodetype == BRI_NETWORK_PTMP) {
-+ 				    if (option_verbose > 3)
-+ 					ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d up for TEI %d\n", pri_order(which), pri->span, e->gen.tei);
++				if (pri->nodetype == BRI_NETWORK_PTMP) {
++				    if (option_verbose > 3)
++					ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d up for TEI %d\n", pri_order(which), pri->span, e->gen.tei);
 +				} else if (pri->nodetype == BRI_CPE_PTMP) {
-+ 				    if (option_verbose > 3)
-+  					    ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d up\n", pri_order(which), pri->span);
-+  				} else {
-+  				    if (option_verbose > 1)
-+  					    ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d up\n", pri_order(which), pri->span);
-+  				}
++				    if (option_verbose > 3)
++					    ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d up\n", pri_order(which), pri->span);
++				} else {
++				    if (option_verbose > 1)
++					    ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d up\n", pri_order(which), pri->span);
++				}
 +
  				if (!pri->pri) pri_find_dchan(pri);
  
--				/* Note presense of D-channel */
--				time(&pri->lastreset);
-+				    /* Note presense of D-channel */
-+				    time(&pri->lastreset);
+ 				/* Note presense of D-channel */
+ 				time(&pri->lastreset);
  
--				/* Restart in 5 seconds */
--				if (pri->resetinterval > -1) {
-+				    /* Restart in 5 seconds */
-+				    if (pri->resetinterval > -1) {
+ 				/* Restart in 5 seconds */
+ 				if (pri->resetinterval > -1) {
  					pri->lastreset -= pri->resetinterval;
  					pri->lastreset += 5;
--				}
--				pri->resetting = 0;
--				/* Take the channels from inalarm condition */
--				for (i = 0; i < pri->numchans; i++)
-+				    }
-+				    pri->resetting = 0;
-+				    /* Take the channels from inalarm condition */
-+				    for (i = 0; i < pri->numchans; i++)
+ 				}
+ 				pri->resetting = 0;
+ 				/* Take the channels from inalarm condition */
+ 				for (i = 0; i < pri->numchans; i++)
  					if (pri->pvts[i]) {
  						pri->pvts[i]->inalarm = 0;
  					}
@@ -972,14 +947,14 @@
  			case PRI_EVENT_DCHAN_DOWN:
 -				pri_find_dchan(pri);
 -				if (!pri_is_up(pri)) {
-+  				if (pri->nodetype == BRI_NETWORK_PTMP) {
++				if (pri->nodetype == BRI_NETWORK_PTMP) {
 +  				    if (option_verbose > 3)
 +  					ast_verbose(VERBOSE_PREFIX_2 "%s D-Channel on span %d down for TEI %d\n", pri_order(which), pri->span, e->gen.tei);
 +  				    // PTMP BRIs have N dchans, handled by libpri
 +  				    if (e->gen.tei == 0) break;
-+  				    }
-+				    pri_find_dchan(pri);
-+				    if (!pri_is_up(pri)) {
++				}
++				pri_find_dchan(pri);
++				if (!pri_is_up(pri)) {
  					pri->resetting = 0;
  					/* Hangup active channels and put them in alarm mode */
  					for (i = 0; i < pri->numchans; i++) {

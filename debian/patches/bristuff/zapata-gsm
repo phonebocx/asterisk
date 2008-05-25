@@ -363,7 +363,7 @@
 +		      	"Length: %d\r\n"
 +		  	"Text: %s\r\n"
 +		  	"PDU: %s\r\n",
-+			gsm->span, 
++			gsm->span,
 +			e->sm_received.sender,
 +			e->sm_received.smsc,
 +			e->sm_received.len,
@@ -391,7 +391,7 @@
 +	}
 +	gsm_set_debug(gsm->modul, GSM_DEBUG_NONE);
 +	for (;;) {
-+		
++
 +		/* Run the D-Channel */
 +		FD_ZERO(&rfds);
 +		FD_ZERO(&efds);
@@ -422,7 +422,7 @@
 +		} else if (errno == ELAST) {
 +			res = ioctl(gsm->fd, ZT_GETEVENT, &x);
 +			printf("Got Zaptel event: %d\n", x);
-+		} else if (errno != EINTR) 
++		} else if (errno != EINTR)
 +			fprintf(stderr, "Error (%d) on select: %s\n", ELAST, strerror(errno));
 +
 +		if (!e) {
@@ -521,7 +521,7 @@
 +	    }
 +	    pvt = pvt->next;
 +	}
-+	
++
 +	ast_cli(fd, "No GSM running on channel %d\n", channel);
 +	return RESULT_SUCCESS;
 +}
@@ -550,15 +550,15 @@
 + return handle_gsm_debug_helper(fd, channel, GSM_DEBUG_NONE);
 +}
 +
-+static char zap_reset_help[] = 
++static char zap_reset_help[] =
 +	"Usage: zap reset span <span>\n"
 +	"       Reset/Restart a zaptel span\n";
 +
-+static char gsm_debug_help[] = 
++static char gsm_debug_help[] =
 +	"Usage: gsm debug channel <channel>\n"
 +	"       Enables debugging on a given GSM channel\n";
-+	
-+static char gsm_no_debug_help[] = 
++
++static char gsm_no_debug_help[] =
 +	"Usage: gsm no debug channel <channel>\n"
 +	"       Disables debugging on a given GSM channel\n";
 +
@@ -573,7 +573,7 @@
 +
 +
 +
-+static char gsm_send_pdu_help[] = 
++static char gsm_send_pdu_help[] =
 +	"Usage: gsm send pdu <channel> <pdu>\n"
 +	"       Sends a PDU on a GSM channel\n";
 +
@@ -607,7 +607,7 @@
 +	    }
 +	    pvt = pvt->next;
 +	}
-+	
++
 +	return RESULT_SUCCESS;
 +}
 +
@@ -615,7 +615,7 @@
 +	{ "gsm", "send", "pdu", NULL }, handle_gsm_send_pdu, "Sends a SM on a GSM channel", gsm_send_pdu_help, complete_span_4 };
 +
 +
-+static char gsm_send_sms_help[] = 
++static char gsm_send_sms_help[] =
 +	"Usage: gsm send sms <channel> <destination> <message>\n"
 +	"       Sends a SM on a GSM channel\n";
 +
@@ -648,7 +648,7 @@
 +	    }
 +	    pvt = pvt->next;
 +	}
-+	
++
 +	return RESULT_SUCCESS;
 +}
 +
@@ -656,16 +656,16 @@
 +     struct zt_pvt *pvt = NULL;
 +     char *c = NULL;
 +     pvt = chan->tech_pvt;
-+     
++
 +     if (!pvt) return -1;
-+     
++
 +     /* parse dialstring */
 +     c = strrchr(dest, '/');
 +     if (c)
 + 	c++;
 +     else
 + 	c = (char *)dest;
-+ 
++
 +     ast_mutex_lock(&pvt->lock);
 + 	if (ispdu) {
 +     	    gsm_sms_send_pdu(pvt->gsm.modul, (char *)text);
@@ -676,11 +676,11 @@
 +     gsm_wait(pvt->gsm.modul);
 +     return 0;
 +}
-+ 
++
 +static struct ast_cli_entry gsm_send_sms = {
 +	{ "gsm", "send", "sms", NULL }, handle_gsm_send_sms, "Sends a SM on a GSM channel", gsm_send_sms_help, complete_span_4 };
 +
-+static char gsm_show_status_help[] = 
++static char gsm_show_status_help[] =
 +	"Usage: gsm show status <channel>>\n"
 +	"       Displays status information about the GSM channel.\n";
 +
@@ -712,7 +712,7 @@
 +	    }
 +	    pvt = pvt->next;
 +	}
-+	
++
 +	return RESULT_SUCCESS;
 +}
 +
@@ -745,7 +745,7 @@
 +				} else if (!strcasecmp(v->value, "gsm")) {
 +					confp->chan.sig = SIG_GSM;
 +					confp->chan.radio = 0;
-+#endif				
++#endif
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
  				}
@@ -797,7 +797,7 @@
 + if (!p) return -1;
 + if (!p->pri) return -1;
 +	    if (strlen(text)) {
-+		if (p->pri) {		
++		if (p->pri) {
 +		    if (!pri_grab(p, p->pri)) {
 +		//	ast_log(LOG_NOTICE, "Sending Display IE  '%s'\n", text);
 +			pri_information_display(p->pri->pri,p->call,(char *)text);
@@ -824,7 +824,7 @@
 +}
 +
 +static int zt_sendmessage(struct ast_channel *c, const char *dest, const char *text, int ispdu) {
-+ struct zt_pvt *p = c->tech_pvt;
++struct zt_pvt *p = c->tech_pvt;
 + if (!p) return -1;
 + if (p->sig == SIG_PRI) {
 +#ifdef HAVE_PRI

@@ -12,7 +12,7 @@
  "                    channel.\n"
  ;
  
-+static const char *desc_uniqueid = 
++static const char *desc_uniqueid =
 +"  ChanSpyChan(uniqueid[|options]): This application is used to listen to the\n"
 +"audio from an Asterisk channel. This includes the audio coming in and\n"
 +"out of the channel being spied on. The 'uniqueid' parameter has to be specified,\n"
@@ -137,7 +137,7 @@
 +
 +	if (options) {
 +		char *opts[OPT_ARG_ARRAY_SIZE];
-+		
++
 +		ast_app_parse_options(spy_opts, &flags, opts, options);
 +		if (ast_test_flag(&flags, OPTION_GROUP))
 +			mygroup = opts[OPT_ARG_GROUP];

@@ -85,7 +85,7 @@
 +		memset(pu, 0, sizeof(pu));
 +		ast_mutex_lock(&holding_lock);
 +		chan->appl = "Holded Call";
-+		chan->data = NULL; 
++		chan->data = NULL;
 +
 +		pu->chan = chan;
 +		strncpy(pu->uniqueid, chan->uniqueid, sizeof(pu->uniqueid));
@@ -169,7 +169,7 @@
 +		}
 +		/* This runs sorta backwards, since we give the incoming channel control, as if it
 +		   were the person called. */
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s connected to holded call %s\n", chan->name, peer->name);
 +
 +		memset(&config,0,sizeof(struct ast_bridge_config));
@@ -207,7 +207,7 @@
 +
 +	if (peer) {
 +		res=0;
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s removed from hold.\n", peer->name);
 +		ast_mutex_unlock(&peer->lock);
 +		ast_hangup(peer);
@@ -230,7 +230,7 @@
 +			if (pl)
 +				pl->next = pu->next;
 +			else
-+				holdlist = pu->next; 
++				holdlist = pu->next;
 +			break;
 +		}
 +		pl = pu;
@@ -242,12 +242,12 @@
 +		free(pu);
 +		if (peer) {
 +		    res=0;
-+		    if (option_verbose > 2) 
++		    if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s removed from hold.\n", peer->name);
 + 		    ast_moh_stop(peer);
 +		    return peer;
 + 		} else {
-+		    if (option_verbose > 2) 
++		    if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Could not find channel with uniqueid %s.\n", uniqueid);
 +		    return NULL;
 +		}
@@ -291,13 +291,13 @@
 +						f = ast_read(pu->chan);
 +						if (!f || ((f->frametype == AST_FRAME_CONTROL) && (f->subclass ==  AST_CONTROL_HANGUP))) {
 +							/* There's a problem, hang them up*/
-+							if (option_verbose > 1) 
++							if (option_verbose > 1)
 +								ast_verbose(VERBOSE_PREFIX_2 "%s got tired of being onhold\n", pu->chan->name);
 +							ast_hangup(pu->chan);
 +							/* find the corresponding channel and hang them up too! */
 +							/* but only if it is not bridged yet! */
 +							/* And take them out of the parking lot */
-+							if (pl) 
++							if (pl)
 +								pl->next = pu->next;
 +							else
 +								holdlist = pu->next;
