@@ -1,7 +1,7 @@
 Add or convert channel operations so they can use the unique ID.
 
---- a/include/asterisk/channel.h
-+++ b/include/asterisk/channel.h
+--- asterisk.orig/include/asterisk/channel.h
++++ asterisk/include/asterisk/channel.h
 @@ -677,6 +677,18 @@ void  ast_channel_free(struct ast_channe
   */
  struct ast_channel *ast_request(const char *type, int format, void *data, int *status);
@@ -21,19 +21,20 @@ Add or convert channel operations so they can use the unique ID.
  /*!
   * \brief Request a channel of a given type, with data as optional information used 
   * by the low level module and attempt to place a call on it
-@@ -690,9 +702,9 @@ struct ast_channel *ast_request(const ch
-  * \return Returns an ast_channel on success or no answer, NULL on failure.  Check the value of chan->_state
-  * to know if the call was answered or not.
+@@ -692,8 +704,12 @@ struct ast_channel *ast_request(const ch
   */
--struct ast_channel *ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname);
-+struct ast_channel *ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, int callingpres, const char *cidnum, const char *cidname, char *uniqueid);
+ struct ast_channel *ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname);
  
--struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname, struct outgoing_helper *oh);
-+struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, int callingpres, const char *cidnum, const char *cidname, struct outgoing_helper *oh, char *uniqueid);
++struct ast_channel *ast_request_and_dial_uniqueid(const char *type, int format, void *data, int timeout, int *reason, int callingpres, const char *cidnum, const char *cidname, char *uniqueid);
++
+ struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *reason, const char *cidnum, const char *cidname, struct outgoing_helper *oh);
  
++struct ast_channel *__ast_request_and_dial_uniqueid(const char *type, int format, void *data, int timeout, int *reason, int callingpres, const char *cidnum, const char *cidname, struct outgoing_helper *oh, char *uniqueid);
++
  /*! \brief "Requests" a channel for sending a message
   * \param type type of channel to request
-@@ -977,6 +989,8 @@ struct ast_channel *ast_get_channel_by_e
+  * \param data data to pass to the channel requester
+@@ -977,6 +993,8 @@ struct ast_channel *ast_get_channel_by_e
  /*! \brief Get next channel by exten (and optionally context) and lock it */
  struct ast_channel *ast_walk_channel_by_exten_locked(const struct ast_channel *chan, const char *exten,
  						     const char *context);
@@ -42,8 +43,8 @@ Add or convert channel operations so they can use the unique ID.
  
  /*! ! \brief Waits for a digit
   * \param c channel to wait for a digit on
---- a/main/channel.c
-+++ b/main/channel.c
+--- asterisk.orig/main/channel.c
++++ asterisk/main/channel.c
 @@ -1017,7 +1017,7 @@ void ast_channel_undefer_dtmf(struct ast
   */
  static struct ast_channel *channel_find_locked(const struct ast_channel *prev,
@@ -129,16 +130,20 @@ Add or convert channel operations so they can use the unique ID.
  
  	ast_copy_string(name, chan->name, sizeof(name));
  
-@@ -2821,7 +2831,7 @@ char *ast_channel_reason2str(int reason)
- 	}
- }
+@@ -2823,6 +2833,12 @@ char *ast_channel_reason2str(int reason)
  
--struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *outstate, const char *cid_num, const char *cid_name, struct outgoing_helper *oh)
-+struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *outstate, int callingpres, const char *cid_num, const char *cid_name, struct outgoing_helper *oh, char* uniqueid)
+ struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *outstate, const char *cid_num, const char *cid_name, struct outgoing_helper *oh)
  {
++	return __ast_request_and_dial_uniqueid(type, format, data,
++		timeout, outstate, 0, cid_num, cid_name, oh, NULL);
++}
++
++struct ast_channel *__ast_request_and_dial_uniqueid(const char *type, int format, void *data, int timeout, int *outstate, int callingpres, const char *cid_num, const char *cid_name, struct outgoing_helper *oh, char* uniqueid)
++{
  	int dummy_outstate;
  	int cause = 0;
-@@ -2834,7 +2844,7 @@ struct ast_channel *__ast_request_and_di
+ 	struct ast_channel *chan;
+@@ -2834,7 +2850,7 @@ struct ast_channel *__ast_request_and_di
  	else
  		outstate = &dummy_outstate;	/* make outstate always a valid pointer */
  
@@ -147,7 +152,7 @@ Add or convert channel operations so they can use the unique ID.
  	if (!chan) {
  		ast_log(LOG_NOTICE, "Unable to request channel %s/%s\n", type, (char *)data);
  		/* compute error and return */
-@@ -2857,7 +2867,7 @@ struct ast_channel *__ast_request_and_di
+@@ -2857,7 +2873,7 @@ struct ast_channel *__ast_request_and_di
  			ast_cdr_setaccount(chan, oh->account);	
  	}
  	ast_set_callerid(chan, cid_num, cid_name, cid_num);
@@ -156,23 +161,21 @@ Add or convert channel operations so they can use the unique ID.
  	
  
  	if (!chan->cdr) { /* up till now, this insertion hasn't been done. Therefore,
-@@ -2950,12 +2960,12 @@ struct ast_channel *__ast_request_and_di
- 	return chan;
- }
- 
--struct ast_channel *ast_request_and_dial(const char *type, int format, void *data, int timeout, int *outstate, const char *cidnum, const char *cidname)
-+struct ast_channel *ast_request_and_dial(const char *type, int format, void *data, int timeout, int *outstate, int callingpres, const char *cidnum, const char *cidname, char *uniqueid)
+@@ -2954,8 +2970,12 @@ struct ast_channel *ast_request_and_dial
  {
--	return __ast_request_and_dial(type, format, data, timeout, outstate, cidnum, cidname, NULL);
-+	return __ast_request_and_dial(type, format, data, timeout, outstate, 0, cidnum, cidname, NULL, uniqueid);
+ 	return __ast_request_and_dial(type, format, data, timeout, outstate, cidnum, cidname, NULL);
  }
++struct ast_channel *ast_request_and_dial_uniqueid(const char *type, int format, void *data, int timeout, int *outstate, int callingpres, const char *cidnum, const char *cidname, char *uniqueid)
++{
++	return __ast_request_and_dial_uniqueid(type, format, data, timeout, outstate, 0, cidnum, cidname, NULL, uniqueid);
++}
  
 -struct ast_channel *ast_request(const char *type, int format, void *data, int *cause)
 +struct ast_channel *ast_request_with_uniqueid(const char *type, int format, void *data, int *cause, char *uniqueid)
  {
  	struct chanlist *chan;
  	struct ast_channel *c;
-@@ -3005,6 +3015,11 @@ struct ast_channel *ast_request(const ch
+@@ -3005,6 +3025,11 @@ struct ast_channel *ast_request(const ch
  	return NULL;
  }
  
@@ -184,7 +187,7 @@ Add or convert channel operations so they can use the unique ID.
  int ast_call(struct ast_channel *chan, char *addr, int timeout)
  {
  	/* Place an outgoing call, but don't wait any longer than timeout ms before returning.
-@@ -3390,7 +3405,7 @@ int ast_do_masquerade(struct ast_channel
+@@ -3390,7 +3415,7 @@ int ast_do_masquerade(struct ast_channel
  	ast_string_field_set(clone, name, masqn);
  	
  	/* Notify any managers of the change, first the masq then the other */
@@ -193,25 +196,14 @@ Add or convert channel operations so they can use the unique ID.
  	manager_event(EVENT_FLAG_CALL, "Rename", "Oldname: %s\r\nNewname: %s\r\nUniqueid: %s\r\n", orig, newn, original->uniqueid);
  
  	/* Swap the technologies */	
---- a/apps/app_parkandannounce.c
-+++ b/apps/app_parkandannounce.c
-@@ -182,7 +182,7 @@ static int parkandannounce_exec(struct a
- 	memset(&oh, 0, sizeof(oh));
- 	oh.parent_channel = chan;
- 	oh.vars = ast_variable_new("_PARKEDAT", buf);
--	dchan = __ast_request_and_dial(dialtech, AST_FORMAT_SLINEAR, dialstr,30000, &outstate, chan->cid.cid_num, chan->cid.cid_name, &oh);
-+	dchan = __ast_request_and_dial(dialtech, AST_FORMAT_SLINEAR, dialstr,30000, &outstate, 0, chan->cid.cid_num, chan->cid.cid_name, &oh, NULL);
- 
- 	if(dchan) {
- 		if(dchan->_state == AST_STATE_UP) {
---- a/include/asterisk/pbx.h
-+++ b/include/asterisk/pbx.h
+--- asterisk.orig/include/asterisk/pbx.h
++++ asterisk/include/asterisk/pbx.h
 @@ -717,9 +717,17 @@ int ast_async_goto_by_name(const char *c
  int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel);
  
  /*! Synchronously or asynchronously make an outbound call and send it to a
 +   particular extension (extended version with callinpres and uniqueid) */
-+int ast_pbx_outgoing_exten2(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid);
++int ast_pbx_outgoing_exten_uniqueid(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid);
 +
 +/*! Synchronously or asynchronously make an outbound call and send it to a
     particular application with given extension */
@@ -219,19 +211,19 @@ Add or convert channel operations so they can use the unique ID.
  
 +/*! Synchronously or asynchronously make an outbound call and send it to a
 +   particular application with given extension (extended version with callinpres and uniqueid) */
-+int ast_pbx_outgoing_app2(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid);
++int ast_pbx_outgoing_app_uniqueid(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid);
 +
  /*!
   * \brief Evaluate a condition
   *
---- a/main/pbx.c
-+++ b/main/pbx.c
+--- asterisk.orig/main/pbx.c
++++ asterisk/main/pbx.c
 @@ -4990,7 +4990,7 @@ static int ast_pbx_outgoing_cdr_failed(v
  	return 0;  /* success */
  }
  
 -int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **channel)
-+int ast_pbx_outgoing_exten2(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **channel, char *uniqueid)
++int ast_pbx_outgoing_exten_uniqueid(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **channel, char *uniqueid)
  {
  	struct ast_channel *chan;
  	struct async_stat *as;
@@ -240,7 +232,7 @@ Add or convert channel operations so they can use the unique ID.
  	if (sync) {
  		LOAD_OH(oh);
 -		chan = __ast_request_and_dial(type, format, data, timeout, reason, cid_num, cid_name, &oh);
-+		chan = __ast_request_and_dial(type, format, data, timeout, reason, callingpres, cid_num, cid_name, &oh, uniqueid);
++		chan = __ast_request_and_dial_uniqueid(type, format, data, timeout, reason, callingpres, cid_num, cid_name, &oh, uniqueid);
  		if (channel) {
  			*channel = chan;
  			if (chan)
@@ -249,7 +241,7 @@ Add or convert channel operations so they can use the unique ID.
  			goto outgoing_exten_cleanup;
  		}
 -		chan = ast_request_and_dial(type, format, data, timeout, reason, cid_num, cid_name);
-+		chan = ast_request_and_dial(type, format, data, timeout, reason, callingpres, cid_num, cid_name, uniqueid);
++		chan = ast_request_and_dial_uniqueid(type, format, data, timeout, reason, callingpres, cid_num, cid_name, uniqueid);
  		if (channel) {
  			*channel = chan;
  			if (chan)
@@ -259,7 +251,7 @@ Add or convert channel operations so they can use the unique ID.
  
 +int ast_pbx_outgoing_exten(const char *type, int format, void *data, int timeout, const char *context, const char *exten, int priority, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **channel)
 +{
-+    return ast_pbx_outgoing_exten2(type, format, data, timeout, context, exten, priority, reason, sync, 0, cid_num, cid_name, vars, account, channel, NULL);
++    return ast_pbx_outgoing_exten_uniqueid(type, format, data, timeout, context, exten, priority, reason, sync, 0, cid_num, cid_name, vars, account, channel, NULL);
 +}
  struct app_tmp {
  	char app[256];
@@ -269,7 +261,7 @@ Add or convert channel operations so they can use the unique ID.
  }
  
 -int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel)
-+int ast_pbx_outgoing_app2(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid)
++int ast_pbx_outgoing_app_uniqueid(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, int callingpres, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel, char *uniqueid)
  {
  	struct ast_channel *chan;
  	struct app_tmp *tmp;
@@ -278,7 +270,7 @@ Add or convert channel operations so they can use the unique ID.
  	}
  	if (sync) {
 -		chan = __ast_request_and_dial(type, format, data, timeout, reason, cid_num, cid_name, &oh);
-+		chan = __ast_request_and_dial(type, format, data, timeout, reason, callingpres, cid_num, cid_name, &oh, uniqueid);
++		chan = __ast_request_and_dial_uniqueid(type, format, data, timeout, reason, callingpres, cid_num, cid_name, &oh, uniqueid);
  		if (chan) {
  			if (!chan->cdr) { /* check if the channel already has a cdr record, if not give it one */
  				chan->cdr = ast_cdr_alloc();   /* allocate a cdr for the channel */
@@ -287,7 +279,7 @@ Add or convert channel operations so they can use the unique ID.
  			goto outgoing_app_cleanup;
  		}
 -		chan = __ast_request_and_dial(type, format, data, timeout, reason, cid_num, cid_name, &oh);
-+		chan = __ast_request_and_dial(type, format, data, timeout, reason, callingpres, cid_num, cid_name, &oh, uniqueid);
++		chan = __ast_request_and_dial_uniqueid(type, format, data, timeout, reason, callingpres, cid_num, cid_name, &oh, uniqueid);
  		if (!chan) {
  			free(as);
  			res = -1;
@@ -297,7 +289,7 @@ Add or convert channel operations so they can use the unique ID.
  
 +int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, const char *app, const char *appdata, int *reason, int sync, const char *cid_num, const char *cid_name, struct ast_variable *vars, const char *account, struct ast_channel **locked_channel)
 +{
-+    return ast_pbx_outgoing_app2(type, format, data, timeout, app, appdata, reason, sync, 0, cid_num, cid_name, vars, account, locked_channel, NULL);
++    return ast_pbx_outgoing_app_uniqueid(type, format, data, timeout, app, appdata, reason, sync, 0, cid_num, cid_name, vars, account, locked_channel, NULL);
 +}
  void __ast_context_destroy(struct ast_context *con, const char *registrar)
  {

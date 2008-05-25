@@ -1,5 +1,5 @@
---- a/main/manager.c
-+++ b/main/manager.c
+--- asterisk.orig/main/manager.c
++++ asterisk/main/manager.c
 @@ -87,6 +87,8 @@ struct fast_originate_helper {
  	char idtext[AST_MAX_EXTENSION];
  	char account[AST_MAX_ACCOUNT_CODE];
@@ -91,14 +91,14 @@
  
  	if (!ast_strlen_zero(in->app)) {
 -		res = ast_pbx_outgoing_app(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->app, in->appdata, &reason, 1, 
-+		res = ast_pbx_outgoing_app2(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->app, in->appdata, &reason, 1, in->callingpres,
++		res = ast_pbx_outgoing_app_uniqueid(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->app, in->appdata, &reason, 1, in->callingpres,
  			S_OR(in->cid_num, NULL), 
  			S_OR(in->cid_name, NULL),
 -			in->vars, in->account, &chan);
 +			in->vars, in->account, &chan, in->uniqueid);
  	} else {
 -		res = ast_pbx_outgoing_exten(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->context, in->exten, in->priority, &reason, 1, 
-+		res = ast_pbx_outgoing_exten2(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->context, in->exten, in->priority, &reason, 1, in->callingpres,
++		res = ast_pbx_outgoing_exten_uniqueid(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->context, in->exten, in->priority, &reason, 1, in->callingpres,
  			S_OR(in->cid_num, NULL), 
  			S_OR(in->cid_name, NULL),
 -			in->vars, in->account, &chan);
@@ -159,11 +159,11 @@
  		}
  	} else if (!ast_strlen_zero(app)) {
 -        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, l, n, vars, account, NULL);
-+     		res = ast_pbx_outgoing_app2(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, cpresi, l, n, vars, account, NULL, uniqueid);
++     		res = ast_pbx_outgoing_app_uniqueid(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, cpresi, l, n, vars, account, NULL, uniqueid);
      	} else {
  		if (exten && context && pi)
 -	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, l, n, vars, account, NULL);
-+	        	res = ast_pbx_outgoing_exten2(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, cpresi, l, n, vars, account, NULL, uniqueid);
++	        	res = ast_pbx_outgoing_exten_uniqueid(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, cpresi, l, n, vars, account, NULL, uniqueid);
  		else {
  			astman_send_error(s, m, "Originate with 'Exten' requires 'Context' and 'Priority'");
  			return 0;
@@ -188,8 +188,8 @@
  	return 0;
  }
  
---- a/include/asterisk/channel.h
-+++ b/include/asterisk/channel.h
+--- asterisk.orig/include/asterisk/channel.h
++++ asterisk/include/asterisk/channel.h
 @@ -89,6 +89,9 @@
  
  #include "asterisk/abstract_jb.h"
@@ -200,7 +200,7 @@
  #include <unistd.h>
  #ifdef POLLCOMPAT 
  #include "asterisk/poll-compat.h"
-@@ -1022,6 +1025,8 @@ int ast_waitfordigit_full(struct ast_cha
+@@ -1026,6 +1029,8 @@ int ast_waitfordigit_full(struct ast_cha
  int ast_readstring(struct ast_channel *c, char *s, int len, int timeout, int rtimeout, char *enders);
  int ast_readstring_full(struct ast_channel *c, char *s, int len, int timeout, int rtimeout, char *enders, int audiofd, int ctrlfd);
  
@@ -209,8 +209,8 @@
  /*! \brief Report DTMF on channel 0 */
  #define AST_BRIDGE_DTMF_CHANNEL_0		(1 << 0)		
  /*! \brief Report DTMF on channel 1 */
---- a/main/channel.c
-+++ b/main/channel.c
+--- asterisk.orig/main/channel.c
++++ asterisk/main/channel.c
 @@ -706,6 +706,15 @@ static const struct ast_channel_tech nul
  	.description = "Null channel (should not see this)",
  };

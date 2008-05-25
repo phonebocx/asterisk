@@ -4,7 +4,7 @@
  
  static const char *tdesc = "Listen to a channel, and optionally whisper into it";
  static const char *app_chan = "ChanSpy";
-+static const char *app_chan2 = "ChanSpyChan";
++static const char *app_chan_uniqueid = "ChanSpyChan";
  static const char *desc_chan = 
  "  ChanSpy([chanprefix][|options]): This application is used to listen to the\n"
  "audio from an Asterisk channel. This includes the audio coming in and\n"
@@ -191,7 +191,7 @@
  	int res = 0;
  
  	res |= ast_unregister_application(app_chan);
-+	res |= ast_unregister_application(app_chan2);
++	res |= ast_unregister_application(app_chan_uniqueid);
  	res |= ast_unregister_application(app_ext);
  
 -	ast_module_user_hangup_all();
@@ -202,7 +202,7 @@
  
  	res |= ast_register_application(app_chan, chanspy_exec, tdesc, desc_chan);
  	res |= ast_register_application(app_ext, extenspy_exec, tdesc, desc_ext);
-+	res |= ast_register_application(app_chan2, chanspychan_exec, tdesc, desc_uniqueid);
++	res |= ast_register_application(app_chan_uniqueid, chanspychan_exec, tdesc, desc_uniqueid);
  
  	return res;
  }
