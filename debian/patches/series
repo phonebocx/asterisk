@@ -74,7 +74,7 @@ bristuff/uniqueid-40-manager
 bristuff/feature-autoanswer
 bristuff/feature-holdedcalls
 
-bristuff/zapata_euroisdn_holded
+#bristuff/zapata_euroisdn_holded
 
 # GSM support; it needs the above patch applied first, unfortunately.
 bristuff/zapata-gsm
