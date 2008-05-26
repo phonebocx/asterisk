@@ -7,7 +7,6 @@ asterisk (1:1.4.20~dfsg-1) UNRELEASED; urgency=low
     and added a README.conf on it on rule install-indep.
 
   [ Tzafrir Cohen ]
-  * Fixed name of section in doc-base files.   
   * Provide /usr/include/asterisk.h as well (through a symlink).
   * Remove {,} bashism from debian/rules (Closes: #478361). 
 
@@ -33,7 +32,9 @@ asterisk (1:1.4.20~dfsg-1) UNRELEASED; urgency=low
     - Comment-out the only use of ast-send-message (in GSM) to avoid an ABI
       change. We are not shipping GSM, hence this is not a feature regression.
   * Conflict with asterisk-chan-capi << 1.1.1-1 which we broke with an ABI
-    change :( (Closes: #472379). 
+    change :( (Closes: #472379).
+  * Drop doc-base entries for sip.conf and zapata.conf, there was no point in
+    just listing those two configuration files.
 
  -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 04:08:57 +0300
 
