@@ -30,8 +30,10 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
     - Merge ast-send-message with ast-send-message-users, following upstream
       split.
     - Other minor and cosmetic fixes.
+    - Comment-out the only use of ast-send-message (in GSM) to avoid an ABI
+      change. We are not shipping GSM, hence this is not a feature regression.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 May 2008 23:35:28 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 03:36:46 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 

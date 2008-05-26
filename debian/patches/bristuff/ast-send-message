@@ -1,14 +1,17 @@
-Change the API of ast_sendtext and chan->sendtext to add dest and ispdu
-parameters, used by ast_send_message which is also introduced by this patch.
+Change the ABI of ast_channel_tech to add a new function, send_message that is
+to be used by channels wanting to send text messages with a destination number
+(mainly GSM).
 
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -247,6 +247,9 @@ struct ast_channel_tech {
+@@ -247,6 +247,11 @@ struct ast_channel_tech {
  	/*! \brief Display or transmit text */
  	int (* const send_text)(struct ast_channel *chan, const char *text);
  
++#if 0 /* we (Debian) disable that addition because of ABI breakage */
 +	/*! \brief send a message */
 +	int (* const send_message)(struct ast_channel *chan, const char *dest, const char *text, int ispdu);
++#endif
 +
  	/*! \brief Display or send an image */
  	int (* const send_image)(struct ast_channel *chan, struct ast_frame *frame);
@@ -49,7 +52,7 @@ parameters, used by ast_send_message which is also introduced by this patch.
   * \param timeout timeout in milliseconds (0 for infinite wait)
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -2448,6 +2448,19 @@ int ast_sendtext(struct ast_channel *cha
+@@ -2448,6 +2448,21 @@ int ast_sendtext(struct ast_channel *cha
  	return res;
  }
  
@@ -60,8 +63,10 @@ parameters, used by ast_send_message which is also introduced by this patch.
 +	if (ast_test_flag(chan, AST_FLAG_ZOMBIE) || ast_check_hangup(chan))
 +		return -1;
 +	CHECK_BLOCKING(chan);
++#if 0 /* we (Debian) disable that addition because of ABI breakage */
 +	if (chan->tech->send_message)
 +		res = chan->tech->send_message(chan, dest, text, ispdu);
++#endif
 +	ast_clear_flag(chan, AST_FLAG_BLOCKING);
 +	return res;
 +}
