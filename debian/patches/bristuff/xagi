@@ -224,9 +224,9 @@
          char *stringp;
  	AGI agi;
 @@ -2047,12 +2124,13 @@ static int agi_exec_full(struct ast_chan
- 		}
  	}
  #endif
+ 	ast_replace_sigchld();
 -	res = launch_script(argv[0], argv, fds, enhanced ? &efd : NULL, &pid);
 +	res = launch_script(argv[0], argv, fds, enhanced ? &efd : NULL, (enhanced == 2) ? &efd2 : NULL, &pid);
  	if (res == AGI_RESULT_SUCCESS || res == AGI_RESULT_SUCCESS_FAST) {
@@ -244,8 +244,8 @@
  			close(efd);
 +		if (efd2 > -1)
 +			close(efd2);
- 		ast_unreplace_sigchld();
  	}
+	ast_unreplace_sigchld();
  	ast_module_user_remove(u);
 @@ -2110,6 +2190,35 @@ static int eagi_exec(struct ast_channel 
  	return res;

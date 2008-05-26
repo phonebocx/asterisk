@@ -1,8 +1,4 @@
-asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
-
-  [ Lionel Elie Mamane ]
-  * New upstream version.
-    - Fix IAX performance issues introduced by security fix in 1.4.19.1
+asterisk (1:1.4.20~dfsg-1) UNRELEASED; urgency=low
 
   [ Victor Seva ]
   * Patch sample files pointing now to the correct doc files. (Closes: #475681)
@@ -16,6 +12,10 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
   * Remove {,} bashism from debian/rules (Closes: #478361). 
 
   [ Faidon Liambotis ]
+  * New upstream version.
+    - Fix IAX performance issues introduced by security fix in 1.4.19.1
+    - Dropped patches samples, vpb-driver-4.2.18, vpb_no_cards, incorporated
+      by upstream.
   * Update to bristuff-0.4.0-RC1:
     - Revert API changes to res_agi (xagi).
     - Revert API changes to ast_sendtext() (ast-send-message).
@@ -35,7 +35,7 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
   * Conflict with asterisk-chan-capi << 1.1.1-1 which we broke with an ABI
     change :( (Closes: #472379). 
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 03:43:38 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 04:08:57 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 

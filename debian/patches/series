@@ -13,7 +13,6 @@ h323-workaround-openh323-segfault
 
 astgenkey-security
 apptest_sleep
-samples
 armel_support
 
 ### new features
@@ -21,9 +20,7 @@ pubkey_jnctn
 func_devstate
 
 # for chan_vpb
-vpb-driver-4.2.18
 vpb-handle-nocards
-vpb_no_cards
 
 # for chan_misdn (even though it's not enabled yet)
 misdn_FOP
