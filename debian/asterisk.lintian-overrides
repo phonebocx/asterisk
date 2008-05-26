@@ -1,0 +1,2 @@
+asterisk: package-contains-empty-directory usr/share/asterisk/firmware/iax/
+asterisk: package-contains-empty-directory usr/share/asterisk/static-http/

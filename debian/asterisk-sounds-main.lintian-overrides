@@ -1,0 +1,3 @@
+asterisk-sounds-main: package-contains-empty-directory usr/share/asterisk/sounds/es/
+asterisk-sounds-main: package-contains-empty-directory usr/share/asterisk/sounds/fr/
+asterisk-sounds-main: package-contains-empty-directory usr/share/asterisk/moh/

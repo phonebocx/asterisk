@@ -36,8 +36,11 @@ asterisk (1:1.4.20~dfsg-1) UNRELEASED; urgency=low
   * Drop doc-base entries for sip.conf and zapata.conf, there was no point in
     just listing those two configuration files.
   * Remove -1 revision dependency on libpri and libopenh323-dev.
+  * Override some lintian warnings for asterisk (empty IAX firmware and
+    static-http directories) and asterisk-sounds-main (empty MOH and es/fr
+    sounds directories).
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 05:24:53 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 05:27:37 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 
