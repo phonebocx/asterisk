@@ -32,8 +32,10 @@ asterisk (1:1.4.19.2~dfsg-1) UNRELEASED; urgency=low
     - Other minor and cosmetic fixes.
     - Comment-out the only use of ast-send-message (in GSM) to avoid an ABI
       change. We are not shipping GSM, hence this is not a feature regression.
+  * Conflict with asterisk-chan-capi << 1.1.1-1 which we broke with an ABI
+    change :( (Closes: #472379). 
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 03:36:46 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 03:43:38 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 
