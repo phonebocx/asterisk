@@ -88,7 +88,7 @@
  			ast_indicate(chan, AST_CONTROL_RINGING);
  			sentringing++;
  		}
-@@ -1436,7 +1440,7 @@ static int dial_exec_full(struct ast_cha
+@@ -1442,7 +1446,7 @@ static int dial_exec_full(struct ast_cha
  
  			if (ast_test_flag(&opts, OPT_MUSICBACK)) {
  				ast_moh_stop(chan);

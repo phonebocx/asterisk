@@ -23,7 +23,7 @@ Forwarded as a note to #10811.
 +-----END PUBLIC KEY-----
 --- a/Makefile
 +++ b/Makefile
-@@ -467,8 +467,7 @@ bininstall: _all
+@@ -469,8 +469,7 @@ bininstall: _all installdirs $(SUBDIRS_I
  	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware
  	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware/iax
  	mkdir -p $(DESTDIR)$(ASTMANDIR)/man8

@@ -120,7 +120,7 @@
  		} else {
 --- a/include/asterisk/channel.h
 +++ b/include/asterisk/channel.h
-@@ -611,8 +611,13 @@ int ast_channel_datastore_remove(struct 
+@@ -613,8 +613,13 @@ int ast_channel_datastore_remove(struct 
  /*! \brief Find a datastore on a channel */
  struct ast_datastore *ast_channel_datastore_find(struct ast_channel *chan, const struct ast_datastore_info *info, char *uid);
  
@@ -146,7 +146,7 @@
  }
  
  struct ast_datastore *ast_channel_datastore_alloc(const struct ast_datastore_info *info, char *uid)
-@@ -3647,7 +3647,7 @@ void ast_set_callerid(struct ast_channel
+@@ -3673,7 +3673,7 @@ void ast_set_callerid(struct ast_channel
  	ast_channel_unlock(chan);
  }
  
@@ -155,7 +155,7 @@
  {
  	int oldstate = chan->_state;
  
-@@ -3655,7 +3655,7 @@ int ast_setstate(struct ast_channel *cha
+@@ -3681,7 +3681,7 @@ int ast_setstate(struct ast_channel *cha
  		return 0;
  
  	chan->_state = state;
@@ -164,7 +164,7 @@
  	/* setstate used to conditionally report Newchannel; this is no more */
  	manager_event(EVENT_FLAG_CALL,
  		      "Newstate",
-@@ -3672,6 +3672,11 @@ int ast_setstate(struct ast_channel *cha
+@@ -3698,6 +3698,11 @@ int ast_setstate(struct ast_channel *cha
  	return 0;
  }
  
@@ -230,7 +230,7 @@
  				free(cbprev);
  	    		}
  	    		hint->callbacks = NULL;
-@@ -4019,7 +4019,7 @@ void ast_merge_contexts_and_delete(struc
+@@ -4021,7 +4021,7 @@ void ast_merge_contexts_and_delete(struc
  			while (thiscb) {
  				prevcb = thiscb;
  				thiscb = thiscb->next;
@@ -250,7 +250,7 @@
  static int sip_devicestate(void *data);
  static int sip_poke_noanswer(const void *data);
  static int sip_poke_peer(struct sip_peer *peer);
-@@ -8538,7 +8538,7 @@ static void sip_peer_hold(struct sip_pvt
+@@ -8593,7 +8593,7 @@ static void sip_peer_hold(struct sip_pvt
  /*! \brief Callback for the devicestate notification (SUBSCRIBE) support subsystem
  \note	If you add an "hint" priority to the extension in the dial plan,
  	you will get notifications on device state changes */
@@ -259,7 +259,7 @@
  {
  	struct sip_pvt *p = data;
  
-@@ -12709,7 +12709,7 @@ static void handle_response(struct sip_p
+@@ -12783,7 +12783,7 @@ static void handle_response(struct sip_p
  					if (ast_test_flag(&p->flags[1], SIP_PAGE2_STATECHANGEQUEUE)) {
  						/* Ready to send the next state we have on queue */
  						ast_clear_flag(&p->flags[1], SIP_PAGE2_STATECHANGEQUEUE);
@@ -308,7 +308,7 @@
  	{ -1, "all" },
  	{ 0, "none" },
  };
-@@ -2538,10 +2539,12 @@ int ast_manager_unregister(char *action)
+@@ -2551,10 +2552,12 @@ int ast_manager_unregister(char *action)
  	return 0;
  }
  

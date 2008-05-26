@@ -1,6 +1,6 @@
 --- a/apps/app_meetme.c
 +++ b/apps/app_meetme.c
-@@ -1403,8 +1403,9 @@ static int conf_run(struct ast_channel *
+@@ -1405,8 +1405,9 @@ static int conf_run(struct ast_channel *
  	char members[10] = "";
  	int dtmf, opt_waitmarked_timeout = 0;
  	time_t timeout = 0;
@@ -11,7 +11,7 @@
  	char *buf = __buf + AST_FRIENDLY_OFFSET;
  	int setusercount = 0;
  
-@@ -1604,7 +1605,7 @@ static int conf_run(struct ast_channel *
+@@ -1615,7 +1616,7 @@ static int conf_run(struct ast_channel *
  		}
  		/* Setup buffering information */
  		memset(&bi, 0, sizeof(bi));
@@ -20,7 +20,7 @@
  		bi.txbufpolicy = ZT_POLICY_IMMEDIATE;
  		bi.rxbufpolicy = ZT_POLICY_IMMEDIATE;
  		bi.numbufs = audio_buffers;
-@@ -1915,6 +1916,14 @@ static int conf_run(struct ast_channel *
+@@ -1926,6 +1927,14 @@ static int conf_run(struct ast_channel *
  					f = ast_read(c);
  				if (!f)
  					break;

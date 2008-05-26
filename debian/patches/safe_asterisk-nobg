@@ -20,7 +20,7 @@ init script. After that, it can safely go upstream.
  
  # comment this line out to have this script _not_ kill all mpg123 processes when
  # asterisk exits
-@@ -171,4 +172,8 @@ run_asterisk()
+@@ -179,4 +180,8 @@ run_asterisk()
  	done
  }
  

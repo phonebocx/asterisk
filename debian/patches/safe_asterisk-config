@@ -23,7 +23,7 @@ Closes: #381786
  #NOTIFY=ben@alkaloid.net	# Who to notify about crashes
  #EXEC=/path/to/somescript	# Run this command if Asterisk crashes
  MACHINE=`hostname`			# To specify which machine has crashed when getting the mail
-@@ -77,7 +81,7 @@ ulimit -c unlimited
+@@ -85,7 +89,7 @@ ulimit -c unlimited
  # Don't fork when running "safely"
  #
  ASTARGS=""
@@ -32,7 +32,7 @@ Closes: #381786
  	if [ -c /dev/tty${TTY} ]; then
  		TTY=tty${TTY}
  	elif [ -c /dev/vc/${TTY} ]; then
-@@ -117,7 +121,7 @@ run_asterisk()
+@@ -125,7 +129,7 @@ run_asterisk()
  {
  	while :; do 
  

@@ -10,7 +10,7 @@ Should be reported upstream.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -505,7 +505,7 @@ ifneq ($(findstring ~,$(DESTDIR)),)
+@@ -507,7 +507,7 @@ ifneq ($(findstring ~,$(DESTDIR)),)
  	@exit 1
  endif
  

@@ -121,7 +121,7 @@
  			close(x);
  
  		/* Execute script */
-@@ -357,12 +398,19 @@ static enum agi_result launch_script(cha
+@@ -359,12 +400,19 @@ static enum agi_result launch_script(cha
  	if (efd) {
  		*efd = audio[1];
  	}
@@ -142,7 +142,7 @@
  
  	*opid = pid;
  	return AGI_RESULT_SUCCESS;
-@@ -392,7 +440,7 @@ static void setup_env(struct ast_channel
+@@ -394,7 +442,7 @@ static void setup_env(struct ast_channel
  	fdprintf(fd, "agi_context: %s\n", chan->context);
  	fdprintf(fd, "agi_extension: %s\n", chan->exten);
  	fdprintf(fd, "agi_priority: %d\n", chan->priority);
@@ -151,7 +151,7 @@
  
  	/* User information */
  	fdprintf(fd, "agi_accountcode: %s\n", chan->accountcode ? chan->accountcode : "");
-@@ -1833,8 +1881,13 @@ static enum agi_result run_agi(struct as
+@@ -1835,8 +1883,13 @@ static enum agi_result run_agi(struct as
  	int ms;
  	enum agi_result returnstatus = AGI_RESULT_SUCCESS;
  	struct ast_frame *f;
@@ -165,7 +165,7 @@
  	FILE *readf;
  	/* how many times we'll retry if ast_waitfor_nandfs will return without either 
  	  channel or file descriptor in case select is interrupted by a system call (EINTR) */
-@@ -1848,10 +1901,22 @@ static enum agi_result run_agi(struct as
+@@ -1850,10 +1903,22 @@ static enum agi_result run_agi(struct as
  		return AGI_RESULT_FAILURE;
  	}
  	setlinebuf(readf);
@@ -190,7 +190,7 @@
  		if (c) {
  			retry = AGI_NANDFS_RETRY;
  			/* Idle the channel until we get a command */
-@@ -1869,6 +1934,16 @@ static enum agi_result run_agi(struct as
+@@ -1871,6 +1936,16 @@ static enum agi_result run_agi(struct as
  				ast_frfree(f);
  			}
  		} else if (outfd > -1) {
@@ -207,7 +207,7 @@
  			size_t len = sizeof(buf);
  			size_t buflen = 0;
  
-@@ -1914,6 +1989,7 @@ static enum agi_result run_agi(struct as
+@@ -1922,6 +1997,7 @@ static enum agi_result run_agi(struct as
  			if ((returnstatus < 0) || (returnstatus == AST_PBX_KEEPALIVE)) {
  				break;
  			}
@@ -215,7 +215,7 @@
  		} else {
  			if (--retry <= 0) {
  				ast_log(LOG_WARNING, "No channel, no fd?\n");
-@@ -2022,6 +2098,7 @@ static int agi_exec_full(struct ast_chan
+@@ -2030,6 +2106,7 @@ static int agi_exec_full(struct ast_chan
  	int argc = 0;
  	int fds[2];
  	int efd = -1;
@@ -223,7 +223,7 @@
  	int pid;
          char *stringp;
  	AGI agi;
-@@ -2047,12 +2124,13 @@ static int agi_exec_full(struct ast_chan
+@@ -2056,12 +2133,13 @@ static int agi_exec_full(struct ast_chan
  	}
  #endif
  	ast_replace_sigchld();
@@ -238,16 +238,16 @@
  		agi.fast = (res == AGI_RESULT_SUCCESS_FAST) ? 1 : 0;
  		res = run_agi(chan, argv[0], &agi, pid, &status, dead);
  		/* If the fork'd process returns non-zero, set AGISTATUS to FAILURE */
-@@ -2062,6 +2140,8 @@ static int agi_exec_full(struct ast_chan
+@@ -2071,6 +2149,8 @@ static int agi_exec_full(struct ast_chan
  			close(fds[1]);
  		if (efd > -1)
  			close(efd);
 +		if (efd2 > -1)
 +			close(efd2);
  	}
-	ast_unreplace_sigchld();
+ 	ast_unreplace_sigchld();
  	ast_module_user_remove(u);
-@@ -2110,6 +2190,35 @@ static int eagi_exec(struct ast_channel 
+@@ -2119,6 +2199,35 @@ static int eagi_exec(struct ast_channel 
  	return res;
  }
  
@@ -283,7 +283,7 @@
  static int deadagi_exec(struct ast_channel *chan, void *data)
  {
  	if (!ast_check_hangup(chan))
-@@ -2165,6 +2274,7 @@ static int unload_module(void)
+@@ -2174,6 +2283,7 @@ static int unload_module(void)
  {
  	ast_module_user_hangup_all();
  	ast_cli_unregister_multiple(cli_agi, sizeof(cli_agi) / sizeof(struct ast_cli_entry));
@@ -291,7 +291,7 @@
  	ast_unregister_application(eapp);
  	ast_unregister_application(deadapp);
  	return ast_unregister_application(app);
-@@ -2175,6 +2285,7 @@ static int load_module(void)
+@@ -2184,6 +2294,7 @@ static int load_module(void)
  	ast_cli_register_multiple(cli_agi, sizeof(cli_agi) / sizeof(struct ast_cli_entry));
  	ast_register_application(deadapp, deadagi_exec, deadsynopsis, descrip);
  	ast_register_application(eapp, eagi_exec, esynopsis, descrip);

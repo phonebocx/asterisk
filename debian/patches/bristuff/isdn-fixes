@@ -11,7 +11,7 @@
  			/* Restore saved values */
 --- a/main/channel.c
 +++ b/main/channel.c
-@@ -3874,6 +3874,10 @@ enum ast_bridge_result ast_channel_bridg
+@@ -3898,6 +3898,10 @@ enum ast_bridge_result ast_channel_bridg
  			c1->name, c1->_bridge->name);
  		return -1;
  	}
