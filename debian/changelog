@@ -35,8 +35,9 @@ asterisk (1:1.4.20~dfsg-1) UNRELEASED; urgency=low
     change :( (Closes: #472379).
   * Drop doc-base entries for sip.conf and zapata.conf, there was no point in
     just listing those two configuration files.
+  * Remove -1 revision dependency on libpri and libopenh323-dev.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 04:08:57 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 05:24:53 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 
