@@ -1,4 +1,4 @@
-asterisk (1:1.4.20~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.20~dfsg-1) unstable; urgency=low
 
   [ Victor Seva ]
   * Patch sample files pointing now to the correct doc files. (Closes: #475681)
@@ -40,7 +40,7 @@ asterisk (1:1.4.20~dfsg-1) UNRELEASED; urgency=low
     static-http directories) and asterisk-sounds-main (empty MOH and es/fr
     sounds directories).
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 May 2008 05:27:37 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 07 Jun 2008 19:18:56 +0300
 
 asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
 
