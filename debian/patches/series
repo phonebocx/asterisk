@@ -13,7 +13,6 @@ h323-workaround-openh323-segfault
 
 astgenkey-security
 apptest_sleep
-armel_support
 
 ### new features
 pubkey_jnctn

@@ -173,7 +173,7 @@
 +static void *gsm_dchannel(void *vgsm);
 +#endif
 +
- static struct zt_pvt *mkintf(int channel, struct zt_chan_conf conf, struct zt_pri *pri, int reloading)
+ static struct zt_pvt *mkintf(int channel, const struct zt_chan_conf *conf, struct zt_pri *pri, int reloading)
  {
  	/* Make a zt_pvt structure for this interface (or CRV if "pri" is specified) */
 @@ -7530,6 +7595,37 @@ static struct zt_pvt *mkintf(int channel
@@ -181,7 +181,7 @@
  			}
  #endif
 +#ifdef HAVE_GSMAT
-+		if (conf.chan.sig == SIG_GSM) {
++		if (conf->chan.sig == SIG_GSM) {
 +		    struct zt_bufferinfo bi;
 +		    ast_mutex_init(&tmp->gsm.lock);
 +		    strncpy(tmp->gsm.pin, gsm_modem_pin, sizeof(tmp->gsm.pin) - 1);
@@ -212,8 +212,8 @@
 +		}
 +#endif
  		} else {
- 			conf.chan.sig = tmp->sig;
- 			conf.chan.radio = tmp->radio;
+ 			conf->chan.sig = tmp->sig;
+ 			conf->chan.radio = tmp->radio;
 @@ -7819,6 +7915,12 @@ static inline int available(struct zt_pv
  				return 1;
  		}

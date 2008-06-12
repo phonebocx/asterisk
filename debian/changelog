@@ -1,3 +1,13 @@
+asterisk (1:1.4.21~dfsg-1) unstable; urgency=low
+
+  * New upstream release. 
+  * bison no longer needed to build Asterisk (Since 1.4.0).
+  * Patch armel_support applied upstream.
+  * Patches bristuff/zapata-gsm and bristuff/zapata-bri+euroisdn adjusted to 
+    chan_zap changes (conf became a pointer in mkintf).
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 12 Jun 2008 21:30:40 +0300
+
 asterisk (1:1.4.20~dfsg-1) unstable; urgency=low
 
   [ Victor Seva ]

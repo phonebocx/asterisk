@@ -565,46 +565,46 @@
  							destroy_zt_pvt(&tmp);
  							return NULL;
  						}
-+                                          	if ((pris[span].localdialplan) && (pris[span].localdialplan != conf.pri.localdialplan)) {
++                                          	if ((pris[span].localdialplan) && (pris[span].localdialplan != conf->pri.localdialplan)) {
 +  							ast_log(LOG_ERROR, "Span %d is already a %s local dialing plan\n", span + 1, dialplan2str(pris[span].localdialplan));
 +  							destroy_zt_pvt(&tmp);
 +                                                  	return NULL;
 +   						}
- 						if (pris[span].minunused && (pris[span].minunused != conf.pri.minunused)) {
- 							ast_log(LOG_ERROR, "Span %d already has minunused of %d.\n", span + 1, conf.pri.minunused);
+ 						if (pris[span].minunused && (pris[span].minunused != conf->pri.minunused)) {
+ 							ast_log(LOG_ERROR, "Span %d already has minunused of %d.\n", span + 1, conf->pri.minunused);
  							destroy_zt_pvt(&tmp);
 @@ -7331,6 +7475,11 @@ static struct zt_pvt *mkintf(int channel
  							return NULL;
  						}
- 						pris[span].nodetype = conf.pri.nodetype;
+ 						pris[span].nodetype = conf->pri.nodetype;
 +
-+						if (conf.pri.nodetype == BRI_NETWORK_PTMP) {
++						if (conf->pri.nodetype == BRI_NETWORK_PTMP) {
 +						    pris[span].dchanavail[0] =  DCHAN_AVAILABLE;
 +						    pri_find_dchan(&pris[span]);
 +						}
  						pris[span].switchtype = myswitchtype;
- 						pris[span].nsf = conf.pri.nsf;
- 						pris[span].dialplan = conf.pri.dialplan;
+ 						pris[span].nsf = conf->pri.nsf;
+ 						pris[span].dialplan = conf->pri.dialplan;
 @@ -7339,9 +7488,13 @@ static struct zt_pvt *mkintf(int channel
- 						pris[span].minunused = conf.pri.minunused;
- 						pris[span].minidle = conf.pri.minidle;
- 						pris[span].overlapdial = conf.pri.overlapdial;
-+						pris[span].usercid = conf.pri.usercid;
+ 						pris[span].minunused = conf->pri.minunused;
+ 						pris[span].minidle = conf->pri.minidle;
+ 						pris[span].overlapdial = conf->pri.overlapdial;
++						pris[span].usercid = conf->pri.usercid;
 +						pris[span].suspended_calls = NULL;
- 						pris[span].facilityenable = conf.pri.facilityenable;
- 						ast_copy_string(pris[span].idledial, conf.pri.idledial, sizeof(pris[span].idledial));
- 						ast_copy_string(pris[span].idleext, conf.pri.idleext, sizeof(pris[span].idleext));
-+  						ast_copy_string(pris[span].nocid, conf.pri.nocid, sizeof(pris[span].nocid));
-+  						ast_copy_string(pris[span].withheldcid, conf.pri.withheldcid, sizeof(pris[span].withheldcid));
- 						ast_copy_string(pris[span].internationalprefix, conf.pri.internationalprefix, sizeof(pris[span].internationalprefix));
- 						ast_copy_string(pris[span].nationalprefix, conf.pri.nationalprefix, sizeof(pris[span].nationalprefix));
- 						ast_copy_string(pris[span].localprefix, conf.pri.localprefix, sizeof(pris[span].localprefix));
+ 						pris[span].facilityenable = conf->pri.facilityenable;
+ 						ast_copy_string(pris[span].idledial, conf->pri.idledial, sizeof(pris[span].idledial));
+ 						ast_copy_string(pris[span].idleext, conf->pri.idleext, sizeof(pris[span].idleext));
++  						ast_copy_string(pris[span].nocid, conf->pri.nocid, sizeof(pris[span].nocid));
++  						ast_copy_string(pris[span].withheldcid, conf->pri.withheldcid, sizeof(pris[span].withheldcid));
+ 						ast_copy_string(pris[span].internationalprefix, conf->pri.internationalprefix, sizeof(pris[span].internationalprefix));
+ 						ast_copy_string(pris[span].nationalprefix, conf->pri.nationalprefix, sizeof(pris[span].nationalprefix));
+ 						ast_copy_string(pris[span].localprefix, conf->pri.localprefix, sizeof(pris[span].localprefix));
 @@ -7483,6 +7636,7 @@ static struct zt_pvt *mkintf(int channel
- 		tmp->restrictcid = conf.chan.restrictcid;
- 		tmp->use_callingpres = conf.chan.use_callingpres;
- 		tmp->priindication_oob = conf.chan.priindication_oob;
-+ 		tmp->pritransfer = conf.chan.pritransfer;
- 		tmp->priexclusive = conf.chan.priexclusive;
+ 		tmp->restrictcid = conf->chan.restrictcid;
+ 		tmp->use_callingpres = conf->chan.use_callingpres;
+ 		tmp->priindication_oob = conf->chan.priindication_oob;
++ 		tmp->pritransfer = conf->chan.pritransfer;
+ 		tmp->priexclusive = conf->chan.priexclusive;
  		if (tmp->usedistinctiveringdetection) {
  			if (!tmp->use_callerid) {
 @@ -7765,7 +7919,7 @@ static int pri_find_empty_chan(struct zt
