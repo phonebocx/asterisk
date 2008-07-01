@@ -44,7 +44,7 @@ UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e
 
 FILENAME := asterisk_$(UPVERSION)~dfsg.orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
-URL := http://ftp2.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
+URL := http://downloads.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
 # make sure we have 'fetch' . We need to have either wget or fetch
 # on the system. However it is generally not a good idea to actually

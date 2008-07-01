@@ -1,3 +1,9 @@
+asterisk (1:1.4.21.1~dfsg-1) UNRELEASED; urgency=low
+
+  * New upstream bugfix release.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 30 Jun 2008 20:46:07 +0300
+
 asterisk (1:1.4.21~dfsg-1) unstable; urgency=low
 
   * New upstream release. 
