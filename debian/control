@@ -76,6 +76,7 @@ Architecture: all
 Recommends: asterisk
 Section: devel
 Priority: extra
+Conflicts: asterisk (<= 1:1.4.21.1~dfsg-1)
 Description: Development files for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
