@@ -9,6 +9,7 @@ asterisk (1:1.4.21.1~dfsg-1) UNRELEASED; urgency=low
   [ Mark Purcell ]
   * Conflicts:/ Replaces: asterisk (<< 1:1.4.21.1~dfsg-1)
   * lintian cleanup: debian-copyright-line-too-long
+  * lintian-cleanup: package-contains-empty-directory
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 30 Jun 2008 20:46:07 +0300
 
