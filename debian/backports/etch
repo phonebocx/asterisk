@@ -17,4 +17,7 @@ sed -i -e 's#^\(Build-Depends:.*\), libvpb-dev#\1#' debian/control
 # our existing "broken" speex 1.1.12:
 sed -i -e 's#^\(Build-Depends:.*\), libspeexdsp-dev#\1#' debian/control
 
+# dh_lintian is new
+sed -i -e '/dh_lintian/d' debian/rules
+
 exit 0
