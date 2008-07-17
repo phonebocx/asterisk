@@ -1,17 +1,16 @@
-asterisk (1:1.4.21.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.21.1~dfsg-1) unstable; urgency=low
 
   [ Tzafrir Cohen ]
   * New upstream bugfix release.
   * Fix get-orig-source target to remove temporary files left in that tarball.
   * The asterisk.h symlink moved to asterisk-dev where it should be.
-  * Hence asterisk-dev now conflicts with older asterisk.
 
   [ Mark Purcell ]
-  * Conflicts:/ Replaces: asterisk (<< 1:1.4.21.1~dfsg-1)
+  * asterisk-dev Replaces: asterisk (<< 1:1.4.21.1~dfsg-1)
   * lintian cleanup: debian-copyright-line-too-long
   * Call dh_lintian lintian-cleanup: package-contains-empty-directory
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 30 Jun 2008 20:46:07 +0300
+ -- Mark Purcell <msp@debian.org>  Wed, 16 Jul 2008 21:14:10 +1000
 
 asterisk (1:1.4.21~dfsg-1) unstable; urgency=low
 
