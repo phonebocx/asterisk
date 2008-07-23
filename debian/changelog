@@ -1,7 +1,7 @@
-asterisk (1:1.4.21.2~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.4.21.2~dfsg-1) UNRELEASED; urgency=high
 
   [ Victor Seva ]
-  * New upstream bugfix release.
+  * New upstream bugfix release. Fixes CVE-2008-3263 and CVE-2008-3264.
   * asterisk.postinst should always check group memberships (Closes:
     #486097) patch by Tim Retout <tim@retout.co.uk>
   * changed libc-client2007-dev to libc-client2007b-dev on Build-Depends
