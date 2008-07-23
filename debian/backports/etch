@@ -17,6 +17,9 @@ sed -i -e 's#^\(Build-Depends:.*\), libvpb-dev#\1#' debian/control
 # our existing "broken" speex 1.1.12:
 sed -i -e 's#^\(Build-Depends:.*\), libspeexdsp-dev#\1#' debian/control
 
+# uw-imap. Replace libc-client2007b-dev with libc-client2006j2-dev
+sed -i -e 's#^\(Build-Depends:.*\)libc-client2007b-dev[^\ ]* \(.*\)$#\1libc-client2006j2-dev, \2#' debian/control
+
 # dh_lintian is new
 sed -i -e '/dh_lintian/d' debian/rules
 

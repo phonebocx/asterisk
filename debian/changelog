@@ -5,6 +5,7 @@ asterisk (1:1.4.21.2~dfsg-1) UNRELEASED; urgency=low
   * asterisk.postinst should always check group memberships (Closes:
     #486097) patch by Tim Retout <tim@retout.co.uk>
   * changed libc-client2007-dev to libc-client2007b-dev on Build-Depends
+  * added replace rule for uw-imap to backports/etch
 
  -- Mark Purcell <msp@debian.org>  Thu, 17 Jul 2008 22:35:47 +1000
 
