@@ -9,7 +9,7 @@
  	struct ast_variable *vars;
  };
  
-@@ -1416,11 +1418,20 @@ static int action_hangup(struct mansessi
+@@ -1419,11 +1421,20 @@ static int action_hangup(struct mansessi
  {
  	struct ast_channel *c = NULL;
  	const char *name = astman_get_header(m, "Channel");
@@ -33,7 +33,7 @@
  	if (!c) {
  		astman_send_error(s, m, "No such channel");
  		return 0;
-@@ -1671,12 +1682,18 @@ static int action_redirect(struct manses
+@@ -1674,12 +1685,18 @@ static int action_redirect(struct manses
  	const char *exten = astman_get_header(m, "Exten");
  	const char *context = astman_get_header(m, "Context");
  	const char *priority = astman_get_header(m, "Priority");
@@ -54,7 +54,7 @@
  		return 0;
  	}
  	if (!ast_strlen_zero(priority) && (sscanf(priority, "%d", &pi) != 1)) {
-@@ -1685,8 +1702,18 @@ static int action_redirect(struct manses
+@@ -1688,8 +1705,18 @@ static int action_redirect(struct manses
  			return 0;
  		}
  	}
@@ -74,7 +74,7 @@
  	if (!chan) {
  		char buf[BUFSIZ];
  		snprintf(buf, sizeof(buf), "Channel does not exist: %s", name);
-@@ -1698,8 +1725,11 @@ static int action_redirect(struct manses
+@@ -1701,8 +1728,11 @@ static int action_redirect(struct manses
  		ast_channel_unlock(chan);
  		return 0;
  	}
@@ -87,7 +87,7 @@
  	if (chan2 && ast_check_hangup(chan2)) {
  		astman_send_error(s, m, "Redirect failed, extra channel not up.\n");
  		ast_channel_unlock(chan);
-@@ -1708,9 +1738,9 @@ static int action_redirect(struct manses
+@@ -1711,9 +1741,9 @@ static int action_redirect(struct manses
  	}
  	res = ast_async_goto(chan, context, exten, pi);
  	if (!res) {
@@ -99,7 +99,7 @@
  			else
  				res = -1;
  			if (!res)
-@@ -1789,15 +1819,15 @@ static void *fast_originate(void *data)
+@@ -1830,15 +1860,15 @@ static void *fast_originate(void *data)
  	char requested_channel[AST_CHANNEL_NAME];
  
  	if (!ast_strlen_zero(in->app)) {
@@ -119,7 +119,7 @@
  	}
  
  	if (!chan)
-@@ -1857,6 +1887,7 @@ static int action_originate(struct manse
+@@ -1898,6 +1928,7 @@ static int action_originate(struct manse
  	const char *appdata = astman_get_header(m, "Data");
  	const char *async = astman_get_header(m, "Async");
  	const char *id = astman_get_header(m, "ActionID");
@@ -127,7 +127,7 @@
  	struct ast_variable *vars = astman_get_variables(m);
  	char *tech, *data;
  	char *l = NULL, *n = NULL;
-@@ -1866,6 +1897,9 @@ static int action_originate(struct manse
+@@ -1907,6 +1938,9 @@ static int action_originate(struct manse
  	int reason = 0;
  	char tmp[256];
  	char tmp2[256];
@@ -137,7 +137,7 @@
  	
  	pthread_t th;
  	pthread_attr_t attr;
-@@ -1883,6 +1917,10 @@ static int action_originate(struct manse
+@@ -1924,6 +1958,10 @@ static int action_originate(struct manse
  		astman_send_error(s, m, "Invalid timeout\n");
  		return 0;
  	}
@@ -148,7 +148,7 @@
  	ast_copy_string(tmp, name, sizeof(tmp));
  	tech = tmp;
  	data = strchr(tmp, '/');
-@@ -1902,6 +1940,7 @@ static int action_originate(struct manse
+@@ -1943,6 +1981,7 @@ static int action_originate(struct manse
  		if (ast_strlen_zero(l))
  			l = NULL;
  	}
@@ -156,7 +156,7 @@
  	if (ast_true(async)) {
  		struct fast_originate_helper *fast = ast_calloc(1, sizeof(*fast));
  		if (!fast) {
-@@ -1921,8 +1960,10 @@ static int action_originate(struct manse
+@@ -1962,8 +2001,10 @@ static int action_originate(struct manse
  			ast_copy_string(fast->context, context, sizeof(fast->context));
  			ast_copy_string(fast->exten, exten, sizeof(fast->exten));
  			ast_copy_string(fast->account, account, sizeof(fast->account));
@@ -167,7 +167,7 @@
  			pthread_attr_init(&attr);
  			pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
  			if (ast_pthread_create(&th, &attr, fast_originate, fast)) {
-@@ -1933,19 +1974,28 @@ static int action_originate(struct manse
+@@ -1974,19 +2015,28 @@ static int action_originate(struct manse
  			pthread_attr_destroy(&attr);
  		}
  	} else if (!ast_strlen_zero(app)) {

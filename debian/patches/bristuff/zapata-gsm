@@ -35,7 +35,7 @@
  
  /*! \brief Avoid the silly zt_getevent which ignores a bunch of events */
  static inline int zt_get_event(int fd)
-@@ -364,6 +371,19 @@ struct zt_pri {
+@@ -350,6 +357,19 @@ struct zt_pri {
  	int debugfd;
  };
  
@@ -55,7 +55,7 @@
  
  static struct zt_pri pris[NUM_SPANS];
  
-@@ -392,6 +412,7 @@ struct zt_pri;
+@@ -378,6 +398,7 @@ struct zt_pri;
  #define POLARITY_REV    1
  
  
@@ -63,7 +63,7 @@
  static struct zt_distRings drings;
  
  struct distRingData {
-@@ -604,6 +625,9 @@ static struct zt_pvt {
+@@ -590,6 +611,9 @@ static struct zt_pvt {
  	int prioffset;
  	int logicalspan;
  #endif	
@@ -73,7 +73,7 @@
  	int polarity;
  	int dsp_features;
  	char begindigit;
-@@ -710,7 +734,7 @@ static struct zt_chan_conf zt_chan_conf_
+@@ -696,7 +720,7 @@ static struct zt_chan_conf zt_chan_conf_
  static struct ast_channel *zt_request(const char *type, int format, void *data, int *cause);
  static int zt_digit_begin(struct ast_channel *ast, char digit);
  static int zt_digit_end(struct ast_channel *ast, char digit, unsigned int duration);
@@ -82,7 +82,7 @@
  static int zt_call(struct ast_channel *ast, char *rdest, int timeout);
  static int zt_hangup(struct ast_channel *ast);
  static int zt_answer(struct ast_channel *ast);
-@@ -732,6 +756,9 @@ static const struct ast_channel_tech zap
+@@ -718,6 +742,9 @@ static const struct ast_channel_tech zap
  	.send_digit_begin = zt_digit_begin,
  	.send_digit_end = zt_digit_end,
  	.send_text = zt_sendtext,
@@ -92,7 +92,7 @@
  	.call = zt_call,
  	.hangup = zt_hangup,
  	.answer = zt_answer,
-@@ -1262,6 +1289,8 @@ static char *zap_sig2str(int sig)
+@@ -1241,6 +1268,8 @@ static char *zap_sig2str(int sig)
  		return "GR-303 with FXOKS";
  	case SIG_GR303FXSKS:
  		return "GR-303 with FXSKS";
@@ -101,7 +101,7 @@
  	case 0:
  		return "Pseudo";
  	default:
-@@ -1683,7 +1712,7 @@ static inline int zt_confmute(struct zt_
+@@ -1662,7 +1691,7 @@ static inline int zt_confmute(struct zt_
  {
  	int x, y, res;
  	x = muted;
@@ -110,7 +110,7 @@
  		y = 1;
  		res = ioctl(p->subs[SUB_REAL].zfd, ZT_AUDIOMODE, &y);
  		if (res)
-@@ -2098,6 +2127,25 @@ static int zt_call(struct ast_channel *a
+@@ -2077,6 +2106,25 @@ static int zt_call(struct ast_channel *a
  		p->dialdest[0] = '\0';
  		disable_dtmf_detect(p);
  		break;
@@ -136,7 +136,7 @@
  	default:
  		ast_log(LOG_DEBUG, "not yet implemented\n");
  		ast_mutex_unlock(&p->lock);
-@@ -2737,7 +2785,13 @@ static int zt_hangup(struct ast_channel 
+@@ -2719,7 +2767,13 @@ static int zt_hangup(struct ast_channel 
  			}
  		}
  #endif
@@ -151,7 +151,7 @@
  			res = zt_set_hook(p->subs[SUB_REAL].zfd, ZT_ONHOOK);
  		if (res < 0) {
  			ast_log(LOG_WARNING, "Unable to hangup line %s\n", ast->name);
-@@ -2914,6 +2968,13 @@ static int zt_answer(struct ast_channel 
+@@ -2896,6 +2950,13 @@ static int zt_answer(struct ast_channel 
  		zt_train_ec(p);
  		break;
  #endif
@@ -165,7 +165,7 @@
  	case 0:
  		ast_mutex_unlock(&p->lock);
  		return 0;
-@@ -7302,6 +7363,10 @@ static int pri_create_spanmap(int span, 
+@@ -7278,6 +7339,10 @@ static int pri_create_spanmap(int span, 
  
  #endif
  
@@ -176,7 +176,7 @@
  static struct zt_pvt *mkintf(int channel, const struct zt_chan_conf *conf, struct zt_pri *pri, int reloading)
  {
  	/* Make a zt_pvt structure for this interface (or CRV if "pri" is specified) */
-@@ -7530,6 +7595,37 @@ static struct zt_pvt *mkintf(int channel
+@@ -7506,6 +7571,37 @@ static struct zt_pvt *mkintf(int channel
  				tmp->prioffset = 0;
  			}
  #endif
@@ -212,9 +212,9 @@
 +		}
 +#endif
  		} else {
- 			conf->chan.sig = tmp->sig;
- 			conf->chan.radio = tmp->radio;
-@@ -7819,6 +7915,12 @@ static inline int available(struct zt_pv
+ 			chan_sig = tmp->sig;
+ 			memset(&p, 0, sizeof(p));
+@@ -7806,6 +7902,12 @@ static inline int available(struct zt_pv
  				return 1;
  		}
  #endif
@@ -227,7 +227,7 @@
  		if (!(p->radio || (p->oprmode < 0)))
  		{
  			if (!p->sig || (p->sig == SIG_FXSLS))
-@@ -8176,6 +8278,235 @@ next:
+@@ -8163,6 +8265,235 @@ next:
  	return tmp;
  }
  
@@ -463,7 +463,7 @@
  #ifdef HAVE_PRI
  static struct zt_pvt *pri_find_crv(struct zt_pri *pri, int crv)
  {
-@@ -8450,6 +8781,18 @@ static void zt_pri_error(char *s, int sp
+@@ -8385,6 +8716,18 @@ static void zt_pri_error(char *s, int sp
  	ast_log(LOG_WARNING, "%d %s", span, s);
  }
  
@@ -482,7 +482,7 @@
  static int pri_check_restart(struct zt_pri *pri)
  {
  	if ((pri->nodetype != PRI_NETWORK) && (pri->nodetype != PRI_CPE)) {
-@@ -10868,6 +11211,243 @@ static int app_zapInband(struct ast_chan
+@@ -10537,6 +10880,243 @@ static int app_zapInband(struct ast_chan
  
  #endif /* HAVE_PRI */
  
@@ -726,7 +726,7 @@
  static int app_zapEC(struct ast_channel *chan, void *data)
  {
   int res=-1;
-@@ -11489,6 +12069,12 @@ static int __unload_module(void)
+@@ -11158,6 +11738,12 @@ static int __unload_module(void)
  	ast_unregister_application(zapCD_app);
  	ast_unregister_application(zapInband_app);
  #endif
@@ -739,7 +739,7 @@
  	ast_cli_unregister_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(zapEC_app);
  	ast_manager_unregister( "ZapDialOffhook" );
-@@ -12009,6 +12595,11 @@ static int process_zap(struct zt_chan_co
+@@ -11678,6 +12264,11 @@ static int process_zap(struct zt_chan_co
   					confp->chan.radio = 0;
   					confp->pri.nodetype = BRI_CPE;
  #endif
@@ -751,7 +751,7 @@
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
  				}
-@@ -12151,6 +12742,10 @@ static int process_zap(struct zt_chan_co
+@@ -11820,6 +12411,10 @@ static int process_zap(struct zt_chan_co
    				ast_copy_string(confp->pri.nocid, v->value, sizeof(confp->pri.nocid));
    			} else if (!strcasecmp(v->name, "withheldcid")) {
    				ast_copy_string(confp->pri.withheldcid, v->value, sizeof(confp->pri.withheldcid));
@@ -762,7 +762,7 @@
  			} else if (!strcasecmp(v->name, "resetinterval")) {
  				if (!strcasecmp(v->value, "never"))
  					confp->pri.resetinterval = -1;
-@@ -12506,6 +13101,10 @@ static int load_module(void)
+@@ -12175,6 +12770,10 @@ static int load_module(void)
  	ast_register_application(zap_send_keypad_facility_app, zap_send_keypad_facility_exec,
  			zap_send_keypad_facility_synopsis, zap_send_keypad_facility_descrip);
  #endif
@@ -773,7 +773,7 @@
  	res = setup_zap(0);
  	/* Make sure we can register our Zap channel type */
  	if (res)
-@@ -12524,6 +13123,12 @@ static int load_module(void)
+@@ -12193,6 +12792,12 @@ static int load_module(void)
  #endif	
  	ast_register_application(zapEC_app, app_zapEC, zapEC_synopsis, zapEC_tdesc);
  	ast_cli_register_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
@@ -786,7 +786,7 @@
  	
  	memset(round_robin, 0, sizeof(round_robin));
  	ast_manager_register( "ZapTransfer", 0, action_transfer, "Transfer Zap Channel" );
-@@ -12537,7 +13142,66 @@ static int load_module(void)
+@@ -12206,7 +12811,66 @@ static int load_module(void)
  	return res;
  }
  

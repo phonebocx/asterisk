@@ -215,7 +215,7 @@
  		} else {
  			if (--retry <= 0) {
  				ast_log(LOG_WARNING, "No channel, no fd?\n");
-@@ -2030,6 +2106,7 @@ static int agi_exec_full(struct ast_chan
+@@ -2034,6 +2110,7 @@ static int agi_exec_full(struct ast_chan
  	int argc = 0;
  	int fds[2];
  	int efd = -1;
@@ -223,7 +223,7 @@
  	int pid;
          char *stringp;
  	AGI agi;
-@@ -2056,12 +2133,13 @@ static int agi_exec_full(struct ast_chan
+@@ -2060,12 +2137,13 @@ static int agi_exec_full(struct ast_chan
  	}
  #endif
  	ast_replace_sigchld();
@@ -238,7 +238,7 @@
  		agi.fast = (res == AGI_RESULT_SUCCESS_FAST) ? 1 : 0;
  		res = run_agi(chan, argv[0], &agi, pid, &status, dead);
  		/* If the fork'd process returns non-zero, set AGISTATUS to FAILURE */
-@@ -2071,6 +2149,8 @@ static int agi_exec_full(struct ast_chan
+@@ -2075,6 +2153,8 @@ static int agi_exec_full(struct ast_chan
  			close(fds[1]);
  		if (efd > -1)
  			close(efd);
@@ -247,7 +247,7 @@
  	}
  	ast_unreplace_sigchld();
  	ast_module_user_remove(u);
-@@ -2119,6 +2199,35 @@ static int eagi_exec(struct ast_channel 
+@@ -2123,6 +2203,35 @@ static int eagi_exec(struct ast_channel 
  	return res;
  }
  
@@ -283,7 +283,7 @@
  static int deadagi_exec(struct ast_channel *chan, void *data)
  {
  	if (!ast_check_hangup(chan))
-@@ -2174,6 +2283,7 @@ static int unload_module(void)
+@@ -2178,6 +2287,7 @@ static int unload_module(void)
  {
  	ast_module_user_hangup_all();
  	ast_cli_unregister_multiple(cli_agi, sizeof(cli_agi) / sizeof(struct ast_cli_entry));
@@ -291,7 +291,7 @@
  	ast_unregister_application(eapp);
  	ast_unregister_application(deadapp);
  	return ast_unregister_application(app);
-@@ -2184,6 +2294,7 @@ static int load_module(void)
+@@ -2188,6 +2298,7 @@ static int load_module(void)
  	ast_cli_register_multiple(cli_agi, sizeof(cli_agi) / sizeof(struct ast_cli_entry));
  	ast_register_application(deadapp, deadagi_exec, deadsynopsis, descrip);
  	ast_register_application(eapp, eagi_exec, esynopsis, descrip);

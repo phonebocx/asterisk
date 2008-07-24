@@ -112,7 +112,7 @@ to be used by channels wanting to send text messages with a destination number
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -1427,6 +1430,49 @@ static int action_hangup(struct mansessi
+@@ -1430,6 +1433,49 @@ static int action_hangup(struct mansessi
  	return 0;
  }
  
@@ -162,7 +162,7 @@ to be used by channels wanting to send text messages with a destination number
  static char mandescr_setvar[] = 
  "Description: Set a global or local channel variable.\n"
  "Variables: (Names marked with * are required)\n"
-@@ -2853,6 +2899,7 @@ int init_manager(void)
+@@ -2894,6 +2940,7 @@ int init_manager(void)
  		ast_manager_register2("Events", 0, action_events, "Control Event Flow", mandescr_events);
  		ast_manager_register2("Logoff", 0, action_logoff, "Logoff Manager", mandescr_logoff);
  		ast_manager_register2("Hangup", EVENT_FLAG_CALL, action_hangup, "Hangup Channel", mandescr_hangup);

@@ -173,7 +173,7 @@
  static inline int pri_grab(struct zt_pvt *pvt, struct zt_pri *pri)
  {
  	int res;
-@@ -1417,12 +1449,16 @@ static void zt_enable_ec(struct zt_pvt *
+@@ -1410,12 +1442,16 @@ static void zt_enable_ec(struct zt_pvt *
  	int res;
  	if (!p)
  		return;
@@ -191,7 +191,7 @@
  		return;
  	}
  	if (p->echocancel) {
-@@ -1449,7 +1485,7 @@ static void zt_train_ec(struct zt_pvt *p
+@@ -1442,7 +1478,7 @@ static void zt_train_ec(struct zt_pvt *p
  {
  	int x;
  	int res;
@@ -200,7 +200,7 @@
  		x = p->echotraining;
  		res = ioctl(p->subs[SUB_REAL].zfd, ZT_ECHOTRAIN, &x);
  		if (res)
-@@ -1810,7 +1846,12 @@ static int zt_call(struct ast_channel *a
+@@ -1803,7 +1839,12 @@ static int zt_call(struct ast_channel *a
  		ast_log(LOG_WARNING, "Unable to flush input on channel %d\n", p->channel);
  	p->outgoing = 1;
  
@@ -214,7 +214,7 @@
  
  	mysig = p->sig;
  	if (p->outsigmod > -1)
-@@ -2041,6 +2082,7 @@ static int zt_call(struct ast_channel *a
+@@ -2034,6 +2075,7 @@ static int zt_call(struct ast_channel *a
  	case SIG_PRI:
  		/* We'll get it in a moment -- but use dialdest to store pre-setup_ack digits */
  		p->dialdest[0] = '\0';
@@ -222,7 +222,7 @@
  		break;
  	default:
  		ast_log(LOG_DEBUG, "not yet implemented\n");
-@@ -2061,6 +2103,12 @@ static int zt_call(struct ast_channel *a
+@@ -2054,6 +2096,12 @@ static int zt_call(struct ast_channel *a
  		const char *rr_str;
  		int redirect_reason;
  
@@ -235,7 +235,7 @@
  		c = strchr(dest, '/');
  		if (c)
  			c++;
-@@ -2083,6 +2131,7 @@ static int zt_call(struct ast_channel *a
+@@ -2076,6 +2124,7 @@ static int zt_call(struct ast_channel *a
  			ast_mutex_unlock(&p->lock);
  			return -1;
  		}
@@ -243,7 +243,7 @@
  		if (mysig != SIG_FXSKS) {
  			p->dop.op = ZT_DIAL_OP_REPLACE;
  			s = strchr(c + p->stripmsd, 'w');
-@@ -2106,6 +2155,8 @@ static int zt_call(struct ast_channel *a
+@@ -2099,6 +2148,8 @@ static int zt_call(struct ast_channel *a
  			pri_rel(p->pri);
  			ast_mutex_unlock(&p->lock);
  			return -1;
@@ -252,7 +252,7 @@
  		}
  		if (!(sr = pri_sr_new())) {
  			ast_log(LOG_WARNING, "Failed to allocate setup request channel %d\n", p->channel);
-@@ -2135,7 +2186,7 @@ static int zt_call(struct ast_channel *a
+@@ -2131,7 +2182,7 @@ static int zt_call(struct ast_channel *a
  		pri_sr_set_channel(sr, p->bearer ? PVT_TO_CHANNEL(p->bearer) : PVT_TO_CHANNEL(p), exclusive, 1);
  		pri_sr_set_bearer(sr, p->digital ? PRI_TRANS_CAP_DIGITAL : ast->transfercapability, 
  					(p->digital ? -1 : 
@@ -261,7 +261,7 @@
  		if (p->pri->facilityenable)
  			pri_facility_enable(p->pri->pri);
  
-@@ -2399,8 +2450,10 @@ static int pri_find_dchan(struct zt_pri 
+@@ -2395,8 +2446,10 @@ static int pri_find_dchan(struct zt_pri 
  	}
  	if (newslot < 0) {
  		newslot = 0;
@@ -273,7 +273,7 @@
  	}
  	if (old && (oldslot != newslot))
  		ast_log(LOG_NOTICE, "Switching from from d-channel %d to channel %d!\n",
-@@ -2410,6 +2463,16 @@ static int pri_find_dchan(struct zt_pri 
+@@ -2406,6 +2459,16 @@ static int pri_find_dchan(struct zt_pri 
  }
  #endif
  
@@ -290,7 +290,7 @@
  static int zt_hangup(struct ast_channel *ast)
  {
  	int res;
-@@ -2457,8 +2520,7 @@ static int zt_hangup(struct ast_channel 
+@@ -2453,8 +2516,7 @@ static int zt_hangup(struct ast_channel 
  	if (option_debug)
  		ast_log(LOG_DEBUG, "Hangup: channel: %d index = %d, normal = %d, callwait = %d, thirdcall = %d\n",
  		p->channel, index, p->subs[SUB_REAL].zfd, p->subs[SUB_CALLWAIT].zfd, p->subs[SUB_THREEWAY].zfd);
@@ -300,7 +300,7 @@
  	if (index > -1) {
  		/* Real channel, do some fixup */
  		p->subs[index].owner = NULL;
-@@ -2560,6 +2622,7 @@ static int zt_hangup(struct ast_channel 
+@@ -2556,6 +2618,7 @@ static int zt_hangup(struct ast_channel 
  	}
  
  	if (!p->subs[SUB_REAL].owner && !p->subs[SUB_CALLWAIT].owner && !p->subs[SUB_THREEWAY].owner) {
@@ -308,7 +308,7 @@
  		p->owner = NULL;
  		p->ringt = 0;
  		p->distinctivering = 0;
-@@ -2602,7 +2665,7 @@ static int zt_hangup(struct ast_channel 
+@@ -2598,7 +2661,7 @@ static int zt_hangup(struct ast_channel 
  						pri_call_set_useruser(p->call, useruser);
  #endif
  
@@ -317,7 +317,7 @@
  						p->call = NULL;
  						if (p->bearer) 
  							p->bearer->call = NULL;
-@@ -2622,7 +2685,28 @@ static int zt_hangup(struct ast_channel 
+@@ -2618,7 +2681,28 @@ static int zt_hangup(struct ast_channel 
  							if (atoi(cause))
  								icause = atoi(cause);
  						}
@@ -347,7 +347,7 @@
  					}
  					if (res < 0) 
  						ast_log(LOG_WARNING, "pri_disconnect failed\n");
-@@ -2806,10 +2890,14 @@ static int zt_answer(struct ast_channel 
+@@ -2802,10 +2886,14 @@ static int zt_answer(struct ast_channel 
  			p->proceeding = 1;
  			res = pri_answer(p->pri->pri, p->call, 0, !p->digital);
  			pri_rel(p->pri);
@@ -362,7 +362,7 @@
  		break;
  #endif
  	case 0:
-@@ -3446,6 +3534,15 @@ static int zt_fixup(struct ast_channel *
+@@ -3436,6 +3524,15 @@ static int zt_fixup(struct ast_channel *
  {
  	struct zt_pvt *p = newchan->tech_pvt;
  	int x;
@@ -378,7 +378,7 @@
  	ast_mutex_lock(&p->lock);
  	ast_log(LOG_DEBUG, "New owner for channel %d is %s\n", p->channel, newchan->name);
  	if (p->owner == oldchan) {
-@@ -3655,8 +3752,10 @@ static void zt_handle_dtmfup(struct ast_
+@@ -3645,8 +3742,10 @@ static void zt_handle_dtmfup(struct ast_
  					pbx_builtin_setvar_helper(ast, "FAXEXTEN", ast->exten);
  					if (ast_async_goto(ast, target_context, "fax", 1))
  						ast_log(LOG_WARNING, "Failed to async goto '%s' into fax of '%s'\n", ast->name, target_context);
@@ -390,7 +390,7 @@
  			} else if (option_debug)
  				ast_log(LOG_DEBUG, "Already in a fax extension, not redirecting\n");
  		} else if (option_debug)
-@@ -3815,7 +3914,7 @@ static struct ast_frame *zt_handle_event
+@@ -3805,7 +3904,7 @@ static struct ast_frame *zt_handle_event
  				if (p->call) {
  					if (p->pri && p->pri->pri) {
  						if (!pri_grab(p, p->pri)) {
@@ -399,7 +399,7 @@
  							pri_destroycall(p->pri->pri, p->call);
  							p->call = NULL;
  							pri_rel(p->pri);
-@@ -4886,7 +4985,7 @@ static struct ast_frame  *zt_read(struct
+@@ -4876,7 +4975,7 @@ static struct ast_frame  *zt_read(struct
  		p->subs[index].f.data = NULL;
  		p->subs[index].f.datalen= 0;
  	}
@@ -408,7 +408,7 @@
  		/* Perform busy detection. etc on the zap line */
  		f = ast_dsp_process(ast, p->dsp, &p->subs[index].f);
  		if (f) {
-@@ -4898,8 +4997,9 @@ static struct ast_frame  *zt_read(struct
+@@ -4888,8 +4987,9 @@ static struct ast_frame  *zt_read(struct
  				}
  			} else if (f->frametype == AST_FRAME_DTMF) {
  #ifdef HAVE_PRI
@@ -420,7 +420,7 @@
  					f->frametype = AST_FRAME_NULL;
  					f->subclass = 0;
  				}
-@@ -4974,7 +5074,9 @@ static int zt_write(struct ast_channel *
+@@ -4964,7 +5064,9 @@ static int zt_write(struct ast_channel *
  #endif
  	/* Write a frame of (presumably voice) data */
  	if (frame->frametype != AST_FRAME_VOICE) {
@@ -431,7 +431,7 @@
  			ast_log(LOG_WARNING, "Don't know what to do with frame type '%d'\n", frame->frametype);
  		return 0;
  	}
-@@ -5042,7 +5144,7 @@ static int zt_indicate(struct ast_channe
+@@ -5032,7 +5134,7 @@ static int zt_indicate(struct ast_channe
  		switch (condition) {
  		case AST_CONTROL_BUSY:
  #ifdef HAVE_PRI
@@ -440,7 +440,7 @@
  				chan->hangupcause = AST_CAUSE_USER_BUSY;
  				chan->_softhangup |= AST_SOFTHANGUP_DEV;
  				res = 0;
-@@ -5124,7 +5226,7 @@ static int zt_indicate(struct ast_channe
+@@ -5114,7 +5216,7 @@ static int zt_indicate(struct ast_channe
  		case AST_CONTROL_CONGESTION:
  			chan->hangupcause = AST_CAUSE_CONGESTION;
  #ifdef HAVE_PRI
@@ -449,7 +449,7 @@
  				chan->hangupcause = AST_CAUSE_SWITCH_CONGESTION;
  				chan->_softhangup |= AST_SOFTHANGUP_DEV;
  				res = 0;
-@@ -5321,8 +5423,12 @@ static struct ast_channel *zt_new(struct
+@@ -5311,8 +5413,12 @@ static struct ast_channel *zt_new(struct
  	if (state == AST_STATE_RING)
  		tmp->rings = 1;
  	tmp->tech_pvt = i;
@@ -463,7 +463,7 @@
  		tmp->callgroup = i->callgroup;
  		tmp->pickupgroup = i->pickupgroup;
  	}
-@@ -5452,6 +5558,7 @@ static void *ss_thread(void *data)
+@@ -5442,6 +5548,7 @@ static void *ss_thread(void *data)
  	int len = 0;
  	int res;
  	int index;
@@ -471,7 +471,7 @@
  
  	/* in the bizarre case where the channel has become a zombie before we
  	   even get started here, abort safely
-@@ -5480,10 +5587,17 @@ static void *ss_thread(void *data)
+@@ -5470,10 +5577,17 @@ static void *ss_thread(void *data)
  		len = strlen(exten);
  		res = 0;
  		while ((len < AST_MAX_EXTENSION-1) && ast_matchmore_extension(chan, chan->context, exten, 1, p->cid_num)) {
@@ -492,7 +492,7 @@
  			if (ast_exists_extension(chan, chan->context, exten, 1, p->cid_num))
  				timeout = matchdigittimeout;
  			else
-@@ -6697,9 +6811,20 @@ static int handle_init_event(struct zt_p
+@@ -6687,9 +6801,20 @@ static int handle_init_event(struct zt_p
  	case ZT_EVENT_NOALARM:
  		i->inalarm = 0;
  		if (!i->unknown_alarm) {
@@ -513,7 +513,7 @@
  		} else {
  			i->unknown_alarm = 0;
  		}
-@@ -6708,7 +6833,13 @@ static int handle_init_event(struct zt_p
+@@ -6698,7 +6823,13 @@ static int handle_init_event(struct zt_p
  		i->inalarm = 1;
  		res = get_alarms(i);
  		do {
@@ -528,7 +528,7 @@
  
  			/* hack alert!  Zaptel 1.4 now exposes FXO battery as an alarm, but asterisk 1.4
  			 * doesn't know what to do with it.  Don't confuse users with log messages. */
-@@ -6724,6 +6855,10 @@ static int handle_init_event(struct zt_p
+@@ -6714,6 +6845,10 @@ static int handle_init_event(struct zt_p
  				"Alarm: %s\r\n"
  				"Channel: %d\r\n",
  				alarm_str, i->channel);
@@ -539,7 +539,7 @@
  		} while (0);
  		/* fall thru intentionally */
  	case ZT_EVENT_ONHOOK:
-@@ -6768,8 +6903,10 @@ static int handle_init_event(struct zt_p
+@@ -6758,8 +6893,10 @@ static int handle_init_event(struct zt_p
  			zt_set_hook(i->subs[SUB_REAL].zfd, ZT_ONHOOK);
  			break;
  		case SIG_PRI:
@@ -552,7 +552,7 @@
  			break;
  		default:
  			ast_log(LOG_WARNING, "Don't know how to handle on hook with signalling %s on channel %d\n", sig2str(i->sig), i->channel);
-@@ -7062,6 +7199,8 @@ static int pri_resolve_span(int *span, i
+@@ -7052,6 +7189,8 @@ static int pri_resolve_span(int *span, i
  		} else {
  			if (si->totalchans == 31) { /* if it's an E1 */
  				pris[*span].dchannels[0] = 16 + offset;
@@ -561,7 +561,7 @@
  			} else {
  				pris[*span].dchannels[0] = 24 + offset;
  			}
-@@ -7314,6 +7453,11 @@ static struct zt_pvt *mkintf(int channel
+@@ -7305,6 +7444,11 @@ static struct zt_pvt *mkintf(int channel
  							destroy_zt_pvt(&tmp);
  							return NULL;
  						}
@@ -573,7 +573,7 @@
  						if (pris[span].minunused && (pris[span].minunused != conf->pri.minunused)) {
  							ast_log(LOG_ERROR, "Span %d already has minunused of %d.\n", span + 1, conf->pri.minunused);
  							destroy_zt_pvt(&tmp);
-@@ -7331,6 +7475,11 @@ static struct zt_pvt *mkintf(int channel
+@@ -7322,6 +7466,11 @@ static struct zt_pvt *mkintf(int channel
  							return NULL;
  						}
  						pris[span].nodetype = conf->pri.nodetype;
@@ -585,7 +585,7 @@
  						pris[span].switchtype = myswitchtype;
  						pris[span].nsf = conf->pri.nsf;
  						pris[span].dialplan = conf->pri.dialplan;
-@@ -7339,9 +7488,13 @@ static struct zt_pvt *mkintf(int channel
+@@ -7330,9 +7479,13 @@ static struct zt_pvt *mkintf(int channel
  						pris[span].minunused = conf->pri.minunused;
  						pris[span].minidle = conf->pri.minidle;
  						pris[span].overlapdial = conf->pri.overlapdial;
@@ -599,7 +599,7 @@
  						ast_copy_string(pris[span].internationalprefix, conf->pri.internationalprefix, sizeof(pris[span].internationalprefix));
  						ast_copy_string(pris[span].nationalprefix, conf->pri.nationalprefix, sizeof(pris[span].nationalprefix));
  						ast_copy_string(pris[span].localprefix, conf->pri.localprefix, sizeof(pris[span].localprefix));
-@@ -7483,6 +7636,7 @@ static struct zt_pvt *mkintf(int channel
+@@ -7485,6 +7638,7 @@ static struct zt_pvt *mkintf(int channel
  		tmp->restrictcid = conf->chan.restrictcid;
  		tmp->use_callingpres = conf->chan.use_callingpres;
  		tmp->priindication_oob = conf->chan.priindication_oob;
@@ -607,7 +607,7 @@
  		tmp->priexclusive = conf->chan.priexclusive;
  		if (tmp->usedistinctiveringdetection) {
  			if (!tmp->use_callerid) {
-@@ -7765,7 +7919,7 @@ static int pri_find_empty_chan(struct zt
+@@ -7767,7 +7921,7 @@ static int pri_find_empty_chan(struct zt
  			break;
  		if (!backwards && (x >= pri->numchans))
  			break;
@@ -616,7 +616,7 @@
  			ast_log(LOG_DEBUG, "Found empty available channel %d/%d\n", 
  				pri->pvts[x]->logicalspan, pri->pvts[x]->prioffset);
  			return x;
-@@ -7961,6 +8115,11 @@ static struct ast_channel *zt_request(co
+@@ -7963,6 +8117,11 @@ static struct ast_channel *zt_request(co
  					p->digital = 1;
  					if (tmp)
  						tmp->transfercapability = AST_TRANS_CAP_DIGITAL;
@@ -628,7 +628,7 @@
  				} else {
  					ast_log(LOG_WARNING, "Unknown option '%c' in '%s'\n", opt, (char *)data);
  				}
-@@ -7994,13 +8153,14 @@ next:
+@@ -7996,13 +8155,14 @@ next:
  				*cause = AST_CAUSE_BUSY;
  		} else if (groupmatched) {
  			*cause = AST_CAUSE_CONGESTION;
@@ -644,7 +644,7 @@
  #ifdef HAVE_PRI
  static struct zt_pvt *pri_find_crv(struct zt_pri *pri, int crv)
  {
-@@ -8045,6 +8205,7 @@ static int pri_find_principle(struct zt_
+@@ -8047,6 +8207,7 @@ static int pri_find_principle(struct zt_
  static int pri_fixup_principle(struct zt_pri *pri, int principle, q931_call *c)
  {
  	int x;
@@ -652,7 +652,7 @@
  	struct zt_pvt *crv;
  	if (!c) {
  		if (principle < 0)
-@@ -8075,6 +8236,7 @@ static int pri_fixup_principle(struct zt
+@@ -8077,6 +8238,7 @@ static int pri_fixup_principle(struct zt
  				}
  				/* Fix it all up now */
  				new->owner = old->owner;
@@ -660,7 +660,7 @@
  				old->owner = NULL;
  				if (new->owner) {
  					ast_string_field_build(new->owner, name, 
-@@ -8094,6 +8256,34 @@ static int pri_fixup_principle(struct zt
+@@ -8096,6 +8258,34 @@ static int pri_fixup_principle(struct zt
  				new->dsp_features = old->dsp_features;
  				old->dsp = NULL;
  				old->dsp_features = 0;
@@ -695,7 +695,7 @@
  			}
  			return principle;
  		}
-@@ -8122,7 +8312,9 @@ static int pri_fixup_principle(struct zt
+@@ -8124,7 +8314,9 @@ static int pri_fixup_principle(struct zt
  		}
  		crv = crv->next;
  	}
@@ -706,7 +706,7 @@
  	return -1;
  }
  
-@@ -8181,86 +8373,21 @@ static void *do_idle_thread(void *vchan)
+@@ -8183,86 +8375,21 @@ static void *do_idle_thread(void *vchan)
  #ifndef PRI_RESTART
  #error "Upgrade your libpri"
  #endif
