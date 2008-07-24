@@ -19,5 +19,6 @@ sed -i -e 's#^\(Build-Depends:.*\), libspeexdsp-dev#\1#' debian/control
 
 # dh_lintian is new
 sed -i -e '/dh_lintian/d' debian/rules
+sed -i -e 's#^\(Build-Depends:.*\)debhelper (>= [0-9\.]*), \(.*\)$#\1debhelper \(>= 5\), \2#' debian/control
 
 exit 0
