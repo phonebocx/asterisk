@@ -208,7 +208,6 @@ binary-arch: install-arch
 	dh_fixperms -a
 	dh_installdeb -a
 	rm -f debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
-	dh_makeshlibs -a 
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a

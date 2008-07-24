@@ -4,12 +4,18 @@ asterisk (1:1.4.21.2~dfsg-1) UNRELEASED; urgency=high
   * asterisk.postinst should always check group memberships (Closes:
     #486097) patch by Tim Retout <tim@retout.co.uk>
   * changed libc-client2007-dev to libc-client2007b-dev on Build-Depends
+    (fixes FTBFS).
 
   [ Tzafrir Cohen ]
   * Depend on debhelper >= 6.0.7 due to dh_lintian (Closes: #492202).
   * New upstream bugfix release. Fixes CVE-2008-3263 and CVE-2008-3264.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 24 Jul 2008 14:23:56 +0300
+  [ Faidon Liambotis ]
+  * Do a quilt refresh on all patches.
+  * Remove the dh_makeshlibs call as it is unneeded and generates a lintian
+    warning.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 24 Jul 2008 19:51:20 +0300
 
 asterisk (1:1.4.21.1~dfsg-1) unstable; urgency=low
 
