@@ -8,6 +8,8 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
     - changed libcap-dev to libcap2-dev because libcap1 is no longer
       maintained upstream. Thanks to Torsten Werner <twerner@debian.org>.
       (Closes: #492620).
+  * debian/backports/etch:
+    - replace libcap2-dev to libcap-dev.
 
  -- Victor Seva <linuxmaniac@torreviejawireless.org>  Thu, 24 Jul 2008 21:00:20 +0200
 

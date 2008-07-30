@@ -21,4 +21,7 @@ sed -i -e 's#^\(Build-Depends:.*\), libspeexdsp-dev#\1#' debian/control
 sed -i -e '/dh_lintian/d' debian/rules
 sed -i -e 's#^\(Build-Depends:.*\)debhelper (>= [0-9\.]*), \(.*\)$#\1debhelper \(>= 5\), \2#' debian/control
 
+# Replace libcap2-dev to libcap-dev
+sed -i -e 's#^\(Build-Depends:.*\)libcap2-dev\(.*\)$#\1libcap-dev\2#' debian/control
+
 exit 0
