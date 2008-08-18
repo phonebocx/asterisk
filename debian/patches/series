@@ -81,3 +81,4 @@ bristuff/zapata-gsm
 # bridging app backported from 1.6
 # it needs the above feature patches applied first.
 feature-bridge
+fix_zap_no_timing_source
