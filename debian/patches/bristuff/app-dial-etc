@@ -1,14 +1,14 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_dial.c
-+++ asterisk-1.4.8~dfsg/apps/app_dial.c
-@@ -64,6 +64,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
- #include "asterisk/manager.h"
+--- a/apps/app_dial.c
++++ b/apps/app_dial.c
+@@ -71,6 +71,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include "asterisk/privacy.h"
  #include "asterisk/stringfields.h"
+ #include "asterisk/global_datastores.h"
 +#include "asterisk/transcap.h"
  
  static char *app = "Dial";
  
-@@ -1604,23 +1605,25 @@ static int dial_exec_full(struct ast_cha
+@@ -1652,23 +1653,25 @@ static int dial_exec_full(struct ast_cha
  				ast_set_flag(&(config.features_caller), AST_FEATURE_PLAY_WARNING);
  			if (play_to_callee)
  				ast_set_flag(&(config.features_callee), AST_FEATURE_PLAY_WARNING);

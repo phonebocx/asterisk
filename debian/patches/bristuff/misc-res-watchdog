@@ -1,5 +1,5 @@
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/configs/watchdog.conf.sample
++++ b/configs/watchdog.conf.sample
 @@ -0,0 +1,22 @@
 +;
 +; Configuration file for res_watchdog
@@ -24,7 +24,7 @@
 +;interval = 100
 +
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/res/res_watchdog.c
++++ b/res/res_watchdog.c
 @@ -0,0 +1,137 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.

@@ -8,12 +8,12 @@ See also http://www.junctionnetworks.com/Asterisk-config.htm
 Also fix the Makefile to copy all keys on make install instead of mentioning
 them explicitely.
 
-Should forward upstream.
+Forwarded as a note to #10811.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
 --- /dev/null
-+++ asterisk-1.4.9~dfsg/keys/jnctn.pub
++++ b/keys/jnctn.pub
 @@ -0,0 +1,6 @@
 +-----BEGIN PUBLIC KEY-----
 +MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDWaDv4190BpeL5K+Yuq5Q7+vPs
@@ -21,9 +21,9 @@ Should forward upstream.
 +3Ilu//eX8ph8Wu+Oxs/ymi/hzKm+Cd6aty94zYuqiegc0KdrjvU5TLQAkIQpiB6k
 +CvuIm0R0XXQjj3R7LwIDAQAB
 +-----END PUBLIC KEY-----
---- asterisk-1.4.9~dfsg.orig/Makefile
-+++ asterisk-1.4.9~dfsg/Makefile
-@@ -435,8 +435,7 @@ bininstall: _all
+--- a/Makefile
++++ b/Makefile
+@@ -469,8 +469,7 @@ bininstall: _all installdirs $(SUBDIRS_I
  	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware
  	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware/iax
  	mkdir -p $(DESTDIR)$(ASTMANDIR)/man8

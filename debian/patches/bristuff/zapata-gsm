@@ -1,8 +1,8 @@
---- asterisk-1.4.8~dfsg.orig/channels/chan_zap.c
-+++ asterisk-1.4.8~dfsg/channels/chan_zap.c
-@@ -76,6 +76,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
+--- a/channels/chan_zap.c
++++ b/channels/chan_zap.c
+@@ -77,6 +77,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #ifdef HAVE_PRI
- #include <libpri.h>
+ #include <bristuffed/libpri.h>
  #endif
 +#ifdef HAVE_GSMAT
 +#include <libgsmat.h>
@@ -10,7 +10,7 @@
  
  #include "asterisk/lock.h"
  #include "asterisk/channel.h"
-@@ -186,6 +189,7 @@ static const char config[] = "zapata.con
+@@ -185,6 +188,7 @@ static const char config[] = "zapata.con
  #define SIG_FXOGS	ZT_SIG_FXOGS
  #define SIG_FXOKS	ZT_SIG_FXOKS
  #define SIG_PRI		ZT_SIG_CLEAR
@@ -18,25 +18,24 @@
  #define	SIG_SF		ZT_SIG_SF
  #define SIG_SFWINK 	(0x0100000 | ZT_SIG_SF)
  #define SIG_SF_FEATD	(0x0200000 | ZT_SIG_SF)
-@@ -212,6 +216,8 @@ static char defaultozz[64] = "";
+@@ -234,6 +238,8 @@ static int matchdigittimeout = 3000;
+ /*! \brief Protect the interface list (of zt_pvt's) */
+ AST_MUTEX_DEFINE_STATIC(iflock);
  
- static char nocid[256] = "No CID available";
- static char withheldcid[256] = "CID withheld";
 +static char gsm_modem_pin[20];
 +static char gsm_modem_exten[AST_MAX_EXTENSION];
  
- static char progzone[10] = "";
+ static int ifcount = 0;
  
-@@ -253,7 +259,7 @@ static int restart_monitor(void);
+@@ -251,6 +257,7 @@ static enum ast_bridge_result zt_bridge(
  
- static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, struct ast_frame **fo, struct ast_channel **rc, int timeoutms);
+ static int zt_sendtext(struct ast_channel *c, const char *text);
  
--static int zt_sendtext(struct ast_channel *c, const char *text);
-+static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu);
- 
++static int zt_sendmessage(struct ast_channel *c, const char *dest, const char *text, int ispdu);
  
  /*! \brief Avoid the silly zt_getevent which ignores a bunch of events */
-@@ -368,6 +374,19 @@ struct zt_pri {
+ static inline int zt_get_event(int fd)
+@@ -350,6 +357,19 @@ struct zt_pri {
  	int debugfd;
  };
  
@@ -56,7 +55,7 @@
  
  static struct zt_pri pris[NUM_SPANS];
  
-@@ -396,6 +415,7 @@ struct zt_pri;
+@@ -378,6 +398,7 @@ struct zt_pri;
  #define POLARITY_REV    1
  
  
@@ -64,7 +63,7 @@
  static struct zt_distRings drings;
  
  struct distRingData {
-@@ -607,6 +627,9 @@ static struct zt_pvt {
+@@ -590,6 +611,9 @@ static struct zt_pvt {
  	int prioffset;
  	int logicalspan;
  #endif	
@@ -74,25 +73,35 @@
  	int polarity;
  	int dsp_features;
  	char begindigit;
-@@ -711,7 +734,7 @@ static struct zt_chan_conf zt_chan_conf_
+@@ -696,7 +720,7 @@ static struct zt_chan_conf zt_chan_conf_
  static struct ast_channel *zt_request(const char *type, int format, void *data, int *cause);
  static int zt_digit_begin(struct ast_channel *ast, char digit);
  static int zt_digit_end(struct ast_channel *ast, char digit, unsigned int duration);
 -static int zt_sendtext(struct ast_channel *c, const char *text);
-+static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu);
++static int zt_sendmessage(struct ast_channel *c, const char *dest, const char *text, int ispdu);
  static int zt_call(struct ast_channel *ast, char *rdest, int timeout);
  static int zt_hangup(struct ast_channel *ast);
  static int zt_answer(struct ast_channel *ast);
-@@ -1364,6 +1387,8 @@ static char *zap_sig2str(int sig)
- 		return "GR-303 Signalling with FXOKS";
+@@ -718,6 +742,9 @@ static const struct ast_channel_tech zap
+ 	.send_digit_begin = zt_digit_begin,
+ 	.send_digit_end = zt_digit_end,
+ 	.send_text = zt_sendtext,
++#if 0 /* we (Debian) disable that addition because of ABI breakage */
++	.send_message = zt_sendmessage,
++#endif
+ 	.call = zt_call,
+ 	.hangup = zt_hangup,
+ 	.answer = zt_answer,
+@@ -1241,6 +1268,8 @@ static char *zap_sig2str(int sig)
+ 		return "GR-303 with FXOKS";
  	case SIG_GR303FXSKS:
- 		return "GR-303 Signalling with FXSKS";
+ 		return "GR-303 with FXSKS";
 +	case SIG_GSM:
-+		return "GSM Signalling";
++		return "GSM";
  	case 0:
- 		return "Pseudo Signalling";
+ 		return "Pseudo";
  	default:
-@@ -1791,7 +1816,7 @@ static inline int zt_confmute(struct zt_
+@@ -1662,7 +1691,7 @@ static inline int zt_confmute(struct zt_
  {
  	int x, y, res;
  	x = muted;
@@ -101,7 +110,7 @@
  		y = 1;
  		res = ioctl(p->subs[SUB_REAL].zfd, ZT_AUDIOMODE, &y);
  		if (res)
-@@ -2206,6 +2231,25 @@ static int zt_call(struct ast_channel *a
+@@ -2077,6 +2106,25 @@ static int zt_call(struct ast_channel *a
  		p->dialdest[0] = '\0';
  		disable_dtmf_detect(p);
  		break;
@@ -127,7 +136,7 @@
  	default:
  		ast_log(LOG_DEBUG, "not yet implemented\n");
  		ast_mutex_unlock(&p->lock);
-@@ -2844,7 +2888,13 @@ static int zt_hangup(struct ast_channel 
+@@ -2719,7 +2767,13 @@ static int zt_hangup(struct ast_channel 
  			}
  		}
  #endif
@@ -142,7 +151,7 @@
  			res = zt_set_hook(p->subs[SUB_REAL].zfd, ZT_ONHOOK);
  		if (res < 0) {
  			ast_log(LOG_WARNING, "Unable to hangup line %s\n", ast->name);
-@@ -3021,6 +3071,13 @@ static int zt_answer(struct ast_channel 
+@@ -2896,6 +2950,13 @@ static int zt_answer(struct ast_channel 
  		zt_train_ec(p);
  		break;
  #endif
@@ -156,7 +165,7 @@
  	case 0:
  		ast_mutex_unlock(&p->lock);
  		return 0;
-@@ -7365,6 +7422,10 @@ static int pri_create_spanmap(int span, 
+@@ -7278,6 +7339,10 @@ static int pri_create_spanmap(int span, 
  
  #endif
  
@@ -164,15 +173,15 @@
 +static void *gsm_dchannel(void *vgsm);
 +#endif
 +
- static struct zt_pvt *mkintf(int channel, struct zt_chan_conf conf, struct zt_pri *pri, int reloading)
+ static struct zt_pvt *mkintf(int channel, const struct zt_chan_conf *conf, struct zt_pri *pri, int reloading)
  {
  	/* Make a zt_pvt structure for this interface (or CRV if "pri" is specified) */
-@@ -7593,6 +7654,37 @@ static struct zt_pvt *mkintf(int channel
+@@ -7506,6 +7571,37 @@ static struct zt_pvt *mkintf(int channel
  				tmp->prioffset = 0;
  			}
  #endif
 +#ifdef HAVE_GSMAT
-+		if (chan_conf.signalling == SIG_GSM) {
++		if (conf->chan.sig == SIG_GSM) {
 +		    struct zt_bufferinfo bi;
 +		    ast_mutex_init(&tmp->gsm.lock);
 +		    strncpy(tmp->gsm.pin, gsm_modem_pin, sizeof(tmp->gsm.pin) - 1);
@@ -203,9 +212,9 @@
 +		}
 +#endif
  		} else {
- 			conf.chan.sig = tmp->sig;
- 			conf.chan.radio = tmp->radio;
-@@ -7876,6 +7968,12 @@ static inline int available(struct zt_pv
+ 			chan_sig = tmp->sig;
+ 			memset(&p, 0, sizeof(p));
+@@ -7806,6 +7902,12 @@ static inline int available(struct zt_pv
  				return 1;
  		}
  #endif
@@ -218,7 +227,7 @@
  		if (!(p->radio || (p->oprmode < 0)))
  		{
  			if (!p->sig || (p->sig == SIG_FXSLS))
-@@ -8230,6 +8328,235 @@ next:
+@@ -8163,6 +8265,235 @@ next:
  	return tmp;
  }
  
@@ -278,7 +287,7 @@
 +		if (!ast_strlen_zero(e->ring.callingnum)) {
 +		    strncpy(gsm->pvt->cid_num, e->ring.callingnum, sizeof(gsm->pvt->cid_num) - 1);
 +		} else {
-+		    strncpy(gsm->pvt->cid_name, withheldcid, sizeof(gsm->pvt->cid_name));
++		    strncpy(gsm->pvt->cid_name, "CID withheld", sizeof(gsm->pvt->cid_name));
 +		}
 +		if (!ast_strlen_zero(gsm->exten)) {
 +		    strncpy(gsm->pvt->exten, gsm->exten, sizeof(gsm->pvt->exten) - 1);
@@ -356,7 +365,7 @@
 +		      	"Length: %d\r\n"
 +		  	"Text: %s\r\n"
 +		  	"PDU: %s\r\n",
-+			gsm->span, 
++			gsm->span,
 +			e->sm_received.sender,
 +			e->sm_received.smsc,
 +			e->sm_received.len,
@@ -384,7 +393,7 @@
 +	}
 +	gsm_set_debug(gsm->modul, GSM_DEBUG_NONE);
 +	for (;;) {
-+		
++
 +		/* Run the D-Channel */
 +		FD_ZERO(&rfds);
 +		FD_ZERO(&efds);
@@ -415,7 +424,7 @@
 +		} else if (errno == ELAST) {
 +			res = ioctl(gsm->fd, ZT_GETEVENT, &x);
 +			printf("Got Zaptel event: %d\n", x);
-+		} else if (errno != EINTR) 
++		} else if (errno != EINTR)
 +			fprintf(stderr, "Error (%d) on select: %s\n", ELAST, strerror(errno));
 +
 +		if (!e) {
@@ -454,7 +463,7 @@
  #ifdef HAVE_PRI
  static struct zt_pvt *pri_find_crv(struct zt_pri *pri, int crv)
  {
-@@ -8505,6 +8832,18 @@ static void zt_pri_error(char *s, int sp
+@@ -8385,6 +8716,18 @@ static void zt_pri_error(char *s, int sp
  	ast_log(LOG_WARNING, "%d %s", span, s);
  }
  
@@ -473,7 +482,7 @@
  static int pri_check_restart(struct zt_pri *pri)
  {
  	if ((pri->nodetype != PRI_NETWORK) && (pri->nodetype != PRI_CPE)) {
-@@ -10905,6 +11244,243 @@ static int app_zapInband(struct ast_chan
+@@ -10537,6 +10880,243 @@ static int app_zapInband(struct ast_chan
  
  #endif /* HAVE_PRI */
  
@@ -514,7 +523,7 @@
 +	    }
 +	    pvt = pvt->next;
 +	}
-+	
++
 +	ast_cli(fd, "No GSM running on channel %d\n", channel);
 +	return RESULT_SUCCESS;
 +}
@@ -543,15 +552,15 @@
 + return handle_gsm_debug_helper(fd, channel, GSM_DEBUG_NONE);
 +}
 +
-+static char zap_reset_help[] = 
++static char zap_reset_help[] =
 +	"Usage: zap reset span <span>\n"
 +	"       Reset/Restart a zaptel span\n";
 +
-+static char gsm_debug_help[] = 
++static char gsm_debug_help[] =
 +	"Usage: gsm debug channel <channel>\n"
 +	"       Enables debugging on a given GSM channel\n";
-+	
-+static char gsm_no_debug_help[] = 
++
++static char gsm_no_debug_help[] =
 +	"Usage: gsm no debug channel <channel>\n"
 +	"       Disables debugging on a given GSM channel\n";
 +
@@ -566,7 +575,7 @@
 +
 +
 +
-+static char gsm_send_pdu_help[] = 
++static char gsm_send_pdu_help[] =
 +	"Usage: gsm send pdu <channel> <pdu>\n"
 +	"       Sends a PDU on a GSM channel\n";
 +
@@ -600,7 +609,7 @@
 +	    }
 +	    pvt = pvt->next;
 +	}
-+	
++
 +	return RESULT_SUCCESS;
 +}
 +
@@ -608,7 +617,7 @@
 +	{ "gsm", "send", "pdu", NULL }, handle_gsm_send_pdu, "Sends a SM on a GSM channel", gsm_send_pdu_help, complete_span_4 };
 +
 +
-+static char gsm_send_sms_help[] = 
++static char gsm_send_sms_help[] =
 +	"Usage: gsm send sms <channel> <destination> <message>\n"
 +	"       Sends a SM on a GSM channel\n";
 +
@@ -641,7 +650,7 @@
 +	    }
 +	    pvt = pvt->next;
 +	}
-+	
++
 +	return RESULT_SUCCESS;
 +}
 +
@@ -649,16 +658,16 @@
 +     struct zt_pvt *pvt = NULL;
 +     char *c = NULL;
 +     pvt = chan->tech_pvt;
-+     
++
 +     if (!pvt) return -1;
-+     
++
 +     /* parse dialstring */
 +     c = strrchr(dest, '/');
 +     if (c)
 + 	c++;
 +     else
 + 	c = (char *)dest;
-+ 
++
 +     ast_mutex_lock(&pvt->lock);
 + 	if (ispdu) {
 +     	    gsm_sms_send_pdu(pvt->gsm.modul, (char *)text);
@@ -669,11 +678,11 @@
 +     gsm_wait(pvt->gsm.modul);
 +     return 0;
 +}
-+ 
++
 +static struct ast_cli_entry gsm_send_sms = {
 +	{ "gsm", "send", "sms", NULL }, handle_gsm_send_sms, "Sends a SM on a GSM channel", gsm_send_sms_help, complete_span_4 };
 +
-+static char gsm_show_status_help[] = 
++static char gsm_show_status_help[] =
 +	"Usage: gsm show status <channel>>\n"
 +	"       Displays status information about the GSM channel.\n";
 +
@@ -705,7 +714,7 @@
 +	    }
 +	    pvt = pvt->next;
 +	}
-+	
++
 +	return RESULT_SUCCESS;
 +}
 +
@@ -717,7 +726,7 @@
  static int app_zapEC(struct ast_channel *chan, void *data)
  {
   int res=-1;
-@@ -11525,6 +12101,12 @@ static int __unload_module(void)
+@@ -11158,6 +11738,12 @@ static int __unload_module(void)
  	ast_unregister_application(zapCD_app);
  	ast_unregister_application(zapInband_app);
  #endif
@@ -730,7 +739,7 @@
  	ast_cli_unregister_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(zapEC_app);
  	ast_manager_unregister( "ZapDialOffhook" );
-@@ -12045,6 +12627,11 @@ static int process_zap(struct zt_chan_co
+@@ -11678,6 +12264,11 @@ static int process_zap(struct zt_chan_co
   					confp->chan.radio = 0;
   					confp->pri.nodetype = BRI_CPE;
  #endif
@@ -738,14 +747,14 @@
 +				} else if (!strcasecmp(v->value, "gsm")) {
 +					confp->chan.sig = SIG_GSM;
 +					confp->chan.radio = 0;
-+#endif				
++#endif
  				} else {
  					ast_log(LOG_ERROR, "Unknown signalling method '%s'\n", v->value);
  				}
-@@ -12187,6 +12774,10 @@ static int process_zap(struct zt_chan_co
-   				ast_copy_string(confp->pri.nocid, v->value, sizeof(confp->pri.nocid) - 1);
+@@ -11820,6 +12411,10 @@ static int process_zap(struct zt_chan_co
+   				ast_copy_string(confp->pri.nocid, v->value, sizeof(confp->pri.nocid));
    			} else if (!strcasecmp(v->name, "withheldcid")) {
-   				ast_copy_string(confp->pri.withheldcid, v->value, sizeof(confp->pri.withheldcid) - 1);
+   				ast_copy_string(confp->pri.withheldcid, v->value, sizeof(confp->pri.withheldcid));
 +			} else if (!strcasecmp(v->name, "pin")) {
 +				ast_copy_string(gsm_modem_pin, v->value, sizeof(gsm_modem_pin) - 1);
 +			} else if (!strcasecmp(v->name, "exten")) {
@@ -753,7 +762,7 @@
  			} else if (!strcasecmp(v->name, "resetinterval")) {
  				if (!strcasecmp(v->value, "never"))
  					confp->pri.resetinterval = -1;
-@@ -12541,6 +13132,10 @@ static int load_module(void)
+@@ -12175,6 +12770,10 @@ static int load_module(void)
  	ast_register_application(zap_send_keypad_facility_app, zap_send_keypad_facility_exec,
  			zap_send_keypad_facility_synopsis, zap_send_keypad_facility_descrip);
  #endif
@@ -764,7 +773,7 @@
  	res = setup_zap(0);
  	/* Make sure we can register our Zap channel type */
  	if (res)
-@@ -12559,6 +13154,12 @@ static int load_module(void)
+@@ -12193,6 +12792,12 @@ static int load_module(void)
  #endif	
  	ast_register_application(zapEC_app, app_zapEC, zapEC_synopsis, zapEC_tdesc);
  	ast_cli_register_multiple(zap_cli, sizeof(zap_cli) / sizeof(struct ast_cli_entry));
@@ -777,7 +786,7 @@
  	
  	memset(round_robin, 0, sizeof(round_robin));
  	ast_manager_register( "ZapTransfer", 0, action_transfer, "Transfer Zap Channel" );
-@@ -12572,7 +13173,48 @@ static int load_module(void)
+@@ -12206,7 +12811,66 @@ static int load_module(void)
  	return res;
  }
  
@@ -790,7 +799,7 @@
 + if (!p) return -1;
 + if (!p->pri) return -1;
 +	    if (strlen(text)) {
-+		if (p->pri) {		
++		if (p->pri) {
 +		    if (!pri_grab(p, p->pri)) {
 +		//	ast_log(LOG_NOTICE, "Sending Display IE  '%s'\n", text);
 +			pri_information_display(p->pri->pri,p->call,(char *)text);
@@ -802,8 +811,22 @@
 +}
 +#endif
 +
-+static int zt_sendtext(struct ast_channel *c, const char *dest, const char *text, int ispdu) {
++static int zt_sendtext(struct ast_channel *c, const char *text) {
 + struct zt_pvt *p = c->tech_pvt;
++ if (!p) return -1;
++ if (p->sig == SIG_PRI) {
++#ifdef HAVE_PRI
++	return zt_pri_sendtext(c, text);
++#endif
++ } else if (p->sig == SIG_GSM) {
++ } else {
++	return zt_tdd_sendtext(c, text);
++ }
++ return -1;
++}
++
++static int zt_sendmessage(struct ast_channel *c, const char *dest, const char *text, int ispdu) {
++struct zt_pvt *p = c->tech_pvt;
 + if (!p) return -1;
 + if (p->sig == SIG_PRI) {
 +#ifdef HAVE_PRI
@@ -818,6 +841,10 @@
 +     return zt_gsm_sendtext(c, dest, text, ispdu);
 +#endif
 + } else {
++	if (ispdu) {
++	    ast_log(LOG_WARNING, "Dont know how to send PDU on ZAP channel\n");
++	    return -1;
++	}
 +	return zt_tdd_sendtext(c, text);
 + }
 + return -1;
@@ -827,9 +854,9 @@
  {
  #define	END_SILENCE_LEN 400
  #define	HEADER_MS 50
---- asterisk-1.4.8~dfsg.orig/configure.ac
-+++ asterisk-1.4.8~dfsg/configure.ac
-@@ -175,6 +175,7 @@ AST_EXT_LIB_SETUP([CURL], [cURL], [curl]
+--- a/configure.ac
++++ b/configure.ac
+@@ -178,6 +178,7 @@ AST_EXT_LIB_SETUP([CAP], [POSIX 1.e capa
  AST_EXT_LIB_SETUP([CURSES], [curses], [curses])
  AST_EXT_LIB_SETUP([GNUTLS], [GNU TLS support (used for iksemel only)], [gnutls])
  AST_EXT_LIB_SETUP([GSM], [GSM], [gsm], [, or 'internal'])
@@ -837,9 +864,9 @@
  AST_EXT_LIB_SETUP([IKSEMEL], [Iksemel Jabber Library], [iksemel])
  AST_EXT_LIB_SETUP([IMAP_TK], [UW IMAP Toolkit], [imap])
  AST_EXT_LIB_SETUP([ISDNNET], [ISDN4Linux Library], [isdnnet])
---- asterisk-1.4.8~dfsg.orig/configure
-+++ asterisk-1.4.8~dfsg/configure
-@@ -24642,6 +24642,188 @@ echo "$as_me: *** without explicitly spe
+--- a/configure
++++ b/configure
+@@ -26600,6 +26600,188 @@ echo "$as_me: *** without explicitly spe
     fi
  fi
  

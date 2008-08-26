@@ -1,9 +1,9 @@
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/apps/app_devstate.c
++++ b/apps/app_devstate.c
 @@ -0,0 +1,202 @@
 +/*
 + * Devstate application
-+ * 
++ *
 + * Since we like the snom leds so much, a little app to
 + * light the lights on the snom on demand ....
 + *
@@ -41,8 +41,8 @@
 +
 +static char descrip[] = " Devstate(device|state):  Generate a device state change event given the input parameters. Returns 0. State values match the asterisk device states. They are 0 = unknown, 1 = not inuse, 2 = inuse, 3 = busy, 4 = invalid, 5 = unavailable, 6 = ringing\n";
 +
-+static char devstate_cli_usage[] = 
-+"Usage: devstate device state\n" 
++static char devstate_cli_usage[] =
++"Usage: devstate device state\n"
 +"       Generate a device state change event given the input parameters.\n Mainly used for lighting the LEDs on the snoms.\n";
 +
 +static int devstate_cli(int fd, int argc, char *argv[]);
@@ -141,7 +141,7 @@
 +	.setoption = NULL,
 +};
 +
-+static char mandescr_devstate[] = 
++static char mandescr_devstate[] =
 +"Description: Put a value into astdb\n"
 +"Variables: \n"
 +"	Family: ...\n"
@@ -184,7 +184,7 @@
 +        ast_log(LOG_DEBUG, "Unable to register channel class %s\n", type);
 +        return -1;
 +    }
-+    ast_cli_register(&cli_dev_state);  
++    ast_cli_register(&cli_dev_state);
 +    ast_manager_register2( "Devstate", EVENT_FLAG_CALL, action_devstate, "Change a device state", mandescr_devstate );
 +    return ast_register_application(app, devstate_exec, synopsis, descrip);
 +}
@@ -197,7 +197,7 @@
 +    ast_manager_unregister( "Devstate");
 +    ast_cli_unregister(&cli_dev_state);
 +    res = ast_unregister_application(app);
-+    ast_channel_unregister(&devstate_tech);    
++    ast_channel_unregister(&devstate_tech);
 +    return res;
 +}
 +

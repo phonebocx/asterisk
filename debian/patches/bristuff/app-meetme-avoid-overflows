@@ -1,6 +1,6 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_meetme.c
-+++ asterisk-1.4.8~dfsg/apps/app_meetme.c
-@@ -1392,8 +1392,9 @@ static int conf_run(struct ast_channel *
+--- a/apps/app_meetme.c
++++ b/apps/app_meetme.c
+@@ -1405,8 +1405,9 @@ static int conf_run(struct ast_channel *
  	char members[10] = "";
  	int dtmf, opt_waitmarked_timeout = 0;
  	time_t timeout = 0;
@@ -9,9 +9,9 @@
 -	char __buf[CONF_SIZE + AST_FRIENDLY_OFFSET];
 +	char __buf[ZT_MAX_BUF_SPACE / ZT_DEFAULT_NUM_BUFS + AST_FRIENDLY_OFFSET];
  	char *buf = __buf + AST_FRIENDLY_OFFSET;
+ 	int setusercount = 0;
  
- 	if (!(user = ast_calloc(1, sizeof(*user))))
-@@ -1585,7 +1586,7 @@ static int conf_run(struct ast_channel *
+@@ -1615,7 +1616,7 @@ static int conf_run(struct ast_channel *
  		}
  		/* Setup buffering information */
  		memset(&bi, 0, sizeof(bi));
@@ -20,7 +20,7 @@
  		bi.txbufpolicy = ZT_POLICY_IMMEDIATE;
  		bi.rxbufpolicy = ZT_POLICY_IMMEDIATE;
  		bi.numbufs = audio_buffers;
-@@ -1901,6 +1902,14 @@ static int conf_run(struct ast_channel *
+@@ -1926,6 +1927,14 @@ static int conf_run(struct ast_channel *
  					f = ast_read(c);
  				if (!f)
  					break;

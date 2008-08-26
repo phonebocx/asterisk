@@ -1,5 +1,5 @@
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/apps/app_segfault.c
++++ b/apps/app_segfault.c
 @@ -0,0 +1,55 @@
 +/*
 + * Segfault application

@@ -2,7 +2,10 @@
 #
 # asterisk	start the asterisk PBX
 # (c) Mark Purcell <msp@debian.org>
-#    This package is free software; you can redistribute it and/or modify
+# (c) Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+# (c) Faidon Liambotis <paravoid@debian.org>
+
+#   This package is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation; either version 2 of the License, or
 #   (at your option) any later version.
@@ -41,7 +44,7 @@ PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
 PIDFILE_DIR=`dirname $PIDFILE`
 UMASK=007 # by default
-
+#MAXFILES=1024 # (the system default)
 
 # by default: use real-time priority
 PARAMS=""
@@ -116,8 +119,14 @@ then
 	umask $UMASK
 fi
 
+# allow changing the per-process open files limit:
+if [ "$MAXFILES" != '' ]
+then
+	ulimit -n $MAXFILES
+fi
+
 status() {
-	plist=`ps auxw | grep "$DAEMON" | grep -v grep | awk '{print $2}' | tr '\012' ' '`
+	plist=`ps ax | awk "{ if (\\$5 == \"$DAEMON\") print \\$1 }"`
 	if [ "$plist" = "" ]; then
 		echo "$DESC is stopped"
 		return 1
@@ -160,7 +169,8 @@ case "$1" in
 			$CHDIR_PARM \
 			--exec $REALDAEMON -- $PARAMS
 	else
-		start-stop-daemon --start --group $GROUP --make-pidfile \
+		start-stop-daemon --start --group $GROUP \
+			--background --make-pidfile \
 			$CHDIR_PARM --pidfile "$ASTSAFE_PIDFILE" \
 			--exec $REALDAEMON -- $PARAMS
 	fi
@@ -169,23 +179,16 @@ case "$1" in
 	echo "$NAME."
 	;;
   stop)
-	echo -n "Stopping $DESC: "
+	echo -n "Stopping $DESC: $NAME"
+	# Try gracefully.
+	# this may hang in some cases. Specifically, when the asterisk
+	# processes is stopped. No bother to worry about cleanup: 
+	# it will either fail or die when asterisk dies.
+	( $DAEMON -rx 'stop now' > /dev/null 2>&1 & ) &
 	if [ "$RUNASTSAFE" = "yes" ];then
-		# hopefully this will work. Untested
-		$REALDAEMON -rx 'stop now' > /dev/null  || true
-	else
-		# Try gracefully.
-		# this may hang in some cases. Specifically, when the asterisk
-		# processes is stopped. No bother to worry about cleanup: 
-		# it will either fail or die when asterisk dies.
-		( $DAEMON -rx 'stop now' > /dev/null 2>&1 & ) &
-	fi
-	echo -n "$NAME"
-	## giving a small grace time to shut down cleanly.
-	#sleep 2 # you can add timeouts in the comma
-	if [ "$RUNASTSAFE" = "yes" ];then
-		start-stop-daemon --quiet --pidfile $ASTSAFE_PIDFILE --oknodo \
-			--stop
+		start-stop-daemon --stop --quiet --oknodo \
+				  --pidfile $ASTSAFE_PIDFILE
+		rm -f $ASTSAFE_PIDFILE
 	fi
 	# just making sure it's really, really dead. 
 	# KILL is necessary just in case there's an asterisk -r in the background

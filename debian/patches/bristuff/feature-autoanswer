@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/include/asterisk/features.h
-+++ asterisk-1.4.8~dfsg/include/asterisk/features.h
+--- a/include/asterisk/features.h
++++ b/include/asterisk/features.h
 @@ -47,6 +47,8 @@ struct ast_call_feature {
  };
  
@@ -9,8 +9,8 @@
  
  /*! \brief Park a call and read back parked location 
   *  \param chan the channel to actually be parked
---- asterisk-1.4.8~dfsg.orig/res/res_features.c
-+++ asterisk-1.4.8~dfsg/res/res_features.c
+--- a/res/res_features.c
++++ b/res/res_features.c
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -22,7 +22,7 @@
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -128,6 +132,20 @@ static char *descrip2 = "Park():"
+@@ -132,6 +136,20 @@ static char *descrip2 = "Park():"
  "it already exists. In that case, execution will continue at next\n"
  "priority.\n" ;
  
@@ -43,7 +43,7 @@
  static struct ast_app *monitor_app = NULL;
  static int monitor_ok = 1;
  
-@@ -146,6 +164,23 @@ struct parkeduser {
+@@ -150,6 +168,23 @@ struct parkeduser {
  	struct parkeduser *next;
  };
  
@@ -59,7 +59,7 @@
 +	struct aauser *next;
 +};
 +
-+ 
++
 +static struct aauser *aalot;
 +AST_MUTEX_DEFINE_STATIC(autoanswer_lock);
 +static pthread_t autoanswer_thread;
@@ -67,7 +67,7 @@
  static struct parkeduser *parkinglot;
  
  AST_MUTEX_DEFINE_STATIC(parking_lock);	/*!< protects all static variables above */
-@@ -404,11 +439,13 @@ int ast_park_call(struct ast_channel *ch
+@@ -405,11 +440,13 @@ static int park_call_full(struct ast_cha
  		"From: %s\r\n"
  		"Timeout: %ld\r\n"
  		"CallerID: %s\r\n"
@@ -83,7 +83,7 @@
  		);
  
  	if (peer && adsipark && ast_adsi_available(peer)) {
-@@ -1613,11 +1650,13 @@ static void post_manager_event(const cha
+@@ -1656,11 +1693,13 @@ static void post_manager_event(const cha
  		"Exten: %s\r\n"
  		"Channel: %s\r\n"
  		"CallerID: %s\r\n"
@@ -99,7 +99,7 @@
  		);
  }
  
-@@ -1868,10 +1907,12 @@ static int park_exec(struct ast_channel 
+@@ -1928,10 +1967,12 @@ static int park_exec(struct ast_channel 
  			"Channel: %s\r\n"
  			"From: %s\r\n"
  			"CallerID: %s\r\n"
@@ -114,7 +114,7 @@
  			);
  
  		free(pu);
-@@ -2022,15 +2063,10 @@ static struct ast_cli_entry cli_show_fea
+@@ -2085,15 +2126,10 @@ static struct ast_cli_entry cli_show_fea
  	handle_showfeatures, NULL,
  	NULL };
  
@@ -133,11 +133,11 @@
  
  /*! \brief Dump lot status */
  static int manager_parking_status( struct mansession *s, const struct message *m)
-@@ -2054,12 +2090,13 @@ static int manager_parking_status( struc
+@@ -2117,12 +2153,13 @@ static int manager_parking_status( struc
  			"Timeout: %ld\r\n"
  			"CallerID: %s\r\n"
  			"CallerIDName: %s\r\n"
-+			"Unqiueid: %s\r\n\r\n"
++			"Uniqueid: %s\r\n\r\n"
  			"%s"
  			"\r\n",
  			cur->parkingnum, cur->chan->name, cur->peername,
@@ -148,7 +148,7 @@
  			idText);
  	}
  
-@@ -2134,6 +2171,427 @@ static int manager_park(struct mansessio
+@@ -2197,6 +2234,427 @@ static int manager_park(struct mansessio
  	return 0;
  }
  
@@ -229,7 +229,7 @@
 +	}
 +	res = ast_masq_autoanswer_login(chan, data);
 +	ast_module_user_remove(u);
-+	return res; 
++	return res;
 +}
 +
 +int ast_autoanswer_login(struct ast_channel *chan, void *data)
@@ -288,7 +288,7 @@
 +		memset(pu, 0, sizeof(pu));
 +		ast_mutex_lock(&autoanswer_lock);
 +		chan->appl = "Autoanswer";
-+		chan->data = NULL; 
++		chan->data = NULL;
 +
 +		pu->chan = chan;
 +		if (chan->_state != AST_STATE_UP) {
@@ -317,7 +317,7 @@
 +		ast_mutex_unlock(&autoanswer_lock);
 +		/* Wake up the (presumably select()ing) thread */
 +		pthread_kill(autoanswer_thread, SIGURG);
-+		if (option_verbose > 1) 
++		if (option_verbose > 1)
 +			ast_verbose(VERBOSE_PREFIX_2 "Autoanswer login from %s for %s@%s.\n", pu->chan->name, pu->exten, pu->context);
 +			manager_event(EVENT_FLAG_CALL, "AutoanswerLogin",
 +                                "Channel: %s\r\n"
@@ -397,7 +397,7 @@
 +					f = ast_read(pu->chan);
 +					if (!f || ((f->frametype == AST_FRAME_CONTROL) && (f->subclass ==  AST_CONTROL_HANGUP))) {
 +						/* There's a problem, hang them up*/
-+						if (option_verbose > 1) 
++						if (option_verbose > 1)
 +							ast_verbose(VERBOSE_PREFIX_2 "%s logged out of autoanswer app\n", pu->chan->name);
 +						manager_event(EVENT_FLAG_CALL, "AutoanswerLogout",
 +                            			    "Channel: %s\r\n"
@@ -415,7 +415,7 @@
 +							ast_log(LOG_WARNING, "Whoa, no %s context?\n", pu->exten);
 +						}
 +						/* And take them out of the parking lot */
-+						if (pl) 
++						if (pl)
 +							pl->next = pu->next;
 +						else
 +							aalot = pu->next;
@@ -518,7 +518,7 @@
 +
 +	if (peer) {
 +		ast_moh_stop(peer);
-+		/* Play a courtesy beep in the callED channel to prefix the bridge connecting */	
++		/* Play a courtesy beep in the callED channel to prefix the bridge connecting */
 +		if (!ast_strlen_zero(courtesytone)) {
 +			if (!ast_streamfile(peer, courtesytone, peer->language)) {
 +				if (ast_waitstream(peer, "") < 0) {
@@ -528,7 +528,7 @@
 +				}
 +			}
 +		}
-+ 
++
 +		res = ast_channel_make_compatible(chan, peer);
 +		if (res < 0) {
 +			ast_log(LOG_WARNING, "Could not make channels %s and %s compatible for bridge\n", chan->name, peer->name);
@@ -537,7 +537,7 @@
 +		}
 +		/* This runs sorta backwards, since we give the incoming channel control, as if it
 +		   were the person called. */
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s autoanswered  %s\n", peer->name, chan->name);
 +		manager_event(EVENT_FLAG_CALL, "Autoanswer",
 +                    "Channel: %s\r\n"
@@ -558,14 +558,14 @@
 +		config.warning_sound=NULL;
 +		res = ast_bridge_call(chan,peer,&config);
 +
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "returning from bridge %s\n", peer->name);
 +			/* relogin */
 +		snprintf(datastring, sizeof(datastring) - 1, "%s|%s", aacontext, aaexten);
 +		ast_autoanswer_login(peer, datastring);
 +		return res;
 +	} else {
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Nobody logged in for autoanswer %s@%s\n", aaexten, aacontext);
 +		res = -1;
 +	}
@@ -576,7 +576,7 @@
  
  int ast_pickup_call(struct ast_channel *chan)
  {
-@@ -2397,6 +2855,7 @@ static int load_config(void) 
+@@ -2460,6 +2918,7 @@ static int load_config(void) 
  
  static int reload(void)
  {
@@ -584,7 +584,7 @@
  	return load_config();
  }
  
-@@ -2420,6 +2879,12 @@ static int load_module(void)
+@@ -2483,6 +2942,12 @@ static int load_module(void)
  			"Park a channel", mandescr_park); 
  	}
  
@@ -597,7 +597,7 @@
  	res |= ast_devstate_prov_add("Park", metermaidstate);
  
  	return res;
-@@ -2434,6 +2899,8 @@ static int unload_module(void)
+@@ -2497,6 +2962,8 @@ static int unload_module(void)
  	ast_manager_unregister("Park");
  	ast_cli_unregister_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
  	ast_unregister_application(parkcall);

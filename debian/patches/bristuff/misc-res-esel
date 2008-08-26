@@ -1,5 +1,5 @@
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/configs/esel.conf.sample
++++ b/configs/esel.conf.sample
 @@ -0,0 +1,12 @@
 +;
 +; Configuration file for res_esel
@@ -14,7 +14,7 @@
 +; export the extension snom in context phones to DS/100
 +;export => snom@phones,100
 --- /dev/null
-+++ asterisk-1.4.8~dfsg/res/res_esel.c
++++ b/res/res_esel.c
 @@ -0,0 +1,384 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.

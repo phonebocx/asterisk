@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/include/asterisk/features.h
-+++ asterisk-1.4.8~dfsg/include/asterisk/features.h
+--- a/include/asterisk/features.h
++++ b/include/asterisk/features.h
 @@ -72,6 +72,12 @@ int ast_park_call(struct ast_channel *ch
  */
  int ast_masq_park_call(struct ast_channel *rchan, struct ast_channel *host, int timeout, int *extout);
@@ -13,9 +13,9 @@
  /*! \brief Determine system parking extension
   *  Returns the call parking extension for drivers that provide special
      call parking help */
---- asterisk-1.4.8~dfsg.orig/res/res_features.c
-+++ asterisk-1.4.8~dfsg/res/res_features.c
-@@ -62,6 +62,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
+--- a/res/res_features.c
++++ b/res/res_features.c
+@@ -66,6 +66,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include "asterisk/adsi.h"
  #include "asterisk/devicestate.h"
  #include "asterisk/monitor.h"
@@ -23,7 +23,7 @@
  
  #define DEFAULT_PARK_TIME 45000
  #define DEFAULT_TRANSFER_DIGIT_TIMEOUT 3000
-@@ -80,6 +81,7 @@ enum {
+@@ -84,6 +85,7 @@ enum {
  };
  
  static char *parkedcall = "ParkedCall";
@@ -31,7 +31,7 @@
  
  static int parkaddhints = 0;                               /*!< Add parking hints automatically */
  static int parkingtime = DEFAULT_PARK_TIME;                /*!< No more than 45 seconds parked before you do something with them */
-@@ -164,6 +166,22 @@ struct parkeduser {
+@@ -168,6 +170,22 @@ struct parkeduser {
  	struct parkeduser *next;
  };
  
@@ -54,7 +54,7 @@
  /* auto answer user */
  struct aauser {
  	struct ast_channel *chan;
-@@ -183,10 +201,16 @@ static pthread_t autoanswer_thread;
+@@ -187,10 +205,16 @@ static pthread_t autoanswer_thread;
  
  static struct parkeduser *parkinglot;
  
@@ -71,7 +71,7 @@
  char *ast_parking_ext(void)
  {
  	return parking_ext;
-@@ -1989,6 +2013,282 @@ static int park_exec(struct ast_channel 
+@@ -2052,6 +2076,282 @@ static int park_exec(struct ast_channel 
  	return res;
  }
  
@@ -85,7 +85,7 @@
 +		memset(pu, 0, sizeof(pu));
 +		ast_mutex_lock(&holding_lock);
 +		chan->appl = "Holded Call";
-+		chan->data = NULL; 
++		chan->data = NULL;
 +
 +		pu->chan = chan;
 +		strncpy(pu->uniqueid, chan->uniqueid, sizeof(pu->uniqueid));
@@ -169,7 +169,7 @@
 +		}
 +		/* This runs sorta backwards, since we give the incoming channel control, as if it
 +		   were the person called. */
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s connected to holded call %s\n", chan->name, peer->name);
 +
 +		memset(&config,0,sizeof(struct ast_bridge_config));
@@ -207,7 +207,7 @@
 +
 +	if (peer) {
 +		res=0;
-+		if (option_verbose > 2) 
++		if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s removed from hold.\n", peer->name);
 +		ast_mutex_unlock(&peer->lock);
 +		ast_hangup(peer);
@@ -230,7 +230,7 @@
 +			if (pl)
 +				pl->next = pu->next;
 +			else
-+				holdlist = pu->next; 
++				holdlist = pu->next;
 +			break;
 +		}
 +		pl = pu;
@@ -242,12 +242,12 @@
 +		free(pu);
 +		if (peer) {
 +		    res=0;
-+		    if (option_verbose > 2) 
++		    if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Channel %s removed from hold.\n", peer->name);
 + 		    ast_moh_stop(peer);
 +		    return peer;
 + 		} else {
-+		    if (option_verbose > 2) 
++		    if (option_verbose > 2)
 +			ast_verbose(VERBOSE_PREFIX_3 "Could not find channel with uniqueid %s.\n", uniqueid);
 +		    return NULL;
 +		}
@@ -291,13 +291,13 @@
 +						f = ast_read(pu->chan);
 +						if (!f || ((f->frametype == AST_FRAME_CONTROL) && (f->subclass ==  AST_CONTROL_HANGUP))) {
 +							/* There's a problem, hang them up*/
-+							if (option_verbose > 1) 
++							if (option_verbose > 1)
 +								ast_verbose(VERBOSE_PREFIX_2 "%s got tired of being onhold\n", pu->chan->name);
 +							ast_hangup(pu->chan);
 +							/* find the corresponding channel and hang them up too! */
 +							/* but only if it is not bridged yet! */
 +							/* And take them out of the parking lot */
-+							if (pl) 
++							if (pl)
 +								pl->next = pu->next;
 +							else
 +								holdlist = pu->next;
@@ -354,7 +354,7 @@
  static int handle_showfeatures(int fd, int argc, char *argv[])
  {
  	int i;
-@@ -2870,6 +3170,7 @@ static int load_module(void)
+@@ -2933,6 +3233,7 @@ static int load_module(void)
  		return res;
  	ast_cli_register_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
  	ast_pthread_create(&parking_thread, NULL, do_parking_thread, NULL);
@@ -362,7 +362,7 @@
  	res = ast_register_application(parkedcall, park_exec, synopsis, descrip);
  	if (!res)
  		res = ast_register_application(parkcall, park_call_exec, synopsis2, descrip2);
-@@ -2879,6 +3180,7 @@ static int load_module(void)
+@@ -2942,6 +3243,7 @@ static int load_module(void)
  			"Park a channel", mandescr_park); 
  	}
  
@@ -370,7 +370,7 @@
  	ast_pthread_create(&autoanswer_thread, NULL, do_autoanswer_thread, NULL);
  	if (!res)
  		res |= ast_register_application(autoanswerlogin, autoanswer_login_exec, synopsis3, descrip3);
-@@ -2901,6 +3203,7 @@ static int unload_module(void)
+@@ -2964,6 +3266,7 @@ static int unload_module(void)
  	ast_unregister_application(parkcall);
   	ast_unregister_application(autoanswer);
   	ast_unregister_application(autoanswerlogin);

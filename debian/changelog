@@ -1,7 +1,353 @@
-asterisk (1:1.4.10.1~dfsg-1exp) UNRELEASED; urgency=low
+asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
 
-  * NOT RELEASED YET
+  [ Victor Seva ]
+  * Depend on debhelper >=5 on backport etch.
+  * debian/rules:
+    - support DEB_BUILD_OPTION noopt used to produce non-optimized builds.
+      (Closes: #492941).
+  * debian/control:
+    - changed libcap-dev to libcap2-dev because libcap1 is no longer
+      maintained upstream. Thanks to Torsten Werner <twerner@debian.org>.
+      (Closes: #492620).
+  * debian/backports/etch:
+    - replace libcap2-dev to libcap-dev.
+    - remove lib-client2007b-dev. (Closes: #494405).
+  * debian/backports/etch.xorcom
+    - remove imap rule. It's now included on etch script.
 
+  [ Tzafrir Cohen ]
+  * Patch fix_zap_no_timing_source: hopefully fixes 491310
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 18 Aug 2008 13:56:26 +0300
+
+asterisk (1:1.4.21.2~dfsg-1) unstable; urgency=high
+
+  [ Victor Seva ]
+  * asterisk.postinst should always check group memberships (Closes:
+    #486097) patch by Tim Retout <tim@retout.co.uk>
+  * changed libc-client2007-dev to libc-client2007b-dev on Build-Depends
+    (fixes FTBFS).
+
+  [ Tzafrir Cohen ]
+  * Depend on debhelper >= 6.0.7 due to dh_lintian (Closes: #492202).
+  * New upstream bugfix release. Fixes CVE-2008-3263 and CVE-2008-3264.
+
+  [ Faidon Liambotis ]
+  * Do a quilt refresh on all patches.
+  * Remove the dh_makeshlibs call as it is unneeded and generates a lintian
+    warning.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 24 Jul 2008 19:51:20 +0300
+
+asterisk (1:1.4.21.1~dfsg-1) unstable; urgency=low
+
+  [ Tzafrir Cohen ]
+  * New upstream bugfix release.
+  * Fix get-orig-source target to remove temporary files left in that tarball.
+  * The asterisk.h symlink moved to asterisk-dev where it should be.
+
+  [ Mark Purcell ]
+  * asterisk-dev Replaces: asterisk (<< 1:1.4.21.1~dfsg-1)
+  * lintian cleanup: debian-copyright-line-too-long
+  * Call dh_lintian lintian-cleanup: package-contains-empty-directory
+
+ -- Mark Purcell <msp@debian.org>  Wed, 16 Jul 2008 21:14:10 +1000
+
+asterisk (1:1.4.21~dfsg-1) unstable; urgency=low
+
+  * New upstream release. 
+  * bison no longer needed to build Asterisk (Since 1.4.0).
+  * Patch armel_support applied upstream.
+  * Patches bristuff/zapata-gsm and bristuff/zapata-bri+euroisdn adjusted to 
+    chan_zap changes (conf became a pointer in mkintf).
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 12 Jun 2008 21:30:40 +0300
+
+asterisk (1:1.4.20~dfsg-1) unstable; urgency=low
+
+  [ Victor Seva ]
+  * Patch sample files pointing now to the correct doc files. (Closes: #475681)
+  * Added support for armel, thanks to Riku Voipio. (Closes: #477389)
+  * Added asterisk-config.dirs in order to create etc/asterisk/manager.d dir,
+    and added a README.conf on it on rule install-indep.
+
+  [ Tzafrir Cohen ]
+  * Provide /usr/include/asterisk.h as well (through a symlink).
+  * Remove {,} bashism from debian/rules (Closes: #478361). 
+
+  [ Faidon Liambotis ]
+  * New upstream version.
+    - Fix IAX performance issues introduced by security fix in 1.4.19.1
+    - Dropped patches samples, vpb-driver-4.2.18, vpb_no_cards, incorporated
+      by upstream.
+  * Update to bristuff-0.4.0-RC1:
+    - Revert API changes to res_agi (xagi).
+    - Revert API changes to ast_sendtext() (ast-send-message).
+    - Merge several chan_zap changes (zapata-bri+euroisdn, zapata-gsm).
+    - Remove unused zapata-device-state, feature-parking_con, find-feature,
+      chan-capi, ast_channel_masquerade_locked, find-feature patches,
+      obsoleted by upstream.
+    - Remove uniqueid-01-use-pid-on-uniqueid-generation patch, dropped by
+      upstream.
+    - Rename app-zapras-fix-audiomode to isdn-fixes and include another fix
+      that we dropped earlier by mistake (r5162).
+    - Merge ast-send-message with ast-send-message-users, following upstream
+      split.
+    - Other minor and cosmetic fixes.
+    - Comment-out the only use of ast-send-message (in GSM) to avoid an ABI
+      change. We are not shipping GSM, hence this is not a feature regression.
+  * Conflict with asterisk-chan-capi << 1.1.1-1 which we broke with an ABI
+    change :( (Closes: #472379).
+  * Drop doc-base entries for sip.conf and zapata.conf, there was no point in
+    just listing those two configuration files.
+  * Remove -1 revision dependency on libpri and libopenh323-dev.
+  * Override some lintian warnings for asterisk (empty IAX firmware and
+    static-http directories) and asterisk-sounds-main (empty MOH and es/fr
+    sounds directories).
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 07 Jun 2008 19:18:56 +0300
+
+asterisk (1:1.4.19.1~dfsg-1) unstable; urgency=low
+
+  [ Faidon Liambotis ]
+  * New upstream release.
+    - Dropped configure-libc-client, incorporated upstream.
+    - Adapted bristuff patches uniqueid-10-channel-ops-uniqueid,
+      uniqueid-30-app-chanspy, zapata-bri+euroisdn.
+    - Fixes CVE-2008-1897 / AST-2008-006 (Closes: #477472).
+  * Build with -O2 instead of the default -O6 (bug introduced in
+    1.4.18~dfsg-1).
+  * Depend on libspeexdsp-dev because of the use of preprocessor features,
+    which were split from libspeex >= 1.2. 
+    - FTBFS: codec_speex.c:99: error: expected specifier-qualifier-list
+      before 'SpeexPreprocessState' (Closes: #474789)
+    - Asterisk fails to install due to broken libspeex dependency 
+      (Closes: #477086)
+
+  [ Lionel Elie Mamane ]
+  * debian/rules: fix get-orig-source to actually work
+  * Fix genastkey so that keys are not world-readable by default.
+
+  [ Tzafrir Cohen ]
+  * Watching downloads.digium.com directly again.
+  * Patch apptest_sleep: A woraround for TestServer fail on SEND DTMF 8.
+
+ -- Mark Purcell <msp@debian.org>  Wed, 23 Apr 2008 22:50:35 +1000
+
+asterisk (1:1.4.18.1~dfsg-1) unstable; urgency=high
+
+  * New upstream release.
+    - Fixes a vulnerability in the RTP codec payload type handling
+      (AST-2008-002, CVE-2008-1289).
+    - Fixes a critical vulnerability that could be exploited to bypass SIP
+      authentication (AST-2008-003, CVE-2008-1332).
+    - Fixes a potential DoS vulnerability in the Manager interface
+      (AST-2008-004, CVE-2008-1333).
+  * Urgency high because of critical security fixes.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 19 Mar 2008 00:49:17 +0200
+
+asterisk (1:1.4.18~dfsg-1) unstable; urgency=low
+
+  [ Faidon Liambotis ]
+  * Update debian/copyright (packaging copyright, formatting etc.)
+  * Remove workaround for gcc ICE on hppa (#445336), since apparently that has
+    been fixed.
+  * Do not provide asterisk-classic/asterisk-bristuff, we don't want to
+    satisfy those dependencies anymore.
+  * Provide asterisk-1.4 virtual package, so that all reverse-dependencies
+    that use 1.4's ABI can depend on that.
+  * Switch asterisk-h323 to the new asterisk-1.4 dependency.
+  * Remove libc-client-dev dependency since it is satisfied in etch by a
+    version (2002) incompatible to the one that works. (Closes: #465524)
+  * Backport upstream's patch for chan_vpb to avoid crashes when no
+    VoiceTronix cards are present. (Closes: #466729)
+  * Backport feature Bridge from 1.6, thanks to Jon Webster. (Closes: #458475)
+
+  [ Tzafrir Cohen ]
+  * New upstream release.
+  * Break bristuff BRI/EuroISDN patch:
+  - zapata_num_spans - already accepted by upstream. Independent of libpri
+    bristuff patch.
+  - zapata-bri+euroisdn - now does not depend on most bristuff interface
+    changes. But lacks:
+  - zapata_euroisdn_holded - Support for putting an ISDN phone on hold.
+    Depends on some other bristuff patches, and adds another interface change.
+  * patch use-libpri-bristuffed right next to zapata-bri+euroisdn, as
+    zapata-bri+euroisdn depends on it to build.
+  * patch tos-libcap remeved: merged by upstream.
+  * Adjusted patch bristuff/ast-device-state-CID to Asterisk 1.4.18.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 06 Mar 2008 04:32:33 +0200
+
+asterisk (1:1.4.17~dfsg-2) unstable; urgency=low
+
+  * Allow building vs. libc-client2007 (Closes: #458877).
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 03 Jan 2008 15:14:23 +0200
+
+asterisk (1:1.4.17~dfsg-1) unstable; urgency=low
+
+  * New upstream release. Fixes ASA-2008-001.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 03 Jan 2008 00:27:16 +0200
+
+asterisk (1:1.4.16.2~dfsg-2) unstable; urgency=low
+
+  * asterisk.init: fix start so that it works again. (Closes: #458022)
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Fri, 28 Dec 2007 02:46:38 +0200
+
+asterisk (1:1.4.16.2~dfsg-1) unstable; urgency=low
+
+  * New upstream release. (Closes: #457063) (Fixes CVE-2007-6430)
+    - Remove keep-1.4-abi, merged upstream.
+    - Adapt hack-multiple-app-voicemail, use-libpri-bristuffed, tos-libcap.
+    - Adapt bristuff patches app-dial-etc, chan-iax2-hangup-cause,
+      app-dial-priority-202, zapata-bri+euroisdn.
+  * Silence upstream's build sum warning but generate one on all modules so
+    that we can enable it at a later point.
+  * Make the init script's detection of a running daemon to be more precise.
+  * Bump Standards-Version to 3.7.3, no changes needed.
+  * Remove modem.conf on upgrades from 1.2 (i.e. etch). (Closes: #454332)
+  * Ressurect long-forgotten logrotate script.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 21 Dec 2007 22:38:03 +0200
+
+asterisk (1:1.4.15~dfsg-1) unstable; urgency=low
+
+  * New upstream release (Closes: #452054)
+    - Fix a potential corrupt of voicemail.conf on simultaneous PIN updates
+      (Closes: #353227)
+
+  [ Tzafrir Cohen ]
+  * Add some sample/reference config files as documentation.
+  * Provide asterisk-bristuff for upgrading from Etch.
+  * Move libc-client to not be last, so debian/backports/xorcom.etch would
+    still work.
+
+  [ Faidon Liambotis ]
+  * Really enable the libcap/ToS functionality; the previous patch didn't
+    enable the functionality, even though the code and the libcap.so
+    dependency were there. (Closes: #454342)
+  * Fix a minor issue with init script's stop target when running with
+    safe_asterisk.
+  * Add chan_vpb, adding support for VoiceTronix OpenSwitch and OpenLine
+    cards. (Closes: #396499)
+  * Fix debian/watch by using a pkg-voip wrapper to avoid upstream's silly
+    redirections. (Closes: #449706)
+  * Use DEBVERSION as asterisk's version string.
+  * Disable the MD5 build sum that breaks all out-of-tree plugins (duh!).
+  * Create /usr/local/share/asterisk/sounds to put all site-specific
+    non-modifiable sounds.
+  * Add a note about bugs.debian.org to the banner.
+  * Add noload for res_config_* since loading them results in errors and
+    doesn't provide any functionality.
+  * News entries were added but we never shipped the file; ship NEWS.Debian.
+  * Add an entry to NEWS.Debian warning users about app_voicemail_*.so
+    (Closes: #452596)
+  * Provide options in /etc/default/asterisk for configuring safe_asterisk.
+    (Closes: #381786)
+
+  [ Tzafrir Cohen ]
+  * Provide a custom sounds directory under /var/lib - user-modifieble at
+    runtime and hence not under /usr. (Closes: #337209)
+
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 06 Dec 2007 17:20:21 +0200
+
+asterisk (1:1.4.13~dfsg-1) unstable; urgency=low
+
+  * New upstream release.
+    - Implemented Dynamic DUNDi peering support (Closes: #439331)
+    - Removed merged patches: bashism-safeasterisk, ast_key_dir,
+      h323-add-missing-ptrace-guard, CVE-2007-4521.
+    - Adapted patches: make-clean-fixes, h323-no-deps-on-asterisk.
+    - Adapted bristuff 0.4.0-test4 to apply to 1.4.12 (bristuff.notice,
+      xagi, app-dial-c-callback, app-dial-priority-202)
+  * When DFSG-ing the tarball, create a fake codecs/ilbc/Makefile so that
+    make doesn't fail on clean.
+  * Pass NOISY_BUILD to make so that the GCC arguments can be examined in
+    build logs.
+  * Remove versioned dependency on dpkg-dev since that particular version is
+    present since etch (sarge is not supported as a backport target anymore).
+  * Backport a patch from trunk so that Asterisk can set the IP ToS bits when
+    it is run as a simple user (as we do).
+  * Re-enable IMAP support and enable ODBC support; this time they are
+    provided as app_voicemail_imap.so and _odbc.so so that they don't break
+    existing setups.
+  * Build with -O1 on hppa to workaround gcc-4.2 ICE (#445336).
+  * Zaptel package added support for Voicetronix OpenPCI cards, mention it on
+    asterisk's description.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 10 Oct 2007 22:18:16 +0300
+
+asterisk (1:1.4.11~dfsg-4) unstable; urgency=low
+
+  * Remove imap support to get back original files voicemail functionality.
+  * Fix comment in patches/bristuff/zapata-bri+euroisdn (by nickzxcv).
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 30 Sep 2007 15:12:09 +0200
+
+asterisk (1:1.4.11~dfsg-3) unstable; urgency=low
+
+  * Depend on libsnmp-dev instead of libsnmp10-dev. Fixes FTBFS
+    (Closes: #444322)
+
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 28 Sep 2007 05:58:29 +0300
+
+asterisk (1:1.4.11~dfsg-2) unstable; urgency=low
+
+  [ Faidon Liambotis ]
+  * Depend on libpri-dev >= 1.4.1-1 for the bristuffed header.
+    (Closes: #439197)
+  * Added a 1.4 backport of the DEVSTATE() dialplan function which allows
+    retrieving any device state in the dialplan, as well as creating custom
+    device states that are controllable from the dialplan.
+  * Replace Build-Depends libc-client-dev (which wasn't used) with
+    libc-client2006j2-dev and enable Voicemail IMAP storage
+    (configure-libc-client).
+  * Build depend on libcurl4-openssl-dev instead of libcurl4-dev which is a
+    virtual package. This also means using the more complete OpenSSL libcurl
+    backend instead of the GnuTLS one.
+  * Add a versioned >= 1.4 dependency of asterisk in asterisk-h323.
+  * Don't use MAKEFLAGS as a variable in debian/rules since it has a special
+    meaning for make. Reported by Simon Richter.
+  * Add Homepage field, as supported by dpkg 1.14.6.
+  * Fix init.d stop when using safe_asterisk. (Closes: #376514)
+  * Drop asterisk-web-vmail package and place the script in
+    /usr/share/doc/asterisk.
+  * Move static-http and sample.call to asterisk's examples.
+
+  [ Kilian Krause ]
+  * Update backports scripts for libcurl4*-dev
+  * Fix IMAP crash with upstream source snipplet. (Closes: #440187)
+
+  [ Tzafrir Cohen ]
+  * Support increasing open files limit from init.d script.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 26 Sep 2007 13:32:01 +0300
+
+asterisk (1:1.4.11~dfsg-1) unstable; urgency=low
+
+  [ Tzafrir Cohen ]
+  * Remove libgtk2.0-dev from Build-Depends since the GTK+ console was not
+    getting built anyway.
+
+  [ Kilian Krause ]
+  * Add dpkg-dev (>= 1.13.19) to Build-Depends for binary:Version and
+    source:Version.
+
+  [ Faidon Liambotis ]
+  * New upstream release. (Closes: #439062)
+    - AST-2007-020 Resource Exhaustion vulnerability in SIP channel driver
+  * Switch to quilt as a patch management system instead of dpatch.
+  * Add bristuff 0.4.0-test4
+    - Split into smaller, individual patches (bristuff/).
+    - Mention HFC-S/HFC-4S support in the Description.
+    - Use libpri-bristuffed.so.1 and its respective header
+      (use-libpri-bristuffed).
+    - Ship xagi-test.c as an example.
+    - Add a news item to NEWS.Debian stating bristuff's inclusion.
   * Major overhaul of the postinst scripts, completely replacing asterisk_fix.
     - Create Asterisk's directories on asterisk.dirs to track them using dpkg.
     - Add asterisk.postinst which calls adduser, chown, chmod. Improve error
@@ -10,44 +356,32 @@ asterisk (1:1.4.10.1~dfsg-1exp) UNRELEASED; urgency=low
       (Closes: #431506)
     - chmod /etc/asterisk on build-time to allow the user to modify the
       permissions; this required a lintian override.
-    - Honor dpkg-statoverride on all the chowned/chmoded directories.
+    - Honor dpkg-statoverride on all the chowned/chmoded directories and
+      configuration files under /etc/asterisk.
     - Handle asterisk-config -> asterisk installation order properly
       (Closes: #408708)
+    - Don't add asterisk user to audio and dialout groups if existed before.
+      This allows the administrator to remove the membership.
     - Don't depend on adduser from asterisk-config.
-
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 19 Aug 2007 22:12:35 +0300
-
-asterisk (1:1.4.10.1~dfsg-1) UNRELEASED; urgency=low
-
-  NOT RELEASED YET
-
-  [ Tzafrir Cohen ]
-  * New upstream release.
-  * Removing build requirement gtk (maybe needed for building the
-    non-usable gtk console. If anybody needs it, please file a bug report.)
-
-  [ Kilian Krause ]
-  * Add dpkg-dev (>= 1.13.19) to Build-Depends for binary:Version and
-    source:Version.
-
-  [ Faidon Liambotis ]
   * Remove Suggests to gnomemeeting (it's a dummy package nowdays),
-    asterisk-rate-engine and add for twinkle.
+    asterisk-rate-engine and add one for twinkle.
   * Remove Conflicts for an old version of asterisk-oh323 which was only
     present until sarge.
-  * Remove versioned dependency on an ancient (pre-sarge) version of sed.
-  * Patch channels/h323/ast_h323.cxx to add some missing PTRACING guards
+  * Remove versioned dependencies on ancient (pre-sarge) versions of sed and
+    adduser.
+  * Patch channels/h323/ast_h323.cxx to add some missing PTRACING #ifdef
     (h323-add-missing-ptrace-guard).
-  * Switch to quilt as a patch management system instead of dpatch.
-  * h323-workaround-openh323-segfault patch: workaround libopenh323 bug
+  * h323-workaround-openh323-segfault patch: workaround a libopenh323 bug
     (#438815) which causes Asterisk to segfault on startup. (Closes: #435146)
-  * Split bristuff 0.4.0-test3 into individual patches and add it to the
-    quilt patchset.
-  * Use libpri-bristuffed.so.1 and its respective header
-    (use-libpri-bristuffed).
-  * Ship xagi-test.c (from bristuff) to examples.
+  * Remove -XCVS from dh_installexamples arguments. Upstream doesn't use CVS
+    anymore.
+  * Add a README.Debian for asterisk-h323 that explains the differences
+    between the different H.323 channel drivers, taken from the asterisk-oh323
+    package.
+  * Clarify asterisk-h323's description and mention the other channel drivers.
+  * Suggest asterisk-h323 from asterisk.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 20 Aug 2007 04:35:21 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 22 Aug 2007 20:55:12 +0300
 
 asterisk (1:1.4.10~dfsg-1) unstable; urgency=low
 

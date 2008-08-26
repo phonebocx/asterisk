@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg-OK.orig/apps/app_directed_pickup.c
-+++ asterisk-1.4.8~dfsg-OK/apps/app_directed_pickup.c
+--- a/apps/app_directed_pickup.c
++++ b/apps/app_directed_pickup.c
 @@ -45,7 +45,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  
  #define PICKUPMARK "PICKUPMARK"
@@ -10,7 +10,7 @@
  static const char *descrip =
  "  Pickup(extension[@context][&extension2@context...]): This application can pickup any ringing channel\n"
 --- /dev/null
-+++ asterisk-1.4.8~dfsg-OK/apps/app_pickup.c
++++ b/apps/app_pickup.c
 @@ -0,0 +1,300 @@
 +/*
 + * Asterisk -- A telephony toolkit for Linux.

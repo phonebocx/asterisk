@@ -1,5 +1,5 @@
---- asterisk-1.4.8~dfsg.orig/apps/app_dial.c
-+++ asterisk-1.4.8~dfsg/apps/app_dial.c
+--- a/apps/app_dial.c
++++ b/apps/app_dial.c
 @@ -11,6 +11,10 @@
   * the project provides a web site, mailing lists and IRC
   * channels for your use.
@@ -11,22 +11,26 @@
   * This program is free software, distributed under the terms of
   * the GNU General Public License Version 2. See the LICENSE file
   * at the top of the source tree.
-@@ -123,7 +127,8 @@ static char *descrip =
+@@ -130,7 +134,8 @@ static char *descrip =
  "    H    - Allow the calling party to hang up by hitting the '*' DTMF digit.\n"
  "    i    - Asterisk will ignore any forwarding requests it may receive on this\n"
  "           dial attempt.\n"
 -"    j    - Jump to priority n+101 if all of the requested channels were busy.\n"
 +"    j    - Jump to priority n+101 if the called party was busy.\n"
 +"           Jump to priority n+201 if all of the requested channels were busy.\n"
- "    L(x[:y][:z]) - Limit the call to 'x' ms. Play a warning when 'y' ms are\n"
- "           left. Repeat the warning every 'z' ms. The following special\n"
- "           variables can be used with this option:\n"
-@@ -1258,10 +1263,12 @@ static int dial_exec_full(struct ast_cha
+ "    k    - Allow the called party to enable parking of the call by sending\n"
+ "           the DTMF sequence defined for call parking in features.conf.\n"
+ "    K    - Allow the calling party to enable parking of the call by sending\n"
+@@ -1292,14 +1297,16 @@ static int dial_exec_full(struct ast_cha
  	}
  
  	if (!outgoing) {
 -		strcpy(status, "CHANUNAVAIL");
 +		ast_copy_string(status, "CHANUNAVAIL", sizeof(status));
+ 		if(fulldial == num_dialed) {
+ 			res = -1;
+ 			goto out;
+ 		}
 +		/* See if there is a special message */
 +		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 201);
  	} else {

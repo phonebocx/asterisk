@@ -5,9 +5,9 @@ dropping uid/gid.
 
  -- Mark Purcell <msp@debian.org>
 
---- asterisk-1.4.9~dfsg.orig/Makefile
-+++ asterisk-1.4.9~dfsg/Makefile
-@@ -115,7 +115,7 @@ else
+--- a/Makefile
++++ b/Makefile
+@@ -125,7 +125,7 @@ else
    ASTSBINDIR=$(sbindir)
    ASTSPOOLDIR=$(localstatedir)/spool/asterisk
    ASTLOGDIR=$(localstatedir)/log/asterisk

@@ -16,10 +16,18 @@ endif
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
-MAKEFLAGS += OPTIMIZE=-O2 MAKECMDGOALS=dont-optimize
+ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
+	BUILDFLAGS += OPTIMIZE=-O0
+else
+	BUILDFLAGS += OPTIMIZE=-O2
+endif
+BUILDFLAGS += MAKECMDGOALS=dont-optimize
+
+# show full gcc arguments instead of [CC] and [LD]
+BUILDFLAGS += NOISY_BUILD=yes
 
 # Force music files selection:
-MAKEFLAGS += MENUSELECT_MOH= \
+BUILDFLAGS += MENUSELECT_MOH= \
   ASTDATADIR=/usr/share/asterisk \
   ASTVARRUNDIR=/var/run/asterisk \
 
@@ -35,11 +43,12 @@ include /usr/share/quilt/quilt.make
 
 DEBVERSION:=$(shell head -n 1 debian/changelog \
 		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
+DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
 UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e 's/.dfsg$$//')
 
 FILENAME := asterisk_$(UPVERSION)~dfsg.orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
-URL := http://ftp2.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
+URL := http://downloads.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
 # make sure we have 'fetch' . We need to have either wget or fetch
 # on the system. However it is generally not a good idea to actually
@@ -60,23 +69,28 @@ check-sounds:
 config.status: check-sounds patch
 	dh_testdir
 
+	[ -f .version.bak ] || cp -a .version .version.bak
+	echo $(DEB_NOEPOCH_VERSION) > .version
+
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
 	#./bootstrap.sh # also runs autoonf. TODO: currently not needed.
 
 	chmod 755 $(CURDIR)/debian/dummyprogs/fetch
 	
-	# Without --with-gsm the internal gsm will be used
-	$(FETCH_ENV) ./configure --with-gsm \
+	$(FETCH_ENV) ./configure \
 		--host=$(DEB_HOST_GNU_TYPE) --build=$(DEB_BUILD_GNU_TYPE) \
 		--prefix=/usr \
 		--mandir=\$${prefix}/share/man \
 		--infodir=\$${prefix}/share/info \
+		--with-cap \
+		--with-gsm \
+		--with-imap=system \
 		--with-pwlib=/usr/share/pwlib/include/ \
 		--with-h323=/usr/share/openh323/ 
 
 
 menuselect.makeopts: config.status
-	$(FETCH_ENV) $(MAKE) menuselect.makeopts
+	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) menuselect.makeopts
 	sed -i -e '/^MENUSELECT_MOH=/d' menuselect.makeopts
 
 	# some voodoo in order to get chan_h323 built, and make it in one
@@ -94,10 +108,10 @@ build-arch-stamp: menuselect.makeopts
 	dh_testdir
 
 	# Add here command to compile/build the package.
-	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS) || true
+	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) || true
 
 	# Build a second time to pick up h323 :-(
-	$(FETCH_ENV) $(MAKE) $(MAKEFLAGS)
+	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS)
 
 
 	touch $@
@@ -127,6 +141,8 @@ cleaned: patch
 	-test -d configs && chmod -x configs/*.sample
 	-$(RM) -f build-arch-stamp build-indep-stamp config.status check-sounds menuselect.makeopts
 
+	[ ! -f .version.bak ] || mv .version.bak .version
+
 	dh_clean
 
 install: install-arch install-indep
@@ -136,12 +152,13 @@ install-arch: build-arch
 	dh_clean -k -s
 	dh_installdirs -s
 	
-	# Add here commands to install the package into debian/tmp
-	$(FETCH_ENV) $(MAKE) DESTDIR=$(CURDIR)/debian/tmp install
+	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) DESTDIR=$(CURDIR)/debian/tmp install
 
 	dh_install -s --sourcedir=debian/tmp
+	dh_lintian -s
 
-	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/{stereorize,streamplayer}
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/streamplayer
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/stereorize
 	touch $@
 
 install-indep: build-indep
@@ -150,24 +167,21 @@ install-indep: build-indep
 	dh_clean -k -i
 	dh_installdirs -i
 
-	# Add here commands to install the package into debian/tmp
-	$(FETCH_ENV) $(MAKE) DESTDIR=$(CURDIR)/debian/tmp install samples
+	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) DESTDIR=$(CURDIR)/debian/tmp install samples
 
 	dh_install -i --sourcedir=debian/tmp
+	dh_lintian -i
 
-	install -m 0644 -D $(CURDIR)/debian/asterisk-config.lintian-overrides \
-		$(CURDIR)/debian/asterisk-config/usr/share/lintian/overrides/asterisk-config
-	
-	chmod +x $(CURDIR)/debian/asterisk-web-vmail/usr/lib/cgi-bin/asterisk/vmail.cgi
-	
-	
+	# create a simple config
+	echo "; please read doc/manager.txt" > $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d/README.conf
+
 # Build architecture-independent files here.
 binary-indep: install-indep
 	dh_testdir -i
 	dh_testroot -i
 	dh_installlogrotate -i 
 	dh_installdocs -i -XREADME.cygwin
-	dh_installexamples -i -XCVS
+	dh_installexamples -i
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
 	dh_link -i 
@@ -176,19 +190,20 @@ binary-indep: install-indep
 	# should follow dh_fixperms; asterisk configurations may contain
 	# sensitive information, such as passwords
 	chmod o-rwx $(CURDIR)/debian/asterisk-config/etc/asterisk/*
+	chmod o+rx  $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d
 	dh_installdeb -i
 	dh_gencontrol -i
 	dh_md5sums -i
 	dh_builddeb -i
 
-
 # Build architecture-dependent files here.
 binary-arch: install-arch
 	dh_testdir -a
 	dh_testroot -a
+	dh_installlogrotate -a
 	dh_installdocs -a
 	dh_installman utils/*.1 doc/*.8 contrib/scripts/*.8
-	dh_installexamples -a -XCVS
+	dh_installexamples -a
 	dh_installchangelogs ChangeLog -a
 	dh_installinit -a -- defaults 21
 	dh_strip -a --dbg-package=asterisk-dbg
@@ -197,7 +212,6 @@ binary-arch: install-arch
 	dh_fixperms -a
 	dh_installdeb -a
 	rm -f debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
-	dh_makeshlibs -a 
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a
@@ -212,14 +226,22 @@ get-orig-source:
 	@@dh_testdir
 	@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
 	@@echo Downloading $(UPFILENAME) from $(URL) ...
-	@@wget -N -nv -T10 -t3 -O ../tarballs/$(UPFILENAME) $(URL)
+	@@wget -nv -T10 -t3 -O ../tarballs/$(UPFILENAME) $(URL)
 	@@echo Repacking as DFSG-free...
 	@@mkdir -p ../tarballs/asterisk-$(UPVERSION).tmp/
 	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
 	tar xfz ../$(UPFILENAME) 
 	@@rm -f  $(TMP_TARBALL_TOP)/sounds/fpm-*.mp3
 	@@rm -f  $(TMP_TARBALL_TOP)/sounds/asterisk-moh-freeplay-wav.tar.gz
-	@@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc 
+	@@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc/*
+	# in case the tarball is not clean:
+	@@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts
+	@@rm -rf $(TMP_TARBALL_TOP)/*/.*.makeopts
+	@@rm -rf $(TMP_TARBALL_TOP)/*/.moduleinfo
+	@@rm -rf $(TMP_TARBALL_TOP)/*/.*.moduleinfo
+	@@rm -rf $(TMP_TARBALL_TOP)/menuselect-tree
+	@@printf "all:\nclean:\n.PHONY: all clean\n" > \
+		$(TMP_TARBALL_TOP)/codecs/ilbc/Makefile
 	@@rm -f  $(TMP_TARBALL_TOP)/codecs/codec_ilbc.c
 	@@rm -rf $(TMP_TARBALL_TOP)/contrib/firmware/
 	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \

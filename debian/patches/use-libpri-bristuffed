@@ -1,6 +1,6 @@
---- asterisk-1.4.9~dfsg.orig/configure
-+++ asterisk-1.4.9~dfsg/configure
-@@ -24323,18 +24323,18 @@ fi
+--- a/configure
++++ b/configure
+@@ -25862,18 +25862,18 @@ fi
  
  
     if test "${AST_PRI_FOUND}" = "yes"; then
@@ -25,7 +25,7 @@
  if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
    echo $ECHO_N "(cached) $ECHO_C" >&6
  fi
-@@ -24343,8 +24343,8 @@ ac_res=`eval echo '${'$as_ac_Header'}'`
+@@ -25882,8 +25882,8 @@ ac_res=`eval echo '${'$as_ac_Header'}'`
  echo "${ECHO_T}$ac_res" >&6; }
  else
    # Is the header compilable?
@@ -36,7 +36,7 @@
  cat >conftest.$ac_ext <<_ACEOF
  /* confdefs.h.  */
  _ACEOF
-@@ -24352,7 +24352,7 @@ cat confdefs.h >>conftest.$ac_ext
+@@ -25891,7 +25891,7 @@ cat confdefs.h >>conftest.$ac_ext
  cat >>conftest.$ac_ext <<_ACEOF
  /* end confdefs.h.  */
  $ac_includes_default
@@ -45,7 +45,7 @@
  _ACEOF
  rm -f conftest.$ac_objext
  if { (ac_try="$ac_compile"
-@@ -24384,15 +24384,15 @@ rm -f core conftest.err conftest.$ac_obj
+@@ -25923,15 +25923,15 @@ rm -f core conftest.err conftest.$ac_obj
  echo "${ECHO_T}$ac_header_compiler" >&6; }
  
  # Is the header present?
@@ -64,7 +64,7 @@
  _ACEOF
  if { (ac_try="$ac_cpp conftest.$ac_ext"
  case "(($ac_try" in
-@@ -24425,30 +24425,30 @@ echo "${ECHO_T}$ac_header_preproc" >&6; 
+@@ -25964,25 +25964,25 @@ echo "${ECHO_T}$ac_header_preproc" >&6; 
  # So?  What about this header?
  case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
    yes:no: )
@@ -103,7 +103,11 @@
 +echo "$as_me: WARNING: ${PRI_DIR}/include/bristuffed/libpri.h: proceeding with the preprocessor's result" >&2;}
 +    { echo "$as_me:$LINENO: WARNING: ${PRI_DIR}/include/bristuffed/libpri.h: in the future, the compiler will take precedence" >&5
 +echo "$as_me: WARNING: ${PRI_DIR}/include/bristuffed/libpri.h: in the future, the compiler will take precedence" >&2;}
- 
+     ( cat <<\_ASBOX
+ ## ------------------------------- ##
+ ## Report this to www.asterisk.org ##
+@@ -25991,8 +25991,8 @@ _ASBOX
+      ) | sed "s/^/$as_me: WARNING:     /" >&2
      ;;
  esac
 -{ echo "$as_me:$LINENO: checking for ${PRI_DIR}/include/libpri.h" >&5
@@ -113,25 +117,25 @@
  if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
    echo $ECHO_N "(cached) $ECHO_C" >&6
  else
---- asterisk-1.4.9~dfsg.orig/configure.ac
-+++ asterisk-1.4.9~dfsg/configure.ac
-@@ -795,7 +795,7 @@ fi
+--- a/configure.ac
++++ b/configure.ac
+@@ -1232,7 +1232,7 @@ fi
  
  AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
  
 -AST_EXT_LIB_CHECK([PRI], [pri], [pri_keypad_facility], [libpri.h])
 +AST_EXT_LIB_CHECK([PRI], [pri-bristuffed], [pri_keypad_facility], [bristuffed/libpri.h])
  
- if test "${USE_PWLIB}" != "no"; then
- 	if test -n "${PWLIB_DIR}"; then
---- asterisk-1.4.9~dfsg.orig/channels/chan_zap.c
-+++ asterisk-1.4.9~dfsg/channels/chan_zap.c
-@@ -74,7 +74,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
+ AST_EXT_LIB_CHECK([PRI_VERSION], [pri], [pri_get_version], [libpri.h])
+ 
+--- a/channels/chan_zap.c
++++ b/channels/chan_zap.c
+@@ -71,7 +71,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include <zaptel/tonezone.h>
  
  #ifdef HAVE_PRI
 -#include <libpri.h>
 +#include <bristuffed/libpri.h>
  #endif
- #ifdef HAVE_GSMAT
- #include <libgsmat.h>
+ 
+ #include "asterisk/lock.h"
