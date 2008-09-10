@@ -19,11 +19,13 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
   * Patch fix_zap_no_timing_source: hopefully fixes 491310
 
   [ Lionel Elie Mamane ]
-  * /etc/default/asterisk: Bring comments on AST_DUMPCORE in sync with
+  * /etc/default/asterisk: Bring comments on AST_DUMPCORE_DIR in sync with
     reality of implementation in /etc/init.d/asterisk. Change suggested
     CORE_PATTERN to more secure ones.
+  * /etc/init.d/asterisk: Use the value of AST_DUMPCORE_DIR if it is a
+    directory, not if the value if DUMPCORE_DIR is a directory.
 
- -- Lionel Elie Mamane <lmamane@debian.org>  Wed, 10 Sep 2008 03:19:34 +0200
+ -- Lionel Elie Mamane <lmamane@debian.org>  Wed, 10 Sep 2008 11:28:33 +0200
 
 asterisk (1:1.4.21.2~dfsg-1) unstable; urgency=high
 
