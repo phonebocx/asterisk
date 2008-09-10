@@ -50,11 +50,16 @@
 #               CORE_PATTERN below.
 #AST_DUMPCORE=yes
 #
-# DUMPCORE_DIR: By default asterisk runs in the directory '/' like any 
+# AST_DUMPCORE_DIR: By default asterisk runs in the directory '/' like any 
 #               daemon. Setting this allows you to tell it to tell the 
 #               Asterisk daemon to run in a different directory if 
-#               AST_DUMPCORE is enabled. The default is /tmp and is 
-#               probably a sane one.
+#               AST_DUMPCORE is enabled. The default is
+#               /var/spool/asterisk. That is a good choice because it
+#               is writable (thus enabling the actual writing of the
+#               core file) but relatively immune to symlink attacks
+#               (because not world-writable like /tmp/).
+#               Note, however, that if CORE_PATTERN is an absolute
+#               path, it will override AST_DUMPCORE_DIR.
 #
 # CORE_PATTERN: If you use AST_DUMPCORE above, this is optionally set to a 
 #               pattern of the core file. The default is not to touch the 
@@ -68,6 +73,6 @@
 #               See http://lxr.linux.no/source/Documentation/sysctl/kernel.txt
 #               Here is what Asterisk's ast_grab_core
 #               script would expect:
-#CORE_PATTERN='/tmp/core.%p'
+#CORE_PATTERN='core.%p'
 #               But you might prefer something like:
-#CORE_PATTERN='/tmp/core.%e.%t'
+#CORE_PATTERN='core.%e.%t'

@@ -18,7 +18,12 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
   [ Tzafrir Cohen ]
   * Patch fix_zap_no_timing_source: hopefully fixes 491310
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 18 Aug 2008 13:56:26 +0300
+  [ Lionel Elie Mamane ]
+  * /etc/default/asterisk: Bring comments on AST_DUMPCORE in sync with
+    reality of implementation in /etc/init.d/asterisk. Change suggested
+    CORE_PATTERN to more secure ones.
+
+ -- Lionel Elie Mamane <lmamane@debian.org>  Wed, 10 Sep 2008 03:19:34 +0200
 
 asterisk (1:1.4.21.2~dfsg-1) unstable; urgency=high
 
