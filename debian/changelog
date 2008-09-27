@@ -25,7 +25,13 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
   * /etc/init.d/asterisk: Use the value of AST_DUMPCORE_DIR if it is a
     directory, not if the value if DUMPCORE_DIR is a directory.
 
- -- Lionel Elie Mamane <lmamane@debian.org>  Wed, 10 Sep 2008 11:28:33 +0200
+  [ Faidon Liambotis ]
+  * Backport a patch from Xorcom's tree fixing a deadlock situation caused
+    by the bristuff patch. (Closes: #493055)
+  * Backport a patch from Xorcom's tree fixing an occasional "Cause 34" error
+    on BRIs.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 27 Sep 2008 05:47:59 +0300
 
 asterisk (1:1.4.21.2~dfsg-1) unstable; urgency=high
 
