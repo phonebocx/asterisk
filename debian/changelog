@@ -1,19 +1,15 @@
 asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
 
   [ Victor Seva ]
-  * Depend on debhelper >=5 on backport etch.
-  * debian/rules:
-    - support DEB_BUILD_OPTION noopt used to produce non-optimized builds.
-      (Closes: #492941).
-  * debian/control:
-    - changed libcap-dev to libcap2-dev because libcap1 is no longer
-      maintained upstream. Thanks to Torsten Werner <twerner@debian.org>.
-      (Closes: #492620).
-  * debian/backports/etch:
-    - replace libcap2-dev to libcap-dev.
-    - remove lib-client2007b-dev. (Closes: #494405).
-  * debian/backports/etch.xorcom
-    - remove imap rule. It's now included on etch script.
+  * support DEB_BUILD_OPTION noopt used to produce non-optimized builds.
+    (Closes: #492941).
+  * Depend on libcap2-dev instead of libcap-dev because libcap1 is no longer
+    maintained upstream. Thanks to Torsten Werner <twerner@debian.org>.
+    (Closes: #492620).
+  * Backport script fixes:
+    - Depend on debhelper >=5 on backport etch script.
+    - replace libcap2-dev by libcap-dev.
+    - remove lib-client2007b-dev. (Closes: #494405)
 
   [ Tzafrir Cohen ]
   * Patch chan_zap so that asterisk starts even without a Zaptel timing
