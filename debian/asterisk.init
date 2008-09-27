@@ -46,6 +46,9 @@ PIDFILE_DIR=`dirname $PIDFILE`
 UMASK=007 # by default
 #MAXFILES=1024 # (the system default)
 
+# if $HOME is set, asterisk -rx writes a .asterisk_history there
+unset HOME
+
 # by default: use real-time priority
 PARAMS=""
 CHDIR_PARM=""

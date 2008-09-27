@@ -27,8 +27,10 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
     by the bristuff patch. (Closes: #493055)
   * Backport a patch from Xorcom's tree fixing an occasional "Cause 34" error
     on BRIs.
+  * Don't write /root/.asterisk_history when stopping asterisk with the init
+    script. (Closes: #500294)
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 27 Sep 2008 05:47:59 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 27 Sep 2008 21:52:39 +0300
 
 asterisk (1:1.4.21.2~dfsg-1) unstable; urgency=high
 
