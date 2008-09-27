@@ -16,7 +16,8 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
     - remove imap rule. It's now included on etch script.
 
   [ Tzafrir Cohen ]
-  * Patch fix_zap_no_timing_source: hopefully fixes 491310
+  * Patch chan_zap so that asterisk starts even without a Zaptel timing
+    source. (Closes: #491310)
 
   [ Lionel Elie Mamane ]
   * /etc/default/asterisk: Bring comments on AST_DUMPCORE_DIR in sync with

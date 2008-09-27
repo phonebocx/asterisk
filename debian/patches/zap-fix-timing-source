@@ -1,7 +1,7 @@
 Don't quit just because we don't have a good Zaptel timing source.
-See http://bugs.debian.org/491310 .
+See http://bugs.debian.org/491310
 
-Status: pending testing.
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 
 --- a/main/asterisk.c
 +++ b/main/asterisk.c

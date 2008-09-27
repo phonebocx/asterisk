@@ -83,6 +83,6 @@ bristuff/zapata-gsm
 feature-bridge
 
 # bugfixes on top of everything
-fix_zap_no_timing_source
+zap-fix-timing-source
 zap-fix-deadlock
 zap-fix-cause34
