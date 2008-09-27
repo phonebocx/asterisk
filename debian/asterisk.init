@@ -186,7 +186,7 @@ case "$1" in
 	# this may hang in some cases. Specifically, when the asterisk
 	# processes is stopped. No bother to worry about cleanup: 
 	# it will either fail or die when asterisk dies.
-	( $DAEMON -rx 'stop now' > /dev/null 2>&1 & ) &
+	( asterisk_rx 'stop now' > /dev/null 2>&1 & ) &
 	if [ "$RUNASTSAFE" = "yes" ];then
 		start-stop-daemon --stop --quiet --oknodo \
 				  --pidfile $ASTSAFE_PIDFILE
