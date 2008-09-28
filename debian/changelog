@@ -29,8 +29,10 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
     on BRIs.
   * Don't write /root/.asterisk_history when stopping asterisk with the init
     script. (Closes: #500294)
+  * Eliminate warnings when calling some actions of the init script by
+    replacing obsolete asterisk commands with their newer counterpart.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 27 Sep 2008 21:52:39 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 28 Sep 2008 05:42:04 +0300
 
 asterisk (1:1.4.21.2~dfsg-1) unstable; urgency=high
 

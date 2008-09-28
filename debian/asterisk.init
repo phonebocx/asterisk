@@ -200,14 +200,14 @@ case "$1" in
 	;;
   reload)
 	echo "Reloading $DESC configuration files."
-	asterisk_rx 'reload'
+	asterisk_rx 'module reload'
 	;;
   logger-reload)
 	asterisk_rx 'logger reload'
 	;;
-  extensions-reload)
+  extensions-reload|dialplan-reload)
 	echo "Reloading $DESC configuration files."
-	asterisk_rx 'extensions reload'
+	asterisk_rx 'dialplan reload'
 	;;
   restart-convenient)
 	asterisk_rx 'restart when convenient'
