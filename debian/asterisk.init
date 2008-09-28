@@ -137,6 +137,10 @@ status() {
 
 asterisk_rx() {
 	if ! status >/dev/null; then return 0; fi
+
+	# if $HOME is set, asterisk -rx writes a .asterisk_history there
+	unset HOME
+
 	$DAEMON -rx "$1"
 }
 
@@ -179,10 +183,6 @@ case "$1" in
 	;;
   stop)
 	echo -n "Stopping $DESC: $NAME"
-
-	# if $HOME is set, asterisk -rx writes a .asterisk_history there
-	unset HOME
-
 	# Try gracefully.
 	# this may hang in some cases. Specifically, when the asterisk
 	# processes is stopped. No bother to worry about cleanup: 
