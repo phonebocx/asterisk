@@ -139,9 +139,11 @@ asterisk_rx() {
 	if ! status >/dev/null; then return 0; fi
 
 	# if $HOME is set, asterisk -rx writes a .asterisk_history there
-	unset HOME
+	(
+		unset HOME
 
-	$DAEMON -rx "$1"
+		$DAEMON -rx "$1"
+	)
 }
 
 case "$1" in
