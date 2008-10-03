@@ -1,4 +1,4 @@
-asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.21.2~dfsg-2) unstable; urgency=low
 
   [ Victor Seva ]
   * support DEB_BUILD_OPTION noopt used to produce non-optimized builds.
