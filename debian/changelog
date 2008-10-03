@@ -24,7 +24,7 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * Backport a patch from Xorcom's tree fixing a deadlock situation caused
-    by the bristuff patch.
+    by the bristuff patch. (Closes: #493055)
   * Backport a patch from Xorcom's tree fixing an occasional "Cause 34" error
     on BRIs.
   * Don't write /root/.asterisk_history when stopping asterisk with the init
@@ -32,7 +32,7 @@ asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
   * Eliminate warnings when calling some actions of the init script by
     replacing obsolete asterisk commands with their newer counterpart.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 01 Oct 2008 18:06:56 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 04 Oct 2008 01:21:40 +0300
 
 asterisk (1:1.4.21.2~dfsg-1) unstable; urgency=high
 
