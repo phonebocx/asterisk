@@ -1,3 +1,9 @@
+asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
+
+  * Bumped Standards-Version to 3.8.0.
+
+ -- Patrick Matthäi <patrick.matthaei@web.de>  Wed,  8 Oct 2008 21:39:31 +0200
+
 asterisk (1:1.4.21.2~dfsg-2) unstable; urgency=low
 
   [ Victor Seva ]
