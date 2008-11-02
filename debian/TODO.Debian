@@ -1,0 +1,2 @@
+* chan_h323/openh323 linking. See comment in patch h323-no-deps-on-asterisk
+* Another round of getting patches upstream.

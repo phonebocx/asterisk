@@ -1,3 +1,25 @@
+asterisk (1:1.6.0.1~dfsg-1) UNRELEASED; urgency=low
+
+  * Experimental 1.6.x branch.
+  * Remove bristuff for now.
+  * Also drop zap-fix-deadlock and zap-fix-cause34 that are in bristuff code.
+  * And likewise the example agi/xagi-test.c .
+  * Drop patch silence-buildsum-warning - a legitimate change for 1.6.x .
+  * Refresh patch debian-banner.
+  * Slightly rework patch hack-multiple-app-voicemail
+  * Drop patch h323 fixes as they fails and I don't fully understand them.
+  * drop patch func_devstate: was backport from 1.6.
+  * drop patch feature-bridge: was backport from 1.6.
+  * Drop vpb-handle-nocards that is not needed anymore.
+  * Dropping misdn_FOP for now as it fails to apply.
+  * Refreshed patch zap-fix-timing-source
+  * Patch disable_moh: Disable MOH file through the XML spec.
+  * Don't do ant makeopts manipulation in the rules, as makeopts gets 
+    regenerated when running 'make install', rendering build-*-stamp 
+    useless.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 02 Nov 2008 12:40:49 +0200
+
 asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
 
   * Bumped Standards-Version to 3.8.0.

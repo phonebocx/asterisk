@@ -5,13 +5,14 @@ See http://bugs.debian.org/491310
 
 --- a/main/asterisk.c
 +++ b/main/asterisk.c
-@@ -2985,8 +2985,8 @@ int main(int argc, char *argv[])
- 					"\n\t2. You only have to load Zaptel drivers if you want to take advantage of Zaptel services.  One option is to unload zaptel modules if you don't need them."
- 					"\n\t3. If you need Zaptel services, you must correctly configure Zaptel."
+@@ -3288,9 +3288,8 @@ int main(int argc, char *argv[])
+ 					"\n\t2. You only have to load DAHDI drivers if you want to take advantage of DAHDI services.  One option is to unload DAHDI modules if you don't need them."
+ 					"\n\t3. If you need DAHDI services, you must correctly configure DAHDI."
  				};
--				ast_log(LOG_ERROR, "%s\n", zaptel_timer_error);
+-				ast_log(LOG_ERROR, "%s\n", dahdi_timer_error);
+-				usleep(100);
 -				exit(1);
-+				ast_log(LOG_WARNING, "%s\n", zaptel_timer_error);
++				ast_log(LOG_WARNING, "%s\n", dahdi_timer_error);
 +				ast_log(LOG_WARNING, "However, on Debian we don't quit that easily. See http://bugs.debian.org/491310\n");
  			}
  			close(fd);

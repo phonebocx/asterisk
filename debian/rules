@@ -89,22 +89,10 @@ config.status: check-sounds patch
 		--with-h323=/usr/share/openh323/ 
 
 
-menuselect.makeopts: config.status
-	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) menuselect.makeopts
-	sed -i -e '/^MENUSELECT_MOH=/d' menuselect.makeopts
-
-	# some voodoo in order to get chan_h323 built, and make it in one
-	# build pass:
-	# enable chan_h323 (not enabled by default). Note that modules listed
-	# in MENUSELECT_CHANNEL are ones to disable:
-	sed -i -e '/MENUSELECT_CHANNELS=/s/chan_h323//' menuselect.makeopts
-	cat menuselect.makedeps
-	cat menuselect.makeopts
-
 build: build-arch build-indep
 
 build-arch: build-arch-stamp
-build-arch-stamp: menuselect.makeopts
+build-arch-stamp: config.status
 	dh_testdir
 
 	# Add here command to compile/build the package.
@@ -117,7 +105,7 @@ build-arch-stamp: menuselect.makeopts
 	touch $@
 
 build-indep: build-indep-stamp
-build-indep-stamp: menuselect.makeopts 
+build-indep-stamp: config.status
 	dh_testdir
 
 	# Add here command to compile/build the arch indep package.
