@@ -1,31 +1,44 @@
-asterisk (1:1.6.0~dfsg~rc1-1) UNRELEASED; urgency=low
+asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
 
-  * Working on the experimental branch.
-  * Disabled bristuff.
+  * Bumped Standards-Version to 3.8.0.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 26 Aug 2008 12:56:06 +0300
+ -- Patrick Matthäi <patrick.matthaei@web.de>  Wed,  8 Oct 2008 21:39:31 +0200
 
-asterisk (1:1.4.21.2~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.4.21.2~dfsg-2) unstable; urgency=low
 
   [ Victor Seva ]
-  * Depend on debhelper >=5 on backport etch.
-  * debian/rules:
-    - support DEB_BUILD_OPTION noopt used to produce non-optimized builds.
-      (Closes: #492941).
-  * debian/control:
-    - changed libcap-dev to libcap2-dev because libcap1 is no longer
-      maintained upstream. Thanks to Torsten Werner <twerner@debian.org>.
-      (Closes: #492620).
-  * debian/backports/etch:
-    - replace libcap2-dev to libcap-dev.
-    - remove lib-client2007b-dev. (Closes: #494405).
-  * debian/backports/etch.xorcom
-    - remove imap rule. It's now included on etch script.
+  * support DEB_BUILD_OPTION noopt used to produce non-optimized builds.
+    (Closes: #492941).
+  * Depend on libcap2-dev instead of libcap-dev because libcap1 is no longer
+    maintained upstream. Thanks to Torsten Werner <twerner@debian.org>.
+    (Closes: #492620).
+  * Backport script fixes:
+    - Depend on debhelper >=5 on backport etch script.
+    - replace libcap2-dev by libcap-dev.
+    - remove lib-client2007b-dev. (Closes: #494405)
 
   [ Tzafrir Cohen ]
-  * Patch fix_zap_no_timing_source: hopefully fixes 491310
+  * Patch chan_zap so that asterisk starts even without a Zaptel timing
+    source. (Closes: #491310)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 18 Aug 2008 13:56:26 +0300
+  [ Lionel Elie Mamane ]
+  * /etc/default/asterisk: Bring comments on AST_DUMPCORE_DIR in sync with
+    reality of implementation in /etc/init.d/asterisk. Change suggested
+    CORE_PATTERN to more secure ones.
+  * /etc/init.d/asterisk: Use the value of AST_DUMPCORE_DIR if it is a
+    directory, not if the value if DUMPCORE_DIR is a directory.
+
+  [ Faidon Liambotis ]
+  * Backport a patch from Xorcom's tree fixing a deadlock situation caused
+    by the bristuff patch. (Closes: #493055)
+  * Backport a patch from Xorcom's tree fixing an occasional "Cause 34" error
+    on BRIs.
+  * Don't write /root/.asterisk_history when stopping asterisk with the init
+    script. (Closes: #500294)
+  * Eliminate warnings when calling some actions of the init script by
+    replacing obsolete asterisk commands with their newer counterpart.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 04 Oct 2008 01:21:40 +0300
 
 asterisk (1:1.4.21.2~dfsg-1) unstable; urgency=high
 

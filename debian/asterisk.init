@@ -52,8 +52,7 @@ CHDIR_PARM=""
 AST_REALTIME="yes"
 RUNASTERISK="yes"
 AST_DUMPCORE="no"
-AST_DUMPCORE_DIR="/tmp" # only used if AST_DUMPCORE != yes
-AST_DUMPCORE_DIR="/var/spool/asterisk"
+AST_DUMPCORE_DIR="/var/spool/asterisk" # only used if AST_DUMPCORE != no
 # core_pattern. See: http://lxr.linux.no/source/Documentation/sysctl/kernel.txt
 #CORE_PATTERN=
 if [ -r /etc/default/$NAME ]; then . /etc/default/$NAME; fi
@@ -75,7 +74,7 @@ then
 	then
 		echo "$CORE_PATTERN" >/proc/sys/kernel/core_pattern
 	fi
-	if [ -d "$DUMPCORE_DIR" ]
+	if [ -d "$AST_DUMPCORE_DIR" ]
 	then
 		CHDIR_PARM="--chdir $AST_DUMPCORE_DIR"
 	fi
@@ -138,7 +137,13 @@ status() {
 
 asterisk_rx() {
 	if ! status >/dev/null; then return 0; fi
-	$DAEMON -rx "$1"
+
+	# if $HOME is set, asterisk -rx writes a .asterisk_history there
+	(
+		unset HOME
+
+		$DAEMON -rx "$1"
+	)
 }
 
 case "$1" in
@@ -184,7 +189,7 @@ case "$1" in
 	# this may hang in some cases. Specifically, when the asterisk
 	# processes is stopped. No bother to worry about cleanup: 
 	# it will either fail or die when asterisk dies.
-	( $DAEMON -rx 'stop now' > /dev/null 2>&1 & ) &
+	( asterisk_rx 'stop now' > /dev/null 2>&1 & ) &
 	if [ "$RUNASTSAFE" = "yes" ];then
 		start-stop-daemon --stop --quiet --oknodo \
 				  --pidfile $ASTSAFE_PIDFILE
@@ -197,14 +202,14 @@ case "$1" in
 	;;
   reload)
 	echo "Reloading $DESC configuration files."
-	asterisk_rx 'reload'
+	asterisk_rx 'module reload'
 	;;
   logger-reload)
 	asterisk_rx 'logger reload'
 	;;
-  extensions-reload)
+  extensions-reload|dialplan-reload)
 	echo "Reloading $DESC configuration files."
-	asterisk_rx 'extensions reload'
+	asterisk_rx 'dialplan reload'
 	;;
   restart-convenient)
 	asterisk_rx 'restart when convenient'
