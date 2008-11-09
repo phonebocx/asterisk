@@ -35,6 +35,8 @@ Build-Depends:
  libc-client2007b-dev,
  libcap2-dev,
  zlib1g-dev 
+# libtonezone with an epoch of 1 is from Zaptel. TODO: this is lousy.
+Build-Conflicts: libtonzone-dev (>> 1:1.0)
 Standards-Version: 3.8.0
 Homepage: http://www.asterisk.org/
 Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
