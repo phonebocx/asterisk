@@ -17,6 +17,7 @@ asterisk (1:1.6.0.1~dfsg-1) UNRELEASED; urgency=low
   * Don't do ant makeopts manipulation in the rules, as makeopts gets 
     regenerated when running 'make install', rendering build-*-stamp 
     useless.
+  * Patch libtonezone_libm: libtonezone requires -lm .
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 02 Nov 2008 12:40:49 +0200
 

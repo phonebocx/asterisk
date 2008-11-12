@@ -20,3 +20,4 @@ pubkey_jnctn
 # bugfixes on top of everything
 zap-fix-timing-source
 disable_moh
+libtonezone_libm
