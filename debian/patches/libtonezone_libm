@@ -1,5 +1,7 @@
 Use -lm to test linking with libtonezone. This seems to be required now.
 
+Upstream issue: http://bugs.digium.com/13887
+
 --- a/configure
 +++ b/configure
 @@ -45751,7 +45751,7 @@ if { as_var=$as_ac_Lib; eval "test \"\${
