@@ -180,6 +180,7 @@ binary-indep: install-indep
 	chmod o-rwx $(CURDIR)/debian/asterisk-config/etc/asterisk/*
 	chmod o+rx  $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d
 	dh_installdeb -i
+	rm -rf $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/doc/api
 	dh_gencontrol -i
 	dh_md5sums -i
 	dh_builddeb -i

@@ -18,6 +18,12 @@ asterisk (1:1.6.0.1~dfsg-1) UNRELEASED; urgency=low
     regenerated when running 'make install', rendering build-*-stamp 
     useless.
   * Patch libtonezone_libm: libtonezone requires -lm .
+  * Separate API documentation to the progdoc package.
+  * Move configuration files to the doc package, as they are reference.
+  * Include the new asterisk.pdf .
+  * Depend on libgmime: allows uploads in the built-in httpd.
+  * Depend on libjack. Though app_jack also depends on libresample.
+  * Depend on liblua: For pbx_lua (dialplan in lua).
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 02 Nov 2008 12:40:49 +0200
 

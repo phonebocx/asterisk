@@ -33,10 +33,13 @@ Build-Depends:
  libvorbis-dev,
  libsnmp-dev,
  libc-client2007b-dev,
+ libgmime-2.0-2-dev | libgmime2-dev,
+ libjack-dev,
+ liblua5.1-0-dev,
  libcap2-dev,
  zlib1g-dev 
 # libtonezone with an epoch of 1 is from Zaptel. TODO: this is lousy.
-Build-Conflicts: libtonezone-dev (>> 1:1.0.0-1)
+#Build-Conflicts: libtonezone-dev (>> 1:1.0.0-1)
 Standards-Version: 3.8.0
 Homepage: http://www.asterisk.org/
 Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
@@ -94,6 +97,16 @@ Description: H.323 protocol support for Asterisk
  package.
 
 Package: asterisk-doc
+Recommends: asterisk
+Section: doc
+Priority: extra
+Architecture: all
+Description: Source code documentation for Asterisk
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package contains the documentation for configuring an Asterisk system.
+
+Package: asterisk-progdoc
 Recommends: asterisk
 Section: doc
 Priority: extra

@@ -3,7 +3,6 @@ README
 CREDITS
 CHANGES
 UPGRADE.txt
-doc/*
+doc
 contrib
-images/*.gif
-images/*.jpg
+configs
