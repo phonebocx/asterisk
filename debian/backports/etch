@@ -19,7 +19,7 @@ sed -i -e '/^ libspeexdsp-dev,$/d' debian/control
 
 # dh_lintian is new
 sed -i -e '/dh_lintian/d' debian/rules
-sed -i -e 's#^ debhelper (>= [0-9\.]*),# debhelper (>= 5)#' debian/control
+sed -i -e 's#^ debhelper (>= [0-9\.]*),# debhelper (>= 5),#' debian/control
 
 # Replace libcap2-dev to libcap-dev
 sed -i -e 's#^ libcap2-dev# libcap-dev#' debian/control
