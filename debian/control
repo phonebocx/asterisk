@@ -12,7 +12,7 @@ Build-Depends:
  libasound2-dev,
  libpq-dev,
  unixodbc-dev,
- libpri-dev (>= 1.4.1),
+ libpri-dev (>= 1.4.7),
  libss7-dev,
  libvpb-dev,
  dahdi-source,

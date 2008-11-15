@@ -24,6 +24,7 @@ asterisk (1:1.6.0.1~dfsg-1) UNRELEASED; urgency=low
   * Depend on libgmime: allows uploads in the built-in httpd.
   * Depend on libjack. Though app_jack also depends on libresample.
   * Depend on liblua: For pbx_lua (dialplan in lua).
+  * Depend on libss7 and newer libpri (1.4.7) for latest chan_dahdi abilities.
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 02 Nov 2008 12:40:49 +0200
 
