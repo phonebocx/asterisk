@@ -11,11 +11,11 @@ sed -i -e 's#^ libcurl4.*-dev# libcurl3-dev#' debian/control
 sed -i -e 's#^ libsnmp-dev# libsnmp9-dev#' debian/control
 
 # remove vpb-driver dependency
-sed -i -e '/^ libvpb-dev$/d' debian/control
+sed -i -e '/^ libvpb-dev/d' debian/control
 
 # Until we can have a stable backport of the new speex, let's just use 
 # our existing "broken" speex 1.1.12:
-sed -i -e '/^ libspeexdsp-dev,$/d' debian/control
+sed -i -e '/^ libspeexdsp-dev/d' debian/control
 
 # dh_lintian is new
 sed -i -e '/dh_lintian/d' debian/rules
@@ -25,6 +25,6 @@ sed -i -e 's#^ debhelper (>= [0-9\.]*),# debhelper (>= 5),#' debian/control
 sed -i -e 's#^ libcap2-dev# libcap-dev#' debian/control
 
 # Remove explicit imap support:
-sed -i -e '/^ libc-client2007b-dev,$/d' debian/control
+sed -i -e '/^ libc-client2007b-dev/d' debian/control
 
 exit 0
