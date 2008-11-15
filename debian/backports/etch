@@ -11,7 +11,7 @@ sed -i -e 's#^ libcurl4.*-dev# libcurl3-dev#' debian/control
 sed -i -e 's#^ libsnmp-dev# libsnmp9-dev#' debian/control
 
 # remove vpb-driver dependency
-sed -i -e 's/^ libvpb-dev,$/d' debian/control
+sed -i -e '/^ libvpb-dev$/d' debian/control
 
 # Until we can have a stable backport of the new speex, let's just use 
 # our existing "broken" speex 1.1.12:
@@ -26,9 +26,5 @@ sed -i -e 's#^ libcap2-dev# libcap-dev#' debian/control
 
 # Remove explicit imap support:
 sed -i -e '/^ libc-client2007b-dev,$/d' debian/control
-
-echo >&2 "Changes in control file were not tested. Remove these lines"
-echo >&2 "once the script is tested."
-exit 1
 
 exit 0
