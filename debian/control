@@ -3,8 +3,8 @@ Priority: optional
 Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kilian@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>, Faidon Liambotis <paravoid@debian.org>
-Build-Depends: 
- debhelper (>= 6.0.7), quilt, 
+Build-Depends: quilt, 
+ debhelper (>= 6.0.7),
  libreadline5-dev, 
  libgsm1-dev,
  libssl-dev,
