@@ -1,5 +1,6 @@
 asterisk (1:1.6.0.1~dfsg-1) UNRELEASED; urgency=low
 
+  [ Tzafrir Cohen ]
   * Experimental 1.6.x branch.
   * Remove bristuff for now.
   * Also drop zap-fix-deadlock and zap-fix-cause34 that are in bristuff code.
@@ -27,7 +28,10 @@ asterisk (1:1.6.0.1~dfsg-1) UNRELEASED; urgency=low
   * Depend on libss7 and newer libpri (1.4.7) for latest chan_dahdi abilities.
   * Depend on libtonezone from dahdi (ver. 2.0).
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 02 Nov 2008 12:40:49 +0200
+  [ Mark Purcell ]
+  * Update debian/watch
+
+ -- Mark Purcell <msp@debian.org>  Wed, 03 Dec 2008 19:57:41 +1100
 
 asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
 
