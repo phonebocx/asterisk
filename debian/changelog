@@ -1,4 +1,4 @@
-asterisk (1:1.6.0.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.6.0.3~dfsg~rc1-1) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * Experimental 1.6.x branch.

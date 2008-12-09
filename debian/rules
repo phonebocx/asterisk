@@ -44,9 +44,10 @@ include /usr/share/quilt/quilt.make
 DEBVERSION:=$(shell head -n 1 debian/changelog \
 		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
 DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
-UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e 's/.dfsg$$//')
+DEB_SRC_VERSION:=$(shell echo $(DEB_NOEPOCH_VERSION) | sed -e 's/-[0-9.]*$$//')
+UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg//' -e 's/~\(rc[0-9]\)/-\1/')
 
-FILENAME := asterisk_$(UPVERSION)~dfsg.orig.tar.gz
+FILENAME := asterisk_$(DEB_SRC_VERSION).orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
 URL := http://downloads.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
