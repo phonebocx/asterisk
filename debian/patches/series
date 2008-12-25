@@ -14,6 +14,8 @@ h323-workaround-openh323-segfault
 astgenkey-security
 apptest_sleep
 
+ael-segfault-fix
+
 ### new features
 pubkey_jnctn
 func_devstate

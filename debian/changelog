@@ -1,4 +1,9 @@
-asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.4.21.2~dfsg-3) unstable; urgency=medium
+
+  [ Faidon Liambotis ]
+  * Fix a segfault that occured on AEL parsing on amd64 systems.
+    (Closes: #507883)
+  * Urgency medium because of the RC bugfix.
 
   [ Patrick Matthäi ]
   * Bumped Standards-Version to 3.8.0.
@@ -6,7 +11,7 @@ asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
   [ Mark Purcell ]
   * Update debian/watch
 
- -- Mark Purcell <msp@debian.org>  Wed, 03 Dec 2008 19:56:39 +1100
+ -- Faidon Liambotis <paravoid@debian.org>  Fri, 26 Dec 2008 01:18:09 +0200
 
 asterisk (1:1.4.21.2~dfsg-2) unstable; urgency=low
 
