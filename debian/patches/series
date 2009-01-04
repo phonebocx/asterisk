@@ -45,7 +45,6 @@ bristuff/misc-res-esel
 # small non-API-breaking bug fixes
 bristuff/chan-iax2-hangup-cause
 bristuff/isdn-fixes
-bristuff/app-meetme-avoid-overflows
 bristuff/answer-before-say
 
 # app_dial adding of options 

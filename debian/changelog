@@ -3,6 +3,9 @@ asterisk (1:1.4.21.2~dfsg-3) unstable; urgency=medium
   [ Faidon Liambotis ]
   * Fix a segfault that occured on AEL parsing on amd64 systems.
     (Closes: #507883)
+  * Remove bristuff/app-meetme-avoid-overflows patch as it apparently causes
+    more problems than it solves (if any).
+    (Closes: #505310)
   * Urgency medium because of the RC bugfix.
 
   [ Patrick Matthäi ]
@@ -11,7 +14,7 @@ asterisk (1:1.4.21.2~dfsg-3) unstable; urgency=medium
   [ Mark Purcell ]
   * Update debian/watch
 
- -- Faidon Liambotis <paravoid@debian.org>  Fri, 26 Dec 2008 01:18:09 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 04 Jan 2009 21:07:37 +0200
 
 asterisk (1:1.4.21.2~dfsg-2) unstable; urgency=low
 
