@@ -12,7 +12,6 @@ asterisk (1:1.6.0.3~dfsg~rc1-1) UNRELEASED; urgency=low
   * drop patch func_devstate: was backport from 1.6.
   * drop patch feature-bridge: was backport from 1.6.
   * Drop vpb-handle-nocards that is not needed anymore.
-  * Dropping misdn_FOP for now as it fails to apply.
   * Refreshed patch zap-fix-timing-source
   * Patch disable_moh: Disable MOH file through the XML spec.
   * Don't do ant makeopts manipulation in the rules, as makeopts gets 
@@ -30,6 +29,9 @@ asterisk (1:1.6.0.3~dfsg~rc1-1) UNRELEASED; urgency=low
 
   [ Mark Purcell ]
   * Update debian/watch
+
+  [ Victor Seva ]
+  * Drop patch misdn_FOP. Applied upstream (r112521 branches/1.6.0/).
 
  -- Mark Purcell <msp@debian.org>  Wed, 03 Dec 2008 19:57:41 +1100
 
