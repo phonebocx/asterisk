@@ -1,8 +1,10 @@
 asterisk (1:1.4.21.2~dfsg-4) unstable; urgency=low
 
   * Remove asterisk-dev Recommends of asterisk. 
+  * Patch AST-2009-001 - Fix CVE-2009-0041 (Information leak in IAX2 
+    authentication)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 03 Feb 2009 14:17:52 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 21 Feb 2009 16:08:59 +0200
 
 asterisk (1:1.4.21.2~dfsg-3) unstable; urgency=medium
 
