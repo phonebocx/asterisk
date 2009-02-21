@@ -26,6 +26,7 @@ asterisk (1:1.6.0.3~dfsg~rc1-1) UNRELEASED; urgency=low
   * Depend on liblua: For pbx_lua (dialplan in lua).
   * Depend on libss7 and newer libpri (1.4.7) for latest chan_dahdi abilities.
   * Depend on libtonezone from dahdi (ver. 2.0).
+  * Includes fix for AST-2009-001 (Closes: #513413).
 
   [ Mark Purcell ]
   * Update debian/watch
