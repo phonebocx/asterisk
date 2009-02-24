@@ -133,7 +133,9 @@ cleaned: patch
 	dh_testdir
 	dh_testroot
 	
-	# Add here commands to clean up after the build process.
+	# Asterisk deletes channels/h323/Makefile in 'distclean' and later
+	# (in 'clean') cleans channels/h323 if it exists.
+	if [ -r channels/h323/Makefile ]; then make -C channels/h323 clean; fi
 	$(MAKE) distclean
 	-$(RM) -rf debian/build
 

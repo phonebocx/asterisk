@@ -5,6 +5,7 @@ asterisk (1:1.4.21.2~dfsg-4) unstable; urgency=low
     authentication (Closes: #513413).
   * Patch fix_fxo_alarm: Fix Zaptel FXO alarm detection on startup 
    (Closes: #516838).
+  * Properly clean h323, as disclean doesn't.
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 21 Feb 2009 16:08:59 +0200
 
