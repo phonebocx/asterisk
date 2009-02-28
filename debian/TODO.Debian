@@ -1,0 +1,8 @@
+* chan_h323/openh323 linking. See comment in patch h323-no-deps-on-asterisk
+* Another round of getting patches upstream.
+* The asterisk canary dies on startup. An issue of permissions?
+* Fix the libpri dependencies.
+* Package libresample? Used in codec_resample
+* Depend on osptk? Do we add another thing that depends on openssl?
+* Some man pages to write.
+* Remove the TeX sources from the package asterisk-doc .

@@ -44,9 +44,10 @@ include /usr/share/quilt/quilt.make
 DEBVERSION:=$(shell head -n 1 debian/changelog \
 		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
 DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
-UPVERSION:=$(shell echo $(DEBVERSION) | sed -e 's/^.*://' -e 's/-[0-9.]*$$//' -e 's/.dfsg$$//')
+DEB_SRC_VERSION:=$(shell echo $(DEB_NOEPOCH_VERSION) | sed -e 's/-[0-9.]*$$//')
+UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg//' -e 's/~\(rc[0-9]\)/-\1/')
 
-FILENAME := asterisk_$(UPVERSION)~dfsg.orig.tar.gz
+FILENAME := asterisk_$(DEB_SRC_VERSION).orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
 URL := http://downloads.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
@@ -89,22 +90,10 @@ config.status: check-sounds patch
 		--with-h323=/usr/share/openh323/ 
 
 
-menuselect.makeopts: config.status
-	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) menuselect.makeopts
-	sed -i -e '/^MENUSELECT_MOH=/d' menuselect.makeopts
-
-	# some voodoo in order to get chan_h323 built, and make it in one
-	# build pass:
-	# enable chan_h323 (not enabled by default). Note that modules listed
-	# in MENUSELECT_CHANNEL are ones to disable:
-	sed -i -e '/MENUSELECT_CHANNELS=/s/chan_h323//' menuselect.makeopts
-	cat menuselect.makedeps
-	cat menuselect.makeopts
-
 build: build-arch build-indep
 
 build-arch: build-arch-stamp
-build-arch-stamp: menuselect.makeopts
+build-arch-stamp: config.status
 	dh_testdir
 
 	# Add here command to compile/build the package.
@@ -117,7 +106,7 @@ build-arch-stamp: menuselect.makeopts
 	touch $@
 
 build-indep: build-indep-stamp
-build-indep-stamp: menuselect.makeopts 
+build-indep-stamp: config.status
 	dh_testdir
 
 	# Add here command to compile/build the arch indep package.
@@ -133,9 +122,7 @@ cleaned: patch
 	dh_testdir
 	dh_testroot
 	
-	# Asterisk deletes channels/h323/Makefile in 'distclean' and later
-	# (in 'clean') cleans channels/h323 if it exists.
-	if [ -r channels/h323/Makefile ]; then make -C channels/h323 clean; fi
+	# Add here commands to clean up after the build process.
 	$(MAKE) distclean
 	-$(RM) -rf debian/build
 
@@ -194,6 +181,7 @@ binary-indep: install-indep
 	chmod o-rwx $(CURDIR)/debian/asterisk-config/etc/asterisk/*
 	chmod o+rx  $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d
 	dh_installdeb -i
+	rm -rf $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/doc/api
 	dh_gencontrol -i
 	dh_md5sums -i
 	dh_builddeb -i

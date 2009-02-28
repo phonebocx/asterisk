@@ -5,26 +5,27 @@
 # Target dist: Debian Etch
 
 # Replace libcurl4-openssl-dev with libcurl3-dev
-sed -i -e 's#^\(Build-Depends:.*\)libcurl4[^\ ]*-dev[^\ ]* \(.*\)$#\1libcurl3-dev \2#' debian/control
+sed -i -e 's#^ libcurl4.*-dev# libcurl3-dev#' debian/control
 
 # Replace libsnmp-dev with libsnmp9-dev
-sed -i -e 's#^\(Build-Depends:.*\)libsnmp-dev[^\ ]* \(.*\)$#\1libsnmp9-dev, \2#' debian/control
+sed -i -e 's#^ libsnmp-dev# libsnmp9-dev#' debian/control
 
 # remove vpb-driver dependency
-sed -i -e 's#^\(Build-Depends:.*\), libvpb-dev#\1#' debian/control
+sed -i -e '/^ libvpb-dev/d' debian/control
 
 # Until we can have a stable backport of the new speex, let's just use 
 # our existing "broken" speex 1.1.12:
-sed -i -e 's#^\(Build-Depends:.*\), libspeexdsp-dev#\1#' debian/control
+sed -i -e '/^ libspeexdsp-dev/d' debian/control
 
 # dh_lintian is new
 sed -i -e '/dh_lintian/d' debian/rules
-sed -i -e 's#^\(Build-Depends:.*\)debhelper (>= [0-9\.]*), \(.*\)$#\1debhelper \(>= 5\), \2#' debian/control
+sed -i -e 's#^ debhelper (>= [0-9\.]*),# debhelper (>= 5),#' debian/control
 
 # Replace libcap2-dev to libcap-dev
-sed -i -e 's#^\(Build-Depends:.*\)libcap2-dev\(.*\)$#\1libcap-dev\2#' debian/control
+sed -i -e 's#^ libcap2-dev# libcap-dev#' debian/control
 
 # Remove explicit imap support:
-sed -i -e 's#^\(Build-Depends:.*\)libc-client2007b-dev, \(.*\)$#\1 \2#' debian/control
+sed -i -e '/^ libc-client2007b-dev/d' debian/control
+sed -i -e 's/--with-imap=system/--without-imap/' debian/rules
 
 exit 0

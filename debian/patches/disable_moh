@@ -1,0 +1,15 @@
+Make the FreePlay on-hold music not enabled by-default. 
+This implies that it is disabled. This is needed as we remove it
+from the tarball of Debian due to license issues.
+
+  Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+--- a/sounds/sounds.xml
++++ b/sounds/sounds.xml
+@@ -45,7 +45,6 @@
+ 	</category>
+ 	<category name="MENUSELECT_MOH" displayname="Music On Hold File Packages" positive_output="yes">
+ 		<member name="MOH-FREEPLAY-WAV" displayname="FreePlay Music On Hold Files, WAV format" >
+-			<defaultenabled>yes</defaultenabled>
+ 		</member>
+ 		<member name="MOH-FREEPLAY-ULAW" displayname="FreePlay Music On Hold Files, mu-Law format" >
+ 		</member>

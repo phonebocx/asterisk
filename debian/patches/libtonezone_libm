@@ -1,0 +1,35 @@
+Use -lm to test linking with libtonezone. This seems to be required now.
+
+Upstream issue: http://bugs.digium.com/13887
+
+--- a/configure
++++ b/configure
+@@ -45751,7 +45751,7 @@ if { as_var=$as_ac_Lib; eval "test \"\${
+   echo $ECHO_N "(cached) $ECHO_C" >&6
+ else
+   ac_check_lib_save_LIBS=$LIBS
+-LIBS="-ltonezone ${pbxlibdir} ${tonezone_extra} ${DAHDI_INCLUDE} $LIBS"
++LIBS="-ltonezone ${pbxlibdir} -lm ${DAHDI_INCLUDE} $LIBS"
+ cat >conftest.$ac_ext <<_ACEOF
+ /* confdefs.h.  */
+ _ACEOF
+@@ -45817,7 +45817,7 @@ fi
+ 
+    # now check for the header.
+    if test "${AST_TONEZONE_FOUND}" = "yes"; then
+-      TONEZONE_LIB="${pbxlibdir} -ltonezone ${tonezone_extra} ${DAHDI_INCLUDE}"
++      TONEZONE_LIB="${pbxlibdir} -ltonezone -lm ${DAHDI_INCLUDE}"
+       # if --with-TONEZONE=DIR has been specified, use it.
+       if test "x${TONEZONE_DIR}" != "x"; then
+ 	 TONEZONE_INCLUDE="-I${TONEZONE_DIR}/include"
+--- a/configure.ac
++++ b/configure.ac
+@@ -1407,7 +1407,7 @@ if test "${host_os}" != "linux-gnu" ; th
+   tonezone_extra="-lm"
+ fi
+ 
+-AST_EXT_LIB_CHECK([TONEZONE], [tonezone], [tone_zone_find], [dahdi/tonezone.h], [${tonezone_extra} ${DAHDI_INCLUDE}])
++AST_EXT_LIB_CHECK([TONEZONE], [tonezone], [tone_zone_find], [dahdi/tonezone.h], [-lm ${DAHDI_INCLUDE}])
+ 
+ AST_EXT_LIB_CHECK([USB], [usb], [usb_init], [usb.h], [])
+ 

@@ -1,31 +1,46 @@
-asterisk (1:1.4.21.2~dfsg-4) unstable; urgency=low
+asterisk (1:1.6.0.3~dfsg~rc1-1) UNRELEASED; urgency=low
 
-  * Remove asterisk-dev Recommends of asterisk. 
-  * Patch AST-2009-001 - Fix CVE-2009-0041 - Information leak in IAX2 
-    authentication (Closes: #513413).
-  * Patch fix_fxo_alarm: Fix Zaptel FXO alarm detection on startup 
-   (Closes: #516838).
-  * Properly clean h323, as disclean doesn't.
-
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 21 Feb 2009 16:08:59 +0200
-
-asterisk (1:1.4.21.2~dfsg-3) unstable; urgency=medium
-
-  [ Faidon Liambotis ]
-  * Fix a segfault that occured on AEL parsing on amd64 systems.
-    (Closes: #507883)
-  * Remove bristuff/app-meetme-avoid-overflows patch as it apparently causes
-    more problems than it solves (if any).
-    (Closes: #505310)
-  * Urgency medium because of the RC bugfix.
-
-  [ Patrick Matthäi ]
-  * Bumped Standards-Version to 3.8.0.
+  [ Tzafrir Cohen ]
+  * Experimental 1.6.x branch.
+  * Remove bristuff for now.
+  * Also drop zap-fix-deadlock and zap-fix-cause34 that are in bristuff code.
+  * And likewise the example agi/xagi-test.c .
+  * Drop patch silence-buildsum-warning - a legitimate change for 1.6.x .
+  * Refresh patch debian-banner.
+  * Slightly rework patch hack-multiple-app-voicemail
+  * Drop patch h323 fixes as they fails and I don't fully understand them.
+  * drop patch func_devstate: was backport from 1.6.
+  * drop patch feature-bridge: was backport from 1.6.
+  * Drop vpb-handle-nocards that is not needed anymore.
+  * Refreshed patch zap-fix-timing-source
+  * Patch disable_moh: Disable MOH file through the XML spec.
+  * Don't do ant makeopts manipulation in the rules, as makeopts gets 
+    regenerated when running 'make install', rendering build-*-stamp 
+    useless.
+  * Patch libtonezone_libm: libtonezone requires -lm .
+  * Separate API documentation to the progdoc package.
+  * Move configuration files to the doc package, as they are reference.
+  * Include the new asterisk.pdf .
+  * Depend on libgmime: allows uploads in the built-in httpd.
+  * Depend on libjack. Though app_jack also depends on libresample.
+  * Depend on liblua: For pbx_lua (dialplan in lua).
+  * Depend on libss7 and newer libpri (1.4.7) for latest chan_dahdi abilities.
+  * Depend on libtonezone from dahdi (ver. 2.0).
+  * Includes fix for AST-2009-001 (Closes: #513413).
 
   [ Mark Purcell ]
   * Update debian/watch
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 04 Jan 2009 21:07:37 +0200
+  [ Victor Seva ]
+  * Drop patch misdn_FOP. Applied upstream (r112521 branches/1.6.0/).
+
+ -- Mark Purcell <msp@debian.org>  Wed, 03 Dec 2008 19:57:41 +1100
+
+asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
+
+  * Bumped Standards-Version to 3.8.0.
+
+ -- Patrick Matthäi <patrick.matthaei@web.de>  Wed,  8 Oct 2008 21:39:31 +0200
 
 asterisk (1:1.4.21.2~dfsg-2) unstable; urgency=low
 
