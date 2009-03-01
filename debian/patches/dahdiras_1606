@@ -1,0 +1,27 @@
+Change include order to make compile on Centos 5 with DAHDI
+
+If BIT_TYPES_DEFINED gets defined before linux/types.h is included, the
+__s32 type doesn't get defined.
+
+Source: svn diff -c 178306 http://svn.digium.com/svn/asterisk/branches/1.6.0
+
+Should be included in 1.6.0.7 and/or 1.6.1 .
+
+--- a/apps/app_dahdiras.c	(revision 178305)
++++ b/apps/app_dahdiras.c	(revision 178306)
+@@ -42,13 +42,13 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
+ #include <signal.h>
+ #endif /* __linux__ */
+ 
++#include <dahdi/user.h>
++
+ #include <fcntl.h>
+ #ifdef HAVE_CAP
+ #include <sys/capability.h>
+ #endif /* HAVE_CAP */
+ 
+-#include <dahdi/user.h>
+-
+ #include "asterisk/lock.h"
+ #include "asterisk/file.h"
+ #include "asterisk/channel.h"

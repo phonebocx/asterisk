@@ -148,6 +148,7 @@ install-arch: build-arch
 
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/streamplayer
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/stereorize
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/hashtest*
 	touch $@
 
 install-indep: build-indep
