@@ -1,3 +1,12 @@
+asterisk (1:1.6.1.0~dfsg~rc2-2) UNRELEASED; urgency=low
+
+  * A separate checklog entry for 1.6.1 (rc) for now. Will be merged 
+    with previous one later. 
+  * Patch zap-fix-timing-source removed: Problem fixed.
+  * Patch dahdiras_1606 removed: no longer needed.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 12 Mar 2009 11:44:27 +0200
+
 asterisk (1:1.6.0.6~dfsg-1) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
