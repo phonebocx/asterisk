@@ -59,12 +59,32 @@ or
 
 
 Open Files Limit
-===============
+================
 Asterisk uses one file-handle (and sometimes more) per call. Hence if you 
 have many simultaneous calls, you often bump into the per-process limit 
 of 1024 file handles, and get the error: "Too man open files".
 
 To enlarge that limit, set: MAXFILES in /etc/default/asterisk .
+
+
+Missing Modules
+===============
+The following modules are included in the source tree of Asterisk but 
+were not built:
+
+* apps/app_ivrdemo.c: Disabled by default. Demo code.
+* apps/app_jack.c: Depends on libresample. See TODO.Debian .
+* apps/app_rpt.c: Disabled by default. Not popular. Potential quality issues.
+* apps/app_skel.c: Disabled by default. Demo code.
+* channels/chan_misdn.c: mISDN (1.x) only included in Experimental. See
+  package misdn-user.
+* channels/chan_nbs: NBS not included. Never packaged. Looks quite Asterisk 
+  specific and not really useful.
+* channels/chan_usbradio: Disabled by default. Not popular. Potential 
+  quality issues.
+* codecs/codec_resample.c: Depends on libresample. See TODO.Debian .
+* pbx/pbx_gtkconsole.c: Disabled by default. Mostly pointless and adss 
+  unnecessary dependencies.
 
 
 Enjoy your PBX!

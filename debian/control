@@ -37,6 +37,8 @@ Build-Depends: quilt,
  libjack-dev,
  liblua5.1-0-dev,
  libcap2-dev,
+ libosptk3-dev,
+ libopenais-dev,
  zlib1g-dev 
 # libtonezone with an epoch of 1 is from Zaptel. TODO: this is lousy.
 #Build-Conflicts: libtonezone-dev (>> 1:1.0.0-1)

@@ -4,6 +4,8 @@ asterisk (1:1.6.1.0~dfsg~rc2-2) UNRELEASED; urgency=low
     with previous one later. 
   * Patch zap-fix-timing-source removed: Problem fixed.
   * Patch dahdiras_1606 removed: no longer needed.
+  * Build-Depends on libopenais-dev (for res_ais.so)
+  * Build-Depends on libosptk3-dev (for app_osplookup.so)
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 12 Mar 2009 11:44:27 +0200
 
