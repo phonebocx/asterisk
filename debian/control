@@ -53,7 +53,7 @@ Section: comm
 Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main
 Conflicts: asterisk-classic, asterisk-bristuff, asterisk-chan-capi (<< 1.1.1-1~)
 Replaces: asterisk-classic, asterisk-bristuff
-Provides: asterisk-1.6.0
+Provides: asterisk-1.6.1
 Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev, asterisk-h323
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
