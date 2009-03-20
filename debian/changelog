@@ -1,16 +1,5 @@
 asterisk (1:1.6.1.0~dfsg~rc3-1) UNRELEASED; urgency=low
 
-  * A separate checklog entry for 1.6.1 (rc) for now. Will be merged 
-    with previous one later. 
-  * Patch zap-fix-timing-source removed: Problem fixed.
-  * Patch dahdiras_1606 removed: no longer needed.
-  * Build-Depends on libopenais-dev (for res_ais.so)
-  * Build-Depends on libosptk3-dev (for app_osplookup.so)
-
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 12 Mar 2009 11:44:27 +0200
-
-asterisk (1:1.6.0.6~dfsg-1) UNRELEASED; urgency=low
-
   [ Tzafrir Cohen ]
   * Experimental 1.6.x branch.
   * Remove bristuff for now.
@@ -23,7 +12,6 @@ asterisk (1:1.6.0.6~dfsg-1) UNRELEASED; urgency=low
   * drop patch func_devstate: was backport from 1.6.
   * drop patch feature-bridge: was backport from 1.6.
   * Drop vpb-handle-nocards that is not needed anymore.
-  * Refreshed patch zap-fix-timing-source
   * Patch disable_moh: Disable MOH file through the XML spec.
   * Don't do ant makeopts manipulation in the rules, as makeopts gets 
     regenerated when running 'make install', rendering build-*-stamp 
@@ -38,8 +26,10 @@ asterisk (1:1.6.0.6~dfsg-1) UNRELEASED; urgency=low
   * Depend on libss7 and newer libpri (1.4.7) for latest chan_dahdi abilities.
   * Depend on libtonezone from dahdi (ver. 2.0).
   * Includes fix for AST-2009-001 (Closes: #513413).
-  * Patch dahdiras_1606: Fix a build issue in app_dahdiras.c .
   * Remove hashtest and hashtest2: debugging utilities.
+  * Patch zap-fix-timing-source removed: Problem fixed.
+  * Build-Depends on libopenais-dev (for res_ais.so)
+  * Build-Depends on libosptk3-dev (for app_osplookup.so)
 
   [ Mark Purcell ]
   * Update debian/watch
@@ -47,7 +37,7 @@ asterisk (1:1.6.0.6~dfsg-1) UNRELEASED; urgency=low
   [ Victor Seva ]
   * Drop patch misdn_FOP. Applied upstream (r112521 branches/1.6.0/).
 
- -- Mark Purcell <msp@debian.org>  Wed, 03 Dec 2008 19:57:41 +1100
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 21 Mar 2009 01:27:50 +0200
 
 asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
 
