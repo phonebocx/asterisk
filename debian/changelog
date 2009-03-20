@@ -1,4 +1,4 @@
-asterisk (1:1.6.1.0~dfsg~rc2-2) UNRELEASED; urgency=low
+asterisk (1:1.6.1.0~dfsg~rc3-1) UNRELEASED; urgency=low
 
   * A separate checklog entry for 1.6.1 (rc) for now. Will be merged 
     with previous one later. 
