@@ -28,4 +28,13 @@ sed -i -e 's#^ libcap2-dev# libcap-dev#' debian/control
 sed -i -e '/^ libc-client2007b-dev/d' debian/control
 sed -i -e 's/--with-imap=system/--without-imap/' debian/rules
 
+# Remove the OSP ToolKit (app_osplookup)
+sed -i -e '/^ libosptk3-dev/d' debian/control
+
+# Remove AIS support (res_ais)
+sed -i -e '/^ libopenais-dev/d' debian/control
+
+# Remove Jack (app_jack)
+sed -i -e '/^ libjack-dev/d' debian/control
+
 exit 0
