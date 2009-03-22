@@ -5,6 +5,9 @@ dropping uid/gid.
 
  -- Mark Purcell <msp@debian.org>
 
+Upstream issue: http://bugs.digium.com/view.php?id=13153
+
+Fixed in 1.6.2
 --- a/Makefile
 +++ b/Makefile
 @@ -125,7 +125,7 @@ else

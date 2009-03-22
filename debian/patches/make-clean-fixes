@@ -3,6 +3,9 @@ one of them.
 
  -- Faidon Liambotis <paravoid@debian.org>
 
+Currently no upstream issue. But anyway, we should revisit it when we decide
+on packaging of sound files.
+
 --- a/Makefile
 +++ b/Makefile
 @@ -389,7 +389,6 @@ dist-clean: distclean

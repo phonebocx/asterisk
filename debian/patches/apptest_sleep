@@ -1,7 +1,8 @@
 An extra little sleep that seems to work around a problem when 
 running the test between two PRI channels.
 
-Upstream bug: http://bugs.digium.com/12442
+Upstream bug: http://bugs.digium.com/view.php?id=12442
+
 --- a/apps/app_test.c
 +++ b/apps/app_test.c
 @@ -297,6 +297,8 @@ static int testclient_exec(struct ast_ch
