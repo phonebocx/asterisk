@@ -96,12 +96,7 @@ build-arch: build-arch-stamp
 build-arch-stamp: config.status
 	dh_testdir
 
-	# Add here command to compile/build the package.
-	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) || true
-
-	# Build a second time to pick up h323 :-(
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS)
-
 
 	touch $@
 

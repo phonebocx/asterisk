@@ -20,3 +20,5 @@ pubkey_jnctn
 # bugfixes on top of everything
 disable_moh
 libtonezone_libm
+dahdi-fxsks-hookstate
+h323-make-fix

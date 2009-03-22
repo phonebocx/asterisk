@@ -1,11 +1,10 @@
 * chan_h323/openh323 linking. See comment in patch h323-no-deps-on-asterisk
-* Another round of getting patches upstream.
 * The asterisk canary dies on startup. An issue of permissions?
-* Fix the libpri dependencies.
 * Package libresample? Used in codec_resample and app_jack. 
   The library itself is part of the code of audacity. The code from 
   Digium inlcudes a small patch to build it PIC, which is required for 
   using it with Asterisk modules.
-* Depend on osptk? Do we add another thing that depends on openssl?
 * Some man pages to write.
 * Remove the TeX sources from the package asterisk-doc .
+* Package sound files properly. Maybe in a separate package altogether?
+  See also patch make-clean-fixes.

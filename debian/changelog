@@ -30,6 +30,9 @@ asterisk (1:1.6.1.0~dfsg~rc3-1) UNRELEASED; urgency=low
   * Patch zap-fix-timing-source removed: Problem fixed.
   * Build-Depends on libopenais-dev (for res_ais.so)
   * Build-Depends on libosptk3-dev (for app_osplookup.so)
+  * Patch dahdi-fxsks-hookstate: Fix FXO dialout issue.
+  * Patch h323-make-fix: No, we should not need to run 'make' twice.
+
 
   [ Mark Purcell ]
   * Update debian/watch
@@ -37,7 +40,7 @@ asterisk (1:1.6.1.0~dfsg~rc3-1) UNRELEASED; urgency=low
   [ Victor Seva ]
   * Drop patch misdn_FOP. Applied upstream (r112521 branches/1.6.0/).
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 21 Mar 2009 01:27:50 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 22 Mar 2009 03:16:53 +0200
 
 asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
 
