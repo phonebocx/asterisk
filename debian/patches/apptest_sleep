@@ -3,6 +3,8 @@ running the test between two PRI channels.
 
 Upstream bug: http://bugs.digium.com/view.php?id=12442
 
+Merged in upstream. Will not be needed as of 1.6.1.0-rc4 / 1.6.1.0 .
+
 --- a/apps/app_test.c
 +++ b/apps/app_test.c
 @@ -297,6 +297,8 @@ static int testclient_exec(struct ast_ch
