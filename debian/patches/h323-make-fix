@@ -2,6 +2,8 @@ No. We should not need to run 'make' twice
 
 http://bugs.digium.com/view.php?id=14715
 
+Merged in upstream. Will not be needed as of 1.6.1.0-rc4 / 1.6.1.0 .
+
 --- a/channels/Makefile
 +++ b/channels/Makefile
 @@ -57,25 +57,14 @@ ifneq ($(findstring $(OSARCH), mingw32 c
