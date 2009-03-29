@@ -33,14 +33,14 @@ asterisk (1:1.6.1.0~dfsg~rc3-1) UNRELEASED; urgency=low
   * Patch dahdi-fxsks-hookstate: Fix FXO dialout issue.
   * Patch h323-make-fix: No, we should not need to run 'make' twice.
 
-
-  [ Mark Purcell ]
-  * Update debian/watch
-
   [ Victor Seva ]
   * Drop patch misdn_FOP. Applied upstream (r112521 branches/1.6.0/).
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 22 Mar 2009 03:16:53 +0200
+  [ Mark Purcell ]
+  * Update debian/watch
+  * asterisk-dbg -> Section: debug
+
+ -- Mark Purcell <msp@debian.org>  Sun, 29 Mar 2009 22:11:55 +1100
 
 asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
 

@@ -82,7 +82,7 @@ Description: Open Source Private Branch Exchange (PBX)
 Package: asterisk-h323
 Architecture: any
 Section: comm
-Depends: asterisk-1.4, ${shlibs:Depends}
+Depends: asterisk, ${shlibs:Depends}
 Description: H.323 protocol support for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -134,7 +134,7 @@ Description: Development files for Asterisk
 Package: asterisk-dbg
 Architecture: any
 Depends: asterisk (= ${binary:Version})
-Section: devel
+Section: debug
 Priority: extra
 Description: Debugging symbols for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
