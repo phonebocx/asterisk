@@ -1,4 +1,4 @@
-asterisk (1:1.6.1.0~dfsg~rc3-1) UNRELEASED; urgency=low
+asterisk (1:1.6.1.0~dfsg~rc3-1) experimental; urgency=low
 
   [ Tzafrir Cohen ]
   * Experimental 1.6.x branch.
@@ -40,7 +40,7 @@ asterisk (1:1.6.1.0~dfsg~rc3-1) UNRELEASED; urgency=low
   * Update debian/watch
   * asterisk-dbg -> Section: debug
 
- -- Mark Purcell <msp@debian.org>  Sun, 29 Mar 2009 22:11:55 +1100
+ -- Mark Purcell <msp@debian.org>  Sun, 29 Mar 2009 22:21:47 +1100
 
 asterisk (1:1.4.21.2~dfsg-3) UNRELEASED; urgency=low
 
