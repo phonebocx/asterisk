@@ -50,7 +50,7 @@ Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 Package: asterisk
 Architecture: any
 Section: comm
-Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main
+Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main, dahdi
 Conflicts: asterisk-classic, asterisk-bristuff, asterisk-chan-capi (<< 1.1.1-1~)
 Replaces: asterisk-classic, asterisk-bristuff
 Provides: asterisk-1.6.1

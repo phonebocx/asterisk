@@ -1,7 +1,8 @@
 * chan_h323/openh323 linking. See comment in patch h323-no-deps-on-asterisk
-* Reported chna_h323 issues. Maybe get patch from 
-  http://bugs.digium.com/view.php?id=12415
-* The asterisk canary dies on startup. An issue of permissions?
+* The asterisk canary dies on startup sometimes. Canary is anyway not needed
+  on Lenny kernel (>= 2.6.25). But if it dies we lose the effect of 
+  real-time priority.
+* Canary is not killed when Asterisk is stopped.
 * Package libresample? Used in codec_resample and app_jack. 
   The library itself is part of the code of audacity. The code from 
   Digium inlcudes a small patch to build it PIC, which is required for 
