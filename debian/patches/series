@@ -12,13 +12,10 @@ safe_asterisk-nobg
 #h323-workaround-openh323-segfault
 
 astgenkey-security
-apptest_sleep
 
 ### new features
 pubkey_jnctn
 
 # bugfixes on top of everything
 disable_moh
-libtonezone_libm
 dahdi-fxsks-hookstate
-h323-make-fix

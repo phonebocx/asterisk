@@ -8,7 +8,9 @@ All these conflict with each other and Asterisk will refuse to load them
 concurrently.
 They are marked noload on our default autoload configuration.
 
-Upstream bug: http://bugs.digium.com/13822
+Patch suggested to upstream but rejected for being "hackish":
+
+  http://bugs.digium.com/view.php?id=13822
 
  -- Faidon Liambotis <paravoid@debian.org>
 
