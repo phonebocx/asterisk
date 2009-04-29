@@ -10,8 +10,9 @@ asterisk (1:1.6.1.0~dfsg-1) UNRELEASED; urgency=low
   * Patch libtonezone_libm dropped: merged upstream.
   * Patch h323-make-fix dropped: merged upstream.
   * Use upstream's asterisk.conf rather than our bogus one.
+  * Also add the version-specific release summary. 
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 29 Apr 2009 02:53:34 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 29 Apr 2009 03:02:46 +0300
 
 asterisk (1:1.6.1.0~dfsg~rc3-1) experimental; urgency=low
 
