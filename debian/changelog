@@ -1,4 +1,4 @@
-asterisk (1:1.6.1.0~dfsg~rc5-1) UNRELEASED; urgency=low
+asterisk (1:1.6.1.0~dfsg-1) UNRELEASED; urgency=low
 
   [ Mark Purcell ]
   * NOT RELEASED YET
@@ -9,8 +9,9 @@ asterisk (1:1.6.1.0~dfsg~rc5-1) UNRELEASED; urgency=low
   * Patch apptest_sleep dropped: merged upstream.
   * Patch libtonezone_libm dropped: merged upstream.
   * Patch h323-make-fix dropped: merged upstream.
+  * Use upstream's asterisk.conf rather than our bogus one.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Fri, 10 Apr 2009 23:10:46 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 29 Apr 2009 02:53:34 +0300
 
 asterisk (1:1.6.1.0~dfsg~rc3-1) experimental; urgency=low
 
