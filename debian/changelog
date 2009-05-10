@@ -12,7 +12,7 @@ asterisk (1:1.6.1.0~dfsg-1) UNRELEASED; urgency=low
   * Use upstream's asterisk.conf rather than our bogus one.
   * Also add the version-specific release summary. 
   * Patch dahdi_ptmp_nt: (not really) chan_dahdi PtMP NT support 
-    (wildzero-cw).
+    (Kristijan Vrban).
   * Patch dahdi_pri_debug_spannums: add span number in PRI trace. 
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 10 May 2009 12:14:36 +0300
