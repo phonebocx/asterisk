@@ -87,6 +87,24 @@ were not built:
   unnecessary dependencies.
 
 
+DAHDI PtMP NT
+=============
+Short version: it doesn't work.
+
+This package includes an experimental patch to test the support for PtMP 
+NT in chan_dahdi. This is needed to e.g. connect ISDN phones. Originally
+the code merely printed out "How cool would it be if someone implemented
+this mode!" and bailed out. This patch merely overrides it.
+
+At the moment it seems to provide at least basic support of ISDN phones
+(that is: of dialing out from a single ISDN phone). Likewise, on a
+loopback connection you can call from a TE port to the NT port but not
+vice versa.
+
+I figure that this would still be useful enough for some people, though.
+But in any case, please see http://bugs.digium.com/view.php?id=15048 .
+
+
 Enjoy your PBX!
 
 Kilian Krause (for the pkg-voip team)
