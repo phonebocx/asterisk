@@ -21,3 +21,6 @@ disable_moh
 dahdi-fxsks-hookstate
 dahdi_ptmp_nt
 dahdi_pri_debug_spannums
+
+astcanary_startup
+hardware_dtmf_mute_fix

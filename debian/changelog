@@ -14,8 +14,12 @@ asterisk (1:1.6.1.0~dfsg-1) UNRELEASED; urgency=low
   * Patch dahdi_ptmp_nt: (not really) chan_dahdi PtMP NT support 
     (Kristijan Vrban).
   * Patch dahdi_pri_debug_spannums: add span number in PRI trace. 
+  * Patch astcanary_startup: Avoid a false death of the canary 
+    (Closes: #528497).
+  * Patch hardware_dtmf_mute_fix: Fix muting of DAHDI channels with hardware
+    DTMF detection.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 10 May 2009 12:14:36 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 13 May 2009 21:58:13 +0300
 
 asterisk (1:1.6.1.0~dfsg~rc3-1) experimental; urgency=low
 
