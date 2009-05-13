@@ -1,6 +1,6 @@
 astgenkey should generate a private key that is not world-readable.
 
-Upstream bug: http://bugs.digium.com/view.php?id=12373
+Upstream bug: http://issues.asterisk.org/view.php?id=12373
 
 Upstream has not accepted this patch and chose intead to document this 
 as a known minor issue.

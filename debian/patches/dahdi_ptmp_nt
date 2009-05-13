@@ -3,7 +3,7 @@ Give DAHDI PtMP NT mode a shot.
 This basically sort-of works. But then again, implementing the whole mode
 in a three-liner patch is quite a feat ;-)
 
-http://bugs.digium.com/view.php?id=15048
+http://issues.asterisk.org/view.php?id=15048
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
 @@ -14582,7 +14582,8 @@ static int process_dahdi(struct dahdi_ch

@@ -7,7 +7,7 @@ to $HOMEDIR nor shouldn't be.
 This patch relaxes this test just for cases where the ~ is followed by a '/',
 which should catch most cases.
 
-Upstream issue: http://bugs.digium.com/view.php?id=14718
+Upstream issue: http://issues.asterisk.org/view.php?id=14718
 --- a/Makefile
 +++ b/Makefile
 @@ -575,7 +575,7 @@ oldmodcheck:

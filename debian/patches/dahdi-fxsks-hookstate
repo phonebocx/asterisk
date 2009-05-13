@@ -8,7 +8,7 @@ accidentally enabled by default.
 On DAHDI (the kernel) this field is not properly initialized at startup. 
 And thus it will only work after an incoming ring.
 
-Upstream issue: http://bugs.digium.com/view.php?id=14577
+Upstream issue: http://issues.asterisk.org/view.php?id=14577
 
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c

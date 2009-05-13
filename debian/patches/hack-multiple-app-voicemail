@@ -10,7 +10,7 @@ They are marked noload on our default autoload configuration.
 
 Patch suggested to upstream but rejected for being "hackish":
 
-  http://bugs.digium.com/view.php?id=13822
+  http://issues.asterisk.org/view.php?id=13822
 
  -- Faidon Liambotis <paravoid@debian.org>
 
