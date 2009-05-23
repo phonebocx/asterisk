@@ -2,7 +2,10 @@ asterisk (1:1.6.1.0~dfsg-2) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
 
- -- Mark Purcell <msp@debian.org>  Wed, 20 May 2009 08:22:53 +1000
+  [ Tzafrir Cohen ]
+  * Patch safe_asterisk_bashism: fixes that bashism (Closes: #530047).
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 23 May 2009 18:50:54 +0300
 
 asterisk (1:1.6.1.0~dfsg-1) unstable; urgency=low
 

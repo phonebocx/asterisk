@@ -7,6 +7,7 @@ astvarrundir
 make-clean-fixes
 safe_asterisk-config
 safe_asterisk-nobg
+safe_asterisk_bashism
 # Remed-out for now. Should be fixed later on:
 #h323-no-deps-on-asterisk
 #h323-workaround-openh323-segfault
