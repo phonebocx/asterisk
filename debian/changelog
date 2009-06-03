@@ -1,11 +1,23 @@
-asterisk (1:1.6.1.0~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.6.2.0~dfsg~beta2-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
 
   [ Tzafrir Cohen ]
   * Patch safe_asterisk_bashism: fixes that bashism (Closes: #530047).
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 23 May 2009 18:50:54 +0300
+  [ Faidon Liambotis ]
+  * New upstream release.
+    - Drop patches astvarrundir, pubkey_jnctn; merged upstream (finally!).
+    - Adapt patch safe_asterisk-nobg.
+  * Switch to downloads.asterisk.org instead of downloads.digium.com.
+  * Add depends on libxml2-dev for the new XML documentation but temporarily
+    comment out its installation.
+  * Remove Conflicts/Replaces with asterisk-classic, asterisk-bristuff,
+    asterisk-chan-capi (<< 1.1.1-1~), since those are pre-lenny.
+  * Revert upstream's r190830 that ported app_osplookup to OSP Toolkit 3.5;
+    the API is not backwards compatible and Debian still has 3.4.2.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 04 Jun 2009 01:41:50 +0300
 
 asterisk (1:1.6.1.0~dfsg-1) unstable; urgency=low
 

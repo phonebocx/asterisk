@@ -3,19 +3,19 @@ allow-tilde-destdir
 
 debian-banner
 hack-multiple-app-voicemail
-astvarrundir
 make-clean-fixes
+disable-appdocs
 safe_asterisk-config
 safe_asterisk-nobg
 safe_asterisk_bashism
+
+app-osplookup-osptk-3.4
+
 # Remed-out for now. Should be fixed later on:
 #h323-no-deps-on-asterisk
 #h323-workaround-openh323-segfault
 
 astgenkey-security
-
-### new features
-pubkey_jnctn
 
 # bugfixes on top of everything
 disable_moh

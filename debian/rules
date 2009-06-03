@@ -45,11 +45,11 @@ DEBVERSION:=$(shell head -n 1 debian/changelog \
 		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
 DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
 DEB_SRC_VERSION:=$(shell echo $(DEB_NOEPOCH_VERSION) | sed -e 's/-[0-9.]*$$//')
-UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg//' -e 's/~\(rc[0-9]\)/-\1/')
+UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg//' -e 's/~\(\(rc\|beta\)[0-9]\)/-\1/')
 
 FILENAME := asterisk_$(DEB_SRC_VERSION).orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
-URL := http://downloads.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
+URL := http://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
 # make sure we have 'fetch' . We need to have either wget or fetch
 # on the system. However it is generally not a good idea to actually
