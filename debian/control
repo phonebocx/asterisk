@@ -37,7 +37,7 @@ Build-Depends: quilt,
  libgmime-2.0-2-dev | libgmime2-dev,
  libjack-dev,
  liblua5.1-0-dev,
- libcap2-dev,
+ libcap-dev (>= 1:2.16-4) | libcap2-dev,
  libosptk3-dev,
  libopenais-dev,
  zlib1g-dev 
