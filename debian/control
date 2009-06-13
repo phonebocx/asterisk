@@ -39,6 +39,7 @@ Build-Depends: quilt,
  liblua5.1-0-dev,
  libcap-dev (>= 1:2.16-4) | libcap2-dev,
  libosptk3-dev,
+ libspandsp-dev,
  libopenais-dev,
  zlib1g-dev 
 # libtonezone with an epoch of 1 is from Zaptel. TODO: this is lousy.
