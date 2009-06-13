@@ -3,10 +3,9 @@
   on Lenny kernel (>= 2.6.25). But if it dies we lose the effect of 
   real-time priority.
 * Canary is not killed when Asterisk is stopped.
-* Package libresample? Used in codec_resample and app_jack. 
-  The library itself is part of the code of audacity. The code from 
-  Digium inlcudes a small patch to build it PIC, which is required for 
-  using it with Asterisk modules.
+* libresample is now an ITP: #531590
+  - Test that building Asterisk with it enables codec_resample and app_jack
+  - Add it as a build dependency when it get past New.
 * Some man pages to write.
 * Remove the TeX sources from the package asterisk-doc .
 * Package sound files properly. Maybe in a separate package altogether?
