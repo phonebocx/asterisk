@@ -16,7 +16,7 @@ asterisk (1:1.6.2.0~dfsg~beta2-1) UNRELEASED; urgency=low
     asterisk-chan-capi (<< 1.1.1-1~), since those are pre-lenny.
   * Revert upstream's r190830 that ported app_osplookup to OSP Toolkit 3.5;
     the API is not backwards compatible and Debian still has 3.4.2.
-  * Accomodate for the rename of libcap2-dev to libcap-dev.
+  * Accomodate for the rename of libcap2-dev to libcap-dev (Closes: #532971).
   * Add dependency to libspandsp to build the fax applications.
 
  -- Faidon Liambotis <paravoid@debian.org>  Sat, 13 Jun 2009 05:40:10 +0300
