@@ -1,9 +1,8 @@
-asterisk (1:1.6.2.0~dfsg~beta2-1) UNRELEASED; urgency=low
+asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
 
   [ Tzafrir Cohen ]
-  * Patch safe_asterisk_bashism: fixes that bashism (Closes: #530047).
 
   [ Faidon Liambotis ]
   * New upstream release.
@@ -19,7 +18,12 @@ asterisk (1:1.6.2.0~dfsg~beta2-1) UNRELEASED; urgency=low
   * Accomodate for the rename of libcap2-dev to libcap-dev (Closes: #532971).
   * Add dependency to libspandsp to build the fax applications.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 13 Jun 2009 05:40:10 +0300
+  [ Tzafrir Cohen ]
+  * New upstream release.
+    - Fixes that bashism in safe_asterisk (Closes: #530047) (not dashism).
+    - Dropped patch astcanary_startup: merged upstream.
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 16 Jun 2009 12:30:26 +0300
 
 asterisk (1:1.6.1.0~dfsg-1) unstable; urgency=low
 

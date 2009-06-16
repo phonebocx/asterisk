@@ -7,7 +7,6 @@ make-clean-fixes
 disable-appdocs
 safe_asterisk-config
 safe_asterisk-nobg
-safe_asterisk_bashism
 
 app-osplookup-osptk-3.4
 
@@ -23,5 +22,4 @@ dahdi-fxsks-hookstate
 dahdi_ptmp_nt
 dahdi_pri_debug_spannums
 
-astcanary_startup
 hardware_dtmf_mute_fix
