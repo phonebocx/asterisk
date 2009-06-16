@@ -86,7 +86,6 @@ config.status: check-sounds patch
 		--with-cap \
 		--with-gsm \
 		--with-imap=system \
-		--disable-xmldoc \
 		--with-pwlib=/usr/share/pwlib/include/ \
 		--with-h323=/usr/share/openh323/ 
 

@@ -4,7 +4,6 @@ allow-tilde-destdir
 debian-banner
 hack-multiple-app-voicemail
 make-clean-fixes
-disable-appdocs
 safe_asterisk-config
 safe_asterisk-nobg
 
@@ -23,3 +22,4 @@ dahdi_ptmp_nt
 dahdi_pri_debug_spannums
 
 hardware_dtmf_mute_fix
+makefile_appdocs_dtd

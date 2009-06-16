@@ -9,8 +9,7 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
     - Drop patches astvarrundir, pubkey_jnctn; merged upstream (finally!).
     - Adapt patch safe_asterisk-nobg.
   * Switch to downloads.asterisk.org instead of downloads.digium.com.
-  * Add depends on libxml2-dev for the new XML documentation but temporarily
-    comment out its installation.
+  * Add depends on libxml2-dev for the new XML documentation.
   * Remove Conflicts/Replaces with asterisk-classic, asterisk-bristuff,
     asterisk-chan-capi (<< 1.1.1-1~), since those are pre-lenny.
   * Revert upstream's r190830 that ported app_osplookup to OSP Toolkit 3.5;
@@ -22,6 +21,8 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
   * New upstream release.
     - Fixes that bashism in safe_asterisk (Closes: #530047) (not dashism).
     - Dropped patch astcanary_startup: merged upstream.
+  * Patch makefile_appdocs_dtd: fix location of DTD installation.
+  * Register the HTML docs with doc-base as well.
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 16 Jun 2009 12:30:26 +0300
 
