@@ -2,8 +2,6 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
 
-  [ Tzafrir Cohen ]
-
   [ Faidon Liambotis ]
   * New upstream release.
     - Drop patches astvarrundir, pubkey_jnctn; merged upstream (finally!).
@@ -14,7 +12,7 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
     asterisk-chan-capi (<< 1.1.1-1~), since those are pre-lenny.
   * Revert upstream's r190830 that ported app_osplookup to OSP Toolkit 3.5;
     the API is not backwards compatible and Debian still has 3.4.2.
-  * Accomodate for the rename of libcap2-dev to libcap-dev (Closes: #532971).
+  * Accommodate for the rename of libcap2-dev to libcap-dev (Closes: #532971).
   * Add dependency to libspandsp to build the fax applications.
 
   [ Tzafrir Cohen ]
