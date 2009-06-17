@@ -26,6 +26,9 @@ sed -i -e 's/--with-imap=system/--without-imap/' debian/rules
 # Remove the OSP ToolKit (app_osplookup)
 sed -i -e '/^ libosptk3-dev/d' debian/control
 
+# Fix libcap dependency. The etch one should do:
+sed -i -e 's/^ libcap-dev.*/ libcap-dev,/' debian/control
+
 # Remove AIS support (res_ais)
 sed -i -e '/^ libopenais-dev/d' debian/control
 
