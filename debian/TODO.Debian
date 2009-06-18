@@ -10,3 +10,5 @@
 * Remove the TeX sources from the package asterisk-doc .
 * Package sound files properly. Maybe in a separate package altogether?
   See also patch make-clean-fixes.
+* In 1.6.2.0-rc4 (or final) there should no longer be a need for 
+  app_directory_odbc . See Asterisk r201785 . Voicemail ones are still needed.
