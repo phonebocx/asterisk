@@ -105,6 +105,37 @@ I figure that this would still be useful enough for some people, though.
 But in any case, please see http://bugs.digium.com/view.php?id=15048 .
 
 
-Enjoy your PBX!
+A Separate Instance
+===================
+Upstream maintainers are not always so keen on helping users of binary
+packages. Sometimes a source build can be handy. However a simplistic
+'make install' from a source distribution may not play along nicely
+with your existing packages. As a workaround for that, Asterisk includes
+a script called 'live_ast' to "install" Asterisk under the build root
+itself.
 
-Kilian Krause (for the pkg-voip team)
+  # For the sake of this example, I assume you work under /home/getafisk .
+  # get a version of asterisk: tarball, svn, whatever
+  svn co http://svn.asterisk.org/svn/asterisk/trunk asterisk-svn
+  cd asterisk-svn
+
+  # grab the script. It's already in 1.6.2 and trunk, but let's get the
+  # latest:
+  wget http://svn.asterisk.org/svn/asterisk/trunk/contrib/scripts/live_ast
+  chmod +x live_ast
+  ./live_ast conf-file
+  # edit live/live.conf . Unrem 'LIVE_AST_FOR_SYSTEM=yes'
+  ./live_ast configure # ./configure
+  ./live_ast install   # make; make install DESTDIR=$PWD/live
+  ./live_ast samples
+
+  # As root:
+  echo "DAEMON=/home/getafisk/live/asterisk" >> /etc/default/asterisk
+
+The last line makes your private copy the actual one to use. The magic
+is in /home/getafisk/live/etc/asterisk/asterisk.conf . If you need to
+update something in the source, just re-run the 'install' command.
+live/asterisk is a wrapper to that private copy of Asterisk.
+
+
+Enjoy your PBX!
