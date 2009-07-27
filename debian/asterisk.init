@@ -1,27 +1,15 @@
-#! /bin/sh
+#!/bin/sh
 #
 # asterisk	start the asterisk PBX
 # (c) Mark Purcell <msp@debian.org>
 # (c) Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 # (c) Faidon Liambotis <paravoid@debian.org>
-
+#
 #   This package is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation; either version 2 of the License, or
 #   (at your option) any later version.
 #
-# Based on:
-#
-# skeleton	example file to build /etc/init.d/ scripts.
-#		This file should be used to construct scripts for /etc/init.d.
-#
-#		Written by Miquel van Smoorenburg <miquels@cistron.nl>.
-#		Modified for Debian GNU/Linux
-#		by Ian Murdock <imurdock@gnu.ai.mit.edu>.
-#
-# Version:	@(#)skeleton  1.9  26-Feb-2001  miquels@cistron.nl
-#
-
 ### BEGIN INIT INFO
 # Provides:          asterisk
 # Required-Start:    $local_fs zaptel
@@ -42,7 +30,7 @@ DAEMON=/usr/sbin/$NAME
 DESC="Asterisk PBX"
 PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
-PIDFILE_DIR=`dirname $PIDFILE`
+PIDFILE_DIR="/var/run"
 UMASK=007 # by default
 #MAXFILES=1024 # (the system default)
 
@@ -222,16 +210,6 @@ case "$1" in
 	status
 	exit $?
 	;;
-  zaptel-fix) 	 
-	echo "Unloading and reloading loading Asterisk and Zaptel:" 	 
-	$0 stop 	 
-	/etc/init.d/zaptel unload 	 
-	# load modules from /etc/modules. This will break if you count on 	 
-	# discover/hotplug 	 
-	/etc/init.d/module-init-tools 	 
-	/etc/init.d/zaptel start 	 
-	$0 start 	 
-	;; 	 
   *)
 	N=/etc/init.d/$NAME
 	echo "Usage: $N {start|stop|restart|reload|status|debug|logger-reload|extensions-reload|restart-convenient|force-reload}" >&2

@@ -14,6 +14,9 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
     the API is not backwards compatible and Debian still has 3.4.2.
   * Accommodate for the rename of libcap2-dev to libcap-dev (Closes: #532971).
   * Add dependency to libspandsp to build the fax applications.
+  * Update Standards-Version to 3.8.2, no changes needed.
+  * Remove init script's "zaptel-fix" action; there's no zaptel anymore and
+    was also lintian-buggy in its current form.
 
   [ Tzafrir Cohen ]
   * New upstream release.
@@ -25,7 +28,7 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
   [ Lionel Elie Mamane ]
   * Install UPGRADE-1.6.txt, useful for people upgrading from lenny
 
- -- Lionel Elie Mamane <lmamane@debian.org>  Fri, 24 Jul 2009 13:28:04 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Jul 2009 21:17:31 +0300
 
 asterisk (1:1.6.1.0~dfsg-1) unstable; urgency=low
 
