@@ -21,12 +21,14 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
     by the init script (thanks lintian).
   * Remove asterisk-progdocs: it is of very limited use but a) is enormous in
     size and b) takes too long to build.
+  * Re-enable and port to 1.6 the h323 segfault patches, apparently they're
+    still needed.
   * Fix astgenkey to respect system's umask. Thanks Jonas Smedegaard.
     (Closes: #531730) 
   * Create /var/log/asterisk/* directories if non-existent, for /var/log on
     tmpfs scenarios. Thanks martin f krafft! (Closes: #524015)
-  * Re-enable and port to 1.6 the h323 segfault patches, apparently they're
-    still needed.
+  * Use the lsb-base standard way of gathering and reporting status in the
+    init script. Thanks Dustin Kirkland and Ubuntu! (Closes: #506453)
 
   [ Tzafrir Cohen ]
   * New upstream release.
@@ -38,7 +40,7 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
   [ Lionel Elie Mamane ]
   * Install UPGRADE-1.6.txt, useful for people upgrading from lenny
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Jul 2009 22:06:40 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Jul 2009 22:13:15 +0300
 
 asterisk (1:1.6.1.0~dfsg-1) unstable; urgency=low
 

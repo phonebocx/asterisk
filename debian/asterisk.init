@@ -33,6 +33,8 @@ ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
 UMASK=007 # by default
 #MAXFILES=1024 # (the system default)
 
+. /lib/lsb/init-functions
+
 # by default: use real-time priority
 PARAMS=""
 CHDIR_PARM=""
@@ -111,14 +113,7 @@ then
 fi
 
 status() {
-	plist=`ps ax | awk "{ if (\\$5 == \"$DAEMON\") print \\$1 }"`
-	if [ "$plist" = "" ]; then
-		echo "$DESC is stopped"
-		return 1
-	else
-		echo "$DESC is running: $plist"
-		return 0
-	fi
+	status_of_proc "$DAEMON" "$DESC" && return 0 || return $?
 }
 
 asterisk_rx() {
