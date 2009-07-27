@@ -1,7 +1,4 @@
 #!/usr/bin/make -f
-# Sample debian/rules that uses debhelper.
-# This file is public domain software, originally written by Joey Hess. 
-
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
@@ -31,7 +28,6 @@ BUILDFLAGS += MENUSELECT_MOH= \
   ASTDATADIR=/usr/share/asterisk \
   ASTVARRUNDIR=/var/run/asterisk \
 
-
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
 endif
@@ -58,7 +54,6 @@ URL := http://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-$(
 # fetch script that always returns an error.
 FETCH_ENV = PATH=$$PATH:$(CURDIR)/debian/dummyprogs
 
-
 check-sounds:
 	( [ ! -f sounds/asterisk-moh-freeplay-wav.tar.gz ] && \
 	  [ ! -f sounds/fpm-calm-river.mp3 ] && \
@@ -67,7 +62,7 @@ check-sounds:
 		(echo "WARNING: non-free fpm sounds must be removed from sources before packaging." ; false )
 	touch $@
 	
-config.status: check-sounds patch
+config.status: check-sounds debian/stamp-patched
 	dh_testdir
 
 	[ -f .version.bak ] || cp -a .version .version.bak
@@ -89,7 +84,6 @@ config.status: check-sounds patch
 		--with-pwlib=/usr/share/pwlib/include/ \
 		--with-h323=/usr/share/openh323/ 
 
-
 build: build-arch build-indep
 
 build-arch: build-arch-stamp
@@ -110,7 +104,7 @@ cleaned: patch
 	dh_testroot
 	
 	# Add here commands to clean up after the build process.
-	$(MAKE) distclean
+	GREP=grep AWK=awk $(MAKE) distclean
 	-$(RM) -rf debian/build
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
@@ -152,8 +146,9 @@ install-indep: build-indep
 
 	# create a simple config
 	echo "; please read doc/manager.txt" > $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d/README.conf
+	touch $@
 
-# Build architecture-independent files here.
+binary: binary-indep binary-arch
 binary-indep: install-indep
 	dh_testdir -i
 	dh_testroot -i
@@ -175,7 +170,6 @@ binary-indep: install-indep
 	dh_md5sums -i
 	dh_builddeb -i
 
-# Build architecture-dependent files here.
 binary-arch: install-arch
 	dh_testdir -a
 	dh_testroot -a
@@ -228,5 +222,4 @@ get-orig-source:
 	@@echo Cleaning up...
 	@@$(RM) -rf ../tarballs/asterisk-$(UPVERSION).tmp/
 
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install clean patch unpatch
+.PHONY: build build-arch build-indep clean binary-indep binary-arch binary install clean patch unpatch
