@@ -15,9 +15,9 @@ Should be removed when #438815 closes.
 
 --- a/main/loader.c
 +++ b/main/loader.c
-@@ -359,6 +359,12 @@ static struct ast_module *load_dynamic_m
- 
- 	strcpy(resource_being_loaded->resource, resource);
+@@ -382,6 +382,12 @@ static struct ast_module *load_dynamic_m
+ 	if (missing_so)
+ 		strcat(resource_being_loaded->resource, ".so");
  
 +	/* libopenh323 is buggy and segfaults on dlclose() when opened with
 +	 * RTLD_LAZY. Workaround this until it gets fixed */
@@ -27,4 +27,4 @@ Should be removed when #438815 closes.
 +
  	if (!(lib = dlopen(fn, RTLD_LAZY | RTLD_LOCAL))) {
  		ast_log(LOG_WARNING, "Error loading module '%s': %s\n", resource_in, dlerror());
- 		free(resource_being_loaded);
+ 		ast_free(resource_being_loaded);

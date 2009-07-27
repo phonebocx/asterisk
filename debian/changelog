@@ -25,6 +25,8 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
     (Closes: #531730) 
   * Create /var/log/asterisk/* directories if non-existent, for /var/log on
     tmpfs scenarios. Thanks martin f krafft! (Closes: #524015)
+  * Re-enable and port to 1.6 the h323 segfault patches, apparently they're
+    still needed.
 
   [ Tzafrir Cohen ]
   * New upstream release.
@@ -36,7 +38,7 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
   [ Lionel Elie Mamane ]
   * Install UPGRADE-1.6.txt, useful for people upgrading from lenny
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Jul 2009 21:53:03 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Jul 2009 22:06:40 +0300
 
 asterisk (1:1.6.1.0~dfsg-1) unstable; urgency=low
 

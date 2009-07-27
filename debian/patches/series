@@ -9,9 +9,8 @@ safe_asterisk-nobg
 
 app-osplookup-osptk-3.4
 
-# Remed-out for now. Should be fixed later on:
-#h323-no-deps-on-asterisk
-#h323-workaround-openh323-segfault
+h323-no-deps-on-asterisk
+h323-workaround-openh323-segfault
 
 astgenkey-security
 
