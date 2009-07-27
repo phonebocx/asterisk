@@ -6,7 +6,7 @@ a time in a sane manner.
 Upstream issue: http://issues.asterisk.org/view.php?id=15054
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
-@@ -10682,6 +10682,8 @@ static void dahdi_pri_message(struct pri
+@@ -12133,6 +12133,8 @@ static void dahdi_pri_message(struct pri
  		}
  		if (dchancount > 1 && (span > -1))
  			ast_verbose("[Span %d D-Channel %d]%s", span, dchan, s);
@@ -15,7 +15,7 @@ Upstream issue: http://issues.asterisk.org/view.php?id=15054
  		else
  			ast_verbose("%s", s);
  	} else
-@@ -10721,6 +10723,8 @@ static void dahdi_pri_error(struct pri *
+@@ -12174,6 +12176,8 @@ static void dahdi_pri_error(struct pri *
  		}
  		if ((dchancount > 1) && (span > -1))
  			ast_log(LOG_ERROR, "[Span %d D-Channel %d] PRI: %s", span, dchan, s);

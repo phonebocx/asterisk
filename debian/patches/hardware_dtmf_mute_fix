@@ -5,7 +5,7 @@ Upstream issue: https://issues.asterisk.org/view.php?id=14761
 
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
-@@ -4710,6 +4710,7 @@ static struct ast_frame *dahdi_handle_ev
+@@ -5717,6 +5717,7 @@ static struct ast_frame *dahdi_handle_ev
  			/* absorb event */
  		} else {
  #endif

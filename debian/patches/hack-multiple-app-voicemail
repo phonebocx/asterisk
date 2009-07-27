@@ -56,7 +56,7 @@ Patch suggested to upstream but rejected for being "hackish":
  ifneq ($(findstring $(OSARCH), mingw32 cygwin ),)
 --- a/Makefile.moddir_rules
 +++ b/Makefile.moddir_rules
-@@ -43,7 +43,7 @@ include $(ASTTOPDIR)/Makefile.rules
+@@ -37,7 +37,7 @@ include $(ASTTOPDIR)/Makefile.rules
  # Use MODULE_EXCLUDE to specify additional modules to exclude.
  
  ifneq ($(MODULE_PREFIX),)

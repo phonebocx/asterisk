@@ -10,7 +10,7 @@ which should catch most cases.
 Upstream issue: http://issues.asterisk.org/view.php?id=14718
 --- a/Makefile
 +++ b/Makefile
-@@ -575,7 +575,7 @@ oldmodcheck:
+@@ -609,7 +609,7 @@ oldmodcheck:
  	fi
  
  badshell:
