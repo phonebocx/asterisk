@@ -21,6 +21,10 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
     by the init script (thanks lintian).
   * Remove asterisk-progdocs: it is of very limited use but a) is enormous in
     size and b) takes too long to build.
+  * Fix astgenkey to respect system's umask. Thanks Jonas Smedegaard.
+    (Closes: #531730) 
+  * Create /var/log/asterisk/* directories if non-existent, for /var/log on
+    tmpfs scenarios. Thanks martin f krafft! (Closes: #524015)
 
   [ Tzafrir Cohen ]
   * New upstream release.

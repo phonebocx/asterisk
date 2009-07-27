@@ -30,7 +30,6 @@ DAEMON=/usr/sbin/$NAME
 DESC="Asterisk PBX"
 PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
-PIDFILE_DIR="/var/run"
 UMASK=007 # by default
 #MAXFILES=1024 # (the system default)
 
@@ -94,10 +93,9 @@ fi
 
 test -x $DAEMON || exit 0
 
-if [ ! -d "$PIDFILE_DIR" ];then
-	mkdir "$PIDFILE_DIR"
-	chown $USER:$GROUP "$PIDFILE_DIR"
-fi
+for dir in /var/run/asterisk /var/log/asterisk /var/log/asterisk/cdr-csv /var/log/asterisk/cdr-custom; do
+	[ -d $dir ] || install -d -o $USER -g $GROUP $dir
+done
 
 set -e
 
