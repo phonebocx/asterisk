@@ -21,8 +21,8 @@ Should be removed when #438815 closes.
  
 +	/* libopenh323 is buggy and segfaults on dlclose() when opened with
 +	 * RTLD_LAZY. Workaround this until it gets fixed */
-+	if (!strcasecmp(resource, "chan_h323.so") ||
-+	    !strcasecmp(resource, "chan_oh323.so"))
++	if (!strcasecmp(resource_being_loaded->resource, "chan_h323.so") ||
++	    !strcasecmp(resource_being_loaded->resource, "chan_oh323.so"))
 +		lib = dlopen(fn, RTLD_NOW | RTLD_LOCAL);
 +
  	if (!(lib = dlopen(fn, RTLD_LAZY | RTLD_LOCAL))) {
