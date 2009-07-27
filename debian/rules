@@ -95,21 +95,13 @@ build: build-arch build-indep
 build-arch: build-arch-stamp
 build-arch-stamp: config.status
 	dh_testdir
-
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS)
-
 	touch $@
 
 build-indep: build-indep-stamp
 build-indep-stamp: config.status
 	dh_testdir
-
-	# Add here command to compile/build the arch indep package.
-ifndef ASTERISK_NO_DOCS
-	$(FETCH_ENV) $(MAKE) progdocs 
-endif
 	touch $@
-
 
 clean: cleaned unpatch 
 # make clean breaks if we don't patch it up, hence the dependency

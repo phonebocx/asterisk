@@ -23,7 +23,6 @@ Build-Depends: quilt,
  libspeexdsp-dev,
  graphviz,
  libcurl4-openssl-dev | libcurl-dev,
- doxygen,
  libxml2-dev,
  gsfonts,
  libpopt-dev,
@@ -105,17 +104,6 @@ Description: Source code documentation for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the documentation for configuring an Asterisk system.
-
-Package: asterisk-progdoc
-Recommends: asterisk
-Section: doc
-Priority: extra
-Architecture: all
-Description: Source code documentation for Asterisk
- Asterisk is an Open Source PBX and telephony toolkit.
- .
- This package contains the source code documentation needed if you wish to
- extend Asterisk by writing loadable modules for it.
 
 Package: asterisk-dev
 Architecture: all
