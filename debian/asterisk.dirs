@@ -4,7 +4,6 @@ usr/share/asterisk
 var/log/asterisk
 var/spool/asterisk
 var/lib/asterisk
-var/run/asterisk
 
 usr/share/asterisk/static-http
 
