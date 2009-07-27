@@ -40,9 +40,6 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
   * Patch makefile_appdocs_dtd: fix location of DTD installation.
   * Register the HTML docs with doc-base as well.
 
-  [ Lionel Elie Mamane ]
-  * Install UPGRADE-1.6.txt, useful for people upgrading from lenny
-
  -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Jul 2009 23:34:23 +0300
 
 asterisk (1:1.6.1.0~dfsg-1) unstable; urgency=low
