@@ -1,6 +1,4 @@
-asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
-
-  * NOT RELEASED YET
+asterisk (1:1.6.2.0~dfsg~beta3-1) unstable; urgency=low
 
   [ Faidon Liambotis ]
   * New upstream release.
