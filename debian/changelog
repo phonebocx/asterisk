@@ -1,3 +1,9 @@
+asterisk (1:1.6.2.0~dfsg~beta3-2) UNRELEASED; urgency=low
+
+  * Fix FTBFS on armel. (Closes: #532971)
+
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 28 Jul 2009 18:00:47 +0300
+
 asterisk (1:1.6.2.0~dfsg~beta3-1) unstable; urgency=low
 
   [ Faidon Liambotis ]

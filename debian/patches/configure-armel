@@ -1,0 +1,69 @@
+On armel, host_os equals to linux-gnueabi. This creates some problems in the
+configure script as well on some Makefiles of asterisk, that expect linux-gnu.
+
+Fix this, in a hackish way, by defining OSARCH to be always linux-gnu, even if
+host_os has other stuff appended to it. Also switch all the configure checks
+to check for the value of ${OSARCH} instead of ${host_os}.
+
+ -- Faidon Liambotis <paravoid@debian.org>
+
+--- a/configure
++++ b/configure
+@@ -4173,6 +4173,9 @@ case "${host_os}" in
+      OSARCH=cygwin
+      PBX_WINARCH=1
+      ;;
++     linux-gnu*)
++     OSARCH=linux-gnu
++     ;;
+      *)
+      OSARCH=${host_os}
+      ;;
+@@ -20354,7 +20357,7 @@ _ACEOF
+ fi
+ 
+ 
+-if test "x${host_os}" = "xlinux-gnu" ; then
++if test "x${OSARCH}" = "xlinux-gnu" ; then
+ 
+ if test "x${PBX_CAP}" != "x1" -a "${USE_CAP}" != "no"; then
+    pbxlibdir=""
+@@ -33706,7 +33709,7 @@ _ACEOF
+    fi
+ fi
+ 
+-if test "${host_os}" != "linux-gnu" ; then
++if test "${OSARCH}" != "linux-gnu" ; then
+ 
+ if test "x${PBX_ICONV}" != "x1" -a "${USE_ICONV}" != "no"; then
+    pbxlibdir=""
+--- a/configure.ac
++++ b/configure.ac
+@@ -109,6 +109,9 @@ case "${host_os}" in
+      OSARCH=cygwin
+      PBX_WINARCH=1
+      ;;
++     linux-gnu*)
++     OSARCH=linux-gnu
++     ;;
+      *)
+      OSARCH=${host_os}
+      ;;
+@@ -640,7 +643,7 @@ AST_EXT_LIB_CHECK([ALSA], [asound], [snd
+ 
+ AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
+ 
+-if test "x${host_os}" = "xlinux-gnu" ; then
++if test "x${OSARCH}" = "xlinux-gnu" ; then
+   AST_EXT_LIB_CHECK([CAP], [cap], [cap_from_text], [sys/capability.h])
+ fi
+ 
+@@ -767,7 +770,7 @@ if test "${USE_GSM}" != "no"; then
+    fi
+ fi
+ 
+-if test "${host_os}" != "linux-gnu" ; then
++if test "${OSARCH}" != "linux-gnu" ; then
+   AST_EXT_LIB_CHECK([ICONV], [iconv], [iconv_open], [iconv.h])
+ else
+   PBX_ICONV=1
