@@ -17,8 +17,9 @@ Fix this properly by fixing channels/Makefile
  endif
  
 -ifneq ($(wildcard h323/Makefile.ast),)
- include h323/Makefile.ast
+-include h323/Makefile.ast
 -endif
++-include h323/Makefile.ast
  
  clean::
  	$(MAKE) -C misdn clean
