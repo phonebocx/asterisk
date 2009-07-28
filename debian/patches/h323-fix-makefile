@@ -1,0 +1,33 @@
+Fix LD flags on chan_h323.so
+
+chan_h323.so's LD flags are wrong in the first invocation of make: openh323 and
+pt are not included.
+
+This was workarounded in 1.4 by requiring the user to run make twice when
+chan_h323 was enabled.
+
+Fix this properly by fixing channels/Makefile
+
+  -- Faidon Liambotis <paravoid@debian.org>
+
+--- a/channels/Makefile
++++ b/channels/Makefile
+@@ -57,9 +57,7 @@ ifneq ($(findstring $(OSARCH), mingw32 c
+   LIBS+= -lres_monitor.so -lres_features.so
+ endif
+ 
+-ifneq ($(wildcard h323/Makefile.ast),)
+ include h323/Makefile.ast
+-endif
+ 
+ clean::
+ 	$(MAKE) -C misdn clean
+@@ -74,7 +72,7 @@ ifneq ($(filter chan_h323,$(EMBEDDED_MOD
+ modules.link: h323/libchanh323.a
+ else
+ ifeq ($(OSARCH),linux-gnu)
+-chan_h323.so: chan_h323.o h323/libchanh323.a
++chan_h323.so: chan_h323.o h323/libchanh323.a h323/Makefile.ast
+ 	$(ECHO_PREFIX) echo "   [LD] $^ -> $@"
+ 	$(CMD_PREFIX) $(CXX) $(PTHREAD_CFLAGS) $(ASTLDFLAGS) $(SOLINK) -o $@ $< h323/libchanh323.a $(H323LDLIBS)
+ else

@@ -10,6 +10,7 @@ safe_asterisk-nobg
 app-osplookup-osptk-3.4
 
 h323-no-deps-on-asterisk
+h323-fix-makefile
 h323-workaround-openh323-segfault
 
 astgenkey-security

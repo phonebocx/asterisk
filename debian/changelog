@@ -21,8 +21,10 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
     by the init script (thanks lintian).
   * Remove asterisk-progdocs: it is of very limited use but a) is enormous in
     size and b) takes too long to build.
-  * Re-enable and port to 1.6 the h323 segfault patches, apparently they're
-    still needed.
+  * Re-enable and port to 1.6 the h323 segfault patch, apparently it's still
+    needed.
+  * Fix asterisk's Makefiles so that the openh323/libpt dependencies are added
+    to chan_h323.so instead of the main asterisk binary.
   * Fix astgenkey to respect system's umask. Thanks Jonas Smedegaard.
     (Closes: #531730) 
   * Create /var/log/asterisk/* directories if non-existent, for /var/log on
@@ -40,7 +42,7 @@ asterisk (1:1.6.2.0~dfsg~beta3-1) UNRELEASED; urgency=low
   * Patch makefile_appdocs_dtd: fix location of DTD installation.
   * Register the HTML docs with doc-base as well.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 27 Jul 2009 23:34:23 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 28 Jul 2009 03:42:54 +0300
 
 asterisk (1:1.6.1.0~dfsg-1) unstable; urgency=low
 
