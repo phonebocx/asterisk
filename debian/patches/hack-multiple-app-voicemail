@@ -33,7 +33,7 @@ Patch suggested to upstream but rejected for being "hackish":
 +app_voicemail_imap.c: app_voicemail.c
 +	cp $< $@
 +	$(call add_depends_cmd,imap_tk) $@
-+	$(call add_depends_cmd,ssl) $@
++	$(call add_depends_cmd,openssl) $@
 +app_voicemail_odbc.c: app_voicemail.c
 +	cp $< $@
 +	$(call add_depends_cmd,unixodbc) $@

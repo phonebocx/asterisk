@@ -7,6 +7,7 @@ asterisk (1:1.6.2.0~dfsg~beta4-1) UNRELEASED; urgency=low
   * New upstream beta.
   * Patch hardware_dtmf_mute_fix removed: Applied upstream.
   * No need for a separate app_directory_odbc (will use app_voicemail_odbc).
+  * Fix name of voicemail 'openssl' dep. (Thomas Renard) (Closes: #539150)
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 11 Aug 2009 21:26:43 +0300
 
