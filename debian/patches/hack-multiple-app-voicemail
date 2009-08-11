@@ -20,12 +20,12 @@ Patch suggested to upstream but rejected for being "hackish":
  MENUSELECT_CATEGORY=APPS
  MENUSELECT_DESCRIPTION=Applications
  
-+MODS_C_ADDITIONAL=app_directory_odbc app_voicemail_imap app_voicemail_odbc
++MODS_C_ADDITIONAL=app_voicemail_imap app_voicemail_odbc
 +
  MENUSELECT_OPTS_app_directory:=$(MENUSELECT_OPTS_app_voicemail)
  ifneq ($(findstring ODBC_STORAGE,$(MENUSELECT_OPTS_app_voicemail)),)
    MENUSELECT_DEPENDS_app_voicemail+=$(MENUSELECT_DEPENDS_ODBC_STORAGE)
-@@ -27,6 +29,28 @@ endif
+@@ -27,6 +29,22 @@ endif
  
  all: _all
  
@@ -39,17 +39,11 @@ Patch suggested to upstream but rejected for being "hackish":
 +	$(call add_depends_cmd,unixodbc) $@
 +	$(call add_depends_cmd,ltdl) $@
 +
-+app_directory_odbc.c: app_directory.c
-+	cp $< $@
-+	$(call add_depends_cmd,unixodbc) $@
-+	$(call add_depends_cmd,ltdl) $@
-+
 +clean::
 +	rm -f app_voicemail_*.c
 +
 +app_voicemail_imap.o: ASTCFLAGS+=-DIMAP_STORAGE
 +app_voicemail_odbc.o: ASTCFLAGS+=-DODBC_STORAGE
-+app_directory_odbc.o: ASTCFLAGS+=-DODBC_STORAGE
 +
  include $(ASTTOPDIR)/Makefile.moddir_rules
  

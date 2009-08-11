@@ -22,5 +22,4 @@ dahdi-fxsks-hookstate
 dahdi_ptmp_nt
 dahdi_pri_debug_spannums
 
-hardware_dtmf_mute_fix
 makefile_appdocs_dtd
