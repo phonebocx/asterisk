@@ -10,11 +10,6 @@ Upstream Authors: Asterisk: Digium, Inc.
 
 Debian asterisk-xxx.dfsg.tar.gz
 ===============================
- * The Debian version of the upstream asterisk source has had the fpm Music
-on Hold removed as this music has only been licenced for use within 
-asterisk which is incompatible with the Debian Free Software Guildlines (DFSG)
-<http://www.debian.org/social_contract#guidelines>.
-
  * The contrib/firmware/iax/iaxy.bin binary firmware without source has been
  removed.
 
@@ -314,3 +309,11 @@ time for building menuselect above.
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
+
+Contents of sounds/asterisk-moh-opsound-wav.tar.gz tarball:
+
+  These files are distributed under the Creative Commons Attribution-ShareAlike
+  3.0 license through explicit permission from their authors.
+  
+  The license can be found at:
+  http://creativecommons.org/licenses/by-sa/3.0/

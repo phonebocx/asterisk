@@ -1,15 +1,20 @@
-asterisk (1:1.6.2.0~dfsg~beta4-1) UNRELEASED; urgency=low
+asterisk (1:1.6.2.0~dfsg~rc1-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
+  * New upstream release.
+    - Fixes CVE-2009-2726 aka AST-2009-005.
+    - Ship CC BY-SA 3.0 licensed music-on-hold sounds, replacing the old
+      non-free FreePlay Music that were never distributed by Debian.
+    - Removed patches/makefile_appdocs_dtd (merged upstream) and
+      patches/disable_moh (obsoleted, see above).
   * Fix FTBFS on armel. (Closes: #532971)
 
   [ Tzafrir Cohen ]
-  * New upstream beta.
   * Patch hardware_dtmf_mute_fix removed: Applied upstream.
   * No need for a separate app_directory_odbc (will use app_voicemail_odbc).
   * Fix name of voicemail 'openssl' dep. (Thomas Renard) (Closes: #539150)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 11 Aug 2009 21:26:43 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 31 Aug 2009 21:50:05 +0300
 
 asterisk (1:1.6.2.0~dfsg~beta3-1) unstable; urgency=low
 
