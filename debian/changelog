@@ -13,8 +13,9 @@ asterisk (1:1.6.2.0~dfsg~rc1-1) UNRELEASED; urgency=low
   * Patch hardware_dtmf_mute_fix removed: Applied upstream.
   * No need for a separate app_directory_odbc (will use app_voicemail_odbc).
   * Fix name of voicemail 'openssl' dep. (Thomas Renard) (Closes: #539150)
+  * Patch AST-2009-006: Closes: #539473 but breaks IAX2 compatibility. 
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 31 Aug 2009 21:50:05 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 13 Sep 2009 00:23:16 +0300
 
 asterisk (1:1.6.2.0~dfsg~beta3-1) unstable; urgency=low
 
