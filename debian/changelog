@@ -8,14 +8,18 @@ asterisk (1:1.6.2.0~dfsg~rc1-1) UNRELEASED; urgency=low
     - Removed patches/makefile_appdocs_dtd (merged upstream) and
       patches/disable_moh (obsoleted, see above).
   * Fix FTBFS on armel. (Closes: #532971)
+  * Bump Standards-Version to 3.8.3, no changes needed.
+  * Provides: asterisk-1.6.2, instead of 1.6.1; there are no ABI gurantees
+    between 1.6.x releases.
 
   [ Tzafrir Cohen ]
   * Patch hardware_dtmf_mute_fix removed: Applied upstream.
   * No need for a separate app_directory_odbc (will use app_voicemail_odbc).
   * Fix name of voicemail 'openssl' dep. (Thomas Renard) (Closes: #539150)
-  * Patch AST-2009-006: Closes: #539473 but breaks IAX2 compatibility. 
+  * Patch AST-2009-006: breaks IAX2 compatibility, note it in NEWS.Debian.
+    (Closes: #539473)
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 13 Sep 2009 00:23:16 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 13 Sep 2009 02:12:26 +0300
 
 asterisk (1:1.6.2.0~dfsg~beta3-1) unstable; urgency=low
 

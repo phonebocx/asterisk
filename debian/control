@@ -42,7 +42,7 @@ Build-Depends: quilt,
  libspandsp-dev,
  libopenais-dev,
  zlib1g-dev 
-Standards-Version: 3.8.2
+Standards-Version: 3.8.3
 Homepage: http://www.asterisk.org/
 Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
 Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
@@ -51,7 +51,7 @@ Package: asterisk
 Architecture: any
 Section: comm
 Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main, dahdi
-Provides: asterisk-1.6.1
+Provides: asterisk-1.6.2
 Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev, asterisk-h323
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
