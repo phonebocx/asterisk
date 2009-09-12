@@ -11,6 +11,8 @@ asterisk (1:1.6.2.0~dfsg~rc1-1) UNRELEASED; urgency=low
   * Bump Standards-Version to 3.8.3, no changes needed.
   * Provides: asterisk-1.6.2, instead of 1.6.1; there are no ABI gurantees
     between 1.6.x releases.
+  * Remove references of Section: comm in individual binary packages as it is
+    inherited from the source pacakge.
 
   [ Tzafrir Cohen ]
   * Patch hardware_dtmf_mute_fix removed: Applied upstream.
@@ -19,7 +21,7 @@ asterisk (1:1.6.2.0~dfsg~rc1-1) UNRELEASED; urgency=low
   * Patch AST-2009-006: breaks IAX2 compatibility, note it in NEWS.Debian.
     (Closes: #539473)
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 13 Sep 2009 02:12:26 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 13 Sep 2009 02:22:17 +0300
 
 asterisk (1:1.6.2.0~dfsg~beta3-1) unstable; urgency=low
 

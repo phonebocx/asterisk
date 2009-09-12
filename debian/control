@@ -1,6 +1,5 @@
 Source: asterisk
 Priority: optional
-Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders: Mark Purcell <msp@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>, Faidon Liambotis <paravoid@debian.org>
 Build-Depends: quilt, 
@@ -49,7 +48,6 @@ Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Section: comm
 Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main, dahdi
 Provides: asterisk-1.6.2
 Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev, asterisk-h323
@@ -79,7 +77,6 @@ Description: Open Source Private Branch Exchange (PBX)
 
 Package: asterisk-h323
 Architecture: any
-Section: comm
 Depends: asterisk, ${shlibs:Depends}
 Description: H.323 protocol support for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
@@ -134,7 +131,6 @@ Package: asterisk-sounds-main
 Architecture: all
 Recommends: asterisk
 Replaces: asterisk-sounds-extra
-Section: comm
 Description: Core Sound files for Asterisk (English)
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -145,7 +141,6 @@ Package: asterisk-config
 Recommends: asterisk
 Conflicts: asterisk-config-custom
 Architecture: all
-Section: comm
 Description: Configuration files for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
