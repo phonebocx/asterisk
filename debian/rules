@@ -201,22 +201,4 @@ get-orig-source:
 	@@echo Downloading $(UPFILENAME) from $(URL) ...
 	@@wget -nv -T10 -t3 -O ../tarballs/$(FILENAME) $(URL)
 
-# DFSG repackaging of Asterisk. Remove this eventually
-get-orig-source-dfsg:
-	@@echo Repacking as DFSG-free...
-	@@mkdir -p ../tarballs/asterisk-$(UPVERSION).tmp/
-	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
-	tar xfz ../$(UPFILENAME) 
-	# in case the tarball is not clean:
-	@@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts
-	@@rm -rf $(TMP_TARBALL_TOP)/*/.*.makeopts
-	@@rm -rf $(TMP_TARBALL_TOP)/*/.moduleinfo
-	@@rm -rf $(TMP_TARBALL_TOP)/*/.*.moduleinfo
-	@@rm -rf $(TMP_TARBALL_TOP)/menuselect-tree
-	@@rm -rf $(TMP_TARBALL_TOP)/contrib/firmware/
-	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
-	tar cfz ../$(FILENAME) *
-	@@echo Cleaning up...
-	@@$(RM) -rf ../tarballs/asterisk-$(UPVERSION).tmp/
-
 .PHONY: build build-arch build-indep clean binary-indep binary-arch binary install clean patch unpatch

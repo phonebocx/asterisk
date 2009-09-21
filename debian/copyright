@@ -8,11 +8,6 @@ Asterisk was downloaded from http://downloads.asterisk.org/pub/asterisk/
 
 Upstream Authors: Asterisk: Digium, Inc.
 
-Debian asterisk-xxx.dfsg.tar.gz
-===============================
- * The contrib/firmware/iax/iaxy.bin binary firmware without source has been
- removed.
-
 Copyright
 =========
 

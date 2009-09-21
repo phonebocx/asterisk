@@ -1,12 +1,15 @@
 asterisk (1:1.6.2.0~rc2-1) UNRELEASED; urgency=low
 
+  [ Tzafrir Cohen ]
+  * New upstream RC.
+
   [ Faidon Liambotis ]
   * Switch from libreadline5-dev to libreadline-dev build dependency.
+  * No need for repacking anymore; upstream removed the last piece of non-free
+    material (IAXy's firmware) from the tarball upon our request.
+    Thanks Digium!
 
-  [ Tzafrir Cohen ]
-  * New upstream RC. No need to repackage a ~dfsg copy.
-
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 17 Sep 2009 23:11:36 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 22 Sep 2009 01:46:52 +0300
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 
