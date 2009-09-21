@@ -54,22 +54,13 @@ URL := http://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-$(
 # fetch script that always returns an error.
 FETCH_ENV = PATH=$$PATH:$(CURDIR)/debian/dummyprogs
 
-check-sounds:
-	( [ ! -f sounds/asterisk-moh-freeplay-wav.tar.gz ] && \
-	  [ ! -f sounds/fpm-calm-river.mp3 ] && \
-	  [ ! -f sounds/fpm-sunshine.mp3 ]   && \
-	  [ ! -f sounds/fpm-world-mix.mp3 ] ) || \
-		(echo "WARNING: non-free fpm sounds must be removed from sources before packaging." ; false )
-	touch $@
-	
-config.status: check-sounds debian/stamp-patched
+config.status: debian/stamp-patched
 	dh_testdir
 
 	[ -f .version.bak ] || cp -a .version .version.bak
 	echo $(DEB_NOEPOCH_VERSION) > .version
 
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
-	#./bootstrap.sh # also runs autoonf. TODO: currently not needed.
 
 	chmod 755 $(CURDIR)/debian/dummyprogs/fetch
 	
@@ -109,7 +100,7 @@ cleaned: patch
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
 	-test -d configs && chmod -x configs/*.sample
-	-$(RM) -f build-arch-stamp build-indep-stamp config.status check-sounds menuselect.makeopts
+	-$(RM) -f build-arch-stamp build-indep-stamp config.status menuselect.makeopts
 
 	[ ! -f .version.bak ] || mv .version.bak .version
 
