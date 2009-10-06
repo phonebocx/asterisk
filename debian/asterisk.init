@@ -12,7 +12,7 @@
 #
 ### BEGIN INIT INFO
 # Provides:          asterisk
-# Required-Start:    $local_fs zaptel
+# Required-Start:    $local_fs dahdi
 # Required-Stop:     $local_fs
 # Should-Start:      
 # Should-Stop:       
