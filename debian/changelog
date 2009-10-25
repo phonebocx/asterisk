@@ -16,8 +16,9 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
   * Remove ekiga, ohphone, twinkle, kphone from Suggests.
   * Cleanup the documentation provided in the asterisk-doc package.
     (Closes: #499215)
+  * Cleanup cruft present in diff.gz after a double build.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 Oct 2009 23:51:34 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 Oct 2009 00:31:01 +0200
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 

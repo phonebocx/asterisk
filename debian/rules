@@ -57,7 +57,7 @@ FETCH_ENV = PATH=$$PATH:$(CURDIR)/debian/dummyprogs
 config.status: debian/stamp-patched
 	dh_testdir
 
-	[ -f .version.bak ] || cp -a .version .version.bak
+	[ -f .version.debian_sav ] || cp -a .version .version.debian_sav
 	echo $(DEB_NOEPOCH_VERSION) > .version
 
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
@@ -100,9 +100,13 @@ cleaned: patch
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
 	-test -d configs && chmod -x configs/*.sample
-	-$(RM) -f build-arch-stamp build-indep-stamp config.status menuselect.makeopts
+	-$(RM) -f build-arch-stamp build-indep-stamp install-arch install-indep
+	-$(RM) -f config.status menuselect.makeopts
 
-	[ ! -f .version.bak ] || mv .version.bak .version
+	[ ! -f .version.debian_sav ] || mv .version.debian_sav .version
+
+	# these were generated while building
+	-$(RM) -f doc/core-en_US.xml utils/poll.c
 
 	dh_clean
 
