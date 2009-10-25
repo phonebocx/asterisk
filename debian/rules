@@ -136,7 +136,8 @@ install-indep: build-indep
 	dh_lintian -i
 
 	# create a simple config
-	echo "; please read doc/manager.txt" > $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d/README.conf
+	echo "; please read the documentation regarding the Manager Interface (asterisk-doc package)" > \
+		$(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d/README.conf
 	touch $@
 
 binary: binary-indep binary-arch
@@ -145,6 +146,9 @@ binary-indep: install-indep
 	dh_testroot -i
 	dh_installlogrotate -i 
 	dh_installdocs -i -XREADME.cygwin
+	mkdir $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/html
+	cp -a $(CURDIR)/doc/tex/asterisk/*.html $(CURDIR)/doc/tex/asterisk/*.png \
+	      $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/html
 	dh_installexamples -i
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
@@ -156,7 +160,6 @@ binary-indep: install-indep
 	chmod o-rwx $(CURDIR)/debian/asterisk-config/etc/asterisk/*
 	chmod o+rx  $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d
 	dh_installdeb -i
-	rm -rf $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/doc/api
 	dh_gencontrol -i
 	dh_md5sums -i
 	dh_builddeb -i

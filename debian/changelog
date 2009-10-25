@@ -9,13 +9,15 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
     material (IAXy's firmware) from the tarball upon our request.
     Thanks Digium!
   * Remove patches/debian-banner, no need to warn users to use our BTS
-    anymore, we don't diverge that much nowadays.
+    anymore as we don't diverge that much nowadays.
   * Temporarily remove OSP support, Asterisk needs a new version (3.5) that
     isn't yet in Debian.
   * Add sox to Recommends, used by res_monitor.
   * Remove ekiga, ohphone, twinkle, kphone from Suggests.
+  * Cleanup the documentation provided in the asterisk-doc package.
+    (Closes: #499215)
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 Oct 2009 21:37:29 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 Oct 2009 23:51:34 +0200
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 
