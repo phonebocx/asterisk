@@ -5,6 +5,7 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
       both "timer" and other option(s) (Closes: #552336)
     - Adapt patches/hack-multiple-app-voicemail.
   * Switch from libreadline5-dev to libreadline-dev build dependency.
+  * Switch from libc-client2007b-dev to libc-client2007e-dev build dependency.
   * No need for repacking anymore; upstream removed the last piece of non-free
     material (IAXy's firmware) from the tarball upon our request.
     Thanks Digium!
@@ -19,8 +20,9 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
   * Cleanup cruft present in diff.gz after a double build.
   * Stop shipping old static-http code in examples. Among other things, it
     includes a vulnerable version of the prototype Javascript library.
+  * Remove obsolete debian/backports/{etch,edgy,feisty}.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 Oct 2009 00:54:40 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 Oct 2009 01:11:41 +0200
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 
