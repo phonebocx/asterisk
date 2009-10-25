@@ -1,9 +1,8 @@
-asterisk (1:1.6.2.0~rc2-1) UNRELEASED; urgency=low
+asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
 
-  [ Tzafrir Cohen ]
   * New upstream RC.
-
-  [ Faidon Liambotis ]
+    - Session timer is not activated if Supported header field in INVITE has
+      both "timer" and other option(s) (Closes: #552336)
   * Switch from libreadline5-dev to libreadline-dev build dependency.
   * No need for repacking anymore; upstream removed the last piece of non-free
     material (IAXy's firmware) from the tarball upon our request.
@@ -11,7 +10,7 @@ asterisk (1:1.6.2.0~rc2-1) UNRELEASED; urgency=low
   * Temporarily remove OSP support, Asterisk needs a new version (3.5) that
     isn't yet in Debian.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 30 Sep 2009 18:43:14 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 Oct 2009 19:48:10 +0200
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 
