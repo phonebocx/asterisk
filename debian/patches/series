@@ -2,7 +2,6 @@
 configure-armel
 allow-tilde-destdir
 
-debian-banner
 hack-multiple-app-voicemail
 make-clean-fixes
 safe_asterisk-config

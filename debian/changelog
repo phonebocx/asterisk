@@ -7,10 +7,12 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
   * No need for repacking anymore; upstream removed the last piece of non-free
     material (IAXy's firmware) from the tarball upon our request.
     Thanks Digium!
+  * Remove patches/debian-banner, no need to warn users to use our BTS
+    anymore, we don't diverge that much nowadays.
   * Temporarily remove OSP support, Asterisk needs a new version (3.5) that
     isn't yet in Debian.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 Oct 2009 19:48:10 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 Oct 2009 19:52:11 +0200
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 
