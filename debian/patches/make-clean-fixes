@@ -8,7 +8,7 @@ on packaging of sound files.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -461,7 +461,6 @@ dist-clean: distclean
+@@ -459,7 +459,6 @@ dist-clean: distclean
  
  distclean: $(SUBDIRS_DIST_CLEAN) _clean
  	@$(MAKE) -C menuselect dist-clean
@@ -16,7 +16,7 @@ on packaging of sound files.
  	rm -f menuselect.makeopts makeopts menuselect-tree menuselect.makedeps
  	rm -f makeopts.embed_rules
  	rm -f config.log config.status config.cache
-@@ -471,6 +470,10 @@ distclean: $(SUBDIRS_DIST_CLEAN) _clean
+@@ -469,6 +468,10 @@ distclean: $(SUBDIRS_DIST_CLEAN) _clean
  	rm -rf doc/api
  	rm -f build_tools/menuselect-deps
  
@@ -25,5 +25,5 @@ on packaging of sound files.
 +	@$(MAKE) -C sounds dist-clean
 +
  datafiles: _all
- 	if [ x`$(ID) -un` = xroot ]; then CFLAGS="$(ASTCFLAGS)" bash build_tools/mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
- # Should static HTTP be installed during make samples or even with its own target ala
+ 	if [ `$(ID) -u` = 0 ]; then \
+ 		CFLAGS="$(_ASTCFLAGS) $(ASTCFLAGS)" build_tools/mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; \

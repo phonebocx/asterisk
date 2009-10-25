@@ -9,7 +9,7 @@ We are working around this, see patch h323-workaround-openh323-segfault.
 
 --- a/main/Makefile
 +++ b/main/Makefile
-@@ -142,13 +142,6 @@ AST_EMBED_LDFLAGS:=$(foreach dep,$(EMBED
+@@ -143,13 +143,6 @@ AST_EMBED_LDFLAGS:=$(foreach dep,$(EMBED
  AST_EMBED_LIBS:=$(foreach dep,$(EMBED_LIBS),$(value $(dep)))
  OBJS:=$(sort $(OBJS))
  
@@ -23,9 +23,9 @@ We are working around this, see patch h323-workaround-openh323-segfault.
  ifneq ($(findstring $(OSARCH), mingw32 cygwin ),)
  MAIN_TGT:=asterisk.dll
  asterisk: cygload
-@@ -166,11 +159,7 @@ endif
+@@ -167,11 +160,7 @@ endif
  $(MAIN_TGT): $(OBJS) editline/libedit.a db1-ast/libdb1.a $(AST_EMBED_LDSCRIPTS)
- 	@$(CC) -c -o buildinfo.o $(ASTCFLAGS) buildinfo.c
+ 	@$(CC) -c -o buildinfo.o $(_ASTCFLAGS) buildinfo.c $(ASTCFLAGS)
  	$(ECHO_PREFIX) echo "   [LD] $^ -> $@"
 -ifneq ($(findstring chan_h323,$(MENUSELECT_CHANNELS)),)
  	$(CMD_PREFIX) $(CC) $(STATIC_BUILD) -o $@ $(ASTLINK) $(AST_EMBED_LDFLAGS) $(ASTLDFLAGS) $^ buildinfo.o $(AST_LIBS) $(AST_EMBED_LIBS) $(GMIMELDFLAGS)

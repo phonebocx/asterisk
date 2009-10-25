@@ -9,7 +9,7 @@ to check for the value of ${OSARCH} instead of ${host_os}.
 
 --- a/configure
 +++ b/configure
-@@ -4317,6 +4317,9 @@ case "${host_os}" in
+@@ -4192,6 +4192,9 @@ case "${host_os}" in
       OSARCH=cygwin
       PBX_WINARCH=1
       ;;
@@ -19,7 +19,7 @@ to check for the value of ${OSARCH} instead of ${host_os}.
       *)
       OSARCH=${host_os}
       ;;
-@@ -21250,7 +21253,7 @@ _ACEOF
+@@ -20763,7 +20766,7 @@ _ACEOF
  fi
  
  
@@ -30,7 +30,7 @@ to check for the value of ${OSARCH} instead of ${host_os}.
     pbxlibdir=""
 --- a/configure.ac
 +++ b/configure.ac
-@@ -115,6 +115,9 @@ case "${host_os}" in
+@@ -121,6 +121,9 @@ case "${host_os}" in
       OSARCH=cygwin
       PBX_WINARCH=1
       ;;
@@ -40,7 +40,7 @@ to check for the value of ${OSARCH} instead of ${host_os}.
       *)
       OSARCH=${host_os}
       ;;
-@@ -650,7 +653,7 @@ AST_EXT_LIB_CHECK([ALSA], [asound], [snd
+@@ -656,7 +659,7 @@ AST_EXT_LIB_CHECK([ALSA], [asound], [snd
  
  AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
  
