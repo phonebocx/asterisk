@@ -17,8 +17,10 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
   * Cleanup the documentation provided in the asterisk-doc package.
     (Closes: #499215)
   * Cleanup cruft present in diff.gz after a double build.
+  * Stop shipping old static-http code in examples. Among other things, it
+    includes a vulnerable version of the prototype Javascript library.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 Oct 2009 00:31:01 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 Oct 2009 00:54:40 +0200
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 
