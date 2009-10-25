@@ -25,7 +25,7 @@ Patch suggested to upstream but rejected for being "hackish":
  MENUSELECT_OPTS_app_directory:=$(MENUSELECT_OPTS_app_voicemail)
  ifneq ($(findstring ODBC_STORAGE,$(MENUSELECT_OPTS_app_voicemail)),)
    MENUSELECT_DEPENDS_app_voicemail+=$(MENUSELECT_DEPENDS_ODBC_STORAGE)
-@@ -27,6 +29,22 @@ endif
+@@ -25,6 +27,22 @@ endif
  
  all: _all
  
@@ -42,8 +42,8 @@ Patch suggested to upstream but rejected for being "hackish":
 +clean::
 +	rm -f app_voicemail_*.c
 +
-+app_voicemail_imap.o: ASTCFLAGS+=-DIMAP_STORAGE
-+app_voicemail_odbc.o: ASTCFLAGS+=-DODBC_STORAGE
++app_voicemail_imap.o: _ASTCFLAGS+=-DIMAP_STORAGE
++app_voicemail_odbc.o: _ASTCFLAGS+=-DODBC_STORAGE
 +
  include $(ASTTOPDIR)/Makefile.moddir_rules
  
@@ -59,3 +59,15 @@ Patch suggested to upstream but rejected for being "hackish":
      ALL_C_MODS+=$(foreach p,$(MODULE_PREFIX),$(patsubst %.c,%,$(wildcard $(p)_*.c)))
      ALL_CC_MODS:=
      ALL_CC_MODS+=$(foreach p,$(MODULE_PREFIX),$(patsubst %.cc,%,$(wildcard $(p)_*.cc)))
+--- a/apps/app_voicemail.c
++++ b/apps/app_voicemail.c
+@@ -40,6 +40,9 @@ c-client (http://www.washington.edu/imap
+  *        with a plan to clean this up.
+  */
+ 
++/*** MODULEINFO
++ ***/
++
+ /*** MAKEOPTS
+ <category name="MENUSELECT_OPTS_app_voicemail" displayname="Voicemail Build Options" positive_output="yes" remove_on_change="apps/app_voicemail.o apps/app_voicemail.so apps/app_directory.o apps/app_directory.so">
+ 	<member name="FILE_STORAGE" displayname="Storage of Voicemail using filesystem">
