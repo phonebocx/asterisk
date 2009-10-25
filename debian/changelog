@@ -12,8 +12,10 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
     anymore, we don't diverge that much nowadays.
   * Temporarily remove OSP support, Asterisk needs a new version (3.5) that
     isn't yet in Debian.
+  * Add sox to Recommends, used by res_monitor.
+  * Remove ekiga, ohphone, twinkle, kphone from Suggests.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 Oct 2009 21:35:51 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 25 Oct 2009 21:37:29 +0200
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 
