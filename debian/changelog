@@ -1,4 +1,4 @@
-asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
+asterisk (1:1.6.2.0~rc3-1) unstable; urgency=low
 
   * New upstream RC.
     - Session timer is not activated if Supported header field in INVITE has
