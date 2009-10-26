@@ -27,6 +27,7 @@ NAME=asterisk
 USER=$NAME
 GROUP=$USER
 DAEMON=/usr/sbin/$NAME
+CANARY=/usr/sbin/astcanary
 DESC="Asterisk PBX"
 PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
@@ -122,7 +123,6 @@ asterisk_rx() {
 	# if $HOME is set, asterisk -rx writes a .asterisk_history there
 	(
 		unset HOME
-
 		$DAEMON -rx "$1"
 	)
 }
@@ -153,7 +153,7 @@ case "$1" in
 		fi
 		start-stop-daemon --start --group $GROUP --pidfile "$PIDFILE" \
 			$CHDIR_PARM \
-			--exec $REALDAEMON -- $PARAMS
+			--exec $REALDAEMON -- $PARAMS > /dev/null
 	else
 		start-stop-daemon --start --group $GROUP \
 			--background --make-pidfile \
@@ -170,7 +170,7 @@ case "$1" in
 	# this may hang in some cases. Specifically, when the asterisk
 	# processes is stopped. No bother to worry about cleanup: 
 	# it will either fail or die when asterisk dies.
-	( asterisk_rx 'stop now' > /dev/null 2>&1 & ) &
+	( asterisk_rx 'core stop now' > /dev/null 2>&1 & ) &
 	if [ "$RUNASTSAFE" = "yes" ];then
 		start-stop-daemon --stop --quiet --oknodo \
 				  --pidfile $ASTSAFE_PIDFILE
@@ -179,6 +179,7 @@ case "$1" in
 	# just making sure it's really, really dead. 
 	# KILL is necessary just in case there's an asterisk -r in the background
 	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $DAEMON
+	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $CANARY
 	echo "."
 	;;
   reload)
@@ -193,7 +194,7 @@ case "$1" in
 	asterisk_rx 'dialplan reload'
 	;;
   restart-convenient)
-	asterisk_rx 'restart when convenient'
+	asterisk_rx 'core restart when convenient'
 	;;
   restart|force-reload)
 	$0 stop

@@ -11,6 +11,8 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
     Thanks Digium!
   * Remove patches/debian-banner, no need to warn users to use our BTS
     anymore as we don't diverge that much nowadays.
+  * Multiple fixes to init script: call 'core stop now' instead of 'stop now',
+    kill the canary on stop, don't print the banner on start.
   * Temporarily remove OSP support, Asterisk needs a new version (3.5) that
     isn't yet in Debian.
   * Add sox to Recommends, used by res_monitor.
@@ -22,7 +24,7 @@ asterisk (1:1.6.2.0~rc3-1) UNRELEASED; urgency=low
     includes a vulnerable version of the prototype Javascript library.
   * Remove obsolete debian/backports/{etch,edgy,feisty}.
 
- -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 Oct 2009 01:11:41 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 26 Oct 2009 02:03:45 +0200
 
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 

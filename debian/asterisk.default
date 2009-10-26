@@ -9,7 +9,7 @@
 # AST_REALTIME: if set to anything other than "no", asterisk will run in 
 #               real-time priority (pass '-p' to asterisk). un-rem the 
 #               following line to disable asterisk from running in real-time 
-#               priority
+#               priority. The default is 'yes'.
 #AST_REALTIME=no
 #
 # PARAMS: extra parameters to pass to asterisk: generate cores in 
