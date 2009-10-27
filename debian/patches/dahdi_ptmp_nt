@@ -3,6 +3,9 @@ Give DAHDI PtMP NT mode a shot.
 This basically sort-of works. But then again, implementing the whole mode
 in a three-liner patch is quite a feat ;-)
 
+Proper PtMP NT support is included in version 1.8. Backporting it may not
+be that simple.
+
 http://issues.asterisk.org/view.php?id=15048
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c

@@ -5,6 +5,8 @@ Fix this, in a hackish way, by defining OSARCH to be always linux-gnu, even if
 host_os has other stuff appended to it. Also switch all the configure checks
 to check for the value of ${OSARCH} instead of ${host_os}.
 
+Patch merged upstream.
+
  -- Faidon Liambotis <paravoid@debian.org>
 
 --- a/configure
