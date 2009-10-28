@@ -3,6 +3,5 @@
 # Backport current Asterisk to  (Lenny + pkg-voip packages):
 
 sed -i -e 's#^ libcap-dev# libcap2-dev#' debian/control
-sed -i -e 's#^ libc-client2007e-dev# libc-client2007b-dev#' debian/control
 
 exit 0
