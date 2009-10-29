@@ -4,13 +4,15 @@ asterisk (1:1.6.2.0~rc3-2) UNRELEASED; urgency=low
   * Really ship MoH sounds, as mentioned in the rc1 upload.
   * Move dahdi to Should-Start instead of Required-Start in the init script.
     (Closes: #552604)
+  * Security fix: "ACL check not present for verifying SIP INVITEs",
+    AST-2009-007. (Closes: #552756)
 
   [ Tzafrir Cohen ]
   * Add a sample startup init script. Not installed.
   * Add mysql and postgresql to Should-Start/Stop: Asterisk may use them
     in real-time mode.
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 29 Oct 2009 09:08:12 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 29 Oct 2009 21:07:02 +0200
 
 asterisk (1:1.6.2.0~rc3-1) unstable; urgency=low
 
