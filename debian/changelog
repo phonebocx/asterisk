@@ -1,4 +1,4 @@
-asterisk (1:1.6.2.0~rc3-2) UNRELEASED; urgency=low
+asterisk (1:1.6.2.0~rc3-2) unstable; urgency=high
 
   [ Faidon Liambotis ]
   * Really ship MoH sounds, as mentioned in the rc1 upload.
@@ -6,13 +6,14 @@ asterisk (1:1.6.2.0~rc3-2) UNRELEASED; urgency=low
     (Closes: #552604)
   * Security fix: "ACL check not present for verifying SIP INVITEs",
     AST-2009-007. (Closes: #552756)
+  * Urgency high because of security fix upload.
 
   [ Tzafrir Cohen ]
   * Add a sample startup init script. Not installed.
   * Add mysql and postgresql to Should-Start/Stop: Asterisk may use them
     in real-time mode.
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 29 Oct 2009 21:07:02 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 29 Oct 2009 21:38:55 +0200
 
 asterisk (1:1.6.2.0~rc3-1) unstable; urgency=low
 
