@@ -1,3 +1,9 @@
+asterisk (1:1.6.2.0~rc3-3) UNRELEASED; urgency=low
+
+  * Switch to the "3.0 (quilt)" package source format.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Wed, 04 Nov 2009 21:29:11 +0200
+
 asterisk (1:1.6.2.0~rc3-2) unstable; urgency=high
 
   [ Faidon Liambotis ]
