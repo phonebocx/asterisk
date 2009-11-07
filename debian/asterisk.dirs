@@ -6,6 +6,7 @@ var/spool/asterisk
 var/lib/asterisk
 
 usr/share/asterisk/static-http
+usr/share/asterisk/agi-bin
 
 var/lib/asterisk/moh
 var/lib/asterisk/sounds/custom
