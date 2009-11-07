@@ -1,8 +1,13 @@
-asterisk (1:1.6.2.0~rc3-3) UNRELEASED; urgency=low
+asterisk (1:1.6.2.0~rc4-1) UNRELEASED; urgency=low
 
+  * New upstream release candidate.
+    - Drop paches/AST-2009-007, included upstream.
+    - Drop patches/configure-armel, merged upstream.
+    - Fixes security-related information leak (SIP responses expose valid
+      usernames), fixes AST-2009-008. (Closes: #554487)
   * Switch to the "3.0 (quilt)" package source format.
 
- -- Faidon Liambotis <paravoid@debian.org>  Wed, 04 Nov 2009 21:29:11 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sat, 07 Nov 2009 05:51:04 +0200
 
 asterisk (1:1.6.2.0~rc3-2) unstable; urgency=high
 

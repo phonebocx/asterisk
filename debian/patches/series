@@ -1,5 +1,4 @@
 ### upstream fixes
-configure-armel
 allow-tilde-destdir
 
 hack-multiple-app-voicemail
@@ -17,4 +16,3 @@ astgenkey-security
 dahdi-fxsks-hookstate
 dahdi_ptmp_nt
 dahdi_pri_debug_spannums
-AST-2009-007
