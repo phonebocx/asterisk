@@ -1,4 +1,4 @@
-asterisk (1:1.6.2.0~rc4-1) UNRELEASED; urgency=low
+asterisk (1:1.6.2.0~rc6-1) UNRELEASED; urgency=low
 
   * New upstream release candidate.
     - Drop paches/AST-2009-007, included upstream.
