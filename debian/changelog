@@ -7,8 +7,10 @@ asterisk (1:1.6.2.0~rc6-1) UNRELEASED; urgency=low
       usernames), fixes AST-2009-008. (Closes: #554487)
   * Switch to the "3.0 (quilt)" package source format.
   * Create the /usr/share/asterisk/agi-bin directory. (Closes: #463983)
+  * Stop shipping the refcounter tool since the required debugging
+    compile-time switch is not enabled in our builds.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 07 Nov 2009 06:03:17 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 16 Nov 2009 06:10:10 +0200
 
 asterisk (1:1.6.2.0~rc3-2) unstable; urgency=high
 
