@@ -9,7 +9,7 @@ Upstream issue: http://issues.asterisk.org/view.php?id=15054
 
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
-@@ -12185,6 +12185,8 @@ static void dahdi_pri_message(struct pri
+@@ -12207,6 +12207,8 @@ static void dahdi_pri_message(struct pri
  		}
  		if (dchancount > 1 && (span > -1))
  			ast_verbose("[Span %d D-Channel %d]%s", span, dchan, s);
@@ -18,7 +18,7 @@ Upstream issue: http://issues.asterisk.org/view.php?id=15054
  		else
  			ast_verbose("%s", s);
  	} else
-@@ -12226,6 +12228,8 @@ static void dahdi_pri_error(struct pri *
+@@ -12248,6 +12250,8 @@ static void dahdi_pri_error(struct pri *
  		}
  		if ((dchancount > 1) && (span > -1))
  			ast_log(LOG_ERROR, "[Span %d D-Channel %d] PRI: %s", span, dchan, s);
