@@ -1,4 +1,7 @@
-Hack dynamic loader to workaround libopenh323 bug
+Subject: Hack dynamic loader to workaround libopenh323 bug
+Author: Faidon Liambotis <paravoid@debian.org>
+Forwarded: no
+Last-Update: 2009-12-19
 
 libopenh323 is buggy and crashes on dlclose() when the library was opened with
 RTLD_LAZY (#438815). Hack around this by opening it with RTLD_NOW by matching
@@ -10,8 +13,6 @@ Namely, it will have unexpected results if e.g. the user renames the module
 for any reason.
 
 Should be removed when #438815 closes.
-
- -- Faidon Liambotis <paravoid@debian.org>
 
 --- a/main/loader.c
 +++ b/main/loader.c

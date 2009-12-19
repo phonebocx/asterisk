@@ -1,11 +1,10 @@
-astgenkey should generate a private key that is not world-readable.
-
-Upstream bug: http://issues.asterisk.org/view.php?id=12373
+Subject: astgenkey should generate a private key that is not world-readable
+Author: Lionel Elie Mamane <lionel@mamane.lu>
+Bug: http://issues.asterisk.org/view.php?id=12373
+Last-Update: 2009-12-19
 
 Upstream has not accepted this patch and chose intead to document this 
 as a known minor issue.
-
- -- Lionel Elie Mamane <lionel@mamane.lu>
 
 --- a/contrib/scripts/astgenkey
 +++ b/contrib/scripts/astgenkey

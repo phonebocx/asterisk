@@ -1,14 +1,14 @@
-Add an option to safe_asterisk so that it won't background.
+Subject: Add an option to safe_asterisk so that it won't background.
+Author: Faidon Liambotis <paravoid@debian.org>
+Bug-Debian: http://bugs.debian.org/376514
+Forwarded: not-needed
+Last-Update: 2009-12-19
 
 This is intended to work with start-stop-daemon's --background option which
 results in a correct pidfile since the process doesn't fork.
 
-#376514, #362281
-
 Needs more work from me to not change behavior for users but only for the
 init script. After that, it can safely go upstream.
-
- -- Faidon Liambotis <paravoid@debian.org>
 
 --- a/contrib/scripts/safe_asterisk
 +++ b/contrib/scripts/safe_asterisk

@@ -1,5 +1,7 @@
-Allow FXO channels to send out calls even before someone calls in through 
-them.
+Subject: Allow FXO channels to send out calls even before someone calls in through them
+Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Bug: http://issues.asterisk.org/view.php?id=14577
+Last-Update: 2009-12-19
 
 This rxisoffhook does not work. Before 1.6.0 it was wrapped in a #ifdef
 DAHDI_CHECK_HOOKSTATE (or rather: ZAP_CHECK_HOOKSTATE). In 1.6 it is 
@@ -7,8 +9,6 @@ accidentally enabled by default.
 
 On DAHDI (the kernel) this field is not properly initialized at startup. 
 And thus it will only work after an incoming ring.
-
-Upstream issue: http://issues.asterisk.org/view.php?id=14577
 
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c

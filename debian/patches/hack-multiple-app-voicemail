@@ -1,3 +1,8 @@
+Subject: build multiple versions of app_voicemail.so
+Author: Faidon Liambotis <paravoid@debian.org>
+Bug: http://issues.asterisk.org/view.php?id=13822
+Last-Update: 2009-12-19
+
 This is a very ugly hack on upstream's Makefiles to allow building multiple
 variants of app_voicemail. Three variants are created:
   * app_voicemail.so: plain old filesystem storage that doesn't break existing
@@ -9,10 +14,6 @@ concurrently.
 They are marked noload on our default autoload configuration.
 
 Patch suggested to upstream but rejected for being "hackish":
-
-  http://issues.asterisk.org/view.php?id=13822
-
- -- Faidon Liambotis <paravoid@debian.org>
 
 --- a/apps/Makefile
 +++ b/apps/Makefile
