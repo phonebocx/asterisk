@@ -1,11 +1,11 @@
-asterisk (1:1.6.2.1-1) UNRELEASED; urgency=low
+asterisk (1:1.6.2.2-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * Relax Debian revision parsing regexp in debian/rules to help with parsing
     derivatives (e.g. Ubuntu) and backports.org revisions.
 
   [ Tzafrir Cohen ]
-  * New upstream release.
+  * New upstream release. Fixes CVE-2010-0441 (AST-2010-001).
 
  -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Tue, 12 Jan 2010 17:08:17 +0200
 
