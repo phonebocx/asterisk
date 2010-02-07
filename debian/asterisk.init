@@ -12,8 +12,8 @@
 #
 ### BEGIN INIT INFO
 # Provides:          asterisk
-# Required-Start:    $local_fs
-# Required-Stop:     $local_fs
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
 # Should-Start:      dahdi mysql postgresql
 # Should-Stop:       mysql postgresql
 # Default-Start:     2 3 4 5
