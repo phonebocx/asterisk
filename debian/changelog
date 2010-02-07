@@ -4,6 +4,9 @@ asterisk (1:1.6.2.2-1) UNRELEASED; urgency=medium
   * Relax Debian revision parsing regexp in debian/rules to help with parsing
     derivatives (e.g. Ubuntu) and backports.org revisions.
   * Urgency medium because of a security fix upload.
+  * Bump Standards-Version to 3.8.4, no changes needed.
+  * Add ${misc:Depends} on all packages; no functional change, just makes
+    lintian happier.
 
   [ Tzafrir Cohen ]
   * New upstream release. Fixes CVE-2010-0441 (AST-2010-001).
@@ -11,7 +14,7 @@ asterisk (1:1.6.2.2-1) UNRELEASED; urgency=medium
   * Move sound files tarball to a safe place, as the patch we used to
     protect them is aparantly not in effect at clean time.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sun, 07 Feb 2010 15:08:19 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 07 Feb 2010 15:10:35 +0200
 
 asterisk (1:1.6.2.0-1) unstable; urgency=low
 

@@ -41,14 +41,14 @@ Build-Depends: quilt,
  libspandsp-dev,
  libopenais-dev,
  zlib1g-dev
-Standards-Version: 3.8.3
+Standards-Version: 3.8.4
 Homepage: http://www.asterisk.org/
 Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
 Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main, dahdi
+Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main, dahdi
 Provides: asterisk-1.6.2
 Recommends: sox
 Suggests: asterisk-doc, asterisk-dev, asterisk-h323
@@ -78,7 +78,7 @@ Description: Open Source Private Branch Exchange (PBX)
 
 Package: asterisk-h323
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}
+Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
 Description: H.323 protocol support for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -95,6 +95,7 @@ Description: H.323 protocol support for Asterisk
  package.
 
 Package: asterisk-doc
+Depends: ${misc:Depends}
 Recommends: asterisk
 Section: doc
 Priority: extra
@@ -106,6 +107,7 @@ Description: Source code documentation for Asterisk
 
 Package: asterisk-dev
 Architecture: all
+Depends: ${misc:Depends}
 Recommends: asterisk
 Section: devel
 Priority: extra
@@ -118,7 +120,7 @@ Description: Development files for Asterisk
 
 Package: asterisk-dbg
 Architecture: any
-Depends: asterisk (= ${binary:Version})
+Depends: asterisk (= ${binary:Version}), ${misc:Depends}
 Section: debug
 Priority: extra
 Description: Debugging symbols for Asterisk
@@ -130,6 +132,7 @@ Description: Debugging symbols for Asterisk
 
 Package: asterisk-sounds-main
 Architecture: all
+Depends: ${misc:Depends}
 Recommends: asterisk
 Replaces: asterisk-sounds-extra
 Description: Core Sound files for Asterisk (English)
@@ -139,6 +142,7 @@ Description: Core Sound files for Asterisk (English)
  the operation of Asterisk.
 
 Package: asterisk-config
+Depends: ${misc:Depends}
 Recommends: asterisk
 Conflicts: asterisk-config-custom
 Architecture: all
