@@ -1,3 +1,11 @@
+asterisk (1:1.6.2.3~rc2-1) unstable; urgency=low
+
+  * New upstream RC.
+  * Patch h323-fix-makefile dropped: merged upstream.
+  * Patch safe_asterisk-config: Mostly merged upstream. 
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 14 Feb 2010 18:48:54 +0200
+
 asterisk (1:1.6.2.2-1) unstable; urgency=medium
 
   [ Faidon Liambotis ]

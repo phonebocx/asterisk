@@ -7,7 +7,6 @@ safe_asterisk-config
 safe_asterisk-nobg
 
 h323-no-deps-on-asterisk
-h323-fix-makefile
 h323-workaround-openh323-segfault
 
 astgenkey-security
