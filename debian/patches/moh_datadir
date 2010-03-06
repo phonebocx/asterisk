@@ -1,0 +1,21 @@
+Subject: install MOH files under datadir
+Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Bug: https://issues.asterisk.org/view.php?id=16906
+
+If a relative path is used in the datadir, make it use the datadir (normally
+/usr/share/asterisk on Debian packages) rather than the var_dir (normally
+/var/lib/asterisk).
+
+Issue is currently in review by upstream.
+
+--- a/res/res_musiconhold.c
++++ b/res/res_musiconhold.c
+@@ -967,7 +967,7 @@ static int moh_scan_files(struct mohclas
+ 	int i;
+ 
+ 	if (class->dir[0] != '/') {
+-		ast_copy_string(dir_path, ast_config_AST_VAR_DIR, sizeof(dir_path));
++		ast_copy_string(dir_path, ast_config_AST_DATA_DIR, sizeof(dir_path));
+ 		strncat(dir_path, "/", sizeof(dir_path) - 1);
+ 		strncat(dir_path, class->dir, sizeof(dir_path) - 1);
+ 	} else {
