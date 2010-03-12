@@ -1,6 +1,6 @@
-asterisk (1:1.6.2.6~rc2-1) unstable; urgency=low
+asterisk (1:1.6.2.6-1) unstable; urgency=low
 
-  * New upstream RC.
+  * New upstream release.
   * Patch h323-fix-makefile dropped: merged upstream.
   * Patch safe_asterisk-config: Mostly merged upstream. 
   * Patch moh_datadir: Make the datadir the default base for moh files
