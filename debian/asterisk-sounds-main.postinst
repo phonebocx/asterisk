@@ -11,6 +11,7 @@ set -e
 #          <failed-install-package> <version> `removing'
 #          <conflicting-package> <version>
 
+PACKAGE=asterisk-sounds-main
 NAME=asterisk-sounds-en
 SYMLINK=/usr/share/asterisk/sounds/en
 TARGET=/usr/share/asterisk/sounds/en_US_f_Allison
