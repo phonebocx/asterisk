@@ -25,7 +25,7 @@ case "$1" in
 	    # FIXME: what if there's a link elsewhere?
 	    echo "Directory $SYMLINK already exists. Please remove it"
 	    echo "When done, run: dpkg-reconfigure $PACKAGE"
-	    exit 0
+	    break
 	fi
 	update-alternatives --install $SYMLINK $NAME $TARGET 50
     ;;
