@@ -11,23 +11,17 @@ set -e
 #          <failed-install-package> <version> `removing'
 #          <conflicting-package> <version>
 
-PACKAGE=asterisk-sounds-main
-NAME=asterisk-sounds-en
 SYMLINK=/usr/share/asterisk/sounds/en
-TARGET=/usr/share/asterisk/sounds/en_US_f_Allison
-
+TARGET=en_US_f_Allison
 
 case "$1" in
     configure)
-        if [ ! -L $SYMLINK ] && [ -d $SYMLINK ]; then
-	    # Directory already exists. And not an alternative.
-	    # Don't register alternative.
-	    # FIXME: use debconf
-	    # FIXME: what if there's a link elsewhere?
-	    echo "Directory $SYMLINK already exists. Please remove it"
-	    echo "When done, run: dpkg-reconfigure $PACKAGE"
-	else
-	    update-alternatives --install $SYMLINK $NAME $TARGET 50
+        if [ ! -d "$SYMLINK" ]; then
+	    if [ -L "$SYMLINK" ]; then
+		# dandling symlink? symlink to a file? kill it
+		rm -f "$SYMLINK"
+	    fi
+	    ln -s "$TARGET" "$SYMLINK"
 	fi
     ;;
 

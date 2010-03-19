@@ -1,0 +1,11 @@
+#! /bin/sh -e
+
+SYMLINK=/usr/share/asterisk/sounds/en
+TARGET=en_US_f_Allison
+
+if [ ! -d "$SYMLINK" ] && [ -L "$SYMLINK" ]; then
+    # dandling symlink? symlink to a file? kill it
+    rm -f "$SYMLINK"
+fi
+
+#DEBHELPER#

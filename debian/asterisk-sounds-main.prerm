@@ -1,9 +1,0 @@
-#! /bin/sh -e
-
-NAME=asterisk-sounds-en
-TARGET=/usr/share/asterisk/sounds/en_US_f_Allison
-
-update-alternatives --remove $NAME $TARGET
-
-
-#DEBHELPER#
