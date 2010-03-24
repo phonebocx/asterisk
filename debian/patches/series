@@ -17,3 +17,4 @@ dahdi_ptmp_nt
 dahdi_pri_debug_spannums
 sound_files
 moh_datadir
+settings_show_dirs

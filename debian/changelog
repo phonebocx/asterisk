@@ -9,8 +9,10 @@ asterisk (1:1.6.2.6-1) unstable; urgency=low
   * sounds/en/ is now a symlink. English sounds installed to
     en_US_f_Allison .
   * Removed empty es/ and fr/ directories under sounds/ 
+  * Patch settings_show_dirs: display the user values of more configurable
+    items. 
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sat, 20 Mar 2010 00:29:53 +0200
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 24 Mar 2010 01:56:36 +0200
 
 asterisk (1:1.6.2.2-1) unstable; urgency=medium
 
