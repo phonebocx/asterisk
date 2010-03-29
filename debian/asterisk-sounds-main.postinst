@@ -14,10 +14,10 @@ set -e
 case "$1" in
     configure)
 	update-alternatives --install \
-	    /usr/share/asterisk/sounds/en asterisk-sounds-en \
+	    /usr/share/asterisk/sounds/en asterisk-prompt-en \
 	    /usr/share/asterisk/sounds/en_US_f_Allison 50
 	update-alternatives --install \
-	    /usr/share/asterisk/sounds/en_US asterisk-sounds-en-us \
+	    /usr/share/asterisk/sounds/en_US asterisk-prompt-en-us \
 	    /usr/share/asterisk/sounds/en_US_f_Allison 50
     ;;
 
