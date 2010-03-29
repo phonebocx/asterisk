@@ -48,7 +48,7 @@ Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main, dahdi
+Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-prompt-en, dahdi
 Provides: asterisk-1.6.2
 Recommends: sox
 Suggests: asterisk-doc, asterisk-dev, asterisk-h323
@@ -135,6 +135,7 @@ Architecture: all
 Depends: ${misc:Depends}
 Recommends: asterisk
 Replaces: asterisk-sounds-extra
+Provides: asterisk-prompt-en, asterisk-prompt-en-us
 Description: Core Sound files for Asterisk (English)
  Asterisk is an Open Source PBX and telephony toolkit.
  .

@@ -102,17 +102,21 @@ If the language is not set, only the last two are searched.
 
 Thus various sound file packages place their files under
 /usr/share/sounds/asterisk/xx_YY_Foobar
-(for sound files set Foobar of language 'xx' and country 'YY') and will
-normally create a symlink:
-/usr/share/sounds/asterisk/xx -> xx_YY_Foobar
+(for sound files set Foobar of language 'xx' and country 'YY').
+They also provide the alternatives 'asterisk-promtp-xx' and
+'asterisk-prompt-xx-yy' for the symlinks 
+/usr/share/asterisk/sounds/xx and /usr/share/asterisk/sounds/xx_YY .
 
-If you install your own set of files or otherwise unhappy with the
-current default sound set for the language, just set the symlink
-manually for the language. The following will use the files from the set
-'Baz' instead:
+If you have multiple such packages and want to change that selection, use:
 
-  rm /usr/share/asterisk/sounds/xx
-  ln -s xx_YY_Baz /usr/share/asterisk/sounds/xx
+  update-alternatives --config asterisk-prompt-xx
+
+Or:
+
+  update-alternatives --config asterisk-prompt-xx-yy
+
+(TODO: document using an empty alternative directory for 'en' to have no
+fallback sounds)
 
 
 Missing Modules

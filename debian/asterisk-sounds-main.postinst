@@ -11,18 +11,14 @@ set -e
 #          <failed-install-package> <version> `removing'
 #          <conflicting-package> <version>
 
-SYMLINK=/usr/share/asterisk/sounds/en
-TARGET=en_US_f_Allison
-
 case "$1" in
     configure)
-        if [ ! -d "$SYMLINK" ]; then
-	    if [ -L "$SYMLINK" ]; then
-		# dandling symlink? symlink to a file? kill it
-		rm -f "$SYMLINK"
-	    fi
-	    ln -s "$TARGET" "$SYMLINK"
-	fi
+	update-alternatives --install \
+	    /usr/share/asterisk/sounds/en asterisk-sounds-en \
+	    /usr/share/asterisk/sounds/en_US_f_Allison 50
+	update-alternatives --install \
+	    /usr/share/asterisk/sounds/en_US asterisk-sounds-en-us \
+	    /usr/share/asterisk/sounds/en_US_f_Allison 50
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
