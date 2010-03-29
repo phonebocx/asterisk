@@ -11,8 +11,10 @@ asterisk (1:1.6.2.6-1) unstable; urgency=low
   * Removed empty es/ and fr/ directories under sounds/ 
   * Patch settings_show_dirs: display the user values of more configurable
     items. 
+  * Patch dahdi_fxs_false_ringing: Fix having Astribank FXS-s keep ringing if
+    answered too soon. 
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 29 Mar 2010 12:53:18 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 29 Mar 2010 12:56:08 +0300
 
 asterisk (1:1.6.2.2-1) unstable; urgency=medium
 
