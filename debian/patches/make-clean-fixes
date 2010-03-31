@@ -5,7 +5,7 @@ Last-Update: 2009-12-19
 
 --- a/Makefile
 +++ b/Makefile
-@@ -459,7 +459,6 @@ dist-clean: distclean
+@@ -466,7 +466,6 @@ dist-clean: distclean
  
  distclean: $(SUBDIRS_DIST_CLEAN) _clean
  	@$(MAKE) -C menuselect dist-clean
@@ -13,7 +13,7 @@ Last-Update: 2009-12-19
  	rm -f menuselect.makeopts makeopts menuselect-tree menuselect.makedeps
  	rm -f makeopts.embed_rules
  	rm -f config.log config.status config.cache
-@@ -469,6 +468,10 @@ distclean: $(SUBDIRS_DIST_CLEAN) _clean
+@@ -476,6 +475,10 @@ distclean: $(SUBDIRS_DIST_CLEAN) _clean
  	rm -rf doc/api
  	rm -f build_tools/menuselect-deps
  
