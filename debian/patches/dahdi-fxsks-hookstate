@@ -1,7 +1,7 @@
 Subject: Allow FXO channels to send out calls even before someone calls in through them
-Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Author: frawd (issues.asterisk.org user)
 Bug: http://issues.asterisk.org/view.php?id=14577
-Last-Update: 2010-03-09
+Last-Update: 2010-03-31
 
 This rxisoffhook does not work. Before 1.6.0 it was wrapped in a #ifdef
 DAHDI_CHECK_HOOKSTATE (or rather: ZAP_CHECK_HOOKSTATE). In 1.6 it is 
@@ -10,19 +10,68 @@ accidentally enabled by default.
 On DAHDI (the kernel) this field is not properly initialized at startup. 
 And thus it will only work after an incoming ring.
 
-This patch makes the test only apply in case of CAS channels. For analog
-channels we have a red alarm to signal a line with no battery.
+This patch makes the test only apply to FXS devices (FXO* signalling)
+by default, and leaves the test of other signalling types as a build-time
+option (which we don't enable).
+
+(Patch asterisk_chan_dahdi_hookstate_fix.diff)
 
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
-@@ -10704,8 +10704,8 @@ static inline int available(struct dahdi_pvt *p, int channelmatch, ast_group_t g
- 				/* When "onhook" that means no battery on the line, and thus
- 				  it is out of service..., if it's on a TDM card... If it's a channel
- 				  bank, there is no telling... */
--				if (par.rxbits > -1)
--					return 1;
-+				if (par.rxbits <= -1)
-+					return 1; /* Not CAS: not a channel bank */
+@@ -10698,10 +10698,10 @@ static inline int available(struct dahdi
+ 				return 1;
+ 		}
+ #endif
+-		if (!(p->radio || (p->oprmode < 0)))
++
++		/* Trust hook state */
++		if (p->sig && !(p->radio || (p->oprmode < 0)))
+ 		{
+-			if (!p->sig || (p->sig == SIG_FXSLS))
+-				return 1;
+ 			/* Check hook state */
+ 			if (p->subs[SUB_REAL].dfd > -1) {
+ 				memset(&par, 0, sizeof(par));
+@@ -10711,28 +10711,30 @@ static inline int available(struct dahdi
+ 				res = 0;
+ 				par.rxisoffhook = 0;
+ 			}
++
+ 			if (res) {
+ 				ast_log(LOG_WARNING, "Unable to check hook state on channel %d: %s\n", p->channel, strerror(errno));
+-			} else if ((p->sig == SIG_FXSKS) || (p->sig == SIG_FXSGS)) {
+-				/* When "onhook" that means no battery on the line, and thus
+-				  it is out of service..., if it's on a TDM card... If it's a channel
+-				  bank, there is no telling... */
++			}
++			else if ((p->sig != SIG_FXSKS) && (p->sig != SIG_FXSGS) && (p->sig != SIG_FXSLS)) {
++				if (par.rxisoffhook) {
++					ast_debug(1, "Channel %d off hook, can't use\n", p->channel);
++					/* Not available when the other end is off hook */
++					return 0;
++				}
++			}
++#ifdef DAHDI_CHECK_HOOKSTATE
++			} else { /* FXO channel case (SIG_FXS--) */
++				/* Channel bank (using CAS), "onhook" does not necessarily means out of service, so return 1 */
+ 				if (par.rxbits > -1)
+ 					return 1;
++				/* TDM FXO card, "onhook" means out of service (no battery on the line) */
  				if (par.rxisoffhook)
  					return 1;
  				else
+ 					return 0;
+-			} else if (par.rxisoffhook) {
+-				ast_debug(1, "Channel %d off hook, can't use\n", p->channel);
+-				/* Not available when the other end is off hook */
+-#ifdef DAHDI_CHECK_HOOKSTATE
+-				return 0;
+-#else
+-				return 1;
+ #endif
+-			}
+ 		}
++
+ 		return 1;
+ 	}
+ 

@@ -5,7 +5,7 @@ asterisk (1:1.6.2.6-1) unstable; urgency=low
   * Patch safe_asterisk-config: Mostly merged upstream. 
   * Patch moh_datadir: Make the datadir the default base for moh files
     if a relative path is used.
-  * Patch dahdi-fxsks-hookstate: a simpler version. 
+  * Patch dahdi-fxsks-hookstate: a newer version. 
   * sounds/en/ is now an alternative. English sounds installed to
     en_US_f_Allison .
   * Removed empty es/ and fr/ directories under sounds/ 
@@ -14,7 +14,7 @@ asterisk (1:1.6.2.6-1) unstable; urgency=low
   * Patch dahdi_fxs_false_ringing: Fix having Astribank FXS-s keep ringing if
     answered too soon. 
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Mon, 29 Mar 2010 12:56:08 +0300
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Wed, 31 Mar 2010 12:48:57 +0300
 
 asterisk (1:1.6.2.2-1) unstable; urgency=medium
 
