@@ -1,0 +1,59 @@
+Subject: set proper vars when reading followme.conf
+From: Jeff Peeler <jpeeler@digium.com>
+Origin: http://svn.digium.com/svn/asterisk/branches/1.6.2@250980
+Bug: https://issues.asterisk.org/view.php?id=16930
+
+Fix app_followme playing wrong sound files.
+
+Fixes regression introduced in 140167 that uses the wrong variable names.
+
+(closes issue #16930)
+Reported by: ianc
+Patches: fix_reload_followme.diff uploaded by ianc (license 998)
+
+Patch already included in upstream branch 1.6.2 and will be included in
+next 1.6.2 release (1.6.2.7).
+
+---
+ apps/app_followme.c |   14 +++++++-------
+ 1 files changed, 7 insertions(+), 7 deletions(-)
+
+--- a/apps/app_followme.c
++++ b/apps/app_followme.c
+@@ -354,7 +354,7 @@ static int reload_followme(int reload)
+ 	if ((tmpstr = ast_variable_retrieve(cfg, "general", "norecording-prompt")) && !ast_strlen_zero(tmpstr)) {
+ 		ast_copy_string(norecordingprompt, tmpstr, sizeof(norecordingprompt));
+ 	} else if ((tmpstr = ast_variable_retrieve(cfg, "general", "norecording_prompt")) && !ast_strlen_zero(tmpstr)) {
+-		ast_copy_string(callfromprompt, tmpstr, sizeof(callfromprompt));
++		ast_copy_string(norecordingprompt, tmpstr, sizeof(norecordingprompt));
+ 	}
+ 
+ 
+@@ -365,21 +365,21 @@ static int reload_followme(int reload)
+ 	}
+ 
+ 	if ((tmpstr = ast_variable_retrieve(cfg, "general", "pls-hold-prompt")) && !ast_strlen_zero(tmpstr)) {
+-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
++		ast_copy_string(plsholdprompt, tmpstr, sizeof(plsholdprompt));
+ 	} else if ((tmpstr = ast_variable_retrieve(cfg, "general", "pls_hold_prompt")) && !ast_strlen_zero(tmpstr)) {
+-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
++		ast_copy_string(plsholdprompt, tmpstr, sizeof(plsholdprompt));
+ 	}
+ 
+ 	if ((tmpstr = ast_variable_retrieve(cfg, "general", "status-prompt")) && !ast_strlen_zero(tmpstr)) {
+-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
++		ast_copy_string(statusprompt, tmpstr, sizeof(statusprompt));
+ 	} else if ((tmpstr = ast_variable_retrieve(cfg, "general", "status_prompt")) && !ast_strlen_zero(tmpstr)) {
+-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
++		ast_copy_string(statusprompt, tmpstr, sizeof(statusprompt));
+ 	}
+ 
+ 	if ((tmpstr = ast_variable_retrieve(cfg, "general", "sorry-prompt")) && !ast_strlen_zero(tmpstr)) {
+-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
++		ast_copy_string(sorryprompt, tmpstr, sizeof(sorryprompt));
+ 	} else if ((tmpstr = ast_variable_retrieve(cfg, "general", "sorry_prompt")) && !ast_strlen_zero(tmpstr)) {
+-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
++		ast_copy_string(sorryprompt, tmpstr, sizeof(sorryprompt));
+ 	}
+ 
+ 	/* Chug through config file */
