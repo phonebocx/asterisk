@@ -1,6 +1,7 @@
 asterisk (1:1.6.2.6-1) unstable; urgency=low
 
   * New upstream release.
+    - Fixes AST-2010-003 - CVE-2010-1224 (Closes: #576560).
   * Patch h323-fix-makefile dropped: merged upstream.
   * Patch safe_asterisk-config: Mostly merged upstream. 
   * Patch moh_datadir: Make the datadir the default base for moh files
@@ -15,7 +16,7 @@ asterisk (1:1.6.2.6-1) unstable; urgency=low
     answered too soon. 
   * Patch followme_prompts: set proper vars when reading followme.conf
 
- -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Thu, 01 Apr 2010 23:42:58 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 05 Apr 2010 20:29:21 +0300
 
 asterisk (1:1.6.2.2-1) unstable; urgency=medium
 
