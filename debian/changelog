@@ -17,9 +17,10 @@ asterisk (1:1.6.2.6-1) unstable; urgency=low
   * Patch followme_prompts: set proper vars when reading followme.conf
   * Patch sqlite3_func_rename: Avoid issues with the name sqlite3_log . 
   * Patch h323-extra-target: Allow manuallly generate channels/h323/Makefile.ast
-  * And use it to generate the file before building.
+  * And use it to generate the file before building, as otherwise some libs
+    are missing from the link command, resulting in chan_h323.so load fail.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 10 Apr 2010 20:49:06 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 10 Apr 2010 21:18:39 +0300
 
 asterisk (1:1.6.2.2-1) unstable; urgency=medium
 
