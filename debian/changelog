@@ -16,8 +16,9 @@ asterisk (1:1.6.2.6-1) unstable; urgency=low
     answered too soon. 
   * Patch followme_prompts: set proper vars when reading followme.conf
   * Patch sqlite3_func_rename: Avoid issues with the name sqlite3_log . 
+  * Patch h323-extra-target: Allow manuallly generate channels/h323/Makefile.ast
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 10 Apr 2010 14:18:28 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 10 Apr 2010 20:47:42 +0300
 
 asterisk (1:1.6.2.2-1) unstable; urgency=medium
 

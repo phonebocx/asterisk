@@ -21,3 +21,4 @@ settings_show_dirs
 dahdi_fxs_false_ringing
 followme_prompts
 sqlite3_func_rename
+h323-extra-target
