@@ -15,8 +15,9 @@ asterisk (1:1.6.2.6-1) unstable; urgency=low
   * Patch dahdi_fxs_false_ringing: Fix having Astribank FXS-s keep ringing if
     answered too soon. 
   * Patch followme_prompts: set proper vars when reading followme.conf
+  * Patch sqlite3_func_rename: Avoid issues with the name sqlite3_log . 
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 05 Apr 2010 20:29:21 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 10 Apr 2010 14:18:28 +0300
 
 asterisk (1:1.6.2.2-1) unstable; urgency=medium
 
