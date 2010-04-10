@@ -27,8 +27,8 @@ Copyright (C) 2001-2004 Digium and others....
    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
    MA 02110-1301, USA.
 
-   On Debian GNU/Linux systems, the complete text of the GNU General
-   Public License version 2 can be found in `/usr/share/common-licenses/GPL-2'.
+On Debian GNU/Linux systems, the complete text of the GNU General
+Public License version 2 can be found in `/usr/share/common-licenses/GPL-2'.
 
    Asterisk is distributed under GNU General Public License.  The GPL also
    must apply to all loadable modules as well, except as defined below.
@@ -139,8 +139,8 @@ Other source code in Asterisk:
     Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
     MA 02110-1301, USA.
   
-    On Debian GNU/Linux systems, the complete text of the GNU General
-    Public License can be found in `/usr/share/common-licenses/GPL'.
+On Debian GNU/Linux systems, the complete text of the GNU General
+Public License can be found in `/usr/share/common-licenses/GPL-2'.
 
 Other portions of code:
 
