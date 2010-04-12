@@ -39,6 +39,7 @@ Build-Depends: quilt,
  liblua5.1-0-dev,
  libcap-dev (>= 1:2.16-4) | libcap2-dev,
  libspandsp-dev,
+ libopenr2-dev,
  libopenais-dev,
  zlib1g-dev
 Standards-Version: 3.8.4
