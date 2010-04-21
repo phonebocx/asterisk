@@ -1,8 +1,9 @@
 asterisk (1:1.6.2.6-2) unstable; urgency=low
 
-  * Also depend on openr2. 
+  * Also depend on openr2.
+  * Patch fxs_ports_1626: fixes regression when building with openr2 support.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 12 Apr 2010 11:38:40 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 21 Apr 2010 20:12:34 +0300
 
 asterisk (1:1.6.2.6-1) unstable; urgency=low
 
