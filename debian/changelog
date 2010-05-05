@@ -2,8 +2,9 @@ asterisk (1:1.6.2.7-1) UNRELEASED; urgency=low
 
   * New upstream release
   * Add Build-Depends: libsqlite0-dev | libsqlite-dev
+  * Included upstream: followme_prompts sqlite3_func_rename
 
- -- Mark Purcell <msp@debian.org>  Wed, 05 May 2010 22:38:26 +1000
+ -- Mark Purcell <msp@debian.org>  Wed, 05 May 2010 22:42:50 +1000
 
 asterisk (1:1.6.2.6-2) unstable; urgency=low
 
