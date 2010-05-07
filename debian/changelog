@@ -1,3 +1,9 @@
+asterisk (1:1.6.2.7-2) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+
+ -- Mark Purcell <msp@debian.org>  Fri, 07 May 2010 21:20:07 +1000
+
 asterisk (1:1.6.2.7-1) unstable; urgency=low
 
   * New upstream release
