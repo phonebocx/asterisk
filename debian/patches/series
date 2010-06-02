@@ -18,6 +18,4 @@ dahdi_pri_debug_spannums
 sound_files
 moh_datadir
 settings_show_dirs
-dahdi_fxs_false_ringing
 h323-extra-target
-fxs_ports_1626

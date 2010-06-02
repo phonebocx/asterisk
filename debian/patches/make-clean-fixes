@@ -22,5 +22,5 @@ Last-Update: 2009-12-19
 +	@$(MAKE) -C sounds dist-clean
 +
  datafiles: _all
- 	if [ `$(ID) -u` = 0 ]; then \
- 		CFLAGS="$(_ASTCFLAGS) $(ASTCFLAGS)" build_tools/mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; \
+ 	CFLAGS="$(_ASTCFLAGS) $(ASTCFLAGS)" build_tools/mkpkgconfig $(DESTDIR)$(libdir)/pkgconfig;
+ # Should static HTTP be installed during make samples or even with its own target ala

@@ -89,9 +89,9 @@ clean:
 	
 	# The clean target seems to be run before patches are applied.
 	# A brute-force fix to keep the tarball from getting deleted:
-	mv sounds/asterisk-core-sounds-en-gsm-1.4.17.tar.gz debian/
+	mv sounds/asterisk-core-sounds-en-gsm-1.4.18.tar.gz debian/
 	GREP=grep AWK=awk $(MAKE) distclean
-	mv debian/asterisk-core-sounds-en-gsm-1.4.17.tar.gz sounds/
+	mv debian/asterisk-core-sounds-en-gsm-1.4.18.tar.gz sounds/
 	-$(RM) -rf debian/build
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi

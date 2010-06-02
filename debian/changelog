@@ -1,8 +1,11 @@
-asterisk (1:1.6.2.7-2) UNRELEASED; urgency=low
+asterisk (1:1.6.2.8-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * New upstream release
+  - Patch dahdi_fxs_false_ringing removed: merged upstream.
+  - Patch fxs_ports_1626 removed: merged upstream.
 
- -- Mark Purcell <msp@debian.org>  Fri, 07 May 2010 21:20:07 +1000
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 02 Jun 2010 22:18:49 +0300
 
 asterisk (1:1.6.2.7-1) unstable; urgency=low
 
