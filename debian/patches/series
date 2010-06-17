@@ -19,3 +19,4 @@ sound_files
 moh_datadir
 settings_show_dirs
 h323-extra-target
+dahdi_event_removed_dchan
