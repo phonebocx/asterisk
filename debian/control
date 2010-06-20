@@ -40,6 +40,7 @@ Build-Depends: quilt,
  libcap-dev (>= 1:2.16-4) | libcap2-dev,
  libspandsp-dev,
  libopenr2-dev,
+ libresample1-dev,
  libopenais-dev,
  zlib1g-dev
 Standards-Version: 3.8.4

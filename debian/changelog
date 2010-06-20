@@ -8,8 +8,9 @@ asterisk (1:1.6.2.8-1) UNRELEASED; urgency=low
   * Patch dahdi_event_removed_dchan: close file descriptors when disconnecting
     a PRI/BRI Astribank as well. THIS PATCH IS NOT YET TESTED. REMOVE BEFORE
     UPLOADING.
+  * Do use libresample (app_jack, codec_resample).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 18 Jun 2010 01:15:59 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 20 Jun 2010 16:07:33 +0300
 
 asterisk (1:1.6.2.7-1) unstable; urgency=low
 
