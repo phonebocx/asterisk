@@ -5,9 +5,6 @@ asterisk (1:1.6.2.9-1) UNRELEASED; urgency=low
   - Patch dahdi_fxs_false_ringing removed: merged upstream.
   - Patch fxs_ports_1626 removed: merged upstream.
   * Fix dependencies so we start after named and such (Closes: #433779).
-  * Patch dahdi_event_removed_dchan: close file descriptors when disconnecting
-    a PRI/BRI Astribank as well. THIS PATCH IS NOT YET TESTED. REMOVE BEFORE
-    UPLOADING.
   * Do use libresample (app_jack, codec_resample).
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 29 Jun 2010 00:04:50 +0300
