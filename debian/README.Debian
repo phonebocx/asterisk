@@ -103,7 +103,7 @@ If the language is not set, only the last two are searched.
 Thus various sound file packages place their files under
 /usr/share/sounds/asterisk/xx_YY_Foobar
 (for sound files set Foobar of language 'xx' and country 'YY').
-They also provide the alternatives 'asterisk-promtp-xx' and
+They also provide the alternatives 'asterisk-prompt-xx' and
 'asterisk-prompt-xx-yy' for the symlinks 
 /usr/share/asterisk/sounds/xx and /usr/share/asterisk/sounds/xx_YY .
 
