@@ -6,8 +6,9 @@ asterisk (1:1.6.2.9-1) unstable; urgency=low
   - Patch fxs_ports_1626 removed: merged upstream.
   * Fix dependencies so we start after named and such (Closes: #433779).
   * Do use libresample (app_jack, codec_resample).
+  * rtcp_cli_fix: Backport a silly CLI parsing issue (Closes: #589736).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 29 Jun 2010 23:53:28 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 21 Jul 2010 00:15:57 +0300
 
 asterisk (1:1.6.2.7-1) unstable; urgency=low
 

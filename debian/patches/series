@@ -19,3 +19,4 @@ sound_files
 moh_datadir
 settings_show_dirs
 h323-extra-target
+rtcp_cli_fix
