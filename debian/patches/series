@@ -19,4 +19,6 @@ sound_files
 moh_datadir
 settings_show_dirs
 h323-extra-target
+man_hyphen
+typos
 rtcp_cli_fix

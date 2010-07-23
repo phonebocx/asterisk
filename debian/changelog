@@ -7,8 +7,10 @@ asterisk (1:1.6.2.9-1) unstable; urgency=low
   * Fix dependencies so we start after named and such (Closes: #433779).
   * Do use libresample (app_jack, codec_resample).
   * rtcp_cli_fix: Backport a silly CLI parsing issue (Closes: #589736).
+  * Patch typos: fix a few typos in the source.
+  * Patch man_hyphen: fix hyphen/minus issues in man pages.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 21 Jul 2010 00:15:57 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 23 Jul 2010 18:40:49 +0300
 
 asterisk (1:1.6.2.7-1) unstable; urgency=low
 
