@@ -119,6 +119,9 @@ install-arch: build-arch
 	dh_install -s --sourcedir=debian/tmp
 	dh_lintian -s
 
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/aelparse
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/conf2ael
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/muted
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/streamplayer
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/stereorize
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/hashtest*
