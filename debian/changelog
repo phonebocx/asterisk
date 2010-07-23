@@ -1,17 +1,22 @@
+asterisk (1:1.6.2.9-2) UNRELEASED; urgency=low
+
+  * rtcp_cli_fix: Backport a silly CLI parsing issue (Closes: #589736).
+  * Patch typos: fix a few typos in the source.
+  * Patch man_hyphen: fix hyphen/minus issues in man pages.
+  * Bump Standards version to 3.9.0 (no change needed).
+  * Remove useless binaries aelparse, conf2ael and muted.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 23 Jul 2010 21:49:14 +0300
+
 asterisk (1:1.6.2.9-1) unstable; urgency=low
 
-  * NOT RELEASED YET
   * New upstream release (Closes: #585156).
   - Patch dahdi_fxs_false_ringing removed: merged upstream.
   - Patch fxs_ports_1626 removed: merged upstream.
   * Fix dependencies so we start after named and such (Closes: #433779).
   * Do use libresample (app_jack, codec_resample).
-  * rtcp_cli_fix: Backport a silly CLI parsing issue (Closes: #589736).
-  * Patch typos: fix a few typos in the source.
-  * Patch man_hyphen: fix hyphen/minus issues in man pages.
-  * Bump Standards version to 3.9.0 (no change needed).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 23 Jul 2010 18:46:05 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 29 Jun 2010 23:53:28 +0300
 
 asterisk (1:1.6.2.7-1) unstable; urgency=low
 
