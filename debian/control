@@ -43,7 +43,7 @@ Build-Depends: quilt,
  libresample1-dev,
  libopenais-dev,
  zlib1g-dev
-Standards-Version: 3.8.4
+Standards-Version: 3.9.0
 Homepage: http://www.asterisk.org/
 Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
 Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log

@@ -9,8 +9,9 @@ asterisk (1:1.6.2.9-1) unstable; urgency=low
   * rtcp_cli_fix: Backport a silly CLI parsing issue (Closes: #589736).
   * Patch typos: fix a few typos in the source.
   * Patch man_hyphen: fix hyphen/minus issues in man pages.
+  * Bump Standards version to 3.9.0 (no change needed).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 23 Jul 2010 18:40:49 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 23 Jul 2010 18:46:05 +0300
 
 asterisk (1:1.6.2.7-1) unstable; urgency=low
 
