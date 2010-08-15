@@ -5,8 +5,9 @@ asterisk (1:1.6.2.10-1) UNRELEASED; urgency=low
   * Patch man_hyphen: fix hyphen/minus issues in man pages.
   * Bump Standards version to 3.9.0 (no change needed).
   * Remove useless binaries aelparse, conf2ael and muted.
+  * Patch kfreebsd: Support for GNU/kFreeBSD.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 23 Jul 2010 21:49:14 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 15 Aug 2010 21:58:42 +0300
 
 asterisk (1:1.6.2.9-1) unstable; urgency=low
 

@@ -1,0 +1,106 @@
+Origin: http://svnview.digium.com/svn/asterisk?view=rev&rev=282397
+Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Description: Support for GNU/kFreeBSD
+
+kFreeBSD is GNU (with glibc) on to of a FreeBSD kernel. See
+http://glibc-bsd.alioth.debian.org/porting/PORTING
+
+This patch gets Asterisk close to building on Debian kFreeBSD i386,
+mainly by adding an extra test for __GLIBC__ in one or two (or more)
+places.
+
+OSARCH is set to 'kfreebsd-gnu'
+
+DAHDI support (and support for chan_vpb) was not tested.
+
+If patch fails to apply in main/netsock.c: check svn keyword Revision.
+
+--- a/channels/chan_oss.c
++++ b/channels/chan_oss.c
+@@ -47,7 +47,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
+ 
+ #ifdef __linux
+ #include <linux/soundcard.h>
+-#elif defined(__FreeBSD__) || defined(__CYGWIN__)
++#elif defined(__FreeBSD__) || defined(__CYGWIN__) || defined(__GLIBC__)
+ #include <sys/soundcard.h>
+ #else
+ #include <soundcard.h>
+--- a/configure.ac
++++ b/configure.ac
+@@ -126,6 +126,9 @@ case "${host_os}" in
+      linux-gnueabi)
+      OSARCH=linux-gnu
+      ;;
++     kfreebsd*-gnu)
++     OSARCH=kfreebsd-gnu
++     ;;
+      *)
+      OSARCH=${host_os}
+      ;;
+--- a/main/Makefile
++++ b/main/Makefile
+@@ -44,7 +44,7 @@ AST_LIBS += $(OPENSSL_LIB)
+ AST_LIBS += $(BKTR_LIB)
+ AST_LIBS += $(LIBXML2_LIB) 
+ 
+-ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi ),)
++ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi kfreebsd-gnu),)
+   ifneq ($(findstring LOADABLE_MODULES,$(MENUSELECT_CFLAGS)),)
+   AST_LIBS+=-ldl
+   endif
+--- a/main/acl.c
++++ b/main/acl.c
+@@ -123,7 +123,7 @@ static int get_local_address(struct in_a
+ 	char *buf = NULL;
+ 	int bufsz, x;
+ #endif /* SOLARIS */
+-#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__linux__) || defined(__Darwin__)
++#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__linux__) || defined(__Darwin__) || defined(__GLIBC__)
+ 	struct ifaddrs *ifap, *ifaphead;
+ 	int rtnerr;
+ 	const struct sockaddr_in *sin;
+@@ -132,7 +132,7 @@ static int get_local_address(struct in_a
+ 	int best_score = -100;
+ 	memset(&best_addr, 0, sizeof(best_addr));
+ 
+-#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__linux__) || defined(__Darwin__)
++#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__linux__) || defined(__Darwin__) || defined(__GLIBC__)
+ 	rtnerr = getifaddrs(&ifaphead);
+ 	if (rtnerr) {
+ 		perror(NULL);
+@@ -143,7 +143,7 @@ static int get_local_address(struct in_a
+ 	s = socket(AF_INET, SOCK_STREAM, 0);
+ 
+ 	if (s > 0) {
+-#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__linux__) || defined(__Darwin__)
++#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__linux__) || defined(__Darwin__) || defined(__GLIBC__)
+ 		for (ifap = ifaphead; ifap; ifap = ifap->ifa_next) {
+ 
+ 			if (ifap->ifa_addr && ifap->ifa_addr->sa_family == AF_INET) {
+--- a/main/netsock.c
++++ b/main/netsock.c
+@@ -29,9 +29,11 @@
+ 
+ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222874 $")
+ 
+-#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__)
++#ifndef __linux__
++#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__) || defined(__GLIBC__)
+ #include <net/if_dl.h>
+ #endif
++#endif
+ 
+ #if defined (SOLARIS)
+ #include <sys/sockio.h>
+--- a/utils/muted.c
++++ b/utils/muted.c
+@@ -39,7 +39,7 @@
+ 
+ #ifdef __Darwin__
+ #include <CoreAudio/AudioHardware.h> 
+-#elif defined(__linux__) || defined(__FreeBSD__)
++#elif defined(__linux__) || defined(__FreeBSD__) || defined(__GLIBC__)
+ #include <sys/soundcard.h>
+ #endif
+ #include <stdio.h>
