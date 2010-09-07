@@ -2,7 +2,6 @@ asterisk (1:1.6.2.9-2) UNRELEASED; urgency=high
 
   [ Tzafrir Cohen ]
   * Bump Standards version to 3.9.0 (no change needed).
-  * Patch kfreebsd: Support for GNU/kFreeBSD.
   * rtcp_cli_fix: Backport a silly CLI parsing issue. (Closes: #589736)
   * Patch typos: fix a few typos in the source.
   * Patch man_hyphen: fix hyphen/minus issues in man pages.
