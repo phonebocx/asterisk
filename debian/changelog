@@ -1,4 +1,4 @@
-asterisk (1:1.6.2.10-1) UNRELEASED; urgency=low
+asterisk (1:1.6.2.9-2) UNRELEASED; urgency=low
 
   * rtcp_cli_fix: Backport a silly CLI parsing issue (Closes: #589736).
   * Patch typos: fix a few typos in the source.
