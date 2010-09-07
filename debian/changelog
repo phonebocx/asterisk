@@ -1,13 +1,20 @@
-asterisk (1:1.6.2.9-2) UNRELEASED; urgency=low
+asterisk (1:1.6.2.9-2) UNRELEASED; urgency=high
 
-  * rtcp_cli_fix: Backport a silly CLI parsing issue (Closes: #589736).
+  [ Tzafrir Cohen ]
+  * Bump Standards version to 3.9.0 (no change needed).
+  * Patch kfreebsd: Support for GNU/kFreeBSD.
+  * rtcp_cli_fix: Backport a silly CLI parsing issue. (Closes: #589736)
   * Patch typos: fix a few typos in the source.
   * Patch man_hyphen: fix hyphen/minus issues in man pages.
-  * Bump Standards version to 3.9.0 (no change needed).
   * Remove useless binaries aelparse, conf2ael and muted.
-  * Patch kfreebsd: Support for GNU/kFreeBSD.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 15 Aug 2010 21:58:42 +0300
+  [ Faidon Liambotis ]
+  * Change the way that we read include files, to accommodate for changes
+    in GCC 4.4. Taken from upstream's SVN, thanks to Peter Allgeyer for the
+    patch and Stefan Bauer for preparing an upload. (Closes: #594190)
+  * Set urgency high for a squeeze-targetted RC bug-fixing upload.
+
+ -- Faidon Liambotis <paravoid@debian.org>  Tue, 07 Sep 2010 21:52:54 +0300
 
 asterisk (1:1.6.2.9-1) unstable; urgency=low
 
