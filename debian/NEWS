@@ -1,3 +1,14 @@
+asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
+
+  The fix for AST-2009-006 breaks IAX2 line protocol by adding an extra
+  step in the IAX2 handshaking. To allow working with unmodified IAX2
+  implementations, add the following two lines under [general] in iax.conf:
+ 
+  calltokenoptional = 0.0.0.0/0.0.0.0
+  maxcallnumbers = 16382
+
+ -- Tzafrir Cohen <tzafrir.cohen@xorcom.com>  Sun, 13 Sep 2009 00:25:09 +0300
+
 asterisk (1:1.4.13~dfsg-1) unstable; urgency=medium
 
   Since this version, ODBC and IMAP storage for Voicemail are provided.

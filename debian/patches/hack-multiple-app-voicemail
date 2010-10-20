@@ -1,3 +1,8 @@
+Subject: build multiple versions of app_voicemail.so
+Author: Faidon Liambotis <paravoid@debian.org>
+Bug: http://issues.asterisk.org/view.php?id=13822
+Last-Update: 2009-12-19
+
 This is a very ugly hack on upstream's Makefiles to allow building multiple
 variants of app_voicemail. Three variants are created:
   * app_voicemail.so: plain old filesystem storage that doesn't break existing
@@ -8,9 +13,7 @@ All these conflict with each other and Asterisk will refuse to load them
 concurrently.
 They are marked noload on our default autoload configuration.
 
-Upstream bug: http://bugs.digium.com/13822
-
- -- Faidon Liambotis <paravoid@debian.org>
+Patch suggested to upstream but rejected for being "hackish":
 
 --- a/apps/Makefile
 +++ b/apps/Makefile
@@ -18,12 +21,12 @@ Upstream bug: http://bugs.digium.com/13822
  MENUSELECT_CATEGORY=APPS
  MENUSELECT_DESCRIPTION=Applications
  
-+MODS_C_ADDITIONAL=app_directory_odbc app_voicemail_imap app_voicemail_odbc
++MODS_C_ADDITIONAL=app_voicemail_imap app_voicemail_odbc
 +
  MENUSELECT_OPTS_app_directory:=$(MENUSELECT_OPTS_app_voicemail)
  ifneq ($(findstring ODBC_STORAGE,$(MENUSELECT_OPTS_app_voicemail)),)
    MENUSELECT_DEPENDS_app_voicemail+=$(MENUSELECT_DEPENDS_ODBC_STORAGE)
-@@ -27,6 +29,28 @@ endif
+@@ -25,6 +27,22 @@ endif
  
  all: _all
  
@@ -31,13 +34,8 @@ Upstream bug: http://bugs.digium.com/13822
 +app_voicemail_imap.c: app_voicemail.c
 +	cp $< $@
 +	$(call add_depends_cmd,imap_tk) $@
-+	$(call add_depends_cmd,ssl) $@
++	$(call add_depends_cmd,openssl) $@
 +app_voicemail_odbc.c: app_voicemail.c
-+	cp $< $@
-+	$(call add_depends_cmd,unixodbc) $@
-+	$(call add_depends_cmd,ltdl) $@
-+
-+app_directory_odbc.c: app_directory.c
 +	cp $< $@
 +	$(call add_depends_cmd,unixodbc) $@
 +	$(call add_depends_cmd,ltdl) $@
@@ -45,16 +43,15 @@ Upstream bug: http://bugs.digium.com/13822
 +clean::
 +	rm -f app_voicemail_*.c
 +
-+app_voicemail_imap.o: ASTCFLAGS+=-DIMAP_STORAGE
-+app_voicemail_odbc.o: ASTCFLAGS+=-DODBC_STORAGE
-+app_directory_odbc.o: ASTCFLAGS+=-DODBC_STORAGE
++app_voicemail_imap.o: _ASTCFLAGS+=-DIMAP_STORAGE
++app_voicemail_odbc.o: _ASTCFLAGS+=-DODBC_STORAGE
 +
  include $(ASTTOPDIR)/Makefile.moddir_rules
  
  ifneq ($(findstring $(OSARCH), mingw32 cygwin ),)
 --- a/Makefile.moddir_rules
 +++ b/Makefile.moddir_rules
-@@ -43,7 +43,7 @@ include $(ASTTOPDIR)/Makefile.rules
+@@ -37,7 +37,7 @@ include $(ASTTOPDIR)/Makefile.rules
  # Use MODULE_EXCLUDE to specify additional modules to exclude.
  
  ifneq ($(MODULE_PREFIX),)
@@ -63,3 +60,15 @@ Upstream bug: http://bugs.digium.com/13822
      ALL_C_MODS+=$(foreach p,$(MODULE_PREFIX),$(patsubst %.c,%,$(wildcard $(p)_*.c)))
      ALL_CC_MODS:=
      ALL_CC_MODS+=$(foreach p,$(MODULE_PREFIX),$(patsubst %.cc,%,$(wildcard $(p)_*.cc)))
+--- a/apps/app_voicemail.c
++++ b/apps/app_voicemail.c
+@@ -40,6 +40,9 @@ c-client (http://www.washington.edu/imap
+  *        with a plan to clean this up.
+  */
+ 
++/*** MODULEINFO
++ ***/
++
+ /*** MAKEOPTS
+ <category name="MENUSELECT_OPTS_app_voicemail" displayname="Voicemail Build Options" positive_output="yes" remove_on_change="apps/app_voicemail.o apps/app_voicemail.so apps/app_directory.o apps/app_directory.so">
+ 	<member name="FILE_STORAGE" displayname="Storage of Voicemail using filesystem">

@@ -1,33 +1,21 @@
-#! /bin/sh
+#!/bin/sh
 #
 # asterisk	start the asterisk PBX
 # (c) Mark Purcell <msp@debian.org>
 # (c) Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 # (c) Faidon Liambotis <paravoid@debian.org>
-
+#
 #   This package is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
 #   the Free Software Foundation; either version 2 of the License, or
 #   (at your option) any later version.
 #
-# Based on:
-#
-# skeleton	example file to build /etc/init.d/ scripts.
-#		This file should be used to construct scripts for /etc/init.d.
-#
-#		Written by Miquel van Smoorenburg <miquels@cistron.nl>.
-#		Modified for Debian GNU/Linux
-#		by Ian Murdock <imurdock@gnu.ai.mit.edu>.
-#
-# Version:	@(#)skeleton  1.9  26-Feb-2001  miquels@cistron.nl
-#
-
 ### BEGIN INIT INFO
 # Provides:          asterisk
-# Required-Start:    $local_fs zaptel
-# Required-Stop:     $local_fs
-# Should-Start:      
-# Should-Stop:       
+# Required-Start:    $remote_fs
+# Required-Stop:     $remote_fs
+# Should-Start:      $syslog $network $named mysql postgresql dahdi
+# Should-Stop:       $syslog $network $named mysql postgresql
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: Asterisk PBX
@@ -39,12 +27,14 @@ NAME=asterisk
 USER=$NAME
 GROUP=$USER
 DAEMON=/usr/sbin/$NAME
+CANARY=/usr/sbin/astcanary
 DESC="Asterisk PBX"
 PIDFILE="/var/run/asterisk/asterisk.pid"
 ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
-PIDFILE_DIR=`dirname $PIDFILE`
 UMASK=007 # by default
 #MAXFILES=1024 # (the system default)
+
+. /lib/lsb/init-functions
 
 # by default: use real-time priority
 PARAMS=""
@@ -106,10 +96,9 @@ fi
 
 test -x $DAEMON || exit 0
 
-if [ ! -d "$PIDFILE_DIR" ];then
-	mkdir "$PIDFILE_DIR"
-	chown $USER:$GROUP "$PIDFILE_DIR"
-fi
+for dir in /var/run/asterisk /var/log/asterisk /var/log/asterisk/cdr-csv /var/log/asterisk/cdr-custom; do
+	[ -d $dir ] || install -d -o $USER -g $GROUP $dir
+done
 
 set -e
 
@@ -125,14 +114,7 @@ then
 fi
 
 status() {
-	plist=`ps ax | awk "{ if (\\$5 == \"$DAEMON\") print \\$1 }"`
-	if [ "$plist" = "" ]; then
-		echo "$DESC is stopped"
-		return 1
-	else
-		echo "$DESC is running: $plist"
-		return 0
-	fi
+	status_of_proc "$DAEMON" "$DESC" && return 0 || return $?
 }
 
 asterisk_rx() {
@@ -141,7 +123,6 @@ asterisk_rx() {
 	# if $HOME is set, asterisk -rx writes a .asterisk_history there
 	(
 		unset HOME
-
 		$DAEMON -rx "$1"
 	)
 }
@@ -172,7 +153,7 @@ case "$1" in
 		fi
 		start-stop-daemon --start --group $GROUP --pidfile "$PIDFILE" \
 			$CHDIR_PARM \
-			--exec $REALDAEMON -- $PARAMS
+			--exec $REALDAEMON -- $PARAMS > /dev/null
 	else
 		start-stop-daemon --start --group $GROUP \
 			--background --make-pidfile \
@@ -189,7 +170,7 @@ case "$1" in
 	# this may hang in some cases. Specifically, when the asterisk
 	# processes is stopped. No bother to worry about cleanup: 
 	# it will either fail or die when asterisk dies.
-	( asterisk_rx 'stop now' > /dev/null 2>&1 & ) &
+	( asterisk_rx 'core stop now' > /dev/null 2>&1 & ) &
 	if [ "$RUNASTSAFE" = "yes" ];then
 		start-stop-daemon --stop --quiet --oknodo \
 				  --pidfile $ASTSAFE_PIDFILE
@@ -198,6 +179,7 @@ case "$1" in
 	# just making sure it's really, really dead. 
 	# KILL is necessary just in case there's an asterisk -r in the background
 	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $DAEMON
+	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $CANARY
 	echo "."
 	;;
   reload)
@@ -212,7 +194,7 @@ case "$1" in
 	asterisk_rx 'dialplan reload'
 	;;
   restart-convenient)
-	asterisk_rx 'restart when convenient'
+	asterisk_rx 'core restart when convenient'
 	;;
   restart|force-reload)
 	$0 stop
@@ -222,16 +204,6 @@ case "$1" in
 	status
 	exit $?
 	;;
-  zaptel-fix) 	 
-	echo "Unloading and reloading loading Asterisk and Zaptel:" 	 
-	$0 stop 	 
-	/etc/init.d/zaptel unload 	 
-	# load modules from /etc/modules. This will break if you count on 	 
-	# discover/hotplug 	 
-	/etc/init.d/module-init-tools 	 
-	/etc/init.d/zaptel start 	 
-	$0 start 	 
-	;; 	 
   *)
 	N=/etc/init.d/$NAME
 	echo "Usage: $N {start|stop|restart|reload|status|debug|logger-reload|extensions-reload|restart-convenient|force-reload}" >&2

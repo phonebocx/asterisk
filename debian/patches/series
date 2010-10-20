@@ -1,23 +1,27 @@
-### upstream fixes
+# fixed upstream
+parser-mangles-include
+
+# upstream fixes
 allow-tilde-destdir
 
-debian-banner
 hack-multiple-app-voicemail
-astvarrundir
 make-clean-fixes
 safe_asterisk-config
 safe_asterisk-nobg
-# Remed-out for now. Should be fixed later on:
-#h323-no-deps-on-asterisk
-#h323-workaround-openh323-segfault
+
+h323-no-deps-on-asterisk
+h323-workaround-openh323-segfault
 
 astgenkey-security
-apptest_sleep
-
-### new features
-pubkey_jnctn
 
 # bugfixes on top of everything
-zap-fix-timing-source
-disable_moh
-libtonezone_libm
+dahdi-fxsks-hookstate
+dahdi_ptmp_nt
+dahdi_pri_debug_spannums
+sound_files
+moh_datadir
+settings_show_dirs
+h323-extra-target
+man_hyphen
+typos
+rtcp_cli_fix

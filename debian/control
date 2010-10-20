@@ -2,10 +2,11 @@ Source: asterisk
 Priority: optional
 Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
-Uploaders: Mark Purcell <msp@debian.org>, Kilian Krause <kilian@debian.org>, Tzafrir Cohen <tzafrir.cohen@xorcom.com>, Faidon Liambotis <paravoid@debian.org>
+Uploaders: Mark Purcell <msp@debian.org>, Tzafrir Cohen <tzafrir@debian.org>, Faidon Liambotis <paravoid@debian.org>
 Build-Depends: quilt, 
  debhelper (>= 6.0.7),
- libreadline5-dev, 
+ lsb-base (>= 3.2-14),
+ libreadline-dev | libreadline5-dev,
  libgsm1-dev,
  libssl-dev,
  libtonezone-dev (>= 1:2.0.0),
@@ -18,12 +19,12 @@ Build-Depends: quilt,
  dahdi-source,
  autotools-dev,
  libnewt-dev,
- libsqlite-dev,
+ libsqlite0-dev | libsqlite-dev,
  libspeex-dev,
  libspeexdsp-dev,
  graphviz,
  libcurl4-openssl-dev | libcurl-dev,
- doxygen,
+ libxml2-dev,
  gsfonts,
  libpopt-dev,
  libopenh323-dev (>= 1.17.4),
@@ -32,27 +33,27 @@ Build-Depends: quilt,
  freetds-dev,
  libvorbis-dev,
  libsnmp-dev,
- libc-client2007b-dev,
+ libc-client2007e-dev | libc-client2007b-dev,
  libgmime-2.0-2-dev | libgmime2-dev,
  libjack-dev,
  liblua5.1-0-dev,
- libcap2-dev,
- zlib1g-dev 
-# libtonezone with an epoch of 1 is from Zaptel. TODO: this is lousy.
-#Build-Conflicts: libtonezone-dev (>> 1:1.0.0-1)
-Standards-Version: 3.8.0
+ libcap-dev (>= 1:2.16-4) | libcap2-dev,
+ libspandsp-dev,
+ libopenr2-dev,
+ libresample1-dev,
+ libopenais-dev,
+ zlib1g-dev
+Standards-Version: 3.9.0
 Homepage: http://www.asterisk.org/
 Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
 Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Section: comm
-Depends: ${shlibs:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-sounds-main
-Conflicts: asterisk-classic, asterisk-bristuff, asterisk-chan-capi (<< 1.1.1-1~)
-Replaces: asterisk-classic, asterisk-bristuff
-Provides: asterisk-1.6.0
-Suggests: ekiga, ohphone, twinkle, kphone, asterisk-doc, asterisk-dev, asterisk-h323
+Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-prompt-en, dahdi
+Provides: asterisk-1.6.2
+Recommends: sox
+Suggests: asterisk-doc, asterisk-dev, asterisk-h323
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
@@ -79,8 +80,7 @@ Description: Open Source Private Branch Exchange (PBX)
 
 Package: asterisk-h323
 Architecture: any
-Section: comm
-Depends: asterisk-1.4, ${shlibs:Depends}
+Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
 Description: H.323 protocol support for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -97,6 +97,7 @@ Description: H.323 protocol support for Asterisk
  package.
 
 Package: asterisk-doc
+Depends: ${misc:Depends}
 Recommends: asterisk
 Section: doc
 Priority: extra
@@ -106,19 +107,9 @@ Description: Source code documentation for Asterisk
  .
  This package contains the documentation for configuring an Asterisk system.
 
-Package: asterisk-progdoc
-Recommends: asterisk
-Section: doc
-Priority: extra
-Architecture: all
-Description: Source code documentation for Asterisk
- Asterisk is an Open Source PBX and telephony toolkit.
- .
- This package contains the source code documentation needed if you wish to
- extend Asterisk by writing loadable modules for it.
-
 Package: asterisk-dev
 Architecture: all
+Depends: ${misc:Depends}
 Recommends: asterisk
 Section: devel
 Priority: extra
@@ -131,8 +122,8 @@ Description: Development files for Asterisk
 
 Package: asterisk-dbg
 Architecture: any
-Depends: asterisk (= ${binary:Version})
-Section: devel
+Depends: asterisk (= ${binary:Version}), ${misc:Depends}
+Section: debug
 Priority: extra
 Description: Debugging symbols for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
@@ -143,9 +134,10 @@ Description: Debugging symbols for Asterisk
 
 Package: asterisk-sounds-main
 Architecture: all
+Depends: ${misc:Depends}
 Recommends: asterisk
 Replaces: asterisk-sounds-extra
-Section: comm
+Provides: asterisk-prompt-en, asterisk-prompt-en-us
 Description: Core Sound files for Asterisk (English)
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -153,10 +145,10 @@ Description: Core Sound files for Asterisk (English)
  the operation of Asterisk.
 
 Package: asterisk-config
+Depends: ${misc:Depends}
 Recommends: asterisk
 Conflicts: asterisk-config-custom
 Architecture: all
-Section: comm
 Description: Configuration files for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .

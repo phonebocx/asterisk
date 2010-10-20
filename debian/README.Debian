@@ -11,6 +11,7 @@ from the *.conf files there.
 Sounds reside at /usr/share/asterisk/sounds. Voicemail mailboxes are below
 /var/spool/asterisk/voicemail using symlinks.
 
+
 User, Groups, Permissions
 =========================
 By default the package will create user and group 'asterisk' and will run as
@@ -59,14 +60,134 @@ or
 
 
 Open Files Limit
-===============
+================
 Asterisk uses one file-handle (and sometimes more) per call. Hence if you 
 have many simultaneous calls, you often bump into the per-process limit 
 of 1024 file handles, and get the error: "Too man open files".
 
 To enlarge that limit, set: MAXFILES in /etc/default/asterisk .
+As all settings from there, apply it with:
+
+  /etc/init.d/asterisk restart
+
+
+International Sound Files
+=========================
+This section is for those who use an alternative set of sound files
+rather than the default English ones recorded by Allison Smith. If you
+use those, and never needed to set LANGUAGE/language and such - all
+should work just fine.
+
+When Asterisk is asked to play 'some/file' it will search in the the
+following places on a Debian system (in whish the datadir is set to
+/usr/share/asterisk)
+
+  /usr/share/sounds/${LANG_FULL}/some/file.TYPE
+  /usr/share/sounds/${LANG}/some/file.TYPE
+  /usr/share/sounds/some/file.TYPE
+  /usr/share/sounds/en/some/file.TYPE
+
+TYPE is "the best available type" - the one that will take least
+encoding/decoding effort. This is why you normally don't specify the
+type of file to play.
+
+FULL_LANG is a complete name of a language. For instance, "fr", "de_CH"
+or "en_US_f_Allison".
+
+LANG is just the "major language" part of FULL_LANG - only up to the
+first "_", if any. So in the above examples we would get "fr", "de" and
+"en".
+
+If the language is not set, only the last two are searched.
+
+Thus various sound file packages place their files under
+/usr/share/sounds/asterisk/xx_YY_Foobar
+(for sound files set Foobar of language 'xx' and country 'YY').
+They also provide the alternatives 'asterisk-prompt-xx' and
+'asterisk-prompt-xx-yy' for the symlinks 
+/usr/share/asterisk/sounds/xx and /usr/share/asterisk/sounds/xx_YY .
+
+If you have multiple such packages and want to change that selection, use:
+
+  update-alternatives --config asterisk-prompt-xx
+
+Or:
+
+  update-alternatives --config asterisk-prompt-xx-yy
+
+(TODO: document using an empty alternative directory for 'en' to have no
+fallback sounds)
+
+
+Missing Modules
+===============
+The following modules are included in the source tree of Asterisk but 
+were not built:
+
+* apps/app_ivrdemo.c: Disabled by default. Demo code.
+* apps/app_jack.c: Depends on libresample. See TODO.Debian .
+* apps/app_rpt.c: Disabled by default. Not popular. Potential quality issues.
+* apps/app_skel.c: Disabled by default. Demo code.
+* channels/chan_misdn.c: mISDN (1.x) only included in Experimental. See
+  package misdn-user.
+* channels/chan_nbs: NBS not included. Never packaged. Looks quite Asterisk 
+  specific and not really useful.
+* channels/chan_usbradio: Disabled by default. Not popular. Potential 
+  quality issues.
+* codecs/codec_resample.c: Depends on libresample. See TODO.Debian .
+* pbx/pbx_gtkconsole.c: Disabled by default. Mostly pointless and adss 
+  unnecessary dependencies.
+
+
+DAHDI PtMP NT
+=============
+Short version: it doesn't work.
+
+This package includes an experimental patch to test the support for PtMP 
+NT in chan_dahdi. This is needed to e.g. connect ISDN phones. Originally
+the code merely printed out "How cool would it be if someone implemented
+this mode!" and bailed out. This patch merely overrides it.
+
+At the moment it seems to provide at least basic support of ISDN phones
+(that is: of dialing out from a single ISDN phone). Likewise, on a
+loopback connection you can call from a TE port to the NT port but not
+vice versa.
+
+I figure that this would still be useful enough for some people, though.
+But in any case, please see http://bugs.digium.com/view.php?id=15048 .
+
+
+A Separate Instance
+===================
+Upstream maintainers are not always so keen on helping users of binary
+packages. Sometimes a source build can be handy. However a simplistic
+'make install' from a source distribution may not play along nicely
+with your existing packages. As a workaround for that, Asterisk includes
+a script called 'live_ast' to "install" Asterisk under the build root
+itself.
+
+  # For the sake of this example, I assume you work under /home/getafisk .
+  # get a version of asterisk: tarball, svn, whatever
+  svn co http://svn.asterisk.org/svn/asterisk/trunk asterisk-svn
+  cd asterisk-svn
+
+  # grab the script. It's already in 1.6.2 and trunk, but let's get the
+  # latest:
+  wget http://svn.asterisk.org/svn/asterisk/trunk/contrib/scripts/live_ast
+  chmod +x live_ast
+  ./live_ast conf-file
+  # edit live/live.conf . Unrem 'LIVE_AST_FOR_SYSTEM=yes'
+  ./live_ast configure # ./configure
+  ./live_ast install   # make; make install DESTDIR=$PWD/live
+  ./live_ast samples
+
+  # As root:
+  echo "DAEMON=/home/getafisk/live/asterisk" >> /etc/default/asterisk
+
+The last line makes your private copy the actual one to use. The magic
+is in /home/getafisk/live/etc/asterisk/asterisk.conf . If you need to
+update something in the source, just re-run the 'install' command.
+live/asterisk is a wrapper to that private copy of Asterisk.
 
 
 Enjoy your PBX!
-
-Kilian Krause (for the pkg-voip team)

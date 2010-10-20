@@ -35,7 +35,6 @@ case "$1" in
 	# and we don't want to mess-up anything on old installations
 	find /var/log/asterisk \
 	     /var/lib/asterisk \
-	     /var/run/asterisk \
 	     -type d | while read dir; do
 		if ! dpkg-statoverride --list "$dir" > /dev/null ; then
 			chown asterisk: $dir

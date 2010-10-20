@@ -1,7 +1,4 @@
 #!/usr/bin/make -f
-# Sample debian/rules that uses debhelper.
-# This file is public domain software, originally written by Joey Hess. 
-
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
@@ -26,11 +23,7 @@ BUILDFLAGS += MAKECMDGOALS=dont-optimize
 # show full gcc arguments instead of [CC] and [LD]
 BUILDFLAGS += NOISY_BUILD=yes
 
-# Force music files selection:
-BUILDFLAGS += MENUSELECT_MOH= \
-  ASTDATADIR=/usr/share/asterisk \
-  ASTVARRUNDIR=/var/run/asterisk \
-
+BUILDFLAGS += ASTDATADIR=/usr/share/asterisk ASTVARRUNDIR=/var/run/asterisk
 
 ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
 	CFLAGS += -g
@@ -39,42 +32,29 @@ ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
 	INSTALL_PROGRAM += -s
 endif
 
-include /usr/share/quilt/quilt.make
-
-DEBVERSION:=$(shell head -n 1 debian/changelog \
-		    | sed -e 's/^[^(]*(\([^)]*\)).*/\1/')
+DEBVERSION:=$(shell dpkg-parsechangelog | sed -n -e 's/Version: //p')
 DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
-DEB_SRC_VERSION:=$(shell echo $(DEB_NOEPOCH_VERSION) | sed -e 's/-[0-9.]*$$//')
-UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg//' -e 's/~\(rc[0-9]\)/-\1/')
+DEB_SRC_VERSION:=$(shell echo $(DEB_NOEPOCH_VERSION) | sed -e 's/-[^-]\+$$//')
+UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg//' -e 's/~\(\(rc\|beta\)[0-9]\)/-\1/')
 
 FILENAME := asterisk_$(DEB_SRC_VERSION).orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
-URL := http://downloads.digium.com/pub/asterisk/releases/asterisk-$(UPVERSION).tar.gz
+URL := http://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
 # make sure we have 'fetch' . We need to have either wget or fetch
 # on the system. However it is generally not a good idea to actually
-# get remote tarballs at build time. So if nither wget nor fetch 
+# get remote tarballs at build time. So if neither wget nor fetch 
 # happen to be installed, the configure script will find a dummy
 # fetch script that always returns an error.
 FETCH_ENV = PATH=$$PATH:$(CURDIR)/debian/dummyprogs
 
-
-check-sounds:
-	( [ ! -f sounds/asterisk-moh-freeplay-wav.tar.gz ] && \
-	  [ ! -f sounds/fpm-calm-river.mp3 ] && \
-	  [ ! -f sounds/fpm-sunshine.mp3 ]   && \
-	  [ ! -f sounds/fpm-world-mix.mp3 ] ) || \
-		(echo "WARNING: non-free fpm sounds must be removed from sources before packaging." ; false )
-	touch $@
-	
-config.status: check-sounds patch
+config.status:
 	dh_testdir
 
-	[ -f .version.bak ] || cp -a .version .version.bak
+	[ -f .version.debian_sav ] || cp -a .version .version.debian_sav
 	echo $(DEB_NOEPOCH_VERSION) > .version
 
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
-	#./bootstrap.sh # also runs autoonf. TODO: currently not needed.
 
 	chmod 755 $(CURDIR)/debian/dummyprogs/fetch
 	
@@ -89,48 +69,40 @@ config.status: check-sounds patch
 		--with-pwlib=/usr/share/pwlib/include/ \
 		--with-h323=/usr/share/openh323/ 
 
-
 build: build-arch build-indep
 
 build-arch: build-arch-stamp
 build-arch-stamp: config.status
 	dh_testdir
-
-	# Add here command to compile/build the package.
-	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) || true
-
-	# Build a second time to pick up h323 :-(
+	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) h323-mak
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS)
-
-
 	touch $@
 
 build-indep: build-indep-stamp
 build-indep-stamp: config.status
 	dh_testdir
-
-	# Add here command to compile/build the arch indep package.
-ifndef ASTERISK_NO_DOCS
-	$(FETCH_ENV) $(MAKE) progdocs 
-endif
 	touch $@
 
-
-clean: cleaned unpatch 
-# make clean breaks if we don't patch it up, hence the dependency
-cleaned: patch
+clean:
 	dh_testdir
 	dh_testroot
 	
-	# Add here commands to clean up after the build process.
-	$(MAKE) distclean
+	# The clean target seems to be run before patches are applied.
+	# A brute-force fix to keep the tarball from getting deleted:
+	mv sounds/asterisk-core-sounds-en-gsm-1.4.19.tar.gz debian/
+	GREP=grep AWK=awk $(MAKE) distclean
+	mv debian/asterisk-core-sounds-en-gsm-1.4.19.tar.gz sounds/
 	-$(RM) -rf debian/build
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
 	-test -d configs && chmod -x configs/*.sample
-	-$(RM) -f build-arch-stamp build-indep-stamp config.status check-sounds menuselect.makeopts
+	-$(RM) -f build-arch-stamp build-indep-stamp install-arch install-indep
+	-$(RM) -f config.status menuselect.makeopts
 
-	[ ! -f .version.bak ] || mv .version.bak .version
+	[ ! -f .version.debian_sav ] || mv .version.debian_sav .version
+
+	# these were generated while building
+	-$(RM) -f doc/core-en_US.xml utils/poll.c
 
 	dh_clean
 
@@ -142,12 +114,18 @@ install-arch: build-arch
 	dh_installdirs -s
 	
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) DESTDIR=$(CURDIR)/debian/tmp install
+	cp -a configs $(CURDIR)/debian/tmp/usr/share/asterisk/conf
 
 	dh_install -s --sourcedir=debian/tmp
 	dh_lintian -s
 
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/aelparse
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/conf2ael
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/muted
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/streamplayer
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/stereorize
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/hashtest*
+	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/refcounter
 	touch $@
 
 install-indep: build-indep
@@ -157,19 +135,28 @@ install-indep: build-indep
 	dh_installdirs -i
 
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) DESTDIR=$(CURDIR)/debian/tmp install samples
+	rm -rf $(CURDIR)/debian/tmp/usr/share/asterisk/sounds/es
+	rm -rf $(CURDIR)/debian/tmp/usr/share/asterisk/sounds/fr
+	mv $(CURDIR)/debian/tmp/usr/share/asterisk/sounds/en \
+	   $(CURDIR)/debian/tmp/usr/share/asterisk/sounds/en_US_f_Allison
 
 	dh_install -i --sourcedir=debian/tmp
 	dh_lintian -i
 
 	# create a simple config
-	echo "; please read doc/manager.txt" > $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d/README.conf
+	echo "; please read the documentation regarding the Manager Interface (asterisk-doc package)" > \
+		$(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d/README.conf
+	touch $@
 
-# Build architecture-independent files here.
+binary: binary-indep binary-arch
 binary-indep: install-indep
 	dh_testdir -i
 	dh_testroot -i
 	dh_installlogrotate -i 
 	dh_installdocs -i -XREADME.cygwin
+	mkdir $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/html
+	cp -a $(CURDIR)/doc/tex/asterisk/*.html $(CURDIR)/doc/tex/asterisk/*.png \
+	      $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/html
 	dh_installexamples -i
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
@@ -181,12 +168,10 @@ binary-indep: install-indep
 	chmod o-rwx $(CURDIR)/debian/asterisk-config/etc/asterisk/*
 	chmod o+rx  $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d
 	dh_installdeb -i
-	rm -rf $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/doc/api
 	dh_gencontrol -i
 	dh_md5sums -i
 	dh_builddeb -i
 
-# Build architecture-dependent files here.
 binary-arch: install-arch
 	dh_testdir -a
 	dh_testroot -a
@@ -211,33 +196,10 @@ print-version:
 	@@echo "Debian version:          $(DEBVERSION)"
 	@@echo "Upstream version:        $(UPVERSION)"
 
-TMP_TARBALL_TOP=../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)
 get-orig-source:
 	@@dh_testdir
 	@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
 	@@echo Downloading $(UPFILENAME) from $(URL) ...
-	@@wget -nv -T10 -t3 -O ../tarballs/$(UPFILENAME) $(URL)
-	@@echo Repacking as DFSG-free...
-	@@mkdir -p ../tarballs/asterisk-$(UPVERSION).tmp/
-	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
-	tar xfz ../$(UPFILENAME) 
-	@@rm -f  $(TMP_TARBALL_TOP)/sounds/fpm-*.mp3
-	@@rm -f  $(TMP_TARBALL_TOP)/sounds/asterisk-moh-freeplay-wav.tar.gz
-	@@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc/*
-	# in case the tarball is not clean:
-	@@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts
-	@@rm -rf $(TMP_TARBALL_TOP)/*/.*.makeopts
-	@@rm -rf $(TMP_TARBALL_TOP)/*/.moduleinfo
-	@@rm -rf $(TMP_TARBALL_TOP)/*/.*.moduleinfo
-	@@rm -rf $(TMP_TARBALL_TOP)/menuselect-tree
-	@@printf "all:\nclean:\n.PHONY: all clean\n" > \
-		$(TMP_TARBALL_TOP)/codecs/ilbc/Makefile
-	@@rm -f  $(TMP_TARBALL_TOP)/codecs/codec_ilbc.c
-	@@rm -rf $(TMP_TARBALL_TOP)/contrib/firmware/
-	@@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
-	tar cfz ../$(FILENAME) *
-	@@echo Cleaning up...
-	@@$(RM) -rf ../tarballs/asterisk-$(UPVERSION).tmp/
+	@@wget -nv -T10 -t3 -O ../tarballs/$(FILENAME) $(URL)
 
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary install clean patch unpatch
+.PHONY: build build-arch build-indep clean binary-indep binary-arch binary install clean
