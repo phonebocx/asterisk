@@ -1,3 +1,19 @@
+asterisk (1:1.8.0~rc5-1) unstable; urgency=low
+
+  * Switching to branch 1.8.
+  * Patch parser-mangles-include dropped: merged upstream.
+  * Patch dahdi-fxsks-hookstate dropped: merged upstream.
+  * Patch dahdi_ptmp_nt dropped: silly hack no longer needed.
+  * Patch dahdi_pri_debug_spannums dropped: merged upstream.
+  * Patch moh_datadir dropped: merged upstream.
+  * Patch settings_show_dirs dropped: merged upstream.
+  * Patch man_hyphen dropped: merged upstream.
+  * Patch typos dropped: merged upstream.
+  * Patch rtcp_cli_fix dropped: merged upstream.
+  * Sound files: version 1.4.20
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 20 Oct 2010 12:00:26 +0200
+
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
   [ Tzafrir Cohen ]
