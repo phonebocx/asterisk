@@ -1,4 +1,4 @@
-asterisk (1:1.8.0~rc5-1) unstable; urgency=low
+asterisk (1:1.8.0-1) unstable; urgency=low
 
   * Switching to branch 1.8.
   * Patch parser-mangles-include dropped: merged upstream.
@@ -12,7 +12,7 @@ asterisk (1:1.8.0~rc5-1) unstable; urgency=low
   * Patch rtcp_cli_fix dropped: merged upstream.
   * Sound files: version 1.4.20
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 20 Oct 2010 12:00:26 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 22 Oct 2010 14:07:59 +0200
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
