@@ -2,7 +2,7 @@ Subject: Add an option to safe_asterisk so that it won't background.
 Author: Faidon Liambotis <paravoid@debian.org>
 Bug-Debian: http://bugs.debian.org/376514
 Forwarded: not-needed
-Last-Update: 2009-12-19
+Last-Update: 2010-10-21
 
 This is intended to work with start-stop-daemon's --background option which
 results in a correct pidfile since the process doesn't fork.
@@ -16,7 +16,7 @@ init script. After that, it can safely go upstream.
  ASTSBINDIR=__ASTERISK_SBIN_DIR__
  ASTVARRUNDIR=__ASTERISK_VARRUN_DIR__
  ASTPIDFILE=${ASTVARRUNDIR}/asterisk.pid
-+BACKGROUND=0
++SAFE_AST_BACKGROUND=0
  
  # comment this line out to have this script _not_ kill all mpg123 processes when
  # asterisk exits
@@ -25,7 +25,7 @@ init script. After that, it can safely go upstream.
  }
  
 -run_asterisk &
-+if [ "$BACKGROUND" = "1" ]; then
++if [ "$SAFE_AST_BACKGROUND" = "1" ]; then
 +	run_asterisk &
 +else
 +	run_asterisk

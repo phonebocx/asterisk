@@ -50,7 +50,7 @@ Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-prompt-en, dahdi
+Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-prompt-en
 Provides: asterisk-1.6.2
 Recommends: sox
 Suggests: asterisk-doc, asterisk-dev, asterisk-h323
@@ -81,7 +81,7 @@ Description: Open Source Private Branch Exchange (PBX)
 Package: asterisk-h323
 Architecture: any
 Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
-Description: H.323 protocol support for Asterisk
+Description: H.323 protocol support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This channel driver (chan_h323) provides support for the H.323 protocol
@@ -92,6 +92,22 @@ Description: H.323 protocol support for Asterisk
  This is one of many H.323 channel implementations for Asterisk with others
  being chan_oh323 and chan_ooh323c, distributed by Debian as asterisk-oh323 and
  asterisk-ooh323c, respectively.
+ .
+ For more information about the Asterisk PBX, have a look at the Asterisk
+ package.
+
+Package: asterisk-dahdi
+Architecture: any
+Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}, dahdi
+Conflicts: asterisk (<<1.8.0)
+Replaces: asterisk (<<1.8.0)
+Description: DAHDI devices support for the Asterisk PBX
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package includes the DAHDI channel driver (chan_dahdi.so) and a
+ number of other Asterisk modules that require DAHDI support (app_meetme.so,
+ res_timing_dahdi.so). They will not be useful without kernel-level DAHDI
+ support.
  .
  For more information about the Asterisk PBX, have a look at the Asterisk
  package.

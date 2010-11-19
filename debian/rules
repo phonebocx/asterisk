@@ -187,6 +187,10 @@ binary-arch: install-arch
 	dh_fixperms -a
 	dh_installdeb -a
 	rm -f debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
+	rm -f debian/asterisk/usr/lib/asterisk/modules/app_meetme.so
+	rm -f debian/asterisk/usr/lib/asterisk/modules/chan_dahdi.so
+	rm -f debian/asterisk/usr/lib/asterisk/modules/codec_dahdi.so
+	rm -f debian/asterisk/usr/lib/asterisk/modules/res_timing_dahdi.so
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a

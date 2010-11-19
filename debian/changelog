@@ -11,8 +11,9 @@ asterisk (1:1.8.0-1) unstable; urgency=low
   * Patch typos dropped: merged upstream.
   * Patch rtcp_cli_fix dropped: merged upstream.
   * Sound files: version 1.4.20
+  * Extra sub-package asterisk-dahdi for the dahdi modules.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 22 Oct 2010 14:07:59 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 19 Nov 2010 02:17:58 +0200
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
