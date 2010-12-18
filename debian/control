@@ -99,7 +99,7 @@ Description: H.323 protocol support for the Asterisk PBX
 Package: asterisk-dahdi
 Architecture: any
 Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}, dahdi
-Conflicts: asterisk (<<1.8.0)
+Breaks: asterisk (<<1.8.0)
 Replaces: asterisk (<<1.8.0)
 Description: DAHDI devices support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
