@@ -154,9 +154,6 @@ binary-indep: install-indep
 	dh_testroot -i
 	dh_installlogrotate -i 
 	dh_installdocs -i -XREADME.cygwin
-	mkdir $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/html
-	cp -a $(CURDIR)/doc/tex/asterisk/*.html $(CURDIR)/doc/tex/asterisk/*.png \
-	      $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/html
 	dh_installexamples -i
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
