@@ -172,6 +172,10 @@ binary-indep: install-indep
 	dh_md5sums -i
 	dh_builddeb -i
 
+SUBPACKS_EXTRA = dahdi h323
+SUBPACKS_EXTRA_DIRS = $(SUBPACKS:%=$(CURDIR)/asterisk-%)
+SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
+
 binary-arch: install-arch
 	dh_testdir -a
 	dh_testroot -a
@@ -186,11 +190,9 @@ binary-arch: install-arch
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a
-	rm -f debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
-	rm -f debian/asterisk/usr/lib/asterisk/modules/app_meetme.so
-	rm -f debian/asterisk/usr/lib/asterisk/modules/chan_dahdi.so
-	rm -f debian/asterisk/usr/lib/asterisk/modules/codec_dahdi.so
-	rm -f debian/asterisk/usr/lib/asterisk/modules/res_timing_dahdi.so
+	extra_packs=`find $(SUBPACKS_EXTRA_DIRS_MOD) -name '*.so' -printf '%f\n'`\
+		    ; cd $(CURDIR)/debian/asterisk/usr/lib/asterisk/modules \
+		    && rm -f $$extra_packs
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a
