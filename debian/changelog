@@ -13,8 +13,9 @@ asterisk (1:1.8.1.1-1) unstable; urgency=low
   * Sound files: version 1.4.20
   * Extra sub-package asterisk-dahdi for the dahdi modules.
   * As of 1.8.1, AST.pdf and AST.txt are generated from the wiki.
+    - And thus no need for rubber at build time (Closes: #531551).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 19 Nov 2010 02:17:58 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 20 Dec 2010 00:41:07 +0200
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
