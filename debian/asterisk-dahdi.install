@@ -1,3 +1,5 @@
+usr/lib/asterisk/modules/app_dahdibarge.so
+usr/lib/asterisk/modules/app_dahdiras.so
 usr/lib/asterisk/modules/app_meetme.so
 usr/lib/asterisk/modules/chan_dahdi.so
 usr/lib/asterisk/modules/codec_dahdi.so
