@@ -52,7 +52,7 @@ Package: asterisk
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-prompt-en
 Provides: asterisk-1.6.2
-Recommends: sox
+Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage
 Suggests: asterisk-doc, asterisk-dev, asterisk-h323
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
@@ -108,6 +108,58 @@ Description: DAHDI devices support for the Asterisk PBX
  number of other Asterisk modules that require DAHDI support (app_meetme.so,
  res_timing_dahdi.so). They will not be useful without kernel-level DAHDI
  support.
+ .
+ For more information about the Asterisk PBX, have a look at the Asterisk
+ package.
+
+Package: asterisk-voicemail
+Architecture: any
+Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Provides: asterisk-vocemail-storage
+Conflicts: asterisk-vocemail-storage
+Breaks: asterisk (<<1.8.0)
+Replaces: asterisk (<<1.8.0)
+Description: simple voicemail support for the Asterisk PBX
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package includes the standard files-based voicemail storage. This
+ is normally the one you use and is the one that will Just Work. The only
+ reason not to install it is if you want to use a different Asterisk
+ voicemail storage (ODBC or IMAP).
+ .
+ For more information about the Asterisk PBX, have a look at the Asterisk
+ package.
+
+Package: asterisk-voicemail-imapstorage
+Architecture: any
+Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Provides: asterisk-vocemail-storage
+Conflicts: asterisk-vocemail-storage
+Breaks: asterisk (<<1.8.0)
+Replaces: asterisk (<<1.8.0)
+Description: IMAP voicemail storage support for the Asterisk PBX
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package includes an IMAP-based voicemail storage: storing the
+ voicemail in a remote IMAP mail boxes. While more complex to set up,
+ it may be useful in some settings.
+ .
+ For more information about the Asterisk PBX, have a look at the Asterisk
+ package.
+
+Package: asterisk-voicemail-odbcstorage
+Architecture: any
+Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Provides: asterisk-vocemail-storage
+Conflicts: asterisk-vocemail-storage
+Breaks: asterisk (<<1.8.0)
+Replaces: asterisk (<<1.8.0)
+Description: ODBC voicemail storage support for the Asterisk PBX
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package includes an database-based voicemail storage: storing the
+ voicemail in a database accessed through the ODBC interface. While more
+ complex to set up, it may be useful in some settings.
  .
  For more information about the Asterisk PBX, have a look at the Asterisk
  package.

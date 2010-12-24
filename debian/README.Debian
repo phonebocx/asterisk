@@ -119,6 +119,32 @@ Or:
 fallback sounds)
 
 
+Voicemail
+=========
+Asterisk has two separate implementations of the voicemail system: the
+original app_voicemail, and the newer minivm. Minivm is more modular (you
+can define your own voicemail IVRs). Though it only supports the simple
+files-backed voicemail storage.
+
+Voicemail has three separate backends: the simple files-based storage,
+a database storage ("ODBC") and a mail-server-backed one (IMAP). The
+latter two have some advantages of their own, but are more complicated
+to set up. Originally those three were three build-time variants. One of
+them had to be selected at build time.
+
+In the Squeeze (1.6.2) packages, the Debian packages worked around this
+by building all three variants (app_voicemail.so, app_voicemail_odbc.so
+and app_voicemail_imap.so). The modules still can't co-exist, and thus
+at least two of those three had to be disabled (in modules.conf ).
+
+As of the Wheezy packages (1.8), we use separate and conflicting binary
+packages: asterisk-voicemail, asterisk-voicemail-imapstorage and
+asterisk-voicemail-odbcstorage. All three Provide
+'asterisk-voicemail-storage'. The generated modules have been renamed
+like the packages, following the names used by the same packages in the
+RPM packages provided by upstream.
+
+
 Missing Modules
 ===============
 The following modules are included in the source tree of Asterisk but 
