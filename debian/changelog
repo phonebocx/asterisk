@@ -1,3 +1,9 @@
+asterisk (1:1.6.2.9-3) unstable; urgency=low
+
+  * AST-2011-001
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 17 Jan 2011 21:54:08 +0200
+
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
   [ Tzafrir Cohen ]
