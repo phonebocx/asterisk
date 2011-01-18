@@ -1,8 +1,8 @@
 asterisk (1:1.6.2.9-3) UNRELEASED; urgency=low
 
-  * AST-2011-001
+  * AST-2011-001: URI-encode buffer overflow (Closes: #610487).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 17 Jan 2011 21:54:08 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 19 Jan 2011 01:48:21 +0200
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
