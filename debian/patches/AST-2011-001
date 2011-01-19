@@ -1,11 +1,17 @@
 Description: Prevent buffer overflows in ast_uri_encode()
-Origin: http://svnview.digium.com/svn/asterisk?view=revision&revision=302147
+Origin: http://downloads.asterisk.org/pub/security/AST-2011-001-1.6.2.diff
+Bug-Debian: http://bugs.debian.org/610487
 
-Index: main/utils.c
-===================================================================
---- a/main/utils.c	(revision 302146)
-+++ b/main/utils.c	(revision 302147)
-@@ -386,28 +386,27 @@
+When forming an outgoing SIP request while in pedantic mode, a stack
+buffer can be made to overflow if supplied with carefully crafted caller
+ID information. This vulnerability also affects the URIENCODE dialplan
+function and in some versions of asterisk, the AGI dialplan application
+as well. The ast_uri_encode function does not properly respect the size
+of its output buffer and can write past the end of it when encoding URIs.
+
+--- a/main/utils.c
++++ b/main/utils.c
+@@ -385,28 +385,27 @@ char *ast_uri_encode(const char *string,
  	char *reserved = ";/?:@&=+$,# ";	/* Reserved chars */
  
   	const char *ptr  = string;	/* Start with the string */
@@ -47,4 +53,3 @@ Index: main/utils.c
  	return outbuf;
  }
  
-

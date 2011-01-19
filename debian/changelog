@@ -1,6 +1,6 @@
-asterisk (1:1.6.2.9-3) UNRELEASED; urgency=low
+asterisk (1:1.6.2.9-3) unstable; urgency=high
 
-  * AST-2011-001: URI-encode buffer overflow (Closes: #610487).
+  * CVE-2011-0495: URI-encode buffer overflow (Closes: #610487).
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 19 Jan 2011 01:48:21 +0200
 
