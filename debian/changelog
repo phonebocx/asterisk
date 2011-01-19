@@ -1,8 +1,9 @@
 asterisk (1:1.6.2.9-3) unstable; urgency=high
 
   * CVE-2011-0495: URI-encode buffer overflow (Closes: #610487).
+  * Document rasterisk in asterisk.8 (Closes: #562140).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 19 Jan 2011 01:48:21 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 20 Jan 2011 01:26:15 +0200
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 

@@ -1,0 +1,31 @@
+Description: asterisk.8: document rasterisk
+Bug-Debian: http://bugs.debian.org/562140
+Upstream: no
+Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+
+A simple documentation fix. Should be included upstream soon.
+
+--- a/doc/asterisk.8
++++ b/doc/asterisk.8
+@@ -12,7 +12,9 @@ asterisk \- All-purpose telephony server
+ \fBasterisk\fR [ \fB\-tThfdvVqpRgciIn\fR ] [ \fB\-C \fIfile\fB\fR ] [ \fB\-U \fIuser\fB\fR ] [ \fB\-G \fIgroup\fB\fR ] [ \fB\-x \fIcommand\fB\fR ] [ \fB\-M \fIvalue\fB\fR ]
+ 
+ 
+-\fBasterisk \-r\fR [ \fB\-v\fR ] [ \fB\-x \fIcommand\fB\fR ] [ \fB\-s \fIsocket\fB\fR ]
++\fBasterisk \<-r|-R>\fR [ \fB\-v\fR ] [ \fB\-x \fIcommand\fB\fR ] [ \fB\-s \fIsocket\fB\fR ]
++
++\fBrasterisk\fR [ \fB\-v\fR ] [ \fB\-x \fIcommand\fB\fR ] [ \fB\-s \fIsocket\fB\fR ]
+ 
+ .SH "DESCRIPTION"
+ .PP
+@@ -37,6 +39,10 @@ options, Asterisk supplies a powerful co
+ completion, which may be used to monitors its status, perform a variety
+ of administrative actions and even explore the applications that are
+ currently loaded into the system.
++
++When run as 
++.B rasterisk
++Asterisk behaves as if run with the option \fB-r\fR
+ .PP
+ Asterisk is a trademark of Digium, Inc.
+ .SH "OPTIONS"
