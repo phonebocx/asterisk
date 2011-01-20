@@ -25,5 +25,6 @@ h323-extra-target
 man_hyphen
 typos
 rtcp_cli_fix
+pri_fix_no_dchan_flood
 AST-2011-001
 rasterisk_man
