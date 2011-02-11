@@ -11,7 +11,7 @@ asterisk (1:1.8.2.3-1) unstable; urgency=low
   * Patch typos dropped: merged upstream.
   * Patch rtcp_cli_fix dropped: merged upstream.
   * Sound files: version 1.4.20
-  * Extra sub-package asterisk-dahdi for the dahdi modules.
+  * Extra sub-package asterisk-dahdi for the dahdi modules (Closes: #590588).
   * As of 1.8.1, AST.pdf and AST.txt are generated from the wiki.
     - And thus no need for rubber at build time (Closes: #531551).
   * Separate sub-packages for voicemail backends:
