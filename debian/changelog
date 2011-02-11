@@ -1,4 +1,4 @@
-asterisk (1:1.8.2.1-1) unstable; urgency=low
+asterisk (1:1.8.2.3-1) unstable; urgency=low
 
   * Switching to branch 1.8.
   * Patch parser-mangles-include dropped: merged upstream.
