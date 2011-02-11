@@ -16,3 +16,4 @@ astgenkey-security
 # bugfixes on top of everything
 sound_files
 h323-extra-target
+enable_addons

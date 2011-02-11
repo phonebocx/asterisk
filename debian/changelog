@@ -17,8 +17,13 @@ asterisk (1:1.8.2.3-1) unstable; urgency=low
   * Separate sub-packages for voicemail backends:
     - asterisk-voicemail{,-{imap,odbc}storage}
     - And rename the modules accordingly.
+  * asterisk-mysql, asterisk-mobile, asterisk-mp3, asterisk-ooh323:
+    - asterisk-addons was merged into Asterisk.
+    - Patch enable_addons: do build those modules.
+    - Also app_saycountpl, which will go into the mian package.
+    - asterisk-mp3 does not build for now, empty package.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 24 Dec 2010 15:22:58 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 11 Feb 2011 02:08:28 +0200
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 

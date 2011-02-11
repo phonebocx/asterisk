@@ -170,7 +170,8 @@ binary-indep: install-indep
 	dh_builddeb -i
 
 SUBPACKS_EXTRA = dahdi h323 \
-		 voicemail voicemail-odbcstorage voicemail-imapstorage
+		 voicemail voicemail-odbcstorage voicemail-imapstorage \
+		 ooh323 mysql mp3 mobile
 SUBPACKS_EXTRA_DIRS = $(SUBPACKS_EXTRA:%=$(CURDIR)/debian/asterisk-%)
 SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
 
