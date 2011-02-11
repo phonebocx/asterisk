@@ -4,6 +4,5 @@
   real-time priority.
 * Canary is not killed when Asterisk is stopped.
 * Some man pages to write.
-* Remove the TeX sources from the package asterisk-doc .
-* Package sound files properly. Maybe in a separate package altogether?
-  See also patch make-clean-fixes.
+* Is it OK to ship AST.{pdf,txt}?
+* Get rid of the lump of code in patch mpglib. Rewrite using code from mpg123?

@@ -70,3 +70,13 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
   ***/
  
  #include "asterisk.h"
+--- a/addons/format_mp3.c
++++ b/addons/format_mp3.c
+@@ -28,7 +28,6 @@
+  */
+ 
+ /*** MODULEINFO
+-	<defaultenabled>no</defaultenabled>
+  ***/
+ 
+ #include "asterisk.h"
