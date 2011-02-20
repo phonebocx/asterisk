@@ -1,5 +1,6 @@
 asterisk (1:1.8.2.3-1) unstable; urgency=low
 
+  [ Tzafrir Cohen ]
   * Switching to branch 1.8.
   * Patch parser-mangles-include dropped: merged upstream.
   * Patch dahdi-fxsks-hookstate dropped: merged upstream.
@@ -23,7 +24,10 @@ asterisk (1:1.8.2.3-1) unstable; urgency=low
     - Also app_saycountpl, which will go into the mian package.
     - Patch mpglib: mpglib from asterisk-addons, originally.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 11 Feb 2011 02:08:28 +0200
+  [ Paul Belanger ]
+  * Depend on libneon27-dev and libical-dev for calendar support.
+
+ -- Paul Belanger <pabelanger@digium.com>  Sat, 19 Feb 2011 19:54:24 -0500
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
