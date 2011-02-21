@@ -46,6 +46,7 @@ Build-Depends: quilt,
  libopenais-dev,
  libneon27-dev,
  libical-dev,
+ libsrtp0-dev,
  zlib1g-dev
 Standards-Version: 3.9.0
 Homepage: http://www.asterisk.org/

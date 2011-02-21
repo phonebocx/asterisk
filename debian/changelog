@@ -26,8 +26,9 @@ asterisk (1:1.8.2.3-1) unstable; urgency=low
 
   [ Paul Belanger ]
   * Depend on libneon27-dev and libical-dev for calendar support.
+  * Depend on libsrtp0-dev for SRTP support.
 
- -- Paul Belanger <pabelanger@digium.com>  Sat, 19 Feb 2011 19:54:24 -0500
+ -- Paul Belanger <pabelanger@digium.com>  Mon, 21 Feb 2011 11:33:47 -0500
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
