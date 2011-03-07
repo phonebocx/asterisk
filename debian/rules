@@ -89,9 +89,9 @@ clean:
 	
 	# The clean target seems to be run before patches are applied.
 	# A brute-force fix to keep the tarball from getting deleted:
-	mv sounds/asterisk-core-sounds-en-gsm-1.4.19.tar.gz debian/
+	mv sounds/asterisk-core-sounds-en-gsm-1.4.20.tar.gz debian/
 	GREP=grep AWK=awk $(MAKE) distclean
-	mv debian/asterisk-core-sounds-en-gsm-1.4.19.tar.gz sounds/
+	mv debian/asterisk-core-sounds-en-gsm-1.4.20.tar.gz sounds/
 	-$(RM) -rf debian/build
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
@@ -154,9 +154,6 @@ binary-indep: install-indep
 	dh_testroot -i
 	dh_installlogrotate -i 
 	dh_installdocs -i -XREADME.cygwin
-	mkdir $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/html
-	cp -a $(CURDIR)/doc/tex/asterisk/*.html $(CURDIR)/doc/tex/asterisk/*.png \
-	      $(CURDIR)/debian/asterisk-doc/usr/share/doc/asterisk-doc/html
 	dh_installexamples -i
 	dh_installcron -i
 	dh_installchangelogs ChangeLog -i
@@ -172,6 +169,12 @@ binary-indep: install-indep
 	dh_md5sums -i
 	dh_builddeb -i
 
+SUBPACKS_EXTRA = dahdi h323 \
+		 voicemail voicemail-odbcstorage voicemail-imapstorage \
+		 ooh323 mysql mp3 mobile
+SUBPACKS_EXTRA_DIRS = $(SUBPACKS_EXTRA:%=$(CURDIR)/debian/asterisk-%)
+SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
+
 binary-arch: install-arch
 	dh_testdir -a
 	dh_testroot -a
@@ -186,7 +189,9 @@ binary-arch: install-arch
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a
-	rm -f debian/asterisk/usr/lib/asterisk/modules/chan_h323.so
+	extra_packs=`find $(SUBPACKS_EXTRA_DIRS_MOD) -name '*.so' -printf '%f\n'`\
+		    ; cd $(CURDIR)/debian/asterisk/usr/lib/asterisk/modules \
+		    && rm -f $$extra_packs
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a
@@ -199,7 +204,7 @@ print-version:
 get-orig-source:
 	@@dh_testdir
 	@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
-	@@echo Downloading $(UPFILENAME) from $(URL) ...
+	@@echo Downloading $(FILENAME) from $(URL) ...
 	@@wget -nv -T10 -t3 -O ../tarballs/$(FILENAME) $(URL)
 
 .PHONY: build build-arch build-indep clean binary-indep binary-arch binary install clean

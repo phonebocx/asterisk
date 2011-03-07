@@ -1,5 +1,4 @@
 # fixed upstream
-parser-mangles-include
 
 # upstream fixes
 allow-tilde-destdir
@@ -15,16 +14,7 @@ h323-workaround-openh323-segfault
 astgenkey-security
 
 # bugfixes on top of everything
-dahdi-fxsks-hookstate
-dahdi_ptmp_nt
-dahdi_pri_debug_spannums
 sound_files
-moh_datadir
-settings_show_dirs
 h323-extra-target
-man_hyphen
-typos
-rtcp_cli_fix
-pri_fix_no_dchan_flood
-AST-2011-001
-rasterisk_man
+mpglib
+enable_addons

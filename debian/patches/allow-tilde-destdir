@@ -6,7 +6,7 @@ Last-Update: 2009-12-19
 badshell is disallowing tildes (~) in the DESTDIR directory to warn people
 who use a shell that doesn't expand it to $HOMEDIR.
 
-However, we have such a tilde in our directory (~dfsg) that isn't expanded
+However, we have such a tilde in our directory (~rcN) that isn't expanded
 to $HOMEDIR nor shouldn't be.
 
 This patch relaxes this test just for cases where the ~ is followed by a '/',

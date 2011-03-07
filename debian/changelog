@@ -1,11 +1,34 @@
-asterisk (1:1.6.2.9-3) unstable; urgency=high
+asterisk (1:1.8.2.3-1) unstable; urgency=low
 
-  * CVE-2011-0495: URI-encode buffer overflow (Closes: #610487).
-  * Document rasterisk in asterisk.8 (Closes: #562140).
-  * Patch pri_fix_no_dchan_flood: Avoid a console flood with unplugged ISDN
-    ports.
+  [ Tzafrir Cohen ]
+  * Switching to branch 1.8.
+  * Patch parser-mangles-include dropped: merged upstream.
+  * Patch dahdi-fxsks-hookstate dropped: merged upstream.
+  * Patch dahdi_ptmp_nt dropped: silly hack no longer needed.
+  * Patch dahdi_pri_debug_spannums dropped: merged upstream.
+  * Patch moh_datadir dropped: merged upstream.
+  * Patch settings_show_dirs dropped: merged upstream.
+  * Patch man_hyphen dropped: merged upstream.
+  * Patch typos dropped: merged upstream.
+  * Patch rtcp_cli_fix dropped: merged upstream.
+  * Sound files: version 1.4.20
+  * Extra sub-package asterisk-dahdi for the dahdi modules (Closes: #590588).
+  * As of 1.8.1, AST.pdf and AST.txt are generated from the wiki.
+    - And thus no need for rubber at build time (Closes: #531551).
+  * Separate sub-packages for voicemail backends:
+    - asterisk-voicemail{,-{imap,odbc}storage}
+    - And rename the modules accordingly.
+  * asterisk-mysql, asterisk-mobile, asterisk-mp3, asterisk-ooh323:
+    - asterisk-addons was merged into Asterisk.
+    - Patch enable_addons: do build those modules.
+    - Also app_saycountpl, which will go into the mian package.
+    - Patch mpglib: mpglib from asterisk-addons, originally.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 20 Jan 2011 01:51:38 +0200
+  [ Paul Belanger ]
+  * Depend on libneon27-dev and libical-dev for calendar support.
+  * Depend on libsrtp0-dev for SRTP support.
+
+ -- Paul Belanger <pabelanger@digium.com>  Mon, 21 Feb 2011 11:33:47 -0500
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
