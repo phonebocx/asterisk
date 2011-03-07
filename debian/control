@@ -44,7 +44,7 @@ Build-Depends: quilt,
  libopenr2-dev,
  libresample1-dev,
  libopenais-dev,
- libneon27-dev,
+ libneon27-gnutls-dev | libneon27-dev,
  libical-dev,
  libsrtp0-dev,
  zlib1g-dev
@@ -55,7 +55,7 @@ Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-prompt-en
+Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, asterisk-modules (= ${source:Version}), adduser, asterisk-prompt-en
 Provides: asterisk-1.8
 Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage
 Suggests: asterisk-doc, asterisk-dev, asterisk-h323
@@ -82,6 +82,18 @@ Description: Open Source Private Branch Exchange (PBX)
  .
  This is the main package that includes the Asterisk daemon and most channel
  drivers and applications.
+
+Package: asterisk-modules
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Breaks: asterisk (<<1.8.3)
+Section: libs
+Replaces: asterisk (<<1.8.3)
+Description: loadable modules for the Asterisk PBX
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package includes most of the loadable modules of the Asterisk package.
+ There is normally no need to explicitly install it.
 
 Package: asterisk-h323
 Architecture: any

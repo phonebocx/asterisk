@@ -1,4 +1,4 @@
-asterisk (1:1.8.2.3-1) unstable; urgency=low
+asterisk (1:1.8.3-1) unstable; urgency=low
 
   [ Tzafrir Cohen ]
   * Switching to branch 1.8.
@@ -12,6 +12,7 @@ asterisk (1:1.8.2.3-1) unstable; urgency=low
   * Patch typos dropped: merged upstream.
   * Patch rtcp_cli_fix dropped: merged upstream.
   * Sound files: version 1.4.20
+  * Separate sub-package asterisk-modules to avoid multiarch issues.
   * Extra sub-package asterisk-dahdi for the dahdi modules (Closes: #590588).
   * As of 1.8.1, AST.pdf and AST.txt are generated from the wiki.
     - And thus no need for rubber at build time (Closes: #531551).
@@ -28,7 +29,7 @@ asterisk (1:1.8.2.3-1) unstable; urgency=low
   * Depend on libneon27-dev and libical-dev for calendar support.
   * Depend on libsrtp0-dev for SRTP support.
 
- -- Paul Belanger <pabelanger@digium.com>  Mon, 21 Feb 2011 11:33:47 -0500
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 07 Mar 2011 17:34:35 +0200
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
