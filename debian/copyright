@@ -144,22 +144,28 @@ Public License can be found in `/usr/share/common-licenses/GPL-2'.
 
 Other portions of code:
 
-aescrypt.c: Copyright (c) 2003, Dr Brian Gladman <brg@gladman.me.uk>,
+main/aescrypt.c: Copyright (c) 2003, Dr Brian Gladman <brg@gladman.me.uk>,
  Worcester, UK.
-aeskey.c: Copyright (c) 2003, Dr Brian Gladman <brg@gladman.me.uk>,
+main/aeskey.c: Copyright (c) 2003, Dr Brian Gladman <brg@gladman.me.uk>,
  Worcester, UK.
-dlfcn.c:Copyright (c) 2002 Jorge Acereda  <jacereda@users.sourceforge.net> &
+main/dlfcn.c:Copyright (c) 2002 Jorge Acereda  <jacereda@users.sourceforge.net> &
                    Peter O'Gorman <ogorman@users.sourceforge.net>
-dns.c: * Copyright (C) 1999 - 2005 Thorsten Lockert
-dnsmgr.c: * Copyright (C) 2005, Kevin P. Fleming
-dsp.c:        Copyright (C) 2001  Steve Underwood <steveu@coppice.org>
-indications.c: * Copyright (C) 2002, Pauline Middelink
-jitterbuf.c: * Copyright (C) 2004-2005, Horizon Wimba, Inc.
-jitterbuf.h: * Copyright (C) 2004-2005, Horizon Wimba, Inc.
-md5.c: * written by Colin Plumb in 1993, no copyright is claimed.
-plc.c: * Copyright (C) 2004 Steve Underwood
-poll.c:		Copyright (c) 1995-2002 Brian M. Clapper
-slinfactory.c: * Copyright (C) 2005, Anthony Minessale II.
+main/dns.c: * Copyright (C) 1999 - 2005 Thorsten Lockert
+main/dnsmgr.c: * Copyright (C) 2005, Kevin P. Fleming
+main/dsp.c:        Copyright (C) 2001  Steve Underwood <steveu@coppice.org>
+main/indications.c: * Copyright (C) 2002, Pauline Middelink
+main/jitterbuf.c: * Copyright (C) 2004-2005, Horizon Wimba, Inc.
+main/jitterbuf.h: * Copyright (C) 2004-2005, Horizon Wimba, Inc.
+main/md5.c: * written by Colin Plumb in 1993, no copyright is claimed.
+main/plc.c: * Copyright (C) 2004 Steve Underwood
+main/poll.c:		Copyright (c) 1995-2002 Brian M. Clapper
+main/slinfactory.c: * Copyright (C) 2005, Anthony Minessale II.
+addons/app_mysql.c: Copyright (C) 2004, Constantine Filin and Christos Ricudis
+addons/app_saycountpl.c: * Copyright (C) 2004, Andy Powell & TAAN Softworks Corp.
+addons/chan_mobile.c: * Copyright (C) 1999 - 2006, Digium, Inc.
+addons/chan_ooh323.c: * Copyright (C) 2004-2005 by Objective Systems, Inc.
+addons/ooh323cDriver.c: * Copyright (C) 2004-2005 by Objective Systems, Inc.
+addons/ooh323cDriver.h: * Copyright (C) 2004-2005 by Objective Systems, Inc.
 apps/app_alarmreceiver.c: * Copyright (C)  2004 - 2005 Steve Rodgers
 apps/app_chanspy.c: * Copyright (C) 2005 Anthony Minessale II
  (anthmct@yahoo.com)
