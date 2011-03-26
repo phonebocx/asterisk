@@ -18,3 +18,4 @@ sound_files
 h323-extra-target
 mpglib
 enable_addons
+gmime-2.4

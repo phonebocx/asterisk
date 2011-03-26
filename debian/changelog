@@ -1,7 +1,7 @@
-asterisk (1:1.8.3-1) unstable; urgency=low
+asterisk (1:1.8.3.2-1) unstable; urgency=high
 
   [ Tzafrir Cohen ]
-  * Switching to branch 1.8.
+  * Switching to branch 1.8 (Closes: #610487, #614580, #618790, #618791).
   * Patch parser-mangles-include dropped: merged upstream.
   * Patch dahdi-fxsks-hookstate dropped: merged upstream.
   * Patch dahdi_ptmp_nt dropped: silly hack no longer needed.
@@ -24,12 +24,14 @@ asterisk (1:1.8.3-1) unstable; urgency=low
     - Patch enable_addons: do build those modules.
     - Also app_saycountpl, which will go into the mian package.
     - Patch mpglib: mpglib from asterisk-addons, originally.
+  * Patch gmime-2.4: fixes building with gmime 2.4 (Closes: #549054).
+    - Requires re-generating configure script.
 
   [ Paul Belanger ]
   * Depend on libneon27-dev and libical-dev for calendar support.
   * Depend on libsrtp0-dev for SRTP support.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 07 Mar 2011 17:34:35 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 26 Mar 2011 13:41:36 +0200
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
