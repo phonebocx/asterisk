@@ -81,7 +81,7 @@ build-arch: build-arch-stamp
 build-arch-stamp: config.status
 	dh_testdir
 	$(MAKE) menuselect.makeopts
-        @if [ "x${ENABLE_DEBUG}" != "x" ] ; then \
+	@if [ "x${ENABLE_DEBUG}" != "x" ] ; then \
 		menuselect/menuselect --enable DONT_OPTIMIZE menuselect.makeopts ; \
 		menuselect/menuselect --enable DEBUG_THREADS menuselect.makeopts ; \
 	fi
