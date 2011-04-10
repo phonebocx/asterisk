@@ -41,7 +41,7 @@ upstream RPM packages include packages that are only somewhat cleaner.
 +	$(call add_depends_cmd,unixodbc) $@
 +	$(call add_depends_cmd,ltdl) $@
 +
-+clean::
++dist-clean::
 +	rm -f app_voicemail_*.c
 +
 +app_voicemail_imapstorage.o: _ASTCFLAGS+=-DIMAP_STORAGE

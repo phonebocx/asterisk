@@ -30,8 +30,11 @@ asterisk (1:1.8.3.2-1) unstable; urgency=high
   [ Paul Belanger ]
   * Depend on libneon27-dev and libical-dev for calendar support.
   * Depend on libsrtp0-dev for SRTP support.
+  * When compiling with DEB_BUILD_OPTIONS="debug" enable native Asterisk
+    debugging tools.  Specifically DONT_OPTIMIZE, DEBUG_THREADS and
+    --enable-dev-mode.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 26 Mar 2011 13:41:36 +0200
+ -- Paul Belanger <pabelanger@digium.com>  Thu, 07 Apr 2011 19:34:18 -0400
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
