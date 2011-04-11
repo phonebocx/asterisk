@@ -202,7 +202,7 @@ binary-arch: install-arch
 	dh_fixperms -a
 	dh_installdeb -a
 	extra_packs=`find $(SUBPACKS_EXTRA_DIRS_MOD) -name '*.so' -printf '%f\n'`\
-		    ; cd $(CURDIR)/debian/asterisk/usr/lib/asterisk/modules \
+		    ; cd $(CURDIR)/debian/asterisk-modules/usr/lib/asterisk/modules \
 		    && rm -f $$extra_packs
 	dh_shlibdeps -a
 	dh_gencontrol -a
