@@ -20,3 +20,4 @@ mpglib
 enable_addons
 gmime-2.4
 openssl10
+no_ssl2

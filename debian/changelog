@@ -27,6 +27,7 @@ asterisk (1:1.8.3.2-1) unstable; urgency=high
   * Patch gmime-2.4: fixes building with gmime 2.4 (Closes: #549054).
     - Requires re-generating configure script.
   * Patch openssl10: Fix detection of openssl 1.0.
+  * Patch no_ssl2: Don't require client-side SSL2 support.
   * include menuselect.makeopts in the docs directory - let us know what
     modules were not built.
 
