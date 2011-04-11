@@ -132,17 +132,20 @@ latter two have some advantages of their own, but are more complicated
 to set up. Originally those three were three build-time variants. One of
 them had to be selected at build time.
 
-In the Squeeze (1.6.2) packages, the Debian packages worked around this
-by building all three variants (app_voicemail.so, app_voicemail_odbc.so
-and app_voicemail_imap.so). The modules still can't co-exist, and thus
-at least two of those three had to be disabled (in modules.conf ).
+As of Wheezy (1.8), Debian provides those variants as three separate
+and conflicting sub-packages: astrisk-voicemail,
+astrisk-voicemail-imapstorage and asterisk-voicemail-odbcstorage. Each
+of them includes app_voicemail.so, though built with different options.
 
-As of the Wheezy packages (1.8), we use separate and conflicting binary
-packages: asterisk-voicemail, asterisk-voicemail-imapstorage and
-asterisk-voicemail-odbcstorage. All three Provide
-'asterisk-voicemail-storage'. The generated modules have been renamed
-like the packages, following the names used by the same packages in the
-RPM packages provided by upstream.
+Note that some previous versions (specifically the Squeeze 1.6.2 versions)
+included all three modules in the main package with different names.
+This required explicit 'noload' lines in /etc/asterisk/modules.conf .
+Those are no longer needed. Though you should make sure you have no
+leftover line 'noload => app_voicemail.so'.
+
+Also note that the debug information for the IMAP and ODBC voicemail
+modules has an incorrect name. This may mean that traces using them may
+have invalid information.
 
 
 Missing Modules
