@@ -26,6 +26,9 @@ asterisk (1:1.8.3.2-1) unstable; urgency=high
     - Patch mpglib: mpglib from asterisk-addons, originally.
   * Patch gmime-2.4: fixes building with gmime 2.4 (Closes: #549054).
     - Requires re-generating configure script.
+  * Patch openssl10: Fix detection of openssl 1.0.
+  * include menuselect.makeopts in the docs directory - let us know what
+    modules were not built.
 
   [ Paul Belanger ]
   * Depend on libneon27-dev and libical-dev for calendar support.
@@ -34,7 +37,7 @@ asterisk (1:1.8.3.2-1) unstable; urgency=high
     debugging tools.  Specifically DONT_OPTIMIZE, DEBUG_THREADS and
     --enable-dev-mode.
 
- -- Paul Belanger <pabelanger@digium.com>  Thu, 07 Apr 2011 19:34:18 -0400
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 11 Apr 2011 12:44:47 +0300
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
