@@ -153,9 +153,11 @@ Missing Modules
 The following modules are included in the source tree of Asterisk but 
 were not built:
 
+* apps/app_fax.c: Disabled by default. Obsolete. res_fax does this now.
 * apps/app_ivrdemo.c: Disabled by default. Demo code.
-* apps/app_jack.c: Depends on libresample. See TODO.Debian .
+* apps/app_osplookup.c: osptk needed.
 * apps/app_rpt.c: Disabled by default. Not popular. Potential quality issues.
+* apps/app_saycounted.c: Disabled by default.
 * apps/app_skel.c: Disabled by default. Demo code.
 * channels/chan_misdn.c: mISDN (1.x) only included in Experimental. See
   package misdn-user.
@@ -163,9 +165,13 @@ were not built:
   specific and not really useful.
 * channels/chan_usbradio: Disabled by default. Not popular. Potential 
   quality issues.
-* codecs/codec_resample.c: Depends on libresample. See TODO.Debian .
-* pbx/pbx_gtkconsole.c: Disabled by default. Mostly pointless and adss 
-  unnecessary dependencies.
+* codecs/codec_ilbc.c: Disabled by default. Patent issues.
+* res/res_pktccops.c: Disabled by default.
+* res/res_timing_kqueue.c: Wrong kernel.
+
+You can compare that to the list of modules disabled by the Asterisk build
+system at build time, that is copied to
+/usr/share/doc/asterisk/menuselect.makeopts .
 
 
 DAHDI PtMP NT
