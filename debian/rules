@@ -138,6 +138,13 @@ install-arch: build-arch
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/stereorize
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/hashtest*
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/refcounter
+
+	# Rename dh_install file for -imapstorage and -odbcstorage.
+	mv $(CURDIR)/debian/asterisk-voicemail-imapstorage/usr/lib/asterisk/modules/app_voicemail_imapstorage.so \
+		$(CURDIR)/debian/asterisk-voicemail-imapstorage/usr/lib/asterisk/modules/app_voicemail.so
+	mv $(CURDIR)/debian/asterisk-voicemail-odbcstorage/usr/lib/asterisk/modules/app_voicemail_odbcstorage.so \
+		$(CURDIR)/debian/asterisk-voicemail-odbcstorage/usr/lib/asterisk/modules/app_voicemail.so
+
 	touch $@
 
 install-indep: build-indep

@@ -37,8 +37,12 @@ asterisk (1:1.8.3.2-1) unstable; urgency=high
   * When compiling with DEB_BUILD_OPTIONS="debug" enable native Asterisk
     debugging tools.  Specifically DONT_OPTIMIZE, DEBUG_THREADS and
     --enable-dev-mode.
+  * Regardless of which asterisk-voicemail-* is installed (each package
+    conflicts on each other), the name of the module is now
+    app_voicemail.so.
+  * Fix a bug with app_voicemail-*.exports.in not being copied properly.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 11 Apr 2011 12:44:47 +0300
+ -- Paul Belanger <pabelanger@digium.com>  Tue, 12 Apr 2011 13:05:58 -0400
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
