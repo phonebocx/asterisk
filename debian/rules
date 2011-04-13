@@ -118,6 +118,12 @@ clean:
 
 	dh_clean
 
+SUBPACKS_EXTRA = dahdi h323 \
+		 voicemail voicemail-odbcstorage voicemail-imapstorage \
+		 ooh323 mysql mp3 mobile
+SUBPACKS_EXTRA_DIRS = $(SUBPACKS_EXTRA:%=$(CURDIR)/debian/asterisk-%)
+SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
+
 install: install-arch install-indep
 install-arch: build-arch
 	dh_testdir
@@ -138,6 +144,10 @@ install-arch: build-arch
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/stereorize
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/hashtest*
 	$(RM) -f $(CURDIR)/debian/asterisk/usr/sbin/refcounter
+
+	extra_packs=`find $(SUBPACKS_EXTRA_DIRS_MOD) -name '*.so' -printf '%f\n'`\
+		    ; cd $(CURDIR)/debian/asterisk-modules/usr/lib/asterisk/modules \
+		    && rm -f $$extra_packs
 
 	# Rename dh_install file for -imapstorage and -odbcstorage.
 	mv $(CURDIR)/debian/asterisk-voicemail-imapstorage/usr/lib/asterisk/modules/app_voicemail_imapstorage.so \
@@ -188,12 +198,6 @@ binary-indep: install-indep
 	dh_md5sums -i
 	dh_builddeb -i
 
-SUBPACKS_EXTRA = dahdi h323 \
-		 voicemail voicemail-odbcstorage voicemail-imapstorage \
-		 ooh323 mysql mp3 mobile
-SUBPACKS_EXTRA_DIRS = $(SUBPACKS_EXTRA:%=$(CURDIR)/debian/asterisk-%)
-SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
-
 binary-arch: install-arch
 	dh_testdir -a
 	dh_testroot -a
@@ -208,9 +212,6 @@ binary-arch: install-arch
 	dh_compress -a
 	dh_fixperms -a
 	dh_installdeb -a
-	extra_packs=`find $(SUBPACKS_EXTRA_DIRS_MOD) -name '*.so' -printf '%f\n'`\
-		    ; cd $(CURDIR)/debian/asterisk-modules/usr/lib/asterisk/modules \
-		    && rm -f $$extra_packs
 	dh_shlibdeps -a
 	dh_gencontrol -a
 	dh_md5sums -a
