@@ -57,7 +57,7 @@ Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, asterisk-modules (= ${source:Version}), adduser, asterisk-prompt-en, asterisk-voicemail | asterisk-voicemail-odbcstorage | asterisk-voicemail-imapstorage 
+Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, asterisk-modules (= ${binary:Version}), adduser, asterisk-prompt-en, asterisk-voicemail | asterisk-voicemail-odbcstorage | asterisk-voicemail-imapstorage 
 Provides: asterisk-1.8
 Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage
 Suggests: asterisk-doc, asterisk-dev, asterisk-h323
