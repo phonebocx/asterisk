@@ -1,4 +1,4 @@
-asterisk (1:1.8.3.2-1) unstable; urgency=high
+asterisk (1:1.8.3.3-1) unstable; urgency=high
 
   [ Tzafrir Cohen ]
   * Switching to branch 1.8 (Closes: #610487, #614580, #618790, #618791).
@@ -42,7 +42,7 @@ asterisk (1:1.8.3.2-1) unstable; urgency=high
     app_voicemail.so.
   * Fix a bug with app_voicemail-*.exports.in not being copied properly.
 
- -- Paul Belanger <pabelanger@digium.com>  Tue, 12 Apr 2011 13:05:58 -0400
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 22 Apr 2011 12:11:56 +0300
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
