@@ -30,6 +30,10 @@ asterisk (1:1.8.3.3-1) unstable; urgency=high
   * Patch no_ssl2: Don't require client-side SSL2 support.
   * include menuselect.makeopts in the docs directory - let us know what
     modules were not built.
+  * Bump Standards version to 3.9.2.0 (no change needed).
+
+  [ Faidon Liambotis ]
+  * Switch to the "3.0 (quilt)" package source format.
 
   [ Paul Belanger ]
   * Depend on libneon27-dev and libical-dev for calendar support.
