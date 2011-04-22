@@ -1,7 +1,8 @@
 asterisk (1:1.8.3.3-1) unstable; urgency=high
 
   [ Tzafrir Cohen ]
-  * Switching to branch 1.8 (Closes: #610487, #614580, #618790, #618791).
+  * Switching to branch 1.8
+    (Closes: #610487, #614580, #618790, #618791, #623775).
   * Patch parser-mangles-include dropped: merged upstream.
   * Patch dahdi-fxsks-hookstate dropped: merged upstream.
   * Patch dahdi_ptmp_nt dropped: silly hack no longer needed.
