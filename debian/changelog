@@ -32,6 +32,7 @@ asterisk (1:1.8.3.3-1) unstable; urgency=high
   * include menuselect.makeopts in the docs directory - let us know what
     modules were not built.
   * Bump Standards version to 3.9.2.0 (no change needed).
+  * Upstream prefers chan_ooh323 to chan_h323. Suggest asterisk-ooh323.
 
   [ Faidon Liambotis ]
   * Switch to the "3.0 (quilt)" package source format.
@@ -47,7 +48,7 @@ asterisk (1:1.8.3.3-1) unstable; urgency=high
     app_voicemail.so.
   * Fix a bug with app_voicemail-*.exports.in not being copied properly.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 22 Apr 2011 12:11:56 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 25 Apr 2011 21:46:51 +0300
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 
