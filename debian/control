@@ -56,10 +56,10 @@ Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, asterisk-modules (= ${binary:Version}), adduser, asterisk-prompt-en, asterisk-voicemail | asterisk-voicemail-odbcstorage | asterisk-voicemail-imapstorage 
+Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, asterisk-modules (= ${binary:Version}), adduser, asterisk-core-sounds-en-gsm | asterisk-prompt-en, asterisk-voicemail | asterisk-voicemail-odbcstorage | asterisk-voicemail-imapstorage 
 Provides: asterisk-1.8
-Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage
-Suggests: asterisk-doc, asterisk-dev, asterisk-ooh323
+Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage, asterisk-moh-opsound-gsm
+Suggests: asterisk-doc, asterisk-dev, asterisk-ooh323, asterisk-dahdi
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
@@ -271,18 +271,6 @@ Description: Debugging symbols for Asterisk
  This package includes the debugging symbols useful for debugging
  Asterisk. The debugging symbols are used for execution tracing and core 
  dump analysis. 
-
-Package: asterisk-sounds-main
-Architecture: all
-Depends: ${misc:Depends}
-Recommends: asterisk
-Replaces: asterisk-sounds-extra
-Provides: asterisk-prompt-en, asterisk-prompt-en-us
-Description: Core Sound files for Asterisk (English)
- Asterisk is an Open Source PBX and telephony toolkit.
- .
- This package contains the default (core) sound files in English, useful for
- the operation of Asterisk.
 
 Package: asterisk-config
 Depends: ${misc:Depends}
