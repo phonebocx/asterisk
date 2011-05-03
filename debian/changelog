@@ -1,3 +1,11 @@
+asterisk (1:1.8.3.3-2) UNRELEASED; urgency=low
+
+  * NOT RELEASED YET
+  * Patch refix_bashism: bashism crept bact into the configure script
+    (Jilles Tjoelker).
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 03 May 2011 16:48:41 +0300
+
 asterisk (1:1.8.3.3-1) unstable; urgency=high
 
   [ Tzafrir Cohen ]

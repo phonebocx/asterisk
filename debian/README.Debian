@@ -148,6 +148,73 @@ modules has an incorrect name. This may mean that traces using them may
 have invalid information.
 
 
+Recommended and Suggested
+=========================
+Asterisk includes various optional modules. The package asterisk-modules
+includes most of them (you can disable their load using noload in
+/etc/asterisk/modules.conf) yet some are still in their own
+sub-packages.
+
+Recommended
+-----------
+* sox:
+Recommended as it is used by MoxMonitor - the default command for mixing
+the two recorded streams to a single audio file, and by
+app_voicemail/app_minivm to change gains of a mail message.
+
+* asterisk-voicemail:
+Seprated out to sub-packages as there are several implementations of
+app_voicemail (plain files storage, ODBC-interfaced database storage,
+IMAP-interfaced mail storage). Only one of those three could be
+installed. app_voicemail is normally expected to exist on an
+installation of Asterisk and hence it is recommended to include one of
+them. The simple file-based stoorage requires no extra setup, and hence
+is the defaulr.
+
+* asterisk-moh-opsound-gsm:
+Some relatively long and not too annoying music files in a format
+readable to Asterisk should reside in /usr/share/asterisk/moh . Asterisk
+will then play them when putting a call on hold for whatever reason
+(extra tuning: musiconhold.conf). This package is one such example
+sounds set. It is recommended in order for Asterisk to properly function
+as an elevator.
+
+Suggested
+---------
+* asterisk-doc:
+Extra documentation. Including the sample config files.
+
+* asterisk-dev:
+Can be used to build external modules.
+
+* asterisk-ooh323:
+chan_ooh323c.so. A module for support of the H.323 protocol. An
+alternative to chan_h323.so. Seems to be in better shape and has a much
+smaller dependency set.
+
+* asterisk-dahdi:
+chan_dahdi.so and anything else that depends on DAHDI (MeetMe,
+res_timing_dahdi, codec_dahdi, and such). You should install this if you
+have DAHDI support (kernel-level) on your system.
+
+
+Others
+------
+* asterisk-h323:
+chan_h323.so. Maybe consider this instead of asterisk-ooh323, which
+upstream seems to prefer.
+
+* asterisk-mysql:
+Direct (non-ODBC) support for MySQL.
+
+* asterisk-mp3:
+Support for playing mp3 files
+
+* asterisk-mobile:
+chan_mobile: support for interfacing with bluetooth headsets/phones. Has
+its limitations.
+
+
 Missing Modules
 ===============
 The following modules are included in the source tree of Asterisk but 
