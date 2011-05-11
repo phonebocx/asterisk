@@ -13,6 +13,8 @@ asterisk (1:1.8.3.3-2) UNRELEASED; urgency=low
     - And logic added to rules file not to copy their files on non-linux.
     - Patch kfreebsd: Fix building with kFreeBSD.
     - Patch no_uname: Fix building with kFreeBSD: an uglier patch.
+  * Patch gcc46: Some gcc-4.6 fixes from upstream. Get rid of some
+    build warnings.
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 03 May 2011 17:23:47 +0300
 

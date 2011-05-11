@@ -24,3 +24,4 @@ no_ssl2
 refix_bashism
 no_uname
 kfreebsd
+gcc46
