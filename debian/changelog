@@ -1,6 +1,8 @@
-asterisk (1:1.8.3.3-2) UNRELEASED; urgency=low
+asterisk (1:1.8.4-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
+  * New upstream release.
+    - Patch no_ssl2 removed: merged upstream.
   * Remove unneeded dependency on voicemail modules - only leave Recommends
     (Closes: #624190).
   * Patch refix_bashism: bashism crept bact into the configure script
@@ -16,7 +18,7 @@ asterisk (1:1.8.3.3-2) UNRELEASED; urgency=low
   * Patch gcc46: Some gcc-4.6 fixes from upstream. Get rid of some
     build warnings.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 03 May 2011 17:23:47 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 11 May 2011 05:14:19 +0300
 
 asterisk (1:1.8.3.3-1) unstable; urgency=high
 
