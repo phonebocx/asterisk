@@ -8,15 +8,15 @@ Build-Depends: debhelper (>= 6.0.7),
  libreadline-dev | libreadline5-dev,
  libgsm1-dev,
  libssl-dev,
- libtonezone-dev (>= 1:2.0.0),
+ libtonezone-dev (>= 1:2.0.0) [linux-any],
  libasound2-dev,
  libpq-dev,
  unixodbc-dev,
  libmysqlclient-dev | libmysqlclient15-dev,
- libbluetooth-dev,
+ libbluetooth-dev [linux-any],
  libpri-dev (>= 1.4.7),
  libss7-dev,
- libvpb-dev,
+ libvpb-dev [linux-any],
  dahdi-source,
  autotools-dev,
  autoconf,
@@ -30,7 +30,7 @@ Build-Depends: debhelper (>= 6.0.7),
  libxml2-dev,
  gsfonts,
  libpopt-dev,
- libopenh323-dev (>= 1.17.4),
+ libopenh323-dev (>= 1.17.4) [linux-any],
  libiksemel-dev,
  libradiusclient-ng-dev,
  freetds-dev,
@@ -40,14 +40,14 @@ Build-Depends: debhelper (>= 6.0.7),
  libgmime-2.4-dev | libgmime2-dev,
  libjack-dev,
  liblua5.1-0-dev,
- libcap-dev (>= 1:2.16-4) | libcap2-dev,
+ libcap-dev (>= 1:2.16-4) [linux-any] | libcap2-dev [linux-any],
  libspandsp-dev,
- libopenr2-dev,
+ libopenr2-dev [linux-any],
  libresample1-dev,
  libopenais-dev,
  libneon27-gnutls-dev | libneon27-dev,
  libical-dev,
- libsrtp0-dev,
+ libsrtp0-dev [linux-any],
  zlib1g-dev
 Standards-Version: 3.9.2.0
 Homepage: http://www.asterisk.org/
@@ -97,7 +97,7 @@ Description: loadable modules for the Asterisk PBX
  There is normally no need to explicitly install it.
 
 Package: asterisk-h323
-Architecture: any
+Architecture: any-linux
 Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
 Description: H.323 protocol support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
@@ -114,7 +114,7 @@ Description: H.323 protocol support for the Asterisk PBX
  package.
 
 Package: asterisk-dahdi
-Architecture: any
+Architecture: any-linux
 Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}, dahdi
 Breaks: asterisk (<<1.8.0)
 Replaces: asterisk (<<1.8.0)
@@ -223,7 +223,7 @@ Description: MySQL database protocol support for the Asterisk PBX
  package.
 
 Package: asterisk-mobile
-Architecture: any
+Architecture: linux-any
 Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
 Description: Bluetooth phone support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.

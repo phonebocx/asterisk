@@ -11,6 +11,9 @@ else
   confflags += --build $(DEB_BUILD_GNU_TYPE) --host $(DEB_HOST_GNU_TYPE)
 endif
 
+# We copy around a number of things in case we're linux:
+BUILD_OS=$(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
+
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
 ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
@@ -68,12 +71,13 @@ config.status: configure
 		--prefix=/usr				\
 		--mandir=\$${prefix}/share/man		\
 		--infodir=\$${prefix}/share/info	\
-		--with-cap				\
 		--with-gsm				\
 		--with-imap=system			\
-		--with-pwlib=/usr/share/pwlib/include/	\
-		--with-h323=/usr/share/openh323/ 	\
 		${ENABLE_DEBUG}
+
+#		--with-cap \
+#		--with-pwlib=/usr/share/pwlib/include/ \
+#		--with-h323=/usr/share/openh323/ 
 
 build: build-arch build-indep
 
@@ -85,7 +89,9 @@ build-arch-stamp: config.status
 		menuselect/menuselect --enable DONT_OPTIMIZE menuselect.makeopts ; \
 		menuselect/menuselect --enable DEBUG_THREADS menuselect.makeopts ; \
 	fi
+ifeq (linux,$(BUILD_OS))
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) h323-mak
+endif
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS)
 	touch $@
 
@@ -118,9 +124,12 @@ clean:
 
 	dh_clean
 
-SUBPACKS_EXTRA = dahdi h323 \
+SUBPACKS_EXTRA = \
 		 voicemail voicemail-odbcstorage voicemail-imapstorage \
-		 ooh323 mysql mp3 mobile
+		 ooh323 mysql mp3
+ifeq (linux,$(BUILD_OS))
+SUBPACKS_EXTRA += dahdi h323 mobile
+endif
 SUBPACKS_EXTRA_DIRS = $(SUBPACKS_EXTRA:%=$(CURDIR)/debian/asterisk-%)
 SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
 

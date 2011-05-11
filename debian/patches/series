@@ -22,3 +22,5 @@ gmime-2.4
 openssl10
 no_ssl2
 refix_bashism
+no_uname
+kfreebsd

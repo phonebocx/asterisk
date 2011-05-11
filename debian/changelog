@@ -4,7 +4,15 @@ asterisk (1:1.8.3.3-2) UNRELEASED; urgency=low
   * Remove unneeded dependency on voicemail modules - only leave Recommends
     (Closes: #624190).
   * Patch refix_bashism: bashism crept bact into the configure script
-    (Jilles Tjoelker). 
+    (Jilles Tjoelker).
+  * Fixes for kFreeBSD (Closes: #624569):
+    - Declare build-deps linux-any: libtonezone-dev, libvpb-dev,
+      libbluetooth-dev, libopenh323-dev, libcap[2]-dev, libstrp0-dev.
+    - Thus sub-packages asterisk-dahdi, asterisk-h323 and asterisk-mobile
+      are linux-any.
+    - And logic added to rules file not to copy their files on non-linux.
+    - Patch kfreebsd: Fix building with kFreeBSD.
+    - Patch no_uname: Fix building with kFreeBSD: an uglier patch.
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 03 May 2011 17:23:47 +0300
 

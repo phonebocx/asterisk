@@ -1,0 +1,38 @@
+Author: Tzafrir Cohen <tzafrir@debian.org>
+Bug: https://issues.asterisk.org/view.php?id=17161
+
+Fix a few places where the GNU/kFreeBSD is misdetected.
+
+--- a/channels/chan_oss.c
++++ b/channels/chan_oss.c
+@@ -47,7 +47,7 @@
+ 
+ #ifdef __linux
+ #include <linux/soundcard.h>
+-#elif defined(__FreeBSD__) || defined(__CYGWIN__)
++#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__CYGWIN__)
+ #include <sys/soundcard.h>
+ #else
+ #include <soundcard.h>
+--- a/main/netsock.c
++++ b/main/netsock.c
+@@ -29,7 +29,7 @@
+ 
+ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 298051 $")
+ 
+-#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__)
++#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__Darwin__)
+ #include <net/if_dl.h>
+ #endif
+ 
+--- a/main/Makefile
++++ b/main/Makefile
+@@ -34,7 +34,7 @@
+ AST_LIBS += $(BKTR_LIB)
+ AST_LIBS += $(LIBXML2_LIB) 
+ 
+-ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi ),)
++ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi kfreebsd-gnu),)
+   ifneq ($(findstring LOADABLE_MODULES,$(MENUSELECT_CFLAGS)),)
+   AST_LIBS+=-ldl
+   endif
