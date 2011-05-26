@@ -2,8 +2,9 @@ asterisk (1:1.8.4.1-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
   * New upstream point release.
+  * Patch gcc46: Fix the induced regression.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 16 May 2011 08:25:27 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 26 May 2011 13:56:21 +0300
 
 asterisk (1:1.8.4-1) unstable; urgency=low
 
