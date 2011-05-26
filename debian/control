@@ -45,7 +45,7 @@ Build-Depends: debhelper (>= 6.0.7),
  libopenais-dev,
  libneon27-gnutls-dev | libneon27-dev,
  libical-dev,
- libsrtp0-dev [linux-any],
+ libsrtp0-dev,
  zlib1g-dev
 Standards-Version: 3.9.2.0
 Homepage: http://www.asterisk.org/
