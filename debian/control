@@ -95,7 +95,7 @@ Description: loadable modules for the Asterisk PBX
  There is normally no need to explicitly install it.
 
 Package: asterisk-h323
-Architecture: any-linux
+Architecture: linux-any
 Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
 Description: H.323 protocol support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
@@ -112,7 +112,7 @@ Description: H.323 protocol support for the Asterisk PBX
  package.
 
 Package: asterisk-dahdi
-Architecture: any-linux
+Architecture: linux-any
 Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}, dahdi
 Breaks: asterisk (<<1.8.0)
 Replaces: asterisk (<<1.8.0)
