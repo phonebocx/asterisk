@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# Backport current Asterisk to  (Squeeze + pkg-voip packages):
+
+# Remove any trace for Multi-Arch:
+sed -i -e 's/ \?\[linux-any\]//g' -e 's/any-linux/any/' debian/control
+
+exit 0
