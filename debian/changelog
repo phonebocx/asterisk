@@ -1,7 +1,8 @@
-asterisk (1:1.8.4.1-1) UNRELEASED; urgency=low
+asterisk (1:1.8.4.2-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
-  * New upstream point release.
+  * New upstream point release:
+    - Fixes AST-2011-007.
   * Patch gcc46: Fix the induced regression.
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 26 May 2011 13:56:21 +0300
