@@ -1,12 +1,11 @@
-asterisk (1:1.8.4.2-1) UNRELEASED; urgency=low
+asterisk (1:1.8.4.2-1) unstable; urgency=low
 
-  * NOT RELEASED YET
   * New upstream point release:
     - Fixes CVE-2011-2216 - AST-2011-007 (Closes: #629130).
   * Patch gcc46: Fix the induced regression.
   * Blacklist SRTP support on Sparc and hurd-i386 until SRTP available there. 
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 03 Jun 2011 18:44:10 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 03 Jun 2011 23:20:29 +0300
 
 asterisk (1:1.8.4-1) unstable; urgency=low
 
