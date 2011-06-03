@@ -2,7 +2,7 @@ asterisk (1:1.8.4.2-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
   * New upstream point release:
-    - Fixes AST-2011-007.
+    - Fixes CVE-2011-2216 - AST-2011-007 (Closes: #629130).
   * Patch gcc46: Fix the induced regression.
   * Blacklist SRTP support on Sparc and hurd-i386 until SRTP available there. 
 
