@@ -1,8 +1,12 @@
-asterisk (1:1.8.4.2-2) UNRELEASED; urgency=low
+asterisk (1:1.8.4.3-1) UNRELEASED; urgency=high
 
   * NOT RELEASED YET
+  * New upstream point release:
+    - AST-2011-008 (CVE-2011-2529)
+    - AST-2011-009 ()
+    - AST-2011-010 (CVE-2011-2535)
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 10 Jun 2011 10:46:29 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 24 Jun 2011 00:51:49 +0300
 
 asterisk (1:1.8.4.2-1) unstable; urgency=low
 
