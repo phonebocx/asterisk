@@ -1,3 +1,10 @@
+asterisk (1:1.8.4.4-1) unstable; urgency=high
+
+  * New upstream point release, fixes:
+    - AST-2011-011, CVE-2011-2536 (Closes: #632029)
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 29 Jun 2011 11:46:34 +0300
+
 asterisk (1:1.8.4.3-1) unstable; urgency=high
 
   * New upstream point release, fixes 3 remotely-explitables (of sort) bugs:
