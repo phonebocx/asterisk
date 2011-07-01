@@ -1,7 +1,7 @@
 asterisk (1:1.8.4.4~dfsg-1) unstable; urgency=high
 
-  * New upstream point release, fixes:
-    - AST-2011-011, CVE-2011-2536 (Closes: #632029)
+  * AST-2011-011 (CVE-2011-2536): Don't leak SIP username information
+    (closes: #632029)
   * Clearly the NC-ND license for AST.{pdf,txt} is here to stay. Strip it.
     - And while we're at at, strip out sound files and some generated files.
 
