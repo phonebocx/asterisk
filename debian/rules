@@ -100,15 +100,17 @@ build-indep-stamp: config.status
 	dh_testdir
 	touch $@
 
+SND_FILE=asterisk-core-sounds-en-gsm-1.4.20.tar.gz
 clean:
 	dh_testdir
 	dh_testroot
 	
 	# The clean target seems to be run before patches are applied.
 	# A brute-force fix to keep the tarball from getting deleted:
-	mv sounds/asterisk-core-sounds-en-gsm-1.4.20.tar.gz debian/
+	# (if it has not been stripped from upstream tarball)
+	if [ -r sounds/$(SND_FILE) ]; then mv sounds/$($SND_FILE) debian/; fi
 	GREP=grep AWK=awk $(MAKE) distclean
-	mv debian/asterisk-core-sounds-en-gsm-1.4.20.tar.gz sounds/
+	if [ -r debian/$(SND_FILE) ]; then mv debian/$(SND_FILE) sounds/; fi
 	-$(RM) -rf debian/build
 
 	if [ -r configure.debian_sav ]; then mv configure.debian_sav configure; fi
@@ -225,10 +227,32 @@ print-version:
 	@@echo "Debian version:          $(DEBVERSION)"
 	@@echo "Upstream version:        $(UPVERSION)"
 
+TMP_TARBALL_TOP=../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)
 get-orig-source:
 	@@dh_testdir
-	@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
-	@@echo Downloading $(FILENAME) from $(URL) ...
-	@@wget -nv -T10 -t3 -O ../tarballs/$(FILENAME) $(URL)
+	#@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
+	#@@echo Downloading $(FILENAME) from $(URL) ...
+	#@@wget -nv -T10 -t3 -O ../tarballs/$(FILENAME) $(URL)
+	@echo Downloading $(UPFILENAME) from $(URL) ...
+	@wget -nv -T10 -t3 -O ../tarballs/$(UPFILENAME) $(URL)
+	@echo Repacking as DFSG-free...
+	@mkdir -p ../tarballs/asterisk-$(UPVERSION).tmp/
+	@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
+		tar xfz ../$(UPFILENAME)
+	# in case the tarball is not clean:
+	@rm -rf $(TMP_TARBALL_TOP)/AST.txt
+	@rm -rf $(TMP_TARBALL_TOP)/AST.pdf
+	# While we're at it: remove some generated files that will become
+	# invalid:
+	@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts
+	@rm -rf $(TMP_TARBALL_TOP)/*/.*.makeopts
+	@rm -rf $(TMP_TARBALL_TOP)/*/.moduleinfo
+	@rm -rf $(TMP_TARBALL_TOP)/*/.*.moduleinfo
+	# And some large sound files we already ship in a different package:
+	@rm -rf $(TMP_TARBALL_TOP)/sounds/*.tar.gz
+	@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
+	 	tar cf - * | gzip -9 >../$(FILENAME)
+	@echo Cleaning up...
+	@$(RM) -rf ../tarballs/asterisk-$(UPVERSION).tmp/
 
 .PHONY: build build-arch build-indep clean binary-indep binary-arch binary install clean

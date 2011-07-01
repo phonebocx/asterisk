@@ -241,6 +241,14 @@ system at build time, that is copied to
 /usr/share/doc/asterisk/menuselect.makeopts .
 
 
+Missing Documentation
+=====================
+AST.pdf and AST.txt cannot be included due to incompatible license.
+You can get their content from http://wiki.asterisk.org . The standard
+reference is included, as always in the "sample" configuration files and
+in the help from the Asterisk command-line prompt.
+
+
 DAHDI PtMP NT
 =============
 Short version: it doesn't work.

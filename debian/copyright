@@ -8,6 +8,16 @@ Asterisk was downloaded from http://downloads.asterisk.org/pub/asterisk/
 
 Upstream Authors: Asterisk: Digium, Inc.
 
+DFSG Compliance
+===============
+Upstream tarball contains AST.txt and AST.pdf which are licensed under
+the terms of of CC-BY-NC-ND, and has thus been removed from the tarball.
+
+A number of other files were removed due to practical considerations
+(mostly large sound files that we already include in separate source
+package and are not really part of the source in the version control,
+thus reducing the size of the source tarball from 27MB to 10MB).
+
 Copyright
 =========
 
