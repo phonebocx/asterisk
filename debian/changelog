@@ -1,3 +1,10 @@
+asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=high
+
+  * Don't mark en-gsm sound files as enabled, so they won't be downloaded.
+    - High, as to not block previous fix.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 04 Jul 2011 23:19:50 +0300
+
 asterisk (1:1.8.4.4~dfsg-1) unstable; urgency=high
 
   * AST-2011-011 (CVE-2011-2536): Don't leak SIP username information
