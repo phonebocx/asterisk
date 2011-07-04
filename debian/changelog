@@ -1,7 +1,6 @@
-asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=high
+asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 
   * Don't mark en-gsm sound files as enabled, so they won't be downloaded.
-    - High, as to not block previous fix.
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 04 Jul 2011 23:19:50 +0300
 
