@@ -24,3 +24,4 @@ refix_bashism
 no_uname
 kfreebsd
 gcc46
+fix_configure_armhf
