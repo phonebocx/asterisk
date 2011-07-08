@@ -3,15 +3,6 @@ Description: : Mark the two extra ARM ABIs as linux-gnu
 
 --- a/configure.ac
 +++ b/configure.ac
-@@ -172,7 +172,7 @@ case "${host_os}" in
-      OSARCH=cygwin
-      PBX_WINARCH=1
-      ;;
--     linux-gnueabi)
-+     linux-gnueabi | arm-linux-gnueabihf)
-      OSARCH=linux-gnu
-      ;;
-      *)
 --- a/main/Makefile
 +++ b/main/Makefile
 @@ -34,7 +34,7 @@ AST_LIBS += $(OPENSSL_LIB)
@@ -19,7 +10,7 @@ Description: : Mark the two extra ARM ABIs as linux-gnu
  AST_LIBS += $(LIBXML2_LIB) 
  
 -ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi kfreebsd-gnu),)
-+ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc kfreebsd-gnu),)
++ifneq ($(findstring $(OSARCH), linux-gnu linux-gnueabi linux-gnueabihf clinux linux-uclibc kfreebsd-gnu),)
    ifneq ($(findstring LOADABLE_MODULES,$(MENUSELECT_CFLAGS)),)
    AST_LIBS+=-ldl
    endif
