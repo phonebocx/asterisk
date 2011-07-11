@@ -1,6 +1,8 @@
 Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 Description: : Mark the two extra ARM ABIs as linux-gnu
 
+Will be included in asterisk 1.8.6 .
+
 --- a/configure.ac
 +++ b/configure.ac
 --- a/main/Makefile
