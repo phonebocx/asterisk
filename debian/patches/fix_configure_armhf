@@ -3,8 +3,6 @@ Description: : Mark the two extra ARM ABIs as linux-gnu
 
 Will be included in asterisk 1.8.6 .
 
---- a/configure.ac
-+++ b/configure.ac
 --- a/main/Makefile
 +++ b/main/Makefile
 @@ -34,7 +34,7 @@ AST_LIBS += $(OPENSSL_LIB)
