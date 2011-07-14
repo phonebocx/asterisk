@@ -2,8 +2,10 @@ asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
   * Patch fix_configure_armhf: properly detect armhf.
+  * Patch chan_iax2-detach-thread-on-non-stop-exit: Hopefully plugs a
+    memory leak. EXPERIMENTAL. DO NOT UPLOAD WITH THIS FOR NOW.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 06 Jul 2011 18:54:01 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 14 Jul 2011 12:21:29 +0300
 
 asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 

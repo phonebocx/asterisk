@@ -25,3 +25,5 @@ no_uname
 kfreebsd
 gcc46
 fix_configure_armhf
+
+chan_iax2-detach-thread-on-non-stop-exit
