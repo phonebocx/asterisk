@@ -1,11 +1,15 @@
-asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.8.4.4~dfsg-3ubuntu1) UNRELEASED; urgency=low
 
+  [ Tzafrir Cohen ]
   * NOT RELEASED YET
   * Patch fix_configure_armhf: properly detect armhf.
   * Patch chan_iax2-detach-thread-on-non-stop-exit: Hopefully plugs a
     memory leak. EXPERIMENTAL. DO NOT UPLOAD WITH THIS FOR NOW.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 14 Jul 2011 12:21:29 +0300
+  [ Paul Belanger ]
+  * Bump libpri-dev to 1.4.11.
+
+ -- Paul Belanger <paul.belanger@polybeacon.com>  Tue, 26 Jul 2011 12:34:29 -0400
 
 asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 
