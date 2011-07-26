@@ -1,4 +1,4 @@
-asterisk (1:1.8.4.4~dfsg-3ubuntu1) UNRELEASED; urgency=low
+asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * NOT RELEASED YET
@@ -9,7 +9,7 @@ asterisk (1:1.8.4.4~dfsg-3ubuntu1) UNRELEASED; urgency=low
   [ Paul Belanger ]
   * Bump libpri-dev to 1.4.11.
 
- -- Paul Belanger <paul.belanger@polybeacon.com>  Tue, 26 Jul 2011 12:34:29 -0400
+ -- Paul Belanger <paul.belanger@polybeacon.com>  Tue, 26 Jul 2011 15:12:34 -0400
 
 asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 
