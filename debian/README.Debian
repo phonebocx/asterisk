@@ -91,10 +91,10 @@ TYPE is "the best available type" - the one that will take least
 encoding/decoding effort. This is why you normally don't specify the
 type of file to play.
 
-FULL_LANG is a complete name of a language. For instance, "fr", "de_CH"
-or "en_US_f_Allison".
+LANG_FULL is a complete name of a language. For instance "fr_FR",
+"de_CH" or "en_US".
 
-LANG is just the "major language" part of FULL_LANG - only up to the
+LANG is just the "major language" part of FULL_LANG -- only up to the
 first "_", if any. So in the above examples we would get "fr", "de" and
 "en".
 
@@ -301,3 +301,5 @@ live/asterisk is a wrapper to that private copy of Asterisk.
 
 
 Enjoy your PBX!
+
+ -- Lionel Elie Mamane <lmamane@debian.org>, Fri, 29 Jul 2011 19:17:46 +0200
