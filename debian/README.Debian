@@ -101,10 +101,11 @@ first "_", if any. So in the above examples we would get "fr", "de" and
 If the language is not set, only the last two are searched.
 
 Thus various sound file packages place their files under
-/usr/share/sounds/asterisk/xx_YY_Foobar
-(for sound files set Foobar of language 'xx' and country 'YY').
+/usr/share/sounds/asterisk/xx_YY_g_Foobar,
+for sound files of set Foobar of language 'xx' and country 'YY',
+being voices of gender g ('m' for male and 'f' for female).
 They also provide the alternatives 'asterisk-prompt-xx' and
-'asterisk-prompt-xx-yy' for the symlinks 
+'asterisk-prompt-xx-yy' for the symlinks
 /usr/share/asterisk/sounds/xx and /usr/share/asterisk/sounds/xx_YY .
 
 If you have multiple such packages and want to change that selection, use:
@@ -302,4 +303,4 @@ live/asterisk is a wrapper to that private copy of Asterisk.
 
 Enjoy your PBX!
 
- -- Lionel Elie Mamane <lmamane@debian.org>, Fri, 29 Jul 2011 19:17:46 +0200
+ -- Lionel Elie Mamane <lmamane@debian.org>, Fri, 29 Jul 2011 19:21:06 +0200
