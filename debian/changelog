@@ -8,8 +8,10 @@ asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
 
   [ Paul Belanger ]
   * Bump libpri-dev to 1.4.11.
+  * Ensure sub-packages with asterisk modules are the same version as the
+    binary.
 
- -- Paul Belanger <paul.belanger@polybeacon.com>  Tue, 26 Jul 2011 15:12:34 -0400
+ -- Paul Belanger <paul.belanger@polybeacon.com>  Thu, 20 Oct 2011 11:14:02 -0400
 
 asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 

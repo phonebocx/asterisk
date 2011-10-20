@@ -96,7 +96,7 @@ Description: loadable modules for the Asterisk PBX
 
 Package: asterisk-h323
 Architecture: linux-any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: H.323 protocol support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -113,7 +113,7 @@ Description: H.323 protocol support for the Asterisk PBX
 
 Package: asterisk-dahdi
 Architecture: linux-any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}, dahdi
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, dahdi
 Breaks: asterisk (<<1.8.0)
 Replaces: asterisk (<<1.8.0)
 Description: DAHDI devices support for the Asterisk PBX
@@ -129,7 +129,7 @@ Description: DAHDI devices support for the Asterisk PBX
 
 Package: asterisk-voicemail
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: asterisk-voicemail-storage
 Conflicts: asterisk-voicemail-storage
 Breaks: asterisk (<<1.8.0)
@@ -147,7 +147,7 @@ Description: simple voicemail support for the Asterisk PBX
 
 Package: asterisk-voicemail-imapstorage
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: asterisk-voicemail-storage
 Conflicts: asterisk-voicemail-storage
 Breaks: asterisk (<<1.8.0)
@@ -164,7 +164,7 @@ Description: IMAP voicemail storage support for the Asterisk PBX
 
 Package: asterisk-voicemail-odbcstorage
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Provides: asterisk-voicemail-storage
 Conflicts: asterisk-voicemail-storage
 Breaks: asterisk (<<1.8.0)
@@ -181,7 +181,7 @@ Description: ODBC voicemail storage support for the Asterisk PBX
 
 Package: asterisk-ooh323
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: H.323 protocol support for the Asterisk PBX - ooH323c
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -197,7 +197,7 @@ Description: H.323 protocol support for the Asterisk PBX - ooH323c
 
 Package: asterisk-mp3
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: MP3 playback support for the Asterisk PBX (DUMMY)
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -209,7 +209,7 @@ Description: MP3 playback support for the Asterisk PBX (DUMMY)
 
 Package: asterisk-mysql
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: MySQL database protocol support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -222,7 +222,7 @@ Description: MySQL database protocol support for the Asterisk PBX
 
 Package: asterisk-mobile
 Architecture: linux-any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: Bluetooth phone support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
