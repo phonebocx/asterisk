@@ -10,8 +10,8 @@ the main 'make' command.
 --- a/Makefile
 +++ b/Makefile
 @@ -965,6 +965,9 @@ pdf: asterisk.pdf
- 	@cat sounds/sounds.xml >> $@
- 	@echo "</menu>" >> $@
+ asterisk.txt:
+ 	$(MAKE) -C doc/tex asterisk.txt
  
 +h323-mak:
 +	$(MAKE) -C channels h323/Makefile.ast

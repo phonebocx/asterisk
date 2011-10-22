@@ -16,7 +16,6 @@ Subject: [PATCH] Remove most of the contents of the doc dir in favor of the
 
 ---
  Makefile                                 |    9 +
- build_tools/prep_tarball                 |   20 +-
  doc/CODING-GUIDELINES                    |  982 ++++++++++++++++++++++
  doc/HOWTO_collect_debug_information.txt  |   89 ++
  doc/India-CID.txt                        |   75 ++
@@ -138,34 +137,6 @@ index 976d5b8..61be67f 100644
  .PHONY: dont-optimize
  .PHONY: badshell
  .PHONY: installdirs
-diff --git a/build_tools/prep_tarball b/build_tools/prep_tarball
-index e101c5d..6fe06c4 100755
---- a/build_tools/prep_tarball
-+++ b/build_tools/prep_tarball
-@@ -8,8 +8,18 @@
- make -C sounds MENUSELECT_CORE_SOUNDS=CORE-SOUNDS-EN-GSM MENUSELECT_MOH=MOH-OPSOUND-WAV WGET=wget DOWNLOAD=wget all
- make AWK=awk GREP=grep menuselect-tree
- 
--cd doc
--echo "Exporting Asterisk wiki to a PDF (this will take a minute) ..."
--wikiexport.py
--echo "Converting wiki export PDF to plain text ..."
--pdftotext AST.pdf
-+make_tex_docs() {
-+    # make backup of asterisk.tex because we are going to alter it
-+    cp asterisk.tex asterisk.tex.orig
-+    sed -e "s/ASTERISKVERSION/${VERSION}/" asterisk.tex > asterisk_local.tex
-+    mv asterisk_local.tex asterisk.tex
-+    rubber --pdf asterisk.tex
-+    latex2html asterisk.tex
-+    latex asterisk.tex
-+    catdvi -e 1 -U asterisk.dvi | sed -re "s/\[U\+2022\]/*/g" | sed -re "s/\[U\+02C6\]/^/g" | sed -re "s/([^^[:space:]])\s+/\1 /g" > asterisk.txt
-+    # restore backup of asterisk.tex
-+    mv asterisk.tex.orig asterisk.tex
-+}
-+
-+VERSION=`cat .version`
-+cd doc/tex && make_tex_docs
 diff --git a/doc/CODING-GUIDELINES b/doc/CODING-GUIDELINES
 new file mode 100644
 index 0000000..d1ae32d
