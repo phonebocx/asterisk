@@ -5,13 +5,15 @@ asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
   * Patch fix_configure_armhf: properly detect armhf.
   * Patch chan_iax2-detach-thread-on-non-stop-exit: Hopefully plugs a
     memory leak. EXPERIMENTAL. DO NOT UPLOAD WITH THIS FOR NOW.
+  * Patch reinclude_docs: a copy of the included documentation that was
+    removed.
 
   [ Paul Belanger ]
   * Bump libpri-dev to 1.4.11.
   * Ensure sub-packages with asterisk modules are the same version as the
     binary.
 
- -- Paul Belanger <paul.belanger@polybeacon.com>  Thu, 20 Oct 2011 11:14:02 -0400
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 22 Oct 2011 11:25:18 +0200
 
 asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 

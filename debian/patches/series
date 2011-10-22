@@ -13,6 +13,8 @@ h323-workaround-openh323-segfault
 
 astgenkey-security
 
+reinclude_docs
+
 # bugfixes on top of everything
 sound_files
 h323-extra-target
