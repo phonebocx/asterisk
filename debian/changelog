@@ -2,6 +2,7 @@ asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * NOT RELEASED YET
+  * Disable chan_h323: broken with curren h323plus, and not loved by upstream.
   * Patch fix_configure_armhf: properly detect armhf.
   * Patch chan_iax2-detach-thread-on-non-stop-exit: Hopefully plugs a
     memory leak. EXPERIMENTAL. DO NOT UPLOAD WITH THIS FOR NOW.
@@ -13,7 +14,7 @@ asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
   * Ensure sub-packages with asterisk modules are the same version as the
     binary.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 22 Oct 2011 11:25:18 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 22 Oct 2011 12:32:05 +0200
 
 asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 

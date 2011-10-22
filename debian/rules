@@ -73,11 +73,10 @@ config.status: configure
 		--infodir=\$${prefix}/share/info	\
 		--with-gsm				\
 		--with-imap=system			\
+		--without-pwlib				\
 		${ENABLE_DEBUG}
 
 #		--with-cap \
-#		--with-pwlib=/usr/share/pwlib/include/ \
-#		--with-h323=/usr/share/openh323/ 
 
 build: build-arch build-indep
 
@@ -89,9 +88,6 @@ build-arch-stamp: config.status
 		menuselect/menuselect --enable DONT_OPTIMIZE menuselect.makeopts ; \
 		menuselect/menuselect --enable DEBUG_THREADS menuselect.makeopts ; \
 	fi
-ifeq (linux,$(BUILD_OS))
-	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS) h323-mak
-endif
 	$(FETCH_ENV) $(MAKE) $(BUILDFLAGS)
 	touch $@
 
@@ -130,7 +126,7 @@ SUBPACKS_EXTRA = \
 		 voicemail voicemail-odbcstorage voicemail-imapstorage \
 		 ooh323 mysql mp3
 ifeq (linux,$(BUILD_OS))
-SUBPACKS_EXTRA += dahdi h323 mobile
+SUBPACKS_EXTRA += dahdi mobile
 endif
 SUBPACKS_EXTRA_DIRS = $(SUBPACKS_EXTRA:%=$(CURDIR)/debian/asterisk-%)
 SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
