@@ -8,8 +8,10 @@ File Locations
 See /etc/asterisk/asterisk.conf for pathnames. All the configuration is done
 from the *.conf files there.
 
-Sounds reside at /usr/share/asterisk/sounds. Voicemail mailboxes are below
-/var/spool/asterisk/voicemail using symlinks.
+The astdatadir defaults to /usr/share/asterisk . This means that sounds
+reside at /usr/share/asterisk/sounds , music-on-hold files default to
+/usr/share/asterisk/moh ("directory=moh" in musiconhold.conf is relative to
+the astdatadir) and likewise for images.
 
 
 User, Groups, Permissions
