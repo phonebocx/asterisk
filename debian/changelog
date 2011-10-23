@@ -1,9 +1,13 @@
-asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
+asterisk (1:1.8.7.1~dfsg-1) UNRELEASED; urgency=low
 
   [ Tzafrir Cohen ]
   * NOT RELEASED YET
+  * New upstream release:
+    - Patch refix_bashism removed: applied upstream.
+    - Patch openssl10 removed: applied upstream.
+    - Patch gmime-2.4 removed: applied upstream.
+    - Patch gcc46 removed - was a backport from upstream.
   * Disable chan_h323: broken with curren h323plus, and not loved by upstream.
-  * Patch fix_configure_armhf: properly detect armhf.
   * Patch chan_iax2-detach-thread-on-non-stop-exit: Hopefully plugs a
     memory leak. EXPERIMENTAL. DO NOT UPLOAD WITH THIS FOR NOW.
   * Patch reinclude_docs: a copy of the included documentation that was
@@ -14,7 +18,7 @@ asterisk (1:1.8.4.4~dfsg-3) UNRELEASED; urgency=low
   * Ensure sub-packages with asterisk modules are the same version as the
     binary.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 22 Oct 2011 12:32:05 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 23 Oct 2011 12:22:13 +0200
 
 asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 

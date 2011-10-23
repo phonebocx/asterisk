@@ -17,9 +17,9 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
  /*** MODULEINFO
  	<depend>mysqlclient</depend>
 -	<defaultenabled>no</defaultenabled>
+ 	<support_level>deprecated</support_level>
+ 	<replacement>func_odbc</replacement>
   ***/
- 
- #include "asterisk.h"
 --- a/addons/app_saycountpl.c
 +++ b/addons/app_saycountpl.c
 @@ -21,7 +21,6 @@
@@ -27,9 +27,9 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
  
  /*** MODULEINFO
 -	<defaultenabled>no</defaultenabled>
+ 	<support_level>deprecated</support_level>
+ 	<replacement>say.conf</replacement>
   ***/
- 
- #include "asterisk.h"
 --- a/addons/chan_mobile.c
 +++ b/addons/chan_mobile.c
 @@ -27,7 +27,6 @@
@@ -37,9 +37,9 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
  /*** MODULEINFO
  	<depend>bluetooth</depend>
 -	<defaultenabled>no</defaultenabled>
+ 	<support_level>extended</support_level>
   ***/
  
- #include "asterisk.h"
 --- a/addons/chan_ooh323.c
 +++ b/addons/chan_ooh323.c
 @@ -18,7 +18,6 @@
@@ -47,9 +47,9 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
  
  /*** MODULEINFO
 -	<defaultenabled>no</defaultenabled>
+ 	<support_level>extended</support_level>
   ***/
  
- #include "chan_ooh323.h"
 --- a/addons/res_config_mysql.c
 +++ b/addons/res_config_mysql.c
 @@ -24,7 +24,6 @@
@@ -57,9 +57,9 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
  /*** MODULEINFO
  	<depend>mysqlclient</depend>
 -	<defaultenabled>no</defaultenabled>
+ 	<support_level>extended</support_level>
   ***/
  
- #include "asterisk.h"
 --- a/addons/cdr_mysql.c
 +++ b/addons/cdr_mysql.c
 @@ -35,7 +35,6 @@
@@ -67,9 +67,9 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
  /*** MODULEINFO
  	<depend>mysqlclient</depend>
 -	<defaultenabled>no</defaultenabled>
+ 	<support_level>deprecated</support_level>
+ 	<replacement>cdr_adaptive_odbc</replacement>
   ***/
- 
- #include "asterisk.h"
 --- a/addons/format_mp3.c
 +++ b/addons/format_mp3.c
 @@ -28,7 +28,6 @@
@@ -77,6 +77,6 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
  
  /*** MODULEINFO
 -	<defaultenabled>no</defaultenabled>
+ 	<support_level>extended</support_level>
   ***/
  
- #include "asterisk.h"

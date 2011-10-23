@@ -5,7 +5,7 @@ Fix a few places where the GNU/kFreeBSD is misdetected.
 
 --- a/channels/chan_oss.c
 +++ b/channels/chan_oss.c
-@@ -47,7 +47,7 @@
+@@ -48,7 +48,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  
  #ifdef __linux
  #include <linux/soundcard.h>
@@ -27,12 +27,12 @@ Fix a few places where the GNU/kFreeBSD is misdetected.
  
 --- a/main/Makefile
 +++ b/main/Makefile
-@@ -34,7 +34,7 @@
+@@ -34,7 +34,7 @@ AST_LIBS += $(OPENSSL_LIB)
  AST_LIBS += $(BKTR_LIB)
  AST_LIBS += $(LIBXML2_LIB) 
  
--ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi ),)
-+ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi kfreebsd-gnu),)
+-ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi linux-gnueabihf ),)
++ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi linux-gnueabihf kfreebsd-gnu),)
    ifneq ($(findstring LOADABLE_MODULES,$(MENUSELECT_CFLAGS)),)
    AST_LIBS+=-ldl
    endif

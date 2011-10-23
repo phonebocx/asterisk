@@ -1,10 +1,9 @@
-# fixed upstream
-
 # upstream fixes
 allow-tilde-destdir
 
 hack-multiple-app-voicemail
-make-clean-fixes
+# Not used ATM. See comment in patch:
+#make-clean-fixes
 safe_asterisk-config
 safe_asterisk-nobg
 #
@@ -20,12 +19,7 @@ sound_files
 #h323-extra-target
 mpglib
 enable_addons
-gmime-2.4
-openssl10
-refix_bashism
 no_uname
 kfreebsd
-gcc46
-fix_configure_armhf
 
 chan_iax2-detach-thread-on-non-stop-exit
