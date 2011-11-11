@@ -23,3 +23,4 @@ no_uname
 kfreebsd
 
 chan_iax2-detach-thread-on-non-stop-exit
+sparc32_disable

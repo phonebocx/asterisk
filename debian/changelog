@@ -12,13 +12,14 @@ asterisk (1:1.8.7.1~dfsg-1) UNRELEASED; urgency=low
     memory leak. EXPERIMENTAL. DO NOT UPLOAD WITH THIS FOR NOW.
   * Patch reinclude_docs: a copy of the included documentation that was
     removed.
+  * Patch sparc32_disable: Remove pointless optimization for sparc64
 
   [ Paul Belanger ]
   * Bump libpri-dev to 1.4.11.
   * Ensure sub-packages with asterisk modules are the same version as the
     binary.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 23 Oct 2011 12:22:13 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 11 Nov 2011 17:48:03 +0200
 
 asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
 
