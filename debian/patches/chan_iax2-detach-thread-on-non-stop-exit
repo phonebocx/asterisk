@@ -5,9 +5,9 @@ Description: Fix an IAX2 memory leak
 This patch should hopefully plug a memory leak in IAX2. It is an
 experimental patch. DO NOT INCLUDE IN AN UPLOAD FOR NOW.
 
---- asterisk-1.8.4.2/channels/chan_iax2.c.bak	2011-06-29 11:21:41.000000000 -0500
-+++ asterisk-1.8.4.2/channels/chan_iax2.c	2011-06-29 11:48:09.000000000 -0500
-@@ -11673,6 +11673,10 @@
+--- a/channels/chan_iax2.c
++++ b/channels/chan_iax2.c
+@@ -11684,6 +11684,10 @@ static void *iax2_process_thread(void *d
  	AST_LIST_REMOVE(&dynamic_list, thread, list);
  	AST_LIST_UNLOCK(&dynamic_list);
  
