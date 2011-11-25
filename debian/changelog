@@ -1,6 +1,5 @@
-asterisk (1:1.8.7.1~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:1.8.7.1~dfsg-2) unstable; urgency=low
 
-  * NOT RELEASED YET
   * libncurses is a build dep afterall (Closes: #649431).
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 25 Nov 2011 16:44:31 +0200
