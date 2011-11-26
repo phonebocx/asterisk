@@ -189,7 +189,7 @@ Description: H.323 protocol support for the Asterisk PBX - ooH323c
 Package: asterisk-mp3
 Architecture: any
 Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Description: MP3 playback support for the Asterisk PBX (DUMMY)
+Description: MP3 playback support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package SHOULD provide support for playing MP3-encoded files in
