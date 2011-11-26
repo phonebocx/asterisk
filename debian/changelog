@@ -7,7 +7,12 @@ asterisk (1:1.8.7.1~dfsg-3) UNRELEASED; urgency=high
   * Backport a patch from upstream to fix several PRI features being
     compiled-out and hence disabled.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 26 Nov 2011 18:00:36 +0200
+  [ Tzafrir Cohen ]
+  * Officially remove asterisk-h323:
+    - Break older versions, as it did not have a versioned Depends before.
+    - Remove the package.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 26 Nov 2011 18:08:34 +0200
 
 asterisk (1:1.8.7.1~dfsg-2) unstable; urgency=low
 

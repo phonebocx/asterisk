@@ -86,24 +86,13 @@ Package: asterisk-modules
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Section: libs
-Breaks: asterisk (<< 1:1.8.3.3)
+Breaks: asterisk (<< 1:1.8.3.3), asterisk-h323 (<< 1:1.8.4.4~dfsg-2)
 Replaces: asterisk (<< 1:1.8.3.3)
 Description: loadable modules for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package includes most of the loadable modules of the Asterisk package.
  There is normally no need to explicitly install it.
-
-Package: asterisk-h323
-Architecture: linux-any
-Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Description: H.323 protocol support for the Asterisk PBX
- Asterisk is an Open Source PBX and telephony toolkit.
- .
- This is a dummy package. Use asterisk-ooh323 instead.
- .
- For more information about the Asterisk PBX, have a look at the Asterisk
- package.
 
 Package: asterisk-dahdi
 Architecture: linux-any
