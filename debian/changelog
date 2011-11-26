@@ -6,13 +6,15 @@ asterisk (1:1.8.7.1~dfsg-3) unstable; urgency=high
     stable.
   * Patch reenable-pri-optional: Backport a patch from upstream to fix
     several PRI features being compiled-out and hence disabled.
+  * Bump libpri-dev dependency to 1.4.12; it is not strictly needed but extra
+    functionality is enabled at build-time.
 
   [ Tzafrir Cohen ]
   * Officially remove asterisk-h323:
     - Break older versions, as it did not have a versioned Depends before.
     - Remove the package.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 26 Nov 2011 18:08:34 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Sun, 27 Nov 2011 00:22:08 +0200
 
 asterisk (1:1.8.7.1~dfsg-2) unstable; urgency=low
 
