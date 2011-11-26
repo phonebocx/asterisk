@@ -4,8 +4,8 @@ asterisk (1:1.8.7.1~dfsg-3) UNRELEASED; urgency=high
   * Fix Breaks/Conflicts to contain the epoch.
   * Urgency high since this resulted in file conflicts when upgrading from
     stable.
-  * Backport a patch from upstream to fix several PRI features being
-    compiled-out and hence disabled.
+  * Patch reenable-pri-optional: Backport a patch from upstream to fix
+    several PRI features being compiled-out and hence disabled.
 
   [ Tzafrir Cohen ]
   * Officially remove asterisk-h323:
