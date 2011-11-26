@@ -1,4 +1,4 @@
-asterisk (1:1.8.7.1~dfsg-3) UNRELEASED; urgency=high
+asterisk (1:1.8.7.1~dfsg-3) unstable; urgency=high
 
   [ Faidon Liambotis ]
   * Fix Breaks/Conflicts to contain the epoch.
