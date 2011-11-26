@@ -1,12 +1,17 @@
 asterisk (1:1.8.7.1~dfsg-3) UNRELEASED; urgency=high
 
+  [ Faidon Liambotis ]
   * Fix Breaks/Conflicts to contain the epoch.
   * Urgency high since this resulted in file conflicts when upgrading from
     stable.
   * Backport a patch from upstream to fix several PRI features being
     compiled-out and hence disabled.
 
- -- Faidon Liambotis <paravoid@debian.org>  Sat, 26 Nov 2011 16:48:42 +0200
+  [ Tzafrir Cohen ]
+  * Patch chan_iax2-detach-thread-on-non-stop-exit: Now considered good
+    enough for Testing.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 26 Nov 2011 18:00:36 +0200
 
 asterisk (1:1.8.7.1~dfsg-2) unstable; urgency=low
 
