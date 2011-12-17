@@ -1,0 +1,19 @@
+Author: Alex Villací­s Lasso <a_villacis@palosanto.com>
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-17339
+Description: Fix an IAX2 memory leak
+
+This patch should hopefully plug a memory leak in IAX2.
+
+--- a/channels/chan_iax2.c
++++ b/channels/chan_iax2.c
+@@ -11690,6 +11690,10 @@ static void *iax2_process_thread(void *d
+ 	AST_LIST_REMOVE(&dynamic_list, thread, list);
+ 	AST_LIST_UNLOCK(&dynamic_list);
+ 
++	/* If nobody asked me to stop, then nobody is waiting to join me */
++	if (!thread->stop)
++		pthread_detach(pthread_self());
++
+ 	/* I am exiting here on my own volition, I need to clean up my own data structures
+ 	* Assume that I am no longer in any of the lists (idle, active, or dynamic)
+ 	*/

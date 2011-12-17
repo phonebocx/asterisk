@@ -2,7 +2,7 @@
 * The asterisk canary dies on startup sometimes. Canary is anyway not needed
   on Lenny kernel (>= 2.6.25). But if it dies we lose the effect of 
   real-time priority.
-* Canary is not killed when Asterisk is stopped.
+  - Though it seems like upstream is deprecating chan_h323.
+* Canary is not killed when Asterisk is stopped (?)
 * Some man pages to write.
-* Is it OK to ship AST.{pdf,txt}?
 * Get rid of the lump of code in patch mpglib. Rewrite using code from mpg123?

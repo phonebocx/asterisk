@@ -2,63 +2,62 @@ Source: asterisk
 Priority: optional
 Section: comm
 Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
-Uploaders: Mark Purcell <msp@debian.org>, Tzafrir Cohen <tzafrir@debian.org>, Faidon Liambotis <paravoid@debian.org>
-Build-Depends: quilt, 
- debhelper (>= 6.0.7),
+Uploaders: Mark Purcell <msp@debian.org>, Tzafrir Cohen <tzafrir@debian.org>
+Build-Depends: debhelper (>= 6.0.7),
  lsb-base (>= 3.2-14),
  libreadline-dev | libreadline5-dev,
  libgsm1-dev,
  libssl-dev,
- libtonezone-dev (>= 1:2.0.0),
+ libtonezone-dev (>= 1:2.0.0) [linux-any],
  libasound2-dev,
  libpq-dev,
  unixodbc-dev,
  libmysqlclient-dev | libmysqlclient15-dev,
- libbluetooth-dev,
- libpri-dev (>= 1.4.7),
+ libbluetooth-dev [linux-any],
+ libpri-dev (>= 1.4.12),
  libss7-dev,
- libvpb-dev,
+ libvpb-dev [linux-any],
  dahdi-source,
  autotools-dev,
+ autoconf,
+ automake,
  libnewt-dev,
  libsqlite0-dev | libsqlite-dev,
  libspeex-dev,
  libspeexdsp-dev,
- graphviz,
  libcurl4-openssl-dev | libcurl-dev,
  libxml2-dev,
- gsfonts,
  libpopt-dev,
- libopenh323-dev (>= 1.17.4),
  libiksemel-dev,
  libradiusclient-ng-dev,
  freetds-dev,
  libvorbis-dev,
  libsnmp-dev,
  libc-client2007e-dev | libc-client2007b-dev,
- libgmime-2.0-2-dev | libgmime2-dev,
+ libgmime-2.4-dev | libgmime2-dev,
  libjack-dev,
  liblua5.1-0-dev,
- libcap-dev (>= 1:2.16-4) | libcap2-dev,
+ libcap-dev (>= 1:2.16-4) [linux-any] | libcap2-dev [linux-any],
  libspandsp-dev,
- libopenr2-dev,
+ libopenr2-dev [linux-any],
  libresample1-dev,
  libopenais-dev,
- libneon27-dev,
+ libncurses-dev,
+ libneon27-gnutls-dev | libneon27-dev,
  libical-dev,
- libsrtp0-dev,
+ libsrtp0-dev [!sparc !hurd-i386],
  zlib1g-dev
-Standards-Version: 3.9.0
+Standards-Version: 3.9.2.0
 Homepage: http://www.asterisk.org/
 Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
 Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
 
 Package: asterisk
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, adduser, asterisk-prompt-en
+Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, asterisk-modules (= ${binary:Version}), adduser, asterisk-core-sounds-en-gsm | asterisk-prompt-en
 Provides: asterisk-1.8
-Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage
-Suggests: asterisk-doc, asterisk-dev, asterisk-h323
+Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage, asterisk-moh-opsound-gsm
+Suggests: asterisk-doc, asterisk-dev, asterisk-ooh323, asterisk-dahdi
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
@@ -83,28 +82,23 @@ Description: Open Source Private Branch Exchange (PBX)
  This is the main package that includes the Asterisk daemon and most channel
  drivers and applications.
 
-Package: asterisk-h323
+Package: asterisk-modules
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
-Description: H.323 protocol support for the Asterisk PBX
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Section: libs
+Breaks: asterisk (<< 1:1.8.3.3), asterisk-h323 (<< 1:1.8.4.4~dfsg-2)
+Replaces: asterisk (<< 1:1.8.3.3)
+Description: loadable modules for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
- This channel driver (chan_h323) provides support for the H.323 protocol
- for Asterisk. This is an implementation originally contributed by NuFone and
- nowdays maintained and distributed by Digium, Inc. Hence, it is considered 
- the official H.323 chanel driver.
- .
- There is another H.323 channel implementations for Asterisk: chan_ooh323,
- distributed by Debian as asterisk-ooh323c.
- .
- For more information about the Asterisk PBX, have a look at the Asterisk
- package.
+ This package includes most of the loadable modules of the Asterisk package.
+ There is normally no need to explicitly install it.
 
 Package: asterisk-dahdi
-Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}, dahdi
-Breaks: asterisk (<<1.8.0)
-Replaces: asterisk (<<1.8.0)
+Architecture: linux-any
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, dahdi
+Breaks: asterisk (<< 1:1.8.3.3)
+Replaces: asterisk (<< 1:1.8.3.3)
 Description: DAHDI devices support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -118,11 +112,11 @@ Description: DAHDI devices support for the Asterisk PBX
 
 Package: asterisk-voicemail
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
-Provides: asterisk-vocemail-storage
-Conflicts: asterisk-vocemail-storage
-Breaks: asterisk (<<1.8.0)
-Replaces: asterisk (<<1.8.0)
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Provides: asterisk-voicemail-storage
+Conflicts: asterisk-voicemail-storage
+Breaks: asterisk (<< 1:1.8.3.3)
+Replaces: asterisk (<< 1:1.8.3.3)
 Description: simple voicemail support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -136,11 +130,11 @@ Description: simple voicemail support for the Asterisk PBX
 
 Package: asterisk-voicemail-imapstorage
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
-Provides: asterisk-vocemail-storage
-Conflicts: asterisk-vocemail-storage
-Breaks: asterisk (<<1.8.0)
-Replaces: asterisk (<<1.8.0)
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Provides: asterisk-voicemail-storage
+Conflicts: asterisk-voicemail-storage
+Breaks: asterisk (<< 1:1.8.3.3)
+Replaces: asterisk (<< 1:1.8.3.3)
 Description: IMAP voicemail storage support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -153,11 +147,11 @@ Description: IMAP voicemail storage support for the Asterisk PBX
 
 Package: asterisk-voicemail-odbcstorage
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
-Provides: asterisk-vocemail-storage
-Conflicts: asterisk-vocemail-storage
-Breaks: asterisk (<<1.8.0)
-Replaces: asterisk (<<1.8.0)
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Provides: asterisk-voicemail-storage
+Conflicts: asterisk-voicemail-storage
+Breaks: asterisk (<< 1:1.8.3.3)
+Replaces: asterisk (<< 1:1.8.3.3)
 Description: ODBC voicemail storage support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -170,7 +164,7 @@ Description: ODBC voicemail storage support for the Asterisk PBX
 
 Package: asterisk-ooh323
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: H.323 protocol support for the Asterisk PBX - ooH323c
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -178,27 +172,24 @@ Description: H.323 protocol support for the Asterisk PBX - ooH323c
  for Asterisk. This is an independent implementation that does not depend
  on OpenH323, but may be less functional than the original chan_h323.
  .
- This is one of many H.323 channel implementations for Asterisk with other
- being chan_h323, distributed by Debian as asterisk-h323.
- .
  For more information about the Asterisk PBX, have a look at the Asterisk
  package.
 
 Package: asterisk-mp3
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
-Description: MP3 playback support for the Asterisk PBX (DUMMY)
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Description: MP3 playback support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
- This package SHOULD provide support for playing MP3-encoded files in
- Asterisk. Due to build issues it is merely an empty package for now.
+ This package provides support for playing MP3-encoded files in
+ Asterisk.
  .
  For more information about the Asterisk PBX, have a look at the Asterisk
  package.
 
 Package: asterisk-mysql
 Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: MySQL database protocol support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -210,8 +201,8 @@ Description: MySQL database protocol support for the Asterisk PBX
  package.
 
 Package: asterisk-mobile
-Architecture: any
-Depends: asterisk, ${shlibs:Depends}, ${misc:Depends}
+Architecture: linux-any
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
 Description: Bluetooth phone support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -240,7 +231,6 @@ Depends: ${misc:Depends}
 Recommends: asterisk
 Section: devel
 Priority: extra
-Replaces: asterisk (<< 1:1.4.21.1~dfsg-1)
 Description: Development files for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -258,18 +248,6 @@ Description: Debugging symbols for Asterisk
  This package includes the debugging symbols useful for debugging
  Asterisk. The debugging symbols are used for execution tracing and core 
  dump analysis. 
-
-Package: asterisk-sounds-main
-Architecture: all
-Depends: ${misc:Depends}
-Recommends: asterisk
-Replaces: asterisk-sounds-extra
-Provides: asterisk-prompt-en, asterisk-prompt-en-us
-Description: Core Sound files for Asterisk (English)
- Asterisk is an Open Source PBX and telephony toolkit.
- .
- This package contains the default (core) sound files in English, useful for
- the operation of Asterisk.
 
 Package: asterisk-config
 Depends: ${misc:Depends}

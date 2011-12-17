@@ -6,6 +6,8 @@ with asterisk, that code is no longer included and needs to be fetched
 (contrib/scripts/get_mpg_source.sh). This patch includes that fetched
 source (rev. 180).
 
+TODO: get rid of this code and use libmpg123 or whatever.
+
 diff -Nur a/addons/mp3/common.c b/addons/mp3/common.c
 --- a/addons/mp3/common.c	1970-01-01 02:00:00.000000000 +0200
 +++ b/addons/mp3/common.c	2010-08-03 21:17:14.000000000 +0300

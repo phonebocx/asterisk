@@ -1,7 +1,111 @@
-asterisk (1:1.8.2.3-1) unstable; urgency=low
+asterisk (1:1.8.8.0~dfsg-1) unstable; urgency=high
+
+  [ Faidon Liambotis ]
+  * Fix Breaks/Conflicts to contain the epoch.
+  * Urgency high since this resulted in file conflicts when upgrading from
+    stable.
+  * Patch reenable-pri-optional: Backport a patch from upstream to fix
+    several PRI features being compiled-out and hence disabled.
+  * Bump libpri-dev dependency to 1.4.12; it is not strictly needed but extra
+    functionality is enabled at build-time.
 
   [ Tzafrir Cohen ]
-  * Switching to branch 1.8.
+  * New upstream release. Closes: #651552.
+    - Patch reenable-pri-optional dropped: included upstream.
+  * Officially remove asterisk-h323:
+    - Break older versions, as it did not have a versioned Depends before.
+    - Remove the package.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 17 Dec 2011 15:49:56 +0200
+
+asterisk (1:1.8.7.1~dfsg-2) unstable; urgency=low
+
+  * libncurses is a build dep afterall (Closes: #649431).
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 25 Nov 2011 16:44:31 +0200
+
+asterisk (1:1.8.7.1~dfsg-1) unstable; urgency=high
+
+  [ Tzafrir Cohen ]
+  * New upstream release (Closes: #647252):
+    - Patch refix_bashism removed: applied upstream.
+    - Patch openssl10 removed: applied upstream.
+    - Patch gmime-2.4 removed: applied upstream.
+    - Patch gcc46 removed - was a backport from upstream.
+  * Disable chan_h323: broken with current h323plus, and not loved by
+    upstream.
+  * Patch chan_iax2-detach-thread-on-non-stop-exit: Hopefully plugs a
+    memory leak.
+  * Patch reinclude_docs: a copy of the included documentation that was
+    removed.
+  * Patch sparc32_disable: Remove pointless optimization for sparc64
+
+  [ Paul Belanger ]
+  * Bump libpri-dev to 1.4.11.
+  * Ensure sub-packages with asterisk modules are the same version as the
+    binary.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 11 Nov 2011 17:48:03 +0200
+
+asterisk (1:1.8.4.4~dfsg-2) unstable; urgency=low
+
+  * Don't mark en-gsm sound files as enabled, so they won't be downloaded.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 04 Jul 2011 23:19:50 +0300
+
+asterisk (1:1.8.4.4~dfsg-1) unstable; urgency=high
+
+  * AST-2011-011 (CVE-2011-2536): Don't leak SIP username information
+    (closes: #632029)
+  * Clearly the NC-ND license for AST.{pdf,txt} is here to stay. Strip it.
+    - And while we're at at, strip out sound files and some generated files.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 01 Jul 2011 11:51:45 +0300
+
+asterisk (1:1.8.4.3-1) unstable; urgency=high
+
+  * New upstream point release, fixes 3 remotely-explitables (of sort) bugs:
+    - AST-2011-008, CVE-2011-2529 (Closes: #631446)
+    - AST-2011-009 (Closes: #631445)
+    - AST-2011-010, CVE-2011-2535 (Closes: #631448)
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 24 Jun 2011 00:51:49 +0300
+
+asterisk (1:1.8.4.2-1) unstable; urgency=low
+
+  * New upstream point release:
+    - Fixes CVE-2011-2216 - AST-2011-007 (Closes: #629130).
+  * Patch gcc46: Fix the induced regression.
+  * Blacklist SRTP support on Sparc and hurd-i386 until SRTP available there. 
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 03 Jun 2011 23:20:29 +0300
+
+asterisk (1:1.8.4-1) unstable; urgency=low
+
+  * New upstream release.
+    - Patch no_ssl2 removed: merged upstream.
+  * Remove unneeded dependency on voicemail modules - only leave Recommends
+    (Closes: #624190).
+  * Patch refix_bashism: bashism crept bact into the configure script
+    (Jilles Tjoelker).
+  * Fixes for kFreeBSD (Closes: #624569):
+    - Declare build-deps linux-any: libtonezone-dev, libvpb-dev,
+      libbluetooth-dev, libopenh323-dev, libcap[2]-dev, libstrp0-dev.
+    - Thus sub-packages asterisk-dahdi, asterisk-h323 and asterisk-mobile
+      are linux-any.
+    - And logic added to rules file not to copy their files on non-linux.
+    - Patch kfreebsd: Fix building with kFreeBSD.
+    - Patch no_uname: Fix building with kFreeBSD: an uglier patch.
+  * Patch gcc46: Some gcc-4.6 fixes from upstream. Get rid of some
+    build warnings.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 16 May 2011 00:58:19 +0300
+
+asterisk (1:1.8.3.3-1) unstable; urgency=high
+
+  [ Tzafrir Cohen ]
+  * Switching to branch 1.8
+    (Closes: #610487, #614580, #618790, #618791, #623775).
   * Patch parser-mangles-include dropped: merged upstream.
   * Patch dahdi-fxsks-hookstate dropped: merged upstream.
   * Patch dahdi_ptmp_nt dropped: silly hack no longer needed.
@@ -12,6 +116,7 @@ asterisk (1:1.8.2.3-1) unstable; urgency=low
   * Patch typos dropped: merged upstream.
   * Patch rtcp_cli_fix dropped: merged upstream.
   * Sound files: version 1.4.20
+  * Separate sub-package asterisk-modules to avoid multiarch issues.
   * Extra sub-package asterisk-dahdi for the dahdi modules (Closes: #590588).
   * As of 1.8.1, AST.pdf and AST.txt are generated from the wiki.
     - And thus no need for rubber at build time (Closes: #531551).
@@ -23,12 +128,33 @@ asterisk (1:1.8.2.3-1) unstable; urgency=low
     - Patch enable_addons: do build those modules.
     - Also app_saycountpl, which will go into the mian package.
     - Patch mpglib: mpglib from asterisk-addons, originally.
+  * Patch gmime-2.4: fixes building with gmime 2.4 (Closes: #549054).
+    - Requires re-generating configure script.
+  * Patch openssl10: Fix detection of openssl 1.0.
+  * Patch no_ssl2: Don't require client-side SSL2 support.
+  * include menuselect.makeopts in the docs directory - let us know what
+    modules were not built.
+  * Bump Standards version to 3.9.2.0 (no change needed).
+  * Upstream prefers chan_ooh323 to chan_h323. Suggest asterisk-ooh323.
+  * Drop asterisk-sounds-main: we already have that functionality the
+    asterisk-core-sounds packages.
+  * Recommend a moh (music-on-hold) package to have music played on hold.
+
+  [ Faidon Liambotis ]
+  * Switch to the "3.0 (quilt)" package source format.
 
   [ Paul Belanger ]
   * Depend on libneon27-dev and libical-dev for calendar support.
   * Depend on libsrtp0-dev for SRTP support.
+  * When compiling with DEB_BUILD_OPTIONS="debug" enable native Asterisk
+    debugging tools.  Specifically DONT_OPTIMIZE, DEBUG_THREADS and
+    --enable-dev-mode.
+  * Regardless of which asterisk-voicemail-* is installed (each package
+    conflicts on each other), the name of the module is now
+    app_voicemail.so.
+  * Fix a bug with app_voicemail-*.exports.in not being copied properly.
 
- -- Paul Belanger <pabelanger@digium.com>  Mon, 21 Feb 2011 11:33:47 -0500
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 25 Apr 2011 21:46:51 +0300
 
 asterisk (1:1.6.2.9-2) unstable; urgency=high
 

@@ -8,9 +8,12 @@ Thus those sound files are deleted on dist-clean. The tarballs include
 some soundfiles tarballs by default. Thus the normal procedure of
 running 'make dist-clean' before building the package would delete them.
 
+Not used ATM as we ship a tarball with the sound files stripped out. May be
+re-used in the future.
+
 --- a/Makefile
 +++ b/Makefile
-@@ -466,7 +466,6 @@ dist-clean: distclean
+@@ -442,7 +442,6 @@ dist-clean: distclean
  
  distclean: $(SUBDIRS_DIST_CLEAN) _clean
  	@$(MAKE) -C menuselect dist-clean
@@ -18,7 +21,7 @@ running 'make dist-clean' before building the package would delete them.
  	rm -f menuselect.makeopts makeopts menuselect-tree menuselect.makedeps
  	rm -f makeopts.embed_rules
  	rm -f config.log config.status config.cache
-@@ -476,6 +475,10 @@ distclean: $(SUBDIRS_DIST_CLEAN) _clean
+@@ -452,6 +451,10 @@ distclean: $(SUBDIRS_DIST_CLEAN) _clean
  	rm -rf doc/api
  	rm -f build_tools/menuselect-deps
  
@@ -27,5 +30,5 @@ running 'make dist-clean' before building the package would delete them.
 +	@$(MAKE) -C sounds dist-clean
 +
  datafiles: _all doc/core-en_US.xml
- 	CFLAGS="$(_ASTCFLAGS) $(ASTCFLAGS)" build_tools/mkpkgconfig $(DESTDIR)$(libdir)/pkgconfig;
+ 	CFLAGS="$(_ASTCFLAGS) $(ASTCFLAGS)" build_tools/mkpkgconfig "$(DESTDIR)$(libdir)/pkgconfig";
  # Should static HTTP be installed during make samples or even with its own target ala

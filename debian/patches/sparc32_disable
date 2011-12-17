@@ -1,0 +1,34 @@
+Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Description: Remove pointless optimization for sparc64
+Forwarded: no
+
+The following code was added to Asterisk mostly at Aug. 2004. At the
+time there was still support for old sparc (non 64 bit ultra-sparc) CPUs
+in the sparc ports. This was dropped after the Woody release.
+
+The -mtune optimization may be worth considering, but certainly not in
+the main Makefile.
+
+See also: https://reviewboard.asterisk.org/r/1534/
+
+--- a/Makefile
++++ b/Makefile
+@@ -168,18 +168,6 @@ ifeq ($(OSARCH),linux-gnu)
+     #PROC=athlon
+   endif
+ 
+-  ifeq ($(PROC),sparc64)
+-    #The problem with sparc is the best stuff is in newer versions of gcc (post 3.0) only.
+-    #This works for even old (2.96) versions of gcc and provides a small boost either way.
+-    #A ultrasparc cpu is really v9 but the stock debian stable 3.0 gcc doesn't support it.
+-    #So we go lowest common available by gcc and go a step down, still a step up from
+-    #the default as we now have a better instruction set to work with. - Belgarath
+-    PROC=ultrasparc
+-    OPTIONS+=$(shell if $(CC) -mtune=$(PROC) -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-mtune=$(PROC)"; fi)
+-    OPTIONS+=$(shell if $(CC) -mcpu=v8 -S -o /dev/null -xc /dev/null >/dev/null 2>&1; then echo "-mcpu=v8"; fi)
+-    OPTIONS+=-fomit-frame-pointer
+-  endif
+-
+   ifeq ($(PROC),arm)
+     # The Cirrus logic is the only heavily shipping arm processor with a real floating point unit
+     ifeq ($(SUB_PROC),maverick)
