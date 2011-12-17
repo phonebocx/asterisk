@@ -6,7 +6,7 @@ This patch should hopefully plug a memory leak in IAX2.
 
 --- a/channels/chan_iax2.c
 +++ b/channels/chan_iax2.c
-@@ -11684,6 +11684,10 @@ static void *iax2_process_thread(void *d
+@@ -11690,6 +11690,10 @@ static void *iax2_process_thread(void *d
  	AST_LIST_REMOVE(&dynamic_list, thread, list);
  	AST_LIST_UNLOCK(&dynamic_list);
  
