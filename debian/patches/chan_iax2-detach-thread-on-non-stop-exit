@@ -1,8 +1,10 @@
 Author: Alex Villací­s Lasso <a_villacis@palosanto.com>
 Bug: https://issues.asterisk.org/jira/browse/ASTERISK-17339
+Origin: http://svnview.digium.com/svn/asterisk?view=revision&revision=350220
 Description: Fix an IAX2 memory leak
 
 This patch should hopefully plug a memory leak in IAX2.
+Fixed in 1.8.10 ?
 
 --- a/channels/chan_iax2.c
 +++ b/channels/chan_iax2.c
