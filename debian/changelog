@@ -16,8 +16,9 @@ asterisk (1:1.8.8.0~dfsg-1) unstable; urgency=high
     - Break older versions, as it did not have a versioned Depends before.
     - Remove the package.
   * Update watch file to only check for 1.8.x tarballs.
+  * Quote pathes in postinst script: Closes: #656208 (Pocos).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 18 Dec 2011 00:50:02 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 18 Jan 2012 15:26:34 +0200
 
 asterisk (1:1.8.7.1~dfsg-2) unstable; urgency=low
 
