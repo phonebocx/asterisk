@@ -16,6 +16,11 @@ BUILD_OS=$(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
+CFLAGS = `dpkg-buildflags --get CFLAGS`
+LDFLAGS = `dpkg-buildflags --get LDFLAGS`
+CFLAGS += `dpkg-buildflags --get CPPFLAGS`
+
+
 ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
 	BUILDFLAGS += OPTIMIZE=-O0
 else
@@ -66,6 +71,7 @@ config.status: configure
 	chmod 755 $(CURDIR)/debian/dummyprogs/fetch
 	
 	$(FETCH_ENV) ./configure			\
+		CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
 		--host=$(DEB_HOST_GNU_TYPE)		\
 		--build=$(DEB_BUILD_GNU_TYPE)		\
 		--prefix=/usr				\

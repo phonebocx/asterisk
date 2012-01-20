@@ -1,8 +1,9 @@
 asterisk (1:1.8.8.2~dfsg-1) unstable; urgency=high
 
   * New upstream release (Closes: #656596).
+  * Use CFLAGS and LDFLAGS from dpkg-buildflags (Closes: #653944).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 20 Jan 2012 13:28:00 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 20 Jan 2012 14:16:47 +0200
 
 asterisk (1:1.8.8.0~dfsg-1) unstable; urgency=high
 
