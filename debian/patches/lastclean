@@ -1,0 +1,10 @@
+Description: asterisk 1.8.9.0 tarball accidentally misses the .lastclean file
+Author: Tzafrir Cohen <tzafrir@debian.org>
+Bug: <url in upstream bugtracker>
+
+--- /dev/null
++++ asterisk-1.8.9.0~dfsg/.lastclean
+@@ -0,0 +1,3 @@
++39
++
++
