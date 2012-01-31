@@ -1,3 +1,9 @@
+asterisk (1:1.8.8.2~dfsg-2) UNRELEASED; urgency=low
+
+  * Build-depend on sqlite3 as well (Closes: #531759).
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 01 Feb 2012 00:04:19 +0200
+
 asterisk (1:1.8.8.2~dfsg-1) unstable; urgency=high
 
   * New upstream release, fixes AST-2012-001 (Closes: #656596).
