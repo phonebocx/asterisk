@@ -1,10 +1,9 @@
-asterisk (1:1.8.9.0~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.8.9.2~dfsg-1) UNRELEASED; urgency=low
 
   * New upstrean release.
-    - Patch lastclean: include .lastclean accidently not included in tarball.
   * Build-depend on sqlite3 as well (Closes: #531759).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 01 Feb 2012 00:59:28 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 13 Feb 2012 11:23:59 +0200
 
 asterisk (1:1.8.8.2~dfsg-1) unstable; urgency=high
 
