@@ -1,9 +1,14 @@
-asterisk (1:1.8.9.2~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.8.10.0~dfsg-1) UNRELEASED; urgency=low
 
+  [ Tzafrir Cohen ]
   * New upstrean release.
   * Build-depend on sqlite3 as well (Closes: #531759).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 13 Feb 2012 11:23:59 +0200
+  [ Paul Belanger ]
+  * debian/patch/chan_iax2-detach-thread-on-non-stop-exit:
+    - Dropped; merged upstream
+
+ -- Paul Belanger <paul.belanger@polybeacon.com>  Mon, 12 Mar 2012 14:38:10 -0400
 
 asterisk (1:1.8.8.2~dfsg-1) unstable; urgency=high
 

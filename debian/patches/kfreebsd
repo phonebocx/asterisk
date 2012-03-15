@@ -18,7 +18,7 @@ Fix a few places where the GNU/kFreeBSD is misdetected.
 +++ b/main/netsock.c
 @@ -29,7 +29,7 @@
  
- ASTERISK_FILE_VERSION(__FILE__, "$Revision: 298051 $")
+ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 353175 $")
  
 -#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__)
 +#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__FreeBSD_kernel__) || defined(__Darwin__)

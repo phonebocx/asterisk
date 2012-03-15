@@ -8,9 +8,9 @@ of autoconf is needed on BSD.
 
 --- a/bootstrap.sh
 +++ b/bootstrap.sh
-@@ -17,10 +17,6 @@
- 		MY_AC_VER=259
- 		MY_AM_VER=19
+@@ -21,10 +21,6 @@ case `uname -sr` in
+ 		export AUTOCONF_VERSION=2.63
+ 		export AUTOMAKE_VERSION=1.9
  		;;
 -	*'BSD'*)
 -		MY_AC_VER=-2.62
