@@ -11,14 +11,23 @@ asterisk (1:1.8.10.0~dfsg-1) UNRELEASED; urgency=low
   [ Mark Purcell ]
   * New Release:
     - Fixes "SHA-1 code is doesn't allow modification" (Closes: #643703)
-    - Fixes "[CVE-2012-1183 - CVE-2012-1184] Asterisk: AST-2012-002 and AST-
-    2012-003 flaws" (Closes: #664411)
+    - Fixes "[CVE-2012-1183 - CVE-2012-1184] Asterisk: AST-2012-002 and 
+    AST-2012-003 flaws" (Closes: #664411)
+    - Fixes "Placing calls on hold fails with some IP phones" (Closes: #632518)
+    - Fixes "Pass the correct value to ast_timer_set_rate() for IAX2
+    trunking." (Closes: #661974)
+    - Fixes "Call quality on IAX significantly worse than SIP" (Closes: #481702)
+    - Fixes "Experimental branch: New upstream release: 1.8.2.2" (Closes: #610811)
+    - Fixes "asterisk german number pronunciation" (Closes: #402991)
+    - Fixes "Why using version 1.6.2.9 - it's not LTS" (Closes: #612147)
+    - Fixes "SRTP/ZRTP support for Asterisk" (Closes: #577686)
+    - Fixes "fails to register SIP channels on ARM"  (Closes: #660240)
   * Fix "Planned gmime 2.4 removal" Updated Build-Depends: (Closes: #663998)
   * export CFLAGS LDFLAGS
     - Fixes "Hardening flags missing for menuselect" (Closes: #664086)
     - Fixes "enable hardening options" (Closes: #542741)
 
- -- Mark Purcell <msp@debian.org>  Sun, 18 Mar 2012 14:59:24 +1100
+ -- Mark Purcell <msp@debian.org>  Sun, 18 Mar 2012 15:34:36 +1100
 
 asterisk (1:1.8.8.2~dfsg-1) unstable; urgency=high
 
