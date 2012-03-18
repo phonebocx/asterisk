@@ -1,4 +1,4 @@
-asterisk (1:1.8.10.0~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.8.10.0~dfsg-1) unstable; urgency=low
 
   [ Tzafrir Cohen ]
   * New upstrean release.
@@ -8,7 +8,7 @@ asterisk (1:1.8.10.0~dfsg-1) UNRELEASED; urgency=low
   * debian/patch/chan_iax2-detach-thread-on-non-stop-exit:
     - Dropped; merged upstream
 
-  [ Mark Purcell ]
+  [ Mark Purcell ] 
   * New Release:
     - Fixes "SHA-1 code is doesn't allow modification" (Closes: #643703)
     - Fixes "[CVE-2012-1183 - CVE-2012-1184] Asterisk: AST-2012-002 and 
@@ -27,7 +27,7 @@ asterisk (1:1.8.10.0~dfsg-1) UNRELEASED; urgency=low
     - Fixes "Hardening flags missing for menuselect" (Closes: #664086)
     - Fixes "enable hardening options" (Closes: #542741)
 
- -- Mark Purcell <msp@debian.org>  Sun, 18 Mar 2012 15:34:36 +1100
+ -- Mark Purcell <msp@debian.org>  Sun, 18 Mar 2012 16:47:35 +1100
 
 asterisk (1:1.8.8.2~dfsg-1) unstable; urgency=high
 
