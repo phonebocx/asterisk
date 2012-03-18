@@ -3,8 +3,9 @@ asterisk (1:1.8.10.1~dfsg-1) unstable; urgency=low
   * New upstrean bug-fix release.
     - Fixes "[CVE-2012-1183 - CVE-2012-1184] Asterisk: AST-2012-002 and 
       AST-2012-003 flaws" (Closes: #664411).
+  * Patch gmime2.6 (Closes: #663998, #664004), also fixed Build-Depends.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 18 Mar 2012 17:02:24 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 19 Mar 2012 01:25:07 +0200
 
 asterisk (1:1.8.10.0~dfsg-1) unstable; urgency=low
 
@@ -28,7 +29,6 @@ asterisk (1:1.8.10.0~dfsg-1) unstable; urgency=low
     - Fixes "Why using version 1.6.2.9 - it's not LTS" (Closes: #612147)
     - Fixes "SRTP/ZRTP support for Asterisk" (Closes: #577686)
     - Fixes "fails to register SIP channels on ARM"  (Closes: #660240)
-  * Fix "Planned gmime 2.4 removal" Updated Build-Depends: (Closes: #663998)
   * export CFLAGS LDFLAGS
     - Fixes "Hardening flags missing for menuselect" (Closes: #664086)
     - Fixes "enable hardening options" (Closes: #542741)
