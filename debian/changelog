@@ -17,7 +17,7 @@ asterisk (1:1.8.10.0~dfsg-1) unstable; urgency=low
     - Fixes "Pass the correct value to ast_timer_set_rate() for IAX2
     trunking." (Closes: #661974)
     - Fixes "Call quality on IAX significantly worse than SIP" (Closes: #481702)
-    - Fixes "Experimental branch: New upstream release: 1.8.2.2" (Closes: #610811)
+    - Fixes "New upstream release: 1.8.2.2" (Closes: #610811)
     - Fixes "asterisk german number pronunciation" (Closes: #402991)
     - Fixes "Why using version 1.6.2.9 - it's not LTS" (Closes: #612147)
     - Fixes "SRTP/ZRTP support for Asterisk" (Closes: #577686)
