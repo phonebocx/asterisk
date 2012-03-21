@@ -247,6 +247,7 @@ get-orig-source:
 	# in case the tarball is not clean:
 	@rm -rf $(TMP_TARBALL_TOP)/AST.txt
 	@rm -rf $(TMP_TARBALL_TOP)/AST.pdf
+	@rm -f $(TMP_TARBALL_TOP)/codecs/ilbc/rfc3951.txt
 	# While we're at it: remove some generated files that will become
 	# invalid:
 	@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts
