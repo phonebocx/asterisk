@@ -1,6 +1,6 @@
 asterisk (1:1.8.11.1~dfsg-1) unstable; urgency=high
 
-  * New upstream release. Fixes:
+  * New upstream release, Closes: #670180:
     - AST-2012-004 - further Manager permission fixes (CVE-2012-2414).
     - AST-2012-005 - Heap overflow in chan_skinny (CVE-2012-2415).
     - AST-2012-006 - Remote crash on SIP "UPDATE" method (CVE-2012-2416).
