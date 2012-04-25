@@ -20,8 +20,12 @@ CFLAGS = `dpkg-buildflags --get CFLAGS`
 LDFLAGS = `dpkg-buildflags --get LDFLAGS`
 CFLAGS += `dpkg-buildflags --get CPPFLAGS`
 
+# For CFLAGS/LDFLAGS of menuselect:
+BUILD_CFLAGS = $(CFLAGS)
+BUILD_LDFLAGS = $(CFLAGS)
+
 # Necessary to pass hardening flags to menuselect.
-export CFLAGS LDFLAGS
+export CFLAGS LDFLAGS BUILD_CFLAGS BUILD_LDFLAGS
 
 
 ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))

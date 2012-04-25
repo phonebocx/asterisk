@@ -5,6 +5,8 @@ asterisk (1:1.8.11.1~dfsg-1) unstable; urgency=high
     - AST-2012-005 - Heap overflow in chan_skinny (CVE-2012-2415).
     - AST-2012-006 - Remote crash on SIP "UPDATE" method (CVE-2012-2416).
   * Fix daemon status check in init.d script (Closes: #669378).
+  * Patch menuselect_cflags: allow passing our flags to menuselect's build.
+    - Use it t opass our CFLAGS to menuselect (Closes: #664086).
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 25 Apr 2012 12:19:06 +0300
 
