@@ -22,7 +22,7 @@ CFLAGS += `dpkg-buildflags --get CPPFLAGS`
 
 # For CFLAGS/LDFLAGS of menuselect:
 BUILD_CFLAGS = $(CFLAGS)
-BUILD_LDFLAGS = $(CFLAGS)
+BUILD_LDFLAGS = $(LDFLAGS)
 
 # Necessary to pass hardening flags to menuselect.
 export CFLAGS LDFLAGS BUILD_CFLAGS BUILD_LDFLAGS
