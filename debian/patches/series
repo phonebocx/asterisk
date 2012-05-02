@@ -23,5 +23,4 @@ no_uname
 kfreebsd
 
 sparc32_disable
-gmime2.6
 menuselect_cflags
