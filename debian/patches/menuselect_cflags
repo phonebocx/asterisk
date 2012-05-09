@@ -9,6 +9,10 @@ environment of Make:
   make BUILD_CFLAGS="whatever" BUILD_LDFLAGS="whatever"
 
 Also keep menuselect from steping over them on its own.
+
+Commited to upstream trunk (asterisk r366002, menuselect r1033).
+Will be included in asterisk 11.
+
 ---
  Makefile |    4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
