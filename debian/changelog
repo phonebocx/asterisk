@@ -1,11 +1,13 @@
-asterisk (1:1.8.12.0~rc3~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.8.12.0~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
   * New upstream release candidate.
     - Patch gmime2.6 removed: merged upstream.
   * Also pass LDFLAGS to menuselect (Closes: #664086 for real).
+  * Fully strip-out the ilbc code (Closes: #665938, #665937).
+    - Patch ilbc_disable to fix the build.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 02 May 2012 17:29:34 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 10 May 2012 18:46:52 +0300
 
 asterisk (1:1.8.11.1~dfsg-1) unstable; urgency=high
 

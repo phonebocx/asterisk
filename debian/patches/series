@@ -24,3 +24,4 @@ kfreebsd
 
 sparc32_disable
 menuselect_cflags
+ilbc_disable
