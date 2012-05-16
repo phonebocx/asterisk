@@ -6,8 +6,9 @@ asterisk (1:1.8.12.0~dfsg-1) UNRELEASED; urgency=low
   * Also pass LDFLAGS to menuselect (Closes: #664086 for real).
   * Fully strip-out the ilbc code (Closes: #665938, #665937).
     - Patch ilbc_disable to fix the build.
+  * Patch httpd_port: Fix port number of Asterisk httpd.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 10 May 2012 18:46:52 +0300
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 16 May 2012 18:43:18 +0300
 
 asterisk (1:1.8.11.1~dfsg-1) unstable; urgency=high
 
