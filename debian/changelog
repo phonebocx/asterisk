@@ -1,12 +1,13 @@
-asterisk (1:1.8.12.2~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.8.13.0~dfsg-1) UNRELEASED; urgency=low
 
   * NOT RELEASED YET
-  * New upstream release candidate.
+  * New upstream release.
     - AST-2012-007 (CVE-2012-2947): Fix IAX receiving HOLD without
       suggested MOH class crash (Closes: #675204).
     - AST-2012-008 (CVE-2012-2948): remote crash issue in chan_skinny
       (Closes: #67521).
     - Patch gmime2.6 removed: merged upstream.
+    - Patch sparc32_disable removed: hacks removed from Upstream Makefile.
   * Also pass LDFLAGS to menuselect (Closes: #664086 for real).
   * Fully strip-out the ilbc code (Closes: #665938, #665937).
     - Patch ilbc_disable to fix the build.

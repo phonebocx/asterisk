@@ -67,6 +67,8 @@ configure: configure.ac
 	if [ ! -f configure_deborig ]; then mv configure configure_deborig; fi
 	./bootstrap.sh
 
+# Make sure the configure script gets an CFLAGS parameter. Otherwise
+# it will build with -march=native
 config.status: configure
 	dh_testdir
 
