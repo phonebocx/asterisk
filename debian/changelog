@@ -1,6 +1,5 @@
-asterisk (1:1.8.13.0~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:1.8.13.0~dfsg-1) unstable; urgency=high
 
-  * NOT RELEASED YET
   * New upstream release.
     - AST-2012-007 (CVE-2012-2947): Fix IAX receiving HOLD without
       suggested MOH class crash (Closes: #675204).
