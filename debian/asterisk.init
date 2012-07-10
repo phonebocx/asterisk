@@ -114,7 +114,7 @@ then
 fi
 
 status() {
-	status_of_proc "$DAEMON" "$DESC" && return 0 || return $?
+	status_of_proc -p "$PIDFILE" "$NAME" "$DESC" && return 0 || return $?
 }
 
 asterisk_rx() {

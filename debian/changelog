@@ -1,3 +1,81 @@
+asterisk (1:1.8.13.0~dfsg-1) unstable; urgency=high
+
+  * New upstream release.
+    - AST-2012-007 (CVE-2012-2947): Fix IAX receiving HOLD without
+      suggested MOH class crash (Closes: #675204).
+    - AST-2012-008 (CVE-2012-2948): remote crash issue in chan_skinny
+      (Closes: #67521).
+    - Patch gmime2.6 removed: merged upstream.
+    - Patch sparc32_disable removed: hacks removed from Upstream Makefile.
+  * Also pass LDFLAGS to menuselect (Closes: #664086 for real).
+  * Fully strip-out the ilbc code (Closes: #665938, #665937).
+    - Patch ilbc_disable to fix the build.
+  * Patch httpd_port: Fix port number of Asterisk httpd.
+  * While we're at it: Closes: #606959, which is a non-issue.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 16 May 2012 18:43:18 +0300
+
+asterisk (1:1.8.11.1~dfsg-1) unstable; urgency=high
+
+  * New upstream release, Closes: #670180:
+    - AST-2012-004 - further Manager permission fixes (CVE-2012-2414).
+    - AST-2012-005 - Heap overflow in chan_skinny (CVE-2012-2415).
+    - AST-2012-006 - Remote crash on SIP "UPDATE" method (CVE-2012-2416).
+  * Fix daemon status check in init.d script (Closes: #669378).
+  * Patch menuselect_cflags: allow passing our flags to menuselect's build.
+    - Use it t opass our CFLAGS to menuselect (Closes: #664086).
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 25 Apr 2012 12:19:06 +0300
+
+asterisk (1:1.8.10.1~dfsg-1) unstable; urgency=low
+
+  [ Victor Seva ]
+  * Update backports/squeeze script gmime2.6 -> gmime2.4
+
+  [ Tzafrir Cohen ]
+  * New upstrean bug-fix release.
+    - Fixes "[CVE-2012-1183 - CVE-2012-1184] Asterisk: AST-2012-002 and 
+      AST-2012-003 flaws" (Closes: #664411).
+  * Patch gmime2.6 (Closes: #663998, #664004), also fixed Build-Depends.
+  * Remove the text of RFC 3951 from the tarball. (Closes: #665937)
+
+ -- Mark Purcell <msp@debian.org>  Sat, 31 Mar 2012 08:44:57 +1100
+
+asterisk (1:1.8.10.0~dfsg-1) unstable; urgency=low
+
+  [ Tzafrir Cohen ]
+  * New upstrean release.
+  * Build-depend on sqlite3 as well (Closes: #531759).
+
+  [ Paul Belanger ]
+  * debian/patch/chan_iax2-detach-thread-on-non-stop-exit:
+    - Dropped; merged upstream
+
+  [ Mark Purcell ] 
+  * New Release:
+    - Fixes "SHA-1 code is doesn't allow modification" (Closes: #643703)
+    - Fixes "Placing calls on hold fails with some IP phones" (Closes: #632518)
+    - Fixes "Pass the correct value to ast_timer_set_rate() for IAX2
+    trunking." (Closes: #661974)
+    - Fixes "Call quality on IAX significantly worse than SIP" (Closes: #481702)
+    - Fixes "New upstream release: 1.8.2.2" (Closes: #610811)
+    - Fixes "asterisk german number pronunciation" (Closes: #402991)
+    - Fixes "Why using version 1.6.2.9 - it's not LTS" (Closes: #612147)
+    - Fixes "SRTP/ZRTP support for Asterisk" (Closes: #577686)
+    - Fixes "fails to register SIP channels on ARM"  (Closes: #660240)
+  * export CFLAGS LDFLAGS
+    - Fixes "Hardening flags missing for menuselect" (Closes: #664086)
+    - Fixes "enable hardening options" (Closes: #542741)
+
+ -- Mark Purcell <msp@debian.org>  Sun, 18 Mar 2012 16:47:35 +1100
+
+asterisk (1:1.8.8.2~dfsg-1) unstable; urgency=high
+
+  * New upstream release, fixes AST-2012-001 (Closes: #656596).
+  * Use CFLAGS and LDFLAGS from dpkg-buildflags (Closes: #653944).
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Fri, 20 Jan 2012 14:16:47 +0200
+
 asterisk (1:1.8.8.0~dfsg-1) unstable; urgency=high
 
   [ Faidon Liambotis ]
@@ -15,8 +93,10 @@ asterisk (1:1.8.8.0~dfsg-1) unstable; urgency=high
   * Officially remove asterisk-h323:
     - Break older versions, as it did not have a versioned Depends before.
     - Remove the package.
+  * Update watch file to only check for 1.8.x tarballs.
+  * Quote pathes in postinst script: Closes: #656208 (Pocos).
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 17 Dec 2011 15:49:56 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 18 Jan 2012 15:26:34 +0200
 
 asterisk (1:1.8.7.1~dfsg-2) unstable; urgency=low
 
@@ -117,7 +197,7 @@ asterisk (1:1.8.3.3-1) unstable; urgency=high
   * Patch rtcp_cli_fix dropped: merged upstream.
   * Sound files: version 1.4.20
   * Separate sub-package asterisk-modules to avoid multiarch issues.
-  * Extra sub-package asterisk-dahdi for the dahdi modules (Closes: #590588).
+  * Extra sub-package asterisk-dahdi for the dahdi modules (Closes: #590558).
   * As of 1.8.1, AST.pdf and AST.txt are generated from the wiki.
     - And thus no need for rubber at build time (Closes: #531551).
   * Separate sub-packages for voicemail backends:

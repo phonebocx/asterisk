@@ -1,0 +1,22 @@
+Origin: http://svnview.digium.com/svn/asterisk?view=revision&revision=366650
+Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Description: Set httpd default port to 8088
+
+Due to a regression in upstream's code (r353770) the port on which the
+Asterisk httpd listens on by default (if it does) has changed from 8088
+to 8080. Set it back to 8088.
+
+Fixed in upstream branch 1.8. Will be included in 1.8.14 or so. No
+regression in 10 and trunk.
+
+--- a/main/http.c
++++ b/main/http.c
+@@ -61,7 +61,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
+ #define MAX_PREFIX 80
+ #define DEFAULT_SESSION_LIMIT 100
+ 
+-#define DEFAULT_HTTP_PORT 8080
++#define DEFAULT_HTTP_PORT 8088
+ #define DEFAULT_HTTPS_PORT 8089
+ 
+ /* See http.h for more information about the SSL implementation */

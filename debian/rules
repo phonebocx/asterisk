@@ -16,6 +16,18 @@ BUILD_OS=$(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
+CFLAGS = `dpkg-buildflags --get CFLAGS`
+LDFLAGS = `dpkg-buildflags --get LDFLAGS`
+CFLAGS += `dpkg-buildflags --get CPPFLAGS`
+
+# For CFLAGS/LDFLAGS of menuselect:
+BUILD_CFLAGS = $(CFLAGS)
+BUILD_LDFLAGS = $(LDFLAGS)
+
+# Necessary to pass hardening flags to menuselect.
+export CFLAGS LDFLAGS BUILD_CFLAGS BUILD_LDFLAGS
+
+
 ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
 	BUILDFLAGS += OPTIMIZE=-O0
 else
@@ -55,6 +67,8 @@ configure: configure.ac
 	if [ ! -f configure_deborig ]; then mv configure configure_deborig; fi
 	./bootstrap.sh
 
+# Make sure the configure script gets an CFLAGS parameter. Otherwise
+# it will build with -march=native
 config.status: configure
 	dh_testdir
 
@@ -66,6 +80,7 @@ config.status: configure
 	chmod 755 $(CURDIR)/debian/dummyprogs/fetch
 	
 	$(FETCH_ENV) ./configure			\
+		CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
 		--host=$(DEB_HOST_GNU_TYPE)		\
 		--build=$(DEB_BUILD_GNU_TYPE)		\
 		--prefix=/usr				\
@@ -238,6 +253,7 @@ get-orig-source:
 	# in case the tarball is not clean:
 	@rm -rf $(TMP_TARBALL_TOP)/AST.txt
 	@rm -rf $(TMP_TARBALL_TOP)/AST.pdf
+	@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc
 	# While we're at it: remove some generated files that will become
 	# invalid:
 	@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts

@@ -1,8 +1,3 @@
-* chan_h323/openh323 linking. See comment in patch h323-no-deps-on-asterisk
-* The asterisk canary dies on startup sometimes. Canary is anyway not needed
-  on Lenny kernel (>= 2.6.25). But if it dies we lose the effect of 
-  real-time priority.
-  - Though it seems like upstream is deprecating chan_h323.
-* Canary is not killed when Asterisk is stopped (?)
 * Some man pages to write.
 * Get rid of the lump of code in patch mpglib. Rewrite using code from mpg123?
+* Get libilbc packages instead of the built-in libilbc.
