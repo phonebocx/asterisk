@@ -8,7 +8,7 @@ safe_asterisk.
 
 --- a/contrib/scripts/safe_asterisk
 +++ b/contrib/scripts/safe_asterisk
-@@ -105,7 +105,7 @@ ulimit -c unlimited
+@@ -107,7 +107,7 @@ ulimit -c unlimited
  # Don't fork when running "safely"
  #
  ASTARGS=""
@@ -17,7 +17,7 @@ safe_asterisk.
  	if test -c /dev/tty${TTY} ; then
  		TTY=tty${TTY}
  	elif test -c /dev/vc/${TTY} ; then
-@@ -145,7 +145,7 @@ run_asterisk()
+@@ -147,7 +147,7 @@ run_asterisk()
  {
  	while :; do 
  

@@ -133,7 +133,7 @@ clean:
 	if [ -f configure_deborig ]; then mv configure_deborig configure; fi
 
 	# these were generated while building
-	-$(RM) -f doc/core-en_US.xml utils/poll.c
+	-$(RM) -f doc/core-en_US.xml utils/poll.c menuselect/mxml/mxml.pc
 
 	dh_clean
 

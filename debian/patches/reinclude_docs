@@ -110,11 +110,9 @@ Subject: [PATCH] Remove most of the contents of the doc dir in favor of the
  doc/voicemail_odbc_postgresql.txt        |  454 +++++++++++
  94 files changed, 20765 insertions(+), 15 deletions(-)
 
-diff --git a/Makefile b/Makefile
-index 976d5b8..61be67f 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -922,6 +922,14 @@ menuselect-tree: $(foreach dir,$(filter-out main,$(MOD_SUBDIRS)),$(wildcard $(di
+@@ -894,6 +894,14 @@ menuselect-tree: $(foreach dir,$(filter-
  	@cat sounds/sounds.xml >> $@
  	@echo "</menu>" >> $@
  
@@ -129,7 +127,7 @@ index 976d5b8..61be67f 100644
  .PHONY: menuselect
  .PHONY: main
  .PHONY: sounds
-@@ -934,6 +942,7 @@ menuselect-tree: $(foreach dir,$(filter-out main,$(MOD_SUBDIRS)),$(wildcard $(di
+@@ -906,6 +914,7 @@ menuselect-tree: $(foreach dir,$(filter-
  .PHONY: uninstall
  .PHONY: _uninstall
  .PHONY: uninstall-all
@@ -137,9 +135,6 @@ index 976d5b8..61be67f 100644
  .PHONY: dont-optimize
  .PHONY: badshell
  .PHONY: installdirs
-diff --git a/doc/CODING-GUIDELINES b/doc/CODING-GUIDELINES
-new file mode 100644
-index 0000000..d1ae32d
 --- /dev/null
 +++ b/doc/CODING-GUIDELINES
 @@ -0,0 +1,982 @@
@@ -1125,9 +1120,6 @@ index 0000000..d1ae32d
 +Subscribe at http://lists.digium.com!
 +
 +-- The Asterisk.org Development Team
-diff --git a/doc/HOWTO_collect_debug_information.txt b/doc/HOWTO_collect_debug_information.txt
-new file mode 100644
-index 0000000..b9a04ae
 --- /dev/null
 +++ b/doc/HOWTO_collect_debug_information.txt
 @@ -0,0 +1,89 @@
@@ -1220,9 +1212,6 @@ index 0000000..b9a04ae
 +   Then reload the logger module like in step 2:
 +
 +   *CLI> module reload logger
-diff --git a/doc/India-CID.txt b/doc/India-CID.txt
-new file mode 100644
-index 0000000..5961bb5
 --- /dev/null
 +++ b/doc/India-CID.txt
 @@ -0,0 +1,75 @@
@@ -1301,9 +1290,6 @@ index 0000000..5961bb5
 +signalling.
 +
 +
-diff --git a/doc/PEERING b/doc/PEERING
-new file mode 100644
-index 0000000..1a1a25c
 --- /dev/null
 +++ b/doc/PEERING
 @@ -0,0 +1,503 @@
@@ -1810,9 +1796,6 @@ index 0000000..1a1a25c
 +DUNDi, IAX, Asterisk and GPA are trademarks of Digium, Inc.
 +
 +\end{verbatim}
-diff --git a/doc/README.txt b/doc/README.txt
-deleted file mode 100644
-index 68a87e1..0000000
 --- a/doc/README.txt
 +++ /dev/null
 @@ -1,10 +0,0 @@
@@ -1826,9 +1809,6 @@ index 68a87e1..0000000
 -
 -    doc/AST.pdf
 -    doc/AST.txt
-diff --git a/doc/advice_of_charge.txt b/doc/advice_of_charge.txt
-new file mode 100644
-index 0000000..9673178
 --- /dev/null
 +++ b/doc/advice_of_charge.txt
 @@ -0,0 +1,189 @@
@@ -2021,9 +2001,6 @@ index 0000000..9673178
 +Response: Success
 +ActionID: 1234
 +Message: AOC Message successfully queued on channel
-diff --git a/doc/asterisk-mib.txt b/doc/asterisk-mib.txt
-new file mode 100644
-index 0000000..e7d6c17
 --- /dev/null
 +++ b/doc/asterisk-mib.txt
 @@ -0,0 +1,778 @@
@@ -2805,9 +2782,6 @@ index 0000000..e7d6c17
 +       ::= { astChanScalars 1 }
 +
 +END
-diff --git a/doc/backtrace.txt b/doc/backtrace.txt
-new file mode 100644
-index 0000000..cf2518d
 --- /dev/null
 +++ b/doc/backtrace.txt
 @@ -0,0 +1,277 @@
@@ -3088,9 +3062,6 @@ index 0000000..cf2518d
 +
 +If you have questions or comments regarding this documentation, feel free to
 +pass by the #asterisk-bugs channel on irc.freenode.net.
-diff --git a/doc/building_queues.txt b/doc/building_queues.txt
-new file mode 100644
-index 0000000..a5da7a2
 --- /dev/null
 +++ b/doc/building_queues.txt
 @@ -0,0 +1,823 @@
@@ -3917,9 +3888,6 @@ index 0000000..a5da7a2
 +A good start is the doc/ subdirectory of the Asterisk sources, or the various
 +configuration samples files located in the configs/ subdirectory of your
 +Asterisk source code.
-diff --git a/doc/callfiles.txt b/doc/callfiles.txt
-new file mode 100644
-index 0000000..3fe6cb0
 --- /dev/null
 +++ b/doc/callfiles.txt
 @@ -0,0 +1,139 @@
@@ -4062,9 +4030,6 @@ index 0000000..3fe6cb0
 +by Asterisk. This makes it possible to modify the time of a call file to the
 +wanted time, move to the outgoing directory, and Asterisk will attempt to
 +create the call at that time.
-diff --git a/doc/chan_sip-perf-testing.txt b/doc/chan_sip-perf-testing.txt
-new file mode 100644
-index 0000000..56992ac
 --- /dev/null
 +++ b/doc/chan_sip-perf-testing.txt
 @@ -0,0 +1,110 @@
@@ -4178,9 +4143,6 @@ index 0000000..56992ac
 +will affect performance. 
 +
 +
-diff --git a/doc/cli.txt b/doc/cli.txt
-new file mode 100644
-index 0000000..9d3f9db
 --- /dev/null
 +++ b/doc/cli.txt
 @@ -0,0 +1,33 @@
@@ -4217,9 +4179,6 @@ index 0000000..9d3f9db
 +with other commands on the Asterisk console, the help command also responds to
 +tab command line completion.
 +
-diff --git a/doc/codec-64bit.txt b/doc/codec-64bit.txt
-new file mode 100644
-index 0000000..8f2ceec
 --- /dev/null
 +++ b/doc/codec-64bit.txt
 @@ -0,0 +1,47 @@
@@ -4270,9 +4229,6 @@ index 0000000..8f2ceec
 +need to be altered to handle larger bitmasks.  Additionally, the constants that
 +define specific codecs will need to be changed from integers to structures.
 +
-diff --git a/doc/database_transactions.txt b/doc/database_transactions.txt
-new file mode 100644
-index 0000000..6db81cd
 --- /dev/null
 +++ b/doc/database_transactions.txt
 @@ -0,0 +1,29 @@
@@ -4305,9 +4261,6 @@ index 0000000..6db81cd
 +explicitly commit the transaction or if forcecommit is not turned on, the
 +transaction will be automatically rolled back at channel destruction (after
 +hangup) and all related database resources released back to the pool.
-diff --git a/doc/datastores.txt b/doc/datastores.txt
-new file mode 100644
-index 0000000..c48c070
 --- /dev/null
 +++ b/doc/datastores.txt
 @@ -0,0 +1,63 @@
@@ -4374,9 +4327,6 @@ index 0000000..c48c070
 +1. Find the data store
 +   Ex: datastore = ast_channel_datastore_find(chan, &example_datastore, NULL);
 +   This function takes three arguments: (pointer to channel, datastore info structure, uid)
-diff --git a/doc/digium-mib.txt b/doc/digium-mib.txt
-new file mode 100644
-index 0000000..d29cd1b
 --- /dev/null
 +++ b/doc/digium-mib.txt
 @@ -0,0 +1,24 @@
@@ -4404,9 +4354,6 @@ index 0000000..d29cd1b
 +	::= { enterprises 22736 }
 +
 +END
-diff --git a/doc/distributed_devstate-XMPP.txt b/doc/distributed_devstate-XMPP.txt
-new file mode 100644
-index 0000000..1a8c143
 --- /dev/null
 +++ b/doc/distributed_devstate-XMPP.txt
 @@ -0,0 +1,433 @@
@@ -4843,9 +4790,6 @@ index 0000000..1a8c143
 +
 +Please utilize the Asterisk issue tracker for all bug reports at
 +https://issues.asterisk.org
-diff --git a/doc/distributed_devstate.txt b/doc/distributed_devstate.txt
-new file mode 100644
-index 0000000..954fdbc
 --- /dev/null
 +++ b/doc/distributed_devstate.txt
 @@ -0,0 +1,320 @@
@@ -5169,9 +5113,6 @@ index 0000000..954fdbc
 +For now, please direct all feedback to Russell Bryant <russell@digium.com>.
 +
 +-------------------------------------------------------------------------------
-diff --git a/doc/externalivr.txt b/doc/externalivr.txt
-new file mode 100644
-index 0000000..d0fd342
 --- /dev/null
 +++ b/doc/externalivr.txt
 @@ -0,0 +1,197 @@
@@ -5372,9 +5313,6 @@ index 0000000..d0fd342
 +
 +Any newline-terminated output generated by the child process on its
 +stderr handle will be copied into the Asterisk log.
-diff --git a/doc/followme.txt b/doc/followme.txt
-new file mode 100644
-index 0000000..971814a
 --- /dev/null
 +++ b/doc/followme.txt
 @@ -0,0 +1,32 @@
@@ -5410,18 +5348,12 @@ index 0000000..971814a
 +	timeout             Timeout associated with this step.  See the followme documentation
 +	                    for more information on how this value is handled.
 +
-diff --git a/doc/google-soc2009-ideas.txt b/doc/google-soc2009-ideas.txt
-new file mode 100644
-index 0000000..81b4c2b
 --- /dev/null
 +++ b/doc/google-soc2009-ideas.txt
 @@ -0,0 +1,3 @@
 +This document now lives here:
 +
 +    http://svn.digium.com/view/asterisk/team/group/gsoc-2009/ideas.txt?view=markup
-diff --git a/doc/hoard.txt b/doc/hoard.txt
-new file mode 100644
-index 0000000..97be042
 --- /dev/null
 +++ b/doc/hoard.txt
 @@ -0,0 +1,38 @@
@@ -5463,9 +5395,6 @@ index 0000000..97be042
 +
 +	   # make
 +	   # make install
-diff --git a/doc/jabber.txt b/doc/jabber.txt
-new file mode 100644
-index 0000000..a8f4a93
 --- /dev/null
 +++ b/doc/jabber.txt
 @@ -0,0 +1,107 @@
@@ -5576,9 +5505,6 @@ index 0000000..a8f4a93
 +}
 +
 +The maintainer of res_jabber is Philippe Sultan <philippe.sultan@gmail.com>.
-diff --git a/doc/janitor-projects.txt b/doc/janitor-projects.txt
-new file mode 100644
-index 0000000..772f035
 --- /dev/null
 +++ b/doc/janitor-projects.txt
 @@ -0,0 +1,28 @@
@@ -5610,9 +5536,6 @@ index 0000000..772f035
 + -- Find options and arguments in Asterisk which specify a time period in seconds or milliseconds and convert them to use the new ast_app_parse_timelen() function.
 +
 + -- Find applications and functions in Asterisk that would benefit from being able to encode control characters and extended ASCII and embed calls to ast_get_encoded_char, ast_get_encoded_str, and ast_str_get_encoded_str.
-diff --git a/doc/jingle.txt b/doc/jingle.txt
-new file mode 100644
-index 0000000..b1f20a6
 --- /dev/null
 +++ b/doc/jingle.txt
 @@ -0,0 +1,10 @@
@@ -5626,9 +5549,6 @@ index 0000000..b1f20a6
 +travel out on.
 +chan_gtalk is for supporting the non-jingle google/libjingle spec and 
 +chan_jingle will continue to move in the direction of the correct spec.
-diff --git a/doc/ldap.txt b/doc/ldap.txt
-new file mode 100644
-index 0000000..5cc2246
 --- /dev/null
 +++ b/doc/ldap.txt
 @@ -0,0 +1,65 @@
@@ -5697,9 +5617,6 @@ index 0000000..5cc2246
 +AstExtensionPriority: 2
 +AstExtensionApplication: hangup
 +
-diff --git a/doc/macroexclusive.txt b/doc/macroexclusive.txt
-new file mode 100644
-index 0000000..3a31114
 --- /dev/null
 +++ b/doc/macroexclusive.txt
 @@ -0,0 +1,78 @@
@@ -5781,9 +5698,6 @@ index 0000000..3a31114
 +
 +Regards,
 +Steve
-diff --git a/doc/manager_1_1.txt b/doc/manager_1_1.txt
-new file mode 100644
-index 0000000..30ba876
 --- /dev/null
 +++ b/doc/manager_1_1.txt
 @@ -0,0 +1,454 @@
@@ -6241,9 +6155,6 @@ index 0000000..30ba876
 +* TODO
 +------
 +
-diff --git a/doc/modules.txt b/doc/modules.txt
-new file mode 100644
-index 0000000..f6d0047
 --- /dev/null
 +++ b/doc/modules.txt
 @@ -0,0 +1,25 @@
@@ -6272,9 +6183,6 @@ index 0000000..f6d0047
 +
 +keystr: Applicable license for module. In most cases this is ASTERISK_GPL_KEY.
 +desc: Description of module.
-diff --git a/doc/osp.txt b/doc/osp.txt
-new file mode 100644
-index 0000000..9d059f0
 --- /dev/null
 +++ b/doc/osp.txt
 @@ -0,0 +1,747 @@
@@ -7025,9 +6933,6 @@ index 0000000..9d059f0
 +
 +19
 +
-diff --git a/doc/queue.txt b/doc/queue.txt
-new file mode 100644
-index 0000000..11047f8
 --- /dev/null
 +++ b/doc/queue.txt
 @@ -0,0 +1,39 @@
@@ -7070,9 +6975,6 @@ index 0000000..11047f8
 +* queues-with-callback-members.txt 
 +
 +(Should we merge those documents into this?)
-diff --git a/doc/realtimetext.txt b/doc/realtimetext.txt
-new file mode 100644
-index 0000000..a6b3508
 --- /dev/null
 +++ b/doc/realtimetext.txt
 @@ -0,0 +1,84 @@
@@ -7160,9 +7062,6 @@ index 0000000..a6b3508
 +Research Center of the University of Wisconsin – Trace Center joint with Gallaudet University, and Omnitor.
 +Olle E. Johansson, Edvina AB, has been a liason between the Asterisk project and this project.
 +
-diff --git a/doc/res_config_sqlite.txt b/doc/res_config_sqlite.txt
-new file mode 100644
-index 0000000..95322cf
 --- /dev/null
 +++ b/doc/res_config_sqlite.txt
 @@ -0,0 +1,124 @@
@@ -7290,9 +7189,6 @@ index 0000000..95322cf
 +
 +CREATE INDEX ast_exten__idx__commented			ON ast_exten(commented);
 +CREATE INDEX ast_exten__idx__context_exten_priority	ON ast_exten(context, exten, priority);
-diff --git a/doc/rtp-packetization.txt b/doc/rtp-packetization.txt
-new file mode 100644
-index 0000000..c558a53
 --- /dev/null
 +++ b/doc/rtp-packetization.txt
 @@ -0,0 +1,75 @@
@@ -7371,9 +7267,6 @@ index 0000000..c558a53
 +                example allow=ulaw:33 will set the codec to 30ms framing
 +  4.  If no framing is specified in the allow= directive, then the
 +        codec default is used.
-diff --git a/doc/sip-retransmit.txt b/doc/sip-retransmit.txt
-new file mode 100644
-index 0000000..a3431a8
 --- /dev/null
 +++ b/doc/sip-retransmit.txt
 @@ -0,0 +1,126 @@
@@ -7503,9 +7396,6 @@ index 0000000..a3431a8
 +
 +-- oej (at) edvina.net, Sweden, 2008-07-22
 +-- http://www.voip-forum.com
-diff --git a/doc/siptls.txt b/doc/siptls.txt
-new file mode 100644
-index 0000000..8901a75
 --- /dev/null
 +++ b/doc/siptls.txt
 @@ -0,0 +1,97 @@
@@ -7606,9 +7496,6 @@ index 0000000..8901a75
 +;transport=tls 
 +;port=5061
 +
-diff --git a/doc/smdi.txt b/doc/smdi.txt
-new file mode 100644
-index 0000000..2181bc4
 --- /dev/null
 +++ b/doc/smdi.txt
 @@ -0,0 +1,137 @@
@@ -7749,9 +7636,6 @@ index 0000000..2181bc4
 +===============================================================================
 +===============================================================================
 +===============================================================================
-diff --git a/doc/sms.txt b/doc/sms.txt
-new file mode 100644
-index 0000000..d23f55a
 --- /dev/null
 +++ b/doc/sms.txt
 @@ -0,0 +1,147 @@
@@ -7902,9 +7786,6 @@ index 0000000..d23f55a
 +If using the CAPI drivers they send the right CLI and so the _800... would be
 +_0800...
 +
-diff --git a/doc/snmp.txt b/doc/snmp.txt
-new file mode 100644
-index 0000000..1f5fc27
 --- /dev/null
 +++ b/doc/snmp.txt
 @@ -0,0 +1,53 @@
@@ -7961,9 +7842,6 @@ index 0000000..1f5fc27
 +
 +This assumes that you run Asterisk under group 'asterisk' (and does
 +not care what user you run as).
-diff --git a/doc/speechrec.txt b/doc/speechrec.txt
-new file mode 100644
-index 0000000..1e5bf6f
 --- /dev/null
 +++ b/doc/speechrec.txt
 @@ -0,0 +1,295 @@
@@ -8262,9 +8140,6 @@ index 0000000..1e5bf6f
 +	res = ast_speech_grammar_unload(speech, "yes_no");
 +
 +This unloads the specified grammar from the speech structure.
-diff --git a/doc/ss7.txt b/doc/ss7.txt
-new file mode 100644
-index 0000000..0e4bb0b
 --- /dev/null
 +++ b/doc/ss7.txt
 @@ -0,0 +1,116 @@
@@ -8384,9 +8259,6 @@ index 0000000..0e4bb0b
 +Matthew Fredrickson
 +creslin@digium.com
 +
-diff --git a/doc/tex/Makefile b/doc/tex/Makefile
-new file mode 100644
-index 0000000..c36b3a8
 --- /dev/null
 +++ b/doc/tex/Makefile
 @@ -0,0 +1,76 @@
@@ -8466,9 +8338,6 @@ index 0000000..c36b3a8
 +	-@$(CATDVI) -e 1 -U asterisk.dvi | sed -re "s/\[U\+2022\]/*/g" | sed -re "s/\[U\+02C6\]/^/g" | sed -re "s/([^^[:space:]])\s+/\1 /g" > asterisk.txt
 +	@mv asterisk.tex.orig asterisk.tex
 +endif
-diff --git a/doc/tex/README.txt b/doc/tex/README.txt
-new file mode 100644
-index 0000000..460d330
 --- /dev/null
 +++ b/doc/tex/README.txt
 @@ -0,0 +1,24 @@
@@ -8496,9 +8365,6 @@ index 0000000..460d330
 +   Then, once this tool is installed, running "make html" will generate the
 +   HTML documentation.  The result will be an asterisk directory full of
 +   HTML files.
-diff --git a/doc/tex/ael.tex b/doc/tex/ael.tex
-new file mode 100644
-index 0000000..be03c2b
 --- /dev/null
 +++ b/doc/tex/ael.tex
 @@ -0,0 +1,1305 @@
@@ -9807,9 +9673,6 @@ index 0000000..be03c2b
 +      with them, and asterisk provides some global variables. These can be
 +      manipulated and/or consulted by the above mechanisms.
 +\end{itemize}
-diff --git a/doc/tex/ajam.tex b/doc/tex/ajam.tex
-new file mode 100644
-index 0000000..3421cc0
 --- /dev/null
 +++ b/doc/tex/ajam.tex
 @@ -0,0 +1,97 @@
@@ -9910,9 +9773,6 @@ index 0000000..3421cc0
 +\end{verbatim}
 +\end{astlisting}
 +
-diff --git a/doc/tex/app-sms.tex b/doc/tex/app-sms.tex
-new file mode 100644
-index 0000000..d40d57a
 --- /dev/null
 +++ b/doc/tex/app-sms.tex
 @@ -0,0 +1,518 @@
@@ -10434,9 +10294,6 @@ index 0000000..d40d57a
 +       fields for the original outgoing message and user reference
 +       allowing applications to handle confirmations better.
 +\end{itemize}
-diff --git a/doc/tex/asterisk-conf.tex b/doc/tex/asterisk-conf.tex
-new file mode 100644
-index 0000000..4b08023
 --- /dev/null
 +++ b/doc/tex/asterisk-conf.tex
 @@ -0,0 +1,149 @@
@@ -10589,9 +10446,6 @@ index 0000000..4b08023
 +
 +\end{verbatim}
 +\end{astlisting}
-diff --git a/doc/tex/asterisk.tex b/doc/tex/asterisk.tex
-new file mode 100644
-index 0000000..38d58bd
 --- /dev/null
 +++ b/doc/tex/asterisk.tex
 @@ -0,0 +1,183 @@
@@ -10778,9 +10632,6 @@ index 0000000..38d58bd
 +% documentation.
 +
 +\end{document}
-diff --git a/doc/tex/backtrace.tex b/doc/tex/backtrace.tex
-new file mode 100644
-index 0000000..1c7bd8c
 --- /dev/null
 +++ b/doc/tex/backtrace.tex
 @@ -0,0 +1,217 @@
@@ -11001,9 +10852,6 @@ index 0000000..1c7bd8c
 +If you have questions or comments regarding this documentation, feel
 +free to pass by the \#asterisk-bugs channel on irc.freenode.net.
 +
-diff --git a/doc/tex/billing.tex b/doc/tex/billing.tex
-new file mode 100644
-index 0000000..5c7f68a
 --- /dev/null
 +++ b/doc/tex/billing.tex
 @@ -0,0 +1,86 @@
@@ -11093,9 +10941,6 @@ index 0000000..5c7f68a
 +These variables can be output into a text-format CDR by using the cdr\_custom
 +CDR driver; see the cdr\_custom.conf.sample file in the configs directory for
 +an example of how to do this.
-diff --git a/doc/tex/calendaring.tex b/doc/tex/calendaring.tex
-new file mode 100644
-index 0000000..8a69b4a
 --- /dev/null
 +++ b/doc/tex/calendaring.tex
 @@ -0,0 +1,206 @@
@@ -11305,9 +11150,6 @@ index 0000000..8a69b4a
 +exten => h,n,Set(CALENDAR_WRITE(calendar_joe,summary,start,end)=Call from ${CALLERID(all)},${start},${end})
 +\end{verbatim}
 +\end{astlisting}
-diff --git a/doc/tex/ccss.tex b/doc/tex/ccss.tex
-new file mode 100644
-index 0000000..cfe07cb
 --- /dev/null
 +++ b/doc/tex/ccss.tex
 @@ -0,0 +1,414 @@
@@ -11725,9 +11567,6 @@ index 0000000..cfe07cb
 +of 7200 seconds set, Mark will not be automatically recalled by Asterisk when
 +Richard finishes his call.
 +\end{itemize}
-diff --git a/doc/tex/cdrdriver.tex b/doc/tex/cdrdriver.tex
-new file mode 100644
-index 0000000..8e3215c
 --- /dev/null
 +++ b/doc/tex/cdrdriver.tex
 @@ -0,0 +1,509 @@
@@ -12240,9 +12079,6 @@ index 0000000..8e3215c
 +  "Asterisk-Unique-ID",         Unique call identifier
 +  "Asterisk-User-Field"	        User field set via SetCDRUserField
 +\end{verbatim}
-diff --git a/doc/tex/cel-doc.tex b/doc/tex/cel-doc.tex
-new file mode 100644
-index 0000000..dc00718
 --- /dev/null
 +++ b/doc/tex/cel-doc.tex
 @@ -0,0 +1,958 @@
@@ -13204,9 +13040,6 @@ index 0000000..dc00718
 +*** This is the Next Big Task ***
 +
 +
-diff --git a/doc/tex/celdriver.tex b/doc/tex/celdriver.tex
-new file mode 100644
-index 0000000..c1b9e00
 --- /dev/null
 +++ b/doc/tex/celdriver.tex
 @@ -0,0 +1,451 @@
@@ -13661,9 +13494,6 @@ index 0000000..c1b9e00
 +  "Asterisk-Peer"	            Name of the Peer for 2-channel events (like bridge)
 +  
 +\end{verbatim}
-diff --git a/doc/tex/chan-mobile.tex b/doc/tex/chan-mobile.tex
-new file mode 100644
-index 0000000..09a95c7
 --- /dev/null
 +++ b/doc/tex/chan-mobile.tex
 @@ -0,0 +1,262 @@
@@ -13929,9 +13759,6 @@ index 0000000..09a95c7
 +
 +Important: Watch what your mobile phone is doing the first few times. Asterisk wont make random calls but
 +if chan\_mobile fails to hangup for some reason and you get a huge bill from your telco, dont blame me ;)
-diff --git a/doc/tex/chaniax.tex b/doc/tex/chaniax.tex
-new file mode 100644
-index 0000000..954e068
 --- /dev/null
 +++ b/doc/tex/chaniax.tex
 @@ -0,0 +1,84 @@
@@ -14019,9 +13846,6 @@ index 0000000..954e068
 +
 +For examples of a configuration, please see the iax.conf.sample in
 +your the /configs directory of you source code distribution.
-diff --git a/doc/tex/channelvariables.tex b/doc/tex/channelvariables.tex
-new file mode 100644
-index 0000000..d0aeae6
 --- /dev/null
 +++ b/doc/tex/channelvariables.tex
 @@ -0,0 +1,1066 @@
@@ -15091,9 +14915,6 @@ index 0000000..d0aeae6
 +${CONNECTED_LINE_CALLER_SEND_MACRO_ARGS}
 +  Arguments to pass to ${CONNECTED_LINE_CALLER_SEND_MACRO}
 +\end{verbatim}
-diff --git a/doc/tex/cliprompt.tex b/doc/tex/cliprompt.tex
-new file mode 100644
-index 0000000..aaa2afb
 --- /dev/null
 +++ b/doc/tex/cliprompt.tex
 @@ -0,0 +1,29 @@
@@ -15126,9 +14947,6 @@ index 0000000..aaa2afb
 +    \item \%l2 - Load average over past 5 minutes
 +    \item \%l3 - Load average over past 15 minutes
 +\end{itemize}
-diff --git a/doc/tex/configuration.tex b/doc/tex/configuration.tex
-new file mode 100644
-index 0000000..0f766f4
 --- /dev/null
 +++ b/doc/tex/configuration.tex
 @@ -0,0 +1,233 @@
@@ -15365,9 +15183,6 @@ index 0000000..0f766f4
 +This example defines two phones - phone1 and phone2 with settings
 +inherited from "def-customer1".  The "def-customer1" is a template that
 +inherits from "defaults", which also is a template.
-diff --git a/doc/tex/dundi.tex b/doc/tex/dundi.tex
-new file mode 100644
-index 0000000..aa2fbb2
 --- /dev/null
 +++ b/doc/tex/dundi.tex
 @@ -0,0 +1,41 @@
@@ -15412,9 +15227,6 @@ index 0000000..aa2fbb2
 +exten => 1,n,EndWhile
 +\end{verbatim}
 +\end{astlisting}
-diff --git a/doc/tex/enum.tex b/doc/tex/enum.tex
-new file mode 100644
-index 0000000..c630187
 --- /dev/null
 +++ b/doc/tex/enum.tex
 @@ -0,0 +1,355 @@
@@ -15773,9 +15585,6 @@ index 0000000..c630187
 +
 +\end{verbatim}
 +\end{astlisting}
-diff --git a/doc/tex/extensions.tex b/doc/tex/extensions.tex
-new file mode 100644
-index 0000000..a101061
 --- /dev/null
 +++ b/doc/tex/extensions.tex
 @@ -0,0 +1,79 @@
@@ -15858,9 +15667,6 @@ index 0000000..a101061
 +extension context is deleted while an extension is in use, or b) a specific
 +starting extension handler has not been defined (unless overridden by the
 +low level channel interface).
-diff --git a/doc/tex/freetds.tex b/doc/tex/freetds.tex
-new file mode 100644
-index 0000000..8db589f
 --- /dev/null
 +++ b/doc/tex/freetds.tex
 @@ -0,0 +1,6 @@
@@ -15870,9 +15676,6 @@ index 0000000..8db589f
 +stability reasons.
 +
 +The latest release of FreeTDS is available from http://www.freetds.org/
-diff --git a/doc/tex/hardware.tex b/doc/tex/hardware.tex
-new file mode 100644
-index 0000000..a678167
 --- /dev/null
 +++ b/doc/tex/hardware.tex
 @@ -0,0 +1,100 @@
@@ -15976,9 +15779,6 @@ index 0000000..a678167
 +    \item Any OSS compatible full-duplex sound card
 +  \end{itemize}
 +\end{itemize}
-diff --git a/doc/tex/ices.tex b/doc/tex/ices.tex
-new file mode 100644
-index 0000000..39872be
 --- /dev/null
 +++ b/doc/tex/ices.tex
 @@ -0,0 +1,7 @@
@@ -15989,9 +15789,6 @@ index 0000000..39872be
 +You'll need to specify a config file for the ices encoder.  An example is
 +included in \path{contrib/asterisk-ices.xml}.
 +
-diff --git a/doc/tex/imapstorage.tex b/doc/tex/imapstorage.tex
-new file mode 100644
-index 0000000..3d6c805
 --- /dev/null
 +++ b/doc/tex/imapstorage.tex
 @@ -0,0 +1,241 @@
@@ -16236,9 +16033,6 @@ index 0000000..3d6c805
 +X-Asterisk-VM-Orig-date
 +X-Asterisk-VM-Orig-time
 +\end{verbatim}
-diff --git a/doc/tex/jitterbuffer.tex b/doc/tex/jitterbuffer.tex
-new file mode 100644
-index 0000000..a29cf81
 --- /dev/null
 +++ b/doc/tex/jitterbuffer.tex
 @@ -0,0 +1,98 @@
@@ -16340,9 +16134,6 @@ index 0000000..a29cf81
 +though, and the "maxjitterbuffer" parameter should put a limit on what we do in this case.
 +
 +\end{enumerate}
-diff --git a/doc/tex/localchannel.tex b/doc/tex/localchannel.tex
-new file mode 100644
-index 0000000..8616972
 --- /dev/null
 +++ b/doc/tex/localchannel.tex
 @@ -0,0 +1,508 @@
@@ -16854,9 +16645,6 @@ index 0000000..8616972
 +
 +          This option is available starting in the Asterisk 1.6.0 branch.
 +\end{itemize}
-diff --git a/doc/tex/manager.tex b/doc/tex/manager.tex
-new file mode 100644
-index 0000000..7b7aff6
 --- /dev/null
 +++ b/doc/tex/manager.tex
 @@ -0,0 +1,274 @@
@@ -17134,9 +16922,6 @@ index 0000000..7b7aff6
 + ** Please try to re-use existing headers to simplify manager message parsing in clients.
 +
 +Read the CODING-GUIDELINES if you develop new manager commands or events.
-diff --git a/doc/tex/misdn.tex b/doc/tex/misdn.tex
-new file mode 100644
-index 0000000..9b2c705
 --- /dev/null
 +++ b/doc/tex/misdn.tex
 @@ -0,0 +1,282 @@
@@ -17422,9 +17207,6 @@ index 0000000..9b2c705
 +
 +A: You forgot to load mISDNdsp, which is now needed by chan\_misdn for switching
 +and DTMF tone detection.
-diff --git a/doc/tex/mp3.tex b/doc/tex/mp3.tex
-new file mode 100644
-index 0000000..2bb34e3
 --- /dev/null
 +++ b/doc/tex/mp3.tex
 @@ -0,0 +1,11 @@
@@ -17439,9 +17221,6 @@ index 0000000..2bb34e3
 +repository on svn.digium.com or in the asterisk-addons release at
 +\url{http://downloads.asterisk.org/pub/telephony/asterisk/}.
 +
-diff --git a/doc/tex/odbcstorage.tex b/doc/tex/odbcstorage.tex
-new file mode 100644
-index 0000000..9376c7d
 --- /dev/null
 +++ b/doc/tex/odbcstorage.tex
 @@ -0,0 +1,34 @@
@@ -17479,9 +17258,6 @@ index 0000000..9376c7d
 +
 +You may modify the \texttt{voicemessages} table name by using
 +\texttt{odbctable=\textit{table\_name}} in \path{voicemail.conf}.
-diff --git a/doc/tex/partymanip.tex b/doc/tex/partymanip.tex
-new file mode 100644
-index 0000000..72a7469
 --- /dev/null
 +++ b/doc/tex/partymanip.tex
 @@ -0,0 +1,331 @@
@@ -17816,9 +17592,6 @@ index 0000000..72a7469
 +this time, its use is non-standard by definition.
 +
 +\end{itemize}
-diff --git a/doc/tex/phoneprov.tex b/doc/tex/phoneprov.tex
-new file mode 100644
-index 0000000..790c1d7
 --- /dev/null
 +++ b/doc/tex/phoneprov.tex
 @@ -0,0 +1,307 @@
@@ -18129,9 +17902,6 @@ index 0000000..790c1d7
 +\item http://192.168.1.1:8080/asterisk/phoneprov/config/deadbeef4dad
 +\end{itemize}
 +
-diff --git a/doc/tex/plc.tex b/doc/tex/plc.tex
-new file mode 100644
-index 0000000..40dfd53
 --- /dev/null
 +++ b/doc/tex/plc.tex
 @@ -0,0 +1,139 @@
@@ -18274,9 +18044,6 @@ index 0000000..40dfd53
 +will be only a single channel involved. When dialing extension
 +2, however, Asterisk will create a bridge between the incoming
 +channel and the Local channel, thus allowing PLC to be used.
-diff --git a/doc/tex/privacy.tex b/doc/tex/privacy.tex
-new file mode 100644
-index 0000000..a4ae7b9
 --- /dev/null
 +++ b/doc/tex/privacy.tex
 @@ -0,0 +1,364 @@
@@ -18644,9 +18411,6 @@ index 0000000..a4ae7b9
 +but I hope it conveys the idea.
 +
 +
-diff --git a/doc/tex/qos.tex b/doc/tex/qos.tex
-new file mode 100644
-index 0000000..422f129
 --- /dev/null
 +++ b/doc/tex/qos.tex
 @@ -0,0 +1,144 @@
@@ -18794,9 +18558,6 @@ index 0000000..422f129
 +Service for VoIP networks see the "Enterprise QoS Solution Reference
 +Network Design Guide" version 3.3 from Cisco at:
 +\url{http://www.cisco.com/application/pdf/en/us/guest/netsol/ns432/c649/ccmigration\_09186a008049b062.pdf}
-diff --git a/doc/tex/queuelog.tex b/doc/tex/queuelog.tex
-new file mode 100644
-index 0000000..312ef7c
 --- /dev/null
 +++ b/doc/tex/queuelog.tex
 @@ -0,0 +1,118 @@
@@ -18918,9 +18679,6 @@ index 0000000..312ef7c
 +way to be 100\% sure that you will get this event when a transfer is
 +performed by a queue member is to use the built-in transfer functionality
 +of Asterisk.
-diff --git a/doc/tex/queues-with-callback-members.tex b/doc/tex/queues-with-callback-members.tex
-new file mode 100644
-index 0000000..30051ee
 --- /dev/null
 +++ b/doc/tex/queues-with-callback-members.tex
 @@ -0,0 +1,551 @@
@@ -19475,9 +19233,6 @@ index 0000000..30051ee
 +
 +In the above examples, some of the possible error checking has been omitted,
 +to reduce clutter and make the examples clearer.
-diff --git a/doc/tex/realtime.tex b/doc/tex/realtime.tex
-new file mode 100644
-index 0000000..469dd94
 --- /dev/null
 +++ b/doc/tex/realtime.tex
 @@ -0,0 +1,150 @@
@@ -19631,9 +19386,6 @@ index 0000000..469dd94
 +
 +This will enable the driver to service many requests at a time, rather than
 +serially.
-diff --git a/doc/tex/secure-calls.tex b/doc/tex/secure-calls.tex
-new file mode 100644
-index 0000000..94c8133
 --- /dev/null
 +++ b/doc/tex/secure-calls.tex
 @@ -0,0 +1,45 @@
@@ -19682,9 +19434,6 @@ index 0000000..94c8133
 +\end{verbatim}
 +\end{astlisting}
 +
-diff --git a/doc/tex/security-events.tex b/doc/tex/security-events.tex
-new file mode 100644
-index 0000000..ecb5980
 --- /dev/null
 +++ b/doc/tex/security-events.tex
 @@ -0,0 +1,250 @@
@@ -19938,9 +19687,6 @@ index 0000000..ecb5980
 +
 +\end{verbatim}
 +
-diff --git a/doc/tex/security.tex b/doc/tex/security.tex
-new file mode 100644
-index 0000000..975f4bd
 --- /dev/null
 +++ b/doc/tex/security.tex
 @@ -0,0 +1,80 @@
@@ -20024,9 +19770,6 @@ index 0000000..975f4bd
 +Please note that the Asterisk log files, as well as information printed to the
 +Asterisk CLI, may contain sensitive information such as passwords and call
 +history.  Keep this in mind when providing access to these resources.
-diff --git a/doc/tex/sla.tex b/doc/tex/sla.tex
-new file mode 100644
-index 0000000..844a4f2
 --- /dev/null
 +++ b/doc/tex/sla.tex
 @@ -0,0 +1,387 @@
@@ -20417,9 +20160,6 @@ index 0000000..844a4f2
 +currently connected to this trunk will show it on hold.
 +
 +%\end{document}
-diff --git a/doc/tex/sounds.tex b/doc/tex/sounds.tex
-new file mode 100644
-index 0000000..5909198
 --- /dev/null
 +++ b/doc/tex/sounds.tex
 @@ -0,0 +1,80 @@
@@ -20503,9 +20243,6 @@ index 0000000..5909198
 +\item mkmoh - script used to generate the music on hold packages
 +\item converters - script used to convert the master files to various formats
 +\end{itemize}
-diff --git a/doc/timing.txt b/doc/timing.txt
-new file mode 100644
-index 0000000..21da71c
 --- /dev/null
 +++ b/doc/timing.txt
 @@ -0,0 +1,90 @@
@@ -20599,9 +20336,6 @@ index 0000000..21da71c
 +Starting with Asterisk 1.6.2, however, there will be a new application, 
 +ConfBridge, which will be capable of conference bridging without the use 
 +of DAHDI's built-in mixing engine. 
-diff --git a/doc/unistim.txt b/doc/unistim.txt
-new file mode 100644
-index 0000000..a76b5d4
 --- /dev/null
 +++ b/doc/unistim.txt
 @@ -0,0 +1,127 @@
@@ -20732,9 +20466,6 @@ index 0000000..a76b5d4
 +- If asterisk is behind a NAT, you must set [general] public_ip= with your public IP. If you don't do that or the bindaddr is invalid (or no longer valid, eg dynamic IP), phones should be able to display messages but will be unable to send/receive RTP packets (no sound)
 +- Don't forget : this work is based entirely on a reverse engineering, so you may encounter compatibility issues. At this time, I know three ways to establish a RTP session. You can modify [yourphone] rtp_method= with 0, 1, 2 or 3. 0 is the default method, should work. 1 can be used on new firmware (black i2004) and 2 on old violet i2004. 3 can be used on black i2004 with chrome.
 +- If you have difficulties, try unistim debug and set verbose 3 on the asterisk CLI. For extra debug, uncomment #define DUMP_PACKET 1 and recompile chan_unistim.
-diff --git a/doc/valgrind.txt b/doc/valgrind.txt
-new file mode 100644
-index 0000000..3d68e54
 --- /dev/null
 +++ b/doc/valgrind.txt
 @@ -0,0 +1,24 @@
@@ -20762,9 +20493,6 @@ index 0000000..3d68e54
 +information logged may STILL be of use to developers, so please upload the
 +resulting log file whether Asterisk crashes or not.
 +
-diff --git a/doc/video.txt b/doc/video.txt
-new file mode 100644
-index 0000000..8db9cde
 --- /dev/null
 +++ b/doc/video.txt
 @@ -0,0 +1,47 @@
@@ -20815,9 +20543,6 @@ index 0000000..8db9cde
 +
 +---
 +Updates to this file are more than welcome!
-diff --git a/doc/video_console.txt b/doc/video_console.txt
-new file mode 100644
-index 0000000..103af10
 --- /dev/null
 +++ b/doc/video_console.txt
 @@ -0,0 +1,159 @@
@@ -20980,9 +20705,6 @@ index 0000000..103af10
 +
 +------------------------------------------------------------------------
 +--- $Id $---
-diff --git a/doc/voicemail_odbc_postgresql.txt b/doc/voicemail_odbc_postgresql.txt
-new file mode 100644
-index 0000000..65688f8
 --- /dev/null
 +++ b/doc/voicemail_odbc_postgresql.txt
 @@ -0,0 +1,454 @@

@@ -12,15 +12,15 @@ init script. After that, it can safely go upstream.
 
 --- a/contrib/scripts/safe_asterisk
 +++ b/contrib/scripts/safe_asterisk
-@@ -14,6 +14,7 @@ SLEEPSECS=4
- ASTSBINDIR=__ASTERISK_SBIN_DIR__
- ASTVARRUNDIR=__ASTERISK_VARRUN_DIR__
+@@ -16,6 +16,7 @@ MACHINE=`hostname`				# To specify which
+ DUMPDROP=/tmp
+ SLEEPSECS=4
  ASTPIDFILE=${ASTVARRUNDIR}/asterisk.pid
 +SAFE_AST_BACKGROUND=0
  
  # comment this line out to have this script _not_ kill all mpg123 processes when
  # asterisk exits
-@@ -197,4 +198,8 @@ run_asterisk()
+@@ -199,4 +200,8 @@ run_asterisk()
  	done
  }
  

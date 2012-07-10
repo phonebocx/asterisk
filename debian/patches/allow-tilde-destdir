@@ -14,7 +14,7 @@ which should catch most cases.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -599,7 +599,7 @@ oldmodcheck:
+@@ -562,7 +562,7 @@ oldmodcheck:
  	fi
  
  badshell:

@@ -103,10 +103,9 @@ Replaces: asterisk (<< 1:1.8.3.3)
 Description: DAHDI devices support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
- This package includes the DAHDI channel driver (chan_dahdi.so) and a
- number of other Asterisk modules that require DAHDI support (app_meetme.so,
- res_timing_dahdi.so). They will not be useful without kernel-level DAHDI
- support.
+ This package includes the DAHDI channel driver (chan_dahdi.so) and a number of
+ other Asterisk modules that require DAHDI support. They will not be useful
+ without kernel-level DAHDI support.
  .
  For more information about the Asterisk PBX, have a look at the Asterisk
  package.

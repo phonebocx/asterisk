@@ -52,7 +52,7 @@ upstream RPM packages include packages that are only somewhat cleaner.
 +
  include $(ASTTOPDIR)/Makefile.moddir_rules
  
- ifneq ($(findstring $(OSARCH), mingw32 cygwin ),)
+ clean::
 --- a/Makefile.moddir_rules
 +++ b/Makefile.moddir_rules
 @@ -37,7 +37,7 @@ include $(ASTTOPDIR)/Makefile.rules

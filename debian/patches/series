@@ -20,8 +20,6 @@ sound_files
 mpglib
 enable_addons
 no_uname
-kfreebsd
 
 menuselect_cflags
 ilbc_disable
-httpd_port
