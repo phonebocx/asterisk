@@ -1,12 +1,13 @@
-asterisk (1:10.5.2~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:10.6.1~dfsg-1) UNRELEASED; urgency=low
 
   * New major upstream release.
     - Drop patch kfreebsd, fixed upstream.
     - Drop patch httpd_port, never affected 10.x.
+    - Adapt patch menuselect_cflags, partially merged.
   * Do not ship app_meetme.so and app_dahdibarge.so, deprecated by upstream.
     - Also remove them from asterisk-dahdi's full description.
 
- -- Faidon Liambotis <paravoid@debian.org>  Tue, 10 Jul 2012 04:04:41 +0300
+ -- Faidon Liambotis <paravoid@debian.org>  Thu, 19 Jul 2012 14:51:19 +0300
 
 asterisk (1:1.8.13.0~dfsg-1) unstable; urgency=high
 
