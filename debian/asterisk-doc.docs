@@ -2,8 +2,11 @@ BUGS
 README
 CREDITS
 CHANGES
-UPGRADE.txt
+UPGRADE-1.2.txt
+UPGRADE-1.4.txt
 UPGRADE-1.6.txt
+UPGRADE-1.8.txt
+UPGRADE.txt
 Zaptel-to-DAHDI.txt
 doc/*.txt
 doc/*.pdf

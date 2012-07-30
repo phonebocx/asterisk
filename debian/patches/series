@@ -12,8 +12,6 @@ safe_asterisk-nobg
 
 astgenkey-security
 
-reinclude_docs
-
 # bugfixes on top of everything
 sound_files
 #h323-extra-target
