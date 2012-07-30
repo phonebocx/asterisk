@@ -1,4 +1,4 @@
-asterisk (1:10.6.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:10.7.0~dfsg-1) UNRELEASED; urgency=low
 
   * New major upstream release.
     - Drop patch kfreebsd, fixed upstream.
