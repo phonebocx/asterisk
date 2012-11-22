@@ -19,7 +19,7 @@ Will be included in asterisk 11.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -844,7 +844,9 @@ nmenuselect: menuselect/nmenuselect menu
+@@ -845,7 +845,9 @@ nmenuselect: menuselect/nmenuselect menu
  	-@menuselect/nmenuselect menuselect.makeopts && (echo "menuselect changes saved!"; rm -f channels/h323/Makefile.ast main/asterisk) || echo "menuselect changes NOT saved!"
  
  # options for make in menuselect/

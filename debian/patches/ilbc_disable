@@ -8,18 +8,6 @@ building codec_ilbc and cleaning the ilbc/ directory.
 
 Patch needs to be cleaned-up to be uploaded upstream.
 
---- a/codecs/Makefile
-+++ b/codecs/Makefile
-@@ -33,7 +33,9 @@ endif
- clean::
- 	$(MAKE) -C gsm clean
- 	$(MAKE) -C lpc10 clean
-+ifneq ($(wildcard ilbc/Makefile),)
- 	$(MAKE) -C ilbc clean
-+endif
- 	rm -f g722/*.[oa]
- 	rm -f speex/*.[oa]
- 
 --- a/codecs/codec_ilbc.c
 +++ b/codecs/codec_ilbc.c
 @@ -26,6 +26,7 @@
@@ -30,3 +18,13 @@ Patch needs to be cleaned-up to be uploaded upstream.
  	<support_level>core</support_level>
   ***/
  
+--- a/codecs/Makefile
++++ b/codecs/Makefile
+@@ -27,7 +27,6 @@ LIBLPC10 := $(SUB_LPC10)/liblpc10.a
+ 
+ SUB_DIRS := \
+ 	$(SUB_GSM) \
+-	$(SUB_ILBC) \
+ 	$(SUB_LPC10) \
+ 
+ all: _all
