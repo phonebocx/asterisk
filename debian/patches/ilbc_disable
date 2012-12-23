@@ -13,10 +13,10 @@ packaged into Debian, no reason to remove it.
 
 --- a/codecs/codec_ilbc.c
 +++ b/codecs/codec_ilbc.c
-@@ -26,6 +26,7 @@
+@@ -27,6 +27,7 @@
  
  /*** MODULEINFO
-	<use>ilbc</use>
+ 	<use>ilbc</use>
 +	<defaultenabled>no</defaultenabled>
  	<support_level>core</support_level>
   ***/
