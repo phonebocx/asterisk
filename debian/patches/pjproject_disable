@@ -1,0 +1,36 @@
+Description: disable pjproject for now
+Author: Tzafrir Cohen <tzafrir@debian.org>
+Forwarded: no
+
+--- a/res/Makefile
++++ b/res/Makefile
+@@ -67,7 +67,7 @@ endif
+ ael/pval.o: ael/pval.c
+ 
+ clean::
+-	$(MAKE) -C pjproject realclean
++	#$(MAKE) -C pjproject realclean
+ 	rm -f snmp/*.o snmp/*.i ael/*.o ael/*.i ais/*.o ais/*.i
+ 
+ pjproject/build.mak:
+@@ -79,10 +79,3 @@ pjproject: pjproject/build.mak
+ 	$(MAKE) -j1 -C pjproject dep
+ 	$(MAKE) -j1 -C pjproject
+ 
+-include pjproject/build.mak
+-
+-$(PJ_LIB_FILES): pjproject
+-res_rtp_asterisk.o: $(PJ_LIB_FILES)
+-res_rtp_asterisk.o: _ASTCFLAGS+=$(PJ_CFLAGS)
+-res_rtp_asterisk.so: _ASTLDFLAGS+=$(PJ_LDFLAGS)
+-res_rtp_asterisk.so: LIBS+=$(PJ_LDLIBS)
+--- a/res/res_rtp_asterisk.c
++++ b/res/res_rtp_asterisk.c
+@@ -30,6 +30,7 @@
+ 
+ /*** MODULEINFO
+ 	<support_level>core</support_level>
++	<defaultenabled>no</defaultenabled>
+  ***/
+ 
+ #include "asterisk.h"

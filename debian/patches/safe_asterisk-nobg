@@ -13,7 +13,7 @@ init script. After that, it can safely go upstream.
 --- a/contrib/scripts/safe_asterisk
 +++ b/contrib/scripts/safe_asterisk
 @@ -16,6 +16,7 @@ MACHINE=`hostname`				# To specify which
- DUMPDROP=/tmp
+ RUNDIR=${RUNDIR:-/tmp}
  SLEEPSECS=4
  ASTPIDFILE=${ASTVARRUNDIR}/asterisk.pid
 +SAFE_AST_BACKGROUND=0

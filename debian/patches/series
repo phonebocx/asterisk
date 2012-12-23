@@ -19,5 +19,5 @@ mpglib
 enable_addons
 no_uname
 
-menuselect_cflags
 ilbc_disable
+pjproject_disable

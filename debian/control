@@ -258,3 +258,13 @@ Description: Configuration files for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
  This package contains the default configuration files of Asterisk.
+
+Package: libasteriskssl1
+Architecture: any
+Section: libs
+Depends: ${misc:Depends}
+Description: asterisk OpenSSL wrapper library
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package contains a library Asterisk uses as a thread-safe-initialization
+ wrapper around the OpenSSL libraries.

@@ -1,10 +1,8 @@
-Subject: use /etc/default/settings for configuring safe_asterisk (vendor specific)
+Subject: Don't use TTY9 by default
+
 Author: Faidon Liambotis <paravoid@debian.org>
 Bug-Debian: http://bugs.debian.org/381786
 Last-Update: 2010-02-14
-
-Use ASTSAFE_TTY and ASTSAFE_CONSOLE from /etc/default/asterisk to configure
-safe_asterisk.
 
 --- a/contrib/scripts/safe_asterisk
 +++ b/contrib/scripts/safe_asterisk
@@ -23,6 +21,6 @@ safe_asterisk.
  
 -		if test "x$TTY" != "x" ; then
 +		if test "x$TTY" != "xno" ; then
- 			cd /tmp
+ 			cd "${RUNDIR}"
  			stty sane < /dev/${TTY}
  			nice -n $PRIORITY ${ASTSBINDIR}/asterisk -f ${CLIARGS} ${ASTARGS} > /dev/${TTY} 2>&1 < /dev/${TTY}

@@ -1,3 +1,9 @@
+FIXME: list of things that don't yet work. This should be removed:
+* pjproject is currently brutally disabled.
+* libasteriskssl does not live well with dpkg-shlibdeps.
+* Probably others. Didn't have time to run linbtian yet.
+
+
 Welcome to the world of telephone switch owners. Asterisk is a quite powerful
 and probably one of the feature-richest open-source PBXes out there. To get you
 a brief impression where to start tweaking, we've included this doc. (Thanks to
