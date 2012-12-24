@@ -3,21 +3,23 @@ asterisk (1:11.1.0~dfsg-1) UNRELEASED; urgency=low
   [ Faidon Liambotis ]
   * New major upstream release.
     - Drop patch kfreebsd, fixed upstream.
-    - Drop patch httpd_port, never affected 10.x.
-    - Adapt patch menuselect_cflags, partially merged.
+    - Drop patch httpd_port.
+    - Drop patch menuselect_cflags, merged upstream.
+    - Replace libopenais-dev with corosync-dev, res_corosync replaces res_ais.
   * Do not ship the removed-but-reincluded docs, they're outdated by now.
     Upstream wants their Wiki to be the primary Asterisk documentation place.
-  * Ship UPGRADE-1.8.txt, UPGRADE-1.4.txt, UPGRADE-1.2.txt in asterisk-doc.
+  * Ship UPGRADE-{10,1.8,1.4,1.2}.txt in asterisk-doc.
   * Do not ship app_meetme.so and app_dahdibarge.so, deprecated by upstream.
     - Also remove them from asterisk-dahdi's full description.
+  * Remove ASTSAFE_CONSOLE and ASTSAFE_TTY from asterisk.default, they aren't
+    being unused for a while now.
 
   [ Tzafrir Cohen ]
-  * Patch menuselect_cflags dropped: merged upstream.
   * libasteriskssl - in its own package for now.
   * pjproject: the beast is disabled for now.
   * Patch undeprecate: undeprecate meetme.
 
- -- Faidon Liambotis <paravoid@debian.org>  Thu, 22 Nov 2012 01:45:18 +0200
+ -- Faidon Liambotis <paravoid@debian.org>  Mon, 24 Dec 2012 14:40:17 +0200
 
 asterisk (1:1.8.13.0~dfsg-1) unstable; urgency=high
 

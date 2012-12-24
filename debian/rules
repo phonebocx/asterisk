@@ -255,6 +255,8 @@ get-orig-source:
 	# in case the tarball is not clean:
 	@rm -rf $(TMP_TARBALL_TOP)/AST.txt
 	@rm -rf $(TMP_TARBALL_TOP)/AST.pdf
+	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-Admin-Guide/
+	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-Admin-Guide.pdf
 	@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc
 	# While we're at it: remove some generated files that will become
 	# invalid:

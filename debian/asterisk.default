@@ -26,12 +26,6 @@
 #             with properly starting and stopping Asterisk.
 #RUNASTSAFE=yes
 #
-# ASTSAFE_CONSOLE: whether you want safe_asterisk to spawn a console for Asterisk.
-#ASTSAFE_CONSOLE=yes
-#
-# ASTSAFE_TTY: tty for Asterisk to run on (only for safe_asterisk)
-#ASTSAFE_TTY=9
-#
 # MAXFILES: Set this to the number of open file handles the Asterisk 
 #           process can have. Useful if you get "Too many open files" error.
 #MAXFILES=8192
