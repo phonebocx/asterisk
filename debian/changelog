@@ -15,7 +15,6 @@ asterisk (1:11.1.0~dfsg-1) UNRELEASED; urgency=low
     being unused for a while now.
 
   [ Tzafrir Cohen ]
-  * libasteriskssl - in its own package for now.
   * pjproject: the beast is disabled for now.
   * Patch undeprecate: undeprecate meetme.
 
