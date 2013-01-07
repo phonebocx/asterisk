@@ -1,0 +1,75 @@
+From: Kinsey Moore <kmoore@digium.com>
+Date: Fri, 4 Jan 2013 22:18:21 +0000
+Subject: Fix pjproject compilation in certain circumstances
+Origin: http://svnview.digium.com/svn/asterisk?view=rev&rev=378582
+
+On a fresh checkout of Asterisk 11, running make before ./configure
+could cause the pjproject subdirectory to get in an odd state that
+would prevent compilation. This patch by Tilghman prevents that from
+occurring.
+
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-20681
+Patch-by: Tilghman Lesher
+
+---
+ res/pjproject/aconfigure       |    3 +--
+ res/pjproject/aconfigure.ac    |    1 -
+ res/pjproject/build/common.mak |    9 ---------
+ 3 files changed, 1 insertion(+), 12 deletions(-)
+
+diff --git a/res/pjproject/aconfigure b/res/pjproject/aconfigure
+index 73683e8..64cc6f0 100755
+--- a/res/pjproject/aconfigure
++++ b/res/pjproject/aconfigure
+@@ -2401,7 +2401,7 @@ test -n "$target_alias" &&
+   program_prefix=${target_alias}-
+ ac_config_headers="$ac_config_headers pjlib/include/pj/compat/os_auto.h pjlib/include/pj/compat/m_auto.h pjmedia/include/pjmedia/config_auto.h pjmedia/include/pjmedia-codec/config_auto.h pjsip/include/pjsip/sip_autoconf.h"
+ 
+-ac_config_files="$ac_config_files build.mak build/os-auto.mak build/cc-auto.mak pjlib/build/os-auto.mak pjlib-util/build/os-auto.mak pjmedia/build/os-auto.mak pjsip/build/os-auto.mak third_party/build/os-auto.mak third_party/build/portaudio/os-auto.mak"
++ac_config_files="$ac_config_files build.mak build/os-auto.mak pjlib/build/os-auto.mak pjlib-util/build/os-auto.mak pjmedia/build/os-auto.mak pjsip/build/os-auto.mak third_party/build/os-auto.mak third_party/build/portaudio/os-auto.mak"
+ 
+ 
+ 
+@@ -7799,7 +7799,6 @@ do
+     "pjsip/include/pjsip/sip_autoconf.h") CONFIG_HEADERS="$CONFIG_HEADERS pjsip/include/pjsip/sip_autoconf.h" ;;
+     "build.mak") CONFIG_FILES="$CONFIG_FILES build.mak" ;;
+     "build/os-auto.mak") CONFIG_FILES="$CONFIG_FILES build/os-auto.mak" ;;
+-    "build/cc-auto.mak") CONFIG_FILES="$CONFIG_FILES build/cc-auto.mak" ;;
+     "pjlib/build/os-auto.mak") CONFIG_FILES="$CONFIG_FILES pjlib/build/os-auto.mak" ;;
+     "pjlib-util/build/os-auto.mak") CONFIG_FILES="$CONFIG_FILES pjlib-util/build/os-auto.mak" ;;
+     "pjmedia/build/os-auto.mak") CONFIG_FILES="$CONFIG_FILES pjmedia/build/os-auto.mak" ;;
+diff --git a/res/pjproject/aconfigure.ac b/res/pjproject/aconfigure.ac
+index 1de41fa..a19b84e 100644
+--- a/res/pjproject/aconfigure.ac
++++ b/res/pjproject/aconfigure.ac
+@@ -13,7 +13,6 @@ AC_CONFIG_HEADER([pjlib/include/pj/compat/os_auto.h
+ 		 ])
+ AC_CONFIG_FILES([build.mak 
+ 		 build/os-auto.mak 
+-		 build/cc-auto.mak
+ 		 pjlib/build/os-auto.mak 
+ 		 pjlib-util/build/os-auto.mak 
+ 		 pjmedia/build/os-auto.mak
+diff --git a/res/pjproject/build/common.mak b/res/pjproject/build/common.mak
+index ad6df03..d600007 100644
+--- a/res/pjproject/build/common.mak
++++ b/res/pjproject/build/common.mak
+@@ -17,15 +17,6 @@ include $(PJDIR)/build/cc-$(CC_NAME).mak
+ -include cc-$(CC_NAME).mak
+ 
+ #
+-# Include auto configured compiler specification.
+-# This will override the compiler settings above.
+-# Currently this is made OPTIONAL, to prevent people
+-# from getting errors because they don't re-run ./configure
+-# after downloading new PJSIP.
+-#
+--include $(PJDIR)/build/cc-auto.mak
+-
+-#
+ # Include global machine specific definitions
+ #
+ include $(PJDIR)/build/m-$(MACHINE_NAME).mak
+-- 
+1.7.10.4
+

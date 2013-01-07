@@ -20,4 +20,5 @@ enable_addons
 no_uname
 
 ilbc_disable
-pjproject_disable
+# Not sure it's good, but it's applied in upstream:
+pjproject
