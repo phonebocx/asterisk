@@ -86,7 +86,7 @@ config.status: configure
 		--prefix=/usr				\
 		--mandir=\$${prefix}/share/man		\
 		--infodir=\$${prefix}/share/info	\
-		--disable-libasteriskssl		\
+		--disable-asteriskssl			\
 		--with-gsm				\
 		--with-imap=system			\
 		--without-pwlib				\
