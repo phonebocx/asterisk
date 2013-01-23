@@ -2,6 +2,22 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
+# Necessary to pass hardening flags to menuselect.
+# export CFLAGS LDFLAGS BUILD_CFLAGS BUILD_LDFLAGS
+
+# Starting with dpkg-dev >= 1.16.1.1 you can use the new buildflags.mk file
+# to set all *FLAGS
+# When building programs that handle untrusted data
+# (parsers, network listeners, etc.),
+#  or run with elevated privileges (PAM, X, etc.),
+#  please enable "PIE" and "BINDNOW" in the build.
+#  The "all" option enables "PIE" and "BINDNOW" and future hardening flags
+
+
+#export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/buildflags.mk
+
 export DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 export DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
 
@@ -15,18 +31,6 @@ endif
 BUILD_OS=$(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
-
-CFLAGS = `dpkg-buildflags --get CFLAGS`
-LDFLAGS = `dpkg-buildflags --get LDFLAGS`
-CFLAGS += `dpkg-buildflags --get CPPFLAGS`
-
-# For CFLAGS/LDFLAGS of menuselect:
-BUILD_CFLAGS = $(CFLAGS)
-BUILD_LDFLAGS = $(LDFLAGS)
-
-# Necessary to pass hardening flags to menuselect.
-export CFLAGS LDFLAGS BUILD_CFLAGS BUILD_LDFLAGS
-
 
 ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
 	BUILDFLAGS += OPTIMIZE=-O0

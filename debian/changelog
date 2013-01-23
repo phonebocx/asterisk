@@ -1,4 +1,4 @@
-asterisk (1:11.1.0~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:11.2.1~dfsg-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * New major upstream release.
@@ -15,8 +15,14 @@ asterisk (1:11.1.0~dfsg-1) UNRELEASED; urgency=low
     being unused for a while now.
 
   [ Tzafrir Cohen ]
-  * pjproject: the beast is disabled for now.
   * Patch undeprecate: undeprecate meetme.
+  * increased compat level for debian/clean.
+  * Disable hardening for now.
+
+  [ David Sarmiento ]
+  * Re-enabled pjproject
+  * Modified rules file to be able to build pjproject
+  * Updated build-deps
 
  -- Faidon Liambotis <paravoid@debian.org>  Mon, 24 Dec 2012 14:40:17 +0200
 
