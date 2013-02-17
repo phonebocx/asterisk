@@ -1,4 +1,4 @@
-asterisk (1:11.2.1~dfsg-1) experimental; urgency=low
+asterisk (1:11.2.1~dfsg-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * New major upstream release.
@@ -18,6 +18,9 @@ asterisk (1:11.2.1~dfsg-1) experimental; urgency=low
   * Patch undeprecate: undeprecate meetme.
   * increased compat level for debian/clean.
   * Disable hardening for now.
+  * Convert rules to dh.
+    - Patch astdatadir: set datadir in /usr/share/asterisk instead of
+      using an environment variable.
 
   [ David Sarmiento ]
   * Re-enabled pjproject

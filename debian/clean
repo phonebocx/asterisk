@@ -13,3 +13,7 @@ res/pjproject/pjmedia/include/pjmedia/config_auto.h
 res/pjproject/pjsip/include/pjsip/sip_autoconf.h
 res/pjproject/third_party/build/os-auto.mak
 res/pjproject/third_party/build/portaudio/os-auto.mak
+doc/core-en_US.xml
+utils/poll.c
+menuselect/mxml/mxml.pc
+menuselect.makeopts
