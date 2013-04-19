@@ -25,6 +25,7 @@ asterisk (1:11.4.0~rc1~dfsg-1) UNRELEASED; urgency=low
     - Patch bzero: Simplify applying the above, and fix an interface
       stupidity inflicted by pjproject.
     - get-orig-source: remove res/pjproject from the source tarball.
+  * debian/rules: switch to dh.
 
   [ David Sarmiento ]
   * Re-enabled pjproject
