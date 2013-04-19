@@ -181,6 +181,7 @@ get-orig-source:
 	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-Admin-Guide/
 	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-Admin-Guide.pdf
 	@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc
+	@rm -rf $(TMP_TARBALL_TOP)/res/pjproject
 	# While we're at it: remove some generated files that will become
 	# invalid:
 	@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts

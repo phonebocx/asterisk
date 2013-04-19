@@ -1,4 +1,4 @@
-asterisk (1:11.2.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:11.4.0~rc1~dfsg-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * New major upstream release.
@@ -21,6 +21,10 @@ asterisk (1:11.2.1~dfsg-1) UNRELEASED; urgency=low
   * Convert rules to dh.
     - Patch astdatadir: set datadir in /usr/share/asterisk instead of
       using an environment variable.
+  * Patch pjproject: make pjproject optional.
+    - Patch bzero: Simplify applying the above, and fix an interface
+      stupidity inflicted by pjproject.
+    - get-orig-source: remove res/pjproject from the source tarball.
 
   [ David Sarmiento ]
   * Re-enabled pjproject
