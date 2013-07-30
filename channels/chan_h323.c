@@ -57,7 +57,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.133 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 36725 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/logger.h"
@@ -769,16 +769,17 @@ static struct ast_channel *__oh323_new(struct oh323_pvt *pvt, int state, const c
 		if (pvt->amaflags) {
 			ch->amaflags = pvt->amaflags;
 		}
-		if (!ast_strlen_zero(pvt->cid_num)) {
-			ch->cid.cid_num = strdup(pvt->cid_num);
-		} else if (!ast_strlen_zero(pvt->cd.call_source_e164)) {
-			ch->cid.cid_num = strdup(pvt->cd.call_source_e164);
-		}
-		if (!ast_strlen_zero(pvt->cid_name)) {
-			ch->cid.cid_name = strdup(pvt->cid_name);
-		} else if (!ast_strlen_zero(pvt->cd.call_source_name)) {
-			ch->cid.cid_name = strdup(pvt->cd.call_source_name);
-		}
+
+		/*
+		 * If cid_num and cdi.call_source_e164 are both null, then
+		 * ast_set_callerid will do the right thing and leave the
+		 * cid_num and cid_ani for the channel alone.
+		 */
+		ast_set_callerid(ch,
+			!ast_strlen_zero(pvt->cid_num) ? pvt->cid_num : pvt->cd.call_source_e164,
+			pvt->cid_name,
+			!ast_strlen_zero(pvt->cid_num) ? pvt->cid_num : pvt->cd.call_source_e164);
+
 		if (!ast_strlen_zero(pvt->rdnis)) {
 			ch->cid.cid_rdnis = strdup(pvt->rdnis);
 		}
@@ -1233,7 +1234,6 @@ void setup_rtp_connection(unsigned call_reference, const char *remoteIp, int rem
   */
 void connection_made(unsigned call_reference, const char *token)
 {
-	struct ast_channel *c = NULL;
 	struct oh323_pvt *pvt;
 
 	if (h323debug)
@@ -1435,7 +1435,6 @@ int setup_outgoing_call(call_details_t *cd)
   */
 void chan_ringing(unsigned call_reference, const char *token)
 {
-	struct ast_channel *c = NULL;
 	struct oh323_pvt *pvt;
 
 	if (h323debug)
@@ -2281,7 +2280,7 @@ static char *convertcap(int cap)
 	}
 }
 
-static int oh323_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, struct ast_rtp *vrtp, int codecs)
+static int oh323_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, struct ast_rtp *vrtp, int codecs, int nat_active)
 {
 	/* XXX Deal with Video */
 	struct oh323_pvt *pvt;
@@ -2310,7 +2309,7 @@ static struct ast_rtp_protocol oh323_rtp = {
 	.type = type,
 	.get_rtp_info = oh323_get_rtp_peer,
 	.get_vrtp_info = oh323_get_vrtp_peer,
-	.set_rtp_peer=  oh323_set_rtp_peer,
+	.set_rtp_peer = oh323_set_rtp_peer,
 };
 
 int load_module()

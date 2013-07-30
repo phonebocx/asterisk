@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37419 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -96,6 +96,10 @@ static pid_t spawn_ras(struct ast_channel *chan, char *args)
 	/* Execute RAS on File handles */
 	dup2(chan->fds[0], STDIN_FILENO);
 
+	/* Drop high priority */
+	if (option_highpriority)
+		ast_set_priority(0);
+
 	/* Close other file descriptors */
 	for (x=STDERR_FILENO + 1;x<1024;x++) 
 		close(x);
@@ -123,12 +127,6 @@ static pid_t spawn_ras(struct ast_channel *chan, char *args)
 	argv[argc++] = "plugin";
 	argv[argc++] = "zaptel.so";
 	argv[argc++] = "stdin";
-
-#if 0
-	for (x=0;x<argc;x++) {
-		fprintf(stderr, "Arg %d: %s\n", x, argv[x]);
-	}
-#endif
 
 	/* Finally launch PPP */
 	execv(PPP_EXEC, argv);

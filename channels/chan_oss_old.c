@@ -45,7 +45,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.4 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h"
@@ -565,6 +565,7 @@ static int oss_hangup(struct ast_channel *c)
 			/* Make congestion noise */
 			res = 2;
 			write(sndcmd[1], &res, sizeof(res));
+			hookstate = 0;
 		}
 	}
 	return 0;

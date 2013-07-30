@@ -50,7 +50,8 @@ int misdn_lib_is_ptp(int port)
 struct misdn_stack* get_stack_by_bc(struct misdn_bchannel *bc)
 {
 	struct misdn_stack *stack=get_misdn_stack();
-	
+
+	if (!bc) return NULL;
 	
 	for ( ; stack; stack=stack->next) {
 		int i;
@@ -90,8 +91,8 @@ enum global_states {
 static enum global_states  global_state=MISDN_INITIALIZING;
 
 
-#include <../i4lnet/net_l2.h>
-#include <tone.h>
+#include <mISDNuser/net_l2.h>
+#include <mISDNuser/tone.h>
 #include <unistd.h>
 #include <semaphore.h>
 #include <pthread.h>
@@ -333,15 +334,21 @@ static int mypid=0;
 int misdn_cap_is_speech(int cap)
 /** Poor mans version **/
 {
-	if (cap != INFO_CAPABILITY_DIGITAL_UNRESTRICTED) return 1;
+	if ( (cap != INFO_CAPABILITY_DIGITAL_UNRESTRICTED) &&
+	     (cap != INFO_CAPABILITY_DIGITAL_RESTRICTED) ) return 1;
 	return 0;
 }
 
 int misdn_inband_avail(struct misdn_bchannel *bc)
 {
+
+	/*if ! early_bconnect we have never inband available*/
+	if ( ! bc->early_bconnect ) return 0;
+	
 	switch (bc->progress_indicator) {
 	case INFO_PI_INBAND_AVAILABLE:
 	case INFO_PI_CALL_NOT_E2E_ISDN:
+	case INFO_PI_CALLED_NOT_ISDN:
 		return 1;
 	default:
 		return 0;
@@ -400,6 +407,8 @@ int empty_chan_in_stack(struct misdn_stack *stack, int channel)
 
 void empty_bc(struct misdn_bchannel *bc)
 {
+	bc->state=STATE_NOTHING;
+	
 	bc->channel = 0;
 	bc->in_use = 0;
 
@@ -416,7 +425,7 @@ void empty_bc(struct misdn_bchannel *bc)
 	bc->curptx=0; bc->curprx=0;
 	
 	bc->crypt_key[0] = 0;
-  
+	
 	bc->tone=TONE_NONE;
 	bc->tone_cnt2 = bc->tone_cnt=0;
   
@@ -424,12 +433,15 @@ void empty_bc(struct misdn_bchannel *bc)
 	bc->onumplan=NUMPLAN_UNKNOWN;
 	bc->rnumplan=NUMPLAN_UNKNOWN;
 	
+
 	bc->active = 0;
-  
+
+	bc->early_bconnect = 1;
+	
 	bc->ec_enable = 0;
 	bc->ec_deftaps = 128;
 	bc->ec_whenbridged = 0;
-	bc->ec_training = 400;
+	bc->ec_training = 1;
 	
 	
 	bc->orig=0;
@@ -674,6 +686,11 @@ static int create_process (int midev, struct misdn_bchannel *bc) {
 }
 
 
+void misdn_lib_setup_bc(struct misdn_bchannel *bc)
+{
+	setup_bc(bc);
+}
+
 
 int setup_bc(struct misdn_bchannel *bc)
 {
@@ -687,15 +704,18 @@ int setup_bc(struct misdn_bchannel *bc)
 	int midev=stack->midev;
 	int channel=bc->channel-1-(bc->channel>16);
 	int b_stid=stack->b_stids[channel>=0?channel:0];
+
+	
+	if (bc->nodsp ) 
+		clean_up_bc(bc);
+	
+	if ( !misdn_cap_is_speech(bc->capability))
+		clean_up_bc(bc);
+	
 	
 	if (bc->upset) {
-		cb_log(5, stack->port, "$$$ bc already upsetted stid :%x\n", b_stid);
+		cb_log(4, stack->port, "$$$ bc already upsetted stid :%x\n", b_stid);
 		return -1;
-	}
-	
-	
-	if (bc->nodsp) {
-		clean_up_bc(bc);
 	}
 	
 	cb_log(5, stack->port, "$$$ Setting up bc with stid :%x\n", b_stid);
@@ -704,7 +724,7 @@ int setup_bc(struct misdn_bchannel *bc)
 		cb_log(0, stack->port," -- Stid <=0 at the moment on port:%d channel:%d\n",stack->port,channel);
 		return 1;
 	}
-
+	
   
 	bc->b_stid = b_stid;
 	
@@ -756,11 +776,12 @@ int setup_bc(struct misdn_bchannel *bc)
 	
 	
 	if (bc->async == 1 || bc->nodsp) {
-		cb_log(4, stack->port," --> TRANSPARENT Mode (no DSP)\n");
+		cb_log(4, stack->port," --> TRANSPARENT Mode (no DSP, no HDLC)\n");
 		pid.protocol[1] = ISDN_PID_L1_B_64TRANS;
 		pid.protocol[2] = ISDN_PID_L2_B_TRANS;
 		pid.protocol[3] = ISDN_PID_L3_B_USER;
 		pid.layermask = ISDN_LAYER((1)) | ISDN_LAYER((2)) | ISDN_LAYER((3));
+		
 	} else if ( misdn_cap_is_speech(bc->capability)) {
 		cb_log(4, stack->port," --> TRANSPARENT Mode\n");
 		pid.protocol[1] = ISDN_PID_L1_B_64TRANS;
@@ -1201,7 +1222,12 @@ int handle_event ( struct misdn_bchannel *bc, enum event_e event, iframe_t *frm)
 	struct misdn_stack *stack=get_stack_by_bc(bc);
 	if (stack->mode == TE_MODE) {
 		switch (event) {
+
+		case EVENT_CONNECT_ACKNOWLEDGE:
+			manager_bchannel_activate(bc);
+			break;
 		case EVENT_CONNECT:
+			
 			if ( *bc->crypt_key ) {
 				cb_log(4, stack->port, "ENABLING BLOWFISH port:%d channel:%d oad%d:%s dad%d:%s\n", stack->port, bc->channel, bc->onumplan,bc->oad, bc->dnumplan,bc->dad);
 				
@@ -1326,6 +1352,11 @@ int handle_cr ( iframe_t *frm)
 void misdn_lib_release(struct misdn_bchannel *bc)
 {
 	struct misdn_stack *stack=get_stack_by_bc(bc);
+
+	if (!stack) {
+		cb_log(1,0,"misdn_release: No Stack found\n");
+		return;
+	}
 	
 	if (bc->channel>=0) {
 		empty_chan_in_stack(stack,bc->channel);
@@ -1489,13 +1520,14 @@ handle_event_nt(void *dat, void *arg)
 		}
 		break;
 
-    
+
+		case CC_CONNECT|INDICATION:
 		case CC_ALERTING|INDICATION:
 		case CC_PROCEEDING|INDICATION:
-		case CC_CONNECT|INDICATION:
+
 		{
 			struct misdn_bchannel *bc=find_bc_by_l3id(stack, hh->dinfo);
-
+			
 			if (!bc) {
 				msg_t *dmsg;
 				cb_log(0, stack->port,"!!!! We didn't found our bc, dinfo:%x port:%d\n",hh->dinfo, stack->port);
@@ -1507,6 +1539,7 @@ handle_event_nt(void *dat, void *arg)
 				return 0;
 				
 			}
+			
 			setup_bc(bc);
 		}
 		break;
@@ -1850,8 +1883,9 @@ int handle_bchan(msg_t *msg)
 	case DL_ESTABLISH | CONFIRM:
 		cb_log(4, stack->port, "BCHAN: bchan ACT Confirm\n");
 		free_msg(msg);
-		return 1;    
 
+		return 1;    
+		
 	case PH_DEACTIVATE | INDICATION:
 	case DL_RELEASE | INDICATION:
 		cb_log (4, stack->port, "BCHAN: DeACT Ind\n");
@@ -1899,7 +1933,8 @@ int handle_bchan(msg_t *msg)
 		bc->bframe_len = frm->len;
 
 		/** Anyway flip the bufbits **/
-		flip_buf_bits(bc->bframe, bc->bframe_len);
+		if ( misdn_cap_is_speech(bc->capability) ) 
+			flip_buf_bits(bc->bframe, bc->bframe_len);
 		
 		
 #if MISDN_DEBUG
@@ -2417,6 +2452,8 @@ void misdn_lib_log_ies(struct misdn_bchannel *bc)
 	
 	cb_log(2, stack->port, " --> channel:%d caps:%s pi:%x keypad:%s\n", bc->channel, bearer2str(bc->capability),bc->progress_indicator, bc->keypad);
 
+	cb_log(3, stack->port, " --> urate:%d rate:%d mode:%d user1:%d\n", bc->urate, bc->rate, bc->mode,bc->user1);
+	
 	cb_log(3, stack->port, " --> pid:%d addr:%x l3id:%x\n", bc->pid, bc->addr, bc->l3_id);
 
 	cb_log(4, stack->port, " --> bc:%x h:%d sh:%d\n", bc, bc->holded, bc->stack_holder);
@@ -3030,8 +3067,9 @@ int manager_tx2misdn_frm(struct misdn_bchannel *bc, void *data, int len)
 
 	struct misdn_stack *stack=get_stack_by_bc(bc);
 	if (!bc->active) return -1;   
-	
-	flip_buf_bits(data,len);
+
+	if ( misdn_cap_is_speech(bc->capability) )
+		flip_buf_bits(data,len);
 	
 	if ( !bc->nojitter && misdn_cap_is_speech(bc->capability) ) {
 		if (len > ibuf_freecount(bc->misdnbuf)) {
@@ -3209,7 +3247,7 @@ void manager_ec_enable(struct misdn_bchannel *bc)
 
 	struct misdn_stack *stack=get_stack_by_bc(bc);
 	
-	cb_log(1, stack?stack->port:0,"Sending Control ECHOCAN_ON enblock\n");
+	cb_log(1, stack?stack->port:0,"Sending Control ECHOCAN_ON taps:%d training:%d\n",bc->ec_deftaps, bc->ec_training);
 	
 	switch (bc->ec_deftaps) {
 	case 4:
@@ -3233,6 +3271,7 @@ void manager_ec_enable(struct misdn_bchannel *bc)
 	
 	manager_ph_control_block(bc,  ECHOCAN_ON,  ec_arr, sizeof(ec_arr));
 }
+
 
 
 void manager_ec_disable(struct misdn_bchannel *bc)

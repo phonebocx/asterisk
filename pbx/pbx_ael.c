@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 15658 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -407,7 +407,7 @@ static int match_assignment(char *variable, char **value)
 	int inpar = 0;
 	c = variable;
 	
-	while (*c && (*c > 32)) {
+	while (*c) {
 		if(*c == ')' && (inpar > 0)) {
 			inpar--;
 		} else if(*c == '(' && (inpar >= 0)) {
@@ -730,6 +730,11 @@ static int __build_step(const char *what, const char *name, const char *filename
 		if (aeldebug & DEBUG_TOKENS)
 			ast_verbose("--GOTO to : '%s'\n", args);
 		app = "Goto";
+		if (args[0] == '(' && args[strlen(args) - 1] == ')') {
+			args[0] = '\0';
+			args++;
+			args[strlen(args) - 1] = '\0';
+		}
 		if (ast_add_extension2(con, 0, exten, (*pos)++, *label, NULL, app, strdup(args), FREE, registrar))
 			ast_log(LOG_WARNING, "Unable to add step at priority '%d' of %s '%s'\n", *pos, what, name);
 		*label = NULL;
@@ -773,8 +778,8 @@ static int __build_step(const char *what, const char *name, const char *filename
 				*label = NULL;
 				/* Remember where the whileblock starts */
 				forblock = (*pos);
-				build_step("for", margs, filename, lineno, con, exten, pos, fields->next->next->data, &fillin, label);
 				build_step("for", margs, filename, lineno, con, exten, pos, c, &fillin, label);
+				build_step("for", margs, filename, lineno, con, exten, pos, fields->next->next->data, &fillin, label);
 				/* Close the loop */
 				app = "Goto";
 				snprintf(margs, mlen, "%d", forstart);
@@ -1259,8 +1264,8 @@ int load_module(void)
 
 int reload(void)
 {
-	unload_module();
-	return (load_module());
+	ast_context_destroy(NULL, registrar);
+	return pbx_load_module();
 }
 
 int usecount(void)

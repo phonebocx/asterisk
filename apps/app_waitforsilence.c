@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 29555 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -56,7 +56,7 @@ static char *descrip =
 "SILENCE - if silence of x ms was detected"
 "TIMEOUT - if silence of x ms was not detected."
 "Examples:\n"
-"  - WaitForSilence(500,2) will wait for 1/2 second of silence, twice\n"
+"  - WaitForSilence(500|2) will wait for 1/2 second of silence, twice\n"
 "  - WaitForSilence(1000) will wait for 1 second of silence, once\n";
 
 STANDARD_LOCAL_USER;
@@ -69,7 +69,7 @@ static int do_waiting(struct ast_channel *chan, int maxsilence) {
 	int totalsilence = 0;
 	int dspsilence = 0;
 	int gotsilence = 0; 
-	static int silencethreshold = 64;
+	static int silencethreshold = 128;
 	int rfmt = 0;
 	int res = 0;
 	struct ast_dsp *sildet;	 /* silence detector dsp */

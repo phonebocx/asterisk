@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (c) 2004 - 2005 Digium, Inc.  All rights reserved.
+ * Copyright (c) 2004 - 2006 Digium, Inc.  All rights reserved.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19812 $")
 
 #include "asterisk/options.h"
 #include "asterisk/logger.h"
@@ -40,6 +40,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 #include "asterisk/module.h"
 #include "asterisk/file.h"
 #include "asterisk/app.h"
+#include "asterisk/chanvars.h"
 
 
 static const char *tdesc = "Page Multiple Phones";
@@ -77,13 +78,14 @@ struct calloutdata {
 	char tech[64];
 	char resource[256];
 	char meetmeopts[64];
+	struct ast_variable *variables;
 };
 
 static void *page_thread(void *data)
 {
 	struct calloutdata *cd = data;
 	ast_pbx_outgoing_app(cd->tech, AST_FORMAT_SLINEAR, cd->resource, 30000,
-		"MeetMe", cd->meetmeopts, NULL, 0, cd->cidnum, cd->cidname, NULL, NULL);
+		"MeetMe", cd->meetmeopts, NULL, 0, cd->cidnum, cd->cidname, cd->variables, NULL, NULL);
 	free(cd);
 	return NULL;
 }
@@ -91,6 +93,9 @@ static void *page_thread(void *data)
 static void launch_page(struct ast_channel *chan, const char *meetmeopts, const char *tech, const char *resource)
 {
 	struct calloutdata *cd;
+	const char *varname;
+	struct ast_variable *lastvar = NULL;
+	struct ast_var_t *varptr;
 	pthread_t t;
 	pthread_attr_t attr;
 	cd = malloc(sizeof(struct calloutdata));
@@ -101,6 +106,29 @@ static void launch_page(struct ast_channel *chan, const char *meetmeopts, const 
 		ast_copy_string(cd->tech, tech, sizeof(cd->tech));
 		ast_copy_string(cd->resource, resource, sizeof(cd->resource));
 		ast_copy_string(cd->meetmeopts, meetmeopts, sizeof(cd->meetmeopts));
+
+		AST_LIST_TRAVERSE(&chan->varshead, varptr, entries) {
+			if (!(varname = ast_var_full_name(varptr)))
+				continue;
+			if (varname[0] == '_') {
+				struct ast_variable *newvar = NULL;
+
+				if (varname[1] == '_') {
+					newvar = ast_variable_new(varname, ast_var_value(varptr));
+				} else {
+					newvar = ast_variable_new(&varname[1], ast_var_value(varptr));
+				}
+
+				if (newvar) {
+					if (lastvar)
+						lastvar->next = newvar;
+					else
+						cd->variables = newvar;
+					lastvar = newvar;
+				}
+			}
+		}
+
 		pthread_attr_init(&attr);
 		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 		if (ast_pthread_create(&t, &attr, page_thread, cd)) {
@@ -121,6 +149,7 @@ static int page_exec(struct ast_channel *chan, void *data)
 	struct ast_app *app;
 	char *tmp;
 	int res=0;
+	char originator[AST_CHANNEL_NAME];
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "This application requires at least one argument (destination(s) to page)\n");
@@ -142,12 +171,21 @@ static int page_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
+	ast_copy_string(originator, chan->name, sizeof(originator));
+	if ((tmp = strchr(originator, '-')))
+		*tmp = '\0';
+
 	tmp = strsep(&options, "|");
 	if (options)
 		ast_app_parse_options(page_opts, &flags, NULL, options);
 
 	snprintf(meetmeopts, sizeof(meetmeopts), "%ud|%sqxdw", confid, ast_test_flag(&flags, PAGE_DUPLEX) ? "" : "m");
+
 	while ((tech = strsep(&tmp, "&"))) {
+		/* don't call the originating device */
+		if (!strcasecmp(tech, originator))
+			continue;
+
 		if ((resource = strchr(tech, '/'))) {
 			*resource++ = '\0';
 			launch_page(chan, meetmeopts, tech, resource);
@@ -155,6 +193,7 @@ static int page_exec(struct ast_channel *chan, void *data)
 			ast_log(LOG_WARNING, "Incomplete destination '%s' supplied.\n", tech);
 		}
 	}
+
 	if (!ast_test_flag(&flags, PAGE_QUIET)) {
 		res = ast_streamfile(chan, "beep", chan->language);
 		if (!res)

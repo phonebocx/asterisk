@@ -52,8 +52,10 @@ Dialing:
 
 IAX: 
 
-* The naming convention for IAX channels has changed in a minor way such 
-  that the call number follows a "-" rather than a "/" character.
+* The naming convention for IAX channels has changed in two ways: 
+   1. The call number follows a "-" rather than a "/" character.
+   2. The name of the channel has been simplified to IAX2/peer-callno,
+   rather than IAX2/peer@peer-callno or even IAX2/peer@peer/callno.
 
 SIP:
 
@@ -129,6 +131,11 @@ Applications:
   'mailbox options' menu, and 'change your password' option has been
   moved to option 5.
 
+* The application VoiceMailMain now only matches the 'default' context if
+  none is specified in the arguments.  (This was the previously 
+  documented behavior, however, we didn't follow that behavior.)  The old
+  behavior can be restored by setting searchcontexts=yes in voicemail.conf.
+
 Queues:
 
 * A queue is now considered empty not only if there are no members but if
@@ -159,6 +166,9 @@ AGI:
   behavior has been fixed.  If you do not want your script to terminate 
   at the end of AGI being called (e.g. on a hangup) then set SIGHUP to 
   be ignored within your application.
+
+* CallerID is reported with agi_callerid and agi_calleridname instead
+  of a single parameter holding both.
 
 Music On Hold:
 

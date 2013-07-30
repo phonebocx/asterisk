@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7899 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/file.h"
@@ -121,8 +121,10 @@ int ast_db_deltree(const char *family, const char *keytree)
 	}
 	
 	ast_mutex_lock(&dblock);
-	if (dbinit()) 
+	if (dbinit()) {
+		ast_mutex_unlock(&dblock);
 		return -1;
+	}
 	
 	memset(&key, 0, sizeof(key));
 	memset(&data, 0, sizeof(data));

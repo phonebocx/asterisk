@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/*$Header: /usr/cvsroot/asterisk/codecs/gsm/inc/private.h,v 1.17 2005/04/21 06:30:23 kpfleming Exp $*/
+/*$Header$*/
 
 #ifndef	PRIVATE_H
 #define	PRIVATE_H

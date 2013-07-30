@@ -1,6 +1,6 @@
 /*
 
-$Log: f2clib.c,v $
+$Log$
 Revision 1.14  2003/02/12 13:59:15  matteo
 mer feb 12 14:56:57 CET 2003
 

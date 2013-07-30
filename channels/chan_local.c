@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.57 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 36725 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -186,7 +186,13 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 		return;
 	if (!p->chan || !p->owner)
 		return;
-	if (isoutbound&& p->chan->_bridge /* Not ast_bridged_channel!  Only go one step! */ && !p->owner->readq) {
+
+	/* only do the masquerade if we are being called on the outbound channel,
+	   if it has been bridged to another channel and if there are no pending
+	   frames on the owner channel (because they would be transferred to the
+	   outbound channel during the masquerade)
+	*/
+	if (isoutbound && p->chan->_bridge /* Not ast_bridged_channel!  Only go one step! */ && !p->owner->readq) {
 		/* Masquerade bridged channel into owner */
 		/* Lock everything we need, one by one, and give up if
 		   we can't get everything.  Remember, we'll get another
@@ -203,6 +209,11 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 				ast_mutex_unlock(&(p->chan->_bridge)->lock);
 			}
 		}
+	/* We only allow masquerading in one 'direction'... it's important to preserve the state
+	   (group variables, etc.) that live on p->chan->_bridge (and were put there by the dialplan)
+	   when the local channels go away.
+	*/
+#if 0
 	} else if (!isoutbound && p->owner && p->owner->_bridge && p->chan && !p->chan->readq) {
 		/* Masquerade bridged channel into chan */
 		if (!ast_mutex_trylock(&(p->owner->_bridge)->lock)) {
@@ -217,6 +228,7 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 			}
 			ast_mutex_unlock(&(p->owner->_bridge)->lock);
 		}
+#endif
 	}
 }
 
@@ -320,34 +332,41 @@ static int local_call(struct ast_channel *ast, char *dest, int timeout)
 {
 	struct local_pvt *p = ast->tech_pvt;
 	int res;
+	struct ast_var_t *varptr = NULL, *new;
+	size_t len, namelen;
 	
 	ast_mutex_lock(&p->lock);
-	if (p->owner->cid.cid_num)
-		p->chan->cid.cid_num = strdup(p->owner->cid.cid_num);
-	else 
-		p->chan->cid.cid_num = NULL;
 
-	if (p->owner->cid.cid_name)
-		p->chan->cid.cid_name = strdup(p->owner->cid.cid_name);
-	else 
-		p->chan->cid.cid_name = NULL;
+	ast_set_callerid(p->chan,
+		p->owner->cid.cid_num, p->owner->cid.cid_name,
+		p->owner->cid.cid_ani ? p->chan->cid.cid_ani : p->owner->cid.cid_num);
 
 	if (p->owner->cid.cid_rdnis)
 		p->chan->cid.cid_rdnis = strdup(p->owner->cid.cid_rdnis);
 	else
 		p->chan->cid.cid_rdnis = NULL;
 
-	if (p->owner->cid.cid_ani)
-		p->chan->cid.cid_ani = strdup(p->owner->cid.cid_ani);
-	else
-		p->chan->cid.cid_ani = NULL;
+	p->chan->cid.cid_pres = p->owner->cid.cid_pres;
 
 	strncpy(p->chan->language, p->owner->language, sizeof(p->chan->language) - 1);
 	strncpy(p->chan->accountcode, p->owner->accountcode, sizeof(p->chan->accountcode) - 1);
 	p->chan->cdrflags = p->owner->cdrflags;
-	/* move the channel variables from the incoming channel to the outgoing channel */
-	AST_LIST_HEAD_SET_NOLOCK(&p->chan->varshead, AST_LIST_FIRST(&p->owner->varshead));
-	AST_LIST_HEAD_INIT_NOLOCK(&p->owner->varshead);
+
+	/* copy the channel variables from the incoming channel to the outgoing channel */
+	/* Note that due to certain assumptions, they MUST be in the same order */
+	AST_LIST_TRAVERSE(&p->owner->varshead, varptr, entries) {
+		namelen = strlen(varptr->name);
+		len = sizeof(struct ast_var_t) + namelen + strlen(varptr->value) + 2;
+		new = malloc(len);
+		if (new) {
+			memcpy(new, varptr, len);
+			new->value = &(new->name[0]) + namelen + 1;
+			AST_LIST_INSERT_TAIL(&p->chan->varshead, new, entries);
+		} else {
+			ast_log(LOG_ERROR, "Out of memory!\n");
+		}
+	}
+
 	p->launchedpbx = 1;
 
 	/* Start switch on sub channel */

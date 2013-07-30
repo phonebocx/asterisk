@@ -1,6 +1,6 @@
 /*
 
-$Log: irc2pc.c,v $
+$Log$
 Revision 1.15  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -34,10 +34,10 @@ extern int irc2pc_(real *rc, real *pc, integer *order, real *gprime, real *g2pas
 
 /* 	IRC2PC Version 48 */
 
-/* $Log: irc2pc.c,v $
-/* Revision 1.15  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.15  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.14  2003/02/12 13:59:15  matteo
 /* mer feb 12 14:56:57 CET 2003
 /*
@@ -93,10 +93,10 @@ extern int irc2pc_(real *rc, real *pc, integer *order, real *gprime, real *g2pas
     integer i__, j;
 
 /* 	Arguments */
-/* $Log: irc2pc.c,v $
-/* Revision 1.15  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.15  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.14  2003/02/12 13:59:15  matteo
 /* mer feb 12 14:56:57 CET 2003
 /*

@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.49 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37419 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -354,9 +354,6 @@ int ast_modem_expect(struct ast_modem_pvt *p, char *result, int timeout)
 		}
 		/* Read a response */
 		fgets(p->response, sizeof(p->response), p->f);
-#if	0
-		fprintf(stderr, "Modem said: %s", p->response);
-#endif
 		if (!strncasecmp(p->response, result, strlen(result))) 
 			return 0;
 	} while(timeout > 0);
@@ -576,10 +573,7 @@ struct ast_channel *ast_modem_new(struct ast_modem_pvt *i, int state)
 		tmp->tech_pvt = i;
 		strncpy(tmp->context, i->context, sizeof(tmp->context)-1);
 
-		if (!ast_strlen_zero(i->cid_num))
-			tmp->cid.cid_num = strdup(i->cid_num);
-		if (!ast_strlen_zero(i->cid_name))
-			tmp->cid.cid_name = strdup(i->cid_name);
+		ast_set_callerid(tmp, i->cid_num, i->cid_name, i->cid_num);
 
 		if (!ast_strlen_zero(i->language))
 			strncpy(tmp->language,i->language, sizeof(tmp->language)-1);
@@ -718,16 +712,15 @@ static int restart_monitor()
 		return -1;
 	}
 	if (monitor_thread != AST_PTHREADT_NULL) {
-		pthread_cancel(monitor_thread);
-		/* Nudge it a little, as it's probably stuck in select */
 		pthread_kill(monitor_thread, SIGURG);
 		pthread_join(monitor_thread, NULL);
-	}
-	/* Start a new monitor */
-	if (ast_pthread_create(&monitor_thread, NULL, do_monitor, NULL) < 0) {
-		ast_mutex_unlock(&monlock);
-		ast_log(LOG_ERROR, "Unable to start monitor thread.\n");
-		return -1;
+	} else {
+		/* Start a new monitor */
+		if (ast_pthread_create(&monitor_thread, NULL, do_monitor, NULL) < 0) {
+			ast_mutex_unlock(&monlock);
+			ast_log(LOG_ERROR, "Unable to start monitor thread.\n");
+			return -1;
+		}
 	}
 	ast_mutex_unlock(&monlock);
 	return 0;

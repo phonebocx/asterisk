@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.52 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7582 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/logger.h"
@@ -582,8 +582,14 @@ static int alsa_hangup(struct ast_channel *c)
 	usecnt--;
 	ast_mutex_unlock(&usecnt_lock);
 	if (hookstate) {
-		res = 2;
-		write(sndcmd[1], &res, sizeof(res));
+		if (autoanswer) {
+			hookstate = 0;
+		} else {
+			/* Congestion noise */
+			res = 2;
+			write(sndcmd[1], &res, sizeof(res));
+			hookstate = 0;
+		}
 	}
 	snd_pcm_drop(alsa.icard);
 	ast_mutex_unlock(&alsalock);
@@ -1103,8 +1109,10 @@ int unload_module()
 	ast_channel_unregister(&alsa_tech);
 	for (x=0;x<sizeof(myclis)/sizeof(struct ast_cli_entry); x++)
 		ast_cli_unregister(myclis + x);
-	snd_pcm_close(alsa.icard);
-	snd_pcm_close(alsa.ocard);
+	if (alsa.icard)
+		snd_pcm_close(alsa.icard);
+	if (alsa.ocard)
+		snd_pcm_close(alsa.ocard);
 	if (sndcmd[0] > 0) {
 		close(sndcmd[0]);
 		close(sndcmd[1]);

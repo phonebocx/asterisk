@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.154 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37546 $")
 
 #include "asterisk/rtp.h"
 #include "asterisk/frame.h"
@@ -90,6 +90,7 @@ struct ast_rtp {
 	unsigned char rawdata[8192 + AST_FRIENDLY_OFFSET];
 	/*! Synchronization source, RFC 3550, page 10. */
 	unsigned int ssrc;
+	unsigned int rxssrc;
 	unsigned int lastts;
 	unsigned int lastdigitts;
 	unsigned int lastrxts;
@@ -299,7 +300,7 @@ static struct ast_frame *process_rfc2833(struct ast_rtp *rtp, unsigned char *dat
 		}
 		resp = 0;
 		duration = 0;
-	} else if(rtp->dtmfduration && (duration < rtp->dtmfduration)) {
+	} else if (rtp->resp && rtp->dtmfduration && (duration < rtp->dtmfduration)) {
 		f = send_dtmf(rtp);
 	}
 	if (!(event_end & 0x80))
@@ -436,9 +437,11 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 	int ext;
 	int x;
 	char iabuf[INET_ADDRSTRLEN];
+	unsigned int ssrc;
 	unsigned int timestamp;
 	unsigned int *rtpheader;
-	static struct ast_frame *f, null_frame = { AST_FRAME_NULL, };
+	struct ast_frame *f;
+	static struct ast_frame null_frame = { AST_FRAME_NULL, };
 	struct rtpPayloadType rtpPT;
 	
 	len = sizeof(sin);
@@ -492,6 +495,15 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 	ext = seqno & (1 << 28);
 	seqno &= 0xffff;
 	timestamp = ntohl(rtpheader[1]);
+	ssrc = ntohl(rtpheader[2]);
+	
+	if (!mark && rtp->rxssrc && rtp->rxssrc != ssrc) {
+		if (option_debug || rtpdebug)
+			ast_log(LOG_DEBUG, "Forcing Marker bit, because SSRC has changed\n");
+		mark = 1;
+	}
+
+	rtp->rxssrc = ssrc;
 	
 	if (padding) {
 		/* Remove padding bytes */

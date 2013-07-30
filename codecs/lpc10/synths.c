@@ -1,6 +1,6 @@
 /*
 
-$Log: synths.c,v $
+$Log$
 Revision 1.16  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -66,10 +66,10 @@ static real c_b2 = .7f;
 
 /* 	SYNTHS Version 54 */
 
-/* $Log: synths.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/27 02:45:37  markster
 /* Fix various compiler warnings (bug #322)
 /*
@@ -192,10 +192,10 @@ static real c_b2 = .7f;
 	    integer *, real *, struct lpc10_decoder_state *);
     real rci[160]	/* was [10][16] */;
 
-/* $Log: synths.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/27 02:45:37  markster
 /* Fix various compiler warnings (bug #322)
 /*
@@ -232,10 +232,10 @@ static real c_b2 = .7f;
 /*   LPC Configuration parameters: */
 /* Frame size, Prediction order, Pitch period */
 /*       Arguments */
-/* $Log: synths.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/27 02:45:37  markster
 /* Fix various compiler warnings (bug #322)
 /*

@@ -28,6 +28,7 @@ HOST_CC=gcc
 ifeq ($(CROSS_COMPILE),)
   OSARCH=$(shell uname -s)
   OSREV=$(shell uname -r)
+  OSCPU=$(shell uname -m)
 else
   OSARCH=$(CROSS_ARCH)
   OSREV=$(CROSS_REV)
@@ -35,6 +36,8 @@ endif
 
 # Remember the MAKELEVEL at the top
 MAKETOPLEVEL?=$(MAKELEVEL)
+
+PWD=$(shell pwd)
 
 ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
 ######### More GSM codec optimization
@@ -50,8 +53,8 @@ endif
 #Overwite config files on "make samples"
 OVERWRITE=y
 
-#Include debug symbols in the executables (-g) and profiling info (-pg)
-DEBUG=-g #-pg
+#Include debug and macro symbols in the executables (-g) and profiling info (-pg)
+DEBUG=-g3 #-pg
 
 #Set NOCRYPTO to yes if you do not want to have crypto support or 
 #dependencies
@@ -80,6 +83,8 @@ TRACE_FRAMES = #-DTRACE_FRAMES
 #   *CLI> show memory summary [filename]
 #
 MALLOC_DEBUG = #-include $(PWD)/include/asterisk/astmm.h
+
+INSTALL=install
 
 # Where to install asterisk after compiling
 # Default -> leave empty
@@ -179,7 +184,6 @@ ifeq ($(OSARCH),Linux)
     # You must have GCC 3.4 to use k8, otherwise use athlon
     PROC=k8
     #PROC=athlon
-    OPTIONS+=-m64
   endif
 
   ifeq ($(PROC),sparc64)
@@ -200,21 +204,25 @@ ifeq ($(OSARCH),Linux)
       OPTIONS+=-fsigned-char -mcpu=ep9312
     else
       ifeq ($(SUB_PROC),xscale)
-        OPTIONS+=-fsigned-char -msoft-float -mcpu=xscale
+        OPTIONS+=-fsigned-char -mcpu=xscale
       else
-        OPTIONS+=-fsigned-char -msoft-float 
+        OPTIONS+=-fsigned-char 
       endif
     endif
   endif
   MPG123TARG=linux
 endif
 
-PWD=$(shell pwd)
 GREP=grep
+LN=ln
+ID=id
 
 ifeq ($(OSARCH),SunOS)
   GREP=/usr/xpg4/bin/grep
   M4=/usr/local/bin/m4
+  ID=/usr/xpg4/bin/id
+  LN=/usr/xpg4/bin/ln
+  INSTALL=ginstall
 endif
 
 INCLUDE+=-Iinclude -I../include
@@ -281,7 +289,10 @@ endif
 
 ifeq ($(OSARCH),SunOS)
   ASTCFLAGS+=-Wcast-align -DSOLARIS
-  INCLUDE+=-Iinclude/solaris-compat -I$(CROSS_COMPILE_TARGET)/usr/local/ssl/include
+  INCLUDE+=-Iinclude/solaris-compat -I$(CROSS_COMPILE_TARGET)/opt/ssl/include -I$(CROSS_COMPILE_TARGET)/usr/local/ssl/include
+  ifeq ($(OSCPU),sun4u)
+    OPTIMIZE+=-mcpu=v9 -mcpu=ultrasparc
+  endif
 endif
 
 ifeq ($(findstring CYGWIN,$(OSARCH)),CYGWIN)
@@ -305,22 +316,24 @@ endif # WITHOUT_ZAPTEL
 LIBEDIT=editline/libedit.a
 
 ifneq ($(wildcard .version),)
-  ASTERISKVERSION=$(shell cat .version)
-  ASTERISKVERSIONNUM=$(shell awk -F. '{printf "%02d%02d%02d", $$1, $$2, $$3}' .version)
-  RPMVERSION=$(shell sed 's/[-\/:]/_/g' .version)
+  ASTERISKVERSION:=$(shell cat .version)
+  ASTERISKVERSIONNUM:=$(shell awk -F. '{printf "%02d%02d%02d", $$1, $$2, $$3}' .version)
+  RPMVERSION:=$(shell sed 's/[-\/:]/_/g' .version)
 else
   RPMVERSION=unknown
 endif
 
-ifneq ($(wildcard CVS),)
+# CVS mirrors of SVN have .svnrevision files showing
+# which SVN revision they are based on, and .svnbranch
+# showing the branch they are made from
+ifneq ($(wildcard .svnrevision),)
   ASTERISKVERSIONNUM=999999
-  ifneq ($(wildcard CVS/Tag),)
-    ASTERISKVERSION=$(shell echo "CVS-`sed 's/^T//g' CVS/Tag`-`date +"%D-%T"`")
-  else
-    ASTERISKVERSION=CVS HEAD
-  endif
+  ASTERISKVERSION:=SVN-$(shell cat .svnbranch)-r$(shell cat .svnrevision)
 else
-  ASTERISKVERSIONNUM=000000
+  ifneq ($(wildcard .svn),)
+    ASTERISKVERSIONNUM=999999
+    ASTERISKVERSION=SVN-$(shell build_tools/make_svn_branch_name)
+  endif
 endif
 
 ASTCFLAGS+= $(DEBUG_THREADS)
@@ -328,7 +341,9 @@ ASTCFLAGS+= $(TRACE_FRAMES)
 ASTCFLAGS+= $(MALLOC_DEBUG)
 ASTCFLAGS+= $(BUSYDETECT)
 ASTCFLAGS+= $(OPTIONS)
+ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
 ASTCFLAGS+= -fomit-frame-pointer 
+endif
 SUBDIRS=res channels pbx apps codecs formats agi cdr funcs utils stdtime
 
 OBJS=io.o sched.o logger.o frame.o loader.o config.o channel.o \
@@ -354,7 +369,11 @@ endif
 ifeq ($(OSARCH),Linux)
   LIBS+=-ldl -lpthread -lncurses -lm -lresolv  #-lnjamd
 else
-  LIBS+=-lncurses -lm
+  ifeq ($(OSARCH),SunOS)
+    LIBS+=-lm -lcurses
+  else
+    LIBS+=-lncurses -lm
+  endif
 endif
 
 ifeq ($(OSARCH),Darwin)
@@ -363,6 +382,8 @@ ifeq ($(OSARCH),Darwin)
   AUDIO_LIBS=-framework CoreAudio
   ASTLINK=-Wl,-dynamic
   SOLINK=-dynamic -bundle -undefined suppress -force_flat_namespace
+  OBJS+= poll.o
+  ASTCFLAGS+=-DPOLLCOMPAT
 else
 #These are used for all but Darwin
   ASTLINK=-Wl,-E 
@@ -382,19 +403,24 @@ ifeq ($(OSARCH),OpenBSD)
 endif
 
 ifeq ($(OSARCH),SunOS)
-  LIBS+=-lpthread -ldl -lnsl -lsocket -lresolv -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
+  LIBS+=-lpthread -ldl -lnsl -lsocket -lresolv -L$(CROSS_COMPILE_TARGET)/opt/ssl/lib -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
   OBJS+=strcompat.o
   ASTLINK=
-  SOLINK=-shared -fpic -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
+  SOLINK=-shared -fpic -L$(CROSS_COMPILE_TARGET)/opt/ssl/lib -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
 endif
 
 ifeq ($(MAKETOPLEVEL),$(MAKELEVEL))
   CFLAGS+=$(ASTCFLAGS)
 endif
 
-LIBS+=-lssl
+# This is used when generating the doxygen documentation
+ifneq ($(wildcard /usr/local/bin/dot)$(wildcard /usr/bin/dot),)
+  HAVEDOT=yes
+else
+  HAVEDOT=no
+endif
 
-INSTALL=install
+LIBS+=-lssl
 
 _all: all
 	@echo " +--------- Asterisk Build Complete ---------+"  
@@ -418,10 +444,10 @@ endif
 noclean: depend asterisk subdirs
 
 editline/config.h:
-	cd editline && unset CFLAGS LIBS && ./configure ; \
+	cd editline && unset CFLAGS LIBS && CFLAGS="$(OPTIMIZE)" ./configure ; \
 
 editline/libedit.a: FORCE
-	cd editline && unset CFLAGS LIBS && test -f config.h || ./configure
+	cd editline && unset CFLAGS LIBS && test -f config.h || CFLAGS="$(OPTIMIZE)" ./configure
 	$(MAKE) -C editline libedit.a
 
 db1-ast/libdb1.a: FORCE
@@ -525,7 +551,7 @@ clean:
 	$(MAKE) -C stdtime clean
 
 datafiles: all
-	if test $$(id -u) = 0; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
+	if [ x`$(ID) -un` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/priv-callerintros
 	for x in sounds/digits/*.gsm; do \
@@ -579,17 +605,16 @@ datafiles: all
 	mkdir -p $(DESTDIR)$(AGI_DIR)
 
 update: 
-	@if [ -d CVS ]; then \
-		if [ -f patches/.applied ]; then \
-			patches=`cat patches/.applied`; \
-		fi; \
-		if [ ! -z "$$patches" ]; then \
-			for x in $$patches; do \
-				echo "Unapplying $$x..."; \
-				patch -R -p0 < patches/$$x; \
-			done; \
-			rm -f patches/.applied; \
+	@if [ -d .svn ]; then \
+		echo "Updating from Subversion..." ; \
+		svn update | tee update.out; \
+		rm -f .version; \
+		if [ `grep -c ^C update.out` -gt 0 ]; then \
+			echo ; echo "The following files have conflicts:" ; \
+			grep ^C update.out | cut -b4- ; \
 		fi ; \
+		rm -f update.out; \
+	elif [ -d CVS ]; then \
 		echo "Updating from CVS..." ; \
 		cvs -q -z3 update -Pd | tee update.out; \
 		rm -f .version; \
@@ -598,19 +623,8 @@ update:
 			grep ^C update.out | cut -d' ' -f2- ; \
 		fi ; \
 		rm -f update.out; \
-		if [ ! -z "$$patches" ]; then \
-			for x in $$patches; do \
-				if [ -f patches/$$x ]; then \
-					echo "Applying patch $$x..."; \
-					patch -p0 < patches/$$x; \
-					echo $$x >> patches/.applied; \
-				else \
-					echo "Patch $$x no longer relevant"; \
-				fi; \
-			done; \
-		fi; \
 	else \
-		echo "Not CVS";  \
+		echo "Not under version control";  \
 	fi
 
 NEWHEADERS=$(notdir $(wildcard include/asterisk/*.h))
@@ -627,23 +641,22 @@ bininstall: all
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/system
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/tmp
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/meetme
+	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/monitor
 	if [ -f asterisk ]; then $(INSTALL) -m 755 asterisk $(DESTDIR)$(ASTSBINDIR)/; fi
 	if [ -f cygwin/asterisk.exe ]; then $(INSTALL) -m 755 cygwin/asterisk.exe $(DESTDIR)$(ASTSBINDIR)/; fi
 	if [ -f asterisk.dll ]; then $(INSTALL) -m 755 asterisk.dll $(DESTDIR)$(ASTSBINDIR)/; fi
-	ln -sf asterisk $(DESTDIR)$(ASTSBINDIR)/rasterisk
+	$(LN) -sf asterisk $(DESTDIR)$(ASTSBINDIR)/rasterisk
 	$(INSTALL) -m 755 contrib/scripts/astgenkey $(DESTDIR)$(ASTSBINDIR)/
 	$(INSTALL) -m 755 contrib/scripts/autosupport $(DESTDIR)$(ASTSBINDIR)/	
 	if [ ! -f $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ]; then \
 		cat contrib/scripts/safe_asterisk | sed 's|__ASTERISK_SBIN_DIR__|$(ASTSBINDIR)|;' > $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ;\
 		chmod 755 $(DESTDIR)$(ASTSBINDIR)/safe_asterisk;\
 	fi
-	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
 	$(INSTALL) -d $(DESTDIR)$(ASTHEADERDIR)
 	$(INSTALL) -m 644 include/asterisk/*.h $(DESTDIR)$(ASTHEADERDIR)
 	if [ -n "$(OLDHEADERS)" ]; then \
 		rm -f $(addprefix $(DESTDIR)$(ASTHEADERDIR)/,$(OLDHEADERS)) ;\
 	fi
-	rm -f $(DESTDIR)$(ASTVARLIBDIR)/sounds/voicemail
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds
 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-csv
 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-custom
@@ -662,30 +675,10 @@ bininstall: all
 	else \
 		echo "You need to do cvs update -d not just cvs update" ; \
 	fi 
-	( cd $(DESTDIR)$(ASTVARLIBDIR)/sounds  ; ln -s $(ASTSPOOLDIR)/voicemail . )
 	if [ -f mpg123-0.59r/mpg123 ]; then $(MAKE) -C mpg123-0.59r install; fi
-	@echo " +---- Asterisk Installation Complete -------+"  
-	@echo " +                                           +"
-	@echo " +    YOU MUST READ THE SECURITY DOCUMENT    +"
-	@echo " +                                           +"
-	@echo " + Asterisk has successfully been installed. +"  
-	@echo " + If you would like to install the sample   +"  
-	@echo " + configuration files (overwriting any      +"
-	@echo " + existing config files), run:              +"  
-	@echo " +                                           +"
-	@echo " +               $(MAKE) samples                +"
-	@echo " +                                           +"
-	@echo " +-----------------  or ---------------------+"
-	@echo " +                                           +"
-	@echo " + You can go ahead and install the asterisk +"
-	@echo " + program documentation now or later run:   +"
-	@echo " +                                           +"
-	@echo " +              $(MAKE) progdocs                +"
-	@echo " +                                           +"
-	@echo " + **Note** This requires that you have      +"
-	@echo " + doxygen installed on your local system    +"
-	@echo " +-------------------------------------------+"
-	@$(MAKE) -s oldmodcheck
+
+install-subdirs:
+	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
 
 NEWMODS=$(notdir $(wildcard */*.so))
 OLDMODS=$(filter-out $(NEWMODS),$(notdir $(wildcard $(DESTDIR)$(MODULES_DIR)/*.so)))
@@ -708,10 +701,32 @@ oldmodcheck:
 		echo " WARNING WARNING WARNING" ;\
 	fi
 
-install: all datafiles bininstall
+install: all datafiles bininstall install-subdirs
 	@if [ -x /usr/sbin/asterisk-post-install ]; then \
 		/usr/sbin/asterisk-post-install $(DESTDIR) . ; \
 	fi
+	@echo " +---- Asterisk Installation Complete -------+"  
+	@echo " +                                           +"
+	@echo " +    YOU MUST READ THE SECURITY DOCUMENT    +"
+	@echo " +                                           +"
+	@echo " + Asterisk has successfully been installed. +"  
+	@echo " + If you would like to install the sample   +"  
+	@echo " + configuration files (overwriting any      +"
+	@echo " + existing config files), run:              +"  
+	@echo " +                                           +"
+	@echo " +               $(MAKE) samples                +"
+	@echo " +                                           +"
+	@echo " +-----------------  or ---------------------+"
+	@echo " +                                           +"
+	@echo " + You can go ahead and install the asterisk +"
+	@echo " + program documentation now or later run:   +"
+	@echo " +                                           +"
+	@echo " +              $(MAKE) progdocs                +"
+	@echo " +                                           +"
+	@echo " + **Note** This requires that you have      +"
+	@echo " + doxygen installed on your local system    +"
+	@echo " +-------------------------------------------+"
+	@$(MAKE) -s oldmodcheck
 
 upgrade: all bininstall
 
@@ -822,11 +837,12 @@ __rpm: include/asterisk/version.h spec
 	$(MAKE) DESTDIR=/tmp/asterisk install ; \
 	$(MAKE) DESTDIR=/tmp/asterisk samples ; \
 	mkdir -p /tmp/asterisk/etc/rc.d/init.d ; \
-	cp -f redhat/asterisk /tmp/asterisk/etc/rc.d/init.d/ ; \
+	cp -f contrib/init.d/rc.redhat.asterisk /tmp/asterisk/etc/rc.d/init.d/asterisk ; \
 	rpmbuild --rcfile /usr/lib/rpm/rpmrc:redhat/rpmrc -bb asterisk.spec
 
 progdocs:
-	doxygen contrib/asterisk-ng-doxygen
+	(cat contrib/asterisk-ng-doxygen; echo "HAVE_DOT=$(HAVEDOT)"; \
+	echo "PROJECT_NUMBER=$(ASTERISKVERSION)") | doxygen - 
 
 mpg123:
 	@wget -V >/dev/null || (echo "You need wget" ; false )
@@ -896,47 +912,3 @@ cleantest:
 	if cmp -s .cleancount .lastclean ; then echo ; else \
 		$(MAKE) clean; cp -f .cleancount .lastclean;\
 	fi
-
-patchlist:
-	@echo "Experimental Patches:"
-	@for x in patches/*; do \
-		patch=`basename $$x`; \
-		if [ "$$patch" = "CVS" ]; then \
-			continue; \
-		fi; \
-		if grep -q ^$$patch$$ patches/.applied; then \
-			echo "$$patch (applied)"; \
-		else \
-			echo "$$patch (available)"; \
-		fi; \
-	done
-
-apply: 
-	@if [ -z "$(PATCH)" ]; then \
-		echo "Usage: make PATCH=<patchname> apply"; \
-	elif grep -q ^$(PATCH)$$ patches/.applied 2>/dev/null; then \
-		echo "Patch $(PATCH) is already applied"; \
-	elif [ -f "patches/$(PATCH)" ]; then \
-		echo "Applying patch $(PATCH)"; \
-		patch -p0 < patches/$(PATCH); \
-		echo "$(PATCH)" >> patches/.applied; \
-	else \
-		echo "No such patch $(PATCH) in patches directory"; \
-	fi
-
-unapply: 
-	@if [ -z "$(PATCH)" ]; then \
-		echo "Usage: make PATCH=<patchname> unapply"; \
-	elif grep -v -q ^$(PATCH)$$ patches/.applied 2>/dev/null; then \
-		echo "Patch $(PATCH) is not applied"; \
-	elif [ -f "patches/$(PATCH)" ]; then \
-		echo "Un-applying patch $(PATCH)"; \
-		patch -p0 -R < patches/$(PATCH); \
-		rm -f patches/.tmpapplied || :; \
-		mv patches/.applied patches/.tmpapplied; \
-		cat patches/.tmpapplied | grep -v ^$(PATCH)$$ > patches/.applied; \
-		rm -f patches/.tmpapplied; \
-	else \
-		echo "No such patch $(PATCH) in patches directory"; \
-	fi
-

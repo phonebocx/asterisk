@@ -1,6 +1,6 @@
 /*
 
-$Log: decode.c,v $
+$Log$
 Revision 1.16  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -61,10 +61,10 @@ static integer c__2 = 2;
 
 /* 	DECODE Version 54 */
 
-/* $Log: decode.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/19 01:20:22  markster
 /* Code cleanups (bug #66)
 /*
@@ -205,10 +205,10 @@ static integer c__2 = 2;
     extern integer median_(integer *, integer *, integer *);
     integer ishift, errcnt, lsb;
 
-/* $Log: decode.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/19 01:20:22  markster
 /* Code cleanups (bug #66)
 /*
@@ -245,10 +245,10 @@ static integer c__2 = 2;
 /*   LPC Configuration parameters: */
 /* Frame size, Prediction order, Pitch period */
 /*       Arguments */
-/* $Log: decode.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/19 01:20:22  markster
 /* Code cleanups (bug #66)
 /*

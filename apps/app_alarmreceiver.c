@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 33510 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -215,6 +215,7 @@ static int send_tone_burst(struct ast_channel *chan, float freq, int duration, i
 
 			i += wf.datalen / 8;
 			if (i > duration) {
+				ast_frfree(f);
 				break;
 			}
 			if (ast_write(chan, &wf)){
@@ -222,6 +223,7 @@ static int send_tone_burst(struct ast_channel *chan, float freq, int duration, i
 					ast_verbose(VERBOSE_PREFIX_4 "AlarmReceiver: Failed to write frame on %s\n", chan->name);
 				ast_log(LOG_WARNING, "AlarmReceiver Failed to write frame on %s\n",chan->name);
 				res = -1;
+				ast_frfree(f);
 				break;
 			}
 		}
@@ -558,11 +560,10 @@ static int receive_ademco_contact_id( struct ast_channel *chan, void *data, int 
 
 		if(checksum){
 			database_increment("checksum-errors");
-			if(option_verbose >= 2){
+			if(option_verbose >= 2)
 				ast_verbose(VERBOSE_PREFIX_2 "AlarmReceiver: Nonzero checksum\n");
 			ast_log(LOG_DEBUG, "AlarmReceiver: Nonzero checksum\n");
 			continue;
-			}
 		}
 
 		/* Check the message type for correctness */

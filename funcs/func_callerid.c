@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #ifndef BUILTIN_FUNC
 #include "asterisk/module.h"

@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.40 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11561 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -150,8 +150,8 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 				while((p = strchr(channel_name, '/'))) {
 					*p = '-';
 				}
-				snprintf(monitor->filename_base, FILENAME_MAX, "%s/%ld-%s",
-						 ast_config_AST_MONITOR_DIR, time(NULL),channel_name);
+				snprintf(monitor->filename_base, FILENAME_MAX, "%s/%d-%s",
+						 ast_config_AST_MONITOR_DIR, (int)time(NULL),channel_name);
 				monitor->filename_changed = 1;
 			} else {
 				ast_log(LOG_ERROR,"Failed to allocate Memory\n");
@@ -535,7 +535,7 @@ static int change_monitor_action(struct mansession *s, struct message *m)
 		return 0;
 	}
 	ast_mutex_unlock(&c->lock);
-	astman_send_ack(s, m, "Stopped monitoring channel");
+	astman_send_ack(s, m, "Changed monitor filename");
 	return 0;
 }
 

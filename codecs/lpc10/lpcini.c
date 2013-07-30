@@ -1,6 +1,6 @@
 /*
 
-$Log: lpcini.c,v $
+$Log$
 Revision 1.18  2003/10/21 18:08:11  markster
 Fix include order
 
@@ -55,10 +55,10 @@ struct {
 
 /* ***************************************************************** */
 
-/* $Log: lpcini.c,v $
-/* Revision 1.18  2003/10/21 18:08:11  markster
-/* Fix include order
-/*
+/* $Log$
+ * Revision 1.18  2003/10/21 18:08:11  markster
+ * Fix include order
+ *
 /* Revision 1.5  2003/10/21 18:08:11  markster
 /* Fix include order
 /*
@@ -93,10 +93,10 @@ struct {
 /* Subroutine */ int lpcini_(void)
 {
 
-/* $Log: lpcini.c,v $
-/* Revision 1.18  2003/10/21 18:08:11  markster
-/* Fix include order
-/*
+/* $Log$
+ * Revision 1.18  2003/10/21 18:08:11  markster
+ * Fix include order
+ *
 /* Revision 1.5  2003/10/21 18:08:11  markster
 /* Fix include order
 /*
@@ -131,10 +131,10 @@ struct {
 
 /*   LPC Configuration parameters: */
 /* Frame size, Prediction order, Pitch period */
-/* $Log: lpcini.c,v $
-/* Revision 1.18  2003/10/21 18:08:11  markster
-/* Fix include order
-/*
+/* $Log$
+ * Revision 1.18  2003/10/21 18:08:11  markster
+ * Fix include order
+ *
 /* Revision 1.5  2003/10/21 18:08:11  markster
 /* Fix include order
 /*

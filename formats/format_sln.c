@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 10487 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -189,7 +189,7 @@ static int slinear_seek(struct ast_filestream *fs, long sample_offset, int whenc
 	}
 	/* always protect against seeking past begining. */
 	offset = (offset < min)?min:offset;
-	return fseek(fs->f, offset, SEEK_SET) / 2;
+	return fseek(fs->f, offset, SEEK_SET);
 }
 
 static int slinear_trunc(struct ast_filestream *fs)

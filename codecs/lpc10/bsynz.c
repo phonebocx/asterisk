@@ -1,6 +1,6 @@
 /*
 
-$Log: bsynz.c,v $
+$Log$
 Revision 1.15  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -53,10 +53,10 @@ extern struct {
 
 /* 	BSYNZ Version 54 */
 
-/* $Log: bsynz.c,v $
-/* Revision 1.15  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.15  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.14  2003/02/12 13:59:14  matteo
 /* mer feb 12 14:56:57 CET 2003
 /*
@@ -155,10 +155,10 @@ extern struct {
     real xy, sum, ssq;
     real lpi0, hpi0;
 
-/* $Log: bsynz.c,v $
-/* Revision 1.15  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.15  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.14  2003/02/12 13:59:14  matteo
 /* mer feb 12 14:56:57 CET 2003
 /*
@@ -192,10 +192,10 @@ extern struct {
 /*   LPC Configuration parameters: */
 /* Frame size, Prediction order, Pitch period */
 /*       Arguments */
-/* $Log: bsynz.c,v $
-/* Revision 1.15  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.15  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.14  2003/02/12 13:59:14  matteo
 /* mer feb 12 14:56:57 CET 2003
 /*

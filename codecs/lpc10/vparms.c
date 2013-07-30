@@ -1,6 +1,6 @@
 /*
 
-$Log: vparms.c,v $
+$Log$
 Revision 1.15  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -38,10 +38,10 @@ static real c_b2 = 1.f;
 
 /* 	VPARMS Version 50 */
 
-/* $Log: vparms.c,v $
-/* Revision 1.15  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.15  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.14  2003/02/12 13:59:15  matteo
 /* mer feb 12 14:56:57 CET 2003
 /*

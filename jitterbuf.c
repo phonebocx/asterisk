@@ -6,7 +6,8 @@
  * Contributors:
  * Steve Kann <stevek@stevek.com>
  *
- * Copyright on this file is disclaimed to Digium for inclusion in Asterisk
+ * A license has been granted to Digium (via disclaimer) for the use of
+ * this code.
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -22,6 +23,7 @@
 /*! \file
  *
  * \brief jitterbuf: an application-independent jitterbuffer
+ * \author Steve Kann <stevek@stevek.com>
  *
  */
 
@@ -31,11 +33,11 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 34087 $")
 
 #include "jitterbuf.h"
 
-/* define these here, just for ancient compiler systems */
+/*! define these here, just for ancient compiler systems */
 #define JB_LONGMAX 2147483647L
 #define JB_LONGMIN (-JB_LONGMAX - 1L)
 
@@ -114,10 +116,6 @@ void jb_destroy(jitterbuf *jb)
 
 
 
-/* simple history manipulation */
-/* maybe later we can make the history buckets variable size, or something? */
-/* drop parameter determines whether we will drop outliers to minimize
- * delay */
 #if 0
 static int longcmp(const void *a, const void *b) 
 {
@@ -125,6 +123,10 @@ static int longcmp(const void *a, const void *b)
 }
 #endif
 
+/*!	\brief simple history manipulation 
+ 	\note maybe later we can make the history buckets variable size, or something? */
+/* drop parameter determines whether we will drop outliers to minimize
+ * delay */
 static int history_put(jitterbuf *jb, long ts, long now, long ms) 
 {
 	long delay = now - (ts - jb->info.resync_offset);
@@ -157,7 +159,7 @@ static int history_put(jitterbuf *jb, long ts, long now, long ms)
 		}
 	}
 
-	kicked = jb->history[jb->hist_ptr & JB_HISTORY_SZ];
+	kicked = jb->history[jb->hist_ptr % JB_HISTORY_SZ];
 
 	jb->history[(jb->hist_ptr++) % JB_HISTORY_SZ] = delay;
 

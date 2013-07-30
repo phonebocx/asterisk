@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.103 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11281 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -360,7 +360,7 @@ static int handle_showuptime(int fd, int argc, char *argv[])
 	if (ast_startuptime) {
 		tmptime = curtime - ast_startuptime;
 		if (printsec) {
-			ast_cli(fd, "System uptime: %lu\n",tmptime);
+			ast_cli(fd, "System uptime: %lu\n",(u_long)tmptime);
 		} else {
 			timestr = format_uptimestr(tmptime);
 			if (timestr) {
@@ -372,7 +372,7 @@ static int handle_showuptime(int fd, int argc, char *argv[])
 	if (ast_lastreloadtime) {
 		tmptime = curtime - ast_lastreloadtime;
 		if (printsec) {
-			ast_cli(fd, "Last reload: %lu\n", tmptime);
+			ast_cli(fd, "Last reload: %lu\n", (u_long) tmptime);
 		} else {
 			timestr = format_uptimestr(tmptime);
 			if ((timestr) && (!printsec)) {
@@ -1363,7 +1363,10 @@ int ast_cli_command(int fd, char *s)
 			if (e) {
 				switch(e->handler(fd, x, argv)) {
 				case RESULT_SHOWUSAGE:
-					ast_cli(fd, "%s", e->usage);
+					if (e->usage)
+						ast_cli(fd, "%s", e->usage);
+					else
+						ast_cli(fd, "%s", "Invalid usage, but no usage information available.\n");
 					break;
 				}
 			} else 

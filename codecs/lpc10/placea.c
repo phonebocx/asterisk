@@ -1,6 +1,6 @@
 /*
 
-$Log: placea.c,v $
+$Log$
 Revision 1.16  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -40,10 +40,10 @@ extern int placea_(integer *ipitch, integer *voibuf, integer *obound, integer *a
 
 /* 	PLACEA Version 48 */
 
-/* $Log: placea.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/19 01:20:22  markster
 /* Code cleanups (bug #66)
 /*

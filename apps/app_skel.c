@@ -3,7 +3,7 @@
  *
  * Copyright (C) <Year>, <Your Name Here>
  *
- * <Your Name Here> <<You Email Here>>
+ * <Your Name Here> <<Your Email Here>>
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -20,7 +20,7 @@
  *
  * \brief Skeleton application
  * 
- * This is a skeleton for development of an Asterisk application */
+ * This is a skeleton for development of an Asterisk application
  * \ingroup applications
  */
 
@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 23899 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -53,7 +53,7 @@ static char *descrip = "This application is a template to build other applicatio
 #define OPTION_C	(1 << 2)	/* Option C(str) */
 #define OPTION_NULL	(1 << 3)	/* Dummy Termination */
 
-AST_DECLARE_OPTIONS(app_opts,{
+AST_APP_OPTIONS(app_opts,{
 	['a'] = { OPTION_A },
 	['b'] = { OPTION_B, 1 },
 	['c'] = { OPTION_C, 2 }
@@ -77,7 +77,6 @@ static int app_exec(struct ast_channel *chan, void *data)
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "%s requires an argument (dummy|[options])\n",app);
-		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
@@ -96,7 +95,7 @@ static int app_exec(struct ast_channel *chan, void *data)
 	if ((argc = ast_app_separate_args(args, '|', argv, sizeof(argv) / sizeof(argv[0])))) {
 		dummy = argv[0];
 		options = argv[1];
-		ast_parseoptions(app_opts, &flags, opts, options);
+		ast_app_parse_options(app_opts, &flags, opts, options);
 	}
 
 	if (!ast_strlen_zero(dummy)) 

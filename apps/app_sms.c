@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.33 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37612 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -694,7 +694,7 @@ static void sms_readfile (sms_t * h, char *fn)
 		}
 		while (fgets (line, sizeof (line), s))
 		{								 /* process line in file */
-			char *p;
+			unsigned char *p;
 			for (p = line; *p && *p != '\n' && *p != '\r'; p++);
 			*p = 0;					 /* strip eoln */
 			p = line;
@@ -1178,25 +1178,24 @@ static void sms_messagetx(sms_t * h)
 static int sms_generate (struct ast_channel *chan, void *data, int len, int samples)
 {
 	struct ast_frame f = { 0 };
-	unsigned char waste[AST_FRIENDLY_OFFSET];
+#define MAXSAMPLES 800
 #ifdef OUTALAW
-	unsigned char buf[800];
+	unsigned char *buf;
 #else
-	signed short buf[800];
+	short *buf;
 #endif
+#define SAMPLE2LEN sizeof(*buf)
 	sms_t *h = data;
 	int i;
 
-	if (len > sizeof (buf)) {
-		ast_log (LOG_WARNING, "Only doing %d bytes (%d bytes requested)\n", (int)(sizeof (buf) / sizeof (signed short)), len);
-		len = sizeof (buf);
-#ifdef OUTALAW
-		samples = len;
-#else
-		samples = len / 2;
-#endif
+	if (samples > MAXSAMPLES) {
+		ast_log (LOG_WARNING, "Only doing %d samples (%d requested)\n",
+			 MAXSAMPLES, samples);
+		samples = MAXSAMPLES;
 	}
-	waste[0] = 0;					 /* make compiler happy */
+	len = samples * SAMPLE2LEN + AST_FRIENDLY_OFFSET;
+	buf = alloca(len);
+
 	f.frametype = AST_FRAME_VOICE;
 #ifdef OUTALAW
 	f.subclass = AST_FORMAT_ALAW;
@@ -1379,8 +1378,8 @@ static int sms_exec (struct ast_channel *chan, void *data)
 		ast_copy_string (h.cli, chan->cid.cid_num, sizeof (h.cli));
 
 	{
-		char *d = data,
-			*p,
+		unsigned char *p;
+		unsigned char *d = data,
 			answer = 0;
 		if (!*d || *d == '|') {
 			ast_log (LOG_ERROR, "Requires queue name\n");
@@ -1449,7 +1448,7 @@ static int sms_exec (struct ast_channel *chan, void *data)
 			d = p;
 			h.udl = 0;
 			while (*p && h.udl < SMSLEN)
-				h.ud[h.udl++] = utf8decode((unsigned char **)&p);
+				h.ud[h.udl++] = utf8decode(&p);
 			if (is7bit (h.dcs) && packsms7 (0, h.udhl, h.udh, h.udl, h.ud) < 0)
 				ast_log (LOG_WARNING, "Invalid 7 bit GSM data\n");
 			if (is8bit (h.dcs) && packsms8 (0, h.udhl, h.udh, h.udl, h.ud) < 0)

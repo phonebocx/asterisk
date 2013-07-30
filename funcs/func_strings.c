@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 13925 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -48,8 +48,12 @@ static char *function_fieldqty(struct ast_channel *chan, char *cmd, char *data, 
 	if (delim) {
 		varname = strsep(&delim, "|");
 		pbx_retrieve_variable(chan, varname, &varval, workspace, sizeof(workspace), NULL);
-		while (strsep(&varval, delim))
-			fieldcount++;
+		if (delim) {
+			while (strsep(&varval, delim))
+				fieldcount++;
+		} else if (!ast_strlen_zero(varval)) {
+			fieldcount = 1;
+		}
 		snprintf(buf, len, "%d", fieldcount);
 	} else {
 		ast_log(LOG_ERROR, "Out of memory\n");
@@ -85,10 +89,9 @@ static char *builtin_function_regex(struct ast_channel *chan, char *cmd, char *d
 	/* Regex in quotes */
 	arg = strchr(tmp, '"');
 	if (arg) {
-		arg++;
-		earg = strrchr(arg, '"');
+		earg = ++arg;
+		strsep(&earg, "\"");
 		if (earg) {
-			*earg++ = '\0';
 			/* Skip over any spaces before the data we are checking */
 			while (*earg == ' ')
 				earg++;

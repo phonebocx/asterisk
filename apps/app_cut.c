@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.22 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7497 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -36,7 +36,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.22 $")
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
-#include "asterisk/version.h"
 #include "asterisk/app.h"
 
 /* Maximum length of any variable */
@@ -146,8 +145,9 @@ static int sort_internal(struct ast_channel *chan, char *data, char *buffer, siz
 		int blen = strlen(buffer);
 		if (element_count++) {
 			strncat(buffer + blen, ",", buflen - blen - 1);
+			blen++;
 		}
-		strncat(buffer + blen + 1, sortable_keys[count2].key, buflen - blen - 2);
+		strncat(buffer + blen, sortable_keys[count2].key, buflen - blen - 1);
 	}
 
 	return 0;
@@ -253,6 +253,8 @@ static int cut_internal(struct ast_channel *chan, char *data, char *buffer, size
 				}
 			}
 		}
+	} else {
+		return ERROR_NOARG;
 	}
 	return 0;
 }
@@ -386,7 +388,7 @@ static char *acf_cut_exec(struct ast_channel *chan, char *cmd, char *data, char 
 
 	switch (cut_internal(chan, data, buf, len)) {
 	case ERROR_NOARG:
-		ast_log(LOG_ERROR, "Cut() requires an argument\n");
+		ast_log(LOG_ERROR, "CUT() requires an argument\n");
 		break;
 	case ERROR_NOMEM:
 		ast_log(LOG_ERROR, "Out of memory\n");

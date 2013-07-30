@@ -55,7 +55,7 @@ static char *function_enum(struct ast_channel *chan, char *cmd, char *data, char
 {
        int res=0;
        char tech[80];
-       char dest[80] = "";
+       char dest[256] = "";
        char *zone;
        char *options;
        struct localuser *u;
@@ -198,7 +198,7 @@ struct ast_custom_function txtcidname_function = {
 
 #ifndef BUILTIN_FUNC
 
-static char *tdesc = "ENUMLOOKUP allows for general or specific querying of NAPTR records or counts of NAPTR types for ENUM or ENUM-like DNS pointers";
+static char *tdesc = "ENUM Related Functions";
 
 int unload_module(void)
 {

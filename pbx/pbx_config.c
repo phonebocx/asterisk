@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -19,6 +19,7 @@
 /*! \file
  *
  * \brief Populate and remember extensions from static config file
+ *
  * 
  */
 
@@ -31,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.71 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37417 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -120,14 +121,16 @@ static char reload_extensions_help[] =
  * Implementation of functions provided by this module
  */
 
-/*
+/*!
  * REMOVE INCLUDE command stuff
  */
 static int handle_context_dont_include(int fd, int argc, char *argv[])
 {
-	if (argc != 5) return RESULT_SHOWUSAGE;
+	if (argc != 5)
+		return RESULT_SHOWUSAGE;
 
-	if (strcmp(argv[3], "in")) return RESULT_SHOWUSAGE;
+	if (strcmp(argv[3], "in"))
+		return RESULT_SHOWUSAGE;
 
 	if (!ast_context_remove_include(argv[4], argv[2], registrar)) {
 		ast_cli(fd, "We are not including '%s' in '%s' now\n",
@@ -361,7 +364,7 @@ static char *complete_context_dont_include(char *line, char *word,
 	return NULL;
 }
 
-/*
+/*!
  * REMOVE EXTENSION command stuff
  */
 static int handle_context_remove_extension(int fd, int argc, char *argv[])
@@ -701,7 +704,7 @@ static char *complete_context_remove_extension(char *line, char *word, int pos,
 	return NULL; 
 }
 
-/*
+/*!
  * Include context ...
  */
 static int handle_context_add_include(int fd, int argc, char *argv[])
@@ -709,7 +712,7 @@ static int handle_context_add_include(int fd, int argc, char *argv[])
 	if (argc != 5) return RESULT_SHOWUSAGE;
 
 	/* third arg must be 'in' ... */
-	if (strcmp(argv[3], "in")) return RESULT_SHOWUSAGE;
+	if (strcmp(argv[3], "in") && strcmp(argv[3], "into")) return RESULT_SHOWUSAGE;
 
 	if (ast_context_add_include(argv[4], argv[2], registrar)) {
 		switch (errno) {
@@ -721,7 +724,7 @@ static int handle_context_add_include(int fd, int argc, char *argv[])
 
 			case EEXIST:
 				ast_cli(fd, "Context '%s' already included in '%s' context\n",
-					argv[1], argv[3]); break;
+					argv[2], argv[4]); break;
 
 			case ENOENT:
 			case EINVAL:
@@ -730,14 +733,14 @@ static int handle_context_add_include(int fd, int argc, char *argv[])
 
 			default:
 				ast_cli(fd, "Failed to include '%s' in '%s' context\n",
-					argv[1], argv[3]); break;
+					argv[2], argv[4]); break;
 		}
 		return RESULT_FAILURE;
 	}
 
 	/* show some info ... */
 	ast_cli(fd, "Context '%s' included in '%s' context\n",
-		argv[2], argv[3]);
+		argv[2], argv[4]);
 
 	return RESULT_SUCCESS;
 }
@@ -913,8 +916,8 @@ static char *complete_context_add_include(char *line, char *word, int pos,
 	return NULL;
 }
 
-/*
- * 'save dialplan' CLI command implementation functions ...
+/*!
+ * \brief 'save dialplan' CLI command implementation functions ...
  */
 static int handle_save_dialplan(int fd, int argc, char *argv[])
 {
@@ -1151,8 +1154,8 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 	return RESULT_SUCCESS;
 }
 
-/*
- * ADD EXTENSION command stuff
+/*!
+ * \brief ADD EXTENSION command stuff
  */
 static int handle_context_add_extension(int fd, int argc, char *argv[])
 {
@@ -1239,7 +1242,7 @@ static int handle_context_add_extension(int fd, int argc, char *argv[])
 	return RESULT_SUCCESS;
 }
 
-/* add extension 6123,1,Dial,IAX/212.71.138.13/6123 into local */
+/*! add extension 6123,1,Dial,IAX/212.71.138.13/6123 into local */
 static char *complete_context_add_extension(char *line, char *word,
 	int pos, int state)
 {
@@ -1284,7 +1287,7 @@ static char *complete_context_add_extension(char *line, char *word,
 	return NULL;
 }
 
-/*
+/*!
  * IGNOREPAT CLI stuff
  */
 static int handle_context_add_ignorepat(int fd, int argc, char *argv[])
@@ -1542,7 +1545,7 @@ static char *complete_context_remove_ignorepat(char *line, char *word,
 	return NULL;
 }
 
-/*
+/*!
  * CLI entries for commands provided by this module
  */
 static struct ast_cli_entry context_dont_include_cli =
@@ -1583,7 +1586,7 @@ static struct ast_cli_entry reload_extensions_cli =
 	{ { "extensions", "reload", NULL}, handle_reload_extensions,
 		"Reload extensions and *only* extensions", reload_extensions_help };
 
-/*
+/*!
  * Standard module functions ...
  */
 int unload_module(void)
@@ -1742,7 +1745,9 @@ static int pbx_load_module(void)
 								}
 							}
 							free(tc);
-						} else fprintf(stderr,"Error strdup returned NULL in %s\n",__PRETTY_FUNCTION__);
+						} else {
+							ast_log(LOG_ERROR, "Memory allocation failure\n");
+						}
 					} else if(!strcasecmp(v->name, "include")) {
 						memset(realvalue, 0, sizeof(realvalue));
 						pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
@@ -1805,7 +1810,6 @@ int load_module(void)
 
 int reload(void)
 {
-	ast_context_destroy(NULL, registrar);
 	if (clearglobalvars_config)
 		pbx_builtin_clear_globals();
 	pbx_load_module();

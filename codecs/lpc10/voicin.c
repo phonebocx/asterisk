@@ -1,6 +1,6 @@
 /*
 
-$Log: voicin.c,v $
+$Log$
 Revision 1.16  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -56,10 +56,10 @@ extern struct {
 
 /* 	VOICIN Version 52 */
 
-/* $Log: voicin.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/11/23 22:14:32  markster
 /* Various warning cleanups
 /*
@@ -307,10 +307,10 @@ s*/
 
 /* 	Global Variables: */
 /*       Arguments */
-/* $Log: voicin.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/11/23 22:14:32  markster
 /* Various warning cleanups
 /*

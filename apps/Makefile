@@ -86,7 +86,7 @@ endif
 all: $(APPS)
 
 clean:
-	rm -f *.so *.o look .depend
+	rm -f *.so *.o .depend
 
 %.so : %.o
 	$(CC) $(SOLINK) -o $@ ${CYGSOLINK} $< ${CYGSOLIB}
@@ -103,16 +103,13 @@ app_curl.so: app_curl.o
 	$(CC) $(SOLINK) -o $@ ${CYGSOLINK} $< ${CYGSOLIB} $(CURLLIBS)
 
 app_sql_postgres.o: app_sql_postgres.c
-	$(CC) -pipe -I/usr/local/pgsql/include $(CFLAGS) -c -o app_sql_postgres.o app_sql_postgres.c
+	$(CC) -pipe -I$(CROSS_COMPILE_TARGET)/usr/local/pgsql/include -I$(CROSS_COMPILE_TARGET)/usr/include/postgresql $(CFLAGS) -c -o app_sql_postgres.o app_sql_postgres.c
 
 app_sql_postgres.so: app_sql_postgres.o
 	$(CC) $(SOLINK) -o $@ ${CYGSOLINK} $< ${CYGSOLIB} -L/usr/local/pgsql/lib -lpq
 
 app_sql_odbc.so: app_sql_odbc.o
 	$(CC) $(SOLINK) -o $@ ${CYGSOLINK} $< ${CYGSOLIB} -lodbc
-
-look:	look.c
-	$(CC) -pipe -O6 -g look.c -o look -lncurses
 
 ifeq (SunOS,$(shell uname))
 app_chanspy.so: app_chanspy.o

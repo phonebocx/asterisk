@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.38 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 33781 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -53,6 +53,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.38 $")
 #include "asterisk/config.h"
 #include "asterisk/utils.h"
 #include "asterisk/lock.h"
+#include "asterisk/options.h"
 
 #define FESTIVAL_CONFIG "festival.conf"
 
@@ -136,6 +137,9 @@ static int send_waveform_to_fd(char *waveform, int length, int fd) {
                 if (x != fd)
                         close(x);
         }
+	if (option_highpriority)
+		ast_set_priority(0);
+
 /*IAS */
 #ifdef __PPC__  
 	for( x=0; x<length; x+=2)
@@ -175,7 +179,8 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);
 	ast_stopstream(chan);
-
+	ast_indicate(chan, -1);
+	
 	owriteformat = chan->writeformat;
 	res = ast_set_write_format(chan, AST_FORMAT_SLINEAR);
 	if (res < 0) {
@@ -229,11 +234,13 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 					myf.f.data = myf.frdata;
 					if (ast_write(chan, &myf.f) < 0) {
 						res = -1;
+						ast_frfree(f);
 						break;
 					}
 					if (res < needed) { /* last frame */
 						ast_log(LOG_DEBUG, "Last frame\n");
 						res=0;
+						ast_frfree(f);
 						break;
 					}
 				} else {
@@ -455,8 +462,23 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 	/* This assumes only one waveform will come back, also LP is unlikely */
 	wave = 0;
 	do {
+               int read_data;
 		for (n=0; n < 3; )
-			n += read(fd,ack+n,3-n);
+               {
+                       read_data = read(fd,ack+n,3-n);
+                       /* this avoids falling in infinite loop
+                        * in case that festival server goes down
+                        * */
+                       if ( read_data == -1 )
+                       {
+                               ast_log(LOG_WARNING,"Unable to read from cache/festival fd");
+			       close(fd);
+			       ast_config_destroy(cfg);
+			       LOCAL_USER_REMOVE(u);
+                               return -1;
+                       }
+                       n += read_data;
+               }
 		ack[3] = '\0';
 		if (strcmp(ack,"WV\n") == 0) {         /* receive a waveform */
 			ast_log(LOG_DEBUG,"Festival WV command\n");

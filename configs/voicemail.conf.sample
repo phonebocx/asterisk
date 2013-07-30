@@ -1,6 +1,13 @@
 ;
 ; Voicemail Configuration
 ;
+
+;
+; NOTE: Asterisk has to edit this file to change a user's password.  This does
+; note currently work with the "#include <file>" directive for Asterisk
+; configuration files.  Do not use it with this configuration file.
+;
+
 [general]
 ; Default formats for writing Voicemail
 ;format=g723sf|wav49|wav
@@ -153,6 +160,9 @@ emaildateformat=%A, %B %d, %Y at %r
 sendvoicemail=yes	; Context to Send voicemail from [option 5 from the advanced menu]
   			; if not listed, sending messages from inside voicemail will not be 
 			; permitted
+; searchcontexts=yes	; Current default behavior is to search only the default context
+			; if one is not specified.  The older behavior was to search all contexts.
+			; This option restores the old behavior [DEFAULT=no]
 ; callback=fromvm 	; Context to call back from  
 			;     if not listed, calling the sender back will not be permitted
 ; review=yes 		; Allow sender to review/rerecord their message before saving it [OFF by default
@@ -162,6 +172,7 @@ sendvoicemail=yes	; Context to Send voicemail from [option 5 from the advanced m
 			;     This does NOT affect option 3,3 from the advanced options menu
 ; delete=yes		; After notification, the voicemail is deleted from the server. [per-mailbox only]
 			;     This is intended for use with users who wish to receive their voicemail ONLY by email.
+			;     Note:  deletevoicemail is provided as an equivalent option for Realtime configuration.
 ; nextaftercmd=yes	; Skips to the next message after hitting 7 or 9 to delete/save current message.
 			;     [global option only at this time] 
 ; forcename=yes		; Forces a new user to record their name.  A new user is

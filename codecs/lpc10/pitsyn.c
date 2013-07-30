@@ -1,6 +1,6 @@
 /*
 
-$Log: pitsyn.c,v $
+$Log$
 Revision 1.16  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -45,10 +45,10 @@ extern int pitsyn_(integer *order, integer *voice, integer *pitch, real *rms, re
 
 /* 	PITSYN Version 53 */
 
-/* $Log: pitsyn.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/11/23 22:14:32  markster
 /* Various warning cleanups
 /*
@@ -160,10 +160,10 @@ extern int pitsyn_(integer *order, integer *voice, integer *pitch, real *rms, re
     real xxy;
 
 /*       Arguments */
-/* $Log: pitsyn.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/11/23 22:14:32  markster
 /* Various warning cleanups
 /*

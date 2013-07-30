@@ -1,6 +1,6 @@
 /*
 
-$Log: analys.c,v $
+$Log$
 Revision 1.16  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -87,10 +87,10 @@ static integer c__1 = 1;
 
 /* 	ANALYS Version 55 */
 
-/* $Log: analys.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/19 01:20:22  markster
 /* Code cleanups (bug #66)
 /*
@@ -259,10 +259,10 @@ static integer c__1 = 1;
 	    *, integer *, integer *, struct lpc10_encoder_state *);
     real phi[100]	/* was [10][10] */, psi[10];
 
-/* $Log: analys.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/19 01:20:22  markster
 /* Code cleanups (bug #66)
 /*
@@ -299,10 +299,10 @@ static integer c__1 = 1;
 /*   LPC Configuration parameters: */
 /* Frame size, Prediction order, Pitch period */
 /*       Arguments to ANALYS */
-/* $Log: analys.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/19 01:20:22  markster
 /* Code cleanups (bug #66)
 /*

@@ -1,6 +1,6 @@
 /*
 
-$Log: ivfilt.c,v $
+$Log$
 Revision 1.16  2004/06/26 03:50:14  markster
 Merge source cleanups (bug #1911)
 
@@ -37,10 +37,10 @@ extern int ivfilt_(real *lpbuf, real *ivbuf, integer *len, integer *nsamp, real 
 
 /* 	IVFILT Version 48 */
 
-/* $Log: ivfilt.c,v $
-/* Revision 1.16  2004/06/26 03:50:14  markster
-/* Merge source cleanups (bug #1911)
-/*
+/* $Log$
+ * Revision 1.16  2004/06/26 03:50:14  markster
+ * Merge source cleanups (bug #1911)
+ *
 /* Revision 1.15  2003/09/19 01:20:22  markster
 /* Code cleanups (bug #66)
 /*

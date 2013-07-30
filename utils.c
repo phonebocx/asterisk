@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.84 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37419 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/io.h"
@@ -399,14 +399,6 @@ static void base64_init(void)
 	base64[63] = '/';
 	b2a[(int)'+'] = 62;
 	b2a[(int)'/'] = 63;
-#if 0
-	for (x=0;x<64;x++) {
-		if (b2a[(int)base64[x]] != x) {
-			fprintf(stderr, "!!! %d failed\n", x);
-		} else
-			fprintf(stderr, "--- %d passed\n", x);
-	}
-#endif
 }
 
 /*! \brief  ast_uri_encode: Turn text string to URI-encoded %XX version ---*/
@@ -613,11 +605,11 @@ static struct timeval tvfix(struct timeval a)
 	if (a.tv_usec >= ONE_MILLION) {
 		ast_log(LOG_WARNING, "warning too large timestamp %ld.%ld\n",
 			a.tv_sec, (long int) a.tv_usec);
-		a.tv_sec += a.tv_usec % ONE_MILLION;
+		a.tv_sec += a.tv_usec / ONE_MILLION;
 		a.tv_usec %= ONE_MILLION;
 	} else if (a.tv_usec < 0) {
 		ast_log(LOG_WARNING, "warning negative timestamp %ld.%ld\n",
-				a.tv_sec, (long int) a.tv_usec);
+			a.tv_sec, (long int) a.tv_usec);
 		a.tv_usec = 0;
 	}
 	return a;

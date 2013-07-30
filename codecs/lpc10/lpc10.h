@@ -1,6 +1,6 @@
 /*
 
-$Log: lpc10.h,v $
+$Log$
 Revision 1.18  2004/08/31 13:32:11  markster
 Merge NetBSD and Courtesty tone with modifications (bug #2329)
 

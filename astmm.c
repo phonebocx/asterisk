@@ -30,13 +30,14 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.23 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 15743 $")
 
 #include "asterisk/cli.h"
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
 #include "asterisk/lock.h"
 #include "asterisk/strings.h"
+#include "asterisk/unaligned.h"
 
 #define SOME_PRIME 563
 
@@ -99,7 +100,7 @@ static inline void *__ast_alloc_region(size_t size, int which, const char *file,
 		regions[hash] = reg;
 		reg->fence = FENCE_MAGIC;
 		fence = (ptr + reg->len);
-		*fence = FENCE_MAGIC;
+		put_unaligned_uint32(fence, FENCE_MAGIC);
 	}
 	ast_mutex_unlock(&reglock);
 	if (!reg) {
@@ -161,7 +162,7 @@ static void __ast_free_region(void *ptr, const char *file, int lineno, const cha
 				fflush(mmlog);
 			}
 		}
-		if (*fence != FENCE_MAGIC) {
+		if (get_unaligned_uint32(fence) != FENCE_MAGIC) {
 			fprintf(stderr, "WARNING: High fence violation at %p, in %s of %s, line %d\n", reg->data, reg->func, reg->file, reg->lineno);
 			if (mmlog) {
 				fprintf(mmlog, "%ld - WARNING: High fence violation at %p, in %s of %s, line %d\n", time(NULL), reg->data, reg->func, reg->file, reg->lineno);
@@ -254,21 +255,20 @@ char *__ast_strndup(const char *s, size_t n, const char *file, int lineno, const
 
 int __ast_vasprintf(char **strp, const char *fmt, va_list ap, const char *file, int lineno, const char *func) 
 {
-	int n, size = strlen(fmt) + 1;
-	if ((*strp = __ast_alloc_region(size, FUNC_VASPRINTF, file, lineno, func)) == NULL)
-		return -1; 
-	for (;;) {
-		n = vsnprintf(*strp, size, fmt, ap);
-		if (n > -1 && n < size)
-			return n;
-		if (n > -1) {	/* glibc 2.1 */
-			size = n+1;
-		} else {	/* glibc 2.0 */
-			size *= 2;
-		}
-		if ((*strp = __ast_realloc(*strp, size, file, lineno, func)) == NULL)
-			return -1;
-	}
+	int size;
+	va_list ap2;
+	char s;
+
+	*strp = NULL;
+	va_copy(ap2, ap);
+	size = vsnprintf(&s, 1, fmt, ap2);
+	va_end(ap2);
+	*strp = __ast_alloc_region(size + 1, FUNC_VASPRINTF, file, lineno, func);
+	if (!*strp)
+		return -1;
+	vsnprintf(*strp, size + 1, fmt, ap);
+
+	return size;
 }
 
 static int handle_show_memory(int fd, int argc, char *argv[])
@@ -297,7 +297,7 @@ static int handle_show_memory(int fd, int argc, char *argv[])
 						fflush(mmlog);
 					}
 				}
-				if (*fence != FENCE_MAGIC) {
+				if (get_unaligned_uint32(fence) != FENCE_MAGIC) {
 					fprintf(stderr, "WARNING: High fence violation at %p, in %s of %s, line %d\n", reg->data, reg->func, reg->file, reg->lineno);
 					if (mmlog) {
 						fprintf(mmlog, "%ld - WARNING: High fence violation at %p, in %s of %s, line %d\n", time(NULL), reg->data, reg->func, reg->file, reg->lineno);

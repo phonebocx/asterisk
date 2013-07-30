@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.74 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 31775 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -166,6 +166,10 @@ static void ast_moh_free_class(struct mohclass **class)
 		members = members->next;
 		free(mtmp);
 	}
+	if ((*class)->thread) {
+		pthread_cancel((*class)->thread);
+		(*class)->thread = 0;
+	}
 	free(*class);
 	*class = NULL;
 }
@@ -208,6 +212,8 @@ static int ast_moh_files_next(struct ast_channel *chan)
 			if (ast_test_flag(state->class, MOH_RANDOMIZE))
 				state->pos = rand();
 
+			state->pos %= state->class->total_files;
+
 			/* check to see if this file's format can be opened */
 			if (ast_fileexists(state->class->filearray[state->pos], NULL, NULL) != -1)
 				break;
@@ -217,10 +223,6 @@ static int ast_moh_files_next(struct ast_channel *chan)
 
 	state->pos = state->pos % state->class->total_files;
 	
-	if (ast_set_write_format(chan, AST_FORMAT_SLINEAR)) {
-		ast_log(LOG_WARNING, "Unable to set '%s' to linear format (write)\n", chan->name);
-		return -1;
-	}
 	if (!ast_openstream_full(chan, state->class->filearray[state->pos], chan->language, 1)) {
 		ast_log(LOG_WARNING, "Unable to open file '%s': %s\n", state->class->filearray[state->pos], strerror(errno));
 		state->pos++;
@@ -295,14 +297,8 @@ static void *moh_files_alloc(struct ast_channel *chan, void *params)
 
 		state->origwfmt = chan->writeformat;
 
-		if (ast_set_write_format(chan, AST_FORMAT_SLINEAR)) {
-			ast_log(LOG_WARNING, "Unable to set '%s' to linear format (write)\n", chan->name);
-			free(chan->music_state);
-			chan->music_state = NULL;
-		} else {
-			if (option_verbose > 2)
-				ast_verbose(VERBOSE_PREFIX_3 "Started music on hold, class '%s', on %s\n", class->name, chan->name);
-		}
+		if (option_verbose > 2)
+			ast_verbose(VERBOSE_PREFIX_3 "Started music on hold, class '%s', on %s\n", class->name, chan->name);
 	}
 	
 	return chan->music_state;
@@ -436,6 +432,10 @@ static int spawn_mp3(struct mohclass *class)
 	}
 	if (!class->pid) {
 		int x;
+
+		if (option_highpriority)
+			ast_set_priority(0);
+
 		close(fds[0]);
 		/* Stdout goes to pipe */
 		dup2(fds[1], STDOUT_FILENO);
@@ -482,17 +482,20 @@ static void *monmp3thread(void *data)
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 	for(;/* ever */;) {
+		pthread_testcancel();
 		/* Spawn mp3 player if it's not there */
 		if (class->srcfd < 0) {
 			if ((class->srcfd = spawn_mp3(class)) < 0) {
 				ast_log(LOG_WARNING, "Unable to spawn mp3player\n");
 				/* Try again later */
 				sleep(500);
+				pthread_testcancel();
 			}
 		}
 		if (class->pseudofd > -1) {
 			/* Pause some amount of time */
 			res = read(class->pseudofd, buf, sizeof(buf));
+			pthread_testcancel();
 		} else {
 			long delta;
 			/* Reliable sleep */
@@ -503,6 +506,7 @@ static void *monmp3thread(void *data)
 			if (delta < MOH_MS_INTERVAL) {	/* too early */
 				tv = ast_tvadd(tv, ast_samp2tv(MOH_MS_INTERVAL, 1000));	/* next deadline */
 				usleep(1000 * (MOH_MS_INTERVAL - delta));
+				pthread_testcancel();
 			} else {
 				ast_log(LOG_NOTICE, "Request to schedule in the past?!?!\n");
 				tv = tv_tmp;
@@ -518,7 +522,12 @@ static void *monmp3thread(void *data)
 			if (!res2) {
 				close(class->srcfd);
 				class->srcfd = -1;
+				pthread_testcancel();
 				if (class->pid) {
+					kill(class->pid, SIGHUP);
+					usleep(100000);
+					kill(class->pid, SIGTERM);
+					usleep(100000);
 					kill(class->pid, SIGKILL);
 					class->pid = 0;
 				}
@@ -526,6 +535,7 @@ static void *monmp3thread(void *data)
 				ast_log(LOG_DEBUG, "Read %d bytes of audio while expecting %d\n", res2, len);
 			continue;
 		}
+		pthread_testcancel();
 		ast_mutex_lock(&moh_lock);
 		moh = class->members;
 		while (moh) {
@@ -778,6 +788,11 @@ static int moh_scan_files(struct mohclass *class) {
 
 		if (i == class->total_files)
 			strcpy(class->filearray[class->total_files++], filepath);
+
+		/* If the new total files is equal to the maximum allowed, stop adding new ones */
+		if (class->total_files == MAX_MOHFILES)
+			break;
+
 	}
 
 	closedir(files_DIR);
@@ -785,14 +800,18 @@ static int moh_scan_files(struct mohclass *class) {
 	return class->total_files;
 }
 
-static int moh_register(struct mohclass *moh)
+static int moh_register(struct mohclass *moh, int reload)
 {
 #ifdef ZAPATA_MOH
 	int x;
 #endif
 	ast_mutex_lock(&moh_lock);
 	if (get_mohbyname(moh->name)) {
-		ast_log(LOG_WARNING, "Music on Hold class '%s' already exists\n", moh->name);
+		if (reload) {
+			ast_log(LOG_DEBUG, "Music on Hold class '%s' left alone from initial load.\n", moh->name);
+		} else {
+			ast_log(LOG_WARNING, "Music on Hold class '%s' already exists\n", moh->name);
+		}
 		free(moh);	
 		ast_mutex_unlock(&moh_lock);
 		return -1;
@@ -914,7 +933,7 @@ static struct mohclass *moh_class_malloc(void)
 	return class;
 }
 
-static int load_moh_classes(void)
+static int load_moh_classes(int reload)
 {
 	struct ast_config *cfg;
 	struct ast_variable *var;
@@ -942,7 +961,7 @@ static int load_moh_classes(void)
 			var = ast_variable_browse(cfg, cat);
 			while (var) {
 				if (!strcasecmp(var->name, "mode"))
-					ast_copy_string(class->mode, var->value, sizeof(class->name)); 
+					ast_copy_string(class->mode, var->value, sizeof(class->mode)); 
 				else if (!strcasecmp(var->name, "directory"))
 					ast_copy_string(class->dir, var->value, sizeof(class->dir));
 				else if (!strcasecmp(var->name, "application"))
@@ -979,7 +998,9 @@ static int load_moh_classes(void)
 				continue;
 			}
 
-			moh_register(class);
+			/* Don't leak a class when it's already registered */
+			moh_register(class, reload);
+
 			numclasses++;
 		}
 	}
@@ -1011,7 +1032,7 @@ static int load_moh_classes(void)
 				if (args)
 					ast_copy_string(class->args, args, sizeof(class->args));
 				
-				moh_register(class);
+				moh_register(class, reload);
 				numclasses++;
 			}
 		}
@@ -1039,7 +1060,7 @@ static int load_moh_classes(void)
 			if (args)	
 				ast_copy_string(class->args, args, sizeof(class->args));
 			
-			moh_register(class);
+			moh_register(class, reload);
 			numclasses++;
 		}
 		var = var->next;
@@ -1067,6 +1088,13 @@ static void ast_moh_destroy(void)
 			stime = time(NULL) + 2;
 			pid = moh->pid;
 			moh->pid = 0;
+			/* Back when this was just mpg123, SIGKILL was fine.  Now we need
+			 * to give the process a reason and time enough to kill off its
+			 * children. */
+			kill(pid, SIGHUP);
+			usleep(100000);
+			kill(pid, SIGTERM);
+			usleep(100000);
 			kill(pid, SIGKILL);
 			while ((ast_wait_for_input(moh->srcfd, 100) > 0) && (bytes = read(moh->srcfd, buff, 8192)) && time(NULL) < stime) {
 				tbytes = tbytes + bytes;
@@ -1103,7 +1131,7 @@ static int moh_cli(int fd, int argc, char *argv[])
 
 	moh_on_off(0);
 	ast_moh_destroy();
-	x = load_moh_classes();
+	x = load_moh_classes(1);
 	moh_on_off(1);
 	ast_cli(fd, "\n%d class%s reloaded.\n", x, x == 1 ? "" : "es");
 	return 0;
@@ -1152,11 +1180,11 @@ static struct ast_cli_entry  cli_moh_classes_show = { { "moh", "classes", "show"
 
 static struct ast_cli_entry  cli_moh_files_show = { { "moh", "files", "show"}, cli_files_show, "List MOH file-based classes", "Lists all loaded file-based MOH classes and their files", NULL};
 
-static int init_classes(void) 
+static int init_classes(int reload) 
 {
 	struct mohclass *moh;
     
-	if (!load_moh_classes()) 		/* Load classes from config */
+	if (!load_moh_classes(reload)) 		/* Load classes from config */
 		return 0;			/* Return if nothing is found */
 	moh = mohclasses;
 	while (moh) {
@@ -1185,7 +1213,7 @@ int load_module(void)
 	if (!res)
 		res = ast_register_application(app4, moh4_exec, synopsis4, descrip4);
 
-	if (!init_classes()) { 	/* No music classes configured, so skip it */
+	if (!init_classes(0)) { 	/* No music classes configured, so skip it */
 		ast_log(LOG_WARNING, "No music on hold classes configured, disabling music on hold.");
 	} else {
 		ast_install_music_functions(local_ast_moh_start, local_ast_moh_stop, local_ast_moh_cleanup);
@@ -1196,7 +1224,7 @@ int load_module(void)
 
 int reload(void)
 {
-	if (init_classes())
+	if (init_classes(1))
 		ast_install_music_functions(local_ast_moh_start, local_ast_moh_stop, local_ast_moh_cleanup);
 
 	return 0;

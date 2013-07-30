@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/preprocess.c,v 1.17 2005/04/21 06:30:23 kpfleming Exp $ */
+/* $Header$ */
 
 #include	<stdio.h>
 #include	<assert.h>

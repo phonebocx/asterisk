@@ -68,7 +68,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.543 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37419 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -106,6 +106,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.543 $")
 #define ZT_EVENT_DTMFDOWN 0
 #define ZT_EVENT_DTMFUP 0
 #endif
+
+/* define this to send PRI user-user information elements */
+#undef SUPPORT_USERUSER
 
 /*! 
  * \note Define ZHONE_HACK to cause us to go off hook and then back on hook when
@@ -2004,7 +2007,9 @@ static int zt_call(struct ast_channel *ast, char *rdest, int timeout)
 #ifdef ZAPATA_PRI
 	if (p->pri) {
 		struct pri_sr *sr;
+#ifdef SUPPORT_USERUSER
 		char *useruser;
+#endif
 		int pridialplan;
 		int dp_strip;
 		int prilocaldialplan;
@@ -2114,15 +2119,17 @@ static int zt_call(struct ast_channel *ast, char *rdest, int timeout)
 				prilocaldialplan = PRI_LOCAL_ISDN;
 			}
 		}
-		pri_sr_set_caller(sr, l ? (l + ldp_strip) : NULL, n, prilocaldialplan, 
-					l ? (p->use_callingpres ? ast->cid.cid_pres : PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN) : 
-						 PRES_NUMBER_NOT_AVAILABLE);
+		pri_sr_set_caller(sr, l ? (l + ldp_strip) : NULL, n, prilocaldialplan,
+				  p->use_callingpres ? ast->cid.cid_pres : (l ? PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN : PRES_NUMBER_NOT_AVAILABLE));
 		pri_sr_set_redirecting(sr, ast->cid.cid_rdnis, p->pri->localdialplan - 1, PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN, PRI_REDIR_UNCONDITIONAL);
+
+#ifdef SUPPORT_USERUSER
 		/* User-user info */
 		useruser = pbx_builtin_getvar_helper(p->owner, "USERUSERINFO");
 
 		if (useruser)
 			pri_sr_set_useruser(sr, useruser);
+#endif
 
 		if (pri_setup(p->pri->pri, p->call,  sr)) {
  			ast_log(LOG_WARNING, "Unable to setup call to %s (using %s)\n", 
@@ -2462,13 +2469,20 @@ static int zt_hangup(struct ast_channel *ast)
 		/* Perform low level hangup if no owner left */
 #ifdef ZAPATA_PRI
 		if (p->pri) {
+#ifdef SUPPORT_USERUSER
 			char *useruser = pbx_builtin_getvar_helper(ast,"USERUSERINFO");
+#endif
+
 			/* Make sure we have a call (or REALLY have a call in the case of a PRI) */
 			if (p->call && (!p->bearer || (p->bearer->call == p->call))) {
 				if (!pri_grab(p, p->pri)) {
 					if (p->alreadyhungup) {
 						ast_log(LOG_DEBUG, "Already hungup...  Calling hangup once, and clearing call\n");
+
+#ifdef SUPPORT_USERUSER
 						pri_call_set_useruser(p->call, useruser);
+#endif
+
 						pri_hangup(p->pri->pri, p->call, -1);
 						p->call = NULL;
 						if (p->bearer) 
@@ -2477,7 +2491,11 @@ static int zt_hangup(struct ast_channel *ast)
 						char *cause = pbx_builtin_getvar_helper(ast,"PRI_CAUSE");
 						int icause = ast->hangupcause ? ast->hangupcause : -1;
 						ast_log(LOG_DEBUG, "Not yet hungup...  Calling hangup once with icause, and clearing call\n");
+
+#ifdef SUPPORT_USERUSER
 						pri_call_set_useruser(p->call, useruser);
+#endif
+
 						p->alreadyhungup = 1;
 						if (p->bearer)
 							p->bearer->alreadyhungup = 1;
@@ -2959,6 +2977,9 @@ static void enable_dtmf_detect(struct zt_pvt *p)
 	int val;
 #endif
 
+	if (p->channel == CHAN_PSEUDO)
+		return;
+
 	p->ignoredtmf = 0;
 
 #ifdef ZT_TONEDETECT
@@ -3281,9 +3302,6 @@ static int zt_ring_phone(struct zt_pvt *p)
 	do {
 		x = ZT_RING;
 		res = ioctl(p->subs[SUB_REAL].zfd, ZT_HOOK, &x);
-#if 0
-		printf("Res: %d, error: %s\n", res, strerror(errno));
-#endif						
 		if (res) {
 			switch(errno) {
 			case EBUSY:
@@ -4197,6 +4215,10 @@ static struct ast_frame *zt_handle_event(struct ast_channel *ast)
                                      (ast->_state == AST_STATE_RINGING))) {
                                         ast_log(LOG_DEBUG, "Answering on polarity switch!\n");
                                         ast_setstate(p->owner, AST_STATE_UP);
+					if(p->hanguponpolarityswitch) {
+						gettimeofday(&p->polaritydelaytv, NULL);
+					}
+					break;
                                 } else
                                         ast_log(LOG_DEBUG, "Ignore switch to REVERSED Polarity on channel %d, state %d\n", p->channel, ast->_state);
 			} 
@@ -5031,7 +5053,10 @@ static struct ast_channel *zt_new(struct zt_pvt *i, int state, int startpbx, int
 			if (i->dsp) {
 				ast_log(LOG_DEBUG, "Already have a dsp on %s?\n", tmp->name);
 			} else {
-				i->dsp = ast_dsp_new();
+				if (i->channel != CHAN_PSEUDO)
+					i->dsp = ast_dsp_new();
+				else
+					i->dsp = NULL;
 				if (i->dsp) {
 					i->dsp_features = features & ~DSP_PROGRESS_TALK;
 #ifdef ZAPATA_PRI
@@ -5221,6 +5246,7 @@ static void *ss_thread(void *data)
 				return NULL;
 			} else if (res) {
 				exten[len++] = res;
+				exten[len] = '\0';
 			} else
 				break;
 		}
@@ -5278,7 +5304,7 @@ static void *ss_thread(void *data)
 			else 
 				ast_dsp_digitmode(p->dsp,DSP_DIGITMODE_DTMF | p->dtmfrelax);
 		}
-		dtmfbuf[0] = 0;
+		memset(dtmfbuf, 0, sizeof(dtmfbuf));
 		/* Wait for the first digit only if immediate=no */
 		if (!p->immediate)
 			/* Wait for the first digit (up to 5 seconds). */
@@ -5327,6 +5353,7 @@ static void *ss_thread(void *data)
 			default:
 				/* If we got the first digit, get the rest */
 				len = 1;
+				dtmfbuf[len] = '\0';
 				while((len < AST_MAX_EXTENSION-1) && ast_matchmore_extension(chan, chan->context, dtmfbuf, 1, p->cid_num)) {
 					if (ast_exists_extension(chan, chan->context, dtmfbuf, 1, p->cid_num)) {
 						timeout = matchdigittimeout;
@@ -5340,6 +5367,7 @@ static void *ss_thread(void *data)
 						return NULL;
 					} else if (res) {
 						dtmfbuf[len++] = res;
+						dtmfbuf[len] = '\0';
 					} else {
 						break;
 					}
@@ -5413,7 +5441,6 @@ static void *ss_thread(void *data)
 				}
 				if (s1)	ast_copy_string(exten, s1, sizeof(exten));
 				else ast_copy_string(exten, "911", sizeof(exten));
-				printf("E911: exten: %s, ANI: %s\n",exten, chan->cid.cid_ani);
 			} else
 				ast_log(LOG_WARNING, "Got a non-E911 input on channel %d.  Assuming E&M Wink instead\n", p->channel);
 		}
@@ -5623,10 +5650,10 @@ static void *ss_thread(void *data)
 				/* Do not disturb */
 				if (option_verbose > 2) {
 					ast_verbose(VERBOSE_PREFIX_3 "Enabled DND on channel %d\n", p->channel);
-					manager_event(EVENT_FLAG_SYSTEM, "DNDState",
-								"Channel: Zap/%d\r\n"
-								"Status: enabled\r\n", p->channel);
 				}
+				manager_event(EVENT_FLAG_SYSTEM, "DNDState",
+							"Channel: Zap/%d\r\n"
+							"Status: enabled\r\n", p->channel);
 				res = tone_zone_play_tone(p->subs[index].zfd, ZT_TONE_DIALRECALL);
 				p->dnd = 1;
 				getforward = 0;
@@ -5634,12 +5661,11 @@ static void *ss_thread(void *data)
 				len = 0;
 			} else if (!strcmp(exten, "*79")) {
 				/* Do not disturb */
-				if (option_verbose > 2) {
+				if (option_verbose > 2)
 					ast_verbose(VERBOSE_PREFIX_3 "Disabled DND on channel %d\n", p->channel);
-					manager_event(EVENT_FLAG_SYSTEM, "DNDState",
+				manager_event(EVENT_FLAG_SYSTEM, "DNDState",
 								"Channel: Zap/%d\r\n"
 								"Status: disabled\r\n", p->channel);
-				}
 				res = tone_zone_play_tone(p->subs[index].zfd, ZT_TONE_DIALRECALL);
 				p->dnd = 0;
 				getforward = 0;
@@ -5824,7 +5850,7 @@ static void *ss_thread(void *data)
 					number = 0;
 			/* If set to use V23 Signalling, launch our FSK gubbins and listen for it */
 			} else if (p->cid_signalling == CID_SIG_V23) {
-				cs = callerid_new(cid_signalling);
+				cs = callerid_new(p->cid_signalling);
 				if (cs) {
 					samples = 0;
 #if 1
@@ -5995,7 +6021,7 @@ static void *ss_thread(void *data)
 			}
 		} else if (p->use_callerid && p->cid_start == CID_START_RING) {
 			/* FSK Bell202 callerID */
-			cs = callerid_new(cid_signalling);
+			cs = callerid_new(p->cid_signalling);
 			if (cs) {
 #if 1
 				bump_gains(p);
@@ -6260,9 +6286,6 @@ static int handle_init_event(struct zt_pvt *i, int event)
 					}
 				} else
 					ast_log(LOG_WARNING, "Unable to create channel\n");
-#if 0
-				printf("Created thread %ld detached in switch\n", threadid);
-#endif
 			}
 			break;
 		case SIG_FXSLS:
@@ -6293,9 +6316,6 @@ static int handle_init_event(struct zt_pvt *i, int event)
 				} else if (!chan) {
 					ast_log(LOG_WARNING, "Cannot allocate new structure on channel %d\n", i->channel);
 				}
-#if 0
-				printf("Created thread %ld detached in switch(2)\n", threadid);
-#endif
 				break;
 		default:
 			ast_log(LOG_WARNING, "Don't know how to handle ring/answer with signalling %s on channel %d\n", sig2str(i->sig), i->channel);
@@ -6308,11 +6328,17 @@ static int handle_init_event(struct zt_pvt *i, int event)
 	case ZT_EVENT_NOALARM:
 		i->inalarm = 0;
 		ast_log(LOG_NOTICE, "Alarm cleared on channel %d\n", i->channel);
+		manager_event(EVENT_FLAG_SYSTEM, "AlarmClear",
+		              "Channel: %d\r\n", i->channel);
 		break;
 	case ZT_EVENT_ALARM:
 		i->inalarm = 1;
 		res = get_alarms(i);
 		ast_log(LOG_WARNING, "Detected alarm on channel %d: %s\n", i->channel, alarm2str(res));
+		manager_event(EVENT_FLAG_SYSTEM, "Alarm",
+		              "Alarm: %s\r\n"
+		              "Channel: %d\r\n",
+		              alarm2str(res), i->channel);
 		/* fall thru intentionally */
 	case ZT_EVENT_ONHOOK:
 		if (i->radio) break;
@@ -6477,14 +6503,8 @@ static void *do_monitor(void *data)
 				if (!found && ((i == last) || ((i == iflist) && !last))) {
 					last = i;
 					if (last) {
-#if 0
-						printf("Checking channel %d\n", last->channel);
-#endif						
 						if (!last->cidspill && !last->owner && !ast_strlen_zero(last->mailbox) && (thispass - last->onhooktime > 3) &&
 							(last->sig & __ZT_SIG_FXO)) {
-#if 0
-							printf("Channel %d has mailbox %s\n", last->channel, last->mailbox);
-#endif							
 							res = ast_app_has_voicemail(last->mailbox, NULL);
 							if (last->msgstate != res) {
 								int x;
@@ -6500,9 +6520,6 @@ static void *do_monitor(void *data)
 									ioctl(last->subs[SUB_REAL].zfd, ZT_ONHOOKTRANSFER, &x);
 									last->cidlen = vmwi_generate(last->cidspill, res, 1, AST_LAW(last));
 									last->cidpos = 0;
-#if 0
-									printf("Made %d bytes of message waiting for %d\n", last->cidlen, res);
-#endif									
 									last->msgstate = res;
 									last->onhooktime = thispass;
 								}
@@ -6654,9 +6671,6 @@ static int restart_monitor(void)
 			return -1;
 		}
 	}
-#if 0
-	printf("Created thread %ld detached in restart monitor\n", monitor_thread);
-#endif
 	ast_mutex_unlock(&monlock);
 	return 0;
 }
@@ -7808,9 +7822,6 @@ static void *do_idle_thread(void *vchan)
 		ast_frfree(f);
 		ms = newms;
 	}
-#if 0
-	printf("Hanging up '%s'\n", chan->name);
-#endif
 	/* Hangup the channel since nothing happend */
 	ast_hangup(chan);
 	return NULL;
@@ -8072,12 +8083,6 @@ static void *pri_dchannel(void *vpri)
 				} else if (pri->pvts[x] && pri->pvts[x]->owner && pri->pvts[x]->isidlecall)
 					activeidles++;
 			}
-#if 0
-			printf("nextidle: %d, haveidles: %d, minunsed: %d\n",
-				nextidle, haveidles, minunused);
-			printf("nextidle: %d, haveidles: %d, ms: %ld, minunsed: %d\n",
-				nextidle, haveidles, ast_tvdiff_ms(ast_tvnow(), lastidle), minunused);
-#endif
 			if (nextidle > -1) {
 				if (ast_tvdiff_ms(ast_tvnow(), lastidle) > 1000) {
 					/* Don't create a new idle call more than once per second */
@@ -8494,9 +8499,13 @@ static void *pri_dchannel(void *vpri)
 								snprintf(ani2str, 5, "%.2d", e->ring.ani2);
 								pbx_builtin_setvar_helper(c, "ANI2", ani2str);
 							}
+
+#ifdef SUPPORT_USERUSER
 							if (!ast_strlen_zero(e->ring.useruserinfo)) {
 								pbx_builtin_setvar_helper(c, "USERUSERINFO", e->ring.useruserinfo);
 							}
+#endif
+
 							snprintf(calledtonstr, sizeof(calledtonstr)-1, "%d", e->ring.calledplan);
 							pbx_builtin_setvar_helper(c, "CALLEDTON", calledtonstr);
 							if (e->ring.redirectingreason >= 0)
@@ -8529,9 +8538,13 @@ static void *pri_dchannel(void *vpri)
 									snprintf(ani2str, 5, "%d", e->ring.ani2);
 									pbx_builtin_setvar_helper(c, "ANI2", ani2str);
 								}
+
+#ifdef SUPPORT_USERUSER
 								if (!ast_strlen_zero(e->ring.useruserinfo)) {
 									pbx_builtin_setvar_helper(c, "USERUSERINFO", e->ring.useruserinfo);
 								}
+#endif
+
 								if (e->ring.redirectingreason >= 0)
 									pbx_builtin_setvar_helper(c, "PRIREDIRECTREASON", redirectingreason2str(e->ring.redirectingreason));
 							
@@ -8597,9 +8610,13 @@ static void *pri_dchannel(void *vpri)
 								pri->pvts[chanpos]->dsp_features = 0;
 							}
 						}
+
+#ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->ringing.useruserinfo)) {
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->ringing.useruserinfo);
 						}
+#endif
+
 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 					}
 				}
@@ -8754,9 +8771,13 @@ static void *pri_dchannel(void *vpri)
 							/* Enable echo cancellation if it's not on already */
 							zt_enable_ec(pri->pvts[chanpos]);
 						}
+
+#ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->answer.useruserinfo)) {
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->answer.useruserinfo);
 						}
+#endif
+
 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 					}
 				}
@@ -8814,9 +8835,13 @@ static void *pri_dchannel(void *vpri)
 							if (option_verbose > 2)
 								ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d received AOC-E charging %d unit%s\n",
 									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span, (int)e->hangup.aoc_units, (e->hangup.aoc_units == 1) ? "" : "s");
+
+#ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->hangup.useruserinfo)) {
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->hangup.useruserinfo);
 						}
+#endif
+
 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 					} else {
 						ast_log(LOG_WARNING, "Hangup on bad channel %d/%d on span %d\n", 
@@ -8874,9 +8899,13 @@ static void *pri_dchannel(void *vpri)
 							pri_reset(pri->pri, PVT_TO_CHANNEL(pri->pvts[chanpos]));
 							pri->pvts[chanpos]->resetting = 1;
 						}
+
+#ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->hangup.useruserinfo)) {
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->hangup.useruserinfo);
 						}
+#endif
+
 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 					} else {
 						ast_log(LOG_WARNING, "Hangup REQ on bad channel %d/%d on span %d\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
@@ -8900,9 +8929,13 @@ static void *pri_dchannel(void *vpri)
 							if (option_verbose > 2) 
 								ast_verbose(VERBOSE_PREFIX_3 "Channel %d/%d, span %d got hangup ACK\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span);
 						}
+
+#ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->hangup.useruserinfo)) {
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->hangup.useruserinfo);
 						}
+#endif
+
 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 					}
 				}
@@ -8971,15 +9004,19 @@ static void *pri_dchannel(void *vpri)
 					ast_log(LOG_WARNING, "Received SETUP_ACKNOWLEDGE on unconfigured channel %d/%d span %d\n", 
 						PRI_SPAN(e->setup_ack.channel), PRI_CHANNEL(e->setup_ack.channel), pri->span);
 				} else {
-					ast_mutex_lock(&pri->pvts[chanpos]->lock);
-					pri->pvts[chanpos]->setup_ack = 1;
-					/* Send any queued digits */
-					for (x=0;x<strlen(pri->pvts[chanpos]->dialdest);x++) {
-						ast_log(LOG_DEBUG, "Sending pending digit '%c'\n", pri->pvts[chanpos]->dialdest[x]);
-						pri_information(pri->pri, pri->pvts[chanpos]->call, 
-							pri->pvts[chanpos]->dialdest[x]);
-					}
-					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+					chanpos = pri_fixup_principle(pri, chanpos, e->setup_ack.call);
+					if (chanpos > -1) {
+						ast_mutex_lock(&pri->pvts[chanpos]->lock);
+						pri->pvts[chanpos]->setup_ack = 1;
+						/* Send any queued digits */
+						for (x=0;x<strlen(pri->pvts[chanpos]->dialdest);x++) {
+							ast_log(LOG_DEBUG, "Sending pending digit '%c'\n", pri->pvts[chanpos]->dialdest[x]);
+							pri_information(pri->pri, pri->pvts[chanpos]->call, 
+								pri->pvts[chanpos]->dialdest[x]);
+						}
+						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+					} else
+						ast_log(LOG_WARNING, "Unable to move channel %d!\n", e->setup_ack.channel);
 				}
 				break;
 			case PRI_EVENT_NOTIFY:
@@ -9715,7 +9752,7 @@ static int zap_show_status(int fd, int argc, char *argv[]) {
 
 	ctl = open("/dev/zap/ctl", O_RDWR);
 	if (ctl < 0) {
-		fprintf(stderr, "Unable to open /dev/zap/ctl: %s\n", strerror(errno));
+		ast_log(LOG_WARNING, "Unable to open /dev/zap/ctl: %s\n", strerror(errno));
 		ast_cli(fd, "No Zaptel interface found.\n");
 		return RESULT_FAILURE;
 	}
@@ -10649,6 +10686,8 @@ static int setup_zap(int reload)
 						v->value, v->lineno);
 			} else if (!strcasecmp(v->name, "minunused")) {
 				minunused = atoi(v->value);
+			} else if (!strcasecmp(v->name, "minidle")) {
+				minidle = atoi(v->value); 
 			} else if (!strcasecmp(v->name, "idleext")) {
 				ast_copy_string(idleext, v->value, sizeof(idleext));
 			} else if (!strcasecmp(v->name, "idledial")) {

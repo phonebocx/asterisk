@@ -21,6 +21,7 @@
  * \ingroup formats
  */
  
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
@@ -40,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
