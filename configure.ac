@@ -19,7 +19,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_HEADER(include/asterisk/autoconfig.h)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 72597 $)
+AC_REVISION($Revision: 74572 $)
 
 AC_GNU_SOURCE
 AC_USE_SYSTEM_EXTENSIONS	# note- does not work on FreeBSD
@@ -334,7 +334,15 @@ AC_LINK_IFELSE(
 	AC_LANG_PROGRAM([#include <resolv.h>],
 			[int foo = res_ninit(NULL);]),
 	AC_MSG_RESULT(yes)
-	AC_DEFINE([HAVE_RES_NINIT], 1, [Define to 1 if your system has the re-entrant resolver functions.]),
+	AC_DEFINE([HAVE_RES_NINIT], 1, [Define to 1 if your system has the re-entrant resolver functions.])
+	AC_MSG_CHECKING(for res_ndestroy)
+	AC_LINK_IFELSE(
+		AC_LANG_PROGRAM([#include <resolv.h>],
+				[int foo = res_ndestroy(NULL);]),
+		AC_MSG_RESULT(yes)
+		AC_DEFINE([HAVE_RES_NDESTROY], 1, [Define to 1 if your system has the ndestroy resolver function.]),
+		AC_MSG_RESULT(no)
+	),
 	AC_MSG_RESULT(no)
 )
 
@@ -786,7 +794,7 @@ fi
 
 AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
 
-AST_EXT_LIB_CHECK([PRI], [pri], [pri_call], [libpri.h])
+AST_EXT_LIB_CHECK([PRI], [pri], [pri_keypad_facility], [libpri.h])
 
 if test "${USE_PWLIB}" != "no"; then
 	if test -n "${PWLIB_DIR}"; then
@@ -1108,9 +1116,12 @@ AC_SUBST(EDITLINE_LIB)
 AC_CHECK_HEADER([h323.h], [PBX_H323=1], [PBX_H323=0])
 AC_SUBST(PBX_H323)
 
+AC_CHECK_HEADER([linux/compiler.h],
+                [AC_DEFINE_UNQUOTED([HAVE_LINUX_COMPILER_H], 1, [Define to 1 if your system has linux/compiler.h.])])
+
 AC_CHECK_HEADER([linux/ixjuser.h], [PBX_IXJUSER=1], [PBX_IXJUSER=0], [
 				   #include <linux/version.h>
-				   #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+				   #ifdef HAVE_LINUX_COMPILER_H
 				   #include <linux/compiler.h>
 				   #endif
 				   ])
@@ -1131,7 +1142,7 @@ AC_SUBST(GTK_LIB)
 PBX_GTK2=0
 AC_CHECK_TOOL(PKGCONFIG, pkg-config, No)
 if test ! "x${PKGCONFIG}" = xNo; then
-   GTK2_INCLUDE=$(${PKGCONFIG} gtk+-2.0 --cflags)
+   GTK2_INCLUDE=$(${PKGCONFIG} gtk+-2.0 --cflags 2>/dev/null)
    GTK2_LIB=$(${PKGCONFIG} gtk+-2.0 --libs)
    PBX_GTK2=1
    AC_DEFINE([HAVE_GTK2], 1, [Define if your system has the GTK2 libraries.])

@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53088 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75108 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -573,7 +573,7 @@ static int moh0_exec(struct ast_channel *chan, void *data)
 {
 	if (ast_moh_start(chan, data, NULL)) {
 		ast_log(LOG_WARNING, "Unable to start music on hold (class '%s') on channel %s\n", (char *)data, chan->name);
-		return -1;
+		return 0;
 	}
 	while (!ast_safe_sleep(chan, 10000));
 	ast_moh_stop(chan);
@@ -589,7 +589,7 @@ static int moh1_exec(struct ast_channel *chan, void *data)
 	}
 	if (ast_moh_start(chan, NULL, NULL)) {
 		ast_log(LOG_WARNING, "Unable to start music on hold for %d seconds on channel %s\n", atoi(data), chan->name);
-		return -1;
+		return 0;
 	}
 	res = ast_safe_sleep(chan, atoi(data) * 1000);
 	ast_moh_stop(chan);
@@ -625,7 +625,7 @@ static int moh4_exec(struct ast_channel *chan, void *data)
 }
 
 /*! \note This function should be called with the mohclasses list locked */
-static struct mohclass *get_mohbyname(const char *name)
+static struct mohclass *get_mohbyname(const char *name, int warn)
 {
 	struct mohclass *moh = NULL;
 
@@ -633,6 +633,9 @@ static struct mohclass *get_mohbyname(const char *name)
 		if (!strcasecmp(name, moh->name))
 			break;
 	}
+
+	if (!moh && warn)
+		ast_log(LOG_WARNING, "Music on Hold class '%s' not found\n", name);
 
 	return moh;
 }
@@ -662,7 +665,10 @@ static struct mohdata *mohalloc(struct mohclass *cl)
 	moh->f.offset = AST_FRIENDLY_OFFSET;
 
 	moh->parent = cl;
+
+	AST_LIST_LOCK(&mohclasses);
 	AST_LIST_INSERT_HEAD(&cl->members, moh, list);
+	AST_LIST_UNLOCK(&mohclasses);
 	
 	return moh;
 }
@@ -839,7 +845,7 @@ static int moh_register(struct mohclass *moh, int reload)
 	int x;
 #endif
 	AST_LIST_LOCK(&mohclasses);
-	if (get_mohbyname(moh->name)) {
+	if (get_mohbyname(moh->name, 0)) {
 		if (reload) {
 			ast_log(LOG_DEBUG, "Music on Hold class '%s' left alone from initial load.\n", moh->name);
 		} else {
@@ -916,8 +922,7 @@ static void local_ast_moh_cleanup(struct ast_channel *chan)
 
 static int local_ast_moh_start(struct ast_channel *chan, const char *mclass, const char *interpclass)
 {
-	struct mohclass *mohclass;
-	const char *class;
+	struct mohclass *mohclass = NULL;
 
 	/* The following is the order of preference for which class to use:
 	 * 1) The channels explicitly set musicclass, which should *only* be
@@ -930,23 +935,19 @@ static int local_ast_moh_start(struct ast_channel *chan, const char *mclass, con
 	 *    option.
 	 * 4) The default class.
 	 */
-	if (!ast_strlen_zero(chan->musicclass))
-		class = chan->musicclass;
-	else if (!ast_strlen_zero(mclass))
-		class = mclass;
-	else if (!ast_strlen_zero(interpclass))
-		class = interpclass;
-	else
-		class = "default";
-
 	AST_LIST_LOCK(&mohclasses);
-	mohclass = get_mohbyname(class);
+	if (!ast_strlen_zero(chan->musicclass))
+		mohclass = get_mohbyname(chan->musicclass, 1);
+	if (!mohclass && !ast_strlen_zero(mclass))
+		mohclass = get_mohbyname(mclass, 1);
+	if (!mohclass && !ast_strlen_zero(interpclass))
+		mohclass = get_mohbyname(interpclass, 1);
+	if (!mohclass)	
+		mohclass = get_mohbyname("default", 1);
 	AST_LIST_UNLOCK(&mohclasses);
 
-	if (!mohclass) {
-		ast_log(LOG_WARNING, "No class: %s\n", class);
+	if (!mohclass)
 		return -1;
-	}
 
 	ast_set_flag(chan, AST_FLAG_MOH);
 	if (mohclass->total_files) {
@@ -1062,9 +1063,9 @@ static int load_moh_classes(int reload)
 			args = strchr(data, ',');
 			if (args)
 				*args++ = '\0';
-			if (!(get_mohbyname(var->name))) {			
+			if (!(get_mohbyname(var->name, 0))) {			
 				if (!(class = moh_class_malloc())) {
-					return numclasses;
+					break;
 				}
 				
 				ast_copy_string(class->name, var->name, sizeof(class->name));
@@ -1085,12 +1086,12 @@ static int load_moh_classes(int reload)
 			ast_log(LOG_WARNING, "The old musiconhold.conf syntax has been deprecated!  Please refer to the sample configuration for information on the new syntax.\n");
 			dep_warning = 1;
 		}
-		if (!(get_mohbyname(var->name))) {
+		if (!(get_mohbyname(var->name, 0))) {
 			args = strchr(var->value, ',');
 			if (args)
 				*args++ = '\0';			
 			if (!(class = moh_class_malloc())) {
-				return numclasses;
+				break;
 			}
 			
 			ast_copy_string(class->name, var->name, sizeof(class->name));

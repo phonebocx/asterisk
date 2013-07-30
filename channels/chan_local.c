@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 64193 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 73319 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -464,10 +464,10 @@ static int local_call(struct ast_channel *ast, char *dest, int timeout)
 		}
 	}
 
-	ast_set_flag(p, LOCAL_LAUNCHED_PBX);
-
 	/* Start switch on sub channel */
-	res = ast_pbx_start(p->chan);
+	if (!(res = ast_pbx_start(p->chan)))
+		ast_set_flag(p, LOCAL_LAUNCHED_PBX);
+
 	ast_mutex_unlock(&p->lock);
 	return res;
 }

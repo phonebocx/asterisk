@@ -52,7 +52,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72182 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 74476 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -447,7 +447,7 @@ static char *descrip_vm =
 "           message. The units are whole-number decibels (dB).\n"
 "    s    - Skip the playback of instructions for leaving a message to the\n"
 "           calling party.\n"
-"    u    - Play the 'unavailable greeting.\n"
+"    u    - Play the 'unavailable' greeting.\n"
 "    j    - Jump to priority n+101 if the mailbox is not found or some other\n"
 "           error occurs.\n";
 
@@ -2860,7 +2860,7 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_
 	if (strcmp(vmu->context, "default"))
 		snprintf(ext_context, sizeof(ext_context), "%s@%s", ext, vmu->context);
 	else
-		ast_copy_string(ext_context, vmu->context, sizeof(ext_context));
+		ast_copy_string(ext_context, vmu->mailbox, sizeof(ext_context));
 	if (ast_test_flag(options, OPT_BUSY_GREETING)) {
 		res = create_dirpath(dest, sizeof(dest), vmu->context, ext, "busy");
 		snprintf(prefile, sizeof(prefile), "%s%s/%s/busy", VM_SPOOL_DIR, vmu->context, ext);
@@ -2994,8 +2994,25 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_
 			ast_log(LOG_NOTICE,"Can not leave voicemail, unable to count messages\n");
 			return -1;
 		}
-		if((vms = get_vm_state_by_mailbox(ext,0))) 
-			vms->newmessages++; /*still need to increment new message count*/
+		if(!(vms = get_vm_state_by_mailbox(ext,0))) {
+		/*It is possible under certain circumstances that inboxcount did not create a vm_state when it was needed. This is a catchall which will
+		 * rarely be used*/
+			if (!(vms = ast_calloc(1, sizeof(*vms)))) {
+				ast_log(LOG_ERROR, "Couldn't allocate necessary space\n");
+				return -1;
+			}
+			ast_copy_string(vms->imapuser, vmu->imapuser, sizeof(vms->imapuser));
+			ast_copy_string(vms->username, ext, sizeof(vms->username));
+			vms->mailstream = NIL;
+			if (option_debug > 2)
+				ast_log(LOG_DEBUG, "Copied %s to %s\n", vmu->imapuser, vms->imapuser);
+			vms->updated=1;
+			ast_copy_string(vms->curbox, mbox(0), sizeof(vms->curbox));
+			init_vm_state(vms);
+			vmstate_insert(vms);
+			vms = get_vm_state_by_mailbox(ext,0);
+		}
+		vms->newmessages++;
 		/* here is a big difference! We add one to it later */
 		msgnum = newmsgs + oldmsgs;
 		if (option_debug > 2)
@@ -3932,6 +3949,7 @@ static int forward_message(struct ast_channel *chan, char *context, struct vm_st
 	char *temp;
 	char todir[256];
 	int todircount=0;
+	struct vm_state *dstvms;
 #endif
 	char username[70]="";
 	int res = 0, cmd = 0;
@@ -4122,7 +4140,19 @@ static int forward_message(struct ast_channel *chan, char *context, struct vm_st
 				/* should not assume "fmt" here! */
 				save_body(body,vms,"2",fmt);
 
-				STORE(todir, vmtmp->mailbox, vmtmp->context, vms->curmsg, chan, vmtmp, fmt, duration, vms);
+				/* get destination mailbox */
+				dstvms = get_vm_state_by_mailbox(vmtmp->mailbox,0);
+				if (dstvms) {
+					init_mailstream(dstvms, 0);
+					if (!dstvms->mailstream) {
+						ast_log (LOG_ERROR,"IMAP mailstream for %s is NULL\n",vmtmp->mailbox);
+					} else {
+						STORE(todir, vmtmp->mailbox, vmtmp->context, dstvms->curmsg, chan, vmtmp, fmt, duration, dstvms);
+						run_externnotify(vmtmp->context, vmtmp->mailbox); 
+					}
+				} else {
+					ast_log (LOG_ERROR,"Could not find state information for mailbox %s\n",vmtmp->mailbox);
+				}
 
 				char *myserveremail = serveremail;
 				if (!ast_strlen_zero(vmtmp->serveremail))

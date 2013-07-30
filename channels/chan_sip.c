@@ -90,7 +90,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 71430 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 74955 $")
 
 #include <stdio.h>
 #include <ctype.h>
@@ -2719,6 +2719,8 @@ static int create_addr_from_peer(struct sip_pvt *dialog, struct sip_peer *peer)
 		ast_string_field_set(dialog, fromdomain, peer->fromdomain);
 	if (!ast_strlen_zero(peer->fromuser))
 		ast_string_field_set(dialog, fromuser, peer->fromuser);
+	if (!ast_strlen_zero(peer->language))
+		ast_string_field_set(dialog, language, peer->language);
 	dialog->maxtime = peer->maxms;
 	dialog->callgroup = peer->callgroup;
 	dialog->pickupgroup = peer->pickupgroup;
@@ -3093,7 +3095,7 @@ static int update_call_counter(struct sip_pvt *fup, int event)
 			if (ast_test_flag(&fup->flags[1], SIP_PAGE2_INC_RINGING)) {
 				if (*inringing > 0)
 					(*inringing)--;
-				else
+				else if (!ast_test_flag(&fup->flags[0], SIP_REALTIME) || ast_test_flag(&fup->flags[1], SIP_PAGE2_RTCACHEFRIENDS))
 					ast_log(LOG_WARNING, "Inringing for peer '%s' < 0?\n", fup->peername);
 				ast_clear_flag(&fup->flags[1], SIP_PAGE2_INC_RINGING);
 			}
@@ -3136,7 +3138,7 @@ static int update_call_counter(struct sip_pvt *fup, int event)
 			if (ast_test_flag(&fup->flags[1], SIP_PAGE2_INC_RINGING)) {
 				if (*inringing > 0)
 					(*inringing)--;
-				else
+				else if (!ast_test_flag(&fup->flags[0], SIP_REALTIME) || ast_test_flag(&fup->flags[1], SIP_PAGE2_RTCACHEFRIENDS))
 					ast_log(LOG_WARNING, "Inringing for peer '%s' < 0?\n", p->name);
 				ast_clear_flag(&fup->flags[1], SIP_PAGE2_INC_RINGING);
 			}
@@ -3389,6 +3391,8 @@ static int sip_hangup(struct ast_channel *ast)
 	}
 
 	stop_media_flows(p); /* Immediately stop RTP, VRTP and UDPTL as applicable */
+
+	append_history(p, needcancel ? "Cancel" : "Hangup", "Cause %s", p->owner ? ast_cause2str(p->owner->hangupcause) : "Unknown");
 
 	/* Disconnect */
 	if (p->vad)
@@ -6011,6 +6015,9 @@ static void add_codec_to_sdp(const struct sip_pvt *p, int codec, int sample_rate
 	if (codec == AST_FORMAT_G729A) {
 		/* Indicate that we don't support VAD (G.729 annex B) */
 		ast_build_string(a_buf, a_size, "a=fmtp:%d annexb=no\r\n", rtp_code);
+	} else if (codec == AST_FORMAT_G723_1) {
+		/* Indicate that we don't support VAD (G.723.1 annex A) */
+		ast_build_string(a_buf, a_size, "a=fmtp:%d annexa=no\r\n", rtp_code);
 	} else if (codec == AST_FORMAT_ILBC) {
 		/* Add information about us using only 20/30 ms packetization */
 		ast_build_string(a_buf, a_size, "a=fmtp:%d mode=%d\r\n", rtp_code, fmt.cur_ms);
@@ -13194,7 +13201,8 @@ static int handle_invite_replaces(struct sip_pvt *p, struct sip_request *req, in
 	ast_mutex_unlock(&p->refer->refer_call->lock);
 
 	/* Make sure that the masq does not free our PVT for the old call */
-	ast_set_flag(&p->refer->refer_call->flags[0], SIP_DEFER_BYE_ON_TRANSFER);	/* Delay hangup */
+	if (! earlyreplace && ! oneleggedreplace )
+		ast_set_flag(&p->refer->refer_call->flags[0], SIP_DEFER_BYE_ON_TRANSFER);	/* Delay hangup */
 		
 	/* Prepare the masquerade - if this does not happen, we will be gone */
 	if(ast_channel_masquerade(replacecall, c))
@@ -13411,7 +13419,7 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, int
 			error = 1;
 		}
 
-		if (!error && p->refer->refer_call->owner->_state != AST_STATE_RING && p->refer->refer_call->owner->_state != AST_STATE_UP ) {
+		if (!error && p->refer->refer_call->owner->_state != AST_STATE_RINGING && p->refer->refer_call->owner->_state != AST_STATE_RING && p->refer->refer_call->owner->_state != AST_STATE_UP ) {
 			ast_log(LOG_NOTICE, "Supervised transfer attempted to replace non-ringing or active call id (%s)!\n", replace_id);
 			transmit_response(p, "603 Declined (Replaces)", req);
 			error = 1;
@@ -14619,8 +14627,11 @@ static int handle_request_subscribe(struct sip_pvt *p, struct sip_request *req, 
 		return 0;
 	}
 
-	if (p->subscribed != MWI_NOTIFICATION && !resubscribe)
+	if (p->subscribed != MWI_NOTIFICATION && !resubscribe) {
+		if (p->stateid > -1)
+			ast_extension_state_del(p->stateid, cb_extensionstate);
 		p->stateid = ast_extension_state_add(p->context, p->exten, cb_extensionstate, p);
+	}
 
 	if (!ast_test_flag(req, SIP_PKT_IGNORE) && p)
 		p->lastinvite = seqno;
@@ -15172,8 +15183,12 @@ static void *do_monitor(void *data)
 			sip_do_reload(sip_reloadreason);
 
 			/* Change the I/O fd of our UDP socket */
-			if (sipsock > -1)
-				sipsock_read_id = ast_io_change(io, sipsock_read_id, sipsock, NULL, 0, NULL);
+			if (sipsock > -1) {
+				if (sipsock_read_id)
+					sipsock_read_id = ast_io_change(io, sipsock_read_id, sipsock, NULL, 0, NULL);
+				else
+					sipsock_read_id = ast_io_add(io, sipsock, sipsock_read, AST_IO_IN, NULL);
+			}
 		}
 		/* Check for interfaces needing to be killed */
 		ast_mutex_lock(&iflock);
@@ -17637,7 +17652,7 @@ static int unload_module(void)
 	ast_mutex_unlock(&iflock);
 
 	ast_mutex_lock(&monlock);
-	if (monitor_thread && (monitor_thread != AST_PTHREADT_STOP)) {
+	if (monitor_thread && (monitor_thread != AST_PTHREADT_STOP) && (monitor_thread != AST_PTHREADT_NULL)) {
 		pthread_cancel(monitor_thread);
 		pthread_kill(monitor_thread, SIGURG);
 		pthread_join(monitor_thread, NULL);

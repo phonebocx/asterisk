@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51195 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72665 $")
 
 #include <ctype.h>
 #include <string.h>
@@ -67,7 +67,7 @@ static char b2a[256];
 
 AST_THREADSTORAGE(inet_ntoa_buf, inet_ntoa_buf_init);
 
-#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined( __NetBSD__ ) || defined(__APPLE__) || defined(__CYGWIN__)
+#if !defined(HAVE_GETHOSTBYNAME_R)
 
 #define ERANGE 34	/*!< duh? ERANGE value copied from web... */
 #undef gethostbyname

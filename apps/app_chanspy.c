@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47437 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75078 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -387,9 +387,10 @@ static int channel_spy(struct ast_channel *chan, struct ast_channel *spyee, int 
 	else
 		ast_deactivate_generator(chan);
 
+	csth.spy.status = CHANSPY_DONE;
+
 	/* If a channel still exists on our spy structure then we need to remove ourselves */
 	if (csth.spy.chan) {
-		csth.spy.status = CHANSPY_DONE;
 		ast_channel_lock(csth.spy.chan);
 		ast_channel_spy_remove(csth.spy.chan, &csth.spy);
 		ast_channel_unlock(csth.spy.chan);
@@ -604,7 +605,8 @@ static int chanspy_exec(struct ast_channel *chan, void *data)
 
 		if (ast_test_flag(&flags, OPTION_PRIVATE))
 			ast_set_flag(&flags, OPTION_WHISPER);
-	}
+	} else
+		ast_clear_flag(&flags, AST_FLAGS_ALL);
 
 	oldwf = chan->writeformat;
 	if (ast_set_write_format(chan, AST_FORMAT_SLINEAR) < 0) {
@@ -688,7 +690,8 @@ static int extenspy_exec(struct ast_channel *chan, void *data)
 
 		if (ast_test_flag(&flags, OPTION_PRIVATE))
 			ast_set_flag(&flags, OPTION_WHISPER);
-	}
+	} else
+		ast_clear_flag(&flags, AST_FLAGS_ALL);
 
 	oldwf = chan->writeformat;
 	if (ast_set_write_format(chan, AST_FORMAT_SLINEAR) < 0) {

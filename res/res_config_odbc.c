@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69702 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 74657 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,14 +101,16 @@ static struct ast_variable *realtime_odbc(const char *database, const char *tabl
 		return NULL;
 	}
 	newval = va_arg(aq, const char *);
-	if (!strchr(newparam, ' ')) op = " ="; else op = "";
+	op = !strchr(newparam, ' ') ? " =" : "";
 	snprintf(sql, sizeof(sql), "SELECT * FROM %s WHERE %s%s ?", table, newparam, op);
 	while((newparam = va_arg(aq, const char *))) {
-		if (!strchr(newparam, ' ')) op = " ="; else op = "";
-		snprintf(sql + strlen(sql), sizeof(sql) - strlen(sql), " AND %s%s ?", newparam, op);
+		op = !strchr(newparam, ' ') ? " =" : "";
+		snprintf(sql + strlen(sql), sizeof(sql) - strlen(sql), " AND %s%s ?%s", newparam, op,
+			strcasestr(newparam, "LIKE") ? " ESCAPE '\\'" : "");
 		newval = va_arg(aq, const char *);
 	}
 	va_end(aq);
+
 	res = SQLPrepare(stmt, (unsigned char *)sql, SQL_NTS);
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 		ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", sql);
@@ -255,16 +257,18 @@ static struct ast_config *realtime_multi_odbc(const char *database, const char *
 	if ((op = strchr(initfield, ' '))) 
 		*op = '\0';
 	newval = va_arg(aq, const char *);
-	if (!strchr(newparam, ' ')) op = " ="; else op = "";
+	op = !strchr(newparam, ' ') ? " =" : "";
 	snprintf(sql, sizeof(sql), "SELECT * FROM %s WHERE %s%s ?", table, newparam, op);
 	while((newparam = va_arg(aq, const char *))) {
-		if (!strchr(newparam, ' ')) op = " ="; else op = "";
-		snprintf(sql + strlen(sql), sizeof(sql) - strlen(sql), " AND %s%s ?", newparam, op);
+		op = !strchr(newparam, ' ') ? " =" : "";
+		snprintf(sql + strlen(sql), sizeof(sql) - strlen(sql), " AND %s%s ?%s", newparam, op,
+			strcasestr(newparam, "LIKE") ? " ESCAPE '\\'" : "");
 		newval = va_arg(aq, const char *);
 	}
 	if (initfield)
 		snprintf(sql + strlen(sql), sizeof(sql) - strlen(sql), " ORDER BY %s", initfield);
 	va_end(aq);
+
 	res = SQLPrepare(stmt, (unsigned char *)sql, SQL_NTS);
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 		ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", sql);

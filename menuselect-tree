@@ -295,7 +295,7 @@
 	<depend>vorbis</depend>
 	<depend>ogg</depend>
 		</member>
-		<member name="format_pcm" displayname="Raw/Sun uLaw/ALaw 8KHz Audio support (PCM,PCMA,AU) and G.722 16Khz Audio Support" remove_on_change="formats/format_pcm.o formats/format_pcm.oo formats/format_pcm.so">
+		<member name="format_pcm" displayname="Raw/Sun uLaw/ALaw 8KHz (PCM,PCMA,AU), G.722 16Khz" remove_on_change="formats/format_pcm.o formats/format_pcm.oo formats/format_pcm.so">
 		</member>
 		<member name="format_sln" displayname="Raw Signed Linear Audio support (SLN)" remove_on_change="formats/format_sln.o formats/format_sln.oo formats/format_sln.so">
 		</member>
