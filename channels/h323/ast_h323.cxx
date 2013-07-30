@@ -26,7 +26,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Version Info: $Id: ast_h323.cxx 201679 2009-06-18 16:44:37Z dvossel $
+ * Version Info: $Id: ast_h323.cxx 265452 2010-05-24 22:07:11Z mmichelson $
  */
 
 #define VERSION(a,b,c) ((a)*10000+(b)*100+(c))
@@ -2257,6 +2257,7 @@ void h323_end_point_create(void)
 {
 	channelsOpen = 0;
 	logstream = new PAsteriskLog();
+	PTrace::SetStream(logstream); 
 	endPoint = new MyH323EndPoint();
 }
 
@@ -2672,6 +2673,7 @@ void h323_end_process(void)
 	close(_timerChangePipe[1]);
 #endif
 	if (logstream) {
+		PTrace::SetStream(NULL);
 		delete logstream;
 		logstream = NULL;
 	}

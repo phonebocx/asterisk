@@ -186,7 +186,7 @@
 \contentsline {subsection}{\numberline {6.3.5}Dialing destinations with different information}{110}{subsection.6.3.5}
 \contentsline {subsection}{\numberline {6.3.6}Using callfiles and Local channels}{111}{subsection.6.3.6}
 \contentsline {subsection}{\numberline {6.3.7}Understanding When To Use /n}{113}{subsection.6.3.7}
-\contentsline {subsection}{\numberline {6.3.8}Local channel modifiers}{115}{subsection.6.3.8}
+\contentsline {subsection}{\numberline {6.3.8}Local channel modifiers}{116}{subsection.6.3.8}
 \contentsline {chapter}{\numberline {7}Distributed Universal Number Discovery (DUNDi)}{117}{chapter.7}
 \contentsline {section}{\numberline {7.1}Introduction}{117}{section.7.1}
 \contentsline {section}{\numberline {7.2}DUNDIQUERY and DUNDIRESULT}{118}{section.7.2}
@@ -199,15 +199,16 @@
 \contentsline {subsection}{\numberline {8.1.4}Some more Examples}{138}{subsection.8.1.4}
 \contentsline {chapter}{\numberline {9}AMI: Asterisk Manager Interface}{140}{chapter.9}
 \contentsline {section}{\numberline {9.1}The Asterisk Manager TCP/IP API}{140}{section.9.1}
-\contentsline {section}{\numberline {9.2}Device status reports}{141}{section.9.2}
-\contentsline {section}{\numberline {9.3}Command Syntax}{141}{section.9.3}
-\contentsline {section}{\numberline {9.4}Manager commands}{141}{section.9.4}
-\contentsline {section}{\numberline {9.5}Examples}{141}{section.9.5}
-\contentsline {section}{\numberline {9.6}Some standard AMI headers}{142}{section.9.6}
-\contentsline {section}{\numberline {9.7}Asynchronous Javascript Asterisk Manger (AJAM)}{146}{section.9.7}
-\contentsline {subsection}{\numberline {9.7.1}Setup the Asterisk HTTP server}{146}{subsection.9.7.1}
-\contentsline {subsection}{\numberline {9.7.2}Allow Manager Access via HTTP}{147}{subsection.9.7.2}
-\contentsline {subsection}{\numberline {9.7.3}Integration with other web servers}{148}{subsection.9.7.3}
+\contentsline {section}{\numberline {9.2}Command Syntax}{141}{section.9.2}
+\contentsline {section}{\numberline {9.3}Manager commands}{141}{section.9.3}
+\contentsline {section}{\numberline {9.4}Examples}{141}{section.9.4}
+\contentsline {section}{\numberline {9.5}Ensuring all modules are loaded}{142}{section.9.5}
+\contentsline {section}{\numberline {9.6}Device status reports}{143}{section.9.6}
+\contentsline {section}{\numberline {9.7}Some standard AMI headers}{143}{section.9.7}
+\contentsline {section}{\numberline {9.8}Asynchronous Javascript Asterisk Manger (AJAM)}{146}{section.9.8}
+\contentsline {subsection}{\numberline {9.8.1}Setup the Asterisk HTTP server}{147}{subsection.9.8.1}
+\contentsline {subsection}{\numberline {9.8.2}Allow Manager Access via HTTP}{147}{subsection.9.8.2}
+\contentsline {subsection}{\numberline {9.8.3}Integration with other web servers}{148}{subsection.9.8.3}
 \contentsline {chapter}{\numberline {10}CDR: Call Detail Records}{149}{chapter.10}
 \contentsline {section}{\numberline {10.1}Applications}{149}{section.10.1}
 \contentsline {section}{\numberline {10.2}CDR Fields}{149}{section.10.2}

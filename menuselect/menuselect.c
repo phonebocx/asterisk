@@ -72,11 +72,8 @@ static int existing_config = 0;
 /*! This is set when the --check-deps argument is provided. */
 static int check_deps = 0;
 
-/*! This is set when the --enable-all argument is provided. */
-static int enable_all = 0;
-
-/*! This is set when the --disable-all argument is provided. */
-static int disable_all = 0;
+/*! These are set when the --list-options or --list-groups arguments are provided. */
+static int list_options = 0, list_groups = 0;
 
 /*! This variable is non-zero when any changes are made */
 int changes_made = 0;
@@ -284,6 +281,10 @@ static int parse_tree(const char *tree_file)
 			mem->displayname = mxmlElementGetAttr(cur2, "displayname");
 			mem->touch_on_change = mxmlElementGetAttr(cur2, "touch_on_change");
 			mem->remove_on_change = mxmlElementGetAttr(cur2, "remove_on_change");
+
+			if ((tmp = mxmlElementGetAttr(cur2, "explicitly_enabled_only"))) {
+				mem->explicitly_enabled_only = !strcasecmp(tmp, "yes");
+			}
 
 			if (!cat->positive_output) {
 				mem->was_enabled = mem->enabled = 1;
@@ -815,6 +816,11 @@ unsigned int enable_member(struct member *mem)
 			}
 
 			if (dep->member->depsfailed == HARD_FAILURE) {
+				can_enable = 0;
+				break;
+			}
+
+			if (dep->member->explicitly_enabled_only) {
 				can_enable = 0;
 				break;
 			}
@@ -1531,9 +1537,22 @@ struct category *find_category(const char *name)
 	return NULL;
 }
 
+static int usage(const char *argv0)
+{
+	fprintf(stderr, "Usage: %s [--enable <option>] [--disable <option>]\n", argv0);
+	fprintf(stderr, "   [--enable-category <category>] [--enable-all]\n");
+	fprintf(stderr, "   [--disable-category <category>] [--disable-all] [...]\n");
+	fprintf(stderr, "   [<config-file> [...]]\n");
+	fprintf(stderr, "Usage: %s { --check-deps | --list-options\n", argv0);
+	fprintf(stderr, "   | --list-category <category> | --category-list | --help }\n");
+	fprintf(stderr, "   [<config-file> [...]]\n");
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	int res = 0;
+	const char *list_group = NULL;
 	unsigned int x;
 	static struct option long_options[] = {
 		/* 
@@ -1543,22 +1562,22 @@ int main(int argc, char *argv[])
 		 * is not the case, an informative message will be printed to the
 		 * user and the build will fail.
 		 */
-		{ "check-deps",       no_argument,       &check_deps,  1  },
-		{ "enable",           required_argument, 0,           'e' },
-		{ "enable-category",  required_argument, 0,           'E' },
-		{ "enable-all",       no_argument,       &enable_all,  1  },
-		{ "disable",          required_argument, 0,           'd' },
-		{ "disable-category", required_argument, 0,           'D' },
-		{ "disable-all",      no_argument,       &disable_all, 1  },
+		{ "check-deps",       no_argument,       &check_deps,   1  },
+		{ "enable",           required_argument, 0,            'e' },
+		{ "enable-category",  required_argument, 0,            'E' },
+		{ "enable-all",       no_argument,       0,            'a' },
+		{ "disable",          required_argument, 0,            'd' },
+		{ "disable-category", required_argument, 0,            'D' },
+		{ "disable-all",      no_argument,       0,            'A' },
+		{ "list-options",     no_argument,       &list_options, 1  },
+		{ "list-category",    required_argument, 0,            'L' },
+		{ "category-list",    no_argument,       &list_groups,  1  },
+		{ "help",             no_argument,       0,            'h' },
 
 		{ 0, 0, 0, 0 },
 	};
-	int do_menu = 1;
+	int do_menu = 1, do_settings = 1;
 	int c, option_index = 0;
-	const char *enable = NULL;
-	const char *enable_cat = NULL;
-	const char *disable = NULL;
-	const char *disable_cat = NULL;
 
 	if (open_debug()) {
 		exit(1);
@@ -1576,29 +1595,29 @@ int main(int argc, char *argv[])
 
 	while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1) {
 		switch (c) {
+		case 'L':
+			list_group = optarg;
+			do_settings = 0;
+			/* Fall-through */
+		case 'a':
+		case 'A':
 		case 'e':
-			enable = optarg;
-			do_menu = 0;
-			break;
 		case 'E':
-			enable_cat = optarg;
-			do_menu = 0;
-			break;
 		case 'd':
-			disable = optarg;
+		case 'D':
 			do_menu = 0;
 			break;
-		case 'D':
-			disable_cat = optarg;
-			do_menu = 0;
+		case 'h':
+			return usage(argv[0]);
 			break;
 		default:
 			break;
 		}
 	}
 
-	if (check_deps || enable_all || disable_all) {
+	if (check_deps || list_options || list_groups) {
 		do_menu = 0;
+		do_settings = 0;
 	}
 
 	if (optind < argc) {
@@ -1622,64 +1641,109 @@ int main(int argc, char *argv[])
 
 	while (calc_dep_failures(0, 0) || calc_conflict_failures(0, 0));
 
+	print_debug("do_menu=%d, do_settings=%d\n", do_menu, do_settings);
+
 	if (do_menu && !res) {
 		res = run_menu();
-	}
-
-	if (!strlen_zero(enable)) {
+	} else if (!do_settings) {
+		if (list_groups) {
+			struct category *cat;
+			AST_LIST_TRAVERSE(&categories, cat, list) {
+				fprintf(stdout, "%s\n", cat->name);
+			}
+		} else if (list_options) {
+			struct category *cat;
+			struct member *mem;
+			AST_LIST_TRAVERSE(&categories, cat, list) {
+				AST_LIST_TRAVERSE(&cat->members, mem, list) {
+					fprintf(stdout, "%c %-30.30s %s\n", mem->enabled ? '+' : '-', mem->name, cat->name);
+				}
+			}
+		} else if (!strlen_zero(list_group)) {
+			struct category *cat;
+			struct member *mem;
+			if ((cat = find_category(list_group))) {
+				AST_LIST_TRAVERSE(&cat->members, mem, list) {
+					fprintf(stdout, "%c %s\n", mem->enabled ? '+' : '-', mem->name);
+				}
+			}
+		}
+	} else if (!do_menu && do_settings) {
 		struct member *mem;
-
-		if ((mem = find_member(enable))) {
-			set_member_enabled(mem);
-		} else {
-			fprintf(stderr, "'%s' not found\n", enable);
-		}
-	}
-
-	if (!strlen_zero(enable_cat)) {
 		struct category *cat;
 
-		if ((cat = find_category(enable_cat))) {
-			set_all(cat, 1);
-		} else {
-			fprintf(stderr, "'%s' not found\n", enable_cat);
+		print_debug("Doing settings with argc=%d\n", argc);
+
+		/* Reset options processing */
+		option_index = 0;
+		optind = 1;
+
+		while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1) {
+			print_debug("Got option %c\n", c);
+			switch (c) {
+			case 'e':
+				if (!strlen_zero(optarg)) {
+					if ((mem = find_member(optarg))) {
+						set_member_enabled(mem);
+					} else {
+						fprintf(stderr, "'%s' not found\n", optarg);
+					}
+				}
+				break;
+			case 'E':
+				if (!strlen_zero(optarg)) {
+					if ((cat = find_category(optarg))) {
+						set_all(cat, 1);
+					} else {
+						fprintf(stderr, "'%s' not found\n", optarg);
+					}
+				}
+				break;
+			case 'a': /* enable-all */
+				AST_LIST_TRAVERSE(&categories, cat, list) {
+					set_all(cat, 1);
+				}
+				break;
+			case 'd':
+				if (!strlen_zero(optarg)) {
+					if ((mem = find_member(optarg))) {
+						clear_member_enabled(mem);
+					} else {
+						fprintf(stderr, "'%s' not found\n", optarg);
+					}
+				}
+				break;
+			case 'D':
+				if (!strlen_zero(optarg)) {
+					if ((cat = find_category(optarg))) {
+						set_all(cat, 0);
+					} else {
+						fprintf(stderr, "'%s' not found\n", optarg);
+					}
+				}
+				break;
+			case 'A': /* disable-all */
+				AST_LIST_TRAVERSE(&categories, cat, list) {
+					set_all(cat, 0);
+				}
+				break;
+			case '?':
+				break;
+			default:
+				break;
+			}
 		}
+		res = 0;
 	}
 
-	if (!strlen_zero(disable)) {
-		struct member *mem;
-
-		if ((mem = find_member(disable))) {
-			clear_member_enabled(mem);
-		} else {
-			fprintf(stderr, "'%s' not found\n", disable);
-		}
-	}
-
-	if (!strlen_zero(disable_cat)) {
-		struct category *cat;
-
-		if ((cat = find_category(disable_cat))) {
-			set_all(cat, 0);
-		} else {
-			fprintf(stderr, "'%s' not found\n", disable_cat);
-		}
-	}
-
-	if (enable_all != disable_all) {
-		struct category *cat;
-
-		AST_LIST_TRAVERSE(&categories, cat, list) {
-			set_all(cat, enable_all);
-		}
-	}
-
-	if (!res)
+	if (!res) {
 		res = generate_makeopts_file();
+	}
 
 	/* Always generate the dependencies file */
-	if (!res)
+	if (!res) {
 		generate_makedeps_file();
+	}
 
 	/* free everything we allocated */
 	free_deps_file();

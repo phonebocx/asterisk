@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 255955 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 269747 $")
 
 #include "asterisk/_private.h"
 
@@ -464,11 +464,13 @@ static char *handle_show_settings(struct ast_cli_entry *e, int cmd, struct ast_c
 	ast_cli(a->fd, "  Transcode via SLIN:          %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_TRANSCODE_VIA_SLIN) ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Internal timing:             %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_INTERNAL_TIMING) ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Transmit silence during rec: %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_TRANSMIT_SILENCE) ? "Enabled" : "Disabled");
+	ast_cli(a->fd, "  Generic PLC:                 %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_GENERIC_PLC) ? "Enabled" : "Disabled");
 
 	ast_cli(a->fd, "\n* Subsystems\n");
 	ast_cli(a->fd, "  -------------\n");
 	ast_cli(a->fd, "  Manager (AMI):               %s\n", check_manager_enabled() ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Web Manager (AMI/HTTP):      %s\n", check_webmanager_enabled() ? "Enabled" : "Disabled");
+	ast_cli(a->fd, "  Send Manager FullyBooted:    %s\n", ast_opt_send_fullybooted ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Call data records:           %s\n", check_cdr_enabled() ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Realtime Architecture (ARA): %s\n", ast_realtime_enabled() ? "Enabled" : "Disabled");
 
@@ -559,13 +561,15 @@ static int swapmode(int *used, int *total)
 /*! \brief Give an overview of system statistics */
 static char *handle_show_sysinfo(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	int64_t physmem, freeram;
-	int totalswap = 0, freeswap = 0, nprocs = 0;
+	uint64_t physmem, freeram;
+	uint64_t freeswap = 0;
+	int totalswap = 0;
+	int nprocs = 0;
 	long uptime = 0;
 #if defined(HAVE_SYSINFO)
 	struct sysinfo sys_info;
 	sysinfo(&sys_info);
-	uptime = sys_info.uptime/3600;
+	uptime = sys_info.uptime / 3600;
 	physmem = sys_info.totalram * sys_info.mem_unit;
 	freeram = (sys_info.freeram * sys_info.mem_unit) / 1024;
 	totalswap = (sys_info.totalswap * sys_info.mem_unit) / 1024;
@@ -614,7 +618,7 @@ static char *handle_show_sysinfo(struct ast_cli_entry *e, int cmd, struct ast_cl
 	sysctl(mib, 2, &vmtotal, &len, NULL, 0);
 	freeram = (vmtotal.t_free << pageshift);
 	/* generate swap usage and totals */
-	swapmode(&usedswap, &totalswap); 
+	swapmode(&usedswap, &totalswap);
 	freeswap = (totalswap - usedswap);
 	/* grab number of processes */
 #if defined(__OpenBSD__)
@@ -638,14 +642,16 @@ static char *handle_show_sysinfo(struct ast_cli_entry *e, int cmd, struct ast_cl
 
 	ast_cli(a->fd, "\nSystem Statistics\n");
 	ast_cli(a->fd, "-----------------\n");
-	ast_cli(a->fd, "  System Uptime:             %ld hours\n", uptime);
-	ast_cli(a->fd, "  Total RAM:                 %ld KiB\n", (long)physmem/1024);
-	ast_cli(a->fd, "  Free RAM:                  %ld KiB\n", (long)freeram);
+	ast_cli(a->fd, "  System Uptime:             %lu hours\n", uptime);
+	ast_cli(a->fd, "  Total RAM:                 %" PRIu64 " KiB\n", physmem / 1024);
+	ast_cli(a->fd, "  Free RAM:                  %" PRIu64 " KiB\n", freeram);
 #if defined(HAVE_SYSINFO)
-	ast_cli(a->fd, "  Buffer RAM:                %ld KiB\n", (sys_info.bufferram * sys_info.mem_unit)/1024);
+	ast_cli(a->fd, "  Buffer RAM:                %" PRIu64 " KiB\n", ((uint64_t) sys_info.bufferram * sys_info.mem_unit) / 1024);
 #endif
-	ast_cli(a->fd, "  Total Swap Space:          %ld KiB\n", (long)totalswap);
-	ast_cli(a->fd, "  Free Swap Space:           %ld KiB\n\n", (long)freeswap);
+#if defined (HAVE_SYSCTL) && defined(HAVE_SWAPCTL)
+	ast_cli(a->fd, "  Total Swap Space:          %u KiB\n", totalswap);
+	ast_cli(a->fd, "  Free Swap Space:           %" PRIu64 " KiB\n\n", freeswap);
+#endif
 	ast_cli(a->fd, "  Number of Processes:       %d \n\n", nprocs);
 	return CLI_SUCCESS;
 }
@@ -959,16 +965,25 @@ static int fdprint(int fd, const char *s)
 }
 
 /*! \brief NULL handler so we can collect the child exit status */
-static void null_sig_handler(int sig)
+static void _null_sig_handler(int sig)
 {
 
 }
+
+static struct sigaction null_sig_handler = {
+	.sa_handler = _null_sig_handler,
+	.sa_flags = SA_RESTART,
+};
+
+static struct sigaction ignore_sig_handler = {
+	.sa_handler = SIG_IGN,
+};
 
 AST_MUTEX_DEFINE_STATIC(safe_system_lock);
 /*! \brief Keep track of how many threads are currently trying to wait*() on
  *  a child process */
 static unsigned int safe_system_level = 0;
-static void *safe_system_prev_handler;
+static struct sigaction safe_system_prev_handler;
 
 void ast_replace_sigchld(void)
 {
@@ -978,8 +993,9 @@ void ast_replace_sigchld(void)
 	level = safe_system_level++;
 
 	/* only replace the handler if it has not already been done */
-	if (level == 0)
-		safe_system_prev_handler = signal(SIGCHLD, null_sig_handler);
+	if (level == 0) {
+		sigaction(SIGCHLD, &null_sig_handler, &safe_system_prev_handler);
+	}
 
 	ast_mutex_unlock(&safe_system_lock);
 }
@@ -992,8 +1008,9 @@ void ast_unreplace_sigchld(void)
 	level = --safe_system_level;
 
 	/* only restore the handler if we are the last one */
-	if (level == 0)
-		signal(SIGCHLD, safe_system_prev_handler);
+	if (level == 0) {
+		sigaction(SIGCHLD, &safe_system_prev_handler, NULL);
+	}
 
 	ast_mutex_unlock(&safe_system_lock);
 }
@@ -1426,13 +1443,17 @@ static int ast_tryconnect(void)
  system call.  We don't actually need to do anything though.  
  Remember: Cannot EVER ast_log from within a signal handler 
  */
-static void urg_handler(int num)
+static void _urg_handler(int num)
 {
-	signal(num, urg_handler);
 	return;
 }
 
-static void hup_handler(int num)
+static struct sigaction urg_handler = {
+	.sa_handler = _urg_handler,
+	.sa_flags = SA_RESTART,
+};
+
+static void _hup_handler(int num)
 {
 	int a = 0;
 	if (option_verbose > 1) 
@@ -1445,10 +1466,14 @@ static void hup_handler(int num)
 			fprintf(stderr, "hup_handler: write() failed: %s\n", strerror(errno));
 		}
 	}
-	signal(num, hup_handler);
 }
 
-static void child_handler(int sig)
+static struct sigaction hup_handler = {
+	.sa_handler = _hup_handler,
+	.sa_flags = SA_RESTART,
+};
+
+static void _child_handler(int sig)
 {
 	/* Must not ever ast_log or ast_verbose within signal handler */
 	int n, status;
@@ -1460,8 +1485,12 @@ static void child_handler(int sig)
 		;
 	if (n == 0 && option_debug)	
 		printf("Huh?  Child handler, but nobody there?\n");
-	signal(sig, child_handler);
 }
+
+static struct sigaction child_handler = {
+	.sa_handler = _child_handler,
+	.sa_flags = SA_RESTART,
+};
 
 /*! \brief Set maximum open files */
 static void set_ulimit(int value)
@@ -1661,7 +1690,7 @@ static void __quit_handler(int num)
 	sig_flags.need_quit = 1;
 	if (sig_alert_pipe[1] != -1) {
 		if (write(sig_alert_pipe[1], &a, sizeof(a)) < 0) {
-			fprintf(stderr, "hup_handler: write() failed: %s\n", strerror(errno));
+			fprintf(stderr, "quit_handler: write() failed: %s\n", strerror(errno));
 		}
 	}
 	/* There is no need to restore the signal handler here, since the app
@@ -2142,7 +2171,7 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 
 			/* Write over the CLI prompt */
 			if (!ast_opt_exec && !lastpos) {
-				if (write(STDOUT_FILENO, "\r", 1) < 0) {
+				if (write(STDOUT_FILENO, "\r[0K", 5) < 0) {
 				}
 			}
 			if (write(STDOUT_FILENO, buf, res) < 0) {
@@ -2995,6 +3024,8 @@ static void ast_readconfig(void)
 			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_FORCE_BLACK_BACKGROUND);
 		} else if (!strcasecmp(v->name, "hideconnect")) {
 			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_HIDE_CONSOLE_CONNECT);
+		} else if (!strcasecmp(v->name, "sendfullybooted")) {
+			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_SEND_FULLYBOOTED);
 		}
 	}
 	for (v = ast_variable_browse(cfg, "compat"); v; v = v->next) {
@@ -3299,7 +3330,7 @@ int main(int argc, char *argv[])
 	/* Must install this signal handler up here to ensure that if the canary
 	 * fails to execute that it doesn't kill the Asterisk process.
 	 */
-	signal(SIGCHLD, child_handler);
+	sigaction(SIGCHLD, &child_handler, NULL);
 
 	/* It's common on some platforms to clear /var/run at boot.  Create the
 	 * socket file directory before we drop privileges. */
@@ -3498,7 +3529,7 @@ int main(int argc, char *argv[])
 		snprintf(canary_filename, sizeof(canary_filename), "%s/alt.asterisk.canary.tweet.tweet.tweet", ast_config_AST_RUN_DIR);
 
 		/* Don't let the canary child kill Asterisk, if it dies immediately */
-		signal(SIGPIPE, SIG_IGN);
+		sigaction(SIGPIPE, &ignore_sig_handler, NULL);
 
 		canary_pid = fork();
 		if (canary_pid == 0) {
@@ -3545,11 +3576,11 @@ int main(int argc, char *argv[])
 	sigaddset(&sigs, SIGPIPE);
 	sigaddset(&sigs, SIGWINCH);
 	pthread_sigmask(SIG_BLOCK, &sigs, NULL);
-	signal(SIGURG, urg_handler);
+	sigaction(SIGURG, &urg_handler, NULL);
 	signal(SIGINT, __quit_handler);
 	signal(SIGTERM, __quit_handler);
-	signal(SIGHUP, hup_handler);
-	signal(SIGPIPE, SIG_IGN);
+	sigaction(SIGHUP, &hup_handler, NULL);
+	sigaction(SIGPIPE, &ignore_sig_handler, NULL);
 
 	/* ensure that the random number generators are seeded with a different value every time
 	   Asterisk is started
@@ -3676,6 +3707,9 @@ int main(int argc, char *argv[])
 		sig_alert_pipe[0] = sig_alert_pipe[1] = -1;
 
 	ast_set_flag(&ast_options, AST_OPT_FLAG_FULLY_BOOTED);
+	if (ast_opt_send_fullybooted) {
+		manager_event(EVENT_FLAG_SYSTEM, "FullyBooted", "Status: Fully Booted\r\n");
+	}
 
 	ast_process_pending_reloads();
 

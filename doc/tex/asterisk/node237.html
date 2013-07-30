@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Compiling Asterisk</TITLE>
-<META NAME="description" CONTENT="Compiling Asterisk">
+<TITLE>University of Washington IMAP C-Client</TITLE>
+<META NAME="description" CONTENT="University of Washington IMAP C-Client">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,111 +18,145 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
+<LINK REL="next" HREF="node238.html">
 <LINK REL="previous" HREF="node236.html">
-<LINK REL="up" HREF="node235.html">
+<LINK REL="up" HREF="node236.html">
 <LINK REL="next" HREF="node238.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3767"
+<A NAME="tex2html3772"
   HREF="node238.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3763"
-  HREF="node235.html">
+<A NAME="tex2html3768"
+  HREF="node236.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3759"
+<A NAME="tex2html3762"
   HREF="node236.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3765"
+<A NAME="tex2html3770"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3768"
-  HREF="node238.html">Modify voicemail.conf</A>
-<B> Up:</B> <A NAME="tex2html3764"
-  HREF="node235.html">Installation Notes</A>
-<B> Previous:</B> <A NAME="tex2html3760"
-  HREF="node236.html">University of Washington IMAP</A>
- &nbsp; <B>  <A NAME="tex2html3766"
+<B> Next:</B> <A NAME="tex2html3773"
+  HREF="node238.html">Compiling Asterisk</A>
+<B> Up:</B> <A NAME="tex2html3769"
+  HREF="node236.html">Installation Notes</A>
+<B> Previous:</B> <A NAME="tex2html3763"
+  HREF="node236.html">Installation Notes</A>
+ &nbsp; <B>  <A NAME="tex2html3771"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H3><A NAME="SECTION001221200000000000000">
-Compiling Asterisk</A>
+<H3><A NAME="SECTION001221100000000000000">
+University of Washington IMAP C-Client</A>
 </H3>
 
 <P>
-Configure with ./configure -with-imap=/usr/src/imap
-or wherever you built the UWashington IMAP Toolkit. This directory
-will be searched for a source installation. If no source installation is
-found there, then a package installation of the IMAP c-client will be 
-searched for in this directory. If one is not found, then configure will fail.
+If you do not have the University of Washington's IMAP c-client
+installed on your system, you will need to download the c-client
+source distribution (<TT><A NAME="tex2html34"
+  HREF="http://www.washington.edu/imap/">http://www.washington.edu/imap/</A></TT>) and compile it.
+Asterisk supports the 2007 version of c-client as there appears to be issues
+with older versions which cause Asterisk to crash in certain scenarios. It
+is highly recommended that you utilize a current version of the c-client
+libraries. Additionally, mail_expunge_full is enabled in the 2006 and later
+versions.
 
 <P>
-A second configure option is to not specify a directory (i.e.
-./configure -with-imap). This will assume that you have the
-imap-2007e source installed in the ../imap directory relative to the
-Asterisk source. If you do not have this source, then configure will
-default to the "system" option defined in the next paragraph
+Note that Asterisk only uses the 'c-client' portion of the UW IMAP toolkit,
+but building it also builds an IMAP server and various other utilities.
+Because of this, the build instructions for the IMAP toolkit are somewhat
+complicated and can lead to confusion about what is needed.
 
 <P>
-A third option is ./configure -with-imap=system. This will assume
-that you have installed a dynamically linked version of the c-client
-library (most likely via a package provided by your distro). This will
-attempt to link agains -lc-client and will search for c-client headers
-in your include path starting with the imap directory, and upon failure,
-in the c-client directory.
+If you are going to be connecting Asterisk to an existing IMAP server,
+then you don't need to care about the server or utilities in the IMAP
+toolkit at all. If you want to also install the UW IMAPD server, that
+is outside the scope of this document.
 
 <P>
-When you run 'make menuselect', choose 'Voicemail Build Options' and the
-IMAP_STORAGE option should be available for selection.
+Building the c-client library is fairly straightforward; for example, on a
+Debian system there are two possibilities:
 
 <P>
-After selecting the IMAP_STORAGE option, use the 'x' key to exit
-menuselect and save your changes, and the build/install Asterisk
-normally.
+
+<OL>
+<LI>If you will not be using SSL to connect to the IMAP server:
+   <PRE>
+        $ make slx SSLTYPE=none
+</PRE>
+</LI>
+<LI>If you will be using SSL to connect to the IMAP server:
+   <PRE>
+   $ make slx EXTRACFLAGS="-I/usr/include/openssl"
+</PRE>
+</LI>
+</OL>
+
+<P>
+Additionally, you may wish to build on a 64-bit machine, in which case you
+need to add -fPIC to EXTRACFLAGS. So, building on a 64-bit machine with
+SSL support would look something like:
+
+<P>
+<PRE>
+   $ make slx EXTRACFLAGS="-fPIC -I/usr/include/openssl"
+</PRE>
+
+<P>
+Or without SSL support:
+
+<P>
+<PRE>
+   $ make slx SSLTYPE=none EXTRACFLAGS=-fPIC
+</PRE>
+
+<P>
+Once this completes you can proceed with the Asterisk build; there is no
+need to run 'make install'.
 
 <P>
 
 <DIV CLASS="navigation"><HR>
 <!--Navigation Panel-->
-<A NAME="tex2html3767"
+<A NAME="tex2html3772"
   HREF="node238.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3763"
-  HREF="node235.html">
+<A NAME="tex2html3768"
+  HREF="node236.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3759"
+<A NAME="tex2html3762"
   HREF="node236.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3765"
+<A NAME="tex2html3770"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3768"
-  HREF="node238.html">Modify voicemail.conf</A>
-<B> Up:</B> <A NAME="tex2html3764"
-  HREF="node235.html">Installation Notes</A>
-<B> Previous:</B> <A NAME="tex2html3760"
-  HREF="node236.html">University of Washington IMAP</A>
- &nbsp; <B>  <A NAME="tex2html3766"
+<B> Next:</B> <A NAME="tex2html3773"
+  HREF="node238.html">Compiling Asterisk</A>
+<B> Up:</B> <A NAME="tex2html3769"
+  HREF="node236.html">Installation Notes</A>
+<B> Previous:</B> <A NAME="tex2html3763"
+  HREF="node236.html">Installation Notes</A>
+ &nbsp; <B>  <A NAME="tex2html3771"
   HREF="node1.html">Contents</A></B> </DIV>
 <!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2010-05-03
+2010-06-17
 </ADDRESS>
 </BODY>
 </HTML>

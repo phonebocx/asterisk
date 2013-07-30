@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 218238 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 262241 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -129,9 +129,9 @@ static struct ast_channel *my_ast_get_channel_by_name_locked(const char *channam
 	size_t channame_len, chkchan_len;
 
 	channame_len = strlen(channame);
-	chkchan_len = channame_len + 2;
+	chkchan_len = channame_len + 1;
 
- 	chkchan = alloca(chkchan_len);
+ 	chkchan = alloca(chkchan_len + 1);
 
 	/* need to append a '-' for the comparison so we check full channel name,
 	 * i.e SIP/hgc- , use a temporary variable so original stays the same for

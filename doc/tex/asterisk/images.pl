@@ -8,12 +8,6 @@ $cached_env_img{$key} = q|<IMG
  SRC="|."$dir".q|img5.png"
  ALT="$[] or $">|; 
 
-$key = q/Rightarrow;MSF=1.6;LFS=12;AAT/;
-$cached_env_img{$key} = q|<IMG
- WIDTH="24" HEIGHT="19" ALIGN="BOTTOM" BORDER="0"
- SRC="|."$dir".q|img10.png"
- ALT="$\Rightarrow$">|; 
-
 $key = q/{}and;MSF=1.6;LFS=12;AAT/;
 $cached_env_img{$key} = q|<IMG
  WIDTH="35" HEIGHT="20" ALIGN="BOTTOM" BORDER="0"

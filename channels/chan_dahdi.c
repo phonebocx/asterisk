@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253595 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 265615 $")
 
 #if defined(__NetBSD__) || defined(__FreeBSD__)
 #include <pthread.h>
@@ -762,7 +762,7 @@ static struct dahdi_pvt {
 	/*! \brief TRUE if dynamic faxbuffers are configured for use, default is OFF */
 	unsigned int usefaxbuffers:1;
 	/*! \brief TRUE while dynamic faxbuffers are in use */
-	unsigned int faxbuffersinuse:1;
+	unsigned int bufferoverrideinuse:1;
 	/*! \brief TRUE if over a radio and dahdi_read() has been called. */
 	unsigned int firstradio:1;
 	/*!
@@ -1396,6 +1396,7 @@ static int dahdi_indicate(struct ast_channel *chan, int condition, const void *d
 static int dahdi_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
 static int dahdi_setoption(struct ast_channel *chan, int option, void *data, int datalen);
 static int dahdi_func_read(struct ast_channel *chan, const char *function, char *data, char *buf, size_t len);
+static int dahdi_func_write(struct ast_channel *chan, const char *function, char *data, const char *value);
 static struct dahdi_pvt *handle_init_event(struct dahdi_pvt *i, int event);
 
 static const struct ast_channel_tech dahdi_tech = {
@@ -1417,6 +1418,7 @@ static const struct ast_channel_tech dahdi_tech = {
 	.fixup = dahdi_fixup,
 	.setoption = dahdi_setoption,
 	.func_channel_read = dahdi_func_read,
+	.func_channel_write = dahdi_func_write,
 };
 
 #ifdef HAVE_PRI
@@ -4330,11 +4332,20 @@ static int dahdi_hangup(struct ast_channel *ast)
 
 	idx = dahdi_get_index(ast, p, 1);
 
-	if ((p->sig == SIG_PRI) || (p->sig == SIG_SS7) || (p->sig == SIG_BRI) || (p->sig == SIG_BRI_PTMP)) {
+	switch (p->sig) {
+	case SIG_PRI:
+	case SIG_BRI:
+	case SIG_BRI_PTMP:
+	case SIG_SS7:
 		x = 1;
 		ast_channel_setoption(ast,AST_OPTION_AUDIO_MODE,&x,sizeof(char),0);
+		/* Fall through */
+	case SIG_MFCR2:
 		p->cid_num[0] = '\0';
 		p->cid_name[0] = '\0';
+		break;
+	default:
+		break;
 	}
 
 	x = 0;
@@ -4483,7 +4494,7 @@ static int dahdi_hangup(struct ast_channel *ast)
 			p->dsp = NULL;
 		}
 
-		if (p->faxbuffersinuse) {
+		if (p->bufferoverrideinuse) {
 			/* faxbuffers are in use, revert them */
 			struct dahdi_bufferinfo bi = {
 				.txbufpolicy = p->buf_policy,
@@ -4496,7 +4507,7 @@ static int dahdi_hangup(struct ast_channel *ast)
 			if ((bpres = ioctl(p->subs[SUB_REAL].dfd, DAHDI_SET_BUFINFO, &bi)) < 0) {
 				ast_log(LOG_WARNING, "Channel '%s' unable to revert faxbuffer policy: %s\n", ast->name, strerror(errno));
 			}
-			p->faxbuffersinuse = 0;
+			p->bufferoverrideinuse = 0;
 		}
 
 		law = DAHDI_LAW_DEFAULT;
@@ -4529,8 +4540,6 @@ static int dahdi_hangup(struct ast_channel *ast)
 		}
 #endif
 #ifdef HAVE_OPENR2
-		p->cid_num[0] = '\0';
-		p->cid_name[0] = '\0';
 		if (p->mfcr2 && p->mfcr2call && openr2_chan_get_direction(p->r2chan) != OR2_DIR_STOPPED) {
 			ast_log(LOG_DEBUG, "disconnecting MFC/R2 call on chan %d\n", p->channel);
 			/* If it's an incoming call, check the mfcr2_forced_release setting */
@@ -5025,6 +5034,7 @@ static int dahdi_setoption(struct ast_channel *chan, int option, void *data, int
 static int dahdi_func_read(struct ast_channel *chan, const char *function, char *data, char *buf, size_t len)
 {
 	struct dahdi_pvt *p = chan->tech_pvt;
+	int res = 0;
 
 	if (!strcasecmp(data, "rxgain")) {
 		ast_mutex_lock(&p->lock);
@@ -5036,10 +5046,74 @@ static int dahdi_func_read(struct ast_channel *chan, const char *function, char 
 		ast_mutex_unlock(&p->lock);
 	} else {
 		ast_copy_string(buf, "", len);
+		res = -1;
 	}
+
+	return res;
+}
+
+
+static int parse_buffers_policy(const char *parse, int *num_buffers, int *policy)
+{
+	int res;
+	char policy_str[21] = "";
+	
+	if (((res = sscanf(parse, "%d,%20s", num_buffers, policy_str)) != 2) &&
+		((res = sscanf(parse, "%d|%20s", num_buffers, policy_str)) != 2)) {
+		ast_log(LOG_WARNING, "Parsing buffer string '%s' failed.\n", parse);
+		return 1;
+	}
+	if (*num_buffers < 0) {
+		ast_log(LOG_WARNING, "Invalid buffer count given '%d'.\n", *num_buffers);
+		return -1;
+	}
+	if (!strcasecmp(policy_str, "full")) {
+		*policy = DAHDI_POLICY_WHEN_FULL;
+	} else if (!strcasecmp(policy_str, "immediate")) {
+		*policy = DAHDI_POLICY_IMMEDIATE;
+#ifdef DAHDI_POLICY_HALF_FULL
+	} else if (!strcasecmp(policy_str, "half")) {
+		*policy = DAHDI_POLICY_HALF_FULL;
+#endif
+	} else {
+		ast_log(LOG_WARNING, "Invalid policy name given '%s'.\n", policy_str);
+		return -1;
+	}
+
 	return 0;
 }
 
+static int dahdi_func_write(struct ast_channel *chan, const char *function, char *data, const char *value)
+{
+	struct dahdi_pvt *p = chan->tech_pvt;
+	int res = 0;
+
+	if (!strcasecmp(data, "buffers")) {
+		int num_bufs, policy;
+
+		if (!(parse_buffers_policy(value, &num_bufs, &policy))) {
+			struct dahdi_bufferinfo bi = {
+				.txbufpolicy = policy,
+				.rxbufpolicy = policy,
+				.bufsize = p->bufsize,
+				.numbufs = num_bufs,
+			};
+			int bpres;
+
+			if ((bpres = ioctl(p->subs[SUB_REAL].dfd, DAHDI_SET_BUFINFO, &bi)) < 0) {
+				ast_log(LOG_WARNING, "Channel '%d' unable to override buffer policy: %s\n", p->channel, strerror(errno));
+			} else {
+				p->bufferoverrideinuse = 1;
+			}
+		} else {
+			res = -1;
+		}
+	} else {
+		res = -1;
+	}
+
+	return res;
+}
 
 static void dahdi_unlink(struct dahdi_pvt *slave, struct dahdi_pvt *master, int needlock)
 {
@@ -5170,7 +5244,6 @@ static enum ast_bridge_result dahdi_bridge(struct ast_channel *c0, struct ast_ch
 
 #ifdef PRI_2BCT
 	int triedtopribridge = 0;
-	q931_call *q931c0 = NULL, *q931c1 = NULL;
 #endif
 
 	/* For now, don't attempt to native bridge if either channel needs DTMF detection.
@@ -5387,13 +5460,15 @@ static enum ast_bridge_result dahdi_bridge(struct ast_channel *c0, struct ast_ch
 		}
 
 #ifdef PRI_2BCT
-		q931c0 = p0->call;
-		q931c1 = p1->call;
-		if (p0->transfer && p1->transfer
-			&& q931c0 && q931c1
-			&& !triedtopribridge) {
-			pri_channel_bridge(q931c0, q931c1);
+		if (!triedtopribridge) {
 			triedtopribridge = 1;
+			if (p0->pri && p0->pri == p1->pri && p0->transfer && p1->transfer) {
+				ast_mutex_lock(&p0->pri->lock);
+				if (p0->call && p1->call) {
+					pri_channel_bridge(p0->call, p1->call);
+				}
+				ast_mutex_unlock(&p0->pri->lock);
+			}
 		}
 #endif
 
@@ -5635,7 +5710,7 @@ static void dahdi_handle_dtmfup(struct ast_channel *ast, int idx, struct ast_fra
 		/* Fax tone -- Handle and return NULL */
 		if ((p->callprogress & CALLPROGRESS_FAX) && !p->faxhandled) {
 			/* If faxbuffers are configured, use them for the fax transmission */
-			if (p->usefaxbuffers && !p->faxbuffersinuse) {
+			if (p->usefaxbuffers && !p->bufferoverrideinuse) {
 				struct dahdi_bufferinfo bi = {
 					.txbufpolicy = p->faxbuf_policy,
 					.bufsize = p->bufsize,
@@ -5646,7 +5721,7 @@ static void dahdi_handle_dtmfup(struct ast_channel *ast, int idx, struct ast_fra
 				if ((res = ioctl(p->subs[idx].dfd, DAHDI_SET_BUFINFO, &bi)) < 0) {
 					ast_log(LOG_WARNING, "Channel '%s' unable to set faxbuffer policy, reason: %s\n", ast->name, strerror(errno));
 				} else {
-					p->faxbuffersinuse = 1;
+					p->bufferoverrideinuse = 1;
 				}
 			}
 			p->faxhandled = 1;
@@ -6068,6 +6143,7 @@ static struct ast_frame *dahdi_handle_event(struct ast_channel *ast)
 					p->subs[idx].f.frametype = AST_FRAME_CONTROL;
 					p->subs[idx].f.subclass = AST_CONTROL_ANSWER;
 					/* Make sure it stops ringing */
+					p->subs[SUB_REAL].needringing = 0;
 					dahdi_set_hook(p->subs[idx].dfd, DAHDI_OFFHOOK);
 					ast_debug(1, "channel %d answered\n", p->channel);
 					if (p->cidspill) {
@@ -8373,14 +8449,25 @@ static void *ss_thread(void *data)
 			if (p->cid_signalling == CID_SIG_DTMF) {
 				int k = 0;
 				cs = NULL;
-				ast_debug(1, "Receiving DTMF cid on "
-					"channel %s\n", chan->name);
+				ast_debug(1, "Receiving DTMF cid on channel %s\n", chan->name);
 				dahdi_setlinear(p->subs[idx].dfd, 0);
-				res = 2000;
+				/*
+				 * We are the only party interested in the Rx stream since
+				 * we have not answered yet.  We don't need or even want DTMF
+				 * emulation.  The DTMF digits can come so fast that emulation
+				 * can drop some of them.
+				 */
+				ast_set_flag(chan, AST_FLAG_END_DTMF_ONLY);
+				res = 4000;/* This is a typical OFF time between rings. */
 				for (;;) {
 					struct ast_frame *f;
 					res = ast_waitfor(chan, res);
 					if (res <= 0) {
+						/*
+						 * We do not need to restore the dahdi_setlinear()
+						 * or AST_FLAG_END_DTMF_ONLY flag settings since we
+						 * are hanging up the channel.
+						 */
 						ast_log(LOG_WARNING, "DTMFCID timed out waiting for ring. "
 							"Exiting simple switch\n");
 						ast_hangup(chan);
@@ -8390,22 +8477,24 @@ static void *ss_thread(void *data)
 					if (!f)
 						break;
 					if (f->frametype == AST_FRAME_DTMF) {
-						dtmfbuf[k++] = f->subclass;
+						if (k < ARRAY_LEN(dtmfbuf) - 1) {
+							dtmfbuf[k++] = f->subclass;
+						}
 						ast_debug(1, "CID got digit '%c'\n", f->subclass);
-						res = 2000;
+						res = 4000;/* This is a typical OFF time between rings. */
 					}
 					ast_frfree(f);
 					if (chan->_state == AST_STATE_RING ||
 						chan->_state == AST_STATE_RINGING)
 						break; /* Got ring */
 				}
+				ast_clear_flag(chan, AST_FLAG_END_DTMF_ONLY);
 				dtmfbuf[k] = '\0';
 				dahdi_setlinear(p->subs[idx].dfd, p->subs[idx].linear);
 				/* Got cid and ring. */
 				ast_debug(1, "CID got string '%s'\n", dtmfbuf);
 				callerid_get_dtmf(dtmfbuf, dtmfcid, &flags);
-				ast_debug(1, "CID is '%s', flags %d\n",
-					dtmfcid, flags);
+				ast_debug(1, "CID is '%s', flags %d\n", dtmfcid, flags);
 				/* If first byte is NULL, we have no cid */
 				if (!ast_strlen_zero(dtmfcid))
 					number = dtmfcid;
@@ -8465,9 +8554,14 @@ static void *ss_thread(void *data)
 							} else {
 								res = callerid_feed(cs, buf, res, AST_LAW(p));
 							}
-
 							if (res < 0) {
-								ast_log(LOG_WARNING, "CallerID feed failed on channel '%s'\n", chan->name);
+								/*
+								 * The previous diagnostic message output likely
+								 * explains why it failed.
+								 */
+								ast_log(LOG_WARNING,
+									"Failed to decode CallerID on channel '%s'\n",
+									chan->name);
 								break;
 							} else if (res)
 								break;
@@ -8483,13 +8577,10 @@ static void *ss_thread(void *data)
 					if (p->cid_signalling == CID_SIG_V23_JP) {
 						res = dahdi_set_hook(p->subs[SUB_REAL].dfd, DAHDI_ONHOOK);
 						usleep(1);
-						res = 4000;
-					} else {
-
-						/* Finished with Caller*ID, now wait for a ring to make sure there really is a call coming */
-						res = 2000;
 					}
 
+					/* Finished with Caller*ID, now wait for a ring to make sure there really is a call coming */
+					res = 4000;/* This is a typical OFF time between rings. */
 					for (;;) {
 						struct ast_frame *f;
 						res = ast_waitfor(chan, res);
@@ -8732,7 +8823,13 @@ static void *ss_thread(void *data)
 							samples += res;
 							res = callerid_feed(cs, buf, res, AST_LAW(p));
 							if (res < 0) {
-								ast_log(LOG_WARNING, "CallerID feed failed: %s\n", strerror(errno));
+								/*
+								 * The previous diagnostic message output likely
+								 * explains why it failed.
+								 */
+								ast_log(LOG_WARNING,
+									"Failed to decode CallerID on channel '%s'\n",
+									chan->name);
 								break;
 							} else if (res)
 								break;
@@ -9009,7 +9106,11 @@ static void *mwi_thread(void *data)
 			samples += res;
 			if (!spill_done) {
 				if ((spill_result = callerid_feed(cs, mtd->buf, res, AST_LAW(mtd->pvt))) < 0) {
-					ast_log(LOG_WARNING, "CallerID feed failed: %s\n", strerror(errno));
+					/*
+					 * The previous diagnostic message output likely
+					 * explains why it failed.
+					 */
+					ast_log(LOG_WARNING, "Failed to decode CallerID\n");
 					break;
 				} else if (spill_result) {
 					spill_done = 1;
@@ -10436,6 +10537,7 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 		tmp->adsi = conf->chan.adsi;
 		tmp->use_smdi = conf->chan.use_smdi;
 		tmp->permhidecallerid = conf->chan.hidecallerid;
+		tmp->hidecalleridname = conf->chan.hidecalleridname;
 		tmp->callreturn = conf->chan.callreturn;
 		tmp->echocancel = conf->chan.echocancel;
 		tmp->echotraining = conf->chan.echotraining;
@@ -10502,12 +10604,19 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 		ast_copy_string(tmp->context, conf->chan.context, sizeof(tmp->context));
 		ast_copy_string(tmp->parkinglot, conf->chan.parkinglot, sizeof(tmp->parkinglot));
 		tmp->cid_ton = 0;
-		if ((tmp->sig != SIG_PRI) || (tmp->sig != SIG_SS7) || (tmp->sig != SIG_BRI) || (tmp->sig != SIG_BRI_PTMP) || (tmp->sig != SIG_MFCR2)) {
-			ast_copy_string(tmp->cid_num, conf->chan.cid_num, sizeof(tmp->cid_num));
-			ast_copy_string(tmp->cid_name, conf->chan.cid_name, sizeof(tmp->cid_name));
-		} else {
+		switch (tmp->sig) {
+		case SIG_PRI:
+		case SIG_BRI:
+		case SIG_BRI_PTMP:
+		case SIG_SS7:
+		case SIG_MFCR2:
 			tmp->cid_num[0] = '\0';
 			tmp->cid_name[0] = '\0';
+			break;
+		default:
+			ast_copy_string(tmp->cid_num, conf->chan.cid_num, sizeof(tmp->cid_num));
+			ast_copy_string(tmp->cid_name, conf->chan.cid_name, sizeof(tmp->cid_name));
+			break;
 		}
 		ast_copy_string(tmp->mailbox, conf->chan.mailbox, sizeof(tmp->mailbox));
 		if (channel != CHAN_PSEUDO && !ast_strlen_zero(tmp->mailbox)) {
@@ -15552,7 +15661,7 @@ static char *handle_ss7_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 		return CLI_SUCCESS;
 	}
 	if (linksets[span-1].ss7) {
-		if (strcasecmp(a->argv[3], "on")) {
+		if (!strcasecmp(a->argv[3], "on")) {
 			ss7_set_debug(linksets[span-1].ss7, SS7_DEBUG_MTP2 | SS7_DEBUG_MTP3 | SS7_DEBUG_ISUP);
 			ast_cli(a->fd, "Enabled debugging on linkset %d\n", span);
 		} else {
@@ -16125,50 +16234,16 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct 
  					return -1;
 			ast_log(LOG_DEBUG, "Channel '%s' configured.\n", v->value);
 		} else if (!strcasecmp(v->name, "buffers")) {
-			int res;
-			char policy[21] = "";
-
-			res = sscanf(v->value, "%30d,%20s", &confp->chan.buf_no, policy);
-			if (res != 2) {
-				ast_log(LOG_WARNING, "Parsing buffers option data failed, using defaults.\n");
+			if (parse_buffers_policy(v->value, &confp->chan.buf_no, &confp->chan.buf_policy)) {
+				ast_log(LOG_WARNING, "Using default buffer policy.\n");
 				confp->chan.buf_no = numbufs;
-				continue;
-			}
-			if (confp->chan.buf_no < 0)
-				confp->chan.buf_no = numbufs;
-			if (!strcasecmp(policy, "full")) {
-				confp->chan.buf_policy = DAHDI_POLICY_WHEN_FULL;
-			} else if (!strcasecmp(policy, "immediate")) {
 				confp->chan.buf_policy = DAHDI_POLICY_IMMEDIATE;
-#ifdef HAVE_DAHDI_HALF_FULL
-			} else if (!strcasecmp(policy, "half_full")) {
-				confp->chan.buf_policy = DAHDI_POLICY_HALF_FULL;
-#endif
-			} else {
-				ast_log(LOG_WARNING, "Invalid policy name given (%s).\n", policy);
 			}
 		} else if (!strcasecmp(v->name, "faxbuffers")) {
-			int res;
-			char policy[21] = "";
-
-			res = sscanf(v->value, "%30d,%20s", &confp->chan.faxbuf_no, policy);
-			if (res != 2) {
-				ast_log(LOG_WARNING, "Parsing faxbuffers option data failed, using defaults.\n");
-				confp->chan.faxbuf_no = numbufs;
-				continue;
+			if (!parse_buffers_policy(v->value, &confp->chan.faxbuf_no, &confp->chan.faxbuf_policy)) {
+				confp->chan.usefaxbuffers = 1;
 			}
-			confp->chan.usefaxbuffers = 1;
-			if (confp->chan.faxbuf_no < 0)
-				confp->chan.faxbuf_no = numbufs;
-			if (!strcasecmp(policy, "full")) {
-				confp->chan.faxbuf_policy = DAHDI_POLICY_WHEN_FULL;
-			} else if (!strcasecmp(policy, "immediate")) {
-				confp->chan.faxbuf_policy = DAHDI_POLICY_IMMEDIATE;
-			} else {
-				ast_log(LOG_WARNING, "Invalid policy name given (%s).\n", policy);
-				confp->chan.usefaxbuffers = 0;
-			}
- 		} else if (!strcasecmp(v->name, "dahdichan")) {
+		} else if (!strcasecmp(v->name, "dahdichan")) {
  			ast_copy_string(dahdichan, v->value, sizeof(dahdichan));
 		} else if (!strcasecmp(v->name, "usedistinctiveringdetection")) {
 			usedistinctiveringdetection = ast_true(v->value);
@@ -17225,7 +17300,7 @@ static int setup_dahdi(int reload)
 			ast_mutex_unlock(&iflock);
 			ast_config_destroy(cfg);
 			if (ucfg) {
-				ast_config_destroy(cfg);
+				ast_config_destroy(ucfg);
 			}
 			return res;
 		}

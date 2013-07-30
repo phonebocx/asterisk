@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Microsoft SQL Server</TITLE>
-<META NAME="description" CONTENT="Microsoft SQL Server">
+<TITLE>Storage Backends</TITLE>
+<META NAME="description" CONTENT="Storage Backends">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,60 +18,46 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node220.html">
 <LINK REL="previous" HREF="node216.html">
-<LINK REL="up" HREF="node216.html">
+<LINK REL="up" HREF="node213.html">
 <LINK REL="next" HREF="node218.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3498"
+<A NAME="tex2html3486"
   HREF="node218.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3494"
-  HREF="node216.html">
+<A NAME="tex2html3482"
+  HREF="node213.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3488"
+<A NAME="tex2html3478"
   HREF="node216.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3496"
+<A NAME="tex2html3484"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3499"
-  HREF="node218.html">ODBC using cdr_odbc</A>
-<B> Up:</B> <A NAME="tex2html3495"
-  HREF="node216.html">Storage Backends</A>
-<B> Previous:</B> <A NAME="tex2html3489"
-  HREF="node216.html">Storage Backends</A>
- &nbsp; <B>  <A NAME="tex2html3497"
+<B> Next:</B> <A NAME="tex2html3487"
+  HREF="node218.html">Microsoft SQL Server</A>
+<B> Up:</B> <A NAME="tex2html3483"
+  HREF="node213.html">CDR: Call Detail Records</A>
+<B> Previous:</B> <A NAME="tex2html3479"
+  HREF="node216.html">Variables</A>
+ &nbsp; <B>  <A NAME="tex2html3485"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H2><A NAME="SECTION001141000000000000000">
-Microsoft SQL Server</A>
-</H2>
-
-<P>
-Asterisk can currently store CDRs into an MSSQL database in
-	two different ways:  cdr_odbc or cdr_tds
-
-<P>
-Call Data Records can be stored using unixODBC (which requires
-	the FreeTDS package) [cdr_odbc] or directly by using just the
-	FreeTDS package [cdr_tds]  The following provide some
-	examples known to get asterisk working with mssql.
-
-<P>
-NOTE:  Only choose one db connector.
+<H1><A NAME="SECTION001140000000000000000">
+Storage Backends</A>
+</H1>
 
 <P>
 <BR><HR>
@@ -79,16 +65,46 @@ NOTE:  Only choose one db connector.
 <A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
 
 <UL CLASS="ChildLinks">
-<LI><A NAME="tex2html3500"
-  HREF="node218.html">ODBC using cdr_odbc</A>
-<LI><A NAME="tex2html3501"
-  HREF="node219.html">TDS, using cdr_tds</A>
+<LI><A NAME="tex2html3488"
+  HREF="node218.html">Microsoft SQL Server</A>
+<UL>
+<LI><A NAME="tex2html3489"
+  HREF="node219.html">ODBC using cdr_odbc</A>
+<LI><A NAME="tex2html3490"
+  HREF="node220.html">TDS, using cdr_tds</A>
 </UL>
+<BR>
+<LI><A NAME="tex2html3491"
+  HREF="node221.html">MySQL</A>
+<LI><A NAME="tex2html3492"
+  HREF="node222.html">PostgreSQL</A>
+<LI><A NAME="tex2html3493"
+  HREF="node223.html">SQLite 2</A>
+<LI><A NAME="tex2html3494"
+  HREF="node224.html">SQLite 3</A>
+<LI><A NAME="tex2html3495"
+  HREF="node225.html">RADIUS</A>
+<UL>
+<LI><A NAME="tex2html3496"
+  HREF="node226.html">What is needed</A>
+<LI><A NAME="tex2html3497"
+  HREF="node227.html">Installation of the Radiusclient library</A>
+<LI><A NAME="tex2html3498"
+  HREF="node228.html">Configuration of the Radiusclient library</A>
+<LI><A NAME="tex2html3499"
+  HREF="node229.html">Install FreeRADIUS Server (Version 1.1.1)</A>
+<LI><A NAME="tex2html3500"
+  HREF="node230.html">Configuration of the FreeRADIUS Server</A>
+<LI><A NAME="tex2html3501"
+  HREF="node231.html">Asterisk Accounting Configuration</A>
+<LI><A NAME="tex2html3502"
+  HREF="node232.html">Logged Values</A>
+</UL></UL>
 <!--End of Table of Child-Links-->
 <BR><HR>
 <ADDRESS>
 lmadsen
-2010-05-03
+2010-06-17
 </ADDRESS>
 </BODY>
 </HTML>

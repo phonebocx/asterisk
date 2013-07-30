@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Applications</TITLE>
-<META NAME="description" CONTENT="Applications">
+<TITLE>CDR: Call Detail Records</TITLE>
+<META NAME="description" CONTENT="CDR: Call Detail Records">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,85 +18,100 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node214.html">
-<LINK REL="previous" HREF="node212.html">
-<LINK REL="up" HREF="node212.html">
+<LINK REL="next" HREF="node233.html">
+<LINK REL="previous" HREF="node201.html">
+<LINK REL="up" HREF="asterisk.html">
 <LINK REL="next" HREF="node214.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3437"
+<A NAME="tex2html3421"
   HREF="node214.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3433"
-  HREF="node212.html">
+<A NAME="tex2html3417"
+  HREF="asterisk.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3427"
+<A NAME="tex2html3411"
   HREF="node212.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3435"
+<A NAME="tex2html3419"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3438"
-  HREF="node214.html">CDR Fields</A>
-<B> Up:</B> <A NAME="tex2html3434"
-  HREF="node212.html">CDR: Call Detail Records</A>
-<B> Previous:</B> <A NAME="tex2html3428"
-  HREF="node212.html">CDR: Call Detail Records</A>
- &nbsp; <B>  <A NAME="tex2html3436"
+<B> Next:</B> <A NAME="tex2html3422"
+  HREF="node214.html">Applications</A>
+<B> Up:</B> <A NAME="tex2html3418"
+  HREF="asterisk.html">Asterisk Reference Information Version</A>
+<B> Previous:</B> <A NAME="tex2html3412"
+  HREF="node212.html">Integration with other web</A>
+ &nbsp; <B>  <A NAME="tex2html3420"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H1><A NAME="SECTION001110000000000000000">
-Applications</A>
+<H1><A NAME="SECTION001100000000000000000">
+CDR: Call Detail Records</A>
 </H1>
+<BR><HR>
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
 
-<P>
-
+<UL CLASS="ChildLinks">
+<LI><A NAME="tex2html3423"
+  HREF="node214.html">Applications</A>
+<LI><A NAME="tex2html3424"
+  HREF="node215.html">CDR Fields</A>
+<LI><A NAME="tex2html3425"
+  HREF="node216.html">Variables</A>
+<LI><A NAME="tex2html3426"
+  HREF="node217.html">Storage Backends</A>
 <UL>
-<LI>SetAccount - Set account code for billing
-</LI>
-<LI>SetAMAFlags - Sets AMA flags
-</LI>
-<LI>NoCDR - Make sure no CDR is saved for a specific call
-</LI>
-<LI>ResetCDR - Reset CDR
-</LI>
-<LI>ForkCDR - Save current CDR and start a new CDR for this call
-</LI>
-<LI>Authenticate - Authenticates and sets the account code
-</LI>
-<LI>SetCDRUserField - Set CDR user field
-</LI>
-<LI>AppendCDRUserField - Append data to CDR User field
-</LI>
+<LI><A NAME="tex2html3427"
+  HREF="node218.html">Microsoft SQL Server</A>
+<UL>
+<LI><A NAME="tex2html3428"
+  HREF="node219.html">ODBC using cdr_odbc</A>
+<LI><A NAME="tex2html3429"
+  HREF="node220.html">TDS, using cdr_tds</A>
 </UL>
-
-<P>
-For more information, use the "core show application <SPAN CLASS="MATH"><IMG
- WIDTH="19" HEIGHT="33" ALIGN="MIDDLE" BORDER="0"
- SRC="img2.png"
- ALT="$&lt;$"></SPAN>application<SPAN CLASS="MATH"><IMG
- WIDTH="19" HEIGHT="33" ALIGN="MIDDLE" BORDER="0"
- SRC="img1.png"
- ALT="$&gt;$"></SPAN>" command.
-You can set default account codes and AMA flags for devices in
-channel configuration files, like sip.conf, iax.conf etc.
-
-<P>
+<LI><A NAME="tex2html3430"
+  HREF="node221.html">MySQL</A>
+<LI><A NAME="tex2html3431"
+  HREF="node222.html">PostgreSQL</A>
+<LI><A NAME="tex2html3432"
+  HREF="node223.html">SQLite 2</A>
+<LI><A NAME="tex2html3433"
+  HREF="node224.html">SQLite 3</A>
+<LI><A NAME="tex2html3434"
+  HREF="node225.html">RADIUS</A>
+<UL>
+<LI><A NAME="tex2html3435"
+  HREF="node226.html">What is needed</A>
+<LI><A NAME="tex2html3436"
+  HREF="node227.html">Installation of the Radiusclient library</A>
+<LI><A NAME="tex2html3437"
+  HREF="node228.html">Configuration of the Radiusclient library</A>
+<LI><A NAME="tex2html3438"
+  HREF="node229.html">Install FreeRADIUS Server (Version 1.1.1)</A>
+<LI><A NAME="tex2html3439"
+  HREF="node230.html">Configuration of the FreeRADIUS Server</A>
+<LI><A NAME="tex2html3440"
+  HREF="node231.html">Asterisk Accounting Configuration</A>
+<LI><A NAME="tex2html3441"
+  HREF="node232.html">Logged Values</A>
+</UL></UL></UL>
+<!--End of Table of Child-Links-->
 <BR><HR>
 <ADDRESS>
 lmadsen
-2010-05-03
+2010-06-17
 </ADDRESS>
 </BODY>
 </HTML>

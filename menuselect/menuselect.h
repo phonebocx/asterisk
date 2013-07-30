@@ -100,6 +100,9 @@ struct member {
 	  we have included it in the MENUSELECT_BUILD_DEPS line
 	  in the output file */
 	unsigned int build_deps_output:1;
+	/*! This module should never be enabled automatically, but only
+	 * when explicitly set. */
+	unsigned int explicitly_enabled_only:1;
 	/*! dependencies of this module */
 	AST_LIST_HEAD_NOLOCK(, depend) deps;
 	/*! conflicts of this module */

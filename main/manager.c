@@ -43,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 243989 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 265521 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -123,6 +123,7 @@ static int displayconnects = 1;
 static int allowmultiplelogin = 1;
 static int timestampevents;
 static int httptimeout = 60;
+static int broken_events_action = 0;
 static int manager_enabled = 0;
 static int webmanager_enabled = 0;
 
@@ -1715,15 +1716,36 @@ static char mandescr_events[] =
 static int action_events(struct mansession *s, const struct message *m)
 {
 	const char *mask = astman_get_header(m, "EventMask");
-	int res;
+	int res, x;
 
 	res = set_eventmask(s, mask);
+	if (broken_events_action) {
+		/* if this option is set we should not return a response on
+		 * error, or when all events are set */
+
+		if (res > 0) {
+			for (x = 0; x < ARRAY_LEN(perms); x++) {
+				if (!strcasecmp(perms[x].label, "all") && res == perms[x].num) {
+					return 0;
+				}
+			}
+			astman_append(s, "Response: Success\r\n"
+					 "Events: On\r\n\r\n");
+		} else if (res == 0)
+			astman_append(s, "Response: Success\r\n"
+					 "Events: Off\r\n\r\n");
+		return 0;
+	}
+
 	if (res > 0)
 		astman_append(s, "Response: Success\r\n"
 				 "Events: On\r\n\r\n");
 	else if (res == 0)
 		astman_append(s, "Response: Success\r\n"
 				 "Events: Off\r\n\r\n");
+	else
+		astman_send_error(s, m, "Invalid event mask");
+
 	return 0;
 }
 
@@ -1749,6 +1771,9 @@ static int action_login(struct mansession *s, const struct message *m)
 		ast_verb(2, "%sManager '%s' logged on from %s\n", (s->session->managerid ? "HTTP " : ""), s->session->username, ast_inet_ntoa(s->session->sin.sin_addr));
 	ast_log(LOG_EVENT, "%sManager '%s' logged on from %s\n", (s->session->managerid ? "HTTP " : ""), s->session->username, ast_inet_ntoa(s->session->sin.sin_addr));
 	astman_send_ack(s, m, "Authentication accepted");
+	if (ast_opt_send_fullybooted && ast_test_flag(&ast_options, AST_OPT_FLAG_FULLY_BOOTED)) {
+		manager_event(EVENT_FLAG_SYSTEM, "FullyBooted", "Status: Fully Booted\r\n");
+	}
 	return 0;
 }
 
@@ -3892,7 +3917,7 @@ static struct ast_str *generic_http_callback(enum output_format format,
 	ast_str_append(&out, 0,
 		       "Content-type: text/%s\r\n"
 		       "Cache-Control: no-cache;\r\n"
-		       "Set-Cookie: mansession_id=\"%08x\"; Version=\"1\"; Max-Age=%d\r\n"
+		       "Set-Cookie: mansession_id=\"%08x\"; Version=1; Max-Age=%d\r\n"
 		       "Pragma: SuppressEvents\r\n"
 		       "\r\n",
 			contenttype[format],
@@ -4118,6 +4143,7 @@ static int __init_manager(int reload)
 		return 0;
 
 	displayconnects = 1;
+	broken_events_action = 0;
 	if (!cfg || cfg == CONFIG_STATUS_FILEINVALID) {
 		ast_log(LOG_NOTICE, "Unable to open AMI configuration manager.conf, or configuration is invalid. Asterisk management interface (AMI) disabled.\n");
 		return 0;
@@ -4169,6 +4195,8 @@ static int __init_manager(int reload)
 				ast_log(LOG_WARNING, "Invalid address '%s' specified, using 0.0.0.0\n", val);
 				memset(&ami_desc.local_address.sin_addr, 0, sizeof(ami_desc.local_address.sin_addr));
 			}
+		} else if (!strcasecmp(var->name, "brokeneventsaction")) {
+			broken_events_action = ast_true(val);
 		} else if (!strcasecmp(var->name, "allowmultiplelogin")) { 
 			allowmultiplelogin = ast_true(val);
 		} else if (!strcasecmp(var->name, "displayconnects")) {

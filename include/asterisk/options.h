@@ -23,6 +23,8 @@
 #ifndef _ASTERISK_OPTIONS_H
 #define _ASTERISK_OPTIONS_H
 
+#include "asterisk/autoconfig.h"
+
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
@@ -90,10 +92,18 @@ enum ast_option_flags {
 	AST_OPT_FLAG_FORCE_BLACK_BACKGROUND = (1 << 27),
 	/*! Hide remote console connect messages on console */
 	AST_OPT_FLAG_HIDE_CONSOLE_CONNECT = (1 << 28),
+	/*! Generic PLC */
+	AST_OPT_FLAG_GENERIC_PLC = (1 << 30),
+	/*! Send the FullyBooted AMI event when all modules are loaded */
+	AST_OPT_FLAG_SEND_FULLYBOOTED = (1 << 31),
 };
 
 /*! These are the options that set by default when Asterisk starts */
+#if (defined(HAVE_DAHDI_VERSION) && HAVE_DAHDI_VERSION >= 230)
+#define AST_DEFAULT_OPTIONS AST_OPT_FLAG_TRANSCODE_VIA_SLIN | AST_OPT_FLAG_INTERNAL_TIMING
+#else
 #define AST_DEFAULT_OPTIONS AST_OPT_FLAG_TRANSCODE_VIA_SLIN
+#endif
 
 #define ast_opt_exec_includes		ast_test_flag(&ast_options, AST_OPT_FLAG_EXEC_INCLUDES)
 #define ast_opt_no_fork			ast_test_flag(&ast_options, AST_OPT_FLAG_NO_FORK)
@@ -122,6 +132,8 @@ enum ast_option_flags {
 #define ast_opt_light_background		ast_test_flag(&ast_options, AST_OPT_FLAG_LIGHT_BACKGROUND)
 #define ast_opt_force_black_background		ast_test_flag(&ast_options, AST_OPT_FLAG_FORCE_BLACK_BACKGROUND)
 #define ast_opt_hide_connect		ast_test_flag(&ast_options, AST_OPT_FLAG_HIDE_CONSOLE_CONNECT)
+#define ast_opt_generic_plc         ast_test_flag(&ast_options, AST_OPT_FLAG_GENERIC_PLC)
+#define ast_opt_send_fullybooted	ast_test_flag(&ast_options, AST_OPT_FLAG_SEND_FULLYBOOTED)
 
 extern struct ast_flags ast_options;
 

@@ -155,15 +155,16 @@
 \BOOKMARK [2][-]{subsection.8.1.4}{Some more Examples}{section.8.1}
 \BOOKMARK [0][-]{chapter.9}{AMI: Asterisk Manager Interface}{}
 \BOOKMARK [1][-]{section.9.1}{The Asterisk Manager TCP/IP API}{chapter.9}
-\BOOKMARK [1][-]{section.9.2}{Device status reports}{chapter.9}
-\BOOKMARK [1][-]{section.9.3}{Command Syntax}{chapter.9}
-\BOOKMARK [1][-]{section.9.4}{Manager commands}{chapter.9}
-\BOOKMARK [1][-]{section.9.5}{Examples}{chapter.9}
-\BOOKMARK [1][-]{section.9.6}{Some standard AMI headers}{chapter.9}
-\BOOKMARK [1][-]{section.9.7}{Asynchronous Javascript Asterisk Manger \(AJAM\)}{chapter.9}
-\BOOKMARK [2][-]{subsection.9.7.1}{Setup the Asterisk HTTP server}{section.9.7}
-\BOOKMARK [2][-]{subsection.9.7.2}{Allow Manager Access via HTTP}{section.9.7}
-\BOOKMARK [2][-]{subsection.9.7.3}{Integration with other web servers}{section.9.7}
+\BOOKMARK [1][-]{section.9.2}{Command Syntax}{chapter.9}
+\BOOKMARK [1][-]{section.9.3}{Manager commands}{chapter.9}
+\BOOKMARK [1][-]{section.9.4}{Examples}{chapter.9}
+\BOOKMARK [1][-]{section.9.5}{Ensuring all modules are loaded}{chapter.9}
+\BOOKMARK [1][-]{section.9.6}{Device status reports}{chapter.9}
+\BOOKMARK [1][-]{section.9.7}{Some standard AMI headers}{chapter.9}
+\BOOKMARK [1][-]{section.9.8}{Asynchronous Javascript Asterisk Manger \(AJAM\)}{chapter.9}
+\BOOKMARK [2][-]{subsection.9.8.1}{Setup the Asterisk HTTP server}{section.9.8}
+\BOOKMARK [2][-]{subsection.9.8.2}{Allow Manager Access via HTTP}{section.9.8}
+\BOOKMARK [2][-]{subsection.9.8.3}{Integration with other web servers}{section.9.8}
 \BOOKMARK [0][-]{chapter.10}{CDR: Call Detail Records}{}
 \BOOKMARK [1][-]{section.10.1}{Applications}{chapter.10}
 \BOOKMARK [1][-]{section.10.2}{CDR Fields}{chapter.10}

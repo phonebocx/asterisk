@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 235775 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 268577 $")
 
 #include <math.h>
 
@@ -273,6 +273,7 @@ typedef struct
 typedef struct
 {
 	char digits[MAX_DTMF_DIGITS + 1];
+	int digitlen[MAX_DTMF_DIGITS + 1];
 	int current_digits;
 	int detected_digits;
 	int lost_digits;
@@ -630,6 +631,7 @@ static void store_digit(digit_detect_state_t *s, char digit)
 {
 	s->detected_digits++;
 	if (s->current_digits < MAX_DTMF_DIGITS) {
+		s->digitlen[s->current_digits] = 0;
 		s->digits[s->current_digits++] = digit;
 		s->digits[s->current_digits] = '\0';
 	} else {
@@ -733,6 +735,8 @@ static int dtmf_detect(struct ast_dsp *dsp, digit_detect_state_t *s, int16_t amp
 				}
 			} else {
 				s->td.dtmf.misses = 0;
+				/* Current hit was same as last, so increment digit duration (of last digit) */
+				s->digitlen[s->current_digits - 1] += DTMF_GSIZE;
 			}
 		}
 
@@ -998,10 +1002,13 @@ static int __ast_dsp_call_progress(struct ast_dsp *dsp, short *s, int len)
 				} else if (hz[HZ_950] > TONE_MIN_THRESH * TONE_THRESH) {
 					newstate = DSP_TONE_STATE_SPECIAL1;
 				} else if (hz[HZ_1400] > TONE_MIN_THRESH * TONE_THRESH) {
-					if (dsp->tstate == DSP_TONE_STATE_SPECIAL1)
+					/* End of SPECIAL1 or middle of SPECIAL2 */
+					if (dsp->tstate == DSP_TONE_STATE_SPECIAL1 || dsp->tstate == DSP_TONE_STATE_SPECIAL2) {
 						newstate = DSP_TONE_STATE_SPECIAL2;
+					}
 				} else if (hz[HZ_1800] > TONE_MIN_THRESH * TONE_THRESH) {
-					if (dsp->tstate == DSP_TONE_STATE_SPECIAL2) {
+					/* End of SPECIAL2 or middle of SPECIAL3 */
+					if (dsp->tstate == DSP_TONE_STATE_SPECIAL2 || dsp->tstate == DSP_TONE_STATE_SPECIAL3) {
 						newstate = DSP_TONE_STATE_SPECIAL3;
 					}
 				} else if (dsp->genergy > TONE_MIN_THRESH * TONE_THRESH) {
@@ -1035,43 +1042,43 @@ static int __ast_dsp_call_progress(struct ast_dsp *dsp, short *s, int len)
 					dsp->ringtimeout++;
 				}
 				switch (dsp->tstate) {
-					case DSP_TONE_STATE_RINGING:
-						if ((dsp->features & DSP_PROGRESS_RINGING) &&
-						    (dsp->tcount==THRESH_RING)) {
-							res = AST_CONTROL_RINGING;
-							dsp->ringtimeout= 1;
-						}
-						break;
-					case DSP_TONE_STATE_BUSY:
-						if ((dsp->features & DSP_PROGRESS_BUSY) &&
-						    (dsp->tcount==THRESH_BUSY)) {
-							res = AST_CONTROL_BUSY;
-							dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
-						}
-						break;
-					case DSP_TONE_STATE_TALKING:
-						if ((dsp->features & DSP_PROGRESS_TALK) &&
-						    (dsp->tcount==THRESH_TALK)) {
-							res = AST_CONTROL_ANSWER;
-							dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
-						}
-						break;
-					case DSP_TONE_STATE_SPECIAL3:
-						if ((dsp->features & DSP_PROGRESS_CONGESTION) &&
-						    (dsp->tcount==THRESH_CONGESTION)) {
-							res = AST_CONTROL_CONGESTION;
-							dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
-						}
-						break;
-					case DSP_TONE_STATE_HUNGUP:
-						if ((dsp->features & DSP_FEATURE_CALL_PROGRESS) &&
-						    (dsp->tcount==THRESH_HANGUP)) {
-							res = AST_CONTROL_HANGUP;
-							dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
-						}
-						break;
+				case DSP_TONE_STATE_RINGING:
+					if ((dsp->features & DSP_PROGRESS_RINGING) &&
+					    (dsp->tcount == THRESH_RING)) {
+						res = AST_CONTROL_RINGING;
+						dsp->ringtimeout = 1;
+					}
+					break;
+				case DSP_TONE_STATE_BUSY:
+					if ((dsp->features & DSP_PROGRESS_BUSY) &&
+					    (dsp->tcount == THRESH_BUSY)) {
+						res = AST_CONTROL_BUSY;
+						dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
+					}
+					break;
+				case DSP_TONE_STATE_TALKING:
+					if ((dsp->features & DSP_PROGRESS_TALK) &&
+					    (dsp->tcount == THRESH_TALK)) {
+						res = AST_CONTROL_ANSWER;
+						dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
+					}
+					break;
+				case DSP_TONE_STATE_SPECIAL3:
+					if ((dsp->features & DSP_PROGRESS_CONGESTION) &&
+					    (dsp->tcount == THRESH_CONGESTION)) {
+						res = AST_CONTROL_CONGESTION;
+						dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
+					}
+					break;
+				case DSP_TONE_STATE_HUNGUP:
+					if ((dsp->features & DSP_FEATURE_CALL_PROGRESS) &&
+					    (dsp->tcount == THRESH_HANGUP)) {
+						res = AST_CONTROL_HANGUP;
+						dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
+					}
+					break;
 				}
-				if (dsp->ringtimeout==THRESH_RING2ANSWER) {
+				if (dsp->ringtimeout == THRESH_RING2ANSWER) {
 					ast_debug(1, "Consider call as answered because of timeout after last ring\n");
 					res = AST_CONTROL_ANSWER;
 					dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
@@ -1082,8 +1089,8 @@ static int __ast_dsp_call_progress(struct ast_dsp *dsp, short *s, int len)
 				dsp->tstate = newstate;
 				dsp->tcount = 1;
 			}
-			
-			/* Reset goertzel */						
+
+			/* Reset goertzel */
 			for (x = 0; x < 7; x++) {
 				dsp->freqs[x].v2 = dsp->freqs[x].v3 = 0.0;
 			}
@@ -1392,7 +1399,7 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 			digit = dtmf_detect(dsp, &dsp->digit_state, shortdata, len, (dsp->digitmode & DSP_DIGITMODE_NOQUELCH) == 0, (dsp->digitmode & DSP_DIGITMODE_RELAXDTMF));
 
 		if (dsp->digit_state.current_digits) {
-			int event = 0;
+			int event = 0, event_len = 0;
 			char event_digit = 0;
 
 			if (!dsp->dtmf_began) {
@@ -1409,8 +1416,10 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 				if (dsp->features & DSP_FEATURE_DIGIT_DETECT) {
 					event = AST_FRAME_DTMF_END;
 					event_digit = dsp->digit_state.digits[0];
+					event_len = dsp->digit_state.digitlen[0] * 1000 / SAMPLE_RATE;
 				}
-				memmove(dsp->digit_state.digits, dsp->digit_state.digits + 1, dsp->digit_state.current_digits);
+				memmove(&dsp->digit_state.digits[0], &dsp->digit_state.digits[1], dsp->digit_state.current_digits);
+				memmove(&dsp->digit_state.digitlen[0], &dsp->digit_state.digitlen[1], dsp->digit_state.current_digits * sizeof(dsp->digit_state.digitlen[0]));
 				dsp->digit_state.current_digits--;
 				dsp->dtmf_began = 0;
 
@@ -1426,6 +1435,7 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 				memset(&dsp->f, 0, sizeof(dsp->f));
 				dsp->f.frametype = event;
 				dsp->f.subclass = event_digit;
+				dsp->f.len = event_len;
 				outf = &dsp->f;
 				goto done;
 			}

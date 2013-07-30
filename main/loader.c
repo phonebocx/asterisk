@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 248011 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 264453 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_MODULE_DIR */
@@ -260,6 +260,7 @@ static struct reload_classes {
 	{ "dsp",	ast_dsp_reload},
 	{ "udptl",	ast_udptl_reload },
 	{ "indications", ast_indications_reload },
+	{ "plc",        ast_plc_reload },
 	{ NULL, 	NULL }
 };
 
@@ -490,7 +491,7 @@ int ast_unload_resource(const char *resource_name, enum ast_module_unload_mode f
 	if (!(mod = find_resource(resource_name, 0))) {
 		AST_LIST_UNLOCK(&module_list);
 		ast_log(LOG_WARNING, "Unload failed, '%s' could not be found\n", resource_name);
-		return 0;
+		return -1;
 	}
 
 	if (!(mod->flags.running || mod->flags.declined))

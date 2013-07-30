@@ -207,7 +207,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 257217 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 266293 $")
 
 #include <ctype.h>
 #include <sys/ioctl.h>
@@ -541,7 +541,7 @@ static int mwi_expiry = DEFAULT_MWI_EXPIRY;
 #define MAX_AUTHTRIES                3                /*!< Try authentication three times, then fail */
 
 #define SIP_MAX_HEADERS              64               /*!< Max amount of SIP headers to read */
-#define SIP_MAX_LINES                64               /*!< Max amount of lines in SIP attachment (like SDP) */
+#define SIP_MAX_LINES                256              /*!< Max amount of lines in SIP attachment (like SDP) */
 #define SIP_MIN_PACKET               4096             /*!< Initialize size of memory to allocate for packets */
 #define MAX_HISTORY_ENTRIES 	     50	              /*!< Max entires in the history list for a sip_pvt */
 
@@ -1372,6 +1372,7 @@ struct sip_auth {
 /* realtime flags */
 #define SIP_PAGE2_RTCACHEFRIENDS	(1 << 0)	/*!< GP: Should we keep RT objects in memory for extended time? */
 #define SIP_PAGE2_RTAUTOCLEAR		(1 << 2)	/*!< GP: Should we clean memory from peers after expiry? */
+#define SIP_PAGE2_HAVEPEERCONTEXT	(1 << 3)	/*< Are we associated with a configured peer context? */
 /* Space for addition of other realtime flags in the future */
 #define SIP_PAGE2_STATECHANGEQUEUE	(1 << 9)	/*!< D: Unsent state pending change exists */
 
@@ -1396,7 +1397,10 @@ struct sip_auth {
 #define SIP_PAGE2_RFC2833_COMPENSATE    (1 << 25)	/*!< DP: Compensate for buggy RFC2833 implementations */
 #define SIP_PAGE2_BUGGY_MWI		(1 << 26)	/*!< DP: Buggy CISCO MWI fix */
 #define SIP_PAGE2_DIALOG_ESTABLISHED    (1 << 27)       /*!< 29: Has a dialog been established? */
-#define SIP_PAGE2_FAX_DETECT		(1 << 28)		/*!< DP: Fax Detection support */
+#define SIP_PAGE2_FAX_DETECT		(3 << 28)	/*!< DP: Fax Detection support */
+#define SIP_PAGE2_FAX_DETECT_CNG	(1 << 28)	/*!< DP: Fax Detection support - detect CNG in audio */
+#define SIP_PAGE2_FAX_DETECT_T38	(2 << 28)	/*!< DP: Fax Detection support - detect T.38 reinvite from peer */
+#define SIP_PAGE2_FAX_DETECT_BOTH	(3 << 28)	/*!< DP: Fax Detection support - detect both */
 #define SIP_PAGE2_REGISTERTRYING        (1 << 29)       /*!< DP: Send 100 Trying on REGISTER attempts */
 #define SIP_PAGE2_UDPTL_DESTINATION     (1 << 30)       /*!< DP: Use source IP of RTP as destination if NAT is enabled */
 #define SIP_PAGE2_VIDEOSUPPORT_ALWAYS	(1 << 31)       /*!< DP: Always set up video, even if endpoints don't support it */
@@ -1405,7 +1409,8 @@ struct sip_auth {
 	(SIP_PAGE2_ALLOWSUBSCRIBE | SIP_PAGE2_ALLOWOVERLAP | SIP_PAGE2_IGNORESDPVERSION | \
 	SIP_PAGE2_VIDEOSUPPORT | SIP_PAGE2_T38SUPPORT | SIP_PAGE2_RFC2833_COMPENSATE | \
 	SIP_PAGE2_BUGGY_MWI | SIP_PAGE2_TEXTSUPPORT | SIP_PAGE2_FAX_DETECT | \
-	SIP_PAGE2_UDPTL_DESTINATION | SIP_PAGE2_VIDEOSUPPORT_ALWAYS)
+	SIP_PAGE2_UDPTL_DESTINATION | SIP_PAGE2_VIDEOSUPPORT_ALWAYS | \
+	SIP_PAGE2_HAVEPEERCONTEXT)
 
 /*@}*/ 
 
@@ -3328,6 +3333,7 @@ static struct sip_proxy *proxy_allocate(char *name, char *port, int force)
 	proxy->force = force;
 	ast_copy_string(proxy->name, name, sizeof(proxy->name));
 	proxy->ip.sin_port = htons(port_str2int(port, STANDARD_SIP_PORT));
+	proxy->ip.sin_family = AF_INET;
 	proxy_update(proxy);
 	return proxy;
 }
@@ -4855,17 +4861,7 @@ static struct sip_peer *realtime_peer(const char *newpeername, struct sockaddr_i
 	}
 
 	for (tmp = var; tmp; tmp = tmp->next) {
-		/* If this is type=user, then skip this object. */
-		if (!strcasecmp(tmp->name, "type") &&
-		    !strcasecmp(tmp->value, "user")) {
-			if(peerlist)
-				ast_config_destroy(peerlist);
-			else {
-				ast_variables_destroy(var);
-				ast_variables_destroy(varregs);
-			}
-			return NULL;
-		} else if (!newpeername && !strcasecmp(tmp->name, "name")) {
+		if (!newpeername && !strcasecmp(tmp->name, "name")) {
 			newpeername = tmp->value;
 		}
 	}
@@ -4986,6 +4982,24 @@ static struct sip_peer *find_peer(const char *peer, struct sockaddr_in *sin, int
 
 	if (!p && (realtime || devstate_only)) {
 		p = realtime_peer(peer, sin, devstate_only);
+		if (p) {
+			switch (which_objects) {
+			case FINDUSERS:
+				if (!(p->type & SIP_TYPE_USER)) {
+					unref_peer(p, "Wrong type of realtime SIP endpoint");
+					return NULL;
+				}
+				break;
+			case FINDPEERS:
+				if (!(p->type & SIP_TYPE_PEER)) {
+					unref_peer(p, "Wrong type of realtime SIP endpoint");
+					return NULL;
+				}
+				break;
+			case FINDALLDEVICES:
+				break;
+			}
+		}
 	}
 
 	return p;
@@ -5131,12 +5145,15 @@ static int create_addr_from_peer(struct sip_pvt *dialog, struct sip_peer *peer)
 	}
 	dialog->prefs = peer->prefs;
 	if (ast_test_flag(&dialog->flags[1], SIP_PAGE2_T38SUPPORT)) {
-		if (!dialog->udptl) {
-			/* t38pt_udptl was enabled in the peer and not in [general] */
-			dialog->udptl = ast_udptl_new_with_bindaddr(sched, io, 0, bindaddr.sin_addr);
+		/* t38pt_udptl was enabled in the peer and not in [general] */
+		if (dialog->udptl || (!dialog->udptl && (dialog->udptl = ast_udptl_new_with_bindaddr(sched, io, 0, bindaddr.sin_addr)))) {
+			dialog->t38_maxdatagram = peer->t38_maxdatagram;
+			set_t38_capabilities(dialog);
+		} else {
+			/* It is impossible to support T38 without udptl */
+			ast_debug(1, "UDPTL creation failed on dialog.\n");
+			ast_clear_flag(&dialog->flags[1], SIP_PAGE2_T38SUPPORT);
 		}
-		dialog->t38_maxdatagram = peer->t38_maxdatagram;
-		set_t38_capabilities(dialog);
 	} else if (dialog->udptl) {
 		ast_udptl_destroy(dialog->udptl);
 		dialog->udptl = NULL;
@@ -5403,6 +5420,11 @@ static int sip_call(struct ast_channel *ast, char *dest, int timeout)
 
 	res = 0;
 	ast_set_flag(&p->flags[0], SIP_OUTGOING);
+
+	/* T.38 re-INVITE FAX detection should never be done for outgoing calls,
+	 * so ensure it is disabled.
+	 */
+	ast_clear_flag(&p->flags[1], SIP_PAGE2_FAX_DETECT_T38);
 
 	if (p->options->transfer) {
 		char buf[SIPBUFSIZE/2];
@@ -6414,22 +6436,24 @@ static int sip_transfer(struct ast_channel *ast, const char *dest)
 }
 
 /*! \brief Helper function which updates T.38 capability information and triggers a reinvite */
-static void interpret_t38_parameters(struct sip_pvt *p, const struct ast_control_t38_parameters *parameters)
+static int interpret_t38_parameters(struct sip_pvt *p, const struct ast_control_t38_parameters *parameters)
 {
-	if (!ast_test_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT)) {
-		return;
+	int res = 0;
+
+	if (!ast_test_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT) || !p->udptl) {
+		return -1;
 	}
 	switch (parameters->request_response) {
 	case AST_T38_NEGOTIATED:
 	case AST_T38_REQUEST_NEGOTIATE:         /* Request T38 */
 		/* Negotiation can not take place without a valid max_ifp value. */
 		if (!parameters->max_ifp) {
-				change_t38_state(p, T38_DISABLED);
-				if (p->t38.state == T38_PEER_REINVITE) {
-					AST_SCHED_DEL_UNREF(sched, p->t38id, dialog_unref(p, "when you delete the t38id sched, you should dec the refcount for the stored dialog ptr"));
-					transmit_response_reliable(p, "488 Not acceptable here", &p->initreq);
-				}
-				break;
+			change_t38_state(p, T38_DISABLED);
+			if (p->t38.state == T38_PEER_REINVITE) {
+				AST_SCHED_DEL_UNREF(sched, p->t38id, dialog_unref(p, "when you delete the t38id sched, you should dec the refcount for the stored dialog ptr"));
+				transmit_response_reliable(p, "488 Not acceptable here", &p->initreq);
+			}
+			break;
 		} else if (p->t38.state == T38_PEER_REINVITE) {
 			AST_SCHED_DEL_UNREF(sched, p->t38id, dialog_unref(p, "when you delete the t38id sched, you should dec the refcount for the stored dialog ptr"));
 			p->t38.our_parms = *parameters;
@@ -6471,9 +6495,28 @@ static void interpret_t38_parameters(struct sip_pvt *p, const struct ast_control
 		} else if (p->t38.state == T38_ENABLED)
 			transmit_reinvite_with_sdp(p, FALSE, FALSE);
 		break;
-	default:
+	case AST_T38_REQUEST_PARMS: {		/* Application wants remote's parameters re-sent */
+		struct ast_control_t38_parameters parameters = p->t38.their_parms;
+
+		if (p->t38.state == T38_PEER_REINVITE) {
+			AST_SCHED_DEL(sched, p->t38id);
+			parameters.max_ifp = ast_udptl_get_far_max_ifp(p->udptl);
+			parameters.request_response = AST_T38_REQUEST_NEGOTIATE;
+			ast_queue_control_data(p->owner, AST_CONTROL_T38_PARAMETERS, &parameters, sizeof(parameters));
+			/* we need to return a positive value here, so that applications that
+			 * send this request can determine conclusively whether it was accepted or not...
+			 * older versions of chan_sip would just silently accept it and return zero.
+			 */
+			res = AST_T38_REQUEST_PARMS;
+		}
 		break;
 	}
+	default:
+		res = -1;
+		break;
+	}
+
+	return res;
 }
 
 /*! \brief Play indication to user 
@@ -6563,9 +6606,10 @@ static int sip_indicate(struct ast_channel *ast, int condition, const void *data
 	case AST_CONTROL_T38_PARAMETERS:
 		if (datalen != sizeof(struct ast_control_t38_parameters)) {
 			ast_log(LOG_ERROR, "Invalid datalen for AST_CONTROL_T38_PARAMETERS. Expected %d, got %d\n", (int) sizeof(struct ast_control_t38_parameters), (int) datalen);
+			res = -1;
 		} else {
 			const struct ast_control_t38_parameters *parameters = data;
-			interpret_t38_parameters(p, parameters);
+			res = interpret_t38_parameters(p, parameters);
 		}
 		break;
 	case AST_CONTROL_SRCUPDATE:
@@ -7049,20 +7093,20 @@ static struct ast_frame *sip_read(struct ast_channel *ast)
 	p->lastrtprx = time(NULL);
 
 	/* If we detect a CNG tone and fax detection is enabled then send us off to the fax extension */
-	if (faxdetected && ast_test_flag(&p->flags[1], SIP_PAGE2_FAX_DETECT)) {
+	if (faxdetected && ast_test_flag(&p->flags[1], SIP_PAGE2_FAX_DETECT_CNG)) {
 		ast_channel_lock(ast);
 		if (strcmp(ast->exten, "fax")) {
 			const char *target_context = S_OR(ast->macrocontext, ast->context);
 			ast_channel_unlock(ast);
 			if (ast_exists_extension(ast, target_context, "fax", 1, ast->cid.cid_num)) {
-				ast_verbose(VERBOSE_PREFIX_2 "Redirecting '%s' to fax extension\n", ast->name);
+				ast_verbose(VERBOSE_PREFIX_2 "Redirecting '%s' to fax extension due to CNG detection\n", ast->name);
 				pbx_builtin_setvar_helper(ast, "FAXEXTEN", ast->exten);
 				if (ast_async_goto(ast, target_context, "fax", 1)) {
 					ast_log(LOG_NOTICE, "Failed to async goto '%s' into fax of '%s'\n", ast->name, target_context);
 				}
 				fr = &ast_null_frame;
 			} else {
-				ast_log(LOG_NOTICE, "Fax detected but no fax extension\n");
+				ast_log(LOG_NOTICE, "FAX CNG detected but no fax extension\n");
                         }
 		} else {
 			ast_channel_unlock(ast);
@@ -7203,12 +7247,18 @@ static struct sip_pvt *sip_alloc(ast_string_field callid, struct sockaddr_in *si
 	if (sip_methods[intended_method].need_rtp) {
 		p->rtp = ast_rtp_new_with_bindaddr(sched, io, 1, 0, bindaddr.sin_addr);
 		/* If the global videosupport flag is on, we always create a RTP interface for video */
-		if (ast_test_flag(&p->flags[1], SIP_PAGE2_VIDEOSUPPORT))
+		if (ast_test_flag(&p->flags[1], SIP_PAGE2_VIDEOSUPPORT) ||
+				ast_test_flag(&p->flags[1], SIP_PAGE2_VIDEOSUPPORT_ALWAYS))
 			p->vrtp = ast_rtp_new_with_bindaddr(sched, io, 1, 0, bindaddr.sin_addr);
  		if (ast_test_flag(&p->flags[1], SIP_PAGE2_TEXTSUPPORT))
  			p->trtp = ast_rtp_new_with_bindaddr(sched, io, 1, 0, bindaddr.sin_addr);
-		if (ast_test_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT))
-			p->udptl = ast_udptl_new_with_bindaddr(sched, io, 0, bindaddr.sin_addr);
+		if (ast_test_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT)) {
+			if (!(p->udptl = ast_udptl_new_with_bindaddr(sched, io, 0, bindaddr.sin_addr))) {
+				/* udptl creation failed, T38 can not be supported on this dialog */
+				ast_log(LOG_ERROR, "UDPTL creation failed\n");
+				ast_clear_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT);
+			}
+		}
  		if (!p->rtp|| (ast_test_flag(&p->flags[1], SIP_PAGE2_VIDEOSUPPORT) && !p->vrtp) 
 				|| (ast_test_flag(&p->flags[1], SIP_PAGE2_TEXTSUPPORT) && !p->trtp)) {
  			ast_log(LOG_WARNING, "Unable to create RTP audio %s%ssession: %s\n",
@@ -8475,7 +8525,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 			memcpy(&tsin.sin_addr, thp->h_addr, sizeof(tsin.sin_addr));
 			ast_rtp_set_peer(p->trtp, &tsin);
 			if (debug) 
-				ast_verbose("Peer T.140 RTP is at port %s:%d\n", ast_inet_ntoa(vsin.sin_addr), ntohs(vsin.sin_port));
+				ast_verbose("Peer T.140 RTP is at port %s:%d\n", ast_inet_ntoa(tsin.sin_addr), ntohs(tsin.sin_port));
 			if ((p->jointcapability & AST_FORMAT_T140RED)) {
 				p->red = 1;
 				rtp_red_init(p->trtp, 300, red_data_pt, 2);
@@ -8504,7 +8554,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 					}
 				}
 			} else {
-				memcpy(&isin.sin_addr, ihp->h_addr, sizeof(sin.sin_addr));
+				memcpy(&isin.sin_addr, ihp->h_addr, sizeof(isin.sin_addr));
 			}
 			ast_udptl_set_peer(p->udptl, &isin);
 			if (debug)
@@ -8523,6 +8573,25 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 			} else if ((t38action == SDP_T38_INITIATE) &&
 				   p->owner && p->lastinvite) {
 				change_t38_state(p, T38_PEER_REINVITE); /* T38 Offered in re-invite from remote party */
+				/* If fax detection is enabled then send us off to the fax extension */
+				if (ast_test_flag(&p->flags[1], SIP_PAGE2_FAX_DETECT_T38)) {
+					ast_channel_lock(p->owner);
+					if (strcmp(p->owner->exten, "fax")) {
+						const char *target_context = S_OR(p->owner->macrocontext, p->owner->context);
+						ast_channel_unlock(p->owner);
+						if (ast_exists_extension(p->owner, target_context, "fax", 1, p->owner->cid.cid_num)) {
+							ast_verbose(VERBOSE_PREFIX_2 "Redirecting '%s' to fax extension due to peer T.38 re-INVITE\n", p->owner->name);
+							pbx_builtin_setvar_helper(p->owner, "FAXEXTEN", p->owner->exten);
+							if (ast_async_goto(p->owner, target_context, "fax", 1)) {
+								ast_log(LOG_NOTICE, "Failed to async goto '%s' into fax of '%s'\n", p->owner->name, target_context);
+							}
+						} else {
+							ast_log(LOG_NOTICE, "T.38 re-INVITE detected but no fax extension\n");
+						}
+					} else {
+						ast_channel_unlock(p->owner);
+					}
+				}
 			}
 		} else {
 			ast_udptl_stop(p->udptl);
@@ -10767,7 +10836,7 @@ static void initreqprep(struct sip_request *req, struct sip_pvt *p, int sipmetho
  	} else {
  		if (sipmethod == SIP_NOTIFY && !ast_strlen_zero(p->theirtag)) { 
  			/* If this is a NOTIFY, use the From: tag in the subscribe (RFC 3265) */
-			snprintf(to, sizeof(to), "<%s%s>;tag=%s", (!strncasecmp(p->uri, "sip:", 4) ? "sip:" : ""), p->uri, p->theirtag);
+			snprintf(to, sizeof(to), "<%s%s>;tag=%s", (strncasecmp(p->uri, "sip:", 4) ? "sip:" : ""), p->uri, p->theirtag);
  		} else if (p->options && p->options->vxml_url) {
  			/* If there is a VXML URL append it to the SIP URL */
  			snprintf(to, sizeof(to), "<%s>;%s", p->uri, p->options->vxml_url);
@@ -11593,23 +11662,12 @@ static int transmit_register(struct sip_registry *r, int sipmethod, const char *
 		if (p->do_history)
 			append_history(p, "RegistryInit", "Account: %s@%s", r->username, r->hostname);
 
-		if (!ast_strlen_zero(r->peername)) {
-			if (!(peer = find_peer(r->peername, NULL, 1, FINDPEERS, FALSE, 0))) {
-				ast_log(LOG_WARNING, "Could not find peer %s in transmit_register\n", r->peername);
-			} else {
-				p->peerauth = peer->auth;
-			}
-		}
-		ref_proxy(p, obproxy_get(p, peer)); /* it is ok to pass a NULL peer into obproxy_get() */
-		if (peer) {
-			unref_peer(peer, "transmit_registration: from find_peer operation");
-		}
 		/* Use port number specified if no SRV record was found */
 		if (!r->us.sin_port && r->portno)
 			r->us.sin_port = htons(r->portno);
 
 		/* Find address to hostname */
-		if (create_addr(p, r->hostname, &r->us, 0)) {
+		if (create_addr(p, S_OR(r->peername, r->hostname), &r->us, 0)) {
 			/* we have what we hope is a temporary network error,
 			 * probably DNS.  We need to reschedule a registration try */
 			dialog_unlink_all(p, TRUE, TRUE);
@@ -12984,6 +13042,21 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct sockaddr
 
 	ast_string_field_set(p, exten, name);
 	build_contact(p);
+	if (req->ignore) {
+		/* Expires is a special case, where we only want to load the peer if this isn't a deregistration attempt */
+		const char *expires = get_header(req, "Expires");
+		int expire = atoi(expires);
+
+		if (ast_strlen_zero(expires)) { /* No expires header; look in Contact */
+			if ((expires = strcasestr(get_header(req, "Contact"), ";expires="))) {
+				expire = atoi(expires + 9);
+			}
+		}
+		if (!ast_strlen_zero(expires) && expire == 0) {
+			transmit_response_with_date(p, "200 OK", req);
+			return 0;
+		}
+	}
 	peer = find_peer(name, NULL, TRUE, FINDPEERS, FALSE, 0);
 	if (!(peer && ast_apply_ha(peer->ha, sin))) {
 		/* Peer fails ACL check */
@@ -13365,8 +13438,9 @@ static int get_destination(struct sip_pvt *p, struct sip_request *oreq)
 				return -2;
 			}
 		}
-		/* If we have a context defined, overwrite the original context */
-		if (!ast_strlen_zero(domain_context))
+		/* If we don't have a peer (i.e. we're a guest call),
+		 * overwrite the original context */
+		if (!ast_test_flag(&p->flags[1], SIP_PAGE2_HAVEPEERCONTEXT) && !ast_strlen_zero(domain_context))
 			ast_string_field_set(p, context, domain_context);
 	}
 
@@ -15441,7 +15515,7 @@ static char *_sip_show_peer(int type, int fd, struct mansession *s, const struct
 		ast_cli(fd, "  DirectMedia  : %s\n", cli_yesno(ast_test_flag(&peer->flags[0], SIP_DIRECT_MEDIA)));
 		ast_cli(fd, "  PromiscRedir : %s\n", cli_yesno(ast_test_flag(&peer->flags[0], SIP_PROMISCREDIR)));
 		ast_cli(fd, "  User=Phone   : %s\n", cli_yesno(ast_test_flag(&peer->flags[0], SIP_USEREQPHONE)));
-		ast_cli(fd, "  Video Support: %s\n", cli_yesno(ast_test_flag(&peer->flags[1], SIP_PAGE2_VIDEOSUPPORT)));
+		ast_cli(fd, "  Video Support: %s\n", cli_yesno(ast_test_flag(&peer->flags[1], SIP_PAGE2_VIDEOSUPPORT) || ast_test_flag(&peer->flags[1], SIP_PAGE2_VIDEOSUPPORT_ALWAYS)));
 		ast_cli(fd, "  Text Support : %s\n", cli_yesno(ast_test_flag(&peer->flags[1], SIP_PAGE2_TEXTSUPPORT)));
 		ast_cli(fd, "  Ign SDP ver  : %s\n", cli_yesno(ast_test_flag(&peer->flags[1], SIP_PAGE2_IGNORESDPVERSION)));
 		ast_cli(fd, "  Trust RPID   : %s\n", cli_yesno(ast_test_flag(&peer->flags[0], SIP_TRUSTRPID)));
@@ -19632,15 +19706,24 @@ static int do_magic_pickup(struct ast_channel *channel, const char *extension, c
 	return 0;
 }
 
+/*! \brief Called to deny a T38 reinvite if the core does not respond to our request */
 static int sip_t38_abort(const void *data)
 {
 	struct sip_pvt *p = (struct sip_pvt *) data;
 
-	change_t38_state(p, T38_DISABLED);
-	transmit_response_reliable(p, "488 Not acceptable here", &p->initreq);
-	p->t38id = -1;
-	dialog_unref(p, "unref the dialog ptr from sip_t38_abort, because it held a dialog ptr");
-
+	sip_pvt_lock(p);
+	/* an application may have taken ownership of the T.38 negotiation on this
+	 * channel while we were waiting to grab the lock... if it did, the scheduler
+	 * id will have been reset to -1, which is our indication that we do *not*
+	 * want to abort the negotiation process
+	 */
+	if (p->t38id != -1) {
+		change_t38_state(p, T38_DISABLED);
+		transmit_response_reliable(p, "488 Not acceptable here", &p->initreq);
+		p->t38id = -1;
+		dialog_unref(p, "unref the dialog ptr from sip_t38_abort, because it held a dialog ptr");
+	}
+	sip_pvt_unlock(p);
 	return 0;
 }
 
@@ -19998,9 +20081,15 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, int
 		}
 
 		/* If T38 is needed but not present, then make it magically appear */
-		if (ast_test_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT) && !p->udptl && (p->udptl = ast_udptl_new_with_bindaddr(sched, io, 0, bindaddr.sin_addr))) {
-			p->t38_maxdatagram = global_t38_maxdatagram;
-			set_t38_capabilities(p);
+		if (ast_test_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT) && !p->udptl) {
+			if ((p->udptl = ast_udptl_new_with_bindaddr(sched, io, 0, bindaddr.sin_addr))) {
+				p->t38_maxdatagram = global_t38_maxdatagram;
+				set_t38_capabilities(p);
+			} else {
+				/* udptl creation failed, T38 can not be supported on this dialog */
+				ast_debug(1, "UDPTL creation failed on dialog.\n");
+				ast_clear_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT);
+			}
 		}
 
 		/* We have a succesful authentication, process the SDP portion if there is one */
@@ -20061,8 +20150,8 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, int
 				transmit_response_reliable(p, "404 Not Found", req);
 				ast_uri_decode(decoded_exten);
 				ast_log(LOG_NOTICE, "Call from '%s' to extension"
-					" '%s' rejected because extension not found.\n",
-					S_OR(p->username, p->peername), decoded_exten);
+					" '%s' rejected because extension not found in context '%s'.\n",
+					S_OR(p->username, p->peername), decoded_exten, p->context);
 			}
 			p->invitestate = INV_COMPLETED;
 			update_call_counter(p, DEC_CALL_LIMIT);
@@ -20246,6 +20335,7 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, int
 
 			/* Let the caller know we're giving it a shot */
 			transmit_response(p, "100 Trying", req);
+			p->invitestate = INV_PROCEEDING;
 			ast_setstate(c, AST_STATE_RING);
 
 			/* Do the pickup itself */
@@ -22399,6 +22489,9 @@ static void check_rtp_timeout(struct sip_pvt *dialog, time_t t)
 					usleep(1);
 					sip_pvt_lock(dialog);
 				}
+				if (!dialog->owner) {
+					return; /* channel hangup can occur during deadlock avoidance. */
+				}
 				ast_log(LOG_NOTICE, "Disconnecting call '%s' for lack of RTP activity in %ld seconds\n",
 					dialog->owner->name, (long) (t - dialog->lastrtprx));
 				/* Issue a softhangup */
@@ -23218,7 +23311,7 @@ static struct ast_channel *sip_request_call(const char *type, int format, void *
 	printf("Setting up to call extension '%s' at '%s'\n", ext ? ext : "<none>", host);
 #endif
 	p->prefcodec = oldformat;				/* Format for this call */
-	p->jointcapability = oldformat;
+	p->jointcapability = oldformat & p->capability;
 	sip_pvt_lock(p);
 	tmpc = sip_new(p, AST_STATE_DOWN, host);	/* Place the call */
 	if (sip_cfg.callevents)
@@ -23410,7 +23503,24 @@ static int handle_common_options(struct ast_flags *flags, struct ast_flags *mask
 		ast_set2_flag(&flags[1], ast_true(v->value), SIP_PAGE2_IGNORESDPVERSION);
 	} else if (!strcasecmp(v->name, "faxdetect")) {
 		ast_set_flag(&mask[1], SIP_PAGE2_FAX_DETECT);
-		ast_set2_flag(&flags[1], ast_true(v->value), SIP_PAGE2_FAX_DETECT);
+		if (ast_true(v->value)) {
+			ast_set_flag(&flags[1], SIP_PAGE2_FAX_DETECT_BOTH);
+		} else if (ast_false(v->value)) {
+			ast_clear_flag(&flags[1], SIP_PAGE2_FAX_DETECT_BOTH);
+		} else {
+			char *buf = ast_strdupa(v->value);
+			char *word, *next = buf;
+
+			while ((word = strsep(&next, ","))) {
+				if (!strcasecmp(word, "cng")) {
+					ast_set_flag(&flags[1], SIP_PAGE2_FAX_DETECT_CNG);
+				} else if (!strcasecmp(word, "t38")) {
+					ast_set_flag(&flags[1], SIP_PAGE2_FAX_DETECT_T38);
+				} else {
+					ast_log(LOG_WARNING, "Unknown faxdetect mode '%s' on line %d.\n", word, v->lineno);
+				}
+			}
+		}
 	} else if (!strcasecmp(v->name, "rfc2833compensate")) {
 		ast_set_flag(&mask[1], SIP_PAGE2_RFC2833_COMPENSATE);
 		ast_set2_flag(&flags[1], ast_true(v->value), SIP_PAGE2_RFC2833_COMPENSATE);
@@ -23835,6 +23945,7 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 				ast_string_field_set(peer, cid_num, v->value);
 			} else if (!strcasecmp(v->name, "context")) {
 				ast_string_field_set(peer, context, v->value);
+				ast_set_flag(&peer->flags[1], SIP_PAGE2_HAVEPEERCONTEXT);
 			} else if (!strcasecmp(v->name, "subscribecontext")) {
 				ast_string_field_set(peer, subscribecontext, v->value);
 			} else if (!strcasecmp(v->name, "fromdomain")) {
@@ -23885,19 +23996,23 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 					}
 				}
 			} else if (!strcasecmp(v->name, "defaultip")) {
-				if (ast_get_ip(&peer->defaddr, v->value)) {
+				if (!ast_strlen_zero(v->value) && ast_get_ip(&peer->defaddr, v->value)) {
 					unref_peer(peer, "unref_peer: from build_peer defaultip");
 					return NULL;
 				}
 			} else if (!strcasecmp(v->name, "permit") || !strcasecmp(v->name, "deny")) {
 				int ha_error = 0;
-				peer->ha = ast_append_ha(v->name, v->value, peer->ha, &ha_error);
+				if (!ast_strlen_zero(v->value)) {
+					peer->ha = ast_append_ha(v->name, v->value, peer->ha, &ha_error);
+				}
 				if (ha_error) {
 					ast_log(LOG_ERROR, "Bad ACL entry in configuration line %d : %s\n", v->lineno, v->value);
 				}
 			} else if (!strcasecmp(v->name, "contactpermit") || !strcasecmp(v->name, "contactdeny")) {
 				int ha_error = 0;
-				peer->contactha = ast_append_ha(v->name + 7, v->value, peer->contactha, &ha_error);
+				if (!ast_strlen_zero(v->value)) {
+					peer->contactha = ast_append_ha(v->name + 7, v->value, peer->contactha, &ha_error);
+				}
 				if (ha_error) {
 					ast_log(LOG_ERROR, "Bad ACL entry in configuration line %d : %s\n", v->lineno, v->value);
 				}
@@ -24997,14 +25112,14 @@ static int reload_config(enum channelreloadreason reason)
 					if (!ast_strlen_zero(username) && !ast_strlen_zero(host)) {
 						if (!ast_strlen_zero(secret)) {
 							if (!ast_strlen_zero(authuser)) {
-								snprintf(tmp, sizeof(tmp), "%s:%s:%s@%s/%s", username, secret, authuser, host, contact);
+								snprintf(tmp, sizeof(tmp), "%s?%s:%s:%s@%s/%s", cat, username, secret, authuser, host, contact);
 							} else {
-								snprintf(tmp, sizeof(tmp), "%s:%s@%s/%s", username, secret, host, contact);
+								snprintf(tmp, sizeof(tmp), "%s?%s:%s@%s/%s", cat, username, secret, host, contact);
 							}
 						} else if (!ast_strlen_zero(authuser)) {
-							snprintf(tmp, sizeof(tmp), "%s::%s@%s/%s", username, authuser, host, contact);
+							snprintf(tmp, sizeof(tmp), "%s?%s::%s@%s/%s", cat, username, authuser, host, contact);
 						} else {
-							snprintf(tmp, sizeof(tmp), "%s@%s/%s", username, host, contact);
+							snprintf(tmp, sizeof(tmp), "%s?%s@%s/%s", cat, username, host, contact);
 						}
 						if (sip_register(tmp, 0) == 0)
 							registry_count++;

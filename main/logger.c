@@ -33,7 +33,7 @@
 #define _ASTERISK_LOGGER_H
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 248643 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 269747 $")
 
 /*
  * WARNING: additional #include directives should NOT be placed here, they 
@@ -737,9 +737,9 @@ static char *handle_logger_set_level(struct ast_cli_entry *e, int cmd, struct as
 
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "logger set level";
+		e->command = "logger set level {DEBUG|NOTICE|WARNING|ERROR|VERBOSE|DTMF} {on|off}";
 		e->usage = 
-			"Usage: logger set level\n"
+			"Usage: logger set level {DEBUG|NOTICE|WARNING|ERROR|VERBOSE|DTMF} {on|off}\n"
 			"       Set a specific log level to enabled/disabled for this console.\n";
 		return NULL;
 	case CLI_GENERATE:
@@ -827,12 +827,16 @@ static struct ast_cli_entry cli_logger[] = {
 	AST_CLI_DEFINE(handle_logger_set_level, "Enables/Disables a specific logging level for this console")
 };
 
-static int handle_SIGXFSZ(int sig) 
+static void _handle_SIGXFSZ(int sig)
 {
 	/* Indicate need to reload */
 	filesize_reload_needed = 1;
-	return 0;
 }
+
+static struct sigaction handle_SIGXFSZ = {
+	.sa_handler = _handle_SIGXFSZ,
+	.sa_flags = SA_RESTART,
+};
 
 static void ast_log_vsyslog(int level, const char *file, int line, const char *function, char *str, long pid)
 {
@@ -1007,7 +1011,7 @@ int init_logger(void)
 	int res = 0;
 
 	/* auto rotate if sig SIGXFSZ comes a-knockin */
-	(void) signal(SIGXFSZ, (void *) handle_SIGXFSZ);
+	sigaction(SIGXFSZ, &handle_SIGXFSZ, NULL);
 
 	/* start logger thread */
 	ast_cond_init(&logcond, NULL);

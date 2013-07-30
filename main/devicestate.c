@@ -115,7 +115,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 205413 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 263642 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/channel.h"
@@ -327,8 +327,10 @@ static enum ast_device_state _ast_device_state(const char *device, int check_cac
 	buf = ast_strdupa(device);
 	tech = strsep(&buf, "/");
 	if (!(number = buf)) {
-		if (!(provider = strsep(&tech, ":")))
+		provider = strsep(&tech, ":");
+		if (!tech) {
 			return AST_DEVICE_INVALID;
+		}
 		/* We have a provider */
 		number = tech;
 		tech = NULL;

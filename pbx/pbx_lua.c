@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231191 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 265748 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
@@ -42,15 +42,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231191 $")
 #include "asterisk/paths.h"
 #include "asterisk/hashtab.h"
 
-#ifdef LUA51_PREFIX
-#include <lua5.1/lua.h>
-#include <lua5.1/lauxlib.h>
-#include <lua5.1/lualib.h>
-#else
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
-#endif
 
 static char *config = "extensions.lua";
 static char *registrar = "pbx_lua";

@@ -82,7 +82,7 @@ static const char * const help_info[] = {
 };
 
 /*! \brief Handle a window resize in xterm */
-static void winch_handler(int sig)
+static void _winch_handler(int sig)
 {
 	getmaxyx(stdscr, max_y, max_x);
 
@@ -93,11 +93,19 @@ static void winch_handler(int sig)
 	}
 }
 
+static struct sigaction winch_handler = {
+	.sa_handler = _winch_handler,
+};
+
 /*! \brief Handle a SIGQUIT */
-static void sigint_handler(int sig)
+static void _sigint_handler(int sig)
 {
 
 }
+
+static struct sigaction sigint_handler = {
+	.sa_handler = _sigint_handler,
+};
 
 /*! \brief Display help information */
 static void show_help(WINDOW *win)
@@ -459,8 +467,8 @@ int run_menu(void)
 
 	initscr();
 	getmaxyx(stdscr, max_y, max_x);
-	signal(SIGWINCH, winch_handler); /* handle window resizing in xterm */
-	signal(SIGINT, sigint_handler); /* handle window resizing in xterm */
+	sigaction(SIGWINCH, &winch_handler, NULL); /* handle window resizing in xterm */
+	sigaction(SIGINT, &sigint_handler, NULL); /* handle window resizing in xterm */
 
 	if (max_x < MIN_X || max_y < MIN_Y) {
 		fprintf(stderr, "Terminal must be at least %d x %d.\n", MIN_X, MIN_Y);

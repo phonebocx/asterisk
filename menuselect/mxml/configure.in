@@ -1,5 +1,5 @@
 dnl
-dnl "$Id: configure.in 234 2010-01-11 17:31:54Z tilghman $"
+dnl "$Id: configure.in 260 2010-04-27 19:11:06Z qwell $"
 dnl
 dnl Configuration script for Mini-XML, a small XML-like file parsing library.
 dnl
@@ -76,7 +76,7 @@ if test "$INSTALL" = "$ac_install_sh"; then
 	INSTALL="`pwd`/install-sh -c"
 fi
 AC_PROG_RANLIB
-AC_PATH_PROG(AR,ar)
+AC_PATH_PROGS(AR,ar gar)
 AC_PATH_PROG(CP,cp)
 AC_PATH_PROG(LN,ln)
 AC_PATH_PROG(MKDIR,mkdir)
@@ -339,5 +339,5 @@ dnl Output the makefile, etc...
 AC_OUTPUT(Makefile mxml.list mxml.pc)
 
 dnl
-dnl End of "$Id: configure.in 234 2010-01-11 17:31:54Z tilghman $".
+dnl End of "$Id: configure.in 260 2010-04-27 19:11:06Z qwell $".
 dnl

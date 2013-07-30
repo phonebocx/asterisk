@@ -53,7 +53,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 262898 $")
 
 #include <sys/signal.h>  /* SIGURG */
 
@@ -277,6 +277,10 @@ static void *stream_monitor(void *data)
 		res = Pa_ReadStream(pvt->stream, buf, sizeof(buf) / sizeof(int16_t));
 		pthread_testcancel();
 
+		if (!pvt->owner) {
+			return NULL;
+		}
+
 		if (res == paNoError)
 			ast_queue_frame(pvt->owner, &f);
 	}
@@ -352,7 +356,10 @@ static int start_stream(struct console_pvt *pvt)
 
 	console_pvt_lock(pvt);
 
-	if (pvt->streamstate)
+	/* It is possible for console_hangup to be called before the
+	 * stream is started, if this is the case pvt->owner will be NULL
+	 * and start_stream should be aborted. */
+	if (pvt->streamstate || !pvt->owner)
 		goto return_unlock;
 
 	pvt->streamstate = 1;
@@ -1192,7 +1199,7 @@ static char *cli_console_active(struct ast_cli_entry *e, int cmd, struct ast_cli
 		return CLI_SUCCESS;
 	}
 
-	if (!(pvt = find_pvt(a->argv[e->args]))) {
+	if (!(pvt = find_pvt(a->argv[e->args - 1]))) {
 		ast_cli(a->fd, "Could not find a device called '%s'.\n", a->argv[e->args]);
 		return CLI_FAILURE;
 	}

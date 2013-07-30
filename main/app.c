@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231689 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 263587 $")
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
@@ -36,6 +36,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231689 $")
 #include <sys/time.h>       /* for getrlimit(2) */
 #include <sys/resource.h>   /* for getrlimit(2) */
 #include <stdlib.h>         /* for closefrom(3) */
+#ifndef HAVE_CLOSEFROM
+#include <sys/types.h>
+#include <dirent.h>         /* for opendir(3)   */
+#endif
 #ifdef HAVE_CAP
 #include <sys/capability.h>
 #endif /* HAVE_CAP */
@@ -1773,13 +1777,19 @@ char *ast_read_textfile(const char *filename)
 	return output;
 }
 
-int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags *flags, char **args, char *optstr)
+static int parse_options(const struct ast_app_option *options, void *_flags, char **args, char *optstr, int flaglen)
 {
 	char *s, *arg;
 	int curarg, res = 0;
 	unsigned int argloc;
+	struct ast_flags *flags = _flags;
+	struct ast_flags64 *flags64 = _flags;
 
-	ast_clear_flag(flags, AST_FLAGS_ALL);
+	if (flaglen == 32) {
+		ast_clear_flag(flags, AST_FLAGS_ALL);
+	} else {
+		flags64->flags = 0;
+	}
 
 	if (!optstr) {
 		return 0;
@@ -1790,8 +1800,40 @@ int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags
 		curarg = *s++ & 0x7f;	/* the array (in app.h) has 128 entries */
 		argloc = options[curarg].arg_index;
 		if (*s == '(') {
+			int paren = 1, quote = 0;
+			int parsequotes = (s[1] == '"') ? 1 : 0;
+
 			/* Has argument */
 			arg = ++s;
+			for (; *s; s++) {
+				if (*s == '(' && !quote) {
+					paren++;
+				} else if (*s == ')' && !quote) {
+					/* Count parentheses, unless they're within quotes (or backslashed, below) */
+					paren--;
+				} else if (*s == '"' && parsequotes) {
+					/* Leave embedded quotes alone, unless they are the first character */
+					quote = quote ? 0 : 1;
+					ast_copy_string(s, s + 1, INT_MAX);
+					s--;
+				} else if (*s == '\\') {
+					if (!quote) {
+						/* If a backslash is found outside of quotes, remove it */
+						ast_copy_string(s, s + 1, INT_MAX);
+					} else if (quote && s[1] == '"') {
+						/* Backslash for a quote character within quotes, remove the backslash */
+						ast_copy_string(s, s + 1, INT_MAX);
+					} else {
+						/* Backslash within quotes, keep both characters */
+						s++;
+					}
+				}
+
+				if (paren == 0) {
+					break;
+				}
+			}
+			/* This will find the closing paren we found above, or none, if the string ended before we found one. */
 			if ((s = strchr(s, ')'))) {
 				if (argloc) {
 					args[argloc - 1] = arg;
@@ -1805,52 +1847,24 @@ int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags
 		} else if (argloc) {
 			args[argloc - 1] = "";
 		}
-		ast_set_flag(flags, options[curarg].flag);
+		if (flaglen == 32) {
+			ast_set_flag(flags, options[curarg].flag);
+		} else {
+			ast_set_flag64(flags64, options[curarg].flag);
+		}
 	}
 
 	return res;
 }
 
-/* the following function will probably only be used in app_dial, until app_dial is reorganized to
-   better handle the large number of options it provides. After it is, you need to get rid of this variant 
-   -- unless, of course, someone else digs up some use for large flag fields. */
+int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags *flags, char **args, char *optstr)
+{
+	return parse_options(options, flags, args, optstr, 32);
+}
 
 int ast_app_parse_options64(const struct ast_app_option *options, struct ast_flags64 *flags, char **args, char *optstr)
 {
-	char *s, *arg;
-	int curarg, res = 0;
-	unsigned int argloc;
-
-	flags->flags = 0;
-
-	if (!optstr) {
-		return 0;
-	}
-
-	s = optstr;
-	while (*s) {
-		curarg = *s++ & 0x7f;	/* the array (in app.h) has 128 entries */
-		ast_set_flag64(flags, options[curarg].flag);
-		argloc = options[curarg].arg_index;
-		if (*s == '(') {
-			/* Has argument */
-			arg = ++s;
-			if ((s = strchr(s, ')'))) {
-				if (argloc) {
-					args[argloc - 1] = arg;
-				}
-				*s++ = '\0';
-			} else {
-				ast_log(LOG_WARNING, "Missing closing parenthesis for argument '%c' in string '%s'\n", curarg, arg);
-				res = -1;
-				break;
-			}
-		} else if (argloc) {
-			args[argloc - 1] = NULL;
-		}
-	}
-
-	return res;
+	return parse_options(options, flags, args, optstr, 64);
 }
 
 void ast_app_options2str64(const struct ast_app_option *options, struct ast_flags64 *flags, char *buf, size_t len)
@@ -1984,20 +1998,41 @@ void ast_close_fds_above_n(int n)
 #ifdef HAVE_CLOSEFROM
 	closefrom(n + 1);
 #else
-	int x, null;
+	long x, null;
 	struct rlimit rl;
-	getrlimit(RLIMIT_NOFILE, &rl);
-	null = open("/dev/null", O_RDONLY);
-	for (x = n + 1; x < rl.rlim_cur; x++) {
-		if (x != null) {
-			/* Side effect of dup2 is that it closes any existing fd without error.
-			 * This prevents valgrind and other debugging tools from sending up
-			 * false error reports. */
-			while (dup2(null, x) < 0 && errno == EINTR);
-			close(x);
+	DIR *dir;
+	char path[16], *result;
+	struct dirent *entry;
+	snprintf(path, sizeof(path), "/proc/%d/fd", (int) getpid());
+	if ((dir = opendir(path))) {
+		while ((entry = readdir(dir))) {
+			/* Skip . and .. */
+			if (entry->d_name[0] == '.') {
+				continue;
+			}
+			if ((x = strtol(entry->d_name, &result, 10)) && x > n) {
+				close(x);
+			}
 		}
+		closedir(dir);
+	} else {
+		getrlimit(RLIMIT_NOFILE, &rl);
+		if (rl.rlim_cur > 65535) {
+			/* A more reasonable value */
+			rl.rlim_cur = 65535;
+		}
+		null = open("/dev/null", O_RDONLY);
+		for (x = n + 1; x < rl.rlim_cur; x++) {
+			if (x != null) {
+				/* Side effect of dup2 is that it closes any existing fd without error.
+				 * This prevents valgrind and other debugging tools from sending up
+				 * false error reports. */
+				while (dup2(null, x) < 0 && errno == EINTR);
+				close(x);
+			}
+		}
+		close(null);
 	}
-	close(null);
 #endif
 }
 

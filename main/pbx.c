@@ -24,7 +24,7 @@
  */
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 243490 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 264783 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_SYSTEM_NAME */
@@ -3835,6 +3835,17 @@ int ast_extension_state(struct ast_channel *c, const char *context, const char *
 
 	if (!(e = ast_hint_extension(c, context, exten))) {  /* Do we have a hint for this extension ? */
 		return -1;                   /* No hint, return -1 */
+	}
+
+	if (e->exten[0] == '_') {
+		/* Create this hint on-the-fly */
+		ast_add_extension(e->parent->name, 0, exten, e->priority, e->label,
+			e->matchcid ? e->cidmatch : NULL, e->app, ast_strdup(e->data), ast_free_ptr,
+			e->registrar);
+		if (!(e = ast_hint_extension(c, context, exten))) {
+			/* Improbable, but not impossible */
+			return -1;
+		}
 	}
 
 	return ast_extension_state2(e);  /* Check all devices in the hint */

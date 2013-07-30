@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Install FreeRADIUS Server (Version 1.1.1)</TITLE>
-<META NAME="description" CONTENT="Install FreeRADIUS Server (Version 1.1.1)">
+<TITLE>Configuration of the Radiusclient library</TITLE>
+<META NAME="description" CONTENT="Configuration of the Radiusclient library">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -20,73 +20,139 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="next" HREF="node229.html">
 <LINK REL="previous" HREF="node227.html">
-<LINK REL="up" HREF="node224.html">
+<LINK REL="up" HREF="node225.html">
 <LINK REL="next" HREF="node229.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3635"
+<A NAME="tex2html3638"
   HREF="node229.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3631"
-  HREF="node224.html">
+<A NAME="tex2html3634"
+  HREF="node225.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3625"
+<A NAME="tex2html3628"
   HREF="node227.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3633"
+<A NAME="tex2html3636"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3636"
-  HREF="node229.html">Configuration of the FreeRADIUS</A>
-<B> Up:</B> <A NAME="tex2html3632"
-  HREF="node224.html">RADIUS</A>
-<B> Previous:</B> <A NAME="tex2html3626"
-  HREF="node227.html">Configuration of the Radiusclient</A>
- &nbsp; <B>  <A NAME="tex2html3634"
+<B> Next:</B> <A NAME="tex2html3639"
+  HREF="node229.html">Install FreeRADIUS Server (Version</A>
+<B> Up:</B> <A NAME="tex2html3635"
+  HREF="node225.html">RADIUS</A>
+<B> Previous:</B> <A NAME="tex2html3629"
+  HREF="node227.html">Installation of the Radiusclient</A>
+ &nbsp; <B>  <A NAME="tex2html3637"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H3><A NAME="SECTION001146400000000000000">
-Install FreeRADIUS Server (Version 1.1.1)</A>
+<H3><A NAME="SECTION001146300000000000000">
+Configuration of the Radiusclient library</A>
 </H3>
 
 <P>
-Download sources tarball from:
+By default all the configuration files of the radiusclient library will
+	be in /usr/local/etc/radiusclient-ng directory.
 
 <P>
-<TT><A NAME="tex2html32"
-  HREF="http://freeradius.org/">http://freeradius.org/</A></TT>
-<P>
-Untar, configure, build, and install the server:
+File "radiusclient.conf"
+		Open the file and find lines containing the following:
 
 <P>
-<PRE>
-	root@localhost:/usr/local/src# tar xvfz freeradius-1.1.1.tar.gz
-	root@localhost:/usr/local/src# cd freeradius-1.1.1
-	root@localhost"/usr/local/src/freeradius-1.1.1# ./configure
-	root@localhost"/usr/local/src/freeradius-1.1.1# make
-	root@localhost"/usr/local/src/freeradius-1.1.1# make install
-</PRE>
+authserver      localhost
 
 <P>
-All the configuration files of FreeRADIUS server will be in
-	/usr/local/etc/raddb directory.
+This is the hostname or IP address of the RADIUS server used for
+	authentication. You will have to change this unless the server is
+	running on the same host as your Asterisk PBX.
 
 <P>
-<BR><HR>
+acctserver      localhost
+
+<P>
+This is the hostname or IP address of the RADIUS server used for
+	accounting. You will have to change this unless the server is running
+	on the same host as your Asterisk PBX.
+
+<P>
+<SPAN  CLASS="textbf">File "servers"</SPAN>
+
+<P>
+RADIUS protocol uses simple access control mechanism based on shared
+	secrets that allows RADIUS servers to limit access from RADIUS clients.
+
+<P>
+A RADIUS server is configured with a secret string and only RADIUS
+	clients that have the same secret will be accepted.
+
+<P>
+You need to configure a shared secret for each server you have
+	configured in radiusclient.conf file in the previous step. The shared
+	secrets are stored in /usr/local/etc/radiusclient-ng/servers file.
+
+<P>
+Each line contains hostname of a RADIUS server and shared secret
+	used in communication with that server. The two values are separated
+	by white spaces. Configure shared secrets for every RADIUS server you
+	are going to use.
+
+<P>
+<SPAN  CLASS="textbf">File "dictionary"</SPAN>
+
+<P>
+Asterisk uses some attributes that are not included in the
+	dictionary of radiusclient library, therefore it is necessary to add
+	them. A file called dictionary.digium (kept in the contrib dir)
+	was created to list all new attributes used by Asterisk.
+	Add to the end of the main dictionary file
+	/usr/local/etc/radiusclient-ng/dictionary the line:
+
+<P>
+$INCLUDE /path/to/dictionary.digium
+
+<P>
+
+<DIV CLASS="navigation"><HR>
+<!--Navigation Panel-->
+<A NAME="tex2html3638"
+  HREF="node229.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
+ SRC="/usr/share/latex2html/icons/next.png"></A> 
+<A NAME="tex2html3634"
+  HREF="node225.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
+ SRC="/usr/share/latex2html/icons/up.png"></A> 
+<A NAME="tex2html3628"
+  HREF="node227.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
+ SRC="/usr/share/latex2html/icons/prev.png"></A> 
+<A NAME="tex2html3636"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
+ SRC="/usr/share/latex2html/icons/contents.png"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html3639"
+  HREF="node229.html">Install FreeRADIUS Server (Version</A>
+<B> Up:</B> <A NAME="tex2html3635"
+  HREF="node225.html">RADIUS</A>
+<B> Previous:</B> <A NAME="tex2html3629"
+  HREF="node227.html">Installation of the Radiusclient</A>
+ &nbsp; <B>  <A NAME="tex2html3637"
+  HREF="node1.html">Contents</A></B> </DIV>
+<!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2010-05-03
+2010-06-17
 </ADDRESS>
 </BODY>
 </HTML>
