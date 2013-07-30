@@ -20,6 +20,8 @@
  * \brief CallerID (and other GR30) management and generation
  * Includes code and algorithms from the Zapata library.
  *
+ * \ref CID
+ *
  */
 
 /*!
@@ -49,6 +51,8 @@
 #define CID_PRIVATE_NUMBER		(1 << 1)
 #define CID_UNKNOWN_NAME		(1 << 2)
 #define CID_UNKNOWN_NUMBER		(1 << 3)
+#define CID_MSGWAITING			(1 << 4)
+#define CID_NOMSGWAITING		(1 << 5)
 
 #define CID_SIG_BELL	1
 #define CID_SIG_V23	2
@@ -58,7 +62,15 @@
 
 #define CID_START_RING	1
 #define CID_START_POLARITY 2
+#define CID_START_POLARITY_IN 3
 
+/* defines dealing with message waiting indication generation */
+/*! MWI SDMF format */
+#define CID_MWI_TYPE_SDMF		0x00
+/*! MWI MDMF format -- generate only MWI field */
+#define CID_MWI_TYPE_MDMF		0x01
+/*! MWI MDMF format -- generate name, callerid, date and MWI fields */
+#define CID_MWI_TYPE_MDMF_FULL	0x02
 
 #define AST_LIN2X(a) ((codec == AST_FORMAT_ALAW) ? (AST_LIN2A(a)) : (AST_LIN2MU(a)))
 #define AST_XLAW(a) ((codec == AST_FORMAT_ALAW) ? (AST_ALAW(a)) : (AST_MULAW(a)))
@@ -157,8 +169,15 @@ void callerid_free(struct callerid_state *cid);
  */
 int ast_callerid_generate(unsigned char *buf, const char *name, const char *number, int codec);
 
-/*! \brief Generate message waiting indicator  (stutter tone) */
-int vmwi_generate(unsigned char *buf, int active, int mdmf, int codec);
+/*! \brief Generate message waiting indicator
+ *  \param active The message indicator state
+ *  -- either 0 no messages in mailbox or 1 messages in mailbox
+ *  \param type Format of message (any of CID_MWI_TYPE_*)
+ *  \see callerid_generate() for more info as it use the same encoding
+ *  \version 1.6.1 changed mdmf parameter to type, added name, number and flags for caller id message generation
+*/
+int vmwi_generate(unsigned char *buf, int active, int type, int codec, const char *name,
+	const char *number, int flags);
 
 /*! \brief Generate Caller-ID spill but in a format suitable for Call Waiting(tm)'s Caller*ID(tm)
  * See ast_callerid_generate() for other details
@@ -237,14 +256,14 @@ static inline float callerid_getcarrier(float *cr, float *ci, int bit)
 } while(0)
 
 #define PUT_AUDIO_SAMPLE(y) do { \
-	int index = (short)(rint(8192.0 * (y))); \
-	*(buf++) = AST_LIN2X(index); \
+	int __sample_idx = (short)(rint(8192.0 * (y))); \
+	*(buf++) = AST_LIN2X(__sample_idx); \
 	bytes++; \
 } while(0)
 
 #define PUT_CLID_MARKMS do { \
-	int x; \
-	for (x=0;x<8;x++) \
+	int __clid_x; \
+	for (__clid_x=0;__clid_x<8;__clid_x++) \
 		PUT_AUDIO_SAMPLE(callerid_getcarrier(&cr, &ci, 1)); \
 } while(0)
 
@@ -311,6 +330,7 @@ static inline float callerid_getcarrier(float *cr, float *ci, int bit)
 
 int ast_parse_caller_presentation(const char *data);
 const char *ast_describe_caller_presentation(int data);
+const char *ast_named_caller_presentation(int data);
 
 /*! \page Def_CallerPres Caller ID Presentation
 

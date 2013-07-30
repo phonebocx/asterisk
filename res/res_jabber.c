@@ -17,26 +17,29 @@
  */
 
 /*! \file
- * \brief A resource for interfacing asterisk directly as a client
- * or a component to a jabber compliant server.
+ * \brief A resource for interfacing Asterisk directly as a client
+ * or a component to a XMPP/Jabber compliant server.
+ *
+ * References:
+ * - http://www.xmpp.org - The XMPP standards foundation
+ *
+ * \extref Iksemel http://code.google.com/p/iksemel/
  *
  * \todo If you unload this module, chan_gtalk/jingle will be dead. How do we handle that?
- * \todo If you have TLS, you can't unload this module. See bug #9738. This needs to be fixed,
- *       but the bug is in the unmantained Iksemel library
+ * \todo Dialplan applications need RETURN variable, like JABBERSENDSTATUS
  *
  */
 
 /*** MODULEINFO
 	<depend>iksemel</depend>
-	<use>gnutls</use>
+	<use>openssl</use>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72554 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153710 $")
 
-#include <stdlib.h>
-#include <stdio.h>
+#include <ctype.h>
 #include <iksemel.h>
 
 #include "asterisk/channel.h"
@@ -45,8 +48,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72554 $")
 #include "asterisk/config.h"
 #include "asterisk/callerid.h"
 #include "asterisk/lock.h"
-#include "asterisk/logger.h"
-#include "asterisk/options.h"
 #include "asterisk/cli.h"
 #include "asterisk/app.h"
 #include "asterisk/pbx.h"
@@ -58,6 +59,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72554 $")
 #include "asterisk/astdb.h"
 #include "asterisk/manager.h"
 
+/*! \todo This should really be renamed to xmpp.conf. For backwards compatibility, we
+ 	need to read both files */
 #define JABBER_CONFIG "jabber.conf"
 
 #ifndef FALSE
@@ -69,31 +72,40 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72554 $")
 #endif
 
 /*-- Forward declarations */
-static int aji_highest_bit(int number);
 static void aji_buddy_destroy(struct aji_buddy *obj);
 static void aji_client_destroy(struct aji_client *obj);
 static int aji_send_exec(struct ast_channel *chan, void *data);
 static int aji_status_exec(struct ast_channel *chan, void *data);
+static int aji_is_secure(struct aji_client *client);
+#ifdef HAVE_OPENSSL
+static int aji_start_tls(struct aji_client *client);
+static int aji_tls_handshake(struct aji_client *client);
+#endif
+static int aji_io_recv(struct aji_client *client, char *buffer, size_t buf_len, int timeout);
+static int aji_recv(struct aji_client *client, int timeout);
+static int aji_send_header(struct aji_client *client, const char *to);
+static int aji_send_raw(struct aji_client *client, const char *xmlstr);
 static void aji_log_hook(void *data, const char *xmpp, size_t size, int is_incoming);
+static int aji_start_sasl(struct aji_client *client, enum ikssasltype type, char *username, char *pass);
 static int aji_act_hook(void *data, int type, iks *node);
 static void aji_handle_iq(struct aji_client *client, iks *node);
 static void aji_handle_message(struct aji_client *client, ikspak *pak);
 static void aji_handle_presence(struct aji_client *client, ikspak *pak);
 static void aji_handle_subscribe(struct aji_client *client, ikspak *pak);
 static void *aji_recv_loop(void *data);
-static int aji_component_initialize(struct aji_client *client);
-static int aji_client_initialize(struct aji_client *client);
+static int aji_initialize(struct aji_client *client);
 static int aji_client_connect(void *data, ikspak *pak);
 static void aji_set_presence(struct aji_client *client, char *to, char *from, int level, char *desc);
-static int aji_do_debug(int fd, int argc, char *argv[]);
-static int aji_do_reload(int fd, int argc, char *argv[]);
-static int aji_no_debug(int fd, int argc, char *argv[]);
-static int aji_test(int fd, int argc, char *argv[]);
-static int aji_show_clients(int fd, int argc, char *argv[]);
+static char *aji_do_debug_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
+static char *aji_do_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
+static char *aji_do_reload(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
+static char *aji_show_clients(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
+static char *aji_show_buddies(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
+static char *aji_test(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static int aji_create_client(char *label, struct ast_variable *var, int debug);
 static int aji_create_buddy(char *label, struct aji_client *client);
-static int aji_reload(void);
-static int aji_load_config(void);
+static int aji_reload(int reload);
+static int aji_load_config(int reload);
 static void aji_pruneregister(struct aji_client *client);
 static int aji_filter_roster(void *data, ikspak *pak);
 static int aji_get_roster(struct aji_client *client);
@@ -111,43 +123,13 @@ static int aji_register_transport(void *data, ikspak *pak);
 static int aji_register_transport2(void *data, ikspak *pak);
 */
 
-static char debug_usage[] = 
-"Usage: jabber debug\n" 
-"       Enables dumping of Jabber packets for debugging purposes.\n";
-
-static char no_debug_usage[] = 
-"Usage: jabber debug off\n" 
-"       Disables dumping of Jabber packets for debugging purposes.\n";
-
-static char reload_usage[] = 
-"Usage: jabber reload\n" 
-"       Enables reloading of Jabber module.\n";
-
-static char test_usage[] = 
-"Usage: jabber test [client]\n" 
-"       Sends test message for debugging purposes.  A specific client\n"
-"       as configured in jabber.conf can be optionally specified.\n";
-
+static struct ast_cli_entry cli_aji_do_debug_deprecated = AST_CLI_DEFINE(aji_do_debug_deprecated, "Enable/disable jabber debugging");
 static struct ast_cli_entry aji_cli[] = {
-	{ { "jabber", "debug", NULL},
-	aji_do_debug, "Enable Jabber debugging",
-	debug_usage },
-
-	{ { "jabber", "reload", NULL},
-	aji_do_reload, "Reload Jabber configuration",
-	reload_usage },
-
-	{ { "jabber", "show", "connected", NULL},
-	aji_show_clients, "Show state of clients and components",
-	debug_usage },
-
-	{ { "jabber", "debug", "off", NULL},
-	aji_no_debug, "Disable Jabber debug",
-	no_debug_usage },
-
-	{ { "jabber", "test", NULL},
-	aji_test, "Shows roster, but is generally used for mog's debugging.",
-	test_usage },
+	AST_CLI_DEFINE(aji_do_set_debug, "Enable/Disable Jabber debug", .deprecate_cmd = &cli_aji_do_debug_deprecated),
+	AST_CLI_DEFINE(aji_do_reload, "Reload Jabber configuration"),
+	AST_CLI_DEFINE(aji_show_clients, "Show state of clients and components"),
+	AST_CLI_DEFINE(aji_show_buddies, "Show buddy lists of our clients"),
+	AST_CLI_DEFINE(aji_test, "Shows roster, but is generally used for mog's debugging."),
 };
 
 static char *app_ajisend = "JabberSend";
@@ -157,8 +139,8 @@ static char *ajisend_synopsis = "JabberSend(jabber,screenname,message)";
 static char *ajisend_descrip =
 "JabberSend(Jabber,ScreenName,Message)\n"
 "  Jabber - Client or transport Asterisk uses to connect to Jabber\n" 
-"  ScreenName - User Name to message.\n" 
-"  Message - Message to be sent to the buddy\n";
+"  ScreenName - XMPP/Jabber JID (Name) of recipient\n" 
+"  Message - Message to be sent to the budd (UTF8)y\n";
 
 static char *app_ajistatus = "JabberStatus";
 
@@ -169,19 +151,19 @@ static char *ajistatus_descrip =
 "  Jabber - Client or transport Asterisk uses to connect to Jabber\n"
 "  ScreenName - User Name to retrieve status from.\n"
 "  Variable - Variable to store presence in will be 1-6.\n" 
-"             In order, Online, Chatty, Away, XAway, DND, Offline\n" 
-"             If not in roster variable will = 7\n";
+"             In order, 1=Online, 2=Chatty, 3=Away, 4=XAway, 5=DND, 6=Offline\n" 
+"             If not in roster variable will be set to 7\n\n"
+"Note: This application is deprecated. Please use the JABBER_STATUS() function instead.\n";
 
 struct aji_client_container clients;
 struct aji_capabilities *capabilities = NULL;
 
 /*! \brief Global flags, initialized to default values */
 static struct ast_flags globalflags = { AJI_AUTOPRUNE | AJI_AUTOREGISTER };
-static int tls_initialized = FALSE;
 
 /*!
  * \brief Deletes the aji_client data structure.
- * \param obj is the structure we will delete.
+ * \param obj aji_client The structure we will delete.
  * \return void.
  */
 static void aji_client_destroy(struct aji_client *obj)
@@ -195,17 +177,17 @@ static void aji_client_destroy(struct aji_client *obj)
 	AST_LIST_LOCK(&obj->messages);
 	while ((tmp = AST_LIST_REMOVE_HEAD(&obj->messages, list))) {
 		if (tmp->from)
-			free(tmp->from);
+			ast_free(tmp->from);
 		if (tmp->message)
-			free(tmp->message);
+			ast_free(tmp->message);
 	}
 	AST_LIST_HEAD_DESTROY(&obj->messages);
-	free(obj);
+	ast_free(obj);
 }
 
 /*!
  * \brief Deletes the aji_buddy data structure.
- * \param obj is the structure we will delete.
+ * \param obj aji_buddy The structure we will delete.
  * \return void.
  */
 static void aji_buddy_destroy(struct aji_buddy *obj)
@@ -214,11 +196,11 @@ static void aji_buddy_destroy(struct aji_buddy *obj)
 
 	while ((tmp = obj->resources)) {
 		obj->resources = obj->resources->next;
-		free(tmp->description);
-		free(tmp);
+		ast_free(tmp->description);
+		ast_free(tmp);
 	}
 
-	free(obj);
+	ast_free(obj);
 }
 
 /*!
@@ -227,7 +209,7 @@ static void aji_buddy_destroy(struct aji_buddy *obj)
  * our list
  * \param version the version attribute in the caps element we'll look for or 
  * add to our list
- * \param pak the XML stanza we're processing
+ * \param pak struct The XML stanza we're processing
  * \return a pointer to the added or found aji_version structure
  */ 
 static struct aji_version *aji_find_version(char *node, char *version, ikspak *pak)
@@ -252,7 +234,7 @@ static struct aji_version *aji_find_version(char *node, char *version, ikspak *p
 			/* Specified version not found. Let's add it to 
 			   this node in our capabilities list */
 			if(!res) {
-				res = (struct aji_version *)malloc(sizeof(struct aji_version));
+				res = ast_malloc(sizeof(*res));
 				if(!res) {
 					ast_log(LOG_ERROR, "Out of memory!\n");
 					return NULL;
@@ -269,14 +251,15 @@ static struct aji_version *aji_find_version(char *node, char *version, ikspak *p
 	}
 	/* Specified node not found. Let's add it our capabilities list */
 	if(!list) {
-		list = (struct aji_capabilities *)malloc(sizeof(struct aji_capabilities));
+		list = ast_malloc(sizeof(*list));
 		if(!list) {
 			ast_log(LOG_ERROR, "Out of memory!\n");
 			return NULL;
 		}
-		res = (struct aji_version *)malloc(sizeof(struct aji_version));
+		res = ast_malloc(sizeof(*res));
 		if(!res) {
 			ast_log(LOG_ERROR, "Out of memory!\n");
+			ast_free(list);
 			return NULL;
 		}
 		ast_copy_string(list->node, node, sizeof(list->node));
@@ -290,7 +273,12 @@ static struct aji_version *aji_find_version(char *node, char *version, ikspak *p
 	}
 	return res;
 }
-
+/*!
+ * \brief Find the aji_resource we want
+ * \param buddy aji_buddy A buddy
+ * \param name 
+ * \return aji_resource object
+*/
 static struct aji_resource *aji_find_resource(struct aji_buddy *buddy, char *name)
 {
 	struct aji_resource *res = NULL;
@@ -306,6 +294,11 @@ static struct aji_resource *aji_find_resource(struct aji_buddy *buddy, char *nam
 	return res;
 }
 
+/*!
+ * \brief Jabber GTalk function
+ * \param node iks
+ * \return 1 on success, 0 on failure.
+*/
 static int gtalk_yuck(iks *node)
 {
 	if (iks_find_with_attrib(node, "c", "node", "http://www.google.com/xmpp/client/caps"))
@@ -314,22 +307,12 @@ static int gtalk_yuck(iks *node)
 }
 
 /*!
- * \brief Detects the highest bit in a number.
- * \param Number you want to have evaluated.
- * \return the highest power of 2 that can go into the number.
- */
-static int aji_highest_bit(int number)
-{
-	int x = sizeof(number) * 8 - 1;
-	if (!number)
-		return 0;
-	for (; x > 0; x--) {
-		if (number & (1 << x))
-			break;
-	}
-	return (1 << x);
-}
-
+ * \brief Setup the authentication struct
+ * \param id iksid 
+ * \param pass password
+ * \param sid
+ * \return x iks
+*/
 static iks *jabber_make_auth(iksid * id, const char *pass, const char *sid)
 {
 	iks *x, *y;
@@ -354,127 +337,515 @@ static iks *jabber_make_auth(iksid * id, const char *pass, const char *sid)
 /*!
  * \brief Dial plan function status(). puts the status of watched user 
    into a channel variable.
- * \param channel, and username,watched user, status var
- * \return 0.
+ * \param chan ast_channel
+ * \param data
+ * \return 0 on success, -1 on error
  */
 static int aji_status_exec(struct ast_channel *chan, void *data)
 {
 	struct aji_client *client = NULL;
 	struct aji_buddy *buddy = NULL;
 	struct aji_resource *r = NULL;
-	char *s = NULL, *sender = NULL, *jid = NULL, *screenname = NULL, *resource = NULL, *variable = NULL;
+	char *s = NULL;
 	int stat = 7;
 	char status[2];
+	static int deprecation_warning = 0;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(sender);
+		AST_APP_ARG(jid);
+		AST_APP_ARG(variable);
+	);
+	AST_DECLARE_APP_ARGS(jid,
+		AST_APP_ARG(screenname);
+		AST_APP_ARG(resource);
+	);
+
+	if (deprecation_warning++ % 10 == 0)
+		ast_log(LOG_WARNING, "JabberStatus is deprecated.  Please use the JABBER_STATUS dialplan function in the future.\n");
 
 	if (!data) {
-		ast_log(LOG_ERROR, "This application requires arguments.\n");
+		ast_log(LOG_ERROR, "Usage: JabberStatus(<sender>,<screenname>[/<resource>],<varname>\n");
 		return 0;
 	}
 	s = ast_strdupa(data);
-	if (s) {
-		sender = strsep(&s, "|");
-		if (sender && (sender[0] != '\0')) {
-			jid = strsep(&s, "|");
-			if (jid && (jid[0] != '\0')) {
-				variable = s;
-			} else {
-				ast_log(LOG_ERROR, "Bad arguments\n");
-				return -1;
-			}
-		}
+	AST_STANDARD_APP_ARGS(args, s);
+
+	if (args.argc != 3) {
+		ast_log(LOG_ERROR, "JabberStatus() requires 3 arguments.\n");
+		return -1;
 	}
 
-	if(!strchr(jid, '/')) {
-		resource = NULL;
-	} else {
-		screenname = strsep(&jid, "/");
-		resource = jid;
-	}
-	client = ast_aji_get_client(sender);
-	if (!client) {
-		ast_log(LOG_WARNING, "Could not find sender connection: %s\n", sender);
+	AST_NONSTANDARD_APP_ARGS(jid, args.jid, '/');
+
+	if (!(client = ast_aji_get_client(args.sender))) {
+		ast_log(LOG_WARNING, "Could not find sender connection: '%s'\n", args.sender);
 		return -1;
 	}
-	if(!&client->buddies) {
-		ast_log(LOG_WARNING, "No buddies for connection : %s\n", sender);
-		return -1;
-	}
-	buddy = ASTOBJ_CONTAINER_FIND(&client->buddies, resource ? screenname: jid);
+	buddy = ASTOBJ_CONTAINER_FIND(&client->buddies, jid.screenname);
 	if (!buddy) {
-		ast_log(LOG_WARNING, "Could not find buddy in list : %s\n", resource ? screenname : jid);
+		ast_log(LOG_WARNING, "Could not find buddy in list: '%s'\n", jid.screenname);
 		return -1;
 	}
-	r = aji_find_resource(buddy, resource);
-	if(!r && buddy->resources) 
+	r = aji_find_resource(buddy, jid.resource);
+	if (!r && buddy->resources) 
 		r = buddy->resources;
-	if(!r)
-		ast_log(LOG_NOTICE, "Resource %s of buddy %s not found \n", resource, screenname);
+	if (!r)
+		ast_log(LOG_NOTICE, "Resource '%s' of buddy '%s' was not found\n", jid.resource, jid.screenname);
 	else
 		stat = r->status;
-	sprintf(status, "%d", stat);
-	pbx_builtin_setvar_helper(chan, variable, status);
+	snprintf(status, sizeof(status), "%d", stat);
+	pbx_builtin_setvar_helper(chan, args.variable, status);
 	return 0;
 }
 
+static int acf_jabberstatus_read(struct ast_channel *chan, const char *name, char *data, char *buf, size_t buflen)
+{
+	struct aji_client *client = NULL;
+	struct aji_buddy *buddy = NULL;
+	struct aji_resource *r = NULL;
+	int stat = 7;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(sender);
+		AST_APP_ARG(jid);
+	);
+	AST_DECLARE_APP_ARGS(jid,
+		AST_APP_ARG(screenname);
+		AST_APP_ARG(resource);
+	);
+
+	if (!data) {
+		ast_log(LOG_ERROR, "Usage: JABBER_STATUS(<sender>,<jid>[/<resource>])\n");
+		return 0;
+	}
+	AST_STANDARD_APP_ARGS(args, data);
+
+	if (args.argc != 2) {
+		ast_log(LOG_ERROR, "JABBER_STATUS requires 2 arguments: sender and jid.\n");
+		return -1;
+	}
+
+	AST_NONSTANDARD_APP_ARGS(jid, args.jid, '/');
+
+	if (!(client = ast_aji_get_client(args.sender))) {
+		ast_log(LOG_WARNING, "Could not find sender connection: '%s'\n", args.sender);
+		return -1;
+	}
+	buddy = ASTOBJ_CONTAINER_FIND(&client->buddies, jid.screenname);
+	if (!buddy) {
+		ast_log(LOG_WARNING, "Could not find buddy in list: '%s'\n", jid.screenname);
+		return -1;
+	}
+	r = aji_find_resource(buddy, jid.resource);
+	if (!r && buddy->resources) 
+		r = buddy->resources;
+	if (!r)
+		ast_log(LOG_NOTICE, "Resource %s of buddy %s was not found.\n", jid.resource, jid.screenname);
+	else
+		stat = r->status;
+	snprintf(buf, buflen, "%d", stat);
+	return 0;
+}
+
+static struct ast_custom_function jabberstatus_function = {
+	.name = "JABBER_STATUS",
+	.synopsis = "Retrieve buddy status",
+	.syntax = "JABBER_STATUS(<sender>,<buddy>[/<resource>])",
+	.read = acf_jabberstatus_read,
+	.desc =
+"Retrieves the numeric status associated with the specified buddy (jid). If the\n"
+"buddy does not exist in the buddylist, returns 7.\n"
+"Status will be 1-7.\n" 
+"             1=Online, 2=Chatty, 3=Away, 4=XAway, 5=DND, 6=Offline\n" 
+"             If not in roster variable will be set to 7\n\n",
+};
+
 /*!
  * \brief Dial plan function to send a message.
- * \param channel, and data, data is sender, reciever, message.
- * \return 0.
+ * \param chan ast_channel
+ * \param data  Data is sender|reciever|message.
+ * \return 0 on success,-1 on error.
  */
 static int aji_send_exec(struct ast_channel *chan, void *data)
 {
 	struct aji_client *client = NULL;
-
-	char *s = NULL, *sender = NULL, *recipient = NULL, *message = NULL;
+	char *s;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(sender);
+		AST_APP_ARG(recipient);
+		AST_APP_ARG(message);
+	);
 
 	if (!data) {
-		ast_log(LOG_ERROR, "This application requires arguments.\n");
+		ast_log(LOG_ERROR, "Usage:  JabberSend(<sender>,<recipient>,<message>)\n");
 		return 0;
 	}
 	s = ast_strdupa(data);
-	if (s) {
-		sender = strsep(&s, "|");
-		if (sender && (sender[0] != '\0')) {
-			recipient = strsep(&s, "|");
-			if (recipient && (recipient[0] != '\0')) {
-				message = s;
-			} else {
-				ast_log(LOG_ERROR, "Bad arguments: %s\n", (char *) data);
-				return -1;
-			}
-		}
-	}
-	if (!(client = ast_aji_get_client(sender))) {
-		ast_log(LOG_WARNING, "Could not find sender connection: %s\n", sender);
+
+	AST_STANDARD_APP_ARGS(args, s);
+	if (args.argc < 3) {
+		ast_log(LOG_ERROR, "JabberSend requires 3 arguments: '%s'\n", (char *) data);
 		return -1;
 	}
-	if (strchr(recipient, '@') && message)
-		ast_aji_send(client, recipient, message);
+
+	if (!(client = ast_aji_get_client(args.sender))) {
+		ast_log(LOG_WARNING, "Could not find sender connection: '%s'\n", args.sender);
+		return -1;
+	}
+	if (strchr(args.recipient, '@') && !ast_strlen_zero(args.message))
+		ast_aji_send_chat(client, args.recipient, args.message);
 	return 0;
+}
+
+/*! 
+ * \brief Tests whether the connection is secured or not
+ * \return 0 if the connection is not secured
+ */
+static int aji_is_secure(struct aji_client *client)
+{
+#ifdef HAVE_OPENSSL
+	return client->stream_flags & SECURE;
+#else
+	return 0;
+#endif
+}
+
+#ifdef HAVE_OPENSSL
+/*!
+ * \brief Starts the TLS procedure
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \return IKS_OK on success, an error code if sending failed, IKS_NET_TLSFAIL
+ * if OpenSSL is not installed
+ */
+static int aji_start_tls(struct aji_client *client)
+{
+	int ret;
+
+	/* This is sent not encrypted */
+	ret = iks_send_raw(client->p, "<starttls xmlns='urn:ietf:params:xml:ns:xmpp-tls'/>");
+	if (ret)
+		return ret;
+
+	client->stream_flags |= TRY_SECURE;
+	return IKS_OK;
+}
+
+/*! 
+ * \brief TLS handshake, OpenSSL initialization
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \return IKS_OK on success, IKS_NET_TLSFAIL on failure 
+ */
+static int aji_tls_handshake(struct aji_client *client)
+{
+	int ret;
+	int sock;
+	
+	ast_debug(1, "Starting TLS handshake\n"); 
+
+	/* Load encryption, hashing algorithms and error strings */
+	SSL_library_init();
+	SSL_load_error_strings();
+
+	/* Choose an SSL/TLS protocol version, create SSL_CTX */
+	client->ssl_method = SSLv3_method();
+	client->ssl_context = SSL_CTX_new(client->ssl_method);                
+	if (!client->ssl_context)
+		return IKS_NET_TLSFAIL;
+
+	/* Create new SSL session */
+	client->ssl_session = SSL_new(client->ssl_context);
+	if (!client->ssl_session)
+		return IKS_NET_TLSFAIL;
+
+	/* Enforce TLS on our XMPP connection */
+	sock = iks_fd(client->p);
+	ret = SSL_set_fd(client->ssl_session, sock);
+	if (!ret)
+		return IKS_NET_TLSFAIL;
+
+	/* Perform SSL handshake */
+	ret = SSL_connect(client->ssl_session);
+	if (!ret)
+		return IKS_NET_TLSFAIL;
+
+	client->stream_flags &= (~TRY_SECURE);
+	client->stream_flags |= SECURE;
+
+	/* Sent over the established TLS connection */
+	ret = aji_send_header(client, client->jid->server);
+	if (ret != IKS_OK)
+		return IKS_NET_TLSFAIL;
+
+	ast_debug(1, "TLS started with server\n"); 
+
+	return IKS_OK;
+}
+#endif /* HAVE_OPENSSL */
+
+/*! 
+ * \brief Secured or unsecured IO socket receiving function
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param buffer the reception buffer
+ * \param buf_len the size of the buffer
+ * \param timeout the select timer
+ * \return the number of read bytes on success, 0 on timeout expiration, 
+ * -1 on  error
+ */
+static int aji_io_recv(struct aji_client *client, char *buffer, size_t buf_len, int timeout)
+{
+	int sock;
+	fd_set fds;
+	struct timeval tv, *tvptr = NULL;
+	int len, res;
+
+#ifdef HAVE_OPENSSL
+	if (aji_is_secure(client)) {
+		sock = SSL_get_fd(client->ssl_session);
+		if (sock < 0)
+			return -1;		
+	} else
+#endif /* HAVE_OPENSSL */
+		sock = iks_fd(client->p);	
+
+	memset(&tv, 0, sizeof(struct timeval));
+	FD_ZERO(&fds);
+	FD_SET(sock, &fds);
+	tv.tv_sec = timeout;
+
+	/* NULL value for tvptr makes ast_select wait indefinitely */
+	tvptr = (timeout != -1) ? &tv : NULL;
+
+	/* ast_select emulates linux behaviour in terms of timeout handling */
+	res = ast_select(sock + 1, &fds, NULL, NULL, tvptr);
+	if (res > 0) {
+#ifdef HAVE_OPENSSL
+		if (aji_is_secure(client)) {
+			len = SSL_read(client->ssl_session, buffer, buf_len);
+		} else
+#endif /* HAVE_OPENSSL */
+			len = recv(sock, buffer, buf_len, 0);
+
+		if (len > 0) {
+			return len;
+		} else if (len <= 0) {
+			return -1;
+		}
+	}
+	return res;
+}
+
+/*! 
+ * \brief Tries to receive data from the Jabber server
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param timeout the timeout value
+ * This function receives (encrypted or unencrypted) data from the XMPP server,
+ * and passes it to the parser.
+ * \return IKS_OK on success, IKS_NET_RWERR on IO error, IKS_NET_NOCONN, if no
+ * connection available, IKS_NET_EXPIRED on timeout expiration
+ */
+static int aji_recv (struct aji_client *client, int timeout)
+{
+	int len, ret;
+	char buf[NET_IO_BUF_SIZE -1];
+	char newbuf[NET_IO_BUF_SIZE -1];
+	int pos = 0;
+	int newbufpos = 0;
+	unsigned char c;
+
+	memset(buf, 0, sizeof(buf));
+	memset(newbuf, 0, sizeof(newbuf));
+
+	while (1) {
+		len = aji_io_recv(client, buf, NET_IO_BUF_SIZE - 1, timeout);
+		if (len < 0) return IKS_NET_RWERR;
+		if (len == 0) return IKS_NET_EXPIRED;
+		buf[len] = '\0';
+
+		/* our iksemel parser won't work as expected if we feed
+		   it with XML packets that contain multiple whitespace 
+		   characters between tags */
+		while (pos < len) {
+			c = buf[pos];
+			/* if we stumble on the ending tag character,
+			   we skip any whitespace that follows it*/
+			if (c == '>') {
+				while (isspace(buf[pos+1])) {
+					pos++;
+				}
+			}
+			newbuf[newbufpos] = c;
+			newbufpos ++;
+			pos++;
+		}
+		pos = 0;
+		newbufpos = 0;
+
+		/* Log the message here, because iksemel's logHook is 
+		   unaccessible */
+		aji_log_hook(client, buf, len, 1);
+
+		/* let iksemel deal with the string length, 
+		   and reset our buffer */
+		ret = iks_parse(client->p, newbuf, 0, 0);
+		memset(newbuf, 0, sizeof(newbuf));
+
+		if (ret != IKS_OK) {
+			ast_log(LOG_WARNING, "XML parsing failed\n");
+			return ret;
+		}
+		ast_debug(3, "XML parsing successful\n");	
+	}
+	return IKS_OK;
+}
+
+/*! 
+ * \brief Sends XMPP header to the server
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param to the target XMPP server
+ * \return IKS_OK on success, any other value on failure
+ */
+static int aji_send_header(struct aji_client *client, const char *to)
+{
+	char *msg;
+	int len, err;
+
+	len = 91 + strlen(client->name_space) + 6 + strlen(to) + 16 + 1;
+	msg = iks_malloc(len);
+	if (!msg)
+		return IKS_NOMEM;
+	sprintf(msg, "<?xml version='1.0'?>"
+		"<stream:stream xmlns:stream='http://etherx.jabber.org/streams' xmlns='"
+		"%s' to='%s' version='1.0'>", client->name_space, to);
+	err = aji_send_raw(client, msg);
+	iks_free(msg);
+	if (err != IKS_OK)
+		return err;
+
+	return IKS_OK;
+}
+
+/*! 
+ * \brief Wraps raw sending
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param x the XMPP packet to send
+ * \return IKS_OK on success, any other value on failure
+ */
+int ast_aji_send(struct aji_client *client, iks *x)
+{
+	return aji_send_raw(client, iks_string(iks_stack(x), x));
+}
+
+/*! 
+ * \brief Sends an XML string over an XMPP connection
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param xmlstr the XML string to send
+ * The XML data is sent whether the connection is secured or not. In the 
+ * latter case, we just call iks_send_raw().
+ * \return IKS_OK on success, any other value on failure
+ */
+static int aji_send_raw(struct aji_client *client, const char *xmlstr)
+{
+	int ret;
+#ifdef HAVE_OPENSSL
+	int len = strlen(xmlstr);
+
+	if (aji_is_secure(client)) {
+		ret = SSL_write(client->ssl_session, xmlstr, len);
+		if (ret) {
+			/* Log the message here, because iksemel's logHook is 
+			   unaccessible */
+			aji_log_hook(client, xmlstr, len, 0);
+			return IKS_OK;
+		}
+	}
+#endif
+	/* If needed, data will be sent unencrypted, and logHook will 
+	   be called inside iks_send_raw */
+	ret = iks_send_raw(client->p, xmlstr);
+	if (ret != IKS_OK)
+		return ret;	
+
+	return IKS_OK;
 }
 
 /*!
  * \brief the debug loop.
- * \param aji_client structure, xml data as string, size of string, direction of packet, 1 for inbound 0 for outbound.
+ * \param data void
+ * \param xmpp xml data as string
+ * \param size size of string
+ * \param is_incoming direction of packet 1 for inbound 0 for outbound.
  */
 static void aji_log_hook(void *data, const char *xmpp, size_t size, int is_incoming)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
-	manager_event(EVENT_FLAG_USER, "JabberEvent", "Account: %s\r\nPacket: %s\r\n", client->name, xmpp);
+
+	if (!ast_strlen_zero(xmpp))
+		manager_event(EVENT_FLAG_USER, "JabberEvent", "Account: %s\r\nPacket: %s\r\n", client->name, xmpp);
 
 	if (client->debug) {
 		if (is_incoming)
 			ast_verbose("\nJABBER: %s INCOMING: %s\n", client->name, xmpp);
 		else {
 			if( strlen(xmpp) == 1) {
-				if(option_debug > 2  && xmpp[0] == ' ')
-				ast_verbose("\nJABBER: Keep alive packet\n");
+				if(option_debug > 2  && xmpp[0] == ' ') {
+					ast_verbose("\nJABBER: Keep alive packet\n");
+				}
 			} else
 				ast_verbose("\nJABBER: %s OUTGOING: %s\n", client->name, xmpp);
 		}
 
 	}
 	ASTOBJ_UNREF(client, aji_client_destroy);
+}
+
+/*!
+ * \brief A wrapper function for iks_start_sasl
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param type the SASL authentication type. Supported types are PLAIN and MD5
+ * \param username
+ * \param pass password.
+ *
+ * \return IKS_OK on success, IKSNET_NOTSUPP on failure.
+ */
+static int aji_start_sasl(struct aji_client *client, enum ikssasltype type, char *username, char *pass)
+{
+	iks *x = NULL;
+	int len;
+	char *s;
+	char *base64;
+
+	/* trigger SASL DIGEST-MD5 only over an unsecured connection.
+	   iks_start_sasl is an iksemel API function and relies on GnuTLS,
+	   whereas we use OpenSSL */
+	if ((type & IKS_STREAM_SASL_MD5) && !aji_is_secure(client))
+		return iks_start_sasl(client->p, IKS_SASL_DIGEST_MD5, username, pass); 
+	if (!(type & IKS_STREAM_SASL_PLAIN)) {
+		ast_log(LOG_ERROR, "Server does not support SASL PLAIN authentication\n");
+		return IKS_NET_NOTSUPP;
+	}
+
+	x = iks_new("auth"); 
+	if (!x) {
+		ast_log(LOG_ERROR, "Out of memory.\n");
+		return IKS_NET_NOTSUPP;
+	}
+
+	iks_insert_attrib(x, "xmlns", IKS_NS_XMPP_SASL);
+	len = strlen(username) + strlen(pass) + 3;
+	s = alloca(len);
+	base64 = alloca((len + 2) * 4 / 3);
+	iks_insert_attrib(x, "mechanism", "PLAIN");
+	snprintf(s, len, "%c%s%c%s", 0, username, 0, pass);
+
+	/* exclude the NULL training byte from the base64 encoding operation
+	   as some XMPP servers will refuse it.
+	   The format for authentication is [authzid]\0authcid\0password
+	   not [authzid]\0authcid\0password\0 */
+	ast_base64encode(base64, (const unsigned char *) s, len - 1, (len + 2) * 4 / 3);
+	iks_insert_cdata(x, base64, 0);
+	ast_aji_send(client, x);
+	iks_delete(x);
+
+	return IKS_OK;
 }
 
 /*!
@@ -489,6 +860,7 @@ static int aji_act_hook(void *data, int type, iks *node)
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
 	ikspak *pak = NULL;
 	iks *auth = NULL;
+	int features = 0;
 
 	if(!node) {
 		ast_log(LOG_ERROR, "aji_act_hook was called with out a packet\n"); /* most likely cause type is IKS_NODE_ERROR lost connection */
@@ -506,12 +878,18 @@ static int aji_act_hook(void *data, int type, iks *node)
 	if (!client->component) { /*client */
 		switch (type) {
 		case IKS_NODE_START:
-			if (client->usetls && !iks_is_secure(client->p)) {
-				if (iks_has_tls()) {
-					iks_start_tls(client->p);
-					tls_initialized = TRUE;
-				} else
-					ast_log(LOG_ERROR, "gnuTLS not installed. You need to recompile the Iksemel library with gnuTLS support\n");
+			if (client->usetls && !aji_is_secure(client)) {
+#ifndef HAVE_OPENSSL
+				ast_log(LOG_ERROR, "OpenSSL not installed. You need to install OpenSSL on this system, or disable the TLS option in your configuration file\n");
+				ASTOBJ_UNREF(client, aji_client_destroy);
+				return IKS_HOOK;
+#else
+				if (aji_start_tls(client) == IKS_NET_TLSFAIL) {
+					ast_log(LOG_ERROR, "Could not start TLS\n");
+					ASTOBJ_UNREF(client, aji_client_destroy);
+					return IKS_HOOK;		
+				}
+#endif
 				break;
 			}
 			if (!client->usesasl) {
@@ -521,7 +899,7 @@ static int aji_act_hook(void *data, int type, iks *node)
 					iks_insert_attrib(auth, "id", client->mid);
 					iks_insert_attrib(auth, "to", client->jid->server);
 					ast_aji_increment_mid(client->mid);
-					iks_send(client->p, auth);
+					ast_aji_send(client, auth);
 					iks_delete(auth);
 				} else
 					ast_log(LOG_ERROR, "Out of memory.\n");
@@ -529,82 +907,66 @@ static int aji_act_hook(void *data, int type, iks *node)
 			break;
 
 		case IKS_NODE_NORMAL:
-			{
-				int features = 0;
-				if (!strcmp("stream:features", iks_name(node))) {
-					features = iks_stream_features(node);
-					if (client->usesasl) {
-						if (client->usetls && !iks_is_secure(client->p))
-							break;
-						if (client->authorized) {
-							if (features & IKS_STREAM_BIND) {
-								iks_filter_add_rule (client->f, aji_client_connect, client, IKS_RULE_TYPE, IKS_PAK_IQ, IKS_RULE_SUBTYPE, IKS_TYPE_RESULT, IKS_RULE_DONE);
-								auth = iks_make_resource_bind(client->jid);
-								if (auth) {
-									iks_insert_attrib(auth, "id", client->mid);
-									ast_aji_increment_mid(client->mid);
-									iks_send(client->p, auth);
-									iks_delete(auth);
-								} else {
-									ast_log(LOG_ERROR, "Out of memory.\n");
-									break;
-								}
-							}
-							if (features & IKS_STREAM_SESSION) {
-								iks_filter_add_rule (client->f, aji_client_connect, client, IKS_RULE_TYPE, IKS_PAK_IQ, IKS_RULE_SUBTYPE, IKS_TYPE_RESULT, IKS_RULE_ID, "auth", IKS_RULE_DONE);
-								auth = iks_make_session();
-								if (auth) {
-									iks_insert_attrib(auth, "id", "auth");
-									ast_aji_increment_mid(client->mid);
-									iks_send(client->p, auth);
-									iks_delete(auth);
-								} else {
-									ast_log(LOG_ERROR, "Out of memory.\n");
-								}
-							}
-						} else {
-							if (!client->jid->user) {
-								ast_log(LOG_ERROR, "Malformed Jabber ID : %s (domain missing?)\n", client->jid->full);
+#ifdef HAVE_OPENSSL
+			if (client->stream_flags & TRY_SECURE) {
+				if (!strcmp("proceed", iks_name(node))) {
+					return aji_tls_handshake(client);
+				}
+			}
+#endif
+			if (!strcmp("stream:features", iks_name(node))) {
+				features = iks_stream_features(node);
+				if (client->usesasl) {
+					if (client->usetls && !aji_is_secure(client))
+						break;
+					if (client->authorized) {
+						if (features & IKS_STREAM_BIND) {
+							iks_filter_add_rule(client->f, aji_client_connect, client, IKS_RULE_TYPE, IKS_PAK_IQ, IKS_RULE_SUBTYPE, IKS_TYPE_RESULT, IKS_RULE_DONE);
+							auth = iks_make_resource_bind(client->jid);
+							if (auth) {
+								iks_insert_attrib(auth, "id", client->mid);
+								ast_aji_increment_mid(client->mid);
+								ast_aji_send(client, auth);
+								iks_delete(auth);
+							} else {
+								ast_log(LOG_ERROR, "Out of memory.\n");
 								break;
 							}
-							features = aji_highest_bit(features);
-							if (features == IKS_STREAM_SASL_MD5)
-								iks_start_sasl(client->p, IKS_SASL_DIGEST_MD5, client->jid->user, client->password);
-							else {
-								if (features == IKS_STREAM_SASL_PLAIN) {
-									iks *x = NULL;
-									x = iks_new("auth");
-									if (x) {
-										int len = strlen(client->jid->user) + strlen(client->password) + 3;
-										/* XXX Check return values XXX */
-										char *s = ast_malloc(80 + len);
-										char *base64 = ast_malloc(80 + len * 2);
-										iks_insert_attrib(x, "xmlns", IKS_NS_XMPP_SASL);
-										iks_insert_attrib(x, "mechanism", "PLAIN");
-										sprintf(s, "%c%s%c%s", 0, client->jid->user, 0, client->password);
-										ast_base64encode(base64, (const unsigned char *) s, len, len * 2);
-										iks_insert_cdata(x, base64, 0);
-										iks_send(client->p, x);
-										iks_delete(x);
-										if (base64)
-											free(base64);
-										if (s)
-											free(s);
-									} else {
-										ast_log(LOG_ERROR, "Out of memory.\n");
-									}
-								}
+						}
+						if (features & IKS_STREAM_SESSION) {
+							iks_filter_add_rule (client->f, aji_client_connect, client, IKS_RULE_TYPE, IKS_PAK_IQ, IKS_RULE_SUBTYPE, IKS_TYPE_RESULT, IKS_RULE_ID, "auth", IKS_RULE_DONE);
+							auth = iks_make_session();
+							if (auth) {
+								iks_insert_attrib(auth, "id", "auth");
+								ast_aji_increment_mid(client->mid);
+								ast_aji_send(client, auth);
+								iks_delete(auth);
+							} else {
+								ast_log(LOG_ERROR, "Out of memory.\n");
 							}
 						}
+					} else {
+						int ret;
+						if (!client->jid->user) {
+							ast_log(LOG_ERROR, "Malformed Jabber ID : %s (domain missing?)\n", client->jid->full);
+							break;
+						}
+
+						ret = aji_start_sasl(client, features, client->jid->user, client->password);
+						if (ret != IKS_OK) {
+							ASTOBJ_UNREF(client, aji_client_destroy);
+							return IKS_HOOK;
+						}
+						break;
 					}
-				} else if (!strcmp("failure", iks_name(node))) {
-					ast_log(LOG_ERROR, "JABBER: encryption failure. possible bad password.\n");
-				} else if (!strcmp("success", iks_name(node))) {
-					client->authorized = 1;
-					iks_send_header(client->p, client->jid->server);
 				}
-				break;
+			} else if (!strcmp("failure", iks_name(node))) {
+				ast_log(LOG_ERROR, "JABBER: encryption failure. possible bad password.\n");
+			} else if (!strcmp("success", iks_name(node))) {
+				client->authorized = 1;
+				aji_send_header(client, client->jid->server);
 			}
+			break;
 		case IKS_NODE_ERROR: 
 				ast_log(LOG_ERROR, "JABBER: Node Error\n");
 				ASTOBJ_UNREF(client, aji_client_destroy);
@@ -625,17 +987,16 @@ static int aji_act_hook(void *data, int type, iks *node)
 				sprintf(secret, "%s%s", pak->id, client->password);
 				ast_sha1_hash(shasum, secret);
 				handshake = NULL;
-				asprintf(&handshake, "<handshake>%s</handshake>", shasum);
-				if (handshake) {
-					iks_send_raw(client->p, handshake);
-					free(handshake);
+				if (asprintf(&handshake, "<handshake>%s</handshake>", shasum) >= 0) {
+					aji_send_raw(client, handshake);
+					ast_free(handshake);
 					handshake = NULL;
 				}
 				client->state = AJI_CONNECTING;
-				if(iks_recv(client->p,1) == 2) /*XXX proper result for iksemel library on iks_recv of <handshake/> XXX*/
+				if(aji_recv(client, 1) == 2) /*XXX proper result for iksemel library on iks_recv of <handshake/> XXX*/
 					client->state = AJI_CONNECTED;
 				else
-					ast_log(LOG_WARNING,"Jabber didn't seem to handshake, failed to authenicate.\n");
+					ast_log(LOG_WARNING, "Jabber didn't seem to handshake, failed to authenticate.\n");
 				break;
 			}
 			break;
@@ -657,32 +1018,26 @@ static int aji_act_hook(void *data, int type, iks *node)
 
 	switch (pak->type) {
 	case IKS_PAK_NONE:
-		if (option_debug)
-			ast_log(LOG_DEBUG, "JABBER: I Don't know what to do with you NONE\n");
+		ast_debug(1, "JABBER: I don't know what to do with paktype NONE.\n");
 		break;
 	case IKS_PAK_MESSAGE:
 		aji_handle_message(client, pak);
-		if (option_debug)
-			ast_log(LOG_DEBUG, "JABBER: I Don't know what to do with you MESSAGE\n");
+		ast_debug(1, "JABBER: Handling paktype MESSAGE.\n");
 		break;
 	case IKS_PAK_PRESENCE:
 		aji_handle_presence(client, pak);
-		if (option_debug)
-			ast_log(LOG_DEBUG, "JABBER: I Do know how to handle presence!!\n");
+		ast_debug(1, "JABBER: Handling paktype PRESENCE\n");
 		break;
 	case IKS_PAK_S10N:
 		aji_handle_subscribe(client, pak);
-		if (option_debug)
-			ast_log(LOG_DEBUG, "JABBER: I Dont know S10N subscribe!!\n");
+		ast_debug(1, "JABBER: Handling paktype S10N\n");
 		break;
 	case IKS_PAK_IQ:
-		if (option_debug)
-			ast_log(LOG_DEBUG, "JABBER: I Dont have an IQ!!!\n");
+		ast_debug(1, "JABBER: Handling paktype IQ\n");
 		aji_handle_iq(client, node);
 		break;
 	default:
-		if (option_debug)
-			ast_log(LOG_DEBUG, "JABBER: I Dont know %i\n", pak->type);
+		ast_debug(1, "JABBER: I don't know anything about paktype '%d'\n", pak->type);
 		break;
 	}
 	
@@ -694,7 +1049,12 @@ static int aji_act_hook(void *data, int type, iks *node)
 	ASTOBJ_UNREF(client, aji_client_destroy);
 	return IKS_OK;
 }
-
+/*!
+ * \brief Unknown
+ * \param data void
+ * \param pak ikspak
+ * \return IKS_FILTER_EAT.
+*/
 static int aji_register_approve_handler(void *data, ikspak *pak)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
@@ -709,7 +1069,7 @@ static int aji_register_approve_handler(void *data, ikspak *pak)
 			iks_insert_attrib(iq, "to", pak->from->full);
 			iks_insert_attrib(iq, "id", pak->id);
 			iks_insert_attrib(iq, "type", "result");
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 
 			iks_insert_attrib(presence, "from", client->jid->full);
 			iks_insert_attrib(presence, "to", pak->from->partial);
@@ -718,34 +1078,40 @@ static int aji_register_approve_handler(void *data, ikspak *pak)
 			iks_insert_attrib(presence, "type", "subscribe");
 			iks_insert_attrib(x, "xmlns", "vcard-temp:x:update");
 			iks_insert_node(presence, x);
-			iks_send(client->p, presence); 
+			ast_aji_send(client, presence); 
 		}
 	} else {
 		ast_log(LOG_ERROR, "Out of memory.\n");
 	}
 
-	if (iq)
-		iks_delete(iq);
-	if(presence)
-		iks_delete(presence);
-	if (x)
-		iks_delete(x);
+
+	iks_delete(iq);
+	iks_delete(presence);
+	iks_delete(x);
+	
 	ASTOBJ_UNREF(client, aji_client_destroy);
 	return IKS_FILTER_EAT;
 }
-
+/*!
+ * \brief register handler for incoming querys (IQ's)
+ * \param data incoming aji_client request
+ * \param pak ikspak
+ * \return IKS_FILTER_EAT.
+*/
 static int aji_register_query_handler(void *data, ikspak *pak)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
 	struct aji_buddy *buddy = NULL; 
 	char *node = NULL;
+	iks *iq = NULL, *query = NULL;
 
 	client = (struct aji_client *) data;
 
 	buddy = ASTOBJ_CONTAINER_FIND(&client->buddies, pak->from->partial);
 	if (!buddy) {
-		iks *iq = NULL, *query = NULL, *error = NULL, *notacceptable = NULL;
-		ast_verbose("Someone.... %s tried to register but they aren't allowed\n", pak->from->partial);
+		iks  *error = NULL, *notacceptable = NULL;
+
+		ast_log(LOG_ERROR, "Someone.... %s tried to register but they aren't allowed\n", pak->from->partial);
 		iq = iks_new("iq");
 		query = iks_new("query");
 		error = iks_new("error");
@@ -762,20 +1128,15 @@ static int aji_register_query_handler(void *data, ikspak *pak)
 			iks_insert_node(iq, query);
 			iks_insert_node(iq, error);
 			iks_insert_node(error, notacceptable);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (error)
-			iks_delete(error);
-		if (notacceptable)
-			iks_delete(notacceptable);
+
+		iks_delete(error);
+		iks_delete(notacceptable);
 	} else 	if (!(node = iks_find_attrib(pak->query, "node"))) {
-		iks *iq = NULL, *query = NULL, *instructions = NULL;
+		iks *instructions = NULL;
 		char *explain = "Welcome to Asterisk - the Open Source PBX.\n";
 		iq = iks_new("iq");
 		query = iks_new("query");
@@ -789,21 +1150,25 @@ static int aji_register_query_handler(void *data, ikspak *pak)
 			iks_insert_cdata(instructions, explain, 0);
 			iks_insert_node(iq, query);
 			iks_insert_node(query, instructions);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (instructions)
-			iks_delete(instructions);
+
+		iks_delete(instructions);
 	}
+	iks_delete(iq);
+	iks_delete(query);
 	ASTOBJ_UNREF(client, aji_client_destroy);
 	return IKS_FILTER_EAT;
 }
 
+/*!
+ * \brief Handles stuff
+ * \param data void
+ * \param pak ikspak 
+ * \return IKS_FILTER_EAT.
+*/
 static int aji_ditems_handler(void *data, ikspak *pak)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
@@ -827,16 +1192,14 @@ static int aji_ditems_handler(void *data, ikspak *pak)
 
 			iks_insert_node(iq, query);
 			iks_insert_node(query, item);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (item)
-			iks_delete(item);
+
+		iks_delete(iq);
+		iks_delete(query);
+		iks_delete(item);
 
 	} else if (!strcasecmp(node, "http://jabber.org/protocol/commands")) {
 		iks *iq, *query, *confirm;
@@ -856,16 +1219,14 @@ static int aji_ditems_handler(void *data, ikspak *pak)
 
 			iks_insert_node(iq, query);
 			iks_insert_node(query, confirm);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (confirm)
-			iks_delete(confirm);
+
+		iks_delete(iq);
+		iks_delete(query);
+		iks_delete(confirm);
 
 	} else if (!strcasecmp(node, "confirmaccount")) {
 		iks *iq = NULL, *query = NULL, *feature = NULL;
@@ -883,23 +1244,26 @@ static int aji_ditems_handler(void *data, ikspak *pak)
 			iks_insert_attrib(feature, "var", "http://jabber.org/protocol/commands");
 			iks_insert_node(iq, query);
 			iks_insert_node(query, feature);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (feature)
-			iks_delete(feature);
+
+		iks_delete(iq);
+		iks_delete(query);
+		iks_delete(feature);
 	}
 
 	ASTOBJ_UNREF(client, aji_client_destroy);
 	return IKS_FILTER_EAT;
 
 }
-
+/*!
+ * \brief Handle add extra info
+ * \param data void
+ * \param pak ikspak
+ * \return IKS_FILTER_EAT
+*/
 static int aji_client_info_handler(void *data, ikspak *pak)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
@@ -909,7 +1273,7 @@ static int aji_client_info_handler(void *data, ikspak *pak)
 	resource = aji_find_resource(buddy, pak->from->resource);
 	if (pak->subtype == IKS_TYPE_RESULT) {
 		if (!resource) {
-			ast_log(LOG_NOTICE,"JABBER: Received client info from %s when not requested.\n", pak->from->full);
+			ast_log(LOG_NOTICE, "JABBER: Received client info from %s when not requested.\n", pak->from->full);
 			ASTOBJ_UNREF(client, aji_client_destroy);
 			return IKS_FILTER_EAT;
 		}
@@ -939,26 +1303,27 @@ static int aji_client_info_handler(void *data, ikspak *pak)
 			iks_insert_node(query, ident);
 			iks_insert_node(query, google);
 			iks_insert_node(query, disco);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else
 			ast_log(LOG_ERROR, "Out of Memory.\n");
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (ident)
-			iks_delete(ident);
-		if (google)
-			iks_delete(google);
-		if (disco)
-			iks_delete(disco);
+
+		iks_delete(iq);
+		iks_delete(query);
+		iks_delete(ident);
+		iks_delete(google);
+		iks_delete(disco);
 	} else if (pak->subtype == IKS_TYPE_ERROR) {
 		ast_log(LOG_NOTICE, "User %s does not support discovery.\n", pak->from->full);
 	}
 	ASTOBJ_UNREF(client, aji_client_destroy);
 	return IKS_FILTER_EAT;
 }
-
+/*!
+ * \brief Handler of the return info packet
+ * \param data aji_client
+ * \param pak ikspak
+ * \return IKS_FILTER_EAT
+*/
 static int aji_dinfo_handler(void *data, ikspak *pak)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
@@ -1021,31 +1386,21 @@ static int aji_dinfo_handler(void *data, ikspak *pak)
 			iks_insert_node(query, version);
 			iks_insert_node(query, vcard);
 			iks_insert_node(query, search);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
 
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (identity)
-			iks_delete(identity);
-		if (disco)
-			iks_delete(disco);
-		if (reg)
-			iks_delete(reg);
-		if (commands)
-			iks_delete(commands);
-		if (gateway)
-			iks_delete(gateway);
-		if (version)
-			iks_delete(version);
-		if (vcard)
-			iks_delete(vcard);
-		if (search)
-			iks_delete(search);
+		iks_delete(iq);
+		iks_delete(query);
+		iks_delete(identity);
+		iks_delete(disco);
+		iks_delete(reg);
+		iks_delete(commands);
+		iks_delete(gateway);
+		iks_delete(version);
+		iks_delete(vcard);
+		iks_delete(search);
 
 	} else if (pak->subtype == IKS_TYPE_GET && !strcasecmp(node, "http://jabber.org/protocol/commands")) {
 		iks *iq, *query, *confirm;
@@ -1065,16 +1420,14 @@ static int aji_dinfo_handler(void *data, ikspak *pak)
 			iks_insert_attrib(confirm, "jid", client->user);
 			iks_insert_node(iq, query);
 			iks_insert_node(query, confirm);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (confirm)
-			iks_delete(confirm);
+
+		iks_delete(iq);
+		iks_delete(query);
+		iks_delete(confirm);
 
 	} else if (pak->subtype == IKS_TYPE_GET && !strcasecmp(node, "confirmaccount")) {
 		iks *iq, *query, *feature;
@@ -1092,16 +1445,14 @@ static int aji_dinfo_handler(void *data, ikspak *pak)
 			iks_insert_attrib(feature, "var", "http://jabber.org/protocol/commands");
 			iks_insert_node(iq, query);
 			iks_insert_node(query, feature);
-			iks_send(client->p, iq);
+			ast_aji_send(client, iq);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
-		if (iq)
-			iks_delete(iq);
-		if (query)
-			iks_delete(query);
-		if (feature)
-			iks_delete(feature);
+
+		iks_delete(iq);
+		iks_delete(query);
+		iks_delete(feature);
 	}
 
 	ASTOBJ_UNREF(client, aji_client_destroy);
@@ -1109,8 +1460,9 @@ static int aji_dinfo_handler(void *data, ikspak *pak)
 }
 
 /*!
- * \brief Handles <iq> tags.
- * \param client structure and the iq node.
+ * \brief Handles \verbatim <iq> \endverbatim tags.
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param node iks 
  * \return void.
  */
 static void aji_handle_iq(struct aji_client *client, iks *node)
@@ -1120,45 +1472,49 @@ static void aji_handle_iq(struct aji_client *client, iks *node)
 
 /*!
  * \brief Handles presence packets.
- * \param client structure and the node.
- * \return void.
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param pak ikspak the node
  */
 static void aji_handle_message(struct aji_client *client, ikspak *pak)
 {
 	struct aji_message *insert, *tmp;
 	int flag = 0;
 	
-	if (!(insert = ast_calloc(1, sizeof(struct aji_message))))
+	if (!(insert = ast_calloc(1, sizeof(*insert))))
 		return;
 	time(&insert->arrived);
 	if (iks_find_cdata(pak->x, "body"))
 		insert->message = ast_strdup(iks_find_cdata(pak->x, "body"));
-	if(pak->id)
+	if (pak->id)
 		ast_copy_string(insert->id, pak->id, sizeof(insert->message));
 	if (pak->from)
 		insert->from = ast_strdup(pak->from->full);
 	AST_LIST_LOCK(&client->messages);
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&client->messages, tmp, list) {
 		if (flag) {
-			AST_LIST_REMOVE_CURRENT(&client->messages, list);
+			AST_LIST_REMOVE_CURRENT(list);
 			if (tmp->from)
-				free(tmp->from);
+				ast_free(tmp->from);
 			if (tmp->message)
-				free(tmp->message);
+				ast_free(tmp->message);
 		} else if (difftime(time(NULL), tmp->arrived) >= client->message_timeout) {
 			flag = 1;
-			AST_LIST_REMOVE_CURRENT(&client->messages, list);
+			AST_LIST_REMOVE_CURRENT(list);
 			if (tmp->from)
-				free(tmp->from);
+				ast_free(tmp->from);
 			if (tmp->message)
-				free(tmp->message);
+				ast_free(tmp->message);
 		}
 	}
 	AST_LIST_TRAVERSE_SAFE_END;
 	AST_LIST_INSERT_HEAD(&client->messages, insert, list);
 	AST_LIST_UNLOCK(&client->messages);
 }
-
+/*!
+ * \brief Check the presence info
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param pak ikspak
+*/
 static void aji_handle_presence(struct aji_client *client, ikspak *pak)
 {
 	int status, priority;
@@ -1170,13 +1526,17 @@ static void aji_handle_presence(struct aji_client *client, ikspak *pak)
 		aji_create_buddy(pak->from->partial, client);
 
 	buddy = ASTOBJ_CONTAINER_FIND(&client->buddies, pak->from->partial);
-	if (!buddy) {
-		ast_log(LOG_NOTICE, "Got presence packet from %s, someone not in our roster!!!!\n", pak->from->partial);
+	if (!buddy && pak->from->partial) {
+		/* allow our jid to be used to log in with another resource */
+		if (!strcmp((const char *)pak->from->partial, (const char *)client->jid->partial))
+			aji_create_buddy(pak->from->partial, client);
+		else
+			ast_log(LOG_NOTICE, "Got presence packet from %s, someone not in our roster!!!!\n", pak->from->partial);
 		return;
 	}
 	type = iks_find_attrib(pak->x, "type");
 	if(client->component && type &&!strcasecmp("probe", type)) {
-		aji_set_presence(client, pak->from->full, iks_find_attrib(pak->x, "to"), 1, client->statusmessage);
+		aji_set_presence(client, pak->from->full, iks_find_attrib(pak->x, "to"), client->status, client->statusmessage);
 		ast_verbose("what i was looking for \n");
 	}
 	ASTOBJ_WRLOCK(buddy);
@@ -1185,10 +1545,10 @@ static void aji_handle_presence(struct aji_client *client, ikspak *pak)
 	tmp = buddy->resources;
 	descrip = ast_strdup(iks_find_cdata(pak->x,"status"));
 
-	while (tmp) {
+	while (tmp && pak->from->resource) {
 		if (!strcasecmp(tmp->resource, pak->from->resource)) {
 			tmp->status = status;
-			if (tmp->description) free(tmp->description);
+			if (tmp->description) ast_free(tmp->description);
 			tmp->description = descrip;
 			found = tmp;
 			if (status == 6) {	/* Sign off Destroy resource */
@@ -1205,33 +1565,46 @@ static void aji_handle_presence(struct aji_client *client, ikspak *pak)
 					else
 						buddy->resources = NULL;
 				}
-				free(found);
+				ast_free(found);
 				found = NULL;
 				break;
 			}
+			/* resource list is sorted by descending priority */
 			if (tmp->priority != priority) {
 				found->priority = priority;
 				if (!last && !found->next)
+					/* resource was found to be unique,
+					   leave loop */
 					break;
+				/* search for resource in our list
+				   and take it out for the moment */
 				if (last)
 					last->next = found->next;
 				else
 					buddy->resources = found->next;
+
 				last = NULL;
 				tmp = buddy->resources;
 				if (!buddy->resources)
 					buddy->resources = found;
+				/* priority processing */
 				while (tmp) {
+					/* insert resource back according to 
+					   its priority value */
 					if (found->priority > tmp->priority) {
 						if (last)
+							/* insert within list */
 							last->next = found;
 						found->next = tmp;
 						if (!last)
+							/* insert on top */
 							buddy->resources = found;
 						break;
 					}
 					if (!tmp->next) {
+						/* insert at the end of the list */
 						tmp->next = found;
+						found->next = NULL;
 						break;
 					}
 					last = tmp;
@@ -1244,9 +1617,9 @@ static void aji_handle_presence(struct aji_client *client, ikspak *pak)
 		tmp = tmp->next;
 	}
 
-	if (!found && status != 6) {
-		found = (struct aji_resource *) malloc(sizeof(struct aji_resource));
-		memset(found, 0, sizeof(struct aji_resource));
+	/* resource not found in our list, create it */
+	if (!found && status != 6 && pak->from->resource) {
+		found = ast_calloc(1, sizeof(*found));
 
 		if (!found) {
 			ast_log(LOG_ERROR, "Out of memory!\n");
@@ -1278,18 +1651,27 @@ static void aji_handle_presence(struct aji_client *client, ikspak *pak)
 		if (!tmp)
 			buddy->resources = found;
 	}
+	
 	ASTOBJ_UNLOCK(buddy);
 	ASTOBJ_UNREF(buddy, aji_buddy_destroy);
 
 	node = iks_find_attrib(iks_find(pak->x, "c"), "node");
 	ver = iks_find_attrib(iks_find(pak->x, "c"), "ver");
 
-	if(status !=6 && !found->cap) {
+	/* handle gmail client's special caps:c tag */
+	if (!node && !ver) {
+		node = iks_find_attrib(iks_find(pak->x, "caps:c"), "node");
+		ver = iks_find_attrib(iks_find(pak->x, "caps:c"), "ver");
+	}
+
+	/* retrieve capabilites of the new resource */
+	if(status !=6 && found && !found->cap) {
 		found->cap = aji_find_version(node, ver, pak);
 		if(gtalk_yuck(pak->x)) /* gtalk should do discover */
 			found->cap->jingle = 1;
-		if(found->cap->jingle && option_debug > 4)
-			ast_log(LOG_DEBUG,"Special case for google till they support discover.\n");
+		if(found->cap->jingle && option_debug > 4) {
+			ast_debug(1,"Special case for google till they support discover.\n");
+		}
 		else {
 			iks *iq, *query;
 			iq = iks_new("iq");
@@ -1297,113 +1679,106 @@ static void aji_handle_presence(struct aji_client *client, ikspak *pak)
 			if(query && iq)  {
 				iks_insert_attrib(iq, "type", "get");
 				iks_insert_attrib(iq, "to", pak->from->full);
-				iks_insert_attrib(iq,"from",iks_find_attrib(pak->x,"to"));
+				iks_insert_attrib(iq,"from", client->jid->full);
 				iks_insert_attrib(iq, "id", client->mid);
 				ast_aji_increment_mid(client->mid);
 				iks_insert_attrib(query, "xmlns", "http://jabber.org/protocol/disco#info");
 				iks_insert_node(iq, query);
-				iks_send(client->p, iq);
+				ast_aji_send(client, iq);
 				
 			} else
 				ast_log(LOG_ERROR, "Out of memory.\n");
-			if(query)
-				iks_delete(query);
-			if(iq)
-				iks_delete(iq);
+			
+			iks_delete(query);
+			iks_delete(iq);
 		}
 	}
-	if (option_verbose > 4) {
-		switch (pak->subtype) {
-		case IKS_TYPE_AVAILABLE:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: I am available ^_* %i\n", pak->subtype);
-			break;
-		case IKS_TYPE_UNAVAILABLE:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: I am unavailable ^_* %i\n", pak->subtype);
-			break;
-		default:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: Ohh sexy and the wrong type: %i\n", pak->subtype);
-		}
-		switch (pak->show) {
-		case IKS_SHOW_UNAVAILABLE:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: type: %i subtype %i\n", pak->subtype, pak->show);
-			break;
-		case IKS_SHOW_AVAILABLE:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: type is available\n");
-			break;
-		case IKS_SHOW_CHAT:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: type: %i subtype %i\n", pak->subtype, pak->show);
-			break;
-		case IKS_SHOW_AWAY:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: type is away\n");
-			break;
-		case IKS_SHOW_XA:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: type: %i subtype %i\n", pak->subtype, pak->show);
-			break;
-		case IKS_SHOW_DND:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: type: %i subtype %i\n", pak->subtype, pak->show);
-			break;
-		default:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: Kinky! how did that happen %i\n", pak->show);
-		}
+	switch (pak->subtype) {
+	case IKS_TYPE_AVAILABLE:
+		ast_debug(3, "JABBER: I am available ^_* %i\n", pak->subtype);
+		break;
+	case IKS_TYPE_UNAVAILABLE:
+		ast_debug(3, "JABBER: I am unavailable ^_* %i\n", pak->subtype);
+		break;
+	default:
+		ast_debug(3, "JABBER: Ohh sexy and the wrong type: %i\n", pak->subtype);
+	}
+	switch (pak->show) {
+	case IKS_SHOW_UNAVAILABLE:
+		ast_debug(3, "JABBER: type: %i subtype %i\n", pak->subtype, pak->show);
+		break;
+	case IKS_SHOW_AVAILABLE:
+		ast_debug(3, "JABBER: type is available\n");
+		break;
+	case IKS_SHOW_CHAT:
+		ast_debug(3, "JABBER: type: %i subtype %i\n", pak->subtype, pak->show);
+		break;
+	case IKS_SHOW_AWAY:
+		ast_debug(3, "JABBER: type is away\n");
+		break;
+	case IKS_SHOW_XA:
+		ast_debug(3, "JABBER: type: %i subtype %i\n", pak->subtype, pak->show);
+		break;
+	case IKS_SHOW_DND:
+		ast_debug(3, "JABBER: type: %i subtype %i\n", pak->subtype, pak->show);
+		break;
+	default:
+		ast_debug(3, "JABBER: Kinky! how did that happen %i\n", pak->show);
 	}
 }
 
 /*!
  * \brief handles subscription requests.
- * \param aji_client struct and xml packet.
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param pak ikspak iksemel packet.
  * \return void.
  */
 static void aji_handle_subscribe(struct aji_client *client, ikspak *pak)
 {
-	if(pak->subtype == IKS_TYPE_SUBSCRIBE) { 
-		iks *presence = NULL, *status = NULL;
+	iks *presence = NULL, *status = NULL;
+	struct aji_buddy* buddy = NULL;
+
+	switch (pak->subtype) { 
+	case IKS_TYPE_SUBSCRIBE:
 		presence = iks_new("presence");
 		status = iks_new("status");
-		if(presence && status) {
+		if (presence && status) {
 			iks_insert_attrib(presence, "type", "subscribed");
 			iks_insert_attrib(presence, "to", pak->from->full);
 			iks_insert_attrib(presence, "from", client->jid->full);
-			if(pak->id)
+			if (pak->id)
 				iks_insert_attrib(presence, "id", pak->id);
 			iks_insert_cdata(status, "Asterisk has approved subscription", 0);
 			iks_insert_node(presence, status);
-			iks_send(client->p, presence);
+			ast_aji_send(client, presence);
 		} else
 			ast_log(LOG_ERROR, "Unable to allocate nodes\n");
-		if(presence)
-			iks_delete(presence);
-		if(status)
-			iks_delete(status);
-		if(client->component)
-			aji_set_presence(client, pak->from->full, iks_find_attrib(pak->x, "to"), 1, client->statusmessage);
-	}
-	if (option_verbose > 4) {
-		switch (pak->subtype) {
-		case IKS_TYPE_SUBSCRIBE:
+
+		iks_delete(presence);
+		iks_delete(status);
+
+		if (client->component)
+			aji_set_presence(client, pak->from->full, iks_find_attrib(pak->x, "to"), client->status, client->statusmessage);
+	case IKS_TYPE_SUBSCRIBED:
+		buddy = ASTOBJ_CONTAINER_FIND(&client->buddies, pak->from->partial);
+		if (!buddy && pak->from->partial) {
+			aji_create_buddy(pak->from->partial, client);
+		}
+	default:
+		if (option_verbose > 4) {
 			ast_verbose(VERBOSE_PREFIX_3 "JABBER: This is a subcription of type %i\n", pak->subtype);
-			break;
-		case IKS_TYPE_SUBSCRIBED:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: This is a subcription of type %i\n", pak->subtype);
-			break;
-		case IKS_TYPE_UNSUBSCRIBE:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: This is a subcription of type %i\n", pak->subtype);
-			break;
-		case IKS_TYPE_UNSUBSCRIBED:
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: This is a subcription of type %i\n", pak->subtype);
-			break;
-		default:				/*IKS_TYPE_ERROR: */
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: This is a subcription of type %i\n", pak->subtype);
-			break;
 		}
 	}
 }
 
 /*!
  * \brief sends messages.
- * \param aji_client struct , reciever, message.
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param address
+ * \param message
  * \return 1.
  */
-int ast_aji_send(struct aji_client *client, const char *address, const char *message)
+int ast_aji_send_chat(struct aji_client *client, const char *address, const char *message)
 {
 	int res = 0;
 	iks *message_packet = NULL;
@@ -1411,12 +1786,12 @@ int ast_aji_send(struct aji_client *client, const char *address, const char *mes
 		message_packet = iks_make_msg(IKS_TYPE_CHAT, address, message);
 		if (message_packet) {
 			iks_insert_attrib(message_packet, "from", client->jid->full);
-			res = iks_send(client->p, message_packet);
+			res = ast_aji_send(client, message_packet);
 		} else {
 			ast_log(LOG_ERROR, "Out of memory.\n");
 		}
-		if (message_packet)
-			iks_delete(message_packet);
+
+		iks_delete(message_packet);
 	} else
 		ast_log(LOG_WARNING, "JABBER: Not connected can't send\n");
 	return 1;
@@ -1424,7 +1799,10 @@ int ast_aji_send(struct aji_client *client, const char *address, const char *mes
 
 /*!
  * \brief create a chatroom.
- * \param aji_client struct , room, server, topic for the room.
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param room name of room
+ * \param server name of server
+ * \param topic topic for the room.
  * \return 0.
  */
 int ast_aji_create_chat(struct aji_client *client, char *room, char *server, char *topic)
@@ -1432,20 +1810,25 @@ int ast_aji_create_chat(struct aji_client *client, char *room, char *server, cha
 	int res = 0;
 	iks *iq = NULL;
 	iq = iks_new("iq");
+
 	if (iq && client) {
 		iks_insert_attrib(iq, "type", "get");
 		iks_insert_attrib(iq, "to", server);
 		iks_insert_attrib(iq, "id", client->mid);
 		ast_aji_increment_mid(client->mid);
-		iks_send(client->p, iq);
+		ast_aji_send(client, iq);
 	} else 
 		ast_log(LOG_ERROR, "Out of memory.\n");
+
+	iks_delete(iq);
+
 	return res;
 }
 
 /*!
  * \brief join a chatroom.
- * \param aji_client struct , room.
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param room room to join
  * \return res.
  */
 int ast_aji_join_chat(struct aji_client *client, char *room)
@@ -1458,22 +1841,25 @@ int ast_aji_join_chat(struct aji_client *client, char *room)
 		iks_insert_cdata(priority, "0", 1);
 		iks_insert_attrib(presence, "to", room);
 		iks_insert_node(presence, priority);
-		res = iks_send(client->p, presence);
+		res = ast_aji_send(client, presence);
 		iks_insert_cdata(priority, "5", 1);
 		iks_insert_attrib(presence, "to", room);
-		res = iks_send(client->p, presence);
+		res = ast_aji_send(client, presence);
 	} else 
 		ast_log(LOG_ERROR, "Out of memory.\n");
-	if (presence)
-		iks_delete(presence);
-	if (priority)
-		iks_delete(priority);
+	
+	iks_delete(presence);
+	iks_delete(priority);
+	
 	return res;
 }
 
 /*!
  * \brief invite to a chatroom.
- * \param aji_client struct ,user, room, message.
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param user 
+ * \param room
+ * \param message
  * \return res.
  */
 int ast_aji_invite_chat(struct aji_client *client, char *user, char *room, char *message)
@@ -1493,52 +1879,60 @@ int ast_aji_invite_chat(struct aji_client *client, char *user, char *room, char 
 		iks_insert_attrib(namespace, "jid", room);
 		iks_insert_node(invite, body);
 		iks_insert_node(invite, namespace);
-		res = iks_send(client->p, invite);
+		res = ast_aji_send(client, invite);
 	} else 
 		ast_log(LOG_ERROR, "Out of memory.\n");
-	if (body)
-		iks_delete(body);
-	if (namespace)
-		iks_delete(namespace);
-	if (invite)
-		iks_delete(invite);
+
+	iks_delete(body);
+	iks_delete(namespace);
+	iks_delete(invite);
+	
 	return res;
 }
 
 
 /*!
  * \brief receive message loop.
- * \param aji_client struct.
+ * \param data void
  * \return void.
  */
 static void *aji_recv_loop(void *data)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
 	int res = IKS_HOOK;
+
+	while(res != IKS_OK) {
+		ast_debug(3, "JABBER: Connecting.\n");
+		res = aji_reconnect(client);
+		sleep(4);
+	}
+
 	do {
-		if (res != IKS_OK) {
+		if (res == IKS_NET_RWERR || client->timeout == 0) {
 			while(res != IKS_OK) {
-				if(option_verbose > 3)
-					ast_verbose("JABBER: reconnecting.\n");
+				ast_debug(3, "JABBER: reconnecting.\n");
 				res = aji_reconnect(client);
 				sleep(4);
 			}
 		}
 
-		res = iks_recv(client->p, 1);
-
+		res = aji_recv(client, 1);
+		
 		if (client->state == AJI_DISCONNECTING) {
-			if (option_debug > 1)
-				ast_log(LOG_DEBUG, "Ending our Jabber client's thread due to a disconnect\n");
+			ast_debug(2, "Ending our Jabber client's thread due to a disconnect\n");
 			pthread_exit(NULL);
 		}
-		client->timeout--;
+
+		/* Decrease timeout if no data received */
+		if (res == IKS_NET_EXPIRED)
+			client->timeout--;
+
 		if (res == IKS_HOOK) 
 			ast_log(LOG_WARNING, "JABBER: Got hook event.\n");
 		else if (res == IKS_NET_TLSFAIL)
-			ast_log(LOG_WARNING, "JABBER:  Failure in TLS.\n");
+			ast_log(LOG_ERROR, "JABBER:  Failure in TLS.\n");
 		else if (client->timeout == 0 && client->state == AJI_CONNECTED) {
-			res = iks_send_raw(client->p, " ");
+			res = client->keepalive ? aji_send_raw(client, " ") : IKS_OK;
 			if(res == IKS_OK)
 				client->timeout = 50;
 			else
@@ -1552,7 +1946,7 @@ static void *aji_recv_loop(void *data)
 
 /*!
  * \brief increments the mid field for messages and other events.
- * \param message id.
+ * \param mid char.
  * \return void.
  */
 void ast_aji_increment_mid(char *mid)
@@ -1568,14 +1962,14 @@ void ast_aji_increment_mid(char *mid)
 	}
 }
 
-
+#if 0
 /*!
  * \brief attempts to register to a transport.
  * \param aji_client struct, and xml packet.
  * \return IKS_FILTER_EAT.
  */
 /*allows for registering to transport , was too sketch and is out for now. */
-/*static int aji_register_transport(void *data, ikspak *pak)
+static int aji_register_transport(void *data, ikspak *pak)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
 	int res = 0;
@@ -1596,7 +1990,7 @@ void ast_aji_increment_mid(char *mid)
 		iks_insert_attrib(send, "id", client->mid);
 		ast_aji_increment_mid(client->mid);
 		iks_insert_attrib(send, "from", client->user);
-		res = iks_send(client->p, send);
+		res = ast_aji_send(client, send);
 	} else 
 		ast_log(LOG_ERROR, "Out of memory.\n");
 
@@ -1606,14 +2000,13 @@ void ast_aji_increment_mid(char *mid)
 	return IKS_FILTER_EAT;
 
 }
-*/
 /*!
  * \brief attempts to register to a transport step 2.
  * \param aji_client struct, and xml packet.
  * \return IKS_FILTER_EAT.
  */
 /* more of the same blob of code, too wonky for now*/
-/* static int aji_register_transport2(void *data, ikspak *pak)
+static int aji_register_transport2(void *data, ikspak *pak)
 {
 	struct aji_client *client = ASTOBJ_REF((struct aji_client *) data);
 	int res = 0;
@@ -1642,7 +2035,7 @@ void ast_aji_increment_mid(char *mid)
 		iks_insert_node(regiq, regquery);
 		iks_insert_node(regquery, reguser);
 		iks_insert_node(regquery, regpass);
-		res = iks_send(client->p, regiq);
+		res = ast_aji_send(client, regiq);
 	} else
 		ast_log(LOG_ERROR, "Out of memory.\n");
 	if (regiq)
@@ -1656,11 +2049,13 @@ void ast_aji_increment_mid(char *mid)
 	ASTOBJ_UNREF(client, aji_client_destroy);
 	return IKS_FILTER_EAT;
 }
-*/
+#endif
+
 /*!
  * \brief goes through roster and prunes users not needed in list, or adds them accordingly.
- * \param aji_client struct.
+ * \param client the configured XMPP client we use to connect to a XMPP server
  * \return void.
+ * \note The messages here should be configurable.
  */
 static void aji_pruneregister(struct aji_client *client)
 {
@@ -1669,50 +2064,51 @@ static void aji_pruneregister(struct aji_client *client)
 	iks *removequery = iks_new("query");
 	iks *removeitem = iks_new("item");
 	iks *send = iks_make_iq(IKS_TYPE_GET, "http://jabber.org/protocol/disco#items");
-
-	if (client && removeiq && removequery && removeitem && send) {
-		iks_insert_node(removeiq, removequery);
-		iks_insert_node(removequery, removeitem);
-		ASTOBJ_CONTAINER_TRAVERSE(&client->buddies, 1, {
-			ASTOBJ_RDLOCK(iterator);
-			/* For an aji_buddy, both AUTOPRUNE and AUTOREGISTER will never
-			 * be called at the same time */
-			if (ast_test_flag(iterator, AJI_AUTOPRUNE)) {
-				res = iks_send(client->p, iks_make_s10n(IKS_TYPE_UNSUBSCRIBE, iterator->name,
-						"GoodBye your status is no longer needed by Asterisk the Open Source PBX"
-						" so I am no longer subscribing to your presence.\n"));
-				res = iks_send(client->p, iks_make_s10n(IKS_TYPE_UNSUBSCRIBED, iterator->name,
-						"GoodBye you are no longer in the asterisk config file so I am removing"
-						" your access to my presence.\n"));
-				iks_insert_attrib(removeiq, "from", client->jid->full); 
-				iks_insert_attrib(removeiq, "type", "set"); 
-				iks_insert_attrib(removequery, "xmlns", "jabber:iq:roster");
-				iks_insert_attrib(removeitem, "jid", iterator->name);
-				iks_insert_attrib(removeitem, "subscription", "remove");
-				res = iks_send(client->p, removeiq);
-			} else if (ast_test_flag(iterator, AJI_AUTOREGISTER)) {
-				res = iks_send(client->p, iks_make_s10n(IKS_TYPE_SUBSCRIBE, iterator->name, 
-						"Greetings I am the Asterisk Open Source PBX and I want to subscribe to your presence\n"));
-				ast_clear_flag(iterator, AJI_AUTOREGISTER);
-			}
-			ASTOBJ_UNLOCK(iterator);
-		});
-	} else
+	if (!client || !removeiq || !removequery || !removeitem || !send) {
 		ast_log(LOG_ERROR, "Out of memory.\n");
-	if (removeiq)
-		iks_delete(removeiq);
-	if (removequery)
-		iks_delete(removequery);
-	if (removeitem)
-		iks_delete(removeitem);
-	if (send)
-		iks_delete(send);
+		goto safeout;
+	}
+
+	iks_insert_node(removeiq, removequery);
+	iks_insert_node(removequery, removeitem);
+	ASTOBJ_CONTAINER_TRAVERSE(&client->buddies, 1, {
+		ASTOBJ_RDLOCK(iterator);
+		/* For an aji_buddy, both AUTOPRUNE and AUTOREGISTER will never
+		 * be called at the same time */
+		if (ast_test_flag(&iterator->flags, AJI_AUTOPRUNE)) {
+			res = ast_aji_send(client, iks_make_s10n(IKS_TYPE_UNSUBSCRIBE, iterator->name,
+								 "GoodBye. Your status is no longer needed by Asterisk the Open Source PBX"
+								 " so I am no longer subscribing to your presence.\n"));
+			res = ast_aji_send(client, iks_make_s10n(IKS_TYPE_UNSUBSCRIBED, iterator->name,
+								 "GoodBye.  You are no longer in the Asterisk config file so I am removing"
+								 " your access to my presence.\n"));
+			iks_insert_attrib(removeiq, "from", client->jid->full); 
+			iks_insert_attrib(removeiq, "type", "set"); 
+			iks_insert_attrib(removequery, "xmlns", "jabber:iq:roster");
+			iks_insert_attrib(removeitem, "jid", iterator->name);
+			iks_insert_attrib(removeitem, "subscription", "remove");
+			res = ast_aji_send(client, removeiq);
+		} else if (ast_test_flag(&iterator->flags, AJI_AUTOREGISTER)) {
+			res = ast_aji_send(client, iks_make_s10n(IKS_TYPE_SUBSCRIBE, iterator->name, 
+								 "Greetings! I am the Asterisk Open Source PBX and I want to subscribe to your presence\n"));
+			ast_clear_flag(&iterator->flags, AJI_AUTOREGISTER);
+		}
+		ASTOBJ_UNLOCK(iterator);
+	});
+
+ safeout:
+	iks_delete(removeiq);
+	iks_delete(removequery);
+	iks_delete(removeitem);
+	iks_delete(send);
+	
 	ASTOBJ_CONTAINER_PRUNE_MARKED(&client->buddies, aji_buddy_destroy);
 }
 
 /*!
  * \brief filters the roster packet we get back from server.
- * \param aji_client struct, and xml packet.
+ * \param data void
+ * \param pak ikspak iksemel packet.
  * \return IKS_FILTER_EAT.
  */
 static int aji_filter_roster(void *data, ikspak *pak)
@@ -1731,15 +2127,15 @@ static int aji_filter_roster(void *data, ikspak *pak)
 			if (!iks_strcmp(iks_name(x), "item")) {
 				if (!strcasecmp(iterator->name, iks_find_attrib(x, "jid"))) {
 					flag = 1;
-					ast_clear_flag(iterator, AJI_AUTOPRUNE | AJI_AUTOREGISTER);
+					ast_clear_flag(&iterator->flags, AJI_AUTOPRUNE | AJI_AUTOREGISTER);
 				}
 			}
 			x = iks_next(x);
 		}
 		if (!flag)
-			ast_copy_flags(iterator, client, AJI_AUTOREGISTER);
-		if (x)
-			iks_delete(x);
+			ast_copy_flags(&iterator->flags, &client->flags, AJI_AUTOREGISTER);
+		iks_delete(x);
+		
 		ASTOBJ_UNLOCK(iterator);
 	});
 
@@ -1754,39 +2150,50 @@ static int aji_filter_roster(void *data, ikspak *pak)
 				ASTOBJ_UNLOCK(iterator);
 			});
 
-			if (!flag) {
-				buddy = (struct aji_buddy *) malloc(sizeof(struct aji_buddy));
-				if (!buddy) {
-					ast_log(LOG_WARNING, "Out of memory\n");
-					return 0;
-				}
-				memset(buddy, 0, sizeof(struct aji_buddy));
-				ASTOBJ_INIT(buddy);
-				ASTOBJ_WRLOCK(buddy);
-				ast_copy_string(buddy->name, iks_find_attrib(x, "jid"), sizeof(buddy->name));
-				ast_clear_flag(buddy, AST_FLAGS_ALL);
-				if(ast_test_flag(client, AJI_AUTOPRUNE)) {
-					ast_set_flag(buddy, AJI_AUTOPRUNE);
-					buddy->objflags |= ASTOBJ_FLAG_MARKED;
-				} else
-					ast_set_flag(buddy, AJI_AUTOREGISTER);
-				ASTOBJ_UNLOCK(buddy);
-				if (buddy) {
-					ASTOBJ_CONTAINER_LINK(&client->buddies, buddy);
-					ASTOBJ_UNREF(buddy, aji_buddy_destroy);
-				}
+			if (flag) {
+				/* found buddy, don't create a new one */
+				x = iks_next(x);
+				continue;
+			}
+			
+			buddy = ast_calloc(1, sizeof(*buddy));
+			if (!buddy) {
+				ast_log(LOG_WARNING, "Out of memory\n");
+				return 0;
+			}
+			ASTOBJ_INIT(buddy);
+			ASTOBJ_WRLOCK(buddy);
+			ast_copy_string(buddy->name, iks_find_attrib(x, "jid"), sizeof(buddy->name));
+			ast_clear_flag(&buddy->flags, AST_FLAGS_ALL);
+			if(ast_test_flag(&client->flags, AJI_AUTOPRUNE)) {
+				ast_set_flag(&buddy->flags, AJI_AUTOPRUNE);
+				ASTOBJ_MARK(buddy);
+			} else if (!iks_strcmp(iks_find_attrib(x, "subscription"), "none") || !iks_strcmp(iks_find_attrib(x, "subscription"), "from")) {
+				/* subscribe to buddy's presence only 
+				   if we really need to */
+				ast_set_flag(&buddy->flags, AJI_AUTOREGISTER);
+			}
+			ASTOBJ_UNLOCK(buddy);
+			if (buddy) {
+				ASTOBJ_CONTAINER_LINK(&client->buddies, buddy);
+				ASTOBJ_UNREF(buddy, aji_buddy_destroy);
 			}
 		}
 		x = iks_next(x);
 	}
-	if (x)
-		iks_delete(x);
+
+	iks_delete(x);
 	aji_pruneregister(client);
 
 	ASTOBJ_UNREF(client, aji_client_destroy);
 	return IKS_FILTER_EAT;
 }
 
+/*!
+ * \brief reconnect to jabber server
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \return res.
+*/
 static int aji_reconnect(struct aji_client *client)
 {
 	int res = 0;
@@ -1799,31 +2206,36 @@ static int aji_reconnect(struct aji_client *client)
 	if (client->authorized)
 		client->authorized = 0;
 
-	if(client->component)
-		res = aji_component_initialize(client);
-	else
-		res = aji_client_initialize(client);
+	res = aji_initialize(client);
 
 	return res;
 }
 
+/*!
+ * \brief Get the roster of jabber users
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \return 1.
+*/
 static int aji_get_roster(struct aji_client *client)
 {
 	iks *roster = NULL;
 	roster = iks_make_iq(IKS_TYPE_GET, IKS_NS_ROSTER);
+
 	if(roster) {
 		iks_insert_attrib(roster, "id", "roster");
-		aji_set_presence(client, NULL, client->jid->full, 1, client->statusmessage);
-		iks_send(client->p, roster);
+		aji_set_presence(client, NULL, client->jid->full, client->status, client->statusmessage);
+		ast_aji_send(client, roster);
 	}
-	if (roster)
-		iks_delete(roster);
+
+	iks_delete(roster);
+	
 	return 1;
 }
 
 /*!
  * \brief connects as a client to jabber server.
- * \param aji_client struct, and xml packet.
+ * \param data void
+ * \param pak ikspak iksemel packet
  * \return res.
  */
 static int aji_client_connect(void *data, ikspak *pak)
@@ -1849,14 +2261,19 @@ static int aji_client_connect(void *data, ikspak *pak)
 
 /*!
  * \brief prepares client for connect.
- * \param aji_client struct.
+ * \param client the configured XMPP client we use to connect to a XMPP server
  * \return 1.
  */
-static int aji_client_initialize(struct aji_client *client)
+static int aji_initialize(struct aji_client *client)
 {
-	int connected = 0;
+	int connected = IKS_NET_NOCONN;
 
-	connected = iks_connect_via(client->p, S_OR(client->serverhost, client->jid->server), client->port, client->jid->server);
+#ifdef HAVE_OPENSSL	
+	/* reset stream flags */
+	client->stream_flags = 0;
+#endif
+	/* If it's a component, connect to user, otherwise, connect to server */
+	connected = iks_connect_via(client->p, S_OR(client->serverhost, client->jid->server), client->port, client->component ? client->user : client->jid->server);
 
 	if (connected == IKS_NET_NOCONN) {
 		ast_log(LOG_ERROR, "JABBER ERROR: No Connection\n");
@@ -1864,42 +2281,27 @@ static int aji_client_initialize(struct aji_client *client)
 	} else 	if (connected == IKS_NET_NODNS) {
 		ast_log(LOG_ERROR, "JABBER ERROR: No DNS %s for client to  %s\n", client->name, S_OR(client->serverhost, client->jid->server));
 		return IKS_HOOK;
-	} else
-		iks_recv(client->p, 30);
-	return IKS_OK;
-}
+	}
 
-/*!
- * \brief prepares component for connect.
- * \param aji_client struct.
- * \return 1.
- */
-static int aji_component_initialize(struct aji_client *client)
-{
-	int connected = 1;
-
-	connected = iks_connect_via(client->p, S_OR(client->serverhost, client->jid->server), client->port, client->user);
-	if (connected == IKS_NET_NOCONN) {
-		ast_log(LOG_ERROR, "JABBER ERROR: No Connection\n");
-		return IKS_HOOK;
-	} else if (connected == IKS_NET_NODNS) {
-		ast_log(LOG_ERROR, "JABBER ERROR: No DNS %s for client to  %s\n", client->name, S_OR(client->serverhost, client->jid->server));
-		return IKS_HOOK;
-	} else if (!connected) 
-		iks_recv(client->p, 30);
 	return IKS_OK;
 }
 
 /*!
  * \brief disconnect from jabber server.
- * \param aji_client struct.
+ * \param client the configured XMPP client we use to connect to a XMPP server
  * \return 1.
  */
 int ast_aji_disconnect(struct aji_client *client)
 {
 	if (client) {
-		if (option_verbose > 3)
-			ast_verbose(VERBOSE_PREFIX_3 "JABBER: Disconnecting\n");
+		ast_verb(4, "JABBER: Disconnecting\n");
+#ifdef HAVE_OPENSSL
+		if (client->stream_flags & SECURE) {
+			SSL_shutdown(client->ssl_session);
+			SSL_CTX_free(client->ssl_context);
+			SSL_free(client->ssl_session);
+		}
+#endif
 		iks_disconnect(client->p);
 		iks_parser_delete(client->p);
 		ASTOBJ_UNREF(client, aji_client_destroy);
@@ -1910,7 +2312,11 @@ int ast_aji_disconnect(struct aji_client *client)
 
 /*!
  * \brief set presence of client.
- * \param aji_client struct, user to send it to, and from, level, description.
+ * \param client the configured XMPP client we use to connect to a XMPP server
+ * \param to user send it to
+ * \param from user it came from
+ * \param level
+ * \param desc
  * \return void.
  */
 static void aji_set_presence(struct aji_client *client, char *to, char *from, int level, char *desc)
@@ -1919,81 +2325,153 @@ static void aji_set_presence(struct aji_client *client, char *to, char *from, in
 	iks *presence = iks_make_pres(level, desc);
 	iks *cnode = iks_new("c");
 	iks *priority = iks_new("priority");
+	char priorityS[10];
 
-	iks_insert_cdata(priority, "0", 1);
-	if (presence && cnode && client) {
+	if (presence && cnode && client && priority) {
 		if(to)
 			iks_insert_attrib(presence, "to", to);
 		if(from)
 			iks_insert_attrib(presence, "from", from);
+		snprintf(priorityS, sizeof(priorityS), "%d", client->priority);
+		iks_insert_cdata(priority, priorityS, strlen(priorityS));
+		iks_insert_node(presence, priority);
 		iks_insert_attrib(cnode, "node", "http://www.asterisk.org/xmpp/client/caps");
 		iks_insert_attrib(cnode, "ver", "asterisk-xmpp");
 		iks_insert_attrib(cnode, "ext", "voice-v1");
 		iks_insert_attrib(cnode, "xmlns", "http://jabber.org/protocol/caps");
 		iks_insert_node(presence, cnode);
-		res = iks_send(client->p, presence);
+		res = ast_aji_send(client, presence);
 	} else
 		ast_log(LOG_ERROR, "Out of memory.\n");
-	if (cnode)
-		iks_delete(cnode);
-	if (presence)
-		iks_delete(presence);
+
+	iks_delete(cnode);
+	iks_delete(presence);
+	iks_delete(priority);
 }
 
 /*!
- * \brief turnon console debugging.
- * \param fd, number of args, args.
- * \return RESULT_SUCCESS.
+ * \brief Turn on/off console debugging.
+ * \return CLI_SUCCESS.
  */
-static int aji_do_debug(int fd, int argc, char *argv[])
+static char *aji_do_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
-		ASTOBJ_RDLOCK(iterator); 
-		iterator->debug = 1;
-		ASTOBJ_UNLOCK(iterator);
-	});
-	ast_cli(fd, "Jabber Debugging Enabled.\n");
-	return RESULT_SUCCESS;
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "jabber set debug {on|off}";
+		e->usage =
+			"Usage: jabber set debug {on|off}\n"
+			"       Enables/disables dumping of XMPP/Jabber packets for debugging purposes.\n";
+		return NULL;
+	case CLI_GENERATE:
+		return NULL;
+	}
+
+	if (a->argc != e->args)
+		return CLI_SHOWUSAGE;
+
+	if (!strncasecmp(a->argv[e->args - 1], "on", 2)) {
+		ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
+			ASTOBJ_RDLOCK(iterator); 
+			iterator->debug = 1;
+			ASTOBJ_UNLOCK(iterator);
+		});
+		ast_cli(a->fd, "Jabber Debugging Enabled.\n");
+		return CLI_SUCCESS;
+	} else if (!strncasecmp(a->argv[e->args - 1], "off", 3)) {
+		ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
+			ASTOBJ_RDLOCK(iterator); 
+			iterator->debug = 0;
+			ASTOBJ_UNLOCK(iterator);
+		});
+		ast_cli(a->fd, "Jabber Debugging Disabled.\n");
+		return CLI_SUCCESS;
+	}
+	return CLI_SHOWUSAGE; /* defaults to invalid */
 }
 
 /*!
- * \brief reload jabber module.
- * \param fd, number of args, args.
- * \return RESULT_SUCCESS.
+ * \brief Turn on/off console debugging (deprecated, use aji_do_set_debug).
+ * \return CLI_SUCCESS.
  */
-static int aji_do_reload(int fd, int argc, char *argv[])
+static char *aji_do_debug_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	aji_reload();
-	ast_cli(fd, "Jabber Reloaded.\n");
-	return RESULT_SUCCESS;
+
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "jabber debug [off]";
+		e->usage =
+			"Usage: jabber debug [off]\n"
+			"       Enables/disables dumping of Jabber packets for debugging purposes.\n";
+		return NULL;
+	case CLI_GENERATE:
+		return NULL;
+	}
+
+	if (a->argc == 2) {
+		ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
+			ASTOBJ_RDLOCK(iterator); 
+			iterator->debug = 1;
+			ASTOBJ_UNLOCK(iterator);
+		});
+		ast_cli(a->fd, "Jabber Debugging Enabled.\n");
+		return CLI_SUCCESS;
+	} else if (a->argc == 3) {
+		if (!strncasecmp(a->argv[2], "off", 3)) {
+			ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
+				ASTOBJ_RDLOCK(iterator); 
+				iterator->debug = 0;
+				ASTOBJ_UNLOCK(iterator);
+			});
+			ast_cli(a->fd, "Jabber Debugging Disabled.\n");
+			return CLI_SUCCESS;
+		}
+	}
+	return CLI_SHOWUSAGE; /* defaults to invalid */
 }
 
 /*!
- * \brief turnoff console debugging.
- * \param fd, number of args, args.
- * \return RESULT_SUCCESS.
+ * \brief Reload jabber module.
+ * \return CLI_SUCCESS.
  */
-static int aji_no_debug(int fd, int argc, char *argv[])
+static char *aji_do_reload(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
-		ASTOBJ_RDLOCK(iterator);
-		iterator->debug = 0;
-		ASTOBJ_UNLOCK(iterator);
-	});
-	ast_cli(fd, "Jabber Debugging Disabled.\n");
-	return RESULT_SUCCESS;
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "jabber reload";
+		e->usage =
+			"Usage: jabber reload\n"
+			"       Reloads the Jabber module.\n";
+		return NULL;
+	case CLI_GENERATE:
+		return NULL;
+	}
+
+	aji_reload(1);
+	ast_cli(a->fd, "Jabber Reloaded.\n");
+	return CLI_SUCCESS;
 }
 
 /*!
- * \brief show client status.
- * \param fd, number of args, args.
- * \return RESULT_SUCCESS.
+ * \brief Show client status.
+ * \return CLI_SUCCESS.
  */
-static int aji_show_clients(int fd, int argc, char *argv[])
+static char *aji_show_clients(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	char *status;
 	int count = 0;
-	ast_cli(fd, "Jabber Users and their status:\n");
+	
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "jabber show connected";
+		e->usage =
+			"Usage: jabber show connected\n"
+			"       Shows state of clients and components\n";
+		return NULL;
+	case CLI_GENERATE:
+		return NULL;
+	}
+
+	ast_cli(a->fd, "Jabber Users and their status:\n");
 	ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
 		ASTOBJ_RDLOCK(iterator);
 		count++;
@@ -2010,38 +2488,95 @@ static int aji_show_clients(int fd, int argc, char *argv[])
 		default:
 			status = "Unknown";
 		}
-		ast_cli(fd, "       User: %s     - %s\n", iterator->user, status);
+		ast_cli(a->fd, "       User: %s     - %s\n", iterator->user, status);
 		ASTOBJ_UNLOCK(iterator);
 	});
-	ast_cli(fd, "----\n");
-	ast_cli(fd, "   Number of users: %d\n", count);
-	return RESULT_SUCCESS;
+	ast_cli(a->fd, "----\n");
+	ast_cli(a->fd, "   Number of users: %d\n", count);
+	return CLI_SUCCESS;
 }
 
 /*!
- * \brief send test message for debugging.
- * \param fd, number of args, args.
- * \return RESULT_SUCCESS.
+ * \brief Show buddy lists
+ * \return CLI_SUCCESS.
  */
-static int aji_test(int fd, int argc, char *argv[])
+static char *aji_show_buddies(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
+{
+	struct aji_resource *resource;
+	struct aji_client *client;
+
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "jabber show buddies";
+		e->usage =
+			"Usage: jabber show buddies\n"
+			"       Shows buddy lists of our clients\n";
+		return NULL;
+	case CLI_GENERATE:
+		return NULL;
+	}
+
+	ast_cli(a->fd, "Jabber buddy lists\n");
+	ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
+		ast_cli(a->fd,"Client: %s\n", iterator->user);
+		client = iterator;
+		ASTOBJ_CONTAINER_TRAVERSE(&client->buddies, 1, {
+			ASTOBJ_RDLOCK(iterator);
+			ast_cli(a->fd,"\tBuddy:\t%s\n", iterator->name);
+			if (!iterator->resources)
+				ast_cli(a->fd,"\t\tResource: None\n");	
+			for (resource = iterator->resources; resource; resource = resource->next) {
+				ast_cli(a->fd,"\t\tResource: %s\n", resource->resource);
+				if(resource->cap) {
+					ast_cli(a->fd,"\t\t\tnode: %s\n", resource->cap->parent->node);
+					ast_cli(a->fd,"\t\t\tversion: %s\n", resource->cap->version);
+					ast_cli(a->fd,"\t\t\tJingle capable: %s\n", resource->cap->jingle ? "yes" : "no");
+				}
+				ast_cli(a->fd,"\t\tStatus: %d\n", resource->status);
+				ast_cli(a->fd,"\t\tPriority: %d\n", resource->priority);
+			}
+			ASTOBJ_UNLOCK(iterator);
+		});
+		iterator = client;
+	});
+	return CLI_SUCCESS;
+}
+
+/*!
+ * \brief Send test message for debugging.
+ * \return CLI_SUCCESS,CLI_FAILURE.
+ */
+static char *aji_test(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	struct aji_client *client;
 	struct aji_resource *resource;
 	const char *name = "asterisk";
 	struct aji_message *tmp;
 
-	if (argc > 3)
-		return RESULT_SHOWUSAGE;
-	else if (argc == 3)
-		name = argv[2];
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "jabber test";
+		e->usage =
+			"Usage: jabber test [client]\n"
+			"       Sends test message for debugging purposes.  A specific client\n"
+			"       as configured in jabber.conf can be optionally specified.\n";
+		return NULL;
+	case CLI_GENERATE:
+		return NULL;
+	}
+
+	if (a->argc > 3)
+		return CLI_SHOWUSAGE;
+	else if (a->argc == 3)
+		name = a->argv[2];
 
 	if (!(client = ASTOBJ_CONTAINER_FIND(&clients, name))) {
-		ast_cli(fd, "Unable to find client '%s'!\n", name);
-		return RESULT_FAILURE;
+		ast_cli(a->fd, "Unable to find client '%s'!\n", name);
+		return CLI_FAILURE;
 	}
 
 	/* XXX Does Matt really want everyone to use his personal address for tests? */ /* XXX yes he does */
-	ast_aji_send(client, "mogorman@astjab.org", "blahblah");
+	ast_aji_send_chat(client, "mogorman@astjab.org", "blahblah");
 	ASTOBJ_CONTAINER_TRAVERSE(&client->buddies, 1, {
 		ASTOBJ_RDLOCK(iterator);
 		ast_verbose("User: %s\n", iterator->name);
@@ -2066,12 +2601,14 @@ static int aji_test(int fd, int argc, char *argv[])
 	AST_LIST_UNLOCK(&client->messages);
 	ASTOBJ_UNREF(client, aji_client_destroy);
 
-	return RESULT_SUCCESS;
+	return CLI_SUCCESS;
 }
 
 /*!
  * \brief creates aji_client structure.
- * \param label, ast_variable, debug, pruneregister, component/client, aji_client to dump into. 
+ * \param label
+ * \param var ast_variable
+ * \param debug 
  * \return 0.
  */
 static int aji_create_client(char *label, struct ast_variable *var, int debug)
@@ -2083,12 +2620,11 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 	client = ASTOBJ_CONTAINER_FIND(&clients,label);
 	if (!client) {
 		flag = 1;
-		client = (struct aji_client *) malloc(sizeof(struct aji_client));
+		client = ast_calloc(1, sizeof(*client));
 		if (!client) {
 			ast_log(LOG_ERROR, "Out of memory!\n");
 			return 0;
 		}
-		memset(client, 0, sizeof(struct aji_client));
 		ASTOBJ_INIT(client);
 		ASTOBJ_WRLOCK(client);
 		ASTOBJ_CONTAINER_INIT(&client->buddies);
@@ -2102,7 +2638,7 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 
 	/* Set default values for the client object */
 	client->debug = debug;
-	ast_copy_flags(client, &globalflags, AST_FLAGS_ALL);
+	ast_copy_flags(&client->flags, &globalflags, AST_FLAGS_ALL);
 	client->port = 5222;
 	client->usetls = 1;
 	client->usesasl = 1;
@@ -2113,6 +2649,8 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 	AST_LIST_HEAD_INIT(&client->messages);
 	client->component = 0;
 	ast_copy_string(client->statusmessage, "Online and Available", sizeof(client->statusmessage));
+	client->priority = 0;
+	client->status = IKS_SHOW_AVAILABLE;
 
 	if (flag) {
 		client->authorized = 0;
@@ -2145,11 +2683,47 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 		else if (!strcasecmp(var->name, "keepalive"))
 			client->keepalive = (ast_false(var->value)) ? 0 : 1;
 		else if (!strcasecmp(var->name, "autoprune"))
-			ast_set2_flag(client, ast_true(var->value), AJI_AUTOPRUNE);
+			ast_set2_flag(&client->flags, ast_true(var->value), AJI_AUTOPRUNE);
 		else if (!strcasecmp(var->name, "autoregister"))
-			ast_set2_flag(client, ast_true(var->value), AJI_AUTOREGISTER);
+			ast_set2_flag(&client->flags, ast_true(var->value), AJI_AUTOREGISTER);
 		else if (!strcasecmp(var->name, "buddy"))
-				aji_create_buddy(var->value, client);
+			aji_create_buddy((char *)var->value, client);
+		else if (!strcasecmp(var->name, "priority"))
+			client->priority = atoi(var->value);
+		else if (!strcasecmp(var->name, "status")) {
+			if (!strcasecmp(var->value, "unavailable"))
+				client->status = IKS_SHOW_UNAVAILABLE;
+			else
+			if (!strcasecmp(var->value, "available")
+			 || !strcasecmp(var->value, "online"))
+				client->status = IKS_SHOW_AVAILABLE;
+			else
+			if (!strcasecmp(var->value, "chat")
+			 || !strcasecmp(var->value, "chatty"))
+				client->status = IKS_SHOW_CHAT;
+			else
+			if (!strcasecmp(var->value, "away"))
+				client->status = IKS_SHOW_AWAY;
+			else
+			if (!strcasecmp(var->value, "xa")
+			 || !strcasecmp(var->value, "xaway"))
+				client->status = IKS_SHOW_XA;
+			else
+			if (!strcasecmp(var->value, "dnd"))
+				client->status = IKS_SHOW_DND;
+			else
+			if (!strcasecmp(var->value, "invisible"))
+			#ifdef IKS_SHOW_INVISIBLE
+				client->status = IKS_SHOW_INVISIBLE;
+			#else
+			{
+				ast_log(LOG_WARNING, "Your iksemel doesn't support invisible status: falling back to DND\n");
+				client->status = IKS_SHOW_DND;
+			}
+			#endif
+			else
+				ast_log(LOG_WARNING, "Unknown presence status: %s\n", var->value);
+		}
 	/* no transport support in this version */
 	/*	else if (!strcasecmp(var->name, "transport"))
 				aji_create_transport(var->value, client);
@@ -2161,7 +2735,9 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 		ASTOBJ_UNREF(client, aji_client_destroy);
 		return 1;
 	}
-	client->p = iks_stream_new(((client->component) ? "jabber:component:accept" : "jabber:client"), client, aji_act_hook);
+
+	ast_copy_string(client->name_space, (client->component) ? "jabber:component:accept" : "jabber:client", sizeof(client->name_space));
+	client->p = iks_stream_new(client->name_space, client, aji_act_hook);
 	if (!client->p) {
 		ast_log(LOG_ERROR, "Failed to create stream for client '%s'!\n", client->name);
 		return 0;
@@ -2178,10 +2754,9 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 	}
 	if (!strchr(client->user, '/') && !client->component) { /*client */
 		resource = NULL;
-		asprintf(&resource, "%s/asterisk", client->user);
-		if (resource) {
+		if (asprintf(&resource, "%s/asterisk", client->user) >= 0) {
 			client->jid = iks_id_new(client->stack, resource);
-			free(resource);
+			ast_free(resource);
 		}
 	} else
 		client->jid = iks_id_new(client->stack, client->user);
@@ -2195,10 +2770,9 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 	}
 	if (!strchr(client->user, '/') && !client->component) { /*client */
 		resource = NULL;
-		asprintf(&resource, "%s/asterisk", client->user);
-		if (resource) {
+		if (asprintf(&resource, "%s/asterisk", client->user) >= 0) {
 			client->jid = iks_id_new(client->stack, resource);
-			free(resource);
+			ast_free(resource);
 		}
 	} else
 		client->jid = iks_id_new(client->stack, client->user);
@@ -2208,13 +2782,13 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 	return 1;
 }
 
+#if 0
 /*!
  * \brief creates transport.
  * \param label, buddy to dump it into. 
  * \return 0.
  */
 /* no connecting to transports today */
-/*
 static int aji_create_transport(char *label, struct aji_client *client)
 {
 	char *server = NULL, *buddyname = NULL, *user = NULL, *pass = NULL;
@@ -2222,12 +2796,11 @@ static int aji_create_transport(char *label, struct aji_client *client)
 
 	buddy = ASTOBJ_CONTAINER_FIND(&client->buddies,label);
 	if (!buddy) {
-		buddy = malloc(sizeof(struct aji_buddy));
+		buddy = ast_calloc(1, sizeof(*buddy));
 		if(!buddy) {
 			ast_log(LOG_WARNING, "Out of memory\n");
 			return 0;
 		}
-		memset(buddy, 0, sizeof(struct aji_buddy));
 		ASTOBJ_INIT(buddy);
 	}
 	ASTOBJ_WRLOCK(buddy);
@@ -2258,12 +2831,13 @@ static int aji_create_transport(char *label, struct aji_client *client)
 	ASTOBJ_CONTAINER_LINK(&client->buddies, buddy);
 	return 0;
 }
-*/
+#endif
 
 /*!
  * \brief creates buddy.
- * \param label, buddy to dump it into. 
- * \return 0.
+ * \param label char.
+ * \param client the configured XMPP client we use to connect to a XMPP server 
+ * \return 1 on success, 0 on failure.
  */
 static int aji_create_buddy(char *label, struct aji_client *client)
 {
@@ -2272,12 +2846,11 @@ static int aji_create_buddy(char *label, struct aji_client *client)
 	buddy = ASTOBJ_CONTAINER_FIND(&client->buddies,label);
 	if (!buddy) {
 		flag = 1;
-		buddy = malloc(sizeof(struct aji_buddy));
+		buddy = ast_calloc(1, sizeof(*buddy));
 		if(!buddy) {
 			ast_log(LOG_WARNING, "Out of memory\n");
 			return 0;
 		}
-		memset(buddy, 0, sizeof(struct aji_buddy));
 		ASTOBJ_INIT(buddy);
 	}
 	ASTOBJ_WRLOCK(buddy);
@@ -2292,19 +2865,21 @@ static int aji_create_buddy(char *label, struct aji_client *client)
 	return 1;
 }
 
-/*!
- * \brief load config file.
- * \param void. 
- * \return 1.
- */
-static int aji_load_config(void)
+/*!< load config file. \return 1. */
+static int aji_load_config(int reload)
 {
 	char *cat = NULL;
 	int debug = 1;
 	struct ast_config *cfg = NULL;
 	struct ast_variable *var = NULL;
+	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 
-	cfg = ast_config_load(JABBER_CONFIG);
+	if ((cfg = ast_config_load(JABBER_CONFIG, config_flags)) == CONFIG_STATUS_FILEUNCHANGED)
+		return -1;
+
+	/* Reset flags to default value */
+	ast_set_flag(&globalflags, AJI_AUTOPRUNE | AJI_AUTOREGISTER);
+
 	if (!cfg) {
 		ast_log(LOG_WARNING, "No such configuration file %s\n", JABBER_CONFIG);
 		return 0;
@@ -2327,21 +2902,35 @@ static int aji_load_config(void)
 		}
 		cat = ast_category_browse(cfg, cat);
 	}
+	ast_config_destroy(cfg); /* or leak memory */
 	return 1;
 }
 
 /*!
- * \brief grab a aji_client structure by label name.
- * \param void. 
- * \return 1.
+ * \brief grab a aji_client structure by label name or JID 
+ * (without the resource string)
+ * \param name label or JID 
+ * \return aji_client.
  */
 struct aji_client *ast_aji_get_client(const char *name)
 {
 	struct aji_client *client = NULL;
+	char *aux = NULL;
 
 	client = ASTOBJ_CONTAINER_FIND(&clients, name);
-	if (!client && !strchr(name, '@'))
-		client = ASTOBJ_CONTAINER_FIND_FULL(&clients, name, user,,, strcasecmp);
+	if (!client && strchr(name, '@')) {
+		ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
+			aux = ast_strdupa(iterator->user);
+			if (strchr(aux, '/')) {
+				/* strip resource for comparison */
+				aux = strsep(&aux, "/");
+			}
+			if (!strncasecmp(aux, name, strlen(aux))) {
+				client = iterator;
+			}				
+		});
+	}
+
 	return client;
 }
 
@@ -2357,7 +2946,12 @@ static char mandescr_jabber_send[] =
 "  ScreenName:	User Name to message.\n"
 "  Message:	Message to be sent to the buddy\n";
 
-/*! \brief  Send a Jabber Message via call from the Manager */
+/*! 
+ * \brief  Send a Jabber Message via call from the Manager 
+ * \param s mansession Manager session
+ * \param m message Message to send
+ * \return  0
+*/
 static int manager_jabber_send(struct mansession *s, const struct message *m)
 {
 	struct aji_client *client = NULL;
@@ -2386,26 +2980,30 @@ static int manager_jabber_send(struct mansession *s, const struct message *m)
 		return 0;
 	}	
 	if (strchr(screenname, '@') && message){
-		ast_aji_send(client, screenname, message);	
+		ast_aji_send_chat(client, screenname, message);	
+		astman_append(s, "Response: Success\r\n");
 		if (!ast_strlen_zero(id))
 			astman_append(s, "ActionID: %s\r\n",id);
-		astman_append(s, "Response: Success\r\n");
 		return 0;
 	}
+	astman_append(s, "Response: Error\r\n");
 	if (!ast_strlen_zero(id))
 		astman_append(s, "ActionID: %s\r\n",id);
-	astman_append(s, "Response: Failure\r\n");
 	return 0;
 }
 
-
-static int aji_reload()
+/*! \brief Reload the jabber module */
+static int aji_reload(int reload)
 {
+	int res;
+
 	ASTOBJ_CONTAINER_MARKALL(&clients);
-	if (!aji_load_config()) {
+	if (!(res = aji_load_config(reload))) {
 		ast_log(LOG_ERROR, "JABBER: Failed to load config.\n");
 		return 0;
-	}
+	} else if (res == -1)
+		return 1;
+
 	ASTOBJ_CONTAINER_PRUNE_MARKED(&clients, aji_client_destroy);
 	ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
 		ASTOBJ_RDLOCK(iterator);
@@ -2420,28 +3018,19 @@ static int aji_reload()
 	return 1;
 }
 
+/*! \brief Unload the jabber module */
 static int unload_module(void)
 {
-
-	/* Check if TLS is initialized. If that's the case, we can't unload this
-	   module due to a bug in the iksemel library that will cause a crash or
-	   a deadlock. We're trying to find a way to handle this, but in the meantime
-	   we will simply refuse to die... 
-	 */
-	if (tls_initialized) {
-		ast_log(LOG_ERROR, "Module can't be unloaded due to a bug in the Iksemel library when using TLS.\n");
-		return 1;	/* You need a forced unload to get rid of this module */
-	}
 
 	ast_cli_unregister_multiple(aji_cli, sizeof(aji_cli) / sizeof(struct ast_cli_entry));
 	ast_unregister_application(app_ajisend);
 	ast_unregister_application(app_ajistatus);
 	ast_manager_unregister("JabberSend");
+	ast_custom_function_unregister(&jabberstatus_function);
 	
 	ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
 		ASTOBJ_RDLOCK(iterator);
-		if (option_debug > 2)
-			ast_log(LOG_DEBUG, "JABBER: Releasing and disconneing client: %s\n", iterator->name);
+		ast_debug(3, "JABBER: Releasing and disconnecting client: %s\n", iterator->name);
 		iterator->state = AJI_DISCONNECTING;
 		ast_aji_disconnect(iterator);
 		pthread_join(iterator->thread, NULL);
@@ -2453,23 +3042,26 @@ static int unload_module(void)
 	return 0;
 }
 
+/*! \brief Unload the jabber module */
 static int load_module(void)
 {
 	ASTOBJ_CONTAINER_INIT(&clients);
-	if(!aji_reload())
+	if(!aji_reload(0))
 		return AST_MODULE_LOAD_DECLINE;
 	ast_manager_register2("JabberSend", EVENT_FLAG_SYSTEM, manager_jabber_send,
 			"Sends a message to a Jabber Client", mandescr_jabber_send);
 	ast_register_application(app_ajisend, aji_send_exec, ajisend_synopsis, ajisend_descrip);
 	ast_register_application(app_ajistatus, aji_status_exec, ajistatus_synopsis, ajistatus_descrip);
 	ast_cli_register_multiple(aji_cli, sizeof(aji_cli) / sizeof(struct ast_cli_entry));
+	ast_custom_function_register(&jabberstatus_function);
 
 	return 0;
 }
 
+/*! \brief Wrapper for aji_reload */
 static int reload(void)
 {
-	aji_reload();
+	aji_reload(1);
 	return 0;
 }
 

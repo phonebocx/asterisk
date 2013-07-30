@@ -9,13 +9,21 @@ check_for_app() {
 	fi
 }
 
-# On FreeBSD, multiple autoconf/automake versions have different names.
+# On FreeBSD and OpenBSD, multiple autoconf/automake versions have different names.
 # On linux, envitonment variables tell which one to use.
 
-uname -s | grep -q FreeBSD
-if [ $? = 0 ] ; then	# FreeBSD case
-	MY_AC_VER=259
-	MY_AM_VER=19
+uname -s | grep -q BSD
+if [ $? = 0 ] ; then	# BSD case
+	case `uname -sr` in
+		'FreeBSD 4'*)	# FreeBSD 4.x has a different naming
+			MY_AC_VER=259
+			MY_AM_VER=19
+			;;
+		*)
+			MY_AC_VER=-2.61
+			MY_AM_VER=-1.9
+			;;
+	esac
 else	# linux case
 	MY_AC_VER=
 	MY_AM_VER=
@@ -32,7 +40,7 @@ check_for_app aclocal${MY_AM_VER}
 
 echo "Generating the configure script ..."
 
-aclocal${MY_AM_VER} 2>/dev/null
+aclocal${MY_AM_VER} -I autoconf
 autoconf${MY_AC_VER}
 autoheader${MY_AC_VER}
 automake${MY_AM_VER} --add-missing --copy 2>/dev/null

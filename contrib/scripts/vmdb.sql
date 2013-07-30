@@ -52,6 +52,8 @@ CREATE TABLE voicemail (
 	dialout CHAR(80),
 	-- Context in which to execute 0 or * escape during greeting
 	exitcontext CHAR(80),
+	-- Maximum length of message (in seconds)
+	maxmessage INT(5),
 	-- Maximum messages in a folder (100 if not specified)
 	maxmsg INT(5),
 	-- Increase DB gain on recorded message by this amount (0.0 means none)

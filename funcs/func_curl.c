@@ -24,6 +24,8 @@
  * \author Tilghman Lesher <curl-20050919@the-tilghman.com>
  *
  * \note Brian Wilkins <bwilkins@cfl.rr.com> (Added POST option) 
+ *
+ * \extref Depends on the CURL library  - http://curl.haxx.se/
  * 
  * \ingroup functions
  */
@@ -34,80 +36,67 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48513 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 146838 $")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 #include <curl/curl.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/cli.h"
-#include "asterisk/options.h"
 #include "asterisk/module.h"
 #include "asterisk/app.h"
 #include "asterisk/utils.h"
 #include "asterisk/threadstorage.h"
 
-struct MemoryStruct {
-	char *memory;
-	size_t size;
-};
-
-static void *myrealloc(void *ptr, size_t size)
-{
-	/* There might be a realloc() out there that doesn't like reallocing
-	   NULL pointers, so we take care of it here */
-	if (ptr)
-		return ast_realloc(ptr, size);
-	else
-		return ast_malloc(size);
-}
-
 static size_t WriteMemoryCallback(void *ptr, size_t size, size_t nmemb, void *data)
 {
 	register int realsize = size * nmemb;
-	struct MemoryStruct *mem = (struct MemoryStruct *)data;
+	struct ast_str **str = (struct ast_str **)data;
 
-	mem->memory = (char *)myrealloc(mem->memory, mem->size + realsize + 1);
-	if (mem->memory) {
-		memcpy(&(mem->memory[mem->size]), ptr, realsize);
-		mem->size += realsize;
-		mem->memory[mem->size] = 0;
+	if (ast_str_make_space(str, (*str)->used + realsize + 1) == 0) {
+		memcpy(&(*str)->str[(*str)->used], ptr, realsize);
+		(*str)->used += realsize;
 	}
+
 	return realsize;
 }
 
 static const char *global_useragent = "asterisk-libcurl-agent/1.0";
+
+static int curl_instance_init(void *data)
+{
+	CURL **curl = data;
+
+	if (!(*curl = curl_easy_init()))
+		return -1;
+
+	curl_easy_setopt(*curl, CURLOPT_NOSIGNAL, 1);
+	curl_easy_setopt(*curl, CURLOPT_TIMEOUT, 180);
+	curl_easy_setopt(*curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
+	curl_easy_setopt(*curl, CURLOPT_USERAGENT, global_useragent);
+
+	return 0;
+}
 
 static void curl_instance_cleanup(void *data)
 {
 	CURL **curl = data;
 
 	curl_easy_cleanup(*curl);
+
+	ast_free(data);
 }
 
 AST_THREADSTORAGE_CUSTOM(curl_instance, curl_instance_init, curl_instance_cleanup);
 
-static int curl_internal(struct MemoryStruct *chunk, char *url, char *post)
+static int curl_internal(struct ast_str **chunk, char *url, char *post)
 {
 	CURL **curl;
 
 	if (!(curl = ast_threadstorage_get(&curl_instance, sizeof(*curl))))
 		return -1;
-
-	if (!*curl) {
-		if (!(*curl = curl_easy_init()))
-			return -1;
-		curl_easy_setopt(*curl, CURLOPT_NOSIGNAL, 1);
-		curl_easy_setopt(*curl, CURLOPT_TIMEOUT, 180);
-		curl_easy_setopt(*curl, CURLOPT_WRITEFUNCTION, WriteMemoryCallback);
-		curl_easy_setopt(*curl, CURLOPT_USERAGENT, global_useragent);
-	}
 
 	curl_easy_setopt(*curl, CURLOPT_URL, url);
 	curl_easy_setopt(*curl, CURLOPT_WRITEDATA, (void *) chunk);
@@ -125,10 +114,10 @@ static int curl_internal(struct MemoryStruct *chunk, char *url, char *post)
 	return 0;
 }
 
-static int acf_curl_exec(struct ast_channel *chan, char *cmd, char *info, char *buf, size_t len)
+static int acf_curl_exec(struct ast_channel *chan, const char *cmd, char *info, char *buf, size_t len)
 {
-	struct ast_module_user *u;
-	struct MemoryStruct chunk = { NULL, 0 };
+	struct ast_str *str = ast_str_create(16);
+	int ret = -1;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(url);
 		AST_APP_ARG(postdata);
@@ -138,35 +127,40 @@ static int acf_curl_exec(struct ast_channel *chan, char *cmd, char *info, char *
 	
 	if (ast_strlen_zero(info)) {
 		ast_log(LOG_WARNING, "CURL requires an argument (URL)\n");
+		ast_free(str);
 		return -1;
 	}
 
-	u = ast_module_user_add(chan);
-
 	AST_STANDARD_APP_ARGS(args, info);	
 
-	if (!curl_internal(&chunk, args.url, args.postdata)) {
-		if (chunk.memory) {
-			chunk.memory[chunk.size] = '\0';
-			if (chunk.memory[chunk.size - 1] == 10)
-				chunk.memory[chunk.size - 1] = '\0';
+	if (chan)
+		ast_autoservice_start(chan);
 
-			ast_copy_string(buf, chunk.memory, len);
-			free(chunk.memory);
+	if (!curl_internal(&str, args.url, args.postdata)) {
+		if (str->used) {
+			str->str[str->used] = '\0';
+			if (str->str[str->used - 1] == '\n') {
+				str->str[str->used - 1] = '\0';
+			}
+
+			ast_copy_string(buf, str->str, len);
 		}
+		ret = 0;
 	} else {
 		ast_log(LOG_ERROR, "Cannot allocate curl structure\n");
 	}
+	ast_free(str);
 
-	ast_module_user_remove(u);
-
-	return 0;
+	if (chan)
+		ast_autoservice_stop(chan);
+	
+	return ret;
 }
 
 struct ast_custom_function acf_curl = {
 	.name = "CURL",
 	.synopsis = "Retrieves the contents of a URL",
-	.syntax = "CURL(url[|post-data])",
+	.syntax = "CURL(url[,post-data])",
 	.desc =
 	"  url       - URL to retrieve\n"
 	"  post-data - Optional data to send as a POST (GET is default action)\n",
@@ -179,10 +173,6 @@ static int unload_module(void)
 
 	res = ast_custom_function_unregister(&acf_curl);
 
-	ast_module_user_hangup_all();
-
-	curl_global_cleanup();
-	
 	return res;
 }
 
@@ -190,10 +180,12 @@ static int load_module(void)
 {
 	int res;
 
-	if (curl_global_init(CURL_GLOBAL_ALL)) {
-		ast_log(LOG_ERROR, "Unable to initialize the CURL library. Cannot load func_curl\n");
-		return AST_MODULE_LOAD_DECLINE;
-	}	
+	if (!ast_module_check("res_curl.so")) {
+		if (ast_load_resource("res_curl.so") != AST_MODULE_LOAD_SUCCESS) {
+			ast_log(LOG_ERROR, "Cannot load res_curl, so func_curl cannot be loaded\n");
+			return AST_MODULE_LOAD_DECLINE;
+		}
+	}
 
 	res = ast_custom_function_register(&acf_curl);
 

@@ -1,6 +1,7 @@
 #
 # This is a sample file that can be dumped in /var/spool/asterisk/outgoing
-# to generate a call.  
+# to generate a call.  For Asterisk to read call files, you must have the
+# pbx_spool.so module loaded.
 #
 # Comments are indicated by a '#' character that begins a line, or follows
 # a space or tab character.  To be consistent with the configuration files
@@ -12,7 +13,10 @@
 # Obviously, you MUST specify at least a channel in the same format as you
 # would for the "Dial" application.  Only one channel name is permitted.
 #
-Channel: Zap/1
+Channel: DAHDI/1
+#
+# You can specify codecs for the call
+Codecs: alaw, speex, h264
 #
 # You may also specify a wait time (default is 45 seconds) for how long to
 # wait for the channel to be answered, a retry time (default is 5 mins)
@@ -36,7 +40,7 @@ Priority: 1
 # and its arguments to be run, instead of a context
 # extension and priority
 #
-#Application: VoicemailMain
+#Application: VoiceMailMain
 #Data: 1234
 
 #

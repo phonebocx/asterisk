@@ -27,25 +27,19 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48375 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182946 $")
 
-#include <string.h>
-#include <stdio.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <fcntl.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/frame.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/translate.h"
-#include "asterisk/options.h"
+#include "asterisk/app.h"
 
 #define LOCAL_MPG_123 "/usr/local/bin/mpg123"
 #define MPG_123 "/usr/bin/mpg123"
@@ -55,7 +49,7 @@ static char *app = "MP3Player";
 static char *synopsis = "Play an MP3 file or stream";
 
 static char *descrip = 
-"  MP3Player(location) Executes mpg123 to play the given location,\n"
+"  MP3Player(location): Executes mpg123 to play the given location,\n"
 "which typically would be a filename or a URL. User can exit by pressing\n"
 "any key on the dialpad, or by hanging up."; 
 
@@ -63,29 +57,19 @@ static char *descrip =
 static int mp3play(char *filename, int fd)
 {
 	int res;
-	int x;
-	sigset_t fullset, oldset;
 
-	sigfillset(&fullset);
-	pthread_sigmask(SIG_BLOCK, &fullset, &oldset);
-
-	res = fork();
+	res = ast_safe_fork(0);
 	if (res < 0) 
 		ast_log(LOG_WARNING, "Fork failed\n");
 	if (res) {
-		pthread_sigmask(SIG_SETMASK, &oldset, NULL);
 		return res;
 	}
 	if (ast_opt_high_priority)
 		ast_set_priority(0);
-	signal(SIGPIPE, SIG_DFL);
-	pthread_sigmask(SIG_UNBLOCK, &fullset, NULL);
 
 	dup2(fd, STDOUT_FILENO);
-	for (x=STDERR_FILENO + 1;x<256;x++) {
-		if (x != STDOUT_FILENO)
-			close(x);
-	}
+	ast_close_fds_above_n(STDERR_FILENO);
+
 	/* Execute mpg123, but buffer if it's a net connection */
 	if (!strncasecmp(filename, "http://", 7)) {
 		/* Most commonly installed in /usr/local/bin */
@@ -103,7 +87,8 @@ static int mp3play(char *filename, int fd)
 		/* As a last-ditch effort, try to use PATH */
 	    execlp("mpg123", "mpg123", "-q", "-s", "-f", "8192", "--mono", "-r", "8000", filename, (char *)NULL);
 	}
-	ast_log(LOG_WARNING, "Execute of mpg123 failed\n");
+	/* Can't use ast_log since FD's are closed */
+	fprintf(stderr, "Execute of mpg123 failed\n");
 	_exit(0);
 }
 
@@ -113,7 +98,7 @@ static int timed_read(int fd, void *data, int datalen, int timeout)
 	struct pollfd fds[1];
 	fds[0].fd = fd;
 	fds[0].events = POLLIN;
-	res = poll(fds, 1, timeout);
+	res = ast_poll(fds, 1, timeout);
 	if (res < 1) {
 		ast_log(LOG_NOTICE, "Poll timed out/errored out with %d\n", res);
 		return -1;
@@ -125,7 +110,6 @@ static int timed_read(int fd, void *data, int datalen, int timeout)
 static int mp3_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
-	struct ast_module_user *u;
 	int fds[2];
 	int ms = -1;
 	int pid = -1;
@@ -144,11 +128,8 @@ static int mp3_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
-	u = ast_module_user_add(chan);
-
 	if (pipe(fds)) {
 		ast_log(LOG_WARNING, "Unable to create pipe\n");
-		ast_module_user_remove(u);
 		return -1;
 	}
 	
@@ -158,7 +139,6 @@ static int mp3_exec(struct ast_channel *chan, void *data)
 	res = ast_set_write_format(chan, AST_FORMAT_SLINEAR);
 	if (res < 0) {
 		ast_log(LOG_WARNING, "Unable to set write format to signed linear\n");
-		ast_module_user_remove(u);
 		return -1;
 	}
 	
@@ -187,13 +167,13 @@ static int mp3_exec(struct ast_channel *chan, void *data)
 					myf.f.src = __PRETTY_FUNCTION__;
 					myf.f.delivery.tv_sec = 0;
 					myf.f.delivery.tv_usec = 0;
-					myf.f.data = myf.frdata;
+					myf.f.data.ptr = myf.frdata;
 					if (ast_write(chan, &myf.f) < 0) {
 						res = -1;
 						break;
 					}
 				} else {
-					ast_log(LOG_DEBUG, "No more mp3\n");
+					ast_debug(1, "No more mp3\n");
 					res = 0;
 					break;
 				}
@@ -201,19 +181,19 @@ static int mp3_exec(struct ast_channel *chan, void *data)
 			} else {
 				ms = ast_waitfor(chan, ms);
 				if (ms < 0) {
-					ast_log(LOG_DEBUG, "Hangup detected\n");
+					ast_debug(1, "Hangup detected\n");
 					res = -1;
 					break;
 				}
 				if (ms) {
 					f = ast_read(chan);
 					if (!f) {
-						ast_log(LOG_DEBUG, "Null frame == hangup() detected\n");
+						ast_debug(1, "Null frame == hangup() detected\n");
 						res = -1;
 						break;
 					}
 					if (f->frametype == AST_FRAME_DTMF) {
-						ast_log(LOG_DEBUG, "User pressed a key\n");
+						ast_debug(1, "User pressed a key\n");
 						ast_frfree(f);
 						res = 0;
 						break;
@@ -230,21 +210,13 @@ static int mp3_exec(struct ast_channel *chan, void *data)
 		kill(pid, SIGKILL);
 	if (!res && owriteformat)
 		ast_set_write_format(chan, owriteformat);
-
-	ast_module_user_remove(u);
 	
 	return res;
 }
 
 static int unload_module(void)
 {
-	int res;
-
-	res = ast_unregister_application(app);
-
-	ast_module_user_hangup_all();
-	
-	return res;
+	return ast_unregister_application(app);
 }
 
 static int load_module(void)

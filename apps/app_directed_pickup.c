@@ -5,6 +5,9 @@
  *
  * Joshua Colp <jcolp@digium.com>
  *
+ * Portions merged from app_pickupchan, which was
+ * Copyright (C) 2008, Gary Cook
+ *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
  * any of the maintainers of this project for assistance;
@@ -21,46 +24,50 @@
  * \brief Directed Call Pickup Support
  *
  * \author Joshua Colp <jcolp@digium.com>
+ * \author Gary Cook
  *
  * \ingroup applications
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 67626 $")
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 179905 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/lock.h"
 #include "asterisk/app.h"
-#include "asterisk/options.h"
+#include "asterisk/features.h"
 
 #define PICKUPMARK "PICKUPMARK"
 
 static const char *app = "Pickup";
 static const char *synopsis = "Directed Call Pickup";
 static const char *descrip =
-"  Pickup(extension[@context][&extension2@context...]): This application can pickup any ringing channel\n"
-"that is calling the specified extension. If no context is specified, the current\n"
-"context will be used. If you use the special string \"PICKUPMARK\" for the context parameter, for example\n"
-"10@PICKUPMARK, this application tries to find a channel which has defined a channel variable with the same content\n"
-"as \"extension\".";
+"  Pickup([extension[@context][&extension2@[context]...]]):  This application can\n"
+"pickup any ringing channel that is calling the specified extension.  If no\n"
+"context is specified, the current context will be used. If you use the special\n"
+"string \"PICKUPMARK\" for the context parameter, for example 10@PICKUPMARK,\n"
+"this application tries to find a channel which has defined a ${PICKUPMARK}\n"
+"channel variable with the same value as \"extension\" (in this example, \"10\").\n"
+"When no parameter is specified, the application will pickup a channel matching\n"
+"the pickup group of the active channel.";
+
+static const char *app2 = "PickupChan";
+static const char *synopsis2 = "Pickup a ringing channel";
+static const char *descrip2 =
+"  PickupChan(channel[&channel...]): This application can pickup any ringing channel\n";
+
+/*! \todo This application should return a result code, like PICKUPRESULT */
 
 /* Perform actual pickup between two channels */
 static int pickup_do(struct ast_channel *chan, struct ast_channel *target)
 {
 	int res = 0;
 
-	if (option_debug)
-		ast_log(LOG_DEBUG, "Call pickup on '%s' by '%s'\n", target->name, chan->name);
+	ast_debug(1, "Call pickup on '%s' by '%s'\n", target->name, chan->name);
 
 	if ((res = ast_answer(chan))) {
 		ast_log(LOG_WARNING, "Unable to answer '%s'\n", chan->name);
@@ -83,22 +90,63 @@ static int pickup_do(struct ast_channel *chan, struct ast_channel *target)
 /* Helper function that determines whether a channel is capable of being picked up */
 static int can_pickup(struct ast_channel *chan)
 {
-	if (!chan->pbx && (chan->_state == AST_STATE_RINGING || chan->_state == AST_STATE_RING))
+	if (!chan->pbx && (chan->_state == AST_STATE_RINGING || chan->_state == AST_STATE_RING || chan->_state == AST_STATE_DOWN))
 		return 1;
 	else
 		return 0;
 }
 
+/*! \brief Helper Function to walk through ALL channels checking NAME and STATE */
+static struct ast_channel *my_ast_get_channel_by_name_locked(char *channame)
+{
+	struct ast_channel *chan;
+	char *chkchan = alloca(strlen(channame) + 2);
+
+	/* need to append a '-' for the comparison so we check full channel name,
+	 * i.e SIP/hgc- , use a temporary variable so original stays the same for
+	 * debugging.
+	 */
+	strcpy(chkchan, channame);
+	strcat(chkchan, "-");
+
+	for (chan = ast_walk_channel_by_name_prefix_locked(NULL, channame, strlen(channame));
+		 chan;
+		 chan = ast_walk_channel_by_name_prefix_locked(chan, channame, strlen(channame))) {
+		if (!strncasecmp(chan->name, chkchan, strlen(chkchan)) && can_pickup(chan))
+			return chan;
+		ast_channel_unlock(chan);
+	}
+	return NULL;
+}
+
+/*! \brief Attempt to pick up specified channel named , does not use context */
+static int pickup_by_channel(struct ast_channel *chan, char *pickup)
+{
+	int res = 0;
+	struct ast_channel *target;
+
+	if (!(target = my_ast_get_channel_by_name_locked(pickup)))
+		return -1;
+
+	/* Just check that we are not picking up the SAME as target */
+	if (chan->name != target->name && chan != target) {
+		res = pickup_do(chan, target);
+	}
+	ast_channel_unlock(target);
+
+	return res;
+}
+
 /* Attempt to pick up specified extension with context */
-static int pickup_by_exten(struct ast_channel *chan, char *exten, char *context)
+static int pickup_by_exten(struct ast_channel *chan, const char *exten, const char *context)
 {
 	int res = -1;
 	struct ast_channel *target = NULL;
 
 	while ((target = ast_channel_walk_locked(target))) {
 		if ((!strcasecmp(target->macroexten, exten) || !strcasecmp(target->exten, exten)) &&
-		    !strcasecmp(target->dialcontext, context) &&
-		    can_pickup(target)) {
+			!strcasecmp(target->dialcontext, context) &&
+			can_pickup(target)) {
 			res = pickup_do(chan, target);
 			ast_channel_unlock(target);
 			break;
@@ -110,7 +158,7 @@ static int pickup_by_exten(struct ast_channel *chan, char *exten, char *context)
 }
 
 /* Attempt to pick up specified mark */
-static int pickup_by_mark(struct ast_channel *chan, char *mark)
+static int pickup_by_mark(struct ast_channel *chan, const char *mark)
 {
 	int res = -1;
 	const char *tmp = NULL;
@@ -118,8 +166,8 @@ static int pickup_by_mark(struct ast_channel *chan, char *mark)
 
 	while ((target = ast_channel_walk_locked(target))) {
 		if ((tmp = pbx_builtin_getvar_helper(target, PICKUPMARK)) &&
-		    !strcasecmp(tmp, mark) &&
-		    can_pickup(target)) {
+			!strcasecmp(tmp, mark) &&
+			can_pickup(target)) {
 			res = pickup_do(chan, target);
 			ast_channel_unlock(target);
 			break;
@@ -130,36 +178,58 @@ static int pickup_by_mark(struct ast_channel *chan, char *mark)
 	return res;
 }
 
-/* Main application entry point */
+/* application entry point for Pickup() */
 static int pickup_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
-	struct ast_module_user *u = NULL;
 	char *tmp = ast_strdupa(data);
 	char *exten = NULL, *context = NULL;
 
 	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "Pickup requires an argument (extension)!\n");
-		return -1;	
+		res = ast_pickup_call(chan);
+		return res;
 	}
-
-	u = ast_module_user_add(chan);
 	
 	/* Parse extension (and context if there) */
 	while (!ast_strlen_zero(tmp) && (exten = strsep(&tmp, "&"))) {
 		if ((context = strchr(exten, '@')))
 			*context++ = '\0';
-		if (context && !strcasecmp(context, PICKUPMARK)) {
+		if (!ast_strlen_zero(context) && !strcasecmp(context, PICKUPMARK)) {
 			if (!pickup_by_mark(chan, exten))
 				break;
 		} else {
-			if (!pickup_by_exten(chan, exten, context ? context : chan->context))
+			if (!pickup_by_exten(chan, exten, !ast_strlen_zero(context) ? context : chan->context))
 				break;
 		}
 		ast_log(LOG_NOTICE, "No target channel found for %s.\n", exten);
 	}
 
-	ast_module_user_remove(u);
+	return res;
+}
+
+/* application entry point for PickupChan() */
+static int pickupchan_exec(struct ast_channel *chan, void *data)
+{
+	int res = 0;
+	char *tmp = ast_strdupa(data);
+	char *pickup = NULL;
+
+	if (ast_strlen_zero(data)) {
+		ast_log(LOG_WARNING, "PickupChan requires an argument (channel)!\n");
+		return -1;	
+	}
+
+	/* Parse channel */
+	while (!ast_strlen_zero(tmp) && (pickup = strsep(&tmp, "&"))) {
+		if (!strncasecmp(chan->name, pickup, strlen(pickup))) {
+			ast_log(LOG_NOTICE, "Cannot pickup your own channel %s.\n", pickup);
+		} else {
+			if (!pickup_by_channel(chan, pickup)) {
+				break;
+			}
+			ast_log(LOG_NOTICE, "No target channel found for %s.\n", pickup);
+		}
+	}
 
 	return res;
 }
@@ -169,13 +239,19 @@ static int unload_module(void)
 	int res;
 
 	res = ast_unregister_application(app);
-	
+	res |= ast_unregister_application(app2);
+
 	return res;
 }
 
 static int load_module(void)
 {
-	return ast_register_application(app, pickup_exec, synopsis, descrip);
+	int res;
+
+	res = ast_register_application(app, pickup_exec, synopsis, descrip);
+	res |= ast_register_application(app2, pickupchan_exec, synopsis2, descrip2);
+
+	return res;
 }
 
 AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Directed Call Pickup Application");

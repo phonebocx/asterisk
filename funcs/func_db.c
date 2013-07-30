@@ -23,28 +23,24 @@
  * \brief Functions for interaction with the Asterisk database
  *
  * \author Russell Bryant <russelb@clemson.edu>
+ *
+ * \ingroup functions
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89512 $")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
 #include <regex.h>
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
-#include "asterisk/logger.h"
-#include "asterisk/options.h"
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
 #include "asterisk/astdb.h"
 
-static int function_db_read(struct ast_channel *chan, char *cmd,
+static int function_db_read(struct ast_channel *chan, const char *cmd,
 			    char *parse, char *buf, size_t len)
 {
 	AST_DECLARE_APP_ARGS(args,
@@ -67,15 +63,14 @@ static int function_db_read(struct ast_channel *chan, char *cmd,
 	}
 
 	if (ast_db_get(args.family, args.key, buf, len - 1)) {
-		ast_log(LOG_DEBUG, "DB: %s/%s not found in database.\n", args.family,
-				args.key);
+		ast_debug(1, "DB: %s/%s not found in database.\n", args.family, args.key);
 	} else
 		pbx_builtin_setvar_helper(chan, "DB_RESULT", buf);
 
 	return 0;
 }
 
-static int function_db_write(struct ast_channel *chan, char *cmd, char *parse,
+static int function_db_write(struct ast_channel *chan, const char *cmd, char *parse,
 			     const char *value)
 {
 	AST_DECLARE_APP_ARGS(args,
@@ -115,7 +110,7 @@ static struct ast_custom_function db_function = {
 	.write = function_db_write,
 };
 
-static int function_db_exists(struct ast_channel *chan, char *cmd,
+static int function_db_exists(struct ast_channel *chan, const char *cmd,
 			      char *parse, char *buf, size_t len)
 {
 	AST_DECLARE_APP_ARGS(args,
@@ -159,7 +154,7 @@ static struct ast_custom_function db_exists_function = {
 	.read = function_db_exists,
 };
 
-static int function_db_delete(struct ast_channel *chan, char* cmd,
+static int function_db_delete(struct ast_channel *chan, const char *cmd,
 			      char *parse, char *buf, size_t len)
 {
 	AST_DECLARE_APP_ARGS(args,
@@ -182,11 +177,10 @@ static int function_db_delete(struct ast_channel *chan, char* cmd,
 	}
 
 	if (ast_db_get(args.family, args.key, buf, len - 1)) {
-		ast_log(LOG_DEBUG, "DB_DELETE: %s/%s not found in database.\n", args.family, args.key);
+		ast_debug(1, "DB_DELETE: %s/%s not found in database.\n", args.family, args.key);
 	} else {
 		if (ast_db_del(args.family, args.key)) {
-			ast_log(LOG_DEBUG, "DB_DELETE: %s/%s could not be deleted from the database\n", 
-				args.family, args.key);
+			ast_debug(1, "DB_DELETE: %s/%s could not be deleted from the database\n", args.family, args.key);
 		}
 	}
 	pbx_builtin_setvar_helper(chan, "DB_RESULT", buf);

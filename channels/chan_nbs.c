@@ -31,15 +31,10 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60989 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 117870 $")
 
-#include <stdio.h>
-#include <string.h>
 #include <sys/socket.h>
 #include <sys/time.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -48,10 +43,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60989 $")
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
 #include "asterisk/config.h"
-#include "asterisk/logger.h"
 #include "asterisk/module.h"
 #include "asterisk/pbx.h"
-#include "asterisk/options.h"
 #include "asterisk/utils.h"
 
 static const char tdesc[] = "Network Broadcast Sound Driver";
@@ -102,8 +95,7 @@ static int nbs_call(struct ast_channel *ast, char *dest, int timeout)
 	}
 	/* When we call, it just works, really, there's no destination...  Just
 	   ring the phone and wait for someone to answer */
-	if (option_debug)
-		ast_log(LOG_DEBUG, "Calling %s on %s\n", dest, ast->name);
+	ast_debug(1, "Calling %s on %s\n", dest, ast->name);
 
 	/* If we can't connect, return congestion */
 	if (nbs_connect(p->nbs)) {
@@ -122,7 +114,7 @@ static void nbs_destroy(struct nbs_pvt *p)
 	if (p->nbs)
 		nbs_delstream(p->nbs);
 	ast_module_user_remove(p->u);
-	free(p);
+	ast_free(p);
 }
 
 static struct nbs_pvt *nbs_alloc(void *data)
@@ -138,9 +130,8 @@ static struct nbs_pvt *nbs_alloc(void *data)
 		opts++;
 	} else
 		opts = "";
-	p = malloc(sizeof(struct nbs_pvt));
+	p = ast_calloc(1, sizeof(*p));
 	if (p) {
-		memset(p, 0, sizeof(struct nbs_pvt));
 		if (!ast_strlen_zero(opts)) {
 			if (strchr(opts, 'm'))
 				flags |= NBS_FLAG_MUTE;
@@ -157,7 +148,7 @@ static struct nbs_pvt *nbs_alloc(void *data)
 		p->nbs = nbs_newstream("asterisk", stream, flags);
 		if (!p->nbs) {
 			ast_log(LOG_WARNING, "Unable to allocate new NBS stream '%s' with flags %d\n", stream, flags);
-			free(p);
+			ast_free(p);
 			p = NULL;
 		} else {
 			/* Set for 8000 hz mono, 640 samples */
@@ -174,8 +165,7 @@ static int nbs_hangup(struct ast_channel *ast)
 {
 	struct nbs_pvt *p;
 	p = ast->tech_pvt;
-	if (option_debug)
-		ast_log(LOG_DEBUG, "nbs_hangup(%s)\n", ast->name);
+	ast_debug(1, "nbs_hangup(%s)\n", ast->name);
 	if (!ast->tech_pvt) {
 		ast_log(LOG_WARNING, "Asked to hangup channel not connected\n");
 		return 0;
@@ -194,14 +184,14 @@ static struct ast_frame  *nbs_xread(struct ast_channel *ast)
 	/* Some nice norms */
 	p->fr.datalen = 0;
 	p->fr.samples = 0;
-	p->fr.data =  NULL;
+	p->fr.data.ptr =  NULL;
 	p->fr.src = type;
 	p->fr.offset = 0;
 	p->fr.mallocd=0;
 	p->fr.delivery.tv_sec = 0;
 	p->fr.delivery.tv_usec = 0;
 
-	ast_log(LOG_DEBUG, "Returning null frame on %s\n", ast->name);
+	ast_debug(1, "Returning null frame on %s\n", ast->name);
 
 	return &p->fr;
 }
@@ -224,7 +214,7 @@ static int nbs_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 		/* Don't try tos end audio on-hook */
 		return 0;
 	}
-	if (nbs_write(p->nbs, frame->data, frame->datalen / 2) < 0) 
+	if (nbs_write(p->nbs, frame->data.ptr, frame->datalen / 2) < 0) 
 		return -1;
 	return 0;
 }
@@ -235,7 +225,7 @@ static struct ast_channel *nbs_new(struct nbs_pvt *i, int state)
 	tmp = ast_channel_alloc(1, state, 0, 0, "", "s", context, 0, "NBS/%s", i->stream);
 	if (tmp) {
 		tmp->tech = &nbs_tech;
-		tmp->fds[0] = nbs_fd(i->nbs);
+		ast_channel_set_fd(tmp, 0, nbs_fd(i->nbs));
 		tmp->nativeformats = prefformat;
 		tmp->rawreadformat = prefformat;
 		tmp->rawwriteformat = prefformat;

@@ -25,21 +25,15 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49006 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 105840 $")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+#include "asterisk/_private.h"
 #include <sys/time.h>
 #include <signal.h>
-#include <errno.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <unistd.h>
 
 #include "asterisk/term.h"
-#include "asterisk/options.h"
 #include "asterisk/lock.h"
 #include "asterisk/utils.h"
 
@@ -59,7 +53,7 @@ static const char *termpath[] = {
 /* Ripped off from Ross Ridge, but it's public domain code (libmytinfo) */
 static short convshort(char *s)
 {
-	register int a,b;
+	register int a, b;
 
 	a = (int) s[0] & 0377;
 	b = (int) s[1] & 0377;
@@ -149,7 +143,7 @@ int ast_term_init(void)
 
 char *term_color(char *outbuf, const char *inbuf, int fgcolor, int bgcolor, int maxout)
 {
-	int attr=0;
+	int attr = 0;
 	char tmp[40];
 	if (!vt100compat) {
 		ast_copy_string(outbuf, inbuf, maxout);

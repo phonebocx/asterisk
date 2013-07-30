@@ -24,8 +24,8 @@
 #define _ASTERISK_PBX_H
 
 #include "asterisk/sched.h"
-#include "asterisk/channel.h"
-#include "asterisk/linkedlists.h"
+#include "asterisk/chanvars.h"
+#include "asterisk/hashtab.h"
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
@@ -37,13 +37,18 @@ extern "C" {
 #define AST_PBX_REPLACE 1
 
 /*! \brief Special return values from applications to the PBX { */
-#define AST_PBX_KEEPALIVE	10	/*!< Destroy the thread, but don't hang up the channel */
-#define AST_PBX_NO_HANGUP_PEER	11
+#define AST_PBX_HANGUP                -1    /*!< Jump to the 'h' exten */
+#define AST_PBX_OK                     0    /*!< No errors */
+#define AST_PBX_ERROR                  1    /*!< Jump to the 'e' exten */
+#define AST_PBX_INCOMPLETE             12   /*!< Return to PBX matching, allowing more digits for the extension */
 /*! } */
 
 #define PRIORITY_HINT	-1	/*!< Special Priority for a hint */
 
-/*! \brief Extension states */
+/*! \brief Extension states 
+	\note States can be combined 
+	- \ref AstExtState
+*/
 enum ast_extension_states {
 	AST_EXTENSION_REMOVED = -2,	/*!< Extension removed */
 	AST_EXTENSION_DEACTIVATED = -1,	/*!< Extension hint removed */
@@ -71,9 +76,10 @@ struct ast_custom_function {
 	const char *synopsis;		/*!< Short description for "show functions" */
 	const char *desc;		/*!< Help text that explains it all */
 	const char *syntax;		/*!< Syntax description */
-	int (*read)(struct ast_channel *, char *, char *, char *, size_t);	/*!< Read function, if read is supported */
-	int (*write)(struct ast_channel *, char *, char *, const char *);	/*!< Write function, if write is supported */
-	AST_LIST_ENTRY(ast_custom_function) acflist;
+	int (*read)(struct ast_channel *, const char *, char *, char *, size_t);	/*!< Read function, if read is supported */
+	int (*write)(struct ast_channel *, const char *, char *, const char *);		/*!< Write function, if write is supported */
+	struct ast_module *mod;         /*!< Module this custom function belongs to */
+	AST_RWLIST_ENTRY(ast_custom_function) acflist;
 };
 
 /*! \brief All switch functions have the same interface, so define a type for them */
@@ -104,8 +110,8 @@ int ast_build_timing(struct ast_timing *i, const char *info);
 int ast_check_timing(const struct ast_timing *i);
 
 struct ast_pbx {
-	int dtimeout;				/*!< Timeout between digits (seconds) */
-	int rtimeout;				/*!< Timeout for response (seconds) */
+	int dtimeoutms;				/*!< Timeout between digits (milliseconds) */
+	int rtimeoutms;				/*!< Timeout for response (milliseconds) */
 };
 
 
@@ -153,7 +159,7 @@ struct ast_app *pbx_findapp(const char *app);
  * \param data the data passed into the app
  *
  * This application executes an application on a given channel.  It
- * saves the stack and executes the given appliation passing in
+ * saves the stack and executes the given application passing in
  * the given data.
  *
  * \return 0 on success, and -1 on failure
@@ -161,11 +167,16 @@ struct ast_app *pbx_findapp(const char *app);
 int pbx_exec(struct ast_channel *c, struct ast_app *app, void *data);
 
 /*!
- * \brief Register a new context
+ * \brief Register a new context or find an existing one
  *
  * \param extcontexts pointer to the ast_context structure pointer
+ * \param exttable pointer to the hashtable that contains all the elements in extcontexts
  * \param name name of the new context
  * \param registrar registrar of the context
+ *
+ * This function allows you to play in two environments: the global contexts (active dialplan)
+ * or an external context set of your choosing. To act on the external set, make sure extcontexts
+ * and exttable are set; for the globals, make sure both extcontexts and exttable are NULL.
  *
  * This will first search for a context with your name.  If it exists already, it will not
  * create a new one.  If it does not exist, it will create a new one with the given name
@@ -173,19 +184,19 @@ int pbx_exec(struct ast_channel *c, struct ast_app *app, void *data);
  *
  * \return NULL on failure, and an ast_context structure on success
  */
-struct ast_context *ast_context_create(struct ast_context **extcontexts, const char *name, const char *registrar);
-struct ast_context *ast_context_find_or_create(struct ast_context **extcontexts, const char *name, const char *registrar);
+struct ast_context *ast_context_find_or_create(struct ast_context **extcontexts, struct ast_hashtab *exttable, const char *name, const char *registrar);
 
 /*!
  * \brief Merge the temporary contexts into a global contexts list and delete from the 
  *        global list the ones that are being added
  *
- * \param extcontexts pointer to the ast_context structure pointer
+ * \param extcontexts pointer to the ast_context structure
+ * \param exttable pointer to the ast_hashtab structure that contains all the elements in extcontexts
  * \param registrar of the context; if it's set the routine will delete all contexts 
  *        that belong to that registrar; if NULL only the contexts that are specified 
  *        in extcontexts
  */
-void ast_merge_contexts_and_delete(struct ast_context **extcontexts, const char *registrar);
+void ast_merge_contexts_and_delete(struct ast_context **extcontexts, struct ast_hashtab *exttable, const char *registrar);
 
 /*!
  * \brief Destroy a context (matches the specified context (or ANY context if NULL)
@@ -211,6 +222,9 @@ void ast_context_destroy(struct ast_context *con, const char *registrar);
  */
 struct ast_context *ast_context_find(const char *name);
 
+/*! \brief The result codes when starting the PBX on a channelwith \see ast_pbx_start.
+	AST_PBX_CALL_LIMIT refers to the maxcalls call limit in asterisk.conf
+ */
 enum ast_pbx_result {
 	AST_PBX_SUCCESS = 0,
 	AST_PBX_FAILED = -1,
@@ -222,10 +236,11 @@ enum ast_pbx_result {
  *
  * \param c channel to start the pbx on
  *
- * See ast_pbx_run for a synchronous function to run the PBX in the
+ * \see ast_pbx_run for a synchronous function to run the PBX in the
  * current thread, as opposed to starting a new one.
  *
- * \return Zero on success, non-zero on failure
+ * \retval Zero on success
+ * \retval non-zero on failure
  */
 enum ast_pbx_result ast_pbx_start(struct ast_channel *c);
 
@@ -239,9 +254,41 @@ enum ast_pbx_result ast_pbx_start(struct ast_channel *c);
  * See ast_pbx_start for an asynchronous function to run the PBX in a
  * new thread as opposed to the current one.
  * 
- * \return Zero on success, non-zero on failure
+ * \retval Zero on success
+ * \retval non-zero on failure
  */
 enum ast_pbx_result ast_pbx_run(struct ast_channel *c);
+
+/*!
+ * \brief Options for ast_pbx_run()
+ */
+struct ast_pbx_args {
+	union {
+		/*! Pad this out so that we have plenty of room to add options
+		 *  but still maintain ABI compatibility over time. */
+		uint64_t __padding;
+		struct {
+			/*! Do not hangup the channel when the PBX is complete. */
+			unsigned int no_hangup_chan:1;
+		};
+	};
+};
+
+/*!
+ * \brief Execute the PBX in the current thread
+ *
+ * \param c channel to run the pbx on
+ * \param args options for the pbx
+ *
+ * This executes the PBX on a given channel. It allocates a new
+ * PBX structure for the channel, and provides all PBX functionality.
+ * See ast_pbx_start for an asynchronous function to run the PBX in a
+ * new thread as opposed to the current one.
+ * 
+ * \retval Zero on success
+ * \retval non-zero on failure
+ */
+enum ast_pbx_result ast_pbx_run_args(struct ast_channel *c, struct ast_pbx_args *args);
 
 /*! 
  * \brief Add and extension to an extension context.  
@@ -273,38 +320,6 @@ int ast_add_extension2(struct ast_context *con, int replace, const char *extensi
 	int priority, const char *label, const char *callerid, 
 	const char *application, void *data, void (*datad)(void *), const char *registrar);
 
-
-/*! 
- * \brief Register an application.
- *
- * \param app Short name of the application
- * \param execute a function callback to execute the application. It should return
- *                non-zero if the channel needs to be hung up.
- * \param synopsis a short description (one line synopsis) of the application
- * \param description long description with all of the details about the use of 
- *                    the application
- * 
- * This registers an application with Asterisk's internal application list. 
- * \note The individual applications themselves are responsible for registering and unregistering
- *       and unregistering their own CLI commands.
- * 
- * \retval 0 success 
- * \retval -1 failure.
- */
-int ast_register_application(const char *app, int (*execute)(struct ast_channel *, void *),
-			     const char *synopsis, const char *description);
-
-/*! 
- * \brief Unregister an application
- * 
- * \param app name of the application (does not have to be the same string as the one that was registered)
- * 
- * This unregisters an application from Asterisk's internal application list.
- * 
- * \retval 0 success 
- * \retval -1 failure
- */
-int ast_unregister_application(const char *app);
 
 /*! 
  * \brief Uses hint and devicestate callback to get the state of an extension
@@ -356,7 +371,7 @@ int ast_extension_state_add(const char *context, const char *exten,
 int ast_extension_state_del(int id, ast_state_cb_type callback);
 
 /*! 
- * \brief If an extension exists, return non-zero
+ * \brief If an extension hint exists, return non-zero
  * 
  * \param hint buffer for hint
  * \param maxlen size of hint buffer
@@ -382,6 +397,10 @@ int ast_get_hint(char *hint, int maxlen, char *name, int maxnamelen,
  * \param priority priority of the action within the extension
  * \param callerid callerid to search for
  *
+ * \note It is possible for autoservice to be started and stopped on c during this
+ * function call, it is important that c is not locked prior to calling this. Otherwise
+ * a deadlock may occur
+ *
  * \return If an extension within the given context(or callerid) with the given priority 
  *         is found a non zero value will be returned. Otherwise, 0 is returned.
  */
@@ -397,13 +416,22 @@ int ast_exists_extension(struct ast_channel *c, const char *context, const char 
  * \param label label of the action within the extension to match to priority
  * \param callerid callerid to search for
  *
- * \return the priority which matches the given label in the extension or -1 if not found.
+ * \note It is possible for autoservice to be started and stopped on c during this
+ * function call, it is important that c is not locked prior to calling this. Otherwise
+ * a deadlock may occur
+ *
+ * \retval the priority which matches the given label in the extension
+ * \retval -1 if not found.
  */
 int ast_findlabel_extension(struct ast_channel *c, const char *context, 
 	const char *exten, const char *label, const char *callerid);
 
 /*!
  * \brief Find the priority of an extension that has the specified label
+ *
+ * \note It is possible for autoservice to be started and stopped on c during this
+ * function call, it is important that c is not locked prior to calling this. Otherwise
+ * a deadlock may occur
  *
  * \note This function is the same as ast_findlabel_extension, except that it accepts
  * a pointer to an ast_context structure to specify the context instead of the
@@ -421,6 +449,10 @@ int ast_findlabel_extension2(struct ast_channel *c, struct ast_context *con,
  * \param priority priority of extension path
  * \param callerid callerid of extension being searched for
  *
+ * \note It is possible for autoservice to be started and stopped on c during this
+ * function call, it is important that c is not locked prior to calling this. Otherwise
+ * a deadlock may occur
+ *
  * \return If "exten" *could be* a valid extension in this context with or without
  * some more digits, return non-zero.  Basically, when this returns 0, no matter
  * what you add to exten, it's not going to be a valid extension anymore
@@ -436,6 +468,10 @@ int ast_canmatch_extension(struct ast_channel *c, const char *context,
  * \param exten extension to check
  * \param priority priority of extension path
  * \param callerid callerid of extension being searched for
+ *
+ * \note It is possible for autoservice to be started and stopped on c during this
+ * function call, it is important that c is not locked prior to calling this. Otherwise
+ * a deadlock may occur
  *
  * \return If "exten" *could match* a valid extension in this context with
  * some more digits, return non-zero.  Does NOT return non-zero if this is
@@ -461,6 +497,20 @@ int ast_extension_match(const char *pattern, const char *extension);
 int ast_extension_close(const char *pattern, const char *data, int needmore);
 
 /*! 
+ * \brief Determine if one extension should match before another
+ * 
+ * \param a extension to compare with b
+ * \param b extension to compare with a
+ *
+ * Checks whether or extension a should match before extension b
+ *
+ * \retval 0 if the two extensions have equal matching priority
+ * \retval 1 on a > b
+ * \retval -1 on a < b
+ */
+int ast_extension_cmp(const char *a, const char *b);
+
+/*! 
  * \brief Launch a new extension (i.e. new stack)
  * 
  * \param c not important
@@ -468,14 +518,20 @@ int ast_extension_close(const char *pattern, const char *data, int needmore);
  * \param exten new extension to add
  * \param priority priority of new extension
  * \param callerid callerid of extension
+ * \param found
+ * \param combined_find_spawn 
  *
  * This adds a new extension to the asterisk extension list.
+ *
+ * \note It is possible for autoservice to be started and stopped on c during this
+ * function call, it is important that c is not locked prior to calling this. Otherwise
+ * a deadlock may occur
  *
  * \retval 0 on success 
  * \retval -1 on failure.
  */
 int ast_spawn_extension(struct ast_channel *c, const char *context, 
-	const char *exten, int priority, const char *callerid);
+      const char *exten, int priority, const char *callerid, int *found, int combined_find_spawn);
 
 /*! 
  * \brief Add a context include
@@ -585,7 +641,9 @@ int ast_context_remove_switch2(struct ast_context *con, const char *sw,
  * 
  * \param context context to remove extension from
  * \param extension which extension to remove
- * \param priority priority of extension to remove
+ * \param priority priority of extension to remove (0 to remove all)
+ * \param callerid NULL to remove all; non-NULL to match a single record per priority
+ * \param matchcid non-zero to match callerid element (if non-NULL); 0 to match default case
  * \param registrar registrar of the extension
  *
  * This function removes an extension from a given context.
@@ -597,7 +655,14 @@ int ast_context_remove_extension(const char *context, const char *extension, int
 	const char *registrar);
 
 int ast_context_remove_extension2(struct ast_context *con, const char *extension,
-	int priority, const char *registrar);
+	int priority, const char *registrar, int already_locked);
+
+int ast_context_remove_extension_callerid(const char *context, const char *extension,
+	int priority, const char *callerid, int matchcid, const char *registrar);
+
+int ast_context_remove_extension_callerid2(struct ast_context *con, const char *extension,
+	int priority, const char *callerid, int matchcid, const char *registrar,
+	int already_locked);
 
 /*! 
  * \brief Add an ignorepat
@@ -647,12 +712,20 @@ int ast_ignore_pattern(const char *context, const char *pattern);
 /* Locking functions for outer modules, especially for completion functions */
 
 /*! 
- * \brief Locks the context list
+ * \brief Write locks the context list
  *
  * \retval 0 on success 
  * \retval -1 on error
  */
-int ast_lock_contexts(void);
+int ast_wrlock_contexts(void);
+
+/*!
+ * \brief Read locks the context list
+ *
+ * \retval 0 on success
+ * \retval -1 on error
+ */
+int ast_rdlock_contexts(void);
 
 /*! 
  * \brief Unlocks contexts
@@ -663,14 +736,24 @@ int ast_lock_contexts(void);
 int ast_unlock_contexts(void);
 
 /*! 
- * \brief Locks a given context
+ * \brief Write locks a given context
  * 
  * \param con context to lock
  *
  * \retval 0 on success 
  * \retval -1 on failure
  */
-int ast_lock_context(struct ast_context *con);
+int ast_wrlock_context(struct ast_context *con);
+
+/*!
+ * \brief Read locks a given context
+ *
+ * \param con context to lock
+ *
+ * \retval 0 on success
+ * \retval -1 on failure
+ */
+int ast_rdlock_context(struct ast_context *con);
 
 /*! 
  * \retval Unlocks the given context
@@ -728,7 +811,9 @@ int ast_pbx_outgoing_app(const char *type, int format, void *data, int timeout, 
  */
 int pbx_checkcondition(const char *condition);
 
-/* Functions for returning values from structures */
+/*! @name 
+ * Functions for returning values from structures */
+/*! @{ */
 const char *ast_get_context_name(struct ast_context *con);
 const char *ast_get_extension_name(struct ast_exten *exten);
 struct ast_context *ast_get_extension_context(struct ast_exten *exten);
@@ -736,21 +821,28 @@ const char *ast_get_include_name(struct ast_include *include);
 const char *ast_get_ignorepat_name(struct ast_ignorepat *ip);
 const char *ast_get_switch_name(struct ast_sw *sw);
 const char *ast_get_switch_data(struct ast_sw *sw);
+int ast_get_switch_eval(struct ast_sw *sw);
+	
+/*! @} */
 
-/* Other extension stuff */
+/*! @name Other Extension stuff */
+/*! @{ */
 int ast_get_extension_priority(struct ast_exten *exten);
 int ast_get_extension_matchcid(struct ast_exten *e);
 const char *ast_get_extension_cidmatch(struct ast_exten *e);
 const char *ast_get_extension_app(struct ast_exten *e);
 const char *ast_get_extension_label(struct ast_exten *e);
 void *ast_get_extension_app_data(struct ast_exten *e);
+/*! @} */
 
-/* Registrar info functions ... */
+/*! @name Registrar info functions ... */
+/*! @{ */
 const char *ast_get_context_registrar(struct ast_context *c);
 const char *ast_get_extension_registrar(struct ast_exten *e);
 const char *ast_get_include_registrar(struct ast_include *i);
 const char *ast_get_ignorepat_registrar(struct ast_ignorepat *ip);
 const char *ast_get_switch_registrar(struct ast_sw *sw);
+/*! @} */
 
 /* Walking functions ... */
 struct ast_context *ast_walk_contexts(struct ast_context *con);
@@ -764,13 +856,54 @@ struct ast_ignorepat *ast_walk_context_ignorepats(struct ast_context *con,
 	struct ast_ignorepat *ip);
 struct ast_sw *ast_walk_context_switches(struct ast_context *con, struct ast_sw *sw);
 
-int pbx_builtin_serialize_variables(struct ast_channel *chan, char *buf, size_t size);
+/*!
+ * \note Will lock the channel.
+ */
+int pbx_builtin_serialize_variables(struct ast_channel *chan, struct ast_str **buf);
+
+/*!
+ * \note Will lock the channel.
+ *
+ * \note This function will return a pointer to the buffer inside the channel
+ * variable.  This value should only be accessed with the channel locked.  If
+ * the value needs to be kept around, it should be done by using the following
+ * thread-safe code:
+ * \code
+ *		const char *var;
+ *
+ *		ast_channel_lock(chan);
+ *		if ((var = pbx_builtin_getvar_helper(chan, "MYVAR"))) {
+ *			var = ast_strdupa(var);
+ *		}
+ *		ast_channel_unlock(chan);
+ * \endcode
+ */
 const char *pbx_builtin_getvar_helper(struct ast_channel *chan, const char *name);
+
+/*!
+ * \note Will lock the channel.
+ */
 void pbx_builtin_pushvar_helper(struct ast_channel *chan, const char *name, const char *value);
+
+/*!
+ * \note Will lock the channel.
+ */
 void pbx_builtin_setvar_helper(struct ast_channel *chan, const char *name, const char *value);
+
+/*!
+ * \note Will lock the channel.
+ */
 void pbx_retrieve_variable(struct ast_channel *c, const char *var, char **ret, char *workspace, int workspacelen, struct varshead *headp);
 void pbx_builtin_clear_globals(void);
+
+/*!
+ * \note Will lock the channel.
+ */
 int pbx_builtin_setvar(struct ast_channel *chan, void *data);
+int pbx_builtin_setvar_multiple(struct ast_channel *chan, void *data);
+
+int pbx_builtin_raise_exception(struct ast_channel *chan, void *data);
+
 void pbx_substitute_variables_helper(struct ast_channel *c,const char *cp1,char *cp2,int count);
 void pbx_substitute_variables_varshead(struct varshead *headp, const char *cp1, char *cp2, int count);
 
@@ -780,10 +913,46 @@ int ast_extension_patmatch(const char *pattern, const char *data);
   set to 1, sets to auto fall through.  If newval set to 0, sets to no auto
   fall through (reads extension instead).  Returns previous value. */
 int pbx_set_autofallthrough(int newval);
+
+/*! Set "extenpatternmatchnew" flag, if newval is <0, does not acutally set.  If
+  set to 1, sets to use the new Trie-based pattern matcher.  If newval set to 0, sets to use
+  the old linear-search algorithm.  Returns previous value. */
+int pbx_set_extenpatternmatchnew(int newval);
+
+/*! Set "overrideswitch" field.  If set and of nonzero length, all contexts
+ * will be tried directly through the named switch prior to any other
+ * matching within that context.
+ * \since 1.6.1
+ */ 
+void pbx_set_overrideswitch(const char *newval);
+
+/*!
+ * \note This function will handle locking the channel as needed.
+ */
 int ast_goto_if_exists(struct ast_channel *chan, const char *context, const char *exten, int priority);
-/* I can find neither parsable nor parseable at dictionary.com, but google gives me 169000 hits for parseable and only 49,800 for parsable */
+
+/*!
+ * \note I can find neither parsable nor parseable at dictionary.com, 
+ *       but google gives me 169000 hits for parseable and only 49,800 
+ *       for parsable 
+ *
+ * \note This function will handle locking the channel as needed.
+ */
 int ast_parseable_goto(struct ast_channel *chan, const char *goto_string);
+
+/*!
+ * \note This function will handle locking the channel as needed.
+ */
+int ast_async_parseable_goto(struct ast_channel *chan, const char *goto_string);
+
+/*!
+ * \note This function will handle locking the channel as needed.
+ */
 int ast_explicit_goto(struct ast_channel *chan, const char *context, const char *exten, int priority);
+
+/*!
+ * \note This function will handle locking the channel as needed.
+ */
 int ast_async_goto_if_exists(struct ast_channel *chan, const char *context, const char *exten, int priority);
 
 struct ast_custom_function* ast_custom_function_find(const char *name);
@@ -794,14 +963,24 @@ struct ast_custom_function* ast_custom_function_find(const char *name);
 int ast_custom_function_unregister(struct ast_custom_function *acf);
 
 /*!
- * \brief Reigster a custom function
+ * \brief Register a custom function
  */
-int ast_custom_function_register(struct ast_custom_function *acf);
+#define ast_custom_function_register(acf) __ast_custom_function_register(acf, ast_module_info->self)
+
+/*!
+ * \brief Register a custom function
+ */
+int __ast_custom_function_register(struct ast_custom_function *acf, struct ast_module *mod);
 
 /*! 
  * \brief Retrieve the number of active calls
  */
 int ast_active_calls(void);
+
+/*! 
+ * \brief Retrieve the total number of calls processed through the PBX since last restart
+ */
+int ast_processed_calls(void);
 	
 /*!
  * \brief executes a read operation on a function 
@@ -815,7 +994,7 @@ int ast_active_calls(void);
  *
  * \return zero on success, non-zero on failure
  */
-int ast_func_read(struct ast_channel *chan, char *function, char *workspace, size_t len);
+int ast_func_read(struct ast_channel *chan, const char *function, char *workspace, size_t len);
 
 /*!
  * \brief executes a write operation on a function
@@ -828,9 +1007,63 @@ int ast_func_read(struct ast_channel *chan, char *function, char *workspace, siz
  *
  * \return zero on success, non-zero on failure
  */
-int ast_func_write(struct ast_channel *chan, char *function, const char *value);
+int ast_func_write(struct ast_channel *chan, const char *function, const char *value);
 
-void ast_hint_state_changed(const char *device);
+/*!
+ * When looking up extensions, we can have different requests
+ * identified by the 'action' argument, as follows.
+ * Note that the coding is such that the low 4 bits are the
+ * third argument to extension_match_core.
+ */
+
+enum ext_match_t {
+	E_MATCHMORE = 	0x00,	/* extension can match but only with more 'digits' */
+	E_CANMATCH =	0x01,	/* extension can match with or without more 'digits' */
+	E_MATCH =	0x02,	/* extension is an exact match */
+	E_MATCH_MASK =	0x03,	/* mask for the argument to extension_match_core() */
+	E_SPAWN =	0x12,	/* want to spawn an extension. Requires exact match */
+	E_FINDLABEL =	0x22	/* returns the priority for a given label. Requires exact match */
+};
+
+#define STATUS_NO_CONTEXT	1
+#define STATUS_NO_EXTENSION	2
+#define STATUS_NO_PRIORITY	3
+#define STATUS_NO_LABEL		4
+#define STATUS_SUCCESS		5 
+#define AST_PBX_MAX_STACK  128
+
+/* request and result for pbx_find_extension */
+struct pbx_find_info {
+#if 0
+	const char *context;
+	const char *exten;
+	int priority;
+#endif
+
+	char *incstack[AST_PBX_MAX_STACK];      /* filled during the search */
+	int stacklen;                   /* modified during the search */
+	int status;                     /* set on return */
+	struct ast_switch *swo;         /* set on return */
+	const char *data;               /* set on return */
+	const char *foundcontext;       /* set on return */
+};
+ 
+struct ast_exten *pbx_find_extension(struct ast_channel *chan,
+									 struct ast_context *bypass, struct pbx_find_info *q,
+									 const char *context, const char *exten, int priority,
+									 const char *label, const char *callerid, enum ext_match_t action);
+
+
+/* every time a write lock is obtained for contexts,
+   a counter is incremented. You can check this via the
+   following func */
+
+int ast_wrlock_contexts_version(void);
+	
+
+/* hashtable functions for contexts */
+int ast_hashtab_compare_contexts(const void *ah_a, const void *ah_b);
+unsigned int ast_hashtab_hash_contexts(const void *obj);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

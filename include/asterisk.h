@@ -18,18 +18,23 @@
 #ifndef _ASTERISK_H
 #define _ASTERISK_H
 
-/* The include of 'autoconfig.h' is not necessary for any modules that
-   are part of the Asterisk source tree, because the top-level Makefile
-   will forcibly include that header in all compilations before all
-   other headers (even system headers). However, leaving this here will
-   help out-of-tree module builders, and doesn't cause any harm for the
-   in-tree modules.
-*/
 #include "asterisk/autoconfig.h"
+
+#if !defined(NO_MALLOC_DEBUG) && !defined(STANDALONE) && defined(MALLOC_DEBUG)
+#include "asterisk/astmm.h"
+#endif
 
 #include "asterisk/compat.h"
 
-#include "asterisk/paths.h"
+/* Default to allowing the umask or filesystem ACLs to determine actual file
+ * creation permissions
+ */
+#ifndef AST_DIR_MODE
+#define AST_DIR_MODE 0777
+#endif
+#ifndef AST_FILE_MODE
+#define AST_FILE_MODE 0666
+#endif
 
 #define DEFAULT_LANGUAGE "en"
 
@@ -38,70 +43,43 @@
 #define	setpriority	__PLEASE_USE_ast_set_priority_INSTEAD_OF_setpriority__
 #define	sched_setscheduler	__PLEASE_USE_ast_set_priority_INSTEAD_OF_sched_setscheduler__
 
-/* provided in asterisk.c */
-extern char ast_config_AST_CONFIG_DIR[PATH_MAX];
-extern char ast_config_AST_CONFIG_FILE[PATH_MAX];
-extern char ast_config_AST_MODULE_DIR[PATH_MAX];
-extern char ast_config_AST_SPOOL_DIR[PATH_MAX];
-extern char ast_config_AST_MONITOR_DIR[PATH_MAX];
-extern char ast_config_AST_VAR_DIR[PATH_MAX];
-extern char ast_config_AST_DATA_DIR[PATH_MAX];
-extern char ast_config_AST_LOG_DIR[PATH_MAX];
-extern char ast_config_AST_AGI_DIR[PATH_MAX];
-extern char ast_config_AST_DB[PATH_MAX];
-extern char ast_config_AST_KEY_DIR[PATH_MAX];
-extern char ast_config_AST_PID[PATH_MAX];
-extern char ast_config_AST_SOCKET[PATH_MAX];
-extern char ast_config_AST_RUN_DIR[PATH_MAX];
-extern char ast_config_AST_CTL_PERMISSIONS[PATH_MAX];
-extern char ast_config_AST_CTL_OWNER[PATH_MAX];
-extern char ast_config_AST_CTL_GROUP[PATH_MAX];
-extern char ast_config_AST_CTL[PATH_MAX];
-extern char ast_config_AST_SYSTEM_NAME[20];
+#if defined(DEBUG_FD_LEAKS) && !defined(STANDALONE) && !defined(STANDALONE_AEL)
+/* These includes are all about ordering */
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#define	open(a,...)	__ast_fdleak_open(__FILE__,__LINE__,__PRETTY_FUNCTION__, a, __VA_ARGS__)
+#define pipe(a)	__ast_fdleak_pipe(a, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define socket(a,b,c)	__ast_fdleak_socket(a, b, c, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define close(a)	__ast_fdleak_close(a)
+#define	fopen(a,b)	__ast_fdleak_fopen(a, b, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define	fclose(a)	__ast_fdleak_fclose(a)
+#define	dup2(a,b)	__ast_fdleak_dup2(a, b, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define dup(a)	__ast_fdleak_dup(a, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+
+int __ast_fdleak_open(const char *file, int line, const char *func, const char *path, int flags, ...);
+int __ast_fdleak_pipe(int *fds, const char *file, int line, const char *func);
+int __ast_fdleak_socket(int domain, int type, int protocol, const char *file, int line, const char *func);
+int __ast_fdleak_close(int fd);
+FILE *__ast_fdleak_fopen(const char *path, const char *mode, const char *file, int line, const char *func);
+int __ast_fdleak_fclose(FILE *ptr);
+int __ast_fdleak_dup2(int oldfd, int newfd, const char *file, int line, const char *func);
+int __ast_fdleak_dup(int oldfd, const char *file, int line, const char *func);
+#endif
 
 int ast_set_priority(int);			/*!< Provided by asterisk.c */
-int load_modules(unsigned int);			/*!< Provided by loader.c */
-int load_pbx(void);				/*!< Provided by pbx.c */
-int init_logger(void);				/*!< Provided by logger.c */
-void close_logger(void);			/*!< Provided by logger.c */
-int reload_logger(int);				/*!< Provided by logger.c */
-int init_framer(void);				/*!< Provided by frame.c */
-int ast_term_init(void);			/*!< Provided by term.c */
-int astdb_init(void);				/*!< Provided by db.c */
-void ast_channels_init(void);			/*!< Provided by channel.c */
-void ast_builtins_init(void);			/*!< Provided by cli.c */
-int dnsmgr_init(void);				/*!< Provided by dnsmgr.c */ 
-void dnsmgr_start_refresh(void);		/*!< Provided by dnsmgr.c */
-int dnsmgr_reload(void);			/*!< Provided by dnsmgr.c */
-void threadstorage_init(void);			/*!< Provided by threadstorage.c */
-
-/* Many headers need 'ast_channel' to be defined */
-struct ast_channel;
-
-/* Many headers need 'ast_module' to be defined */
-struct ast_module;
-
-/*!
- * \brief Reload asterisk modules.
- * \param name the name of the module to reload
- *
- * This function reloads the specified module, or if no modules are specified,
- * it will reload all loaded modules.
- *
- * \note Modules are reloaded using their reload() functions, not unloading
- * them and loading them again.
- * 
- * \return Zero if the specified module was not found, 1 if the module was
- * found but cannot be reloaded, -1 if a reload operation is already in
- * progress, and 2 if the specfied module was found and reloaded.
- */
-int ast_module_reload(const char *name);
+int ast_fd_init(void);				/*!< Provided by astfd.c */
 
 /*!
  * \brief Register a function to be executed before Asterisk exits.
  * \param func The callback function to use.
  *
- * \return Zero on success, -1 on error.
+ * \retval 0 on success.
+ * \retval -1 on error.
  */
 int ast_register_atexit(void (*func)(void));
 
@@ -133,6 +111,13 @@ void ast_register_file_version(const char *file, const char *version);
  * the file when the module is unloaded.
  */
 void ast_unregister_file_version(const char *file);
+
+/*! \brief Find version for given module name
+ * \param file Module name (i.e. chan_sip.so)
+ * \return version string or NULL if the module is not found
+ */
+const char *ast_file_version_find(const char *file);
+
 
 /*!
  * \brief Register/unregister a source code file with the core.
@@ -207,5 +192,28 @@ int64_t ast_mark(int, int start1_stop0);
 #define ast_profile(a, b) do { } while (0)
 #define ast_mark(a, b) do { } while (0)
 #endif /* LOW_MEMORY */
+
+/*! \brief
+ * Definition of various structures that many asterisk files need,
+ * but only because they need to know that the type exists.
+ *
+ */
+
+struct ast_channel;
+struct ast_frame;
+struct ast_module;
+struct ast_variable;
+struct ast_str;
+
+#ifdef bzero
+#undef bzero
+#endif
+
+#ifdef bcopy
+#undef bcopy
+#endif
+
+#define bzero  0x__dont_use_bzero__use_memset_instead""
+#define bcopy  0x__dont_use_bcopy__use_memmove_instead()
 
 #endif /* _ASTERISK_H */

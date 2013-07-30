@@ -29,22 +29,11 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42477 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 125386 $")
 
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <stdio.h>
-
-#include "asterisk/lock.h"
 #include "asterisk/translate.h"
 #include "asterisk/config.h"
-#include "asterisk/options.h"
 #include "asterisk/module.h"
-#include "asterisk/logger.h"
-#include "asterisk/channel.h"
 #include "asterisk/utils.h"
 
 #include "lpc10/lpc10.h"
@@ -97,7 +86,7 @@ static struct ast_frame *lintolpc10_sample(void)
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
-	f.data = slin_lpc10_ex;
+	f.data.ptr = slin_lpc10_ex;
 	return &f;
 }
 
@@ -113,7 +102,7 @@ static struct ast_frame *lpc10tolin_sample(void)
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
-	f.data = lpc10_slin_ex;
+	f.data.ptr = lpc10_slin_ex;
 	return &f;
 }
 
@@ -151,7 +140,7 @@ static void build_bits(unsigned char *c, INT32 *bits)
 static int lpc10tolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct lpc10_coder_pvt *tmp = pvt->pvt;
-	int16_t *dst = (int16_t *)pvt->outbuf;
+	int16_t *dst = pvt->outbuf.i16;
 	int len = 0;
 
 	while (len + LPC10_BYTES_IN_COMPRESSED_FRAME <= f->datalen) {
@@ -162,7 +151,7 @@ static int lpc10tolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 			ast_log(LOG_WARNING, "Out of buffer space\n");
 			return -1;
 		}
-		extract_bits(bits, f->data + len);
+		extract_bits(bits, f->data.ptr + len);
 		if (lpc10_decode(bits, tmpbuf, tmp->lpc10.dec)) {
 			ast_log(LOG_WARNING, "Invalid lpc10 data\n");
 			return -1;
@@ -190,7 +179,7 @@ static int lintolpc10_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Out of buffer space\n");
 		return -1;
 	}
-	memcpy(tmp->buf + pvt->samples, f->data, f->datalen);
+	memcpy(tmp->buf + pvt->samples, f->data.ptr, f->datalen);
 	pvt->samples += f->samples;
 	return 0;
 }
@@ -211,7 +200,7 @@ static struct ast_frame *lintolpc10_frameout(struct ast_trans_pvt *pvt)
 		for (x=0;x<LPC10_SAMPLES_PER_FRAME;x++)
 			tmpbuf[x] = (float)tmp->buf[x + samples] / 32768.0;
 		lpc10_encode(tmpbuf, bits, tmp->lpc10.enc);
-		build_bits((unsigned char *) pvt->outbuf + datalen, bits);
+		build_bits(pvt->outbuf.uc + datalen, bits);
 		datalen += LPC10_BYTES_IN_COMPRESSED_FRAME;
 		samples += LPC10_SAMPLES_PER_FRAME;
 		pvt->samples -= LPC10_SAMPLES_PER_FRAME;
@@ -230,7 +219,7 @@ static void lpc10_destroy(struct ast_trans_pvt *arg)
 {
 	struct lpc10_coder_pvt *pvt = arg->pvt;
 	/* Enc and DEC are both just allocated, so they can be freed */
-	free(pvt->lpc10.enc);
+	ast_free(pvt->lpc10.enc);
 }
 
 static struct ast_translator lpc10tolin = {
@@ -261,28 +250,31 @@ static struct ast_translator lintolpc10 = {
 	.buf_size = LPC10_BYTES_IN_COMPRESSED_FRAME * (1 + BUFFER_SAMPLES / LPC10_SAMPLES_PER_FRAME),
 };
 
-static void parse_config(void)
+static int parse_config(int reload)
 {
-        struct ast_variable *var;
-        struct ast_config *cfg = ast_config_load("codecs.conf");
-	if (!cfg)
-		return;
+	struct ast_variable *var;
+	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
+	struct ast_config *cfg = ast_config_load("codecs.conf", config_flags);
+	if (cfg == NULL)
+		return 0;
+	if (cfg == CONFIG_STATUS_FILEUNCHANGED)
+		return 0;
 	for (var = ast_variable_browse(cfg, "plc"); var; var = var->next) {
-	       if (!strcasecmp(var->name, "genericplc")) {
+		if (!strcasecmp(var->name, "genericplc")) {
 			lpc10tolin.useplc = ast_true(var->value) ? 1 : 0;
-			if (option_verbose > 2)
-			       ast_verbose(VERBOSE_PREFIX_3 "codec_lpc10: %susing generic PLC\n",
+			ast_verb(3, "codec_lpc10: %susing generic PLC\n",
 					lpc10tolin.useplc ? "" : "not ");
 		}
-        }
+	}
 	ast_config_destroy(cfg);
+	return 0;
 }
 
 static int reload(void)
 {
-        parse_config();
-
-        return 0;
+	if (parse_config(1))
+		return AST_MODULE_LOAD_DECLINE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 
@@ -300,14 +292,16 @@ static int load_module(void)
 {
 	int res;
 
-	parse_config();
-	res=ast_register_translator(&lpc10tolin);
+	if (parse_config(0))
+		return AST_MODULE_LOAD_DECLINE;
+	res = ast_register_translator(&lpc10tolin);
 	if (!res) 
-		res=ast_register_translator(&lintolpc10);
+		res = ast_register_translator(&lintolpc10);
 	else
 		ast_unregister_translator(&lpc10tolin);
-
-	return res;
+	if (res)
+		return AST_MODULE_LOAD_FAILURE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "LPC10 2.4kbps Coder/Decoder",

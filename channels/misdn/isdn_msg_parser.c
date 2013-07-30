@@ -11,6 +11,12 @@
  * the GNU General Public License
  */
 
+/*! \file 
+ * \brief Interface to mISDN - message parser
+ * \author Christian Richter <crich@beronet.com>
+ */
+
+
 
 #include "isdn_lib_intern.h"
 
@@ -65,7 +71,7 @@ static void parse_proceeding (struct isdn_msg msgs[], msg_t *msg, struct misdn_b
 	dec_ie_progress(proceeding->PROGRESS, (Q931_info_t *)proceeding, &bc->progress_coding, &bc->progress_location, &bc->progress_indicator, nt, bc);
 	
 	
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing PROCEEDING Msg\n"); 
 #endif
 }
@@ -83,7 +89,7 @@ static msg_t *build_proceeding (struct isdn_msg msgs[], struct misdn_bchannel *b
 		enc_ie_progress(&proceeding->PROGRESS, msg, 0, nt?1:5, 8, nt,bc);
   
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building PROCEEDING Msg\n"); 
 #endif
 	return msg; 
@@ -97,7 +103,7 @@ static void parse_alerting (struct isdn_msg msgs[], msg_t *msg, struct misdn_bch
 	
 	dec_ie_progress(alerting->PROGRESS, (Q931_info_t *)alerting, &bc->progress_coding, &bc->progress_location, &bc->progress_indicator, nt, bc);
 	
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing ALERTING Msg\n"); 
 #endif
 
@@ -116,7 +122,7 @@ static msg_t *build_alerting (struct isdn_msg msgs[], struct misdn_bchannel *bc,
 	
 	if (nt) 
 		enc_ie_progress(&alerting->PROGRESS, msg, 0, nt?1:5, 8, nt,bc);
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building ALERTING Msg\n"); 
 #endif
 	return msg; 
@@ -131,7 +137,7 @@ static void parse_progress (struct isdn_msg msgs[], msg_t *msg, struct misdn_bch
 	
 	dec_ie_progress(progress->PROGRESS, (Q931_info_t *)progress, &bc->progress_coding, &bc->progress_location, &bc->progress_indicator, nt, bc);
 	
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing PROGRESS Msg\n"); 
 #endif
 }
@@ -144,7 +150,7 @@ static msg_t *build_progress (struct isdn_msg msgs[], struct misdn_bchannel *bc,
  
 	progress=(PROGRESS_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building PROGRESS Msg\n"); 
 #endif
 	return msg; 
@@ -156,7 +162,7 @@ static void parse_setup (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchann
 	SETUP_t *setup= (SETUP_t*)((unsigned long)msg->data+HEADER_LEN);
 	Q931_info_t *qi=(Q931_info_t*)((unsigned long)msg->data+HEADER_LEN);
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing SETUP Msg\n"); 
 #endif
 	{
@@ -349,7 +355,7 @@ static msg_t *build_setup (struct isdn_msg msgs[], struct misdn_bchannel *bc, in
 		cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
 	}
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building SETUP Msg\n"); 
 #endif
 	return msg; 
@@ -373,7 +379,7 @@ static void parse_connect (struct isdn_msg msgs[], msg_t *msg, struct misdn_bcha
 		cb_log(1,bc->port,"CONNETED PN: %s cpn_dialplan:%d\n", connected_pn, type);
 	*/
 	
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing CONNECT Msg\n"); 
 #endif
 }
@@ -399,7 +405,7 @@ static msg_t *build_connect (struct isdn_msg msgs[], struct misdn_bchannel *bc, 
 		enc_ie_connected_pn(&connect->CONNECT_PN, msg, type,plan, present, screen, bc->cad, nt , bc);
 	}
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building CONNECT Msg\n"); 
 #endif
 	return msg; 
@@ -419,7 +425,7 @@ static void parse_setup_acknowledge (struct isdn_msg msgs[], msg_t *msg, struct 
 	}
 	
 	dec_ie_progress(setup_acknowledge->PROGRESS, (Q931_info_t *)setup_acknowledge, &bc->progress_coding, &bc->progress_location, &bc->progress_indicator, nt, bc);
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing SETUP_ACKNOWLEDGE Msg\n"); 
 #endif
 
@@ -439,7 +445,7 @@ static msg_t *build_setup_acknowledge (struct isdn_msg msgs[], struct misdn_bcha
 	if (nt) 
 		enc_ie_progress(&setup_acknowledge->PROGRESS, msg, 0, nt?1:5, 8, nt,bc);
   
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building SETUP_ACKNOWLEDGE Msg\n"); 
 #endif
 	return msg; 
@@ -447,7 +453,7 @@ static msg_t *build_setup_acknowledge (struct isdn_msg msgs[], struct misdn_bcha
 
 static void parse_connect_acknowledge (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing CONNECT_ACKNOWLEDGE Msg\n"); 
 #endif
 
@@ -464,7 +470,7 @@ static msg_t *build_connect_acknowledge (struct isdn_msg msgs[], struct misdn_bc
   
 	enc_ie_channel_id(&connect_acknowledge->CHANNEL_ID, msg, 1, bc->channel, nt,bc);
   
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building CONNECT_ACKNOWLEDGE Msg\n"); 
 #endif
 	return msg; 
@@ -472,7 +478,7 @@ static msg_t *build_connect_acknowledge (struct isdn_msg msgs[], struct misdn_bc
 
 static void parse_user_information (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing USER_INFORMATION Msg\n"); 
 #endif
 
@@ -487,7 +493,7 @@ static msg_t *build_user_information (struct isdn_msg msgs[], struct misdn_bchan
  
 	user_information=(USER_INFORMATION_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building USER_INFORMATION Msg\n"); 
 #endif
 	return msg; 
@@ -495,7 +501,7 @@ static msg_t *build_user_information (struct isdn_msg msgs[], struct misdn_bchan
 
 static void parse_suspend_reject (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing SUSPEND_REJECT Msg\n"); 
 #endif
 
@@ -510,7 +516,7 @@ static msg_t *build_suspend_reject (struct isdn_msg msgs[], struct misdn_bchanne
  
 	suspend_reject=(SUSPEND_REJECT_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building SUSPEND_REJECT Msg\n"); 
 #endif
 	return msg; 
@@ -518,7 +524,7 @@ static msg_t *build_suspend_reject (struct isdn_msg msgs[], struct misdn_bchanne
 
 static void parse_resume_reject (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RESUME_REJECT Msg\n"); 
 #endif
 
@@ -533,7 +539,7 @@ static msg_t *build_resume_reject (struct isdn_msg msgs[], struct misdn_bchannel
  
 	resume_reject=(RESUME_REJECT_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building RESUME_REJECT Msg\n"); 
 #endif
 	return msg; 
@@ -541,7 +547,7 @@ static msg_t *build_resume_reject (struct isdn_msg msgs[], struct misdn_bchannel
 
 static void parse_hold (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing HOLD Msg\n"); 
 #endif
 
@@ -556,7 +562,7 @@ static msg_t *build_hold (struct isdn_msg msgs[], struct misdn_bchannel *bc, int
  
 	hold=(HOLD_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building HOLD Msg\n"); 
 #endif
 	return msg; 
@@ -564,7 +570,7 @@ static msg_t *build_hold (struct isdn_msg msgs[], struct misdn_bchannel *bc, int
 
 static void parse_suspend (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing SUSPEND Msg\n"); 
 #endif
 
@@ -579,7 +585,7 @@ static msg_t *build_suspend (struct isdn_msg msgs[], struct misdn_bchannel *bc, 
  
 	suspend=(SUSPEND_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building SUSPEND Msg\n"); 
 #endif
 	return msg; 
@@ -587,7 +593,7 @@ static msg_t *build_suspend (struct isdn_msg msgs[], struct misdn_bchannel *bc, 
 
 static void parse_resume (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RESUME Msg\n"); 
 #endif
 
@@ -602,7 +608,7 @@ static msg_t *build_resume (struct isdn_msg msgs[], struct misdn_bchannel *bc, i
  
 	resume=(RESUME_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building RESUME Msg\n"); 
 #endif
 	return msg; 
@@ -610,7 +616,7 @@ static msg_t *build_resume (struct isdn_msg msgs[], struct misdn_bchannel *bc, i
 
 static void parse_hold_acknowledge (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing HOLD_ACKNOWLEDGE Msg\n"); 
 #endif
 
@@ -625,7 +631,7 @@ static msg_t *build_hold_acknowledge (struct isdn_msg msgs[], struct misdn_bchan
  
 	hold_acknowledge=(HOLD_ACKNOWLEDGE_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building HOLD_ACKNOWLEDGE Msg\n"); 
 #endif
 	return msg; 
@@ -633,7 +639,7 @@ static msg_t *build_hold_acknowledge (struct isdn_msg msgs[], struct misdn_bchan
 
 static void parse_suspend_acknowledge (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing SUSPEND_ACKNOWLEDGE Msg\n"); 
 #endif
 
@@ -648,7 +654,7 @@ static msg_t *build_suspend_acknowledge (struct isdn_msg msgs[], struct misdn_bc
  
 	suspend_acknowledge=(SUSPEND_ACKNOWLEDGE_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building SUSPEND_ACKNOWLEDGE Msg\n"); 
 #endif
 	return msg; 
@@ -656,7 +662,7 @@ static msg_t *build_suspend_acknowledge (struct isdn_msg msgs[], struct misdn_bc
 
 static void parse_resume_acknowledge (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RESUME_ACKNOWLEDGE Msg\n"); 
 #endif
 
@@ -671,7 +677,7 @@ static msg_t *build_resume_acknowledge (struct isdn_msg msgs[], struct misdn_bch
  
 	resume_acknowledge=(RESUME_ACKNOWLEDGE_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building RESUME_ACKNOWLEDGE Msg\n"); 
 #endif
 	return msg; 
@@ -679,7 +685,7 @@ static msg_t *build_resume_acknowledge (struct isdn_msg msgs[], struct misdn_bch
 
 static void parse_hold_reject (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing HOLD_REJECT Msg\n"); 
 #endif
 
@@ -694,7 +700,7 @@ static msg_t *build_hold_reject (struct isdn_msg msgs[], struct misdn_bchannel *
  
 	hold_reject=(HOLD_REJECT_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building HOLD_REJECT Msg\n"); 
 #endif
 	return msg; 
@@ -702,7 +708,7 @@ static msg_t *build_hold_reject (struct isdn_msg msgs[], struct misdn_bchannel *
 
 static void parse_retrieve (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RETRIEVE Msg\n"); 
 #endif
 
@@ -717,7 +723,7 @@ static msg_t *build_retrieve (struct isdn_msg msgs[], struct misdn_bchannel *bc,
  
 	retrieve=(RETRIEVE_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building RETRIEVE Msg\n"); 
 #endif
 	return msg; 
@@ -725,7 +731,7 @@ static msg_t *build_retrieve (struct isdn_msg msgs[], struct misdn_bchannel *bc,
 
 static void parse_retrieve_acknowledge (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RETRIEVE_ACKNOWLEDGE Msg\n"); 
 #endif
 
@@ -741,7 +747,7 @@ static msg_t *build_retrieve_acknowledge (struct isdn_msg msgs[], struct misdn_b
 	retrieve_acknowledge=(RETRIEVE_ACKNOWLEDGE_t*)((msg->data+HEADER_LEN)); 
 
 	enc_ie_channel_id(&retrieve_acknowledge->CHANNEL_ID, msg, 1, bc->channel, nt,bc);
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building RETRIEVE_ACKNOWLEDGE Msg\n"); 
 #endif
 	return msg; 
@@ -749,7 +755,7 @@ static msg_t *build_retrieve_acknowledge (struct isdn_msg msgs[], struct misdn_b
 
 static void parse_retrieve_reject (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RETRIEVE_REJECT Msg\n"); 
 #endif
 
@@ -764,7 +770,7 @@ static msg_t *build_retrieve_reject (struct isdn_msg msgs[], struct misdn_bchann
  
 	retrieve_reject=(RETRIEVE_REJECT_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building RETRIEVE_REJECT Msg\n"); 
 #endif
 	return msg; 
@@ -780,7 +786,7 @@ static void parse_disconnect (struct isdn_msg msgs[], msg_t *msg, struct misdn_b
 	if (cause>0) bc->cause=cause;
 
 	dec_ie_progress(disconnect->PROGRESS, (Q931_info_t *)disconnect, &bc->progress_coding, &bc->progress_location, &bc->progress_indicator, nt, bc);
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing DISCONNECT Msg\n"); 
 #endif
 
@@ -797,8 +803,14 @@ static msg_t *build_disconnect (struct isdn_msg msgs[], struct misdn_bchannel *b
 	
 	enc_ie_cause(&disconnect->CAUSE, msg, (nt)?1:0, bc->out_cause,nt,bc);
 	if (nt) enc_ie_progress(&disconnect->PROGRESS, msg, 0, nt?1:5, 8 ,nt,bc);
+
+	if (bc->uulen) {
+		int  protocol=4;
+		enc_ie_useruser(&disconnect->USER_USER, msg, protocol, bc->uu, bc->uulen, nt,bc);
+		cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
+	}
   
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building DISCONNECT Msg\n"); 
 #endif
 	return msg; 
@@ -811,7 +823,7 @@ static void parse_restart (struct isdn_msg msgs[], msg_t *msg, struct misdn_bcha
 
 	struct misdn_stack *stack=get_stack_by_bc(bc);
 	
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RESTART Msg\n");
 #endif
   
@@ -830,15 +842,19 @@ static msg_t *build_restart (struct isdn_msg msgs[], struct misdn_bchannel *bc, 
 	msg_t *msg =(msg_t*)create_l3msg(CC_RESTART | REQUEST, MT_RESTART,  bc?bc->l3_id:-1, sizeof(RESTART_t) ,nt); 
  
 	restart=(RESTART_t*)((msg->data+HEADER_LEN)); 
-	
-#if DEBUG 
+
+#ifdef DEBUG 
 	printf("Building RESTART Msg\n"); 
 #endif
-	enc_ie_channel_id(&restart->CHANNEL_ID, msg, 1,bc->channel, nt,bc);
-	enc_ie_restart_ind(&restart->RESTART_IND, msg, 0x80, nt, bc);
+
+	if (bc->channel > 0) {
+		enc_ie_channel_id(&restart->CHANNEL_ID, msg, 1,bc->channel, nt,bc);
+		enc_ie_restart_ind(&restart->RESTART_IND, msg, 0x80, nt, bc);
+	} else {
+		enc_ie_restart_ind(&restart->RESTART_IND, msg, 0x87, nt, bc);
+	}
 
 	cb_log(0,bc->port, "Restarting channel %d\n", bc->channel);
-	
 	return msg; 
 }
 
@@ -851,7 +867,7 @@ static void parse_release (struct isdn_msg msgs[], msg_t *msg, struct misdn_bcha
   
 	dec_ie_cause(release->CAUSE, (Q931_info_t *)(release), &location, &cause, nt,bc);
 	if (cause>0) bc->cause=cause;
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RELEASE Msg\n"); 
 #endif
 
@@ -868,8 +884,14 @@ static msg_t *build_release (struct isdn_msg msgs[], struct misdn_bchannel *bc, 
   
 	if (bc->out_cause>= 0)
 		enc_ie_cause(&release->CAUSE, msg, nt?1:0, bc->out_cause, nt,bc);
+
+	if (bc->uulen) {
+		int  protocol=4;
+		enc_ie_useruser(&release->USER_USER, msg, protocol, bc->uu, bc->uulen, nt,bc);
+		cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
+	}
   
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building RELEASE Msg\n"); 
 #endif
 	return msg; 
@@ -904,7 +926,7 @@ static void parse_release_complete (struct isdn_msg msgs[], msg_t *msg, struct m
 	dec_ie_cause(release_complete->CAUSE, (Q931_info_t *)(release_complete), &location, &cause, nt,bc);
 	if (cause>0) bc->cause=cause;
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing RELEASE_COMPLETE Msg\n"); 
 #endif
 }
@@ -918,8 +940,14 @@ static msg_t *build_release_complete (struct isdn_msg msgs[], struct misdn_bchan
 	release_complete=(RELEASE_COMPLETE_t*)((msg->data+HEADER_LEN)); 
 	
 	enc_ie_cause(&release_complete->CAUSE, msg, nt?1:0, bc->out_cause, nt,bc);
+
+	if (bc->uulen) {
+		int  protocol=4;
+		enc_ie_useruser(&release_complete->USER_USER, msg, protocol, bc->uu, bc->uulen, nt,bc);
+		cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
+	}
   
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building RELEASE_COMPLETE Msg\n"); 
 #endif
 	return msg; 
@@ -933,7 +961,7 @@ static void parse_facility (struct isdn_msg msgs[], msg_t *msg, struct misdn_bch
 	unsigned char *p = NULL;
 	int err;
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing FACILITY Msg\n"); 
 #endif
 
@@ -948,7 +976,7 @@ static void parse_facility (struct isdn_msg msgs[], msg_t *msg, struct misdn_bch
 	
 	err = decodeFac(p, &(bc->fac_in));
 	if (err) {
-		cb_log(1, bc->port, "Decoding FACILITY failed! (%d)\n", err);
+		cb_log(5, bc->port, "Decoding FACILITY failed! (%d)\n", err);
 	}
 }
 
@@ -962,7 +990,7 @@ static msg_t *build_facility (struct isdn_msg msgs[], struct misdn_bchannel *bc,
 	FACILITY_t *facility = (FACILITY_t*)(msg->data+HEADER_LEN); 
 	Q931_info_t *qi;
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building FACILITY Msg\n"); 
 #endif
 	
@@ -990,7 +1018,7 @@ static msg_t *build_facility (struct isdn_msg msgs[], struct misdn_bchannel *bc,
 
 static void parse_notify (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing NOTIFY Msg\n"); 
 #endif
 }
@@ -1003,7 +1031,7 @@ static msg_t *build_notify (struct isdn_msg msgs[], struct misdn_bchannel *bc, i
  
 	notify=(NOTIFY_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building NOTIFY Msg\n"); 
 #endif
 	return msg; 
@@ -1011,7 +1039,7 @@ static msg_t *build_notify (struct isdn_msg msgs[], struct misdn_bchannel *bc, i
 
 static void parse_status_enquiry (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing STATUS_ENQUIRY Msg\n"); 
 #endif
 }
@@ -1024,7 +1052,7 @@ static msg_t *build_status_enquiry (struct isdn_msg msgs[], struct misdn_bchanne
  
 	status_enquiry=(STATUS_ENQUIRY_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building STATUS_ENQUIRY Msg\n"); 
 #endif
 	return msg; 
@@ -1043,7 +1071,7 @@ static void parse_information (struct isdn_msg msgs[], msg_t *msg, struct misdn_
 		strcpy(bc->info_dad, number);
 		strcpy(bc->keypad,keypad);
 	}
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing INFORMATION Msg\n"); 
 #endif
 }
@@ -1067,7 +1095,7 @@ static msg_t *build_information (struct isdn_msg msgs[], struct misdn_bchannel *
 		}
 	}
   
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building INFORMATION Msg\n"); 
 #endif
 	return msg; 
@@ -1084,7 +1112,7 @@ static void parse_status (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchan
 	if (cause>0) bc->cause=cause;
 	;
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing STATUS Msg\n"); 
 #endif
 }
@@ -1097,7 +1125,7 @@ static msg_t *build_status (struct isdn_msg msgs[], struct misdn_bchannel *bc, i
  
 	status=(STATUS_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building STATUS Msg\n"); 
 #endif
 	return msg; 
@@ -1105,7 +1133,7 @@ static msg_t *build_status (struct isdn_msg msgs[], struct misdn_bchannel *bc, i
 
 static void parse_timeout (struct isdn_msg msgs[], msg_t *msg, struct misdn_bchannel *bc, int nt) 
 {
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Parsing STATUS Msg\n"); 
 #endif 
 }
@@ -1118,7 +1146,7 @@ static msg_t *build_timeout (struct isdn_msg msgs[], struct misdn_bchannel *bc, 
  
 	status=(STATUS_t*)((msg->data+HEADER_LEN)); 
 
-#if DEBUG 
+#ifdef DEBUG 
 	printf("Building STATUS Msg\n"); 
 #endif
 	return msg; 

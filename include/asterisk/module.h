@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2006, Digium, Inc.
+ * Copyright (C) 1999 - 2008, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  * Kevin P. Fleming <kpfleming@digium.com>
@@ -86,7 +86,8 @@ enum ast_module_load_result ast_load_resource(const char *resource_name);
  * specified.  Setting #AST_FORCE_FIRM or #AST_FORCE_HARD will unload the
  * module regardless of consequences (NOT RECOMMENDED).
  *
- * \return Zero on success, -1 on error.
+ * \retval 0 on success.
+ * \retval -1 on error.
  */
 int ast_unload_resource(const char *resource_name, enum ast_module_unload_mode);
 
@@ -96,7 +97,7 @@ int ast_unload_resource(const char *resource_name, enum ast_module_unload_mode);
  * This function calulates use counts and notifies anyone trying to keep track
  * of them.  It should be called whenever your module's usecount changes.
  *
- * \note The LOCAL_USER macros take care of calling this function for you.
+ * \note The ast_module_user_* functions take care of calling this function for you.
  */
 void ast_update_use_count(void);
 
@@ -113,6 +114,14 @@ void ast_update_use_count(void);
 int ast_update_module_list(int (*modentry)(const char *module, const char *description, int usecnt, const char *like),
 			   const char *like);
 
+/*!
+ * \brief Check if module with the name given is loaded
+ * \param name Module name, like "chan_sip.so"
+ * \retval 1 if true 
+ * \retval 0 if false
+ */
+int ast_module_check(const char *name);
+
 /*! 
  * \brief Add a procedure to be run when modules have been updated.
  * \param updater The function to run when modules have been updated.
@@ -120,7 +129,8 @@ int ast_update_module_list(int (*modentry)(const char *module, const char *descr
  * This function adds the given function to a linked list of functions to be
  * run when the modules are updated. 
  *
- * \return Zero on success and -1 on failure.
+ * \retval 0 on success 
+ * \retval -1 on failure.
  */
 int ast_loader_register(int (*updater)(void));
 
@@ -130,7 +140,8 @@ int ast_loader_register(int (*updater)(void));
  *
  * This removes the given function from the updater list.
  * 
- * \return Zero on success, -1 on failure.
+ * \retval 0 on success
+ * \retval -1 on failure.
  */
 int ast_loader_unregister(int (*updater)(void));
 
@@ -154,8 +165,8 @@ void ast_module_shutdown(void);
  *        otherwise.  This function will only return modules that are reloadble
  *        if this is 1.
  *
- * \return A possible completion of the partial match, or NULL if no matches
- * were found.
+ * \retval A possible completion of the partial match.
+ * \retval NULL if no matches were found.
  */
 char *ast_module_helper(const char *line, const char *word, int pos, int state, int rpos, int needsreload);
 
@@ -173,7 +184,6 @@ struct ast_module_user_list;
 /*! \page ModMngmnt The Asterisk Module management interface
  *
  * All modules must implement the module API (load, unload...)
- * whose functions are exported through fields of a "struct module_symbol";
  */
 
 enum ast_module_flags {
@@ -183,17 +193,20 @@ enum ast_module_flags {
 
 struct ast_module_info {
 
-	/* The 'self' pointer for a module; it will be set by the loader before
-	   it calls the module's load_module() entrypoint, and used by various
-	   other macros that need to identify the module.
-	*/
+	/*!
+	 * The 'self' pointer for a module; it will be set by the loader before
+	 * it calls the module's load_module() entrypoint, and used by various
+	 * other macros that need to identify the module.
+	 */
 
 	struct ast_module *self;
-	enum ast_module_load_result (*load)(void);	/* register stuff etc. Optional. */
-	int (*reload)(void);			/* config etc. Optional. */
-	int (*unload)(void);			/* unload. called with the module locked */
-	const char *name;			/* name of the module for loader reference and CLI commands */
-	const char *description;		/* user friendly description of the module. */
+	enum ast_module_load_result (*load)(void);	/*!< register stuff etc. Optional. */
+	int (*reload)(void);			/*!< config etc. Optional. */
+	int (*unload)(void);			/*!< unload. called with the module locked */
+	int (*backup_globals)(void);		/*!< for embedded modules, backup global data */
+	void (*restore_globals)(void);		/*!< for embedded modules, restore global data */
+	const char *name;			/*!< name of the module for loader reference and CLI commands */
+	const char *description;		/*!< user friendly description of the module. */
 
 	/*! 
 	 * This holds the ASTERISK_GPL_KEY, signifiying that you agree to the terms of
@@ -203,6 +216,9 @@ struct ast_module_info {
 
 	const char *key;
 	unsigned int flags;
+
+	/*! The value of AST_BUILDOPT_SUM when this module was compiled */
+	const char buildopt_sum[33];
 };
 
 void ast_module_register(const struct ast_module_info *);
@@ -224,22 +240,25 @@ void ast_module_unref(struct ast_module *);
 	static struct ast_module_info __mod_info = {	\
 		NULL,					\
 		load_func,				\
-		unload_func,				\
 		reload_func,				\
+		unload_func,				\
+		NULL,					\
+		NULL,					\
 		AST_MODULE,				\
 		desc,					\
 		keystr,					\
-		flags_to_set				\
+		flags_to_set,				\
+		AST_BUILDOPT_SUM,			\
 	};						\
-	static void  __attribute__ ((constructor)) __reg_module(void) \
+	static void  __attribute__((constructor)) __reg_module(void) \
 	{ \
 		ast_module_register(&__mod_info); \
 	} \
-	static void  __attribute__ ((destructor)) __unreg_module(void) \
+	static void  __attribute__((destructor)) __unreg_module(void) \
 	{ \
 		ast_module_unregister(&__mod_info); \
 	} \
-	const static __attribute__((unused)) struct ast_module_info *ast_module_info = &__mod_info
+	static const __attribute__((unused)) struct ast_module_info *ast_module_info = &__mod_info
 
 #define AST_MODULE_INFO_STANDARD(keystr, desc)		\
 	AST_MODULE_INFO(keystr, AST_MODFLAG_DEFAULT, desc,	\
@@ -247,36 +266,153 @@ void ast_module_unref(struct ast_module *);
 			unload_module,		\
 			NULL			\
 		       )
-#else
+#else /* plain C */
+
 /* forward declare this pointer in modules, so that macro/function
    calls that need it can get it, since it will actually be declared
    and populated at the end of the module's source file... */
-const static __attribute__((unused)) struct ast_module_info *ast_module_info;
+static const __attribute__((unused)) struct ast_module_info *ast_module_info;
+
+#if !defined(EMBEDDED_MODULE)
+#define __MODULE_INFO_SECTION
+#define __MODULE_INFO_GLOBALS
+#else
+/*
+ * For embedded modules we need additional information to backup and
+ * restore the global variables in the module itself, so we can unload
+ * reload the module.
+ * EMBEDDED_MODULE is defined as the module name, so the calls to make_var()
+ * below will actually define different symbols for each module.
+ */
+#define __MODULE_INFO_SECTION	__attribute__((section(".embed_module")))
+#define __MODULE_INFO_GLOBALS	.backup_globals = __backup_globals, .restore_globals = __restore_globals,
+
+#define make_var_sub(mod, type) __ ## mod ## _ ## type
+#define make_var(mod, type) make_var_sub(mod, type)
+
+extern void make_var(EMBEDDED_MODULE, bss_start);
+extern void make_var(EMBEDDED_MODULE, bss_end);
+extern void make_var(EMBEDDED_MODULE, data_start);
+extern void make_var(EMBEDDED_MODULE, data_end);
+
+static void * __attribute__((section(".embed_module"))) __global_backup;
+
+static int __backup_globals(void)
+{
+	size_t data_size = & make_var(EMBEDDED_MODULE, data_end) - & make_var(EMBEDDED_MODULE, data_start);
+
+	if (__global_backup)
+		return 0;
+
+	if (!data_size)
+		return 0;
+
+	if (!(__global_backup = ast_malloc(data_size)))
+		return -1;
+
+	memcpy(__global_backup, & make_var(EMBEDDED_MODULE, data_start), data_size);
+
+	return 0;
+}
+
+static void __restore_globals(void)
+{
+	size_t data_size = & make_var(EMBEDDED_MODULE, data_end) - & make_var(EMBEDDED_MODULE, data_start);
+	size_t bss_size = & make_var(EMBEDDED_MODULE, bss_end) - & make_var(EMBEDDED_MODULE, bss_start);
+
+	if (bss_size)
+		memset(& make_var(EMBEDDED_MODULE, bss_start), 0, bss_size);
+
+	if (!data_size || !__global_backup)
+		return;
+
+	memcpy(& make_var(EMBEDDED_MODULE, data_start), __global_backup, data_size);
+}
+#undef make_var
+#undef make_var_sub
+#endif /* EMBEDDED_MODULE */
 
 #define AST_MODULE_INFO(keystr, flags_to_set, desc, fields...)	\
-	static struct ast_module_info __mod_info = {		\
+	static struct ast_module_info 				\
+		__MODULE_INFO_SECTION				\
+		__mod_info = {					\
+		__MODULE_INFO_GLOBALS				\
 		.name = AST_MODULE,				\
 		.flags = flags_to_set,				\
 		.description = desc,				\
 		.key = keystr,					\
+		.buildopt_sum = AST_BUILDOPT_SUM,		\
 		fields						\
 	};							\
-	static void  __attribute__ ((constructor)) __reg_module(void) \
+	static void  __attribute__((constructor)) __reg_module(void) \
 	{ \
 		ast_module_register(&__mod_info); \
 	} \
-	static void  __attribute__ ((destructor)) __unreg_module(void) \
+	static void  __attribute__((destructor)) __unreg_module(void) \
 	{ \
 		ast_module_unregister(&__mod_info); \
 	} \
-	const static struct ast_module_info *ast_module_info = &__mod_info
+	static const struct ast_module_info *ast_module_info = &__mod_info
 
 #define AST_MODULE_INFO_STANDARD(keystr, desc)		\
 	AST_MODULE_INFO(keystr, AST_MODFLAG_DEFAULT, desc,	\
 			.load = load_module,			\
 			.unload = unload_module,		\
 		       )
-#endif
+#endif	/* plain C */
+
+/*! 
+ * \brief Register an application.
+ *
+ * \param app Short name of the application
+ * \param execute a function callback to execute the application. It should return
+ *                non-zero if the channel needs to be hung up.
+ * \param synopsis a short description (one line synopsis) of the application
+ * \param description long description with all of the details about the use of 
+ *                    the application
+ * 
+ * This registers an application with Asterisk's internal application list. 
+ * \note The individual applications themselves are responsible for registering and unregistering
+ *       and unregistering their own CLI commands.
+ * 
+ * \retval 0 success 
+ * \retval -1 failure.
+ */
+#define ast_register_application(app, execute, synopsis, description) ast_register_application2(app, execute, synopsis, description, ast_module_info->self)
+
+/*!
+ * \brief Register an application.
+ *
+ * \param app Short name of the application
+ * \param execute a function callback to execute the application. It should return
+ *                non-zero if the channel needs to be hung up.
+ * \param synopsis a short description (one line synopsis) of the application
+ * \param description long description with all of the details about the use of
+ *                    the application
+ * \param mod module this application belongs to
+ *
+ * This registers an application with Asterisk's internal application list.
+ * \note The individual applications themselves are responsible for registering and unregistering
+ *       and unregistering their own CLI commands.
+ *
+ * \retval 0 success
+ * \retval -1 failure.
+ */
+int ast_register_application2(const char *app, int (*execute)(struct ast_channel *, void *),
+				     const char *synopsis, const char *description, void *mod);
+
+/*! 
+ * \brief Unregister an application
+ * 
+ * \param app name of the application (does not have to be the same string as the one that was registered)
+ * 
+ * This unregisters an application from Asterisk's internal application list.
+ * 
+ * \retval 0 success 
+ * \retval -1 failure
+ */
+int ast_unregister_application(const char *app);
+
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

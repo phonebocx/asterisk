@@ -17,19 +17,15 @@
  * at the top of the source tree.
  */
 
-#include <stdio.h>
+#include "asterisk.h"
+
 #include <popt.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <dirent.h>
-#include <string.h>
 #include <ctype.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
 
-#include <asterisk/compat.h>
 #ifdef SOLARIS
 #define     POPT_ARGFLAG_SHOW_DEFAULT 0x00800000
 #endif
@@ -38,9 +34,11 @@
 #endif
 
 
-/* reads next USC character from null terminated UTF-8 string and advanced pointer */
-/* for non valid UTF-8 sequences, returns character as is */
-/* Does not advance pointer for null termination */
+/*!
+ * \brief reads next USC character from null terminated UTF-8 string and advanced pointer
+ * for non valid UTF-8 sequences.
+ * \return character as is Does \b NOT advance pointer for null termination 
+*/
 static int utf8decode (unsigned char **pp)
 {
    unsigned char *p = *pp;
@@ -90,8 +88,13 @@ static int utf8decode (unsigned char **pp)
    return *p;                   /* not sensible */
 }
 
-/* check for any queued messages in specific queue (queue="" means any queue) */
-/* returns 0 if nothing queued, 1 if queued and outgoing set up OK, 2 of outgoing exists */
+/*! 
+ * \brief check for any queued messages in specific queue (queue="" means any queue)
+ * \param dir,queue,subaddress,channel,callerid,wait,delay,retries,concurrent
+ * \retval 0 if nothing queued
+ * \retval 1 if queued and outgoing set up OK
+ * \retval 2 of outgoing exists 
+*/
 static char txqcheck (char *dir, char *queue, char subaddress, char *channel, char *callerid, int wait, int delay, int retries, int concurrent)
 {
    char ogname[100],
@@ -125,7 +128,7 @@ static char txqcheck (char *dir, char *queue, char subaddress, char *channel, ch
       ql = p - queue;
       subaddress = p[1];
    }
-   snprintf (temp, sizeof(temp), "sms/.smsq-%d", getpid ());
+   snprintf (temp, sizeof(temp), "sms/.smsq-%d", (int)getpid ());
    f = fopen (temp, "w");
    if (!f)
    {
@@ -162,7 +165,7 @@ static char txqcheck (char *dir, char *queue, char subaddress, char *channel, ch
    fprintf (f, "Application: SMS\n");
    fprintf (f, "Data: %.*s", qfl, queue);
    if (dir[1] == 't')
-      fprintf (f, "|s");
+      fprintf (f, ",s");
    fprintf (f, "\nMaxRetries: %d\n", retries);
    fprintf (f, "RetryTime: %d\n", delay);
    fprintf (f, "WaitTime: %d\n", wait);
@@ -186,7 +189,10 @@ static char txqcheck (char *dir, char *queue, char subaddress, char *channel, ch
    return 2;
 }
 
-/* Process received queue entries and run through a process, setting environment variables */
+/*! 
+ * \brief Process received queue entries
+ * Run through a process, setting environment variables
+*/
 static void rxqcheck (char *dir, char *queue, char *process)
 {
    char *p;
@@ -196,7 +202,7 @@ static void rxqcheck (char *dir, char *queue, char *process)
    DIR *d;
    int ql = strlen (queue);
    struct dirent *fn;
-   snprintf(temp, sizeof(temp), "sms/.smsq-%d", getpid ());
+   snprintf(temp, sizeof(temp), "sms/.smsq-%d", (int)getpid ());
    snprintf(dirname, sizeof(dirname), "sms/%s", dir);
    d = opendir (dirname);
    if (!d)
@@ -315,86 +321,87 @@ static void rxqcheck (char *dir, char *queue, char *process)
          fclose (f);
          /* set up user data variables */
          {
-            char temp[481];
-            int n,
-              p;
-            for (n = 0, p = 0; p < udl; p++)
+            char tmp[481];
+            int n, x;
+            for (n = 0, x = 0; x < udl; x++)
             {
-               unsigned short v = ud[p];
+               unsigned short v = ud[x];
                if (v)
                {
                   if (v < 0x80)
-                     temp[n++] = v;
+                     tmp[n++] = v;
                   else if (v < 0x800)
                   {
-                     temp[n++] = (0xC0 + (v >> 6));
-                     temp[n++] = (0x80 + (v & 0x3F));
+                     tmp[n++] = (0xC0 + (v >> 6));
+                     tmp[n++] = (0x80 + (v & 0x3F));
                   } else
                   {
-                     temp[n++] = (0xE0 + (v >> 12));
-                     temp[n++] = (0x80 + ((v >> 6) & 0x3F));
-                     temp[n++] = (0x80 + (v & 0x3F));
+                     tmp[n++] = (0xE0 + (v >> 12));
+                     tmp[n++] = (0x80 + ((v >> 6) & 0x3F));
+                     tmp[n++] = (0x80 + (v & 0x3F));
                   }
                }
             }
-            temp[n] = 0;
-            setenv ("ud", temp, 1);
-            for (n = 0, p = 0; p < udl; p++)
+            tmp[n] = 0;
+            setenv ("ud", tmp, 1);
+            for (n = 0, x = 0; x < udl; x++)
             {
-               unsigned short v = ud[p];
+               unsigned short v = ud[x];
                if (v < ' ' || v == '\\')
                {
-                  temp[n++] = '\\';
+                  tmp[n++] = '\\';
                   if (v == '\\')
-                     temp[n++] = '\\';
+                     tmp[n++] = '\\';
                   else if (v == '\n')
-                     temp[n++] = 'n';
+                     tmp[n++] = 'n';
                   else if (v == '\r')
-                     temp[n++] = 'r';
+                     tmp[n++] = 'r';
                   else if (v == '\t')
-                     temp[n++] = 't';
+                     tmp[n++] = 't';
                   else if (v == '\f')
-                     temp[n++] = 'f';
+                     tmp[n++] = 'f';
                   else
                   {
-                     temp[n++] = '0' + (v >> 6);
-                     temp[n++] = '0' + ((v >> 3) & 7);
-                     temp[n++] = '0' + (v & 7);
+                     tmp[n++] = '0' + (v >> 6);
+                     tmp[n++] = '0' + ((v >> 3) & 7);
+                     tmp[n++] = '0' + (v & 7);
                   }
                } else if (v < 0x80)
-                  temp[n++] = v;
+                  tmp[n++] = v;
                else if (v < 0x800)
                {
-                  temp[n++] = (0xC0 + (v >> 6));
-                  temp[n++] = (0x80 + (v & 0x3F));
+                  tmp[n++] = (0xC0 + (v >> 6));
+                  tmp[n++] = (0x80 + (v & 0x3F));
                } else
                {
-                  temp[n++] = (0xE0 + (v >> 12));
-                  temp[n++] = (0x80 + ((v >> 6) & 0x3F));
-                  temp[n++] = (0x80 + (v & 0x3F));
+                  tmp[n++] = (0xE0 + (v >> 12));
+                  tmp[n++] = (0x80 + ((v >> 6) & 0x3F));
+                  tmp[n++] = (0x80 + (v & 0x3F));
                }
             }
-            temp[n] = 0;
-            setenv ("ude", temp, 1);
-            for (p = 0; p < udl && ud[p] < 0x100; p++);
-            if (p == udl)
+            tmp[n] = 0;
+            setenv ("ude", tmp, 1);
+            for (x = 0; x < udl && ud[x] < 0x100; x++);
+            if (x == udl)
             {
-               for (n = 0, p = 0; p < udl; p++)
+               for (n = 0, x = 0; x < udl; x++)
                {
-                  sprintf (temp + n, "%02X", ud[p]);
+                  sprintf (tmp + n, "%02X", ud[x]);
                   n += 2;
                }
-               setenv ("ud8", temp, 1);
+               setenv ("ud8", tmp, 1);
             }
-            for (n = 0, p = 0; p < udl; p++)
+            for (n = 0, x = 0; x < udl; x++)
             {
-               sprintf (temp + n, "%04X", ud[p]);
+               sprintf (tmp + n, "%04X", ud[x]);
                n += 4;
             }
-            setenv ("ud16", temp, 1);
+            setenv ("ud16", tmp, 1);
          }
          /* run the command */
-         system (process);
+         if (system (process) == -1) {
+            fprintf(stderr, "Failed to fork process '%s'\n", process);
+         }
       }
    closedir (d);
 }
@@ -673,10 +680,10 @@ main (int argc, const char *argv[])
         queuename[100],
        *dir = (mo ? rx ? "sms/morx" : "sms/motx" : rx ? "sms/mtrx" : "sms/mttx");
       FILE *f;
-      snprintf (temp, sizeof(temp), "sms/.smsq-%d", getpid ());
+      snprintf (temp, sizeof(temp), "sms/.smsq-%d", (int)getpid ());
       mkdir ("sms", 0777);      /* ensure directory exists */
       mkdir (dir, 0777);        /* ensure directory exists */
-      snprintf (queuename, sizeof(queuename), "%s/%s.%ld-%d", dir, *queue ? queue : "0", (long)time (0), getpid ());
+      snprintf (queuename, sizeof(queuename), "%s/%s.%ld-%d", dir, *queue ? queue : "0", (long)time (0), (int)getpid ());
       f = fopen (temp, "w");
       if (!f)
       {

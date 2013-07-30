@@ -23,10 +23,7 @@
 #ifndef _ASTERISK_ASTOBJ_H
 #define _ASTERISK_ASTOBJ_H
 
-#include <string.h>
-
 #include "asterisk/lock.h"
-#include "asterisk/compiler.h"
 
 /*! \file
  * \brief A set of macros implementing objects and containers.
@@ -105,6 +102,8 @@ extern "C" {
 /*! \brief Lock an ASTOBJ for writing.
  */
 #define ASTOBJ_WRLOCK(object) ast_mutex_lock(&(object)->_lock)
+
+#define ASTOBJ_TRYWRLOCK(object) ast_mutex_trylock(&(object)->_lock)
 
 /*! \brief Unlock a locked object. */
 #define ASTOBJ_UNLOCK(object) ast_mutex_unlock(&(object)->_lock)
@@ -223,7 +222,7 @@ extern "C" {
 		if (__builtin_expect((object)->refcount > 0, 1)) \
 			newcount = --((object)->refcount); \
 		else \
-			ast_log(LOG_WARNING, "Unreferencing unreferenced (object)!\n"); \
+			ast_log(AST_LOG_WARNING, "Unreferencing unreferenced (object)!\n"); \
 		ASTOBJ_UNLOCK(object); \
 		if (newcount == 0) { \
 			ast_mutex_destroy(&(object)->_lock); \
@@ -813,7 +812,7 @@ extern "C" {
  * descriptor.
  */
 #define ASTOBJ_CONTAINER_DUMP(fd,s,slen,container) \
-	ASTOBJ_CONTAINER_TRAVERSE(container, 1, do { ASTOBJ_DUMP(s,slen,iterator); ast_cli(fd, s); } while(0))
+	ASTOBJ_CONTAINER_TRAVERSE(container, 1, do { ASTOBJ_DUMP(s,slen,iterator); ast_cli(fd, "%s", s); } while(0))
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

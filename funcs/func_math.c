@@ -22,21 +22,19 @@
  *
  * \author Andy Powell
  * \author Mark Spencer <markster@digium.com>
+ *
+ * \ingroup functions
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 67162 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 146838 $")
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
+#include <math.h>
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
-#include "asterisk/logger.h"
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
 #include "asterisk/config.h"
@@ -47,6 +45,12 @@ enum TypeOfFunctions {
 	MULTIPLYFUNCTION,
 	SUBTRACTFUNCTION,
 	MODULUSFUNCTION,
+	POWFUNCTION,
+	SHLEFTFUNCTION,
+	SHRIGHTFUNCTION,
+	BITWISEANDFUNCTION,
+	BITWISEXORFUNCTION,
+	BITWISEORFUNCTION,
 	GTFUNCTION,
 	LTFUNCTION,
 	GTEFUNCTION,
@@ -61,7 +65,7 @@ enum TypeOfResult {
 	CHAR_RESULT
 };
 
-static int math(struct ast_channel *chan, char *cmd, char *parse,
+static int math(struct ast_channel *chan, const char *cmd, char *parse,
 		char *buf, size_t len)
 {
 	double fnum1;
@@ -78,14 +82,14 @@ static int math(struct ast_channel *chan, char *cmd, char *parse,
 	);
 
 	if (ast_strlen_zero(parse)) {
-		ast_log(LOG_WARNING, "Syntax: Math(<number1><op><number 2>[,<type_of_result>]) - missing argument!\n");
+		ast_log(LOG_WARNING, "Syntax: MATH(<number1><op><number 2>[,<type_of_result>]) - missing argument!\n");
 		return -1;
 	}
 
 	AST_STANDARD_APP_ARGS(args, parse);
 
 	if (args.argc < 1) {
-		ast_log(LOG_WARNING, "Syntax: Math(<number1><op><number 2>[,<type_of_result>]) - missing argument!\n");
+		ast_log(LOG_WARNING, "Syntax: MATH(<number1><op><number 2>[,<type_of_result>]) - missing argument!\n");
 		return -1;
 	}
 
@@ -105,12 +109,30 @@ static int math(struct ast_channel *chan, char *cmd, char *parse,
 	} else if ((op = strchr(mvalue1, '%'))) {
 		iaction = MODULUSFUNCTION;
 		*op = '\0';
+	} else if ((op = strchr(mvalue1, '^'))) {
+		iaction = POWFUNCTION;
+		*op = '\0';
+	} else if ((op = strstr(mvalue1, "AND"))) {
+		iaction = BITWISEANDFUNCTION;
+		op += 3;
+		*op = '\0';
+	} else if ((op = strstr(mvalue1, "XOR"))) {
+		iaction = BITWISEXORFUNCTION;
+		op += 3;
+		*op = '\0';
+	} else if ((op = strstr(mvalue1, "OR"))) {
+		iaction = BITWISEORFUNCTION;
+		op += 2;
+		*op = '\0';
 	} else if ((op = strchr(mvalue1, '>'))) {
 		iaction = GTFUNCTION;
 		*op = '\0';
 		if (*(op + 1) == '=') {
 			*++op = '\0';
 			iaction = GTEFUNCTION;
+		} else if (*(op + 1) == '>') {
+			*++op = '\0';
+			iaction = SHRIGHTFUNCTION;
 		}
 	} else if ((op = strchr(mvalue1, '<'))) {
 		iaction = LTFUNCTION;
@@ -118,6 +140,9 @@ static int math(struct ast_channel *chan, char *cmd, char *parse,
 		if (*(op + 1) == '=') {
 			*++op = '\0';
 			iaction = LTEFUNCTION;
+		} else if (*(op + 1) == '<') {
+			*++op = '\0';
+			iaction = SHLEFTFUNCTION;
 		}
 	} else if ((op = strchr(mvalue1, '='))) {
 		*op = '\0';
@@ -203,6 +228,46 @@ static int math(struct ast_channel *chan, char *cmd, char *parse,
 
 			break;
 		}
+	case POWFUNCTION:
+		ftmp = pow(fnum1, fnum2);
+		break;
+	case SHLEFTFUNCTION:
+		{
+			int inum1 = fnum1;
+			int inum2 = fnum2;
+
+			ftmp = (inum1 << inum2);
+			break;
+		}
+	case SHRIGHTFUNCTION:
+		{
+			int inum1 = fnum1;
+			int inum2 = fnum2;
+
+			ftmp = (inum1 >> inum2);
+			break;
+		}
+	case BITWISEANDFUNCTION:
+		{
+			int inum1 = fnum1;
+			int inum2 = fnum2;
+			ftmp = (inum1 & inum2);
+			break;
+		}
+	case BITWISEXORFUNCTION:
+		{
+			int inum1 = fnum1;
+			int inum2 = fnum2;
+			ftmp = (inum1 ^ inum2);
+			break;
+		}
+	case BITWISEORFUNCTION:
+		{
+			int inum1 = fnum1;
+			int inum2 = fnum2;
+			ftmp = (inum1 | inum2);
+			break;
+		}
 	case GTFUNCTION:
 		ast_copy_string(buf, (fnum1 > fnum2) ? "TRUE" : "FALSE", len);
 		break;
@@ -242,9 +307,9 @@ static int math(struct ast_channel *chan, char *cmd, char *parse,
 static struct ast_custom_function math_function = {
 	.name = "MATH",
 	.synopsis = "Performs Mathematical Functions",
-	.syntax = "MATH(<number1><op><number 2>[,<type_of_result>])",
-	.desc = "Perform calculation on number 1 to number 2. Valid ops are: \n"
-		"    +,-,/,*,%,<,>,>=,<=,==\n"
+	.syntax = "MATH(<number1><op><number2>[,<type_of_result>])",
+	.desc = "Perform calculation on number1 to number2. Valid ops are: \n"
+		"    +,-,/,*,%,<<,>>,^,AND,OR,XOR,<,>,>=,<=,==\n"
 		"and behave as their C equivalents.\n"
 		"<type_of_result> - wanted type of result:\n"
 		"	f, float - float(default)\n"

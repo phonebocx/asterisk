@@ -27,22 +27,16 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 177761 $")
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
-
-#include "asterisk/lock.h"
-#include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/app.h"
-#include "asterisk/options.h"
+#include "asterisk/channel.h"	/* autoservice */
+#include "asterisk/strings.h"
+#include "asterisk/threadstorage.h"
+
+AST_THREADSTORAGE(buf_buf);
 
 static char *app = "System";
 
@@ -59,14 +53,7 @@ static char *descrip =
 "fails, the console should report a fallthrough. \n"
 "Result of execution is returned in the SYSTEMSTATUS channel variable:\n"
 "   FAILURE	Could not execute the specified command\n"
-"   SUCCESS	Specified command successfully executed\n"
-"\n"
-"Old behaviour:\n"
-"If the command itself executes but is in error, and if there exists\n"
-"a priority n + 101, where 'n' is the priority of the current instance,\n"
-"then  the  channel  will  be  setup to continue at that priority level.\n"
-"Note that this jump functionality has been deprecated and will only occur\n"
-"if the global priority jumping option is enabled in extensions.conf.\n";
+"   SUCCESS	Specified command successfully executed\n";
 
 static char *descrip2 =
 "  TrySystem(command): Executes a command  by  using  system().\n"
@@ -74,18 +61,12 @@ static char *descrip2 =
 "Result of execution is returned in the SYSTEMSTATUS channel variable:\n"
 "   FAILURE	Could not execute the specified command\n"
 "   SUCCESS	Specified command successfully executed\n"
-"   APPERROR	Specified command successfully executed, but returned error code\n"
-"\n"
-"Old behaviour:\nIf  the command itself executes but is in error, and if\n"
-"there exists a priority n + 101, where 'n' is the priority of the current\n"
-"instance, then  the  channel  will  be  setup  to continue at that\n"
-"priority level.  Otherwise, System will terminate.\n";
-
+"   APPERROR	Specified command successfully executed, but returned error code\n";
 
 static int system_exec_helper(struct ast_channel *chan, void *data, int failmode)
 {
-	int res=0;
-	struct ast_module_user *u;
+	int res = 0;
+	struct ast_str *buf = ast_str_thread_get(&buf_buf, 16);
 	
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "System requires an argument(command)\n");
@@ -93,10 +74,12 @@ static int system_exec_helper(struct ast_channel *chan, void *data, int failmode
 		return failmode;
 	}
 
-	u = ast_module_user_add(chan);
+	ast_autoservice_start(chan);
 
 	/* Do our thing here */
-	res = ast_safe_system((char *)data);
+	ast_str_get_encoded_str(&buf, 0, (char *) data);
+	res = ast_safe_system(ast_str_buffer(buf));
+
 	if ((res < 0) && (errno != ECHILD)) {
 		ast_log(LOG_WARNING, "Unable to execute '%s'\n", (char *)data);
 		pbx_builtin_setvar_helper(chan, chanvar, "FAILURE");
@@ -108,9 +91,6 @@ static int system_exec_helper(struct ast_channel *chan, void *data, int failmode
 	} else {
 		if (res < 0) 
 			res = 0;
-		if (ast_opt_priority_jumping && res)
-			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
-
 		if (res != 0)
 			pbx_builtin_setvar_helper(chan, chanvar, "APPERROR");
 		else
@@ -118,7 +98,7 @@ static int system_exec_helper(struct ast_channel *chan, void *data, int failmode
 		res = 0;
 	} 
 
-	ast_module_user_remove(u);
+	ast_autoservice_stop(chan);
 
 	return res;
 }
@@ -139,8 +119,6 @@ static int unload_module(void)
 
 	res = ast_unregister_application(app);
 	res |= ast_unregister_application(app2);
-	
-	ast_module_user_hangup_all();
 
 	return res;
 }

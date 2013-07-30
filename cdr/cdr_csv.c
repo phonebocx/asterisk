@@ -23,30 +23,24 @@
  * \brief Comma Separated Value CDR records.
  *
  * \author Mark Spencer <markster@digium.com>
- * 
+ *
  * \arg See also \ref AstCDR
  * \ingroup cdr_drivers
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158377 $")
 
-#include <sys/types.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-
-#include <stdlib.h>
-#include <unistd.h>
 #include <time.h>
 
+#include "asterisk/paths.h"	/* use ast_config_AST_LOG_DIR */
 #include "asterisk/config.h"
 #include "asterisk/channel.h"
 #include "asterisk/cdr.h"
 #include "asterisk/module.h"
-#include "asterisk/logger.h"
 #include "asterisk/utils.h"
+#include "asterisk/lock.h"
 
 #define CSV_LOG_DIR "/cdr-csv"
 #define CSV_MASTER  "/Master.csv"
@@ -56,6 +50,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
 static int usegmtime = 0;
 static int loguniqueid = 0;
 static int loguserfield = 0;
+static int loaded = 0;
 static char *config = "cdr.conf";
 
 /* #define CSV_LOGUNIQUEID 1 */
@@ -67,78 +62,71 @@ static char *config = "cdr.conf";
 
   "accountcode", 	accountcode is the account name of detail records, Master.csv contains all records *
   			Detail records are configured on a channel basis, IAX and SIP are determined by user *
-			Zap is determined by channel in zaptel.conf 
+			DAHDI is determined by channel in dahdi.conf
   "source",
   "destination",
-  "destination context", 
+  "destination context",
   "callerid",
   "channel",
   "destination channel",	(if applicable)
-  "last application",	Last application run on the channel 
-  "last app argument",	argument to the last channel 
-  "start time", 
-  "answer time", 
-  "end time", 
-  duration,   		Duration is the whole length that the entire call lasted. ie. call rx'd to hangup  
-  			"end time" minus "start time" 
-  billable seconds, 	the duration that a call was up after other end answered which will be <= to duration  
-  			"end time" minus "answer time" 
-  "disposition",    	ANSWERED, NO ANSWER, BUSY 
-  "amaflags",       	DOCUMENTATION, BILL, IGNORE etc, specified on a per channel basis like accountcode. 
-  "uniqueid",           unique call identifier 
-  "userfield"		user field set via SetCDRUserField 
+  "last application",	Last application run on the channel
+  "last app argument",	argument to the last channel
+  "start time",
+  "answer time",
+  "end time",
+  duration,   		Duration is the whole length that the entire call lasted. ie. call rx'd to hangup
+  			"end time" minus "start time"
+  billable seconds, 	the duration that a call was up after other end answered which will be <= to duration
+  			"end time" minus "answer time"
+  "disposition",    	ANSWERED, NO ANSWER, BUSY
+  "amaflags",       	DOCUMENTATION, BILL, IGNORE etc, specified on a per channel basis like accountcode.
+  "uniqueid",           unique call identifier
+  "userfield"		user field set via SetCDRUserField
 ----------------------------------------------------------*/
 
 static char *name = "csv";
 
-static FILE *mf = NULL;
+AST_MUTEX_DEFINE_STATIC(mf_lock);
+AST_MUTEX_DEFINE_STATIC(acf_lock);
 
-
-static int load_config(void)
+static int load_config(int reload)
 {
 	struct ast_config *cfg;
 	struct ast_variable *var;
 	const char *tmp;
+	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
+
+	if (!(cfg = ast_config_load(config, config_flags))) {
+		ast_log(LOG_WARNING, "unable to load config: %s\n", config);
+		return 0;
+	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED)
+		return 1;
 
 	usegmtime = 0;
 	loguniqueid = 0;
 	loguserfield = 0;
-	
-	cfg = ast_config_load(config);
-	
-	if (!cfg) {
-		ast_log(LOG_WARNING, "unable to load config: %s\n", config);
-		return 0;
-	} 
-	
-	var = ast_variable_browse(cfg, "csv");
-	if (!var) {
+
+	if (!(var = ast_variable_browse(cfg, "csv"))) {
 		ast_config_destroy(cfg);
 		return 0;
 	}
-	
-	tmp = ast_variable_retrieve(cfg, "csv", "usegmtime");
-	if (tmp) {
+
+	if ((tmp = ast_variable_retrieve(cfg, "csv", "usegmtime"))) {
 		usegmtime = ast_true(tmp);
-		if (usegmtime) {
-			ast_log(LOG_DEBUG, "logging time in GMT\n");
-		}
+		if (usegmtime)
+			ast_debug(1, "logging time in GMT\n");
 	}
 
-	tmp = ast_variable_retrieve(cfg, "csv", "loguniqueid");
-	if (tmp) {
+	if ((tmp = ast_variable_retrieve(cfg, "csv", "loguniqueid"))) {
 		loguniqueid = ast_true(tmp);
-		if (loguniqueid) {
-			ast_log(LOG_DEBUG, "logging CDR field UNIQUEID\n");
-		}
+		if (loguniqueid)
+			ast_debug(1, "logging CDR field UNIQUEID\n");
 	}
 
-	tmp = ast_variable_retrieve(cfg, "csv", "loguserfield");
-	if (tmp) {
+	if ((tmp = ast_variable_retrieve(cfg, "csv", "loguserfield"))) {
 		loguserfield = ast_true(tmp);
-		if (loguserfield) {
-			ast_log(LOG_DEBUG, "logging CDR user-defined field\n");
-		}
+		if (loguserfield)
+			ast_debug(1, "logging CDR user-defined field\n");
 	}
 
 	ast_config_destroy(cfg);
@@ -147,13 +135,13 @@ static int load_config(void)
 
 static int append_string(char *buf, char *s, size_t bufsize)
 {
-	int pos = strlen(buf);
-	int spos = 0;
-	int error = 0;
+	int pos = strlen(buf), spos = 0, error = -1;
+
 	if (pos >= bufsize - 4)
 		return -1;
+
 	buf[pos++] = '\"';
-	error = -1;
+
 	while(pos < bufsize - 3) {
 		if (!s[spos]) {
 			error = 0;
@@ -164,9 +152,11 @@ static int append_string(char *buf, char *s, size_t bufsize)
 		buf[pos++] = s[spos];
 		spos++;
 	}
+
 	buf[pos++] = '\"';
 	buf[pos++] = ',';
 	buf[pos++] = '\0';
+
 	return error;
 }
 
@@ -174,34 +164,36 @@ static int append_int(char *buf, int s, size_t bufsize)
 {
 	char tmp[32];
 	int pos = strlen(buf);
+
 	snprintf(tmp, sizeof(tmp), "%d", s);
+
 	if (pos + strlen(tmp) > bufsize - 3)
 		return -1;
+
 	strncat(buf, tmp, bufsize - strlen(buf) - 1);
 	pos = strlen(buf);
 	buf[pos++] = ',';
 	buf[pos++] = '\0';
+
 	return 0;
 }
 
-static int append_date(char *buf, struct timeval tv, size_t bufsize)
+static int append_date(char *buf, struct timeval when, size_t bufsize)
 {
 	char tmp[80] = "";
-	struct tm tm;
-	time_t t;
-	t = tv.tv_sec;
+	struct ast_tm tm;
+
 	if (strlen(buf) > bufsize - 3)
 		return -1;
-	if (ast_tvzero(tv)) {
+
+	if (ast_tvzero(when)) {
 		strncat(buf, ",", bufsize - strlen(buf) - 1);
 		return 0;
 	}
-	if (usegmtime) {
-		gmtime_r(&t,&tm);
-	} else {
-		ast_localtime(&t, &tm, NULL);
-	}
-	strftime(tmp, sizeof(tmp), DATE_FORMAT, &tm);
+
+	ast_localtime(&when, &tm, usegmtime ? "GMT" : NULL);
+	ast_strftime(tmp, sizeof(tmp), DATE_FORMAT, &tm);
+
 	return append_string(buf, tmp, bufsize);
 }
 
@@ -246,7 +238,7 @@ static int build_csv_record(char *buf, size_t bufsize, struct ast_cdr *cdr)
 		append_string(buf, cdr->uniqueid, bufsize);
 	/* append the user field */
 	if(loguserfield)
-		append_string(buf, cdr->userfield,bufsize);	
+		append_string(buf, cdr->userfield,bufsize);
 	/* If we hit the end of our buffer, log an error */
 	if (strlen(buf) < bufsize - 5) {
 		/* Trim off trailing comma */
@@ -261,23 +253,32 @@ static int writefile(char *s, char *acc)
 {
 	char tmp[PATH_MAX];
 	FILE *f;
+
 	if (strchr(acc, '/') || (acc[0] == '.')) {
 		ast_log(LOG_WARNING, "Account code '%s' insecure for writing file\n", acc);
 		return -1;
 	}
-	snprintf(tmp, sizeof(tmp), "%s/%s/%s.csv", (char *)ast_config_AST_LOG_DIR,CSV_LOG_DIR, acc);
-	f = fopen(tmp, "a");
-	if (!f)
+
+	snprintf(tmp, sizeof(tmp), "%s/%s/%s.csv", ast_config_AST_LOG_DIR,CSV_LOG_DIR, acc);
+
+	ast_mutex_lock(&acf_lock);
+	if (!(f = fopen(tmp, "a"))) {
+		ast_mutex_unlock(&acf_lock);
+		ast_log(LOG_ERROR, "Unable to open file %s : %s\n", tmp, strerror(errno));
 		return -1;
+	}
 	fputs(s, f);
 	fflush(f);
 	fclose(f);
+	ast_mutex_unlock(&acf_lock);
+
 	return 0;
 }
 
 
 static int csv_log(struct ast_cdr *cdr)
 {
+	FILE *mf = NULL;
 	/* Make sure we have a big enough buf */
 	char buf[1024];
 	char csvmaster[PATH_MAX];
@@ -287,55 +288,63 @@ static int csv_log(struct ast_cdr *cdr)
 #endif
 	if (build_csv_record(buf, sizeof(buf), cdr)) {
 		ast_log(LOG_WARNING, "Unable to create CSV record in %d bytes.  CDR not recorded!\n", (int)sizeof(buf));
-	} else {
-		/* because of the absolutely unconditional need for the
-		   highest reliability possible in writing billing records,
-		   we open write and close the log file each time */
-		mf = fopen(csvmaster, "a");
-		if (!mf) {
-			ast_log(LOG_ERROR, "Unable to re-open master file %s : %s\n", csvmaster, strerror(errno));
-		}
-		if (mf) {
-			fputs(buf, mf);
-			fflush(mf); /* be particularly anal here */
-			fclose(mf);
-			mf = NULL;
-		}
-		if (!ast_strlen_zero(cdr->accountcode)) {
-			if (writefile(buf, cdr->accountcode))
-				ast_log(LOG_WARNING, "Unable to write CSV record to account file '%s' : %s\n", cdr->accountcode, strerror(errno));
-		}
+		return 0;
 	}
+
+	/* because of the absolutely unconditional need for the
+	   highest reliability possible in writing billing records,
+	   we open write and close the log file each time */
+	ast_mutex_lock(&mf_lock);
+	if ((mf = fopen(csvmaster, "a"))) {
+		fputs(buf, mf);
+		fflush(mf); /* be particularly anal here */
+		fclose(mf);
+		mf = NULL;
+		ast_mutex_unlock(&mf_lock);
+	} else {
+		ast_mutex_unlock(&mf_lock);
+		ast_log(LOG_ERROR, "Unable to re-open master file %s : %s\n", csvmaster, strerror(errno));
+	}
+
+	if (!ast_strlen_zero(cdr->accountcode)) {
+		if (writefile(buf, cdr->accountcode))
+			ast_log(LOG_WARNING, "Unable to write CSV record to account file '%s' : %s\n", cdr->accountcode, strerror(errno));
+	}
+
 	return 0;
 }
 
 static int unload_module(void)
 {
-	if (mf)
-		fclose(mf);
 	ast_cdr_unregister(name);
+	loaded = 0;
 	return 0;
 }
 
 static int load_module(void)
 {
 	int res;
-	
-	if(!load_config())
+
+	if(!load_config(0))
 		return AST_MODULE_LOAD_DECLINE;
 
-	res = ast_cdr_register(name, ast_module_info->description, csv_log);
-	if (res) {
+	if ((res = ast_cdr_register(name, ast_module_info->description, csv_log))) {
 		ast_log(LOG_ERROR, "Unable to register CSV CDR handling\n");
-		if (mf)
-			fclose(mf);
+	} else {
+		loaded = 1;
 	}
 	return res;
 }
 
 static int reload(void)
 {
-	load_config();
+	if (load_config(1)) {
+		loaded = 1;
+	} else {
+		loaded = 0;
+		ast_log(LOG_WARNING, "No [csv] section in cdr.conf.  Unregistering backend.\n");
+		ast_cdr_unregister(name);
+	}
 
 	return 0;
 }

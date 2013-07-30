@@ -15,6 +15,11 @@
  * the GNU General Public License
  */
 
+/*! \file 
+ * \brief Interface to mISDN
+ * \author Christian Richter <crich@beronet.com>
+ */
+
 /*
   the pointer of enc_ie_* always points to the IE itself
   if qi is not NULL (TE-mode), offset is set
@@ -27,6 +32,7 @@
 #include <mISDNuser/isdn_net.h>
 #include <mISDNuser/l3dss1.h>
 #include <mISDNuser/net_l3.h>
+#include "asterisk/localtime.h"
 
 
 
@@ -852,17 +858,11 @@ static void enc_ie_date(unsigned char **ntmode, msg_t *msg, time_t ti, int nt, s
 	unsigned char *p;
 	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
 	int l;
+	struct timeval tv = { ti, 0 };
+	struct ast_tm tm;
 
-	struct tm *tm;
-
-	tm = localtime(&ti);
-	if (!tm)
-	{
-		printf("%s: ERROR: gettimeofday() returned NULL.\n", __FUNCTION__);
-		return;
-	}
-
-	if (MISDN_IE_DEBG) printf("    year=%d month=%d day=%d hour=%d minute=%d\n", tm->tm_year%100, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min);
+	ast_localtime(&tv, &tm, NULL);
+	if (MISDN_IE_DEBG) printf("    year=%d month=%d day=%d hour=%d minute=%d\n", tm.tm_year%100, tm.tm_mon+1, tm.tm_mday, tm.tm_hour, tm.tm_min);
 
 	l = 5;
 	p = msg_put(msg, l+2);
@@ -872,11 +872,11 @@ static void enc_ie_date(unsigned char **ntmode, msg_t *msg, time_t ti, int nt, s
 		qi->QI_ELEMENT(date) = p - (unsigned char *)qi - sizeof(Q931_info_t);
 	p[0] = IE_DATE;
 	p[1] = l;
-	p[2] = tm->tm_year % 100;
-	p[3] = tm->tm_mon + 1;
-	p[4] = tm->tm_mday;
-	p[5] = tm->tm_hour;
-	p[6] = tm->tm_min;
+	p[2] = tm.tm_year % 100;
+	p[3] = tm.tm_mon + 1;
+	p[4] = tm.tm_mday;
+	p[5] = tm.tm_hour;
+	p[6] = tm.tm_min;
 }
 
 
@@ -1347,13 +1347,13 @@ static void enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, ch
 	i = 0;
 	while(i < user_len)
 	{
-		if (MISDN_IE_DEBG) printf(debug+(i*3), " %02x", user[i]);
+		if (MISDN_IE_DEBG) sprintf(debug+(i*3), " %02x", user[i]);
 		i++;
 	}
 		
 	if (MISDN_IE_DEBG) printf("    protocol=%d user-user%s\n", protocol, debug);
 
-	l = user_len;
+	l = user_len+1;
 	p = msg_put(msg, l+3);
 	if (nt)
 		*ntmode = p+1;
@@ -1361,7 +1361,7 @@ static void enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, ch
 		qi->QI_ELEMENT(useruser) = p - (unsigned char *)qi - sizeof(Q931_info_t);
 	p[0] = IE_USER_USER;
 	p[1] = l;
-	p[2] = 0x80 + protocol;
+	p[2] = protocol;
 	memcpy(p+3, user, user_len);
 }
 #endif
@@ -1393,7 +1393,7 @@ static void dec_ie_useruser(unsigned char *p, Q931_info_t *qi, int *protocol, ch
 	i = 0;
 	while(i < *user_len)
 	{
-		if (MISDN_IE_DEBG) printf(debug+(i*3), " %02x", user[i]);
+		if (MISDN_IE_DEBG) sprintf(debug+(i*3), " %02x", user[i]);
 		i++;
 	}
 	debug[i*3] = '\0';

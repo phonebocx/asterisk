@@ -26,22 +26,9 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 117802 $")
 
-#include <unistd.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-
-#include "asterisk/lock.h"
-#include "asterisk/channel.h"
-#include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/sched.h"
+#include "asterisk/mod_format.h"
 #include "asterisk/module.h"
 #include "asterisk/endian.h"
 
@@ -72,7 +59,7 @@ static struct ast_frame *h264_read(struct ast_filestream *s, int *whennext)
 	int mark=0;
 	unsigned short len;
 	unsigned int ts;
-	struct h264_desc *fs = (struct h264_desc *)s->private;
+	struct h264_desc *fs = (struct h264_desc *)s->_private;
 
 	/* Send a frame from the file to the appropriate channel */
 	if ((res = fread(&len, 1, sizeof(len), s->f)) < 1)
@@ -88,7 +75,7 @@ static struct ast_frame *h264_read(struct ast_filestream *s, int *whennext)
 	s->fr.subclass = AST_FORMAT_H264;
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, len);
-	if ((res = fread(s->fr.data, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
+	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
 		if (res)
 			ast_log(LOG_WARNING, "Short read (%d of %d) (%s)!\n", res, len, strerror(errno));
 		return NULL;
@@ -132,7 +119,7 @@ static int h264_write(struct ast_filestream *s, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Bad write (%d/2): %s\n", res, strerror(errno));
 		return -1;
 	}
-	if ((res = fwrite(f->data, 1, f->datalen, s->f)) != f->datalen) {
+	if ((res = fwrite(f->data.ptr, 1, f->datalen, s->f)) != f->datalen) {
 		ast_log(LOG_WARNING, "Bad write (%d/%d): %s\n", res, f->datalen, strerror(errno));
 		return -1;
 	}
@@ -175,7 +162,9 @@ static const struct ast_format h264_f = {
 
 static int load_module(void)
 {
-	return ast_format_register(&h264_f);
+	if (ast_format_register(&h264_f))
+		return AST_MODULE_LOAD_FAILURE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)

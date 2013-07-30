@@ -16,7 +16,8 @@
  * at the top of the source tree.
  */
 
-/* \file This file generates Doxygen pages from files in the /doc
+/*! \file 
+ * \brief This file generates Doxygen pages from files in the /doc
  directory of the Asterisk source code tree 
  */
 
@@ -27,12 +28,14 @@
 /*! \page DevDoc Asterisk Developer's Documentation - appendices
  *  \arg \ref CodeGuide : The must-read document for all developer's
  *  \arg \ref AstAPI
+ *  \arg \ref AstAPIChanges
  *  \arg \ref Def_Channel : What's a channel, anyway?
  *  \arg \ref channel_drivers : Existing channel drivers
  *  \arg \ref AstDebug : Hints on debugging
  *  \arg \ref AstAMI : The Call management socket API
  *  \arg \ref AstARA : A generic data storage and retrieval API for Asterisk
  *  \arg \ref AstDUNDi : A way to find phone services dynamically by using the DUNDi protocol
+ *  \arg \ref AJI_intro : The Asterisk Jabber Interface
  *  \arg \ref AstCDR
  *  \arg \ref AstREADME
  *  \arg \ref AstVar
@@ -40,10 +43,10 @@
  *  \arg \ref AstENUM : The IETF way to redirect from phone numbers to VoIP calls
  *  \arg \ref AstHTTP
  *  \arg \ref AstSpeech
- *  \arg \ref DataStores
  *  \arg \ref ConfigFiles
  *  \arg \ref SoundFiles included in the Asterisk distribution
  *  \arg \ref AstCREDITS : A Thank You to contributors
+ *  \arg \ref extref 
  \n\n
  * \section weblinks Web sites
  * \arg \b Main:  Asterisk Developer's website http://www.asterisk.org/developers/
@@ -65,10 +68,42 @@
 /*! \page AstAPI Asterisk API
  *  \section Asteriskapi Asterisk API
  *  Some generic documents on the Asterisk architecture
+ *
+ *  \arg \ref AstThreadStorage
+ *  \arg \ref DataStores
+ *  \arg \ref AstExtState
+ *
  *  \subsection model_txt Generic Model
  *  \verbinclude model.txt
  *  \subsection channel_txt Channels
  *  \arg See \ref Def_Channel
+ */
+
+/*! \page AstAPIChanges Asterisk API Changes
+ *  \section Changes161 Version 1.6.1
+ *  \li ast_install_vm_functions()
+ *  \li vmwi_generate()
+ *  \li ast_channel_datastore_alloc()
+ *  \li ast_channel_datastore_free()
+ *  \li ast_channel_cmpwhentohangup()
+ *  \li ast_channel_setwhentohangup()
+ *  \li ast_settimeout()
+ *  \li ast_datastore_alloc()
+ *  \li ast_datastore_free()
+ *  \li ast_device_state_changed()
+ *  \li ast_device_state_changed_literal()
+ *  \li ast_dnsmgr_get()
+ *  \li ast_dnsmgr_lookup()
+ *  \li ast_dsp_set_digitmode()
+ *  \li ast_get_txt()
+ *  \li ast_event_unsubscribe()
+ *  \li localized_context_find_or_create()
+ *  \li localized_merge_contexts_and_delete()
+ *  \li ast_console_puts_mutable()
+ *  \li ast_rtp_get_quality()
+ *  \li ast_tcptls_client_start()
+ *  \li ast_tcptls_server_start()
+ *  \li ast_tcptls_server_stop()
  */
 
 /*! \page AstDebug Debugging
@@ -135,9 +170,67 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  *  \verbinclude video.txt
  */
 
-/*! \page AstVar Global channel variables
- * \section globchan Global Channel Variables
- *  \verbinclude channelvariables.txt
+/*! \page AstVar Globally predefined channel variables
+ * \section globchan Globally predefined channel variables
+ *
+ * More and more of these variables are being replaced by dialplan functions.
+ * Some still exist though and some that does still exist needs to move to
+ * dialplan functions.
+ *
+ * See also
+ * - \ref pbx_retrieve_variable()
+ * - \ref AstChanVar
+ *
+ *  \verbinclude channelvariables.tex
+
+ */
+
+/*! \page AstChanVar Asterisk Dialplan Variables
+ *	Asterisk Dialplan variables are divided into three groups:
+ *	- Predefined global variables, handled by the PBX core
+ *	- Global variables, that exist for the duration of the pbx execution
+ *	- Channel variables, that exist during a channel
+ *
+ * Global variables are reachable in all channels, all of the time.
+ * Channel variables are only reachable within the channel.
+ *
+ * For more information on the predefined variables, see \ref AstVar
+ * 
+ * Global and Channel variables:
+ * - Names are Case insensitive
+ * - Names that start with a character, but are alphanumeric
+ * - Global variables are defined and reached with the GLOBAL() dialplan function
+ *   and the set application, like
+ *
+ * 	exten => 1234,1,set(GLOBAL(myvariable)=tomteluva)
+ *
+ * 	- \ref func_global.c
+ *
+ * - Channel variables are defined with the set() dialplan application
+ *
+ *	exten => 1234,1,set(xmasattribute=tomtegröt)
+ *
+ * - Some channels also supports setting channel variables with the \b setvar=
+ *   configuraiton option for a device or line.
+ *
+ * \section AstChanVar_globalvars Global Variables
+ * Global variables can also be set in the [globals] section of extensions.conf. The
+ * setting \b clearglobalvars in extensions.conf [general] section affects whether
+ * or not the global variables defined in \b globals are reset at dialplan reload.
+ * 
+ * There are CLI commands to change and read global variables. This can be handy
+ * to reset counters at midnight from an external script.
+ *
+ * \section AstChanVar_devnotes Developer notes
+ * Variable handling is managed within \ref pbx.c
+ * You need to include pbx.h to reach these functions.
+ *	- \ref pbx_builtin_setvar_helper()
+ * 	- \ref pbx_builtin_getvar_helper()
+ *
+ * The variables is a linked list stored in the channel data structure
+ * with the list starting at varshead in struct ast_channel
+ * 
+ *
  */
 
 /*! \page AstENUM ENUM
@@ -160,7 +253,7 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \arg \link Config_sip SIP configuration  \endlink
  * \arg \link Config_mgcp MGCP configuration  \endlink
  * \arg \link Config_rtp RTP configuration  \endlink
- * \arg \link Config_zap Zaptel configuration  \endlink
+ * \arg \link Config_dahdi DAHDI configuration  \endlink
  * \arg \link Config_oss OSS (sound card) configuration  \endlink
  * \arg \link Config_alsa ALSA (sound card) configuration  \endlink
  * \arg \link Config_agent Agent (proxy channel) configuration  \endlink
@@ -188,6 +281,7 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \arg \link Config_enum ENUM configuration  \endlink
  * \arg \link Config_moh Music on Hold configuration  \endlink
  * \arg \link Config_vm Voicemail configuration  \endlink
+ * \arg \link res_config_sqlite SQLite Resource driver configuration \endlink
  */
 
 /*! \page Config_ast Asterisk.conf
@@ -209,7 +303,7 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \verbinclude features.conf.sample
  */
 
-/*! \page Config_followme followme.conf 
+/*! \page Config_followme Followme: An application for simple follow-me calls
  * \section followmeconf Followme.conf
  * - See app_followme.c
  * \verbinclude followme.conf.sample
@@ -273,10 +367,10 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \verbinclude voicemail.conf.sample
  */
 
-/*! \page Config_zap Zaptel configuration
- * \section zapconf zapata.conf
- * \arg Implemented in \ref chan_zap.c
- * \verbinclude zapata.conf.sample
+/*! \page Config_dahdi DAHDI configuration
+ * \section dahdiconf dahdi.conf
+ * \arg Implemented in \ref chan_dahdi.c
+ * \verbinclude dahdi.conf.sample
  */
 
 /*! \page Config_h323 H.323 channel driver information
@@ -285,7 +379,6 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \arg Implemented in \ref chan_h323.c
  * \section h323conf h323.conf
  * \ref chan_h323.c
- * \verbinclude h323.txt
  */
 
 /*! \page Config_oss OSS configuration
@@ -436,19 +529,21 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
 
 /*! \addtogroup cdr_drivers Module: CDR Drivers
  *  \section CDR_generic Asterisk CDR Drivers
- *  \brief CDR drivers are loaded dynamically (see \ref Config_mod "Modules Configuration"). Each loaded CDR driver produce a billing record for each call.
+ *  \brief CDR drivers are loaded dynamically, each loaded CDR driver produce a billing record for each call.
+ *  \arg \ref Config_mod "Modules Configuration"
  *  \arg \ref Config_cdr "CDR Configuration"
  */
 
 
 /*! \addtogroup channel_drivers Module: Asterisk Channel Drivers
  *  \section channel_generic Asterisk Channel Drivers
- *  \brief Channel drivers are loaded dynamically (see \ref Config_mod "Modules Configuration"). 
+ *  \brief Channel drivers are loaded dynamically. 
+ *  \arg \ref Config_mod "Modules Configuration"
  */
 
 /*! \addtogroup applications Module: Dial plan applications
  *  \section app_generic Asterisk Dial Plan Applications
- *  \brief Applications support the dialplan. They register dynamically with \ref ast_register_application() and unregister with ast_unregister_application()
+ *  \brief Applications support the dialplan. They register dynamically with \see ast_register_application() and unregister with \see ast_unregister_application()
  * \par See also
  * \arg \ref functions
  *  
@@ -483,6 +578,148 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * http.
  *  \section ami AMI - The manager Interface
  *  \arg \link Config_ami Configuration file \endlink
- *  \verbinclude ajam.txt
  */
 
+/*! \page res_config_sqlite SQLite Resource driver configuration
+ * \arg Implemented in \ref res_config_sqlite.c
+ * \arg Configuration file:
+ * \verbinclude res_config_sqlite.conf
+ * \arg SQL tables:
+ * \verbinclude res_config_sqlite.txt
+ * \arg See also:
+ * http://www.sqlite.org
+ */
+
+/*!
+ * \page Licensing Asterisk Licensing Information
+ *
+ * \section license Asterisk License
+ * \verbinclude LICENSE
+ *
+ * \section otherlicenses Licensing of 3rd Party Code
+ *
+ * This section contains a (not yet complete) list of libraries that are used
+ * by various parts of Asterisk, including related licensing information.
+ *
+ * \subsection alsa_lib ALSA Library
+ * \arg <b>Library</b>: libasound
+ * \arg <b>Website</b>: http://www.alsa-project.org
+ * \arg <b>Used by</b>: chan_alsa
+ * \arg <b>License</b>: LGPL
+ *
+ * \subsection openssl_lib OpenSSL
+ * \arg <b>Library</b>: libcrypto, libssl
+ * \arg <b>Website</b>: http://www.openssl.org
+ * \arg <b>Used by</b>: Asterisk core (TLS for manager and HTTP), res_crypto
+ * \arg <b>License</b>: Apache 2.0
+ * \arg <b>Note</b>:    An exception has been granted to allow linking of 
+ *                      OpenSSL with Asterisk.
+ *
+ * \subsection curl_lib Curl
+ * \arg <b>Library</b>: libcurl
+ * \arg <b>Website</b>: http://curl.haxx.se
+ * \arg <b>Used by</b>: func_curl, res_config_curl, res_curl
+ * \arg <b>License</b>: BSD
+ *
+ * \subsection portaudio_lib PortAudio
+ * \arg <b>Library</b>: libportaudio
+ * \arg <b>Website</b>: http://www.portaudio.com
+ * \arg <b>Used by</b>: chan_console
+ * \arg <b>License</b>: BSD
+ * \arg <b>Note</b>:    Even though PortAudio is licensed under a BSD style
+ *                      license, PortAudio will make use of some audio interface,
+ *                      depending on how it was built.  That audio interface may
+ *                      introduce additional licensing restrictions.  On Linux,
+ *                      this would most commonly be ALSA: \ref alsa_lib.
+ *
+ * \subsection rawlist Raw list of libraries that used by any part of Asterisk
+ * \li c-client.a (app_voicemail with IMAP support)
+ * \li libSDL-1.2.so.0
+ * \li libSaClm.so.2
+ * \li libSaEvt.so.2
+ * \li libX11.so.6
+ * \li libXau.so.6
+ * \li libXdmcp.so.6
+ * \li libasound.so.2
+ * \li libc.so.6
+ * \li libcom_err.so.2
+ * \li libcrypt.so.1
+ * \li libcrypto.so.0.9.8 (chan_h323)
+ * \li libcurl.so.4
+ * \li libdirect-1.0.so.0
+ * \li libdirectfb-1.0.so.0
+ * \li libdl.so.2
+ * \li libexpat.so (chan_h323)
+ * \li libfusion-1.0.so.0
+ * \li libgcc_s.so (chan_h323)
+ * \li libgcrypt.so.11 (chan_h323)
+ * \li libglib-2.0.so.0
+ * \li libgmime-2.0.so.2
+ * \li libgmodule-2.0.so.0
+ * \li libgnutls.so.13 (chan_h323)
+ * \li libgobject-2.0.so.0
+ * \li libgpg-error.so.0 (chan_h323)
+ * \li libgssapi_krb5.so.2
+ * \li libgthread-2.0.so.0
+ * \li libidn.so.11
+ * \li libiksemel.so.3
+ * \li libisdnnet.so
+ * \li libjack.so.0
+ * \li libjpeg.so.62
+ * \li libk5crypto.so.3
+ * \li libkeyutils.so.1
+ * \li libkrb5.so.3
+ * \li libkrb5support.so.0
+ * \li liblber-2.4.so.2 (chan_h323)
+ * \li libldap_r-2.4.so.2 (chan_h323)
+ * \li libltdl.so.3
+ * \li liblua5.1.so.0
+ * \li libm.so.6
+ * \li libmISDN.so
+ * \li libnbs.so.1
+ * \li libncurses.so.5
+ * \li libnetsnmp.so.15
+ * \li libnetsnmpagent.so.15
+ * \li libnetsnmphelpers.so.15
+ * \li libnetsnmpmibs.so.15
+ * \li libnsl.so.1
+ * \li libodbc.so.1
+ * \li libogg.so.0
+ * \li libopenh323.so (chan_h323)
+ * \li libpcre.so.3
+ * \li libperl.so.5.8
+ * \li libportaudio.so.2
+ * \li libpq.so.5
+ * \li libpri.so.1.4
+ * \li libpt.so (chan_h323)
+ * \li libpthread.so.0
+ * \li libradiusclient-ng.so.2
+ * \li libresample.so.1.0
+ * \li libresolv.so.2 (chan_h323)
+ * \li librt.so.1
+ * \li libsasl2.so.2 (chan_h323)
+ * \li libselinux.so.1
+ * \li libsensors.so.3
+ * \li libspandsp.so.1
+ * \li libspeex.so.1
+ * \li libsqlite.so.0
+ * \li libsqlite3.so.0
+ * \li libss7.so.1
+ * \li libssl.so.0.9.8 (chan_h323)
+ * \li libstdc++.so (chan_h323, chan_vpb)
+ * \li libsuppserv.so
+ * \li libsybdb.so.5
+ * \li libsysfs.so.2
+ * \li libtasn1.so.3 (chan_h323)
+ * \li libtds.so.4
+ * \li libtiff.so.4
+ * \li libtonezone.so.1.0
+ * \li libvorbis.so.0
+ * \li libvorbisenc.so.2
+ * \li libvpb.a (chan_vpb)
+ * \li libwrap.so.0
+ * \li libxcb-xlib.so.0
+ * \li libxcb.so.1
+ * \li libz.so.1 (chan_h323)
+ * \li linux-vdso.so.1
+*/

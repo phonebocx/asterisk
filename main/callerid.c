@@ -25,13 +25,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69805 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180197 $")
 
 #include <time.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <math.h>
 #include <ctype.h>
 
@@ -40,9 +36,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69805 $")
 #include "asterisk/frame.h"
 #include "asterisk/channel.h"
 #include "asterisk/callerid.h"
-#include "asterisk/logger.h"
 #include "asterisk/fskmodem.h"
-#include "asterisk/options.h"
 #include "asterisk/utils.h"
 
 struct callerid_state {
@@ -81,7 +75,7 @@ static inline void gen_tones(unsigned char *buf, int len, int codec, float ddr1,
 {
 	int x;
 	float t;
-	for (x=0;x<len;x++) {
+	for (x = 0; x < len; x++) {
 		t = *cr1 * ddr1 - *ci1 * ddi1;
 		*ci1 = *cr1 * ddi1 + *ci1 * ddr1;
 		*cr1 = t;
@@ -103,7 +97,7 @@ static inline void gen_tone(unsigned char *buf, int len, int codec, float ddr1, 
 {
 	int x;
 	float t;
-	for (x=0;x<len;x++) {
+	for (x = 0; x < len; x++) {
 		t = *cr1 * ddr1 - *ci1 * ddi1;
 		*ci1 = *cr1 * ddi1 + *ci1 * ddr1;
 		*cr1 = t;
@@ -134,6 +128,35 @@ struct callerid_state *callerid_new(int cid_signalling)
 	struct callerid_state *cid;
 
 	if ((cid = ast_calloc(1, sizeof(*cid)))) {
+#ifdef INTEGER_CALLERID
+		cid->fskd.ispb = 7;          	/* 1200 baud */	
+		/* Set up for 1200 / 8000 freq *32 to allow ints */
+		cid->fskd.pllispb  = (int)(8000 * 32  / 1200);
+		cid->fskd.pllids   = cid->fskd.pllispb/32;
+		cid->fskd.pllispb2 = cid->fskd.pllispb/2;
+		
+		cid->fskd.icont = 0;           /* PLL REset */
+		/* cid->fskd.hdlc = 0; */     	/* Async */
+		cid->fskd.nbit = 8;           	/* 8 bits */
+		cid->fskd.instop = 1;        	/* 1 stop bit */
+		/* cid->fskd.paridad = 0; */  	/* No parity */
+		cid->fskd.bw = 1;             	/* Filter 800 Hz */
+		if (cid_signalling == 2) {    	/* v23 signalling */
+			cid->fskd.f_mark_idx  = 4;	/* 1300 Hz */
+			cid->fskd.f_space_idx = 5;	/* 2100 Hz */
+		} else {                      	/* Bell 202 signalling as default */
+			cid->fskd.f_mark_idx  = 2;	/* 1200 Hz */
+			cid->fskd.f_space_idx = 3;	/* 2200 Hz */
+		}
+		/* cid->fskd.pcola = 0; */    	/* No clue */
+		/* cid->fskd.cont = 0.0; */   	/* Digital PLL reset */
+		/* cid->fskd.x0 = 0.0; */
+		/* cid->fskd.state = 0; */
+		cid->flags = CID_UNKNOWN_NAME | CID_UNKNOWN_NUMBER;
+		/* cid->pos = 0; */
+
+		fskmodem_init(&cid->fskd);
+#else
 		cid->fskd.spb = 7.0;          	/* 1200 baud */
 		/* cid->fskd.hdlc = 0; */     	/* Async */
 		cid->fskd.nbit = 8;           	/* 8 bits */
@@ -153,6 +176,7 @@ struct callerid_state *callerid_new(int cid_signalling)
 		/* cid->fskd.state = 0; */
 		cid->flags = CID_UNKNOWN_NAME | CID_UNKNOWN_NUMBER;
 		/* cid->pos = 0; */
+#endif
 	}
 
 	return cid;
@@ -180,7 +204,7 @@ void callerid_get_dtmf(char *cidstring, char *number, int *flags)
 	number[0] = 0;
 
 	if (strlen(cidstring) < 2) {
-		ast_log(LOG_DEBUG, "No cid detected\n");
+		ast_debug(1, "No cid detected\n");
 		*flags = CID_UNKNOWN_NUMBER;
 		return;
 	}
@@ -194,7 +218,7 @@ void callerid_get_dtmf(char *cidstring, char *number, int *flags)
 		else if (code == 10) 
 			*flags = CID_PRIVATE_NUMBER;
 		else
-			ast_log(LOG_DEBUG, "Unknown DTMF code %d\n", code);
+			ast_debug(1, "Unknown DTMF code %d\n", code);
 	} else if (cidstring[0] == 'D' && cidstring[2] == '#') {
 		/* .DK special code */
 		if (cidstring[1] == '1')
@@ -203,13 +227,13 @@ void callerid_get_dtmf(char *cidstring, char *number, int *flags)
 			*flags = CID_UNKNOWN_NUMBER;
 	} else if (cidstring[0] == 'D' || cidstring[0] == 'A') {
 		/* "Standard" callerid */
-		for (i = 1; i < strlen(cidstring); i++ ) {
+		for (i = 1; i < strlen(cidstring); i++) {
 			if (cidstring[i] == 'C' || cidstring[i] == '#')
 				break;
 			if (isdigit(cidstring[i]))
 				number[i-1] = cidstring[i];
 			else
-				ast_log(LOG_DEBUG, "Unknown CID digit '%c'\n",
+				ast_debug(1, "Unknown CID digit '%c'\n",
 					cidstring[i]);
 		}
 		number[i-1] = 0;
@@ -226,8 +250,7 @@ void callerid_get_dtmf(char *cidstring, char *number, int *flags)
 		}
 		number[i] = 0;
 	} else {
-		ast_log(LOG_DEBUG, "Unknown CID protocol, start digit '%c'\n", 
-			cidstring[0]);
+		ast_debug(1, "Unknown CID protocol, start digit '%c'\n", cidstring[0]);
 		*flags = CID_UNKNOWN_NUMBER;
 	}
 }
@@ -235,11 +258,12 @@ void callerid_get_dtmf(char *cidstring, char *number, int *flags)
 int ast_gen_cas(unsigned char *outbuf, int sendsas, int len, int codec)
 {
 	int pos = 0;
-	int saslen=2400;
+	int saslen = 2400;
 	float cr1 = 1.0;
 	float ci1 = 0.0;
 	float cr2 = 1.0;
 	float ci2 = 0.0;
+
 	if (sendsas) {
 		if (len < saslen)
 			return -1;
@@ -259,17 +283,16 @@ static unsigned short calc_crc(unsigned short crc, unsigned char data)
 	org = data;
 	dst = 0;
 
-	for (i=0; i < CHAR_BIT; i++) {
+	for (i = 0; i < CHAR_BIT; i++) {
 		org <<= 1;
 		dst >>= 1;
-		if (org & 0x100) {
+		if (org & 0x100) 
 			dst |= 0x80;
-		}
 	}
-	data = (unsigned char)dst;
-	crc ^= (unsigned int)data << (16 - CHAR_BIT);
-	for ( j=0; j<CHAR_BIT; j++ ) {
-		if ( crc & 0x8000U )
+	data = (unsigned char) dst;
+	crc ^= (unsigned int) data << (16 - CHAR_BIT);
+	for (j = 0; j < CHAR_BIT; j++) {
+		if (crc & 0x8000U)
 			crc = (crc << 1) ^ 0x1021U ;
 		else
 			crc <<= 1 ;
@@ -282,248 +305,227 @@ int callerid_feed_jp(struct callerid_state *cid, unsigned char *ubuf, int len, i
 	int mylen = len;
 	int olen;
 	int b = 'X';
-	int b2 ;
+	int b2;
 	int res;
 	int x;
 	short *buf;
-	short *obuf;
 
-	if (!(buf = ast_calloc(1, 2 * len + cid->oldlen))) {
-		return -1;
-	}
+	buf = alloca(2 * len + cid->oldlen);
 
-	obuf = buf;
 	memcpy(buf, cid->oldstuff, cid->oldlen);
-	mylen += cid->oldlen/2;
+	mylen += cid->oldlen / 2;
 
-	for (x=0;x<len;x++) 
+	for (x = 0; x < len; x++) 
 		buf[x+cid->oldlen/2] = AST_XLAW(ubuf[x]);
 
 	while (mylen >= 160) {
 		b = b2 = 0;
 		olen = mylen;
-		res = fsk_serie(&cid->fskd, buf, &mylen, &b);
+		res = fsk_serial(&cid->fskd, buf, &mylen, &b);
 
 		if (mylen < 0) {
-			ast_log(LOG_ERROR, "fsk_serie made mylen < 0 (%d)\n", mylen);
-			free(obuf);
+			ast_log(LOG_ERROR, "No start bit found in fsk data.\n");
 			return -1;
 		}
 
 		buf += (olen - mylen);
 
 		if (res < 0) {
-			ast_log(LOG_NOTICE, "fsk_serie failed\n");
-			free(obuf);
+			ast_log(LOG_NOTICE, "fsk_serial failed\n");
 			return -1;
 		}
 
 		if (res == 1) {
-
-			b2 = b ;
-			b  = b & 0x7f ;
+			b2 = b;
+			b  &= 0x7f;
 
 			/* crc checksum calculation */
-			if ( cid->sawflag > 1 ) {
-				cid->crc = calc_crc(cid->crc, (unsigned char)b2);
-			}
+			if (cid->sawflag > 1)
+				cid->crc = calc_crc(cid->crc, (unsigned char) b2);
 
 			/* Ignore invalid bytes */
-			if (b > 0xff) {
+			if (b > 0xff)
 				continue;
-			}
 
 			/* skip DLE if needed */
-			if ( cid->sawflag > 0 ) {
-				if ( cid->sawflag != 5 && cid->skipflag == 0 && b == 0x10 ) {
+			if (cid->sawflag > 0) {
+				if (cid->sawflag != 5 && cid->skipflag == 0 && b == 0x10) {
 					cid->skipflag = 1 ;
 					continue ;
 				}
 			}
-			if ( cid->skipflag == 1 ) {
+			if (cid->skipflag == 1)
 				cid->skipflag = 0 ;
-			}
 
 			/* caller id retrieval */
-			switch(cid->sawflag) {
-				case 0: /* DLE */
-					if (b == 0x10) {
-						cid->sawflag = 1;
-						cid->skipflag = 0;
-						cid->crc = 0;
-					}
-					break;
-				case 1: /* SOH */
-					if (b == 0x01) {
-						cid->sawflag = 2;
-					}
-					break ;
-				case 2: /* HEADER */
-					if (b == 0x07) {
-						cid->sawflag = 3;
-					}
-					break;
-				case 3: /* STX */
-					if (b == 0x02) {
-						cid->sawflag = 4;
-					}
-					break;
-				case 4: /* SERVICE TYPE */
-					if (b == 0x40) {
-						cid->sawflag = 5;
-					}
-					break;
-				case 5: /* Frame Length */
-					cid->sawflag = 6;
-					break;	
-				case 6: /* NUMBER TYPE */
-					cid->sawflag = 7;
-					cid->pos = 0;
-					cid->rawdata[cid->pos++] = b;
-					break;
-				case 7:	/* NUMBER LENGTH */
-					cid->sawflag = 8;
-					cid->len = b;
-					if ( (cid->len+2) >= sizeof( cid->rawdata ) ) {
-						ast_log(LOG_WARNING, "too long caller id string\n" ) ;
-						free(obuf);
-						return -1;
-					}
-					cid->rawdata[cid->pos++] = b;
-					break;
-				case 8:	/* Retrieve message */
-					cid->rawdata[cid->pos++] = b;
-					cid->len--;
-					if (cid->len<=0) {
-						cid->rawdata[cid->pos] = '\0';
-						cid->sawflag = 9;
-					}
-					break;
-				case 9:	/* ETX */
-					cid->sawflag = 10;
-					break;
-				case 10: /* CRC Checksum 1 */
-					cid->sawflag = 11;
-					break;
-				case 11: /* CRC Checksum 2 */
-					cid->sawflag = 12;
-					if ( cid->crc != 0 ) {
-						ast_log(LOG_WARNING, "crc checksum error\n" ) ;
-						free(obuf);
-						return -1;
-					} 
-					/* extract caller id data */
-					for (x=0; x<cid->pos; ) {
-						switch (cid->rawdata[x++]) {
-						case 0x02: /* caller id  number */
-							cid->number[0] = '\0';
-							cid->name[0] = '\0';
-							cid->flags = 0;
-							res = cid->rawdata[x++];
-							ast_copy_string(cid->number, &cid->rawdata[x], res+1 );
-							x += res;
-							break;
-						case 0x21: /* additional information */
-							/* length */
-							x++; 
-							/* number type */
-                        		   		switch (cid->rawdata[x]) { 
-							case 0x00: /* unknown */
-							case 0x01: /* international number */
-							case 0x02: /* domestic number */
-							case 0x03: /* network */
-							case 0x04: /* local call */
-							case 0x06: /* short dial number */
-							case 0x07: /* reserved */
-							default:   /* reserved */
-								if (option_debug > 1)
-									ast_log(LOG_DEBUG, "cid info:#1=%X\n", cid->rawdata[x]);
-								break ;
-							}
-							x++; 
-							/* numbering plan octed 4 */
-							x++; 
-							/* numbering plan octed 5 */
-							switch (cid->rawdata[x]) { 
-							case 0x00: /* unknown */
-							case 0x01: /* recommendation E.164 ISDN */
-							case 0x03: /* recommendation X.121 */
-							case 0x04: /* telex dial plan */
-							case 0x08: /* domestic dial plan */
-							case 0x09: /* private dial plan */
-							case 0x05: /* reserved */
-							default:   /* reserved */
-								if (option_debug > 1)
-									ast_log(LOG_DEBUG, "cid info:#2=%X\n", cid->rawdata[x]);
-								break ;
-							}
-							x++; 
-							break ;
-						case 0x04: /* no callerid reason */
-							/* length */
-							x++; 
-							/* no callerid reason code */
-							switch (cid->rawdata[x]) {
-							case 'P': /* caller id denied by user */
-							case 'O': /* service not available */
-							case 'C': /* pay phone */
-							case 'S': /* service congested */
-                    						cid->flags |= CID_UNKNOWN_NUMBER;
-								if (option_debug > 1)
-									ast_log(LOG_DEBUG, "no cid reason:%c\n",cid->rawdata[x]);
-								break ;
-							}
-							x++; 
-							break ;
-						case 0x09: /* dialed number */
-							/* length */
-							res = cid->rawdata[x++];
-							/* dialed number */
-							x += res;
-							break ;
-						case 0x22: /* dialed number additional information */
-							/* length */
-							x++;
-							/* number type */
-							switch (cid->rawdata[x]) {
-							case 0x00: /* unknown */
-							case 0x01: /* international number */
-							case 0x02: /* domestic number */
-							case 0x03: /* network */
-							case 0x04: /* local call */
-							case 0x06: /* short dial number */
-							case 0x07: /* reserved */
-							default:   /* reserved */
-								if (option_debug > 1)
-									ast_log(LOG_NOTICE, "did info:#1=%X\n", cid->rawdata[x]);
-								break ;
-							}
-							x++;
-							/* numbering plan octed 4 */
-							x++;
-                                			/* numbering plan octed 5 */
-							switch (cid->rawdata[x]) {
-							case 0x00: /* unknown */
-							case 0x01: /* recommendation E.164 ISDN */
-							case 0x03: /* recommendation X.121 */
-							case 0x04: /* telex dial plan */
-							case 0x08: /* domestic dial plan */
-							case 0x09: /* private dial plan */
-							case 0x05: /* reserved */
-							default:   /* reserved */
-								if (option_debug > 1)
-									ast_log(LOG_DEBUG, "did info:#2=%X\n", cid->rawdata[x]);
-								break ;
-							}
-							x++;
+			switch (cid->sawflag) {
+			case 0: /* DLE */
+				if (b == 0x10) {
+					cid->sawflag = 1;
+					cid->skipflag = 0;
+					cid->crc = 0;
+				}
+				break;
+			case 1: /* SOH */
+				if (b == 0x01) 
+					cid->sawflag = 2;
+				break ;
+			case 2: /* HEADER */
+				if (b == 0x07) 
+					cid->sawflag = 3;
+				break;
+			case 3: /* STX */
+				if (b == 0x02) 
+					cid->sawflag = 4;
+				break;
+			case 4: /* SERVICE TYPE */
+				if (b == 0x40) 
+					cid->sawflag = 5;
+				break;
+			case 5: /* Frame Length */
+				cid->sawflag = 6;
+				break;	
+			case 6: /* NUMBER TYPE */
+				cid->sawflag = 7;
+				cid->pos = 0;
+				cid->rawdata[cid->pos++] = b;
+				break;
+			case 7:	/* NUMBER LENGTH */
+				cid->sawflag = 8;
+				cid->len = b;
+				if ((cid->len+2) >= sizeof(cid->rawdata)) {
+					ast_log(LOG_WARNING, "too long caller id string\n") ;
+					return -1;
+				}
+				cid->rawdata[cid->pos++] = b;
+				break;
+			case 8:	/* Retrieve message */
+				cid->rawdata[cid->pos++] = b;
+				cid->len--;
+				if (cid->len<=0) {
+					cid->rawdata[cid->pos] = '\0';
+					cid->sawflag = 9;
+				}
+				break;
+			case 9:	/* ETX */
+				cid->sawflag = 10;
+				break;
+			case 10: /* CRC Checksum 1 */
+				cid->sawflag = 11;
+				break;
+			case 11: /* CRC Checksum 2 */
+				cid->sawflag = 12;
+				if (cid->crc != 0) {
+					ast_log(LOG_WARNING, "crc checksum error\n") ;
+					return -1;
+				} 
+				/* extract caller id data */
+				for (x = 0; x < cid->pos;) {
+					switch (cid->rawdata[x++]) {
+					case 0x02: /* caller id  number */
+						cid->number[0] = '\0';
+						cid->name[0] = '\0';
+						cid->flags = 0;
+						res = cid->rawdata[x++];
+						ast_copy_string(cid->number, &cid->rawdata[x], res+1);
+						x += res;
+						break;
+					case 0x21: /* additional information */
+						/* length */
+						x++; 
+						/* number type */
+						switch (cid->rawdata[x]) { 
+						case 0x00: /* unknown */
+						case 0x01: /* international number */
+						case 0x02: /* domestic number */
+						case 0x03: /* network */
+						case 0x04: /* local call */
+						case 0x06: /* short dial number */
+						case 0x07: /* reserved */
+						default:   /* reserved */
+							ast_debug(2, "cid info:#1=%X\n", cid->rawdata[x]);
 							break ;
 						}
+						x++; 
+						/* numbering plan octed 4 */
+						x++; 
+						/* numbering plan octed 5 */
+						switch (cid->rawdata[x]) { 
+						case 0x00: /* unknown */
+						case 0x01: /* recommendation E.164 ISDN */
+						case 0x03: /* recommendation X.121 */
+						case 0x04: /* telex dial plan */
+						case 0x08: /* domestic dial plan */
+						case 0x09: /* private dial plan */
+						case 0x05: /* reserved */
+						default:   /* reserved */
+							ast_debug(2, "cid info:#2=%X\n", cid->rawdata[x]);
+							break ;
+						}
+						x++; 
+						break ;
+					case 0x04: /* no callerid reason */
+						/* length */
+						x++; 
+						/* no callerid reason code */
+						switch (cid->rawdata[x]) {
+						case 'P': /* caller id denied by user */
+						case 'O': /* service not available */
+						case 'C': /* pay phone */
+						case 'S': /* service congested */
+							cid->flags |= CID_UNKNOWN_NUMBER;
+							ast_debug(2, "no cid reason:%c\n", cid->rawdata[x]);
+							break ;
+						}
+						x++; 
+						break ;
+					case 0x09: /* dialed number */
+						/* length */
+						res = cid->rawdata[x++];
+						/* dialed number */
+						x += res;
+						break ;
+					case 0x22: /* dialed number additional information */
+						/* length */
+						x++;
+						/* number type */
+						switch (cid->rawdata[x]) {
+						case 0x00: /* unknown */
+						case 0x01: /* international number */
+						case 0x02: /* domestic number */
+						case 0x03: /* network */
+						case 0x04: /* local call */
+						case 0x06: /* short dial number */
+						case 0x07: /* reserved */
+						default:   /* reserved */
+							if (option_debug > 1)
+								ast_log(LOG_NOTICE, "did info:#1=%X\n", cid->rawdata[x]);
+							break ;
+						}
+						x++;
+						/* numbering plan octed 4 */
+						x++;
+						/* numbering plan octed 5 */
+						switch (cid->rawdata[x]) {
+						case 0x00: /* unknown */
+						case 0x01: /* recommendation E.164 ISDN */
+						case 0x03: /* recommendation X.121 */
+						case 0x04: /* telex dial plan */
+						case 0x08: /* domestic dial plan */
+						case 0x09: /* private dial plan */
+						case 0x05: /* reserved */
+						default:   /* reserved */
+							ast_debug(2, "did info:#2=%X\n", cid->rawdata[x]);
+							break ;
+						}
+						x++;
+						break ;
 					}
-					free(obuf);
-					return 1;
-					break;
-				default:
-					ast_log(LOG_ERROR, "invalid value in sawflag %d\n", cid->sawflag);
+				}
+				return 1;
+				break;
+			default:
+				ast_log(LOG_ERROR, "invalid value in sawflag %d\n", cid->sawflag);
 			}
 		}
 	}
@@ -532,7 +534,7 @@ int callerid_feed_jp(struct callerid_state *cid, unsigned char *ubuf, int len, i
 		cid->oldlen = mylen * 2;
 	} else
 		cid->oldlen = 0;
-	free(obuf);
+	
 	return 0;
 }
 
@@ -545,43 +547,37 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 	int res;
 	int x;
 	short *buf;
-	short *obuf;
 
-	if (!(buf = ast_calloc(1, 2 * len + cid->oldlen))) {
-		return -1;
-	}
+	buf = alloca(2 * len + cid->oldlen);
 
-	obuf = buf;
 	memcpy(buf, cid->oldstuff, cid->oldlen);
 	mylen += cid->oldlen/2;
 
-	for (x=0;x<len;x++) 
+	for (x = 0; x < len; x++) 
 		buf[x+cid->oldlen/2] = AST_XLAW(ubuf[x]);
-	while(mylen >= 160) {
+	while (mylen >= 160) {
 		olen = mylen;
-		res = fsk_serie(&cid->fskd, buf, &mylen, &b);
+		res = fsk_serial(&cid->fskd, buf, &mylen, &b);
 		if (mylen < 0) {
-			ast_log(LOG_ERROR, "fsk_serie made mylen < 0 (%d)\n", mylen);
-			free(obuf);
+			ast_log(LOG_ERROR, "No start bit found in fsk data.\n");
 			return -1;
 		}
 		buf += (olen - mylen);
 		if (res < 0) {
-			ast_log(LOG_NOTICE, "fsk_serie failed\n");
-			free(obuf);
+			ast_log(LOG_NOTICE, "fsk_serial failed\n");
 			return -1;
 		}
 		if (res == 1) {
 			/* Ignore invalid bytes */
 			if (b > 0xff)
 				continue;
-			switch(cid->sawflag) {
+			switch (cid->sawflag) {
 			case 0: /* Look for flag */
 				if (b == 'U')
 					cid->sawflag = 2;
 				break;
 			case 2: /* Get lead-in */
-				if ((b == 0x04) || (b == 0x80)) {
+				if ((b == 0x04) || (b == 0x80) || (b == 0x06) || (b == 0x82)) {
 					cid->type = b;
 					cid->sawflag = 3;
 					cid->cksum = b;
@@ -597,7 +593,6 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 			case 4: /* Retrieve message */
 				if (cid->pos >= 128) {
 					ast_log(LOG_WARNING, "Caller ID too long???\n");
-					free(obuf);
 					return -1;
 				}
 				cid->rawdata[cid->pos++] = b;
@@ -618,12 +613,14 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 		
 				cid->number[0] = '\0';
 				cid->name[0] = '\0';
+				/* Update flags */
+				cid->flags = 0;
 				/* If we get this far we're fine.  */
-				if (cid->type == 0x80) {
+				if ((cid->type == 0x80) || (cid->type == 0x82)) {
 					/* MDMF */
 					/* Go through each element and process */
-					for (x=0;x< cid->pos;) {
-						switch(cid->rawdata[x++]) {
+					for (x = 0; x < cid->pos;) {
+						switch (cid->rawdata[x++]) {
 						case 1:
 							/* Date */
 							break;
@@ -653,12 +650,19 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 							memcpy(cid->name, cid->rawdata + x + 1, res);
 							cid->name[res] = '\0';
 							break;
+						case 11: /* Message Waiting */
+							res = cid->rawdata[x + 1];
+							if (res)
+								cid->flags |= CID_MSGWAITING;
+							else
+								cid->flags |= CID_NOMSGWAITING;
+							break;
 						case 17: /* UK: Call type, 1=Voice Call, 2=Ringback when free, 129=Message waiting  */
 						case 19: /* UK: Network message system status (Number of messages waiting) */
 						case 22: /* Something French */
 							break;
 						default:
-							ast_log(LOG_NOTICE, "Unknown IE %d\n", cid->rawdata[x-1]);
+							ast_log(LOG_NOTICE, "Unknown IE %d\n", cid->rawdata[x - 1]);
 						}
 						res = cid->rawdata[x];
 						if (0 > res){	/* Negative offset in the CID Spill */
@@ -670,12 +674,17 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 						x += cid->rawdata[x];
 						x++;
 					}
+				} else if (cid->type == 0x6) {
+					/* VMWI SDMF */
+					if (cid->rawdata[2] == 0x42) {
+						cid->flags |= CID_MSGWAITING;
+					} else if (cid->rawdata[2] == 0x6f) {
+						cid->flags |= CID_NOMSGWAITING;
+					}
 				} else {
 					/* SDMF */
 					ast_copy_string(cid->number, cid->rawdata + 8, sizeof(cid->number));
 				}
-				/* Update flags */
-				cid->flags = 0;
 				if (!strcmp(cid->number, "P")) {
 					strcpy(cid->number, "");
 					cid->flags |= CID_PRIVATE_NUMBER;
@@ -690,7 +699,6 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 					strcpy(cid->name, "");
 					cid->flags |= CID_UNKNOWN_NAME;
 				}
-				free(obuf);
 				return 1;
 				break;
 			default:
@@ -703,25 +711,25 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 		cid->oldlen = mylen * 2;
 	} else
 		cid->oldlen = 0;
-	free(obuf);
+
 	return 0;
 }
 
 void callerid_free(struct callerid_state *cid)
 {
-	free(cid);
+	ast_free(cid);
 }
 
 static int callerid_genmsg(char *msg, int size, const char *number, const char *name, int flags)
 {
-	time_t t;
-	struct tm tm;
+	struct timeval now = ast_tvnow();
+	struct ast_tm tm;
 	char *ptr;
 	int res;
-	int i,x;
+	int i, x;
+
 	/* Get the time */
-	time(&t);
-	ast_localtime(&t, &tm, NULL);
+	ast_localtime(&now, &tm, NULL);
 	
 	ptr = msg;
 	
@@ -743,7 +751,8 @@ static int callerid_genmsg(char *msg, int size, const char *number, const char *
 	} else {
 		/* Send up to 16 digits of number MAX */
 		i = strlen(number);
-		if (i > 16) i = 16;
+		if (i > 16)
+			i = 16;
 		res = snprintf(ptr, size, "\002%c", i);
 		size -= res;
 		ptr += res;
@@ -767,11 +776,12 @@ static int callerid_genmsg(char *msg, int size, const char *number, const char *
 	} else {
 		/* Send up to 16 digits of name MAX */
 		i = strlen(name);
-		if (i > 16) i = 16;
+		if (i > 16)
+			i = 16;
 		res = snprintf(ptr, size, "\007%c", i);
 		size -= res;
 		ptr += res;
-		for (x=0;x<i;x++)
+		for (x = 0; x < i; x++)
 			ptr[x] = name[x];
 		ptr[i] = '\0';
 		ptr += i;
@@ -781,23 +791,49 @@ static int callerid_genmsg(char *msg, int size, const char *number, const char *
 	
 }
 
-int vmwi_generate(unsigned char *buf, int active, int mdmf, int codec)
+int vmwi_generate(unsigned char *buf, int active, int type, int codec,
+				  const char* name, const char* number, int flags)
 {
-	unsigned char msg[256];
-	int len=0;
+	char msg[256];
+	int len = 0;
 	int sum;
 	int x;
 	int bytes = 0;
 	float cr = 1.0;
 	float ci = 0.0;
 	float scont = 0.0;
-	if (mdmf) {
-		/* MDMF Message waiting */
+	
+	if (type == CID_MWI_TYPE_MDMF_FULL) {
+		/* MDMF Message waiting with date, number, name and MWI parameter */
+		msg[0] = 0x82;
+
+		/* put date, number info at the right place */
+		len = callerid_genmsg(msg+2, sizeof(msg)-2, number, name, flags); 
+		
+		/* length of MDMF CLI plus Message Waiting Structure */
+		msg[1] = len+3;
+		
+		/* Go to the position to write to */
+		len = len+2;
+		
+		/* "Message Waiting Parameter" */
+		msg[len++] = 0x0b;
+		/* Length of IE is one */
+		msg[len++] = 1;
+		/* Active or not */
+		if (active)
+			msg[len++] = 0xff;
+		else
+			msg[len++] = 0x00;
+		
+	} else if (type == CID_MWI_TYPE_MDMF) {
+		/* MDMF Message waiting only */
+		/* same as above except that the we only put MWI parameter */
 		msg[len++] = 0x82;
 		/* Length is 3 */
 		msg[len++] = 3;
 		/* IE is "Message Waiting Parameter" */
-		msg[len++] = 0xb;
+		msg[len++] = 0x0b;
 		/* Length of IE is one */
 		msg[len++] = 1;
 		/* Active or not */
@@ -821,31 +857,31 @@ int vmwi_generate(unsigned char *buf, int active, int mdmf, int codec)
 		}
 	}
 	sum = 0;
-	for (x=0; x<len; x++)
+	for (x = 0; x < len; x++)
 		sum += msg[x];
 	sum = (256 - (sum & 255));
 	msg[len++] = sum;
 	/* Wait a half a second */
-	for (x=0; x<4000; x++)
+	for (x = 0; x < 4000; x++)
 		PUT_BYTE(0x7f);
 	/* Transmit 30 0x55's (looks like a square wave) for channel seizure */
-	for (x=0; x<30; x++)
+	for (x = 0; x < 30; x++)
 		PUT_CLID(0x55);
 	/* Send 170ms of callerid marks */
-	for (x=0; x<170; x++)
+	for (x = 0; x < 170; x++)
 		PUT_CLID_MARKMS;
-	for (x=0; x<len; x++) {
+	for (x = 0; x < len; x++) {
 		PUT_CLID(msg[x]);
 	}
 	/* Send 50 more ms of marks */
-	for (x=0; x<50; x++)
+	for (x = 0; x < 50; x++)
 		PUT_CLID_MARKMS;
 	return bytes;
 }
 
 int callerid_generate(unsigned char *buf, const char *number, const char *name, int flags, int callwaiting, int codec)
 {
-	int bytes=0;
+	int bytes = 0;
 	int x, sum;
 	int len;
 
@@ -857,14 +893,14 @@ int callerid_generate(unsigned char *buf, const char *number, const char *name, 
 	len = callerid_genmsg(msg, sizeof(msg), number, name, flags);
 	if (!callwaiting) {
 		/* Wait a half a second */
-		for (x=0; x<4000; x++)
+		for (x = 0; x < 4000; x++)
 			PUT_BYTE(0x7f);
 		/* Transmit 30 0x55's (looks like a square wave) for channel seizure */
-		for (x=0; x<30; x++)
+		for (x = 0; x < 30; x++)
 			PUT_CLID(0x55);
 	}
 	/* Send 150ms of callerid marks */
-	for (x=0; x<150; x++)
+	for (x = 0; x < 150; x++)
 		PUT_CLID_MARKMS;
 	/* Send 0x80 indicating MDMF format */
 	PUT_CLID(0x80);
@@ -872,7 +908,7 @@ int callerid_generate(unsigned char *buf, const char *number, const char *name, 
 	PUT_CLID(len);
 	sum = 0x80 + strlen(msg);
 	/* Put each character of message and update checksum */
-	for (x=0; x<len; x++) {
+	for (x = 0; x < len; x++) {
 		PUT_CLID(msg[x]);
 		sum += msg[x];
 	}
@@ -880,7 +916,7 @@ int callerid_generate(unsigned char *buf, const char *number, const char *name, 
 	PUT_CLID(256 - (sum & 255));
 
 	/* Send 50 more ms of marks */
-	for (x=0; x<50; x++)
+	for (x = 0; x < 50; x++)
 		PUT_CLID_MARKMS;
 	
 	return bytes;
@@ -892,11 +928,11 @@ int callerid_generate(unsigned char *buf, const char *number, const char *name, 
  */
 void ast_shrink_phone_number(char *n)
 {
-	int x, y=0;
+	int x, y = 0;
 	int bracketed = 0;
 
-	for (x=0; n[x]; x++) {
-		switch(n[x]) {
+	for (x = 0; n[x]; x++) {
+		switch (n[x]) {
 		case '[':
 			bracketed++;
 			n[y++] = n[x];
@@ -914,6 +950,7 @@ void ast_shrink_phone_number(char *n)
 				n[y++] = n[x];
 			break;
 		default:
+			/* ignore parenthesis and whitespace */
 			if (!strchr("( )", n[x]))
 				n[y++] = n[x];
 		}
@@ -932,7 +969,7 @@ static int ast_is_valid_string(const char *exten, const char *valid)
 
 	if (ast_strlen_zero(exten))
 		return 0;
-	for (x=0; exten[x]; x++)
+	for (x = 0; exten[x]; x++)
 		if (!strchr(valid, exten[x]))
 			return 0;
 	return 1;
@@ -964,7 +1001,6 @@ int ast_is_shrinkable_phonenumber(const char *exten)
 	input			location	name
 	" foo bar " <123>	123		' foo bar ' (with spaces around)
 	" foo bar "		NULL		'foo bar' (without spaces around)
-	" foo bar  <123>"	123		'" foo bar'
   The parsing of leading and trailing space/quotes should be more consistent.
 */
 int ast_callerid_parse(char *instr, char **name, char **location)
@@ -972,12 +1008,21 @@ int ast_callerid_parse(char *instr, char **name, char **location)
 	char *ns, *ne, *ls, *le;
 
 	/* Try "name" <location> format or name <location> format */
-	if ((ls = strchr(instr, '<')) && (le = strchr(ls, '>'))) {
+	if ((ls = strrchr(instr, '<')) && (le = strrchr(ls, '>'))) {
 		*ls = *le = '\0';	/* location found, trim off the brackets */
 		*location = ls + 1;	/* and this is the result */
 		if ((ns = strchr(instr, '"')) && (ne = strchr(ns + 1, '"'))) {
 			*ns = *ne = '\0';	/* trim off the quotes */
 			*name = ns + 1;		/* and this is the name */
+		} else if (ns) {
+			/* An opening quote was found but no closing quote was. The closing
+			 * quote may actually be after the end of the bracketed number
+			 */
+			if (strchr(le + 1, '\"')) {
+				*ns = '\0';
+				*name = ns + 1;
+				ast_trim_blanks(*name);
+			}
 		} else { /* no quotes, trim off leading and trailing spaces */
 			*name = ast_skip_blanks(instr);
 			ast_trim_blanks(*name);
@@ -1061,8 +1106,8 @@ int ast_callerid_split(const char *buf, char *name, int namelen, char *num, int 
 /*! \brief Translation table for Caller ID Presentation settings */
 static struct {
 	int val;
-	char *name;
-	char *description;
+	const char *name;
+	const char *description;
 } pres_types[] = {
 	{  AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED, "allowed_not_screened", "Presentation Allowed, Not Screened"},
 	{  AST_PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN, "allowed_passed_screen", "Presentation Allowed, Passed Screen"},
@@ -1084,7 +1129,7 @@ int ast_parse_caller_presentation(const char *data)
 {
 	int i;
 
-	for (i = 0; i < ((sizeof(pres_types) / sizeof(pres_types[0]))); i++) {
+	for (i = 0; i < ARRAY_LEN(pres_types); i++) {
 		if (!strcasecmp(pres_types[i].name, data))
 			return pres_types[i].val;
 	}
@@ -1100,9 +1145,25 @@ const char *ast_describe_caller_presentation(int data)
 {
 	int i;
 
-	for (i = 0; i < ((sizeof(pres_types) / sizeof(pres_types[0]))); i++) {
+	for (i = 0; i < ARRAY_LEN(pres_types); i++) {
 		if (pres_types[i].val == data)
 			return pres_types[i].description;
+	}
+
+	return "unknown";
+}
+
+/*! \brief Convert caller ID pres value to text code
+	\param data text string
+	\return string for config file
+*/
+const char *ast_named_caller_presentation(int data)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_LEN(pres_types); i++) {
+		if (pres_types[i].val == data)
+			return pres_types[i].name;
 	}
 
 	return "unknown";

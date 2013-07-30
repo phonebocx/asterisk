@@ -29,23 +29,13 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <fcntl.h>
-#include <netinet/in.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 125386 $")
 
 #include "asterisk/lock.h"
-#include "asterisk/logger.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/module.h"
 #include "asterisk/config.h"
-#include "asterisk/options.h"
 #include "asterisk/translate.h"
-#include "asterisk/channel.h"
 #include "asterisk/utils.h"
 
 /* define NOT_BLI to use a faster but not bit-level identical version */
@@ -239,8 +229,8 @@ static int adpcmtolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct adpcm_decoder_pvt *tmp = pvt->pvt;
 	int x = f->datalen;
-	unsigned char *src = f->data;
-	int16_t *dst = (int16_t *)pvt->outbuf + pvt->samples;
+	unsigned char *src = f->data.ptr;
+	int16_t *dst = pvt->outbuf.i16 + pvt->samples;
 
 	while (x--) {
 		*dst++ = decode((*src >> 4) & 0xf, &tmp->state);
@@ -256,7 +246,7 @@ static int lintoadpcm_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct adpcm_encoder_pvt *tmp = pvt->pvt;
 
-	memcpy(&tmp->inbuf[pvt->samples], f->data, f->datalen);
+	memcpy(&tmp->inbuf[pvt->samples], f->data.ptr, f->datalen);
 	pvt->samples += f->samples;
 	return 0;
 }
@@ -275,7 +265,7 @@ static struct ast_frame *lintoadpcm_frameout(struct ast_trans_pvt *pvt)
 	pvt->samples &= ~1; /* atomic size is 2 samples */
 
 	for (i = 0; i < pvt->samples; i += 2) {
-		pvt->outbuf[i/2] =
+		pvt->outbuf.c[i/2] =
 			(adpcm(tmp->inbuf[i  ], &tmp->state) << 4) |
 			(adpcm(tmp->inbuf[i+1], &tmp->state)     );
 	};
@@ -306,7 +296,7 @@ static struct ast_frame *adpcmtolin_sample(void)
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
-	f.data = adpcm_slin_ex;
+	f.data.ptr = adpcm_slin_ex;
 	return &f;
 }
 
@@ -322,7 +312,7 @@ static struct ast_frame *lintoadpcm_sample(void)
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
-	f.data = slin_adpcm_ex;
+	f.data.ptr = slin_adpcm_ex;
 	return &f;
 }
 
@@ -350,27 +340,31 @@ static struct ast_translator lintoadpcm = {
 	.buf_size = BUFFER_SAMPLES/ 2,	/* 2 samples per byte */
 };
 
-static void parse_config(void)
+static int parse_config(int reload)
 {
-	struct ast_config *cfg = ast_config_load("codecs.conf");
+	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
+	struct ast_config *cfg = ast_config_load("codecs.conf", config_flags);
 	struct ast_variable *var;
 	if (cfg == NULL)
-		return;
+		return 0;
+	if (cfg == CONFIG_STATUS_FILEUNCHANGED)
+		return 0;
 	for (var = ast_variable_browse(cfg, "plc"); var ; var = var->next) {
 		if (!strcasecmp(var->name, "genericplc")) {
 			adpcmtolin.useplc = ast_true(var->value) ? 1 : 0;
-			if (option_verbose > 2)
-				ast_verbose(VERBOSE_PREFIX_3 "codec_adpcm: %susing generic PLC\n", adpcmtolin.useplc ? "" : "not ");
+			ast_verb(3, "codec_adpcm: %susing generic PLC\n", adpcmtolin.useplc ? "" : "not ");
 		}
 	}
 	ast_config_destroy(cfg);
+	return 0;
 }
 
 /*! \brief standard module glue */
 static int reload(void)
 {
-	parse_config();
-	return 0;
+	if (parse_config(1))
+		return AST_MODULE_LOAD_DECLINE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)
@@ -387,14 +381,16 @@ static int load_module(void)
 {
 	int res;
 
-	parse_config();
+	if (parse_config(0))
+		return AST_MODULE_LOAD_DECLINE;
 	res = ast_register_translator(&adpcmtolin);
 	if (!res)
 		res = ast_register_translator(&lintoadpcm);
 	else
 		ast_unregister_translator(&adpcmtolin);
-
-	return res;
+	if (res)
+		return AST_MODULE_LOAD_FAILURE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Adaptive Differential PCM Coder/Decoder",

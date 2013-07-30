@@ -19,25 +19,18 @@
  *
  * \brief Use the base64 as functions
  * 
+ * \ingroup functions
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89430 $")
 
 #include "asterisk/module.h"
-#include "asterisk/channel.h"
-#include "asterisk/pbx.h"
-#include "asterisk/logger.h"
+#include "asterisk/pbx.h"	/* function register/unregister */
 #include "asterisk/utils.h"
-#include "asterisk/app.h"
 
-static int base64_encode(struct ast_channel *chan, char *cmd, char *data,
+static int base64_encode(struct ast_channel *chan, const char *cmd, char *data,
 			 char *buf, size_t len)
 {
 	if (ast_strlen_zero(data)) {
@@ -50,7 +43,7 @@ static int base64_encode(struct ast_channel *chan, char *cmd, char *data,
 	return 0;
 }
 
-static int base64_decode(struct ast_channel *chan, char *cmd, char *data,
+static int base64_decode(struct ast_channel *chan, const char *cmd, char *data,
 			 char *buf, size_t len)
 {
 	if (ast_strlen_zero(data)) {

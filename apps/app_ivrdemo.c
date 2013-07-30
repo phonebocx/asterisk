@@ -31,15 +31,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89424 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -92,15 +86,12 @@ AST_IVR_DECLARE_MENU(ivr_demo, "IVR Demo Main Menu", 0,
 static int skel_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
-	struct ast_module_user *u;
 	
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "skel requires an argument (filename)\n");
 		return -1;
 	}
 	
-	u = ast_module_user_add(chan);
-
 	/* Do our thing here */
 
 	if (chan->_state != AST_STATE_UP)
@@ -108,20 +99,12 @@ static int skel_exec(struct ast_channel *chan, void *data)
 	if (!res)
 		res = ast_ivr_menu_run(chan, &ivr_demo, data);
 	
-	ast_module_user_remove(u);
-
 	return res;
 }
 
 static int unload_module(void)
 {
-	int res;
-	
-	res = ast_unregister_application(app);
-
-	ast_module_user_hangup_all();
-	
-	return res;
+	return ast_unregister_application(app);
 }
 
 static int load_module(void)

@@ -27,22 +27,9 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43236 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 117802 $")
 
-#include <unistd.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <sys/time.h>
-
-#include "asterisk/lock.h"
-#include "asterisk/channel.h"
-#include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/sched.h"
+#include "asterisk/mod_format.h"
 #include "asterisk/module.h"
 
 #define G723_MAX_SIZE 1024
@@ -77,7 +64,7 @@ static struct ast_frame *g723_read(struct ast_filestream *s, int *whennext)
 	s->fr.subclass = AST_FORMAT_G723_1;
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, size);
-	if ((res = fread(s->fr.data, 1, s->fr.datalen, s->f)) != size) {
+	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) != size) {
 		ast_log(LOG_WARNING, "Short read (%d of %d bytes) (%s)!\n", res, size, strerror(errno));
 		return NULL;
 	}
@@ -113,7 +100,7 @@ static int g723_write(struct ast_filestream *s, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Unable to write size: res=%d (%s)\n", res, strerror(errno));
 		return -1;
 	}
-	if ((res = fwrite(f->data, 1, f->datalen, s->f)) != f->datalen) {
+	if ((res = fwrite(f->data.ptr, 1, f->datalen, s->f)) != f->datalen) {
 		ast_log(LOG_WARNING, "Unable to write frame: res=%d (%s)\n", res, strerror(errno));
 		return -1;
 	}	
@@ -152,7 +139,9 @@ static const struct ast_format g723_1_f = {
 
 static int load_module(void)
 {
-	return ast_format_register(&g723_1_f);
+	if (ast_format_register(&g723_1_f))
+		return AST_MODULE_LOAD_FAILURE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)

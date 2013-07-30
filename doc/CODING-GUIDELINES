@@ -1,5 +1,15 @@
-== Asterisk Patch/Coding Guidelines ==
---------------------------------------
+	    --------------------------------------
+	    == Asterisk Coding Guidelines ==
+	    --------------------------------------
+
+This document gives some basic indication on how the asterisk code
+is structured. The first part covers the structure and style of
+individual files. The second part (TO BE COMPLETED) covers the
+overall code structure and the build architecture.
+
+Please read it to the end to understand in detail how the asterisk
+code is organized, and to know how to extend asterisk or contribute
+new code.
 
 We are looking forward to your contributions to Asterisk - the 
 Open Source PBX! As Asterisk is a large and in some parts very
@@ -11,8 +21,8 @@ lines, and is well documented.
 
 Asterisk is published under a dual-licensing scheme by Digium.
 To be accepted into the codebase, all non-trivial changes must be
-disclaimed to Digium or placed in the public domain. For more information
-see http://bugs.digium.com
+licensed to Digium. For more information, see the electronic license
+agreement on http://bugs.digium.com/.
 
 Patches should be in the form of a unified (-u) diff, made from a checkout
 from subversion.
@@ -23,6 +33,10 @@ If you would like to only include changes to certain files in the patch, you
 can list them in the "svn diff" command:
 
 /usr/src/asterisk$ svn diff somefile.c someotherfile.c > mypatch
+
+		-----------------------------------
+		==  PART ONE: CODING GUIDELINES  ==
+		-----------------------------------
 
 * General rules
 ---------------
@@ -44,6 +58,62 @@ can list them in the "svn diff" command:
 
 - Use spaces instead of tabs when aligning in-line comments or #defines (this makes 
   your comments aligned even if the code is viewed with another tabsize)
+
+* File structure and header inclusion
+-------------------------------------
+
+Every C source file should start with a proper copyright
+and a brief description of the content of the file.
+Following that, you should immediately put the following lines:
+
+#include "asterisk.h"
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 147811 $")
+
+"asterisk.h" resolves OS and compiler dependencies for the basic
+set of unix functions (data types, system calls, basic I/O
+libraries) and the basic Asterisk APIs.
+ASTERISK_FILE_VERSION() stores in the executable information
+about the file.   
+
+Next, you should #include extra headers according to the functionality
+that your file uses or implements. For each group of functions that
+you use there is a common header, which covers OS header dependencies
+and defines the 'external' API of those functions (the equivalent
+of 'public' members of a class).  As an example:
+
+    asterisk/module.h
+        if you are implementing a module, this should be included in one
+        of the files that are linked with the module.
+
+    asterisk/io.h
+        access to extra file I/O functions (stat, fstat, playing with
+        directories etc)
+
+    asterisk/network.h
+        basic network I/O - all of the socket library, select/poll,
+        and asterisk-specific (usually either thread-safe or reentrant
+        or both) functions to play with socket addresses.
+
+    asterisk/app.h
+        parsing of application arguments
+
+    asterisk/channel.h
+        struct ast_channel and functions to manipulate it
+
+For more information look at the headers in include/asterisk/ .
+These files are usually self-sufficient, i.e. they recursively #include
+all the extra headers they need.
+
+The equivalent of 'private' members of a class are either directly in
+the C source file, or in files named asterisk/mod_*.h to make it clear
+that they are not for inclusion by generic code.
+
+Keep the number of header files small by not including them unnecessarily.
+Don't cut&paste list of header files from other sources, but only include
+those you really need. Apart from obvious cases (e.g. module.h which
+is almost always necessary) write a short comment next to each #include to
+explain why you need it.
+
 
 * Declaration of functions and variables
 ----------------------------------------
@@ -68,6 +138,10 @@ can list them in the "svn diff" command:
   within Asterisk to enhance portability and in some cases to produce more
   secure and thread-safe code. Check utils.c/utils.h for these.
 
+- If you need to create a detached thread, use the ast_pthread_create_detached()
+  normally or ast_pthread_create_detached_background() for a thread with a smaller
+  stack size.  This reduces the replication of the code to handle the pthread_attr_t
+  structure.
 
 * Code formatting
 -----------------
@@ -98,7 +172,7 @@ this means in verbose:
 Function calls and arguments should be spaced in a consistent way across
 the codebase.
 	GOOD: foo(arg1, arg2);
-	GOOD: foo(arg1,arg2);	/* Acceptable but not preferred */
+	BAD: foo(arg1,arg2);
 	BAD: foo (arg1, arg2);
 	BAD: foo( arg1, arg2 );
 	BAD: foo(arg1, arg2,arg3);
@@ -152,10 +226,14 @@ for (x = 0; x < 5; x++)
 instead do:
 for (x = 0; x < 5; x++) {
 	if (foo) {
-		if (bar)
+		if (bar) {
 			baz();
+		}
 	}
 }
+
+- Always use braces around the statements following an if/for/while construct,
+even if not strictly necessary, as it reduces future possible problems.
 
 - Don't build code like this:
 
@@ -206,6 +284,27 @@ alloca(), and similar functions do not _ever_ need to be cast to a specific
 type, and when you are passing a pointer to (for example) a callback function
 that accepts a 'void *' you do not need to cast into that type.
 
+* Function naming
+-----------------
+
+All public functions (those not marked 'static'), must be named "ast_<something>"
+and have a descriptive name.
+
+As an example, suppose you wanted to take a local function "find_feature", defined
+as static in a file, and used only in that file, and make it public, and use it
+in other files. You will have to remove the "static" declaration and define a 
+prototype in an appropriate header file (usually in include/asterisk). A more
+specific name should be given, such as "ast_find_call_feature".
+
+* Variable function argument parsing
+------------------------------------
+
+Functions with a variable amount of arguments need a 'sentinel' when called.
+Newer GNU C compilers are fine if you use NULL for this. Older versions (pre 4)
+don't like this.
+You should use the constant SENTINEL.
+This one is defined in include/asterisk/compiler.h
+
 * Variable naming
 -----------------
 
@@ -225,11 +324,7 @@ options that they are in fact intended to be global.
 - Don't use un-necessary typedef's
 Don't use 'typedef' just to shorten the amount of typing; there is no substantial
 benefit in this:
-
-struct foo {
-	int bar;
-};
-typedef foo_t struct foo;
+struct foo { int bar; }; typedef struct foo foo_t;
 
 In fact, don't use 'variable type' suffixes at all; it's much preferable to
 just type 'struct foo' rather than 'foo_s'.
@@ -240,9 +335,9 @@ this allows structure members, local variables and function arguments to
 be declared as using the enum's type. For example:
 
 enum option {
-  OPT_FOO = 1
-  OPT_BAR = 2
-  OPT_BAZ = 4
+  OPT_FOO = 1,
+  OPT_BAR = 2,
+  OPT_BAZ = 4,
 };
 
 static enum option global_option;
@@ -287,6 +382,12 @@ processor operations, unlike ast_copy_string().
 * Use of functions
 ------------------
 
+For the sake of uclibc, do not use index, bcopy or bzero; use 
+strchr(), memset(), and memmove() instead. uclibc can be configured
+to supply these functions, but we can save these users
+time and consternation if we abstain from using these
+functions.
+
 When making applications, always ast_strdupa(data) to a local pointer if
 you intend to parse the incoming data string.
 
@@ -294,15 +395,15 @@ you intend to parse the incoming data string.
 		mydata = ast_strdupa(data);
 
 
-- Separating arguments to dialplan applications and functions
-Use ast_app_separate_args() to separate the arguments to your application
-once you have made a local copy of the string.
+- Use the argument parsing macros to declare arguments and parse them, i.e.:
 
-- Parsing strings with strsep
-Use strsep() for parsing strings when possible; there is no worry about
-'re-entrancy' as with strtok(), and even though it modifies the original
-string (which the man page warns about), in many cases that is exactly
-what you want!
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(arg1);
+		AST_APP_ARG(arg2);
+		AST_APP_ARG(arg3);
+	);
+	parse = ast_strdupa(data);
+	AST_STANDARD_APP_ARGS(args, parse);
 
 - Create generic code!
 If you do the same or a similar operation more than one time, make it a
@@ -381,7 +482,7 @@ in having code like this:
 	else
 		newstr = NULL;
 
-However, the ast_strdup and ast_strdup functions will happily accept a NULL
+However, the ast_strdup and ast_strdupa functions will happily accept a NULL
 argument without generating an error.  The same code can be written as:
 	
 	newstr = ast_strdup(str);
@@ -430,12 +531,14 @@ followed. Do not use the javadoc style.
 
 /*!
  * \brief Do interesting stuff.
+ *
  * \param thing1 interesting parameter 1.
  * \param thing2 interesting parameter 2.
  *
  * This function does some interesting stuff.
  *
- * \return zero on success, -1 on error.
+ * \retval zero on success
+ * \retval -1 on error.
  */
 int ast_interesting_stuff(int thing1, int thing2)
 {
@@ -471,6 +574,14 @@ struct interesting_struct
 Note that /*! */ blocks document the construct immediately following them
 unless they are written, /*!< */, in which case they document the construct
 preceding them.
+
+It is very much preferred that documentation is not done inline, as done in
+the previous example for member2.  The first reason for this is that it tends
+to encourage extremely brief, and often pointless, documentation since people
+try to keep the comment from making the line extremely long.  However, if you
+insist on using inline comments, please indent the documentation with spaces!
+That way, all of the comments are properly aligned, regardless of what tab
+size is being used for viewing the code.
 
 * Finishing up before you submit your code
 ------------------------------------------
@@ -534,10 +645,286 @@ The old style, with one event named "ThisEventOn" and another named
 Check manager.txt for more information on manager and existing
 headers. Please update this file if you add new headers.
 
+* Locking in Asterisk
+-----------------------------
+
+A) Locking Fundamentals
+
+Asterisk is a heavily multithreaded application.  It makes extensive
+use of locking to ensure safe access to shared resources between
+different threads.
+
+When more that one lock is involved in a given code path, there is the
+potential for deadlocks.  A deadlock occurs when a thread is stuck
+waiting for a resource that it will never acquire.  Here is a classic
+example of a deadlock:
+
+   Thread 1                   Thread 2
+   ------------               ------------
+   Holds Lock A               Holds Lock B
+   Waiting for Lock B         Waiting for Lock A
+
+In this case, there is a deadlock between threads 1 and 2.
+This deadlock would have been avoided if both threads had
+agreed that one must acquire Lock A before Lock B.
+
+In general, the fundamental rule for dealing with multiple locks is
+
+    an order _must_ be established to acquire locks, and then all threads
+    must respect that order when acquiring locks.
+
+
+A.1) Establishing a locking order
+
+Because any ordering for acquiring locks is ok, one could establish
+the rule arbitrarily, e.g. ordering by address, or by some other criterion.
+The main issue, though, is defining an order that
+  i) is easy to check at runtime;
+  ii) reflects the order in which the code executes.
+As an example, if a data structure B is only accessible through a
+data structure A, and both require locking, then the natural order
+is locking first A and then B.
+As another example, if we have some unrelated data structures to
+be locked in pairs, then a possible order can be based on the address
+of the data structures themselves.
+
+B) Minding the boundary between channel drivers and the Asterisk core
+
+The #1 cause of deadlocks in Asterisk is by not properly following the
+locking rules that exist at the boundary between Channel Drivers and
+the Asterisk core.  The Asterisk core allocates an ast_channel, and
+Channel Drivers allocate "technology specific private data" (PVT) that is
+associated with an ast_channel.  Typically, both the ast_channel and
+PVT have their own lock.  There are _many_
+code paths that require both objects to be locked.
+
+The locking order in this situation is the following:
+
+    1) ast_channel
+    2) PVT
+
+Channel Drivers implement the ast_channel_tech interface to provide a
+channel implementation for Asterisk.  Most of the channel_tech
+interface callbacks are called with the associated ast_channel
+locked.  When accessing technology specific data, the PVT can be locked
+directly because the locking order is respected.
+
+C) Preventing lock ordering reversals.
+
+There are some code paths which make it extremely difficult to
+respect the locking order.
+Consider for example the following situation:
+
+    1) A message comes in over the "network"
+    2) The Channel Driver (CD) monitor thread receives the message
+    3) The CD associates the message with a PVT and locks the PVT
+    4) While processing the message, the CD must do something that requires
+       locking the ast_channel associated to the PVT
+
+This is the point that must be handled carefully.
+The following psuedo-code
+
+      unlock(pvt);
+      lock(ast_channel);
+      lock(pvt);
+
+is _not_ correct for two reasons:
+
+i) first and foremost, unlocking the PVT means that other threads
+   can acquire the lock and believe it is safe to modify the
+   associated data. When reacquiring the lock, the original thread
+   might find unexpected changes in the protected data structures.
+   This essentially means that the original thread must behave as if
+   the lock on the pvt was not held, in which case it could have
+   released it itself altogether;
+
+ii) Asterisk uses the so called "recursive" locks, which allow a thread
+   to issue a lock() call multiple times on the same lock. Recursive
+   locks count the number of calls, and they require an equivalent
+   number of unlock() to be actually released.
+
+   For this reason, just calling unlock() once does not guarantee that the
+   lock is actually released -- it all depends on how many times lock()
+   was called before.
+
+An alternative, but still incorrect, construct is widely used in
+the asterisk code to try and improve the situation:
+
+      while (trylock(ast_channel) == FAILURE) {
+          unlock(pvt);
+          usleep(1); /* yield to other threads */
+          lock(pvt);
+      }
+
+Here the trylock() is non blocking, so we do not deadlock if the ast_channel
+is already locked by someone else: in this case, we try to unlock the PVT
+(which happens only if the PVT lock counter is 1), yield the CPU to
+give other threads a chance to run, and then acquire the lock again.
+
+This code is not correct for two reasons:
+  i) same as in the previous example, it releases the lock when the thread
+     probably did not expect it;
+  ii) if the PVT lock counter is greater than 1 we will not
+     really release the lock on the PVT. We might be lucky and have the
+     other contender actually release the lock itself, and so we will "win"
+     the race, but if both contenders have their lock counts > 1 then
+     they will loop forever (basically replacing deadlock with livelock).
+
+Another variant of this code is the following:
+
+    if (trylock(ast_channel) == FAILURE) {
+        unlock(pvt);
+        lock(ast_channel);
+        lock(pvt);
+    }
+
+which has the same issues as the while(trylock...) code, but just
+deadlocks instead of looping forever in case of lock counts > 1.
+
+The deadlock/livelock could be in principle spared if one had an
+unlock_all() function that calls unlock as many times as needed to
+actually release the lock, and reports the count. Then we could do:
+
+    if (trylock(ast_channel) == FAILURE) {
+        n = unlock_all(pvt);
+        lock(ast_channel)
+        while (n-- > 0) lock(pvt);
+    }
+
+The issue with unexpected unlocks remains, though.
+
+C) Locking multiple channels.
+
+The next situation to consider is what to do when you need a lock on
+multiple ast_channels (or multiple unrelated data structures).
+
+If we are sure that we do not hold any of these locks, then the
+following construct is sufficient:
+
+         lock(MIN(chan1, chan2));
+         lock(MAX(chan1, chan2));
+
+That type of code would follow an established locking order of always
+locking the channel that has a lower address first.  Also keep in mind
+that to use this construct for channel locking, one would have to go
+through the entire codebase to ensure that when two channels are locked,
+this locking order is used.
+   However, if we enter the above section of code with some lock held
+(which would be incorrect using non-recursive locks, but is completely
+legal using recursive mutexes) then the locking order is not guaranteed
+anymore because it depends on which locks we already hold. So we have
+to go through the same tricks used for the channel+PVT case.
+
+D) Recommendations
+
+As you can see from the above discussion, getting locking right is all
+but easy. So please follow these recommendations when using locks:
+
+*) Use locks only when really necessary
+    Please try to use locks only when strictly necessary, and only for
+    the minimum amount of time required to run critical sections of code.
+    A common use of locks in the current code is to protect a data structure
+    from being released while you use it.
+    With the use of reference-counted objects (astobj2) this should not be
+    necessary anymore.
+
+*) Do not sleep while holding a lock
+    If possible, do not run any blocking code while holding a lock,
+    because you will also block other threads trying to access the same
+    lock. In many cases, you can hold a reference to the object to avoid
+    that it is deleted while you sleep, perhaps set a flag in the object
+    itself to report other threads that you have some pending work to
+    complete, then release and acquire the lock around the blocking path,
+    checking the status of the object after you acquire the lock to make
+    sure that you can still perform the operation you wanted to.
+
+*) Try not to exploit the 'recursive' feature of locks.
+    Recursive locks are very convenient when coding, as you don't have to
+    worry, when entering a section of code, whether or not you already
+    hold the lock -- you can just protect the section with a lock/unlock
+    pair and let the lock counter track things for you.
+       But as you have seen, exploiting the features of recursive locks
+    make it a lot harder to implement proper deadlock avoidance strategies.
+    So please try to analyse your code and determine statically whether you
+    already hold a lock when entering a section of code.
+       If you need to call some function foo() with and without a lock held,
+    you could define two function as below:
+        foo_locked(...) {
+            ... do something, assume lock held
+        }
+
+        foo(...) {
+            lock(xyz)
+            ret = foo_locked(...)
+            unlock(xyz)
+            return ret;
+        }
+    and call them according to the needs.
+
+*) Document locking rules.
+    Please document the locking order rules are documented for every
+    lock introduced into Asterisk.  This is done almost nowhere in the
+    existing code.  However, it will be expected to be there for newly
+    introduced code.  Over time, this information should be added for
+    all of the existing lock usage.
+
+-----------------------------------------------------------------------
+
+
+	    ------------------------------------
+	    ==  PART TWO: BUILD ARCHITECTURE  ==
+	    ------------------------------------
+
+The asterisk build architecture relies on autoconf to detect the
+system configuration, and on a locally developed tool (menuselect) to
+select build options and modules list, and on gmake to do the build.
+
+The first step, usually to be done soon after a checkout, is running
+"./configure", which will store its findings in two files:
+
+    + include/asterisk/autoconfig.h
+	contains C macros, normally #define HAVE_FOO or HAVE_FOO_H ,
+	for all functions and headers that have been detected at build time.
+	These are meant to be used by C or C++ source files.
+
+    + makeopts
+	contains variables that can be used by Makefiles.
+	In addition to the usual CC, LD, ... variables pointing to
+	the various build tools, and prefix, includedir ... which are
+	useful for generic compiler flags, there are variables
+	for each package detected.
+	These are normally of the form FOO_INCLUDE=... FOO_LIB=...
+	FOO_DIR=... indicating, for each package, the useful libraries
+	and header files. 
+
+The next step is to run "make menuselect", to extract the dependencies existing
+between files and modules, and to store build options.
+menuselect produces two files, both to be read by the Makefile:
+
+    + menuselect.makeopts
+	Contains for each subdirectory a list of modules that must be
+	excluded from the build, plus some additional informatiom.
+    + menuselect.makedeps
+	Contains, for each module, a list of packages it depends on.
+	For each of these packages, we can collect the relevant INCLUDE
+	and LIB files from makeopts. This file is based on information
+	in the .c source code files for each module.
+
+The top level Makefile is in charge of setting up the build environment,
+creating header files with build options, and recursively invoking the
+subdir Makefiles to produce modules and the main executable.
+
+The sources are split in multiple directories, more or less divided by
+module type (apps/ channels/ funcs/ res/ ...) or by function, for the main
+binary (main/ pbx/).
+
+
+TO BE COMPLETED
+
+    
 -----------------------------------------------
 Welcome to the Asterisk development community!
 Meet you on the asterisk-dev mailing list. 
 Subscribe at http://lists.digium.com!
 
-Mark Spencer, Kevin P. Fleming and 
-the Asterisk.org Development Team
+-- The Asterisk.org Development Team

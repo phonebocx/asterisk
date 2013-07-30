@@ -21,41 +21,32 @@
 
 #include "asterisk.h"
 
-#include <sys/types.h>
 #include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdarg.h>
-
-#ifdef HAVE_ALLOCA_H
-#include <alloca.h>
-#endif
 
 #ifndef HAVE_STRSEP
 char *strsep(char **str, const char *delims)
 {
-    char *token;
+	char *token;
 
-    if (!*str) {
-        /* No more tokens */
-        return NULL;
-    }
+	if (!*str) {
+		/* No more tokens */
+		return NULL;
+	}
 
-    token = *str;
-    while (**str != '\0') {
-        if (strchr(delims, **str)) {
-            **str = '\0';
-            (*str)++;
-            return token;
-        }
-        (*str)++;
-    }
+	token = *str;
+	while (**str != '\0') {
+		if (strchr(delims, **str)) {
+			**str = '\0';
+			(*str)++;
+			return token;
+		}
+		(*str)++;
+	}
 
-    /* There is no other token */
-    *str = NULL;
+	/* There is no other token */
+	*str = NULL;
 
-    return token;
+	return token;
 }
 #endif
 
@@ -194,15 +185,15 @@ int vasprintf(char **strp, const char *fmt, va_list ap)
 #if !defined(HAVE_ASPRINTF) && !defined(__AST_DEBUG_MALLOC) 
 int asprintf(char **str, const char *fmt, ...)
 {
-        va_list ap;
-        int ret;
+	va_list ap;
+	int ret;
 
-        *str = NULL;
-        va_start(ap, fmt);
-        ret = vasprintf(str, fmt, ap);
-        va_end(ap);
+	*str = NULL;
+	va_start(ap, fmt);
+	ret = vasprintf(str, fmt, ap);
+	va_end(ap);
 
-        return ret;
+	return ret;
 }
 #endif /* !defined(HAVE_ASPRINTF) && !defined(__AST_DEBUG_MALLOC) */
 

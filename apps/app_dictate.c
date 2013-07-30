@@ -29,26 +29,20 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68527 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 174947 $")
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
 
+#include "asterisk/paths.h" /* use ast_config_AST_SPOOL_DIR */
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/say.h"
-#include "asterisk/lock.h"
 #include "asterisk/app.h"
 
 static char *app = "Dictate";
 static char *synopsis = "Virtual Dictation Machine";
-static char *desc = "  Dictate([<base_dir>[|<filename>]])\n"
+static char *desc = "  Dictate([<base_dir>[,<filename>]])\n"
 "Start dictation machine using optional base dir for files.\n";
 
 
@@ -67,7 +61,7 @@ typedef enum {
 
 #define ast_toggle_flag(it,flag) if(ast_test_flag(it, flag)) ast_clear_flag(it, flag); else ast_set_flag(it, flag)
 
-static int play_and_wait(struct ast_channel *chan, char *file, char *digits) 
+static int play_and_wait(struct ast_channel *chan, char *file, char *digits)
 {
 	int res = -1;
 	if (!ast_streamfile(chan, file, chan->language)) {
@@ -89,7 +83,6 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 	struct ast_flags flags = {0};
 	struct ast_filestream *fs;
 	struct ast_frame *f = NULL;
-	struct ast_module_user *u;
 	int ffactor = 320 * 80,
 		res = 0,
 		done = 0,
@@ -101,16 +94,14 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 		len = 0,
 		maxlen = 0,
 		mode = 0;
-		
-	u = ast_module_user_add(chan);
-	
+
 	snprintf(dftbase, sizeof(dftbase), "%s/dictate", ast_config_AST_SPOOL_DIR);
 	if (!ast_strlen_zero(data)) {
 		parse = ast_strdupa(data);
 		AST_STANDARD_APP_ARGS(args, parse);
 	} else
 		args.argc = 0;
-	
+
 	if (args.argc && !ast_strlen_zero(args.base)) {
 		base = args.base;
 	} else {
@@ -118,19 +109,20 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 	}
 	if (args.argc > 1 && args.filename) {
 		filename = args.filename;
-	} 
+	}
 	oldr = chan->readformat;
 	if ((res = ast_set_read_format(chan, AST_FORMAT_SLINEAR)) < 0) {
 		ast_log(LOG_WARNING, "Unable to set to linear mode.\n");
-		ast_module_user_remove(u);
 		return -1;
 	}
 
-	ast_answer(chan);
+	if (chan->_state != AST_STATE_UP) {
+		ast_answer(chan);
+	}
 	ast_safe_sleep(chan, 200);
 	for (res = 0; !res;) {
 		if (ast_strlen_zero(filename)) {
-			if (ast_app_getdata(chan, "dictate/enter_filename", filein, sizeof(filein), 0) || 
+			if (ast_app_getdata(chan, "dictate/enter_filename", filein, sizeof(filein), 0) ||
 				ast_strlen_zero(filein)) {
 				res = -1;
 				break;
@@ -139,7 +131,7 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 			ast_copy_string(filein, filename, sizeof(filein));
 			filename = "";
 		}
-		mkdir(base, 0755);
+		ast_mkdir(base, 0755);
 		len = strlen(base) + strlen(filein) + 2;
 		if (!path || len > maxlen) {
 			path = alloca(len);
@@ -150,7 +142,7 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 		}
 
 		snprintf(path, len, "%s/%s", base, filein);
-		fs = ast_writefile(path, "raw", NULL, O_CREAT|O_APPEND, 0, 0700);
+		fs = ast_writefile(path, "raw", NULL, O_CREAT|O_APPEND, 0, AST_FILE_MODE);
 		mode = DMODE_PLAY;
 		memset(&flags, 0, sizeof(flags));
 		ast_set_flag(&flags, DFLAG_PAUSE);
@@ -180,7 +172,7 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 						if (speed > 4) {
 							speed = 1;
 						}
-						res = ast_say_number(chan, speed, AST_DIGIT_ANY, chan->language, (char *) NULL);
+						res = ast_say_number(chan, speed, AST_DIGIT_ANY, chan->language, NULL);
 						break;
 					case '7':
 						samples -= ffactor;
@@ -292,7 +284,7 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 				case DMODE_RECORD:
 					if (lastop != DMODE_RECORD) {
 						int oflags = O_CREAT | O_WRONLY;
-						if (ast_test_flag(&flags, DFLAG_PAUSE)) {						
+						if (ast_test_flag(&flags, DFLAG_PAUSE)) {
 							digit = play_and_wait(chan, "dictate/record_mode", AST_DIGIT_ANY);
 							if (digit == 0) {
 								digit = play_and_wait(chan, "dictate/paused", AST_DIGIT_ANY);
@@ -308,7 +300,7 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 						} else {
 							oflags |= O_APPEND;
 						}
-						fs = ast_writefile(path, "raw", NULL, oflags, 0, 0700);
+						fs = ast_writefile(path, "raw", NULL, oflags, 0, AST_FILE_MODE);
 						if (ast_test_flag(&flags, DFLAG_TRUNC)) {
 							ast_seekstream(fs, 0, SEEK_SET);
 							ast_clear_flag(&flags, DFLAG_TRUNC);
@@ -330,7 +322,6 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 	if (oldr) {
 		ast_set_read_format(chan, oldr);
 	}
-	ast_module_user_remove(u);
 	return 0;
 }
 

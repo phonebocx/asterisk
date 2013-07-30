@@ -18,39 +18,56 @@
  *
  * \brief Channel group related dialplan functions
  * 
+ * \ingroup functions
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69259 $")
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 146838 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
-#include "asterisk/logger.h"
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
 
-static int group_count_function_read(struct ast_channel *chan, char *cmd,
+static int group_count_function_read(struct ast_channel *chan, const char *cmd,
 				     char *data, char *buf, size_t len)
 {
+	int ret = -1;
 	int count = -1;
 	char group[80] = "", category[80] = "";
 
 	ast_app_group_split_group(data, group, sizeof(group), category,
 				  sizeof(category));
 
-	if ((count = ast_app_group_get_count(group, category)) == -1)
-		ast_log(LOG_NOTICE, "No group could be found for channel '%s'\n", chan->name);
-	else
-		snprintf(buf, len, "%d", count);
+	/* If no group has been provided let's find one */
+	if (ast_strlen_zero(group)) {
+		struct ast_group_info *gi = NULL;
 
-	return 0;
+		ast_app_group_list_rdlock();
+		for (gi = ast_app_group_list_head(); gi; gi = AST_LIST_NEXT(gi, list)) {
+			if (gi->chan != chan)
+				continue;
+			if (ast_strlen_zero(category) || (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, category)))
+				break;
+		}
+		if (gi) {
+			ast_copy_string(group, gi->group, sizeof(group));
+			if (!ast_strlen_zero(gi->category))
+				ast_copy_string(category, gi->category, sizeof(category));
+		}
+		ast_app_group_list_unlock();
+	}
+
+	if ((count = ast_app_group_get_count(group, category)) == -1) {
+		ast_log(LOG_NOTICE, "No group could be found for channel '%s'\n", chan->name);
+	} else {
+		snprintf(buf, len, "%d", count);
+		ret = 0;
+	}
+
+	return ret;
 }
 
 static struct ast_custom_function group_count_function = {
@@ -64,7 +81,7 @@ static struct ast_custom_function group_count_function = {
 };
 
 static int group_match_count_function_read(struct ast_channel *chan,
-					   char *cmd, char *data, char *buf,
+					   const char *cmd, char *data, char *buf,
 					   size_t len)
 {
 	int count;
@@ -77,9 +94,10 @@ static int group_match_count_function_read(struct ast_channel *chan,
 	if (!ast_strlen_zero(group)) {
 		count = ast_app_group_match_get_count(group, category);
 		snprintf(buf, len, "%d", count);
+		return 0;
 	}
 
-	return 0;
+	return -1;
 }
 
 static struct ast_custom_function group_match_count_function = {
@@ -94,12 +112,13 @@ static struct ast_custom_function group_match_count_function = {
 	.write = NULL,
 };
 
-static int group_function_read(struct ast_channel *chan, char *cmd,
+static int group_function_read(struct ast_channel *chan, const char *cmd,
 			       char *data, char *buf, size_t len)
 {
+	int ret = -1;
 	struct ast_group_info *gi = NULL;
 	
-	ast_app_group_list_lock();
+	ast_app_group_list_rdlock();
 	
 	for (gi = ast_app_group_list_head(); gi; gi = AST_LIST_NEXT(gi, list)) {
 		if (gi->chan != chan)
@@ -110,15 +129,17 @@ static int group_function_read(struct ast_channel *chan, char *cmd,
 			break;
 	}
 	
-	if (gi)
+	if (gi) {
 		ast_copy_string(buf, gi->group, len);
+		ret = 0;
+	}
 	
 	ast_app_group_list_unlock();
 	
-	return 0;
+	return ret;
 }
 
-static int group_function_write(struct ast_channel *chan, char *cmd,
+static int group_function_write(struct ast_channel *chan, const char *cmd,
 				char *data, const char *value)
 {
 	char grpcat[256];
@@ -145,7 +166,7 @@ static struct ast_custom_function group_function = {
 	.write = group_function_write,
 };
 
-static int group_list_function_read(struct ast_channel *chan, char *cmd,
+static int group_list_function_read(struct ast_channel *chan, const char *cmd,
 				    char *data, char *buf, size_t len)
 {
 	struct ast_group_info *gi = NULL;
@@ -155,7 +176,7 @@ static int group_list_function_read(struct ast_channel *chan, char *cmd,
 	if (!chan)
 		return -1;
 
-	ast_app_group_list_lock();
+	ast_app_group_list_rdlock();
 
 	for (gi = ast_app_group_list_head(); gi; gi = AST_LIST_NEXT(gi, list)) {
 		if (gi->chan != chan)

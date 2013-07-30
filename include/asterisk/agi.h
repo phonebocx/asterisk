@@ -27,10 +27,14 @@
 extern "C" {
 #endif
 
+#include "asterisk/cli.h"
+
 typedef struct agi_state {
-	int fd;		/* FD for general output */
-	int audio;	/* FD for audio output */
-	int ctrl;	/* FD for input control */
+	int fd;		        /*!< FD for general output */
+	int audio;	        /*!< FD for audio output */
+	int ctrl;		/*!< FD for input control */
+	unsigned int fast:1;    /*!< flag for fast agi or not */
+	struct ast_speech *speech; /*!< Speech structure for speech recognition */
 } AGI;
 
 typedef struct agi_command {
@@ -43,11 +47,67 @@ typedef struct agi_command {
 	char *summary;
 	/* Detailed usage information */
 	char *usage;
-	struct agi_command *next;
+	/* Does this application run dead */
+	int dead;
+	/* Pointer to module that registered the agi command */
+	struct ast_module *mod;
+	/* Linked list pointer */
+	AST_LIST_ENTRY(agi_command) list;
 } agi_command;
 
-int ast_agi_register(agi_command *cmd);
-void ast_agi_unregister(agi_command *cmd);
+#if defined(ASTERISK_AGI_OPTIONAL)
+#define AGI_WEAK attribute_weak
+#else
+#define AGI_WEAK
+#endif
+
+/*!
+ * \brief
+ *
+ * Sends a string of text to an application connected via AGI.
+ *
+ * \param fd The file descriptor for the AGI session (from struct agi_state)
+ * \param chan Pointer to an associated Asterisk channel, if any
+ * \param fmt printf-style format string
+ * \return 0 for success, -1 for failure
+ *
+ */
+int AGI_WEAK ast_agi_send(int fd, struct ast_channel *chan, char *fmt, ...) __attribute__((format(printf, 3, 4)));
+int AGI_WEAK ast_agi_register(struct ast_module *mod, agi_command *cmd);
+int AGI_WEAK ast_agi_unregister(struct ast_module *mod, agi_command *cmd);
+
+/*!
+ * \brief
+ *
+ * Registers a group of AGI commands, provided as an array of struct agi_command
+ * entries.
+ *
+ * \param mod Pointer to the module_info structure for the module that is registering the commands
+ * \param cmd Pointer to the first entry in the array of commands
+ * \param len Length of the array (use the ARRAY_LEN macro to determine this easily)
+ * \return 0 on success, -1 on failure
+ *
+ * \note If any command fails to register, all commands previously registered during the operation
+ * will be unregistered. In other words, this function registers all the provided commands, or none
+ * of them.
+ */
+int AGI_WEAK ast_agi_register_multiple(struct ast_module *mod, struct agi_command *cmd, unsigned int len);
+
+/*!
+ * \brief
+ *
+ * Unregisters a group of AGI commands, provided as an array of struct agi_command
+ * entries.
+ *
+ * \param mod Pointer to the module_info structure for the module that is unregistering the commands
+ * \param cmd Pointer to the first entry in the array of commands
+ * \param len Length of the array (use the ARRAY_LEN macro to determine this easily)
+ * \return 0 on success, -1 on failure
+ *
+ * \note If any command fails to unregister, this function will continue to unregister the
+ * remaining commands in the array; it will not reregister the already-unregistered commands.
+ */
+int AGI_WEAK ast_agi_unregister_multiple(struct ast_module *mod, struct agi_command *cmd, unsigned int len);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

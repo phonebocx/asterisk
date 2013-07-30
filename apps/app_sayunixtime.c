@@ -27,16 +27,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89512 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/options.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -49,41 +42,38 @@ static char *app_datetime = "DateTime";
 static char *sayunixtime_synopsis = "Says a specified time in a custom format";
 
 static char *sayunixtime_descrip =
-"SayUnixTime([unixtime][|[timezone][|format]])\n"
-"  unixtime: time, in seconds since Jan 1, 1970.  May be negative.\n"
+"SayUnixTime([unixtime][,[timezone][,format]])\n"
+"  unixtime  - time, in seconds since Jan 1, 1970.  May be negative.\n"
 "              defaults to now.\n"
-"  timezone: timezone, see /usr/share/zoneinfo for a list.\n"
+"  timezone  - timezone, see /usr/share/zoneinfo for a list.\n"
 "              defaults to machine default.\n"
-"  format:   a format the time is to be said in.  See voicemail.conf.\n"
+"  format    - a format the time is to be said in.  See voicemail.conf.\n"
 "              defaults to \"ABdY 'digits/at' IMp\"\n";
 static char *datetime_descrip =
-"DateTime([unixtime][|[timezone][|format]])\n"
-"  unixtime: time, in seconds since Jan 1, 1970.  May be negative.\n"
+"DateTime([unixtime][,[timezone][,format]])\n"
+"  unixtime  - time, in seconds since Jan 1, 1970.  May be negative.\n"
 "              defaults to now.\n"
-"  timezone: timezone, see /usr/share/zoneinfo for a list.\n"
+"  timezone  - timezone, see /usr/share/zoneinfo for a list.\n"
 "              defaults to machine default.\n"
-"  format:   a format the time is to be said in.  See voicemail.conf.\n"
+"  format:   - a format the time is to be said in.  See voicemail.conf.\n"
 "              defaults to \"ABdY 'digits/at' IMp\"\n";
 
 
 static int sayunixtime_exec(struct ast_channel *chan, void *data)
 {
 	AST_DECLARE_APP_ARGS(args,
-			     AST_APP_ARG(timeval);
-			     AST_APP_ARG(timezone);
-			     AST_APP_ARG(format);
+		AST_APP_ARG(timeval);
+		AST_APP_ARG(timezone);
+		AST_APP_ARG(format);
 	);
 	char *parse;
 	int res = 0;
-	struct ast_module_user *u;
 	time_t unixtime;
 	
 	if (!data)
 		return 0;
 
 	parse = ast_strdupa(data);
-
-	u = ast_module_user_add(chan);
 
 	AST_STANDARD_APP_ARGS(args, parse);
 
@@ -96,8 +86,6 @@ static int sayunixtime_exec(struct ast_channel *chan, void *data)
 		res = ast_say_date_with_format(chan, unixtime, AST_DIGIT_ANY,
 					       chan->language, args.format, args.timezone);
 
-	ast_module_user_remove(u);
-
 	return res;
 }
 
@@ -107,8 +95,6 @@ static int unload_module(void)
 	
 	res = ast_unregister_application(app_sayunixtime);
 	res |= ast_unregister_application(app_datetime);
-
-	ast_module_user_hangup_all();
 	
 	return res;
 }

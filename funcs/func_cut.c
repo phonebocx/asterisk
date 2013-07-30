@@ -26,16 +26,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 163256 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/options.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -70,7 +63,7 @@ static int sort_internal(struct ast_channel *chan, char *data, char *buffer, siz
 	int count=1, count2, element_count=0;
 	struct sortable_keys *sortable_keys;
 
-	memset(buffer, 0, buflen);
+	*buffer = '\0';
 
 	if (!data)
 		return ERROR_NOARG;
@@ -78,7 +71,7 @@ static int sort_internal(struct ast_channel *chan, char *data, char *buffer, siz
 	strings = ast_strdupa(data);
 
 	for (ptrkey = strings; *ptrkey; ptrkey++) {
-		if (*ptrkey == '|')
+		if (*ptrkey == ',')
 			count++;
 	}
 
@@ -88,8 +81,8 @@ static int sort_internal(struct ast_channel *chan, char *data, char *buffer, siz
 
 	/* Parse each into a struct */
 	count2 = 0;
-	while ((ptrkey = strsep(&strings, "|"))) {
-		ptrvalue = index(ptrkey, ':');
+	while ((ptrkey = strsep(&strings, ","))) {
+		ptrvalue = strchr(ptrkey, ':');
 		if (!ptrvalue) {
 			count--;
 			continue;
@@ -118,37 +111,38 @@ static int sort_internal(struct ast_channel *chan, char *data, char *buffer, siz
 static int cut_internal(struct ast_channel *chan, char *data, char *buffer, size_t buflen)
 {
 	char *parse;
+	size_t delim_consumed;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(varname);
 		AST_APP_ARG(delimiter);
 		AST_APP_ARG(field);
 	);
 
-	memset(buffer, 0, buflen); 
-	
+	*buffer = '\0';
+
 	parse = ast_strdupa(data);
 
 	AST_STANDARD_APP_ARGS(args, parse);
 
 	/* Check and parse arguments */
-	if(args.argc < 3){
+	if (args.argc < 3) {
 		return ERROR_NOARG;
 	} else {
-		char d, ds[2];
+		char d, ds[2] = "";
 		char *tmp = alloca(strlen(args.varname) + 4);
 		char varvalue[MAXRESULT], *tmp2=varvalue;
 
 		if (tmp) {
 			snprintf(tmp, strlen(args.varname) + 4, "${%s}", args.varname);
-			memset(varvalue, 0, sizeof(varvalue));
 		} else {
 			return ERROR_NOMEM;
 		}
 
-		d = args.delimiter[0] ? args.delimiter[0] : '-';
+		if (ast_get_encoded_char(args.delimiter, ds, &delim_consumed))
+			ast_copy_string(ds, "-", sizeof(ds));
 
 		/* String form of the delimiter, for use with strsep(3) */
-		snprintf(ds, sizeof(ds), "%c", d);
+		d = *ds;
 
 		pbx_substitute_variables_helper(chan, tmp, tmp2, MAXRESULT - 1);
 
@@ -177,7 +171,7 @@ static int cut_internal(struct ast_channel *chan, char *data, char *buffer, size
 				/* Get to start, if any */
 				if (num1 > 0) {
 					while (tmp2 != (char *)NULL + 1 && curfieldnum < num1) {
-						tmp2 = index(tmp2, d) + 1;
+						tmp2 = strchr(tmp2, d) + 1;
 						curfieldnum++;
 					}
 				}
@@ -208,12 +202,9 @@ static int cut_internal(struct ast_channel *chan, char *data, char *buffer, size
 	return 0;
 }
 
-static int acf_sort_exec(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
+static int acf_sort_exec(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
 {
-	struct ast_module_user *u;
 	int ret = -1;
-
-	u = ast_module_user_add(chan);
 
 	switch (sort_internal(chan, data, buf, len)) {
 	case ERROR_NOARG:
@@ -229,17 +220,12 @@ static int acf_sort_exec(struct ast_channel *chan, char *cmd, char *data, char *
 		ast_log(LOG_ERROR, "Unknown internal error\n");
 	}
 
-	ast_module_user_remove(u);
-
 	return ret;
 }
 
-static int acf_cut_exec(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
+static int acf_cut_exec(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
 {
 	int ret = -1;
-	struct ast_module_user *u;
-
-	u = ast_module_user_add(chan);
 
 	switch (cut_internal(chan, data, buf, len)) {
 	case ERROR_NOARG:
@@ -257,8 +243,6 @@ static int acf_cut_exec(struct ast_channel *chan, char *cmd, char *data, char *b
 	default:
 		ast_log(LOG_ERROR, "Unknown internal error\n");
 	}
-
-	ast_module_user_remove(u);
 
 	return ret;
 }
@@ -293,8 +277,6 @@ static int unload_module(void)
 
 	res |= ast_custom_function_unregister(&acf_cut);
 	res |= ast_custom_function_unregister(&acf_sort);
-
-	ast_module_user_hangup_all();
 
 	return res;
 }

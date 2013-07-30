@@ -25,20 +25,16 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75445 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 143033 $")
 
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <string.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 #include "asterisk/frame.h"
 #include "asterisk/utils.h"
 #include "asterisk/unaligned.h"
+#include "asterisk/config.h"
 #include "asterisk/lock.h"
 #include "asterisk/threadstorage.h"
 
@@ -54,11 +50,18 @@ static int oframes = 0;
 static void frame_cache_cleanup(void *data);
 
 /*! \brief A per-thread cache of iax_frame structures */
-AST_THREADSTORAGE_CUSTOM(frame_cache, frame_cache_init, frame_cache_cleanup);
+AST_THREADSTORAGE_CUSTOM(frame_cache, NULL, frame_cache_cleanup);
 
 /*! \brief This is just so iax_frames, a list head struct for holding a list of
  *  iax_frame structures, is defined. */
-AST_LIST_HEAD_NOLOCK(iax_frames, iax_frame);
+AST_LIST_HEAD_NOLOCK(iax_frame_list, iax_frame);
+
+struct iax_frames {
+	struct iax_frame_list list;
+	size_t size;
+};
+
+#define FRAME_CACHE_MAX_SIZE	20
 #endif
 
 static void internaloutput(const char *str)
@@ -81,7 +84,17 @@ static void dump_addr(char *output, int maxlen, void *value, int len)
 		memcpy(&sin, value, len);
 		snprintf(output, maxlen, "IPV4 %s:%d", ast_inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 	} else {
-		snprintf(output, maxlen, "Invalid Address");
+		ast_copy_string(output, "Invalid Address", maxlen);
+	}
+}
+
+static void dump_string_hex(char *output, int maxlen, void *value, int len)
+{
+	int i = 0;
+
+	while (len-- && (i + 1) * 4 < maxlen) {
+		sprintf(output + (4 * i), "\\x%2.2x", *((unsigned char *)value + i));
+		i++;
 	}
 }
 
@@ -139,7 +152,7 @@ static void dump_byte(char *output, int maxlen, void *value, int len)
 
 static void dump_datetime(char *output, int maxlen, void *value, int len)
 {
-	struct tm tm;
+	struct ast_tm tm;
 	unsigned long val = (unsigned long) ntohl(get_unaligned_uint32(value));
 	if (len == (int)sizeof(unsigned int)) {
 		tm.tm_sec  = (val & 0x1f) << 1;
@@ -148,7 +161,7 @@ static void dump_datetime(char *output, int maxlen, void *value, int len)
 		tm.tm_mday = (val >> 16) & 0x1f;
 		tm.tm_mon  = ((val >> 21) & 0x0f) - 1;
 		tm.tm_year = ((val >> 25) & 0x7f) + 100;
-		strftime(output, maxlen, "%Y-%m-%d  %T", &tm); 
+		ast_strftime(output, maxlen, "%Y-%m-%d  %T", &tm); 
 	} else
 		ast_copy_string(output, "Invalid DATETIME format!", maxlen);
 }
@@ -211,7 +224,7 @@ static struct iax2_ie {
 	int ie;
 	char *name;
 	void (*dump)(char *output, int maxlen, void *value, int len);
-} ies[] = {
+} infoelts[] = {
 	{ IAX_IE_CALLED_NUMBER, "CALLED NUMBER", dump_string },
 	{ IAX_IE_CALLING_NUMBER, "CALLING NUMBER", dump_string },
 	{ IAX_IE_CALLING_ANI, "ANI", dump_string },
@@ -226,7 +239,7 @@ static struct iax2_ie {
 	{ IAX_IE_ADSICPE, "ADSICPE", dump_short },
 	{ IAX_IE_DNID, "DNID", dump_string },
 	{ IAX_IE_AUTHMETHODS, "AUTHMETHODS", dump_short },
-	{ IAX_IE_CHALLENGE, "CHALLENGE", dump_string },
+	{ IAX_IE_CHALLENGE, "CHALLENGE", dump_string_hex },
 	{ IAX_IE_MD5_RESULT, "MD5 RESULT", dump_string },
 	{ IAX_IE_RSA_RESULT, "RSA RESULT", dump_string },
 	{ IAX_IE_APPARENT_ADDR, "APPARENT ADDRESS", dump_addr },
@@ -262,6 +275,8 @@ static struct iax2_ie {
 	{ IAX_IE_RR_DELAY, "RR_DELAY", dump_short },
 	{ IAX_IE_RR_DROPPED, "RR_DROPPED", dump_int },
 	{ IAX_IE_RR_OOO, "RR_OUTOFORDER", dump_int },
+	{ IAX_IE_VARIABLE, "VARIABLE", dump_string },
+	{ IAX_IE_OSPTOKEN, "OSPTOKEN" },
 };
 
 static struct iax2_ie prov_ies[] = {
@@ -287,9 +302,9 @@ static struct iax2_ie prov_ies[] = {
 const char *iax_ie2str(int ie)
 {
 	int x;
-	for (x=0;x<(int)sizeof(ies) / (int)sizeof(ies[0]); x++) {
-		if (ies[x].ie == ie)
-			return ies[x].name;
+	for (x = 0; x < ARRAY_LEN(infoelts); x++) {
+		if (infoelts[x].ie == ie)
+			return infoelts[x].name;
 	}
 	return "Unknown IE";
 }
@@ -366,18 +381,18 @@ static void dump_ies(unsigned char *iedata, int len)
 			return;
 		}
 		found = 0;
-		for (x=0;x<(int)sizeof(ies) / (int)sizeof(ies[0]); x++) {
-			if (ies[x].ie == ie) {
-				if (ies[x].dump) {
-					ies[x].dump(interp, (int)sizeof(interp), iedata + 2, ielen);
-					snprintf(tmp, (int)sizeof(tmp), "   %-15.15s : %s\n", ies[x].name, interp);
+		for (x = 0; x < ARRAY_LEN(infoelts); x++) {
+			if (infoelts[x].ie == ie) {
+				if (infoelts[x].dump) {
+					infoelts[x].dump(interp, (int)sizeof(interp), iedata + 2, ielen);
+					snprintf(tmp, (int)sizeof(tmp), "   %-15.15s : %s\n", infoelts[x].name, interp);
 					outputf(tmp);
 				} else {
 					if (ielen)
 						snprintf(interp, (int)sizeof(interp), "%d bytes", ielen);
 					else
 						strcpy(interp, "Present");
-					snprintf(tmp, (int)sizeof(tmp), "   %-15.15s : %s\n", ies[x].name, interp);
+					snprintf(tmp, (int)sizeof(tmp), "   %-15.15s : %s\n", infoelts[x].name, interp);
 					outputf(tmp);
 				}
 				found++;
@@ -395,7 +410,7 @@ static void dump_ies(unsigned char *iedata, int len)
 
 void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, struct sockaddr_in *sin, int datalen)
 {
-	const char *frames[] = {
+	const char *framelist[] = {
 		"(0?)",
 		"DTMF_E ",
 		"VOICE  ",
@@ -508,11 +523,11 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		/* Don't mess with mini-frames */
 		return;
 	}
-	if (fh->type >= (int)sizeof(frames)/(int)sizeof(frames[0])) {
+	if (fh->type >= ARRAY_LEN(framelist)) {
 		snprintf(class2, sizeof(class2), "(%d?)", fh->type);
 		class = class2;
 	} else {
-		class = frames[(int)fh->type];
+		class = framelist[(int)fh->type];
 	}
 	if (fh->type == AST_FRAME_DTMF_BEGIN || fh->type == AST_FRAME_DTMF_END) {
 		sprintf(subclass2, "%c", fh->csub);
@@ -614,7 +629,9 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 	/* Parse data into information elements */
 	int len;
 	int ie;
-	char tmp[256];
+	char tmp[256], *tmp2;
+	struct ast_variable *var, *var2, *prev;
+	unsigned int count;
 	memset(ies, 0, (int)sizeof(struct iax_ies));
 	ies->msgcount = -1;
 	ies->firmwarever = -1;
@@ -899,6 +916,52 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				ies->rr_ooo = ntohl(get_unaligned_uint32(data + 2));
 			}
 			break;
+		case IAX_IE_VARIABLE:
+			ast_copy_string(tmp, (char *)data + 2, len + 1);
+			tmp2 = strchr(tmp, '=');
+			if (tmp2)
+				*tmp2++ = '\0';
+			else
+				tmp2 = "";
+			{
+				struct ast_str *str = ast_str_create(16);
+				/* Existing variable or new variable? */
+				for (var2 = ies->vars, prev = NULL; var2; prev = var2, var2 = var2->next) {
+					if (strcmp(tmp, var2->name) == 0) {
+						ast_str_set(&str, 0, "%s%s", var2->value, tmp2);
+						var = ast_variable_new(tmp, str->str, var2->file);
+						var->next = var2->next;
+						if (prev) {
+							prev->next = var;
+						} else {
+							ies->vars = var;
+						}
+						snprintf(tmp, sizeof(tmp), "Assigned (%p)%s to (%p)%s\n", var->name, var->name, var->value, var->value);
+						errorf(tmp);
+						ast_free(var2);
+						break;
+					}
+				}
+				ast_free(str);
+			}
+
+			if (!var2) {
+				var = ast_variable_new(tmp, tmp2, "");
+				snprintf(tmp, sizeof(tmp), "Assigned (%p)%s to (%p)%s\n", var->name, var->name, var->value, var->value);
+				errorf(tmp);
+				var->next = ies->vars;
+				ies->vars = var;
+			}
+			break;
+		case IAX_IE_OSPTOKEN:
+			if ((count = data[2]) < IAX_MAX_OSPBLOCK_NUM) {
+				ies->osptokenblock[count] = (char *)data + 2 + 1;
+				ies->ospblocklength[count] = len - 1;
+			} else {
+				snprintf(tmp, (int)sizeof(tmp), "Expected OSP token block index to be 0~%d but was %d\n", IAX_MAX_OSPBLOCK_NUM - 1, count);
+				errorf(tmp);
+			}
+			break;
 		default:
 			snprintf(tmp, (int)sizeof(tmp), "Ignoring unknown information element '%s' (%d) of length %d\n", iax_ie2str(ie), ie, len);
 			outputf(tmp);
@@ -928,7 +991,7 @@ void iax_frame_wrap(struct iax_frame *fr, struct ast_frame *f)
 	fr->af.src = f->src;
 	fr->af.delivery.tv_sec = 0;
 	fr->af.delivery.tv_usec = 0;
-	fr->af.data = fr->afdata;
+	fr->af.data.ptr = fr->afdata;
 	fr->af.len = f->len;
 	if (fr->af.datalen) {
 		size_t copy_len = fr->af.datalen;
@@ -941,10 +1004,10 @@ void iax_frame_wrap(struct iax_frame *fr, struct ast_frame *f)
 		/* We need to byte-swap slinear samples from network byte order */
 		if ((fr->af.frametype == AST_FRAME_VOICE) && (fr->af.subclass == AST_FORMAT_SLINEAR)) {
 			/* 2 bytes / sample for SLINEAR */
-			ast_swapcopy_samples(fr->af.data, f->data, copy_len / 2);
+			ast_swapcopy_samples(fr->af.data.ptr, f->data.ptr, copy_len / 2);
 		} else
 #endif
-			memcpy(fr->af.data, f->data, copy_len);
+			memcpy(fr->af.data.ptr, f->data.ptr, copy_len);
 	}
 }
 
@@ -953,23 +1016,35 @@ struct iax_frame *iax_frame_new(int direction, int datalen, unsigned int cacheab
 	struct iax_frame *fr = NULL;
 
 #if !defined(LOW_MEMORY)
-	struct iax_frames *iax_frames;
+	struct iax_frames *iax_frames = NULL;
+	struct iax_frame *smallest = NULL;
 
 	/* Attempt to get a frame from this thread's cache */
 	if ((iax_frames = ast_threadstorage_get(&frame_cache, sizeof(*iax_frames)))) {
-		AST_LIST_TRAVERSE_SAFE_BEGIN(iax_frames, fr, list) {
+		smallest = AST_LIST_FIRST(&iax_frames->list);
+		AST_LIST_TRAVERSE_SAFE_BEGIN(&iax_frames->list, fr, list) {
 			if (fr->afdatalen >= datalen) {
 				size_t afdatalen = fr->afdatalen;
-				AST_LIST_REMOVE_CURRENT(iax_frames, list);
+				AST_LIST_REMOVE_CURRENT(list);
+				iax_frames->size--;
 				memset(fr, 0, sizeof(*fr));
 				fr->afdatalen = afdatalen;
 				break;
+			} else if (smallest->afdatalen > fr->afdatalen) {
+				smallest = fr;
 			}
 		}
-		AST_LIST_TRAVERSE_SAFE_END
+		AST_LIST_TRAVERSE_SAFE_END;
 	}
 	if (!fr) {
-		if (!(fr = ast_calloc_cache(1, sizeof(*fr) + datalen)))
+		if (iax_frames->size >= FRAME_CACHE_MAX_SIZE && smallest) {
+			/* Make useless cache into something more useful */
+			AST_LIST_REMOVE(&iax_frames->list, smallest, list);
+			if (!(fr = ast_realloc(smallest, sizeof(*fr) + datalen))) {
+				AST_LIST_INSERT_TAIL(&iax_frames->list, smallest, list);
+				return NULL;
+			}
+		} else if (!(fr = ast_calloc_cache(1, sizeof(*fr) + datalen)))
 			return NULL;
 		fr->afdatalen = datalen;
 	}
@@ -997,7 +1072,7 @@ struct iax_frame *iax_frame_new(int direction, int datalen, unsigned int cacheab
 void iax_frame_free(struct iax_frame *fr)
 {
 #if !defined(LOW_MEMORY)
-	struct iax_frames *iax_frames;
+	struct iax_frames *iax_frames = NULL;
 #endif
 
 	/* Note: does not remove from scheduler! */
@@ -1013,27 +1088,36 @@ void iax_frame_free(struct iax_frame *fr)
 
 #if !defined(LOW_MEMORY)
 	if (!fr->cacheable || !(iax_frames = ast_threadstorage_get(&frame_cache, sizeof(*iax_frames)))) {
-		free(fr);
+		ast_free(fr);
 		return;
 	}
 
-	fr->direction = 0;
-	AST_LIST_INSERT_HEAD(iax_frames, fr, list);
-#else
-	free(fr);
+	if (iax_frames->size < FRAME_CACHE_MAX_SIZE) {
+		fr->direction = 0;
+		/* Pseudo-sort: keep smaller frames at the top of the list. This should
+		 * increase the chance that we pick the smallest applicable frame for use. */
+		if (AST_LIST_FIRST(&iax_frames->list) && AST_LIST_FIRST(&iax_frames->list)->afdatalen < fr->afdatalen) {
+			AST_LIST_INSERT_TAIL(&iax_frames->list, fr, list);
+		} else {
+			AST_LIST_INSERT_HEAD(&iax_frames->list, fr, list);
+		}
+		iax_frames->size++;
+		return;
+	}
 #endif
+	ast_free(fr);
 }
 
 #if !defined(LOW_MEMORY)
 static void frame_cache_cleanup(void *data)
 {
-	struct iax_frames *frames = data;
-	struct iax_frame *cur;
+	struct iax_frames *framelist = data;
+	struct iax_frame *current;
 
-	while ((cur = AST_LIST_REMOVE_HEAD(frames, list)))
-		free(cur);
+	while ((current = AST_LIST_REMOVE_HEAD(&framelist->list, list)))
+		ast_free(current);
 
-	free(frames);
+	ast_free(framelist);
 }
 #endif
 

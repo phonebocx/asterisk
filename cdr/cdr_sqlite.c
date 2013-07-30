@@ -20,15 +20,18 @@
 /*! \file
  *
  * \brief Store CDR records in a SQLite database.
- * 
+ *
  * \author Holger Schurig <hs4233@mail.mn-solutions.de>
+ * \extref SQLite http://www.sqlite.org/
  *
  * See also
  * \arg \ref Config_cdr
  * \arg http://www.sqlite.org/
- * 
+ *
  * Creates the database and table on-the-fly
  * \ingroup cdr_drivers
+ *
+ * \note This module has been marked deprecated in favor for cdr_sqlite3_custom
  */
 
 /*** MODULEINFO
@@ -37,19 +40,14 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158135 $")
 
-#include <sys/types.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include <sqlite.h>
 
 #include "asterisk/channel.h"
 #include "asterisk/module.h"
-#include "asterisk/logger.h"
 #include "asterisk/utils.h"
+#include "asterisk/paths.h"
 
 #define LOG_UNIQUEID	0
 #define LOG_USERFIELD	0
@@ -93,24 +91,20 @@ static int sqlite_log(struct ast_cdr *cdr)
 {
 	int res = 0;
 	char *zErr = 0;
-	struct tm tm;
-	time_t t;
+	struct ast_tm tm;
 	char startstr[80], answerstr[80], endstr[80];
 	int count;
 
 	ast_mutex_lock(&sqlite_lock);
 
-	t = cdr->start.tv_sec;
-	ast_localtime(&t, &tm, NULL);
-	strftime(startstr, sizeof(startstr), DATE_FORMAT, &tm);
+	ast_localtime(&cdr->start, &tm, NULL);
+	ast_strftime(startstr, sizeof(startstr), DATE_FORMAT, &tm);
 
-	t = cdr->answer.tv_sec;
-	ast_localtime(&t, &tm, NULL);
-	strftime(answerstr, sizeof(answerstr), DATE_FORMAT, &tm);
+	ast_localtime(&cdr->answer, &tm, NULL);
+	ast_strftime(answerstr, sizeof(answerstr), DATE_FORMAT, &tm);
 
-	t = cdr->end.tv_sec;
-	ast_localtime(&t, &tm, NULL);
-	strftime(endstr, sizeof(endstr), DATE_FORMAT, &tm);
+	ast_localtime(&cdr->end, &tm, NULL);
+	ast_strftime(endstr, sizeof(endstr), DATE_FORMAT, &tm);
 
 	for(count=0; count<5; count++) {
 		res = sqlite_exec_printf(db,
@@ -155,10 +149,10 @@ static int sqlite_log(struct ast_cdr *cdr)
 			break;
 		usleep(200);
 	}
-	
+
 	if (zErr) {
 		ast_log(LOG_ERROR, "cdr_sqlite: %s\n", zErr);
-		free(zErr);
+		ast_free(zErr);
 	}
 
 	ast_mutex_unlock(&sqlite_lock);
@@ -179,12 +173,15 @@ static int load_module(void)
 	char fn[PATH_MAX];
 	int res;
 
+	ast_log(LOG_WARNING, "This module has been marked deprecated in favor of "
+		"using cdr_sqlite3_custom. (May be removed after Asterisk 1.6)\n");
+
 	/* is the database there? */
 	snprintf(fn, sizeof(fn), "%s/cdr.db", ast_config_AST_LOG_DIR);
-	db = sqlite_open(fn, 0660, &zErr);
+	db = sqlite_open(fn, AST_FILE_MODE, &zErr);
 	if (!db) {
 		ast_log(LOG_ERROR, "cdr_sqlite: %s\n", zErr);
-		free(zErr);
+		ast_free(zErr);
 		return -1;
 	}
 
@@ -194,13 +191,13 @@ static int load_module(void)
 		res = sqlite_exec(db, sql_create_table, NULL, NULL, &zErr);
 		if (res) {
 			ast_log(LOG_ERROR, "cdr_sqlite: Unable to create table 'cdr': %s\n", zErr);
-			free(zErr);
+			ast_free(zErr);
 			goto err;
 		}
 
 		/* TODO: here we should probably create an index */
 	}
-	
+
 	res = ast_cdr_register(name, ast_module_info->description, sqlite_log);
 	if (res) {
 		ast_log(LOG_ERROR, "Unable to register SQLite CDR handling\n");

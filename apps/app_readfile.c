@@ -27,16 +27,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89512 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/options.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/app.h"
@@ -44,38 +37,38 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 static char *app_readfile = "ReadFile";
 
-static char *readfile_synopsis = "ReadFile(varname=file,length)";
+static char *readfile_synopsis = "Read the contents of a text file into a channel variable";
 
 static char *readfile_descrip =
 "ReadFile(varname=file,length)\n"
-"  Varname - Result stored here.\n"
-"  File - The name of the file to read.\n"
-"  Length - Maximum number of characters to capture.\n";
+"  varname  - Result stored here.\n"
+"  file     - The name of the file to read.\n"
+"  length   - Maximum number of characters to capture.\n";
 
 
 static int readfile_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
-	struct ast_module_user *u;
 	char *s, *varname=NULL, *file=NULL, *length=NULL, *returnvar=NULL;
 	int len=0;
+	static int deprecation_warning = 0;
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "ReadFile require an argument!\n");
 		return -1;
 	}
 
-	u = ast_module_user_add(chan);
-
 	s = ast_strdupa(data);
 
 	varname = strsep(&s, "=");
-	file = strsep(&s, "|");
+	file = strsep(&s, ",");
 	length = s;
+
+	if (deprecation_warning++ % 10 == 0)
+		ast_log(LOG_WARNING, "ReadFile has been deprecated in favor of Set(%s=${FILE(%s,0,%s)})\n", varname, file, length);
 
 	if (!varname || !file) {
 		ast_log(LOG_ERROR, "No file or variable specified!\n");
-		ast_module_user_remove(u);
 		return -1;
 	}
 
@@ -94,22 +87,16 @@ static int readfile_exec(struct ast_channel *chan, void *data)
 				ast_log(LOG_WARNING, "%s is longer than %d, and %d \n", file, len, (int)strlen(returnvar));
 		}
 		pbx_builtin_setvar_helper(chan, varname, returnvar);
-		free(returnvar);
+		ast_free(returnvar);
 	}
-	ast_module_user_remove(u);
+
 	return res;
 }
 
 
 static int unload_module(void)
 {
-	int res;
-
-	res = ast_unregister_application(app_readfile);
-	
-	ast_module_user_hangup_all();
-
-	return res;	
+	return ast_unregister_application(app_readfile);
 }
 
 static int load_module(void)

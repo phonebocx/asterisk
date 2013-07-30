@@ -25,26 +25,21 @@
  * \note For now this code only supports 8 bit characters, not unicode,
          which we ultimately will need to support.
  * 
+ * \ingroup functions
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47625 $")
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89425 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
-#include "asterisk/logger.h"
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
 
 /*! \brief uriencode: Encode URL according to RFC 2396 */
-static int uriencode(struct ast_channel *chan, char *cmd, char *data,
+static int uriencode(struct ast_channel *chan, const char *cmd, char *data,
 		     char *buf, size_t len)
 {
 	if (ast_strlen_zero(data)) {
@@ -58,7 +53,7 @@ static int uriencode(struct ast_channel *chan, char *cmd, char *data,
 }
 
 /*!\brief uridecode: Decode URI according to RFC 2396 */
-static int uridecode(struct ast_channel *chan, char *cmd, char *data,
+static int uridecode(struct ast_channel *chan, const char *cmd, char *data,
 		     char *buf, size_t len)
 {
 	if (ast_strlen_zero(data)) {

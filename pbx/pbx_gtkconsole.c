@@ -29,15 +29,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43294 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 126356 $")
 
-#include <sys/types.h>
-#include <stdlib.h>
 #include <fcntl.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
 #include <signal.h>
 #include <sys/time.h>
 
@@ -48,9 +42,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43294 $")
 #include "asterisk/config.h"
 #include "asterisk/module.h"
 #include "asterisk/logger.h"
-#include "asterisk/options.h"
 #include "asterisk/cli.h"
 #include "asterisk/utils.h"
+#include "asterisk/paths.h"
+#include "asterisk/term.h"
 
 AST_MUTEX_DEFINE_STATIC(verb_lock);
 
@@ -59,8 +54,6 @@ static pthread_t console_thread;
 static int inuse=0;
 static int clipipe[2];
 static int cleanupid = -1;
-
-static char *dtext = "Asterisk PBX Console (GTK Version)";
 
 static GtkWidget *window;
 static GtkWidget *quit;
@@ -78,7 +71,7 @@ static void update_statusbar(char *msg)
 	gtk_statusbar_push(GTK_STATUSBAR(statusbar), 1, msg);
 }
 
-static int unload_module(void *mod)
+static int unload_module(void)
 {
 	if (inuse) {
 		/* Kill off the main thread */
@@ -104,16 +97,19 @@ static int cleanup(void *useless)
 }
 
 
-static void __verboser(const char *stuff, int opos, int replacelast, int complete)
+static void __verboser(const char *_stuff)
 {
 	char *s2[2];
 	struct timeval tv;
 	int ms;
+	char *stuff;
+
+	stuff = ast_strdupa(_stuff);
+	term_strip(stuff, stuff, strlen(stuff) + 1);
+
 	s2[0] = (char *)stuff;
 	s2[1] = NULL;
 	gtk_clist_freeze(GTK_CLIST(verb));
-	if (replacelast) 
-		gtk_clist_remove(GTK_CLIST(verb), GTK_CLIST(verb)->rows - 1);
 	gtk_clist_append(GTK_CLIST(verb), s2);
 	if (!ast_tvzero(last)) {
 		gdk_threads_leave();
@@ -134,11 +130,15 @@ static void __verboser(const char *stuff, int opos, int replacelast, int complet
 	}
 }
 
-static void verboser(const char *stuff, int opos, int replacelast, int complete) 
+static void verboser(const char *stuff) 
 {
+	if (*stuff == 127) {
+		stuff++;
+	}
+
 	ast_mutex_lock(&verb_lock);
 	/* Lock appropriately if we're really being called in verbose mode */
-	__verboser(stuff, opos, replacelast, complete);
+	__verboser(stuff);
 	ast_mutex_unlock(&verb_lock);
 }
 
@@ -163,7 +163,7 @@ static void cliinput(void *data, int source, GdkInputCondition ic)
 			c++;
 			n = *c;
 			*c = '\0';
-			__verboser(l, 0, 0, 1);
+			__verboser(l);
 			*(c - 1) = '\0';
 			*c = n;
 			l = c;
@@ -180,14 +180,13 @@ static void cliinput(void *data, int source, GdkInputCondition ic)
 
 }
 
-
 static void remove_module(void)
 {
 	int res;
 	char *module;
 	char buf[256];
 	if (GTK_CLIST(modules)->selection) {
-		module= (char *)gtk_clist_get_row_data(GTK_CLIST(modules), (int) GTK_CLIST(modules)->selection->data);
+		module = (char *) gtk_clist_get_row_data(GTK_CLIST(modules), (long) GTK_CLIST(modules)->selection->data);
 		gdk_threads_leave();
 		res = ast_unload_resource(module, 0);
 		gdk_threads_enter();
@@ -200,13 +199,14 @@ static void remove_module(void)
 		}
 	}
 }
-static int reload_module(void *mod)
+
+static int reload(void)
 {
 	int res, x;
 	char *module;
 	char buf[256];
 	if (GTK_CLIST(modules)->selection) {
-		module= (char *)gtk_clist_get_row_data(GTK_CLIST(modules), (int) GTK_CLIST(modules)->selection->data);
+		module= (char *)gtk_clist_get_row_data(GTK_CLIST(modules), (long) GTK_CLIST(modules)->selection->data);
 		module = strdup(module);
 		if (module) {
 			gdk_threads_leave();
@@ -237,7 +237,7 @@ static int reload_module(void *mod)
 		}
 	}
 
-	return 0;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static void file_ok_sel(GtkWidget *w, GtkFileSelection *fs)
@@ -294,7 +294,7 @@ static int mod_update(void)
 	char *module= NULL;
 	/* Update the mod stuff */
 	if (GTK_CLIST(modules)->selection) {
-		module= (char *)gtk_clist_get_row_data(GTK_CLIST(modules), (int) GTK_CLIST(modules)->selection->data);
+		module= (char *)gtk_clist_get_row_data(GTK_CLIST(modules), (long) GTK_CLIST(modules)->selection->data);
 	}
 	gtk_clist_freeze(GTK_CLIST(modules));
 	gtk_clist_clear(GTK_CLIST(modules));
@@ -307,14 +307,15 @@ static int mod_update(void)
 
 static void exit_now(GtkWidget *widget, gpointer data)
 {
+	int res;
+
 	ast_loader_unregister(mod_update);
 	gtk_main_quit();
 	inuse--;
 	ast_update_use_count();
-	ast_unregister_verbose(verboser);
+	res = ast_unregister_verbose(verboser);
 	ast_unload_resource("pbx_gtkconsole", 0);
-	if (option_verbose > 1)
-		ast_verbose(VERBOSE_PREFIX_2 "GTK Console Monitor Exiting\n");
+	ast_verb(2, "GTK Console Monitor Exiting\n");
 	/* XXX Trying to quit after calling this makes asterisk segfault XXX */
 }
 
@@ -362,6 +363,8 @@ static int show_console(void)
 	GtkWidget *sw;
 	GtkWidget *bbox, *hbbox, *add, *removew, *reloadw;
 	char *modtitles[3] = { "Module", "Description", "Use Count" };
+	int res;
+
 	window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	
 	statusbar = gtk_statusbar_new();
@@ -421,7 +424,7 @@ static int show_console(void)
 	gtk_signal_connect(GTK_OBJECT(add), "clicked",
 			GTK_SIGNAL_FUNC (add_module), window);
 	gtk_signal_connect(GTK_OBJECT(reloadw), "clicked",
-			GTK_SIGNAL_FUNC (reload_module), window);
+			GTK_SIGNAL_FUNC (reload), window);
 		
 	bbox = gtk_vbox_new(FALSE, 5);
 	gtk_widget_show(bbox);
@@ -466,7 +469,7 @@ static int show_console(void)
 	ast_pthread_create(&console_thread, NULL, consolethread, NULL);
 	/* XXX Okay, seriously fix me! XXX */
 	usleep(100000);
-	ast_register_verbose(verboser);
+	res = ast_register_verbose(verboser);
 	gtk_clist_freeze(GTK_CLIST(verb));
 	ast_loader_register(mod_update);
 	gtk_clist_thaw(GTK_CLIST(verb));
@@ -477,38 +480,31 @@ static int show_console(void)
 }
 
 
-static int load_module(void *mod)
+static int load_module(void)
 {
 	if (pipe(clipipe)) {
 		ast_log(LOG_WARNING, "Unable to create CLI pipe\n");
-		return -1;
+		return AST_MODULE_LOAD_FAILURE;
 	}
 	g_thread_init(NULL);
 	if (gtk_init_check(NULL, NULL))  {
 		if (!show_console()) {
 			inuse++;
 			ast_update_use_count();
-			if (option_verbose > 1)
-				ast_verbose( VERBOSE_PREFIX_2 "Launched GTK Console monitor\n");		
+			ast_verb(2, "Launched GTK Console monitor\n");
 		} else
 			ast_log(LOG_WARNING, "Unable to start GTK console\n");
 	} else {
 		if (option_debug)
 			ast_log(LOG_DEBUG, "Unable to start GTK console monitor -- ignoring\n");
-		else if (option_verbose > 1)
-			ast_verbose( VERBOSE_PREFIX_2 "GTK is not available -- skipping monitor\n");
+		else
+			ast_verb(2, "GTK is not available -- skipping monitor\n");
 	}
-	return 0;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
-static const char *description(void)
-{
-	return dtext;
-}
-
-static const char *key(void)
-{
-	return ASTERISK_GPL_KEY;
-}
-
-STD_MOD(MOD_0, reload_module, NULL, NULL);
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "GTK Console",
+		.load = load_module,
+		.unload = unload_module,
+		.reload = reload,
+	       );

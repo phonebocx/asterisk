@@ -3,11 +3,11 @@
 //
 //
 // Static extension configuration file, used by
-// the pbx_config module. This is where you configure all your 
+// the pbx_ael module. This is where you configure all your 
 // inbound and outbound calls in Asterisk. 
 // 
 // This configuration file is reloaded 
-// - With the "extensions reload" command in the CLI
+// - With the "ael reload" command in the CLI
 // - With the "reload" command (that reloads everything) in the CLI
 
 // The "Globals" category contains global variables that can be referenced
@@ -20,19 +20,19 @@
 
 globals {
 	CONSOLE="Console/dsp"; 		// Console interface for demo
-	//CONSOLE=Zap/1
+	//CONSOLE=DAHDI/1
 	//CONSOLE=Phone/phone0
 	IAXINFO=guest;				// IAXtel username/password
 	//IAXINFO="myuser:mypass";
-	TRUNK="Zap/g2";					// Trunk interface
+	TRUNK="DAHDI/G2";					// Trunk interface
 	//
-	// Note the 'g2' in the TRUNK variable above. It specifies which group (defined
-	// in zapata.conf) to dial, i.e. group 2, and how to choose a channel to use in
+	// Note the 'G2' in the TRUNK variable above. It specifies which group (defined
+	// in dahdi.conf) to dial, i.e. group 2, and how to choose a channel to use in
 	// the specified group. The four possible options are:
 	//
-	// g: select the lowest-numbered non-busy Zap channel
+	// g: select the lowest-numbered non-busy DAHDI channel
 	//    (aka. ascending sequential hunt group).
-	// G: select the highest-numbered non-busy Zap channel
+	// G: select the highest-numbered non-busy DAHDI channel
 	//    (aka. descending sequential hunt group).
 	// r: use a round-robin search, starting at the next highest channel than last
 	//    time (aka. ascending rotary hunt group).
@@ -129,8 +129,8 @@ context ael-dundi-e164-via-pstn {
 	//
 	// If you are freely delivering calls to the PSTN, list them here
 	//
-	//_1256428XXXX => Dial(Zap/g2/${EXTEN:7}); // Expose all of 256-428 
-	//_1256325XXXX => Dial(Zap/g2/${EXTEN:7}); // Ditto for 256-325
+	//_1256428XXXX => Dial(DAHDI/G2/${EXTEN:7}); // Expose all of 256-428 
+	//_1256325XXXX => Dial(DAHDI/G2/${EXTEN:7}); // Ditto for 256-325
 };
 
 context ael-dundi-e164-local {
@@ -176,6 +176,7 @@ macro ael-dundi-e164(exten) {
 // ARG1 is the extension to Dial
 //
 	goto ${exten}|1;
+	return;
 };
 
 //
@@ -275,7 +276,6 @@ context ael-local {
 	ignorepat => 9;
 	includes {
 		ael-default;
-		ael-parkedcalls;
 		ael-trunklocal;
 		ael-iaxtel700;
 		ael-trunktollfree;
@@ -309,15 +309,16 @@ macro ael-std-exten-ael( ext , dev ) {
         Dial(${dev}/${ext},20);
         switch(${DIALSTATUS}) {
         case BUSY:
-                Voicemail(b${ext});
+                Voicemail(${ext},b);
                 break;
         default:
-                Voicemail(u${ext});
+                Voicemail(${ext},u);
         };
         catch a {
                 VoiceMailMain(${ext});
                 return;
         };
+	return;
 };
 
 context ael-demo {
@@ -405,10 +406,10 @@ context ael-default {
 //        Dial(${HINT}/5245},20,rtT);                    // Use hint as listed
 //        switch(${DIALSTATUS}) {
 //        case BUSY:
-//                Voicemail(b6245);
+//                Voicemail(6245,b);
 //				return;
 //        default:
-//                Voicemail(u6245);
+//                Voicemail(6245,u);
 //				return;
 //        };
 //       };
@@ -417,7 +418,7 @@ context ael-default {
 // 6389 => Dial(MGCP/aaln/1@192.168.0.14);
 // 6394 => Dial(Local/6275/n);                    // this will dial ${MARK}
 
-// 6275 => &ael-stdexten(6275,${MARK});           // assuming ${MARK} is something like Zap/2
+// 6275 => &ael-stdexten(6275,${MARK});           // assuming ${MARK} is something like DAHDI/2
 // mark => goto 6275|1;                          // alias mark to 6275
 // 6536 => &ael-stdexten(6236,${WIL});            // Ditto for wil
 // wil  => goto 6236|1;

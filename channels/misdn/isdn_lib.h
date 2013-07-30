@@ -11,6 +11,12 @@
  * the GNU General Public License
  */
 
+/*! \file 
+ * \brief Interface to mISDN
+ *
+ * \author Christian Richter <crich@beronet.com>
+ */
+
 #ifndef TE_LIB
 #define TE_LIB
 
@@ -230,6 +236,7 @@ struct misdn_bchannel {
 	int channel_preselected;
 	
 	int in_use;
+	struct timeval last_used;
 	int cw;
 	int addr;
 
@@ -280,6 +287,7 @@ struct misdn_bchannel {
 		struct FacAOCDCurrency currency;
 		struct FacAOCDChargingUnit chargingUnit;
 	} AOCD;
+	int AOCD_need_export;
 	
 	enum event_e evq;
 	
@@ -370,16 +378,20 @@ struct misdn_bchannel {
 
 
 enum event_response_e (*cb_event) (enum event_e event, struct misdn_bchannel *bc, void *user_data);
-void (*cb_log) (int level, int port, char *tmpl, ...);
+void (*cb_log) (int level, int port, char *tmpl, ...)
+	__attribute__ ((format (printf, 3, 4)));
 int (*cb_jb_empty)(struct misdn_bchannel *bc, char *buffer, int len);
 
 struct misdn_lib_iface {
 	enum event_response_e (*cb_event)(enum event_e event, struct misdn_bchannel *bc, void *user_data);
-	void (*cb_log)(int level, int port, char *tmpl, ...);
+	void (*cb_log)(int level, int port, char *tmpl, ...)
+		__attribute__ ((format (printf, 3, 4)));
 	int (*cb_jb_empty)(struct misdn_bchannel *bc, char *buffer, int len);
 };
 
 /***** USER IFACE **********/
+
+void misdn_lib_nt_keepcalls(int kc);
 
 void misdn_lib_nt_debug_init( int flags, char *file );
 
@@ -420,6 +432,7 @@ int misdn_lib_port_block(int port);
 int misdn_lib_port_unblock(int port);
 
 int misdn_lib_port_is_pri(int port);
+int misdn_lib_port_is_nt(int port);
 
 int misdn_lib_port_up(int port, int notcheck);
 
@@ -470,5 +483,8 @@ char *bc_state2str(enum bchannel_state state);
 void bc_state_change(struct misdn_bchannel *bc, enum bchannel_state state);
 
 void misdn_dump_chanlist(void);
+
+void misdn_make_dummy(struct misdn_bchannel *dummybc, int port, int l3id, int nt, int channel);
+
 
 #endif

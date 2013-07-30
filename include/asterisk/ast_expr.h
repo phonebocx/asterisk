@@ -16,14 +16,22 @@
  * at the top of the source tree.
  */
 
+/*! \file
+ *  
+ *      ???????  
+ *	\todo Explain this file!
+ */
+
+
 #ifndef _ASTERISK_EXPR_H
 #define _ASTERISK_EXPR_H
-
+#ifndef STANDALONE
+#endif
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
 
-int ast_expr(char *expr, char *buf, int length);
+int ast_expr(char *expr, char *buf, int length, struct ast_channel *chan);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

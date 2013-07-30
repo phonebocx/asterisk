@@ -18,26 +18,22 @@
  *
  * \brief Environment related dialplan functions
  * 
+ * \ingroup functions
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182280 $")
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
-#include "asterisk/logger.h"
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
 
-static int env_read(struct ast_channel *chan, char *cmd, char *data,
+static int env_read(struct ast_channel *chan, const char *cmd, char *data,
 		    char *buf, size_t len)
 {
 	char *ret = NULL;
@@ -53,7 +49,7 @@ static int env_read(struct ast_channel *chan, char *cmd, char *data,
 	return 0;
 }
 
-static int env_write(struct ast_channel *chan, char *cmd, char *data,
+static int env_write(struct ast_channel *chan, const char *cmd, char *data,
 		     const char *value)
 {
 	if (!ast_strlen_zero(data)) {
@@ -67,17 +63,17 @@ static int env_write(struct ast_channel *chan, char *cmd, char *data,
 	return 0;
 }
 
-static int stat_read(struct ast_channel *chan, char *cmd, char *data,
+static int stat_read(struct ast_channel *chan, const char *cmd, char *data,
 		     char *buf, size_t len)
 {
 	char *action;
 	struct stat s;
 
-	*buf = '\0';
+	ast_copy_string(buf, "0", len);
 
-	action = strsep(&data, "|");
+	action = strsep(&data, ",");
 	if (stat(data, &s)) {
-		return -1;
+		return 0;
 	} else {
 		switch (*action) {
 		case 'e':
@@ -110,6 +106,68 @@ static int stat_read(struct ast_channel *chan, char *cmd, char *data,
 	return 0;
 }
 
+static int file_read(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
+{
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(filename);
+		AST_APP_ARG(offset);
+		AST_APP_ARG(length);
+	);
+	int offset = 0, length, res = 0;
+	char *contents;
+	size_t contents_len;
+
+	AST_STANDARD_APP_ARGS(args, data);
+	if (args.argc > 1) {
+		offset = atoi(args.offset);
+	}
+
+	if (args.argc > 2) {
+		/* The +1/-1 in this code section is to accomodate for the terminating NULL. */
+		if ((length = atoi(args.length) + 1) > len) {
+			ast_log(LOG_WARNING, "Length %d is greater than the max (%d).  Truncating output.\n", length - 1, (int)len - 1);
+			length = len;
+		}
+	} else {
+		length = len;
+	}
+
+	if (!(contents = ast_read_textfile(args.filename))) {
+		return -1;
+	}
+
+	do {
+		contents_len = strlen(contents);
+		if (offset > contents_len) {
+			res = -1;
+			break;
+		}
+
+		if (offset >= 0) {
+			if (length < 0) {
+				if (contents_len - offset + length < 0) {
+					/* Nothing left after trimming */
+					res = -1;
+					break;
+				}
+				ast_copy_string(buf, &contents[offset], contents_len + length);
+			} else {
+				ast_copy_string(buf, &contents[offset], length);
+			}
+		} else {
+			if (offset * -1 > contents_len) {
+				ast_log(LOG_WARNING, "Offset is larger than the file size.\n");
+				offset = contents_len * -1;
+			}
+			ast_copy_string(buf, &contents[contents_len + offset], length);
+		}
+	} while (0);
+
+	ast_free(contents);
+
+	return res;
+}
+
 static struct ast_custom_function env_function = {
 	.name = "ENV",
 	.synopsis = "Gets or sets the environment variable specified",
@@ -135,12 +193,29 @@ static struct ast_custom_function stat_function = {
 		"  M - Returns the epoch at which the file was last modified\n",
 };
 
+static struct ast_custom_function file_function = {
+	.name = "FILE",
+	.synopsis = "Obtains the contents of a file",
+	.syntax = "FILE(<filename>,<offset>,<length>)",
+	.read = file_read,
+	/*
+	 * Some enterprising programmer could probably add write functionality
+	 * to FILE(), although I'm not sure how useful it would be.  Hence why
+	 * it's called FILE and not READFILE (like the app was).
+	 */
+	.desc =
+"<offset> may be specified as any number.  If negative, <offset> specifies\n"
+"    the number of bytes back from the end of the file.\n"
+"<length>, if specified, will limit the length of the data read to that size.\n",
+};
+
 static int unload_module(void)
 {
 	int res = 0;
 
 	res |= ast_custom_function_unregister(&env_function);
 	res |= ast_custom_function_unregister(&stat_function);
+	res |= ast_custom_function_unregister(&file_function);
 
 	return res;
 }
@@ -151,6 +226,7 @@ static int load_module(void)
 
 	res |= ast_custom_function_register(&env_function);
 	res |= ast_custom_function_register(&stat_function);
+	res |= ast_custom_function_register(&file_function);
 
 	return res;
 }

@@ -27,63 +27,51 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 50073 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 184081 $")
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-
-#include "asterisk/lock.h"
-#include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
-#include "asterisk/translate.h"
-#include "asterisk/options.h"
-#include "asterisk/utils.h"
 #include "asterisk/app.h"
 #include "asterisk/manager.h"
+#include "asterisk/channel.h"
 
 static char *app = "SendDTMF";
 
 static char *synopsis = "Sends arbitrary DTMF digits";
 
 static char *descrip = 
-" SendDTMF(digits[|timeout_ms]): Sends DTMF digits on a channel. \n"
-" Accepted digits: 0-9, *#abcd, w (.5s pause)\n"
+" SendDTMF(digits[,[timeout_ms][,duration_ms]]): Sends DTMF digits on a channel. \n"
+" Accepted digits: 0-9, *#abcd, (default .25s pause between digits)\n"
 " The application will either pass the assigned digits or terminate if it\n"
-" encounters an error.\n";
+" encounters an error.\n"
+" Optional Params: \n"
+"   timeout_ms: pause between digits.\n"
+"   duration_ms: duration of each digit.\n";
 
-
-static int senddtmf_exec(struct ast_channel *chan, void *data)
+static int senddtmf_exec(struct ast_channel *chan, void *vdata)
 {
 	int res = 0;
-	struct ast_module_user *u;
-	char *digits = NULL, *to = NULL;
-	int timeout = 250;
+	char *data;
+	int timeout = 0, duration = 0;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(digits);
+		AST_APP_ARG(timeout);
+		AST_APP_ARG(duration);
+	);
 
-	if (ast_strlen_zero(data)) {
+	if (ast_strlen_zero(vdata)) {
 		ast_log(LOG_WARNING, "SendDTMF requires an argument (digits or *#aAbBcCdD)\n");
 		return 0;
 	}
 
-	u = ast_module_user_add(chan);
+	data = ast_strdupa(vdata);
+	AST_STANDARD_APP_ARGS(args, data);
 
-	digits = ast_strdupa(data);
-
-	if ((to = strchr(digits,'|'))) {
-		*to = '\0';
-		to++;
-		timeout = atoi(to);
-	}
-		
-	if (timeout <= 0)
-		timeout = 250;
-
-	res = ast_dtmf_stream(chan,NULL,digits,timeout);
-		
-	ast_module_user_remove(u);
+	if (!ast_strlen_zero(args.timeout))
+		timeout = atoi(args.timeout);
+	if (!ast_strlen_zero(args.duration))
+		duration = atoi(args.duration);
+	res = ast_dtmf_stream(chan, NULL, args.digits, timeout <= 0 ? 250 : timeout, duration);
 
 	return res;
 }
@@ -104,15 +92,15 @@ static int manager_play_dtmf(struct mansession *s, const struct message *m)
 		astman_send_error(s, m, "Channel not specified");
 		return 0;
 	}
-	if (!digit) {
+	if (ast_strlen_zero(digit)) {
 		astman_send_error(s, m, "No digit specified");
-		ast_mutex_unlock(&chan->lock);
+		ast_channel_unlock(chan);
 		return 0;
 	}
 
-	ast_senddigit(chan, *digit);
+	ast_senddigit(chan, *digit, 0);
 
-	ast_mutex_unlock(&chan->lock);
+	ast_channel_unlock(chan);
 	astman_send_ack(s, m, "DTMF successfully queued");
 	
 	return 0;
@@ -124,8 +112,6 @@ static int unload_module(void)
 
 	res = ast_unregister_application(app);
 	res |= ast_manager_unregister("PlayDTMF");
-
-	ast_module_user_hangup_all();
 
 	return res;	
 }

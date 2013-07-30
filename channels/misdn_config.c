@@ -28,25 +28,16 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 67210 $")
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 185127 $")
 
 #include "chan_misdn_config.h"
 
 #include "asterisk/config.h"
 #include "asterisk/channel.h"
-#include "asterisk/logger.h"
 #include "asterisk/lock.h"
 #include "asterisk/pbx.h"
 #include "asterisk/strings.h"
 #include "asterisk/utils.h"
-
-#define AST_LOAD_CFG ast_config_load
-#define AST_DESTROY_CFG ast_config_destroy
 
 #define NO_DEFAULT "<>"
 #define NONE 0
@@ -55,6 +46,17 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 67210 $")
 #define PORT_CFG 2
 #define NUM_GEN_ELEMENTS (sizeof(gen_spec) / sizeof(struct misdn_cfg_spec))
 #define NUM_PORT_ELEMENTS (sizeof(port_spec) / sizeof(struct misdn_cfg_spec))
+
+/*! Global jitterbuffer configuration - by default, jb is disabled */
+static struct ast_jb_conf default_jbconf =
+{
+	.flags = 0,
+	.max_size = -1,
+	.resync_threshold = -1,
+	.impl = "",
+};
+
+static struct ast_jb_conf global_jbconf;
 
 enum misdn_cfg_type {
 	MISDN_CTYPE_STR,
@@ -95,26 +97,31 @@ static const struct misdn_cfg_spec port_spec[] = {
 	{ "name", MISDN_CFG_GROUPNAME, MISDN_CTYPE_STR, "default", NONE,
 		"Name of the portgroup." },
 	{ "allowed_bearers", MISDN_CFG_ALLOWED_BEARERS, MISDN_CTYPE_STR, "all", NONE,
-		"Here you can define which bearers should be allowed." },
+		"Here you can list which bearer capabilities should be allowed:\n"
+		"\t  all                  - allow any bearer capability\n"
+		"\t  speech               - allow speech\n"
+		"\t  3_1khz               - allow 3.1KHz audio\n"
+		"\t  digital_unrestricted - allow unrestricted digital\n"
+		"\t  digital_restricted   - allow restricted digital\n"
+		"\t  video                - allow video" },
 	{ "rxgain", MISDN_CFG_RXGAIN, MISDN_CTYPE_INT, "0", NONE,
 		"Set this between -8 and 8 to change the RX Gain." },
 	{ "txgain", MISDN_CFG_TXGAIN, MISDN_CTYPE_INT, "0", NONE,
 		"Set this between -8 and 8 to change the TX Gain." },
 	{ "te_choose_channel", MISDN_CFG_TE_CHOOSE_CHANNEL, MISDN_CTYPE_BOOL, "no", NONE,
-		"Some telcos espacially in NL seem to need this set to yes,\n"
-		"\talso in switzerland this seems to be important." },
+		"Some telcos especially in NL seem to need this set to yes,\n"
+		"\talso in Switzerland this seems to be important." },
 	{ "far_alerting", MISDN_CFG_FAR_ALERTING, MISDN_CTYPE_BOOL, "no", NONE,
 		"If we should generate ringing for chan_sip and others." },
 	{ "pmp_l1_check", MISDN_CFG_PMP_L1_CHECK, MISDN_CTYPE_BOOL, "no", NONE,
 		"This option defines, if chan_misdn should check the L1 on a PMP\n"
-		"\tbefore makeing a group call on it. The L1 may go down for PMP Ports\n"
+		"\tbefore making a group call on it. The L1 may go down for PMP Ports\n"
 		"\tso we might need this.\n"
 		"\tBut be aware! a broken or plugged off cable might be used for a group call\n"
 		"\tas well, since chan_misdn has no chance to distinguish if the L1 is down\n"
 		"\tbecause of a lost Link or because the Provider shut it down..." },
 	{ "block_on_alarm", MISDN_CFG_ALARM_BLOCK, MISDN_CTYPE_BOOL, "no", NONE ,
-	  "Block this port if we have an alarm on it."
-	  "default: yes\n" },
+	  "Block this port if we have an alarm on it." },
 	{ "hdlc", MISDN_CFG_HDLC, MISDN_CTYPE_BOOL, "no", NONE,
 		"Set this to yes, if you want to bridge a mISDN data channel to\n"
 		"\tanother channel type or to an application." },
@@ -127,10 +134,11 @@ static const struct misdn_cfg_spec port_spec[] = {
 	{ "callerid", MISDN_CFG_CALLERID, MISDN_CTYPE_STR, "", NONE,
 		"Sets the caller ID." },
 	{ "method", MISDN_CFG_METHOD, MISDN_CTYPE_STR, "standard", NONE,
-		"Sets the method to use for channel selection:\n"
-		"\t  standard    - always choose the first free channel with the lowest number\n"
-		"\t  round_robin - use the round robin algorithm to select a channel. use this\n"
-		"\t                if you want to balance your load." },
+		"Set the method to use for channel selection:\n"
+		"\t  standard     - Use the first free channel starting from the lowest number.\n"
+		"\t  standard_dec - Use the first free channel starting from the highest number.\n"
+		"\t  round_robin  - Use the round robin algorithm to select a channel. Use this\n"
+		"\t                 if you want to balance your load." },
 	{ "dialplan", MISDN_CFG_DIALPLAN, MISDN_CTYPE_INT, "0", NONE,
 		"Dialplan means Type Of Number in ISDN Terms (for outgoing calls)\n"
 		"\n"
@@ -164,7 +172,7 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"\t2 - National\n"
 		"\t4 - Subscriber\n"
 		"\n"
-		"\tThis setting is used for outgoing calls" },
+		"\tThis setting is used for outgoing calls." },
 	{ "cpndialplan", MISDN_CFG_CPNDIALPLAN, MISDN_CTYPE_INT, "0", NONE,
 		"Dialplan means Type Of Number in ISDN Terms (for outgoing calls)\n"
 		"\n"
@@ -220,6 +228,10 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"\tinstead." },
 	{ "senddtmf", MISDN_CFG_SENDDTMF, MISDN_CTYPE_BOOL, "no", NONE,
 		"Enable this if we should produce DTMF Tones ourselves." },
+	{ "astdtmf", MISDN_CFG_ASTDTMF, MISDN_CTYPE_BOOL, "no", NONE,
+		"Enable this if you want to use the Asterisk dtmf detector\n"
+		"instead of the mISDN_dsp/hfcmulti one."
+		},
 	{ "hold_allowed", MISDN_CFG_HOLD_ALLOWED, MISDN_CTYPE_BOOL, "no", NONE,
 		"Enable this to have support for hold and retrieve." },
 	{ "early_bconnect", MISDN_CFG_EARLY_BCONNECT, MISDN_CTYPE_BOOL, "yes", NONE,
@@ -230,9 +242,9 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"\tyou to send indications by yourself, normally the Telco sends the\n"
 		"\tindications to the remote party." },
 	{ "echocancel", MISDN_CFG_ECHOCANCEL, MISDN_CTYPE_BOOLINT, "0", 128,
-		"This enables echocancellation, with the given number of taps.\n"
-		"\tBe aware, move this setting only to outgoing portgroups!\n"
-		"\tA value of zero turns echocancellation off.\n"
+		"This enables echo cancellation with the given number of taps.\n"
+		"\tBe aware: Move this setting only to outgoing portgroups!\n"
+		"\tA value of zero turns echo cancellation off.\n"
 		"\n"
 		"\tPossible values are: 0,32,64,128,256,yes(=128),no(=0)" },
 #ifdef MISDN_1_2
@@ -265,7 +277,7 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"Do not send SETUP_ACKNOWLEDGE or PROCEEDING automatically to the calling Party.\n"
 		"Instead we directly jump into the dialplan. This might be useful for fast call\n"
 		"rejection, or for some broken switches, that need hangup causes like busy in the.\n"
-		"RELEASE_COMPLETE Message, instead of the DISCONNECT Message.\n"},
+		"RELEASE_COMPLETE Message, instead of the DISCONNECT Message."},
 	{ "jitterbuffer", MISDN_CFG_JITTERBUFFER, MISDN_CTYPE_INT, "4000", NONE,
 		"The jitterbuffer." },
 	{ "jitterbuffer_upper_threshold", MISDN_CFG_JITTERBUFFER_UPPER_THRESHOLD, MISDN_CTYPE_INT, "0", NONE,
@@ -276,7 +288,7 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"Pickupgroup." },
 	{ "max_incoming", MISDN_CFG_MAX_IN, MISDN_CTYPE_INT, "-1", NONE,
 		"Defines the maximum amount of incoming calls per port for this group.\n"
-		"\tCalls which exceed the maximum will be marked with the channel varible\n"
+		"\tCalls which exceed the maximum will be marked with the channel variable\n"
 		"\tMAX_OVERFLOW. It will contain the amount of overflowed calls" },
 	{ "max_outgoing", MISDN_CFG_MAX_OUT, MISDN_CTYPE_INT, "-1", NONE,
 		"Defines the maximum amount of outgoing calls per port for this group\n"
@@ -312,19 +324,18 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"\t   yes (= 4 seconds)\n"
 		"\t   no  (= 0 seconds = disabled)" },
 	{ "nttimeout", MISDN_CFG_NTTIMEOUT, MISDN_CTYPE_BOOL, "no", NONE ,
-		"Set this to yes if you want calls disconnected in overlap mode" 
-		"when a timeout happens.\n"},
+		"Set this to yes if you want calls disconnected in overlap mode\n"
+		"\twhen a timeout happens." },
 	{ "bridging", MISDN_CFG_BRIDGING, MISDN_CTYPE_BOOL, "yes", NONE,
 	 	"Set this to yes/no, default is yes.\n"
 		"This can be used to have bridging enabled in general and to\n"
 		"disable it for specific ports. It makes sense to disable\n"
 		"bridging on NT Port where you plan to use the HOLD/RETRIEVE\n"
-		"features with ISDN phones.\n"
-		},
+		"features with ISDN phones." },
 	{ "msns", MISDN_CFG_MSNS, MISDN_CTYPE_MSNLIST, "*", NONE,
 		"MSN's for TE ports, listen on those numbers on the above ports, and\n"
 		"\tindicate the incoming calls to Asterisk.\n"
-		"\tHere you can give a comma seperated list, or simply an '*' for any msn." },
+		"\tHere you can give a comma separated list, or simply an '*' for any msn." },
 };
 
 static const struct misdn_cfg_spec gen_spec[] = {
@@ -346,14 +357,18 @@ static const struct misdn_cfg_spec gen_spec[] = {
 	{ "stop_tone_after_first_digit", MISDN_GEN_STOP_TONE, MISDN_CTYPE_BOOL, "yes", NONE,
 		"Stops dialtone after getting first digit on NT Port." },
 	{ "append_digits2exten", MISDN_GEN_APPEND_DIGITS2EXTEN, MISDN_CTYPE_BOOL, "yes", NONE,
-		"Wether to append overlapdialed Digits to Extension or not." },
+		"Whether to append overlapdialed Digits to Extension or not." },
 	{ "dynamic_crypt", MISDN_GEN_DYNAMIC_CRYPT, MISDN_CTYPE_BOOL, "no", NONE,
-		"Wether to look out for dynamic crypting attempts." },
+		"Whether to look out for dynamic crypting attempts." },
 	{ "crypt_prefix", MISDN_GEN_CRYPT_PREFIX, MISDN_CTYPE_STR, NO_DEFAULT, NONE,
 		"What is used for crypting Protocol." },
 	{ "crypt_keys", MISDN_GEN_CRYPT_KEYS, MISDN_CTYPE_STR, NO_DEFAULT, NONE,
 		"Keys for cryption, you reference them in the dialplan\n"
 		"\tLater also in dynamic encr." },
+ 	{ "ntkeepcalls", MISDN_GEN_NTKEEPCALLS, MISDN_CTYPE_BOOL, "no", NONE, 
+		"avoid dropping calls if the L2 goes down. some Nortel pbx\n" 
+		"do put down the L2/L1 for some milliseconds even if there\n"
+		"are running calls. with this option you can avoid dropping them" },
 	{ "ntdebugflags", MISDN_GEN_NTDEBUGFLAGS, MISDN_CTYPE_INT, "0", NONE,
 	  	"No description yet."},
 	{ "ntdebugfile", MISDN_GEN_NTDEBUGFILE, MISDN_CTYPE_STR, "/var/log/misdn-nt.log", NONE,
@@ -416,7 +431,7 @@ static int _enum_array_map (void)
 	return 0;
 }
 
-static int get_cfg_position (char *name, int type)
+static int get_cfg_position (const char *name, int type)
 {
 	int i;
 
@@ -452,8 +467,8 @@ static void _free_msn_list (struct msn_list* iter)
 	if (iter->next)
 		_free_msn_list(iter->next);
 	if (iter->msn)
-		free(iter->msn);
-	free(iter);
+		ast_free(iter->msn);
+	ast_free(iter);
 }
 
 static void _free_port_cfg (void)
@@ -483,7 +498,7 @@ static void _free_port_cfg (void)
 				if (port_spec[i].type == MISDN_CTYPE_MSNLIST)
 					_free_msn_list(free_list[j][i].ml);
 				else
-					free(free_list[j][i].any);
+					ast_free(free_list[j][i].any);
 			}
 		}
 	}
@@ -495,10 +510,10 @@ static void _free_general_cfg (void)
 
 	for (i = 0; i < NUM_GEN_ELEMENTS; i++) 
 		if (general_cfg[i].any)
-			free(general_cfg[i].any);
+			ast_free(general_cfg[i].any);
 }
 
-void misdn_cfg_get (int port, enum misdn_cfg_elements elem, void *buf, int bufsize)
+void misdn_cfg_get(int port, enum misdn_cfg_elements elem, void *buf, int bufsize)
 {
 	int place;
 
@@ -514,19 +529,18 @@ void misdn_cfg_get (int port, enum misdn_cfg_elements elem, void *buf, int bufsi
 			memset(buf, 0, bufsize);
 	} else {
 		if ((place = map[elem]) < 0) {
-			memset (buf, 0, bufsize);
+			memset(buf, 0, bufsize);
 			ast_log(LOG_WARNING, "Invalid call to misdn_cfg_get! Invalid element (%d) requested.\n", elem);
 		} else {
 			if (elem < MISDN_CFG_LAST) {
 				switch (port_spec[place].type) {
 				case MISDN_CTYPE_STR:
 					if (port_cfg[port][place].str) {
-						if (!memccpy(buf, port_cfg[port][place].str, 0, bufsize))
-							memset(buf, 0, 1);
+						ast_copy_string(buf, port_cfg[port][place].str, bufsize);
 					} else if (port_cfg[0][place].str) {
-						if (!memccpy(buf, port_cfg[0][place].str, 0, bufsize))
-							memset(buf, 0, 1);
-					}
+						ast_copy_string(buf, port_cfg[0][place].str, bufsize);
+					} else
+						memset(buf, 0, bufsize);
 					break;
 				default:
 					if (port_cfg[port][place].any)
@@ -539,8 +553,7 @@ void misdn_cfg_get (int port, enum misdn_cfg_elements elem, void *buf, int bufsi
 			} else {
 				switch (gen_spec[place].type) {
 				case MISDN_CTYPE_STR:
-					if (!general_cfg[place].str || !memccpy(buf, general_cfg[place].str, 0, bufsize))
-						memset(buf, 0, 1);
+					ast_copy_string(buf, S_OR(general_cfg[place].str, ""), bufsize);
 					break;
 				default:
 					if (general_cfg[place].any)
@@ -554,28 +567,28 @@ void misdn_cfg_get (int port, enum misdn_cfg_elements elem, void *buf, int bufsi
 	misdn_cfg_unlock();
 }
 
-enum misdn_cfg_elements misdn_cfg_get_elem (char *name)
+enum misdn_cfg_elements misdn_cfg_get_elem(char *name)
 {
 	int pos;
 
-	/* here comes a hack to replace the (not existing) "name" elemet with the "ports" element */
+	/* here comes a hack to replace the (not existing) "name" element with the "ports" element */
 	if (!strcmp(name, "ports"))
 		return MISDN_CFG_GROUPNAME;
 	if (!strcmp(name, "name"))
 		return MISDN_CFG_FIRST;
 
-	pos = get_cfg_position (name, PORT_CFG);
+	pos = get_cfg_position(name, PORT_CFG);
 	if (pos >= 0)
 		return port_spec[pos].elem;
 	
-	pos = get_cfg_position (name, GEN_CFG);
+	pos = get_cfg_position(name, GEN_CFG);
 	if (pos >= 0)
 		return gen_spec[pos].elem;
 	
 	return MISDN_CFG_FIRST;
 }
 
-void misdn_cfg_get_name (enum misdn_cfg_elements elem, void *buf, int bufsize)
+void misdn_cfg_get_name(enum misdn_cfg_elements elem, void *buf, int bufsize)
 {
 	struct misdn_cfg_spec *spec = NULL;
 	int place = map[elem];
@@ -586,20 +599,19 @@ void misdn_cfg_get_name (enum misdn_cfg_elements elem, void *buf, int bufsize)
 		return;
 	}
 	
-	/* here comes a hack to replace the (not existing) "name" elemet with the "ports" element */
+	/* here comes a hack to replace the (not existing) "name" element with the "ports" element */
 	if (elem == MISDN_CFG_GROUPNAME) {
 		if (!snprintf(buf, bufsize, "ports"))
 			memset(buf, 0, 1);
 		return;
 	}
-	
+
 	if ((elem > MISDN_CFG_FIRST) && (elem < MISDN_CFG_LAST))
 		spec = (struct misdn_cfg_spec *)port_spec;
 	else if ((elem > MISDN_GEN_FIRST) && (elem < MISDN_GEN_LAST))
 		spec = (struct misdn_cfg_spec *)gen_spec;
 
-	if (!spec || !memccpy(buf, spec[place].name, 0, bufsize))
-		memset(buf, 0, 1);
+	ast_copy_string(buf, spec ? spec[place].name : "", bufsize);
 }
 
 void misdn_cfg_get_desc (enum misdn_cfg_elements elem, void *buf, int bufsize, void *buf_default, int bufsize_default)
@@ -607,10 +619,9 @@ void misdn_cfg_get_desc (enum misdn_cfg_elements elem, void *buf, int bufsize, v
 	int place = map[elem];
 	struct misdn_cfg_spec *spec = NULL;
 
-	/* here comes a hack to replace the (not existing) "name" elemet with the "ports" element */
+	/* here comes a hack to replace the (not existing) "name" element with the "ports" element */
 	if (elem == MISDN_CFG_GROUPNAME) {
-		if (!memccpy(buf, ports_description, 0, bufsize))
-			memset(buf, 0, 1);
+		ast_copy_string(buf, ports_description, bufsize);
 		if (buf_default && bufsize_default)
 			memset(buf_default, 0, 1);
 		return;
@@ -624,13 +635,12 @@ void misdn_cfg_get_desc (enum misdn_cfg_elements elem, void *buf, int bufsize, v
 	if (!spec || !spec[place].desc)
 		memset(buf, 0, 1);
 	else {
-		if (!memccpy(buf, spec[place].desc, 0, bufsize))
-			memset(buf, 0, 1);
+		ast_copy_string(buf, spec[place].desc, bufsize);
 		if (buf_default && bufsize) {
 			if (!strcmp(spec[place].def, NO_DEFAULT))
 				memset(buf_default, 0, 1);
-			else if (!memccpy(buf_default, spec[place].def, 0, bufsize_default))
-				memset(buf_default, 0, 1);
+			else
+				ast_copy_string(buf_default, spec[place].def, bufsize_default);
 		}
 	}
 }
@@ -699,6 +709,9 @@ int misdn_cfg_is_group_method (char *group, enum misdn_cfg_method meth)
 	return re;
 }
 
+/*! 
+ * \brief Generate a comma separated list of all active ports
+ */
 void misdn_cfg_get_ports_string (char *ports)
 {
 	char tmp[16];
@@ -719,8 +732,10 @@ void misdn_cfg_get_ports_string (char *ports)
 	}
 	misdn_cfg_unlock();
 
-	if ((l = strlen(ports)))
+	if ((l = strlen(ports))) {
+		/* Strip trailing ',' */
 		ports[l-1] = 0;
+	}
 }
 
 void misdn_cfg_get_config_string (int port, enum misdn_cfg_elements elem, char* buf, int bufsize)
@@ -776,8 +791,9 @@ void misdn_cfg_get_config_string (int port, enum misdn_cfg_elements elem, char* 
 			else
 				iter = port_cfg[0][place].ml;
 			if (iter) {
-				for (; iter; iter = iter->next)
-					sprintf(tempbuf, "%s%s, ", tempbuf, iter->msn);
+				for (; iter; iter = iter->next) {
+					strncat(tempbuf, iter->msn, sizeof(tempbuf) - strlen(tempbuf) - 1);
+				}
 				tempbuf[strlen(tempbuf)-2] = 0;
 			}
 			snprintf(buf, bufsize, " -> msns: %s", *tempbuf ? tempbuf : "none");
@@ -848,43 +864,46 @@ int misdn_cfg_get_next_port_spin (int port)
 	return (p > 0) ? p : misdn_cfg_get_next_port(0);
 }
 
-static int _parse (union misdn_cfg_pt *dest, char *value, enum misdn_cfg_type type, int boolint_def)
+static int _parse (union misdn_cfg_pt *dest, const char *value, enum misdn_cfg_type type, int boolint_def)
 {
 	int re = 0;
 	int len, tmp;
 	char *valtmp;
+	char *tmp2 = ast_strdupa(value);
 
 	switch (type) {
 	case MISDN_CTYPE_STR:
 		if ((len = strlen(value))) {
-			dest->str = (char *)malloc((len + 1) * sizeof(char));
+			dest->str = ast_malloc((len + 1) * sizeof(char));
 			strncpy(dest->str, value, len);
 			dest->str[len] = 0;
 		} else {
-			dest->str = (char *)malloc( sizeof(char));
+			dest->str = ast_malloc(sizeof(char));
 			dest->str[0] = 0;
 		}
 		break;
 	case MISDN_CTYPE_INT:
 	{
-		char *pat;
-		if (strchr(value,'x')) 
-			pat="%x";
-		else
-			pat="%d";
-		if (sscanf(value, pat, &tmp)) {
-			dest->num = (int *)malloc(sizeof(int));
+		int res;
+
+		if (strchr(value,'x')) {
+			res = sscanf(value, "%x", &tmp);
+		} else {
+			res = sscanf(value, "%d", &tmp);
+		}
+		if (res) {
+			dest->num = ast_malloc(sizeof(int));
 			memcpy(dest->num, &tmp, sizeof(int));
 		} else
 			re = -1;
 	}
 		break;
 	case MISDN_CTYPE_BOOL:
-		dest->num = (int *)malloc(sizeof(int));
+		dest->num = ast_malloc(sizeof(int));
 		*(dest->num) = (ast_true(value) ? 1 : 0);
 		break;
 	case MISDN_CTYPE_BOOLINT:
-		dest->num = (int *)malloc(sizeof(int));
+		dest->num = ast_malloc(sizeof(int));
 		if (sscanf(value, "%d", &tmp)) {
 			memcpy(dest->num, &tmp, sizeof(int));
 		} else {
@@ -892,10 +911,10 @@ static int _parse (union misdn_cfg_pt *dest, char *value, enum misdn_cfg_type ty
 		}
 		break;
 	case MISDN_CTYPE_MSNLIST:
-		for (valtmp = strsep(&value, ","); valtmp; valtmp = strsep(&value, ",")) {
+		for (valtmp = strsep(&tmp2, ","); valtmp; valtmp = strsep(&tmp2, ",")) {
 			if ((len = strlen(valtmp))) {
-				struct msn_list *ml = (struct msn_list *)malloc(sizeof(struct msn_list));
-				ml->msn = (char *)calloc(len+1, sizeof(char));
+				struct msn_list *ml = ast_malloc(sizeof(*ml));
+				ml->msn = ast_calloc(len+1, sizeof(char));
 				strncpy(ml->msn, valtmp, len);
 				ml->next = dest->ml;
 				dest->ml = ml;
@@ -903,7 +922,7 @@ static int _parse (union misdn_cfg_pt *dest, char *value, enum misdn_cfg_type ty
 		}
 		break;
 	case MISDN_CTYPE_ASTGROUP:
-		dest->grp = (ast_group_t *)malloc(sizeof(ast_group_t));
+		dest->grp = ast_malloc(sizeof(ast_group_t));
 		*(dest->grp) = ast_get_group(value);
 		break;
 	}
@@ -916,6 +935,8 @@ static void _build_general_config (struct ast_variable *v)
 	int pos;
 
 	for (; v; v = v->next) {
+		if (!ast_jb_read_conf(&global_jbconf, v->name, v->value))
+			continue;
 		if (((pos = get_cfg_position(v->name, GEN_CFG)) < 0) || 
 			(_parse(&general_cfg[pos], v->value, gen_spec[pos].type, gen_spec[pos].boolint_def) < 0))
 			CLI_ERROR(v->name, v->value, "general");
@@ -946,10 +967,10 @@ static void _build_port_config (struct ast_variable *v, char *cat)
 
 	for (; v; v = v->next) {
 		if (!strcasecmp(v->name, "ports")) {
-			char *token;
+			char *token, *tmp = ast_strdupa(v->value);
 			char ptpbuf[BUFFERSIZE] = "";
 			int start, end;
-			for (token = strsep(&v->value, ","); token; token = strsep(&v->value, ","), *ptpbuf = 0) { 
+			for (token = strsep(&tmp, ","); token; token = strsep(&tmp, ","), *ptpbuf = 0) { 
 				if (!*token)
 					continue;
 				if (sscanf(token, "%d-%d%s", &start, &end, ptpbuf) >= 2) {
@@ -996,7 +1017,7 @@ void misdn_cfg_update_ptp (void)
 
 	misdn_cfg_get(0, MISDN_GEN_MISDN_INIT, &misdn_init, sizeof(misdn_init));
 
-	if (misdn_init) {
+	if (!ast_strlen_zero(misdn_init)) {
 		fp = fopen(misdn_init, "r");
 		if (fp) {
 			while(fgets(line, sizeof(line), fp)) {
@@ -1056,7 +1077,7 @@ static void _fill_defaults (void)
 
 void misdn_cfg_reload (void)
 {
-	misdn_cfg_init (0);
+	misdn_cfg_init(0, 1);
 }
 
 void misdn_cfg_destroy (void)
@@ -1066,39 +1087,44 @@ void misdn_cfg_destroy (void)
 	_free_port_cfg();
 	_free_general_cfg();
 
-	free(port_cfg);
-	free(general_cfg);
-	free(ptp);
-	free(map);
+	ast_free(port_cfg);
+	ast_free(general_cfg);
+	ast_free(ptp);
+	ast_free(map);
 
 	misdn_cfg_unlock();
 	ast_mutex_destroy(&config_mutex);
 }
 
-int misdn_cfg_init (int this_max_ports)
+int misdn_cfg_init(int this_max_ports, int reload)
 {
 	char config[] = "misdn.conf";
 	char *cat, *p;
 	int i;
 	struct ast_config *cfg;
 	struct ast_variable *v;
+	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 
-	if (!(cfg = AST_LOAD_CFG(config))) {
+	if (!(cfg = ast_config_load2(config, "chan_misdn", config_flags))) {
 		ast_log(LOG_WARNING, "missing file: misdn.conf\n");
 		return -1;
-	}
+	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED)
+		return 0;
 
 	ast_mutex_init(&config_mutex);
+
+	/* Copy the default jb config over global_jbconf */
+	memcpy(&global_jbconf, &default_jbconf, sizeof(struct ast_jb_conf));
 
 	misdn_cfg_lock();
 
 	if (this_max_ports) {
 		/* this is the first run */
 		max_ports = this_max_ports;
-		map = (int *)calloc(MISDN_GEN_LAST + 1, sizeof(int));
+		map = ast_calloc(MISDN_GEN_LAST + 1, sizeof(int));
 		if (_enum_array_map())
 			return -1;
-		p = (char *)calloc(1, (max_ports + 1) * sizeof(union misdn_cfg_pt *)
+		p = ast_calloc(1, (max_ports + 1) * sizeof(union misdn_cfg_pt *)
 						   + (max_ports + 1) * NUM_PORT_ELEMENTS * sizeof(union misdn_cfg_pt));
 		port_cfg = (union misdn_cfg_pt **)p;
 		p += (max_ports + 1) * sizeof(union misdn_cfg_pt *);
@@ -1106,8 +1132,8 @@ int misdn_cfg_init (int this_max_ports)
 			port_cfg[i] = (union misdn_cfg_pt *)p;
 			p += NUM_PORT_ELEMENTS * sizeof(union misdn_cfg_pt);
 		}
-		general_cfg = (union misdn_cfg_pt *)calloc(1, sizeof(union misdn_cfg_pt *) * NUM_GEN_ELEMENTS);
-		ptp = (int *)calloc(max_ports + 1, sizeof(int));
+		general_cfg = ast_calloc(1, sizeof(union misdn_cfg_pt *) * NUM_GEN_ELEMENTS);
+		ptp = ast_calloc(max_ports + 1, sizeof(int));
 	}
 	else {
 		/* misdn reload */
@@ -1133,9 +1159,11 @@ int misdn_cfg_init (int this_max_ports)
 	_fill_defaults();
 
 	misdn_cfg_unlock();
-	AST_DESTROY_CFG(cfg);
+	ast_config_destroy(cfg);
 
 	return 0;
 }
 
-
+struct ast_jb_conf *misdn_get_global_jbconf() {
+	return &global_jbconf;
+}

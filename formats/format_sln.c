@@ -24,22 +24,9 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 117802 $")
 
-#include <unistd.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-
-#include "asterisk/lock.h"
-#include "asterisk/channel.h"
-#include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/sched.h"
+#include "asterisk/mod_format.h"
 #include "asterisk/module.h"
 #include "asterisk/endian.h"
 
@@ -55,7 +42,7 @@ static struct ast_frame *slinear_read(struct ast_filestream *s, int *whennext)
 	s->fr.subclass = AST_FORMAT_SLINEAR;
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, BUF_SIZE);
-	if ((res = fread(s->fr.data, 1, s->fr.datalen, s->f)) < 1) {
+	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) < 1) {
 		if (res)
 			ast_log(LOG_WARNING, "Short read (%d) (%s)!\n", res, strerror(errno));
 		return NULL;
@@ -76,7 +63,7 @@ static int slinear_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-slinear frame (%d)!\n", f->subclass);
 		return -1;
 	}
-	if ((res = fwrite(f->data, 1, f->datalen, fs->f)) != f->datalen) {
+	if ((res = fwrite(f->data.ptr, 1, f->datalen, fs->f)) != f->datalen) {
 			ast_log(LOG_WARNING, "Bad write (%d/%d): %s\n", res, f->datalen, strerror(errno));
 			return -1;
 	}
@@ -130,7 +117,9 @@ static const struct ast_format slin_f = {
 
 static int load_module(void)
 {
-	return ast_format_register(&slin_f);
+	if (ast_format_register(&slin_f))
+		return AST_MODULE_LOAD_FAILURE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)

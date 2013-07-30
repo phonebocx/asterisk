@@ -28,22 +28,16 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 120904 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/options.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
+#include "asterisk/app.h"
 
 /* Maximum length of any variable */
-#define MAXRESULT	1024
+#define MAXRESULT 1024
 
 /*! Note
  *
@@ -60,8 +54,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 static char *app_exec = "Exec";
 static char *exec_synopsis = "Executes dialplan application";
 static char *exec_descrip =
-"Usage: Exec(appname(arguments))\n"
-"  Allows an arbitrary application to be invoked even when not\n"
+"  Exec(appname(arguments)):\n"
+"Allows an arbitrary application to be invoked even when not\n"
 "hardcoded into the dialplan.  If the underlying application\n"
 "terminates the dialplan, or if the application cannot be found,\n"
 "Exec will terminate the dialplan.\n"
@@ -71,128 +65,161 @@ static char *exec_descrip =
 static char *app_tryexec = "TryExec";
 static char *tryexec_synopsis = "Executes dialplan application, always returning";
 static char *tryexec_descrip =
-"Usage: TryExec(appname(arguments))\n"
-"  Allows an arbitrary application to be invoked even when not\n"
+"  TryExec(appname(arguments)):\n"
+"Allows an arbitrary application to be invoked even when not\n"
 "hardcoded into the dialplan. To invoke external applications\n"
 "see the application System.  Always returns to the dialplan.\n"
-"The channel variable TRYSTATUS will be set to:\n"
+"The channel variable TRYSTATUS will be set to one of:\n"
 "    SUCCESS   if the application returned zero\n"
 "    FAILED    if the application returned non-zero\n"
 "    NOAPP     if the application was not found or was not specified\n";
 
 static char *app_execif = "ExecIf";
 static char *execif_synopsis = "Executes dialplan application, conditionally";
-static char *execif_descrip = 
-"Usage:  ExecIF (<expr>|<app>|<data>)\n"
-"If <expr> is true, execute and return the result of <app>(<data>).\n"
-"If <expr> is true, but <app> is not found, then the application\n"
+static char *execif_descrip =
+"  ExecIF (<expr>?<appiftrue>(<args>)[:<appiffalse>(<args>)])\n"
+"If <expr> is true, execute and return the result of <appiftrue>(<args>).\n"
+"If <expr> is true, but <appiftrue> is not found, then the application\n"
 "will return a non-zero value.\n";
 
 static int exec_exec(struct ast_channel *chan, void *data)
 {
-	int res=0;
-	struct ast_module_user *u;
-	char *s, *appname, *endargs, args[MAXRESULT] = "";
+	int res = 0;
+	char *s, *appname, *endargs, args[MAXRESULT];
 	struct ast_app *app;
 
-	u = ast_module_user_add(chan);
+	if (ast_strlen_zero(data))
+		return 0;
 
-	/* Check and parse arguments */
-	if (data) {
-		s = ast_strdupa(data);
-		appname = strsep(&s, "(");
-		if (s) {
-			endargs = strrchr(s, ')');
-			if (endargs)
-				*endargs = '\0';
-			pbx_substitute_variables_helper(chan, s, args, MAXRESULT - 1);
-		}
-		if (appname) {
-			app = pbx_findapp(appname);
-			if (app) {
-				res = pbx_exec(chan, app, args);
-			} else {
-				ast_log(LOG_WARNING, "Could not find application (%s)\n", appname);
-				res = -1;
-			}
+	s = ast_strdupa(data);
+	args[0] = 0;
+	appname = strsep(&s, "(");
+	if (s) {
+		endargs = strrchr(s, ')');
+		if (endargs)
+			*endargs = '\0';
+		pbx_substitute_variables_helper(chan, s, args, MAXRESULT - 1);
+	}
+	if (appname) {
+		app = pbx_findapp(appname);
+		if (app) {
+			res = pbx_exec(chan, app, args);
+		} else {
+			ast_log(LOG_WARNING, "Could not find application (%s)\n", appname);
+			res = -1;
 		}
 	}
 
-	ast_module_user_remove(u);
 	return res;
 }
 
 static int tryexec_exec(struct ast_channel *chan, void *data)
 {
-	int res=0;
-	struct ast_module_user *u;
-	char *s, *appname, *endargs, args[MAXRESULT] = "";
+	int res = 0;
+	char *s, *appname, *endargs, args[MAXRESULT];
 	struct ast_app *app;
 
-	u = ast_module_user_add(chan);
+	if (ast_strlen_zero(data))
+		return 0;
 
-	/* Check and parse arguments */
-	if (data) {
-		s = ast_strdupa(data);
-		appname = strsep(&s, "(");
-		if (s) {
-			endargs = strrchr(s, ')');
-			if (endargs)
-				*endargs = '\0';
-			pbx_substitute_variables_helper(chan, s, args, MAXRESULT - 1);
-		}
-		if (appname) {
-			app = pbx_findapp(appname);
-			if (app) {
-				res = pbx_exec(chan, app, args);
-				pbx_builtin_setvar_helper(chan, "TRYSTATUS", res ? "FAILED" : "SUCCESS");
-			} else {
-				ast_log(LOG_WARNING, "Could not find application (%s)\n", appname);
-				pbx_builtin_setvar_helper(chan, "TRYSTATUS", "NOAPP");
-			}
+	s = ast_strdupa(data);
+	args[0] = 0;
+	appname = strsep(&s, "(");
+	if (s) {
+		endargs = strrchr(s, ')');
+		if (endargs)
+			*endargs = '\0';
+		pbx_substitute_variables_helper(chan, s, args, MAXRESULT - 1);
+	}
+	if (appname) {
+		app = pbx_findapp(appname);
+		if (app) {
+			res = pbx_exec(chan, app, args);
+			pbx_builtin_setvar_helper(chan, "TRYSTATUS", res ? "FAILED" : "SUCCESS");
+		} else {
+			ast_log(LOG_WARNING, "Could not find application (%s)\n", appname);
+			pbx_builtin_setvar_helper(chan, "TRYSTATUS", "NOAPP");
 		}
 	}
 
-	ast_module_user_remove(u);
 	return 0;
 }
 
 static int execif_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
-	struct ast_module_user *u;
-	char *myapp = NULL;
-	char *mydata = NULL;
-	char *expr = NULL;
+	char *truedata = NULL, *falsedata = NULL, *end, *firstcomma, *firstquestion;
 	struct ast_app *app = NULL;
+	AST_DECLARE_APP_ARGS(expr,
+		AST_APP_ARG(expr);
+		AST_APP_ARG(remainder);
+	);
+	AST_DECLARE_APP_ARGS(apps,
+		AST_APP_ARG(t);
+		AST_APP_ARG(f);
+	);
+	char *parse = ast_strdupa(data);
 
-	u = ast_module_user_add(chan);
+	firstcomma = strchr(parse, ',');
+	firstquestion = strchr(parse, '?');
 
-	expr = ast_strdupa(data);
+	if ((firstcomma != NULL && firstquestion != NULL && firstcomma < firstquestion) || (firstquestion == NULL)) {
+		/* Deprecated syntax */
+		AST_DECLARE_APP_ARGS(depr,
+			AST_APP_ARG(expr);
+			AST_APP_ARG(appname);
+			AST_APP_ARG(appargs);
+		);
+		AST_STANDARD_APP_ARGS(depr, parse);
 
-	if ((myapp = strchr(expr,'|'))) {
-		*myapp = '\0';
-		myapp++;
-		if ((mydata = strchr(myapp,'|'))) {
-			*mydata = '\0';
-			mydata++;
-		} else
-			mydata = "";
+		ast_log(LOG_WARNING, "Deprecated syntax found.  Please upgrade to using ExecIf(<expr>?%s(%s))\n", depr.appname, depr.appargs);
 
-		if (pbx_checkcondition(expr)) { 
-			if ((app = pbx_findapp(myapp))) {
-				res = pbx_exec(chan, app, mydata);
-			} else {
-				ast_log(LOG_WARNING, "Count not find application! (%s)\n", myapp);
-				res = -1;
+		/* Make the two syntaxes look the same */
+		expr.expr = depr.expr;
+		apps.t = depr.appname;
+		apps.f = NULL;
+		truedata = depr.appargs;
+	} else {
+		/* Preferred syntax */
+
+		AST_NONSTANDARD_APP_ARGS(expr, parse, '?');
+		if (ast_strlen_zero(expr.remainder)) {
+			ast_log(LOG_ERROR, "Usage: ExecIf(<expr>?<appiftrue>(<args>)[:<appiffalse>(<args)])\n");
+			return -1;
+		}
+
+		AST_NONSTANDARD_APP_ARGS(apps, expr.remainder, ':');
+
+		if (apps.t && (truedata = strchr(apps.t, '('))) {
+			*truedata++ = '\0';
+			if ((end = strrchr(truedata, ')'))) {
+				*end = '\0';
 			}
 		}
-	} else {
-		ast_log(LOG_ERROR,"Invalid Syntax.\n");
-		res = -1;
+
+		if (apps.f && (falsedata = strchr(apps.f, '('))) {
+			*falsedata++ = '\0';
+			if ((end = strrchr(falsedata, ')'))) {
+				*end = '\0';
+			}
+		}
 	}
-		
-	ast_module_user_remove(u);
+
+	if (pbx_checkcondition(expr.expr)) {
+		if (!ast_strlen_zero(apps.t) && (app = pbx_findapp(apps.t))) {
+			res = pbx_exec(chan, app, S_OR(truedata, ""));
+		} else {
+			ast_log(LOG_WARNING, "Could not find application! (%s)\n", apps.t);
+			res = -1;
+		}
+	} else if (!ast_strlen_zero(apps.f)) {
+		if ((app = pbx_findapp(apps.f))) {
+			res = pbx_exec(chan, app, S_OR(falsedata, ""));
+		} else {
+			ast_log(LOG_WARNING, "Could not find application! (%s)\n", apps.f);
+			res = -1;
+		}
+	}
 
 	return res;
 }
@@ -204,8 +231,6 @@ static int unload_module(void)
 	res = ast_unregister_application(app_exec);
 	res |= ast_unregister_application(app_tryexec);
 	res |= ast_unregister_application(app_execif);
-
-	ast_module_user_hangup_all();
 
 	return res;
 }

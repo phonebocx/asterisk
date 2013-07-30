@@ -30,14 +30,12 @@
 #ifndef _ABSTRACT_JB_H_
 #define _ABSTRACT_JB_H_
 
-#include <stdio.h>
 #include <sys/time.h>
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
 
-struct ast_channel;
 struct ast_frame;
 
 /* Configuration flags */
@@ -113,7 +111,8 @@ struct ast_jb
  * appropriate internal jb flags to the channels, determining further behaviour
  * of the bridged jitterbuffers.
  *
- * \return zero if there are no jitter buffers in use, non-zero if there are
+ * \retval zero if there are no jitter buffers in use
+ * \retval non-zero if there are
  */
 int ast_jb_do_usecheck(struct ast_channel *c0, struct ast_channel *c1);
 
@@ -150,7 +149,8 @@ int ast_jb_get_when_to_wakeup(struct ast_channel *c0, struct ast_channel *c1, in
  * Dropped by the jb implementation frames are considered successfuly enqueued as
  * far as they should not be delivered at all.
  *
- * \return zero if the frame was queued, -1 if not.
+ * \retval 0 if the frame was queued
+ * \retval -1 if not
  */
 int ast_jb_put(struct ast_channel *chan, struct ast_frame *f);
 
@@ -191,7 +191,7 @@ void ast_jb_destroy(struct ast_channel *chan);
  *
  * \return zero if the property was set to the configuration, -1 if not.
  */
-int ast_jb_read_conf(struct ast_jb_conf *conf, char *varname, char *value);
+int ast_jb_read_conf(struct ast_jb_conf *conf, const char *varname, const char *value);
 
 
 /*!
@@ -212,6 +212,12 @@ void ast_jb_configure(struct ast_channel *chan, const struct ast_jb_conf *conf);
  */
 void ast_jb_get_config(const struct ast_channel *chan, struct ast_jb_conf *conf);
 
+/*!
+ * \brief drops all frames from a jitterbuffer and resets it
+ * \param c0 one channel of a bridge
+ * \param c1 the other channel of the bridge
+ */
+void ast_jb_empty_and_reset(struct ast_channel *c0, struct ast_channel *c1);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

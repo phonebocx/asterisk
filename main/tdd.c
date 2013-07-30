@@ -29,19 +29,15 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 148240 $")
 
 #include <time.h>
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
 #include <math.h>
 #include <ctype.h>
 
+#include "asterisk/logger.h"
 #include "asterisk/ulaw.h"
 #include "asterisk/tdd.h"
-#include "asterisk/logger.h"
 #include "asterisk/fskmodem.h"
 #include "ecdisa.h"
 
@@ -53,6 +49,7 @@ struct tdd_state {
 	int pos;
 	int modo;
 	int mode;
+	int charnum;
 };
 
 static float dr[4], di[4];
@@ -67,10 +64,10 @@ static int tdd_decode_baudot(struct tdd_state *tdd,unsigned char data)	/* covert
 	                         '\n','D','R','J','N','F','C','K',
 	                         'T','Z','L','W','H','Y','P','Q',
 	                         'O','B','G','^','M','X','V','^' };
-	static char figs[32] = { '<','3','\n','-',' ',',','8','7',
-	                         '\n','$','4','\'',',','·',':','(',
-	                         '5','+',')','2','·','6','0','1',
-	                         '9','7','·','^','.','/','=','^' };
+	static char figs[32] = { '<','3','\n','-',' ','\'','8','7',
+	                         '\n','$','4','\'',',','!',':','(',
+	                         '5','\"',')','2','=','6','0','1',
+	                         '9','?','+','^','.','/',';','^' };
 	int d = 0;  /* return 0 if not decodeable */
 	switch (data) {
 	case 0x1f:
@@ -101,14 +98,32 @@ void tdd_init(void)
 struct tdd_state *tdd_new(void)
 {
 	struct tdd_state *tdd;
-	tdd = malloc(sizeof(struct tdd_state));
+	tdd = calloc(1, sizeof(*tdd));
 	if (tdd) {
-		memset(tdd, 0, sizeof(struct tdd_state));
+#ifdef INTEGER_CALLERID
+		tdd->fskd.ispb = 176;        /* 45.5 baud */
+		/* Set up for 45.5 / 8000 freq *32 to allow ints */
+		tdd->fskd.pllispb  = (int)((8000 * 32 * 2) / 90);
+		tdd->fskd.pllids   = tdd->fskd.pllispb / 32;
+		tdd->fskd.pllispb2 = tdd->fskd.pllispb / 2;
+		tdd->fskd.hdlc = 0;         /* Async */
+		tdd->fskd.nbit = 5;         /* 5 bits */
+		tdd->fskd.instop = 1;       /* integer rep of 1.5 stop bits */
+		tdd->fskd.parity = 0;       /* No parity */
+		tdd->fskd.bw=0;             /* Filter 75 Hz */
+		tdd->fskd.f_mark_idx = 0;   /* 1400 Hz */
+		tdd->fskd.f_space_idx = 1;  /* 1800 Hz */
+		tdd->fskd.xi0  = 0;
+		tdd->fskd.state = 0;
+		tdd->pos = 0;
+		tdd->mode = 0;
+		fskmodem_init(&tdd->fskd);
+#else
 		tdd->fskd.spb = 176;        /* 45.5 baud */
 		tdd->fskd.hdlc = 0;         /* Async */
 		tdd->fskd.nbit = 5;         /* 5 bits */
 		tdd->fskd.nstop = 1.5;      /* 1.5 stop bits */
-		tdd->fskd.paridad = 0;      /* No parity */
+		tdd->fskd.parity = 0;       /* No parity */
 		tdd->fskd.bw=0;             /* Filter 75 Hz */
 		tdd->fskd.f_mark_idx = 0;   /* 1400 Hz */
 		tdd->fskd.f_space_idx = 1;  /* 1800 Hz */
@@ -118,6 +133,8 @@ struct tdd_state *tdd_new(void)
 		tdd->fskd.state = 0;
 		tdd->pos = 0;
 		tdd->mode = 2;
+#endif
+		tdd->charnum = 0;
 	} else
 		ast_log(LOG_WARNING, "Out of memory\n");
 	return tdd;
@@ -143,29 +160,28 @@ int tdd_feed(struct tdd_state *tdd, unsigned char *ubuf, int len)
 	int b = 'X';
 	int res;
 	int c,x;
-	short *buf = malloc(2 * len + tdd->oldlen);
+	short *buf = calloc(1, 2 * len + tdd->oldlen);
 	short *obuf = buf;
 	if (!buf) {
 		ast_log(LOG_WARNING, "Out of memory\n");
 		return -1;
 	}
-	memset(buf, 0, 2 * len + tdd->oldlen);
 	memcpy(buf, tdd->oldstuff, tdd->oldlen);
-	mylen += tdd->oldlen/2;
+	mylen += tdd->oldlen / 2;
 	for (x = 0; x < len; x++) 
 		buf[x + tdd->oldlen / 2] = AST_MULAW(ubuf[x]);
 	c = res = 0;
 	while (mylen >= 1320) { /* has to have enough to work on */
 		olen = mylen;
-		res = fsk_serie(&tdd->fskd, buf, &mylen, &b);
+		res = fsk_serial(&tdd->fskd, buf, &mylen, &b);
 		if (mylen < 0) {
-			ast_log(LOG_ERROR, "fsk_serie made mylen < 0 (%d) (olen was %d)\n", mylen, olen);
+			ast_log(LOG_ERROR, "fsk_serial made mylen < 0 (%d) (olen was %d)\n", mylen, olen);
 			free(obuf);
 			return -1;
 		}
 		buf += (olen - mylen);
 		if (res < 0) {
-			ast_log(LOG_NOTICE, "fsk_serie failed\n");
+			ast_log(LOG_NOTICE, "fsk_serial failed\n");
 			free(obuf);
 			return -1;
 		}
@@ -173,8 +189,9 @@ int tdd_feed(struct tdd_state *tdd, unsigned char *ubuf, int len)
 			/* Ignore invalid bytes */
 			if (b > 0x7f)
 				continue;
-			c = tdd_decode_baudot(tdd,b);
-			if ((c < 1) || (c > 126)) continue; /* if not valid */
+			c = tdd_decode_baudot(tdd, b);
+			if ((c < 1) || (c > 126))
+				continue; /* if not valid */
 			break;
 		}
 	}
@@ -185,7 +202,8 @@ int tdd_feed(struct tdd_state *tdd, unsigned char *ubuf, int len)
 		tdd->oldlen = 0;
 	free(obuf);
 	if (res) {
-		tdd->mode = 2; /* put it in mode where it
+		tdd->mode = 2; 
+/* put it in mode where it
 			reliably puts teleprinter in correct shift mode */
 		return(c);
 	}
@@ -217,19 +235,19 @@ static inline float tdd_getcarrier(float *cr, float *ci, int bit)
 } while(0)
 
 #define PUT_AUDIO_SAMPLE(y) do { \
-	int index = (short)(rint(8192.0 * (y))); \
-	*(buf++) = AST_LIN2MU(index); \
+	int __pas_idx = (short)(rint(8192.0 * (y))); \
+	*(buf++) = AST_LIN2MU(__pas_idx); \
 	bytes++; \
 } while(0)
 	
 #define PUT_TDD_MARKMS do { \
 	int x; \
-	for (x=0;x<8;x++) \
+	for (x = 0; x < 8; x++) \
 		PUT_AUDIO_SAMPLE(tdd_getcarrier(&cr, &ci, 1)); \
 } while(0)
 
 #define PUT_TDD_BAUD(bit) do { \
-	while(scont < tddsb) { \
+	while (scont < tddsb) { \
 		PUT_AUDIO_SAMPLE(tdd_getcarrier(&cr, &ci, bit)); \
 		scont += 1.0; \
 	} \
@@ -237,7 +255,7 @@ static inline float tdd_getcarrier(float *cr, float *ci, int bit)
 } while(0)
 
 #define PUT_TDD_STOP do { \
-	while(scont < (tddsb * 1.5)) { \
+	while (scont < (tddsb * 1.5)) { \
 		PUT_AUDIO_SAMPLE(tdd_getcarrier(&cr, &ci, 1)); \
 		scont += 1.0; \
 	} \
@@ -256,19 +274,37 @@ static inline float tdd_getcarrier(float *cr, float *ci, int bit)
 	PUT_TDD_STOP;	/* Stop bit */ \
 } while(0);	
 
+/*! Generate TDD hold tone */
+int tdd_gen_holdtone(unsigned char *buf)
+{
+	int bytes = 0;
+	float scont = 0.0, cr = 1.0, ci=0.0;
+	while (scont < tddsb * 10.0) {
+		PUT_AUDIO_SAMPLE(tdd_getcarrier(&cr, &ci, 1));
+		scont += 1.0;
+	}
+	return bytes;
+}
+
 int tdd_generate(struct tdd_state *tdd, unsigned char *buf, const char *str)
 {
-	int bytes=0;
+	int bytes = 0;
 	int i,x;
-	char	c;
+	char c;
+	/*! Baudot letters */
 	static unsigned char lstr[31] = "\000E\nA SIU\rDRJNFCKTZLWHYPQOBG\000MXV";
-	static unsigned char fstr[31] = "\0003\n- \00787\r$4',!:(5\")2\0006019?&\000./;";
+	/*! Baudot figures */
+	static unsigned char fstr[31] = "\0003\n- \00787\r$4',!:(5\")2\0006019?+\000./;";
 	/* Initial carriers (real/imaginary) */
 	float cr = 1.0;
 	float ci = 0.0;
 	float scont = 0.0;
 
 	for(x = 0; str[x]; x++) {
+		/* Do synch for each 72th character */
+		if ( (tdd->charnum++) % 72 == 0) 
+			PUT_TDD(tdd->mode ? 27 /* FIGS */ : 31 /* LTRS */);
+
 		c = toupper(str[x]);
 #if	0
 		printf("%c",c); fflush(stdout);

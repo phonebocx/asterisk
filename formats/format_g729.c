@@ -28,22 +28,9 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 117802 $")
 
-#include <unistd.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <stdlib.h>
-#include <sys/time.h>
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-
-#include "asterisk/lock.h"
-#include "asterisk/channel.h"
-#include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/sched.h"
+#include "asterisk/mod_format.h"
 #include "asterisk/module.h"
 #include "asterisk/endian.h"
 
@@ -63,7 +50,7 @@ static struct ast_frame *g729_read(struct ast_filestream *s, int *whennext)
 	s->fr.mallocd = 0;
 	s->fr.samples = G729A_SAMPLES;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, BUF_SIZE);
-	if ((res = fread(s->fr.data, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
+	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
 		if (res && (res != 10))	/* XXX what for ? */
 			ast_log(LOG_WARNING, "Short read (%d) (%s)!\n", res, strerror(errno));
 		return NULL;
@@ -87,7 +74,7 @@ static int g729_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Invalid data length, %d, should be multiple of 10\n", f->datalen);
 		return -1;
 	}
-	if ((res = fwrite(f->data, 1, f->datalen, fs->f)) != f->datalen) {
+	if ((res = fwrite(f->data.ptr, 1, f->datalen, fs->f)) != f->datalen) {
 			ast_log(LOG_WARNING, "Bad write (%d/10): %s\n", res, strerror(errno));
 			return -1;
 	}
@@ -148,7 +135,9 @@ static const struct ast_format g729_f = {
 
 static int load_module(void)
 {
-	return ast_format_register(&g729_f);
+	if (ast_format_register(&g729_f))
+		return AST_MODULE_LOAD_FAILURE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)

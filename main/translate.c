@@ -25,31 +25,25 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 67631 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 181733 $")
 
-#include <sys/types.h>
-#include <sys/socket.h>
 #include <sys/time.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
+#include <sys/resource.h>
+#include <math.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
-#include "asterisk/logger.h"
 #include "asterisk/translate.h"
 #include "asterisk/module.h"
-#include "asterisk/options.h"
 #include "asterisk/frame.h"
 #include "asterisk/sched.h"
 #include "asterisk/cli.h"
 #include "asterisk/term.h"
 
-#define MAX_RECALC 200 /* max sample recalc */
+#define MAX_RECALC 1000 /* max sample recalc */
 
 /*! \brief the list of translators */
-static AST_LIST_HEAD_STATIC(translators, ast_translator);
+static AST_RWLIST_HEAD_STATIC(translators, ast_translator);
 
 struct translator_path {
 	struct ast_translator *step;	/*!< Next step translator */
@@ -126,10 +120,10 @@ static void *newpvt(struct ast_translator *t)
 		ofs += sizeof(plc_state_t);
 	}
 	if (t->buf_size)		/* finally buffer and header */
-		pvt->outbuf = ofs + AST_FRIENDLY_OFFSET;
+		pvt->outbuf.c = ofs + AST_FRIENDLY_OFFSET;
 	/* call local init routine, if present */
 	if (t->newpvt && t->newpvt(pvt)) {
-		free(pvt);
+		ast_free(pvt);
 		return NULL;
 	}
 	ast_module_ref(t->module);
@@ -140,21 +134,32 @@ static void destroy(struct ast_trans_pvt *pvt)
 {
 	struct ast_translator *t = pvt->t;
 
+	if (ast_test_flag(&pvt->f, AST_FRFLAG_FROM_TRANSLATOR)) {
+		/* If this flag is still set, that means that the translation path has
+		 * been torn down, while we still have a frame out there being used.
+		 * When ast_frfree() gets called on that frame, this ast_trans_pvt
+		 * will get destroyed, too. */
+
+		pvt->destroy = 1;
+
+		return;
+	}
+
 	if (t->destroy)
 		t->destroy(pvt);
-	free(pvt);
+	ast_free(pvt);
 	ast_module_unref(t->module);
 }
 
 /*! \brief framein wrapper, deals with plc and bound checks.  */
 static int framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
-	int16_t *dst = (int16_t *)pvt->outbuf;
+	int16_t *dst = pvt->outbuf.i16;
 	int ret;
 	int samples = pvt->samples;	/* initial value */
 	
 	/* Copy the last in jb timing info to the pvt */
-	pvt->f.has_timing_info = f->has_timing_info;
+	ast_copy_flags(&pvt->f, f, AST_FRFLAG_HAS_TIMING_INFO);
 	pvt->f.ts = f->ts;
 	pvt->f.len = f->len;
 	pvt->f.seqno = f->seqno;
@@ -198,7 +203,7 @@ static int framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 	if (pvt->samples == samples)
 		ast_log(LOG_WARNING, "%s did not update samples %d\n",
 			pvt->t->name, pvt->samples);
-        return ret;
+	return ret;
 }
 
 /*! \brief generic frameout routine.
@@ -211,7 +216,7 @@ struct ast_frame *ast_trans_frameout(struct ast_trans_pvt *pvt,
 {
 	struct ast_frame *f = &pvt->f;
 
-        if (samples)
+	if (samples)
 		f->samples = samples;
 	else {
 		if (pvt->samples == 0)
@@ -231,7 +236,10 @@ struct ast_frame *ast_trans_frameout(struct ast_trans_pvt *pvt,
 	f->mallocd = 0;
 	f->offset = AST_FRIENDLY_OFFSET;
 	f->src = pvt->t->name;
-	f->data = pvt->outbuf;
+	f->data.ptr = pvt->outbuf.c;
+
+	ast_set_flag(f, AST_FRFLAG_FROM_TRANSLATOR);
+
 	return f;
 }
 
@@ -258,8 +266,13 @@ struct ast_trans_pvt *ast_translator_build_path(int dest, int source)
 	
 	source = powerof(source);
 	dest = powerof(dest);
-	
-	AST_LIST_LOCK(&translators);
+
+	if (source == -1 || dest == -1) {
+		ast_log(LOG_WARNING, "No translator path: (%s codec is not valid)\n", source == -1 ? "starting" : "ending");
+		return NULL;
+	}
+
+	AST_RWLIST_RDLOCK(&translators);
 
 	while (source != dest) {
 		struct ast_trans_pvt *cur;
@@ -267,14 +280,14 @@ struct ast_trans_pvt *ast_translator_build_path(int dest, int source)
 		if (!t) {
 			ast_log(LOG_WARNING, "No translator path from %s to %s\n", 
 				ast_getformatname(source), ast_getformatname(dest));
-			AST_LIST_UNLOCK(&translators);
+			AST_RWLIST_UNLOCK(&translators);
 			return NULL;
 		}
 		if (!(cur = newpvt(t))) {
 			ast_log(LOG_WARNING, "Failed to build translator step from %d to %d\n", source, dest);
 			if (head)
 				ast_translator_free_path(head);	
-			AST_LIST_UNLOCK(&translators);
+			AST_RWLIST_UNLOCK(&translators);
 			return NULL;
 		}
 		if (!head)
@@ -287,7 +300,7 @@ struct ast_trans_pvt *ast_translator_build_path(int dest, int source)
 		source = cur->t->dstfmt;
 	}
 
-	AST_LIST_UNLOCK(&translators);
+	AST_RWLIST_UNLOCK(&translators);
 	return head;
 }
 
@@ -302,7 +315,7 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 	long len;
 	int seqno;
 
-	has_timing_info = f->has_timing_info;
+	has_timing_info = ast_test_flag(f, AST_FRFLAG_HAS_TIMING_INFO);
 	ts = f->ts;
 	len = f->len;
 	seqno = f->seqno;
@@ -327,11 +340,13 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 			path->nextout = f->delivery;
 		}
 		/* Predict next incoming sample */
-		path->nextin = ast_tvadd(path->nextin, ast_samp2tv(f->samples, 8000));
+		path->nextin = ast_tvadd(path->nextin, ast_samp2tv(f->samples, ast_format_rate(f->subclass)));
 	}
 	delivery = f->delivery;
 	for ( ; out && p ; p = p->next) {
 		framein(p, out);
+		if (out != f)
+			ast_frfree(out);
 		out = p->t->frameout(p);
 	}
 	if (consume)
@@ -349,10 +364,10 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 		
 		/* Predict next outgoing timestamp from samples in this
 		   frame. */
-		path->nextout = ast_tvadd(path->nextout, ast_samp2tv( out->samples, 8000));
+		path->nextout = ast_tvadd(path->nextout, ast_samp2tv(out->samples, ast_format_rate(out->subclass)));
 	} else {
 		out->delivery = ast_tv(0, 0);
-		out->has_timing_info = has_timing_info;
+		ast_set2_flag(out, has_timing_info, AST_FRFLAG_HAS_TIMING_INFO);
 		if (has_timing_info) {
 			out->ts = ts;
 			out->len = len;
@@ -368,10 +383,12 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 /*! \brief compute the cost of a single translation step */
 static void calc_cost(struct ast_translator *t, int seconds)
 {
-	int sofar=0;
+	int num_samples = 0;
 	struct ast_trans_pvt *pvt;
-	struct timeval start;
+	struct rusage start;
+	struct rusage end;
 	int cost;
+	int out_rate = ast_format_rate(t->dstfmt);
 
 	if (!seconds)
 		seconds = 1;
@@ -379,35 +396,45 @@ static void calc_cost(struct ast_translator *t, int seconds)
 	/* If they don't make samples, give them a terrible score */
 	if (!t->sample) {
 		ast_log(LOG_WARNING, "Translator '%s' does not produce sample frames.\n", t->name);
-		t->cost = 99999;
+		t->cost = 999999;
 		return;
 	}
+
 	pvt = newpvt(t);
 	if (!pvt) {
 		ast_log(LOG_WARNING, "Translator '%s' appears to be broken and will probably fail.\n", t->name);
-		t->cost = 99999;
+		t->cost = 999999;
 		return;
 	}
-	start = ast_tvnow();
+
+	getrusage(RUSAGE_SELF, &start);
+
 	/* Call the encoder until we've processed the required number of samples */
-	while (sofar < seconds * 8000) {
+	while (num_samples < seconds * out_rate) {
 		struct ast_frame *f = t->sample();
 		if (!f) {
 			ast_log(LOG_WARNING, "Translator '%s' failed to produce a sample frame.\n", t->name);
 			destroy(pvt);
-			t->cost = 99999;
+			t->cost = 999999;
 			return;
 		}
 		framein(pvt, f);
 		ast_frfree(f);
 		while ((f = t->frameout(pvt))) {
-			sofar += f->samples;
+			num_samples += f->samples;
 			ast_frfree(f);
 		}
 	}
-	cost = ast_tvdiff_ms(ast_tvnow(), start);
+
+	getrusage(RUSAGE_SELF, &end);
+
+	cost = ((end.ru_utime.tv_sec - start.ru_utime.tv_sec) * 1000000) + end.ru_utime.tv_usec - start.ru_utime.tv_usec;
+	cost += ((end.ru_stime.tv_sec - start.ru_stime.tv_sec) * 1000000) + end.ru_stime.tv_usec - start.ru_stime.tv_usec;
+
 	destroy(pvt);
+
 	t->cost = cost / seconds;
+
 	if (!t->cost)
 		t->cost = 1;
 }
@@ -423,13 +450,12 @@ static void rebuild_matrix(int samples)
 	int y;      /* intermediate format index */
 	int z;      /* destination format index */
 
-	if (option_debug)
-		ast_log(LOG_DEBUG, "Resetting translation matrix\n");
+	ast_debug(1, "Resetting translation matrix\n");
 
-	bzero(tr_matrix, sizeof(tr_matrix));
+	memset(tr_matrix, '\0', sizeof(tr_matrix));
 
 	/* first, compute all direct costs */
-	AST_LIST_TRAVERSE(&translators, t, list) {
+	AST_RWLIST_TRAVERSE(&translators, t, list) {
 		if (!t->active)
 			continue;
 
@@ -454,11 +480,11 @@ static void rebuild_matrix(int samples)
 	for (;;) {
 		int changed = 0;
 		for (x = 0; x < MAX_FORMAT; x++) {      /* source format */
-			for (y=0; y < MAX_FORMAT; y++) {    /* intermediate format */
+			for (y = 0; y < MAX_FORMAT; y++) {    /* intermediate format */
 				if (x == y)                     /* skip ourselves */
 					continue;
 
-				for (z=0; z<MAX_FORMAT; z++) {  /* dst format */
+				for (z = 0; z<MAX_FORMAT; z++) {  /* dst format */
 					int newcost;
 
 					if (z == x || z == y)       /* skip null conversions */
@@ -478,8 +504,8 @@ static void rebuild_matrix(int samples)
 					tr_matrix[x][z].step = tr_matrix[x][y].step;
 					tr_matrix[x][z].cost = newcost;
 					tr_matrix[x][z].multistep = 1;
-					if (option_debug)
-						ast_log(LOG_DEBUG, "Discovered %d cost path from %s to %s, via %d\n", tr_matrix[x][z].cost, ast_getformatname(x), ast_getformatname(z), y);
+					ast_debug(3, "Discovered %d cost path from %s to %s, via %s\n", tr_matrix[x][z].cost,
+						  ast_getformatname(1 << x), ast_getformatname(1 << z), ast_getformatname(1 << y));
 					changed++;
 				}
 			}
@@ -489,160 +515,106 @@ static void rebuild_matrix(int samples)
 	}
 }
 
-/*! \brief CLI "show translation" command handler */
-static int show_translation_deprecated(int fd, int argc, char *argv[])
+static char *handle_cli_core_show_translation(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-#define SHOW_TRANS 13
+#define SHOW_TRANS 16
 	int x, y, z;
-	int curlen = 0, longest = 0;
+	int curlen = 0, longest = 0, magnitude[SHOW_TRANS] = { 0, };
 
-	if (argc > 4) 
-		return RESULT_SHOWUSAGE;
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "core show translation [recalc]";
+		e->usage =
+			"Usage: core show translation [recalc [<recalc seconds>]]\n"
+			"       Displays known codec translators and the cost associated\n"
+			"       with each conversion.  If the argument 'recalc' is supplied along\n"
+			"       with optional number of seconds to test a new test will be performed\n"
+			"       as the chart is being displayed.\n";
+		return NULL;
+	case CLI_GENERATE:
+		return NULL;
+	}
 
-	AST_LIST_LOCK(&translators);	
-	
-	if (argv[2] && !strcasecmp(argv[2], "recalc")) {
-		z = argv[3] ? atoi(argv[3]) : 1;
+	if (a->argc > 5)
+		return CLI_SHOWUSAGE;
+
+	if (a->argv[3] && !strcasecmp(a->argv[3], "recalc")) {
+		z = a->argv[4] ? atoi(a->argv[4]) : 1;
 
 		if (z <= 0) {
-			ast_cli(fd, "         C'mon let's be serious here... defaulting to 1.\n");
+			ast_cli(a->fd, "         Recalc must be greater than 0.  Defaulting to 1.\n");
 			z = 1;
 		}
 
 		if (z > MAX_RECALC) {
-			ast_cli(fd, "         Maximum limit of recalc exceeded by %d, truncating value to %d\n", z - MAX_RECALC, MAX_RECALC);
+			ast_cli(a->fd, "         Maximum limit of recalc exceeded by %d, truncating value to %d\n", z - MAX_RECALC, MAX_RECALC);
 			z = MAX_RECALC;
 		}
-		ast_cli(fd, "         Recalculating Codec Translation (number of sample seconds: %d)\n\n", z);
+		ast_cli(a->fd, "         Recalculating Codec Translation (number of sample seconds: %d)\n\n", z);
+		AST_RWLIST_WRLOCK(&translators);
 		rebuild_matrix(z);
-	}
+		AST_RWLIST_UNLOCK(&translators);
+	} else if (a->argc > 3)
+		return CLI_SHOWUSAGE;
 
-	ast_cli(fd, "         Translation times between formats (in milliseconds) for one second of data\n");
-	ast_cli(fd, "          Source Format (Rows) Destination Format (Columns)\n\n");
+	AST_RWLIST_RDLOCK(&translators);
+
+	ast_cli(a->fd, "         Translation times between formats (in microseconds) for one second of data\n");
+	ast_cli(a->fd, "          Source Format (Rows) Destination Format (Columns)\n\n");
 	/* Get the length of the longest (usable?) codec name, so we know how wide the left side should be */
 	for (x = 0; x < SHOW_TRANS; x++) {
-		curlen = strlen(ast_getformatname(1 << (x + 1)));
+		curlen = strlen(ast_getformatname(1 << (x)));
 		if (curlen > longest)
 			longest = curlen;
-	}
-	for (x = -1; x < SHOW_TRANS; x++) {
-		char line[120];
-		char *buf = line;
-		size_t left = sizeof(line) - 1;	/* one initial space */
-		/* next 2 lines run faster than using ast_build_string() */
-		*buf++ = ' ';
-		*buf = '\0';
-		for (y = -1; y < SHOW_TRANS; y++) {
-			curlen = strlen(ast_getformatname(1 << (y)));
-
-			if (x >= 0 && y >= 0 && tr_matrix[x][y].step) {
-				/* XXX 999 is a little hackish
-				   We don't want this number being larger than the shortest (or current) codec
-				   For now, that is "gsm" */
-				ast_build_string(&buf, &left, "%*d", curlen + 1, tr_matrix[x][y].cost > 999 ? 0 : tr_matrix[x][y].cost);
-			} else if (x == -1 && y >= 0) {
-				/* Top row - use a dynamic size */
-				ast_build_string(&buf, &left, "%*s", curlen + 1, ast_getformatname(1 << (x + y + 1)) );
-			} else if (y == -1 && x >= 0) {
-				/* Left column - use a static size. */
-				ast_build_string(&buf, &left, "%*s", longest, ast_getformatname(1 << (x + y + 1)) );
-			} else if (x >= 0 && y >= 0) {
-				ast_build_string(&buf, &left, "%*s", curlen + 1, "-");
-			} else {
-				ast_build_string(&buf, &left, "%*s", longest, "");
+		for (y = 0; y < SHOW_TRANS; y++) {
+			if (tr_matrix[x][y].cost > pow(10, magnitude[x])) {
+				magnitude[y] = floor(log10(tr_matrix[x][y].cost));
 			}
 		}
-		ast_build_string(&buf, &left, "\n");
-		ast_cli(fd, line);			
-	}
-	AST_LIST_UNLOCK(&translators);
-	return RESULT_SUCCESS;
-}
-
-static int show_translation(int fd, int argc, char *argv[])
-{
-	int x, y, z;
-	int curlen = 0, longest = 0;
-
-	if (argc > 5)
-		return RESULT_SHOWUSAGE;
-
-	AST_LIST_LOCK(&translators);	
-	
-	if (argv[3] && !strcasecmp(argv[3], "recalc")) {
-		z = argv[4] ? atoi(argv[4]) : 1;
-
-		if (z <= 0) {
-			ast_cli(fd, "         C'mon let's be serious here... defaulting to 1.\n");
-			z = 1;
-		}
-
-		if (z > MAX_RECALC) {
-			ast_cli(fd, "         Maximum limit of recalc exceeded by %d, truncating value to %d\n", z - MAX_RECALC, MAX_RECALC);
-			z = MAX_RECALC;
-		}
-		ast_cli(fd, "         Recalculating Codec Translation (number of sample seconds: %d)\n\n", z);
-		rebuild_matrix(z);
-	}
-
-	ast_cli(fd, "         Translation times between formats (in milliseconds) for one second of data\n");
-	ast_cli(fd, "          Source Format (Rows) Destination Format (Columns)\n\n");
-	/* Get the length of the longest (usable?) codec name, so we know how wide the left side should be */
-	for (x = 0; x < SHOW_TRANS; x++) {
-		curlen = strlen(ast_getformatname(1 << (x + 1)));
-		if (curlen > longest)
-			longest = curlen;
 	}
 	for (x = -1; x < SHOW_TRANS; x++) {
-		char line[120];
-		char *buf = line;
-		size_t left = sizeof(line) - 1;	/* one initial space */
-		/* next 2 lines run faster than using ast_build_string() */
-		*buf++ = ' ';
-		*buf = '\0';
+		struct ast_str *out = ast_str_alloca(125);
+		/*Go ahead and move to next iteration if dealing with an unknown codec*/
+		if(x >= 0 && !strcmp(ast_getformatname(1 << (x)), "unknown"))
+			continue;
+		ast_str_set(&out, -1, " ");
 		for (y = -1; y < SHOW_TRANS; y++) {
-			curlen = strlen(ast_getformatname(1 << (y)));
-
+			/*Go ahead and move to next iteration if dealing with an unknown codec*/
+			if (y >= 0 && !strcmp(ast_getformatname(1 << (y)), "unknown"))
+				continue;
+			if (y >= 0)
+				curlen = strlen(ast_getformatname(1 << (y)));
+			if (y >= 0 && magnitude[y] + 1 > curlen) {
+				curlen = magnitude[y] + 1;
+			}
+			if (curlen < 5)
+				curlen = 5;
 			if (x >= 0 && y >= 0 && tr_matrix[x][y].step) {
-				/* XXX 999 is a little hackish
-				   We don't want this number being larger than the shortest (or current) codec
-				   For now, that is "gsm" */
-				ast_build_string(&buf, &left, "%*d", curlen + 1, tr_matrix[x][y].cost > 999 ? 0 : tr_matrix[x][y].cost);
+				/* Actual codec output */
+				ast_str_append(&out, -1, "%*d", curlen + 1, tr_matrix[x][y].cost);
 			} else if (x == -1 && y >= 0) {
 				/* Top row - use a dynamic size */
-				ast_build_string(&buf, &left, "%*s", curlen + 1, ast_getformatname(1 << (x + y + 1)) );
+				ast_str_append(&out, -1, "%*s", curlen + 1, ast_getformatname(1 << (y)) );
 			} else if (y == -1 && x >= 0) {
 				/* Left column - use a static size. */
-				ast_build_string(&buf, &left, "%*s", longest, ast_getformatname(1 << (x + y + 1)) );
+				ast_str_append(&out, -1, "%*s", longest, ast_getformatname(1 << (x)) );
 			} else if (x >= 0 && y >= 0) {
-				ast_build_string(&buf, &left, "%*s", curlen + 1, "-");
+				/* Codec not supported */
+				ast_str_append(&out, -1, "%*s", curlen + 1, "-");
 			} else {
-				ast_build_string(&buf, &left, "%*s", longest, "");
+				/* Upper left hand corner */
+				ast_str_append(&out, -1, "%*s", longest, "");
 			}
 		}
-		ast_build_string(&buf, &left, "\n");
-		ast_cli(fd, line);			
+		ast_str_append(&out, -1, "\n");
+		ast_cli(a->fd, "%s", ast_str_buffer(out));
 	}
-	AST_LIST_UNLOCK(&translators);
-	return RESULT_SUCCESS;
+	AST_RWLIST_UNLOCK(&translators);
+	return CLI_SUCCESS;
 }
-
-static char show_trans_usage[] =
-"Usage: core show translation [recalc] [<recalc seconds>]\n"
-"       Displays known codec translators and the cost associated\n"
-"with each conversion.  If the argument 'recalc' is supplied along\n"
-"with optional number of seconds to test a new test will be performed\n"
-"as the chart is being displayed.\n";
-
-static struct ast_cli_entry cli_show_translation_deprecated = {
-	{ "show", "translation", NULL },
-	show_translation_deprecated, NULL,
-	NULL };
 
 static struct ast_cli_entry cli_translate[] = {
-	{ { "core", "show", "translation", NULL },
-	show_translation, "Display translation matrix",
-	show_trans_usage, NULL, &cli_show_translation_deprecated },
+	AST_CLI_DEFINE(handle_cli_core_show_translation, "Display translation matrix")
 };
 
 /*! \brief register codec translator */
@@ -650,6 +622,7 @@ int __ast_register_translator(struct ast_translator *t, struct ast_module *mod)
 {
 	static int added_cli = 0;
 	struct ast_translator *u;
+	char tmp[80];
 
 	if (!mod) {
 		ast_log(LOG_WARNING, "Missing module pointer, you need to supply one\n");
@@ -667,6 +640,10 @@ int __ast_register_translator(struct ast_translator *t, struct ast_module *mod)
 	t->dstfmt = powerof(t->dstfmt);
 	t->active = 1;
 
+	if (t->srcfmt == -1 || t->dstfmt == -1) {
+		ast_log(LOG_WARNING, "Invalid translator path: (%s codec is not valid)\n", t->srcfmt == -1 ? "starting" : "ending");
+		return -1;
+	}
 	if (t->plc_samples) {
 		if (t->buffer_samples < t->plc_samples) {
 			ast_log(LOG_WARNING, "plc_samples %d buffer_samples %d\n",
@@ -688,10 +665,10 @@ int __ast_register_translator(struct ast_translator *t, struct ast_module *mod)
 	}
 
 	if (t->buf_size) {
-               /*
-		* Align buf_size properly, rounding up to the machine-specific
-		* alignment for pointers.
-		*/
+		/*
+		 * Align buf_size properly, rounding up to the machine-specific
+		 * alignment for pointers.
+		 */
 		struct _test_align { void *a, *b; } p;
 		int align = (char *)&p.b - (char *)&p.a;
 
@@ -703,41 +680,37 @@ int __ast_register_translator(struct ast_translator *t, struct ast_module *mod)
   
 	calc_cost(t, 1);
 
-	if (option_verbose > 1) {
-		char tmp[80];
-
-		ast_verbose(VERBOSE_PREFIX_2 "Registered translator '%s' from format %s to %s, cost %d\n",
+	ast_verb(2, "Registered translator '%s' from format %s to %s, cost %d\n",
 			    term_color(tmp, t->name, COLOR_MAGENTA, COLOR_BLACK, sizeof(tmp)),
 			    ast_getformatname(1 << t->srcfmt), ast_getformatname(1 << t->dstfmt), t->cost);
-	}
 
 	if (!added_cli) {
 		ast_cli_register_multiple(cli_translate, sizeof(cli_translate) / sizeof(struct ast_cli_entry));
 		added_cli++;
 	}
 
-	AST_LIST_LOCK(&translators);
+	AST_RWLIST_WRLOCK(&translators);
 
 	/* find any existing translators that provide this same srcfmt/dstfmt,
 	   and put this one in order based on cost */
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&translators, u, list) {
+	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&translators, u, list) {
 		if ((u->srcfmt == t->srcfmt) &&
 		    (u->dstfmt == t->dstfmt) &&
 		    (u->cost > t->cost)) {
-			AST_LIST_INSERT_BEFORE_CURRENT(&translators, t, list);
+			AST_RWLIST_INSERT_BEFORE_CURRENT(t, list);
 			t = NULL;
 		}
 	}
-	AST_LIST_TRAVERSE_SAFE_END;
+	AST_RWLIST_TRAVERSE_SAFE_END;
 
 	/* if no existing translator was found for this format combination,
 	   add it to the beginning of the list */
 	if (t)
-		AST_LIST_INSERT_HEAD(&translators, t, list);
+		AST_RWLIST_INSERT_HEAD(&translators, t, list);
 
 	rebuild_matrix(0);
 
-	AST_LIST_UNLOCK(&translators);
+	AST_RWLIST_UNLOCK(&translators);
 
 	return 0;
 }
@@ -749,40 +722,39 @@ int ast_unregister_translator(struct ast_translator *t)
 	struct ast_translator *u;
 	int found = 0;
 
-	AST_LIST_LOCK(&translators);
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&translators, u, list) {
+	AST_RWLIST_WRLOCK(&translators);
+	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&translators, u, list) {
 		if (u == t) {
-			AST_LIST_REMOVE_CURRENT(&translators, list);
-			if (option_verbose > 1)
-				ast_verbose(VERBOSE_PREFIX_2 "Unregistered translator '%s' from format %s to %s\n", term_color(tmp, t->name, COLOR_MAGENTA, COLOR_BLACK, sizeof(tmp)), ast_getformatname(1 << t->srcfmt), ast_getformatname(1 << t->dstfmt));
+			AST_RWLIST_REMOVE_CURRENT(list);
+			ast_verb(2, "Unregistered translator '%s' from format %s to %s\n", term_color(tmp, t->name, COLOR_MAGENTA, COLOR_BLACK, sizeof(tmp)), ast_getformatname(1 << t->srcfmt), ast_getformatname(1 << t->dstfmt));
 			found = 1;
 			break;
 		}
 	}
-	AST_LIST_TRAVERSE_SAFE_END;
+	AST_RWLIST_TRAVERSE_SAFE_END;
 
 	if (found)
 		rebuild_matrix(0);
 
-	AST_LIST_UNLOCK(&translators);
+	AST_RWLIST_UNLOCK(&translators);
 
 	return (u ? 0 : -1);
 }
 
 void ast_translator_activate(struct ast_translator *t)
 {
-	AST_LIST_LOCK(&translators);
+	AST_RWLIST_WRLOCK(&translators);
 	t->active = 1;
 	rebuild_matrix(0);
-	AST_LIST_UNLOCK(&translators);
+	AST_RWLIST_UNLOCK(&translators);
 }
 
 void ast_translator_deactivate(struct ast_translator *t)
 {
-	AST_LIST_LOCK(&translators);
+	AST_RWLIST_WRLOCK(&translators);
 	t->active = 0;
 	rebuild_matrix(0);
-	AST_LIST_UNLOCK(&translators);
+	AST_RWLIST_UNLOCK(&translators);
 }
 
 /*! \brief Calculate our best translator source format, given costs, and a desired destination */
@@ -794,10 +766,10 @@ int ast_translator_best_choice(int *dst, int *srcs)
 	int cur, cursrc;
 	int besttime = INT_MAX;
 	int beststeps = INT_MAX;
-	int common = (*dst) & (*srcs);	/* are there common formats ? */
+	int common = ((*dst) & (*srcs)) & AST_FORMAT_AUDIO_MASK;	/* are there common formats ? */
 
 	if (common) { /* yes, pick one and return */
-		for (cur = 1, y = 0; y < MAX_FORMAT; cur <<= 1, y++) {
+		for (cur = 1, y = 0; y <= MAX_AUDIO_FORMAT; cur <<= 1, y++) {
 			if (cur & common)	/* guaranteed to find one */
 				break;
 		}
@@ -805,11 +777,11 @@ int ast_translator_best_choice(int *dst, int *srcs)
 		*srcs = *dst = cur;
 		return 0;
 	} else {	/* No, we will need to translate */
-		AST_LIST_LOCK(&translators);
-		for (cur = 1, y = 0; y < MAX_FORMAT; cur <<= 1, y++) {
+		AST_RWLIST_RDLOCK(&translators);
+		for (cur = 1, y = 0; y <= MAX_AUDIO_FORMAT; cur <<= 1, y++) {
 			if (! (cur & *dst))
 				continue;
-			for (cursrc = 1, x = 0; x < MAX_FORMAT; cursrc <<= 1, x++) {
+			for (cursrc = 1, x = 0; x <= MAX_AUDIO_FORMAT; cursrc <<= 1, x++) {
 				if (!(*srcs & cursrc) || !tr_matrix[x][y].step ||
 				    tr_matrix[x][y].cost >  besttime)
 					continue;	/* not existing or no better */
@@ -823,7 +795,7 @@ int ast_translator_best_choice(int *dst, int *srcs)
 				}
 			}
 		}
-		AST_LIST_UNLOCK(&translators);
+		AST_RWLIST_UNLOCK(&translators);
 		if (best > -1) {
 			*srcs = best;
 			*dst = bestdst;
@@ -841,12 +813,16 @@ unsigned int ast_translate_path_steps(unsigned int dest, unsigned int src)
 	src = powerof(src);
 	dest = powerof(dest);
 
-	AST_LIST_LOCK(&translators);
+	if (src == -1 || dest == -1) {
+		ast_log(LOG_WARNING, "No translator path: (%s codec is not valid)\n", src == -1 ? "starting" : "ending");
+		return -1;
+	}
+	AST_RWLIST_RDLOCK(&translators);
 
 	if (tr_matrix[src][dest].step)
 		res = tr_matrix[src][dest].multistep + 1;
 
-	AST_LIST_UNLOCK(&translators);
+	AST_RWLIST_UNLOCK(&translators);
 
 	return res;
 }
@@ -871,13 +847,13 @@ unsigned int ast_translate_available_formats(unsigned int dest, unsigned int src
 	if (src_video)
 		src_video = powerof(src_video);
 
-	AST_LIST_LOCK(&translators);
+	AST_RWLIST_RDLOCK(&translators);
 
 	/* For a given source audio format, traverse the list of
 	   known audio formats to determine whether there exists
 	   a translation path from the source format to the
 	   destination format. */
-	for (x = 1; src_audio && x < AST_FORMAT_MAX_AUDIO; x <<= 1) {
+	for (x = 1; src_audio && (x & AST_FORMAT_AUDIO_MASK); x <<= 1) {
 		/* if this is not a desired format, nothing to do */
 		if (!dest & x)
 			continue;
@@ -903,7 +879,7 @@ unsigned int ast_translate_available_formats(unsigned int dest, unsigned int src
 	   known video formats to determine whether there exists
 	   a translation path from the source format to the
 	   destination format. */
-	for (; src_video && x < AST_FORMAT_MAX_VIDEO; x <<= 1) {
+	for (; src_video && (x & AST_FORMAT_VIDEO_MASK); x <<= 1) {
 		/* if this is not a desired format, nothing to do */
 		if (!dest & x)
 			continue;
@@ -925,7 +901,21 @@ unsigned int ast_translate_available_formats(unsigned int dest, unsigned int src
 			res &= ~x;
 	}
 
-	AST_LIST_UNLOCK(&translators);
+	AST_RWLIST_UNLOCK(&translators);
 
 	return res;
+}
+
+void ast_translate_frame_freed(struct ast_frame *fr)
+{
+	struct ast_trans_pvt *pvt;
+
+	ast_clear_flag(fr, AST_FRFLAG_FROM_TRANSLATOR);
+
+	pvt = (struct ast_trans_pvt *) (((char *) fr) - offsetof(struct ast_trans_pvt, f));
+
+	if (!pvt->destroy)
+		return;
+	
+	destroy(pvt);
 }

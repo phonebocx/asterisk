@@ -27,25 +27,17 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114667 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
-#include "asterisk/options.h"
 #include "asterisk/lock.h"
 
 static char *synopsis = "Wait for Ring Application";
 
-static char *desc = "  WaitForRing(timeout)\n"
+static char *desc = "  WaitForRing(timeout):\n"
 "Returns 0 after waiting at least timeout seconds. and\n"
 "only after the next ring has completed.  Returns 0 on\n"
 "success or -1 on hangup\n";
@@ -55,20 +47,18 @@ static char *app = "WaitForRing";
 
 static int waitforring_exec(struct ast_channel *chan, void *data)
 {
-	struct ast_module_user *u;
 	struct ast_frame *f;
 	int res = 0;
+	double s;
 	int ms;
 
-	if (!data || (sscanf(data, "%d", &ms) != 1)) {
-                ast_log(LOG_WARNING, "WaitForRing requires an argument (minimum seconds)\n");
+	if (!data || (sscanf(data, "%lg", &s) != 1)) {
+		ast_log(LOG_WARNING, "WaitForRing requires an argument (minimum seconds)\n");
 		return 0;
 	}
 
-	u = ast_module_user_add(chan);
-
-	ms *= 1000;
-	while(ms > 0) {
+	ms = s * 1000.0;
+	while (ms > 0) {
 		ms = ast_waitfor(chan, ms);
 		if (ms < 0) {
 			res = ms;
@@ -81,8 +71,7 @@ static int waitforring_exec(struct ast_channel *chan, void *data)
 				break;
 			}
 			if ((f->frametype == AST_FRAME_CONTROL) && (f->subclass == AST_CONTROL_RING)) {
-				if (option_verbose > 2)
-					ast_verbose(VERBOSE_PREFIX_3 "Got a ring but still waiting for timeout\n");
+				ast_verb(3, "Got a ring but still waiting for timeout\n");
 			}
 			ast_frfree(f);
 		}
@@ -103,8 +92,7 @@ static int waitforring_exec(struct ast_channel *chan, void *data)
 					break;
 				}
 				if ((f->frametype == AST_FRAME_CONTROL) && (f->subclass == AST_CONTROL_RING)) {
-					if (option_verbose > 2)
-						ast_verbose(VERBOSE_PREFIX_3 "Got a ring after the timeout\n");
+					ast_verb(3, "Got a ring after the timeout\n");
 					ast_frfree(f);
 					break;
 				}
@@ -112,20 +100,13 @@ static int waitforring_exec(struct ast_channel *chan, void *data)
 			}
 		}
 	}
-	ast_module_user_remove(u);
 
 	return res;
 }
 
 static int unload_module(void)
 {
-	int res;
-
-	res = ast_unregister_application(app);
-
-	ast_module_user_hangup_all();
-
-	return res;	
+	return ast_unregister_application(app);
 }
 
 static int load_module(void)

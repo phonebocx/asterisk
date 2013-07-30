@@ -20,25 +20,18 @@
  * \brief SHA1 digest related dialplan functions
  * 
  * \author Claude Patry <cpatry@gmail.com>
+ *
+ * \ingroup functions
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89521 $")
 
 #include "asterisk/module.h"
-#include "asterisk/channel.h"
 #include "asterisk/pbx.h"
-#include "asterisk/logger.h"
-#include "asterisk/utils.h"
-#include "asterisk/app.h"
 
-static int sha1(struct ast_channel *chan, char *cmd, char *data,
+static int sha1(struct ast_channel *chan, const char *cmd, char *data,
 		char *buf, size_t len)
 {
 	*buf = '\0';

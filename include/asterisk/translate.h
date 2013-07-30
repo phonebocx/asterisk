@@ -18,12 +18,13 @@
 
 /*! \file
  * \brief Support for translation of data formats.
+ * \ref translate.c
  */
 
 #ifndef _ASTERISK_TRANSLATE_H
 #define _ASTERISK_TRANSLATE_H
 
-//#define MAX_FORMAT 15	/* Do not include video here */
+#define MAX_AUDIO_FORMAT 15 /* Do not include video here */
 #define MAX_FORMAT 32	/* Do include video here */
 
 #if defined(__cplusplus) || defined(c_plusplus)
@@ -40,11 +41,13 @@ extern "C" {
 struct ast_trans_pvt;	/* declared below */
 
 /*! \brief
- * Descriptor of a translator. Name, callbacks, and various options
+ * Descriptor of a translator. 
+ *
+ * Name, callbacks, and various options
  * related to run-time operation (size of buffers, auxiliary
  * descriptors, etc).
  *
- * A coded registers itself by filling the relevant fields
+ * A codec registers itself by filling the relevant fields
  * of a structure and passing it as an argument to
  * ast_register_translator(). The structure should not be
  * modified after a successful registration, and its address
@@ -116,7 +119,7 @@ struct ast_translator {
 /*! \brief
  * Default structure for translators, with the basic fields and buffers,
  * all allocated as part of the same chunk of memory. The buffer is
- * preceded by AST_FRIENDLY_OFFSET bytes in front of the user portion.
+ * preceded by \ref AST_FRIENDLY_OFFSET bytes in front of the user portion.
  * 'buf' points right after this space.
  *
  * *_framein() routines operate in two ways:
@@ -133,15 +136,22 @@ struct ast_translator {
  */
 struct ast_trans_pvt {
 	struct ast_translator *t;
-	struct ast_frame f;	/*!< used in frameout */
-	int samples;		/*!< samples available in outbuf */
-	int datalen;		/*!< actual space used in outbuf */
-	void *pvt;		/*!< more private data, if any */
-	char *outbuf;		/*!< the useful portion of the buffer */
-	plc_state_t *plc;	/*!< optional plc pointer */
-	struct ast_trans_pvt *next;	/*!< next in translator chain */
+	struct ast_frame f;         /*!< used in frameout */
+	int samples;                /*!< samples available in outbuf */
+	/*! \brief actual space used in outbuf */
+	int datalen;
+	void *pvt;                  /*!< more private data, if any */
+	union {
+		char *c;                /*!< the useful portion of the buffer */
+		unsigned char *uc;      /*!< the useful portion of the buffer */
+		int16_t *i16;
+		uint8_t *ui8;
+	} outbuf; 
+	plc_state_t *plc;           /*!< optional plc pointer */
+	struct ast_trans_pvt *next; /*!< next in translator chain */
 	struct timeval nextin;
 	struct timeval nextout;
+	unsigned int destroy:1;
 };
 
 /*! \brief generic frameout function */
@@ -158,6 +168,8 @@ struct ast_trans_pvt;
  * \return 0 on success, -1 on failure
  */
 int __ast_register_translator(struct ast_translator *t, struct ast_module *module);
+
+/*! \brief See \ref __ast_register_translator() */
 #define ast_register_translator(t) __ast_register_translator(t, ast_module_info->self)
 
 /*!
@@ -240,10 +252,24 @@ unsigned int ast_translate_path_steps(unsigned int dest, unsigned int src);
  * The result will include all formats from 'dest' that are either present
  * in 'src' or translatable from a format present in 'src'.
  *
- * Note that only a single audio format and a single video format can be
+ * \note Only a single audio format and a single video format can be
  * present in 'src', or the function will produce unexpected results.
  */
 unsigned int ast_translate_available_formats(unsigned int dest, unsigned int src);
+
+/*!
+ * \brief Hint that a frame from a translator has been freed
+ *
+ * This is sort of a hack.  This function gets called when ast_frame_free() gets
+ * called on a frame that has the AST_FRFLAG_FROM_TRANSLATOR flag set.  This is
+ * because it is possible for a translation path to be destroyed while a frame
+ * from a translator is still in use.  Specifically, this happens if a masquerade
+ * happens after a call to ast_read() but before the frame is done being processed, 
+ * since the frame processing is generally done without the channel lock held.
+ *
+ * \return nothing
+ */
+void ast_translate_frame_freed(struct ast_frame *fr);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

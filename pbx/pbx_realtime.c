@@ -25,25 +25,17 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75712 $")
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <errno.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 129307 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/config.h"
-#include "asterisk/options.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/frame.h"
 #include "asterisk/term.h"
 #include "asterisk/manager.h"
-#include "asterisk/file.h"
 #include "asterisk/cli.h"
 #include "asterisk/lock.h"
 #include "asterisk/md5.h"
@@ -60,7 +52,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75712 $")
 #define MODE_CANMATCH 	2
 
 #define EXT_DATA_SIZE 256
-
 
 /* Realtime switch looks up extensions in the supplied realtime table.
 
@@ -99,9 +90,9 @@ static struct ast_variable *realtime_switch_common(const char *table, const char
 		ematch = "exten";
 		ast_copy_string(rexten, exten, sizeof(rexten));
 	}
-	var = ast_load_realtime(table, ematch, rexten, "context", context, "priority", pri, NULL);
+	var = ast_load_realtime(table, ematch, rexten, "context", context, "priority", pri, SENTINEL);
 	if (!var) {
-		cfg = ast_load_realtime_multientry(table, "exten LIKE", "\\_%", "context", context, "priority", pri, NULL);	
+		cfg = ast_load_realtime_multientry(table, "exten LIKE", "\\_%", "context", context, "priority", pri, SENTINEL);	
 		if (cfg) {
 			char *cat = ast_category_browse(cfg, NULL);
 
@@ -178,32 +169,57 @@ static int realtime_exec(struct ast_channel *chan, const char *context, const ch
 
 	if (var) {
 		char *tmp="";
-		char app[256];
+		char *app = NULL;
 		struct ast_variable *v;
 
 		for (v = var; v ; v = v->next) {
 			if (!strcasecmp(v->name, "app"))
-				ast_copy_string(app, v->value, sizeof(app));
-			else if (!strcasecmp(v->name, "appdata"))
-				tmp = ast_strdupa(v->value);
+				app = ast_strdupa(v->value);
+			else if (!strcasecmp(v->name, "appdata")) {
+				if (ast_compat_pbx_realtime) {
+					char *ptr;
+					int in = 0;
+					tmp = alloca(strlen(v->value) * 2 + 1);
+					for (ptr = tmp; *v->value; v->value++) {
+						if (*v->value == ',') {
+							*ptr++ = '\\';
+							*ptr++ = ',';
+						} else if (*v->value == '|' && !in) {
+							*ptr++ = ',';
+						} else {
+							*ptr++ = *v->value;
+						}
+
+						/* Don't escape '|', meaning 'or', inside expressions ($[ ]) */
+						if (v->value[0] == '[' && v->value[-1] == '$') {
+							in++;
+						} else if (v->value[0] == ']' && in) {
+							in--;
+						}
+					}
+					*ptr = '\0';
+				} else {
+					tmp = ast_strdupa(v->value);
+				}
+			}
 		}
 		ast_variables_destroy(var);
 		if (!ast_strlen_zero(app)) {
 			struct ast_app *a = pbx_findapp(app);
 			if (a) {
-				char appdata[512]="";
+				char appdata[512];
 				char tmp1[80];
 				char tmp2[80];
 				char tmp3[EXT_DATA_SIZE];
 
+				appdata[0] = 0; /* just in case the substitute var func isn't called */
 				if(!ast_strlen_zero(tmp))
 					pbx_substitute_variables_helper(chan, tmp, appdata, sizeof(appdata) - 1);
-				if (option_verbose > 2)
-					ast_verbose( VERBOSE_PREFIX_3 "Executing %s(\"%s\", \"%s\")\n",
+				ast_verb(3, "Executing %s(\"%s\", \"%s\")\n",
 						 term_color(tmp1, app, COLOR_BRCYAN, 0, sizeof(tmp1)),
 						 term_color(tmp2, chan->name, COLOR_BRMAGENTA, 0, sizeof(tmp2)),
 						 term_color(tmp3, S_OR(appdata, ""), COLOR_BRMAGENTA, 0, sizeof(tmp3)));
-				manager_event(EVENT_FLAG_CALL, "Newexten",
+				manager_event(EVENT_FLAG_DIALPLAN, "Newexten",
 							  "Channel: %s\r\n"
 							  "Context: %s\r\n"
 							  "Extension: %s\r\n"
@@ -216,6 +232,8 @@ static int realtime_exec(struct ast_channel *chan, const char *context, const ch
 				res = pbx_exec(chan, a, appdata);
 			} else
 				ast_log(LOG_NOTICE, "No such application '%s' for extension '%s' in context '%s'\n", app, exten, context);
+		} else {
+			ast_log(LOG_WARNING, "No application specified for realtime extension '%s' in context '%s'\n", exten, context);
 		}
 	}
 	return res;
@@ -249,8 +267,9 @@ static int unload_module(void)
 
 static int load_module(void)
 {
-	ast_register_switch(&realtime_switch);
-	return 0;
+	if (ast_register_switch(&realtime_switch))
+		return AST_MODULE_LOAD_FAILURE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Realtime Switch");

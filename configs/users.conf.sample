@@ -46,6 +46,11 @@ hasiax = yes
 ;
 hasmanager = no
 ;
+; Set permissions for manager entry (see manager.conf.sample for documentation)
+; (defaults to *all* permissions)
+;managerread = system,call,log,verbose,command,agent,user,config
+;managerwrite = system,call,log,verbose,command,agent,user,config
+;
 ; Remaining options are not specific to users.conf entries but are general.
 ;
 callwaiting = yes
@@ -63,7 +68,7 @@ pickupgroup = 1
 ;fullname = Joe User
 ;email = joe@foo.bar
 ;secret = 1234
-;zapchan = 1
+;dahdichan = 1
 ;hasvoicemail = yes
 ;vmsecret = 1234
 ;hassip = yes
@@ -72,3 +77,9 @@ pickupgroup = 1
 ;hasmanager = no
 ;callwaiting = no
 ;context = international
+;
+; Some administrators choose alphanumeric extensions, but still want their
+; users to be reachable by traditional numeric extensions, specified by the
+; alternateexts entry.
+;
+;alternateexts = 7057,3249

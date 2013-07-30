@@ -10,8 +10,8 @@
 ;
 persistentagents=yes
 
-;enable or disable a single extension from longing in as multiple
-;agents, defaults to enabled
+; Enable or disable a single extension from logging in as multiple agents.
+; The default value is "yes".
 ;multiplelogin=yes
 
 [agents]
@@ -36,15 +36,23 @@ persistentagents=yes
 ;
 ;autologoffunavail=yes
 ;
-; Define ackcall to require an acknowledgement by '#' when
+; Define ackcall to require a DTMF acknowledgement when
 ; an agent logs in using agentcallbacklogin.  Default is "no".
+; Can also be set to "always", which will also require AgentLogin
+; agents to acknowledge calls. Use the acceptdtmf option to 
+; configure what DTMF key press should be used to acknowledge the
+; call. The default is '#'.
 ;
 ;ackcall=no
+;acceptdtmf=#
 ;
-; Define endcall to allow an agent to hangup a call by '*'.
-; Default is "yes". Set this to "no" to ignore '*'. 
+; Define endcall to allow an agent to hangup a call with a
+; DTMF keypress. Default is "yes". Use the enddtmf option to
+; configure which DTMF key will end a call. The default is
+; '*'.
 ;
 ;endcall=yes
+;enddtmf=*
 ;
 ; Define wrapuptime.  This is the minimum amount of time when
 ; after disconnecting before the caller can receive a new call
@@ -60,7 +68,7 @@ persistentagents=yes
 ; Define the default good bye sound file for agents
 ; default to vm-goodbye
 ;
-;agentgoodbye => goodbye_file
+;goodbye => goodbye_file
 ;
 ; Define updatecdr. This is whether or not to change the source 
 ; channel in the CDR record for this call to agent/agent_id so 

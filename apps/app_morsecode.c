@@ -26,16 +26,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 76618 $")
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114904 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
-#include "asterisk/options.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -46,7 +39,7 @@ static char *app_morsecode = "Morsecode";
 static char *morsecode_synopsis = "Plays morse code";
 
 static char *morsecode_descrip =
-"Usage: Morsecode(<string>)\n"
+"  Morsecode(<string>):\n"
 "Plays the Morse code equivalent of the passed string.  If the variable\n"
 "MORSEDITLEN is set, it will use that value for the length (in ms) of the dit\n"
 "(defaults to 80).  Additionally, if MORSETONE is set, it will use that tone\n"
@@ -111,27 +104,27 @@ static int morsecode_exec(struct ast_channel *chan, void *data)
 	int res=0, ditlen, tone;
 	char *digit;
 	const char *ditlenc, *tonec;
-	struct ast_module_user *u;
-
-	u = ast_module_user_add(chan);
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Syntax: Morsecode(<string>) - no argument found\n");
-		ast_module_user_remove(u);
 		return 0;
 	}
 
 	/* Use variable MORESEDITLEN, if set (else 80) */
+	ast_channel_lock(chan);
 	ditlenc = pbx_builtin_getvar_helper(chan, "MORSEDITLEN");
 	if (ast_strlen_zero(ditlenc) || (sscanf(ditlenc, "%d", &ditlen) != 1)) {
 		ditlen = 80;
 	}
+	ast_channel_unlock(chan);
 
 	/* Use variable MORSETONE, if set (else 800) */
+	ast_channel_lock(chan);
 	tonec = pbx_builtin_getvar_helper(chan, "MORSETONE");
 	if (ast_strlen_zero(tonec) || (sscanf(tonec, "%d", &tone) != 1)) {
 		tone = 800;
 	}
+	ast_channel_unlock(chan);
 
 	for (digit = data; *digit; digit++) {
 		int digit2 = *digit;
@@ -156,19 +149,12 @@ static int morsecode_exec(struct ast_channel *chan, void *data)
 		playtone(chan, 0, 2 * ditlen);
 	}
 
-	ast_module_user_remove(u);
 	return res;
 }
 
 static int unload_module(void)
 {
-	int res;
-
-	res = ast_unregister_application(app_morsecode);
-
-	ast_module_user_hangup_all();
-
-	return res;
+	return ast_unregister_application(app_morsecode);
 }
 
 static int load_module(void)

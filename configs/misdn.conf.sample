@@ -56,6 +56,12 @@ debug=0
 ntdebugflags=0
 ntdebugfile=/var/log/misdn-nt.log
 
+
+; some pbx systems do cut the L1 for some milliseconds, to avoid 
+; dropping running calls, we can set this flag to yes and tell
+; mISDNuser not to drop the calls on L2_RELEASE
+ntkeepcalls=no
+
 ; the big trace
 ;
 ; default value: [not set]
@@ -129,6 +135,32 @@ crypt_keys=test,muh
 ; which are inherited by group sections.
 ;
 
+;------------------------------ JITTER BUFFER CONFIGURATION --------------------------
+; jbenable = yes              ; Enables the use of a jitterbuffer on the receiving side of a
+                              ; SIP channel. Defaults to "no". An enabled jitterbuffer will
+                              ; be used only if the sending side can create and the receiving
+                              ; side can not accept jitter. The SIP channel can accept jitter,
+                              ; thus a jitterbuffer on the receive SIP side will be used only
+                              ; if it is forced and enabled.
+
+; jbforce = no                ; Forces the use of a jitterbuffer on the receive side of a SIP
+                              ; channel. Defaults to "no".
+
+; jbmaxsize = 200             ; Max length of the jitterbuffer in milliseconds.
+
+; jbresyncthreshold = 1000    ; Jump in the frame timestamps over which the jitterbuffer is
+                              ; resynchronized. Useful to improve the quality of the voice, with
+                              ; big jumps in/broken timestamps, usually sent from exotic devices
+                              ; and programs. Defaults to 1000.
+
+; jbimpl = fixed              ; Jitterbuffer implementation, used on the receiving side of a SIP
+                              ; channel. Two implementations are currently available - "fixed"
+                              ; (with size always equals to jbmaxsize) and "adaptive" (with
+                              ; variable size, actually the new jb of IAX2). Defaults to fixed.
+
+; jblog = no                  ; Enables jitterbuffer frame logging. Defaults to "no".
+;-----------------------------------------------------------------------------------
+
 [default]
 
 ; define your default context here
@@ -160,7 +192,16 @@ far_alerting=no
 
 
 ;
-; here you can define which bearers should be allowed
+; Here you can list which bearer capabilities should be allowed:
+;   all                  - allow any bearer capability
+;   speech               - allow speech
+;   3_1khz               - allow 3.1KHz audio
+;   digital_unrestricted - allow unrestricted digital
+;   digital_restricted   - allow restricted digital
+;   video                - allow video
+;
+; Example:
+; allowed_bearers=speech,3_1khz
 ;
 allowed_bearers=all
 
@@ -201,8 +242,6 @@ te_choose_channel=no
 ; default: no
 ;
 pmp_l1_check=no
-pp_l2_check=no
-
 
 
 ;
@@ -230,14 +269,22 @@ need_more_infos=no
 ;
 nttimeout=no
 
-; set the method to use for channel selection:
-;   standard    - always choose the first free channel with the lowest number
-;   round_robin - use the round robin algorithm to select a channel. use this
-;                 if you want to balance your load.
+; Set the method to use for channel selection:
+;   standard     - Use the first free channel starting from the lowest number.
+;   standard_dec - Use the first free channel starting from the highest number.
+;   round_robin  - Use the round robin algorithm to select a channel. Use this
+;                  if you want to balance your load.
 ;
 ; default value: standard
 ;
 method=standard
+
+
+; specify if chan_misdn should collect digits before going into the 
+; dialplan, you can choose yes=4 Seconds, no, or specify the amount
+; of seconds you need;
+; 
+overlapdial=yes
 
 ;
 ; dialplan means Type Of Number in ISDN Terms (for outgoing calls)
@@ -334,23 +381,15 @@ nodialtone=no
 presentation=-1
 screen=-1
 
-; this enables echocancellation, with the given number of taps
-; be aware, move this setting only to outgoing portgroups!
-; A value of zero turns echocancellation off.
+; This enables echo cancellation with the given number of taps.
+; Be aware: Move this setting only to outgoing portgroups!
+; A value of zero turns echo cancellation off.
 ;
 ; possible values are: 0,32,64,128,256,yes(=128),no(=0)
 ;
 ; default value: no
 ;
 ;echocancel=no
-
-; this disables echocancellation when the call is bridged between 
-; mISDN channels
-;
-; default value: no
-;
-echocancelwhenbridged=no
-
 
 ; Set this to no to disable echotraining. You can enter a number > 10
 ; the value is a multiple of 0.125 ms. 

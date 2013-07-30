@@ -10,7 +10,8 @@
 ;
 
 [general]
-; Default formats for writing Voicemail
+; Formats for writing Voicemail.  Note that when using IMAP storage for
+; voicemail, only the first format specified will be used.
 ;format=g723sf|wav49|wav
 format=wav49|gsm|wav
 ;
@@ -36,10 +37,10 @@ attach=yes
 ; (100) is used.  Maximum value for this option is 9999.
 ;maxmsg=100
 ; Maximum length of a voicemail message in seconds
-;maxmessage=180
+;maxsecs=180
 ; Minimum length of a voicemail message in seconds for the message to be kept
 ; The default is no minimum.
-;minmessage=3
+;minsecs=3
 ; Maximum length of greetings in seconds
 ;maxgreet=60
 ; How many milliseconds to skip forward/back when rew/ff in message playback
@@ -51,6 +52,13 @@ silencethreshold=128
 ; Max number of failed login attempts
 maxlogins=3
 ;
+; Move heard messages to the 'Old' folder automagically.  Defaults to on.
+;moveheard=yes
+;
+; Forward an urgent message as an urgent message.  Defaults to no so
+; sender can set the urgency on the envelope of the forwarded message.
+;forward_urgent_auto=no
+;
 ; User context is where entries from users.conf are registered.  The
 ; default value is 'default'
 ;
@@ -58,16 +66,29 @@ maxlogins=3
 ;
 ; If you need to have an external program, i.e. /usr/bin/myapp
 ; called when a voicemail is left, delivered, or your voicemailbox 
-; is checked, uncomment this.  It can also be set to 'smdi' to use
-; smdi for external notification.  If it is 'smdi', smdiport should
-; be set to a valid port as specified in smdi.conf.
-
+; is checked, uncomment this.
 ;externnotify=/usr/bin/myapp
+
+; If you would also like to enable SMDI notification then set smdienable to yes.
+; You will also need to make sure smdiport is set to a valid port as specified in
+; smdi.conf.
+;smdienable=yes
 ;smdiport=/dev/ttyS0
 
 ; If you need to have an external program, i.e. /usr/bin/myapp
 ; called when a voicemail password is changed, uncomment this:
+; Note: If this is set, the password will NOT be changed in voicemail.conf
+; If you would like to also change the password in voicemail.conf, use
+; the externpassnotify option below instead.
 ;externpass=/usr/bin/myapp
+;externpassnotify=/usr/bin/myapp
+
+; If you need to have an external program, i.e. /usr/bin/myapp
+; called when a user changes her voicemail password, uncomment this:
+;externpasscheck=/usr/bin/myapp
+; Arguments for this script are:
+; mailbox context oldpass newpass
+
 ; For the directory, you can override the intro file if you want
 ;directoryintro=dir-intro
 ; The character set for voicemail messages can be specified here
@@ -94,6 +115,10 @@ maxlogins=3
 ; Change the from, body and/or subject, variables:
 ;     VM_NAME, VM_DUR, VM_MSGNUM, VM_MAILBOX, VM_CALLERID, VM_CIDNUM,
 ;     VM_CIDNAME, VM_DATE
+; Additionally, on forwarded messages, you have the variables:
+;     ORIG_VM_CALLERID, ORIG_VM_CIDNUM, ORIG_VM_CIDNAME, ORIG_VM_DATE
+; You can select between two variables by using dialplan functions, e.g.
+;     ${IF(${ISNULL(${ORIG_VM_DATE})}?${VM_DATE}:${ORIG_VM_DATE})}
 ;
 ; Note: The emailbody config row can only be up to 512 characters due to a
 ;       limitation in the Asterisk configuration subsystem.
@@ -102,6 +127,11 @@ maxlogins=3
 ; just the CIDNAME, if it is not null, otherwise just the CIDNUM, or "an unknown
 ; caller", if they are both null.
 ;emailbody=Dear ${VM_NAME}:\n\n\tjust wanted to let you know you were just left a ${VM_DUR} long message (number ${VM_MSGNUM})\nin mailbox ${VM_MAILBOX} from ${VM_CALLERID}, on ${VM_DATE}, so you might\nwant to check it when you get a chance.  Thanks!\n\n\t\t\t\t--Asterisk\n
+;
+; Note: ${IF()} strips spacing at the beginning and end of its true and false
+; values, so a newline cannot be placed at either location.  The word 'so' is
+; therefore duplicated, in order for the newline to be interpreted correctly.
+;emailbody=Dear ${VM_NAME}:\n\n\tjust wanted to let you know you were just ${IF($["${VM_CIDNUM}" = "${ORIG_VM_CIDNUM}"]?left:forwarded)} a ${VM_DUR} long message (number ${VM_MSGNUM})\nin mailbox ${VM_MAILBOX} from ${VM_CALLERID}, on ${VM_DATE},\n${IF($["${VM_CIDNUM}" = "${ORIG_VM_CIDNUM}"]?so:(originally sent by ${ORIG_VM_CALLERID} on ${ORIG_VM_DATE})\nso)} you might want to check it when you get a chance.  Thanks!\n\n\t\t\t\t--Asterisk\n
 ;
 ; You can also change the Pager From: string, the pager body and/or subject.
 ; The above defined variables also can be used here
@@ -120,6 +150,30 @@ emaildateformat=%A, %B %d, %Y at %r
 ; You can override the default program to send e-mail if you wish, too
 ;
 ;mailcmd=/usr/sbin/sendmail -t
+;
+;pollmailboxes=no    ;   If mailboxes are changed anywhere outside of app_voicemail,
+;                    ; then this option must be enabled for MWI to work.  This
+;                    ; enables polling mailboxes for changes.  Normally, it will
+;                    ; expect that changes are only made when someone called in
+;                    ; to one of the voicemail applications.
+;                    ;   Examples of situations that would require this option are 
+;                    ; web interfaces to voicemail or an email client in the case 
+;                    ; of using IMAP storage.
+;
+;pollfreq=30         ;   If the "pollmailboxes" option is enabled, this option
+;                    ; sets the polling frequency.  The default is once every
+;                    ; 30 seconds.
+; If using IMAP storage, specify whether voicemail greetings should be stored 
+; via IMAP. If no, then greetings are stored as if IMAP storage were not enabled
+;imapgreetings=no
+; If imapgreetings=yes, then specify which folder to store your greetings in. If
+; you do not specify a folder, then INBOX will be used
+;greetingsfolder=INBOX
+; Some IMAP server implementations store folders under INBOX instead of 
+; using a top level folder (ex. INBOX/Friends).  In this case, user
+; imapparentfolder to set the parent folder. For example, Cyrus IMAP does
+; NOT use INBOX as the parent. Default is to have no parent folder set.
+;imapparentfolder=INBOX
 ; 
 ; Users may be located in different timezones, or may have different 
 ; message announcements for their introductory message when they enter 
@@ -187,11 +241,18 @@ sendvoicemail=yes ; Allow the user to compose and send a voicemail while inside
 ; searchcontexts=yes	; Current default behavior is to search only the default context
 			; if one is not specified.  The older behavior was to search all contexts.
 			; This option restores the old behavior [DEFAULT=no]
+			; Note: If you have this option enabled, then you will be required to have
+			; unique mailbox names across all contexts. Otherwise, an ambiguity is created
+			; since it is impossible to know which mailbox to retrieve when one is requested.
 ; callback=fromvm 	; Context to call back from  
 			;     if not listed, calling the sender back will not be permitted
+; exitcontext=fromvm    ; Context to go to on user exit such as * or 0
+                        ;     The default is the current context.
 ; review=yes 		; Allow sender to review/rerecord their message before saving it [OFF by default
-; operator=yes 		; Allow sender to hit 0 before/after/during  leaving a voicemail to 
-			;     reach an operator  [OFF by default]
+; operator=yes      ; Allow sender to hit 0 before/after/during leaving a voicemail to
+                    ; reach an operator.  This option REQUIRES an 'o' extension in the
+                    ; same context (or in exitcontext, if set), as that is where the
+                    ; 0 key will send you.  [OFF by default]
 ; envelope=no 		; Turn on/off envelope playback before message playback. [ON by default] 
 			;     This does NOT affect option 3,3 from the advanced options menu
 ; delete=yes		; After notification, the voicemail is deleted from the server. [per-mailbox only]
@@ -211,7 +272,47 @@ sendvoicemail=yes ; Allow the user to compose and send a voicemail while inside
 			;     greetings.  The default is "no".
 ; hidefromdir=yes	; Hide this mailbox from the directory produced by app_directory
 			;     The default is "no".
-;tempgreetwarn=yes	; Remind the user that their temporary greeting is set
+; tempgreetwarn=yes	; Remind the user that their temporary greeting is set
+
+;messagewrap=no	; Enable next/last message to wrap around to
+			; first (from last) and last (from first) message
+			; The default is "no".
+; minpassword=0 ; Enforce minimum password length
+
+; vm-password=custom_sound
+			;     Customize which sound file is used instead of the default
+			;     prompt that says: "password"
+; vm-newpassword=custom_sound
+			;     Customize which sound file is used instead of the default
+			;     prompt that says: "Please enter your new password followed by
+			;     the pound key."
+; vm-passchanged=custom_sound
+			;     Customize which sound file is used instead of the default
+			;     prompt that says: "Your password has been changed."
+; vm-reenterpassword=custom_sound
+			;     Customize which sound file is used instead of the default
+			;     prompt that says: "Please re-enter your password followed by
+			;     the pound key"
+; vm-mismatch=custom_sound
+			;     Customize which sound file is used instead of the default
+			;     prompt that says: "The passwords you entered and re-entered
+			;     did not match.  Please try again."
+; vm-invalid-password=custom_sound
+			;     Customize which sound file is used instead of the default
+			;     prompt that says: ...
+; listen-control-forward-key=#	; Customize the key that fast-forwards message playback
+; listen-control-reverse-key=*	; Customize the key that rewinds message playback
+; listen-control-pause-key=0	; Customize the key that pauses/unpauses message playback
+; listen-control-restart-key=2	; Customize the key that restarts message playback
+; listen-control-stop-key=13456789	; Customize the keys that interrupt message playback, probably all keys not set above
+
+; Maximum number of messages allowed in the 'Deleted' folder. If set to 0
+; or no then no deleted messages will be moved. If non-zero (max 9999) then up
+; to this number of messages will be automagically saved when they are
+; 'deleted' on a FIFO basis.
+; defaults to being off
+; backupdeleted=100
+
 
 [zonemessages]
 eastern=America/New_York|'vm-received' Q 'digits/at' IMp
@@ -223,14 +324,12 @@ european=Europe/Copenhagen|'vm-received' a d b 'digits/at' HM
 
 
 [default]
-; Define maximum number of messages per folder for a particular context.
-;maxmsg=50
 
 1234 => 4242,Example Mailbox,root@localhost
 ;4200 => 9855,Mark Spencer,markster@linux-support.net,mypager@digium.com,attach=no|serveremail=myaddy@digium.com|tz=central|maxmsg=10
 ;4300 => 3456,Ben Rigas,ben@american-computer.net
 ;4310 => -5432,Sales,sales@marko.net
-;4069 => 6522,Matt Brooks,matt@marko.net,,|tz=central|attach=yes|saycid=yes|dialout=fromvm|callback=fromvm|review=yes|operator=yes|envelope=yes|sayduration=yes|saydurationm=1
+;4069 => 6522,Matt Brooks,matt@marko.net,,|tz=central|attach=yes|saycid=yes|dialout=fromvm|callback=fromvm|review=yes|operator=yes|envelope=yes|moveheard=yes|sayduration=yes|saydurationm=1
 ;4073 => 1099,Bianca Paige,bianca@biancapaige.com,,delete=1
 ;4110 => 3443,Rob Flynn,rflynn@blueridge.net
 ;4235 => 1234,Jim Holmes,jim@astricon.ips,,Tz=european
@@ -245,3 +344,12 @@ european=Europe/Copenhagen|'vm-received' a d b 'digits/at' HM
 ;The intro can be customized on a per-context basis
 ;directoryintro=dir-company2
 1234 => 5678,Company2 User,root@localhost
+
+; example for our acme compartmentalized company
+;
+; Pete telecommutes from Chicago, so we'll customize timestamps for him.
+;
+;[acme]
+;111 => 7383,Pete,pete@acme-widgets.com,,tz=central
+;112 => 6262,Nancy,nancy@acme-widgets.com
+;

@@ -32,22 +32,11 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 52997 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 125386 $")
 
-#include <fcntl.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <string.h>
-#include <stdio.h>
-
-#include "asterisk/lock.h"
 #include "asterisk/translate.h"
 #include "asterisk/config.h"
-#include "asterisk/options.h"
 #include "asterisk/module.h"
-#include "asterisk/logger.h"
-#include "asterisk/channel.h"
 #include "asterisk/utils.h"
 
 #ifdef HAVE_GSM_HEADER
@@ -90,7 +79,7 @@ static struct ast_frame *lintogsm_sample(void)
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
-	f.data = slin_gsm_ex;
+	f.data.ptr = slin_gsm_ex;
 	return &f;
 }
 
@@ -105,7 +94,7 @@ static struct ast_frame *gsmtolin_sample(void)
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
-	f.data = gsm_slin_ex;
+	f.data.ptr = gsm_slin_ex;
 	return &f;
 }
 
@@ -114,7 +103,7 @@ static int gsmtolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct gsm_translator_pvt *tmp = pvt->pvt;
 	int x;
-	int16_t *dst = (int16_t *)pvt->outbuf;
+	int16_t *dst = pvt->outbuf.i16;
 	/* guess format from frame len. 65 for MSGSM, 33 for regular GSM */
 	int flen = (f->datalen % MSGSM_FRAME_LEN == 0) ?
 		MSGSM_FRAME_LEN : GSM_FRAME_LEN;
@@ -130,10 +119,10 @@ static int gsmtolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 			/* XXX what's the point here! we should just work
 			 * on the full format.
 			 */
-			conv65(f->data + x, data);
+			conv65(f->data.ptr + x, data);
 		} else {
 			len = GSM_SAMPLES;
-			src = f->data + x;
+			src = f->data.ptr + x;
 		}
 		/* XXX maybe we don't need to check */
 		if (pvt->samples + len > BUFFER_SAMPLES) {	
@@ -170,7 +159,7 @@ static int lintogsm_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Out of buffer space\n");
 		return -1;
 	}
-	memcpy(tmp->buf + pvt->samples, f->data, f->datalen);
+	memcpy(tmp->buf + pvt->samples, f->data.ptr, f->datalen);
 	pvt->samples += f->samples;
 	return 0;
 }
@@ -187,7 +176,7 @@ static struct ast_frame *lintogsm_frameout(struct ast_trans_pvt *pvt)
 		return NULL;
 	while (pvt->samples >= GSM_SAMPLES) {
 		/* Encode a frame of data */
-		gsm_encode(tmp->gsm, tmp->buf + samples, (gsm_byte *) pvt->outbuf + datalen);
+		gsm_encode(tmp->gsm, tmp->buf + samples, (gsm_byte *) pvt->outbuf.c + datalen);
 		datalen += GSM_FRAME_LEN;
 		samples += GSM_SAMPLES;
 		pvt->samples -= GSM_SAMPLES;
@@ -235,27 +224,32 @@ static struct ast_translator lintogsm = {
 };
 
 
-static void parse_config(void)
+static int parse_config(int reload)
 {
 	struct ast_variable *var;
-	struct ast_config *cfg = ast_config_load("codecs.conf");
-	if (!cfg)
-		return;
+	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
+	struct ast_config *cfg = ast_config_load("codecs.conf", config_flags);
+	if (cfg == NULL)
+		return 0;
+	if (cfg == CONFIG_STATUS_FILEUNCHANGED) 
+		return 0;
 	for (var = ast_variable_browse(cfg, "plc"); var; var = var->next) {
 	       if (!strcasecmp(var->name, "genericplc")) {
 		       gsmtolin.useplc = ast_true(var->value) ? 1 : 0;
-		       if (option_verbose > 2)
-			       ast_verbose(VERBOSE_PREFIX_3 "codec_gsm: %susing generic PLC\n", gsmtolin.useplc ? "" : "not ");
+			   ast_verb(3, "codec_gsm: %susing generic PLC\n", gsmtolin.useplc ? "" : "not ");
 	       }
 	}
 	ast_config_destroy(cfg);
+	return 0;
 }
 
 /*! \brief standard module glue */
 static int reload(void)
 {
-	parse_config();
-	return 0;
+	if (parse_config(1)) {
+		return AST_MODULE_LOAD_DECLINE;
+	}
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)
@@ -273,14 +267,16 @@ static int load_module(void)
 {
 	int res;
 
-	parse_config();
+	if (parse_config(0))
+		return AST_MODULE_LOAD_DECLINE;
 	res = ast_register_translator(&gsmtolin);
 	if (!res) 
 		res=ast_register_translator(&lintogsm);
 	else
 		ast_unregister_translator(&gsmtolin);
-
-	return res;
+	if (res) 
+		return AST_MODULE_LOAD_FAILURE;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "GSM Coder/Decoder",

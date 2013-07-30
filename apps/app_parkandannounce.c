@@ -31,32 +31,24 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 46200 $")
-
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 170049 $")
 
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/features.h"
-#include "asterisk/options.h"
-#include "asterisk/logger.h"
 #include "asterisk/say.h"
 #include "asterisk/lock.h"
 #include "asterisk/utils.h"
+#include "asterisk/app.h"
 
 static char *app = "ParkAndAnnounce";
 
 static char *synopsis = "Park and Announce";
 
 static char *descrip =
-"  ParkAndAnnounce(announce:template|timeout|dial|[return_context]):\n"
+"  ParkAndAnnounce(announce:template,timeout,dial[,return_context]):\n"
 "Park a call into the parkinglot and announce the call to another channel.\n"
 "\n"
 "announce template: Colon-separated list of files to announce.  The word PARKED\n"
@@ -76,129 +68,77 @@ static char *descrip =
 
 static int parkandannounce_exec(struct ast_channel *chan, void *data)
 {
-	int res=0;
-	char *return_context;
+	int res = -1;
 	int lot, timeout = 0, dres;
-	char *working, *context, *exten, *priority, *dial, *dialtech, *dialstr;
-	char *template, *tpl_working, *tpl_current;
-	char *tmp[100];
-	char buf[13];
-	int looptemp=0,i=0;
+	char *dialtech, *tmp[100], buf[13];
+	int looptemp, i;
 	char *s;
 
 	struct ast_channel *dchan;
-	struct outgoing_helper oh;
+	struct outgoing_helper oh = { 0, };
 	int outstate;
-
-	struct ast_module_user *u;
-
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(template);
+		AST_APP_ARG(timeout);
+		AST_APP_ARG(dial);
+		AST_APP_ARG(return_context);
+	);
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "ParkAndAnnounce requires arguments: (announce:template|timeout|dial|[return_context])\n");
 		return -1;
 	}
   
-	u = ast_module_user_add(chan);
-
 	s = ast_strdupa(data);
+	AST_STANDARD_APP_ARGS(args, s);
 
-	template=strsep(&s,"|");
-	if(! template) {
-		ast_log(LOG_WARNING, "PARK: An announce template must be defined\n");
-		ast_module_user_remove(u);
+	if (args.timeout)
+		timeout = atoi(args.timeout) * 1000;
+
+	if (ast_strlen_zero(args.dial)) {
+		ast_log(LOG_WARNING, "PARK: A dial resource must be specified i.e: Console/dsp or DAHDI/g1/5551212\n");
 		return -1;
 	}
-  
-	if(s) {
-		timeout = atoi(strsep(&s, "|"));
-		timeout *= 1000;
-	}
-	dial=strsep(&s, "|");
-	if(!dial) {
-		ast_log(LOG_WARNING, "PARK: A dial resource must be specified i.e: Console/dsp or Zap/g1/5551212\n");
-		ast_module_user_remove(u);
-		return -1;
-	} else {
-		dialtech=strsep(&dial, "/");
-		dialstr=dial;
-		ast_verbose( VERBOSE_PREFIX_3 "Dial Tech,String: (%s,%s)\n", dialtech,dialstr);
+
+	dialtech = strsep(&args.dial, "/");
+	ast_verb(3, "Dial Tech,String: (%s,%s)\n", dialtech, args.dial);
+
+	if (!ast_strlen_zero(args.return_context)) {
+		ast_clear_flag(chan, AST_FLAG_IN_AUTOLOOP);
+		ast_parseable_goto(chan, args.return_context);
 	}
 
-	return_context = s;
-  
-	if(return_context != NULL) {
-		/* set the return context. Code borrowed from the Goto builtin */
-    
-		working = return_context;
-		context = strsep(&working, "|");
-		exten = strsep(&working, "|");
-		if(!exten) {
-			/* Only a priority in this one */
-			priority = context;
-			exten = NULL;
-			context = NULL;
-		} else {
-			priority = strsep(&working, "|");
-			if(!priority) {
-				/* Only an extension and priority in this one */
-				priority = exten;
-				exten = context;
-				context = NULL;
+	ast_verb(3, "Return Context: (%s,%s,%d) ID: %s\n", chan->context, chan->exten, chan->priority, chan->cid.cid_num);
+		if (!ast_exists_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num)) {
+		ast_verb(3, "Warning: Return Context Invalid, call will return to default|s\n");
 		}
-	}
-	if(atoi(priority) < 0) {
-		ast_log(LOG_WARNING, "Priority '%s' must be a number > 0\n", priority);
-		ast_module_user_remove(u);
-		return -1;
-	}
-	/* At this point we have a priority and maybe an extension and a context */
-	chan->priority = atoi(priority);
-	if (exten)
-		ast_copy_string(chan->exten, exten, sizeof(chan->exten));
-	if (context)
-		ast_copy_string(chan->context, context, sizeof(chan->context));
-	} else {  /* increment the priority by default*/
-		chan->priority++;
-	}
 
-	if(option_verbose > 2) {
-		ast_verbose( VERBOSE_PREFIX_3 "Return Context: (%s,%s,%d) ID: %s\n", chan->context,chan->exten, chan->priority, chan->cid.cid_num);
-		if(!ast_exists_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num)) {
-			ast_verbose( VERBOSE_PREFIX_3 "Warning: Return Context Invalid, call will return to default|s\n");
-		}
-	}
-  
 	/* we are using masq_park here to protect * from touching the channel once we park it.  If the channel comes out of timeout
 	before we are done announcing and the channel is messed with, Kablooeee.  So we use Masq to prevent this.  */
 
-	ast_masq_park_call(chan, NULL, timeout, &lot);
+	res = ast_masq_park_call(chan, NULL, timeout, &lot);
+	if (res == -1)
+		return res;
 
-	res=-1; 
+	ast_verb(3, "Call Parking Called, lot: %d, timeout: %d, context: %s\n", lot, timeout, args.return_context);
 
-	ast_verbose( VERBOSE_PREFIX_3 "Call Parking Called, lot: %d, timeout: %d, context: %s\n", lot, timeout, return_context);
-
-	/* Now place the call to the extention */
+	/* Now place the call to the extension */
 
 	snprintf(buf, sizeof(buf), "%d", lot);
-	memset(&oh, 0, sizeof(oh));
 	oh.parent_channel = chan;
-	oh.vars = ast_variable_new("_PARKEDAT", buf);
-	dchan = __ast_request_and_dial(dialtech, AST_FORMAT_SLINEAR, dialstr,30000, &outstate, chan->cid.cid_num, chan->cid.cid_name, &oh);
+	oh.vars = ast_variable_new("_PARKEDAT", buf, "");
+	dchan = __ast_request_and_dial(dialtech, AST_FORMAT_SLINEAR, args.dial, 30000, &outstate, chan->cid.cid_num, chan->cid.cid_name, &oh);
 
-	if(dchan) {
-		if(dchan->_state == AST_STATE_UP) {
-			if(option_verbose > 3)
-				ast_verbose(VERBOSE_PREFIX_4 "Channel %s was answered.\n", dchan->name);
+	if (dchan) {
+		if (dchan->_state == AST_STATE_UP) {
+			ast_verb(4, "Channel %s was answered.\n", dchan->name);
 		} else {
-			if(option_verbose > 3)
-				ast_verbose(VERBOSE_PREFIX_4 "Channel %s was never answered.\n", dchan->name);
-        			ast_log(LOG_WARNING, "PARK: Channel %s was never answered for the announce.\n", dchan->name);
+			ast_verb(4, "Channel %s was never answered.\n", dchan->name);
+			ast_log(LOG_WARNING, "PARK: Channel %s was never answered for the announce.\n", dchan->name);
 			ast_hangup(dchan);
-			ast_module_user_remove(u);
 			return -1;
 		}
 	} else {
 		ast_log(LOG_WARNING, "PARK: Unable to allocate announce channel.\n");
-		ast_module_user_remove(u);
 		return -1; 
 	}
 
@@ -206,24 +146,22 @@ static int parkandannounce_exec(struct ast_channel *chan, void *data)
 
 	/* now we have the call placed and are ready to play stuff to it */
 
-	ast_verbose(VERBOSE_PREFIX_4 "Announce Template:%s\n", template);
+	ast_verb(4, "Announce Template:%s\n", args.template);
 
-	tpl_working = template;
-	tpl_current=strsep(&tpl_working, ":");
-
-	while(tpl_current && looptemp < sizeof(tmp)) {
-		tmp[looptemp]=tpl_current;
-		looptemp++;
-		tpl_current=strsep(&tpl_working,":");
+	for (looptemp = 0; looptemp < ARRAY_LEN(tmp); looptemp++) {
+		if ((tmp[looptemp] = strsep(&args.template, ":")) != NULL)
+			continue;
+		else
+			break;
 	}
 
-	for(i=0; i<looptemp; i++) {
-		ast_verbose(VERBOSE_PREFIX_4 "Announce:%s\n", tmp[i]);
-		if(!strcmp(tmp[i], "PARKED")) {
+	for (i = 0; i < looptemp; i++) {
+		ast_verb(4, "Announce:%s\n", tmp[i]);
+		if (!strcmp(tmp[i], "PARKED")) {
 			ast_say_digits(dchan, lot, "", dchan->language);
 		} else {
 			dres = ast_streamfile(dchan, tmp[i], dchan->language);
-			if(!dres) {
+			if (!dres) {
 				dres = ast_waitstream(dchan, "");
 			} else {
 				ast_log(LOG_WARNING, "ast_streamfile of %s failed on %s\n", tmp[i], dchan->name);
@@ -235,20 +173,12 @@ static int parkandannounce_exec(struct ast_channel *chan, void *data)
 	ast_stopstream(dchan);  
 	ast_hangup(dchan);
 	
-	ast_module_user_remove(u);
-	
 	return res;
 }
 
 static int unload_module(void)
 {
-	int res;
-
-	res = ast_unregister_application(app);
-
-	ast_module_user_hangup_all();
-
-	return res;
+	return ast_unregister_application(app);
 }
 
 static int load_module(void)

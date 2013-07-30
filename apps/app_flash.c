@@ -18,7 +18,7 @@
 
 /*! \file
  *
- * \brief App to flash a zap trunk
+ * \brief App to flash a DAHDI trunk
  *
  * \author Mark Spencer <markster@digium.com>
  * 
@@ -26,47 +26,41 @@
  */
  
 /*** MODULEINFO
-	<depend>zaptel</depend>
+	<depend>dahdi</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 125138 $")
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-#include <sys/ioctl.h>
-#include <zaptel/zaptel.h>
+#include <dahdi/user.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
-#include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/translate.h"
 #include "asterisk/image.h"
-#include "asterisk/options.h"
 
 static char *app = "Flash";
 
-static char *synopsis = "Flashes a Zap Trunk";
+static char *synopsis = "Flashes a DAHDI Trunk";
 
 static char *descrip = 
-"  Flash(): Sends a flash on a zap trunk.  This is only a hack for\n"
-"people who want to perform transfers and such via AGI and is generally\n"
-"quite useless oths application will only work on Zap trunks.\n";
+"Performs a flash on a DAHDI trunk.  This can be used\n"
+"to access features provided on an incoming analogue circuit\n"
+"such as conference and call waiting. Use with SendDTMF() to\n"
+"perform external transfers\n";
 
 
-static inline int zt_wait_event(int fd)
+static inline int dahdi_wait_event(int fd)
 {
-	/* Avoid the silly zt_waitevent which ignores a bunch of events */
+	/* Avoid the silly dahdi_waitevent which ignores a bunch of events */
 	int i,j=0;
-	i = ZT_IOMUX_SIGEVENT;
-	if (ioctl(fd, ZT_IOMUX, &i) == -1) return -1;
-	if (ioctl(fd, ZT_GETEVENT, &j) == -1) return -1;
+	i = DAHDI_IOMUX_SIGEVENT;
+	if (ioctl(fd, DAHDI_IOMUX, &i) == -1) return -1;
+	if (ioctl(fd, DAHDI_GETEVENT, &j) == -1) return -1;
 	return j;
 }
 
@@ -74,45 +68,39 @@ static int flash_exec(struct ast_channel *chan, void *data)
 {
 	int res = -1;
 	int x;
-	struct ast_module_user *u;
-	struct zt_params ztp;
-	u = ast_module_user_add(chan);
-	if (!strcasecmp(chan->tech->type, "Zap")) {
-		memset(&ztp, 0, sizeof(ztp));
-		res = ioctl(chan->fds[0], ZT_GET_PARAMS, &ztp);
-		if (!res) {
-			if (ztp.sigtype & __ZT_SIG_FXS) {
-				x = ZT_FLASH;
-				res = ioctl(chan->fds[0], ZT_HOOK, &x);
-				if (!res || (errno == EINPROGRESS)) {
-					if (res) {
-						/* Wait for the event to finish */
-						zt_wait_event(chan->fds[0]);
-					}
-					res = ast_safe_sleep(chan, 1000);
-					if (option_verbose > 2)
-						ast_verbose(VERBOSE_PREFIX_3 "Flashed channel %s\n", chan->name);
-				} else
-					ast_log(LOG_WARNING, "Unable to flash channel %s: %s\n", chan->name, strerror(errno));
+	struct dahdi_params dahdip;
+
+	if (strcasecmp(chan->tech->type, "DAHDI")) {
+		ast_log(LOG_WARNING, "%s is not a DAHDI channel\n", chan->name);
+		return -1;
+	}
+	
+	memset(&dahdip, 0, sizeof(dahdip));
+	res = ioctl(chan->fds[0], DAHDI_GET_PARAMS, &dahdip);
+	if (!res) {
+		if (dahdip.sigtype & __DAHDI_SIG_FXS) {
+			x = DAHDI_FLASH;
+			res = ioctl(chan->fds[0], DAHDI_HOOK, &x);
+			if (!res || (errno == EINPROGRESS)) {
+				if (res) {
+					/* Wait for the event to finish */
+					dahdi_wait_event(chan->fds[0]);
+				}
+				res = ast_safe_sleep(chan, 1000);
+				ast_verb(3, "Flashed channel %s\n", chan->name);
 			} else
-				ast_log(LOG_WARNING, "%s is not an FXO Channel\n", chan->name);
+				ast_log(LOG_WARNING, "Unable to flash channel %s: %s\n", chan->name, strerror(errno));
 		} else
-			ast_log(LOG_WARNING, "Unable to get parameters of %s: %s\n", chan->name, strerror(errno));
+			ast_log(LOG_WARNING, "%s is not an FXO Channel\n", chan->name);
 	} else
-		ast_log(LOG_WARNING, "%s is not a Zap channel\n", chan->name);
-	ast_module_user_remove(u);
+		ast_log(LOG_WARNING, "Unable to get parameters of %s: %s\n", chan->name, strerror(errno));
+
 	return res;
 }
 
 static int unload_module(void)
 {
-	int res;
-
-	res = ast_unregister_application(app);
-
-	ast_module_user_hangup_all();
-
-	return res;
+	return ast_unregister_application(app);
 }
 
 static int load_module(void)
