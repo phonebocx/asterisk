@@ -90,7 +90,7 @@ extern int daemon(int, int);  /* defined in libresolv of all places */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19351 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 28754 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -443,6 +443,8 @@ int ast_safe_system(const char *s)
 	pid = fork();
 
 	if (pid == 0) {
+		if (option_highpriority)
+			ast_set_priority(0);
 		/* Close file descriptors and launch system command */
 		for (x = STDERR_FILENO + 1; x < 4096; x++)
 			close(x);
@@ -1801,13 +1803,17 @@ static void ast_remotecontrol(char * data)
 
 	if (option_exec && data) {  /* hack to print output then exit if asterisk -rx is used */
 		char tempchar;
+#ifdef __Darwin__
 		struct pollfd fds[0];
 		fds[0].fd = ast_consock;
 		fds[0].events = POLLIN;
 		fds[0].revents = 0;
-		while(poll(fds, 1, 100) > 0) {
+		while (poll(fds, 1, 100) > 0) {
 			ast_el_read_char(el, &tempchar);
 		}
+#else
+		while (!ast_el_read_char(el, &tempchar));
+#endif
 		return;
 	}
 	for(;;) {
@@ -2291,6 +2297,7 @@ int main(int argc, char *argv[])
 			fclose(f);
 		} else
 			ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", (char *)ast_config_AST_PID, strerror(errno));
+		ast_mainpid = getpid();
 	}
 
 	/* Test recursive mutex locking. */

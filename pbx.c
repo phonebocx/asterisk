@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19768 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 29732 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/cli.h"
@@ -1172,10 +1172,12 @@ static int handle_show_functions(int fd, int argc, char *argv[])
 	int count_acf = 0;
 
 	ast_cli(fd, "Installed Custom Functions:\n--------------------------------------------------------------------------------\n");
+	ast_mutex_lock(&acflock);
 	for (acf = acf_root ; acf; acf = acf->next) {
 		ast_cli(fd, "%-20.20s  %-35.35s  %s\n", acf->name, acf->syntax, acf->synopsis);
 		count_acf++;
 	}
+	ast_mutex_unlock(&acflock);
 	ast_cli(fd, "%d custom functions installed.\n", count_acf);
 	return 0;
 }
@@ -1471,9 +1473,10 @@ static void pbx_substitute_variables_helper_full(struct ast_channel *c, struct v
 			needsub = 0;
 
 			/* Find the end of it */
-			while(brackets && *vare) {
+			while (brackets && *vare) {
 				if ((vare[0] == '$') && (vare[1] == '{')) {
 					needsub++;
+				} else if (vare[0] == '{') {
 					brackets++;
 				} else if (vare[0] == '}') {
 					brackets--;
@@ -3703,6 +3706,7 @@ void ast_merge_contexts_and_delete(struct ast_context **extcontexts, const char 
 	int length;
 	struct ast_state_cb *thiscb, *prevcb;
 
+	memset(&store, 0, sizeof(store));
 	AST_LIST_HEAD_INIT(&store);
 
 	/* it is very important that this function hold the hintlock _and_ the conlock
@@ -4061,7 +4065,7 @@ static unsigned int get_month(char *mon)
 	}
 	if (c) {
 		e = 0;
-		while((e < 12) && strcasecmp(mon, months[e])) e++;
+		while((e < 12) && strcasecmp(c, months[e])) e++;
 		if (e >= 12) {
 			ast_log(LOG_WARNING, "Invalid month '%s', assuming none\n", c);
 			return 0;

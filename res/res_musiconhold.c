@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 16534 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 31775 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -166,6 +166,10 @@ static void ast_moh_free_class(struct mohclass **class)
 		members = members->next;
 		free(mtmp);
 	}
+	if ((*class)->thread) {
+		pthread_cancel((*class)->thread);
+		(*class)->thread = 0;
+	}
 	free(*class);
 	*class = NULL;
 }
@@ -208,6 +212,8 @@ static int ast_moh_files_next(struct ast_channel *chan)
 			if (ast_test_flag(state->class, MOH_RANDOMIZE))
 				state->pos = rand();
 
+			state->pos %= state->class->total_files;
+
 			/* check to see if this file's format can be opened */
 			if (ast_fileexists(state->class->filearray[state->pos], NULL, NULL) != -1)
 				break;
@@ -217,10 +223,6 @@ static int ast_moh_files_next(struct ast_channel *chan)
 
 	state->pos = state->pos % state->class->total_files;
 	
-	if (ast_set_write_format(chan, AST_FORMAT_SLINEAR)) {
-		ast_log(LOG_WARNING, "Unable to set '%s' to linear format (write)\n", chan->name);
-		return -1;
-	}
 	if (!ast_openstream_full(chan, state->class->filearray[state->pos], chan->language, 1)) {
 		ast_log(LOG_WARNING, "Unable to open file '%s': %s\n", state->class->filearray[state->pos], strerror(errno));
 		state->pos++;
@@ -295,14 +297,8 @@ static void *moh_files_alloc(struct ast_channel *chan, void *params)
 
 		state->origwfmt = chan->writeformat;
 
-		if (ast_set_write_format(chan, AST_FORMAT_SLINEAR)) {
-			ast_log(LOG_WARNING, "Unable to set '%s' to linear format (write)\n", chan->name);
-			free(chan->music_state);
-			chan->music_state = NULL;
-		} else {
-			if (option_verbose > 2)
-				ast_verbose(VERBOSE_PREFIX_3 "Started music on hold, class '%s', on %s\n", class->name, chan->name);
-		}
+		if (option_verbose > 2)
+			ast_verbose(VERBOSE_PREFIX_3 "Started music on hold, class '%s', on %s\n", class->name, chan->name);
 	}
 	
 	return chan->music_state;
@@ -436,6 +432,10 @@ static int spawn_mp3(struct mohclass *class)
 	}
 	if (!class->pid) {
 		int x;
+
+		if (option_highpriority)
+			ast_set_priority(0);
+
 		close(fds[0]);
 		/* Stdout goes to pipe */
 		dup2(fds[1], STDOUT_FILENO);
@@ -482,17 +482,20 @@ static void *monmp3thread(void *data)
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 	for(;/* ever */;) {
+		pthread_testcancel();
 		/* Spawn mp3 player if it's not there */
 		if (class->srcfd < 0) {
 			if ((class->srcfd = spawn_mp3(class)) < 0) {
 				ast_log(LOG_WARNING, "Unable to spawn mp3player\n");
 				/* Try again later */
 				sleep(500);
+				pthread_testcancel();
 			}
 		}
 		if (class->pseudofd > -1) {
 			/* Pause some amount of time */
 			res = read(class->pseudofd, buf, sizeof(buf));
+			pthread_testcancel();
 		} else {
 			long delta;
 			/* Reliable sleep */
@@ -503,6 +506,7 @@ static void *monmp3thread(void *data)
 			if (delta < MOH_MS_INTERVAL) {	/* too early */
 				tv = ast_tvadd(tv, ast_samp2tv(MOH_MS_INTERVAL, 1000));	/* next deadline */
 				usleep(1000 * (MOH_MS_INTERVAL - delta));
+				pthread_testcancel();
 			} else {
 				ast_log(LOG_NOTICE, "Request to schedule in the past?!?!\n");
 				tv = tv_tmp;
@@ -518,7 +522,12 @@ static void *monmp3thread(void *data)
 			if (!res2) {
 				close(class->srcfd);
 				class->srcfd = -1;
+				pthread_testcancel();
 				if (class->pid) {
+					kill(class->pid, SIGHUP);
+					usleep(100000);
+					kill(class->pid, SIGTERM);
+					usleep(100000);
 					kill(class->pid, SIGKILL);
 					class->pid = 0;
 				}
@@ -526,6 +535,7 @@ static void *monmp3thread(void *data)
 				ast_log(LOG_DEBUG, "Read %d bytes of audio while expecting %d\n", res2, len);
 			continue;
 		}
+		pthread_testcancel();
 		ast_mutex_lock(&moh_lock);
 		moh = class->members;
 		while (moh) {
@@ -1078,6 +1088,13 @@ static void ast_moh_destroy(void)
 			stime = time(NULL) + 2;
 			pid = moh->pid;
 			moh->pid = 0;
+			/* Back when this was just mpg123, SIGKILL was fine.  Now we need
+			 * to give the process a reason and time enough to kill off its
+			 * children. */
+			kill(pid, SIGHUP);
+			usleep(100000);
+			kill(pid, SIGTERM);
+			usleep(100000);
 			kill(pid, SIGKILL);
 			while ((ast_wait_for_input(moh->srcfd, 100) > 0) && (bytes = read(moh->srcfd, buff, 8192)) && time(NULL) < stime) {
 				tbytes = tbytes + bytes;

@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7270 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 29464 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -343,6 +343,8 @@ static int local_call(struct ast_channel *ast, char *dest, int timeout)
 		p->chan->cid.cid_ani = strdup(p->owner->cid.cid_ani);
 	else
 		p->chan->cid.cid_ani = NULL;
+
+	p->chan->cid.cid_pres = p->owner->cid.cid_pres;
 
 	strncpy(p->chan->language, p->owner->language, sizeof(p->chan->language) - 1);
 	strncpy(p->chan->accountcode, p->owner->accountcode, sizeof(p->chan->accountcode) - 1);

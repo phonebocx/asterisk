@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 10137 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 25563 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -1613,7 +1613,10 @@ static int agents_show(int fd, int argc, char **argv)
 				}
 				online_agents++;
 			} else if (!ast_strlen_zero(p->loginchan)) {
-				snprintf(location, sizeof(location) - 20, "available at '%s'", p->loginchan);
+				if (ast_tvdiff_ms(ast_tvnow(), p->lastdisc) > 0 || !(p->lastdisc.tv_sec)) 
+					snprintf(location, sizeof(location) - 20, "available at '%s'", p->loginchan);
+				else 
+					snprintf(location, sizeof(location) - 20, "wrapping up at '%s'", p->loginchan);
 				talkingto[0] = '\0';
 				online_agents++;
 				if (p->acknowledged)

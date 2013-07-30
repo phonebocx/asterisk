@@ -181,7 +181,6 @@ ifeq ($(OSARCH),Linux)
     # You must have GCC 3.4 to use k8, otherwise use athlon
     PROC=k8
     #PROC=athlon
-    OPTIONS+=-m64
   endif
 
   ifeq ($(PROC),sparc64)
@@ -202,9 +201,9 @@ ifeq ($(OSARCH),Linux)
       OPTIONS+=-fsigned-char -mcpu=ep9312
     else
       ifeq ($(SUB_PROC),xscale)
-        OPTIONS+=-fsigned-char -msoft-float -mcpu=xscale
+        OPTIONS+=-fsigned-char -mcpu=xscale
       else
-        OPTIONS+=-fsigned-char -msoft-float 
+        OPTIONS+=-fsigned-char 
       endif
     endif
   endif
@@ -434,10 +433,10 @@ endif
 noclean: depend asterisk subdirs
 
 editline/config.h:
-	cd editline && unset CFLAGS LIBS && ./configure ; \
+	cd editline && unset CFLAGS LIBS && CFLAGS="$(OPTIMIZE)" ./configure ; \
 
 editline/libedit.a: FORCE
-	cd editline && unset CFLAGS LIBS && test -f config.h || ./configure
+	cd editline && unset CFLAGS LIBS && test -f config.h || CFLAGS="$(OPTIMIZE)" ./configure
 	$(MAKE) -C editline libedit.a
 
 db1-ast/libdb1.a: FORCE
@@ -642,7 +641,6 @@ bininstall: all
 		cat contrib/scripts/safe_asterisk | sed 's|__ASTERISK_SBIN_DIR__|$(ASTSBINDIR)|;' > $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ;\
 		chmod 755 $(DESTDIR)$(ASTSBINDIR)/safe_asterisk;\
 	fi
-	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
 	$(INSTALL) -d $(DESTDIR)$(ASTHEADERDIR)
 	$(INSTALL) -m 644 include/asterisk/*.h $(DESTDIR)$(ASTHEADERDIR)
 	if [ -n "$(OLDHEADERS)" ]; then \
@@ -667,28 +665,9 @@ bininstall: all
 		echo "You need to do cvs update -d not just cvs update" ; \
 	fi 
 	if [ -f mpg123-0.59r/mpg123 ]; then $(MAKE) -C mpg123-0.59r install; fi
-	@echo " +---- Asterisk Installation Complete -------+"  
-	@echo " +                                           +"
-	@echo " +    YOU MUST READ THE SECURITY DOCUMENT    +"
-	@echo " +                                           +"
-	@echo " + Asterisk has successfully been installed. +"  
-	@echo " + If you would like to install the sample   +"  
-	@echo " + configuration files (overwriting any      +"
-	@echo " + existing config files), run:              +"  
-	@echo " +                                           +"
-	@echo " +               $(MAKE) samples                +"
-	@echo " +                                           +"
-	@echo " +-----------------  or ---------------------+"
-	@echo " +                                           +"
-	@echo " + You can go ahead and install the asterisk +"
-	@echo " + program documentation now or later run:   +"
-	@echo " +                                           +"
-	@echo " +              $(MAKE) progdocs                +"
-	@echo " +                                           +"
-	@echo " + **Note** This requires that you have      +"
-	@echo " + doxygen installed on your local system    +"
-	@echo " +-------------------------------------------+"
-	@$(MAKE) -s oldmodcheck
+
+install-subdirs:
+	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
 
 NEWMODS=$(notdir $(wildcard */*.so))
 OLDMODS=$(filter-out $(NEWMODS),$(notdir $(wildcard $(DESTDIR)$(MODULES_DIR)/*.so)))
@@ -711,10 +690,32 @@ oldmodcheck:
 		echo " WARNING WARNING WARNING" ;\
 	fi
 
-install: all datafiles bininstall
+install: all datafiles bininstall install-subdirs
 	@if [ -x /usr/sbin/asterisk-post-install ]; then \
 		/usr/sbin/asterisk-post-install $(DESTDIR) . ; \
 	fi
+	@echo " +---- Asterisk Installation Complete -------+"  
+	@echo " +                                           +"
+	@echo " +    YOU MUST READ THE SECURITY DOCUMENT    +"
+	@echo " +                                           +"
+	@echo " + Asterisk has successfully been installed. +"  
+	@echo " + If you would like to install the sample   +"  
+	@echo " + configuration files (overwriting any      +"
+	@echo " + existing config files), run:              +"  
+	@echo " +                                           +"
+	@echo " +               $(MAKE) samples                +"
+	@echo " +                                           +"
+	@echo " +-----------------  or ---------------------+"
+	@echo " +                                           +"
+	@echo " + You can go ahead and install the asterisk +"
+	@echo " + program documentation now or later run:   +"
+	@echo " +                                           +"
+	@echo " +              $(MAKE) progdocs                +"
+	@echo " +                                           +"
+	@echo " + **Note** This requires that you have      +"
+	@echo " + doxygen installed on your local system    +"
+	@echo " +-------------------------------------------+"
+	@$(MAKE) -s oldmodcheck
 
 upgrade: all bininstall
 

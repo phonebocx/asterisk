@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11382 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 31194 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -140,6 +140,7 @@ static int launch_netscript(char *agiurl, char *argv[], int *fds, int *efd, int 
 	struct sockaddr_in sin;
 	struct hostent *hp;
 	struct ast_hostent ahp;
+	int res;
 
 	host = ast_strdupa(agiurl + 6);	/* Remove agi:// */
 	if (!host)
@@ -192,9 +193,13 @@ static int launch_netscript(char *agiurl, char *argv[], int *fds, int *efd, int 
 
 	pfds[0].fd = s;
 	pfds[0].events = POLLOUT;
-	while (poll(pfds, 1, MAX_AGI_CONNECT) != 1) {
+	while ((res = poll(pfds, 1, MAX_AGI_CONNECT)) != 1) {
 		if (errno != EINTR) {
-			ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
+			if (!res) {
+				ast_log(LOG_WARNING, "FastAGI connection to '%s' timed out after MAX_AGI_CONNECT (%d) milliseconds.\n",
+					agiurl, MAX_AGI_CONNECT);
+			} else
+				ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
 			close(s);
 			return -1;
 		}
@@ -941,6 +946,9 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, char 
 			return RESULT_FAILURE;
 		}
 		
+		/* Request a video update */
+		ast_indicate(chan, AST_CONTROL_VIDUPDATE);
+	
 		chan->stream = fs;
 		ast_applystream(chan,fs);
 		/* really should have checks */
@@ -1003,6 +1011,9 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, char 
                                                 break;
                                         }
                             	}
+				break;
+			case AST_FRAME_VIDEO:
+				ast_writestream(fs, f);
 				break;
 			}
 			ast_frfree(f);

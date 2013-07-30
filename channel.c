@@ -45,7 +45,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19347 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 31520 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/frame.h"
@@ -1950,10 +1950,12 @@ struct ast_frame *ast_read(struct ast_channel *chan)
 			chan->dtmfq[strlen(chan->dtmfq)] = f->subclass;
 		else
 			ast_log(LOG_WARNING, "Dropping deferred DTMF digits on %s\n", chan->name);
+		ast_frfree(f);
 		f = &null_frame;
 	} else if ((f->frametype == AST_FRAME_CONTROL) && (f->subclass == AST_CONTROL_ANSWER)) {
 		if (prestate == AST_STATE_UP) {
 			ast_log(LOG_DEBUG, "Dropping duplicate answer!\n");
+			ast_frfree(f);
 			f = &null_frame;
 		}
 		/* Answer the CDR */
@@ -2733,6 +2735,14 @@ int ast_channel_masquerade(struct ast_channel *original, struct ast_channel *clo
 {
 	struct ast_frame null = { AST_FRAME_NULL, };
 	int res = -1;
+
+	/* each of these channels may be sitting behind a channel proxy (i.e. chan_agent)
+	   and if so, we don't really want to masquerade it, but its proxy */
+	if (original->_bridge && (original->_bridge != ast_bridged_channel(original)))
+		original = original->_bridge;
+
+	if (clone->_bridge && (clone->_bridge != ast_bridged_channel(clone)))
+		clone = clone->_bridge;
 
 	if (original == clone) {
 		ast_log(LOG_WARNING, "Can't masquerade channel '%s' into itself!\n", original->name);

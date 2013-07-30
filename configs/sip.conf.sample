@@ -107,6 +107,10 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 				; Useful to limit subscriptions to local extensions
 				; Settable per peer/user also
 ;notifyringing = yes		; Notify subscriptions on RINGING state
+;alwaysauthreject = yes		; When an incoming INVITE or REGISTER is to be rejected,
+		    		; for any reason, always reject with '401 Unauthorized'
+				; instead of letting the requester know whether there was
+				; a matching user or peer for their request
 
 ;
 ; If regcontext is specified, Asterisk will dynamically create and destroy a
@@ -358,7 +362,6 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 ;allow=alaw
 ;allow=g723.1			; Asterisk only supports g723.1 pass-thru!
 ;allow=g729			; Pass-thru only unless g729 license obtained
-;astdb=chan2ext/SIP/grandstream1=1234	; ensures an astDB entry exists
 
 
 ;[xlite1]
@@ -418,6 +421,9 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 ;qualify=1000			; Consider it down if it's 1 second to reply
 				; Helps with NAT session
 				; qualify=yes uses default value
+;
+; Call group and Pickup group should be in the range from 0 to 63
+;
 ;callgroup=1,3-4		; We are in caller groups 1,3,4
 ;pickupgroup=1,3-5		; We can do call pick-p for call group 1,3,4,5
 ;defaultip=192.168.0.60		; IP address to use if peer has not registred

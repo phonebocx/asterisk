@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19397 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 30035 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -111,7 +111,8 @@ static char *descrip =
 "    G(context^exten^pri) - If the call is answered, transfer the calling party to\n"
 "           the specified priority and the called party to the specified priority+1.\n"
 "           Optionally, an extension, or extension and context may be specified. \n"
-"           Otherwise, the current extension is used.\n"
+"           Otherwise, the current extension is used. You cannot use any additional\n"
+"           action post answer options in conjunction with this option.\n" 
 "    h    - Allow the called party to hang up by sending the '*' DTMF digit.\n"
 "    H    - Allow the calling party to hang up by hitting the '*' DTMF digit.\n"
 "    j    - Jump to priority n+101 if all of the requested channels were busy.\n"
@@ -144,6 +145,8 @@ static char *descrip =
 "           * GOTO:<context>^<exten>^<priority> - Transfer the call to the\n"
 "                          specified priority. Optionally, an extension, or\n"
 "                          extension and priority can be specified.\n"
+"           You cannot use any additional action post answer options in conjunction\n"
+"           with this option.\n"
 "    n    - This option is a modifier for the screen/privacy mode. It specifies\n"
 "           that no introductions are to be saved in the priv-callerintros\n"
 "           directory.\n"
@@ -468,6 +471,8 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in, struct localu
 						o->chan = ast_request(tech, in->nativeformats, stuff, &cause);
 						if (!o->chan)
 							ast_log(LOG_NOTICE, "Unable to create local channel for call forward to '%s/%s' (cause = %d)\n", tech, stuff, cause);
+						else
+							ast_channel_inherit_variables(in, o->chan);
 					} else {
 						if (option_verbose > 2)
 							ast_verbose(VERBOSE_PREFIX_3 "Too many forwards from %s\n", o->chan->name);
@@ -934,20 +939,26 @@ static int dial_exec_full(struct ast_channel *chan, void *data, struct ast_flags
 		}
 		
 		if( privdb_val == AST_PRIVACY_DENY ) {
+			strcpy(status, "NOANSWER");
 			ast_verbose( VERBOSE_PREFIX_3  "Privacy DB reports PRIVACY_DENY for this callerid. Dial reports unavailable\n");
 			res=0;
 			goto out;
 		}
 		else if( privdb_val == AST_PRIVACY_KILL ) {
-			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 201);
+			strcpy(status, "DONTCALL");
+			if (option_priority_jumping || ast_test_flag(&opts, OPT_PRIORITY_JUMP)) {
+				ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 201);
+			}
 			res = 0;
 			goto out; /* Is this right? */
 		}
 		else if( privdb_val == AST_PRIVACY_TORTURE ) {
-			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 301);
+			strcpy(status, "TORTURE");
+			if (option_priority_jumping || ast_test_flag(&opts, OPT_PRIORITY_JUMP)) {
+				ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 301);
+			}
 			res = 0;
 			goto out; /* is this right??? */
-
 		}
 		else if( privdb_val == AST_PRIVACY_UNKNOWN ) {
 			/* Get the user's intro, store it in priv-callerintros/$CID, 
@@ -1057,6 +1068,8 @@ static int dial_exec_full(struct ast_channel *chan, void *data, struct ast_flags
 				tmp->chan = ast_request(tech, chan->nativeformats, stuff, &cause);
 				if (!tmp->chan)
 					ast_log(LOG_NOTICE, "Unable to create local channel for call forward to '%s/%s' (cause = %d)\n", tech, stuff, cause);
+				else
+					ast_channel_inherit_variables(chan, tmp->chan);
 			} else {
 				if (option_verbose > 2)
 					ast_verbose(VERBOSE_PREFIX_3 "Too many forwards from %s\n", tmp->chan->name);
@@ -1303,6 +1316,7 @@ static int dial_exec_full(struct ast_channel *chan, void *data, struct ast_flags
 								     opt_args[OPT_ARG_PRIVACY], privcid);
 						ast_privacy_set(opt_args[OPT_ARG_PRIVACY], privcid, AST_PRIVACY_DENY);
 					}
+					strcpy(status,"NOANSWER");
 					if (ast_test_flag(&opts, OPT_MUSICBACK)) {
 						ast_moh_stop(chan);
 					} else if (ast_test_flag(&opts, OPT_RINGBACK)) {

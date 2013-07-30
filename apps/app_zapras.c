@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24019 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -95,6 +95,10 @@ static pid_t spawn_ras(struct ast_channel *chan, char *args)
 
 	/* Execute RAS on File handles */
 	dup2(chan->fds[0], STDIN_FILENO);
+
+	/* Drop high priority */
+	if (option_highpriority)
+		ast_set_priority(0);
 
 	/* Close other file descriptors */
 	for (x=STDERR_FILENO + 1;x<1024;x++) 

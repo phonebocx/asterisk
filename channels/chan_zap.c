@@ -68,7 +68,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17367 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 31127 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -2119,9 +2119,8 @@ static int zt_call(struct ast_channel *ast, char *rdest, int timeout)
 				prilocaldialplan = PRI_LOCAL_ISDN;
 			}
 		}
-		pri_sr_set_caller(sr, l ? (l + ldp_strip) : NULL, n, prilocaldialplan, 
-					l ? (p->use_callingpres ? ast->cid.cid_pres : PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN) : 
-						 PRES_NUMBER_NOT_AVAILABLE);
+		pri_sr_set_caller(sr, l ? (l + ldp_strip) : NULL, n, prilocaldialplan,
+				  p->use_callingpres ? ast->cid.cid_pres : (l ? PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN : PRES_NUMBER_NOT_AVAILABLE));
 		pri_sr_set_redirecting(sr, ast->cid.cid_rdnis, p->pri->localdialplan - 1, PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN, PRI_REDIR_UNCONDITIONAL);
 
 #ifdef SUPPORT_USERUSER
@@ -6339,11 +6338,17 @@ static int handle_init_event(struct zt_pvt *i, int event)
 	case ZT_EVENT_NOALARM:
 		i->inalarm = 0;
 		ast_log(LOG_NOTICE, "Alarm cleared on channel %d\n", i->channel);
+		manager_event(EVENT_FLAG_SYSTEM, "AlarmClear",
+		              "Channel: %d\r\n", i->channel);
 		break;
 	case ZT_EVENT_ALARM:
 		i->inalarm = 1;
 		res = get_alarms(i);
 		ast_log(LOG_WARNING, "Detected alarm on channel %d: %s\n", i->channel, alarm2str(res));
+		manager_event(EVENT_FLAG_SYSTEM, "Alarm",
+		              "Alarm: %s\r\n"
+		              "Channel: %d\r\n",
+		              alarm2str(res), i->channel);
 		/* fall thru intentionally */
 	case ZT_EVENT_ONHOOK:
 		if (i->radio) break;
@@ -9030,7 +9035,7 @@ static void *pri_dchannel(void *vpri)
 					ast_log(LOG_WARNING, "Received SETUP_ACKNOWLEDGE on unconfigured channel %d/%d span %d\n", 
 						PRI_SPAN(e->setup_ack.channel), PRI_CHANNEL(e->setup_ack.channel), pri->span);
 				} else {
-					chanpos = pri_fixup_principle(pri, chanpos, e->ring.call);
+					chanpos = pri_fixup_principle(pri, chanpos, e->setup_ack.call);
 					if (chanpos > -1) {
 						ast_mutex_lock(&pri->pvts[chanpos]->lock);
 						pri->pvts[chanpos]->setup_ack = 1;
@@ -10712,6 +10717,8 @@ static int setup_zap(int reload)
 						v->value, v->lineno);
 			} else if (!strcasecmp(v->name, "minunused")) {
 				minunused = atoi(v->value);
+			} else if (!strcasecmp(v->name, "minidle")) {
+				minidle = atoi(v->value); 
 			} else if (!strcasecmp(v->name, "idleext")) {
 				ast_copy_string(idleext, v->value, sizeof(idleext));
 			} else if (!strcasecmp(v->name, "idledial")) {

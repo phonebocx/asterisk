@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7634 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24019 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -44,6 +44,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7634 $")
 #include "asterisk/module.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/app.h"
+#include "asterisk/options.h"
 
 static const char *tdesc = "External IVR Interface Application";
 
@@ -312,6 +313,9 @@ static int app_exec(struct ast_channel *chan, void *data)
 	if (!pid) {
 		/* child process */
 		int i;
+
+		if (option_highpriority)
+			ast_set_priority(0);
 
 		dup2(child_stdin[0], STDIN_FILENO);
 		dup2(child_stdout[1], STDOUT_FILENO);

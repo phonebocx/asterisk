@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 9156 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24837 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -337,7 +337,7 @@ static int macroif_exec(struct ast_channel *chan, void *data)
 			*label_b = '\0';
 			label_b++;
 		}
-		if (ast_true(expr))
+		if (pbx_checkcondition(expr))
 			macro_exec(chan, label_a);
 		else if (label_b) 
 			macro_exec(chan, label_b);
