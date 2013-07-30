@@ -7,7 +7,7 @@
  *
  * Tilghman Lesher <app_cut__v003@the-tilghman.com>
  *
- * $Id: app_cut.c,v 1.6 2004/07/14 07:22:30 markster Exp $
+ * $Id: app_cut.c,v 1.6.2.1 2005/05/12 01:43:36 russell Exp $
  *
  * This code is released by the author with no restrictions on usage.
  *
@@ -31,10 +31,10 @@ static char *tdesc = "Cuts up variables";
 
 static char *app_cut = "Cut";
 
-static char *cut_synopsis = "Cut(newvar=varname|delimiter|fieldspec)";
+static char *cut_synopsis = "Splits a variable's content using the specified delimiter";
 
 static char *cut_descrip =
-"Cut(newvar=varname,delimiter,field)\n"
+"Usage: Cut(newvar=varname,delimiter,fieldspec)\n"
 "  newvar    - new variable created from result string\n"
 "  varname   - variable you want cut\n"
 "  delimiter - defaults to '-'\n"

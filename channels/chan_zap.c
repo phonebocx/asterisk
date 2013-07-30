@@ -69,6 +69,12 @@
 #error "Your zaptel is too old.  please cvs update"
 #endif
 
+#ifndef ZT_TONEDETECT
+/* Work around older code with no tone detect */
+#define ZT_EVENT_DTMFDOWN 0
+#define ZT_EVENT_DTMFUP 0
+#endif
+
 /*
  * Define ZHONE_HACK to cause us to go off hook and then back on hook when
  * the user hangs up to reset the state machine so ring works properly.
@@ -558,6 +564,7 @@ static struct zt_pvt {
 	int logicalspan;
 	int alreadyhungup;
 	int proceeding;
+	int alerting;
 	int setup_ack;		/* wheter we received SETUP_ACKNOWLEDGE or not */
 #endif	
 #ifdef ZAPATA_R2
@@ -2087,6 +2094,7 @@ static int zt_hangup(struct ast_channel *ast)
 		p->onhooktime = time(NULL);
 #ifdef ZAPATA_PRI
 		p->proceeding = 0;
+		p->alerting = 0;
 		p->setup_ack = 0;
 #endif		
 		if (p->dsp) {
@@ -2576,7 +2584,6 @@ static int zt_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, 
 	/* if need DTMF, cant native bridge */
 	if (flags & (AST_BRIDGE_DTMF_CHANNEL_0 | AST_BRIDGE_DTMF_CHANNEL_1))
 		return -2;
-		
 		
 	ast_mutex_lock(&c0->lock);
 	ast_mutex_lock(&c1->lock);
@@ -3080,7 +3087,7 @@ static struct ast_frame *zt_handle_event(struct ast_channel *ast)
 	} else
 		res = zt_get_event(p->subs[index].zfd);
 	ast_log(LOG_DEBUG, "Got event %s(%d) on channel %d (index %d)\n", event2str(res), res, p->channel, index);
-	if (res & (ZT_EVENT_PULSEDIGIT | ZT_EVENT_DTMFDIGIT)) {
+	if (res & (ZT_EVENT_PULSEDIGIT | ZT_EVENT_DTMFUP)) {
 		if (res & ZT_EVENT_PULSEDIGIT)
 			p->pulsedial = 1;
 		else
@@ -3088,7 +3095,16 @@ static struct ast_frame *zt_handle_event(struct ast_channel *ast)
 		ast_log(LOG_DEBUG, "Pulse dial '%c'\n", res & 0xff);
 		p->subs[index].f.frametype = AST_FRAME_DTMF;
 		p->subs[index].f.subclass = res & 0xff;
-		/* Return the captured digit */
+		/* Unmute conference, return the captured digit */
+		zt_confmute(p, 0);
+		return &p->subs[index].f;
+	}
+	if (res & ZT_EVENT_DTMFDOWN) {
+		ast_log(LOG_DEBUG, "DTMF Down '%c'\n", res & 0xff);
+		p->subs[index].f.frametype = AST_FRAME_NULL;
+		p->subs[index].f.subclass = 0;
+		zt_confmute(p, 1);
+		/* Mute conference, return null frame */
 		return &p->subs[index].f;
 	}
 	switch(res) {
@@ -4043,6 +4059,8 @@ struct ast_frame  *zt_read(struct ast_channel *ast)
 			p->subs[index].f.subclass = AST_CONTROL_ANSWER;
 			ast_setstate(ast, AST_STATE_UP);
 			f = &p->subs[index].f;
+			/* Reset confirmanswer so DTMF's will behave properly for the duration of the call */
+			p->confirmanswer = 0;
 		} else if (p->callwaitcas) {
 			if ((f->subclass == 'A') || (f->subclass == 'D')) {
 				ast_log(LOG_DEBUG, "Got some DTMF, but it's for the CAS\n");
@@ -4060,13 +4078,15 @@ struct ast_frame  *zt_read(struct ast_channel *ast)
 			if (!p->faxhandled) {
 				p->faxhandled++;
 				if (strcmp(ast->exten, "fax")) {
-					if (ast_exists_extension(ast, ast->context, "fax", 1, ast->callerid)) {
+					char *target_context = ast_strlen_zero(ast->macrocontext) ? ast->context : ast->macrocontext;
+
+					if (ast_exists_extension(ast, target_context, "fax", 1, ast->callerid)) {
 						if (option_verbose > 2)
 							ast_verbose(VERBOSE_PREFIX_3 "Redirecting %s to fax extension\n", ast->name);
 						/* Save the DID/DNIS when we transfer the fax call to a "fax" extension */
-						pbx_builtin_setvar_helper(ast,"FAXEXTEN",ast->exten);
-						if (ast_async_goto(ast, ast->context, "fax", 1))
-							ast_log(LOG_WARNING, "Failed to async goto '%s' into fax of '%s'\n", ast->name, ast->context);
+						pbx_builtin_setvar_helper(ast, "FAXEXTEN", ast->exten);
+						if (ast_async_goto(ast, target_context, "fax", 1))
+							ast_log(LOG_WARNING, "Failed to async goto '%s' into fax of '%s'\n", ast->name, target_context);
 					} else
 						ast_log(LOG_NOTICE, "Fax detected, but no fax extension\n");
 				} else
@@ -4231,7 +4251,7 @@ static int zt_indicate(struct ast_channel *chan, int condition)
 			break;
 		case AST_CONTROL_RINGING:
 #ifdef ZAPATA_PRI
-			if ((p->proceeding < 2) && p->sig==SIG_PRI && p->pri && !p->outgoing) {
+			if ((!p->alerting) && p->sig==SIG_PRI && p->pri && !p->outgoing && (chan->_state != AST_STATE_UP)) {
 				if (p->pri->pri) {		
 					if (!pri_grab(p, p->pri)) {
 						pri_acknowledge(p->pri->pri,p->call, PVT_TO_CHANNEL(p), 1);
@@ -4240,7 +4260,7 @@ static int zt_indicate(struct ast_channel *chan, int condition)
 					else
 						ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->span);
 				}
-				p->proceeding=2;
+				p->alerting=1;
 			}
 #endif
 			res = tone_zone_play_tone(p->subs[index].zfd, ZT_TONE_RINGTONE);
@@ -4412,7 +4432,11 @@ static struct ast_channel *zt_new(struct zt_pvt *i, int state, int startpbx, int
 		    (i->outgoing && (i->callprogress & 2))) {
 			features |= DSP_FEATURE_FAX_DETECT;
 		}
-		features |= DSP_FEATURE_DTMF_DETECT;
+#ifdef ZT_TONEDETECT
+		x = ZT_TONEDETECT_ON | ZT_TONEDETECT_MUTE;
+		if (ioctl(i->subs[index].zfd, ZT_TONEDETECT, &x))
+#endif		
+			features |= DSP_FEATURE_DTMF_DETECT;
 		if (features) {
 			if (i->dsp) {
 				ast_log(LOG_DEBUG, "Already have a dsp on %s?\n", tmp->name);
@@ -4634,6 +4658,13 @@ static void *ss_thread(void *data)
 				exten[len++] = res;
 			} else
 				break;
+		}
+		/* if no extension was received ('unspecified') on overlap call, use the 's' extension */
+		if (ast_strlen_zero(exten)) {
+			if (option_verbose > 2)
+				ast_verbose(VERBOSE_PREFIX_3 "Going to extension s|1 because of empty extension received on overlap call\n");
+			exten[0] = 's';
+			exten[1] = '\0';
 		}
 		tone_zone_play_tone(p->subs[index].zfd, -1);
 		if (ast_exists_extension(chan, chan->context, exten, 1, p->callerid)) {
@@ -6040,7 +6071,7 @@ static int pri_resolve_span(int *span, int channel, int offset, struct zt_spanin
 				return 0;
 			}
 		}
-		ast_log(LOG_WARNING, "Channel %d on span %d configured to use non-existant trunk group %d\n", channel, *span, trunkgroup);
+		ast_log(LOG_WARNING, "Channel %d on span %d configured to use nonexistent trunk group %d\n", channel, *span, trunkgroup);
 		*span = -1;
 	} else {
 		if (pris[*span].trunkgroup) {
@@ -6935,6 +6966,8 @@ static struct ast_channel *zt_request(char *type, int format, void *data)
 				} else if (opt == 'd') {
 					/* If this is an ISDN call, make it digital */
 					p->digital = 1;
+					if (tmp)
+						ast_set_flag(tmp, AST_FLAG_DIGITAL);
 				} else {
 					ast_log(LOG_WARNING, "Unknown option '%c' in '%s'\n", opt, (char *)data);
 				}
@@ -7609,6 +7642,9 @@ static void *pri_dchannel(void *vpri)
 						strncpy(pri->pvts[chanpos]->dnid, e->ring.callednum, sizeof(pri->pvts[chanpos]->dnid) - 1);
 					} else
 						pri->pvts[chanpos]->exten[0] = '\0';
+					/* Set DNID on all incoming calls -- even immediate */
+					if (!ast_strlen_zero(e->ring.callednum))
+						strncpy(pri->pvts[chanpos]->dnid, e->ring.callednum, sizeof(pri->pvts[chanpos]->dnid) - 1);
 					/* No number yet, but received "sending complete"? */
 					if (e->ring.complete && (ast_strlen_zero(e->ring.callednum))) {
 						if (option_verbose > 2)

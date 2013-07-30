@@ -235,7 +235,8 @@ static struct pbx_builtin {
 	"typed in is valid, it will not have to timeout to be tested, so typically\n"
 	"at the expiry of this timeout, the extension will be considered invalid\n"
 	"(and thus control would be passed to the 'i' extension, or if it doesn't\n"
-	"exist the call would be terminated). Always returns 0.\n" 
+	"exist the call would be terminated). The default timeout is 5 seconds.\n"
+	"Always returns 0.\n" 
 	},
 
 	{ "Goto", pbx_builtin_goto, 
@@ -305,7 +306,8 @@ static struct pbx_builtin {
 	"falling through a series of priorities for a channel in which the user may\n"
 	"begin typing an extension. If the user does not type an extension in this\n"
 	"amount of time, control will pass to the 't' extension if it exists, and\n"
-	"if not the call would be terminated.\nAlways returns 0.\n"  
+	"if not the call would be terminated. The default timeout is 10 seconds.\n"
+	"Always returns 0.\n"  
 	},
 
 	{ "Ringing", pbx_builtin_ringing,
@@ -1515,11 +1517,12 @@ int ast_extension_state_add(char *context, char *exten,
 			if (cblist->callback == callback) {
 				cblist->data = data;
 				ast_mutex_unlock(&hintlock);
+				return 0;
 			}
 			cblist = cblist->next;
 		}
 	
-		/* Now inserts the callback */
+		/* Now insert the callback */
 		cblist = malloc(sizeof(struct ast_state_cb));
 		if (!cblist) {
 			ast_mutex_unlock(&hintlock);
@@ -1772,7 +1775,7 @@ int ast_spawn_extension(struct ast_channel *c, char *context, char *exten, int p
 int ast_pbx_run(struct ast_channel *c)
 {
 	int firstpass = 1;
-	char digit;
+	int digit;
 	char exten[256];
 	int pos;
 	int waittime;
@@ -4616,6 +4619,10 @@ static int pbx_builtin_atimeout(struct ast_channel *chan, void *data)
 
 static int pbx_builtin_rtimeout(struct ast_channel *chan, void *data)
 {
+	/* If the channel is not in a PBX, return now */
+	if (!chan->pbx)
+		return 0;
+
 	/* Set the timeout for how long to wait between digits */
 	chan->pbx->rtimeout = atoi((char *)data);
 	if (option_verbose > 2)
@@ -4625,6 +4632,10 @@ static int pbx_builtin_rtimeout(struct ast_channel *chan, void *data)
 
 static int pbx_builtin_dtimeout(struct ast_channel *chan, void *data)
 {
+	/* If the channel is not in a PBX, return now */
+	if (!chan->pbx)
+		return 0;
+
 	/* Set the timeout for how long to wait between digits */
 	chan->pbx->dtimeout = atoi((char *)data);
 	if (option_verbose > 2)
@@ -5076,7 +5087,7 @@ int ast_context_verify_includes(struct ast_context *con)
 	for (inc = ast_walk_context_includes(con, NULL); inc; inc = ast_walk_context_includes(con, inc))
 		if (!ast_context_find(inc->rname)) {
 			res = -1;
-			ast_log(LOG_WARNING, "Context '%s' tries includes non-existant context '%s'\n",
+			ast_log(LOG_WARNING, "Context '%s' tries includes nonexistent context '%s'\n",
 					ast_get_context_name(con), inc->rname);
 		}
 	return res;

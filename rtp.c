@@ -53,7 +53,7 @@ static int dtmftimeout = 3000;	/* 3000 samples */
 static int rtpstart = 0;
 static int rtpend = 0;
 #ifdef SO_NO_CHECK
-static int checksums = 1;
+static int nochecksums = 0;
 #endif
 
 /* The value of each payload format mapping: */
@@ -351,9 +351,7 @@ struct ast_frame *ast_rtcp_read(struct ast_rtp *rtp)
 					0, (struct sockaddr *)&sin, &len);
 	
 	if (res < 0) {
-		if (errno == EAGAIN)
-			ast_log(LOG_NOTICE, "RTP: Received packet with bad UDP checksum\n");
-		else
+		if (errno != EAGAIN)
 			ast_log(LOG_WARNING, "RTP Read error: %s\n", strerror(errno));
 		if (errno == EBADF)
 			CRASH;
@@ -409,6 +407,7 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 	int version;
 	int payloadtype;
 	int hdrlen = 12;
+	int padding;
 	int mark;
 	int ext;
 	char iabuf[INET_ADDRSTRLEN];
@@ -426,9 +425,7 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 
 	rtpheader = (unsigned int *)(rtp->rawdata + AST_FRIENDLY_OFFSET);
 	if (res < 0) {
-		if (errno == EAGAIN)
-			ast_log(LOG_NOTICE, "RTP: Received packet with bad UDP checksum\n");
-		else
+		if (errno != EAGAIN)
 			ast_log(LOG_WARNING, "RTP Read error: %s\n", strerror(errno));
 		if (errno == EBADF)
 			CRASH;
@@ -462,10 +459,17 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 		return &null_frame;
 	
 	payloadtype = (seqno & 0x7f0000) >> 16;
+	padding = seqno & (1 << 29);
 	mark = seqno & (1 << 23);
 	ext = seqno & (1 << 28);
 	seqno &= 0xffff;
 	timestamp = ntohl(rtpheader[1]);
+	
+	if (padding) {
+		/* Remove padding bytes */
+		res -= rtp->rawdata[AST_FRIENDLY_OFFSET + res - 1];
+	}
+	
 	if (ext) {
 		/* RTP Extension present */
 		hdrlen += 4;
@@ -547,6 +551,7 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 			break;
 		case AST_FORMAT_SLINEAR:
 			rtp->f.samples = rtp->f.datalen / 2;
+			ast_frame_byteswap_be(&rtp->f);
 			break;
 		case AST_FORMAT_GSM:
 			rtp->f.samples = 160 * (rtp->f.datalen / 33);
@@ -625,7 +630,9 @@ static struct {
    table for transmission */
 static struct rtpPayloadType static_RTP_PT[MAX_RTP_PT] = {
   [0] = {1, AST_FORMAT_ULAW},
+#ifdef USE_DEPRECATED_G726
   [2] = {1, AST_FORMAT_G726}, /* Technically this is G.721, but if Cisco can do it, so can we... */
+#endif
   [3] = {1, AST_FORMAT_GSM},
   [4] = {1, AST_FORMAT_G723_1},
   [5] = {1, AST_FORMAT_ADPCM}, /* 8 kHz */
@@ -645,6 +652,7 @@ static struct rtpPayloadType static_RTP_PT[MAX_RTP_PT] = {
   [97] = {1, AST_FORMAT_ILBC},
   [101] = {0, AST_RTP_DTMF},
   [110] = {1, AST_FORMAT_SPEEX},
+  [111] = {1, AST_FORMAT_G726},
   [121] = {0, AST_RTP_CISCO_DTMF}, /* Must be type 121 */
 };
 
@@ -800,9 +808,8 @@ static int rtp_socket(void)
 		flags = fcntl(s, F_GETFL);
 		fcntl(s, F_SETFL, flags | O_NONBLOCK);
 #ifdef SO_NO_CHECK
-		if (checksums) {
-			setsockopt(s, SOL_SOCKET, SO_NO_CHECK, &checksums, sizeof(checksums));
-		}
+		if (nochecksums)
+			setsockopt(s, SOL_SOCKET, SO_NO_CHECK, &nochecksums, sizeof(nochecksums));
 #endif
 	}
 	return s;
@@ -1194,6 +1201,19 @@ int ast_rtp_write(struct ast_rtp *rtp, struct ast_frame *_f)
 
 
 	switch(subclass) {
+	case AST_FORMAT_SLINEAR:
+		if (!rtp->smoother) {
+			rtp->smoother = ast_smoother_new(320);
+		}
+		if (!rtp->smoother) {
+			ast_log(LOG_WARNING, "Unable to create smoother :(\n");
+			return -1;
+		}
+		ast_smoother_feed_be(rtp->smoother, _f);
+		
+		while((f = ast_smoother_read(rtp->smoother)))
+			ast_rtp_raw_write(rtp, f, codec);
+		break;
 	case AST_FORMAT_ULAW:
 	case AST_FORMAT_ALAW:
 		if (!rtp->smoother) {
@@ -1537,9 +1557,6 @@ void ast_rtp_reload(void)
 	char *s;
 	rtpstart = 5000;
 	rtpend = 31000;
-#ifdef SO_NO_CHECK
-	checksums = 1;
-#endif
 	cfg = ast_load("rtp.conf");
 	if (cfg) {
 		if ((s = ast_variable_retrieve(cfg, "general", "rtpstart"))) {
@@ -1558,12 +1575,12 @@ void ast_rtp_reload(void)
 		}
 		if ((s = ast_variable_retrieve(cfg, "general", "rtpchecksums"))) {
 #ifdef SO_NO_CHECK
-			if (ast_true(s))
-				checksums = 1;
+			if (ast_false(s))
+				nochecksums = 1;
 			else
-				checksums = 0;
+				nochecksums = 0;
 #else
-			if (ast_true(s))
+			if (ast_false(s))
 				ast_log(LOG_WARNING, "Disabling RTP checksums is not supported on this operating system!\n");
 #endif
 		}

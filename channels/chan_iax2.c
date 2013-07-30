@@ -506,8 +506,8 @@ static struct ast_firmware_list {
 
 /* Extension exists */
 #define CACHE_FLAG_EXISTS		(1 << 0)
-/* Extension is non-existant */
-#define CACHE_FLAG_NONEXISTANT	(1 << 1)
+/* Extension is nonexistent */
+#define CACHE_FLAG_NONEXISTENT	(1 << 1)
 /* Extension can exist */
 #define CACHE_FLAG_CANEXIST		(1 << 2)
 /* Waiting to hear back response */
@@ -864,7 +864,7 @@ static int find_callno(unsigned short callno, unsigned short dcallno, struct soc
 		/* We've still got lock held if we found a spot */
 		if (x >= TRUNK_CALL_START) {
 			ast_log(LOG_WARNING, "No more space\n");
-			return -1;
+			return 0;
 		}
 		iaxs[x] = new_iax(sin, lockpeer, host);
 		update_max_nontrunk();
@@ -1604,8 +1604,8 @@ static int iax2_show_cache(int fd, int argc, char *argv[])
 		tmp[0] = '\0';
 		if (dp->flags & CACHE_FLAG_EXISTS)
 			strncat(tmp, "EXISTS|", sizeof(tmp) - strlen(tmp) - 1);
-		if (dp->flags & CACHE_FLAG_NONEXISTANT)
-			strncat(tmp, "NONEXISTANT|", sizeof(tmp) - strlen(tmp) - 1);
+		if (dp->flags & CACHE_FLAG_NONEXISTENT)
+			strncat(tmp, "NONEXISTENT|", sizeof(tmp) - strlen(tmp) - 1);
 		if (dp->flags & CACHE_FLAG_CANEXIST)
 			strncat(tmp, "CANEXIST|", sizeof(tmp) - strlen(tmp) - 1);
 		if (dp->flags & CACHE_FLAG_PENDING)
@@ -2369,7 +2369,7 @@ static int iax2_call(struct ast_channel *c, char *dest, int timeout)
 	if (secret) {
 		if (secret[0] == '[') {
 			/* This is an RSA key, not a normal secret */
-			strncpy(iaxs[callno]->outkey, secret + 1, sizeof(iaxs[callno]->secret)-1);
+			strncpy(iaxs[callno]->outkey, secret + 1, sizeof(iaxs[callno]->outkey)-1);
 			if (!ast_strlen_zero(iaxs[callno]->outkey)) {
 				iaxs[callno]->outkey[strlen(iaxs[callno]->outkey) - 1] = '\0';
 			}
@@ -4155,8 +4155,8 @@ static int complete_dpreply(struct chan_iax2_pvt *pvt, struct iax_ies *ies)
 		status = CACHE_FLAG_EXISTS;
 	else if (ies->dpstatus & IAX_DPSTATUS_CANEXIST)
 		status = CACHE_FLAG_CANEXIST;
-	else if (ies->dpstatus & IAX_DPSTATUS_NONEXISTANT)
-		status = CACHE_FLAG_NONEXISTANT;
+	else if (ies->dpstatus & IAX_DPSTATUS_NONEXISTENT)
+		status = CACHE_FLAG_NONEXISTENT;
 
 	if (ies->dpstatus & IAX_DPSTATUS_IGNOREPAT) {
 		/* Don't really do anything with this */
@@ -4864,7 +4864,7 @@ static void dp_lookup(int callno, char *context, char *callednum, char *callerid
 	} else if (ast_canmatch_extension(NULL, context, callednum, 1, callerid)) {
 		dpstatus = IAX_DPSTATUS_CANEXIST;
 	} else {
-		dpstatus = IAX_DPSTATUS_NONEXISTANT;
+		dpstatus = IAX_DPSTATUS_NONEXISTENT;
 	}
 	if (ast_ignore_pattern(context, callednum))
 		dpstatus |= IAX_DPSTATUS_IGNOREPAT;
@@ -5182,7 +5182,7 @@ static int socket_read(int *id, int fd, short events, void *cbdata)
 		ast_mutex_lock(&iaxsl[fr.callno]);
 
 	if (!fr.callno || !iaxs[fr.callno]) {
-		/* A call arrived for a non-existant destination.  Unless it's an "inval"
+		/* A call arrived for a nonexistent destination.  Unless it's an "inval"
 		   frame, reply with an inval */
 		if (ntohs(mh->callno) & IAX_FLAG_FULL) {
 			/* We can only raw hangup control frames */
@@ -6034,9 +6034,12 @@ retryowner2:
 	f.src = "IAX2";
 	f.mallocd = 0;
 	f.offset = 0;
-	if (f.datalen && (f.frametype == AST_FRAME_VOICE)) 
+	if (f.datalen && (f.frametype == AST_FRAME_VOICE)) {
 		f.samples = get_samples(&f);
-	else
+		/* We need to byteswap incoming slinear samples from network byte order */
+		if (f.subclass == AST_FORMAT_SLINEAR)
+			ast_frame_byteswap_be(&f);
+	} else
 		f.samples = 0;
 	iax_frame_wrap(&fr, &f);
 
@@ -7017,7 +7020,6 @@ static int reload_config(void)
 	delayreject = 0;
 	globalnotransfer = 0;
 	globalusejitterbuf = 0;
-	srand(time(NULL));
 	delete_users();
 	set_config(config,&dead_sin);
 	prune_peers();
@@ -7376,7 +7378,7 @@ static int iax2_exec(struct ast_channel *chan, char *context, char *exten, int p
 				ast_verbose(VERBOSE_PREFIX_3 "Executing Dial('%s')\n", req);
 		} else {
 			ast_mutex_unlock(&dpcache_lock);
-			ast_log(LOG_WARNING, "Can't execute non-existant extension '%s[@%s]' in data '%s'\n", exten, context, data);
+			ast_log(LOG_WARNING, "Can't execute nonexistent extension '%s[@%s]' in data '%s'\n", exten, context, data);
 			return -1;
 		}
 	}
@@ -7537,9 +7539,9 @@ int load_module(void)
 
 	if (setsockopt(netsocket, IPPROTO_IP, IP_TOS, &tos, sizeof(tos))) 
 		ast_log(LOG_WARNING, "Unable to set TOS to %d\n", tos);
-	
+
+	res = start_network_thread();
 	if (!res) {
-		res = start_network_thread();
 		if (option_verbose > 1) 
 			ast_verbose(VERBOSE_PREFIX_2 "IAX Ready and Listening on %s port %d\n", ast_inet_ntoa(iabuf, sizeof(iabuf), sin.sin_addr), ntohs(sin.sin_port));
 	} else {

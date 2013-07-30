@@ -862,7 +862,7 @@ static int sendmail(char *srcemail, struct ast_vm_user *vmu, int msgnum, char *m
 	FILE *p=NULL;
 	int pfd;
 	char date[256];
-	char host[256];
+	char host[MAXHOSTNAMELEN] = "";
 	char who[256];
 	char bound[256];
 	char fname[256];
@@ -890,7 +890,7 @@ static int sendmail(char *srcemail, struct ast_vm_user *vmu, int msgnum, char *m
 		}
 	}
 	if (p) {
-		gethostname(host, sizeof(host));
+		gethostname(host, sizeof(host)-1);
 		if (strchr(srcemail, '@'))
 			strncpy(who, srcemail, sizeof(who)-1);
 		else {
@@ -1020,7 +1020,7 @@ static int sendpage(char *srcemail, char *pager, int msgnum, char *mailbox, char
 	FILE *p=NULL;
 	int pfd;
 	char date[256];
-	char host[256];
+	char host[MAXHOSTNAMELEN]="";
 	char who[256];
 	char dur[256];
 	char tmp[80] = "/tmp/astmail-XXXXXX";
@@ -1039,7 +1039,7 @@ static int sendpage(char *srcemail, char *pager, int msgnum, char *mailbox, char
 	}
 
 	if (p) {
-		gethostname(host, sizeof(host));
+		gethostname(host, sizeof(host)-1);
 		if (strchr(srcemail, '@'))
 			strncpy(who, srcemail, sizeof(who)-1);
 		else {
@@ -1301,7 +1301,6 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, int silent, int 
 	FILE *txt;
 	int res = 0;
 	int msgnum;
-	int fd;
 	int duration = 0;
 	int ausemacro = 0;
 	int ousemacro = 0;
@@ -1488,22 +1487,19 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, int silent, int 
 	chan->name,
 	chan->callerid ? chan->callerid : "Unknown",
 	date, (long)time(NULL));
-					fclose(txt);
 				} else
 					ast_log(LOG_WARNING, "Error opening text file for output\n");
 				res = play_record_review(chan, NULL, fn, vmmaxmessage, fmt, 1, vmu, &duration, dir);
-				if (res == '0')
+				if (res == '0') {
+					if (txt)
+						fclose(txt);
 					goto transfer;
+				}
 				if (res > 0)
 					res = 0;
-				fd = open(txtfile, O_APPEND | O_WRONLY);
-				if (fd > -1) {
-					txt = fdopen(fd, "a");
-					if (txt) {
-						fprintf(txt, "duration=%d\n", duration);
-						fclose(txt);
-					} else
-						close(fd);
+				if (txt) {
+					fprintf(txt, "duration=%d\n", duration);
+					fclose(txt);
 				}
 				if (duration < vmminmessage) {
 					if (option_verbose > 2) 

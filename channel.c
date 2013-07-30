@@ -1089,11 +1089,11 @@ int ast_waitfor(struct ast_channel *c, int ms)
 	return ms;
 }
 
-char ast_waitfordigit(struct ast_channel *c, int ms)
+int ast_waitfordigit(struct ast_channel *c, int ms)
 {
 	/* XXX Should I be merged with waitfordigit_full XXX */
 	struct ast_frame *f;
-	char result = 0;
+	int result = 0;
 	/* Stop if we're a zombie or need a soft hangup */
 	if (c->zombie || ast_check_hangup(c)) 
 		return -1;
@@ -1133,7 +1133,7 @@ int ast_settimeout(struct ast_channel *c, int samples, int (*func)(void *data), 
 #endif	
 	return res;
 }
-char ast_waitfordigit_full(struct ast_channel *c, int ms, int audiofd, int cmdfd)
+int ast_waitfordigit_full(struct ast_channel *c, int ms, int audiofd, int cmdfd)
 {
 	struct ast_frame *f;
 	struct ast_channel *rchan;
@@ -1144,8 +1144,11 @@ char ast_waitfordigit_full(struct ast_channel *c, int ms, int audiofd, int cmdfd
 		return -1;
 	/* Wait for a digit, no more than ms milliseconds total. */
 	while(ms) {
+		errno = 0;
 		rchan = ast_waitfor_nandfds(&c, 1, &cmdfd, (cmdfd > -1) ? 1 : 0, NULL, &outfd, &ms);
 		if ((!rchan) && (outfd < 0) && (ms)) { 
+			if (errno == 0 || errno == EINTR)
+				continue;
 			ast_log(LOG_WARNING, "Wait failed (%s)\n", strerror(errno));
 			return -1;
 		} else if (outfd > -1) {
@@ -1394,6 +1397,7 @@ struct ast_frame *ast_read(struct ast_channel *chan)
 			ast_settimeout(chan, 160, generator_force, chan);
 		}
 	}
+	/* High bit prints debugging */
 	if (chan->fin & 0x80000000)
 		ast_frame_dump(chan->name, f, "<<");
 	if ((chan->fin & 0x7fffffff) == 0x7fffffff)
@@ -1598,6 +1602,7 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 			return 0;
 		}
 	}
+	/* High bit prints debugging */
 	if (chan->fout & 0x80000000)
 		ast_frame_dump(chan->name, fr, ">>");
 	CHECK_BLOCKING(chan);
@@ -1616,6 +1621,14 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 	case AST_FRAME_TEXT:
 		if (chan->pvt->send_text)
 			res = chan->pvt->send_text(chan, (char *) fr->data);
+		else
+			res = 0;
+		break;
+	case AST_FRAME_HTML:
+		if (chan->pvt->send_html)
+			res = chan->pvt->send_html(chan, fr->subclass, (char *) fr->data, fr->datalen);
+		else
+			res = 0;
 		break;
 	case AST_FRAME_VIDEO:
 		/* XXX Handle translation of video codecs one day XXX */
@@ -1670,7 +1683,6 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 			chan->fout &= 0x80000000;
 		else
 			chan->fout++;
-		chan->fout++;
 	}
 	ast_mutex_unlock(&chan->lock);
 	return res;
@@ -2001,7 +2013,7 @@ int ast_readstring(struct ast_channel *c, char *s, int len, int timeout, int fti
 {
 	int pos=0;
 	int to = ftimeout;
-	char d;
+	int d;
 	/* XXX Merge with full version? XXX */
 	/* Stop if we're a zombie or need a soft hangup */
 	if (c->zombie || ast_check_hangup(c)) 
@@ -2040,7 +2052,7 @@ int ast_readstring_full(struct ast_channel *c, char *s, int len, int timeout, in
 {
 	int pos=0;
 	int to = ftimeout;
-	char d;
+	int d;
 	/* Stop if we're a zombie or need a soft hangup */
 	if (c->zombie || ast_check_hangup(c)) 
 		return -1;
@@ -2675,6 +2687,7 @@ int ast_channel_bridge(struct ast_channel *c0, struct ast_channel *c1, struct as
 			(f->frametype == AST_FRAME_TEXT) ||
 			(f->frametype == AST_FRAME_VIDEO) || 
 			(f->frametype == AST_FRAME_IMAGE) ||
+			(f->frametype == AST_FRAME_HTML) ||
 			(f->frametype == AST_FRAME_DTMF)) {
 			if ((f->frametype == AST_FRAME_DTMF) && 
 				(flags & (AST_BRIDGE_DTMF_CHANNEL_0 | AST_BRIDGE_DTMF_CHANNEL_1))) {

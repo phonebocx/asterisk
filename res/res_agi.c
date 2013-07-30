@@ -396,11 +396,11 @@ static int handle_tddmode(struct ast_channel *chan, AGI *agi, int argc, char *ar
 	if (!strncasecmp(argv[2],"mate",4)) x = 2;
 	if (!strncasecmp(argv[2],"tdd",3)) x = 1;
 	res = ast_channel_setoption(chan,AST_OPTION_TDD,&x,sizeof(char),0);
-	fdprintf(agi->fd, "200 result=%d\n", res);
-	if (res >= 0) 
-		return RESULT_SUCCESS;
+	if (res == RESULT_SUCCESS)
+		fdprintf(agi->fd, "200 result=1\n");
 	else
-		return RESULT_FAILURE;
+		fdprintf(agi->fd, "200 result=0\n");
+	return RESULT_SUCCESS;
 }
 
 static int handle_sendimage(struct ast_channel *chan, AGI *agi, int argc, char *argv[])
@@ -474,7 +474,7 @@ static int handle_saynumber(struct ast_channel *chan, AGI *agi, int argc, char *
 	int num;
 	if (argc != 4)
 		return RESULT_SHOWUSAGE;
-	if (sscanf(argv[2], "%i", &num) != 1)
+	if (sscanf(argv[2], "%d", &num) != 1)
 		return RESULT_SHOWUSAGE;
 	res = ast_say_number_full(chan, num, argv[3], chan->language, (char *) NULL, agi->audio, agi->ctrl);
 	if (res == 1)
@@ -561,10 +561,7 @@ static int handle_getdata(struct ast_channel *chan, AGI *agi, int argc, char *ar
 		fdprintf(agi->fd, "200 result=-1\n");
 	else
 		fdprintf(agi->fd, "200 result=%s\n", data);
-	if (res >= 0)
-		return RESULT_SUCCESS;
-	else
-		return RESULT_FAILURE;
+	return RESULT_SUCCESS;
 }
 
 static int handle_setcontext(struct ast_channel *chan, AGI *agi, int argc, char *argv[])

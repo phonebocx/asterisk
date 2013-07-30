@@ -96,7 +96,7 @@ static char *descrip =
 "Queues an incoming call in a particular call queue as defined in queues.conf.\n"
 "  This application returns -1 if the originating channel hangs up, or if the\n"
 "call is bridged and  either of the parties in the bridge terminate the call.\n"
-"Returns 0 if the queue is full, nonexistant, or has no members.\n"
+"Returns 0 if the queue is full, nonexistent, or has no members.\n"
 "The option string may contain zero or more of the following characters:\n"
 "      't' -- allow the called user transfer the calling user\n"
 "      'T' -- to allow the calling user to transfer the call.\n"
@@ -548,6 +548,8 @@ static void hanguptree(struct localuser *outgoing, struct ast_channel *exception
 static int ring_entry(struct queue_ent *qe, struct localuser *tmp, int *busies)
 {
 	int res;
+	struct ast_var_t *current, *newvar;
+	struct varshead *headp, *newheadp;
 	if (qe->parent->wrapuptime && (time(NULL) - tmp->lastcall < qe->parent->wrapuptime)) {
 		ast_log(LOG_DEBUG, "Wrapuptime not yet expired for %s/%s\n", tmp->tech, tmp->numsubst);
 		if (qe->chan->cdr)
@@ -567,6 +569,26 @@ static int ring_entry(struct queue_ent *qe, struct localuser *tmp, int *busies)
 		tmp->stillgoing = 0;
 		(*busies)++;
 		return 0;
+	}
+	/* If creating a SIP channel, look for a variable called */
+	/* VXML_URL in the calling channel and copy it to the    */
+	/* new channel.                                          */
+
+	/* Check for ALERT_INFO in the SetVar list.  This is for   */
+	/* SIP distinctive ring as per the RFC.  For Cisco 7960s,  */
+	/* SetVar(ALERT_INFO=<x>) where x is an integer value 1-5. */
+	/* However, the RFC says it should be a URL.  -km-         */
+	headp=&qe->chan->varshead;
+	AST_LIST_TRAVERSE(headp,current,entries) {
+		if (!strcasecmp(ast_var_name(current),"VXML_URL") ||
+			!strcasecmp(ast_var_name(current), "ALERT_INFO") ||
+			!strcasecmp(ast_var_name(current), "OSPTOKEN") ||
+			!strcasecmp(ast_var_name(current), "OSPHANDLE"))
+		{
+			newvar=ast_var_assign(ast_var_name(current),ast_var_value(current));
+			newheadp=&tmp->chan->varshead;
+			AST_LIST_INSERT_HEAD(newheadp,newvar,entries);
+		}
 	}
 	tmp->chan->appl = "AppQueue";
 	tmp->chan->data = "(Outgoing Line)";
@@ -861,21 +883,30 @@ static struct localuser *wait_for_answer(struct queue_ent *qe, struct localuser 
 			if (!f || ((f->frametype == AST_FRAME_CONTROL) && (f->subclass == AST_CONTROL_HANGUP))) {
 				/* Got hung up */
 				*to=-1;
+				if (f)
+					ast_frfree(f);
 				return NULL;
 			}
-			if (f && (f->frametype == AST_FRAME_DTMF) && allowdisconnect_out && (f->subclass == '*')) {
+			if ((f->frametype == AST_FRAME_DTMF) && allowdisconnect_out && (f->subclass == '*')) {
 			    if (option_verbose > 3)
 					ast_verbose(VERBOSE_PREFIX_3 "User hit %c to disconnect call.\n", f->subclass);
 				*to=0;
+				if (f)
+					ast_frfree(f);	
 				return NULL;
 			}
-			if (f && (f->frametype == AST_FRAME_DTMF) && (f->subclass != '*') && valid_exit(qe, f->subclass)) {
+			if ((f->frametype == AST_FRAME_DTMF) && (f->subclass != '*') && valid_exit(qe, f->subclass)) {
 				if (option_verbose > 3)
-					ast_verbose(VERBOSE_PREFIX_3 "User pressed digit: %c", f->subclass);
+					ast_verbose(VERBOSE_PREFIX_3 "User pressed digit: %c\n", f->subclass);
 				*to=0;
 				*digit=f->subclass;
+				if (f)
+					ast_frfree(f);
 				return NULL;
 			}
+			if (f)
+				ast_frfree(f);
+			
 		}
 		if (!*to && (option_verbose > 2))
 			ast_verbose( VERBOSE_PREFIX_3 "Nobody picked up in %d ms\n", orig);

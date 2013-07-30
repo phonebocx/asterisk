@@ -246,7 +246,7 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 			
 			snprintf(tmp, sizeof(tmp), "%s \"%s/%s-in.%s\" \"%s/%s-out.%s\" \"%s/%s.%s\" %s &", execute, dir, name, format, dir, name, format, dir, name, format,execute_args);
 			if (delfiles) {
-				snprintf(tmp2,sizeof(tmp2), "( %s& rm -f \"%s\"/%s-* ) &",tmp, dir ,name); /* remove legs when done mixing */
+				snprintf(tmp2,sizeof(tmp2), "( %s& rm -f \"%s/%s-\"* ) &",tmp, dir ,name); /* remove legs when done mixing */
 				strncpy(tmp, tmp2, sizeof(tmp) - 1);
 			}
 			ast_verbose("monitor executing %s\n",tmp);
@@ -292,7 +292,7 @@ int ast_monitor_change_fname(struct ast_channel *chan, const char *fname_base, i
 
 		snprintf(chan->monitor->filename_base, FILENAME_MAX, "%s/%s", directory ? "" : AST_MONITOR_DIR, fname_base);
 	} else {
-		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to %s, monitoring not started", chan->name, fname_base);
+		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to %s, monitoring not started\n", chan->name, fname_base);
 	}
 
 	if (need_lock)

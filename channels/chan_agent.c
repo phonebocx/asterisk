@@ -193,12 +193,12 @@ static struct agent_pvt *add_agent(char *agent, int pending)
 	if ((password = strchr(tmp, ','))) {
 		*password = '\0';
 		password++;
-		while (*password < 33) password++;
+		while (*password && *password < 33) password++;
 	}
 	if (password && (name = strchr(password, ','))) {
 		*name = '\0';
 		name++;
-		while (*name < 33) name++; 
+		while (*name && *name < 33) name++; 
 	}
 	prev=NULL;
 	p = agents;
@@ -367,11 +367,27 @@ static struct ast_frame  *agent_read(struct ast_channel *ast)
 		ast_frfree(f);
 		f = NULL;
 	}
+	if (f && (f->frametype == AST_FRAME_VOICE) && !p->acknowledged) {
+		/* Don't pass along agent audio until call is acknowledged */
+		ast_frfree(f);
+		f = &null_frame;
+	}
 	CLEANUP(ast,p);
 	ast_mutex_unlock(&p->lock);
 	if (recordagentcalls && f == &answer_frame)
 		agent_start_monitoring(ast,0);
 	return f;
+}
+
+static int agent_sendhtml(struct ast_channel *ast, int subclass, char *data, int datalen)
+{
+	struct agent_pvt *p = ast->pvt->pvt;
+	int res = -1;
+	ast_mutex_lock(&p->lock);
+	if (p->chan) 
+		res = ast_channel_sendhtml(p->chan, subclass, data, datalen);
+	ast_mutex_unlock(&p->lock);
+	return res;
 }
 
 static int agent_write(struct ast_channel *ast, struct ast_frame *f)
@@ -743,6 +759,7 @@ static struct ast_channel *agent_new(struct agent_pvt *p, int state)
 		tmp->pvt->answer = agent_answer;
 		tmp->pvt->read = agent_read;
 		tmp->pvt->write = agent_write;
+		tmp->pvt->send_html = agent_sendhtml;
 		tmp->pvt->exception = agent_read;
 		tmp->pvt->indicate = agent_indicate;
 		tmp->pvt->fixup = agent_fixup;

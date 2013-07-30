@@ -264,12 +264,12 @@ static pthread_t lthread;
 static void *netconsole(void *vconsole)
 {
 	struct console *con = vconsole;
-	char hostname[256];
+	char hostname[MAXHOSTNAMELEN]="";
 	char tmp[512];
 	int res;
 	struct pollfd fds[2];
 	
-	if (gethostname(hostname, sizeof(hostname)))
+	if (gethostname(hostname, sizeof(hostname)-1))
 		strncpy(hostname, "<Unknown>", sizeof(hostname)-1);
 	snprintf(tmp, sizeof(tmp), "%s/%d/%s\n", hostname, ast_mainpid, ASTERISK_VERSION);
 	fdprint(con->fd, tmp);
@@ -964,7 +964,7 @@ static char *cli_prompt(EditLine *el)
 		memset(prompt, 0, sizeof(prompt));
 		while (*t != '\0' && *p < sizeof(prompt)) {
 			if (*t == '%') {
-				char hostname[256];
+				char hostname[MAXHOSTNAMELEN]="";
 				int i;
 				struct timeval tv;
 				struct tm tm;
@@ -1572,7 +1572,7 @@ int main(int argc, char *argv[])
 {
 	int c;
 	char filename[80] = "";
-	char hostname[256];
+	char hostname[MAXHOSTNAMELEN]="";
 	char tmp[80];
 	char * xarg = NULL;
 	int x;
@@ -1597,7 +1597,7 @@ int main(int argc, char *argv[])
 		option_remote++;
 		option_nofork++;
 	}
-	if (gethostname(hostname, sizeof(hostname)))
+	if (gethostname(hostname, sizeof(hostname)-1))
 		strncpy(hostname, "<Unknown>", sizeof(hostname)-1);
 	ast_mainpid = getpid();
 	ast_ulaw_init();
@@ -1694,6 +1694,14 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (option_console && !option_verbose) 
+		ast_verbose("[ Reading Master Configuration ]");
+	ast_readconfig();
+
+	if (set_priority(option_highpriority)) {
+		exit(1);
+	}
+
 	if (rungroup) {
 		struct group *gr;
 		gr = getgrnam(rungroup);
@@ -1709,9 +1717,6 @@ int main(int argc, char *argv[])
 			ast_verbose("Running as group '%s'\n", rungroup);
 	}
 
-	if (set_priority(option_highpriority)) {
-		exit(1);
-	}
 	if (runuser) {
 		struct passwd *pw;
 		pw = getpwnam(runuser);
@@ -1730,10 +1735,6 @@ int main(int argc, char *argv[])
 	term_init();
 	printf(term_end());
 	fflush(stdout);
-
-	if (option_console && !option_verbose) 
-		ast_verbose("[ Reading Master Configuration ]");
-	ast_readconfig();
 
 	if (option_console && !option_verbose) 
 		ast_verbose("[ Initializing Custom Configuration Options]");
@@ -1822,6 +1823,12 @@ int main(int argc, char *argv[])
 	signal(SIGHUP, hup_handler);
 	signal(SIGCHLD, child_handler);
 	signal(SIGPIPE, SIG_IGN);
+
+	/* ensure that the random number generators are seeded with a different value every time
+	   Asterisk is started
+	*/
+	srand((unsigned int) getpid() + (unsigned int) time(NULL));
+	srandom((unsigned int) getpid() + (unsigned int) time(NULL));
 
 	if (init_logger()) {
 		printf(term_quit());

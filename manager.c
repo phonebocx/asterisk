@@ -248,7 +248,7 @@ static void destroy_session(struct mansession *s)
 		ast_mutex_destroy(&s->lock);
 		free(s);
 	} else
-		ast_log(LOG_WARNING, "Trying to delete non-existant session %p?\n", s);
+		ast_log(LOG_WARNING, "Trying to delete nonexistent session %p?\n", s);
 	ast_mutex_unlock(&sessionlock);
 	
 }
@@ -468,7 +468,7 @@ static int authenticate(struct mansession *s, struct message *m)
 			set_eventmask(s, events);
 		return 0;
 	}
-	ast_log(LOG_NOTICE, "%s tried to authenticate with non-existant user '%s'\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr), user);
+	ast_log(LOG_NOTICE, "%s tried to authenticate with nonexistent user '%s'\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr), user);
 	ast_destroy(cfg);
 	return -1;
 }
@@ -777,7 +777,7 @@ static int action_redirect(struct mansession *s, struct message *m)
 	}
 	chan = ast_get_channel_by_name_locked(name);
 	if (!chan) {
-		astman_send_error(s, m, "Channel not existant");
+		astman_send_error(s, m, "Channel not existent");
 		return 0;
 	}
 	if (!ast_strlen_zero(name2))
@@ -946,10 +946,10 @@ static int action_originate(struct mansession *s, struct message *m)
 			}
 		}
 	} else if (!ast_strlen_zero(app)) {
-        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 0, !ast_strlen_zero(callerid) ? callerid : NULL, variable, account);
+        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, !ast_strlen_zero(callerid) ? callerid : NULL, variable, account);
     	} else {
 		if (exten && context && pi)
-	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 0, !ast_strlen_zero(callerid) ? callerid : NULL, variable, account);
+	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, !ast_strlen_zero(callerid) ? callerid : NULL, variable, account);
 		else {
 			astman_send_error(s, m, "Originate with 'Exten' requires 'Context' and 'Priority'");
 			return 0;
