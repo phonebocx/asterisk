@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: rc.redhat.asterisk 379889 2013-01-22 18:57:06Z bebuild $
+# $Id: rc.redhat.asterisk 379790 2013-01-21 20:40:13Z mjordan $
 #
 # asterisk    Starts, Stops and Reloads Asterisk.
 #

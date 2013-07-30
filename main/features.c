@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 381791 $")
 
 #include "asterisk/_private.h"
 
@@ -3023,7 +3023,13 @@ static int builtin_atxfer(struct ast_channel *chan, struct ast_channel *peer, st
 		ast_party_connected_line_free(&connected_line);
 		return -1;
 	}
-	ast_explicit_goto(xferchan, ast_channel_context(transferee), ast_channel_exten(transferee), ast_channel_priority(transferee));
+
+	dash = strrchr(xferto, '@');
+	if (dash) {
+		/* Trim off the context. */
+		*dash = '\0';
+	}
+	ast_explicit_goto(xferchan, transferer_real_context, xferto, 1);
 	ast_channel_state_set(xferchan, AST_STATE_UP);
 	ast_clear_flag(ast_channel_flags(xferchan), AST_FLAGS_ALL);
 
@@ -4246,9 +4252,12 @@ void ast_bridge_end_dtmf(struct ast_channel *chan, char digit, struct timeval st
 	long duration;
 
 	ast_channel_lock(chan);
-	dead = ast_test_flag(ast_channel_flags(chan), AST_FLAG_ZOMBIE) || ast_check_hangup(chan);
+	dead = ast_test_flag(ast_channel_flags(chan), AST_FLAG_ZOMBIE)
+		|| (ast_channel_softhangup_internal_flag(chan)
+			& ~(AST_SOFTHANGUP_ASYNCGOTO | AST_SOFTHANGUP_UNBRIDGE));
 	ast_channel_unlock(chan);
 	if (dead) {
+		/* Channel is a zombie or a real hangup. */
 		return;
 	}
 
@@ -4722,6 +4731,11 @@ before_you_go:
 		silgen = NULL;
 	}
 
+	/* Wait for any dual redirect to complete. */
+	while (ast_test_flag(ast_channel_flags(chan), AST_FLAG_BRIDGE_DUAL_REDIRECT_WAIT)) {
+		sched_yield();
+	}
+
 	if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_BRIDGE_HANGUP_DONT)) {
 		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BRIDGE_HANGUP_DONT); /* its job is done */
 		if (bridge_cdr) {
@@ -5094,7 +5108,21 @@ static int manage_parked_call(struct parkeduser *pu, const struct pollfd *pfds, 
 				snprintf(parkingslot, sizeof(parkingslot), "%d", pu->parkingnum);
 				pbx_builtin_setvar_helper(chan, "PARKINGSLOT", parkingslot);
 				pbx_builtin_setvar_helper(chan, "PARKEDLOT", pu->parkinglot->name);
-				set_c_e_p(chan, pu->parkinglot->cfg.comebackcontext, peername_flat, 1);
+
+				/* Handle fallback when extensions don't exist here since that logic was removed from pbx */
+				if (ast_exists_extension(chan, pu->parkinglot->cfg.comebackcontext, peername_flat, 1, NULL)) {
+					set_c_e_p(chan, pu->parkinglot->cfg.comebackcontext, peername_flat, 1);
+				} else if (ast_exists_extension(chan, pu->parkinglot->cfg.comebackcontext, "s", 1, NULL)) {
+					ast_verb(2, "Can not start %s at %s,%s,1. Using 's@%s' instead.\n", ast_channel_name(chan),
+						pu->parkinglot->cfg.comebackcontext, peername_flat, pu->parkinglot->cfg.comebackcontext);
+					set_c_e_p(chan, pu->parkinglot->cfg.comebackcontext, "s", 1);
+				} else {
+					ast_verb(2, "Can not start %s at %s,%s,1 and exten 's@%s' does not exist. Using 's@default'\n",
+						ast_channel_name(chan),
+						pu->parkinglot->cfg.comebackcontext, peername_flat,
+						pu->parkinglot->cfg.comebackcontext);
+					set_c_e_p(chan, "default", "s", 1);
+				}
 			}
 		} else {
 			/*

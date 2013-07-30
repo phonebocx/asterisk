@@ -6,7 +6,7 @@
 #
 # 03.29.2005 - Initial Version
 #
-# $Id: rc.slackware.asterisk 379889 2013-01-22 18:57:06Z bebuild $
+# $Id: rc.slackware.asterisk 379790 2013-01-21 20:40:13Z mjordan $
 
 ### BEGIN INIT INFO
 # Provides:		asterisk

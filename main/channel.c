@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378459 $")
 
 #include "asterisk/_private.h"
 
@@ -73,6 +73,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 #include "asterisk/data.h"
 #include "asterisk/channel_internal.h"
 #include "asterisk/features.h"
+#include "asterisk/test.h"
 
 /*** DOCUMENTATION
  ***/
@@ -155,11 +156,13 @@ static struct ao2_container *channels;
  *
  * \ref causes.h
 */
-static const struct {
+struct causes_map {
 	int cause;
 	const char *name;
 	const char *desc;
-} causes[] = {
+};
+
+static const struct causes_map causes[] = {
 	{ AST_CAUSE_UNALLOCATED, "UNALLOCATED", "Unallocated (unassigned) number" },
 	{ AST_CAUSE_NO_ROUTE_TRANSIT_NET, "NO_ROUTE_TRANSIT_NET", "No route to specified transmit network" },
 	{ AST_CAUSE_NO_ROUTE_DESTINATION, "NO_ROUTE_DESTINATION", "No route to destination" },
@@ -602,6 +605,7 @@ int ast_check_hangup(struct ast_channel *chan)
 	if (ast_tvdiff_ms(*ast_channel_whentohangup(chan), ast_tvnow()) > 0)		/* no if hangup time has not come yet. */
 		return 0;
 	ast_debug(4, "Hangup time has come: %" PRIi64 "\n", ast_tvdiff_ms(*ast_channel_whentohangup(chan), ast_tvnow()));
+	ast_test_suite_event_notify("HANGUP_TIME", "Channel: %s", ast_channel_name(chan));
 	ast_channel_softhangup_internal_flag_add(chan, AST_SOFTHANGUP_TIMEOUT);	/* record event */
 	return 1;
 }
@@ -3194,6 +3198,7 @@ struct ast_channel *ast_waitfor_nandfds(struct ast_channel **c, int n, int *fds,
 				now = ast_tvnow();
 			diff = ast_tvsub(*ast_channel_whentohangup(c[x]), now);
 			if (diff.tv_sec < 0 || ast_tvzero(diff)) {
+				ast_test_suite_event_notify("HANGUP_TIME", "Channel: %s", ast_channel_name(c[x]));
 				/* Should already be hungup */
 				ast_channel_softhangup_internal_flag_add(c[x], AST_SOFTHANGUP_TIMEOUT);
 				ast_channel_unlock(c[x]);
@@ -3267,6 +3272,7 @@ struct ast_channel *ast_waitfor_nandfds(struct ast_channel **c, int n, int *fds,
 		now = ast_tvnow();
 		for (x = 0; x < n; x++) {
 			if (!ast_tvzero(*ast_channel_whentohangup(c[x])) && ast_tvcmp(*ast_channel_whentohangup(c[x]), now) <= 0) {
+				ast_test_suite_event_notify("HANGUP_TIME", "Channel: %s", ast_channel_name(c[x]));
 				ast_channel_softhangup_internal_flag_add(c[x], AST_SOFTHANGUP_TIMEOUT);
 				if (winner == NULL) {
 					winner = c[x];
@@ -7891,6 +7897,7 @@ enum ast_bridge_result ast_channel_bridge(struct ast_channel *c0, struct ast_cha
 					bridge_playfile(c1, c0, config->end_sound, 0);
 				*fo = NULL;
 				res = 0;
+				ast_test_suite_event_notify("BRIDGE_TIMELIMIT", "Channel1: %s\r\nChannel2: %s", ast_channel_name(c0), ast_channel_name(c1));
 				break;
 			}
 
@@ -8551,8 +8558,10 @@ static const struct ast_data_entry channel_providers[] = {
 static void channels_shutdown(void)
 {
 	ast_data_unregister(NULL);
+	ast_cli_unregister_multiple(cli_channel, ARRAY_LEN(cli_channel));
 	if (channels) {
 		ao2_ref(channels, -1);
+		channels = NULL;
 	}
 }
 

@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 375895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377883 $")
 
 #include "asterisk/_private.h"
 
@@ -299,11 +299,21 @@ static struct ast_cli_entry cli_timing[] = {
 	AST_CLI_DEFINE(timing_test, "Run a timing test"),
 };
 
+static void timing_shutdown(void)
+{
+	ast_cli_unregister_multiple(cli_timing, ARRAY_LEN(cli_timing));
+
+	ast_heap_destroy(timing_interfaces);
+	timing_interfaces = NULL;
+}
+
 int ast_timing_init(void)
 {
 	if (!(timing_interfaces = ast_heap_create(2, timing_holder_cmp, 0))) {
 		return -1;
 	}
+
+	ast_register_atexit(timing_shutdown);
 
 	return ast_cli_register_multiple(cli_timing, ARRAY_LEN(cli_timing));
 }

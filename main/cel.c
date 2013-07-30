@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 374196 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377883 $")
 
 #include "asterisk/_private.h"
 
@@ -720,6 +720,7 @@ static void ast_cel_engine_term(void)
 		ao2_ref(linkedids, -1);
 		linkedids = NULL;
 	}
+	ast_cli_unregister(&cli_status);
 }
 
 int ast_cel_engine_init(void)

@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378321 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/calendar.h"

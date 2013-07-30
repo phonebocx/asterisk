@@ -40,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 379228 $")
 
 #include <ctype.h>
 #include <iksemel.h>
@@ -66,7 +66,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 #include "asterisk/message.h"
 
 /*** DOCUMENTATION
-	<application name="JabberSend" language="en_US">
+	<application name="JabberSend" language="en_US" module="res_jabber">
 		<synopsis>
 			Sends an XMPP message to a buddy.
 		</synopsis>
@@ -92,11 +92,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 			<replaceable>asterisk</replaceable>, configured in jabber.conf.</para>
 		</description>
 		<see-also>
-			<ref type="function">JABBER_STATUS</ref>
-			<ref type="function">JABBER_RECEIVE</ref>
+			<ref type="function" module="res_jabber">JABBER_STATUS</ref>
+			<ref type="function" module="res_jabber">JABBER_RECEIVE</ref>
 		</see-also>
 	</application>
-	<function name="JABBER_RECEIVE" language="en_US">
+	<function name="JABBER_RECEIVE" language="en_US" module="res_jabber">
 		<synopsis>
 			Reads XMPP messages.
 		</synopsis>
@@ -121,11 +121,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 			the <replaceable>asterisk</replaceable> XMPP account configured in jabber.conf.</para>
 		</description>
 		<see-also>
-			<ref type="function">JABBER_STATUS</ref>
-			<ref type="application">JabberSend</ref>
+			<ref type="function" module="res_jabber">JABBER_STATUS</ref>
+			<ref type="application" module="res_jabber">JabberSend</ref>
 		</see-also>
 	</function>
-	<function name="JABBER_STATUS" language="en_US">
+	<function name="JABBER_STATUS" language="en_US" module="res_jabber">
 		<synopsis>
 			Retrieves a buddy's status.
 		</synopsis>
@@ -151,11 +151,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 			the associated XMPP account configured in jabber.conf.</para>
 		</description>
 		<see-also>
-			<ref type="function">JABBER_RECEIVE</ref>
-			<ref type="application">JabberSend</ref>
+			<ref type="function" module="res_jabber">JABBER_RECEIVE</ref>
+			<ref type="application" module="res_jabber">JabberSend</ref>
 		</see-also>
 	</function>
-	<application name="JabberSendGroup" language="en_US">
+	<application name="JabberSendGroup" language="en_US" module="res_jabber">
 		<synopsis>
 			Send a Jabber Message to a specified chat room
 		</synopsis>
@@ -178,7 +178,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 			<note><para>To be able to send messages to a chat room, a user must have previously joined it. Use the <replaceable>JabberJoin</replaceable> function to do so.</para></note>
 		</description>
 	</application>
-	<application name="JabberJoin" language="en_US">
+	<application name="JabberJoin" language="en_US" module="res_jabber">
 		<synopsis>
 			Join a chat room
 		</synopsis>
@@ -198,7 +198,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 			<para>Allows Asterisk to join a chat room.</para>
 		</description>
 	</application>
-	<application name="JabberLeave" language="en_US">
+	<application name="JabberLeave" language="en_US" module="res_jabber">
 		<synopsis>
 			Leave a chat room
 		</synopsis>
@@ -217,7 +217,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 			<para>Allows Asterisk to leave a chat room.</para>
 		</description>
 	</application>
-	<application name="JabberStatus" language="en_US">
+	<application name="JabberStatus" language="en_US" module="res_jabber">
 		<synopsis>
 			Retrieve the status of a jabber list member
 		</synopsis>
@@ -260,8 +260,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 				</enum>
 			</enumlist>
 		</description>
-        </application>
-	<manager name="JabberSend" language="en_US">
+	</application>
+	<manager name="JabberSend" language="en_US" module="res_jabber">
 		<synopsis>
 			Sends a message to a Jabber Client.
 		</synopsis>

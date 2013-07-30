@@ -20,7 +20,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_AUX_DIR(`pwd`)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 375191 $)
+AC_REVISION($Revision: 382111 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -178,7 +178,7 @@ case "${host_os}" in
      OSARCH=cygwin
      PBX_WINARCH=1
      ;;
-     linux-gnueabi)
+     linux-gnueabi* |  linux-gnuspe)
      OSARCH=linux-gnu
      ;;
      kfreebsd*-gnu)
@@ -590,7 +590,7 @@ AC_CHECK_FUNCS([asprintf atexit closefrom dup2 eaccess endpwent euidaccess ffsll
 # so that AC_CHECK_FUNCS can detect functions in that library.
 AC_CHECK_LIB([m], [sqrt])
 # BSD might not have exp2, and/or log2
-AC_CHECK_FUNCS([exp2 log2 exp10 log10 sin cos tan asin acos atan atan2 pow rint exp log remainder fmod round trunc floor ceil])
+AC_CHECK_FUNCS([exp2 log2 exp10 log10 sin cos tan asin acos atan atan2 pow rint exp log remainder fmod round roundf trunc floor ceil])
 
 # Certain architectures don't really have long double, even though
 # AC_CHECK_FUNCS would otherwise find the following functions.
@@ -1051,6 +1051,38 @@ AC_COMPILE_IFELSE(
 	[AST_NESTED_FUNCTIONS=-fnested-functions]
 )
 AC_SUBST(AST_NESTED_FUNCTIONS)
+
+dnl Check to see if rpath should be set in LDFLAGS
+AC_ARG_ENABLE(rpath,
+	[AC_HELP_STRING([--disable-rpath],
+			[Disables rpath linker option checking])],
+	[case "${enableval}" in
+		y|ye|yes) check_rpath=yes ;;
+		n|no) check_rpath=no ;;
+                *) AC_MSG_ERROR(bad value ${enableval} for --disable-rpath) ;;
+	esac], [check_rpath=yes])
+
+AC_MSG_CHECKING(whether to use rpath)
+AST_RPATH=
+if test "${check_rpath}" != yes; then
+	AC_MSG_RESULT(skipped)
+elif test "${prefix}" = /usr || test "${prefix}" = NONE; then
+	AC_MSG_RESULT(not needed)
+else
+	case "${host_os}" in
+		darwin*)
+			AC_MSG_RESULT(not supported)
+			# We set macosx_version_min to 10.4, which doesn't
+			# support rpath. However, we set install_name on our
+			# dylibs, so it's not strictly necessary.
+			;;
+		*)
+			AC_MSG_RESULT(required)
+			AST_RPATH="-Wl,-rpath,${libdir}"
+			;;
+	esac
+fi
+AC_SUBST(AST_RPATH)
 
 AC_MSG_CHECKING(for sysinfo)
 AC_LINK_IFELSE(
@@ -2271,7 +2303,9 @@ PBX_LAUNCHD=0
 if test "${cross_compiling}" = "no";
 then
   AC_CHECK_FILE(/sbin/launchd, AC_DEFINE([HAVE_SBIN_LAUNCHD], 1, [Define to 1 if your system has /sbin/launchd.]))
-  PBX_LAUNCHD=1
+  if test "${HAVE_SBIN_LAUNCHD}" = 1; then
+    PBX_LAUNCHD=1
+  fi
 fi
 AC_SUBST(PBX_LAUNCHD)
 

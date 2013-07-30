@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 376588 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 382574 $")
 
 /* When we include logger.h again it will trample on some stuff in syslog.h, but
  * nothing we care about in here. */
@@ -1242,6 +1242,9 @@ int init_logger(void)
 void close_logger(void)
 {
 	struct logchannel *f = NULL;
+	struct verb *cur = NULL;
+
+	ast_cli_unregister_multiple(cli_logger, ARRAY_LEN(cli_logger));
 
 	logger_initialized = 0;
 
@@ -1254,6 +1257,12 @@ void close_logger(void)
 	if (logthread != AST_PTHREADT_NULL)
 		pthread_join(logthread, NULL);
 
+	AST_RWLIST_WRLOCK(&verbosers);
+	while ((cur = AST_LIST_REMOVE_HEAD(&verbosers, list))) {
+		ast_free(cur);
+	}
+	AST_RWLIST_UNLOCK(&verbosers);
+
 	AST_RWLIST_WRLOCK(&logchannels);
 
 	if (qlog) {
@@ -1261,11 +1270,12 @@ void close_logger(void)
 		qlog = NULL;
 	}
 
-	AST_RWLIST_TRAVERSE(&logchannels, f, list) {
+	while ((f = AST_LIST_REMOVE_HEAD(&logchannels, list))) {
 		if (f->fileptr && (f->fileptr != stdout) && (f->fileptr != stderr)) {
 			fclose(f->fileptr);
 			f->fileptr = NULL;
 		}
+		ast_free(f);
 	}
 
 	closelog(); /* syslog */
@@ -1281,17 +1291,17 @@ void ast_callid_strnprint(char *buffer, size_t buffer_size, struct ast_callid *c
 struct ast_callid *ast_create_callid(void)
 {
 	struct ast_callid *call;
-	int using;
 
-	if (!(call = ao2_alloc(sizeof(struct ast_callid), NULL))) {
+	call = ao2_alloc_options(sizeof(struct ast_callid), NULL, AO2_ALLOC_OPT_LOCK_NOLOCK);
+	if (!call) {
 		ast_log(LOG_ERROR, "Could not allocate callid struct.\n");
 		return NULL;
 	}
 
-	using = ast_atomic_fetchadd_int(&next_unique_callid, +1);
-
-	call->call_identifier = using;
+	call->call_identifier = ast_atomic_fetchadd_int(&next_unique_callid, +1);
+#ifdef TEST_FRAMEWORK
 	ast_debug(3, "CALL_ID [C-%08x] created by thread.\n", call->call_identifier);
+#endif
 	return call;
 }
 
@@ -1308,6 +1318,36 @@ struct ast_callid *ast_read_threadstorage_callid(void)
 
 }
 
+int ast_callid_threadassoc_change(struct ast_callid *callid)
+{
+	struct ast_callid **id =
+		ast_threadstorage_get(&unique_callid, sizeof(struct ast_callid **));
+
+	if (!id) {
+		ast_log(LOG_ERROR, "Failed to allocate thread storage.\n");
+		return -1;
+	}
+
+	if (*id && (*id != callid)) {
+#ifdef TEST_FRAMEWORK
+		ast_debug(3, "CALL_ID [C-%08x] being removed from thread.\n", (*id)->call_identifier);
+#endif
+		*id = ast_callid_unref(*id);
+		*id = NULL;
+	}
+
+	if (!(*id) && callid) {
+		/* callid will be unreffed at thread destruction */
+		ast_callid_ref(callid);
+		*id = callid;
+#ifdef TEST_FRAMEWORK
+		ast_debug(3, "CALL_ID [C-%08x] bound to thread.\n", callid->call_identifier);
+#endif
+	}
+
+	return 0;
+}
+
 int ast_callid_threadassoc_add(struct ast_callid *callid)
 {
 	struct ast_callid **pointing;
@@ -1321,7 +1361,9 @@ int ast_callid_threadassoc_add(struct ast_callid *callid)
 		/* callid will be unreffed at thread destruction */
 		ast_callid_ref(callid);
 		*pointing = callid;
+#ifdef TEST_FRAMEWORK
 		ast_debug(3, "CALL_ID [C-%08x] bound to thread.\n", callid->call_identifier);
+#endif
 	} else {
 		ast_log(LOG_WARNING, "Attempted to ast_callid_threadassoc_add on thread already associated with a callid.\n");
 		return 1;
@@ -1343,7 +1385,9 @@ int ast_callid_threadassoc_remove()
 		ast_log(LOG_ERROR, "Tried to clean callid thread storage with no callid in thread storage.\n");
 		return -1;
 	} else {
+#ifdef TEST_FRAMEWORK
 		ast_debug(3, "Call_ID [C-%08x] being removed from thread.\n", (*pointing)->call_identifier);
+#endif
 		*pointing = ast_callid_unref(*pointing);
 		return 0;
 	}
@@ -1475,7 +1519,7 @@ static void __attribute__((format(printf, 6, 0))) ast_log_full(int level, const 
 		AST_LIST_LOCK(&logmsgs);
 		if (close_logger_thread) {
 			/* Logger is either closing or closed.  We cannot log this message. */
-			ast_free(logmsg);
+			logmsg_free(logmsg);
 		} else {
 			AST_LIST_INSERT_TAIL(&logmsgs, logmsg, list);
 			ast_cond_signal(&logcond);

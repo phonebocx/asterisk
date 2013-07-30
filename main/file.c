@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 371592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 380211 $")
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -329,6 +329,15 @@ static void filestream_destructor(void *arg)
 	if (f->trans)
 		ast_translator_free_path(f->trans);
 
+	if (f->fmt->close) {
+		void (*closefn)(struct ast_filestream *) = f->fmt->close;
+		closefn(f);
+	}
+
+	if (f->f) {
+		fclose(f->f);
+	}
+
 	if (f->realfilename && f->filename) {
 		pid = ast_safe_fork(0);
 		if (!pid) {
@@ -345,12 +354,6 @@ static void filestream_destructor(void *arg)
 		free(f->filename);
 	if (f->realfilename)
 		free(f->realfilename);
-	if (f->fmt->close) {
-		void (*closefn)(struct ast_filestream *) = f->fmt->close;
-		closefn(f);
-	}
-	if (f->f)
-		fclose(f->f);
 	if (f->vfs)
 		ast_closestream(f->vfs);
 	if (f->write_buffer) {
@@ -1583,8 +1586,14 @@ static struct ast_cli_entry cli_file[] = {
 	AST_CLI_DEFINE(handle_cli_core_show_file_formats, "Displays file formats")
 };
 
+static void file_shutdown(void)
+{
+	ast_cli_unregister_multiple(cli_file, ARRAY_LEN(cli_file));
+}
+
 int ast_file_init(void)
 {
 	ast_cli_register_multiple(cli_file, ARRAY_LEN(cli_file));
+	ast_register_atexit(file_shutdown);
 	return 0;
 }

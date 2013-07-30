@@ -36,7 +36,7 @@ AST_LIBS+=$(LIBXML2_LIB)
 AST_LIBS+=$(SQLITE3_LIB)
 AST_LIBS+=$(ASTSSL_LIBS)
 
-ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi kfreebsd-gnu linux-gnueabihf),)
+ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc kfreebsd-gnu),)
   ifneq ($(findstring LOADABLE_MODULES,$(MENUSELECT_CFLAGS)),)
   AST_LIBS+=-ldl
   endif
@@ -225,6 +225,9 @@ $(ASTSSL_LIB): $(ASTSSL_LIB).$(ASTSSL_SO_VERSION)
 else # Darwin
 ASTSSL_LIB:=libasteriskssl.dylib
 
+# -install_name allows library to be found if installed somewhere other than
+# /lib or /usr/lib
+$(ASTSSL_LIB): _ASTLDFLAGS+=-dynamiclib -install_name $(ASTLIBDIR)/$(ASTSSL_LIB)
 $(ASTSSL_LIB): _ASTCFLAGS+=-fPIC -DAST_MODULE=\"asteriskssl\"
 $(ASTSSL_LIB): LIBS+=$(ASTSSL_LIBS)
 $(ASTSSL_LIB): SOLINK=$(DYLINK)
@@ -259,7 +262,7 @@ bininstall:
 ifeq ($(AST_ASTERISKSSL),yes)
 ifeq ($(findstring darwin,$(OSARCH)),) # not Darwin
 	$(INSTALL) -m 755 $(ASTSSL_LIB).$(ASTSSL_SO_VERSION) "$(DESTDIR)$(ASTLIBDIR)/"
-	$(LN) -sf "$(DESTDIR)$(ASTLIBDIR)/$(ASTSSL_LIB).$(ASTSSL_SO_VERSION)" "$(DESTDIR)$(ASTLIBDIR)/$(ASTSSL_LIB)"
+	$(LN) -sf $(ASTSSL_LIB).$(ASTSSL_SO_VERSION) "$(DESTDIR)$(ASTLIBDIR)/$(ASTSSL_LIB)"
 else # Darwin
 	$(INSTALL) -m 755 $(ASTSSL_LIB) "$(DESTDIR)$(ASTLIBDIR)/"
 endif

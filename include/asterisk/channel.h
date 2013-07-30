@@ -888,12 +888,19 @@ enum {
 	 *  some non-traditional dialplans (like AGI) to continue to function.
 	 */
 	AST_FLAG_DISABLE_WORKAROUNDS = (1 << 20),
-	/*! Disable device state event caching.  This allows allows channel
-	 * drivers to selectively prevent device state events from being cached
-	 * by certain channels such as anonymous calls which have no persistent
-	 * represenatation that can be tracked.
+	/*!
+	 * Disable device state event caching.  This allows channel
+	 * drivers to selectively prevent device state events from being
+	 * cached by certain channels such as anonymous calls which have
+	 * no persistent represenatation that can be tracked.
 	 */
 	AST_FLAG_DISABLE_DEVSTATE_CACHE = (1 << 21),
+	/*!
+	 * This flag indicates that a dual channel redirect is in
+	 * progress.  The bridge needs to wait until the flag is cleared
+	 * to continue.
+	 */
+	AST_FLAG_BRIDGE_DUAL_REDIRECT_WAIT = (1 << 22),
 };
 
 /*! \brief ast_bridge_config flags */
@@ -2440,7 +2447,8 @@ static inline enum ast_t38_state ast_channel_get_t38_state(struct ast_channel *c
 
 #define CHECK_BLOCKING(c) do { 	 \
 	if (ast_test_flag(ast_channel_flags(c), AST_FLAG_BLOCKING)) {\
-		ast_debug(1, "Thread %ld Blocking '%s', already blocked by thread %ld in procedure %s\n", (long) pthread_self(), ast_channel_name(c), (long) ast_channel_blocker(c), ast_channel_blockproc(c)); \
+		ast_debug(1, "Thread %p is blocking '%s', already blocked by thread %p in procedure %s\n", \
+			(void *) pthread_self(), ast_channel_name(c), (void *) ast_channel_blocker(c), ast_channel_blockproc(c)); \
 	} else { \
 		ast_channel_blocker_set((c), pthread_self()); \
 		ast_channel_blockproc_set((c), __PRETTY_FUNCTION__); \

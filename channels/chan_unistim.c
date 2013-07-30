@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 375016 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 382827 $")
 
 #include <sys/stat.h>
 #include <signal.h>
@@ -2666,9 +2666,9 @@ static void send_start_rtp(struct unistim_subchannel *sub)
 			buffsend[16] = (htons(sin.sin_port) & 0x00ff);
 			buffsend[20] = (us.sin_port & 0xff00) >> 8;
 			buffsend[19] = (us.sin_port & 0x00ff);
-			buffsend[11] = codec;
 		}
-		buffsend[12] = codec;
+		buffsend[11] = codec; /* rx */
+		buffsend[12] = codec; /* tx */
 		send_client(SIZE_HEADER + sizeof(packet_send_open_audio_stream_tx), buffsend, pte);
 
 		if (unistimdebug) {
@@ -2697,9 +2697,9 @@ static void send_start_rtp(struct unistim_subchannel *sub)
 			buffsend[16] = (htons(sin.sin_port) & 0x00ff);
 			buffsend[20] = (us.sin_port & 0xff00) >> 8;
 			buffsend[19] = (us.sin_port & 0x00ff);
-			buffsend[12] = codec;
 		}
-		buffsend[11] = codec;
+		buffsend[11] = codec; /* rx */
+		buffsend[12] = codec; /* tx */
 		send_client(SIZE_HEADER + sizeof(packet_send_open_audio_stream_rx), buffsend, pte);
 	} else {
 		uint16_t rtcpsin_port = htons(us.sin_port) + 1; /* RTCP port is RTP + 1 */
@@ -3859,6 +3859,7 @@ static void show_entry_history(struct unistimsession *pte, FILE ** f)
 	char line[TEXT_LENGTH_MAX + 1], status[STATUS_LENGTH_MAX + 1], func1[10], func2[10],
 		func3[10];
 
+	/* Display date/time and call status */
 	if (fread(line, TEXT_LENGTH_MAX, 1, *f) != 1) {
 		display_last_error("Can't read history date entry");
 		fclose(*f);
@@ -3872,6 +3873,7 @@ static void show_entry_history(struct unistimsession *pte, FILE ** f)
 	} else {
 		send_text(TEXT_LINE0, TEXT_NORMAL, pte, line);
 	}
+	/* Display number */
 	if (fread(line, TEXT_LENGTH_MAX, 1, *f) != 1) {
 		display_last_error("Can't read callerid entry");
 		fclose(*f);
@@ -3879,6 +3881,7 @@ static void show_entry_history(struct unistimsession *pte, FILE ** f)
 	}
 	line[sizeof(line) - 1] = '\0';
 	ast_copy_string(pte->device->lst_cid, line, sizeof(pte->device->lst_cid));
+	ast_trim_blanks(pte->device->lst_cid);
 	if (pte->device->height == 1) {
 		if (pte->buff_entry[3] == 2) {
 			send_text(TEXT_LINE0, TEXT_NORMAL, pte, line);
@@ -3886,6 +3889,7 @@ static void show_entry_history(struct unistimsession *pte, FILE ** f)
 	} else {
 		send_text(TEXT_LINE1, TEXT_NORMAL, pte, line);
 	}
+	/* Display name */
 	if (fread(line, TEXT_LENGTH_MAX, 1, *f) != 1) {
 		display_last_error("Can't read callername entry");
 		fclose(*f);
@@ -4641,6 +4645,7 @@ static struct unistimsession *channel_to_session(struct ast_channel *ast)
 	ast_mutex_lock(&sub->parent->parent->lock);
 	if (!sub->parent->parent->session) {
 		ast_log(LOG_WARNING, "Unistim callback function called without a session\n");
+		ast_mutex_unlock(&sub->parent->parent->lock);
 		return NULL;
 	}
 	ast_mutex_unlock(&sub->parent->parent->lock);
@@ -5074,6 +5079,7 @@ static int unistim_fixup(struct ast_channel *oldchan, struct ast_channel *newcha
 	if (p->owner != oldchan) {
 		ast_log(LOG_WARNING, "old channel wasn't %s (%p) but was %s (%p)\n",
 				ast_channel_name(oldchan), oldchan, ast_channel_name(p->owner), p->owner);
+		ast_mutex_unlock(&p->lock);
 		return -1;
 	}
 
@@ -5900,9 +5906,9 @@ static char *unistim_show_info(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	s = sessions;
 	while (s) {
 		ast_cli(a->fd,
-				"sin=%s timeout=%u state=%s macaddr=%s device=%s session=%p\n",
+				"sin=%s timeout=%u state=%s macaddr=%s device=%p session=%p\n",
 				ast_inet_ntoa(s->sin.sin_addr), s->timeout, ptestate_tostr(s->state), s->macaddr,
-				s->device->name, s);
+				s->device, s);
 		s = s->next;
 	}
 	ast_mutex_unlock(&sessionlock);
