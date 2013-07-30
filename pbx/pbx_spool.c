@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53045 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -85,9 +85,6 @@ struct outgoing {
 	/* CallerID Information */
 	char cid_num[256];
 	char cid_name[256];
-
-	/* account code */
-	char account[AST_MAX_ACCOUNT_CODE];
 
 	/* Variables and Functions */
 	struct ast_variable *vars;
@@ -215,7 +212,11 @@ static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
 						ast_log(LOG_WARNING, "Malformed Set: argument! Should be Set: Variable=value\n");
 					}
 				} else if (!strcasecmp(buf, "account")) {
-					ast_copy_string(o->account, c, sizeof(o->account));
+					var = ast_variable_new("CDR(accountcode|r)", c);
+					if (var) {	
+						var->next = o->vars;
+						o->vars = var;
+					}
 				} else {
 					ast_log(LOG_WARNING, "Unknown keyword '%s' at line %d of %s\n", buf, lineno, fn);
 				}
@@ -259,11 +260,11 @@ static void *attempt_thread(void *data)
 	if (!ast_strlen_zero(o->app)) {
 		if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "Attempting call on %s/%s for application %s(%s) (Retry %d)\n", o->tech, o->dest, o->app, o->data, o->retries);
-		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, o->account, NULL);
+		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, NULL);
 	} else {
 		if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "Attempting call on %s/%s for %s@%s:%d (Retry %d)\n", o->tech, o->dest, o->exten, o->context,o->priority, o->retries);
-		res = ast_pbx_outgoing_exten(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->context, o->exten, o->priority, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, o->account, NULL);
+		res = ast_pbx_outgoing_exten(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->context, o->exten, o->priority, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, NULL);
 	}
 	if (res) {
 		ast_log(LOG_NOTICE, "Call failed to go through, reason %d\n", reason);
@@ -288,14 +289,12 @@ static void launch_service(struct outgoing *o)
 {
 	pthread_t t;
 	pthread_attr_t attr;
-	int ret;
 	pthread_attr_init(&attr);
  	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	if ((ret = ast_pthread_create(&t,&attr,attempt_thread, o)) != 0) {
-		ast_log(LOG_WARNING, "Unable to create thread :( (returned error: %d)\n", ret);
+	if (ast_pthread_create(&t,&attr,attempt_thread, o) == -1) {
+		ast_log(LOG_WARNING, "Unable to create thread :(\n");
 		free_outgoing(o);
 	}
-	pthread_attr_destroy(&attr);
 }
 
 static int scan_service(char *fn, time_t now, time_t atime)
@@ -313,11 +312,9 @@ static int scan_service(char *fn, time_t now, time_t atime)
 #endif
 				fclose(f);
 				if (o->retries <= o->maxretries) {
-					now += o->retrytime;
 					if (o->callingpid && (o->callingpid == ast_mainpid)) {
 						safe_append(o, time(NULL), "DelayedRetry");
 						ast_log(LOG_DEBUG, "Delaying retry since we're currently running '%s'\n", o->fn);
-						free_outgoing(o);
 					} else {
 						/* Increment retries */
 						o->retries++;
@@ -329,6 +326,7 @@ static int scan_service(char *fn, time_t now, time_t atime)
 						safe_append(o, now, "StartRetry");
 						launch_service(o);
 					}
+					now += o->retrytime;
 					return now;
 				} else {
 					ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt%s\n", o->tech, o->dest, o->retries - 1, ((o->retries - 1) != 1) ? "s" : "");
@@ -415,7 +413,6 @@ int load_module(void)
 {
 	pthread_t thread;
 	pthread_attr_t attr;
-	int ret;
 	snprintf(qdir, sizeof(qdir), "%s/%s", ast_config_AST_SPOOL_DIR, "outgoing");
 	if (mkdir(qdir, 0700) && (errno != EEXIST)) {
 		ast_log(LOG_WARNING, "Unable to create queue directory %s -- outgoing spool disabled\n", qdir);
@@ -423,11 +420,10 @@ int load_module(void)
 	}
 	pthread_attr_init(&attr);
  	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	if ((ret = ast_pthread_create(&thread,&attr,scan_thread, NULL)) != 0) {
-		ast_log(LOG_WARNING, "Unable to create thread :( (returned error: %d)\n", ret);
+	if (ast_pthread_create(&thread,&attr,scan_thread, NULL) == -1) {
+		ast_log(LOG_WARNING, "Unable to create thread :(\n");
 		return -1;
 	}
-	pthread_attr_destroy(&attr);
 	return 0;
 }
 

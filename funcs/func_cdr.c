@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40225 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -44,12 +44,11 @@ static char *builtin_function_cdr_read(struct ast_channel *chan, char *cmd, char
 	int argc;
 	char *argv[2];
 	int recursive = 0;
-	struct ast_cdr *cdr = chan->cdr;
 
 	if (ast_strlen_zero(data))
 		return NULL;
 	
-	if (!cdr)
+	if (!chan->cdr)
 		return NULL;
 
 	mydata = ast_strdupa(data);
@@ -62,11 +61,7 @@ static char *builtin_function_cdr_read(struct ast_channel *chan, char *cmd, char
 			recursive = 1;
 	}
 
-	/* Find last entry */
-	while (cdr->next)
-		cdr = cdr->next;
-
-	ast_cdr_getvar(cdr, argv[0], &ret, buf, len, recursive);
+	ast_cdr_getvar(chan->cdr, argv[0], &ret, buf, len, recursive);
 
 	return ret;
 }

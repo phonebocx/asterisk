@@ -18,7 +18,6 @@
 
 
 /* Doxygenified Copyright Header */
-
 /*!
  * \mainpage Asterisk -- An Open Source Telephony Toolkit
  *
@@ -77,20 +76,13 @@
 #include <sys/stat.h>
 #include <regex.h>
 
-#ifdef linux
-#include <sys/prctl.h>
-#endif 
-
 #if  defined(__FreeBSD__) || defined( __NetBSD__ ) || defined(SOLARIS)
 #include <netdb.h>
-#if defined(SOLARIS)
-extern int daemon(int, int);  /* defined in libresolv of all places */
-#endif
 #endif
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56504 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -134,14 +126,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56504 $")
 #define NUM_MSGS 64
 
 /*! \brief Welcome message when starting a CLI interface */
-#define WELCOME_MESSAGE \
-	ast_verbose("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2006 Digium, Inc. and others.\n"); \
-	ast_verbose("Created by Mark Spencer <markster@digium.com>\n"); \
-	ast_verbose("Asterisk comes with ABSOLUTELY NO WARRANTY; type 'show warranty' for details.\n"); \
-	ast_verbose("This is free software, with components licensed under the GNU General Public\n"); \
-	ast_verbose("License version 2 and other licenses; you are welcome to redistribute it under\n"); \
-	ast_verbose("certain conditions. Type 'show license' for details.\n"); \
-	ast_verbose("=========================================================================\n")
+#define WELCOME_MESSAGE ast_verbose( "Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2005 Digium.\n"); \
+		ast_verbose( "Written by Mark Spencer <markster@digium.com>\n"); \
+		ast_verbose( "=========================================================================\n")
 
 /*! \defgroup main_options 
  \brief Main configuration options from \ref Config_ast "asterisk.conf" or 
@@ -233,12 +220,6 @@ static char *_argv[256];
 static int shuttingdown = 0;
 static int restartnow = 0;
 static pthread_t consolethread = AST_PTHREADT_NULL;
-
-static int sig_alert_pipe[2] = { -1, -1 };
-static struct {
-	 unsigned int need_reload:1;
-	 unsigned int need_quit:1;
-} sig_flags;
 
 #if !defined(LOW_MEMORY)
 struct file_version {
@@ -449,13 +430,11 @@ int ast_safe_system(const char *s)
 	pid = fork();
 
 	if (pid == 0) {
-		if (option_highpriority)
-			ast_set_priority(0);
 		/* Close file descriptors and launch system command */
 		for (x = STDERR_FILENO + 1; x < 4096; x++)
 			close(x);
 		execl("/bin/sh", "/bin/sh", "-c", s, NULL);
-		_exit(1);
+		exit(1);
 	} else if (pid > 0) {
 		for(;;) {
 			res = wait4(pid, &status, 0, &rusage);
@@ -598,7 +577,6 @@ static void *listener(void *unused)
 		fds[0].fd = ast_socket;
 		fds[0].events= POLLIN;
 		s = poll(fds, 1, -1);
-		pthread_testcancel();
 		if (s < 0) {
 			if (errno != EINTR)
 				ast_log(LOG_WARNING, "poll returned error: %s\n", strerror(errno));
@@ -624,8 +602,6 @@ static void *listener(void *unused)
 					consoles[x].fd = s;
 					if (ast_pthread_create(&consoles[x].t, &attr, netconsole, &consoles[x])) {
 						ast_log(LOG_ERROR, "Unable to spawn thread to handle connection: %s\n", strerror(errno));
-						close(consoles[x].p[0]);
-						close(consoles[x].p[1]);
 						consoles[x].fd = -1;
 						fdprint(s, "Server failed to spawn thread\n");
 						close(s);
@@ -704,10 +680,8 @@ static int ast_makesocket(void)
 		ast_log(LOG_WARNING, "Unable to change ownership of %s: %s\n", ast_config_AST_SOCKET, strerror(errno));
 
 	if (!ast_strlen_zero(ast_config_AST_CTL_PERMISSIONS)) {
-		int p1;
 		mode_t p;
-		sscanf(ast_config_AST_CTL_PERMISSIONS, "%o", &p1);
-		p = p1;
+		sscanf(ast_config_AST_CTL_PERMISSIONS, "%o", (int *) &p);
 		if ((chmod(ast_config_AST_SOCKET, p)) < 0)
 			ast_log(LOG_WARNING, "Unable to change file permissions of %s: %s\n", ast_config_AST_SOCKET, strerror(errno));
 	}
@@ -740,23 +714,27 @@ static int ast_tryconnect(void)
  Called by soft_hangup to interrupt the poll, read, or other
  system call.  We don't actually need to do anything though.  
  Remember: Cannot EVER ast_log from within a signal handler 
+ SLD: seems to be some pthread activity relating to the printf anyway:
+ which is leading to a deadlock? 
  */
 static void urg_handler(int num)
 {
+#if 0
+	if (option_debug > 2) 
+		printf("-- Asterisk Urgent handler\n");
+#endif
 	signal(num, urg_handler);
 	return;
 }
 
 static void hup_handler(int num)
 {
-	int a = 0;
 	if (option_verbose > 1) 
 		printf("Received HUP signal -- Reloading configs\n");
 	if (restartnow)
 		execvp(_argv[0], _argv);
-	sig_flags.need_reload = 1;
-	if (sig_alert_pipe[1] != -1)
-		write(sig_alert_pipe[1], &a, sizeof(a));
+	/* XXX This could deadlock XXX */
+	ast_module_reload(NULL);
 	signal(num, hup_handler);
 }
 
@@ -904,17 +882,17 @@ static void quit_handler(int num, int nice, int safeshutdown, int restart)
 	/* Called on exit */
 	if (option_verbose && option_console)
 		ast_verbose("Asterisk %s ending (%d).\n", ast_active_channels() ? "uncleanly" : "cleanly", num);
-	if (option_debug)
+	else if (option_debug)
 		ast_log(LOG_DEBUG, "Asterisk ending (%d).\n", num);
 	manager_event(EVENT_FLAG_SYSTEM, "Shutdown", "Shutdown: %s\r\nRestart: %s\r\n", ast_active_channels() ? "Uncleanly" : "Cleanly", restart ? "True" : "False");
 	if (ast_socket > -1) {
-		pthread_cancel(lthread);
 		close(ast_socket);
 		ast_socket = -1;
-		unlink(ast_config_AST_SOCKET);
 	}
 	if (ast_consock > -1)
 		close(ast_consock);
+	if (ast_socket > -1)
+		unlink((char *)ast_config_AST_SOCKET);
 	if (!option_remote) unlink((char *)ast_config_AST_PID);
 	printf(term_quit());
 	if (restart) {
@@ -949,12 +927,7 @@ static void quit_handler(int num, int nice, int safeshutdown, int restart)
 
 static void __quit_handler(int num)
 {
-	int a = 0;
-	sig_flags.need_quit = 1;
-	if (sig_alert_pipe[1] != -1)
-		write(sig_alert_pipe[1], &a, sizeof(a));
-	/* There is no need to restore the signal handler here, since the app
-	 * is going to exit */
+	quit_handler(num, 0, 1, 0);
 }
 
 static const char *fix_header(char *outbuf, int maxout, const char *s, char *cmp)
@@ -1007,40 +980,46 @@ static void consolehandler(char *s)
 {
 	printf(term_end());
 	fflush(stdout);
-
 	/* Called when readline data is available */
-	if (!ast_all_zeros(s))
+	if (s && !ast_all_zeros(s))
 		ast_el_add_history(s);
-	/* The real handler for bang */
-	if (s[0] == '!') {
-		if (s[1])
-			ast_safe_system(s+1);
-		else
-			ast_safe_system(getenv("SHELL") ? getenv("SHELL") : "/bin/sh");
-	} else 
+	/* Give the console access to the shell */
+	if (s) {
+		/* The real handler for bang */
+		if (s[0] == '!') {
+			if (s[1])
+				ast_safe_system(s+1);
+			else
+				ast_safe_system(getenv("SHELL") ? getenv("SHELL") : "/bin/sh");
+		} else 
 		ast_cli_command(STDOUT_FILENO, s);
+	} else
+		fprintf(stdout, "\nUse \"quit\" to exit\n");
 }
 
 static int remoteconsolehandler(char *s)
 {
 	int ret = 0;
-
 	/* Called when readline data is available */
-	if (!ast_all_zeros(s))
+	if (s && !ast_all_zeros(s))
 		ast_el_add_history(s);
-	/* The real handler for bang */
-	if (s[0] == '!') {
-		if (s[1])
-			ast_safe_system(s+1);
-		else
-			ast_safe_system(getenv("SHELL") ? getenv("SHELL") : "/bin/sh");
-		ret = 1;
-	}
-	if ((strncasecmp(s, "quit", 4) == 0 || strncasecmp(s, "exit", 4) == 0) &&
-	    (s[4] == '\0' || isspace(s[4]))) {
-		quit_handler(0, 0, 0, 0);
-		ret = 1;
-	}
+	/* Give the console access to the shell */
+	if (s) {
+		/* The real handler for bang */
+		if (s[0] == '!') {
+			if (s[1])
+				ast_safe_system(s+1);
+			else
+				ast_safe_system(getenv("SHELL") ? getenv("SHELL") : "/bin/sh");
+			ret = 1;
+		}
+		if ((strncasecmp(s, "quit", 4) == 0 || strncasecmp(s, "exit", 4) == 0) &&
+		    (s[4] == '\0' || isspace(s[4]))) {
+			quit_handler(0, 0, 0, 0);
+			ret = 1;
+		}
+	} else
+		fprintf(stdout, "\nUse \"quit\" to exit\n");
 
 	return ret;
 }
@@ -1080,14 +1059,6 @@ static char restart_when_convenient_help[] =
 static char bang_help[] =
 "Usage: !<command>\n"
 "       Executes a given shell command\n";
-
-static char show_warranty_help[] =
-"Usage: show warranty\n"
-"	Shows the warranty (if any) for this copy of Asterisk.\n";
-
-static char show_license_help[] =
-"Usage: show license\n"
-"	Shows the license(s) for this copy of Asterisk.\n";
 
 #if 0
 static int handle_quit(int fd, int argc, char *argv[])
@@ -1160,69 +1131,6 @@ static int handle_bang(int fd, int argc, char *argv[])
 {
 	return RESULT_SUCCESS;
 }
-static const char *warranty_lines[] = {
-	"\n",
-	"			    NO WARRANTY\n",
-	"\n",
-	"BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY\n",
-	"FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.  EXCEPT WHEN\n",
-	"OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES\n",
-	"PROVIDE THE PROGRAM \"AS IS\" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED\n",
-	"OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF\n",
-	"MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS\n",
-	"TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.  SHOULD THE\n",
-	"PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING,\n",
-	"REPAIR OR CORRECTION.\n",
-	"\n",
-	"IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING\n",
-	"WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR\n",
-	"REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES,\n",
-	"INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING\n",
-	"OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED\n",
-	"TO LOSS OF DATA OR DATA BEING RENDERED INACCURATE OR LOSSES SUSTAINED BY\n",
-	"YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER\n",
-	"PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE\n",
-	"POSSIBILITY OF SUCH DAMAGES.\n",
-};
-
-static int show_warranty(int fd, int argc, char *argv[])
-{
-	int x;
-
-	for (x = 0; x < sizeof(warranty_lines) / sizeof(warranty_lines[0]); x++)
-		ast_cli(fd, (char *) warranty_lines[x]);
-
-	return RESULT_SUCCESS;
-}
-
-static const char *license_lines[] = {
-	"\n",
-	"This program is free software; you can redistribute it and/or modify\n",
-	"it under the terms of the GNU General Public License version 2 as\n",
-	"published by the Free Software Foundation.\n",
-	"\n",
-	"This program also contains components licensed under other licenses.\n",
-	"They include:\n",
-	"\n",
-	"This program is distributed in the hope that it will be useful,\n",
-	"but WITHOUT ANY WARRANTY; without even the implied warranty of\n",
-	"MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\n",
-	"GNU General Public License for more details.\n",
-	"\n",
-	"You should have received a copy of the GNU General Public License\n",
-	"along with this program; if not, write to the Free Software\n",
-	"Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA\n",
-};
-
-static int show_license(int fd, int argc, char *argv[])
-{
-	int x;
-
-	for (x = 0; x < sizeof(license_lines) / sizeof(license_lines[0]); x++)
-		ast_cli(fd, (char *) license_lines[x]);
-
-	return RESULT_SUCCESS;
-}
 
 #define ASTERISK_PROMPT "*CLI> "
 
@@ -1243,10 +1151,6 @@ static struct ast_cli_entry core_cli[] = {
 	  "Restart Asterisk gracefully", restart_gracefully_help },
 	{ { "restart", "when", "convenient", NULL }, handle_restart_when_convenient,
 	  "Restart Asterisk at empty call volume", restart_when_convenient_help },
-	{ { "show", "warranty", NULL }, show_warranty,
-	  "Show the warranty (if any) for this copy of Asterisk", show_warranty_help },
-	{ { "show", "license", NULL }, show_license,
-	  "Show the license(s) for this copy of Asterisk", show_license_help },
 	{ { "!", NULL }, handle_bang,
 	  "Execute a shell command", bang_help },
 #if !defined(LOW_MEMORY)
@@ -1348,7 +1252,7 @@ static char *cli_prompt(EditLine *el)
 			if (*t == '%') {
 				char hostname[MAXHOSTNAMELEN]="";
 				int i;
-				time_t ts;
+				struct timeval tv;
 				struct tm tm;
 #ifdef linux
 				FILE *LOADAVG;
@@ -1376,8 +1280,8 @@ static char *cli_prompt(EditLine *el)
 						break;
 					case 'd': /* date */
 						memset(&tm, 0, sizeof(struct tm));
-						time(&ts);
-						if (localtime_r(&ts, &tm)) {
+						tv = ast_tvnow();
+						if (localtime_r(&(tv.tv_sec), &tm)) {
 							strftime(p, sizeof(prompt) - strlen(prompt), "%Y-%m-%d", &tm);
 						}
 						break;
@@ -1433,8 +1337,8 @@ static char *cli_prompt(EditLine *el)
 #endif
 					case 't': /* time */
 						memset(&tm, 0, sizeof(struct tm));
-						time(&ts);
-						if (localtime_r(&ts, &tm)) {
+						tv = ast_tvnow();
+						if (localtime_r(&(tv.tv_sec), &tm)) {
 							strftime(p, sizeof(prompt) - strlen(prompt), "%H:%M:%S", &tm);
 						}
 						break;
@@ -1669,9 +1573,7 @@ static char *cli_complete(EditLine *el, int ch)
 				retval = CC_REFRESH;
 			}
 		}
-		for (i=0; matches[i]; i++)
-			free(matches[i]);
-		free(matches);
+	free(matches);
 	}
 
 	return (char *)(long)retval;
@@ -1807,12 +1709,13 @@ static void ast_remotecontrol(char * data)
 
 	if (option_exec && data) {  /* hack to print output then exit if asterisk -rx is used */
 		char tempchar;
-		struct pollfd fds;
-		fds.fd = ast_consock;
-		fds.events = POLLIN;
-		fds.revents = 0;
-		while (poll(&fds, 1, 100) > 0)
+		struct pollfd fds[0];
+		fds[0].fd = ast_consock;
+		fds[0].events = POLLIN;
+		fds[0].revents = 0;
+		while(poll(fds, 1, 100) > 0) {
 			ast_el_read_char(el, &tempchar);
+		}
 		return;
 	}
 	for(;;) {
@@ -1840,7 +1743,7 @@ static int show_version(void)
 }
 
 static int show_cli_help(void) {
-	printf("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2005, Digium, Inc. and others.\n");
+	printf("Asterisk " ASTERISK_VERSION ", Copyright (C) 2000 - 2005, Digium.\n");
 	printf("Usage: asterisk [OPTIONS]\n");
 	printf("Valid Options:\n");
 	printf("   -V              Display version number and exit\n");
@@ -1882,7 +1785,7 @@ static void ast_readconfig(void) {
 	/* init with buildtime config */
 	ast_copy_string(ast_config_AST_CONFIG_DIR, AST_CONFIG_DIR, sizeof(ast_config_AST_CONFIG_DIR));
 	ast_copy_string(ast_config_AST_SPOOL_DIR, AST_SPOOL_DIR, sizeof(ast_config_AST_SPOOL_DIR));
-	ast_copy_string(ast_config_AST_MODULE_DIR, AST_MODULE_DIR, sizeof(ast_config_AST_MODULE_DIR));
+	ast_copy_string(ast_config_AST_MODULE_DIR, AST_MODULE_DIR, sizeof(ast_config_AST_VAR_DIR));
  	snprintf(ast_config_AST_MONITOR_DIR, sizeof(ast_config_AST_MONITOR_DIR) - 1, "%s/monitor", ast_config_AST_SPOOL_DIR);
 	ast_copy_string(ast_config_AST_VAR_DIR, AST_VAR_DIR, sizeof(ast_config_AST_VAR_DIR));
 	ast_copy_string(ast_config_AST_LOG_DIR, AST_LOG_DIR, sizeof(ast_config_AST_LOG_DIR));
@@ -1919,8 +1822,7 @@ static void ast_readconfig(void) {
 			snprintf(ast_config_AST_MONITOR_DIR, sizeof(ast_config_AST_MONITOR_DIR) - 1, "%s/monitor", v->value);
 		} else if (!strcasecmp(v->name, "astvarlibdir")) {
 			ast_copy_string(ast_config_AST_VAR_DIR, v->value, sizeof(ast_config_AST_VAR_DIR));
-			snprintf(ast_config_AST_DB, sizeof(ast_config_AST_DB), "%s/astdb", v->value);
-			snprintf(ast_config_AST_KEY_DIR, sizeof(ast_config_AST_KEY_DIR), "%s/keys", v->value);
+			snprintf(ast_config_AST_DB, sizeof(ast_config_AST_DB), "%s/%s", v->value, "astdb");    
 		} else if (!strcasecmp(v->name, "astlogdir")) {
 			ast_copy_string(ast_config_AST_LOG_DIR, v->value, sizeof(ast_config_AST_LOG_DIR));
 		} else if (!strcasecmp(v->name, "astagidir")) {
@@ -2010,26 +1912,6 @@ static void ast_readconfig(void) {
 		v = v->next;
 	}
 	ast_config_destroy(cfg);
-}
-
-static void *monitor_sig_flags(void *unused)
-{
-	for (;;) {
-		struct pollfd p = { sig_alert_pipe[0], POLLIN, 0 };
-		int a;
-		poll(&p, 1, -1);
-		if (sig_flags.need_reload) {
-			sig_flags.need_reload = 0;
-			ast_module_reload(NULL);
-		}
-		if (sig_flags.need_quit) {
-			sig_flags.need_quit = 0;
-			quit_handler(0, 0, 1, 0);
-		}
-		read(sig_alert_pipe[0], &a, sizeof(a));
-	}
-
-	return NULL;
 }
 
 int main(int argc, char *argv[])
@@ -2174,10 +2056,6 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (option_console && !option_verbose) 
-		ast_verbose("[ Reading Master Configuration ]");
-	ast_readconfig();
-
 	if (option_dumpcore) {
 		struct rlimit l;
 		memset(&l, 0, sizeof(l));
@@ -2187,6 +2065,10 @@ int main(int argc, char *argv[])
 			ast_log(LOG_WARNING, "Unable to disable core size resource limit: %s\n", strerror(errno));
 		}
 	}
+
+	if (option_console && !option_verbose) 
+		ast_verbose("[ Reading Master Configuration ]");
+	ast_readconfig();
 
 	if ((!rungroup) && !ast_strlen_zero(ast_config_AST_RUN_GROUP))
 		rungroup = ast_config_AST_RUN_GROUP;
@@ -2205,7 +2087,7 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		if (setgid(gr->gr_gid)) {
-			ast_log(LOG_WARNING, "Unable to setgid to %d (%s)\n", (int)gr->gr_gid, rungroup);
+			ast_log(LOG_WARNING, "Unable to setgid to %d (%s)\n", gr->gr_gid, rungroup);
 			exit(1);
 		}
 		if (setgroups(0, NULL)) {
@@ -2223,18 +2105,8 @@ int main(int argc, char *argv[])
 			ast_log(LOG_WARNING, "No such user '%s'!\n", runuser);
 			exit(1);
 		}
-		if (!rungroup) {
-			if (setgid(pw->pw_gid)) {
-				ast_log(LOG_WARNING, "Unable to setgid to %d!\n", (int)pw->pw_gid);
-				exit(1);
-			}
-			if (initgroups(pw->pw_name, pw->pw_gid)) {
-				ast_log(LOG_WARNING, "Unable to init groups for '%s'\n", runuser);
-				exit(1);
-			}
-		}
 		if (setuid(pw->pw_uid)) {
-			ast_log(LOG_WARNING, "Unable to setuid to %d (%s)\n", (int)pw->pw_uid, runuser);
+			ast_log(LOG_WARNING, "Unable to setuid to %d (%s)\n", pw->pw_uid, runuser);
 			exit(1);
 		}
 		setenv("ASTERISK_ALREADY_NONROOT","yes",1);
@@ -2243,16 +2115,6 @@ int main(int argc, char *argv[])
 	}
 
 #endif /* __CYGWIN__ */
-
-#ifdef linux
-
-	if (geteuid() && option_dumpcore) {
-		if (prctl(PR_SET_DUMPABLE, 1, 0, 0, 0) < 0) {
-			ast_log(LOG_WARNING, "Unable to set the process for core dumps after changing to a non-root user. %s\n", strerror(errno));
-		}	
-	}
-
-#endif
 
 	term_init();
 	printf(term_end());
@@ -2301,7 +2163,7 @@ int main(int argc, char *argv[])
 	unlink((char *)ast_config_AST_PID);
 	f = fopen((char *)ast_config_AST_PID, "w");
 	if (f) {
-		fprintf(f, "%d\n", (int)getpid());
+		fprintf(f, "%d\n", getpid());
 		fclose(f);
 	} else
 		ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", (char *)ast_config_AST_PID, strerror(errno));
@@ -2312,11 +2174,10 @@ int main(int argc, char *argv[])
 		unlink((char *)ast_config_AST_PID);
 		f = fopen((char *)ast_config_AST_PID, "w");
 		if (f) {
-			fprintf(f, "%d\n", (int)getpid());
+			fprintf(f, "%d\n", getpid());
 			fclose(f);
 		} else
 			ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", (char *)ast_config_AST_PID, strerror(errno));
-		ast_mainpid = getpid();
 	}
 
 	/* Test recursive mutex locking. */
@@ -2392,6 +2253,10 @@ int main(int argc, char *argv[])
 		printf(term_quit());
 		exit(1);
 	}
+	if (load_modules(0)) {
+		printf(term_quit());
+		exit(1);
+	}
 	if (init_framer()) {
 		printf(term_quit());
 		exit(1);
@@ -2401,10 +2266,6 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 	if (ast_enum_init()) {
-		printf(term_quit());
-		exit(1);
-	}
-	if (load_modules(0)) {
 		printf(term_quit());
 		exit(1);
 	}
@@ -2430,10 +2291,6 @@ int main(int argc, char *argv[])
 		ast_verbose(term_color(tmp, "Asterisk Ready.\n", COLOR_BRWHITE, COLOR_BLACK, sizeof(tmp)));
 	if (option_nofork)
 		consolethread = pthread_self();
-
-	if (pipe(sig_alert_pipe))
-		sig_alert_pipe[0] = sig_alert_pipe[1] = -1;
-
 	fully_booted = 1;
 	pthread_sigmask(SIG_UNBLOCK, &sigs, NULL);
 #ifdef __AST_DEBUG_MALLOC
@@ -2445,14 +2302,6 @@ int main(int argc, char *argv[])
 		/* Console stuff now... */
 		/* Register our quit function */
 		char title[256];
-		pthread_attr_t attr;
-		pthread_t dont_care;
-
-		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-		ast_pthread_create(&dont_care, &attr, monitor_sig_flags, NULL);
-		pthread_attr_destroy(&attr);
-
 		set_icon("Asterisk");
 		snprintf(title, sizeof(title), "Asterisk Console on '%s' (pid %d)", hostname, ast_mainpid);
 		set_title(title);
@@ -2464,9 +2313,9 @@ int main(int argc, char *argv[])
 					buf[strlen(buf)-1] = '\0';
 
 				consolehandler((char *)buf);
-			} else if (option_remote) {
+			} else {
 				if (write(STDOUT_FILENO, "\nUse EXIT or QUIT to exit the asterisk console\n",
-					  strlen("\nUse EXIT or QUIT to exit the asterisk console\n")) < 0) {
+								  strlen("\nUse EXIT or QUIT to exit the asterisk console\n")) < 0) {
 					/* Whoa, stdout disappeared from under us... Make /dev/null's */
 					int fd;
 					fd = open("/dev/null", O_RDWR);
@@ -2479,9 +2328,12 @@ int main(int argc, char *argv[])
 				}
 			}
 		}
+
 	}
-
-	monitor_sig_flags(NULL);
-
+	/* Do nothing */
+	for(;;)  {	/* apparently needed for the MACos */
+		struct pollfd p = { -1 /* no descriptor */, 0, 0 };
+		poll(&p, 0, -1);
+	}
 	return 0;
 }

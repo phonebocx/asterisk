@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8162 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/module.h"
 #include "asterisk/options.h"
@@ -457,8 +457,8 @@ static int ast_resource_exists(char *resource)
 static const char *loadorder[] =
 {
 	"res_",
-	"pbx_",
 	"chan_",
+	"pbx_",
 	NULL,
 };
 

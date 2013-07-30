@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2005-2006, Kevin P. Fleming
+ * Copyright (C) 2005, Kevin P. Fleming
  *
  * Kevin P. Fleming <kpfleming@digium.com>
  *
@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 45030 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/dnsmgr.h"
 #include "asterisk/linkedlists.h"
@@ -57,7 +57,7 @@ struct ast_dnsmgr_entry {
 	char name[1];
 };
 
-static AST_LIST_HEAD_STATIC(entry_list, ast_dnsmgr_entry);
+static AST_LIST_HEAD(entry_list, ast_dnsmgr_entry) entry_list;
 
 AST_MUTEX_DEFINE_STATIC(refresh_lock);
 
@@ -147,7 +147,7 @@ static void *do_refresh(void *data)
 {
 	for (;;) {
 		pthread_testcancel();
-		usleep((ast_sched_wait(sched)*1000));
+		usleep(ast_sched_wait(sched));
 		pthread_testcancel();
 		ast_sched_runq(sched);
 	}
@@ -289,6 +289,7 @@ int dnsmgr_init(void)
 		ast_log(LOG_ERROR, "Unable to create schedule context.\n");
 		return -1;
 	}
+	AST_LIST_HEAD_INIT(&entry_list);
 	ast_cli_register(&cli_reload);
 	ast_cli_register(&cli_status);
 	return do_reload(1);
@@ -306,6 +307,7 @@ static int do_reload(int loading)
 	const char *enabled_value;
 	int interval;
 	int was_enabled;
+	pthread_attr_t attr;
 	int res = -1;
 
 	/* ensure that no refresh cycles run while the reload is in progress */
@@ -339,16 +341,18 @@ static int do_reload(int loading)
 
 	/* if this reload enabled the manager, create the background thread
 	   if it does not exist */
-	if (enabled) {
-		if (!was_enabled && (refresh_thread == AST_PTHREADT_NULL)) {
-			if (ast_pthread_create(&refresh_thread, NULL, do_refresh, NULL) < 0) {
-				ast_log(LOG_ERROR, "Unable to start refresh thread.\n");
-			}
-			ast_cli_register(&cli_refresh);
+	if (enabled && !was_enabled && (refresh_thread == AST_PTHREADT_NULL)) {
+		pthread_attr_init(&attr);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+		if (ast_pthread_create(&refresh_thread, &attr, do_refresh, NULL) < 0) {
+			ast_log(LOG_ERROR, "Unable to start refresh thread.\n");
 		}
-		/* make a background refresh happen right away */
-		refresh_sched = ast_sched_add_variable(sched, 100, refresh_list, &master_refresh_info, 1);
-		res = 0;
+		else {
+			ast_cli_register(&cli_refresh);
+			/* make a background refresh happen right away */
+			refresh_sched = ast_sched_add_variable(sched, 100, refresh_list, &master_refresh_info, 1);
+			res = 0;
+		}
 	}
 	/* if this reload disabled the manager and there is a background thread,
 	   kill it */

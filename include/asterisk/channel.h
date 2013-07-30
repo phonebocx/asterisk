@@ -275,9 +275,8 @@ struct ast_channel {
 	/*! Current active data generator */
 	struct ast_generator *generator;
 
-	/*! Who are we bridged to, if we're bridged. Who is proxying for us,
-	  if we are proxied (i.e. chan_agent).
-	  Do not access directly, use ast_bridged_channel(chan) */
+	/*! Who are we bridged to, if we're bridged  Do not access directly,
+	    use ast_bridged_channel(chan) */
 	struct ast_channel *_bridge;
 	/*! Channel that will masquerade as us */
 	struct ast_channel *masq;		
@@ -389,8 +388,8 @@ struct ast_channel {
 	/* A linked list for variables */
 	struct varshead varshead;
 
-	ast_group_t callgroup;
-	ast_group_t pickupgroup;
+	unsigned int callgroup;
+	unsigned int pickupgroup;
 
 	/*! channel flags of AST_FLAG_ type */
 	unsigned int flags;
@@ -435,7 +434,6 @@ struct ast_channel {
 						   so when ->priority is set, it will get incremented before
 						   finding the next priority to run
 						*/
-#define AST_FLAG_NOTNEW 	(1 << 10)	/*!< see bug:7855 incorrect Newchannel event generation */
 /* @} */
 
 #define AST_FEATURE_PLAY_WARNING	(1 << 0)
@@ -471,7 +469,6 @@ struct chanmon;
 	oh.priority = priority; \
 	oh.cid_num = cid_num; \
 	oh.cid_name = cid_name; \
-	oh.account = account; \
 	oh.vars = vars; \
 	oh.parent_channel = NULL; \
 } 
@@ -482,7 +479,6 @@ struct outgoing_helper {
 	int priority;
 	const char *cid_num;
 	const char *cid_name;
-	const char *account;
 	struct ast_variable *vars;
 	struct ast_channel *parent_channel;
 };

@@ -30,14 +30,13 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 15743 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/cli.h"
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
 #include "asterisk/lock.h"
 #include "asterisk/strings.h"
-#include "asterisk/unaligned.h"
 
 #define SOME_PRIME 563
 
@@ -100,7 +99,7 @@ static inline void *__ast_alloc_region(size_t size, int which, const char *file,
 		regions[hash] = reg;
 		reg->fence = FENCE_MAGIC;
 		fence = (ptr + reg->len);
-		put_unaligned_uint32(fence, FENCE_MAGIC);
+		*fence = FENCE_MAGIC;
 	}
 	ast_mutex_unlock(&reglock);
 	if (!reg) {
@@ -162,7 +161,7 @@ static void __ast_free_region(void *ptr, const char *file, int lineno, const cha
 				fflush(mmlog);
 			}
 		}
-		if (get_unaligned_uint32(fence) != FENCE_MAGIC) {
+		if (*fence != FENCE_MAGIC) {
 			fprintf(stderr, "WARNING: High fence violation at %p, in %s of %s, line %d\n", reg->data, reg->func, reg->file, reg->lineno);
 			if (mmlog) {
 				fprintf(mmlog, "%ld - WARNING: High fence violation at %p, in %s of %s, line %d\n", time(NULL), reg->data, reg->func, reg->file, reg->lineno);
@@ -297,7 +296,7 @@ static int handle_show_memory(int fd, int argc, char *argv[])
 						fflush(mmlog);
 					}
 				}
-				if (get_unaligned_uint32(fence) != FENCE_MAGIC) {
+				if (*fence != FENCE_MAGIC) {
 					fprintf(stderr, "WARNING: High fence violation at %p, in %s of %s, line %d\n", reg->data, reg->func, reg->file, reg->lineno);
 					if (mmlog) {
 						fprintf(mmlog, "%ld - WARNING: High fence violation at %p, in %s of %s, line %d\n", time(NULL), reg->data, reg->func, reg->file, reg->lineno);

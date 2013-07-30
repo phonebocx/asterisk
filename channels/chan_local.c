@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57317 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7270 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -168,9 +168,6 @@ static int local_answer(struct ast_channel *ast)
 	int isoutbound;
 	int res = -1;
 
-	if (!p)
-		return -1;
-
 	ast_mutex_lock(&p->lock);
 	isoutbound = IS_OUTBOUND(ast, p);
 	if (isoutbound) {
@@ -187,15 +184,9 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 {
 	if (p->alreadymasqed || p->nooptimization)
 		return;
-	if (!p->chan || !p->owner || (p->chan->_bridge != ast_bridged_channel(p->chan)))
+	if (!p->chan || !p->owner)
 		return;
-
-	/* only do the masquerade if we are being called on the outbound channel,
-	   if it has been bridged to another channel and if there are no pending
-	   frames on the owner channel (because they would be transferred to the
-	   outbound channel during the masquerade)
-	*/
-	if (isoutbound && p->chan->_bridge /* Not ast_bridged_channel!  Only go one step! */ && !p->owner->readq) {
+	if (isoutbound&& p->chan->_bridge /* Not ast_bridged_channel!  Only go one step! */ && !p->owner->readq) {
 		/* Masquerade bridged channel into owner */
 		/* Lock everything we need, one by one, and give up if
 		   we can't get everything.  Remember, we'll get another
@@ -212,11 +203,6 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 				ast_mutex_unlock(&(p->chan->_bridge)->lock);
 			}
 		}
-	/* We only allow masquerading in one 'direction'... it's important to preserve the state
-	   (group variables, etc.) that live on p->chan->_bridge (and were put there by the dialplan)
-	   when the local channels go away.
-	*/
-#if 0
 	} else if (!isoutbound && p->owner && p->owner->_bridge && p->chan && !p->chan->readq) {
 		/* Masquerade bridged channel into chan */
 		if (!ast_mutex_trylock(&(p->owner->_bridge)->lock)) {
@@ -231,7 +217,6 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 			}
 			ast_mutex_unlock(&(p->owner->_bridge)->lock);
 		}
-#endif
 	}
 }
 
@@ -247,9 +232,6 @@ static int local_write(struct ast_channel *ast, struct ast_frame *f)
 	struct local_pvt *p = ast->tech_pvt;
 	int res = -1;
 	int isoutbound;
-
-	if (!p)
-		return -1;
 
 	/* Just queue for delivery to the other side */
 	ast_mutex_lock(&p->lock);
@@ -269,10 +251,6 @@ static int local_write(struct ast_channel *ast, struct ast_frame *f)
 static int local_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
 {
 	struct local_pvt *p = newchan->tech_pvt;
-
-	if (!p)
-		return -1;
-
 	ast_mutex_lock(&p->lock);
 
 	if ((p->owner != oldchan) && (p->chan != oldchan)) {
@@ -295,9 +273,6 @@ static int local_indicate(struct ast_channel *ast, int condition)
 	struct ast_frame f = { AST_FRAME_CONTROL, };
 	int isoutbound;
 
-	if (!p)
-		return -1;
-
 	/* Queue up a frame representing the indication as a control frame */
 	ast_mutex_lock(&p->lock);
 	isoutbound = IS_OUTBOUND(ast, p);
@@ -314,9 +289,6 @@ static int local_digit(struct ast_channel *ast, char digit)
 	struct ast_frame f = { AST_FRAME_DTMF, };
 	int isoutbound;
 
-	if (!p)
-		return -1;
-
 	ast_mutex_lock(&p->lock);
 	isoutbound = IS_OUTBOUND(ast, p);
 	f.subclass = digit;
@@ -332,9 +304,6 @@ static int local_sendhtml(struct ast_channel *ast, int subclass, const char *dat
 	struct ast_frame f = { AST_FRAME_HTML, };
 	int isoutbound;
 
-	if (!p)
-		return -1;
-	
 	ast_mutex_lock(&p->lock);
 	isoutbound = IS_OUTBOUND(ast, p);
 	f.subclass = subclass;
@@ -353,22 +322,27 @@ static int local_call(struct ast_channel *ast, char *dest, int timeout)
 	int res;
 	struct ast_var_t *varptr = NULL, *new;
 	size_t len, namelen;
-
-	if (!p)
-		return -1;
 	
 	ast_mutex_lock(&p->lock);
+	if (p->owner->cid.cid_num)
+		p->chan->cid.cid_num = strdup(p->owner->cid.cid_num);
+	else 
+		p->chan->cid.cid_num = NULL;
 
-	ast_set_callerid(p->chan,
-		p->owner->cid.cid_num, p->owner->cid.cid_name,
-		p->owner->cid.cid_ani);
+	if (p->owner->cid.cid_name)
+		p->chan->cid.cid_name = strdup(p->owner->cid.cid_name);
+	else 
+		p->chan->cid.cid_name = NULL;
 
 	if (p->owner->cid.cid_rdnis)
 		p->chan->cid.cid_rdnis = strdup(p->owner->cid.cid_rdnis);
 	else
 		p->chan->cid.cid_rdnis = NULL;
 
-	p->chan->cid.cid_pres = p->owner->cid.cid_pres;
+	if (p->owner->cid.cid_ani)
+		p->chan->cid.cid_ani = strdup(p->owner->cid.cid_ani);
+	else
+		p->chan->cid.cid_ani = NULL;
 
 	strncpy(p->chan->language, p->owner->language, sizeof(p->chan->language) - 1);
 	strncpy(p->chan->accountcode, p->owner->accountcode, sizeof(p->chan->accountcode) - 1);
@@ -431,9 +405,6 @@ static int local_hangup(struct ast_channel *ast)
 	struct local_pvt *cur, *prev=NULL;
 	struct ast_channel *ochan = NULL;
 	int glaredetect;
-
-	if (!p)
-		return -1;
 
 	ast_mutex_lock(&p->lock);
 	isoutbound = IS_OUTBOUND(ast, p);
@@ -540,7 +511,7 @@ static struct local_pvt *local_alloc(char *data, int format)
 static struct ast_channel *local_new(struct local_pvt *p, int state)
 {
 	struct ast_channel *tmp, *tmp2;
-	int randnum = rand() & 0xffff, fmt = 0;
+	int randnum = rand() & 0xffff;
 
 	tmp = ast_channel_alloc(1);
 	tmp2 = ast_channel_alloc(1);
@@ -562,15 +533,14 @@ static struct ast_channel *local_new(struct local_pvt *p, int state)
 	tmp2->type = type;
 	ast_setstate(tmp, state);
 	ast_setstate(tmp2, AST_STATE_RING);
-	fmt = ast_best_codec(p->reqformat);
-	tmp->writeformat = fmt;
-	tmp2->writeformat = fmt;
-	tmp->rawwriteformat = fmt;
-	tmp2->rawwriteformat = fmt;
-	tmp->readformat = fmt;
-	tmp2->readformat = fmt;
-	tmp->rawreadformat = fmt;
-	tmp2->rawreadformat = fmt;
+	tmp->writeformat = p->reqformat;
+	tmp2->writeformat = p->reqformat;
+	tmp->rawwriteformat = p->reqformat;
+	tmp2->rawwriteformat = p->reqformat;
+	tmp->readformat = p->reqformat;
+	tmp2->readformat = p->reqformat;
+	tmp->rawreadformat = p->reqformat;
+	tmp2->rawreadformat = p->reqformat;
 	tmp->tech_pvt = p;
 	tmp2->tech_pvt = p;
 	p->owner = tmp;

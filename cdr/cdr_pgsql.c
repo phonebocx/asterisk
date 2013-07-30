@@ -44,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47583 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"
@@ -64,8 +64,8 @@ static int connected = 0;
 
 AST_MUTEX_DEFINE_STATIC(pgsql_lock);
 
-PGconn		*conn = NULL;
-PGresult	*result = NULL;
+PGconn		*conn;
+PGresult	*result;
 
 static int pgsql_log(struct ast_cdr *cdr)
 {
@@ -122,7 +122,7 @@ static int pgsql_log(struct ast_cdr *cdr)
 
 		snprintf(sqlcmd,sizeof(sqlcmd),"INSERT INTO %s (calldate,clid,src,dst,dcontext,channel,dstchannel,"
 				 "lastapp,lastdata,duration,billsec,disposition,amaflags,accountcode,uniqueid,userfield) VALUES"
-				 " ('%s','%s','%s','%s','%s', '%s','%s','%s','%s',%ld,%ld,'%s',%ld,'%s','%s','%s')",
+				 " ('%s','%s','%s','%s','%s', '%s','%s','%s','%s',%d,%d,'%s',%d,'%s','%s','%s')",
 				 table,timestr,clid,cdr->src, cdr->dst, dcontext,channel, dstchannel, lastapp, lastdata,
 				 cdr->duration,cdr->billsec,ast_cdr_disp2str(cdr->disposition),cdr->amaflags, cdr->accountcode, uniqueid, userfield);
 		

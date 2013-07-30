@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48374 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -44,7 +44,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48374 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/translate.h"
-#include "asterisk/options.h"
 
 #define ICES "/usr/bin/ices"
 #define LOCAL_ICES "/usr/local/bin/ices"
@@ -68,27 +67,13 @@ static int icesencode(char *filename, int fd)
 {
 	int res;
 	int x;
-	sigset_t fullset, oldset;
-
-	sigfillset(&fullset);
-	pthread_sigmask(SIG_BLOCK, &fullset, &oldset);
-
 	res = fork();
 	if (res < 0) 
 		ast_log(LOG_WARNING, "Fork failed\n");
-	if (res) {
-		pthread_sigmask(SIG_SETMASK, &oldset, NULL);
+	if (res)
 		return res;
-	}
-
-	/* Stop ignoring PIPE */
-	signal(SIGPIPE, SIG_DFL);
-	pthread_sigmask(SIG_UNBLOCK, &fullset, NULL);
-
-	if (option_highpriority)
-		ast_set_priority(0);
 	dup2(fd, STDIN_FILENO);
-	for (x=STDERR_FILENO + 1;x<1024;x++) {
+	for (x=STDERR_FILENO + 1;x<256;x++) {
 		if ((x != STDIN_FILENO) && (x != STDOUT_FILENO))
 			close(x);
 	}
@@ -99,7 +84,7 @@ static int icesencode(char *filename, int fd)
 	/* As a last-ditch effort, try to use PATH */
 	execlp("ices", "ices", filename, (char *)NULL);
 	ast_log(LOG_WARNING, "Execute of ices failed\n");
-	_exit(0);
+	return -1;
 }
 
 static int ices_exec(struct ast_channel *chan, void *data)
@@ -187,7 +172,6 @@ static int ices_exec(struct ast_channel *chan, void *data)
 					if (errno != EAGAIN) {
 						ast_log(LOG_WARNING, "Write failed to pipe: %s\n", strerror(errno));
 						res = -1;
-						ast_frfree(f);
 						break;
 					}
 				}

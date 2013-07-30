@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48374 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -44,7 +44,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48374 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/translate.h"
-#include "asterisk/options.h"
 
 #define LOCAL_NBSCAT "/usr/local/bin/nbscat8k"
 #define NBSCAT "/usr/bin/nbscat8k"
@@ -71,26 +70,13 @@ static int NBScatplay(int fd)
 {
 	int res;
 	int x;
-	sigset_t fullset, oldset;
-
-	sigfillset(&fullset);
-	pthread_sigmask(SIG_BLOCK, &fullset, &oldset);
-
 	res = fork();
 	if (res < 0) 
 		ast_log(LOG_WARNING, "Fork failed\n");
-	if (res) {
-		pthread_sigmask(SIG_SETMASK, &oldset, NULL);
+	if (res)
 		return res;
-	}
-	signal(SIGPIPE, SIG_DFL);
-	pthread_sigmask(SIG_UNBLOCK, &fullset, NULL);
-
-	if (option_highpriority)
-		ast_set_priority(0);
-
 	dup2(fd, STDOUT_FILENO);
-	for (x = STDERR_FILENO + 1; x < 1024; x++) {
+	for (x=0;x<256;x++) {
 		if (x != STDOUT_FILENO)
 			close(x);
 	}
@@ -98,7 +84,7 @@ static int NBScatplay(int fd)
 	execl(NBSCAT, "nbscat8k", "-d", (char *)NULL);
 	execl(LOCAL_NBSCAT, "nbscat8k", "-d", (char *)NULL);
 	ast_log(LOG_WARNING, "Execute of nbscat8k failed\n");
-	_exit(0);
+	return -1;
 }
 
 static int timed_read(int fd, void *data, int datalen)

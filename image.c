@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 14704 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/sched.h"
 #include "asterisk/options.h"
@@ -158,7 +158,7 @@ struct ast_frame *ast_read_image(char *filename, char *preflang, int format)
 				lseek(fd, 0, SEEK_SET);
 				f = found->read_image(fd,len); 
 			} else
-				ast_log(LOG_WARNING, "%s does not appear to be a %s file\n", buf, found->name);
+				ast_log(LOG_WARNING, "%s does not appear to be a %s file\n", buf, i->name);
 			close(fd);
 		} else
 			ast_log(LOG_WARNING, "Unable to open '%s': %s\n", buf, strerror(errno));

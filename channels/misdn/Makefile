@@ -5,38 +5,41 @@
 #
 
 # Verify those options with main Makefile
-CFLAGS		= -pipe -c -Wall -ggdb
-ifeq ($(shell uname -m),x86_64)
-CFLAGS         += -fPIC
+ifndef LINUX
+LINUX=/lib/modules/$(shell uname -r)/build
 endif
+
+CFLAGS		+= -pipe -c
 SOURCES		= isdn_lib.c isdn_msg_parser.c 
 OBJDIR		= .
-OBJS		= isdn_lib.o isdn_msg_parser.o fac.o
+OBJS		= isdn_lib.o isdn_msg_parser.o
+
+ifndef MISDNUSER
+MISDNUSER=/usr/src/install-misdn/mISDNuser
+endif
+
+MISDNCFLAGS	+= -I$(MISDNUSER)/include -I$(MISDNUSER)/i4lnet -I$(MISDNUSER)/lib
+MISDNCFLAGS	+= -DMISDNUSER_JOLLY -I$(LINUX)/include
 
 
-all: chan_misdn_lib.a 
+all: chan_misdn_lib.a Makefile.ast
 
 
 %.o: %.c
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(MISDNCFLAGS) $(CFLAGS) -o $@ $<
 	
 
 chan_misdn_lib.a:	$(OBJS)
 	ar crv $@ $(OBJS)
 
-misdn:
-	@mkdir -p lib
-	cd lib ; cvs -d:pserver:anonymous:readonly@cvs.isdn4linux.de:/i4ldev co  mISDN mISDNuser ; 
-	cd lib/mISDN ; make install
-	cd lib/mISDNuser ; make install
+Makefile.ast:	FORCE
+	@echo CFLAGS+=$(MISDNCFLAGS) -Imisdn/ -DCHAN_MISDN_VERSION=\\\"0.2.0\\\" >$@.tmp
+	@echo MISDNUSER = $(MISDNUSER) >>$@.tmp
+	@if [ -r $@ ] && cmp -s $@ $@.tmp; then rm -f $@.tmp; else mv -f $@.tmp $@; fi
 
-portinfo: portinfo.o
-	$(CC) -L/usr/lib -o $@ $^ -lisdnnet -lmISDN -lpthread
-	
-	
+
 FORCE:
 
+
 clean: 
-	rm -rf *.a *.o *.so
-	rm -rf lib
-	rm -rf portinfo
+	rm *.a *.o Makefile.ast

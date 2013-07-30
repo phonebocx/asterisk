@@ -1,9 +1,4 @@
 %{
-/*! \file
- *
- * \brief Dialplan Expression Parser
- */
-
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,7 +44,7 @@ struct parse_io
  
 void ast_yyset_column(int column_no, yyscan_t yyscanner);
 int ast_yyget_column(yyscan_t yyscanner);
-static int curlycount = 0;
+
 %}
 
 %option prefix="ast_yy"
@@ -59,7 +54,6 @@ static int curlycount = 0;
 %option bison-bridge
 %option bison-locations
 %option noyywrap
-%x var trail
 
 %%
 
@@ -81,8 +75,6 @@ static int curlycount = 0;
 \:\:	{ SET_COLUMNS; SET_STRING; return TOK_COLONCOLON;}
 \(	{ SET_COLUMNS; SET_STRING; return TOK_LP;}
 \)	{ SET_COLUMNS; SET_STRING; return TOK_RP;}
-\$\{   {/* gather the contents of ${} expressions, with trailing stuff, into a single TOKEN. They are much more complex now than they used to be */
-                       curlycount = 0; BEGIN(var); yymore();}
 
 [ 	\r]		{}
 \"[^"]*\"   {SET_COLUMNS; SET_STRING; return TOKEN;}
@@ -91,14 +83,7 @@ static int curlycount = 0;
 [0-9]+		{   SET_COLUMNS;  /* the original behavior of the expression parser was to bring in numbers as a numeric string */
 				SET_NUMERIC_STRING;
 				return TOKEN;}
-[a-zA-Z0-9,.';\\_^%$#@!]+	{SET_COLUMNS; SET_STRING; return TOKEN;}
-
-<var>[^{}]*\}  {curlycount--; if(curlycount < 0){ BEGIN(trail);  yymore();} else {  yymore();}}
-<var>[^{}]*\{  {curlycount++; yymore();  }
-<trail>[^-\t\r \n$():?%/+=*<>!|&]* {BEGIN(0); SET_COLUMNS; SET_STRING; return TOKEN;}
-<trail>[-\t\r \n$():?%/+=*<>!|&]        {char c = yytext[yyleng-1]; BEGIN(0); unput(c); SET_COLUMNS; SET_STRING; return TOKEN;}
-<trail>\$\{            {curlycount = 0; BEGIN(var); yymore();  }
-<trail><<EOF>>		{BEGIN(0); SET_COLUMNS; SET_STRING; return TOKEN; /* actually, if an expr is only a variable ref, this could happen a LOT */}
+[a-zA-Z0-9,.';{}\\_^%$#@!]+	{SET_COLUMNS; SET_STRING; return TOKEN;}
 
 %%
 
@@ -113,43 +98,42 @@ int ast_yyerror(const char *, YYLTYPE *, struct parse_io *); /* likewise */
 
 int ast_expr(char *expr, char *buf, int length)
 {
-	struct parse_io io;
-	int return_value = 0;
+	struct parse_io *io;
 	
-	memset(&io, 0, sizeof(io));
-	io.string = expr;  /* to pass to the error routine */
+	io = calloc(sizeof(struct parse_io),1);
+	io->string = expr;  /* to pass to the error routine */
 	
-	ast_yylex_init(&io.scanner);
+	ast_yylex_init(&io->scanner);
 	
-	ast_yy_scan_string(expr, io.scanner);
+	ast_yy_scan_string(expr, io->scanner);
 	
-	ast_yyparse ((void *) &io);
+	ast_yyparse ((void *) io);
 
-	ast_yylex_destroy(io.scanner);
+	ast_yylex_destroy(io->scanner);
 
-	if (!io.val) {
+	if (io->val == NULL) {
 		if (length > 1) {
 			strcpy(buf, "0");
-			return_value = 1;
+			return 1;
 		}
 	} else {
-		if (io.val->type == AST_EXPR_integer) {
+		if (io->val->type == AST_EXPR_integer) {
 			int res_length;
 
-			res_length = snprintf(buf, length, "%ld", (long int) io.val->u.i);
-			return_value = (res_length <= length) ? res_length : length;
+			res_length = snprintf(buf, length, "%ld", (long int) io->val->u.i);
+			return res_length <= length ? res_length : length;
 		} else {
 #ifdef STANDALONE
-			strncpy(buf, io.val->u.s, length - 1);
+			strncpy(buf, io->val->u.s, length - 1);
 #else /* !STANDALONE */
-			ast_copy_string(buf, io.val->u.s, length);
+			ast_copy_string(buf, io->val->u.s, length);
 #endif /* STANDALONE */
-			return_value = strlen(buf);
-			free(io.val->u.s);
+			return strlen(buf);
 		}
-		free(io.val);
+		free(io->val);
 	}
-	return return_value;
+	free(io);
+	return 0;
 }
 
 int ast_yyerror (const char *s,  yyltype *loc, struct parse_io *parseio )
@@ -160,6 +144,15 @@ int ast_yyerror (const char *s,  yyltype *loc, struct parse_io *parseio )
 	int i=0;
 	spacebuf[0] = 0;
 	
+#ifdef WHEN_LOC_MEANS_SOMETHING
+	if( loc->first_column > 7990 ) /* if things get out of whack, why crash? */
+		loc->first_column = 7990;
+	if( loc->last_column > 7990 )
+		loc->last_column = 7990;
+	for(i=0;i<loc->first_column;i++) spacebuf[i] = ' ';
+	for(   ;i<loc->last_column;i++) spacebuf[i] = '^';
+	spacebuf[i] = 0;
+#endif
 	for(i=0;i< (int)(yytext - YY_CURRENT_BUFFER_LVALUE->yy_ch_buf);i++) spacebuf2[i] = ' ';  /* uh... assuming yyg is defined, then I can use the yycolumn macro,
 													which is the same thing as... get this:
 													yyg->yy_buffer_stack[yyg->yy_buffer_stack_top]->yy_bs_column

@@ -94,17 +94,17 @@ NoOp(${__FOO}) is identical to NoOp(${FOO})
 
 
 
-___________________________________
-SELECTING CHARACTERS FROM VARIABLES
------------------------------------
+_______________________________
+REMOVING CHARACTERS FROM STRING
+-------------------------------
 
-The format for selecting characters from a variable can be expressed as:
+The format for removing characters from a variable can be expressed as:
 
 	${variable_name[:offset[:length]]}
 
-If you want to select the first N characters from the string assigned
+If you want to remove the first N characters from the string assigned
 to a variable, simply append a colon and the number of characters to
-skip from the beginning of the string to the variable name.
+remove from the beginning of the string to the variable name.
 
 	;Remove the first character of extension, save in "number" variable
 	exten => _9X.,1,Set(number=${EXTEN:1})
@@ -115,7 +115,7 @@ dial a number to access an outside line, but do not wish to pass the first
 digit.
 
 If you use a negative offset number, Asterisk starts counting from the end 
-of the string and then selects everything after the new position. The following
+of the string and then removes everything before the new position. The following
 example will save the numbers 1234 to the 'number' variable, still assuming
 we've dialed 918005551234.
 
@@ -227,6 +227,13 @@ with equal precedence are grouped within { } symbols.
             This, the unary minus operator, is right associative, and
             has the same precedence as the ! operator.
 
+     ! expr1
+            Return the result of a logical complement of expr1.
+            In other words, if expr1 is null, 0, an empty string,
+            or the string "0", return a 1. Otherwise, return a 0.
+            It has the same precedence as the unary minus operator, and
+            is also right associative.
+
      expr1 : expr2
              The `:' operator matches expr1 against expr2, which must be a
              regular expression.  The regular expression is anchored to the
@@ -243,6 +250,12 @@ with equal precedence are grouped within { } symbols.
              of the string. This is disastrous to the : operator. Therefore,
              before the regex match is made, beginning and ending double quote
              characters are stripped from both the pattern and the string.
+
+      expr1 =~ expr2
+             Exactly the same as the ':' operator, except that the match is
+             not anchored to the beginning of the string. Pardon any similarity
+             to seemingly similar operators in other programming languages!
+             The ":" and "=~" operators share the same precedence.
 
       expr1 ? expr2 :: expr3
              Traditional Conditional operator. If expr1 is a number
@@ -263,6 +276,12 @@ or C derived languages.
 
 Examples
 
+ "One Thousand Five Hundred" =~ "(T[^ ]+)"
+	returns: Thousand
+
+ "One Thousand Five Hundred" =~ "T[^ ]+"
+	returns: 8
+
  "One Thousand Five Hundred" : "T[^ ]+"
 	returns: 0
 
@@ -271,6 +290,11 @@ Examples
 
  "3075551212":"...(...)"
 	returns: 555
+
+ ! "One Thousand Five Hundred" =~ "T[^ ]+"
+	returns: 0 (because it applies to the string, which is non-null,
+                    which it turns to "0", and then looks for the pattern
+                    in the "0", and doesn't find it)
 
  !( "One Thousand Five Hundred" : "T[^ ]+" )
 	returns: 1  (because the string doesn't start with a word starting
@@ -534,25 +558,25 @@ Variables marked with a * are builtin functions and can't be set,
 only read in the dialplan.  Writes to such variables are silently 
 ignored.
 
-${ACCOUNTCODE} 	 	* Account code (if specified) (Deprecated; use ${CDR(accountcode)})
+${ACCOUNTCODE} 	 	* Account code (if specified)
 ${BLINDTRANSFER} 	The name of the channel on the other side of a blind transfer
 ${BRIDGEPEER}	 	Bridged peer
-${CALLERANI}	 	* Caller ANI (PRI channels) (Deprecated; use ${CALLERID(ani)})
-${CALLERID}	 	* Caller ID (Deprecated; use ${CALLERID(all)})
-${CALLERIDNAME}	 	* Caller ID Name only (Deprecated; use ${CALLERID(name)})
-${CALLERIDNUM}	 	* Caller ID Number only (Deprecated; use ${CALLERID(num)})
+${CALLERANI}	 	* Caller ANI (PRI channels)
+${CALLERID}	 	* Caller ID
+${CALLERIDNAME}	 	* Caller ID Name only
+${CALLERIDNUM}	 	* Caller ID Number only
 ${CALLINGANI2}	 	* Caller ANI2 (PRI channels)
 ${CALLINGPRES}	 	* Caller ID presentation for incoming calls (PRI channels)
 ${CALLINGTNS} 	 	* Transit Network Selector (PRI channels)
 ${CALLINGTON}    	* Caller Type of Number (PRI channels)
 ${CHANNEL}	 	* Current channel name
 ${CONTEXT}       	* Current context
-${DATETIME}	 	* Current date time in the format: DDMMYYYY-HH:MM:SS (Deprecated; use ${STRFTIME(${EPOCH},,%d%m%Y-%H:%M:%S)})
+${DATETIME}	 	* Current date time in the format: DDMMYYYY-HH:MM:SS
 ${DB_RESULT}		Result value of DB_EXISTS() dial plan function
-${DNID}          	* Dialed Number Identifier (Deprecated; use ${CALLERID(dnid)})
+${DNID}          	* Dialed Number Identifier
 ${EPOCH}	 	* Current unix style epoch
 ${EXTEN}	 	* Current extension
-${ENV(VAR)}	 	Environmental variable VAR
+${ENV(VAR)}	 	* Environmental variable VAR
 ${GOTO_ON_BLINDXFR}	Transfer to the specified context/extension/priority
 			after a blind transfer (use ^ characters in place of
 			| to separate context/extension/priority when setting
@@ -561,12 +585,12 @@ ${HANGUPCAUSE}	 	* Asterisk cause of hangup (inbound/outbound)
 ${HINT}          	* Channel hints for this extension
 ${HINTNAME}      	* Suggested Caller*ID name for this extension
 ${INVALID_EXTEN} 	The invalid called extension (used in the "i" extension)
-${LANGUAGE}	 	* Current language (Deprecated; use ${LANGUAGE()})
+${LANGUAGE}	 	* Current language
 ${LEN(VAR)}	 	* String length of VAR (integer)
 ${PRIORITY}	 	* Current priority in the dialplan
 ${PRIREDIRECTREASON} 	Reason for redirect on PRI, if a call was directed
-${RDNIS}         	* Redirected Dial Number ID Service (Deprecated; use ${CALLERID(rdnis)})
-${TIMESTAMP}	 	* Current date time in the format: YYYYMMDD-HHMMSS (Deprecated; use ${STRFTIME(${EPOCH},,%Y%m%d-%H%M%S)})
+${RDNIS}         	* Redirected Dial Number ID Service
+${TIMESTAMP}	 	* Current date time in the format: YYYYMMDD-HHMMSS
 ${TRANSFER_CONTEXT} 	Context for transferred calls
 ${UNIQUEID}	 	* Current call unique identifier
 
@@ -597,7 +621,6 @@ ${RQMSTATUS}			* removequeuemember()
 ${SENDIMAGESTATUS}		* sendimage()
 ${SENDTEXTSTATUS}		* sendtext()
 ${SENDURLSTATUS}		* sendurl()
-${SIPGETSTATUS}			* sipgetheader()
 ${SYSTEMSTATUS}			* system()
 ${TRANSFERSTATUS}		* transfer()
 ${TXTCIDNAMESTATUS}		* txtcidname()
@@ -762,8 +785,8 @@ ${CDR(userfield)}		The channels uses specified field.
 
 
 In addition, you can set your own extra variables with a traditional
-Set(CDR(var)=val) to anything you want.
+SetVAR(CDR(var)=val) to anything you want.
 
-Certain functional variables may be accessed with ${foo(<args>)}.  A list
+Certain functional variables may be accessed with $(foo <args>).  A list
 of these functional variables may be found by typing "show functions"
 at the Asterisk CLI.

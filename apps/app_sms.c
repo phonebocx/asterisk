@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47549 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -694,7 +694,7 @@ static void sms_readfile (sms_t * h, char *fn)
 		}
 		while (fgets (line, sizeof (line), s))
 		{								 /* process line in file */
-			unsigned char *p;
+			char *p;
 			for (p = line; *p && *p != '\n' && *p != '\r'; p++);
 			*p = 0;					 /* strip eoln */
 			p = line;
@@ -1050,7 +1050,7 @@ static void sms_nextoutgoing (sms_t * h)
 		unsigned char p = 2;
 		h->omsg[0] = 0x91;		  /* SMS_DATA */
 		if (h->smsc) {			 /* deliver */
-			h->omsg[p++] = (more ? 4 : 0) + ((h->udhl > 0) ? 0x40 : 0);
+			h->omsg[p++] = (more ? 4 : 0);
 			p += packaddress (h->omsg + p, h->oa);
 			h->omsg[p++] = h->pid;
 			h->omsg[p++] = h->dcs;
@@ -1178,24 +1178,25 @@ static void sms_messagetx(sms_t * h)
 static int sms_generate (struct ast_channel *chan, void *data, int len, int samples)
 {
 	struct ast_frame f = { 0 };
-#define MAXSAMPLES 800
+	unsigned char waste[AST_FRIENDLY_OFFSET];
 #ifdef OUTALAW
-	unsigned char *buf;
+	unsigned char buf[800];
 #else
-	short *buf;
+	signed short buf[800];
 #endif
-#define SAMPLE2LEN sizeof(*buf)
 	sms_t *h = data;
 	int i;
 
-	if (samples > MAXSAMPLES) {
-		ast_log (LOG_WARNING, "Only doing %d samples (%d requested)\n",
-			 MAXSAMPLES, samples);
-		samples = MAXSAMPLES;
+	if (len > sizeof (buf)) {
+		ast_log (LOG_WARNING, "Only doing %d bytes (%d bytes requested)\n", (int)(sizeof (buf) / sizeof (signed short)), len);
+		len = sizeof (buf);
+#ifdef OUTALAW
+		samples = len;
+#else
+		samples = len / 2;
+#endif
 	}
-	len = samples * SAMPLE2LEN + AST_FRIENDLY_OFFSET;
-	buf = alloca(len);
-
+	waste[0] = 0;					 /* make compiler happy */
 	f.frametype = AST_FRAME_VOICE;
 #ifdef OUTALAW
 	f.subclass = AST_FORMAT_ALAW;
@@ -1378,8 +1379,8 @@ static int sms_exec (struct ast_channel *chan, void *data)
 		ast_copy_string (h.cli, chan->cid.cid_num, sizeof (h.cli));
 
 	{
-		unsigned char *p;
-		unsigned char *d = data,
+		char *d = data,
+			*p,
 			answer = 0;
 		if (!*d || *d == '|') {
 			ast_log (LOG_ERROR, "Requires queue name\n");
@@ -1448,7 +1449,7 @@ static int sms_exec (struct ast_channel *chan, void *data)
 			d = p;
 			h.udl = 0;
 			while (*p && h.udl < SMSLEN)
-				h.ud[h.udl++] = utf8decode(&p);
+				h.ud[h.udl++] = utf8decode((unsigned char **)&p);
 			if (is7bit (h.dcs) && packsms7 (0, h.udhl, h.udh, h.udl, h.ud) < 0)
 				ast_log (LOG_WARNING, "Invalid 7 bit GSM data\n");
 			if (is8bit (h.dcs) && packsms8 (0, h.udhl, h.udh, h.udl, h.ud) < 0)

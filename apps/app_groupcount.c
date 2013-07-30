@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 52137 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -70,8 +70,7 @@ static int group_count_exec(struct ast_channel *chan, void *data)
 
 	if (ast_strlen_zero(group)) {
 		grp = pbx_builtin_getvar_helper(chan, category);
-		if (!ast_strlen_zero(grp))
-			ast_copy_string(group, grp, sizeof(group));
+		strncpy(group, grp, sizeof(group) - 1);
 	}
 
 	count = ast_app_group_get_count(group, category);
@@ -153,11 +152,6 @@ static int group_check_exec(struct ast_channel *chan, void *data)
 	if (!deprecation_warning) {
 	        ast_log(LOG_WARNING, "The CheckGroup application has been deprecated, please use a combination of the GotoIf application and the GROUP_COUNT() function.\n");
 		deprecation_warning = 1;
-	}
-
-	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "CheckGroup requires an argument(max[@category][|options])\n");
-		return 0;
 	}
 
 	if (!(parse = ast_strdupa(data))) {
@@ -263,8 +257,8 @@ static char *group_count_descrip =
 "  Calculates the group count for the specified group, or uses\n"
 "the current channel's group if not specifed (and non-empty).\n"
 "Stores result in GROUPCOUNT. \n"
-"Note: This application has been deprecated, please use the function\n"
-"GROUP_COUNT.\n";
+"This application has been deprecated, please use the function\n"
+"GroupCount.\n";
 
 static char *group_set_descrip =
 "Usage: SetGroup(groupname[@category])\n"
@@ -290,8 +284,8 @@ static char *group_match_count_descrip =
 "  Calculates the group count for all groups that match the specified\n"
 "pattern. Uses standard regular expression matching (see regex(7)).\n"
 "Stores result in GROUPCOUNT.  Always returns 0.\n"
-"Note: This application has been deprecated, please use the function\n"
-"GROUP_MATCH_COUNT.\n";
+"This application has been deprecated, please use the function\n"
+"GroupMatchCount.\n";
 
 static char show_channels_usage[] = 
 "Usage: group show channels [pattern]\n"

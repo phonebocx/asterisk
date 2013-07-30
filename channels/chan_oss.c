@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 36998 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h"
@@ -1147,7 +1147,7 @@ static int console_dial(int fd, int argc, char *argv[])
 
 static char dial_usage[] =
 "Usage: dial [extension[@context]]\n"
-"       Dials a given extension (and context if specified)\n";
+"       Dials a given extensison (and context if specified)\n";
 
 static char mute_usage[] =
 "Usage: mute\nMutes the microphone\n";
@@ -1376,9 +1376,6 @@ int load_module(void)
 			store_config(cfg, ctg);
 		} while ( (ctg = ast_category_browse(cfg, ctg)) != NULL);
 		ast_config_destroy(cfg);
-	} else {
-		 ast_log(LOG_NOTICE, "Unable to load config oss.conf\n");
-		 return -1;
 	}
 	if (find_desc(oss_active) == NULL) {
 		ast_log(LOG_NOTICE, "Device %s not found\n", oss_active);

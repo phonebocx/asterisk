@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 45134 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -474,29 +474,6 @@ static char *argument_end(char *str)
 	return NULL;
 }
 
-static void gen_match_to_pattern(const char *pattern, char *result)
-{
-       /* the result will be a string that will be matched by pattern */
-       char *p=(char *)pattern, *t=result;
-       while (*p) {
-               if (*p == 'x' || *p == 'n' || *p == 'z' || *p == 'X' || *p == 'N' || *p == 'Z')
-                       *t++ = '9';
-               else if (*p == '[') {
-                       char *z = p+1;
-                       while (*z != ']')
-                               z++;
-                       if (*(z+1)== ']')
-                               z++;
-                       *t++=*(p+1); /* use the first char in the set */
-                       p = z;
-               } else {
-                       *t++ = *p;
-               }
-               p++;
-       }
-       *t++ = 0; /* cap it off */
-}
-
 static int build_step(const char *what, const char *name, const char *filename, int lineno, struct ast_context *con, char *exten, int *pos, char *data, struct fillin **fillout, char **label);
 static int __build_step(const char *what, const char *name, const char *filename, int lineno, struct ast_context *con, char *exten, int *pos, char *data, struct fillin **fillout, char **label)
 {
@@ -564,12 +541,9 @@ static int __build_step(const char *what, const char *name, const char *filename
 					if (aeldebug & DEBUG_TOKENS)
 						ast_verbose("--NEWCASE: '%s'!\n", newcase);
 					if (curcase) {
-						char zbuf[256];
-
 						/* Handle fall through */
 						char tmp[strlen(newcase) + strlen(name) + 40];
-						gen_match_to_pattern(newcase,zbuf);
-						sprintf(tmp, "sw-%d-%s|%d", *pos - 2, zbuf, 1);
+						sprintf(tmp, "sw-%d-%s|%d", *pos - 2, newcase, 1);
 						ast_add_extension2(con, 0, margs, cpos, NULL, NULL, "Goto", strdup(tmp), FREE, registrar);
 					}
 					curcase = newcase;
@@ -756,11 +730,6 @@ static int __build_step(const char *what, const char *name, const char *filename
 		if (aeldebug & DEBUG_TOKENS)
 			ast_verbose("--GOTO to : '%s'\n", args);
 		app = "Goto";
-		if (args[0] == '(' && args[strlen(args) - 1] == ')') {
-			args[0] = '\0';
-			args++;
-			args[strlen(args) - 1] = '\0';
-		}
 		if (ast_add_extension2(con, 0, exten, (*pos)++, *label, NULL, app, strdup(args), FREE, registrar))
 			ast_log(LOG_WARNING, "Unable to add step at priority '%d' of %s '%s'\n", *pos, what, name);
 		*label = NULL;
@@ -804,8 +773,8 @@ static int __build_step(const char *what, const char *name, const char *filename
 				*label = NULL;
 				/* Remember where the whileblock starts */
 				forblock = (*pos);
-				build_step("for", margs, filename, lineno, con, exten, pos, c, &fillin, label);
 				build_step("for", margs, filename, lineno, con, exten, pos, fields->next->next->data, &fillin, label);
+				build_step("for", margs, filename, lineno, con, exten, pos, c, &fillin, label);
 				/* Close the loop */
 				app = "Goto";
 				snprintf(margs, mlen, "%d", forstart);

@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 44580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/file.h"
@@ -176,7 +176,6 @@ int ast_format_unregister(const char *name)
 		tmpl = tmp;
 		tmp = tmp->next;
 	}
-	ast_mutex_unlock(&formatlock);
 	ast_log(LOG_WARNING, "Tried to unregister format %s, already unregistered\n", name);
 	return -1;
 }
@@ -184,13 +183,10 @@ int ast_format_unregister(const char *name)
 int ast_stopstream(struct ast_channel *tmp)
 {
 	/* Stop a running stream if there is one */
-	if (tmp->vstream) {
+	if (tmp->vstream)
 		ast_closestream(tmp->vstream);
-		tmp->vstream = NULL;
-	}
 	if (tmp->stream) {
 		ast_closestream(tmp->stream);
-		tmp->stream = NULL;
 		if (tmp->oldwriteformat && ast_set_write_format(tmp, tmp->oldwriteformat))
 			ast_log(LOG_WARNING, "Unable to restore format back to %d\n", tmp->oldwriteformat);
 	}
@@ -881,7 +877,6 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 	char *fn, *orig_fn = NULL;
 	char *buf = NULL;
 	size_t size = 0;
-	int format_found = 0;
 
 	if (ast_mutex_lock(&formatlock)) {
 		ast_log(LOG_WARNING, "Unable to lock format list\n");
@@ -901,8 +896,6 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 	for (f = formats; f && !fs; f = f->next) {
 		if (!exts_compare(f->exts, type))
 			continue;
-		else
-			format_found = 1;
 
 		fn = build_filename(filename, type);
 		fd = open(fn, flags | myflags, mode);
@@ -962,8 +955,6 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 					fs->filename = strdup(filename);
 				}
 				fs->vfs = NULL;
-				/* If truncated, we'll be at the beginning; if not truncated, then append */
-				f->seek(fs, 0, SEEK_END);
 			} else {
 				ast_log(LOG_WARNING, "Unable to rewrite %s\n", fn);
 				close(fd);
@@ -983,8 +974,7 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 	}
 
 	ast_mutex_unlock(&formatlock);
-
-	if (!format_found)
+	if (!fs)
 		ast_log(LOG_WARNING, "No such format '%s'\n", type);
 
 	return fs;
@@ -1028,8 +1018,6 @@ int ast_waitstream(struct ast_channel *c, const char *breakon)
 			case AST_FRAME_CONTROL:
 				switch(fr->subclass) {
 				case AST_CONTROL_HANGUP:
-				case AST_CONTROL_BUSY:
-				case AST_CONTROL_CONGESTION:
 					ast_frfree(fr);
 					return -1;
 				case AST_CONTROL_RINGING:
@@ -1098,8 +1086,6 @@ int ast_waitstream_fr(struct ast_channel *c, const char *breakon, const char *fo
 			case AST_FRAME_CONTROL:
 				switch(fr->subclass) {
 				case AST_CONTROL_HANGUP:
-				case AST_CONTROL_BUSY:
-				case AST_CONTROL_CONGESTION:
 					ast_frfree(fr);
 					return -1;
 				case AST_CONTROL_RINGING:
@@ -1169,8 +1155,6 @@ int ast_waitstream_full(struct ast_channel *c, const char *breakon, int audiofd,
 			case AST_FRAME_CONTROL:
 				switch(fr->subclass) {
 				case AST_CONTROL_HANGUP:
-				case AST_CONTROL_BUSY:
-				case AST_CONTROL_CONGESTION:
 					ast_frfree(fr);
 					return -1;
 				case AST_CONTROL_RINGING:
@@ -1236,8 +1220,6 @@ int ast_waitstream_exten(struct ast_channel *c, const char *context)
 			case AST_FRAME_CONTROL:
 				switch(fr->subclass) {
 				case AST_CONTROL_HANGUP:
-				case AST_CONTROL_BUSY:
-				case AST_CONTROL_CONGESTION:
 					ast_frfree(fr);
 					return -1;
 				case AST_CONTROL_RINGING:

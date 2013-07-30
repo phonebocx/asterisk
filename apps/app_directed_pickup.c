@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2005, Joshua Colp
  *
- * Joshua Colp <jcolp@digium.com>
+ * Joshua Colp <jcolp@asterlink.com>
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17905 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -77,7 +77,7 @@ static int pickup_exec(struct ast_channel *chan, void *data)
 
 	/* Find a channel to pickup */
 	origin = ast_get_channel_by_exten_locked(exten, context);
-	if (origin && origin->cdr) {
+	if (origin) {
 		ast_cdr_getvar(origin->cdr, "dstchannel", &tmp, workspace,
 			       sizeof(workspace), 0);
 		if (tmp) {
@@ -89,8 +89,6 @@ static int pickup_exec(struct ast_channel *chan, void *data)
 		}
 		ast_mutex_unlock(&origin->lock);
 	} else {
-		if (origin)
-			ast_mutex_unlock(&origin->lock);
 		ast_log(LOG_DEBUG, "No originating channel found.\n");
 	}
 	

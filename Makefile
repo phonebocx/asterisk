@@ -28,7 +28,6 @@ HOST_CC=gcc
 ifeq ($(CROSS_COMPILE),)
   OSARCH=$(shell uname -s)
   OSREV=$(shell uname -r)
-  OSCPU=$(shell uname -m)
 else
   OSARCH=$(CROSS_ARCH)
   OSREV=$(CROSS_REV)
@@ -36,8 +35,6 @@ endif
 
 # Remember the MAKELEVEL at the top
 MAKETOPLEVEL?=$(MAKELEVEL)
-
-PWD=$(shell pwd)
 
 ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
 ######### More GSM codec optimization
@@ -83,8 +80,6 @@ TRACE_FRAMES = #-DTRACE_FRAMES
 #   *CLI> show memory summary [filename]
 #
 MALLOC_DEBUG = #-include $(PWD)/include/asterisk/astmm.h
-
-INSTALL=install
 
 # Where to install asterisk after compiling
 # Default -> leave empty
@@ -184,6 +179,7 @@ ifeq ($(OSARCH),Linux)
     # You must have GCC 3.4 to use k8, otherwise use athlon
     PROC=k8
     #PROC=athlon
+    OPTIONS+=-m64
   endif
 
   ifeq ($(PROC),sparc64)
@@ -204,25 +200,21 @@ ifeq ($(OSARCH),Linux)
       OPTIONS+=-fsigned-char -mcpu=ep9312
     else
       ifeq ($(SUB_PROC),xscale)
-        OPTIONS+=-fsigned-char -mcpu=xscale
+        OPTIONS+=-fsigned-char -msoft-float -mcpu=xscale
       else
-        OPTIONS+=-fsigned-char 
+        OPTIONS+=-fsigned-char -msoft-float 
       endif
     endif
   endif
   MPG123TARG=linux
 endif
 
+PWD=$(shell pwd)
 GREP=grep
-LN=ln
-ID=id
 
 ifeq ($(OSARCH),SunOS)
   GREP=/usr/xpg4/bin/grep
   M4=/usr/local/bin/m4
-  ID=/usr/xpg4/bin/id
-  LN=/usr/xpg4/bin/ln
-  INSTALL=ginstall
 endif
 
 INCLUDE+=-Iinclude -I../include
@@ -289,10 +281,7 @@ endif
 
 ifeq ($(OSARCH),SunOS)
   ASTCFLAGS+=-Wcast-align -DSOLARIS
-  INCLUDE+=-Iinclude/solaris-compat -I$(CROSS_COMPILE_TARGET)/opt/ssl/include -I$(CROSS_COMPILE_TARGET)/usr/local/ssl/include
-  ifeq ($(OSCPU),sun4u)
-    OPTIMIZE+=-mcpu=v9 -mcpu=ultrasparc
-  endif
+  INCLUDE+=-Iinclude/solaris-compat -I$(CROSS_COMPILE_TARGET)/usr/local/ssl/include
 endif
 
 ifeq ($(findstring CYGWIN,$(OSARCH)),CYGWIN)
@@ -317,7 +306,7 @@ LIBEDIT=editline/libedit.a
 
 ifneq ($(wildcard .version),)
   ASTERISKVERSION:=$(shell cat .version)
-  ASTERISKVERSIONNUM:=$(shell awk -F. '{printf "%01d%02d%02d", $$1, $$2, $$3}' .version)
+  ASTERISKVERSIONNUM:=$(shell awk -F. '{printf "%02d%02d%02d", $$1, $$2, $$3}' .version)
   RPMVERSION:=$(shell sed 's/[-\/:]/_/g' .version)
 else
   RPMVERSION=unknown
@@ -333,6 +322,8 @@ else
   ifneq ($(wildcard .svn),)
     ASTERISKVERSIONNUM=999999
     ASTERISKVERSION=SVN-$(shell build_tools/make_svn_branch_name)
+  else
+    ASTERISKVERSIONNUM=000000
   endif
 endif
 
@@ -341,9 +332,7 @@ ASTCFLAGS+= $(TRACE_FRAMES)
 ASTCFLAGS+= $(MALLOC_DEBUG)
 ASTCFLAGS+= $(BUSYDETECT)
 ASTCFLAGS+= $(OPTIONS)
-ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
 ASTCFLAGS+= -fomit-frame-pointer 
-endif
 SUBDIRS=res channels pbx apps codecs formats agi cdr funcs utils stdtime
 
 OBJS=io.o sched.o logger.o frame.o loader.o config.o channel.o \
@@ -369,11 +358,7 @@ endif
 ifeq ($(OSARCH),Linux)
   LIBS+=-ldl -lpthread -lncurses -lm -lresolv  #-lnjamd
 else
-  ifeq ($(OSARCH),SunOS)
-    LIBS+=-lm -lcurses
-  else
-    LIBS+=-lncurses -lm
-  endif
+  LIBS+=-lncurses -lm
 endif
 
 ifeq ($(OSARCH),Darwin)
@@ -403,10 +388,10 @@ ifeq ($(OSARCH),OpenBSD)
 endif
 
 ifeq ($(OSARCH),SunOS)
-  LIBS+=-lpthread -ldl -lnsl -lsocket -lresolv -L$(CROSS_COMPILE_TARGET)/opt/ssl/lib -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
+  LIBS+=-lpthread -ldl -lnsl -lsocket -lresolv -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
   OBJS+=strcompat.o
   ASTLINK=
-  SOLINK=-shared -fpic -L$(CROSS_COMPILE_TARGET)/opt/ssl/lib -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
+  SOLINK=-shared -fpic -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
 endif
 
 ifeq ($(MAKETOPLEVEL),$(MAKELEVEL))
@@ -421,6 +406,8 @@ else
 endif
 
 LIBS+=-lssl
+
+INSTALL=install
 
 _all: all
 	@echo " +--------- Asterisk Build Complete ---------+"  
@@ -444,10 +431,10 @@ endif
 noclean: depend asterisk subdirs
 
 editline/config.h:
-	cd editline && unset CFLAGS LIBS && CFLAGS="$(OPTIMIZE)" ./configure ; \
+	cd editline && unset CFLAGS LIBS && ./configure ; \
 
 editline/libedit.a: FORCE
-	cd editline && unset CFLAGS LIBS && test -f config.h || CFLAGS="$(OPTIMIZE)" ./configure
+	cd editline && unset CFLAGS LIBS && test -f config.h || ./configure
 	$(MAKE) -C editline libedit.a
 
 db1-ast/libdb1.a: FORCE
@@ -551,21 +538,12 @@ clean:
 	$(MAKE) -C stdtime clean
 
 datafiles: all
-	if [ x`$(ID) -un` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
+	if [ x`whoami` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/silence
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/priv-callerintros
 	for x in sounds/digits/*.gsm; do \
 		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
 			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits ; \
-		else \
-			echo "No description for $$x"; \
-			exit 1; \
-		fi; \
-	done
-	for x in sounds/silence/*.gsm; do \
-		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
-			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/silence ; \
 		else \
 			echo "No description for $$x"; \
 			exit 1; \
@@ -598,7 +576,7 @@ datafiles: all
 			exit 1; \
 		fi; \
 	done
-	for x in sounds/demo-* sounds/vm-* sounds/transfer* sounds/pbx-* sounds/ss-* sounds/beep* sounds/dir-* sounds/conf-* sounds/agent-* sounds/invalid* sounds/tt-* sounds/auth-* sounds/privacy-* sounds/queue-* sounds/spy-* sounds/priv-* sounds/screen-* sounds/hello-* sounds/hours* sounds/minute* sounds/second* ; do \
+	for x in sounds/demo-* sounds/vm-* sounds/transfer* sounds/pbx-* sounds/ss-* sounds/beep* sounds/dir-* sounds/conf-* sounds/agent-* sounds/invalid* sounds/tt-* sounds/auth-* sounds/privacy-* sounds/queue-* sounds/spy-* sounds/priv-* sounds/screen-* sounds/hello-*; do \
 		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
 			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
 		else \
@@ -654,18 +632,20 @@ bininstall: all
 	if [ -f asterisk ]; then $(INSTALL) -m 755 asterisk $(DESTDIR)$(ASTSBINDIR)/; fi
 	if [ -f cygwin/asterisk.exe ]; then $(INSTALL) -m 755 cygwin/asterisk.exe $(DESTDIR)$(ASTSBINDIR)/; fi
 	if [ -f asterisk.dll ]; then $(INSTALL) -m 755 asterisk.dll $(DESTDIR)$(ASTSBINDIR)/; fi
-	$(LN) -sf asterisk $(DESTDIR)$(ASTSBINDIR)/rasterisk
+	ln -sf asterisk $(DESTDIR)$(ASTSBINDIR)/rasterisk
 	$(INSTALL) -m 755 contrib/scripts/astgenkey $(DESTDIR)$(ASTSBINDIR)/
 	$(INSTALL) -m 755 contrib/scripts/autosupport $(DESTDIR)$(ASTSBINDIR)/	
 	if [ ! -f $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ]; then \
 		cat contrib/scripts/safe_asterisk | sed 's|__ASTERISK_SBIN_DIR__|$(ASTSBINDIR)|;' > $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ;\
 		chmod 755 $(DESTDIR)$(ASTSBINDIR)/safe_asterisk;\
 	fi
+	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
 	$(INSTALL) -d $(DESTDIR)$(ASTHEADERDIR)
 	$(INSTALL) -m 644 include/asterisk/*.h $(DESTDIR)$(ASTHEADERDIR)
 	if [ -n "$(OLDHEADERS)" ]; then \
 		rm -f $(addprefix $(DESTDIR)$(ASTHEADERDIR)/,$(OLDHEADERS)) ;\
 	fi
+	rm -f $(DESTDIR)$(ASTVARLIBDIR)/sounds/voicemail
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds
 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-csv
 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-custom
@@ -684,36 +664,8 @@ bininstall: all
 	else \
 		echo "You need to do cvs update -d not just cvs update" ; \
 	fi 
+	( cd $(DESTDIR)$(ASTVARLIBDIR)/sounds  ; ln -s $(ASTSPOOLDIR)/voicemail . )
 	if [ -f mpg123-0.59r/mpg123 ]; then $(MAKE) -C mpg123-0.59r install; fi
-
-install-subdirs:
-	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
-
-NEWMODS=$(notdir $(wildcard */*.so))
-OLDMODS=$(filter-out $(NEWMODS),$(notdir $(wildcard $(DESTDIR)$(MODULES_DIR)/*.so)))
-
-oldmodcheck:
-	@if [ -n "$(OLDMODS)" ]; then \
-		echo " WARNING WARNING WARNING" ;\
-		echo "" ;\
-		echo " Your Asterisk modules directory, located at" ;\
-		echo " $(DESTDIR)$(MODULES_DIR)" ;\
-		echo " contains modules that were not installed by this " ;\
-		echo " version of Asterisk. Please ensure that these" ;\
-		echo " modules are compatible with this version before" ;\
-		echo " attempting to run Asterisk." ;\
-		echo "" ;\
-		for f in $(OLDMODS); do \
-			echo "    $$f" ;\
-		done ;\
-		echo "" ;\
-		echo " WARNING WARNING WARNING" ;\
-	fi
-
-install: all datafiles bininstall install-subdirs
-	@if [ -x /usr/sbin/asterisk-post-install ]; then \
-		/usr/sbin/asterisk-post-install $(DESTDIR) . ; \
-	fi
 	@echo " +---- Asterisk Installation Complete -------+"  
 	@echo " +                                           +"
 	@echo " +    YOU MUST READ THE SECURITY DOCUMENT    +"
@@ -736,6 +688,32 @@ install: all datafiles bininstall install-subdirs
 	@echo " + doxygen installed on your local system    +"
 	@echo " +-------------------------------------------+"
 	@$(MAKE) -s oldmodcheck
+
+NEWMODS=$(notdir $(wildcard */*.so))
+OLDMODS=$(filter-out $(NEWMODS),$(notdir $(wildcard $(DESTDIR)$(MODULES_DIR)/*.so)))
+
+oldmodcheck:
+	@if [ -n "$(OLDMODS)" ]; then \
+		echo " WARNING WARNING WARNING" ;\
+		echo "" ;\
+		echo " Your Asterisk modules directory, located at" ;\
+		echo " $(DESTDIR)$(MODULES_DIR)" ;\
+		echo " contains modules that were not installed by this " ;\
+		echo " version of Asterisk. Please ensure that these" ;\
+		echo " modules are compatible with this version before" ;\
+		echo " attempting to run Asterisk." ;\
+		echo "" ;\
+		for f in $(OLDMODS); do \
+			echo "    $$f" ;\
+		done ;\
+		echo "" ;\
+		echo " WARNING WARNING WARNING" ;\
+	fi
+
+install: all datafiles bininstall
+	@if [ -x /usr/sbin/asterisk-post-install ]; then \
+		/usr/sbin/asterisk-post-install $(DESTDIR) . ; \
+	fi
 
 upgrade: all bininstall
 

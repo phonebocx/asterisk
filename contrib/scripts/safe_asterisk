@@ -34,17 +34,9 @@ fi
 #
 ulimit -c unlimited
 
-#
-# Run scripts to set any environment variables or do any other system-specific setup needed
-#
-
-if [ -d /etc/asterisk/startup.d ]; then
-	for script in /etc/asterisk/startup.d/*.sh; do
-		if [ -x ${script} ]; then
-			source ${script}
-		fi
-	done
-fi
+#launch_asterisk()
+#{
+#}
 
 run_asterisk()
 {

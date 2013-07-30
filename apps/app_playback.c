@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43800 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -110,7 +110,6 @@ static int playback_exec(struct ast_channel *chan, void *data)
 	if (chan->_state != AST_STATE_UP) {
 		if (option_skip) {
 			/* At the user's option, skip if the line is not up */
-			pbx_builtin_setvar_helper(chan, "PLAYBACKSTATUS", "SUCCESS");
 			LOCAL_USER_REMOVE(u);
 			return 0;
 		} else if (!option_noanswer)
@@ -138,11 +137,11 @@ static int playback_exec(struct ast_channel *chan, void *data)
 			}
 			front = back;
 		}
+		if (mres)
+			pbx_builtin_setvar_helper(chan, "PLAYBACKSTATUS", "FAILED");
+		else
+			pbx_builtin_setvar_helper(chan, "PLAYBACKSTATUS", "SUCCESS");
 	}
-	if (mres)
-		pbx_builtin_setvar_helper(chan, "PLAYBACKSTATUS", "FAILED");
-	else
-		pbx_builtin_setvar_helper(chan, "PLAYBACKSTATUS", "SUCCESS");
 	LOCAL_USER_REMOVE(u);
 	return res;
 }

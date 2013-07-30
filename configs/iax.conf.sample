@@ -246,7 +246,7 @@ autokill=yes
 ;
 ; caller   - Consider the callers preferred order ahead of the host's.
 ; host     - Consider the host's preferred order ahead of the caller's.
-; disabled - Disable the consideration of codec preference altogether.
+; disabled - Disable the consideration of codec preference alltogether.
 ;            (this is the original behaviour before preferences were added)
 ; reqonly  - Same as disabled, only do not consider capabilities if
 ;            the requested format is not available the call will only
@@ -272,7 +272,7 @@ autokill=yes
 				; friends expire within this number of seconds instead of the
 				; registration interval.
 
-;rtignoreregexpire=yes		; When reading a peer from Realtime, if the peer's registration
+;rtignoreexpire=yes		; When reading a peer from Realtime, if the peer's registration
 				; has expired based on its registration interval, used the stored
 				; address information regardless. (yes|no)
 
@@ -333,11 +333,6 @@ inkeys=freeworlddialup
 ; keys should always be 3DES encrypted.
 ;
 ;
-; NOTE: All hostnames and IP addresses in this file are for example purposes
-;       only; you should not expect any of them to actually be available for
-;       your use.
-;
-;
 ;[markster]
 ;type=user
 ;context=default
@@ -349,8 +344,6 @@ inkeys=freeworlddialup
 ;notransfer=yes		; Disable IAX native transfer
 ;jitterbuffer=yes	; Override global setting an enable jitter buffer
 ;			; for this user
-;maxauthreq=10		; Set maximum number of outstanding AUTHREQs waiting for replies. Any further authentication attempts will be blocked
-;			; if this limit is reached until they expire or a reply is received.
 ;callerid="Mark Spencer" <(256) 428-6275>
 ;deny=0.0.0.0/0.0.0.0
 ;accountcode=markster0101
@@ -371,7 +364,7 @@ host=216.207.245.47
 ;mask=255.255.255.255
 ;qualify=yes			; Make sure this peer is alive
 ;qualifysmoothing = yes		; use an average of the last two PONG
-				; results to reduce falsely detected LAGGED hosts
+				; results to reduce falsly detected LAGGED hosts
 				; Default: Off
 ;qualifyfreqok = 60000		; how frequently to ping the peer when
 				; everything seems to be ok, in milliseconds
@@ -414,9 +407,7 @@ host=216.207.245.47
 ;type=friend
 ;host=dynamic
 ;regexten=1234
-;secret=moofoo   ; Multiple secrets may be specified. For a "user", all
-;secret=foomoo   ; specified entries will be accepted as valid. For a "peer",
-;secret=shazbot  ; only the last specified secret will be used.
+;secret=moofoo
 ;context=default
 ;permit=0.0.0.0/0.0.0.0
 

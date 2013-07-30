@@ -46,7 +46,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53045 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -799,10 +799,8 @@ static int dundi_answer_entity(struct dundi_transaction *trans, struct dundi_ies
 			memset(&ied, 0, sizeof(ied));
 			dundi_ie_append_cause(&ied, DUNDI_IE_CAUSE, DUNDI_CAUSE_GENERAL, "Out of threads");
 			dundi_send(trans, DUNDI_COMMAND_EIDRESPONSE, 0, 1, &ied);
-			pthread_attr_destroy(&attr);
 			return -1;
 		}
-		pthread_attr_destroy(&attr);
 	} else {
 		ast_log(LOG_WARNING, "Out of memory!\n");
 		memset(&ied, 0, sizeof(ied));
@@ -1032,10 +1030,8 @@ static int dundi_prop_precache(struct dundi_transaction *trans, struct dundi_ies
 			memset(&ied, 0, sizeof(ied));
 			dundi_ie_append_cause(&ied, DUNDI_IE_CAUSE, DUNDI_CAUSE_GENERAL, "Out of threads");
 			dundi_send(trans, DUNDI_COMMAND_PRECACHERP, 0, 1, &ied);
-			pthread_attr_destroy(&attr);
 			return -1;
 		}
-		pthread_attr_destroy(&attr);
 	} else {
 		ast_log(LOG_WARNING, "Out of memory!\n");
 		memset(&ied, 0, sizeof(ied));
@@ -1126,10 +1122,8 @@ static int dundi_answer_query(struct dundi_transaction *trans, struct dundi_ies 
 			memset(&ied, 0, sizeof(ied));
 			dundi_ie_append_cause(&ied, DUNDI_IE_CAUSE, DUNDI_CAUSE_GENERAL, "Out of threads");
 			dundi_send(trans, DUNDI_COMMAND_DPRESPONSE, 0, 1, &ied);
-			pthread_attr_destroy(&attr);
 			return -1;
 		}
-		pthread_attr_destroy(&attr);
 	} else {
 		ast_log(LOG_WARNING, "Out of memory!\n");
 		memset(&ied, 0, sizeof(ied));
@@ -1155,7 +1149,7 @@ static int cache_lookup_internal(time_t now, struct dundi_request *req, char *ke
 	/* Build request string */
 	if (!ast_db_get("dundi/cache", key, data, sizeof(data))) {
 		ptr = data;
-		if (sscanf(ptr, "%d|%n", (int *)&timeout, &length) == 1) {
+		if (sscanf(ptr, "%ld|%n", &timeout, &length) == 1) {
 			expiration = timeout - now;
 			if (expiration > 0) {
 				ast_log(LOG_DEBUG, "Found cache expiring in %d seconds!\n", (int)(timeout - now));
@@ -2038,7 +2032,7 @@ static void save_secret(const char *newkey, const char *oldkey)
 		snprintf(tmp, sizeof(tmp), "%s", newkey);
 	rotatetime = time(NULL) + DUNDI_SECRET_TIME;
 	ast_db_put(secretpath, "secret", tmp);
-	snprintf(tmp, sizeof(tmp), "%d", (int)rotatetime);
+	snprintf(tmp, sizeof(tmp), "%ld", rotatetime);
 	ast_db_put(secretpath, "secretexpiry", tmp);
 }
 
@@ -2050,7 +2044,7 @@ static void load_password(void)
 	time_t expired;
 	
 	ast_db_get(secretpath, "secretexpiry", tmp, sizeof(tmp));
-	if (sscanf(tmp, "%d", (int *)&expired) == 1) {
+	if (sscanf(tmp, "%ld", &expired) == 1) {
 		ast_db_get(secretpath, "secret", tmp, sizeof(tmp));
 		current = strchr(tmp, ';');
 		if (!current)
@@ -4732,7 +4726,6 @@ int unload_module(void)
 	ast_unregister_switch(&dundi_switch);
 	ast_custom_function_unregister(&dundi_function);
 	res = ast_unregister_application(app);
-	sched_context_destroy(sched);
 	return res;
 }
 

@@ -5,8 +5,7 @@
  *
  * Anthony Minessale <anthmct@yahoo.com>
  *
- * A license has been granted to Digium (via disclaimer) for the use of
- * this code.
+ * disclaimed to Digium
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -33,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 34087 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

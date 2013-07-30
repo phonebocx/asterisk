@@ -33,7 +33,6 @@
 
 #include <sys/types.h>
 
-#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -41,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 23898 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/module.h"

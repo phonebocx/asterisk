@@ -1923,6 +1923,8 @@ fi
 if test "x$enable_debug" = "xyes" ; then
   CPPFLAGS="$CPPFLAGS -DDEBUG_TTY -DDEBUG_KEY -DDEBUG_READ -DDEBUG"
   CPPFLAGS="$CPPFLAGS -DDEBUG_REFRESH -DDEBUG_PASTE"
+else
+  CFLAGS="$CFLAGS -O"
 fi
 
 

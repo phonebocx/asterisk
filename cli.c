@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43977 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -360,7 +360,7 @@ static int handle_showuptime(int fd, int argc, char *argv[])
 	if (ast_startuptime) {
 		tmptime = curtime - ast_startuptime;
 		if (printsec) {
-			ast_cli(fd, "System uptime: %lu\n",(u_long)tmptime);
+			ast_cli(fd, "System uptime: %lu\n",tmptime);
 		} else {
 			timestr = format_uptimestr(tmptime);
 			if (timestr) {
@@ -372,7 +372,7 @@ static int handle_showuptime(int fd, int argc, char *argv[])
 	if (ast_lastreloadtime) {
 		tmptime = curtime - ast_lastreloadtime;
 		if (printsec) {
-			ast_cli(fd, "Last reload: %lu\n", (u_long) tmptime);
+			ast_cli(fd, "Last reload: %lu\n", tmptime);
 		} else {
 			timestr = format_uptimestr(tmptime);
 			if ((timestr) && (!printsec)) {
@@ -772,8 +772,8 @@ static int handle_showchan(int fd, int argc, char *argv[])
 		"        Context: %s\n"
 		"      Extension: %s\n"
 		"       Priority: %d\n"
-		"     Call Group: %llu\n"
-		"   Pickup Group: %llu\n"
+		"     Call Group: %d\n"
+		"   Pickup Group: %d\n"
 		"    Application: %s\n"
 		"           Data: %s\n"
 		"    Blocking in: %s\n",
@@ -1363,10 +1363,7 @@ int ast_cli_command(int fd, char *s)
 			if (e) {
 				switch(e->handler(fd, x, argv)) {
 				case RESULT_SHOWUSAGE:
-					if (e->usage)
-						ast_cli(fd, "%s", e->usage);
-					else
-						ast_cli(fd, "%s", "Invalid usage, but no usage information available.\n");
+					ast_cli(fd, "%s", e->usage);
 					break;
 				}
 			} else 

@@ -20,7 +20,6 @@ ifeq ($(findstring BSD,${OSARCH}),BSD)
   CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
 endif
 
-# to get check_expr, add it to the TARGET list
 TARGET=stereorize streamplayer
 
 ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/popt.h)$(wildcard -f $(CROSS_COMPILE_TARGET)/usr/local/include/popt.h),)
@@ -56,13 +55,13 @@ stereorize: stereorize.o frame.o
 	$(CC) $(CFLAGS) -o stereorize stereorize.o frame.o -lm
 
 ast_expr2.o: ../ast_expr2.c
-	gcc -g $(CFLAGS) -c -o $@ $<
+	gcc -g -c -o $@ $<
 
 ast_expr2f.o: ../ast_expr2f.c
-	gcc -g $(CFLAGS) -c -DSTANDALONE -o $@ $<
+	gcc -g -c -DSTANDALONE -o $@ $<
 
 check_expr: check_expr.c ast_expr2.o ast_expr2f.o
-	$(CC) $(CFLAGS) -o $@ check_expr.c ast_expr2.o ast_expr2f.o
+	$(CC) $(CFLAGS) -o $@ $^
 
 smsq: smsq.o
 	$(CC) $(CFLAGS) -o smsq ${SOL} smsq.o -lpopt

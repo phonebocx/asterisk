@@ -45,13 +45,10 @@
 #endif
 #include <unistd.h>
 #include <sys/ioctl.h>
-#ifdef SOLARIS
-#include <thread.h>
-#endif
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53084 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -169,10 +166,6 @@ static void ast_moh_free_class(struct mohclass **class)
 		members = members->next;
 		free(mtmp);
 	}
-	if ((*class)->thread) {
-		pthread_cancel((*class)->thread);
-		(*class)->thread = 0;
-	}
 	free(*class);
 	*class = NULL;
 }
@@ -183,17 +176,13 @@ static void moh_files_release(struct ast_channel *chan, void *data)
 	struct moh_files_state *state = chan->music_state;
 
 	if (chan && state) {
-		if (chan->stream) {
-                        ast_closestream(chan->stream);
-                        chan->stream = NULL;
-                }
 		if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "Stopped music on hold on %s\n", chan->name);
 
 		if (state->origwfmt && ast_set_write_format(chan, state->origwfmt)) {
 			ast_log(LOG_WARNING, "Unable to restore channel '%s' to format '%d'\n", chan->name, state->origwfmt);
 		}
-		state->save_pos = state->pos;
+		state->save_pos = state->pos + 1;
 	}
 }
 
@@ -203,35 +192,38 @@ static int ast_moh_files_next(struct ast_channel *chan)
 	struct moh_files_state *state = chan->music_state;
 	int tries;
 
-	/* Discontinue a stream if it is running already */
-	if (chan->stream) {
-		ast_closestream(chan->stream);
-		chan->stream = NULL;
-	}
-
-	/* If a specific file has been saved, use it */
 	if (state->save_pos) {
-		state->pos = state->save_pos;
+		state->pos = state->save_pos - 1;
 		state->save_pos = 0;
-	} else if (ast_test_flag(state->class, MOH_RANDOMIZE)) {
-		/* Get a random file and ensure we can open it */
-		for (tries = 0; tries < 20; tries++) {
-			state->pos = rand() % state->class->total_files;
-			if (ast_fileexists(state->class->filearray[state->pos], NULL, NULL) > 0)
-				break;
-		}
-		state->samples = 0;
 	} else {
-		/* This is easy, just increment our position and make sure we don't exceed the total file count */
-		state->pos++;
-		state->pos %= state->class->total_files;
-		state->samples = 0;
+		/* Try 20 times to find something good */
+		for (tries=0;tries < 20;tries++) {
+			state->samples = 0;
+			if (chan->stream) {
+				ast_closestream(chan->stream);
+				chan->stream = NULL;
+				state->pos++;
+			}
+
+			if (ast_test_flag(state->class, MOH_RANDOMIZE))
+				state->pos = rand();
+
+			/* check to see if this file's format can be opened */
+			if (ast_fileexists(state->class->filearray[state->pos], NULL, NULL) != -1)
+				break;
+
+		}
 	}
 
+	state->pos = state->pos % state->class->total_files;
+	
+	if (ast_set_write_format(chan, AST_FORMAT_SLINEAR)) {
+		ast_log(LOG_WARNING, "Unable to set '%s' to linear format (write)\n", chan->name);
+		return -1;
+	}
 	if (!ast_openstream_full(chan, state->class->filearray[state->pos], chan->language, 1)) {
 		ast_log(LOG_WARNING, "Unable to open file '%s': %s\n", state->class->filearray[state->pos], strerror(errno));
 		state->pos++;
-		state->pos %= state->class->total_files;
 		return -1;
 	}
 
@@ -299,14 +291,18 @@ static void *moh_files_alloc(struct ast_channel *chan, void *params)
 			/* initialize */
 			memset(state, 0, sizeof(struct moh_files_state));
 			state->class = class;
-			if (ast_test_flag(state->class, MOH_RANDOMIZE))
-				state->pos = rand() % class->total_files;
 		}
 
 		state->origwfmt = chan->writeformat;
 
-		if (option_verbose > 2)
-			ast_verbose(VERBOSE_PREFIX_3 "Started music on hold, class '%s', on %s\n", class->name, chan->name);
+		if (ast_set_write_format(chan, AST_FORMAT_SLINEAR)) {
+			ast_log(LOG_WARNING, "Unable to set '%s' to linear format (write)\n", chan->name);
+			free(chan->music_state);
+			chan->music_state = NULL;
+		} else {
+			if (option_verbose > 2)
+				ast_verbose(VERBOSE_PREFIX_3 "Started music on hold, class '%s', on %s\n", class->name, chan->name);
+		}
 	}
 	
 	return chan->music_state;
@@ -330,7 +326,6 @@ static int spawn_mp3(struct mohclass *class)
 	int argc = 0;
 	DIR *dir = NULL;
 	struct dirent *de;
-	sigset_t signal_set, old_set;
 
 	
 	if (!strcasecmp(class->dir, "nodir")) {
@@ -431,11 +426,6 @@ static int spawn_mp3(struct mohclass *class)
 	if (time(NULL) - class->start < respawn_time) {
 		sleep(respawn_time - (time(NULL) - class->start));
 	}
-
-	/* Block signals during the fork() */
-	sigfillset(&signal_set);
-	pthread_sigmask(SIG_BLOCK, &signal_set, &old_set);
-
 	time(&class->start);
 	class->pid = fork();
 	if (class->pid < 0) {
@@ -446,14 +436,6 @@ static int spawn_mp3(struct mohclass *class)
 	}
 	if (!class->pid) {
 		int x;
-
-		if (option_highpriority)
-			ast_set_priority(0);
-
-		/* Reset ignored signals back to default */
-		signal(SIGPIPE, SIG_DFL);
-		pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL);
-
 		close(fds[0]);
 		/* Stdout goes to pipe */
 		dup2(fds[1], STDOUT_FILENO);
@@ -477,10 +459,9 @@ static int spawn_mp3(struct mohclass *class)
 		}
 		ast_log(LOG_WARNING, "Exec failed: %s\n", strerror(errno));
 		close(fds[1]);
-		_exit(1);
+		exit(1);
 	} else {
 		/* Parent */
-		pthread_sigmask(SIG_SETMASK, &old_set, NULL);
 		close(fds[1]);
 	}
 	return fds[0];
@@ -501,23 +482,17 @@ static void *monmp3thread(void *data)
 	tv.tv_sec = 0;
 	tv.tv_usec = 0;
 	for(;/* ever */;) {
-		pthread_testcancel();
 		/* Spawn mp3 player if it's not there */
 		if (class->srcfd < 0) {
 			if ((class->srcfd = spawn_mp3(class)) < 0) {
 				ast_log(LOG_WARNING, "Unable to spawn mp3player\n");
 				/* Try again later */
 				sleep(500);
-				pthread_testcancel();
 			}
 		}
 		if (class->pseudofd > -1) {
-#ifdef SOLARIS
-			thr_yield();
-#endif
 			/* Pause some amount of time */
 			res = read(class->pseudofd, buf, sizeof(buf));
-			pthread_testcancel();
 		} else {
 			long delta;
 			/* Reliable sleep */
@@ -528,7 +503,6 @@ static void *monmp3thread(void *data)
 			if (delta < MOH_MS_INTERVAL) {	/* too early */
 				tv = ast_tvadd(tv, ast_samp2tv(MOH_MS_INTERVAL, 1000));	/* next deadline */
 				usleep(1000 * (MOH_MS_INTERVAL - delta));
-				pthread_testcancel();
 			} else {
 				ast_log(LOG_NOTICE, "Request to schedule in the past?!?!\n");
 				tv = tv_tmp;
@@ -544,12 +518,7 @@ static void *monmp3thread(void *data)
 			if (!res2) {
 				close(class->srcfd);
 				class->srcfd = -1;
-				pthread_testcancel();
 				if (class->pid) {
-					kill(class->pid, SIGHUP);
-					usleep(100000);
-					kill(class->pid, SIGTERM);
-					usleep(100000);
 					kill(class->pid, SIGKILL);
 					class->pid = 0;
 				}
@@ -557,7 +526,6 @@ static void *monmp3thread(void *data)
 				ast_log(LOG_DEBUG, "Read %d bytes of audio while expecting %d\n", res2, len);
 			continue;
 		}
-		pthread_testcancel();
 		ast_mutex_lock(&moh_lock);
 		moh = class->members;
 		while (moh) {
@@ -777,7 +745,7 @@ static int moh_scan_files(struct mohclass *class) {
 	
 	files_DIR = opendir(class->dir);
 	if (!files_DIR) {
-		ast_log(LOG_WARNING, "Cannot open dir %s or dir does not exist\n", class->dir);
+		ast_log(LOG_WARNING, "Cannot open dir %s or dir does not exist", class->dir);
 		return -1;
 	}
 
@@ -788,10 +756,6 @@ static int moh_scan_files(struct mohclass *class) {
 	memset(class->filearray, 0, MAX_MOHFILES*MAX_MOHFILE_LEN);
 	while ((files_dirent = readdir(files_DIR))) {
 		if ((strlen(files_dirent->d_name) < 4) || ((strlen(files_dirent->d_name) + dirnamelen) >= MAX_MOHFILE_LEN))
-			continue;
-
-		/* Skip files that start with a dot */
-		if (files_dirent->d_name[0] == '.')
 			continue;
 
 		snprintf(filepath, MAX_MOHFILE_LEN, "%s/%s", class->dir, files_dirent->d_name);
@@ -814,11 +778,6 @@ static int moh_scan_files(struct mohclass *class) {
 
 		if (i == class->total_files)
 			strcpy(class->filearray[class->total_files++], filepath);
-
-		/* If the new total files is equal to the maximum allowed, stop adding new ones */
-		if (class->total_files == MAX_MOHFILES)
-			break;
-
 	}
 
 	closedir(files_DIR);
@@ -1114,13 +1073,6 @@ static void ast_moh_destroy(void)
 			stime = time(NULL) + 2;
 			pid = moh->pid;
 			moh->pid = 0;
-			/* Back when this was just mpg123, SIGKILL was fine.  Now we need
-			 * to give the process a reason and time enough to kill off its
-			 * children. */
-			kill(pid, SIGHUP);
-			usleep(100000);
-			kill(pid, SIGTERM);
-			usleep(100000);
 			kill(pid, SIGKILL);
 			while ((ast_wait_for_input(moh->srcfd, 100) > 0) && (bytes = read(moh->srcfd, buff, 8192)) && time(NULL) < stime) {
 				tbytes = tbytes + bytes;
@@ -1240,7 +1192,7 @@ int load_module(void)
 		res = ast_register_application(app4, moh4_exec, synopsis4, descrip4);
 
 	if (!init_classes(0)) { 	/* No music classes configured, so skip it */
-		ast_log(LOG_WARNING, "No music on hold classes configured, disabling music on hold.\n");
+		ast_log(LOG_WARNING, "No music on hold classes configured, disabling music on hold.");
 	} else {
 		ast_install_music_functions(local_ast_moh_start, local_ast_moh_stop, local_ast_moh_cleanup);
 	}

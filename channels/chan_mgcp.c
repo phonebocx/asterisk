@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2006, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -88,7 +88,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53045 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -1428,12 +1428,10 @@ static struct ast_channel *mgcp_new(struct mgcp_subchannel *sub, int state)
 		strncpy(tmp->call_forward, i->call_forward, sizeof(tmp->call_forward) - 1);
 		strncpy(tmp->context, i->context, sizeof(tmp->context)-1);
 		strncpy(tmp->exten, i->exten, sizeof(tmp->exten)-1);
-
 		if (!ast_strlen_zero(i->cid_num))
 			tmp->cid.cid_num = strdup(i->cid_num);
 		if (!ast_strlen_zero(i->cid_name))
 			tmp->cid.cid_name = strdup(i->cid_name);
-		
 		if (!i->adsi)
 			tmp->adsicpe = AST_ADSI_UNAVAILABLE;
 		tmp->priority = 1;
@@ -2476,14 +2474,12 @@ static void handle_response(struct mgcp_endpoint *p, struct mgcp_subchannel *sub
 						if (strncasecmp(v, p->sub->cxident, len) &&
 						    strncasecmp(v, p->sub->next->cxident, len)) {
 							/* connection id not found. delete it */
-							char cxident[80] = "";
-
-							if (len > (sizeof(cxident) - 1))
-								len = sizeof(cxident) - 1;
-							ast_copy_string(cxident, v, len);
+							char cxident[80];
+							memcpy(cxident, v, len);
+							cxident[len] = '\0';
 							if (option_verbose > 2) {
 								ast_verbose(VERBOSE_PREFIX_3 "Non existing connection id %s on %s@%s \n", 
-									    cxident, p->name, gw->name);
+									cxident, p->name, gw->name);
 							}
 							transmit_connection_del_w_params(p, NULL, cxident);
 						}
@@ -2625,10 +2621,21 @@ static void *mgcp_ss(void *data)
 					/*res = tone_zone_play_tone(p->subs[index].zfd, -1);*/
 					ast_indicate(chan, -1);
 					strncpy(chan->exten, exten, sizeof(chan->exten)-1);
-					ast_set_callerid(chan,
-							p->hidecallerid ? "" : p->cid_num,
-							p->hidecallerid ? "" : p->cid_name,
-							p->cid_num);
+					if (!ast_strlen_zero(p->cid_num)) {
+						if (!p->hidecallerid) {
+							/* SC: free existing chan->callerid */
+							if (chan->cid.cid_num)
+								free(chan->cid.cid_num);
+							chan->cid.cid_num = strdup(p->cid_num);
+							/* SC: free existing chan->callerid */
+							if (chan->cid.cid_name)
+								free(chan->cid.cid_name);
+							chan->cid.cid_name = strdup(p->cid_name);
+						}
+						if (chan->cid.cid_ani)
+							free(chan->cid.cid_ani);
+						chan->cid.cid_ani = strdup(p->cid_num);
+					}
 					ast_setstate(chan, AST_STATE_RING);
 					/*zt_enable_ec(p);*/
 					if (p->dtmfmode & MGCP_DTMF_HYBRID) {
@@ -2685,7 +2692,12 @@ static void *mgcp_ss(void *data)
 			}
 			/* Disable Caller*ID if enabled */
 			p->hidecallerid = 1;
-			ast_set_callerid(chan, "", "", NULL);
+			if (chan->cid.cid_num)
+				free(chan->cid.cid_num);
+			chan->cid.cid_num = NULL;
+			if (chan->cid.cid_name)
+				free(chan->cid.cid_name);
+			chan->cid.cid_name = NULL;
 			/*res = tone_zone_play_tone(p->subs[index].zfd, ZT_TONE_DIALRECALL);*/
 			transmit_notify_request(sub, "L/sl");
 			len = 0;
@@ -2764,7 +2776,14 @@ static void *mgcp_ss(void *data)
 			}
 			/* Enable Caller*ID if enabled */
 			p->hidecallerid = 0;
-			ast_set_callerid(chan, p->cid_num, p->cid_name, NULL);
+			if (chan->cid.cid_num)
+				free(chan->cid.cid_num);
+			if (!ast_strlen_zero(p->cid_num))
+				chan->cid.cid_num = strdup(p->cid_num);
+			if (chan->cid.cid_name)
+				free(chan->cid.cid_name);
+			if (!ast_strlen_zero(p->cid_name))
+				chan->cid.cid_name = strdup(p->cid_name);
 			/*res = tone_zone_play_tone(p->subs[index].zfd, ZT_TONE_DIALRECALL);*/
 			transmit_notify_request(sub, "L/sl");
 			len = 0;
@@ -2963,7 +2982,6 @@ static void handle_hd_hf(struct mgcp_subchannel *sub, char *ev)
 			/*ast_queue_control(sub->owner, AST_CONTROL_ANSWER);*/
 		}
 	}
-	pthread_attr_destroy(&attr);
 }
 
 static int handle_request(struct mgcp_subchannel *sub, struct mgcp_request *req, struct sockaddr_in *sin)
@@ -3451,6 +3469,10 @@ static void *do_monitor(void *data)
 
 static int restart_monitor(void)
 {
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);	
+
 	/* If we're supposed to be stopped -- stay stopped */
 	if (monitor_thread == AST_PTHREADT_STOP)
 		return 0;
@@ -3468,7 +3490,7 @@ static int restart_monitor(void)
 		pthread_kill(monitor_thread, SIGURG);
 	} else {
 		/* Start a new monitor */
-		if (ast_pthread_create(&monitor_thread, NULL, do_monitor, NULL) < 0) {
+		if (ast_pthread_create(&monitor_thread, &attr, do_monitor, NULL) < 0) {
 			ast_mutex_unlock(&monlock);
 			ast_log(LOG_ERROR, "Unable to start monitor thread.\n");
 			return -1;
@@ -4370,7 +4392,6 @@ int unload_module()
 	ast_cli_unregister(&cli_debug);
 	ast_cli_unregister(&cli_no_debug);
 	ast_cli_unregister(&cli_mgcp_reload);
-	sched_context_destroy(sched);
 
 	return 0;
 }

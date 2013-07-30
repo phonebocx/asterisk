@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53039 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7233 $")
 
 #include "asterisk/rtp.h"
 #include "asterisk/frame.h"
@@ -90,7 +90,6 @@ struct ast_rtp {
 	unsigned char rawdata[8192 + AST_FRIENDLY_OFFSET];
 	/*! Synchronization source, RFC 3550, page 10. */
 	unsigned int ssrc;
-	unsigned int rxssrc;
 	unsigned int lastts;
 	unsigned int lastdigitts;
 	unsigned int lastrxts;
@@ -437,11 +436,9 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 	int ext;
 	int x;
 	char iabuf[INET_ADDRSTRLEN];
-	unsigned int ssrc;
 	unsigned int timestamp;
 	unsigned int *rtpheader;
-	struct ast_frame *f;
-	static struct ast_frame null_frame = { AST_FRAME_NULL, };
+	static struct ast_frame *f, null_frame = { AST_FRAME_NULL, };
 	struct rtpPayloadType rtpPT;
 	
 	len = sizeof(sin);
@@ -495,15 +492,6 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 	ext = seqno & (1 << 28);
 	seqno &= 0xffff;
 	timestamp = ntohl(rtpheader[1]);
-	ssrc = ntohl(rtpheader[2]);
-	
-	if (!mark && rtp->rxssrc && rtp->rxssrc != ssrc) {
-		if (option_debug || rtpdebug)
-			ast_log(LOG_DEBUG, "Forcing Marker bit, because SSRC has changed\n");
-		mark = 1;
-	}
-
-	rtp->rxssrc = ssrc;
 	
 	if (padding) {
 		/* Remove padding bytes */
@@ -522,7 +510,7 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 	}
 
 	if(rtp_debug_test_addr(&sin))
-		ast_verbose("Got RTP packet from %s:%u (type %d, seq %u, ts %u, len %d)\n"
+		ast_verbose("Got RTP packet from %s:%d (type %d, seq %d, ts %d, len %d)\n"
 			, ast_inet_ntoa(iabuf, sizeof(iabuf), sin.sin_addr), ntohs(sin.sin_port), payloadtype, seqno, timestamp,res - hdrlen);
 
    rtpPT = ast_rtp_lookup_pt(rtp, payloadtype);
@@ -962,10 +950,8 @@ struct ast_rtp *ast_rtp_new_with_bindaddr(struct sched_context *sched, struct io
 		rtp->us.sin_port = htons(x);
 		rtp->us.sin_addr = addr;
 		/* If there's rtcp, initialize it as well. */
-		if (rtp->rtcp) {
-			rtp->rtcp->us.sin_addr = addr;
+		if (rtp->rtcp)
 			rtp->rtcp->us.sin_port = htons(x + 1);
-		}
 		/* Try to bind it/them. */
 		if (!(first = bind(rtp->s, (struct sockaddr *)&rtp->us, sizeof(rtp->us))) &&
 			(!rtp->rtcp || !bind(rtp->rtcp->s, (struct sockaddr *)&rtp->rtcp->us, sizeof(rtp->rtcp->us))))
@@ -1043,17 +1029,11 @@ void ast_rtp_set_peer(struct ast_rtp *rtp, struct sockaddr_in *them)
 	rtp->rxseqno = 0;
 }
 
-int ast_rtp_get_peer(struct ast_rtp *rtp, struct sockaddr_in *them)
+void ast_rtp_get_peer(struct ast_rtp *rtp, struct sockaddr_in *them)
 {
-	if ((them->sin_family != AF_INET) ||
-	    (them->sin_port != rtp->them.sin_port) ||
-	    (them->sin_addr.s_addr != rtp->them.sin_addr.s_addr)) {
-		them->sin_family = AF_INET;
-		them->sin_port = rtp->them.sin_port;
-		them->sin_addr = rtp->them.sin_addr;
-		return 1;
-	}
-	return 0;
+	them->sin_family = AF_INET;
+	them->sin_port = rtp->them.sin_port;
+	them->sin_addr = rtp->them.sin_addr;
 }
 
 void ast_rtp_get_us(struct ast_rtp *rtp, struct sockaddr_in *us)
@@ -1463,8 +1443,6 @@ int ast_rtp_write(struct ast_rtp *rtp, struct ast_frame *_f)
 			f = _f;
 		}
 		ast_rtp_raw_write(rtp, f, codec);
-		if (f != _f)
-			ast_frfree(f);
 	}
 		
 	return 0;

@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2006, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 54771 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -90,7 +90,7 @@ static char *descrip =
 "and stdout.\n"
 "Returns -1 on hangup (except for DeadAGI) or if application requested\n"
 " hangup, or 0 on non-hangup exit. \n"
-"Using 'EAGI' provides enhanced AGI, with incoming audio available out of band\n"
+"Using 'EAGI' provides enhanced AGI, with incoming audio available out of band"
 "on file descriptor 3\n\n"
 "Use the CLI command 'show agi' to list available agi commands\n";
 
@@ -140,7 +140,6 @@ static int launch_netscript(char *agiurl, char *argv[], int *fds, int *efd, int 
 	struct sockaddr_in sin;
 	struct hostent *hp;
 	struct ast_hostent ahp;
-	int res;
 
 	host = ast_strdupa(agiurl + 6);	/* Remove agi:// */
 	if (!host)
@@ -190,27 +189,17 @@ static int launch_netscript(char *agiurl, char *argv[], int *fds, int *efd, int 
 		close(s);
 		return -1;
 	}
-
 	pfds[0].fd = s;
 	pfds[0].events = POLLOUT;
-	while ((res = poll(pfds, 1, MAX_AGI_CONNECT)) != 1) {
-		if (errno != EINTR) {
-			if (!res) {
-				ast_log(LOG_WARNING, "FastAGI connection to '%s' timed out after MAX_AGI_CONNECT (%d) milliseconds.\n",
-					agiurl, MAX_AGI_CONNECT);
-			} else
-				ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
-			close(s);
-			return -1;
-		}
+	if (poll(pfds, 1, MAX_AGI_CONNECT) != 1) {
+		ast_log(LOG_WARNING, "Connect to '%s' failed!\n", agiurl);
+		close(s);
+		return -1;
 	}
-
-	while (write(s, "agi_network: yes\n", strlen("agi_network: yes\n")) < 0) {
-		if (errno != EINTR) {
-			ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
-			close(s);
-			return -1;
-		}
+	if (write(s, "agi_network: yes\n", strlen("agi_network: yes\n")) < 0) {
+		ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
+		close(s);
+		return -1;
 	}
 
 	/* If we have a script parameter, relay it to the fastagi server */
@@ -234,7 +223,7 @@ static int launch_script(char *script, char *argv[], int *fds, int *efd, int *op
 	int audio[2];
 	int x;
 	int res;
-	sigset_t signal_set, old_set;
+	sigset_t signal_set;
 	
 	if (!strncasecmp(script, "agi://", 6))
 		return launch_netscript(script, argv, fds, efd, opid);
@@ -276,19 +265,12 @@ static int launch_script(char *script, char *argv[], int *fds, int *efd, int *op
 			return -1;
 		}
 	}
-
-	/* Block SIGHUP during the fork - prevents a race */
-	sigfillset(&signal_set);
-	pthread_sigmask(SIG_BLOCK, &signal_set, &old_set);
 	pid = fork();
 	if (pid < 0) {
 		ast_log(LOG_WARNING, "Failed to fork(): %s\n", strerror(errno));
 		return -1;
 	}
 	if (!pid) {
-		/* Don't run AGI scripts with realtime priority -- it causes audio stutter */
-		ast_set_priority(0);
-
 		/* Redirect stdin and out, provide enhanced audio channel if desired */
 		dup2(fromast[0], STDIN_FILENO);
 		dup2(toast[1], STDOUT_FILENO);
@@ -297,33 +279,26 @@ static int launch_script(char *script, char *argv[], int *fds, int *efd, int *op
 		} else {
 			close(STDERR_FILENO + 1);
 		}
-
-		/* Before we unblock our signals, return our trapped signals back to the defaults */
-		signal(SIGHUP, SIG_DFL);
-		signal(SIGCHLD, SIG_DFL);
-		signal(SIGINT, SIG_DFL);
-		signal(SIGURG, SIG_DFL);
-		signal(SIGTERM, SIG_DFL);
-		signal(SIGPIPE, SIG_DFL);
-		signal(SIGXFSZ, SIG_DFL);
-
+		
 		/* unblock important signal handlers */
-		if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL)) {
+		if (sigfillset(&signal_set) || pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL)) {
 			ast_log(LOG_WARNING, "unable to unblock signals for AGI script: %s\n", strerror(errno));
-			_exit(1);
+			exit(1);
 		}
 
 		/* Close everything but stdin/out/error */
 		for (x=STDERR_FILENO + 2;x<1024;x++) 
 			close(x);
 
+		/* Don't run AGI scripts with realtime priority -- it causes audio stutter */
+		ast_set_priority(0);
+
 		/* Execute script */
 		execv(script, argv);
 		/* Can't use ast_log since FD's are closed */
 		fprintf(stderr, "Failed to execute '%s': %s\n", script, strerror(errno));
-		_exit(1);
+		exit(1);
 	}
-	pthread_sigmask(SIG_SETMASK, &old_set, NULL);
 	if (option_verbose > 2) 
 		ast_verbose(VERBOSE_PREFIX_3 "Launched AGI Script %s\n", script);
 	fds[0] = toast[0];
@@ -521,12 +496,12 @@ static int handle_controlstreamfile(struct ast_channel *chan, AGI *agi, int argc
 	if ((argc > 5) && (sscanf(argv[5], "%d", &skipms) != 1))
 		return RESULT_SHOWUSAGE;
 
-	if (argc > 6 && !ast_strlen_zero(argv[6]))
+	if (argc > 6 && !ast_strlen_zero(argv[8]))
 		fwd = argv[6];
 	else
 		fwd = "#";
 
-	if (argc > 7 && !ast_strlen_zero(argv[7]))
+	if (argc > 7 && !ast_strlen_zero(argv[8]))
 		rev = argv[7];
 	else
 		rev = "*";
@@ -960,9 +935,6 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, char 
 			return RESULT_FAILURE;
 		}
 		
-		/* Request a video update */
-		ast_indicate(chan, AST_CONTROL_VIDUPDATE);
-	
 		chan->stream = fs;
 		ast_applystream(chan,fs);
 		/* really should have checks */
@@ -1020,13 +992,11 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, char 
                                         }
                                         if (totalsilence > silence) {
                                              /* Ended happily with silence */
+                                        	ast_frfree(f);
                                                 gotsilence = 1;
                                                 break;
                                         }
                             	}
-				break;
-			case AST_FRAME_VIDEO:
-				ast_writestream(fs, f);
 				break;
 			}
 			ast_frfree(f);
@@ -1837,6 +1807,11 @@ static int agi_handle_command(struct ast_channel *chan, AGI *agi, char *buf)
 	argc = MAX_ARGS;
 
 	parse_args(buf, &argc, argv);
+#if	0
+	{ int x;
+	for (x=0; x<argc; x++) 
+		fprintf(stderr, "Got Arg%d: %s\n", x, argv[x]); }
+#endif
 	c = find_command(argv, 0);
 	if (c) {
 		res = c->handler(chan, agi, argc, argv);
@@ -1996,7 +1971,7 @@ static int handle_dumpagihtml(int fd, int argc, char *argv[]) {
 			continue;
 
 		fprintf(htmlfile, "<TR><TD><TABLE BORDER=\"1\" CELLPADDING=\"5\" WIDTH=\"100%%\">\n");
-		fprintf(htmlfile, "<TR><TH ALIGN=\"CENTER\"><B>%s - %s</B></TH></TR>\n", fullcmd,e->summary);
+		fprintf(htmlfile, "<TR><TH ALIGN=\"CENTER\"><B>%s - %s</B></TD></TR>\n", fullcmd,e->summary);
 
 
 		stringp=e->usage;
@@ -2041,8 +2016,9 @@ static int agi_exec_full(struct ast_channel *chan, void *data, int enhanced, int
 	ast_copy_string(buf, data, sizeof(buf));
 
 	memset(&agi, 0, sizeof(agi));
-        while ((stringp = strsep(&tmp, "|")) && argc < MAX_ARGS - 1)
+        while ((stringp = strsep(&tmp, "|"))) {
 		argv[argc++] = stringp;
+        }
 	argv[argc] = NULL;
 
 	LOCAL_USER_ADD(u);
@@ -2061,8 +2037,7 @@ static int agi_exec_full(struct ast_channel *chan, void *data, int enhanced, int
 		agi.ctrl = fds[0];
 		agi.audio = efd;
 		res = run_agi(chan, argv[0], &agi, pid, dead);
-		if (fds[1] != fds[0])
-			close(fds[1]);
+		close(fds[1]);
 		if (efd > -1)
 			close(efd);
 	}

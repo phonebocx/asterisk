@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 33466 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/options.h"
@@ -100,7 +100,6 @@ static int measurenoise(struct ast_channel *chan, int ms, char *who)
 				samples++;
 			}
 		}
-		ast_frfree(f);
 	}
 
 	if (rformat) {

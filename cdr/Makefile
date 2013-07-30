@@ -32,7 +32,7 @@ endif
 #the default as we now have a better instruction set to work with. - Belgarath
 ifeq ($(PROC),sparc64)
  PROC=ultrasparc
-  CFLAGS += -mtune=$(PROC) -pipe -fomit-frame-pointer -mcpu=v8
+  CFLAGS += -mtune=$(PROC) -O3 -pipe -fomit-frame-pointer -mcpu=v8
 endif
 
 #
@@ -45,18 +45,14 @@ endif
 #
 # FreeTDS stuff...
 #
-ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/tds.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/tds.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/include/freetds/tds.h),)
-  ifeq ($(shell grep -s TDS_VERSION_NO $(CROSS_COMPILE_TARGET)/usr/include/tdsver.h $(CROSS_COMPILE_TARGET)/usr/local/include/tdsver.h $(CROSS_COMPILE_TARGET)/usr/include/freetds/tdsver.h | grep -c 0.64),1)
-    CFLAGS += -DFREETDS_0_64
-  else
-    ifeq ($(shell grep -s TDS_VERSION_NO $(CROSS_COMPILE_TARGET)/usr/include/tdsver.h $(CROSS_COMPILE_TARGET)/usr/local/include/tdsver.h $(CROSS_COMPILE_TARGET)/usr/include/freetds/tdsver.h | grep -c 0.63),1)
+ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/tds.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/tds.h),)
+  ifeq ($(shell grep -s TDS_VERSION_NO $(CROSS_COMPILE_TARGET)/usr/include/tdsver.h $(CROSS_COMPILE_TARGET)/usr/local/include/tdsver.h | grep -c 0.63),1)
     CFLAGS += -DFREETDS_0_63
+  else
+	ifeq ($(shell grep -s TDS_VERSION_NO $(CROSS_COMPILE_TARGET)/usr/include/tdsver.h $(CROSS_COMPILE_TARGET)/usr/local/include/tdsver.h | grep -c 0.62),1)
+      CFLAGS += -DFREETDS_0_62
     else
-	  ifeq ($(shell grep -s TDS_VERSION_NO $(CROSS_COMPILE_TARGET)/usr/include/tdsver.h $(CROSS_COMPILE_TARGET)/usr/local/include/tdsver.h $(CROSS_COMPILE_TARGET)/usr/include/freetds/tdsver.h | grep -c 0.62),1)
-        CFLAGS += -DFREETDS_0_62
-      else
-        CFLAGS += -DFREETDS_PRE_0_62
-      endif
+      CFLAGS += -DFREETDS_PRE_0_62
     endif
   endif
   MODS+=cdr_tds.so
@@ -65,7 +61,7 @@ endif
 #
 # PGSQL stuff...  Autoconf anyone??
 #
-ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/postgresql/libpq-fe.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/pgsql/include/libpq-fe.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/include/pgsql/libpq-fe.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/pgsql/libpq-fe.h)$(wildcard $(CROSS_COMPILE_TARGET)/opt/pgsql/include/libpq-fe.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/include/libpq-fe.h),)
+ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/postgresql)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/pgsql/include)$(wildcard $(CROSS_COMPILE_TARGET)/usr/include/pgsql)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/pgsql)$(wildcard $(CROSS_COMPILE_TARGET)/opt/pgsql/include)$(wildcard $(CROSS_COMPILE_TARGET)/usr/include/libpq-fe.h),)
   MODS+=cdr_pgsql.so
 endif
 

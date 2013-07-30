@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53074 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -41,22 +41,15 @@
 
 static char *function_fieldqty(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
 {
-	char *varname, *varsubst, varval[8192] = "", *varval2 = varval;
+	char *varname, *varval, workspace[256];
 	char *delim = ast_strdupa(data);
 	int fieldcount = 0;
 
 	if (delim) {
 		varname = strsep(&delim, "|");
-		varsubst = alloca(strlen(varname) + 4);
-
-		sprintf(varsubst, "${%s}", varname);
-		pbx_substitute_variables_helper(chan, varsubst, varval, sizeof(varval) - 1);
-		if (delim) {
-			while (strsep(&varval2, delim))
-				fieldcount++;
-		} else if (!ast_strlen_zero(varval)) {
-			fieldcount = 1;
-		}
+		pbx_retrieve_variable(chan, varname, &varval, workspace, sizeof(workspace), NULL);
+		while (strsep(&varval, delim))
+			fieldcount++;
 		snprintf(buf, len, "%d", fieldcount);
 	} else {
 		ast_log(LOG_ERROR, "Out of memory\n");
@@ -92,9 +85,10 @@ static char *builtin_function_regex(struct ast_channel *chan, char *cmd, char *d
 	/* Regex in quotes */
 	arg = strchr(tmp, '"');
 	if (arg) {
-		earg = ++arg;
-		strsep(&earg, "\"");
+		arg++;
+		earg = strrchr(arg, '"');
 		if (earg) {
+			*earg++ = '\0';
 			/* Skip over any spaces before the data we are checking */
 			while (*earg == ' ')
 				earg++;

@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2006, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56850 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -712,7 +712,7 @@ static int handle_context_add_include(int fd, int argc, char *argv[])
 	if (argc != 5) return RESULT_SHOWUSAGE;
 
 	/* third arg must be 'in' ... */
-	if (strcmp(argv[3], "in") && strcmp(argv[3], "into")) return RESULT_SHOWUSAGE;
+	if (strcmp(argv[3], "in")) return RESULT_SHOWUSAGE;
 
 	if (ast_context_add_include(argv[4], argv[2], registrar)) {
 		switch (errno) {
@@ -724,7 +724,7 @@ static int handle_context_add_include(int fd, int argc, char *argv[])
 
 			case EEXIST:
 				ast_cli(fd, "Context '%s' already included in '%s' context\n",
-					argv[2], argv[4]); break;
+					argv[1], argv[3]); break;
 
 			case ENOENT:
 			case EINVAL:
@@ -733,14 +733,14 @@ static int handle_context_add_include(int fd, int argc, char *argv[])
 
 			default:
 				ast_cli(fd, "Failed to include '%s' in '%s' context\n",
-					argv[2], argv[4]); break;
+					argv[1], argv[3]); break;
 		}
 		return RESULT_FAILURE;
 	}
 
 	/* show some info ... */
 	ast_cli(fd, "Context '%s' included in '%s' context\n",
-		argv[2], argv[4]);
+		argv[2], argv[3]);
 
 	return RESULT_SUCCESS;
 }
@@ -985,12 +985,9 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 	}
 
 	/* fireout general info */
-	fprintf(output, "[general]\nstatic=%s\nwriteprotect=%s\nautofallthrough=%s\nclearglobalvars=%s\npriorityjumping=%s\n\n",
+	fprintf(output, "[general]\nstatic=%s\nwriteprotect=%s\n\n",
 		static_config ? "yes" : "no",
-		write_protect_config ? "yes" : "no",
-		autofallthrough_config ? "yes" : "no",
-		clearglobalvars_config ? "yes" : "no",
-		option_priority_jumping ? "yes" : "no");
+		write_protect_config ? "yes" : "no");
 
 	if ((v = ast_variable_browse(cfg, "globals"))) {
 		fprintf(output, "[globals]\n");
@@ -1045,42 +1042,36 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 						}
 
 						if (ast_get_extension_priority(p)!=PRIORITY_HINT) {
-							char *tempdata, *startdata;
-							const char *el = ast_get_extension_label(p);
-							char label[128] = "";
-
-							tempdata = ast_strdupa(ast_get_extension_app_data(p));
-
-							startdata = tempdata;
-							while (*tempdata) {
-								if (*tempdata == '|')
-									*tempdata = ',';
-								tempdata++;
+							char *tempdata = NULL, *startdata;
+							tempdata = strdup((char *)ast_get_extension_app_data(p));
+							if (tempdata) {
+								startdata = tempdata;
+								while (*tempdata) {
+									if (*tempdata == '|')
+										*tempdata = ',';
+									tempdata++;
+								}
+								tempdata = startdata;
 							}
-							tempdata = startdata;
-							
-							if (el && (snprintf(label, sizeof(label), "(%s)", el) != (strlen(el) + 2)))
-								incomplete = 1; // error encountered or label is > 125 chars
-
-							if (ast_get_extension_matchcid(p)) {
-								fprintf(output, "exten => %s/%s,%d%s,%s(%s)\n",
+							if (ast_get_extension_matchcid(p))
+								fprintf(output, "exten => %s/%s,%d,%s(%s)\n",
 								    ast_get_extension_name(p),
 								    ast_get_extension_cidmatch(p),
-								    ast_get_extension_priority(p), label,
+								    ast_get_extension_priority(p),
 								    ast_get_extension_app(p),
 								    tempdata);
-							} else {
-								fprintf(output, "exten => %s,%d%s,%s(%s)\n",
+							else
+								fprintf(output, "exten => %s,%d,%s(%s)\n",
 								    ast_get_extension_name(p),
-								    ast_get_extension_priority(p), label,
+								    ast_get_extension_priority(p),
 								    ast_get_extension_app(p),
 								    tempdata);
-							}
-						} else {
+							if (tempdata)
+								free(tempdata);
+						} else
 							fprintf(output, "exten => %s,hint,%s\n",
 							    ast_get_extension_name(p),
 							    ast_get_extension_app(p));
-						}
 						
 					}
 					p = ast_walk_extension_priorities(e, p);
@@ -1432,8 +1423,6 @@ static int pbx_load_module(void);
 static int handle_reload_extensions(int fd, int argc, char *argv[])
 {
 	if (argc!=2) return RESULT_SHOWUSAGE;
-	if (clearglobalvars_config)
-		pbx_builtin_clear_globals();
 	pbx_load_module();
 	return RESULT_SUCCESS;
 }
@@ -1756,9 +1745,7 @@ static int pbx_load_module(void)
 								}
 							}
 							free(tc);
-						} else {
-							ast_log(LOG_ERROR, "Memory allocation failure\n");
-						}
+						} else fprintf(stderr,"Error strdup returned NULL in %s\n",__PRETTY_FUNCTION__);
 					} else if(!strcasecmp(v->name, "include")) {
 						memset(realvalue, 0, sizeof(realvalue));
 						pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
@@ -1821,6 +1808,7 @@ int load_module(void)
 
 int reload(void)
 {
+	ast_context_destroy(NULL, registrar);
 	if (clearglobalvars_config)
 		pbx_builtin_clear_globals();
 	pbx_load_module();

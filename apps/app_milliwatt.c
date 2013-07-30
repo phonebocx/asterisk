@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8232 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -73,29 +73,30 @@ static void milliwatt_release(struct ast_channel *chan, void *data)
 static int milliwatt_generate(struct ast_channel *chan, void *data, int len, int samples)
 {
 	struct ast_frame wf;
-	unsigned char buf[AST_FRIENDLY_OFFSET + 640];
+	unsigned char waste[AST_FRIENDLY_OFFSET];
+	unsigned char buf[640];
 	int i,*indexp = (int *) data;
 
-	if (len + AST_FRIENDLY_OFFSET > sizeof(buf))
+	if (len > sizeof(buf))
 	{
-		ast_log(LOG_WARNING,"Only doing %d bytes (%d bytes requested)\n",(int)(sizeof(buf) - AST_FRIENDLY_OFFSET),len);
-		len = sizeof(buf) - AST_FRIENDLY_OFFSET;
+		ast_log(LOG_WARNING,"Only doing %d bytes (%d bytes requested)\n",(int)sizeof(buf),len);
+		len = sizeof(buf);
 	}
+	waste[0] = 0; /* make compiler happy */
 	wf.frametype = AST_FRAME_VOICE;
 	wf.subclass = AST_FORMAT_ULAW;
 	wf.offset = AST_FRIENDLY_OFFSET;
 	wf.mallocd = 0;
-	wf.data = buf + AST_FRIENDLY_OFFSET;
+	wf.data = buf;
 	wf.datalen = len;
 	wf.samples = wf.datalen;
 	wf.src = "app_milliwatt";
 	wf.delivery.tv_sec = 0;
 	wf.delivery.tv_usec = 0;
-	wf.prev = wf.next = NULL;
 	/* create a buffer containing the digital milliwatt pattern */
 	for(i = 0; i < len; i++)
 	{
-		buf[AST_FRIENDLY_OFFSET + i] = digital_milliwatt[(*indexp)++];
+		buf[i] = digital_milliwatt[(*indexp)++];
 		*indexp &= 7;
 	}
 	if (ast_write(chan,&wf) < 0)

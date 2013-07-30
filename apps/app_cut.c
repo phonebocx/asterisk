@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47780 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -48,7 +48,7 @@ static char *app_cut = "Cut";
 static char *cut_synopsis = "Splits a variable's contents using the specified delimiter";
 
 static char *cut_descrip =
-"  Cut(newvar=varname,delimiter,fieldspec): This application will split the\n"
+"  Cut(newvar=varname,delimiter,fieldspec): This applicaiton will split the\n"
 "contents of a variable based on the given delimeter and store the result in\n"
 "a new variable.\n"
 "Parameters:\n"
@@ -66,7 +66,7 @@ static char *app_sort_descrip =
 "  Sort(newvar=key1:val1[,key2:val2[[...],keyN:valN]]): This application will\n"
 "sort the list provided in ascending order. The result will be stored in the\n"
 "specified variable name.\n"
-"  This application has been deprecated in favor of the SORT function.\n";
+"  This applicaiton has been deprecated in favor of the SORT function.\n";
 
 STANDARD_LOCAL_USER;
 
@@ -145,9 +145,8 @@ static int sort_internal(struct ast_channel *chan, char *data, char *buffer, siz
 		int blen = strlen(buffer);
 		if (element_count++) {
 			strncat(buffer + blen, ",", buflen - blen - 1);
-			blen++;
 		}
-		strncat(buffer + blen, sortable_keys[count2].key, buflen - blen - 1);
+		strncat(buffer + blen + 1, sortable_keys[count2].key, buflen - blen - 2);
 	}
 
 	return 0;

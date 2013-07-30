@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48374 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7269 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -53,7 +53,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48374 $")
 #include "asterisk/config.h"
 #include "asterisk/utils.h"
 #include "asterisk/lock.h"
-#include "asterisk/options.h"
 
 #define FESTIVAL_CONFIG "festival.conf"
 
@@ -127,26 +126,16 @@ static int send_waveform_to_fd(char *waveform, int length, int fd) {
 #ifdef __PPC__ 
 	char c;
 #endif
-	sigset_t fullset, oldset;
-
-	sigfillset(&fullset);
-	pthread_sigmask(SIG_BLOCK, &fullset, &oldset);
 
         res = fork();
         if (res < 0)
                 ast_log(LOG_WARNING, "Fork failed\n");
-        if (res) {
-		pthread_sigmask(SIG_SETMASK, &oldset, NULL);
+        if (res)
                 return res;
-	}
         for (x=0;x<256;x++) {
                 if (x != fd)
                         close(x);
         }
-	if (option_highpriority)
-		ast_set_priority(0);
-	signal(SIGPIPE, SIG_DFL);
-	pthread_sigmask(SIG_UNBLOCK, &fullset, NULL);
 /*IAS */
 #ifdef __PPC__  
 	for( x=0; x<length; x+=2)
@@ -186,8 +175,7 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);
 	ast_stopstream(chan);
-	ast_indicate(chan, -1);
-	
+
 	owriteformat = chan->writeformat;
 	res = ast_set_write_format(chan, AST_FORMAT_SLINEAR);
 	if (res < 0) {
@@ -241,13 +229,11 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 					myf.f.data = myf.frdata;
 					if (ast_write(chan, &myf.f) < 0) {
 						res = -1;
-						ast_frfree(f);
 						break;
 					}
 					if (res < needed) { /* last frame */
 						ast_log(LOG_DEBUG, "Last frame\n");
 						res=0;
-						ast_frfree(f);
 						break;
 					}
 				} else {
@@ -478,10 +464,7 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
                         * */
                        if ( read_data == -1 )
                        {
-                               ast_log(LOG_WARNING,"Unable to read from cache/festival fd\n");
-			       close(fd);
-			       ast_config_destroy(cfg);
-			       LOCAL_USER_REMOVE(u);
+                               ast_log(LOG_WARNING,"Unable to read from cache/festival fd");
                                return -1;
                        }
                        n += read_data;

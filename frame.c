@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47859 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h"
@@ -157,8 +157,6 @@ int __ast_smoother_feed(struct ast_smoother *s, struct ast_frame *f, int swap)
 			/* Optimize by sending the frame we just got
 			   on the next read, thus eliminating the douple
 			   copy */
-			if (swap)
-				ast_swapcopy_samples(f->data, f->data, f->samples);
 			s->opt = f;
 			return 0;
 		} else {
@@ -169,8 +167,6 @@ int __ast_smoother_feed(struct ast_smoother *s, struct ast_frame *f, int swap)
 				   we were unable to optimize because there was still
 				   some cruft left over.  Lets just drop the cruft so
 				   we can move to a fully optimized path */
-				if (swap)
-					ast_swapcopy_samples(f->data, f->data, f->samples);
 				s->len = 0;
 				s->opt = f;
 				return 0;
@@ -202,7 +198,7 @@ struct ast_frame *ast_smoother_read(struct ast_smoother *s)
 	/* IF we have an optimization frame, send it */
 	if (s->opt) {
 		if (s->opt->offset < AST_FRIENDLY_OFFSET)
-			ast_log(LOG_WARNING, "Returning a frame of inappropriate offset (%d).\n",
+			ast_log(LOG_WARNING, "Returning a frame of inappropriate offset (%d).",
 							s->opt->offset);
 		opt = s->opt;
 		s->opt = NULL;
@@ -257,9 +253,9 @@ static struct ast_frame *ast_frame_header_new(void)
 		memset(f, 0, sizeof(struct ast_frame));
 #ifdef TRACE_FRAMES
 	if (f) {
+		headers++;
 		f->prev = NULL;
 		ast_mutex_lock(&framelock);
-		headers++;
 		f->next = headerlist;
 		if (headerlist)
 			headerlist->prev = f;
@@ -286,8 +282,8 @@ void ast_frfree(struct ast_frame *fr)
 	}
 	if (fr->mallocd & AST_MALLOCD_HDR) {
 #ifdef TRACE_FRAMES
-		ast_mutex_lock(&framelock);
 		headers--;
+		ast_mutex_lock(&framelock);
 		if (fr->next)
 			fr->next->prev = fr->prev;
 		if (fr->prev)
@@ -308,8 +304,6 @@ void ast_frfree(struct ast_frame *fr)
 struct ast_frame *ast_frisolate(struct ast_frame *fr)
 {
 	struct ast_frame *out;
-	void *newdata;
-
 	if (!(fr->mallocd & AST_MALLOCD_HDR)) {
 		/* Allocate a new header if needed */
 		out = ast_frame_header_new();
@@ -324,41 +318,27 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr)
 		out->offset = fr->offset;
 		out->src = NULL;
 		out->data = fr->data;
-	} else
+	} else {
 		out = fr;
-	
+	}
 	if (!(fr->mallocd & AST_MALLOCD_SRC)) {
-		if (fr->src) {
+		if (fr->src)
 			out->src = strdup(fr->src);
-			if (!out->src) {
-				if (out != fr)
-					free(out);
-				ast_log(LOG_WARNING, "Out of memory\n");
-				return NULL;
-			}
-		}
 	} else
 		out->src = fr->src;
-	
 	if (!(fr->mallocd & AST_MALLOCD_DATA))  {
-		newdata = malloc(fr->datalen + AST_FRIENDLY_OFFSET);
-		if (!newdata) {
-			if (out->src != fr->src)
-				free((void *) out->src);
-			if (out != fr)
-				free(out);
+		out->data = malloc(fr->datalen + AST_FRIENDLY_OFFSET);
+		if (!out->data) {
+			free(out);
 			ast_log(LOG_WARNING, "Out of memory\n");
 			return NULL;
 		}
-		newdata += AST_FRIENDLY_OFFSET;
+		out->data += AST_FRIENDLY_OFFSET;
 		out->offset = AST_FRIENDLY_OFFSET;
 		out->datalen = fr->datalen;
-		memcpy(newdata, fr->data, fr->datalen);
-		out->data = newdata;
+		memcpy(out->data, fr->data, fr->datalen);
 	}
-
 	out->mallocd = AST_MALLOCD_HDR | AST_MALLOCD_SRC | AST_MALLOCD_DATA;
-	
 	return out;
 }
 
@@ -378,7 +358,7 @@ struct ast_frame *ast_frdup(struct ast_frame *f)
 		srclen = strlen(f->src);
 	if (srclen > 0)
 		len += srclen + 1;
-	buf = calloc(1, len);
+	buf = malloc(len);
 	if (!buf)
 		return NULL;
 	out = buf;
@@ -391,15 +371,16 @@ struct ast_frame *ast_frdup(struct ast_frame *f)
 	out->delivery = f->delivery;
 	out->mallocd = AST_MALLOCD_HDR;
 	out->offset = AST_FRIENDLY_OFFSET;
-	if (out->datalen) {
-		out->data = buf + sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET;
-		memcpy(out->data, f->data, out->datalen);	
-	}
+	out->data = buf + sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET;
 	if (srclen > 0) {
-		out->src = buf + sizeof(*out) + AST_FRIENDLY_OFFSET + f->datalen;
+		out->src = out->data + f->datalen;
 		/* Must have space since we allocated for it */
 		strcpy((char *)out->src, f->src);
-	}
+	} else
+		out->src = NULL;
+	out->prev = NULL;
+	out->next = NULL;
+	memcpy(out->data, f->data, out->datalen);	
 	return out;
 }
 
@@ -839,11 +820,11 @@ static int show_frame_stats(int fd, int argc, char *argv[])
 	int x=1;
 	if (argc != 3)
 		return RESULT_SHOWUSAGE;
-	ast_mutex_lock(&framelock);
 	ast_cli(fd, "     Framer Statistics     \n");
 	ast_cli(fd, "---------------------------\n");
 	ast_cli(fd, "Total allocated headers: %d\n", headers);
 	ast_cli(fd, "Queue Dump:\n");
+	ast_mutex_lock(&framelock);
 	for (f=headerlist; f; f = f->next) {
 		ast_cli(fd, "%d.  Type %d, subclass %d from %s\n", x++, f->frametype, f->subclass, f->src ? f->src : "<Unknown>");
 	}

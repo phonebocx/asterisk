@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53117 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/config.h"
 #include "asterisk/cli.h"
@@ -120,8 +120,6 @@ void ast_variable_append(struct ast_category *category, struct ast_variable *var
 	else
 		category->root = variable;
 	category->last = variable;
-	while (category->last->next)
-		category->last = category->last->next;
 }
 
 void ast_variables_destroy(struct ast_variable *v)
@@ -303,7 +301,6 @@ struct ast_variable *ast_category_detach_variables(struct ast_category *cat)
 
 	v = cat->root;
 	cat->root = NULL;
-	cat->last = NULL;
 
 	return v;
 }
@@ -473,7 +470,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 				/* #exec </path/to/executable>
 				   We create a tmp file, then we #include it, then we delete it. */
 				if (do_exec) { 
-					snprintf(exec_file, sizeof(exec_file), "/var/tmp/exec.%d.%ld", (int)time(NULL), (long)pthread_self());
+					snprintf(exec_file, sizeof(exec_file), "/var/tmp/exec.%ld.%ld", time(NULL), (long)pthread_self());
 					snprintf(cmd, sizeof(cmd), "%s > %s 2>&1", cur, exec_file);
 					ast_safe_system(cmd);
 					cur = exec_file;
@@ -582,21 +579,21 @@ static struct ast_config *config_text_file_load(const char *database, const char
 			ast_log(LOG_WARNING, "'%s' is not a regular file, ignoring\n", fn);
 			continue;
 		}
-		if (option_verbose > 1) {
+		if ((option_verbose > 1) && !option_debug) {
 			ast_verbose(VERBOSE_PREFIX_2 "Parsing '%s': ", fn);
 			fflush(stdout);
 		}
 		if (!(f = fopen(fn, "r"))) {
 			if (option_debug)
 				ast_log(LOG_DEBUG, "No file to parse: %s\n", fn);
-			if (option_verbose > 1)
+			else if (option_verbose > 1)
 				ast_verbose( "Not found (%s)\n", strerror(errno));
 			continue;
 		}
 		count++;
 		if (option_debug)
 			ast_log(LOG_DEBUG, "Parsing %s\n", fn);
-		if (option_verbose > 1)
+		else if (option_verbose > 1)
 			ast_verbose("Found\n");
 		while(!feof(f)) {
 			lineno++;
@@ -651,7 +648,7 @@ static struct ast_config *config_text_file_load(const char *database, const char
 				if (process_buf) {
 					char *buf = ast_strip(process_buf);
 					if (!ast_strlen_zero(buf)) {
-						if (process_text_line(cfg, &cat, buf, lineno, fn)) {
+						if (process_text_line(cfg, &cat, buf, lineno, filename)) {
 							cfg = NULL;
 							break;
 						}
@@ -700,14 +697,11 @@ int config_text_file_save(const char *configfile, const struct ast_config *cfg, 
 #else
 	if ((f = fopen(fn, "w"))) {
 #endif	    
-		if (option_verbose > 1)
-			ast_verbose(VERBOSE_PREFIX_2 "Saving '%s': ", fn);
+		if ((option_verbose > 1) && !option_debug)
+			ast_verbose(  VERBOSE_PREFIX_2 "Saving '%s': ", fn);
 		fprintf(f, ";!\n");
 		fprintf(f, ";! Automatically generated configuration file\n");
-		if (strcmp(configfile, fn))
-			fprintf(f, ";! Filename: %s (%s)\n", configfile, fn);
-		else
-			fprintf(f, ";! Filename: %s\n", configfile);
+		fprintf(f, ";! Filename: %s (%s)\n", configfile, fn);
 		fprintf(f, ";! Generator: %s\n", generator);
 		fprintf(f, ";! Creation Date: %s", date);
 		fprintf(f, ";!\n");
@@ -737,9 +731,9 @@ int config_text_file_save(const char *configfile, const struct ast_config *cfg, 
 		}
 	} else {
 		if (option_debug)
-			ast_log(LOG_DEBUG, "Unable to open for writing: %s\n", fn);
-		if (option_verbose > 1)
-			ast_verbose(VERBOSE_PREFIX_2 "Unable to write (%s)", strerror(errno));
+			printf("Unable to open for writing: %s\n", fn);
+		else if (option_verbose > 1)
+			printf( "Unable to write (%s)", strerror(errno));
 		return -1;
 	}
 	fclose(f);

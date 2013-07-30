@@ -21,8 +21,7 @@ ifndef OPENH323DIR
 OPENH323DIR=$(HOME)/openh323
 endif
 
-clean:
-	rm -f *.so *.o .depend
+include $(OPENH323DIR)/openh323u.mak
 
 $(SOURCES)::	$(SOURCES:.cxx=.cpp)
 	ln -f $< $@
@@ -31,7 +30,6 @@ $(SOURCES)::	Makefile ../../Makefile
 	touch $(SOURCES)
 
 libchanh323.a:	$(OBJS)
-	include $(OPENH323DIR)/openh323u.mak
 	ar crv $@ $(OBJS)
 
 Makefile.ast:	FORCE

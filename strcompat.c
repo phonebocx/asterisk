@@ -33,22 +33,25 @@ char* strsep(char** str, const char* delims)
 int setenv(const char *name, const char *value, int overwrite)
 {
 	unsigned char *buf;
-	int buflen;
+	int buflen, ret;
 
 	buflen = strlen(name) + strlen(value) + 2;
-	if (!(buf = alloca(buflen)))
+	if ((buf = malloc(buflen)) == NULL)
  		return -1;
 
 	if (!overwrite && getenv(name))
 		return 0;
 
 	snprintf(buf, buflen, "%s=%s", name, value);
+	ret = putenv(buf);
 
-	return putenv(buf);
+	free(buf);
+
+	return ret;
 }
 
 int unsetenv(const char *name)
 {
-	return setenv(name, "", 0);
+  setenv(name,"",0);
 }
 

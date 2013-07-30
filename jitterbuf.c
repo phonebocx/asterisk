@@ -6,8 +6,7 @@
  * Contributors:
  * Steve Kann <stevek@stevek.com>
  *
- * A license has been granted to Digium (via disclaimer) for the use of
- * this code.
+ * Copyright on this file is disclaimed to Digium for inclusion in Asterisk
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -33,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 52264 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "jitterbuf.h"
 
@@ -159,7 +158,7 @@ static int history_put(jitterbuf *jb, long ts, long now, long ms)
 		}
 	}
 
-	kicked = jb->history[jb->hist_ptr % JB_HISTORY_SZ];
+	kicked = jb->history[jb->hist_ptr & JB_HISTORY_SZ];
 
 	jb->history[(jb->hist_ptr++) % JB_HISTORY_SZ] = delay;
 
@@ -761,8 +760,8 @@ static int _jb_get(jitterbuf *jb, jb_frame *frameout, long now, long interpl)
 long jb_next(jitterbuf *jb) 
 {
 	if (jb->info.silence_begin_ts) {
-		if (jb->frames) {
-			long next = queue_next(jb);
+		long next = queue_next(jb);
+		if (next > 0) { 
 			history_get(jb);
 			/* shrink during silence */
 			if (jb->info.target - jb->info.current < -JB_TARGET_EXTRA)

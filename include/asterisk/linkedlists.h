@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2006, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  * Kevin P. Fleming <kpfleming@digium.com>
@@ -101,23 +101,6 @@ struct name {								\
 }
 
 /*!
-  \brief Defines initial values for a declaration of AST_LIST_HEAD
-*/
-#define AST_LIST_HEAD_INIT_VALUE	{		\
-	.first = NULL,					\
-	.last = NULL,					\
-	.lock = AST_MUTEX_INIT_VALUE,			\
-	}
-
-/*!
-  \brief Defines initial values for a declaration of AST_LIST_HEAD_NOLOCK
-*/
-#define AST_LIST_HEAD_NOLOCK_INIT_VALUE	{	\
-	.first = NULL,					\
-	.last = NULL,					\
-	}
-
-/*!
   \brief Defines a structure to be used to hold a list of specified type, statically initialized.
   \param name This will be the name of the defined structure.
   \param type This is the type of each list entry.
@@ -139,18 +122,11 @@ struct name {								\
 	struct type *first;						\
 	struct type *last;						\
 	ast_mutex_t lock;						\
-} name = AST_LIST_HEAD_INIT_VALUE
-
-/*!
-  \brief Defines a structure to be used to hold a list of specified type, statically initialized.
-
-  This is the same as AST_LIST_HEAD_STATIC, except without the lock included.
-*/
-#define AST_LIST_HEAD_NOLOCK_STATIC(name, type)				\
-struct name {								\
-	struct type *first;						\
-	struct type *last;						\
-} name = AST_LIST_HEAD_NOLOCK_INIT_VALUE
+} name = {								\
+	.first = NULL,							\
+	.last = NULL,							\
+	.lock = AST_MUTEX_INIT_VALUE,					\
+};
 
 /*!
   \brief Initializes a list head structure with a specified first entry.
@@ -206,12 +182,6 @@ struct {								\
   \param head This is a pointer to the list head structure
  */
 #define	AST_LIST_FIRST(head)	((head)->first)
-
-/*!
-  \brief Returns the last entry contained in a list.
-  \param head This is a pointer to the list tail structure
- */
-#define	AST_LIST_LAST(head)	((head)->last)
 
 /*!
   \brief Returns the next entry in the list after the given entry.
@@ -304,12 +274,9 @@ struct {								\
 #define AST_LIST_TRAVERSE_SAFE_BEGIN(head, var, field) {				\
 	typeof((head)->first) __list_next;						\
 	typeof((head)->first) __list_prev = NULL;					\
-	typeof((head)->first) __new_prev = NULL;					\
-	for ((var) = (head)->first, __new_prev = (var),					\
-	      __list_next = (var) ? (var)->field.next : NULL;				\
+	for ((var) = (head)->first,  __list_next = (var) ? (var)->field.next : NULL;	\
 	     (var);									\
-	     __list_prev = __new_prev, (var) = __list_next,				\
-	     __new_prev = (var),							\
+	     __list_prev = (var), (var) = __list_next,					\
 	     __list_next = (var) ? (var)->field.next : NULL				\
 	    )
 
@@ -325,7 +292,6 @@ struct {								\
   previous entry, if any).
  */
 #define AST_LIST_REMOVE_CURRENT(head, field)						\
-	__new_prev = __list_prev;							\
 	if (__list_prev)								\
 		__list_prev->field.next = __list_next;					\
 	else										\
@@ -370,8 +336,7 @@ struct {								\
   \param head This is a pointer to the list head structure
 
   This macro initializes a list head structure by setting the head
-  entry to \a NULL (empty list). There is no embedded lock handling
-  with this macro.
+  entry to \a NULL (empty list) and recreating the embedded lock.
 */
 #define AST_LIST_HEAD_INIT_NOLOCK(head) {				\
 	(head)->first = NULL;						\
@@ -416,8 +381,7 @@ struct {								\
   used to link entries of this list together.
 
   Note: The link field in the appended entry is \b not modified, so if it is
-  actually the head of a list itself, the entire list will be appended
-  temporarily (until the next AST_LIST_INSERT_TAIL is performed).
+  actually the head of a list itself, the entire list will be appended.
  */
 #define AST_LIST_INSERT_TAIL(head, elm, field) do {			\
       if (!(head)->first) {						\
@@ -426,23 +390,6 @@ struct {								\
       } else {								\
 		(head)->last->field.next = (elm);			\
 		(head)->last = (elm);					\
-      }									\
-} while (0)
-
-/*!
-  \brief Appends a whole list to the tail of a list.
-  \param head This is a pointer to the list head structure
-  \param list This is a pointer to the list to be appended.
-  \param field This is the name of the field (declared using AST_LIST_ENTRY())
-  used to link entries of this list together.
- */
-#define AST_LIST_APPEND_LIST(head, list, field) do {			\
-      if (!(head)->first) {						\
-		(head)->first = (list)->first;				\
-		(head)->last = (list)->last;				\
-      } else {								\
-		(head)->last->field.next = (list)->first;		\
-		(head)->last = (list)->last;				\
       }									\
 } while (0)
 
@@ -477,19 +424,15 @@ struct {								\
 #define AST_LIST_REMOVE(head, elm, field) do {			        \
 	if ((head)->first == (elm)) {					\
 		(head)->first = (elm)->field.next;			\
-		if ((head)->last == (elm))			\
-			(head)->last = NULL;			\
-	} else {								\
-		typeof(elm) curelm = (head)->first;			\
-		while (curelm && (curelm->field.next != (elm)))			\
-			curelm = curelm->field.next;			\
-		if (curelm) { \
-			curelm->field.next = (elm)->field.next;			\
-			if ((head)->last == (elm))				\
-				(head)->last = curelm;				\
-		} \
 	}								\
-        (elm)->field.next = NULL;                                       \
+	else {								\
+		typeof(elm) curelm = (head)->first;			\
+		while (curelm->field.next != (elm))			\
+			curelm = curelm->field.next;			\
+		curelm->field.next = (elm)->field.next;			\
+	}								\
+	if ((head)->last == elm)					\
+		(head)->last = NULL;					\
 } while (0)
 
 #endif /* _ASTERISK_LINKEDLISTS_H */

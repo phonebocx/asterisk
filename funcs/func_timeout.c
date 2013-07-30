@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43924 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -43,7 +43,7 @@ static char *builtin_function_timeout_read(struct ast_channel *chan, char *cmd, 
 	time_t myt;
 
 	if (!data) {
-		ast_log(LOG_ERROR, "Must specify type of timeout to get.\n");
+		ast_log(LOG_ERROR, "Must specify type of timeout to get.");
                 return NULL;
 	}
 	
@@ -73,7 +73,7 @@ static char *builtin_function_timeout_read(struct ast_channel *chan, char *cmd, 
 		break;
 
 	default:
-		ast_log(LOG_ERROR, "Unknown timeout type specified.\n");
+		ast_log(LOG_ERROR, "Unknown timeout type specified.");
 		break;
 	}
 
@@ -87,7 +87,7 @@ static void builtin_function_timeout_write(struct ast_channel *chan, char *cmd, 
 	struct tm myt;
 
 	if (!data) {
-		ast_log(LOG_ERROR, "Must specify type of timeout to set.\n");
+		ast_log(LOG_ERROR, "Must specify type of timeout to set.");
 		return;
 	}
 	
@@ -129,7 +129,7 @@ static void builtin_function_timeout_write(struct ast_channel *chan, char *cmd, 
 		break;
 
 	default:
-		ast_log(LOG_ERROR, "Unknown timeout type specified.\n");
+		ast_log(LOG_ERROR, "Unknown timeout type specified.");
 		break;
 	}
 }

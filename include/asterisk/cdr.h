@@ -32,8 +32,8 @@
 
 #define AST_CDR_NOANSWER			(1 << 0)
 #define AST_CDR_BUSY				(1 << 1)
-#define AST_CDR_FAILED				(1 << 2)
-#define AST_CDR_ANSWERED			(1 << 3)
+#define AST_CDR_ANSWERED			(1 << 2)
+#define AST_CDR_FAILED				(1 << 3)
 
 /*! AMA Flags */
 #define AST_CDR_OMIT				(1)
@@ -74,13 +74,13 @@ struct ast_cdr {
 	
 	struct timeval end;
 	/*! Total time in system, in seconds */
-	long int duration;				
+	int duration;				
 	/*! Total time call is up, in seconds */
-	long int billsec;				
+	int billsec;				
 	/*! What happened to the call */
-	long int disposition;			
+	int disposition;			
 	/*! What flags to use */
-	long int amaflags;				
+	int amaflags;				
 	/*! What account number to use */
 	char accountcode[AST_MAX_ACCOUNT_CODE];			
 	/*! flags */

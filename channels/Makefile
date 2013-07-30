@@ -16,8 +16,6 @@
 
 CHANNEL_LIBS=chan_sip.so chan_agent.so chan_mgcp.so chan_iax2.so chan_local.so chan_skinny.so chan_features.so
 
-SUBDIRS=misdn h323
-
 ifneq (${OSARCH},CYGWIN)
 # if you really, really want to use these drivers, uncomment the line below
 #CHANNEL_LIBS+=chan_modem.so chan_modem_aopen.so chan_modem_bestdata.so
@@ -46,7 +44,7 @@ endif
 
 ifeq ($(PROC),sparc64)
   PROC=ultrasparc
-  CFLAGS += -mtune=$(PROC) -pipe -fomit-frame-pointer -mcpu=v8
+  CFLAGS += -mtune=$(PROC) -O3 -pipe -fomit-frame-pointer -mcpu=v8
 endif
 
 ifeq (${OSARCH},FreeBSD)
@@ -83,9 +81,8 @@ ifneq ($(wildcard h323/libchanh323.a),)
   CHANNEL_LIBS+=chan_h323.so
 endif
 
-ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/mISDNuser/mISDNlib.h),)
+ifneq ($(wildcard misdn/chan_misdn_lib.a),)
   CHANNEL_LIBS+=chan_misdn.so
-  CFLAGS+=-Imisdn  
 endif
 
 CFLAGS+=-Wno-missing-prototypes -Wno-missing-declarations
@@ -156,7 +153,6 @@ endif
 all: depend $(CHANNEL_LIBS) 
 
 clean:
-	for x in $(SUBDIRS); do $(MAKE) -C $$x clean || exit 1 ; done
 	rm -f *.so *.o .depend
 	rm -f busy.h ringtone.h gentone gentone-ulaw
 
@@ -237,17 +233,12 @@ chan_h323.so: chan_h323.o h323/libchanh323.a
 	$(CC) $(SOLINK) -o $@ $< h323/libchanh323.a $(CHANH323LIB) -L$(PWLIBDIR)/lib $(PTLIB) -L$(OPENH323DIR)/lib $(H323LIB) -L/usr/lib -lcrypto -lssl -lexpat
 endif
 
-misdn/chan_misdn_lib.a:
-	make -C misdn
+chan_misdn.so: chan_misdn.o chan_misdn_config.o misdn/chan_misdn_lib.a
+	$(CC) -shared -Xlinker -x -o $@ $^ $(MISDNUSER)/i4lnet/libisdnnet.a $(MISDNUSER)/lib/libmISDN.a 
 
-chan_misdn.so: chan_misdn.o misdn_config.o misdn/chan_misdn_lib.a 
-	$(CC) -shared -Xlinker -x -L/usr/lib -o $@ $^ -lisdnnet -lmISDN 
+chan_misdn_config.o: chan_misdn_config.c
+	$(CC) $(CFLAGS) -c chan_misdn_config.c
 
-chan_misdn.o: chan_misdn.c 
-	$(CC) $(CFLAGS) -DCHAN_MISDN_VERSION=\"0.3.0\" -c $< -o $@
-
-misdn_config.o: misdn_config.c misdn/chan_misdn_config.h
-	$(CC) $(CFLAGS) -DCHAN_MISDN_VERSION=\"0.3.0\" -c $< -o $@
 
 #chan_modem.so : chan_modem.o
 #	$(CC) -rdynamic -shared -Xlinker -x -o $@ $<

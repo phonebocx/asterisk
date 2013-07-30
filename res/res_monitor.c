@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 46776 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -150,8 +150,8 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 				while((p = strchr(channel_name, '/'))) {
 					*p = '-';
 				}
-				snprintf(monitor->filename_base, FILENAME_MAX, "%s/%d-%s",
-						 ast_config_AST_MONITOR_DIR, (int)time(NULL),channel_name);
+				snprintf(monitor->filename_base, FILENAME_MAX, "%s/%ld-%s",
+						 ast_config_AST_MONITOR_DIR, time(NULL),channel_name);
 				monitor->filename_changed = 1;
 			} else {
 				ast_log(LOG_ERROR,"Failed to allocate Memory\n");
@@ -209,23 +209,6 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 	return res;
 }
 
-/*
- * The file format extensions that Asterisk uses are not all the same as that
- * which soxmix expects.  This function ensures that the format used as the
- * extension on the filename is something soxmix will understand.
- */
-static const char *get_soxmix_format(const char *format)
-{
-	const char *res = format;
-
-	if (!strcasecmp(format,"ulaw"))
-		res = "ul";
-	if (!strcasecmp(format,"alaw"))
-		res = "al";
-	
-	return res;
-}
-
 /* Stop monitoring a channel */
 int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 {
@@ -274,7 +257,7 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 		if (chan->monitor->joinfiles && !ast_strlen_zero(chan->monitor->filename_base)) {
 			char tmp[1024];
 			char tmp2[1024];
-			const char *format = !strcasecmp(chan->monitor->format,"wav49") ? "WAV" : chan->monitor->format;
+			char *format = !strcasecmp(chan->monitor->format,"wav49") ? "WAV" : chan->monitor->format;
 			char *name = chan->monitor->filename_base;
 			int directory = strchr(name, '/') ? 1 : 0;
 			char *dir = directory ? "" : ast_config_AST_MONITOR_DIR;
@@ -283,7 +266,6 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 			execute = pbx_builtin_getvar_helper(chan, "MONITOR_EXEC");
 			if (ast_strlen_zero(execute)) { 
 				execute = "nice -n 19 soxmix";
-				format = get_soxmix_format(format);
 				delfiles = 1;
 			} 
 			execute_args = pbx_builtin_getvar_helper(chan, "MONITOR_EXEC_ARGS");
@@ -316,7 +298,7 @@ int ast_monitor_change_fname(struct ast_channel *chan, const char *fname_base, i
 {
 	char tmp[256];
 	if (ast_strlen_zero(fname_base)) {
-		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to null\n", chan->name);
+		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to null", chan->name);
 		return -1;
 	}
 	
@@ -553,7 +535,7 @@ static int change_monitor_action(struct mansession *s, struct message *m)
 		return 0;
 	}
 	ast_mutex_unlock(&c->lock);
-	astman_send_ack(s, m, "Changed monitor filename");
+	astman_send_ack(s, m, "Stopped monitoring channel");
 	return 0;
 }
 
