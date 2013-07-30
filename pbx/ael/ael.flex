@@ -56,7 +56,7 @@
 %option bison-locations
 
 %{
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 84133 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 87168 $")
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -195,6 +195,7 @@ NOSEMIC		([^;()\{\}\[\]]|\\[;()\[\]\{\}])*
 \/\/[^\n]*	{/*comment*/}
 context		{ STORE_POS; return KW_CONTEXT;}
 abstract	{ STORE_POS; return KW_ABSTRACT;}
+extend		{ STORE_POS; return KW_EXTEND;}
 macro		{ STORE_POS; return KW_MACRO;};
 globals		{ STORE_POS; return KW_GLOBALS;}
 ignorepat	{ STORE_POS; return KW_IGNOREPAT;}

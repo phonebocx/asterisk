@@ -26,7 +26,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72705 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 90155 $")
 
 #include <unistd.h>
 #include <netinet/in.h>
@@ -180,7 +180,7 @@ static int pcm_write(struct ast_filestream *fs, struct ast_frame *f)
 
 #ifdef REALTIME_WRITE
 	if (s->fmt->format == AST_FORMAT_ALAW) {
-		struct pcm_desc *pd = (struct pcm_desc *)fs->private;
+		struct pcm_desc *pd = (struct pcm_desc *)fs->_private;
 		struct stat stat_buf;
 		unsigned long cur_time = get_time();
 		unsigned long fpos = ( cur_time - pd->start_time ) * 8;	/* 8 bytes per msec */

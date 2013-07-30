@@ -141,6 +141,7 @@ typedef unsigned long long ast_group_t;
 struct ast_generator {
 	void *(*alloc)(struct ast_channel *chan, void *params);
 	void (*release)(struct ast_channel *chan, void *data);
+	/*! This function gets called with the channel locked */
 	int (*generate)(struct ast_channel *chan, void *data, int len, int samples);
 };
 
@@ -1108,6 +1109,9 @@ int ast_activate_generator(struct ast_channel *chan, struct ast_generator *gen, 
 /*! Deactive an active generator */
 void ast_deactivate_generator(struct ast_channel *chan);
 
+/*!
+ * \note The channel does not need to be locked before calling this function.
+ */
 void ast_set_callerid(struct ast_channel *chan, const char *cidnum, const char *cidname, const char *ani);
 
 

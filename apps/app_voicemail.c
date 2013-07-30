@@ -52,7 +52,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 85276 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89999 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -108,7 +108,6 @@ static char authuser[32];
 static char authpassword[42];
 
 static int expungeonhangup = 1;
-AST_MUTEX_DEFINE_STATIC(delimiter_lock);
 static char delimiter = '\0';
 
 struct vm_state;
@@ -2309,7 +2308,12 @@ static int imap_store_file(char *dir, char *mailboxuser, char *mailboxcontext, i
 	char tmp[80] = "/tmp/astmail-XXXXXX";
 	long len;
 	void *buf;
+	int tempcopy = 0;
 	STRING str;
+
+	/*Greetings are not retrieved from IMAP, so there is no reason to attempt storing them there either*/
+	if(msgnum < 0)
+		return 0;
 	
 	/* Attach only the first format */
 	fmt = ast_strdupa(fmt);
@@ -2321,8 +2325,14 @@ static int imap_store_file(char *dir, char *mailboxuser, char *mailboxcontext, i
 
 	make_file(fn, sizeof(fn), dir, msgnum);
 
-	if (ast_strlen_zero(vmu->email))
+	if (ast_strlen_zero(vmu->email)) {
+		/*we need the vmu->email to be set when we call make_email_file, but if we keep it set,
+		 * a duplicate e-mail will be created. So at the end of this function, we will revert back to an empty
+		 * string if tempcopy is 1
+		 */
 		ast_copy_string(vmu->email, vmu->imapuser, sizeof(vmu->email));
+		tempcopy = 1;
+	}
 
 	if (!strcmp(fmt, "wav49"))
 		fmt = "WAV";
@@ -2332,6 +2342,8 @@ static int imap_store_file(char *dir, char *mailboxuser, char *mailboxcontext, i
 	   command hangs */
 	if ((p = vm_mkftemp(tmp)) == NULL) {
 		ast_log(LOG_WARNING, "Unable to store '%s' (can't create temporary file)\n", fn);
+		if(tempcopy)
+			*(vmu->email) = '\0';
 		return -1;
 	} else {
 		make_email_file(p, myserveremail, vmu, msgnum, vmu->context, vmu->mailbox, S_OR(chan->cid.cid_num, NULL), S_OR(chan->cid.cid_name, NULL), fn, fmt, duration, 1, chan, NULL, 1);
@@ -2355,6 +2367,8 @@ static int imap_store_file(char *dir, char *mailboxuser, char *mailboxcontext, i
 		if(option_debug > 2)
 			ast_log(LOG_DEBUG, "%s stored\n", fn);
 	}
+	if(tempcopy)
+		*(vmu->email) = '\0';
 	return 0;
 
 }
@@ -4612,7 +4626,10 @@ static int play_message(struct ast_channel *chan, struct ast_vm_user *vmu, struc
 	if (!res) {
 		make_file(vms->fn, sizeof(vms->fn), vms->curdir, vms->curmsg);
 		vms->heard[vms->curmsg] = 1;
-		res = wait_file(chan, vms, vms->fn);
+		if ((res = wait_file(chan, vms, vms->fn)) < 0) {
+			ast_log(LOG_WARNING, "Playback of message %s failed\n", vms->fn);
+			res = 0;
+		}
 	}
 	DISPOSE(vms->curdir, vms->curmsg);
 	return res;
@@ -4678,7 +4695,7 @@ static int init_mailstream(struct vm_state *vms, int box)
 		char *cp;
 #include "linkage.c"
 		/* Connect to INBOX first to get folders delimiter */
-		imap_mailbox_name(tmp, sizeof(tmp), vms, 0, 0);
+		imap_mailbox_name(tmp, sizeof(tmp), vms, 0, 1);
 		stream = mail_open (stream, tmp, debug ? OP_DEBUG : NIL);
 		if (stream == NIL) {
 			ast_log (LOG_ERROR, "Can't connect to imap server %s\n", tmp);
@@ -4717,11 +4734,6 @@ static int open_mailbox(struct vm_state *vms, struct ast_vm_user *vmu, int box)
 		ast_log (LOG_ERROR,"Could not initialize mailstream\n");
 		return -1;
 	}
-
-	/* Check Quota (here for now to test) */
-	mail_parameters(NULL, SET_QUOTA, (void *) mm_parsequota);
-	imap_mailbox_name(dbox, sizeof(dbox), vms, box, 1);
-	imap_getquotaroot(vms->mailstream, dbox);
 
 	pgm = mail_newsearchpgm();
 
@@ -8549,9 +8561,7 @@ void mm_notify(MAILSTREAM * stream, char *string, long errflg)
 void mm_list(MAILSTREAM * stream, int delim, char *mailbox, long attributes)
 {
 	if (delimiter == '\0') {
-		ast_mutex_lock(&delimiter_lock);
 		delimiter = delim;
-		ast_mutex_unlock(&delimiter_lock);
 	}
 	if (option_debug > 4) {
 		ast_log(LOG_DEBUG, "Delimiter set to %c and mailbox %s\n",delim, mailbox);
@@ -8723,8 +8733,8 @@ static char *get_header_by_tag(char *header, char *tag)
 	ast_mutex_lock(&imaptemp_lock);
 	ast_copy_string(imaptemp, start+taglen, sizeof(imaptemp));
 	ast_mutex_unlock(&imaptemp_lock);
-	eol_pnt = strchr(imaptemp,'\n');
-	*eol_pnt = '\0';
+	if ((eol_pnt = strchr(imaptemp,'\r')) || (eol_pnt = strchr(imaptemp,'\n')))
+		*eol_pnt = '\0';
 	return imaptemp;
 }
 

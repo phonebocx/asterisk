@@ -33,7 +33,7 @@
  ***/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 84345 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89445 $")
 
 #include <stdio.h>
 #include <pthread.h>
@@ -683,10 +683,9 @@ static int misdn_overlap_dial_task (const void *data)
 		} else {
 misdn_overlap_dial_task_disconnect:
 			hanguptone_indicate(ch);
-			if (ch->bc->nt)
-				misdn_lib_send_event(ch->bc, EVENT_RELEASE_COMPLETE );
-			else
-				misdn_lib_send_event(ch->bc, EVENT_RELEASE);
+			ch->bc->out_cause=1;
+			ch->state=MISDN_CLEANING;
+			misdn_lib_send_event(ch->bc, EVENT_DISCONNECT);
 		}
 		ch->overlap_dial_task = -1;
 		return 0;
@@ -798,7 +797,6 @@ static int misdn_set_crypt_debug(int fd, int argc, char *argv[])
 	return 0;
 }
 
-
 static int misdn_port_block(int fd, int argc, char *argv[])
 {
 	int port;
@@ -873,7 +871,7 @@ static int misdn_port_up (int fd, int argc, char *argv[])
 static int misdn_port_down (int fd, int argc, char *argv[])
 {
 	int port;
-	
+
 	if (argc != 4)
 		return RESULT_SHOWUSAGE;
 	
@@ -2423,7 +2421,7 @@ static int misdn_hangup(struct ast_channel *ast)
 {
 	struct chan_list *p;
 	struct misdn_bchannel *bc=NULL;
-	
+
 	ast_log(LOG_DEBUG, "misdn_hangup(%s)\n", ast->name);
 	
 	if (!ast || ! (p=MISDN_ASTERISK_TECH_PVT(ast) ) ) return -1;
@@ -2511,7 +2509,8 @@ static int misdn_hangup(struct ast_channel *ast)
 			release_chan(bc);
 
 			p->state=MISDN_CLEANING;
-			misdn_lib_send_event( bc, EVENT_RELEASE_COMPLETE);
+			if (bc->need_release_complete)
+				misdn_lib_send_event( bc, EVENT_RELEASE_COMPLETE);
 			break;
 		case MISDN_HOLDED:
 		case MISDN_DIALING:
@@ -2554,7 +2553,8 @@ static int misdn_hangup(struct ast_channel *ast)
 			/*p->state=MISDN_CLEANING;*/
 			break;
 		case MISDN_DISCONNECTED:
-			misdn_lib_send_event( bc, EVENT_RELEASE);
+			if (bc->need_release)
+				misdn_lib_send_event( bc, EVENT_RELEASE);
 			p->state=MISDN_CLEANING; /* MISDN_HUNGUP_FROM_AST; */
 			break;
 
@@ -2572,13 +2572,15 @@ static int misdn_hangup(struct ast_channel *ast)
 			chan_misdn_log(1, bc->port, " --> out_cause %d\n",bc->out_cause);
 			
 			bc->out_cause=-1;
-			misdn_lib_send_event(bc,EVENT_RELEASE);
+			if (bc->need_release)
+				misdn_lib_send_event(bc,EVENT_RELEASE);
 			p->state=MISDN_CLEANING;
 			break;
 		default:
 			if (bc->nt) {
 				bc->out_cause=-1;
-				misdn_lib_send_event(bc, EVENT_RELEASE);
+				if (bc->need_release)
+					misdn_lib_send_event(bc, EVENT_RELEASE);
 				p->state=MISDN_CLEANING; 
 			} else {
 				if (bc->need_disconnect)
@@ -3141,15 +3143,11 @@ static struct ast_channel *misdn_request(const char *type, int format, void *dat
 			if (!rr->port)
 				rr->port = misdn_cfg_get_next_port_spin(rr->port);
 			
-			for (; rr->port > 0 && rr->port != port_start;
-				 rr->port = misdn_cfg_get_next_port_spin(rr->port)) {
+			for (; rr->port > 0; rr->port = misdn_cfg_get_next_port_spin(rr->port)) {
 				int port_up;
 				int check;
 				int max_chan;
 				int last_chance = 0;
-
-				if (!port_start)
-					port_start = rr->port;
 
 				misdn_cfg_get(rr->port, MISDN_CFG_GROUPNAME, cfg_group, BUFFERSIZE);
 				if (strcasecmp(cfg_group, group))
@@ -3163,6 +3161,12 @@ static struct ast_channel *misdn_request(const char *type, int format, void *dat
 
 				if (check && port_up < 0)
 					ast_log(LOG_WARNING,"This port (%d) is blocked\n", rr->port);
+
+				if ((port_start == rr->port) && (port_up <= 0))
+					break;
+
+				if (!port_start)
+					port_start = rr->port;
 
 				if (port_up <= 0)
 					continue;
@@ -4352,6 +4356,17 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 			break;
 		}
 
+
+		/*
+		 * When we are NT and overlapdial is set and if 
+		 * the number is empty, we wait for the ISDN timeout
+		 * instead of our own timer.
+		 */
+		if (ch->overlap_dial && bc->nt && !bc->dad[0] ) {
+			wait_for_digits(ch, bc, chan);
+			break;
+		}
+
 		/* 
 		 * If overlapdial we will definitely send a SETUP_ACKNOWLEDGE and wait for more 
 		 * Infos with a Interdigit Timeout.
@@ -4999,7 +5014,7 @@ static int load_module(void)
 		chan_misdn_log(0, 0, "Got: %s from get_ports\n",ports);
 	
 	{
-		int ntflags=0;
+		int ntflags=0, ntkc=0;
 		char ntfile[BUFFERSIZE+1];
 		struct misdn_lib_iface iface = {
 			.cb_event = cb_events,
@@ -5012,9 +5027,10 @@ static int load_module(void)
 	
 		misdn_cfg_get( 0, MISDN_GEN_NTDEBUGFLAGS, &ntflags, sizeof(int));
 		misdn_cfg_get( 0, MISDN_GEN_NTDEBUGFILE, &ntfile, BUFFERSIZE);
-
 		misdn_lib_nt_debug_init(ntflags,ntfile);
 
+		misdn_cfg_get( 0, MISDN_GEN_NTKEEPCALLS, &ntkc, sizeof(int));
+		misdn_lib_nt_keepcalls(ntkc);
 	}
 
 	{

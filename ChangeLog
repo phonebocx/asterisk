@@ -1,3 +1,1431 @@
+2007-11-29  Russell Bryant <russell@digium.com>
+
+	* Asterisk 1.4.15 released.
+
+2007-11-29 19:48 +0000 [r90166]  Tilghman Lesher <tlesher@digium.com>
+
+	* cdr/cdr_pgsql.c: Properly escape cdr->src and cdr->dst and ensure
+	  we use thread-safe escaping (Fixes AST-2007-026)
+
+2007-11-29 19:38 +0000 [r90163]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: This patch handles the case where a queue
+	  member with a negative penalty is added via the manager. If a
+	  negative value is submitted for a member penalty, we set it to 0.
+	  (closes issue #11411, reported and patched by Laureano)
+
+2007-11-29 19:24 +0000 [r90154-90160]  Tilghman Lesher <tlesher@digium.com>
+
+	* res/res_config_pgsql.c: Properly escape input buffers (Fixes
+	  AST-2007-025)
+
+	* formats/format_g726.c, include/asterisk/file.h,
+	  formats/format_wav.c, formats/format_pcm.c,
+	  formats/format_ogg_vorbis.c, main/file.c, formats/format_h263.c,
+	  formats/format_h264.c, formats/format_wav_gsm.c: Use of "private"
+	  as a field name in a header file messes with C++ projects
+	  Reported by: chewbacca Patch by: casper (Closes issue #11401)
+
+	* sounds/Makefile: Upgrade the core sounds release version
+
+2007-11-29 00:36 +0000 [r90142-90147]  Russell Bryant <russell@digium.com>
+
+	* funcs/func_callerid.c: fix some formatting i accidentally changed
+
+	* funcs/func_callerid.c, main/channel.c,
+	  include/asterisk/channel.h: This set of changes is to make some
+	  callerID handling thread-safe. The ast_set_callerid() function
+	  needed to lock the channel. Also, the handlers for the CALLERID()
+	  dialplan function needed to lock the channel when reading or
+	  writing callerid values directly on the channel structure.
+
+	* include/asterisk/file.h, main/file.c: Merge a change from
+	  team/russell/chan_refcount ... This makes ast_stopstream()
+	  thread-safe.
+
+2007-11-28 22:59 +0000 [r90101]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_queue.c: Fix a few memory leaks. (closes issue #11405)
+	  Reported by: eliel Patches: load_realtime.patch uploaded by eliel
+	  (license 64)
+
+2007-11-28 22:30 +0000 [r90098]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* configs/users.conf.sample, main/manager.c: it is impossible to
+	  set permissions for manager accounts created by users.conf
+	  (reported internally, patched by me)
+
+2007-11-28 22:08 +0000 [r89999-90059]  Mark Michelson <mmichelson@digium.com>
+
+	* main/pbx.c: Removing some seemingly pointless code. This sets a
+	  channel variable for every priority executed in the dialplan if
+	  you have debug set to anything non-zero. This seems pointless due
+	  to the fact that these channel variables are not referenced
+	  anywhere else in the code and their names are esoteric enough
+	  that they would not be practical to reference in the dialplan.
+	  Plus the fact that this behavior isn't documented anywhere means
+	  that the change is not likely to cause any disruption. If
+	  anything, this may actually cause a slight performance increase
+	  if running with debug on. The motivating influence for this code
+	  change is the eventwhencalled option for queues. If set to vars,
+	  all channel variables will be output to the manager. These
+	  unnecessary channel variables make the output a lot more
+	  difficult to deal with.
+
+	* apps/app_voicemail.c: Recording greetings when using IMAP storage
+	  was causing zero-length files to be stored. Since greetings are
+	  not retrieved from IMAP anyway, it is pointless to attempt
+	  storing them there. (closes issue #11359, reported by spditner,
+	  patched by me)
+
+2007-11-28 00:20 +0000 [r89839-89893]  Russell Bryant <russell@digium.com>
+
+	* main/pbx.c, include/asterisk/pbx.h: - update documentation for
+	  some of the goto functions to note that they handle locking the
+	  channel as needed - update ast_explicit_goto() to lock the
+	  channel as needed
+
+	* main/autoservice.c: Don't do frame processing if ast_read()
+	  returned NULL.
+
+	* apps/app_queue.c: Instead of depending on the return value of
+	  ast_true(), explicitly set the eventwhencalled variable to 1.
+
+	* main/pbx.c: Don't start/stop autoservice in
+	  pbx_extension_helper() unless a channel exists
+
+2007-11-27 23:10 +0000 [r89837]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: Two changes with regards to the
+	  'eventwhencalled' option of queues.conf 1) Due to some signed vs.
+	  unsigned silliness, setting 'eventwhencalled' to 'vars' or 'yes'
+	  did exactly the same thing. Thus the sign change of the ast_true
+	  call. 2) The vars2manager function overwrote a \n for every
+	  channel variable it parsed, resulting in bizarre output for the
+	  channel variables. This patch remedies this. (related to issue
+	  #11385, however I'm not sure if this will actually be enough to
+	  close it)
+
+2007-11-27 21:45 +0000 [r89790]  Russell Bryant <russell@digium.com>
+
+	* main/autoservice.c, main/pbx.c: Merge changes from
+	  team/russell/autoservice_1.4 This set of changes fixes an issue
+	  that was reported to me on IRC yesterday. The user, d1mas, was
+	  using chan_zap for incoming calls and was having DTMF recognition
+	  issues in some situations. Specifically, he noticed that the
+	  problem occurred when using DISA or WaitExten. He also noticed
+	  that when using Read, the problem did not occur. His system also
+	  used DUNDi for dialplan lookups. So, he theorized that if the
+	  DUNDi lookups blocked for some period of time, that audio from
+	  the zap channel could get lost. If the audio got lost, then it
+	  wouldn't be run through the DTMF detector, and digits could get
+	  lost. He was correct, and the following set of changes fixes the
+	  problem. However, the changes go a little bit further than what
+	  was necessary to fix this exact problem. 1) I updated
+	  pbx_extension_helper() to autoservice the associated channel to
+	  handle cases where extension lookups may take a long time. This
+	  would normally be a dialplan switch that does some lookup over
+	  the network, such as the DUNDi or IAX2 switches. This ensures
+	  that even while a DUNDi lookup is blocking, the channel will be
+	  continuously serviced. 2) I made a change to the autoservice
+	  code. This is actually something that has bothered me for a long
+	  time. When a channel is in autoservice, _all_ frames get thrown
+	  away. However, some frames really shouldn't be thrown away. The
+	  most notable examples are signalling (CONTROL) frames, and DTMF.
+	  So, this patch queues up important frames while a channel is in
+	  autoservice. When autoservice is stopped on the channel, the
+	  queued up frames get stuck back on the channel so that they can
+	  get processed instead of thrown away. 3) I made another change to
+	  the autoservice code to handle the case where autoservice is
+	  started on channels recursively. Previously, you could call
+	  ast_autoservice_start() multiple times on a channel, and it would
+	  stop the first time ast_autoservice_stop() gets called. Now, it
+	  will ensure that autoservice doesn't actually stop until the
+	  final call to ast_autoservice_stop().
+
+2007-11-27 20:22 +0000 [r89727]  Mark Michelson <mmichelson@digium.com>
+
+	* res/res_config_pgsql.c: Changing some calls from free() to
+	  ast_free() since they were allocated with ast_calloc(). (closes
+	  issue #11390, reported and patched by Laureano)
+
+2007-11-27 20:16 +0000 [r89701-89709]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* main/app.c: on second thought... revert all the other changes
+	  i've made in app options parsing leaving only one: if an empty
+	  argument is supplied for an option, set that argument pointer to
+	  point to an empty string rather than NULL, so that the
+	  application can do normal checks on it without worrying about it
+	  being NULL
+
+	* main/app.c: generate a warning when an application option that
+	  requires an argument is ignored due to lack of an argument
+
+2007-11-27 16:12 +0000 [r89634]  Russell Bryant <russell@digium.com>
+
+	* configs/voicemail.conf.sample: Add a note to the sample voicemail
+	  config noting that when using IMAP storage, only the first format
+	  specified will be attached to the message.
+
+2007-11-27 15:38 +0000 [r89631]  Tilghman Lesher <tlesher@digium.com>
+
+	* funcs/func_env.c: Default result of STAT should be "0" not "".
+	  Reported via the -users mailing list, fixed by me.
+
+2007-11-27 15:23 +0000 [r89624-89630]  Olle Johansson <oej@edvina.net>
+
+	* main/rtp.c, channels/chan_sip.c, include/asterisk/rtp.h: If we
+	  get a codec offer using a well-known payload type, but using it
+	  for another codec that we don't know, Asterisk did not remove
+	  that codec from the list. With this patch, we remove the codec
+	  from audio and video rtp objects and deny it ever existed. Thanks
+	  to lasse for testing. (closes issue #11376) Reported by: lasse
+	  Patches: bug11376.txt uploaded by oej (license 306) Tested by:
+	  lasse
+
+	* configs/sip.conf.sample: Clarify limitonpeers=yes (closes issue
+	  #11304) Reported by: pj
+
+2007-11-27 06:24 +0000 [r89622]  Steve Murphy <murf@digium.com>
+
+	* apps/app_dial.c, main/cdr.c, configs/cdr.conf.sample,
+	  include/asterisk/cdr.h: closes issue #11379; OK, this is an
+	  attempt to make both sides happy. To the cdr.conf file, I added
+	  the option 'unanswered', which defaults to 'no'. In this mode,
+	  you will see a cdr for a call, whether it was answered or not.
+	  The disposition will be NO ANSWER or ANSWERED, as appropriate.
+	  The src is as you'd expect, the destination channel will be one
+	  of the channels from the Dial() call, usually the last in the
+	  list if more than one chan was specified. With unanswered set to
+	  'yes', you will still see this cdr entry in both cases. But in
+	  the case where the dial timed out, you will also see a cdr for
+	  each line attempted, marked NO ANSWER, with no destination
+	  channel name. The new option defaults to 'no', so you don't see
+	  the pesky extra cdr's by default, and you will not see the
+	  irritating 'not posted' messages.
+
+2007-11-26 23:10 +0000 [r89616-89618]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_playback.c: After issuing a "say load new", if a caller
+	  hangs up during the middle of playback of a number, app_playback
+	  will continue to try to play the remaining files. With this
+	  change, no more files will be played back upon hangup. (closes
+	  issue #11345, reported and patched by IgorG)
+
+	* apps/app_playback.c: After issuing a "say load new" tons of
+	  warning messages are printed out to the CLI every time do_say in
+	  app_playback is called. Removing these warnings
+
+2007-11-26 21:10 +0000 [r89599-89610]  Joshua Colp <jcolp@digium.com>
+
+	* main/dial.c: Fix issues with async dialing with an application
+	  executing. The application has to be terminated and control
+	  returned to the thread before hanging things up. (issue #BE-252)
+
+	* res/res_features.c: Add module counting removal for error
+	  conditions. (closes issue #11333) Reported by: Laureano Patches:
+	  res_features_v2.c.patch uploaded by Laureano (license 265)
+
+2007-11-26 17:41 +0000 [r89594]  Russell Bryant <russell@digium.com>
+
+	* main/pbx.c: Add channel locking to a function that needed to be
+	  doing it. This is just a little something I noticed while working
+	  on a completely unrelated issue.
+
+2007-11-26 17:36 +0000 [r89587-89592]  Joshua Colp <jcolp@digium.com>
+
+	* pbx/pbx_config.c: Use ast_free to free memory, or else we shall
+	  implode if MALLOC_DEBUG is enabled. (closes issue #11347)
+	  Reported by: ys Patches: pbx.pbx_config.c.diff uploaded by ys
+	  (license 281)
+
+	* apps/app_mixmonitor.c: Close the audio file before sending it to
+	  the post processing application. (closes issue #11357) Reported
+	  by: reformed Patches: mixmonitor.patch uploaded by reformed
+	  (license 330)
+
+2007-11-26 17:20 +0000 [r89586]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* main/app.c: when parsing application options that take arguments,
+	  don't indicate that the option was supplied unless a
+	  non-zero-length argument was found for it
+
+2007-11-26 15:48 +0000 [r89580]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_voicemail.c: Revert vmu->email back to an empty string
+	  if it was empty when imap_store_file was called. This prevents
+	  sending a duplicate e-mail. (closes issue #11204, reported by
+	  spditner, patched by me)
+
+2007-11-26 15:34 +0000 [r89571-89577]  Joshua Colp <jcolp@digium.com>
+
+	* main/channel.c: If channel allocation fails because the alert
+	  pipe could not be created also free the scheduler context.
+	  (closes issue #11355) Reported by: eliel Patches:
+	  main.channel.c.patch uploaded by eliel (license 64)
+
+	* apps/app_meetme.c: When unloading app_meetme destroy any auto
+	  created contexts created by SLA. (closes issue #11367) Reported
+	  by: eliel
+
+2007-11-25 17:17 +0000 [r89559]  Tilghman Lesher <tlesher@digium.com>
+
+	* res/res_odbc.c, configs/res_odbc.conf.sample,
+	  include/asterisk/res_odbc.h, res/res_config_odbc.c: We previously
+	  attempted to use the ESCAPE clause to set the escape delimiter to
+	  a backslash. Unfortunately, this does not universally work on all
+	  databases, since on databases which natively use the backslash as
+	  a delimiter, the backslash itself needs to be delimited, but on
+	  other databases that have no delimiter, backslashing the
+	  backslash causes an error. So the only solution that I can come
+	  up with is to create an option in res_odbc that explicitly
+	  specifies whether or not backslash is a native delimiter. If it
+	  is, we use it natively; if not, we use the ESCAPE clause to make
+	  it one. Reported by: elguero Patch by: tilghman (Closes issue
+	  #11364)
+
+2007-11-24 16:59 +0000 [r89534-89545]  Tilghman Lesher <tlesher@digium.com>
+
+	* res/res_adsi.c: Free some frames that would otherwise leak on
+	  error. Reported by: Laureano Patch by: Laureano,tilghman (Closes
+	  issue #11351)
+
+	* apps/app_voicemail.c, main/app.c: Currently, zero-length
+	  voicemail messages cause a hangup in VoicemailMain. This change
+	  fixes the problem, with a multi-faceted approach. First, we do
+	  our best to avoid these messages from being created in the first
+	  place, and second, if that fails, we detect when the voicemail
+	  message is zero-length and avoid exiting at that point. Reported
+	  by: dtyoo Patch by: gkloepfer,tilghman (Closes issue #11083)
+
+	* main/manager.c: Up until this point, the XML output of the
+	  manager has been technically invalid, due to the repetition of
+	  certain parameters in a single event. This caused various issues
+	  for XML parsers, some of which refused to parse at all, given the
+	  invalidity of the rendered XML. So this commit fixes the XML
+	  output, ensuring that each entity parameter has a unique name,
+	  thus ensuring valid XML. Reported by: msetim Patch by: tilghman
+	  (Closes issue #10220)
+
+	* res/res_config_odbc.c: Use ESCAPE clause for the first parameter,
+	  not just 2nd-Nth parameters. Reported by: apsaras Patch by:
+	  tilghman (Closes issue #11353)
+
+2007-11-22 17:29 +0000 [r89527]  Russell Bryant <russell@digium.com>
+
+	* configs/agents.conf.sample: mvanbaak pointed out a spelling error
+	  in this sample configuration file. While I was at it, I went
+	  ahead and tweaked it a little bit more.
+
+2007-11-21 19:27 +0000 [r89493-89495]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: Fix a small error I made in my previous commit
+
+	* apps/app_queue.c: Changing an inaccurate debug message to be less
+	  inaccurate. Under the circumstances, this message would always
+	  report that there were 0 members available, even though that may
+	  not be true.
+
+2007-11-21 18:59 +0000 [r89491]  Terry Wilson <twilson@digium.com>
+
+	* res/res_features.c: If a channel gets masqueraded in the middle
+	  of a park, don't play the announcement to the masqueraded
+	  channel, and dial back to the original channel on timeout.
+
+2007-11-20 19:16 +0000 [r89461-89462]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* include/asterisk/module.h: re-doxygen some comments
+
+	* main/loader.c, include/asterisk/module.h,
+	  build_tools/make_buildopts_h: bring back compile-option checking
+	  when loading modules, only this time use a string-based storage
+	  and comparison mechanism because it is easier to support on other
+	  platforms
+
+2007-11-20 17:50 +0000 [r89457]  Mark Michelson <mmichelson@digium.com>
+
+	* main/pbx.c: According to comments in main/pbx.c, it is essential
+	  that if we are going to lock the conlock as well as the hints
+	  lock, it must be locked in that respective order. In order to
+	  prevent a potential deadlock, we need to lock the conlock prior
+	  to locking the hints lock in ast_hint_state_changed (see the call
+	  stack example on issue #11323 for how this can happen). (closes
+	  issue #11323, reported by eelcob, suggestion for patch by eelcob,
+	  patch by me)
+
+2007-11-20 15:22 +0000 [r89450]  Steve Murphy <murf@digium.com>
+
+	* doc/queues-with-callback-members.txt: closes issue #11324; break
+	  statements missing in switch cases.
+
+2007-11-20 13:40 +0000 [r89445]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/chan_misdn.c: added RR patch from iroot #10908, thanks.
+
+2007-11-19 15:53 +0000 [r89416-89419]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_features.c: Print out the correct filename
+	  (features.conf) in the log message when parkpos options are
+	  incorrect. (closes issue #11295) Reported by: Laureano Patches:
+	  res_features.c.patch uploaded by Laureano (license 265)
+
+	* doc/localchannel.txt: Clarify documentation a bit, include that a
+	  frame has to pass through the core in order for the Local channel
+	  optimization to happen. (closes issue #11246) Reported by: jon
+
+2007-11-16  Russell Bryant <russell@digium.com>
+
+	* Asterisk 1.4.14 released.
+
+2007-11-16 22:26 +0000 [r89339]  Russell Bryant <russell@digium.com>
+
+	* main/loader.c, include/asterisk/module.h,
+	  build_tools/make_buildopts_h: Temporarily revert revision 89325,
+	  which added md5 magic for keeping track of what build options
+	  were used. We agreed that we should remove this before making a
+	  1.4 release, and then we can put it back in. Then, we can take a
+	  month or so to play around with it to get it how we want it.
+
+2007-11-16 16:47 +0000 [r89325]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* main/loader.c, include/asterisk/module.h,
+	  build_tools/make_buildopts_h: To help combat problems where
+	  people build external modules (asterisk-addons or others) and
+	  then change the build options of the Asterisk build in a way that
+	  makes the incompatible without warning, this commit introduces an
+	  MD5 signature of the important build-time options and includes
+	  that signature into modules when they are built. When the loader
+	  loads one of these modules and notices the problem, it will emit
+	  a warning to console and refuse to initialize the module, as
+	  doing so could cause the system to be unstable or even crash. If
+	  you upgrade to this version of Asterisk, you must rebuild *all*
+	  of your modules that came from other sources before trying to run
+	  this version. If you are using Digium's G.729 binary codec
+	  module, you will need v33 or newer.
+
+2007-11-16 15:28 +0000 [r89323]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: Make realtime queues accessible from the
+	  QUEUE_MEMBER_COUNT function. (closes issue #11271, reported and
+	  patched by atis, with small modifications from me)
+
+2007-11-15 18:37 +0000 [r89298-89302]  Tilghman Lesher <tlesher@digium.com>
+
+	* Makefile: Start Asterisk in Debian at a more reasonable time
+	  (since zaptel is at level 20)
+
+	* channels/misdn/isdn_lib.c: Fix an uninitialized memory read found
+	  by valgrind
+
+	* channels/chan_iax2.c: Yet another memory corruption issue.
+	  Reported by: atis Patch by: tilghman Fixes issue #10923
+
+2007-11-15 17:19 +0000 [r89296]  Russell Bryant <russell@digium.com>
+
+	* apps/app_meetme.c: Update the SLAStation application to account
+	  for the case where the SLA thread has a call out to the station,
+	  but the user has pressed a line button to answer the call instead
+	  of picking up the handset. If they do, the phone sends out a new
+	  INVITE. So, the SLAStation app must check to see if it is picking
+	  up a ringing trunk, and ensure that the other stations stop
+	  ringing. (reported internally, patched by me, tested by mogorman)
+
+2007-11-15 14:57 +0000 [r89286-89288]  Mark Michelson <mmichelson@digium.com>
+
+	* main/manager.c: Undoing previous commit since I realize it was
+	  wrong
+
+	* main/manager.c: Adding a missing mutex unlock. (closes issue
+	  11256, reported and patched by ys)
+
+2007-11-15 11:26 +0000 [r89280-89281]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Don't send re-invites during pending INVITE
+	  transactions. Patch by one47 - thanks! Closes issue #9305
+
+	* channels/chan_sip.c: Improve support for multipart messages. Code
+	  by gasparz, changes by me (mostly formatting). Thanks, gasparz!
+	  Closes issue #10947
+
+2007-11-14 23:23 +0000 [r89275]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/app.c: When a recording ends with '#', we are improperly
+	  trimming an extra 200ms from the recording. Reported by: sim
+	  Patch by: tilghman Closes issue #11247
+
+2007-11-14 01:15 +0000 [r89260]  Joshua Colp <jcolp@digium.com>
+
+	* main/srv.c: Return the proper value when the srv_callback
+	  function executes properly. (closes issue #11240) Reported by:
+	  jtodd
+
+2007-11-13 21:07 +0000 [r89248-89254]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_zap.c, channels/chan_iax2.c: Fix building on newer
+	  systems which require a third arg to open() when using O_CREAT.
+	  Issue 11238, reported by puzzled.
+
+	* res/res_features.c: Revert change from revision 67064. It is
+	  documented behavior that if a parking extension already exists
+	  while using PARKINGEXTEN, dialplan execution will continue. If
+	  blind transferring to a Park with PARKINGEXTEN, you must keep
+	  this in mind, and handle the failure yourself. Issue 11237,
+	  reported by jon.
+
+2007-11-13 17:34 +0000 [r89246]  Tilghman Lesher <tlesher@digium.com>
+
+	* channels/chan_sip.c: If we set a value for qualify, we should
+	  actually pay attention to it, instead of overriding the value
+
+2007-11-13 16:02 +0000 [r89241]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_mixmonitor.c: Reverting commit made in revision 89205
+	  since it is unnecessary. Thanks to Kevin for pointing this out
+
+2007-11-13 13:51 +0000 [r89239]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/utils.c: Debugging is running into the 16-lock limit.
+	  Increase to avoid. (This define is only effective when debugging
+	  is turned on, so there's no effect for most installations.)
+
+2007-11-13 00:56 +0000 [r89205]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_mixmonitor.c: Some sanity checking for MixMonitor. If
+	  only 1 argument is given, then the args.options and
+	  args.post_process strings are uninitialized and could contain
+	  garbage. This change handles this situation properly by only
+	  using arguments that we have parsed.
+
+2007-11-12 20:46 +0000 [r89194]  Jason Parker <jparker@digium.com>
+
+	* main/pbx.c: Fix a typo pointed out by De_Mon on #asterisk-dev
+
+2007-11-12 20:16 +0000 [r89184-89191]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/config.c: If two config writes collide, file corruption
+	  could result. Use a mkstemp() file, instead. Reported by:
+	  paravoid Patch by: tilghman Closes issue #10781
+
+	* main/channel.c, channels/chan_sip.c: Fix two cases of memory
+	  corruption caused by background threads. Reported by: atis Patch
+	  by: tilghman Fixes issue #10923
+
+2007-11-12 11:26 +0000 [r89169-89173]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/chan_misdn.c, configs/misdn.conf.sample: if we're NT and
+	  no number was dialed and overlapdial is set, we wait for the ISDN
+	  timeout instead of starting our own timer. added a comment for
+	  the misdn.conf.sample for the overlapdial config option.
+
+	* channels/misdn/isdn_lib.c, channels/misdn/isdn_lib_intern.h,
+	  channels/chan_misdn.c, channels/misdn/isdn_msg_parser.c: added
+	  restart all interfaces Restart_Indicator, to automatically send a
+	  RESTART after the L2 of a PTP Port comes up. Also fixed some
+	  places where we have send a RELEASE without need for it.
+
+	* channels/misdn/isdn_lib.c, channels/chan_misdn.c: fixed a
+	  state/event issue with overlapdial=yes when no extension matched.
+	  removed the general sending of a RELEASE_COMPLETE when we receive
+	  a RELEASE, this is done by mISDNuser/mISDN. This makes it
+	  possible to use asterisk-1.4 with mISDN trunk, but requires users
+	  of mISDN/mISDNuser-1.1.X to upgrade to at least mISDNuser-1.1.6
+	  (when using the NT mode at all)
+
+	* channels/misdn/isdn_lib.c: fixed the support for CW and therefore
+	  for the reject_cause option.
+
+	* channels/misdn/isdn_lib.c, channels/misdn_config.c,
+	  channels/misdn/isdn_lib.h, channels/chan_misdn.c,
+	  channels/misdn/chan_misdn_config.h, configs/misdn.conf.sample:
+	  aded ntkeepcalls option, to avoid droÃpping calls when the L2
+	  goes down on a PTP link. There are some pbx which do turn off the
+	  L1 for a very short while and restart it immediately. normally
+	  T310 should be started and after 10 seconds or so the calls
+	  should be dropped, this is a simple fix wihtout this timer.
+
+2007-11-08 23:52 +0000 [r89125]  Jason Parker <jparker@digium.com>
+
+	* main/say.c: Properly say the seconds here.. Issue 11203, fix
+	  described by vma.
+
+2007-11-08 21:00 +0000 [r89119]  Mark Michelson <mmichelson@digium.com>
+
+	* channels/chan_sip.c: Rework of the commit I made yesterday to use
+	  the already built-in ast_uri_decode function as opposed to my
+	  home-rolled one. Also added comments. Thanks to oej for pointing
+	  me in the right direction
+
+2007-11-08 18:45 +0000 [r89115]  Jason Parker <jparker@digium.com>
+
+	* configs/res_odbc.conf.sample: Avoid warnings on load when using
+	  sample configuration files. Issue 11195, patch by eliel.
+
+2007-11-08 16:47 +0000 [r89111]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_voicemail.c: I made this same adjustment in trunk to fix
+	  a bug, and it makes sense to do it in 1.4 as well. If an
+	  imapfolder is specified in voicemail.conf, don't ever explicitly
+	  connect to INBOX since it may not exist.
+
+2007-11-08 05:26 +0000 [r89105]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* main/srv.c: fix a glaring bug in the new SRV record handling that
+	  would cause incorrect weight sorting
+
+2007-11-08 04:55 +0000 [r89103]  Tilghman Lesher <tlesher@digium.com>
+
+	* doc/valgrind.txt: Typo
+
+2007-11-08 02:26 +0000 [r89095-89101]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Do not add a sip: to the beginning of the To
+	  URI unless needed. (closes issue #10756) Reported by: goestelecom
+
+	* channels/chan_sip.c: Improve the devicestate logic for multiple
+	  devices. If any are available then the extension is considered
+	  available. (closes issue #10164) Reported by: nic_bellamy
+	  Patches: sip-hinting-svn-branch-1.4.patch uploaded by nic
+	  (license 299)
+
+	* channels/chan_sip.c: Add support for allowing one outgoing
+	  transaction. This means if a response comes back out of order
+	  chan_sip will still handle it. I dream of a chan_sip with real
+	  transaction support. (closes issue #10946) Reported by: flefoll
+	  (closes issue #10915) Reported by: ramonpeek (closes issue #9567)
+	  Reported by: atca_pres
+
+	* channels/chan_sip.c: If callerid is configured in sip.conf use
+	  that for checking the presence of an extension in the dialplan.
+	  (closes issue #11185) Reported by: spditner
+
+2007-11-07 23:39 +0000 [r89093]  Tilghman Lesher <tlesher@digium.com>
+
+	* apps/app_queue.c: The member refcount must be incremented, to
+	  avoid using it after deallocation. A huge thanks go to lvl- for
+	  patiently providing the necessary valgrind output that was
+	  necessary to finding this problem of memory corruption. Reported
+	  by: lvl- Patch by: tilghman Closes issue #11174
+
+2007-11-07 22:40 +0000 [r89090]  Mark Michelson <mmichelson@digium.com>
+
+	* channels/chan_sip.c: This patch makes it possible for SIP phones
+	  to dial extensions defined with '#' characters in extensions.conf
+	  AND maintain their escaped characters when forming URI's (closes
+	  issue #10681, reported by cahen, patched by me, code review by
+	  file)
+
+2007-11-07 21:40 +0000 [r89088]  Steve Murphy <murf@digium.com>
+
+	* cdr/cdr_tds.c, pbx/pbx_ael.c, res/res_jabber.c: In response to
+	  10578, I just ran 1.4 thru valgrind; some of the config leakage
+	  I've already fixed, but it doesn't hurt to double check. I found
+	  and fixed leaks in res_jabber, cdr_tds, pbx_ael. Nothing major,
+	  tho.
+
+2007-11-07 15:56 +0000 [r89085]  Mark Michelson <mmichelson@digium.com>
+
+	* main/manager.c: Fixing a segfault in the manager "core show
+	  channels concise" command. (closes issue #11183, reported by arnd
+	  and patched by ys)
+
+2007-11-07 04:07 +0000 [r89079]  Tilghman Lesher <tlesher@digium.com>
+
+	* configs/extensions.ael.sample: Suppress AEL warnings on load.
+	  Reported by: eliel Patch by: eliel Closes issue #11178
+
+2007-11-06 20:18 +0000 [r89053]  Russell Bryant <russell@digium.com>
+
+	* res/res_musiconhold.c: Fix init_classes() so that classes that
+	  actually do have files loaded aren't treated as empty, and
+	  immediately destroyed ...
+
+2007-11-06 19:09 +0000 [r89046]  Jason Parker <jparker@digium.com>
+
+	* codecs/codec_zap.c: Correctly set the total number of channels
+	  from a zaptel transcoder board. SPD-49, patch by Matthew
+	  Nicholson.
+
+2007-11-06 19:09 +0000 [r89045]  Tilghman Lesher <tlesher@digium.com>
+
+	* include/asterisk/lock.h: We went to the trouble of creating a
+	  method of tracking failed trylocks, then never turned it on
+	  (oops).
+
+2007-11-06 18:53 +0000 [r89042]  Olle Johansson <oej@edvina.net>
+
+	* main/tdd.c: Bug fixes to tdd support in zaptel.
+
+2007-11-06 18:20 +0000 [r89037]  Russell Bryant <russell@digium.com>
+
+	* res/res_musiconhold.c: If someone were to delete the files used
+	  by an existing MOH class, and then issue a reload, further use of
+	  that class could result in a crash due to dividing by zero. This
+	  set of changes fixes up some places to prevent this from
+	  happening. (closes issue #10948) Reported by: jcomellas Patches:
+	  res_musiconhold_division_by_zero.patch uploaded by jcomellas
+	  (license 282) Additional changes added by me.
+
+2007-11-06 17:52 +0000 [r89036]  Steve Murphy <murf@digium.com>
+
+	* main/config.c: closes issue #8786 - where the [catname](!) and
+	  [catname](othercat1,othercat2,...) notation gets dropped across a
+	  ConfigUpdate (or any other thing that would cause a config file
+	  to be written). While I was at it, I also cleaned up some of the
+	  destroy routines to free up comments, which was not being done.
+	  Made sure the new struct I introduced is also cleaned up properly
+	  at destruction time. My code handles multiple template
+	  inclusions. Many thanks to ssokol for his patch, which, while not
+	  literally used in the final merge, served as a foundation for the
+	  fix.
+
+2007-11-06 17:08 +0000 [r88994-89032]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Make it so that if a peer is determined to
+	  be unreachable using qualify their devicestate will report back
+	  unavailable. (closes issue #11006) Reported by: pj
+
+	* channels/chan_zap.c: Fix improbable but possible memory leaks in
+	  chan_zap. (closes issue #11166) Reported by: eliel Patches:
+	  chan_zap.c.patch uploaded by eliel (license 64)
+
+2007-11-06 13:50 +0000 [r88931]  Russell Bryant <russell@digium.com>
+
+	* include/asterisk/lock.h: Remove some checks to see if locks are
+	  initialized from the non-DEBUG_THREADS versions of the lock
+	  routines. These are incorrect for a number of reasons: - It
+	  breaks the build on mac. - If there is a problem with locks not
+	  getting initialized, then the proper fix is to find that place
+	  and fix the code so that it does get initialized. - If additional
+	  debug code is needed to help find the problem areas, then this
+	  type of things should _only_ be put in the DEBUG_THREADS
+	  wrappers.
+
+2007-11-06 02:52 +0000 [r88862]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* include/asterisk/srv.h: update comment to match the state of the
+	  code
+
+2007-11-05 23:29 +0000 [r88826]  Mark Michelson <mmichelson@digium.com>
+
+	* main/channel.c: Reworked deadlock avoidance in __ast_read.
+	  Restored audio to callback agents. (closes issue #11071, reported
+	  by callguy, patched by me, tested by callguy and Ted Brown)
+
+2007-11-05 22:07 +0000 [r88709-88805]  Russell Bryant <russell@digium.com>
+
+	* main/pbx.c, include/asterisk/pbx.h: After seeing crashes related
+	  to channel variables, I went looking around at the ways that
+	  channel variables are handled. In general, they were not handled
+	  in a thread-safe way. The channel _must_ be locked when reading
+	  or writing from/to the channel variable list. What I have done to
+	  improve this situation is to make pbx_builtin_setvar_helper() and
+	  friends lock the channel when doing their thing. Asterisk API
+	  calls almost all lock the channel for you as necessary, but this
+	  family of functions did not. (closes issue #10923, reported by
+	  atis) (closes issue #11159, reported by 850t)
+
+	* channels/chan_sip.c: When traversing the list of channel
+	  variables here in transmit_invite(), the asterisk channel must be
+	  locked, as this data may change at any time. (I have seen
+	  numerous reports of crashes related to the handling of channel
+	  variables. There are a couple of issues on the bug tracker
+	  related to it, but it has also been noted on IRC and mailing
+	  lists. So, I am finding and fixing some places where channel
+	  variables are handled improperly.)
+
+	* channels/chan_sip.c: Fix up some indentation.
+
+	* main/srv.c, include/asterisk/srv.h: Merge changes from
+	  asterisk/team/kpfleming/SRV-priority-handling Previously, the SRV
+	  record support in Asterisk was broken. There was no guarantee on
+	  what record Asterisk would choose to actually use. This set of
+	  changes improves the situation by ensuring that Asterisk will
+	  choose the highest priority record.
+
+	* main/channel.c: Merge the last bit of changes from
+	  asterisk/team/russell/readq-1.4 The issue here is that the
+	  channel frame readq handling got broken when the code was
+	  converted to use the linked list macros. It caused corruption of
+	  the list head and tail pointers. So, I fixed up the usage of the
+	  linked list macros and in passing, simplified the code. I also
+	  documented what the code is doing, as it was a bit difficult to
+	  figure out at first. This bug showed itself with crashes showing
+	  messed up head/tail pointers for the readq. However, there are a
+	  couple of crashes that aren't quite as obvious, but I think may
+	  be related. So, if your bug gets closed by this commit, but you
+	  still have a problem, please reopen or create a new bug report.
+	  (closes issue #10936) (closes issue #10595) (closes issue #10368)
+	  (closes issue #11084) (closes issue #10040) (closes issue #10840)
+
+2007-11-05 18:47 +0000 [r88671]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: If a SIP channel is put on hold multiple
+	  times do not keep incrementing the onHold value. (closes issue
+	  #11085) Reported by: francesco_r Tested by: blitzrage (closes
+	  issue #10474) Reported by: acennami
+
+2007-11-05 17:46 +0000 [r88624]  Russell Bryant <russell@digium.com>
+
+	* main/channel.c: Fix up datastore handling in ast_do_masquerade().
+	  The code is intended to move any channel datastores from the old
+	  channel to the new one. However, it did not use the linked list
+	  macros properly to accomplish the task. The existing code would
+	  only work if there was only a single datastore on the old
+	  channel.
+
+2007-11-05 17:19 +0000 [r88585]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_sip.c: Make sure we destroy the config structure on
+	  configuration failure. Issue 11163, patch by eliel.
+
+2007-11-05 16:20 +0000 [r88539]  Tilghman Lesher <tlesher@digium.com>
+
+	* res/res_odbc.c: Don't check used pooled connections for
+	  connection status, as it will cause issues for prepared queries.
+	  Reported by: Nick Gorham (via -dev list) Patch by: tilghman
+
+2007-11-04 22:38 +0000 [r88471]  Luigi Rizzo <rizzo@icir.org>
+
+	* include/asterisk/stringfields.h, main/channel.c,
+	  apps/app_meetme.c, channels/chan_sip.c, channels/chan_iax2.c:
+	  Rename ast_string_field_free_pool to
+	  ast_string_field_free_memory, and ast_string_field_free_all to
+	  ast_string_field_reset_all to avoid misuse (due to too similar
+	  names and an error in documentation). Fix two related memory
+	  leaks in app_meetme. No need to merge to trunk, different fix
+	  already applied there. Not applicable to 1.2
+
+2007-11-02 20:49 +0000 [r88328-88366]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Make subscribecontext behave as advertised.
+	  It will now look for the presence of a hint in the given context
+	  (be it subscribecontext or context). (closes issue #10702)
+	  Reported by: slavon
+
+	* channels/chan_sip.c: If an INFO request within a dialog is
+	  received with a content length of 0 simply send back a 200 OK. It
+	  is valid to do this and the remote side is probably using it to
+	  make sure the signalling is still alive. (closes issue #5747)
+	  Reported by: chandi Patches: infofix-81430-1.patch uploaded by
+	  IgorG (license 20)
+
+2007-11-02 16:51 +0000 [r88283]  Jason Parker <jparker@digium.com>
+
+	* main/say.c: We need to make sure to specify a language to
+	  ast_fileexists, otherwise it may fail for anything besides en
+	  Issue 11147, fix discovered by both citats and myself
+	  (independently), with input from Corydon76
+
+2007-11-02 13:03 +0000 [r88116-88210]  Tilghman Lesher <tlesher@digium.com>
+
+	* include/asterisk/lock.h: Fix build on Solaris Reported by: snuffy
+	  Patch by: ys Closes issue #11143
+
+	* doc/valgrind.txt (added): Add some notes on using valgrind
+
+2007-11-01 16:21 +0000 [r88078]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_zap.c: Make sure we set the poll fds to NULL after
+	  free()ing it. Part of issue 11017, patch by tzafrir.
+
+2007-11-01 13:27 +0000 [r87970-88026]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_meetme.c: Fix up commit for my Zap channel with spies in
+	  Meetme fix. (thanks Tony Mountifield!)
+
+	* apps/app_meetme.c: If a Zap channel contains a spy or a spy is
+	  added take it out of the conference in kernel space and make it
+	  go through Asterisk so the spy gets audio from both sides.
+	  (closes issue #10060) Reported by: mparker
+
+2007-10-31 21:23 +0000 [r87906-87908]  Jason Parker <jparker@digium.com>
+
+	* res/res_jabber.c: Make sure we free some allocated memory before
+	  returning. Issue 11131, patch by eliel.
+
+	* channels/chan_gtalk.c: Don't try to allocate memory that we're
+	  just going to re-allocate later anyways. Issue 11130, patch by
+	  eliel.
+
+2007-10-31 18:03 +0000 [r87852]  Tilghman Lesher <tlesher@digium.com>
+
+	* Makefile: Create samples for ALL of the available options in
+	  asterisk.conf
+
+2007-10-31 17:49 +0000 [r87775-87849]  Steve Murphy <murf@digium.com>
+
+	* pbx/pbx_config.c: closes issue #11108 -- where the 'dialplan
+	  save' cli command saves a file where the semicolon is not
+	  escaped. Fixed this; User also wanted comments to be preserved
+	  across dialplan save, but this is impossible at this point in
+	  time, because comments are not stored in the dialplan. They are
+	  'compiled' out of extensions.conf. The only way to preserve those
+	  comments is to use the config file reader/writer that the GUI
+	  uses to allow online user edits. extensions.conf is first and
+	  foremost, a config file, and is read in by the normal config-file
+	  reading routines. Then, it is processed into a dialplan
+	  (context/exten structs).
+
+	* pbx/pbx_ael.c: Included some verbage in the check_includes func,
+	  to inform the user that included contexts that have no match in
+	  the AEL, might be OK, as AEL cannot check in the extensions.conf
+	  or the in-memory contexts, as they may not be there at the time
+	  of the check.
+
+2007-10-30 23:02 +0000 [r87739]  Tilghman Lesher <tlesher@digium.com>
+
+	* include/asterisk/lock.h: Fix for uninitialized mutexes on *BSD
+	  Reported by: ys Fixed by: ys Closes issue #11116
+
+2007-10-30 21:19 +0000 [r87686]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_iax2.c: Merge the changes from
+	  team/russell/iax2_poke_fix and iax2-poke-fix-trunk There was a
+	  race condition related to the handling of POKEing peers.
+	  Essentially, a reference to a peer is held by the scheduler when
+	  there are pending callbacks, but the reference count didn't
+	  reflect it. So, it was possible for a peer to hit a reference
+	  count of zero and have its destructor begin to be called at the
+	  same time that the scheduler thread ran a POKE related callback.
+	  If that happened, a crash would likely occur. (closes issue
+	  #11082, closes issue #11094)
+
+2007-10-30 20:29 +0000 [r87650]  Jason Parker <jparker@digium.com>
+
+	* channels/Makefile: Only try to clean out h323/ if the
+	  h323/Makefile exists.
+
+2007-10-30 16:13 +0000 [r87571]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_features.c: Add two more checks before printing out a
+	  warning message about bridging. If either channel has hungup of
+	  course the bridge will have failed. (closes issue #10009)
+	  Reported by: dimas
+
+2007-10-30 15:45 +0000 [r87567]  Jason Parker <jparker@digium.com>
+
+	* main/editline/np/vis.c: Fix build of editline on Solaris. Issue
+	  11113, patch by snuffy.
+
+2007-10-30 15:10 +0000 [r87534]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_followme.c: Return 1.4 to a state where it builds.
+	  Changing the arguments to a function and not changing where they
+	  are used is bad, mmmk?
+
+2007-10-30 14:31 +0000 [r87514]  BJ Weschke <bweschke@btwtech.com>
+
+	* apps/app_followme.c: Fix issue where the recorded name wasn't
+	  getting removed correctly. (closes issue #11115) Reported by:
+	  davevg Patches: followme-v3.diff
+
+2007-10-29 22:13 +0000 [r87460-87465]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* codecs/gsm: missed one directory
+
+	* codecs/ilbc, formats, utils/Makefile, agi/Makefile, funcs,
+	  codecs/lpc10, main/db1-ast, main/editline, main,
+	  codecs/ilbc/Makefile, pbx, res, channels, main/db1-ast/Makefile,
+	  codecs/lpc10/Makefile, utils, codecs, agi,
+	  main/editline/Makefile.in, apps, Makefile.moddir_rules, cdr:
+	  clean up (and ignore) assembler and preprocessor intermediate
+	  files if any are created during the build
+
+	* Makefile: don't put '-pipe' into ASTCFLAGS if '-save-temps' is
+	  already there (used when debugging preprocessor issues) because
+	  the compiler will whine about each compile command
+
+2007-10-29 21:06 +0000 [r87427]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_voicemail.c: Removing a completely unnecessary quota
+	  check from IMAP code.
+
+2007-10-29 20:22 +0000 [r87373-87396]  Russell Bryant <russell@digium.com>
+
+	* main/utils.c, include/asterisk/lock.h: Add some more details to
+	  the output of "core show locks". When a thread is waiting for a
+	  lock, this will now show the details about who currently has it
+	  locked. (inspired by issue #11100)
+
+	* main/astmm.c: Remove a lock that doesn't make any sense. The
+	  regions lock needs to be held when traversing the list of
+	  allocated chunks so that they can be printed out to the CLI.
+	  (Thanks to eliel on #asterisk-dev for pointing this out!)
+
+2007-10-29 17:20 +0000 [r87342]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Fix issue where if both sides of the dialog
+	  cancelled the dialog at the same time chan_sip could kepe
+	  retransmitting a response for no reason. (closes issue #9566)
+	  Reported by: atca_pres Patches: bug9566.patch uploaded by oej
+
+2007-10-29 17:13 +0000 [r87340]  Jason Parker <jparker@digium.com>
+
+	* funcs/func_realtime.c, funcs/func_cut.c: Allow some function
+	  modules to compile under dev mode. Issue 11104, patch by andrew.
+
+2007-10-29 14:23 +0000 [r87294]  Joshua Colp <jcolp@digium.com>
+
+	* main/utils.c: Fix issue with ast_unescape_semicolon going into an
+	  endless loop. (closes issue #10550) Reported by: ramonpeek
+	  Patches: unescape-85177-1.patch uploaded by IgorG (license 20)
+
+2007-10-28 13:46 +0000 [r87262]  Tilghman Lesher <tlesher@digium.com>
+
+	* funcs/func_realtime.c, funcs/func_odbc.c, funcs/func_strings.c,
+	  funcs/func_cut.c: Add autoservice to several more functions which
+	  might delay in their responses. Also, make sure that func_odbc
+	  functions have a channel on which to set variables. Reported by
+	  russell Fixed by tilghman Closes issue #11099
+
+2007-10-26 16:34 +0000 [r87168]  Steve Murphy <murf@digium.com>
+
+	* pbx/ael/ael-test/ref.ael-test19, pbx/ael/ael.tab.c,
+	  pbx/ael/ael.y, pbx/ael/ael_lex.c, pbx/pbx_ael.c,
+	  include/asterisk/ael_structs.h, pbx/ael/ael.tab.h,
+	  utils/ael_main.c, pbx/ael/ael-test/ref.ael-test16,
+	  pbx/ael/ael.flex: closes issue #11086 where a user complains that
+	  references to following contexts report a problem; The problem
+	  was REALLy that he was referring to empty contexts, which were
+	  being ignored. Reporter stated that empty contexts should be OK.
+	  I checked it out against extensions.conf, and sure enough, empty
+	  contexts ARE ok. So, I removed the restriction from AEL. This,
+	  though, highlighted a problem with multiple contexts of the same
+	  name. This should be OK, also. So, I added the extend keyword to
+	  AEL, and it can preceed the 'context' keyword (mixed with
+	  'abstract', if nec.). This will turn off the warnings in AEL if
+	  the same context name is used 2 or more times. Also, I now call
+	  ast_context_find_or_create for contexts now, instead of just
+	  ast_context_create; I did this because pbx_config does this. The
+	  'extend' keyword thus becomes a statement of intent. AEL can now
+	  duplicate the behavior of pbx_config,
+
+2007-10-26 13:54 +0000 [r87120]  Tilghman Lesher <tlesher@digium.com>
+
+	* funcs/func_curl.c: The addition of autoservice to func_curl
+	  additionally made func_curl dependent on the existence of a
+	  channel, with no real reason. This should make func_curl once
+	  again work without a channel. Reported by jmls. Fixed by
+	  tilghman. Closes issue #11090
+
+2007-10-25 23:03 +0000 [r87069]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* main/channel.c, include/asterisk/linkedlists.h: appending one
+	  list to another should leave the first list empty, and not
+	  require the user to do that
+
+2007-10-25 22:53 +0000 [r87067]  Tilghman Lesher <tlesher@digium.com>
+
+	* funcs/func_cut.c: Backport alternate encoding of newline
+	  delimiters from trunk to 1.4, as approved by Russell Reported by
+	  blitzrage Closes issue #10903
+
+2007-10-24 20:56 +0000 [r86982]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_zap.c: Correctly respect hidecalleridname
+	  configuration option. Simplify code slightly in the process.
+	  Issue 11079, reported by ddv2005
+
+2007-10-24 04:14 +0000 [r86880-86936]  Steve Murphy <murf@digium.com>
+
+	* pbx/ael/ael.tab.c, pbx/ael/ael.y: closes issue #11037 -- unable
+	  to specify app:spec in hint arguments
+
+	* funcs/func_logic.c: closes issue #11052 -- where nothing after
+	  the ? will allow un-initialized variable values to corrupt and
+	  crash asterisk on 64-bit platforms
+
+	* main/Makefile: this update to Makefile corrects how ast_expr2f.c
+	  should be generated
+
+	* main/ast_expr2f.c: This should get rid of a really, really
+	  irritating warning generated by some 64-bit platforms from libc,
+	  where free(0) is frowned upon
+
+2007-10-22 21:36 +0000 [r86836]  Russell Bryant <russell@digium.com>
+
+	* include/asterisk/lock.h: If lock tracking is not enabled, then we
+	  can not attempt to log any mutex failures. If so, we could end up
+	  in infinite recursion. The only lock that is affected by this is
+	  a mutex in astmm.c used when MALLOC_DEBUG is enabled. (closes
+	  issue #11044) Reported by: ys Patches: lock.h.diff uploaded by ys
+	  (license 281)
+
+2007-10-22 17:38 +0000 [r86787]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/astmm.c: Minor FreeBSD build fix
+
+2007-10-22 16:35 +0000 [r86754-86756]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: After reading online I have confirmed that
+	  Record-Route headers should be copied to 1xx responses as well.
+	  (closes issue #10113) Reported by: makoto
+
+	* apps/app_controlplayback.c: Make sure res is a positive value
+	  before performing the check to determine whether the user stopped
+	  it or not. (closes issue #11023) Reported by: cfc
+
+2007-10-22 15:52 +0000 [r86726-86750]  Russell Bryant <russell@digium.com>
+
+	* main/channel.c: Don't leak a frame in the case that an END frame
+	  is received and the time since the BEGIN is less than that of the
+	  defined minimum DTMF duration. (closes issue #11051) Reported by:
+	  casper Patches: channel.c.86664.diff uploaded by casper (license
+	  55)
+
+	* include/asterisk/lock.h: Update the static mutex initializer to
+	  include the initialization of the internal mutex used to protect
+	  the lock debugging data. (closes issue #11044, patch suggested by
+	  Ivan)
+
+2007-10-22 14:48 +0000 [r86694]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_voicemail.c: Account for the fact that sometimes headers
+	  may be terminated with \r\n instead of just \n (closes issue
+	  #11043, reported by yehavi)
+
+2007-10-22 14:27 +0000 [r86630-86663]  Joshua Colp <jcolp@digium.com>
+
+	* main/channel.c: Move log message to before the frame it
+	  references is freed. (closes issue #11050) Reported by: slavon
+	  Patches: channel.c.86662.diff uploaded by casper (license 55)
+
+	* pbx/pbx_dundi.c: Fix tab completion for dundi show peer. (closes
+	  issue #11041) Reported by: jsmith Patches:
+	  asterisk-dundicomplete.diff.txt uploaded by jamesgolovich
+	  (license 176)
+
+	* main/loader.c: Fixes for building under OpenSolaris. (closes
+	  issue #11047) Reported by: snuffy Patches: 11047-fixes.diff
+	  uploaded by snuffy (license 35)
+
+2007-10-22 09:21 +0000 [r86598]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/misdn/isdn_lib.c, channels/chan_misdn.c: we send
+	  DISCONNECT instead of RELEASE/RELEASE_COMPLETE if the dialplan
+	  does not match after an overlap call. Also added out_cause=1
+
+2007-10-19 16:38 +0000 [r86469-86502]  Joshua Colp <jcolp@digium.com>
+
+	* main/app.c: When returning a DTMF digit from
+	  ast_control_streamfile cast it as a char so that 0 does not
+	  overlap with the success return code. (closes issue #11023)
+	  Reported by: cfc
+
+	* channels/chan_sip.c: Fix two issues with domains and transfers.
+	  If a port was given in the hostname it was treated as part of the
+	  hostname. If domains were configured but external domains were
+	  not enabled all transfers would be considered remote. (closes
+	  issue #11027) Reported by: ramonpeek Patches: 11027-1.diff
+	  uploaded by ramonpeek (license 266)
+
+	* channels/chan_sip.c: Set port number in received as information
+	  for registrations as well. (closes issue #11028) Reported by:
+	  brad-x
+
+2007-10-19 01:45 +0000 [r86438]  TransNexus OSP Development <support@transnexus.com>
+
+	* apps/app_osplookup.c: Fixed OSP module did not report
+	  source/devinfo IP in correct format.
+
+2007-10-18 22:01 +0000 [r86405-86406]  Jason Parker <jparker@digium.com>
+
+	* Makefile: Correct documentation. I removed the wrong line..
+
+	* Makefile: Add documentation for options in asterisk.conf Issue
+	  11029, patch by eserra
+
+2007-10-18 21:16 +0000 [r86330-86372]  Russell Bryant <russell@digium.com>
+
+	* configs/iax.conf.sample, channels/chan_iax2.c: Revert erroneous
+	  commit.
+
+	* configs/iax.conf.sample, channels/chan_iax2.c: Add support for
+	  setting the maximum trunk size for IAX2 trunking
+
+	* main/channel.c, include/asterisk/channel.h: The channel needs to
+	  stay locked while running timer callbacks, as they access and
+	  modify channel data that may change elsewhere. I went through
+	  every timer callback in the source tree to make sure that none of
+	  them did any additional locking that could introduce deadlocks,
+	  and all is well. (closes issue #10765) Reported by: Ivan Patches:
+	  ast_1_4_11_svn_patch_channel_rc.diff uploaded by Ivan (license
+	  229)
+
+2007-10-18 17:38 +0000 [r86328]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: If a non-existent file is specified to be
+	  played either as a periodic announcement or as a hold/position
+	  announcement, the caller would be kicked out of the queue. No
+	  longer does this happen.
+
+2007-10-18 15:45 +0000 [r86237-86296]  Russell Bryant <russell@digium.com>
+
+	* codecs/codec_zap.c: Execute the RELEASE operation on transcoder
+	  channels in the destroy callback. (patch from jsloan)
+
+	* main/utils.c: Revert a change that I made for issue #10979 which,
+	  as has been pointed out to me in issue #11018, doesn't really
+	  make sense. There is no reason to have the base64 decode function
+	  force a '\0' terminated buffer, when the result is almost always
+	  binary, anyway. In fact, this caused some breakage, as some code
+	  in res_crypto passed in a buffer exactly the right size to get
+	  its binary result, which got stomped on by this patch. (closes
+	  issue #11018, reported by dimas)
+
+2007-10-17 21:39 +0000 [r86202]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: Changing the strategy field of the call_queue
+	  struct to be signed instead of unsigned, since the code attempts
+	  to set the strategy to -1 if you specify a bogus strategy. While
+	  this isn't a huge issue in 1.4, it could be a problem for someone
+	  who, say, tries to use the roundrobin strategy in trunk (despite
+	  all the deprecation warnings in 1.4).
+
+2007-10-17 17:57 +0000 [r86149]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_sip.c: If Asterisk is in the middle of shutting
+	  down, respond to OPTIONS with 503 Unavailable. (closes issue
+	  #10994) Reported by: eserra Patches: sip-options-503.patch
+	  uploaded by eserra (license 45)
+
+2007-10-17 16:58 +0000 [r86117]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Whoops, forgot to remove the original
+	  sip_scheddestroy. (closes issue #11010) Reported by: vadim
+
+2007-10-17 15:23 +0000 [r86066]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/asterisk.c: When runuser/rungroup is specified, a remote
+	  console could only be attained by root (Closes issue #9999)
+
+2007-10-17 15:06 +0000 [r86063]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Don't schedule dialog destruction if a
+	  MESSAGE is received using an existing dialog. (closes issue
+	  #11010) Reported by: vadim
+
+2007-10-16 23:35 +0000 [r86028-86032]  Mark Michelson <mmichelson@digium.com>
+
+	* configs/queues.conf.sample: Since monitor-join is deprecated now,
+	  remove the example from the sample queues.conf file
+
+	* UPGRADE.txt: Updating UPGRADE.txt to reflect the deprecation of
+	  the monitor-join queue option
+
+	* apps/app_queue.c: Adding deprecated warning to monitor-join
+	  option, since the plan is to no longer support this in favor of
+	  monitor-type = mixmonitor (related to issue #10885)
+
+2007-10-16 22:36 +0000 [r85994-85997]  Russell Bryant <russell@digium.com>
+
+	* include/asterisk/lock.h: really picky formatting tweak ...
+
+	* include/asterisk/lock.h: Some locking errors exposed the fact
+	  that the lock debugging code itself was not thread safe. How
+	  ironic! Anyway, these changes ensure that the code that is
+	  accessing the lock debugging data is thread-safe. Many thanks to
+	  Ivan for finding and fixing the core issue here, and also thanks
+	  to those that tested the patch and provided test results. (closes
+	  issue #10571) (closes issue #10886) (closes issue #10875) (might
+	  close some others, as well ...) Patches: (from issue #10571)
+	  ivan_ast_1_4_12_rel_patch_lock.h.diff uploaded by Ivan (license
+	  229) - a few small changes by me
+
+2007-10-16 21:14 +0000 [r85958]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: Trying to remove a non-dynamic queue member via
+	  dynamic means can lead to some interesting (read nasty)
+	  situations. This patch clears up the issue by making only dynamic
+	  queue members removable via dynamic methods.
+
+2007-10-16 19:41 +0000 [r85921]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/stdtime/localtime.c: Also set up gmtoff (this is used in the
+	  %z gnu extension to strftime) Reported and fixed by jcmoore
+	  Closes issue #11002
+
+2007-10-16 19:10 +0000 [r85896]  Russell Bryant <russell@digium.com>
+
+	* apps/app_voicemail.c: Remove a pointless lock.
+
+2007-10-16 15:21 +0000 [r85852]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: Fixing a double free which happens in the
+	  statechange thread. (closes issue #10987, reported by andrew)
+
+2007-10-16 14:52 +0000 [r85818-85850]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_hasnewvoicemail.c: Check to make sure a value has been
+	  given to the VMCOUNT dialplan function. (closes issue #10996)
+	  Reported by: marsosa
+
+	* main/threadstorage.c: Fix memory allocation issue in
+	  threadstorage. (closes issue #10995) Reported by: snuffy Patches:
+	  new-patch.diff uploaded by snuffy (license 35)
+
+2007-10-16 10:46 +0000 [r85800]  Philippe Sultan <philippe.sultan@gmail.com>
+
+	* channels/chan_gtalk.c: Fix the output for this channel help CLI
+	  command
+
+2007-10-15 21:10 +0000 [r85717-85720]  Russell Bryant <russell@digium.com>
+
+	* apps/app_queue.c: Ensure that no pending state changes are leaked
+	  when the device state change thread gets stopped on module
+	  unload.
+
+	* apps/app_queue.c: Previously, app_queue created a thread to
+	  handle every single device state change. I changed this a while
+	  ago in trunk for performance reasons. However, bug 8407 points
+	  out that it is actually a race condition, causing device state
+	  changes to get processed in random order. So, I backported my
+	  changes from trunk to 1.4. (closes issue #8407, patch provided by
+	  tim_ringenbach, committed patch by me)
+
+2007-10-15 20:29 +0000 [r85687]  Tilghman Lesher <tlesher@digium.com>
+
+	* apps/app_stack.c: Don't execute a gosub if the arguments is
+	  zero-len (not just NULL) Reported by davevg Fixed by me Closes
+	  issue #10985
+
+2007-10-15 20:21 +0000 [r85686]  Russell Bryant <russell@digium.com>
+
+	* main/say.c: Add a small fix for the tw version of saying dates.
+	  (closes issue #7827) Reported by: sharkey Patches: say.nits.patch
+	  uploaded by sharkey (license 172)
+
+2007-10-15 20:15 +0000 [r85684]  Jason Parker <jparker@digium.com>
+
+	* Makefile: Properly use DESTDIR in 'config' target. Do not try to
+	  run chkconfig or similar if using DESTDIR. Issue 10938, patch by
+	  cabal95.
+
+2007-10-15 19:22 +0000 [r85604-85649]  Russell Bryant <russell@digium.com>
+
+	* main/utils.c: Be pedantic about handling memory allocation
+	  failure.
+
+	* main/utils.c: The loop in the handler for the "core show locks"
+	  could potentially block for some amount of time. Be a little bit
+	  more careful and prepare all of the output in an intermediary
+	  buffer while holding a global resource. Then, after releasing it,
+	  send the output to ast_cli().
+
+	* channels/chan_sip.c: Make the default for the srvlookup option to
+	  be yes. It doesn't really make sense for it to default to off.
+	  The default configuration file has it on, and proper RFC
+	  behavior, as indicated by a comment in the code, is for it to be
+	  on. So, let's have it on by default to make lives easier. (closes
+	  issue #10954, suggested by jtodd)
+
+2007-10-15 16:39 +0000 [r85571]  Joshua Colp <jcolp@digium.com>
+
+	* configs/features.conf.sample: Document that DTMF based features
+	  only work when two channels are bridged together. (closes issue
+	  #10773) Reported by: pbayley
+
+2007-10-15 16:34 +0000 [r85561]  Russell Bryant <russell@digium.com>
+
+	* include/asterisk/strings.h: Make a few changes so that characters
+	  in the upper half of the ISO-8859-1 character set don't get
+	  stripped when reading configuration. (closes issue #10982,
+	  dandre)
+
+2007-10-15 16:22 +0000 [r85559]  Joshua Colp <jcolp@digium.com>
+
+	* main/rtp.c: Bring both DTMF begin and end frames up through to
+	  the core for DTMF feature handling. (closes issue #10826)
+	  Reported by: dimas
+
+2007-10-15 15:40 +0000 [r85556]  Russell Bryant <russell@digium.com>
+
+	* pbx/pbx_dundi.c: Ensure the buffer passed to
+	  ast_canmatch_extension() is properly initialized so that it is
+	  null terminated. (issue #10977) Reported by: dimas Patches:
+	  pbxdundi.patch uploaded by dimas (license 88) - small mods by me
+
+2007-10-15 14:55 +0000 [r85552]  Joshua Colp <jcolp@digium.com>
+
+	* main/rtp.c: If Monitor or a spy was added to a P2P or native
+	  bridged channel bring the channel back to the generic bridging
+	  core so the monitor or spy operations work. (closes issue #10943)
+	  Reported by: julianjm
+
+2007-10-15 13:16 +0000 [r85540-85548]  Russell Bryant <russell@digium.com>
+
+	* main/db.c: Suppress a LOG_DEBUG message if debug is not enabled.
+	  (closes issue #10980) Reported by: casper Patches:
+	  db.c.84633.diff uploaded by casper (license 55)
+
+	* main/asterisk.c: Make sure remote consoles unmute themselves
+	  again after reconnecting. (closes issue #10847) Reported by: atis
+	  Patches: console_unmute_on_reconnect.patch uploaded by atis
+	  (license 242)
+
+	* main/utils.c: Make sure that the base64 decoder returns a
+	  terminated string. (closes issue #10979) Reported by: ys Patches:
+	  util.c.diff uploaded by ys (license 281) - small mods by me
+
+	* pbx/pbx_config.c: Don't create the context for users in
+	  users.conf until we know at least one user exists. (closes issue
+	  #10971) Reported by: dimas Patches: pbxconfig.patch uploaded by
+	  dimas (license 88)
+
+2007-10-13 15:26 +0000 [r85536]  Tilghman Lesher <tlesher@digium.com>
+
+	* configs/extensions.ael.sample: Remove deprecated syntax from
+	  sample ael file Reported and patched by: dimas Closes issue
+	  #10967
+
+2007-10-13 05:48 +0000 [r85532-85533]  Russell Bryant <russell@digium.com>
+
+	* main/asterisk.c, main/cli.c, include/asterisk/logger.h: Fix an
+	  issue with console verbosity when running asterisk -rx to execute
+	  a command and retrieve its output. The issue was that there was
+	  no way for the main Asterisk process to know that the remote
+	  console was connecting in the -rx mode. The way that James has
+	  fixed this is to have all remote consoles muted by default. Then,
+	  regular remote consoles automatically execute a CLI command to
+	  unmute themselves when they first start up. (closes issue #10847)
+	  Reported by: atis Patches: asterisk-consolemute.diff.txt uploaded
+	  by jamesgolovich (license 176)
+
+	* main/asterisk.c, main/cli.c, include/asterisk/cli.h: Properly
+	  handle the case where read() may return the text for more than
+	  one CLI command at once for a remote console. (closes issue
+	  #10888) Reported by: jamesgolovich Patches:
+	  asterisk-climultiple.diff.txt uploaded by jamesgolovich (license
+	  176)
+
+2007-10-12 18:30 +0000 [r85523]  Tilghman Lesher <tlesher@digium.com>
+
+	* doc/asterisk-mib.txt, doc/PEERING, LICENSE: Change Digium address
+
+2007-10-12 15:45 +0000 [r85515-85517]  Russell Bryant <russell@digium.com>
+
+	* res/res_smdi.c: Fix a spelling error in a log message. SMDI, not
+	  SDMI. (closes issue #10959)
+
+	* pbx/pbx_realtime.c: Fix the potential use of an uninitialized
+	  buffer in a log message. (closes issue #10958) Reported by: dimas
+	  Patches: realtime.patch uploaded by dimas (license 88)
+
+2007-10-11 15:26 +0000 [r85397]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: When creating a new packet don't try to stop
+	  retransmission of it. It was just allocated/created so it's
+	  impossible for it to have already been scheduled. (closes issue
+	  #10945) Reported by: flefoll Patches:
+	  chan_sip.c.br14.85280.xmit_reliable-patch uploaded by flefoll
+	  (license 244)
+
+2007-10-11 04:35 +0000 [r85356]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/pbx.c: A dollar sign by itself, not indicating a start of a
+	  variable or expression prematurely ends substitution (closes
+	  issue #10939)
+
 2007-10-10  Russell Bryant <russell@digium.com>
 
 	* Asterisk 1.4.13 released.

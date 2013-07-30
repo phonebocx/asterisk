@@ -61,7 +61,7 @@ CREATE TABLE [dbo].[cdr] (
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89088 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -441,9 +441,11 @@ static int tds_load_module(void)
 	}
 
 	var = ast_variable_browse(cfg, "global");
-	if (!var) /* nothing configured */
+	if (!var) /* nothing configured */ {
+		ast_config_destroy(cfg);
 		return 0;
-
+	}
+	
 	ptr = ast_variable_retrieve(cfg, "global", "hostname");
 	if (ptr)
 		hostname = strdup(ptr);

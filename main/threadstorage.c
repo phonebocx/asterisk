@@ -27,7 +27,7 @@
 
 #if defined(DEBUG_THREADLOCALS)
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49553 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 85818 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -56,7 +56,7 @@ void __ast_threadstorage_object_add(void *key, size_t len, const char *file, con
 {
 	struct tls_object *to;
 
-	if (!(to = ast_calloc(sizeof(*to), 1)))
+	if (!(to = ast_calloc(1, sizeof(*to))))
 		return;
 
 	to->key = key;

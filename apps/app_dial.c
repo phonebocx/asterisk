@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 84166 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89622 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -57,6 +57,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 84166 $")
 #include "asterisk/app.h"
 #include "asterisk/causes.h"
 #include "asterisk/rtp.h"
+#include "asterisk/cdr.h"
 #include "asterisk/manager.h"
 #include "asterisk/privacy.h"
 #include "asterisk/stringfields.h"
@@ -762,7 +763,26 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in, struct dial_l
 		}
 		
 	}
-
+	if (peer && !ast_cdr_log_unanswered()) {
+		/* suppress the CDR's that didn't win */
+		struct dial_localuser *o;
+		for (o = outgoing; o; o = o->next) {
+			struct ast_channel *c = o->chan;
+			if (c && c != peer && c->cdr) {
+				ast_set_flag(c->cdr, AST_CDR_FLAG_POST_DISABLED);
+			}
+		}
+	} else if (!peer && !ast_cdr_log_unanswered()) {
+			/* suppress the CDR's that didn't win */
+		struct dial_localuser *o;
+		for (o = outgoing; o; o = o->next) {
+			struct ast_channel *c = o->chan;
+			if (c && c->cdr) {
+				ast_set_flag(c->cdr, AST_CDR_FLAG_POST_DISABLED);		
+			}
+		}
+	}
+	
 	return peer;
 }
 
