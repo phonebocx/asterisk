@@ -1,0 +1,23 @@
+;
+; Voicemail Configuration
+;
+[general]
+; Default formats for writing Voicemail
+;format=g723sf|wav49|wav
+format=gsm|wav49|wav
+; Who the e-mail notification should appear to come from
+serveremail=asterisk
+;serveremail=asterisk@linux-support.net
+
+;
+; Each mailbox is listed in the form <mailbox>=<password>,<name>,<email>
+; if the e-mail is specified, a message will be sent when a message is
+; received, to the given mailbox.
+;
+[default]
+1234 => 4242,Example Mailbox,root@localhost
+;4200 => 9855,Mark Spencer,markster@linux-support.net
+;4300 => 3456,Ben Rigas,ben@american-computer.net
+;4310 => 5432,Sales,sales@marko.net
+;4069 => 6522,Matt Brooks,matt@marko.net
+;4110 => 3443,Rob Flynn,rflynn@blueridge.net

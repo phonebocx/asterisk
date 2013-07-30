@@ -1,0 +1,145 @@
+Asterisk 0.1.11
+ -- Add ISDN RAS capability
+ -- Add stutter dialtone to Chan Zap
+ -- Add "#include" capability to config files.
+ -- Add call-forward variable to Chan Zap (*72, *73)
+ -- Optimize IAX flow when transfer isn't possible
+ -- Allow transmission of ANI over IAX
+Asterisk 0.1.10
+ -- Make ast_readstring parameter be the max # of digits, not the max size with \0
+ -- Make up any missing messages on the fly
+ -- Add support for specific DTMF interruption to saying numbers
+ -- Add new "u" and "b" options to condense busy/unavail handling
+ -- Add support for RSA authentication on IAX calls
+ -- Add support for ADSI compatible CPE
+ -- Outgoing call queue
+ -- Remote dialplan fixes for Quicknet
+ -- Added AGI commands supporting TDD functions (RECEIVE CHAR & TDD MODE)
+ -- Added TDD support (send/receive text in chan_zap)
+ -- Fix all strncpy references
+ -- Implement CSV CDR backend
+ -- Implement Call Detail Records
+Asterisk 0.1.9
+ -- Implement IAX quelching
+ -- Allow Caller*ID to be overridden and suggested
+ -- Configure defaults to use IAXTEL
+ -- Allow remote dialplan polling via IAX
+ -- Eliminate ast_longest_extension
+ -- Implement dialplan request/reply
+ -- Let peers have allow/disallow for codecs
+ -- Change allow/deny to permit/deny in IAX
+ -- Allow dialplan entries to match Caller*ID as well
+ -- Added AGI (Asterisk Gateway Interface) scripting interface (app_agi)
+ -- Added chan_zap for zapata telephony kernel interface, removed chan_tor
+ -- Add convenience functions
+ -- Fix race condition in channel hangup
+ -- Fix memory leaks in both asterisk and iax frame allocations
+ -- Add "iax show stats" command and -DTRACE_FRAMES (for frame tracing)
+ -- Add DISA application (Thanks to Jim Dixon)
+ -- Add IAX transfer support
+ -- Add URL and HTML transmission
+ -- Add application for sending images
+ -- Add RedHat RPM spec file and build capability
+ -- Fix GSM WAV file format bug
+ -- Move ignorepat to main dialplan
+ -- Add ability to specificy TOS bits in IAX
+ -- Allow username:password in IAX strings
+ -- Updates to PhoneJack interface
+ -- Allow "servermail" in voicemail.conf to override e-mail in "from" line
+ -- Add 'skip' option to app_playback
+ -- Reject IAX calls on unknown extensions
+ -- Fix version stuff
+Asterisk 0.1.8
+ -- Keep track of version information
+ -- Add -f to cause Asterisk not to fork
+ -- Keep important information in voicemail .txt file
+ -- Adtran Voice over Frame Relay updates
+ -- Implement option setting/querying of channel drivers
+ -- IAX performance improvements and protocol fixes
+ -- Substantial enhancement of console channel driver
+ -- Add IAX registration.  Now IAX can dynamically register
+ -- Add flash-hook transfer on tormenta channels
+ -- Added Three Way Calling on tormenta channels
+ -- Start on concept of zombie channel
+ -- Add Call Waiting CallerID
+ -- Keep track of who registeres contexts, includes, and extensions
+ -- Added Call Waiting(tm), *67, *70, and *82 codes
+ -- Move parked calls into "parkedcalls" context by default
+ -- Allow dialplan to be displayed
+ -- Allow "=>" instead of just "=" to make instantiation clearer
+ -- Asterisk forks if called with no arguments
+ -- Add remote control by running asterisk -vvvc
+ -- Adjust verboseness with "set verbose" now
+ -- No longer requires libaudiofile
+ -- Install beep
+ -- Make PBX Config module reload extensions on SIGHUP
+ -- Allow modules to be reloaded when SIGHUP is received
+ -- Variables now contain line numbers
+ -- Make dialer send in band signalling
+ -- Add record application
+ -- Added PRI signalling to Tormenta driver
+ -- Allow use of BYEXTENSION in "Goto"
+ -- Allow adjustment of gains on tormenta channels
+ -- Added raw PCM file format support
+ -- Add U-law translator
+ -- Fix DTMF handling in bridge code
+ -- Fix access control with IAX
+* Asterisk 0.1.7
+ -- Update configuration files and add some missing sounds
+ -- Added ability to include one context in another
+ -- Rewrite of PBX switching
+ -- Major mods to dialler application
+ -- Added Caller*ID spill reception
+ -- Added Dialogic VOX file format support
+ -- Added ADPCM Codec
+ -- Add Tormenta driver (RBS signalling)
+ -- Add Caller*ID spill creation
+ -- Rewrite of translation layer entirely
+ -- Add ability to run PBX without additional thread
+* Asterisk 0.1.6
+ -- Make app_dial handle a lack of translators smoothly
+ -- Add ISDN4Linux support -- dtmf is weird...
+ -- Minor bug fixes
+* Asterisk 0.1.5
+ -- Fix a small mistake in IAX
+ -- Fix the QuickNet driver to work with newer cards
+* Asterisk 0.1.4
+ -- Update VoFR some more
+ -- Fix the QuickNet driver to work with LineJack
+ -- Add ability to pass images for IAX.
+* Asterisk 0.1.3
+ -- Update VoFR for latest sangoma code
+ -- Update QuickNet Driver
+ -- Add text message handling
+ -- Fix transfers to use "default" if not in current context
+ -- Add call parking
+ -- Improve format/content negotiation
+ -- Added support for multiple languages
+ -- Bug fixes, as always...
+* Asterisk 0.1.2
+ -- Updated README file with a "Getting Started" section
+ -- Added sample sounds and configuration files.
+ -- Added LPC10 very low bandwidth (low quality) compression
+ -- Enhanced translation selection mechanism.
+ -- Enhanced IAX jitter buffer, improved reliability
+ -- Support echo cancelation on PhoneJack
+ -- Updated PhoneJack driver to std. Telephony interface
+ -- Added app_echo for evaluating VoIP latency
+ -- Added app_system to execute arbitrary programs
+ -- Updated sample configuration files
+ -- Added OSS channel driver (full duplex only)
+ -- Added IAX implementation
+ -- Fixed some deadlocks.
+ -- A whole bunch of bug fixes
+* Asterisk 0.1.1
+ -- Revised translator, fixed some general race conditions throughout *
+ -- Made dialer somewhat more aware of incompatible voice channels
+ -- Added Voice Modem driver and A/Open Modem Driver stub
+ -- Added MP3 decoder channel
+ -- Added Microsoft WAV49 support
+ -- Revised License -- Pure GPL, nothing else
+ -- Modified Copyright statement since code is still currently owned by author
+ -- Added RAW GSM headerless data format
+ -- Innumerable bug fixes
+* Asterisk 0.1.0
+ -- Initial Release
