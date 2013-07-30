@@ -24,7 +24,7 @@
  */
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 229502 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 237840 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_SYSTEM_NAME */
@@ -2098,31 +2098,28 @@ static int ext_cmp1(const char **p, unsigned char *bitwise)
 	int c, cmin = 0xff, count = 0;
 	const char *end;
 
-	/* load, sign extend and advance pointer until we find
-	 * a valid character.
-	 */
+	/* load value and advance pointer */
 	c = *(*p)++;
-	memset(bitwise, 0xff, 32);
 
 	/* always return unless we have a set of chars */
 	switch (toupper(c)) {
 	default:	/* ordinary character */
-		return 0x0000 | (c & 0xff);
+		bitwise[c / 8] = 1 << (c % 8);
+		return 0x0100 | (c & 0xff);
 
 	case 'N':	/* 2..9 */
-		bitwise[6] = 0x01;
-		bitwise[7] = 0xfe;
+		bitwise[6] = 0xfc;
+		bitwise[7] = 0x03;
 		return 0x0800 | '2';
 
 	case 'X':	/* 0..9 */
-		bitwise[5] = 0x7f;
-		bitwise[6] = 0x00;
-		bitwise[7] = 0xfe;
+		bitwise[6] = 0xff;
+		bitwise[7] = 0x03;
 		return 0x0A00 | '0';
 
 	case 'Z':	/* 1..9 */
-		bitwise[6] = 0x00;
-		bitwise[7] = 0xfe;
+		bitwise[6] = 0xfe;
+		bitwise[7] = 0x03;
 		return 0x0900 | '1';
 
 	case '.':	/* wildcard */
@@ -2160,14 +2157,13 @@ static int ext_cmp1(const char **p, unsigned char *bitwise)
 		}
 		for (; c1 <= c2; c1++) {
 			unsigned char mask = 1 << (c1 % 8);
-			/* Count the number of characters in the class, discarding duplicates. */
-			if ( (bitwise[ c1 / 8 ] & mask) == 1) {
+			/*!\note If two patterns score the same, the one with the lowest
+			 * ascii values will compare as coming first. */
+			/* Flag the character as included (used) and count it. */
+			if (!(bitwise[ c1 / 8 ] & mask)) {
+				bitwise[ c1 / 8 ] |= mask;
 				count += 0x100;
 			}
-			/*!\note If two patterns score the same, but one includes '0' (as
-			 * the lowest ASCII value in the given class) and the other does
-			 * not, then the one including '0' will compare as coming first. */
-			bitwise[ c1 / 8 ] &= ~mask;
 		}
 	}
 	(*p)++;
@@ -2183,7 +2179,6 @@ static int ext_cmp(const char *a, const char *b)
 	 * If a is not a pattern, it either comes first or
 	 * we do a more complex pattern comparison.
 	 */
-	unsigned char bitwise[2][32];
 	int ret = 0;
 
 	if (a[0] != '_')
@@ -2193,14 +2188,17 @@ static int ext_cmp(const char *a, const char *b)
 	if (b[0] != '_')
 		return 1;
 
-	/* ok we need full pattern sorting routine */
-	while (!ret && a && b) {
+	/* ok we need full pattern sorting routine.
+	 * skip past the underscores */
+	++a; ++b;
+	do {
+		unsigned char bitwise[2][32] = { { 0, } };
 		ret = ext_cmp1(&a, bitwise[0]) - ext_cmp1(&b, bitwise[1]);
 		if (ret == 0) {
 			/* Are the classes different, even though they score the same? */
 			ret = memcmp(bitwise[0], bitwise[1], 32);
 		}
-	}
+	} while (!ret && a && b);
 	if (ret == 0) {
 		return 0;
 	} else {
@@ -6658,12 +6656,13 @@ void ast_merge_contexts_and_delete(struct ast_context **extcontexts, struct ast_
 	AST_RWLIST_WRLOCK(&hints);
 	writelocktime = ast_tvnow();
 
-	/* preserve all watchers for hints associated with this registrar */
+	/* preserve all watchers for hints */
 	AST_RWLIST_TRAVERSE(&hints, hint, list) {
-		if (!AST_LIST_EMPTY(&hint->callbacks) && !strcmp(registrar, hint->exten->parent->registrar)) {
+		if (!AST_LIST_EMPTY(&hint->callbacks)) {
 			length = strlen(hint->exten->exten) + strlen(hint->exten->parent->name) + 2 + sizeof(*this);
 			if (!(this = ast_calloc(1, length)))
 				continue;
+			/* this removes all the callbacks from the hint into this. */
 			AST_LIST_APPEND_LIST(&this->callbacks, &hint->callbacks, entry);
 			this->laststate = hint->laststate;
 			this->context = this->data;
@@ -6694,7 +6693,7 @@ void ast_merge_contexts_and_delete(struct ast_context **extcontexts, struct ast_
 		 */
 		if (exten && exten->exten[0] == '_') {
 			ast_add_extension_nolock(exten->parent->name, 0, this->exten, PRIORITY_HINT, NULL,
-				0, exten->app, ast_strdup(exten->data), ast_free_ptr, registrar);
+				0, exten->app, ast_strdup(exten->data), ast_free_ptr, exten->registrar);
 			/* rwlocks are not recursive locks */
 			exten = ast_hint_extension_nolock(NULL, this->context, this->exten);
 		}
@@ -8740,7 +8739,7 @@ static int pbx_builtin_waitexten(struct ast_channel *chan, void *data)
 	if (ast_test_flag(&flags, WAITEXTEN_MOH) && !opts[0] ) {
 		ast_log(LOG_WARNING, "The 'm' option has been specified for WaitExten without a class.\n"); 
 	} else if (ast_test_flag(&flags, WAITEXTEN_MOH)) {
-		ast_indicate_data(chan, AST_CONTROL_HOLD, opts[0], strlen(opts[0]));
+		ast_indicate_data(chan, AST_CONTROL_HOLD, S_OR(opts[0], NULL), strlen(opts[0]));
 	} else if (ast_test_flag(&flags, WAITEXTEN_DIALTONE)) {
 		struct ast_tone_zone_sound *ts = ast_get_indication_tone(chan->zone, "dial");
 		if (ts) {
@@ -8810,8 +8809,16 @@ static int pbx_builtin_background(struct ast_channel *chan, void *data)
 	if (ast_strlen_zero(args.lang))
 		args.lang = (char *)chan->language;	/* XXX this is const */
 
-	if (ast_strlen_zero(args.context))
-		args.context = chan->context;
+	if (ast_strlen_zero(args.context)) {
+		const char *context;
+		ast_channel_lock(chan);
+		if ((context = pbx_builtin_getvar_helper(chan, "MACRO_CONTEXT"))) {
+			args.context = ast_strdupa(context);
+		} else {
+			args.context = chan->context;
+		}
+		ast_channel_unlock(chan);
+	}
 
 	if (args.options) {
 		if (!strcasecmp(args.options, "skip"))
@@ -8868,8 +8875,15 @@ static int pbx_builtin_background(struct ast_channel *chan, void *data)
 	 * (but a longer extension COULD have matched), it would have previously
 	 * gone immediately to the "i" extension, but will now need to wait for a
 	 * timeout.
+	 *
+	 * Later, we had to add a flag to disable this workaround, because AGI
+	 * users can EXEC Background and reasonably expect that the DTMF code will
+	 * be returned (see #16434).
 	 */
-	if ((exten[0] = res) && !ast_matchmore_extension(chan, args.context, exten, 1, chan->cid.cid_num)) {
+	if (!ast_test_flag(chan, AST_FLAG_DISABLE_WORKAROUNDS) &&
+			(exten[0] = res) &&
+			ast_canmatch_extension(chan, args.context, exten, 1, chan->cid.cid_num) &&
+			!ast_matchmore_extension(chan, args.context, exten, 1, chan->cid.cid_num)) {
 		snprintf(chan->exten, sizeof(chan->exten), "%c", res);
 		ast_copy_string(chan->context, args.context, sizeof(chan->context));
 		chan->priority = 0;

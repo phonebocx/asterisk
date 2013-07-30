@@ -18,7 +18,7 @@ AC_CANONICAL_HOST
 AC_CONFIG_SRCDIR([main/asterisk.c])
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 226055 $)
+AC_REVISION($Revision: 236635 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -496,6 +496,26 @@ AC_LINK_IFELSE(
 )
 if test "${ac_cv_pthread_rwlock_timedwrlock}" = "yes"; then
   AC_DEFINE([HAVE_PTHREAD_RWLOCK_TIMEDWRLOCK], 1, [Define if your system has pthread_rwlock_timedwrlock()])
+fi
+
+AC_MSG_CHECKING(if PTHREAD_ONCE_INIT needs braces)
+saved_CFLAGS="${CFLAGS}"
+CFLAGS="${CFLAGS} -Werror -Wmissing-braces"
+AC_COMPILE_IFELSE(
+  [AC_LANG_PROGRAM(
+    [#include <pthread.h>],
+	[pthread_once_t once = PTHREAD_ONCE_INIT;])
+  ],[
+    AC_MSG_RESULT(no)
+    ac_cv_pthread_once_needsbraces="no"
+  ],[
+    AC_MSG_RESULT(yes)
+    ac_cv_pthread_once_needsbraces="yes"
+  ]
+)
+CFLAGS="${saved_CFLAGS}"
+if test "${ac_cv_pthread_once_needsbraces}" = "yes"; then
+  AC_DEFINE([PTHREAD_ONCE_INIT_NEEDS_BRACES], 1, [Define if your system needs braces around PTHREAD_ONCE_INIT])
 fi
 
 AST_C_DEFINE_CHECK([PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP], [PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP], [pthread.h])
@@ -1606,7 +1626,7 @@ elif test "x$CURSES_LIB" != "x" ; then
 elif test "x$NCURSES_LIB" != "x" ; then
   EDITLINE_LIB="$NCURSES_LIB"
 else
-  AC_MSG_ERROR(*** termcap support not found)
+  AC_MSG_ERROR([*** termcap support not found (on modern systems, this typically means the ncurses development package is missing)])
 fi
 AC_SUBST(EDITLINE_LIB)
 

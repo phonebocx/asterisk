@@ -53,7 +53,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222187 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238499 $")
 
 #include <sys/signal.h>  /* SIGURG */
 
@@ -100,13 +100,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222187 $")
  *       that defines the maximum length of a text message.
  */
 #define TEXT_SIZE	256
-
-#ifndef MIN
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-#endif
-#ifndef MAX
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
-#endif
 
 /*! \brief Dance, Kirby, Dance! @{ */
 #define V_BEGIN " --- <(\"<) --- "

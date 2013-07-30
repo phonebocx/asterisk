@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 154647 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232359 $")
 
 #include "asterisk/module.h"
 #include "asterisk/lock.h"
@@ -264,6 +264,7 @@ static void isAnsweringMachine(struct ast_channel *chan, void *data)
 			ast_verb(3, "AMD: Channel [%s]. HANGUP\n", chan->name);
 			ast_debug(1, "Got hangup\n");
 			strcpy(amdStatus, "HANGUP");
+			res = 1;
 			break;
 		}
 

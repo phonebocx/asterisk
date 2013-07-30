@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 227280 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232094 $")
 
 #ifdef __NetBSD__
 #include <pthread.h>
@@ -3134,7 +3134,11 @@ static int dahdi_call(struct ast_channel *ast, char *rdest, int timeout)
 		ast_log(LOG_WARNING, "Unable to flush input on channel %d: %s\n", p->channel, strerror(errno));
 	p->outgoing = 1;
 
-	set_actual_gain(p->subs[SUB_REAL].dfd, 0, p->rxgain, p->txgain, p->law);
+	if (IS_DIGITAL(ast->transfercapability)){
+		set_actual_gain(p->subs[SUB_REAL].dfd, 0, 0, 0, p->law);
+	} else {
+		set_actual_gain(p->subs[SUB_REAL].dfd, 0, p->rxgain, p->txgain, p->law);
+	}	
 
 	mysig = p->sig;
 	if (p->outsigmod > -1)

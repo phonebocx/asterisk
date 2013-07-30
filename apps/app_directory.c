@@ -30,7 +30,7 @@
  ***/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 219989 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 234896 $")
 
 #include <ctype.h>
 
@@ -652,11 +652,11 @@ static int do_directory(struct ast_channel *chan, struct ast_config *vmcfg, stru
 	char ext[10] = "";
 
 	if (digit == '0' && !goto_exten(chan, S_OR(dialcontext, "default"), "o")) {
-		return 0;
+		return digit;
 	}
 
 	if (digit == '*' && !goto_exten(chan, S_OR(dialcontext, "default"), "a")) {
-		return 0;
+		return digit;
 	}
 
 	ext[0] = digit;
@@ -808,7 +808,7 @@ static int directory_exec(struct ast_channel *chan, void *data)
 					"dir-firstlast", AST_DIGIT_ANY);
 			}
 			if (!res) {
-				ast_stream_and_wait(chan, "dir-usingkeypad", AST_DIGIT_ANY);
+				res = ast_stream_and_wait(chan, "dir-usingkeypad", AST_DIGIT_ANY);
 			}
 		}
 		ast_stopstream(chan);

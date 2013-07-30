@@ -533,7 +533,13 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;
 ;    Note that in this example, the optional authuser and secret portions have
 ;    been left blank because we have specified a port in the user section
-  
+;
+;register => tls://username:xxxxxx@sip-tls-proxy.example.org
+;
+;    The 'transport' part defaults to 'udp' but may also be 'tcp' or 'tls'.
+;    Using 'udp://' explicitly is also useful in case the username part
+;    contains a '/' ('user/name').
+
 ;registertimeout=20             ; retry registration calls every 20 seconds (default)
 ;registerattempts=10            ; Number of registration attempts before we give up
                                 ; 0 = continue forever, hammering the other server
@@ -1090,6 +1096,7 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;defaultip=192.168.0.60          ; IP address to use if peer has not registered
 ;deny=0.0.0.0/0.0.0.0            ; ACL: Control access to this account based on IP address
 ;permit=192.168.0.60/255.255.255.0
+;permit=192.168.0.60/24          ; we can also use CIDR notation for subnet masks
 
 ;[cisco1]
 ;type=friend

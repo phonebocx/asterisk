@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238234 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -52,7 +52,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
 						<para>Last application arguments.</para>
 					</enum>
 					<enum name="disposition">
-						<para>ANSWERED, NO ANSWER, BUSY.</para>
+						<para>ANSWERED, NO ANSWER, BUSY, FAILED.</para>
 					</enum>
 					<enum name="src">
 						<para>Source.</para>
@@ -133,16 +133,19 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
 			<literal>amaflags</literal>.</para></note>
 			<para>Raw values for <literal>disposition</literal>:</para>
 			<enumlist>
-				<enum name="1">
+				<enum name="0">
 					<para>NO ANSWER</para>
 				</enum>
-				<enum name="2">
-					<para>BUSY</para>
+				<enum name="1">
+					<para>NO ANSWER (NULL record)</para>
 				</enum>
-				<enum name="3">
+				<enum name="2">
 					<para>FAILED</para>
 				</enum>
 				<enum name="4">
+					<para>BUSY</para>
+				</enum>
+				<enum name="8">
 					<para>ANSWERED</para>
 				</enum>
 			</enumlist>

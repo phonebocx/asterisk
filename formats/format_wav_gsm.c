@@ -29,7 +29,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 186845 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233694 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -548,4 +548,8 @@ static int unload_module(void)
 	return ast_format_unregister(wav49_f.name);
 }	
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Microsoft WAV format (Proprietary GSM)");
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Microsoft WAV format (Proprietary GSM)",
+	.load = load_module,
+	.unload = unload_module,
+	.load_pri = 10,
+);

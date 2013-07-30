@@ -232,47 +232,47 @@
 \contentsline {subsubsection}{University of Washington IMAP C-Client}{153}{section*.54}
 \contentsline {subsubsection}{Compiling Asterisk}{154}{section*.55}
 \contentsline {subsection}{\numberline {11.2.2}Modify voicemail.conf}{155}{subsection.11.2.2}
-\contentsline {subsection}{\numberline {11.2.3}IMAP Folders}{155}{subsection.11.2.3}
+\contentsline {subsection}{\numberline {11.2.3}IMAP Folders}{156}{subsection.11.2.3}
 \contentsline {subsection}{\numberline {11.2.4}Separate vs. Shared Email Accounts}{156}{subsection.11.2.4}
 \contentsline {subsection}{\numberline {11.2.5}IMAP Server Implementations}{156}{subsection.11.2.5}
 \contentsline {subsubsection}{UW IMAP-2005 or earlier}{156}{section*.56}
-\contentsline {subsubsection}{UW IMAP-2006}{156}{section*.57}
+\contentsline {subsubsection}{UW IMAP-2006}{157}{section*.57}
 \contentsline {subsubsection}{UW IMAP-2007}{157}{section*.58}
 \contentsline {subsubsection}{Cyrus IMAP}{157}{section*.59}
 \contentsline {subsection}{\numberline {11.2.6}Quota Support}{157}{subsection.11.2.6}
 \contentsline {subsection}{\numberline {11.2.7}Application Notes}{157}{subsection.11.2.7}
-\contentsline {chapter}{\numberline {12}SMS}{158}{chapter.12}
-\contentsline {section}{\numberline {12.1}Introduction}{158}{section.12.1}
-\contentsline {section}{\numberline {12.2}Background}{158}{section.12.2}
-\contentsline {section}{\numberline {12.3}Typical use with Asterisk}{159}{section.12.3}
-\contentsline {section}{\numberline {12.4}Terminology}{159}{section.12.4}
-\contentsline {section}{\numberline {12.5}Sub address}{160}{section.12.5}
-\contentsline {section}{\numberline {12.6}extensions.conf}{160}{section.12.6}
-\contentsline {section}{\numberline {12.7}Using smsq}{161}{section.12.7}
-\contentsline {section}{\numberline {12.8}File formats}{167}{section.12.8}
-\contentsline {section}{\numberline {12.9}Delivery reports}{169}{section.12.9}
-\contentsline {chapter}{\numberline {13}Queues}{170}{chapter.13}
-\contentsline {section}{\numberline {13.1}Introduction}{170}{section.13.1}
-\contentsline {section}{\numberline {13.2}Configuring Call Queues}{170}{section.13.2}
-\contentsline {subsection}{\numberline {13.2.1}queues.conf}{170}{subsection.13.2.1}
-\contentsline {subsection}{\numberline {13.2.2}Routing incoming Calls to Queues}{171}{subsection.13.2.2}
-\contentsline {subsubsection}{The Main Menu}{171}{section*.60}
-\contentsline {subsubsection}{The Contexts referenced from the queues.conf file}{172}{section*.61}
-\contentsline {subsection}{\numberline {13.2.3}Assigning agents to Queues}{174}{subsection.13.2.3}
-\contentsline {subsubsection}{Agents Log In and Out}{175}{section*.62}
-\contentsline {subsection}{\numberline {13.2.4}Controlling The Way Queues Call the Agents}{177}{subsection.13.2.4}
-\contentsline {subsection}{\numberline {13.2.5}Pre Acknowledgement Message}{179}{subsection.13.2.5}
-\contentsline {subsection}{\numberline {13.2.6}Caveats}{179}{subsection.13.2.6}
-\contentsline {section}{\numberline {13.3}Queue Logs}{180}{section.13.3}
-\contentsline {chapter}{\numberline {14}Phone Provisioning}{183}{chapter.14}
-\contentsline {section}{\numberline {14.1}Introduction}{183}{section.14.1}
-\contentsline {section}{\numberline {14.2}Configuration of phoneprov.conf}{183}{section.14.2}
-\contentsline {subsection}{\numberline {14.2.1}The [general] section}{183}{subsection.14.2.1}
-\contentsline {subsection}{\numberline {14.2.2}Creating phone profiles}{184}{subsection.14.2.2}
-\contentsline {section}{\numberline {14.3}Configuration of users.conf}{185}{section.14.3}
-\contentsline {subsection}{\numberline {14.3.1}The [general] section}{185}{subsection.14.3.1}
-\contentsline {subsection}{\numberline {14.3.2}Invdividual Users}{186}{subsection.14.3.2}
-\contentsline {section}{\numberline {14.4}Templates}{186}{section.14.4}
-\contentsline {section}{\numberline {14.5}Putting it all together}{188}{section.14.5}
-\contentsline {chapter}{\numberline {15}Development}{190}{chapter.15}
-\contentsline {section}{\numberline {15.1}Backtrace}{190}{section.15.1}
+\contentsline {chapter}{\numberline {12}SMS}{159}{chapter.12}
+\contentsline {section}{\numberline {12.1}Introduction}{159}{section.12.1}
+\contentsline {section}{\numberline {12.2}Background}{159}{section.12.2}
+\contentsline {section}{\numberline {12.3}Typical use with Asterisk}{160}{section.12.3}
+\contentsline {section}{\numberline {12.4}Terminology}{160}{section.12.4}
+\contentsline {section}{\numberline {12.5}Sub address}{161}{section.12.5}
+\contentsline {section}{\numberline {12.6}extensions.conf}{161}{section.12.6}
+\contentsline {section}{\numberline {12.7}Using smsq}{162}{section.12.7}
+\contentsline {section}{\numberline {12.8}File formats}{168}{section.12.8}
+\contentsline {section}{\numberline {12.9}Delivery reports}{170}{section.12.9}
+\contentsline {chapter}{\numberline {13}Queues}{171}{chapter.13}
+\contentsline {section}{\numberline {13.1}Introduction}{171}{section.13.1}
+\contentsline {section}{\numberline {13.2}Configuring Call Queues}{171}{section.13.2}
+\contentsline {subsection}{\numberline {13.2.1}queues.conf}{171}{subsection.13.2.1}
+\contentsline {subsection}{\numberline {13.2.2}Routing incoming Calls to Queues}{172}{subsection.13.2.2}
+\contentsline {subsubsection}{The Main Menu}{172}{section*.60}
+\contentsline {subsubsection}{The Contexts referenced from the queues.conf file}{173}{section*.61}
+\contentsline {subsection}{\numberline {13.2.3}Assigning agents to Queues}{175}{subsection.13.2.3}
+\contentsline {subsubsection}{Agents Log In and Out}{176}{section*.62}
+\contentsline {subsection}{\numberline {13.2.4}Controlling The Way Queues Call the Agents}{178}{subsection.13.2.4}
+\contentsline {subsection}{\numberline {13.2.5}Pre Acknowledgement Message}{180}{subsection.13.2.5}
+\contentsline {subsection}{\numberline {13.2.6}Caveats}{180}{subsection.13.2.6}
+\contentsline {section}{\numberline {13.3}Queue Logs}{181}{section.13.3}
+\contentsline {chapter}{\numberline {14}Phone Provisioning}{184}{chapter.14}
+\contentsline {section}{\numberline {14.1}Introduction}{184}{section.14.1}
+\contentsline {section}{\numberline {14.2}Configuration of phoneprov.conf}{184}{section.14.2}
+\contentsline {subsection}{\numberline {14.2.1}The [general] section}{184}{subsection.14.2.1}
+\contentsline {subsection}{\numberline {14.2.2}Creating phone profiles}{185}{subsection.14.2.2}
+\contentsline {section}{\numberline {14.3}Configuration of users.conf}{186}{section.14.3}
+\contentsline {subsection}{\numberline {14.3.1}The [general] section}{186}{subsection.14.3.1}
+\contentsline {subsection}{\numberline {14.3.2}Invdividual Users}{187}{subsection.14.3.2}
+\contentsline {section}{\numberline {14.4}Templates}{187}{section.14.4}
+\contentsline {section}{\numberline {14.5}Putting it all together}{189}{section.14.5}
+\contentsline {chapter}{\numberline {15}Development}{191}{chapter.15}
+\contentsline {section}{\numberline {15.1}Backtrace}{191}{section.15.1}

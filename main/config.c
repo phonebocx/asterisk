@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 219063 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 237417 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_CONFIG_DIR */
 #include "asterisk/network.h"	/* we do some sockaddr manipulation here */
@@ -2136,6 +2136,10 @@ struct ast_variable *ast_load_realtime(const char *family, ...)
 			else
 				res = cur->next;
 			freeme = cur;
+		} else if (cur->value[0] == ' ' && cur->value[1] == '\0') {
+			char *vptr = (char *) cur->value;
+			vptr[0] = '\0';
+			prev = cur;
 		} else {
 			prev = cur;
 		}

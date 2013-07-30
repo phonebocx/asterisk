@@ -62,7 +62,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231558 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238362 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -1584,6 +1584,11 @@ static void rt_handle_member_record(struct call_queue *q, char *interface, const
 	int penalty = 0;
 	int paused  = 0;
 	int found = 0;
+
+	if (ast_strlen_zero(rt_uniqueid)) {
+		ast_log(LOG_WARNING, "Realtime field uniqueid is empty for memeber %s\n", S_OR(membername, "NULL"));
+		return;
+	}
 
 	if (penalty_str) {
 		penalty = atoi(penalty_str);
@@ -3899,11 +3904,8 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 
 						time(&now);
 						holdtime = abs((now - qe->start) / 60);
-						holdtimesecs = abs((now - qe->start));
-						if (holdtime == 1) {
-							ast_say_number(peer, holdtime, AST_DIGIT_ANY, peer->language, NULL);
-							play_file(peer, qe->parent->sound_minute);
-						} else {
+						holdtimesecs = abs((now - qe->start) % 60);
+						if (holdtime > 0) {
 							ast_say_number(peer, holdtime, AST_DIGIT_ANY, peer->language, NULL);
 							play_file(peer, qe->parent->sound_minutes);
 						}
@@ -6132,7 +6134,7 @@ static char *__queues_show(struct mansession *s, int fd, int argc, char **argv)
 		}
 		found = 1;
 
-		ast_str_set(&out, 0, "%-12.12s has %d calls (max ", q->name, q->count);
+		ast_str_set(&out, 0, "%s has %d calls (max ", q->name, q->count);
 		if (q->maxlen)
 			ast_str_append(&out, 0, "%d", q->maxlen);
 		else

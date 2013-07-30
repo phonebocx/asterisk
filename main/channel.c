@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231302 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 235665 $")
 
 #include "asterisk/_private.h"
 
@@ -3039,6 +3039,17 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 		ast_frame_dump(chan->name, f, "<<");
 	chan->fin = FRAMECOUNT_INC(chan->fin);
 
+	if (f && f->frametype == AST_FRAME_CONTROL && f->subclass == AST_CONTROL_HOLD && f->datalen == 0 && f->data.ptr) {
+		/* fix invalid pointer */
+		f->data.ptr = NULL;
+#ifdef AST_DEVMODE
+		ast_log(LOG_ERROR, "Found HOLD frame with src '%s' on channel '%s' with datalen zero, but non-null data pointer!\n", f->src, chan->name);
+		ast_frame_dump(chan->name, f, "<<");
+#else
+		ast_debug(3, "Found HOLD frame with src '%s' on channel '%s' with datalen zero, but non-null data pointer!\n", f->src, chan->name);
+#endif
+	}
+
 done:
 	if (chan->music_state && chan->generator && chan->generator->digit && f && f->frametype == AST_FRAME_DTMF_END)
 		chan->generator->digit(chan, f->subclass);
@@ -4005,8 +4016,10 @@ int ast_call(struct ast_channel *chan, char *addr, int timeout)
 	/* Stop if we're a zombie or need a soft hangup */
 	ast_channel_lock(chan);
 	if (!ast_test_flag(chan, AST_FLAG_ZOMBIE) && !ast_check_hangup(chan)) {
-		if (chan->cdr)
+		if (chan->cdr) {
 			ast_set_flag(chan->cdr, AST_CDR_FLAG_DIALED);
+			ast_set_flag(chan->cdr, AST_CDR_FLAG_ORIGINATED);
+		}
 		if (chan->tech->call)
 			res = chan->tech->call(chan, addr, timeout);
 		ast_set_flag(chan, AST_FLAG_OUTGOING);

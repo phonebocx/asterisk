@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 230042 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 237322 $")
 
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -251,7 +251,9 @@ static int local_queue_frame(struct local_pvt *p, int isoutbound, struct ast_fra
 	}
 
 	if (other) {
-		ast_queue_frame(other, f);
+		if (other->pbx || other->_bridge || !ast_strlen_zero(other->appl)) {
+			ast_queue_frame(other, f);
+		} /* else the frame won't go anywhere */
 		ast_channel_unlock(other);
 	}
 

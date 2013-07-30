@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 154801 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 237924 $")
 
 #include <sys/stat.h>
 
@@ -295,6 +295,9 @@ static int testclient_exec(struct ast_channel *chan, void *data)
 					res = 0;
 				else
 					res = -1;
+			}
+			if (!res) {
+				res = ast_safe_sleep(chan, 1000);
 			}
 			if (!res) {
 				/* Step 12: Hangup! */

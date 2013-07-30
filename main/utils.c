@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228649 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 237743 $")
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -392,7 +392,7 @@ char *ast_uri_encode(const char *string, char *outbuf, int buflen, int doreserve
 
 	/* If there's no characters to convert, just go through and don't do anything */
 	while (*ptr) {
-		if ((*ptr < 32 || (unsigned char) *ptr) > 127 || (doreserved && strchr(reserved, *ptr)) ) {
+		if ((*ptr < 32) || (doreserved && strchr(reserved, *ptr))) {
 			/* Oops, we need to start working here */
 			if (!buf) {
 				buf = outbuf;
@@ -1071,7 +1071,9 @@ static int ast_wait_for_output(int fd, int timeoutms)
 	while ((res = ast_poll(&pfd, 1, timeoutms - elapsed)) <= 0) {
 		if (res == 0) {
 			/* timed out. */
-			ast_log(LOG_NOTICE, "Timed out trying to write\n");
+#ifndef STANDALONE
+			ast_debug(1, "Timed out trying to write\n");
+#endif
 			return -1;
 		} else if (res == -1) {
 			/* poll() returned an error, check to see if it was fatal */

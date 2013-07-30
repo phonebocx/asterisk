@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 229752 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238499 $")
 
 #include <ctype.h>		/* isalnum() used here */
 #include <math.h>
@@ -227,13 +227,6 @@ END_CONFIG
 #define DEV_DSP "/dev/audio"
 #else
 #define DEV_DSP "/dev/dsp"
-#endif
-
-#ifndef MIN
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
-#endif
-#ifndef MAX
-#define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
 static char *config = "oss.conf";	/* default config file */
