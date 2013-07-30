@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42783 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53045 $")
 
 #include "asterisk/options.h"
 #include "asterisk/logger.h"
@@ -135,6 +135,7 @@ static void launch_page(struct ast_channel *chan, const char *meetmeopts, const 
 			ast_log(LOG_WARNING, "Unable to create paging thread: %s\n", strerror(errno));
 			free(cd);
 		}
+		pthread_attr_destroy(&attr);
 	}
 }
 

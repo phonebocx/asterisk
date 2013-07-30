@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48955 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -124,7 +124,6 @@ static char *builtin_function_math(struct ast_channel *chan, char *cmd, char *da
 			iaction = LTEFUNCTION;
 		}
 	} else if ((op = strchr(mvalue1, '='))) {
-		iaction = GTFUNCTION;
 		*op = '\0';
 		if (*(op+1) == '=') {
 			*++op = '\0';

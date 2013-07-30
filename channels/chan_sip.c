@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48320 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53103 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -408,7 +408,6 @@ static int restart_monitor(void);
 
 /*! \brief Codecs that we support by default: */
 static int global_capability = AST_FORMAT_ULAW | AST_FORMAT_ALAW | AST_FORMAT_GSM | AST_FORMAT_H263;
-static int noncodeccapability = AST_RTP_DTMF;
 
 static struct in_addr __ourip;
 static struct sockaddr_in outboundproxyip;
@@ -567,8 +566,7 @@ struct sip_auth {
 #define SIP_CALL_LIMIT		(1 << 29)
 /* Remote Party-ID Support */
 #define SIP_SENDRPID		(1 << 30)
-/* Did this connection increment the counter of in-use calls? */
-#define SIP_INC_COUNT (1 << 31)
+#define SIP_INC_COUNT		(1 << 31)	/* Did this connection increment the counter of in-use calls? */
 
 #define SIP_FLAGS_TO_COPY \
 	(SIP_PROMISCREDIR | SIP_TRUSTRPID | SIP_SENDRPID | SIP_DTMF | SIP_REINVITE | \
@@ -609,6 +607,7 @@ static struct sip_pvt {
 	int peercapability;			/*!< Supported peer capability */
 	int prefcodec;				/*!< Preferred codec (outbound only) */
 	int noncodeccapability;
+	int jointnoncodeccapability;
 	int callingpres;			/*!< Calling presentation */
 	int authtries;				/*!< Times we've tried to authenticate */
 	int expiry;				/*!< How long we take to expire */
@@ -2084,6 +2083,7 @@ static int sip_call(struct ast_channel *ast, char *dest, int timeout)
 	if ( res != -1 ) {
 		p->callingpres = ast->cid.cid_pres;
 		p->jointcapability = p->capability;
+		p->jointnoncodeccapability = p->noncodeccapability;
 		transmit_invite(p, SIP_INVITE, 1, 2);
 		if (p->maxtime) {
 			/* Initialize auto-congest time */
@@ -2122,6 +2122,12 @@ static void __sip_destroy(struct sip_pvt *p, int lockowner)
 
 	if (sip_debug_test_pvt(p))
 		ast_verbose("Destroying call '%s'\n", p->callid);
+
+	if (ast_test_flag(p, SIP_INC_COUNT)) {
+		update_call_counter(p, DEC_CALL_LIMIT);
+		if (option_debug)
+			ast_log(LOG_DEBUG, "Call did not properly clean up call counter. Call ID %s\n", p->callid);
+	}
 
 	if (dumphistory)
 		sip_dump_history(p);
@@ -2249,8 +2255,10 @@ static int update_call_counter(struct sip_pvt *fup, int event)
 		/* incoming and outgoing affects the inUse counter */
 		case DEC_CALL_LIMIT:
 			if ( *inuse > 0 ) {
-			         if (ast_test_flag(fup,SIP_INC_COUNT))
+				if (ast_test_flag(fup, SIP_INC_COUNT)) {
 				         (*inuse)--;
+					ast_clear_flag(fup, SIP_INC_COUNT);
+				}
 			} else {
 				*inuse = 0;
 			}
@@ -2325,6 +2333,7 @@ static int hangup_sip2cause(int cause)
 		case 502:	
 			return AST_CAUSE_DESTINATION_OUT_OF_ORDER;
 		case 503:	/* Service unavailable */
+		case 504:	/* Server timeout */
 			return AST_CAUSE_CONGESTION;
 		default:
 			return AST_CAUSE_NORMAL;
@@ -2781,11 +2790,11 @@ static struct ast_channel *sip_new(struct sip_pvt *i, int state, char *title)
 	ast_mutex_unlock(&i->lock);
 	/* Don't hold a sip pvt lock while we allocate a channel */
 	tmp = ast_channel_alloc(1);
-	ast_mutex_lock(&i->lock);
 	if (!tmp) {
 		ast_log(LOG_WARNING, "Unable to allocate SIP channel structure\n");
 		return NULL;
 	}
+	ast_mutex_lock(&i->lock);
 	tmp->tech = &sip_tech;
 	/* Select our native format based on codec preference until we receive
 	   something from another device to the contrary. */
@@ -3721,11 +3730,11 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 				&vpeercapability, &vpeernoncodeccapability);
 	p->jointcapability = p->capability & (peercapability | vpeercapability);
 	p->peercapability = (peercapability | vpeercapability);
-	p->noncodeccapability = noncodeccapability & peernoncodeccapability;
+	p->jointnoncodeccapability = p->noncodeccapability & peernoncodeccapability;
 	
 	if (ast_test_flag(p, SIP_DTMF) == SIP_DTMF_AUTO) {
 		ast_clear_flag(p, SIP_DTMF);
-		if (p->noncodeccapability & AST_RTP_DTMF) {
+		if (p->jointnoncodeccapability & AST_RTP_DTMF) {
 			/* XXX Would it be reasonable to drop the DSP at this point? XXX */
 			ast_set_flag(p, SIP_DTMF_RFC2833);
 		} else {
@@ -3745,9 +3754,9 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 			ast_getformatname_multiple(s4, slen, p->jointcapability));
 
 		ast_verbose("Non-codec capabilities: us - %s, peer - %s, combined - %s\n",
-			ast_rtp_lookup_mime_multiple(s1, slen, noncodeccapability, 0),
+			ast_rtp_lookup_mime_multiple(s1, slen, p->noncodeccapability, 0),
 			ast_rtp_lookup_mime_multiple(s2, slen, peernoncodeccapability, 0),
-			ast_rtp_lookup_mime_multiple(s3, slen, p->noncodeccapability, 0));
+			ast_rtp_lookup_mime_multiple(s3, slen, p->jointnoncodeccapability, 0));
 	}
 	if (!p->jointcapability) {
 		ast_log(LOG_NOTICE, "No compatible codecs!\n");
@@ -4345,6 +4354,8 @@ static int transmit_response_with_unsupported(struct sip_pvt *p, char *msg, stru
 	respprep(&resp, p, msg, req);
 	append_date(&resp);
 	add_header(&resp, "Unsupported", unsupported);
+	add_header_contentLength(&resp, 0);
+	add_blank_header(&resp);
 	return send_response(p, &resp, 0, 0);
 }
 
@@ -4641,7 +4652,7 @@ static int add_sdp(struct sip_request *resp, struct sip_pvt *p)
 	}
 
 	for (x = 1; x <= AST_RTP_MAX; x <<= 1) {
-		if (!(p->noncodeccapability & x))
+		if (!(p->jointnoncodeccapability & x))
 			continue;
 
 		add_noncodec_to_sdp(p, x, 8000,
@@ -9713,6 +9724,7 @@ static void handle_response_invite(struct sip_pvt *p, int resp, char *rest, stru
 		if (!ignore)
 			sip_cancel_destroy(p);
 		check_pendings(p);
+		ast_set_flag(p, SIP_CAN_BYE);
 		break;
 	case 180:	/* 180 Ringing */
 		if (!ignore)
@@ -10206,6 +10218,7 @@ static void handle_response(struct sip_pvt *p, int resp, char *rest, struct sip_
 				case 400: /* Bad Request */
 				case 500: /* Server error */
 				case 503: /* Service Unavailable */
+				case 504: /* Server Timeout */
 					if (owner)
 						ast_queue_control(p->owner, AST_CONTROL_CONGESTION);
 					break;
@@ -10299,6 +10312,7 @@ static void handle_response(struct sip_pvt *p, int resp, char *rest, struct sip_
 				case 603: /* Decline */
 				case 500: /* Server error */
 				case 503: /* Service Unavailable */
+				case 504: /* Server timeout */
 
 					if (sipmethod == SIP_INVITE && !ignore) {	/* re-invite failed */
 						sip_cancel_destroy(p);
@@ -10386,13 +10400,21 @@ static int sip_park(struct ast_channel *chan1, struct ast_channel *chan2, struct
 	ast_mutex_unlock(&chan2m->lock);
 	d = malloc(sizeof(struct sip_dual));
 	if (d) {
+		pthread_attr_t attr;
+
+		pthread_attr_init(&attr);
+		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);	
+
 		memset(d, 0, sizeof(*d));
 		/* Save original request for followup */
 		copy_request(&d->req, req);
 		d->chan1 = chan1m;
 		d->chan2 = chan2m;
-		if (!ast_pthread_create(&th, NULL, sip_park_thread, d))
+		if (!ast_pthread_create(&th, &attr, sip_park_thread, d)) {
+			pthread_attr_destroy(&attr);
 			return 0;
+		}
+		pthread_attr_destroy(&attr);
 		free(d);
 	}
 	return -1;
@@ -10918,11 +10940,11 @@ static int handle_request_bye(struct sip_pvt *p, struct sip_request *req, int de
 	} else if (p->owner) {
 		ast_queue_hangup(p->owner);
 		if (option_debug > 2)
-			ast_log(LOG_DEBUG, "Received bye, issuing owner hangup\n.");
+			ast_log(LOG_DEBUG, "Received bye, issuing owner hangup\n");
 	} else {
 		ast_set_flag(p, SIP_NEEDDESTROY);	
 		if (option_debug > 2)
-			ast_log(LOG_DEBUG, "Received bye, no owner, selfdestruct soon.\n.");
+			ast_log(LOG_DEBUG, "Received bye, no owner, selfdestruct soon.\n");
 	}
 	transmit_response(p, "200 OK", req);
 

@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49833 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -257,7 +257,8 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 						if (lastop != DFLAG_PLAY) {
 							lastop = DFLAG_PLAY;
 							ast_closestream(fs);
-							fs = ast_openstream(chan, path, chan->language);
+							if (!(fs = ast_openstream(chan, path, chan->language)))
+								break;
 							ast_seekstream(fs, samples, SEEK_SET);
 							chan->stream = NULL;
 						}
