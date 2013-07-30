@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7557 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -2016,9 +2016,8 @@ static int agi_exec_full(struct ast_channel *chan, void *data, int enhanced, int
 	ast_copy_string(buf, data, sizeof(buf));
 
 	memset(&agi, 0, sizeof(agi));
-        while ((stringp = strsep(&tmp, "|"))) {
+        while ((stringp = strsep(&tmp, "|")) && argc < MAX_ARGS - 1)
 		argv[argc++] = stringp;
-        }
 	argv[argc] = NULL;
 
 	LOCAL_USER_ADD(u);

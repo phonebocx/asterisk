@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7269 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8140 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -175,7 +175,8 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);
 	ast_stopstream(chan);
-
+	ast_indicate(chan, -1);
+	
 	owriteformat = chan->writeformat;
 	res = ast_set_write_format(chan, AST_FORMAT_SLINEAR);
 	if (res < 0) {

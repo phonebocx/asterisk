@@ -66,7 +66,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7337 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8445 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -484,11 +484,11 @@ static void *changethread(void *data)
 							"Membership: %s\r\n"
 							"Penalty: %d\r\n"
 							"CallsTaken: %d\r\n"
-							"LastCall: %ld\r\n"
+							"LastCall: %d\r\n"
 							"Status: %d\r\n"
 							"Paused: %d\r\n",
 						q->name, cur->interface, cur->dynamic ? "dynamic" : "static",
-						cur->penalty, cur->calls, cur->lastcall, cur->status, cur->paused);
+						cur->penalty, cur->calls, (int)cur->lastcall, cur->status, cur->paused);
 					}
 				}
 			}
@@ -755,28 +755,66 @@ static void rt_handle_member_record(struct ast_call_queue *q, char *interface, c
 	}
 }
 
+static void free_members(struct ast_call_queue *q, int all)
+{
+	/* Free non-dynamic members */
+	struct member *curm, *next, *prev = NULL;
+
+	for (curm = q->members; curm; curm = next) {
+		next = curm->next;
+		if (all || !curm->dynamic) {
+			if (prev)
+				prev->next = next;
+			else
+				q->members = next;
+			free(curm);
+		} else 
+			prev = curm;
+	}
+}
+
+static void destroy_queue(struct ast_call_queue *q)
+{
+	free_members(q, 1);
+	ast_mutex_destroy(&q->lock);
+	free(q);
+}
+
+static void remove_queue(struct ast_call_queue *q)
+{
+	struct ast_call_queue *cur, *prev = NULL;
+
+	ast_mutex_lock(&qlock);
+	for (cur = queues; cur; cur = cur->next) {
+		if (cur == q) {
+			if (prev)
+				prev->next = cur->next;
+			else
+				queues = cur->next;
+		} else {
+			prev = cur;
+		}
+	}
+	ast_mutex_unlock(&qlock);
+}
 
 /*!\brief Reload a single queue via realtime.
    \return Return the queue, or NULL if it doesn't exist.
-   \note Should be called with the global qlock locked.
-   When found, the queue is returned with q->lock locked. */
-static struct ast_call_queue *reload_queue_rt(const char *queuename, struct ast_variable *queue_vars, struct ast_config *member_config)
+   \note Should be called with the global qlock locked. */
+static struct ast_call_queue *find_queue_by_name_rt(const char *queuename, struct ast_variable *queue_vars, struct ast_config *member_config)
 {
 	struct ast_variable *v;
-	struct ast_call_queue *q, *prev_q;
+	struct ast_call_queue *q, *prev_q = NULL;
 	struct member *m, *prev_m, *next_m;
 	char *interface;
 	char *tmp, *tmp_name;
 	char tmpbuf[64];	/* Must be longer than the longest queue param name. */
 
 	/* Find the queue in the in-core list (we will create a new one if not found). */
-	q = queues;
-	prev_q = NULL;
-	while (q) {
+	for (q = queues; q; q = q->next) {
 		if (!strcasecmp(q->name, queuename)) {
 			break;
 		}
-		q = q->next;
 		prev_q = q;
 	}
 
@@ -788,6 +826,7 @@ static struct ast_call_queue *reload_queue_rt(const char *queuename, struct ast_
 				ast_mutex_unlock(&q->lock);
 				return NULL;
 			} else {
+				ast_mutex_unlock(&q->lock);
 				return q;
 			}
 		}
@@ -814,7 +853,7 @@ static struct ast_call_queue *reload_queue_rt(const char *queuename, struct ast_
 					prev_q->next = q->next;
 				}
 				ast_mutex_unlock(&q->lock);
-				free(q);
+				destroy_queue(q);
 			} else
 				ast_mutex_unlock(&q->lock);
 		}
@@ -882,13 +921,60 @@ static struct ast_call_queue *reload_queue_rt(const char *queuename, struct ast_
 		m = next_m;
 	}
 
+	ast_mutex_unlock(&q->lock);
+
+	return q;
+}
+
+static struct ast_call_queue *load_realtime_queue(char *queuename)
+{
+	struct ast_variable *queue_vars = NULL;
+	struct ast_config *member_config = NULL;
+	struct ast_call_queue *q;
+
+	/* Find the queue in the in-core list first. */
+	ast_mutex_lock(&qlock);
+	for (q = queues; q; q = q->next) {
+		if (!strcasecmp(q->name, queuename)) {
+			break;
+		}
+	}
+	ast_mutex_unlock(&qlock);
+
+	if (!q) {
+		/*! \note Load from realtime before taking the global qlock, to avoid blocking all
+		   queue operations while waiting for the DB.
+
+		   This will be two separate database transactions, so we might
+		   see queue parameters as they were before another process
+		   changed the queue and member list as it was after the change.
+		   Thus we might see an empty member list when a queue is
+		   deleted. In practise, this is unlikely to cause a problem. */
+
+		queue_vars = ast_load_realtime("queues", "name", queuename, NULL);
+		if (queue_vars) {
+			member_config = ast_load_realtime_multientry("queue_members", "interface LIKE", "%", "queue_name", queuename, NULL);
+			if (!member_config) {
+				ast_log(LOG_ERROR, "no queue_members defined in your config (extconfig.conf).\n");
+				return NULL;
+			}
+		}
+
+		ast_mutex_lock(&qlock);
+
+		q = find_queue_by_name_rt(queuename, queue_vars, member_config);
+		if (member_config)
+			ast_config_destroy(member_config);
+		if (queue_vars)
+			ast_variables_destroy(queue_vars);
+
+		ast_mutex_unlock(&qlock);
+	}
 	return q;
 }
 
 static int join_queue(char *queuename, struct queue_ent *qe, enum queue_result *reason)
 {
-	struct ast_variable *queue_vars = NULL;
-	struct ast_config *member_config = NULL;
 	struct ast_call_queue *q;
 	struct queue_ent *cur, *prev = NULL;
 	int res = -1;
@@ -896,35 +982,12 @@ static int join_queue(char *queuename, struct queue_ent *qe, enum queue_result *
 	int inserted = 0;
 	enum queue_member_status stat;
 
-	/*! \note Load from realtime before taking the global qlock, to avoid blocking all
-	   queue operations while waiting for the DB.
-
-	   This will be two separate database transactions, so we might
-	   see queue parameters as they were before another process
-	   changed the queue and member list as it was after the change.
-	   Thus we might see an empty member list when a queue is
-	   deleted. In practise, this is unlikely to cause a problem. */
-	queue_vars = ast_load_realtime("queues", "name", queuename, NULL);
-	if (queue_vars) {
-		member_config = ast_load_realtime_multientry("queue_members", "interface LIKE", "%", "queue_name", queuename, NULL);
-		if (!member_config) {
-			ast_log(LOG_ERROR, "no queue_members defined in your config (extconfig.conf).\n");
-			return res;
-		}
-	}
+	q = load_realtime_queue(queuename);
+	if (!q)
+		return res;
 
 	ast_mutex_lock(&qlock);
-	q = reload_queue_rt(queuename, queue_vars, member_config);
-	/* Note: If found, reload_queue_rt() returns with q->lock locked. */
-	if(member_config)
-		ast_config_destroy(member_config);
-	if(queue_vars)
-		ast_variables_destroy(queue_vars);
-
-	if (!q) {
-		ast_mutex_unlock(&qlock);
-		return res;
-	}
+	ast_mutex_lock(&q->lock);
 
 	/* This is our one */
 	stat = get_member_status(q);
@@ -974,48 +1037,6 @@ ast_log(LOG_NOTICE, "Queue '%s' Join, Channel '%s', Position '%d'\n", q->name, q
 	ast_mutex_unlock(&q->lock);
 	ast_mutex_unlock(&qlock);
 	return res;
-}
-
-static void free_members(struct ast_call_queue *q, int all)
-{
-	/* Free non-dynamic members */
-	struct member *curm, *next, *prev;
-
-	curm = q->members;
-	prev = NULL;
-	while(curm) {
-		next = curm->next;
-		if (all || !curm->dynamic) {
-			if (prev)
-				prev->next = next;
-			else
-				q->members = next;
-			free(curm);
-		} else 
-			prev = curm;
-		curm = next;
-	}
-}
-
-static void destroy_queue(struct ast_call_queue *q)
-{
-	struct ast_call_queue *cur, *prev = NULL;
-
-	ast_mutex_lock(&qlock);
-	for (cur = queues; cur; cur = cur->next) {
-		if (cur == q) {
-			if (prev)
-				prev->next = cur->next;
-			else
-				queues = cur->next;
-		} else {
-			prev = cur;
-		}
-	}
-	ast_mutex_unlock(&qlock);
-	free_members(q, 1);
-        ast_mutex_destroy(&q->lock);
-	free(q);
 }
 
 static int play_file(struct ast_channel *chan, char *filename)
@@ -1225,6 +1246,7 @@ ast_log(LOG_NOTICE, "Queue '%s' Leave, Channel '%s'\n", q->name, qe->chan->name 
 	ast_mutex_unlock(&q->lock);
 	if (q->dead && !q->count) {	
 		/* It's dead and nobody is in it, so kill it */
+		remove_queue(q);
 		destroy_queue(q);
 	}
 }
@@ -1262,11 +1284,11 @@ static int update_status(struct ast_call_queue *q, struct member *member, int st
 					"Membership: %s\r\n"
 					"Penalty: %d\r\n"
 					"CallsTaken: %d\r\n"
-					"LastCall: %ld\r\n"
+					"LastCall: %d\r\n"
 					"Status: %d\r\n"
 					"Paused: %d\r\n",
 				q->name, cur->interface, cur->dynamic ? "dynamic" : "static",
-				cur->penalty, cur->calls, cur->lastcall, cur->status, cur->paused);
+				cur->penalty, cur->calls, (int)cur->lastcall, cur->status, cur->paused);
 			}
 			break;
 		}
@@ -2405,41 +2427,42 @@ static int add_to_queue(char *queuename, char *interface, int penalty, int pause
 	struct member *new_member;
 	int res = RES_NOSUCHQUEUE;
 
+	/* \note Ensure the appropriate realtime queue is loaded.  Note that this
+	 * short-circuits if the queue is already in memory. */
+	q = load_realtime_queue(queuename);
+
 	ast_mutex_lock(&qlock);
-	for (q = queues ; q ; q = q->next) {
+
+	if (q) {
 		ast_mutex_lock(&q->lock);
-		if (!strcmp(q->name, queuename)) {
-			if (interface_exists(q, interface) == NULL) {
-				new_member = create_queue_member(interface, penalty, paused);
+		if (interface_exists(q, interface) == NULL) {
+			new_member = create_queue_member(interface, penalty, paused);
 
-				if (new_member != NULL) {
-					new_member->dynamic = 1;
-					new_member->next = q->members;
-					q->members = new_member;
-					manager_event(EVENT_FLAG_AGENT, "QueueMemberAdded",
-						"Queue: %s\r\n"
-						"Location: %s\r\n"
-						"Membership: %s\r\n"
-						"Penalty: %d\r\n"
-						"CallsTaken: %d\r\n"
-						"LastCall: %ld\r\n"
-						"Status: %d\r\n"
-						"Paused: %d\r\n",
-					q->name, new_member->interface, new_member->dynamic ? "dynamic" : "static",
-					new_member->penalty, new_member->calls, new_member->lastcall, new_member->status, new_member->paused);
+			if (new_member != NULL) {
+				new_member->dynamic = 1;
+				new_member->next = q->members;
+				q->members = new_member;
+				manager_event(EVENT_FLAG_AGENT, "QueueMemberAdded",
+					"Queue: %s\r\n"
+					"Location: %s\r\n"
+					"Membership: %s\r\n"
+					"Penalty: %d\r\n"
+					"CallsTaken: %d\r\n"
+					"LastCall: %d\r\n"
+					"Status: %d\r\n"
+					"Paused: %d\r\n",
+				q->name, new_member->interface, new_member->dynamic ? "dynamic" : "static",
+				new_member->penalty, new_member->calls, (int)new_member->lastcall, new_member->status, new_member->paused);
 					
-					if (dump)
-						dump_queue_members(q);
+				if (dump)
+					dump_queue_members(q);
 
-					res = RES_OKAY;
-				} else {
-					res = RES_OUTOFMEMORY;
-				}
+				res = RES_OKAY;
 			} else {
-				res = RES_EXISTS;
+				res = RES_OUTOFMEMORY;
 			}
-			ast_mutex_unlock(&q->lock);
-			break;
+		} else {
+			res = RES_EXISTS;
 		}
 		ast_mutex_unlock(&q->lock);
 	}
@@ -3244,7 +3267,7 @@ static void reload_queues(void)
 			else
 				queues = q->next;
 			if (!q->count) {
-				free(q);
+				destroy_queue(q);
 			} else
 				ast_log(LOG_WARNING, "XXX Leaking a little memory :( XXX\n");
 		} else {
@@ -3273,7 +3296,13 @@ static int __queues_show(int manager, int fd, int argc, char **argv, int queue_s
 	time(&now);
 	if ((!queue_show && argc != 2) || (queue_show && argc != 3))
 		return RESULT_SHOWUSAGE;
+
+	/* We only want to load realtime queues when a specific queue is asked for. */
+	if (queue_show)
+		load_realtime_queue(argv[2]);
+
 	ast_mutex_lock(&qlock);
+
 	q = queues;
 	if (!q) {	
 		ast_mutex_unlock(&qlock);
@@ -3436,13 +3465,13 @@ static int manager_queues_status( struct mansession *s, struct message *m )
 						"Membership: %s\r\n"
 						"Penalty: %d\r\n"
 						"CallsTaken: %d\r\n"
-						"LastCall: %ld\r\n"
+						"LastCall: %d\r\n"
 						"Status: %d\r\n"
 						"Paused: %d\r\n"
 						"%s"
 						"\r\n",
 							q->name, mem->interface, mem->dynamic ? "dynamic" : "static",
-							mem->penalty, mem->calls, mem->lastcall, mem->status, mem->paused, idText);
+							mem->penalty, mem->calls, (int)mem->lastcall, mem->status, mem->paused, idText);
 				}
 			}
 			/* List Queue Entries */

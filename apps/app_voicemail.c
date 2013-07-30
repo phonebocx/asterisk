@@ -52,7 +52,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7310 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7999 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -445,7 +445,7 @@ static void apply_option(struct ast_vm_user *vmu, const char *var, const char *v
 		ast_copy_string(vmu->language, value, sizeof(vmu->language));
 	} else if (!strcasecmp(var, "tz")) {
 		ast_copy_string(vmu->zonetag, value, sizeof(vmu->zonetag));
-	} else if (!strcasecmp(var, "delete")) {
+	} else if (!strcasecmp(var, "delete") || !strcasecmp(var, "deletevoicemail")) {
 		ast_set2_flag(vmu, ast_true(value), VM_DELETE);	
 	} else if (!strcasecmp(var, "saycid")){
 		ast_set2_flag(vmu, ast_true(value), VM_SAYCID);	
@@ -536,10 +536,10 @@ static struct ast_vm_user *find_user_realtime(struct ast_vm_user *ivm, const cha
 		if (mailbox) 
 			ast_copy_string(retval->mailbox, mailbox, sizeof(retval->mailbox));
 		populate_defaults(retval);
-		if (ast_test_flag((&globalflags), VM_SEARCH))
+		if (!context && ast_test_flag((&globalflags), VM_SEARCH))
 			var = ast_load_realtime("voicemail", "mailbox", mailbox, NULL);
 		else
-			var = ast_load_realtime("voicemail", "mailbox", mailbox, "context", retval->context, NULL);
+			var = ast_load_realtime("voicemail", "mailbox", mailbox, "context", context, NULL);
 		if (var) {
 			tmp = var;
 			while(tmp) {
@@ -582,7 +582,7 @@ static struct ast_vm_user *find_user(struct ast_vm_user *ivm, const char *contex
 	while (cur) {
 		if (ast_test_flag((&globalflags), VM_SEARCH) && !strcasecmp(mailbox, cur->mailbox))
 			break;
-		if ((!strcasecmp(context, cur->context)) && (!strcasecmp(mailbox, cur->mailbox)))
+		if (context && (!strcasecmp(context, cur->context)) && (!strcasecmp(mailbox, cur->mailbox)))
 			break;
 		cur=cur->next;
 	}
@@ -2005,7 +2005,7 @@ static int messagecount(const char *mailbox, int *newmsgs, int *oldmsgs)
 			ast_log(LOG_WARNING, "SQL Alloc Handle failed!\n");
 			goto yuck;
 		}
-		snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s WHERE dir like \"%%%s/%s/%s\"%c", odbc_table, context, tmp, "INBOX", '\0');
+		snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s WHERE dir LIKE '%%%s/%s/%s'", odbc_table, context, tmp, "INBOX");
 		res = SQLPrepare(stmt, sql, SQL_NTS);
 		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 			ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", sql);
@@ -2038,7 +2038,7 @@ static int messagecount(const char *mailbox, int *newmsgs, int *oldmsgs)
 			ast_log(LOG_WARNING, "SQL Alloc Handle failed!\n");
 			goto yuck;
 		}
-		snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s WHERE dir like \"%%%s/%s/%s\"%c", odbc_table, context, tmp, "Old", '\0');
+		snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s WHERE dir like '%%%s/%s/%s'", odbc_table, context, tmp, "Old");
 		res = SQLPrepare(stmt, sql, SQL_NTS);
 		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 			ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", sql);
@@ -2105,7 +2105,7 @@ static int has_voicemail(const char *mailbox, const char *folder)
                         ast_log(LOG_WARNING, "SQL Alloc Handle failed!\n");
                         goto yuck;
                 }
-		snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s WHERE dir like \"%%%s/%s/%s\"%c", odbc_table, context, tmp, "INBOX", '\0');
+		snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s WHERE dir like '%%%s/%s/%s'", odbc_table, context, tmp, "INBOX");
                 res = SQLPrepare(stmt, sql, SQL_NTS);
                 if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {  
                         ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", sql);
@@ -2613,8 +2613,8 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_
 				}
 			}
 			if (ast_fileexists(fn, NULL, NULL)) {
-				notify_new_message(chan, vmu, msgnum, duration, fmt, chan->cid.cid_num, chan->cid.cid_name);
 				STORE(dir, vmu->mailbox, vmu->context, msgnum);
+				notify_new_message(chan, vmu, msgnum, duration, fmt, chan->cid.cid_num, chan->cid.cid_name);
 				DISPOSE(dir, msgnum);
 			}
 			pbx_builtin_setvar_helper(chan, "VMSTATUS", "SUCCESS");
@@ -3919,9 +3919,9 @@ done:
 static int vm_play_folder_name_gr(struct ast_channel *chan, char *mbox)
 {
 	int cmd;
-	char buf[sizeof(mbox)+1]; 
+	char *buf;
 
-	memset(buf, '\0', sizeof(char)*(sizeof(buf)));
+	buf = alloca(strlen(mbox)+2); 
 	strcpy(buf, mbox);
 	strcat(buf,"s");
 
@@ -4764,13 +4764,14 @@ static int vm_tempgreeting(struct ast_channel *chan, struct ast_vm_user *vmu, st
 	while((cmd >= 0) && (cmd != 't')) {
 		if (cmd)
 			retries = 0;
+		RETRIEVE(prefile, -1);
 		if (ast_fileexists(prefile, NULL, NULL) > 0) {
 			switch (cmd) {
 			case '1':
 				cmd = play_record_review(chan,"vm-rec-temp",prefile, maxgreet, fmtc, 0, vmu, &duration, NULL, record_gain);
 				break;
 			case '2':
-				ast_filedelete(prefile, NULL);
+				DELETE(prefile, -1, prefile);
 				ast_play_and_wait(chan,"vm-tempremoved");
 				cmd = 't';	
 				break;
@@ -4794,6 +4795,7 @@ static int vm_tempgreeting(struct ast_channel *chan, struct ast_vm_user *vmu, st
 			play_record_review(chan,"vm-rec-temp",prefile, maxgreet, fmtc, 0, vmu, &duration, NULL, record_gain);
 			cmd = 't';	
 		}
+		DISPOSE(prefile, -1);
 	}
 	if (cmd == 't')
 		cmd = 0;
@@ -5645,10 +5647,10 @@ static int vm_box_exists(struct ast_channel *chan, void *data)
 static int vmauthenticate(struct ast_channel *chan, void *data)
 {
 	struct localuser *u;
-	char *s = data, *user=NULL, *context=NULL, mailbox[AST_MAX_EXTENSION];
+	char *s = data, *user=NULL, *context=NULL, mailbox[AST_MAX_EXTENSION] = "";
 	struct ast_vm_user vmus;
 	char *options = NULL;
-	int silent = 0;
+	int silent = 0, skipuser = 0;
 	int res = -1;
 
 	LOCAL_USER_ADD(u);
@@ -5665,6 +5667,9 @@ static int vmauthenticate(struct ast_channel *chan, void *data)
 			s = user;
 			user = strsep(&s, "@");
 			context = strsep(&s, "");
+			if (!ast_strlen_zero(user))
+				skipuser++;
+			ast_copy_string(mailbox, user, sizeof(mailbox));
 		}
 	}
 
@@ -5672,9 +5677,10 @@ static int vmauthenticate(struct ast_channel *chan, void *data)
 		silent = (strchr(options, 's')) != NULL;
 	}
 
-	if (!vm_authenticate(chan, mailbox, sizeof(mailbox), &vmus, context, NULL, 0, 3, silent)) {
+	if (!vm_authenticate(chan, mailbox, sizeof(mailbox), &vmus, context, NULL, skipuser, 3, silent)) {
 		pbx_builtin_setvar_helper(chan, "AUTH_MAILBOX", mailbox);
 		pbx_builtin_setvar_helper(chan, "AUTH_CONTEXT", vmus.context);
+		ast_play_and_wait(chan, "auth-thankyou");
 		res = 0;
 	}
 

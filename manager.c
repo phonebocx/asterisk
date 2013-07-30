@@ -46,7 +46,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7870 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/file.h"
@@ -1626,7 +1626,6 @@ int ast_manager_register2(const char *action, int auth, int (*func)(struct manse
 	cur = malloc(sizeof(struct manager_action));
 	if (!cur) {
 		ast_log(LOG_WARNING, "Manager: out of memory trying to register action\n");
-		ast_mutex_unlock(&actionlock);
 		return -1;
 	}
 	cur->action = action;

@@ -57,7 +57,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8320 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h" 
@@ -2599,7 +2599,7 @@ static struct iax2_peer *realtime_peer(const char *peername, struct sockaddr_in 
 				break;
 			} 
 		} else if (!strcasecmp(tmp->name, "regseconds")) {
-			if (sscanf(tmp->value, "%li", &regseconds) != 1)
+			if (sscanf(tmp->value, "%ld", (time_t *)&regseconds) != 1)
 				regseconds = 0;
 		} else if (!strcasecmp(tmp->name, "ipaddr")) {
 			inet_aton(tmp->value, &(peer->addr.sin_addr));
@@ -2638,13 +2638,13 @@ static struct iax2_peer *realtime_peer(const char *peername, struct sockaddr_in 
 		if ((nowtime - regseconds) > IAX_DEFAULT_REG_EXPIRE) {
 			memset(&peer->addr, 0, sizeof(peer->addr));
 			if (option_debug)
-				ast_log(LOG_DEBUG, "realtime_peer: Bah, '%s' is expired (%ld/%ld/%ld)!\n",
-						peername, nowtime - regseconds, regseconds, nowtime);
+				ast_log(LOG_DEBUG, "realtime_peer: Bah, '%s' is expired (%d/%d/%d)!\n",
+						peername, (int)(nowtime - regseconds), (int)regseconds, (int)nowtime);
 		}
 		else {
 			if (option_debug)
-				ast_log(LOG_DEBUG, "realtime_peer: Registration for '%s' still active (%ld/%ld/%ld)!\n",
-						peername, nowtime - regseconds, regseconds, nowtime);
+				ast_log(LOG_DEBUG, "realtime_peer: Registration for '%s' still active (%d/%d/%d)!\n",
+						peername, (int)(nowtime - regseconds), (int)regseconds, (int)nowtime);
 		}
 	}
 
@@ -2700,7 +2700,7 @@ static void realtime_update_peer(const char *peername, struct sockaddr_in *sin)
 	time_t nowtime;
 	
 	time(&nowtime);
-	snprintf(regseconds, sizeof(regseconds), "%ld", nowtime);
+	snprintf(regseconds, sizeof(regseconds), "%d", (int)nowtime);
 	ast_inet_ntoa(ipaddr, sizeof(ipaddr), sin->sin_addr);
 	snprintf(port, sizeof(port), "%d", ntohs(sin->sin_port));
 	ast_update_realtime("iaxpeers", "name", peername, "ipaddr", ipaddr, "port", port, "regseconds", regseconds, NULL);
@@ -4285,7 +4285,7 @@ static int iax2_show_firmware(int fd, int argc, char *argv[])
 #if !defined(__FreeBSD__)
 #define FORMAT "%-15.15s  %-15d %-15d\n"
 #else /* __FreeBSD__ */
-#define FORMAT "%-15.15s  %-15d %-15ld\n"
+#define FORMAT "%-15.15s  %-15d %-15d\n" /* XXX 2.95 ? */
 #endif /* __FreeBSD__ */
 	struct iax_firmware *cur;
 	if ((argc != 3) && (argc != 4))
@@ -4296,7 +4296,7 @@ static int iax2_show_firmware(int fd, int argc, char *argv[])
 	for (cur = waresl.wares;cur;cur = cur->next) {
 		if ((argc == 3) || (!strcasecmp(argv[3], (char *)cur->fwh->devname))) 
 			ast_cli(fd, FORMAT, cur->fwh->devname, ntohs(cur->fwh->version),
-				ntohl(cur->fwh->datalen));
+				(int)ntohl(cur->fwh->datalen));
 	}
 	ast_mutex_unlock(&waresl.lock);
 	return RESULT_SUCCESS;
@@ -4894,6 +4894,8 @@ static int raw_hangup(struct sockaddr_in *sin, unsigned short src, unsigned shor
 	fh.iseqno = 0;
 	fh.type = AST_FRAME_IAX;
 	fh.csub = compress_subclass(IAX_COMMAND_INVAL);
+	if (iaxdebug)
+		 iax_showframe(NULL, &fh, 0, sin, 0);
 #if 0
 	if (option_debug)
 #endif	
@@ -5369,6 +5371,7 @@ static int complete_transfer(int callno, struct iax_ies *ies)
 	memset(&pvt->transfer, 0, sizeof(pvt->transfer));
 	/* Reset sequence numbers */
 	pvt->oseqno = 0;
+	pvt->rseqno = 0;
 	pvt->iseqno = 0;
 	pvt->aseqno = 0;
 	pvt->peercallno = peercallno;
@@ -6579,8 +6582,8 @@ static int socket_read(int *id, int fd, short events, void *cbdata)
 		/* Handle implicit ACKing unless this is an INVAL, and only if this is 
 		   from the real peer, not the transfer peer */
 		if (!inaddrcmp(&sin, &iaxs[fr.callno]->addr) && 
-			(((f.subclass != IAX_COMMAND_INVAL)) ||
-			(f.frametype != AST_FRAME_IAX))) {
+		    ((f.subclass != IAX_COMMAND_INVAL) ||
+		     (f.frametype != AST_FRAME_IAX))) {
 			unsigned char x;
 			/* XXX This code is not very efficient.  Surely there is a better way which still
 			       properly handles boundary conditions? XXX */
@@ -6765,6 +6768,10 @@ retryowner:
 					break;
 				if (ies.provverpres && ies.serviceident && sin.sin_addr.s_addr)
 					check_provisioning(&sin, fd, ies.serviceident, ies.provver);
+				/* If we're in trunk mode, do it now, and update the trunk number in our frame before continuing */
+				if (ast_test_flag(iaxs[fr.callno], IAX_TRUNK)) {
+					fr.callno = make_trunk(fr.callno, 1);
+				}
 				/* For security, always ack immediately */
 				if (delayreject)
 					send_command_immediate(iaxs[fr.callno], AST_FRAME_IAX, IAX_COMMAND_ACK, fr.ts, NULL, 0,fr.iseqno);
@@ -6774,10 +6781,6 @@ retryowner:
 					if (authdebug)
 						ast_log(LOG_NOTICE, "Rejected connect attempt from %s, who was trying to reach '%s@%s'\n", ast_inet_ntoa(iabuf, sizeof(iabuf), sin.sin_addr), iaxs[fr.callno]->exten, iaxs[fr.callno]->context);
 					break;
-				}
-				/* If we're in trunk mode, do it now, and update the trunk number in our frame before continuing */
-				if (ast_test_flag(iaxs[fr.callno], IAX_TRUNK)) {
-					fr.callno = make_trunk(fr.callno, 1);
 				}
 				/* This might re-enter the IAX code and need the lock */
 				if (strcasecmp(iaxs[fr.callno]->exten, "TBD")) {
@@ -8147,6 +8150,7 @@ static struct iax2_peer *build_peer(const char *name, struct ast_variable *v, in
 		peer->smoothing = 0;
 		peer->pokefreqok = DEFAULT_FREQ_OK;
 		peer->pokefreqnotok = DEFAULT_FREQ_NOTOK;
+		peer->context[0] = '\0';
 		while(v) {
 			if (!strcasecmp(v->name, "secret")) {
 				if (!ast_strlen_zero(peer->secret)) {

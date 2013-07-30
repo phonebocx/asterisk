@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7274 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8418 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/cli.h"
@@ -927,40 +927,38 @@ pvn_endfor:
 	}
 }
 
-static char *substring(char *value, int offset, int length, char *workspace, size_t workspace_len)
+/*! \brief takes a substring. It is ok to call with value == workspace.
+ *
+ * offset < 0 means start from the end of the string and set the beginning
+ *   to be that many characters back.
+ * length is the length of the substring, -1 means unlimited
+ * (we take any negative value).
+ * Always return a copy in workspace.
+ */
+static char *substring(const char *value, int offset, int length, char *workspace, size_t workspace_len)
 {
 	char *ret = workspace;
+	int lr;	/* length of the input string after the copy */
 
-	/* No need to do anything */
-	if (offset == 0 && length==-1) {
-		return value;
+	ast_copy_string(workspace, value, workspace_len); /* always make a copy */
+
+	if (offset == 0 && length < 0)	/* take the whole string */
+		return ret;
+
+	lr = strlen(ret); /* compute length after copy, so we never go out of the workspace */
+
+	if (offset < 0)	{	/* translate negative offset into positive ones */
+		offset = lr + offset;
+		if (offset < 0) /* If the negative offset was greater than the length of the string, just start at the beginning */
+			offset = 0;
 	}
 
-	ast_copy_string(workspace, value, workspace_len);
+	/* too large offset result in empty string so we know what to return */
+	if (offset >= lr)
+		return ret + lr;	/* the final '\0' */
 
-	if (abs(offset) > strlen(ret)) {	/* Offset beyond string */
-		if (offset >= 0) 
-			offset = strlen(ret);
-		else 
-			offset =- strlen(ret);	
-	}
-
-	/* Detect too-long length */
-	if ((offset < 0 && length > -offset) || (offset >= 0 && offset+length > strlen(ret))) {
-		if (offset >= 0) 
-			length = strlen(ret)-offset;
-		else 
-			length = strlen(ret)+offset;
-	}
-
-	/* Bounce up to the right offset */
-	if (offset >= 0)
-		ret += offset;
-	else
-		ret += strlen(ret)+offset;
-
-	/* Chop off at the requisite length */
-	if (length >= 0)
+	ret += offset;		/* move to the start position */
+	if (length >= 0 && length < lr - offset)	/* truncate if necessary */
 		ret[length] = '\0';
 
 	return ret;
@@ -2029,7 +2027,7 @@ int ast_extension_state_del(int id, ast_state_cb_type callback)
 	    		cblist = cblist->next;
 		}
 
-		ast_mutex_lock(&hintlock);
+		ast_mutex_unlock(&hintlock);
 		return -1;
 	}
 
@@ -4652,6 +4650,16 @@ int ast_add_extension2(struct ast_context *con,
 	int res;
 	int length;
 	char *p;
+	char expand_buf[VAR_BUF_SIZE] = { 0, };
+
+	/* if we are adding a hint, and there are global variables, and the hint
+	   contains variable references, then expand them
+	*/
+	if ((priority == PRIORITY_HINT) && AST_LIST_FIRST(&globals) && strstr(application, "${")) {
+		pbx_substitute_variables_varshead(&globals, application, expand_buf, sizeof(expand_buf));
+		application = expand_buf;
+	}
+
 	length = sizeof(struct ast_exten);
 	length += strlen(extension) + 1;
 	length += strlen(application) + 1;
@@ -5503,6 +5511,8 @@ static int pbx_builtin_setamaflags(struct ast_channel *chan, void *data)
 static int pbx_builtin_hangup(struct ast_channel *chan, void *data)
 {
 	/* Just return non-zero and it will hang up */
+	if (!chan->hangupcause)
+		chan->hangupcause = AST_CAUSE_NORMAL_CLEARING;
 	return -1;
 }
 

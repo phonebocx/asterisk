@@ -45,7 +45,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7268 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8632 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/frame.h"
@@ -94,6 +94,7 @@ struct ast_channel_spy_list {
  */
 static int shutting_down = 0;
 
+AST_MUTEX_DEFINE_STATIC(uniquelock);
 static int uniqueint = 0;
 
 unsigned long global_fin = 0, global_fout = 0;
@@ -575,7 +576,7 @@ struct ast_channel *ast_channel_alloc(int needqueue)
 	tmp->fds[AST_MAX_FDS-1] = tmp->alertpipe[0];
 	/* And timing pipe */
 	tmp->fds[AST_MAX_FDS-2] = tmp->timingfd;
-	strcpy(tmp->name, "**Unkown**");
+	strcpy(tmp->name, "**Unknown**");
 	/* Initial state */
 	tmp->_state = AST_STATE_DOWN;
 	tmp->streamid = -1;
@@ -583,7 +584,9 @@ struct ast_channel *ast_channel_alloc(int needqueue)
 	tmp->data = NULL;
 	tmp->fin = global_fin;
 	tmp->fout = global_fout;
+	ast_mutex_lock(&uniquelock);
 	snprintf(tmp->uniqueid, sizeof(tmp->uniqueid), "%li.%d", (long) time(NULL), uniqueint++);
+	ast_mutex_unlock(&uniquelock);
 	headp = &tmp->varshead;
 	ast_mutex_init(&tmp->lock);
 	AST_LIST_HEAD_INIT_NOLOCK(headp);
@@ -1021,7 +1024,7 @@ void ast_channel_spy_stop_by_type(struct ast_channel *chan, const char *type)
 	AST_LIST_TRAVERSE(&chan->spies->list, spy, list) {
 		ast_mutex_lock(&spy->lock);
 		if ((spy->type == type) && (spy->status == CHANSPY_RUNNING)) {
-			spy->status = CHANSPY_DONE;
+			spy->status = CHANSPY_STOP;
 			if (ast_test_flag(spy, CHANSPY_TRIGGER_MODE) != CHANSPY_TRIGGER_NONE)
 				ast_cond_signal(&spy->trigger);
 		}
@@ -1909,11 +1912,11 @@ struct ast_frame *ast_read(struct ast_channel *chan)
 
 			if (chan->monitor && chan->monitor->read_stream ) {
 #ifndef MONITOR_CONSTANT_DELAY
-				int jump = chan->outsmpl - chan->insmpl - 2 * f->samples;
+				int jump = chan->outsmpl - chan->insmpl - 4 * f->samples;
 				if (jump >= 0) {
 					if (ast_seekstream(chan->monitor->read_stream, jump + f->samples, SEEK_FORCECUR) == -1)
 						ast_log(LOG_WARNING, "Failed to perform seek in monitoring read stream, synchronization between the files may be broken\n");
-					chan->insmpl += jump + 2 * f->samples;
+					chan->insmpl += jump + 4 * f->samples;
 				} else
 					chan->insmpl+= f->samples;
 #else
@@ -2002,10 +2005,12 @@ int ast_indicate(struct ast_channel *chan, int condition)
 {
 	int res = -1;
 
-	/* Stop if we're a zombie or need a soft hangup */
-	if (ast_test_flag(chan, AST_FLAG_ZOMBIE) || ast_check_hangup(chan)) 
-		return -1;
 	ast_mutex_lock(&chan->lock);
+	/* Stop if we're a zombie or need a soft hangup */
+	if (ast_test_flag(chan, AST_FLAG_ZOMBIE) || ast_check_hangup(chan)) {
+		ast_mutex_unlock(&chan->lock);
+		return -1;
+	}
 	if (chan->tech->indicate)
 		res = chan->tech->indicate(chan, condition);
 	ast_mutex_unlock(&chan->lock);
@@ -2255,11 +2260,11 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 				if( chan->monitor && chan->monitor->write_stream &&
 						f && ( f->frametype == AST_FRAME_VOICE ) ) {
 #ifndef MONITOR_CONSTANT_DELAY
-					int jump = chan->insmpl - chan->outsmpl - 2 * f->samples;
+					int jump = chan->insmpl - chan->outsmpl - 4 * f->samples;
 					if (jump >= 0) {
 						if (ast_seekstream(chan->monitor->write_stream, jump + f->samples, SEEK_FORCECUR) == -1)
 							ast_log(LOG_WARNING, "Failed to perform seek in monitoring write stream, synchronization between the files may be broken\n");
-						chan->outsmpl += jump + 2 * f->samples;
+						chan->outsmpl += jump + 4 * f->samples;
 					} else
 						chan->outsmpl += f->samples;
 #else
@@ -3055,7 +3060,6 @@ int ast_do_masquerade(struct ast_channel *original)
 	if (ast_test_flag(clone, AST_FLAG_ZOMBIE)) {
 		ast_log(LOG_DEBUG, "Destroying channel clone '%s'\n", clone->name);
 		ast_mutex_unlock(&clone->lock);
-		ast_channel_free(clone);
 		manager_event(EVENT_FLAG_CALL, "Hangup", 
 			"Channel: %s\r\n"
 			"Uniqueid: %s\r\n"
@@ -3066,6 +3070,7 @@ int ast_do_masquerade(struct ast_channel *original)
 			clone->hangupcause,
 			ast_cause2str(clone->hangupcause)
 			);
+		ast_channel_free(clone);
 	} else {
 		struct ast_frame null_frame = { AST_FRAME_NULL, };
 		ast_log(LOG_DEBUG, "Released clone lock on '%s'\n", clone->name);
@@ -3198,7 +3203,8 @@ static void bridge_playfile(struct ast_channel *chan, struct ast_channel *peer, 
 }
 
 static enum ast_bridge_result ast_generic_bridge(struct ast_channel *c0, struct ast_channel *c1,
-			      struct ast_bridge_config *config, struct ast_frame **fo, struct ast_channel **rc, int toms)
+						 struct ast_bridge_config *config, struct ast_frame **fo,
+						 struct ast_channel **rc, struct timeval bridge_end)
 {
 	/* Copy voice back and forth between the two channels. */
 	struct ast_channel *cs[3];
@@ -3210,6 +3216,7 @@ static enum ast_bridge_result ast_generic_bridge(struct ast_channel *c0, struct 
 	int watch_c0_dtmf;
 	int watch_c1_dtmf;
 	void *pvt0, *pvt1;
+	int to;
 	
 	cs[0] = c0;
 	cs[1] = c1;
@@ -3228,12 +3235,16 @@ static enum ast_bridge_result ast_generic_bridge(struct ast_channel *c0, struct 
 			res = AST_BRIDGE_RETRY;
 			break;
 		}
-		who = ast_waitfor_n(cs, 2, &toms);
-		if (!who) {
-			if (!toms) {
+		if (bridge_end.tv_sec) {
+			to = ast_tvdiff_ms(bridge_end, ast_tvnow());
+			if (to <= 0) {
 				res = AST_BRIDGE_RETRY;
 				break;
 			}
+		} else
+			to = -1;
+		who = ast_waitfor_n(cs, 2, &to);
+		if (!who) {
 			ast_log(LOG_DEBUG, "Nobody there, continuing...\n"); 
 			if (c0->_softhangup == AST_SOFTHANGUP_UNBRIDGE || c1->_softhangup == AST_SOFTHANGUP_UNBRIDGE) {
 				if (c0->_softhangup == AST_SOFTHANGUP_UNBRIDGE)
@@ -3402,10 +3413,13 @@ enum ast_bridge_result ast_channel_bridge(struct ast_channel *c0, struct ast_cha
 			
 			if (!to) {
 				if (time_left_ms >= 5000) {
+					/* force the time left to round up if appropriate */
 					if (caller_warning && config->warning_sound && config->play_warning)
-						bridge_playfile(c0, c1, config->warning_sound, time_left_ms / 1000);
+						bridge_playfile(c0, c1, config->warning_sound,
+								(time_left_ms + 500) / 1000);
 					if (callee_warning && config->warning_sound && config->play_warning)
-						bridge_playfile(c1, c0, config->warning_sound, time_left_ms / 1000);
+						bridge_playfile(c1, c0, config->warning_sound,
+								(time_left_ms + 500) / 1000);
 				}
 				if (config->warning_freq) {
 					nexteventts = ast_tvadd(nexteventts, ast_samp2tv(config->warning_freq, 1000));
@@ -3506,7 +3520,7 @@ enum ast_bridge_result ast_channel_bridge(struct ast_channel *c0, struct ast_cha
 			o0nativeformats = c0->nativeformats;
 			o1nativeformats = c1->nativeformats;
 		}
-		res = ast_generic_bridge(c0, c1, config, fo, rc, to);
+		res = ast_generic_bridge(c0, c1, config, fo, rc, nexteventts);
 		if (res != AST_BRIDGE_RETRY)
 			break;
 	}
@@ -3821,7 +3835,7 @@ static void copy_data_from_queue(struct ast_channel_spy_queue *queue, short *buf
 		}
 
 		tocopy = (f->samples > samples) ? samples : f->samples;
-		bytestocopy = ast_codec_get_len(queue->format, samples);
+		bytestocopy = ast_codec_get_len(queue->format, tocopy);
 		memcpy(buf, f->data, bytestocopy);
 		samples -= tocopy;
 		buf += tocopy;

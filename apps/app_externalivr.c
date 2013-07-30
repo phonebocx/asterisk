@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7251 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7634 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -94,9 +94,9 @@ static void send_child_event(FILE *handle, const char event, const char *data,
 	char tmp[256];
 
 	if (!data) {
-		snprintf(tmp, sizeof(tmp), "%c,%10ld", event, time(NULL));
+		snprintf(tmp, sizeof(tmp), "%c,%10d", event, (int)time(NULL));
 	} else {
-		snprintf(tmp, sizeof(tmp), "%c,%10ld,%s", event, time(NULL), data);
+		snprintf(tmp, sizeof(tmp), "%c,%10d,%s", event, (int)time(NULL), data);
 	}
 
 	fprintf(handle, "%s\n", tmp);
@@ -345,8 +345,6 @@ static int app_exec(struct ast_channel *chan, void *data)
 			goto exit;
 		}
 
-		setvbuf(child_events, NULL, _IONBF, 0);
-
 		if (!(child_commands = fdopen(child_commands_fd, "r"))) {
 			ast_chan_log(LOG_WARNING, chan, "Could not open stream for child commands\n");
 			goto exit;
@@ -356,6 +354,10 @@ static int app_exec(struct ast_channel *chan, void *data)
 			ast_chan_log(LOG_WARNING, chan, "Could not open stream for child errors\n");
 			goto exit;
 		}
+
+		setvbuf(child_events, NULL, _IONBF, 0);
+		setvbuf(child_commands, NULL, _IONBF, 0);
+		setvbuf(child_errors, NULL, _IONBF, 0);
 
 		res = 0;
 

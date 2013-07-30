@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7550 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -77,7 +77,7 @@ static int pickup_exec(struct ast_channel *chan, void *data)
 
 	/* Find a channel to pickup */
 	origin = ast_get_channel_by_exten_locked(exten, context);
-	if (origin) {
+	if (origin && origin->cdr) {
 		ast_cdr_getvar(origin->cdr, "dstchannel", &tmp, workspace,
 			       sizeof(workspace), 0);
 		if (tmp) {
@@ -89,6 +89,8 @@ static int pickup_exec(struct ast_channel *chan, void *data)
 		}
 		ast_mutex_unlock(&origin->lock);
 	} else {
+		if (origin)
+			ast_mutex_unlock(&origin->lock);
 		ast_log(LOG_DEBUG, "No originating channel found.\n");
 	}
 	

@@ -381,7 +381,8 @@ struct {								\
   used to link entries of this list together.
 
   Note: The link field in the appended entry is \b not modified, so if it is
-  actually the head of a list itself, the entire list will be appended.
+  actually the head of a list itself, the entire list will be appended
+  temporarily (until the next AST_LIST_INSERT_TAIL is performed).
  */
 #define AST_LIST_INSERT_TAIL(head, elm, field) do {			\
       if (!(head)->first) {						\
@@ -424,15 +425,16 @@ struct {								\
 #define AST_LIST_REMOVE(head, elm, field) do {			        \
 	if ((head)->first == (elm)) {					\
 		(head)->first = (elm)->field.next;			\
-	}								\
-	else {								\
+		if ((head)->last == (elm))			\
+			(head)->last = NULL;			\
+	} else {								\
 		typeof(elm) curelm = (head)->first;			\
 		while (curelm->field.next != (elm))			\
 			curelm = curelm->field.next;			\
 		curelm->field.next = (elm)->field.next;			\
+		if ((head)->last == (elm))				\
+			(head)->last = curelm;				\
 	}								\
-	if ((head)->last == elm)					\
-		(head)->last = NULL;					\
 } while (0)
 
 #endif /* _ASTERISK_LINKEDLISTS_H */

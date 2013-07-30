@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7908 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -289,10 +289,11 @@ static void launch_service(struct outgoing *o)
 {
 	pthread_t t;
 	pthread_attr_t attr;
+	int ret;
 	pthread_attr_init(&attr);
  	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	if (ast_pthread_create(&t,&attr,attempt_thread, o) == -1) {
-		ast_log(LOG_WARNING, "Unable to create thread :(\n");
+	if ((ret = ast_pthread_create(&t,&attr,attempt_thread, o)) != 0) {
+		ast_log(LOG_WARNING, "Unable to create thread :( (returned error: %d)\n", ret);
 		free_outgoing(o);
 	}
 }
@@ -312,8 +313,10 @@ static int scan_service(char *fn, time_t now, time_t atime)
 #endif
 				fclose(f);
 				if (o->retries <= o->maxretries) {
+					now += o->retrytime;
 					if (o->callingpid && (o->callingpid == ast_mainpid)) {
 						safe_append(o, time(NULL), "DelayedRetry");
+						free_outgoing(o);
 						ast_log(LOG_DEBUG, "Delaying retry since we're currently running '%s'\n", o->fn);
 					} else {
 						/* Increment retries */
@@ -326,7 +329,6 @@ static int scan_service(char *fn, time_t now, time_t atime)
 						safe_append(o, now, "StartRetry");
 						launch_service(o);
 					}
-					now += o->retrytime;
 					return now;
 				} else {
 					ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt%s\n", o->tech, o->dest, o->retries - 1, ((o->retries - 1) != 1) ? "s" : "");
@@ -413,6 +415,7 @@ int load_module(void)
 {
 	pthread_t thread;
 	pthread_attr_t attr;
+	int ret;
 	snprintf(qdir, sizeof(qdir), "%s/%s", ast_config_AST_SPOOL_DIR, "outgoing");
 	if (mkdir(qdir, 0700) && (errno != EEXIST)) {
 		ast_log(LOG_WARNING, "Unable to create queue directory %s -- outgoing spool disabled\n", qdir);
@@ -420,8 +423,8 @@ int load_module(void)
 	}
 	pthread_attr_init(&attr);
  	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	if (ast_pthread_create(&thread,&attr,scan_thread, NULL) == -1) {
-		ast_log(LOG_WARNING, "Unable to create thread :(\n");
+	if ((ret = ast_pthread_create(&thread,&attr,scan_thread, NULL)) != 0) {
+		ast_log(LOG_WARNING, "Unable to create thread :( (returned error: %d)\n", ret);
 		return -1;
 	}
 	return 0;

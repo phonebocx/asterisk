@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7521 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -710,12 +710,15 @@ int ast_cdr_setaccount(struct ast_channel *chan, const char *account)
 
 int ast_cdr_setamaflags(struct ast_channel *chan, const char *flag)
 {
-	struct ast_cdr *cdr = chan->cdr;
+	struct ast_cdr *cdr;
 	int newflag;
 
 	newflag = ast_cdr_amaflags2int(flag);
-	if (newflag)
-		cdr->amaflags = newflag;
+	if (newflag) {
+		for (cdr = chan->cdr; cdr; cdr = cdr->next) {
+			cdr->amaflags = newflag;
+		}
+	}
 
 	return 0;
 }

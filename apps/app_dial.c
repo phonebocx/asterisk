@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7234 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8608 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -161,7 +161,7 @@ static char *descrip =
 "    S(x) - Hang up the call after 'x' seconds *after* the called party has\n"
 "           answered the call.\n"  	
 "    t    - Allow the called party to transfer the calling party by sending the\n"
-"           DTMF sequence defiend in features.conf.\n"
+"           DTMF sequence defined in features.conf.\n"
 "    T    - Allow the calling party to transfer the called party by sending the\n"
 "           DTMF sequence defined in features.conf.\n"
 "    w    - Allow the called party to enable recording of the call by sending\n"
@@ -648,6 +648,7 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in, struct localu
 					ast_hangup(o->chan);
 					o->chan = NULL;
 					ast_clear_flag(o, DIAL_STILLGOING);
+					HANDLE_CAUSE(in->hangupcause, in);
 				}
 			}
 			o = o->next;
@@ -962,7 +963,7 @@ static int dial_exec_full(struct ast_channel *chan, void *data, struct ast_flags
 	/* If a channel group has been specified, get it for use when we create peer channels */
 	outbound_group = pbx_builtin_getvar_helper(chan, "OUTBOUND_GROUP");
 
-	ast_copy_flags(peerflags, &opts, OPT_DTMF_EXIT | OPT_GO_ON | OPT_ORIGINAL_CLID);
+	ast_copy_flags(peerflags, &opts, OPT_DTMF_EXIT | OPT_GO_ON | OPT_ORIGINAL_CLID | OPT_CALLER_HANGUP);
 	cur = args.peers;
 	do {
 		/* Remember where to start next time */

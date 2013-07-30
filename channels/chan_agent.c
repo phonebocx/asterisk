@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7271 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8047 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -102,7 +102,7 @@ static const char descrip2[] =
 static const char descrip3[] =
 "  AgentMonitorOutgoing([options]):\n"
 "Tries to figure out the id of the agent who is placing outgoing call based on\n"
-"comparision of the callerid of the current interface and the global variable \n"
+"comparison of the callerid of the current interface and the global variable \n"
 "placed by the AgentCallbackLogin application. That's why it should be used only\n"
 "with the AgentCallbackLogin app. Uses the monitoring functions in chan_agent \n"
 "instead of Monitor application. That have to be configured in the agents.conf file.\n"
@@ -131,7 +131,7 @@ static const char mandescr_agent_callback_login[] =
 "Description: Sets an agent as logged in with callback.\n"
 "Variables: (Names marked with * are required)\n"
 "	*Agent: Agent ID of the agent to login\n"
-"	*Extension: Extension to use for callback\n"
+"	*Exten: Extension to use for callback\n"
 "	Context: Context to use for callback\n"
 "	AckCall: Set to 'true' to require an acknowledgement by '#' when agent is called back\n"
 "	WrapupTime: the minimum amount of time after disconnecting before the caller can receive a new call\n";
@@ -144,7 +144,7 @@ static char moh[80] = "default";
 
 /** Persistent Agents astdb family */
 static const char pa_family[] = "/Agents";
-/** The maximum lengh of each persistent member agent database entry */
+/** The maximum length of each persistent member agent database entry */
 #define PA_MAX_LEN 2048
 /** queues.conf [general] option */
 static int persistent_agents = 0;
@@ -795,8 +795,11 @@ static int agent_hangup(struct ast_channel *ast)
 				snprintf(agent, sizeof(agent), "Agent/%s", p->agent);
 				ast_queue_log("NONE", ast->uniqueid, agent, "AGENTCALLBACKLOGOFF", "%s|%ld|%s", p->loginchan, logintime, "Autologoff");
 				set_agentbycallerid(p->logincallerid, NULL);
+				ast_device_state_changed("Agent/%s", p->agent);
 				p->loginchan[0] = '\0';
 				p->logincallerid[0] = '\0';
+				if (persistent_agents)
+					dump_agents();
 			}
 		} else if (p->dead) {
 			ast_mutex_lock(&p->chan->lock);
@@ -1048,7 +1051,7 @@ static int read_agent_config(void)
 	urlprefix[0] = '\0';
 	savecallsin[0] = '\0';
 
-	/* Read in [general] section for persistance */
+	/* Read in [general] section for persistence */
 	if ((general_val = ast_variable_retrieve(cfg, "general", "persistentagents")))
 		persistent_agents = ast_true(general_val);
 
@@ -1417,7 +1420,7 @@ static int action_agents(struct mansession *s, struct message *m)
 		/* Set a default status. It 'should' get changed. */
 		status = "AGENT_UNKNOWN";
 
-		if (!ast_strlen_zero(p->loginchan)) {
+		if (!ast_strlen_zero(p->loginchan) && !p->chan) {
 			loginChan = p->loginchan;
 			talkingtoChan = "n/a";
 			status = "AGENT_IDLE";
@@ -1445,11 +1448,11 @@ static int action_agents(struct mansession *s, struct message *m)
 			"Name: %s\r\n"
 			"Status: %s\r\n"
 			"LoggedInChan: %s\r\n"
-			"LoggedInTime: %ld\r\n"
+			"LoggedInTime: %d\r\n"
 			"TalkingTo: %s\r\n"
 			"%s"
 			"\r\n",
-			p->agent, username, status, loginChan, p->loginstart, talkingtoChan, idText);
+			p->agent, username, status, loginChan, (int)p->loginstart, talkingtoChan, idText);
 		ast_mutex_unlock(&p->lock);
 		p = p->next;
 	}
@@ -1692,6 +1695,7 @@ static int __login_exec(struct ast_channel *chan, void *data, int callbackmode)
 	char agent_goodbye[AST_MAX_FILENAME_LEN];
 	int update_cdr = updatecdr;
 	char *filename = "agent-loginok";
+	char tmpchan[AST_MAX_BUF] = "";
 
 	LOCAL_USER_ADD(u);
 
@@ -1787,7 +1791,7 @@ static int __login_exec(struct ast_channel *chan, void *data, int callbackmode)
 				gettimeofday(&p->lastdisc, NULL);
 				p->lastdisc.tv_sec++;
 
-				/* Set Channel Specific Agent Overides */
+				/* Set Channel Specific Agent Overrides */
 				if (pbx_builtin_getvar_helper(chan, "AGENTACKCALL") && strlen(pbx_builtin_getvar_helper(chan, "AGENTACKCALL"))) {
 					if (!strcasecmp(pbx_builtin_getvar_helper(chan, "AGENTACKCALL"), "always"))
 						p->ackcall = 2;
@@ -1815,14 +1819,13 @@ static int __login_exec(struct ast_channel *chan, void *data, int callbackmode)
 					if (option_verbose > 2)
 						ast_verbose(VERBOSE_PREFIX_3 "Saw variable AGENTWRAPUPTIME=%s, setting wrapuptime to: %d for Agent '%s'.\n",tmpoptions,p->wrapuptime,p->agent);
 				}
-				/* End Channel Specific Agent Overides */
+				/* End Channel Specific Agent Overrides */
 				if (!p->chan) {
 					char last_loginchan[80] = "";
 					long logintime;
 					snprintf(agent, sizeof(agent), "Agent/%s", p->agent);
 
 					if (callbackmode) {
-						char tmpchan[AST_MAX_BUF] = "";
 						int pos = 0;
 						/* Retrieve login chan */
 						for (;;) {
@@ -2357,7 +2360,7 @@ static void reload_agents(void)
 	}
 	ast_mutex_unlock(&agentlock);
 	if (db_tree) {
-		ast_log(LOG_NOTICE, "Agents sucessfully reloaded from database.\n");
+		ast_log(LOG_NOTICE, "Agents successfully reloaded from database.\n");
 		ast_db_freetree(db_tree);
 	}
 }
@@ -2414,7 +2417,7 @@ static int agent_devicestate(void *data)
 
 /**
  * Initialize the Agents module.
- * This funcion is being called by Asterisk when loading the module. Among other thing it registers applications, cli commands and reads the cofiguration file.
+ * This function is being called by Asterisk when loading the module. Among other thing it registers applications, cli commands and reads the cofiguration file.
  *
  * @returns int Always 0.
  */

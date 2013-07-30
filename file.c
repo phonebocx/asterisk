@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7915 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/file.h"
@@ -176,6 +176,7 @@ int ast_format_unregister(const char *name)
 		tmpl = tmp;
 		tmp = tmp->next;
 	}
+	ast_mutex_unlock(&formatlock);
 	ast_log(LOG_WARNING, "Tried to unregister format %s, already unregistered\n", name);
 	return -1;
 }
@@ -955,6 +956,8 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 					fs->filename = strdup(filename);
 				}
 				fs->vfs = NULL;
+				/* If truncated, we'll be at the beginning; if not truncated, then append */
+				f->seek(fs, 0, SEEK_END);
 			} else {
 				ast_log(LOG_WARNING, "Unable to rewrite %s\n", fn);
 				close(fd);

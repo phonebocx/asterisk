@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8134 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -361,7 +361,7 @@ int ast_park_call(struct ast_channel *chan, struct ast_channel *peer, int timeou
 		"From: %s\r\n"
 		"Timeout: %ld\r\n"
 		"CallerID: %s\r\n"
-		"CallerIDName: %s\r\n\r\n"
+		"CallerIDName: %s\r\n"
 		,pu->parkingnum, pu->chan->name, peer->name
 		,(long)pu->start.tv_sec + (long)(pu->parkingtime/1000) - (long)time(NULL)
 		,(pu->chan->cid.cid_num ? pu->chan->cid.cid_num : "<unknown>")
@@ -940,13 +940,15 @@ static int feature_exec_app(struct ast_channel *chan, struct ast_channel *peer, 
 	
 	app = pbx_findapp(feature->app);
 	if (app) {
-		struct ast_channel *work=chan;
-		if (ast_test_flag(feature,AST_FEATURE_FLAG_CALLEE)) work=peer;
+		struct ast_channel *work = chan;
+		if (ast_test_flag(feature, AST_FEATURE_FLAG_CALLEE))
+			work = peer;
 		res = pbx_exec(work, app, feature->app_args, 1);
-		if (res<0) return res; 
+		if (res < 0)
+			return res; 
 	} else {
 		ast_log(LOG_WARNING, "Could not find application (%s)\n", feature->app);
-		res = -2;
+		return -2;
 	}
 	
 	return FEATURE_RETURN_SUCCESS;
@@ -1278,10 +1280,12 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 			if (!(monitor_app = pbx_findapp("Monitor")))
 				monitor_ok=0;
 		}
-		if ((monitor_exec = pbx_builtin_getvar_helper(chan, "AUTO_MONITOR"))) 
-			pbx_exec(chan, monitor_app, monitor_exec, 1);
-		else if ((monitor_exec = pbx_builtin_getvar_helper(peer, "AUTO_MONITOR")))
-			pbx_exec(peer, monitor_app, monitor_exec, 1);
+		if (monitor_app) {
+			if ((monitor_exec = pbx_builtin_getvar_helper(chan, "AUTO_MONITOR"))) 
+				pbx_exec(chan, monitor_app, monitor_exec, 1);
+			else if ((monitor_exec = pbx_builtin_getvar_helper(peer, "AUTO_MONITOR")))
+				pbx_exec(peer, monitor_app, monitor_exec, 1);
+		}
 	}
 	
 	set_config_flags(chan, peer, config);
@@ -1533,7 +1537,7 @@ static void *do_parking_thread(void *ignore)
 					"Exten: %d\r\n"
 					"Channel: %s\r\n"
 					"CallerID: %s\r\n"
-					"CallerIDName: %s\r\n\r\n"
+					"CallerIDName: %s\r\n"
 					,pu->parkingnum, pu->chan->name
 					,(pu->chan->cid.cid_num ? pu->chan->cid.cid_num : "<unknown>")
 					,(pu->chan->cid.cid_name ? pu->chan->cid.cid_name : "<unknown>")
@@ -1572,12 +1576,13 @@ static void *do_parking_thread(void *ignore)
 						/* See if they need servicing */
 						f = ast_read(pu->chan);
 						if (!f || ((f->frametype == AST_FRAME_CONTROL) && (f->subclass ==  AST_CONTROL_HANGUP))) {
-
+							if (f)
+								ast_frfree(f);
 							manager_event(EVENT_FLAG_CALL, "ParkedCallGiveUp",
 								"Exten: %d\r\n"
 								"Channel: %s\r\n"
 								"CallerID: %s\r\n"
-								"CallerIDName: %s\r\n\r\n"
+								"CallerIDName: %s\r\n"
 								,pu->parkingnum, pu->chan->name
 								,(pu->chan->cid.cid_num ? pu->chan->cid.cid_num : "<unknown>")
 								,(pu->chan->cid.cid_name ? pu->chan->cid.cid_name : "<unknown>")
@@ -1714,7 +1719,7 @@ static int park_exec(struct ast_channel *chan, void *data)
 			"Channel: %s\r\n"
 			"From: %s\r\n"
 			"CallerID: %s\r\n"
-			"CallerIDName: %s\r\n\r\n"
+			"CallerIDName: %s\r\n"
 			,pu->parkingnum, pu->chan->name, chan->name
 			,(pu->chan->cid.cid_num ? pu->chan->cid.cid_num : "<unknown>")
 			,(pu->chan->cid.cid_name ? pu->chan->cid.cid_name : "<unknown>")

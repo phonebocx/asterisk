@@ -111,6 +111,7 @@ static void del_chan(char *name)
 				prev->next = chan->next;
 			else
 				chans = chan->next;
+			free(chan);
 			return;
 		}
 		prev = chan;
@@ -660,8 +661,8 @@ static int login(char *hostname)
 				struct MD5Context md5;
 				unsigned char digest[16];
 				MD5Init(&md5);
-				MD5Update(&md5, challenge, strlen(challenge));
-				MD5Update(&md5, pass, strlen(pass));
+				MD5Update(&md5, (unsigned char *)challenge, strlen(challenge));
+				MD5Update(&md5, (unsigned char *)pass, strlen(pass));
 				MD5Final(digest, &md5);
 				for (x=0; x<16; x++)
 					len += sprintf(md5key + len, "%2.2x", digest[x]);

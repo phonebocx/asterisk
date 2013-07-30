@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7608 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -90,7 +90,6 @@ static int hasvoicemail_internal(char *context, char *box, char *folder)
 		while ((vment = readdir(vmdir))) {
 			if (!strncmp(vment->d_name + 7, ".txt", 4)) {
 				count++;
-				break;
 			}
 		}
 		closedir(vmdir);

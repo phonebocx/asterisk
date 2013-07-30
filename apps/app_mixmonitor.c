@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7740 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -112,9 +112,9 @@ AST_APP_OPTIONS(mixmonitor_opts, {
 
 static void stopmon(struct ast_channel *chan, struct ast_channel_spy *spy) 
 {
-	/* If our status has changed, then the channel we're spying on is gone....
+	/* If our status has changed to DONE, then the channel we're spying on is gone....
 	   DON'T TOUCH IT!!!  RUN AWAY!!! */
-	if (spy->status != CHANSPY_RUNNING)
+	if (spy->status == CHANSPY_DONE)
 		return;
 
 	if (!chan)

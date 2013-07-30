@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7634 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -360,7 +360,7 @@ static int handle_showuptime(int fd, int argc, char *argv[])
 	if (ast_startuptime) {
 		tmptime = curtime - ast_startuptime;
 		if (printsec) {
-			ast_cli(fd, "System uptime: %lu\n",tmptime);
+			ast_cli(fd, "System uptime: %lu\n",(u_long)tmptime);
 		} else {
 			timestr = format_uptimestr(tmptime);
 			if (timestr) {
@@ -372,7 +372,7 @@ static int handle_showuptime(int fd, int argc, char *argv[])
 	if (ast_lastreloadtime) {
 		tmptime = curtime - ast_lastreloadtime;
 		if (printsec) {
-			ast_cli(fd, "Last reload: %lu\n", tmptime);
+			ast_cli(fd, "Last reload: %lu\n", (u_long) tmptime);
 		} else {
 			timestr = format_uptimestr(tmptime);
 			if ((timestr) && (!printsec)) {
