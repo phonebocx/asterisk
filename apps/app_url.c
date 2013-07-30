@@ -24,14 +24,10 @@
  * 
  * \ingroup applications
  */
-
-/*** MODULEINFO
-	<support_level>extended</support_level>
- ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 339776 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 227580 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -101,7 +97,7 @@ static int sendurl_exec(struct ast_channel *chan, const char *data)
 	struct ast_frame *f;
 	char *status = "FAILURE";
 	char *opts[0];
-	struct ast_flags flags = { 0 };
+	struct ast_flags flags;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(url);
 		AST_APP_ARG(options);

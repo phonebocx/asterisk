@@ -16,7 +16,6 @@
 #include "asterisk.h"
 #include "asterisk/lock.h"
 #include "ooh245.h"
-#include "ooq931.h"
 #include "ooCalls.h"
 #include "printHandler.h"
 #include "ooh323ep.h"
@@ -958,9 +957,6 @@ int ooHandleMasterSlave(OOH323CallData *call, void * pmsg,
             /*Since Cap exchange and MasterSlave Procedures are done */
             if(gH323ep.h323Callbacks.openLogicalChannels)
                gH323ep.h323Callbacks.openLogicalChannels(call);
-
-   	    /* ooSendStatusInquiry(call); */
-
             if(!ooGetTransmitLogicalChannel(call))
                ooOpenLogicalChannels(call);
 #if 0
@@ -2064,12 +2060,14 @@ int ooHandleH245Command(OOH323CallData *call,
                }
             }
             ooCloseH245Connection(call);
-	    if (call->callState < OO_CALL_CLEAR)
-	        call->callState = OO_CALL_CLEAR;
          }
          else{
 
             call->h245SessionState = OO_H245SESSION_ENDRECVD;
+#if 0
+            if(call->callState < OO_CALL_CLEAR)
+               call->callState = OO_CALL_CLEAR;
+#else 
             if(call->logicalChans)
             {
                OOTRACEINFO3("In response to received EndSessionCommand - "
@@ -2078,8 +2076,7 @@ int ooHandleH245Command(OOH323CallData *call,
                ooClearAllLogicalChannels(call);
             }
             ooSendEndSessionCommand(call);
-	    if (call->callState < OO_CALL_CLEAR)
-	        call->callState = OO_CALL_CLEAR;
+#endif
          }
             
             
@@ -2125,9 +2122,6 @@ int ooOnReceivedTerminalCapabilitySetAck(OOH323CallData* call)
    {
       if(gH323ep.h323Callbacks.openLogicalChannels)
          gH323ep.h323Callbacks.openLogicalChannels(call);
-
-      /* ooSendStatusInquiry(call); */
-      
       if(!ooGetTransmitLogicalChannel(call))
          ooOpenLogicalChannels(call);
 #if 0
@@ -3076,12 +3070,7 @@ int ooOnReceivedTerminalCapabilitySet(OOH323CallData *call, H245Message *pmsg)
    we can accept new capability set only. We must remember also that new join caps
    will be previously joined caps with new cap set.
  */
-
-/* 20111103 */
-/* for addition for previous we must check repeated tcs if it's not first 
-   tcs i.e. SeqNo is not null */
-
-   if(call->remoteTermCapSeqNo && call->remoteTermCapSeqNo == tcs->sequenceNumber)
+   if(call->remoteTermCapSeqNo == tcs->sequenceNumber)
     call->localTermCapState = OO_LocalTermCapExchange_Idle;
    }
   
@@ -3168,9 +3157,6 @@ int ooOnReceivedTerminalCapabilitySet(OOH323CallData *call, H245Message *pmsg)
  
    if(gH323ep.h323Callbacks.openLogicalChannels)
       gH323ep.h323Callbacks.openLogicalChannels(call);
-
-   /* ooSendStatusInquiry(call); */
-
    if(!ooGetTransmitLogicalChannel(call))
       ooOpenLogicalChannels(call);
 #if 0

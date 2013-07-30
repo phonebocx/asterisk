@@ -26,14 +26,10 @@
  *
  * \ingroup applications
  */
-
-/*** MODULEINFO
-	<support_level>extended</support_level>
- ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 196072 $")
 
 #include <signal.h>
 #include <fcntl.h>
@@ -97,7 +93,7 @@ static int icesencode(char *filename, int fd)
 	execl(path_BIN "ices2", "ices", filename, SENTINEL);
 	execlp("ices2", "ices", filename, SENTINEL);
 
-	ast_debug(1, "Couldn't find ices version 2, attempting to use ices version 1.\n");
+	ast_debug(1, "Couldn't find ices version 2, attempting to use ices version 1.");
 
 	execl(path_LOCAL "ices", "ices", filename, SENTINEL);
 	execl(path_BIN "ices", "ices", filename, SENTINEL);
@@ -116,6 +112,7 @@ static int ices_exec(struct ast_channel *chan, const char *data)
 	int pid = -1;
 	int flags;
 	int oreadformat;
+	struct timeval last;
 	struct ast_frame *f;
 	char filename[256]="";
 	char *c;
@@ -124,6 +121,8 @@ static int ices_exec(struct ast_channel *chan, const char *data)
 		ast_log(LOG_WARNING, "ICES requires an argument (configfile.xml)\n");
 		return -1;
 	}
+	
+	last = ast_tv(0, 0);
 	
 	if (pipe(fds)) {
 		ast_log(LOG_WARNING, "Unable to create pipe\n");

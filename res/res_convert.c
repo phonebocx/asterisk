@@ -26,13 +26,9 @@
  *
  */ 
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 196843 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/module.h"

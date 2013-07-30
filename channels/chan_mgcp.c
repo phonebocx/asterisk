@@ -31,12 +31,11 @@
 
 /*** MODULEINFO
         <use>res_pktccops</use>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 286931 $")
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -94,15 +93,14 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
 #define INADDR_NONE (in_addr_t)(-1)
 #endif
 
-/*! Global jitterbuffer configuration - by default, jb is disabled
- *  \note Values shown here match the defaults shown in mgcp.conf.sample */
+/*! Global jitterbuffer configuration - by default, jb is disabled */
 static struct ast_jb_conf default_jbconf =
 {
 	.flags = 0,
-	.max_size = 200,
-	.resync_threshold = 1000,
-	.impl = "fixed",
-	.target_extra = 40,
+	.max_size = -1,
+	.resync_threshold = -1,
+	.impl = "",
+	.target_extra = -1,
 };
 static struct ast_jb_conf global_jbconf;
 
@@ -1307,7 +1305,7 @@ static int mgcp_senddigit_begin(struct ast_channel *ast, char digit)
 		ast_debug(1, "Sending DTMF using inband/hybrid\n");
 		res = -1; /* Let asterisk play inband indications */
 	} else if (p->dtmfmode & MGCP_DTMF_RFC2833) {
-		ast_debug(1, "Sending DTMF using RFC2833\n");
+		ast_debug(1, "Sending DTMF using RFC2833");
 		ast_rtp_instance_dtmf_begin(sub->rtp, digit);
 	} else {
 		ast_log(LOG_ERROR, "Don't know about DTMF_MODE %d\n", p->dtmfmode);
@@ -1457,10 +1455,6 @@ static int mgcp_indicate(struct ast_channel *ast, int ind, const void *data, siz
 	case AST_CONTROL_BUSY:
 		transmit_notify_request(sub, "L/bz");
 		break;
-	case AST_CONTROL_INCOMPLETE:
-		/* We do not currently support resetting of the Interdigit Timer, so treat
-		 * Incomplete control frames as a congestion response
-		 */
 	case AST_CONTROL_CONGESTION:
 		transmit_notify_request(sub, sub->parent->ncs ? "L/cg" : "G/cg");
 		break;
@@ -3117,8 +3111,7 @@ static void *mgcp_ss(void *data)
 			sub->next->owner && ast_bridged_channel(sub->next->owner)) {
 			/* This is a three way call, the main call being a real channel,
 			   and we're parking the first call. */
-			ast_masq_park_call_exten(ast_bridged_channel(sub->next->owner), chan,
-				p->dtmf_buf, chan->context, 0, NULL);
+			ast_masq_park_call(ast_bridged_channel(sub->next->owner), chan, 0, NULL);
 			ast_verb(3, "Parking call to '%s'\n", chan->name);
 			break;
 		} else if (!ast_strlen_zero(p->lastcallerid) && !strcmp(p->dtmf_buf, "*60")) {
@@ -3761,7 +3754,7 @@ static void *do_monitor(void *data)
 {
 	int res;
 	int reloading;
-	struct mgcp_gateway *g, *gprev;
+	struct mgcp_gateway *g, *gprev, *gnext;
 	/*struct mgcp_gateway *g;*/
 	/*struct mgcp_endpoint *e;*/
 	/*time_t thispass = 0, lastpass = 0;*/
@@ -3831,10 +3824,12 @@ static void *do_monitor(void *data)
 			g = gateways;
 			gprev = NULL;
 			while(g) {
+				gnext = g->next;
 				if(g->realtime) {
 					if(mgcp_prune_realtime_gateway(g)) {
 						if(gprev) {
-							gprev->next = g->next;
+							gprev->next = gnext;
+							gprev = g;
 						} else {
 							gateways = g->next;
 						}
@@ -3848,7 +3843,7 @@ static void *do_monitor(void *data)
 				} else {
 					gprev = g;
 				}
-				g = g->next;
+				g = gnext;
 			}
 			ast_mutex_unlock(&gatelock);
 			lastrun = time(NULL);
@@ -3906,11 +3901,13 @@ static int restart_monitor(void)
 
 static struct ast_channel *mgcp_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
+	format_t oldformat;
 	struct mgcp_subchannel *sub;
 	struct ast_channel *tmpc = NULL;
 	char tmp[256];
 	char *dest = data;
 
+	oldformat = format;
 	format &= capability;
 	if (!format) {
 		ast_log(LOG_NOTICE, "Asked to get a channel of unsupported format '%s'\n", ast_getformatname_multiple(tmp, sizeof(tmp), format));
@@ -4735,7 +4732,7 @@ static int reload_config(int reload)
 		memcpy(&__ourip, hp->h_addr, sizeof(__ourip));
 	}
 	if (!ntohs(bindaddr.sin_port))
-		bindaddr.sin_port = htons(DEFAULT_MGCP_CA_PORT);
+		bindaddr.sin_port = ntohs(DEFAULT_MGCP_CA_PORT);
 	bindaddr.sin_family = AF_INET;
 	ast_mutex_lock(&netlock);
 	if (mgcpsock > -1)

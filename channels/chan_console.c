@@ -49,12 +49,11 @@
 
 /*** MODULEINFO
 	<depend>portaudio</depend>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335064 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 297535 $")
 
 #include <sys/signal.h>  /* SIGURG */
 
@@ -173,14 +172,13 @@ AST_RWLOCK_DEFINE_STATIC(active_lock);
  * \brief Global jitterbuffer configuration 
  *
  * \note Disabled by default.
- * \note Values shown here match the defaults shown in console.conf.sample
  */
 static struct ast_jb_conf default_jbconf = {
 	.flags = 0,
-	.max_size = 200,
-	.resync_threshold = 1000,
-	.impl = "fixed",
-	.target_extra = 40,
+	.max_size = -1,
+	.resync_threshold = -1,
+	.impl = "",
+	.target_extra = -1,
 };
 static struct ast_jb_conf global_jbconf;
 
@@ -610,7 +608,6 @@ static int console_indicate(struct ast_channel *chan, int cond, const void *data
 	case AST_CONTROL_BUSY:
 	case AST_CONTROL_CONGESTION:
 	case AST_CONTROL_RINGING:
-	case AST_CONTROL_INCOMPLETE:
 	case -1:
 		res = -1;  /* Ask for inband indications */
 		break;
@@ -736,7 +733,7 @@ static char *cli_console_autoanswer(struct ast_cli_entry *e, int cmd,
 
 	unref_pvt(pvt);
 
-	return res;
+	return CLI_SUCCESS;
 }
 
 static char *cli_console_flash(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)

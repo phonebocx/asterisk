@@ -18,13 +18,10 @@
  * \author Tilghman Lesher <res_limit_200607@the-tilghman.com>
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 217033 $")
 
 #include <ctype.h>
 #include <sys/time.h>

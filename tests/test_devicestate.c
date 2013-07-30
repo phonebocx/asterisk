@@ -27,12 +27,11 @@
 
 /*** MODULEINFO
 	<depend>TEST_FRAMEWORK</depend>
-	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 358943 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 277409 $")
 
 #include "asterisk/utils.h"
 #include "asterisk/module.h"
@@ -83,7 +82,7 @@ static int combined_results[] = {
 	AST_DEVICE_NOT_INUSE,
 	AST_DEVICE_INUSE,
 	AST_DEVICE_BUSY,
-	AST_DEVICE_INVALID,
+	AST_DEVICE_UNKNOWN,
 	AST_DEVICE_UNAVAILABLE,
 	AST_DEVICE_RINGING,
 	AST_DEVICE_RINGINUSE,
@@ -167,7 +166,7 @@ static int exten_results[] = {
 	AST_EXTENSION_NOT_INUSE,
 	AST_EXTENSION_INUSE,
 	AST_EXTENSION_BUSY,
-	AST_EXTENSION_UNAVAILABLE,
+	AST_EXTENSION_NOT_INUSE,
 	AST_EXTENSION_UNAVAILABLE,
 	AST_EXTENSION_RINGING,
 	AST_EXTENSION_INUSE | AST_EXTENSION_RINGING,

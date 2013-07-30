@@ -40,7 +40,6 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg);
 int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg);
 int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg);
 int ooHandleDisplayIE(OOH323CallData *call, Q931Message *q931Msg);
-int ooHandleH2250ID (OOH323CallData *call, H225ProtocolIdentifier protocolIdentifier);
 
 int ooHandleDisplayIE(OOH323CallData *call, Q931Message *q931Msg) {
    Q931InformationElement* pDisplayIE;
@@ -55,17 +54,6 @@ int ooHandleDisplayIE(OOH323CallData *call, Q931Message *q931Msg) {
       strncpy(call->remoteDisplayName, (char *)pDisplayIE->data, pDisplayIE->length*sizeof(ASN1OCTET));
    }
 
-   return OO_OK;
-}
-
-int ooHandleH2250ID (OOH323CallData *call, H225ProtocolIdentifier protocolIdentifier) {
-   if (!call->h225version && (protocolIdentifier.numids >= 6) &&
-	(protocolIdentifier.subid[3] == 2250)) {
-	call->h225version = protocolIdentifier.subid[5];
-	OOTRACEDBGC4("Extract H.225 remote version, it's %d, (%s, %s)\n", call->h225version, 
-						call->callType, call->callToken);
-
-   }
    return OO_OK;
 }
 
@@ -253,9 +241,7 @@ int ooHandleFastStart(OOH323CallData *call, H225Facility_UUIE *facility)
        }
       }
    } else if (OO_TESTFLAG (call->flags, OO_M_TUNNELING)) {
-	if (call->h225version >= 4) {
-		ret =ooSendTCSandMSD(call);
-	}
+	ret =ooSendTCSandMSD(call);
 	if (ret != OO_OK)
 		return ret;
    }
@@ -386,7 +372,6 @@ int ooOnReceivedSetup(OOH323CallData *call, Q931Message *q931Msg)
                   "%s\n", call->callType, call->callToken);
       return OO_FAILED;
    }
-   ooHandleH2250ID(call, setup->protocolIdentifier);
    memcpy(call->callIdentifier.guid.data, setup->callIdentifier.guid.data, 
           setup->callIdentifier.guid.numocts);
    call->callIdentifier.guid.numocts = setup->callIdentifier.guid.numocts;
@@ -399,9 +384,9 @@ int ooOnReceivedSetup(OOH323CallData *call, Q931Message *q931Msg)
    pDisplayIE = ooQ931GetIE(q931Msg, Q931DisplayIE);
    if(pDisplayIE)
    {
-      call->remoteDisplayName = (char *) memAllocZ(call->pctxt, 
+      call->remoteDisplayName = (char *) memAlloc(call->pctxt, 
                                  pDisplayIE->length*sizeof(ASN1OCTET)+1);
-      strncpy(call->remoteDisplayName, (char *)pDisplayIE->data, pDisplayIE->length*sizeof(ASN1OCTET));
+      strcpy(call->remoteDisplayName, (char *)pDisplayIE->data);
    }
    /*Extract Remote Aliases, if present*/
    if(setup->m.sourceAddressPresent)
@@ -633,7 +618,6 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
       return OO_FAILED;
    }
 
-   ooHandleH2250ID(call, callProceeding->protocolIdentifier);
    /* Handle fast-start */
    if(OO_TESTFLAG (call->flags, OO_M_FASTSTART))
    {
@@ -862,7 +846,6 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
       }
       return OO_FAILED;
    }
-   ooHandleH2250ID(call, alerting->protocolIdentifier);
    /*Handle fast-start */
    if(OO_TESTFLAG (call->flags, OO_M_FASTSTART) &&
       !OO_TESTFLAG(call->flags, OO_M_FASTSTARTANSWERED))
@@ -1013,9 +996,7 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
       	OOTRACEINFO3("Tunneling and h245address provided."
                      "Giving preference to Tunneling (%s, %s)\n", 
                    	call->callType, call->callToken);
-	if (call->h225version >= 4) {
-		ret =ooSendTCSandMSD(call);
-	}
+	ret =ooSendTCSandMSD(call);
 	if (ret != OO_OK)
 		return ret;
 
@@ -1057,10 +1038,6 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
             call->callState = OO_CALL_CLEAR;
          }
          return OO_FAILED;
-       } else {
-	if (call->h225version >= 4) {
-		ret =ooSendTCSandMSD(call);
-	}
        }
       }
    }
@@ -1099,7 +1076,6 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
       }
       return OO_FAILED;
    }
-   ooHandleH2250ID(call, progress->protocolIdentifier);
    /*Handle fast-start */
    if(OO_TESTFLAG (call->flags, OO_M_FASTSTART) &&
       !OO_TESTFLAG(call->flags, OO_M_FASTSTARTANSWERED))
@@ -1251,9 +1227,7 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
       	OOTRACEINFO3("Tunneling and h245address provided."
                      "Giving preference to Tunneling (%s, %s)\n", 
                      call->callType, call->callToken);
-	if (call->h225version >= 4) {
-		ret =ooSendTCSandMSD(call);
-	}
+	ret =ooSendTCSandMSD(call);
 	if (ret != OO_OK)
 		return ret;
    } else if(progress->m.h245AddressPresent) {
@@ -1294,10 +1268,6 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
             call->callState = OO_CALL_CLEAR;
          }
          return OO_FAILED;
-       } else {
-	if (call->h225version >= 4) {
-		ret =ooSendTCSandMSD(call);
-	}
        }
       }
    }
@@ -1343,7 +1313,7 @@ int ooOnReceivedSignalConnect(OOH323CallData* call, Q931Message *q931Msg)
       }
       return OO_FAILED;
    }
-   ooHandleH2250ID(call, connect->protocolIdentifier);
+
    /*Handle fast-start */
    if(OO_TESTFLAG (call->flags, OO_M_FASTSTART) && 
       !OO_TESTFLAG (call->flags, OO_M_FASTSTARTANSWERED))
@@ -1578,24 +1548,24 @@ int ooOnReceivedSignalConnect(OOH323CallData* call, Q931Message *q931Msg)
       OOTRACEDBGB3("Finished tunneled messages in Connect. (%s, %s)\n",
                     call->callType, call->callToken);
 
-   }
-   /*
+      /*
         Send TCS as call established and no capability exchange has yet 
         started. This will be true only when separate h245 connection is not
         established and tunneling is being used.
-   */
-   if(call->localTermCapState == OO_LocalTermCapExchange_Idle)
-   {
-        /*Start terminal capability exchange and master slave determination */
-        ret = ooSendTermCapMsg(call);
-        if(ret != OO_OK)
-        {
-           OOTRACEERR3("ERROR:Sending Terminal capability message (%s, %s)\n",
-                        call->callType, call->callToken);
-           return ret;
-        }
-   }
+      */
+      if(call->localTermCapState == OO_LocalTermCapExchange_Idle)
+      {
+         /*Start terminal capability exchange and master slave determination */
+         ret = ooSendTermCapMsg(call);
+         if(ret != OO_OK)
+         {
+            OOTRACEERR3("ERROR:Sending Terminal capability message (%s, %s)\n",
+                         call->callType, call->callToken);
+            return ret;
+         }
+      }
 
+   }
    call->callState = OO_CALL_CONNECTED;
    if (call->rtdrCount > 0 && call->rtdrInterval > 0) {
         return ooSendRoundTripDelayRequest(call);
@@ -1628,15 +1598,12 @@ int ooHandleH2250Message(OOH323CallData *call, Q931Message *q931Msg)
       case Q931SetupMsg: /* SETUP message is received */
          OOTRACEINFO3("Received SETUP message (%s, %s)\n", call->callType,
                        call->callToken);
-         ret = ooOnReceivedSetup(call, q931Msg);
-         if (ret != OO_OK) {
-           call->callState = OO_CALL_CLEAR;
-         } else {
-           
+         ooOnReceivedSetup(call, q931Msg);
+
          /* H225 message callback */
-            if(gH323ep.h225Callbacks.onReceivedSetup)
-               ret = gH323ep.h225Callbacks.onReceivedSetup(call, q931Msg);
-         }
+         if(gH323ep.h225Callbacks.onReceivedSetup)
+            ret = gH323ep.h225Callbacks.onReceivedSetup(call, q931Msg);
+
          /* Free up the mem used by the received message, as it's processing 
             is done. 
          */
@@ -1654,24 +1621,23 @@ int ooHandleH2250Message(OOH323CallData *call, Q931Message *q931Msg)
             if(gH323ep.gkClient->state == GkClientRegistered)
             {
                call->callState = OO_CALL_WAITING_ADMISSION;
+	       ast_mutex_lock(&call->Lock);
                ret = ooGkClientSendAdmissionRequest(gH323ep.gkClient, call, 
                                                     FALSE);
-		tv = ast_tvnow();
+				tv = ast_tvnow();
                 ts.tv_sec = tv.tv_sec + 24;
-		ts.tv_nsec = tv.tv_usec * 1000;
-	        ast_mutex_lock(&call->GkLock);
-		if (call->callState == OO_CALL_WAITING_ADMISSION)
-                   ast_cond_timedwait(&call->gkWait, &call->GkLock, &ts);
+				ts.tv_nsec = tv.tv_usec * 1000;
+                ast_cond_timedwait(&call->gkWait, &call->Lock, &ts);
                 if (call->callState == OO_CALL_WAITING_ADMISSION)
 			call->callState = OO_CALL_CLEAR;
-                ast_mutex_unlock(&call->GkLock);
+                ast_mutex_unlock(&call->Lock);
 
             }
             else {
+               /* TODO: Should send Release complete with reject reason */
                OOTRACEERR1("Error:Ignoring incoming call as not yet"
                            "registered with Gk\n");
 	       call->callState = OO_CALL_CLEAR;
-               call->callEndReason = OO_REASON_GK_UNREACHABLE;
             }
          }
 	 if (call->callState < OO_CALL_CLEAR) {
@@ -1792,7 +1758,6 @@ int ooHandleH2250Message(OOH323CallData *call, Q931Message *q931Msg)
       case Q931StatusEnquiryMsg:
          OOTRACEINFO3("H.225 Status Inquiry message Received (%s, %s)\n",
                        call->callType, call->callToken);
-	 ooSendStatus(call);
          ooFreeQ931Message(call->msgctxt, q931Msg);
          break;
       case Q931SetupAckMsg:
@@ -1821,9 +1786,6 @@ int ooOnReceivedFacility(OOH323CallData *call, Q931Message * pQ931Msg)
    H225TransportAddress_ipAddress_ip *ip = NULL;
    OOTRACEDBGC3("Received Facility Message.(%s, %s)\n", call->callType, 
                                                         call->callToken);
-
-   ooHandleDisplayIE(call, pQ931Msg);
-
    /* Get Reference to H323_UU_PDU */
    if(!pQ931Msg->userInfo)
    {
@@ -1841,7 +1803,6 @@ int ooOnReceivedFacility(OOH323CallData *call, Q931Message * pQ931Msg)
    facility = pH323UUPdu->h323_message_body.u.facility;
    if(facility)
    {
-      ooHandleH2250ID(call, facility->protocolIdentifier);
       /* Depending on the reason of facility message handle the message */
       if(facility->reason.t == T_H225FacilityReason_transportedInformation)
       {
@@ -2019,7 +1980,6 @@ int ooHandleStartH245FacilityMessage
      OOTRACEINFO3("INFO: H.245 connection already established with remote"
                   " endpoint (%s, %s)\n", call->callType, call->callToken);
    }
-   ooSendTCSandMSD(call);
    return OO_OK;
 }
 

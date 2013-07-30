@@ -29,12 +29,11 @@
 
 /*** MODULEINFO
 	<depend>alsa</depend>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335064 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 278132 $")
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -58,14 +57,13 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335064 $")
 #include "asterisk/musiconhold.h"
 #include "asterisk/poll-compat.h"
 
-/*! Global jitterbuffer configuration - by default, jb is disabled
- *  \note Values shown here match the defaults shown in alsa.conf.sample */
+/*! Global jitterbuffer configuration - by default, jb is disabled */
 static struct ast_jb_conf default_jbconf = {
 	.flags = 0,
-	.max_size = 200,
-	.resync_threshold = 1000,
-	.impl = "fixed",
-	.target_extra = 40,
+	.max_size = -1,
+	.resync_threshold = -1,
+	.impl = "",
+	.target_extra = -1,
 };
 static struct ast_jb_conf global_jbconf;
 
@@ -385,6 +383,7 @@ static int alsa_write(struct ast_channel *chan, struct ast_frame *f)
 	static char sizbuf[8000];
 	static int sizpos = 0;
 	int len = sizpos;
+	int pos;
 	int res = 0;
 	/* size_t frames = 0; */
 	snd_pcm_state_t state;
@@ -398,6 +397,7 @@ static int alsa_write(struct ast_channel *chan, struct ast_frame *f)
 	} else {
 		memcpy(sizbuf + sizpos, f->data.ptr, f->datalen);
 		len += f->datalen;
+		pos = 0;
 		state = snd_pcm_state(alsa.ocard);
 		if (state == SND_PCM_STATE_XRUN)
 			snd_pcm_prepare(alsa.ocard);
@@ -537,7 +537,6 @@ static int alsa_indicate(struct ast_channel *chan, int cond, const void *data, s
 	case AST_CONTROL_BUSY:
 	case AST_CONTROL_CONGESTION:
 	case AST_CONTROL_RINGING:
-	case AST_CONTROL_INCOMPLETE:
 	case -1:
 		res = -1;  /* Ask for inband indications */
 		break;

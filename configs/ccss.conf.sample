@@ -1,8 +1,8 @@
 ;
 ; --- Call Completion Supplementary Services ---
 ;
-; For more information about CCSS, see the CCSS user documentation
-; https://wiki.asterisk.org/wiki/display/AST/Call+Completion+Supplementary+Services+(CCSS)
+; For more information about CCSS, see the CCSS user documentation included
+; in the HTML and PDF documentation generated from the doc/tex/ directory.
 ;
 
 [general]
@@ -100,7 +100,7 @@
 ;         protocol-specific methods to request CC from this interface
 ;         and to monitor the interface for availability.
 ;
-;always:  If an interface is set to "always," then we will accept
+;accept:  If an interface is set to "accept," then we will accept
 ;         protocol-specific CC offers from the caller and use
 ;         a native CC monitor for the remainder of the CC transaction.
 ;         However, if the interface does not offer protocol-specific

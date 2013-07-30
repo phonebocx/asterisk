@@ -858,15 +858,6 @@ struct ast_cc_agent {
 	char device_name[1];
 };
 
-enum ast_cc_agent_response_reason {
-	/*! CC request accepted */
-	AST_CC_AGENT_RESPONSE_SUCCESS,
-	/*! CC request not allowed at this time. Invalid state transition. */
-	AST_CC_AGENT_RESPONSE_FAILURE_INVALID,
-	/*! Too many CC requests in the system. */
-	AST_CC_AGENT_RESPONSE_FAILURE_TOO_MANY,
-};
-
 struct ast_cc_agent_callbacks {
 	/*!
 	 * \brief Type of agent the callbacks belong to.
@@ -929,23 +920,19 @@ struct ast_cc_agent_callbacks {
 	 */
 	int (*stop_offer_timer)(struct ast_cc_agent *agent);
 	/*!
-	 * \brief Respond to a CC request.
+	 * \brief Acknowledge CC request.
 	 *
 	 * \param agent CC core agent control.
-	 * \param reason CC request response status.
 	 *
 	 * \details
 	 * When the core receives knowledge that a called
 	 * party has accepted a CC request, it will call
-	 * this callback. The core may also call this
-	 * if there is some error when attempting to process
-	 * the incoming CC request.
+	 * this callback.
 	 *
-	 * The duty of this is to issue a propper response to a
-	 * CC request from the caller by acknowledging receipt
-	 * of that request or rejecting it.
+	 * The duty of this is to accept a CC request from
+	 * the caller by acknowledging receipt of that request.
 	 */
-	void (*respond)(struct ast_cc_agent *agent, enum ast_cc_agent_response_reason reason);
+	void (*ack)(struct ast_cc_agent *agent);
 	/*!
 	 * \brief Request the status of the agent's device.
 	 *

@@ -22,13 +22,9 @@
  *
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361142 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 284610 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -163,12 +159,12 @@ static int loopback_matchmore(struct ast_channel *chan, const char *context, con
 
 static struct ast_switch loopback_switch =
 {
-	.name			= "Loopback",
-	.description		= "Loopback Dialplan Switch",
-	.exists			= loopback_exists,
-	.canmatch		= loopback_canmatch,
-	.exec			= loopback_exec,
-	.matchmore		= loopback_matchmore,
+        name:                   "Loopback",
+        description:   		"Loopback Dialplan Switch",
+        exists:                 loopback_exists,
+        canmatch:               loopback_canmatch,
+        exec:                   loopback_exec,
+        matchmore:              loopback_matchmore,
 };
 
 static int unload_module(void)

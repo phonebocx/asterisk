@@ -24,12 +24,10 @@
 	<depend>neon</depend>
 	<depend>ical</depend>
 	<depend>libxml2</depend>
-	<support_level>core</support_level>
 ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 287269 $")
 
 #include <libical/ical.h>
 #include <ne_session.h>

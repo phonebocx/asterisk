@@ -36,12 +36,11 @@
 	<depend>format_sln</depend>
 	<depend>format_wav</depend>
 	<depend>format_wav_gsm</depend>
-	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332176 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 275105 $")
 
 #include "asterisk/module.h"
 #include "asterisk/file.h"

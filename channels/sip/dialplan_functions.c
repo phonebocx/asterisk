@@ -21,7 +21,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 310088 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 275105 $")
 
 #include <math.h>
 
@@ -47,13 +47,6 @@ int sip_acf_channel_read(struct ast_channel *chan, const char *funcname, char *p
 		AST_APP_ARG(type);
 		AST_APP_ARG(field);
 	);
-		
-	/* Check for zero arguments */
-	if (ast_strlen_zero(parse)) {
-		ast_log(LOG_ERROR, "Cannot call %s without arguments\n", funcname);
-		return -1;
-	}
-
 	AST_STANDARD_APP_ARGS(args, parse);
 
 	/* Sanity check */

@@ -25,13 +25,9 @@
  * \ingroup functions
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 293159 $")
 
 #include <regex.h>
 #include <ctype.h>
@@ -1122,7 +1118,7 @@ static int quote(struct ast_channel *chan, const char *cmd, char *data, char *bu
 	char *bufptr = buf, *dataptr = data;
 
 	if (len < 3){ /* at least two for quotes and one for binary zero */
-		ast_log(LOG_ERROR, "Not enough buffer\n");
+		ast_log(LOG_ERROR, "Not enough buffer");
 		return -1;
 	}
 
@@ -1161,7 +1157,7 @@ static int csv_quote(struct ast_channel *chan, const char *cmd, char *data, char
 	char *bufptr = buf, *dataptr = data;
 
 	if (len < 3) { /* at least two for quotes and one for binary zero */
-		ast_log(LOG_ERROR, "Not enough buffer\n");
+		ast_log(LOG_ERROR, "Not enough buffer");
 		return -1;
 	}
 

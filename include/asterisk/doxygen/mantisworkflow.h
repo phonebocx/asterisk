@@ -86,7 +86,8 @@
  *    This issue requires feedback from the poster of the issue before any
  *    additional progress in the workflow can be made. This may include providing
  *    additional debugging information, or a backtrace with DONT_OPTIMIZE enabled,
- *    for example. (See https://wiki.asterisk.org/wiki/display/AST/Debugging)
+ *    for example. (See the doc/HOWTO_collect_debug_information.txt file in your
+ *    Asterisk source.)
  * 
  * \subsection Acknowledged
  *    This is a submitted bug which has no patch associated with it, but appears

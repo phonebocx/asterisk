@@ -19,12 +19,11 @@
 
 /*** MODULEINFO
 	<depend>netsnmp</depend>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 200620 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/module.h"

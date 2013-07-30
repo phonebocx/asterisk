@@ -39,12 +39,8 @@
  *  \author Steve Murphy <murf@digium.com>
  */
 
-/*** MODULEINFO
-	<support_level>extended</support_level>
- ***/
-
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 298960 $")
 
 #include <pthread.h>
 #include <sys/stat.h>

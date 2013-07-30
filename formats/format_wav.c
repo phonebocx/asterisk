@@ -24,13 +24,9 @@
  * \ingroup formats
  */
  
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364578 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 284701 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -41,8 +37,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364578 $")
 /* Portions of the conversion code are by guido@sienanet.it */
 
 #define	WAV_BUF_SIZE	320
-
-#define WAV_HEADER_SIZE 44
 
 struct wav_desc {	/* format-specific parameters */
 	int hz;
@@ -77,13 +71,49 @@ struct wav_desc {	/* format-specific parameters */
 #endif
 
 
-static int check_header_fmt(FILE *f, int hsize, int hz)
+static int check_header(FILE *f, int hz)
 {
+	int type, size, formtype;
+	int fmt, hsize;
 	short format, chans, bysam, bisam;
 	int bysec;
 	int freq;
-	if (hsize < 16) {
-		ast_log(LOG_WARNING, "Unexpected header size %d\n", hsize);
+	int data;
+	if (fread(&type, 1, 4, f) != 4) {
+		ast_log(LOG_WARNING, "Read failed (type)\n");
+		return -1;
+	}
+	if (fread(&size, 1, 4, f) != 4) {
+		ast_log(LOG_WARNING, "Read failed (size)\n");
+		return -1;
+	}
+	size = ltohl(size);
+	if (fread(&formtype, 1, 4, f) != 4) {
+		ast_log(LOG_WARNING, "Read failed (formtype)\n");
+		return -1;
+	}
+	if (memcmp(&type, "RIFF", 4)) {
+		ast_log(LOG_WARNING, "Does not begin with RIFF\n");
+		return -1;
+	}
+	if (memcmp(&formtype, "WAVE", 4)) {
+		ast_log(LOG_WARNING, "Does not contain WAVE\n");
+		return -1;
+	}
+	if (fread(&fmt, 1, 4, f) != 4) {
+		ast_log(LOG_WARNING, "Read failed (fmt)\n");
+		return -1;
+	}
+	if (memcmp(&fmt, "fmt ", 4)) {
+		ast_log(LOG_WARNING, "Does not say fmt\n");
+		return -1;
+	}
+	if (fread(&hsize, 1, 4, f) != 4) {
+		ast_log(LOG_WARNING, "Read failed (formtype)\n");
+		return -1;
+	}
+	if (ltohl(hsize) < 16) {
+		ast_log(LOG_WARNING, "Unexpected header size %d\n", ltohl(hsize));
 		return -1;
 	}
 	if (fread(&format, 1, 2, f) != 2) {
@@ -131,36 +161,8 @@ static int check_header_fmt(FILE *f, int hsize, int hz)
 		return -1;
 	}
 	/* Skip any additional header */
-	if (fseek(f,hsize-16,SEEK_CUR) == -1 ) {
-		ast_log(LOG_WARNING, "Failed to skip remaining header bytes: %d\n", hsize-16 );
-		return -1;
-	}
-	return 0;
-}
-
-static int check_header(FILE *f, int hz)
-{
-	int type, size, formtype;
-	int data;
-	if (fread(&type, 1, 4, f) != 4) {
-		ast_log(LOG_WARNING, "Read failed (type)\n");
-		return -1;
-	}
-	if (fread(&size, 1, 4, f) != 4) {
-		ast_log(LOG_WARNING, "Read failed (size)\n");
-		return -1;
-	}
-	size = ltohl(size);
-	if (fread(&formtype, 1, 4, f) != 4) {
-		ast_log(LOG_WARNING, "Read failed (formtype)\n");
-		return -1;
-	}
-	if (memcmp(&type, "RIFF", 4)) {
-		ast_log(LOG_WARNING, "Does not begin with RIFF\n");
-		return -1;
-	}
-	if (memcmp(&formtype, "WAVE", 4)) {
-		ast_log(LOG_WARNING, "Does not contain WAVE\n");
+	if (fseek(f,ltohl(hsize)-16,SEEK_CUR) == -1 ) {
+		ast_log(LOG_WARNING, "Failed to skip remaining header bytes: %d\n", ltohl(hsize)-16 );
 		return -1;
 	}
 	/* Skip any facts and get the first data block */
@@ -170,25 +172,23 @@ static int check_header(FILE *f, int hz)
 	    
 	    /* Begin data chunk */
 	    if (fread(&buf, 1, 4, f) != 4) {
-			ast_log(LOG_WARNING, "Read failed (block header format)\n");
+			ast_log(LOG_WARNING, "Read failed (data)\n");
 			return -1;
 	    }
 	    /* Data has the actual length of data in it */
 	    if (fread(&data, 1, 4, f) != 4) {
-			ast_log(LOG_WARNING, "Read failed (block '%.4s' header length)\n", buf);
+			ast_log(LOG_WARNING, "Read failed (data)\n");
 			return -1;
 	    }
 	    data = ltohl(data);
-		if (memcmp(&buf, "fmt ", 4) == 0) {
-			if (check_header_fmt(f, data, hz))
-				return -1;
-			continue;
-		}
 	    if(memcmp(buf, "data", 4) == 0 ) 
 			break;
-		ast_log(LOG_DEBUG, "Skipping unknown block '%.4s'\n", buf);
+	    if(memcmp(buf, "fact", 4) != 0 ) {
+			ast_log(LOG_WARNING, "Unknown block - not fact or data\n");
+			return -1;
+	    }
 	    if (fseek(f,data,SEEK_CUR) == -1 ) {
-			ast_log(LOG_WARNING, "Failed to skip '%.4s' block: %d\n", buf, data);
+			ast_log(LOG_WARNING, "Failed to skip fact block: %d\n", data );
 			return -1;
 	    }
 	}
@@ -342,10 +342,6 @@ static void wav_close(struct ast_filestream *s)
 	char zero = 0;
 	struct wav_desc *fs = (struct wav_desc *)s->_private;
 
-	if (s->mode == O_RDONLY) {
-		return;
-	}
-
 	if (s->filename) {
 		update_header(s->f);
 	}
@@ -364,8 +360,8 @@ static struct ast_frame *wav_read(struct ast_filestream *s, int *whennext)
 	int samples;	/* actual samples read */
 #if __BYTE_ORDER == __BIG_ENDIAN
 	int x;
-	short *tmp;
 #endif
+	short *tmp;
 	int bytes;
 	off_t here;
 	/* Send a frame from the file to the appropriate channel */
@@ -392,8 +388,8 @@ static struct ast_frame *wav_read(struct ast_filestream *s, int *whennext)
 	s->fr.datalen = res;
 	s->fr.samples = samples = res / 2;
 
-#if __BYTE_ORDER == __BIG_ENDIAN
 	tmp = (short *)(s->fr.data.ptr);
+#if __BYTE_ORDER == __BIG_ENDIAN
 	/* file format is little endian so we need to swap */
 	for( x = 0; x < samples; x++)
 		tmp[x] = (tmp[x] << 8) | ((tmp[x] & 0xff00) >> 8);
@@ -454,25 +450,13 @@ static int wav_write(struct ast_filestream *fs, struct ast_frame *f)
 
 static int wav_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 {
-	off_t min = WAV_HEADER_SIZE, max, cur, offset = 0, samples;
+	off_t min, max, cur, offset = 0, samples;
 
 	samples = sample_offset * 2; /* SLINEAR is 16 bits mono, so sample_offset * 2 = bytes */
-
-	if ((cur = ftello(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine current position in wav filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
-
-	if (fseeko(fs->f, 0, SEEK_END) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to seek to end of wav filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
-
-	if ((max = ftello(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine max position in wav filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
-
+	min = 44; /* wav header is 44 bytes */
+	cur = ftello(fs->f);
+	fseeko(fs->f, 0, SEEK_END);
+	max = ftello(fs->f);
 	if (whence == SEEK_SET)
 		offset = samples + min;
 	else if (whence == SEEK_CUR || whence == SEEK_FORCECUR)
@@ -489,21 +473,8 @@ static int wav_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 
 static int wav_trunc(struct ast_filestream *fs)
 {
-	int fd;
-	off_t cur;
-
-	if ((fd = fileno(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine file descriptor for wav filestream %p: %s\n", fs, strerror(errno));
+	if (ftruncate(fileno(fs->f), ftello(fs->f)))
 		return -1;
-	}
-	if ((cur = ftello(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine current position in wav filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
-	/* Truncate file to current length */
-	if (ftruncate(fd, cur)) {
-		return -1;
-	}
 	return update_header(fs->f);
 }
 

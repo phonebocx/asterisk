@@ -26,13 +26,9 @@
  * \ingroup applications
  */
 
-/*** MODULEINFO
-	<support_level>extended</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364786 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 278132 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,7 +82,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364786 $")
                                                 <para>Do not play message when first person enters</para>
                                         </option>
                                         <option name="s">
-                                                <para>Present menu (user or admin) when <literal>#</literal> is received
+                                                <para>Present menu (user or admin) when <literal>*</literal> is received
                                                 (send to menu).</para>
                                         </option>
                                         <option name="w">
@@ -202,31 +198,30 @@ static int conference_bridge_cmp_cb(void *obj, void *arg, int flags)
  * \param conference_bridge Conference bridge to peek at
  * \param conference_bridge_user Caller
  *
- * \return Returns 0 on success, -1 if the user hung up
+ * \return Returns nothing
  */
-static int announce_user_count(struct conference_bridge *conference_bridge, struct conference_bridge_user *conference_bridge_user)
+static void announce_user_count(struct conference_bridge *conference_bridge, struct conference_bridge_user *conference_bridge_user)
 {
 	if (conference_bridge->users == 1) {
 		/* Awww we are the only person in the conference bridge */
-		return 0;
+		return;
 	} else if (conference_bridge->users == 2) {
 		/* Eep, there is one other person */
 		if (ast_stream_and_wait(conference_bridge_user->chan, "conf-onlyone", "")) {
-			return -1;
+			return;
 		}
 	} else {
 		/* Alas multiple others in here */
 		if (ast_stream_and_wait(conference_bridge_user->chan, "conf-thereare", "")) {
-			return -1;
+			return;
 		}
 		if (ast_say_number(conference_bridge_user->chan, conference_bridge->users - 1, "", conference_bridge_user->chan->language, NULL)) {
-			return -1;
+			return;
 		}
 		if (ast_stream_and_wait(conference_bridge_user->chan, "conf-otherinparty", "")) {
-			return -1;
+			return;
 		}
 	}
-	return 0;
 }
 
 /*!
@@ -236,17 +231,15 @@ static int announce_user_count(struct conference_bridge *conference_bridge, stru
  * \param chan Channel to play audio prompt to
  * \param file Prompt to play
  *
- * \return Returns 0 on success, -1 if the user hung up
+ * \return Returns nothing
  *
  * \note This function assumes that conference_bridge is locked
  */
-static int play_prompt_to_channel(struct conference_bridge *conference_bridge, struct ast_channel *chan, const char *file)
+static void play_prompt_to_channel(struct conference_bridge *conference_bridge, struct ast_channel *chan, const char *file)
 {
-	int res;
 	ao2_unlock(conference_bridge);
-	res = ast_stream_and_wait(chan, file, "");
+	ast_stream_and_wait(chan, file, "");
 	ao2_lock(conference_bridge);
-	return res;
 }
 
 /*!
@@ -255,16 +248,16 @@ static int play_prompt_to_channel(struct conference_bridge *conference_bridge, s
  * \param conference_bridge Conference bridge being joined
  * \param conference_bridge_user Conference bridge user joining
  *
- * \return Returns 0 on success, -1 if the user hung up
+ * \return Returns nothing
  */
-static int post_join_marked(struct conference_bridge *conference_bridge, struct conference_bridge_user *conference_bridge_user)
+static void post_join_marked(struct conference_bridge *conference_bridge, struct conference_bridge_user *conference_bridge_user)
 {
 	if (ast_test_flag(&conference_bridge_user->flags, OPTION_MARKEDUSER)) {
 		struct conference_bridge_user *other_conference_bridge_user = NULL;
 
 		/* If we are not the first marked user to join just bail out now */
 		if (conference_bridge->markedusers >= 2) {
-			return 0;
+			return;
 		}
 
 		/* Iterate through every participant stopping MOH on them if need be */
@@ -280,12 +273,11 @@ static int post_join_marked(struct conference_bridge *conference_bridge, struct 
 
 		/* Next play the audio file stating they are going to be placed into the conference */
 		if (!ast_test_flag(&conference_bridge_user->flags, OPTION_QUIET)) {
-			if (play_prompt_to_channel(conference_bridge,
-				conference_bridge_user->chan,
-				"conf-placeintoconf")) {
-				/* user hungup while the sound was playing */
-				return -1;
-			}
+			ao2_unlock(conference_bridge);
+			ast_autoservice_start(conference_bridge_user->chan);
+			play_sound_file(conference_bridge, "conf-placeintoconf");
+			ast_autoservice_stop(conference_bridge_user->chan);
+			ao2_lock(conference_bridge);
 		}
 
 		/* Finally iterate through and unmute them all */
@@ -299,16 +291,13 @@ static int post_join_marked(struct conference_bridge *conference_bridge, struct 
 	} else {
 		/* If a marked user already exists in the conference bridge we can just bail out now */
 		if (conference_bridge->markedusers) {
-			return 0;
+			return;
 		}
 		/* Be sure we are muted so we can't talk to anybody else waiting */
 		conference_bridge_user->features.mute = 1;
 		/* If we have not been quieted play back that they are waiting for the leader */
 		if (!ast_test_flag(&conference_bridge_user->flags, OPTION_QUIET)) {
-			if (play_prompt_to_channel(conference_bridge, conference_bridge_user->chan, "conf-waitforleader")) {
-				/* user hung up while the sound was playing */
-				return -1;
-			}
+			play_prompt_to_channel(conference_bridge, conference_bridge_user->chan, "conf-waitforleader");
 		}
 		/* Start music on hold if needed */
 		/* We need to recheck the markedusers value here. play_prompt_to_channel unlocks the conference bridge, potentially
@@ -318,7 +307,6 @@ static int post_join_marked(struct conference_bridge *conference_bridge, struct 
 			ast_moh_start(conference_bridge_user->chan, conference_bridge_user->opt_args[OPTION_MUSICONHOLD_CLASS], NULL);
 		}
 	}
-	return 0;
 }
 
 /*!
@@ -327,18 +315,15 @@ static int post_join_marked(struct conference_bridge *conference_bridge, struct 
  * \param conference_bridge Conference bridge being joined
  * \param conference_bridge_user Conference bridge user joining
  *
- * \return Returns 0 on success, -1 if the user hung up
+ * \return Returns nothing
  */
-static int post_join_unmarked(struct conference_bridge *conference_bridge, struct conference_bridge_user *conference_bridge_user)
+static void post_join_unmarked(struct conference_bridge *conference_bridge, struct conference_bridge_user *conference_bridge_user)
 {
 	/* Play back audio prompt and start MOH if need be if we are the first participant */
 	if (conference_bridge->users == 1) {
 		/* If audio prompts have not been quieted or this prompt quieted play it on out */
 		if (!ast_test_flag(&conference_bridge_user->flags, OPTION_QUIET | OPTION_NOONLYPERSON)) {
-			if (play_prompt_to_channel(conference_bridge, conference_bridge_user->chan, "conf-onlyperson")) {
-				/* user hung up while the sound was playing */
-				return -1;
-			}
+			play_prompt_to_channel(conference_bridge, conference_bridge_user->chan, "conf-onlyperson");
 		}
 		/* If we need to start music on hold on the channel do so now */
 		/* We need to re-check the number of users in the conference bridge here because another conference bridge
@@ -347,16 +332,13 @@ static int post_join_unmarked(struct conference_bridge *conference_bridge, struc
 		if (conference_bridge->users == 1 && ast_test_flag(&conference_bridge_user->flags, OPTION_MUSICONHOLD)) {
 			ast_moh_start(conference_bridge_user->chan, conference_bridge_user->opt_args[OPTION_MUSICONHOLD_CLASS], NULL);
 		}
-		return 0;
+		return;
 	}
 
 	/* Announce number of users if need be */
 	if (ast_test_flag(&conference_bridge_user->flags, OPTION_ANNOUNCEUSERCOUNT)) {
 		ao2_unlock(conference_bridge);
-		if (announce_user_count(conference_bridge, conference_bridge_user)) {
-			ao2_lock(conference_bridge);
-			return -1;
-		}
+		announce_user_count(conference_bridge, conference_bridge_user);
 		ao2_lock(conference_bridge);
 	}
 
@@ -370,7 +352,6 @@ static int post_join_unmarked(struct conference_bridge *conference_bridge, struc
 			ast_bridge_unsuspend(conference_bridge->bridge, first_participant->chan);
 		}
 	}
-	return 0;
 }
 
 /*!
@@ -401,8 +382,6 @@ static void destroy_conference_bridge(void *obj)
 		conference_bridge->bridge = NULL;
 	}
 }
-
-static void leave_conference_bridge(struct conference_bridge *conference_bridge, struct conference_bridge_user *conference_bridge_user);
 
 /*!
  * \brief Join a conference bridge
@@ -491,17 +470,9 @@ static struct conference_bridge *join_conference_bridge(const char *name, struct
 
 	/* If the caller is a marked user or is waiting for a marked user to enter pass 'em off, otherwise pass them off to do regular joining stuff */
 	if (ast_test_flag(&conference_bridge_user->flags, OPTION_MARKEDUSER | OPTION_WAITMARKED)) {
-		if (post_join_marked(conference_bridge, conference_bridge_user)) {
-			ao2_unlock(conference_bridge);
-			leave_conference_bridge(conference_bridge, conference_bridge_user);
-			return NULL;
-		}
+		post_join_marked(conference_bridge, conference_bridge_user);
 	} else {
-		if (post_join_unmarked(conference_bridge, conference_bridge_user)) {
-			ao2_unlock(conference_bridge);
-			leave_conference_bridge(conference_bridge, conference_bridge_user);
-			return NULL;
-		}
+		post_join_unmarked(conference_bridge, conference_bridge_user);
 	}
 
 	ao2_unlock(conference_bridge);

@@ -25,14 +25,9 @@
  * \ingroup applications
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
-	<replacement>app_stack (GoSub)</replacement>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 338084 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 295866 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"

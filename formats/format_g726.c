@@ -27,14 +27,10 @@
  * \arg 16 kbps: g726-16
  * \ingroup formats
  */
-
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 279472 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"

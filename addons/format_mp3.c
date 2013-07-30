@@ -29,12 +29,11 @@
 
 /*** MODULEINFO
 	<defaultenabled>no</defaultenabled>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238014 $")
 
 #include "mp3/mpg123.h"
 #include "mp3/mpglib.h"

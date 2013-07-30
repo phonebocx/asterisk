@@ -26,13 +26,10 @@
  * CLI commands.
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 252848 $")
 
 #include "asterisk/module.h"
 #include "asterisk/config.h"

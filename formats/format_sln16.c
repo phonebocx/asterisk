@@ -22,14 +22,10 @@
  * \arg File name extensions: sln16
  * \ingroup formats
  */
-
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364578 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 279472 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -82,20 +78,11 @@ static int slinear_seek(struct ast_filestream *fs, off_t sample_offset, int when
 
 	sample_offset <<= 1;
 
-	if ((cur = ftello(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine current position in sln16 filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
+	cur = ftello(fs->f);
 
-	if (fseeko(fs->f, 0, SEEK_END) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to seek to end of sln16 filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
+	fseeko(fs->f, 0, SEEK_END);
 
-	if ((max = ftello(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine max position in sln16 filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
+	max = ftello(fs->f);
 
 	if (whence == SEEK_SET)
 		offset = sample_offset;
@@ -115,19 +102,7 @@ static int slinear_seek(struct ast_filestream *fs, off_t sample_offset, int when
 
 static int slinear_trunc(struct ast_filestream *fs)
 {
-	int fd;
-	off_t cur;
-
-	if ((fd = fileno(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine file descriptor for sln16 filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
-	if ((cur = ftello(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine current position in sln16 filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
-	/* Truncate file to current length */
-	return ftruncate(fd, cur);
+	return ftruncate(fileno(fs->f), ftello(fs->f));
 }
 
 static off_t slinear_tell(struct ast_filestream *fs)

@@ -23,13 +23,9 @@
  * \ingroup applications
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 340863 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 282979 $")
 
 #include "asterisk/module.h"
 #include "asterisk/app.h"

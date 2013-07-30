@@ -24,13 +24,9 @@
  * \arg \ref AstCREDITS
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 341704 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 276393 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -120,8 +116,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 341704 $")
 				</enumlist>
 			</parameter>
 			<parameter name="CID">
-				<para>Optional Caller*ID to parse instead of using the Caller*ID from the
-				channel. This parameter is only optional when reading the Caller*ID.</para>
+				<para>Optional Caller*ID</para>
 			</parameter>
 		</syntax>
 		<description>

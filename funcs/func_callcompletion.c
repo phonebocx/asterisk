@@ -21,13 +21,9 @@
  * \author Mark Michelson <mmichelson@digium.com>
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 258345 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -61,8 +57,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 			completion configuration parameter for a channel. Note that setting
 			a configuration parameter will only change the parameter for the
 			duration of the call.
-
-			For more information see <filename>doc/AST.pdf</filename>.
+			
+			For more information on call completion in Asterisk, see <filename>doc/tex/ccss.tex</filename>.
 			For more information on call completion parameters, see <filename>configs/ccss.conf.sample</filename>.</para>
 		</description>
 	</function>

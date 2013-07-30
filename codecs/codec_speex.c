@@ -34,12 +34,11 @@
 	<depend>speex</depend>
 	<depend>speex_preprocess</depend>
 	<use>speexdsp</use>
-	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 271625 $")
 
 #include <speex/speex.h>
 

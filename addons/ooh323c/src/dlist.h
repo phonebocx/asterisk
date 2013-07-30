@@ -192,7 +192,7 @@ EXTERN DListNode* dListInsertAfter
  *                     already be in the linked list structure.
  */
 EXTERN void  dListRemove (DList* pList, DListNode* node);
-EXTERN void dListFindAndRemove(struct OOCTXT* pctxt, DList* pList, void* data);
+void dListFindAndRemove(DList* pList, void* data);
 
 /** 
  * @}

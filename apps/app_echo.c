@@ -25,13 +25,9 @@
  * \ingroup applications
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 360033 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249947 $")
 
 #include "asterisk/file.h"
 #include "asterisk/module.h"
@@ -40,15 +36,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 360033 $")
 /*** DOCUMENTATION
 	<application name="Echo" language="en_US">
 		<synopsis>
-			Echo media, DTMF back to the calling party
+			Echo audio, video, DTMF back to the calling party
 		</synopsis>
 		<syntax />
 		<description>
-			<para>Echos back any media or DTMF frames read from the calling 
-			channel back to itself. This will not echo CONTROL, MODEM, or NULL
-			frames. Note: If '#' detected application exits.</para>
-			<para>This application does not automatically answer and should be
-			preceeded by an application such as Answer() or Progress().</para>
+			<para>Echos back any audio, video or DTMF frames read from the calling 
+			channel back to itself. Note: If '#' detected application exits</para>
 		</description>
 	</application>
  ***/
@@ -71,10 +64,7 @@ static int echo_exec(struct ast_channel *chan, const char *data)
 		}
 		f->delivery.tv_sec = 0;
 		f->delivery.tv_usec = 0;
-		if (f->frametype != AST_FRAME_CONTROL
-			&& f->frametype != AST_FRAME_MODEM
-			&& f->frametype != AST_FRAME_NULL
-			&& ast_write(chan, f)) {
+		if (ast_write(chan, f)) {
 			ast_frfree(f);
 			goto end;
 		}

@@ -511,7 +511,7 @@ static yyconst flex_int16_t yy_chk[159] =
 #include <stdio.h>
 
 #if !defined(STANDALONE)
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 360357 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 268969 $")
 #else
 #ifndef __USE_ISOC99
 #define __USE_ISOC99 1
@@ -550,10 +550,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 360357 $")
 #include "asterisk/channel.h"
 #endif
 
-/* Conditionally redefine the macro from flex 2.5.35, in case someone uses flex <2.5.35 to regenerate this file. */
-#ifndef ECHO
-#define ECHO do { if (fwrite( yytext, yyleng, 1, yyout )) {} } while (0)
-#endif
+/*!\note The latest Flex uses fwrite without checking its return value, which
+ * is a warning on some compilers.  Therefore, we use this workaround, to trick
+ * the compiler into suppressing this warning. */
+#define fwrite(a,b,c,d)	do { int __res = fwrite(a,b,c,d); (__res); } while (0)
 
 enum valtype {
 	AST_EXPR_number, AST_EXPR_numeric_string, AST_EXPR_string
@@ -697,10 +697,6 @@ int ast_yyget_lineno (yyscan_t yyscanner );
 
 void ast_yyset_lineno (int line_number ,yyscan_t yyscanner );
 
-int ast_yyget_column  (yyscan_t yyscanner );
-
-void ast_yyset_column (int column_no ,yyscan_t yyscanner );
-
 YYSTYPE * ast_yyget_lval (yyscan_t yyscanner );
 
 void ast_yyset_lval (YYSTYPE * yylval_param ,yyscan_t yyscanner );
@@ -751,7 +747,7 @@ static int input (yyscan_t yyscanner );
 /* This used to be an fputs(), but since the string might contain NUL's,
  * we now use fwrite().
  */
-#define ECHO do { if (fwrite( yytext, yyleng, 1, yyout )) {} } while (0)
+#define ECHO fwrite( yytext, yyleng, 1, yyout )
 #endif
 
 /* Gets input and stuffs it into "buf".  number of characters read, or YY_NULL,
@@ -762,7 +758,7 @@ static int input (yyscan_t yyscanner );
 	if ( YY_CURRENT_BUFFER_LVALUE->yy_is_interactive ) \
 		{ \
 		int c = '*'; \
-		unsigned n; \
+		int n; \
 		for ( n = 0; n < max_size && \
 			     (c = getc( yyin )) != EOF && c != '\n'; ++n ) \
 			buf[n] = (char) c; \
@@ -850,7 +846,7 @@ YY_DECL
 #line 130 "ast_expr2.fl"
 
 
-#line 852 "ast_expr2f.c"
+#line 848 "ast_expr2f.c"
 
     yylval = yylval_param;
 
@@ -1196,7 +1192,7 @@ YY_RULE_SETUP
 #line 238 "ast_expr2.fl"
 ECHO;
 	YY_BREAK
-#line 1198 "ast_expr2f.c"
+#line 1194 "ast_expr2f.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(var):
 	yyterminate();
@@ -1970,8 +1966,8 @@ YY_BUFFER_STATE ast_yy_scan_string (yyconst char * yystr , yyscan_t yyscanner)
 
 /** Setup the input buffer state to scan the given bytes. The next call to ast_yylex() will
  * scan from a @e copy of @a bytes.
- * @param bytes the byte buffer to scan
- * @param len the number of bytes in the buffer pointed to by @a bytes.
+ * @param yybytes the byte buffer to scan
+ * @param _yybytes_len the number of bytes in the buffer pointed to by @a bytes.
  * @param yyscanner The scanner object.
  * @return the newly allocated buffer state object.
  */
@@ -2132,7 +2128,7 @@ void ast_yyset_lineno (int  line_number , yyscan_t yyscanner)
 }
 
 /** Set the current column.
- * @param line_number
+ * @param column_no 
  * @param yyscanner The scanner object.
  */
 void ast_yyset_column (int  column_no , yyscan_t yyscanner)
@@ -2607,7 +2603,7 @@ int ast_yyerror (const char *s,  yyltype *loc, struct parse_io *parseio )
 			(extra_error_message_supplied?extra_error_message:""), s2, parseio->string,spacebuf2);
 #endif
 #ifndef STANDALONE
-	ast_log(LOG_WARNING,"If you have questions, please refer to https://wiki.asterisk.org/wiki/display/AST/Channel+Variables\n");
+	ast_log(LOG_WARNING,"If you have questions, please refer to doc/tex/channelvariables.tex.\n");
 #endif
 	free(s2);
 	return(0);

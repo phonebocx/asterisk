@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 356291 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 284610 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_MODULE_DIR */
@@ -95,15 +95,6 @@ struct ast_module {
 };
 
 static AST_LIST_HEAD_STATIC(module_list, ast_module);
-
-const char *ast_module_name(const struct ast_module *mod)
-{
-	if (!mod || !mod->info) {
-		return NULL;
-	}
-
-	return mod->info->name;
-}
 
 /*
  * module_list is cleared by its constructor possibly after
@@ -239,9 +230,7 @@ void __ast_module_user_hangup_all(struct ast_module *mod)
 
 	AST_LIST_LOCK(&mod->users);
 	while ((u = AST_LIST_REMOVE_HEAD(&mod->users, entry))) {
-		if (u->chan) {
-			ast_softhangup(u->chan, AST_SOFTHANGUP_APPUNLOAD);
-		}
+		ast_softhangup(u->chan, AST_SOFTHANGUP_APPUNLOAD);
 		ast_atomic_fetchadd_int(&mod->usecount, -1);
 		ast_free(u);
 	}

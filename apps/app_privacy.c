@@ -25,13 +25,9 @@
  * \ingroup applications
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 276347 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -56,9 +52,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 			</parameter>
 			<parameter name="minlength">
 				<para>Minimum allowable digits in the input callerid number. Defaults to <literal>10</literal>.</para>
-			</parameter>
-			<parameter name="options">
-				<para>Position reserved for options.</para>
 			</parameter>
 			<parameter name="context">
 				<para>Context to check the given callerid against patterns.</para>
@@ -114,7 +107,7 @@ static int privacy_exec(struct ast_channel *chan, const char *data)
 			}
 		}
 
-		parse = ast_strdupa(data);
+		parse = ast_strdupa(S_OR(data, ""));
 
 		AST_STANDARD_APP_ARGS(args, parse);
 

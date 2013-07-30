@@ -124,7 +124,7 @@ void* ooh323c_call_thread(void* dummy)
  free(mycthread);
  ast_module_unref(myself);
  ast_update_use_count();
- return NULL;
+ return dummy;
 }
 
 int ooh323c_start_call_thread(ooCallData *call) {
@@ -145,13 +145,14 @@ int ooh323c_start_call_thread(ooCallData *call) {
 
 /* make new thread */
  if (cur == NULL) {
-	if (!(cur = ast_calloc(1, sizeof(struct callthread)))) {
+	if (!(cur = ast_malloc(sizeof(struct callthread)))) {
 		ast_log(LOG_ERROR, "Unable to allocate thread structure for call %s\n",
 							call->callToken);
 		return -1;
 	}
 
 	ast_module_ref(myself);
+	memset(cur, 0, sizeof(cur));
 	if ((socketpair(PF_LOCAL, SOCK_STREAM, 0, cur->thePipe)) == -1) {
 		ast_log(LOG_ERROR, "Can't create thread pipe for call %s\n", call->callToken);
 		free(cur);
@@ -384,7 +385,7 @@ int ooh323c_set_capability
 
 int ooh323c_set_capability_for_call
    (ooCallData *call, struct ast_codec_pref *prefs, int capability, int dtmf, int dtmfcodec,
-		 int t38support, int g729onlyA)
+		 int t38support)
 {
    int ret = 0, x, txframes;
    int format=0;
@@ -470,19 +471,17 @@ int ooh323c_set_capability_for_call
       
          txframes = (prefs->framing[x])/10;
          if(gH323Debug)
-            ast_verbose("\tAdding g729A capability to call(%s, %s)\n",
+            ast_verbose("\tAdding g729 capability to call(%s, %s)\n",
                                             call->callType, call->callToken);
-         ret= ooCallAddG729Capability(call, OO_G729A, txframes, txframes, 
+         ret|= ooCallAddG729Capability(call, OO_G729, txframes, txframes, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
                                      &ooh323c_stop_receive_channel, 
                                      &ooh323c_stop_transmit_channel);
-	 if (g729onlyA)
-		continue;
          if(gH323Debug)
-            ast_verbose("\tAdding g729 capability to call(%s, %s)\n",
+            ast_verbose("\tAdding g729A capability to call(%s, %s)\n",
                                             call->callType, call->callToken);
-         ret|= ooCallAddG729Capability(call, OO_G729, txframes, txframes, 
+         ret= ooCallAddG729Capability(call, OO_G729A, txframes, txframes, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
                                      &ooh323c_stop_receive_channel, 

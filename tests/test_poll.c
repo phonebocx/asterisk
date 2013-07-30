@@ -28,7 +28,6 @@
 
 /*** MODULEINFO
 	<depend>TEST_FRAMEWORK</depend>
-	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
@@ -39,7 +38,7 @@
 #include <errno.h>
 #include <unistd.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362680 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 285931 $")
 
 #include "asterisk/utils.h"
 #include "asterisk/module.h"
@@ -85,7 +84,7 @@ AST_TEST_DEFINE(poll_test)
 	switch (cmd) {
 	case TEST_INIT:
 		info->name = "poll_test";
-		info->category = "/main/poll/";
+		info->category = "main/poll/";
 		info->summary = "unit test for the ast_poll() API";
 		info->description =
 			"Verifies behavior for the ast_poll() API call\n";

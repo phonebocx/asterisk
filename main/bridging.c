@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 319920 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 266877 $")
 
 #include <signal.h>
 
@@ -382,13 +382,16 @@ static void *bridge_thread(void *data)
 }
 
 /*! \brief Helper function used to find the "best" bridge technology given a specified capabilities */
-static struct ast_bridge_technology *find_best_technology(enum ast_bridge_capability capabilities)
+static struct ast_bridge_technology *find_best_technology(format_t capabilities)
 {
 	struct ast_bridge_technology *current = NULL, *best = NULL;
 
 	AST_RWLIST_RDLOCK(&bridge_technologies);
 	AST_RWLIST_TRAVERSE(&bridge_technologies, current, entry) {
-		ast_debug(1, "Bridge technology %s has capabilities %d and we want %d\n", current->name, current->capabilities, capabilities);
+		char tmp1[256], tmp2[256];
+		ast_debug(1, "Bridge technology %s has capabilities %s and we want %s\n", current->name,
+			ast_getformatname_multiple(tmp1, sizeof(tmp1), current->capabilities),
+			ast_getformatname_multiple(tmp2, sizeof(tmp2), capabilities));
 		if (current->suspended) {
 			ast_debug(1, "Bridge technology %s is suspended. Skipping.\n", current->name);
 			continue;
@@ -445,7 +448,7 @@ static void destroy_bridge(void *obj)
 	return;
 }
 
-struct ast_bridge *ast_bridge_new(enum ast_bridge_capability capabilities, int flags)
+struct ast_bridge *ast_bridge_new(format_t capabilities, int flags)
 {
 	struct ast_bridge *bridge = NULL;
 	struct ast_bridge_technology *bridge_technology = NULL;
@@ -467,7 +470,9 @@ struct ast_bridge *ast_bridge_new(enum ast_bridge_capability capabilities, int f
 
 	/* If no bridge technology was found we can't possibly do bridging so fail creation of the bridge */
 	if (!bridge_technology) {
-		ast_debug(1, "Failed to find a bridge technology to satisfy capabilities %d\n", capabilities);
+		char codec_buf[256];
+		ast_debug(1, "Failed to find a bridge technology to satisfy capabilities %s\n",
+			ast_getformatname_multiple(codec_buf, sizeof(codec_buf), capabilities));
 		return NULL;
 	}
 
@@ -498,7 +503,7 @@ struct ast_bridge *ast_bridge_new(enum ast_bridge_capability capabilities, int f
 	return bridge;
 }
 
-int ast_bridge_check(enum ast_bridge_capability capabilities)
+int ast_bridge_check(format_t capabilities)
 {
 	struct ast_bridge_technology *bridge_technology = NULL;
 
@@ -586,7 +591,7 @@ static int bridge_make_compatible(struct ast_bridge *bridge, struct ast_bridge_c
 /*! \brief Perform the smart bridge operation. Basically sees if a new bridge technology should be used instead of the current one. */
 static int smart_bridge_operation(struct ast_bridge *bridge, struct ast_bridge_channel *bridge_channel, int count)
 {
-	enum ast_bridge_capability new_capabilities = 0;
+	format_t new_capabilities = 0;
 	struct ast_bridge_technology *new_technology = NULL, *old_technology = bridge->technology;
 	struct ast_bridge temp_bridge = {
 		.technology = bridge->technology,
@@ -616,7 +621,9 @@ static int smart_bridge_operation(struct ast_bridge *bridge, struct ast_bridge_c
 
 	/* Attempt to find a new bridge technology to satisfy the capabilities */
 	if (!(new_technology = find_best_technology(new_capabilities))) {
-		ast_debug(1, "Smart bridge operation was unable to find new bridge technology with capabilities %d to satisfy bridge %p\n", new_capabilities, bridge);
+		char codec_buf[256];
+		ast_debug(1, "Smart bridge operation was unable to find new bridge technology with capabilities %s to satisfy bridge %p\n",
+			ast_getformatname_multiple(codec_buf, sizeof(codec_buf), new_capabilities), bridge);
 		return -1;
 	}
 

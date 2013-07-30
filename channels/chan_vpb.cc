@@ -31,7 +31,6 @@
 
 /*** MODULEINFO
 	<depend>vpb</depend>
-	<support_level>extended</support_level>
  ***/
 
 #include <vpbapi.h>
@@ -40,7 +39,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 333507 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 276393 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/utils.h"
@@ -829,6 +828,7 @@ static inline int monitor_handle_owned(struct vpb_pvt *p, VPB_EVENT *e)
 {
 	struct ast_frame f = {AST_FRAME_CONTROL}; /* default is control, Clear rest. */
 	int endbridge = 0;
+	int res = 0;
 
 	ast_verb(4, "%s: handle_owned: got event: [%d=>%d]\n", p->dev, e->type, e->data);
 
@@ -1054,7 +1054,7 @@ static inline int monitor_handle_owned(struct vpb_pvt *p, VPB_EVENT *e)
 	}
 
 	if (endbridge) {
-		ast_mutex_unlock(&p->lock);
+		res = ast_mutex_unlock(&p->lock);
 /*
 		ast_verb(4, "%s: unLOCKING in handle_owned [%d]\n", p->dev,res);
 */
@@ -1078,7 +1078,7 @@ static inline int monitor_handle_owned(struct vpb_pvt *p, VPB_EVENT *e)
 				p->dev, f.frametype, f.subclass.integer);
 		}
 	}
-	ast_mutex_unlock(&p->lock);
+	res = ast_mutex_unlock(&p->lock);
 /*
 	ast_verb(4, "%s: unLOCKING in handle_owned [%d]\n", p->dev,res);
 */
@@ -1655,6 +1655,7 @@ static int vpb_indicate(struct ast_channel *ast, int condition, const void *data
 {
 	struct vpb_pvt *p = (struct vpb_pvt *)ast->tech_pvt;
 	int res = 0;
+	int tmp = 0;
 
 	if (use_ast_ind == 1) {
 		ast_verb(4, "%s: vpb_indicate called when using Ast Indications !?!\n", p->dev);
@@ -1718,13 +1719,17 @@ static int vpb_indicate(struct ast_channel *ast, int condition, const void *data
 		res = 0;
 		break;
 	}
-	ast_mutex_unlock(&p->lock);
+	tmp = ast_mutex_unlock(&p->lock);
+/*
+	ast_verb(4, "%s: unLOCKING in indicate [%d]\n", p->dev,tmp);
+*/
 	return res;
 }
 
 static int vpb_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
 {
 	struct vpb_pvt *p = (struct vpb_pvt *)newchan->tech_pvt;
+	int res = 0;
 
 /*
 	ast_verb(4, "%s: LOCKING in fixup \n", p->dev);
@@ -1747,7 +1752,10 @@ static int vpb_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
 		}
 	}
 
-	ast_mutex_unlock(&p->lock);
+	res = ast_mutex_unlock(&p->lock);
+/*
+	ast_verb(4, "%s: unLOCKING in fixup [%d]\n", p->dev,res);
+*/
 	return 0;
 }
 
@@ -1760,6 +1768,7 @@ static int vpb_digit_end(struct ast_channel *ast, char digit, unsigned int durat
 {
 	struct vpb_pvt *p = (struct vpb_pvt *)ast->tech_pvt;
 	char s[2];
+	int res = 0;
 
 	if (use_ast_dtmf) {
 		ast_verb(4, "%s: vpb_digit: asked to play digit[%c] but we are using asterisk dtmf play back?!\n", p->dev, digit);
@@ -1782,7 +1791,10 @@ static int vpb_digit_end(struct ast_channel *ast, char digit, unsigned int durat
 	strncat(p->play_dtmf, s, sizeof(*p->play_dtmf) - strlen(p->play_dtmf) - 1);
 	ast_mutex_unlock(&p->play_dtmf_lock);
 
-	ast_mutex_unlock(&p->lock);
+	res = ast_mutex_unlock(&p->lock);
+/*
+	ast_verb(4, "%s: unLOCKING in digit [%d]\n", p->dev,res);
+*/
 	return 0;
 }
 
@@ -1793,6 +1805,7 @@ static int vpb_call(struct ast_channel *ast, char *dest, int timeout)
 	int res = 0, i;
 	char *s = strrchr(dest, '/');
 	char dialstring[254] = "";
+	int tmp = 0;
 
 /*
 	ast_verb(4, "%s: LOCKING in call \n", p->dev);
@@ -1815,7 +1828,10 @@ static int vpb_call(struct ast_channel *ast, char *dest, int timeout)
 
 	if (ast->_state != AST_STATE_DOWN && ast->_state != AST_STATE_RESERVED) {
 		ast_log(LOG_WARNING, "vpb_call on %s neither down nor reserved!\n", ast->name);
-		ast_mutex_unlock(&p->lock);
+		tmp = ast_mutex_unlock(&p->lock);
+/*
+		ast_verb(4, "%s: unLOCKING in call [%d]\n", p->dev,tmp);
+*/
 		return -1;
 	}
 	if (p->mode != MODE_FXO)  /* Station port, ring it. */
@@ -1884,7 +1900,10 @@ static int vpb_call(struct ast_channel *ast, char *dest, int timeout)
 		ast_pthread_create(&p->readthread, NULL, do_chanreads, (void *)p);
 	}
 
-	ast_mutex_unlock(&p->lock);
+	tmp = ast_mutex_unlock(&p->lock);
+/*
+	ast_verb(4, "%s: unLOCKING in call [%d]\n", p->dev,tmp);
+*/
 	return res;
 }
 
@@ -1893,6 +1912,7 @@ static int vpb_hangup(struct ast_channel *ast)
 	struct vpb_pvt *p = (struct vpb_pvt *)ast->tech_pvt;
 	VPB_EVENT je;
 	char str[VPB_MAX_STR];
+	int res = 0;
 
 /*
 	ast_verb(4, "%s: LOCKING in hangup \n", p->dev);
@@ -1904,7 +1924,10 @@ static int vpb_hangup(struct ast_channel *ast)
 
 	if (!ast->tech || !ast->tech_pvt) {
 		ast_log(LOG_WARNING, "%s: channel not connected?\n", ast->name);
-		ast_mutex_unlock(&p->lock);
+		res = ast_mutex_unlock(&p->lock);
+/*
+		ast_verb(4, "%s: unLOCKING in hangup [%d]\n", p->dev,res);
+*/
 		/* Free up ast dsp if we have one */
 		if (use_ast_dtmfdet && p->vad) {
 			ast_dsp_free(p->vad);
@@ -1989,13 +2012,21 @@ static int vpb_hangup(struct ast_channel *ast)
 	ast_verb(2, "%s: Hangup complete\n", ast->name);
 
 	restart_monitor();
-	ast_mutex_unlock(&p->lock);
+/*
+	ast_verb(4, "%s: LOCKING in hangup count[%d] owner[%d] \n", p->dev, p->lock.__m_count,p->lock.__m_owner);
+*/
+	res = ast_mutex_unlock(&p->lock);
+/*
+	ast_verb(4, "%s: unLOCKING in hangup [%d]\n", p->dev,res);
+	ast_verb(4, "%s: LOCKING in hangup count[%d] owner[%d] \n", p->dev, p->lock.__m_count,p->lock.__m_owner);
+*/
 	return 0;
 }
 
 static int vpb_answer(struct ast_channel *ast)
 {
 	struct vpb_pvt *p = (struct vpb_pvt *)ast->tech_pvt;
+	int res = 0;
 /*
 	VPB_EVENT je;
 	int ret;
@@ -2046,7 +2077,10 @@ static int vpb_answer(struct ast_channel *ast)
 		ast_verb(4, "%s: Re-enabling Loop Drop detection\n", p->dev);
 		vpb_enable_event(p->handle, VPB_MDROP);
 	}
-	ast_mutex_unlock(&p->lock);
+	res = ast_mutex_unlock(&p->lock);
+/*
+	ast_verb(4, "%s: unLOCKING in answer [%d]\n", p->dev,res);
+*/
 	return 0;
 }
 

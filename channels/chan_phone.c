@@ -27,12 +27,11 @@
 
 /*** MODULEINFO
 	<depend>ixjuser</depend>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 284597 $")
 
 #include <ctype.h>
 #include <sys/socket.h>
@@ -297,10 +296,12 @@ static int phone_call(struct ast_channel *ast, char *dest, int timeout)
 	ast_localtime(&UtcTime, &tm, NULL);
 
 	memset(&cid, 0, sizeof(PHONE_CID));
-    snprintf(cid.month, sizeof(cid.month), "%02d",(tm.tm_mon + 1));
-    snprintf(cid.day, sizeof(cid.day),     "%02d", tm.tm_mday);
-    snprintf(cid.hour, sizeof(cid.hour),   "%02d", tm.tm_hour);
-    snprintf(cid.min, sizeof(cid.min),     "%02d", tm.tm_min);
+	if(&tm != NULL) {
+		snprintf(cid.month, sizeof(cid.month), "%02d",(tm.tm_mon + 1));
+		snprintf(cid.day, sizeof(cid.day),     "%02d", tm.tm_mday);
+		snprintf(cid.hour, sizeof(cid.hour),   "%02d", tm.tm_hour);
+		snprintf(cid.min, sizeof(cid.min),     "%02d", tm.tm_min);
+	}
 	/* the standard format of ast->callerid is:  "name" <number>, but not always complete */
 	if (!ast->connected.id.name.valid
 		|| ast_strlen_zero(ast->connected.id.name.str)) {

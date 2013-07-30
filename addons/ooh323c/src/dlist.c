@@ -135,7 +135,7 @@ void dListRemove (DList* pList, DListNode* node)
    pList->count--;
 }
 
-void dListFindAndRemove(struct OOCTXT* pctxt, DList* pList, void *data)
+void dListFindAndRemove(DList* pList, void *data)
 {
    DListNode *pNode, *pNextNode;
    for(pNode = pList->head; pNode !=0; pNode = pNextNode){
@@ -143,10 +143,8 @@ void dListFindAndRemove(struct OOCTXT* pctxt, DList* pList, void *data)
       if(pNode->data == data) /* pointer comparison*/
          break;
    }
-   if(pNode) {
+   if(pNode)
       dListRemove(pList, pNode);
-      memFreePtr(pctxt, pNode);
-   }
 }
     
 DListNode* dListFindByIndex (DList* pList, int index) 

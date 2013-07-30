@@ -31,13 +31,9 @@
  * \ingroup applications
  */
 
-/*** MODULEINFO
-	<support_level>extended</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362586 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 274783 $")
 
 #include <signal.h>
 
@@ -89,7 +85,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362586 $")
 			all DTMF events received on the channel, and notification if the channel is
 			hung up. The received on the channel, and notification if the channel is hung
 			up. The application will not be forcibly terminated when the channel is hung up.
-			For more information see <filename>doc/AST.pdf</filename>.</para>
+			See <filename>doc/externalivr.txt</filename> for a protocol specification.</para>
 		</description>
 	</application>
  ***/
@@ -166,7 +162,6 @@ static void send_eivr_event(FILE *handle, const char event, const char *data,
 
 	fprintf(handle, "%s\n", ast_str_buffer(tmp));
 	ast_debug(1, "sent '%s'\n", ast_str_buffer(tmp));
-	ast_free(tmp);
 }
 
 static void *gen_alloc(struct ast_channel *chan, void *params)
@@ -293,9 +288,9 @@ static int gen_generate(struct ast_channel *chan, void *data, int len, int sampl
 
 static struct ast_generator gen =
 {
-	.alloc = gen_alloc,
-	.release = gen_release,
-	.generate = gen_generate,
+	alloc: gen_alloc,
+	release: gen_release,
+	generate: gen_generate,
 };
 
 static void ast_eivr_getvariable(struct ast_channel *chan, char *data, char *outbuf, int outbuflen)
@@ -514,7 +509,7 @@ static int app_exec(struct ast_channel *chan, const char *data)
 		ast_gethostbyname(hostname, &hp);
 		remote_address_tmp.sin_family = AF_INET;
 		remote_address_tmp.sin_port = htons(port);
-		memcpy(&remote_address_tmp.sin_addr.s_addr, hp.hp.h_addr, hp.hp.h_length);
+		memcpy(&remote_address_tmp.sin_addr.s_addr, hp.hp.h_addr, sizeof(hp.hp.h_addr));
 		ast_sockaddr_from_sin(&ivr_desc.remote_address, &remote_address_tmp);
 		if (!(ser = ast_tcptls_client_create(&ivr_desc)) || !(ser = ast_tcptls_client_start(ser))) {
 			goto exit;
@@ -682,14 +677,13 @@ static int eivr_comm(struct ast_channel *chan, struct ivr_localuser *u,
  			if (f->frametype == AST_FRAME_DTMF) {
  				send_eivr_event(eivr_events, f->subclass.integer, NULL, chan);
  				if (u->option_autoclear) {
-  					AST_LIST_LOCK(&u->playlist);
   					if (!u->abort_current_sound && !u->playing_silence) {
 						/* send interrupted file as T data */
- 						if ((entry = AST_LIST_REMOVE_HEAD(&u->playlist, list))) {
-	 						send_eivr_event(eivr_events, 'T', entry->filename, chan);
-							ast_free(entry);
-						}
+ 						entry = AST_LIST_REMOVE_HEAD(&u->playlist, list);
+ 						send_eivr_event(eivr_events, 'T', entry->filename, chan);
+						ast_free(entry);
 					}
+  					AST_LIST_LOCK(&u->playlist);
   					while ((entry = AST_LIST_REMOVE_HEAD(&u->playlist, list))) {
  						send_eivr_event(eivr_events, 'D', entry->filename, chan);
   						ast_free(entry);
@@ -768,10 +762,9 @@ static int eivr_comm(struct ast_channel *chan, struct ivr_localuser *u,
  					AST_LIST_LOCK(&u->playlist);
 	 				if (!u->abort_current_sound && !u->playing_silence) {
 						/* send interrupted file as T data */
- 						if ((entry = AST_LIST_REMOVE_HEAD(&u->playlist, list))) {
-	 						send_eivr_event(eivr_events, 'T', entry->filename, chan);
-							ast_free(entry);
-						}
+ 						entry = AST_LIST_REMOVE_HEAD(&u->playlist, list);
+ 						send_eivr_event(eivr_events, 'T', entry->filename, chan);
+						ast_free(entry);
 					}
  					while ((entry = AST_LIST_REMOVE_HEAD(&u->playlist, list))) {
  						send_eivr_event(eivr_events, 'D', entry->filename, chan);

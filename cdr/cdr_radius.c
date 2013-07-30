@@ -29,12 +29,11 @@
 
 /*** MODULEINFO
 	<depend>radius</depend>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 278132 $")
 
 #include <radiusclient-ng.h>
 
@@ -225,10 +224,6 @@ return_cleanup:
 static int unload_module(void)
 {
 	ast_cdr_unregister(name);
-	if (rh) {
-		rc_destroy(rh);
-		rh = NULL;
-	}
 	return 0;
 }
 
@@ -236,6 +231,7 @@ static int load_module(void)
 {
 	struct ast_config *cfg;
 	struct ast_flags config_flags = { 0 };
+	int res;
 	const char *tmp;
 
 	if ((cfg = ast_config_load(cdr_config, config_flags)) && cfg != CONFIG_STATUS_FILEINVALID) {
@@ -248,17 +244,8 @@ static int load_module(void)
 	} else
 		return AST_MODULE_LOAD_DECLINE;
 
-	/*
-	 * start logging
-	 *
-	 * NOTE: Yes this causes a slight memory leak if the module is
-	 * unloaded.  However, it is better than a crash if cdr_radius
-	 * and cel_radius are both loaded.
-	 */
-	tmp = ast_strdup("asterisk");
-	if (tmp) {
-		rc_openlog((char *) tmp);
-	}
+	/* start logging */
+	rc_openlog("asterisk");
 
 	/* read radiusclient-ng config file */
 	if (!(rh = rc_read_config(radiuscfg))) {
@@ -269,18 +256,11 @@ static int load_module(void)
 	/* read radiusclient-ng dictionaries */
 	if (rc_read_dictionary(rh, rc_conf_str(rh, "dictionary"))) {
 		ast_log(LOG_NOTICE, "Cannot load radiusclient-ng dictionary file.\n");
-		rc_destroy(rh);
-		rh = NULL;
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
-	if (ast_cdr_register(name, desc, radius_log)) {
-		rc_destroy(rh);
-		rh = NULL;
-		return AST_MODULE_LOAD_DECLINE;
-	} else {
-		return AST_MODULE_LOAD_SUCCESS;
-	}
+	res = ast_cdr_register(name, desc, radius_log);
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "RADIUS CDR Backend",

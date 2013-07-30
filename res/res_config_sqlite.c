@@ -73,11 +73,10 @@
 
 /*** MODULEINFO
 	<depend>sqlite</depend>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 278132 $")
 
 #include <sqlite.h>
 
@@ -903,7 +902,7 @@ static int add_cfg_entry(void *arg, int argc, char **argv, char **columnNames)
 	var = ast_variable_new(argv[RES_CONFIG_SQLITE_CONFIG_VAR_NAME], argv[RES_CONFIG_SQLITE_CONFIG_VAR_VAL], "");
 
 	if (!var) {
-		ast_log(LOG_WARNING, "Unable to allocate variable\n");
+		ast_log(LOG_WARNING, "Unable to allocate variable");
 		return 1;
 	}
 
@@ -1055,7 +1054,7 @@ static struct ast_variable * realtime_handler(const char *database, const char *
 #define QUERY "SELECT * FROM '%q' WHERE%s %q%s '%q'"
 /* \endcond */
 
-	query = sqlite_mprintf(QUERY, table, (config_table && !strcmp(config_table, table)) ? " commented = 0 AND" : "", params[0], op, vals[0]);
+	query = sqlite_mprintf(QUERY, table, !strcmp(config_table, table) ? " commented = 0 AND" : "", params[0], op, vals[0]);
 
 	if (!query) {
 		ast_log(LOG_WARNING, "Unable to allocate SQL query\n");
@@ -1154,9 +1153,8 @@ static int add_rt_multi_cfg_entry(void *arg, int argc, char **argv, char **colum
 	ast_category_append(args->cfg, cat);
 
 	for (i = 0; i < argc; i++) {
-		if (!argv[i]) {
+		if (!argv[i] || !strcmp(args->initfield, columnNames[i]))
 			continue;
-		}
 
 		if (!(var = ast_variable_new(columnNames[i], argv[i], ""))) {
 			ast_log(LOG_WARNING, "Unable to allocate variable\n");
@@ -1216,10 +1214,10 @@ static struct ast_config *realtime_multi_handler(const char *database,
 
 /* \cond DOXYGEN_CAN_PARSE_THIS */
 #undef QUERY
-#define QUERY "SELECT * FROM '%q' WHERE%s %q%s '%q'"
+#define QUERY "SELECT * FROM '%q' WHERE commented = 0 AND %q%s '%q'"
 /* \endcond */
 
-	if (!(query = sqlite_mprintf(QUERY, table, (config_table && !strcmp(config_table, table)) ? " commented = 0 AND" : "", params[0], op, tmp_str))) {
+	if (!(query = sqlite_mprintf(QUERY, table, params[0], op, tmp_str))) {
 		ast_log(LOG_WARNING, "Unable to allocate SQL query\n");
 		ast_config_destroy(cfg);
 		ast_free(params);
@@ -1620,7 +1618,7 @@ static int realtime_require_handler(const char *unused, const char *tablename, v
 	struct sqlite_cache_tables *tbl = find_table(tablename);
 	struct sqlite_cache_columns *col;
 	char *elm;
-	int type, res = 0;
+	int type, size, res = 0;
 
 	if (!tbl) {
 		return -1;
@@ -1628,7 +1626,7 @@ static int realtime_require_handler(const char *unused, const char *tablename, v
 
 	while ((elm = va_arg(ap, char *))) {
 		type = va_arg(ap, require_type);
-		va_arg(ap, int);
+		size = va_arg(ap, int);
 		/* Check if the field matches the criteria */
 		AST_RWLIST_TRAVERSE(&tbl->columns, col, list) {
 			if (strcmp(col->name, elm) == 0) {

@@ -28,12 +28,11 @@
 
 /*** MODULEINFO
 	<depend>radius</depend>
-	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Rev: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Rev: 278132 $")
 
 #include <radiusclient-ng.h>
 
@@ -209,10 +208,6 @@ static int unload_module(void)
 	if (event_sub) {
 		event_sub = ast_event_unsubscribe(event_sub);
 	}
-	if (rh) {
-		rc_destroy(rh);
-		rh = NULL;
-	}
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
@@ -232,17 +227,8 @@ static int load_module(void)
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
-	/*
-	 * start logging
-	 *
-	 * NOTE: Yes this causes a slight memory leak if the module is
-	 * unloaded.  However, it is better than a crash if cdr_radius
-	 * and cel_radius are both loaded.
-	 */
-	tmp = ast_strdup("asterisk");
-	if (tmp) {
-		rc_openlog((char *) tmp);
-	}
+	/* start logging */
+	rc_openlog("asterisk");
 
 	/* read radiusclient-ng config file */
 	if (!(rh = rc_read_config(radiuscfg))) {
@@ -253,15 +239,12 @@ static int load_module(void)
 	/* read radiusclient-ng dictionaries */
 	if (rc_read_dictionary(rh, rc_conf_str(rh, "dictionary"))) {
 		ast_log(LOG_NOTICE, "Cannot load radiusclient-ng dictionary file.\n");
-		rc_destroy(rh);
-		rh = NULL;
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
 	event_sub = ast_event_subscribe(AST_EVENT_CEL, radius_log, "CEL Radius Logging", NULL, AST_EVENT_IE_END);
+
 	if (!event_sub) {
-		rc_destroy(rh);
-		rh = NULL;
 		return AST_MODULE_LOAD_DECLINE;
 	} else {
 		return AST_MODULE_LOAD_SUCCESS;

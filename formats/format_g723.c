@@ -24,14 +24,10 @@
  * \arg Extensions: g723, g723sf
  * \ingroup formats
  */
-
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364578 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 279472 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -118,19 +114,10 @@ static int g723_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 
 static int g723_trunc(struct ast_filestream *fs)
 {
-	int fd;
-	off_t cur;
-
-	if ((fd = fileno(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine file descriptor for g723 filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
-	if ((cur = ftello(fs->f)) < 0) {
-		ast_log(AST_LOG_WARNING, "Unable to determine current position in g723 filestream %p: %s\n", fs, strerror(errno));
-		return -1;
-	}
 	/* Truncate file to current length */
-	return ftruncate(fd, cur);
+	if (ftruncate(fileno(fs->f), ftello(fs->f)) < 0)
+		return -1;
+	return 0;
 }
 
 static off_t g723_tell(struct ast_filestream *fs)

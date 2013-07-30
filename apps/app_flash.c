@@ -27,12 +27,11 @@
  
 /*** MODULEINFO
 	<depend>dahdi</depend>
-	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 196072 $")
 
 #include <dahdi/user.h>
 

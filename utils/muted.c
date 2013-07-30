@@ -35,10 +35,6 @@
  *
  */
 
-/*** MODULEINFO
-	<support_level>extended</support_level>
- ***/
-
 #include "asterisk/autoconfig.h"
 
 #ifdef __Darwin__

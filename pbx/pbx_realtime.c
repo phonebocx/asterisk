@@ -23,13 +23,9 @@
  * \arg See also: \ref AstARA
  */
 
-/*** MODULEINFO
-	<support_level>extended</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361142 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 284610 $")
 
 #include <signal.h>
 
@@ -44,6 +40,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361142 $")
 #include "asterisk/manager.h"
 #include "asterisk/cli.h"
 #include "asterisk/lock.h"
+#include "asterisk/md5.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/chanvars.h"
 #include "asterisk/sched.h"
@@ -388,12 +385,12 @@ static int realtime_matchmore(struct ast_channel *chan, const char *context, con
 
 static struct ast_switch realtime_switch =
 {
-	.name			= "Realtime",
-	.description		= "Realtime Dialplan Switch",
-	.exists			= realtime_exists,
-	.canmatch		= realtime_canmatch,
-	.exec			= realtime_exec,
-	.matchmore		= realtime_matchmore,
+        name:                   "Realtime",
+        description:   		"Realtime Dialplan Switch",
+        exists:                 realtime_exists,
+        canmatch:               realtime_canmatch,
+        exec:                   realtime_exec,
+        matchmore:              realtime_matchmore,
 };
 
 static int unload_module(void)

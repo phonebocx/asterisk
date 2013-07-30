@@ -27,12 +27,11 @@
 
 /*** MODULEINFO
 	<depend>nbs</depend>
-	<support_level>extended</support_level>	
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228616 $")
 
 #include <sys/socket.h>
 #include <sys/time.h>

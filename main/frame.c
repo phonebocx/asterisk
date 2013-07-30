@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362485 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 271231 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/lock.h"
@@ -1128,11 +1128,6 @@ void ast_codec_pref_prepend(struct ast_codec_pref *pref, format_t format, int on
 			break;
 	}
 
-	/* If we failed to find any occurrence, set to the end */
-	if (x == sizeof(format_t) * 8) {
-		--x;
-	}
-
 	if (only_if_existing && !pref->order[x])
 		return;
 
@@ -1198,11 +1193,6 @@ struct ast_format_list ast_codec_pref_getsize(struct ast_codec_pref *pref, forma
 			idx = x;
 			break;
 		}
-	}
-
-	if (idx < 0) {
-		ast_log(AST_LOG_WARNING, "Format %s unknown; unable to get preferred codec packet size\n", ast_getformatname(format));
-		return fmt;
 	}
 
 	for (x = 0; x < ARRAY_LEN(AST_FORMAT_LIST); x++) {

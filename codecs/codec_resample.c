@@ -29,12 +29,11 @@
 
 /*** MODULEINFO
 	<depend>resample</depend>
-	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 150729 $")
 
 /* These are for SHRT_MAX and FLT_MAX -- { */
 #if defined(__Darwin__) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__CYGWIN__)

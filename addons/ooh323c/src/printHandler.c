@@ -30,7 +30,6 @@
 #include "ootrace.h"
 
 EventHandler printHandler;
-AST_MUTEX_DEFINE_STATIC(printlock);
 
 static const char* pVarName;
 static int gIndentSpaces;
@@ -61,7 +60,6 @@ void initializePrintHandler(EventHandler *printHandler, char * varname)
    printHandler->enumValue = &printEnumValue;
    printHandler->openTypeValue = &printOpenTypeValue;
    pVarName = varname;
-   ast_mutex_lock(&printlock);
    OOTRACEDBGB2("%s = {\n", pVarName);
    gIndentSpaces += 3;
 
@@ -74,8 +72,6 @@ void finishPrint()
    if (gIndentSpaces != 0) {
       OOTRACEDBGB1 ("ERROR: unbalanced structure\n");
    }
-   gIndentSpaces = 0;
-   ast_mutex_unlock(&printlock);
 }
 
 void indent ()

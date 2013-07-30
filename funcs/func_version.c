@@ -22,13 +22,9 @@
  * \ingroup functions
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362729 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -48,8 +44,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362729 $")
 				<para>The possible values are:</para>
 				<enumlist>
 					<enum name="ASTERISK_VERSION_NUM">
-						<para>A string of digits is returned, e.g. 10602 for 1.6.2 or 100300 for 10.3.0,
-						or 999999 when using an SVN build.</para>
+						<para>A string of digits is returned (right now fixed at 999999).</para>
 					</enum>
 					<enum name="BUILD_USER">
 						<para>The string representing the user's name whose account

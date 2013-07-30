@@ -30,13 +30,9 @@
  * 	res_adsi to load
  */
 
-/*** MODULEINFO
-	<support_level>extended</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 359088 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 278132 $")
 
 #include <time.h>
 #include <math.h>
@@ -586,7 +582,7 @@ int AST_OPTIONAL_API_NAME(ast_adsi_read_encoded_dtmf)(struct ast_channel *chan, 
 	int bytes = 0, res, gotstar = 0, pos = 0;
 	unsigned char current = 0;
 
-	memset(buf, 0, maxlen);
+	memset(buf, 0, sizeof(buf));
 
 	while (bytes <= maxlen) {
 		/* Wait up to a second for a digit */

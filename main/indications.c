@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 352955 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 274727 $")
 
 #include <math.h>
 
@@ -658,7 +658,6 @@ static char *complete_country(struct ast_cli_args *a)
 			break;
 		}
 	}
-	ao2_iterator_destroy(&i);
 
 	return res;
 }
@@ -836,7 +835,6 @@ static char *handle_cli_indication_show(struct ast_cli_entry *e, int cmd, struct
 			ast_tone_zone_unlock(tz);
 			tz = ast_tone_zone_unref(tz);
 		}
-		ao2_iterator_destroy(&iter);
 		return CLI_SUCCESS;
 	}
 

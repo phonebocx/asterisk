@@ -25,13 +25,9 @@
  * \ingroup bridges
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361403 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -223,9 +219,6 @@ static void *multiplexed_thread_function(void *data)
 		winner = ast_waitfor_nandfds(multiplexed_thread->chans, multiplexed_thread->service_count, &fds, 1, NULL, &outfd, &to);
 		multiplexed_thread->waiting = 0;
 		ao2_lock(multiplexed_thread);
-		if (multiplexed_thread->thread == AST_PTHREADT_STOP) {
-			break;
-		}
 
 		if (outfd > -1) {
 			int nudge;
@@ -237,21 +230,7 @@ static void *multiplexed_thread_function(void *data)
 			}
 		}
 		if (winner && winner->bridge) {
-			struct ast_bridge *bridge = winner->bridge;
-			int stop = 0;
-			ao2_unlock(multiplexed_thread);
-			while ((bridge = winner->bridge) && ao2_trylock(bridge)) {
-				sched_yield();
-				if (multiplexed_thread->thread == AST_PTHREADT_STOP) {
-					stop = 1;
-					break;
-				}
-			}
-			if (!stop && bridge) {
-				ast_bridge_handle_trip(bridge, NULL, winner, -1);
-				ao2_unlock(bridge);
-			}
-			ao2_lock(multiplexed_thread);
+			ast_bridge_handle_trip(winner->bridge, NULL, winner, -1);
 		}
 	}
 

@@ -24,12 +24,11 @@
 
 /*** MODULEINFO
 	<use>crypto</use>
-	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 301849 $")
 
 #include "asterisk/module.h"
 #include "asterisk/pbx.h"

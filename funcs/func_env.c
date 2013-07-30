@@ -21,13 +21,9 @@
  * \ingroup functions
  */
 
-/*** MODULEINFO
-	<support_level>core</support_level>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362355 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 289581 $")
 
 #include <sys/stat.h>   /* stat(2) */
 
@@ -503,24 +499,18 @@ static int file_read(struct ast_channel *chan, const char *cmd, char *data, stru
 
 		if (fseeko(ff, 0, SEEK_END) < 0) {
 			ast_log(LOG_ERROR, "Cannot seek to end of '%s': %s\n", args.filename, strerror(errno));
-			fclose(ff);
 			return -1;
 		}
 		flength = ftello(ff);
 
 		if (offset < 0) {
 			fseeko(ff, offset, SEEK_END);
-			if ((offset = ftello(ff)) < 0) {
-				ast_log(AST_LOG_ERROR, "Cannot determine offset position of '%s': %s\n", args.filename, strerror(errno));
-				fclose(ff);
-				return -1;
-			}
+			offset = ftello(ff);
 		}
 		if (length < 0) {
 			fseeko(ff, length, SEEK_END);
 			if ((length = ftello(ff)) - offset < 0) {
 				/* Eliminates all results */
-				fclose(ff);
 				return -1;
 			}
 		} else if (length == LLONG_MAX) {
@@ -547,7 +537,6 @@ static int file_read(struct ast_channel *chan, const char *cmd, char *data, stru
 
 			ast_str_append_substr(buf, len, fbuf, toappend);
 		}
-		fclose(ff);
 		return 0;
 	}
 
@@ -712,7 +701,6 @@ static int file_read(struct ast_channel *chan, const char *cmd, char *data, stru
 		}
 	}
 
-	fclose(ff);
 	return 0;
 }
 
@@ -783,15 +771,9 @@ static int file_write(struct ast_channel *chan, const char *cmd, char *data, con
 
 		if (offset < 0) {
 			if (fseeko(ff, offset, SEEK_END)) {
-				ast_log(LOG_ERROR, "Cannot seek to offset of '%s': %s\n", args.filename, strerror(errno));
-				fclose(ff);
-				return -1;
+				ast_log(LOG_ERROR, "Cannot seek to offset: %s\n", strerror(errno));
 			}
-			if ((offset = ftello(ff)) < 0) {
-				ast_log(AST_LOG_ERROR, "Cannot determine offset position of '%s': %s\n", args.filename, strerror(errno));
-				fclose(ff);
-				return -1;
-			}
+			offset = ftello(ff);
 		}
 
 		if (length < 0) {
@@ -953,13 +935,10 @@ static int file_write(struct ast_channel *chan, const char *cmd, char *data, con
 			} else if (!strchr(args.options, 'd') && fwrite(format2term(newline_format), 1, strlen(format2term(newline_format)), ff) < strlen(format2term(newline_format))) {
 				ast_log(LOG_ERROR, "Short write?!!\n");
 			}
-			if ((truncsize = ftello(ff)) < 0) {
-				ast_log(AST_LOG_ERROR, "Unable to determine truncate position of '%s': %s\n", args.filename, strerror(errno));
-			}
+			truncsize = ftello(ff);
 			fclose(ff);
-			if (truncsize >= 0 && truncate(args.filename, truncsize)) {
-				ast_log(LOG_ERROR, "Unable to truncate file '%s': %s\n", args.filename, strerror(errno));
-				return -1;
+			if (truncate(args.filename, truncsize)) {
+				ast_log(LOG_ERROR, "Unable to truncate file: %s\n", strerror(errno));
 			}
 		} else {
 			int64_t offset_offset = (offset == 0 ? 0 : -1), length_offset = -1, flength, i, current_length = 0;
@@ -981,11 +960,7 @@ static int file_write(struct ast_channel *chan, const char *cmd, char *data, con
 				fclose(ff);
 				return -1;
 			}
-			if ((flength = ftello(ff)) < 0) {
-				ast_log(AST_LOG_ERROR, "Cannot determine end position of file '%s': %s\n", args.filename, strerror(errno));
-				fclose(ff);
-				return -1;
-			}
+			flength = ftello(ff);
 
 			/* For negative offset and/or negative length */
 			if (offset < 0 || length < 0) {
@@ -1130,11 +1105,6 @@ static int file_write(struct ast_channel *chan, const char *cmd, char *data, con
 					return -1;
 				}
 				while ((cur = ftello(ff)) < flength) {
-					if (cur < 0) {
-						ast_log(AST_LOG_ERROR, "Unable to determine last write position for '%s': %s\n", args.filename, strerror(errno));
-						fclose(ff);
-						return -1;
-					}
 					fseeko(ff, length_length - vlen, SEEK_CUR);
 					if (fread(fbuf, 1, sizeof(fbuf), ff) < sizeof(fbuf) && !feof(ff)) {
 						ast_log(LOG_ERROR, "Short read?!!\n");
