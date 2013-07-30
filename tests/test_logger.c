@@ -27,11 +27,12 @@
 
 /*** MODULEINFO
 	<defaultenabled>no</defaultenabled>
+	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 194610 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332176 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"

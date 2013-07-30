@@ -58,11 +58,12 @@
 
 /*** MODULEINFO
 	<use>res_monitor</use>
+	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 308010 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 333010 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -680,7 +681,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 308010 $")
 			Queues.
 		</synopsis>
 		<syntax>
-			<xi:include xpointer="xpointer(/docs/manager[@name='Login']/syntax/parameter[@name='ActionID'])" />
 		</syntax>
 		<description>
 		</description>
@@ -999,7 +999,7 @@ struct callattempt {
 struct queue_ent {
 	struct call_queue *parent;             /*!< What queue is our parent */
 	char moh[80];                          /*!< Name of musiconhold to be used */
-	char announce[80];                     /*!< Announcement to play for member when call is answered */
+	char announce[PATH_MAX];               /*!< Announcement to play for member when call is answered */
 	char context[AST_MAX_CONTEXT];         /*!< Context when user exits queue */
 	char digits[AST_MAX_EXTENSION];        /*!< Digits entered while in queue */
 	int valid_digits;                      /*!< Digits entered correspond to valid extension. Exited */
@@ -1284,7 +1284,7 @@ static inline struct call_queue *queue_ref(struct call_queue *q)
 static inline struct call_queue *queue_unref(struct call_queue *q)
 {
 	ao2_ref(q, -1);
-	return q;
+	return NULL;
 }
 #endif
 
@@ -1719,8 +1719,13 @@ static void init_queue(struct call_queue *q)
 	ast_string_field_set(q, sound_thanks, "queue-thankyou");
 	ast_string_field_set(q, sound_reporthold, "queue-reporthold");
 
-	if ((q->sound_periodicannounce[0] = ast_str_create(32)))
+	if (!q->sound_periodicannounce[0]) {
+		q->sound_periodicannounce[0] = ast_str_create(32);
+	}
+
+	if (q->sound_periodicannounce[0]) {
 		ast_str_set(&q->sound_periodicannounce[0], 0, "queue-periodic-announce");
+	}
 
 	for (i = 1; i < MAX_PERIODIC_ANNOUNCEMENTS; i++) {
 		if (q->sound_periodicannounce[i])
@@ -1760,7 +1765,7 @@ static void clear_queue(struct call_queue *q)
  * \retval 0 on success 
  * \note Call this with the rule_lists locked 
 */
-static int insert_penaltychange (const char *list_name, const char *content, const int linenum)
+static int insert_penaltychange(const char *list_name, const char *content, const int linenum)
 {
 	char *timestr, *maxstr, *minstr, *contentdup;
 	struct penalty_rule *rule = NULL, *rule_iter;
@@ -2324,6 +2329,7 @@ static struct call_queue *find_queue_by_name_rt(const char *queuename, struct as
 	return q;
 }
 
+/*! \note Returns a reference to the loaded realtime queue. */
 static struct call_queue *load_realtime_queue(const char *queuename)
 {
 	struct ast_variable *queue_vars;
@@ -2357,17 +2363,15 @@ static struct call_queue *load_realtime_queue(const char *queuename)
 		}
 		if (q) {
 			prev_weight = q->weight ? 1 : 0;
+			queue_t_unref(q, "Need to find realtime queue");
 		}
 
 		ao2_lock(queues);
 
 		q = find_queue_by_name_rt(queuename, queue_vars, member_config);
-		if (member_config) {
-			ast_config_destroy(member_config);
-		}
-		if (queue_vars) {
-			ast_variables_destroy(queue_vars);
-		}
+		ast_config_destroy(member_config);
+		ast_variables_destroy(queue_vars);
+
 		/* update the use_weight value if the queue's has gained or lost a weight */ 
 		if (q) {
 			if (!q->weight && prev_weight) {
@@ -2471,6 +2475,7 @@ static int join_queue(char *queuename, struct queue_ent *qe, enum queue_result *
 			*reason = QUEUE_JOINEMPTY;
 			ao2_unlock(q);
 			ao2_unlock(queues);
+			queue_t_unref(q, "Done with realtime queue");
 			return res;
 		}
 	}
@@ -2515,15 +2520,26 @@ static int join_queue(char *queuename, struct queue_ent *qe, enum queue_result *
 		q->count++;
 		res = 0;
 		ast_manager_event(qe->chan, EVENT_FLAG_CALL, "Join",
-			"Channel: %s\r\nCallerIDNum: %s\r\nCallerIDName: %s\r\nQueue: %s\r\nPosition: %d\r\nCount: %d\r\nUniqueid: %s\r\n",
+			"Channel: %s\r\n"
+			"CallerIDNum: %s\r\n"
+			"CallerIDName: %s\r\n"
+			"ConnectedLineNum: %s\r\n"
+			"ConnectedLineName: %s\r\n"
+			"Queue: %s\r\n"
+			"Position: %d\r\n"
+			"Count: %d\r\n"
+			"Uniqueid: %s\r\n",
 			qe->chan->name,
 			S_COR(qe->chan->caller.id.number.valid, qe->chan->caller.id.number.str, "unknown"),/* XXX somewhere else it is <unknown> */
 			S_COR(qe->chan->caller.id.name.valid, qe->chan->caller.id.name.str, "unknown"),
+			S_COR(qe->chan->connected.id.number.valid, qe->chan->connected.id.number.str, "unknown"),/* XXX somewhere else it is <unknown> */
+			S_COR(qe->chan->connected.id.name.valid, qe->chan->connected.id.name.str, "unknown"),
 			q->name, qe->pos, q->count, qe->chan->uniqueid );
 		ast_debug(1, "Queue '%s' Join, Channel '%s', Position '%d'\n", q->name, qe->chan->name, qe->pos );
 	}
 	ao2_unlock(q);
 	ao2_unlock(queues);
+	queue_t_unref(q, "Done with realtime queue");
 
 	return res;
 }
@@ -3152,6 +3168,8 @@ static int ring_entry(struct queue_ent *qe, struct callattempt *tmp, int *busies
 			"DestinationChannel: %s\r\n"
 			"CallerIDNum: %s\r\n"
 			"CallerIDName: %s\r\n"
+			"ConnectedLineNum: %s\r\n"
+			"ConnectedLineName: %s\r\n"
 			"Context: %s\r\n"
 			"Extension: %s\r\n"
 			"Priority: %d\r\n"
@@ -3160,6 +3178,8 @@ static int ring_entry(struct queue_ent *qe, struct callattempt *tmp, int *busies
 			qe->parent->name, tmp->interface, tmp->member->membername, qe->chan->name, tmp->chan->name,
 			S_COR(tmp->chan->caller.id.number.valid, tmp->chan->caller.id.number.str, "unknown"),
 			S_COR(tmp->chan->caller.id.name.valid, tmp->chan->caller.id.name.str, "unknown"),
+			S_COR(tmp->chan->connected.id.number.valid, tmp->chan->connected.id.number.str, "unknown"),
+			S_COR(tmp->chan->connected.id.name.valid, tmp->chan->connected.id.name.str, "unknown"),
 			qe->chan->context, qe->chan->exten, qe->chan->priority, qe->chan->uniqueid,
 			qe->parent->eventwhencalled == QUEUE_EVENT_VARIABLES ? vars2manager(qe->chan, vars, sizeof(vars)) : "");
 		ast_verb(3, "Called %s\n", tmp->interface);
@@ -3472,7 +3492,9 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 				if (o->stillgoing) {	/* Keep track of important channels */
 					stillgoing = 1;
 					if (o->chan) {
-						watchers[pos++] = o->chan;
+						if (pos < AST_MAX_WATCHERS) {
+							watchers[pos++] = o->chan;
+						}
 						if (!start)
 							start = o;
 						else
@@ -4323,7 +4345,6 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 	char *agiexec = NULL;
 	char *macroexec = NULL;
 	char *gosubexec = NULL;
-	int ret = 0;
 	const char *monitorfilename;
 	const char *monitor_exec;
 	const char *monitor_options;
@@ -4849,7 +4870,7 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 					/* We purposely lock the CDR so that pbx_exec does not update the application data */
 					if (qe->chan->cdr)
 						ast_set_flag(qe->chan->cdr, AST_CDR_FLAG_LOCKED);
-					ret = pbx_exec(qe->chan, mixmonapp, mixmonargs);
+					pbx_exec(qe->chan, mixmonapp, mixmonargs);
 					if (qe->chan->cdr)
 						ast_clear_flag(qe->chan->cdr, AST_CDR_FLAG_LOCKED);
 
@@ -4981,7 +5002,7 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 			application = pbx_findapp("agi");
 			if (application) {
 				agiexec = ast_strdupa(agi);
-				ret = pbx_exec(qe->chan, application, agiexec);
+				pbx_exec(qe->chan, application, agiexec);
 			} else
 				ast_log(LOG_WARNING, "Asked to execute an AGI on this channel, but could not find application (agi)!\n");
 		}
@@ -5050,8 +5071,11 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 			if ((tds = ast_channel_datastore_find(qe->chan, &queue_transfer_info, NULL))) {	
 				ast_channel_datastore_remove(qe->chan, tds);
 			}
+			ast_channel_unlock(qe->chan);
 			update_queue(qe->parent, member, callcompletedinsl, (time(NULL) - callstart));
 		} else {
+			ast_channel_unlock(qe->chan);
+
 			/* We already logged the TRANSFER on the queue_log, but we still need to send the AgentComplete event */
 			send_agent_complete(qe, queuename, peer, member, callstart, vars, sizeof(vars), TRANSFER);
 		}
@@ -5059,7 +5083,6 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 		if (transfer_ds) {
 			ast_datastore_free(transfer_ds);
 		}
-		ast_channel_unlock(qe->chan);
 		ast_hangup(peer);
 		res = bridge ? bridge : 1;
 		ao2_ref(member, -1);
@@ -5758,7 +5781,6 @@ static void copy_rules(struct queue_ent *qe, const char *rulename)
 			struct penalty_rule *new_pr = ast_calloc(1, sizeof(*new_pr));
 			if (!new_pr) {
 				ast_log(LOG_ERROR, "Memory allocation error when copying penalty rules! Aborting!\n");
-				AST_LIST_UNLOCK(&rule_lists);
 				break;
 			}
 			new_pr->time = pr_iter->time;
@@ -6483,6 +6505,7 @@ static int reload_queue_rules(int reload)
 	while ((rulecat = ast_category_browse(cfg, rulecat))) {
 		if (!(new_rl = ast_calloc(1, sizeof(*new_rl)))) {
 			AST_LIST_UNLOCK(&rule_lists);
+			ast_config_destroy(cfg);
 			return AST_MODULE_LOAD_FAILURE;
 		} else {
 			ast_copy_string(new_rl->name, rulecat, sizeof(new_rl->name));
@@ -6930,13 +6953,16 @@ static char *__queues_show(struct mansession *s, int fd, int argc, const char * 
 		 * queues which have been deleted from realtime but which have not yet
 		 * been deleted from the in-core container
 		 */
-		if (q->realtime && !(realtime_queue = load_realtime_queue(q->name))) {
-			ao2_unlock(q);
-			queue_t_unref(q, "Done with iterator");
-			continue;
-		} else if (q->realtime) {
+		if (q->realtime) {
+			realtime_queue = load_realtime_queue(q->name);
+			if (!realtime_queue) {
+				ao2_unlock(q);
+				queue_t_unref(q, "Done with iterator");
+				continue;
+			}
 			queue_t_unref(realtime_queue, "Queue is already in memory");
 		}
+
 		if (argc == 3 && strcasecmp(q->name, argv[2])) {
 			ao2_unlock(q);
 			queue_t_unref(q, "Done with iterator");
@@ -7076,8 +7102,14 @@ static int manager_queues_show(struct mansession *s, const struct message *m)
 static int manager_queue_rule_show(struct mansession *s, const struct message *m)
 {
 	const char *rule = astman_get_header(m, "Rule");
+	const char *id = astman_get_header(m, "ActionID");
 	struct rule_list *rl_iter;
 	struct penalty_rule *pr_iter;
+
+	astman_append(s, "Response: Success\r\n");
+	if (!ast_strlen_zero(id)) {
+		astman_append(s, "ActionID: %s\r\n", id);
+	}
 
 	AST_LIST_LOCK(&rule_lists);
 	AST_LIST_TRAVERSE(&rule_lists, rl_iter, list) {
@@ -7092,6 +7124,10 @@ static int manager_queue_rule_show(struct mansession *s, const struct message *m
 	}
 	AST_LIST_UNLOCK(&rule_lists);
 
+	/*
+	 * Two blank lines instead of one because the Response and
+	 * ActionID headers used to not be present.
+	 */
 	astman_append(s, "\r\n\r\n");
 
 	return RESULT_SUCCESS;
@@ -7248,12 +7284,16 @@ static int manager_queues_status(struct mansession *s, const struct message *m)
 					"Uniqueid: %s\r\n"
 					"CallerIDNum: %s\r\n"
 					"CallerIDName: %s\r\n"
+					"ConnectedLineNum: %s\r\n"
+					"ConnectedLineName: %s\r\n"
 					"Wait: %ld\r\n"
 					"%s"
 					"\r\n",
 					q->name, pos++, qe->chan->name, qe->chan->uniqueid,
 					S_COR(qe->chan->caller.id.number.valid, qe->chan->caller.id.number.str, "unknown"),
 					S_COR(qe->chan->caller.id.name.valid, qe->chan->caller.id.name.str, "unknown"),
+					S_COR(qe->chan->connected.id.number.valid, qe->chan->connected.id.number.str, "unknown"),
+					S_COR(qe->chan->connected.id.name.valid, qe->chan->connected.id.name.str, "unknown"),
 					(long) (now - qe->start), idText);
 			}
 		}
@@ -8215,11 +8255,13 @@ static int queues_data_provider_get(const struct ast_data_search *search,
 	i = ao2_iterator_init(queues, 0);
 	while ((queue = ao2_iterator_next(&i))) {
 		ao2_lock(queue);
-		if (queue->realtime && !(queue_realtime = load_realtime_queue(queue->name))) {
-			ao2_unlock(queue);
-			queue_unref(queue);
-			continue;
-		} else if (queue->realtime) {
+		if (queue->realtime) {
+			queue_realtime = load_realtime_queue(queue->name);
+			if (!queue_realtime) {
+				ao2_unlock(queue);
+				queue_unref(queue);
+				continue;
+			}
 			queue_unref(queue_realtime);
 		}
 
@@ -8227,6 +8269,7 @@ static int queues_data_provider_get(const struct ast_data_search *search,
 		ao2_unlock(queue);
 		queue_unref(queue);
 	}
+	ao2_iterator_destroy(&i);
 
 	return 0;
 }

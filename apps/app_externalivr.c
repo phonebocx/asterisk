@@ -31,9 +31,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305838 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <signal.h>
 
@@ -162,6 +166,7 @@ static void send_eivr_event(FILE *handle, const char event, const char *data,
 
 	fprintf(handle, "%s\n", ast_str_buffer(tmp));
 	ast_debug(1, "sent '%s'\n", ast_str_buffer(tmp));
+	ast_free(tmp);
 }
 
 static void *gen_alloc(struct ast_channel *chan, void *params)

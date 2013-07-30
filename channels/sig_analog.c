@@ -1467,7 +1467,6 @@ int analog_hangup(struct analog_pvt *p, struct ast_channel *ast)
 	}
 
 	analog_stop_callwait(p);
-	ast->tech_pvt = NULL;
 
 	ast_verb(3, "Hanging up on '%s'\n", ast->name);
 
@@ -1699,6 +1698,33 @@ static int analog_get_sub_fd(struct analog_pvt *p, enum analog_sub sub)
 }
 
 #define ANALOG_NEED_MFDETECT(p) (((p)->sig == ANALOG_SIG_FEATDMF) || ((p)->sig == ANALOG_SIG_FEATDMF_TA) || ((p)->sig == ANALOG_SIG_E911) || ((p)->sig == ANALOG_SIG_FGC_CAMA) || ((p)->sig == ANALOG_SIG_FGC_CAMAMF) || ((p)->sig == ANALOG_SIG_FEATB))
+
+static int analog_canmatch_featurecode(const char *exten)
+{
+	int extlen = strlen(exten);
+	const char *pickup_ext;
+	if (!extlen) {
+		return 1;
+	}
+	pickup_ext = ast_pickup_ext();
+	if (extlen < strlen(pickup_ext) && !strncmp(pickup_ext, exten, extlen)) {
+		return 1;
+	}
+	/* hardcoded features are *60, *67, *69, *70, *72, *73, *78, *79, *82, *0 */
+	if (exten[0] == '*' && extlen < 3) {
+		if (extlen == 1) {
+			return 1;
+		}
+		/* "*0" should be processed before it gets here */
+		switch (exten[1]) {
+		case '6':
+		case '7':
+		case '8':
+			return 1;
+		}
+	}
+	return 0;
+}
 
 static void *__analog_ss_thread(void *data)
 {
@@ -2007,10 +2033,13 @@ static void *__analog_ss_thread(void *data)
 		}
 		if ((p->sig == ANALOG_SIG_FEATDMF) || (p->sig == ANALOG_SIG_FEATDMF_TA)) {
 			analog_wink(p, idx);
-			/* some switches require a minimum guard time between
-			the last FGD wink and something that answers
-			immediately. This ensures it */
-			if (ast_safe_sleep(chan,100)) {
+			/*
+			 * Some switches require a minimum guard time between the last
+			 * FGD wink and something that answers immediately.  This
+			 * ensures it.
+			 */
+			if (ast_safe_sleep(chan, 100)) {
+				ast_hangup(chan);
 				goto quit;
 			}
 		}
@@ -2291,7 +2320,7 @@ static void *__analog_ss_thread(void *data)
 				}
 			} else if (!ast_canmatch_extension(chan, chan->context, exten, 1,
 				chan->caller.id.number.valid ? chan->caller.id.number.str : NULL)
-				&& ((exten[0] != '*') || (strlen(exten) > 2))) {
+				&& !analog_canmatch_featurecode(exten)) {
 				ast_debug(1, "Can't match %s from '%s' in context %s\n", exten,
 					chan->caller.id.number.valid && chan->caller.id.number.str
 						? chan->caller.id.number.str : "<Unknown Caller>",
@@ -3019,7 +3048,6 @@ static struct ast_frame *__analog_handle_event(struct analog_pvt *p, struct ast_
 			break;
 		}
 		break;
-#ifdef ANALOG_EVENT_RINGBEGIN
 	case ANALOG_EVENT_RINGBEGIN:
 		switch (p->sig) {
 		case ANALOG_SIG_FXSLS:
@@ -3029,9 +3057,10 @@ static struct ast_frame *__analog_handle_event(struct analog_pvt *p, struct ast_
 				analog_set_ringtimeout(p, p->ringt_base);
 			}
 			break;
+		default:
+			break;
 		}
 		break;
-#endif
 	case ANALOG_EVENT_RINGEROFF:
 		if (p->inalarm) break;
 		ast->rings++;

@@ -191,9 +191,9 @@ static int add_member(struct member *mem, struct category *cat)
 /*! \brief Free a member structure and all of its members */
 static void free_member(struct member *mem)
 {
-	struct depend *dep;
-	struct conflict *cnf;
-	struct use *use;
+	struct reference *dep;
+	struct reference *cnf;
+	struct reference *use;
 
 	while ((dep = AST_LIST_REMOVE_HEAD(&mem->deps, list)))
 		free(dep);
@@ -210,9 +210,9 @@ static int parse_tree(const char *tree_file)
 	FILE *f;
 	struct tree *tree;
 	struct member *mem;
-	struct depend *dep;
-	struct conflict *cnf;
-	struct use *use;
+	struct reference *dep;
+	struct reference *cnf;
+	struct reference *use;
 	mxml_node_t *cur;
 	mxml_node_t *cur2;
 	mxml_node_t *cur3;
@@ -291,10 +291,22 @@ static int parse_tree(const char *tree_file)
 				mem->was_enabled = mem->enabled = 1;
 				print_debug("Enabling %s because the category does not have positive output\n", mem->name);
 			}
+
 			cur3 = mxmlFindElement(cur2, cur2, "defaultenabled", NULL, NULL, MXML_DESCEND);
-			if (cur3 && cur3->child)
+			if (cur3 && cur3->child) {
 				mem->defaultenabled = cur3->child->value.opaque;
-			
+			}
+
+			cur3 = mxmlFindElement(cur2, cur2, "support_level", NULL, NULL, MXML_DESCEND);
+			if (cur3 && cur3->child) {
+				mem->support_level = cur3->child->value.opaque;
+			}
+
+			cur3 = mxmlFindElement(cur2, cur2, "replacement", NULL, NULL, MXML_DESCEND);
+			if (cur3 && cur3->child) {
+				mem->replacement = cur3->child->value.opaque;
+			}
+
 			for (cur3 = mxmlFindElement(cur2, cur2, "depend", NULL, NULL, MXML_DESCEND_FIRST);
 			     cur3 && cur3->child;
 			     cur3 = mxmlFindElement(cur3, cur2, "depend", NULL, NULL, MXML_NO_DESCEND))
@@ -345,27 +357,6 @@ static int parse_tree(const char *tree_file)
 			     cur3 && cur3->child;
 			     cur3 = mxmlFindElement(cur3, cur2, "use", NULL, NULL, MXML_NO_DESCEND))
 			{
-#if !defined(HAVE_ATTRIBUTE_weak_import) && !defined(HAVE_ATTRIBUTE_weakref)
-				/* If the compiler won't support the functionality required for "use", then "use" -> "depend" */
-				if (!(dep = calloc(1, sizeof(*dep)))) {
-					free_member(mem);
-					return -1;
-				}
-				if ((tmp = mxmlElementGetAttr(cur3, "name"))) {
-					if (!strlen_zero(tmp)) {
-						dep->name = tmp;
-					}
-				}
-				if (!strlen_zero(cur3->child->value.opaque)) {
-					dep->displayname = cur3->child->value.opaque;
-					if (!dep->name) {
-						dep->name = dep->displayname;
-					}
-					AST_LIST_INSERT_TAIL(&mem->deps, dep, list);
-				} else {
-					free(dep);
-				}
-#else
 				if (!(use = calloc(1, sizeof(*use)))) {
 					free_member(mem);
 					return -1;
@@ -381,9 +372,9 @@ static int parse_tree(const char *tree_file)
 						use->name = use->displayname;
 					}
 					AST_LIST_INSERT_TAIL(&mem->uses, use, list);
-				} else
+				} else {
 					free(use);
-#endif
+				}
 			}
 
 			if (add_member(mem, cat))
@@ -404,7 +395,7 @@ static unsigned int calc_dep_failures(int interactive, int pre_confload)
 	unsigned int result = 0;
 	struct category *cat;
 	struct member *mem;
-	struct depend *dep;
+	struct reference *dep;
 	struct dep_file *dep_file;
 	unsigned int changed, old_failure;
 
@@ -491,7 +482,7 @@ static unsigned int calc_conflict_failures(int interactive, int pre_confload)
 	unsigned int result = 0;
 	struct category *cat;
 	struct member *mem;
-	struct conflict *cnf;
+	struct reference *cnf;
 	struct dep_file *dep_file;
 	unsigned int changed, old_failure;
 
@@ -661,10 +652,11 @@ static int match_member_relations(void)
 {
 	struct category *cat, *cat2;
 	struct member *mem, *mem2;
-	struct depend *dep;
-	struct conflict *cnf;
-	struct use *use;
+	struct reference *dep;
+	struct reference *cnf;
+	struct reference *use;
 
+	/* Traverse through each module's dependency list and determine whether each is another module */
 	AST_LIST_TRAVERSE(&categories, cat, list) {
 		AST_LIST_TRAVERSE(&cat->members, mem, list) {
 			AST_LIST_TRAVERSE(&mem->deps, dep, list) {
@@ -693,6 +685,7 @@ static int match_member_relations(void)
 		}
 	}
 
+	/* Traverse through each module's use list and determine whether each is another module */
 	AST_LIST_TRAVERSE(&categories, cat, list) {
 		AST_LIST_TRAVERSE(&cat->members, mem, list) {
 			AST_LIST_TRAVERSE(&mem->uses, use, list) {
@@ -721,6 +714,22 @@ static int match_member_relations(void)
 		}
 	}
 
+	/* If weak linking is not supported, move module uses which are other modules to the dependency list */
+#if !defined(HAVE_ATTRIBUTE_weak_import) && !defined(HAVE_ATTRIBUTE_weakref) && !defined(HAVE_ATTRIBUTE_weak)
+	AST_LIST_TRAVERSE(&categories, cat, list) {
+		AST_LIST_TRAVERSE(&cat->members, mem, list) {
+			AST_LIST_TRAVERSE_SAFE_BEGIN(&mem->uses, use, list) {
+				if (use->member) {
+					AST_LIST_REMOVE_CURRENT(&mem->uses, list);
+					AST_LIST_INSERT_TAIL(&mem->deps, use, list);
+				}
+			}
+			AST_LIST_TRAVERSE_SAFE_END;
+		}
+	}
+#endif
+
+	/* Traverse through each category marked as exclusive and mark every member as conflicting with every other member */
 	AST_LIST_TRAVERSE(&categories, cat, list) {
 		if (!cat->exclusive)
 			continue;
@@ -740,6 +749,7 @@ static int match_member_relations(void)
 		}
 	}
 
+	/* Traverse through each category and determine whether named conflicts for each module are other modules */
 	AST_LIST_TRAVERSE(&categories, cat, list) {
 		AST_LIST_TRAVERSE(&cat->members, mem, list) {
 			AST_LIST_TRAVERSE(&mem->conflicts, cnf, list) {
@@ -825,7 +835,7 @@ static void mark_as_present(const char *member, const char *category)
 
 unsigned int enable_member(struct member *mem)
 {
-	struct depend *dep;
+	struct reference *dep;
 	unsigned int can_enable = 1;
 
 	AST_LIST_TRAVERSE(&mem->deps, dep, list) {
@@ -1062,8 +1072,8 @@ static int generate_makedeps_file(void)
 	FILE *f;
 	struct category *cat;
 	struct member *mem;
-	struct depend *dep;
-	struct use *use;
+	struct reference *dep;
+	struct reference *use;
 	struct dep_file *dep_file;
 
 	if (!(f = fopen(output_makedeps, "w"))) {
@@ -1148,8 +1158,8 @@ static int generate_makeopts_file(void)
 	FILE *f;
 	struct category *cat;
 	struct member *mem;
-	struct depend *dep;
-	struct use *use;
+	struct reference *dep;
+	struct reference *use;
 
 	if (!(f = fopen(output_makeopts, "w"))) {
 		fprintf(stderr, "Unable to open build configuration file (%s) for writing!\n", output_makeopts);
@@ -1284,8 +1294,8 @@ static void dump_member_list(void)
 #ifdef MENUSELECT_DEBUG
 	struct category *cat;
 	struct member *mem;
-	struct depend *dep;
-	struct conflict *cnf;
+	struct reference *dep;
+	struct reference *cnf;
 
 	AST_LIST_TRAVERSE(&categories, cat, list) {
 		fprintf(stderr, "Category: '%s'\n", cat->name);
@@ -1312,9 +1322,9 @@ static void free_member_list(void)
 {
 	struct category *cat;
 	struct member *mem;
-	struct depend *dep;
-	struct conflict *cnf;
-	struct use *use;
+	struct reference *dep;
+	struct reference *cnf;
+	struct reference *use;
 
 	while ((cat = AST_LIST_REMOVE_HEAD(&categories, list))) {
 		while ((mem = AST_LIST_REMOVE_HEAD(&cat->members, list))) {
@@ -1404,8 +1414,8 @@ static int sanity_check(void)
 	unsigned int insane = 0;
 	struct category *cat;
 	struct member *mem;
-	struct depend *dep;
-	struct use *use;
+	struct reference *dep;
+	struct reference *use;
 	struct dep_file *dep_file;
 	unsigned int dep_header_printed;
 	unsigned int group_header_printed;

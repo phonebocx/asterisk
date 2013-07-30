@@ -28,11 +28,12 @@
 /*** MODULEINFO
 	<depend>bluetooth</depend>
 	<defaultenabled>no</defaultenabled>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 292122 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 333784 $")
 
 #include <pthread.h>
 #include <signal.h>
@@ -1188,7 +1189,7 @@ static int mbl_devicestate(void *data)
 	int res = AST_DEVICE_INVALID;
 	struct mbl_pvt *pvt;
 
-	device = ast_strdupa(S_OR(data, ""));
+	device = ast_strdupa(S_OR((char *) data, ""));
 
 	ast_debug(1, "Checking device state for device %s\n", device);
 
@@ -1320,21 +1321,10 @@ static int mbl_queue_hangup(struct mbl_pvt *pvt)
 
 static int mbl_ast_hangup(struct mbl_pvt *pvt)
 {
-	int res = 0;
-	for (;;) {
-		if (pvt->owner) {
-			if (ast_channel_trylock(pvt->owner)) {
-				DEADLOCK_AVOIDANCE(&pvt->lock);
-			} else {
-				res = ast_hangup(pvt->owner);
-				/* no need to unlock, ast_hangup() frees the
-				 * channel */
-				break;
-			}
-		} else
-			break;
+	if (pvt->owner) {
+		ast_hangup(pvt->owner);
 	}
-	return res;
+	return 0;
 }
 
 /*!

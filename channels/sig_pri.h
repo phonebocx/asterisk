@@ -139,6 +139,16 @@ struct sig_pri_callback {
 
 	void (* const open_media)(void *pvt);
 
+	/*!
+	 * \brief Post an AMI B channel association event.
+	 *
+	 * \param pvt Private structure of the user of this module.
+	 * \param chan Channel associated with the private pointer
+	 *
+	 * \return Nothing
+	 */
+	void (* const ami_channel_event)(void *pvt, struct ast_channel *chan);
+
 	/*! Reference the parent module. */
 	void (*module_ref)(void);
 	/*! Unreference the parent module. */
@@ -231,6 +241,17 @@ struct sig_pri_chan {
 	unsigned int progress:1;		/*!< TRUE if the call has seen inband-information progress through the network */
 	unsigned int resetting:1;		/*!< TRUE if this channel is being reset/restarted */
 
+	/*!
+	 * \brief TRUE when this channel is allocated.
+	 *
+	 * \details
+	 * Needed to hold an outgoing channel allocation before the
+	 * owner pointer is created.
+	 *
+	 * \note This is one of several items to check to see if a
+	 * channel is available for use.
+	 */
+	unsigned int allocated:1;
 	unsigned int outgoing:1;
 	unsigned int digital:1;
 	/*! \brief TRUE if this interface has no B channel.  (call hold and call waiting) */
@@ -306,6 +327,10 @@ struct sig_pri_span {
 	int qsigchannelmapping;							/*!< QSIG channel mapping type */
 	int discardremoteholdretrieval;					/*!< shall remote hold or remote retrieval notifications be discarded? */
 	int facilityenable;								/*!< Enable facility IEs */
+#if defined(HAVE_PRI_L2_PERSISTENCE)
+	/*! Layer 2 persistence option. */
+	int l2_persistence;
+#endif	/* defined(HAVE_PRI_L2_PERSISTENCE) */
 	int dchan_logical_span[SIG_PRI_NUM_DCHANS];		/*!< Logical offset the DCHAN sits in */
 	int fds[SIG_PRI_NUM_DCHANS];					/*!< FD's for d-channels */
 
@@ -474,6 +499,7 @@ int sig_pri_indicate(struct sig_pri_chan *p, struct ast_channel *chan, int condi
 
 int sig_pri_answer(struct sig_pri_chan *p, struct ast_channel *ast);
 
+int sig_pri_is_chan_available(struct sig_pri_chan *pvt);
 int sig_pri_available(struct sig_pri_chan **pvt, int is_specific_channel);
 
 void sig_pri_init_pri(struct sig_pri_span *pri);
@@ -485,6 +511,7 @@ int sig_pri_digit_begin(struct sig_pri_chan *pvt, struct ast_channel *ast, char 
 void sig_pri_stop_pri(struct sig_pri_span *pri);
 int sig_pri_start_pri(struct sig_pri_span *pri);
 
+void sig_pri_set_alarm(struct sig_pri_chan *p, int in_alarm);
 void sig_pri_chan_alarm_notify(struct sig_pri_chan *p, int noalarm);
 
 void pri_event_alarm(struct sig_pri_span *pri, int index, int before_start_pri);
@@ -498,6 +525,8 @@ void sig_pri_chan_delete(struct sig_pri_chan *doomed);
 
 int pri_is_up(struct sig_pri_span *pri);
 
+void sig_pri_cli_show_channels_header(int fd);
+void sig_pri_cli_show_channels(int fd, struct sig_pri_span *pri);
 void sig_pri_cli_show_spans(int fd, int span, struct sig_pri_span *pri);
 
 void sig_pri_cli_show_span(int fd, int *dchannels, struct sig_pri_span *pri);

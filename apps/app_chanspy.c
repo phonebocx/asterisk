@@ -29,9 +29,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 299865 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <ctype.h>
 #include <errno.h>
@@ -404,6 +408,7 @@ struct chanspy_translation_helper {
 	struct ast_audiohook bridge_whisper_audiohook;
 	int fd;
 	int volfactor;
+	struct ast_flags flags;
 };
 
 struct spy_dtmf_options {
@@ -435,7 +440,7 @@ static int spy_generate(struct ast_channel *chan, void *data, int len, int sampl
 		return -1;
 	}
 
-	if (ast_test_flag(&csth->spy_audiohook, OPTION_READONLY)) {
+	if (ast_test_flag(&csth->flags, OPTION_READONLY)) {
 		/* Option 'o' was set, so don't mix channel audio */
 		f = ast_audiohook_read_frame(&csth->spy_audiohook, samples, AST_AUDIOHOOK_DIRECTION_READ, AST_FORMAT_SLINEAR);
 	} else {
@@ -536,7 +541,7 @@ static int channel_spy(struct ast_channel *chan, struct ast_autochan *spyee_auto
 			spyer_name, name);
 
 	memset(&csth, 0, sizeof(csth));
-	ast_copy_flags(&csth.spy_audiohook, flags, AST_FLAGS_ALL);
+	ast_copy_flags(&csth.flags, flags, AST_FLAGS_ALL);
 
 	ast_audiohook_init(&csth.spy_audiohook, AST_AUDIOHOOK_TYPE_SPY, "ChanSpy");
 
@@ -707,6 +712,7 @@ static struct ast_autochan *next_channel(struct ast_channel_iterator *iter,
 		struct ast_autochan *autochan, struct ast_channel *chan)
 {
 	struct ast_channel *next;
+	struct ast_autochan *autochan_store;
 	const size_t pseudo_len = strlen("DAHDI/pseudo");
 
 	if (!iter) {
@@ -724,7 +730,10 @@ redo:
 		goto redo;
 	}
 
-	return ast_autochan_setup(next);
+	autochan_store = ast_autochan_setup(next);
+	ast_channel_unref(next);
+
+	return autochan_store;
 }
 
 static int common_exec(struct ast_channel *chan, struct ast_flags *flags,

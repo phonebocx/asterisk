@@ -34,9 +34,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 303907 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 329991 $")
 
 #include "asterisk/io.h"
 #include "asterisk/file.h"
@@ -971,6 +975,7 @@ static void set_channel_variables(struct ast_channel *chan, struct ast_fax_sessi
 	pbx_builtin_setvar_helper(chan, "FAXERROR", S_OR(details->error, NULL));
 	pbx_builtin_setvar_helper(chan, "FAXSTATUSSTRING", S_OR(details->resultstr, NULL));
 	pbx_builtin_setvar_helper(chan, "REMOTESTATIONID", S_OR(details->remotestationid, NULL));
+	pbx_builtin_setvar_helper(chan, "LOCALSTATIONID", S_OR(details->localstationid, NULL));
 	pbx_builtin_setvar_helper(chan, "FAXBITRATE", S_OR(details->transfer_rate, NULL));
 	pbx_builtin_setvar_helper(chan, "FAXRESOLUTION", S_OR(details->resolution, NULL));
 
@@ -1550,6 +1555,7 @@ static int receivefax_exec(struct ast_channel *chan, const char *data)
 	/* initialize output channel variables */
 	pbx_builtin_setvar_helper(chan, "FAXSTATUS", "FAILED");
 	pbx_builtin_setvar_helper(chan, "REMOTESTATIONID", NULL);
+	pbx_builtin_setvar_helper(chan, "LOCALSTATIONID", NULL);
 	pbx_builtin_setvar_helper(chan, "FAXPAGES", "0");
 	pbx_builtin_setvar_helper(chan, "FAXBITRATE", NULL);
 	pbx_builtin_setvar_helper(chan, "FAXRESOLUTION", NULL);
@@ -1762,11 +1768,11 @@ static int receivefax_exec(struct ast_channel *chan, const char *data)
 		      info.context,
 		      info.exten,
 		      info.cid,
-		      pbx_builtin_getvar_helper(chan, "REMOTESTATIONID"),
-		      pbx_builtin_getvar_helper(chan, "LOCALSTATIONID"),
-		      pbx_builtin_getvar_helper(chan, "FAXPAGES"),
-		      pbx_builtin_getvar_helper(chan, "FAXRESOLUTION"),
-		      pbx_builtin_getvar_helper(chan, "FAXBITRATE"),
+		      S_OR(pbx_builtin_getvar_helper(chan, "REMOTESTATIONID"), ""),
+		      S_OR(pbx_builtin_getvar_helper(chan, "LOCALSTATIONID"), ""),
+		      S_OR(pbx_builtin_getvar_helper(chan, "FAXPAGES"), ""),
+		      S_OR(pbx_builtin_getvar_helper(chan, "FAXRESOLUTION"), ""),
+		      S_OR(pbx_builtin_getvar_helper(chan, "FAXBITRATE"), ""),
 		      args.filename);
 	ast_channel_unlock(chan);
 
@@ -2021,6 +2027,7 @@ static int sendfax_exec(struct ast_channel *chan, const char *data)
 	/* initialize output channel variables */
 	pbx_builtin_setvar_helper(chan, "FAXSTATUS", "FAILED");
 	pbx_builtin_setvar_helper(chan, "REMOTESTATIONID", NULL);
+	pbx_builtin_setvar_helper(chan, "LOCALSTATIONID", NULL);
 	pbx_builtin_setvar_helper(chan, "FAXPAGES", "0");
 	pbx_builtin_setvar_helper(chan, "FAXBITRATE", NULL);
 	pbx_builtin_setvar_helper(chan, "FAXRESOLUTION", NULL);
@@ -2263,11 +2270,11 @@ static int sendfax_exec(struct ast_channel *chan, const char *data)
 		      info.context,
 		      info.exten,
 		      info.cid,
-		      pbx_builtin_getvar_helper(chan, "REMOTESTATIONID"),
-		      pbx_builtin_getvar_helper(chan, "LOCALSTATIONID"),
-		      pbx_builtin_getvar_helper(chan, "FAXPAGES"),
-		      pbx_builtin_getvar_helper(chan, "FAXRESOLUTION"),
-		      pbx_builtin_getvar_helper(chan, "FAXBITRATE"),
+		      S_OR(pbx_builtin_getvar_helper(chan, "REMOTESTATIONID"), ""),
+		      S_OR(pbx_builtin_getvar_helper(chan, "LOCALSTATIONID"), ""),
+		      S_OR(pbx_builtin_getvar_helper(chan, "FAXPAGES"), ""),
+		      S_OR(pbx_builtin_getvar_helper(chan, "FAXRESOLUTION"), ""),
+		      S_OR(pbx_builtin_getvar_helper(chan, "FAXBITRATE"), ""),
 		      filenames);
 	ast_channel_unlock(chan);
 
@@ -2321,9 +2328,7 @@ static char *fax_session_tab_complete(struct ast_cli_args *a)
 		}
 		ao2_ref(s, -1);
 	}
-	if (ao2_iterator_destroy != NULL) {
-		ao2_iterator_destroy(&i);
-	}
+	ao2_iterator_destroy(&i);
 	return name;
 }
 
@@ -2557,9 +2562,7 @@ static char *cli_fax_show_sessions(struct ast_cli_entry *e, int cmd, struct ast_
 			ast_log(LOG_ERROR, "error printing filenames for 'fax show sessions' command");
 			ao2_unlock(s);
 			ao2_ref(s, -1);
-			if (ao2_iterator_destroy != NULL) {
-				ao2_iterator_destroy(&i);
-			}
+			ao2_iterator_destroy(&i);
 			return CLI_FAILURE;
 		}
 
@@ -2573,9 +2576,7 @@ static char *cli_fax_show_sessions(struct ast_cli_entry *e, int cmd, struct ast_
 		ao2_unlock(s);
 		ao2_ref(s, -1);
 	}
-	if (ao2_iterator_destroy != NULL) {
-		ao2_iterator_destroy(&i);
-	}
+	ao2_iterator_destroy(&i);
 	session_count = ao2_container_count(faxregistry.container);
 	ast_cli(a->fd, "\n%d FAX sessions\n\n", session_count);
 
@@ -2612,6 +2613,12 @@ static int set_config(const char *config_file)
 		ast_log(LOG_NOTICE, "Configuration file '%s' not found, using default options.\n", config_file);
 		return 0;
 	}
+
+	if (cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_NOTICE, "Configuration file '%s' is invalid, using default options.\n", config_file);
+		return 0;
+	}
+
 	if (cfg == CONFIG_STATUS_FILEUNCHANGED) {
 		ast_clear_flag(&config_flags, CONFIG_FLAG_FILEUNCHANGED);
 		cfg = ast_config_load2(config_file, "res_fax", config_flags);

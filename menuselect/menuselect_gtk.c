@@ -268,9 +268,9 @@ int run_menu(void)
 			char dep_buf[64] = "";
 			char use_buf[64] = "";
 			char cnf_buf[64] = "";
-			struct depend *dep;
-			struct use *use;
-			struct conflict *cnf;
+			struct reference *dep;
+			struct reference *use;
+			struct reference *cnf;
 
 			AST_LIST_TRAVERSE(&mem->deps, dep, list) {
 				strncat(dep_buf, dep->displayname, sizeof(dep_buf) - strlen(dep_buf) - 1);

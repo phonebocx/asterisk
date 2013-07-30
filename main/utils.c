@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 304950 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 322585 $")
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -403,6 +403,37 @@ char *ast_uri_encode(const char *string, char *outbuf, int buflen, int do_specia
 			out += sprintf(out, "%%%02X", (unsigned char) *ptr);
 		} else {
 			*out = *ptr;	/* Continue copying the string */
+			out++;
+		}
+		ptr++;
+	}
+
+	if (buflen) {
+		*out = '\0';
+	}
+
+	return outbuf;
+}
+
+/*! \brief escapes characters specified for quoted portions of sip messages */
+char *ast_escape_quoted(const char *string, char *outbuf, int buflen)
+{
+	const char *ptr  = string;
+	char *out = outbuf;
+	char *allow = "\t\v !"; /* allow LWS (minus \r and \n) and "!" */
+
+	while (*ptr && out - outbuf < buflen - 1) {
+		if (!(strchr(allow, *ptr))
+			&& !(*ptr >= '#' && *ptr <= '[') /* %x23 - %x5b */
+			&& !(*ptr >= ']' && *ptr <= '~') /* %x5d - %x7e */
+			&& !((unsigned char) *ptr > 0x7f)) {             /* UTF8-nonascii */
+
+			if (out - outbuf >= buflen - 2) {
+				break;
+			}
+			out += sprintf(out, "\\%c", (unsigned char) *ptr);
+		} else {
+			*out = *ptr;
 			out++;
 		}
 		ptr++;
@@ -878,7 +909,7 @@ static char *handle_show_locks(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	AST_LIST_TRAVERSE(&lock_infos, lock_info, entry) {
 		int i;
 		if (lock_info->num_locks) {
-			ast_str_append(&str, 0, "=== Thread ID: %ld (%s)\n", (long) lock_info->thread_id,
+			ast_str_append(&str, 0, "=== Thread ID: 0x%lx (%s)\n", (long) lock_info->thread_id,
 				lock_info->thread_name);
 			pthread_mutex_lock(&lock_info->lock);
 			for (i = 0; str && i < lock_info->num_locks; i++) {
@@ -1958,7 +1989,7 @@ int ast_utils_init(void)
  */
 int ast_parse_digest(const char *digest, struct ast_http_digest *d, int request, int pedantic) {
 	int i;
-	char *c, key[512], val[512], tmp[512];
+	char *c, key[512], val[512];
 	struct ast_str *str = ast_str_create(16);
 
 	if (ast_strlen_zero(digest) || !d || !str) {
@@ -1970,7 +2001,7 @@ int ast_parse_digest(const char *digest, struct ast_http_digest *d, int request,
 
 	c = ast_skip_blanks(ast_str_buffer(str));
 
-	if (strncasecmp(tmp, "Digest ", strlen("Digest "))) {
+	if (strncasecmp(c, "Digest ", strlen("Digest "))) {
 		ast_log(LOG_WARNING, "Missing Digest.\n");
 		ast_free(str);
 		return -1;

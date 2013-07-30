@@ -19,6 +19,7 @@
 
 /*** MODULEINFO
 	<defaultenabled>no</defaultenabled>
+	<support_level>extended</support_level>
  ***/
 
 #include "chan_ooh323.h"
@@ -514,6 +515,7 @@ static struct ooh323_pvt *ooh323_alloc(int callref, char *callToken)
 	}
 
 	ast_udptl_set_error_correction_scheme(pvt->udptl, UDPTL_ERROR_CORRECTION_NONE);
+	ast_udptl_set_far_max_datagram(pvt->udptl, 144);
 	pvt->faxmode = 0;
 	pvt->t38support = gT38Support;
 	pvt->rtptimeout = gRTPTimeout;
@@ -1078,6 +1080,7 @@ static int ooh323_hangup(struct ast_channel *ast)
 static int ooh323_answer(struct ast_channel *ast)
 {
 	struct ooh323_pvt *p = ast->tech_pvt;
+	char *callToken = (char *)NULL;
 
 	if (gH323Debug)
 		ast_verbose("--- ooh323_answer\n");
@@ -1085,13 +1088,26 @@ static int ooh323_answer(struct ast_channel *ast)
 	if (p) {
 
 		ast_mutex_lock(&p->lock);
+		callToken = (p->callToken ? strdup(p->callToken) : NULL);
 		if (ast->_state != AST_STATE_UP) {
 			ast_channel_lock(ast);
+			if (!p->alertsent) {
+	    			if (gH323Debug) {
+					ast_debug(1, "Sending forced ringback for %s, res = %d\n", 
+						callToken, ooManualRingback(callToken));
+				} else {
+	    				ooManualRingback(callToken);
+				}
+				p->alertsent = 1;
+			}
 			ast_setstate(ast, AST_STATE_UP);
       			if (option_debug)
 				ast_debug(1, "ooh323_answer(%s)\n", ast->name);
 			ast_channel_unlock(ast);
 			ooAnswerCall(p->callToken);
+		}
+		if (callToken) {
+			free(callToken);
 		}
 		ast_mutex_unlock(&p->lock);
 	}
@@ -1191,6 +1207,7 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 
 	struct ooh323_pvt *p = (struct ooh323_pvt *) ast->tech_pvt;
 	char *callToken = (char *)NULL;
+	int res = -1;
 
 	if (!p) return -1;
 
@@ -1250,14 +1267,19 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 			} else {
 	    				ooManualRingback(callToken);
 			}
+			p->alertsent = 1;
 		}
 	    }
 	 break;
 	case AST_CONTROL_SRCUPDATE:
-		ast_rtp_instance_update_source(p->rtp);
+		if (p->rtp) {
+			ast_rtp_instance_update_source(p->rtp);
+		}
 		break;
 	case AST_CONTROL_SRCCHANGE:
-		ast_rtp_instance_change_source(p->rtp);
+		if (p->rtp) {
+			ast_rtp_instance_change_source(p->rtp);
+		}
 		break;
 	case AST_CONTROL_CONNECTED_LINE:
 		if (!ast->connected.id.name.valid
@@ -1292,6 +1314,7 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 				if (!p->chmodepend && !p->faxmode) {
 					ooRequestChangeMode(p->callToken, 1);
 					p->chmodepend = 1;
+					res = 0;
 				}
 				break;
 
@@ -1300,6 +1323,7 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 				if (!p->chmodepend && p->faxmode) {
 					ooRequestChangeMode(p->callToken, 0);
 					p->chmodepend = 1;
+					res = 0;
 				}
 				break;
 
@@ -1325,7 +1349,7 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 		ast_verbose("++++  ooh323_indicate %d on %s\n", condition, callToken);
 
    	free(callToken);
-	return -1;
+	return res;
 }
 
 static int ooh323_queryoption(struct ast_channel *ast, int option, void *data, int *datalen)
@@ -4131,11 +4155,14 @@ void setup_udptl_connection(ooCallData *call, const char *remoteIp,
 	them.sin_port = htons(remotePort);
 	ast_sockaddr_from_sin(&them_addr, &them);
 	ast_udptl_set_peer(p->udptl, &them_addr);
+	ast_udptl_set_tag(p->udptl, "%s", p->owner->name);
 	p->t38_tx_enable = 1;
 	p->lastTxT38 = time(NULL);
 	if (p->t38support == T38_ENABLED) {
 		struct ast_control_t38_parameters parameters = { .request_response = 0 };
 		parameters.request_response = AST_T38_NEGOTIATED;
+		parameters.max_ifp = ast_udptl_get_far_max_ifp(p->udptl);
+		parameters.rate = AST_T38_RATE_14400;
 		ast_queue_control_data(p->owner, AST_CONTROL_T38_PARAMETERS, &parameters, sizeof(parameters));
 	}
 	if (gH323Debug)
@@ -4325,6 +4352,16 @@ void onModeChanged(ooCallData *call, int t38mode) {
 
 			struct ast_control_t38_parameters parameters = { .request_response = 0 };
 			parameters.request_response = AST_T38_REQUEST_NEGOTIATE;
+			if (call->T38FarMaxDatagram) {
+				ast_udptl_set_far_max_datagram(p->udptl, call->T38FarMaxDatagram);
+			} else {
+				ast_udptl_set_far_max_datagram(p->udptl, 144);
+			}
+			if (call->T38Version) {
+				parameters.version = call->T38Version;
+			}
+			parameters.max_ifp = ast_udptl_get_far_max_ifp(p->udptl);
+			parameters.rate = AST_T38_RATE_14400;
 			ast_queue_control_data(p->owner, AST_CONTROL_T38_PARAMETERS, 
 							&parameters, sizeof(parameters));
 			p->faxmode = 1;
@@ -4334,6 +4371,8 @@ void onModeChanged(ooCallData *call, int t38mode) {
 		if (p->t38support == T38_ENABLED) {
 			struct ast_control_t38_parameters parameters = { .request_response = 0 };
 			parameters.request_response = AST_T38_REQUEST_TERMINATE;
+			parameters.max_ifp = ast_udptl_get_far_max_ifp(p->udptl);
+			parameters.rate = AST_T38_RATE_14400;
 			ast_queue_control_data(p->owner, AST_CONTROL_T38_PARAMETERS, 
 							&parameters, sizeof(parameters));
 		}

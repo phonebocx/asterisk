@@ -23,9 +23,13 @@
  * \todo Support writing attendees
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 304908 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/calendar.h"
@@ -1518,7 +1522,7 @@ static char *handle_show_calendar(struct ast_cli_entry *e, int cmd, struct ast_c
 		ast_cli(a->fd, FORMAT2, "Description", event->description);
 		ast_cli(a->fd, FORMAT2, "Organizer", event->organizer);
 		ast_cli(a->fd, FORMAT2, "Location", event->location);
-		ast_cli(a->fd, FORMAT2, "Cartegories", event->categories);
+		ast_cli(a->fd, FORMAT2, "Categories", event->categories);
 		ast_cli(a->fd, "%-12.12s: %d\n", "Priority", event->priority);
 		ast_cli(a->fd, FORMAT2, "UID", event->uid);
 		ast_cli(a->fd, FORMAT2, "Start", epoch_to_string(buf, sizeof(buf), event->start));
@@ -1665,7 +1669,7 @@ static void *do_refresh(void *data)
 	for (;;) {
 		struct timeval now = ast_tvnow();
 		struct timespec ts = {0,};
-		int res, wait;
+		int wait;
 
 		ast_mutex_lock(&refreshlock);
 
@@ -1674,7 +1678,7 @@ static void *do_refresh(void *data)
 		}
 
 		ts.tv_sec = (now.tv_sec + wait / 1000) + 1;
-		res = ast_cond_timedwait(&refresh_condition, &refreshlock, &ts);
+		ast_cond_timedwait(&refresh_condition, &refreshlock, &ts);
 
 		ast_mutex_unlock(&refreshlock);
 
@@ -1701,10 +1705,9 @@ static int unload_module(void)
 	ao2_callback(calendars, OBJ_UNLINK | OBJ_NODATA | OBJ_MULTIPLE, NULL, NULL);
 
 	AST_LIST_LOCK(&techs);
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&techs, tech, list) {
+	AST_LIST_TRAVERSE(&techs, tech, list) {
 		ast_unload_resource(tech->module, 0);
 	}
-	AST_LIST_TRAVERSE_SAFE_END;
 	AST_LIST_UNLOCK(&techs);
 
 	return 0;

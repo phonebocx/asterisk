@@ -53,10 +53,11 @@
 	<depend>isdnnet</depend>
 	<depend>misdn</depend>
 	<depend>suppserv</depend>
+	<support_level>extended</support_level>
  ***/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 296582 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <pthread.h>
 #include <sys/socket.h>
@@ -679,7 +680,7 @@ static ast_mutex_t cl_te_lock;
 static enum event_response_e
 cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data);
 
-static void send_cause2ast(struct ast_channel *ast, struct misdn_bchannel*bc, struct chan_list *ch);
+static int send_cause2ast(struct ast_channel *ast, struct misdn_bchannel *bc, struct chan_list *ch);
 
 static void cl_queue_chan(struct chan_list *chan);
 
@@ -8365,8 +8366,7 @@ static void hangup_chan(struct chan_list *ch, struct misdn_bchannel *bc)
 		cb_log(2, port, " --> hangup\n");
 		ch->need_hangup = 0;
 		ch->need_queue_hangup = 0;
-		if (ch->ast) {
-			send_cause2ast(ch->ast, bc, ch);
+		if (ch->ast && send_cause2ast(ch->ast, bc, ch)) {
 			ast_hangup(ch->ast);
 		}
 		return;
@@ -8374,13 +8374,15 @@ static void hangup_chan(struct chan_list *ch, struct misdn_bchannel *bc)
 
 	if (!ch->need_queue_hangup) {
 		cb_log(2, port, " --> No need to queue hangup\n");
+		return;
 	}
 
 	ch->need_queue_hangup = 0;
 	if (ch->ast) {
-		send_cause2ast(ch->ast, bc, ch);
-		ast_queue_hangup_with_cause(ch->ast, bc->cause);
-		cb_log(2, port, " --> queue_hangup\n");
+		if (send_cause2ast(ch->ast, bc, ch)) {
+			ast_queue_hangup_with_cause(ch->ast, bc->cause);
+			cb_log(2, port, " --> queue_hangup\n");
+		}
 	} else {
 		cb_log(1, port, "Cannot hangup chan, no ast\n");
 	}
@@ -8654,26 +8656,31 @@ static void do_immediate_setup(struct misdn_bchannel *bc, struct chan_list *ch, 
 	}
 }
 
+/*!
+ * \retval -1 if can hangup after calling.
+ * \retval 0 if cannot hangup after calling.
+ */
+static int send_cause2ast(struct ast_channel *ast, struct misdn_bchannel *bc, struct chan_list *ch)
+{
+	int can_hangup;
 
-
-static void send_cause2ast(struct ast_channel *ast, struct misdn_bchannel *bc, struct chan_list *ch) {
 	if (!ast) {
 		chan_misdn_log(1, 0, "send_cause2ast: No Ast\n");
-		return;
+		return 0;
 	}
 	if (!bc) {
 		chan_misdn_log(1, 0, "send_cause2ast: No BC\n");
-		return;
+		return 0;
 	}
 	if (!ch) {
 		chan_misdn_log(1, 0, "send_cause2ast: No Ch\n");
-		return;
+		return 0;
 	}
 
 	ast->hangupcause = bc->cause;
 
+	can_hangup = -1;
 	switch (bc->cause) {
-
 	case AST_CAUSE_UNALLOCATED:
 	case AST_CAUSE_NO_ROUTE_TRANSIT_NET:
 	case AST_CAUSE_NO_ROUTE_DESTINATION:
@@ -8700,15 +8707,16 @@ static void send_cause2ast(struct ast_channel *ast, struct misdn_bchannel *bc, s
 			chan_misdn_log(1, bc ? bc->port : 0, "Queued busy already\n");
 			break;
 		}
-
-		chan_misdn_log(1, bc ? bc->port : 0, " --> * SEND: Queue Busy pid:%d\n", bc ? bc->pid : -1);
-
-		ast_queue_control(ast, AST_CONTROL_BUSY);
-
 		ch->need_busy = 0;
 
+		chan_misdn_log(1, bc ? bc->port : 0, " --> * SEND: Queue Busy pid:%d\n", bc ? bc->pid : -1);
+		ast_queue_control(ast, AST_CONTROL_BUSY);
+
+		/* The BUSY is likely to cause a hangup or the user needs to hear it. */
+		can_hangup = 0;
 		break;
 	}
+	return can_hangup;
 }
 
 
@@ -12432,38 +12440,33 @@ int chan_misdn_jb_empty(struct misdn_bchannel *bc, char *buf, int len)
 /* allocates the jb-structure and initialize the elements*/
 struct misdn_jb *misdn_jb_init(int size, int upper_threshold)
 {
-	int i;
 	struct misdn_jb *jb;
 
-	jb = ast_malloc(sizeof(*jb));
+	jb = ast_calloc(1, sizeof(*jb));
 	if (!jb) {
 	    chan_misdn_log(-1, 0, "No free Mem for jb\n");
 	    return NULL;
 	}
 	jb->size = size;
 	jb->upper_threshold = upper_threshold;
-	jb->wp = 0;
-	jb->rp = 0;
-	jb->state_full = 0;
-	jb->state_empty = 0;
-	jb->bytes_wrote = 0;
-	jb->samples = ast_malloc(size * sizeof(char));
+	//jb->wp = 0;
+	//jb->rp = 0;
+	//jb->state_full = 0;
+	//jb->state_empty = 0;
+	//jb->bytes_wrote = 0;
+	jb->samples = ast_calloc(size, sizeof(*jb->samples));
 	if (!jb->samples) {
 		ast_free(jb);
 		chan_misdn_log(-1, 0, "No free Mem for jb->samples\n");
 		return NULL;
 	}
 
-	jb->ok = ast_malloc(size * sizeof(char));
+	jb->ok = ast_calloc(size, sizeof(*jb->ok));
 	if (!jb->ok) {
 		ast_free(jb->samples);
 		ast_free(jb);
 		chan_misdn_log(-1, 0, "No free Mem for jb->ok\n");
 		return NULL;
-	}
-
-	for (i = 0; i < size; i++) {
-		jb->ok[i] = 0;
 	}
 
 	ast_mutex_init(&jb->mutexjb);

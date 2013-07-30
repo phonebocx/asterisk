@@ -25,10 +25,11 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 304097 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332817 $")
 
 #include <dirent.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <math.h>
 
 #include "asterisk/_private.h"	/* declare ast_file_init() */
@@ -291,6 +292,8 @@ static int exts_compare(const char *exts, const char *type)
 static void filestream_destructor(void *arg)
 {
 	struct ast_filestream *f = arg;
+	int status;
+	int pid = -1;
 
 	/* Stop a running stream if there is one */
 	if (f->owner) {
@@ -308,8 +311,14 @@ static void filestream_destructor(void *arg)
 		ast_translator_free_path(f->trans);
 
 	if (f->realfilename && f->filename) {
-		if (ast_safe_fork(0) == 0) {
+		pid = ast_safe_fork(0);
+		if (!pid) {
 			execl("/bin/mv", "mv", "-f", f->filename, f->realfilename, SENTINEL);
+			_exit(1);
+		}
+		else if (pid > 0) {
+			/* Block the parent until the move is complete.*/
+			waitpid(pid, &status, 0);
 		}
 	}
 
@@ -672,7 +681,7 @@ struct ast_filestream *ast_openvstream(struct ast_channel *chan, const char *fil
 	if (buf == NULL)
 		return NULL;
 
-	for (format = AST_FORMAT_AUDIO_MASK + 1; format <= AST_FORMAT_VIDEO_MASK; format = format << 1) {
+	for (format = AST_FORMAT_FIRST_VIDEO_BIT; format <= AST_FORMAT_VIDEO_MASK; format = format << 1) {
 		int fd;
 		const char *fmt;
 
@@ -1347,6 +1356,7 @@ int ast_stream_and_wait(struct ast_channel *chan, const char *file, const char *
 {
 	int res = 0;
 	if (!ast_strlen_zero(file)) {
+		ast_test_suite_event_notify("PLAYBACK", "Message: %s", file);
 		res = ast_streamfile(chan, file, chan->language);
 		if (!res) {
 			res = ast_waitstream(chan, digits);

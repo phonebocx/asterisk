@@ -41,9 +41,13 @@
 /*! @{
  Doxygen group */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 315145 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332817 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -133,6 +137,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 315145 $")
 		<syntax>
 			<parameter name="ActionID">
 				<para>ActionID for this transaction. Will be returned.</para>
+			</parameter>
+			<parameter name="Username" required="true">
+				<para>Username to login with as specified in manager.conf.</para>
+			</parameter>
+			<parameter name="Secret">
+				<para>Secret to login with as specified in manager.conf.</para>
 			</parameter>
 		</syntax>
 		<description>
@@ -977,6 +987,7 @@ struct mansession {
 	struct ast_tcptls_session_instance *tcptls_session;
 	FILE *f;
 	int fd;
+	int write_error:1;
 	struct manager_custom_hook *hook;
 	ast_mutex_t lock;
 };
@@ -1125,6 +1136,7 @@ static const struct permalias {
 	{ EVENT_FLAG_AGI, "agi" },
 	{ EVENT_FLAG_CC, "cc" },
 	{ EVENT_FLAG_AOC, "aoc" },
+	{ EVENT_FLAG_TEST, "test" },
 	{ INT_MAX, "all" },
 	{ 0, "none" },
 };
@@ -1726,7 +1738,7 @@ static const char *__astman_get_header(const struct message *m, char *var, int m
 		}
 	}
 
-	return "";
+	return result;
 }
 
 /*
@@ -1850,6 +1862,10 @@ int ast_hook_send_action(struct manager_custom_hook *hook, const char *msg)
  */
 static int send_string(struct mansession *s, char *string)
 {
+	int res;
+	FILE *f = s->f ? s->f : s->session->f;
+	int fd = s->f ? s->fd : s->session->fd;
+
 	/* It's a result from one of the hook's action invocation */
 	if (s->hook) {
 		/*
@@ -1858,11 +1874,13 @@ static int send_string(struct mansession *s, char *string)
 		 */
 		s->hook->helper(EVENT_FLAG_HOOKRESPONSE, "HookResponse", string);
 		return 0;
-	} else if (s->f) {
-		return ast_careful_fwrite(s->f, s->fd, string, strlen(string), s->session->writetimeout);
-	} else {
-		return ast_careful_fwrite(s->session->f, s->session->fd, string, strlen(string), s->session->writetimeout);
 	}
+       
+	if ((res = ast_careful_fwrite(f, fd, string, strlen(string), s->session->writetimeout))) {
+		s->write_error = 1;
+	}
+
+	return res;
 }
 
 /*!
@@ -2881,6 +2899,14 @@ static int action_events(struct mansession *s, const struct message *m)
 {
 	const char *mask = astman_get_header(m, "EventMask");
 	int res, x;
+	const char *id = astman_get_header(m, "ActionID");
+	char id_text[256];
+
+	if (!ast_strlen_zero(id)) {
+		snprintf(id_text, sizeof(id_text), "ActionID: %s\r\n", id);
+	} else {
+		id_text[0] = '\0';
+	}
 
 	res = set_eventmask(s, mask);
 	if (broken_events_action) {
@@ -2893,20 +2919,20 @@ static int action_events(struct mansession *s, const struct message *m)
 					return 0;
 				}
 			}
-			astman_append(s, "Response: Success\r\n"
-					 "Events: On\r\n\r\n");
+			astman_append(s, "Response: Success\r\n%s"
+					 "Events: On\r\n\r\n", id_text);
 		} else if (res == 0)
-			astman_append(s, "Response: Success\r\n"
-					 "Events: Off\r\n\r\n");
+			astman_append(s, "Response: Success\r\n%s"
+					 "Events: Off\r\n\r\n", id_text);
 		return 0;
 	}
 
 	if (res > 0)
-		astman_append(s, "Response: Success\r\n"
-				 "Events: On\r\n\r\n");
+		astman_append(s, "Response: Success\r\n%s"
+				 "Events: On\r\n\r\n", id_text);
 	else if (res == 0)
-		astman_append(s, "Response: Success\r\n"
-				 "Events: Off\r\n\r\n");
+		astman_append(s, "Response: Success\r\n%s"
+				 "Events: Off\r\n\r\n", id_text);
 	else
 		astman_send_error(s, m, "Invalid event mask");
 
@@ -2939,8 +2965,13 @@ static int action_login(struct mansession *s, const struct message *m)
 		ast_verb(2, "%sManager '%s' logged on from %s\n", (s->session->managerid ? "HTTP " : ""), s->session->username, ast_inet_ntoa(s->session->sin.sin_addr));
 	}
 	astman_send_ack(s, m, "Authentication accepted");
-	if (ast_test_flag(&ast_options, AST_OPT_FLAG_FULLY_BOOTED)) {
-		manager_event(EVENT_FLAG_SYSTEM, "FullyBooted", "Status: Fully Booted\r\n");
+	if ((s->session->send_events & EVENT_FLAG_SYSTEM)
+		&& ast_test_flag(&ast_options, AST_OPT_FLAG_FULLY_BOOTED)) {
+		struct ast_str *auth = ast_str_alloca(80);
+		const char *cat_str = authority_to_str(EVENT_FLAG_SYSTEM, &auth);
+		astman_append(s, "Event: FullyBooted\r\n"
+			"Privilege: %s\r\n"
+			"Status: Fully Booted\r\n\r\n", cat_str);
 	}
 	return 0;
 }
@@ -3172,6 +3203,8 @@ static int action_status(struct mansession *s, const struct message *m)
 			"Channel: %s\r\n"
 			"CallerIDNum: %s\r\n"
 			"CallerIDName: %s\r\n"
+			"ConnectedLineNum: %s\r\n"
+			"ConnectedLineName: %s\r\n"
 			"Accountcode: %s\r\n"
 			"ChannelState: %d\r\n"
 			"ChannelStateDesc: %s\r\n"
@@ -3185,8 +3218,10 @@ static int action_status(struct mansession *s, const struct message *m)
 			"%s"
 			"\r\n",
 			c->name,
-			S_COR(c->caller.id.number.valid, c->caller.id.number.str, ""),
-			S_COR(c->caller.id.name.valid, c->caller.id.name.str, ""),
+			S_COR(c->caller.id.number.valid, c->caller.id.number.str, "<unknown>"),
+			S_COR(c->caller.id.name.valid, c->caller.id.name.str, "<unknown>"),
+			S_COR(c->connected.id.number.valid, c->connected.id.number.str, "<unknown>"),
+			S_COR(c->connected.id.name.valid, c->connected.id.name.str, "<unknown>"),
 			c->accountcode,
 			c->_state,
 			ast_state2str(c->_state), c->context,
@@ -3198,6 +3233,8 @@ static int action_status(struct mansession *s, const struct message *m)
 				"Channel: %s\r\n"
 				"CallerIDNum: %s\r\n"
 				"CallerIDName: %s\r\n"
+				"ConnectedLineNum: %s\r\n"
+				"ConnectedLineName: %s\r\n"
 				"Account: %s\r\n"
 				"State: %s\r\n"
 				"%s"
@@ -3208,6 +3245,8 @@ static int action_status(struct mansession *s, const struct message *m)
 				c->name,
 				S_COR(c->caller.id.number.valid, c->caller.id.number.str, "<unknown>"),
 				S_COR(c->caller.id.name.valid, c->caller.id.name.str, "<unknown>"),
+				S_COR(c->connected.id.number.valid, c->connected.id.number.str, "<unknown>"),
+				S_COR(c->connected.id.name.valid, c->connected.id.name.str, "<unknown>"),
 				c->accountcode,
 				ast_state2str(c->_state), bridge, c->uniqueid,
 				ast_str_buffer(str), idText);
@@ -4067,11 +4106,12 @@ static int blackfilter_cmp_fn(void *obj, void *arg, void *data, int flags)
 	const char *eventdata = arg;
 	int *result = data;
 
-	if (regexec(regex_filter, eventdata, 0, NULL, 0)) {
-		*result = 1;
+	if (!regexec(regex_filter, eventdata, 0, NULL, 0)) {
+		*result = 0;
 		return (CMP_MATCH | CMP_STOP);
 	}
 
+	*result = 1;
 	return 0;
 }
 
@@ -4296,6 +4336,9 @@ static int action_coreshowchannels(struct mansession *s, const struct message *m
 			"Application: %s\r\n"
 			"ApplicationData: %s\r\n"
 			"CallerIDnum: %s\r\n"
+			"CallerIDname: %s\r\n"
+			"ConnectedLineNum: %s\r\n"
+			"ConnectedLineName: %s\r\n"
 			"Duration: %s\r\n"
 			"AccountCode: %s\r\n"
 			"BridgedChannel: %s\r\n"
@@ -4303,6 +4346,9 @@ static int action_coreshowchannels(struct mansession *s, const struct message *m
 			"\r\n", idText, c->name, c->uniqueid, c->context, c->exten, c->priority, c->_state,
 			ast_state2str(c->_state), c->appl ? c->appl : "", c->data ? S_OR(c->data, "") : "",
 			S_COR(c->caller.id.number.valid, c->caller.id.number.str, ""),
+			S_COR(c->caller.id.name.valid, c->caller.id.name.str, ""),
+			S_COR(c->connected.id.number.valid, c->connected.id.number.str, ""),
+			S_COR(c->connected.id.name.valid, c->connected.id.name.str, ""),
 			durbuf, S_OR(c->accountcode, ""), bc ? bc->name : "", bc ? bc->uniqueid : "");
 
 		ast_channel_unlock(c);
@@ -4394,7 +4440,7 @@ static int manager_moduleload(struct mansession *s, const struct message *m)
 			astman_send_ack(s, m, "Module unloaded.");
 		}
 	} else if (!strcasecmp(loadtype, "reload")) {
-		if (module != NULL) {
+		if (!ast_strlen_zero(module)) {
 			res = ast_module_reload(module);
 			if (res == 0) {
 				astman_send_error(s, m, "No such module.");
@@ -4472,18 +4518,25 @@ static int process_message(struct mansession *s, const struct message *m)
 		}
 		if (s->session->writeperm & tmp->authority || tmp->authority == 0) {
 			call_func = tmp->func;
-		} else {
-			astman_send_error(s, m, "Permission denied");
-			report_req_not_allowed(s, action);
 		}
 		break;
 	}
 	AST_RWLIST_UNLOCK(&actions);
 
-	if (tmp && call_func) {
-		/* call AMI function after actions list are unlocked */
-		ast_debug(1, "Running action '%s'\n", tmp->action);
-		ret = call_func(s, m);
+	if (tmp) {
+		if (call_func) {
+			/* Call our AMI function after we unlock our actions lists */
+			ast_debug(1, "Running action '%s'\n", tmp->action);
+			ret = call_func(s, m);
+		} else {
+			/* If we found our action but don't have a function pointer, access
+			 * was denied, so bail out.
+			 */
+			report_req_not_allowed(s, action);
+			mansession_lock(s);
+			astman_send_error(s, m, "Permission denied");
+			mansession_unlock(s);
+		}
 	} else {
 		char buf[512];
 		if (!tmp) {
@@ -4725,7 +4778,7 @@ static void *session_do(void *data)
 
 	astman_append(&s, "Asterisk Call Manager/%s\r\n", AMI_VERSION);	/* welcome prompt */
 	for (;;) {
-		if ((res = do_message(&s)) < 0) {
+		if ((res = do_message(&s)) < 0 || s.write_error) {
 			break;
 		}
 	}
@@ -5426,6 +5479,39 @@ static void xml_translate(struct ast_str **out, char *in, struct ast_variable *g
 	}
 }
 
+static void process_output(struct mansession *s, struct ast_str **out, struct ast_variable *params, enum output_format format)
+{
+	char *buf;
+	size_t l;
+
+	if (!s->f)
+		return;
+
+	/* Ensure buffer is NULL-terminated */
+	fprintf(s->f, "%c", 0);
+	fflush(s->f);
+
+	if ((l = ftell(s->f))) {
+		if (MAP_FAILED == (buf = mmap(NULL, l, PROT_READ | PROT_WRITE, MAP_PRIVATE, s->fd, 0))) {
+			ast_log(LOG_WARNING, "mmap failed.  Manager output was not processed\n");
+		} else {
+			if (format == FORMAT_XML || format == FORMAT_HTML) {
+				xml_translate(out, buf, params, format);
+			} else {
+				ast_str_append(out, 0, "%s", buf);
+			}
+			munmap(buf, l);
+		}
+	} else if (format == FORMAT_XML || format == FORMAT_HTML) {
+		xml_translate(out, "", params, format);
+	}
+
+	fclose(s->f);
+	s->f = NULL;
+	close(s->fd);
+	s->fd = -1;
+}
+
 static int generic_http_callback(struct ast_tcptls_session_instance *ser,
 					     enum ast_http_method method,
 					     enum output_format format,
@@ -5575,29 +5661,7 @@ static int generic_http_callback(struct ast_tcptls_session_instance *ser,
 		ast_str_append(&out, 0, ROW_FMT, TEST_STRING);
 	}
 
-	if (s.f != NULL) {	/* have temporary output */
-		char *buf;
-		size_t l;
-
-		if ((l = ftell(s.f))) {
-			if (MAP_FAILED == (buf = mmap(NULL, l + 1, PROT_READ | PROT_WRITE, MAP_PRIVATE, s.fd, 0))) {
-				ast_log(LOG_WARNING, "mmap failed.  Manager output was not processed\n");
-			} else {
-				buf[l] = '\0';
-				if (format == FORMAT_XML || format == FORMAT_HTML) {
-					xml_translate(&out, buf, params, format);
-				} else {
-					ast_str_append(&out, 0, "%s", buf);
-				}
-				munmap(buf, l + 1);
-			}
-		} else if (format == FORMAT_XML || format == FORMAT_HTML) {
-			xml_translate(&out, "", params, format);
-		}
-		fclose(s.f);
-		s.f = NULL;
-		s.fd = -1;
-	}
+	process_output(&s, &out, params, format);
 
 	if (format == FORMAT_XML) {
 		ast_str_append(&out, 0, "</ajax-response>\n");
@@ -5661,7 +5725,7 @@ static int auth_http_callback(struct ast_tcptls_session_instance *ser,
 					     struct ast_variable *headers)
 {
 	struct mansession_session *session = NULL;
-	struct mansession s = { NULL, };
+	struct mansession s = { .session = NULL, .tcptls_session = ser };
 	struct ast_variable *v, *params = get_params;
 	char template[] = "/tmp/ast-http-XXXXXX";	/* template for temporary file */
 	struct ast_str *http_header = NULL, *out = NULL;
@@ -5892,7 +5956,7 @@ static int auth_http_callback(struct ast_tcptls_session_instance *ser,
 		goto auth_callback_out;
 	}
 
-	ast_str_append(&http_header, 0, "Content-type: text/%s", contenttype[format]);
+	ast_str_append(&http_header, 0, "Content-type: text/%s\r\n", contenttype[format]);
 
 	if (format == FORMAT_XML) {
 		ast_str_append(&out, 0, "<ajax-response>\n");
@@ -5909,26 +5973,7 @@ static int auth_http_callback(struct ast_tcptls_session_instance *ser,
 		"<input type=\"submit\" value=\"Send request\" /></th></tr>\r\n");
 	}
 
-	if (s.f != NULL) {	/* have temporary output */
-		char *buf;
-		size_t l = ftell(s.f);
-
-		if (l) {
-			if ((buf = mmap(NULL, l, PROT_READ | PROT_WRITE, MAP_SHARED, s.fd, 0))) {
-				if (format == FORMAT_XML || format == FORMAT_HTML) {
-					xml_translate(&out, buf, params, format);
-				} else {
-					ast_str_append(&out, 0, "%s", buf);
-				}
-				munmap(buf, l);
-			}
-		} else if (format == FORMAT_XML || format == FORMAT_HTML) {
-			xml_translate(&out, "", params, format);
-		}
-		fclose(s.f);
-		s.f = NULL;
-		s.fd = -1;
-	}
+	process_output(&s, &out, params, format);
 
 	if (format == FORMAT_XML) {
 		ast_str_append(&out, 0, "</ajax-response>\n");

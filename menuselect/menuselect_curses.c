@@ -182,9 +182,9 @@ static void draw_main_menu(WINDOW *menu, int curopt)
 static void display_mem_info(WINDOW *menu, struct member *mem, int start, int end)
 {
 	char buf[64];
-	struct depend *dep;
-	struct conflict *con;
-	struct use *use;
+	struct reference *dep;
+	struct reference *con;
+	struct reference *use;
 
 	wmove(menu, end - start + 2, max_x / 2 - 16);
 	wclrtoeol(menu);
@@ -193,6 +193,8 @@ static void display_mem_info(WINDOW *menu, struct member *mem, int start, int en
 	wmove(menu, end - start + 4, max_x / 2 - 16);
 	wclrtoeol(menu);
 	wmove(menu, end - start + 5, max_x / 2 - 16);
+	wclrtoeol(menu);
+	wmove(menu, end - start + 6, max_x / 2 - 16);
 	wclrtoeol(menu);
 
 	if (mem->displayname) {
@@ -232,7 +234,17 @@ static void display_mem_info(WINDOW *menu, struct member *mem, int start, int en
 		}
 		waddstr(menu, buf);
 	}
-
+	{ /* support level */
+		wmove(menu, end - start + 6, max_x / 2 - 16);
+		snprintf(buf, sizeof(buf), "Support Level: %s",
+				(mem->support_level && *mem->support_level) ? mem->support_level : "core");
+		if (mem->replacement && *mem->replacement) {
+			char buf2[64];
+			snprintf(buf2, sizeof(buf2), ", Replaced by: %s", mem->replacement);
+			strncat(buf, buf2, sizeof(buf) - strlen(buf) - 1);
+		}
+		waddstr(menu, buf);
+	}
 }
 
 static void draw_category_menu(WINDOW *menu, struct category *cat, int start, int end, int curopt, int changed, int flags)
@@ -329,7 +341,7 @@ static int run_category_menu(WINDOW *menu, int cat_num)
 	struct category *cat;
 	int i = 0;
 	int start = 0;
-	int end = max_y - TITLE_HEIGHT - 6;
+	int end = max_y - TITLE_HEIGHT - 8;
 	int c;
 	int curopt = 0;
 	int maxopt;
@@ -566,6 +578,7 @@ static AST_LIST_HEAD_NOLOCK(, blip) blips;
 
 static int score = 0;
 static int num_aliens = 0;
+static int alien_sleeptime = 0;
 struct blip *tank = NULL;
 
 /*! Probability of a bomb, out of 100 */
@@ -808,8 +821,13 @@ static int check_shot(struct blip *shot)
 			remove_blip(shot);
 			remove_blip(cur);
 			if (!num_aliens) {
-				game_over(1);
-				return 1;
+				if(alien_sleeptime < 101) {
+					game_over(1);
+					return 1;
+				} else {
+					alien_sleeptime = alien_sleeptime - 100;
+					return 1;
+				}
 			}
 		}
 	}
@@ -839,55 +857,61 @@ static void play_space(void)
 	unsigned int jiffies = 1;
 	int quit = 0;
 	struct blip *blip;
+	alien_sleeptime = 1000;
 
-	clear();
-	nodelay(stdscr, TRUE);
-	init_blips();
-	repaint_screen();
+	while(alien_sleeptime > 100) {
 
-	for (;;) {
-		c = getch();
-		switch (c) {
-		case ' ':
-			tank_shoot();
-			break;
-		case KEY_LEFT:
-			tank_move_left();
-			break;
-		case KEY_RIGHT:
-			tank_move_right();
-			break;
-		case 'x':
-		case 'X':
-		case 'q':
-		case 'Q':
-			quit = 1;
-		default:
-			/* ignore unknown input */
-			break;
-		}
-		if (quit)
-			break;
-		if (!(jiffies % 25)) {
-			if (move_aliens() || move_bombs()) {
-				game_over(0);
+		jiffies = 1;
+		clear();
+		nodelay(stdscr, TRUE);
+		init_blips();
+		repaint_screen();
+
+		for (;;) {
+			c = getch();
+			switch (c) {
+			case ' ':
+				tank_shoot();
+				break;
+			case KEY_LEFT:
+				tank_move_left();
+				break;
+			case KEY_RIGHT:
+				tank_move_right();
+				break;
+			case 'x':
+			case 'X':
+			case 'q':
+			case 'Q':
+				quit = 1;
+			default:
+				/* ignore unknown input */
 				break;
 			}
-			if (check_placement())
+			if (quit)
 				break;
+			if (!(jiffies % 25)) {
+				if (move_aliens() || move_bombs()) {
+					alien_sleeptime = 1;
+					game_over(0);
+					break;
+				}
+				if (check_placement())
+					break;
+			}
+			if (!(jiffies % 10)) {
+				move_shots();
+				if (check_placement())
+					break;
+			}
+			repaint_screen();
+			jiffies++;
+			usleep(alien_sleeptime);
 		}
-		if (!(jiffies % 10)) {
-			move_shots();
-			if (check_placement())
-				break;
-		}
-		repaint_screen();
-		jiffies++;
-		usleep(1000);
-	}
 
-	while ((blip = AST_LIST_REMOVE_HEAD(&blips, entry)))
-		free(blip);
+		while ((blip = AST_LIST_REMOVE_HEAD(&blips, entry)))
+			free(blip);
+	}
 
 	nodelay(stdscr, FALSE);
 }

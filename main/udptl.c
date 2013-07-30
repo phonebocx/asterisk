@@ -51,7 +51,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 308416 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 316265 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -321,9 +321,9 @@ static int udptl_rx_packet(struct ast_udptl *s, uint8_t *buf, unsigned int len)
 	unsigned int count;
 	int total_count;
 	int seq_no;
-	const uint8_t *ifp;
-	const uint8_t *data;
-	unsigned int ifp_len;
+	const uint8_t *ifp = NULL;
+	const uint8_t *data = NULL;
+	unsigned int ifp_len = 0;
 	int repaired[16];
 	const uint8_t *bufs[ARRAY_LEN(s->f) - 1];
 	unsigned int lengths[ARRAY_LEN(s->f) - 1];
@@ -664,7 +664,6 @@ struct ast_frame *ast_udptl_read(struct ast_udptl *udptl)
 	int res;
 	struct ast_sockaddr addr;
 	uint16_t seqno = 0;
-	uint16_t *udptlheader;
 	
 	/* Cache where the header will go */
 	res = ast_recvfrom(udptl->fd,
@@ -672,7 +671,6 @@ struct ast_frame *ast_udptl_read(struct ast_udptl *udptl)
 			sizeof(udptl->rawdata) - AST_FRIENDLY_OFFSET,
 			0,
 			&addr);
-	udptlheader = (uint16_t *)(udptl->rawdata + AST_FRIENDLY_OFFSET);
 	if (res < 0) {
 		if (errno != EAGAIN)
 			ast_log(LOG_WARNING, "(%s): UDPTL read error: %s\n",

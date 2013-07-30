@@ -28,11 +28,12 @@
 /*** MODULEINFO
 	<depend>vorbis</depend>
 	<depend>ogg</depend>
+	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 279472 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <vorbis/codec.h>
 #include <vorbis/vorbisenc.h>

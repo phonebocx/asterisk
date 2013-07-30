@@ -25,9 +25,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 302921 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -52,6 +56,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 302921 $")
 			</parameter>
 			<parameter name="minlength">
 				<para>Minimum allowable digits in the input callerid number. Defaults to <literal>10</literal>.</para>
+			</parameter>
+			<parameter name="options">
+				<para>Position reserved for options.</para>
 			</parameter>
 			<parameter name="context">
 				<para>Context to check the given callerid against patterns.</para>

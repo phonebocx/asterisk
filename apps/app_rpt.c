@@ -155,6 +155,7 @@
 	<depend>dahdi</depend>
 	<depend>tonezone</depend>
 	<defaultenabled>no</defaultenabled>
+	<support_level>extended</support_level>
  ***/
 
 /* Un-comment the following to include support for MDC-1200 digital tone
@@ -314,7 +315,7 @@ enum {HF_SCAN_OFF,HF_SCAN_DOWN_SLOW,HF_SCAN_DOWN_QUICK,
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 276347 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <signal.h>
 #include <stdio.h>
@@ -1963,7 +1964,11 @@ unsigned int seq;
 		return;
 	}
 	n = finddelim(astr,astrs,100);
-	if (n < 1) return;
+	if (n < 1) {
+		ast_free(str);
+		ast_free(astr);
+		return;
+	}
 	ast_mutex_lock(&myrpt->statpost_lock);
 	seq = ++myrpt->statpost_seqno;
 	ast_mutex_unlock(&myrpt->statpost_lock);
@@ -12188,7 +12193,7 @@ char tmpstr[300],lstr[MAXLINKLIST];
 						// ctcss code autopatch initiate
 						if (strstr((char *)f->data.ptr,"/M/")&& !myrpt->macropatch)
 						{
-						    char value[16];
+							char value[16] = "";
 							strcat(value,"*6");
 							myrpt->macropatch=1;
 							rpt_mutex_lock(&myrpt->lock);

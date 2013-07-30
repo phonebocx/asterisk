@@ -23,9 +23,13 @@
  * \arg See also: \ref AstARA
  */
 
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 284610 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <signal.h>
 

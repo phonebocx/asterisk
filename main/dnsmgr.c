@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 287895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 323392 $")
 
 #include "asterisk/_private.h"
 #include <regex.h>
@@ -128,6 +128,14 @@ int ast_dnsmgr_lookup(const char *name, struct ast_sockaddr *result, struct ast_
 	}
 
 	if (*dnsmgr && !strcasecmp((*dnsmgr)->name, name)) {
+		return 0;
+	}
+
+	/*
+	 * If it's actually an IP address and not a name, there's no
+	 * need for a managed lookup.
+	 */
+	if (ast_sockaddr_parse(result, name, PARSE_PORT_FORBID)) {
 		return 0;
 	}
 

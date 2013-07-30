@@ -29,9 +29,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 276347 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 331248 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -138,8 +142,10 @@ static int parkandannounce_exec(struct ast_channel *chan, const char *data)
 	before we are done announcing and the channel is messed with, Kablooeee.  So we use Masq to prevent this.  */
 
 	res = ast_masq_park_call(chan, NULL, timeout, &lot);
-	if (res == -1)
-		return res;
+	if (res) {
+		/* Parking failed. */
+		return -1;
+	}
 
 	ast_verb(3, "Call Parking Called, lot: %d, timeout: %d, context: %s\n", lot, timeout, args.return_context);
 

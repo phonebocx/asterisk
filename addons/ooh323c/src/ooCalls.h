@@ -151,6 +151,7 @@ typedef struct OOH323CallData {
    OOCTXT               *msgctxt;
    pthread_t		callThread;
    ast_cond_t		gkWait;
+   ast_mutex_t		GkLock;
    ast_mutex_t		Lock;
    OOBOOL 		Monitor;
    OOBOOL		fsSent;
@@ -214,6 +215,8 @@ typedef struct OOH323CallData {
    ASN1UINT8		requestSequence;
    ASN1UINT		reqFlags;
    ASN1UINT		t38sides;
+   int			T38FarMaxDatagram;
+   int			T38Version;
    H235TimeStamp	alertingTime, connectTime, endTime; /* time data for gatekeeper */
    FastStartResponse    *pFastStartRes; /* fast start response */
    struct OOH323Regex*		rtpMask;

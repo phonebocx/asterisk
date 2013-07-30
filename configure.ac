@@ -20,7 +20,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_AUX_DIR(`pwd`)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 304466 $)
+AC_REVISION($Revision: 336635 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -408,25 +408,6 @@ AST_EXT_LIB_SETUP([PGSQL], [PostgreSQL], [postgres])
 AST_EXT_LIB_SETUP([POPT], [popt], [popt])
 AST_EXT_LIB_SETUP([PORTAUDIO], [PortAudio], [portaudio])
 AST_EXT_LIB_SETUP([PRI], [ISDN PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_MWI], [ISDN PRI Message Waiting Indication], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_MCID], [ISDN PRI Malicious Call ID], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_CALL_WAITING], [ISDN PRI call waiting supplementary service], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_AOC_EVENTS], [ISDN PRI advice of charge supplementary service events], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_TRANSFER], [ISDN PRI call transfer supplementary service], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_CCSS], [ISDN PRI call completion supplementary service], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_HANGUP_FIX], [ISDN PRI hangup fix], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_SUBADDR], [ISDN PRI subaddressing], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_CALL_HOLD], [ISDN PRI call hold], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_CALL_REROUTING], [ISDN PRI call rerouting and call deflection], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_SETUP_KEYPAD], [ISDN PRI keypad facility in SETUP], [PRI], [pri])
-# ------------------------------------v
-# TODO: The code can be changed to always include these features now.
-# These features will always be present if pri_connected_line_update is available.
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_INBANDDISCONNECT], [ISDN PRI set_inbanddisconnect], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_PROG_W_CAUSE], [ISDN progress with cause], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_SERVICE_MESSAGES], [ISDN service messages], [PRI], [pri])
-AST_EXT_LIB_SETUP_DEPENDENT([PRI_REVERSE_CHARGE], [ISDN reverse charge], [PRI], [pri])
-# ------------------------------------^
 AST_EXT_LIB_SETUP([PWLIB], [PWlib], [pwlib])
 AST_EXT_LIB_SETUP([RADIUS], [Radius Client], [radius])
 AST_EXT_LIB_SETUP([RESAMPLE], [LIBRESAMPLE], [resample])
@@ -1120,6 +1101,8 @@ if test "${USE_GSM}" != "no"; then
 fi
 
 AST_EXT_LIB_CHECK([ICONV], [iconv], [iconv_open], [iconv.h])
+# GNU libiconv #define's iconv_open to libiconv_open, so we need to search for that symbol
+AST_EXT_LIB_CHECK([ICONV], [iconv], [libiconv_open], [iconv.h])
 # Some versions of Linux package iconv in glibc
 AST_EXT_LIB_CHECK([ICONV], [c], [iconv_close], [iconv.h])
 
@@ -1802,6 +1785,7 @@ AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
 AST_EXT_LIB_CHECK([PORTAUDIO], [portaudio], [Pa_GetDeviceCount], [portaudio.h])
 
 AST_EXT_LIB_CHECK([PRI], [pri], [pri_connected_line_update], [libpri.h])
+AST_EXT_LIB_CHECK([PRI_L2_PERSISTENCE], [pri], [pri_persistent_layer2_option], [libpri.h])
 AST_EXT_LIB_CHECK([PRI_MWI], [pri], [pri_mwi_indicate], [libpri.h])
 AST_EXT_LIB_CHECK([PRI_MCID], [pri], [pri_mcid_enable], [libpri.h])
 AST_EXT_LIB_CHECK([PRI_CALL_WAITING], [pri], [pri_connect_ack_enable], [libpri.h])
@@ -1947,7 +1931,7 @@ AST_EXT_LIB_CHECK([CRYPTO], [crypto], [AES_encrypt], [openssl/aes.h])
 
 if test "$PBX_CRYPTO" = "1";
 then
-    AST_EXT_LIB_CHECK([OPENSSL], [ssl], [ssl2_connect], [openssl/ssl.h], [-lcrypto])
+	AST_EXT_LIB_CHECK([OPENSSL], [ssl], [SSL_connect], [openssl/ssl.h], [-lcrypto])
 fi
 
 if test "$PBX_OPENSSL" = "1";
@@ -1976,14 +1960,16 @@ then
     [ AC_MSG_RESULT(yes) ],
     [
         AC_MSG_RESULT(no)
-        AC_MSG_NOTICE(***)
-        AC_MSG_NOTICE(*** libsrtp could not be linked as a shared object)
-        AC_MSG_NOTICE(*** try compiling libsrtp manually and configuring with)
-        AC_MSG_NOTICE(*** ./configure CFLAGS=-fPIC --prefix=/usr)
-        AC_MSG_NOTICE(*** replacing /usr with the prefix of your choice)
-        AC_MSG_NOTICE(***)
-        AC_MSG_NOTICE(*** If you do not need SRTP support re-run configure)
-        AC_MSG_NOTICE(*** with the --without-srtp option.)
+        AC_MSG_WARN(***)
+        AC_MSG_WARN(*** libsrtp could not be linked as a shared object.)
+        AC_MSG_WARN(*** Try compiling libsrtp manually. Configure libsrtp)
+        AC_MSG_WARN(*** with ./configure CFLAGS=-fPIC --prefix=/usr)
+        AC_MSG_WARN(*** replacing /usr with the prefix of your choice.)
+        AC_MSG_WARN(*** After re-installing libsrtp, re-run the Asterisk)
+        AC_MSG_WARN(*** configure script.)
+        AC_MSG_WARN(***)
+        AC_MSG_WARN(*** If you do not need SRTP support re-run configure)
+        AC_MSG_WARN(*** with the --without-srtp option.)
         exit 1
     ]
     )
@@ -1993,20 +1979,19 @@ then
 fi
 
 AST_EXT_TOOL_CHECK([GMIME], [gmime-config], [], [], [#include <gmime/gmime.h>], [gboolean q = g_mime_check_version(0,0,0);])
-if test "x${PBX_GMIME}" = "x0"; then
+if test "x${PBX_GMIME}" = "x0" -a "${PKGCONFIG}" != "No"; then
 	# Later versions of GMime use pkg-config
-	if test "x${PKGCONFIG}" = xNo; then :; else
-		GMIME_INCLUDE=$(${PKGCONFIG} gmime-2.0 --cflags 2>/dev/null)
-		GMIME_LIB=$(${PKGCONFIG} gmime-2.0 --libs)
-		if test "x${GMIME_INCLUDE}${GMIME_LIB}" = "x"; then 
-			GMIME_INCLUDE=$(${PKGCONFIG} gmime-2.2 --cflags 2>/dev/null)
-			GMIME_LIB=$(${PKGCONFIG} gmime-2.2 --libs)
+	for ver in 2.0 2.2 2.4; do
+		if ! ${PKGCONFIG} --exists gmime-$ver; then
+			continue
 		fi
-		if test "x${GMIME_INCLUDE}${GMIME_LIB}" != "x"; then
-			PBX_GMIME=1
-			AC_DEFINE([HAVE_GMIME], 1, [Define if your system has the GMIME libraries.])
-		fi
-	fi
+		# If we got here, we have this version:
+		GMIME_INCLUDE=$(${PKGCONFIG} gmime-$ver --cflags 2>/dev/null)
+		GMIME_LIB=$(${PKGCONFIG} gmime-$ver --libs)
+		PBX_GMIME=1
+		AC_DEFINE([HAVE_GMIME], 1, [Define if your system has the GMIME libraries.])
+		break;
+	done
 fi
 
 AST_EXT_LIB_CHECK([HOARD], [hoard], [malloc], [])
@@ -2148,7 +2133,7 @@ fi
 AC_SUBST(PBX_LAUNCHD)
 
 PBX_GTK2=0
-if test ! "x${PKGCONFIG}" = xNo; then
+if test "${PKGCONFIG}" != "No"; then
    GTK2_INCLUDE=$(${PKGCONFIG} gtk+-2.0 --cflags 2>/dev/null)
    GTK2_LIB=$(${PKGCONFIG} gtk+-2.0 --libs)
    PBX_GTK2=1

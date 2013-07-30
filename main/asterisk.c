@@ -61,7 +61,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 307536 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332100 $")
 
 #include "asterisk/_private.h"
 
@@ -156,7 +156,7 @@ int daemon(int, int);  /* defined in libresolv of all places */
 
 /*! \brief Welcome message when starting a CLI interface */
 #define WELCOME_MESSAGE \
-    ast_verbose("Asterisk %s, Copyright (C) 1999 - 2010 Digium, Inc. and others.\n" \
+    ast_verbose("Asterisk %s, Copyright (C) 1999 - 2011 Digium, Inc. and others.\n" \
                 "Created by Mark Spencer <markster@digium.com>\n" \
                 "Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.\n" \
                 "This is free software, with components licensed under the GNU General Public\n" \
@@ -288,6 +288,7 @@ static int sig_alert_pipe[2] = { -1, -1 };
 static struct {
 	 unsigned int need_reload:1;
 	 unsigned int need_quit:1;
+	 unsigned int need_quit_handler:1;
 } sig_flags;
 
 #if !defined(LOW_MEMORY)
@@ -362,11 +363,10 @@ const char *ast_file_version_find(const char *file)
 	struct file_version *iterator;
 
 	AST_RWLIST_WRLOCK(&file_versions);
-	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&file_versions, iterator, list) {
+	AST_RWLIST_TRAVERSE(&file_versions, iterator, list) {
 		if (!strcasecmp(iterator->file, file))
 			break;
- 	}
-	AST_RWLIST_TRAVERSE_SAFE_END;
+	}
 	AST_RWLIST_UNLOCK(&file_versions);
 	if (iterator)
 		return iterator->version;
@@ -575,9 +575,9 @@ static char *handle_show_sysinfo(struct ast_cli_entry *e, int cmd, struct ast_cl
 {
 	uint64_t physmem, freeram;
 	uint64_t freeswap = 0;
-	int totalswap = 0;
 	int nprocs = 0;
 	long uptime = 0;
+	int totalswap = 0;
 #if defined(HAVE_SYSINFO)
 	struct sysinfo sys_info;
 	sysinfo(&sys_info);
@@ -660,7 +660,7 @@ static char *handle_show_sysinfo(struct ast_cli_entry *e, int cmd, struct ast_cl
 #if defined(HAVE_SYSINFO)
 	ast_cli(a->fd, "  Buffer RAM:                %" PRIu64 " KiB\n", ((uint64_t) sys_info.bufferram * sys_info.mem_unit) / 1024);
 #endif
-#if defined (HAVE_SYSCTL) && defined(HAVE_SWAPCTL)
+#if defined (HAVE_SYSCTL) || defined(HAVE_SWAPCTL)
 	ast_cli(a->fd, "  Total Swap Space:          %u KiB\n", totalswap);
 	ast_cli(a->fd, "  Free Swap Space:           %" PRIu64 " KiB\n\n", freeswap);
 #endif
@@ -1083,12 +1083,19 @@ int ast_safe_system(const char *s)
 	return res;
 }
 
+/*!
+ * \brief enable or disable a logging level to a specified console
+ */
 void ast_console_toggle_loglevel(int fd, int level, int state)
 {
 	int x;
 	for (x = 0;x < AST_MAX_CONNECTS; x++) {
 		if (fd == consoles[x].fd) {
-			consoles[x].levels[level] = state;
+			/*
+			 * Since the logging occurs when levels are false, set to
+			 * flipped iinput because this function accepts 0 as off and 1 as on
+			 */
+			consoles[x].levels[level] = state ? 0 : 1;
 			return;
 		}
 	}
@@ -1473,7 +1480,7 @@ static struct sigaction urg_handler = {
 
 static void _hup_handler(int num)
 {
-	int a = 0;
+	int a = 0, save_errno = errno;
 	if (option_verbose > 1) 
 		printf("Received HUP signal -- Reloading configs\n");
 	if (restartnow)
@@ -1484,6 +1491,7 @@ static void _hup_handler(int num)
 			fprintf(stderr, "hup_handler: write() failed: %s\n", strerror(errno));
 		}
 	}
+	errno = save_errno;
 }
 
 static struct sigaction hup_handler = {
@@ -1494,7 +1502,7 @@ static struct sigaction hup_handler = {
 static void _child_handler(int sig)
 {
 	/* Must not ever ast_log or ast_verbose within signal handler */
-	int n, status;
+	int n, status, save_errno = errno;
 
 	/*
 	 * Reap all dead children -- not just one
@@ -1503,6 +1511,7 @@ static void _child_handler(int sig)
 		;
 	if (n == 0 && option_debug)	
 		printf("Huh?  Child handler, but nobody there?\n");
+	errno = save_errno;
 }
 
 static struct sigaction child_handler = {
@@ -1644,20 +1653,23 @@ static void quit_handler(int num, int niceness, int safeshutdown, int restart)
 			ast_module_shutdown();
 	}
 	if (ast_opt_console || (ast_opt_remote && !ast_opt_exec)) {
-		pthread_t thisthread = pthread_self();
 		if (getenv("HOME")) {
 			snprintf(filename, sizeof(filename), "%s/.asterisk_history", getenv("HOME"));
 		}
 		if (!ast_strlen_zero(filename)) {
 			ast_el_write_history(filename);
 		}
-		if (consolethread == AST_PTHREADT_NULL || consolethread == thisthread || mon_sig_flags == thisthread) {
-			/* Only end if we are the consolethread or signal handler, otherwise there's a race with that thread. */
+		if (consolethread == AST_PTHREADT_NULL || consolethread == pthread_self()) {
+			/* Only end if we are the consolethread, otherwise there's a race with that thread. */
 			if (el != NULL) {
 				el_end(el);
 			}
 			if (el_hist != NULL) {
 				history_end(el_hist);
+			}
+		} else if (mon_sig_flags == pthread_self()) {
+			if (consolethread != AST_PTHREADT_NULL) {
+				pthread_kill(consolethread, SIGURG);
 			}
 		}
 	}
@@ -2137,7 +2149,7 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 		}
 		res = ast_poll(fds, max, -1);
 		if (res < 0) {
-			if (sig_flags.need_quit)
+			if (sig_flags.need_quit || sig_flags.need_quit_handler)
 				break;
 			if (errno == EINTR)
 				continue;
@@ -2676,7 +2688,7 @@ static void ast_remotecontrol(char *data)
 		sprintf(tmp, "%s%s", prefix, data);
 		if (write(ast_consock, tmp, strlen(tmp) + 1) < 0) {
 			ast_log(LOG_ERROR, "write() failed: %s\n", strerror(errno));
-			if (sig_flags.need_quit == 1) {
+			if (sig_flags.need_quit || sig_flags.need_quit_handler) {
 				return;
 			}
 		}
@@ -2714,7 +2726,7 @@ static void ast_remotecontrol(char *data)
 			char buffer[512] = "", *curline = buffer, *nextline;
 			int not_written = 1;
 
-			if (sig_flags.need_quit == 1) {
+			if (sig_flags.need_quit || sig_flags.need_quit_handler) {
 				break;
 			}
 
@@ -2762,7 +2774,7 @@ static void ast_remotecontrol(char *data)
 	for (;;) {
 		ebuf = (char *)el_gets(el, &num);
 
-		if (sig_flags.need_quit == 1) {
+		if (sig_flags.need_quit || sig_flags.need_quit_handler) {
 			break;
 		}
 
@@ -3084,7 +3096,12 @@ static void *monitor_sig_flags(void *unused)
 		}
 		if (sig_flags.need_quit) {
 			sig_flags.need_quit = 0;
-			quit_handler(0, 0, 1, 0);
+			if (consolethread != AST_PTHREADT_NULL) {
+				sig_flags.need_quit_handler = 1;
+				pthread_kill(consolethread, SIGURG);
+			} else {
+				quit_handler(0, 0, 1, 0);
+			}
 		}
 		if (read(sig_alert_pipe[0], &a, sizeof(a)) != sizeof(a)) {
 		}
@@ -3397,6 +3414,7 @@ int main(int argc, char *argv[])
 		fd2 = (l.rlim_cur > sizeof(readers) * 8 ? sizeof(readers) * 8 : l.rlim_cur) - 1;
 		if (dup2(fd, fd2) < 0) {
 			ast_log(LOG_WARNING, "Cannot open maximum file descriptor %d at boot? %s\n", fd2, strerror(errno));
+			close(fd);
 			break;
 		}
 
@@ -3405,9 +3423,12 @@ int main(int argc, char *argv[])
 		if (ast_select(fd2 + 1, &readers, NULL, NULL, &tv) < 0) {
 			ast_log(LOG_WARNING, "Maximum select()able file descriptor is %d\n", FD_SETSIZE);
 		}
+		ast_FD_SETSIZE = l.rlim_cur > ast_FDMAX ? ast_FDMAX : l.rlim_cur;
+		close(fd);
+		close(fd2);
 	} while (0);
 #elif defined(HAVE_VARIABLE_FDSET)
-	ast_FD_SETSIZE = l.rlim_cur;
+	ast_FD_SETSIZE = l.rlim_cur > ast_FDMAX ? ast_FDMAX : l.rlim_cur;
 #endif /* !defined(CONFIGURE_RAN_AS_ROOT) */
 
 	if ((!rungroup) && !ast_strlen_zero(ast_config_AST_RUN_GROUP))
@@ -3641,7 +3662,7 @@ int main(int argc, char *argv[])
 			ast_copy_string(canary_binary, argv[0], sizeof(canary_binary));
 			if ((lastslash = strrchr(canary_binary, '/'))) {
 				ast_copy_string(lastslash + 1, "astcanary", sizeof(canary_binary) + canary_binary - (lastslash + 1));
-				execl(canary_binary, "astcanary", canary_filename, (char *)NULL);
+				execl(canary_binary, "astcanary", canary_filename, ppid, (char *)NULL);
 			}
 
 			/* Should never happen */
@@ -3778,7 +3799,10 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	ast_features_init();
+	if (ast_features_init()) {
+		printf("%s", term_quit());
+		exit(1);
+	}
 
 	if (init_framer()) {
 		printf("%s", term_quit());
@@ -3851,7 +3875,13 @@ int main(int argc, char *argv[])
 		snprintf(title, sizeof(title), "Asterisk Console on '%s' (pid %ld)", hostname, (long)ast_mainpid);
 		set_title(title);
 
+		el_set(el, EL_GETCFN, ast_el_read_char);
+
 		for (;;) {
+			if (sig_flags.need_quit || sig_flags.need_quit_handler) {
+				quit_handler(0, 0, 0, 0);
+				break;
+			}
 			buf = (char *) el_gets(el, &num);
 
 			if (!buf && write(1, "", 1) < 0)

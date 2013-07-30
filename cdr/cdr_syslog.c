@@ -28,12 +28,13 @@
  */
 
 /*** MODULEINFO
-	 <depend>syslog</depend>
+	<depend>syslog</depend>
+	<support_level>core</support_level>
 ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 278132 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/module.h"
 #include "asterisk/lock.h"
@@ -264,8 +265,10 @@ static int reload(void)
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
-	free_config();
-	res = load_config(1);
+	if ((res = load_config(1))) {
+		free_config();
+	}
+
 	AST_RWLIST_UNLOCK(&sinks);
 
 	return res ? AST_MODULE_LOAD_DECLINE : AST_MODULE_LOAD_SUCCESS;

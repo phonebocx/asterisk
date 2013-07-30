@@ -26,6 +26,7 @@
 
 /*** MODULEINFO
 	<defaultenabled>no</defaultenabled>
+	<support_level>extended</support_level>
  ***/
 
 /*** DOCUMENTATION
@@ -108,7 +109,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 271520 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/module.h"

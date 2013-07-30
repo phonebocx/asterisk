@@ -30,9 +30,13 @@
  * \ref AstHTTP - AMI over the http protocol
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 315145 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <time.h>
 #include <sys/time.h>
@@ -132,7 +136,7 @@ static AST_RWLIST_HEAD_STATIC(uri_redirects, http_uri_redirect);
 
 static const struct ast_cfhttp_methods_text {
 	enum ast_http_method method;
-	const char text[];
+	const char *text;
 } ast_http_methods_text[] = {
 	{ AST_HTTP_UNKNOWN,     "UNKNOWN" },
 	{ AST_HTTP_GET,         "GET" },
@@ -143,7 +147,15 @@ static const struct ast_cfhttp_methods_text {
 
 const char *ast_get_http_method(enum ast_http_method method)
 {
-	return ast_http_methods_text[method].text;
+	int x;
+
+	for (x = 0; x < ARRAY_LEN(ast_http_methods_text); x++) {
+		if (ast_http_methods_text[x].method == method) {
+			return ast_http_methods_text[x].text;
+		}
+	}
+
+	return NULL;
 }
 
 const char *ast_http_ftype2mtype(const char *ftype)
@@ -280,7 +292,7 @@ static int static_callback(struct ast_tcptls_session_instance *ser,
 
 	ast_str_set(&http_header, 0, "Content-type: %s\r\n"
 		"ETag: %s\r\n"
-		"Last-Modified: %s",
+		"Last-Modified: %s\r\n",
 		mtype,
 		etag,
 		timebuf);
@@ -371,7 +383,7 @@ static struct ast_http_uri staticuri = {
 };
 
 
-/* send http/1.1 responce */
+/* send http/1.1 response */
 /* free content variable and close socket*/
 void ast_http_send(struct ast_tcptls_session_instance *ser,
 	enum ast_http_method method, int status_code, const char *status_title,
@@ -389,7 +401,7 @@ void ast_http_send(struct ast_tcptls_session_instance *ser,
 
 	ast_strftime(timebuf, sizeof(timebuf), "%a, %d %b %Y %H:%M:%S GMT", ast_localtime(&now, &tm, "GMT"));
 
-	/* calc conetnt length */
+	/* calc content length */
 	if (out) {
 		content_length += strlen(ast_str_buffer(out));
 	}
@@ -406,7 +418,8 @@ void ast_http_send(struct ast_tcptls_session_instance *ser,
 		"Connection: close\r\n"
 		"%s"
 		"Content-Length: %d\r\n"
-		"%s\r\n\r\n",
+		"%s"
+		"\r\n",
 		status_code, status_title ? status_title : "OK",
 		ast_get_version(),
 		timebuf,
@@ -461,7 +474,7 @@ void ast_http_auth(struct ast_tcptls_session_instance *ser, const char *realm,
 
 	ast_str_set(&http_headers, 0,
 		"WWW-authenticate: Digest algorithm=MD5, realm=\"%s\", nonce=\"%08lx\", qop=\"auth\", opaque=\"%08lx\"%s\r\n"
-		"Content-type: text/html",
+		"Content-type: text/html\r\n",
 		realm ? realm : "Asterisk",
 		nonce,
 		opaque,
@@ -483,7 +496,7 @@ void ast_http_auth(struct ast_tcptls_session_instance *ser, const char *realm,
 	return;
 }
 
-/* send http error responce and close socket*/
+/* send http error response and close socket*/
 void ast_http_error(struct ast_tcptls_session_instance *ser, int status_code, const char *status_title, const char *text)
 {
 	struct ast_str *http_headers = ast_str_create(40);
@@ -495,7 +508,7 @@ void ast_http_error(struct ast_tcptls_session_instance *ser, int status_code, co
 		return;
 	}
 
-	ast_str_set(&http_headers, 0, "Content-type: text/html");
+	ast_str_set(&http_headers, 0, "Content-type: text/html\r\n");
 
 	ast_str_set(&out, 0,
 		"<!DOCTYPE HTML PUBLIC \"-//IETF//DTD HTML 2.0//EN\">\r\n"

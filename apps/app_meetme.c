@@ -31,11 +31,12 @@
 
 /*** MODULEINFO
 	<depend>dahdi</depend>
+	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 304777 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 336635 $")
 
 #include <dahdi/user.h>
 
@@ -364,7 +365,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 304777 $")
 		</syntax>
 		<description>
 			<para>Run admin <replaceable>command</replaceable> for a specific
-			<replaceable>channel</replaceable> in any coference.</para>
+			<replaceable>channel</replaceable> in any conference.</para>
 		</description>
 	</application>
 	<application name="SLAStation" language="en_US">
@@ -602,12 +603,12 @@ enum {
 	CONFFLAG_KICK_CONTINUE = (1 << 28),
 	CONFFLAG_DURATION_STOP = (1 << 29),
 	CONFFLAG_DURATION_LIMIT = (1 << 30),
-	/*! Do not write any audio to this channel until the state is up. */
-	CONFFLAG_NO_AUDIO_UNTIL_UP = (1 << 31),
 };
 
-/* !If set play an intro announcement at start of conference */
-#define CONFFLAG_INTROMSG ((uint64_t)1 << 32)
+/*! Do not write any audio to this channel until the state is up. */
+#define CONFFLAG_NO_AUDIO_UNTIL_UP  (1ULL << 31)
+/*! If set play an intro announcement at start of conference */
+#define CONFFLAG_INTROMSG           (1ULL << 32)
 
 enum {
 	OPT_ARG_WAITMARKED = 0,
@@ -1342,6 +1343,7 @@ static char *complete_meetmecmd(const char *line, const char *word, int pos, int
 				AST_LIST_UNLOCK(&confs);
 				return usr ? ast_strdup(usrno) : NULL;
 			}
+			AST_LIST_UNLOCK(&confs);
 		}
 	}
 
@@ -2210,7 +2212,6 @@ static int conf_run(struct ast_channel *chan, struct ast_conference *conf, struc
 	int talkreq_manager = 0;
 	int using_pseudo = 0;
 	int duration = 20;
-	int hr, min, sec;
 	int sent_event = 0;
 	int checked = 0;
 	int announcement_played = 0;
@@ -2287,7 +2288,15 @@ static int conf_run(struct ast_channel *chan, struct ast_conference *conf, struc
  					play_warning = warning_freq = 0;
  			}
  		}
- 		
+
+		ast_verb(3, "Setting conference duration limit to: %ldms.\n", timelimit);
+		if (play_warning) {
+			ast_verb(3, "Setting warning time to %ldms from the conference duration limit.\n", play_warning);
+		}
+		if (warning_freq) {
+			ast_verb(3, "Setting warning frequency to %ldms.\n", warning_freq);
+		}
+
 		ast_channel_lock(chan);
 		if ((var = pbx_builtin_getvar_helper(chan, "CONF_LIMIT_WARNING_FILE"))) {
 			var = ast_strdupa(var);
@@ -2650,7 +2659,7 @@ static int conf_run(struct ast_channel *chan, struct ast_conference *conf, struc
 		ao2_ref(item, -1);
 	}
 
-	if (ast_test_flag64(confflags, CONFFLAG_WAITMARKED && !conf->markedusers))
+	if (ast_test_flag64(confflags, CONFFLAG_WAITMARKED) && !conf->markedusers)
 		dahdic.confmode = DAHDI_CONF_CONF;
 	else if (ast_test_flag64(confflags, CONFFLAG_MONITOR))
 		dahdic.confmode = DAHDI_CONF_CONFMON | DAHDI_CONF_LISTENER;
@@ -2673,11 +2682,15 @@ static int conf_run(struct ast_channel *chan, struct ast_conference *conf, struc
 			"Meetme: %s\r\n"
 			"Usernum: %d\r\n"
 			"CallerIDnum: %s\r\n"
-			"CallerIDname: %s\r\n",
+			"CallerIDname: %s\r\n"
+			"ConnectedLineNum: %s\r\n"
+			"ConnectedLineName: %s\r\n",
 			chan->name, chan->uniqueid, conf->confno,
 			user->user_no,
 			S_COR(user->chan->caller.id.number.valid, user->chan->caller.id.number.str, "<unknown>"),
-			S_COR(user->chan->caller.id.name.valid, user->chan->caller.id.name.str, "<unknown>")
+			S_COR(user->chan->caller.id.name.valid, user->chan->caller.id.name.str, "<unknown>"),
+			S_COR(user->chan->connected.id.number.valid, user->chan->connected.id.number.str, "<unknown>"),
+			S_COR(user->chan->connected.id.name.valid, user->chan->connected.id.name.str, "<unknown>")
 			);
 		sent_event = 1;
 	}
@@ -2835,6 +2848,11 @@ static int conf_run(struct ast_channel *chan, struct ast_conference *conf, struc
  						res = ast_streamfile(chan, user->end_sound, chan->language);
  						res = ast_waitstream(chan, "");
  					}
+					if (ast_test_flag64(confflags, CONFFLAG_KICK_CONTINUE)) {
+						ret = 0;
+					} else {
+						ret = -1;
+					}
  					break;
  				}
  				
@@ -3714,9 +3732,6 @@ bailoutandtrynormal:
 	if (user->user_no) {
 		/* Only cleanup users who really joined! */
 		now = ast_tvnow();
-		hr = (now.tv_sec - user->jointime) / 3600;
-		min = ((now.tv_sec - user->jointime) % 3600) / 60;
-		sec = (now.tv_sec - user->jointime) % 60;
 
 		if (sent_event) {
 			ast_manager_event(chan, EVENT_FLAG_CALL, "MeetmeLeave",
@@ -3726,11 +3741,15 @@ bailoutandtrynormal:
 				"Usernum: %d\r\n"
 				"CallerIDNum: %s\r\n"
 				"CallerIDName: %s\r\n"
+				"ConnectedLineNum: %s\r\n"
+				"ConnectedLineName: %s\r\n"
 				"Duration: %ld\r\n",
 				chan->name, chan->uniqueid, conf->confno,
 				user->user_no,
 				S_COR(user->chan->caller.id.number.valid, user->chan->caller.id.number.str, "<unknown>"),
 				S_COR(user->chan->caller.id.name.valid, user->chan->caller.id.name.str, "<unknown>"),
+				S_COR(user->chan->connected.id.number.valid, user->chan->connected.id.number.str, "<unknown>"),
+				S_COR(user->chan->connected.id.name.valid, user->chan->connected.id.name.str, "<unknown>"),
 				(long)(now.tv_sec - user->jointime));
 		}
 
@@ -3814,7 +3833,7 @@ static struct ast_conference *find_conf_realtime(struct ast_channel *chan, char 
 			ast_localtime(&now, &tm, NULL);
 			ast_strftime(currenttime, sizeof(currenttime), DATE_FORMAT, &tm);
 
-			ast_debug(1, "Looking for conference %s that starts after %s\n", confno, eatime);
+			ast_debug(1, "Looking for conference %s that starts after %s\n", confno, currenttime);
 
 			var = ast_load_realtime("meetme", "confno",
 				confno, "starttime <= ", currenttime, "endtime >= ",
@@ -4313,14 +4332,13 @@ static int conf_exec(struct ast_channel *chan, const char *data)
 					res = -1;
 				}
 			} else {
-				if (((!ast_strlen_zero(cnf->pin)       &&
-					!ast_test_flag64(&confflags, CONFFLAG_ADMIN)) ||
-				     (!ast_strlen_zero(cnf->pinadmin)  &&
-				     	 ast_test_flag64(&confflags, CONFFLAG_ADMIN)) ||
-			    	     (!ast_strlen_zero(cnf->pin) &&
-			    	     	 ast_strlen_zero(cnf->pinadmin) &&
-			    	     	 ast_test_flag64(&confflags, CONFFLAG_ADMIN))) &&
-				    (!(cnf->users == 0 && cnf->isdynamic))) {
+				/* Check to see if the conference requires a pin
+				 * and we ALWAYS prompt or no pin was provided */
+				if ((!ast_strlen_zero(cnf->pin) ||
+					(!ast_strlen_zero(cnf->pinadmin) &&
+						ast_test_flag64(&confflags, CONFFLAG_ADMIN))) &&
+				    (ast_test_flag64(&confflags, CONFFLAG_ALWAYSPROMPT) ||
+						ast_strlen_zero(args.pin))) {
 					char pin[MAX_PIN] = "";
 					int j;
 
@@ -4772,12 +4790,12 @@ static int action_meetmelist(struct mansession *s, const struct message *m)
 	/* Find the right conference */
 	AST_LIST_LOCK(&confs);
 	AST_LIST_TRAVERSE(&confs, cnf, list) {
-		user_iter = ao2_iterator_init(cnf->usercontainer, 0);
 		/* If we ask for one particular, and this isn't it, skip it */
 		if (!ast_strlen_zero(conference) && strcmp(cnf->confno, conference))
 			continue;
 
 		/* Show all the users */
+		user_iter = ao2_iterator_init(cnf->usercontainer, 0);
 		while ((user = ao2_iterator_next(&user_iter))) {
 			total++;
 			astman_append(s,
@@ -4787,6 +4805,8 @@ static int action_meetmelist(struct mansession *s, const struct message *m)
 				"UserNumber: %d\r\n"
 				"CallerIDNum: %s\r\n"
 				"CallerIDName: %s\r\n"
+				"ConnectedLineNum: %s\r\n"
+				"ConnectedLineName: %s\r\n"
 				"Channel: %s\r\n"
 				"Admin: %s\r\n"
 				"Role: %s\r\n"
@@ -4799,6 +4819,8 @@ static int action_meetmelist(struct mansession *s, const struct message *m)
 				user->user_no,
 				S_COR(user->chan->caller.id.number.valid, user->chan->caller.id.number.str, "<unknown>"),
 				S_COR(user->chan->caller.id.name.valid, user->chan->caller.id.name.str, "<no name>"),
+				S_COR(user->chan->connected.id.number.valid, user->chan->connected.id.number.str, "<unknown>"),
+				S_COR(user->chan->connected.id.name.valid, user->chan->connected.id.name.str, "<no name>"),
 				user->chan->name,
 				ast_test_flag64(&user->userflags, CONFFLAG_ADMIN) ? "Yes" : "No",
 				ast_test_flag64(&user->userflags, CONFFLAG_MONITOR) ? "Listen only" : ast_test_flag64(&user->userflags, CONFFLAG_TALKER) ? "Talk only" : "Talk and listen",
@@ -6293,7 +6315,6 @@ static int sla_trunk_exec(struct ast_channel *chan, const char *data)
 		AST_APP_ARG(options);
 	);
 	char *opts[SLA_TRUNK_OPT_ARG_ARRAY_SIZE] = { NULL, };
-	char *conf_opt_args[OPT_ARG_ARRAY_SIZE] = { NULL, };
 	struct ast_flags opt_flags = { 0 };
 	char *parse;
 
@@ -6356,7 +6377,6 @@ static int sla_trunk_exec(struct ast_channel *chan, const char *data)
 	if (ast_test_flag(&opt_flags, SLA_TRUNK_OPT_MOH)) {
 		ast_indicate(chan, -1);
 		ast_set_flag64(&conf_flags, CONFFLAG_MOH);
-		conf_opt_args[OPT_ARG_MOH_CLASS] = opts[SLA_TRUNK_OPT_ARG_MOH_CLASS];
 	} else
 		ast_indicate(chan, AST_CONTROL_RINGING);
 

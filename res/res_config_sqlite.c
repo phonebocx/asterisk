@@ -73,10 +73,11 @@
 
 /*** MODULEINFO
 	<depend>sqlite</depend>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 278132 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <sqlite.h>
 
@@ -1618,7 +1619,7 @@ static int realtime_require_handler(const char *unused, const char *tablename, v
 	struct sqlite_cache_tables *tbl = find_table(tablename);
 	struct sqlite_cache_columns *col;
 	char *elm;
-	int type, size, res = 0;
+	int type, res = 0;
 
 	if (!tbl) {
 		return -1;
@@ -1626,7 +1627,7 @@ static int realtime_require_handler(const char *unused, const char *tablename, v
 
 	while ((elm = va_arg(ap, char *))) {
 		type = va_arg(ap, require_type);
-		size = va_arg(ap, int);
+		va_arg(ap, int);
 		/* Check if the field matches the criteria */
 		AST_RWLIST_TRAVERSE(&tbl->columns, col, list) {
 			if (strcmp(col->name, elm) == 0) {

@@ -27,11 +27,12 @@
 
 /*** MODULEINFO
 	<conflict>win32</conflict>
+	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305473 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 334355 $")
 
 #include <ctype.h>
 #include <signal.h>
@@ -150,6 +151,7 @@ static const char stop_moh[] = "StopMusicOnHold";
 static int respawn_time = 20;
 
 struct moh_files_state {
+	/*! Holds a reference to the MOH class. */
 	struct mohclass *class;
 	char name[MAX_MUSICCLASS];
 	format_t origwfmt;
@@ -230,7 +232,7 @@ static struct mohclass *_mohclass_unref(struct mohclass *class, const char *tag,
 {
 	struct mohclass *dup;
 	if ((dup = ao2_find(mohclasses, class, OBJ_POINTER))) {
-		if (_ao2_ref_debug(dup, -1, (char *) tag, (char *) file, line, funcname) == 2) {
+		if (__ao2_ref_debug(dup, -1, (char *) tag, (char *) file, line, funcname) == 2) {
 			FILE *ref = fopen("/tmp/refs", "a");
 			if (ref) {
 				fprintf(ref, "%p =1   %s:%d:%s (%s) BAD ATTEMPT!\n", class, file, line, funcname, tag);
@@ -337,7 +339,16 @@ static int ast_moh_files_next(struct ast_channel *chan)
 	ast_debug(1, "%s Opened file %d '%s'\n", chan->name, state->pos, state->class->filearray[state->pos]);
 
 	if (state->samples) {
+		size_t loc;
+		/* seek *SHOULD* be good since it's from a known location */
 		ast_seekstream(chan->stream, state->samples, SEEK_SET);
+		/* if the seek failed then recover because if there is not a valid read,
+		 * moh_files_generate will return -1 and MOH will stop */
+		loc = ast_tellstream(chan->stream);
+		if (state->samples > loc && loc) {
+			/* seek one sample from the end for one guaranteed valid read */
+			ast_seekstream(chan->stream, 1, SEEK_END);
+		}
 	}
 
 	return 0;
@@ -399,10 +410,13 @@ static void *moh_files_alloc(struct ast_channel *chan, void *params)
 		ast_module_ref(ast_module_info->self);
 	} else {
 		state = chan->music_state;
-	}
-
-	if (!state) {
-		return NULL;
+		if (!state) {
+			return NULL;
+		}
+		if (state->class) {
+			mohclass_unref(state->class, "Uh Oh. Restarting MOH with an active class");
+			ast_log(LOG_WARNING, "Uh Oh. Restarting MOH with an active class\n");
+		}
 	}
 
 	/* LOGIC: Comparing an unrefcounted pointer is a really bad idea, because
@@ -631,13 +645,11 @@ static void *monmp3thread(void *data)
 		}
 		if (class->timer) {
 			struct pollfd pfd = { .fd = ast_timer_fd(class->timer), .events = POLLIN, };
-			struct timeval tv;
 
 #ifdef SOLARIS
 			thr_yield();
 #endif
 			/* Pause some amount of time */
-			tv = ast_tvnow();
 			if (ast_poll(&pfd, 1, -1) > 0) {
 				ast_timer_ack(class->timer, 1);
 				res = 320;
@@ -901,6 +913,12 @@ static void moh_release(struct ast_channel *chan, void *data)
 	ast_free(moh);
 
 	if (chan) {
+		struct moh_files_state *state;
+
+		state = chan->music_state;
+		if (state && state->class) {
+			state->class = mohclass_unref(state->class, "Unreffing channel's music class upon deactivation of generator");
+		}
 		if (oldwfmt && ast_set_write_format(chan, oldwfmt)) {
 			ast_log(LOG_WARNING, "Unable to restore channel '%s' to format %s\n",
 					chan->name, ast_getformatname(oldwfmt));
@@ -919,13 +937,17 @@ static void *moh_alloc(struct ast_channel *chan, void *params)
 	/* Initiating music_state for current channel. Channel should know name of moh class */
 	if (!chan->music_state && (state = ast_calloc(1, sizeof(*state)))) {
 		chan->music_state = state;
-		state->class = mohclass_ref(class, "Copying reference into state container");
 		ast_module_ref(ast_module_info->self);
-	} else
+	} else {
 		state = chan->music_state;
-	if (state && state->class != class) {
+		if (!state) {
+			return NULL;
+		}
+		if (state->class) {
+			mohclass_unref(state->class, "Uh Oh. Restarting MOH with an active class");
+			ast_log(LOG_WARNING, "Uh Oh. Restarting MOH with an active class\n");
+		}
 		memset(state, 0, sizeof(*state));
-		state->class = class;
 	}
 
 	if ((res = mohalloc(class))) {
@@ -934,6 +956,8 @@ static void *moh_alloc(struct ast_channel *chan, void *params)
 			ast_log(LOG_WARNING, "Unable to set channel '%s' to format '%s'\n", chan->name, ast_codec2str(class->format));
 			moh_release(NULL, res);
 			res = NULL;
+		} else {
+			state->class = mohclass_ref(class, "Placing reference into state container");
 		}
 		ast_verb(3, "Started music on hold, class '%s', on channel '%s'\n", class->name, chan->name);
 	}
@@ -1017,7 +1041,6 @@ static int moh_scan_files(struct mohclass *class) {
 	char filepath[PATH_MAX];
 	char *ext;
 	struct stat statbuf;
-	int dirnamelen;
 	int i;
 
 	if (class->dir[0] != '/') {
@@ -1038,7 +1061,6 @@ static int moh_scan_files(struct mohclass *class) {
 		ast_free(class->filearray[i]);
 
 	class->total_files = 0;
-	dirnamelen = strlen(dir_path) + 2;
 	if (!getcwd(path, sizeof(path))) {
 		ast_log(LOG_WARNING, "getcwd() failed: %s\n", strerror(errno));
 		return -1;
@@ -1127,7 +1149,9 @@ static void moh_rescan_files(void) {
 	i = ao2_iterator_init(mohclasses, 0);
 
 	while ((c = ao2_iterator_next(&i))) {
-		moh_scan_files(c);
+		if (!strcasecmp(c->mode, "files")) {
+			moh_scan_files(c);
+		}
 		ao2_ref(c, -1);
 	}
 
@@ -1250,7 +1274,10 @@ static void local_ast_moh_cleanup(struct ast_channel *chan)
 
 	if (state) {
 		if (state->class) {
-			state->class = mohclass_unref(state->class, "Channel MOH state destruction");
+			/* This should never happen.  We likely just leaked some resource. */
+			state->class =
+				mohclass_unref(state->class, "Uh Oh. Cleaning up MOH with an active class");
+			ast_log(LOG_WARNING, "Uh Oh. Cleaning up MOH with an active class\n");
 		}
 		ast_free(chan->music_state);
 		chan->music_state = NULL;
@@ -1627,14 +1654,15 @@ static int load_moh_classes(int reload)
 
 	cfg = ast_config_load("musiconhold.conf", config_flags);
 
-	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEUNCHANGED || cfg == CONFIG_STATUS_FILEINVALID) {
+	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEINVALID) {
 		if (ast_check_realtime("musiconhold") && reload) {
 			ao2_t_callback(mohclasses, OBJ_NODATA, moh_class_mark, NULL, "Mark deleted classes");
 			ao2_t_callback(mohclasses, OBJ_UNLINK | OBJ_NODATA | OBJ_MULTIPLE, moh_classes_delete_marked, NULL, "Purge marked classes");
 		}
-		if (cfg == CONFIG_STATUS_FILEUNCHANGED) {
-			moh_rescan_files();
-		}
+		return 0;
+	}
+	if (cfg == CONFIG_STATUS_FILEUNCHANGED) {
+		moh_rescan_files();
 		return 0;
 	}
 

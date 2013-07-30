@@ -38,6 +38,7 @@
 	<depend>alsa</depend>
 	<depend>usb</depend>
 	<defaultenabled>no</defaultenabled>
+	<support_level>extended</support_level>
  ***/
 
 /*** MAKEOPTS
@@ -57,7 +58,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 284666 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <stdio.h>
 #include <ctype.h>
@@ -187,14 +188,15 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 284666 $")
 #define	EEPROM_TXCTCSSADJ	15
 #define	EEPROM_RXSQUELCHADJ	16
 
-/*! Global jitterbuffer configuration - by default, jb is disabled */
+/*! Global jitterbuffer configuration - by default, jb is disabled
+ *  \note Values shown here match the defaults shown in usbradio.conf.sample */
 static struct ast_jb_conf default_jbconf =
 {
 	.flags = 0,
-	.max_size = -1,
-	.resync_threshold = -1,
-	.impl = "",
-	.target_extra = -1,
+	.max_size = 200,
+	.resync_threshold = 1000,
+	.impl = "fixed",
+	.target_extra = 40,
 };
 static struct ast_jb_conf global_jbconf;
 

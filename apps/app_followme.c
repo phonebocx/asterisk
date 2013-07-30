@@ -30,11 +30,12 @@
 
 /*** MODULEINFO
 	<depend>chan_local</depend>
+	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 297733 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <signal.h>
 
@@ -790,7 +791,6 @@ static void findmeexec(struct fm_args *tpargs)
 	char *rest, *number;
 	struct findme_user *tmpuser;
 	struct findme_user *fmuser;
-	struct findme_user *headuser;
 	struct findme_user_listptr *findme_user_list;
 	int status;
 
@@ -901,7 +901,6 @@ static void findmeexec(struct fm_args *tpargs)
 
 		fmuser = NULL;
 		tmpuser = NULL;
-		headuser = NULL;
 		if (winner)
 			break;
 

@@ -35,11 +35,12 @@
 
 /*** MODULEINFO
 	<depend>pgsql</depend>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 299131 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <libpq-fe.h>
 

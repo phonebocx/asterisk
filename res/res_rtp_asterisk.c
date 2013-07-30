@@ -28,9 +28,13 @@
  * \ingroup rtp_engines
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 290542 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328823 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -143,6 +147,7 @@ struct ast_rtp {
 	unsigned int dtmf_duration;     /*!< Total duration in samples since the digit start event */
 	unsigned int dtmf_timeout;      /*!< When this timestamp is reached we consider END frame lost and forcibly abort digit */
 	unsigned int dtmfsamples;
+	enum ast_rtp_dtmf_mode dtmfmode;/*!< The current DTMF mode of the RTP stream */
 	/* DTMF Transmission Variables */
 	unsigned int lastdigitts;
 	char sending_digit;	/*!< boolean - are we sending digits */
@@ -256,6 +261,8 @@ static int ast_rtp_destroy(struct ast_rtp_instance *instance);
 static int ast_rtp_dtmf_begin(struct ast_rtp_instance *instance, char digit);
 static int ast_rtp_dtmf_end(struct ast_rtp_instance *instance, char digit);
 static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, char digit, unsigned int duration);
+static int ast_rtp_dtmf_mode_set(struct ast_rtp_instance *instance, enum ast_rtp_dtmf_mode dtmf_mode);
+static enum ast_rtp_dtmf_mode ast_rtp_dtmf_mode_get(struct ast_rtp_instance *instance);
 static void ast_rtp_update_source(struct ast_rtp_instance *instance);
 static void ast_rtp_change_source(struct ast_rtp_instance *instance);
 static int ast_rtp_write(struct ast_rtp_instance *instance, struct ast_frame *frame);
@@ -272,6 +279,7 @@ static int ast_rtp_dtmf_compatible(struct ast_channel *chan0, struct ast_rtp_ins
 static void ast_rtp_stun_request(struct ast_rtp_instance *instance, struct ast_sockaddr *suggestion, const char *username);
 static void ast_rtp_stop(struct ast_rtp_instance *instance);
 static int ast_rtp_qos_set(struct ast_rtp_instance *instance, int tos, int cos, const char* desc);
+static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level);
 
 /* RTP Engine Declaration */
 static struct ast_rtp_engine asterisk_rtp_engine = {
@@ -281,6 +289,8 @@ static struct ast_rtp_engine asterisk_rtp_engine = {
 	.dtmf_begin = ast_rtp_dtmf_begin,
 	.dtmf_end = ast_rtp_dtmf_end,
 	.dtmf_end_with_duration = ast_rtp_dtmf_end_with_duration,
+	.dtmf_mode_set = ast_rtp_dtmf_mode_set,
+	.dtmf_mode_get = ast_rtp_dtmf_mode_get,
 	.update_source = ast_rtp_update_source,
 	.change_source = ast_rtp_change_source,
 	.write = ast_rtp_write,
@@ -297,6 +307,7 @@ static struct ast_rtp_engine asterisk_rtp_engine = {
 	.stun_request = ast_rtp_stun_request,
 	.stop = ast_rtp_stop,
 	.qos = ast_rtp_qos_set,
+	.sendcng = ast_rtp_sendcng,
 };
 
 static inline int rtp_debug_test_addr(struct ast_sockaddr *addr)
@@ -526,6 +537,19 @@ static int ast_rtp_destroy(struct ast_rtp_instance *instance)
 	ast_free(rtp);
 
 	return 0;
+}
+
+static int ast_rtp_dtmf_mode_set(struct ast_rtp_instance *instance, enum ast_rtp_dtmf_mode dtmf_mode)
+{
+	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
+	rtp->dtmfmode = dtmf_mode;
+	return 0;
+}
+
+static enum ast_rtp_dtmf_mode ast_rtp_dtmf_mode_get(struct ast_rtp_instance *instance)
+{
+	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
+	return rtp->dtmfmode;
 }
 
 static int ast_rtp_dtmf_begin(struct ast_rtp_instance *instance, char digit)
@@ -985,7 +1009,7 @@ static int ast_rtcp_write_sr(struct ast_rtp_instance *instance)
 		ast_verbose("  Their last SR: %u\n", rtp->rtcp->themrxlsr);
 		ast_verbose("  DLSR: %4.4f (sec)\n\n", (double)(ntohl(rtcpheader[12])/65536.0));
 	}
-	manager_event(EVENT_FLAG_REPORTING, "RTCPSent", "To %s\r\n"
+	manager_event(EVENT_FLAG_REPORTING, "RTCPSent", "To: %s\r\n"
 					    "OurSSRC: %u\r\n"
 					    "SentNTP: %u.%010u\r\n"
 					    "SentRTP: %u\r\n"
@@ -1823,7 +1847,7 @@ static struct ast_frame *ast_rtcp_read(struct ast_rtp_instance *instance)
 					ast_verbose("  RTT: %lu(sec)\n", (unsigned long) rtt);
 			}
 			if (rtt) {
-				manager_event(EVENT_FLAG_REPORTING, "RTCPReceived", "From %s\r\n"
+				manager_event(EVENT_FLAG_REPORTING, "RTCPReceived", "From: %s\r\n"
 								    "PT: %d(%s)\r\n"
 								    "ReceptionReports: %d\r\n"
 								    "SenderSSRC: %u\r\n"
@@ -1848,7 +1872,7 @@ static struct ast_frame *ast_rtcp_read(struct ast_rtp_instance *instance)
 					      ntohl(rtcpheader[i + 5])/65536.0,
 					      (unsigned long long)rtt);
 			} else {
-				manager_event(EVENT_FLAG_REPORTING, "RTCPReceived", "From %s\r\n"
+				manager_event(EVENT_FLAG_REPORTING, "RTCPReceived", "From: %s\r\n"
 								    "PT: %d(%s)\r\n"
 								    "ReceptionReports: %d\r\n"
 								    "SenderSSRC: %u\r\n"
@@ -2589,6 +2613,49 @@ static int ast_rtp_qos_set(struct ast_rtp_instance *instance, int tos, int cos, 
 	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
 
 	return ast_set_qos(rtp->s, tos, cos, desc);
+}
+
+/*! \brief generate comfort noice (CNG) */
+static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level)
+{
+	unsigned int *rtpheader;
+	int hdrlen = 12;
+	int res;
+	struct ast_rtp_payload_type payload;
+	char data[256];
+	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
+	struct ast_sockaddr remote_address = { {0,} };
+
+	ast_rtp_instance_get_remote_address(instance, &remote_address);
+
+	if (ast_sockaddr_isnull(&remote_address)) {
+		return -1;
+	}
+
+	payload = ast_rtp_codecs_payload_lookup(ast_rtp_instance_get_codecs(instance), AST_RTP_CN);
+
+	level = 127 - (level & 0x7f);
+	
+	rtp->dtmfmute = ast_tvadd(ast_tvnow(), ast_tv(0, 500000));
+
+	/* Get a pointer to the header */
+	rtpheader = (unsigned int *)data;
+	rtpheader[0] = htonl((2 << 30) | (1 << 23) | (payload.code << 16) | (rtp->seqno++));
+	rtpheader[1] = htonl(rtp->lastts);
+	rtpheader[2] = htonl(rtp->ssrc); 
+	data[12] = level;
+
+	res = rtp_sendto(instance, (void *) rtpheader, hdrlen + 1, 0, &remote_address);
+
+	if (res < 0) {
+		ast_log(LOG_ERROR, "RTP Comfort Noise Transmission error to %s: %s\n", ast_sockaddr_stringify(&remote_address), strerror(errno));
+	} else if (rtp_debug_test_addr(&remote_address)) {
+		ast_verbose("Sent Comfort Noise RTP packet to %s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u)\n",
+				ast_sockaddr_stringify(&remote_address),
+				AST_RTP_CN, rtp->seqno, rtp->lastdigitts, res - hdrlen);
+	}
+
+	return res;
 }
 
 static char *rtp_do_debug_ip(struct ast_cli_args *a)

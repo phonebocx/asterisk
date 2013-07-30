@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 268690 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 319261 $")
 
 #include <math.h>
 
@@ -795,7 +795,6 @@ static int mf_detect(struct ast_dsp *dsp, digit_detect_state_t *s, int16_t amp[]
 	float energy[6];
 	int best;
 	int second_best;
-	float famp;
 	int i;
 	int j;
 	int sample;
@@ -820,7 +819,6 @@ static int mf_detect(struct ast_dsp *dsp, digit_detect_state_t *s, int16_t amp[]
 		/* The following unrolled loop takes only 35% (rough estimate) of the 
 		   time of a rolled loop on the machine on which it was developed */
 		for (j = sample;  j < limit;  j++) {
-			famp = amp[j];
 			/* With GCC 2.95, the following unrolled code seems to take about 35%
 			   (rough estimate) as long as a neat little 0-3 loop */
 			goertzel_sample(s->td.mf.tone_out, amp[j]);
@@ -1241,7 +1239,7 @@ int ast_dsp_busydetect(struct ast_dsp *dsp)
 	}
 	/* If we know the expected busy tone length, check we are in the range */
 	if (res && (dsp->busy_tonelength > 0)) {
-		if (abs(avgtone - dsp->busy_tonelength) > (dsp->busy_tonelength*BUSY_PAT_PERCENT/100)) {
+		if (abs(avgtone - dsp->busy_tonelength) > MAX(dsp->busy_tonelength*BUSY_PAT_PERCENT/100, 20)) {
 #ifdef BUSYDETECT_DEBUG
 			ast_debug(5, "busy detector: avgtone of %d not close enough to desired %d\n",
 				avgtone, dsp->busy_tonelength);
@@ -1252,7 +1250,7 @@ int ast_dsp_busydetect(struct ast_dsp *dsp)
 #ifndef BUSYDETECT_TONEONLY
 	/* If we know the expected busy tone silent-period length, check we are in the range */
 	if (res && (dsp->busy_quietlength > 0)) {
-		if (abs(avgsilence - dsp->busy_quietlength) > (dsp->busy_quietlength*BUSY_PAT_PERCENT/100)) {
+		if (abs(avgsilence - dsp->busy_quietlength) > MAX(dsp->busy_quietlength*BUSY_PAT_PERCENT/100, 20)) {
 #ifdef BUSYDETECT_DEBUG
 		ast_debug(5, "busy detector: avgsilence of %d not close enough to desired %d\n",
 			avgsilence, dsp->busy_quietlength);
@@ -1546,6 +1544,9 @@ struct ast_dsp *ast_dsp_new(void)
 void ast_dsp_set_features(struct ast_dsp *dsp, int features)
 {
 	dsp->features = features;
+	if (!(features & DSP_FEATURE_DIGIT_DETECT)) {
+		dsp->display_inband_dtmf_warning = 0;
+	}
 }
 
 void ast_dsp_free(struct ast_dsp *dsp)

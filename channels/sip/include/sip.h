@@ -212,6 +212,7 @@
 #define DEFAULT_ALWAYSAUTHREJECT  TRUE  /*!< Don't reject authentication requests always */
 #define DEFAULT_AUTH_OPTIONS  FALSE
 #define DEFAULT_REGEXTENONQUALIFY FALSE
+#define DEFAULT_LEGACY_USEROPTION_PARSING FALSE
 #define DEFAULT_T1MIN             100   /*!< 100 MS for minimal roundtrip time */
 #define DEFAULT_MAX_CALL_BITRATE (384)  /*!< Max bitrate for video */
 #ifndef DEFAULT_USERAGENT
@@ -220,6 +221,7 @@
 #define DEFAULT_SDPOWNER   "root"          /*!< Default SDP username field in (o=) header unless re-defined in sip.conf */
 #define DEFAULT_ENGINE     "asterisk"      /*!< Default RTP engine to use for sessions */
 #define DEFAULT_CAPABILITY (AST_FORMAT_ULAW | AST_FORMAT_TESTLAW | AST_FORMAT_ALAW | AST_FORMAT_GSM | AST_FORMAT_H263);
+#define DEFAULT_STORE_SIP_CAUSE FALSE      /*!< Don't store HASH(SIP_CAUSE,<channel name>) for channels by default */
 #endif
 /*@}*/
 
@@ -683,6 +685,7 @@ struct sip_settings {
 	int allow_external_domains; /*!< Accept calls to external SIP domains? */
 	int callevents;             /*!< Whether we send manager events or not */
 	int regextenonqualify;      /*!< Whether to add/remove regexten when qualifying peers */
+	int legacy_useroption_parsing; /*!< Whether to strip useroptions in URI via semicolons */
 	int matchexternaddrlocally;   /*!< Match externaddr/externhost setting against localnet setting */
 	char regcontext[AST_MAX_CONTEXT];  /*!< Context for auto-extensions */
 	unsigned int disallowed_methods;   /*!< methods that we should never try to use */
@@ -738,7 +741,6 @@ struct sip_socket {
 struct sip_request {
 	ptrdiff_t rlPart1;      /*!< Offset of the SIP Method Name or "SIP/2.0" protocol version */
 	ptrdiff_t rlPart2;      /*!< Offset of the Request URI or Response Status */
-	int len;                /*!< bytes used in data[], excluding trailing null terminator. Rarely used. */
 	int headers;            /*!< # of SIP Headers */
 	int method;             /*!< Method of this request */
 	int lines;              /*!< Body Content */
@@ -823,11 +825,16 @@ struct sip_history {
 
 /*! \brief sip_auth: Credentials for authentication to other SIP services */
 struct sip_auth {
+	AST_LIST_ENTRY(sip_auth) node;
 	char realm[AST_MAX_EXTENSION];  /*!< Realm in which these credentials are valid */
 	char username[256];             /*!< Username */
 	char secret[256];               /*!< Secret */
 	char md5secret[256];            /*!< MD5Secret */
-	struct sip_auth *next;          /*!< Next auth structure in list */
+};
+
+/*! \brief Container of SIP authentication credentials. */
+struct sip_auth_container {
+	AST_LIST_HEAD_NOLOCK(, sip_auth) list;
 };
 
 /*! \brief T.38 channel settings (at some point we need to make this alloc'ed */
@@ -1038,7 +1045,7 @@ struct sip_pvt {
 	struct ast_channel *owner;          /*!< Who owns us (if we have an owner) */
 	struct sip_route *route;            /*!< Head of linked list of routing steps (fm Record-Route) */
 	struct sip_notify *notify;          /*!< Custom notify type */
-	struct sip_auth *peerauth;          /*!< Realm authentication */
+	struct sip_auth_container *peerauth;/*!< Realm authentication credentials */
 	int noncecount;                     /*!< Nonce-count */
 	unsigned int stalenonce:1;          /*!< Marks the current nonce as responded too */
 	char lastmsg[256];                  /*!< Last Message sent/received */
@@ -1135,7 +1142,6 @@ struct sip_pkt {
 	struct timeval time_sent;  /*!< When pkt was sent */
 	int64_t retrans_stop_time; /*!< Time in ms after 'now' that retransmission must stop */
 	int retrans_stop;         /*!< Timeout is reached, stop retransmission  */
-	int packetlen;            /*!< Length of packet */
 	struct ast_str *data;
 };
 
@@ -1200,7 +1206,7 @@ struct sip_peer {
 	                                 *   for incoming calls
 	                                 */
 	unsigned short deprecated_username:1; /*!< If it's a realtime peer, are they using the deprecated "username" instead of "defaultuser" */
-	struct sip_auth *auth;          /*!< Realm authentication list */
+	struct sip_auth_container *auth;/*!< Realm authentication credentials */
 	int amaflags;                   /*!< AMA Flags (for billing) */
 	int callingpres;                /*!< Calling id presentation */
 	int inUse;                      /*!< Number of calls in use */

@@ -130,7 +130,7 @@ allowoverlap=no                 ; Disable overlap dialing support. (Default is y
                                 ; asterisk.conf, it defaults to that system name
                                 ; Realms MUST be globally unique according to RFC 3261
                                 ; Set this to your host name or domain name
-;domainsasrealm=no              ; Use domans list as realms
+;domainsasrealm=no              ; Use domains list as realms
                                 ; You can serve multiple Realms specifying several
                                 ; 'domain=...' directives (see below). 
                                 ; In this case Realm will be based on request 'From'/'To' header
@@ -146,6 +146,10 @@ allowoverlap=no                 ; Disable overlap dialing support. (Default is y
 ; "udpbindaddr", "tcpbindaddr", and "tlsbindaddr".)
 ; (Note that using bindaddr=:: will show only a single IPv6 socket in netstat.
 ;  IPv4 is supported at the same time using IPv4-mapped IPv6 addresses.)
+;
+; Using bindaddr will only enable UDP support in order to be backwards compatible with those systems
+; that were upgraded prior to TCP support. Use udpbindaddr and tcpbindaddr to bind to UDP and TCP
+; independently.
 ;
 ; You may optionally add a port number. (The default is port 5060 for UDP and TCP, 5061
 ; for TLS).
@@ -179,8 +183,8 @@ udpbindaddr=0.0.0.0             ; IP address to bind UDP listen socket to (0.0.0
 ;
 ; Note also that while Asterisk currently will parse an Allow header to learn
 ; what methods an endpoint supports, the only actual use for this currently
-; is for determining if Asterisk may send connected line UPDATE requests. Its
-; use may be expanded in the future.
+; is for determining if Asterisk may send connected line UPDATE requests and
+; MESSAGE requests. Its use may be expanded in the future.
 ;
 ; disallowed_methods = UPDATE
 
@@ -432,6 +436,14 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
                                 ; If you have qualify on and the peer becomes unreachable
                                 ; this setting will enforce inactivation of the regexten
                                 ; extension for the peer
+;legacy_useroption_parsing=yes	; Default "no"      ; If you have this option enabled and there are semicolons
+                                                    ; in the user field of a sip URI, the field be truncated
+                                                    ; at the first semicolon seen. This effectively makes
+                                                    ; semicolon a non-usable character for peer names, extensions,
+                                                    ; and maybe other, less tested things.  This can be useful
+                                                    ; for improving compatability with devices that like to use
+                                                    ; user options for whatever reason.  The behavior is similar to
+                                                    ; how SIP URI's were typically handled in 1.6.2, hence the name.
 
 ; The shrinkcallerid function removes '(', ' ', ')', non-trailing '.', and '-' not
 ; in square brackets.  For example, the caller id value 555.5555 becomes 5555555
@@ -993,6 +1005,16 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
                               ; but occasionally has spikes.
 
 ; jblog = no                  ; Enables jitterbuffer frame logging. Defaults to "no".
+
+;----------------------------- SIP_CAUSE reporting ---------------------------------
+; storesipcause = no          ; This option causes chan_sip to set the
+			      ; HASH(SIP_CAUSE,<channel name>) channel variable
+			      ; to the value of the last sip response.
+			      ; WARNING: enabling this option carries a
+			      ; significant performance burden. It should only
+			      ; be used in low call volume situations. This
+                              ; option defaults to "no".
+
 ;-----------------------------------------------------------------------------------
 
 [authentication]
@@ -1023,6 +1045,10 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ; * The type=peer also handles both incoming and outbound calls. On inbound calls,
 ;   Asterisk only matches on IP/port, not on names. This is mostly used for SIP
 ;   trunks.
+;
+; Use remotesecret for outbound authentication, and secret for authenticating
+; inbound requests. For historical reasons, if no remotesecret is supplied for an
+; outbound registration or call, the secret will be used. 
 ;
 ; For device names, we recommend using only a-z, numerics (0-9) and underscore
 ;

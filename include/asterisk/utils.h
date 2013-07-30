@@ -273,6 +273,19 @@ char *ast_uri_encode(const char *string, char *outbuf, int buflen, int do_specia
  */
 void ast_uri_decode(char *s);
 
+/*!
+ * \brief Escape characters found in a quoted string.
+ *
+ * \note This function escapes quoted characters based on the 'qdtext' set of
+ * allowed characters from RFC 3261 section 25.1.
+ *
+ * \param string string to be escaped
+ * \param outbuf resulting escaped string
+ * \param buflen size of output buffer
+ * \return a pointer to the escaped string
+ */
+char *ast_escape_quoted(const char *string, char *outbuf, int buflen);
+
 static force_inline void ast_slinear_saturated_add(short *input, short *value)
 {
 	int res;
@@ -654,7 +667,7 @@ void ast_enable_packet_fragmentation(int sock);
  */
 int ast_mkdir(const char *path, int mode);
 
-#define ARRAY_LEN(a) (sizeof(a) / sizeof(0[a]))
+#define ARRAY_LEN(a) (size_t) (sizeof(a) / sizeof(0[a]))
 
 
 /* Definition for Digest authorization */

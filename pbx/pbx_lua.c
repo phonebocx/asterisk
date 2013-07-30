@@ -26,11 +26,12 @@
 
 /*** MODULEINFO
 	<depend>lua</depend>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 278132 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
@@ -85,6 +86,7 @@ static void lua_create_autoservice_functions(lua_State *L);
 static void lua_create_hangup_function(lua_State *L);
 
 static void lua_state_destroy(void *data);
+static void lua_datastore_fixup(void *data, struct ast_channel *old_chan, struct ast_channel *new_chan);
 static lua_State *lua_get_state(struct ast_channel *chan);
 
 static int exists(struct ast_channel *chan, const char *context, const char *exten, int priority, const char *callerid, const char *data);
@@ -102,6 +104,7 @@ static struct ast_hashtab *local_table = NULL;
 static const struct ast_datastore_info lua_datastore = {
 	.type = "lua",
 	.destroy = lua_state_destroy,
+	.chan_fixup = lua_datastore_fixup,
 };
 
 
@@ -112,6 +115,21 @@ static void lua_state_destroy(void *data)
 {
 	if (data)
 		lua_close(data);
+}
+
+/*!
+ * \brief The fixup function for the lua_datastore.
+ * \param data the datastore data, in this case it will be a lua_State
+ * \param old_chan the channel we are moving from
+ * \param new_chan the channel we are moving to
+ *
+ * This function updates our internal channel pointer.
+ */
+static void lua_datastore_fixup(void *data, struct ast_channel *old_chan, struct ast_channel *new_chan)
+{
+	lua_State *L = data;
+	lua_pushlightuserdata(L, new_chan);
+	lua_setfield(L, LUA_REGISTRYINDEX, "channel");
 }
 
 /*!
@@ -639,6 +657,13 @@ static int lua_autoservice_start(lua_State *L)
 	struct ast_channel *chan;
 	int res;
 
+	lua_getfield(L, LUA_REGISTRYINDEX, "autoservice");
+	if (lua_toboolean(L, -1)) {
+		/* autoservice already running */
+		return 1;
+	}
+	lua_pop(L, 1);
+
 	lua_getfield(L, LUA_REGISTRYINDEX, "channel");
 	chan = lua_touserdata(L, -1);
 	lua_pop(L, 1);
@@ -669,6 +694,13 @@ static int lua_autoservice_stop(lua_State *L)
 {
 	struct ast_channel *chan;
 	int res;
+
+	lua_getfield(L, LUA_REGISTRYINDEX, "autoservice");
+	if (!lua_toboolean(L, -1)) {
+		/* no autoservice running */
+		return 1;
+	}
+	lua_pop(L, 1);
 
 	lua_getfield(L, LUA_REGISTRYINDEX, "channel");
 	chan = lua_touserdata(L, -1);
@@ -736,6 +768,9 @@ static int lua_error_function(lua_State *L)
 	 * backtrace to it */
 	message_index = lua_gettop(L);
 
+	/* prepare to prepend a new line to the traceback */
+	lua_pushliteral(L, "\n");
+
 	lua_getglobal(L, "debug");
 	lua_getfield(L, -1, "traceback");
 	lua_remove(L, -2); /* remove the 'debug' table */
@@ -746,6 +781,9 @@ static int lua_error_function(lua_State *L)
 	lua_pushnumber(L, 2);
 
 	lua_call(L, 2, 1);
+
+	/* prepend the new line we prepared above */
+	lua_concat(L, 2);
 
 	return 1;
 }
@@ -787,7 +825,11 @@ static int lua_sort_extensions(lua_State *L)
 		int context_name = context - 1;
 		int context_order;
 
+		/* copy the context_name to be used as the key for the
+		 * context_order table in the extensions_order table later */
 		lua_pushvalue(L, context_name);
+
+		/* create the context_order table */
 		lua_newtable(L);
 		context_order = lua_gettop(L);
 
@@ -920,6 +962,7 @@ static int lua_extension_cmp(lua_State *L)
 static char *lua_read_extensions_file(lua_State *L, long *size)
 {
 	FILE *f;
+	int error_func;
 	char *data;
 	char *path = alloca(strlen(config) + strlen(ast_config_AST_CONFIG_DIR) + 2);
 	sprintf(path, "%s/%s", ast_config_AST_CONFIG_DIR, config);
@@ -934,10 +977,20 @@ static char *lua_read_extensions_file(lua_State *L, long *size)
 		return NULL;
 	}
 
-	fseek(f, 0l, SEEK_END);
+	if (fseek(f, 0l, SEEK_END)) {
+		fclose(f);
+		lua_pushliteral(L, "error determining the size of the config file");
+		return NULL;
+	}
+
 	*size = ftell(f);
 
-	fseek(f, 0l, SEEK_SET);
+	if (fseek(f, 0l, SEEK_SET)) {
+		*size = 0;
+		fclose(f);
+		lua_pushliteral(L, "error reading config file");
+		return NULL;
+	}
 
 	if (!(data = ast_malloc(*size))) {
 		*size = 0;
@@ -947,18 +1000,26 @@ static char *lua_read_extensions_file(lua_State *L, long *size)
 	}
 
 	if (fread(data, sizeof(char), *size, f) != *size) {
-		ast_log(LOG_WARNING, "fread() failed: %s\n", strerror(errno));
+		*size = 0;
+		fclose(f);
+		lua_pushliteral(L, "problem reading configuration file");
+		return NULL;
 	}
 	fclose(f);
 
+	lua_pushcfunction(L, &lua_error_function);
+	error_func = lua_gettop(L);
+
 	if (luaL_loadbuffer(L, data, *size, "extensions.lua")
-			|| lua_pcall(L, 0, LUA_MULTRET, 0)
+			|| lua_pcall(L, 0, LUA_MULTRET, error_func)
 			|| lua_sort_extensions(L)
 			|| lua_register_switches(L)) {
 		ast_free(data);
 		data = NULL;
 		*size = 0;
 	}
+
+	lua_remove(L, error_func);
 	return data;
 }
 
@@ -1232,7 +1293,13 @@ static int exec(struct ast_channel *chan, const char *context, const char *exten
 		ast_module_user_remove(u);
 		return -1;
 	}
-		
+
+	lua_getfield(L, LUA_REGISTRYINDEX, "autoservice");
+	if (lua_toboolean(L, -1)) {
+		ast_autoservice_start(chan);
+	}
+	lua_pop(L, 1);
+
 	lua_update_registry(L, context, exten, priority);
 	
 	lua_pushstring(L, context);
@@ -1258,6 +1325,13 @@ static int exec(struct ast_channel *chan, const char *context, const char *exten
 		lua_pop(L, 1);
 	}
 	lua_remove(L, error_func);
+
+	lua_getfield(L, LUA_REGISTRYINDEX, "autoservice");
+	if (lua_toboolean(L, -1)) {
+		ast_autoservice_stop(chan);
+	}
+	lua_pop(L, 1);
+
 	if (!chan) lua_close(L);
 	ast_module_user_remove(u);
 	return res;
@@ -1314,12 +1388,12 @@ static int lua_find_extension(lua_State *L, const char *context, const char *ext
 	
 	/* step through the extensions looking for a match */
 	for (i = 1; i < lua_objlen(L, context_order_table) + 1; i++) {
-		int e_index, e_index_copy, match = 0;
+		int e_index_copy, match = 0;
 		const char *e;
 
 		lua_pushinteger(L, i);
 		lua_gettable(L, context_order_table);
-		e_index = lua_gettop(L);
+		lua_gettop(L);
 
 		/* copy the key at the top of the stack for use later */
 		lua_pushvalue(L, -1);
@@ -1467,7 +1541,7 @@ static int load_module(void)
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Lua PBX Switch",
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "Lua PBX Switch",
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,

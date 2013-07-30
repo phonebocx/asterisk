@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 268894 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 317474 $")
 
 #include "asterisk/options.h"
 #include "asterisk/utils.h"
@@ -191,7 +191,6 @@ err:
 int sdp_crypto_process(struct sdp_crypto *p, const char *attr, struct ast_rtp_instance *rtp)
 {
 	char *str = NULL;
-	char *name = NULL;
 	char *tag = NULL;
 	char *suite = NULL;
 	char *key_params = NULL;
@@ -211,7 +210,7 @@ int sdp_crypto_process(struct sdp_crypto *p, const char *attr, struct ast_rtp_in
 
 	str = ast_strdupa(attr);
 
-	name = strsep(&str, ":");
+	strsep(&str, ":");
 	tag = strsep(&str, " ");
 	suite = strsep(&str, " ");
 	key_params = strsep(&str, " ");

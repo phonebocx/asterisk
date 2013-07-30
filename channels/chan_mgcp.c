@@ -31,11 +31,12 @@
 
 /*** MODULEINFO
         <use>res_pktccops</use>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 286931 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -93,14 +94,15 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 286931 $")
 #define INADDR_NONE (in_addr_t)(-1)
 #endif
 
-/*! Global jitterbuffer configuration - by default, jb is disabled */
+/*! Global jitterbuffer configuration - by default, jb is disabled
+ *  \note Values shown here match the defaults shown in mgcp.conf.sample */
 static struct ast_jb_conf default_jbconf =
 {
 	.flags = 0,
-	.max_size = -1,
-	.resync_threshold = -1,
-	.impl = "",
-	.target_extra = -1,
+	.max_size = 200,
+	.resync_threshold = 1000,
+	.impl = "fixed",
+	.target_extra = 40,
 };
 static struct ast_jb_conf global_jbconf;
 
@@ -3754,7 +3756,7 @@ static void *do_monitor(void *data)
 {
 	int res;
 	int reloading;
-	struct mgcp_gateway *g, *gprev, *gnext;
+	struct mgcp_gateway *g, *gprev;
 	/*struct mgcp_gateway *g;*/
 	/*struct mgcp_endpoint *e;*/
 	/*time_t thispass = 0, lastpass = 0;*/
@@ -3824,12 +3826,10 @@ static void *do_monitor(void *data)
 			g = gateways;
 			gprev = NULL;
 			while(g) {
-				gnext = g->next;
 				if(g->realtime) {
 					if(mgcp_prune_realtime_gateway(g)) {
 						if(gprev) {
-							gprev->next = gnext;
-							gprev = g;
+							gprev->next = g->next;
 						} else {
 							gateways = g->next;
 						}
@@ -3843,7 +3843,7 @@ static void *do_monitor(void *data)
 				} else {
 					gprev = g;
 				}
-				g = gnext;
+				g = g->next;
 			}
 			ast_mutex_unlock(&gatelock);
 			lastrun = time(NULL);
@@ -3901,13 +3901,11 @@ static int restart_monitor(void)
 
 static struct ast_channel *mgcp_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
-	format_t oldformat;
 	struct mgcp_subchannel *sub;
 	struct ast_channel *tmpc = NULL;
 	char tmp[256];
 	char *dest = data;
 
-	oldformat = format;
 	format &= capability;
 	if (!format) {
 		ast_log(LOG_NOTICE, "Asked to get a channel of unsupported format '%s'\n", ast_getformatname_multiple(tmp, sizeof(tmp), format));
@@ -4732,7 +4730,7 @@ static int reload_config(int reload)
 		memcpy(&__ourip, hp->h_addr, sizeof(__ourip));
 	}
 	if (!ntohs(bindaddr.sin_port))
-		bindaddr.sin_port = ntohs(DEFAULT_MGCP_CA_PORT);
+		bindaddr.sin_port = htons(DEFAULT_MGCP_CA_PORT);
 	bindaddr.sin_family = AF_INET;
 	ast_mutex_lock(&netlock);
 	if (mgcpsock > -1)

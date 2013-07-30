@@ -33,6 +33,7 @@
 
 /*** MODULEINFO
 	<depend>ldap</depend>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
@@ -43,7 +44,7 @@
 #include <stdio.h>
 #include <ldap.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 304866 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/logger.h"
