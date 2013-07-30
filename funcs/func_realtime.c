@@ -26,7 +26,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 117809 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58933 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,19 +74,14 @@ static int function_realtime_read(struct ast_channel *chan, char *cmd, char *dat
 	if (!args.delim2)
 		args.delim2 = "=";
 
-	if (chan)
-		ast_autoservice_start(chan);
-
 	head = ast_load_realtime(args.family, args.fieldmatch, args.value, NULL);
 
 	if (!head) {
 		ast_module_user_remove(u);
-		if (chan)
-			ast_autoservice_stop(chan);
 		return -1;
 	}
 	for (var = head; var; var = var->next)
-		resultslen += strlen(var->name) + strlen(var->value) + strlen(args.delim1) + strlen(args.delim2);
+		resultslen += strlen(var->name) + strlen(var->value) + 2;
 
 	result_begin = results = alloca(resultslen);
 	for (var = head; var; var = var->next)
@@ -95,15 +90,12 @@ static int function_realtime_read(struct ast_channel *chan, char *cmd, char *dat
 
 	ast_module_user_remove(u);
 
-	if (chan)
-		ast_autoservice_stop(chan);
-
 	return 0;
 }
 
 static int function_realtime_write(struct ast_channel *chan, char *cmd, char *data, const char *value)
 {
-        struct ast_module_user *u = NULL;
+        struct ast_module_user *u;
 	int res = 0;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(family);
@@ -117,10 +109,7 @@ static int function_realtime_write(struct ast_channel *chan, char *cmd, char *da
 		return -1;
 	}
 
-	if (chan) {
-		ast_autoservice_start(chan);
-		u = ast_module_user_add(chan);
-	}
+	u = ast_module_user_add(chan);
 
 	AST_STANDARD_APP_ARGS(args, data);
 
@@ -130,10 +119,7 @@ static int function_realtime_write(struct ast_channel *chan, char *cmd, char *da
 		ast_log(LOG_WARNING, "Failed to update. Check the debug log for possible data repository related entries.\n");
 	}
 
-	if (chan) {
-		ast_module_user_remove(u);
-		ast_autoservice_stop(chan);
-	}
+	ast_module_user_remove(u);
 
 	return 0;
 }

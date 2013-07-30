@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 120173 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53118 $")
 
 #include <stdio.h>
 #include <unistd.h>
@@ -62,8 +62,14 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 120173 $")
 
 static char *extconfig_conf = "extconfig.conf";
 
+/*! Growable string buffer */
+static char *comment_buffer;   /*!< this will be a comment collector.*/
+static int   comment_buffer_size;  /*!< the amount of storage so far alloc'd for the comment_buffer */
 
-/*! \brief Structure to keep comments for rewriting configuration files */
+static char *lline_buffer;    /*!< A buffer for stuff behind the ; */
+static int  lline_buffer_size;
+
+
 struct ast_comment {
 	struct ast_comment *next;
 	char cmt[0];
@@ -71,70 +77,71 @@ struct ast_comment {
 
 #define CB_INCR 250
 
-static void CB_INIT(char **comment_buffer, int *comment_buffer_size, char **lline_buffer, int *lline_buffer_size)
+static void CB_INIT(void)
 {
-	if (!(*comment_buffer)) {
-		*comment_buffer = ast_malloc(CB_INCR);
-		if (!(*comment_buffer))
+	if (!comment_buffer) {
+		comment_buffer = ast_malloc(CB_INCR);
+		if (!comment_buffer)
 			return;
-		(*comment_buffer)[0] = 0;
-		*comment_buffer_size = CB_INCR;
-		*lline_buffer = ast_malloc(CB_INCR);
-		if (!(*lline_buffer))
+		comment_buffer[0] = 0;
+		comment_buffer_size = CB_INCR;
+		lline_buffer = ast_malloc(CB_INCR);
+		if (!lline_buffer)
 			return;
-		(*lline_buffer)[0] = 0;
-		*lline_buffer_size = CB_INCR;
+		lline_buffer[0] = 0;
+		lline_buffer_size = CB_INCR;
 	} else {
-		(*comment_buffer)[0] = 0;
-		(*lline_buffer)[0] = 0;
+		comment_buffer[0] = 0;
+		lline_buffer[0] = 0;
 	}
 }
 
-static void  CB_ADD(char **comment_buffer, int *comment_buffer_size, char *str)
+static void  CB_ADD(char *str)
 {
-	int rem = *comment_buffer_size - strlen(*comment_buffer) - 1;
+	int rem = comment_buffer_size - strlen(comment_buffer) - 1;
 	int siz = strlen(str);
 	if (rem < siz+1) {
-		*comment_buffer = ast_realloc(*comment_buffer, *comment_buffer_size + CB_INCR + siz + 1);
-		if (!(*comment_buffer))
+		comment_buffer = ast_realloc(comment_buffer, comment_buffer_size + CB_INCR + siz + 1);
+		if (!comment_buffer)
 			return;
-		*comment_buffer_size += CB_INCR+siz+1;
+		comment_buffer_size += CB_INCR+siz+1;
 	}
-	strcat(*comment_buffer,str);
+	strcat(comment_buffer,str);
 }
 
-static void  CB_ADD_LEN(char **comment_buffer, int *comment_buffer_size, char *str, int len)
+static void  CB_ADD_LEN(char *str, int len)
 {
-	int cbl = strlen(*comment_buffer) + 1;
-	int rem = *comment_buffer_size - cbl;
+	int cbl = strlen(comment_buffer) + 1;
+	int rem = comment_buffer_size - cbl;
 	if (rem < len+1) {
-		*comment_buffer = ast_realloc(*comment_buffer, *comment_buffer_size + CB_INCR + len + 1);
-		if (!(*comment_buffer))
+		comment_buffer = ast_realloc(comment_buffer, comment_buffer_size + CB_INCR + len + 1);
+		if (!comment_buffer)
 			return;
-		*comment_buffer_size += CB_INCR+len+1;
+		comment_buffer_size += CB_INCR+len+1;
 	}
-	strncat(*comment_buffer,str,len);
-	(*comment_buffer)[cbl+len-1] = 0;
+	strncat(comment_buffer,str,len);
+	comment_buffer[cbl+len-1] = 0;
 }
 
-static void  LLB_ADD(char **lline_buffer, int *lline_buffer_size, char *str)
+static void  LLB_ADD(char *str)
 {
-	int rem = *lline_buffer_size - strlen(*lline_buffer) - 1;
+	int rem = lline_buffer_size - strlen(lline_buffer) - 1;
 	int siz = strlen(str);
 	if (rem < siz+1) {
-		*lline_buffer = ast_realloc(*lline_buffer, *lline_buffer_size + CB_INCR + siz + 1);
-		if (!(*lline_buffer)) 
+		lline_buffer = ast_realloc(lline_buffer, lline_buffer_size + CB_INCR + siz + 1);
+		if (!lline_buffer) 
 			return;
-		*lline_buffer_size += CB_INCR + siz + 1;
+		lline_buffer_size += CB_INCR + siz + 1;
 	}
-	strcat(*lline_buffer,str);
+	strcat(lline_buffer,str);
 }
 
-static void CB_RESET(char **comment_buffer, char **lline_buffer)  
+static void CB_RESET(void )  
 { 
-	(*comment_buffer)[0] = 0; 
-	(*lline_buffer)[0] = 0;
+	comment_buffer[0] = 0; 
+	lline_buffer[0] = 0;
 }
+		
 
 
 static struct ast_comment *ALLOC_COMMENT(const char *buffer)
@@ -159,17 +166,10 @@ static struct ast_config_engine *config_engine_list;
 
 #define MAX_INCLUDE_LEVEL 10
 
-struct ast_category_template_instance {
-	char name[80]; /* redundant? */
-	const struct ast_category *inst;
-	AST_LIST_ENTRY(ast_category_template_instance) next;
-};
-
 struct ast_category {
 	char name[80];
 	int ignored;			/*!< do not let user of the config see this category */
 	int include_level;	
-	AST_LIST_HEAD_NOLOCK(template_instance_list, ast_category_template_instance) template_instances;
 	struct ast_comment *precomments;
 	struct ast_comment *sameline;
 	struct ast_variable *root;
@@ -347,36 +347,9 @@ void ast_category_append(struct ast_config *config, struct ast_category *categor
 	config->current = category;
 }
 
-static void ast_destroy_comments(struct ast_category *cat)
-{
-	struct ast_comment *n, *p;
-	for (p=cat->precomments; p; p=n) {
-		n = p->next;
-		free(p);
-	}
-	for (p=cat->sameline; p; p=n) {
-		n = p->next;
-		free(p);
-	}
-	cat->precomments = NULL;
-	cat->sameline = NULL;
-}
-
-static void ast_destroy_template_list(struct ast_category *cat)
-{
-	struct ast_category_template_instance *x;
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&cat->template_instances, x, next) {
-		AST_LIST_REMOVE_CURRENT(&cat->template_instances, next);
-		free(x);
-	}
-	AST_LIST_TRAVERSE_SAFE_END;
-}
-
 void ast_category_destroy(struct ast_category *cat)
 {
 	ast_variables_destroy(cat->root);
-	ast_destroy_comments(cat);
-	ast_destroy_template_list(cat);
 	free(cat);
 }
 
@@ -385,14 +358,6 @@ static struct ast_category *next_available_category(struct ast_category *cat)
 	for (; cat && cat->ignored; cat = cat->next);
 
 	return cat;
-}
-
-struct ast_variable *ast_category_root(struct ast_config *config, char *cat)
-{
-	struct ast_category *category = ast_category_get(config, cat);
-	if (category)
-		return category->root;
-	return NULL;
 }
 
 char *ast_category_browse(struct ast_config *config, const char *prev)
@@ -446,10 +411,7 @@ void ast_category_rename(struct ast_category *cat, const char *name)
 static void inherit_category(struct ast_category *new, const struct ast_category *base)
 {
 	struct ast_variable *var;
-	struct ast_category_template_instance *x = ast_calloc(1,sizeof(struct ast_category_template_instance));
-	strcpy(x->name, base->name);
-	x->inst = base;
-	AST_LIST_INSERT_TAIL(&new->template_instances, x, next);
+
 	for (var = base->root; var; var = var->next)
 		ast_variable_append(new, variable_clone(var));
 }
@@ -512,41 +474,54 @@ int ast_variable_delete(struct ast_category *category, char *variable, char *mat
 	return res;
 }
 
-int ast_variable_update(struct ast_category *category, const char *variable, 
-	const char *value, const char *match, unsigned int object)
+int ast_variable_update(struct ast_category *category, char *variable, char *value, char *match)
 {
 	struct ast_variable *cur, *prev=NULL, *newer;
-
-	if (!(newer = ast_variable_new(variable, value)))
+	newer = ast_variable_new(variable, value);
+	if (!newer)
 		return -1;
-	
-	newer->object = object;
-
-	for (cur = category->root; cur; prev = cur, cur = cur->next) {
-		if (strcasecmp(cur->name, variable) ||
-			(!ast_strlen_zero(match) && strcasecmp(cur->value, match)))
-			continue;
-
-		newer->next = cur->next;
-		newer->object = cur->object || object;
-		if (prev)
-			prev->next = newer;
-		else
-			category->root = newer;
-		if (category->last == cur)
-			category->last = newer;
-
-		cur->next = NULL;
-		ast_variables_destroy(cur);
-
-		return 0;
+	cur = category->root;
+	while (cur) {
+		if (cur->name == variable) {
+			newer->next = cur->next;
+			newer->object = cur->object;
+			if (prev)
+				prev->next = newer;
+			else
+				category->root = newer;
+			if (category->last == cur)
+				category->last = newer;
+			cur->next = NULL;
+			ast_variables_destroy(cur);
+			return 0;
+		}
+		prev = cur;
+		cur = cur->next;
 	}
 
+	prev = NULL;
+	cur = category->root;
+	while (cur) {
+		if (!strcasecmp(cur->name, variable) && (ast_strlen_zero(match) || !strcasecmp(cur->value, match))) {
+			newer->next = cur->next;
+			newer->object = cur->object;
+			if (prev)
+				prev->next = newer;
+			else
+				category->root = newer;
+			if (category->last == cur)
+				category->last = newer;
+			cur->next = NULL;
+			ast_variables_destroy(cur);
+			return 0;
+		}
+		prev = cur;
+		cur = cur->next;
+	}
 	if (prev)
 		prev->next = newer;
 	else
 		category->root = newer;
-
 	return 0;
 }
 
@@ -556,6 +531,7 @@ int ast_category_delete(struct ast_config *cfg, char *category)
 	cat = cfg->root;
 	while(cat) {
 		if (cat->name == category) {
+			ast_variables_destroy(cat->root);
 			if (prev) {
 				prev->next = cat->next;
 				if (cat == cfg->last)
@@ -565,7 +541,7 @@ int ast_category_delete(struct ast_config *cfg, char *category)
 				if (cat == cfg->last)
 					cfg->last = NULL;
 			}
-			ast_category_destroy(cat);
+			free(cat);
 			return 0;
 		}
 		prev = cat;
@@ -576,6 +552,7 @@ int ast_category_delete(struct ast_config *cfg, char *category)
 	cat = cfg->root;
 	while(cat) {
 		if (!strcasecmp(cat->name, category)) {
+			ast_variables_destroy(cat->root);
 			if (prev) {
 				prev->next = cat->next;
 				if (cat == cfg->last)
@@ -585,7 +562,7 @@ int ast_category_delete(struct ast_config *cfg, char *category)
 				if (cat == cfg->last)
 					cfg->last = NULL;
 			}
-			ast_category_destroy(cat);
+			free(cat);
 			return 0;
 		}
 		prev = cat;
@@ -603,9 +580,10 @@ void ast_config_destroy(struct ast_config *cfg)
 
 	cat = cfg->root;
 	while(cat) {
+		ast_variables_destroy(cat->root);
 		catn = cat;
 		cat = cat->next;
-		ast_category_destroy(catn);
+		free(catn);
 	}
 	free(cfg);
 }
@@ -621,8 +599,7 @@ void ast_config_set_current_category(struct ast_config *cfg, const struct ast_ca
 	cfg->current = (struct ast_category *) cat;
 }
 
-static int process_text_line(struct ast_config *cfg, struct ast_category **cat, char *buf, int lineno, const char *configfile, int withcomments,
-				char **comment_buffer, int *comment_buffer_size, char **lline_buffer, int *lline_buffer_size)
+static int process_text_line(struct ast_config *cfg, struct ast_category **cat, char *buf, int lineno, const char *configfile, int withcomments)
 {
 	char *c;
 	char *cur = buf;
@@ -650,14 +627,14 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 			return -1;
 		}
 		/* add comments */
-		if (withcomments && *comment_buffer && (*comment_buffer)[0] ) {
-			newcat->precomments = ALLOC_COMMENT(*comment_buffer);
+		if (withcomments && comment_buffer && comment_buffer[0] ) {
+			newcat->precomments = ALLOC_COMMENT(comment_buffer);
 		}
-		if (withcomments && *lline_buffer && (*lline_buffer)[0] ) {
-			newcat->sameline = ALLOC_COMMENT(*lline_buffer);
+		if (withcomments && lline_buffer && lline_buffer[0] ) {
+			newcat->sameline = ALLOC_COMMENT(lline_buffer);
 		}
 		if( withcomments )
-			CB_RESET(comment_buffer, lline_buffer);
+			CB_RESET();
 		
  		/* If there are options or categories to inherit from, process them now */
  		if (c) {
@@ -671,7 +648,8 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 					(*cat)->ignored = 1;
 				} else if (!strcasecmp(cur, "+")) {
 					*cat = category_get(cfg, catname, 1);
-					if (!(*cat)) {
+					if (!*cat) {
+						ast_config_destroy(cfg);
 						if (newcat)
 							ast_category_destroy(newcat);
 						ast_log(LOG_WARNING, "Category addition requested, but category '%s' does not exist, line %d of %s\n", catname, lineno, configfile);
@@ -705,7 +683,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 			*c = '\0';
 			/* Find real argument */
 			c = ast_skip_blanks(c + 1);
-			if (!(*c))
+			if (!*c)
 				c = NULL;
 		} else 
 			c = NULL;
@@ -744,17 +722,8 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 				do_include = ast_config_internal_load(cur, cfg, withcomments) ? 1 : 0;
 				if(!ast_strlen_zero(exec_file))
 					unlink(exec_file);
-				if (!do_include) {
-					ast_log(LOG_ERROR, "*********************************************************\n");
-					ast_log(LOG_ERROR, "*********** YOU SHOULD REALLY READ THIS ERROR ***********\n");
-					ast_log(LOG_ERROR, "Future versions of Asterisk will treat a #include of a "
-					                   "file that does not exist as an error, and will fail to "
-					                   "load that configuration file.  Please ensure that the "
-					                   "file '%s' exists, even if it is empty.\n", cur);
-					ast_log(LOG_ERROR, "*********** YOU SHOULD REALLY READ THIS ERROR ***********\n");
-					ast_log(LOG_ERROR, "*********************************************************\n");
+				if(!do_include)
 					return 0;
-				}
 
 			} else {
 				ast_log(LOG_WARNING, "Directive '#%s' needs an argument (%s) at line %d of %s\n", 
@@ -768,7 +737,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 			ast_log(LOG_WARNING, "Unknown directive '%s' at line %d of %s\n", cur, lineno, configfile);
 	} else {
 		/* Just a line (variable = value) */
-		if (!(*cat)) {
+		if (!*cat) {
 			ast_log(LOG_WARNING,
 				"parse error: No category context for line %d of %s\n", lineno, configfile);
 			return -1;
@@ -790,14 +759,14 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 				v->blanklines = 0;
 				ast_variable_append(*cat, v);
 				/* add comments */
-				if (withcomments && *comment_buffer && (*comment_buffer)[0] ) {
-					v->precomments = ALLOC_COMMENT(*comment_buffer);
+				if (withcomments && comment_buffer && comment_buffer[0] ) {
+					v->precomments = ALLOC_COMMENT(comment_buffer);
 				}
-				if (withcomments && *lline_buffer && (*lline_buffer)[0] ) {
-					v->sameline = ALLOC_COMMENT(*lline_buffer);
+				if (withcomments && lline_buffer && lline_buffer[0] ) {
+					v->sameline = ALLOC_COMMENT(lline_buffer);
 				}
 				if( withcomments )
-					CB_RESET(comment_buffer, lline_buffer);
+					CB_RESET();
 				
 			} else {
 				return -1;
@@ -812,11 +781,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 static struct ast_config *config_text_file_load(const char *database, const char *table, const char *filename, struct ast_config *cfg, int withcomments)
 {
 	char fn[256];
-#if defined(LOW_MEMORY)
-	char buf[512];
-#else
 	char buf[8192];
-#endif
 	char *new_buf, *comment_p, *process_buf;
 	FILE *f;
 	int lineno=0;
@@ -824,13 +789,6 @@ static struct ast_config *config_text_file_load(const char *database, const char
 	struct ast_category *cat = NULL;
 	int count = 0;
 	struct stat statbuf;
-	/*! Growable string buffer */
-	char *comment_buffer=0;   /*!< this will be a comment collector.*/
-	int   comment_buffer_size=0;  /*!< the amount of storage so far alloc'd for the comment_buffer */
-
-	char *lline_buffer=0;    /*!< A buffer for stuff behind the ; */
-	int  lline_buffer_size=0;
-
 	
 	cat = ast_config_get_current_category(cfg);
 
@@ -841,7 +799,7 @@ static struct ast_config *config_text_file_load(const char *database, const char
 	}
 
 	if (withcomments) {
-		CB_INIT(&comment_buffer, &comment_buffer_size, &lline_buffer, &lline_buffer_size);
+		CB_INIT();
 		if (!lline_buffer || !comment_buffer) {
 			ast_log(LOG_ERROR, "Failed to initialize the comment buffer!\n");
 			return NULL;
@@ -897,7 +855,7 @@ static struct ast_config *config_text_file_load(const char *database, const char
 			lineno++;
 			if (fgets(buf, sizeof(buf), f)) {
 				if ( withcomments ) {
-					CB_ADD(&comment_buffer, &comment_buffer_size, lline_buffer);       /* add the current lline buffer to the comment buffer */
+					CB_ADD(lline_buffer);       /* add the current lline buffer to the comment buffer */
 					lline_buffer[0] = 0;        /* erase the lline buffer */
 				}
 				
@@ -909,8 +867,9 @@ static struct ast_config *config_text_file_load(const char *database, const char
 				
 				while ((comment_p = strchr(new_buf, COMMENT_META))) {
 					if ((comment_p > new_buf) && (*(comment_p-1) == '\\')) {
-						/* Escaped semicolons aren't comments. */
-						new_buf = comment_p + 1;
+						/* Yuck, gotta memmove */
+						memmove(comment_p - 1, comment_p, strlen(comment_p) + 1);
+						new_buf = comment_p;
 					} else if(comment_p[1] == COMMENT_TAG && comment_p[2] == COMMENT_TAG && (comment_p[3] != '-')) {
 						/* Meta-Comment start detected ";--" */
 						if (comment < MAX_NESTED_COMMENTS) {
@@ -934,8 +893,8 @@ static struct ast_config *config_text_file_load(const char *database, const char
 								char *oldptr;
 								oldptr = process_buf + strlen(process_buf);
 								if ( withcomments ) {
-									CB_ADD(&comment_buffer, &comment_buffer_size, ";");
-									CB_ADD_LEN(&comment_buffer, &comment_buffer_size, oldptr+1, new_buf-oldptr-1);
+									CB_ADD(";");
+									CB_ADD_LEN(oldptr+1,new_buf-oldptr-1);
 								}
 								
 								memmove(oldptr, new_buf, strlen(new_buf) + 1);
@@ -948,7 +907,7 @@ static struct ast_config *config_text_file_load(const char *database, const char
 							/* If ; is found, and we are not nested in a comment, 
 							   we immediately stop all comment processing */
 							if ( withcomments ) {
-								LLB_ADD(&lline_buffer, &lline_buffer_size, comment_p);
+								LLB_ADD(comment_p);
 							}
 							*comment_p = '\0'; 
 							new_buf = comment_p;
@@ -958,13 +917,13 @@ static struct ast_config *config_text_file_load(const char *database, const char
 				}
 				if( withcomments && comment && !process_buf )
 				{
-					CB_ADD(&comment_buffer, &comment_buffer_size, buf);  /* the whole line is a comment, store it */
+					CB_ADD(buf);  /* the whole line is a comment, store it */
 				}
 				
 				if (process_buf) {
 					char *buf = ast_strip(process_buf);
 					if (!ast_strlen_zero(buf)) {
-						if (process_text_line(cfg, &cat, buf, lineno, fn, withcomments, &comment_buffer, &comment_buffer_size, &lline_buffer, &lline_buffer_size)) {
+						if (process_text_line(cfg, &cat, buf, lineno, fn, withcomments)) {
 							cfg = NULL;
 							break;
 						}
@@ -975,7 +934,7 @@ static struct ast_config *config_text_file_load(const char *database, const char
 		fclose(f);		
 	} while(0);
 	if (comment) {
-		ast_log(LOG_WARNING,"Unterminated comment detected beginning on line %d\n", nest[comment - 1]);
+		ast_log(LOG_WARNING,"Unterminated comment detected beginning on line %d\n", nest[comment]);
 	}
 #ifdef AST_INCLUDE_GLOB
 					if (!cfg)
@@ -1003,27 +962,27 @@ static struct ast_config *config_text_file_load(const char *database, const char
 
 int config_text_file_save(const char *configfile, const struct ast_config *cfg, const char *generator)
 {
-	FILE *f = NULL;
-	int fd = -1;
-	char fn[256], fntmp[256];
+	FILE *f;
+	char fn[256];
 	char date[256]="";
 	time_t t;
 	struct ast_variable *var;
 	struct ast_category *cat;
 	struct ast_comment *cmt;
-	struct stat s;
 	int blanklines = 0;
 
 	if (configfile[0] == '/') {
-		snprintf(fntmp, sizeof(fntmp), "%s.XXXXXX", configfile);
 		ast_copy_string(fn, configfile, sizeof(fn));
 	} else {
-		snprintf(fntmp, sizeof(fntmp), "%s/%s.XXXXXX", ast_config_AST_CONFIG_DIR, configfile);
 		snprintf(fn, sizeof(fn), "%s/%s", ast_config_AST_CONFIG_DIR, configfile);
 	}
 	time(&t);
 	ast_copy_string(date, ctime(&t), sizeof(date));
-	if ((fd = mkstemp(fntmp)) > 0 && (f = fdopen(fd, "w")) != NULL) {
+#ifdef __CYGWIN__	
+	if ((f = fopen(fn, "w+"))) {
+#else
+	if ((f = fopen(fn, "w"))) {
+#endif	    
 		if (option_verbose > 1)
 			ast_verbose(VERBOSE_PREFIX_2 "Saving '%s': ", fn);
 		fprintf(f, ";!\n");
@@ -1046,24 +1005,6 @@ int config_text_file_save(const char *configfile, const struct ast_config *cfg, 
 			if (!cat->precomments)
 				fprintf(f,"\n");
 			fprintf(f, "[%s]", cat->name);
-			if (cat->ignored || !AST_LIST_EMPTY(&cat->template_instances)) {
-				fprintf(f, "(");
-				if (cat->ignored) {
-					fprintf(f, "!");
-				}
-				if (cat->ignored && !AST_LIST_EMPTY(&cat->template_instances)) {
-					fprintf(f, ",");
-				}
-				if (!AST_LIST_EMPTY(&cat->template_instances)) {
-					struct ast_category_template_instance *x;
-					AST_LIST_TRAVERSE(&cat->template_instances, x, next) {
-						fprintf(f,"%s",x->name);
-						if (x != AST_LIST_LAST(&cat->template_instances))
-							fprintf(f,",");
-					}
-				}
-				fprintf(f, ")");
-			}
 			for(cmt = cat->sameline; cmt; cmt=cmt->next)
 			{
 				fprintf(f,"%s", cmt->cmt);
@@ -1072,24 +1013,6 @@ int config_text_file_save(const char *configfile, const struct ast_config *cfg, 
 				fprintf(f,"\n");
 			var = cat->root;
 			while(var) {
-				struct ast_category_template_instance *x;
-				struct ast_variable *v2;
-				int found = 0;
-				AST_LIST_TRAVERSE(&cat->template_instances, x, next) {
-					
-					for (v2 = x->inst->root; v2; v2 = v2->next) {
-						if (!strcasecmp(var->name, v2->name))
-							break;
-					}
-					if (v2 && v2->value && !strcmp(v2->value, var->value)) {
-						found = 1;
-						break;
-					}
-				}
-				if (found) {
-					var = var->next;
-					continue;
-				}
 				for (cmt = var->precomments; cmt; cmt=cmt->next)
 				{
 					if (cmt->cmt[0] != ';' || cmt->cmt[1] != '!')
@@ -1117,25 +1040,12 @@ int config_text_file_save(const char *configfile, const struct ast_config *cfg, 
 			ast_verbose("Saved\n");
 	} else {
 		if (option_debug)
-			ast_log(LOG_DEBUG, "Unable to open for writing: %s (%s)\n", fn, strerror(errno));
+			ast_log(LOG_DEBUG, "Unable to open for writing: %s\n", fn);
 		if (option_verbose > 1)
-			ast_verbose(VERBOSE_PREFIX_2 "Unable to write %s (%s)", fn, strerror(errno));
-		if (fd > -1)
-			close(fd);
+			ast_verbose(VERBOSE_PREFIX_2 "Unable to write (%s)", strerror(errno));
 		return -1;
 	}
-	stat(fn, &s);
-	fchmod(fd, s.st_mode);
 	fclose(f);
-	if (unlink(fn) || link(fntmp, fn)) {
-		if (option_debug)
-			ast_log(LOG_DEBUG, "Unable to open for writing: %s (%s)\n", fn, strerror(errno));
-		if (option_verbose > 1)
-			ast_verbose(VERBOSE_PREFIX_2 "Unable to write %s (%s)", fn, strerror(errno));
-		unlink(fntmp);
-		return -1;
-	}
-	unlink(fntmp);
 	return 0;
 }
 
@@ -1345,8 +1255,7 @@ struct ast_config *ast_config_internal_load(const char *filename, struct ast_con
 	struct ast_config_engine *loader = &text_file_engine;
 	struct ast_config *result; 
 
-	/* The config file itself bumps include_level by 1 */
-	if (cfg->max_include_level > 0 && cfg->include_level == cfg->max_include_level + 1) {
+	if (cfg->include_level == cfg->max_include_level) {
 		ast_log(LOG_WARNING, "Maximum Include level (%d) exceeded\n", cfg->max_include_level);
 		return NULL;
 	}
@@ -1372,8 +1281,6 @@ struct ast_config *ast_config_internal_load(const char *filename, struct ast_con
 
 	if (result)
 		result->include_level--;
-	else
-		cfg->include_level--;
 
 	return result;
 }

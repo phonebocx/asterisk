@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 116466 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 54772 $")
 
 #include <sys/types.h>
 #include <netdb.h>
@@ -67,8 +67,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 116466 $")
 
 #define MAX_ARGS 128
 #define MAX_COMMANDS 128
-#define AGI_NANDFS_RETRY 3
-#define AGI_BUF_LEN 2048
 
 /* Recycle some stuff from the CLI interface */
 #define fdprintf agi_debug_cli
@@ -100,7 +98,7 @@ static char *descrip =
 "  Use the CLI command 'agi show' to list available agi commands\n"
 "  This application sets the following channel variable upon completion:\n"
 "     AGISTATUS      The status of the attempt to the run the AGI script\n"
-"                    text string, one of SUCCESS | FAILURE | HANGUP\n";
+"                    text string, one of SUCCESS | FAILED | HANGUP\n";
 
 static int agidebug = 0;
 
@@ -113,12 +111,11 @@ static int agidebug = 0;
 
 enum agi_result {
 	AGI_RESULT_SUCCESS,
-	AGI_RESULT_SUCCESS_FAST,
 	AGI_RESULT_FAILURE,
 	AGI_RESULT_HANGUP
 };
 
-static int agi_debug_cli(int fd, char *fmt, ...)
+static void agi_debug_cli(int fd, char *fmt, ...)
 {
 	char *stuff;
 	int res = 0;
@@ -131,12 +128,10 @@ static int agi_debug_cli(int fd, char *fmt, ...)
 		ast_log(LOG_ERROR, "Out of memory\n");
 	} else {
 		if (agidebug)
-			ast_verbose("AGI Tx >> %s", stuff); /* \n provided by caller */
-		res = ast_carefulwrite(fd, stuff, strlen(stuff), 100);
+			ast_verbose("AGI Tx >> %s\n", stuff);
+		ast_carefulwrite(fd, stuff, strlen(stuff), 100);
 		free(stuff);
 	}
-
-	return res;
 }
 
 /* launch_netscript: The fastagi handler.
@@ -215,8 +210,8 @@ static enum agi_result launch_netscript(char *agiurl, char *argv[], int *fds, in
 			return AGI_RESULT_FAILURE;
 		}
 	}
-
-	if (fdprintf(s, "agi_network: yes\n") < 0) {
+	/* XXX in theory should check for partial writes... */
+	while (write(s, "agi_network: yes\n", strlen("agi_network: yes\n")) < 0) {
 		if (errno != EINTR) {
 			ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
 			close(s);
@@ -233,7 +228,7 @@ static enum agi_result launch_netscript(char *agiurl, char *argv[], int *fds, in
 	fds[0] = s;
 	fds[1] = s;
 	*opid = -1;
-	return AGI_RESULT_SUCCESS_FAST;
+	return AGI_RESULT_SUCCESS;
 }
 
 static enum agi_result launch_script(char *script, char *argv[], int *fds, int *efd, int *opid)
@@ -346,8 +341,6 @@ static enum agi_result launch_script(char *script, char *argv[], int *fds, int *
 		execv(script, argv);
 		/* Can't use ast_log since FD's are closed */
 		fprintf(stdout, "verbose \"Failed to execute '%s': %s\" 2\n", script, strerror(errno));
-		/* Special case to set status of AGI to failure */
-		fprintf(stdout, "failure\n");
 		fflush(stdout);
 		_exit(1);
 	}
@@ -594,10 +587,14 @@ static int handle_streamfile(struct ast_channel *chan, AGI *agi, int argc, char 
 	res = ast_applystream(chan, fs);
 	if (vfs)
 		vres = ast_applystream(chan, vfs);
-	ast_playstream(fs);
+	res = ast_playstream(fs);
 	if (vfs)
-		ast_playstream(vfs);
+		vres = ast_playstream(vfs);
 	
+	if (res) {
+		fdprintf(agi->fd, "200 result=%d endpos=%ld\n", res, sample_offset);
+		return (res >= 0) ? RESULT_SHOWUSAGE : RESULT_FAILURE;
+	}
 	res = ast_waitstream_full(chan, argv[3], agi->audio, agi->ctrl);
 	/* this is to check for if ast_waitstream closed the stream, we probably are at
 	 * the end of the stream, return that amount, else check for the amount */
@@ -655,10 +652,16 @@ static int handle_getoption(struct ast_channel *chan, AGI *agi, int argc, char *
 	res = ast_applystream(chan, fs);
 	if (vfs)
 		vres = ast_applystream(chan, vfs);
-	ast_playstream(fs);
+	res = ast_playstream(fs);
 	if (vfs)
-		ast_playstream(vfs);
-
+		vres = ast_playstream(vfs);
+	if (res) {
+		fdprintf(agi->fd, "200 result=%d endpos=%ld\n", res, sample_offset);
+		if (res >= 0)
+			return RESULT_SHOWUSAGE;
+		else
+			return RESULT_FAILURE;
+	}
 	res = ast_waitstream_full(chan, argv[3], agi->audio, agi->ctrl);
 	/* this is to check for if ast_waitstream closed the stream, we probably are at
 	 * the end of the stream, return that amount, else check for the amount */
@@ -979,7 +982,7 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, char 
 			}
 			f = ast_read(chan);
 			if (!f) {
-				fdprintf(agi->fd, "200 result=%d (hangup) endpos=%ld\n", -1, sample_offset);
+				fdprintf(agi->fd, "200 result=%d (hangup) endpos=%ld\n", 0, sample_offset);
 				ast_closestream(fs);
 				if (sildet)
 					ast_dsp_free(sildet);
@@ -1117,7 +1120,6 @@ static int handle_exec(struct ast_channel *chan, AGI *agi, int argc, char **argv
 	}
 	fdprintf(agi->fd, "200 result=%d\n", res);
 
-	/* Even though this is wrong, users are depending upon this result. */
 	return res;
 }
 
@@ -1209,7 +1211,7 @@ static int handle_getvariablefull(struct ast_channel *chan, AGI *agi, int argc, 
 	} else {
 		chan2 = chan;
 	}
-	if (chan2) {
+	if (chan) { /* XXX isn't this chan2 ? */
 		pbx_substitute_variables_helper(chan2, argv[3], tmp, sizeof(tmp) - 1);
 		fdprintf(agi->fd, "200 result=1 (%s)\n", tmp);
 	} else {
@@ -1312,7 +1314,7 @@ static char debug_usage[] =
 "       Enables dumping of AGI transactions for debugging purposes\n";
 
 static char no_debug_usage[] = 
-"Usage: agi debug off\n"
+"Usage: agi nodebug\n"
 "       Disables dumping of AGI transactions for debugging purposes\n";
 
 static int agi_do_debug(int fd, int argc, char *argv[])
@@ -1335,7 +1337,7 @@ static int agi_no_debug_deprecated(int fd, int argc, char *argv[])
 
 static int agi_no_debug(int fd, int argc, char *argv[])
 {
-	if (argc != 3)
+	if (argc != 2)
 		return RESULT_SHOWUSAGE;
 	agidebug = 0;
 	ast_cli(fd, "AGI Debugging Disabled\n");
@@ -1828,6 +1830,7 @@ static int agi_handle_command(struct ast_channel *chan, AGI *agi, char *buf)
 	}
 	return 0;
 }
+#define RETRY	3
 static enum agi_result run_agi(struct ast_channel *chan, char *request, AGI *agi, int pid, int *status, int dead)
 {
 	struct ast_channel *c;
@@ -1835,12 +1838,11 @@ static enum agi_result run_agi(struct ast_channel *chan, char *request, AGI *agi
 	int ms;
 	enum agi_result returnstatus = AGI_RESULT_SUCCESS;
 	struct ast_frame *f;
-	char buf[AGI_BUF_LEN];
-	char *res = NULL;
+	char buf[2048];
 	FILE *readf;
 	/* how many times we'll retry if ast_waitfor_nandfs will return without either 
 	  channel or file descriptor in case select is interrupted by a system call (EINTR) */
-	int retry = AGI_NANDFS_RETRY;
+	int retry = RETRY;
 
 	if (!(readf = fdopen(agi->ctrl, "r"))) {
 		ast_log(LOG_WARNING, "Unable to fdopen file descriptor\n");
@@ -1855,7 +1857,7 @@ static enum agi_result run_agi(struct ast_channel *chan, char *request, AGI *agi
 		ms = -1;
 		c = ast_waitfor_nandfds(&chan, dead ? 0 : 1, &agi->ctrl, 1, NULL, &outfd, &ms);
 		if (c) {
-			retry = AGI_NANDFS_RETRY;
+			retry = RETRY;
 			/* Idle the channel until we get a command */
 			f = ast_read(c);
 			if (!f) {
@@ -1871,29 +1873,8 @@ static enum agi_result run_agi(struct ast_channel *chan, char *request, AGI *agi
 				ast_frfree(f);
 			}
 		} else if (outfd > -1) {
-			size_t len = sizeof(buf);
-			size_t buflen = 0;
-
-			retry = AGI_NANDFS_RETRY;
-			buf[0] = '\0';
-
-			while (buflen < (len - 1)) {
-				res = fgets(buf + buflen, len, readf);
-				if (feof(readf)) 
-					break;
-				if (ferror(readf) && ((errno != EINTR) && (errno != EAGAIN))) 
-					break;
-				if (res != NULL && !agi->fast)
-					break;
-				buflen = strlen(buf);
-				if (buflen && buf[buflen - 1] == '\n')
-					break;
-				len -= buflen;
-				if (agidebug)
-					ast_verbose( "AGI Rx << temp buffer %s - errno %s\n", buf, strerror(errno));
-			}
-
-			if (!buf[0]) {
+			retry = RETRY;
+			if (!fgets(buf, sizeof(buf), readf)) {
 				/* Program terminated */
 				if (returnstatus)
 					returnstatus = -1;
@@ -1905,13 +1886,6 @@ static enum agi_result run_agi(struct ast_channel *chan, char *request, AGI *agi
 				pid = -1;
 				break;
 			}
-
-			/* Special case for inability to execute child process */
-			if (*buf && strncasecmp(buf, "failure", 7) == 0) {
-				returnstatus = AGI_RESULT_FAILURE;
-				break;
-			}
-
 			/* get rid of trailing newline, if any */
 			if (*buf && buf[strlen(buf) - 1] == '\n')
 				buf[strlen(buf) - 1] = 0;
@@ -1934,13 +1908,9 @@ static enum agi_result run_agi(struct ast_channel *chan, char *request, AGI *agi
 	if (pid > -1) {
 		const char *sighup = pbx_builtin_getvar_helper(chan, "AGISIGHUP");
 		if (ast_strlen_zero(sighup) || !ast_false(sighup)) {
-			if (kill(pid, SIGHUP)) {
+			if (kill(pid, SIGHUP))
 				ast_log(LOG_WARNING, "unable to send SIGHUP to AGI process %d: %s\n", pid, strerror(errno));
-			} else { /* Give the process a chance to die */
-				usleep(1);
-			}
 		}
-		waitpid(pid, status, WNOHANG);
 	}
 	fclose(readf);
 	return returnstatus;
@@ -2029,7 +1999,7 @@ static int agi_exec_full(struct ast_channel *chan, void *data, int enhanced, int
 	enum agi_result res;
 	struct ast_module_user *u;
 	char *argv[MAX_ARGS];
-	char buf[AGI_BUF_LEN] = "";
+	char buf[2048]="";
 	char *tmp = (char *)buf;
 	int argc = 0;
 	int fds[2];
@@ -2059,29 +2029,26 @@ static int agi_exec_full(struct ast_channel *chan, void *data, int enhanced, int
 		}
 	}
 #endif
-	ast_replace_sigchld();
 	res = launch_script(argv[0], argv, fds, enhanced ? &efd : NULL, &pid);
-	if (res == AGI_RESULT_SUCCESS || res == AGI_RESULT_SUCCESS_FAST) {
+	if (res == AGI_RESULT_SUCCESS) {
 		int status = 0;
 		agi.fd = fds[1];
 		agi.ctrl = fds[0];
 		agi.audio = efd;
-		agi.fast = (res == AGI_RESULT_SUCCESS_FAST) ? 1 : 0;
 		res = run_agi(chan, argv[0], &agi, pid, &status, dead);
 		/* If the fork'd process returns non-zero, set AGISTATUS to FAILURE */
-		if ((res == AGI_RESULT_SUCCESS || res == AGI_RESULT_SUCCESS_FAST) && status)
+		if (res == AGI_RESULT_SUCCESS && status)
 			res = AGI_RESULT_FAILURE;
 		if (fds[1] != fds[0])
 			close(fds[1]);
 		if (efd > -1)
 			close(efd);
+		ast_unreplace_sigchld();
 	}
-	ast_unreplace_sigchld();
 	ast_module_user_remove(u);
 
 	switch (res) {
 	case AGI_RESULT_SUCCESS:
-	case AGI_RESULT_SUCCESS_FAST:
 		pbx_builtin_setvar_helper(chan, "AGISTATUS", "SUCCESS");
 		break;
 	case AGI_RESULT_FAILURE:
@@ -2125,8 +2092,6 @@ static int eagi_exec(struct ast_channel *chan, void *data)
 
 static int deadagi_exec(struct ast_channel *chan, void *data)
 {
-	if (!ast_check_hangup(chan))
-		ast_log(LOG_WARNING,"Running DeadAGI on a live channel will cause problems, please use AGI\n");
 	return agi_exec_full(chan, data, 0, 1);
 }
 
@@ -2191,7 +2156,4 @@ static int load_module(void)
 	return ast_register_application(app, agi_exec, synopsis, descrip);
 }
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "Asterisk Gateway Interface (AGI)",
-                .load = load_module,
-                .unload = unload_module,
-		);
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Asterisk Gateway Interface (AGI)");

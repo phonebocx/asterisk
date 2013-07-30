@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 105932 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47992 $")
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -140,18 +140,6 @@ static void destroy(struct ast_trans_pvt *pvt)
 {
 	struct ast_translator *t = pvt->t;
 
-	if (ast_test_flag(&pvt->f, AST_FRFLAG_FROM_TRANSLATOR)) {
-		/* If this flag is still set, that means that the translation path has
-		 * been torn down, while we still have a frame out there being used.
-		 * When ast_frfree() gets called on that frame, this ast_trans_pvt
-		 * will get destroyed, too. */
-
-		/* Set the magic hint that this has been requested to be destroyed. */
-		pvt->datalen = -1;
-
-		return;
-	}
-
 	if (t->destroy)
 		t->destroy(pvt);
 	free(pvt);
@@ -166,7 +154,7 @@ static int framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 	int samples = pvt->samples;	/* initial value */
 	
 	/* Copy the last in jb timing info to the pvt */
-	ast_copy_flags(&pvt->f, f, AST_FRFLAG_HAS_TIMING_INFO);
+	pvt->f.has_timing_info = f->has_timing_info;
 	pvt->f.ts = f->ts;
 	pvt->f.len = f->len;
 	pvt->f.seqno = f->seqno;
@@ -186,9 +174,7 @@ static int framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 				pvt->samples += l;
 				pvt->datalen = pvt->samples * 2;	/* SLIN has 2bytes for 1sample */
 			}
-			/* We don't want generic PLC. If the codec has native PLC, then do that */
-			if (!pvt->t->native_plc)
-				return 0;
+			return 0;
 		}
 		if (pvt->samples + f->samples > pvt->t->buffer_samples) {
 			ast_log(LOG_WARNING, "Out of buffer space\n");
@@ -244,9 +230,6 @@ struct ast_frame *ast_trans_frameout(struct ast_trans_pvt *pvt,
 	f->offset = AST_FRIENDLY_OFFSET;
 	f->src = pvt->t->name;
 	f->data = pvt->outbuf;
-
-	ast_set_flag(f, AST_FRFLAG_FROM_TRANSLATOR);
-
 	return f;
 }
 
@@ -317,7 +300,7 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 	long len;
 	int seqno;
 
-	has_timing_info = ast_test_flag(f, AST_FRFLAG_HAS_TIMING_INFO);
+	has_timing_info = f->has_timing_info;
 	ts = f->ts;
 	len = f->len;
 	seqno = f->seqno;
@@ -342,13 +325,11 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 			path->nextout = f->delivery;
 		}
 		/* Predict next incoming sample */
-		path->nextin = ast_tvadd(path->nextin, ast_samp2tv(f->samples, ast_format_rate(f->subclass)));
+		path->nextin = ast_tvadd(path->nextin, ast_samp2tv(f->samples, 8000));
 	}
 	delivery = f->delivery;
 	for ( ; out && p ; p = p->next) {
 		framein(p, out);
-		if (out != f)
-			ast_frfree(out);
 		out = p->t->frameout(p);
 	}
 	if (consume)
@@ -366,10 +347,10 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 		
 		/* Predict next outgoing timestamp from samples in this
 		   frame. */
-		path->nextout = ast_tvadd(path->nextout, ast_samp2tv(out->samples, ast_format_rate(out->subclass)));
+		path->nextout = ast_tvadd(path->nextout, ast_samp2tv( out->samples, 8000));
 	} else {
 		out->delivery = ast_tv(0, 0);
-		ast_set2_flag(out, has_timing_info, AST_FRFLAG_HAS_TIMING_INFO);
+		out->has_timing_info = has_timing_info;
 		if (has_timing_info) {
 			out->ts = ts;
 			out->len = len;
@@ -385,11 +366,10 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 /*! \brief compute the cost of a single translation step */
 static void calc_cost(struct ast_translator *t, int seconds)
 {
-	int num_samples = 0;
+	int sofar=0;
 	struct ast_trans_pvt *pvt;
 	struct timeval start;
 	int cost;
-	int out_rate = ast_format_rate(t->dstfmt);
 
 	if (!seconds)
 		seconds = 1;
@@ -400,18 +380,15 @@ static void calc_cost(struct ast_translator *t, int seconds)
 		t->cost = 99999;
 		return;
 	}
-
 	pvt = newpvt(t);
 	if (!pvt) {
 		ast_log(LOG_WARNING, "Translator '%s' appears to be broken and will probably fail.\n", t->name);
 		t->cost = 99999;
 		return;
 	}
-
 	start = ast_tvnow();
-
 	/* Call the encoder until we've processed the required number of samples */
-	while (num_samples < seconds * out_rate) {
+	while (sofar < seconds * 8000) {
 		struct ast_frame *f = t->sample();
 		if (!f) {
 			ast_log(LOG_WARNING, "Translator '%s' failed to produce a sample frame.\n", t->name);
@@ -422,17 +399,13 @@ static void calc_cost(struct ast_translator *t, int seconds)
 		framein(pvt, f);
 		ast_frfree(f);
 		while ((f = t->frameout(pvt))) {
-			num_samples += f->samples;
+			sofar += f->samples;
 			ast_frfree(f);
 		}
 	}
-
 	cost = ast_tvdiff_ms(ast_tvnow(), start);
-
 	destroy(pvt);
-
 	t->cost = cost / seconds;
-
 	if (!t->cost)
 		t->cost = 1;
 }
@@ -546,7 +519,7 @@ static int show_translation_deprecated(int fd, int argc, char *argv[])
 	ast_cli(fd, "          Source Format (Rows) Destination Format (Columns)\n\n");
 	/* Get the length of the longest (usable?) codec name, so we know how wide the left side should be */
 	for (x = 0; x < SHOW_TRANS; x++) {
-		curlen = strlen(ast_getformatname(1 << (x)));
+		curlen = strlen(ast_getformatname(1 << (x + 1)));
 		if (curlen > longest)
 			longest = curlen;
 	}
@@ -558,8 +531,7 @@ static int show_translation_deprecated(int fd, int argc, char *argv[])
 		*buf++ = ' ';
 		*buf = '\0';
 		for (y = -1; y < SHOW_TRANS; y++) {
-			if (y >= 0)
-				curlen = strlen(ast_getformatname(1 << (y)));
+			curlen = strlen(ast_getformatname(1 << (y)));
 
 			if (x >= 0 && y >= 0 && tr_matrix[x][y].step) {
 				/* XXX 999 is a little hackish
@@ -568,10 +540,10 @@ static int show_translation_deprecated(int fd, int argc, char *argv[])
 				ast_build_string(&buf, &left, "%*d", curlen + 1, tr_matrix[x][y].cost > 999 ? 0 : tr_matrix[x][y].cost);
 			} else if (x == -1 && y >= 0) {
 				/* Top row - use a dynamic size */
-				ast_build_string(&buf, &left, "%*s", curlen + 1, ast_getformatname(1 << (y)) );
+				ast_build_string(&buf, &left, "%*s", curlen + 1, ast_getformatname(1 << (x + y + 1)) );
 			} else if (y == -1 && x >= 0) {
 				/* Left column - use a static size. */
-				ast_build_string(&buf, &left, "%*s", longest, ast_getformatname(1 << (x)) );
+				ast_build_string(&buf, &left, "%*s", longest, ast_getformatname(1 << (x + y + 1)) );
 			} else if (x >= 0 && y >= 0) {
 				ast_build_string(&buf, &left, "%*s", curlen + 1, "-");
 			} else {
@@ -615,7 +587,7 @@ static int show_translation(int fd, int argc, char *argv[])
 	ast_cli(fd, "          Source Format (Rows) Destination Format (Columns)\n\n");
 	/* Get the length of the longest (usable?) codec name, so we know how wide the left side should be */
 	for (x = 0; x < SHOW_TRANS; x++) {
-		curlen = strlen(ast_getformatname(1 << (x)));
+		curlen = strlen(ast_getformatname(1 << (x + 1)));
 		if (curlen > longest)
 			longest = curlen;
 	}
@@ -627,8 +599,7 @@ static int show_translation(int fd, int argc, char *argv[])
 		*buf++ = ' ';
 		*buf = '\0';
 		for (y = -1; y < SHOW_TRANS; y++) {
-			if (y >= 0)
-				curlen = strlen(ast_getformatname(1 << (y)));
+			curlen = strlen(ast_getformatname(1 << (y)));
 
 			if (x >= 0 && y >= 0 && tr_matrix[x][y].step) {
 				/* XXX 999 is a little hackish
@@ -637,10 +608,10 @@ static int show_translation(int fd, int argc, char *argv[])
 				ast_build_string(&buf, &left, "%*d", curlen + 1, tr_matrix[x][y].cost > 999 ? 0 : tr_matrix[x][y].cost);
 			} else if (x == -1 && y >= 0) {
 				/* Top row - use a dynamic size */
-				ast_build_string(&buf, &left, "%*s", curlen + 1, ast_getformatname(1 << (y)) );
+				ast_build_string(&buf, &left, "%*s", curlen + 1, ast_getformatname(1 << (x + y + 1)) );
 			} else if (y == -1 && x >= 0) {
 				/* Left column - use a static size. */
-				ast_build_string(&buf, &left, "%*s", longest, ast_getformatname(1 << (x)) );
+				ast_build_string(&buf, &left, "%*s", longest, ast_getformatname(1 << (x + y + 1)) );
 			} else if (x >= 0 && y >= 0) {
 				ast_build_string(&buf, &left, "%*s", curlen + 1, "-");
 			} else {
@@ -700,7 +671,7 @@ int __ast_register_translator(struct ast_translator *t, struct ast_module *mod)
 				t->plc_samples, t->buffer_samples);
 			return -1;
 		}
-		if (t->dstfmt != powerof(AST_FORMAT_SLINEAR))
+		if (t->dstfmt != AST_FORMAT_SLINEAR)
 			ast_log(LOG_WARNING, "plc_samples %d format %x\n",
 				t->plc_samples, t->dstfmt);
 	}
@@ -821,10 +792,10 @@ int ast_translator_best_choice(int *dst, int *srcs)
 	int cur, cursrc;
 	int besttime = INT_MAX;
 	int beststeps = INT_MAX;
-	int common = ((*dst) & (*srcs)) & AST_FORMAT_AUDIO_MASK;	/* are there common formats ? */
+	int common = (*dst) & (*srcs);	/* are there common formats ? */
 
 	if (common) { /* yes, pick one and return */
-		for (cur = 1, y = 0; y <= MAX_AUDIO_FORMAT; cur <<= 1, y++) {
+		for (cur = 1, y = 0; y < MAX_FORMAT; cur <<= 1, y++) {
 			if (cur & common)	/* guaranteed to find one */
 				break;
 		}
@@ -833,10 +804,10 @@ int ast_translator_best_choice(int *dst, int *srcs)
 		return 0;
 	} else {	/* No, we will need to translate */
 		AST_LIST_LOCK(&translators);
-		for (cur = 1, y = 0; y <= MAX_AUDIO_FORMAT; cur <<= 1, y++) {
+		for (cur = 1, y = 0; y < MAX_FORMAT; cur <<= 1, y++) {
 			if (! (cur & *dst))
 				continue;
-			for (cursrc = 1, x = 0; x <= MAX_AUDIO_FORMAT; cursrc <<= 1, x++) {
+			for (cursrc = 1, x = 0; x < MAX_FORMAT; cursrc <<= 1, x++) {
 				if (!(*srcs & cursrc) || !tr_matrix[x][y].step ||
 				    tr_matrix[x][y].cost >  besttime)
 					continue;	/* not existing or no better */
@@ -955,18 +926,4 @@ unsigned int ast_translate_available_formats(unsigned int dest, unsigned int src
 	AST_LIST_UNLOCK(&translators);
 
 	return res;
-}
-
-void ast_translate_frame_freed(struct ast_frame *fr)
-{
-	struct ast_trans_pvt *pvt;
-
-	ast_clear_flag(fr, AST_FRFLAG_FROM_TRANSLATOR);
-
-	pvt = (struct ast_trans_pvt *) (((char *) fr) - offsetof(struct ast_trans_pvt, f));
-
-	if (pvt->datalen != -1)
-		return;
-	
-	destroy(pvt);
 }

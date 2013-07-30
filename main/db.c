@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 85548 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49676 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +63,7 @@ AST_MUTEX_DEFINE_STATIC(dblock);
 static int dbinit(void) 
 {
 	if (!astdb && !(astdb = dbopen((char *)ast_config_AST_DB, O_CREAT | O_RDWR, 0664, DB_BTREE, NULL))) {
-		ast_log(LOG_WARNING, "Unable to open Asterisk database '%s': %s\n", ast_config_AST_DB, strerror(errno));
+		ast_log(LOG_WARNING, "Unable to open Asterisk database\n");
 		return -1;
 	}
 	return 0;
@@ -194,8 +194,7 @@ int ast_db_get(const char *family, const char *keys, char *value, int valuelen)
 
 	/* Be sure to NULL terminate our data either way */
 	if (res) {
-		if (option_debug)
-			ast_log(LOG_DEBUG, "Unable to find key '%s' in family '%s'\n", keys, family);
+		ast_log(LOG_DEBUG, "Unable to find key '%s' in family '%s'\n", keys, family);
 	} else {
 #if 0
 		printf("Got value of size %d\n", data.size);
@@ -233,7 +232,7 @@ int ast_db_del(const char *family, const char *keys)
 	
 	ast_mutex_unlock(&dblock);
 
-	if (res && option_debug)
+	if (res) 
 		ast_log(LOG_DEBUG, "Unable to find key '%s' in family '%s'\n", keys, family);
 	return res;
 }
@@ -535,8 +534,12 @@ static int manager_dbput(struct mansession *s, const struct message *m)
 		astman_send_error(s, m, "No key specified");
 		return 0;
 	}
+	if (ast_strlen_zero(val)) {
+		astman_send_error(s, m, "No val specified");
+		return 0;
+	}
 
-	res = ast_db_put(family, key, (char *) S_OR(val, ""));
+	res = ast_db_put(family, key, (char *) val);
 	if (res) {
 		astman_send_error(s, m, "Failed to update entry");
 	} else {

@@ -61,14 +61,6 @@ int unsetenv(const char *name);
 int vasprintf(char **strp, const char *fmt, va_list ap);
 #endif
 
-#ifndef HAVE_STRLCAT
-size_t strlcat(char *dst, const char *src, size_t siz);
-#endif
-
-#ifndef HAVE_STRLCPY
-size_t strlcpy(char *dst, const char *src, size_t siz);
-#endif
-
 #ifdef SOLARIS
 #define __BEGIN_DECLS
 #define __END_DECLS
@@ -84,7 +76,6 @@ size_t strlcpy(char *dst, const char *src, size_t siz);
 #include <sys/stat.h>
 #include <signal.h>
 #include <netinet/in.h>
-#include <sys/loadavg.h>
 #include <dat/dat_platform_specific.h>
 
 #ifndef BYTE_ORDER

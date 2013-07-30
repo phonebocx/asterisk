@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 103684 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59042 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,7 +57,7 @@ static int cdr_read(struct ast_channel *chan, char *cmd, char *parse,
 {
 	char *ret;
 	struct ast_flags flags = { 0 };
-	struct ast_cdr *cdr = chan ? chan->cdr : NULL;
+	struct ast_cdr *cdr = chan->cdr;
 	AST_DECLARE_APP_ARGS(args,
 			     AST_APP_ARG(variable);
 			     AST_APP_ARG(options);
@@ -94,7 +94,7 @@ static int cdr_write(struct ast_channel *chan, char *cmd, char *parse,
 			     AST_APP_ARG(options);
 	);
 
-	if (ast_strlen_zero(parse) || !value || !chan)
+	if (ast_strlen_zero(parse) || !value)
 		return -1;
 
 	AST_STANDARD_APP_ARGS(args, parse);
@@ -124,7 +124,6 @@ static struct ast_custom_function cdr_function = {
 	.write = cdr_write,
 	.desc =
 "Options:\n"
-"  'l' uses the most recent CDR on a channel with multiple records\n"
 "  'r' searches the entire stack of CDRs on the channel\n"
 "  'u' retrieves the raw, unprocessed value\n"
 "  For example, 'start', 'answer', and 'end' will be retrieved as epoch\n"

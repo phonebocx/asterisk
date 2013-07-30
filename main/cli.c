@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 118551 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56008 $")
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -402,12 +402,9 @@ static int handle_debuglevel_deprecated(int fd, int argc, char *argv[])
 
 static int handle_logger_mute(int fd, int argc, char *argv[])
 {
-	if (argc < 2 || argc > 3)
+	if (argc != 2)
 		return RESULT_SHOWUSAGE;
-	if (argc == 3 && !strcasecmp(argv[2], "silent"))
-		ast_console_toggle_mute(fd, 1);
-	else
-		ast_console_toggle_mute(fd, 0);
+	ast_console_toggle_mute(fd);
 	return RESULT_SUCCESS;
 }
 
@@ -1248,7 +1245,7 @@ static char *complete_mod_4(const char *line, const char *word, int pos, int sta
 
 static char *complete_fn_2(const char *line, const char *word, int pos, int state)
 {
-	char *c, *d;
+	char *c;
 	char filename[256];
 
 	if (pos != 1)
@@ -1259,20 +1256,17 @@ static char *complete_fn_2(const char *line, const char *word, int pos, int stat
 	else
 		snprintf(filename, sizeof(filename), "%s/%s", ast_config_AST_MODULE_DIR, word);
 	
-	c = d = filename_completion_function(filename, state);
+	c = filename_completion_function(filename, state);
 	
 	if (c && word[0] != '/')
 		c += (strlen(ast_config_AST_MODULE_DIR) + 1);
-	if (c)
-		c = strdup(c);
-	free(d);
 	
-	return c;
+	return c ? strdup(c) : c;
 }
 
 static char *complete_fn_3(const char *line, const char *word, int pos, int state)
 {
-	char *c, *d;
+	char *c;
 	char filename[256];
 
 	if (pos != 2)
@@ -1283,23 +1277,22 @@ static char *complete_fn_3(const char *line, const char *word, int pos, int stat
 	else
 		snprintf(filename, sizeof(filename), "%s/%s", ast_config_AST_MODULE_DIR, word);
 	
-	c = d = filename_completion_function(filename, state);
+	c = filename_completion_function(filename, state);
 	
 	if (c && word[0] != '/')
 		c += (strlen(ast_config_AST_MODULE_DIR) + 1);
-	if (c)
-		c = strdup(c);
-	free(d);
 	
-	return c;
+	return c ? strdup(c) : c;
 }
 
 static int group_show_channels(int fd, int argc, char *argv[])
 {
 #define FORMAT_STRING  "%-25s  %-20s  %-20s\n"
 
-	struct ast_group_info *gi = NULL;
+	struct ast_channel *c = NULL;
 	int numchans = 0;
+	struct ast_var_t *current;
+	struct varshead *headp;
 	regex_t regexbuf;
 	int havepattern = 0;
 
@@ -1313,20 +1306,26 @@ static int group_show_channels(int fd, int argc, char *argv[])
 	}
 
 	ast_cli(fd, FORMAT_STRING, "Channel", "Group", "Category");
-
-	ast_app_group_list_lock();
-	
-	gi = ast_app_group_list_head();
-	while (gi) {
-		if (!havepattern || !regexec(&regexbuf, gi->group, 0, NULL, 0)) {
-			ast_cli(fd, FORMAT_STRING, gi->chan->name, gi->group, (ast_strlen_zero(gi->category) ? "(default)" : gi->category));
-			numchans++;
+	while ( (c = ast_channel_walk_locked(c)) != NULL) {
+		headp=&c->varshead;
+		AST_LIST_TRAVERSE(headp,current,entries) {
+			if (!strncmp(ast_var_name(current), GROUP_CATEGORY_PREFIX "_", strlen(GROUP_CATEGORY_PREFIX) + 1)) {
+				if (!havepattern || !regexec(&regexbuf, ast_var_value(current), 0, NULL, 0)) {
+					ast_cli(fd, FORMAT_STRING, c->name, ast_var_value(current),
+						(ast_var_name(current) + strlen(GROUP_CATEGORY_PREFIX) + 1));
+					numchans++;
+				}
+			} else if (!strcmp(ast_var_name(current), GROUP_CATEGORY_PREFIX)) {
+				if (!havepattern || !regexec(&regexbuf, ast_var_value(current), 0, NULL, 0)) {
+					ast_cli(fd, FORMAT_STRING, c->name, ast_var_value(current), "(default)");
+					numchans++;
+				}
+			}
 		}
-		gi = AST_LIST_NEXT(gi, list);
+		numchans++;
+		ast_channel_unlock(c);
 	}
-	
-	ast_app_group_list_unlock();
-	
+
 	if (havepattern)
 		regfree(&regexbuf);
 
@@ -1724,9 +1723,10 @@ void ast_cli_unregister_multiple(struct ast_cli_entry *e, int len)
 }
 
 
-/*! \brief helper for help_workhorse and final part of handle_help
- * if locked = 0 it's just help_workhorse, otherwise assume the
- * list is already locked.
+/*! \brief helper for help_workhorse and final part of
+ * handle_help. if locked = 0 it's just help_workhorse,
+ * otherwise assume the list is already locked and print
+ * an error message if not found.
  */
 static int help1(int fd, char *match[], int locked)
 {
@@ -1751,14 +1751,13 @@ static int help1(int fd, char *match[], int locked)
 			continue;
 		if (match && strncasecmp(matchstr, e->_full_cmd, len))
 			continue;
-		ast_cli(fd, "%25.25s  %s\n", e->_full_cmd, S_OR(e->summary, ""));
+		ast_cli(fd, "%25.25s  %s\n", e->_full_cmd, e->summary);
 		found++;
 	}
-	if (!locked)
-		AST_LIST_UNLOCK(&helpers);
-	if (!found && matchstr[0])
+	AST_LIST_UNLOCK(&helpers);
+	if (!locked && !found && matchstr[0])
 		ast_cli(fd, "No such command '%s'.\n", matchstr);
-	return RESULT_SUCCESS;
+	return 0;
 }
 
 static int help_workhorse(int fd, char *match[])
@@ -1770,7 +1769,6 @@ static int handle_help(int fd, int argc, char *argv[])
 {
 	char fullcmd[80];
 	struct ast_cli_entry *e;
-	int res = RESULT_SUCCESS;
 
 	if (argc < 1)
 		return RESULT_SHOWUSAGE;
@@ -1779,11 +1777,8 @@ static int handle_help(int fd, int argc, char *argv[])
 
 	AST_LIST_LOCK(&helpers);
 	e = find_cli(argv + 1, 1);	/* try exact match first */
-	if (!e) {
-		res = help1(fd, argv + 1, 1 /* locked */);
-		AST_LIST_UNLOCK(&helpers);
-		return res;
-	}
+	if (!e)
+		return help1(fd, argv + 1, 1 /* locked */);
 	if (e->usage)
 		ast_cli(fd, "%s", e->usage);
 	else {
@@ -1791,7 +1786,7 @@ static int handle_help(int fd, int argc, char *argv[])
 		ast_cli(fd, "No help text available for '%s'.\n", fullcmd);
 	}
 	AST_LIST_UNLOCK(&helpers);
-	return res;
+	return RESULT_SUCCESS;
 }
 
 static char *parse_args(const char *s, int *argc, char *argv[], int max, int *trailingwhitespace)
@@ -2010,28 +2005,11 @@ int ast_cli_command(int fd, const char *s)
 				break;
 			}
 		} else 
-			ast_cli(fd, "No such command '%s' (type 'help %s' for other possible commands)\n", s, find_best(argv));
+			ast_cli(fd, "No such command '%s' (type 'help' for help)\n", find_best(argv));
 		if (e)
 			ast_atomic_fetchadd_int(&e->inuse, -1);
 	}
 	free(dup);
 	
 	return 0;
-}
-
-int ast_cli_command_multiple(int fd, size_t size, const char *s)
-{
-	char cmd[512];
-	int x, y = 0, count = 0;
-
-	for (x = 0; x < size; x++) {
-		cmd[y] = s[x];
-		y++;
-		if (s[x] == '\0') {
-			ast_cli_command(fd, cmd);
-			y = 0;
-			count++;
-		}
-	}
-	return count;
 }

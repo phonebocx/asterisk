@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 108796 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51788 $")
 
 #include <stdio.h>
 #include <ctype.h>
@@ -951,33 +951,32 @@ static int oss_indicate(struct ast_channel *c, int cond, const void *data, size_
 	int res = -1;
 
 	switch (cond) {
-	case AST_CONTROL_BUSY:
-	case AST_CONTROL_CONGESTION:
-	case AST_CONTROL_RINGING:
+		case AST_CONTROL_BUSY:
+		case AST_CONTROL_CONGESTION:
+		case AST_CONTROL_RINGING:
 			res = cond;
 			break;
-			
-	case -1:
-		o->cursound = -1;
-		o->nosound = 0;		/* when cursound is -1 nosound must be 0 */
-		return 0;
-		
-	case AST_CONTROL_VIDUPDATE:
-		res = -1;
-		break;
-	case AST_CONTROL_HOLD:
-		ast_verbose(" << Console Has Been Placed on Hold >> \n");
-		ast_moh_start(c, data, o->mohinterpret);
+
+		case -1:
+			o->cursound = -1;
+			o->nosound = 0;		/* when cursound is -1 nosound must be 0 */
+			return 0;
+
+		case AST_CONTROL_VIDUPDATE:
+			res = -1;
 			break;
-	case AST_CONTROL_UNHOLD:
-		ast_verbose(" << Console Has Been Retrieved from Hold >> \n");
-		ast_moh_stop(c);
-		break;
-	case AST_CONTROL_SRCUPDATE:
-		break;
-	default:
-		ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, c->name);
-		return -1;
+		case AST_CONTROL_HOLD:
+			ast_verbose(" << Console Has Been Placed on Hold >> \n");
+			ast_moh_start(c, data, o->mohinterpret);
+			break;
+		case AST_CONTROL_UNHOLD:
+			ast_verbose(" << Console Has Been Retrieved from Hold >> \n");
+			ast_moh_stop(c);
+			break;
+
+		default:
+			ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, c->name);
+			return -1;
 	}
 
 	if (res > -1)
@@ -993,7 +992,7 @@ static struct ast_channel *oss_new(struct chan_oss_pvt *o, char *ext, char *ctx,
 {
 	struct ast_channel *c;
 
-	c = ast_channel_alloc(1, state, o->cid_num, o->cid_name, "", ext, ctx, 0, "Console/%s", o->device + 5);
+	c = ast_channel_alloc(1, state, o->cid_num, o->cid_name, "OSS/%s", o->device + 5);
 	if (c == NULL)
 		return NULL;
 	c->tech = &oss_tech;
@@ -1005,11 +1004,17 @@ static struct ast_channel *oss_new(struct chan_oss_pvt *o, char *ext, char *ctx,
 	c->writeformat = AST_FORMAT_SLINEAR;
 	c->tech_pvt = o;
 
+	if (!ast_strlen_zero(ctx))
+		ast_copy_string(c->context, ctx, sizeof(c->context));
+	if (!ast_strlen_zero(ext))
+		ast_copy_string(c->exten, ext, sizeof(c->exten));
 	if (!ast_strlen_zero(o->language))
 		ast_string_field_set(c, language, o->language);
 	/* Don't use ast_set_callerid() here because it will
 	 * generate a needless NewCallerID event */
+	c->cid.cid_num = ast_strdup(o->cid_num);
 	c->cid.cid_ani = ast_strdup(o->cid_num);
+	c->cid.cid_name = ast_strdup(o->cid_name);
 	if (!ast_strlen_zero(ext))
 		c->cid.cid_dnid = ast_strdup(ext);
 
@@ -1369,7 +1374,7 @@ static int console_dial(int fd, int argc, char *argv[])
 		int i;
 		struct ast_frame f = { AST_FRAME_DTMF, 0 };
 
-		if (argc == 2) {	/* argument is mandatory here */
+		if (argc == 1) {	/* argument is mandatory here */
 			ast_cli(fd, "Already in a call. You can only dial digits until you hangup.\n");
 			return RESULT_FAILURE;
 		}

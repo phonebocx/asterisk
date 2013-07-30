@@ -1,10 +1,6 @@
 #
 # Makefile for chan_misdn support
 #
-ifneq ($(wildcard /usr/include/linux/mISDNdsp.h),)
-CFLAGS+=-DMISDN_1_2
-endif
-
 all:
 
 %.o: %.c

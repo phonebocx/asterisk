@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89545 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53780 $")
 
 #include <time.h>
 #include <string.h>
@@ -168,7 +168,6 @@ static int adsi_careful_send(struct ast_channel *chan, unsigned char *buf, int l
 			/* Read a voice frame */
 			if (inf->subclass != AST_FORMAT_ULAW) {
 				ast_log(LOG_WARNING, "Channel not in ulaw?\n");
-				ast_frfree(inf);
 				return -1;
 			}
 			/* Send no more than they sent us */
@@ -183,7 +182,6 @@ static int adsi_careful_send(struct ast_channel *chan, unsigned char *buf, int l
 			outf.samples = amt;
 			if (ast_write(chan, &outf)) {
 				ast_log(LOG_WARNING, "Failed to carefully write frame\n");
-				ast_frfree(inf);
 				return -1;
 			}
 			/* Update pointers and lengths */
@@ -258,7 +256,6 @@ static int __adsi_transmit_messages(struct ast_channel *chan, unsigned char **ms
 						if (!chan->adsicpe)
 							chan->adsicpe = AST_ADSI_UNAVAILABLE;
 						errno =	ENOSYS;
-						ast_frfree(f);
 						return -1;
 					}
 				}

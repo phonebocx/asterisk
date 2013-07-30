@@ -4,7 +4,7 @@
 
 OSTYPE=$(shell uname -s)
 define cyg_subst_sys
-	if uname -s | ${GREP} -qi cygwin; then \
+	if uname -s | grep -qi cygwin; then \
 	cat $@ | sed -e s/"sys\.h"/"config.h"/g > $@.copy; \
 	mv --force $@.copy $@; \
 	fi
@@ -177,7 +177,6 @@ clean :
 	rm -f $(BGCSRCS:.c=.o_a) $(CCSRCS:.c=.o_a)
 	rm -f $(BGCSRCS:.c=.o_s) $(CCSRCS:.c=.o_s)
 	rm -f $(TCSRCS:.c=.o) $(TEST)
-	rm -f *.s *.i
 
 distclean : clean
 	rm -f config.cache config.log config.status config.h Makefile

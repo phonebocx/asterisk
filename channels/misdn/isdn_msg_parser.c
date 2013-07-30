@@ -296,10 +296,6 @@ static msg_t *build_setup (struct isdn_msg msgs[], struct misdn_bchannel *bc, in
 			enc_ie_redir_nr(&setup->REDIR_NR, msg, 1, 1,  bc->pres, bc->screen, 0, bc->rad, nt,bc);
 	}
 
-	{
-		if (bc->keypad[0])
-			enc_ie_keypad(&setup->KEYPAD, msg, bc->keypad, nt,bc);
-	}
 	
   
 	if (*bc->display) {
@@ -340,13 +336,15 @@ static msg_t *build_setup (struct isdn_msg msgs[], struct misdn_bchannel *bc, in
 	}
 
 	if (bc->sending_complete) {
-		enc_ie_complete(&setup->COMPLETE,msg, bc->sending_complete, nt, bc);
+		enc_ie_complete(&setup->BEARER,msg, bc->sending_complete, nt, bc);
 	}
   
-	if (bc->uulen) {
+	{
 		int  protocol=4;
 		enc_ie_useruser(&setup->USER_USER, msg, protocol, bc->uu, bc->uulen, nt,bc);
-		cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
+		if (bc->uulen) cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
+		else
+		cb_log(1,bc->port,"NO USERUESRINFO ENCODED\n");
 	}
 
 #if DEBUG 
@@ -797,12 +795,6 @@ static msg_t *build_disconnect (struct isdn_msg msgs[], struct misdn_bchannel *b
 	
 	enc_ie_cause(&disconnect->CAUSE, msg, (nt)?1:0, bc->out_cause,nt,bc);
 	if (nt) enc_ie_progress(&disconnect->PROGRESS, msg, 0, nt?1:5, 8 ,nt,bc);
-
-	if (bc->uulen) {
-		int  protocol=4;
-		enc_ie_useruser(&disconnect->USER_USER, msg, protocol, bc->uu, bc->uulen, nt,bc);
-		cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
-	}
   
 #if DEBUG 
 	printf("Building DISCONNECT Msg\n"); 
@@ -822,10 +814,14 @@ static void parse_restart (struct isdn_msg msgs[], msg_t *msg, struct misdn_bcha
 #endif
   
 	{
-		int  exclusive;
+		int  exclusive, channel = 0;
 		dec_ie_channel_id(restart->CHANNEL_ID, (Q931_info_t *)restart, &exclusive, &bc->restart_channel, nt,bc);
-		cb_log(3, stack->port, "CC_RESTART Request on channel:%d on this port.\n", bc->restart_channel);
+		/* XXX: this is broken... channel is not used */
+		if (channel==0xff) /* any channel */
+			channel=-1;
+		cb_log(3, stack->port, "CC_RESTART Request on channel:%d on this port.\n");
 	}
+  
  
 }
 
@@ -840,13 +836,7 @@ static msg_t *build_restart (struct isdn_msg msgs[], struct misdn_bchannel *bc, 
 #if DEBUG 
 	printf("Building RESTART Msg\n"); 
 #endif
-
-	if (bc->channel > 0) {
-		enc_ie_channel_id(&restart->CHANNEL_ID, msg, 1,bc->channel, nt,bc);
-		enc_ie_restart_ind(&restart->RESTART_IND, msg, 0x80, nt, bc);
-	} else {
-		enc_ie_restart_ind(&restart->RESTART_IND, msg, 0x87, nt, bc);
-	}
+	enc_ie_channel_id(&restart->CHANNEL_ID, msg, 1,bc->channel, nt,bc);
 
 	cb_log(0,bc->port, "Restarting channel %d\n", bc->channel);
 	
@@ -879,12 +869,6 @@ static msg_t *build_release (struct isdn_msg msgs[], struct misdn_bchannel *bc, 
   
 	if (bc->out_cause>= 0)
 		enc_ie_cause(&release->CAUSE, msg, nt?1:0, bc->out_cause, nt,bc);
-
-	if (bc->uulen) {
-		int  protocol=4;
-		enc_ie_useruser(&release->USER_USER, msg, protocol, bc->uu, bc->uulen, nt,bc);
-		cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
-	}
   
 #if DEBUG 
 	printf("Building RELEASE Msg\n"); 
@@ -935,12 +919,6 @@ static msg_t *build_release_complete (struct isdn_msg msgs[], struct misdn_bchan
 	release_complete=(RELEASE_COMPLETE_t*)((msg->data+HEADER_LEN)); 
 	
 	enc_ie_cause(&release_complete->CAUSE, msg, nt?1:0, bc->out_cause, nt,bc);
-
-	if (bc->uulen) {
-		int  protocol=4;
-		enc_ie_useruser(&release_complete->USER_USER, msg, protocol, bc->uu, bc->uulen, nt,bc);
-		cb_log(1,bc->port,"ENCODING USERUESRINFO:%s\n",bc->uu);
-	}
   
 #if DEBUG 
 	printf("Building RELEASE_COMPLETE Msg\n"); 

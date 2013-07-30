@@ -53,7 +53,7 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 				; and multiline formatted headers for strict
 				; SIP compatibility (defaults to "no")
 
-; See doc/ip-tos.txt for a description of these parameters.
+; See doc/README.tos for a description of these parameters.
 ;tos_sip=cs3                    ; Sets TOS for SIP packets.
 ;tos_audio=ef                   ; Sets TOS for RTP audio packets.
 ;tos_video=af41                 ; Sets TOS for RTP video packets.
@@ -207,9 +207,6 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 				; of a friend will now be added to and compared with
 				; the peer limit instead of applying two call limits,
 				; one for the peer and one for the user.
-				; "sip show inuse" will only show active calls on 
-				; the peer side of a "type=friend" object if this
-				; setting is turned on.
 
 ;----------------------------------------- T.38 FAX PASSTHROUGH SUPPORT -----------------------
 ;
@@ -318,8 +315,7 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 				; the call directly with media peer-2-peer without re-invites.
 				; Will not work for video and cases where the callee sends 
 				; RTP payloads and fmtp headers in the 200 OK that does not match the
-				; callers INVITE. This will also fail if canreinvite is enabled when
-				; the device is actually behind NAT.
+				; callers INVITE.
 
 ;canreinvite=nonat		; An additional option is to allow media path redirection
 				; (reinvite) but only when the peer where the media is being
@@ -391,7 +387,7 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 				; for external calls to this domain
 ;domain=1.2.3.4			; Add IP address as local domain
 				; You can have several "domain" settings
-;allowexternaldomains=no	; Disable INVITE and REFER to non-local domains
+;allowexternalinvites=no	; Disable INVITE and REFER to non-local domains
 				; Default is yes
 ;autodomain=yes			; Turn this on to have Asterisk add local host
 				; name and local IP to domain list.
@@ -484,7 +480,7 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 ; videosupport		      videosupport
 ; maxcallbitrate	      maxcallbitrate
 ; rfc2833compensate           mailbox
-; t38pt_usertpsource          username
+;                             username
 ;                             template
 ;                             fromdomain
 ;                             regexten
@@ -498,7 +494,6 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 ;                             sendrpid
 ;                             outboundproxy
 ;                             rfc2833compensate
-;                             t38pt_usertpsource
 
 ;[sip_proxy]
 ; For incoming calls only. Example: FWD (Free World Dialup)
@@ -568,7 +563,7 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 ;allow=g723.1			; Asterisk only supports g723.1 pass-thru!
 ;allow=g729			; Pass-thru only unless g729 license obtained
 ;callingpres=allowed_passed_screen	; Set caller ID presentation
-				; See doc/callingpres.txt for more information
+				; See README.callingpres for more information
 
 
 ;[xlite1]
@@ -663,7 +658,3 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 ;host=dynamic
 ;rfc2833compensate=yes		; Compensate for pre-1.4 DTMF transmission from another Asterisk machine.
 				; You must have this turned on or DTMF reception will work improperly.
-;t38pt_usertpsource=yes         ; Use the source IP address of RTP as the destination IP address for UDPTL packets
-                                ; if the nat option is enabled. If a single RTP packet is received Asterisk will know the
-                                ; external IP address of the remote device. If port forwarding is done at the client side
-                                ; then UDPTL will flow to the remote device.

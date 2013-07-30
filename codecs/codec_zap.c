@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 98943 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56548 $")
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -51,7 +51,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 98943 $")
 #include "asterisk/config.h"
 #include "asterisk/options.h"
 #include "asterisk/module.h"
-#include "asterisk/cli.h"
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
 #include "asterisk/utils.h"
@@ -60,37 +59,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 98943 $")
 #define BUFFER_SAMPLES	8000
 
 static unsigned int global_useplc = 0;
-
-static struct channel_usage {
-	int total;
-	int encoders;
-	int decoders;
-} channels;
-
-static char show_transcoder_usage[] =
-"Usage: show transcoder\n"
-"       Displays channel utilization of Zaptel transcoder(s).\n";
-
-static char transcoder_show_usage[] =
-"Usage: transcoder show\n"
-"       Displays channel utilization of Zaptel transcoder(s).\n";
-
-static int transcoder_show(int fd, int argc, char **argv);
-
-static struct ast_cli_entry cli_deprecated[] = {
-	{ { "show", "transcoder", NULL },
-	  transcoder_show,
-	  "Display Zaptel transcoder utilization.",
-	  show_transcoder_usage}
-};
-
-static struct ast_cli_entry cli[] = {
-	{ { "transcoder", "show", NULL },
-	  transcoder_show,
-	  "Display Zaptel transcoder utilization.",
-	  transcoder_show_usage, NULL,
-	  &cli_deprecated[0]}
-};
 
 struct format_map {
 	unsigned int map[32][32];
@@ -108,27 +76,13 @@ static AST_LIST_HEAD_STATIC(translators, translator);
 struct pvt {
 	int fd;
 	int fake;
-	unsigned int g729b_warning:1;
 #ifdef DEBUG_TRANSCODE
 	int totalms;
 	int lasttotalms;
 #endif
 	struct zt_transcode_header *hdr;
+	struct ast_frame f;
 };
-
-static int transcoder_show(int fd, int argc, char **argv)
-{
-	struct channel_usage copy;
-
-	copy = channels;
-
-	if (copy.total == 0)
-		ast_cli(fd, "No Zaptel transcoders found.\n");
-	else
-		ast_cli(fd, "%d/%d encoders/decoders of %d channels are in use.\n", copy.encoders, copy.decoders, copy.total);
-
-	return RESULT_SUCCESS;
-}
 
 static int zap_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
@@ -145,19 +99,6 @@ static int zap_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 	if (!hdr->srclen)
 		/* Copy at front of buffer */
 		hdr->srcoffset = 0;
-
-	/* if we get handed a G.729 frame that is not a multiple of
-	   10 bytes (10 milliseconds), then it has a CNG frame and
-	   we need to avoid sending that to the transcoder
-	*/
-	if ((f->subclass == AST_FORMAT_G729A) && ((f->datalen % 10) != 0)) {
-		if (!ztp->g729b_warning) {
-			ast_log(LOG_WARNING, "G.729B CNG frame received but is not supported; dropping.\n");
-			ztp->g729b_warning = 1;
-		}
-		f->datalen -= f->datalen % 10;
-		f->samples = f->datalen * 8;
-	}
 
 	if (hdr->srclen + f->datalen > sizeof(hdr->srcdata)) {
 		ast_log(LOG_WARNING, "Out of space for codec translation!\n");
@@ -185,14 +126,13 @@ static struct ast_frame *zap_frameout(struct ast_trans_pvt *pvt)
 
 	if (ztp->fake == 2) {
 		ztp->fake = 1;
-		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass = 0;
-		pvt->f.samples = 160;
-		pvt->f.data = NULL;
-		pvt->f.offset = 0;
-		pvt->f.datalen = 0;
-		pvt->f.mallocd = 0;
-		ast_set_flag(&pvt->f, AST_FRFLAG_FROM_TRANSLATOR);
+		ztp->f.frametype = AST_FRAME_VOICE;
+		ztp->f.subclass = 0;
+		ztp->f.samples = 160;
+		ztp->f.data = NULL;
+		ztp->f.offset = 0;
+		ztp->f.datalen = 0;
+		ztp->f.mallocd = 0;
 		pvt->samples = 0;
 	} else if (ztp->fake == 1) {
 		return NULL;
@@ -205,15 +145,14 @@ static struct ast_frame *zap_frameout(struct ast_trans_pvt *pvt)
 				ztp->lasttotalms = ztp->totalms;
 			}
 #endif
-			pvt->f.frametype = AST_FRAME_VOICE;
-			pvt->f.subclass = hdr->dstfmt;
-			pvt->f.samples = hdr->dstsamples;
-			pvt->f.data = hdr->dstdata + hdr->dstoffset;
-			pvt->f.offset = hdr->dstoffset;
-			pvt->f.datalen = hdr->dstlen;
-			pvt->f.mallocd = 0;
-			ast_set_flag(&pvt->f, AST_FRFLAG_FROM_TRANSLATOR);
-			pvt->samples -= pvt->f.samples;
+			ztp->f.frametype = AST_FRAME_VOICE;
+			ztp->f.subclass = hdr->dstfmt;
+			ztp->f.samples = hdr->dstsamples;
+			ztp->f.data = hdr->dstdata + hdr->dstoffset;
+			ztp->f.offset = hdr->dstoffset;
+			ztp->f.datalen = hdr->dstlen;
+			ztp->f.mallocd = 0;
+			pvt->samples -= ztp->f.samples;
 			hdr->dstlen = 0;
 			
 		} else {
@@ -227,27 +166,12 @@ static struct ast_frame *zap_frameout(struct ast_trans_pvt *pvt)
 		}
 	}
 
-	return &pvt->f;
+	return &ztp->f;
 }
 
 static void zap_destroy(struct ast_trans_pvt *pvt)
 {
 	struct pvt *ztp = pvt->pvt;
-	unsigned int x;
-
-	x = ZT_TCOP_RELEASE;
-	if (ioctl(ztp->fd, ZT_TRANSCODE_OP, &x))
-		ast_log(LOG_WARNING, "Failed to release transcoder channel: %s\n", strerror(errno));
-
-	switch (ztp->hdr->dstfmt) {
-	case AST_FORMAT_G729A:
-	case AST_FORMAT_G723_1:
-		ast_atomic_fetchadd_int(&channels.encoders, -1);
-		break;
-	default:
-		ast_atomic_fetchadd_int(&channels.decoders, -1);
-		break;
-	}
 
 	munmap(ztp->hdr, sizeof(*ztp->hdr));
 	close(ztp->fd);
@@ -299,16 +223,6 @@ static int zap_translate(struct ast_trans_pvt *pvt, int dest, int source)
 	ztp = pvt->pvt;
 	ztp->fd = fd;
 	ztp->hdr = hdr;
-
-	switch (hdr->dstfmt) {
-	case AST_FORMAT_G729A:
-	case AST_FORMAT_G723_1:
-		ast_atomic_fetchadd_int(&channels.encoders, +1);
-		break;
-	default:
-		ast_atomic_fetchadd_int(&channels.decoders, +1);
-		break;
-	}
 
 	return 0;
 }
@@ -446,19 +360,16 @@ static int find_transcoders(void)
 	int fd, res;
 	unsigned int x, y;
 
+	info.op = ZT_TCOP_GETINFO;
 	if ((fd = open("/dev/zap/transcode", O_RDWR)) < 0) {
-		ast_verbose(VERBOSE_PREFIX_2 "No hardware transcoders found.\n");
+		ast_log(LOG_NOTICE, "No Zaptel transcoder support!\n");
 		return 0;
 	}
-
-	info.op = ZT_TCOP_GETINFO;
 	for (info.tcnum = 0; !(res = ioctl(fd, ZT_TRANSCODE_OP, &info)); info.tcnum++) {
 		if (option_verbose > 1)
 			ast_verbose(VERBOSE_PREFIX_2 "Found transcoder '%s'.\n", info.name);
 		build_translators(&map, info.dstfmts, info.srcfmts);
-		ast_atomic_fetchadd_int(&channels.total, info.numchannels / 2);
 	}
-
 	close(fd);
 
 	if (!info.tcnum && (option_verbose > 1))
@@ -479,6 +390,7 @@ static int reload(void)
 	struct translator *cur;
 
 	parse_config();
+	find_transcoders();
 
 	AST_LIST_LOCK(&translators);
 	AST_LIST_TRAVERSE(&translators, cur, entry)
@@ -490,7 +402,6 @@ static int reload(void)
 
 static int unload_module(void)
 {
-	ast_cli_unregister_multiple(cli, sizeof(cli) / sizeof(cli[0]));
 	unregister_translators();
 
 	return 0;
@@ -500,7 +411,6 @@ static int load_module(void)
 {
 	parse_config();
 	find_transcoders();
-	ast_cli_register_multiple(cli, sizeof(cli) / sizeof(cli[0]));
 
 	return 0;
 }

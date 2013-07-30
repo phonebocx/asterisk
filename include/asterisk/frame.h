@@ -85,7 +85,6 @@ struct ast_codec_pref {
 	\arg \b HOLD	Call is placed on hold
 	\arg \b UNHOLD	Call is back from hold
 	\arg \b VIDUPDATE	Video update requested
-	\arg \b SRCUPDATE       The source of media has changed
 
 */
 
@@ -124,19 +123,6 @@ enum ast_frame_type {
 };
 #define AST_FRAME_DTMF AST_FRAME_DTMF_END
 
-enum {
-	/*! This frame contains valid timing information */
-	AST_FRFLAG_HAS_TIMING_INFO = (1 << 0),
-	/*! This frame came from a translator and is still the original frame.
-	 *  The translator can not be free'd if the frame inside of it still has
-	 *  this flag set. */
-	AST_FRFLAG_FROM_TRANSLATOR = (1 << 1),
-	/*! This frame came from a dsp and is still the original frame.
-	 *  The dsp cannot be free'd if the frame inside of it still has
-	 *  this flag set. */
-	AST_FRFLAG_FROM_DSP = (1 << 2),
-};
-
 /*! \brief Data structure associated with a single frame of data
  */
 struct ast_frame {
@@ -162,8 +148,8 @@ struct ast_frame {
 	struct timeval delivery;
 	/*! For placing in a linked list */
 	AST_LIST_ENTRY(ast_frame) frame_list;
-	/*! Misc. frame flags */
-	unsigned int flags;
+	/*! Timing data flag */
+	int has_timing_info;
 	/*! Timestamp in milliseconds */
 	long ts;
 	/*! Length in milliseconds */
@@ -295,7 +281,6 @@ enum ast_control_frame_type {
 	AST_CONTROL_HOLD = 16,		/*!< Indicate call is placed on hold */
 	AST_CONTROL_UNHOLD = 17,	/*!< Indicate call is left from hold */
 	AST_CONTROL_VIDUPDATE = 18,	/*!< Indicate video frame update */
-	AST_CONTROL_SRCUPDATE = 20,     /*!< Indicate source of media has changed */
 };
 
 #define AST_SMOOTHER_FLAG_G729		(1 << 0)
@@ -400,7 +385,10 @@ struct ast_frame *ast_fralloc(char *source, int len);
  */
 void ast_frame_free(struct ast_frame *fr, int cache);
 
-#define ast_frfree(fr) ast_frame_free(fr, 1)
+static void force_inline ast_frfree(struct ast_frame *fr)
+{
+	ast_frame_free(fr, 1);
+}
 
 /*! \brief Makes a frame independent of any static storage
  * \param fr frame to act upon
@@ -434,7 +422,7 @@ void ast_swapcopy_samples(void *dst, const void *src, int samples);
 
 /*! \brief Get the name of a format
  * \param format id of format
- * \return A static string containing the name of the format or "unknown" if unknown.
+ * \return A static string containing the name of the format or "UNKN" if unknown.
  */
 char* ast_getformatname(int format);
 
@@ -511,10 +499,6 @@ void ast_codec_pref_remove(struct ast_codec_pref *pref, int format);
 */
 int ast_codec_pref_append(struct ast_codec_pref *pref, int format);
 
-/*! \brief Prepend an audio codec to a preference list, removing it first if it was already there 
-*/
-void ast_codec_pref_prepend(struct ast_codec_pref *pref, int format, int only_if_existing);
-
 /*! \brief Select the best audio format according to preference list from supplied options. 
    If "find_best" is non-zero then if nothing is found, the "Best" format of 
    the format list is selected, otherwise 0 is returned. */
@@ -574,17 +558,6 @@ int ast_frame_adjust_volume(struct ast_frame *f, int adjustment);
   and must contain the same number of samples.
  */
 int ast_frame_slinear_sum(struct ast_frame *f1, struct ast_frame *f2);
-
-/*!
- * \brief Get the sample rate for a given format.
- */
-static force_inline int ast_format_rate(int format)
-{
-	if (format == AST_FORMAT_G722)
-		return 16000;
-
-	return 8000;
-}
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

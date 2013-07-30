@@ -31,12 +31,11 @@
 
 /*** MODULEINFO
 	<depend>unixodbc</depend>
-	<depend>ltdl</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 99775 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58479 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,7 +52,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 99775 $")
 #include "asterisk/cli.h"
 #include "asterisk/lock.h"
 #include "asterisk/res_odbc.h"
-#include "asterisk/time.h"
 
 struct odbc_class
 {
@@ -67,8 +65,6 @@ struct odbc_class
 	unsigned int limit:10;          /* Gives a limit of 1023 maximum */
 	unsigned int count:10;          /* Running count of pooled connections */
 	unsigned int delme:1;			/* Purge the class */
-	unsigned int backslash_is_escape:1;	/* On this database, the backslash is a native escape sequence */
-	unsigned int idlecheck;			/* Recheck the connection if it is idle for this long */
 	AST_LIST_HEAD(, odbc_obj) odbc_obj;
 };
 
@@ -123,8 +119,7 @@ SQLHSTMT ast_odbc_prepare_and_execute(struct odbc_obj *obj, SQLHSTMT (*prepare_c
 				odbc_obj_disconnect(obj);
 				odbc_obj_connect(obj);
 				continue;
-			} else
-				obj->last_used = ast_tvnow();
+			}
 			break;
 		} else {
 			ast_log(LOG_WARNING, "SQL Prepare failed.  Attempting a reconnect...\n");
@@ -147,7 +142,7 @@ int ast_odbc_smart_execute(struct odbc_obj *obj, SQLHSTMT stmt)
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO) && (res != SQL_NO_DATA)) {
 		if (res == SQL_ERROR) {
 			SQLGetDiagField(SQL_HANDLE_STMT, stmt, 1, SQL_DIAG_NUMBER, &numfields, SQL_IS_INTEGER, &diagbytes);
-			for (i = 0; i < numfields; i++) {
+			for (i=0; i< numfields + 1; i++) {
 				SQLGetDiagRec(SQL_HANDLE_STMT, stmt, i + 1, state, &nativeerror, diagnostic, sizeof(diagnostic), &diagbytes);
 				ast_log(LOG_WARNING, "SQL Execute returned an error %d: %s: %s (%d)\n", res, state, diagnostic, diagbytes);
 				if (i > 10) {
@@ -172,8 +167,7 @@ int ast_odbc_smart_execute(struct odbc_obj *obj, SQLHSTMT stmt)
 		odbc_obj_connect(obj);
 		res = SQLExecute(stmt);
 #endif
-	} else
-		obj->last_used = ast_tvnow();
+	}
 	
 	return res;
 }
@@ -217,8 +211,7 @@ static int load_odbc_config(void)
 	struct ast_config *config;
 	struct ast_variable *v;
 	char *cat, *dsn, *username, *password;
-	int enabled, pooling, limit, bse;
-	unsigned int idlecheck;
+	int enabled, pooling, limit;
 	int connect = 0, res = 0;
 
 	struct odbc_class *new;
@@ -238,10 +231,9 @@ static int load_odbc_config(void)
 			/* Reset all to defaults for each class of odbc connections */
 			dsn = username = password = NULL;
 			enabled = 1;
-			connect = idlecheck = 0;
+			connect = 0;
 			pooling = 0;
 			limit = 0;
-			bse = 1;
 			for (v = ast_variable_browse(config, cat); v; v = v->next) {
 				if (!strcasecmp(v->name, "pooling")) {
 					if (ast_true(v->value))
@@ -256,8 +248,6 @@ static int load_odbc_config(void)
 						enabled = 0;
 						break;
 					}
-				} else if (!strcasecmp(v->name, "idlecheck")) {
-					sscanf(v->value, "%d", &idlecheck);
 				} else if (!strcasecmp(v->name, "enabled")) {
 					enabled = ast_true(v->value);
 				} else if (!strcasecmp(v->name, "pre-connect")) {
@@ -268,8 +258,6 @@ static int load_odbc_config(void)
 					username = v->value;
 				} else if (!strcasecmp(v->name, "password")) {
 					password = v->value;
-				} else if (!strcasecmp(v->name, "backslash_is_escape")) {
-					bse = ast_true(v->value);
 				}
 			}
 
@@ -309,9 +297,6 @@ static int load_odbc_config(void)
 					}
 				}
 
-				new->backslash_is_escape = bse ? 1 : 0;
-				new->idlecheck = idlecheck;
-
 				odbc_register_class(new, connect);
 				ast_log(LOG_NOTICE, "Registered ODBC class '%s' dsn->[%s]\n", cat, dsn);
 			}
@@ -336,7 +321,7 @@ static int odbc_show_command(int fd, int argc, char **argv)
 				ast_cli(fd, "Pooled: yes\nLimit: %d\nConnections in use: %d\n", class->limit, class->count);
 
 				AST_LIST_TRAVERSE(&(class->odbc_obj), current, list) {
-					ast_cli(fd, "  Connection %d: %s\n", ++count, current->used ? "in use" : current->up && ast_odbc_sanity_check(current) ? "connected" : "disconnected");
+					ast_cli(fd, "  Connection %d: %s", ++count, current->up && ast_odbc_sanity_check(current) ? "connected" : "disconnected");
 				}
 			} else {
 				/* Should only ever be one of these */
@@ -393,11 +378,6 @@ void ast_odbc_release_obj(struct odbc_obj *obj)
 	obj->used = 0;
 }
 
-int ast_odbc_backslash_is_escape(struct odbc_obj *obj)
-{
-	return obj->parent->backslash_is_escape;
-}
-
 struct odbc_obj *ast_odbc_request_obj(const char *name, int check)
 {
 	struct odbc_obj *obj = NULL;
@@ -432,16 +412,8 @@ struct odbc_obj *ast_odbc_request_obj(const char *name, int check)
 			}
 			ast_mutex_init(&obj->lock);
 			obj->parent = class;
-			if (odbc_obj_connect(obj) == ODBC_FAIL) {
-				ast_log(LOG_WARNING, "Failed to connect to %s\n", name);
-				ast_mutex_destroy(&obj->lock);
-				free(obj);
-				obj = NULL;
-				class->count--;
-			} else {
-				obj->used = 1;
-				AST_LIST_INSERT_TAIL(&class->odbc_obj, obj, list);
-			}
+			odbc_obj_connect(obj);
+			AST_LIST_INSERT_TAIL(&class->odbc_obj, obj, list);
 		}
 	} else {
 		/* Non-pooled connection: multiple modules can use the same connection. */
@@ -473,9 +445,7 @@ struct odbc_obj *ast_odbc_request_obj(const char *name, int check)
 
 	if (obj && check) {
 		ast_odbc_sanity_check(obj);
-	} else if (obj && obj->parent->idlecheck > 0 && ast_tvdiff_ms(ast_tvnow(), obj->last_used) / 1000 > obj->parent->idlecheck)
-		odbc_obj_connect(obj);
-
+	}
 	return obj;
 }
 
@@ -512,12 +482,14 @@ static odbc_status odbc_obj_connect(struct odbc_obj *obj)
 	res = SQLAllocHandle(SQL_HANDLE_DBC, obj->parent->env, &obj->con);
 
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
+
 		ast_log(LOG_WARNING, "res_odbc: Error AllocHDB %d\n", res);
+		SQLFreeHandle(SQL_HANDLE_ENV, obj->parent->env);
+
 		ast_mutex_unlock(&obj->lock);
 		return ODBC_FAIL;
 	}
 	SQLSetConnectAttr(obj->con, SQL_LOGIN_TIMEOUT, (SQLPOINTER *) 10, 0);
-	SQLSetConnectAttr(obj->con, SQL_ATTR_CONNECTION_TIMEOUT, (SQLPOINTER *) 10, 0);
 #ifdef NEEDTRACE
 	SQLSetConnectAttr(obj->con, SQL_ATTR_TRACE, &enable, SQL_IS_INTEGER);
 	SQLSetConnectAttr(obj->con, SQL_ATTR_TRACEFILE, tracefile, strlen(tracefile));
@@ -543,7 +515,6 @@ static odbc_status odbc_obj_connect(struct odbc_obj *obj)
 	} else {
 		ast_log(LOG_NOTICE, "res_odbc: Connected to %s [%s]\n", obj->parent->name, obj->parent->dsn);
 		obj->up = 1;
-		obj->last_used = ast_tvnow();
 	}
 
 	ast_mutex_unlock(&obj->lock);
@@ -556,8 +527,7 @@ static int reload(void)
 	struct ast_config *config;
 	struct ast_variable *v;
 	char *cat, *dsn, *username, *password;
-	int enabled, pooling, limit, bse;
-	unsigned int idlecheck;
+	int enabled, pooling, limit;
 	int connect = 0, res = 0;
 
 	struct odbc_class *new, *class;
@@ -581,10 +551,9 @@ static int reload(void)
 				/* Reset all to defaults for each class of odbc connections */
 				dsn = username = password = NULL;
 				enabled = 1;
-				connect = idlecheck = 0;
+				connect = 0;
 				pooling = 0;
 				limit = 0;
-				bse = 1;
 				for (v = ast_variable_browse(config, cat); v; v = v->next) {
 					if (!strcasecmp(v->name, "pooling")) {
 						pooling = 1;
@@ -598,8 +567,6 @@ static int reload(void)
 							enabled = 0;
 							break;
 						}
-					} else if (!strcasecmp(v->name, "idlecheck")) {
-						sscanf(v->value, "%ud", &idlecheck);
 					} else if (!strcasecmp(v->name, "enabled")) {
 						enabled = ast_true(v->value);
 					} else if (!strcasecmp(v->name, "pre-connect")) {
@@ -610,8 +577,6 @@ static int reload(void)
 						username = v->value;
 					} else if (!strcasecmp(v->name, "password")) {
 						password = v->value;
-					} else if (!strcasecmp(v->name, "backslash_is_escape")) {
-						bse = ast_true(v->value);
 					}
 				}
 
@@ -665,9 +630,6 @@ static int reload(void)
 							new->limit = 5;
 						}
 					}
-
-					new->backslash_is_escape = bse;
-					new->idlecheck = idlecheck;
 
 					if (class) {
 						ast_log(LOG_NOTICE, "Refreshing ODBC class '%s' dsn->[%s]\n", cat, dsn);

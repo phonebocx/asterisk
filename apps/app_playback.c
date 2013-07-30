@@ -27,7 +27,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114299 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53399 $")
 
 #include <string.h>
 #include <stdlib.h>
@@ -65,8 +65,6 @@ static char *descrip =
 "This application sets the following channel variable upon completion:\n"
 " PLAYBACKSTATUS    The status of the playback attempt as a text string, one of\n"
 "               SUCCESS | FAILED\n"
-"See Also: Background (application) -- for playing soundfiles that are interruptible\n"
-"          WaitExten (application) -- wait for digits from caller, optionally play music on hold\n"
 ;
 
 
@@ -154,6 +152,7 @@ static int do_say(say_args_t *a, const char *s, const char *options, int depth)
 	struct varshead head = { .first = NULL, .last = NULL };
 	struct ast_var_t *n;
 
+	ast_log(LOG_WARNING, "string <%s> depth <%d>\n", s, depth);
 	if (depth++ > 10) {
 		ast_log(LOG_WARNING, "recursion too deep, exiting\n");
 		return -1;
@@ -165,6 +164,7 @@ static int do_say(say_args_t *a, const char *s, const char *options, int depth)
 	/* scan languages same as in file.c */
 	if (a->language == NULL)
 		a->language = "en";     /* default */
+	ast_log(LOG_WARNING, "try <%s> in <%s>\n", s, a->language);
 	lang = ast_strdupa(a->language);
 	for (;;) {
 		for (v = ast_variable_browse(say_cfg, lang); v ; v = v->next) {
@@ -190,11 +190,12 @@ static int do_say(say_args_t *a, const char *s, const char *options, int depth)
 		s = x + 1;
 	if ( (x = strchr(s, ':')) )
 		s = x + 1;
+	ast_log(LOG_WARNING, "value is <%s>\n", s);
 	n = ast_var_assign("SAY", s);
 	AST_LIST_INSERT_HEAD(&head, n, entries);
 
 	/* scan the body, one piece at a time */
-	while ( !ret && (x = strsep(&rule, ",")) ) { /* exit on key */
+	while ( ret <= 0 && (x = strsep(&rule, ",")) ) { /* exit on key */
 		char fn[128];
 		const char *p, *fmt, *data; /* format and data pointers */
 
@@ -205,6 +206,7 @@ static int do_say(say_args_t *a, const char *s, const char *options, int depth)
 		/* replace variables */
 		memset(fn, 0, sizeof(fn)); /* XXX why isn't done in pbx_substitute_variables_helper! */
 		pbx_substitute_variables_varshead(&head, x, fn, sizeof(fn));
+		ast_log(LOG_WARNING, "doing [%s]\n", fn);
 
 		/* locate prefix and data, if any */
 		fmt = index(fn, ':');
@@ -242,10 +244,6 @@ static int do_say(say_args_t *a, const char *s, const char *options, int depth)
 				fn2[l++] = *p;
 				strcpy(fn2 + l, data);
 				ret = do_say(a, fn2, options, depth);
-			}
-			
-			if (ret) {
-				break;
 			}
 		}
 	}
@@ -374,7 +372,7 @@ static int __say_init(int fd, int argc, char *argv[])
 static struct ast_cli_entry cli_playback[] = {
         { { "say", "load", NULL },
 	__say_init, "set/show the say mode",
-	"Usage: say load [new|old]\n    Set/show the say mode\n" },
+	"say load new|old" },
 };
 
 static int playback_exec(struct ast_channel *chan, void *data)

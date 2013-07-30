@@ -24,7 +24,6 @@
 #define _ASTERISK_TIME_H
 
 #include <sys/time.h>
-#include <stdlib.h>
 
 #include "asterisk/inline_api.h"
 
@@ -37,8 +36,8 @@ typedef typeof(tv.tv_usec) ast_suseconds_t;
 
 /*!
  * \brief Computes the difference (in milliseconds) between two \c struct \c timeval instances.
- * \param end end of the time period
- * \param start beginning of the time period
+ * \param end the beginning of the time period
+ * \param start the end of the time period
  * \return the difference in milliseconds
  */
 AST_INLINE_API(

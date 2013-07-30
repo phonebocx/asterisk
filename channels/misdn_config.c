@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100930 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49313 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -220,10 +220,6 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"\tinstead." },
 	{ "senddtmf", MISDN_CFG_SENDDTMF, MISDN_CTYPE_BOOL, "no", NONE,
 		"Enable this if we should produce DTMF Tones ourselves." },
-	{ "astdtmf", MISDN_CFG_ASTDTMF, MISDN_CTYPE_BOOL, "no", NONE,
-		"Enable this if you want to use the Asterisk dtmf detector\n"
-		"instead of the mISDN_dsp/hfcmulti one."
-		},
 	{ "hold_allowed", MISDN_CFG_HOLD_ALLOWED, MISDN_CTYPE_BOOL, "no", NONE,
 		"Enable this to have support for hold and retrieve." },
 	{ "early_bconnect", MISDN_CFG_EARLY_BCONNECT, MISDN_CTYPE_BOOL, "yes", NONE,
@@ -239,14 +235,9 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"\tA value of zero turns echocancellation off.\n"
 		"\n"
 		"\tPossible values are: 0,32,64,128,256,yes(=128),no(=0)" },
-#ifdef MISDN_1_2
-	{ "pipeline", MISDN_CFG_PIPELINE, MISDN_CTYPE_STR, NO_DEFAULT, NONE,
-		"Set the configuration string for the mISDN dsp pipeline.\n"
-		"\n"
-		"\tExample for enabling the mg2 echo cancellation module with deftaps\n"
-		"\tset to 128:\n"
-		"\t\tmg2ec(deftaps=128)" },
-#endif
+	{ "echocancelwhenbridged", MISDN_CFG_ECHOCANCELWHENBRIDGED, MISDN_CTYPE_BOOL, "no", NONE,
+		"This disables echocancellation when the call is bridged between\n"
+		"\tmISDN channels" },
 #ifdef WITH_BEROEC
 	{ "bnechocancel", MISDN_CFG_BNECHOCANCEL, MISDN_CTYPE_BOOLINT, "yes", 64,
 		"echotail in ms (1-200)\n"},
@@ -265,11 +256,6 @@ static const struct misdn_cfg_spec port_spec[] = {
 		"Send Setup_Acknowledge on incoming calls anyway (instead of PROCEEDING),\n"
 		"\tthis requests additional Infos, so we can waitfordigits without much\n"
 		"\tissues. This works only for PTP Ports" },
-	{ "noautorespond_on_setup", MISDN_CFG_NOAUTORESPOND_ON_SETUP, MISDN_CTYPE_BOOL, "0", NONE,
-		"Do not send SETUP_ACKNOWLEDGE or PROCEEDING automatically to the calling Party.\n"
-		"Instead we directly jump into the dialplan. This might be useful for fast call\n"
-		"rejection, or for some broken switches, that need hangup causes like busy in the.\n"
-		"RELEASE_COMPLETE Message, instead of the DISCONNECT Message.\n"},
 	{ "jitterbuffer", MISDN_CFG_JITTERBUFFER, MISDN_CTYPE_INT, "4000", NONE,
 		"The jitterbuffer." },
 	{ "jitterbuffer_upper_threshold", MISDN_CFG_JITTERBUFFER_UPPER_THRESHOLD, MISDN_CTYPE_INT, "0", NONE,
@@ -318,14 +304,7 @@ static const struct misdn_cfg_spec port_spec[] = {
 	{ "nttimeout", MISDN_CFG_NTTIMEOUT, MISDN_CTYPE_BOOL, "no", NONE ,
 		"Set this to yes if you want calls disconnected in overlap mode" 
 		"when a timeout happens.\n"},
-	{ "bridging", MISDN_CFG_BRIDGING, MISDN_CTYPE_BOOL, "yes", NONE,
-	 	"Set this to yes/no, default is yes.\n"
-		"This can be used to have bridging enabled in general and to\n"
-		"disable it for specific ports. It makes sense to disable\n"
-		"bridging on NT Port where you plan to use the HOLD/RETRIEVE\n"
-		"features with ISDN phones.\n"
-		},
-	{ "msns", MISDN_CFG_MSNS, MISDN_CTYPE_MSNLIST, "*", NONE,
+	{ "msns", MISDN_CFG_MSNS, MISDN_CTYPE_MSNLIST, NO_DEFAULT, NONE,
 		"MSN's for TE ports, listen on those numbers on the above ports, and\n"
 		"\tindicate the incoming calls to Asterisk.\n"
 		"\tHere you can give a comma seperated list, or simply an '*' for any msn." },
@@ -339,10 +318,8 @@ static const struct misdn_cfg_spec gen_spec[] = {
 		"\t2 - Messages + Message specific Informations (e.g. bearer capability)\n"
 		"\t3 - very Verbose, the above + lots of Driver specific infos\n"
 		"\t4 - even more Verbose than 3" },
-#ifndef MISDN_1_2
 	{ "misdn_init", MISDN_GEN_MISDN_INIT, MISDN_CTYPE_STR, "/etc/misdn-init.conf", NONE,
 		"Set the path to the misdn-init.conf (for nt_ptp mode checking)." },
-#endif
 	{ "tracefile", MISDN_GEN_TRACEFILE, MISDN_CTYPE_STR, "/var/log/asterisk/misdn.log", NONE,
 		"Set the path to the massively growing trace file, if you want that." },
 	{ "bridging", MISDN_GEN_BRIDGING, MISDN_CTYPE_BOOL, "yes", NONE,
@@ -358,10 +335,6 @@ static const struct misdn_cfg_spec gen_spec[] = {
 	{ "crypt_keys", MISDN_GEN_CRYPT_KEYS, MISDN_CTYPE_STR, NO_DEFAULT, NONE,
 		"Keys for cryption, you reference them in the dialplan\n"
 		"\tLater also in dynamic encr." },
- 	{ "ntkeepcalls", MISDN_GEN_NTKEEPCALLS, MISDN_CTYPE_BOOL, "no", NONE, 
-		"avoid dropping calls if the L2 goes down. some nortel pbx\n" 
-		"do put down the L2/L1 for some milliseconds even if there\n"
-		"are running calls. with this option you can avoid dropping them\n" },
 	{ "ntdebugflags", MISDN_GEN_NTDEBUGFLAGS, MISDN_CTYPE_INT, "0", NONE,
 	  	"No description yet."},
 	{ "ntdebugfile", MISDN_GEN_NTDEBUGFILE, MISDN_CTYPE_STR, "/var/log/misdn-nt.log", NONE,
@@ -534,8 +507,7 @@ void misdn_cfg_get (int port, enum misdn_cfg_elements elem, void *buf, int bufsi
 					} else if (port_cfg[0][place].str) {
 						if (!memccpy(buf, port_cfg[0][place].str, 0, bufsize))
 							memset(buf, 0, 1);
-					} else
-						memset(buf, 0, bufsize);
+					}
 					break;
 				default:
 					if (port_cfg[port][place].any)
@@ -679,12 +651,9 @@ int misdn_cfg_is_port_valid (int port)
 int misdn_cfg_is_group_method (char *group, enum misdn_cfg_method meth)
 {
 	int i, re = 0;
-	char *method ;
+	char *method = NULL;
 
 	misdn_cfg_lock();
-
-	method = port_cfg[0][map[MISDN_CFG_METHOD]].str;
-
 	for (i = 1; i <= max_ports; i++) {
 		if (port_cfg[i] && port_cfg[i][map[MISDN_CFG_GROUPNAME]].str) {
 			if (!strcasecmp(port_cfg[i][map[MISDN_CFG_GROUPNAME]].str, group))
@@ -692,14 +661,11 @@ int misdn_cfg_is_group_method (char *group, enum misdn_cfg_method meth)
 						  port_cfg[i][map[MISDN_CFG_METHOD]].str : port_cfg[0][map[MISDN_CFG_METHOD]].str);
 		}
 	}
-
 	if (method) {
 		switch (meth) {
 		case METHOD_STANDARD:		re = !strcasecmp(method, "standard");
 									break;
 		case METHOD_ROUND_ROBIN:	re = !strcasecmp(method, "round_robin");
-									break;
-		case METHOD_STANDARD_DEC:	re = !strcasecmp(method, "standard_dec");
 									break;
 		}
 	}
@@ -996,7 +962,6 @@ static void _build_port_config (struct ast_variable *v, char *cat)
 
 void misdn_cfg_update_ptp (void)
 {
-#ifndef MISDN_1_2
 	char misdn_init[BUFFERSIZE];
 	char line[BUFFERSIZE];
 	FILE *fp;
@@ -1005,7 +970,7 @@ void misdn_cfg_update_ptp (void)
 
 	misdn_cfg_get(0, MISDN_GEN_MISDN_INIT, &misdn_init, sizeof(misdn_init));
 
-	if (!ast_strlen_zero(misdn_init)) {
+	if (misdn_init) {
 		fp = fopen(misdn_init, "r");
 		if (fp) {
 			while(fgets(line, sizeof(line), fp)) {
@@ -1027,26 +992,6 @@ void misdn_cfg_update_ptp (void)
 			ast_log(LOG_WARNING,"Couldn't open %s: %s\n", misdn_init, strerror(errno));
 		}
 	}
-#else
-	int i;
-	int proto;
-	char filename[128];
-	FILE *fp;
-
-	for (i = 1; i <= max_ports; ++i) {
-		snprintf(filename, sizeof(filename), "/sys/class/mISDN-stacks/st-%08x/protocol", i << 8);
-		fp = fopen(filename, "r");
-		if (!fp) {
-			ast_log(LOG_WARNING, "Could not open %s: %s\n", filename, strerror(errno));
-			continue;
-		}
-		if (fscanf(fp, "0x%08x", &proto) != 1)
-			ast_log(LOG_WARNING, "Could not parse contents of %s!\n", filename);
-		else
-			ptp[i] = proto & 1<<5 ? 1 : 0;
-		fclose(fp);
-	}
-#endif
 }
 
 static void _fill_defaults (void)

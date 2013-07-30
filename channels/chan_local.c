@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 116038 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57318 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -150,20 +150,11 @@ static int local_devicestate(void *data)
 		return AST_DEVICE_UNKNOWN;
 }
 
-/*!
- * \note Assumes the pvt is no longer in the pvts list
- */
-static struct local_pvt *local_pvt_destroy(struct local_pvt *pvt)
-{
-	ast_mutex_destroy(&pvt->lock);
-	free(pvt);
-	return NULL;
-}
-
-static int local_queue_frame(struct local_pvt *p, int isoutbound, struct ast_frame *f, 
-	struct ast_channel *us, int us_locked)
+static int local_queue_frame(struct local_pvt *p, int isoutbound, struct ast_frame *f, struct ast_channel *us)
 {
 	struct ast_channel *other = NULL;
+
+retrylock:		
 
 	/* Recalculate outbound channel */
 	other = isoutbound ? p->owner : p->chan;
@@ -174,35 +165,35 @@ static int local_queue_frame(struct local_pvt *p, int isoutbound, struct ast_fra
 		/* We had a glare on the hangup.  Forget all this business,
 		return and destroy p.  */
 		ast_mutex_unlock(&p->lock);
-		p = local_pvt_destroy(p);
+		ast_mutex_destroy(&p->lock);
+		free(p);
 		return -1;
 	}
 	if (!other) {
 		ast_clear_flag(p, LOCAL_GLARE_DETECT);
 		return 0;
 	}
-
-	/* Ensure that we have both channels locked */
-	while (other && ast_channel_trylock(other)) {
+	if (ast_mutex_trylock(&other->lock)) {
+		/* Failed to lock.  Release main lock and try again */
 		ast_mutex_unlock(&p->lock);
-		if (us && us_locked) {
-			ast_channel_unlock(us);
+		if (us) {
+			if (ast_mutex_unlock(&us->lock)) {
+				ast_log(LOG_WARNING, "%s wasn't locked while sending %d/%d\n",
+					us->name, f->frametype, f->subclass);
+				us = NULL;
+			}
 		}
+		/* Wait just a bit */
 		usleep(1);
-		if (us && us_locked) {
-			ast_channel_lock(us);
-		}
+		/* Only we can destroy ourselves, so we can't disappear here */
+		if (us)
+			ast_mutex_lock(&us->lock);
 		ast_mutex_lock(&p->lock);
-		other = isoutbound ? p->owner : p->chan;
+		goto retrylock;
 	}
-
-	if (other) {
-		ast_queue_frame(other, f);
-		ast_channel_unlock(other);
-	}
-
+	ast_queue_frame(other, f);
+	ast_mutex_unlock(&other->lock);
 	ast_clear_flag(p, LOCAL_GLARE_DETECT);
-
 	return 0;
 }
 
@@ -220,17 +211,15 @@ static int local_answer(struct ast_channel *ast)
 	if (isoutbound) {
 		/* Pass along answer since somebody answered us */
 		struct ast_frame answer = { AST_FRAME_CONTROL, AST_CONTROL_ANSWER };
-		res = local_queue_frame(p, isoutbound, &answer, ast, 1);
+		res = local_queue_frame(p, isoutbound, &answer, ast);
 	} else
 		ast_log(LOG_WARNING, "Huh?  Local is being asked to answer?\n");
-	if (!res)
-		ast_mutex_unlock(&p->lock);
+	ast_mutex_unlock(&p->lock);
 	return res;
 }
 
 static void check_bridge(struct local_pvt *p, int isoutbound)
 {
-	struct ast_channel_monitor *tmp;
 	if (ast_test_flag(p, LOCAL_ALREADY_MASQED) || ast_test_flag(p, LOCAL_NO_OPTIMIZATION) || !p->chan || !p->owner || (p->chan->_bridge != ast_bridged_channel(p->chan)))
 		return;
 
@@ -248,16 +237,6 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 			if (!p->chan->_bridge->_softhangup) {
 				if (!ast_mutex_trylock(&p->owner->lock)) {
 					if (!p->owner->_softhangup) {
-						if(p->owner->monitor && !p->chan->_bridge->monitor) {
-							/* If a local channel is being monitored, we don't want a masquerade
-							 * to cause the monitor to go away. Since the masquerade swaps the monitors,
-							 * pre-swapping the monitors before the masquerade will ensure that the monitor
-							 * ends up where it is expected.
-							 */
-							tmp = p->owner->monitor;
-							p->owner->monitor = p->chan->_bridge->monitor;
-							p->chan->_bridge->monitor = tmp;
-						}
 						ast_channel_masquerade(p->owner, p->chan->_bridge);
 						ast_set_flag(p, LOCAL_ALREADY_MASQED);
 					}
@@ -309,14 +288,13 @@ static int local_write(struct ast_channel *ast, struct ast_frame *f)
 	if (f && (f->frametype == AST_FRAME_VOICE || f->frametype == AST_FRAME_VIDEO))
 		check_bridge(p, isoutbound);
 	if (!ast_test_flag(p, LOCAL_ALREADY_MASQED))
-		res = local_queue_frame(p, isoutbound, f, ast, 1);
+		res = local_queue_frame(p, isoutbound, f, ast);
 	else {
 		if (option_debug)
 			ast_log(LOG_DEBUG, "Not posting to queue since already masked on '%s'\n", ast->name);
 		res = 0;
 	}
-	if (!res)
-		ast_mutex_unlock(&p->lock);
+	ast_mutex_unlock(&p->lock);
 	return res;
 }
 
@@ -364,8 +342,8 @@ static int local_indicate(struct ast_channel *ast, int condition, const void *da
 		f.subclass = condition;
 		f.data = (void*)data;
 		f.datalen = datalen;
-		if (!(res = local_queue_frame(p, isoutbound, &f, ast, 1)))
-			ast_mutex_unlock(&p->lock);
+		res = local_queue_frame(p, isoutbound, &f, ast);
+		ast_mutex_unlock(&p->lock);
 	}
 
 	return res;
@@ -384,8 +362,8 @@ static int local_digit_begin(struct ast_channel *ast, char digit)
 	ast_mutex_lock(&p->lock);
 	isoutbound = IS_OUTBOUND(ast, p);
 	f.subclass = digit;
-	if (!(res = local_queue_frame(p, isoutbound, &f, ast, 0)))
-		ast_mutex_unlock(&p->lock);
+	res = local_queue_frame(p, isoutbound, &f, ast);
+	ast_mutex_unlock(&p->lock);
 
 	return res;
 }
@@ -404,9 +382,9 @@ static int local_digit_end(struct ast_channel *ast, char digit, unsigned int dur
 	isoutbound = IS_OUTBOUND(ast, p);
 	f.subclass = digit;
 	f.len = duration;
-	if (!(res = local_queue_frame(p, isoutbound, &f, ast, 0)))
-		ast_mutex_unlock(&p->lock);
-
+	res = local_queue_frame(p, isoutbound, &f, ast);
+	ast_mutex_unlock(&p->lock);
+	
 	return res;
 }
 
@@ -424,8 +402,8 @@ static int local_sendtext(struct ast_channel *ast, const char *text)
 	isoutbound = IS_OUTBOUND(ast, p);
 	f.data = (char *) text;
 	f.datalen = strlen(text) + 1;
-	if (!(res = local_queue_frame(p, isoutbound, &f, ast, 0)))
-		ast_mutex_unlock(&p->lock);
+	res = local_queue_frame(p, isoutbound, &f, ast);
+	ast_mutex_unlock(&p->lock);
 	return res;
 }
 
@@ -444,8 +422,8 @@ static int local_sendhtml(struct ast_channel *ast, int subclass, const char *dat
 	f.subclass = subclass;
 	f.data = (char *)data;
 	f.datalen = datalen;
-	if (!(res = local_queue_frame(p, isoutbound, &f, ast, 0)))
-		ast_mutex_unlock(&p->lock);
+	res = local_queue_frame(p, isoutbound, &f, ast);
+	ast_mutex_unlock(&p->lock);
 	return res;
 }
 
@@ -463,10 +441,6 @@ static int local_call(struct ast_channel *ast, char *dest, int timeout)
 	
 	ast_mutex_lock(&p->lock);
 
-	/*
-	 * Note that cid_num and cid_name aren't passed in the ast_channel_alloc
-	 * call, so it's done here instead.
-	 */
 	p->chan->cid.cid_num = ast_strdup(p->owner->cid.cid_num);
 	p->chan->cid.cid_name = ast_strdup(p->owner->cid.cid_name);
 	p->chan->cid.cid_rdnis = ast_strdup(p->owner->cid.cid_rdnis);
@@ -474,7 +448,6 @@ static int local_call(struct ast_channel *ast, char *dest, int timeout)
 	p->chan->cid.cid_pres = p->owner->cid.cid_pres;
 	ast_string_field_set(p->chan, language, p->owner->language);
 	ast_string_field_set(p->chan, accountcode, p->owner->accountcode);
-	ast_cdr_update(p->chan);
 	p->chan->cdrflags = p->owner->cdrflags;
 
 	/* copy the channel variables from the incoming channel to the outgoing channel */
@@ -488,12 +461,11 @@ static int local_call(struct ast_channel *ast, char *dest, int timeout)
 			AST_LIST_INSERT_TAIL(&p->chan->varshead, new, entries);
 		}
 	}
-	ast_channel_datastore_inherit(p->owner, p->chan);
+
+	ast_set_flag(p, LOCAL_LAUNCHED_PBX);
 
 	/* Start switch on sub channel */
-	if (!(res = ast_pbx_start(p->chan)))
-		ast_set_flag(p, LOCAL_LAUNCHED_PBX);
-
+	res = ast_pbx_start(p->chan);
 	ast_mutex_unlock(&p->lock);
 	return res;
 }
@@ -505,7 +477,7 @@ static int local_hangup(struct ast_channel *ast)
 	int isoutbound;
 	struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_HANGUP };
 	struct ast_channel *ochan = NULL;
-	int glaredetect = 0, res = 0;
+	int glaredetect = 0;
 
 	if (!p)
 		return -1;
@@ -514,24 +486,8 @@ static int local_hangup(struct ast_channel *ast)
 	isoutbound = IS_OUTBOUND(ast, p);
 	if (isoutbound) {
 		const char *status = pbx_builtin_getvar_helper(p->chan, "DIALSTATUS");
-		if ((status) && (p->owner)) {
-			/* Deadlock avoidance */
-			while (p->owner && ast_channel_trylock(p->owner)) {
-				ast_mutex_unlock(&p->lock);
-				if (ast) {
-					ast_channel_unlock(ast);
-				}
-				usleep(1);
-				if (ast) {
-					ast_channel_lock(ast);
-				}
-				ast_mutex_lock(&p->lock);
-			}
-			if (p->owner) {
-				pbx_builtin_setvar_helper(p->owner, "CHANLOCALSTATUS", status);
-				ast_channel_unlock(p->owner);
-			}
-		}
+		if ((status) && (p->owner))
+			pbx_builtin_setvar_helper(p->owner, "CHANLOCALSTATUS", status);
 		p->chan = NULL;
 		ast_clear_flag(p, LOCAL_LAUNCHED_PBX);
 		ast_module_user_remove(p->u_chan);
@@ -559,7 +515,8 @@ static int local_hangup(struct ast_channel *ast)
 		ast_mutex_unlock(&p->lock);
 		/* And destroy */
 		if (!glaredetect) {
-			p = local_pvt_destroy(p);
+			ast_mutex_destroy(&p->lock);
+			free(p);
 		}
 		return 0;
 	}
@@ -567,9 +524,8 @@ static int local_hangup(struct ast_channel *ast)
 		/* Need to actually hangup since there is no PBX */
 		ochan = p->chan;
 	else
-		res = local_queue_frame(p, isoutbound, &f, NULL, 1);
-	if (!res)
-		ast_mutex_unlock(&p->lock);
+		local_queue_frame(p, isoutbound, &f, NULL);
+	ast_mutex_unlock(&p->lock);
 	if (ochan)
 		ast_hangup(ochan);
 	return 0;
@@ -605,7 +561,9 @@ static struct local_pvt *local_alloc(const char *data, int format)
 
 	if (!ast_exists_extension(NULL, tmp->context, tmp->exten, 1, NULL)) {
 		ast_log(LOG_NOTICE, "No such extension/context %s@%s creating local channel\n", tmp->exten, tmp->context);
-		tmp = local_pvt_destroy(tmp);
+		ast_mutex_destroy(&tmp->lock);
+		free(tmp);
+		tmp = NULL;
 	} else {
 		/* Add to list */
 		AST_LIST_LOCK(&locals);
@@ -621,22 +579,10 @@ static struct ast_channel *local_new(struct local_pvt *p, int state)
 {
 	struct ast_channel *tmp = NULL, *tmp2 = NULL;
 	int randnum = ast_random() & 0xffff, fmt = 0;
-	const char *t;
-	int ama;
 
 	/* Allocate two new Asterisk channels */
-	/* safe accountcode */
-	if (p->owner && p->owner->accountcode)
-		t = p->owner->accountcode;
-	else
-		t = "";
-
-	if (p->owner)
-		ama = p->owner->amaflags;
-	else
-		ama = 0;
-	if (!(tmp = ast_channel_alloc(1, state, 0, 0, t, p->exten, p->context, ama, "Local/%s@%s-%04x,1", p->exten, p->context, randnum)) 
-			|| !(tmp2 = ast_channel_alloc(1, AST_STATE_RING, 0, 0, t, p->exten, p->context, ama, "Local/%s@%s-%04x,2", p->exten, p->context, randnum))) {
+	if (!(tmp = ast_channel_alloc(1, state, 0, 0, "Local/%s@%s-%04x,1", p->exten, p->context, randnum)) 
+			|| !(tmp2 = ast_channel_alloc(1, AST_STATE_RING, 0, 0, "Local/%s@%s-%04x,2", p->exten, p->context, randnum))) {
 		if (tmp)
 			ast_channel_free(tmp);
 		if (tmp2)
@@ -678,6 +624,7 @@ static struct ast_channel *local_new(struct local_pvt *p, int state)
 	return tmp;
 }
 
+
 /*! \brief Part of PBX interface */
 static struct ast_channel *local_request(const char *type, int format, void *data, int *cause)
 {
@@ -685,14 +632,8 @@ static struct ast_channel *local_request(const char *type, int format, void *dat
 	struct ast_channel *chan = NULL;
 
 	/* Allocate a new private structure and then Asterisk channel */
-	if ((p = local_alloc(data, format))) {
-		if (!(chan = local_new(p, AST_STATE_DOWN))) {
-			AST_LIST_LOCK(&locals);
-			AST_LIST_REMOVE(&locals, p, list);
-			AST_LIST_UNLOCK(&locals);
-			p = local_pvt_destroy(p);
-		}
-	}
+	if ((p = local_alloc(data, format)))
+		chan = local_new(p, AST_STATE_DOWN);
 
 	return chan;
 }
@@ -764,4 +705,4 @@ static int unload_module(void)
 	return 0;
 }
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Local Proxy Channel (Note: used internally by other modules)");
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Local Proxy Channel");

@@ -32,15 +32,12 @@
 #include <arpa/inet.h>	/* we want to override inet_ntoa */
 #include <netdb.h>
 #include <limits.h>
-#include <time.h>	/* we want to override localtime_r */
-#include <unistd.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/time.h"
 #include "asterisk/strings.h"
 #include "asterisk/logger.h"
 #include "asterisk/compiler.h"
-#include "asterisk/localtime.h"
 
 /*! \note
  \verbatim
@@ -237,11 +234,6 @@ const char *ast_inet_ntoa(struct in_addr ia);
 #undef inet_ntoa
 #endif
 #define inet_ntoa __dont__use__inet_ntoa__use__ast_inet_ntoa__instead__
-
-#ifdef localtime_r
-#undef localtime_r
-#endif
-#define localtime_r __dont_use_localtime_r_use_ast_localtime_instead__
 
 int ast_utils_init(void);
 int ast_wait_for_input(int fd, int ms);
@@ -474,7 +466,20 @@ char * attribute_malloc _ast_strndup(const char *str, size_t len, const char *fi
 #define ast_asprintf(ret, fmt, ...) \
 	_ast_asprintf((ret), __FILE__, __LINE__, __PRETTY_FUNCTION__, fmt, __VA_ARGS__)
 
-int _ast_asprintf(char **ret, const char *file, int lineno, const char *func, const char *fmt, ...) __attribute__ ((format (printf, 5, 6)));
+AST_INLINE_API(
+int _ast_asprintf(char **ret, const char *file, int lineno, const char *func, const char *fmt, ...),
+{
+	int res;
+	va_list ap;
+
+	va_start(ap, fmt);
+	if ((res = vasprintf(ret, fmt, ap)) == -1)
+		MALLOC_FAILURE_MSG;
+	va_end(ap);
+
+	return res;
+}
+)
 
 /*!
  * \brief A wrapper for vasprintf()
@@ -549,32 +554,5 @@ int _ast_vasprintf(char **ret, const char *file, int lineno, const char *func, c
 void ast_enable_packet_fragmentation(int sock);
 
 #define ARRAY_LEN(a) (sizeof(a) / sizeof(a[0]))
-
-#ifdef AST_DEVMODE
-#define ast_assert(a) _ast_assert(a, # a, __FILE__, __LINE__, __PRETTY_FUNCTION__)
-static void force_inline _ast_assert(int condition, const char *condition_str, 
-	const char *file, int line, const char *function)
-{
-	if (__builtin_expect(!condition, 1)) {
-		/* Attempt to put it into the logger, but hope that at least someone saw the
-		 * message on stderr ... */
-		ast_log(LOG_ERROR, "FRACK!, Failed assertion %s (%d) at line %d in %s of %s\n",
-			condition_str, condition, line, function, file);
-		fprintf(stderr, "FRACK!, Failed assertion %s (%d) at line %d in %s of %s\n",
-			condition_str, condition, line, function, file);
-		/* Give the logger a chance to get the message out, just in case we abort(), or
-		 * Asterisk crashes due to whatever problem just happened after we exit ast_assert(). */
-		usleep(1);
-#ifdef DO_CRASH
-		abort();
-		/* Just in case abort() doesn't work or something else super silly,
-		 * and for Qwell's amusement. */
-		*((int*)0)=0;
-#endif
-	}
-}
-#else
-#define ast_assert(a)
-#endif
 
 #endif /* _ASTERISK_UTILS_H */

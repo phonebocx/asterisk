@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 116463 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56457 $")
 
 #ifdef DEBUG_SCHEDULER
 #define DEBUG(a) do { \
@@ -56,7 +56,7 @@ struct sched {
 	struct timeval when;          /*!< Absolute time event should take place */
 	int resched;                  /*!< When to reschedule */
 	int variable;                 /*!< Use return value from callback to reschedule */
-	const void *data;             /*!< Data */
+	void *data;                   /*!< Data */
 	ast_sched_cb callback;        /*!< Callback */
 };
 
@@ -211,7 +211,7 @@ static int sched_settime(struct timeval *tv, int when)
 /*! \brief
  * Schedule callback(data) to happen when ms into the future
  */
-int ast_sched_add_variable(struct sched_context *con, int when, ast_sched_cb callback, const void *data, int variable)
+int ast_sched_add_variable(struct sched_context *con, int when, ast_sched_cb callback, void *data, int variable)
 {
 	struct sched *tmp;
 	int res = -1;
@@ -244,7 +244,7 @@ int ast_sched_add_variable(struct sched_context *con, int when, ast_sched_cb cal
 	return res;
 }
 
-int ast_sched_add(struct sched_context *con, int when, ast_sched_cb callback, const void *data)
+int ast_sched_add(struct sched_context *con, int when, ast_sched_cb callback, void *data)
 {
 	return ast_sched_add_variable(con, when, callback, data, 0);
 }
@@ -282,7 +282,9 @@ int ast_sched_del(struct sched_context *con, int id)
 	if (!s) {
 		if (option_debug)
 			ast_log(LOG_DEBUG, "Attempted to delete nonexistent schedule entry %d!\n", id);
-		ast_assert(0);
+#ifdef DO_CRASH
+		CRASH;
+#endif
 		return -1;
 	}
 	

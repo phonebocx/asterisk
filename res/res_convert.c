@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 76067 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43361 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -45,10 +45,7 @@ static int split_ext(char *filename, char **name, char **ext)
 {
 	*name = *ext = filename;
 	
-	if ((*ext = strrchr(filename, '.'))) {
-		**ext = '\0';
-		(*ext)++;
-	}
+	strsep(ext, ".");
 
 	if (ast_strlen_zero(*name) || ast_strlen_zero(*ext))
 		return -1;

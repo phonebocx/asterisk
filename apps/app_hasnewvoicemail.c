@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 85850 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58939 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -160,9 +160,6 @@ static int acf_vmcount_exec(struct ast_channel *chan, char *cmd, char *argsstr, 
 		AST_APP_ARG(vmbox);
 		AST_APP_ARG(folder);
 	);
-
-	if (ast_strlen_zero(argsstr))
-		return -1;
 
 	u = ast_module_user_add(chan);
 

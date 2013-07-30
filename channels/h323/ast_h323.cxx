@@ -26,7 +26,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Version Info: $Id: ast_h323.cxx 117081 2008-05-19 15:22:10Z file $
+ * Version Info: $Id: ast_h323.cxx 53131 2007-02-03 10:02:55Z pcadach $
  */
 #include <arpa/inet.h>
 
@@ -62,12 +62,6 @@ extern "C" {
 #include "cisco-h225.h"
 #include "caps_h323.h"
 
-#include <ptbuildopts.h>
-
-#if PWLIB_MAJOR * 10000 + PWLIB_MINOR * 100 + PWLIB_BUILD >= 1 * 10000 + 12 * 100 + 0
-#define SKIP_PWLIB_PIPE_BUG_WORKAROUND 1
-#endif
-
 /* PWlib Required Components  */
 #define MAJOR_VERSION 1
 #define MINOR_VERSION 0
@@ -87,9 +81,7 @@ static MyH323EndPoint *endPoint = NULL;
 /** PWLib entry point */
 static MyProcess *localProcess = NULL;
 
-#ifndef SKIP_PWLIB_PIPE_BUG_WORKAROUND
 static int _timerChangePipe[2];
-#endif
 
 static unsigned traceOptions = PTrace::Timestamp | PTrace::Thread | PTrace::FileAndLine;
 
@@ -199,10 +191,8 @@ MyProcess::MyProcess(): PProcess("The NuFone Networks",
 
 MyProcess::~MyProcess()
 {
-#ifndef SKIP_PWLIB_PIPE_BUG_WORKAROUND
 	_timerChangePipe[0] = timerChangePipe[0];
 	_timerChangePipe[1] = timerChangePipe[1];
-#endif
 }
 
 void MyProcess::Main()
@@ -297,9 +287,7 @@ int MyH323EndPoint::MyMakeCall(const PString & dest, PString & token, void *_cal
 		cout << "\t-- " << GetLocalUserName() << " is calling host " << fullAddress << endl;
 		cout << "\t-- Call token is " << (const char *)token << endl;
 		cout << "\t-- Call reference is " << *callReference << endl;
-#ifdef PTRACING
 		cout << "\t-- DTMF Payload is " << connection->dtmfCodec << endl;
-#endif
 	}
 	connection->Unlock();
 	return 0;
@@ -728,8 +716,7 @@ void MyH323Connection::SetCallOptions(void *o, BOOL isIncoming)
 		fastStartState = (opts->fastStart ? FastStartInitiate : FastStartDisabled);
 		h245Tunneling = (opts->h245Tunneling ? TRUE : FALSE);
 	} else {
-		sourceE164 = PString(opts->cid_num);
-		SetLocalPartyName(PString(opts->cid_name));
+		SetLocalPartyName(PString(opts->cid_num));
 		SetDisplayName(PString(opts->cid_name));
 		if (opts->redirect_reason >= 0) {
 			rdnis = PString(opts->cid_rdnis);
@@ -1258,7 +1245,7 @@ BOOL MyH323Connection::OnSendSignalSetup(H323SignalPDU & setupPDU)
 	/* OpenH323 will build calling party information with default
 	   type and presentation information, so build it to be recorded
 	   by embedding routines */
-	setupPDU.GetQ931().SetCallingPartyNumber(sourceE164, (cid_ton >> 4) & 0x07,
+	setupPDU.GetQ931().SetCallingPartyNumber(GetLocalPartyName(), (cid_ton >> 4) & 0x07,
 			cid_ton & 0x0f, (cid_presentation >> 5) & 0x03, cid_presentation & 0x1f);
 	setupPDU.GetQ931().SetDisplayName(GetDisplayName());
 
@@ -1662,12 +1649,10 @@ void MyH323Connection::OnSendCapabilitySet(H245_TerminalCapabilitySet & pdu)
 				H245_AudioTelephonyEventCapability & atec = cap;
 				atec.m_dynamicRTPPayloadType = dtmfCodec;
 //				on_set_rfc2833_payload(GetCallReference(), (const char *)GetCallToken(), (int)dtmfCodec);
-#ifdef PTRACING
 				if (h323debug) {
 					cout << "\t-- Transmitting RFC2833 on payload " <<
 						atec.m_dynamicRTPPayloadType << endl;
 				}
-#endif
 			}
 		}
 	}
@@ -1727,11 +1712,9 @@ BOOL MyH323Connection::OnReceivedCapabilitySet(const H323Capabilities & remoteCa
 		on_set_rfc2833_payload(GetCallReference(), (const char *)GetCallToken(), (int)pt);
 		if ((dtmfMode == H323_DTMF_RFC2833) && (sendUserInputMode == SendUserInputAsTone))
 			sendUserInputMode = SendUserInputAsInlineRFC2833;
-#ifdef PTRACING
 		if (h323debug) {
 			cout << "\t-- Inbound RFC2833 on payload " << pt << endl;
 		}
-#endif
 	}
 	memset(&prefs, 0, sizeof(prefs));
 	int peer_capabilities = 0;
@@ -2470,10 +2453,8 @@ void h323_end_process(void)
 	if (localProcess) {
 		delete localProcess;
 		localProcess = NULL;
-#ifndef SKIP_PWLIB_PIPE_BUG_WORKAROUND
 		close(_timerChangePipe[0]);
 		close(_timerChangePipe[1]);
-#endif
 	}
 	if (logstream) {
 		PTrace::SetLevel(0);

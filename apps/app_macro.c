@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 96020 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53355 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -61,11 +61,6 @@ static char *descrip =
 "will be returned at the location of the Goto.\n"
 "If ${MACRO_OFFSET} is set at termination, Macro will attempt to continue\n"
 "at priority MACRO_OFFSET + N + 1 if such a step exists, and N + 1 otherwise.\n"
-"Extensions: While a macro is being executed, it becomes the current context.\n"
-"            This means that if a hangup occurs, for instance, that the macro\n"
-"            will be searched for an 'h' extension, NOT the context from which\n"
-"            the macro was called. So, make sure to define all appropriate\n"
-"            extensions in your macro! (you can use 'catch' in AEL) \n"
 "WARNING: Because of the way Macro is implemented (it executes the priorities\n"
 "         contained within it via sub-engine), and a fixed per-thread\n"
 "         memory stack allowance, macros are limited to 7 levels\n"
@@ -104,55 +99,20 @@ static char *exclusive_synopsis = "Exclusive Macro Implementation";
 static char *exit_synopsis = "Exit From Macro";
 
 
-static struct ast_exten *find_matching_priority(struct ast_context *c, const char *exten, int priority, const char *callerid)
-{
-	struct ast_exten *e;
-	struct ast_include *i;
-	struct ast_context *c2;
-
-	for (e=ast_walk_context_extensions(c, NULL); e; e=ast_walk_context_extensions(c, e)) {
-		if (ast_extension_match(ast_get_extension_name(e), exten)) {
-			int needmatch = ast_get_extension_matchcid(e);
-			if ((needmatch && ast_extension_match(ast_get_extension_cidmatch(e), callerid)) ||
-				(!needmatch)) {
-				/* This is the matching extension we want */
-				struct ast_exten *p;
-				for (p=ast_walk_extension_priorities(e, NULL); p; p=ast_walk_extension_priorities(e, p)) {
-					if (priority != ast_get_extension_priority(p))
-						continue;
-					return p;
-				}
-			}
-		}
-	}
-
-	/* No match; run through includes */
-	for (i=ast_walk_context_includes(c, NULL); i; i=ast_walk_context_includes(c, i)) {
-		for (c2=ast_walk_contexts(NULL); c2; c2=ast_walk_contexts(c2)) {
-			if (!strcmp(ast_get_context_name(c2), ast_get_include_name(i))) {
-				e = find_matching_priority(c2, exten, priority, callerid);
-				if (e)
-					return e;
-			}
-		}
-	}
-	return NULL;
-}
-
 static int _macro_exec(struct ast_channel *chan, void *data, int exclusive)
 {
 	const char *s;
+
 	char *tmp;
 	char *cur, *rest;
 	char *macro;
 	char fullmacro[80];
 	char varname[80];
-	char runningapp[80], runningdata[1024];
 	char *oldargs[MAX_ARGS + 1] = { NULL, };
 	int argc, x;
 	int res=0;
 	char oldexten[256]="";
-	int oldpriority, gosub_level = 0;
+	int oldpriority;
 	char pc[80], depthc[12];
 	char oldcontext[AST_MAX_CONTEXT] = "";
 	const char *inhangupc;
@@ -275,36 +235,8 @@ static int _macro_exec(struct ast_channel *chan, void *data, int exclusive)
 	autoloopflag = ast_test_flag(chan, AST_FLAG_IN_AUTOLOOP);
 	ast_set_flag(chan, AST_FLAG_IN_AUTOLOOP);
 	while(ast_exists_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num)) {
-		struct ast_context *c;
-		struct ast_exten *e;
-		runningapp[0] = '\0';
-		runningdata[0] = '\0';
-
-		/* What application will execute? */
-		if (ast_rdlock_contexts()) {
-			ast_log(LOG_WARNING, "Failed to lock contexts list\n");
-		} else {
-			for (c = ast_walk_contexts(NULL), e = NULL; c; c = ast_walk_contexts(c)) {
-				if (!strcmp(ast_get_context_name(c), chan->context)) {
-					if (ast_lock_context(c)) {
-						ast_log(LOG_WARNING, "Unable to lock context?\n");
-					} else {
-						e = find_matching_priority(c, chan->exten, chan->priority, chan->cid.cid_num);
-						if (e) { /* This will only be undefined for pbx_realtime, which is majorly broken. */
-							ast_copy_string(runningapp, ast_get_extension_app(e), sizeof(runningapp));
-							ast_copy_string(runningdata, ast_get_extension_app_data(e), sizeof(runningdata));
-						}
-						ast_unlock_context(c);
-					}
-					break;
-				}
-			}
-		}
-		ast_unlock_contexts();
-
 		/* Reset the macro depth, if it was changed in the last iteration */
 		pbx_builtin_setvar_helper(chan, "MACRO_DEPTH", depthc);
-
 		if ((res = ast_spawn_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num))) {
 			/* Something bad happened, or a hangup has been requested. */
 			if (((res >= '0') && (res <= '9')) || ((res >= 'A') && (res <= 'F')) ||
@@ -333,68 +265,11 @@ static int _macro_exec(struct ast_channel *chan, void *data, int exclusive)
 				goto out;
 			}
 		}
-
-		ast_log(LOG_DEBUG, "Executed application: %s\n", runningapp);
-
-		if (!strcasecmp(runningapp, "GOSUB")) {
-			gosub_level++;
-			ast_log(LOG_DEBUG, "Incrementing gosub_level\n");
-		} else if (!strcasecmp(runningapp, "GOSUBIF")) {
-			char tmp2[1024] = "", *cond, *app, *app2 = tmp2;
-			pbx_substitute_variables_helper(chan, runningdata, tmp2, sizeof(tmp2) - 1);
-			cond = strsep(&app2, "?");
-			app = strsep(&app2, ":");
-			if (pbx_checkcondition(cond)) {
-				if (!ast_strlen_zero(app)) {
-					gosub_level++;
-					ast_log(LOG_DEBUG, "Incrementing gosub_level\n");
-				}
-			} else {
-				if (!ast_strlen_zero(app2)) {
-					gosub_level++;
-					ast_log(LOG_DEBUG, "Incrementing gosub_level\n");
-				}
-			}
-		} else if (!strcasecmp(runningapp, "RETURN")) {
-			gosub_level--;
-			ast_log(LOG_DEBUG, "Decrementing gosub_level\n");
-		} else if (!strcasecmp(runningapp, "STACKPOP")) {
-			gosub_level--;
-			ast_log(LOG_DEBUG, "Decrementing gosub_level\n");
-		} else if (!strncasecmp(runningapp, "EXEC", 4)) {
-			/* Must evaluate args to find actual app */
-			char tmp2[1024] = "", *tmp3 = NULL;
-			pbx_substitute_variables_helper(chan, runningdata, tmp2, sizeof(tmp2) - 1);
-			if (!strcasecmp(runningapp, "EXECIF")) {
-				tmp3 = strchr(tmp2, '|');
-				if (tmp3)
-					*tmp3++ = '\0';
-				if (!pbx_checkcondition(tmp2))
-					tmp3 = NULL;
-			} else
-				tmp3 = tmp2;
-
-			if (tmp3)
-				ast_log(LOG_DEBUG, "Last app: %s\n", tmp3);
-
-			if (tmp3 && !strncasecmp(tmp3, "GOSUB", 5)) {
-				gosub_level++;
-				ast_log(LOG_DEBUG, "Incrementing gosub_level\n");
-			} else if (tmp3 && !strncasecmp(tmp3, "RETURN", 6)) {
-				gosub_level--;
-				ast_log(LOG_DEBUG, "Decrementing gosub_level\n");
-			} else if (tmp3 && !strncasecmp(tmp3, "STACKPOP", 8)) {
-				gosub_level--;
-				ast_log(LOG_DEBUG, "Decrementing gosub_level\n");
-			}
-		}
-
-		if (gosub_level == 0 && strcasecmp(chan->context, fullmacro)) {
+		if (strcasecmp(chan->context, fullmacro)) {
 			if (option_verbose > 1)
 				ast_verbose(VERBOSE_PREFIX_2 "Channel '%s' jumping out of macro '%s'\n", chan->name, macro);
 			break;
 		}
-
 		/* don't stop executing extensions when we're in "h" */
 		if (chan->_softhangup && !inhangup) {
 			ast_log(LOG_DEBUG, "Extension %s, macroexten %s, priority %d returned normally even though call was hung up\n",
@@ -512,9 +387,9 @@ static int macroif_exec(struct ast_channel *chan, void *data)
 			label_b++;
 		}
 		if (pbx_checkcondition(expr))
-			res = macro_exec(chan, label_a);
+			macro_exec(chan, label_a);
 		else if (label_b) 
-			res = macro_exec(chan, label_b);
+			macro_exec(chan, label_b);
 	} else
 		ast_log(LOG_WARNING, "Invalid Syntax.\n");
 

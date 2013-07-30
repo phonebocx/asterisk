@@ -61,7 +61,7 @@ CREATE TABLE [dbo].[cdr] (
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89088 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43410 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -286,7 +286,7 @@ static void get_date(char *dateField, struct timeval tv)
 	if (!ast_tvzero(tv))
 	{
 		t = tv.tv_sec;
-		ast_localtime(&t, &tm, NULL);
+		localtime_r(&t, &tm);
 		strftime(buf, 80, DATE_FORMAT, &tm);
 		sprintf(dateField, "'%s'", buf);
 	}
@@ -441,11 +441,9 @@ static int tds_load_module(void)
 	}
 
 	var = ast_variable_browse(cfg, "global");
-	if (!var) /* nothing configured */ {
-		ast_config_destroy(cfg);
+	if (!var) /* nothing configured */
 		return 0;
-	}
-	
+
 	ptr = ast_variable_retrieve(cfg, "global", "hostname");
 	if (ptr)
 		hostname = strdup(ptr);

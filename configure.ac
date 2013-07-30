@@ -2,7 +2,11 @@
 
 AC_PREREQ(2.60)
 
-AC_INIT(asterisk, 1.4, www.asterisk.org)
+m4_define([PBX_VERSION],
+          m4_bpatsubst(m4_esyscmd([build_tools/make_version .]),
+                       [\([0-9.]*\)\(\w\|\W\)*],
+                       [\1]))
+AC_INIT(asterisk, PBX_VERSION, www.asterisk.org)
 
 # cross-compile macros
 AC_CANONICAL_BUILD
@@ -15,10 +19,10 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_HEADER(include/asterisk/autoconfig.h)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 115579 $)
+AC_REVISION($Revision: 58955 $)
 
 AC_GNU_SOURCE
-AC_USE_SYSTEM_EXTENSIONS	# note- does not work on FreeBSD
+AC_USE_SYSTEM_EXTENSIONS
 
 case "${host_os}" in
      freebsd*)
@@ -107,6 +111,7 @@ then
    AC_CHECK_TOOL(CXX, g++, :)
    AC_CHECK_TOOL(LD, ld, :)
    AC_CHECK_TOOL(RANLIB, ranlib, :)
+   AC_CHECK_TOOL(AR, ar, :)
 fi
 
 # Checks for programs.
@@ -116,15 +121,12 @@ AC_PROG_CPP
 AC_PROG_CXXCPP
 # This macro is just copied into our local acinclude.m4 from libtool.m4 so that
 # the developers regenerating the configure script don't have to install libtool.
-AST_PROG_LD 	# note - does not work on freebsd
+AST_PROG_LD
 AC_PROG_AWK
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_RANLIB
 AST_CHECK_GNU_MAKE
-
-AC_PATH_TOOL([STRIP], [strip], :)
-AC_PATH_TOOL([AR], [ar], :)
 
 GNU_LD=0
 if test "x$with_gnu_ld" = "xyes" ; then
@@ -132,8 +134,8 @@ if test "x$with_gnu_ld" = "xyes" ; then
 fi
 AC_SUBST(GNU_LD)
 
-AC_PATH_PROG([AWK], [awk], :)
 AC_PATH_PROG([GREP], [grep], :)
+AC_PATH_PROG([AR], [ar], :)
 AC_PATH_PROG([FIND], [find], :)
 AC_PATH_PROG([COMPRESS], [compress], :)
 AC_PATH_PROG([BASENAME], [basename], :)
@@ -142,6 +144,7 @@ AC_PATH_PROG([DIRNAME], [dirname], :)
 AC_PATH_PROG([SHELL], [sh], :)
 AC_PATH_PROG([LN], [ln], :)
 AC_PATH_PROG([DOT], [dot], :)
+AC_PATH_PROG([STRIP], [strip], :)
 AC_PATH_PROG([WGET], [wget], :)
 if test "${WGET}" != ":" ; then
   DOWNLOAD=${WGET}
@@ -150,11 +153,6 @@ else
   DOWNLOAD=${FETCH}
 fi
 AC_SUBST(DOWNLOAD)
-
-AC_CHECK_TOOL([SOXMIX], [soxmix], [:])
-if test "${SOXMIX}" != ":" ; then
-	AC_DEFINE([HAVE_SOXMIX], 1, [Define to 1 if your system has soxmix application.])
-fi
 
 ACX_PTHREAD
 
@@ -174,7 +172,6 @@ AC_SUBST(AST_DEVMODE)
 
 AST_EXT_LIB_SETUP([ALSA], [Advanced Linux Sound Architecture], [asound])
 AST_EXT_LIB_SETUP([CURL], [cURL], [curl])
-AST_EXT_LIB_SETUP([CAP], [POSIX 1.e capabilities], [cap])
 AST_EXT_LIB_SETUP([CURSES], [curses], [curses])
 AST_EXT_LIB_SETUP([GNUTLS], [GNU TLS support (used for iksemel only)], [gnutls])
 AST_EXT_LIB_SETUP([GSM], [GSM], [gsm], [, or 'internal'])
@@ -182,7 +179,6 @@ AST_EXT_LIB_SETUP([IKSEMEL], [Iksemel Jabber Library], [iksemel])
 AST_EXT_LIB_SETUP([IMAP_TK], [UW IMAP Toolkit], [imap])
 AST_EXT_LIB_SETUP([ISDNNET], [ISDN4Linux Library], [isdnnet])
 AST_EXT_LIB_SETUP([KDE], [KDE], [kde])
-AST_EXT_LIB_SETUP([LTDL], [libtool], [ltdl])
 AST_EXT_LIB_SETUP([MISDN], [mISDN User Library], [misdn])
 AST_EXT_LIB_SETUP([NBS], [Network Broadcast Sound], [nbs])
 AST_EXT_LIB_SETUP([NCURSES], [ncurses], [ncurses])
@@ -197,9 +193,9 @@ AST_EXT_LIB_SETUP([PGSQL], [PostgreSQL], [postgres])
 AST_EXT_LIB_SETUP([PRI], [ISDN PRI], [pri])
 AST_EXT_LIB_SETUP([PWLIB], [PWlib], [pwlib])
 AST_EXT_LIB_SETUP([OPENH323], [OpenH323], [h323])
+AST_EXT_LIB_SETUP([QT], [Qt], [qt])
 AST_EXT_LIB_SETUP([RADIUS], [Radius Client], [radius])
 AST_EXT_LIB_SETUP([SPEEX], [Speex], [speex])
-AST_EXT_LIB_SETUP([SPEEXDSP], [Speexdsp], [speexdsp])
 AST_EXT_LIB_SETUP([SQLITE], [SQLite], [sqlite])
 AST_EXT_LIB_SETUP([SUPPSERV], [mISDN Supplemental Services], [suppserv])
 AST_EXT_LIB_SETUP([OPENSSL], [OpenSSL], [ssl])
@@ -207,7 +203,6 @@ AST_EXT_LIB_SETUP([FREETDS], [FreeTDS], [tds])
 AST_EXT_LIB_SETUP([TERMCAP], [Termcap], [termcap])
 AST_EXT_LIB_SETUP([TINFO], [Term Info], [tinfo])
 AST_EXT_LIB_SETUP([TONEZONE], [tonezone], [tonezone])
-AST_EXT_LIB_SETUP([USB], [usb], [usb])
 AST_EXT_LIB_SETUP([VORBIS], [Vorbis], [vorbis])
 AST_EXT_LIB_SETUP([VPB], [Voicetronix API], [vpb])
 AST_EXT_LIB_SETUP([ZLIB], [zlib], [z])
@@ -220,7 +215,7 @@ AC_FUNC_ALLOCA
 AC_HEADER_DIRENT
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h libintl.h limits.h locale.h malloc.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/file.h sys/ioctl.h sys/param.h sys/socket.h sys/time.h syslog.h termios.h unistd.h utime.h arpa/nameser.h])
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h libintl.h limits.h locale.h malloc.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/file.h sys/ioctl.h sys/param.h sys/socket.h sys/time.h syslog.h termios.h unistd.h utime.h])
 
 AC_SYS_LARGEFILE
 
@@ -251,6 +246,7 @@ AC_PROG_GCC_TRADITIONAL
 # AC_FUNC_MALLOC
 # AC_FUNC_REALLOC
 AC_FUNC_MEMCMP
+AC_FUNC_MKTIME
 AC_FUNC_MMAP
 AC_FUNC_SELECT_ARGTYPES
 AC_FUNC_SETVBUF_REVERSED
@@ -262,30 +258,7 @@ AC_FUNC_STRNLEN
 AC_FUNC_STRTOD
 AC_FUNC_UTIME_NULL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([asprintf atexit bzero dup2 endpwent floor ftruncate getcwd gethostbyname gethostname getloadavg gettimeofday inet_ntoa isascii localtime_r memchr memmove memset mkdir munmap pow putenv re_comp regcomp rint select setenv socket sqrt strcasecmp strcasestr strchr strcspn strdup strerror strlcat strlcpy strncasecmp strndup strnlen strrchr strsep strspn strstr strtol strtoq unsetenv utime vasprintf])
-
-# some systems already have gethostbyname_r so we don't need to build ours in main/utils.c
-AC_SEARCH_LIBS(gethostbyname_r, [socket nsl])
-
-AC_MSG_CHECKING(for gethostbyname_r with 6 arguments)
-AC_LINK_IFELSE(
-        AC_LANG_PROGRAM([#include <stdlib.h>
-                         #include <netdb.h>],
-                        [struct hostent *he = gethostbyname_r((const char *)NULL, (struct hostent *)NULL, (char *)NULL, (int)0, (struct hostent **)NULL, (int *)NULL);]),
-        AC_MSG_RESULT(yes)
-        AC_DEFINE([HAVE_GETHOSTBYNAME_R_6], 1, [Define to 1 if your system has gethostbyname_r with 6 arguments.]),
-        AC_MSG_RESULT(no)
-)
-
-AC_MSG_CHECKING(for gethostbyname_r with 5 arguments)
-AC_LINK_IFELSE(
-        AC_LANG_PROGRAM([#include <stdlib.h>
-	                 #include <netdb.h>],
-                        [struct hostent *he = gethostbyname_r((const char *)NULL, (struct hostent *)NULL, (char *)NULL, (int)0, (int *)NULL);]),
-        AC_MSG_RESULT(yes)
-        AC_DEFINE([HAVE_GETHOSTBYNAME_R_5], 1, [Define to 1 if your system has gethostbyname_r with 5 arguments.]),
-        AC_MSG_RESULT(no)
-)
+AC_CHECK_FUNCS([asprintf atexit bzero dup2 endpwent floor ftruncate getcwd gethostbyname gethostname getloadavg gettimeofday inet_ntoa isascii localtime_r memchr memmove memset mkdir munmap pow putenv re_comp regcomp rint select setenv socket sqrt strcasecmp strcasestr strchr strcspn strdup strerror strncasecmp strndup strnlen strrchr strsep strspn strstr strtol strtoq unsetenv utime vasprintf])
 
 AC_MSG_CHECKING(for PTHREAD_RWLOCK_INITIALIZER)
 AC_LINK_IFELSE(
@@ -318,7 +291,6 @@ AST_GCC_ATTRIBUTE(malloc)
 AST_GCC_ATTRIBUTE(const)
 AST_GCC_ATTRIBUTE(unused)
 AST_GCC_ATTRIBUTE(always_inline)
-AST_GCC_ATTRIBUTE(deprecated)
 
 AC_MSG_CHECKING(for -ffunction-sections support)
 saved_CFLAGS="${CFLAGS}"
@@ -343,62 +315,12 @@ CFLAGS="${saved_CFLAGS}"
 AC_SUBST(GC_CFLAGS)
 AC_SUBST(GC_LDFLAGS)
 
-AC_MSG_CHECKING(for -Wdeclaration-after-statement support)
-if $(${CC} -Wdeclaration-after-statement -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
-   AC_MSG_RESULT(yes)
-   AST_DECLARATION_AFTER_STATEMENT=-Wdeclaration-after-statement
-else
-	AC_MSG_RESULT(no)
-	AST_DECLARATION_AFTER_STATEMENT=
-fi
-AC_SUBST(AST_DECLARATION_AFTER_STATEMENT)
-
-AC_MSG_CHECKING(for -fno-strict-overflow)
-if $(${CC} -O2 -fno-strict-overflow -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
-   AC_MSG_RESULT(yes)
-   AST_NO_STRICT_OVERFLOW=-fno-strict-overflow
-else
-	AC_MSG_RESULT(no)
-	AST_NO_STRICT_OVERFLOW=
-fi
-AC_SUBST(AST_NO_STRICT_OVERFLOW)
-
-AC_SEARCH_LIBS(res_9_ninit, resolv)
 AC_MSG_CHECKING(for res_ninit)
 AC_LINK_IFELSE(
-	AC_LANG_PROGRAM([
-			#ifdef HAVE_SYS_SOCKET_H
-			#include <sys/socket.h>
-			#endif
-			#ifdef HAVE_NETINET_IN_H
-			#include <netinet/in.h>
-			#endif
-			#ifdef HAVE_ARPA_NAMESER_H
-			#include <arpa/nameser.h>
-			#endif
-			#include <resolv.h>],
+	AC_LANG_PROGRAM([#include <resolv.h>],
 			[int foo = res_ninit(NULL);]),
 	AC_MSG_RESULT(yes)
-	AC_DEFINE([HAVE_RES_NINIT], 1, [Define to 1 if your system has the re-entrant resolver functions.])
-	AC_SEARCH_LIBS(res_9_ndestroy, resolv)
-	AC_MSG_CHECKING(for res_ndestroy)
-	AC_LINK_IFELSE(
-		AC_LANG_PROGRAM([
-				#ifdef HAVE_SYS_SOCKET_H
-				#include <sys/socket.h>
-				#endif
-				#ifdef HAVE_NETINET_IN_H
-				#include <netinet/in.h>
-				#endif
-				#ifdef HAVE_ARPA_NAMESER_H
-				#include <arpa/nameser.h>
-				#endif
-				#include <resolv.h>],
-				[res_ndestroy(NULL);]),
-		AC_MSG_RESULT(yes)
-		AC_DEFINE([HAVE_RES_NDESTROY], 1, [Define to 1 if your system has the ndestroy resolver function.]),
-		AC_MSG_RESULT(no)
-	),
+	AC_DEFINE([HAVE_RES_NINIT], 1, [Define to 1 if your system has the re-entrant resolver functions.]),
 	AC_MSG_RESULT(no)
 )
 
@@ -430,12 +352,6 @@ AC_CHECK_SIZEOF(int)
 AST_EXT_LIB_CHECK([ALSA], [asound], [snd_spcm_init], [alsa/asoundlib.h], [-lm -ldl])
 
 AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
-
-if test "x${host_os}" = "xlinux-gnu" ; then
-  AST_EXT_LIB_CHECK([CAP], [cap], [cap_from_text], [sys/capability.h])
-fi
-
-AST_C_COMPILE_CHECK([GETIFADDRS], [struct ifaddrs *p; getifaddrs(&p)], [ifaddrs.h])
 
 GSM_INTERNAL="yes"
 AC_SUBST(GSM_INTERNAL)
@@ -506,540 +422,164 @@ fi
 AST_EXT_LIB_CHECK([IKSEMEL], [iksemel], [iks_start_sasl], [iksemel.h])
 
 if test "${PBX_IKSEMEL}" = 1; then
-   AST_EXT_LIB_CHECK([GNUTLS], [gnutls], [gnutls_bye], [gnutls/gnutls.h], [-lz -lgcrypt -lgpg-error])
+   AST_EXT_LIB_CHECK([GNUTLS], [gnutls], [gnutls_bye])
+   if test "${PBX_GNUTLS}" = 1; then
+      IKSEMEL_LIB="${IKSEMEL_LIB} -lgnutls -lz -lgcrypt -lgpg-error"
+   fi
 fi
 
 if test "${USE_IMAP_TK}" != "no"; then
-	saved_cppflags="${CPPFLAGS}"
-	saved_libs="${LIBS}"
-	switch_to_system_on_failure="no"
-	if test "${IMAP_TK_DIR}" = ""; then
-		IMAP_TK_DIR=`pwd`"/../imap-2004g"
-		switch_to_system_on_failure="yes"
-	fi
-	if test "${IMAP_TK_DIR}" != "system"; then
-		AC_MSG_CHECKING(for UW IMAP Toolkit c-client library)
-		if test -f "${IMAP_TK_DIR}/c-client/LDFLAGS"; then
-      		imap_ldflags=`cat ${IMAP_TK_DIR}/c-client/LDFLAGS`
-		fi
-		imap_libs="${IMAP_TK_DIR}/c-client/c-client.a"
-	  	imap_include="-I${IMAP_TK_DIR}/c-client"
-      	CPPFLAGS="${CPPFLAGS} ${imap_include}"
-	  	LIBS="${LIBS} ${imap_libs} "`echo ${imap_ldflags}`
-	  	AC_LINK_IFELSE(
-	    	AC_LANG_PROGRAM(
-				[#include "c-client.h"
-				void mm_searched (MAILSTREAM *stream,unsigned long number)
-				{
-				}
-				void mm_exists (MAILSTREAM *stream,unsigned long number)
-				{
-				}
-				void mm_expunged (MAILSTREAM *stream,unsigned long number)
-				{
-				}
-				void mm_flags (MAILSTREAM *stream,unsigned long number)
-				{
-				}
-				void mm_notify (MAILSTREAM *stream,char *string,long errflg)
-				{
-				}
-				void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-				{
-				}
-				void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-				{
-				}
-				void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
-				{
-				}
-				void mm_log (char *string,long errflg)
-				{
-				}
-				void mm_dlog (char *string)
-				{
-				}
-				void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
-				{
-				}
-				void mm_critical (MAILSTREAM *stream)
-				{
-				}
-				void mm_nocritical (MAILSTREAM *stream)
-				{
-				}
-				long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
-				{
-				}
-				void mm_fatal (char *string)
-				{
-				}],
-				[
-				MAILSTREAM *foo = mail_open(NULL, "", 0);
-				]
-			),
-			[ac_cv_imap_tk="yes"],
-			[ac_cv_imap_tk="no"]
-	   	)
-		if test "${ac_cv_imap_tk}" = "yes"; then
-			AC_LINK_IFELSE(
-				AC_LANG_PROGRAM(
-					[#include "c-client.h"
-					void mm_searched (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_exists (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_expunged (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_flags (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_notify (MAILSTREAM *stream,char *string,long errflg)
-					{
-					}
-					void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-					{
-					}
-					void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-					{
-					}
-					void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
-					{
-					}
-					void mm_log (char *string,long errflg)
-					{
-					}
-					void mm_dlog (char *string)
-					{
-					}
-					void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
-					{
-					}
-					void mm_critical (MAILSTREAM *stream)
-					{
-					}
-					void mm_nocritical (MAILSTREAM *stream)
-					{
-					}
-					long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
-					{
-					}
-					void mm_fatal (char *string)
-					{
-					}],
-					[
-					long check = mail_expunge_full(NULL, "", 0);
-					]
-				),
-				[ac_cv_imap_tk2006="yes"],
-				[ac_cv_imap_tk2006="no"]
-			)
-		fi
-		CPPFLAGS="${saved_cppflags}"
-		LIBS="${saved_libs}"
-		if test "${ac_cv_imap_tk}" = "no"; then
-			AC_MSG_RESULT(no)
-			if test "${switch_to_system_on_failure}" = "yes"; then 
-				IMAP_TK_DIR="system"
-			else #This means they specified a directory. Search for a package installation there too
-				AC_MSG_CHECKING([for system c-client library...])
-				CPPFLAGS="${saved_cppflags}"
-				LIBS="${saved_libs}"
-				imap_include="-I${IMAP_TK_DIR}/include"
-				imap_ldflags="-L${IMAP_TK_DIR}/lib"
-				imap_libs="-lc-client"
-				CPPFLAGS="${CPPFLAGS} ${imap_include}"
-				LIBS="${LIBS} ${imap_libs} ${imap_ldflags}"
-				AC_LINK_IFELSE(
-	    			AC_LANG_PROGRAM(
-						[#include "c-client.h"
-						void mm_searched (MAILSTREAM *stream,unsigned long number)
-						{
-						}
-						void mm_exists (MAILSTREAM *stream,unsigned long number)
-						{
-						}
-						void mm_expunged (MAILSTREAM *stream,unsigned long number)
-						{
-						}
-						void mm_flags (MAILSTREAM *stream,unsigned long number)
-						{
-						}
-						void mm_notify (MAILSTREAM *stream,char *string,long errflg)
-						{
-						}
-						void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-						{
-						}
-						void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-						{
-						}
-						void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
-						{
-						}
-						void mm_log (char *string,long errflg)
-						{
-						}
-						void mm_dlog (char *string)
-						{
-						}
-						void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
-						{
-						}
-						void mm_critical (MAILSTREAM *stream)
-						{
-						}
-						void mm_nocritical (MAILSTREAM *stream)
-						{
-						}
-						long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
-						{
-						}
-						void mm_fatal (char *string)
-						{
-						}],
-						[
-						MAILSTREAM *foo = mail_open(NULL, "", 0);
-						]
-					),
-					[ac_cv_imap_tk="yes"],
-					[ac_cv_imap_tk="no"]
-	   			)
-				if test "${ac_cv_imap_tk}" = "yes"; then
-					AC_LINK_IFELSE(
-						AC_LANG_PROGRAM(
-							[#include "c-client.h"
-							void mm_searched (MAILSTREAM *stream,unsigned long number)
-							{
-							}
-							void mm_exists (MAILSTREAM *stream,unsigned long number)
-							{
-							}
-							void mm_expunged (MAILSTREAM *stream,unsigned long number)
-							{
-							}
-							void mm_flags (MAILSTREAM *stream,unsigned long number)
-							{
-							}
-							void mm_notify (MAILSTREAM *stream,char *string,long errflg)
-							{
-							}
-							void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-							{
-							}
-							void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-							{
-							}
-							void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
-							{
-							}
-							void mm_log (char *string,long errflg)
-							{
-							}
-							void mm_dlog (char *string)
-							{
-							}
-							void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
-							{
-							}
-							void mm_critical (MAILSTREAM *stream)
-							{
-							}
-							void mm_nocritical (MAILSTREAM *stream)
-							{
-							}
-							long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
-							{
-							}
-							void mm_fatal (char *string)
-							{
-							}],
-							[
-							long check = mail_expunge_full(NULL, "", 0);
-							]
-						),
-						[ac_cv_imap_tk2006="yes"],
-						[ac_cv_imap_tk2006="no"]
-					)
-				fi
-			fi
-		fi
-	fi 
-	if test "${IMAP_TK_DIR}" = "system"; then
-		#We will enter here if user specified "system" or if any of above checks failed
-		AC_MSG_CHECKING([for system c-client library...])
-		CPPFLAGS="${saved_cppflags}"
-		LIBS="${saved_libs}"
-		imap_ldflags=""
-		imap_libs="-lc-client"
-		imap_include="-DUSE_SYSTEM_IMAP" #Try the imap directory first
-		CPPFLAGS="${CPPFLAGS} ${imap_include}"
-		LIBS="${LIBS} ${imap_libs} "`echo ${imap_ldflags}`
-		AC_LINK_IFELSE(
-	    	AC_LANG_PROGRAM(
-				[#include <stdio.h>
-				#include <imap/c-client.h>
-				void mm_searched (MAILSTREAM *stream,unsigned long number)
-				{
-				}
-				void mm_exists (MAILSTREAM *stream,unsigned long number)
-				{
-				}
-				void mm_expunged (MAILSTREAM *stream,unsigned long number)
-				{
-				}
-				void mm_flags (MAILSTREAM *stream,unsigned long number)
-				{
-				}
-				void mm_notify (MAILSTREAM *stream,char *string,long errflg)
-				{
-				}
-				void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-				{
-				}
-				void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-				{
-				}
-				void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
-				{
-				}
-				void mm_log (char *string,long errflg)
-				{
-				}
-				void mm_dlog (char *string)
-				{
-				}
-				void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
-				{
-				}
-				void mm_critical (MAILSTREAM *stream)
-				{
-				}
-				void mm_nocritical (MAILSTREAM *stream)
-				{
-				}
-				long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
-				{
-				}
-				void mm_fatal (char *string)
-				{
-				}],
-				[
-				MAILSTREAM *foo = mail_open(NULL, "", 0);
-				]
-			),
-			[ac_cv_imap_tk="yes"],
-			[ac_cv_imap_tk="no"]
-	   	)
-		if test "${ac_cv_imap_tk}" = "yes"; then
-			AC_LINK_IFELSE(
-				AC_LANG_PROGRAM(
-					[#include <stdio.h>
-					#include <imap/c-client.h>
-					void mm_searched (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_exists (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_expunged (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_flags (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_notify (MAILSTREAM *stream,char *string,long errflg)
-					{
-					}
-					void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-					{
-					}
-					void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-					{
-					}
-					void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
-					{
-					}
-					void mm_log (char *string,long errflg)
-					{
-					}
-					void mm_dlog (char *string)
-					{
-					}
-					void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
-					{
-					}
-					void mm_critical (MAILSTREAM *stream)
-					{
-					}
-					void mm_nocritical (MAILSTREAM *stream)
-					{
-					}
-					long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
-					{
-					}
-					void mm_fatal (char *string)
-					{
-					}],
-					[
-					long check = mail_expunge_full(NULL, "", 0);
-					]
-				),
-				[ac_cv_imap_tk2006="yes"],
-				[ac_cv_imap_tk2006="no"]
-			)
-		else #looking in imap directory didn't work, try c-client
-			imap_ldflags=""
-			imap_libs="-lc-client"
-			imap_include="-DUSE_SYSTEM_CCLIENT"
-			CPPFLAGS="${saved_cppflags}"
-			LIBS="${saved_libs}"
-			CPPFLAGS="${CPPFLAGS} ${imap_include}"
-			LIBS="${LIBS} ${imap_libs} "`echo ${imap_ldflags}`
-			AC_LINK_IFELSE(
-	    		AC_LANG_PROGRAM(
-					[#include <stdio.h>
-					#include <c-client/c-client.h>
-					void mm_searched (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_exists (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_expunged (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_flags (MAILSTREAM *stream,unsigned long number)
-					{
-					}
-					void mm_notify (MAILSTREAM *stream,char *string,long errflg)
-					{
-					}
-					void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-					{
-					}
-					void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-					{
-					}
-					void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
-					{
-					}
-					void mm_log (char *string,long errflg)
-					{
-					}
-					void mm_dlog (char *string)
-					{
-					}
-					void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
-					{
-					}
-					void mm_critical (MAILSTREAM *stream)
-					{
-					}
-					void mm_nocritical (MAILSTREAM *stream)
-					{
-					}
-					long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
-					{
-					}
-					void mm_fatal (char *string)
-					{
-					}],
-					[
-					MAILSTREAM *foo = mail_open(NULL, "", 0);
-					]
-				),
-				[ac_cv_imap_tk="yes"],
-				[ac_cv_imap_tk="no"]
-	   		)
-			if test "${ac_cv_imap_tk}" = "yes"; then
-				AC_LINK_IFELSE(
-					AC_LANG_PROGRAM(
-						[#include <stdio.h>
-						#include <c-client/c-client.h>
-						void mm_searched (MAILSTREAM *stream,unsigned long number)
-						{
-						}
-						void mm_exists (MAILSTREAM *stream,unsigned long number)
-						{
-						}
-						void mm_expunged (MAILSTREAM *stream,unsigned long number)
-						{
-						}
-						void mm_flags (MAILSTREAM *stream,unsigned long number)
-						{
-						}
-						void mm_notify (MAILSTREAM *stream,char *string,long errflg)
-						{
-						}
-						void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-						{
-						}
-						void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
-						{
-						}
-						void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
-						{
-						}
-						void mm_log (char *string,long errflg)
-						{
-						}
-						void mm_dlog (char *string)
-						{
-						}
-						void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
-						{
-						}
-						void mm_critical (MAILSTREAM *stream)
-						{
-						}
-						void mm_nocritical (MAILSTREAM *stream)
-						{
-						}
-						long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
-						{
-						}
-						void mm_fatal (char *string)
-						{
-						}],
-						[
-						long check = mail_expunge_full(NULL, "", 0);
-						]
-					),
-					[ac_cv_imap_tk2006="yes"],
-					[ac_cv_imap_tk2006="no"]
-				)
-			fi
-		fi
-	fi
-	if test "${ac_cv_imap_tk}" = "yes"; then
-		AC_MSG_RESULT(yes)
-		IMAP_TK_LIB="${imap_libs} "`echo ${imap_ldflags}`
-		IMAP_TK_INCLUDE="${imap_include}"
-		PBX_IMAP_TK=1
-		AC_DEFINE([HAVE_IMAP_TK], 1, [Define if your system has the UW IMAP Toolkit c-client library.])
-		if test "${ac_cv_imap_tk2006}" = "yes"; then
-			AC_DEFINE([HAVE_IMAP_TK2006], 1, [Define if your system has the UW IMAP Toolkit c-client library version 2006 or greater.])
-		fi
-	elif test -n "${IMAP_TK_MANDATORY}"; then
-		AC_MSG_RESULT(no) 
-		AC_MSG_NOTICE([***])
-		AC_MSG_NOTICE([*** The UW IMAP Toolkit installation on this system appears to be broken.])
-		AC_MSG_NOTICE([*** Either correct the installation, or run configure])
-		AC_MSG_NOTICE([*** including --without-imap.])
-		exit 1
-	else
-		AC_MSG_RESULT(no)
-	fi
-	CPPFLAGS="${saved_cppflags}"
-	LIBS="${saved_libs}"
+   if test "${IMAP_TK_DIR}" = ""; then
+      IMAP_TK_DIR=`pwd`"/../imap-2004g"
+      if test  -n "${IMAP_TK_MANDATORY}"; then
+	 AC_MSG_NOTICE([The --with-imap option does not search your system for installed])
+	 AC_MSG_NOTICE([c-client library/header files. Since you did not provide a path])
+	 AC_MSG_NOTICE([the configure script will assume you have placed built the c-client])
+	 AC_MSG_NOTICE([files at ${IMAP_TK_DIR}, as outlined in the doc/imapstorage.txt file.])
+      fi
+   fi
+   AC_MSG_CHECKING(for UW IMAP Toolkit c-client library)
+   saved_cppflags="${CPPFLAGS}"
+   saved_libs="${LIBS}"
+   if test -f ${IMAP_TK_DIR}/c-client/LDFLAGS ; then
+      imap_ldflags=`cat ${IMAP_TK_DIR}/c-client/LDFLAGS`
+   fi
+   CPPFLAGS="${CPPFLAGS} -I${IMAP_TK_DIR}/c-client"
+   LIBS="${LIBS} ${IMAP_TK_DIR}/c-client/c-client.a "`echo ${imap_ldflags}`
+   AC_LINK_IFELSE(
+	AC_LANG_PROGRAM(
+		[#include "c-client.h"
+		void mm_searched (MAILSTREAM *stream,unsigned long number)
+		{
+		}
+		void mm_exists (MAILSTREAM *stream,unsigned long number)
+		{
+		}
+		void mm_expunged (MAILSTREAM *stream,unsigned long number)
+		{
+		}
+		void mm_flags (MAILSTREAM *stream,unsigned long number)
+		{
+		}
+		void mm_notify (MAILSTREAM *stream,char *string,long errflg)
+		{
+		}
+		void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
+		{
+		}
+		void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
+		{
+		}
+		void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
+		{
+		}
+		void mm_log (char *string,long errflg)
+		{
+		}
+		void mm_dlog (char *string)
+		{
+		}
+		void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
+		{
+		}
+		void mm_critical (MAILSTREAM *stream)
+		{
+		}
+		void mm_nocritical (MAILSTREAM *stream)
+		{
+		}
+		long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
+		{
+		}
+		void mm_fatal (char *string)
+		{
+		}],
+		[
+		MAILSTREAM *foo = mail_open(NULL, "", 0);
+		]
+	),
+	[ac_cv_imap_tk="yes"],
+	[ac_cv_imap_tk="no"]
+   )
+   if test "${ac_cv_imap_tk}" = "yes"; then
+   AC_LINK_IFELSE(
+      AC_LANG_PROGRAM(
+         [#include "c-client.h"
+         void mm_searched (MAILSTREAM *stream,unsigned long number)
+         {
+         }
+         void mm_exists (MAILSTREAM *stream,unsigned long number)
+         {
+         }
+         void mm_expunged (MAILSTREAM *stream,unsigned long number)
+         {
+         }
+         void mm_flags (MAILSTREAM *stream,unsigned long number)
+         {
+         }
+         void mm_notify (MAILSTREAM *stream,char *string,long errflg)
+         {
+         }
+         void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
+         {
+         }
+         void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
+         {
+         }
+         void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
+         {
+         }
+         void mm_log (char *string,long errflg)
+         {
+         }
+         void mm_dlog (char *string)
+         {
+         }
+         void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
+         {
+         }
+         void mm_critical (MAILSTREAM *stream)
+         {
+         }
+         void mm_nocritical (MAILSTREAM *stream)
+         {
+         }
+         long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
+         {
+         }
+         void mm_fatal (char *string)
+         {
+         }],
+         [
+         long check = mail_expunge_full(NULL, "", 0);
+         ]
+      ),
+      [ac_cv_imap_tk2006="yes"],
+      [ac_cv_imap_tk2006="no"]
+  )
+  fi
+   CPPFLAGS="${saved_cppflags}"
+   LIBS="${saved_libs}"
+   if test "${ac_cv_imap_tk}" = "yes"; then
+      AC_MSG_RESULT(yes) 
+      IMAP_TK_LIB="${IMAP_TK_DIR}/c-client/c-client.a "`echo ${imap_ldflags}`
+      IMAP_TK_INCLUDE="-I${IMAP_TK_DIR}/c-client"
+      PBX_IMAP_TK=1
+      AC_DEFINE([HAVE_IMAP_TK], 1, [Define if your system has the UW IMAP Toolkit c-client library.])
+      if test "${ac_cv_imap_tk2006}" = "yes"; then
+         AC_DEFINE([HAVE_IMAP_TK2006], 1, [Define if your system has the UW IMAP Toolkit c-client library version 2006 or greater.])
+      fi
+   elif test -n "${IMAP_TK_MANDATORY}"; then
+      AC_MSG_RESULT(no) 
+      AC_MSG_NOTICE([***])
+      AC_MSG_NOTICE([*** The UW IMAP Toolkit installation on this system appears to be broken.])
+      AC_MSG_NOTICE([*** Either correct the installation, or run configure])
+      AC_MSG_NOTICE([*** including --without-imap.])
+      exit 1
+   else
+      AC_MSG_RESULT(no) 
+   fi
 fi
-
-# Needed by unixodbc
-AST_EXT_LIB_CHECK([LTDL], [ltdl], [lt_dlinit], [ltdl.h], [])
 
 AC_LANG_PUSH(C++)
 
@@ -1102,7 +642,6 @@ AST_EXT_LIB_CHECK([MISDN], [mISDN], [mISDN_open], [mISDNuser/mISDNlib.h])
 if test "${PBX_MISDN}" = 1; then
    AST_EXT_LIB_CHECK([ISDNNET], [isdnnet], [init_manager], [mISDNuser/isdn_net.h], [-lmISDN -lpthread])
    AST_EXT_LIB_CHECK([SUPPSERV], [suppserv], [encodeFac], [mISDNuser/suppserv.h])
-   AC_CHECK_HEADER([linux/mISDNdsp.h], [AC_DEFINE_UNQUOTED([MISDN_1_2], 1, [Build chan_misdn for mISDN 1.2 or later.])])
 fi
 
 AST_EXT_LIB_CHECK([NBS], [nbs], [nbs_connect], [nbs.h])
@@ -1153,9 +692,11 @@ fi
 
 AST_EXT_LIB_CHECK([NEWT], [newt], [newtBell], [newt.h])
 
-AST_EXT_LIB_CHECK([UNIXODBC], [odbc], [SQLConnect], [sql.h], [])
+AST_EXT_LIB_CHECK([UNIXODBC], [odbc], [SQLConnect], [sql.h], [-lltdl])
 
 AST_EXT_LIB_CHECK([OGG], [ogg], [ogg_sync_init], [])
+
+AST_EXT_LIB_CHECK([OSPTK], [osptk], [OSPPCryptoDecrypt], [osp/osp.h], [-lcrypto -lssl])
 
 if test "${USE_OSS}" != "no"; then
 PBX_OSS=0
@@ -1205,10 +746,10 @@ if test "${PG_CONFIG}" != No; then
          exit 1
 	  fi
    else 
-      AC_CHECK_LIB([pq], [PQescapeStringConn], AC_DEFINE_UNQUOTED([HAVE_PGSQL], 1,
+      AC_CHECK_LIB([pq], [PQexec], AC_DEFINE_UNQUOTED([HAVE_PGSQL], 1,
       [Define to indicate the PostgreSQL library]), [], -L${PGSQL_libdir} -lz)
 
-      if test "${ac_cv_lib_pq_PQescapeStringConn}" = "yes"; then
+      if test "${ac_cv_lib_pq_PQexec}" = "yes"; then
          PGSQL_LIB="-L${PGSQL_libdir} -lpq -lz"
          PGSQL_INCLUDE="-I${PGSQL_includedir}"
          PBX_PGSQL=1
@@ -1232,9 +773,7 @@ fi
 
 AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
 
-AST_EXT_LIB_CHECK([PRI], [pri], [pri_keypad_facility], [libpri.h])
-
-AST_EXT_LIB_CHECK([PRI_VERSION], [pri], [pri_get_version], [libpri.h])
+AST_EXT_LIB_CHECK([PRI], [pri], [pri_call], [libpri.h])
 
 if test "${USE_PWLIB}" != "no"; then
 	if test -n "${PWLIB_DIR}"; then
@@ -1287,47 +826,92 @@ if test "${USE_OPENH323}" != "no" -a "x${ac_cv_lib_OPENH323}" != "xyes" -a -n "$
    exit 1
 fi
 
+
+AC_LANG_PUSH(C++)
+
+if test "${USE_QT}" != "no"; then
+   AC_MSG_CHECKING(for QDate in -lqt)
+   saved_libs="${LIBS}"
+   saved_cppflags="${CPPFLAGS}"
+   if test "x${QT_DIR}" != "x"; then
+      LIBS="${LIBS} -L${QT_DIR}/lib"
+      CPPFLAGS="${CPPFLAGS} -I${QT_DIR}/include"
+   fi
+   LIBS="${LIBS} -lqt"
+   qtlib="qt"
+   AC_LINK_IFELSE(
+	[
+		AC_LANG_PROGRAM(
+		[#include <qt3/qdatetime.h>],
+		[QDate date();])
+	],
+	[ac_cv_lib_qt_qt_date="yes"],
+	[ac_cv_lib_qt_qt_date="no"])
+   LIBS="${saved_libs}"
+   CPPFLAGS="${saved_cppflags}"
+	
+   if test "${ac_cv_lib_qt_qt_date}" = "no"; then
+      saved_libs="${LIBS}"
+      saved_cppflags="${CPPFLAGS}"
+      if test "x${QT_DIR}" != "x"; then
+      	 LIBS="${LIBS} -L${QT_DIR}/lib"
+	 CPPFLAGS="${CPPFLAGS} -I${QT_DIR}/include"
+      fi
+      LIBS="${LIBS} -lqt-mt"
+      qtlib="qt-mt"	
+      AC_LINK_IFELSE(
+		[
+			AC_LANG_PROGRAM(
+			[#include <qt3/qdatetime.h>],
+			[QDate date();])
+		],
+		[ac_cv_lib_qt_qt_date="yes"],
+		[ac_cv_lib_qt_qt_date="no"])
+      LIBS="${saved_libs}"
+      CPPFLAGS="${saved_cppflags}"
+   fi	
+
+   if test "${ac_cv_lib_qt_qt_date}" = "yes"; then
+      AC_MSG_RESULT(yes) 
+   else
+      AC_MSG_RESULT(no) 
+   fi
+	
+   if test "${ac_cv_lib_qt_qt_date}" = "yes"; then
+      QT_LIB="-l${qtlib}"
+      if test "${QT_DIR}" != ""; then
+      	 QT_LIB="-L${QT_DIR}/lib ${QT_LIB}"
+	 QT_INCLUDE="-I${QT_DIR}/include"
+      fi
+      PBX_QT=1
+      AC_DEFINE([HAVE_QT], 1, [Define if your system has the Qt library])
+      AC_PATH_TOOL(QTMOC, moc, No)
+   elif test -n "${QT_MANDATORY}"; 
+   then
+      AC_MSG_NOTICE([***])
+      AC_MSG_NOTICE([*** The Qt installation on this system appears to be broken.])
+      AC_MSG_NOTICE([*** Either correct the installation, or run configure])
+      AC_MSG_NOTICE([*** including --without-qt.])
+      exit 1
+   fi
+fi
+
+AC_LANG_POP
+
 AST_EXT_LIB_CHECK([RADIUS], [radiusclient-ng], [rc_read_config], [radiusclient-ng.h])
 
 AST_EXT_LIB_CHECK([SPEEX], [speex], [speex_encode], [speex/speex.h], [-lm])
 
-# See if the main speex library contains the preprocess functions
-AST_EXT_LIB_CHECK([SPEEX_PREPROCESS], [speex], [speex_preprocess_ctl], [speex/speex.h], [-lm])
-if test "${PBX_SPEEX_PREPROCESS}" = 1; then
-   PBX_SPEEX_PREPROCESS=1
-fi
-
-AST_EXT_LIB_CHECK([SPEEXDSP], [speexdsp], [speex_preprocess_ctl], [speex/speex.h], [-lm])
-if test "${PBX_SPEEXDSP}" = 1; then
-   PBX_SPEEX_PREPROCESS=1
-fi
-
-AC_SUBST(PBX_SPEEX_PREPROCESS)
-
 AST_EXT_LIB_CHECK([SQLITE], [sqlite], [sqlite_exec], [sqlite.h])
 
 AST_EXT_LIB_CHECK([OPENSSL], [ssl], [ssl2_connect], [openssl/ssl.h], [-lcrypto])
-if test "$PBX_OPENSSL" = "1";
-then
-    AST_EXT_LIB_CHECK([OSPTK], [osptk], [OSPPCryptoDecrypt], [osp/osp.h], [-lcrypto -lssl])
-fi
 
 AST_EXT_LIB_CHECK([FREETDS], [tds], [tds_version], [tds.h])
 if test "${PBX_FREETDS}" != "0";
 then
-    if test "${FREETDS_DIR}x" = "x";
-    then
-        for tds_dir in /usr /usr/local;
-        do
-            if test -f "${tds_dir}/include/tdsver.h";
-            then
-                FREETDS_DIR="${tds_dir}"
-            fi
-        done
-    fi
-    case `${GREP} TDS_VERSION_NO ${FREETDS_DIR:-/usr}/include/tdsver.h` in
-    *0.64*)
-        FREETDS_INCLUDE="${FREETDS_INCLUDE} -DFREETDS_0_64"
+    case `grep TDS_VERSION_NO ${FREETDS_DIR:-/usr}/include/tdsver.h` in
+	*0.64*)
+		FREETDS_INCLUDE="${FREETDS_INCLUDE} -DFREETDS_0_64"
 	;;
     *0.63*)
         FREETDS_INCLUDE="${FREETDS_INCLUDE} -DFREETDS_0_63"
@@ -1350,8 +934,6 @@ if test "${host_os}" != "linux-gnu" ; then
 fi
 
 AST_EXT_LIB_CHECK([TONEZONE], [tonezone], [tone_zone_find], [zaptel/tonezone.h], [${tonezone_extra}])
-
-AST_EXT_LIB_CHECK([USB], [usb], [usb_init], [usb.h], [])
 
 AST_EXT_LIB_CHECK([VORBIS], [vorbis], [vorbis_info_init], [vorbis/codec.h], [-lm -lvorbisenc])
 
@@ -1509,21 +1091,13 @@ AC_SUBST(EDITLINE_LIB)
 AC_CHECK_HEADER([h323.h], [PBX_H323=1], [PBX_H323=0])
 AC_SUBST(PBX_H323)
 
-AC_CHECK_HEADER([linux/compiler.h],
-                [AC_DEFINE_UNQUOTED([HAVE_LINUX_COMPILER_H], 1, [Define to 1 if your system has linux/compiler.h.])])
-
 AC_CHECK_HEADER([linux/ixjuser.h], [PBX_IXJUSER=1], [PBX_IXJUSER=0], [
 				   #include <linux/version.h>
-				   #ifdef HAVE_LINUX_COMPILER_H
+				   #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
 				   #include <linux/compiler.h>
 				   #endif
 				   ])
 AC_SUBST(PBX_IXJUSER)
-
-if test "${cross_compiling}" = "no";
-then
-  AC_CHECK_FILE(/sbin/launchd, AC_DEFINE([HAVE_SBIN_LAUNCHD], 1, [Define to 1 if your system has /sbin/launchd.]))
-fi
 
 PBX_GTK=0
 AC_CHECK_TOOL(GTKCONFIG, gtk-config, No)
@@ -1540,7 +1114,7 @@ AC_SUBST(GTK_LIB)
 PBX_GTK2=0
 AC_CHECK_TOOL(PKGCONFIG, pkg-config, No)
 if test ! "x${PKGCONFIG}" = xNo; then
-   GTK2_INCLUDE=$(${PKGCONFIG} gtk+-2.0 --cflags 2>/dev/null)
+   GTK2_INCLUDE=$(${PKGCONFIG} gtk+-2.0 --cflags)
    GTK2_LIB=$(${PKGCONFIG} gtk+-2.0 --libs)
    PBX_GTK2=1
    AC_DEFINE([HAVE_GTK2], 1, [Define if your system has the GTK2 libraries.])
@@ -1556,27 +1130,8 @@ if test "${USE_CURL}" != "no"; then
       if test $(printf "%d" 0x$(${CURL_CONFIG} --vernum)) -ge $(printf "%d" 0x070907); then
          CURL_INCLUDE=$(${CURL_CONFIG} --cflags)
          CURL_LIB=$(${CURL_CONFIG} --libs)
-
-         AC_MSG_CHECKING(for curl_version() in curl/curl.h)
-         saved_cppflags="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${CURL_INCLUDE}"
-         AC_COMPILE_IFELSE(
-            [AC_LANG_PROGRAM(
-                [#include <curl/curl.h>],
-                    [curl_version();])
-            ],[
-                AC_MSG_RESULT(yes)
-                ac_cv_curl_h="yes"
-            ],[
-                AC_MSG_RESULT(no)
-                ac_cv_curl_h="no"
-            ]
-	 )
-	 CPPFLAGS="${saved_cppflags}"
-         if test "${ac_cv_curl_h}" = "yes"; then
-             PBX_CURL=1
-             AC_DEFINE([HAVE_CURL], 1, [Define if your system has the curl libraries.])
-         fi
+         PBX_CURL=1
+         AC_DEFINE([HAVE_CURL], 1, [Define if your system has the curl libraries.])
       fi
    fi
 fi

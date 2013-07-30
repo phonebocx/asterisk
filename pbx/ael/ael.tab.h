@@ -1,7 +1,9 @@
-/* A Bison parser, made by GNU Bison 2.1a.  */
+/* A Bison parser, made by GNU Bison 2.3.  */
 
-/* Skeleton parser for Yacc-like parsing with Bison,
-   Copyright (C) 1984, 1989, 1990, 2000, 2001, 2002, 2003, 2004, 2005, 2006 Free Software Foundation, Inc.
+/* Skeleton interface for Bison's Yacc-like parsers in C
+
+   Copyright (C) 1984, 1989, 1990, 2000, 2001, 2002, 2003, 2004, 2005, 2006
+   Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -18,10 +20,18 @@
    Foundation, Inc., 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.  */
 
-/* As a special exception, when this file is copied by Bison into a
-   Bison output file, you may use that output file without restriction.
-   This special exception was added by the Free Software Foundation
-   in version 1.24 of Bison.  */
+/* As a special exception, you may create a larger work that contains
+   part or all of the Bison parser skeleton and distribute that work
+   under terms of your choice, so long as that work isn't itself a
+   parser generator using the skeleton or a modified version thereof
+   as a parser skeleton.  Alternatively, if you modify or redistribute
+   the parser skeleton itself, you may (at your option) remove this
+   special exception, which will cause the skeleton and the resulting
+   Bison output files to be licensed under the GNU General Public
+   License without this special exception.
+
+   This special exception was added by the Free Software Foundation in
+   version 2.2 of Bison.  */
 
 /* Tokens.  */
 #ifndef YYTOKENTYPE
@@ -50,25 +60,24 @@
      KW_ELSE = 276,
      KW_RANDOM = 277,
      KW_ABSTRACT = 278,
-     KW_EXTEND = 279,
-     EXTENMARK = 280,
-     KW_GOTO = 281,
-     KW_JUMP = 282,
-     KW_RETURN = 283,
-     KW_BREAK = 284,
-     KW_CONTINUE = 285,
-     KW_REGEXTEN = 286,
-     KW_HINT = 287,
-     KW_FOR = 288,
-     KW_WHILE = 289,
-     KW_CASE = 290,
-     KW_PATTERN = 291,
-     KW_DEFAULT = 292,
-     KW_CATCH = 293,
-     KW_SWITCHES = 294,
-     KW_ESWITCHES = 295,
-     KW_INCLUDES = 296,
-     word = 297
+     EXTENMARK = 279,
+     KW_GOTO = 280,
+     KW_JUMP = 281,
+     KW_RETURN = 282,
+     KW_BREAK = 283,
+     KW_CONTINUE = 284,
+     KW_REGEXTEN = 285,
+     KW_HINT = 286,
+     KW_FOR = 287,
+     KW_WHILE = 288,
+     KW_CASE = 289,
+     KW_PATTERN = 290,
+     KW_DEFAULT = 291,
+     KW_CATCH = 292,
+     KW_SWITCHES = 293,
+     KW_ESWITCHES = 294,
+     KW_INCLUDES = 295,
+     word = 296
    };
 #endif
 /* Tokens.  */
@@ -93,25 +102,24 @@
 #define KW_ELSE 276
 #define KW_RANDOM 277
 #define KW_ABSTRACT 278
-#define KW_EXTEND 279
-#define EXTENMARK 280
-#define KW_GOTO 281
-#define KW_JUMP 282
-#define KW_RETURN 283
-#define KW_BREAK 284
-#define KW_CONTINUE 285
-#define KW_REGEXTEN 286
-#define KW_HINT 287
-#define KW_FOR 288
-#define KW_WHILE 289
-#define KW_CASE 290
-#define KW_PATTERN 291
-#define KW_DEFAULT 292
-#define KW_CATCH 293
-#define KW_SWITCHES 294
-#define KW_ESWITCHES 295
-#define KW_INCLUDES 296
-#define word 297
+#define EXTENMARK 279
+#define KW_GOTO 280
+#define KW_JUMP 281
+#define KW_RETURN 282
+#define KW_BREAK 283
+#define KW_CONTINUE 284
+#define KW_REGEXTEN 285
+#define KW_HINT 286
+#define KW_FOR 287
+#define KW_WHILE 288
+#define KW_CASE 289
+#define KW_PATTERN 290
+#define KW_DEFAULT 291
+#define KW_CATCH 292
+#define KW_SWITCHES 293
+#define KW_ESWITCHES 294
+#define KW_INCLUDES 295
+#define word 296
 
 
 
@@ -124,8 +132,8 @@ typedef union YYSTYPE
 	char	*str;		/* strings */
 	struct pval *pval;	/* full objects */
 }
-/* Line 1536 of yacc.c.  */
-#line 129 "ael.tab.h"
+/* Line 1529 of yacc.c.  */
+#line 137 "ael.tab.h"
 	YYSTYPE;
 # define yystype YYSTYPE /* obsolescent; will be withdrawn */
 # define YYSTYPE_IS_DECLARED 1
@@ -146,7 +154,5 @@ typedef struct YYLTYPE
 # define YYLTYPE_IS_DECLARED 1
 # define YYLTYPE_IS_TRIVIAL 1
 #endif
-
-
 
 

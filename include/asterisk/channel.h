@@ -118,7 +118,6 @@ extern "C" {
 #include "asterisk/stringfields.h"
 #include "asterisk/compiler.h"
 
-#define DATASTORE_INHERIT_FOREVER	INT_MAX
 
 #define AST_MAX_FDS		8
 /*
@@ -142,33 +141,13 @@ typedef unsigned long long ast_group_t;
 struct ast_generator {
 	void *(*alloc)(struct ast_channel *chan, void *params);
 	void (*release)(struct ast_channel *chan, void *data);
-	/*! This function gets called with the channel unlocked, but is called in
-	 *  the context of the channel thread so we know the channel is not going
-	 *  to disappear.  This callback is responsible for locking the channel as
-	 *  necessary. */
 	int (*generate)(struct ast_channel *chan, void *data, int len, int samples);
 };
 
 /*! \brief Structure for a data store type */
 struct ast_datastore_info {
 	const char *type;		/*!< Type of data store */
-	void *(*duplicate)(void *data); /*!< Duplicate item data (used for inheritance) */
 	void (*destroy)(void *data);	/*!< Destroy function */
-	/*!
-	 * \brief Fix up channel references
-	 *
-	 * \arg data The datastore data
-	 * \arg old_chan The old channel owning the datastore
-	 * \arg new_chan The new channel owning the datastore
-	 *
-	 * This is exactly like the fixup callback of the channel technology interface.
-	 * It allows a datastore to fix any pointers it saved to the owning channel
-	 * in case that the owning channel has changed.  Generally, this would happen
-	 * when the datastore is set to be inherited, and a masquerade occurs.
-	 *
-	 * \return nothing.
-	 */
-	void (*chan_fixup)(void *data, struct ast_channel *old_chan, struct ast_channel *new_chan);
 };
 
 /*! \brief Structure for a channel data store */
@@ -176,7 +155,6 @@ struct ast_datastore {
 	char *uid;		/*!< Unique data store identifier */
 	void *data;		/*!< Contained data */
 	const struct ast_datastore_info *info;	/*!< Data store type information */
-	unsigned int inheritance;	/*!Number of levels this item will continue to be inherited */
 	AST_LIST_ENTRY(ast_datastore) entry; /*!< Used for easy linking */
 };
 
@@ -286,13 +264,10 @@ struct ast_channel_tech {
 
 	/*! \brief Provide additional write items for CHANNEL() dialplan function */
 	int (* func_channel_write)(struct ast_channel *chan, char *function, char *data, const char *value);
-
-	/*! \brief Retrieve base channel (agent and local) */
-	struct ast_channel* (* get_base_channel)(struct ast_channel *chan);
-	
-	/*! \brief Set base channel (agent and local) */
-	int (* set_base_channel)(struct ast_channel *chan, struct ast_channel *base);
 };
+
+struct ast_channel_spy_list;
+struct ast_channel_whisper_buffer;
 
 #define	DEBUGCHAN_FLAG  0x80000000
 #define	FRAMECOUNT_INC(x)	( ((x) & DEBUGCHAN_FLAG) | (((x)+1) & ~DEBUGCHAN_FLAG) )
@@ -392,7 +367,7 @@ struct ast_channel {
 	int oldwriteformat;				/*!< Original writer format */
 	
 	int timingfd;					/*!< Timing fd */
-	int (*timingfunc)(const void *data);
+	int (*timingfunc)(void *data);
 	void *timingdata;
 
 	enum ast_channel_state _state;			/*!< State of line -- Don't write directly, use ast_setstate */
@@ -445,19 +420,15 @@ struct ast_channel {
 	int rawreadformat;				/*!< Raw read format */
 	int rawwriteformat;				/*!< Raw write format */
 
-	struct ast_audiohook_list *audiohooks;
-	void *unused; /*! This pointer should stay for Asterisk 1.4.  It just keeps the struct size the same
-			 *  for the sake of ABI compatability. */
-
+	struct ast_channel_spy_list *spies;		/*!< Chan Spy stuff */
+	struct ast_channel_whisper_buffer *whisper;	/*!< Whisper Paging buffer */
 	AST_LIST_ENTRY(ast_channel) chan_list;		/*!< For easy linking */
 	
 	struct ast_jb jb;				/*!< The jitterbuffer state  */
 
 	char emulate_dtmf_digit;			/*!< Digit being emulated */
 	unsigned int emulate_dtmf_duration;	/*!< Number of ms left to emulate DTMF for */
-	struct timeval dtmf_tv;       /*!< The time that an in process digit began, or the last digit ended */
-
-	int visible_indication;                         /*!< Indication currently playing on the channel */
+	struct timeval dtmf_begin_tv;       /*!< The time that an in process digit began */
 
 	/*! \brief Data stores on the channel */
 	AST_LIST_HEAD_NOLOCK(datastores, ast_datastore) datastores;
@@ -507,9 +478,6 @@ enum {
 	/*! This is set to tell the channel not to generate DTMF begin frames, and
 	 *  to instead only generate END frames. */
 	AST_FLAG_END_DTMF_ONLY = (1 << 14),
-	/*! This flag indicates that on a masquerade, an active stream should not
-	 *  be carried over */
-	AST_FLAG_MASQ_NOSTREAM = (1 << 15),
 };
 
 /*! \brief ast_bridge_config flags */
@@ -595,9 +563,6 @@ struct ast_datastore *ast_channel_datastore_alloc(const struct ast_datastore_inf
 /*! \brief Free a channel datastore structure */
 int ast_channel_datastore_free(struct ast_datastore *datastore);
 
-/*! \brief Inherit datastores from a parent to a child. */
-int ast_channel_datastore_inherit(struct ast_channel *from, struct ast_channel *to);
-
 /*! \brief Add a datastore to a channel */
 int ast_channel_datastore_add(struct ast_channel *chan, struct ast_datastore *datastore);
 
@@ -616,7 +581,7 @@ int ast_setstate(struct ast_channel *chan, enum ast_channel_state);
 	by default set to the "default" context and
 	extension "s"
  */
-struct ast_channel *ast_channel_alloc(int needqueue, int state, const char *cid_num, const char *cid_name, const char *acctcode, const char *exten, const char *context, const int amaflag, const char *name_fmt, ...);
+struct ast_channel *ast_channel_alloc(int needalertpipe, int state, const char *cid_num, const char *cid_name, const char *name_fmt, ...);
 
 /*! \brief Queue an outgoing frame */
 int ast_queue_frame(struct ast_channel *chan, struct ast_frame *f);
@@ -1134,9 +1099,6 @@ int ast_activate_generator(struct ast_channel *chan, struct ast_generator *gen, 
 /*! Deactive an active generator */
 void ast_deactivate_generator(struct ast_channel *chan);
 
-/*!
- * \note The channel does not need to be locked before calling this function.
- */
 void ast_set_callerid(struct ast_channel *chan, const char *cidnum, const char *cidname, const char *ani);
 
 
@@ -1170,7 +1132,7 @@ int ast_autoservice_stop(struct ast_channel *chan);
 
 /* If built with zaptel optimizations, force a scheduled expiration on the
    timer fd, at which point we call the callback function / data */
-int ast_settimeout(struct ast_channel *c, int samples, int (*func)(const void *data), void *data);
+int ast_settimeout(struct ast_channel *c, int samples, int (*func)(void *data), void *data);
 
 /*!	\brief Transfer a channel (if supported).  Returns -1 on error, 0 if not supported
    and 1 if supported and requested 
@@ -1340,10 +1302,17 @@ static inline int ast_select(int nfds, fd_set *rfds, fd_set *wfds, fd_set *efds,
 #endif
 }
 
+#ifdef DO_CRASH
+#define CRASH do { fprintf(stderr, "!! Forcing immediate crash a-la abort !!\n"); *((int *)0) = 0; } while(0)
+#else
+#define CRASH do { } while(0)
+#endif
+
 #define CHECK_BLOCKING(c) do { 	 \
 	if (ast_test_flag(c, AST_FLAG_BLOCKING)) {\
 		if (option_debug) \
 			ast_log(LOG_DEBUG, "Thread %ld Blocking '%s', already blocked by thread %ld in procedure %s\n", (long) pthread_self(), (c)->name, (long) (c)->blocker, (c)->blockproc); \
+		CRASH; \
 	} else { \
 		(c)->blocker = pthread_self(); \
 		(c)->blockproc = __PRETTY_FUNCTION__; \
@@ -1395,16 +1364,6 @@ int ast_channel_whisper_feed(struct ast_channel *chan, struct ast_frame *f);
   calling this function.
  */
 void ast_channel_whisper_stop(struct ast_channel *chan);
-
-
-
-/*!
-  \brief return an english explanation of the code returned thru __ast_request_and_dial's 'outstate' argument
-  \param reason  The integer argument, usually taken from AST_CONTROL_ macros
-  \return char pointer explaining the code
- */
-char *ast_channel_reason2str(int reason);
-
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

@@ -27,7 +27,7 @@
 
 #if defined(DEBUG_THREADLOCALS)
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 91192 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49553 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,15 +50,13 @@ struct tls_object {
 	AST_LIST_ENTRY(tls_object) entry;
 };
 
-static AST_LIST_HEAD_NOLOCK_STATIC(tls_objects, tls_object);
-AST_MUTEX_DEFINE_STATIC_NOTRACKING(threadstoragelock);
-
+static AST_LIST_HEAD_STATIC(tls_objects, tls_object);
 
 void __ast_threadstorage_object_add(void *key, size_t len, const char *file, const char *function, unsigned int line)
 {
 	struct tls_object *to;
 
-	if (!(to = ast_calloc(1, sizeof(*to))))
+	if (!(to = ast_calloc(sizeof(*to), 1)))
 		return;
 
 	to->key = key;
@@ -68,16 +66,16 @@ void __ast_threadstorage_object_add(void *key, size_t len, const char *file, con
 	to->line = line;
 	to->thread = pthread_self();
 
-	ast_mutex_lock(&threadstoragelock);
+	AST_LIST_LOCK(&tls_objects);
 	AST_LIST_INSERT_TAIL(&tls_objects, to, entry);
-	ast_mutex_unlock(&threadstoragelock);
+	AST_LIST_UNLOCK(&tls_objects);
 }
 
 void __ast_threadstorage_object_remove(void *key)
 {
 	struct tls_object *to;
 
-	ast_mutex_lock(&threadstoragelock);
+	AST_LIST_LOCK(&tls_objects);
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&tls_objects, to, entry) {
 		if (to->key == key) {
 			AST_LIST_REMOVE_CURRENT(&tls_objects, entry);
@@ -85,7 +83,7 @@ void __ast_threadstorage_object_remove(void *key)
 		}
 	}
 	AST_LIST_TRAVERSE_SAFE_END;
-	ast_mutex_unlock(&threadstoragelock);
+	AST_LIST_UNLOCK(&tls_objects);
 	if (to)
 		free(to);
 }
@@ -94,7 +92,7 @@ void __ast_threadstorage_object_replace(void *key_old, void *key_new, size_t len
 {
 	struct tls_object *to;
 
-	ast_mutex_lock(&threadstoragelock);
+	AST_LIST_LOCK(&tls_objects);
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&tls_objects, to, entry) {
 		if (to->key == key_old) {
 			to->key = key_new;
@@ -103,7 +101,7 @@ void __ast_threadstorage_object_replace(void *key_old, void *key_new, size_t len
 		}
 	}
 	AST_LIST_TRAVERSE_SAFE_END;
-	ast_mutex_unlock(&threadstoragelock);
+	AST_LIST_UNLOCK(&tls_objects);
 }
 
 static int handle_show_allocations(int fd, int argc, char *argv[])
@@ -116,7 +114,7 @@ static int handle_show_allocations(int fd, int argc, char *argv[])
 	if (argc > 3)
 		fn = argv[3];
 
-	ast_mutex_lock(&threadstoragelock);
+	AST_LIST_LOCK(&tls_objects);
 
 	AST_LIST_TRAVERSE(&tls_objects, to, entry) {
 		if (fn && strcasecmp(to->file, fn))
@@ -128,7 +126,7 @@ static int handle_show_allocations(int fd, int argc, char *argv[])
 		count++;
 	}
 
-	ast_mutex_unlock(&threadstoragelock);
+	AST_LIST_UNLOCK(&tls_objects);
 
 	ast_cli(fd, "%10d bytes allocated in %d allocation%s\n", (int) len, count, count > 1 ? "s" : "");
 	
@@ -152,7 +150,7 @@ static int handle_show_summary(int fd, int argc, char *argv[])
 	if (argc > 3)
 		fn = argv[3];
 
-	ast_mutex_lock(&threadstoragelock);
+	AST_LIST_LOCK(&tls_objects);
 
 	AST_LIST_TRAVERSE(&tls_objects, to, entry) {
 		if (fn && strcasecmp(to->file, fn))
@@ -174,7 +172,7 @@ static int handle_show_summary(int fd, int argc, char *argv[])
 		file->count++;
 	}
 
-	ast_mutex_unlock(&threadstoragelock);
+	AST_LIST_UNLOCK(&tls_objects);
 	
 	AST_LIST_TRAVERSE(&file_summary, file, entry) {
 		len += file->len;

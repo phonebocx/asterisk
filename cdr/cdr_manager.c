@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 50346 $")
 
 #include <sys/types.h>
 #include <strings.h>
@@ -95,17 +95,17 @@ static int manager_log(struct ast_cdr *cdr)
 		return 0;
 
 	t = cdr->start.tv_sec;
-	ast_localtime(&t, &timeresult, NULL);
+	localtime_r(&t, &timeresult);
 	strftime(strStartTime, sizeof(strStartTime), DATE_FORMAT, &timeresult);
 	
 	if (cdr->answer.tv_sec)	{
     		t = cdr->answer.tv_sec;
-    		ast_localtime(&t, &timeresult, NULL);
+    		localtime_r(&t, &timeresult);
 		strftime(strAnswerTime, sizeof(strAnswerTime), DATE_FORMAT, &timeresult);
 	}
 
 	t = cdr->end.tv_sec;
-	ast_localtime(&t, &timeresult, NULL);
+	localtime_r(&t, &timeresult);
 	strftime(strEndTime, sizeof(strEndTime), DATE_FORMAT, &timeresult);
 
 	manager_event(EVENT_FLAG_CALL, "Cdr",

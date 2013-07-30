@@ -25,7 +25,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 101531 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49676 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,7 +47,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 101531 $")
 #include "asterisk/app.h"
 #include "asterisk/utils.h"
 #include "asterisk/config.h"
-#include "asterisk/options.h"
 
 AST_MUTEX_DEFINE_STATIC(monitorlock);
 
@@ -75,13 +74,8 @@ static char *monitor_descrip = "Monitor([file_format[:urlbase]|[fname_base]|[opt
 "    m   - when the recording ends mix the two leg files into one and\n"
 "          delete the two leg files.  If the variable MONITOR_EXEC is set, the\n"
 "          application referenced in it will be executed instead of\n"
-#ifdef HAVE_SOXMIX
 "          soxmix and the raw leg files will NOT be deleted automatically.\n"
 "          soxmix or MONITOR_EXEC is handed 3 arguments, the two leg files\n"
-#else
-"          sox and the raw leg files will NOT be deleted automatically.\n"
-"          sox or MONITOR_EXEC is handed 3 arguments, the two leg files\n"
-#endif
 "          and a target mixed file name which is the same as the leg file names\n"
 "          only without the in/out designator.\n"
 "          If MONITOR_EXEC_ARGS is set, the contents will be passed on as\n"
@@ -157,7 +151,6 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 		/* Determine file names */
 		if (!ast_strlen_zero(fname_base)) {
 			int directory = strchr(fname_base, '/') ? 1 : 0;
-			const char *absolute = *fname_base == '/' ? "" : "/";
 			/* try creating the directory just in case it doesn't exist */
 			if (directory) {
 				char *name = strdup(fname_base);
@@ -165,10 +158,10 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 				free(name);
 				ast_safe_system(tmp);
 			}
-			snprintf(monitor->read_filename, FILENAME_MAX, "%s%s%s-in",
-						directory ? "" : ast_config_AST_MONITOR_DIR, absolute, fname_base);
-			snprintf(monitor->write_filename, FILENAME_MAX, "%s%s%s-out",
-						directory ? "" : ast_config_AST_MONITOR_DIR, absolute, fname_base);
+			snprintf(monitor->read_filename, FILENAME_MAX, "%s/%s-in",
+						directory ? "" : ast_config_AST_MONITOR_DIR, fname_base);
+			snprintf(monitor->write_filename, FILENAME_MAX, "%s/%s-out",
+						directory ? "" : ast_config_AST_MONITOR_DIR, fname_base);
 			ast_copy_string(monitor->filename_base, fname_base, sizeof(monitor->filename_base));
 		} else {
 			ast_mutex_lock(&monitorlock);
@@ -302,16 +295,11 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 			int directory = strchr(name, '/') ? 1 : 0;
 			char *dir = directory ? "" : ast_config_AST_MONITOR_DIR;
 			const char *execute, *execute_args;
-			const char *absolute = *name == '/' ? "" : "/";
 
 			/* Set the execute application */
 			execute = pbx_builtin_getvar_helper(chan, "MONITOR_EXEC");
-			if (ast_strlen_zero(execute)) {
-#ifdef HAVE_SOXMIX
+			if (ast_strlen_zero(execute)) { 
 				execute = "nice -n 19 soxmix";
-#else
-				execute = "nice -n 19 sox -m";
-#endif
 				format = get_soxmix_format(format);
 				delfiles = 1;
 			} 
@@ -320,9 +308,9 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 				execute_args = "";
 			}
 			
-			snprintf(tmp, sizeof(tmp), "%s \"%s%s%s-in.%s\" \"%s%s%s-out.%s\" \"%s%s%s.%s\" %s &", execute, dir, absolute, name, format, dir, absolute, name, format, dir, absolute, name, format,execute_args);
+			snprintf(tmp, sizeof(tmp), "%s \"%s/%s-in.%s\" \"%s/%s-out.%s\" \"%s/%s.%s\" %s &", execute, dir, name, format, dir, name, format, dir, name, format,execute_args);
 			if (delfiles) {
-				snprintf(tmp2,sizeof(tmp2), "( %s& rm -f \"%s%s%s-\"* ) &",tmp, dir, absolute, name); /* remove legs when done mixing */
+				snprintf(tmp2,sizeof(tmp2), "( %s& rm -f \"%s/%s-\"* ) &",tmp, dir ,name); /* remove legs when done mixing */
 				ast_copy_string(tmp, tmp2, sizeof(tmp));
 			}
 			ast_log(LOG_DEBUG,"monitor executing %s\n",tmp);
@@ -376,18 +364,6 @@ int ast_monitor_change_fname(struct ast_channel *chan, const char *fname_base, i
 
 	if (chan->monitor) {
 		int directory = strchr(fname_base, '/') ? 1 : 0;
-		const char *absolute = *fname_base == '/' ? "" : "/";
-		char tmpstring[sizeof(chan->monitor->filename_base)] = "";
-
-		/* before continuing, see if we're trying to rename the file to itself... */
-		snprintf(tmpstring, sizeof(tmpstring), "%s%s%s", directory ? "" : ast_config_AST_MONITOR_DIR, absolute, fname_base);
-		if (!strcmp(tmpstring, chan->monitor->filename_base)) {
-			if (option_debug > 2)
-				ast_log(LOG_DEBUG, "No need to rename monitor filename to itself\n");
-			UNLOCK_IF_NEEDED(chan, need_lock);
-			return 0;
-		}
-
 		/* try creating the directory just in case it doesn't exist */
 		if (directory) {
 			char *name = strdup(fname_base);
@@ -396,8 +372,7 @@ int ast_monitor_change_fname(struct ast_channel *chan, const char *fname_base, i
 			ast_safe_system(tmp);
 		}
 
-		ast_copy_string(chan->monitor->filename_base, tmpstring, sizeof(chan->monitor->filename_base));
-		chan->monitor->filename_changed = 1;
+		snprintf(chan->monitor->filename_base, FILENAME_MAX, "%s/%s", directory ? "" : ast_config_AST_MONITOR_DIR, fname_base);
 	} else {
 		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to %s, monitoring not started\n", chan->name, fname_base);
 	}
@@ -648,7 +623,7 @@ static int do_pause_or_unpause(struct mansession *s, const struct message *m, in
 		ast_monitor_unpause(c);
 	
 	ast_channel_unlock(c);
-	astman_send_ack(s, m, (action == MONITOR_ACTION_PAUSE ? "Paused monitoring of the channel" : "Unpaused monitoring of the channel"));
+	astman_send_ack(s, m, "Paused monitoring of the channel");
 	return 0;	
 }
 

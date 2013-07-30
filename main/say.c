@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 94420 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57620 $")
 
 #include <sys/types.h>
 #include <string.h>
@@ -67,7 +67,7 @@ static int say_character_str_full(struct ast_channel *chan, const char *str, con
 	int num = 0;
 	int res = 0;
 
-	while (str[num] && !res) {
+	while (str[num]) {
 		fn = NULL;
 		switch (str[num]) {
 		case ('*'):
@@ -124,16 +124,10 @@ static int say_character_str_full(struct ast_channel *chan, const char *str, con
 			fnbuf[8] = ltr;
 			fn = fnbuf;
 		}
-		if (fn && ast_fileexists(fn, NULL, lang) > 0) {
-			res = ast_streamfile(chan, fn, lang);
-			if (!res) {
-				if ((audiofd  > -1) && (ctrlfd > -1))
-					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
-				else
-					res = ast_waitstream(chan, ints);
-			}
-			ast_stopstream(chan);
-		}
+		res = ast_streamfile(chan, fn, lang);
+		if (!res) 
+			res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
+		ast_stopstream(chan);
 		num++;
 	}
 
@@ -148,7 +142,7 @@ static int say_phonetic_str_full(struct ast_channel *chan, const char *str, cons
 	int num = 0;
 	int res = 0;
 
-	while (str[num] && !res) {
+	while (str[num]) {
 		fn = NULL;
 		switch (str[num]) {
 		case ('*'):
@@ -204,16 +198,10 @@ static int say_phonetic_str_full(struct ast_channel *chan, const char *str, cons
 			fnbuf[9] = ltr;
 			fn = fnbuf;
 		}
-		if (fn && ast_fileexists(fn, NULL, lang) > 0) {
-			res = ast_streamfile(chan, fn, lang);
-			if (!res) {
-				if ((audiofd  > -1) && (ctrlfd > -1))
-					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
-				else
-					res = ast_waitstream(chan, ints);
-			}
-			ast_stopstream(chan);
-		}
+		res = ast_streamfile(chan, fn, lang);
+		if (!res) 
+			res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
+		ast_stopstream(chan);
 		num++;
 	}
 
@@ -254,14 +242,10 @@ static int say_digit_str_full(struct ast_channel *chan, const char *str, const c
 			fn = fnbuf;
 			break;
 		}
-		if (fn && ast_fileexists(fn, NULL, lang) > 0) {
+		if (fn) {
 			res = ast_streamfile(chan, fn, lang);
-			if (!res) {
-				if ((audiofd  > -1) && (ctrlfd > -1))
-					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
-				else
-					res = ast_waitstream(chan, ints);
-			}
+			if (!res) 
+				res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 			ast_stopstream(chan);
 		}
 		num++;
@@ -468,7 +452,7 @@ static int ast_say_number_full_en(struct ast_channel *chan, int num, const char 
 	if (!num) 
 		return ast_say_digits_full(chan, 0,ints, language, audiofd, ctrlfd);
 
-	while (!res && (num || playh)) {
+	while(!res && (num || playh)) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus");
 			if ( num > INT_MIN ) {
@@ -512,7 +496,7 @@ static int ast_say_number_full_en(struct ast_channel *chan, int num, const char 
 			}
 		}
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd  > -1) && (ctrlfd > -1))
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else
@@ -570,7 +554,7 @@ static int ast_say_number_full_cz(struct ast_channel *chan, int num, const char 
 	if (!num) 
 		return ast_say_digits_full(chan, 0,ints, language, audiofd, ctrlfd);
 	
-	while (!res && (num || playh)) {
+	while(!res && (num || playh)) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus");
 			if ( num > INT_MIN ) {
@@ -634,7 +618,7 @@ static int ast_say_number_full_cz(struct ast_channel *chan, int num, const char 
 			num -= left * (exp10_int(length-1));
 		}
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1)) {
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				} else {
@@ -663,7 +647,7 @@ static int ast_say_number_full_da(struct ast_channel *chan, int num, const char 
 
 	if (options && !strncasecmp(options, "n",1)) cn = -1;
 
-	while (!res && (num || playh || playa )) {
+	while(!res && (num || playh || playa )) {
 		/* The grammar for Danish numbers is the same as for English except
 		* for the following:
 		* - 1 exists in both commune ("en", file "1N") and neuter ("et", file "1")
@@ -743,7 +727,7 @@ static int ast_say_number_full_da(struct ast_channel *chan, int num, const char 
 			}
 		}
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1)) 
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else  
@@ -776,7 +760,7 @@ static int ast_say_number_full_de(struct ast_channel *chan, int num, const char 
 	if (options && (!strncasecmp(options, "f",1)))
 		mf = -1;
 
-	while (!res && num) {
+	while(!res && num) {
 		/* The grammar for German numbers is the same as for English except
 		* for the following:
 		* - numbers 20 through 99 are said in reverse order, i.e. 21 is
@@ -873,7 +857,7 @@ static int ast_say_number_full_de(struct ast_channel *chan, int num, const char 
 			res = -1;
 		}
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1)) 
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else  
@@ -908,7 +892,7 @@ static int ast_say_number_full_en_GB(struct ast_channel *chan, int num, const ch
 	if (!num) 
 		return ast_say_digits_full(chan, 0,ints, language, audiofd, ctrlfd);
 
-	while (!res && (num || playh || playa )) {
+	while(!res && (num || playh || playa )) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus");
 			if ( num > INT_MIN ) {
@@ -959,7 +943,7 @@ static int ast_say_number_full_en_GB(struct ast_channel *chan, int num, const ch
 		}
 		
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1)) 
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else  
@@ -1063,7 +1047,7 @@ static int ast_say_number_full_es(struct ast_channel *chan, int num, const char 
 		}
 
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1))
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else
@@ -1094,7 +1078,7 @@ static int ast_say_number_full_fr(struct ast_channel *chan, int num, const char 
 	if (options && !strncasecmp(options, "f",1))
 		mf = -1;
 
-	while (!res && (num || playh || playa)) {
+	while(!res && (num || playh || playa)) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus");
 			if ( num > INT_MIN ) {
@@ -1155,7 +1139,7 @@ static int ast_say_number_full_fr(struct ast_channel *chan, int num, const char 
 			res = -1;
 		}
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1))
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else
@@ -1233,7 +1217,7 @@ static int ast_say_number_full_he(struct ast_channel *chan, int num,
 		mf = -1;
 
 	/* Do we have work to do? */
-	while (!res && (num || (state>0) ))  {
+	while(!res && (num || (state>0) ))  {
 		/* first type of work: play a second sound. In this loop
 		 * we can only play one sound file at a time. Thus playing 
 		 * a second one requires repeating the loop just for the 
@@ -1304,7 +1288,7 @@ static int ast_say_number_full_he(struct ast_channel *chan, int num,
 			res = -1;
 		}
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1))
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else
@@ -1351,7 +1335,7 @@ static int ast_say_number_full_it(struct ast_channel *chan, int num, const char 
 		So the right file is provided.
 		*/
 
-		while (!res && (num || playh)) {
+		while(!res && (num || playh)) {
 			if (num < 0) {
 				snprintf(fn, sizeof(fn), "digits/minus");
 				if ( num > INT_MIN ) {
@@ -1457,7 +1441,7 @@ static int ast_say_number_full_it(struct ast_channel *chan, int num, const char 
 				}
 			}
 			if (!res) {
-				if (!ast_streamfile(chan, fn, language)) {
+				if(!ast_streamfile(chan, fn, language)) {
 					if ((audiofd > -1) && (ctrlfd > -1))
 						res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 					else
@@ -1506,35 +1490,21 @@ static int ast_say_number_full_nl(struct ast_channel *chan, int num, const char 
 				snprintf(fn, sizeof(fn), "digits/%d", num - units);
 				num = 0;
 			}
-		} else if (num < 200) {
-			/* hundred, not one-hundred */
-			ast_copy_string(fn, "digits/hundred", sizeof(fn));
-			num -= ((num / 100) * 100);
-		} else if (num < 1000) {
-			snprintf(fn, sizeof(fn), "digits/%d", num / 100);
-			playh++;
-			num -= ((num / 100) * 100);
 		} else {
-			if (num < 1100) {
-				/* thousand, not one-thousand */
-				num = num % 1000;
-				ast_copy_string(fn, "digits/thousand", sizeof(fn));
-			} else if (num < 10000)	{ /* 1,100 to 9,9999 */
-				res = ast_say_number_full_nl(chan, num / 100, ints, language, audiofd, ctrlfd);
-				if (res)
-					return res;
-				num = num % 100;
-				ast_copy_string(fn, "digits/hundred", sizeof(fn));
+			if (num < 1000) {
+				snprintf(fn, sizeof(fn), "digits/%d", (num/100));
+				playh++;
+				num -= ((num / 100) * 100);
 			} else {
 				if (num < 1000000) { /* 1,000,000 */
-					res = ast_say_number_full_nl(chan, num / 1000, ints, language, audiofd, ctrlfd);
+					res = ast_say_number_full_en(chan, num / 1000, ints, language, audiofd, ctrlfd);
 					if (res)
 						return res;
 					num = num % 1000;
 					snprintf(fn, sizeof(fn), "digits/thousand");
 				} else {
 					if (num < 1000000000) { /* 1,000,000,000 */
-						res = ast_say_number_full_nl(chan, num / 1000000, ints, language, audiofd, ctrlfd);
+						res = ast_say_number_full_en(chan, num / 1000000, ints, language, audiofd, ctrlfd);
 						if (res)
 							return res;
 						num = num % 1000000;
@@ -1548,7 +1518,7 @@ static int ast_say_number_full_nl(struct ast_channel *chan, int num, const char 
 		}
 
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1))
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else
@@ -1577,7 +1547,7 @@ static int ast_say_number_full_no(struct ast_channel *chan, int num, const char 
 	
 	if (options && !strncasecmp(options, "n",1)) cn = -1;
 
-	while (!res && (num || playh || playa )) {
+	while(!res && (num || playh || playa )) {
 		/* The grammar for Norwegian numbers is the same as for English except
 		* for the following:
 		* - 1 exists in both commune ("en", file "1") and neuter ("ett", file "1N")
@@ -1640,7 +1610,7 @@ static int ast_say_number_full_no(struct ast_channel *chan, int num, const char 
 		}
 		
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1)) 
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else  
@@ -1964,7 +1934,7 @@ static int ast_say_number_full_pt(struct ast_channel *chan, int num, const char 
 	if (options && !strncasecmp(options, "f",1))
 		mf = -1;
 
-	while (!res && num ) {
+	while(!res && num ) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus");
 			if ( num > INT_MIN ) {
@@ -2057,7 +2027,7 @@ static int ast_say_number_full_se(struct ast_channel *chan, int num, const char 
 		return ast_say_digits_full(chan, 0,ints, language, audiofd, ctrlfd);
 	if (options && !strncasecmp(options, "n",1)) cn = -1;
 
-	while (!res && (num || playh)) {
+	while(!res && (num || playh)) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus");
 			if ( num > INT_MIN ) {
@@ -2106,7 +2076,7 @@ static int ast_say_number_full_se(struct ast_channel *chan, int num, const char 
 			}
 		}
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1))
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else
@@ -2127,7 +2097,7 @@ static int ast_say_number_full_tw(struct ast_channel *chan, int num, const char 
 	if (!num)
 		return ast_say_digits_full(chan, 0,ints, language, audiofd, ctrlfd);
 
-	while (!res && (num || playh)) {
+	while(!res && (num || playh)) {
 			if (num < 0) {
 				snprintf(fn, sizeof(fn), "digits/minus");
 				if ( num > INT_MIN ) {
@@ -2171,7 +2141,7 @@ static int ast_say_number_full_tw(struct ast_channel *chan, int num, const char 
 				}
 			}
 			if (!res) {
-				if (!ast_streamfile(chan, fn, language)) {
+				if(!ast_streamfile(chan, fn, language)) {
 					if ((audiofd > -1) && (ctrlfd > -1))
 						res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 					else
@@ -2219,7 +2189,7 @@ static int ast_say_number_full_ru(struct ast_channel *chan, int num, const char 
 	if (!num) 
 		return ast_say_digits_full(chan, 0,ints, language, audiofd, ctrlfd);
 
-	while (!res && (num)) {
+	while(!res && (num)) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus");
 			if ( num > INT_MIN ) {
@@ -2228,7 +2198,7 @@ static int ast_say_number_full_ru(struct ast_channel *chan, int num, const char 
 				num = 0;
 			}	
 		} else	if (num < 20) {
-			if (options && strlen(options) == 1 && num < 3) {
+			if(options && strlen(options) == 1 && num < 3) {
 			    snprintf(fn, sizeof(fn), "digits/%d%s", num, options);
 			} else {
     			    snprintf(fn, sizeof(fn), "digits/%d", num);
@@ -2313,7 +2283,7 @@ static int ast_say_enumeration_full_en(struct ast_channel *chan, int num, const 
 	int res = 0, t = 0;
 	char fn[256] = "";
 	
-	while (!res && num) {
+	while(!res && num) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus"); /* kind of senseless for enumerations, but our best effort for error checking */
 			if ( num > INT_MIN ) {
@@ -2424,7 +2394,7 @@ static int ast_say_enumeration_full_da(struct ast_channel *chan, int num, const 
 	if (!num) 
 		return ast_say_digits_full(chan, 0,ints, language, audiofd, ctrlfd);
 
-	while (!res && num) {
+	while(!res && num) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus"); /* kind of senseless for enumerations, but our best effort for error checking */
 			if ( num > INT_MIN ) {
@@ -2587,7 +2557,7 @@ static int ast_say_enumeration_full_de(struct ast_channel *chan, int num, const 
 	if (!num) 
 		return ast_say_digits_full(chan, 0,ints, language, audiofd, ctrlfd);
 
-	while (!res && num) {
+	while(!res && num) {
 		if (num < 0) {
 			snprintf(fn, sizeof(fn), "digits/minus"); /* kind of senseless for enumerations, but our best effort for error checking */
 			if ( num > INT_MIN ) {
@@ -2942,8 +2912,8 @@ int ast_say_date_pt(struct ast_channel *chan, time_t t, const char *ints, const 
 	struct tm tm;
 	char fn[256];
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	ast_localtime(&t,&tm,NULL);
+	localtime_r(&t,&tm);
 	snprintf(fn, sizeof(fn), "digits/day-%d", tm.tm_wday);
 	if (!res)
 		res = wait_file(chan, ints, fn, lang);
@@ -4220,7 +4190,7 @@ int ast_say_date_with_format_fr(struct ast_channel *chan, time_t time, const cha
 				break;
 			case 'S':
 				/* Seconds */
-				res = ast_say_number(chan, tm.tm_sec, ints, lang, (char * ) NULL);
+				res = ast_say_number(chan, tm.tm_hour, ints, lang, (char * ) NULL);
 				if (!res) {
 					res = wait_file(chan,ints, "digits/second",lang);
 				}
@@ -4663,7 +4633,32 @@ int ast_say_date_with_format_nl(struct ast_channel *chan, time_t time, const cha
 				break;
 			case 'S':
 				/* Seconds */
-				res = ast_say_number(chan, tm.tm_sec, ints, lang, (char *) NULL);
+				if (tm.tm_sec == 0) {
+					snprintf(nextmsg,sizeof(nextmsg), "digits/%d", tm.tm_sec);
+					res = wait_file(chan,ints,nextmsg,lang);
+				} else if (tm.tm_sec < 10) {
+					res = wait_file(chan,ints, "digits/oh",lang);
+					if (!res) {
+						snprintf(nextmsg,sizeof(nextmsg), "digits/%d", tm.tm_sec);
+						res = wait_file(chan,ints,nextmsg,lang);
+					}
+				} else if ((tm.tm_sec < 21) || (tm.tm_sec % 10 == 0)) {
+					snprintf(nextmsg,sizeof(nextmsg), "digits/%d", tm.tm_sec);
+					res = wait_file(chan,ints,nextmsg,lang);
+				} else {
+					int ten, one;
+					ten = (tm.tm_sec / 10) * 10;
+					one = (tm.tm_sec % 10);
+					snprintf(nextmsg,sizeof(nextmsg), "digits/%d", ten);
+					res = wait_file(chan,ints,nextmsg,lang);
+					if (!res) {
+						/* Fifty, not fifty-zero */
+						if (one != 0) {
+							snprintf(nextmsg,sizeof(nextmsg), "digits/%d", one);
+							res = wait_file(chan,ints,nextmsg,lang);
+						}
+					}
+				}
 				break;
 			case 'T':
 				res = ast_say_date_with_format_nl(chan, time, ints, lang, "HMS", timezone);
@@ -4908,7 +4903,7 @@ int ast_say_date_with_format_pt(struct ast_channel *chan, time_t time, const cha
 	char sndfile[256], nextmsg[256];
 
 	if (format == NULL)
-		format = "Ad 'digits/pt-de' B 'digits/pt-de' Y I 'digits/pt-e' Mp";
+		format = "Ad 'digits/pt-de' B 'digits/pt-de' Y 'digits/at' IMp";
 
 	ast_localtime(&time,&tm,timezone);
 
@@ -4979,6 +4974,8 @@ int ast_say_date_with_format_pt(struct ast_channel *chan, time_t time, const cha
 						}
 						if (!res)
 							res = ast_say_number(chan, (tm.tm_hour % 12), ints, lang, "f");
+						if ((!res) && (format[offset] == 'I'))
+						res = ast_say_date_with_format(chan, time, ints, lang, "P", timezone);
 					}
 				} else {
 					if (tm.tm_hour == 0) {
@@ -5050,9 +5047,10 @@ int ast_say_date_with_format_pt(struct ast_channel *chan, time_t time, const cha
 						res = wait_file(chan, ints, "digits/pt-hora", lang);
 						if (tm.tm_hour != 1)
 							if (!res)
-								res = wait_file(chan, ints, "digits/pt-sss", lang);			
-					} else {
-						res = ast_say_number(chan, tm.tm_min, ints, lang, (char *) NULL);	
+								res = wait_file(chan, ints, "digits/pt-sss", lang);			} else {
+						res = wait_file(chan,ints,"digits/pt-e",lang);
+						if (!res)
+							res = ast_say_number(chan, tm.tm_min, ints, lang, (char *) NULL);	
 					}
 				}
 				break;
@@ -5198,7 +5196,7 @@ int ast_say_date_with_format_tw(struct ast_channel *chan, time_t time, const cha
 	char sndfile[256], nextmsg[256];
 
 	if (format == NULL)
-		format = "YBdAkM";
+		format = "YBdA 'digits/at' HM";
 
 	ast_localtime(&time,&tm,timezone);
 
@@ -5223,26 +5221,29 @@ int ast_say_date_with_format_tw(struct ast_channel *chan, time_t time, const cha
 			case 'B':
 			case 'b':
 			case 'h':
-			case 'm':
 				/* January - December */
 				snprintf(nextmsg,sizeof(nextmsg), "digits/mon-%d", tm.tm_mon);
+				res = wait_file(chan,ints,nextmsg,lang);
+				break;
+			case 'm':
+				/* First - Twelfth */
+				snprintf(nextmsg,sizeof(nextmsg), "digits/h-%d", tm.tm_mon +1);
 				res = wait_file(chan,ints,nextmsg,lang);
 				break;
 			case 'd':
 			case 'e':
 				/* First - Thirtyfirst */
 				if (!(tm.tm_mday % 10) || (tm.tm_mday < 10)) {
-					snprintf(nextmsg,sizeof(nextmsg), "digits/%d", tm.tm_mday);
+					snprintf(nextmsg,sizeof(nextmsg), "digits/h-%d", tm.tm_mday);
 					res = wait_file(chan,ints,nextmsg,lang);
 				} else {
-					snprintf(nextmsg,sizeof(nextmsg), "digits/%d", tm.tm_mday - (tm.tm_mday % 10));
+					snprintf(nextmsg,sizeof(nextmsg), "digits/h-%dh", tm.tm_mday - (tm.tm_mday % 10));
 					res = wait_file(chan,ints,nextmsg,lang);
-					if (!res) {
-						snprintf(nextmsg,sizeof(nextmsg), "digits/%d", tm.tm_mday % 10);
+					if(!res) {
+						snprintf(nextmsg,sizeof(nextmsg), "digits/h-%d", tm.tm_mday % 10);
 						res = wait_file(chan,ints,nextmsg,lang);
 					}
 				}
-				if (!res) res = wait_file(chan,ints,"digits/day",lang);
 				break;
 			case 'Y':
 				/* Year */
@@ -5312,12 +5313,12 @@ int ast_say_date_with_format_tw(struct ast_channel *chan, time_t time, const cha
 				}
 				break;
 			case 'H':
-                if (tm.tm_hour < 10) {
-                    res = wait_file(chan, ints, "digits/0", lang);
-                }
 			case 'k':
 				/* 24-Hour */
 				if (!(tm.tm_hour % 10) || tm.tm_hour < 10) {
+					if (tm.tm_hour < 10) {
+						res = wait_file(chan, ints, "digits/0", lang);
+					}
 					snprintf(nextmsg,sizeof(nextmsg), "digits/%d", tm.tm_hour);
 					res = wait_file(chan,ints,nextmsg,lang);
 				} else {
@@ -5418,7 +5419,7 @@ int ast_say_date_with_format_tw(struct ast_channel *chan, time_t time, const cha
 				}
 				break;
 			case 'R':
-				res = ast_say_date_with_format_tw(chan, time, ints, lang, "kM", timezone);
+				res = ast_say_date_with_format_tw(chan, time, ints, lang, "HM", timezone);
 				break;
 			case 'S':
 				/* Seconds */
@@ -5491,8 +5492,7 @@ int ast_say_time_en(struct ast_channel *chan, time_t t, const char *ints, const 
 	struct tm tm;
 	int res = 0;
 	int hour, pm=0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	hour = tm.tm_hour;
 	if (!hour)
 		hour = 12;
@@ -5538,8 +5538,7 @@ int ast_say_time_de(struct ast_channel *chan, time_t t, const char *ints, const 
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	if (!res)
 		res = ast_say_number(chan, tm.tm_hour, ints, lang, "n");
 	if (!res)
@@ -5557,8 +5556,7 @@ int ast_say_time_fr(struct ast_channel *chan, time_t t, const char *ints, const 
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 
 	res = ast_say_number(chan, tm.tm_hour, ints, lang, "f");
 	if (!res)
@@ -5575,8 +5573,7 @@ int ast_say_time_nl(struct ast_channel *chan, time_t t, const char *ints, const 
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	if (!res)
 		res = ast_say_number(chan, tm.tm_hour, ints, lang, (char *) NULL);
 	if (!res)
@@ -5595,8 +5592,7 @@ int ast_say_time_pt(struct ast_channel *chan, time_t t, const char *ints, const 
 	struct tm tm;
 	int res = 0;
 	int hour;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	hour = tm.tm_hour;
 	if (!res)
 		res = ast_say_number(chan, hour, ints, lang, "f");
@@ -5622,8 +5618,7 @@ int ast_say_time_pt_BR(struct ast_channel *chan, time_t t, const char *ints, con
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 
 	res = ast_say_number(chan, tm.tm_hour, ints, lang, "f");
 	if (!res) {
@@ -5652,8 +5647,7 @@ int ast_say_time_tw(struct ast_channel *chan, time_t t, const char *ints, const 
 	struct tm tm;
 	int res = 0;
 	int hour, pm=0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	hour = tm.tm_hour;
 	if (!hour)
 		hour = 12;
@@ -5720,8 +5714,7 @@ int ast_say_datetime_en(struct ast_channel *chan, time_t t, const char *ints, co
 	char fn[256];
 	int res = 0;
 	int hour, pm=0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	if (!res) {
 		snprintf(fn, sizeof(fn), "digits/day-%d", tm.tm_wday);
 		res = ast_streamfile(chan, fn, lang);
@@ -5784,8 +5777,7 @@ int ast_say_datetime_de(struct ast_channel *chan, time_t t, const char *ints, co
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	res = ast_say_date(chan, t, ints, lang);
 	if (!res) 
 		ast_say_time(chan, t, ints, lang);
@@ -5799,8 +5791,7 @@ int ast_say_datetime_fr(struct ast_channel *chan, time_t t, const char *ints, co
 	struct tm tm;
 	char fn[256];
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 
 	if (!res)
 		res = ast_say_number(chan, tm.tm_mday, ints, lang, (char *) NULL);
@@ -5838,8 +5829,7 @@ int ast_say_datetime_nl(struct ast_channel *chan, time_t t, const char *ints, co
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	res = ast_say_date(chan, t, ints, lang);
 	if (!res) {
 		res = ast_streamfile(chan, "digits/nl-om", lang);
@@ -5858,8 +5848,7 @@ int ast_say_datetime_pt(struct ast_channel *chan, time_t t, const char *ints, co
 	char fn[256];
 	int res = 0;
 	int hour, pm=0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	if (!res) {
 		snprintf(fn, sizeof(fn), "digits/day-%d", tm.tm_wday);
 		res = ast_streamfile(chan, fn, lang);
@@ -5922,8 +5911,7 @@ int ast_say_datetime_pt_BR(struct ast_channel *chan, time_t t, const char *ints,
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	res = ast_say_date(chan, t, ints, lang);
 	if (!res)
 		res = ast_say_time(chan, t, ints, lang);
@@ -5937,8 +5925,7 @@ int ast_say_datetime_tw(struct ast_channel *chan, time_t t, const char *ints, co
 	char fn[256];
 	int res = 0;
 	int hour, pm=0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	if (!res)
 		res = ast_say_number(chan, tm.tm_year + 1900, ints, lang, (char *) NULL);
 	if (!res) {
@@ -6017,8 +6004,8 @@ int ast_say_datetime_from_now_en(struct ast_channel *chan, time_t t, const char 
 
 	time(&nowt);
 
-	ast_localtime(&t, &tm, NULL);
-	ast_localtime(&nowt,&now, NULL);
+	localtime_r(&t,&tm);
+	localtime_r(&nowt,&now);
 	daydiff = now.tm_yday - tm.tm_yday;
 	if ((daydiff < 0) || (daydiff > 6)) {
 		/* Day of month and month */
@@ -6057,8 +6044,8 @@ int ast_say_datetime_from_now_fr(struct ast_channel *chan, time_t t, const char 
 
 	time(&nowt);
 
-	ast_localtime(&t, &tm, NULL);
-	ast_localtime(&nowt, &now, NULL);
+	localtime_r(&t,&tm);
+	localtime_r(&nowt,&now);
 	daydiff = now.tm_yday - tm.tm_yday;
 	if ((daydiff < 0) || (daydiff > 6)) {
 		/* Day of month and month */
@@ -6097,8 +6084,8 @@ int ast_say_datetime_from_now_pt(struct ast_channel *chan, time_t t, const char 
 
 	time(&nowt);
 
-	ast_localtime(&t, &tm, NULL);
-	ast_localtime(&nowt, &now, NULL);
+	localtime_r(&t,&tm);
+	localtime_r(&nowt,&now);
 	daydiff = now.tm_yday - tm.tm_yday;
 	if ((daydiff < 0) || (daydiff > 6)) {
 		/* Day of month and month */
@@ -6204,7 +6191,7 @@ static int ast_say_number_full_gr(struct ast_channel *chan, int num, const char 
 			return  ast_waitstream(chan, ints);
 	}
 
-	while (!res && num ) {
+	while(!res && num ) {
 		i++;
 		if (num < 13) {
 			snprintf(fn, sizeof(fn), "digits/%d", num);
@@ -6217,14 +6204,15 @@ static int ast_say_number_full_gr(struct ast_channel *chan, int num, const char 
 			/* 100 < num < 200 */
 			snprintf(fn, sizeof(fn), "digits/hundred-100");
 			num -= ((num / 100) * 100);
-		} else if (num < 1000) {
+		}else if (num < 1000) {
 			/* 200 < num < 1000 */
 			snprintf(fn, sizeof(fn), "digits/hundred-%d", (num/100)*100);
 			num -= ((num / 100) * 100);
-		} else if (num < 2000){
+		}else if (num < 2000){
 			snprintf(fn, sizeof(fn), "digits/xilia");
 			num -= ((num / 1000) * 1000);
-		} else {
+		}
+		else {
 			/* num >  1000 */ 
 			if (num < 1000000) {
 				res = ast_say_number_full_gr(chan, (num / 1000), ints, chan->language, audiofd, ctrlfd);
@@ -6246,7 +6234,7 @@ static int ast_say_number_full_gr(struct ast_channel *chan, int num, const char 
 			}
 		} 
 		if (!res) {
-			if (!ast_streamfile(chan, fn, language)) {
+			if(!ast_streamfile(chan, fn, language)) {
 				if ((audiofd > -1) && (ctrlfd > -1))
 					res = ast_waitstream_full(chan, ints, audiofd, ctrlfd);
 				else
@@ -6320,7 +6308,7 @@ static int ast_say_time_gr(struct ast_channel *chan, time_t t, const char *ints,
 	int res = 0;
 	int hour, pm=0;
 
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	hour = tm.tm_hour;
 
 	if (!hour)
@@ -6365,8 +6353,7 @@ static int ast_say_datetime_gr(struct ast_channel *chan, time_t t, const char *i
 	struct tm tm;
 	char fn[256];
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 
 	
 	/* W E E K - D A Y */
@@ -6739,9 +6726,6 @@ static int ast_say_number_full_ge(struct ast_channel *chan, int num, const char 
 {
 	int res = 0;
 	char fn[512] = "";
-	char* s = 0;
-	const char* remainder = fn;
-
 	if (!num)
 		return ast_say_digits_full(chan, 0, ints, language, audiofd, ctrlfd);
 
@@ -6749,6 +6733,8 @@ static int ast_say_number_full_ge(struct ast_channel *chan, int num, const char 
 	ast_translate_number_ge(num, fn, 512);
 
 
+	char* s = 0;
+	const char* remainder = fn;
 
 	while (res == 0 && (s = strstr(remainder, " "))) {
 		size_t len = s - remainder;
@@ -6769,7 +6755,7 @@ static int ast_say_number_full_ge(struct ast_channel *chan, int num, const char 
 		free(new_string);
 
 		remainder = s + 1;  /* position just after the found space char. */
-		while (*remainder == ' ')  /* skip multiple spaces */
+		while(*remainder == ' ')  /* skip multiple spaces */
 			remainder++;
 	}
 
@@ -6855,8 +6841,7 @@ static int ast_say_time_ge(struct ast_channel *chan, time_t t, const char *ints,
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 
 	res = ast_say_number(chan, tm.tm_hour, ints, lang, (char*)NULL);
 	if (!res) {
@@ -6886,8 +6871,7 @@ static int ast_say_datetime_ge(struct ast_channel *chan, time_t t, const char *i
 {
 	struct tm tm;
 	int res = 0;
-
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	res = ast_say_date(chan, t, ints, lang);
 	if (!res)
 		ast_say_time(chan, t, ints, lang);
@@ -6910,8 +6894,8 @@ static int ast_say_datetime_from_now_ge(struct ast_channel *chan, time_t t, cons
 
 	time(&nowt);
 
-	ast_localtime(&t, &tm, NULL);
-	ast_localtime(&nowt, &now, NULL);
+	localtime_r(&t,&tm);
+	localtime_r(&nowt,&now);
 	daydiff = now.tm_yday - tm.tm_yday;
 	if ((daydiff < 0) || (daydiff > 6)) {
 		/* Day of month and month */

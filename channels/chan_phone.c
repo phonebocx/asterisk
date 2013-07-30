@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 106235 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51788 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -45,9 +45,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 106235 $")
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <signal.h>
-#ifdef HAVE_LINUX_COMPILER_H
-#include <linux/compiler.h>
-#endif
 #include <linux/telephony.h>
 /* Still use some IXJ specific stuff */
 #include <linux/version.h>
@@ -213,24 +210,21 @@ static int phone_indicate(struct ast_channel *chan, int condition, const void *d
 	int res=-1;
 	ast_log(LOG_DEBUG, "Requested indication %d on channel %s\n", condition, chan->name);
 	switch(condition) {
-	case AST_CONTROL_FLASH:
-		ioctl(p->fd, IXJCTL_PSTN_SET_STATE, PSTN_ON_HOOK);
-		usleep(320000);
-		ioctl(p->fd, IXJCTL_PSTN_SET_STATE, PSTN_OFF_HOOK);
+		case AST_CONTROL_FLASH:
+			ioctl(p->fd, IXJCTL_PSTN_SET_STATE, PSTN_ON_HOOK);
+			usleep(320000);
+			ioctl(p->fd, IXJCTL_PSTN_SET_STATE, PSTN_OFF_HOOK);
 			p->lastformat = -1;
 			res = 0;
 			break;
-	case AST_CONTROL_HOLD:
-		ast_moh_start(chan, data, NULL);
-		break;
-	case AST_CONTROL_UNHOLD:
-		ast_moh_stop(chan);
-		break;
-	case AST_CONTROL_SRCUPDATE:
-		res = 0;
-		break;
-	default:
-		ast_log(LOG_WARNING, "Condition %d is not supported on channel %s\n", condition, chan->name);
+		case AST_CONTROL_HOLD:
+			ast_moh_start(chan, data, NULL);
+			break;
+		case AST_CONTROL_UNHOLD:
+			ast_moh_stop(chan);
+			break;
+		default:
+			ast_log(LOG_WARNING, "Condition %d is not supported on channel %s\n", condition, chan->name);
 	}
 	return res;
 }
@@ -301,7 +295,7 @@ static int phone_call(struct ast_channel *ast, char *dest, int timeout)
 	int start;
 
 	time(&UtcTime);
-	ast_localtime(&UtcTime, &tm, NULL);
+	localtime_r(&UtcTime,&tm);
 
 	memset(&cid, 0, sizeof(PHONE_CID));
 	if(&tm != NULL) {
@@ -832,7 +826,7 @@ static struct ast_channel *phone_new(struct phone_pvt *i, int state, char *conte
 {
 	struct ast_channel *tmp;
 	struct phone_codec_data codec;
-	tmp = ast_channel_alloc(1, state, i->cid_num, i->cid_name, "", i->ext, i->context, 0, "Phone/%s", i->dev + 5);
+	tmp = ast_channel_alloc(1, state, i->cid_num, i->cid_name, "Phone/%s", i->dev + 5);
 	if (tmp) {
 		tmp->tech = cur_tech;
 		tmp->fds[0] = i->fd;
@@ -870,7 +864,9 @@ static struct ast_channel *phone_new(struct phone_pvt *i, int state, char *conte
 
 		/* Don't use ast_set_callerid() here because it will
 		 * generate a NewCallerID event before the NewChannel event */
+		tmp->cid.cid_num = ast_strdup(i->cid_num);
 		tmp->cid.cid_ani = ast_strdup(i->cid_num);
+		tmp->cid.cid_name = ast_strdup(i->cid_name);
 
 		i->owner = tmp;
 		ast_module_ref(ast_module_info->self);
@@ -1048,7 +1044,7 @@ static void *do_monitor(void *data)
 		ast_mutex_unlock(&iflock);
 
 		/* Wait indefinitely for something to happen */
-		if (dotone && i && i->mode != MODE_SIGMA) {
+		if (dotone && i->mode != MODE_SIGMA) {
 			/* If we're ready to recycle the time, set it to 30 ms */
 			tonepos += 240;
 			if (tonepos >= sizeof(DialTone))
@@ -1264,8 +1260,7 @@ static int __unload_module(void)
 {
 	struct phone_pvt *p, *pl;
 	/* First, take us out of the channel loop */
-	if (cur_tech)
-		ast_channel_unregister(cur_tech);
+	ast_channel_unregister(cur_tech);
 	if (!ast_mutex_lock(&iflock)) {
 		/* Hangup all interfaces if they have an owner */
 		p = iflist;
@@ -1338,7 +1333,7 @@ static int load_module(void)
 	if (ast_mutex_lock(&iflock)) {
 		/* It's a little silly to lock it, but we mind as well just to be sure */
 		ast_log(LOG_ERROR, "Unable to lock interface list???\n");
-		return AST_MODULE_LOAD_FAILURE;
+		return -1;
 	}
 	v = ast_variable_browse(cfg, "interfaces");
 	while(v) {
@@ -1354,7 +1349,7 @@ static int load_module(void)
 					ast_config_destroy(cfg);
 					ast_mutex_unlock(&iflock);
 					__unload_module();
-					return AST_MODULE_LOAD_FAILURE;
+					return -1;
 				}
 		} else if (!strcasecmp(v->name, "silencesupression")) {
 			silencesupression = ast_true(v->value);
@@ -1422,12 +1417,12 @@ static int load_module(void)
 		ast_log(LOG_ERROR, "Unable to register channel class 'Phone'\n");
 		ast_config_destroy(cfg);
 		__unload_module();
-		return AST_MODULE_LOAD_FAILURE;
+		return -1;
 	}
 	ast_config_destroy(cfg);
 	/* And start the monitor for the first time */
 	restart_monitor();
-	return AST_MODULE_LOAD_SUCCESS;
+	return 0;
 }
 
 AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Linux Telephony API Support");

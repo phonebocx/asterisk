@@ -26,13 +26,12 @@
 
 /*** MODULEINFO
 	<depend>unixodbc</depend>
-	<depend>ltdl</depend>
 	<depend>res_odbc</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 87262 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53780 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -83,7 +82,6 @@ static SQLHSTMT generic_prepare(struct odbc_obj *obj, void *data)
 	res = SQLPrepare(stmt, (unsigned char *)sql, SQL_NTS);
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 		ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", sql);
-		SQLCloseCursor(stmt);
 		SQLFreeHandle (SQL_HANDLE_STMT, stmt);
 		return NULL;
 	}
@@ -99,7 +97,7 @@ static int acf_odbc_write(struct ast_channel *chan, char *cmd, char *s, const ch
 	struct odbc_obj *obj;
 	struct acf_odbc_query *query;
 	char *t, buf[2048]="", varname[15];
-	int i, bogus_chan = 0;
+	int i;
 	AST_DECLARE_APP_ARGS(values,
 		AST_APP_ARG(field)[100];
 	);
@@ -130,24 +128,12 @@ static int acf_odbc_write(struct ast_channel *chan, char *cmd, char *s, const ch
 		return -1;
 	}
 
-	if (!chan) {
-		if ((chan = ast_channel_alloc(0, 0, "", "", "", "", "", 0, "Bogus/func_odbc")))
-			bogus_chan = 1;
-	}
-
-	if (chan)
-		ast_autoservice_start(chan);
-
 	/* Parse our arguments */
 	t = value ? ast_strdupa(value) : "";
 
 	if (!s || !t) {
 		ast_log(LOG_ERROR, "Out of memory\n");
 		AST_LIST_UNLOCK(&queries);
-		if (chan)
-			ast_autoservice_stop(chan);
-		if (bogus_chan)
-			ast_channel_free(chan);
 		return -1;
 	}
 
@@ -198,17 +184,10 @@ static int acf_odbc_write(struct ast_channel *chan, char *cmd, char *s, const ch
 	snprintf(varname, sizeof(varname), "%d", (int)rows);
 	pbx_builtin_setvar_helper(chan, "ODBCROWS", varname);
 
-	if (stmt) {
-		SQLCloseCursor(stmt);
+	if (stmt)
 		SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-	}
 	if (obj)
 		ast_odbc_release_obj(obj);
-
-	if (chan)
-		ast_autoservice_stop(chan);
-	if (bogus_chan)
-		ast_channel_free(chan);
 
 	return 0;
 }
@@ -218,7 +197,7 @@ static int acf_odbc_read(struct ast_channel *chan, char *cmd, char *s, char *buf
 	struct odbc_obj *obj;
 	struct acf_odbc_query *query;
 	char sql[2048] = "", varname[15];
-	int res, x, buflen = 0, escapecommas, bogus_chan = 0;
+	int res, x, buflen = 0, escapecommas;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(field)[100];
 	);
@@ -247,14 +226,6 @@ static int acf_odbc_read(struct ast_channel *chan, char *cmd, char *s, char *buf
 		return -1;
 	}
 
-	if (!chan) {
-		if ((chan = ast_channel_alloc(0, 0, "", "", "", "", "", 0, "Bogus/func_odbc")))
-			bogus_chan = 1;
-	}
-
-	if (chan)
-		ast_autoservice_start(chan);
-
 	AST_STANDARD_APP_ARGS(args, s);
 	for (x = 0; x < args.argc; x++) {
 		snprintf(varname, sizeof(varname), "ARG%d", x + 1);
@@ -278,23 +249,14 @@ static int acf_odbc_read(struct ast_channel *chan, char *cmd, char *s, char *buf
 
 	if (!stmt) {
 		ast_odbc_release_obj(obj);
-		if (chan)
-			ast_autoservice_stop(chan);
-		if (bogus_chan)
-			ast_channel_free(chan);
 		return -1;
 	}
 
 	res = SQLNumResultCols(stmt, &colcount);
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 		ast_log(LOG_WARNING, "SQL Column Count error!\n[%s]\n\n", sql);
-		SQLCloseCursor(stmt);
 		SQLFreeHandle (SQL_HANDLE_STMT, stmt);
 		ast_odbc_release_obj(obj);
-		if (chan)
-			ast_autoservice_stop(chan);
-		if (bogus_chan)
-			ast_channel_free(chan);
 		return -1;
 	}
 
@@ -311,13 +273,8 @@ static int acf_odbc_read(struct ast_channel *chan, char *cmd, char *s, char *buf
 		} else if (option_verbose > 3) {
 			ast_log(LOG_WARNING, "Error %d in FETCH [%s]\n", res, sql);
 		}
-		SQLCloseCursor(stmt);
 		SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 		ast_odbc_release_obj(obj);
-		if (chan)
-			ast_autoservice_stop(chan);
-		if (bogus_chan)
-			ast_channel_free(chan);
 		return res1;
 	}
 
@@ -334,13 +291,8 @@ static int acf_odbc_read(struct ast_channel *chan, char *cmd, char *s, char *buf
 
 		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 			ast_log(LOG_WARNING, "SQL Get Data error!\n[%s]\n\n", sql);
-			SQLCloseCursor(stmt);
 			SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 			ast_odbc_release_obj(obj);
-			if (chan)
-				ast_autoservice_stop(chan);
-			if (bogus_chan)
-				ast_channel_free(chan);
 			return -1;
 		}
 
@@ -364,13 +316,8 @@ static int acf_odbc_read(struct ast_channel *chan, char *cmd, char *s, char *buf
 	/* Trim trailing comma */
 	buf[buflen - 1] = '\0';
 
-	SQLCloseCursor(stmt);
 	SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 	ast_odbc_release_obj(obj);
-	if (chan)
-		ast_autoservice_stop(chan);
-	if (bogus_chan)
-		ast_channel_free(chan);
 	return 0;
 }
 

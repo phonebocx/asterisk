@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114257 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51683 $")
 
 #include <time.h>
 #include <string.h>
@@ -305,7 +305,7 @@ int callerid_feed_jp(struct callerid_state *cid, unsigned char *ubuf, int len, i
 		res = fsk_serie(&cid->fskd, buf, &mylen, &b);
 
 		if (mylen < 0) {
-			ast_log(LOG_ERROR, "No start bit found in fsk data.\n");
+			ast_log(LOG_ERROR, "fsk_serie made mylen < 0 (%d)\n", mylen);
 			free(obuf);
 			return -1;
 		}
@@ -561,7 +561,7 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 		olen = mylen;
 		res = fsk_serie(&cid->fskd, buf, &mylen, &b);
 		if (mylen < 0) {
-			ast_log(LOG_ERROR, "No start bit found in fsk data.\n");
+			ast_log(LOG_ERROR, "fsk_serie made mylen < 0 (%d)\n", mylen);
 			free(obuf);
 			return -1;
 		}
@@ -660,13 +660,6 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 						default:
 							ast_log(LOG_NOTICE, "Unknown IE %d\n", cid->rawdata[x-1]);
 						}
-						res = cid->rawdata[x];
-						if (0 > res){	/* Negative offset in the CID Spill */
-							ast_log(LOG_NOTICE, "IE %d has bad field length of %d at offset %d\n", cid->rawdata[x-1], cid->rawdata[x], x);
-							/* Try again */
-							cid->sawflag = 0;
-							break; 	/* Exit the loop */
-						}
 						x += cid->rawdata[x];
 						x++;
 					}
@@ -721,7 +714,7 @@ static int callerid_genmsg(char *msg, int size, const char *number, const char *
 	int i,x;
 	/* Get the time */
 	time(&t);
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t,&tm);
 	
 	ptr = msg;
 	

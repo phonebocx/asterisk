@@ -27,7 +27,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 78415 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43364 $")
 
 #include <string.h>
 #include <ctype.h>
@@ -45,7 +45,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 78415 $")
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
 
-#ifdef ODBC_STORAGE
+#ifdef USE_ODBC_STORAGE
 #include <errno.h>
 #include <sys/mman.h>
 #include "asterisk/res_odbc.h"
@@ -88,54 +88,23 @@ static char *descrip =
 #define NUMDIGITS 3
 
 
-#ifdef ODBC_STORAGE
-struct generic_prepare_struct {
-	const char *sql;
-	const char *param;
-};
-
-static SQLHSTMT generic_prepare(struct odbc_obj *obj, void *data)
-{
-	struct generic_prepare_struct *gps = data;
-	SQLHSTMT stmt;
-	int res;
-
-	res = SQLAllocHandle(SQL_HANDLE_STMT, obj->con, &stmt);
-	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-		ast_log(LOG_WARNING, "SQL Alloc Handle failed!\n");
-		return NULL;
-	}
-
-	res = SQLPrepare(stmt, (unsigned char *)gps->sql, SQL_NTS);
-	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-		ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", (char *)gps->sql);
-		SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-		return NULL;
-	}
-
-	if (!ast_strlen_zero(gps->param))
-		SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(gps->param), 0, (void *)gps->param, 0, NULL);
-
-	return stmt;
-}
-
+#ifdef USE_ODBC_STORAGE
 static void retrieve_file(char *dir)
 {
 	int x = 0;
 	int res;
 	int fd=-1;
 	size_t fdlen = 0;
-	void *fdm = MAP_FAILED;
+	void *fdm=NULL;
 	SQLHSTMT stmt;
 	char sql[256];
-	char fmt[80]="", empty[10] = "";
+	char fmt[80]="";
 	char *c;
 	SQLLEN colsize;
 	char full_fn[256];
-	struct odbc_obj *obj;
-	struct generic_prepare_struct gps = { .sql = sql, .param = dir };
 
-	obj = ast_odbc_request_obj(odbc_database, 1);
+	odbc_obj *obj;
+	obj = fetch_odbc_obj(odbc_database, 0);
 	if (obj) {
 		do {
 			ast_copy_string(fmt, vmfmts, sizeof(fmt));
@@ -145,11 +114,23 @@ static void retrieve_file(char *dir)
 			if (!strcasecmp(fmt, "wav49"))
 				strcpy(fmt, "WAV");
 			snprintf(full_fn, sizeof(full_fn), "%s.%s", dir, fmt);
+			res = SQLAllocHandle(SQL_HANDLE_STMT, obj->con, &stmt);
+			if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
+				ast_log(LOG_WARNING, "SQL Alloc Handle failed!\n");
+				break;
+			}
 			snprintf(sql, sizeof(sql), "SELECT recording FROM %s WHERE dir=? AND msgnum=-1", odbc_table);
-			stmt = ast_odbc_prepare_and_execute(obj, generic_prepare, &gps);
-
-			if (!stmt) {
+			res = SQLPrepare(stmt, (unsigned char *)sql, SQL_NTS);
+			if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
+				ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", sql);
+				SQLFreeHandle(SQL_HANDLE_STMT, stmt);
+				break;
+			}
+			SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(dir), 0, (void *)dir, 0, NULL);
+			res = odbc_smart_execute(obj, stmt);
+			if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 				ast_log(LOG_WARNING, "SQL Execute error!\n[%s]\n\n", sql);
+				SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 				break;
 			}
 			res = SQLFetch(stmt);
@@ -168,7 +149,7 @@ static void retrieve_file(char *dir)
 				break;
 			}
 
-			res = SQLGetData(stmt, 1, SQL_BINARY, empty, 0, &colsize);
+			res = SQLGetData(stmt, 1, SQL_BINARY, NULL, 0, &colsize);
 			fdlen = colsize;
 			if (fd > -1) {
 				char tmp[1]="";
@@ -181,7 +162,7 @@ static void retrieve_file(char *dir)
 				if (fd > -1)
 					fdm = mmap(NULL, fdlen, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 			}
-			if (fdm != MAP_FAILED) {
+			if (fdm) {
 				memset(fdm, 0, fdlen);
 				res = SQLGetData(stmt, x + 1, SQL_BINARY, fdm, fdlen, &colsize);
 				if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
@@ -192,10 +173,9 @@ static void retrieve_file(char *dir)
 			}
 			SQLFreeHandle(SQL_HANDLE_STMT, stmt);
 		} while (0);
-		ast_odbc_release_obj(obj);
 	} else
 		ast_log(LOG_WARNING, "Failed to obtain database object for '%s'!\n", odbc_database);
-	if (fdm != MAP_FAILED)
+	if (fdm)
 		munmap(fdm, fdlen);
 	if (fd > -1)
 		close(fd);
@@ -288,7 +268,7 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context,
 	/* Check for the VoiceMail2 greeting first */
 	snprintf(fn, sizeof(fn), "%s/voicemail/%s/%s/greet",
 		ast_config_AST_SPOOL_DIR, context, ext);
-#ifdef ODBC_STORAGE
+#ifdef USE_ODBC_STORAGE
 	retrieve_file(fn);
 #endif
 
@@ -297,8 +277,8 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context,
 		snprintf(fn, sizeof(fn), "%s/vm/%s/greet",
 			ast_config_AST_SPOOL_DIR, ext);
 	}
-#ifdef ODBC_STORAGE
-	retrieve_file(fn);
+#ifdef USE_ODBC_STORAGE
+	retrieve_file(fn2);
 #endif
 
 	if (ast_fileexists(fn, NULL, chan->language) > 0) {
@@ -316,8 +296,9 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context,
 			res = ast_say_character_str(chan, ext, AST_DIGIT_ANY, chan->language);
 		}
 	}
-#ifdef ODBC_STORAGE
+#ifdef USE_ODBC_STORAGE
 	ast_filedelete(fn, NULL);	
+	ast_filedelete(fn2, NULL);	
 #endif
 
 	for (loop = 3 ; loop > 0; loop--) {
@@ -423,7 +404,6 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, struct
 	int lastuserchoice = 0;
 	char *start, *conv, *stringp = NULL;
 	const char *pos;
-	int breakout = 0;
 
 	if (ast_strlen_zero(context)) {
 		ast_log(LOG_WARNING,
@@ -476,7 +456,7 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, struct
 							pos = strrchr(pos, ' ') + 1;
 						conv = convert(pos);
 						if (conv) {
-							if (!strncmp(conv, ext, strlen(ext))) {
+							if (!strcmp(conv, ext)) {
 								/* Match! */
 								found++;
 								free(conv);
@@ -547,7 +527,6 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, struct
 								 * user hungup
 								 */
 								lastuserchoice = 0;
-								breakout = 1;
 								break;
 							case '1':
 								/* user pressed '1' and extensions exists;
@@ -555,24 +534,19 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, struct
 								   a goto() on the channel
 								 */
 								lastuserchoice = res;
-								breakout = 1;
 								break;
 							case '*':
 								/* user pressed '*' to skip something found */
 								lastuserchoice = res;
-								breakout = 0;
 								res = 0;
 								break;
 							default:
-								breakout = 1;
 								break;
 							}
 							free(conv);
-							if (breakout)
-								break;
+							break;
 						}
-						else
-							free(conv);
+						free(conv);
 					}
 				}
 			}
@@ -679,9 +653,9 @@ static int unload_module(void)
 
 static int load_module(void)
 {
-#ifdef ODBC_STORAGE
+#ifdef USE_ODBC_STORAGE
 	struct ast_config *cfg = ast_config_load(VOICEMAIL_CONFIG);
-	const char *tmp;
+	char *tmp;
 
 	if (cfg) {
 		if ((tmp = ast_variable_retrieve(cfg, "general", "odbcstorage"))) {

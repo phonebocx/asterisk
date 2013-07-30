@@ -4,9 +4,7 @@
 [general]
 bindaddr=0.0.0.0	; Address to bind to
 bindport=2000		; Port to bind to, default tcp/2000
-dateformat=M-D-Y	; M,D,Y in any order (6 chars max)
-			; "A" may also be used, but it must be at the end.
-			; Use M for month, D for day, Y for year, A for 12-hour time.
+dateformat=M-D-Y	; M,D,Y in any order (5 chars max)
 keepalive=120
 
 ;allow=all		; see doc/rtp-packetization for framing options
@@ -39,11 +37,6 @@ keepalive=120
 ;jblog = no                  ; Enables jitterbuffer frame logging. Defaults to "no".
 ;-----------------------------------------------------------------------------------
 
-;----------------------------------- DEVICE OPTIONS --------------------------------
-;earlyrtp=1                  ; whether audio signalling should be provided by asterisk
-                             ; (earlyrtp=1) or device generated (earlyrtp=0). 
-                             ; defaults to earlyrtp=1
-;-----------------------------------------------------------------------------------
 
 ; Typical config for 12SP+
 ;[florian]

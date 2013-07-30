@@ -35,10 +35,6 @@
 %option prefix="ael_yy"
 %option noyywrap
 
-/* yyfree normally just frees its arg. It can be null sometimes,
-   which some systems will complain about, so, we'll define our own version */
-%option noyyfree
-
 /* batch gives a bit more performance if we are using it in
  * a non-interactive mode. We probably don't care much.
  */
@@ -60,16 +56,11 @@
 %option bison-locations
 
 %{
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 109309 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49237 $")
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-#if defined(__Darwin__) || defined(__CYGWIN__)
-#define GLOB_ABORTED GLOB_ABEND
-#endif
-# include <glob.h>
 
 #include "asterisk/logger.h"
 #include "asterisk/utils.h"
@@ -116,14 +107,11 @@ struct stackelement {
 	char *fname;
 	int lineno;
 	int colno;
-	glob_t globbuf;        /* the current globbuf */
-	int globbuf_pos;   /* where we are in the current globbuf */
 	YY_BUFFER_STATE bufstate;
 };
 
 static struct stackelement  include_stack[MAX_INCLUDE_DEPTH];
 static int include_stack_index = 0;
-static void setup_filestack(char *fnamebuf, int fnamebuf_siz, glob_t *globbuf, int globpos, yyscan_t xscan, int create);
 
 /*
  * if we use the @n feature of bison, we must supply the start/end
@@ -199,7 +187,6 @@ NOSEMIC		([^;()\{\}\[\]]|\\[;()\[\]\{\}])*
 \/\/[^\n]*	{/*comment*/}
 context		{ STORE_POS; return KW_CONTEXT;}
 abstract	{ STORE_POS; return KW_ABSTRACT;}
-extend		{ STORE_POS; return KW_EXTEND;}
 macro		{ STORE_POS; return KW_MACRO;};
 globals		{ STORE_POS; return KW_GLOBALS;}
 ignorepat	{ STORE_POS; return KW_IGNOREPAT;}
@@ -395,12 +382,9 @@ includes	{ STORE_POS; return KW_INCLUDES;}
 	}
 
 \#include[ \t]+\"[^\"]+\" {
+		FILE *in1;
 		char fnamebuf[1024],*p1,*p2;
-		int glob_ret;
-		glob_t globbuf;        /* the current globbuf */
-		int globbuf_pos = -1;   /* where we are in the current globbuf */
-		globbuf.gl_offs = 0;	/* initialize it to silence gcc */
-		
+		int error = 1;	/* don't use the file if set */
 		p1 = strchr(yytext,'"');
 		p2 = strrchr(yytext,'"');
 		if ( include_stack_index >= MAX_INCLUDE_DEPTH ) {
@@ -408,62 +392,68 @@ includes	{ STORE_POS; return KW_INCLUDES;}
 		} else if ( (int)(p2-p1) > sizeof(fnamebuf) - 1 ) {
 			ast_log(LOG_ERROR,"File=%s, line=%d, column=%d: Filename is incredibly way too long (%d chars!). Inclusion ignored!\n", my_file, my_lineno, my_col, yyleng - 10);
 		} else {
-			strncpy(fnamebuf, p1+1, p2-p1-1);
-			fnamebuf[p2-p1-1] = 0;
-		
-#ifdef SOLARIS
-			glob_ret = glob(fnamebuf, GLOB_NOCHECK, NULL, &globbuf);
-#else
-			glob_ret = glob(fnamebuf, GLOB_NOMAGIC|GLOB_BRACE, NULL, &globbuf);
-#endif
-			if (glob_ret == GLOB_NOSPACE) {
-				ast_log(LOG_WARNING,
-					"Glob Expansion of pattern '%s' failed: Not enough memory\n", fnamebuf);
-			} else if (glob_ret  == GLOB_ABORTED) {
-				ast_log(LOG_WARNING,
-					"Glob Expansion of pattern '%s' failed: Read error\n", fnamebuf);
-			} else if (glob_ret  == GLOB_NOMATCH) {
-				ast_log(LOG_WARNING,
-					"Glob Expansion of pattern '%s' failed: No matches!\n", fnamebuf);
-			} else {
-			  globbuf_pos = 0;
+			int i;
+			strncpy(fnamebuf, p1, p2-p1);
+			fnamebuf[p2-p1] = 0;
+			for (i=0; i<include_stack_index; i++) {
+				if ( !strcmp(fnamebuf,include_stack[i].fname )) {
+					ast_log(LOG_ERROR,"File=%s, line=%d, column=%d: Nice Try!!! But %s has already been included (perhaps by another file), and would cause an infinite loop of file inclusions!!! Include directive ignored\n",
+						my_file, my_lineno, my_col, fnamebuf);
+					break;
+				}
 			}
+			if (i == include_stack_index)
+				error = 0;	/* we can use this file */
 		}
-		if (globbuf_pos > -1) {
-			setup_filestack(fnamebuf, sizeof(fnamebuf), &globbuf, 0, yyscanner, 1);
+		if ( !error ) {	/* valid file name */
+			*p2 = 0;
+			/* relative vs. absolute */
+			if (*(p1+1) != '/')
+				snprintf(fnamebuf, sizeof(fnamebuf), "%s/%s", ast_config_AST_CONFIG_DIR, p1 + 1);
+			else
+#if defined(STANDALONE) || defined(LOW_MEMORY)
+				strncpy(fnamebuf, p1 + 1, sizeof(fnamebuf) - 1);
+#else
+				ast_copy_string(fnamebuf, p1 + 1, sizeof(fnamebuf));
+#endif
+			in1 = fopen( fnamebuf, "r" );
+			if ( ! in1 ) {
+				ast_log(LOG_ERROR,"File=%s, line=%d, column=%d: Couldn't find the include file: %s; ignoring the Include directive!\n", my_file, my_lineno, my_col, fnamebuf);
+			} else {
+				char *buffer;
+				struct stat stats;
+				stat(fnamebuf, &stats);
+				buffer = (char*)malloc(stats.st_size+1);
+				fread(buffer, 1, stats.st_size, in1);
+				buffer[stats.st_size] = 0;
+				ast_log(LOG_NOTICE,"  --Read in included file %s, %d chars\n",fnamebuf, (int)stats.st_size);
+				fclose(in1);
+
+				include_stack[include_stack_index].fname = my_file;
+				my_file = strdup(fnamebuf);
+				include_stack[include_stack_index].lineno = my_lineno;
+				include_stack[include_stack_index].colno = my_col+yyleng;
+				include_stack[include_stack_index++].bufstate = YY_CURRENT_BUFFER;
+
+				yy_switch_to_buffer(ael_yy_scan_string (buffer ,yyscanner),yyscanner);
+				free(buffer);
+				my_lineno = 1;
+				my_col = 1;
+				BEGIN(INITIAL);
+			}
 		}
 	}
 
-
 <<EOF>>		{
-		char fnamebuf[2048];
-		if (include_stack_index > 0 && include_stack[include_stack_index-1].globbuf_pos < include_stack[include_stack_index-1].globbuf.gl_pathc-1) {
-			yy_delete_buffer( YY_CURRENT_BUFFER, yyscanner );
-			include_stack[include_stack_index-1].globbuf_pos++;
-			setup_filestack(fnamebuf, sizeof(fnamebuf), &include_stack[include_stack_index-1].globbuf, include_stack[include_stack_index-1].globbuf_pos, yyscanner, 0);
-			/* finish this */			
-			
+		if ( --include_stack_index < 0 ) {
+			yyterminate();
 		} else {
-			if (include_stack[include_stack_index].fname) {
-				free(include_stack[include_stack_index].fname);
-				include_stack[include_stack_index].fname = 0;
-			}
-			if (my_file) {
-				free(my_file);
-				my_file = 0;
-			}
-			if ( --include_stack_index < 0 ) {
-				yyterminate();
-			} else {
-				globfree(&include_stack[include_stack_index].globbuf);
-				include_stack[include_stack_index].globbuf_pos = -1;
-				
-				yy_delete_buffer( YY_CURRENT_BUFFER, yyscanner );
-				yy_switch_to_buffer(include_stack[include_stack_index].bufstate, yyscanner );
-				my_lineno = include_stack[include_stack_index].lineno;
-				my_col    = include_stack[include_stack_index].colno;
-				my_file   = strdup(include_stack[include_stack_index].fname);
-			}
+			free(my_file);
+			yy_delete_buffer( YY_CURRENT_BUFFER, yyscanner );
+			yy_switch_to_buffer(include_stack[include_stack_index].bufstate, yyscanner );
+			my_lineno = include_stack[include_stack_index].lineno;
+			my_col    = include_stack[include_stack_index].colno;
+			my_file   = include_stack[include_stack_index].fname;
 		}
 	}
 
@@ -472,12 +462,6 @@ includes	{ STORE_POS; return KW_INCLUDES;}
 static void pbcpush(char x)
 {
 	pbcstack[pbcpos++] = x;
-}
-
-void ael_yyfree(void *ptr, yyscan_t yyscanner)
-{
-	if (ptr)
-		free( (char*) ptr );
 }
 
 static int pbcpop(char x)
@@ -584,8 +568,6 @@ struct pval *ael2_parse(char *filename, int *errors)
 		*errors = 1;
 		return 0;
 	}
-	if (my_file)
-		free(my_file);
 	my_file = strdup(filename);
 	stat(filename, &stats);
 	buffer = (char*)malloc(stats.st_size+2);
@@ -609,81 +591,4 @@ struct pval *ael2_parse(char *filename, int *errors)
 	free(io);
 
 	return pval;
-}
-
-static void setup_filestack(char *fnamebuf2, int fnamebuf_siz, glob_t *globbuf, int globpos, yyscan_t yyscanner, int create)
-{
-	struct yyguts_t * yyg = (struct yyguts_t*)yyscanner;
-	int error, i;
-	FILE *in1;
-	char fnamebuf[2048];
-
-	if (globbuf && globbuf->gl_pathv && globbuf->gl_pathc > 0)
-#if defined(STANDALONE) || defined(LOW_MEMORY) || defined(STANDALONE_AEL)
-			strncpy(fnamebuf, globbuf->gl_pathv[globpos], fnamebuf_siz);
-#else
-			ast_copy_string(fnamebuf, globbuf->gl_pathv[globpos], fnamebuf_siz);
-#endif
-	else {
-		ast_log(LOG_ERROR,"Include file name not present!\n");
-		return;
-	}
-	for (i=0; i<include_stack_index; i++) {
-		if ( !strcmp(fnamebuf,include_stack[i].fname )) {
-			ast_log(LOG_ERROR,"File=%s, line=%d, column=%d: Nice Try!!! But %s has already been included (perhaps by another file), and would cause an infinite loop of file inclusions!!! Include directive ignored\n",
-				my_file, my_lineno, my_col, fnamebuf);
-			break;
-		}
-	}
-	error = 1;
-	if (i == include_stack_index)
-		error = 0;	/* we can use this file */
-	if ( !error ) {	/* valid file name */
-		/* relative vs. absolute */
-		if (fnamebuf[0] != '/')
-			snprintf(fnamebuf2, fnamebuf_siz, "%s/%s", ast_config_AST_CONFIG_DIR, fnamebuf);
-		else
-#if defined(STANDALONE) || defined(LOW_MEMORY) || defined(STANDALONE_AEL)
-			strncpy(fnamebuf2, fnamebuf, fnamebuf_siz);
-#else
-			ast_copy_string(fnamebuf2, fnamebuf, fnamebuf_siz);
-#endif
-		in1 = fopen( fnamebuf2, "r" );
-
-		if ( ! in1 ) {
-			ast_log(LOG_ERROR,"File=%s, line=%d, column=%d: Couldn't find the include file: %s; ignoring the Include directive!\n", my_file, my_lineno, my_col, fnamebuf2);
-		} else {
-			char *buffer;
-			struct stat stats;
-			stat(fnamebuf2, &stats);
-			buffer = (char*)malloc(stats.st_size+1);
-			fread(buffer, 1, stats.st_size, in1);
-			buffer[stats.st_size] = 0;
-			ast_log(LOG_NOTICE,"  --Read in included file %s, %d chars\n",fnamebuf2, (int)stats.st_size);
-			fclose(in1);
-			if (include_stack[include_stack_index].fname) {
-			   	free(include_stack[include_stack_index].fname);
-				include_stack[include_stack_index].fname = 0;
-			}
-			include_stack[include_stack_index].fname = strdup(my_file);
-			include_stack[include_stack_index].lineno = my_lineno;
-			include_stack[include_stack_index].colno = my_col+yyleng;
-			if (my_file)
-				free(my_file);
-			my_file = strdup(fnamebuf2);
-			if (create)
-				include_stack[include_stack_index].globbuf = *globbuf;
-
-			include_stack[include_stack_index].globbuf_pos = 0;
-
-			include_stack[include_stack_index].bufstate = YY_CURRENT_BUFFER;
-			if (create)
-				include_stack_index++;
-			yy_switch_to_buffer(ael_yy_scan_string (buffer ,yyscanner),yyscanner);
-			free(buffer);
-			my_lineno = 1;
-			my_col = 1;
-			BEGIN(INITIAL);
-		}
-	}
 }

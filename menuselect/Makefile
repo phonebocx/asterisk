@@ -11,68 +11,74 @@
 # the GNU General Public License
 #
 
-# read local makeopts settings
--include makeopts
-
 .PHONY: clean dist-clean distclean
 
-# Basic set of sources and flags/libraries/includes
-OBJS:=menuselect.o strcompat.o
-CFLAGS:=-g -c -D_GNU_SOURCE -Wall
-LIBS:= mxml/libmxml.a
+MENUSELECT_OBJS:=menuselect.o menuselect_curses.o strcompat.o
+MENUSELECT_CFLAGS:=-g -c -D_GNU_SOURCE
+MENUSELECT_LIBS:=mxml/libmxml.a
 
-# pick gtk library if available
-ifneq ($(GTK2_LIB),)
-  G_OBJS += menuselect_gtk.o
-  INCLUDE += $(GTK2_INCLUDE)
-  G_LIBS += $(GTK2_LIB)
-else
-  G_OBJS += menuselect_stub.o
+GMENUSELECT_OBJS:=menuselect.o menuselect_gtk.o strcompat.o
+ifeq ($(GTK2_LIB),)
+  GMENUSELECT_OBJS:=$(filter-out menuselect_gtk.o,$(GMENUSELECT_OBJS)) menuselect_stub.o
 endif
+GMENUSELECT_CFLAGS:=$(GTK2_INCLUDE)
+GMENUSELECT_LIBS:=mxml/libmxml.a $(GTK2_LIB)
 
-# pick a curses library if available
+-include makeopts
+
 ifneq ($(NCURSES_LIB),)
-  M_OBJS += menuselect_curses.o
-  M_LIBS +=$(NCURSES_LIB)
-  INCLUDE += $(NCURSES_INCLUDE)
+  MENUSELECT_LIBS+=$(NCURSES_LIB)
+  MENUSELECT_INCLUDE:=$(NCURSES_INCLUDE)
 else
-  ifneq ($(CURSES_LIB),)
-    M_OBJS += menuselect_curses.o
-    M_LIBS +=$(CURSES_LIB)
-    INCLUDE += $(CURSES_INCLUDE)
-  else
-    M_OBJS += menuselect_stub.o
-  endif
+ ifneq ($(CURSES_LIB),)
+  MENUSELECT_LIBS+=$(CURSES_LIB)
+  MENUSELECT_INCLUDE:=$(CURSES_INCLUDE)
+ else
+  MENUSELECT_OBJS:=$(filter-out menuselect_curses.o,$(MENUSELECT_OBJS)) menuselect_stub.o
+ endif
 endif
 
-CFLAGS+= $(INCLUDE)
-all:
+all: autoconfig.h
 	@$(MAKE) menuselect
 
-$(OBJS) menuselect_gtk.o menuselect_curses.o menuselect_stub.o: autoconfig.h menuselect.h
+autoconfig.h:
+	@./configure $(CONFIGURE_SILENT)
 
-makeopts autoconfig.h: autoconfig.h.in makeopts.in
-	@./configure $(CONFIGURE_SILENT) CC= LD= AR= CFLAGS=
+_gmenuselect: autoconfig.h 
+	@$(MAKE) gmenuselect
 
-menuselect gmenuselect: mxml/libmxml.a
+gmenuselect: mxml/libmxml.a $(GMENUSELECT_OBJS)
+	$(CC) -g -Wall -o $@ $(GMENUSELECT_OBJS) $(GMENUSELECT_LIBS)
 
-gmenuselect: $(OBJS) $(G_OBJS)
-	$(CC) -o $@ $^ $(LIBS) $(G_LIBS)
+menuselect: mxml/libmxml.a $(MENUSELECT_OBJS)
+	$(CC) -g -Wall -o $@ $(MENUSELECT_OBJS) $(MENUSELECT_LIBS)
 
-menuselect: $(OBJS) $(M_OBJS)
-	$(CC) -o $@ $^ $(LIBS) $(M_LIBS)
+menuselect.o: menuselect.c menuselect.h
+	$(CC) -Wall $(CFLAGS) -o $@ $(MENUSELECT_CFLAGS) $<
+
+menuselect_curses.o: menuselect_curses.c menuselect.h
+	$(CC) -Wall $(CFLAGS) -o $@ $(MENUSELECT_CFLAGS) $(MENUSELECT_INCLUDE) $<
+
+menuselect_stub.o: menuselect_stub.c menuselect.h
+	$(CC) -Wall $(CFLAGS) -o $@ $(MENUSELECT_CFLAGS) $(MENUSELECT_INCLUDE) $<
+
+menuselect_gtk.o: menuselect_gtk.c menuselect.h
+	gcc -Wall $(CFLAGS) -o $@ $(MENUSELECT_CFLAGS) $(GMENUSELECT_CFLAGS) $<
+
+strcompat.o: strcompat.c
+	$(CC) -Wall $(CFLAGS) -o $@ $(MENUSELECT_CFLAGS) $<
 
 mxml/libmxml.a:
-	@if test ! -f mxml/Makefile ; then cd mxml && ./configure ; fi
+	@if test ! -f mxml/Makefile ; then cd mxml && ./configure && cd .. ; fi
 	@$(MAKE) -C mxml libmxml.a
 
 clean:
-	rm -f menuselect gmenuselect $(OBJS) $(M_OBJS) $(G_OBJS)
+	rm -f menuselect gmenuselect *.o
 	@if test -f mxml/Makefile ; then $(MAKE) -C mxml clean ; fi
 
 dist-clean: distclean
 
 distclean: clean
-	@if test -f mxml/Makefile ; then $(MAKE) -C mxml distclean ; fi
+	@if test -f mxml/Makefile ; then $(MAKE) -C mxml clean ; fi
 	rm -f autoconfig.h config.status config.log makeopts
 	rm -rf autom4te.cache

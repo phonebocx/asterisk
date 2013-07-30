@@ -30,12 +30,11 @@
 
 /*** MODULEINFO
 	<depend>unixodbc</depend>
-	<depend>ltdl</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69702 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 45928 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -100,7 +99,7 @@ static int odbc_log(struct ast_cdr *cdr)
 	if (usegmtime) 
 		gmtime_r(&cdr->start.tv_sec,&tm);
 	else
-		ast_localtime(&cdr->start.tv_sec, &tm, NULL);
+		localtime_r(&cdr->start.tv_sec,&tm);
 
 	ast_mutex_lock(&odbc_lock);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
@@ -373,13 +372,17 @@ out:
 
 static int odbc_do_query(void)
 {
+	SQLINTEGER ODBC_err;
 	int ODBC_res;
+	short int ODBC_mlen;
+	char ODBC_msg[200], ODBC_stat[10];
 	
 	ODBC_res = SQLExecute(ODBC_stmt);
 	
 	if ((ODBC_res != SQL_SUCCESS) && (ODBC_res != SQL_SUCCESS_WITH_INFO)) {
 		if (option_verbose > 10)
 			ast_verbose( VERBOSE_PREFIX_4 "cdr_odbc: Error in Query %d\n", ODBC_res);
+		SQLGetDiagRec(SQL_HANDLE_DBC, ODBC_con, 1, (unsigned char *)ODBC_stat, &ODBC_err, (unsigned char *)ODBC_msg, 100, &ODBC_mlen);
 		SQLFreeHandle(SQL_HANDLE_STMT, ODBC_stmt);
 		odbc_disconnect();
 		return -1;

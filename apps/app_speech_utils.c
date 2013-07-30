@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 106552 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57053 $");
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,31 +126,19 @@ static struct ast_speech *find_speech(struct ast_channel *chan)
 	return speech;
 }
 
-/* Helper function to find a specific speech recognition result by number and nbest alternative */
-static struct ast_speech_result *find_result(struct ast_speech_result *results, char *result_num)
+/* Helper function to find a specific speech recognition result by number */
+static struct ast_speech_result *find_result(struct ast_speech_result *results, int num)
 {
-	struct ast_speech_result *result = results;
-	char *tmp = NULL;
-	int nbest_num = 0, wanted_num = 0, i = 0;
+	struct ast_speech_result *result = NULL;
+	int i = 0;
 
-	if (!result)
-		return NULL;
-
-	if ((tmp = strchr(result_num, '/'))) {
-		*tmp++ = '\0';
-		nbest_num = atoi(result_num);
-		wanted_num = atoi(tmp);
-	} else {
-		wanted_num = atoi(result_num);
-	}
-
-	do {
-		if (result->nbest_num != nbest_num)
-			continue;
-		if (i == wanted_num)
+	result = results;
+	while (result) {
+		if (i == num)
 			break;
 		i++;
-	} while ((result = result->next));
+		result = result->next;
+	}
 
 	return result;
 }
@@ -163,7 +151,7 @@ static int speech_score(struct ast_channel *chan, char *cmd, char *data,
 	struct ast_speech *speech = find_speech(chan);
 	char tmp[128] = "";
 
-	if (data == NULL || speech == NULL || !(result = find_result(speech->results, data)))
+	if (data == NULL || speech == NULL || !(result = find_result(speech->results, atoi(data))))
 		return -1;
 	
 	snprintf(tmp, sizeof(tmp), "%d", result->score);
@@ -176,7 +164,7 @@ static int speech_score(struct ast_channel *chan, char *cmd, char *data,
 static struct ast_custom_function speech_score_function = {
         .name = "SPEECH_SCORE",
         .synopsis = "Gets the confidence score of a result.",
-        .syntax = "SPEECH_SCORE([nbest number/]result number)",
+        .syntax = "SPEECH_SCORE(result number)",
         .desc =
         "Gets the confidence score of a result.\n",
         .read = speech_score,
@@ -190,7 +178,7 @@ static int speech_text(struct ast_channel *chan, char *cmd, char *data,
         struct ast_speech_result *result = NULL;
         struct ast_speech *speech = find_speech(chan);
 
-	if (data == NULL || speech == NULL || !(result = find_result(speech->results, data)))
+	if (data == NULL || speech == NULL || !(result = find_result(speech->results, atoi(data))))
                 return -1;
 
 	if (result->text != NULL)
@@ -202,7 +190,7 @@ static int speech_text(struct ast_channel *chan, char *cmd, char *data,
 static struct ast_custom_function speech_text_function = {
         .name = "SPEECH_TEXT",
         .synopsis = "Gets the recognized text of a result.",
-        .syntax = "SPEECH_TEXT([nbest number/]result number)",
+        .syntax = "SPEECH_TEXT(result number)",
         .desc =
         "Gets the recognized text of a result.\n",
         .read = speech_text,
@@ -216,7 +204,7 @@ static int speech_grammar(struct ast_channel *chan, char *cmd, char *data,
         struct ast_speech_result *result = NULL;
         struct ast_speech *speech = find_speech(chan);
 
-	if (data == NULL || speech == NULL || !(result = find_result(speech->results, data)))
+	if (data == NULL || speech == NULL || !(result = find_result(speech->results, atoi(data))))
                 return -1;
 
 	if (result->grammar != NULL)
@@ -228,7 +216,7 @@ static int speech_grammar(struct ast_channel *chan, char *cmd, char *data,
 static struct ast_custom_function speech_grammar_function = {
         .name = "SPEECH_GRAMMAR",
         .synopsis = "Gets the matched grammar of a result if available.",
-        .syntax = "SPEECH_GRAMMAR([nbest number/]result number)",
+        .syntax = "SPEECH_GRAMMAR(result number)",
         .desc =
         "Gets the matched grammar of a result if available.\n",
         .read = speech_grammar,
@@ -256,32 +244,6 @@ static struct ast_custom_function speech_engine_function = {
 	"Changes a speech engine specific attribute.\n",
 	.read = NULL,
 	.write = speech_engine_write,
-};
-
-/*! \brief SPEECH_RESULTS_TYPE() Dialplan Function */
-static int speech_results_type_write(struct ast_channel *chan, char *cmd, char *data, const char *value)
-{
-	struct ast_speech *speech = find_speech(chan);
-
-	if (data == NULL || speech == NULL)
-		return -1;
-
-	if (!strcasecmp(value, "normal"))
-		ast_speech_change_results_type(speech, AST_SPEECH_RESULTS_TYPE_NORMAL);
-	else if (!strcasecmp(value, "nbest"))
-		ast_speech_change_results_type(speech, AST_SPEECH_RESULTS_TYPE_NBEST);
-
-	return 0;
-}
-
-static struct ast_custom_function speech_results_type_function = {
-	.name = "SPEECH_RESULTS_TYPE",
-	.synopsis = "Sets the type of results that will be returned.",
-	.syntax = "SPEECH_RESULTS_TYPE()=results type",
-	.desc =
-	"Sets the type of results that will be returned. Valid options are normal or nbest.",
-	.read = NULL,
-	.write = speech_results_type_write,
 };
 
 /*! \brief SPEECH() Dialplan Function */
@@ -533,7 +495,8 @@ static int speech_streamfile(struct ast_channel *chan, const char *filename, con
 	if (ast_applystream(chan, fs))
 		return -1;
 	
-	ast_playstream(fs);
+	if (ast_playstream(fs))
+		return -1;
 
         return 0;
 }
@@ -542,7 +505,7 @@ static int speech_streamfile(struct ast_channel *chan, const char *filename, con
 static int speech_background(struct ast_channel *chan, void *data)
 {
         unsigned int timeout = 0;
-        int res = 0, done = 0, argc = 0, started = 0, quieted = 0, max_dtmf_len = 0;
+        int res = 0, done = 0, argc = 0, started = 0, quieted = 0;
         struct ast_module_user *u = NULL;
         struct ast_speech *speech = find_speech(chan);
         struct ast_frame *f = NULL;
@@ -550,8 +513,7 @@ static int speech_background(struct ast_channel *chan, void *data)
         char dtmf[AST_MAX_EXTENSION] = "";
         time_t start, current;
         struct ast_datastore *datastore = NULL;
-        char *argv[2], *args = NULL, *filename_tmp = NULL, *filename = NULL, tmp[2] = "", dtmf_terminator = '#';
-	const char *tmp2 = NULL;
+        char *argv[2], *args = NULL, *filename_tmp = NULL, *filename = NULL, tmp[2] = "";
 
         args = ast_strdupa(data);
 
@@ -582,24 +544,9 @@ static int speech_background(struct ast_channel *chan, void *data)
         if (argc > 0) {
                 /* Yay sound file */
                 filename_tmp = ast_strdupa(argv[0]);
-		if (!ast_strlen_zero(argv[1])) {
-			if ((timeout = atoi(argv[1])) == 0)
-				timeout = -1;
-		} else
-			timeout = 0;
+                if (argv[1] != NULL)
+                        timeout = atoi(argv[1]);
         }
-
-	/* See if the maximum DTMF length variable is set... we use a variable in case they want to carry it through their entire dialplan */
-	if ((tmp2 = pbx_builtin_getvar_helper(chan, "SPEECH_DTMF_MAXLEN")) && !ast_strlen_zero(tmp2))
-		max_dtmf_len = atoi(tmp2);
-
-	/* See if a terminator is specified */
-	if ((tmp2 = pbx_builtin_getvar_helper(chan, "SPEECH_DTMF_TERMINATOR"))) {
-		if (ast_strlen_zero(tmp2))
-			dtmf_terminator = '\0';
-		else
-			dtmf_terminator = tmp2[0];
-	}
 
         /* Before we go into waiting for stuff... make sure the structure is ready, if not - start it again */
         if (speech->state == AST_SPEECH_STATE_NOT_READY || speech->state == AST_SPEECH_STATE_DONE) {
@@ -640,7 +587,7 @@ static int speech_background(struct ast_channel *chan, void *data)
                 }
 
 		/* Do timeout check (shared between audio/dtmf) */
-		if ((!quieted || strlen(dtmf)) && started == 1) {
+		if (!quieted && started == 1) {
 			time(&current);
 			if ((current-start) >= timeout) {
 				done = 1;
@@ -664,13 +611,7 @@ static int speech_background(struct ast_channel *chan, void *data)
                         /* If audio playback has stopped do a check for timeout purposes */
                         if (chan->streamid == -1 && chan->timingfunc == NULL)
                                 ast_stopstream(chan);
-                        if (!quieted && chan->stream == NULL && timeout && started == 0 && !filename_tmp) {
-				if (timeout == -1) {
-					done = 1;
-					if (f)
-						ast_frfree(f);
-					break;
-				}
+                        if (!quieted && chan->stream == NULL && timeout > 0 && started == 0 && !filename_tmp) {
 				time(&start);
 				started = 1;
                         }
@@ -722,23 +663,18 @@ static int speech_background(struct ast_channel *chan, void *data)
                         /* Free the frame we received */
                         switch (f->frametype) {
                         case AST_FRAME_DTMF:
-				if (dtmf_terminator != '\0' && f->subclass == dtmf_terminator) {
+				if (f->subclass == '#') {
 					done = 1;
 				} else {
 					if (chan->stream != NULL) {
 						ast_stopstream(chan);
-					}
-					if (!started) {
 						/* Change timeout to be 5 seconds for DTMF input */
-						timeout = (chan->pbx && chan->pbx->dtimeout) ? chan->pbx->dtimeout : 5;
+						timeout = 5;
+						time(&start);
 						started = 1;
 					}
-					time(&start);
 					snprintf(tmp, sizeof(tmp), "%c", f->subclass);
-					strncat(dtmf, tmp, sizeof(dtmf) - strlen(dtmf) - 1);
-					/* If the maximum length of the DTMF has been reached, stop now */
-					if (max_dtmf_len && strlen(dtmf) == max_dtmf_len)
-						done = 1;
+					strncat(dtmf, tmp, sizeof(dtmf));
 				}
                                 break;
                         case AST_FRAME_CONTROL:
@@ -761,7 +697,6 @@ static int speech_background(struct ast_channel *chan, void *data)
 		/* We sort of make a results entry */
 		speech->results = ast_calloc(1, sizeof(*speech->results));
 		if (speech->results != NULL) {
-			ast_speech_dtmf(speech, dtmf);
 			speech->results->score = 1000;
 			speech->results->text = strdup(dtmf);
 			speech->results->grammar = strdup("dtmf");
@@ -833,7 +768,6 @@ static int unload_module(void)
 	res |= ast_custom_function_unregister(&speech_text_function);
 	res |= ast_custom_function_unregister(&speech_grammar_function);
 	res |= ast_custom_function_unregister(&speech_engine_function);
-	res |= ast_custom_function_unregister(&speech_results_type_function);
 
 	ast_module_user_hangup_all();
 
@@ -858,7 +792,6 @@ static int load_module(void)
 	res |= ast_custom_function_register(&speech_text_function);
 	res |= ast_custom_function_register(&speech_grammar_function);
 	res |= ast_custom_function_register(&speech_engine_function);
-	res |= ast_custom_function_register(&speech_results_type_function);
 
 	return res;
 }

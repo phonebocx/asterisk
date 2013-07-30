@@ -30,10 +30,9 @@
 #define AST_CDR_FLAG_CHILD			(1 << 3)
 #define AST_CDR_FLAG_POST_DISABLED		(1 << 4)
 
-#define AST_CDR_NULL                0
-#define AST_CDR_FAILED				(1 << 0)
+#define AST_CDR_NOANSWER			(1 << 0)
 #define AST_CDR_BUSY				(1 << 1)
-#define AST_CDR_NOANSWER			(1 << 2)
+#define AST_CDR_FAILED				(1 << 2)
 #define AST_CDR_ANSWERED			(1 << 3)
 
 /*! AMA Flags */
@@ -115,15 +114,9 @@ struct ast_cdr *ast_cdr_dup(struct ast_cdr *cdr);
 
 /*! \brief Free a CDR record 
  * \param cdr ast_cdr structure to free
- * Returns nothing
+ * Returns nothing important
  */
 void ast_cdr_free(struct ast_cdr *cdr);
-
-/*! \brief Discard and free a CDR record 
- * \param cdr ast_cdr structure to free
- * Returns nothing  -- same as free, but no checks or complaints
- */
-void ast_cdr_discard(struct ast_cdr *cdr);
 
 /*! \brief Initialize based on a channel
  * \param cdr Call Detail Record to use for channel
@@ -163,7 +156,7 @@ void ast_cdr_unregister(const char *name);
 /*!
  * \param cdr the cdr you wish to associate with the call
  * Starts all CDR stuff necessary for monitoring a call
- * Returns nothing
+ * Returns nothing important
  */
 void ast_cdr_start(struct ast_cdr *cdr);
 
@@ -175,31 +168,24 @@ void ast_cdr_start(struct ast_cdr *cdr);
  */
 void ast_cdr_answer(struct ast_cdr *cdr);
 
-/*! A call wasn't answered */
-/*!
- * \param cdr the cdr you wish to associate with the call
- * Marks the channel disposition as "NO ANSWER"
- */
-extern void ast_cdr_noanswer(struct ast_cdr *cdr);
-
 /*! Busy a call */
 /*!
  * \param cdr the cdr you wish to associate with the call
- * Returns nothing
+ * Returns nothing important
  */
 void ast_cdr_busy(struct ast_cdr *cdr);
 
 /*! Fail a call */
 /*!
  * \param cdr the cdr you wish to associate with the call
- * Returns nothing
+ * Returns nothing important
  */
 void ast_cdr_failed(struct ast_cdr *cdr);
 
 /*! Save the result of the call based on the AST_CAUSE_* */
 /*!
  * \param cdr the cdr you wish to associate with the call
- * Returns nothing
+ * Returns nothing important
  * \param cause the AST_CAUSE_*
  */
 int ast_cdr_disposition(struct ast_cdr *cdr, int cause);
@@ -208,7 +194,7 @@ int ast_cdr_disposition(struct ast_cdr *cdr, int cause);
 /*!
  * \param cdr the cdr you have associated the call with
  * Registers the end of call time in the cdr structure.
- * Returns nothing
+ * Returns nothing important
  */
 void ast_cdr_end(struct ast_cdr *cdr);
 
@@ -279,12 +265,6 @@ void ast_cdr_reset(struct ast_cdr *cdr, struct ast_flags *flags);
  * Returns string with flag name
  */
 char *ast_cdr_flags2str(int flags);
-
-/*! Move the non-null data from the "from" cdr to the "to" cdr
- * \param to   the cdr to get the goodies
- * \param from the cdr to give the goodies
- */
-void ast_cdr_merge(struct ast_cdr *to, struct ast_cdr *from);
 
 int ast_cdr_setaccount(struct ast_channel *chan, const char *account);
 int ast_cdr_setamaflags(struct ast_channel *chan, const char *amaflags);

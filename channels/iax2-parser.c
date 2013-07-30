@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75445 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49536 $")
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -448,8 +448,7 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"TRANSFR",
 		"PROVISN",
 		"FWDWNLD",
-		"FWDATA ",
-		"TXMEDIA"
+		"FWDATA "
 	};
 	const char *cmds[] = {
 		"(0?)",
@@ -929,22 +928,14 @@ void iax_frame_wrap(struct iax_frame *fr, struct ast_frame *f)
 	fr->af.delivery.tv_sec = 0;
 	fr->af.delivery.tv_usec = 0;
 	fr->af.data = fr->afdata;
-	fr->af.len = f->len;
 	if (fr->af.datalen) {
-		size_t copy_len = fr->af.datalen;
-		if (copy_len > fr->afdatalen) {
-			ast_log(LOG_ERROR, "Losing frame data because destination buffer size '%d' bytes not big enough for '%d' bytes in the frame\n",
-				(int) fr->afdatalen, (int) fr->af.datalen);
-			copy_len = fr->afdatalen;
-		}
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 		/* We need to byte-swap slinear samples from network byte order */
 		if ((fr->af.frametype == AST_FRAME_VOICE) && (fr->af.subclass == AST_FORMAT_SLINEAR)) {
-			/* 2 bytes / sample for SLINEAR */
-			ast_swapcopy_samples(fr->af.data, f->data, copy_len / 2);
+			ast_swapcopy_samples(fr->af.data, f->data, fr->af.samples);
 		} else
 #endif
-			memcpy(fr->af.data, f->data, copy_len);
+		memcpy(fr->af.data, f->data, fr->af.datalen);
 	}
 }
 
@@ -958,11 +949,11 @@ struct iax_frame *iax_frame_new(int direction, int datalen, unsigned int cacheab
 	/* Attempt to get a frame from this thread's cache */
 	if ((iax_frames = ast_threadstorage_get(&frame_cache, sizeof(*iax_frames)))) {
 		AST_LIST_TRAVERSE_SAFE_BEGIN(iax_frames, fr, list) {
-			if (fr->afdatalen >= datalen) {
-				size_t afdatalen = fr->afdatalen;
+			if (fr->mallocd_datalen >= datalen) {
+				size_t mallocd_datalen = fr->mallocd_datalen;
 				AST_LIST_REMOVE_CURRENT(iax_frames, list);
 				memset(fr, 0, sizeof(*fr));
-				fr->afdatalen = afdatalen;
+				fr->mallocd_datalen = mallocd_datalen;
 				break;
 			}
 		}
@@ -971,12 +962,12 @@ struct iax_frame *iax_frame_new(int direction, int datalen, unsigned int cacheab
 	if (!fr) {
 		if (!(fr = ast_calloc_cache(1, sizeof(*fr) + datalen)))
 			return NULL;
-		fr->afdatalen = datalen;
+		fr->mallocd_datalen = datalen;
 	}
 #else
 	if (!(fr = ast_calloc(1, sizeof(*fr) + datalen)))
 		return NULL;
-	fr->afdatalen = datalen;
+	fr->mallocd_datalen = datalen;
 #endif
 
 

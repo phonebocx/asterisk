@@ -4,7 +4,7 @@
  *
  * Largely rewritten by J.T. Conklin (jtc@wimsey.com)
  *
- * And then overhauled twice by Steve Murphy (murf@digium.com)
+ * And then overhauled twice by Steve Murphy (murf@e-tools.com)
  * to add double-quoted strings, allow mult. spaces, improve
  * error messages, and then to fold in a flex scanner for the 
  * yylex operation.
@@ -15,7 +15,7 @@
 #include "asterisk.h"
 
 #ifndef STANDALONE
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 73143 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49020 $")
 #endif
 
 #include <sys/types.h>

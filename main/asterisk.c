@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2008, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -30,8 +30,8 @@
  *
  * \section copyright Copyright and author
  *
- * Copyright (C) 1999 - 2008, Digium, Inc.
- * Asterisk is a trademark registered by Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
+ * Asterisk is a trade mark registered by Digium, Inc.
  *
  * \author Mark Spencer <markster@digium.com>
  * Also see \ref AstCREDITS
@@ -59,10 +59,8 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 118465 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56783 $")
 
-#undef sched_setscheduler
-#undef setpriority
 #include <unistd.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -80,19 +78,14 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 118465 $")
 #include <grp.h>
 #include <pwd.h>
 #include <sys/stat.h>
-
-#ifdef HAVE_ZAPTEL
-#include <sys/ioctl.h>
-#include <zaptel/zaptel.h>
+#ifdef linux
+#include <sys/prctl.h>
 #endif
+#include <regex.h>
 
 #ifdef linux
 #include <sys/prctl.h>
-#ifdef HAVE_CAP
-#include <sys/capability.h>
-#endif /* HAVE_CAP */
-#endif /* linux */
-#include <regex.h>
+#endif
 
 #if  defined(__FreeBSD__) || defined( __NetBSD__ ) || defined(SOLARIS)
 #include <netdb.h>
@@ -129,7 +122,6 @@ int daemon(int, int);  /* defined in libresolv of all places */
 #include "asterisk/version.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/devicestate.h"
-#include "asterisk/module.h"
 
 #include "asterisk/doxyref.h"		/* Doxygen documentation */
 
@@ -145,7 +137,7 @@ int daemon(int, int);  /* defined in libresolv of all places */
 
 /*! \brief Welcome message when starting a CLI interface */
 #define WELCOME_MESSAGE \
-	ast_verbose("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2008 Digium, Inc. and others.\n"); \
+	ast_verbose("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2006 Digium, Inc. and others.\n"); \
 	ast_verbose("Created by Mark Spencer <markster@digium.com>\n"); \
 	ast_verbose("Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.\n"); \
 	ast_verbose("This is free software, with components licensed under the GNU General Public\n"); \
@@ -704,26 +696,22 @@ static char *complete_show_version_files(const char *line, const char *word, int
 
 int ast_register_atexit(void (*func)(void))
 {
+	int res = -1;
 	struct ast_atexit *ae;
-
-	if (!(ae = ast_calloc(1, sizeof(*ae))))
-		return -1;
-
-	ae->func = func;
-
 	ast_unregister_atexit(func);	
-
 	AST_LIST_LOCK(&atexits);
-	AST_LIST_INSERT_HEAD(&atexits, ae, list);
+	if ((ae = ast_calloc(1, sizeof(*ae)))) {
+		AST_LIST_INSERT_HEAD(&atexits, ae, list);
+		ae->func = func;
+		res = 0;
+	}
 	AST_LIST_UNLOCK(&atexits);
-
-	return 0;
+	return res;
 }
 
 void ast_unregister_atexit(void (*func)(void))
 {
-	struct ast_atexit *ae = NULL;
-
+	struct ast_atexit *ae;
 	AST_LIST_LOCK(&atexits);
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&atexits, ae, list) {
 		if (ae->func == func) {
@@ -733,21 +721,11 @@ void ast_unregister_atexit(void (*func)(void))
 	}
 	AST_LIST_TRAVERSE_SAFE_END
 	AST_LIST_UNLOCK(&atexits);
-
-	if (ae)
-		free(ae);
 }
 
-/* Sending commands from consoles back to the daemon requires a terminating NULL */
-static int fdsend(int fd, const char *s)
-{
-	return write(fd, s, strlen(s) + 1);
-}
-
-/* Sending messages from the daemon back to the display requires _excluding_ the terminating NULL */
 static int fdprint(int fd, const char *s)
 {
-	return write(fd, s, strlen(s));
+	return write(fd, s, strlen(s) + 1);
 }
 
 /*! \brief NULL handler so we can collect the child exit status */
@@ -844,18 +822,16 @@ int ast_safe_system(const char *s)
 /*!
  * \brief mute or unmute a console from logging
  */
-void ast_console_toggle_mute(int fd, int silent) {
+void ast_console_toggle_mute(int fd) {
 	int x;
 	for (x = 0;x < AST_MAX_CONNECTS; x++) {
 		if (fd == consoles[x].fd) {
 			if (consoles[x].mute) {
 				consoles[x].mute = 0;
-				if (!silent)
-					ast_cli(fd, "Console is not muted anymore.\n");
+				ast_cli(fd, "Console is not muted anymore.\n");
 			} else {
 				consoles[x].mute = 1;
-				if (!silent)
-					ast_cli(fd, "Console is muted.\n");
+				ast_cli(fd, "Console is muted.\n");
 			}
 			return;
 		}
@@ -950,7 +926,7 @@ static void *netconsole(void *vconsole)
 				break;
 			}
 			tmp[res] = 0;
-			ast_cli_command_multiple(con->fd, res, tmp);
+			ast_cli_command(con->fd, tmp);
 		}
 		if (fds[1].revents) {
 			res = read(con->p[0], tmp, sizeof(tmp));
@@ -1014,7 +990,7 @@ static void *listener(void *unused)
 					flags = fcntl(consoles[x].p[1], F_GETFL);
 					fcntl(consoles[x].p[1], F_SETFL, flags | O_NONBLOCK);
 					consoles[x].fd = s;
-					consoles[x].mute = 1; /* Default is muted, we will un-mute if necessary */
+					consoles[x].mute = ast_opt_mute;
 					if (ast_pthread_create_background(&consoles[x].t, &attr, netconsole, &consoles[x])) {
 						ast_log(LOG_ERROR, "Unable to spawn thread to handle connection: %s\n", strerror(errno));
 						close(consoles[x].p[0]);
@@ -1199,8 +1175,10 @@ int ast_set_priority(int pri)
 				ast_verbose("Set to realtime thread\n");
 	} else {
 		sched.sched_priority = 0;
-		/* According to the manpage, these parameters can never fail. */
-		sched_setscheduler(0, SCHED_OTHER, &sched);
+		if (sched_setscheduler(0, SCHED_OTHER, &sched)) {
+			ast_log(LOG_WARNING, "Unable to set normal priority\n");
+			return -1;
+		}
 	}
 #else
 	if (pri) {
@@ -1211,8 +1189,10 @@ int ast_set_priority(int pri)
 			if (option_verbose)
 				ast_verbose("Set to high priority\n");
 	} else {
-		/* According to the manpage, these parameters can never fail. */
-		setpriority(PRIO_PROCESS, 0, 0);
+		if (setpriority(PRIO_PROCESS, 0, 0) == -1) {
+			ast_log(LOG_WARNING, "Unable to set normal priority\n");
+			return -1;
+		}
 	}
 #endif
 	return 0;
@@ -1275,9 +1255,6 @@ static void quit_handler(int num, int nice, int safeshutdown, int restart)
 				ast_verbose("Asterisk %s cancelled.\n", restart ? "restart" : "shutdown");
 			return;
 		}
-
-		if (nice)
-			ast_module_shutdown();
 	}
 	if (ast_opt_console || ast_opt_remote) {
 		if (getenv("HOME")) 
@@ -1352,12 +1329,6 @@ static void __quit_handler(int num)
 static const char *fix_header(char *outbuf, int maxout, const char *s, char *cmp)
 {
 	const char *c;
-
-	/* Check for verboser preamble */
-	if (*s == 127) {
-		s++;
-	}
-
 	if (!strncmp(s, cmp, strlen(cmp))) {
 		c = s + strlen(cmp);
 		term_color(outbuf, cmp, COLOR_GRAY, 0, maxout);
@@ -1377,12 +1348,8 @@ static void console_verboser(const char *s)
 	    (c = fix_header(tmp, sizeof(tmp), s, VERBOSE_PREFIX_1))) {
 		fputs(tmp, stdout);
 		fputs(c, stdout);
-	} else {
-		if (*s == 127) {
-			s++;
-		}
+	} else
 		fputs(s, stdout);
-	}
 
 	fflush(stdout);
 	
@@ -1744,8 +1711,7 @@ static int ast_el_read_char(EditLine *el, char *cp)
 	struct pollfd fds[2];
 	int res;
 	int max;
-#define EL_BUF_SIZE 512
-	char buf[EL_BUF_SIZE];
+	char buf[512];
 
 	for (;;) {
 		max = 1;
@@ -1772,7 +1738,6 @@ static int ast_el_read_char(EditLine *el, char *cp)
 				return (num_read);
 		}
 		if (fds[0].revents) {
-			char *tmp;
 			res = read(ast_consock, buf, sizeof(buf) - 1);
 			/* if the remote side disappears exit */
 			if (res < 1) {
@@ -1788,10 +1753,6 @@ static int ast_el_read_char(EditLine *el, char *cp)
 							fprintf(stderr, "Reconnect succeeded after %.3f seconds\n", 1.0 / reconnects_per_second * tries);
 							printf(term_quit());
 							WELCOME_MESSAGE;
-							if (!ast_opt_mute)
-								fdsend(ast_consock, "logger mute silent");
-							else 
-								printf("log and verbose output currently muted ('logger mute' to unmute)\n");
 							break;
 						} else {
 							usleep(1000000 / reconnects_per_second);
@@ -1806,19 +1767,10 @@ static int ast_el_read_char(EditLine *el, char *cp)
 
 			buf[res] = '\0';
 
-			/* Strip preamble from asynchronous events, too */
-			for (tmp = buf; *tmp; tmp++) {
-				if (*tmp == 127) {
-					memmove(tmp, tmp + 1, strlen(tmp));
-					tmp--;
-				}
-			}
-
-			/* Write over the CLI prompt */
 			if (!ast_opt_exec && !lastpos)
 				write(STDOUT_FILENO, "\r", 1);
 			write(STDOUT_FILENO, buf, res);
-			if ((res < EL_BUF_SIZE - 1) && ((buf[res-1] == '\n') || (buf[res-2] == '\n'))) {
+			if ((buf[res-1] == '\n') || (buf[res-2] == '\n')) {
 				*cp = CC_REFRESH;
 				return(1);
 			} else {
@@ -1874,7 +1826,7 @@ static char *cli_prompt(EditLine *el)
 				case 'd': /* date */
 					memset(&tm, 0, sizeof(tm));
 					time(&ts);
-					if (ast_localtime(&ts, &tm, NULL)) {
+					if (localtime_r(&ts, &tm)) {
 						strftime(p, sizeof(prompt) - strlen(prompt), "%Y-%m-%d", &tm);
 					}
 					break;
@@ -1934,7 +1886,7 @@ static char *cli_prompt(EditLine *el)
 				case 't': /* time */
 					memset(&tm, 0, sizeof(tm));
 					time(&ts);
-					if (ast_localtime(&ts, &tm, NULL)) {
+					if (localtime_r(&ts, &tm)) {
 						strftime(p, sizeof(prompt) - strlen(prompt), "%H:%M:%S", &tm);
 					}
 					break;
@@ -1965,10 +1917,9 @@ static char *cli_prompt(EditLine *el)
 		if (color_used) {
 			/* Force colors back to normal at end */
 			term_color_code(term_code, COLOR_WHITE, COLOR_BLACK, sizeof(term_code));
-			if (strlen(term_code) > sizeof(prompt) - strlen(prompt) - 1) {
-				ast_copy_string(prompt + sizeof(prompt) - strlen(term_code) - 1, term_code, strlen(term_code) + 1);
+			if (strlen(term_code) > sizeof(prompt) - strlen(prompt)) {
+				strncat(prompt + sizeof(prompt) - strlen(term_code) - 1, term_code, strlen(term_code));
 			} else {
-				/* This looks wrong, but we've already checked the length of term_code to ensure it's safe */
 				strncat(p, term_code, sizeof(term_code));
 			}
 		}
@@ -2101,7 +2052,7 @@ static char *cli_complete(EditLine *el, int ch)
 
 	if (ast_opt_remote) {
 		snprintf(buf, sizeof(buf),"_COMMAND NUMMATCHES \"%s\" \"%s\"", lf->buffer, ptr); 
-		fdsend(ast_consock, buf);
+		fdprint(ast_consock, buf);
 		res = read(ast_consock, buf, sizeof(buf));
 		buf[res] = '\0';
 		nummatches = atoi(buf);
@@ -2113,7 +2064,7 @@ static char *cli_complete(EditLine *el, int ch)
 			if (!(mbuf = ast_malloc(maxmbuf)))
 				return (char *)(CC_ERROR);
 			snprintf(buf, sizeof(buf),"_COMMAND MATCHESARRAY \"%s\" \"%s\"", lf->buffer, ptr); 
-			fdsend(ast_consock, buf);
+			fdprint(ast_consock, buf);
 			res = 0;
 			mbuf[0] = '\0';
 			while (!strstr(mbuf, AST_CLI_COMPLETE_EOF) && res != -1) {
@@ -2296,15 +2247,13 @@ static void ast_remotecontrol(char * data)
 		pid = atoi(cpid);
 	else
 		pid = -1;
-	if (!data) {
-		snprintf(tmp, sizeof(tmp), "core set verbose atleast %d", option_verbose);
-		fdsend(ast_consock, tmp);
-		snprintf(tmp, sizeof(tmp), "core set debug atleast %d", option_debug);
-		fdsend(ast_consock, tmp);
-		if (!ast_opt_mute)
-			fdsend(ast_consock, "logger mute silent");
-		else 
-			printf("log and verbose output currently muted ('logger mute' to unmute)\n");
+	snprintf(tmp, sizeof(tmp), "core set verbose atleast %d", option_verbose);
+	fdprint(ast_consock, tmp);
+	snprintf(tmp, sizeof(tmp), "core set debug atleast %d", option_debug);
+	fdprint(ast_consock, tmp);
+	if (ast_opt_mute) {
+		snprintf(tmp, sizeof(tmp), "log and verbose output currently muted ('logger unmute' to unmute)");
+		fdprint(ast_consock, tmp);
 	}
 	ast_verbose("Connected to Asterisk %s currently running on %s (pid = %d)\n", version, hostname, pid);
 	remotehostname = hostname;
@@ -2319,58 +2268,22 @@ static void ast_remotecontrol(char * data)
 		ast_el_read_history(filename);
 
 	if (ast_opt_exec && data) {  /* hack to print output then exit if asterisk -rx is used */
+		char tempchar;
 		struct pollfd fds;
 		fds.fd = ast_consock;
 		fds.events = POLLIN;
 		fds.revents = 0;
-		while (poll(&fds, 1, 500) > 0) {
-			char buf[512] = "", *curline = buf, *nextline;
-			int not_written = 1;
-
-			if (read(ast_consock, buf, sizeof(buf) - 1) <= 0) {
-				break;
-			}
-
-			do {
-				if ((nextline = strchr(curline, '\n'))) {
-					nextline++;
-				} else {
-					nextline = strchr(curline, '\0');
-				}
-
-				/* Skip verbose lines */
-				if (*curline != 127) {
-					not_written = 0;
-					write(STDOUT_FILENO, curline, nextline - curline);
-				}
-				curline = nextline;
-			} while (!ast_strlen_zero(curline));
-
-			/* No non-verbose output in 500ms */
-			if (not_written) {
-				break;
-			}
-		}
+		while (poll(&fds, 1, 100) > 0)
+			ast_el_read_char(el, &tempchar);
 		return;
 	}
 	for (;;) {
 		ebuf = (char *)el_gets(el, &num);
 
-		if (!ebuf && write(1, "", 1) < 0)
-			break;
-
 		if (!ast_strlen_zero(ebuf)) {
 			if (ebuf[strlen(ebuf)-1] == '\n')
 				ebuf[strlen(ebuf)-1] = '\0';
 			if (!remoteconsolehandler(ebuf)) {
-				/* Strip preamble from output */
-				char *tmp;
-				for (tmp = ebuf; *tmp; tmp++) {
-					if (*tmp == 127) {
-						memmove(tmp, tmp + 1, strlen(tmp));
-						tmp--;
-					}
-				}
 				res = write(ast_consock, ebuf, strlen(ebuf) + 1);
 				if (res < 1) {
 					ast_log(LOG_WARNING, "Unable to write: %s\n", strerror(errno));
@@ -2389,7 +2302,7 @@ static int show_version(void)
 }
 
 static int show_cli_help(void) {
-	printf("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2008, Digium, Inc. and others.\n");
+	printf("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2006, Digium, Inc. and others.\n");
 	printf("Usage: asterisk [OPTIONS]\n");
 	printf("Valid Options:\n");
 	printf("   -V              Display version number and exit\n");
@@ -2408,16 +2321,14 @@ static int show_cli_help(void) {
 	printf("   -I              Enable internal timing if Zaptel timer is available\n");
 	printf("   -L <load>       Limit the maximum load average before rejecting new calls\n");
 	printf("   -M <value>      Limit the maximum number of calls to the specified value\n");
-	printf("   -m              Mute debugging and console output on the console\n");
+	printf("   -m              Mute the console from debugging and verbose output\n");
 	printf("   -n              Disable console colorization\n");
 	printf("   -p              Run as pseudo-realtime thread\n");
 	printf("   -q              Quiet mode (suppress output)\n");
 	printf("   -r              Connect to Asterisk on this machine\n");
-	printf("   -R              Same as -r, except attempt to reconnect if disconnected\n");
-	printf("   -t              Record soundfiles in /var/tmp and move them where they\n");
-	printf("                   belong after they are done\n");
-	printf("   -T              Display the time in [Mmm dd hh:mm:ss] format for each line\n");
-	printf("                   of output to the CLI\n");
+	printf("   -R              Connect to Asterisk, and attempt to reconnect if disconnected\n");
+	printf("   -t              Record soundfiles in /var/tmp and move them where they belong after they are done.\n");
+	printf("   -T              Display the time in [Mmm dd hh:mm:ss] format for each line of output to the CLI.\n");
 	printf("   -v              Increase verbosity (multiple v's = more verbose)\n");
 	printf("   -x <cmd>        Execute command <cmd> (only valid with -r)\n");
 	printf("\n");
@@ -2549,8 +2460,8 @@ static void ast_readconfig(void)
 		/* Build transcode paths via SLINEAR, instead of directly */
 		} else if (!strcasecmp(v->name, "transcode_via_sln")) {
 			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_TRANSCODE_VIA_SLIN);
-		/* Transmit SLINEAR silence while a channel is being recorded or DTMF is being generated on a channel */
-		} else if (!strcasecmp(v->name, "transmit_silence_during_record") || !strcasecmp(v->name, "transmit_silence")) {
+		/* Transmit SLINEAR silence while a channel is being recorded */
+		} else if (!strcasecmp(v->name, "transmit_silence_during_record")) {
 			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_TRANSMIT_SILENCE);
 		/* Enable internal timing */
 		} else if (!strcasecmp(v->name, "internal_timing")) {
@@ -2614,7 +2525,7 @@ int main(int argc, char *argv[])
 	FILE *f;
 	sigset_t sigs;
 	int num;
-	int isroot = 1;
+	int is_child_of_nonroot = 0;
 	char *buf;
 	char *runuser = NULL, *rungroup = NULL;
 
@@ -2626,9 +2537,6 @@ int main(int argc, char *argv[])
 	for (x=0; x<argc; x++)
 		_argv[x] = argv[x];
 	_argv[x] = NULL;
-
-	if (geteuid() != 0)
-		isroot = 0;
 
 	/* if the progname is rasterisk consider it a remote console */
 	if (argv[0] && (strstr(argv[0], "rasterisk")) != NULL) {
@@ -2643,7 +2551,11 @@ int main(int argc, char *argv[])
 	ast_builtins_init();
 	ast_utils_init();
 	tdd_init();
-
+	/* When Asterisk restarts after it has dropped the root privileges,
+	 * it can't issue setuid(), setgid(), setgroups() or set_priority() 
+	 */
+	if (getenv("ASTERISK_ALREADY_NONROOT"))
+		is_child_of_nonroot=1;
 	if (getenv("HOME")) 
 		snprintf(filename, sizeof(filename), "%s/.asterisk_history", getenv("HOME"));
 	/* Check for options */
@@ -2702,7 +2614,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'x':
 			ast_set_flag(&ast_options, AST_OPT_FLAG_EXEC);
-			xarg = ast_strdupa(optarg);
+			xarg = optarg;
 			break;
 		case 'C':
 			ast_copy_string(ast_config_AST_CONFIG_FILE, optarg, sizeof(ast_config_AST_CONFIG_FILE));
@@ -2724,10 +2636,10 @@ int main(int argc, char *argv[])
 			show_version();
 			exit(0);
 		case 'U':
-			runuser = ast_strdupa(optarg);
+			runuser = optarg;
 			break;
 		case 'G':
-			rungroup = ast_strdupa(optarg);
+			rungroup = optarg;
 			break;
 		case '?':
 			exit(1);
@@ -2778,10 +2690,10 @@ int main(int argc, char *argv[])
 
 #ifndef __CYGWIN__
 
-	if (isroot) 
+	if (!is_child_of_nonroot) 
 		ast_set_priority(ast_opt_high_priority);
 
-	if (isroot && rungroup) {
+	if (!is_child_of_nonroot && rungroup) {
 		struct group *gr;
 		gr = getgrnam(rungroup);
 		if (!gr) {
@@ -2800,24 +2712,11 @@ int main(int argc, char *argv[])
 			ast_verbose("Running as group '%s'\n", rungroup);
 	}
 
-	if (runuser && !ast_test_flag(&ast_options, AST_OPT_FLAG_REMOTE)) {
-#ifdef HAVE_CAP
-		int has_cap = 1;
-#endif /* HAVE_CAP */
+	if (!is_child_of_nonroot && runuser) {
 		struct passwd *pw;
 		pw = getpwnam(runuser);
 		if (!pw) {
 			ast_log(LOG_WARNING, "No such user '%s'!\n", runuser);
-			exit(1);
-		}
-#ifdef HAVE_CAP
-		if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0)) {
-			ast_log(LOG_WARNING, "Unable to keep capabilities.\n");
-			has_cap = 0;
-		}
-#endif /* HAVE_CAP */
-		if (!isroot && pw->pw_uid != geteuid()) {
-			ast_log(LOG_ERROR, "Asterisk started as nonroot, but runuser '%s' requested.\n", runuser);
 			exit(1);
 		}
 		if (!rungroup) {
@@ -2825,7 +2724,7 @@ int main(int argc, char *argv[])
 				ast_log(LOG_WARNING, "Unable to setgid to %d!\n", (int)pw->pw_gid);
 				exit(1);
 			}
-			if (isroot && initgroups(pw->pw_name, pw->pw_gid)) {
+			if (initgroups(pw->pw_name, pw->pw_gid)) {
 				ast_log(LOG_WARNING, "Unable to init groups for '%s'\n", runuser);
 				exit(1);
 			}
@@ -2834,21 +2733,9 @@ int main(int argc, char *argv[])
 			ast_log(LOG_WARNING, "Unable to setuid to %d (%s)\n", (int)pw->pw_uid, runuser);
 			exit(1);
 		}
+		setenv("ASTERISK_ALREADY_NONROOT", "yes", 1);
 		if (option_verbose)
 			ast_verbose("Running as user '%s'\n", runuser);
-#ifdef HAVE_CAP
-		if (has_cap) {
-			cap_t cap;
-
-			cap = cap_from_text("cap_net_admin=ep");
-
-			if (cap_set_proc(cap))
-				ast_log(LOG_WARNING, "Unable to install capabilities.\n");
-
-			if (cap_free(cap))
-				ast_log(LOG_WARNING, "Unable to drop capabilities.\n");
-		}
-#endif /* HAVE_CAP */
 	}
 
 #endif /* __CYGWIN__ */
@@ -2912,8 +2799,7 @@ int main(int argc, char *argv[])
 
 #if HAVE_WORKING_FORK
 	if (ast_opt_always_fork || !ast_opt_no_fork) {
-#ifndef HAVE_SBIN_LAUNCHD
-		daemon(1, 0);
+		daemon(0, 0);
 		ast_mainpid = getpid();
 		/* Blindly re-write pid file since we are forking */
 		unlink(ast_config_AST_PID);
@@ -2923,9 +2809,6 @@ int main(int argc, char *argv[])
 			fclose(f);
 		} else
 			ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", ast_config_AST_PID, strerror(errno));
-#else
-		ast_log(LOG_WARNING, "Mac OS X detected.  Use '/sbin/launchd -d' to launch with the nofork option.\n");
-#endif
 	}
 #endif
 
@@ -2958,39 +2841,8 @@ int main(int argc, char *argv[])
 		printf(term_quit());
 		exit(1);
 	}
-#ifdef HAVE_ZAPTEL
-	{
-		int fd;
-		int x = 160;
-		fd = open("/dev/zap/timer", O_RDWR);
-		if (fd >= 0) {
-			if (ioctl(fd, ZT_TIMERCONFIG, &x)) {
-				ast_log(LOG_ERROR, "You have Zaptel built and drivers loaded, but the Zaptel timer test failed to set ZT_TIMERCONFIG to %d.\n", x);
-				exit(1);
-			}
-			if ((x = ast_wait_for_input(fd, 300)) < 0) {
-				ast_log(LOG_ERROR, "You have Zaptel built and drivers loaded, but the Zaptel timer could not be polled during the Zaptel timer test.\n");
-				exit(1);
-			}
-			if (!x) {
-				const char zaptel_timer_error[] = {
-					"Asterisk has detected a problem with your Zaptel configuration and will shutdown for your protection.  You have options:"
-					"\n\t1. You only have to compile Zaptel support into Asterisk if you need it.  One option is to recompile without Zaptel support."
-					"\n\t2. You only have to load Zaptel drivers if you want to take advantage of Zaptel services.  One option is to unload zaptel modules if you don't need them."
-					"\n\t3. If you need Zaptel services, you must correctly configure Zaptel."
-				};
-				ast_log(LOG_ERROR, "%s\n", zaptel_timer_error);
-				exit(1);
-			}
-			close(fd);
-		}
-	}
-#endif
+
 	threadstorage_init();
-
-	astobj2_init();
-
-	ast_autoservice_init();
 
 	if (load_modules(1)) {
 		printf(term_quit());
@@ -3102,10 +2954,6 @@ int main(int argc, char *argv[])
 
 		for (;;) {
 			buf = (char *)el_gets(el, &num);
-
-			if (!buf && write(1, "", 1) < 0)
-				goto lostterm;
-
 			if (buf) {
 				if (buf[strlen(buf)-1] == '\n')
 					buf[strlen(buf)-1] = '\0';
@@ -3128,6 +2976,5 @@ int main(int argc, char *argv[])
 
 	monitor_sig_flags(NULL);
 
-lostterm:
 	return 0;
 }

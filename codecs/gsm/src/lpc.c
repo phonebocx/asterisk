@@ -35,12 +35,9 @@ static void Autocorrelation P2((s, L_ACF),
  *  be scaled in order to avoid an overflow situation.
  */
 {
-#ifndef K6OPT
 	register int	k, i;
-	word temp;
-#endif
 
-	word		smax, scalauto;
+	word		temp, smax, scalauto;
 
 #ifdef	USE_FLOAT_MUL
 	float		float_s[160];

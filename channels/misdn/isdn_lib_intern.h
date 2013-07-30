@@ -29,10 +29,6 @@
 ibuffer_t *astbuf;
 ibuffer_t *misdnbuf;
 
-struct send_lock {
-	pthread_mutex_t lock;
-};
-
 
 struct isdn_msg {
 	unsigned long misdn_msg;
@@ -78,9 +74,6 @@ struct misdn_stack {
 	time_t l2establish;
   
 	int l1link;
-
-	int restart_sent;
-
 	int midev;
   
 	int nt;

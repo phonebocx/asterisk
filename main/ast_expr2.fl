@@ -25,7 +25,7 @@
 #include "asterisk.h"
 
 #ifndef STANDALONE
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 97849 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49237 $")
 #endif
 
 #include <sys/types.h>
@@ -89,7 +89,7 @@ struct parse_io
 void ast_yyset_column(int column_no, yyscan_t yyscanner);
 int ast_yyget_column(yyscan_t yyscanner);
 static int curlycount = 0;
-static char *expr2_token_subst(const char *mess);
+static char *expr2_token_subst(char *mess);
 %}
 
 %option prefix="ast_yy"
@@ -99,7 +99,6 @@ static char *expr2_token_subst(const char *mess);
 %option bison-bridge
 %option bison-locations
 %option noyywrap
-%option noyyfree
 %x var trail
 
 %%
@@ -214,14 +213,6 @@ static char *expr2_token_subst(const char *mess);
 int ast_yyparse(void *); /* need to/should define this prototype for the call to yyparse */
 int ast_yyerror(const char *, YYLTYPE *, struct parse_io *); /* likewise */
 
-void ast_yyfree(void *ptr, yyscan_t yyscanner)
-{
-      if (ptr) /* the normal generated yyfree func just frees its first arg;
-                    this get complaints on some systems, as sometimes this
-                    arg is a nil ptr! It's usually not fatal, but is irritating! */
-              free( (char *) ptr );
-}
-
 int ast_expr(char *expr, char *buf, int length)
 {
 	struct parse_io io;
@@ -250,7 +241,7 @@ int ast_expr(char *expr, char *buf, int length)
 			res_length = snprintf(buf, length, "%ld", (long int) io.val->u.i);
 			return_value = (res_length <= length) ? res_length : length;
 		} else {
-#if defined(STANDALONE) || defined(LOW_MEMORY) || defined(STANDALONE_AEL)
+#if defined(STANDALONE) || defined(LOW_MEMORY)
 			strncpy(buf, io.val->u.s, length - 1);
 #else /* !STANDALONE && !LOW_MEMORY */
 			ast_copy_string(buf, io.val->u.s, length);
@@ -332,11 +323,11 @@ static char *expr2_token_equivs2[] =
 };
 
 
-static char *expr2_token_subst(const char *mess)
+static char *expr2_token_subst(char *mess)
 {
 	/* calc a length, malloc, fill, and return; yyerror had better free it! */
 	int len=0,i;
-	const char *p;
+	char *p;
 	char *res, *s,*t;
 	int expr2_token_equivs_entries = sizeof(expr2_token_equivs1)/sizeof(char*);
 
@@ -381,7 +372,7 @@ int ast_yyerror (const char *s,  yyltype *loc, struct parse_io *parseio )
 	char spacebuf[8000]; /* best safe than sorry */
 	char spacebuf2[8000]; /* best safe than sorry */
 	int i=0;
-	char *s2 = expr2_token_subst(s);
+	char *s2 = expr2_token_subst((char *)s);
 	spacebuf[0] = 0;
 	
 	for(i=0;i< (int)(yytext - YY_CURRENT_BUFFER_LVALUE->yy_ch_buf);i++) spacebuf2[i] = ' ';  /* uh... assuming yyg is defined, then I can use the yycolumn macro,

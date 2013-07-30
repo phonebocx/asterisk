@@ -11,14 +11,8 @@
 
 -include ../menuselect.makeopts ../menuselect.makedeps
 
-MENUSELECT_CATEGORY=PBX
-MENUSELECT_DESCRIPTION=PBX Modules
-
-ALL_C_MODS:=$(patsubst %.c,%,$(wildcard pbx_*.c))
-ALL_CC_MODS:=$(patsubst %.cc,%,$(wildcard pbx_*.cc))
-
-C_MODS:=$(filter-out $(MENUSELECT_PBX),$(ALL_C_MODS))
-CC_MODS:=$(filter-out $(MENUSELECT_PBX),$(ALL_CC_MODS))
+C_MODS:=$(filter-out $(MENUSELECT_PBX),$(patsubst %.c,%,$(wildcard pbx_*.c)))
+CC_MODS:=$(filter-out $(MENUSELECT_PBX),$(patsubst %.cc,%,$(wildcard pbx_*.cc)))
 
 LOADABLE_MODS:=$(C_MODS) $(CC_MODS)
 
@@ -35,25 +29,20 @@ clean::
 	rm -f ael/*.o
 
 ael/ael_lex.o: ael/ael_lex.c ../include/asterisk/ael_structs.h ael/ael.tab.h
-ael/ael_lex.o: ASTCFLAGS+=-I. -Wno-unused
+ael/ael_lex.o: ASTCFLAGS+=-I.
 
 ael/ael.tab.o: ael/ael.tab.c ael/ael.tab.h ../include/asterisk/ael_structs.h
 ael/ael.tab.o: ASTCFLAGS+=-I.
-
-ael/ael.tab.o ael/ael_lex.o: ASTCFLAGS+=$(MENUSELECT_OPTS_pbx_ael:%=-D%) $(foreach dep,$(MENUSELECT_DEPENDS_pbx_ael),$(value $(dep)_INCLUDE))
 
 $(if $(filter pbx_ael,$(EMBEDDED_MODS)),modules.link,pbx_ael.so): ael/ael.tab.o ael/ael_lex.o
 
 ael/ael_lex.c:
 	(cd ael; flex ael.flex; sed -i -e "/begin standard C headers/i#include \"asterisk.h\"" ael_lex.c)
-	(cd ael; sed 's@#if __STDC_VERSION__ >= 199901L@#if !defined __STDC_VERSION__ || __STDC_VERSION__ >= 199901L@' ael_lex.c > zz; mv zz ael_lex.c)
 
 ael/ael.tab.c ael/ael.tab.h:
 	(cd ael; bison -v -d ael.y)
 
 dundi-parser.o: dundi-parser.h
 dundi-parser.o: ASTCFLAGS+=-I.
-
-dundi-parser.o: ASTCFLAGS+=$(MENUSELECT_OPTS_pbx_dundi:%=-D%) $(foreach dep,$(MENUSELECT_DEPENDS_pbx_dundi),$(value $(dep)_INCLUDE))
 
 $(if $(filter pbx_dundi,$(EMBEDDED_MODS)),modules.link,pbx_dundi.so): dundi-parser.o

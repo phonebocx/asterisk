@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61681 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +46,7 @@ static int moh_read(struct ast_channel *chan, char *cmd, char *data,
 		ast_log(LOG_WARNING, "MUSICCLASS() is deprecated; use CHANNEL(musicclass) instead.\n");
 	}
 
-	ast_copy_string(buf, chan ? chan->musicclass : "", len);
+	ast_copy_string(buf, chan->musicclass, len);
 
 	return 0;
 }
@@ -59,8 +59,7 @@ static int moh_write(struct ast_channel *chan, char *cmd, char *data,
 		ast_log(LOG_WARNING, "MUSICCLASS() is deprecated; use CHANNEL(musicclass) instead.\n");
 	}
 
-	if (chan)
-		ast_string_field_set(chan, musicclass, value);
+	ast_string_field_set(chan, musicclass, value);
 
 	return 0;
 }

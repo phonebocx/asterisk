@@ -26,8 +26,7 @@ OBJS=	io.o sched.o logger.o frame.o loader.o config.o channel.o \
 	utils.o plc.o jitterbuf.o dnsmgr.o devicestate.o \
 	netsock.o slinfactory.o ast_expr2.o ast_expr2f.o \
 	cryptostub.o sha1.o http.o fixedjitterbuf.o abstract_jb.o \
-	strcompat.o threadstorage.o dial.o astobj2.o global_datastores.o \
-	audiohook.o
+	strcompat.o threadstorage.o dial.o
 
 # we need to link in the objects statically, not as a library, because
 # otherwise modules will not have them available if none of the static
@@ -52,12 +51,9 @@ ifeq ($(wildcard /usr/include/dlfcn.h),)
   OBJS+=dlfcn.o
 endif
 
-ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc linux-gnueabi ),)
+ifneq ($(findstring $(OSARCH), linux-gnu uclinux ),)
   ifneq ($(findstring LOADABLE_MODULES,$(MENUSELECT_CFLAGS)),)
   AST_LIBS+=-ldl
-  endif
-  ifneq (x$(CAP_LIB),x)
-    AST_LIBS+=$(CAP_LIB)
   endif
   AST_LIBS+=-lpthread $(EDITLINE_LIB) -lm -lresolv
 else
@@ -99,21 +95,17 @@ ifeq ($(OSARCH),SunOS)
 endif
 
 editline/libedit.a:
-	cd editline && test -f config.h || CFLAGS="$(PTHREAD_CFLAGS) $(subst $(ASTTOPDIR),../../,$(ASTCFLAGS:-Werror=))" LDFLAGS="$(ASTLDFLAGS)" ./configure --build=$(BUILD_PLATFORM) --host=$(HOST_PLATFORM) --with-ncurses=$(NCURSES_DIR) --with-curses=$(CURSES_DIR) --with-termcap=$(TERMCAP_DIR) --with-tinfo=$(TINFO_DIR)
+	cd editline && test -f config.h || CFLAGS="$(PTHREAD_CFLAGS) $(ASTCFLAGS:-Werror=)" LDFLAGS="$(ASTLDFLAGS)" ./configure --build=$(BUILD_PLATFORM) --host=$(HOST_PLATFORM) --with-ncurses=$(NCURSES_DIR) --with-curses=$(CURSES_DIR) --with-termcap=$(TERMCAP_DIR) --with-tinfo=$(TINFO_DIR)
 	$(MAKE) -C editline libedit.a
 
 db1-ast/libdb1.a:
-	CFLAGS="$(subst $(ASTTOPDIR),../../,$(ASTCFLAGS))" LDFLAGS="$(ASTLDFLAGS)" $(MAKE) -C db1-ast libdb1.a
+	CFLAGS="$(ASTCFLAGS)" LDFLAGS="$(ASTLDFLAGS)" $(MAKE) -C db1-ast libdb1.a
 
 ast_expr2.c ast_expr2.h:
 	bison -o $@ -d --name-prefix=ast_yy ast_expr2.y
 
 ast_expr2f.c:
-	flex -o $@ --full ast_expr2.fl # moved the correction of yyfree into the flex input file itself.
-	sed 's@#if __STDC_VERSION__ >= 199901L@#if !defined __STDC_VERSION__ || __STDC_VERSION__ >= 199901L@' ast_expr2f.c > zz
-	mv zz ast_expr2f.c
-
-ast_expr2f.o: ASTCFLAGS+=-Wno-unused
+	flex -o $@ --full ast_expr2.fl
 
 testexpr2: ast_expr2f.c ast_expr2.c ast_expr2.h
 	$(CC) -g -c -Iinclude -DSTANDALONE ast_expr2f.c
@@ -122,9 +114,6 @@ testexpr2: ast_expr2f.c ast_expr2.c ast_expr2.h
 	rm ast_expr2.o ast_expr2f.o 
 
 channel.o: ASTCFLAGS+=$(ZAPTEL_INCLUDE)
-asterisk.o: ASTCFLAGS+=$(ZAPTEL_INCLUDE)
-
-stdtime/localtime.o: ASTCFLAGS+=$(AST_NO_STRICT_OVERFLOW)
 
 AST_EMBED_LDSCRIPTS:=$(sort $(EMBED_LDSCRIPTS))
 AST_EMBED_LDFLAGS:=$(foreach dep,$(EMBED_LDFLAGS),$(value $(dep)))
@@ -146,12 +135,8 @@ asterisk: $(OBJS) editline/libedit.a db1-ast/libdb1.a $(AST_EMBED_LDSCRIPTS)
 	@rm -f $(ASTTOPDIR)/include/asterisk/build.h.tmp
 	@$(CC) -c -o buildinfo.o $(ASTCFLAGS) buildinfo.c
 	$(ECHO_PREFIX) echo "   [LD] $^ -> $@"
-ifneq ($(findstring chan_h323,$(MENUSELECT_CHANNELS)),)
-	$(CMD_PREFIX) $(CC) $(STATIC_BUILD) -o $@ $(ASTLINK) $(AST_EMBED_LDFLAGS) $(ASTLDFLAGS) $^ buildinfo.o $(AST_LIBS) $(AST_EMBED_LIBS)
-else
 	$(CMD_PREFIX) $(CXX) $(STATIC_BUILD) -o $@ $(ASTLINK) $(AST_EMBED_LDFLAGS) $(ASTLDFLAGS) $(H323LDFLAGS) $^ buildinfo.o $(AST_LIBS) $(AST_EMBED_LIBS) $(H323LDLIBS)
-endif
-	$(CMD_PREFIX) $(ASTTOPDIR)/build_tools/strip_nonapi $@ || rm $@
+	@$(ASTTOPDIR)/build_tools/strip_nonapi $@
 
 clean::
 	rm -f asterisk

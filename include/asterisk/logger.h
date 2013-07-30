@@ -64,9 +64,6 @@ void ast_log(int level, const char *file, int line, const char *function, const 
 
 void ast_backtrace(void);
 
-/*! \brief Reload logger without rotating log files */
-int logger_reload(void);
-
 void ast_queue_log(const char *queuename, const char *callid, const char *agent, const char *event, const char *fmt, ...)
 	__attribute__ ((format (printf, 5, 6)));
 
@@ -86,7 +83,7 @@ int ast_unregister_verbose(void (*verboser)(const char *string));
 void ast_console_puts(const char *string);
 
 void ast_console_puts_mutable(const char *string);
-void ast_console_toggle_mute(int fd, int silent);
+void ast_console_toggle_mute(int fd);
 
 #define _A_ __FILE__, __LINE__, __PRETTY_FUNCTION__
 

@@ -21,16 +21,15 @@
  * \brief http server for AMI access
  *
  * \author Mark Spencer <markster@digium.com>
- *
- * This program implements a tiny http server
- * and was inspired by micro-httpd by Jef Poskanzer 
+ * This program implements a tiny http server supporting the "get" method
+ * only and was inspired by micro-httpd by Jef Poskanzer 
  * 
  * \ref AstHTTP - AMI over the http protocol
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114600 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58354 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -55,7 +54,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114600 $")
 #include "asterisk/options.h"
 #include "asterisk/config.h"
 #include "asterisk/version.h"
-#include "asterisk/manager.h"
 
 #define MAX_PREFIX 80
 #define DEFAULT_PREFIX "/asterisk"
@@ -79,20 +77,17 @@ static int enablestatic;
 
 /*! \brief Limit the kinds of files we're willing to serve up */
 static struct {
-	const char *ext;
-	const char *mtype;
+	char *ext;
+	char *mtype;
 } mimetypes[] = {
 	{ "png", "image/png" },
 	{ "jpg", "image/jpeg" },
 	{ "js", "application/x-javascript" },
 	{ "wav", "audio/x-wav" },
 	{ "mp3", "audio/mpeg" },
-	{ "svg", "image/svg+xml" },
-	{ "svgz", "image/svg+xml" },
-	{ "gif", "image/gif" },
 };
 
-static const char *ftype2mtype(const char *ftype, char *wkspace, int wkspacelen)
+static char *ftype2mtype(const char *ftype, char *wkspace, int wkspacelen)
 {
 	int x;
 	if (ftype) {
@@ -110,8 +105,7 @@ static char *static_callback(struct sockaddr_in *req, const char *uri, struct as
 	char result[4096];
 	char *c=result;
 	char *path;
-	char *ftype;
-	const char *mtype;
+	char *ftype, *mtype;
 	char wkspace[80];
 	struct stat st;
 	int len;
@@ -130,7 +124,7 @@ static char *static_callback(struct sockaddr_in *req, const char *uri, struct as
 		
 	if ((ftype = strrchr(uri, '.')))
 		ftype++;
-	mtype = ftype2mtype(ftype, wkspace, sizeof(wkspace));
+	mtype=ftype2mtype(ftype, wkspace, sizeof(wkspace));
 	
 	/* Cap maximum length */
 	len = strlen(uri) + strlen(ast_config_AST_DATA_DIR) + strlen("/static-http/") + 5;
@@ -225,7 +219,6 @@ static struct ast_http_uri staticuri = {
 	.description = "Asterisk HTTP Static Delivery",
 	.uri = "static",
 	.has_subtree = 1,
-	.static_content = 1,
 };
 	
 char *ast_http_error(int status, const char *title, const char *extra_header, const char *text)
@@ -292,9 +285,7 @@ void ast_http_uri_unlink(struct ast_http_uri *urih)
 	ast_rwlock_unlock(&uris_lock);
 }
 
-static char *handle_uri(struct sockaddr_in *sin, char *uri, int *status, 
-	char **title, int *contentlength, struct ast_variable **cookies, 
-	unsigned int *static_content)
+static char *handle_uri(struct sockaddr_in *sin, char *uri, int *status, char **title, int *contentlength, struct ast_variable **cookies)
 {
 	char *c;
 	char *turi;
@@ -361,8 +352,6 @@ static char *handle_uri(struct sockaddr_in *sin, char *uri, int *status,
 		}
 	}
 	if (urih) {
-		if (urih->static_content)
-			*static_content = 1;
 		c = urih->callback(sin, uri, vars, status, title, contentlength);
 		ast_rwlock_unlock(&uris_lock);
 	} else if (ast_strlen_zero(uri) && ast_strlen_zero(prefix)) {
@@ -379,54 +368,17 @@ static char *handle_uri(struct sockaddr_in *sin, char *uri, int *status,
 	return c;
 }
 
-static struct ast_variable *parse_cookies(char *cookies)
-{
-	char *cur;
-	struct ast_variable *vars = NULL, *var;
-
-	/* Skip Cookie: */
-	cookies += 8;
-
-	while ((cur = strsep(&cookies, ";"))) {
-		char *name, *val;
-		
-		name = val = cur;
-		strsep(&val, "=");
-
-		if (ast_strlen_zero(name) || ast_strlen_zero(val)) {
-			continue;
-		}
-
-		name = ast_strip(name);
-		val = ast_strip_quoted(val, "\"", "\"");
-
-		if (ast_strlen_zero(name) || ast_strlen_zero(val)) {
-			continue;
-		}
-
-		if (option_debug) {
-			ast_log(LOG_DEBUG, "mmm ... cookie!  Name: '%s'  Value: '%s'\n", name, val);
-		}
-
-		var = ast_variable_new(name, val);
-		var->next = vars;
-		vars = var;
-	}
-
-	return vars;
-}
-
 static void *ast_httpd_helper_thread(void *data)
 {
 	char buf[4096];
 	char cookie[4096];
 	char timebuf[256];
 	struct ast_http_server_instance *ser = data;
-	struct ast_variable *vars = NULL;
+	struct ast_variable *var, *prev=NULL, *vars=NULL;
 	char *uri, *c, *title=NULL;
+	char *vname, *vval;
 	int status = 200, contentlength = 0;
 	time_t t;
-	unsigned int static_content = 0;
 
 	if (fgets(buf, sizeof(buf), ser->f)) {
 		/* Skip method */
@@ -459,13 +411,58 @@ static void *ast_httpd_helper_thread(void *data)
 			if (ast_strlen_zero(cookie))
 				break;
 			if (!strncasecmp(cookie, "Cookie: ", 8)) {
-				vars = parse_cookies(cookie);
+
+				/* TODO - The cookie parsing code below seems to work   
+				   in IE6 and FireFox 1.5.  However, it is not entirely 
+				   correct, and therefore may not work in all           
+				   circumstances.		                        
+				      For more details see RFC 2109 and RFC 2965        */
+			
+				/* FireFox cookie strings look like:                    
+				     Cookie: mansession_id="********"                   
+				   InternetExplorer's look like:                        
+				     Cookie: $Version="1"; mansession_id="********"     */
+				
+				/* If we got a FireFox cookie string, the name's right  
+				    after "Cookie: "                                    */
+                                vname = cookie + 8;
+				
+				/* If we got an IE cookie string, we need to skip to    
+				    past the version to get to the name                 */
+				if (*vname == '$') {
+					vname = strchr(vname, ';');
+					if (vname) { 
+						vname++;
+						if (*vname == ' ')
+							vname++;
+					}
+				}
+				
+				if (vname) {
+					vval = strchr(vname, '=');
+					if (vval) {
+						/* Ditch the = and the quotes */
+						*vval++ = '\0';
+						if (*vval)
+							vval++;
+						if (strlen(vval))
+							vval[strlen(vval) - 1] = '\0';
+						var = ast_variable_new(vname, vval);
+						if (var) {
+							if (prev)
+								prev->next = var;
+							else
+								vars = var;
+							prev = var;
+						}
+					}
+				}
 			}
 		}
 
 		if (*uri) {
 			if (!strcasecmp(buf, "get")) 
-				c = handle_uri(&ser->requestor, uri, &status, &title, &contentlength, &vars, &static_content);
+				c = handle_uri(&ser->requestor, uri, &status, &title, &contentlength, &vars);
 			else 
 				c = ast_http_error(501, "Not Implemented", NULL, "Attempt to use unimplemented / unsupported method");\
 		} else 
@@ -484,13 +481,6 @@ static void *ast_httpd_helper_thread(void *data)
 			ast_cli(ser->fd, "Server: Asterisk/%s\r\n", ASTERISK_VERSION);
 			ast_cli(ser->fd, "Date: %s\r\n", timebuf);
 			ast_cli(ser->fd, "Connection: close\r\n");
-			if (!static_content)
-				ast_cli(ser->fd, "Cache-Control: no-cache, no-store\r\n");
-				/* We set the no-cache headers only for dynamic content.
-				* If you want to make sure the static file you requested is not from cache,
-				* append a random variable to your GET request.  Ex: 'something.html?r=109987734'
-				*/
-
 			if (contentlength) {
 				char *tmp;
 				tmp = strstr(c, "\r\n\r\n");
@@ -645,9 +635,7 @@ static int __ast_http_load(int reload)
 
 	memset(&sin, 0, sizeof(sin));
 	sin.sin_port = htons(8088);
-
 	strcpy(newprefix, DEFAULT_PREFIX);
-
 	cfg = ast_config_load("http.conf");
 	if (cfg) {
 		v = ast_variable_browse(cfg, "general");
@@ -684,20 +672,15 @@ static int __ast_http_load(int reload)
 		prefix_len = strlen(prefix);
 	}
 	enablestatic = newenablestatic;
-
 	http_server_start(&sin);
-
-
 	return 0;
 }
 
 static int handle_show_http(int fd, int argc, char *argv[])
 {
 	struct ast_http_uri *urih;
-
 	if (argc != 3)
 		return RESULT_SHOWUSAGE;
-
 	ast_cli(fd, "HTTP Server Status:\n");
 	ast_cli(fd, "Prefix: %s\n", prefix);
 	if (oldsin.sin_family)
@@ -716,7 +699,6 @@ static int handle_show_http(int fd, int argc, char *argv[])
 	if (!uris)
 		ast_cli(fd, "None.\n");
 	ast_rwlock_unlock(&uris_lock);
-
 	return RESULT_SUCCESS;
 }
 
@@ -740,6 +722,5 @@ int ast_http_init(void)
 	ast_http_uri_link(&statusuri);
 	ast_http_uri_link(&staticuri);
 	ast_cli_register_multiple(cli_http, sizeof(cli_http) / sizeof(struct ast_cli_entry));
-
 	return __ast_http_load(0);
 }

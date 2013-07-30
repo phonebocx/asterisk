@@ -26,7 +26,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114550 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 46154 $")
 
 #include <unistd.h>
 #include <netinet/in.h>
@@ -102,10 +102,7 @@ static struct ast_frame *pcm_read(struct ast_filestream *s, int *whennext)
 		return NULL;
 	}
 	s->fr.datalen = res;
-	if (s->fmt->format == AST_FORMAT_G722)
-		*whennext = s->fr.samples = res * 2;
-	else
-		*whennext = s->fr.samples = res;
+	*whennext = s->fr.samples = res;
 	return &s->fr;
 }
 
@@ -183,7 +180,7 @@ static int pcm_write(struct ast_filestream *fs, struct ast_frame *f)
 
 #ifdef REALTIME_WRITE
 	if (s->fmt->format == AST_FORMAT_ALAW) {
-		struct pcm_desc *pd = (struct pcm_desc *)fs->_private;
+		struct pcm_desc *pd = (struct pcm_desc *)fs->private;
 		struct stat stat_buf;
 		unsigned long cur_time = get_time();
 		unsigned long fpos = ( cur_time - pd->start_time ) * 8;	/* 8 bytes per msec */
@@ -383,31 +380,24 @@ static int au_rewrite(struct ast_filestream *s, const char *comment)
 static int au_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 {
 	off_t min, max, cur;
-	long offset = 0, bytes;
-
-	if (fs->fmt->format == AST_FORMAT_G722)
-		bytes = sample_offset / 2;
-	else
-		bytes = sample_offset;
-
+	long offset = 0, samples;
+	
+	samples = sample_offset;
 	min = AU_HEADER_SIZE;
 	cur = ftello(fs->f);
 	fseek(fs->f, 0, SEEK_END);
 	max = ftello(fs->f);
-
 	if (whence == SEEK_SET)
-		offset = bytes + min;
+		offset = samples + min;
 	else if (whence == SEEK_CUR || whence == SEEK_FORCECUR)
-		offset = bytes + cur;
+		offset = samples + cur;
 	else if (whence == SEEK_END)
-		offset = max - bytes;
+		offset = max - samples;
         if (whence != SEEK_FORCECUR) {
 		offset = (offset > max) ? max : offset;
 	}
-
 	/* always protect the header space. */
 	offset = (offset < min) ? min : offset;
-
 	return fseeko(fs->f, offset, SEEK_SET);
 }
 
@@ -503,4 +493,4 @@ static int unload_module(void)
 		|| ast_format_unregister(g722_f.name);
 }	
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Raw/Sun uLaw/ALaw 8KHz (PCM,PCMA,AU), G.722 16Khz");
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Raw/Sun uLaw/ALaw 8KHz Audio support (PCM,PCMA,AU) and G.722 16Khz Audio Support");

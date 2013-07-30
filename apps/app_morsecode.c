@@ -26,7 +26,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 76618 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -134,12 +134,11 @@ static int morsecode_exec(struct ast_channel *chan, void *data)
 	}
 
 	for (digit = data; *digit; digit++) {
-		int digit2 = *digit;
 		char *dahdit;
-		if (digit2 < 0) {
+		if (*digit < 0) {
 			continue;
 		}
-		for (dahdit = morsecode[digit2]; *dahdit; dahdit++) {
+		for (dahdit = morsecode[(int)*digit]; *dahdit; dahdit++) {
 			if (*dahdit == '-') {
 				playtone(chan, tone, 3 * ditlen);
 			} else if (*dahdit == '.') {

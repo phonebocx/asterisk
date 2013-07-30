@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 85515 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 46200 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -178,12 +178,12 @@ static int realtime_exec(struct ast_channel *chan, const char *context, const ch
 
 	if (var) {
 		char *tmp="";
-		char *app = NULL;
+		char app[256];
 		struct ast_variable *v;
 
 		for (v = var; v ; v = v->next) {
 			if (!strcasecmp(v->name, "app"))
-				app = ast_strdupa(v->value);
+				ast_copy_string(app, v->value, sizeof(app));
 			else if (!strcasecmp(v->name, "appdata"))
 				tmp = ast_strdupa(v->value);
 		}
@@ -211,13 +211,11 @@ static int realtime_exec(struct ast_channel *chan, const char *context, const ch
 							  "Application: %s\r\n"
 							  "AppData: %s\r\n"
 							  "Uniqueid: %s\r\n",
-							  chan->name, chan->context, chan->exten, chan->priority, app, !ast_strlen_zero(appdata) ? appdata : "(NULL)", chan->uniqueid);
+							  chan->name, chan->context, chan->exten, chan->priority, app, appdata ? appdata : "(NULL)", chan->uniqueid);
 				
 				res = pbx_exec(chan, a, appdata);
 			} else
 				ast_log(LOG_NOTICE, "No such application '%s' for extension '%s' in context '%s'\n", app, exten, context);
-		} else {
-			ast_log(LOG_WARNING, "No application specified for realtime extension '%s' in context '%s'\n", exten, context);
 		}
 	}
 	return res;

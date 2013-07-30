@@ -938,7 +938,7 @@ static void dec_ie_display(unsigned char *p, Q931_info_t *qi, char *display, int
 #endif
 
 /* IE_KEYPAD */
-#if 1
+#if 0
 static void enc_ie_keypad(unsigned char **ntmode, msg_t *msg, char *keypad, int nt, struct misdn_bchannel *bc)
 {
 	unsigned char *p;
@@ -953,7 +953,7 @@ static void enc_ie_keypad(unsigned char **ntmode, msg_t *msg, char *keypad, int 
 
 	if (MISDN_IE_DEBG) printf("    keypad='%s'\n", keypad);
 
-	l = strlen(keypad);
+	l = strlen((char *)keypad);
 	p = msg_put(msg, l+2);
 	if (nt)
 		*ntmode = p+1;
@@ -961,7 +961,7 @@ static void enc_ie_keypad(unsigned char **ntmode, msg_t *msg, char *keypad, int 
 		qi->QI_ELEMENT(keypad) = p - (unsigned char *)qi - sizeof(Q931_info_t);
 	p[0] = IE_KEYPAD;
 	p[1] = l;
-	strncpy((char *)p+2, keypad, strlen(keypad));
+	strncpy((char *)p+2, (char *)keypad, strlen((char *)keypad));
 }
 #endif
 
@@ -1353,7 +1353,7 @@ static void enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, ch
 		
 	if (MISDN_IE_DEBG) printf("    protocol=%d user-user%s\n", protocol, debug);
 
-	l = user_len+1;
+	l = user_len;
 	p = msg_put(msg, l+3);
 	if (nt)
 		*ntmode = p+1;
@@ -1361,7 +1361,7 @@ static void enc_ie_useruser(unsigned char **ntmode, msg_t *msg, int protocol, ch
 		qi->QI_ELEMENT(useruser) = p - (unsigned char *)qi - sizeof(Q931_info_t);
 	p[0] = IE_USER_USER;
 	p[1] = l;
-	p[2] = protocol;
+	p[2] = 0x80 + protocol;
 	memcpy(p+3, user, user_len);
 }
 #endif
@@ -1401,22 +1401,4 @@ static void dec_ie_useruser(unsigned char *p, Q931_info_t *qi, int *protocol, ch
 	if (MISDN_IE_DEBG) printf("    protocol=%d user-user%s\n", *protocol, debug);
 }
 #endif
-
-/* IE_DISPLAY */
-static void enc_ie_restart_ind(unsigned char **ntmode, msg_t *msg, unsigned char rind, int nt, struct misdn_bchannel *bc)
-{
-	unsigned char *p;
-	Q931_info_t *qi = (Q931_info_t *)(msg->data + mISDN_HEADER_LEN);
-	/* if (MISDN_IE_DEBG) printf("    display='%s' (len=%d)\n", display, strlen((char *)display)); */
-
-	p = msg_put(msg, 3);
-	if (nt)
-		*ntmode = p+1;
-	else
-		qi->QI_ELEMENT(restart_ind) = p - (unsigned char *)qi - sizeof(Q931_info_t);
-	p[0] = IE_RESTART_IND;
-	p[1] = 1;
-	p[2] = rind;
-
-}
 

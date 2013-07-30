@@ -13,14 +13,8 @@
 
 -include ../menuselect.makeopts ../menuselect.makedeps
 
-MENUSELECT_CATEGORY=CODECS
-MENUSELECT_DESCRIPTION=Codec Translators
-
-ALL_C_MODS:=$(patsubst %.c,%,$(wildcard codec_*.c))
-ALL_CC_MODS:=$(patsubst %.cc,%,$(wildcard codec_*.cc))
-
-C_MODS:=$(filter-out $(MENUSELECT_CODECS),$(ALL_C_MODS))
-CC_MODS:=$(filter-out $(MENUSELECT_CODECS),$(ALL_CC_MODS))
+C_MODS:=$(filter-out $(MENUSELECT_CODECS),$(patsubst %.c,%,$(wildcard codec_*.c)))
+CC_MODS:=$(filter-out $(MENUSELECT_CODECS),$(patsubst %.cc,%,$(wildcard codec_*.cc)))
 
 LOADABLE_MODS:=$(C_MODS) $(CC_MODS)
 
@@ -56,6 +50,6 @@ $(LIBLPC10):
 $(if $(filter codec_lpc10,$(EMBEDDED_MODS)),modules.link,codec_lpc10.so): $(LIBLPC10)
 
 $(LIBILBC):
-	@$(MAKE) -C ilbc all ASTCFLAGS="$(filter-out -Wmissing-prototypes -Wmissing-declarations,$(ASTCFLAGS)) $(AST_NO_STRICT_OVERFLOW)"
+	@$(MAKE) -C ilbc all
 
 $(if $(filter codec_ilbc,$(EMBEDDED_MODS)),modules.link,codec_ilbc.so): $(LIBILBC)

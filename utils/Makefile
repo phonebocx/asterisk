@@ -11,8 +11,6 @@
 # the GNU General Public License
 #
 
--include ../menuselect.makeopts
-
 .PHONY: clean all uninstall
 
 # to get check_expr, add it to the ALL_UTILS list
@@ -55,7 +53,7 @@ uninstall:
 	for x in $(ALL_UTILS); do rm -f $$x $(DESTDIR)$(ASTSBINDIR)/$$x; done
 
 clean:
-	rm -f *.o $(ALL_UTILS) check_expr *.s *.i
+	rm -f *.o $(ALL_UTILS) check_expr
 	rm -f .*.o.d .*.oo.d
 	rm -f md5.c strcompat.c ast_expr2.c ast_expr2f.c pbx_ael.c
 	rm -f aelparse.c aelbison.c
@@ -86,7 +84,7 @@ ast_expr2.c: ../main/ast_expr2.c
 ast_expr2f.c: ../main/ast_expr2f.c
 	@cp $< $@
 
-ast_expr2f.o: ASTCFLAGS+=-DSTANDALONE_AEL -I../main -Wno-unused
+ast_expr2f.o: ASTCFLAGS+=-DSTANDALONE_AEL -I../main
 
 check_expr: check_expr.o ast_expr2.o ast_expr2f.o
 
@@ -104,7 +102,7 @@ ael_main.o: ael_main.c ../include/asterisk/ael_structs.h
 aelparse.c: ../pbx/ael/ael_lex.c
 	@cp $< $@
 aelparse.o: aelparse.c ../include/asterisk/ael_structs.h ../pbx/ael/ael.tab.h
-aelparse.o: ASTCFLAGS+=-I../pbx -DSTANDALONE_AEL -Wno-unused
+aelparse.o: ASTCFLAGS+=-I../pbx -DSTANDALONE_AEL
 
 aelparse: aelparse.o aelbison.o pbx_ael.o ael_main.o ast_expr2f.o ast_expr2.o strcompat.o
 

@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115333 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49006 $")
 
 #include <signal.h>
 #include <stdarg.h>
@@ -38,7 +38,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115333 $")
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/stat.h>
-#if ((defined(AST_DEVMODE)) && (defined(linux)))
+#ifdef STACK_BACKTRACES
 #include <execinfo.h>
 #define MAX_BACKTRACE_FRAMES 20
 #endif
@@ -483,21 +483,13 @@ int reload_logger(int rotate)
 	return res;
 }
 
-/*! \brief Reload the logger module without rotating log files (also used from loader.c during
-	a full Asterisk reload) */
-int logger_reload(void)
-{
-	if(reload_logger(0))
-		return RESULT_FAILURE;
-	return RESULT_SUCCESS;
-}
-
 static int handle_logger_reload(int fd, int argc, char *argv[])
 {
-	int result = logger_reload();
-	if (result == RESULT_FAILURE)
+	if(reload_logger(0)) {
 		ast_cli(fd, "Failed to reload the logger\n");
-	return result;
+		return RESULT_FAILURE;
+	} else
+		return RESULT_SUCCESS;
 }
 
 static int handle_logger_rotate(int fd, int argc, char *argv[])
@@ -505,8 +497,8 @@ static int handle_logger_rotate(int fd, int argc, char *argv[])
 	if(reload_logger(1)) {
 		ast_cli(fd, "Failed to reload the logger and rotate log files\n");
 		return RESULT_FAILURE;
-	}
-	return RESULT_SUCCESS;
+	} else
+		return RESULT_SUCCESS;
 }
 
 /*! \brief CLI command to show logging system configuration */
@@ -734,7 +726,7 @@ void ast_log(int level, const char *file, int line, const char *function, const 
 		return;
 
 	time(&t);
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&t, &tm);
 	strftime(date, sizeof(date), dateformat, &tm);
 
 	AST_LIST_LOCK(&logchannels);
@@ -827,8 +819,7 @@ void ast_log(int level, const char *file, int line, const char *function, const 
 
 void ast_backtrace(void)
 {
-#ifdef linux
-#ifdef AST_DEVMODE
+#ifdef STACK_BACKTRACES
 	int count=0, i=0;
 	void **addresses;
 	char **strings;
@@ -838,11 +829,7 @@ void ast_backtrace(void)
 		if ((strings = backtrace_symbols(addresses, count))) {
 			ast_log(LOG_DEBUG, "Got %d backtrace record%c\n", count, count != 1 ? 's' : ' ');
 			for (i=0; i < count ; i++) {
-#if __WORDSIZE == 32
 				ast_log(LOG_DEBUG, "#%d: [%08X] %s\n", i, (unsigned int)addresses[i], strings[i]);
-#elif __WORDSIZE == 64
-				ast_log(LOG_DEBUG, "#%d: [%016lX] %s\n", i, (unsigned long)addresses[i], strings[i]);
-#endif
 			}
 			free(strings);
 		} else {
@@ -851,10 +838,11 @@ void ast_backtrace(void)
 		free(addresses);
 	}
 #else
-	ast_log(LOG_WARNING, "Must run configure with '--enable-dev-mode' for stack backtraces.\n");
-#endif
-#else /* ndef linux */
+#ifdef Linux
+	ast_log(LOG_WARNING, "Must compile with 'make dont-optimize' for stack backtraces\n");
+#else
 	ast_log(LOG_WARNING, "Inline stack backtraces are only available on the Linux platform.\n");
+#endif
 #endif
 }
 
@@ -872,15 +860,11 @@ void ast_verbose(const char *fmt, ...)
 		char *datefmt;
 
 		time(&t);
-		ast_localtime(&t, &tm, NULL);
+		localtime_r(&t, &tm);
 		strftime(date, sizeof(date), dateformat, &tm);
 		datefmt = alloca(strlen(date) + 3 + strlen(fmt) + 1);
-		sprintf(datefmt, "%c[%s] %s", 127, date, fmt);
+		sprintf(datefmt, "[%s] %s", date, fmt);
 		fmt = datefmt;
-	} else {
-		char *tmp = alloca(strlen(fmt) + 2);
-		sprintf(tmp, "%c%s", 127, fmt);
-		fmt = tmp;
 	}
 
 	if (!(buf = ast_dynamic_str_thread_get(&verbose_buf, VERBOSE_BUF_INIT_SIZE)))
@@ -901,7 +885,7 @@ void ast_verbose(const char *fmt, ...)
 		v->verboser(buf->str);
 	AST_LIST_UNLOCK(&verbosers);
 
-	ast_log(LOG_VERBOSE, "%s", buf->str + 1);
+	ast_log(LOG_VERBOSE, "%s", buf->str);
 }
 
 int ast_register_verbose(void (*v)(const char *string)) 

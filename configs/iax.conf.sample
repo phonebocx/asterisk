@@ -98,7 +98,7 @@ disallow=lpc10			; Icky sound quality...  Mr. Roboto.
 ; The jitter buffer's function is to compensate for varying
 ; network delay.
 ;
-; All the jitter buffer settings are in milliseconds.
+; All the jitter buffer settings except dropcount are in milliseconds.
 ; The jitter buffer works for INCOMING audio - the outbound audio
 ; will be dejittered by the jitter buffer at the other end.
 ;
@@ -132,9 +132,13 @@ disallow=lpc10			; Icky sound quality...  Mr. Roboto.
 
 jitterbuffer=no
 forcejitterbuffer=no
+;dropcount=2
 ;maxjitterbuffer=1000
 ;maxjitterinterps=10
 ;resyncthreshold=1000
+;maxexcessbuffer=80
+;minexcessbuffer=10
+;jittershrinkrate=1
 
 ;trunkfreq=20			; How frequently to send trunk msgs (in ms)
 
@@ -198,7 +202,7 @@ forcejitterbuffer=no
 ;
 ;authdebug=no
 ;
-; See doc/ip-tos.txt for a description of the tos parameters.
+; See doc/README.tos for a description of the tos parameters.
 ;tos=ef
 ;
 ; If regcontext is specified, Asterisk will dynamically create and destroy
@@ -236,16 +240,6 @@ autokill=yes
 ; The default value is 'host'
 ;
 ;codecpriority=host
-;
-; allowfwdownload controls whether this host will serve out firmware to
-; IAX clients which request it.  This has only been used for the IAXy,
-; and it has been recently proven that this firmware distribution method
-; can be used as a source of traffic amplification attacks.  Also, the
-; IAXy firmware has not been updated for at least 18 months, so unless
-; you are provisioning IAXys in a secure network, we recommend that you
-; leave this option to the default, off.
-;
-;allowfwdownload=yes
 
 ;rtcachefriends=yes	; Cache realtime friends by adding them to the internal list
 			; just like friends added from the config file only on a

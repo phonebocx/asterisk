@@ -97,11 +97,10 @@ struct pval
 		char *for_inc; /* used in FOR */
 		struct pval *else_statements; /* used in IF */
 		struct pval *macro_statements; /* used in MACRO */
-		int abstract;  /* used for context 1=abstract; 2=extend; 3=both */
+		int abstract;  /* used for context */
 		char *hints; /* used in EXTENSION */
 		int goto_target_in_case; /* used in GOTO */
 		struct ael_extension *compiled_label;
-		struct pval *extend; /* to link extended contexts to the 'original' */
 	} u3;
 	
 	union
@@ -177,8 +176,6 @@ struct ael_extension
 	char *cidmatch;
 	char *hints;
 	int regexten;
-	int is_switch;
-	int has_switch;
 	
 	struct ast_context *context;
 	

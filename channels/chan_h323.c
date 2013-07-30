@@ -44,17 +44,16 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114120 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53881 $")
 
 #ifdef __cplusplus
 }
 #endif
 
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/signal.h>
 #include <sys/param.h>
-#if defined(BSD) || defined(SOLARIS)
+#if defined(BSD)
 #ifndef IPTOS_MINCOST
 #define IPTOS_MINCOST 0x02
 #endif
@@ -304,9 +303,9 @@ static void oh323_destroy_peer(struct oh323_peer *peer)
 	free(peer);
 }
 
-static int oh323_simulate_dtmf_end(const void *data)
+static int oh323_simulate_dtmf_end(void *data)
 {
-	struct oh323_pvt *pvt = (struct oh323_pvt *)data;
+	struct oh323_pvt *pvt = data;
 
 	if (pvt) {
 		ast_mutex_lock(&pvt->lock);
@@ -373,12 +372,14 @@ static void __oh323_update_info(struct ast_channel *c, struct oh323_pvt *pvt)
 		if (pvt->newdigit == ' ') {		/* signalUpdate message */
 			f.subclass = pvt->curDTMF;
 			if (pvt->DTMFsched >= 0) {
-				AST_SCHED_DEL(sched, pvt->DTMFsched);
+				ast_sched_del(sched, pvt->DTMFsched);
+				pvt->DTMFsched = -1;
 			}
 		} else {						/* Regular input or signal message */
 			if (pvt->newduration) {		/* This is a signal, signalUpdate follows */
 				f.frametype = AST_FRAME_DTMF_BEGIN;
-				AST_SCHED_DEL(sched, pvt->DTMFsched);
+				if (pvt->DTMFsched >= 0)
+					ast_sched_del(sched, pvt->DTMFsched);
 				pvt->DTMFsched = ast_sched_add(sched, pvt->newduration, oh323_simulate_dtmf_end, pvt);
 				if (h323debug)
 					ast_log(LOG_DTMF, "Scheduled DTMF END simulation for %d ms, id=%d\n", pvt->newduration, pvt->DTMFsched);
@@ -451,7 +452,10 @@ static void __oh323_destroy(struct oh323_pvt *pvt)
 {
 	struct oh323_pvt *cur, *prev = NULL;
 
-	AST_SCHED_DEL(sched, pvt->DTMFsched);
+	if (pvt->DTMFsched >= 0) {
+		ast_sched_del(sched, pvt->DTMFsched);
+		pvt->DTMFsched = -1;
+	}
 
 	if (pvt->rtp) {
 		ast_rtp_destroy(pvt->rtp);
@@ -915,10 +919,6 @@ static int oh323_indicate(struct ast_channel *c, int condition, const void *data
 		ast_moh_stop(c);
 		res = 0;
 		break;
-	case AST_CONTROL_SRCUPDATE:
-		ast_rtp_new_source(pvt->rtp);
-		res = 0;
-		break;
 	case AST_CONTROL_PROCEEDING:
 	case -1:
 		break;
@@ -1014,7 +1014,7 @@ static struct ast_channel *__oh323_new(struct oh323_pvt *pvt, int state, const c
 	
 	/* Don't hold a oh323_pvt lock while we allocate a chanel */
 	ast_mutex_unlock(&pvt->lock);
-	ch = ast_channel_alloc(1, state, cid_num, cid_name, pvt->accountcode, pvt->exten, pvt->context, pvt->amaflags, "H323/%s", host);
+	ch = ast_channel_alloc(1, state, cid_num, cid_name, "H323/%s", host);
 	/* Update usage counter */
 	ast_module_ref(ast_module_info->self);
 	ast_mutex_lock(&pvt->lock);
@@ -1069,7 +1069,9 @@ static struct ast_channel *__oh323_new(struct oh323_pvt *pvt, int state, const c
 
 		/* Don't use ast_set_callerid() here because it will
 		 * generate a needless NewCallerID event */
+		ch->cid.cid_num = ast_strdup(cid_num);
 		ch->cid.cid_ani = ast_strdup(cid_num);
+		ch->cid.cid_name = ast_strdup(cid_name);
 
 		if (pvt->cd.redirect_reason >= 0) {
 			ch->cid.cid_rdnis = ast_strdup(pvt->cd.redirect_number);
@@ -1149,7 +1151,7 @@ static struct oh323_pvt *find_call_locked(int call_reference, const char *token)
 	while(pvt) {
 		if (!pvt->needdestroy && ((signed int)pvt->cd.call_reference == call_reference)) {
 			/* Found the call */
-			if ((token != NULL) && (pvt->cd.call_token != NULL) && (!strcmp(pvt->cd.call_token, token))) {
+			if ((token != NULL) && (!strcmp(pvt->cd.call_token, token))) {
 				ast_mutex_lock(&pvt->lock);
 				ast_mutex_unlock(&iflock);
 				return pvt;
@@ -1795,11 +1797,15 @@ static int receive_digit(unsigned call_reference, char digit, const char *token,
 			};
 			if (digit == ' ') {		/* signalUpdate message */
 				f.subclass = pvt->curDTMF;
-				AST_SCHED_DEL(sched, pvt->DTMFsched);
+				if (pvt->DTMFsched >= 0) {
+					ast_sched_del(sched, pvt->DTMFsched);
+					pvt->DTMFsched = -1;
+				}
 			} else {				/* Regular input or signal message */
 				if (pvt->DTMFsched >= 0) {
 					/* We still don't send DTMF END from previous event, send it now */
-					AST_SCHED_DEL(sched, pvt->DTMFsched);
+					ast_sched_del(sched, pvt->DTMFsched);
+					pvt->DTMFsched = -1;
 					f.subclass = pvt->curDTMF;
 					f.samples = f.len = 0;
 					ast_queue_frame(pvt->owner, &f);
@@ -2706,56 +2712,6 @@ static struct ast_cli_entry cli_h323[] = {
 	show_tokens_usage },
 };
 
-static void delete_users(void)
-{
-	int pruned = 0;
-
-	/* Delete all users */
-	ASTOBJ_CONTAINER_WRLOCK(&userl);
-	ASTOBJ_CONTAINER_TRAVERSE(&userl, 1, do {
-		ASTOBJ_RDLOCK(iterator);
-		ASTOBJ_MARK(iterator);
-		++pruned;
-		ASTOBJ_UNLOCK(iterator);
-	} while (0) );
-	if (pruned) {
-		ASTOBJ_CONTAINER_PRUNE_MARKED(&userl, oh323_destroy_user);
-	}
-	ASTOBJ_CONTAINER_UNLOCK(&userl);
-
-	ASTOBJ_CONTAINER_WRLOCK(&peerl);
-	ASTOBJ_CONTAINER_TRAVERSE(&peerl, 1, do {
-		ASTOBJ_RDLOCK(iterator);
-		ASTOBJ_MARK(iterator);
-		ASTOBJ_UNLOCK(iterator);
-	} while (0) );
-	ASTOBJ_CONTAINER_UNLOCK(&peerl);
-}
-
-static void delete_aliases(void)
-{
-	int pruned = 0;
-
-	/* Delete all aliases */
-	ASTOBJ_CONTAINER_WRLOCK(&aliasl);
-	ASTOBJ_CONTAINER_TRAVERSE(&aliasl, 1, do {
-		ASTOBJ_RDLOCK(iterator);
-		ASTOBJ_MARK(iterator);
-		++pruned;
-		ASTOBJ_UNLOCK(iterator);
-	} while (0) );
-	if (pruned) {
-		ASTOBJ_CONTAINER_PRUNE_MARKED(&aliasl, oh323_destroy_alias);
-	}
-	ASTOBJ_CONTAINER_UNLOCK(&aliasl);
-}
-
-static void prune_peers(void)
-{
-	/* Prune peers who still are supposed to be deleted */
-	ASTOBJ_CONTAINER_PRUNE_MARKED(&peerl, oh323_destroy_peer);
-}
-
 static int reload_config(int is_reload)
 {
 	int format;
@@ -2777,12 +2733,6 @@ static int reload_config(int is_reload)
 	if (!cfg) {
 		ast_log(LOG_NOTICE, "Unable to load config %s, H.323 disabled\n", config);
 		return 1;
-	}
-
-	if (is_reload) {
-		delete_users();
-		delete_aliases();
-		prune_peers();
 	}
 
 	/* fire up the H.323 Endpoint */
@@ -2829,11 +2779,6 @@ static int reload_config(int is_reload)
 					if (user) {
 						ASTOBJ_CONTAINER_LINK(&userl, user);
 						ASTOBJ_UNREF(user, oh323_destroy_user);
-					}
-					peer = build_peer(cat, gen, ast_variable_browse(ucfg, cat), 0);
-					if (peer) {
-						ASTOBJ_CONTAINER_LINK(&peerl, peer);
-						ASTOBJ_UNREF(peer, oh323_destroy_peer);
 					}
 				}
 			}
@@ -2975,6 +2920,56 @@ static int reload_config(int is_reload)
 	return 0;
 }
 
+static void delete_users(void)
+{
+	int pruned = 0;
+
+	/* Delete all users */
+	ASTOBJ_CONTAINER_WRLOCK(&userl);
+	ASTOBJ_CONTAINER_TRAVERSE(&userl, 1, do {
+		ASTOBJ_RDLOCK(iterator);
+		ASTOBJ_MARK(iterator);
+		++pruned;
+		ASTOBJ_UNLOCK(iterator);
+	} while (0) );
+	if (pruned) {
+		ASTOBJ_CONTAINER_PRUNE_MARKED(&userl, oh323_destroy_user);
+	}
+	ASTOBJ_CONTAINER_UNLOCK(&userl);
+
+	ASTOBJ_CONTAINER_WRLOCK(&peerl);
+	ASTOBJ_CONTAINER_TRAVERSE(&peerl, 1, do {
+		ASTOBJ_RDLOCK(iterator);
+		ASTOBJ_MARK(iterator);
+		ASTOBJ_UNLOCK(iterator);
+	} while (0) );
+	ASTOBJ_CONTAINER_UNLOCK(&peerl);
+}
+
+static void delete_aliases(void)
+{
+	int pruned = 0;
+
+	/* Delete all aliases */
+	ASTOBJ_CONTAINER_WRLOCK(&aliasl);
+	ASTOBJ_CONTAINER_TRAVERSE(&aliasl, 1, do {
+		ASTOBJ_RDLOCK(iterator);
+		ASTOBJ_MARK(iterator);
+		++pruned;
+		ASTOBJ_UNLOCK(iterator);
+	} while (0) );
+	if (pruned) {
+		ASTOBJ_CONTAINER_PRUNE_MARKED(&aliasl, oh323_destroy_alias);
+	}
+	ASTOBJ_CONTAINER_UNLOCK(&aliasl);
+}
+
+static void prune_peers(void)
+{
+	/* Prune peers who still are supposed to be deleted */
+	ASTOBJ_CONTAINER_PRUNE_MARKED(&peerl, oh323_destroy_peer);
+}
+
 static int h323_reload(int fd, int argc, char *argv[])
 {
 	ast_mutex_lock(&h323_reload_lock);
@@ -2990,16 +2985,15 @@ static int h323_reload(int fd, int argc, char *argv[])
 
 static int h323_do_reload(void)
 {
+	delete_users();
+	delete_aliases();
+	prune_peers();
 	reload_config(1);
 	return 0;
 }
 
 static int reload(void)
 {
-	if (!sched || !io) {
-		ast_log(LOG_NOTICE, "Unload and load chan_h323.so again in order to receive configuration changes.\n");
-		return 0;
-	}
 	return h323_reload(0, 0, NULL);
 }
 

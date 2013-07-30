@@ -16,7 +16,7 @@ asterisk MODULE-IDENTITY
 	CONTACT-INFO
 		"Mark A. Spencer
 		Postal: Digium, Inc.
-		        445 Jan Davis Drive
+		        150 West Park Loop, Suite 100
 		        Huntsville, AL 35806
 		        USA
 		   Tel: +1 256 428 6000
@@ -276,7 +276,7 @@ astChanName OBJECT-TYPE
 	MAX-ACCESS	read-only
 	STATUS		current
 	DESCRIPTION
-		"Name of the current channel."
+		"Name of the currentl channel."
 	::= { astChanEntry 2 }
 
 astChanLanguage OBJECT-TYPE

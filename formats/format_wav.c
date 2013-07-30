@@ -26,7 +26,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 90155 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <unistd.h>
 #include <netinet/in.h>
@@ -61,8 +61,7 @@ struct wav_desc {	/* format-specific parameters */
 
 #define BLOCKSIZE 160
 
-#define GAIN 0		/* 2^GAIN is the multiple to increase the volume by.  The original value of GAIN was 2, or 4x (12 dB),
-			 * but there were many reports of the clipping of loud signal peaks (issue 5823 for example). */
+#define GAIN 2		/* 2^GAIN is the multiple to increase the volume by */
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define htoll(b) (b)
@@ -324,7 +323,7 @@ static int wav_open(struct ast_filestream *s)
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
 	   and be sure it's a valid file.  */
-	struct wav_desc *tmp = (struct wav_desc *)s->_private;
+	struct wav_desc *tmp = (struct wav_desc *)s->private;
 	if ((tmp->maxlen = check_header(s->f)) < 0)
 		return -1;
 	return 0;
@@ -344,7 +343,7 @@ static int wav_rewrite(struct ast_filestream *s, const char *comment)
 static void wav_close(struct ast_filestream *s)
 {
 	char zero = 0;
-	struct wav_desc *fs = (struct wav_desc *)s->_private;
+	struct wav_desc *fs = (struct wav_desc *)s->private;
 	/* Pad to even length */
 	if (fs->bytes & 0x1)
 		fwrite(&zero, 1, 1, s->f);
@@ -359,7 +358,7 @@ static struct ast_frame *wav_read(struct ast_filestream *s, int *whennext)
 	int bytes = WAV_BUF_SIZE;	/* in bytes */
 	off_t here;
 	/* Send a frame from the file to the appropriate channel */
-	struct wav_desc *fs = (struct wav_desc *)s->_private;
+	struct wav_desc *fs = (struct wav_desc *)s->private;
 
 	here = ftello(s->f);
 	if (fs->maxlen - here < bytes)		/* truncate if necessary */
@@ -411,7 +410,7 @@ static int wav_write(struct ast_filestream *fs, struct ast_frame *f)
 	int x;
 	short tmp[8000], *tmpi;
 	float tmpf;
-	struct wav_desc *s = (struct wav_desc *)fs->_private;
+	struct wav_desc *s = (struct wav_desc *)fs->private;
 	int res;
 
 	if (f->frametype != AST_FRAME_VOICE) {

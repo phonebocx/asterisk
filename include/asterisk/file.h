@@ -132,14 +132,7 @@ struct ast_filestream {
 	FILE *f;
 	struct ast_frame fr;	/* frame produced by read, typically */
 	char *buf;		/* buffer pointed to by ast_frame; */
-	/* pointer to private buffer */
-	union {
-		void *_private;
-#if !defined(__cplusplus) && !defined(c_plusplus)
-		void *private attribute_deprecated;
-#endif
-	};
-	const char *orig_chan_name;
+	void *private;	/* pointer to private buffer */
 };
 
 #define SEEK_FORCECUR	10
@@ -178,16 +171,11 @@ int ast_streamfile(struct ast_channel *c, const char *filename, const char *pref
 int ast_stream_and_wait(struct ast_channel *chan, const char *file,
 	const char *language, const char *digits);
 
-/*! 
- * \brief Stops a stream 
- *
+/*! Stops a stream */
+/*!
  * \param c The channel you wish to stop playback on
- *
  * Stop playback of a stream 
- *
- * \retval 0 always
- *
- * \note The channel does not need to be locked before calling this function.
+ * Returns 0 regardless
  */
 int ast_stopstream(struct ast_channel *c);
 

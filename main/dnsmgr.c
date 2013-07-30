@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100465 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49006 $")
 
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -96,7 +96,6 @@ struct ast_dnsmgr_entry *ast_dnsmgr_get(const char *name, struct in_addr *result
 	entry->result = result;
 	ast_mutex_init(&entry->lock);
 	strcpy(entry->name, name);
-	memcpy(&entry->last, result, sizeof(entry->last));
 
 	AST_LIST_LOCK(&entry_list);
 	AST_LIST_INSERT_HEAD(&entry_list, entry, list);
@@ -122,9 +121,6 @@ void ast_dnsmgr_release(struct ast_dnsmgr_entry *entry)
 
 int ast_dnsmgr_lookup(const char *name, struct in_addr *result, struct ast_dnsmgr_entry **dnsmgr)
 {
-	struct ast_hostent ahp;
-	struct hostent *hp;
-
 	if (ast_strlen_zero(name) || !result || !dnsmgr)
 		return -1;
 
@@ -139,18 +135,21 @@ int ast_dnsmgr_lookup(const char *name, struct in_addr *result, struct ast_dnsmg
 	if (inet_aton(name, result))
 		return 0;
 
-	/* do a lookup now but add a manager so it will automagically get updated in the background */
-	if ((hp = ast_gethostbyname(name, &ahp)))
-		memcpy(result, hp->h_addr, sizeof(result));
-	
-	/* if dnsmgr is not enable don't bother adding an entry */
-	if (!enabled)
+	/* if the manager is disabled, do a direct lookup and return the result,
+	   otherwise register a managed lookup for the name */
+	if (!enabled) {
+		struct ast_hostent ahp;
+		struct hostent *hp;
+
+		if ((hp = ast_gethostbyname(name, &ahp)))
+			memcpy(result, hp->h_addr, sizeof(result));
 		return 0;
-	
-	if (option_verbose > 2)
-		ast_verbose(VERBOSE_PREFIX_2 "adding dns manager for '%s'\n", name);
-	*dnsmgr = ast_dnsmgr_get(name, result);
-	return !*dnsmgr;
+	} else {
+		if (option_verbose > 2)
+			ast_verbose(VERBOSE_PREFIX_2 "adding dns manager for '%s'\n", name);
+		*dnsmgr = ast_dnsmgr_get(name, result);
+		return !*dnsmgr;
+	}
 }
 
 /*
@@ -220,9 +219,9 @@ static void *do_refresh(void *data)
 	return NULL;
 }
 
-static int refresh_list(const void *data)
+static int refresh_list(void *data)
 {
-	struct refresh_info *info = (struct refresh_info *)data;
+	struct refresh_info *info = data;
 	struct ast_dnsmgr_entry *entry;
 
 	/* if a refresh or reload is already in progress, exit now */
@@ -252,7 +251,7 @@ static int refresh_list(const void *data)
 void dnsmgr_start_refresh(void)
 {
 	if (refresh_sched > -1) {
-		AST_SCHED_DEL(sched, refresh_sched);
+		ast_sched_del(sched, refresh_sched);
 		refresh_sched = ast_sched_add_variable(sched, 100, refresh_list, &master_refresh_info, 1);
 	}
 }
@@ -367,7 +366,8 @@ static int do_reload(int loading)
 	was_enabled = enabled;
 	enabled = 0;
 
-	AST_SCHED_DEL(sched, refresh_sched);
+	if (refresh_sched > -1)
+		ast_sched_del(sched, refresh_sched);
 
 	if ((config = ast_config_load("dnsmgr.conf"))) {
 		if ((enabled_value = ast_variable_retrieve(config, "general", "enable"))) {

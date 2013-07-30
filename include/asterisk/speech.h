@@ -28,20 +28,14 @@ extern "C" {
 #endif
 
 /* Speech structure flags */
-#define AST_SPEECH_QUIET (1 << 0)        /* Quiet down output... they are talking */
-#define AST_SPEECH_SPOKE (1 << 1)        /* Speaker did not speak */
-#define AST_SPEECH_HAVE_RESULTS (1 << 2) /* Results are present */
+#define AST_SPEECH_QUIET (1 << 0) /* Quiet down output... they are talking */
+#define AST_SPEECH_SPOKE (1 << 1) /* Speaker did not speak */
 
 /* Speech structure states - in order of expected change */
 #define AST_SPEECH_STATE_NOT_READY 0 /* Not ready to accept audio */
 #define AST_SPEECH_STATE_READY 1 /* Accepting audio */
 #define AST_SPEECH_STATE_WAIT 2 /* Wait for results to become available */
 #define AST_SPEECH_STATE_DONE 3 /* Processing is done */
-
-enum ast_speech_results_type {
-	AST_SPEECH_RESULTS_TYPE_NORMAL = 0,
-	AST_SPEECH_RESULTS_TYPE_NBEST,
-};
 
 /* Speech structure */
 struct ast_speech {
@@ -59,8 +53,6 @@ struct ast_speech {
 	void *data;
 	/*! Cached results */
 	struct ast_speech_result *results;
-	/*! Type of results we want */
-	enum ast_speech_results_type results_type;
 	/*! Pointer to the engine used by this speech structure */
 	struct ast_speech_engine *engine;
 };
@@ -70,7 +62,7 @@ struct ast_speech_engine {
 	/*! Name of speech engine */
 	char *name;
 	/*! Set up the speech structure within the engine */
-	int (*create)(struct ast_speech *speech);
+	int (*new)(struct ast_speech *speech);
 	/*! Destroy any data set on the speech structure by the engine */
 	int (*destroy)(struct ast_speech *speech);
 	/*! Load a local grammar on the speech structure */
@@ -83,14 +75,10 @@ struct ast_speech_engine {
 	int (*deactivate)(struct ast_speech *speech, char *grammar_name);
 	/*! Write audio to the speech engine */
 	int (*write)(struct ast_speech *speech, void *data, int len);
-	/*! Signal DTMF was received */
-	int (*dtmf)(struct ast_speech *speech, const char *dtmf);
 	/*! Prepare engine to accept audio */
 	int (*start)(struct ast_speech *speech);
 	/*! Change an engine specific setting */
 	int (*change)(struct ast_speech *speech, char *name, const char *value);
-	/*! Change the type of results we want back */
-	int (*change_results_type)(struct ast_speech *speech, enum ast_speech_results_type results_type);
 	/*! Try to get results */
 	struct ast_speech_result *(*get)(struct ast_speech *speech);
 	/*! Accepted formats by the engine */
@@ -104,8 +92,6 @@ struct ast_speech_result {
 	char *text;
 	/*! Result score */
 	int score;
-	/*! NBest Alternative number if in NBest results type */
-	int nbest_num;
 	/*! Matched grammar */
 	char *grammar;
 	/*! List information */
@@ -132,12 +118,8 @@ struct ast_speech *ast_speech_new(char *engine_name, int format);
 int ast_speech_destroy(struct ast_speech *speech);
 /*! \brief Write audio to the speech engine */
 int ast_speech_write(struct ast_speech *speech, void *data, int len);
-/*! \brief Signal to the engine that DTMF was received */
-int ast_speech_dtmf(struct ast_speech *speech, const char *dtmf);
 /*! \brief Change an engine specific attribute */
 int ast_speech_change(struct ast_speech *speech, char *name, const char *value);
-/*! \brief Change the type of results we want */
-int ast_speech_change_results_type(struct ast_speech *speech, enum ast_speech_results_type results_type);
 /*! \brief Change state of a speech structure */
 int ast_speech_change_state(struct ast_speech *speech, int state);
 /*! \brief Register a speech recognition engine */

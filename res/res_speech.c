@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 81406 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 45106 $");
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -160,7 +160,6 @@ void ast_speech_start(struct ast_speech *speech)
 	/* Clear any flags that may affect things */
 	ast_clear_flag(speech, AST_SPEECH_SPOKE);
 	ast_clear_flag(speech, AST_SPEECH_QUIET);
-	ast_clear_flag(speech, AST_SPEECH_HAVE_RESULTS);
 
 	/* If results are on the structure, free them since we are starting again */
 	if (speech->results != NULL) {
@@ -188,21 +187,6 @@ int ast_speech_write(struct ast_speech *speech, void *data, int len)
 
 	if (speech->engine->write != NULL) {
 		speech->engine->write(speech, data, len);
-	}
-
-	return res;
-}
-
-/*! \brief Signal to the engine that DTMF was received */
-int ast_speech_dtmf(struct ast_speech *speech, const char *dtmf)
-{
-	int res = 0;
-
-	if (speech->state != AST_SPEECH_STATE_READY)
-		return -1;
-
-	if (speech->engine->dtmf != NULL) {
-		res = speech->engine->dtmf(speech, dtmf);
 	}
 
 	return res;
@@ -253,7 +237,7 @@ struct ast_speech *ast_speech_new(char *engine_name, int format)
 	ast_speech_change_state(new_speech, AST_SPEECH_STATE_NOT_READY);
 
 	/* Pass ourselves to the engine so they can set us up some more and if they error out then do not create a structure */
-	if (engine->create(new_speech)) {
+	if (engine->new(new_speech)) {
 		ast_mutex_destroy(&new_speech->lock);
 		free(new_speech);
 		new_speech = NULL;
@@ -305,19 +289,6 @@ int ast_speech_change_state(struct ast_speech *speech, int state)
 		speech->state = state;
 		break;
 	}
-
-	return res;
-}
-
-/*! \brief Change the type of results we want */
-int ast_speech_change_results_type(struct ast_speech *speech, enum ast_speech_results_type results_type)
-{
-	int res = 0;
-
-	speech->results_type = results_type;
-
-	if (speech->engine->change_results_type)
-		res = speech->engine->change_results_type(speech, results_type);
 
 	return res;
 }

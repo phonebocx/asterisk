@@ -48,13 +48,13 @@ enum misdn_cfg_elements {
 	MISDN_CFG_NODIALTONE,    /* int (bool) */
 	MISDN_CFG_IMMEDIATE,           /* int (bool) */
 	MISDN_CFG_SENDDTMF,           /* int (bool) */
-	MISDN_CFG_ASTDTMF,            /* int (bool) */
 	MISDN_CFG_HOLD_ALLOWED,        /* int (bool) */
 	MISDN_CFG_EARLY_BCONNECT,      /* int (bool) */
 	MISDN_CFG_INCOMING_EARLY_AUDIO,      /* int (bool) */
 	MISDN_CFG_ECHOCANCEL,          /* int */
-#ifdef MISDN_1_2
-	MISDN_CFG_PIPELINE,      /* char[] */
+	MISDN_CFG_ECHOCANCELWHENBRIDGED,  /* int (bool) */
+#ifdef WITH_ECHOTRAINGING
+	MISDN_CFG_ECHOTRAINING,        /* int (bool) */
 #endif
 
 #ifdef WITH_BEROEC
@@ -66,10 +66,8 @@ enum misdn_cfg_elements {
 	MISDN_CFG_BNEC_ADAPT,
 #endif
 	MISDN_CFG_NEED_MORE_INFOS,     /* bool */
-	MISDN_CFG_NOAUTORESPOND_ON_SETUP,     /* bool */
-	MISDN_CFG_NTTIMEOUT,     	/* bool */
-	MISDN_CFG_BRIDGING,              /* bool */
-	MISDN_CFG_JITTERBUFFER,             /* int */
+	MISDN_CFG_NTTIMEOUT,     /* bool */
+	MISDN_CFG_JITTERBUFFER,              /* int */
 	MISDN_CFG_JITTERBUFFER_UPPER_THRESHOLD,              /* int */
 	MISDN_CFG_CALLGROUP,           /* ast_group_t */
 	MISDN_CFG_PICKUPGROUP,         /* ast_group_t */
@@ -86,9 +84,7 @@ enum misdn_cfg_elements {
 	
 	/* general config items */
 	MISDN_GEN_FIRST,
-#ifndef MISDN_1_2
 	MISDN_GEN_MISDN_INIT,           /* char[] */
-#endif
 	MISDN_GEN_DEBUG,               /* int */
 	MISDN_GEN_TRACEFILE,           /* char[] */
 	MISDN_GEN_BRIDGING,            /* int (bool) */
@@ -97,7 +93,6 @@ enum misdn_cfg_elements {
 	MISDN_GEN_DYNAMIC_CRYPT,       /* int (bool) */
 	MISDN_GEN_CRYPT_PREFIX,        /* char[] */
 	MISDN_GEN_CRYPT_KEYS,          /* char[] */
-	MISDN_GEN_NTKEEPCALLS,          /* int (bool) */
 	MISDN_GEN_NTDEBUGFLAGS,          /* int */
 	MISDN_GEN_NTDEBUGFILE,          /* char[] */
 	MISDN_GEN_LAST
@@ -105,8 +100,7 @@ enum misdn_cfg_elements {
 
 enum misdn_cfg_method {
 	METHOD_STANDARD = 0,
-	METHOD_ROUND_ROBIN,
-	METHOD_STANDARD_DEC
+	METHOD_ROUND_ROBIN
 };
 
 /* you must call misdn_cfg_init before any other function of this header file */

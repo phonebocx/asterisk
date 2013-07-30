@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114207 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58389 $")
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -153,28 +153,22 @@ enum gsamp_thresh {
  * Frequency tolerance +- 1.5% will detect, +-3.5% will reject
  */
 
-#define DTMF_THRESHOLD          8.0e7
-#define FAX_THRESHOLD           8.0e7
-#define FAX_2ND_HARMONIC        2.0     /* 4dB */
-
-#ifdef  RADIO_RELAX
-#define DTMF_NORMAL_TWIST               ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 11.3 : 6.3)    /* 8dB sph 12.3 was 6.3 */
-#define DTMF_REVERSE_TWIST              ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 9.5  : 2.5)    /* 4dB normal sph 12.5 : 5.5 was 6.5 : 2.5 */
-#define DTMF_RELATIVE_PEAK_ROW  ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 3.3  : 6.3)    /* 8dB sph was 6.3 */
-#define DTMF_RELATIVE_PEAK_COL  ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 3.3  : 6.3)    /* 8dB sph was 6.3 */
-#define DTMF_TO_TOTAL_ENERGY    ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 26.0 : 42.0)
+#define DTMF_THRESHOLD		8.0e7
+#define FAX_THRESHOLD		8.0e7
+#define FAX_2ND_HARMONIC	2.0     /* 4dB */
+#define DTMF_NORMAL_TWIST	6.3     /* 8dB */
+#ifdef	RADIO_RELAX
+#define DTMF_REVERSE_TWIST          ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 6.5 : 2.5)     /* 4dB normal */
 #else
-#define DTMF_NORMAL_TWIST               6.3
-#define DTMF_REVERSE_TWIST              ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 4.0  : 2.5)    /* 4dB normal */
-#define DTMF_RELATIVE_PEAK_ROW  6.3     /* 8dB */
-#define DTMF_RELATIVE_PEAK_COL  6.3     /* 8dB */
-#define DTMF_TO_TOTAL_ENERGY    42.0
+#define DTMF_REVERSE_TWIST          ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 4.0 : 2.5)     /* 4dB normal */
 #endif
-
-#ifdef OLD_DSP_ROUTINES
+#define DTMF_RELATIVE_PEAK_ROW	6.3     /* 8dB */
+#define DTMF_RELATIVE_PEAK_COL	6.3     /* 8dB */
 #define DTMF_2ND_HARMONIC_ROW       ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 1.7 : 2.5)     /* 4dB normal */
 #define DTMF_2ND_HARMONIC_COL	63.1    /* 18dB */
+#define DTMF_TO_TOTAL_ENERGY	42.0
 
+#ifdef OLD_DSP_ROUTINES
 #define MF_THRESHOLD		8.0e7
 #define MF_NORMAL_TWIST		5.3     /* 8dB */
 #define MF_REVERSE_TWIST	4.0     /* was 2.5 */
@@ -217,7 +211,7 @@ typedef struct
 	int hit3;
 	int hit4;
 #else
-	int lasthit;
+	int hits[3];
 #endif	
 	int mhit;
 	float energy;
@@ -371,7 +365,7 @@ static void ast_dtmf_detect_init (dtmf_detect_state_t *s)
 	s->hit4 = 
 	s->hit2 = 0;
 #else
-	s->lasthit = 0;
+	s->hits[0] = s->hits[1] = s->hits[2] = 0;
 #endif
 	for (i = 0;  i < 4;  i++) {
 		goertzel_init (&s->row_out[i], dtmf_row[i], 102);
@@ -595,7 +589,6 @@ static int dtmf_detect (dtmf_detect_state_t *s, int16_t amp[], int samples,
 						amp[i] = 0;
 					*writeback = 1;
 				}
-#ifdef OLD_DSP_ROUTINES
 				/* Look for two successive similar results */
 				/* The logic in the next test is:
 				   We need two successive identical clean detects, with
@@ -603,7 +596,20 @@ static int dtmf_detect (dtmf_detect_state_t *s, int16_t amp[], int samples,
 				   back to back differing digits. More importantly, it
 				   can work with nasty phones that give a very wobbly start
 				   to a digit */
+#ifdef OLD_DSP_ROUTINES
 				if (hit == s->hit3  &&  s->hit3 != s->hit2) {
+					s->mhit = hit;
+					s->digit_hits[(best_row << 2) + best_col]++;
+					s->detected_digits++;
+					if (s->current_digits < MAX_DTMF_DIGITS) {
+						s->digits[s->current_digits++] = hit;
+						s->digits[s->current_digits] = '\0';
+					} else {
+						s->lost_digits++;
+					}
+				}
+#else				
+				if (hit == s->hits[2]  &&  hit != s->hits[1]  &&  hit != s->hits[0]) {
 					s->mhit = hit;
 					s->digit_hits[(best_row << 2) + best_col]++;
 					s->detected_digits++;
@@ -617,30 +623,6 @@ static int dtmf_detect (dtmf_detect_state_t *s, int16_t amp[], int samples,
 #endif
 			}
 		} 
-
-#ifndef OLD_DSP_ROUTINES
-		/* Look for two successive similar results */
-		/* The logic in the next test is:
-		   We need two successive identical clean detects, with
-		   something different preceeding it. This can work with
-		   back to back differing digits. More importantly, it
-		   can work with nasty phones that give a very wobbly start
-		   to a digit */
-		if (hit == s->lasthit  &&  hit != s->mhit) {
-			if (hit) {
-				s->digit_hits[(best_row << 2) + best_col]++;
-				s->detected_digits++;
-				if (s->current_digits < MAX_DTMF_DIGITS) {
-					s->digits[s->current_digits++] = hit;
-					s->digits[s->current_digits] = '\0';
-				} else {
-					s->lost_digits++;
-				}
-			}
-			s->mhit = hit;
-		}
-#endif
-
 #ifdef FAX_DETECT
 		if (!hit && (fax_energy >= FAX_THRESHOLD) && 
 			(fax_energy >= DTMF_TO_TOTAL_ENERGY*s->energy) &&
@@ -671,7 +653,9 @@ static int dtmf_detect (dtmf_detect_state_t *s, int16_t amp[], int samples,
 		s->hit2 = s->hit3;
 		s->hit3 = hit;
 #else
-		s->lasthit = hit;
+		s->hits[0] = s->hits[1];
+		s->hits[1] = s->hits[2];
+		s->hits[2] = hit;
 #endif		
 		/* Reinitialise the detector for the next block */
 		for (i = 0;  i < 4;  i++) {
@@ -691,15 +675,11 @@ static int dtmf_detect (dtmf_detect_state_t *s, int16_t amp[], int samples,
 		s->energy = 0.0;
 		s->current_sample = 0;
 	}
-#ifdef OLD_DSP_ROUTINES
 	if ((!s->mhit) || (s->mhit != hit)) {
 		s->mhit = 0;
 		return(0);
 	}
 	return (hit);
-#else
-	return (s->mhit);	/* return the debounced hit */
-#endif
 }
 
 /* MF goertzel size */
@@ -1485,8 +1465,6 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 	if ((dsp->features & DSP_FEATURE_SILENCE_SUPPRESS) && silence) {
 		memset(&dsp->f, 0, sizeof(dsp->f));
 		dsp->f.frametype = AST_FRAME_NULL;
-		ast_frfree(af);
-		ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
 		return &dsp->f;
 	}
 	if ((dsp->features & DSP_FEATURE_BUSY_DETECT) && ast_dsp_busydetect(dsp)) {
@@ -1494,8 +1472,7 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 		memset(&dsp->f, 0, sizeof(dsp->f));
 		dsp->f.frametype = AST_FRAME_CONTROL;
 		dsp->f.subclass = AST_CONTROL_BUSY;
-		ast_frfree(af);
-		ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
+		ast_log(LOG_DEBUG, "Requesting Hangup because the busy tone was detected on channel %s\n", chan->name);
 		return &dsp->f;
 	}
 	if ((dsp->features & DSP_FEATURE_DTMF_DETECT)) {
@@ -1517,7 +1494,6 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 					if (chan)
 						ast_queue_frame(chan, af);
 					ast_frfree(af);
-					ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
 					return &dsp->f;
 				}
 			} else {
@@ -1544,7 +1520,6 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 							ast_queue_frame(chan, af);
 						ast_frfree(af);
 					}
-					ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
 					return &dsp->f;
 				} else {
 					memset(&dsp->f, 0, sizeof(dsp->f));
@@ -1562,7 +1537,6 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 					if (chan)
 						ast_queue_frame(chan, af);
 					ast_frfree(af);
-					ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
 					return &dsp->f;
 				}
 			}
@@ -1579,7 +1553,6 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 					if (chan)
 						ast_queue_frame(chan, af);
 					ast_frfree(af);
-					ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
 					return &dsp->f;
 				}
 			} else {
@@ -1593,7 +1566,6 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 					if (chan)
 						ast_queue_frame(chan, af);
 					ast_frfree(af);
-					ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
 					return &dsp->f;
 				}
 			}
@@ -1664,17 +1636,6 @@ void ast_dsp_set_features(struct ast_dsp *dsp, int features)
 
 void ast_dsp_free(struct ast_dsp *dsp)
 {
-	if (ast_test_flag(&dsp->f, AST_FRFLAG_FROM_DSP)) {
-		/* If this flag is still set, that means that the dsp's destruction 
-		 * been torn down, while we still have a frame out there being used.
-		 * When ast_frfree() gets called on that frame, this ast_trans_pvt
-		 * will get destroyed, too. */
-
-		/* Set the magic hint that this has been requested to be destroyed. */
-		dsp->freqcount = -1;
-
-		return;
-	}
 	free(dsp);
 }
 
@@ -1742,7 +1703,7 @@ void ast_dsp_digitreset(struct ast_dsp *dsp)
 #endif
 		dsp->td.dtmf.hit1 = dsp->td.dtmf.hit2 = dsp->td.dtmf.hit3 = dsp->td.dtmf.hit4 = dsp->td.dtmf.mhit = 0;
 #else
-		dsp->td.dtmf.lasthit = dsp->td.dtmf.mhit = 0;
+		dsp->td.dtmf.hits[2] = dsp->td.dtmf.hits[1] = dsp->td.dtmf.hits[0] =  dsp->td.dtmf.mhit = 0;
 #endif		
 		dsp->td.dtmf.energy = 0.0;
 		dsp->td.dtmf.current_sample = 0;
@@ -1802,18 +1763,4 @@ int ast_dsp_get_tstate(struct ast_dsp *dsp)
 int ast_dsp_get_tcount(struct ast_dsp *dsp) 
 {
 	return dsp->tcount;
-}
-
-void ast_dsp_frame_freed(struct ast_frame *fr)
-{
-	struct ast_dsp *dsp;
-
-	ast_clear_flag(fr, AST_FRFLAG_FROM_DSP);
-
-	dsp = (struct ast_dsp *) (((char *) fr) - offsetof(struct ast_dsp, f));
-
-	if (dsp->freqcount != -1)
-		return;
-	
-	ast_dsp_free(dsp);
 }

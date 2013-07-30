@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 87373 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 50820 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -81,7 +81,8 @@ static struct ast_region {
 #define HASH(a) \
 	(((unsigned long)(a)) % SOME_PRIME)
 	
-AST_MUTEX_DEFINE_STATIC_NOTRACKING(reglock);
+AST_MUTEX_DEFINE_STATIC(reglock);
+AST_MUTEX_DEFINE_STATIC(showmemorylock);
 
 #define astmm_log(...)                               \
 	do {                                         \
@@ -317,7 +318,7 @@ static int handle_show_memory(int fd, int argc, char *argv[])
 	if (argc > 3)
 		fn = argv[3];
 
-	ast_mutex_lock(&reglock);
+	ast_mutex_lock(&showmemorylock);
 	for (x = 0; x < SOME_PRIME; x++) {
 		for (reg = regions[x]; reg; reg = reg->next) {
 			if (!fn || !strcasecmp(fn, reg->file) || !strcasecmp(fn, "anomolies")) {
@@ -343,7 +344,7 @@ static int handle_show_memory(int fd, int argc, char *argv[])
 			}
 		}
 	}
-	ast_mutex_unlock(&reglock);
+	ast_mutex_unlock(&showmemorylock);
 	
 	if (cache_len)
 		ast_cli(fd, "%d bytes allocated (%d in caches) in %d allocations\n", len, cache_len, count);
@@ -472,7 +473,7 @@ void __ast_mm_init(void)
 		ast_verbose("Asterisk Malloc Debugger Started (see %s))\n", filename);
 	
 	if ((mmlog = fopen(filename, "a+"))) {
-		fprintf(mmlog, "%ld - New session\n", (long)time(NULL));
+		fprintf(mmlog, "%ld - New session\n", time(NULL));
 		fflush(mmlog);
 	}
 }

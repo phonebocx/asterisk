@@ -11,14 +11,8 @@
 
 -include ../menuselect.makeopts ../menuselect.makedeps
 
-MENUSELECT_CATEGORY=RES
-MENUSELECT_DESCRIPTION=Resource Modules
-
-ALL_C_MODS:=$(patsubst %.c,%,$(wildcard res_*.c))
-ALL_CC_MODS:=$(patsubst %.cc,%,$(wildcard res_*.cc))
-
-C_MODS:=$(filter-out $(MENUSELECT_RES),$(ALL_C_MODS))
-CC_MODS:=$(filter-out $(MENUSELECT_RES),$(ALL_CC_MODS))
+C_MODS:=$(filter-out $(MENUSELECT_RES),$(patsubst %.c,%,$(wildcard res_*.c)))
+CC_MODS:=$(filter-out $(MENUSELECT_RES),$(patsubst %.cc,%,$(wildcard res_*.cc)))
 
 LOADABLE_MODS:=$(C_MODS) $(CC_MODS)
 
@@ -30,8 +24,6 @@ endif
 all: _all
 
 include $(ASTTOPDIR)/Makefile.moddir_rules
-
-snmp/agent.o: ASTCFLAGS+=$(MENUSELECT_OPTS_res_snmp:%=-D%) $(foreach dep,$(MENUSELECT_DEPENDS_res_snmp),$(value $(dep)_INCLUDE))
 
 $(if $(filter res_snmp,$(EMBEDDED_MODS)),modules.link,res_snmp.so): snmp/agent.o
 

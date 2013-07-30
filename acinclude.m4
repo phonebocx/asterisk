@@ -3,17 +3,13 @@
 AC_DEFUN([AST_GCC_ATTRIBUTE],
 [
 AC_MSG_CHECKING(for compiler 'attribute $1' support)
-saved_CFLAGS="$CFLAGS"
-CFLAGS="$CFLAGS -Werror"
 AC_COMPILE_IFELSE(
-	AC_LANG_PROGRAM([static void __attribute__(($1)) *test(void *muffin, ...) {}],
+	AC_LANG_PROGRAM([static int __attribute__(($1)) test(void) {}],
 			[]),
 	AC_MSG_RESULT(yes)
 	AC_DEFINE_UNQUOTED([HAVE_ATTRIBUTE_$1], 1, [Define to 1 if your GCC C compiler supports the '$1' attribute.]),
 	AC_MSG_RESULT(no))
-]
-CFLAGS="$saved_CFLAGS"
-)
+])
 
 # AST_EXT_LIB_SETUP([package symbol name], [package friendly name], [package option name], [additional help text])
 
@@ -101,33 +97,6 @@ if test "${USE_$1}" != "no"; then
 fi
 ])
 
-# AST_C_COMPILE_CHECK can be used for testing for various items in header files
-
-# AST_C_COMPILE_CHECK([package], [expression], [header file], [version])
-AC_DEFUN([AST_C_COMPILE_CHECK],
-[
-    if test "x${PBX_$1}" != "x1" -a "${USE_$1}" != "no"; then
-	AC_MSG_CHECKING([if "$2" compiles using $3])
-	saved_cppflags="${CPPFLAGS}"
-	if test "x${$1_DIR}" != "x"; then
-	    $1_INCLUDE="-I${$1_DIR}/include"
-	fi
-	CPPFLAGS="${CPPFLAGS} ${$1_INCLUDE}"
-
-	AC_COMPILE_IFELSE(
-	    [ AC_LANG_PROGRAM( [#include <$3>],
-			       [ $2; ]
-			       )],
-	    [   AC_MSG_RESULT(yes)
-		PBX_$1=1
-		AC_DEFINE([HAVE_$1], 1, [Define if your system has the $1 headers.])
-		AC_DEFINE([HAVE_$1_VERSION], $4, [Define $1 headers version])
-	    ],
-	    [       AC_MSG_RESULT(no) ] 
-	)
-	CPPFLAGS="${saved_cppflags}"
-    fi
-])
 
 AC_DEFUN(
 [AST_CHECK_GNU_MAKE], [AC_CACHE_CHECK(for GNU make, GNU_MAKE,
@@ -156,22 +125,21 @@ AC_DEFUN(
 [AST_CHECK_PWLIB], [
 PWLIB_INCDIR=
 PWLIB_LIBDIR=
-AC_LANG_PUSH([C++])
 if test "${PWLIBDIR:-unset}" != "unset" ; then
-  AC_CHECK_HEADER(${PWLIBDIR}/version.h, HAS_PWLIB=1, )
+  AC_CHECK_FILE(${PWLIBDIR}/version.h, HAS_PWLIB=1, )
 fi
 if test "${HAS_PWLIB:-unset}" = "unset" ; then
   if test "${OPENH323DIR:-unset}" != "unset"; then
-    AC_CHECK_HEADER(${OPENH323DIR}/../pwlib/version.h, HAS_PWLIB=1, )
+    AC_CHECK_FILE(${OPENH323DIR}/../pwlib/version.h, HAS_PWLIB=1, )
   fi
   if test "${HAS_PWLIB:-unset}" != "unset" ; then
     PWLIBDIR="${OPENH323DIR}/../pwlib"
   else
-    AC_CHECK_HEADER(${HOME}/pwlib/include/ptlib.h, HAS_PWLIB=1, )
+    AC_CHECK_FILE(${HOME}/pwlib/include/ptlib.h, HAS_PWLIB=1, )
     if test "${HAS_PWLIB:-unset}" != "unset" ; then
       PWLIBDIR="${HOME}/pwlib"
     else
-      AC_CHECK_HEADER(/usr/local/include/ptlib.h, HAS_PWLIB=1, )
+      AC_CHECK_FILE(/usr/local/include/ptlib.h, HAS_PWLIB=1, )
       if test "${HAS_PWLIB:-unset}" != "unset" ; then
         AC_PATH_PROG(PTLIB_CONFIG, ptlib-config, , /usr/local/bin)
         if test "${PTLIB_CONFIG:-unset}" = "unset" ; then
@@ -189,7 +157,7 @@ if test "${HAS_PWLIB:-unset}" = "unset" ; then
         PWLIB_LIB=`${PTLIB_CONFIG} --ldflags --libs`
         PWLIB_LIB="-L${PWLIB_LIBDIR} `echo ${PWLIB_LIB}`"
       else
-        AC_CHECK_HEADER(/usr/include/ptlib.h, HAS_PWLIB=1, )
+        AC_CHECK_FILE(/usr/include/ptlib.h, HAS_PWLIB=1, )
         if test "${HAS_PWLIB:-unset}" != "unset" ; then
           AC_PATH_PROG(PTLIB_CONFIG, ptlib-config, , /usr/share/pwlib/make)
           PWLIB_INCDIR="/usr/include"
@@ -254,7 +222,6 @@ if test "${HAS_PWLIB:-unset}" != "unset" ; then
   AC_SUBST([PWLIB_INCDIR])
   AC_SUBST([PWLIB_LIBDIR])
 fi
-  AC_LANG_POP([C++])
 ])
 
 
@@ -349,30 +316,20 @@ AC_DEFUN(
 [AST_CHECK_OPENH323], [
 OPENH323_INCDIR=
 OPENH323_LIBDIR=
-AC_LANG_PUSH([C++])
 if test "${OPENH323DIR:-unset}" != "unset" ; then
-  AC_CHECK_HEADER(${OPENH323DIR}/version.h, HAS_OPENH323=1, )
+  AC_CHECK_FILE(${OPENH323DIR}/version.h, HAS_OPENH323=1, )
 fi
 if test "${HAS_OPENH323:-unset}" = "unset" ; then
-  AC_CHECK_HEADER(${PWLIBDIR}/../openh323/version.h, OPENH323DIR="${PWLIBDIR}/../openh323"; HAS_OPENH323=1, )
+  AC_CHECK_FILE(${PWLIBDIR}/../openh323/version.h, OPENH323DIR="${PWLIBDIR}/../openh323"; HAS_OPENH323=1, )
   if test "${HAS_OPENH323:-unset}" != "unset" ; then
     OPENH323DIR="${PWLIBDIR}/../openh323"
-    saved_cppflags="${CPPFLAGS}"
-    CPPFLAGS="${CPPFLAGS} -I${PWLIB_INCDIR}/openh323 -I${PWLIB_INCDIR}"
-    AC_CHECK_HEADER(${OPENH323DIR}/include/h323.h, , OPENH323_INCDIR="${PWLIB_INCDIR}/openh323"; OPENH323_LIBDIR="${PWLIB_LIBDIR}", [#include <ptlib.h>])
-    CPPFLAGS="${saved_cppflags}"
+    AC_CHECK_FILE(${OPENH323DIR}/include/h323.h, , OPENH323_INCDIR="${PWLIB_INCDIR}/openh323"; OPENH323_LIBDIR="${PWLIB_LIBDIR}")
   else
-    saved_cppflags="${CPPFLAGS}"
-    CPPFLAGS="${CPPFLAGS} -I${HOME}/openh323/include -I${PWLIB_INCDIR}"
-    AC_CHECK_HEADER(${HOME}/openh323/include/h323.h, HAS_OPENH323=1, )
-    CPPFLAGS="${saved_cppflags}"
+    AC_CHECK_FILE(${HOME}/openh323/include/h323.h, HAS_OPENH323=1, )
     if test "${HAS_OPENH323:-unset}" != "unset" ; then
       OPENH323DIR="${HOME}/openh323"
     else
-      saved_cppflags="${CPPFLAGS}"
-      CPPFLAGS="${CPPFLAGS} -I/usr/local/include/openh323 -I${PWLIB_INCDIR}"
-      AC_CHECK_HEADER(/usr/local/include/openh323/h323.h, HAS_OPENH323=1, )
-      CPPFLAGS="${saved_cppflags}"
+      AC_CHECK_FILE(/usr/local/include/openh323/h323.h, HAS_OPENH323=1, )
       if test "${HAS_OPENH323:-unset}" != "unset" ; then
         OPENH323DIR="/usr/local/share/openh323"
         OPENH323_INCDIR="/usr/local/include/openh323"
@@ -382,10 +339,7 @@ if test "${HAS_OPENH323:-unset}" = "unset" ; then
           OPENH323_LIBDIR="/usr/local/lib"
         fi
       else
-        saved_cppflags="${CPPFLAGS}"
-        CPPFLAGS="${CPPFLAGS} -I/usr/include/openh323 -I${PWLIB_INCDIR}"
-        AC_CHECK_HEADER(/usr/include/openh323/h323.h, HAS_OPENH323=1, , [#include <ptlib.h>])
-        CPPFLAGS="${saved_cppflags}"
+        AC_CHECK_FILE(/usr/include/openh323/h323.h, HAS_OPENH323=1, )
         if test "${HAS_OPENH323:-unset}" != "unset" ; then
           OPENH323DIR="/usr/share/openh323"
           OPENH323_INCDIR="/usr/include/openh323"
@@ -416,7 +370,6 @@ if test "${HAS_OPENH323:-unset}" != "unset" ; then
   AC_SUBST([OPENH323_INCDIR])
   AC_SUBST([OPENH323_LIBDIR])
 fi
-  AC_LANG_POP([C++])
 ])
 
 
@@ -561,7 +514,7 @@ else
 fi
 if test "x$ac_cv_func_fork_works" = xcross; then
   case $host in
-    *-*-amigaos* | *-*-msdosdjgpp* | *-*-uclinux* | *-*-linux-uclibc* )
+    *-*-amigaos* | *-*-msdosdjgpp* | *-*-uclinux* )
       # Override, as these systems have only a dummy fork() stub
       ac_cv_func_fork_works=no
       ;;

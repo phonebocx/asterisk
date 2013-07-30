@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 110628 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51265 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -49,11 +49,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 110628 $")
 #include "asterisk/utils.h"
 #include "asterisk/lock.h"
 #include "asterisk/indications.h"
-#include "asterisk/linkedlists.h"
 
 #define MAX_OTHER_FORMATS 10
 
-static AST_LIST_HEAD_STATIC(groups, ast_group_info);
 
 /* !
 This function presents a dialtone and reads an extension into 'collect' 
@@ -87,11 +85,14 @@ int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, 
 			ast_playtones_stop(chan);
 		if (res < 1)
 			break;
-		if (res == '#')
-			break;
 		collect[x++] = res;
-		if (!ast_matchmore_extension(chan, context, collect, 1, chan->cid.cid_num))
+		if (!ast_matchmore_extension(chan, context, collect, 1, chan->cid.cid_num)) {
+			if (collect[x-1] == '#') {
+				/* Not a valid extension, ending in #, assume the # was to finish dialing */
+				collect[x-1] = '\0';
+			}
 			break;
+		}
 	}
 	if (res >= 0)
 		res = ast_exists_extension(chan, context, collect, 1, chan->cid.cid_num) ? 1 : 0;
@@ -215,7 +216,6 @@ int ast_dtmf_stream(struct ast_channel *chan, struct ast_channel *peer, const ch
 {
 	const char *ptr;
 	int res = 0;
-	struct ast_silence_generator *silgen = NULL;
 
 	if (!between)
 		between = 100;
@@ -229,10 +229,6 @@ int ast_dtmf_stream(struct ast_channel *chan, struct ast_channel *peer, const ch
 	/* ast_waitfor will return the number of remaining ms on success */
 	if (res < 0)
 		return res;
-
-	if (ast_opt_transmit_silence) {
-		silgen = ast_channel_start_silence_generator(chan);
-	}
 
 	for (ptr = digits; *ptr; ptr++) {
 		if (*ptr == 'w') {
@@ -258,10 +254,6 @@ int ast_dtmf_stream(struct ast_channel *chan, struct ast_channel *peer, const ch
 		   that has occurred previously while acting on the primary channel */
 		if (ast_autoservice_stop(peer) && !res)
 			res = -1;
-	}
-
-	if (silgen) {
-		ast_channel_stop_silence_generator(chan, silgen);
 	}
 
 	return res;
@@ -458,10 +450,6 @@ int ast_control_streamfile(struct ast_channel *chan, const char *file,
 			break;
 	}
 
-	/* If we are returning a digit cast it as char */
-	if (res > 0 || chan->stream)
-		res = (char)res;
-
 	ast_stopstream(chan);
 
 	return res;
@@ -561,7 +549,7 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 
 	end = start = time(NULL);  /* pre-initialize end to be same as start in case we never get into loop */
 	for (x = 0; x < fmtcnt; x++) {
-		others[x] = ast_writefile(prepend ? prependfile : recordfile, sfmt[x], comment, O_TRUNC, 0, 0777);
+		others[x] = ast_writefile(prepend ? prependfile : recordfile, sfmt[x], comment, O_TRUNC, 0, 0700);
 		if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "x=%d, open writing:  %s format: %s, %p\n", x, prepend ? prependfile : recordfile, sfmt[x], others[x]);
 
@@ -698,6 +686,8 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 		} else {
 			ast_frfree(f);
 		}
+		if (end == start)
+			end = time(NULL);
 	} else {
 		ast_log(LOG_WARNING, "Error creating writestream '%s', format '%s'\n", recordfile, sfmt[x]);
 	}
@@ -706,29 +696,14 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 		if (silgen)
 			ast_channel_stop_silence_generator(chan, silgen);
 	}
-
-	/*!\note
-	 * Instead of asking how much time passed (end - start), calculate the number
-	 * of seconds of audio which actually went into the file.  This fixes a
-	 * problem where audio is stopped up on the network and never gets to us.
-	 *
-	 * Note that we still want to use the number of seconds passed for the max
-	 * message, otherwise we could get a situation where this stream is never
-	 * closed (which would create a resource leak).
-	 */
-	*duration = others[0] ? ast_tellstream(others[0]) / 8000 : 0;
+	*duration = end - start;
 
 	if (!prepend) {
 		for (x = 0; x < fmtcnt; x++) {
 			if (!others[x])
 				break;
-			/*!\note
-			 * If we ended with silence, trim all but the first 200ms of silence
-			 * off the recording.  However, if we ended with '#', we don't want
-			 * to trim ANY part of the recording.
-			 */
-			if (res > 0 && totalsilence)
-				ast_stream_rewind(others[x], totalsilence - 200);
+			if (res > 0)
+				ast_stream_rewind(others[x], totalsilence ? totalsilence - 200 : 200);
 			ast_truncstream(others[x]);
 			ast_closestream(others[x]);
 		}
@@ -743,9 +718,7 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 			realfiles[x] = ast_readfile(recordfile, sfmt[x], comment, O_RDONLY, 0, 0);
 			if (!others[x] || !realfiles[x])
 				break;
-			/*!\note Same logic as above. */
-			if (totalsilence)
-				ast_stream_rewind(others[x], totalsilence - 200);
+			ast_stream_rewind(others[x], totalsilence ? totalsilence - 200 : 200);
 			ast_truncstream(others[x]);
 			/* add the original file too */
 			while ((fr = ast_readframe(realfiles[x]))) {
@@ -810,82 +783,63 @@ int ast_app_group_split_group(const char *data, char *group, int group_max, char
 	if (!ast_strlen_zero(grp))
 		ast_copy_string(group, grp, group_max);
 	else
-		*group = '\0';
+		res = -1;
 
-	if (!ast_strlen_zero(cat))
-		ast_copy_string(category, cat, category_max);
+	if (cat)
+		snprintf(category, category_max, "%s_%s", GROUP_CATEGORY_PREFIX, cat);
+	else
+		ast_copy_string(category, GROUP_CATEGORY_PREFIX, category_max);
 
 	return res;
 }
 
 int ast_app_group_set_channel(struct ast_channel *chan, const char *data)
 {
-	int res = 0;
-	char group[80] = "", category[80] = "";
-	struct ast_group_info *gi = NULL;
-	size_t len = 0;
-	
-	if (ast_app_group_split_group(data, group, sizeof(group), category, sizeof(category)))
-		return -1;
-	
-	/* Calculate memory we will need if this is new */
-	len = sizeof(*gi) + strlen(group) + 1;
-	if (!ast_strlen_zero(category))
-		len += strlen(category) + 1;
-	
-	AST_LIST_LOCK(&groups);
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&groups, gi, list) {
-		if ((gi->chan == chan) && ((ast_strlen_zero(category) && ast_strlen_zero(gi->category)) || (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, category)))) {
-			AST_LIST_REMOVE_CURRENT(&groups, list);
-			free(gi);
-			break;
-		}
-	}
-	AST_LIST_TRAVERSE_SAFE_END
+	int res=0;
+	char group[80] = "";
+	char category[80] = "";
 
-	if (ast_strlen_zero(group)) {
-		/* Enable unsetting the group */
-	} else if ((gi = calloc(1, len))) {
-		gi->chan = chan;
-		gi->group = (char *) gi + sizeof(*gi);
-		strcpy(gi->group, group);
-		if (!ast_strlen_zero(category)) {
-			gi->category = (char *) gi + sizeof(*gi) + strlen(group) + 1;
-			strcpy(gi->category, category);
-		}
-		AST_LIST_INSERT_TAIL(&groups, gi, list);
-	} else {
+	if (!ast_app_group_split_group(data, group, sizeof(group), category, sizeof(category))) {
+		pbx_builtin_setvar_helper(chan, category, group);
+	} else
 		res = -1;
-	}
-	
-	AST_LIST_UNLOCK(&groups);
-	
+
 	return res;
 }
 
 int ast_app_group_get_count(const char *group, const char *category)
 {
-	struct ast_group_info *gi = NULL;
+	struct ast_channel *chan;
 	int count = 0;
+	const char *test;
+	char cat[80];
+	const char *s;
 
 	if (ast_strlen_zero(group))
 		return 0;
-	
-	AST_LIST_LOCK(&groups);
-	AST_LIST_TRAVERSE(&groups, gi, list) {
-		if (!strcasecmp(gi->group, group) && (ast_strlen_zero(category) || (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, category))))
-			count++;
+
+ 	s = S_OR(category, GROUP_CATEGORY_PREFIX);
+	ast_copy_string(cat, s, sizeof(cat));
+
+	chan = NULL;
+	while ((chan = ast_channel_walk_locked(chan)) != NULL) {
+ 		test = pbx_builtin_getvar_helper(chan, cat);
+		if (test && !strcasecmp(test, group))
+ 			count++;
+		ast_channel_unlock(chan);
 	}
-	AST_LIST_UNLOCK(&groups);
 
 	return count;
 }
 
 int ast_app_group_match_get_count(const char *groupmatch, const char *category)
 {
-	struct ast_group_info *gi = NULL;
 	regex_t regexbuf;
+	struct ast_channel *chan;
 	int count = 0;
+	const char *test;
+	char cat[80];
+	const char *s;
 
 	if (ast_strlen_zero(groupmatch))
 		return 0;
@@ -894,62 +848,20 @@ int ast_app_group_match_get_count(const char *groupmatch, const char *category)
 	if (regcomp(&regexbuf, groupmatch, REG_EXTENDED | REG_NOSUB))
 		return 0;
 
-	AST_LIST_LOCK(&groups);
-	AST_LIST_TRAVERSE(&groups, gi, list) {
-		if (!regexec(&regexbuf, gi->group, 0, NULL, 0) && (ast_strlen_zero(category) || (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, category))))
+	s = S_OR(category, GROUP_CATEGORY_PREFIX);
+	ast_copy_string(cat, s, sizeof(cat));
+
+	chan = NULL;
+	while ((chan = ast_channel_walk_locked(chan)) != NULL) {
+		test = pbx_builtin_getvar_helper(chan, cat);
+		if (test && !regexec(&regexbuf, test, 0, NULL, 0))
 			count++;
+		ast_channel_unlock(chan);
 	}
-	AST_LIST_UNLOCK(&groups);
 
 	regfree(&regexbuf);
 
 	return count;
-}
-
-int ast_app_group_update(struct ast_channel *old, struct ast_channel *new)
-{
-	struct ast_group_info *gi = NULL;
-
-	AST_LIST_LOCK(&groups);
-	AST_LIST_TRAVERSE(&groups, gi, list) {
-		if (gi->chan == old)
-			gi->chan = new;
-	}
-	AST_LIST_UNLOCK(&groups);
-
-	return 0;
-}
-
-int ast_app_group_discard(struct ast_channel *chan)
-{
-	struct ast_group_info *gi = NULL;
-	
-	AST_LIST_LOCK(&groups);
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&groups, gi, list) {
-		if (gi->chan == chan) {
-			AST_LIST_REMOVE_CURRENT(&groups, list);
-			free(gi);
-		}
-	}
-        AST_LIST_TRAVERSE_SAFE_END
-	AST_LIST_UNLOCK(&groups);
-	
-	return 0;
-}
-
-int ast_app_group_list_lock(void)
-{
-	return AST_LIST_LOCK(&groups);
-}
-
-struct ast_group_info *ast_app_group_list_head(void)
-{
-	return AST_LIST_FIRST(&groups);
-}
-
-int ast_app_group_list_unlock(void)
-{
-	return AST_LIST_UNLOCK(&groups);
 }
 
 unsigned int ast_app_separate_args(char *buf, char delim, char **array, int arraylen)
@@ -1403,6 +1315,7 @@ int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags
 	s = optstr;
 	while (*s) {
 		curarg = *s++ & 0x7f;	/* the array (in app.h) has 128 entries */
+		ast_set_flag(flags, options[curarg].flag);
 		argloc = options[curarg].arg_index;
 		if (*s == '(') {
 			/* Has argument */
@@ -1417,9 +1330,8 @@ int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags
 				break;
 			}
 		} else if (argloc) {
-			args[argloc - 1] = "";
+			args[argloc - 1] = NULL;
 		}
-		ast_set_flag(flags, options[curarg].flag);
 	}
 
 	return res;

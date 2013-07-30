@@ -22,7 +22,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 97697 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -39,35 +39,24 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 97697 $")
 static int group_count_function_read(struct ast_channel *chan, char *cmd,
 				     char *data, char *buf, size_t len)
 {
-	int count = -1;
-	char group[80] = "", category[80] = "";
+	int count;
+	char group[80] = "";
+	char category[80] = "";
+	const char *grp;
 
 	ast_app_group_split_group(data, group, sizeof(group), category,
 				  sizeof(category));
 
-	/* If no group has been provided let's find one */
 	if (ast_strlen_zero(group)) {
-		struct ast_group_info *gi = NULL;
-
-		ast_app_group_list_lock();
-		for (gi = ast_app_group_list_head(); gi; gi = AST_LIST_NEXT(gi, list)) {
-			if (gi->chan != chan)
-				continue;
-			if (ast_strlen_zero(category) || (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, category)))
-				break;
-		}
-		if (gi) {
-			ast_copy_string(group, gi->group, sizeof(group));
-			if (!ast_strlen_zero(gi->category))
-				ast_copy_string(category, gi->category, sizeof(category));
-		}
-		ast_app_group_list_unlock();
+		if ((grp = pbx_builtin_getvar_helper(chan, category)))
+			ast_copy_string(group, grp, sizeof(group));
+		else
+			ast_log(LOG_NOTICE, "No group could be found for channel '%s'\n",
+				chan->name);
 	}
 
-	if ((count = ast_app_group_get_count(group, category)) == -1)
-		ast_log(LOG_NOTICE, "No group could be found for channel '%s'\n", chan->name);
-	else
-		snprintf(buf, len, "%d", count);
+	count = ast_app_group_get_count(group, category);
+	snprintf(buf, len, "%d", count);
 
 	return 0;
 }
@@ -116,24 +105,20 @@ static struct ast_custom_function group_match_count_function = {
 static int group_function_read(struct ast_channel *chan, char *cmd,
 			       char *data, char *buf, size_t len)
 {
-	struct ast_group_info *gi = NULL;
-	
-	ast_app_group_list_lock();
-	
-	for (gi = ast_app_group_list_head(); gi; gi = AST_LIST_NEXT(gi, list)) {
-		if (gi->chan != chan)
-			continue;
-		if (ast_strlen_zero(data))
-			break;
-		if (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, data))
-			break;
+	char varname[256];
+	const char *group;
+
+	if (!ast_strlen_zero(data)) {
+		snprintf(varname, sizeof(varname), "%s_%s", GROUP_CATEGORY_PREFIX,
+			 data);
+	} else {
+		ast_copy_string(varname, GROUP_CATEGORY_PREFIX, sizeof(varname));
 	}
-	
-	if (gi)
-		ast_copy_string(buf, gi->group, len);
-	
-	ast_app_group_list_unlock();
-	
+
+	group = pbx_builtin_getvar_helper(chan, varname);
+	if (group)
+		ast_copy_string(buf, group, len);
+
 	return 0;
 }
 
@@ -167,34 +152,35 @@ static struct ast_custom_function group_function = {
 static int group_list_function_read(struct ast_channel *chan, char *cmd,
 				    char *data, char *buf, size_t len)
 {
-	struct ast_group_info *gi = NULL;
+	struct ast_var_t *current;
+	struct varshead *headp;
 	char tmp1[1024] = "";
 	char tmp2[1024] = "";
 
-	if (!chan)
-		return -1;
-
-	ast_app_group_list_lock();
-
-	for (gi = ast_app_group_list_head(); gi; gi = AST_LIST_NEXT(gi, list)) {
-		if (gi->chan != chan)
-			continue;
-		if (!ast_strlen_zero(tmp1)) {
-			ast_copy_string(tmp2, tmp1, sizeof(tmp2));
-			if (!ast_strlen_zero(gi->category))
-				snprintf(tmp1, sizeof(tmp1), "%s %s@%s", tmp2, gi->group, gi->category);
-			else
-				snprintf(tmp1, sizeof(tmp1), "%s %s", tmp2, gi->group);
-		} else {
-			if (!ast_strlen_zero(gi->category))
-				snprintf(tmp1, sizeof(tmp1), "%s@%s", gi->group, gi->category);
-			else
-				snprintf(tmp1, sizeof(tmp1), "%s", gi->group);
+	headp = &chan->varshead;
+	AST_LIST_TRAVERSE(headp, current, entries) {
+		if (!strncmp(ast_var_name(current), GROUP_CATEGORY_PREFIX "_", strlen(GROUP_CATEGORY_PREFIX) + 1)) {
+			if (!ast_strlen_zero(tmp1)) {
+				ast_copy_string(tmp2, tmp1, sizeof(tmp2));
+				snprintf(tmp1, sizeof(tmp1), "%s %s@%s", tmp2,
+					 ast_var_value(current),
+					 (ast_var_name(current) +
+					  strlen(GROUP_CATEGORY_PREFIX) + 1));
+			} else {
+				snprintf(tmp1, sizeof(tmp1), "%s@%s", ast_var_value(current),
+					 (ast_var_name(current) +
+					  strlen(GROUP_CATEGORY_PREFIX) + 1));
+			}
+		} else if (!strcmp(ast_var_name(current), GROUP_CATEGORY_PREFIX)) {
+			if (!ast_strlen_zero(tmp1)) {
+				ast_copy_string(tmp2, tmp1, sizeof(tmp2));
+				snprintf(tmp1, sizeof(tmp1), "%s %s", tmp2,
+					 ast_var_value(current));
+			} else {
+				snprintf(tmp1, sizeof(tmp1), "%s", ast_var_value(current));
+			}
 		}
 	}
-	
-	ast_app_group_list_unlock();
-
 	ast_copy_string(buf, tmp1, len);
 
 	return 0;

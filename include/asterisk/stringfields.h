@@ -74,7 +74,7 @@
   and their storage pool must be freed:
   
   \code
-  ast_string_field_free_memory(sample);
+  ast_string_field_free_all(sample);
   free(sample);
   \endcode
 */
@@ -235,7 +235,7 @@ void __ast_string_field_index_build_va(struct ast_string_field_mgr *mgr,
 */
 #define ast_string_field_index_set(x, index, data) do { \
     char *__zz__ = (char*)(x)->__begin_field[index]; \
-    size_t __dlen__ = strlen(data); \
+    int __dlen__ = strlen(data); \
     if( __dlen__ == 0 ) { (x)->__begin_field[index] = __ast_string_field_empty; \
     } else { \
      if( __zz__[0] != 0 && __dlen__ <= strlen(__zz__) ) { \
@@ -250,7 +250,7 @@ void __ast_string_field_index_build_va(struct ast_string_field_mgr *mgr,
 #ifdef FOR_TEST
 #define ast_string_field_index_logset(x, index, data, logstr) do { \
     char *__zz__ = (char*)(x)->__begin_field[index]; \
-    size_t __dlen__ = strlen(data); \
+    int __dlen__ = strlen(data); \
     if( __dlen__ == 0 ) { (x)->__begin_field[index] = __ast_string_field_empty; \
     } else { \
      if( __zz__[0] != 0 && __dlen__ <= strlen(__zz__) ) { \
@@ -361,7 +361,7 @@ void __ast_string_field_index_build_va(struct ast_string_field_mgr *mgr,
   structure; it should only be called immediately before freeing
   the structure itself.
 */
-#define ast_string_field_free_memory(x) do { \
+#define ast_string_field_free_pools(x) do { \
 	struct ast_string_field_pool *this, *prev; \
 	for (this = (x)->__field_mgr.pool; this; this = prev) { \
 		prev = this->prev; \
@@ -378,7 +378,7 @@ void __ast_string_field_index_build_va(struct ast_string_field_mgr *mgr,
   attached to the structure will be available for use by
   stringfields again.
 */
-#define ast_string_field_reset_all(x) do { \
+#define ast_string_field_free_all(x) do { \
 	int index; \
 	for (index = 0; index < ast_string_field_count(x); index++) \
 		ast_string_field_index_free(x, index); \

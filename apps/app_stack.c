@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
  
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 85687 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -138,10 +138,10 @@ static int gosubif_exec(struct ast_channel *chan, void *data)
 	label2 = args;
 
 	if (pbx_checkcondition(condition)) {
-		if (!ast_strlen_zero(label1)) {
+		if (label1) {
 			res = gosub_exec(chan, label1);
 		}
-	} else if (!ast_strlen_zero(label2)) {
+	} else if (label2) {
 		res = gosub_exec(chan, label2);
 	}
 

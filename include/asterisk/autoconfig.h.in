@@ -18,6 +18,9 @@
 /* Define to 1 if using `alloca.c'. */
 #undef C_ALLOCA
 
+/* Define to 1 if you have the `alarm' function. */
+#undef HAVE_ALARM
+
 /* Define to 1 if you have `alloca', as a function or macro. */
 #undef HAVE_ALLOCA
 
@@ -30,9 +33,6 @@
 
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
-
-/* Define to 1 if you have the <arpa/nameser.h> header file. */
-#undef HAVE_ARPA_NAMESER_H
 
 /* Define to 1 if you have the `asprintf' function. */
 #undef HAVE_ASPRINTF
@@ -47,9 +47,6 @@
 /* Define to 1 if your GCC C compiler supports the 'const' attribute. */
 #undef HAVE_ATTRIBUTE_const
 
-/* Define to 1 if your GCC C compiler supports the 'deprecated' attribute. */
-#undef HAVE_ATTRIBUTE_deprecated
-
 /* Define to 1 if your GCC C compiler supports the 'malloc' attribute. */
 #undef HAVE_ATTRIBUTE_malloc
 
@@ -61,9 +58,6 @@
 
 /* Define to 1 if you have the `bzero' function. */
 #undef HAVE_BZERO
-
-/* Define to indicate the ${CAP_DESCRIP} library */
-#undef HAVE_CAP
 
 /* Define to 1 if your system has a working `chown' function. */
 #undef HAVE_CHOWN
@@ -114,20 +108,8 @@
 /* Define to 1 if you have the `gethostbyname' function. */
 #undef HAVE_GETHOSTBYNAME
 
-/* Define to 1 if your system has gethostbyname_r with 5 arguments. */
-#undef HAVE_GETHOSTBYNAME_R_5
-
-/* Define to 1 if your system has gethostbyname_r with 6 arguments. */
-#undef HAVE_GETHOSTBYNAME_R_6
-
 /* Define to 1 if you have the `gethostname' function. */
 #undef HAVE_GETHOSTNAME
-
-/* Define if your system has the GETIFADDRS headers. */
-#undef HAVE_GETIFADDRS
-
-/* Define GETIFADDRS headers version */
-#undef HAVE_GETIFADDRS_VERSION
 
 /* Define to 1 if you have the `getloadavg' function. */
 #undef HAVE_GETLOADAVG
@@ -190,17 +172,11 @@
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
-/* Define to 1 if your system has linux/compiler.h. */
-#undef HAVE_LINUX_COMPILER_H
-
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
 
 /* Define to 1 if you have the `localtime_r' function. */
 #undef HAVE_LOCALTIME_R
-
-/* Define to indicate the ${LTDL_DESCRIP} library */
-#undef HAVE_LTDL
 
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
@@ -280,9 +256,6 @@
 /* Define to indicate the ${PRI_DESCRIP} library */
 #undef HAVE_PRI
 
-/* Define to indicate the ${PRI_VERSION_DESCRIP} library */
-#undef HAVE_PRI_VERSION
-
 /* Define if you have POSIX threads libraries and header files. */
 #undef HAVE_PTHREAD
 
@@ -301,14 +274,14 @@
 /* Define if your system has the PWLib libraries. */
 #undef HAVE_PWLIB
 
+/* Define if your system has the Qt library */
+#undef HAVE_QT
+
 /* Define to indicate the ${RADIUS_DESCRIP} library */
 #undef HAVE_RADIUS
 
 /* Define to 1 if you have the `regcomp' function. */
 #undef HAVE_REGCOMP
-
-/* Define to 1 if your system has the ndestroy resolver function. */
-#undef HAVE_RES_NDESTROY
 
 /* Define to 1 if your system has the re-entrant resolver functions. */
 #undef HAVE_RES_NINIT
@@ -323,9 +296,6 @@
    */
 #undef HAVE_RTLD_NOLOAD
 
-/* Define to 1 if your system has /sbin/launchd. */
-#undef HAVE_SBIN_LAUNCHD
-
 /* Define to 1 if you have the `select' function. */
 #undef HAVE_SELECT
 
@@ -335,17 +305,8 @@
 /* Define to 1 if you have the `socket' function. */
 #undef HAVE_SOCKET
 
-/* Define to 1 if your system has soxmix application. */
-#undef HAVE_SOXMIX
-
 /* Define to indicate the ${SPEEX_DESCRIP} library */
 #undef HAVE_SPEEX
-
-/* Define to indicate the ${SPEEXDSP_DESCRIP} library */
-#undef HAVE_SPEEXDSP
-
-/* Define to indicate the ${SPEEX_PREPROCESS_DESCRIP} library */
-#undef HAVE_SPEEX_PREPROCESS
 
 /* Define to indicate the ${SQLITE_DESCRIP} library */
 #undef HAVE_SQLITE
@@ -399,12 +360,6 @@
 
 /* Define to 1 if you have the <string.h> header file. */
 #undef HAVE_STRING_H
-
-/* Define to 1 if you have the `strlcat' function. */
-#undef HAVE_STRLCAT
-
-/* Define to 1 if you have the `strlcpy' function. */
-#undef HAVE_STRLCPY
 
 /* Define to 1 if you have the `strncasecmp' function. */
 #undef HAVE_STRNCASECMP
@@ -498,9 +453,6 @@
 /* Define to 1 if you have the `unsetenv' function. */
 #undef HAVE_UNSETENV
 
-/* Define to indicate the ${USB_DESCRIP} library */
-#undef HAVE_USB
-
 /* Define to 1 if you have the `utime' function. */
 #undef HAVE_UTIME
 
@@ -546,9 +498,6 @@
 /* Define to 1 if `lstat' dereferences a symlink specified with a trailing
    slash. */
 #undef LSTAT_FOLLOWS_SLASHED_SYMLINK
-
-/* Build chan_misdn for mISDN 1.2 or later. */
-#undef MISDN_1_2
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -646,9 +595,6 @@
 #endif
 #ifndef _POSIX_PTHREAD_SEMANTICS
 # undef _POSIX_PTHREAD_SEMANTICS
-#endif
-#ifndef _TANDEM_SOURCE
-# undef _TANDEM_SOURCE
 #endif
 
 /* Define like PROTOTYPES; this can be used by system headers. */

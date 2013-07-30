@@ -35,6 +35,7 @@
 
 #include "menuselect.h"
 
+#define MENU_TITLEBAR	"*************************************"
 #define MENU_HELP	"Press 'h' for help."
 
 #define TITLE_HEIGHT	7
@@ -43,14 +44,6 @@
 #define MIN_Y		21
 
 #define PAGE_OFFSET	10
-
-#define SCROLL_NONE     0
-#define SCROLL_DOWN     1
-
-#define SCROLL_DOWN_INDICATOR "... More ..."
-
-#define MIN(x,y) ((x)<(y)?(x):(y))
-#define MAX(x,y) ((x)<(y)?(y):(x))
 
 extern int changes_made;
 
@@ -210,7 +203,6 @@ static void display_mem_info(WINDOW *menu, struct member *mem, int start, int en
 		strcpy(buf, "Can use: ");
 		AST_LIST_TRAVERSE(&mem->uses, use, list) {
 			strncat(buf, use->name, sizeof(buf) - strlen(buf) - 1);
-			strncat(buf, use->member ? "(M)" : "(E)", sizeof(buf) - strlen(buf) - 1);
 			if (AST_LIST_NEXT(use, list))
 				strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
 		}
@@ -230,7 +222,7 @@ static void display_mem_info(WINDOW *menu, struct member *mem, int start, int en
 
 }
 
-static void draw_category_menu(WINDOW *menu, struct category *cat, int start, int end, int curopt, int changed, int flags)
+static void draw_category_menu(WINDOW *menu, struct category *cat, int start, int end, int curopt, int changed)
 {
 	int i = 0;
 	int j = 0;
@@ -276,13 +268,8 @@ static void draw_category_menu(WINDOW *menu, struct category *cat, int start, in
 		if (curopt + 1 == i)
 			display_mem_info(menu, mem, start, end);
 
-		if (i == end - (flags & SCROLL_DOWN ? 1 : 0))
+		if (i == end)
 			break;
-	}
-
-	if (flags & SCROLL_DOWN) {
-		wmove(menu, j, max_x / 2 - sizeof(SCROLL_DOWN_INDICATOR) / 2);
-		waddstr(menu, SCROLL_DOWN_INDICATOR);
 	}
 
 	wmove(menu, curopt - start, max_x / 2 - 9);
@@ -290,34 +277,6 @@ static void draw_category_menu(WINDOW *menu, struct category *cat, int start, in
 }
 
 static void play_space(void);
-
-static int move_up(int *current, int itemcount, int delta, int *start, int *end, int scroll)
-{
-	if (*current > 0) {
-		*current = MAX(*current - delta, 0);
-		if (*current < *start) {
-			int diff = *start - MAX(*start - delta, 0);
-			*start  -= diff;
-			*end    -= diff;
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static int move_down(int *current, int itemcount, int delta, int *start, int *end, int scroll)
-{
-	if (*current < itemcount) {
-		*current = MIN(*current + delta, itemcount);
-		if (*current > *end - 1 - (scroll & SCROLL_DOWN ? 1 : 0)) {
-			int diff = MIN(*end + delta - 1, itemcount) - *end + 1;
-			*start  += diff;
-			*end    += diff;
-			return 1;
-		}
-	}
-	return 0;
-}
 
 static int run_category_menu(WINDOW *menu, int cat_num)
 {
@@ -329,7 +288,6 @@ static int run_category_menu(WINDOW *menu, int cat_num)
 	int curopt = 0;
 	int maxopt;
 	int changed = 1;
-	int scroll = SCROLL_NONE;
 
 	AST_LIST_TRAVERSE(&categories, cat, list) {
 		if (i++ == cat_num)
@@ -340,32 +298,36 @@ static int run_category_menu(WINDOW *menu, int cat_num)
 
 	maxopt = count_members(cat) - 1;
 
-	if (maxopt > end) {
-		scroll = SCROLL_DOWN;
-	}
-
-	draw_category_menu(menu, cat, start, end, curopt, changed, scroll);
+	draw_category_menu(menu, cat, start, end, curopt, changed);
 
 	while ((c = getch())) {
 		changed = 0;
 		switch (c) {
 		case KEY_UP:
-			changed = move_up(&curopt, maxopt, 1, &start, &end, scroll);
+			if (curopt > 0) {
+				curopt--;
+				if (curopt < start) {
+					start--;
+					end--;
+					changed = 1;
+				}
+			}
 			break;
 		case KEY_DOWN:
-			changed = move_down(&curopt, maxopt, 1, &start, &end, scroll);
-			break;
-		case KEY_PPAGE:
-			changed = move_up(&curopt, maxopt, MIN(PAGE_OFFSET, max_y - TITLE_HEIGHT - 6 - (scroll & SCROLL_DOWN ? 1 : 0)), &start, &end, scroll);
+			if (curopt < maxopt) {
+				curopt++;
+				if (curopt > end - 1) {
+					start++;
+					end++;
+					changed = 1;
+				}
+			}
 			break;
 		case KEY_NPAGE:
-			changed = move_down(&curopt, maxopt, MIN(PAGE_OFFSET, max_y - TITLE_HEIGHT - 6 - (scroll & SCROLL_DOWN ? 1 : 0)), &start, &end, scroll);
+			/* XXX Move down the list by PAGE_OFFSET */
 			break;
-		case KEY_HOME:
-			changed = move_up(&curopt, maxopt, curopt, &start, &end, scroll);
-			break;
-		case KEY_END:
-			changed = move_down(&curopt, maxopt, maxopt - curopt, &start, &end, scroll);
+		case KEY_PPAGE:
+			/* XXX Move up the list by PAGE_OFFSET */
 			break;
 		case KEY_LEFT:
 		case 27:	/* Esc key */
@@ -403,15 +365,8 @@ static int run_category_menu(WINDOW *menu, int cat_num)
 			break;	
 		}
 		if (c == 'x' || c == 'X' || c == 'Q' || c == 'q')
-			break;
-
-		if (end <= maxopt) {
-			scroll |= SCROLL_DOWN;
-		} else {
-			scroll &= ~SCROLL_DOWN;
-		}
-
-		draw_category_menu(menu, cat, start, end, curopt, changed, scroll);
+			break;	
+		draw_category_menu(menu, cat, start, end, curopt, changed);
 	}
 
 	wrefresh(menu);
@@ -421,17 +376,13 @@ static int run_category_menu(WINDOW *menu, int cat_num)
 
 static void draw_title_window(WINDOW *title)
 {
-	char titlebar[strlen(menu_name) + 9];
-
-	memset(titlebar, '*', sizeof(titlebar) - 1);
-	titlebar[sizeof(titlebar) - 1] = '\0';
 	wclear(title);
-	wmove(title, 1, (max_x / 2) - (strlen(titlebar) / 2));
-	waddstr(title, titlebar);
+	wmove(title, 1, (max_x / 2) - (strlen(MENU_TITLEBAR) / 2));
+	waddstr(title, MENU_TITLEBAR);
 	wmove(title, 2, (max_x / 2) - (strlen(menu_name) / 2));
 	waddstr(title, menu_name);
-	wmove(title, 3, (max_x / 2) - (strlen(titlebar) / 2));
-	waddstr(title, titlebar);
+	wmove(title, 3, (max_x / 2) - (strlen(MENU_TITLEBAR) / 2));
+	waddstr(title, MENU_TITLEBAR);
 	wmove(title, 5, (max_x / 2) - (strlen(MENU_HELP) / 2));
 	waddstr(title, MENU_HELP);
 	wrefresh(title);
@@ -445,8 +396,6 @@ int run_menu(void)
 	int curopt = 0;
 	int c;
 	int res = 0;
-
-	setenv("ESCDELAY", "0", 1); /* So that ESC is processed immediately */
 
 	initscr();
 	getmaxyx(stdscr, max_y, max_x);
@@ -482,12 +431,6 @@ int run_menu(void)
 		case KEY_DOWN:
 			if (curopt < maxopt)
 				curopt++;
-			break;
-		case KEY_HOME:
-			curopt = 0;
-			break;
-		case KEY_END:
-			curopt = maxopt;
 			break;
 		case KEY_RIGHT:
 		case KEY_ENTER:

@@ -33,7 +33,7 @@
 
   This macro attempts to place an exclusive lock in the
   list head structure pointed to by head.
-  Returns 0 on success, non-zero on failure
+  Returns non-zero on success, 0 on failure
 */
 #define AST_LIST_LOCK(head)						\
 	ast_mutex_lock(&(head)->lock) 
@@ -44,7 +44,7 @@
 
   This macro attempts to place an exclusive write lock in the
   list head structure pointed to by head.
-  Returns 0 on success, non-zero on failure
+  Returns non-zero on success, 0 on failure
 */
 #define AST_RWLIST_WRLOCK(head)                                         \
         ast_rwlock_wrlock(&(head)->lock)
@@ -55,7 +55,7 @@
 
   This macro attempts to place a read lock in the
   list head structure pointed to by head.
-  Returns 0 on success, non-zero on failure
+  Returns non-zero on success, 0 on failure
 */
 #define AST_RWLIST_RDLOCK(head)                                         \
         ast_rwlock_rdlock(&(head)->lock)
@@ -66,7 +66,7 @@
 
   This macro attempts to place an exclusive lock in the
   list head structure pointed to by head.
-  Returns 0 on success, non-zero on failure
+  Returns non-zero on success, 0 on failure
 */
 #define AST_LIST_TRYLOCK(head)						\
 	ast_mutex_trylock(&(head)->lock) 
@@ -77,7 +77,7 @@
 
   This macro attempts to place an exclusive write lock in the
   list head structure pointed to by head.
-  Returns 0 on success, non-zero on failure
+  Returns non-zero on success, 0 on failure
 */
 #define AST_RWLIST_TRYWRLOCK(head)                                      \
         ast_rwlock_trywrlock(&(head)->lock)
@@ -88,7 +88,7 @@
 
   This macro attempts to place a read lock in the
   list head structure pointed to by head.
-  Returns 0 on success, non-zero on failure
+  Returns non-zero on success, 0 on failure
 */
 #define AST_RWLIST_TRYRDLOCK(head)                                      \
         ast_rwlock_tryrdlock(&(head)->lock)
@@ -513,7 +513,7 @@ struct {								\
   the list traversal (and without having to re-traverse the list to modify the
   previous entry, if any).
  */
-#define AST_LIST_REMOVE_CURRENT(head, field) do { \
+#define AST_LIST_REMOVE_CURRENT(head, field)						\
 	__new_prev->field.next = NULL;							\
 	__new_prev = __list_prev;							\
 	if (__list_prev)								\
@@ -521,8 +521,7 @@ struct {								\
 	else										\
 		(head)->first = __list_next;						\
 	if (!__list_next)								\
-		(head)->last = __list_prev; \
-	} while (0)
+		(head)->last = __list_prev;
 
 #define AST_RWLIST_REMOVE_CURRENT AST_LIST_REMOVE_CURRENT
 
@@ -686,9 +685,6 @@ struct {								\
   \param list This is a pointer to the list to be appended.
   \param field This is the name of the field (declared using AST_LIST_ENTRY())
   used to link entries of this list together.
-
-  Note: The source list (the \a list parameter) will be empty after
-  calling this macro (the list entries are \b moved to the target list).
  */
 #define AST_LIST_APPEND_LIST(head, list, field) do {			\
       if (!(head)->first) {						\
@@ -698,8 +694,6 @@ struct {								\
 		(head)->last->field.next = (list)->first;		\
 		(head)->last = (list)->last;				\
       }									\
-      (list)->first = NULL;						\
-      (list)->last = NULL;						\
 } while (0)
 
 #define AST_RWLIST_APPEND_LIST AST_LIST_APPEND_LIST
@@ -734,10 +728,8 @@ struct {								\
   used to link entries of this list together.
   \warning The removed entry is \b not freed nor modified in any way.
  */
-#define AST_LIST_REMOVE(head, elm, field) ({			        \
-	__typeof(elm) __res = NULL; \
+#define AST_LIST_REMOVE(head, elm, field) do {			        \
 	if ((head)->first == (elm)) {					\
-		__res = (head)->first;                      \
 		(head)->first = (elm)->field.next;			\
 		if ((head)->last == (elm))			\
 			(head)->last = NULL;			\
@@ -746,15 +738,13 @@ struct {								\
 		while (curelm && (curelm->field.next != (elm)))			\
 			curelm = curelm->field.next;			\
 		if (curelm) { \
-			__res = (elm); \
 			curelm->field.next = (elm)->field.next;			\
 			if ((head)->last == (elm))				\
 				(head)->last = curelm;				\
 		} \
 	}								\
-	(elm)->field.next = NULL;                                       \
-	(__res); \
-})
+        (elm)->field.next = NULL;                                       \
+} while (0)
 
 #define AST_RWLIST_REMOVE AST_LIST_REMOVE
 

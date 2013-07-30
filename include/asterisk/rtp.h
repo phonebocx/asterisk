@@ -77,18 +77,6 @@ struct ast_rtp_protocol {
 	AST_LIST_ENTRY(ast_rtp_protocol) list;
 };
 
-struct ast_rtp_quality {
-	unsigned int local_ssrc;          /* Our SSRC */
-	unsigned int local_lostpackets;   /* Our lost packets */
-	double       local_jitter;        /* Our calculated jitter */
-	unsigned int local_count;         /* Number of received packets */
-	unsigned int remote_ssrc;         /* Their SSRC */
-	unsigned int remote_lostpackets;  /* Their lost packets */
-	double       remote_jitter;       /* Their reported jitter */
-	unsigned int remote_count;        /* Number of transmitted packets */
-	double       rtt;                 /* Round trip time */
-};
-
 
 #define FLAG_3389_WARNING		(1 << 0)
 
@@ -162,8 +150,6 @@ int ast_rtp_sendcng(struct ast_rtp *rtp, int level);
 
 int ast_rtp_settos(struct ast_rtp *rtp, int tos);
 
-void ast_rtp_new_source(struct ast_rtp *rtp);
-
 /*! \brief  Setting RTP payload types from lines in a SDP description: */
 void ast_rtp_pt_clear(struct ast_rtp* rtp);
 /*! \brief Set payload types to defaults */
@@ -172,14 +158,8 @@ void ast_rtp_pt_default(struct ast_rtp* rtp);
 /*! \brief Copy payload types between RTP structures */
 void ast_rtp_pt_copy(struct ast_rtp *dest, struct ast_rtp *src);
 
-/*! \brief Activate payload type */
 void ast_rtp_set_m_type(struct ast_rtp* rtp, int pt);
-
-/*! \brief clear payload type */
-void ast_rtp_unset_m_type(struct ast_rtp* rtp, int pt);
-
-/*! \brief Initiate payload type to a known MIME media type for a codec */
-int ast_rtp_set_rtpmap_type(struct ast_rtp* rtp, int pt,
+void ast_rtp_set_rtpmap_type(struct ast_rtp* rtp, int pt,
 			     char *mimeType, char *mimeSubtype,
 			     enum ast_rtp_options options);
 
@@ -226,7 +206,7 @@ int ast_rtp_early_bridge(struct ast_channel *dest, struct ast_channel *src);
 void ast_rtp_stop(struct ast_rtp *rtp);
 
 /*! \brief Return RTCP quality string */
-char *ast_rtp_get_quality(struct ast_rtp *rtp, struct ast_rtp_quality *qual);
+char *ast_rtp_get_quality(struct ast_rtp *rtp);
 
 /*! \brief Send an H.261 fast update request. Some devices need this rather than the XML message  in SIP */
 int ast_rtcp_send_h261fur(void *data);

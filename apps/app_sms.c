@@ -24,7 +24,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 107461 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48583 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -467,7 +467,7 @@ static time_t unpackdate (unsigned char *i)
 		t.tm_min += 15 * ((i[6] & 0x7) * 10 + (i[6] >> 4));
 	else
 		t.tm_min -= 15 * ((i[6] & 0x7) * 10 + (i[6] >> 4));
-	return ast_mktime(&t, NULL);
+	return mktime (&t);
 }
 
 /*! \brief unpacks bytes (7 bit encoding) at i, len l septets, 
@@ -755,7 +755,7 @@ static void sms_readfile (sms_t * h, char *fn)
 							t.tm_min = M;
 							t.tm_sec = S;
 							t.tm_isdst = -1;
-							h->scts = ast_mktime(&t, NULL);
+							h->scts = mktime (&t);
 							if (h->scts == (time_t) - 1)
 								ast_log (LOG_WARNING, "Bad date/timein %s: %s", fn, p);
 						}

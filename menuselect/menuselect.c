@@ -124,18 +124,19 @@ static void print_debug(const char *format, ...)
 }
 
 /*! \brief Add a category to the category list, ensuring that there are no duplicates */
-static struct category *add_category(struct category *cat)
+static int add_category(struct category *cat)
 {
 	struct category *tmp;
 
 	AST_LIST_TRAVERSE(&categories, tmp, list) {
 		if (!strcmp(tmp->name, cat->name)) {
-			return tmp;
+			fprintf(stderr, "Category '%s' specified more than once!\n", cat->name);
+			return -1;
 		}
 	}
 	AST_LIST_INSERT_TAIL(&categories, cat, list);
 
-	return cat;
+	return 0;
 }
 
 /*! \brief Add a member to the member list of a category, ensuring that there are no duplicates */
@@ -174,6 +175,7 @@ static void free_member(struct member *mem)
 static int parse_tree(const char *tree_file)
 {
 	FILE *f;
+	struct category *cat;
 	struct tree *tree;
 	struct member *mem;
 	struct depend *dep;
@@ -210,30 +212,21 @@ static int parse_tree(const char *tree_file)
 	     cur;
 	     cur = mxmlFindElement(cur, menu, "category", NULL, NULL, MXML_DESCEND))
 	{
-		struct category *cat;
-		struct category *newcat;
-
 		if (!(cat = calloc(1, sizeof(*cat))))
 			return -1;
 
 		cat->name = mxmlElementGetAttr(cur, "name");
-
-		newcat = add_category(cat);
-
-		if (newcat != cat) {
-			/* want to append members, and potentially update the category. */
-			free(cat);
-			cat = newcat;
-		}
-
-		if ((tmp = mxmlElementGetAttr(cur, "displayname")))
-			cat->displayname = tmp;
+		cat->displayname = mxmlElementGetAttr(cur, "displayname");
 		if ((tmp = mxmlElementGetAttr(cur, "positive_output")))
 			cat->positive_output = !strcasecmp(tmp, "yes");
 		if ((tmp = mxmlElementGetAttr(cur, "exclusive")))
 			cat->exclusive = !strcasecmp(tmp, "yes");
-		if ((tmp = mxmlElementGetAttr(cur, "remove_on_change")))
-			cat->remove_on_change = tmp;
+		cat->remove_on_change = mxmlElementGetAttr(cur, "remove_on_change");
+
+		if (add_category(cat)) {
+			free(cat);
+			continue;
+		}
 
 		for (cur2 = mxmlFindElement(cur, cur, "member", NULL, NULL, MXML_DESCEND);
 		     cur2;
@@ -309,10 +302,7 @@ static int parse_tree(const char *tree_file)
 	return 0;
 }
 
-/*!
- * \arg interactive Set to non-zero if being called while user is making changes
- */
-static unsigned int calc_dep_failures(int interactive)
+static unsigned int calc_dep_failures(void)
 {
 	unsigned int result = 0;
 	struct category *cat;
@@ -373,7 +363,7 @@ static unsigned int calc_dep_failures(int interactive)
 					if ((mem->depsfailed == NO_FAILURE) && mem->was_defaulted) {
 						mem->enabled = !strcasecmp(mem->defaultenabled, "yes");
 					} else {
-						mem->enabled = interactive ? 0 : mem->was_enabled;
+						mem->enabled = 0;
 					}
 					changed = 1;
 					break; /* This dependency is not met, so we can stop now */
@@ -391,7 +381,7 @@ static unsigned int calc_dep_failures(int interactive)
 	return result;
 }
 
-static unsigned int calc_conflict_failures(int interactive)
+static unsigned int calc_conflict_failures(void)
 {
 	unsigned int result = 0;
 	struct category *cat;
@@ -507,7 +497,6 @@ static int match_member_relations(void)
 	struct member *mem, *mem2;
 	struct depend *dep;
 	struct conflict *cnf;
-	struct use *use;
 
 	AST_LIST_TRAVERSE(&categories, cat, list) {
 		AST_LIST_TRAVERSE(&cat->members, mem, list) {
@@ -531,34 +520,6 @@ static int match_member_relations(void)
 						break;
 					}
 					if (dep->member)
-						break;
-				}
-			}
-		}
-	}
-
-	AST_LIST_TRAVERSE(&categories, cat, list) {
-		AST_LIST_TRAVERSE(&cat->members, mem, list) {
-			AST_LIST_TRAVERSE(&mem->uses, use, list) {
-				AST_LIST_TRAVERSE(&cat->members, mem2, list) {
-					if (strcasecmp(mem2->name, use->name))
-						continue;
-
-					use->member = mem2;
-					break;
-				}
-				if (use->member)
-					break;
-
-				AST_LIST_TRAVERSE(&categories, cat2, list) {
-					AST_LIST_TRAVERSE(&cat2->members, mem2, list) {
-						if (strcasecmp(mem2->name, use->name))
-							continue;
-						
-						use->member = mem2;
-						break;
-					}
-					if (use->member)
 						break;
 				}
 			}
@@ -639,19 +600,13 @@ static void mark_as_present(const char *member, const char *category)
 {
 	struct category *cat;
 	struct member *mem;
-	char negate = 0;
-
-	if (*member == '-') {
-		member++;
-		negate = 1;
-	}
 
 	AST_LIST_TRAVERSE(&categories, cat, list) {
 		if (strcmp(category, cat->name))
 			continue;
 		AST_LIST_TRAVERSE(&cat->members, mem, list) {
 			if (!strcmp(member, mem->name)) {
-				mem->was_enabled = mem->enabled = (negate ? !cat->positive_output : cat->positive_output);
+				mem->was_enabled = mem->enabled = cat->positive_output;
 				break;
 			}
 		}
@@ -690,7 +645,7 @@ unsigned int enable_member(struct member *mem)
 	}
 
 	if ((mem->enabled = can_enable))
-		while (calc_dep_failures(1) || calc_conflict_failures(1));
+		while (calc_dep_failures() || calc_conflict_failures());
 
 	return can_enable;
 }
@@ -705,11 +660,10 @@ void toggle_enabled(struct member *mem)
 	else
 		mem->enabled = 0;
 
-					fprintf(stderr, "3- changed %s to %d\n", mem->name, mem->enabled);
 	mem->was_defaulted = 0;
 	changes_made++;
 
-	while (calc_dep_failures(1) || calc_conflict_failures(1));
+	while (calc_dep_failures() || calc_conflict_failures());
 }
 
 /*! \brief Toggle a member of a category at the specified index to enabled/disabled */
@@ -752,7 +706,7 @@ void set_enabled(struct category *cat, int index)
 	mem->was_defaulted = 0;
 	changes_made++;
 
-	while (calc_dep_failures(1) || calc_conflict_failures(1));
+	while (calc_dep_failures() || calc_conflict_failures());
 }
 
 void clear_enabled(struct category *cat, int index)
@@ -775,7 +729,7 @@ void clear_enabled(struct category *cat, int index)
 	mem->was_defaulted = 0;
 	changes_made++;
 
-	while (calc_dep_failures(1) || calc_conflict_failures(1));
+	while (calc_dep_failures() || calc_conflict_failures());
 }
 
 /*! \brief Process a previously failed dependency
@@ -844,9 +798,6 @@ static int parse_existing_config(const char *infile)
 			continue;
 
 		if (!strncasecmp(buf, "MENUSELECT_DEPENDS_", strlen("MENUSELECT_DEPENDS_")))
-			continue;
-
-		if (!strncasecmp(buf, "MENUSELECT_BUILD_DEPS", strlen("MENUSELECT_BUILD_DEPS")))
 			continue;
 
 		parse = buf;
@@ -931,8 +882,6 @@ static int generate_makeopts_file(void)
 	FILE *f;
 	struct category *cat;
 	struct member *mem;
-	struct depend *dep;
-	struct use *use;
 
 	if (!(f = fopen(output_makeopts, "w"))) {
 		fprintf(stderr, "Unable to open build configuration file (%s) for writing!\n", output_makeopts);
@@ -949,43 +898,6 @@ static int generate_makeopts_file(void)
 		}
 		fprintf(f, "\n");
 	}
-
-	/* Traverse all categories and members, and for every member that is not disabled,
-	   if it has internal dependencies (other members), list those members one time only
-	   in a special variable */
-	fprintf(f, "MENUSELECT_BUILD_DEPS=");
-	AST_LIST_TRAVERSE(&categories, cat, list) {
-		AST_LIST_TRAVERSE(&cat->members, mem, list) {
-			if ((!cat->positive_output && (!mem->enabled || mem->depsfailed || mem->conflictsfailed)) ||
-			    (cat->positive_output && mem->enabled && !mem->depsfailed && !mem->conflictsfailed))
-				continue;
-
-			AST_LIST_TRAVERSE(&mem->deps, dep, list) {
-				/* we only care about dependencies between members (internal, not external) */
-				if (!dep->member)
-					continue;
-				/* if this has already been output, continue */
-				if (dep->member->build_deps_output)
-					continue;
-				fprintf(f, "%s ", dep->member->name);
-				dep->member->build_deps_output = 1;
-			}
-			AST_LIST_TRAVERSE(&mem->uses, use, list) {
-				/* we only care about dependencies between members (internal, not external) */
-				if (!use->member)
-					continue;
-				/* if the dependency module is not going to be built, don't list it */
-				if (!use->member->enabled)
-					continue;
-				/* if this has already been output, continue */
-				if (use->member->build_deps_output)
-					continue;
-				fprintf(f, "%s ", use->member->name);
-				use->member->build_deps_output = 1;
-			}
-		}
-	}
-	fprintf(f, "\n");
 
 	/* Output which members were disabled because of failed dependencies or conflicts */
 	AST_LIST_TRAVERSE(&categories, cat, list) {
@@ -1225,7 +1137,7 @@ int main(int argc, char *argv[])
 	if ((res = process_deps()))
 		exit(res);
 
-	while (calc_dep_failures(0) || calc_conflict_failures(0));
+	while (calc_dep_failures() || calc_conflict_failures());
 	
 	/* The --check-deps option is used to ask this application to check to
 	 * see if that an existing menuselect.makeopts file contains all of the
@@ -1248,20 +1160,23 @@ int main(int argc, char *argv[])
 	dump_member_list();
 #endif
 
-	while (calc_dep_failures(0) || calc_conflict_failures(0));
-
 	if (!existing_config)
 		process_defaults();
 	else if (check_deps)
 		res = sanity_check();
 
-	while (calc_dep_failures(0) || calc_conflict_failures(0));
+	while (calc_dep_failures() || calc_conflict_failures());
 	
 	/* Run the menu to let the user enable/disable options */
 	if (!check_deps && !res)
 		res = run_menu();
 
-	if (!res)
+	/* Write out the menuselect.makeopts file if
+	 * 1) menuselect was not executed with --check-deps
+	 * 2) menuselect was executed with --check-deps but menuselect.makeopts
+	 *    did not already exist.
+	 */
+	if ((!check_deps || !existing_config) && !res)
 		res = generate_makeopts_file();
 
 	/* Always generate the dependencies file */

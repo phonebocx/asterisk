@@ -29,7 +29,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 111658 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <unistd.h>
 #include <netinet/in.h>
@@ -227,8 +227,8 @@ static int update_header(FILE *f)
 	/* in a gsm WAV, data starts 60 bytes in */
 	bytes = end - MSGSM_DATA_OFFSET;
 	samples = htoll(bytes / MSGSM_FRAME_SIZE * MSGSM_SAMPLES);
-	datalen = htoll(bytes);
-	filelen = htoll(MSGSM_DATA_OFFSET - 8 + bytes);
+	datalen = htoll((bytes + 1) & ~0x1);
+	filelen = htoll(MSGSM_DATA_OFFSET - 8 + ((bytes + 1) & ~0x1));
 	if (cur < 0) {
 		ast_log(LOG_WARNING, "Unable to find our position\n");
 		return -1;
@@ -383,7 +383,7 @@ static int wav_open(struct ast_filestream *s)
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
 	   and be sure it's a valid file.  */
-	struct wavg_desc *fs = (struct wavg_desc *)s->_private;
+	struct wavg_desc *fs = (struct wavg_desc *)s->private;
 
 	if (check_header(s->f))
 		return -1;
@@ -402,10 +402,19 @@ static int wav_rewrite(struct ast_filestream *s, const char *comment)
 	return 0;
 }
 
+static void wav_close(struct ast_filestream *s)
+{
+	char zero = 0;
+	/* Pad to even length */
+	fseek(s->f, 0, SEEK_END);
+	if (ftello(s->f) & 0x1)
+		fwrite(&zero, 1, 1, s->f);
+}
+
 static struct ast_frame *wav_read(struct ast_filestream *s, int *whennext)
 {
 	/* Send a frame from the file to the appropriate channel */
-	struct wavg_desc *fs = (struct wavg_desc *)s->_private;
+	struct wavg_desc *fs = (struct wavg_desc *)s->private;
 
 	s->fr.frametype = AST_FRAME_VOICE;
 	s->fr.subclass = AST_FORMAT_GSM;
@@ -439,7 +448,7 @@ static int wav_write(struct ast_filestream *s, struct ast_frame *f)
 {
 	int len;
 	int size;
-	struct wavg_desc *fs = (struct wavg_desc *)s->_private;
+	struct wavg_desc *fs = (struct wavg_desc *)s->private;
 
 	if (f->frametype != AST_FRAME_VOICE) {
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
@@ -485,7 +494,7 @@ static int wav_write(struct ast_filestream *s, struct ast_frame *f)
 static int wav_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 {
 	off_t offset=0, distance, max;
-	struct wavg_desc *s = (struct wavg_desc *)fs->_private;
+	struct wavg_desc *s = (struct wavg_desc *)fs->private;
 
 	off_t min = MSGSM_DATA_OFFSET;
 	off_t cur = ftello(fs->f);
@@ -543,6 +552,7 @@ static const struct ast_format wav49_f = {
 	.trunc = wav_trunc,
 	.tell = wav_tell,
 	.read = wav_read,
+	.close = wav_close,
 	.buf_size = 2*GSM_FRAME_SIZE + AST_FRIENDLY_OFFSET,
 	.desc_size = sizeof(struct wavg_desc),
 };

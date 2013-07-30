@@ -26,7 +26,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 113296 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57798 $")
 
 #include <string.h>
 
@@ -64,7 +64,6 @@ int ast_slinfactory_feed(struct ast_slinfactory *sf, struct ast_frame *f)
 			ast_translator_free_path(sf->trans);
 			sf->trans = NULL;
 		}
-
 		if (!sf->trans) {
 			if ((sf->trans = ast_translator_build_path(AST_FORMAT_SLINEAR, f->subclass)) == NULL) {
 				ast_log(LOG_WARNING, "Cannot build a path from %s to slin\n", ast_getformatname(f->subclass));
@@ -73,20 +72,10 @@ int ast_slinfactory_feed(struct ast_slinfactory *sf, struct ast_frame *f)
 				sf->format = f->subclass;
 			}
 		}
-
-		if (!(begin_frame = ast_translate(sf->trans, f, 0))) 
-			return 0;
-		
-		duped_frame = ast_frdup(begin_frame);
-
-		ast_frfree(begin_frame);
-
-		if (!duped_frame)
-			return 0;
-	} else {
-		if (!(duped_frame = ast_frdup(f)))
-			return 0;
 	}
+
+	if ((sf->trans && (!(begin_frame = ast_translate(sf->trans, f, 0)))) || (!(duped_frame = ast_frdup(begin_frame))))
+		return 0;
 
 	x = 0;
 	AST_LIST_TRAVERSE(&sf->queue, frame_ptr, frame_list)
@@ -109,7 +98,7 @@ int ast_slinfactory_read(struct ast_slinfactory *sf, short *buf, size_t samples)
 		ineed = samples - sofar;
 
 		if (sf->holdlen) {
-			if (sf->holdlen <= ineed) {
+			if ((sofar + sf->holdlen) <= ineed) {
 				memcpy(offset, sf->hold, sf->holdlen * sizeof(*offset));
 				sofar += sf->holdlen;
 				offset += sf->holdlen;
@@ -128,7 +117,7 @@ int ast_slinfactory_read(struct ast_slinfactory *sf, short *buf, size_t samples)
 		if ((frame_ptr = AST_LIST_REMOVE_HEAD(&sf->queue, frame_list))) {
 			frame_data = frame_ptr->data;
 			
-			if (frame_ptr->samples <= ineed) {
+			if ((sofar + frame_ptr->samples) <= ineed) {
 				memcpy(offset, frame_data, frame_ptr->samples * sizeof(*offset));
 				sofar += frame_ptr->samples;
 				offset += frame_ptr->samples;
@@ -137,9 +126,6 @@ int ast_slinfactory_read(struct ast_slinfactory *sf, short *buf, size_t samples)
 				memcpy(offset, frame_data, ineed * sizeof(*offset));
 				sofar += ineed;
 				frame_data += ineed;
-				if (remain > (AST_SLINFACTORY_MAX_HOLD - sf->holdlen)) {
-					remain = AST_SLINFACTORY_MAX_HOLD - sf->holdlen;
-				}
 				memcpy(sf->hold, frame_data, remain * sizeof(*offset));
 				sf->holdlen = remain;
 			}
@@ -156,22 +142,4 @@ int ast_slinfactory_read(struct ast_slinfactory *sf, short *buf, size_t samples)
 unsigned int ast_slinfactory_available(const struct ast_slinfactory *sf)
 {
 	return sf->size;
-}
-
-void ast_slinfactory_flush(struct ast_slinfactory *sf)
-{
-	struct ast_frame *fr = NULL;
-
-	if (sf->trans) {
-		ast_translator_free_path(sf->trans);
-		sf->trans = NULL;
-	}
-
-	while ((fr = AST_LIST_REMOVE_HEAD(&sf->queue, frame_list)))
-		ast_frfree(fr);
-
-	sf->size = sf->holdlen = 0;
-	sf->offset = sf->hold;
-
-	return;
 }

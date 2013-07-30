@@ -27,12 +27,11 @@
 
 /*** MODULEINFO
 	<depend>zaptel</depend>
-	<depend>app_meetme</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 66879 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58992 $")
 
 #include <stdio.h>
 #include <stdlib.h>

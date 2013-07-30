@@ -28,13 +28,9 @@
  * \ingroup applications
  */
 
-/*** MODULEINFO
-        <depend>chan_local</depend>
- ***/
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 108469 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59035 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -82,7 +78,6 @@ static char *descrip =
 struct number {
 	char number[512];	/*!< Phone Number(s) and/or Extension(s) */
 	long timeout;		/*!< Dial Timeout, if used. */
-	char language[MAX_LANGUAGE]; /*!< The language to be used on this dial, if used. */
 	int order;		/*!< The order to dial in */
 	AST_LIST_ENTRY(number) entry; /*!< Next Number record */
 };
@@ -260,7 +255,7 @@ static void profile_set_param(struct call_followme *f, const char *param, const 
 }
 
 /*! \brief Add a new number */
-static struct number *create_followme_number(char *number, char *language, int timeout, int numorder)
+static struct number *create_followme_number(char *number, int timeout, int numorder)
 {
 	struct number *cur;
 	char *tmp;
@@ -273,7 +268,6 @@ static struct number *create_followme_number(char *number, char *language, int t
 	if ((tmp = strchr(number, ','))) 
 		*tmp = '\0';
 	ast_copy_string(cur->number, number, sizeof(cur->number));
-	ast_copy_string(cur->language, language, sizeof(cur->language));
 	cur->order = numorder;
 	if (option_debug)
 		ast_log(LOG_DEBUG, "Created a number, %s, order of , %d, with a timeout of %ld.\n", cur->number, cur->order, cur->timeout);
@@ -408,7 +402,7 @@ static int reload_followme(void)
 							idx++;
 						numorder = idx;
 					}
-					cur = create_followme_number(numberstr, "", timeout, numorder);
+					cur = create_followme_number(numberstr, timeout, numorder);
 					AST_LIST_INSERT_TAIL(&f->numbers, cur, entry);
 				} else {
 					profile_set_param(f, var->name, var->value, var->lineno, 1);
@@ -673,10 +667,6 @@ static struct ast_channel *wait_for_winner(struct findme_user_listptr *findme_us
 							if (option_verbose > 2)
 								ast_verbose ( VERBOSE_PREFIX_3 "%s requested a video update, passing it to %s\n", winner->name, caller->name);
 							break;
-						case AST_CONTROL_SRCUPDATE:
-							if (option_verbose > 2)
-								ast_verbose ( VERBOSE_PREFIX_3 "%s requested a source update, passing it to %s\n", winner->name, caller->name);
-							break;
 						case AST_CONTROL_PROCEEDING:
 							if (option_verbose > 2)
 								ast_verbose ( VERBOSE_PREFIX_3 "%s is proceeding passing it to %s\n", winner->name,caller->name);
@@ -818,9 +808,9 @@ static void findmeexec(struct fm_args *tpargs)
 			}
 
 			if (!strcmp(tpargs->context, ""))
-				snprintf(dialarg, sizeof(dialarg), "%s", number);
+				sprintf(dialarg, "%s", number);
 			else
-				snprintf(dialarg, sizeof(dialarg), "%s@%s", number, tpargs->context);
+				sprintf(dialarg, "%s@%s", number, tpargs->context);
 					
 			tmpuser = ast_calloc(1, sizeof(*tmpuser));
 			if (!tmpuser) {
@@ -926,7 +916,6 @@ static int app_exec(struct ast_channel *chan, void *data)
 	struct ast_module_user *u;
 	char *argstr;
 	char namerecloc[255];
-	char *fname = NULL;
 	int duration = 0;
 	struct ast_channel *caller;
 	struct ast_channel *outbound;
@@ -987,23 +976,27 @@ static int app_exec(struct ast_channel *chan, void *data)
 				   (and locked) while we're trying to do a follow-me */
 		AST_LIST_HEAD_INIT_NOLOCK(&targs.cnumbers);
 		AST_LIST_TRAVERSE(&f->numbers, nm, entry) {
-			newnm = create_followme_number(nm->number, "", nm->timeout, nm->order);
+			newnm = create_followme_number(nm->number, nm->timeout, nm->order);
 			AST_LIST_INSERT_TAIL(&targs.cnumbers, newnm, entry);
 		}
 		ast_mutex_unlock(&f->lock);
 
-		if (ast_test_flag(&targs.followmeflags, FOLLOWMEFLAG_STATUSMSG)) 
+		if (targs.followmeflags.flags & FOLLOWMEFLAG_STATUSMSG) 
 			ast_stream_and_wait(chan, targs.statusprompt, chan->language, "");
 
 		snprintf(namerecloc,sizeof(namerecloc),"%s/followme.%s",ast_config_AST_SPOOL_DIR,chan->uniqueid);
 		duration = 5;
 
-		if (ast_test_flag(&targs.followmeflags, FOLLOWMEFLAG_RECORDNAME)) 
+		if (targs.followmeflags.flags & FOLLOWMEFLAG_RECORDNAME) 
 			if (ast_play_and_record(chan, "vm-rec-name", namerecloc, 5, "sln", &duration, 128, 0, NULL) < 0)
 				goto outrun;
 
-		if (!ast_fileexists(namerecloc, NULL, chan->language))
+		/* The following call looks like we're going to playback the file, but we're actually	*/
+		/* just checking to see if we *can* play it. 						*/
+		if (ast_streamfile(chan, namerecloc, chan->language))
 			ast_copy_string(namerecloc, "", sizeof(namerecloc));					
+		else
+			ast_stopstream(chan);
 
 		if (ast_streamfile(chan, targs.plsholdprompt, chan->language))
 			goto outrun;
@@ -1022,9 +1015,13 @@ static int app_exec(struct ast_channel *chan, void *data)
 			free(nm);
 		}
 		AST_LIST_TRAVERSE_SAFE_END
+	
+		if (!ast_strlen_zero(namerecloc))
+			unlink(namerecloc);	
+
 		if (targs.status != 100) {
 			ast_moh_stop(chan);
-			if (ast_test_flag(&targs.followmeflags, FOLLOWMEFLAG_UNREACHABLEMSG)) 
+			if (targs.followmeflags.flags & FOLLOWMEFLAG_UNREACHABLEMSG) 
 				ast_stream_and_wait(chan, targs.sorryprompt, chan->language, "");
 			res = 0;
 		} else {
@@ -1056,15 +1053,10 @@ static int app_exec(struct ast_channel *chan, void *data)
 			pbx_builtin_setvar_helper(caller, "ANSWEREDTIME", toast);
 			if (outbound)
 				ast_hangup(outbound);
+			res = 1;
 		}
 	}
 	outrun:
-
-	if (!ast_strlen_zero(namerecloc)){
-		fname = alloca(strlen(namerecloc) + 5);
-		sprintf(fname, "%s.sln", namerecloc);
-		unlink(fname);
-	}
 	
 	ast_module_user_remove(u);
 

@@ -652,9 +652,7 @@ int ast_ignore_pattern(const char *context, const char *pattern);
  * \retval 0 on success 
  * \retval -1 on error
  */
-int ast_lock_contexts(void); /* equivalent to wrlock */
-int ast_rdlock_contexts(void);
-int ast_wrlock_contexts(void);
+int ast_lock_contexts(void);
 
 /*! 
  * \brief Unlocks contexts
@@ -766,37 +764,13 @@ struct ast_ignorepat *ast_walk_context_ignorepats(struct ast_context *con,
 	struct ast_ignorepat *ip);
 struct ast_sw *ast_walk_context_switches(struct ast_context *con, struct ast_sw *sw);
 
-/*!
- * \note Will lock the channel.
- */
 int pbx_builtin_serialize_variables(struct ast_channel *chan, char *buf, size_t size);
-
-/*!
- * \note Will lock the channel.
- */
 const char *pbx_builtin_getvar_helper(struct ast_channel *chan, const char *name);
-
-/*!
- * \note Will lock the channel.
- */
 void pbx_builtin_pushvar_helper(struct ast_channel *chan, const char *name, const char *value);
-
-/*!
- * \note Will lock the channel.
- */
 void pbx_builtin_setvar_helper(struct ast_channel *chan, const char *name, const char *value);
-
-/*!
- * \note Will lock the channel.
- */
 void pbx_retrieve_variable(struct ast_channel *c, const char *var, char **ret, char *workspace, int workspacelen, struct varshead *headp);
 void pbx_builtin_clear_globals(void);
-
-/*!
- * \note Will lock the channel.
- */
 int pbx_builtin_setvar(struct ast_channel *chan, void *data);
-
 void pbx_substitute_variables_helper(struct ast_channel *c,const char *cp1,char *cp2,int count);
 void pbx_substitute_variables_varshead(struct varshead *headp, const char *cp1, char *cp2, int count);
 
@@ -806,29 +780,10 @@ int ast_extension_patmatch(const char *pattern, const char *data);
   set to 1, sets to auto fall through.  If newval set to 0, sets to no auto
   fall through (reads extension instead).  Returns previous value. */
 int pbx_set_autofallthrough(int newval);
-
-/*!
- * \note This function will handle locking the channel as needed.
- */
 int ast_goto_if_exists(struct ast_channel *chan, const char *context, const char *exten, int priority);
-
-/*!
- * \note I can find neither parsable nor parseable at dictionary.com, 
- *       but google gives me 169000 hits for parseable and only 49,800 
- *       for parsable 
- *
- * \note This function will handle locking the channel as needed.
- */
+/* I can find neither parsable nor parseable at dictionary.com, but google gives me 169000 hits for parseable and only 49,800 for parsable */
 int ast_parseable_goto(struct ast_channel *chan, const char *goto_string);
-
-/*!
- * \note This function will handle locking the channel as needed.
- */
 int ast_explicit_goto(struct ast_channel *chan, const char *context, const char *exten, int priority);
-
-/*!
- * \note This function will handle locking the channel as needed.
- */
 int ast_async_goto_if_exists(struct ast_channel *chan, const char *context, const char *exten, int priority);
 
 struct ast_custom_function* ast_custom_function_find(const char *name);

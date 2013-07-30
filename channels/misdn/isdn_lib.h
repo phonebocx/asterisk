@@ -199,13 +199,8 @@ enum layer_e {
 
 
 struct misdn_bchannel {
-	struct send_lock *send_lock;
-
-	int dummy;
 
 	int nt;
-	int pri;
-
 	int port;
 	/** init stuff **/
 	int b_stid;
@@ -219,7 +214,6 @@ struct misdn_bchannel {
 	int need_release;
 	int need_release_complete;
 
-	int dec;
 	/** var stuff**/
 	int l3_id;
 	int pid;
@@ -230,7 +224,6 @@ struct misdn_bchannel {
 	int channel_preselected;
 	
 	int in_use;
-	struct timeval last_used;
 	int cw;
 	int addr;
 
@@ -352,14 +345,20 @@ struct misdn_bchannel {
   
 	/** list stuf **/
 
-#ifdef MISDN_1_2
-	char pipeline[128];
-#else
 	int ec_enable;
 	int ec_deftaps;
+	int ec_whenbridged;
+	int ec_training;
+
+#ifdef WITH_BEROEC
+	beroec_t *ec;
+	int bnec_tail;
+	int bnec_ah;
+	int bnec_nlp;
+	int bnec_td;
+	int bnec_adapt;
+	int bnec_zero;
 #endif
-	
-	int channel_found;
 	
 	int orig;
 
@@ -382,8 +381,6 @@ struct misdn_lib_iface {
 
 /***** USER IFACE **********/
 
-void misdn_lib_nt_keepcalls(int kc);
-
 void misdn_lib_nt_debug_init( int flags, char *file );
 
 int misdn_lib_init(char *portlist, struct misdn_lib_iface* iface, void *user_data);
@@ -398,7 +395,7 @@ char *manager_isdn_get_info(enum event_e event);
 
 void misdn_lib_transfer(struct misdn_bchannel* holded_bc);
 
-struct misdn_bchannel* misdn_lib_get_free_bc(int port, int channel, int inout, int dec);
+struct misdn_bchannel* misdn_lib_get_free_bc(int port, int channel, int inout);
 
 void manager_bchannel_activate(struct misdn_bchannel *bc);
 void manager_bchannel_deactivate(struct misdn_bchannel * bc);
@@ -414,7 +411,7 @@ void isdn_lib_stop_dtmf (struct misdn_bchannel *bc);
 
 int misdn_lib_port_restart(int port);
 int misdn_lib_pid_restart(int pid);
-int misdn_lib_send_restart(int port, int channel);
+int misdn_lib_send_restart(int port);
 
 int misdn_lib_get_port_info(int port);
 
@@ -472,6 +469,5 @@ void misdn_lib_reinit_nt_stack(int port);
 char *bc_state2str(enum bchannel_state state);
 void bc_state_change(struct misdn_bchannel *bc, enum bchannel_state state);
 
-void misdn_dump_chanlist(void);
 
 #endif

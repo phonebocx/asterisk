@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114211 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51311 $")
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -43,8 +43,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 114211 $")
 #include "asterisk/utils.h"
 #include "asterisk/threadstorage.h"
 #include "asterisk/linkedlists.h"
-#include "asterisk/translate.h"
-#include "asterisk/dsp.h"
 
 #ifdef TRACE_FRAMES
 static int headers;
@@ -196,8 +194,23 @@ int __ast_smoother_feed(struct ast_smoother *s, struct ast_frame *f, int swap)
 				ast_swapcopy_samples(f->data, f->data, f->samples);
 			s->opt = f;
 			return 0;
+		} else {
+			s->optimizablestream++;
+			if (s->optimizablestream > 10) {
+				/* For the past 10 rounds, we have input and output
+				   frames of the correct size for this smoother, yet
+				   we were unable to optimize because there was still
+				   some cruft left over.  Lets just drop the cruft so
+				   we can move to a fully optimized path */
+				if (swap)
+					ast_swapcopy_samples(f->data, f->data, f->samples);
+				s->len = 0;
+				s->opt = f;
+				return 0;
+			}
 		}
-	}
+	} else 
+		s->optimizablestream = 0;
 	if (s->flags & AST_SMOOTHER_FLAG_G729) {
 		if (s->len % 10) {
 			ast_log(LOG_NOTICE, "Dropping extra frame of G.729 since we already have a VAD frame at the end\n");
@@ -320,11 +333,6 @@ static void frame_cache_cleanup(void *data)
 
 void ast_frame_free(struct ast_frame *fr, int cache)
 {
-	if (ast_test_flag(fr, AST_FRFLAG_FROM_TRANSLATOR))
-		ast_translate_frame_freed(fr);
-	else if (ast_test_flag(fr, AST_FRFLAG_FROM_DSP))
-		ast_dsp_frame_freed(fr);
-
 	if (!fr->mallocd)
 		return;
 
@@ -371,10 +379,7 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr)
 {
 	struct ast_frame *out;
 	void *newdata;
-
-	ast_clear_flag(fr, AST_FRFLAG_FROM_TRANSLATOR);
-	ast_clear_flag(fr, AST_FRFLAG_FROM_DSP);
-
+	
 	if (!(fr->mallocd & AST_MALLOCD_HDR)) {
 		/* Allocate a new header if needed */
 		if (!(out = ast_frame_header_new()))
@@ -386,8 +391,8 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr)
 		out->offset = fr->offset;
 		out->data = fr->data;
 		/* Copy the timing data */
-		ast_copy_flags(out, fr, AST_FRFLAG_HAS_TIMING_INFO);
-		if (ast_test_flag(fr, AST_FRFLAG_HAS_TIMING_INFO)) {
+		out->has_timing_info = fr->has_timing_info;
+		if (fr->has_timing_info) {
 			out->ts = fr->ts;
 			out->len = fr->len;
 			out->seqno = fr->seqno;
@@ -490,7 +495,7 @@ struct ast_frame *ast_frdup(const struct ast_frame *f)
 		/* Must have space since we allocated for it */
 		strcpy((char *)out->src, f->src);
 	}
-	ast_copy_flags(out, f, AST_FRFLAG_HAS_TIMING_INFO);
+	out->has_timing_info = f->has_timing_info;
 	out->ts = f->ts;
 	out->len = f->len;
 	out->seqno = f->seqno;
@@ -1080,16 +1085,16 @@ int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size)
 			slen = strlen(formatname);
 			if(slen > total_len)
 				break;
-			strncat(buf, formatname, total_len - 1); /* safe */
+			strncat(buf,formatname,total_len);
 			total_len -= slen;
 		}
 		if(total_len && x < 31 && ast_codec_pref_index(pref , x + 1)) {
-			strncat(buf, "|", total_len - 1); /* safe */
+			strncat(buf,"|",total_len);
 			total_len--;
 		}
 	}
 	if(total_len) {
-		strncat(buf, ")", total_len - 1); /* safe */
+		strncat(buf,")",total_len);
 		total_len--;
 	}
 
@@ -1138,7 +1143,7 @@ void ast_codec_pref_remove(struct ast_codec_pref *pref, int format)
 /*! \brief Append codec to list */
 int ast_codec_pref_append(struct ast_codec_pref *pref, int format)
 {
-	int x, newindex = 0;
+	int x, newindex = -1;
 
 	ast_codec_pref_remove(pref, format);
 
@@ -1161,42 +1166,6 @@ int ast_codec_pref_append(struct ast_codec_pref *pref, int format)
 	return x;
 }
 
-/*! \brief Prepend codec to list */
-void ast_codec_pref_prepend(struct ast_codec_pref *pref, int format, int only_if_existing)
-{
-	int x, newindex = 0;
-
-	/* First step is to get the codecs "index number" */
-	for (x = 0; x < ARRAY_LEN(AST_FORMAT_LIST); x++) {
-		if (AST_FORMAT_LIST[x].bits == format) {
-			newindex = x + 1;
-			break;
-		}
-	}
-	/* Done if its unknown */
-	if (!newindex)
-		return;
-
-	/* Now find any existing occurrence, or the end */
-	for (x = 0; x < 32; x++) {
-		if (!pref->order[x] || pref->order[x] == newindex)
-			break;
-	}
-
-	if (only_if_existing && !pref->order[x])
-		return;
-
-	/* Move down to make space to insert - either all the way to the end,
-	   or as far as the existing location (which will be overwritten) */
-	for (; x > 0; x--) {
-		pref->order[x] = pref->order[x - 1];
-		pref->framing[x] = pref->framing[x - 1];
-	}
-
-	/* And insert the new entry */
-	pref->order[0] = newindex;
-	pref->framing[0] = 0; /* ? */
-}
 
 /*! \brief Set packet size for codec */
 int ast_codec_pref_setsize(struct ast_codec_pref *pref, int format, int framems)
@@ -1522,9 +1491,9 @@ int ast_codec_get_samples(struct ast_frame *f)
 		break;
 	case AST_FORMAT_ULAW:
 	case AST_FORMAT_ALAW:
+	case AST_FORMAT_G722:
 		samples = f->datalen;
 		break;
-	case AST_FORMAT_G722:
 	case AST_FORMAT_ADPCM:
 	case AST_FORMAT_G726:
 	case AST_FORMAT_G726_AAL2:
@@ -1558,7 +1527,6 @@ int ast_codec_get_len(int format, int samples)
 	case AST_FORMAT_ALAW:
 		len = samples;
 		break;
-	case AST_FORMAT_G722:
 	case AST_FORMAT_ADPCM:
 	case AST_FORMAT_G726:
 	case AST_FORMAT_G726_AAL2:

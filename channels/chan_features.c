@@ -26,13 +26,10 @@
  * 
  * \ingroup channel_drivers
  */
-/*** MODULEINFO
-        <defaultenabled>no</defaultenabled>
- ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68196 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51788 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -464,7 +461,7 @@ static struct ast_channel *features_new(struct feature_pvt *p, int state, int in
 	for (x=1;x<4;x++) {
 		if (b2)
 			free(b2);
-		b2 = ast_safe_string_alloc("%s/%s-%d", p->tech, p->dest, x);
+		b2 = ast_safe_string_alloc("Feature/%s/%s-%d", p->tech, p->dest, x);
 		for (y=0;y<3;y++) {
 			if (y == index)
 				continue;
@@ -474,7 +471,7 @@ static struct ast_channel *features_new(struct feature_pvt *p, int state, int in
 		if (y >= 3)
 			break;
 	}
-	tmp = ast_channel_alloc(0, state, 0,0, "", "", "", 0, "Feature/%s", b2);
+	tmp = ast_channel_alloc(0, state, 0,0, b2);
 	/* free up the name, it was copied into the channel name */
 	if (b2)
 		free(b2);

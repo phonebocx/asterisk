@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 108961 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56277 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,9 +50,8 @@ struct ast_dial {
 	enum ast_dial_result state;                       /*! Status of dial */
 	void *options[AST_DIAL_OPTION_MAX];                /*! Global options */
 	ast_dial_state_callback state_callback;          /*! Status callback */
-	AST_LIST_HEAD(, ast_dial_channel) channels; /*! Channels being dialed */
+	AST_LIST_HEAD_NOLOCK(, ast_dial_channel) channels; /*! Channels being dialed */
 	pthread_t thread;                                  /*! Thread (if running in async) */
-	ast_mutex_t lock;                                  /*! Lock to protect the thread information above */
 };
 
 /*! \brief Dialing channel structure. Contains per-channel dialing options, asterisk channel, and more! */
@@ -62,7 +61,6 @@ struct ast_dial_channel {
 	const char *device;                    /*! Device being dialed */
 	void *options[AST_DIAL_OPTION_MAX];    /*! Channel specific options */
 	int cause;                             /*! Cause code in case of failure */
-	int is_running_app:1;                  /*! Is this running an application? */
 	struct ast_channel *owner;             /*! Asterisk channel */
 	AST_LIST_ENTRY(ast_dial_channel) list; /*! Linked list information */
 };
@@ -125,9 +123,8 @@ static int answer_exec_disable(void *data)
 }
 
 /* Application execution function for 'ANSWER_EXEC' option */
-static void answer_exec_run(struct ast_dial *dial, struct ast_dial_channel *dial_channel, char *app, char *args)
+static void answer_exec_run(struct ast_channel *chan, char *app, char *args)
 {
-	struct ast_channel *chan = dial_channel->owner;
 	struct ast_app *ast_app = pbx_findapp(app);
 
 	/* If the application was not found, return immediately */
@@ -136,14 +133,6 @@ static void answer_exec_run(struct ast_dial *dial, struct ast_dial_channel *dial
 
 	/* All is well... execute the application */
 	pbx_exec(chan, ast_app, args);
-
-	/* If another thread is not taking over hang up the channel */
-	ast_mutex_lock(&dial->lock);
-	if (dial->thread != AST_PTHREADT_STOP) {
-		ast_hangup(chan);
-		dial_channel->owner = NULL;
-	}
-	ast_mutex_unlock(&dial->lock);
 
 	return;
 }
@@ -189,13 +178,10 @@ struct ast_dial *ast_dial_create(void)
 		return NULL;
 
 	/* Initialize list of channels */
-	AST_LIST_HEAD_INIT(&dial->channels);
+	AST_LIST_HEAD_INIT_NOLOCK(&dial->channels);
 
 	/* Initialize thread to NULL */
 	dial->thread = AST_PTHREADT_NULL;
-
-	/* Can't forget about the lock */
-	ast_mutex_init(&dial->lock);
 
 	return dial;
 }
@@ -236,7 +222,6 @@ static int begin_dial(struct ast_dial *dial, struct ast_channel *chan)
 	int success = 0, res = 0;
 
 	/* Iterate through channel list, requesting and calling each one */
-	AST_LIST_LOCK(&dial->channels);
 	AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 		char numsubst[AST_MAX_EXTENSION];
 
@@ -286,7 +271,6 @@ static int begin_dial(struct ast_dial *dial, struct ast_channel *chan)
 				ast_verbose(VERBOSE_PREFIX_3 "Called %s\n", numsubst);
 		}
 	}
-	AST_LIST_UNLOCK(&dial->channels);
 
 	/* If number of failures matches the number of channels, then this truly failed */
 	return success;
@@ -297,12 +281,10 @@ static struct ast_dial_channel *find_relative_dial_channel(struct ast_dial *dial
 {
 	struct ast_dial_channel *channel = NULL;
 
-	AST_LIST_LOCK(&dial->channels);
 	AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 		if (channel->owner == owner)
 			break;
 	}
-	AST_LIST_UNLOCK(&dial->channels);
 
 	return channel;
 }
@@ -323,10 +305,8 @@ static void handle_frame(struct ast_dial *dial, struct ast_dial_channel *channel
 		case AST_CONTROL_ANSWER:
 			if (option_verbose > 2)
 				ast_verbose( VERBOSE_PREFIX_3 "%s answered %s\n", channel->owner->name, chan->name);
-			AST_LIST_LOCK(&dial->channels);
 			AST_LIST_REMOVE(&dial->channels, channel, list);
 			AST_LIST_INSERT_HEAD(&dial->channels, channel, list);
-			AST_LIST_UNLOCK(&dial->channels);
 			set_state(dial, AST_DIAL_RESULT_ANSWERED);
 			break;
 		case AST_CONTROL_BUSY:
@@ -345,29 +325,21 @@ static void handle_frame(struct ast_dial *dial, struct ast_dial_channel *channel
 			if (option_verbose > 2)
 				ast_verbose(VERBOSE_PREFIX_3 "%s is ringing\n", channel->owner->name);
 			ast_indicate(chan, AST_CONTROL_RINGING);
-			set_state(dial, AST_DIAL_RESULT_RINGING);
 			break;
 		case AST_CONTROL_PROGRESS:
 			if (option_verbose > 2)
 				ast_verbose (VERBOSE_PREFIX_3 "%s is making progress, passing it to %s\n", channel->owner->name, chan->name);
 			ast_indicate(chan, AST_CONTROL_PROGRESS);
-			set_state(dial, AST_DIAL_RESULT_PROGRESS);
 			break;
 		case AST_CONTROL_VIDUPDATE:
 			if (option_verbose > 2)
 				ast_verbose (VERBOSE_PREFIX_3 "%s requested a video update, passing it to %s\n", channel->owner->name, chan->name);
 			ast_indicate(chan, AST_CONTROL_VIDUPDATE);
 			break;
-		case AST_CONTROL_SRCUPDATE:
-			if (option_verbose > 2)
-				ast_verbose (VERBOSE_PREFIX_3 "%s requested a source update, passing it to %s\n", channel->owner->name, chan->name);
-			ast_indicate(chan, AST_CONTROL_SRCUPDATE);
-			break;
 		case AST_CONTROL_PROCEEDING:
 			if (option_verbose > 2)
 				ast_verbose (VERBOSE_PREFIX_3 "%s is proceeding, passing it to %s\n", channel->owner->name, chan->name);
 			ast_indicate(chan, AST_CONTROL_PROCEEDING);
-			set_state(dial, AST_DIAL_RESULT_PROCEEDING);
 			break;
 		case AST_CONTROL_HOLD:
 			if (option_verbose > 2)
@@ -405,10 +377,8 @@ static void handle_frame_ownerless(struct ast_dial *dial, struct ast_dial_channe
 	case AST_CONTROL_ANSWER:
 		if (option_verbose > 2)
 			ast_verbose( VERBOSE_PREFIX_3 "%s answered\n", channel->owner->name);
-		AST_LIST_LOCK(&dial->channels);
 		AST_LIST_REMOVE(&dial->channels, channel, list);
 		AST_LIST_INSERT_HEAD(&dial->channels, channel, list);
-		AST_LIST_UNLOCK(&dial->channels);
 		set_state(dial, AST_DIAL_RESULT_ANSWERED);
 		break;
 	case AST_CONTROL_BUSY:
@@ -473,14 +443,12 @@ static enum ast_dial_result monitor_dial(struct ast_dial *dial, struct ast_chann
 			cs[pos++] = chan;
 
 		/* Add channels we are attempting to dial */
-		AST_LIST_LOCK(&dial->channels);
 		AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 			if (channel->owner) {
 				cs[pos++] = channel->owner;
 				count++;
 			}
 		}
-		AST_LIST_UNLOCK(&dial->channels);
 
 		/* If we have no outbound channels in progress, switch state to unanswered and stop */
 		if (!count) {
@@ -532,30 +500,23 @@ static enum ast_dial_result monitor_dial(struct ast_dial *dial, struct ast_chann
 	/* Do post-processing from loop */
 	if (dial->state == AST_DIAL_RESULT_ANSWERED) {
 		/* Hangup everything except that which answered */
-		AST_LIST_LOCK(&dial->channels);
 		AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 			if (!channel->owner || channel->owner == who)
 				continue;
 			ast_hangup(channel->owner);
 			channel->owner = NULL;
 		}
-		AST_LIST_UNLOCK(&dial->channels);
 		/* If ANSWER_EXEC is enabled as an option, execute application on answered channel */
-		if ((channel = find_relative_dial_channel(dial, who)) && (answer_exec = FIND_RELATIVE_OPTION(dial, channel, AST_DIAL_OPTION_ANSWER_EXEC))) {
-			channel->is_running_app = 1;
-			answer_exec_run(dial, channel, answer_exec->app, answer_exec->args);
-			channel->is_running_app = 0;
-		}
+		if ((channel = find_relative_dial_channel(dial, who)) && (answer_exec = FIND_RELATIVE_OPTION(dial, channel, AST_DIAL_OPTION_ANSWER_EXEC)))
+			answer_exec_run(who, answer_exec->app, answer_exec->args);
 	} else if (dial->state == AST_DIAL_RESULT_HANGUP) {
 		/* Hangup everything */
-		AST_LIST_LOCK(&dial->channels);
 		AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 			if (!channel->owner)
 				continue;
 			ast_hangup(channel->owner);
 			channel->owner = NULL;
 		}
-		AST_LIST_UNLOCK(&dial->channels);
 	}
 
 	return dial->state;
@@ -648,29 +609,11 @@ enum ast_dial_result ast_dial_join(struct ast_dial *dial)
 	/* Record thread */
 	thread = dial->thread;
 
-	/* Boom, commence locking */
-	ast_mutex_lock(&dial->lock);
-
 	/* Stop the thread */
 	dial->thread = AST_PTHREADT_STOP;
 
-	/* If the answered channel is running an application we have to soft hangup it, can't just poke the thread */
-	AST_LIST_LOCK(&dial->channels);
-	if (AST_LIST_FIRST(&dial->channels)->is_running_app) {
-		struct ast_channel *chan = AST_LIST_FIRST(&dial->channels)->owner;
-		if (chan) {
-			ast_channel_lock(chan);
-			ast_softhangup(chan, AST_SOFTHANGUP_EXPLICIT);
-			ast_channel_unlock(chan);
-		}
-	} else {
-		/* Now we signal it with SIGURG so it will break out of it's waitfor */
-		pthread_kill(thread, SIGURG);
-	}
-	AST_LIST_UNLOCK(&dial->channels);
-
-	/* Yay done with it */
-	ast_mutex_unlock(&dial->lock);
+	/* Now we signal it with SIGURG so it will break out of it's waitfor */
+	pthread_kill(thread, SIGURG);
 
 	/* Finally wait for the thread to exit */
 	pthread_join(thread, NULL);
@@ -692,14 +635,12 @@ void ast_dial_hangup(struct ast_dial *dial)
 	if (!dial)
 		return;
 	
-	AST_LIST_LOCK(&dial->channels);
 	AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 		if (channel->owner) {
 			ast_hangup(channel->owner);
 			channel->owner = NULL;
 		}
 	}
-	AST_LIST_UNLOCK(&dial->channels);
 
 	return;
 }
@@ -718,8 +659,7 @@ int ast_dial_destroy(struct ast_dial *dial)
 		return -1;
 	
 	/* Hangup and deallocate all the dialed channels */
-	AST_LIST_LOCK(&dial->channels);
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&dial->channels, channel, list) {
+	AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 		/* Disable any enabled options */
 		for (i = 0; i < AST_DIAL_OPTION_MAX; i++) {
 			if (!channel->options[i])
@@ -734,11 +674,8 @@ int ast_dial_destroy(struct ast_dial *dial)
 			channel->owner = NULL;
 		}
 		/* Free structure */
-		AST_LIST_REMOVE_CURRENT(&dial->channels, list);
 		free(channel);
 	}
-	AST_LIST_TRAVERSE_SAFE_END;
-	AST_LIST_UNLOCK(&dial->channels);
        
 	/* Disable any enabled options globally */
 	for (i = 0; i < AST_DIAL_OPTION_MAX; i++) {
@@ -748,9 +685,6 @@ int ast_dial_destroy(struct ast_dial *dial)
 			option_types[i].disable(dial->options[i]);
 		dial->options[i] = NULL;
 	}
-
-	/* Lock be gone! */
-	ast_mutex_destroy(&dial->lock);
 
 	/* Free structure */
 	free(dial);
@@ -795,7 +729,6 @@ int ast_dial_option_enable(struct ast_dial *dial, int num, enum ast_dial_option 
 		return -1;
 	
 	/* Look for channel, we can sort of cheat and predict things - the last channel in the list will probably be what they want */
-	AST_LIST_LOCK(&dial->channels);
 	if (AST_LIST_LAST(&dial->channels)->num != num) {
 		AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 			if (channel->num == num)
@@ -804,7 +737,6 @@ int ast_dial_option_enable(struct ast_dial *dial, int num, enum ast_dial_option 
 	} else {
 		channel = AST_LIST_LAST(&dial->channels);
 	}
-	AST_LIST_UNLOCK(&dial->channels);
 
 	/* If none found, return failure */
 	if (!channel)
@@ -859,7 +791,6 @@ int ast_dial_option_disable(struct ast_dial *dial, int num, enum ast_dial_option
 		return -1;
 
 	/* Look for channel, we can sort of cheat and predict things - the last channel in the list will probably be what they want */
-	AST_LIST_LOCK(&dial->channels);
 	if (AST_LIST_LAST(&dial->channels)->num != num) {
 		AST_LIST_TRAVERSE(&dial->channels, channel, list) {
 			if (channel->num == num)
@@ -868,7 +799,6 @@ int ast_dial_option_disable(struct ast_dial *dial, int num, enum ast_dial_option
 	} else {
 		channel = AST_LIST_LAST(&dial->channels);
 	}
-	AST_LIST_UNLOCK(&dial->channels);
 
 	/* If none found, return failure */
 	if (!channel)

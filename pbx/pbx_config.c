@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 120371 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56856 $")
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -135,23 +135,20 @@ static int handle_context_dont_include_deprecated(int fd, int argc, char *argv[]
 
 static int handle_context_remove_include(int fd, int argc, char *argv[])
 {
-	if (argc != 6) {
+	if (argc != 6)
 		return RESULT_SHOWUSAGE;
-	}
 
-	if (strcmp(argv[4], "from")) {
+	if (strcmp(argv[4], "into"))
 		return RESULT_SHOWUSAGE;
-	}
 
 	if (!ast_context_remove_include(argv[5], argv[3], registrar)) {
-		ast_cli(fd, "The dialplan no longer includes '%s' into '%s'\n",
+		ast_cli(fd, "We are not including '%s' into '%s' now\n",
 			argv[3], argv[5]);
 		return RESULT_SUCCESS;
 	}
 
 	ast_cli(fd, "Failed to remove '%s' include from '%s' context\n",
 		argv[3], argv[5]);
-
 	return RESULT_FAILURE;
 }
 
@@ -239,7 +236,7 @@ static char *complete_context_dont_include_deprecated(const char *line, const ch
 	struct ast_context *c = NULL;
 
 	if (pos == 2) {		/* "dont include _X_" */
-		if (ast_wrlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			return NULL;
 		}
@@ -291,7 +288,7 @@ static char *complete_context_dont_include_deprecated(const char *line, const ch
 		}
 		strsep(&dupline, " ");
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock contexts list\n");
 			free(context);
 			return NULL;
@@ -327,7 +324,7 @@ static char *complete_context_dont_include_deprecated(const char *line, const ch
 			return NULL;
 		}
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			free(context);
 			return NULL;
@@ -360,7 +357,7 @@ static char *complete_context_remove_include(const char *line, const char *word,
 	struct ast_context *c = NULL;
 
 	if (pos == 3) {		/* "dialplan remove include _X_" */
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			return NULL;
 		}
@@ -412,7 +409,7 @@ static char *complete_context_remove_include(const char *line, const char *word,
 		}
 		strsep(&dupline, " ");
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock contexts list\n");
 			free(context);
 			return NULL;
@@ -448,7 +445,7 @@ static char *complete_context_remove_include(const char *line, const char *word,
 			return NULL;
 		}
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			free(context);
 			return NULL;
@@ -690,7 +687,7 @@ static char *complete_context_remove_extension_deprecated(const char *line, cons
 		le = strlen(exten);
 		lc = strlen(context);
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			goto error2;
 		}
@@ -736,7 +733,7 @@ static char *complete_context_remove_extension_deprecated(const char *line, cons
 		if (le == 0 || lc == 0)
 			goto error3;
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			goto error3;
 		}
@@ -812,7 +809,7 @@ static char *complete_context_remove_extension(const char *line, const char *wor
 		le = strlen(exten);
 		lc = strlen(context);
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			goto error2;
 		}
@@ -858,7 +855,7 @@ static char *complete_context_remove_extension(const char *line, const char *wor
 		if (le == 0 || lc == 0)
 			goto error3;
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			goto error3;
 		}
@@ -1002,7 +999,7 @@ static char *complete_context_add_include_deprecated(const char *line, const cha
 	int len = strlen(word);
 
 	if (pos == 2) {		/* 'include context _X_' (context) ... */
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			return NULL;
 		}
@@ -1029,7 +1026,7 @@ static char *complete_context_add_include_deprecated(const char *line, const cha
 		strsep(&dupline, " ");
 
 		/* check for context existence ... */
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			/* our fault, we can't check, so complete 'in' ... */
 			ret = strdup("in");
@@ -1058,7 +1055,7 @@ static char *complete_context_add_include_deprecated(const char *line, const cha
 			goto error3;
 		}
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			goto error3;
 		}
@@ -1097,7 +1094,7 @@ static char *complete_context_add_include(const char *line, const char *word, in
 	int len = strlen(word);
 
 	if (pos == 3) {		/* 'dialplan add include _X_' (context) ... */
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			return NULL;
 		}
@@ -1124,7 +1121,7 @@ static char *complete_context_add_include(const char *line, const char *word, in
 		strsep(&dupline, " ");
 
 		/* check for context existence ... */
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			/* our fault, we can't check, so complete 'into' ... */
 			ret = strdup("into");
@@ -1153,7 +1150,7 @@ static char *complete_context_add_include(const char *line, const char *word, in
 			goto error3;
 		}
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock context list\n");
 			goto error3;
 		}
@@ -1236,7 +1233,7 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 	cfg = ast_config_load("extensions.conf");
 
 	/* try to lock contexts list */
-	if (ast_rdlock_contexts()) {
+	if (ast_lock_contexts()) {
 		ast_cli(fd, "Failed to lock contexts list\n");
 		ast_mutex_unlock(&save_dialplan_lock);
 		ast_config_destroy(cfg);
@@ -1323,27 +1320,16 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 						    ast_get_extension_app(p));
 				} else { /* copy and replace '|' with ',' */
 					const char *sep, *cid;
-					char *tempdata = "";
+					char *tempdata;
 					char *s;
 					const char *el = ast_get_extension_label(p);
-					char label[128] = "";
+					char label[128];
  
- 					s = ast_get_extension_app_data(p);
-					if (s) {
-						char *t;
-						tempdata = alloca(strlen(tempdata) * 2 + 1);
+ 					tempdata = ast_strdupa(ast_get_extension_app_data(p));
 
-						for (t = tempdata; *s; s++, t++) {
-							if (*s == '|')
-								*t = ',';
-							else {
-								if (*s == ',' || *s == ';')
-									*t++ = '\\';
-								*t = *s;
-							}
-						}
-						/* Terminating NULL */
-						*t = *s;
+					for (s = tempdata; *s; s++) {
+						if (*s == '|')
+							*s = ',';
 					}
 
 					if (ast_get_extension_matchcid(p)) {
@@ -1352,13 +1338,13 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 					} else
 						sep = cid = "";
 				
-					if (el && (snprintf(label, sizeof(label), "(%s)", el) != (strlen(el) + 2)))
+					if (el && (snprintf(label, 127, "(%s)", el) != (strlen(el) + 2)))
 						incomplete = 1;	/* error encountered or label > 125 chars */
 					
 					fprintf(output, "exten => %s%s%s,%d%s,%s(%s)\n",
-					    ast_get_extension_name(p), (ast_strlen_zero(sep) ? "" : sep), (ast_strlen_zero(cid) ? "" : cid),
+					    ast_get_extension_name(p), sep, cid,
 					    ast_get_extension_priority(p), label,
-					    ast_get_extension_app(p), (ast_strlen_zero(tempdata) ? "" : tempdata));
+					    ast_get_extension_app(p), tempdata);
 				}
 			}
 		}
@@ -1475,7 +1461,7 @@ static int handle_context_add_extension_deprecated(int fd, int argc, char *argv[
 	if (!app_data)
 		app_data="";
 	if (ast_add_extension(argv[4], argc == 6 ? 1 : 0, exten, iprior, NULL, cidmatch, app,
-		(void *)strdup(app_data), ast_free, registrar)) {
+		(void *)strdup(app_data), free, registrar)) {
 		switch (errno) {
 		case ENOMEM:
 			ast_cli(fd, "Out of free memory\n");
@@ -1568,7 +1554,7 @@ static int handle_context_add_extension(int fd, int argc, char *argv[])
 	if (!app_data)
 		app_data="";
 	if (ast_add_extension(argv[5], argc == 7 ? 1 : 0, exten, iprior, NULL, cidmatch, app,
-		(void *)strdup(app_data), ast_free, registrar)) {
+		(void *)strdup(app_data), free, registrar)) {
 		switch (errno) {
 		case ENOMEM:
 			ast_cli(fd, "Out of free memory\n");
@@ -1618,7 +1604,7 @@ static char *complete_context_add_extension_deprecated(const char *line, const c
 		char *res = NULL;
 
 		/* try to lock contexts list ... */
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_WARNING, "Failed to lock contexts list\n");
 			return NULL;
 		}
@@ -1647,7 +1633,7 @@ static char *complete_context_add_extension(const char *line, const char *word, 
 		char *res = NULL;
 
 		/* try to lock contexts list ... */
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_WARNING, "Failed to lock contexts list\n");
 			return NULL;
 		}
@@ -1769,7 +1755,7 @@ static char *complete_context_add_ignorepat_deprecated(const char *line, const c
 		}
 		ignorepat = strsep(&dupline, " ");
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock contexts list\n");
 			return NULL;
 		}
@@ -1818,7 +1804,7 @@ static char *complete_context_add_ignorepat(const char *line, const char *word,
 		}
 		ignorepat = strsep(&dupline, " ");
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_ERROR, "Failed to lock contexts list\n");
 			return NULL;
 		}
@@ -1920,7 +1906,7 @@ static char *complete_context_remove_ignorepat_deprecated(const char *line, cons
 
 	if (pos == 2) {
 		int len = strlen(word);
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_WARNING, "Failed to lock contexts list\n");
 			return NULL;
 		}
@@ -1970,7 +1956,7 @@ static char *complete_context_remove_ignorepat_deprecated(const char *line, cons
 			return NULL;
 		}
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_WARNING, "Failed to lock contexts list\n");
 			free(dupline);
 			return NULL;
@@ -2002,7 +1988,7 @@ static char *complete_context_remove_ignorepat(const char *line, const char *wor
 
 	if (pos == 3) {
 		int len = strlen(word);
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_WARNING, "Failed to lock contexts list\n");
 			return NULL;
 		}
@@ -2052,7 +2038,7 @@ static char *complete_context_remove_ignorepat(const char *line, const char *wor
 			return NULL;
 		}
 
-		if (ast_rdlock_contexts()) {
+		if (ast_lock_contexts()) {
 			ast_log(LOG_WARNING, "Failed to lock contexts list\n");
 			free(dupline);
 			return NULL;
@@ -2084,7 +2070,6 @@ static int handle_reload_extensions(int fd, int argc, char *argv[])
 	if (clearglobalvars_config)
 		pbx_builtin_clear_globals();
 	pbx_load_module();
-	ast_cli(fd, "Dialplan reloaded.\n");
 	return RESULT_SUCCESS;
 }
 
@@ -2242,8 +2227,6 @@ static int pbx_load_config(const char *config_file)
 					pri = strsep(&stringp, ",");
 					if (!pri)
 						pri="";
-					pri = ast_skip_blanks(pri);
-					pri = ast_trim_blanks(pri);
 					label = strchr(pri, '(');
 					if (label) {
 						*label++ = '\0';
@@ -2370,10 +2353,13 @@ static void pbx_load_users(void)
 	int len;
 	int hasvoicemail;
 	int start, finish, x;
-	struct ast_context *con = NULL;
+	struct ast_context *con;
 	
 	cfg = ast_config_load("users.conf");
 	if (!cfg)
+		return;
+	con = ast_context_find_or_create(&local_contexts, userscontext, registrar);
+	if (!con)
 		return;
 
 	for (cat = ast_category_browse(cfg, NULL); cat ; cat = ast_category_browse(cfg, cat)) {
@@ -2426,16 +2412,6 @@ static void pbx_load_users(void)
 			}
 		}
 		if (!ast_strlen_zero(iface)) {
-			/* Only create a context here when it is really needed. Otherwise default empty context
-			created by pbx_config may conflict with the one explicitly created by pbx_ael */
-			if (!con)
-				con = ast_context_find_or_create(&local_contexts, userscontext, registrar);
-
-			if (!con) {
-				ast_log(LOG_ERROR, "Can't find/create user context '%s'\n", userscontext);
-				return;
-			}
-
 			/* Add hint */
 			ast_add_extension2(con, 0, cat, -1, NULL, NULL, iface, NULL, NULL, registrar);
 			/* If voicemail, use "stdexten" else use plain old dial */

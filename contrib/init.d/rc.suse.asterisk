@@ -22,7 +22,7 @@
 
 ### BEGIN INIT INFO
 # Provides:                    asterisk
-# Required-Start:      +zaptel $network $named
+# Required-Start:      +zaptel
 # Required-Stop:
 # Default-Start:     3 5
 # Default-Stop:      0 1 2 4 6
@@ -63,15 +63,6 @@ RETVAL=0
 
 start() {
 	# Start daemons.
-
-	# Check if Asterisk is already running.  If it is, then bug out, because
-	# starting Asterisk when Asterisk is already running is very bad.
-	VERSION=`/usr/sbin/asterisk -rx 'core show version'`
-	if [ "`echo $VERSION | cut -c 1-8`" = "Asterisk" ]; then
-		echo "Asterisk is already running.  $0 will exit now."
-		exit 1
-	fi
-
 	echo -n $"Starting asterisk: "
         if [ -f $SAFE_ASTERISK ] ; then
 		DAEMON=$SAFE_ASTERISK

@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 118953 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56888 $")
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -105,6 +105,7 @@ static snd_pcm_format_t format = SND_PCM_FORMAT_S16_LE;
 static snd_pcm_format_t format = SND_PCM_FORMAT_S16_BE;
 #endif
 
+/* static int block = O_NONBLOCK; */
 static char indevname[50] = ALSA_INDEV;
 static char outdevname[50] = ALSA_OUTDEV;
 
@@ -359,15 +360,14 @@ static snd_pcm_t *alsa_card_init(char *dev, snd_pcm_stream_t stream)
 	/* unsigned int per_max = 8; */
 	snd_pcm_uframes_t start_threshold, stop_threshold;
 
-	err = snd_pcm_open(&handle, dev, stream, SND_PCM_NONBLOCK);
+	err = snd_pcm_open(&handle, dev, stream, O_NONBLOCK);
 	if (err < 0) {
 		ast_log(LOG_ERROR, "snd_pcm_open failed: %s\n", snd_strerror(err));
 		return NULL;
 	} else
 		ast_log(LOG_DEBUG, "Opening device %s in %s mode\n", dev, (stream == SND_PCM_STREAM_CAPTURE) ? "read" : "write");
 
-	hwparams = alloca(snd_pcm_hw_params_sizeof());
-	memset(hwparams, 0, snd_pcm_hw_params_sizeof());
+	snd_pcm_hw_params_alloca(&hwparams);
 	snd_pcm_hw_params_any(handle, hwparams);
 
 	err = snd_pcm_hw_params_set_access(handle, hwparams, SND_PCM_ACCESS_RW_INTERLEAVED);
@@ -416,8 +416,7 @@ static snd_pcm_t *alsa_card_init(char *dev, snd_pcm_stream_t stream)
 	if (err < 0)
 		ast_log(LOG_ERROR, "Couldn't set the new hw params: %s\n", snd_strerror(err));
 
-	swparams = alloca(snd_pcm_sw_params_sizeof());
-	memset(swparams, 0, snd_pcm_sw_params_sizeof());
+	snd_pcm_sw_params_alloca(&swparams);
 	snd_pcm_sw_params_current(handle, swparams);
 
 #if 1
@@ -506,7 +505,9 @@ static int alsa_text(struct ast_channel *c, const char *text)
 static void grab_owner(void)
 {
 	while (alsa.owner && ast_mutex_trylock(&alsa.owner->lock)) {
-		DEADLOCK_AVOIDANCE(&alsalock);
+		ast_mutex_unlock(&alsalock);
+		usleep(1);
+		ast_mutex_lock(&alsalock);
 	}
 }
 
@@ -740,34 +741,31 @@ static int alsa_indicate(struct ast_channel *chan, int cond, const void *data, s
 	ast_mutex_lock(&alsalock);
 
 	switch (cond) {
-	case AST_CONTROL_BUSY:
-		res = 1;
-		break;
-	case AST_CONTROL_CONGESTION:
-		res = 2;
-		break;
-	case AST_CONTROL_RINGING:
-	case AST_CONTROL_PROGRESS:
-		break;
-	case -1:
-		res = -1;
-		break;
-	case AST_CONTROL_VIDUPDATE:
-		res = -1;
-		break;
-	case AST_CONTROL_HOLD:
-		ast_verbose(" << Console Has Been Placed on Hold >> \n");
-		ast_moh_start(chan, data, mohinterpret);
-		break;
-	case AST_CONTROL_UNHOLD:
-		ast_verbose(" << Console Has Been Retrieved from Hold >> \n");
-		ast_moh_stop(chan);
-		break;
-	case AST_CONTROL_SRCUPDATE:
-		break;
-	default:
-		ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, chan->name);
-		res = -1;
+		case AST_CONTROL_BUSY:
+			res = 1;
+			break;
+		case AST_CONTROL_CONGESTION:
+			res = 2;
+			break;
+		case AST_CONTROL_RINGING:
+			break;
+		case -1:
+			res = -1;
+			break;
+		case AST_CONTROL_VIDUPDATE:
+			res = -1;
+			break;
+		case AST_CONTROL_HOLD:
+			ast_verbose(" << Console Has Been Placed on Hold >> \n");
+			ast_moh_start(chan, data, mohinterpret);
+			break;
+		case AST_CONTROL_UNHOLD:
+			ast_verbose(" << Console Has Been Retrieved from Hold >> \n");
+			ast_moh_stop(chan);
+			break;
+		default:
+			ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, chan->name);
+			res = -1;
 	}
 
 	if (res > -1)
@@ -782,7 +780,7 @@ static struct ast_channel *alsa_new(struct chan_alsa_pvt *p, int state)
 {
 	struct ast_channel *tmp = NULL;
 	
-	if (!(tmp = ast_channel_alloc(1, state, 0, 0, "", p->exten, p->context, 0, "ALSA/%s", indevname)))
+	if (!(tmp = ast_channel_alloc(1, state, 0, 0, "ALSA/%s", indevname)))
 		return NULL;
 
 	tmp->tech = &alsa_tech;

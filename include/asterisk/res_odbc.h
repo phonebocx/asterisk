@@ -37,7 +37,6 @@ struct odbc_obj {
 	ast_mutex_t lock;
 	SQLHDBC  con;                   /* ODBC Connection Handle */
 	struct odbc_class *parent;      /* Information about the connection is protected */
-	struct timeval last_used;
 	unsigned int used:1;
 	unsigned int up:1;
 	AST_LIST_ENTRY(odbc_obj) list;
@@ -61,7 +60,7 @@ struct odbc_obj {
  * This function really only ever worked with MySQL, where the statement handle is
  * not prepared on the server.  If you are not using MySQL, you should avoid it.
  */
-int ast_odbc_smart_execute(struct odbc_obj *obj, SQLHSTMT stmt) __attribute__ ((deprecated));
+int ast_odbc_smart_execute(struct odbc_obj *obj, SQLHSTMT stmt); /* DEPRECATED */
 
 /*! \brief Retrieves a connected ODBC object
  * \param name The name of the ODBC class for which a connection is needed.
@@ -85,12 +84,6 @@ void ast_odbc_release_obj(struct odbc_obj *obj);
  * \return Returns 0 if connected, -1 otherwise.
  */
 int ast_odbc_sanity_check(struct odbc_obj *obj);
-
-/*! \brief Checks if the database natively supports backslash as an escape character.
- * \param obj The ODBC object
- * \return Returns 1 if backslash is a native escape character, 0 if an ESCAPE clause is needed to support '\'
- */
-int ast_odbc_backslash_is_escape(struct odbc_obj *obj);
 
 /*! \brief Prepares, executes, and returns the resulting statement handle.
  * \param obj The ODBC object

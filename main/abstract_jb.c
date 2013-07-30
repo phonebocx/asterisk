@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 116463 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 41278 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -317,10 +317,10 @@ int ast_jb_put(struct ast_channel *chan, struct ast_frame *f)
 	}
 
 	/* We consider an enabled jitterbuffer should receive frames with valid timing info. */
-	if (!ast_test_flag(f, AST_FRFLAG_HAS_TIMING_INFO) || f->len < 2 || f->ts < 0) {
+	if (!f->has_timing_info || f->len < 2 || f->ts < 0) {
 		ast_log(LOG_WARNING, "%s recieved frame with invalid timing info: "
 			"has_timing_info=%d, len=%ld, ts=%ld, src=%s\n",
-			chan->name, ast_test_flag(f, AST_FRFLAG_HAS_TIMING_INFO), f->len, f->ts, f->src);
+			chan->name, f->has_timing_info, f->len, f->ts, f->src);
 		return -1;
 	}
 
@@ -433,7 +433,7 @@ static void jb_get_and_deliver(struct ast_channel *chan)
 			return;
 		default:
 			ast_log(LOG_ERROR, "This should never happen!\n");
-			ast_assert(0);
+			CRASH;
 			break;
 		}
 		
@@ -489,7 +489,7 @@ static int create_jb(struct ast_channel *chan, struct ast_frame *frr)
 		bridged = ast_bridged_channel(chan);
 		if (!bridged) {
 			/* We should always have bridged chan if a jitterbuffer is in use */
-			ast_assert(0);
+			CRASH;
 		}
 		snprintf(name1, sizeof(name1), "%s", bridged->name);
 		tmp = strchr(name1, '/');

@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 90166 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47584 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -67,18 +67,17 @@ static int connected = 0;
 AST_MUTEX_DEFINE_STATIC(pgsql_lock);
 
 static PGconn	*conn = NULL;
+static PGresult	*result = NULL;
 
 static int pgsql_log(struct ast_cdr *cdr)
 {
 	struct tm tm;
-	time_t t = cdr->start.tv_sec;
 	char sqlcmd[2048] = "", timestr[128];
 	char *pgerror;
-	PGresult *result;
 
 	ast_mutex_lock(&pgsql_lock);
 
-	ast_localtime(&t, &tm, NULL);
+	localtime_r(&cdr->start.tv_sec,&tm);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
 
 	if ((!connected) && pghostname && pgdbuser && pgpassword && pgdbname) {
@@ -88,41 +87,34 @@ static int pgsql_log(struct ast_cdr *cdr)
 		} else {
 			pgerror = PQerrorMessage(conn);
 			ast_log(LOG_ERROR, "cdr_pgsql: Unable to connect to database server %s.  Calls will not be logged!\n", pghostname);
-			ast_log(LOG_ERROR, "cdr_pgsql: Reason: %s\n", pgerror);
-			PQfinish(conn);
-			conn = NULL;
+                        ast_log(LOG_ERROR, "cdr_pgsql: Reason: %s\n", pgerror);
 		}
 	}
 
 	if (connected) {
 		char *clid=NULL, *dcontext=NULL, *channel=NULL, *dstchannel=NULL, *lastapp=NULL, *lastdata=NULL;
-		char *src=NULL, *dst=NULL, *uniqueid=NULL, *userfield=NULL;
-		int pgerr;
+		char *uniqueid=NULL, *userfield=NULL;
 
 		/* Maximum space needed would be if all characters needed to be escaped, plus a trailing NULL */
 		if ((clid = alloca(strlen(cdr->clid) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, clid, cdr->clid, strlen(cdr->clid), &pgerr);
+			PQescapeString(clid, cdr->clid, strlen(cdr->clid));
 		if ((dcontext = alloca(strlen(cdr->dcontext) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, dcontext, cdr->dcontext, strlen(cdr->dcontext), &pgerr);
+			PQescapeString(dcontext, cdr->dcontext, strlen(cdr->dcontext));
 		if ((channel = alloca(strlen(cdr->channel) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, channel, cdr->channel, strlen(cdr->channel), &pgerr);
+			PQescapeString(channel, cdr->channel, strlen(cdr->channel));
 		if ((dstchannel = alloca(strlen(cdr->dstchannel) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, dstchannel, cdr->dstchannel, strlen(cdr->dstchannel), &pgerr);
+			PQescapeString(dstchannel, cdr->dstchannel, strlen(cdr->dstchannel));
 		if ((lastapp = alloca(strlen(cdr->lastapp) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, lastapp, cdr->lastapp, strlen(cdr->lastapp), &pgerr);
+			PQescapeString(lastapp, cdr->lastapp, strlen(cdr->lastapp));
 		if ((lastdata = alloca(strlen(cdr->lastdata) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, lastdata, cdr->lastdata, strlen(cdr->lastdata), &pgerr);
+			PQescapeString(lastdata, cdr->lastdata, strlen(cdr->lastdata));
 		if ((uniqueid = alloca(strlen(cdr->uniqueid) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, uniqueid, cdr->uniqueid, strlen(cdr->uniqueid), &pgerr);
+			PQescapeString(uniqueid, cdr->uniqueid, strlen(cdr->uniqueid));
 		if ((userfield = alloca(strlen(cdr->userfield) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, userfield, cdr->userfield, strlen(cdr->userfield), &pgerr);
-		if ((src = alloca(strlen(cdr->src) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, src, cdr->src, strlen(cdr->src), &pgerr);
-		if ((dst = alloca(strlen(cdr->dst) * 2 + 1)) != NULL)
-			PQescapeStringConn(conn, dst, cdr->dst, strlen(cdr->dst), &pgerr);
+			PQescapeString(userfield, cdr->userfield, strlen(cdr->userfield));
 
 		/* Check for all alloca failures above at once */
-		if ((!clid) || (!dcontext) || (!channel) || (!dstchannel) || (!lastapp) || (!lastdata) || (!uniqueid) || (!userfield) || (!src) || (!dst)) {
+		if ((!clid) || (!dcontext) || (!channel) || (!dstchannel) || (!lastapp) || (!lastdata) || (!uniqueid) || (!userfield)) {
 			ast_log(LOG_ERROR, "cdr_pgsql:  Out of memory error (insert fails)\n");
 			ast_mutex_unlock(&pgsql_lock);
 			return -1;
@@ -134,7 +126,7 @@ static int pgsql_log(struct ast_cdr *cdr)
 		snprintf(sqlcmd,sizeof(sqlcmd),"INSERT INTO %s (calldate,clid,src,dst,dcontext,channel,dstchannel,"
 				 "lastapp,lastdata,duration,billsec,disposition,amaflags,accountcode,uniqueid,userfield) VALUES"
 				 " ('%s','%s','%s','%s','%s', '%s','%s','%s','%s',%ld,%ld,'%s',%ld,'%s','%s','%s')",
-				 table, timestr, clid, src, dst, dcontext, channel, dstchannel, lastapp, lastdata,
+				 table,timestr,clid,cdr->src, cdr->dst, dcontext,channel, dstchannel, lastapp, lastdata,
 				 cdr->duration,cdr->billsec,ast_cdr_disp2str(cdr->disposition),cdr->amaflags, cdr->accountcode, uniqueid, userfield);
 		
 		if (option_debug > 2)
@@ -155,36 +147,32 @@ static int pgsql_log(struct ast_cdr *cdr)
 				pgerror = PQerrorMessage(conn);
 				ast_log(LOG_ERROR, "cdr_pgsql: Unable to reconnect to database server %s. Calls will not be logged!\n", pghostname);
 				ast_log(LOG_ERROR, "cdr_pgsql: Reason: %s\n", pgerror);
-				PQfinish(conn);
-				conn = NULL;
 				connected = 0;
 				ast_mutex_unlock(&pgsql_lock);
 				return -1;
 			}
 		}
 		result = PQexec(conn, sqlcmd);
-		if (PQresultStatus(result) != PGRES_COMMAND_OK) {
-			pgerror = PQresultErrorMessage(result);
+		if ( PQresultStatus(result) != PGRES_COMMAND_OK) {
+                        pgerror = PQresultErrorMessage(result);
 			ast_log(LOG_ERROR,"cdr_pgsql: Failed to insert call detail record into database!\n");
-			ast_log(LOG_ERROR,"cdr_pgsql: Reason: %s\n", pgerror);
+                        ast_log(LOG_ERROR,"cdr_pgsql: Reason: %s\n", pgerror);
 			ast_log(LOG_ERROR,"cdr_pgsql: Connection may have been lost... attempting to reconnect.\n");
 			PQreset(conn);
 			if (PQstatus(conn) == CONNECTION_OK) {
 				ast_log(LOG_ERROR, "cdr_pgsql: Connection reestablished.\n");
 				connected = 1;
-				PQclear(result);
 				result = PQexec(conn, sqlcmd);
-				if (PQresultStatus(result) != PGRES_COMMAND_OK) {
+				if ( PQresultStatus(result) != PGRES_COMMAND_OK)
+				{
 					pgerror = PQresultErrorMessage(result);
 					ast_log(LOG_ERROR,"cdr_pgsql: HARD ERROR!  Attempted reconnection failed.  DROPPING CALL RECORD!\n");
 					ast_log(LOG_ERROR,"cdr_pgsql: Reason: %s\n", pgerror);
 				}
 			}
 			ast_mutex_unlock(&pgsql_lock);
-			PQclear(result);
 			return -1;
 		}
-		PQclear(result);
 	}
 	ast_mutex_unlock(&pgsql_lock);
 	return 0;
@@ -192,7 +180,8 @@ static int pgsql_log(struct ast_cdr *cdr)
 
 static int my_unload_module(void)
 { 
-	PQfinish(conn);
+	if (conn)
+		PQfinish(conn);
 	if (pghostname)
 		free(pghostname);
 	if (pgdbname)
@@ -321,12 +310,8 @@ static int unload_module(void)
 
 static int reload(void)
 {
-	int res;
-	ast_mutex_lock(&pgsql_lock);
 	my_unload_module();
-	res = my_load_module();
-	ast_mutex_unlock(&pgsql_lock);
-	return res;
+	return my_load_module();
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "PostgreSQL CDR Backend",

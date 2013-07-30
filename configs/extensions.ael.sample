@@ -3,11 +3,11 @@
 //
 //
 // Static extension configuration file, used by
-// the pbx_ael module. This is where you configure all your 
+// the pbx_config module. This is where you configure all your 
 // inbound and outbound calls in Asterisk. 
 // 
 // This configuration file is reloaded 
-// - With the "ael reload" command in the CLI
+// - With the "extensions reload" command in the CLI
 // - With the "reload" command (that reloads everything) in the CLI
 
 // The "Globals" category contains global variables that can be referenced
@@ -176,7 +176,6 @@ macro ael-dundi-e164(exten) {
 // ARG1 is the extension to Dial
 //
 	goto ${exten}|1;
-	return;
 };
 
 //
@@ -276,6 +275,7 @@ context ael-local {
 	ignorepat => 9;
 	includes {
 		ael-default;
+		ael-parkedcalls;
 		ael-trunklocal;
 		ael-iaxtel700;
 		ael-trunktollfree;
@@ -309,16 +309,15 @@ macro ael-std-exten-ael( ext , dev ) {
         Dial(${dev}/${ext},20);
         switch(${DIALSTATUS}) {
         case BUSY:
-                Voicemail(${ext},b);
+                Voicemail(b${ext});
                 break;
         default:
-                Voicemail(${ext},u);
+                Voicemail(u${ext});
         };
         catch a {
                 VoiceMailMain(${ext});
                 return;
         };
-	return;
 };
 
 context ael-demo {
@@ -406,10 +405,10 @@ context ael-default {
 //        Dial(${HINT}/5245},20,rtT);                    // Use hint as listed
 //        switch(${DIALSTATUS}) {
 //        case BUSY:
-//                Voicemail(6245,b);
+//                Voicemail(b6245);
 //				return;
 //        default:
-//                Voicemail(6245,u);
+//                Voicemail(u6245);
 //				return;
 //        };
 //       };

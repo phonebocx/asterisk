@@ -10,8 +10,8 @@
 ;
 persistentagents=yes
 
-; Enable or disable a single extension from logging in as multiple agents.
-; The default value is "yes".
+;enable or disable a single extension from longing in as multiple
+;agents, defaults to enabled
 ;multiplelogin=yes
 
 [agents]

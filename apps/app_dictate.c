@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68527 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49834 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -331,7 +331,7 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 		ast_set_read_format(chan, oldr);
 	}
 	ast_module_user_remove(u);
-	return 0;
+	return res;
 }
 
 static int unload_module(void)

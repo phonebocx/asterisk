@@ -680,14 +680,8 @@ int main(int argc, char *argv[])
 		fclose(astf);
 		exit(1);
 	}
-	if (needfork) {
-#ifndef HAVE_SBIN_LAUNCHD
+	if (needfork)
 		daemon(0,0);
-#else
-		fprintf(stderr, "Mac OS X detected.  Use 'launchd -d muted -f' to launch.\n");
-		exit(1);
-#endif
-	}
 	for(;;) {
 		if (wait_event()) {
 			fclose(astf);
