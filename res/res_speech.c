@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 77831 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 79334 $");
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -188,6 +188,21 @@ int ast_speech_write(struct ast_speech *speech, void *data, int len)
 
 	if (speech->engine->write != NULL) {
 		speech->engine->write(speech, data, len);
+	}
+
+	return res;
+}
+
+/*! \brief Signal to the engine that DTMF was received */
+int ast_speech_dtmf(struct ast_speech *speech, const char *dtmf)
+{
+	int res = 0;
+
+	if (speech->state != AST_SPEECH_STATE_READY)
+		return -1;
+
+	if (speech->engine->dtmf != NULL) {
+		res = speech->engine->dtmf(speech, dtmf);
 	}
 
 	return res;

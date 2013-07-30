@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 78275 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 79099 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -3032,6 +3032,29 @@ int ast_set_write_format(struct ast_channel *chan, int fmt)
 {
 	return set_format(chan, fmt, &chan->rawwriteformat, &chan->writeformat,
 			  &chan->writetrans, 1);
+}
+
+char *ast_channel_reason2str(int reason)
+{
+	switch (reason) /* the following appear to be the only ones actually returned by request_and_dial */
+	{
+	case 0:
+		return "Call Failure (not BUSY, and not NO_ANSWER, maybe Circuit busy or down?)";
+	case AST_CONTROL_HANGUP:
+		return "Hangup";
+	case AST_CONTROL_RING:
+		return "Local Ring";
+	case AST_CONTROL_RINGING:
+		return "Remote end Ringing";
+	case AST_CONTROL_ANSWER:
+		return "Remote end has Answered";
+	case AST_CONTROL_BUSY:
+		return "Remote end is Busy";
+	case AST_CONTROL_CONGESTION:
+		return "Congestion (circuits busy)";
+	default:
+		return "Unknown Reason!!";
+	}
 }
 
 struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data, int timeout, int *outstate, const char *cid_num, const char *cid_name, struct outgoing_helper *oh)

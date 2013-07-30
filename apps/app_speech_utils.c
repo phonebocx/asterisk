@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 77176 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 79334 $");
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -761,6 +761,7 @@ static int speech_background(struct ast_channel *chan, void *data)
 		/* We sort of make a results entry */
 		speech->results = ast_calloc(1, sizeof(*speech->results));
 		if (speech->results != NULL) {
+			ast_speech_dtmf(speech, dtmf);
 			speech->results->score = 1000;
 			speech->results->text = strdup(dtmf);
 			speech->results->grammar = strdup("dtmf");

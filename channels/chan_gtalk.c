@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72331 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 79174 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -973,9 +973,7 @@ static struct ast_channel *gtalk_new(struct gtalk *client, struct gtalk_pvt *i, 
 		cid = data;
 	}
 	cid = strsep(&cid, "@");
-	tmp->cid.cid_num = ast_strdup(cid);
 	tmp->cid.cid_ani = ast_strdup(cid);
-	tmp->cid.cid_name = ast_strdup(i->them);
 	if (!ast_strlen_zero(i->exten) && strcmp(i->exten, "s"))
 		tmp->cid.cid_dnid = ast_strdup(i->exten);
 	tmp->priority = 1;

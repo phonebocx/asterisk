@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 78095 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 79904 $")
 
 #include <ctype.h>
 #include <string.h>
@@ -874,6 +874,21 @@ char *ast_strip_quoted(char *s, const char *beg_quotes, const char *end_quotes)
 		if (*e == *(end_quotes + (q - beg_quotes))) {
 			s++;
 			*e = '\0';
+		}
+	}
+
+	return s;
+}
+
+char *ast_unescape_semicolon(char *s)
+{
+	char *e;
+	char *work = s;
+
+	while ((e = strchr(work, ';'))) {
+		if ((e > work) && (*(e-1) == '\\')) {
+			memmove(e - 1, e, strlen(e) + 1);
+			work = e;
 		}
 	}
 

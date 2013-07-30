@@ -58,7 +58,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 77854 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 80088 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -1120,53 +1120,6 @@ static struct call_queue *find_queue_by_name_rt(const char *queuename, struct as
 	return q;
 }
 
-static struct call_queue *load_realtime_queue(const char *queuename)
-{
-	struct ast_variable *queue_vars;
-	struct ast_config *member_config = NULL;
-	struct call_queue *q;
-
-	/* Find the queue in the in-core list first. */
-	AST_LIST_LOCK(&queues);
-	AST_LIST_TRAVERSE(&queues, q, list) {
-		if (!strcasecmp(q->name, queuename)) {
-			break;
-		}
-	}
-	AST_LIST_UNLOCK(&queues);
-
-	if (!q || q->realtime) {
-		/*! \note Load from realtime before taking the global qlock, to avoid blocking all
-		   queue operations while waiting for the DB.
-
-		   This will be two separate database transactions, so we might
-		   see queue parameters as they were before another process
-		   changed the queue and member list as it was after the change.
-		   Thus we might see an empty member list when a queue is
-		   deleted. In practise, this is unlikely to cause a problem. */
-
-		queue_vars = ast_load_realtime("queues", "name", queuename, NULL);
-		if (queue_vars) {
-			member_config = ast_load_realtime_multientry("queue_members", "interface LIKE", "%", "queue_name", queuename, NULL);
-			if (!member_config) {
-				ast_log(LOG_ERROR, "no queue_members defined in your config (extconfig.conf).\n");
-				return NULL;
-			}
-		}
-
-		AST_LIST_LOCK(&queues);
-
-		q = find_queue_by_name_rt(queuename, queue_vars, member_config);
-		if (member_config)
-			ast_config_destroy(member_config);
-		if (queue_vars)
-			ast_variables_destroy(queue_vars);
-
-		AST_LIST_UNLOCK(&queues);
-	}
-	return q;
-}
-
 static void update_realtime_members(struct call_queue *q)
 {
 	struct ast_config *member_config = NULL;
@@ -1216,6 +1169,55 @@ static void update_realtime_members(struct call_queue *q)
 		m = next_m;
 	}
 	ast_mutex_unlock(&q->lock);
+}
+
+static struct call_queue *load_realtime_queue(const char *queuename)
+{
+	struct ast_variable *queue_vars;
+	struct ast_config *member_config = NULL;
+	struct call_queue *q;
+
+	/* Find the queue in the in-core list first. */
+	AST_LIST_LOCK(&queues);
+	AST_LIST_TRAVERSE(&queues, q, list) {
+		if (!strcasecmp(q->name, queuename)) {
+			break;
+		}
+	}
+	AST_LIST_UNLOCK(&queues);
+
+	if (!q || q->realtime) {
+		/*! \note Load from realtime before taking the global qlock, to avoid blocking all
+		   queue operations while waiting for the DB.
+
+		   This will be two separate database transactions, so we might
+		   see queue parameters as they were before another process
+		   changed the queue and member list as it was after the change.
+		   Thus we might see an empty member list when a queue is
+		   deleted. In practise, this is unlikely to cause a problem. */
+
+		queue_vars = ast_load_realtime("queues", "name", queuename, NULL);
+		if (queue_vars) {
+			member_config = ast_load_realtime_multientry("queue_members", "interface LIKE", "%", "queue_name", queuename, NULL);
+			if (!member_config) {
+				ast_log(LOG_ERROR, "no queue_members defined in your config (extconfig.conf).\n");
+				return NULL;
+			}
+		}
+
+		AST_LIST_LOCK(&queues);
+
+		q = find_queue_by_name_rt(queuename, queue_vars, member_config);
+		if (member_config)
+			ast_config_destroy(member_config);
+		if (queue_vars)
+			ast_variables_destroy(queue_vars);
+
+		AST_LIST_UNLOCK(&queues);
+	} else { 
+		update_realtime_members(q);
+	}
+	return q;
 }
 
 static int join_queue(char *queuename, struct queue_ent *qe, enum queue_result *reason)
@@ -2342,7 +2344,7 @@ static int calc_metric(struct call_queue *q, struct member *mem, int pos, struct
 	return 0;
 }
 
-static int try_calling(struct queue_ent *qe, const char *options, char *announceoverride, const char *url, int *go_on, const char *agi)
+static int try_calling(struct queue_ent *qe, const char *options, char *announceoverride, const char *url, int *tries, int *noption, const char *agi)
 {
 	struct member *cur;
 	struct callattempt *outgoing = NULL; /* the list of calls we are building */
@@ -2377,7 +2379,6 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 	char vars[2048];
 	int forwardsallowed = 1;
 	int callcompletedinsl;
-	int noption = 0;
 
 	memset(&bridge_config, 0, sizeof(bridge_config));
 	time(&now);
@@ -2407,18 +2408,15 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 			break;
 		case 'n':
 			if (qe->parent->strategy == QUEUE_STRATEGY_ROUNDROBIN || qe->parent->strategy == QUEUE_STRATEGY_RRMEMORY)
-				(*go_on)++;
+				(*tries)++;
 			else
-				*go_on = qe->parent->membercount;
-			noption = 1;
+				*tries = qe->parent->membercount;
+			*noption = 1;
 			break;
 		case 'i':
 			forwardsallowed = 0;
 			break;
 		}
-
-	if(!noption)
-		*go_on = -1;
 
 	/* Hold the lock while we setup the outgoing calls */
 	if (use_weight)
@@ -2914,7 +2912,7 @@ static int add_to_queue(const char *queuename, const char *interface, const char
 				"Status: %d\r\n"
 				"Paused: %d\r\n",
 				q->name, new_member->interface, new_member->membername,
-				new_member->dynamic ? "dynamic" : "static",
+				"dynamic",
 				new_member->penalty, new_member->calls, (int) new_member->lastcall,
 				new_member->status, new_member->paused);
 			
@@ -3367,7 +3365,8 @@ static int queue_exec(struct ast_channel *chan, void *data)
 	int max_penalty;
 	enum queue_result reason = QUEUE_UNKNOWN;
 	/* whether to exit Queue application after the timeout hits */
-	int go_on = 0;
+	int tries = 0;
+	int noption = 0;
 	char *parse;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(queuename);
@@ -3497,14 +3496,14 @@ check_turns:
 					goto stop;
 
 			/* Try calling all queue members for 'timeout' seconds */
-			res = try_calling(&qe, args.options, args.announceoverride, args.url, &go_on, args.agi);
+			res = try_calling(&qe, args.options, args.announceoverride, args.url, &tries, &noption, args.agi);
 			if (res)
 				goto stop;
 
 			stat = get_member_status(qe.parent, qe.max_penalty);
 
 			/* exit after 'timeout' cycle if 'n' option enabled */
-			if (go_on >= qe.parent->membercount) {
+			if (noption && tries >= qe.parent->membercount) {
 				if (option_verbose > 2)
 					ast_verbose(VERBOSE_PREFIX_3 "Exiting on time-out cycle\n");
 				ast_queue_log(args.queuename, chan->uniqueid, "NONE", "EXITWITHTIMEOUT", "%d", qe.pos);
