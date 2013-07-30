@@ -40,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335064 $")
 
 #include <ctype.h>		/* isalnum() used here */
 #include <math.h>
@@ -755,6 +755,7 @@ static int oss_indicate(struct ast_channel *c, int cond, const void *data, size_
 	int res = 0;
 
 	switch (cond) {
+	case AST_CONTROL_INCOMPLETE:
 	case AST_CONTROL_BUSY:
 	case AST_CONTROL_CONGESTION:
 	case AST_CONTROL_RINGING:

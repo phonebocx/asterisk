@@ -26,13 +26,13 @@
  */
 
 /*** MODULEINFO
-	<support_level>deprecated</support_level>
+	<support_level>core</support_level>
 	<replacement>app_stack (GoSub)</replacement>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328446 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 338084 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"

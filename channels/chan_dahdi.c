@@ -49,7 +49,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 336635 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 338800 $")
 
 #if defined(__NetBSD__) || defined(__FreeBSD__)
 #include <pthread.h>
@@ -9315,13 +9315,18 @@ static int dahdi_indicate(struct ast_channel *chan, int condition, const void *d
 				ast_setstate(chan, AST_STATE_RINGING);
 			}
 			break;
+		case AST_CONTROL_INCOMPLETE:
+			ast_debug(1, "Received AST_CONTROL_INCOMPLETE on %s\n", chan->name);
+			/* act as a progress or proceeding, allowing the caller to enter additional numbers */
+			res = 0;
+			break;
 		case AST_CONTROL_PROCEEDING:
-			ast_debug(1,"Received AST_CONTROL_PROCEEDING on %s\n",chan->name);
+			ast_debug(1, "Received AST_CONTROL_PROCEEDING on %s\n", chan->name);
 			/* don't continue in ast_indicate */
 			res = 0;
 			break;
 		case AST_CONTROL_PROGRESS:
-			ast_debug(1,"Received AST_CONTROL_PROGRESS on %s\n",chan->name);
+			ast_debug(1, "Received AST_CONTROL_PROGRESS on %s\n", chan->name);
 			/* don't continue in ast_indicate */
 			res = 0;
 			break;
@@ -10605,9 +10610,14 @@ static void *analog_ss_thread(void *data)
 						ast_log(LOG_WARNING, "DTMFCID timed out waiting for ring. "
 							"Exiting simple switch\n");
 						ast_hangup(chan);
-						return NULL;
+						goto quit;
 					}
 					f = ast_read(chan);
+					if (!f) {
+						/* Hangup received waiting for DTMFCID. Exiting simple switch. */
+						ast_hangup(chan);
+						goto quit;
+					}
 					if (f->frametype == AST_FRAME_DTMF) {
 						dtmfbuf[k++] = f->subclass.integer;
 						ast_log(LOG_DEBUG, "CID got digit '%c'\n", f->subclass.integer);
@@ -12112,7 +12122,9 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 	struct dahdi_bufferinfo bi;
 
 	int res;
+#if defined(HAVE_PRI)
 	int span = 0;
+#endif	/* defined(HAVE_PRI) */
 	int here = 0;/*!< TRUE if the channel interface already exists. */
 	int x;
 	struct analog_pvt *analog_p = NULL;
@@ -12205,7 +12217,9 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 				tmp->law_default = p.curlaw;
 				tmp->law = p.curlaw;
 				tmp->span = p.spanno;
+#if defined(HAVE_PRI)
 				span = p.spanno - 1;
+#endif	/* defined(HAVE_PRI) */
 			} else {
 				chan_sig = 0;
 			}
@@ -13464,7 +13478,9 @@ static struct ast_channel *dahdi_request(const char *type, format_t format, cons
 	struct dahdi_pvt *exitpvt;
 	int channelmatched = 0;
 	int groupmatched = 0;
+#if defined(HAVE_PRI) || defined(HAVE_SS7)
 	int transcapdigital = 0;
+#endif	/* defined(HAVE_PRI) || defined(HAVE_SS7) */
 	struct dahdi_starting_point start;
 
 	ast_mutex_lock(&iflock);
@@ -13520,8 +13536,10 @@ static struct ast_channel *dahdi_request(const char *type, format_t format, cons
 				p->distinctivering = start.cadance;
 				break;
 			case 'd':
+#if defined(HAVE_PRI) || defined(HAVE_SS7)
 				/* If this is an ISDN call, make it digital */
 				transcapdigital = AST_TRANS_CAP_DIGITAL;
+#endif	/* defined(HAVE_PRI) || defined(HAVE_SS7) */
 				break;
 			default:
 				ast_log(LOG_WARNING, "Unknown option '%c' in '%s'\n", start.opt, (char *)data);

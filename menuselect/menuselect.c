@@ -287,14 +287,17 @@ static int parse_tree(const char *tree_file)
 				mem->explicitly_enabled_only = !strcasecmp(tmp, "yes");
 			}
 
-			if (!cat->positive_output) {
-				mem->was_enabled = mem->enabled = 1;
-				print_debug("Enabling %s because the category does not have positive output\n", mem->name);
-			}
-
 			cur3 = mxmlFindElement(cur2, cur2, "defaultenabled", NULL, NULL, MXML_DESCEND);
 			if (cur3 && cur3->child) {
 				mem->defaultenabled = cur3->child->value.opaque;
+			}
+
+			if (!cat->positive_output) {
+				mem->enabled = 1;
+				if (!(mem->defaultenabled && strcasecmp(mem->defaultenabled, "no"))) {
+					mem->was_enabled = 1;
+					print_debug("Enabling %s because the category does not have positive output\n", mem->name);
+				}
 			}
 
 			cur3 = mxmlFindElement(cur2, cur2, "support_level", NULL, NULL, MXML_DESCEND);

@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335064 $")
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -537,6 +537,7 @@ static int alsa_indicate(struct ast_channel *chan, int cond, const void *data, s
 	case AST_CONTROL_BUSY:
 	case AST_CONTROL_CONGESTION:
 	case AST_CONTROL_RINGING:
+	case AST_CONTROL_INCOMPLETE:
 	case -1:
 		res = -1;  /* Ask for inband indications */
 		break;

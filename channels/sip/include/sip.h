@@ -469,7 +469,7 @@ enum check_auth_result {
 	AUTH_PEER_NOT_DYNAMIC = -6,
 	AUTH_ACL_FAILED = -7,
 	AUTH_BAD_TRANSPORT = -8,
-	AUTH_RTP_FAILED = 9,
+	AUTH_RTP_FAILED = -9,
 };
 
 /*! \brief States for outbound registrations (with register= lines in sip.conf */
@@ -1038,6 +1038,8 @@ struct sip_pvt {
 	time_t lastrtprx;                   /*!< Last RTP received */
 	time_t lastrtptx;                   /*!< Last RTP sent */
 	int rtptimeout;                     /*!< RTP timeout time */
+	int rtpholdtimeout;                 /*!< RTP timeout time on hold*/
+	int rtpkeepalive;                   /*!< RTP send packets for keepalive */
 	struct ast_ha *directmediaha;		/*!< Which IPs are allowed to interchange direct media with this peer - copied from sip_peer */
 	struct ast_sockaddr recv;            /*!< Received as */
 	struct ast_sockaddr ourip;           /*!< Our IP (as seen from the outside) */

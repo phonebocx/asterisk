@@ -9,6 +9,18 @@
 ======================================================================
 
 ------------------------------------------------------------------------------
+--- Functionality changes since Asterisk 1.8.7.1 -----------------------------
+------------------------------------------------------------------------------
+
+SIP Changes
+-----------
+    * Due to potential username discovery vulnerabilities, the 'nat' setting in sip.conf
+      now defaults to force_rport. It is very important that phones requiring nat=no be
+      specifically set as such instead of relying on the default setting. If at all
+      possible, all devices should have nat settings configured in the general section as
+      opposed to configuring nat per-device.
+
+------------------------------------------------------------------------------
 --- Functionality changes from Asterisk 1.6.2 to Asterisk 1.8 ----------------
 ------------------------------------------------------------------------------
 
@@ -284,7 +296,7 @@ Queue changes
  * A new option, 'I' has been added to both app_queue and app_dial.
    By setting this option, Asterisk will not update the caller with
    connected line changes or redirecting party changes when they occur.
- * A 'relative-peroidic-announce' option has been added to queues.conf.  When
+ * A 'relative-periodic-announce' option has been added to queues.conf.  When
    enabled, this option will cause periodic announce times to be calculated
    from the end of announcements rather than from the beginning.
  * The autopause option in queues.conf can be passed a new value, "all." The

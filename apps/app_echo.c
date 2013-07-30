@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 336716 $")
 
 #include "asterisk/file.h"
 #include "asterisk/module.h"
@@ -46,6 +46,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 		<description>
 			<para>Echos back any audio, video or DTMF frames read from the calling 
 			channel back to itself. Note: If '#' detected application exits</para>
+			<para>This application does not automatically answer and should be
+			preceeded by an application such as Answer() or Progress().</para>
 		</description>
 	</application>
  ***/

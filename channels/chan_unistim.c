@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335064 $")
 
 #include <sys/stat.h>
 #include <signal.h>
@@ -4182,6 +4182,10 @@ static int unistim_indicate(struct ast_channel *ast, int ind, const void *data,
 			break;
 		}
 		return -1;
+	case AST_CONTROL_INCOMPLETE:
+		/* Overlapped dialing is not currently supported for UNIStim.  Treat an indication
+		 * of incomplete as congestion
+		 */
 	case AST_CONTROL_CONGESTION:
 		if (ast->_state != AST_STATE_UP) {
 			sub->alreadygone = 1;

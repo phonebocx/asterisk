@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 334009 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335978 $")
 
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -1506,6 +1506,7 @@ static int action_agents(struct mansession *s, const struct message *m)
 	char *talkingto = NULL;
 	char *talkingtoChan = NULL;
 	char *status = NULL;
+	struct ast_channel *bridge;
 
 	if (!ast_strlen_zero(id))
 		snprintf(idText, sizeof(idText) ,"ActionID: %s\r\n", id);
@@ -1530,10 +1531,13 @@ static int action_agents(struct mansession *s, const struct message *m)
 			if (p->owner && p->owner->_bridge) {
 				talkingto = S_COR(p->chan->caller.id.number.valid,
 					p->chan->caller.id.number.str, "n/a");
-				if (ast_bridged_channel(p->owner))
-					talkingtoChan = ast_strdupa(ast_bridged_channel(p->owner)->name);
-				else
+				ast_channel_lock(p->owner);
+				if ((bridge = ast_bridged_channel(p->owner))) {
+					talkingtoChan = ast_strdupa(bridge->name);
+				} else {
 					talkingtoChan = "n/a";
+				}
+				ast_channel_unlock(p->owner);
 				status = "AGENT_ONCALL";
 			} else {
 				talkingto = "n/a";

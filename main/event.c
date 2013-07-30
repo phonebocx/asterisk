@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 323669 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335497 $")
 
 #include "asterisk/_private.h"
 
@@ -1768,4 +1768,9 @@ int ast_event_init(void)
 	ast_cli_register_multiple(event_cli, ARRAY_LEN(event_cli));
 
 	return 0;
+}
+
+size_t ast_event_minimum_length(void)
+{
+	return sizeof(struct ast_event);
 }
