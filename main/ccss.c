@@ -23,7 +23,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 282098 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 307879 $")
 
 #include "asterisk/astobj2.h"
 #include "asterisk/strings.h"
@@ -613,6 +613,7 @@ int ast_cc_get_param(struct ast_cc_config_params *params, const char * const nam
 		char *buf, size_t buf_len)
 {
 	const char *value = NULL;
+
 	if (!strcasecmp(name, "cc_callback_macro")) {
 		value = ast_get_cc_callback_macro(params);
 	} else if (!strcasecmp(name, "cc_agent_policy")) {
@@ -622,8 +623,7 @@ int ast_cc_get_param(struct ast_cc_config_params *params, const char * const nam
 	} else if (!strcasecmp(name, "cc_agent_dialstring")) {
 		value = ast_get_cc_agent_dialstring(params);
 	}
-
-	if (!ast_strlen_zero(value)) {
+	if (value) {
 		ast_copy_string(buf, value, buf_len);
 		return 0;
 	}
@@ -2205,7 +2205,7 @@ static void check_callback_sanity(const struct ast_cc_agent_callbacks *callbacks
 	ast_assert(callbacks->init != NULL);
 	ast_assert(callbacks->start_offer_timer != NULL);
 	ast_assert(callbacks->stop_offer_timer != NULL);
-	ast_assert(callbacks->ack != NULL);
+	ast_assert(callbacks->respond != NULL);
 	ast_assert(callbacks->status_request != NULL);
 	ast_assert(callbacks->start_monitoring != NULL);
 	ast_assert(callbacks->callee_available != NULL);
@@ -2267,7 +2267,7 @@ static struct ast_cc_agent *cc_agent_init(struct ast_channel *caller_chan,
 static int cc_generic_agent_init(struct ast_cc_agent *agent, struct ast_channel *chan);
 static int cc_generic_agent_start_offer_timer(struct ast_cc_agent *agent);
 static int cc_generic_agent_stop_offer_timer(struct ast_cc_agent *agent);
-static void cc_generic_agent_ack(struct ast_cc_agent *agent);
+static void cc_generic_agent_respond(struct ast_cc_agent *agent, enum ast_cc_agent_response_reason reason);
 static int cc_generic_agent_status_request(struct ast_cc_agent *agent);
 static int cc_generic_agent_stop_ringing(struct ast_cc_agent *agent);
 static int cc_generic_agent_start_monitoring(struct ast_cc_agent *agent);
@@ -2279,7 +2279,7 @@ static struct ast_cc_agent_callbacks generic_agent_callbacks = {
 	.init = cc_generic_agent_init,
 	.start_offer_timer = cc_generic_agent_start_offer_timer,
 	.stop_offer_timer = cc_generic_agent_stop_offer_timer,
-	.ack = cc_generic_agent_ack,
+	.respond = cc_generic_agent_respond,
 	.status_request = cc_generic_agent_status_request,
 	.stop_ringing = cc_generic_agent_stop_ringing,
 	.start_monitoring = cc_generic_agent_start_monitoring,
@@ -2403,7 +2403,7 @@ static int cc_generic_agent_stop_offer_timer(struct ast_cc_agent *agent)
 	return 0;
 }
 
-static void cc_generic_agent_ack(struct ast_cc_agent *agent)
+static void cc_generic_agent_respond(struct ast_cc_agent *agent, enum ast_cc_agent_response_reason reason)
 {
 	/* The generic agent doesn't have to do anything special to
 	 * acknowledge a CC request. Just return.
@@ -2495,15 +2495,7 @@ static void *generic_recall(void *data)
 		ast_cc_failed(agent->core_id, "Failed to call back device %s/%s", tech, target);
 		return NULL;
 	}
-	if (!ast_strlen_zero(callback_macro)) {
-		ast_log_dynamic_level(cc_logger_level, "Core %d: There's a callback macro configured for agent %s\n",
-				agent->core_id, agent->device_name);
-		if (ast_app_run_macro(NULL, chan, callback_macro, NULL)) {
-			ast_cc_failed(agent->core_id, "Callback macro to %s failed. Maybe a hangup?", agent->device_name);
-			ast_hangup(chan);
-			return NULL;
-		}
-	}
+	
 	/* We have a channel. It's time now to set up the datastore of recalled CC interfaces.
 	 * This will be a common task for all recall functions. If it were possible, I'd have
 	 * the core do it automatically, but alas I cannot. Instead, I will provide a public
@@ -2515,6 +2507,19 @@ static void *generic_recall(void *data)
 	ast_copy_string(chan->exten, generic_pvt->exten, sizeof(chan->exten));
 	ast_copy_string(chan->context, generic_pvt->context, sizeof(chan->context));
 	chan->priority = 1;
+
+	pbx_builtin_setvar_helper(chan, "CC_EXTEN", generic_pvt->exten);
+	pbx_builtin_setvar_helper(chan, "CC_CONTEXT", generic_pvt->context);
+
+	if (!ast_strlen_zero(callback_macro)) {
+		ast_log_dynamic_level(cc_logger_level, "Core %d: There's a callback macro configured for agent %s\n",
+				agent->core_id, agent->device_name);
+		if (ast_app_run_macro(NULL, chan, callback_macro, NULL)) {
+			ast_cc_failed(agent->core_id, "Callback macro to %s failed. Maybe a hangup?", agent->device_name);
+			ast_hangup(chan);
+			return NULL;
+		}
+	}
 	ast_cc_agent_recalling(agent->core_id, "Generic agent %s is recalling", agent->device_name);
 	ast_pbx_start(chan);
 	return NULL;
@@ -2620,6 +2625,7 @@ static struct cc_core_instance *cc_core_init_instance(struct ast_channel *caller
 }
 
 struct cc_state_change_args {
+	struct cc_core_instance *core_instance;/*!< Holds reference to core instance. */
 	enum cc_state state;
 	int core_id;
 	char debug[1];
@@ -2768,6 +2774,8 @@ static int cc_caller_requested(struct cc_core_instance *core_instance, struct cc
 {
 	if (!ast_cc_request_is_within_limits()) {
 		ast_log(LOG_WARNING, "Cannot request CC since there is no more room for requests\n");
+		core_instance->agent->callbacks->respond(core_instance->agent,
+			AST_CC_AGENT_RESPONSE_FAILURE_TOO_MANY);
 		ast_cc_failed(core_instance->core_id, "Too many requests in the system");
 		return -1;
 	}
@@ -2806,7 +2814,8 @@ static int cc_active(struct cc_core_instance *core_instance, struct cc_state_cha
 	 *    call monitor's unsuspend callback.
 	 */
 	if (previous_state == CC_CALLER_REQUESTED) {
-		core_instance->agent->callbacks->ack(core_instance->agent);
+		core_instance->agent->callbacks->respond(core_instance->agent,
+			AST_CC_AGENT_RESPONSE_SUCCESS);
 		manager_event(EVENT_FLAG_CC, "CCRequestAcknowledged",
 			"CoreID: %d\r\n"
 			"Caller: %s\r\n",
@@ -2943,15 +2952,19 @@ static int cc_do_state_change(void *datap)
 	ast_log_dynamic_level(cc_logger_level, "Core %d: State change to %d requested. Reason: %s\n",
 			args->core_id, args->state, args->debug);
 
-	if (!(core_instance = find_cc_core_instance(args->core_id))) {
-		ast_log_dynamic_level(cc_logger_level, "Core %d: Unable to find core instance.\n", args->core_id);
-		ast_free(args);
-		return -1;
-	}
+	core_instance = args->core_instance;
 
 	if (!is_state_change_valid(core_instance->current_state, args->state, core_instance->agent)) {
 		ast_log_dynamic_level(cc_logger_level, "Core %d: Invalid state change requested. Cannot go from %s to %s\n",
 				args->core_id, cc_state_to_string(core_instance->current_state), cc_state_to_string(args->state));
+		if (args->state == CC_CALLER_REQUESTED) {
+			/*
+			 * For out-of-order requests, we need to let the requester know that
+			 * we can't handle the request now.
+			 */
+			core_instance->agent->callbacks->respond(core_instance->agent,
+				AST_CC_AGENT_RESPONSE_FAILURE_INVALID);
+		}
 		ast_free(args);
 		cc_unref(core_instance, "Unref core instance from when it was found earlier");
 		return -1;
@@ -2973,6 +2986,7 @@ static int cc_request_state_change(enum cc_state state, const int core_id, const
 	int debuglen;
 	char dummy[1];
 	va_list aq;
+	struct cc_core_instance *core_instance;
 	struct cc_state_change_args *args;
 	/* This initial call to vsnprintf is simply to find what the
 	 * size of the string needs to be
@@ -2988,12 +3002,22 @@ static int cc_request_state_change(enum cc_state state, const int core_id, const
 		return -1;
 	}
 
+	core_instance = find_cc_core_instance(core_id);
+	if (!core_instance) {
+		ast_log_dynamic_level(cc_logger_level, "Core %d: Unable to find core instance.\n",
+			core_id);
+		ast_free(args);
+		return -1;
+	}
+
+	args->core_instance = core_instance;
 	args->state = state;
 	args->core_id = core_id;
 	vsnprintf(args->debug, debuglen, debug, ap);
 
 	res = ast_taskprocessor_push(cc_core_taskprocessor, cc_do_state_change, args);
 	if (res) {
+		cc_unref(core_instance, "Unref core instance. ast_taskprocessor_push failed");
 		ast_free(args);
 	}
 	return res;
@@ -3186,10 +3210,14 @@ struct ast_cc_monitor *ast_cc_get_monitor_by_recall_core_id(const int core_id, c
  * \param dialstring A new dialstring to add
  * \retval void
  */
-static void cc_unique_append(struct ast_str *str, const char * const dialstring)
+static void cc_unique_append(struct ast_str *str, const char *dialstring)
 {
 	char dialstring_search[AST_CHANNEL_NAME];
 
+	if (ast_strlen_zero(dialstring)) {
+		/* No dialstring to append. */
+		return;
+	}
 	snprintf(dialstring_search, sizeof(dialstring_search), "%s%c", dialstring, '&');
 	if (strstr(ast_str_buffer(str), dialstring_search)) {
 		return;
@@ -3218,6 +3246,10 @@ static void build_cc_interfaces_chanvar(struct ast_cc_monitor *starting_point, s
 	struct extension_child_dialstring *child_dialstring;
 	struct ast_cc_monitor *monitor_iter = starting_point;
 	int top_level_id = starting_point->id;
+	size_t length;
+
+	/* Init to an empty string. */
+	ast_str_truncate(str, 0);
 
 	/* First we need to take all of the is_valid child_dialstrings from
 	 * the extension monitor we found and add them to the CC_INTERFACES
@@ -3240,7 +3272,15 @@ static void build_cc_interfaces_chanvar(struct ast_cc_monitor *starting_point, s
 	/* str will have an extra '&' tacked onto the end of it, so we need
 	 * to get rid of that.
 	 */
-	ast_str_truncate(str, ast_str_strlen(str) - 1);
+	length = ast_str_strlen(str);
+	if (length) {
+		ast_str_truncate(str, length - 1);
+	}
+	if (length <= 1) {
+		/* Nothing to recall?  This should not happen. */
+		ast_log(LOG_ERROR, "CC_INTERFACES is empty. starting device_name:'%s'\n",
+			starting_point->interface->device_name);
+	}
 }
 
 int ast_cc_agent_set_interfaces_chanvar(struct ast_channel *chan)

@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211539 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305838 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -127,7 +127,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211539 $")
 			</parameter>
 		</syntax>
 		<description>
-			<para>For more information see <filename>doc/asterisk.pdf</filename>.</para>
+			<para>For more information see <filename>doc/AST.pdf</filename>.</para>
 		</description>
 	</function>
 	<function name="TXTCIDNAME" language="en_US">

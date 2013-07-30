@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 274783 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305838 $")
 
 #include <signal.h>
 
@@ -85,7 +85,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 274783 $")
 			all DTMF events received on the channel, and notification if the channel is
 			hung up. The received on the channel, and notification if the channel is hung
 			up. The application will not be forcibly terminated when the channel is hung up.
-			See <filename>doc/externalivr.txt</filename> for a protocol specification.</para>
+			For more information see <filename>doc/AST.pdf</filename>.</para>
 		</description>
 	</application>
  ***/

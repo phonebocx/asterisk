@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 311192 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 315145 $")
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
@@ -139,12 +139,8 @@ static void *handle_tcptls_connection(void *data)
 	* open a FILE * as appropriate.
 	*/
 	if (!tcptls_session->parent->tls_cfg) {
-		if ((tcptls_session->f = fdopen(tcptls_session->fd, "w+"))) {
-			if(setvbuf(tcptls_session->f, NULL, _IONBF, 0)) {
-				fclose(tcptls_session->f);
-				tcptls_session->f = NULL;
-			}
-		}
+		tcptls_session->f = fdopen(tcptls_session->fd, "w+");
+		setvbuf(tcptls_session->f, NULL, _IONBF, 0);
 	}
 #ifdef DO_SSL
 	else if ( (tcptls_session->ssl = SSL_new(tcptls_session->parent->tls_cfg->ssl_ctx)) ) {
@@ -297,9 +293,12 @@ static int __ssl_setup(struct ast_tls_config *cfg, int client)
 	SSLeay_add_ssl_algorithms();
 
 	if (client) {
+#ifndef OPENSSL_NO_SSL2
 		if (ast_test_flag(&cfg->flags, AST_SSL_SSLV2_CLIENT)) {
 			cfg->ssl_ctx = SSL_CTX_new(SSLv2_client_method());
-		} else if (ast_test_flag(&cfg->flags, AST_SSL_SSLV3_CLIENT)) {
+		} else
+#endif
+		if (ast_test_flag(&cfg->flags, AST_SSL_SSLV3_CLIENT)) {
 			cfg->ssl_ctx = SSL_CTX_new(SSLv3_client_method());
 		} else if (ast_test_flag(&cfg->flags, AST_SSL_TLSV1_CLIENT)) {
 			cfg->ssl_ctx = SSL_CTX_new(TLSv1_client_method());
@@ -554,7 +553,7 @@ int ast_tls_read_conf(struct ast_tls_config *tls_cfg, struct ast_tcptls_session_
 	} else if (!strcasecmp(varname, "tlscafile")) {
 		ast_free(tls_cfg->cafile);
 		tls_cfg->cafile = ast_strdup(value);
-	} else if (!strcasecmp(varname, "tlscapath")) {
+	} else if (!strcasecmp(varname, "tlscapath") || !strcasecmp(varname, "tlscadir")) {
 		ast_free(tls_cfg->capath);
 		tls_cfg->capath = ast_strdup(value);
 	} else if (!strcasecmp(varname, "tlsverifyclient")) {

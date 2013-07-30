@@ -1,8 +1,8 @@
                                 Release Summary
 
-                                asterisk-1.8.3.3
+                                asterisk-1.8.4.2
 
-                                Date: 2011-04-21
+                                Date: 2011-06-02
 
                            <asteriskteam@digium.com>
 
@@ -28,10 +28,10 @@
    the advisories and determine what action they should take to protect their
    systems from these issues.
 
-   Security Advisories: AST-2011-005, AST-2011-006
+   Security Advisories: AST-2011-007
 
    The data in this summary reflects changes that have been made since the
-   previous release, asterisk-1.8.3.2.
+   previous release, asterisk-1.8.4.1.
 
      ----------------------------------------------------------------------
 
@@ -49,7 +49,7 @@
    release.
 
      Coders                   Testers                  Reporters              
-   5 lmadsen                
+   3 lmadsen                
 
      ----------------------------------------------------------------------
 
@@ -65,17 +65,14 @@
    +------------------------------------------------------------------------+
    | Revision | Author  | Summary                       | Issues Referenced |
    |----------+---------+-------------------------------+-------------------|
-   | 312755   | lmadsen | Create 1.8.3.3 from 1.8.3.2   |                   |
+   | 321555   | lmadsen | Copy Asterisk 1.8.4.1 to      |                   |
+   |          |         | 1.8.4.2                       |                   |
    |----------+---------+-------------------------------+-------------------|
-   | 312760   | lmadsen | Update .version, ChangeLogs   |                   |
+   |          |         | Update .version and           |                   |
+   | 321556   | lmadsen | ChangeLog. Remove old summary |                   |
+   |          |         | files.                        |                   |
    |----------+---------+-------------------------------+-------------------|
-   | 312791   | lmadsen | AST-2011-005                  | #18996            |
-   |----------+---------+-------------------------------+-------------------|
-   | 312864   | lmadsen | Importing release summary for |                   |
-   |          |         | 1.8.3.3 release.              |                   |
-   |----------+---------+-------------------------------+-------------------|
-   | 314723   | lmadsen | Merged changes for            |                   |
-   |          |         | AST-2011-005 and AST-2011-006 |                   |
+   | 321557   | lmadsen | Changes for AST-2011-007.     |                   |
    +------------------------------------------------------------------------+
 
      ----------------------------------------------------------------------
@@ -88,18 +85,10 @@
    release that was generated using the diffstat utility.
 
  .version                      |    2
- ChangeLog                     |    8 ++
- asterisk-1.8.3.2-summary.html |   72 ------------------
- asterisk-1.8.3.2-summary.txt  |  107 ----------------------------
- channels/chan_sip.c           |  160 ++++++++++++++++++++++++++++++++++++++++--
- channels/chan_skinny.c        |   78 +++++++++++++++++++-
- channels/sip/include/sip.h    |    4 +
- configs/http.conf.sample      |    5 +
- configs/manager.conf.sample   |   11 ++
- configs/sip.conf.sample       |   10 ++
- configs/skinny.conf.sample    |    9 ++
- main/http.c                   |   22 ++++-
- main/manager.c                |  107 +++++++++++++++++++++++-----
- 13 files changed, 386 insertions(+), 209 deletions(-)
+ ChangeLog                     |    6 ++
+ asterisk-1.8.4.1-summary.html |   66 --------------------------
+ asterisk-1.8.4.1-summary.txt  |  103 ------------------------------------------
+ channels/sip/reqresp_parser.c |   21 ++++++++
+ 5 files changed, 28 insertions(+), 170 deletions(-)
 
      ----------------------------------------------------------------------

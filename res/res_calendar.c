@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 294207 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 304908 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/calendar.h"
@@ -53,6 +53,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 294207 $")
     	<description>
 			<para>Check the specified calendar's current busy status.</para>
 		</description>
+		<see-also>
+			<ref type="function">CALENDAR_EVENT</ref>
+			<ref type="function">CALENDAR_QUERY</ref>
+			<ref type="function">CALENDAR_QUERY_RESULT</ref>
+			<ref type="function">CALENDAR_WRITE</ref>
+		</see-also>
 	</function>
 	<function name="CALENDAR_EVENT" language="en_US">
 		<synopsis>
@@ -79,6 +85,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 294207 $")
 			<para>Whenever a calendar event notification call is made, the event data
 			may be accessed with this function.</para>
 		</description>
+		<see-also>
+			<ref type="function">CALENDAR_BUSY</ref>
+			<ref type="function">CALENDAR_QUERY</ref>
+			<ref type="function">CALENDAR_QUERY_RESULT</ref>
+			<ref type="function">CALENDAR_WRITE</ref>
+		</see-also>
 	</function>
 	<function name="CALENDAR_QUERY" language="en_US">
 		<synopsis>Query a calendar server and store the data on a channel
@@ -98,6 +110,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 294207 $")
 			<para>Get a list of events in the currently accessible timeframe of the <replaceable>calendar</replaceable>
 			The function returns the id for accessing the result with CALENDAR_QUERY_RESULT()</para>
 		</description>
+		<see-also>
+			<ref type="function">CALENDAR_BUSY</ref>
+			<ref type="function">CALENDAR_EVENT</ref>
+			<ref type="function">CALENDAR_QUERY_RESULT</ref>
+			<ref type="function">CALENDAR_WRITE</ref>
+		</see-also>
 	</function>
 	<function name="CALENDAR_QUERY_RESULT" language="en_US">
 		<synopsis>
@@ -133,6 +151,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 294207 $")
 			will return the data for that field. If multiple events matched the query, and <replaceable>entry</replaceable>
 			is provided, information from that event will be returned.</para>
 		</description>
+		<see-also>
+			<ref type="function">CALENDAR_BUSY</ref>
+			<ref type="function">CALENDAR_EVENT</ref>
+			<ref type="function">CALENDAR_QUERY</ref>
+			<ref type="function">CALENDAR_WRITE</ref>
+		</see-also>
 	</function>
 	<function name="CALENDAR_WRITE" language="en_US">
 		<synopsis>Write an event to a calendar</synopsis>
@@ -159,6 +183,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 294207 $")
 			<para>Example: CALENDAR_WRITE(calendar,field1,field2,field3)=val1,val2,val3</para>
 			<para>The field and value arguments can easily be set/passed using the HASHKEYS() and HASH() functions</para>
 		</description>
+		<see-also>
+			<ref type="function">CALENDAR_BUSY</ref>
+			<ref type="function">CALENDAR_EVENT</ref>
+			<ref type="function">CALENDAR_QUERY</ref>
+			<ref type="function">CALENDAR_QUERY_RESULT</ref>
+		</see-also>
 	</function>
 
 ***/

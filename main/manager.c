@@ -43,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 314723 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 315145 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -977,7 +977,6 @@ struct mansession {
 	struct ast_tcptls_session_instance *tcptls_session;
 	FILE *f;
 	int fd;
-	int write_error:1;
 	struct manager_custom_hook *hook;
 	ast_mutex_t lock;
 };
@@ -1851,10 +1850,6 @@ int ast_hook_send_action(struct manager_custom_hook *hook, const char *msg)
  */
 static int send_string(struct mansession *s, char *string)
 {
-	int res;
-	FILE *f = s->f ? s->f : s->session->f;
-	int fd = s->f ? s->fd : s->session->fd;
-
 	/* It's a result from one of the hook's action invocation */
 	if (s->hook) {
 		/*
@@ -1863,13 +1858,11 @@ static int send_string(struct mansession *s, char *string)
 		 */
 		s->hook->helper(EVENT_FLAG_HOOKRESPONSE, "HookResponse", string);
 		return 0;
+	} else if (s->f) {
+		return ast_careful_fwrite(s->f, s->fd, string, strlen(string), s->session->writetimeout);
+	} else {
+		return ast_careful_fwrite(s->session->f, s->session->fd, string, strlen(string), s->session->writetimeout);
 	}
-       
-	if ((res = ast_careful_fwrite(f, fd, string, strlen(string), s->session->writetimeout))) {
-		s->write_error = 1;
-	}
-
-	return res;
 }
 
 /*!
@@ -3265,12 +3258,10 @@ static int action_sendtext(struct mansession *s, const struct message *m)
 		return 0;
 	}
 
-	ast_channel_lock(c);
 	res = ast_sendtext(c, textmsg);
-	ast_channel_unlock(c);
 	c = ast_channel_unref(c);
 
-	if (res > 0) {
+	if (res >= 0) {
 		astman_send_ack(s, m, "Success");
 	} else {
 		astman_send_error(s, m, "Failure");
@@ -4734,7 +4725,7 @@ static void *session_do(void *data)
 
 	astman_append(&s, "Asterisk Call Manager/%s\r\n", AMI_VERSION);	/* welcome prompt */
 	for (;;) {
-		if ((res = do_message(&s)) < 0 || s.write_error) {
+		if ((res = do_message(&s)) < 0) {
 			break;
 		}
 	}
@@ -5529,7 +5520,7 @@ static int generic_http_callback(struct ast_tcptls_session_instance *ser,
 		hdrlen = strlen(v->name) + strlen(v->value) + 3;
 		m.headers[m.hdrcount] = alloca(hdrlen);
 		snprintf((char *) m.headers[m.hdrcount], hdrlen, "%s: %s", v->name, v->value);
-		ast_verb(4, "HTTP Manager add header %s\n", m.headers[m.hdrcount]);
+		ast_debug(1, "HTTP Manager add header %s\n", m.headers[m.hdrcount]);
 		m.hdrcount = x + 1;
 	}
 

@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 301134 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 307879 $")
 
 #if defined(__NetBSD__) || defined(__FreeBSD__)
 #include <pthread.h>
@@ -134,7 +134,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 301134 $")
 	</application>
 	<application name="DAHDISendCallreroutingFacility" language="en_US">
 		<synopsis>
-			Send QSIG call rerouting facility over a PRI.
+			Send an ISDN call rerouting/deflection facility message.
 		</synopsis>
 		<syntax argsep=",">
 			<parameter name="destination" required="true">
@@ -148,8 +148,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 301134 $")
 			</parameter>
 		</syntax>
 		<description>
-			<para>This application will send a Callrerouting Facility IE over the
-			current channel.</para>
+			<para>This application will send an ISDN switch specific call
+			rerouting/deflection facility message over the current channel.
+			Supported switches depend upon the version of libpri in use.</para>
 		</description>
 	</application>
 	<application name="DAHDIAcceptR2Call" language="en_US">
@@ -7660,7 +7661,7 @@ static struct ast_frame *dahdi_handle_event(struct ast_channel *ast)
 		ast_debug(1, "Detected %sdigit '%c'\n", p->pulsedial ? "pulse ": "", res & 0xff);
 #if defined(HAVE_PRI)
 		if (dahdi_sig_pri_lib_handles(p->sig)
-			&& !((struct sig_pri_chan *) p->sig_pvt)->proceeding
+			&& ((struct sig_pri_chan *) p->sig_pvt)->call_level < SIG_PRI_CALL_LEVEL_PROCEEDING
 			&& p->pri
 			&& (p->pri->overlapdial & DAHDI_OVERLAPDIAL_INCOMING)) {
 			/* absorb event */
@@ -7680,7 +7681,7 @@ static struct ast_frame *dahdi_handle_event(struct ast_channel *ast)
 		ast_debug(1, "DTMF Down '%c'\n", res & 0xff);
 #if defined(HAVE_PRI)
 		if (dahdi_sig_pri_lib_handles(p->sig)
-			&& !((struct sig_pri_chan *) p->sig_pvt)->proceeding
+			&& ((struct sig_pri_chan *) p->sig_pvt)->call_level < SIG_PRI_CALL_LEVEL_PROCEEDING
 			&& p->pri
 			&& (p->pri->overlapdial & DAHDI_OVERLAPDIAL_INCOMING)) {
 			/* absorb event */
@@ -8931,7 +8932,7 @@ static struct ast_frame *dahdi_read(struct ast_channel *ast)
 				|| f->frametype == AST_FRAME_DTMF_END) {
 #ifdef HAVE_PRI
 				if (dahdi_sig_pri_lib_handles(p->sig)
-					&& !((struct sig_pri_chan *) p->sig_pvt)->proceeding
+					&& ((struct sig_pri_chan *) p->sig_pvt)->call_level < SIG_PRI_CALL_LEVEL_PROCEEDING
 					&& p->pri
 					&& ((!p->outgoing && (p->pri->overlapdial & DAHDI_OVERLAPDIAL_INCOMING))
 						|| (p->outgoing && (p->pri->overlapdial & DAHDI_OVERLAPDIAL_OUTGOING)))) {
@@ -9164,7 +9165,17 @@ static int dahdi_indicate(struct ast_channel *chan, int condition, const void *d
 			res = 0;
 			break;
 		case AST_CONTROL_CONGESTION:
-			chan->hangupcause = AST_CAUSE_CONGESTION;
+			/* There are many cause codes that generate an AST_CONTROL_CONGESTION. */
+			switch (chan->hangupcause) {
+			case AST_CAUSE_USER_BUSY:
+			case AST_CAUSE_NORMAL_CLEARING:
+			case 0:/* Cause has not been set. */
+				/* Supply a more appropriate cause. */
+				chan->hangupcause = AST_CAUSE_CONGESTION;
+				break;
+			default:
+				break;
+			}
 			break;
 		case AST_CONTROL_HOLD:
 			ast_moh_start(chan, data, p->mohinterpret);
@@ -16104,7 +16115,7 @@ static struct ast_cc_agent_callbacks dahdi_pri_cc_agent_callbacks = {
 	.init = dahdi_pri_cc_agent_init,
 	.start_offer_timer = sig_pri_cc_agent_start_offer_timer,
 	.stop_offer_timer = sig_pri_cc_agent_stop_offer_timer,
-	.ack = sig_pri_cc_agent_req_ack,
+	.respond = sig_pri_cc_agent_req_rsp,
 	.status_request = sig_pri_cc_agent_status_req,
 	.stop_ringing = sig_pri_cc_agent_stop_ringing,
 	.party_b_free = sig_pri_cc_agent_party_b_free,
@@ -17494,7 +17505,7 @@ static void deep_copy_dahdi_chan_conf(struct dahdi_chan_conf *dest, const struct
  * \retval 0 on success.
  * \retval -1 on error.
  */
-static int setup_dahdi_int(int reload, struct dahdi_chan_conf *base_conf, struct dahdi_chan_conf *conf)
+static int setup_dahdi_int(int reload, struct dahdi_chan_conf *default_conf, struct dahdi_chan_conf *base_conf, struct dahdi_chan_conf *conf)
 {
 	struct ast_config *cfg;
 	struct ast_config *ucfg;
@@ -17652,6 +17663,8 @@ static int setup_dahdi_int(int reload, struct dahdi_chan_conf *base_conf, struct
 	if (ucfg) {
 		const char *chans;
 
+		/* Reset base_conf, so things dont leak from dahdi_chan.conf */
+		deep_copy_dahdi_chan_conf(base_conf, default_conf);
 		process_dahdi(base_conf, "", ast_variable_browse(ucfg, "general"), 1, 0);
 
 		for (cat = ast_category_browse(ucfg, NULL); cat ; cat = ast_category_browse(ucfg, cat)) {
@@ -17738,14 +17751,16 @@ static int setup_dahdi_int(int reload, struct dahdi_chan_conf *base_conf, struct
 static int setup_dahdi(int reload)
 {
 	int res;
+	struct dahdi_chan_conf default_conf = dahdi_chan_conf_default();
 	struct dahdi_chan_conf base_conf = dahdi_chan_conf_default();
 	struct dahdi_chan_conf conf = dahdi_chan_conf_default();
 
-	if (base_conf.chan.cc_params && conf.chan.cc_params) {
-		res = setup_dahdi_int(reload, &base_conf, &conf);
+	if (default_conf.chan.cc_params && base_conf.chan.cc_params && conf.chan.cc_params) {
+		res = setup_dahdi_int(reload, &default_conf, &base_conf, &conf);
 	} else {
 		res = -1;
 	}
+	ast_cc_config_params_destroy(default_conf.chan.cc_params);
 	ast_cc_config_params_destroy(base_conf.chan.cc_params);
 	ast_cc_config_params_destroy(conf.chan.cc_params);
 

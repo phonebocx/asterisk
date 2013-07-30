@@ -27,7 +27,7 @@
  *
  * \par See also
  * \arg \ref Config_vm
- * \note For information about voicemail IMAP storage, read doc/imapstorage.txt
+ * \note For information about voicemail IMAP storage, https://wiki.asterisk.org/wiki/display/AST/IMAP+Voicemail+Storage
  * \ingroup applications
  * \note This module requires res_adsi to load. This needs to be optional
  * during compilation.
@@ -87,7 +87,7 @@
 #endif
 #endif
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 301047 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 306967 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_SPOOL_DIR */
 #include <sys/time.h>
@@ -3923,6 +3923,8 @@ static int last_message_index(struct ast_vm_user *vmu, char *dir)
 	DIR *msgdir;
 	struct dirent *msgdirent;
 	int msgdirint;
+	char extension[4];
+	int stopcount = 0;
 
 	/* Reading the entire directory into a file map scales better than
 	 * doing a stat repeatedly on a predicted sequence.  I suspect this
@@ -3933,14 +3935,20 @@ static int last_message_index(struct ast_vm_user *vmu, char *dir)
 	}
 
 	while ((msgdirent = readdir(msgdir))) {
-		if (sscanf(msgdirent->d_name, "msg%30d", &msgdirint) == 1 && msgdirint < MAXMSGLIMIT)
+		if (sscanf(msgdirent->d_name, "msg%30d.%3s", &msgdirint, extension) == 2 && !strcmp(extension, "txt") && msgdirint < MAXMSGLIMIT) {
 			map[msgdirint] = 1;
+			stopcount++;
+			ast_debug(4, "%s map[%d] = %d, count = %d\n", dir, msgdirint, map[msgdirint], stopcount);
+		}
 	}
 	closedir(msgdir);
 
 	for (x = 0; x < vmu->maxmsg; x++) {
-		if (map[x] == 0)
+		if (map[x] == 1) {
+			stopcount--;
+		} else if (map[x] == 0 && !stopcount) {
 			break;
+		}
 	}
 
 	return x - 1;
@@ -6021,6 +6029,36 @@ leave_vm_out:
 	return res;
 }
 
+#if !defined(IMAP_STORAGE) && !defined(ODBC_STORAGE)
+static int resequence_mailbox(struct ast_vm_user *vmu, char *dir, int stopcount)
+{
+    /* we know the actual number of messages, so stop process when number is hit */
+
+    int x, dest;
+    char sfn[PATH_MAX];
+    char dfn[PATH_MAX];
+
+    if (vm_lock_path(dir))
+        return ERROR_LOCK_PATH;
+
+    for (x = 0, dest = 0; dest != stopcount && x < vmu->maxmsg + 10; x++) {
+        make_file(sfn, sizeof(sfn), dir, x);
+        if (EXISTS(dir, x, sfn, NULL)) {
+
+            if (x != dest) {
+                make_file(dfn, sizeof(dfn), dir, dest);
+                RENAME(dir, x, vmu->mailbox, vmu->context, dir, dest, sfn, dfn);
+            }
+
+            dest++;
+        }
+    }
+    ast_unlock_path(dir);
+
+    return dest;
+}
+#endif
+
 static int say_and_wait(struct ast_channel *chan, int num, const char *language)
 {
 	int d;
@@ -6739,14 +6777,16 @@ static int vm_forwardoptions(struct ast_channel *chan, struct ast_vm_user *vmu, 
 			}
 			
 			/* Back up the original file, so we can retry the prepend and restore it after forward. */
+#ifndef IMAP_STORAGE
 			if (already_recorded) {
 				ast_filecopy(backup, msgfile, NULL);
 				copy(backup_textfile, textfile);
 			}
 			else {
 				ast_filecopy(msgfile, backup, NULL);
-				copy(textfile,backup_textfile);
+				copy(textfile, backup_textfile);
 			}
+#endif
 			already_recorded = 1;
 
 			if (record_gain)
@@ -7735,8 +7775,11 @@ static int open_mailbox(struct vm_state *vms, struct ast_vm_user *vmu, int box)
 
 	if (last_msg < -1) {
 		return last_msg;
+#ifndef ODBC_STORAGE
 	} else if (vms->lastmsg != last_msg) {
-		ast_log(LOG_NOTICE, "Mailbox: %s, expected %d but found %d message(s) in box with max threshold of %d.\n", vms->curdir, last_msg + 1, vms->lastmsg + 1, vmu->maxmsg);
+		ast_log(LOG_NOTICE, "Resequencing mailbox: %s, expected %d but found %d message(s) in box with max threshold of %d.\n", vms->curdir, last_msg + 1, vms->lastmsg + 1, vmu->maxmsg);
+        resequence_mailbox(vmu, vms->curdir, count_msg);
+#endif
 	}
 
 	return 0;
@@ -11697,6 +11740,9 @@ static int load_config(int reload)
 			imapgreetings = 0;
 		}
 		if ((val = ast_variable_retrieve(cfg, "general", "greetingfolder"))) {
+			ast_copy_string(greetingfolder, val, sizeof(greetingfolder));
+		} else if ((val = ast_variable_retrieve(cfg, "general", "greetingsfolder"))) {
+			/* Also support greetingsfolder as documented in voicemail.conf.sample */
 			ast_copy_string(greetingfolder, val, sizeof(greetingfolder));
 		} else {
 			ast_copy_string(greetingfolder, imapfolder, sizeof(greetingfolder));

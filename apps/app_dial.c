@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 296002 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 307962 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -1276,7 +1276,7 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 				case AST_CONTROL_REDIRECTING:
 					if (ast_test_flag64(peerflags, OPT_IGNORE_CONNECTEDLINE)) {
 						ast_verb(3, "Redirecting update to %s prevented.\n", in->name);
-					} else {
+					} else if (single) {
 						ast_verb(3, "%s redirecting info has changed, passing it to %s\n", c->name, in->name);
 						if (ast_channel_redirecting_macro(c, in, f, 1, 1)) {
 							ast_indicate_data(in, AST_CONTROL_REDIRECTING, f->data.ptr, f->datalen);
@@ -1321,20 +1321,22 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 				}
 			} else if (single) {
 				switch (f->frametype) {
-					case AST_FRAME_VOICE:
-					case AST_FRAME_IMAGE:
-					case AST_FRAME_TEXT:
-						if (ast_write(in, f)) {
-							ast_log(LOG_WARNING, "Unable to write frame\n");
-						}
-						break;
-					case AST_FRAME_HTML:
-						if (!ast_test_flag64(outgoing, DIAL_NOFORWARDHTML) && ast_channel_sendhtml(in, f->subclass.integer, f->data.ptr, f->datalen) == -1) {
-							ast_log(LOG_WARNING, "Unable to send URL\n");
-						}
-						break;
-					default:
-						break;
+				case AST_FRAME_VOICE:
+				case AST_FRAME_IMAGE:
+				case AST_FRAME_TEXT:
+					if (ast_write(in, f)) {
+						ast_log(LOG_WARNING, "Unable to write frametype: %d\n",
+							f->frametype);
+					}
+					break;
+				case AST_FRAME_HTML:
+					if (!ast_test_flag64(outgoing, DIAL_NOFORWARDHTML)
+						&& ast_channel_sendhtml(in, f->subclass.integer, f->data.ptr, f->datalen) == -1) {
+						ast_log(LOG_WARNING, "Unable to send URL\n");
+					}
+					break;
+				default:
+					break;
 				}
 			}
 			ast_frfree(f);
@@ -1879,7 +1881,7 @@ static int dial_exec_full(struct ast_channel *chan, const char *data, struct ast
 			pbx_builtin_setvar_helper(chan, "DIALSTATUS", pa.status);
 			goto done;
 		}
-		ast_verb(3, "Setting call duration limit to %.3lf seconds.\n", calldurationlimit.tv_sec + calldurationlimit.tv_usec / 1000000.0);
+		ast_verb(3, "Setting call duration limit to %.3lf milliseconds.\n", calldurationlimit.tv_sec + calldurationlimit.tv_usec / 1000000.0);
 	}
 
 	if (ast_test_flag64(&opts, OPT_SENDDTMF) && !ast_strlen_zero(opt_args[OPT_ARG_SENDDTMF])) {
@@ -1944,7 +1946,7 @@ static int dial_exec_full(struct ast_channel *chan, const char *data, struct ast
 		struct ast_dialed_interface *di;
 		AST_LIST_HEAD(, ast_dialed_interface) *dialed_interfaces;
 		num_dialed++;
-		if (!number) {
+		if (ast_strlen_zero(number)) {
 			ast_log(LOG_WARNING, "Dial argument takes format (technology/[device:]number1)\n");
 			goto out;
 		}
@@ -2093,7 +2095,7 @@ static int dial_exec_full(struct ast_channel *chan, const char *data, struct ast
 			struct ast_party_connected_line connected;
 			int pres;
 
-			ast_party_connected_line_set_init(&connected, &tmp->chan->connected);
+			ast_party_connected_line_set_init(&connected, &tc->connected);
 			if (cid_pres) {
 				pres = ast_parse_caller_presentation(cid_pres);
 				if (pres < 0) {
@@ -2113,7 +2115,7 @@ static int dial_exec_full(struct ast_channel *chan, const char *data, struct ast
 				connected.id.name.presentation = pres;
 			}
 			connected.id.tag = cid_tag;
-			ast_channel_set_connected_line(tmp->chan, &connected, NULL);
+			ast_channel_set_connected_line(tc, &connected, NULL);
 		} else {
 			ast_connected_line_copy_from_caller(&tc->connected, &chan->caller);
 		}
@@ -2486,14 +2488,24 @@ static int dial_exec_full(struct ast_channel *chan, const char *data, struct ast
 
 				gosub_argstart = strchr(opt_args[OPT_ARG_CALLEE_GOSUB], ',');
 				if (gosub_argstart) {
+					const char *what_is_s = "s";
 					*gosub_argstart = 0;
-					if (asprintf(&gosub_args, "%s,s,1(%s)", opt_args[OPT_ARG_CALLEE_GOSUB], gosub_argstart + 1) < 0) {
+					if (!ast_exists_extension(peer, opt_args[OPT_ARG_CALLEE_GOSUB], "s", 1, S_COR(peer->caller.id.number.valid, peer->caller.id.number.str, NULL)) &&
+						 ast_exists_extension(peer, opt_args[OPT_ARG_CALLEE_GOSUB], "~~s~~", 1, S_COR(peer->caller.id.number.valid, peer->caller.id.number.str, NULL))) {
+						what_is_s = "~~s~~";
+					}
+					if (asprintf(&gosub_args, "%s,%s,1(%s)", opt_args[OPT_ARG_CALLEE_GOSUB], what_is_s, gosub_argstart + 1) < 0) {
 						ast_log(LOG_WARNING, "asprintf() failed: %s\n", strerror(errno));
 						gosub_args = NULL;
 					}
 					*gosub_argstart = ',';
 				} else {
-					if (asprintf(&gosub_args, "%s,s,1", opt_args[OPT_ARG_CALLEE_GOSUB]) < 0) {
+					const char *what_is_s = "s";
+					if (!ast_exists_extension(peer, opt_args[OPT_ARG_CALLEE_GOSUB], "s", 1, S_COR(peer->caller.id.number.valid, peer->caller.id.number.str, NULL)) &&
+						 ast_exists_extension(peer, opt_args[OPT_ARG_CALLEE_GOSUB], "~~s~~", 1, S_COR(peer->caller.id.number.valid, peer->caller.id.number.str, NULL))) {
+						what_is_s = "~~s~~";
+					}
+					if (asprintf(&gosub_args, "%s,%s,1", opt_args[OPT_ARG_CALLEE_GOSUB], what_is_s) < 0) {
 						ast_log(LOG_WARNING, "asprintf() failed: %s\n", strerror(errno));
 						gosub_args = NULL;
 					}

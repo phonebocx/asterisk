@@ -51,7 +51,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 308579 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 308416 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -169,8 +169,6 @@ struct ast_udptl {
 	 * error_correction_entries, used to calculate local_max_datagram.
 	 */
 	int local_max_ifp;
-
-	int verbose;
 
 	unsigned int tx_seq_no;
 	unsigned int rx_seq_no;
@@ -624,9 +622,6 @@ static int udptl_build_packet(struct ast_udptl *s, uint8_t *buf, unsigned int bu
 		}
 		break;
 	}
-
-	if (s->verbose)
-		fprintf(stderr, "\n");
 
 	s->tx_seq_no++;
 	return len;

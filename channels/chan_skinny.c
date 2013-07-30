@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 314723 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 315145 $")
 
 #include <sys/socket.h>
 #include <netinet/in.h>

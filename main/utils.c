@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 301308 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 304950 $")
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -208,6 +208,8 @@ struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp)
 		hp->hp.h_addrtype = AF_INET;
 		hp->hp.h_addr_list = (void *) hp->buf;
 		hp->hp.h_addr = hp->buf + sizeof(void *);
+		/* For AF_INET, this will always be 4 */
+		hp->hp.h_length = 4;
 		if (inet_pton(AF_INET, host, hp->hp.h_addr) > 0)
 			return &hp->hp;
 		return NULL;
@@ -420,7 +422,7 @@ void ast_uri_decode(char *s)
 	unsigned int tmp;
 
 	for (o = s; *s; s++, o++) {
-		if (*s == '%' && strlen(s) > 2 && sscanf(s + 1, "%2x", &tmp) == 1) {
+		if (*s == '%' && s[1] != '\0' && s[2] != '\0' && sscanf(s + 1, "%2x", &tmp) == 1) {
 			/* have '%', two chars and correct parsing */
 			*o = tmp;
 			s += 2;	/* Will be incremented once more when we break out */
@@ -780,7 +782,7 @@ static void append_lock_information(struct ast_str **str, struct thr_lock_info *
 		return;
 	
 	lock = lock_info->locks[i].lock_addr;
-	lt = &lock->track;
+	lt = lock->track;
 	ast_reentrancy_lock(lt);
 	for (j = 0; *str && j < lt->reentrancy; j++) {
 		ast_str_append(str, 0, "=== --- ---> Locked Here: %s line %d (%s)\n",

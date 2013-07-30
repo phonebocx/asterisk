@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 300521 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305692 $")
 
 #include <sys/mman.h>
 #include <dirent.h>
@@ -8617,7 +8617,7 @@ static void reg_source_db(struct iax2_peer *p)
 	}
 	*expiry++ = '\0';
 
-	if (ast_sockaddr_parse(&p->addr, data, PARSE_PORT_REQUIRE)) {
+	if (!ast_sockaddr_parse(&p->addr, data, PARSE_PORT_REQUIRE)) {
 		ast_log(LOG_NOTICE, "IAX/Registry astdb host:port invalid - '%s'\n", data);
 		return;
 	}

@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 314723 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 315145 $")
 
 #include <time.h>
 #include <sys/time.h>
@@ -112,6 +112,14 @@ static struct {
 	{ "svg", "image/svg+xml" },
 	{ "svgz", "image/svg+xml" },
 	{ "gif", "image/gif" },
+	{ "html", "text/html" },
+	{ "htm", "text/html" },
+	{ "css", "text/css" },
+	{ "cnf", "text/plain" },
+	{ "cfg", "text/plain" },
+	{ "bin", "application/octet-stream" },
+	{ "sbn", "application/octet-stream" },
+	{ "ld", "application/octet-stream" },
 };
 
 struct http_uri_redirect {
@@ -657,6 +665,8 @@ static int handle_uri(struct ast_tcptls_session_instance *ser, char *uri,
 	struct ast_variable *get_vars = NULL, *v, *prev = NULL;
 	struct http_uri_redirect *redirect;
 
+	ast_debug(2, "HTTP Request URI is %s \n", uri);
+
 	strsep(&params, "?");
 	/* Extract arguments from the request and store them in variables. */
 	if (params) {
@@ -799,9 +809,7 @@ static struct ast_variable *parse_cookies(char *cookies)
 			continue;
 		}
 
-		if (option_debug) {
-			ast_log(LOG_DEBUG, "mmm ... cookie!  Name: '%s'  Value: '%s'\n", name, val);
-		}
+		ast_debug(1, "HTTP Cookie, Name: '%s'  Value: '%s'\n", name, val);
 
 		var = ast_variable_new(name, val, __FILE__);
 		var->next = vars;

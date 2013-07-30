@@ -865,10 +865,14 @@ static struct ast_channel *sig_pri_new_ast_channel(struct sig_pri_chan *p, int s
 {
 	struct ast_channel *c;
 
-	if (p->calls->new_ast_channel)
+	if (p->calls->new_ast_channel) {
 		c = p->calls->new_ast_channel(p->chan_pvt, state, ulaw, exten, requestor);
-	else
+	} else {
 		return NULL;
+	}
+	if (!c) {
+		return NULL;
+	}
 
 	if (!p->owner)
 		p->owner = c;
@@ -1223,12 +1227,9 @@ static int pri_fixup_principle(struct sig_pri_span *pri, int principle, q931_cal
 		new_chan->waiting_for_aoce = old_chan->waiting_for_aoce;
 		new_chan->holding_aoce = old_chan->holding_aoce;
 #endif	/* defined(HAVE_PRI_AOC_EVENTS) */
-		new_chan->alerting = old_chan->alerting;
 		new_chan->alreadyhungup = old_chan->alreadyhungup;
 		new_chan->isidlecall = old_chan->isidlecall;
-		new_chan->proceeding = old_chan->proceeding;
 		new_chan->progress = old_chan->progress;
-		new_chan->setup_ack = old_chan->setup_ack;
 		new_chan->outgoing = old_chan->outgoing;
 		new_chan->digital = old_chan->digital;
 #if defined(HAVE_PRI_CALL_WAITING)
@@ -1240,12 +1241,9 @@ static int pri_fixup_principle(struct sig_pri_span *pri, int principle, q931_cal
 		old_chan->waiting_for_aoce = 0;
 		old_chan->holding_aoce = 0;
 #endif	/* defined(HAVE_PRI_AOC_EVENTS) */
-		old_chan->alerting = 0;
 		old_chan->alreadyhungup = 0;
 		old_chan->isidlecall = 0;
-		old_chan->proceeding = 0;
 		old_chan->progress = 0;
-		old_chan->setup_ack = 0;
 		old_chan->outgoing = 0;
 		old_chan->digital = 0;
 #if defined(HAVE_PRI_CALL_WAITING)
@@ -1253,6 +1251,8 @@ static int pri_fixup_principle(struct sig_pri_span *pri, int principle, q931_cal
 #endif	/* defined(HAVE_PRI_CALL_WAITING) */
 
 		/* More stuff to transfer to the new channel. */
+		new_chan->call_level = old_chan->call_level;
+		old_chan->call_level = SIG_PRI_CALL_LEVEL_IDLE;
 #if defined(HAVE_PRI_REVERSE_CHARGE)
 		new_chan->reverse_charging_indication = old_chan->reverse_charging_indication;
 #endif	/* defined(HAVE_PRI_REVERSE_CHARGE) */
@@ -1637,12 +1637,28 @@ static void *pri_ss_thread(void *data)
 		/* Start the real PBX */
 		ast_copy_string(chan->exten, exten, sizeof(chan->exten));
 		sig_pri_dsp_reset_and_flush_digits(p);
-		if (p->pri->overlapdial & DAHDI_OVERLAPDIAL_INCOMING) {
+#if defined(ISSUE_16789)
+		/*
+		 * Conditionaled out this code to effectively revert the Mantis
+		 * issue 16789 change.  It breaks overlap dialing through
+		 * Asterisk.  There is not enough information available at this
+		 * point to know if dialing is complete.  The
+		 * ast_exists_extension(), ast_matchmore_extension(), and
+		 * ast_canmatch_extension() calls are not adequate to detect a
+		 * dial through extension pattern of "_9!".
+		 *
+		 * Workaround is to use the dialplan Proceeding() application
+		 * early on non-dial through extensions.
+		 */
+		if ((p->pri->overlapdial & DAHDI_OVERLAPDIAL_INCOMING)
+			&& !ast_matchmore_extension(chan, chan->context, exten, 1, p->cid_num)) {
 			sig_pri_lock_private(p);
-			if (p->pri->pri) {		
+			if (p->pri->pri) {
 				if (!pri_grab(p, p->pri)) {
+					if (p->call_level < SIG_PRI_CALL_LEVEL_PROCEEDING) {
+						p->call_level = SIG_PRI_CALL_LEVEL_PROCEEDING;
+					}
 					pri_proceeding(p->pri->pri, p->call, PVT_TO_CHANNEL(p), 0);
-					p->proceeding = 1;
 					pri_rel(p->pri);
 				} else {
 					ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->pri->span);
@@ -1650,6 +1666,7 @@ static void *pri_ss_thread(void *data)
 			}
 			sig_pri_unlock_private(p);
 		}
+#endif	/* defined(ISSUE_16789) */
 
 		sig_pri_set_echocanceller(p, 1);
 		ast_setstate(chan, AST_STATE_RING);
@@ -4837,13 +4854,14 @@ static void *pri_dchannel(void *vpri)
 						/* Setup law */
 						if (e->ring.complete || !(pri->overlapdial & DAHDI_OVERLAPDIAL_INCOMING)) {
 							/* Just announce proceeding */
-							pri->pvts[chanpos]->proceeding = 1;
+							pri->pvts[chanpos]->call_level = SIG_PRI_CALL_LEVEL_PROCEEDING;
 							pri_proceeding(pri->pri, e->ring.call, PVT_TO_CHANNEL(pri->pvts[chanpos]), 0);
+						} else if (pri->switchtype == PRI_SWITCH_GR303_TMC) {
+							pri->pvts[chanpos]->call_level = SIG_PRI_CALL_LEVEL_CONNECT;
+							pri_answer(pri->pri, e->ring.call, PVT_TO_CHANNEL(pri->pvts[chanpos]), 1);
 						} else {
-							if (pri->switchtype != PRI_SWITCH_GR303_TMC)
-								pri_need_more_info(pri->pri, e->ring.call, PVT_TO_CHANNEL(pri->pvts[chanpos]), 1);
-							else
-								pri_answer(pri->pri, e->ring.call, PVT_TO_CHANNEL(pri->pvts[chanpos]), 1);
+							pri->pvts[chanpos]->call_level = SIG_PRI_CALL_LEVEL_OVERLAP;
+							pri_need_more_info(pri->pri, e->ring.call, PVT_TO_CHANNEL(pri->pvts[chanpos]), 1);
 						}
 
 						/* Start PBX */
@@ -4927,6 +4945,21 @@ static void *pri_dchannel(void *vpri)
 								sig_pri_handle_subcmds(pri, chanpos, e->e, e->ring.channel,
 									e->ring.subcmds, e->ring.call);
 
+								if (!pri->pvts[chanpos]->digital
+									&& !pri->pvts[chanpos]->no_b_channel) {
+									/*
+									 * Call has a channel.
+									 * Indicate that we are providing dialtone.
+									 */
+									pri->pvts[chanpos]->progress = 1;/* No need to send plain PROGRESS again. */
+#ifdef HAVE_PRI_PROG_W_CAUSE
+									pri_progress_with_cause(pri->pri, e->ring.call,
+										PVT_TO_CHANNEL(pri->pvts[chanpos]), 1, -1);/* no cause at all */
+#else
+									pri_progress(pri->pri, e->ring.call,
+										PVT_TO_CHANNEL(pri->pvts[chanpos]), 1);
+#endif
+								}
 							}
 							if (c && !ast_pthread_create_detached(&threadid, NULL, pri_ss_thread, pri->pvts[chanpos])) {
 								ast_verb(3, "Accepting overlap call from '%s' to '%s' on channel %d/%d, span %d\n",
@@ -5085,7 +5118,9 @@ static void *pri_dchannel(void *vpri)
 						sig_pri_cc_generic_check(pri, chanpos, AST_CC_CCNR);
 						sig_pri_set_echocanceller(pri->pvts[chanpos], 1);
 						pri_queue_control(pri, chanpos, AST_CONTROL_RINGING);
-						pri->pvts[chanpos]->alerting = 1;
+						if (pri->pvts[chanpos]->call_level < SIG_PRI_CALL_LEVEL_ALERTING) {
+							pri->pvts[chanpos]->call_level = SIG_PRI_CALL_LEVEL_ALERTING;
+						}
 
 						if (
 #ifdef PRI_PROGRESS_MASK
@@ -5172,11 +5207,11 @@ static void *pri_dchannel(void *vpri)
 					sig_pri_lock_private(pri->pvts[chanpos]);
 					sig_pri_handle_subcmds(pri, chanpos, e->e, e->proceeding.channel,
 						e->proceeding.subcmds, e->proceeding.call);
-					if (!pri->pvts[chanpos]->proceeding) {
+					if (pri->pvts[chanpos]->call_level < SIG_PRI_CALL_LEVEL_PROCEEDING) {
+						pri->pvts[chanpos]->call_level = SIG_PRI_CALL_LEVEL_PROCEEDING;
 						ast_debug(1, "Queuing frame from PRI_EVENT_PROCEEDING on channel %d/%d span %d\n",
 							pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset,pri->span);
 						pri_queue_control(pri, chanpos, AST_CONTROL_PROCEEDING);
-						pri->pvts[chanpos]->proceeding = 1;
 					}
 					if (!pri->pvts[chanpos]->progress
 						&& !pri->pvts[chanpos]->no_b_channel
@@ -5311,7 +5346,9 @@ static void *pri_dchannel(void *vpri)
 #endif	/* defined(HAVE_PRI_CALL_WAITING) */
 				sig_pri_handle_subcmds(pri, chanpos, e->e, e->answer.channel,
 					e->answer.subcmds, e->answer.call);
-				pri->pvts[chanpos]->proceeding = 1;
+				if (pri->pvts[chanpos]->call_level < SIG_PRI_CALL_LEVEL_CONNECT) {
+					pri->pvts[chanpos]->call_level = SIG_PRI_CALL_LEVEL_CONNECT;
+				}
 				sig_pri_open_media(pri->pvts[chanpos]);
 				pri_queue_control(pri, chanpos, AST_CONTROL_ANSWER);
 				/* Enable echo cancellation if it's not on already */
@@ -5734,15 +5771,35 @@ static void *pri_dchannel(void *vpri)
 				} else {
 					chanpos = pri_fixup_principle(pri, chanpos, e->setup_ack.call);
 					if (chanpos > -1) {
+						unsigned int len;
+
 						sig_pri_lock_private(pri->pvts[chanpos]);
 						sig_pri_handle_subcmds(pri, chanpos, e->e, e->setup_ack.channel,
 							e->setup_ack.subcmds, e->setup_ack.call);
-						pri->pvts[chanpos]->setup_ack = 1;
+						if (pri->pvts[chanpos]->call_level < SIG_PRI_CALL_LEVEL_OVERLAP) {
+							pri->pvts[chanpos]->call_level = SIG_PRI_CALL_LEVEL_OVERLAP;
+						}
+
 						/* Send any queued digits */
-						for (x = 0;x < strlen(pri->pvts[chanpos]->dialdest); x++) {
+						len = strlen(pri->pvts[chanpos]->dialdest);
+						for (x = 0; x < len; ++x) {
 							ast_debug(1, "Sending pending digit '%c'\n", pri->pvts[chanpos]->dialdest[x]);
 							pri_information(pri->pri, pri->pvts[chanpos]->call,
 								pri->pvts[chanpos]->dialdest[x]);
+						}
+
+						if (!pri->pvts[chanpos]->progress
+							&& (pri->overlapdial & DAHDI_OVERLAPDIAL_OUTGOING)
+							&& !pri->pvts[chanpos]->digital
+							&& !pri->pvts[chanpos]->no_b_channel) {
+							/*
+							 * Call has a channel.
+							 * Indicate for overlap dialing that dialtone may be present.
+							 */
+							pri_queue_control(pri, chanpos, AST_CONTROL_PROGRESS);
+							pri->pvts[chanpos]->progress = 1;/* Claim to have seen inband-information */
+							sig_pri_set_dialing(pri->pvts[chanpos], 0);
+							sig_pri_open_media(pri->pvts[chanpos]);
 						}
 						sig_pri_unlock_private(pri->pvts[chanpos]);
 					} else
@@ -5874,10 +5931,8 @@ int sig_pri_hangup(struct sig_pri_chan *p, struct ast_channel *ast)
 		ast_atomic_fetchadd_int(&p->pri->num_call_waiting_calls, -1);
 	}
 #endif	/* defined(HAVE_PRI_CALL_WAITING) */
-	p->proceeding = 0;
+	p->call_level = SIG_PRI_CALL_LEVEL_IDLE;
 	p->progress = 0;
-	p->alerting = 0;
-	p->setup_ack = 0;
 	p->cid_num[0] = '\0';
 	p->cid_subaddr[0] = '\0';
 	p->cid_name[0] = '\0';
@@ -6437,6 +6492,8 @@ int sig_pri_call(struct sig_pri_chan *p, struct ast_channel *ast, char *rdest, i
 				ast_log(LOG_WARNING, "Unable to setup CC recall call to device %s\n",
 					device_name);
 				ao2_ref(monitor, -1);
+				pri_destroycall(p->pri->pri, p->call);
+				p->call = NULL;
 				pri_rel(p->pri);
 				pri_sr_free(sr);
 				return -1;
@@ -6453,10 +6510,13 @@ int sig_pri_call(struct sig_pri_chan *p, struct ast_channel *ast, char *rdest, i
 	if (core_id == -1 && pri_setup(p->pri->pri, p->call, sr)) {
 		ast_log(LOG_WARNING, "Unable to setup call to %s (using %s)\n",
 			c + p->stripmsd + dp_strip, dialplan2str(p->pri->dialplan));
+		pri_destroycall(p->pri->pri, p->call);
+		p->call = NULL;
 		pri_rel(p->pri);
 		pri_sr_free(sr);
 		return -1;
 	}
+	p->call_level = SIG_PRI_CALL_LEVEL_SETUP;
 	pri_sr_free(sr);
 	ast_setstate(ast, AST_STATE_DIALING);
 	sig_pri_set_dialing(p, 1);
@@ -6474,11 +6534,16 @@ int sig_pri_indicate(struct sig_pri_chan *p, struct ast_channel *chan, int condi
 			chan->hangupcause = AST_CAUSE_USER_BUSY;
 			chan->_softhangup |= AST_SOFTHANGUP_DEV;
 			res = 0;
-		} else if (!p->progress && p->pri && !p->outgoing) {
-			if (p->pri->pri) {
+			break;
+		}
+		res = sig_pri_play_tone(p, SIG_PRI_TONE_BUSY);
+		if (p->call_level < SIG_PRI_CALL_LEVEL_ALERTING && !p->outgoing) {
+			chan->hangupcause = AST_CAUSE_USER_BUSY;
+			p->progress = 1;/* No need to send plain PROGRESS after this. */
+			if (p->pri && p->pri->pri) {
 				if (!pri_grab(p, p->pri)) {
 #ifdef HAVE_PRI_PROG_W_CAUSE
-					pri_progress_with_cause(p->pri->pri,p->call, PVT_TO_CHANNEL(p), 1, PRI_CAUSE_USER_BUSY); /* cause = 17 */
+					pri_progress_with_cause(p->pri->pri, p->call, PVT_TO_CHANNEL(p), 1, chan->hangupcause);
 #else
 					pri_progress(p->pri->pri,p->call, PVT_TO_CHANNEL(p), 1);
 #endif
@@ -6487,13 +6552,12 @@ int sig_pri_indicate(struct sig_pri_chan *p, struct ast_channel *chan, int condi
 					ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->pri->span);
 				}
 			}
-			p->progress = 1;
-			res = sig_pri_play_tone(p, SIG_PRI_TONE_BUSY);
 		}
 		break;
 	case AST_CONTROL_RINGING:
-		if ((!p->alerting) && p->pri && !p->outgoing && (chan->_state != AST_STATE_UP)) {
-			if (p->pri->pri) {
+		if (p->call_level < SIG_PRI_CALL_LEVEL_ALERTING && !p->outgoing) {
+			p->call_level = SIG_PRI_CALL_LEVEL_ALERTING;
+			if (p->pri && p->pri->pri) {
 				if (!pri_grab(p, p->pri)) {
 					pri_acknowledge(p->pri->pri,p->call, PVT_TO_CHANNEL(p),
 						p->no_b_channel || p->digital ? 0 : 1);
@@ -6502,7 +6566,6 @@ int sig_pri_indicate(struct sig_pri_chan *p, struct ast_channel *chan, int condi
 					ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->pri->span);
 				}
 			}
-			p->alerting = 1;
 		}
 		res = sig_pri_play_tone(p, SIG_PRI_TONE_RINGTONE);
 		if (chan->_state != AST_STATE_UP) {
@@ -6512,12 +6575,12 @@ int sig_pri_indicate(struct sig_pri_chan *p, struct ast_channel *chan, int condi
 		break;
 	case AST_CONTROL_PROCEEDING:
 		ast_debug(1,"Received AST_CONTROL_PROCEEDING on %s\n",chan->name);
-		if (!p->proceeding && p->pri && !p->outgoing) {
-			if (p->pri->pri) {
+		if (p->call_level < SIG_PRI_CALL_LEVEL_PROCEEDING && !p->outgoing) {
+			p->call_level = SIG_PRI_CALL_LEVEL_PROCEEDING;
+			if (p->pri && p->pri->pri) {
 				if (!pri_grab(p, p->pri)) {
 					pri_proceeding(p->pri->pri,p->call, PVT_TO_CHANNEL(p),
 						p->no_b_channel || p->digital ? 0 : 1);
-					p->proceeding = 1;
 					if (!p->no_b_channel && !p->digital) {
 						sig_pri_set_dialing(p, 0);
 					}
@@ -6533,8 +6596,10 @@ int sig_pri_indicate(struct sig_pri_chan *p, struct ast_channel *chan, int condi
 	case AST_CONTROL_PROGRESS:
 		ast_debug(1,"Received AST_CONTROL_PROGRESS on %s\n",chan->name);
 		sig_pri_set_digital(p, 0);	/* Digital-only calls isn't allowing any inband progress messages */
-		if (!p->progress && !p->alerting && p->pri && !p->outgoing && !p->no_b_channel) {
-			if (p->pri->pri) {
+		if (!p->progress && p->call_level < SIG_PRI_CALL_LEVEL_ALERTING && !p->outgoing
+			&& !p->no_b_channel) {
+			p->progress = 1;/* No need to send plain PROGRESS again. */
+			if (p->pri && p->pri->pri) {
 				if (!pri_grab(p, p->pri)) {
 #ifdef HAVE_PRI_PROG_W_CAUSE
 					pri_progress_with_cause(p->pri->pri,p->call, PVT_TO_CHANNEL(p), 1, -1);  /* no cause at all */
@@ -6546,22 +6611,45 @@ int sig_pri_indicate(struct sig_pri_chan *p, struct ast_channel *chan, int condi
 					ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->pri->span);
 				}
 			}
-			p->progress = 1;
 		}
 		/* don't continue in ast_indicate */
 		res = 0;
 		break;
 	case AST_CONTROL_CONGESTION:
-		chan->hangupcause = AST_CAUSE_CONGESTION;
 		if (p->priindication_oob || p->no_b_channel) {
-			chan->hangupcause = AST_CAUSE_SWITCH_CONGESTION;
+			/* There are many cause codes that generate an AST_CONTROL_CONGESTION. */
+			switch (chan->hangupcause) {
+			case AST_CAUSE_USER_BUSY:
+			case AST_CAUSE_NORMAL_CLEARING:
+			case 0:/* Cause has not been set. */
+				/* Supply a more appropriate cause. */
+				chan->hangupcause = AST_CAUSE_SWITCH_CONGESTION;
+				break;
+			default:
+				break;
+			}
 			chan->_softhangup |= AST_SOFTHANGUP_DEV;
 			res = 0;
-		} else if (!p->progress && p->pri && !p->outgoing) {
-			if (p->pri->pri) {
+			break;
+		}
+		res = sig_pri_play_tone(p, SIG_PRI_TONE_CONGESTION);
+		if (p->call_level < SIG_PRI_CALL_LEVEL_ALERTING && !p->outgoing) {
+			/* There are many cause codes that generate an AST_CONTROL_CONGESTION. */
+			switch (chan->hangupcause) {
+			case AST_CAUSE_USER_BUSY:
+			case AST_CAUSE_NORMAL_CLEARING:
+			case 0:/* Cause has not been set. */
+				/* Supply a more appropriate cause. */
+				chan->hangupcause = AST_CAUSE_SWITCH_CONGESTION;
+				break;
+			default:
+				break;
+			}
+			p->progress = 1;/* No need to send plain PROGRESS after this. */
+			if (p->pri && p->pri->pri) {
 				if (!pri_grab(p, p->pri)) {
 #ifdef HAVE_PRI_PROG_W_CAUSE
-					pri_progress_with_cause(p->pri->pri,p->call, PVT_TO_CHANNEL(p), 1, PRI_CAUSE_SWITCH_CONGESTION); /* cause = 42 */
+					pri_progress_with_cause(p->pri->pri, p->call, PVT_TO_CHANNEL(p), 1, chan->hangupcause);
 #else
 					pri_progress(p->pri->pri,p->call, PVT_TO_CHANNEL(p), 1);
 #endif
@@ -6570,8 +6658,6 @@ int sig_pri_indicate(struct sig_pri_chan *p, struct ast_channel *chan, int condi
 					ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->pri->span);
 				}
 			}
-			p->progress = 1;
-			res = sig_pri_play_tone(p, SIG_PRI_TONE_CONGESTION);
 		}
 		break;
 	case AST_CONTROL_HOLD:
@@ -6689,7 +6775,9 @@ int sig_pri_answer(struct sig_pri_chan *p, struct ast_channel *ast)
 			p->aoc_s_request_invoke_id_valid = 0;
 		}
 #endif	/* defined(HAVE_PRI_AOC_EVENTS) */
-		p->proceeding = 1;
+		if (p->call_level < SIG_PRI_CALL_LEVEL_CONNECT) {
+			p->call_level = SIG_PRI_CALL_LEVEL_CONNECT;
+		}
 		sig_pri_set_dialing(p, 0);
 		sig_pri_open_media(p);
 		res = pri_answer(p->pri->pri, p->call, 0, !p->digital);
@@ -6818,22 +6906,37 @@ int sig_pri_available(struct sig_pri_chan **pvt, int is_specific_channel)
  * functions should handle it normally (generate inband DTMF) */
 int sig_pri_digit_begin(struct sig_pri_chan *pvt, struct ast_channel *ast, char digit)
 {
-	if ((ast->_state == AST_STATE_DIALING) && !pvt->proceeding) {
-		if (pvt->setup_ack) {
+	if (ast->_state == AST_STATE_DIALING) {
+		if (pvt->call_level < SIG_PRI_CALL_LEVEL_OVERLAP) {
+			unsigned int len;
+
+			len = strlen(pvt->dialdest);
+			if (len < sizeof(pvt->dialdest) - 1) {
+				ast_debug(1, "Queueing digit '%c' since setup_ack not yet received\n",
+					digit);
+				pvt->dialdest[len++] = digit;
+				pvt->dialdest[len] = '\0';
+			} else {
+				ast_log(LOG_WARNING,
+					"Span %d: Deferred digit buffer overflow for digit '%c'.\n",
+					pvt->pri->span, digit);
+			}
+			return 0;
+		}
+		if (pvt->call_level < SIG_PRI_CALL_LEVEL_PROCEEDING) {
 			if (!pri_grab(pvt, pvt->pri)) {
 				pri_information(pvt->pri->pri, pvt->call, digit);
 				pri_rel(pvt->pri);
 			} else {
 				ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", pvt->pri->span);
 			}
-		} else if (strlen(pvt->dialdest) < sizeof(pvt->dialdest) - 1) {
-			int res;
-			ast_debug(1, "Queueing digit '%c' since setup_ack not yet received\n", digit);
-			res = strlen(pvt->dialdest);
-			pvt->dialdest[res++] = digit;
-			pvt->dialdest[res] = '\0';
+			return 0;
 		}
-		return 0;
+		if (pvt->call_level < SIG_PRI_CALL_LEVEL_CONNECT) {
+			ast_log(LOG_WARNING,
+				"Span %d: Digit '%c' may be ignored by peer. (Call level:%d)\n",
+				pvt->pri->span, digit, pvt->call_level);
+		}
 	}
 	return 1;
 }
@@ -7291,6 +7394,7 @@ void sig_pri_cli_show_span(int fd, int *dchannels, struct sig_pri_span *pri)
 			ast_cli(fd, "%s D-channel: %d\n", pri_order(x), dchannels[x]);
 			build_status(status, sizeof(status), pri->dchanavail[x], pri->dchans[x] == pri->pri);
 			ast_cli(fd, "Status: %s\n", status);
+			ast_mutex_lock(&pri->lock);
 #ifdef PRI_DUMP_INFO_STR
 			info_str = pri_dump_info_str(pri->pri);
 			if (info_str) {
@@ -7300,6 +7404,7 @@ void sig_pri_cli_show_span(int fd, int *dchannels, struct sig_pri_span *pri)
 #else
 			pri_dump_info(pri->pri);
 #endif
+			ast_mutex_unlock(&pri->lock);
 			ast_cli(fd, "Overlap Recv: %s\n\n", (pri->overlapdial & DAHDI_OVERLAPDIAL_INCOMING)?"Yes":"No");
 			ast_cli(fd, "\n");
 		}
@@ -7462,38 +7567,75 @@ int sig_pri_cc_agent_stop_offer_timer(struct ast_cc_agent *agent)
 
 #if defined(HAVE_PRI_CCSS)
 /*!
- * \brief Acknowledge CC request.
+ * \brief Response to a CC request.
  * \since 1.8
  *
  * \param agent CC core agent control.
+ * \param reason CC request response status.
  *
  * \details
  * When the core receives knowledge that a called
  * party has accepted a CC request, it will call
- * this callback.
+ * this callback.  The core may also call this
+ * if there is some error when attempting to process
+ * the incoming CC request.
  *
- * The duty of this is to accept a CC request from
- * the caller by acknowledging receipt of that request.
+ * The duty of this is to issue a propper response to a
+ * CC request from the caller by acknowledging receipt
+ * of that request or rejecting it.
  *
  * \return Nothing
  */
-void sig_pri_cc_agent_req_ack(struct ast_cc_agent *agent)
+void sig_pri_cc_agent_req_rsp(struct ast_cc_agent *agent, enum ast_cc_agent_response_reason reason)
 {
 	struct sig_pri_cc_agent_prv *cc_pvt;
 	int res;
+	int status;
+	const char *failed_msg;
+	static const char *failed_to_send = "Failed to send the CC request response.";
+	static const char *not_accepted = "The core declined the CC request.";
 
 	cc_pvt = agent->private_data;
 	ast_mutex_lock(&cc_pvt->pri->lock);
 	if (cc_pvt->cc_request_response_pending) {
 		cc_pvt->cc_request_response_pending = 0;
-		res = pri_cc_req_rsp(cc_pvt->pri->pri, cc_pvt->cc_id, 0/* success */);
+
+		/* Convert core response reason to ISDN response status. */
+		status = 2;/* short_term_denial */
+		switch (reason) {
+		case AST_CC_AGENT_RESPONSE_SUCCESS:
+			status = 0;/* success */
+			break;
+		case AST_CC_AGENT_RESPONSE_FAILURE_INVALID:
+			status = 2;/* short_term_denial */
+			break;
+		case AST_CC_AGENT_RESPONSE_FAILURE_TOO_MANY:
+			status = 5;/* queue_full */
+			break;
+		}
+
+		res = pri_cc_req_rsp(cc_pvt->pri->pri, cc_pvt->cc_id, status);
+		if (!status) {
+			/* CC core request was accepted. */
+			if (res) {
+				failed_msg = failed_to_send;
+			} else {
+				failed_msg = NULL;
+			}
+		} else {
+			/* CC core request was declined. */
+			if (res) {
+				failed_msg = failed_to_send;
+			} else {
+				failed_msg = not_accepted;
+			}
+		}
 	} else {
-		res = 0;
+		failed_msg = NULL;
 	}
 	ast_mutex_unlock(&cc_pvt->pri->lock);
-	if (res) {
-		ast_cc_failed(agent->core_id, "%s agent failed to send the CC request ack.",
-			sig_pri_cc_type_name);
+	if (failed_msg) {
+		ast_cc_failed(agent->core_id, "%s agent: %s", sig_pri_cc_type_name, failed_msg);
 	}
 }
 #endif	/* defined(HAVE_PRI_CCSS) */

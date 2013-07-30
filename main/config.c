@@ -23,12 +23,12 @@
  * \author Mark Spencer <markster@digium.com>
  *
  * Includes the Asterisk Realtime API - ARA
- * See doc/realtime.txt and doc/extconfig.txt
+ * See http://wiki.asterisk.org
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 283882 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305798 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_CONFIG_DIR */
 #include "asterisk/network.h"	/* we do some sockaddr manipulation here */

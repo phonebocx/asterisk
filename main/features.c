@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 303138 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 307228 $")
 
 #include "asterisk/_private.h"
 
@@ -722,7 +722,7 @@ static void check_goto_on_transfer(struct ast_channel *chan)
 
 	for (x = goto_on_transfer; x && *x; x++) {
 		if (*x == '^')
-			*x = '|';
+			*x = ',';
 	}
 	/* Make formats okay */
 	xferchan->readformat = chan->readformat;
@@ -731,7 +731,7 @@ static void check_goto_on_transfer(struct ast_channel *chan)
 	ast_parseable_goto(xferchan, goto_on_transfer);
 	xferchan->_state = AST_STATE_UP;
 	ast_clear_flag(xferchan, AST_FLAGS_ALL);	
-	xferchan->_softhangup = 0;
+	ast_channel_clear_softhangup(xferchan, AST_SOFTHANGUP_ALL);
 	if ((f = ast_read(xferchan))) {
 		ast_frfree(f);
 		f = NULL;
@@ -743,7 +743,7 @@ static void check_goto_on_transfer(struct ast_channel *chan)
 
 static struct ast_channel *feature_request_and_dial(struct ast_channel *caller,
 	const char *caller_name, struct ast_channel *requestor,
-	struct ast_channel *transferee, const char *type, int format, void *data,
+	struct ast_channel *transferee, const char *type, format_t format, void *data,
 	int timeout, int *outstate, const char *language);
 
 /*!
@@ -1872,9 +1872,21 @@ static int builtin_blindtransfer(struct ast_channel *chan, struct ast_channel *p
 
 	ast_stopstream(transferer);
 	res = ast_app_dtget(transferer, transferer_real_context, xferto, sizeof(xferto), 100, transferdigittimeout);
-	if (res < 0) {  /* hangup, would be 0 for invalid and 1 for valid */
+	if (res < 0) {  /* hangup or error, (would be 0 for invalid and 1 for valid) */
 		finishup(transferee);
-		return res;
+		return -1;
+	}
+	if (res == 0) {
+		if (xferto[0]) {
+			ast_log(LOG_WARNING, "Extension '%s' does not exist in context '%s'\n",
+				xferto, transferer_real_context);
+		} else {
+			/* Does anyone care about this case? */
+			ast_log(LOG_WARNING, "No digits dialed.\n");
+		}
+		ast_stream_and_wait(transferer, "pbx-invalid", "");
+		finishup(transferee);
+		return AST_FEATURE_RETURN_SUCCESS;
 	}
 
 	found_lot = ao2_callback(parkinglots, 0, find_parkinglot_by_exten_cb, &xferto);
@@ -1883,9 +1895,8 @@ static int builtin_blindtransfer(struct ast_channel *chan, struct ast_channel *p
 			.parkinglot = found_lot,
 		};
 		res = finishup(transferee);
-		if (res)
-			res = -1;
-		else if (!(parkstatus = masq_park_call_announce(transferee, transferer, &args))) {	/* success */
+		if (res) {
+		} else if (!(parkstatus = masq_park_call_announce(transferee, transferer, &args))) {	/* success */
 			/* We return non-zero, but tell the PBX not to hang the channel when
 			   the thread dies -- We have to be careful now though.  We are responsible for 
 			   hanging up the channel, else it will never be hung up! */
@@ -1894,9 +1905,8 @@ static int builtin_blindtransfer(struct ast_channel *chan, struct ast_channel *p
 		} else {
 			ast_log(LOG_WARNING, "Unable to park call %s, parkstatus = %d\n", transferee->name, parkstatus);
 		}
-		/*! \todo XXX Maybe we should have another message here instead of invalid extension XXX */
-	} else if (ast_exists_extension(transferee, transferer_real_context, xferto, 1,
-		S_COR(transferer->caller.id.number.valid, transferer->caller.id.number.str, NULL))) {
+		ast_autoservice_start(transferee);
+	} else {
 		ast_cel_report_event(transferer, AST_CEL_BLINDTRANSFER, NULL, xferto, transferee);
 		pbx_builtin_setvar_helper(transferer, "BLINDTRANSFER", transferee->name);
 		pbx_builtin_setvar_helper(transferee, "BLINDTRANSFER", transferer->name);
@@ -1937,10 +1947,9 @@ static int builtin_blindtransfer(struct ast_channel *chan, struct ast_channel *p
 		}
 		check_goto_on_transfer(transferer);
 		return res;
-	} else {
-		ast_verb(3, "Unable to find extension '%s' in context '%s'\n", xferto, transferer_real_context);
 	}
-	if (parkstatus != AST_FEATURE_RETURN_PARKFAILED && ast_stream_and_wait(transferer, xferfailsound, AST_DIGIT_ANY) < 0) { /* Play 'extension does not exist' */
+	if (parkstatus != AST_FEATURE_RETURN_PARKFAILED
+		&& ast_stream_and_wait(transferer, xferfailsound, "")) {
 		finishup(transferee);
 		return -1;
 	}
@@ -2971,7 +2980,7 @@ static void set_config_flags(struct ast_channel *chan, struct ast_channel *peer,
  */
 static struct ast_channel *feature_request_and_dial(struct ast_channel *caller,
 	const char *caller_name, struct ast_channel *requestor,
-	struct ast_channel *transferee, const char *type, int format, void *data,
+	struct ast_channel *transferee, const char *type, format_t format, void *data,
 	int timeout, int *outstate, const char *language)
 {
 	int state = 0;
@@ -3236,9 +3245,8 @@ static struct ast_channel *feature_request_and_dial(struct ast_channel *caller,
 
 done:
 	ast_indicate(caller, -1);
-	if (chan && ready) {
-		if (chan->_state == AST_STATE_UP)
-			state = AST_CONTROL_ANSWER;
+	if (chan && (ready || chan->_state == AST_STATE_UP)) {
+		state = AST_CONTROL_ANSWER;
 	} else if (chan) {
 		ast_hangup(chan);
 		chan = NULL;
@@ -3928,7 +3936,7 @@ static void post_manager_event(const char *s, struct parkeduser *pu)
 		"Parkinglot: %s\r\n"
 		"CallerIDNum: %s\r\n"
 		"CallerIDName: %s\r\n"
-		"UniqueID: %s\r\n\r\n",
+		"UniqueID: %s\r\n",
 		pu->parkingexten, 
 		pu->chan->name,
 		pu->parkinglot->name,
@@ -4113,7 +4121,7 @@ int manage_parkinglot(struct ast_parkinglot *curlot, const struct pollfd *pfds, 
 					continue;
 				}
 
-				if (pfds[y].revents & POLLERR) {
+				if (pfds[y].revents & POLLPRI) {
 					ast_set_flag(chan, AST_FLAG_EXCEPTION);
 				} else {
 					ast_clear_flag(chan, AST_FLAG_EXCEPTION);
@@ -4690,9 +4698,9 @@ static struct ast_parkinglot *build_parkinglot(char *name, struct ast_variable *
 
 	if (!var) {	/* Default parking lot */
 		ast_copy_string(parkinglot->parking_con, "parkedcalls", sizeof(parkinglot->parking_con));
-		ast_copy_string(parkinglot->parking_con_dial, "park-dial", sizeof(parkinglot->parking_con_dial));
 		ast_copy_string(parkinglot->mohclass, "default", sizeof(parkinglot->mohclass));
 	}
+	ast_copy_string(parkinglot->parking_con_dial, "park-dial", sizeof(parkinglot->parking_con_dial));
 
 	/* Check for errors */
 	if (ast_strlen_zero(parkinglot->parking_con)) {
@@ -4782,7 +4790,7 @@ static int load_config(void)
 	strcpy(pickup_ext, "*8");
 	courtesytone[0] = '\0';
 	strcpy(xfersound, "beep");
-	strcpy(xferfailsound, "pbx-invalid");
+	strcpy(xferfailsound, "beeperr");
 	pickupsound[0] = '\0';
 	pickupfailsound[0] = '\0';
 	adsipark = 0;
@@ -5562,7 +5570,8 @@ static int find_channel_by_group(void *obj, void *arg, void *data, int flags)
 		   change while we're here, but that isn't a problem. */
 		(c != chan) &&
 		(chan->pickupgroup & c->callgroup) &&
-		((chan->_state == AST_STATE_RINGING) || (chan->_state == AST_STATE_RING));
+		((chan->_state == AST_STATE_RINGING) || (chan->_state == AST_STATE_RING)) &&
+		!c->masq;
 
 	return i ? CMP_MATCH | CMP_STOP : 0;
 }

@@ -19,7 +19,7 @@
  */
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 298960 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 307273 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/astobj2.h"
@@ -60,7 +60,7 @@ struct astobj2 {
 };
 
 #ifdef AST_DEVMODE
-#define AO2_DEBUG 1
+/* #define AO2_DEBUG 1 */
 #endif
 
 #ifdef AO2_DEBUG
@@ -693,7 +693,11 @@ static void *internal_ao2_callback(struct ao2_container *c,
 			 * link the object into the container that will hold the results.
 			 */
 			if (ret && (multi_container != NULL)) {
-				__ao2_link(multi_container, ret);
+				if (tag) {
+					__ao2_link_debug(multi_container, ret, tag, file, line, funcname);
+				} else {
+					__ao2_link(multi_container, ret);
+				}
 				ret = NULL;
 			}
 

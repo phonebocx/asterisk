@@ -32,11 +32,11 @@
          <depend>srtp</depend>
 ***/
 
-/* See doc/tex/secure-calls.tex for SRTP usage information */
+/* See https://wiki.asterisk.org/wiki/display/AST/Secure+Calling */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 292309 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305798 $")
 
 #include <srtp/srtp.h>
 

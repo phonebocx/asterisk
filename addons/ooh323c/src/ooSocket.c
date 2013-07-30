@@ -15,7 +15,7 @@
  *****************************************************************************/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 254884 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 308150 $")
 
 #include "asterisk/io.h"
 #include "asterisk/lock.h"
@@ -191,7 +191,10 @@ typedef socklen_t OOSOCKLEN;
 int ooSocketCreate (OOSOCKET* psocket) 
 {
    int on;
-
+   int keepalive = 1;
+#ifdef __linux__
+   int keepcnt = 24, keepidle = 120, keepintvl = 30;
+#endif
    struct linger linger;
    OOSOCKET sock = socket (AF_INET,
                              SOCK_STREAM,
@@ -217,6 +220,13 @@ int ooSocketCreate (OOSOCKET* psocket)
       OOTRACEERR1("Error:Failed to set socket option linger\n");
       return ASN_E_INVSOCKET;
    }
+   setsockopt (sock, SOL_SOCKET, SO_KEEPALIVE, (const char *)&keepalive,
+			sizeof(keepalive));
+#ifdef __linux__
+   setsockopt (sock, SOL_TCP, TCP_KEEPCNT, &keepcnt, sizeof(keepcnt));
+   setsockopt (sock, SOL_TCP, TCP_KEEPIDLE, &keepidle, sizeof(keepidle));
+   setsockopt (sock, SOL_TCP, TCP_KEEPINTVL, &keepintvl, sizeof(keepintvl));
+#endif
    *psocket = sock;
    return ASN_OK;
 }

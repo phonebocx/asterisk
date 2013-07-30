@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 299626 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 306127 $")
 
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -141,7 +141,7 @@ struct local_pvt {
 	unsigned int flags;                     /*!< Private flags */
 	char context[AST_MAX_CONTEXT];		/*!< Context to call */
 	char exten[AST_MAX_EXTENSION];		/*!< Extension to call */
-	int reqformat;				/*!< Requested format */
+	format_t reqformat;				/*!< Requested format */
 	struct ast_jb_conf jb_conf;		/*!< jitterbuffer configuration for this local channel */
 	struct ast_channel *owner;		/*!< Master Channel - Bridging happens here */
 	struct ast_channel *chan;		/*!< Outbound channel - PBX is run here */
@@ -880,6 +880,7 @@ static int local_hangup(struct ast_channel *ast)
 				ao2_lock(p);
 			}
 			if (p->owner) {
+				p->owner->hangupcause = p->chan->hangupcause;
 				pbx_builtin_setvar_helper(p->owner, "CHANLOCALSTATUS", status);
 				ast_channel_unlock(p->owner);
 			}
@@ -955,7 +956,7 @@ static int local_hangup(struct ast_channel *ast)
 }
 
 /*! \brief Create a call structure */
-static struct local_pvt *local_alloc(const char *data, int format)
+static struct local_pvt *local_alloc(const char *data, format_t format)
 {
 	struct local_pvt *tmp = NULL;
 	char *c = NULL, *opts = NULL;

@@ -511,7 +511,7 @@ static yyconst flex_int16_t yy_chk[159] =
 #include <stdio.h>
 
 #if !defined(STANDALONE)
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 268969 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305798 $")
 #else
 #ifndef __USE_ISOC99
 #define __USE_ISOC99 1
@@ -2603,7 +2603,7 @@ int ast_yyerror (const char *s,  yyltype *loc, struct parse_io *parseio )
 			(extra_error_message_supplied?extra_error_message:""), s2, parseio->string,spacebuf2);
 #endif
 #ifndef STANDALONE
-	ast_log(LOG_WARNING,"If you have questions, please refer to doc/tex/channelvariables.tex.\n");
+	ast_log(LOG_WARNING,"If you have questions, please refer to https://wiki.asterisk.org/wiki/display/AST/Channel+Variables\n");
 #endif
 	free(s2);
 	return(0);

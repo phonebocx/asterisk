@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 292376 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 305473 $")
 
 #include <ctype.h>
 #include <signal.h>
@@ -1277,6 +1277,7 @@ static struct mohclass *_moh_class_malloc(const char *file, int line, const char
 #endif
 		)) {
 		class->format = AST_FORMAT_SLINEAR;
+		class->srcfd = -1;
 	}
 
 	return class;
@@ -1586,6 +1587,11 @@ static void moh_class_destructor(void *obj)
 		}
 		free(class->filearray);
 		class->filearray = NULL;
+	}
+
+	if (class->timer) {
+		ast_timer_close(class->timer);
+		class->timer = NULL;
 	}
 
 	/* Finally, collect the exit status of the monitor thread */
