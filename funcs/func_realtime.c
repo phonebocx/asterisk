@@ -26,7 +26,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 163991 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 206811 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -189,6 +189,8 @@ static int function_realtime_read(struct ast_channel *chan, const char *cmd, cha
 	for (var = head; var; var = var->next)
 		ast_str_append(&out, 0, "%s%s%s%s", var->name, args.delim2, var->value, args.delim1);
 	ast_copy_string(buf, ast_str_buffer(out), len);
+
+	ast_variables_destroy(head);
 
 	if (chan)
 		ast_autoservice_stop(chan);
@@ -403,6 +405,7 @@ static int function_realtime_readdestroy(struct ast_channel *chan, const char *c
 	ast_copy_string(buf, ast_str_buffer(out), len);
 
 	ast_destroy_realtime(args.family, args.fieldmatch, args.value, SENTINEL);
+	ast_variables_destroy(head);
 
 	if (chan)
 		ast_autoservice_stop(chan);

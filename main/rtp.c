@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 197619 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 210191 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -726,6 +726,11 @@ int ast_rtcp_fd(struct ast_rtp *rtp)
 	return -1;
 }
 
+static int rtp_get_rate(int subclass)
+{
+	return (subclass == AST_FORMAT_G722) ? 8000 : ast_format_rate(subclass);
+}
+
 unsigned int ast_rtcp_calc_interval(struct ast_rtp *rtp)
 {
 	unsigned int interval;
@@ -984,10 +989,10 @@ static struct ast_frame *process_cisco_dtmf(struct ast_rtp *rtp, unsigned char *
 		}
 	} else if ((rtp->resp == resp) && !power) {
 		f = send_dtmf(rtp, AST_FRAME_DTMF_END);
-		f->samples = rtp->dtmfsamples * 8;
+		f->samples = rtp->dtmfsamples * (rtp_get_rate(f->subclass) / 1000);
 		rtp->resp = 0;
 	} else if (rtp->resp == resp)
-		rtp->dtmfsamples += 20 * 8;
+		rtp->dtmfsamples += 20 * (rtp_get_rate(f->subclass) / 1000);
 	rtp->dtmf_timeout = dtmftimeout;
 	return f;
 }
@@ -1068,7 +1073,7 @@ static struct ast_frame *process_rfc2833(struct ast_rtp *rtp, unsigned char *dat
 			if ((rtp->lastevent != seqno) && rtp->resp) {
 				rtp->dtmf_duration = new_duration;
 				f = send_dtmf(rtp, AST_FRAME_DTMF_END);
-				f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, 8000), ast_tv(0, 0));
+				f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, rtp_get_rate(f->subclass)), ast_tv(0, 0));
 				rtp->resp = 0;
 				rtp->dtmf_duration = rtp->dtmf_timeout = 0;
 			}
@@ -1078,7 +1083,7 @@ static struct ast_frame *process_rfc2833(struct ast_rtp *rtp, unsigned char *dat
 			if (rtp->resp && rtp->resp != resp) {
 				/* Another digit already began. End it */
 				f = send_dtmf(rtp, AST_FRAME_DTMF_END);
-				f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, 8000), ast_tv(0, 0));
+				f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, rtp_get_rate(f->subclass)), ast_tv(0, 0));
 				rtp->resp = 0;
 				rtp->dtmf_duration = rtp->dtmf_timeout = 0;
 			}
@@ -1453,15 +1458,16 @@ static void calc_rxstamp(struct timeval *when, struct ast_rtp *rtp, unsigned int
 	double d;
 	double dtv;
 	double prog;
-	
 	double normdev_rxjitter_current;
+	int rate = rtp_get_rate(rtp->f.subclass);
+
 	if ((!rtp->rxcore.tv_sec && !rtp->rxcore.tv_usec) || mark) {
 		gettimeofday(&rtp->rxcore, NULL);
 		rtp->drxcore = (double) rtp->rxcore.tv_sec + (double) rtp->rxcore.tv_usec / 1000000;
 		/* map timestamp to a real time */
 		rtp->seedrxts = timestamp; /* Their RTP timestamp started with this */
-		rtp->rxcore.tv_sec -= timestamp / 8000;
-		rtp->rxcore.tv_usec -= (timestamp % 8000) * 125;
+		rtp->rxcore.tv_sec -= timestamp / rate;
+		rtp->rxcore.tv_usec -= (timestamp % rate) * 125;
 		/* Round to 0.1ms for nice, pretty timestamps */
 		rtp->rxcore.tv_usec -= rtp->rxcore.tv_usec % 100;
 		if (rtp->rxcore.tv_usec < 0) {
@@ -1473,13 +1479,13 @@ static void calc_rxstamp(struct timeval *when, struct ast_rtp *rtp, unsigned int
 
 	gettimeofday(&now,NULL);
 	/* rxcore is the mapping between the RTP timestamp and _our_ real time from gettimeofday() */
-	when->tv_sec = rtp->rxcore.tv_sec + timestamp / 8000;
-	when->tv_usec = rtp->rxcore.tv_usec + (timestamp % 8000) * 125;
+	when->tv_sec = rtp->rxcore.tv_sec + timestamp / rate;
+	when->tv_usec = rtp->rxcore.tv_usec + (timestamp % rate) * 125;
 	if (when->tv_usec >= 1000000) {
 		when->tv_usec -= 1000000;
 		when->tv_sec += 1;
 	}
-	prog = (double)((timestamp-rtp->seedrxts)/8000.);
+	prog = (double)((timestamp-rtp->seedrxts)/(float)(rate));
 	dtv = (double)rtp->drxcore + (double)(prog);
 	current_time = (double)now.tv_sec + (double)now.tv_usec/1000000;
 	transit = current_time - dtv;
@@ -1488,18 +1494,21 @@ static void calc_rxstamp(struct timeval *when, struct ast_rtp *rtp, unsigned int
 	if (d<0)
 		d=-d;
 	rtp->rxjitter += (1./16.) * (d - rtp->rxjitter);
-	if (rtp->rtcp && rtp->rxjitter > rtp->rtcp->maxrxjitter)
-		rtp->rtcp->maxrxjitter = rtp->rxjitter;
-	if (rtp->rtcp->rxjitter_count == 1) 
-		rtp->rtcp->minrxjitter = rtp->rxjitter;
-	if (rtp->rtcp && rtp->rxjitter < rtp->rtcp->minrxjitter)
-		rtp->rtcp->minrxjitter = rtp->rxjitter;
-		
-	normdev_rxjitter_current = normdev_compute(rtp->rtcp->normdev_rxjitter,rtp->rxjitter,rtp->rtcp->rxjitter_count);
-	rtp->rtcp->stdev_rxjitter = stddev_compute(rtp->rtcp->stdev_rxjitter,rtp->rxjitter,rtp->rtcp->normdev_rxjitter,normdev_rxjitter_current,rtp->rtcp->rxjitter_count);
 
-	rtp->rtcp->normdev_rxjitter = normdev_rxjitter_current;
-	rtp->rtcp->rxjitter_count++;
+	if (rtp->rtcp) {
+		if (rtp->rxjitter > rtp->rtcp->maxrxjitter)
+			rtp->rtcp->maxrxjitter = rtp->rxjitter;
+		if (rtp->rtcp->rxjitter_count == 1) 
+			rtp->rtcp->minrxjitter = rtp->rxjitter;
+		if (rtp->rxjitter < rtp->rtcp->minrxjitter)
+			rtp->rtcp->minrxjitter = rtp->rxjitter;
+			
+		normdev_rxjitter_current = normdev_compute(rtp->rtcp->normdev_rxjitter,rtp->rxjitter,rtp->rtcp->rxjitter_count);
+		rtp->rtcp->stdev_rxjitter = stddev_compute(rtp->rtcp->stdev_rxjitter,rtp->rxjitter,rtp->rtcp->normdev_rxjitter,normdev_rxjitter_current,rtp->rtcp->rxjitter_count);
+
+		rtp->rtcp->normdev_rxjitter = normdev_rxjitter_current;
+		rtp->rtcp->rxjitter_count++;
+	}
 }
 
 /*! \brief Perform a Packet2Packet RTP write */
@@ -1788,7 +1797,7 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 		if (rtp->resp) {
 			struct ast_frame *f;
 			f = send_dtmf(rtp, AST_FRAME_DTMF_END);
-			f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, 8000), ast_tv(0, 0));
+			f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, rtp_get_rate(f->subclass)), ast_tv(0, 0));
 			rtp->resp = 0;
 			rtp->dtmf_timeout = rtp->dtmf_duration = 0;
 			return f;
@@ -1825,6 +1834,9 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 
 		rtp->f.subclass = AST_FORMAT_T140;
 		header_end = memchr(data, ((*data) & 0x7f), rtp->f.datalen);
+		if (header_end == NULL) {
+			return &ast_null_frame;
+		}
 		header_end++;
 		
 		header_length = header_end - data;
@@ -1865,7 +1877,7 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 		calc_rxstamp(&rtp->f.delivery, rtp, timestamp, mark);
 		/* Add timing data to let ast_generic_bridge() put the frame into a jitterbuf */
 		ast_set_flag(&rtp->f, AST_FRFLAG_HAS_TIMING_INFO);
-		rtp->f.ts = timestamp / 8;
+		rtp->f.ts = timestamp / (rtp_get_rate(rtp->f.subclass) / 1000);
 		rtp->f.len = rtp->f.samples / ((ast_format_rate(rtp->f.subclass) / 1000));
 	} else if (rtp->f.subclass & AST_FORMAT_VIDEO_MASK) {
 		/* Video -- samples is # of samples vs. 90000 */
@@ -2112,7 +2124,7 @@ int ast_rtp_early_bridge(struct ast_channel *c0, struct ast_channel *c1)
 		text_src_res = srcpr->get_trtp_info ? srcpr->get_trtp_info(c1, &tsrcp) : AST_RTP_GET_FAILED;
 	}
 
-	/* Check if bridge is still possible (In SIP canreinvite=no stops this, like NAT) */
+	/* Check if bridge is still possible (In SIP directmedia=no stops this, like NAT) */
 	if (audio_dest_res != AST_RTP_TRY_NATIVE || (video_dest_res != AST_RTP_GET_FAILED && video_dest_res != AST_RTP_TRY_NATIVE)) {
 		/* Somebody doesn't want to play... */
 		ast_channel_unlock(c0);
@@ -2199,7 +2211,7 @@ int ast_rtp_make_compatible(struct ast_channel *dest, struct ast_channel *src, i
 	else
 		destcodec = 0;
 
-	/* Check if bridge is still possible (In SIP canreinvite=no stops this, like NAT) */
+	/* Check if bridge is still possible (In SIP directmedia=no stops this, like NAT) */
 	if (audio_dest_res != AST_RTP_TRY_NATIVE || (video_dest_res != AST_RTP_GET_FAILED && video_dest_res != AST_RTP_TRY_NATIVE) || audio_src_res != AST_RTP_TRY_NATIVE || (video_src_res != AST_RTP_GET_FAILED && video_src_res != AST_RTP_TRY_NATIVE) || !(srccodec & destcodec)) {
 		/* Somebody doesn't want to play... */
 		ast_channel_unlock(dest);
@@ -3602,6 +3614,11 @@ static int ast_rtp_raw_write(struct ast_rtp *rtp, struct ast_frame *f, int codec
 	unsigned int ms;
 	int pred;
 	int mark = 0;
+	int rate = rtp_get_rate(f->subclass) / 1000;
+
+	if (f->subclass == AST_FORMAT_G722) {
+		f->samples /= 2;
+	}
 
 	if (rtp->sending_digit) {
 		return 0;
@@ -3613,7 +3630,7 @@ static int ast_rtp_raw_write(struct ast_rtp *rtp, struct ast_frame *f, int codec
 		pred = rtp->lastts + f->samples;
 
 		/* Re-calculate last TS */
-		rtp->lastts = rtp->lastts + ms * 8;
+		rtp->lastts = rtp->lastts + ms * rate;
 		if (ast_tvzero(f->delivery)) {
 			/* If this isn't an absolute delivery time, Check if it is close to our prediction, 
 			   and if so, go with our prediction */
@@ -3668,7 +3685,7 @@ static int ast_rtp_raw_write(struct ast_rtp *rtp, struct ast_frame *f, int codec
 		rtp->lastdigitts = rtp->lastts;
 
 	if (ast_test_flag(f, AST_FRFLAG_HAS_TIMING_INFO))
-		rtp->lastts = f->ts * 8;
+		rtp->lastts = f->ts * rate;
 
 	/* Get a pointer to the header */
 	rtpheader = (unsigned char *)(f->data.ptr - hdrlen);
@@ -3850,11 +3867,6 @@ int ast_rtp_write(struct ast_rtp *rtp, struct ast_frame *_f)
 		}
 
 		while ((f = ast_smoother_read(rtp->smoother)) && (f->data.ptr)) {
-			if (f->subclass == AST_FORMAT_G722) {
-				/* G.722 is silllllllllllllly */
-				f->samples /= 2;
-			}
-
 			ast_rtp_raw_write(rtp, f, codec);
 		}
 	} else {
@@ -4046,8 +4058,8 @@ static enum ast_bridge_result bridge_native_loop(struct ast_channel *c0, struct 
 			if ((fr->subclass == AST_CONTROL_HOLD) ||
 			    (fr->subclass == AST_CONTROL_UNHOLD) ||
 			    (fr->subclass == AST_CONTROL_VIDUPDATE) ||
-			    (fr->subclass == AST_CONTROL_T38) ||
-			    (fr->subclass == AST_CONTROL_SRCUPDATE)) {
+			    (fr->subclass == AST_CONTROL_SRCUPDATE) ||
+			    (fr->subclass == AST_CONTROL_T38_PARAMETERS)) {
 				if (fr->subclass == AST_CONTROL_HOLD) {
 					/* If we someone went on hold we want the other side to reinvite back to us */
 					if (who == c0)
@@ -4286,8 +4298,8 @@ static enum ast_bridge_result bridge_p2p_loop(struct ast_channel *c0, struct ast
 			if ((fr->subclass == AST_CONTROL_HOLD) ||
 			    (fr->subclass == AST_CONTROL_UNHOLD) ||
 			    (fr->subclass == AST_CONTROL_VIDUPDATE) ||
-			    (fr->subclass == AST_CONTROL_T38) ||
-			    (fr->subclass == AST_CONTROL_SRCUPDATE)) {
+			    (fr->subclass == AST_CONTROL_SRCUPDATE) ||
+			    (fr->subclass == AST_CONTROL_T38_PARAMETERS)) {
 				/* If we are going on hold, then break callback mode and P2P bridging */
 				if (fr->subclass == AST_CONTROL_HOLD) {
 					if (p0_callback)

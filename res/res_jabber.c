@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 198397 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 209234 $")
 
 #include <ctype.h>
 #include <iksemel.h>
@@ -542,7 +542,7 @@ static struct ast_custom_function jabberstatus_function = {
 /*!
  * \brief Dial plan function to send a message.
  * \param chan ast_channel
- * \param data  Data is sender|reciever|message.
+ * \param data  Data is sender|receiver|message.
  * \return 0 on success,-1 on error.
  */
 static int aji_send_exec(struct ast_channel *chan, void *data)
@@ -620,10 +620,6 @@ static int aji_tls_handshake(struct aji_client *client)
 	int sock;
 	
 	ast_debug(1, "Starting TLS handshake\n"); 
-
-	/* Load encryption, hashing algorithms and error strings */
-	SSL_library_init();
-	SSL_load_error_strings();
 
 	/* Choose an SSL/TLS protocol version, create SSL_CTX */
 	client->ssl_method = SSLv3_method();
@@ -1423,7 +1419,7 @@ static int aji_dinfo_handler(void *data, ikspak *pak)
 
 	resource = aji_find_resource(buddy, pak->from->resource);
 	if (pak->subtype == IKS_TYPE_ERROR) {
-		ast_log(LOG_WARNING, "Recieved error from a client, turn on jabber debug!\n");
+		ast_log(LOG_WARNING, "Received error from a client, turn on jabber debug!\n");
 		return IKS_FILTER_EAT;
 	}
 	if (pak->subtype == IKS_TYPE_RESULT) {

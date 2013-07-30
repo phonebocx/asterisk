@@ -53,7 +53,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158959 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 209594 $")
 
 #include <sys/signal.h>  /* SIGURG */
 
@@ -1379,7 +1379,7 @@ static void destroy_pvts(void)
 /*!
  * \brief Load the configuration
  * \param reload if this was called due to a reload
- * \retval 0 succcess
+ * \retval 0 success
  * \retval -1 failure
  */
 static int load_config(int reload)

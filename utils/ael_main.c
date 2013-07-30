@@ -13,7 +13,7 @@
 #include <regex.h>
 #include <limits.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 165071 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 201679 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/ast_expr.h"
@@ -299,8 +299,7 @@ int ast_add_extension2(struct ast_context *con,
 	}
 	
 	/* since add_extension2 is responsible for the malloc'd data stuff */
-	if( data )
-		free(data);
+	free(data);
 	return 0;
 }
 

@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 166268 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include "asterisk/_private.h"
 #include <regex.h>
@@ -394,7 +394,7 @@ static int do_reload(int loading)
 			enabled = ast_true(enabled_value);
 		}
 		if ((interval_value = ast_variable_retrieve(config, "general", "refreshinterval"))) {
-			if (sscanf(interval_value, "%d", &interval) < 1)
+			if (sscanf(interval_value, "%30d", &interval) < 1)
 				ast_log(LOG_WARNING, "Unable to convert '%s' to a numeric value.\n", interval_value);
 			else if (interval < 0)
 				ast_log(LOG_WARNING, "Invalid refresh interval '%d' specified, using default\n", interval);

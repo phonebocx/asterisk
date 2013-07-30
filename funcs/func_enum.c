@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -365,7 +365,7 @@ static int enum_result_read(struct ast_channel *chan, const char *cmd, char *dat
 		goto finish;
 	}
 
-	if (sscanf(args.resultnum, "%u", &num) != 1) {
+	if (sscanf(args.resultnum, "%30u", &num) != 1) {
 		ast_log(LOG_ERROR, "Invalid value '%s' for resultnum to ENUMRESULT!\n", args.resultnum);
 		goto finish;
 	}

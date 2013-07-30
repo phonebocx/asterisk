@@ -25,9 +25,10 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89425 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 213182 $")
 
 #include "asterisk/ulaw.h"
+#include "asterisk/logger.h"
 
 #if 0
 /* ZEROTRAP is the military recommendation to improve the encryption

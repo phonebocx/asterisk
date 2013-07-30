@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 198436 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <termios.h>
 #include <sys/time.h>
@@ -659,7 +659,7 @@ static void *smdi_read(void *iface_p)
 			/* add the message to the message queue */
 			md_msg->timestamp = ast_tvnow();
 			ast_smdi_md_message_push(iface, md_msg);
-			ast_log(LOG_DEBUG, "Recieved SMDI MD message on %s\n", iface->name);
+			ast_log(LOG_DEBUG, "Received SMDI MD message on %s\n", iface->name);
 			
 			ASTOBJ_UNREF(md_msg, ast_smdi_md_message_destroy);
 
@@ -708,11 +708,11 @@ static void *smdi_read(void *iface_p)
 			/* add the message to the message queue */
 			mwi_msg->timestamp = ast_tvnow();
 			ast_smdi_mwi_message_push(iface, mwi_msg);
-			ast_log(LOG_DEBUG, "Recieved SMDI MWI message on %s\n", iface->name);
+			ast_log(LOG_DEBUG, "Received SMDI MWI message on %s\n", iface->name);
 			
 			ASTOBJ_UNREF(mwi_msg, ast_smdi_mwi_message_destroy);
 		} else {
-			ast_log(LOG_ERROR, "Unknown SMDI message type recieved on %s (M%c).\n", iface->name, c);
+			ast_log(LOG_ERROR, "Unknown SMDI message type received on %s (M%c).\n", iface->name, c);
 			start = 0;
 		}
 	}
@@ -907,7 +907,7 @@ static int smdi_load(int reload)
 				baud_rate = B9600;
 			}
 		} else if (!strcasecmp(v->name, "msdstrip")) {
-			if (!sscanf(v->value, "%d", &msdstrip)) {
+			if (!sscanf(v->value, "%30d", &msdstrip)) {
 				ast_log(LOG_NOTICE, "Invalid msdstrip value in %s (line %d), using default\n", config_file, v->lineno);
 				msdstrip = 0;
 			} else if (0 > msdstrip || msdstrip > 9) {
@@ -915,7 +915,7 @@ static int smdi_load(int reload)
 				msdstrip = 0;
 			}
 		} else if (!strcasecmp(v->name, "msgexpirytime")) {
-			if (!sscanf(v->value, "%ld", &msg_expiry)) {
+			if (!sscanf(v->value, "%30ld", &msg_expiry)) {
 				ast_log(LOG_NOTICE, "Invalid msgexpirytime value in %s (line %d), using default\n", config_file, v->lineno);
 				msg_expiry = SMDI_MSG_EXPIRY_TIME;
 			}
@@ -1044,11 +1044,11 @@ static int smdi_load(int reload)
 				ASTOBJ_UNREF(iface, ast_smdi_interface_destroy);
 
 			if (!(iface = ASTOBJ_CONTAINER_FIND(&smdi_ifaces, v->value))) {
-				ast_log(LOG_NOTICE, "SMDI interface %s not found\n", iface->name);
+				ast_log(LOG_NOTICE, "SMDI interface %s not found\n", v->value);
 				continue;
 			}
 		} else if (!strcasecmp(v->name, "pollinginterval")) {
-			if (sscanf(v->value, "%u", &mwi_monitor.polling_interval) != 1) {
+			if (sscanf(v->value, "%30u", &mwi_monitor.polling_interval) != 1) {
 				ast_log(LOG_ERROR, "Invalid value for pollinginterval: %s\n", v->value);
 				mwi_monitor.polling_interval = DEFAULT_POLLING_INTERVAL;
 			}
@@ -1169,7 +1169,7 @@ static int smdi_msg_retrieve_read(struct ast_channel *chan, const char *cmd, cha
 	}
 
 	if (!ast_strlen_zero(args.timeout)) {
-		if (sscanf(args.timeout, "%u", &timeout) != 1) {
+		if (sscanf(args.timeout, "%30u", &timeout) != 1) {
 			ast_log(LOG_ERROR, "'%s' is not a valid timeout\n", args.timeout);
 			timeout = SMDI_RETRIEVE_TIMEOUT_DEFAULT;
 		}

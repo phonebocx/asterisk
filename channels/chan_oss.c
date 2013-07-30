@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 171188 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <ctype.h>		/* isalnum() used here */
 #include <math.h>
@@ -1239,7 +1239,7 @@ static char *console_active(struct ast_cli_entry *e, int cmd, struct ast_cli_arg
 static void store_boost(struct chan_oss_pvt *o, const char *s)
 {
 	double boost = 0;
-	if (sscanf(s, "%lf", &boost) != 1) {
+	if (sscanf(s, "%30lf", &boost) != 1) {
 		ast_log(LOG_WARNING, "invalid boost <%s>\n", s);
 		return;
 	}

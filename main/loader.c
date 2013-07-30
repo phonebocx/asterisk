@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 199744 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 213453 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_MODULE_DIR */
@@ -744,9 +744,8 @@ static enum ast_module_load_result start_resource(struct ast_module *mod)
 		mod->flags.declined = 1;
 		break;
 	case AST_MODULE_LOAD_FAILURE:
-		break;
-	case AST_MODULE_LOAD_SKIP:
-		/* modules should never return this value */
+	case AST_MODULE_LOAD_SKIP: /* modules should never return this value */
+	case AST_MODULE_LOAD_PRIORITY:
 		break;
 	}
 
@@ -758,7 +757,7 @@ static enum ast_module_load_result start_resource(struct ast_module *mod)
  *
  *  If the ast_heap is provided (not NULL) the module is found and added to the
  *  heap without running the module's load() function.  By doing this, modules
- *  added to the resource_heap can be initilized later in order by priority. 
+ *  added to the resource_heap can be initialized later in order by priority. 
  *
  *  If the ast_heap is not provided, the module's load function will be executed
  *  immediately */
@@ -808,7 +807,7 @@ static enum ast_module_load_result load_resource(const char *resource_name, unsi
 
 	if (resource_heap) {
 		ast_heap_push(resource_heap, mod);
-		res = AST_MODULE_LOAD_SKIP;
+		res = AST_MODULE_LOAD_PRIORITY;
 	} else {
 		res = start_resource(mod);
 	}
@@ -858,7 +857,7 @@ static int mod_load_cmp(void *a, void *b)
 	int res = -1;
 	/* if load_pri is not set, default is 255.  Lower is better*/
 	unsigned char a_pri = ast_test_flag(a_mod->info, AST_MODFLAG_LOAD_ORDER) ? a_mod->info->load_pri : 255;
-	unsigned char b_pri = ast_test_flag(a_mod->info, AST_MODFLAG_LOAD_ORDER) ? b_mod->info->load_pri : 255;
+	unsigned char b_pri = ast_test_flag(b_mod->info, AST_MODFLAG_LOAD_ORDER) ? b_mod->info->load_pri : 255;
 	if (a_pri == b_pri) {
 		res = 0;
 	} else if (a_pri < b_pri) {
@@ -894,6 +893,9 @@ static int load_resource_list(struct load_order *load_order, unsigned int global
 			goto done;
 		case AST_MODULE_LOAD_SKIP:
 			break;
+		case AST_MODULE_LOAD_PRIORITY:
+			AST_LIST_REMOVE_CURRENT(entry);
+			break;
 		}
 	}
 	AST_LIST_TRAVERSE_SAFE_END;
@@ -909,6 +911,7 @@ static int load_resource_list(struct load_order *load_order, unsigned int global
 			res = -1;
 			goto done;
 		case AST_MODULE_LOAD_SKIP:
+		case AST_MODULE_LOAD_PRIORITY:
 			break;
 		}
 	}

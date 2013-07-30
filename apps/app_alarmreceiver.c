@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 154647 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <math.h>
 #include <sys/wait.h>
@@ -124,7 +124,7 @@ static void database_increment( char *key )
 		return;
 	}
 	
-	sscanf(value, "%u", &v);
+	sscanf(value, "%30u", &v);
 	v++;
 
 	ast_verb(4, "AlarmReceiver: New value for %s: %u\n", key, v);

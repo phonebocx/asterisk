@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153468 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <math.h>
 
@@ -219,12 +219,12 @@ static int math(struct ast_channel *chan, const char *cmd, char *parse,
 		return -1;
 	}
 
-	if (sscanf(mvalue1, "%lf", &fnum1) != 1) {
+	if (sscanf(mvalue1, "%30lf", &fnum1) != 1) {
 		ast_log(LOG_WARNING, "'%s' is not a valid number\n", mvalue1);
 		return -1;
 	}
 
-	if (sscanf(mvalue2, "%lf", &fnum2) != 1) {
+	if (sscanf(mvalue2, "%30lf", &fnum2) != 1) {
 		ast_log(LOG_WARNING, "'%s' is not a valid number\n", mvalue2);
 		return -1;
 	}

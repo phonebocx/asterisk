@@ -115,7 +115,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 199299 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 205413 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/channel.h"
@@ -137,7 +137,7 @@ static const char *devstatestring[][2] = {
 	{ /* 5 AST_DEVICE_UNAVAILABLE */ "Unavailable", "UNAVAILABLE" }, /*!< Unavailable (not registered) */
 	{ /* 6 AST_DEVICE_RINGING */     "Ringing",     "RINGING"     }, /*!< Ring, ring, ring */
 	{ /* 7 AST_DEVICE_RINGINUSE */   "Ring+Inuse",  "RINGINUSE"   }, /*!< Ring and in use */
-	{ /* 8 AST_DEVICE_ONHOLD */      "On Hold"      "ONHOLD"      }, /*!< On Hold */
+	{ /* 8 AST_DEVICE_ONHOLD */      "On Hold",      "ONHOLD"      }, /*!< On Hold */
 };
 
 /*!\brief Mapping for channel states to device states */
@@ -353,9 +353,6 @@ static enum ast_device_state _ast_device_state(const char *device, int check_cac
 		return res;
 
 	res = ast_parse_device_state(device);
-
-	if (res == AST_DEVICE_UNKNOWN)
-		return AST_DEVICE_NOT_INUSE;
 
 	return res;
 }
@@ -737,6 +734,7 @@ void ast_devstate_aggregate_init(struct ast_devstate_aggregate *agg)
 {
 	memset(agg, 0, sizeof(*agg));
 
+	agg->all_unknown = 1;
 	agg->all_unavail = 1;
 	agg->all_busy = 1;
 	agg->all_free = 1;
@@ -746,69 +744,76 @@ void ast_devstate_aggregate_add(struct ast_devstate_aggregate *agg, enum ast_dev
 {
 	switch (state) {
 	case AST_DEVICE_NOT_INUSE:
+		agg->all_unknown = 0;
 		agg->all_unavail = 0;
 		agg->all_busy = 0;
 		break;
 	case AST_DEVICE_INUSE:
 		agg->in_use = 1;
-		agg->all_busy = 0;
 		agg->all_unavail = 0;
 		agg->all_free = 0;
+		agg->all_unknown = 0;
 		break;
 	case AST_DEVICE_RINGING:
 		agg->ring = 1;
-		agg->all_busy = 0;
 		agg->all_unavail = 0;
 		agg->all_free = 0;
+		agg->all_unknown = 0;
 		break;
 	case AST_DEVICE_RINGINUSE:
 		agg->in_use = 1;
 		agg->ring = 1;
-		agg->all_busy = 0;
 		agg->all_unavail = 0;
 		agg->all_free = 0;
+		agg->all_unknown = 0;
 		break;
 	case AST_DEVICE_ONHOLD:
+		agg->all_unknown = 0;
 		agg->all_unavail = 0;
 		agg->all_free = 0;
 		agg->on_hold = 1;
 		break;
 	case AST_DEVICE_BUSY:
+		agg->all_unknown = 0;
 		agg->all_unavail = 0;
 		agg->all_free = 0;
 		agg->busy = 1;
 		agg->in_use = 1;
 		break;
 	case AST_DEVICE_UNAVAILABLE:
+		agg->all_unknown = 0;
 	case AST_DEVICE_INVALID:
 		agg->all_busy = 0;
 		agg->all_free = 0;
 		break;
 	case AST_DEVICE_UNKNOWN:
+		agg->all_busy = 0;
+		agg->all_free = 0;
+		break;
+	case AST_DEVICE_TOTAL: /* not a device state, included for completeness. */
 		break;
 	}
 }
+
 
 enum ast_device_state ast_devstate_aggregate_result(struct ast_devstate_aggregate *agg)
 {
 	if (agg->all_free)
 		return AST_DEVICE_NOT_INUSE;
-
 	if ((agg->in_use || agg->on_hold) && agg->ring)
 		return AST_DEVICE_RINGINUSE;
-
-	if (agg->all_busy)
-		return AST_DEVICE_BUSY;
-
-	if (agg->in_use)
-		return AST_DEVICE_INUSE;
-
 	if (agg->ring)
 		return AST_DEVICE_RINGING;
-
+	if (agg->busy)
+		return AST_DEVICE_BUSY;
+	if (agg->in_use)
+		return AST_DEVICE_INUSE;
 	if (agg->on_hold)
 		return AST_DEVICE_ONHOLD;
-
+	if (agg->all_busy)
+		return AST_DEVICE_BUSY;
+	if (agg->all_unknown)
+		return AST_DEVICE_UNKNOWN;
 	if (agg->all_unavail)
 		return AST_DEVICE_UNAVAILABLE;
 

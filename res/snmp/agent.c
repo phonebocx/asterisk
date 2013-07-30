@@ -16,7 +16,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 176627 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 /*
  * There is some collision collision between netsmp and asterisk names,
@@ -769,7 +769,7 @@ static u_char *ast_var_Version(struct variable *vp, oid *name, size_t *length,
 		return (u_char *)version;
 	}
 	case ASTVERTAG:
-		sscanf(ast_get_version_num(), "%lu", &long_ret);
+		sscanf(ast_get_version_num(), "%30lu", &long_ret);
 		return (u_char *)&long_ret;
 	default:
 		break;

@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 163449 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 201097 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -163,15 +163,22 @@ static void *autoservice_run(void *ign)
 					continue;
 				}
 				
-				if ((dup_f = ast_frdup(defer_frame))) {
-					AST_LIST_INSERT_HEAD(&ents[i]->deferred_frames, dup_f, frame_list);
+				if (defer_frame != f) {
+					if ((dup_f = ast_frdup(defer_frame))) {
+						AST_LIST_INSERT_HEAD(&ents[i]->deferred_frames, dup_f, frame_list);
+					}
+				} else {
+					if ((dup_f = ast_frisolate(defer_frame))) {
+						if (dup_f != defer_frame) {
+							ast_frfree(defer_frame);
+						}
+						AST_LIST_INSERT_HEAD(&ents[i]->deferred_frames, dup_f, frame_list);
+					}
 				}
 				
 				break;
 			}
-		}
-
-		if (f) {
+		} else if (f) {
 			ast_frfree(f);
 		}
 	}

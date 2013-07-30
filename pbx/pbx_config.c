@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 191139 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <ctype.h>
 
@@ -451,8 +451,7 @@ static char *complete_dialplan_remove_extension(struct ast_cli_args *a)
 
 		ast_unlock_contexts();
 	error2:
-		if (exten)
-			free(exten);
+		free(exten);
 	} else if (a->pos == 4) { /* 'dialplan remove extension EXT _X_' (priority) */
 		char *exten = NULL, *context, *cid, *p;
 		struct ast_context *c;
@@ -509,8 +508,7 @@ static char *complete_dialplan_remove_extension(struct ast_cli_args *a)
 		}
 		ast_unlock_contexts();
 	error3:
-		if (exten)
-			free(exten);
+		free(exten);
 	}
 	return ret; 
 }
@@ -949,7 +947,7 @@ static char *handle_cli_dialplan_add_extension(struct ast_cli_entry *e, int cmd,
 		if (!strcmp(prior, "hint")) {
 			iprior = PRIORITY_HINT;
 		} else {
-			if (sscanf(prior, "%d", &iprior) != 1) {
+			if (sscanf(prior, "%30d", &iprior) != 1) {
 				ast_cli(a->fd, "'%s' is not a valid priority\n", prior);
 				prior = NULL;
 			}
@@ -1139,8 +1137,7 @@ static char *complete_dialplan_add_ignorepat(struct ast_cli_args *a)
 				ret = strdup(ast_get_context_name(c));
 		}
 
-		if (ignorepat)
-			free(ignorepat);
+		free(ignorepat);
 		ast_unlock_contexts();
 		return ret;
 	}
@@ -1444,7 +1441,7 @@ static int pbx_load_config(const char *config_file)
 					goto process_extension;
 				}
 			} else if (!strcasecmp(v->name, "exten")) {
-				int ipri = -2;
+				int ipri;
 				char *plus, *firstp;
 				char *pri, *appl, *data, *cidmatch;
 
@@ -1456,6 +1453,7 @@ static int pbx_load_config(const char *config_file)
 				pbx_substitute_variables_helper(NULL, ext, realext, sizeof(realext) - 1);
 				ast_copy_string(lastextension, realext, sizeof(lastextension));
 process_extension:
+				ipri = -2;
 				if ((cidmatch = strchr(realext, '/'))) {
 					*cidmatch++ = '\0';
 					ast_shrink_phone_number(cidmatch);
@@ -1488,7 +1486,7 @@ process_extension:
 					} else {
 						ast_log(LOG_WARNING, "Can't use 'same' priority on the first entry!\n");
 					}
-				} else if (sscanf(pri, "%d", &ipri) != 1 &&
+				} else if (sscanf(pri, "%30d", &ipri) != 1 &&
 					   (ipri = ast_findlabel_extension2(NULL, con, realext, pri, cidmatch)) < 1) {
 					ast_log(LOG_WARNING, "Invalid priority/label '%s' at line %d\n", pri, v->lineno);
 					ipri = 0;
@@ -1641,9 +1639,9 @@ static void pbx_load_users(void)
 			c = dahdicopy;
 			chan = strsep(&c, ",");
 			while (chan) {
-				if (sscanf(chan, "%d-%d", &start, &finish) == 2) {
+				if (sscanf(chan, "%30d-%30d", &start, &finish) == 2) {
 					/* Range */
-				} else if (sscanf(chan, "%d", &start)) {
+				} else if (sscanf(chan, "%30d", &start)) {
 					/* Just one */
 					finish = start;
 				} else {

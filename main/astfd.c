@@ -27,7 +27,7 @@
 
 #ifdef DEBUG_FD_LEAKS
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 187303 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211278 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -98,7 +98,7 @@ int __ast_fdleak_open(const char *file, int line, const char *func, const char *
 				flags & O_RDONLY ? "|O_RDONLY" : "",
 				flags & O_WRONLY ? "|O_WRONLY" : "",
 				"");
-			flags |= ~(O_CREAT | O_APPEND | O_EXCL | O_NONBLOCK | O_TRUNC | O_RDWR | O_RDONLY | O_WRONLY);
+			flags &= ~(O_CREAT | O_APPEND | O_EXCL | O_NONBLOCK | O_TRUNC | O_RDWR | O_RDONLY | O_WRONLY);
 			if (flags) {
 				STORE_COMMON(res, "open", "\"%s\",%s|%d,%04o", path, sflags, flags, mode);
 			} else {

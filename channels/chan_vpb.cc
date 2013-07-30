@@ -39,7 +39,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 159818 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 209234 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/utils.h"
@@ -1509,7 +1509,7 @@ static struct vpb_pvt *mkif(int board, int channel, int mode, int gains, float t
 	tmp->callgroup = callgroup;
 	tmp->pickupgroup = pickupgroup;
 
-	/* Initilize dtmf caller ID position variable */
+	/* Initialize dtmf caller ID position variable */
 	tmp->dtmf_caller_pos = 0;
 
 	ast_copy_string(tmp->language, language, sizeof(tmp->language));

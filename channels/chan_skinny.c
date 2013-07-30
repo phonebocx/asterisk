@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182947 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -1182,7 +1182,7 @@ struct skinny_subchannel {
 	int immediate;					\
 	int hookstate;					\
 	int nat;					\
-	int canreinvite;				\
+	int directmedia;				\
 	int prune;
 
 struct skinny_line {
@@ -1208,7 +1208,7 @@ struct skinny_line_options{
  	.hidecallerid = 0,
 	.amaflags = 0,
  	.instance = 0,
- 	.canreinvite = 0,
+ 	.directmedia = 0,
  	.nat = 0,
  	.confcapability = AST_FORMAT_ULAW | AST_FORMAT_ALAW,
  	.capability = 0,
@@ -2593,7 +2593,7 @@ static enum ast_rtp_get_result skinny_get_rtp_peer(struct ast_channel *c, struct
 
 	l = sub->parent;
 
-	if (!l->canreinvite || l->nat){
+	if (!l->directmedia || l->nat){
 		res = AST_RTP_TRY_PARTIAL;
 		if (skinnydebug)
 			ast_verb(1, "skinny_get_rtp_peer() Using AST_RTP_TRY_PARTIAL \n");
@@ -2653,7 +2653,7 @@ static int skinny_set_rtp_peer(struct ast_channel *c, struct ast_rtp *rtp, struc
 
 		req->data.startmedia.conferenceId = htolel(sub->callid);
 		req->data.startmedia.passThruPartyId = htolel(sub->callid);
-		if (!(l->canreinvite) || (l->nat)){
+		if (!(l->directmedia) || (l->nat)){
 			ast_rtp_get_us(rtp, &us);
 			req->data.startmedia.remoteIp = htolel(d->ourip.s_addr);
 			req->data.startmedia.remotePort = htolel(ntohs(us.sin_port));
@@ -6243,6 +6243,7 @@ static int get_input(struct skinnysession *s)
 {
 	int res;
 	int dlen = 0;
+	int *bufaddr;
 	struct pollfd fds[1];
 
 	fds[0].fd = s->fd;
@@ -6289,7 +6290,8 @@ static int get_input(struct skinnysession *s)
 			return -1;
 		}
 
-		dlen = letohl(*(int *)s->inbuf);
+		bufaddr = (int *)s->inbuf;
+		dlen = letohl(*bufaddr);
 		if (dlen < 4) {
 			ast_debug(1, "Skinny Client sent invalid data.\n");
 			ast_mutex_unlock(&s->lock);
@@ -6298,7 +6300,7 @@ static int get_input(struct skinnysession *s)
 		if (dlen+8 > sizeof(s->inbuf)) {
 			dlen = sizeof(s->inbuf) - 8;
 		}
-		*(int *)s->inbuf = htolel(dlen);
+		*bufaddr = htolel(dlen);
 
 		res = read(s->fd, s->inbuf+4, dlen+4);
 		ast_mutex_unlock(&s->lock);
@@ -6317,13 +6319,15 @@ static int get_input(struct skinnysession *s)
 static struct skinny_req *skinny_req_parse(struct skinnysession *s)
 {
 	struct skinny_req *req;
+	int *bufaddr;
 
 	if (!(req = ast_calloc(1, SKINNY_MAX_PACKET)))
 		return NULL;
 
 	ast_mutex_lock(&s->lock);
 	memcpy(req, s->inbuf, skinny_header_size);
-	memcpy(&req->data, s->inbuf+skinny_header_size, letohl(*(int*)(s->inbuf))-4);
+	bufaddr = (int *)(s->inbuf);
+	memcpy(&req->data, s->inbuf+skinny_header_size, letohl(*bufaddr)-4);
 
 	ast_mutex_unlock(&s->lock);
 
@@ -6596,7 +6600,7 @@ static struct ast_channel *skinny_request(const char *type, int format, void *da
  					ast_log(LOG_WARNING, "Invalid cos_video value at line %d, refer to QoS documentation\n", v->lineno);
  				continue;
  			} else if (!strcasecmp(v->name, "bindport")) {
- 				if (sscanf(v->value, "%d", &ourport) == 1) {
+ 				if (sscanf(v->value, "%5d", &ourport) == 1) {
  					bindaddr.sin_port = htons(ourport);
  				} else {
  					ast_log(LOG_WARNING, "Invalid bindport '%s' at line %d of %s\n", v->value, v->lineno, config);
@@ -6627,9 +6631,9 @@ static struct ast_channel *skinny_request(const char *type, int format, void *da
  				CLINE_OPTS->callwaiting = ast_true(v->value);
  				continue;
  			}
- 		} else if (!strcasecmp(v->name, "canreinvite")) {
+ 		} else if (!strcasecmp(v->name, "directmedia") || !strcasecmp(v->name, "canreinvite")) {
  			if (type & (TYPE_DEF_LINE | TYPE_LINE)) {
- 				CLINE_OPTS->canreinvite = ast_true(v->value);
+ 				CLINE_OPTS->directmedia = ast_true(v->value);
  				continue;
  			}
  		} else if (!strcasecmp(v->name, "nat")) {
@@ -7073,7 +7077,7 @@ static struct ast_channel *skinny_request(const char *type, int format, void *da
 	/* load the general section */
 	cat = ast_category_browse(cfg, "general");
 	config_parse_variables(TYPE_GENERAL, NULL, ast_variable_browse(cfg, "general"));
-		
+
 	if (ntohl(bindaddr.sin_addr.s_addr)) {
 		__ourip = bindaddr.sin_addr;
 	} else {

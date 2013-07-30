@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Agents Log In and Out</TITLE>
-<META NAME="description" CONTENT="Agents Log In and Out">
+<TITLE>The Contexts referenced from the queues.conf file</TITLE>
+<META NAME="description" CONTENT="The Contexts referenced from the queues.conf file">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -19,232 +19,217 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
 <LINK REL="previous" HREF="node260.html">
-<LINK REL="up" HREF="node260.html">
+<LINK REL="up" HREF="node259.html">
 <LINK REL="next" HREF="node262.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html4057"
+<A NAME="tex2html4071"
   HREF="node262.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4053"
-  HREF="node260.html">
+<A NAME="tex2html4067"
+  HREF="node259.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4049"
+<A NAME="tex2html4063"
   HREF="node260.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4055"
+<A NAME="tex2html4069"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html4058"
-  HREF="node262.html">Controlling The Way Queues</A>
-<B> Up:</B> <A NAME="tex2html4054"
-  HREF="node260.html">Assigning agents to Queues</A>
-<B> Previous:</B> <A NAME="tex2html4050"
-  HREF="node260.html">Assigning agents to Queues</A>
- &nbsp; <B>  <A NAME="tex2html4056"
+<B> Next:</B> <A NAME="tex2html4072"
+  HREF="node262.html">Assigning agents to Queues</A>
+<B> Up:</B> <A NAME="tex2html4068"
+  HREF="node259.html">Routing incoming Calls to</A>
+<B> Previous:</B> <A NAME="tex2html4064"
+  HREF="node260.html">The Main Menu</A>
+ &nbsp; <B>  <A NAME="tex2html4070"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H3><A NAME="SECTION001423100000000000000">
-Agents Log In and Out</A>
+<H3><A NAME="SECTION001422200000000000000">
+The Contexts referenced from the queues.conf file</A>
 </H3>
 
 <P>
 </B></SMALL>
 <UL>
 <LI><PRE>
-context queues-loginout
-{
-        6092 =&gt; {
-                        Answer();
-                        Read(AGENT_NUMBER,agent-enternum);
-                        VMAuthenticate(${AGENT_NUMBER}@default,s);
-                        Set(queue-announce-success=1);
-                        goto queues-manip,I${AGENT_NUMBER},1;
-                }
+context sales {
 
-        6093 =&gt; {
-                        Answer();
-                        Read(AGENT_NUMBER,agent-enternum);
-                        Set(queue-announce-success=1);
-                        goto queues-manip,O${AGENT_NUMBER},1;
-                }
+        0 =&gt; goto dispatch,s,1;
+        8 =&gt; Voicemail(${SALESVM});
+
+        s =&gt; {
+                Ringing();
+                Wait(2);
+                Background(digium/ThankYouForContactingTheDigiumSalesDepartment);
+                WaitExten(0.3);
+                Background(digium/PleaseHoldAndYourCallWillBeAnsweredByOurNextAvailableSalesRepresentative);
+                WaitExten(0.3);
+                Background(digium/AtAnyTimeYouMayPress0ToSpeakWithAnOperatorOr8ToLeaveAMessage);
+                Set(CALLERID(name)=Sales);
+                Queue(sales-general,t);
+                Set(CALLERID(name)=EmptySalQ);
+                goto dispatch,s,1;
+                Playback(goodbye);
+                Hangup();
+        }
 }
 </PRE><SMALL CLASS="SCRIPTSIZE"><B>
 </LI>
 </UL>
 <P>
-In the above contexts, the agents dial 6092 to log into their queues,
-and they dial 6093 to log out of their queues. The agent is prompted
-for their agent number, and if they are logging in, their passcode,
-and then they are transferred to the proper extension in the
-queues-manip context.  The queues-manip context does all the
-actual work:
+Please note that there is only one attempt to queue a call in the sales queue. All sales agents that
+are logged in will be rung.
 
 <P>
 </B></SMALL>
 <UL>
 <LI><PRE>
-context queues-manip {
+context customerservice {
 
-        // Raquel Squelch
-        _[IO]6121 =&gt; {
-                &amp;queue-addremove(dispatch,10,${EXTEN});
-                &amp;queue-success(${EXTEN});
+        0 =&gt; {
+                SetCIDName(CSVTrans);
+                goto dispatch|s|1;
         }
+        8 =&gt; Voicemail(${CUSTSERVVM});
 
-        // Brittanica Spears
-        _[IO]6165 =&gt; {
-                &amp;queue-addremove(dispatch,20,${EXTEN});
-                &amp;queue-success(${EXTEN});
-        }
-
-        // Rock Hudson
-        _[IO]6170 =&gt; {
-                &amp;queue-addremove(sales-general,10,${EXTEN});
-                &amp;queue-addremove(customerservice,20,${EXTEN});
-                &amp;queue-addremove(dispatch,30,${EXTEN});
-                &amp;queue-success(${EXTEN});
-        }
-
-        // Saline Dye-on
-        _[IO]6070 =&gt; {
-                &amp;queue-addremove(sales-general,20,${EXTEN});
-                &amp;queue-addremove(customerservice,30,${EXTEN});
-                &amp;queue-addremove(dispatch,30,${EXTEN});
-                &amp;queue-success(${EXTEN});
+        s =&gt; {
+                Ringing();
+                Wait(2);
+                Background(digium/ThankYouForCallingDigiumCustomerService);
+                WaitExten(0.3);
+        notracking:
+                Background(digium/PleaseWaitForTheNextAvailableCustomerServiceRepresentative);
+                WaitExten(0.3);
+                Background(digium/AtAnyTimeYouMayPress0ToSpeakWithAnOperatorOr8ToLeaveAMessage);
+                Set(CALLERID(name)=Cust Svc);
+                Set(QUEUE_MAX_PENALTY=10);
+                Queue(customerservice,t);
+                Set(QUEUE_MAX_PENALTY=0);
+                Queue(customerservice,t);
+                Set(CALLERID(name)=EmptyCSVQ);
+                goto dispatch,s,1;
+                Background(digium/NoCustomerServiceRepresentativesAreAvailableAtThisTime);
+                Background(digium/PleaseLeaveAMessageInTheCustomerServiceVoiceMailBox);
+                Voicemail(${CUSTSERVVM});
+                Playback(goodbye);
+                Hangup();
         }
 }
 </PRE><SMALL CLASS="SCRIPTSIZE"><B>
 </LI>
 </UL>
 <P>
-In the above extensions, note that the queue-addremove macro is used
-to actually add or remove the agent from the applicable queue,
-with the applicable priority level. Note that agents with a
-priority level of 10 will be called before agents with levels
-of 20 or 30.
-
-<P>
-In the above example, Raquel will be dialed first in the dispatch
-queue, if she has logged in. If she is not, then the second call of
-Queue() with priority of 20 will dial Brittanica if she is present,
-otherwise the third call of Queue() with MAX_PENALTY of 0 will
-dial Rock and Saline simultaneously.
-
-<P>
-Also note that Rock will be among the first to be called in the sales-general
-queue, and among the last in the dispatch queue. As you can see in
-main menu, the callerID is set in the main menu so they can tell
-which queue incoming calls are coming from.
-
-<P>
-The call to queue-success() gives some feedback to the agent
-as they log in and out, that the process has completed.
+Note that calls coming into customerservice will first be try to queue
+calls to those agents with a QUEUE_MAX_PENALTY of 10, and if none are available,
+then all agents are rung.
 
 <P>
 </B></SMALL>
 <UL>
 <LI><PRE>
-macro queue-success(exten)
+context dispatch
 {
-        if( ${queue-announce-success} &gt; 0 )
-        {
-                switch(${exten:0:1})
-                {
-                case I:
-                        Playback(agent-loginok);
-                        Hangup();
-                        break;
-                case O:
-                        Playback(agent-loggedoff);
-                        Hangup();
-                        break;
-                }
+
+        s =&gt; {
+                Ringing();
+                Wait(2);
+                Background(digium/ThankYouForCallingDigium);
+                WaitExten(0.3);
+                Background(digium/YourCallWillBeAnsweredByOurNextAvailableOperator);
+                Background(digium/PleaseHold);
+                Set(QUEUE_MAX_PENALTY=10);
+                Queue(dispatch|t);
+                Set(QUEUE_MAX_PENALTY=20);
+                Queue(dispatch|t);
+                Set(QUEUE_MAX_PENALTY=0);
+                Queue(dispatch|t);
+                Background(digium/NoOneIsAvailableToTakeYourCall);
+                Background(digium/PleaseLeaveAMessageInOurGeneralVoiceMailBox);
+                Voicemail(${DISPATCHVM});
+                Playback(goodbye);
+                Hangup();
         }
 }
 </PRE><SMALL CLASS="SCRIPTSIZE"><B>
 </LI>
 </UL>
 <P>
-The queue-addremove macro is defined in this manner:
+And in the dispatch context, first agents of priority 10 are tried, then
+20, and if none are available, all agents are tried.
 
 <P>
-</B></SMALL>
-<UL>
-<LI><PRE>
-macro queue-addremove(queuename,penalty,exten)
-{
-        switch(${exten:0:1})
-        {
-        case I:  // Login
-                 AddQueueMember(${queuename},Local/${exten:1}@agents,${penalty});
-		 break;
-        case O:  // Logout
-                 RemoveQueueMember(${queuename},Local/${exten:1}@agents);
-		 break;
-        case P:  // Pause
-                 PauseQueueMember(${queuename},Local/${exten:1}@agents);
-		 break;
-        case U:  // Unpause
-                 UnpauseQueueMember(${queuename},Local/${exten:1}@agents);
-		 break;
-        default: // Invalid
-                 Playback(invalid);
-                 break;
-        }
-}
-</PRE><SMALL CLASS="SCRIPTSIZE"><B>
-</LI>
-</UL>
+Notice that a common pattern is followed in each of the three queue contexts:
+
 <P>
-Basically, it uses the first character of the exten variable, to determine the
-proper actions to take. In the above dial plan code, only the cases I or O are used,
-which correspond to the Login and Logout actions.
+First, you set QUEUE_MAX_PENALTY to a value, then you call
+Queue(<SPAN CLASS="MATH"><IMG
+ WIDTH="19" HEIGHT="33" ALIGN="MIDDLE" BORDER="0"
+ SRC="img2.png"
+ ALT="$&lt;$"></SPAN>queue-name<SPAN CLASS="MATH"><IMG
+ WIDTH="19" HEIGHT="33" ALIGN="MIDDLE" BORDER="0"
+ SRC="img1.png"
+ ALT="$&gt;$"></SPAN>,option,...) (see the Queue application documetation for details)
+
+<P>
+In the above, note that the "t" option is specified, and this allows the
+agent picking up the incoming call the luxury of transferring the call to
+other parties.
+
+<P>
+The purpose of specifying the QUEUE_MAX_PENALTY is to develop a set of priorities
+amongst agents. By the above usage, agents with lower number priorities will
+be given the calls first, and then, if no-one picks up the call, the QUEUE_MAX_PENALTY
+will be incremented, and the queue tried again. Hopefully, along the line, someone
+will pick up the call, and the Queue application will end with a hangup.
+
+<P>
+The final attempt to queue in most of our examples sets the QUEUE_MAX_PENALTY
+to zero, which means to try all available agents.
 
 <P>
 
 <DIV CLASS="navigation"><HR>
 <!--Navigation Panel-->
-<A NAME="tex2html4057"
+<A NAME="tex2html4071"
   HREF="node262.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4053"
-  HREF="node260.html">
+<A NAME="tex2html4067"
+  HREF="node259.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4049"
+<A NAME="tex2html4063"
   HREF="node260.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4055"
+<A NAME="tex2html4069"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html4058"
-  HREF="node262.html">Controlling The Way Queues</A>
-<B> Up:</B> <A NAME="tex2html4054"
-  HREF="node260.html">Assigning agents to Queues</A>
-<B> Previous:</B> <A NAME="tex2html4050"
-  HREF="node260.html">Assigning agents to Queues</A>
- &nbsp; <B>  <A NAME="tex2html4056"
+<B> Next:</B> <A NAME="tex2html4072"
+  HREF="node262.html">Assigning agents to Queues</A>
+<B> Up:</B> <A NAME="tex2html4068"
+  HREF="node259.html">Routing incoming Calls to</A>
+<B> Previous:</B> <A NAME="tex2html4064"
+  HREF="node260.html">The Main Menu</A>
+ &nbsp; <B>  <A NAME="tex2html4070"
   HREF="node1.html">Contents</A></B> </DIV>
 <!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2009-06-11
+2009-08-29
 </ADDRESS>
 </BODY>
 </HTML>

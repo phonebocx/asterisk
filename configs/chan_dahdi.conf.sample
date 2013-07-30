@@ -155,6 +155,11 @@
 ; Overlap dialing mode (sending overlap digits)
 ; Cannot be changed on a reload.
 ;
+; incoming: incoming direction only
+; outgoing: outgoing direction only
+; no: neither direction
+; yes or both: both directions
+;
 ;overlapdial=yes
 ;
 ; Allow inband audio (progress) when a call is RELEASEd by the far end of a PRI
@@ -997,8 +1002,19 @@ pickupgroup=1
 
 ; ---------------- Options for use with signalling=mfcr2 --------------
 
+; MFC-R2 signaling has lots of variants from country to country and even sometimes
+; minor variants inside the same country. The only mandatory parameters here are:
+; mfcr2_variant, mfcr2_max_ani and mfcr2_max_dnis.
+; IT IS RECOMMENDED that you leave the default values (leaving it commented) for the 
+; other parameters unless you have problems or you have been instructed to change some 
+; parameter. OpenR2 library uses the mfcr2_variant parameter to try to determine the 
+; best defaults for your country, also refer to the OpenR2 package directory 
+; doc/asterisk/ where you can find sample configurations for some countries. If you 
+; want to contribute your configs for a particular country send them to the e-mail 
+; of the primary OpenR2 developer that you can find in the AUTHORS file of the OpenR2 package
+
 ; MFC/R2 variant. This depends on the OpenR2 supported variants
-; A list of values can be found at libopenr2.org
+; A list of values can be found by executing the openr2 command r2test -l
 ; some valid values are:
 ; ar (Argentina)
 ; br (Brazil)
@@ -1007,16 +1023,16 @@ pickupgroup=1
 ; itu (per ITU spec)
 ; mfcr2_variant=mx
 
-; whether or not to get the ANI before getting DNIS.
-; some telcos require ANI first some others do not care
-; if this go wrong, change this value
-; mfcr2_get_ani_first=no
-
 ; Max amount of ANI to ask for
 ; mfcr2_max_ani=10
 
 ; Max amount of DNIS to ask for
 ; mfcr2_max_dnis=4
+
+; whether or not to get the ANI before getting DNIS.
+; some telcos require ANI first some others do not care
+; if this go wrong, change this value
+; mfcr2_get_ani_first=no
 
 ; Caller Category to send
 ; national_subscriber
@@ -1028,9 +1044,8 @@ pickupgroup=1
 ; you can change this setting from the dialplan
 ; by setting the variable MFCR2_CATEGORY
 ; (remember to set _MFCR2_CATEGORY from originating channels)
-; MFCR2_CATEGORY will also be a variable available
-; on incoming calls set to the value received from
-; the far end
+; MFCR2_CATEGORY will also be a variable available in your context
+; on incoming calls set to the value received from the far end
 ; mfcr2_category=national_subscriber
 
 ; Call logging is stored at the Asterisk
@@ -1116,6 +1131,10 @@ pickupgroup=1
 ; when this option is set to no you must explicitly accept the call with DAHDIAcceptR2Call
 ; or implicitly through the Answer() application. 
 ; mfcr2_accept_on_offer=yes
+
+; Skip request of calling party category and ANI
+; you need openr2 >= 1.2.0 to use this feature
+; mfcr2_skip_category=no
 
 ; WARNING: advanced users only! I really mean it
 ; this parameter is commented by default because

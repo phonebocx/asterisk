@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180195 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 206869 $")
 
 #include <time.h>
 #include <math.h>
@@ -1128,6 +1128,9 @@ static struct {
 int ast_parse_caller_presentation(const char *data)
 {
 	int i;
+	if (!data) {
+		return -1;
+	}
 
 	for (i = 0; i < ARRAY_LEN(pres_types); i++) {
 		if (!strcasecmp(pres_types[i].name, data))

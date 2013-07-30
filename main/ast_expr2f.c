@@ -512,7 +512,7 @@ static yyconst flex_int16_t yy_chk[159] =
 #include <stdio.h>
 
 #if !defined(STANDALONE)
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 185947 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 201679 $")
 #else
 #ifndef __USE_ISOC99
 #define __USE_ISOC99 1
@@ -2379,7 +2379,7 @@ int ast_yyerror(const char *, YYLTYPE *, struct parse_io *); /* likewise */
 
 void ast_yyfree(void *ptr, yyscan_t yyscanner)
 {
-      if (ptr) /* the normal generated ast_yyfree func just frees its first arg;
+       /* the normal generated ast_yyfree func just frees its first arg;
                     this get complaints on some systems, as sometimes this
                     arg is a nil ptr! It's usually not fatal, but is irritating! */
               free( (char *) ptr );
@@ -2416,8 +2416,7 @@ int ast_expr(char *expr, char *buf, int length, struct ast_channel *chan)
 			else
 				buf[0] = 0;
 			return_value = strlen(buf);
-			if (io.val->u.s)
-				free(io.val->u.s);
+			free(io.val->u.s);
 		}
 		free(io.val);
 	}

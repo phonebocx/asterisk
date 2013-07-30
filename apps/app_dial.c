@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 198297 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 208596 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -1971,7 +1971,6 @@ static int dial_exec_full(struct ast_channel *chan, void *data, struct ast_flags
 			}
 
 			if (ast_autoservice_stop(chan) < 0) {
-				ast_log(LOG_ERROR, "Could not stop autoservice on calling channel\n");
 				res = -1;
 			}
 

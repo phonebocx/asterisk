@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 124102 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__)
 #include <net/if_dl.h>
@@ -280,7 +280,7 @@ int ast_str_to_eid(struct ast_eid *eid, const char *s)
 	unsigned int eid_int[6];
 	int x;
 
-	if (sscanf(s, "%x:%x:%x:%x:%x:%x", &eid_int[0], &eid_int[1], &eid_int[2],
+	if (sscanf(s, "%2x:%2x:%2x:%2x:%2x:%2x", &eid_int[0], &eid_int[1], &eid_int[2],
 		 &eid_int[3], &eid_int[4], &eid_int[5]) != 6)
 		 	return -1;
 	

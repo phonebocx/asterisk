@@ -47,7 +47,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180719 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -114,7 +114,7 @@ static int cclen(const char *number)
 
 	strncpy(digits, number, 2);
 	
-	if (!sscanf(digits, "%d", &cc)) {
+	if (!sscanf(digits, "%30d", &cc)) {
 		return 0;
 	}
 

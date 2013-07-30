@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Asterisk Reference Information Version 1.6.2.0-beta3</TITLE>
-<META NAME="description" CONTENT="Asterisk Reference Information Version 1.6.2.0-beta3">
+<TITLE>Asterisk Reference Information Version 1.6.2.0-rc1</TITLE>
+<META NAME="description" CONTENT="Asterisk Reference Information Version 1.6.2.0-rc1">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -46,7 +46,7 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <!--End of Navigation Panel-->
 <H1 ALIGN="CENTER">Asterisk Reference Information 
 <BR>
-Version 1.6.2.0-beta3</H1>
+Version 1.6.2.0-rc1</H1>
 <DIV CLASS="author_info">
 
 <P ALIGN="CENTER"><STRONG>Asterisk Development Team</STRONG></P>
@@ -570,186 +570,190 @@ Version 1.6.2.0-beta3</H1>
 <LI><A NAME="tex2html252"
   HREF="node210.html">Applications</A>
 <LI><A NAME="tex2html253"
-  HREF="node211.html">Fields of the CDR in Asterisk</A>
+  HREF="node211.html">CDR Fields</A>
 <LI><A NAME="tex2html254"
-  HREF="node212.html">CDR Variables</A>
+  HREF="node212.html">Variables</A>
 <LI><A NAME="tex2html255"
-  HREF="node213.html">MSSQL</A>
+  HREF="node213.html">Storage Backends</A>
 <UL>
 <LI><A NAME="tex2html256"
-  HREF="node214.html">ODBC using cdr_odbc</A>
-<LI><A NAME="tex2html257"
-  HREF="node215.html">TDS, using cdr_tds</A>
-</UL>
-<LI><A NAME="tex2html258"
-  HREF="node216.html">MYSQL</A>
-<LI><A NAME="tex2html259"
-  HREF="node217.html">PGSQL</A>
-<LI><A NAME="tex2html260"
-  HREF="node218.html">SQLLITE</A>
-<LI><A NAME="tex2html261"
-  HREF="node219.html">RADIUS</A>
+  HREF="node214.html">Microsoft SQL Server</A>
 <UL>
+<LI><A NAME="tex2html257"
+  HREF="node215.html">ODBC using cdr_odbc</A>
+<LI><A NAME="tex2html258"
+  HREF="node216.html">TDS, using cdr_tds</A>
+</UL>
+<LI><A NAME="tex2html259"
+  HREF="node217.html">MySQL</A>
+<LI><A NAME="tex2html260"
+  HREF="node218.html">PostgreSQL</A>
+<LI><A NAME="tex2html261"
+  HREF="node219.html">SQLite 2</A>
 <LI><A NAME="tex2html262"
-  HREF="node220.html">What is needed</A>
+  HREF="node220.html">SQLite 3</A>
 <LI><A NAME="tex2html263"
-  HREF="node221.html">Steps to follow in order to have RADIUS support</A>
+  HREF="node221.html">RADIUS</A>
 <UL>
 <LI><A NAME="tex2html264"
-  HREF="node222.html">Installation of the Radiusclient library</A>
+  HREF="node222.html">What is needed</A>
 <LI><A NAME="tex2html265"
-  HREF="node223.html">Configuration of the Radiusclient library</A>
+  HREF="node223.html">Installation of the Radiusclient library</A>
 <LI><A NAME="tex2html266"
-  HREF="node224.html">Install FreeRADIUS Server (Version 1.1.1)</A>
+  HREF="node224.html">Configuration of the Radiusclient library</A>
 <LI><A NAME="tex2html267"
-  HREF="node225.html">Configuration of the FreeRADIUS Server</A>
+  HREF="node225.html">Install FreeRADIUS Server (Version 1.1.1)</A>
 <LI><A NAME="tex2html268"
-  HREF="node226.html">Asterisk Accounting Configuration</A>
-</UL>
-</UL>
+  HREF="node226.html">Configuration of the FreeRADIUS Server</A>
 <LI><A NAME="tex2html269"
-  HREF="node227.html">Logged Values</A>
+  HREF="node227.html">Asterisk Accounting Configuration</A>
+<LI><A NAME="tex2html270"
+  HREF="node228.html">Logged Values</A>
+</UL>
+</UL>
 </UL>
 <BR>
-<LI><A NAME="tex2html270"
-  HREF="node228.html">Voicemail</A>
-<UL>
 <LI><A NAME="tex2html271"
-  HREF="node229.html">ODBC Storage</A>
-<LI><A NAME="tex2html272"
-  HREF="node230.html">IMAP Storage</A>
+  HREF="node229.html">Voicemail</A>
 <UL>
+<LI><A NAME="tex2html272"
+  HREF="node230.html">ODBC Storage</A>
 <LI><A NAME="tex2html273"
-  HREF="node231.html">Installation Notes</A>
+  HREF="node231.html">IMAP Storage</A>
 <UL>
 <LI><A NAME="tex2html274"
-  HREF="node232.html">University of Washington IMAP C-Client</A>
+  HREF="node232.html">Installation Notes</A>
+<UL>
 <LI><A NAME="tex2html275"
-  HREF="node233.html">Compiling Asterisk</A>
-</UL>
+  HREF="node233.html">University of Washington IMAP C-Client</A>
 <LI><A NAME="tex2html276"
-  HREF="node234.html">Modify voicemail.conf</A>
+  HREF="node234.html">Compiling Asterisk</A>
+</UL>
 <LI><A NAME="tex2html277"
-  HREF="node235.html">IMAP Folders</A>
+  HREF="node235.html">Modify voicemail.conf</A>
 <LI><A NAME="tex2html278"
-  HREF="node236.html">Separate vs. Shared Email Accounts</A>
+  HREF="node236.html">IMAP Folders</A>
 <LI><A NAME="tex2html279"
-  HREF="node237.html">IMAP Server Implementations</A>
-<UL>
+  HREF="node237.html">Separate vs. Shared Email Accounts</A>
 <LI><A NAME="tex2html280"
-  HREF="node238.html">UW IMAP-2005 or earlier</A>
+  HREF="node238.html">IMAP Server Implementations</A>
+<UL>
 <LI><A NAME="tex2html281"
-  HREF="node239.html">UW IMAP-2006 Development Branch</A>
+  HREF="node239.html">UW IMAP-2005 or earlier</A>
 <LI><A NAME="tex2html282"
-  HREF="node240.html">Cyrus IMAP</A>
-</UL>
+  HREF="node240.html">UW IMAP-2006</A>
 <LI><A NAME="tex2html283"
-  HREF="node241.html">Quota Support</A>
+  HREF="node241.html">UW IMAP-2007</A>
 <LI><A NAME="tex2html284"
-  HREF="node242.html">Application Notes</A>
+  HREF="node242.html">Cyrus IMAP</A>
 </UL>
-</UL>
-<BR>
 <LI><A NAME="tex2html285"
-  HREF="node243.html">SMS</A>
-<UL>
+  HREF="node243.html">Quota Support</A>
 <LI><A NAME="tex2html286"
-  HREF="node244.html">Introduction</A>
-<LI><A NAME="tex2html287"
-  HREF="node245.html">Background</A>
-<LI><A NAME="tex2html288"
-  HREF="node246.html">Typical use with Asterisk</A>
-<LI><A NAME="tex2html289"
-  HREF="node247.html">Terminology</A>
-<LI><A NAME="tex2html290"
-  HREF="node248.html">Sub address</A>
-<LI><A NAME="tex2html291"
-  HREF="node249.html">extensions.conf</A>
-<LI><A NAME="tex2html292"
-  HREF="node250.html">Using smsq</A>
-<LI><A NAME="tex2html293"
-  HREF="node251.html">File formats</A>
-<LI><A NAME="tex2html294"
-  HREF="node252.html">Delivery reports</A>
+  HREF="node244.html">Application Notes</A>
+</UL>
 </UL>
 <BR>
-<LI><A NAME="tex2html295"
-  HREF="node253.html">Queues</A>
+<LI><A NAME="tex2html287"
+  HREF="node245.html">SMS</A>
 <UL>
+<LI><A NAME="tex2html288"
+  HREF="node246.html">Introduction</A>
+<LI><A NAME="tex2html289"
+  HREF="node247.html">Background</A>
+<LI><A NAME="tex2html290"
+  HREF="node248.html">Typical use with Asterisk</A>
+<LI><A NAME="tex2html291"
+  HREF="node249.html">Terminology</A>
+<LI><A NAME="tex2html292"
+  HREF="node250.html">Sub address</A>
+<LI><A NAME="tex2html293"
+  HREF="node251.html">extensions.conf</A>
+<LI><A NAME="tex2html294"
+  HREF="node252.html">Using smsq</A>
+<LI><A NAME="tex2html295"
+  HREF="node253.html">File formats</A>
 <LI><A NAME="tex2html296"
-  HREF="node254.html">Introduction</A>
+  HREF="node254.html">Delivery reports</A>
+</UL>
+<BR>
 <LI><A NAME="tex2html297"
-  HREF="node255.html">Configuring Call Queues</A>
+  HREF="node255.html">Queues</A>
 <UL>
 <LI><A NAME="tex2html298"
-  HREF="node256.html">queues.conf</A>
+  HREF="node256.html">Introduction</A>
 <LI><A NAME="tex2html299"
-  HREF="node257.html">Routing incoming Calls to Queues</A>
+  HREF="node257.html">Configuring Call Queues</A>
 <UL>
 <LI><A NAME="tex2html300"
-  HREF="node258.html">The Main Menu</A>
+  HREF="node258.html">queues.conf</A>
 <LI><A NAME="tex2html301"
-  HREF="node259.html">The Contexts referenced from the queues.conf file</A>
-</UL>
-<LI><A NAME="tex2html302"
-  HREF="node260.html">Assigning agents to Queues</A>
+  HREF="node259.html">Routing incoming Calls to Queues</A>
 <UL>
+<LI><A NAME="tex2html302"
+  HREF="node260.html">The Main Menu</A>
 <LI><A NAME="tex2html303"
-  HREF="node261.html">Agents Log In and Out</A>
+  HREF="node261.html">The Contexts referenced from the queues.conf file</A>
 </UL>
 <LI><A NAME="tex2html304"
-  HREF="node262.html">Controlling The Way Queues Call the Agents</A>
+  HREF="node262.html">Assigning agents to Queues</A>
+<UL>
 <LI><A NAME="tex2html305"
-  HREF="node263.html">Pre Acknowledgement Message</A>
-<LI><A NAME="tex2html306"
-  HREF="node264.html">Caveats</A>
+  HREF="node263.html">Agents Log In and Out</A>
 </UL>
+<LI><A NAME="tex2html306"
+  HREF="node264.html">Controlling The Way Queues Call the Agents</A>
 <LI><A NAME="tex2html307"
-  HREF="node265.html">Queue Logs</A>
+  HREF="node265.html">Pre Acknowledgement Message</A>
+<LI><A NAME="tex2html308"
+  HREF="node266.html">Caveats</A>
+</UL>
+<LI><A NAME="tex2html309"
+  HREF="node267.html">Queue Logs</A>
 </UL>
 <BR>
-<LI><A NAME="tex2html308"
-  HREF="node266.html">Phone Provisioning</A>
-<UL>
-<LI><A NAME="tex2html309"
-  HREF="node267.html">Introduction</A>
 <LI><A NAME="tex2html310"
-  HREF="node268.html">Configuration of phoneprov.conf</A>
+  HREF="node268.html">Phone Provisioning</A>
 <UL>
 <LI><A NAME="tex2html311"
-  HREF="node269.html">The [general] section</A>
+  HREF="node269.html">Introduction</A>
 <LI><A NAME="tex2html312"
-  HREF="node270.html">Creating phone profiles</A>
-</UL>
+  HREF="node270.html">Configuration of phoneprov.conf</A>
+<UL>
 <LI><A NAME="tex2html313"
-  HREF="node271.html">Configuration of users.conf</A>
-<UL>
+  HREF="node271.html">The [general] section</A>
 <LI><A NAME="tex2html314"
-  HREF="node272.html">The [general] section</A>
+  HREF="node272.html">Creating phone profiles</A>
+</UL>
 <LI><A NAME="tex2html315"
-  HREF="node273.html">Invdividual Users</A>
-</UL>
-<LI><A NAME="tex2html316"
-  HREF="node274.html">Templates</A>
-<LI><A NAME="tex2html317"
-  HREF="node275.html">Putting it all together</A>
-</UL>
-<BR>
-<LI><A NAME="tex2html318"
-  HREF="node276.html">Development</A>
+  HREF="node273.html">Configuration of users.conf</A>
 <UL>
+<LI><A NAME="tex2html316"
+  HREF="node274.html">The [general] section</A>
+<LI><A NAME="tex2html317"
+  HREF="node275.html">Invdividual Users</A>
+</UL>
+<LI><A NAME="tex2html318"
+  HREF="node276.html">Templates</A>
 <LI><A NAME="tex2html319"
-  HREF="node277.html">Backtrace</A>
+  HREF="node277.html">Putting it all together</A>
 </UL>
 <BR>
 <LI><A NAME="tex2html320"
-  HREF="node278.html">About this document ...</A>
+  HREF="node278.html">Development</A>
+<UL>
+<LI><A NAME="tex2html321"
+  HREF="node279.html">Backtrace</A>
+</UL>
+<BR>
+<LI><A NAME="tex2html322"
+  HREF="node280.html">About this document ...</A>
 </UL>
 <!--End of Table of Child-Links-->
 <BR><HR>
 <ADDRESS>
 lmadsen
-2009-06-11
+2009-08-29
 </ADDRESS>
 </BODY>
 </HTML>

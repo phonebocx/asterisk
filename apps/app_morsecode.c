@@ -26,7 +26,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 154647 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -132,7 +132,7 @@ static int morsecode_exec(struct ast_channel *chan, void *data)
 	/* Use variable MORESEDITLEN, if set (else 80) */
 	ast_channel_lock(chan);
 	ditlenc = pbx_builtin_getvar_helper(chan, "MORSEDITLEN");
-	if (ast_strlen_zero(ditlenc) || (sscanf(ditlenc, "%d", &ditlen) != 1)) {
+	if (ast_strlen_zero(ditlenc) || (sscanf(ditlenc, "%30d", &ditlen) != 1)) {
 		ditlen = 80;
 	}
 	ast_channel_unlock(chan);
@@ -140,7 +140,7 @@ static int morsecode_exec(struct ast_channel *chan, void *data)
 	/* Use variable MORSETONE, if set (else 800) */
 	ast_channel_lock(chan);
 	tonec = pbx_builtin_getvar_helper(chan, "MORSETONE");
-	if (ast_strlen_zero(tonec) || (sscanf(tonec, "%d", &tone) != 1)) {
+	if (ast_strlen_zero(tonec) || (sscanf(tonec, "%30d", &tone) != 1)) {
 		tone = 800;
 	}
 	ast_channel_unlock(chan);

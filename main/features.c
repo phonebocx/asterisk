@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 198886 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 213350 $")
 
 #include "asterisk/_private.h"
 
@@ -202,7 +202,8 @@ struct parkeduser {
 	char exten[AST_MAX_EXTENSION];
 	int priority;
 	int parkingtime;                            /*!< Maximum length in parking lot before return */
-	int notquiteyet;
+	unsigned int notquiteyet:1;
+	unsigned int options_specified:1;
 	char peername[1024];
 	unsigned char moh_trys;
 	struct ast_parkinglot *parkinglot;
@@ -600,7 +601,7 @@ static struct parkeduser *park_space_reserve(struct ast_channel *chan,
 		 * limitation here.  If extout was not numeric, we could permit
 		 * arbitrary non-numeric extensions.
 		 */
-        if (sscanf(parkingexten, "%d", &parking_space) != 1 || parking_space < 0) {
+        if (sscanf(parkingexten, "%30d", &parking_space) != 1 || parking_space < 0) {
 			AST_LIST_UNLOCK(&parkinglot->parkings);
 			parkinglot_unref(parkinglot);
             free(pu);
@@ -733,13 +734,20 @@ static int park_call_full(struct ast_channel *chan, struct ast_channel *peer, st
 
 	/* Remember what had been dialed, so that if the parking
 	   expires, we try to come back to the same place */
+
+	pu->options_specified = (!ast_strlen_zero(args->return_con) || !ast_strlen_zero(args->return_ext) || args->return_pri);
+
+	/* If extension has options specified, they override all other possibilities
+	such as the returntoorigin flag and transferred context. Information on
+	extension options is lost here, so we set a flag */
+
 	ast_copy_string(pu->context, 
 		S_OR(args->return_con, S_OR(chan->macrocontext, chan->context)), 
 		sizeof(pu->context));
 	ast_copy_string(pu->exten, 
 		S_OR(args->return_ext, S_OR(chan->macroexten, chan->exten)), 
 		sizeof(pu->exten));
-	pu->priority = pu->priority ? pu->priority : 
+	pu->priority = args->return_pri ? args->return_pri : 
 		(chan->macropriority ? chan->macropriority : chan->priority);
 
 	/* If parking a channel directly, don't quiet yet get parking running on it.
@@ -1297,7 +1305,7 @@ static int builtin_blindtransfer(struct ast_channel *chan, struct ast_channel *p
 		if (!transferer->cdr) { /* this code should never get called (in a perfect world) */
 			transferer->cdr=ast_cdr_alloc();
 			if (transferer->cdr) {
-				ast_cdr_init(transferer->cdr, transferer); /* initilize our channel's cdr */
+				ast_cdr_init(transferer->cdr, transferer); /* initialize our channel's cdr */
 				ast_cdr_start(transferer->cdr);
 			}
 		}
@@ -2530,7 +2538,16 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 		   before the macro started playing. To the phone system,
 		   this is billable time for the call, even tho the caller
 		   hears nothing but ringing while the macro does its thing. */
-		if (peer_cdr && !ast_tvzero(peer_cdr->answer)) {
+
+		/* Another case where the peer cdr's time will be set, is when
+		   A self-parks by pickup up phone and dialing 700, then B
+		   picks up A by dialing its parking slot; there may be more 
+		   practical paths that get the same result, tho... in which
+		   case you get the previous answer time from the Park... which
+		   is before the bridge's start time, so I added in the 
+		   tvcmp check to the if below */
+
+		if (peer_cdr && !ast_tvzero(peer_cdr->answer) && ast_tvcmp(peer_cdr->answer, bridge_cdr->start) >= 0) {
 			bridge_cdr->answer = peer_cdr->answer;
 			bridge_cdr->disposition = peer_cdr->disposition;
 			if (chan_cdr) {
@@ -2795,7 +2812,9 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 				bridge_cdr = NULL;
 			}
 		}
-		ast_set_flag(chan, AST_FLAG_BRIDGE_HANGUP_RUN);
+		if (chan->priority != 1 || !spawn_error) {
+			ast_set_flag(chan, AST_FLAG_BRIDGE_HANGUP_RUN);
+		}
 		ast_channel_unlock(chan);
 		/* protect the lastapp/lastdata against the effects of the hangup/dialplan code */
 		if (bridge_cdr) {
@@ -2888,7 +2907,9 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 				ast_channel_unlock(chan_ptr);
 			}
 			/* new channel */
-			ast_cdr_specialized_reset(new_peer_cdr,0);
+			if (new_peer_cdr) {
+				ast_cdr_specialized_reset(new_peer_cdr, 0);
+			}
 		} else {
 			ast_cdr_specialized_reset(peer_cdr,0); /* nothing changed, reset the peer_cdr  */
 		}
@@ -3027,13 +3048,18 @@ int manage_parkinglot(struct ast_parkinglot *curlot, fd_set *rfds, fd_set *efds,
 
 					ast_add_extension2(con, 1, peername_flat, 1, NULL, NULL, "Dial", ast_strdup(returnexten), ast_free_ptr, registrar);
 				}
-				if (comebacktoorigin) {
-					set_c_e_p(chan, pu->parkinglot->parking_con_dial, peername_flat, 1);
+				if (pu->options_specified == 1) {
+					/* Park() was called with overriding return arguments, respect those arguments */
+					set_c_e_p(chan, pu->context, pu->exten, pu->priority);
 				} else {
-					ast_log(LOG_WARNING, "now going to parkedcallstimeout,s,1 | ps is %d\n",pu->parkingnum);
-					snprintf(parkingslot, sizeof(parkingslot), "%d", pu->parkingnum);
-					pbx_builtin_setvar_helper(chan, "PARKINGSLOT", parkingslot);
-					set_c_e_p(chan, "parkedcallstimeout", peername_flat, 1);
+					if (comebacktoorigin) {
+						set_c_e_p(chan, pu->parkinglot->parking_con_dial, peername_flat, 1);
+					} else {
+						ast_log(LOG_WARNING, "now going to parkedcallstimeout,s,1 | ps is %d\n",pu->parkingnum);
+						snprintf(parkingslot, sizeof(parkingslot), "%d", pu->parkingnum);
+						pbx_builtin_setvar_helper(chan, "PARKINGSLOT", parkingslot);
+						set_c_e_p(chan, "parkedcallstimeout", peername_flat, 1);
+					}
 				}
 			} else {
 				/* They've been waiting too long, send them back to where they came.  Theoretically they
@@ -3245,7 +3271,7 @@ static int park_call_exec(struct ast_channel *chan, void *data)
 
 		if (parse) {
 			if (!ast_strlen_zero(app_args.timeout)) {
-				if (sscanf(app_args.timeout, "%d", &args.timeout) != 1) {
+				if (sscanf(app_args.timeout, "%30d", &args.timeout) != 1) {
 					ast_log(LOG_WARNING, "Invalid timeout '%s' provided\n", app_args.timeout);
 					args.timeout = 0;
 				}
@@ -3257,7 +3283,7 @@ static int park_call_exec(struct ast_channel *chan, void *data)
 				args.return_ext = app_args.return_ext;
 			}
 			if (!ast_strlen_zero(app_args.return_pri)) {
-				if (sscanf(app_args.return_pri, "%d", &args.return_pri) != 1) {
+				if (sscanf(app_args.return_pri, "%30d", &args.return_pri) != 1) {
 					ast_log(LOG_WARNING, "Invalid priority '%s' specified\n", app_args.return_pri);
 					args.return_pri = 0;
 				}
@@ -3525,13 +3551,13 @@ static struct ast_parkinglot *build_parkinglot(char *name, struct ast_variable *
 		if (!strcasecmp(confvar->name, "context")) {
 			ast_copy_string(parkinglot->parking_con, confvar->value, sizeof(parkinglot->parking_con));
 		} else if (!strcasecmp(confvar->name, "parkingtime")) {
-			if ((sscanf(confvar->value, "%d", &parkinglot->parkingtime) != 1) || (parkinglot->parkingtime < 1)) {
+			if ((sscanf(confvar->value, "%30d", &parkinglot->parkingtime) != 1) || (parkinglot->parkingtime < 1)) {
 				ast_log(LOG_WARNING, "%s is not a valid parkingtime\n", confvar->value);
 				parkinglot->parkingtime = DEFAULT_PARK_TIME;
 			} else
 				parkinglot->parkingtime = parkinglot->parkingtime * 1000;
 		} else if (!strcasecmp(confvar->name, "parkpos")) {
-			if (sscanf(confvar->value, "%d-%d", &start, &end) != 2) {
+			if (sscanf(confvar->value, "%30d-%30d", &start, &end) != 2) {
 				ast_log(LOG_WARNING, "Format for parking positions is a-b, where a and b are numbers at line %d of parking.conf\n", confvar->lineno);
 				error = 1;
 			} else {
@@ -3695,13 +3721,13 @@ static int load_config(void)
 		} else if (!strcasecmp(var->name, "context")) {
 			ast_copy_string(default_parkinglot->parking_con, var->value, sizeof(default_parkinglot->parking_con));
 		} else if (!strcasecmp(var->name, "parkingtime")) {
-			if ((sscanf(var->value, "%d", &default_parkinglot->parkingtime) != 1) || (default_parkinglot->parkingtime < 1)) {
+			if ((sscanf(var->value, "%30d", &default_parkinglot->parkingtime) != 1) || (default_parkinglot->parkingtime < 1)) {
 				ast_log(LOG_WARNING, "%s is not a valid parkingtime\n", var->value);
 				default_parkinglot->parkingtime = DEFAULT_PARK_TIME;
 			} else
 				default_parkinglot->parkingtime = default_parkinglot->parkingtime * 1000;
 		} else if (!strcasecmp(var->name, "parkpos")) {
-			if (sscanf(var->value, "%d-%d", &start, &end) != 2) {
+			if (sscanf(var->value, "%30d-%30d", &start, &end) != 2) {
 				ast_log(LOG_WARNING, "Format for parking positions is a-b, where a and b are numbers at line %d of features.conf\n", var->lineno);
 			} else if (default_parkinglot) {
 				default_parkinglot->parking_start = start;
@@ -3744,24 +3770,24 @@ static int load_config(void)
 		} else if (!strcasecmp(var->name, "adsipark")) {
 			adsipark = ast_true(var->value);
 		} else if (!strcasecmp(var->name, "transferdigittimeout")) {
-			if ((sscanf(var->value, "%d", &transferdigittimeout) != 1) || (transferdigittimeout < 1)) {
+			if ((sscanf(var->value, "%30d", &transferdigittimeout) != 1) || (transferdigittimeout < 1)) {
 				ast_log(LOG_WARNING, "%s is not a valid transferdigittimeout\n", var->value);
 				transferdigittimeout = DEFAULT_TRANSFER_DIGIT_TIMEOUT;
 			} else
 				transferdigittimeout = transferdigittimeout * 1000;
 		} else if (!strcasecmp(var->name, "featuredigittimeout")) {
-			if ((sscanf(var->value, "%d", &featuredigittimeout) != 1) || (featuredigittimeout < 1)) {
+			if ((sscanf(var->value, "%30d", &featuredigittimeout) != 1) || (featuredigittimeout < 1)) {
 				ast_log(LOG_WARNING, "%s is not a valid featuredigittimeout\n", var->value);
 				featuredigittimeout = DEFAULT_FEATURE_DIGIT_TIMEOUT;
 			}
 		} else if (!strcasecmp(var->name, "atxfernoanswertimeout")) {
-			if ((sscanf(var->value, "%d", &atxfernoanswertimeout) != 1) || (atxfernoanswertimeout < 1)) {
+			if ((sscanf(var->value, "%30d", &atxfernoanswertimeout) != 1) || (atxfernoanswertimeout < 1)) {
 				ast_log(LOG_WARNING, "%s is not a valid atxfernoanswertimeout\n", var->value);
 				atxfernoanswertimeout = DEFAULT_NOANSWER_TIMEOUT_ATTENDED_TRANSFER;
 			} else
 				atxfernoanswertimeout = atxfernoanswertimeout * 1000;
 		} else if (!strcasecmp(var->name, "atxferloopdelay")) {
-			if ((sscanf(var->value, "%u", &atxferloopdelay) != 1)) {
+			if ((sscanf(var->value, "%30u", &atxferloopdelay) != 1)) {
 				ast_log(LOG_WARNING, "%s is not a valid atxferloopdelay\n", var->value);
 				atxferloopdelay = DEFAULT_ATXFER_LOOP_DELAY;
 			} else 
@@ -3769,7 +3795,7 @@ static int load_config(void)
 		} else if (!strcasecmp(var->name, "atxferdropcall")) {
 			atxferdropcall = ast_true(var->value);
 		} else if (!strcasecmp(var->name, "atxfercallbackretries")) {
-			if ((sscanf(var->value, "%u", &atxferloopdelay) != 1)) {
+			if ((sscanf(var->value, "%30u", &atxferloopdelay) != 1)) {
 				ast_log(LOG_WARNING, "%s is not a valid atxfercallbackretries\n", var->value);
 				atxfercallbackretries = DEFAULT_ATXFER_CALLBACK_RETRIES;
 			}
@@ -4380,7 +4406,7 @@ static int manager_park(struct mansession *s, const struct message *m)
 	}
 
 	if (!ast_strlen_zero(timeout)) {
-		sscanf(timeout, "%d", &to);
+		sscanf(timeout, "%30d", &to);
 	}
 
 	res = ast_masq_park_call(ch1, ch2, to, &parkExt);

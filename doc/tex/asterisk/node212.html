@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>CDR Variables</TITLE>
-<META NAME="description" CONTENT="CDR Variables">
+<TITLE>Variables</TITLE>
+<META NAME="description" CONTENT="Variables">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -45,11 +45,11 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
 <B> Next:</B> <A NAME="tex2html3414"
-  HREF="node213.html">MSSQL</A>
+  HREF="node213.html">Storage Backends</A>
 <B> Up:</B> <A NAME="tex2html3410"
   HREF="node209.html">CDR: Call Detail Records</A>
 <B> Previous:</B> <A NAME="tex2html3404"
-  HREF="node211.html">Fields of the CDR</A>
+  HREF="node211.html">CDR Fields</A>
  &nbsp; <B>  <A NAME="tex2html3412"
   HREF="node1.html">Contents</A></B> 
 <BR>
@@ -57,13 +57,13 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <!--End of Navigation Panel-->
 
 <H1><A NAME="SECTION001130000000000000000">
-CDR Variables</A>
+Variables</A>
 </H1>
 
 <P>
-If the channel has a cdr, that cdr record has its own set of variables which
-can be accessed just like channel variables. The following builtin variables
-are available.
+If the channel has a CDR, that CDR has its own set of variables which can be
+accessed just like channel variables. The following builtin variables are
+available.
 
 <P>
 <PRE>
@@ -92,13 +92,10 @@ In addition, you can set your own extra variables by using Set(CDR(name)=value).
 These variables can be output into a text-format CDR by using the cdr_custom
 CDR driver; see the cdr_custom.conf.sample file in the configs directory for
 an example of how to do this.
-Call data records can be stored in many different databases or even CSV text.
-
-<P>
 <BR><HR>
 <ADDRESS>
 lmadsen
-2009-06-11
+2009-08-29
 </ADDRESS>
 </BODY>
 </HTML>

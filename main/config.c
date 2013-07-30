@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 176513 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_CONFIG_DIR */
 #include "asterisk/network.h"	/* we do some sockaddr manipulation here */
@@ -364,7 +364,7 @@ void ast_variable_insert(struct ast_category *category, struct ast_variable *var
 	int lineno;
 	int insertline;
 
-	if (!variable || sscanf(line, "%d", &insertline) != 1) {
+	if (!variable || sscanf(line, "%30d", &insertline) != 1) {
 		return;
 	}
 	if (!insertline) {

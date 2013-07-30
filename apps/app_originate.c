@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 167973 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -136,7 +136,7 @@ static int originate_exec(struct ast_channel *chan, void *data)
 
 		if (args.argc == 5) {
 			/* Context/Exten/Priority all specified */
-			if (sscanf(args.arg3, "%d", &priority) != 1) {
+			if (sscanf(args.arg3, "%30d", &priority) != 1) {
 				ast_log(LOG_ERROR, "Invalid priority: '%s'\n", args.arg3);
 				goto return_cleanup;
 			}

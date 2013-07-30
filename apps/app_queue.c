@@ -62,7 +62,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 196793 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211959 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -2167,7 +2167,8 @@ posout:
 		res = play_file(qe->chan, qe->parent->sound_thanks);
 	}
 playout:
-	if ((res > 0 && !valid_exit(qe, res)) || res < 0)
+
+	if ((res > 0 && !valid_exit(qe, res)))
 		res = 0;
 
 	/* Set our last_pos indicators */
@@ -2719,7 +2720,7 @@ static int say_periodic_announcement(struct queue_ent *qe, int ringing)
 	/* play the announcement */
 	res = play_file(qe->chan, ast_str_buffer(qe->parent->sound_periodicannounce[qe->last_periodic_announce_sound]));
 
-	if ((res > 0 && !valid_exit(qe, res)) || res < 0)
+	if (res > 0 && !valid_exit(qe, res))
 		res = 0;
 
 	/* Resume Music on Hold if the caller is going to stay in the queue */
@@ -4218,7 +4219,9 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 		ast_channel_lock(qe->chan);
 		if (!attended_transfer_occurred(qe->chan)) {
 			struct ast_datastore *tds;
-			if (strcasecmp(oldcontext, qe->chan->context) || strcasecmp(oldexten, qe->chan->exten)) {
+
+			/* detect a blind transfer */
+			if (!(qe->chan->_softhangup | peer->_softhangup) && (strcasecmp(oldcontext, qe->chan->context) || strcasecmp(oldexten, qe->chan->exten))) {
 				ast_queue_log(queuename, qe->chan->uniqueid, member->membername, "TRANSFER", "%s|%s|%ld|%ld|%d",
 					qe->chan->exten, qe->chan->context, (long) (callstart - qe->start),
 					(long) (time(NULL) - callstart), qe->opos);
@@ -4851,7 +4854,7 @@ static int aqm_exec(struct ast_channel *chan, void *data)
 	}
 
 	if (!ast_strlen_zero(args.penalty)) {
-		if ((sscanf(args.penalty, "%d", &penalty) != 1) || penalty < 0) {
+		if ((sscanf(args.penalty, "%30d", &penalty) != 1) || penalty < 0) {
 			ast_log(LOG_WARNING, "Penalty '%s' is invalid, must be an integer >= 0\n", args.penalty);
 			penalty = 0;
 		}
@@ -5010,7 +5013,7 @@ static int queue_exec(struct ast_channel *chan, void *data)
 	ast_channel_lock(chan);
 	user_priority = pbx_builtin_getvar_helper(chan, "QUEUE_PRIO");
 	if (user_priority) {
-		if (sscanf(user_priority, "%d", &prio) == 1) {
+		if (sscanf(user_priority, "%30d", &prio) == 1) {
 			ast_debug(1, "%s: Got priority %d from ${QUEUE_PRIO}.\n", chan->name, prio);
 		} else {
 			ast_log(LOG_WARNING, "${QUEUE_PRIO}: Invalid value (%s), channel %s.\n",
@@ -5025,7 +5028,7 @@ static int queue_exec(struct ast_channel *chan, void *data)
 	/* Get the maximum penalty from the variable ${QUEUE_MAX_PENALTY} */
 
 	if ((max_penalty_str = pbx_builtin_getvar_helper(chan, "QUEUE_MAX_PENALTY"))) {
-		if (sscanf(max_penalty_str, "%d", &max_penalty) == 1) {
+		if (sscanf(max_penalty_str, "%30d", &max_penalty) == 1) {
 			ast_debug(1, "%s: Got max penalty %d from ${QUEUE_MAX_PENALTY}.\n", chan->name, max_penalty);
 		} else {
 			ast_log(LOG_WARNING, "${QUEUE_MAX_PENALTY}: Invalid value (%s), channel %s.\n",
@@ -5037,7 +5040,7 @@ static int queue_exec(struct ast_channel *chan, void *data)
 	}
 
 	if ((min_penalty_str = pbx_builtin_getvar_helper(chan, "QUEUE_MIN_PENALTY"))) {
-		if (sscanf(min_penalty_str, "%d", &min_penalty) == 1) {
+		if (sscanf(min_penalty_str, "%30d", &min_penalty) == 1) {
 			ast_debug(1, "%s: Got min penalty %d from ${QUEUE_MIN_PENALTY}.\n", chan->name, min_penalty);
 		} else {
 			ast_log(LOG_WARNING, "${QUEUE_MIN_PENALTY}: Invalid value (%s), channel %s.\n",
@@ -5441,8 +5444,8 @@ static int queue_function_queuememberlist(struct ast_channel *chan, const char *
 				strncat(buf + buflen, ",", len - buflen - 1);
 				buflen++;
 			}
-			strncat(buf + buflen, m->membername, len - buflen - 1);
-			buflen += strlen(m->membername);
+			strncat(buf + buflen, m->interface, len - buflen - 1);
+			buflen += strlen(m->interface);
 			/* Safeguard against overflow (negative length) */
 			if (buflen >= len - 2) {
 				ao2_ref(m, -1);
@@ -6398,7 +6401,7 @@ static int manager_add_queue_member(struct mansession *s, const struct message *
 
 	if (ast_strlen_zero(penalty_s))
 		penalty = 0;
-	else if (sscanf(penalty_s, "%d", &penalty) != 1 || penalty < 0)
+	else if (sscanf(penalty_s, "%30d", &penalty) != 1 || penalty < 0)
 		penalty = 0;
 
 	if (ast_strlen_zero(paused_s))
@@ -6638,7 +6641,7 @@ static char *handle_queue_add_member(struct ast_cli_entry *e, int cmd, struct as
 	queuename = a->argv[5];
 	interface = a->argv[3];
 	if (a->argc >= 8) {
-		if (sscanf(a->argv[7], "%d", &penalty) == 1) {
+		if (sscanf(a->argv[7], "%30d", &penalty) == 1) {
 			if (penalty < 0) {
 				ast_cli(a->fd, "Penalty must be >= 0\n");
 				penalty = 0;

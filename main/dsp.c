@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 159317 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <math.h>
 
@@ -1677,7 +1677,7 @@ static int _dsp_init(int reload)
 		const char *value;
 
 		value = ast_variable_retrieve(cfg, "default", "silencethreshold");
-		if (value && sscanf(value, "%d", &thresholds[THRESHOLD_SILENCE]) != 1) {
+		if (value && sscanf(value, "%30d", &thresholds[THRESHOLD_SILENCE]) != 1) {
 			ast_log(LOG_WARNING, "%s: '%s' is not a valid silencethreshold value\n", CONFIG_FILE_NAME, value);
 			thresholds[THRESHOLD_SILENCE] = 256;
 		} else if (!value) {

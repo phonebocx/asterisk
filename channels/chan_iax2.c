@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 199140 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <sys/mman.h>
 #include <dirent.h>
@@ -3181,7 +3181,7 @@ static void __get_from_jb(const void *p)
 			/* create an interpolation frame */
 			af.frametype = AST_FRAME_VOICE;
 			af.subclass = pvt->voiceformat;
-			af.samples  = frame.ms * 8;
+			af.samples  = frame.ms * (ast_format_rate(pvt->voiceformat) / 1000);
 			af.src  = "IAX2 JB interpolation";
 			af.delivery = ast_tvadd(pvt->rxcore, ast_samp2tv(next, 1000));
 			af.offset = AST_FRIENDLY_OFFSET;
@@ -3253,7 +3253,7 @@ static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtr
 
 	if(fr->af.frametype == AST_FRAME_VOICE) {
 		type = JB_TYPE_VOICE;
-		len = ast_codec_get_samples(&fr->af) / 8;
+		len = ast_codec_get_samples(&fr->af) / (ast_format_rate(fr->af.subclass) / 1000);
 	} else if(fr->af.frametype == AST_FRAME_CNG) {
 		type = JB_TYPE_SILENCE;
 	}
@@ -3640,7 +3640,7 @@ static int create_addr(const char *peername, struct ast_channel *c, struct socka
 	memcpy(&ourprefs, &peer->prefs, sizeof(ourprefs));
 	/* Move the calling channel's native codec to the top of the preference list */
 	if (c) {
-		ast_log(LOG_DEBUG, "prepending %x to prefs\n", c->nativeformats);
+		ast_debug(1, "prepending %x to prefs\n", c->nativeformats);
 		ast_codec_pref_prepend(&ourprefs, c->nativeformats, 1);
 	}
 	ast_codec_pref_convert(&ourprefs, cai->prefs, sizeof(cai->prefs), 1);
@@ -3731,13 +3731,15 @@ struct parsed_dial_string {
 	char *options;
 };
 
-static int send_apathetic_reply(unsigned short callno, unsigned short dcallno, struct sockaddr_in *sin, int command, int ts, unsigned char seqno)
+static int send_apathetic_reply(unsigned short callno, unsigned short dcallno,
+		struct sockaddr_in *sin, int command, int ts, unsigned char seqno,
+		int sockfd)
 {
 	struct ast_iax2_full_hdr f = { .scallno = htons(0x8000 | callno), .dcallno = htons(dcallno),
 		.ts = htonl(ts), .iseqno = seqno, .oseqno = 0, .type = AST_FRAME_IAX,
 		.csub = compress_subclass(command) };
 
-	return sendto(defaultsockfd, &f, sizeof(f), 0, (struct sockaddr *)sin, sizeof(*sin));
+	return sendto(sockfd, &f, sizeof(f), 0, (struct sockaddr *)sin, sizeof(*sin));
 }
 
 /*!
@@ -4215,7 +4217,7 @@ static enum ast_bridge_result iax2_bridge(struct ast_channel *c0, struct ast_cha
 		return AST_BRIDGE_FAILED;
 	}
 	/* Put them in native bridge mode */
-	if (!flags & (AST_BRIDGE_DTMF_CHANNEL_0 | AST_BRIDGE_DTMF_CHANNEL_1)) {
+	if (!(flags & (AST_BRIDGE_DTMF_CHANNEL_0 | AST_BRIDGE_DTMF_CHANNEL_1))) {
 		iaxs[callno0]->bridgecallno = callno1;
 		iaxs[callno1]->bridgecallno = callno0;
 	}
@@ -4601,6 +4603,7 @@ static unsigned int calc_timestamp(struct chan_iax2_pvt *p, unsigned int ts, str
 	int voice = 0;
 	int genuine = 0;
 	int adjust;
+	int rate = ast_format_rate(f->subclass) / 1000;
 	struct timeval *delivery = NULL;
 
 
@@ -4668,7 +4671,7 @@ static unsigned int calc_timestamp(struct chan_iax2_pvt *p, unsigned int ts, str
 					p->offset = ast_tvadd(p->offset, ast_samp2tv(adjust, 10000));
 
 				if (!p->nextpred) {
-					p->nextpred = ms; /*f->samples / 8;*/
+					p->nextpred = ms; /*f->samples / rate;*/
 					if (p->nextpred <= p->lastsent)
 						p->nextpred = p->lastsent + 3;
 				}
@@ -4687,11 +4690,11 @@ static unsigned int calc_timestamp(struct chan_iax2_pvt *p, unsigned int ts, str
 					ast_debug(1, "predicted timestamp skew (%u) > max (%u), using real ts instead.\n",
 						abs(ms - p->nextpred), MAX_TIMESTAMP_SKEW);
 
-				if (f->samples >= 8) /* check to make sure we dont core dump */
+				if (f->samples >= rate) /* check to make sure we dont core dump */
 				{
-					int diff = ms % (f->samples / 8);
+					int diff = ms % (f->samples / rate);
 					if (diff)
-					    ms += f->samples/8 - diff;
+					    ms += f->samples/rate - diff;
 				}
 
 				p->nextpred = ms;
@@ -4723,7 +4726,7 @@ static unsigned int calc_timestamp(struct chan_iax2_pvt *p, unsigned int ts, str
 	}
 	p->lastsent = ms;
 	if (voice)
-		p->nextpred = p->nextpred + f->samples / 8;
+		p->nextpred = p->nextpred + f->samples / rate;
 	return ms;
 }
 
@@ -8518,7 +8521,7 @@ static int socket_process(struct iax2_thread *thread)
 		/* Deal with POKE/PONG without allocating a callno */
 		if (f.frametype == AST_FRAME_IAX && f.subclass == IAX_COMMAND_POKE) {
 			/* Reply back with a PONG, but don't care about the result. */
-			send_apathetic_reply(1, ntohs(fh->scallno), &sin, IAX_COMMAND_PONG, ntohs(fh->ts), fh->iseqno + 1);
+			send_apathetic_reply(1, ntohs(fh->scallno), &sin, IAX_COMMAND_PONG, ntohl(fh->ts), fh->iseqno + 1, fd);
 			return 1;
 		} else if (f.frametype == AST_FRAME_IAX && f.subclass == IAX_COMMAND_ACK && dcallno == 1) {
 			/* Ignore */
@@ -10988,18 +10991,18 @@ static struct iax2_peer *build_peer(const char *name, struct ast_variable *v, st
 					peer->maxms = 0;
 				} else if (!strcasecmp(v->value, "yes")) {
 					peer->maxms = DEFAULT_MAXMS;
-				} else if (sscanf(v->value, "%d", &peer->maxms) != 1) {
+				} else if (sscanf(v->value, "%30d", &peer->maxms) != 1) {
 					ast_log(LOG_WARNING, "Qualification of peer '%s' should be 'yes', 'no', or a number of milliseconds at line %d of iax.conf\n", peer->name, v->lineno);
 					peer->maxms = 0;
 				}
 			} else if (!strcasecmp(v->name, "qualifysmoothing")) {
 				peer->smoothing = ast_true(v->value);
 			} else if (!strcasecmp(v->name, "qualifyfreqok")) {
-				if (sscanf(v->value, "%d", &peer->pokefreqok) != 1) {
+				if (sscanf(v->value, "%30d", &peer->pokefreqok) != 1) {
 					ast_log(LOG_WARNING, "Qualification testing frequency of peer '%s' when OK should a number of milliseconds at line %d of iax.conf\n", peer->name, v->lineno);
 				}
 			} else if (!strcasecmp(v->name, "qualifyfreqnotok")) {
-				if (sscanf(v->value, "%d", &peer->pokefreqnotok) != 1) {
+				if (sscanf(v->value, "%30d", &peer->pokefreqnotok) != 1) {
 					ast_log(LOG_WARNING, "Qualification testing frequency of peer '%s' when NOT OK should be a number of milliseconds at line %d of iax.conf\n", peer->name, v->lineno);
 				} else ast_log(LOG_WARNING, "Set peer->pokefreqnotok to %d\n", peer->pokefreqnotok);
 			} else if (!strcasecmp(v->name, "timezone")) {
@@ -11612,7 +11615,7 @@ static int set_config(char *config_file, int reload)
 			if (trunkmaxsize == 0)
 				trunkmaxsize = MAX_TRUNKDATA;
 		} else if (!strcasecmp(v->name, "autokill")) {
-			if (sscanf(v->value, "%d", &x) == 1) {
+			if (sscanf(v->value, "%30d", &x) == 1) {
 				if (x >= 0)
 					autokill = x;
 				else

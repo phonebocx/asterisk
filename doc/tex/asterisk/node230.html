@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>IMAP Storage</TITLE>
-<META NAME="description" CONTENT="IMAP Storage">
+<TITLE>ODBC Storage</TITLE>
+<META NAME="description" CONTENT="ODBC Storage">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,112 +18,195 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
+<LINK REL="next" HREF="node231.html">
 <LINK REL="previous" HREF="node229.html">
-<LINK REL="up" HREF="node228.html">
+<LINK REL="up" HREF="node229.html">
 <LINK REL="next" HREF="node231.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3647"
+<A NAME="tex2html3660"
   HREF="node231.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3643"
-  HREF="node228.html">
+<A NAME="tex2html3656"
+  HREF="node229.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3639"
+<A NAME="tex2html3650"
   HREF="node229.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3645"
+<A NAME="tex2html3658"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3648"
-  HREF="node231.html">Installation Notes</A>
-<B> Up:</B> <A NAME="tex2html3644"
-  HREF="node228.html">Voicemail</A>
-<B> Previous:</B> <A NAME="tex2html3640"
-  HREF="node229.html">ODBC Storage</A>
- &nbsp; <B>  <A NAME="tex2html3646"
+<B> Next:</B> <A NAME="tex2html3661"
+  HREF="node231.html">IMAP Storage</A>
+<B> Up:</B> <A NAME="tex2html3657"
+  HREF="node229.html">Voicemail</A>
+<B> Previous:</B> <A NAME="tex2html3651"
+  HREF="node229.html">Voicemail</A>
+ &nbsp; <B>  <A NAME="tex2html3659"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H1><A NAME="SECTION001220000000000000000">
-IMAP Storage</A>
+<H1><A NAME="SECTION001210000000000000000"></A>
+  <A NAME="odbcstorage"></A>
+<BR>
+ODBC Storage
 </H1>
-  By enabling IMAP Storage,  Asterisk will use native IMAP as the storage
-mechanism for voicemail messages instead of using the standard file structure.
+  
+<P>
+ODBC Storage allows you to store voicemail messages within a database 
+instead of using a file.  This is <SPAN  CLASS="textbf">not</SPAN> a full realtime engine and 
+<SPAN  CLASS="textbf">only</SPAN> supports ODBC.  The table description for the <TT>voicemessages</TT>
+table is as follows:
 
 <P>
-Tighter integration of Asterisk voicemail and IMAP email services allows
-additional voicemail functionality, including:
-
-<P>
-
-<UL>
-<LI>Listening to a voicemail on the phone will set its state to "read" in
-   a user's mailbox automatically.
-</LI>
-<LI>Deleting a voicemail on the phone will delete it from the user's
-   mailbox automatically.
-</LI>
-<LI>Accessing a voicemail recording email message will turn off the message
-   waiting indicator (MWI) on the user's phone.
-</LI>
-<LI>Deleting a voicemail recording email will also turn off the message
-   waiting indicator, and delete the message from the voicemail system.
-</LI>
-</UL>
-
-<P>
-<BR><HR>
-<!--Table of Child-Links-->
-<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
-
-<UL CLASS="ChildLinks">
-<LI><A NAME="tex2html3649"
-  HREF="node231.html">Installation Notes</A>
-<UL>
-<LI><A NAME="tex2html3650"
-  HREF="node232.html">University of Washington IMAP C-Client</A>
-<LI><A NAME="tex2html3651"
-  HREF="node233.html">Compiling Asterisk</A>
-</UL>
+<BR><P></P>
+<DIV ALIGN="CENTER"><A NAME="4504"></A>
+<TABLE>
+<CAPTION><STRONG>Table 11.1:</STRONG>
+<TT>voicemessages</TT> Table Schema</CAPTION>
+<TR><TD>
+<DIV ALIGN="CENTER">
+<TABLE CELLPADDING=3 BORDER="1" ALIGN="CENTER">
+<TR><TD ALIGN="LEFT">Field</TD>
+<TD ALIGN="LEFT">Type</TD>
+<TD ALIGN="CENTER">Null</TD>
+<TD ALIGN="CENTER">Key</TD>
+<TD ALIGN="LEFT">Default</TD>
+<TD ALIGN="LEFT">Extra</TD>
+</TR>
+<TR><TD ALIGN="LEFT">msgnum</TD>
+<TD ALIGN="LEFT">int(11)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">dir</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">MUL</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">context</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">macrocontext</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">callerid</TD>
+<TD ALIGN="LEFT">varchar(40)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">origtime</TD>
+<TD ALIGN="LEFT">varchar(40)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">duration</TD>
+<TD ALIGN="LEFT">varchar(20)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">flag</TD>
+<TD ALIGN="LEFT">varchar(8)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">mailboxuser</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">mailboxcontext</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">recording</TD>
+<TD ALIGN="LEFT">longblob</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+</TABLE>
+</DIV>
+</TD></TR>
+</TABLE>
+</DIV><P></P>
 <BR>
-<LI><A NAME="tex2html3652"
-  HREF="node234.html">Modify voicemail.conf</A>
-<LI><A NAME="tex2html3653"
-  HREF="node235.html">IMAP Folders</A>
-<LI><A NAME="tex2html3654"
-  HREF="node236.html">Separate vs. Shared Email Accounts</A>
-<LI><A NAME="tex2html3655"
-  HREF="node237.html">IMAP Server Implementations</A>
-<UL>
-<LI><A NAME="tex2html3656"
-  HREF="node238.html">UW IMAP-2005 or earlier</A>
-<LI><A NAME="tex2html3657"
-  HREF="node239.html">UW IMAP-2006 Development Branch</A>
-<LI><A NAME="tex2html3658"
-  HREF="node240.html">Cyrus IMAP</A>
-</UL>
+
+<P>
+The database name (from /etc/asterisk/res_odbc.conf) is in the
+<TT>odbcstorage</TT> variable in the general section of voicemail.conf.
+
+<P>
+You may modify the <TT>voicemessages</TT> table name by using
+<TT>odbctable=<SPAN  CLASS="textit">table_name</SPAN></TT> in voicemail.conf.
+  
+<DIV CLASS="navigation"><HR>
+<!--Navigation Panel-->
+<A NAME="tex2html3660"
+  HREF="node231.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
+ SRC="/usr/share/latex2html/icons/next.png"></A> 
+<A NAME="tex2html3656"
+  HREF="node229.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
+ SRC="/usr/share/latex2html/icons/up.png"></A> 
+<A NAME="tex2html3650"
+  HREF="node229.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
+ SRC="/usr/share/latex2html/icons/prev.png"></A> 
+<A NAME="tex2html3658"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
+ SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<LI><A NAME="tex2html3659"
-  HREF="node241.html">Quota Support</A>
-<LI><A NAME="tex2html3660"
-  HREF="node242.html">Application Notes</A>
-</UL>
-<!--End of Table of Child-Links-->
-<BR><HR>
+<B> Next:</B> <A NAME="tex2html3661"
+  HREF="node231.html">IMAP Storage</A>
+<B> Up:</B> <A NAME="tex2html3657"
+  HREF="node229.html">Voicemail</A>
+<B> Previous:</B> <A NAME="tex2html3651"
+  HREF="node229.html">Voicemail</A>
+ &nbsp; <B>  <A NAME="tex2html3659"
+  HREF="node1.html">Contents</A></B> </DIV>
+<!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2009-06-11
+2009-08-29
 </ADDRESS>
 </BODY>
 </HTML>

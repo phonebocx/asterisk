@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Terminology</TITLE>
-<META NAME="description" CONTENT="Terminology">
+<TITLE>Background</TITLE>
+<META NAME="description" CONTENT="Background">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -20,90 +20,107 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="next" HREF="node248.html">
 <LINK REL="previous" HREF="node246.html">
-<LINK REL="up" HREF="node243.html">
+<LINK REL="up" HREF="node245.html">
 <LINK REL="next" HREF="node248.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3871"
+<A NAME="tex2html3884"
   HREF="node248.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3867"
-  HREF="node243.html">
+<A NAME="tex2html3880"
+  HREF="node245.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3861"
+<A NAME="tex2html3874"
   HREF="node246.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3869"
+<A NAME="tex2html3882"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3872"
-  HREF="node248.html">Sub address</A>
-<B> Up:</B> <A NAME="tex2html3868"
-  HREF="node243.html">SMS</A>
-<B> Previous:</B> <A NAME="tex2html3862"
-  HREF="node246.html">Typical use with Asterisk</A>
- &nbsp; <B>  <A NAME="tex2html3870"
+<B> Next:</B> <A NAME="tex2html3885"
+  HREF="node248.html">Typical use with Asterisk</A>
+<B> Up:</B> <A NAME="tex2html3881"
+  HREF="node245.html">SMS</A>
+<B> Previous:</B> <A NAME="tex2html3875"
+  HREF="node246.html">Introduction</A>
+ &nbsp; <B>  <A NAME="tex2html3883"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H1><A NAME="SECTION001340000000000000000">
-Terminology</A>
+<H1><A NAME="SECTION001320000000000000000">
+Background</A>
 </H1>
 
 <P>
-
-<UL>
-<LI>SMS -
-   Short Message Service
-   i.e. text messages
-
-<P>
-</LI>
-<LI>SMSC -
-   Short Message Service Centre
-   The system responsible for storing and forwarding messages
+Short Message Service (SMS), or texting is very popular between mobile
+   phones. A message can be sent between two phones, and normally
+   contains 160 characters. There are ways in which various types of data
+   can be encoded in a text message such as ring tones, and small
+   graphic, etc. Text messaging is being used for voting and
+   competitions, and also SPAM...
 
 <P>
-</LI>
-<LI>MO -
-   Mobile Originated
-   A message on its way from a mobile or landline device to the SMSC
+Sending a message involves the mobile phone contacting a message
+   centre (SMSC) and passing the message to it. The message centre then
+   contacts the destination mobile to deliver the message. The SMSC is
+   responsible for storing the message and trying to send it until the
+   destination mobile is available, or a timeout.
 
 <P>
-</LI>
-<LI>MT -
-   Mobile Terminated
-   A message on its way from the SMSC to the mobile or landline device
+Landline SMS works in basically the same way. You would normally have
+   a suitable text capable landline phone, or a separate texting box such
+   as a Magic Messenger on your phone line. This sends a message to a
+   message centre your telco provides by making a normal call and sending
+   the data using 1200 Baud FSK signaling according to the ETSI spec. To
+   receive a message the message centre calls the line with a specific
+   calling number, and the text capable phone answers the call and
+   receives the data using 1200 Baud FSK signaling. This works
+   particularly well in the UK as the calling line identity is sent
+   before the first ring, so no phones in the house would ring when a
+   message arrives.
 
 <P>
-</LI>
-<LI>RX -
-   Receive
-   A message coming in to the Asterisk box
 
-<P>
-</LI>
-<LI>TX -
-   Transmit
-   A message going out of the Asterisk box
-</LI>
-</UL>
-
-<P>
-<BR><HR>
+<DIV CLASS="navigation"><HR>
+<!--Navigation Panel-->
+<A NAME="tex2html3884"
+  HREF="node248.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
+ SRC="/usr/share/latex2html/icons/next.png"></A> 
+<A NAME="tex2html3880"
+  HREF="node245.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
+ SRC="/usr/share/latex2html/icons/up.png"></A> 
+<A NAME="tex2html3874"
+  HREF="node246.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
+ SRC="/usr/share/latex2html/icons/prev.png"></A> 
+<A NAME="tex2html3882"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
+ SRC="/usr/share/latex2html/icons/contents.png"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html3885"
+  HREF="node248.html">Typical use with Asterisk</A>
+<B> Up:</B> <A NAME="tex2html3881"
+  HREF="node245.html">SMS</A>
+<B> Previous:</B> <A NAME="tex2html3875"
+  HREF="node246.html">Introduction</A>
+ &nbsp; <B>  <A NAME="tex2html3883"
+  HREF="node1.html">Contents</A></B> </DIV>
+<!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2009-06-11
+2009-08-29
 </ADDRESS>
 </BODY>
 </HTML>

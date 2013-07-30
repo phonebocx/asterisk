@@ -163,18 +163,15 @@
 \BOOKMARK [2][-]{subsection.9.7.3}{Integration with other web servers}{section.9.7}
 \BOOKMARK [0][-]{chapter.10}{CDR: Call Detail Records}{}
 \BOOKMARK [1][-]{section.10.1}{Applications}{chapter.10}
-\BOOKMARK [1][-]{section.10.2}{Fields of the CDR in Asterisk}{chapter.10}
-\BOOKMARK [1][-]{section.10.3}{CDR Variables}{chapter.10}
-\BOOKMARK [1][-]{section.10.4}{MSSQL}{chapter.10}
-\BOOKMARK [2][-]{subsection.10.4.1}{ODBC using cdr\137odbc}{section.10.4}
-\BOOKMARK [2][-]{subsection.10.4.2}{TDS, using cdr\137tds}{section.10.4}
-\BOOKMARK [1][-]{section.10.5}{MYSQL}{chapter.10}
-\BOOKMARK [1][-]{section.10.6}{PGSQL}{chapter.10}
-\BOOKMARK [1][-]{section.10.7}{SQLLITE}{chapter.10}
-\BOOKMARK [1][-]{section.10.8}{RADIUS}{chapter.10}
-\BOOKMARK [2][-]{subsection.10.8.1}{What is needed}{section.10.8}
-\BOOKMARK [2][-]{subsection.10.8.2}{Steps to follow in order to have RADIUS support}{section.10.8}
-\BOOKMARK [1][-]{section.10.9}{Logged Values}{chapter.10}
+\BOOKMARK [1][-]{section.10.2}{CDR Fields}{chapter.10}
+\BOOKMARK [1][-]{section.10.3}{Variables}{chapter.10}
+\BOOKMARK [1][-]{section.10.4}{Storage Backends}{chapter.10}
+\BOOKMARK [2][-]{subsection.10.4.1}{Microsoft SQL Server}{section.10.4}
+\BOOKMARK [2][-]{subsection.10.4.2}{MySQL}{section.10.4}
+\BOOKMARK [2][-]{subsection.10.4.3}{PostgreSQL}{section.10.4}
+\BOOKMARK [2][-]{subsection.10.4.4}{SQLite 2}{section.10.4}
+\BOOKMARK [2][-]{subsection.10.4.5}{SQLite 3}{section.10.4}
+\BOOKMARK [2][-]{subsection.10.4.6}{RADIUS}{section.10.4}
 \BOOKMARK [0][-]{chapter.11}{Voicemail}{}
 \BOOKMARK [1][-]{section.11.1}{ODBC Storage}{chapter.11}
 \BOOKMARK [1][-]{section.11.2}{IMAP Storage}{chapter.11}

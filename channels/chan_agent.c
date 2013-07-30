@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 189207 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 212584 $")
 
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -1440,9 +1440,9 @@ static struct ast_channel *agent_request(const char *type, int format, void *dat
 	struct timeval now;
 
 	s = data;
-	if ((s[0] == '@') && (sscanf(s + 1, "%d", &groupoff) == 1)) {
+	if ((s[0] == '@') && (sscanf(s + 1, "%30d", &groupoff) == 1)) {
 		groupmatch = (1 << groupoff);
-	} else if ((s[0] == ':') && (sscanf(s + 1, "%d", &groupoff) == 1)) {
+	} else if ((s[0] == ':') && (sscanf(s + 1, "%30d", &groupoff) == 1)) {
 		groupmatch = (1 << groupoff);
 		waitforagent = 1;
 	} else 
@@ -2098,7 +2098,7 @@ static int login_exec(struct ast_channel *chan, void *data)
 				} else {
 					p->wrapuptime = wrapuptime;
 				}
-				tmpoptions = pbx_builtin_getvar_helper(chan, "AGENTACCEPTDMTF");
+				tmpoptions = pbx_builtin_getvar_helper(chan, "AGENTACCEPTDTMF");
 				if (!ast_strlen_zero(tmpoptions)) {
 					p->acceptdtmf = *tmpoptions;
 					ast_verb(3, "Saw variable AGENTACCEPTDTMF=%s, setting acceptdtmf to: %c for Agent '%s'.\n", tmpoptions, p->acceptdtmf, p->agent);
@@ -2423,9 +2423,9 @@ static int agent_devicestate(void *data)
 	int res = AST_DEVICE_INVALID;
 	
 	s = data;
-	if ((s[0] == '@') && (sscanf(s + 1, "%d", &groupoff) == 1))
+	if ((s[0] == '@') && (sscanf(s + 1, "%30d", &groupoff) == 1))
 		groupmatch = (1 << groupoff);
-	else if ((s[0] == ':') && (sscanf(s + 1, "%d", &groupoff) == 1)) {
+	else if ((s[0] == ':') && (sscanf(s + 1, "%30d", &groupoff) == 1)) {
 		groupmatch = (1 << groupoff);
 	} else 
 		groupmatch = 0;

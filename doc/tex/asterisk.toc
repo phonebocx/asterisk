@@ -207,36 +207,38 @@
 \contentsline {subsection}{\numberline {9.7.3}Integration with other web servers}{139}{subsection.9.7.3}
 \contentsline {chapter}{\numberline {10}CDR: Call Detail Records}{140}{chapter.10}
 \contentsline {section}{\numberline {10.1}Applications}{140}{section.10.1}
-\contentsline {section}{\numberline {10.2}Fields of the CDR in Asterisk}{140}{section.10.2}
-\contentsline {section}{\numberline {10.3}CDR Variables}{142}{section.10.3}
-\contentsline {section}{\numberline {10.4}MSSQL}{143}{section.10.4}
-\contentsline {subsection}{\numberline {10.4.1}ODBC using cdr\_odbc}{143}{subsection.10.4.1}
-\contentsline {subsection}{\numberline {10.4.2}TDS, using cdr\_tds}{145}{subsection.10.4.2}
-\contentsline {section}{\numberline {10.5}MYSQL}{146}{section.10.5}
-\contentsline {section}{\numberline {10.6}PGSQL}{146}{section.10.6}
-\contentsline {section}{\numberline {10.7}SQLLITE}{147}{section.10.7}
-\contentsline {section}{\numberline {10.8}RADIUS}{147}{section.10.8}
-\contentsline {subsection}{\numberline {10.8.1}What is needed}{147}{subsection.10.8.1}
-\contentsline {subsection}{\numberline {10.8.2}Steps to follow in order to have RADIUS support}{147}{subsection.10.8.2}
-\contentsline {subsubsection}{Installation of the Radiusclient library}{147}{section*.45}
-\contentsline {subsubsection}{Configuration of the Radiusclient library}{148}{section*.46}
-\contentsline {subsubsection}{Install FreeRADIUS Server (Version 1.1.1)}{149}{section*.47}
-\contentsline {subsubsection}{Configuration of the FreeRADIUS Server}{149}{section*.48}
-\contentsline {subsubsection}{Asterisk Accounting Configuration}{150}{section*.49}
-\contentsline {section}{\numberline {10.9}Logged Values}{150}{section.10.9}
+\contentsline {section}{\numberline {10.2}CDR Fields}{140}{section.10.2}
+\contentsline {section}{\numberline {10.3}Variables}{142}{section.10.3}
+\contentsline {section}{\numberline {10.4}Storage Backends}{143}{section.10.4}
+\contentsline {subsection}{\numberline {10.4.1}Microsoft SQL Server}{143}{subsection.10.4.1}
+\contentsline {subsubsection}{ODBC using cdr\_odbc}{143}{section*.45}
+\contentsline {subsubsection}{TDS, using cdr\_tds}{145}{section*.46}
+\contentsline {subsection}{\numberline {10.4.2}MySQL}{146}{subsection.10.4.2}
+\contentsline {subsection}{\numberline {10.4.3}PostgreSQL}{146}{subsection.10.4.3}
+\contentsline {subsection}{\numberline {10.4.4}SQLite 2}{147}{subsection.10.4.4}
+\contentsline {subsection}{\numberline {10.4.5}SQLite 3}{147}{subsection.10.4.5}
+\contentsline {subsection}{\numberline {10.4.6}RADIUS}{147}{subsection.10.4.6}
+\contentsline {subsubsection}{What is needed}{147}{section*.47}
+\contentsline {subsubsection}{Installation of the Radiusclient library}{148}{section*.48}
+\contentsline {subsubsection}{Configuration of the Radiusclient library}{148}{section*.49}
+\contentsline {subsubsection}{Install FreeRADIUS Server (Version 1.1.1)}{149}{section*.50}
+\contentsline {subsubsection}{Configuration of the FreeRADIUS Server}{149}{section*.51}
+\contentsline {subsubsection}{Asterisk Accounting Configuration}{150}{section*.52}
+\contentsline {subsubsection}{Logged Values}{150}{section*.53}
 \contentsline {chapter}{\numberline {11}Voicemail}{152}{chapter.11}
 \contentsline {section}{\numberline {11.1}ODBC Storage}{152}{section.11.1}
 \contentsline {section}{\numberline {11.2}IMAP Storage}{153}{section.11.2}
 \contentsline {subsection}{\numberline {11.2.1}Installation Notes}{153}{subsection.11.2.1}
-\contentsline {subsubsection}{University of Washington IMAP C-Client}{153}{section*.50}
-\contentsline {subsubsection}{Compiling Asterisk}{154}{section*.51}
+\contentsline {subsubsection}{University of Washington IMAP C-Client}{153}{section*.54}
+\contentsline {subsubsection}{Compiling Asterisk}{154}{section*.55}
 \contentsline {subsection}{\numberline {11.2.2}Modify voicemail.conf}{155}{subsection.11.2.2}
 \contentsline {subsection}{\numberline {11.2.3}IMAP Folders}{155}{subsection.11.2.3}
 \contentsline {subsection}{\numberline {11.2.4}Separate vs. Shared Email Accounts}{156}{subsection.11.2.4}
 \contentsline {subsection}{\numberline {11.2.5}IMAP Server Implementations}{156}{subsection.11.2.5}
-\contentsline {subsubsection}{UW IMAP-2005 or earlier}{156}{section*.52}
-\contentsline {subsubsection}{UW IMAP-2006 Development Branch}{156}{section*.53}
-\contentsline {subsubsection}{Cyrus IMAP}{156}{section*.54}
+\contentsline {subsubsection}{UW IMAP-2005 or earlier}{156}{section*.56}
+\contentsline {subsubsection}{UW IMAP-2006}{156}{section*.57}
+\contentsline {subsubsection}{UW IMAP-2007}{157}{section*.58}
+\contentsline {subsubsection}{Cyrus IMAP}{157}{section*.59}
 \contentsline {subsection}{\numberline {11.2.6}Quota Support}{157}{subsection.11.2.6}
 \contentsline {subsection}{\numberline {11.2.7}Application Notes}{157}{subsection.11.2.7}
 \contentsline {chapter}{\numberline {12}SMS}{158}{chapter.12}
@@ -254,10 +256,10 @@
 \contentsline {section}{\numberline {13.2}Configuring Call Queues}{170}{section.13.2}
 \contentsline {subsection}{\numberline {13.2.1}queues.conf}{170}{subsection.13.2.1}
 \contentsline {subsection}{\numberline {13.2.2}Routing incoming Calls to Queues}{171}{subsection.13.2.2}
-\contentsline {subsubsection}{The Main Menu}{171}{section*.55}
-\contentsline {subsubsection}{The Contexts referenced from the queues.conf file}{172}{section*.56}
+\contentsline {subsubsection}{The Main Menu}{171}{section*.60}
+\contentsline {subsubsection}{The Contexts referenced from the queues.conf file}{172}{section*.61}
 \contentsline {subsection}{\numberline {13.2.3}Assigning agents to Queues}{174}{subsection.13.2.3}
-\contentsline {subsubsection}{Agents Log In and Out}{175}{section*.57}
+\contentsline {subsubsection}{Agents Log In and Out}{175}{section*.62}
 \contentsline {subsection}{\numberline {13.2.4}Controlling The Way Queues Call the Agents}{177}{subsection.13.2.4}
 \contentsline {subsection}{\numberline {13.2.5}Pre Acknowledgement Message}{179}{subsection.13.2.5}
 \contentsline {subsection}{\numberline {13.2.6}Caveats}{179}{subsection.13.2.6}

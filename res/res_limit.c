@@ -21,7 +21,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 145121 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #define _XOPEN_SOURCE 600
 
@@ -179,7 +179,7 @@ static char *handle_cli_ulimit(struct ast_cli_entry *e, int cmd, struct ast_cli_
 				return CLI_FAILURE;
 			}
 
-			sscanf(a->argv[2], "%d", &x);
+			sscanf(a->argv[2], "%30d", &x);
 			rlimit.rlim_max = rlimit.rlim_cur = x;
 			setrlimit(resource, &rlimit);
 			return CLI_SUCCESS;

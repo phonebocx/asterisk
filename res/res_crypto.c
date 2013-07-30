@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 161218 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 205148 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_KEY_DIR */
 #include <openssl/ssl.h>
@@ -585,8 +585,6 @@ static struct ast_cli_entry cli_crypto[] = {
 /*! \brief initialise the res_crypto module */
 static int crypto_init(void)
 {
-	SSL_library_init();
-	ERR_load_crypto_strings();
 	ast_cli_register_multiple(cli_crypto, ARRAY_LEN(cli_crypto));
 
 	/* Install ourselves into stubs */

@@ -43,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 196950 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 214515 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -1169,8 +1169,11 @@ static int action_getconfig(struct mansession *s, const struct message *m)
 		return 0;
 	}
 	cfg = ast_config_load2(fn, "manager", config_flags);
-	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEINVALID) {
+	if (cfg == CONFIG_STATUS_FILEMISSING) {
 		astman_send_error(s, m, "Config file not found");
+		return 0;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		astman_send_error(s, m, "Config file has invalid format");
 		return 0;
 	}
 
@@ -1211,7 +1214,10 @@ static int action_listcategories(struct mansession *s, const struct message *m)
 		return 0;
 	}
 	if (!(cfg = ast_config_load2(fn, "manager", config_flags))) {
-		astman_send_error(s, m, "Config file not found or file has invalid syntax");
+		astman_send_error(s, m, "Config file not found");
+		return 0;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		astman_send_error(s, m, "Config file has invalid format");
 		return 0;
 	}
 	astman_start_ack(s, m);
@@ -1266,6 +1272,9 @@ static int action_getconfigjson(struct mansession *s, const struct message *m)
 
 	if (!(cfg = ast_config_load2(fn, "manager", config_flags))) {
 		astman_send_error(s, m, "Config file not found");
+		return 0;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		astman_send_error(s, m, "Config file has invalid format");
 		return 0;
 	}
 
@@ -1486,6 +1495,9 @@ static int action_updateconfig(struct mansession *s, const struct message *m)
 	if (!(cfg = ast_config_load2(sfn, "manager", config_flags))) {
 		astman_send_error(s, m, "Config file not found");
 		return 0;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		astman_send_error(s, m, "Config file has invalid format");
+		return 0;
 	}
 	result = handle_updates(s, m, cfg, dfn);
 	if (!result) {
@@ -1591,7 +1603,7 @@ static int action_waitevent(struct mansession *s, const struct message *m)
 		idText[0] = '\0';
 
 	if (!ast_strlen_zero(timeouts)) {
-		sscanf(timeouts, "%i", &timeout);
+		sscanf(timeouts, "%30i", &timeout);
 		if (timeout < -1)
 			timeout = -1;
 		/* XXX maybe put an upper bound, or prevent the use of 0 ? */
@@ -2077,7 +2089,7 @@ static int action_redirect(struct mansession *s, const struct message *m)
 		astman_send_error(s, m, "Channel not specified");
 		return 0;
 	}
-	if (!ast_strlen_zero(priority) && (sscanf(priority, "%d", &pi) != 1)) {
+	if (!ast_strlen_zero(priority) && (sscanf(priority, "%30d", &pi) != 1)) {
 		if ((pi = ast_findlabel_extension(NULL, context, exten, priority, NULL)) < 1) {
 			astman_send_error(s, m, "Invalid priority");
 			return 0;
@@ -2242,7 +2254,7 @@ static int action_command(struct mansession *s, const struct message *m)
 	const char *id = astman_get_header(m, "ActionID");
 	char *buf, *final_buf;
 	char template[] = "/tmp/ast-ami-XXXXXX";	/* template for temporary file */
-	int fd = mkstemp(template);
+	int fd;
 	off_t l;
 
 	if (ast_strlen_zero(cmd)) {
@@ -2254,6 +2266,8 @@ static int action_command(struct mansession *s, const struct message *m)
 		astman_send_error(s, m, "Command blacklisted");
 		return 0;
 	}
+
+	fd = mkstemp(template);
 
 	astman_append(s, "Response: Follows\r\nPrivilege: Command\r\n");
 	if (!ast_strlen_zero(id))
@@ -2362,7 +2376,7 @@ static char mandescr_originate[] =
 "	Priority: Priority to use (requires 'Exten' and 'Context')\n"
 "	Application: Application to use\n"
 "	Data: Data to use (requires 'Application')\n"
-"	Timeout: How long to wait for call to be answered (in ms)\n"
+"	Timeout: How long to wait for call to be answered (in ms. Default: 30000)\n"
 "	CallerID: Caller ID to be set on the outgoing channel\n"
 "	Variable: Channel variable to set, multiple Variable: headers are allowed\n"
 "	Account: Account code\n"
@@ -2398,13 +2412,13 @@ static int action_originate(struct mansession *s, const struct message *m)
 		astman_send_error(s, m, "Channel not specified");
 		return 0;
 	}
-	if (!ast_strlen_zero(priority) && (sscanf(priority, "%d", &pi) != 1)) {
+	if (!ast_strlen_zero(priority) && (sscanf(priority, "%30d", &pi) != 1)) {
 		if ((pi = ast_findlabel_extension(NULL, context, exten, priority, NULL)) < 1) {
 			astman_send_error(s, m, "Invalid priority");
 			return 0;
 		}
 	}
-	if (!ast_strlen_zero(timeout) && (sscanf(timeout, "%d", &to) != 1)) {
+	if (!ast_strlen_zero(timeout) && (sscanf(timeout, "%30d", &to) != 1)) {
 		astman_send_error(s, m, "Invalid timeout");
 		return 0;
 	}
@@ -3793,7 +3807,7 @@ static struct ast_str *generic_http_callback(enum output_format format,
 
 	for (v = params; v; v = v->next) {
 		if (!strcasecmp(v->name, "mansession_id")) {
-			sscanf(v->value, "%x", &ident);
+			sscanf(v->value, "%30x", &ident);
 			break;
 		}
 	}
@@ -4089,8 +4103,8 @@ static int __init_manager(int reload)
 		return 0;
 
 	displayconnects = 1;
-	if (!cfg) {
-		ast_log(LOG_NOTICE, "Unable to open AMI configuration manager.conf. Asterisk management interface (AMI) disabled.\n");
+	if (!cfg || cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_NOTICE, "Unable to open AMI configuration manager.conf, or configuration is invalid. Asterisk management interface (AMI) disabled.\n");
 		return 0;
 	}
 
@@ -4168,7 +4182,7 @@ static int __init_manager(int reload)
 
 	/* First, get users from users.conf */
 	ucfg = ast_config_load2("users.conf", "manager", config_flags);
-	if (ucfg && (ucfg != CONFIG_STATUS_FILEUNCHANGED)) {
+	if (ucfg && (ucfg != CONFIG_STATUS_FILEUNCHANGED) && ucfg != CONFIG_STATUS_FILEINVALID) {
 		const char *hasmanager;
 		int genhasmanager = ast_true(ast_variable_retrieve(ucfg, "general", "hasmanager"));
 

@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 162275 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 208116 $")
 
 #include <sys/socket.h>
 #include <netdb.h>
@@ -128,6 +128,7 @@ static int send_waveform_to_fd(char *waveform, int length, int fd)
 {
 	int res;
 #ifdef __PPC__ 
+	int x;
 	char c;
 #endif
 

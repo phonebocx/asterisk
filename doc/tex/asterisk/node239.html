@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>UW IMAP-2006 Development Branch</TITLE>
-<META NAME="description" CONTENT="UW IMAP-2006 Development Branch">
+<TITLE>UW IMAP-2005 or earlier</TITLE>
+<META NAME="description" CONTENT="UW IMAP-2005 or earlier">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -20,59 +20,59 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="next" HREF="node240.html">
 <LINK REL="previous" HREF="node238.html">
-<LINK REL="up" HREF="node237.html">
+<LINK REL="up" HREF="node238.html">
 <LINK REL="next" HREF="node240.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3770"
+<A NAME="tex2html3783"
   HREF="node240.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3766"
-  HREF="node237.html">
+<A NAME="tex2html3779"
+  HREF="node238.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3760"
+<A NAME="tex2html3773"
   HREF="node238.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3768"
+<A NAME="tex2html3781"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3771"
-  HREF="node240.html">Cyrus IMAP</A>
-<B> Up:</B> <A NAME="tex2html3767"
-  HREF="node237.html">IMAP Server Implementations</A>
-<B> Previous:</B> <A NAME="tex2html3761"
-  HREF="node238.html">UW IMAP-2005 or earlier</A>
- &nbsp; <B>  <A NAME="tex2html3769"
+<B> Next:</B> <A NAME="tex2html3784"
+  HREF="node240.html">UW IMAP-2006</A>
+<B> Up:</B> <A NAME="tex2html3780"
+  HREF="node238.html">IMAP Server Implementations</A>
+<B> Previous:</B> <A NAME="tex2html3774"
+  HREF="node238.html">IMAP Server Implementations</A>
+ &nbsp; <B>  <A NAME="tex2html3782"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H3><A NAME="SECTION001225200000000000000">
-UW IMAP-2006 Development Branch</A>
+<H3><A NAME="SECTION001225100000000000000">
+UW IMAP-2005 or earlier</A>
 </H3>
 
 <P>
-This version supports UIDPLUS, which allows UID_EXPUNGE capabilities.  This
-feature allow the system to expunge ONLY pertinent messages, instead of the
-default behavior, which is to expunge ALL messages marked for deletion when
-EXPUNGE is called.  The IMAP storage mechanism is this version of Asterisk
-will check if the UID_EXPUNGE feature is supported by the server, and use it
-if possible.
+UIDPLUS is currently NOT supported on these versions of UW-IMAP.  Please note
+that without UID_EXPUNGE, Asterisk voicemail will expunge ALL messages marked
+for deletion when a user exits the voicemail system (hangs up the phone).
+
+<P>
+This version is *not* recommended for Asterisk.
 
 <P>
 <BR><HR>
 <ADDRESS>
 lmadsen
-2009-06-11
+2009-08-29
 </ADDRESS>
 </BODY>
 </HTML>

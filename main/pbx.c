@@ -22,10 +22,9 @@
  *
  * \author Mark Spencer <markster@digium.com>
  */
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 199998 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 213974 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_SYSTEM_NAME */
@@ -1346,7 +1345,7 @@ int pbx_exec(struct ast_channel *c, /*!< Channel */
 			"the pipe.  Did you forget to convert your dialplan?  (%s(%s))\n",
 			app->name, (char *) data);
 	}
-	res = app->execute(c, S_OR(data, ""));
+	res = app->execute(c, S_OR((char *) data, ""));
 	if (app->module && u)
 		__ast_module_user_remove(app->module, u);
 	/* restore channel values */
@@ -2789,7 +2788,7 @@ static int parse_variable_name(char *var, int *offset, int *length, int *isfunc)
 			parens--;
 		} else if (*var == ':' && parens == 0) {
 			*var++ = '\0';
-			sscanf(var, "%d:%d", offset, length);
+			sscanf(var, "%30d:%30d", offset, length);
 			return 1; /* offset:length valid */
 		}
 	}
@@ -3322,14 +3321,14 @@ static char *func_args(char *function)
 	char *args = strchr(function, '(');
 
 	if (!args) {
-		ast_log(LOG_WARNING, "Function doesn't contain parentheses.  Assuming null argument.\n");
+		ast_log(LOG_WARNING, "Function '%s' doesn't contain parentheses.  Assuming null argument.\n", function);
 	} else {
 		char *p;
 		*args++ = '\0';
 		if ((p = strrchr(args, ')'))) {
 			*p = '\0';
 		} else {
-			ast_log(LOG_WARNING, "Can't find trailing parenthesis?\n");
+			ast_log(LOG_WARNING, "Can't find trailing parenthesis for function '%s(%s'?\n", function, args);
 		}
 	}
 	return args;
@@ -3746,13 +3745,38 @@ static struct ast_exten *ast_hint_extension(struct ast_channel *c, const char *c
 	return e;
 }
 
+enum ast_extension_states ast_devstate_to_extenstate(enum ast_device_state devstate)
+{
+	switch (devstate) {
+	case AST_DEVICE_ONHOLD:
+		return AST_EXTENSION_ONHOLD;
+	case AST_DEVICE_BUSY:
+		return AST_EXTENSION_BUSY;
+	case AST_DEVICE_UNAVAILABLE:
+	case AST_DEVICE_UNKNOWN:
+	case AST_DEVICE_INVALID:
+		return AST_EXTENSION_UNAVAILABLE;
+	case AST_DEVICE_RINGINUSE:
+		return (AST_EXTENSION_INUSE | AST_EXTENSION_RINGING);
+	case AST_DEVICE_RINGING:
+		return AST_EXTENSION_RINGING;
+	case AST_DEVICE_INUSE:
+		return AST_EXTENSION_INUSE;
+	case AST_DEVICE_NOT_INUSE:
+		return AST_EXTENSION_NOT_INUSE;
+	case AST_DEVICE_TOTAL: /* not a device state, included for completeness */
+		break;
+	}
+
+	return AST_EXTENSION_NOT_INUSE;
+}
+
 /*! \brief Check state of extension by using hints */
 static int ast_extension_state2(struct ast_exten *e)
 {
 	struct ast_str *hint = ast_str_thread_get(&extensionstate_buf, 16);
 	char *cur, *rest;
 	struct ast_devstate_aggregate agg;
-	enum ast_device_state state;
 
 	if (!e)
 		return -1;
@@ -3763,31 +3787,11 @@ static int ast_extension_state2(struct ast_exten *e)
 
 	rest = ast_str_buffer(hint);	/* One or more devices separated with a & character */
 
-	while ( (cur = strsep(&rest, "&")) )
+	while ( (cur = strsep(&rest, "&")) ) {
 		ast_devstate_aggregate_add(&agg, ast_device_state(cur));
-
-	state = ast_devstate_aggregate_result(&agg);
-
-	switch (state) {
-	case AST_DEVICE_ONHOLD:
-		return AST_EXTENSION_ONHOLD;
-	case AST_DEVICE_BUSY:
-		return AST_EXTENSION_BUSY;
-	case AST_DEVICE_UNAVAILABLE:
-		return AST_EXTENSION_UNAVAILABLE;
-	case AST_DEVICE_RINGINUSE:
-		return (AST_EXTENSION_INUSE | AST_EXTENSION_RINGING);
-	case AST_DEVICE_RINGING:
-		return AST_EXTENSION_RINGING;
-	case AST_DEVICE_INUSE:
-		return AST_EXTENSION_INUSE;
-	case AST_DEVICE_UNKNOWN:
-	case AST_DEVICE_INVALID:
-	case AST_DEVICE_NOT_INUSE:
-		return AST_EXTENSION_NOT_INUSE;
 	}
 
-	return AST_EXTENSION_NOT_INUSE;
+	return ast_devstate_to_extenstate(ast_devstate_aggregate_result(&agg));
 }
 
 /*! \brief Return extension_state as string */
@@ -6151,6 +6155,36 @@ static char *handle_show_globals(struct ast_cli_entry *e, int cmd, struct ast_cl
 	return CLI_SUCCESS;
 }
 
+#ifdef AST_DEVMODE
+static char *handle_show_device2extenstate(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
+{
+	struct ast_devstate_aggregate agg;
+	int i, j, exten, combined;
+
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "core show device2extenstate";
+		e->usage =
+			"Usage: core show device2extenstate\n"
+			"       Lists device state to extension state combinations.\n";
+	case CLI_GENERATE:
+		return NULL;
+	}
+	for (i = 0; i < AST_DEVICE_TOTAL; i++) {
+		for (j = 0; j < AST_DEVICE_TOTAL; j++) {
+			ast_devstate_aggregate_init(&agg);
+			ast_devstate_aggregate_add(&agg, i);
+			ast_devstate_aggregate_add(&agg, j);
+			combined = ast_devstate_aggregate_result(&agg);
+			exten = ast_devstate_to_extenstate(combined);
+			ast_cli(a->fd, "\n Exten:%14s  CombinedDevice:%12s  Dev1:%12s  Dev2:%12s", ast_extension_state2str(exten), ast_devstate_str(combined), ast_devstate_str(j), ast_devstate_str(i));
+		}
+	}
+	ast_cli(a->fd, "\n");
+	return CLI_SUCCESS;
+}
+#endif
+
 /*! \brief CLI support for listing chanvar's variables in a parseable way */
 static char *handle_show_chanvar(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
@@ -6307,6 +6341,9 @@ static struct ast_cli_entry pbx_cli[] = {
 	AST_CLI_DEFINE(handle_show_hints, "Show dialplan hints"),
 	AST_CLI_DEFINE(handle_show_hint, "Show dialplan hint"),
 	AST_CLI_DEFINE(handle_show_globals, "Show global dialplan variables"),
+#ifdef AST_DEVMODE
+	AST_CLI_DEFINE(handle_show_device2extenstate, "Show expected exten state from multiple device states"),
+#endif
 	AST_CLI_DEFINE(handle_show_chanvar, "Show channel variables"),
 	AST_CLI_DEFINE(handle_show_function, "Describe a specific dialplan function"),
 	AST_CLI_DEFINE(handle_show_application, "Describe a specific dialplan application"),
@@ -6730,7 +6767,7 @@ static int lookup_name(const char *s, char *const names[], int max)
 	}
 
 	/* Allow months and weekdays to be specified as numbers, as well */
-	if (sscanf(s, "%d", &i) == 1 && i >= 1 && i <= max) {
+	if (sscanf(s, "%2d", &i) == 1 && i >= 1 && i <= max) {
 		/* What the array offset would have been: "1" would be at offset 0 */
 		return i - 1;
 	}
@@ -6806,7 +6843,7 @@ static void get_timerange(struct ast_timing *i, char *times)
 	/* Otherwise expect a range */
 	while ((part = strsep(&times, "&"))) {
 		if (!(endpart = strchr(part, '-'))) {
-			if (sscanf(part, "%d:%d", &st_h, &st_m) != 2 || st_h < 0 || st_h > 23 || st_m < 0 || st_m > 59) {
+			if (sscanf(part, "%2d:%2d", &st_h, &st_m) != 2 || st_h < 0 || st_h > 23 || st_m < 0 || st_m > 59) {
 				ast_log(LOG_WARNING, "%s isn't a valid time.\n", part);
 				continue;
 			}
@@ -6822,11 +6859,11 @@ static void get_timerange(struct ast_timing *i, char *times)
 			ast_log(LOG_WARNING, "Invalid time range starting with '%s-'.\n", part);
 			continue;
 		}
-		if (sscanf(part, "%d:%d", &st_h, &st_m) != 2 || st_h < 0 || st_h > 23 || st_m < 0 || st_m > 59) {
+		if (sscanf(part, "%2d:%2d", &st_h, &st_m) != 2 || st_h < 0 || st_h > 23 || st_m < 0 || st_m > 59) {
 			ast_log(LOG_WARNING, "'%s' isn't a valid start time.\n", part);
 			continue;
 		}
-		if (sscanf(endpart, "%d:%d", &endh, &endm) != 2 || endh < 0 || endh > 23 || endm < 0 || endm > 59) {
+		if (sscanf(endpart, "%2d:%2d", &endh, &endm) != 2 || endh < 0 || endh > 23 || endm < 0 || endm > 59) {
 			ast_log(LOG_WARNING, "'%s' isn't a valid end time.\n", endpart);
 			continue;
 		}
@@ -8360,7 +8397,7 @@ static void wait_for_hangup(struct ast_channel *chan, void *data)
 	double waitsec;
 	int waittime;
 
-	if (ast_strlen_zero(data) || (sscanf(data, "%lg", &waitsec) != 1) || (waitsec < 0))
+	if (ast_strlen_zero(data) || (sscanf(data, "%30lg", &waitsec) != 1) || (waitsec < 0))
 		waitsec = -1;
 	if (waitsec > -1) {
 		waittime = waitsec * 1000.0;
@@ -9112,7 +9149,7 @@ int pbx_checkcondition(const char *condition)
 	int res;
 	if (ast_strlen_zero(condition)) {                /* NULL or empty strings are false */
 		return 0;
-	} else if (sscanf(condition, "%d", &res) == 1) { /* Numbers are evaluated for truth */
+	} else if (sscanf(condition, "%30d", &res) == 1) { /* Numbers are evaluated for truth */
 		return res;
 	} else {                                         /* Strings are true */
 		return 1;
@@ -9526,7 +9563,7 @@ static int pbx_parseable_goto(struct ast_channel *chan, const char *goto_string,
 		mode = -1;
 		pri++;
 	}
-	if (sscanf(pri, "%d", &ipri) != 1) {
+	if (sscanf(pri, "%30d", &ipri) != 1) {
 		if ((ipri = ast_findlabel_extension(chan, context ? context : chan->context, exten ? exten : chan->exten,
 			pri, chan->cid.cid_num)) < 1) {
 			ast_log(LOG_WARNING, "Priority '%s' must be a number > 0, or valid label\n", pri);

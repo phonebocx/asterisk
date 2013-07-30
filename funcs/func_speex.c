@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153468 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <speex/speex_preprocess.h>
 #include "asterisk/module.h"
@@ -239,7 +239,7 @@ static int speex_write(struct ast_channel *chan, const char *cmd, char *data, co
 	}
 
 	if (!strcasecmp(cmd, "agc")) {
-		if (!sscanf(value, "%f", &(*sdi)->agclevel))
+		if (!sscanf(value, "%30f", &(*sdi)->agclevel))
 			(*sdi)->agclevel = ast_true(value) ? DEFAULT_AGC_LEVEL : 0.0;
 	
 		if ((*sdi)->agclevel > 32768.0) {
