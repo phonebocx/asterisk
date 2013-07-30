@@ -1,8 +1,8 @@
                                 Release Summary
 
-                               asterisk-1.8.10.1
+                               asterisk-1.8.11.1
 
-                                Date: 2012-03-15
+                                Date: 2012-04-23
 
                            <asteriskteam@digium.com>
 
@@ -28,10 +28,10 @@
    the advisories and determine what action they should take to protect their
    systems from these issues.
 
-   Security Advisories: AST-2012-002, AST-2012-003
+   Security Advisories: AST-2012-004, AST-2012-005, AST-2012-006
 
    The data in this summary reflects changes that have been made since the
-   previous release, asterisk-1.8.10.0.
+   previous release, asterisk-1.8.11.0.
 
      ----------------------------------------------------------------------
 
@@ -49,7 +49,7 @@
    release.
 
      Coders                   Testers                  Reporters              
-   2 bebuild                
+   3 bebuild                
 
      ----------------------------------------------------------------------
 
@@ -65,10 +65,12 @@
    +------------------------------------------------------------------------+
    | Revision | Author  | Summary                       | Issues Referenced |
    |----------+---------+-------------------------------+-------------------|
-   | 359768   | bebuild | Create 1.8.10.1 tag           |                   |
+   | 363199   | bebuild | Create 1.8.11.1 tag           |                   |
    |----------+---------+-------------------------------+-------------------|
-   | 359770   | bebuild | Merge 359656,359706 for       |                   |
-   |          |         | 1.8.10.1                      |                   |
+   | 363208   | bebuild | Merge 363102, 363106, 363141  |                   |
+   |          |         | for 1.8.11.1                  |                   |
+   |----------+---------+-------------------------------+-------------------|
+   | 363214   | bebuild | Remove old release summaries  |                   |
    +------------------------------------------------------------------------+
 
      ----------------------------------------------------------------------
@@ -81,11 +83,12 @@
    release that was generated using the diffstat utility.
 
  .version                       |    2
- ChangeLog                      |    8
- apps/app_milliwatt.c           |    2
- asterisk-1.8.10.0-summary.html |  303 ------------------------
- asterisk-1.8.10.0-summary.txt  |  505 -----------------------------------------
- main/utils.c                   |  128 +++++-----
- 6 files changed, 75 insertions(+), 873 deletions(-)
+ ChangeLog                      |   10
+ asterisk-1.8.11.0-summary.html |  218 ---------------------
+ asterisk-1.8.11.0-summary.txt  |  418 -----------------------------------------
+ channels/chan_sip.c            |    4
+ channels/chan_skinny.c         |   12 -
+ main/manager.c                 |   34 +++
+ 7 files changed, 55 insertions(+), 643 deletions(-)
 
      ----------------------------------------------------------------------

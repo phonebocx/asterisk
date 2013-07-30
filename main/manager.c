@@ -47,7 +47,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 347438 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 363208 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -1179,6 +1179,19 @@ static const struct permalias {
 	{ 0, "none" },
 };
 
+/*! \brief Checks to see if a string which can be used to evaluate functions should be rejected */
+static int function_capable_string_allowed_with_auths(const char *evaluating, int writepermlist)
+{
+	if (!(writepermlist & EVENT_FLAG_SYSTEM)
+		&& (
+			strstr(evaluating, "SHELL") ||       /* NoOp(${SHELL(rm -rf /)})  */
+			strstr(evaluating, "EVAL")           /* NoOp(${EVAL(${some_var_containing_SHELL})}) */
+		)) {
+		return 0;
+	}
+	return 1;
+}
+
 /*! \brief Convert authority code to a list of options */
 static const char *authority_to_str(int authority, struct ast_str **res)
 {
@@ -1935,7 +1948,11 @@ int ast_hook_send_action(struct manager_custom_hook *hook, const char *msg)
 
 			ao2_lock(act_found);
 			if (act_found->registered && act_found->func) {
+				++act_found->active_count;
+				ao2_unlock(act_found);
 				ret = act_found->func(&s, &m);
+				ao2_lock(act_found);
+				--act_found->active_count;
 			} else {
 				ret = -1;
 			}
@@ -3173,6 +3190,12 @@ static int action_getvar(struct mansession *s, const struct message *m)
 		return 0;
 	}
 
+	/* We don't want users with insufficient permissions using certain functions. */
+	if (!(function_capable_string_allowed_with_auths(varname, s->session->writeperm))) {
+		astman_send_error(s, m, "GetVar Access Forbidden: Variable");
+		return 0;
+	}
+
 	if (!ast_strlen_zero(name)) {
 		if (!(c = ast_channel_get_by_name(name))) {
 			astman_send_error(s, m, "No such channel");
@@ -3231,6 +3254,11 @@ static int action_status(struct mansession *s, const struct message *m)
 		snprintf(idText, sizeof(idText), "ActionID: %s\r\n", id);
 	} else {
 		idText[0] = '\0';
+	}
+
+	if (!(function_capable_string_allowed_with_auths(variables, s->session->writeperm))) {
+		astman_send_error(s, m, "Status Access Forbidden: Variables");
+		return 0;
 	}
 
 	if (all) {
@@ -3472,7 +3500,7 @@ static int action_redirect(struct mansession *s, const struct message *m)
 					ast_set_flag(chan2, AST_FLAG_BRIDGE_HANGUP_DONT); /* don't let the after-bridge code run the h-exten */
 					ast_channel_unlock(chan2);
 				}
-				if (context2) {
+				if (!ast_strlen_zero(context2)) {
 					res = ast_async_goto(chan2, context2, exten2, pi2);
 				} else {
 					res = ast_async_goto(chan2, context, exten, pi);
@@ -3492,10 +3520,7 @@ static int action_redirect(struct mansession *s, const struct message *m)
 		astman_send_error(s, m, "Redirect failed");
 	}
 
-	if (chan) {
-		chan = ast_channel_unref(chan);
-	}
-
+	chan = ast_channel_unref(chan);
 	if (chan2) {
 		chan2 = ast_channel_unref(chan2);
 	}
@@ -3644,12 +3669,12 @@ static int action_command(struct mansession *s, const struct message *m)
 
 /*! \brief helper function for originate */
 struct fast_originate_helper {
-	char tech[AST_MAX_EXTENSION];
-	/*! data can contain a channel name, extension number, username, password, etc. */
-	char data[512];
 	int timeout;
 	format_t format;				/*!< Codecs used for a call */
 	AST_DECLARE_STRING_FIELDS (
+		AST_STRING_FIELD(tech);
+		/*! data can contain a channel name, extension number, username, password, etc. */
+		AST_STRING_FIELD(data);
 		AST_STRING_FIELD(app);
 		AST_STRING_FIELD(appdata);
 		AST_STRING_FIELD(cid_name);
@@ -3663,6 +3688,20 @@ struct fast_originate_helper {
 	struct ast_variable *vars;
 };
 
+/*!
+ * \internal
+ *
+ * \param doomed Struct to destroy.
+ *
+ * \return Nothing
+ */
+static void destroy_fast_originate_helper(struct fast_originate_helper *doomed)
+{
+	ast_variables_destroy(doomed->vars);
+	ast_string_field_free_memory(doomed);
+	ast_free(doomed);
+}
+
 static void *fast_originate(void *data)
 {
 	struct fast_originate_helper *in = data;
@@ -3672,16 +3711,20 @@ static void *fast_originate(void *data)
 	char requested_channel[AST_CHANNEL_NAME];
 
 	if (!ast_strlen_zero(in->app)) {
-		res = ast_pbx_outgoing_app(in->tech, in->format, in->data, in->timeout, in->app, in->appdata, &reason, 1,
+		res = ast_pbx_outgoing_app(in->tech, in->format, (char *) in->data,
+			in->timeout, in->app, in->appdata, &reason, 1,
 			S_OR(in->cid_num, NULL),
 			S_OR(in->cid_name, NULL),
 			in->vars, in->account, &chan);
 	} else {
-		res = ast_pbx_outgoing_exten(in->tech, in->format, in->data, in->timeout, in->context, in->exten, in->priority, &reason, 1,
+		res = ast_pbx_outgoing_exten(in->tech, in->format, (char *) in->data,
+			in->timeout, in->context, in->exten, in->priority, &reason, 1,
 			S_OR(in->cid_num, NULL),
 			S_OR(in->cid_name, NULL),
 			in->vars, in->account, &chan);
 	}
+	/* Any vars memory was passed to the ast_pbx_outgoing_xxx() calls. */
+	in->vars = NULL;
 
 	if (!chan) {
 		snprintf(requested_channel, AST_CHANNEL_NAME, "%s/%s", in->tech, in->data);
@@ -3689,7 +3732,7 @@ static void *fast_originate(void *data)
 	/* Tell the manager what happened with the channel */
 	chans[0] = chan;
 	ast_manager_event_multichan(EVENT_FLAG_CALL, "OriginateResponse", chan ? 1 : 0, chans,
-		"%s%s"
+		"%s"
 		"Response: %s\r\n"
 		"Channel: %s\r\n"
 		"Context: %s\r\n"
@@ -3698,7 +3741,7 @@ static void *fast_originate(void *data)
 		"Uniqueid: %s\r\n"
 		"CallerIDNum: %s\r\n"
 		"CallerIDName: %s\r\n",
-		in->idtext, ast_strlen_zero(in->idtext) ? "" : "\r\n", res ? "Failure" : "Success",
+		in->idtext, res ? "Failure" : "Success",
 		chan ? chan->name : requested_channel, in->context, in->exten, reason,
 		chan ? chan->uniqueid : "<null>",
 		S_OR(in->cid_num, "<unknown>"),
@@ -3709,8 +3752,7 @@ static void *fast_originate(void *data)
 	if (chan) {
 		ast_channel_unlock(chan);
 	}
-	ast_string_field_free_memory(in);
-	ast_free(in);
+	destroy_fast_originate_helper(in);
 	return NULL;
 }
 
@@ -4010,6 +4052,7 @@ static int action_originate(struct mansession *s, const struct message *m)
 		ast_parse_allow_disallow(NULL, &format, codecs, 1);
 	}
 	if (!ast_strlen_zero(app)) {
+		int bad_appdata = 0;
 		/* To run the System application (or anything else that goes to
 		 * shell), you must have the additional System privilege */
 		if (!(s->session->writeperm & EVENT_FLAG_SYSTEM)
@@ -4020,10 +4063,13 @@ static int action_originate(struct mansession *s, const struct message *m)
 				                                     TryExec(System(rm -rf /)) */
 				strcasestr(app, "agi") ||         /* AGI(/bin/rm,-rf /)
 				                                     EAGI(/bin/rm,-rf /)       */
-				strstr(appdata, "SHELL") ||       /* NoOp(${SHELL(rm -rf /)})  */
-				strstr(appdata, "EVAL")           /* NoOp(${EVAL(${some_var_containing_SHELL})}) */
+				strcasestr(app, "mixmonitor") ||  /* MixMonitor(blah,,rm -rf)  */
+				(strstr(appdata, "SHELL") && (bad_appdata = 1)) ||       /* NoOp(${SHELL(rm -rf /)})  */
+				(strstr(appdata, "EVAL") && (bad_appdata = 1))           /* NoOp(${EVAL(${some_var_containing_SHELL})}) */
 				)) {
-			astman_send_error(s, m, "Originate with certain 'Application' arguments requires the additional System privilege, which you do not have.");
+			char error_buf[64];
+			snprintf(error_buf, sizeof(error_buf), "Originate Access Forbidden: %s", bad_appdata ? "Data" : "Application");
+			astman_send_error(s, m, error_buf);
 			return 0;
 		}
 	}
@@ -4031,18 +4077,19 @@ static int action_originate(struct mansession *s, const struct message *m)
 	vars = astman_get_variables(m);
 
 	if (ast_true(async)) {
-		struct fast_originate_helper *fast = ast_calloc(1, sizeof(*fast));
+		struct fast_originate_helper *fast;
+
+		fast = ast_calloc(1, sizeof(*fast));
 		if (!fast || ast_string_field_init(fast, 252)) {
-			if (fast) {
-				ast_free(fast);
-			}
+			ast_free(fast);
+			ast_variables_destroy(vars);
 			res = -1;
 		} else {
 			if (!ast_strlen_zero(id)) {
-				ast_string_field_build(fast, idtext, "ActionID: %s", id);
+				ast_string_field_build(fast, idtext, "ActionID: %s\r\n", id);
 			}
-			ast_copy_string(fast->tech, tech, sizeof(fast->tech));
-			ast_copy_string(fast->data, data, sizeof(fast->data));
+			ast_string_field_set(fast, tech, tech);
+			ast_string_field_set(fast, data, data);
 			ast_string_field_set(fast, app, app);
 			ast_string_field_set(fast, appdata, appdata);
 			ast_string_field_set(fast, cid_num, l);
@@ -4055,8 +4102,7 @@ static int action_originate(struct mansession *s, const struct message *m)
 			fast->timeout = to;
 			fast->priority = pi;
 			if (ast_pthread_create_detached(&th, NULL, fast_originate, fast)) {
-				ast_string_field_free_memory(fast);
-				ast_free(fast);
+				destroy_fast_originate_helper(fast);
 				res = -1;
 			} else {
 				res = 0;
@@ -4064,14 +4110,14 @@ static int action_originate(struct mansession *s, const struct message *m)
 		}
 	} else if (!ast_strlen_zero(app)) {
 		res = ast_pbx_outgoing_app(tech, format, data, to, app, appdata, &reason, 1, l, n, vars, account, NULL);
+		/* Any vars memory was passed to ast_pbx_outgoing_app(). */
 	} else {
 		if (exten && context && pi) {
 			res = ast_pbx_outgoing_exten(tech, format, data, to, context, exten, pi, &reason, 1, l, n, vars, account, NULL);
+			/* Any vars memory was passed to ast_pbx_outgoing_exten(). */
 		} else {
 			astman_send_error(s, m, "Originate with 'Exten' requires 'Context' and 'Priority'");
-			if (vars) {
-				ast_variables_destroy(vars);
-			}
+			ast_variables_destroy(vars);
 			return 0;
 		}
 	}
@@ -4621,8 +4667,12 @@ static int process_message(struct mansession *s, const struct message *m)
 			ao2_lock(act_found);
 			if (act_found->registered && act_found->func) {
 				ast_debug(1, "Running action '%s'\n", act_found->action);
+				++act_found->active_count;
+				ao2_unlock(act_found);
 				ret = act_found->func(s, m);
 				acted = 1;
+				ao2_lock(act_found);
+				--act_found->active_count;
 			}
 			ao2_unlock(act_found);
 		}
@@ -5130,6 +5180,8 @@ int ast_manager_unregister(char *action)
 	AST_RWLIST_UNLOCK(&actions);
 
 	if (cur) {
+		time_t now;
+
 		/*
 		 * We have removed the action object from the container so we
 		 * are no longer in a hurry.
@@ -5137,6 +5189,23 @@ int ast_manager_unregister(char *action)
 		ao2_lock(cur);
 		cur->registered = 0;
 		ao2_unlock(cur);
+
+		/*
+		 * Wait up to 5 seconds for any active invocations to complete
+		 * before returning.  We have to wait instead of blocking
+		 * because we may be waiting for ourself to complete.
+		 */
+		now = time(NULL);
+		while (cur->active_count) {
+			if (5 <= time(NULL) - now) {
+				ast_debug(1,
+					"Unregister manager action %s timed out waiting for %d active instances to complete\n",
+					action, cur->active_count);
+				break;
+			}
+
+			sched_yield();
+		}
 
 		ao2_t_ref(cur, -1, "action object removed from list");
 		ast_verb(2, "Manager unregistered action %s\n", action);
@@ -6474,6 +6543,7 @@ static int __init_manager(int reload)
 	char a1_hash[256];
 	struct sockaddr_in ami_desc_local_address_tmp = { 0, };
 	struct sockaddr_in amis_desc_local_address_tmp = { 0, };
+	int tls_was_enabled = 0;
 
 	if (!registered) {
 		/* Register default actions */
@@ -6539,10 +6609,15 @@ static int __init_manager(int reload)
 
 	/* default values */
 	ast_copy_string(global_realm, S_OR(ast_config_AST_SYSTEM_NAME, DEFAULT_REALM), sizeof(global_realm));
-	memset(&ami_desc.local_address, 0, sizeof(struct sockaddr_in));
-	memset(&amis_desc.local_address, 0, sizeof(amis_desc.local_address));
-	amis_desc_local_address_tmp.sin_port = htons(5039);
+	ast_sockaddr_setnull(&ami_desc.local_address);
+	ast_sockaddr_setnull(&amis_desc.local_address);
+
+	ami_desc_local_address_tmp.sin_family = AF_INET;
+	amis_desc_local_address_tmp.sin_family = AF_INET;
+
 	ami_desc_local_address_tmp.sin_port = htons(DEFAULT_MANAGER_PORT);
+
+	tls_was_enabled = (reload && ami_tls_cfg.enabled);
 
 	ami_tls_cfg.enabled = 0;
 	if (ami_tls_cfg.certfile) {
@@ -6617,13 +6692,16 @@ static int __init_manager(int reload)
 		}
 	}
 
-	ami_desc_local_address_tmp.sin_family = AF_INET;
-	amis_desc_local_address_tmp.sin_family = AF_INET;
+	ast_sockaddr_to_sin(&amis_desc.local_address, &amis_desc_local_address_tmp);
 
 	/* if the amis address has not been set, default is the same as non secure ami */
 	if (!amis_desc_local_address_tmp.sin_addr.s_addr) {
 		amis_desc_local_address_tmp.sin_addr =
 		    ami_desc_local_address_tmp.sin_addr;
+	}
+
+	if (!amis_desc_local_address_tmp.sin_port) {
+		amis_desc_local_address_tmp.sin_port = htons(DEFAULT_MANAGER_TLS_PORT);
 	}
 
 	if (manager_enabled) {
@@ -6880,7 +6958,9 @@ static int __init_manager(int reload)
 	manager_event(EVENT_FLAG_SYSTEM, "Reload", "Module: Manager\r\nStatus: %s\r\nMessage: Manager reload Requested\r\n", manager_enabled ? "Enabled" : "Disabled");
 
 	ast_tcptls_server_start(&ami_desc);
-	if (ast_ssl_setup(amis_desc.tls_cfg)) {
+	if (tls_was_enabled && !ami_tls_cfg.enabled) {
+		ast_tcptls_server_stop(&amis_desc);
+	} else if (ast_ssl_setup(amis_desc.tls_cfg)) {
 		ast_tcptls_server_start(&amis_desc);
 	}
 	return 0;

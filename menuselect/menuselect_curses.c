@@ -916,7 +916,6 @@ static void game_over(int win)
 static int check_shot(struct blip *shot)
 {
 	struct blip *cur;
-	struct blip *current_barrier;
 
 	AST_LIST_TRAVERSE(&blips, cur, entry) {
 		if ((cur->type == BLIP_ALIEN || cur->type == BLIP_UFO) && cur->x == shot->x && cur->y == shot->y){

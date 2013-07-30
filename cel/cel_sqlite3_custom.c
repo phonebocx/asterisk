@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 349819 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 355319 $")
 
 #include <sqlite3.h>
 
@@ -353,7 +353,7 @@ static int reload(void)
 
 	ast_mutex_lock(&lock);
 	res = load_config(1);
-	ast_mutex_lock(&lock);
+	ast_mutex_unlock(&lock);
 
 	return res;
 }
