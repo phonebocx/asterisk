@@ -1,26 +1,3 @@
-2008-03-18  Russell Bryant <russell@digium.com>
-
-	* Asterisk 1.4.18.1 released.
-
-2008-03-18 16:25 +0000 [r109482]  Terry Wilson <twilson@digium.com>
-
-	* include/asterisk/astobj.h: Fix character string being treated ad
-	  format string
-
-2008-03-18 15:10 +0000 [r109393]  Jason Parker <jparker@digium.com>
-
-	* /, channels/chan_sip.c: Merged revisions 109391 via svnmerge from
-	  https://origsvn.digium.com/svn/asterisk/branches/1.2 ........
-	  r109391 | qwell | 2008-03-18 10:08:41 -0500 (Tue, 18 Mar 2008) |
-	  3 lines Do not return with a successful authentication if the
-	  From header ends up empty. (AST-2008-003) ........
-
-2008-03-18 14:58 +0000 [r109386]  Joshua Colp <jcolp@digium.com>
-
-	* main/rtp.c, channels/chan_sip.c: Put a maximum limit on the
-	  number of payloads accepted, and also make sure a given payload
-	  does not exceed our maximum value. (AST-2008-002)
-
 2008-01-31  Russell Bryant <russell@digium.com>
 
 	* Asterisk 1.4.18 released.

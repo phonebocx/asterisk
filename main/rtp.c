@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 109541 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100465 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1651,9 +1651,6 @@ void ast_rtp_set_m_type(struct ast_rtp* rtp, int pt)
     an unknown media type */
 void ast_rtp_unset_m_type(struct ast_rtp* rtp, int pt) 
 {
-	if (pt < 0 || pt > MAX_RTP_PT)
-		return; /* bogus payload type */
-
 	ast_mutex_lock(&rtp->bridge_lock);
 	rtp->current_RTP_PT[pt].isAstFormat = 0;
 	rtp->current_RTP_PT[pt].code = 0;
