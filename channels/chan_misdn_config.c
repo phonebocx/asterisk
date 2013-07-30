@@ -27,9 +27,6 @@
  */
 
 
-#include <stdlib.h>
-#include <stdio.h>
-
 #include "chan_misdn_config.h"
 
 #include <asterisk/config.h>
@@ -37,6 +34,8 @@
 #include <asterisk/logger.h>
 #include <asterisk/lock.h>
 #include <asterisk/strings.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <asterisk/utils.h>
 #define AST_LOAD_CFG ast_config_load

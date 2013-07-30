@@ -26,21 +26,22 @@
 #include <sys/socket.h>
 #include <string.h>
 #include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.57 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.56 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/utils.h"
 #include "asterisk/unaligned.h"
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include "iax2.h"
 #include "iax2-parser.h"
 #include "iax2-provision.h"
+
 
 static int frames = 0;
 static int iframes = 0;

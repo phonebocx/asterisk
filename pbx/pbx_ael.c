@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -407,7 +407,7 @@ static int match_assignment(char *variable, char **value)
 	int inpar = 0;
 	c = variable;
 	
-	while (*c) {
+	while (*c && (*c > 32)) {
 		if(*c == ')' && (inpar > 0)) {
 			inpar--;
 		} else if(*c == '(' && (inpar >= 0)) {
@@ -512,7 +512,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 			mlen = strlen(exten) + 128 + strlen(args) + strlen(name);
 			margs = alloca(mlen);
 			app = "Goto";
-			sprintf(margs, "sw-%d-%s|1", *pos, args);
+			sprintf(margs, "sw-%s-%d-%s|1", name, *pos, args);
 			ast_process_quotes_and_slashes(margs, ',', '|');
 			oargs = args;
 			args = margs;
@@ -523,7 +523,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 				(*pos)++;
 			}
 			app = "NoOp";
-			sprintf(margs, "Finish switch-%d", *pos - 1);
+			sprintf(margs, "Finish switch-%s-%d", name, *pos - 1);
 			if (ast_add_extension2(con, 0, exten, *pos, *label, NULL, app, strdup(args), FREE, registrar))
 				ast_log(LOG_WARNING, "Unable to add step at priority '%d' of %s '%s'\n", *pos, what, name);
 			else {
@@ -543,15 +543,15 @@ static int __build_step(const char *what, const char *name, const char *filename
 					if (curcase) {
 						/* Handle fall through */
 						char tmp[strlen(newcase) + strlen(name) + 40];
-						sprintf(tmp, "sw-%d-%s|%d", *pos - 2, newcase, 1);
+						sprintf(tmp, "sw-%s-%d-%s|%d", name, *pos - 2, newcase, 1);
 						ast_add_extension2(con, 0, margs, cpos, NULL, NULL, "Goto", strdup(tmp), FREE, registrar);
 					}
 					curcase = newcase;
 					cpos = 1;
 					if (pattern)
-						snprintf(margs, mlen, "_sw-%d-%s", *pos - 2, curcase);
+						snprintf(margs, mlen, "_sw-%s-%d-%s", name, *pos - 2, curcase);
 					else
-						snprintf(margs, mlen, "sw-%d-%s", *pos - 2, curcase);
+						snprintf(margs, mlen, "sw-%s-%d-%s", name, *pos - 2, curcase);
 					if (!strcasecmp(rest, "break")) {
 						char tmp[strlen(exten) + 10];
 						sprintf(tmp, "%s|%d", exten, *pos - 1);
@@ -966,7 +966,6 @@ static void handle_macro(struct ast_context **local_contexts, struct stringlink 
 		}
 	} else
 		ast_log(LOG_WARNING, "Unable to create context '%s'\n", name);
-	arg_free(paramv);
 	arg_free(argv);
 	if (vars->next)
 		ast_log(LOG_NOTICE, "Ignoring excess tokens in macro definition around line %d of %s!\n", lineno, filename);
@@ -1014,6 +1013,7 @@ static void parse_keyword(char *s, char **o)
 static void handle_context(struct ast_context **local_contexts, struct stringlink *vars, const char *filename, int lineno)
 {
 	struct stringlink *argv;
+	struct stringlink *paramv;
 	struct stringlink *cur2;
 	struct stringlink *argv2;
 	struct stringlink *cur;
@@ -1026,6 +1026,7 @@ static void handle_context(struct ast_context **local_contexts, struct stringlin
 	if (aeldebug & DEBUG_CONTEXTS)
 		ast_verbose("Root context def is '%s'\n", vars->data);
 	argv = split_token(vars->data, filename, lineno);
+	paramv = split_params(vars->data, filename, lineno);
 	if (aeldebug & DEBUG_CONTEXTS) 
 		ast_verbose("Found context '%s'\n", vars->data);
 	snprintf(name, sizeof(name), "%s", vars->data);
@@ -1259,8 +1260,8 @@ int load_module(void)
 
 int reload(void)
 {
-	ast_context_destroy(NULL, registrar);
-	return pbx_load_module();
+	unload_module();
+	return (load_module());
 }
 
 int usecount(void)

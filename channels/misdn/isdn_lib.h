@@ -235,7 +235,8 @@ struct misdn_bchannel {
 	int stack_holder;
 	
 	int pres;
-	int screen;
+  
+	int nohdlc;
 	
 	int capability;
 	int law;
@@ -349,7 +350,6 @@ void misdn_ibuf_memcpy_w(void *buf, char *from, int len);
 
 /** Ibuf interface End **/
 
-void misdn_lib_setup_bc(struct misdn_bchannel *bc);
 
 void misdn_lib_bridge( struct misdn_bchannel * bc1, struct misdn_bchannel *bc2);
 void misdn_lib_split_bridge( struct misdn_bchannel * bc1, struct misdn_bchannel *bc2);

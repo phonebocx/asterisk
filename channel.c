@@ -45,14 +45,13 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.260 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.258 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/frame.h"
 #include "asterisk/sched.h"
 #include "asterisk/options.h"
 #include "asterisk/channel.h"
-#include "asterisk/chanspy.h"
 #include "asterisk/musiconhold.h"
 #include "asterisk/logger.h"
 #include "asterisk/say.h"
@@ -667,11 +666,7 @@ int ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin)
 int ast_queue_hangup(struct ast_channel *chan)
 {
 	struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_HANGUP };
-	/* Yeah, let's not change a lock-critical value without locking */
-	if (!ast_mutex_trylock(&chan->lock)) {
-		chan->_softhangup |= AST_SOFTHANGUP_DEV;
-		ast_mutex_unlock(&chan->lock);
-	}
+	chan->_softhangup |= AST_SOFTHANGUP_DEV;
 	return ast_queue_frame(chan, &f);
 }
 

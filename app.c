@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.86 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.82 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -52,12 +52,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.86 $")
 #define MAX_OTHER_FORMATS 10
 
 
-/* !
+/* 
 This function presents a dialtone and reads an extension into 'collect' 
 which must be a pointer to a **pre-initilized** array of char having a 
 size of 'size' suitable for writing to.  It will collect no more than the smaller 
 of 'maxlen' or 'size' minus the original strlen() of collect digits.
-\return 0 if extension does not exist, 1 if extension exists
 */
 int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, size_t size, int maxlen, int timeout) 
 {
@@ -104,7 +103,7 @@ int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, 
 
 
 
-/*! \param timeout set timeout to 0 for "standard" timeouts. Set timeout to -1 for 
+/* set timeout to 0 for "standard" timeouts. Set timeout to -1 for 
    "ludicrous time" (essentially never times out) */
 int ast_app_getdata(struct ast_channel *c, char *prompt, char *s, int maxlen, int timeout)
 {
@@ -1544,9 +1543,8 @@ int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags
 		argloc = options[curarg].arg_index;
 		if (*s == '(') {
 			/* Has argument */
-			arg = ++s;
-			while (*s && (*s != ')'))
-				s++;
+			arg = s;
+			while (*++s && (*s != ')'));
 			if (*s) {
 				if (argloc)
 					args[argloc - 1] = arg;

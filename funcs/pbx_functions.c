@@ -24,11 +24,10 @@
 
 #include <sys/types.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
 
 #include "asterisk/module.h"
 #include "asterisk/pbx.h"

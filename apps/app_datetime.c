@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -46,7 +46,8 @@ static char *app = "DateTime";
 static char *synopsis = "Say the date and time";
 
 static char *descrip = 
-"  DateTime(): This application will say the current date and time.\n";
+"  DateTime():  Says the current date and time.  Terminates on hangup or\n"
+"completion.\n";
 
 STANDARD_LOCAL_USER;
 

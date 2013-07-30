@@ -37,8 +37,7 @@ else
 endif
 
 ifeq ($(findstring BSD,${OSARCH}),BSD)
-  CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include
-  SOLINK+=-L$(CROSS_COMPILE_TARGET)/usr/local/lib
+  CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
 endif
 
 ifeq (${OSARCH},CYGWIN)
@@ -76,17 +75,6 @@ install: all
 	rm -f $(DESTDIR)$(MODULES_DIR)/app_agi.so 
 	rm -f $(DESTDIR)$(MODULES_DIR)/res_parking.so
 	for x in $(MODS); do $(INSTALL) -m 755 $$x $(DESTDIR)$(MODULES_DIR) ; done
-	@if [ x`which mpg123 2>/dev/null | grep -v '^no'` != x ] ; then \
-	  if mpg123 --longhelp 2>&1 | grep -q .59r 2>&1 >/dev/null ; then echo ; else \
-			echo "*************************************************************";\
-			echo "*** You have the WRONG version of mpg123... you need .59r ***";\
-			echo "*** Use 'make mpg123' to get the right verison            ***";\
-			echo "*************************************************************";\
-	  fi ;\
-	else \
-		echo "*** You don't have mpg123 installed. You may need ***";\
-		echo "***       it if you want to use MusicOnHold       ***";\
-	fi
 
 res_crypto.so: res_crypto.o
 	$(CC) $(SOLINK) -o $@ ${CYGSOLINK} $< ${CYGSOLIB} $(CRYPTO_LIBS)
@@ -116,6 +104,17 @@ endif
 depend: .depend
 
 .depend:
+	@if [ x`which mpg123 2>/dev/null | grep -v '^no'` != x ] ; then \
+	  if mpg123 --longhelp 2>&1 | grep -q .59r 2>&1 >/dev/null ; then echo ; else \
+			echo "*************************************************************";\
+			echo "*** You have the WRONG version of mpg123... you need .59r ***";\
+			echo "*** Use 'make mpg123' to get the right verison            ***";\
+			echo "*************************************************************";\
+	  fi ;\
+	else \
+		echo "*** You don't have mpg123 installed. You're going to need ***";\
+		echo "***       it if you want MusicOnHold                      ***";\
+	fi
 	../build_tools/mkdep $(CFLAGS) `ls *.c`	
 
 env:

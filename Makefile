@@ -50,8 +50,8 @@ endif
 #Overwite config files on "make samples"
 OVERWRITE=y
 
-#Include debug and macro symbols in the executables (-g) and profiling info (-pg)
-DEBUG=-g3 #-pg
+#Include debug symbols in the executables (-g) and profiling info (-pg)
+DEBUG=-g #-pg
 
 #Set NOCRYPTO to yes if you do not want to have crypto support or 
 #dependencies
@@ -363,8 +363,6 @@ ifeq ($(OSARCH),Darwin)
   AUDIO_LIBS=-framework CoreAudio
   ASTLINK=-Wl,-dynamic
   SOLINK=-dynamic -bundle -undefined suppress -force_flat_namespace
-  OBJS+=poll.o
-  ASTCFLAGS+=-DPOLLCOMPAT
 else
 #These are used for all but Darwin
   ASTLINK=-Wl,-E 
@@ -392,13 +390,6 @@ endif
 
 ifeq ($(MAKETOPLEVEL),$(MAKELEVEL))
   CFLAGS+=$(ASTCFLAGS)
-endif
-
-# This is used when generating the doxygen documentation
-ifneq ($(wildcard /usr/local/bin/dot)$(wildcard /usr/bin/dot),)
-  HAVEDOT=yes
-else
-  HAVEDOT=no
 endif
 
 LIBS+=-lssl
@@ -835,8 +826,7 @@ __rpm: include/asterisk/version.h spec
 	rpmbuild --rcfile /usr/lib/rpm/rpmrc:redhat/rpmrc -bb asterisk.spec
 
 progdocs:
-	(cat contrib/asterisk-ng-doxygen; echo "HAVE_DOT=$(HAVEDOT) \
-	PROJECT_NUMBER=$(ASTERISKVERSION)  -  $(ASTERISKVERSIONNUM)") | doxygen - 
+	doxygen contrib/asterisk-ng-doxygen
 
 mpg123:
 	@wget -V >/dev/null || (echo "You need wget" ; false )

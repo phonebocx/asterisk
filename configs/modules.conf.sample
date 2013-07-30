@@ -31,14 +31,10 @@ noload => pbx_kdeconsole.so
 ;
 noload => app_intercom.so
 ;
-; The 'modem' channel driver and its subdrivers are
-; obsolete, don't load them.
+; Explicitly load the chan_modem.so early on to be sure
+; it loads before any of the chan_modem_* 's afte rit
 ;
-noload => chan_modem.so
-noload => chan_modem_aopen.so
-noload => chan_modem_bestdata.so
-noload => chan_modem_i4l.so
-;
+load => chan_modem.so
 load => res_musiconhold.so
 ;
 ; Load either OSS or ALSA, not both
@@ -51,3 +47,4 @@ noload => chan_alsa.so
 ; exported to modules loaded after them.
 ;
 [global]
+chan_modem.so=yes

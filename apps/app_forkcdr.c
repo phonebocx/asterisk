@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -59,7 +59,8 @@ static void ast_cdr_fork(struct ast_channel *chan)
 	struct ast_cdr *newcdr;
 	struct ast_flags flags = { AST_CDR_FLAG_KEEP_VARS };
 
-	cdr = chan->cdr;
+	if (!chan || !(cdr = chan->cdr))
+		return;
 
 	while (cdr->next)
 		cdr = cdr->next;
@@ -78,18 +79,11 @@ static void ast_cdr_fork(struct ast_channel *chan)
 
 static int forkcdr_exec(struct ast_channel *chan, void *data)
 {
-	int res = 0;
+	int res=0;
 	struct localuser *u;
-
-	if (!chan->cdr) {
-		ast_log(LOG_WARNING, "Channel does not have a CDR\n");
-		return 0;
-	}
-
 	LOCAL_USER_ADD(u);
-
 	if (!ast_strlen_zero(data))
-		ast_set2_flag(chan->cdr, strchr(data, 'v'), AST_CDR_FLAG_KEEP_VARS);
+		ast_set2_flag(chan->cdr, strchr((char *)data, 'v'), AST_CDR_FLAG_KEEP_VARS);
 	
 	ast_cdr_fork(chan);
 

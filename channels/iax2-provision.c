@@ -21,19 +21,9 @@
  *
  */
 
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <sys/socket.h>
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
 
 #include "asterisk/config.h"
 #include "asterisk/logger.h"
@@ -43,7 +33,16 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 #include "asterisk/options.h"
 #include "asterisk/md5.h"
 #include "asterisk/astdb.h"
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <sys/socket.h>
 #include "asterisk/utils.h"
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <netdb.h>
 #include "iax2.h"
 #include "iax2-provision.h"
 #include "iax2-parser.h"
@@ -510,7 +509,6 @@ int iax_provision_reload(void)
 			}
 			cat = ast_category_browse(cfg, cat);
 		}
-		ast_config_destroy(cfg);
 	} else
 		ast_log(LOG_NOTICE, "No IAX provisioning configuration found, IAX provisioning disabled.\n");
 	ast_mutex_lock(&provlock);

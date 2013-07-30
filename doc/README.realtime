@@ -105,7 +105,3 @@ For voicemail storage with the support of ODBC, there is a
 README.odbcstorage documentation file.
 
 
-* FreeTDS not supported
------------------------
-Due to architectural constraints in the FreeTDS libraries, FreeTDS is not
-supported for use with realtime at this time.

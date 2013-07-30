@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.63 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.62 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h"
@@ -1063,7 +1063,7 @@ static int console_hangup(int fd, int argc, char *argv[])
 	o->cursound = -1;
 	o->nosound = 0;
 	if (!o->owner && !o->hookstate) { /* XXX maybe only one ? */
-		ast_cli(fd, "No call to hang up\n");
+		ast_cli(fd, "No call to hangup up\n");
 		return RESULT_FAILURE;
 	}
 	o->hookstate = 0;

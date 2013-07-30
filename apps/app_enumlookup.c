@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.29 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -43,7 +43,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
 #include "asterisk/module.h"
 #include "asterisk/enum.h"
 #include "asterisk/utils.h"
-#include "asterisk/app.h"
 #include "asterisk/options.h"
 
 static char *tdesc = "ENUM Lookup";
@@ -81,14 +80,9 @@ static int enumlookup_exec(struct ast_channel *chan, void *data)
 	char tech[80];
 	char dest[80];
 	char tmp[256];
-	char *c,*t = NULL;
+	char *c,*t,*d,*o = NULL;
 	static int dep_warning=0;
 	struct localuser *u;
-	char *parse;
-	AST_DECLARE_APP_ARGS(args,
-		AST_APP_ARG(d);
-		AST_APP_ARG(o);
-	);
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "EnumLookup requires an argument (extension)\n");
@@ -102,24 +96,20 @@ static int enumlookup_exec(struct ast_channel *chan, void *data)
 
 	LOCAL_USER_ADD(u);
 
-	parse = ast_strdupa(data);
-	if (!parse) {
-		ast_log(LOG_ERROR, "Out of memory!\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
-
-	AST_STANDARD_APP_ARGS(args, parse);
-
 	tech[0] = '\0';
-	dest[0] = '\0';
 
-	if (args.o) {
-		if (strchr(args.o, 'j'))
+	if (strchr(data, '|')) {
+		d = strsep(data, "|");
+		o = strsep(data, "\0");
+	} else
+		d = strsep(data, "\0");	
+		
+	if (o) {
+		if (strchr(o, 'j'))
 			priority_jump = 1;
 	}
 
-	res = ast_get_enum(chan, args.d, dest, sizeof(dest), tech, sizeof(tech), NULL, NULL);
+	res = ast_get_enum(chan, d, dest, sizeof(dest), tech, sizeof(tech), NULL, NULL);
 	
 	if (!res) {	/* Failed to do a lookup */
 		if (priority_jump || option_priority_jumping) {

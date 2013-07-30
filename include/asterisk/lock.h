@@ -36,9 +36,13 @@
 #ifdef __APPLE__
 /* Provide the Linux initializers for MacOS X */
 #define PTHREAD_MUTEX_RECURSIVE_NP			PTHREAD_MUTEX_RECURSIVE
-#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP		{ 0x4d555458, \
-							{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-							0x20 } }
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP		 { 0x4d555458, \
+													   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+														 0x20 } }
+#endif
+
+#ifdef __CYGWIN__
+#define PTHREAD_MUTEX_RECURSIVE_NP					PTHREAD_MUTEX_RECURSIVE
 #endif
 
 #ifdef BSD
@@ -51,11 +55,7 @@
 
 /* From now on, Asterisk REQUIRES Recursive (not error checking) mutexes
    and will not run without them. */
-#if defined(__CYGWIN__)
-#define PTHREAD_MUTEX_RECURSIVE_NP	PTHREAD_MUTEX_RECURSIVE
-#define PTHREAD_MUTEX_INIT_VALUE 	(ast_mutex_t)18
-#define AST_MUTEX_KIND			PTHREAD_MUTEX_RECURSIVE_NP
-#elif defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
+#ifdef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
 #define PTHREAD_MUTEX_INIT_VALUE	PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
 #define AST_MUTEX_KIND			PTHREAD_MUTEX_RECURSIVE_NP
 #else

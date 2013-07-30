@@ -5,6 +5,15 @@
  *
  * Mark Spencer <markster@digium.com>
  *
+ * 12-16-2004 : Support for Greek added by InAccess Networks (work funded by HOL, www.hol.gr)
+ *				 George Konstantoulakis <gkon@inaccessnetworks.com>
+ *
+ * 05-10-2005 : Support for Swedish and Norwegian added by Daniel Nylander, http://www.danielnylander.se/
+ *
+ * 05-11-2005 : An option for maximum number of messsages per mailbox added by GDS Partners (www.gdspartners.com)
+ * 07-11-2005 : An issue with voicemail synchronization has been fixed by GDS Partners (www.gdspartners.com)
+ *				 Stojan Sljivic <stojan.sljivic@gdspartners.com>
+ *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
  * any of the maintainers of this project for assistance;
@@ -25,18 +34,6 @@
  * \ingroup applications
  */
 
-/*
- * 12-16-2004 : Support for Greek added by InAccess Networks (work funded by HOL, www.hol.gr)
- *				 George Konstantoulakis <gkon@inaccessnetworks.com>
- *
- * 05-10-2005 : Support for Swedish and Norwegian added by Daniel Nylander, http://www.danielnylander.se/
- *
- * 05-11-2005 : An option for maximum number of messsages per mailbox added by GDS Partners (www.gdspartners.com)
- * 07-11-2005 : An issue with voicemail synchronization has been fixed by GDS Partners (www.gdspartners.com)
- *				 Stojan Sljivic <stojan.sljivic@gdspartners.com>
- *
- */
-
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
@@ -52,7 +49,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.272 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.265 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -103,10 +100,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.272 $")
 #define VM_ENVELOPE		(1 << 4)
 #define VM_SAYDURATION		(1 << 5)
 #define VM_SKIPAFTERCMD 	(1 << 6)
-#define VM_FORCENAME		(1 << 7)	/*!< Have new users record their name */
-#define VM_FORCEGREET		(1 << 8)	/*!< Have new users record their greetings */
+#define VM_FORCENAME		(1 << 7)	/* Have new users record their name */
+#define VM_FORCEGREET		(1 << 8)	/* Have new users record their greetings */
 #define VM_PBXSKIP		(1 << 9)
-#define VM_DIRECFORWARD 	(1 << 10)	/*!< directory_forward */
+#define VM_DIRECFORWARD 	(1 << 10)	/* directory_forward */
 #define VM_ATTACH		(1 << 11)
 #define VM_DELETE		(1 << 12)
 #define VM_ALLOCED		(1 << 13)
@@ -114,12 +111,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.272 $")
 #define ERROR_LOCK_PATH		-100
 
 enum {
-	OPT_SILENT =           (1 << 0),
-	OPT_BUSY_GREETING =    (1 << 1),
+	OPT_SILENT =(1 << 0),
+	OPT_BUSY_GREETING = (1 << 1),
 	OPT_UNAVAIL_GREETING = (1 << 2),
-	OPT_RECORDGAIN =       (1 << 3),
-	OPT_PREPEND_MAILBOX =  (1 << 4),
-	OPT_PRIORITY_JUMP =    (1 << 5),
+	OPT_RECORDGAIN = (1 << 3),
+	OPT_PREPEND_MAILBOX = (1 << 4),
+	OPT_PRIORITY_JUMP = (1 << 5),
 } vm_option_flags;
 
 enum {
@@ -292,74 +289,70 @@ static char *tdesc = "Comedian Mail (Voicemail System)";
 static char *addesc = "Comedian Mail";
 
 static char *synopsis_vm =
-"Leave a Voicemail message";
+"Leave a voicemail message";
 
 static char *descrip_vm =
-"  VoiceMail(mailbox[@context][&mailbox[@context]][...][|options]): This\n"
-"application allows the calling party to leave a message for the specified\n"
-"list of mailboxes. When multiple mailboxes are specified, the greeting will\n"
-"be taken from the first mailbox specified. Dialplan execution will stop if the\n"
-"specified mailbox does not exist.\n"
-"  The Voicemail application will exit if any of the following DTMF digits are\n"
-"received:\n"
-"    0 - Jump to the 'o' extension in the current dialplan context.\n"
-"    * - Jump to the 'a' extension in the current dialplan context.\n"
-"  This application will set the following channel variable upon completion:\n"
-"    VMSTATUS - This indicates the status of the execution of the VoiceMail\n"
-"               application. The possible values are:\n"
-"               SUCCESS | USEREXIT | FAILED\n\n"
-"  Options:\n"
-"    b    - Play the 'busy' greeting to the calling party.\n"
-"    g(#) - Use the specified amount of gain when recording the voicemail\n"
-"           message. The units are whole-number decibels (dB).\n"
-"    s    - Skip the playback of instructions for leaving a message to the\n"
-"           calling party.\n"
-"    u    - Play the 'unavailble greeting.\n"
-"    j    - Jump to priority n+101 if the mailbox is not found or some other\n"
-"           error occurs.\n";
+"  VoiceMail(mailbox[@context][&mailbox[@context]][...][|options]):  Leaves"
+"voicemail for a given mailbox (must be configured in voicemail.conf).\n"
+" If the options contain: \n"
+"* 'b'    the \"busy\" greeting will be played.\n"
+"* 'g(#)' the specified amount of gain will be requested during message\n"
+"         recording (units are whole-number decibels (dB))\n"
+"* 's'    instructions for leaving the message will be skipped.\n"
+"* 'u'    the \"unavailable\" greeting will be played.\n"
+"* 'j'    jump to n+101 priority when mailbox not found or on error\n"
+"If the caller presses '0' (zero) during the prompt, the call jumps to\n"
+"extension 'o' in the current context.\n"
+"If the caller presses '*' during the prompt, the call jumps to\n"
+"extension 'a' in the current context.\n"
+"When multiple mailboxes are specified, the unavailable or busy message\n"
+"will be taken from the first mailbox specified.\n"
+"This application sets the following channel variable upon completion:\n"
+"VMSTATUS    The status of the VoiceMail call, a text string that is either:\n"
+"SUCCESS | USEREXIT | FAILED \n"
+"Execution will fail if the mailbox does not exist, or if the user disconnects.\n";
 
 static char *synopsis_vmain =
-"Check Voicemail messages";
+"Enter voicemail system";
 
 static char *descrip_vmain =
-"  VoiceMailMain([mailbox][@context][|options]): This application allows the\n"
-"calling party to check voicemail messages. A specific mailbox, and optional\n"
-"corresponding context, may be specified. If a mailbox is not provided, the\n"
-"calling party will be prompted to enter one. If a context is not specified,\n"
-"the 'default' context will be used.\n\n"
-"  Options:\n"
-"    p    - Consider the mailbox parameter as a prefix to the mailbox that\n"
-"           is entered by the caller.\n"
-"    g(#) - Use the specified amount of gain when recording a voicemail\n"
-"           message. The units are whole-number decibels (dB).\n"
-"    s    - Skip checking the passcode for the mailbox.\n";
+"  VoiceMailMain([mailbox][@context][|options]): Enters the main voicemail system\n"
+"for the checking of voicemail. The mailbox can be passed in,\n"
+"which will stop the voicemail system from prompting the user for the mailbox.\n"
+"If the options contain: \n"
+"* 'p'    the supplied mailbox is prepended to the user's entry and\n"
+"         the resulting string is used as the mailbox number. This can\n"
+"         be useful for virtual hosting of voicemail boxes.\n"
+"* 'g(#)' the specified amount of gain will be requested during message\n"
+"         recording (units are whole-number decibels (dB))\n"
+"* 's'    the password check will be skipped.\n"
+"If a context is specified, mailboxes are considered in that voicemail context only.\n"
+"Returns -1 if the user hangs up or 0 otherwise.\n";
 
 static char *synopsis_vm_box_exists =
-"Check to see if Voicemail mailbox exists";
+"Check if vmbox exists";
 
 static char *descrip_vm_box_exists =
-"  MailboxExists(mailbox[@context][|options]): Check to see if the specified\n"
-"mailbox exists. If no voicemail context is specified, the 'default' context\n"
-"will be used.\n"
-"  This application will set the following channel variable upon completion:\n"
-"    VMBOXEXISTSSTATUS - This will contain the status of the execution of the\n"
-"                        MailboxExists application. Possible values include:\n"
-"                        SUCCESS | FAILED\n\n"
-"  Options:\n"
-"    j - Jump to priority n+101 if the mailbox is found.\n";
+"  MailboxExists(mailbox[@context][|options]): Check to see if the mailbox \n"
+"                                              exists\n"
+"If the options contain: \n"
+"* 'j'    jump to n+101 priority when the mailbox is found.\n"
+"This application sets the following channel variable upon completion:\n"
+" VMBOXEXISTSSTATUS The status of the mailbox exists call, a text\n"
+"                    string that is either:\n"
+" SUCCESS | FAILED\n";
 
 static char *synopsis_vmauthenticate =
-"Authenticate with Voicemail passwords";
+"Authenticate off voicemail passwords";
 
 static char *descrip_vmauthenticate =
-"  VMAuthenticate([mailbox][@context][|options]): This application behaves the\n"
-"same way as the Authenticate application, but the passwords are taken from\n"
-"voicemail.conf.\n"
+"  VMAuthenticate([mailbox][@context][|options]): Behaves identically to\n"
+"the Authenticate application, with the exception that the passwords are\n"
+"taken from voicemail.conf.\n"
 "  If the mailbox is specified, only that mailbox's password will be considered\n"
 "valid. If the mailbox is not specified, the channel variable AUTH_MAILBOX will\n"
-"be set with the authenticated mailbox.\n\n"
-"  Options:\n"
-"    s - Skip playing the initial prompts.\n";
+"be set with the authenticated mailbox.\n"
+"If the options contain 's' then no initial prompts will be played.\n";
 
 /* Leave a message */
 static char *app = "VoiceMail";
@@ -660,76 +653,95 @@ static void vm_change_password(struct ast_vm_user *vmu, const char *newpassword)
 		fgets(inbuf, sizeof(inbuf), configin);
 		linenum++;
 		if (!feof(configin)) {
-			char *user = NULL, *pass = NULL, *rest = NULL,
+			char *user = NULL, *pass = NULL, *rest = NULL, *trim = NULL,
 				*comment = NULL, *tmpctx = NULL, *tmpctxend = NULL;
 			
-			if (ast_strlen_zero(inbuf)) {
-				fprintf(configout, "\n");
-				continue;
-			}
-
 			/* Make a backup of it */
 			ast_copy_string(orig, inbuf, sizeof(orig));
 			
 			/*
-			  Read the file line by line, split each line into a comment and command section
-			  only parse the command portion of the line
+				Read the file line by line, split each line into a comment and command section
+				only parse the command portion of the line
 			*/
 			if (inbuf[strlen(inbuf) - 1] == '\n')
 				inbuf[strlen(inbuf) - 1] = '\0';
-
-			if ((comment = strchr(inbuf, ';')))
-				*comment++ = '\0'; /* Now inbuf is terminated just before the comment */
-
-			if (ast_strlen_zero(inbuf)) {
-				fprintf(configout, "%s", orig);
-				continue;
+			comment = strchr(inbuf, ';');
+			if (comment) {
+				*comment = '\0'; /* Now inbuf is terminated just before the comment */
+				comment++;
 			}
 			
-			/* Check for a context, first '[' to first ']' */
-			if ((tmpctx = strchr(inbuf, '['))) {
-				tmpctxend = strchr(tmpctx, ']');
-				if (tmpctxend) {
-					/* Valid context */
-					ast_copy_string(currcontext, tmpctx + 1, tmpctxend - tmpctx);
-					fprintf(configout, "%s", orig);
-					continue;
+			if (inbuf[0] != '\0') { /* skip over parsing for lines starting with a comment character and empty lines */
+				/* Check for a context, first '[' to first ']' */
+				tmpctx = strchr(inbuf, '[');
+				if (tmpctx) {
+					tmpctxend = strchr(inbuf, ']');
+					if (tmpctxend && (tmpctxend > tmpctx)) {
+						/* Valid context */
+						ast_copy_string(currcontext, tmpctx + 1, tmpctxend - tmpctx - 1);
+						currcontext[tmpctxend - tmpctx - 1] = '\0';
+					} else {
+						tmpctx = NULL;
+					}
 				}
-			}
 				
-			/* This isn't a context line, check for MBX => PSWD... */
-			user = inbuf;
-			if ((pass = strchr(user, '='))) {
-				/* We have a line in the form of aaaaa=aaaaaa */
-				*pass++ = '\0';
-				
-				user = ast_strip(user);
-
-				if (*pass == '>')
-					*pass++ = '\0';
-
-				pass = ast_skip_blanks(pass);
-				
-				/* 
-				   Since no whitespace allowed in fields, or more correctly white space
-				   inside the fields is there for a purpose, we can just terminate pass
-				   at the comma or EOL whichever comes first.
-				*/
-				if ((rest = strchr(pass, ',')))
-					*rest++ = '\0';
-			} else {
-				user = NULL;
+				if (!tmpctx) {
+					/* This isn't a context line, check for MBX => PSWD... */
+					user = inbuf;
+					pass = strchr(user, '=');
+					if(pass > user) {
+						/* We have a line in the form of aaaaa=aaaaaa */
+						*pass = '\0';
+						pass++;
+						
+						/* Trim whitespace from user */
+						trim = pass - 2;
+						while (*trim && *trim < 33) {
+							*trim = '\0';
+							trim--;
+						}
+						
+						/* Trim whitespace and '>' from pass */
+						if (*pass == '>') {
+							*pass = '\0';
+							pass++;
+						}
+						while (*pass && *pass < 33) {
+							*pass = '\0';
+							pass++;
+						}
+						
+						/* 
+						   Since no whitespace allowed in fields, or more correctly white space
+						   inside the fields is there for a purpose, we can just terminate pass
+						   at the comma or EOL whichever comes first.
+						*/
+						trim = strchr(pass, ',');
+						if (trim) {
+							*trim = '\0';
+							rest = trim + 1;
+						} else {
+							rest = NULL;
+						}
+					} else {
+						user = NULL;
+						pass = NULL;
+						rest = NULL;
+					}
+				}
 			}			
 			
 			/* Compare user, pass AND context */
-			if (!ast_strlen_zero(user) && !strcmp(user, vmu->mailbox) &&
-			    !ast_strlen_zero(pass) && !strcmp(pass, vmu->password) &&
-			    !strcasecmp(currcontext, vmu->context)) {
+			if (user && *user && !strcmp(user, vmu->mailbox) &&
+				 pass && !strcmp(pass, vmu->password) &&
+				 currcontext && *currcontext && !strcmp(currcontext, vmu->context)) {
+				
+				/* Write */
 				/* This is the line */
 				if (rest) {
-					fprintf(configout, "%s => %s,%s", user, newpassword, rest);
+					fprintf(configout, "%s => %s,%s", vmu->mailbox,newpassword,rest);
 				} else {
-					fprintf(configout, "%s => %s", user, newpassword);
+					fprintf(configout, "%s => %s", vmu->mailbox,newpassword);
 				}
 				/* If there was a comment on the line print it out */
 				if (comment) {
@@ -746,11 +758,11 @@ static void vm_change_password(struct ast_vm_user *vmu, const char *newpassword)
 	fclose(configin);
 	fclose(configout);
 
-	stat(tmpin, &statbuf);
-	chmod(tmpout, statbuf.st_mode);
-	chown(tmpout, statbuf.st_uid, statbuf.st_gid);
-	unlink(tmpin);
-	rename(tmpout, tmpin);
+	stat((char *)tmpin, &statbuf);
+	chmod((char *)tmpout, statbuf.st_mode);
+	chown((char *)tmpout, statbuf.st_uid, statbuf.st_gid);
+	unlink((char *)tmpin);
+	rename((char *)tmpout,(char *)tmpin);
 	reset_user_pw(vmu->context, vmu->mailbox, newpassword);
 	ast_copy_string(vmu->password, newpassword, sizeof(vmu->password));
 }
@@ -2285,7 +2297,7 @@ static int copy_message(struct ast_channel *chan, struct ast_vm_user *vmu, int i
 	make_dir(fromdir, sizeof(fromdir), vmu->context, vmu->mailbox, frombox);
 	make_file(frompath, sizeof(frompath), fromdir, msgnum);
 
-	if (vm_lock_path(todir))
+	if (vm_lock_path(topath))
 		return ERROR_LOCK_PATH;
 
 	recipmsgnum = 0;
@@ -2300,7 +2312,7 @@ static int copy_message(struct ast_channel *chan, struct ast_vm_user *vmu, int i
 	} else {
 		ast_log(LOG_ERROR, "Recipient mailbox %s@%s is full\n", recip->mailbox, recip->context);
 	}
-	ast_unlock_path(todir);
+	ast_unlock_path(topath);
 	notify_new_message(chan, recip, recipmsgnum, duration, fmt, chan->cid.cid_num, chan->cid.cid_name);
 	
 	return 0;
@@ -3479,16 +3491,10 @@ static int forward_message(struct ast_channel *chan, char *context, char *dir, i
 				ast_log(LOG_DEBUG, "%s", sys);
 				ast_safe_system(sys);
 		
-				res = count_messages(receiver, todir);
-
-				if ( (res == ERROR_LOCK_PATH) || (res < 0) ) {
-					if (res == ERROR_LOCK_PATH)
-						ast_log(LOG_WARNING, "Unable to lock the directory %s to forward the requested vmail msg!\n", todir);
-					else
-						ast_log(LOG_WARNING, "Unable to determine how many msgs are in the destination folder!\n");
+				if ( (res = count_messages(receiver, todir)) )
 					break;
-				}
-				todircount = res;
+				else
+					todircount = res;
 				ast_copy_string(tmp, fmt, sizeof(tmp));
 				stringp = tmp;
 				while ((s = strsep(&stringp, "|"))) {
@@ -3553,7 +3559,8 @@ static int forward_message(struct ast_channel *chan, char *context, char *dir, i
 					res = ast_play_and_wait(chan, "vm-messages");
 				if (!res)
 					res = ast_play_and_wait(chan, "vm-saved"); */
-				res = ast_play_and_wait(chan, "vm-msgsaved");
+				if (!res)
+					res = ast_play_and_wait(chan, "vm-msgsaved");
 			}	
 		}
 	}
@@ -3855,7 +3862,7 @@ static int open_mailbox(struct vm_state *vms, struct ast_vm_user *vmu,int box)
 
 static int close_mailbox(struct vm_state *vms, struct ast_vm_user *vmu)
 {
-	int x, nummsg;
+	int x;
 	int res = 0;
 
 	if (vms->lastmsg <= -1)
@@ -3888,14 +3895,12 @@ static int close_mailbox(struct vm_state *vms, struct ast_vm_user *vmu)
 			} 
 		} 
 	} 
-
-	/* Delete ALL remaining messages */
-	nummsg = x - 1;
-	for (x = vms->curmsg + 1; x <= nummsg; x++) {
-		make_file(vms->fn, sizeof(vms->fn), vms->curdir, x);
-		if (EXISTS(vms->curdir, x, vms->fn, NULL))
-			DELETE(vms->curdir, x, vms->fn);
-	}
+	for (x = vms->curmsg + 1; x <= vmu->maxmsg; x++) { 
+		make_file(vms->fn, sizeof(vms->fn), vms->curdir, x); 
+		if (!EXISTS(vms->curdir, x, vms->fn, NULL)) 
+			break;
+		DELETE(vms->curdir, x, vms->fn);
+	} 
 	ast_unlock_path(vms->curdir);
 
 done:
@@ -6228,8 +6233,8 @@ static int load_config(void)
 		return 0;
 	} else {
 		ast_mutex_unlock(&vmlock);
-		ast_log(LOG_WARNING, "Failed to load configuration file. Module not activated.\n");
-		return 0;
+		ast_log(LOG_WARNING, "Error reading voicemail config\n");
+		return -1;
 	}
 }
 

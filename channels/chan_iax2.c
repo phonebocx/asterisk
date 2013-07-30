@@ -26,38 +26,9 @@
  * \ingroup channel_drivers
  */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <dirent.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netinet/in_systm.h>
-#include <netinet/ip.h>
-#include <sys/time.h>
-#include <sys/signal.h>
-#include <signal.h>
-#include <string.h>
-#include <errno.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <regex.h>
-#ifdef IAX_TRUNKING
-#include <sys/ioctl.h>
-#ifdef __linux__
-#include <linux/zaptel.h>
-#else
-#include <zaptel.h>
-#endif /* __linux__ */
-#endif
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.378 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.372 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h" 
@@ -89,6 +60,34 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.378 $")
 #include "asterisk/devicestate.h"
 #include "asterisk/netsock.h"
 
+#include <sys/mman.h>
+#include <arpa/inet.h>
+#include <dirent.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/in_systm.h>
+#include <netinet/ip.h>
+#include <sys/time.h>
+#include <sys/signal.h>
+#include <signal.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <regex.h>
+#ifdef IAX_TRUNKING
+#include <sys/ioctl.h>
+#ifdef __linux__
+#include <linux/zaptel.h>
+#else
+#include <zaptel.h>
+#endif /* __linux__ */
+#endif
 #include "iax2.h"
 #include "iax2-parser.h"
 #include "iax2-provision.h"
@@ -441,7 +440,7 @@ struct chan_iax2_pvt {
 	int sockfd;
 	/*! Last received voice format */
 	int voiceformat;
-	/*! Last received video format */
+	/*! Last received voice format */
 	int videoformat;
 	/*! Last sent voice format */
 	int svoiceformat;
@@ -1971,7 +1970,6 @@ static char *complete_iax2_show_peer(char *line, char *word, int pos, int state)
 {
 	int which = 0;
 	struct iax2_peer *p;
-	char *res = NULL;
 
 	/* 0 - iax2; 1 - show; 2 - peer; 3 - <peername> */
 	if(pos == 3) {
@@ -1979,15 +1977,14 @@ static char *complete_iax2_show_peer(char *line, char *word, int pos, int state)
 		for(p = peerl.peers ; p ; p = p->next) {
 			if(!strncasecmp(p->name, word, strlen(word))) {
 				if(++which > state) {
-					res = strdup(p->name);
-					break;
+					return strdup(p->name);
 				}
 			}
 		}
 		ast_mutex_unlock(&peerl.lock);
 	}
 
-	return res;
+	return NULL;
 }
 
 static int iax2_show_stats(int fd, int argc, char *argv[])
@@ -5663,9 +5660,6 @@ static int update_registry(char *name, struct sockaddr_in *sin, int callno, char
 	/* Setup the expiry */
 	if (p->expire > -1)
 		ast_sched_del(sched, p->expire);
-	/* treat an unspecified refresh interval as the minimum */
-	if (!refresh)
-		refresh = min_reg_expire;
 	if (refresh > max_reg_expire) {
 		ast_log(LOG_NOTICE, "Restricting registration for peer '%s' to %d seconds (requested %d)\n",
 			p->name, max_reg_expire, refresh);
