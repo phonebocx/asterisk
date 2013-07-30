@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115551 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 120282 $")
 
 #include <sys/types.h>
 #include <string.h>
@@ -6326,7 +6326,7 @@ int ast_context_verify_includes(struct ast_context *con)
 			continue;
 
 		res = -1;
-		ast_log(LOG_WARNING, "Context '%s' tries includes nonexistent context '%s'\n",
+		ast_log(LOG_WARNING, "Context '%s' tries to include nonexistent context '%s'\n",
 			ast_get_context_name(con), inc->rname);
 		break;
 	}

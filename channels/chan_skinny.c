@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 113504 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 116799 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2863,7 +2863,9 @@ static int skinny_indicate(struct ast_channel *ast, int ind, const void *data, s
 	case AST_CONTROL_PROCEEDING:
 		break;
 	case AST_CONTROL_SRCUPDATE:
-		ast_rtp_new_source(sub->rtp);
+		if (sub->rtp) {
+			ast_rtp_new_source(sub->rtp);
+		}
 		break;
 	default:
 		ast_log(LOG_WARNING, "Don't know how to indicate condition %d\n", ind);

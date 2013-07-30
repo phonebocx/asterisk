@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115944 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 118953 $")
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -506,9 +506,7 @@ static int alsa_text(struct ast_channel *c, const char *text)
 static void grab_owner(void)
 {
 	while (alsa.owner && ast_mutex_trylock(&alsa.owner->lock)) {
-		ast_mutex_unlock(&alsalock);
-		usleep(1);
-		ast_mutex_lock(&alsalock);
+		DEADLOCK_AVOIDANCE(&alsalock);
 	}
 }
 

@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115735 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 118953 $")
 
 #include <ctype.h>
 #include <string.h>
@@ -660,6 +660,34 @@ void ast_mark_lock_failed(void *lock_addr)
 		lock_info->locks[lock_info->num_locks - 1].times_locked--;
 	}
 	pthread_mutex_unlock(&lock_info->lock);
+}
+
+int ast_find_lock_info(void *lock_addr, const char **filename, int *lineno, const char **func, const char **mutex_name)
+{
+	struct thr_lock_info *lock_info;
+	int i = 0;
+
+	if (!(lock_info = ast_threadstorage_get(&thread_lock_info, sizeof(*lock_info))))
+		return -1;
+
+	pthread_mutex_lock(&lock_info->lock);
+
+	for (i = lock_info->num_locks - 1; i >= 0; i--) {
+		if (lock_info->locks[i].lock_addr == lock_addr)
+			break;
+	}
+
+	if (i == -1) {
+		/* Lock not found :( */
+		pthread_mutex_unlock(&lock_info->lock);
+		return -1;
+	}
+
+	*filename = lock_info->locks[i].file;
+	*lineno = lock_info->locks[i].line_num;
+	*func = lock_info->locks[i].func;
+	*mutex_name = lock_info->locks[i].lock_name;
+	return 0;
 }
 
 void ast_remove_lock_info(void *lock_addr)
@@ -1363,4 +1391,18 @@ int ast_utils_init(void)
 	return 0;
 }
 
+#ifndef __AST_DEBUG_MALLOC
+int _ast_asprintf(char **ret, const char *file, int lineno, const char *func, const char *fmt, ...)
+{
+	int res;
+	va_list ap;
 
+	va_start(ap, fmt);
+	if ((res = vasprintf(ret, fmt, ap)) == -1) {
+		MALLOC_FAILURE_MSG;
+	}
+	va_end(ap);
+
+	return res;
+}
+#endif

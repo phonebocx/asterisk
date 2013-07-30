@@ -94,7 +94,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 116230 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 119926 $")
 
 #include <stdio.h>
 #include <ctype.h>
@@ -795,10 +795,11 @@ struct sip_auth {
 #define SIP_PAGE2_RFC2833_COMPENSATE    (1 << 25)	/*!< 25: ???? */
 #define SIP_PAGE2_BUGGY_MWI		(1 << 26)	/*!< 26: Buggy CISCO MWI fix */
 #define SIP_PAGE2_OUTGOING_CALL         (1 << 27)       /*!< 27: Is this an outgoing call? */
+#define SIP_PAGE2_UDPTL_DESTINATION     (1 << 28)       /*!< 28: Use source IP of RTP as destination if NAT is enabled */
 
 #define SIP_PAGE2_FLAGS_TO_COPY \
 	(SIP_PAGE2_ALLOWSUBSCRIBE | SIP_PAGE2_ALLOWOVERLAP | SIP_PAGE2_VIDEOSUPPORT | \
-	SIP_PAGE2_T38SUPPORT | SIP_PAGE2_RFC2833_COMPENSATE | SIP_PAGE2_BUGGY_MWI)
+	SIP_PAGE2_T38SUPPORT | SIP_PAGE2_RFC2833_COMPENSATE | SIP_PAGE2_BUGGY_MWI | SIP_PAGE2_UDPTL_DESTINATION)
 
 /* SIP packet flags */
 #define SIP_PKT_DEBUG		(1 << 0)	/*!< Debug this packet */
@@ -1774,11 +1775,12 @@ static int __sip_xmit(struct sip_pvt *p, char *data, int len)
 
 	if (res == -1) {
 		switch (errno) {
-			case EBADF: 		/* Bad file descriptor - seems like this is generated when the host exist, but doesn't accept the UDP packet */
-			case EHOSTUNREACH: 	/* Host can't be reached */
-			case ENETDOWN: 		/* Inteface down */
-			case ENETUNREACH:	/* Network failure */
-				res = XMIT_ERROR;	/* Don't bother with trying to transmit again */
+		case EBADF: 		/* Bad file descriptor - seems like this is generated when the host exist, but doesn't accept the UDP packet */
+		case EHOSTUNREACH: 	/* Host can't be reached */
+		case ENETDOWN: 		/* Inteface down */
+		case ENETUNREACH:	/* Network failure */
+		case ECONNREFUSED:      /* ICMP port unreachable */ 
+			res = XMIT_ERROR;	/* Don't bother with trying to transmit again */
 		}
 	}
 	if (res != len)
@@ -1959,9 +1961,7 @@ static int retrans_pkt(const void *data)
 
 	if (ast_test_flag(pkt, FLAG_FATAL)) {
 		while(pkt->owner->owner && ast_channel_trylock(pkt->owner->owner)) {
-			ast_mutex_unlock(&pkt->owner->lock);	/* SIP_PVT, not channel */
-			usleep(1);
-			ast_mutex_lock(&pkt->owner->lock);
+			DEADLOCK_AVOIDANCE(&pkt->owner->lock);	/* SIP_PVT, not channel */
 		}
 
 		if (pkt->owner->owner && !pkt->owner->owner->hangupcause) 
@@ -2183,9 +2183,7 @@ static void __sip_ack(struct sip_pvt *p, int seqno, int resp, int sipmethod)
 			 * of the retransid to -1 is ensured since in both cases p's lock is held.
 			 */
 			while (cur->retransid > -1 && ast_sched_del(sched, cur->retransid)) {
-				ast_mutex_unlock(&p->lock);
-				usleep(1);
-				ast_mutex_lock(&p->lock);
+				DEADLOCK_AVOIDANCE(&p->lock);
 			}
 			free(cur);
 			break;
@@ -2614,7 +2612,7 @@ static struct sip_peer *realtime_peer(const char *newpeername, struct sockaddr_i
 	}
 
 	/* Peer found in realtime, now build it in memory */
-	peer = build_peer(newpeername, var, NULL, !ast_test_flag(&global_flags[1], SIP_PAGE2_RTCACHEFRIENDS));
+	peer = build_peer(newpeername, var, NULL, 1);
 	if (!peer) {
 		if(peerlist)
 			ast_config_destroy(peerlist);
@@ -4521,6 +4519,8 @@ static struct sip_pvt *sip_alloc(ast_string_field callid, struct sockaddr_in *si
 		if (p->udptl)
 			ast_udptl_settos(p->udptl, global_tos_audio);
 		p->maxcallbitrate = default_maxcallbitrate;
+		p->autoframing = global_autoframing;
+		ast_rtp_codec_setpref(p->rtp, &p->prefs);
 	}
 
 	if (useglobal_nat && sin) {
@@ -5201,6 +5201,16 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 	if (p->udptl) {
 		if (udptlportno > 0) {
 			sin.sin_port = htons(udptlportno);
+			if (ast_test_flag(&p->flags[0], SIP_NAT) && ast_test_flag(&p->flags[1], SIP_PAGE2_UDPTL_DESTINATION)) {
+				struct sockaddr_in peer;
+				ast_rtp_get_peer(p->rtp, &peer);
+				if (peer.sin_addr.s_addr) {
+					memcpy(&sin.sin_addr, &peer.sin_addr, sizeof(&sin.sin_addr));
+					if (debug) {
+						ast_log(LOG_DEBUG, "Peer T.38 UDPTL is set behind NAT and with destination, destination address now %s\n", ast_inet_ntoa(sin.sin_addr));
+					}
+				}
+			}
 			ast_udptl_set_peer(p->udptl, &sin);
 			if (debug)
 				ast_log(LOG_DEBUG,"Peer T.38 UDPTL is at port %s:%d\n",ast_inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
@@ -5299,24 +5309,20 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 						ast_log(LOG_DEBUG, "Can't read framing from SDP: %s\n", a);
 				}
 			}
-			if (framing && last_rtpmap_codec) {
-				if (p->autoframing) {
-					struct ast_codec_pref *pref = ast_rtp_codec_getpref(p->rtp);
-					int codec_n;
-					int format = 0;
-					for (codec_n = 0; codec_n < last_rtpmap_codec; codec_n++) {
-						format = ast_rtp_codec_getformat(found_rtpmap_codecs[codec_n]);
-						if (!format)	/* non-codec or not found */
-							continue;
-						if (option_debug)
-							ast_log(LOG_DEBUG, "Setting framing for %d to %ld\n", format, framing);
-						ast_codec_pref_setsize(pref, format, framing);
-					}
-					ast_rtp_codec_setpref(p->rtp, pref);
+			if (framing && p->autoframing) {
+				struct ast_codec_pref *pref = ast_rtp_codec_getpref(p->rtp);
+				int codec_n;
+				int format = 0;
+				for (codec_n = 0; codec_n < MAX_RTP_PT; codec_n++) {
+					format = ast_rtp_codec_getformat(codec_n);
+					if (!format)	/* non-codec or not found */
+						continue;
+					if (option_debug)
+						ast_log(LOG_DEBUG, "Setting framing for %d to %ld\n", format, framing);
+					ast_codec_pref_setsize(pref, format, framing);
 				}
+				ast_rtp_codec_setpref(p->rtp, pref);
 			}
-			memset(&found_rtpmap_codecs, 0, sizeof(found_rtpmap_codecs));
-			last_rtpmap_codec = 0;
 			continue;
 		} else if (sscanf(a, "rtpmap: %u %[^/]/", &codec, mimeSubtype) == 2) {
 			/* We have a rtpmap to handle */
@@ -9006,9 +9012,7 @@ static struct sip_pvt *get_sip_pvt_byid_locked(const char *callid, const char *t
 
 			/* deadlock avoidance... */
 			while (sip_pvt_ptr->owner && ast_channel_trylock(sip_pvt_ptr->owner)) {
-				ast_mutex_unlock(&sip_pvt_ptr->lock);
-				usleep(1);
-				ast_mutex_lock(&sip_pvt_ptr->lock);
+				DEADLOCK_AVOIDANCE(&sip_pvt_ptr->lock);
 			}
 			break;
 		}
@@ -13239,9 +13243,7 @@ static int sip_park(struct ast_channel *chan1, struct ast_channel *chan2, struct
 	 * that hold the channel lock and want the pvt lock.  */
 	while (ast_channel_trylock(chan2)) {
 		struct sip_pvt *pvt = chan2->tech_pvt;
-		ast_mutex_unlock(&pvt->lock);
-		usleep(1);
-		ast_mutex_lock(&pvt->lock);
+		DEADLOCK_AVOIDANCE(&pvt->lock);
 	}
 	ast_channel_masquerade(transferer, chan2);
 	ast_channel_unlock(chan2);
@@ -15724,9 +15726,7 @@ restartsearch:
 						/* Needs a hangup */
 						if (ast_rtp_get_rtptimeout(sip->rtp)) {
 							while (sip->owner && ast_channel_trylock(sip->owner)) {
-								ast_mutex_unlock(&sip->lock);
-								usleep(1);
-								ast_mutex_lock(&sip->lock);
+								DEADLOCK_AVOIDANCE(&sip->lock);
 							}
 							if (sip->owner) {
 								ast_log(LOG_NOTICE,
@@ -16296,6 +16296,9 @@ static int handle_common_options(struct ast_flags *flags, struct ast_flags *mask
 	} else if (!strcasecmp(v->name, "buggymwi")) {
 		ast_set_flag(&mask[1], SIP_PAGE2_BUGGY_MWI);
 		ast_set2_flag(&flags[1], ast_true(v->value), SIP_PAGE2_BUGGY_MWI);
+	} else if (!strcasecmp(v->name, "t38pt_usertpsource")) {
+		ast_set_flag(&mask[1], SIP_PAGE2_UDPTL_DESTINATION);
+		ast_set2_flag(&flags[1], ast_true(v->value), SIP_PAGE2_UDPTL_DESTINATION);
 	} else
 		res = 0;
 
@@ -16647,9 +16650,9 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 	struct ast_variable *tmpvar = NULL;
 	struct ast_flags peerflags[2] = {{(0)}};
 	struct ast_flags mask[2] = {{(0)}};
+	char fullcontact[sizeof(peer->fullcontact)] = "";
 
-
-	if (!realtime)
+	if (!realtime || ast_test_flag(&global_flags[1], SIP_PAGE2_RTCACHEFRIENDS))
 		/* Note we do NOT use find_peer here, to avoid realtime recursion */
 		/* We also use a case-sensitive comparison (unlike find_peer) so
 		   that case changes made to the peer name will be properly handled
@@ -16666,7 +16669,7 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 		if (!(peer = ast_calloc(1, sizeof(*peer))))
 			return NULL;
 
-		if (realtime)
+		if (realtime && !ast_test_flag(&global_flags[1], SIP_PAGE2_RTCACHEFRIENDS))
 			rpeerobjs++;
 		else
 			speerobjs++;
@@ -16703,8 +16706,14 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 		} else if (realtime && !strcasecmp(v->name, "name"))
 			ast_copy_string(peer->name, v->value, sizeof(peer->name));
 		else if (realtime && !strcasecmp(v->name, "fullcontact")) {
-			ast_copy_string(peer->fullcontact, v->value, sizeof(peer->fullcontact));
-			ast_set_flag(&peer->flags[1], SIP_PAGE2_RT_FROMCONTACT);
+			/* Reconstruct field, because realtime separates our value at the ';' */
+			if (!ast_strlen_zero(fullcontact)) {
+				strncat(fullcontact, ";", sizeof(fullcontact) - strlen(fullcontact) - 1);
+				strncat(fullcontact, v->value, sizeof(fullcontact) - strlen(fullcontact) - 1);
+			} else {
+				ast_copy_string(fullcontact, v->value, sizeof(fullcontact));
+				ast_set_flag(&peer->flags[1], SIP_PAGE2_RT_FROMCONTACT);
+			}
 		} else if (!strcasecmp(v->name, "secret")) 
 			ast_copy_string(peer->secret, v->value, sizeof(peer->secret));
 		else if (!strcasecmp(v->name, "md5secret")) 
@@ -16864,6 +16873,10 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 				peer->maxcallbitrate = default_maxcallbitrate;
 		}
 	}
+	if (!ast_strlen_zero(fullcontact)) {
+		ast_copy_string(peer->fullcontact, fullcontact, sizeof(peer->fullcontact));
+	}
+
 	if (!ast_test_flag(&global_flags[1], SIP_PAGE2_IGNOREREGEXPIRE) && ast_test_flag(&peer->flags[1], SIP_PAGE2_DYNAMIC) && realtime) {
 		time_t nowtime = time(NULL);
 

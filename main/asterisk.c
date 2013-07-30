@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115884 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 118465 $")
 
 #undef sched_setscheduler
 #undef setpriority
@@ -738,9 +738,16 @@ void ast_unregister_atexit(void (*func)(void))
 		free(ae);
 }
 
-static int fdprint(int fd, const char *s)
+/* Sending commands from consoles back to the daemon requires a terminating NULL */
+static int fdsend(int fd, const char *s)
 {
 	return write(fd, s, strlen(s) + 1);
+}
+
+/* Sending messages from the daemon back to the display requires _excluding_ the terminating NULL */
+static int fdprint(int fd, const char *s)
+{
+	return write(fd, s, strlen(s));
 }
 
 /*! \brief NULL handler so we can collect the child exit status */
@@ -1370,8 +1377,12 @@ static void console_verboser(const char *s)
 	    (c = fix_header(tmp, sizeof(tmp), s, VERBOSE_PREFIX_1))) {
 		fputs(tmp, stdout);
 		fputs(c, stdout);
-	} else
+	} else {
+		if (*s == 127) {
+			s++;
+		}
 		fputs(s, stdout);
+	}
 
 	fflush(stdout);
 	
@@ -1761,6 +1772,7 @@ static int ast_el_read_char(EditLine *el, char *cp)
 				return (num_read);
 		}
 		if (fds[0].revents) {
+			char *tmp;
 			res = read(ast_consock, buf, sizeof(buf) - 1);
 			/* if the remote side disappears exit */
 			if (res < 1) {
@@ -1777,7 +1789,7 @@ static int ast_el_read_char(EditLine *el, char *cp)
 							printf(term_quit());
 							WELCOME_MESSAGE;
 							if (!ast_opt_mute)
-								fdprint(ast_consock, "logger mute silent");
+								fdsend(ast_consock, "logger mute silent");
 							else 
 								printf("log and verbose output currently muted ('logger mute' to unmute)\n");
 							break;
@@ -1793,6 +1805,14 @@ static int ast_el_read_char(EditLine *el, char *cp)
 			}
 
 			buf[res] = '\0';
+
+			/* Strip preamble from asynchronous events, too */
+			for (tmp = buf; *tmp; tmp++) {
+				if (*tmp == 127) {
+					memmove(tmp, tmp + 1, strlen(tmp));
+					tmp--;
+				}
+			}
 
 			/* Write over the CLI prompt */
 			if (!ast_opt_exec && !lastpos)
@@ -2081,7 +2101,7 @@ static char *cli_complete(EditLine *el, int ch)
 
 	if (ast_opt_remote) {
 		snprintf(buf, sizeof(buf),"_COMMAND NUMMATCHES \"%s\" \"%s\"", lf->buffer, ptr); 
-		fdprint(ast_consock, buf);
+		fdsend(ast_consock, buf);
 		res = read(ast_consock, buf, sizeof(buf));
 		buf[res] = '\0';
 		nummatches = atoi(buf);
@@ -2093,7 +2113,7 @@ static char *cli_complete(EditLine *el, int ch)
 			if (!(mbuf = ast_malloc(maxmbuf)))
 				return (char *)(CC_ERROR);
 			snprintf(buf, sizeof(buf),"_COMMAND MATCHESARRAY \"%s\" \"%s\"", lf->buffer, ptr); 
-			fdprint(ast_consock, buf);
+			fdsend(ast_consock, buf);
 			res = 0;
 			mbuf[0] = '\0';
 			while (!strstr(mbuf, AST_CLI_COMPLETE_EOF) && res != -1) {
@@ -2278,11 +2298,11 @@ static void ast_remotecontrol(char * data)
 		pid = -1;
 	if (!data) {
 		snprintf(tmp, sizeof(tmp), "core set verbose atleast %d", option_verbose);
-		fdprint(ast_consock, tmp);
+		fdsend(ast_consock, tmp);
 		snprintf(tmp, sizeof(tmp), "core set debug atleast %d", option_debug);
-		fdprint(ast_consock, tmp);
+		fdsend(ast_consock, tmp);
 		if (!ast_opt_mute)
-			fdprint(ast_consock, "logger mute silent");
+			fdsend(ast_consock, "logger mute silent");
 		else 
 			printf("log and verbose output currently muted ('logger mute' to unmute)\n");
 	}
@@ -2343,6 +2363,14 @@ static void ast_remotecontrol(char * data)
 			if (ebuf[strlen(ebuf)-1] == '\n')
 				ebuf[strlen(ebuf)-1] = '\0';
 			if (!remoteconsolehandler(ebuf)) {
+				/* Strip preamble from output */
+				char *tmp;
+				for (tmp = ebuf; *tmp; tmp++) {
+					if (*tmp == 127) {
+						memmove(tmp, tmp + 1, strlen(tmp));
+						tmp--;
+					}
+				}
 				res = write(ast_consock, ebuf, strlen(ebuf) + 1);
 				if (res < 1) {
 					ast_log(LOG_WARNING, "Unable to write: %s\n", strerror(errno));

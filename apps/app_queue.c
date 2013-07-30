@@ -62,7 +62,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115320 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 120513 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -1422,7 +1422,7 @@ static int join_queue(char *queuename, struct queue_ent *qe, enum queue_result *
 	stat = get_member_status(q, qe->max_penalty);
 	if (!q->joinempty && (stat == QUEUE_NO_MEMBERS))
 		*reason = QUEUE_JOINEMPTY;
-	else if ((q->joinempty == QUEUE_EMPTY_STRICT) && (stat == QUEUE_NO_REACHABLE_MEMBERS))
+	else if ((q->joinempty == QUEUE_EMPTY_STRICT) && (stat == QUEUE_NO_REACHABLE_MEMBERS || stat == QUEUE_NO_MEMBERS))
 		*reason = QUEUE_JOINUNAVAIL;
 	else if (q->maxlen && (q->count >= q->maxlen))
 		*reason = QUEUE_FULL;
@@ -4815,9 +4815,9 @@ static char *complete_queue_remove_member(const char *line, const char *word, in
 				if (++which > state) {
 					char *tmp;
 					ast_mutex_unlock(&q->lock);
-					tmp = m->membername;
+					tmp = ast_strdup(m->interface);
 					ao2_ref(m, -1);
-					return ast_strdup(tmp);
+					return tmp;
 				}
 				ao2_ref(m, -1);
 			}
