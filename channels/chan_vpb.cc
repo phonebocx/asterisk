@@ -39,7 +39,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228093 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 209234 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/utils.h"
@@ -2702,7 +2702,7 @@ static enum ast_module_load_result load_module()
 	int num_cards = 0;
 	try {
 		num_cards = vpb_get_num_cards();
-	} catch (std::exception e) {
+	} catch (VpbException e) {
 		ast_log(LOG_ERROR, "No Voicetronix cards detected\n");
 		return AST_MODULE_LOAD_DECLINE;
 	}

@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 229492 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 215376 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -74,7 +74,7 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 	struct ast_channel *c = NULL;
 	char *cut, *opts[0];
 	char name[AST_CHANNEL_NAME] = "", *parse;
-	struct ast_flags flags = {0};
+	struct ast_flags flags;
 	int lenmatch;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(channel);

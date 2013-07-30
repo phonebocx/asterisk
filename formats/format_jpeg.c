@@ -26,7 +26,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233694 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 117802 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -112,8 +112,4 @@ static int unload_module(void)
 	return 0;
 }	
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "jpeg (joint picture experts group) image format",
-	.load = load_module,
-	.unload = unload_module,
-	.load_pri = 10,
-);
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "JPEG (Joint Picture Experts Group) Image Format");

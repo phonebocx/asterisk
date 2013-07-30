@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222883 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 215165 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/lock.h"
@@ -336,6 +336,8 @@ static void __frame_free(struct ast_frame *fr, int cache)
 		ast_translate_frame_freed(fr);
 	} else if (ast_test_flag(fr, AST_FRFLAG_FROM_DSP)) {
 		ast_dsp_frame_freed(fr);
+	} else if (ast_test_flag(fr, AST_FRFLAG_FROM_FILESTREAM)) {
+		ast_filestream_frame_freed(fr);
 	}
 
 	if (!fr->mallocd)
@@ -424,6 +426,7 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr)
 	} else {
 		ast_clear_flag(fr, AST_FRFLAG_FROM_TRANSLATOR);
 		ast_clear_flag(fr, AST_FRFLAG_FROM_DSP);
+		ast_clear_flag(fr, AST_FRFLAG_FROM_FILESTREAM);
 		out = fr;
 	}
 	

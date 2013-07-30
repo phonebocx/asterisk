@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222802 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 212509 $")
 
 #include "chan_misdn_config.h"
 
@@ -875,9 +875,6 @@ static int _parse (union misdn_cfg_pt *dest, const char *value, enum misdn_cfg_t
 
 	switch (type) {
 	case MISDN_CTYPE_STR:
-		if (dest->str) {
-			ast_free(dest->str);
-		}
 		if ((len = strlen(value))) {
 			dest->str = ast_malloc((len + 1) * sizeof(char));
 			strncpy(dest->str, value, len);
@@ -897,24 +894,18 @@ static int _parse (union misdn_cfg_pt *dest, const char *value, enum misdn_cfg_t
 			res = sscanf(value, "%30d", &tmp);
 		}
 		if (res) {
-			if (!dest->num) {
-				dest->num = ast_malloc(sizeof(int));
-			}
+			dest->num = ast_malloc(sizeof(int));
 			memcpy(dest->num, &tmp, sizeof(int));
 		} else
 			re = -1;
 	}
 		break;
 	case MISDN_CTYPE_BOOL:
-		if (!dest->num) {
-			dest->num = ast_malloc(sizeof(int));
-		}
+		dest->num = ast_malloc(sizeof(int));
 		*(dest->num) = (ast_true(value) ? 1 : 0);
 		break;
 	case MISDN_CTYPE_BOOLINT:
-		if (!dest->num) {
-			dest->num = ast_malloc(sizeof(int));
-		}
+		dest->num = ast_malloc(sizeof(int));
 		if (sscanf(value, "%30d", &tmp)) {
 			memcpy(dest->num, &tmp, sizeof(int));
 		} else {
@@ -933,9 +924,7 @@ static int _parse (union misdn_cfg_pt *dest, const char *value, enum misdn_cfg_t
 		}
 		break;
 	case MISDN_CTYPE_ASTGROUP:
-		if (!dest->grp) {
-			dest->grp = ast_malloc(sizeof(ast_group_t));
-		}
+		dest->grp = ast_malloc(sizeof(ast_group_t));
 		*(dest->grp) = ast_get_group(value);
 		break;
 	}

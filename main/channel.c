@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233130 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 221204 $")
 
 #include "asterisk/_private.h"
 
@@ -826,7 +826,7 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 
 	if (needqueue) {
 		if (pipe(tmp->alertpipe)) {
-			ast_log(LOG_WARNING, "Channel allocation failed: Can't create alert pipe! Try increasing max file descriptors with ulimit -n\n");
+			ast_log(LOG_WARNING, "Channel allocation failed: Can't create alert pipe!\n");
 alertpipe_failed:
 			if (tmp->timer) {
 				ast_timer_close(tmp->timer);
@@ -1013,7 +1013,6 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 	for (cur = fin; cur; cur = AST_LIST_NEXT(cur, frame_list)) {
 		if (!(f = ast_frdup(cur))) {
 			ast_frfree(AST_LIST_FIRST(&frames));
-			ast_channel_unlock(chan);
 			return -1;
 		}
 
@@ -3039,17 +3038,6 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 		ast_frame_dump(chan->name, f, "<<");
 	chan->fin = FRAMECOUNT_INC(chan->fin);
 
-	if (f && f->frametype == AST_FRAME_CONTROL && f->subclass == AST_CONTROL_HOLD && f->datalen == 0 && f->data.ptr) {
-		/* fix invalid pointer */
-		f->data.ptr = NULL;
-#ifdef AST_DEVMODE
-		ast_log(LOG_ERROR, "Found HOLD frame with src '%s' on channel '%s' with datalen zero, but non-null data pointer!\n", f->src, chan->name);
-		ast_frame_dump(chan->name, f, "<<");
-#else
-		ast_debug(3, "Found HOLD frame with src '%s' on channel '%s' with datalen zero, but non-null data pointer!\n", f->src, chan->name);
-#endif
-	}
-
 done:
 	if (chan->music_state && chan->generator && chan->generator->digit && f && f->frametype == AST_FRAME_DTMF_END)
 		chan->generator->digit(chan, f->subclass);
@@ -3504,11 +3492,6 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 
 		if (chan->audiohooks) {
 			struct ast_frame *prev = NULL, *new_frame, *cur, *dup;
-			int freeoldlist = 0;
-
-			if (f != fr) {
-				freeoldlist = 1;
-			}
 
 			/* Since ast_audiohook_write may return a new frame, and the cur frame is
 			 * an item in a list of frames, create a new list adding each cur frame back to it
@@ -3519,16 +3502,13 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 				/* if this frame is different than cur, preserve the end of the list,
 				 * free the old frames, and set cur to be the new frame */
 				if (new_frame != cur) {
-
 					/* doing an ast_frisolate here seems silly, but we are not guaranteed the new_frame
 					 * isn't part of local storage, meaning if ast_audiohook_write is called multiple
 					 * times it may override the previous frame we got from it unless we dup it */
 					if ((dup = ast_frisolate(new_frame))) {
 						AST_LIST_NEXT(dup, frame_list) = AST_LIST_NEXT(cur, frame_list);
-						if (freeoldlist) {
-							AST_LIST_NEXT(cur, frame_list) = NULL;
-							ast_frfree(cur);
-						}
+						ast_frfree(new_frame);
+						ast_frfree(cur);
 						cur = dup;
 					}
 				}
@@ -3859,11 +3839,7 @@ struct ast_channel *__ast_request_and_dial(const char *type, int format, void *d
 		while (timeout && chan->_state != AST_STATE_UP) {
 			struct ast_frame *f;
 			res = ast_waitfor(chan, timeout);
-			if (res == 0) { /* timeout, treat it like ringing */
-				*outstate = AST_CONTROL_RINGING;
-				break;
-			}
-			if (res < 0) /* error or done */
+			if (res <= 0) /* error, timeout, or done */
 				break;
 			if (timeout > -1)
 				timeout = res;

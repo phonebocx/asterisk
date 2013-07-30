@@ -36,7 +36,7 @@
  ***/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228148 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <pthread.h>
 #include <sys/socket.h>
@@ -2986,12 +2986,8 @@ static struct ast_frame *process_ast_dsp(struct chan_list *tmp, struct ast_frame
 		return NULL;
 	}
 
-	if (!f || (f->frametype != AST_FRAME_DTMF)) {
-		if (f) {
-			ast_frfree(f);
-		}
-		return frame;
-	}
+ 	if (!f || (f->frametype != AST_FRAME_DTMF))
+ 		return frame;
  
 	ast_debug(1, "Detected inband DTMF digit: %c\n", f->subclass);
  
@@ -5181,7 +5177,6 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 		if (!misdn_cap_is_speech(ch->bc->capability)) {
 			struct ast_frame frame;
 			/*In Data Modes we queue frames*/
-			memset(&frame, 0, sizeof(frame));
 			frame.frametype = AST_FRAME_VOICE; /* we have no data frames yet */
 			frame.subclass = AST_FORMAT_ALAW;
 			frame.datalen = bc->bframe_len;

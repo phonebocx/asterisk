@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232094 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 218576 $")
 
 #ifdef __NetBSD__
 #include <pthread.h>
@@ -3134,11 +3134,7 @@ static int dahdi_call(struct ast_channel *ast, char *rdest, int timeout)
 		ast_log(LOG_WARNING, "Unable to flush input on channel %d: %s\n", p->channel, strerror(errno));
 	p->outgoing = 1;
 
-	if (IS_DIGITAL(ast->transfercapability)){
-		set_actual_gain(p->subs[SUB_REAL].dfd, 0, 0, 0, p->law);
-	} else {
-		set_actual_gain(p->subs[SUB_REAL].dfd, 0, p->rxgain, p->txgain, p->law);
-	}	
+	set_actual_gain(p->subs[SUB_REAL].dfd, 0, p->rxgain, p->txgain, p->law);
 
 	mysig = p->sig;
 	if (p->outsigmod > -1)
@@ -3817,8 +3813,7 @@ static int dahdi_call(struct ast_channel *ast, char *rdest, int timeout)
 				redirect_reason = 0;
 			else if (!strcasecmp(rr_str, "BUSY"))
 				redirect_reason = 1;
-			else if (!strcasecmp(rr_str, "NO_REPLY") || !strcasecmp(rr_str, "NOANSWER"))
-			/* the NOANSWER is to match diversion-reason from chan_sip, (which never reads PRIREDIRECTREASON) */
+			else if (!strcasecmp(rr_str, "NO_REPLY"))
 				redirect_reason = 2;
 			else if (!strcasecmp(rr_str, "UNCONDITIONAL"))
 				redirect_reason = 15;
@@ -3864,9 +3859,8 @@ static void destroy_dahdi_pvt(struct dahdi_pvt **pvt)
 		ast_smdi_interface_unref(p->smdi_iface);
 	if (p->mwi_event_sub)
 		ast_event_unsubscribe(p->mwi_event_sub);
-	if (p->vars) {
+	if (p->vars)
 		ast_variables_destroy(p->vars);
-	}
 	ast_mutex_destroy(&p->lock);
 	dahdi_close_sub(p, SUB_REAL);
 	if (p->owner)
@@ -4332,8 +4326,6 @@ static int dahdi_hangup(struct ast_channel *ast)
 	if ((p->sig == SIG_PRI) || (p->sig == SIG_SS7) || (p->sig == SIG_BRI) || (p->sig == SIG_BRI_PTMP)) {
 		x = 1;
 		ast_channel_setoption(ast,AST_OPTION_AUDIO_MODE,&x,sizeof(char),0);
-		p->cid_num[0] = '\0';
-		p->cid_name[0] = '\0';
 	}
 
 	x = 0;
@@ -4528,8 +4520,6 @@ static int dahdi_hangup(struct ast_channel *ast)
 		}
 #endif
 #ifdef HAVE_OPENR2
-		p->cid_num[0] = '\0';
-		p->cid_name[0] = '\0';
 		if (p->mfcr2 && p->mfcr2call && openr2_chan_get_direction(p->r2chan) != OR2_DIR_STOPPED) {
 			ast_log(LOG_DEBUG, "disconnecting MFC/R2 call on chan %d\n", p->channel);
 			/* If it's an incoming call, check the mfcr2_forced_release setting */
@@ -6734,10 +6724,7 @@ static struct ast_frame *dahdi_read(struct ast_channel *ast)
 		return NULL;
 	}
 
-	if ((p->radio || (p->oprmode < 0)) && p->inalarm) {
-		ast_mutex_unlock(&p->lock);
-		return NULL;
-	}
+	if ((p->radio || (p->oprmode < 0)) && p->inalarm) return NULL;
 
 	p->subs[idx].f.frametype = AST_FRAME_NULL;
 	p->subs[idx].f.datalen = 0;
@@ -7036,7 +7023,6 @@ static struct ast_frame *dahdi_read(struct ast_channel *ast)
 							if (res < 0) {
 								ast_log(LOG_WARNING, "Unable to initiate dialing on trunk channel %d\n", p->channel);
 								p->dop.dialstr[0] = '\0';
-								ast_mutex_unlock(&p->lock);
 								return NULL;
 							} else {
 								ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", p->dop.dialstr);
@@ -10474,15 +10460,10 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 		ast_copy_string(tmp->mohinterpret, conf->chan.mohinterpret, sizeof(tmp->mohinterpret));
 		ast_copy_string(tmp->mohsuggest, conf->chan.mohsuggest, sizeof(tmp->mohsuggest));
 		ast_copy_string(tmp->context, conf->chan.context, sizeof(tmp->context));
+		ast_copy_string(tmp->cid_num, conf->chan.cid_num, sizeof(tmp->cid_num));
 		ast_copy_string(tmp->parkinglot, conf->chan.parkinglot, sizeof(tmp->parkinglot));
 		tmp->cid_ton = 0;
-		if ((tmp->sig != SIG_PRI) || (tmp->sig != SIG_SS7) || (tmp->sig != SIG_BRI) || (tmp->sig != SIG_BRI_PTMP) || (tmp->sig != SIG_MFCR2)) {
-			ast_copy_string(tmp->cid_num, conf->chan.cid_num, sizeof(tmp->cid_num));
-			ast_copy_string(tmp->cid_name, conf->chan.cid_name, sizeof(tmp->cid_name));
-		} else {
-			tmp->cid_num[0] = '\0';
-			tmp->cid_name[0] = '\0';
-		}
+		ast_copy_string(tmp->cid_name, conf->chan.cid_name, sizeof(tmp->cid_name));
 		ast_copy_string(tmp->mailbox, conf->chan.mailbox, sizeof(tmp->mailbox));
 		if (channel != CHAN_PSEUDO && !ast_strlen_zero(tmp->mailbox)) {
 			char *mailbox, *context;
@@ -10517,7 +10498,7 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 		tmp->callgroup = conf->chan.callgroup;
 		tmp->pickupgroup= conf->chan.pickupgroup;
 		if (conf->chan.vars) {
-			tmp->vars = ast_variable_new(conf->chan.vars->name, conf->chan.vars->value, "");
+			tmp->vars = conf->chan.vars;
 		}
 		tmp->cid_rxgain = conf->chan.cid_rxgain;
 		tmp->rxgain = conf->chan.rxgain;
@@ -10990,9 +10971,6 @@ static struct ast_channel *dahdi_request(const char *type, int format, void *dat
 			}
 			p->outgoing = 1;
 			tmp = dahdi_new(p, AST_STATE_RESERVED, 0, p->owner ? SUB_CALLWAIT : SUB_REAL, 0, 0);
-			if (!tmp) {
-				p->outgoing = 0;
-			}
 #ifdef HAVE_PRI
 			if (p->bearer) {
 				/* Log owner to bearer channel, too */
@@ -12678,8 +12656,8 @@ static void *pri_dchannel(void *vpri)
 								pri_destroycall(pri->pri, pri->pvts[x]->call);
 								pri->pvts[x]->call = NULL;
 							}
-							if (pri->pvts[x]->realcall)
-								pri_hangup_all(pri->pvts[x]->realcall, pri);
+							if (pri->pvts[chanpos]->realcall)
+								pri_hangup_all(pri->pvts[chanpos]->realcall, pri);
  							else if (pri->pvts[x]->owner)
 								pri->pvts[x]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
 							ast_mutex_unlock(&pri->pvts[x]->lock);
@@ -13239,12 +13217,9 @@ static void *pri_dchannel(void *vpri)
 							else if (pri->pvts[chanpos]->owner) {
 								/* Queue a BUSY instead of a hangup if our cause is appropriate */
 								pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
-								switch (pri->pvts[chanpos]->owner->_state) {
-								case AST_STATE_BUSY:
-								case AST_STATE_UP:
+								if (pri->pvts[chanpos]->owner->_state == AST_STATE_UP)
 									pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
-									break;
-								default:
+								else {
 									switch (e->hangup.cause) {
 									case PRI_CAUSE_USER_BUSY:
 										pri->pvts[chanpos]->subs[SUB_REAL].needbusy =1;
@@ -13260,7 +13235,6 @@ static void *pri_dchannel(void *vpri)
 									default:
 										pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
 									}
-									break;
 								}
 							}
 							ast_verb(3, "Channel %d/%d, span %d got hangup, cause %d\n",
@@ -13311,12 +13285,9 @@ static void *pri_dchannel(void *vpri)
 							pri_hangup_all(pri->pvts[chanpos]->realcall, pri);
 						else if (pri->pvts[chanpos]->owner) {
 							pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
-							switch (pri->pvts[chanpos]->owner->_state) {
-							case AST_STATE_BUSY:
-							case AST_STATE_UP:
+							if (pri->pvts[chanpos]->owner->_state == AST_STATE_UP)
 								pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
-								break;
-							default:
+							else {
 								switch (e->hangup.cause) {
 								case PRI_CAUSE_USER_BUSY:
 									pri->pvts[chanpos]->subs[SUB_REAL].needbusy =1;
@@ -13333,7 +13304,6 @@ static void *pri_dchannel(void *vpri)
 									pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
 									break;
 								}
-								break;
 							}
 							ast_verb(3, "Channel %d/%d, span %d got hangup request, cause %d\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span, e->hangup.cause);
 							if (e->hangup.aoc_units > -1)

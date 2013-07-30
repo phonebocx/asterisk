@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232011 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 219669 $")
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -692,36 +692,17 @@ struct ast_filestream *ast_openvstream(struct ast_channel *chan, const char *fil
 	return NULL;
 }
 
-static struct ast_frame *read_frame(struct ast_filestream *s, int *whennext)
-{
-	struct ast_frame *fr, *new_fr;
-
-	if (!s || !s->fmt) {
-		return NULL;
-	}
-
-	if (!(fr = s->fmt->read(s, whennext))) {
-		return NULL;
-	}
-
-	if (!(new_fr = ast_frisolate(fr))) {
-		ast_frfree(fr);
-		return NULL;
-	}
-
-	if (new_fr != fr) {
-		ast_frfree(fr);
-		fr = new_fr;
-	}
-
-	return fr;
-}
-
 struct ast_frame *ast_readframe(struct ast_filestream *s)
 {
-	int whennext = 0;
-
-	return read_frame(s, &whennext);
+	struct ast_frame *f = NULL;
+	int whennext = 0;	
+	if (s && s->fmt)
+		f = s->fmt->read(s, &whennext);
+	if (f) {
+		ast_set_flag(f, AST_FRFLAG_FROM_FILESTREAM);
+		ao2_ref(s, +1);
+	}
+	return f;
 }
 
 enum fsread_res {
@@ -738,13 +719,15 @@ static enum fsread_res ast_readaudio_callback(struct ast_filestream *s)
 
 	while (!whennext) {
 		struct ast_frame *fr;
-
-		if (s->orig_chan_name && strcasecmp(s->owner->name, s->orig_chan_name)) {
+		
+		if (s->orig_chan_name && strcasecmp(s->owner->name, s->orig_chan_name))
 			goto return_failure;
+		
+		fr = s->fmt->read(s, &whennext);
+		if (fr) {
+			ast_set_flag(fr, AST_FRFLAG_FROM_FILESTREAM);
+			ao2_ref(s, +1);
 		}
-
-		fr = read_frame(s, &whennext);
-
 		if (!fr /* stream complete */ || ast_write(s->owner, fr) /* error writing */) {
 			if (fr) {
 				ast_log(LOG_WARNING, "Failed to write frame\n");
@@ -752,12 +735,10 @@ static enum fsread_res ast_readaudio_callback(struct ast_filestream *s)
 			}
 			goto return_failure;
 		} 
-
 		if (fr) {
 			ast_frfree(fr);
 		}
 	}
-
 	if (whennext != s->lasttimeout) {
 		if (s->owner->timingfd > -1) {
 			float samp_rate = (float) ast_format_rate(s->fmt->format);
@@ -801,8 +782,11 @@ static enum fsread_res ast_readvideo_callback(struct ast_filestream *s)
 	int whennext = 0;
 
 	while (!whennext) {
-		struct ast_frame *fr = read_frame(s, &whennext);
-
+		struct ast_frame *fr = s->fmt->read(s, &whennext);
+		if (fr) {
+			ast_set_flag(fr, AST_FRFLAG_FROM_FILESTREAM);
+			ao2_ref(s, +1);
+		}
 		if (!fr /* stream complete */ || ast_write(s->owner, fr) /* error writing */) {
 			if (fr) {
 				ast_log(LOG_WARNING, "Failed to write frame\n");
@@ -811,7 +795,6 @@ static enum fsread_res ast_readvideo_callback(struct ast_filestream *s)
 			s->owner->vstreamid = -1;
 			return FSREAD_FAILURE;
 		}
-
 		if (fr) {
 			ast_frfree(fr);
 		}
@@ -903,6 +886,20 @@ int ast_closestream(struct ast_filestream *f)
 		}
 	}
 
+	if (ast_test_flag(&f->fr, AST_FRFLAG_FROM_FILESTREAM)) {
+		/* If this flag is still set, it essentially means that the reference
+		 * count of f is non-zero. We can't destroy this filestream until
+		 * whatever is using the filestream's frame has finished.
+		 *
+		 * Since this was called, however, we need to remove the reference from
+		 * when this filestream was first allocated. That way, when the embedded
+		 * frame is freed, the refcount will reach 0 and we can finish destroying
+		 * this filestream properly.
+		 */
+		ao2_ref(f, -1);
+		return 0;
+	}
+	
 	ao2_ref(f, -1);
 	return 0;
 }
@@ -1334,6 +1331,17 @@ int ast_waitstream_exten(struct ast_channel *c, const char *context)
 		-1, -1, context);
 }
 
+void ast_filestream_frame_freed(struct ast_frame *fr)
+{
+	struct ast_filestream *fs;
+
+	ast_clear_flag(fr, AST_FRFLAG_FROM_FILESTREAM);
+
+	fs = (struct ast_filestream *) (((char *) fr) - offsetof(struct ast_filestream, fr));
+
+	ao2_ref(fs, -1);
+}
+
 /*
  * if the file name is non-empty, try to play it.
  * Return 0 if success, -1 if error, digit if interrupted by a digit.
@@ -1350,79 +1358,6 @@ int ast_stream_and_wait(struct ast_channel *chan, const char *file, const char *
 	}
 	return res;
 } 
-
-char *ast_format_str_reduce(char *fmts)
-{
-	struct ast_format *f;
-	struct ast_format *fmts_ptr[AST_MAX_FORMATS];
-	char *fmts_str[AST_MAX_FORMATS];
-	char *stringp, *type;
-	char *orig = fmts;
-	int i, j, x, first, found = 0;
-	int len = strlen(fmts) + 1;
-
-	if (AST_RWLIST_RDLOCK(&formats)) {
-		ast_log(LOG_WARNING, "Unable to lock format list\n");
-		return NULL;
-	}
-
-	stringp = ast_strdupa(fmts);
-
-	for (x = 0; (type = strsep(&stringp, "|")) && x < AST_MAX_FORMATS; x++) {
-		AST_RWLIST_TRAVERSE(&formats, f, list) {
-			if (exts_compare(f->exts, type)) {
-				found = 1;
-				break;
-			}
-		}
-
-		fmts_str[x] = type;
-		if (found) {
-			fmts_ptr[x] = f;
-		} else {
-			fmts_ptr[x] = NULL;
-		}
-	}
-	AST_RWLIST_UNLOCK(&formats);
-
-	first = 1;
-	for (i = 0; i < x; i++) {
-		/* ignore invalid entries */
-		if (!fmts_ptr[i]) {
-			ast_log(LOG_WARNING, "ignoring unknown format '%s'\n", fmts_str[i]);
-			continue;
-		}
-
-		/* special handling for the first entry */
-		if (first) {
-			fmts += snprintf(fmts, len, "%s", fmts_str[i]);
-			len -= (fmts - orig);
-			first = 0;
-			continue;
-		}
-
-		found = 0;
-		for (j = 0; j < i; j++) {
-			/* this is a duplicate */
-			if (fmts_ptr[j] == fmts_ptr[i]) {
-				found = 1;
-				break;
-			}
-		}
-
-		if (!found) {
-			fmts += snprintf(fmts, len, "|%s", fmts_str[i]);
-			len -= (fmts - orig);
-		}
-	}
-
-	if (first) {
-		ast_log(LOG_WARNING, "no known formats found in format list (%s)\n", orig);
-		return NULL;
-	}
-
-	return orig;
-}
 
 static char *handle_cli_core_show_file_formats(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {

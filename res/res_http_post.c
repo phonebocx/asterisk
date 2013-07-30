@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 226101 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -447,7 +447,7 @@ static int __ast_http_post_load(int reload)
 
 			urih->description = ast_strdup("HTTP POST mapping");
 			urih->uri = ast_strdup(v->name);
-			ast_str_set(&ds, 0, "%s", v->value);
+			ast_str_set(&ds, 0, "%s/%s", prefix, v->value);
 			urih->data = ds;
 			urih->has_subtree = 0;
 			urih->supports_get = 0;

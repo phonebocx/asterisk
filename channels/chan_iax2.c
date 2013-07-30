@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 230727 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222187 $")
 
 #include <sys/mman.h>
 #include <dirent.h>
@@ -379,7 +379,6 @@ enum iax2_flags {
 	IAX_ALLOWFWDOWNLOAD =   (1 << 26),	/*!< Allow the FWDOWNL command? */
 	IAX_IMMEDIATE =		(1 << 27),      /*!< Allow immediate off-hook to extension s */
 	IAX_FORCE_ENCRYPT =	(1 << 28),      /*!< Forces call encryption, if encryption not possible hangup */
-	IAX_SHRINKCALLERID = (1 << 29),   /*!< Turn on and off caller id shrinking */
 };
 
 static int global_rtautoclear = 120;
@@ -780,15 +779,6 @@ struct chan_iax2_pvt {
 	int frames_received;
 	/*! num bytes used for calltoken ie, even an empty ie should contain 2 */
 	unsigned char calltoken_ie_len;
-	/*! hold all signaling frames from the pbx thread until we have a destination callno */
-	char hold_signaling;
-	/*! frame queue for signaling frames from pbx thread waiting for destination callno */
-	AST_LIST_HEAD_NOLOCK(signaling_queue, signaling_queue_entry) signaling_queue;
-};
-
-struct signaling_queue_entry {
-	struct ast_frame f;
-	AST_LIST_ENTRY(signaling_queue_entry) next;
 };
 
 /*! table of available call numbers */
@@ -1668,56 +1658,10 @@ static int scheduled_destroy(const void *vid)
 	return 0;
 }
 
-static void free_signaling_queue_entry(struct signaling_queue_entry *s)
-{
-	ast_free(s->f.data.ptr);
-	ast_free(s);
-}
-
-/*! \brief This function must be called once we are sure the other side has
- *  given us a call number.  All signaling is held here until that point. */
-static void send_signaling(struct chan_iax2_pvt *pvt)
-{
-	struct signaling_queue_entry *s = NULL;
-
-	while ((s = AST_LIST_REMOVE_HEAD(&pvt->signaling_queue, next))) {
-		iax2_send(pvt, &s->f, 0, -1, 0, 0, 0);
-		free_signaling_queue_entry(s);
-	}
-	pvt->hold_signaling = 0;
-}
-
-/*! \brief All frames other than that of type AST_FRAME_IAX must be held until
- *  we have received a destination call number. */
-static int queue_signalling(struct chan_iax2_pvt *pvt, struct ast_frame *f)
-{
-	struct signaling_queue_entry *new;
-
-	if (f->frametype == AST_FRAME_IAX || !pvt->hold_signaling) {
-		return 1; /* do not queue this frame */
-	} else if (!(new = ast_calloc(1, sizeof(struct signaling_queue_entry)))) {
-		return -1;  /* out of memory */
-	}
-
-	memcpy(&new->f, f, sizeof(new->f)); /* copy ast_frame into our queue entry */
-
-	if (new->f.datalen) { /* if there is data in this frame copy it over as well */
-		if (!(new->f.data.ptr = ast_calloc(1, new->f.datalen))) {
-			free_signaling_queue_entry(new);
-			return -1;
-		}
-		memcpy(new->f.data.ptr, f->data.ptr, sizeof(*new->f.data.ptr));
-	}
-	AST_LIST_INSERT_TAIL(&pvt->signaling_queue, new, next);
-
-	return 0;
-}
-
 static void pvt_destructor(void *obj)
 {
 	struct chan_iax2_pvt *pvt = obj;
 	struct iax_frame *cur = NULL;
-	struct signaling_queue_entry *s = NULL;
 
 	ast_mutex_lock(&iaxsl[pvt->callno]);
 	iax2_destroy_helper(pvt);
@@ -1736,10 +1680,6 @@ static void pvt_destructor(void *obj)
 		}
 	}
 	AST_LIST_UNLOCK(&frame_queue);
-
-	while ((s = AST_LIST_REMOVE_HEAD(&pvt->signaling_queue, next))) {
-		free_signaling_queue_entry(s);
-	}
 
 	if (pvt->reg) {
 		pvt->reg->callno = 0;
@@ -1796,9 +1736,6 @@ static struct chan_iax2_pvt *new_iax(struct sockaddr_in *sin, const char *host)
 	jb_setconf(tmp->jb,&jbconf);
 
 	AST_LIST_HEAD_INIT_NOLOCK(&tmp->dpentries);
-
-	tmp->hold_signaling = 1;
-	AST_LIST_HEAD_INIT_NOLOCK(&tmp->signaling_queue);
 
 	return tmp;
 }
@@ -3818,7 +3755,7 @@ static char *handle_cli_iax2_show_cache(struct ast_cli_entry *e, int cmd, struct
 		}
 	}
 
-	AST_LIST_UNLOCK(&dpcache);
+	AST_LIST_LOCK(&dpcache);
 
 	return CLI_SUCCESS;
 }
@@ -4700,7 +4637,7 @@ static int handle_call_token(struct ast_iax2_full_hdr *fh, struct iax_ies *ies,
 	/* ----- Case 3 ----- */
 	} else { /* calltokens are not supported for this client, how do we respond? */
 		if (calltoken_required(sin, ies->username, subclass)) {
-			ast_log(LOG_ERROR, "Call rejected, CallToken Support required. If unexpected, resolve by placing address %s in the calltokenoptional list or setting user %s requirecalltoken=no\n", ast_inet_ntoa(sin->sin_addr), S_OR(ies->username, "guest"));
+			ast_log(LOG_ERROR, "Call rejected, CallToken Support required. If unexpected, resolve by placing address %s in the calltokenignore list or setting user %s requirecalltoken=no\n", ast_inet_ntoa(sin->sin_addr), ies->username);
 			goto reject;
 		}
 		return 0; /* calltoken is not required for this addr, so permit it. */
@@ -7130,17 +7067,12 @@ static int __send_command(struct chan_iax2_pvt *i, char type, int command, unsig
 		int now, int transfer, int final)
 {
 	struct ast_frame f = { 0, };
-	int res = 0;
 
 	f.frametype = type;
 	f.subclass = command;
 	f.datalen = datalen;
 	f.src = __FUNCTION__;
 	f.data.ptr = (void *) data;
-
-	if ((res = queue_signalling(i, &f)) <= 0) {
-		return res;
-	}
 
 	return iax2_send(i, &f, ts, seqno, now, transfer, final);
 }
@@ -7211,9 +7143,7 @@ static int check_access(int callno, struct sockaddr_in *sin, struct iax_ies *ies
 	if (ies->called_number)
 		ast_string_field_set(iaxs[callno], exten, ies->called_number);
 	if (ies->calling_number) {
-		if (ast_test_flag(&globalflags, IAX_SHRINKCALLERID)) { 
-			ast_shrink_phone_number(ies->calling_number);
-		}
+		ast_shrink_phone_number(ies->calling_number);
 		ast_string_field_set(iaxs[callno], cid_num, ies->calling_number);
 	}
 	if (ies->calling_name)
@@ -9604,15 +9534,19 @@ static int socket_process(struct iax2_thread *thread)
 		int check_dcallno = 0;
 
 		/*
-		 * We enforce accurate destination call numbers for ACKs.  This forces the other
-		 * end to know the destination call number before call setup can complete.
-		 *
+		 * We enforce accurate destination call numbers for all full frames except
+		 * LAGRQ and PING commands.  This is because older versions of Asterisk
+		 * schedule these commands to get sent very quickly, and they will sometimes
+		 * be sent before they receive the first frame from the other side.  When
+		 * that happens, it doesn't contain the destination call number.  However,
+		 * not checking it for these frames is safe.
+		 * 
 		 * Discussed in the following thread:
 		 *    http://lists.digium.com/pipermail/asterisk-dev/2008-May/033217.html 
 		 */
 
-		if ((ntohs(mh->callno) & IAX_FLAG_FULL) && ((f.frametype == AST_FRAME_IAX) && (f.subclass == IAX_COMMAND_ACK))) {
-			check_dcallno = 1;
+		if (ntohs(mh->callno) & IAX_FLAG_FULL) {
+			check_dcallno = f.frametype == AST_FRAME_IAX ? (f.subclass != IAX_COMMAND_PING && f.subclass != IAX_COMMAND_LAGRQ) : 1;
 		}
 
 		if (!(fr->callno = find_callno(ntohs(mh->callno) & ~IAX_FLAG_FULL, dcallno, &sin, new, fd, check_dcallno))) {
@@ -9886,12 +9820,6 @@ static int socket_process(struct iax2_thread *thread)
 			if (ies.vars) {
 				ast_debug(1, "I have IAX variables, but they were not processed\n");
 			}
-		}
-
-		/* once we receive our first IAX Full Frame that is not CallToken related, send all
-		 * queued signaling frames that were being held. */
-		if ((f.frametype == AST_FRAME_IAX) && (f.subclass != IAX_COMMAND_CALLTOKEN) && iaxs[fr->callno]->hold_signaling) {
-			send_signaling(iaxs[fr->callno]);
 		}
 
 		if (f.frametype == AST_FRAME_VOICE) {
@@ -12544,8 +12472,7 @@ static int set_config(const char *config_file, int reload)
 	/* Reset Global Flags */
 	memset(&globalflags, 0, sizeof(globalflags));
 	ast_set_flag(&globalflags, IAX_RTUPDATE);
-	ast_set_flag(&globalflags, IAX_SHRINKCALLERID);
-
+	
 #ifdef SO_NO_CHECK
 	nochecksums = 0;
 #endif
@@ -12797,17 +12724,9 @@ static int set_config(const char *config_file, int reload)
 			if (sscanf(v->value, "%10hu", &global_maxcallno_nonval) != 1) {
 				ast_log(LOG_WARNING, "maxcallnumbers_nonvalidated must be set to a valid number.  %s is not valid at line %d.\n", v->value, v->lineno);
 			}
-		} else if (!strcasecmp(v->name, "calltokenoptional")) {
+		} else if(!strcasecmp(v->name, "calltokenoptional")) {
 			if (add_calltoken_ignore(v->value)) {
 				ast_log(LOG_WARNING, "Invalid calltokenoptional address range - '%s' line %d\n", v->value, v->lineno);
-			}
-		} else if (!strcasecmp(v->name, "shrinkcallerid")) {
-			if (ast_true(v->value)) {
-				ast_set_flag((&globalflags), IAX_SHRINKCALLERID);
-			} else if (ast_false(v->value)) {
-				ast_clear_flag((&globalflags), IAX_SHRINKCALLERID);
-			} else {
-				ast_log(LOG_WARNING, "shrinkcallerid value %s is not valid at line %d.\n", v->value, v->lineno);
 			}
 		}/*else if (strcasecmp(v->name,"type")) */
 		/*	ast_log(LOG_WARNING, "Ignoring %s\n", v->name); */

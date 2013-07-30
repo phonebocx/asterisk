@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233612 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 216509 $")
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -267,7 +267,7 @@ int ast_base64decode(unsigned char *dst, const char *src, int max)
 	unsigned int byte = 0;
 	unsigned int bits = 0;
 	int incnt = 0;
-	while(*src && *src != '=' && (cnt < max)) {
+	while (*src && (cnt < max)) {
 		/* Shift in 6 bits of input */
 		byte <<= 6;
 		byte |= (b2a[(int)(*src)]) & 0x3f;
@@ -392,7 +392,7 @@ char *ast_uri_encode(const char *string, char *outbuf, int buflen, int doreserve
 
 	/* If there's no characters to convert, just go through and don't do anything */
 	while (*ptr) {
-		if ((*ptr < 32) || (doreserved && strchr(reserved, *ptr))) {
+		if ((*ptr < 32 || (unsigned char) *ptr) > 127 || (doreserved && strchr(reserved, *ptr)) ) {
 			/* Oops, we need to start working here */
 			if (!buf) {
 				buf = outbuf;

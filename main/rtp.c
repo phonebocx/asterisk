@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231505 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 221780 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -1147,6 +1147,7 @@ static struct ast_frame *process_rfc3389(struct ast_rtp *rtp, unsigned char *dat
 	}
 	rtp->f.frametype = AST_FRAME_CNG;
 	rtp->f.subclass = data[0] & 0x7f;
+	rtp->f.datalen = len - 1;
 	rtp->f.samples = 0;
 	rtp->f.delivery.tv_usec = rtp->f.delivery.tv_sec = 0;
 	f = &rtp->f;
@@ -1450,18 +1451,6 @@ struct ast_frame *ast_rtcp_read(struct ast_rtp *rtp)
 	return f;
 }
 
-static void sanitize_tv(struct timeval *tv)
-{
-	while (tv->tv_usec < 0) {
-		tv->tv_usec += 1000000;
-		tv->tv_sec -= 1;
-	}
-	while (tv->tv_usec >= 1000000) {
-		tv->tv_usec -= 1000000;
-		tv->tv_sec += 1;
-	}
-}
-
 static void calc_rxstamp(struct timeval *when, struct ast_rtp *rtp, unsigned int timestamp, int mark)
 {
 	struct timeval now;
@@ -1482,14 +1471,21 @@ static void calc_rxstamp(struct timeval *when, struct ast_rtp *rtp, unsigned int
 		rtp->rxcore.tv_usec -= (timestamp % rate) * 125;
 		/* Round to 0.1ms for nice, pretty timestamps */
 		rtp->rxcore.tv_usec -= rtp->rxcore.tv_usec % 100;
-		sanitize_tv(&rtp->rxcore);
+		if (rtp->rxcore.tv_usec < 0) {
+			/* Adjust appropriately if necessary */
+			rtp->rxcore.tv_usec += 1000000;
+			rtp->rxcore.tv_sec -= 1;
+		}
 	}
 
 	gettimeofday(&now,NULL);
 	/* rxcore is the mapping between the RTP timestamp and _our_ real time from gettimeofday() */
 	when->tv_sec = rtp->rxcore.tv_sec + timestamp / rate;
 	when->tv_usec = rtp->rxcore.tv_usec + (timestamp % rate) * 125;
-	sanitize_tv(when);
+	if (when->tv_usec >= 1000000) {
+		when->tv_usec -= 1000000;
+		when->tv_sec += 1;
+	}
 	prog = (double)((timestamp-rtp->seedrxts)/(float)(rate));
 	dtv = (double)rtp->drxcore + (double)(prog);
 	current_time = (double)now.tv_sec + (double)now.tv_usec/1000000;

@@ -18,7 +18,7 @@ AC_CANONICAL_HOST
 AC_CONFIG_SRCDIR([main/asterisk.c])
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 226055 $)
+AC_REVISION($Revision: 217647 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -120,9 +120,6 @@ case "${host_os}" in
      cygwin)
      OSARCH=cygwin
      PBX_WINARCH=1
-     ;;
-     linux-gnueabi)
-     OSARCH=linux-gnu
      ;;
      *)
      OSARCH=${host_os}
@@ -659,7 +656,7 @@ AST_EXT_LIB_CHECK([ALSA], [asound], [snd_spcm_init], [alsa/asoundlib.h], [-lm -l
 
 AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
 
-if test "x${OSARCH}" = "xlinux-gnu" ; then
+if test "x${host_os}" = "xlinux-gnu" ; then
   AST_EXT_LIB_CHECK([CAP], [cap], [cap_from_text], [sys/capability.h])
 fi
 

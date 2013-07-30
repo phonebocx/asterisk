@@ -24,7 +24,7 @@
  */
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231870 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 220292 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_SYSTEM_NAME */
@@ -2093,8 +2093,9 @@ static void destroy_pattern_tree(struct match_char *pattern_tree) /* pattern tre
  *	   we could encode the special cases as 0xffXX where XX
  *	   is 1, 2, 3, 4 as used above.
  */
-static int ext_cmp1(const char **p, unsigned char *bitwise)
+static int ext_cmp1(const char **p)
 {
+	uint32_t chars[8];
 	int c, cmin = 0xff, count = 0;
 	const char *end;
 
@@ -2102,7 +2103,6 @@ static int ext_cmp1(const char **p, unsigned char *bitwise)
 	 * a valid character.
 	 */
 	c = *(*p)++;
-	memset(bitwise, 0xff, 32);
 
 	/* always return unless we have a set of chars */
 	switch (toupper(c)) {
@@ -2110,19 +2110,12 @@ static int ext_cmp1(const char **p, unsigned char *bitwise)
 		return 0x0000 | (c & 0xff);
 
 	case 'N':	/* 2..9 */
-		bitwise[6] = 0x01;
-		bitwise[7] = 0xfe;
-		return 0x0800 | '2';
+		return 0x0800 | '2' ;
 
 	case 'X':	/* 0..9 */
-		bitwise[5] = 0x7f;
-		bitwise[6] = 0x00;
-		bitwise[7] = 0xfe;
 		return 0x0A00 | '0';
 
 	case 'Z':	/* 1..9 */
-		bitwise[6] = 0x00;
-		bitwise[7] = 0xfe;
 		return 0x0900 | '1';
 
 	case '.':	/* wildcard */
@@ -2146,28 +2139,22 @@ static int ext_cmp1(const char **p, unsigned char *bitwise)
 		return 0x40000;	/* XXX make this entry go last... */
 	}
 
+	memset(chars, '\0', sizeof(chars));	/* clear all chars in the set */
 	for (; *p < end  ; (*p)++) {
 		unsigned char c1, c2;	/* first-last char in range */
 		c1 = (unsigned char)((*p)[0]);
 		if (*p + 2 < end && (*p)[1] == '-') { /* this is a range */
 			c2 = (unsigned char)((*p)[2]);
-			*p += 2;    /* skip a total of 3 chars */
-		} else {        /* individual character */
+			*p += 2;	/* skip a total of 3 chars */
+		} else			/* individual character */
 			c2 = c1;
-		}
-		if (c1 < cmin) {
+		if (c1 < cmin)
 			cmin = c1;
-		}
 		for (; c1 <= c2; c1++) {
-			unsigned char mask = 1 << (c1 % 8);
-			/* Count the number of characters in the class, discarding duplicates. */
-			if ( (bitwise[ c1 / 8 ] & mask) == 1) {
+			uint32_t mask = 1 << (c1 % 32);
+			if ( (chars[ c1 / 32 ] & mask) == 0)
 				count += 0x100;
-			}
-			/*!\note If two patterns score the same, but one includes '0' (as
-			 * the lowest ASCII value in the given class) and the other does
-			 * not, then the one including '0' will compare as coming first. */
-			bitwise[ c1 / 8 ] &= ~mask;
+			chars[ c1 / 32 ] |= mask;
 		}
 	}
 	(*p)++;
@@ -2181,9 +2168,8 @@ static int ext_cmp(const char *a, const char *b)
 {
 	/* make sure non-patterns come first.
 	 * If a is not a pattern, it either comes first or
-	 * we do a more complex pattern comparison.
+	 * we use strcmp to compare the strings.
 	 */
-	unsigned char bitwise[2][32];
 	int ret = 0;
 
 	if (a[0] != '_')
@@ -2192,20 +2178,16 @@ static int ext_cmp(const char *a, const char *b)
 	/* Now we know a is a pattern; if b is not, a comes first */
 	if (b[0] != '_')
 		return 1;
-
+#if 0	/* old mode for ext matching */
+	return strcmp(a, b);
+#endif
 	/* ok we need full pattern sorting routine */
-	while (!ret && a && b) {
-		ret = ext_cmp1(&a, bitwise[0]) - ext_cmp1(&b, bitwise[1]);
-		if (ret == 0) {
-			/* Are the classes different, even though they score the same? */
-			ret = memcmp(bitwise[0], bitwise[1], 32);
-		}
-	}
-	if (ret == 0) {
+	while (!ret && a && b)
+		ret = ext_cmp1(&a) - ext_cmp1(&b);
+	if (ret == 0)
 		return 0;
-	} else {
+	else
 		return (ret > 0) ? 1 : -1;
-	}
 }
 
 int ast_extension_cmp(const char *a, const char *b)
@@ -3722,23 +3704,22 @@ static int pbx_extension_helper(struct ast_channel *c, struct ast_context *con,
 		}
 	} else {	/* not found anywhere, see what happened */
 		ast_unlock_contexts();
-		/* Using S_OR here because Solaris doesn't like NULL being passed to ast_log */
 		switch (q.status) {
 		case STATUS_NO_CONTEXT:
 			if (!matching_action && !combined_find_spawn)
-				ast_log(LOG_NOTICE, "Cannot find extension context '%s'\n", S_OR(context, ""));
+				ast_log(LOG_NOTICE, "Cannot find extension context '%s'\n", context);
 			break;
 		case STATUS_NO_EXTENSION:
 			if (!matching_action && !combined_find_spawn)
-				ast_log(LOG_NOTICE, "Cannot find extension '%s' in context '%s'\n", exten, S_OR(context, ""));
+				ast_log(LOG_NOTICE, "Cannot find extension '%s' in context '%s'\n", exten, context);
 			break;
 		case STATUS_NO_PRIORITY:
 			if (!matching_action && !combined_find_spawn)
-				ast_log(LOG_NOTICE, "No such priority %d in extension '%s' in context '%s'\n", priority, exten, S_OR(context, ""));
+				ast_log(LOG_NOTICE, "No such priority %d in extension '%s' in context '%s'\n", priority, exten, context);
 			break;
 		case STATUS_NO_LABEL:
 			if (context && !combined_find_spawn)
-				ast_log(LOG_NOTICE, "No such label '%s' in extension '%s' in context '%s'\n", label, exten, S_OR(context, ""));
+				ast_log(LOG_NOTICE, "No such label '%s' in extension '%s' in context '%s'\n", label, exten, context);
 			break;
 		default:
 			ast_debug(1, "Shouldn't happen!\n");
@@ -4424,7 +4405,7 @@ static enum ast_pbx_result __ast_pbx_run(struct ast_channel *c,
 	}
 
 	if (!args || !args->no_hangup_chan) {
-		ast_softhangup(c, AST_SOFTHANGUP_APPUNLOAD);
+		ast_softhangup(c, c->hangupcause ? c->hangupcause : AST_CAUSE_NORMAL_CLEARING);
 	}
 
 	if ((!args || !args->no_hangup_chan) &&
@@ -8740,7 +8721,7 @@ static int pbx_builtin_waitexten(struct ast_channel *chan, void *data)
 	if (ast_test_flag(&flags, WAITEXTEN_MOH) && !opts[0] ) {
 		ast_log(LOG_WARNING, "The 'm' option has been specified for WaitExten without a class.\n"); 
 	} else if (ast_test_flag(&flags, WAITEXTEN_MOH)) {
-		ast_indicate_data(chan, AST_CONTROL_HOLD, S_OR(opts[0], NULL), strlen(opts[0]));
+		ast_indicate_data(chan, AST_CONTROL_HOLD, opts[0], strlen(opts[0]));
 	} else if (ast_test_flag(&flags, WAITEXTEN_DIALTONE)) {
 		struct ast_tone_zone_sound *ts = ast_get_indication_tone(chan->zone, "dial");
 		if (ts) {

@@ -45,7 +45,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 223406 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 191224 $")
 
 #ifdef __cplusplus
 }
@@ -626,8 +626,7 @@ static int oh323_call(struct ast_channel *c, char *dest, int timeout)
 			pvt->options.redirect_reason = 0;
 		else if (!strcasecmp(addr, "BUSY"))
 			pvt->options.redirect_reason = 1;
-		else if (!strcasecmp(addr, "NO_REPLY") || !strcasecmp(addr, "NOANSWER"))
-		/* the NOANSWER is to match diversion-reason from chan_sip, (which never reads PRIREDIRECTREASON) */
+		else if (!strcasecmp(addr, "NO_REPLY"))
 			pvt->options.redirect_reason = 2;
 		else if (!strcasecmp(addr, "UNCONDITIONAL"))
 			pvt->options.redirect_reason = 15;

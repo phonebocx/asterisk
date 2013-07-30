@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 230585 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 197548 $")
 
 #include <signal.h>
 
@@ -79,7 +79,7 @@ int ast_audiohook_init(struct ast_audiohook *audiohook, enum ast_audiohook_type 
 	}
 
 	/* Since we are just starting out... this audiohook is new */
-	ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_NEW);
+	audiohook->status = AST_AUDIOHOOK_STATUS_NEW;
 
 	return 0;
 }
@@ -351,25 +351,11 @@ int ast_audiohook_attach(struct ast_channel *chan, struct ast_audiohook *audioho
 		AST_LIST_INSERT_TAIL(&chan->audiohooks->manipulate_list, audiohook, list);
 
 	/* Change status over to running since it is now attached */
-	ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_RUNNING);
+	audiohook->status = AST_AUDIOHOOK_STATUS_RUNNING;
 
 	ast_channel_unlock(chan);
 
 	return 0;
-}
-
-/*! \brief Update audiohook's status
- * \param audiohook status enum
- * \param audiohook Audiohook structure
- */
-void ast_audiohook_update_status(struct ast_audiohook *audiohook, enum ast_audiohook_status status)
-{
-	ast_audiohook_lock(audiohook);
-	if (audiohook->status != AST_AUDIOHOOK_STATUS_DONE) {
-		audiohook->status = status;
-		ast_cond_signal(&audiohook->trigger);
-	}
-	ast_audiohook_unlock(audiohook);
 }
 
 /*! \brief Detach audiohook from channel
@@ -381,7 +367,7 @@ int ast_audiohook_detach(struct ast_audiohook *audiohook)
 	if (audiohook->status == AST_AUDIOHOOK_STATUS_NEW || audiohook->status == AST_AUDIOHOOK_STATUS_DONE)
 		return 0;
 
-	ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_SHUTDOWN);
+	audiohook->status = AST_AUDIOHOOK_STATUS_SHUTDOWN;
 
 	while (audiohook->status != AST_AUDIOHOOK_STATUS_DONE)
 		ast_audiohook_trigger_wait(audiohook);
@@ -400,17 +386,25 @@ int ast_audiohook_detach_list(struct ast_audiohook_list *audiohook_list)
 
 	/* Drop any spies */
 	while ((audiohook = AST_LIST_REMOVE_HEAD(&audiohook_list->spy_list, list))) {
-		ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
+		ast_audiohook_lock(audiohook);
+		audiohook->status = AST_AUDIOHOOK_STATUS_DONE;
+		ast_cond_signal(&audiohook->trigger);
+		ast_audiohook_unlock(audiohook);
 	}
 
 	/* Drop any whispering sources */
 	while ((audiohook = AST_LIST_REMOVE_HEAD(&audiohook_list->whisper_list, list))) {
-		ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
+		ast_audiohook_lock(audiohook);
+		audiohook->status = AST_AUDIOHOOK_STATUS_DONE;
+		ast_cond_signal(&audiohook->trigger);
+		ast_audiohook_unlock(audiohook);
 	}
 
 	/* Drop any manipulaters */
 	while ((audiohook = AST_LIST_REMOVE_HEAD(&audiohook_list->manipulate_list, list))) {
-		ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
+		ast_audiohook_lock(audiohook);
+		audiohook->status = AST_AUDIOHOOK_STATUS_DONE;
+		ast_audiohook_unlock(audiohook);
 		audiohook->manipulate_callback(audiohook, NULL, NULL, 0);
 	}
 
@@ -496,7 +490,7 @@ int ast_audiohook_detach_source(struct ast_channel *chan, const char *source)
 	ast_channel_unlock(chan);
 
 	if (audiohook && audiohook->status != AST_AUDIOHOOK_STATUS_DONE)
-		ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_SHUTDOWN);
+		audiohook->status = AST_AUDIOHOOK_STATUS_SHUTDOWN;
 
 	return (audiohook ? 0 : -1);
 }
@@ -527,7 +521,10 @@ int ast_audiohook_remove(struct ast_channel *chan, struct ast_audiohook *audioho
 	else if (audiohook->type == AST_AUDIOHOOK_TYPE_MANIPULATE)
 		AST_LIST_REMOVE(&chan->audiohooks->manipulate_list, audiohook, list);
 
-	ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
+	ast_audiohook_lock(audiohook);
+	audiohook->status = AST_AUDIOHOOK_STATUS_DONE;
+	ast_cond_signal(&audiohook->trigger);
+	ast_audiohook_unlock(audiohook);
 
 	ast_channel_unlock(chan);
 
@@ -549,7 +546,7 @@ static struct ast_frame *dtmf_audiohook_write_list(struct ast_channel *chan, str
 		ast_audiohook_lock(audiohook);
 		if (audiohook->status != AST_AUDIOHOOK_STATUS_RUNNING) {
 			AST_LIST_REMOVE_CURRENT(list);
-			ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
+			audiohook->status = AST_AUDIOHOOK_STATUS_DONE;
 			ast_audiohook_unlock(audiohook);
 			audiohook->manipulate_callback(audiohook, NULL, NULL, 0);
 			continue;
@@ -577,7 +574,7 @@ static struct ast_frame *audio_audiohook_write_list(struct ast_channel *chan, st
 	struct ast_frame *start_frame = frame, *middle_frame = frame, *end_frame = frame;
 	struct ast_audiohook *audiohook = NULL;
 	int samples = frame->samples;
-
+	
 	/* If the frame coming in is not signed linear we have to send it through the in_translate path */
 	if (frame->subclass != AST_FORMAT_SLINEAR) {
 		if (in_translate->format != frame->subclass) {
@@ -597,7 +594,8 @@ static struct ast_frame *audio_audiohook_write_list(struct ast_channel *chan, st
 		ast_audiohook_lock(audiohook);
 		if (audiohook->status != AST_AUDIOHOOK_STATUS_RUNNING) {
 			AST_LIST_REMOVE_CURRENT(list);
-			ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
+			audiohook->status = AST_AUDIOHOOK_STATUS_DONE;
+			ast_cond_signal(&audiohook->trigger);
 			ast_audiohook_unlock(audiohook);
 			continue;
 		}
@@ -615,7 +613,8 @@ static struct ast_frame *audio_audiohook_write_list(struct ast_channel *chan, st
 			ast_audiohook_lock(audiohook);
 			if (audiohook->status != AST_AUDIOHOOK_STATUS_RUNNING) {
 				AST_LIST_REMOVE_CURRENT(list);
-				ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
+				audiohook->status = AST_AUDIOHOOK_STATUS_DONE;
+				ast_cond_signal(&audiohook->trigger);
 				ast_audiohook_unlock(audiohook);
 				continue;
 			}
@@ -639,23 +638,18 @@ static struct ast_frame *audio_audiohook_write_list(struct ast_channel *chan, st
 			ast_audiohook_lock(audiohook);
 			if (audiohook->status != AST_AUDIOHOOK_STATUS_RUNNING) {
 				AST_LIST_REMOVE_CURRENT(list);
-				ast_audiohook_update_status(audiohook, AST_AUDIOHOOK_STATUS_DONE);
+				audiohook->status = AST_AUDIOHOOK_STATUS_DONE;
 				ast_audiohook_unlock(audiohook);
 				/* We basically drop all of our links to the manipulate audiohook and prod it to do it's own destructive things */
 				audiohook->manipulate_callback(audiohook, chan, NULL, direction);
 				continue;
 			}
 			/* Feed in frame to manipulation */
-			if (audiohook->manipulate_callback(audiohook, chan, middle_frame, direction)) {
-				ast_frfree(middle_frame);
-				middle_frame = NULL;
-			}
+			audiohook->manipulate_callback(audiohook, chan, middle_frame, direction);
 			ast_audiohook_unlock(audiohook);
 		}
 		AST_LIST_TRAVERSE_SAFE_END;
-		if (middle_frame) {
-			end_frame = middle_frame;
-		}
+		end_frame = middle_frame;
 	}
 
 	/* Now we figure out what to do with our end frame (whether to transcode or not) */
@@ -683,9 +677,7 @@ static struct ast_frame *audio_audiohook_write_list(struct ast_channel *chan, st
 		}
 	} else {
 		/* No frame was modified, we can just drop our middle frame and pass the frame we got in out */
-		if (middle_frame) {
-			ast_frfree(middle_frame);
-		}
+		ast_frfree(middle_frame);
 	}
 
 	return end_frame;

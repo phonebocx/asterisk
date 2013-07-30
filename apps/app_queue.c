@@ -62,7 +62,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231558 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222187 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -94,9 +94,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231558 $")
 #include "asterisk/strings.h"
 #include "asterisk/global_datastores.h"
 #include "asterisk/taskprocessor.h"
-
-/* Define, to debug reference counts on queues, without debugging reference counts on queue members */
-/* #define REF_DEBUG_ONLY_QUEUES */
 
 /*!
  * \par Please read before modifying this file.
@@ -873,18 +870,6 @@ static int queue_cmp_cb(void *obj, void *arg, int flags)
 	return !strcasecmp(q->name, q2->name) ? CMP_MATCH | CMP_STOP : 0;
 }
 
-#ifdef REF_DEBUG_ONLY_QUEUES
-#define queue_ref(a)	__ao2_ref_debug(a,1,"",__FILE__,__LINE__,__PRETTY_FUNCTION__)
-#define queue_unref(a)	__ao2_ref_debug(a,-1,"",__FILE__,__LINE__,__PRETTY_FUNCTION__)
-#define queue_t_ref(a,b)	__ao2_ref_debug(a,1,b,__FILE__,__LINE__,__PRETTY_FUNCTION__)
-#define queue_t_unref(a,b)	__ao2_ref_debug(a,-1,b,__FILE__,__LINE__,__PRETTY_FUNCTION__)
-#define queues_t_link(c,q,tag)	__ao2_link_debug(c,q,tag,__FILE__,__LINE__,__PRETTY_FUNCTION__)
-#define queues_t_unlink(c,q,tag)	__ao2_unlink_debug(c,q,tag,__FILE__,__LINE__,__PRETTY_FUNCTION__)
-#else
-#define queue_t_ref(a,b)	queue_ref(a)
-#define queue_t_unref(a,b)	queue_unref(a)
-#define queues_t_link(c,q,tag)	ao2_t_link(c,q,tag)
-#define queues_t_unlink(c,q,tag)	ao2_t_unlink(c,q,tag)
 static inline struct call_queue *queue_ref(struct call_queue *q)
 {
 	ao2_ref(q, 1);
@@ -896,7 +881,6 @@ static inline struct call_queue *queue_unref(struct call_queue *q)
 	ao2_ref(q, -1);
 	return q;
 }
-#endif
 
 /*! \brief Set variables of queue */
 static void set_queue_variables(struct call_queue *q, struct ast_channel *chan)
@@ -932,11 +916,6 @@ static inline void insert_entry(struct call_queue *q, struct queue_ent *prev, st
 		q->head = new;
 	}
 	new->next = cur;
-
-	/* every queue_ent must have a reference to it's parent call_queue, this
-	 * reference does not go away until the end of the queue_ent's life, meaning
-	 * that even when the queue_ent leaves the call_queue this ref must remain. */
-	queue_ref(q);
 	new->parent = q;
 	new->pos = ++(*pos);
 	new->opos = *pos;
@@ -1053,7 +1032,7 @@ static int handle_statechange(void *datap)
 	int found = 0;
 
 	qiter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&qiter, "Iterate over queues"))) {
+	while ((q = ao2_iterator_next(&qiter))) {
 		ao2_lock(q);
 
 		miter = ao2_iterator_init(q->members, 0);
@@ -1074,7 +1053,7 @@ static int handle_statechange(void *datap)
 		ao2_iterator_destroy(&miter);
 
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator");
+		ao2_ref(q, -1);
 	}
 	ao2_iterator_destroy(&qiter);
 
@@ -1668,9 +1647,9 @@ static struct call_queue *alloc_queue(const char *queuename)
 {
 	struct call_queue *q;
 
-	if ((q = ao2_t_alloc(sizeof(*q), destroy_queue, "Allocate queue"))) {
+	if ((q = ao2_alloc(sizeof(*q), destroy_queue))) {
 		if (ast_string_field_init(q, 64)) {
-			queue_t_unref(q, "String field allocation failed");
+			ao2_ref(q, -1);
 			return NULL;
 		}
 		ast_string_field_set(q, name, queuename);
@@ -1702,12 +1681,12 @@ static struct call_queue *find_queue_by_name_rt(const char *queuename, struct as
 	char tmpbuf[64];	/* Must be longer than the longest queue param name. */
 
 	/* Static queues override realtime. */
-	if ((q = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Check if static queue exists"))) {
+	if ((q = ao2_find(queues, &tmpq, OBJ_POINTER))) {
 		ao2_lock(q);
 		if (!q->realtime) {
 			if (q->dead) {
 				ao2_unlock(q);
-				queue_t_unref(q, "Queue is dead; can't return it");
+				queue_unref(q);
 				return NULL;
 			} else {
 				ast_log(LOG_WARNING, "Static queue '%s' already exists. Not loading from realtime\n", q->name);
@@ -1715,6 +1694,7 @@ static struct call_queue *find_queue_by_name_rt(const char *queuename, struct as
 				return q;
 			}
 		}
+		queue_unref(q);
 	} else if (!member_config)
 		/* Not found in the list, and it's not realtime ... */
 		return NULL;
@@ -1730,9 +1710,9 @@ static struct call_queue *find_queue_by_name_rt(const char *queuename, struct as
 
 			q->dead = 1;
 			/* Delete if unused (else will be deleted when last caller leaves). */
-			queues_t_unlink(queues, q, "Unused; removing from container");
+			ao2_unlink(queues, q);
 			ao2_unlock(q);
-			queue_t_unref(q, "Queue is dead; can't return it");
+			queue_unref(q);
 		}
 		return NULL;
 	}
@@ -1763,7 +1743,7 @@ static struct call_queue *find_queue_by_name_rt(const char *queuename, struct as
 		/* We traversed all variables and didn't find a strategy */
 		if (!tmpvar)
 			q->strategy = QUEUE_STRATEGY_RINGALL;
-		queues_t_link(queues, q, "Add queue to container");
+		ao2_link(queues, q);
 	}
 	init_queue(q);		/* Ensure defaults for all parameters not set explicitly. */
 
@@ -1832,7 +1812,7 @@ static struct call_queue *load_realtime_queue(const char *queuename)
 	int prev_weight = 0;
 
 	/* Find the queue in the in-core list first. */
-	q = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Look for queue in memory first");
+	q = ao2_find(queues, &tmpq, OBJ_POINTER);
 
 	if (!q || q->realtime) {
 		/*! \note Load from realtime before taking the "queues" container lock, to avoid blocking all
@@ -2244,7 +2224,7 @@ static void leave_queue(struct queue_ent *qe)
 
 	if (!(q = qe->parent))
 		return;
-	queue_t_ref(q, "Copy queue pointer from queue entry");
+	queue_ref(q);
 	ao2_lock(q);
 
 	prev = NULL;
@@ -2285,10 +2265,10 @@ static void leave_queue(struct queue_ent *qe)
 
 	if (q->dead) {	
 		/* It's dead and nobody is in it, so kill it */
-		queues_t_unlink(queues, q, "Queue is now dead; remove it from the container");
+		ao2_unlink(queues, q);
 	}
 	/* unref the explicit ref earlier in the function */
-	queue_t_unref(q, "Expire copied reference");
+	queue_unref(q);
 }
 
 /*! \brief Hang up a list of outgoing calls */
@@ -2373,9 +2353,9 @@ static int compare_weight(struct call_queue *rq, struct member *member)
 	/* q's lock and rq's lock already set by try_calling()
 	 * to solve deadlock */
 	queue_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		if (q == rq) { /* don't check myself, could deadlock */
-			queue_t_unref(q, "Done with iterator");
+			queue_unref(q);
 			continue;
 		}
 		ao2_lock(q);
@@ -2390,7 +2370,7 @@ static int compare_weight(struct call_queue *rq, struct member *member)
 			}
 		}
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator");
+		queue_unref(q);
 		if (found) {
 			break;
 		}
@@ -3271,7 +3251,7 @@ static int update_queue(struct call_queue *q, struct member *member, int callcom
 	
 	if (shared_lastcall) {
 		queue_iter = ao2_iterator_init(queues, 0);
-		while ((qtmp = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+		while ((qtmp = ao2_iterator_next(&queue_iter))) {
 			ao2_lock(qtmp);
 			if ((mem = ao2_find(qtmp->members, member, OBJ_POINTER))) {
 				time(&mem->lastcall);
@@ -3280,7 +3260,7 @@ static int update_queue(struct call_queue *q, struct member *member, int callcom
 				ao2_ref(mem, -1);
 			}
 			ao2_unlock(qtmp);
-			queue_t_unref(qtmp, "Done with iterator");
+			ao2_ref(qtmp, -1);
 		}
 		ao2_iterator_destroy(&queue_iter);
 	} else {
@@ -3528,7 +3508,7 @@ static void end_bridge_callback(void *data)
 		set_queue_variables(q, chan);
 		ao2_unlock(q);
 		/* This unrefs the reference we made in try_calling when we allocated qeb */
-		queue_t_unref(q, "Expire bridge_config reference");
+		queue_unref(q);
 	}
 }
 
@@ -4261,7 +4241,7 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 			 * to make sure to increase the refcount of this queue so it cannot be freed until we
 			 * are done with it. We remove this reference in end_bridge_callback.
 			 */
-			queue_t_ref(qe->parent, "For bridge_config reference");
+			queue_ref(qe->parent);
 		}
 
 		time(&callstart);
@@ -4404,7 +4384,7 @@ static int remove_from_queue(const char *queuename, const char *interface)
 	int res = RES_NOSUCHQUEUE;
 
 	ast_copy_string(tmpmem.interface, interface, sizeof(tmpmem.interface));
-	if ((q = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Temporary reference for interface removal"))) {
+	if ((q = ao2_find(queues, &tmpq, OBJ_POINTER))) {
 		ao2_lock(queues);
 		ao2_lock(q);
 		if ((mem = ao2_find(q->members, &tmpmem, OBJ_POINTER))) {
@@ -4412,7 +4392,7 @@ static int remove_from_queue(const char *queuename, const char *interface)
 			if (!mem->dynamic) {
 				ao2_ref(mem, -1);
 				ao2_unlock(q);
-				queue_t_unref(q, "Interface wasn't dynamic, expiring temporary reference");
+				queue_unref(q);
 				ao2_unlock(queues);
 				return RES_NOT_DYNAMIC;
 			}
@@ -4434,7 +4414,7 @@ static int remove_from_queue(const char *queuename, const char *interface)
 		}
 		ao2_unlock(q);
 		ao2_unlock(queues);
-		queue_t_unref(q, "Expiring temporary reference");
+		queue_unref(q);
 	}
 
 	return res;
@@ -4515,7 +4495,7 @@ static int set_member_paused(const char *queuename, const char *interface, const
 		ast_queue_log("NONE", "NONE", interface, (paused ? "PAUSEALL" : "UNPAUSEALL"), "%s", "");
 
 	queue_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate over queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		ao2_lock(q);
 		if (ast_strlen_zero(queuename) || !strcasecmp(q->name, queuename)) {
 			if ((mem = interface_exists(q, interface))) {
@@ -4532,7 +4512,6 @@ static int set_member_paused(const char *queuename, const char *interface, const
 					ast_log(LOG_WARNING, "Failed %spausing realtime queue member %s:%s\n", (paused ? "" : "un"), q->name, interface);
 					ao2_ref(mem, -1);
 					ao2_unlock(q);
-					queue_t_unref(q, "Done with iterator");
 					continue;
 				}	
 				found++;
@@ -4565,12 +4544,12 @@ static int set_member_paused(const char *queuename, const char *interface, const
 		
 		if (!ast_strlen_zero(queuename) && !strcasecmp(queuename, q->name)) {
 			ao2_unlock(q);
-			queue_t_unref(q, "Done with iterator");
+			queue_unref(q);
 			break;
 		}
 		
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator");
+		queue_unref(q);
 	}
 	ao2_iterator_destroy(&queue_iter);
 
@@ -4591,7 +4570,7 @@ static int set_member_penalty(char *queuename, char *interface, int penalty)
 	}
 
 	queue_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		ao2_lock(q);
 		if (ast_strlen_zero(queuename) || !strcasecmp(q->name, queuename)) {
 			foundqueue++;
@@ -4609,7 +4588,7 @@ static int set_member_penalty(char *queuename, char *interface, int penalty)
 			}
 		}
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator");
+		queue_unref(q);
 	}
 	ao2_iterator_destroy(&queue_iter);
 
@@ -4635,18 +4614,18 @@ static int get_member_penalty(char *queuename, char *interface)
 	};
 	struct member *mem;
 	
-	if ((q = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Search for queue"))) {
+	if ((q = ao2_find(queues, &tmpq, OBJ_POINTER))) {
 		foundqueue = 1;
 		ao2_lock(q);
 		if ((mem = interface_exists(q, interface))) {
 			penalty = mem->penalty;
 			ao2_ref(mem, -1);
 			ao2_unlock(q);
-			queue_t_unref(q, "Search complete");
+			queue_unref(q);
 			return penalty;
 		}
 		ao2_unlock(q);
-		queue_t_unref(q, "Search complete");
+		queue_unref(q);
 	}
 
 	/* some useful debuging */
@@ -4688,7 +4667,7 @@ static void reload_queue_members(void)
 			struct call_queue tmpq = {
 				.name = queue_name,
 			};
-			cur_queue = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Reload queue members");
+			cur_queue = ao2_find(queues, &tmpq, OBJ_POINTER);
 		}	
 
 		if (!cur_queue)
@@ -4703,7 +4682,7 @@ static void reload_queue_members(void)
 		} 
 
 		if (ast_db_get(pm_family, queue_name, queue_data, PM_MAX_LEN)) {
-			queue_t_unref(cur_queue, "Expire reload reference");
+			queue_unref(cur_queue);
 			continue;
 		}
 
@@ -4745,7 +4724,7 @@ static void reload_queue_members(void)
 				break;
 			}
 		}
-		queue_t_unref(cur_queue, "Expire reload reference");
+		queue_unref(cur_queue);
 	}
 
 	ao2_unlock(queues);
@@ -5051,7 +5030,7 @@ static int queue_exec(struct ast_channel *chan, void *data)
 		AST_APP_ARG(rule);
 	);
 	/* Our queue entry */
-	struct queue_ent qe = { 0 };
+	struct queue_ent qe;
 	
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Queue requires an argument: queuename[,options[,URL[,announceoverride[,timeout[,agi[,macro[,gosub[,rule]]]]]]]]\n");
@@ -5062,6 +5041,7 @@ static int queue_exec(struct ast_channel *chan, void *data)
 	AST_STANDARD_APP_ARGS(args, parse);
 
 	/* Setup our queue entry */
+	memset(&qe, 0, sizeof(qe));
 	qe.start = time(NULL);
 
 	/* set the expire time based on the supplied timeout; */
@@ -5294,13 +5274,6 @@ stop:
 	if (reason != QUEUE_UNKNOWN)
 		set_queue_result(chan, reason);
 
-	if (qe.parent) {
-		/* every queue_ent is given a reference to it's parent call_queue when it joins the queue.
-		 * This ref must be taken away right before the queue_ent is destroyed.  In this case
-		 * the queue_ent is about to be returned on the stack */
-		qe.parent = queue_unref(qe.parent);
-	}
-
 	return res;
 }
 
@@ -5324,7 +5297,7 @@ static int queue_function_var(struct ast_channel *chan, const char *cmd, char *d
 		return -1;
 	}
 
-	if ((q = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Find for QUEUE() function"))) {
+	if ((q = ao2_find(queues, &tmpq, OBJ_POINTER))) {
 		ao2_lock(q);
 		if (q->setqueuevar) {
 			sl = 0;
@@ -5342,7 +5315,7 @@ static int queue_function_var(struct ast_channel *chan, const char *cmd, char *d
 		}
 
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with QUEUE() function");
+		queue_unref(q);
 	} else {
 		ast_log(LOG_WARNING, "queue %s was not found\n", data);
 	}
@@ -5399,7 +5372,7 @@ static int queue_function_qac(struct ast_channel *chan, const char *cmd, char *d
 		} else /* must be "count" */
 			count = q->membercount;
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with temporary reference in QUEUE_MEMBER()");
+		queue_unref(q);
 	} else
 		ast_log(LOG_WARNING, "queue %s was not found\n", data);
 
@@ -5443,7 +5416,7 @@ static int queue_function_qac_dep(struct ast_channel *chan, const char *cmd, cha
 		}
 		ao2_iterator_destroy(&mem_iter);
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with temporary reference in QUEUE_MEMBER_COUNT");
+		queue_unref(q);
 	} else
 		ast_log(LOG_WARNING, "queue %s was not found\n", data);
 
@@ -5468,11 +5441,11 @@ static int queue_function_queuewaitingcount(struct ast_channel *chan, const char
 		return -1;
 	}
 
-	if ((q = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Find for QUEUE_WAITING_COUNT()"))) {
+	if ((q = ao2_find(queues, &tmpq, OBJ_POINTER))) {
 		ao2_lock(q);
 		count = q->count;
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with reference in QUEUE_WAITING_COUNT()");
+		queue_unref(q);
 	} else if ((var = ast_load_realtime("queues", "name", data, SENTINEL))) {
 		/* if the queue is realtime but was not found in memory, this
 		 * means that the queue had been deleted from memory since it was 
@@ -5504,7 +5477,7 @@ static int queue_function_queuememberlist(struct ast_channel *chan, const char *
 		return -1;
 	}
 
-	if ((q = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Find for QUEUE_MEMBER_LIST()"))) {
+	if ((q = ao2_find(queues, &tmpq, OBJ_POINTER))) {
 		int buflen = 0, count = 0;
 		struct ao2_iterator mem_iter = ao2_iterator_init(q->members, 0);
 
@@ -5527,7 +5500,7 @@ static int queue_function_queuememberlist(struct ast_channel *chan, const char *
 		}
 		ao2_iterator_destroy(&mem_iter);
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with QUEUE_MEMBER_LIST()");
+		queue_unref(q);
 	} else
 		ast_log(LOG_WARNING, "queue %s was not found\n", data);
 
@@ -5839,7 +5812,7 @@ static void reload_single_queue(struct ast_config *cfg, struct ast_flags *mask, 
 	const int member_reload = ast_test_flag(mask, QUEUE_RELOAD_MEMBER);
 	int prev_weight = 0;
 	struct ast_variable *var;
-	if (!(q = ao2_t_find(queues, &tmpq, OBJ_POINTER, "Find queue for reload"))) {
+	if (!(q = ao2_find(queues, &tmpq, OBJ_POINTER))) {
 		if (queue_reload) {
 			/* Make one then */
 			if (!(q = alloc_queue(queuename))) {
@@ -5867,7 +5840,7 @@ static void reload_single_queue(struct ast_config *cfg, struct ast_flags *mask, 
 			/* It should be impossible to *not* hit this case*/
 			ao2_unlock(q);
 		}
-		queue_t_unref(q, "We exist! Expiring temporary pointer");
+		queue_unref(q);
 		return;
 	}
 	/* Due to the fact that the "linear" strategy will have a different allocation
@@ -5915,11 +5888,11 @@ static void reload_single_queue(struct ast_config *cfg, struct ast_flags *mask, 
 	}
 
 	if (new) {
-		queues_t_link(queues, q, "Add queue to container");
+		ao2_link(queues, q);
 	} else {
 		ao2_unlock(q);
 	}
-	queue_t_unref(q, "Expiring creation reference");
+	queue_unref(q);
 }
 
 static int mark_dead_and_unfound(void *obj, void *arg, int flags)
@@ -6020,12 +5993,11 @@ static int clear_stats(const char *queuename)
 {
 	struct call_queue *q;
 	struct ao2_iterator queue_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		ao2_lock(q);
 		if (ast_strlen_zero(queuename) || !strcasecmp(q->name, queuename))
 			clear_queue(q);
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator");
 	}
 	ao2_iterator_destroy(&queue_iter);
 	return 0;
@@ -6089,7 +6061,7 @@ static char *__queues_show(struct mansession *s, int fd, int argc, char **argv)
 
 	if (argc == 3)	{ /* specific queue */
 		if ((q = load_realtime_queue(argv[2]))) {
-			queue_t_unref(q, "Done with temporary pointer");
+			queue_unref(q);
 		}
 	} else if (ast_check_realtime("queues")) {
 		/* This block is to find any queues which are defined in realtime but
@@ -6100,7 +6072,7 @@ static char *__queues_show(struct mansession *s, int fd, int argc, char **argv)
 		if (cfg) {
 			for (queuename = ast_category_browse(cfg, NULL); !ast_strlen_zero(queuename); queuename = ast_category_browse(cfg, queuename)) {
 				if ((q = load_realtime_queue(queuename))) {
-					queue_t_unref(q, "Done with temporary pointer");
+					queue_unref(q);
 				}
 			}
 			ast_config_destroy(cfg);
@@ -6109,7 +6081,7 @@ static char *__queues_show(struct mansession *s, int fd, int argc, char **argv)
 
 	queue_iter = ao2_iterator_init(queues, AO2_ITERATOR_DONTLOCK);
 	ao2_lock(queues);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		float sl;
 		struct call_queue *realtime_queue = NULL;
 
@@ -6120,14 +6092,14 @@ static char *__queues_show(struct mansession *s, int fd, int argc, char **argv)
 		 */
 		if (q->realtime && !(realtime_queue = load_realtime_queue(q->name))) {
 			ao2_unlock(q);
-			queue_t_unref(q, "Done with iterator");
+			queue_unref(q);
 			continue;
 		} else if (q->realtime) {
-			queue_t_unref(realtime_queue, "Queue is already in memory");
+			queue_unref(realtime_queue);
 		}
 		if (argc == 3 && strcasecmp(q->name, argv[2])) {
 			ao2_unlock(q);
-			queue_t_unref(q, "Done with iterator");
+			queue_unref(q);
 			continue;
 		}
 		found = 1;
@@ -6189,7 +6161,7 @@ static char *__queues_show(struct mansession *s, int fd, int argc, char **argv)
 		}
 		do_print(s, fd, "");	/* blank line between entries */
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator"); /* Unref the iterator's reference */
+		queue_unref(q); /* Unref the iterator's reference */
 	}
 	ao2_iterator_destroy(&queue_iter);
 	ao2_unlock(queues);
@@ -6212,13 +6184,13 @@ static char *complete_queue(const char *line, const char *word, int pos, int sta
 	struct ao2_iterator queue_iter;
 
 	queue_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		if (!strncasecmp(word, q->name, wordlen) && ++which > state) {
 			ret = ast_strdup(q->name);
-			queue_t_unref(q, "Done with iterator");
+			queue_unref(q);
 			break;
 		}
-		queue_t_unref(q, "Done with iterator");
+		queue_unref(q);
 	}
 	ao2_iterator_destroy(&queue_iter);
 
@@ -6307,7 +6279,7 @@ static int manager_queues_summary(struct mansession *s, const struct message *m)
 	if (!ast_strlen_zero(id))
 		snprintf(idText, 256, "ActionID: %s\r\n", id);
 	queue_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		ao2_lock(q);
 
 		/* List queue properties */
@@ -6349,7 +6321,7 @@ static int manager_queues_summary(struct mansession *s, const struct message *m)
 				q->name, qmemcount, qmemavail, qchancount, q->holdtime, q->talktime, qlongestholdtime, idText);
 		}
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator");
+		queue_unref(q);
 	}
 	ao2_iterator_destroy(&queue_iter);
 	astman_append(s,
@@ -6382,7 +6354,7 @@ static int manager_queues_status(struct mansession *s, const struct message *m)
 		snprintf(idText, sizeof(idText), "ActionID: %s\r\n", id);
 
 	queue_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		ao2_lock(q);
 
 		/* List queue properties */
@@ -6446,7 +6418,7 @@ static int manager_queues_status(struct mansession *s, const struct message *m)
 			}
 		}
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator");
+		queue_unref(q);
 	}
 	ao2_iterator_destroy(&queue_iter);
 
@@ -6785,7 +6757,7 @@ static char *complete_queue_remove_member(const char *line, const char *word, in
 
 	/* here is the case for 3, <member> */
 	queue_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
+	while ((q = ao2_iterator_next(&queue_iter))) {
 		ao2_lock(q);
 		mem_iter = ao2_iterator_init(q->members, 0);
 		while ((m = ao2_iterator_next(&mem_iter))) {
@@ -6794,7 +6766,7 @@ static char *complete_queue_remove_member(const char *line, const char *word, in
 				ao2_unlock(q);
 				tmp = ast_strdup(m->interface);
 				ao2_ref(m, -1);
-				queue_t_unref(q, "Done with iterator, returning interface name");
+				queue_unref(q);
 				ao2_iterator_destroy(&mem_iter);
 				ao2_iterator_destroy(&queue_iter);
 				return tmp;
@@ -6803,7 +6775,7 @@ static char *complete_queue_remove_member(const char *line, const char *word, in
 		}
 		ao2_iterator_destroy(&mem_iter);
 		ao2_unlock(q);
-		queue_t_unref(q, "Done with iterator");
+		queue_unref(q);
 	}
 	ao2_iterator_destroy(&queue_iter);
 
@@ -7201,9 +7173,9 @@ static int unload_module(void)
 	}
 
 	q_iter = ao2_iterator_init(queues, 0);
-	while ((q = ao2_t_iterator_next(&q_iter, "Iterate through queues"))) {
-		queues_t_unlink(queues, q, "Remove queue from container due to unload");
-		queue_t_unref(q, "Done with iterator");
+	while ((q = ao2_iterator_next(&q_iter))) {
+		ao2_unlink(queues, q);
+		queue_unref(q);
 	}
 	ao2_iterator_destroy(&q_iter);
 	ao2_ref(queues, -1);

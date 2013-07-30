@@ -338,7 +338,7 @@
 </member>
 <member name="format_ilbc" displayname="Raw iLBC data" remove_on_change="formats/format_ilbc.o formats/format_ilbc.so">
 </member>
-<member name="format_jpeg" displayname="jpeg (joint picture experts group) image format" remove_on_change="formats/format_jpeg.o formats/format_jpeg.so">
+<member name="format_jpeg" displayname="JPEG (Joint Picture Experts Group) Image Format" remove_on_change="formats/format_jpeg.o formats/format_jpeg.so">
 </member>
 <member name="format_ogg_vorbis" displayname="OGG/Vorbis audio" remove_on_change="formats/format_ogg_vorbis.o formats/format_ogg_vorbis.so">
 	<depend>vorbis</depend>

@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: rc.redhat.asterisk 226815 2009-11-02 17:17:10Z tilghman $
+# $Id: rc.redhat.asterisk 150930 2008-10-18 09:02:36Z mvanbaak $
 #
 # asterisk    Starts, Stops and Reloads Asterisk.
 #
@@ -99,14 +99,8 @@ start() {
 
 stop() {
 	# Stop daemons.
-	if [ -f $SAFE_ASTERISK ]; then
-		# Kill safe_asterisk first, to prevent us from starting up 2 instances of safe_asterisk
-		echo -n $"Stopping safe_asterisk: "
-		killproc `basename $SAFE_ASTERISK`
-		echo
-	fi
 	echo -n $"Shutting down asterisk: "
-	killproc `basename $DAEMON`
+	killproc asterisk
 	RETVAL=$?
 	[ $RETVAL -eq 0 ] && rm -f /var/lock/subsys/asterisk
 	echo

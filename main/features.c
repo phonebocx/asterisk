@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231098 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 218300 $")
 
 #include "asterisk/_private.h"
 
@@ -2248,12 +2248,10 @@ static struct ast_channel *feature_request_and_dial(struct ast_channel *caller, 
 					f = NULL;
 					ready=1;
 					break;
-				} else if (f->subclass != -1 && f->subclass != AST_CONTROL_PROGRESS) {
+				} else if (f->subclass != -1) {
 					ast_log(LOG_NOTICE, "Don't know what to do about control frame: %d\n", f->subclass);
 				}
 				/* else who cares */
-			} else if (f->frametype == AST_FRAME_VOICE || f->frametype == AST_FRAME_VIDEO) {
-				ast_write(caller, f);
 			}
 
 		} else if (caller && (active_channel == caller)) {
@@ -2287,8 +2285,6 @@ static struct ast_channel *feature_request_and_dial(struct ast_channel *caller, 
 						f = NULL;
 						break;
 					}
-				} else if (f->frametype == AST_FRAME_VOICE || f->frametype == AST_FRAME_VIDEO) {
-					ast_write(chan, f);
 				}
 			}
 		}
@@ -2515,10 +2511,6 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 			bridge_cdr = ast_cdr_dup(chan_cdr);
 			ast_copy_string(bridge_cdr->lastapp, S_OR(chan->appl, ""), sizeof(bridge_cdr->lastapp));
 			ast_copy_string(bridge_cdr->lastdata, S_OR(chan->data, ""), sizeof(bridge_cdr->lastdata));
-			if (peer_cdr && !ast_strlen_zero(peer_cdr->userfield)) {
-				ast_copy_string(bridge_cdr->userfield, peer_cdr->userfield, sizeof(bridge_cdr->userfield));
-			}
-
 		} else {
 			/* better yet, in a xfer situation, find out why the chan cdr got zapped (pun unintentional) */
 			bridge_cdr = ast_cdr_alloc(); /* this should be really, really rare/impossible? */
@@ -2806,10 +2798,6 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 		while ((spawn_error = ast_spawn_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num, &found, 1)) == 0) {
 			chan->priority++;
 		}
-		if (spawn_error && (!ast_exists_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num) || ast_check_hangup(chan))) {
-			/* if the extension doesn't exist or a hangup occurred, this isn't really a spawn error */
-			spawn_error = 0;
-		}
 		if (found && spawn_error) {
 			/* Something bad happened, or a hangup has been requested. */
 			ast_debug(1, "Spawn extension (%s,%s,%d) exited non-zero on '%s'\n", chan->context, chan->exten, chan->priority, chan->name);
@@ -2826,7 +2814,7 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 				bridge_cdr = NULL;
 			}
 		}
-		if (!spawn_error) {
+		if (chan->priority != 1 || !spawn_error) {
 			ast_set_flag(chan, AST_FLAG_BRIDGE_HANGUP_RUN);
 		}
 		ast_channel_unlock(chan);
