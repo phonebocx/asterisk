@@ -1345,7 +1345,7 @@ static yyconst yy_state_type yy_NUL_trans[54] =
 #include "asterisk.h"
 
 #ifndef STANDALONE
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49237 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59206 $")
 #endif
 
 #include <sys/types.h>
@@ -3122,7 +3122,7 @@ int ast_expr(char *expr, char *buf, int length)
 			res_length = snprintf(buf, length, "%ld", (long int) io.val->u.i);
 			return_value = (res_length <= length) ? res_length : length;
 		} else {
-#if defined(STANDALONE) || defined(LOW_MEMORY)
+#if defined(STANDALONE) || defined(LOW_MEMORY) || defined(STANDALONE_AEL)
 			strncpy(buf, io.val->u.s, length - 1);
 #else /* !STANDALONE && !LOW_MEMORY */
 			ast_copy_string(buf, io.val->u.s, length);

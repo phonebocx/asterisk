@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51788 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60989 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -471,7 +471,7 @@ static struct ast_channel *features_new(struct feature_pvt *p, int state, int in
 		if (y >= 3)
 			break;
 	}
-	tmp = ast_channel_alloc(0, state, 0,0, b2);
+	tmp = ast_channel_alloc(0, state, 0,0, "", "", "", 0, b2);
 	/* free up the name, it was copied into the channel name */
 	if (b2)
 		free(b2);

@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56548 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60399 $")
 
 #include <fcntl.h>
 #include <stdlib.h>
@@ -390,7 +390,6 @@ static int reload(void)
 	struct translator *cur;
 
 	parse_config();
-	find_transcoders();
 
 	AST_LIST_LOCK(&translators);
 	AST_LIST_TRAVERSE(&translators, cur, entry)

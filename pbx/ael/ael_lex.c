@@ -776,7 +776,7 @@ static yyconst flex_int16_t yy_chk[1033] =
  * bison-locations is probably not needed.
  */
 #line 59 "ael.flex"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49237 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59206 $")
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1683,7 +1683,7 @@ YY_RULE_SETUP
 			if (*(p1+1) != '/')
 				snprintf(fnamebuf, sizeof(fnamebuf), "%s/%s", ast_config_AST_CONFIG_DIR, p1 + 1);
 			else
-#if defined(STANDALONE) || defined(LOW_MEMORY)
+#if defined(STANDALONE) || defined(LOW_MEMORY) || defined(STANDALONE_AEL)
 				strncpy(fnamebuf, p1 + 1, sizeof(fnamebuf) - 1);
 #else
 				ast_copy_string(fnamebuf, p1 + 1, sizeof(fnamebuf));

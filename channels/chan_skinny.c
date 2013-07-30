@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58023 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60989 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -2719,7 +2719,7 @@ static struct ast_channel *skinny_new(struct skinny_line *l, int state)
 	struct skinny_device *d = l->parent;
 	int fmt;
 
-	tmp = ast_channel_alloc(1, state, l->cid_num, l->cid_name, "Skinny/%s@%s-%d", l->name, d->name, callnums);
+	tmp = ast_channel_alloc(1, state, l->cid_num, l->cid_name, l->accountcode, l->exten, l->context, l->amaflags, "Skinny/%s@%s-%d", l->name, d->name, callnums);
 	if (!tmp) {
 		ast_log(LOG_WARNING, "Unable to allocate channel structure\n");
 		return NULL;

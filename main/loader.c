@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56006 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61705 $")
 
 #include <stdio.h>
 #include <dirent.h>
@@ -530,6 +530,7 @@ int ast_module_reload(const char *name)
 		ast_verbose("The previous reload command didn't finish yet\n");
 		return -1;	/* reload already in progress */
 	}
+	ast_lastreloadtime = time(NULL);
 
 	/* Call "predefined" reload here first */
 	for (i = 0; reload_classes[i].name; i++) {
@@ -538,7 +539,6 @@ int ast_module_reload(const char *name)
 			res = 2;	/* found and reloaded */
 		}
 	}
-	ast_lastreloadtime = time(NULL);
 
 	if (name && res) {
 		ast_mutex_unlock(&reloadlock);

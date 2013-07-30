@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 49536 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59076 $")
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -928,6 +928,7 @@ void iax_frame_wrap(struct iax_frame *fr, struct ast_frame *f)
 	fr->af.delivery.tv_sec = 0;
 	fr->af.delivery.tv_usec = 0;
 	fr->af.data = fr->afdata;
+	fr->af.len = f->len;
 	if (fr->af.datalen) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 		/* We need to byte-swap slinear samples from network byte order */
