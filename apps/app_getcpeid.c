@@ -25,9 +25,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -61,7 +65,7 @@ static int cpeid_setstatus(struct ast_channel *chan, char *stuff[], int voice)
 	return ast_adsi_print(chan, tmp, justify, voice);
 }
 
-static int cpeid_exec(struct ast_channel *chan, void *idata)
+static int cpeid_exec(struct ast_channel *chan, const char *idata)
 {
 	int res=0;
 	unsigned char cpeid[4];
@@ -132,4 +136,8 @@ static int load_module(void)
 	return ast_register_application_xml(app, cpeid_exec);
 }
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Get ADSI CPE ID");
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Get ADSI CPE ID",
+		.load = load_module,
+		.unload = unload_module,
+		.nonoptreq = "res_adsi",
+		);

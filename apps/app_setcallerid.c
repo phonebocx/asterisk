@@ -24,10 +24,15 @@
  * 
  * \ingroup applications
  */
- 
+
+/*** MODULEINFO
+	<support_level>deprecated</support_level>
+	<replacement>func_callerid</replacement>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328446 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -84,7 +89,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 static char *app2 = "SetCallerPres";
 
-static int setcallerid_pres_exec(struct ast_channel *chan, void *data)
+static int setcallerid_pres_exec(struct ast_channel *chan, const char *data)
 {
 	int pres = -1;
 	static int deprecated = 0;
@@ -105,7 +110,9 @@ static int setcallerid_pres_exec(struct ast_channel *chan, void *data)
 		return 0;
 	}
 	
-	chan->cid.cid_pres = pres;
+	/* Set the combined caller id presentation. */
+	chan->caller.id.name.presentation = pres;
+	chan->caller.id.number.presentation = pres;
 	return 0;
 }
 

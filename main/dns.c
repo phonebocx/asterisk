@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 159818 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 205214 $")
 
 #include "asterisk/network.h"
 #include <arpa/nameser.h>	/* res_* functions */
@@ -288,7 +288,7 @@ int ast_search_dns(void *context,
 	res_nclose(&dnsstate);
 #endif
 #else
-#ifndef __APPLE__
+#ifdef HAVE_RES_CLOSE
 	res_close();
 #endif
 	ast_mutex_unlock(&res_lock);

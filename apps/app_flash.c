@@ -27,11 +27,12 @@
  
 /*** MODULEINFO
 	<depend>dahdi</depend>
+	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153543 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <dahdi/user.h>
 
@@ -72,7 +73,7 @@ static inline int dahdi_wait_event(int fd)
 	return j;
 }
 
-static int flash_exec(struct ast_channel *chan, void *data)
+static int flash_exec(struct ast_channel *chan, const char *data)
 {
 	int res = -1;
 	int x;

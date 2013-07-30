@@ -24,10 +24,14 @@
  *
  * \ingroup applications
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 251683 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/file.h"
 #include "asterisk/pbx.h"
@@ -77,7 +81,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 251683 $")
 					</option>
 					<option name="k">
 					        <para>Keep recorded file upon hangup.</para>
-					</option>	
+					</option>
+					<option name="y">
+					        <para>Terminate recording if *any* DTMF digit is received.</para>
+					</option>
 				</optionlist>
 			</parameter>
 		</syntax>
@@ -117,6 +124,7 @@ enum {
 	OPTION_IGNORE_TERMINATE = (1 << 5),
 	OPTION_KEEP = (1 << 6),
 	FLAG_HAS_PERCENT = (1 << 7),
+	OPTION_ANY_TERMINATE = (1 << 8),
 };
 
 AST_APP_OPTIONS(app_opts,{
@@ -126,10 +134,11 @@ AST_APP_OPTIONS(app_opts,{
 	AST_APP_OPTION('q', OPTION_QUIET),
 	AST_APP_OPTION('s', OPTION_SKIP),
 	AST_APP_OPTION('t', OPTION_STAR_TERMINATE),
+	AST_APP_OPTION('y', OPTION_ANY_TERMINATE),
 	AST_APP_OPTION('x', OPTION_IGNORE_TERMINATE),
 });
 
-static int record_exec(struct ast_channel *chan, void *data)
+static int record_exec(struct ast_channel *chan, const char *data)
 {
 	int res = 0;
 	int count = 0;
@@ -372,7 +381,8 @@ static int record_exec(struct ast_channel *chan, void *data)
 				break;
 			}
 		} else if ((f->frametype == AST_FRAME_DTMF) &&
-		    (f->subclass == terminator)) {
+			   ((f->subclass.integer == terminator) ||
+			    (ast_test_flag(&flags, OPTION_ANY_TERMINATE)))) {
 			ast_frfree(f);
 			pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "DTMF");
 			break;

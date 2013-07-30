@@ -23,13 +23,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Version Info: $Id: chan_h323.h 189997 2009-04-22 19:45:30Z jpeeler $
+ * Version Info: $Id: chan_h323.h 227580 2009-11-04 14:05:12Z tilghman $
  */
 
 #ifndef CHAN_H323_H
 #define CHAN_H323_H
 
 #include <arpa/inet.h>
+#include "asterisk/frame_defs.h"
 
 /*
  * Enable support for sending/reception of tunnelled Q.SIG messages and
@@ -64,7 +65,7 @@ typedef struct call_options {
 	int				progress_audio;
 	int				dtmfcodec[2];
 	int				dtmfmode;
-	int				capability;
+	format_t        capability;
 	int				bridge;
 	int				nat;
 	int				tunnelOptions;

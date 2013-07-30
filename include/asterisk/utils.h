@@ -27,13 +27,15 @@
 
 #include <time.h>	/* we want to override localtime_r */
 #include <unistd.h>
+#include <string.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/time.h"
 #include "asterisk/logger.h"
 #include "asterisk/localtime.h"
+#include "asterisk/stringfields.h"
 
-/*! 
+/*!
 \note \verbatim
    Note:
    It is very important to use only unsigned variables to hold
@@ -214,9 +216,9 @@ struct ast_hostent {
 struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp);
 
 /*!  \brief Produces MD5 hash based on input string */
-void ast_md5_hash(char *output, char *input);
+void ast_md5_hash(char *output, const char *input);
 /*! \brief Produces SHA1 hash based on input string */
-void ast_sha1_hash(char *output, char *input);
+void ast_sha1_hash(char *output, const char *input);
 
 int ast_base64encode_full(char *dst, const unsigned char *src, int srclen, int max, int linebreaks);
 
@@ -246,27 +248,43 @@ int ast_base64encode(char *dst, const unsigned char *src, int srclen, int max);
  */
 int ast_base64decode(unsigned char *dst, const char *src, int max);
 
-/*!  \brief Turn text string to URI-encoded %XX version 
-
-\note 	At this point, we're converting from ISO-8859-x (8-bit), not UTF8
-	as in the SIP protocol spec 
-	If doreserved == 1 we will convert reserved characters also.
-	RFC 2396, section 2.4
-	outbuf needs to have more memory allocated than the instring
-	to have room for the expansion. Every char that is converted
-	is replaced by three ASCII characters.
-	\param string	String to be converted
-	\param outbuf	Resulting encoded string
-	\param buflen	Size of output buffer
-	\param doreserved	Convert reserved characters
-*/
-
-char *ast_uri_encode(const char *string, char *outbuf, int buflen, int doreserved);
+/*! \brief Turn text string to URI-encoded %XX version 
+ *
+ * \note 
+ *  At this point, this function is encoding agnostic; it does not
+ *  check whether it is fed legal UTF-8. We escape control
+ *  characters (\x00-\x1F\x7F), '%', and all characters above 0x7F.
+ *  If do_special_char == 1 we will convert all characters except alnum
+ *  and the mark set.
+ *  Outbuf needs to have more memory allocated than the instring
+ *  to have room for the expansion. Every char that is converted
+ *  is replaced by three ASCII characters.
+ *
+ *  \param string	String to be converted
+ *  \param outbuf	Resulting encoded string
+ *  \param buflen	Size of output buffer
+ *  \param do_special_char	Convert all non alphanum characters execept
+ *         those in the mark set as defined by rfc 3261 section 25.1
+ */
+char *ast_uri_encode(const char *string, char *outbuf, int buflen, int do_special_char);
 
 /*!	\brief Decode URI, URN, URL (overwrite string)
 	\param s	String to be decoded 
  */
 void ast_uri_decode(char *s);
+
+/*!
+ * \brief Escape characters found in a quoted string.
+ *
+ * \note This function escapes quoted characters based on the 'qdtext' set of
+ * allowed characters from RFC 3261 section 25.1.
+ *
+ * \param string string to be escaped
+ * \param outbuf resulting escaped string
+ * \param buflen size of output buffer
+ * \return a pointer to the escaped string
+ */
+char *ast_escape_quoted(const char *string, char *outbuf, int buflen);
 
 static force_inline void ast_slinear_saturated_add(short *input, short *value)
 {
@@ -649,7 +667,34 @@ void ast_enable_packet_fragmentation(int sock);
  */
 int ast_mkdir(const char *path, int mode);
 
-#define ARRAY_LEN(a) (sizeof(a) / sizeof(0[a]))
+#define ARRAY_LEN(a) (size_t) (sizeof(a) / sizeof(0[a]))
+
+
+/* Definition for Digest authorization */
+struct ast_http_digest {
+	AST_DECLARE_STRING_FIELDS(
+		AST_STRING_FIELD(username);
+		AST_STRING_FIELD(nonce);
+		AST_STRING_FIELD(uri);
+		AST_STRING_FIELD(realm);
+		AST_STRING_FIELD(domain);
+		AST_STRING_FIELD(response);
+		AST_STRING_FIELD(cnonce);
+		AST_STRING_FIELD(opaque);
+		AST_STRING_FIELD(nc);
+	);
+	int qop;		/* Flag set to 1, if we send/recv qop="quth" */
+};
+
+/*!
+ *\brief Parse digest authorization header.
+ *\return Returns -1 if we have no auth or something wrong with digest.
+ *\note This function may be used for Digest request and responce header.
+ * request arg is set to nonzero, if we parse Digest Request.
+ * pedantic arg can be set to nonzero if we need to do addition Digest check.
+ */
+int ast_parse_digest(const char *digest, struct ast_http_digest *d, int request, int pedantic);
+
 
 #ifdef AST_DEVMODE
 #define ast_assert(a) _ast_assert(a, # a, __FILE__, __LINE__, __PRETTY_FUNCTION__)
@@ -679,6 +724,59 @@ static void force_inline _ast_assert(int condition, const char *condition_str,
 #endif
 
 #include "asterisk/strings.h"
+
+/*!
+ * \brief Return the number of bytes used in the alignment of type.
+ * \param type
+ * \return The number of bytes required for alignment.
+ *
+ * This is really just __alignof__(), but tucked away in this header so we
+ * don't have to look at the nasty underscores in the source.
+ */
+#define ast_alignof(type) __alignof__(type)
+
+/*!
+ * \brief Increase offset so it is a multiple of the required alignment of type.
+ * \param offset The value that should be increased.
+ * \param type The data type that offset should be aligned to.
+ * \return The smallest multiple of alignof(type) larger than or equal to offset.
+ * \see ast_make_room_for()
+ *
+ * Many systems prefer integers to be stored on aligned on memory locations.
+ * This macro will increase an offset so a value of the supplied type can be
+ * safely be stored on such a memory location.
+ *
+ * Examples:
+ * ast_align_for(0x17, int64_t) ==> 0x18
+ * ast_align_for(0x18, int64_t) ==> 0x18
+ * ast_align_for(0x19, int64_t) ==> 0x20
+ *
+ * Don't mind the ugliness, the compiler will optimize it.
+ */
+#define ast_align_for(offset, type) (((offset + __alignof__(type) - 1) / __alignof__(type)) * __alignof__(type))
+
+/*!
+ * \brief Increase offset by the required alignment of type and make sure it is
+ *        a multiple of said alignment.
+ * \param offset The value that should be increased.
+ * \param type The data type that room should be reserved for.
+ * \return The smallest multiple of alignof(type) larger than or equal to offset
+ *         plus alignof(type).
+ * \see ast_align_for()
+ *
+ * A use case for this is when prepending length fields of type int to a buffer.
+ * If you keep the offset a multiple of the alignment of the integer type,
+ * a next block of length+buffer will have the length field automatically
+ * aligned.
+ *
+ * Examples:
+ * ast_make_room_for(0x17, int64_t) ==> 0x20
+ * ast_make_room_for(0x18, int64_t) ==> 0x20
+ * ast_make_room_for(0x19, int64_t) ==> 0x28
+ *
+ * Don't mind the ugliness, the compiler will optimize it.
+ */
+#define ast_make_room_for(offset, type) (((offset + (2 * __alignof__(type) - 1)) / __alignof__(type)) * __alignof__(type))
 
 /*!
  * \brief An Entity ID is essentially a MAC address, brief and unique 
@@ -725,5 +823,14 @@ int ast_str_to_eid(struct ast_eid *eid, const char *s);
  * \since 1.6.1
  */
 int ast_eid_cmp(const struct ast_eid *eid1, const struct ast_eid *eid2);
+
+/*!\brief Resolve a binary to a full pathname
+ * \param binary Name of the executable to resolve
+ * \param fullpath Buffer to hold the complete pathname
+ * \param fullpath_size Size of \a fullpath
+ * \retval NULL \a binary was not found or the environment variable PATH is not set
+ * \return \a fullpath
+ */
+char *ast_utils_which(const char *binary, char *fullpath, size_t fullpath_size);
 
 #endif /* _ASTERISK_UTILS_H */

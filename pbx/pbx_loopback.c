@@ -22,9 +22,13 @@
  *
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -41,7 +45,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 #include "asterisk/sched.h"
 #include "asterisk/io.h"
 #include "asterisk/utils.h"
-#include "asterisk/crypto.h"
 #include "asterisk/astdb.h"
 
 

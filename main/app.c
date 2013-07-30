@@ -25,19 +25,18 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 263587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 352029 $")
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
 #endif
-#include <regex.h>
-#include <sys/file.h> /* added this to allow to compile, sorry! */
-#include <signal.h>
-#include <sys/time.h>       /* for getrlimit(2) */
-#include <sys/resource.h>   /* for getrlimit(2) */
+#include <regex.h>          /* for regcomp(3) */
+#include <sys/file.h>       /* for flock(2) */
+#include <signal.h>         /* for pthread_sigmask(3) */
 #include <stdlib.h>         /* for closefrom(3) */
-#ifndef HAVE_CLOSEFROM
 #include <sys/types.h>
+#include <sys/wait.h>       /* for waitpid(2) */
+#ifndef HAVE_CLOSEFROM
 #include <dirent.h>         /* for opendir(3)   */
 #endif
 #ifdef HAVE_CAP
@@ -55,8 +54,44 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 263587 $")
 #include "asterisk/indications.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/threadstorage.h"
+#include "asterisk/test.h"
 
 AST_THREADSTORAGE_PUBLIC(ast_str_thread_global_buf);
+
+static pthread_t shaun_of_the_dead_thread = AST_PTHREADT_NULL;
+
+struct zombie {
+	pid_t pid;
+	AST_LIST_ENTRY(zombie) list;
+};
+
+static AST_LIST_HEAD_STATIC(zombies, zombie);
+
+static void *shaun_of_the_dead(void *data)
+{
+	struct zombie *cur;
+	int status;
+	for (;;) {
+		if (!AST_LIST_EMPTY(&zombies)) {
+			/* Don't allow cancellation while we have a lock. */
+			pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+			AST_LIST_LOCK(&zombies);
+			AST_LIST_TRAVERSE_SAFE_BEGIN(&zombies, cur, list) {
+				if (waitpid(cur->pid, &status, WNOHANG) != 0) {
+					AST_LIST_REMOVE_CURRENT(list);
+					ast_free(cur);
+				}
+			}
+			AST_LIST_TRAVERSE_SAFE_END
+			AST_LIST_UNLOCK(&zombies);
+			pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+		}
+		pthread_testcancel();
+		/* Wait for 60 seconds, without engaging in a busy loop. */
+		ast_poll(NULL, 0, AST_LIST_FIRST(&zombies) ? 5000 : 60000);
+	}
+	return NULL;
+}
 
 
 #define AST_MAX_FORMATS 10
@@ -73,7 +108,7 @@ static AST_RWLIST_HEAD_STATIC(groups, ast_group_info);
  * \param collect
  * \param size
  * \param maxlen
- * \param timeout timeout in seconds
+ * \param timeout timeout in milliseconds
  *
  * \return 0 if extension does not exist, 1 if extension exists
 */
@@ -86,10 +121,12 @@ int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, 
 		maxlen = size;
 	}
 
-	if (!timeout && chan->pbx) {
-		timeout = chan->pbx->dtimeoutms / 1000.0;
-	} else if (!timeout) {
-		timeout = 5;
+	if (!timeout) {
+		if (chan->pbx && chan->pbx->dtimeoutms) {
+			timeout = chan->pbx->dtimeoutms;
+		} else {
+			timeout = 5000;
+		}
 	}
 
 	if ((ts = ast_get_indication_tone(chan->zone, "dial"))) {
@@ -111,13 +148,15 @@ int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, 
 			break;
 		}
 		collect[x++] = res;
-		if (!ast_matchmore_extension(chan, context, collect, 1, chan->cid.cid_num)) {
+		if (!ast_matchmore_extension(chan, context, collect, 1,
+			S_COR(chan->caller.id.number.valid, chan->caller.id.number.str, NULL))) {
 			break;
 		}
 	}
 
 	if (res >= 0) {
-		res = ast_exists_extension(chan, context, collect, 1, chan->cid.cid_num) ? 1 : 0;
+		res = ast_exists_extension(chan, context, collect, 1,
+			S_COR(chan->caller.id.number.valid, chan->caller.id.number.str, NULL)) ? 1 : 0;
 	}
 
 	return res;
@@ -184,7 +223,7 @@ enum ast_getdata_result ast_app_getdata(struct ast_channel *c, const char *promp
 /* The lock type used by ast_lock_path() / ast_unlock_path() */
 static enum AST_LOCK_TYPE ast_lock_type = AST_LOCK_TYPE_LOCKFILE;
 
-int ast_app_getdata_full(struct ast_channel *c, char *prompt, char *s, int maxlen, int timeout, int audiofd, int ctrlfd)
+int ast_app_getdata_full(struct ast_channel *c, const char *prompt, char *s, int maxlen, int timeout, int audiofd, int ctrlfd)
 {
 	int res, to = 2000, fto = 6000;
 
@@ -204,6 +243,28 @@ int ast_app_getdata_full(struct ast_channel *c, char *prompt, char *s, int maxle
 
 	res = ast_readstring_full(c, s, maxlen, to, fto, "#", audiofd, ctrlfd);
 
+	return res;
+}
+
+int ast_app_run_macro(struct ast_channel *autoservice_chan, struct ast_channel *macro_chan, const char * const macro_name, const char * const macro_args)
+{
+	struct ast_app *macro_app;
+	int res;
+	char buf[1024];
+
+	macro_app = pbx_findapp("Macro");
+	if (!macro_app) {
+		ast_log(LOG_WARNING, "Cannot run macro '%s' because the 'Macro' application in not available\n", macro_name);
+		return -1;
+	}
+	snprintf(buf, sizeof(buf), "%s%s%s", macro_name, ast_strlen_zero(macro_args) ? "" : ",", S_OR(macro_args, ""));
+	if (autoservice_chan) {
+		ast_autoservice_start(autoservice_chan);
+	}
+	res = pbx_exec(macro_chan, macro_app, buf);
+	if (autoservice_chan) {
+		ast_autoservice_stop(autoservice_chan);
+	}
 	return res;
 }
 
@@ -411,7 +472,7 @@ static int linear_generator(struct ast_channel *chan, void *data, int len, int s
 	struct linear_state *ls = data;
 	struct ast_frame f = {
 		.frametype = AST_FRAME_VOICE,
-		.subclass = AST_FORMAT_SLINEAR,
+		.subclass.codec = AST_FORMAT_SLINEAR,
 		.data.ptr = buf + AST_FRIENDLY_OFFSET / 2,
 		.offset = AST_FRIENDLY_OFFSET,
 	};
@@ -639,6 +700,7 @@ int ast_play_and_wait(struct ast_channel *chan, const char *fn)
 {
 	int d = 0;
 
+	ast_test_suite_event_notify("PLAYBACK", "Message: %s", fn);
 	if ((d = ast_streamfile(chan, fn, chan->language))) {
 		return d;
 	}
@@ -657,19 +719,25 @@ static int global_maxsilence = 0;
  * \param chan Channel to playback to/record from.
  * \param playfile Filename of sound to play before recording begins.
  * \param recordfile Filename to record to.
- * \param maxtime Maximum length of recording (in milliseconds).
+ * \param maxtime Maximum length of recording (in seconds).
  * \param fmt Format(s) to record message in. Multiple formats may be specified by separating them with a '|'.
  * \param duration Where to store actual length of the recorded message (in milliseconds).
+ * \param sound_duration Where to store the length of the recorded message (in milliseconds), minus any silence
  * \param beep Whether to play a beep before starting to record.
  * \param silencethreshold
  * \param maxsilence Length of silence that will end a recording (in milliseconds).
  * \param path Optional filesystem path to unlock.
- * \param prepend If true, prepend the recorded audio to an existing file.
+ * \param prepend If true, prepend the recorded audio to an existing file and follow prepend mode recording rules
  * \param acceptdtmf DTMF digits that will end the recording.
  * \param canceldtmf DTMF digits that will cancel the recording.
+ * \param skip_confirmation_sound If true, don't play auth-thankyou at end. Nice for custom recording prompts in apps.
+ *
+ * \retval -1 failure or hangup
+ * \retval 'S' Recording ended from silence timeout
+ * \retval 't' Recording ended from the message exceeding the maximum duration, or via DTMF in prepend mode
+ * \retval dtmfchar Recording ended via the return value's DTMF character for either cancel or accept.
  */
-
-static int __ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int beep, int silencethreshold, int maxsilence, const char *path, int prepend, const char *acceptdtmf, const char *canceldtmf)
+static int __ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int beep, int silencethreshold, int maxsilence, const char *path, int prepend, const char *acceptdtmf, const char *canceldtmf, int skip_confirmation_sound)
 {
 	int d = 0;
 	char *fmts;
@@ -681,6 +749,8 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 	time_t start, end;
 	struct ast_dsp *sildet = NULL;   /* silence detector dsp */
 	int totalsilence = 0;
+	int dspsilence = 0;
+	int olddspsilence = 0;
 	int rfmt = 0;
 	struct ast_silence_generator *silgen = NULL;
 	char prependfile[80];
@@ -805,17 +875,16 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 
 				/* Silence Detection */
 				if (maxsilence > 0) {
-					int dspsilence = 0;
+					dspsilence = 0;
 					ast_dsp_silence(sildet, f, &dspsilence);
-					if (dspsilence) {
-						totalsilence = dspsilence;
-					} else {
-						totalsilence = 0;
+					if (olddspsilence > dspsilence) {
+						totalsilence += olddspsilence;
 					}
+					olddspsilence = dspsilence;
 
-					if (totalsilence > maxsilence) {
+					if (dspsilence > maxsilence) {
 						/* Ended happily with silence */
-						ast_verb(3, "Recording automatically stopped after a silence of %d seconds\n", totalsilence/1000);
+						ast_verb(3, "Recording automatically stopped after a silence of %d seconds\n", dspsilence/1000);
 						res = 'S';
 						outmsg = 2;
 						break;
@@ -832,20 +901,20 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 			} else if (f->frametype == AST_FRAME_DTMF) {
 				if (prepend) {
 				/* stop recording with any digit */
-					ast_verb(3, "User ended message by pressing %c\n", f->subclass);
+					ast_verb(3, "User ended message by pressing %c\n", f->subclass.integer);
 					res = 't';
 					outmsg = 2;
 					break;
 				}
-				if (strchr(acceptdtmf, f->subclass)) {
-					ast_verb(3, "User ended message by pressing %c\n", f->subclass);
-					res = f->subclass;
+				if (strchr(acceptdtmf, f->subclass.integer)) {
+					ast_verb(3, "User ended message by pressing %c\n", f->subclass.integer);
+					res = f->subclass.integer;
 					outmsg = 2;
 					break;
 				}
-				if (strchr(canceldtmf, f->subclass)) {
-					ast_verb(3, "User cancelled message by pressing %c\n", f->subclass);
-					res = f->subclass;
+				if (strchr(canceldtmf, f->subclass.integer)) {
+					ast_verb(3, "User cancelled message by pressing %c\n", f->subclass.integer);
+					res = f->subclass.integer;
 					outmsg = 0;
 					break;
 				}
@@ -888,8 +957,32 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 	 * closed (which would create a resource leak).
 	 */
 	*duration = others[0] ? ast_tellstream(others[0]) / 8000 : 0;
+	if (sound_duration) {
+		*sound_duration = *duration;
+	}
 
 	if (!prepend) {
+		/* Reduce duration by a total silence amount */
+		if (olddspsilence <= dspsilence) {
+			totalsilence += dspsilence;
+		}
+
+		if (sound_duration) {
+			if (totalsilence > 0) {
+				*sound_duration -= (totalsilence - 200) / 1000;
+			}
+			if (*sound_duration < 0) {
+				*sound_duration = 0;
+			}
+		}
+
+		if (dspsilence > 0) {
+			*duration -= (dspsilence - 200) / 1000;
+		}
+		if (*duration < 0) {
+			*duration = 0;
+		}
+
 		for (x = 0; x < fmtcnt; x++) {
 			if (!others[x]) {
 				break;
@@ -899,15 +992,9 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 			 * off the recording.  However, if we ended with '#', we don't want
 			 * to trim ANY part of the recording.
 			 */
-			if (res > 0 && totalsilence) {
-				ast_stream_rewind(others[x], totalsilence - 200);
-				/* Reduce duration by a corresponding amount */
-				if (x == 0 && *duration) {
-					*duration -= (totalsilence - 200) / 1000;
-					if (*duration < 0) {
-						*duration = 0;
-					}
-				}
+			if (res > 0 && dspsilence) {
+                                /* rewind only the trailing silence */
+				ast_stream_rewind(others[x], dspsilence - 200);
 			}
 			ast_truncstream(others[x]);
 			ast_closestream(others[x]);
@@ -925,8 +1012,8 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 				break;
 			}
 			/*!\note Same logic as above. */
-			if (totalsilence) {
-				ast_stream_rewind(others[x], totalsilence - 200);
+			if (dspsilence) {
+				ast_stream_rewind(others[x], dspsilence - 200);
 			}
 			ast_truncstream(others[x]);
 			/* add the original file too */
@@ -944,7 +1031,7 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 	if (rfmt && ast_set_read_format(chan, rfmt)) {
 		ast_log(LOG_WARNING, "Unable to restore format %s to channel '%s'\n", ast_getformatname(rfmt), chan->name);
 	}
-	if (outmsg == 2) {
+	if ((outmsg == 2) && (!skip_confirmation_sound)) {
 		ast_stream_and_wait(chan, "auth-thankyou", "");
 	}
 	if (sildet) {
@@ -953,22 +1040,22 @@ static int __ast_play_and_record(struct ast_channel *chan, const char *playfile,
 	return res;
 }
 
-static char default_acceptdtmf[] = "#";
-static char default_canceldtmf[] = "";
+static const char default_acceptdtmf[] = "#";
+static const char default_canceldtmf[] = "";
 
-int ast_play_and_record_full(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int silencethreshold, int maxsilence, const char *path, const char *acceptdtmf, const char *canceldtmf)
+int ast_play_and_record_full(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int silencethreshold, int maxsilence, const char *path, const char *acceptdtmf, const char *canceldtmf)
 {
-	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, 0, silencethreshold, maxsilence, path, 0, S_OR(acceptdtmf, default_acceptdtmf), S_OR(canceldtmf, default_canceldtmf));
+	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, 0, silencethreshold, maxsilence, path, 0, S_OR(acceptdtmf, default_acceptdtmf), S_OR(canceldtmf, default_canceldtmf), 0);
 }
 
-int ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int silencethreshold, int maxsilence, const char *path)
+int ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int *sound_duration, int silencethreshold, int maxsilence, const char *path)
 {
-	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, 0, silencethreshold, maxsilence, path, 0, default_acceptdtmf, default_canceldtmf);
+	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, 0, silencethreshold, maxsilence, path, 0, default_acceptdtmf, default_canceldtmf, 0);
 }
 
-int ast_play_and_prepend(struct ast_channel *chan, char *playfile, char *recordfile, int maxtime, char *fmt, int *duration, int beep, int silencethreshold, int maxsilence)
+int ast_play_and_prepend(struct ast_channel *chan, char *playfile, char *recordfile, int maxtime, char *fmt, int *duration, int *sound_duration, int beep, int silencethreshold, int maxsilence)
 {
-	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, beep, silencethreshold, maxsilence, NULL, 1, default_acceptdtmf, default_canceldtmf);
+	return __ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, sound_duration, beep, silencethreshold, maxsilence, NULL, 1, default_acceptdtmf, default_canceldtmf, 1);
 }
 
 /* Channel group core functions */
@@ -1070,27 +1157,38 @@ int ast_app_group_get_count(const char *group, const char *category)
 int ast_app_group_match_get_count(const char *groupmatch, const char *category)
 {
 	struct ast_group_info *gi = NULL;
-	regex_t regexbuf;
+	regex_t regexbuf_group;
+	regex_t regexbuf_category;
 	int count = 0;
 
 	if (ast_strlen_zero(groupmatch)) {
+		ast_log(LOG_NOTICE, "groupmatch empty\n");
 		return 0;
 	}
 
 	/* if regex compilation fails, return zero matches */
-	if (regcomp(&regexbuf, groupmatch, REG_EXTENDED | REG_NOSUB)) {
+	if (regcomp(&regexbuf_group, groupmatch, REG_EXTENDED | REG_NOSUB)) {
+		ast_log(LOG_ERROR, "Regex compile failed on: %s\n", groupmatch);
+		return 0;
+	}
+
+	if (!ast_strlen_zero(category) && regcomp(&regexbuf_category, category, REG_EXTENDED | REG_NOSUB)) {
+		ast_log(LOG_ERROR, "Regex compile failed on: %s\n", category);
 		return 0;
 	}
 
 	AST_RWLIST_RDLOCK(&groups);
 	AST_RWLIST_TRAVERSE(&groups, gi, group_list) {
-		if (!regexec(&regexbuf, gi->group, 0, NULL, 0) && (ast_strlen_zero(category) || (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, category)))) {
+		if (!regexec(&regexbuf_group, gi->group, 0, NULL, 0) && (ast_strlen_zero(category) || (!ast_strlen_zero(gi->category) && !regexec(&regexbuf_category, gi->category, 0, NULL, 0)))) {
 			count++;
 		}
 	}
 	AST_RWLIST_UNLOCK(&groups);
 
-	regfree(&regexbuf);
+	regfree(&regexbuf_group);
+	if (!ast_strlen_zero(category)) {
+		regfree(&regexbuf_category);
+	}
 
 	return count;
 }
@@ -1158,13 +1256,17 @@ unsigned int __ast_app_separate_args(char *buf, char delim, int remove_chars, ch
 {
 	int argc;
 	char *scan, *wasdelim = NULL;
-	int paren = 0, quote = 0;
+	int paren = 0, quote = 0, bracket = 0;
 
-	if (!buf || !array || !arraylen) {
+	if (!array || !arraylen) {
 		return 0;
 	}
 
 	memset(array, 0, arraylen * sizeof(*array));
+
+	if (!buf) {
+		return 0;
+	}
 
 	scan = buf;
 
@@ -1176,6 +1278,12 @@ unsigned int __ast_app_separate_args(char *buf, char delim, int remove_chars, ch
 			} else if (*scan == ')') {
 				if (paren) {
 					paren--;
+				}
+			} else if (*scan == '[') {
+				bracket++;
+			} else if (*scan == ']') {
+				if (bracket) {
+					bracket--;
 				}
 			} else if (*scan == '"' && delim != '"') {
 				quote = quote ? 0 : 1;
@@ -1191,7 +1299,7 @@ unsigned int __ast_app_separate_args(char *buf, char delim, int remove_chars, ch
 				} else {
 					scan++;
 				}
-			} else if ((*scan == delim) && !paren && !quote) {
+			} else if ((*scan == delim) && !paren && !quote && !bracket) {
 				wasdelim = scan;
 				*scan++ = '\0';
 				break;
@@ -1484,7 +1592,7 @@ int ast_record_review(struct ast_channel *chan, const char *playfile, const char
 			/* Record */
 			ast_verb(3, "R%secording\n", recorded == 1 ? "e-r" : "");
 			recorded = 1;
-			if ((cmd = ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, silencethreshold, maxsilence, path)) == -1) {
+			if ((cmd = ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, NULL, silencethreshold, maxsilence, path)) == -1) {
 				/* User has hung up, no options to give */
 				return cmd;
 			}
@@ -1995,45 +2103,7 @@ int ast_str_get_encoded_str(struct ast_str **str, int maxlen, const char *stream
 
 void ast_close_fds_above_n(int n)
 {
-#ifdef HAVE_CLOSEFROM
 	closefrom(n + 1);
-#else
-	long x, null;
-	struct rlimit rl;
-	DIR *dir;
-	char path[16], *result;
-	struct dirent *entry;
-	snprintf(path, sizeof(path), "/proc/%d/fd", (int) getpid());
-	if ((dir = opendir(path))) {
-		while ((entry = readdir(dir))) {
-			/* Skip . and .. */
-			if (entry->d_name[0] == '.') {
-				continue;
-			}
-			if ((x = strtol(entry->d_name, &result, 10)) && x > n) {
-				close(x);
-			}
-		}
-		closedir(dir);
-	} else {
-		getrlimit(RLIMIT_NOFILE, &rl);
-		if (rl.rlim_cur > 65535) {
-			/* A more reasonable value */
-			rl.rlim_cur = 65535;
-		}
-		null = open("/dev/null", O_RDONLY);
-		for (x = n + 1; x < rl.rlim_cur; x++) {
-			if (x != null) {
-				/* Side effect of dup2 is that it closes any existing fd without error.
-				 * This prevents valgrind and other debugging tools from sending up
-				 * false error reports. */
-				while (dup2(null, x) < 0 && errno == EINTR);
-				close(x);
-			}
-		}
-		close(null);
-	}
-#endif
 }
 
 int ast_safe_fork(int stop_reaper)
@@ -2054,6 +2124,21 @@ int ast_safe_fork(int stop_reaper)
 	if (pid != 0) {
 		/* Fork failed or parent */
 		pthread_sigmask(SIG_SETMASK, &old_set, NULL);
+		if (!stop_reaper && pid > 0) {
+			struct zombie *cur = ast_calloc(1, sizeof(*cur));
+			if (cur) {
+				cur->pid = pid;
+				AST_LIST_LOCK(&zombies);
+				AST_LIST_INSERT_TAIL(&zombies, cur, list);
+				AST_LIST_UNLOCK(&zombies);
+				if (shaun_of_the_dead_thread == AST_PTHREADT_NULL) {
+					if (ast_pthread_create_background(&shaun_of_the_dead_thread, NULL, shaun_of_the_dead, NULL)) {
+						ast_log(LOG_ERROR, "Shaun of the Dead wants to kill zombies, but can't?!!\n");
+						shaun_of_the_dead_thread = AST_PTHREADT_NULL;
+					}
+				}
+			}
+		}
 		return pid;
 	} else {
 		/* Child */
@@ -2088,5 +2173,61 @@ int ast_safe_fork(int stop_reaper)
 void ast_safe_fork_cleanup(void)
 {
 	ast_unreplace_sigchld();
+}
+
+int ast_app_parse_timelen(const char *timestr, int *result, enum ast_timelen unit)
+{
+	int res;
+	char u[10];
+#ifdef HAVE_LONG_DOUBLE_WIDER
+	long double amount;
+	#define FMT "%30Lf%9s"
+#else
+	double amount;
+	#define FMT "%30lf%9s"
+#endif
+	if (!timestr) {
+		return -1;
+	}
+
+	if ((res = sscanf(timestr, FMT, &amount, u)) == 0) {
+#undef FMT
+		return -1;
+	} else if (res == 2) {
+		switch (u[0]) {
+		case 'h':
+		case 'H':
+			unit = TIMELEN_HOURS;
+			break;
+		case 's':
+		case 'S':
+			unit = TIMELEN_SECONDS;
+			break;
+		case 'm':
+		case 'M':
+			if (toupper(u[1]) == 'S') {
+				unit = TIMELEN_MILLISECONDS;
+			} else if (u[1] == '\0') {
+				unit = TIMELEN_MINUTES;
+			}
+			break;
+		}
+	}
+
+	switch (unit) {
+	case TIMELEN_HOURS:
+		amount *= 60;
+		/* fall-through */
+	case TIMELEN_MINUTES:
+		amount *= 60;
+		/* fall-through */
+	case TIMELEN_SECONDS:
+		amount *= 1000;
+		/* fall-through */
+	case TIMELEN_MILLISECONDS:
+		;
+	}
+	*result = amount > INT_MAX ? INT_MAX : (int) amount;
+	return 0;
 }
 

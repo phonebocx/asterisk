@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 251632 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 297312 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/channel.h"
@@ -110,8 +110,7 @@ static void jb_force_resynch_adaptive(void *jb);
 static void jb_empty_and_reset_adaptive(void *jb);
 
 /* Available jb implementations */
-static struct ast_jb_impl avail_impl[] =
-{
+static const struct ast_jb_impl avail_impl[] = {
 	{
 		.name = "fixed",
 		.create = jb_create_fixed,
@@ -150,13 +149,13 @@ enum {
 };
 
 /* Translations between impl and abstract return codes */
-static int fixed_to_abstract_code[] =
+static const int fixed_to_abstract_code[] =
 	{JB_IMPL_OK, JB_IMPL_DROP, JB_IMPL_INTERP, JB_IMPL_NOFRAME};
-static int adaptive_to_abstract_code[] =
+static const int adaptive_to_abstract_code[] =
 	{JB_IMPL_OK, JB_IMPL_NOFRAME, JB_IMPL_NOFRAME, JB_IMPL_INTERP, JB_IMPL_DROP, JB_IMPL_OK};
 
 /* JB_GET actions (used only for the frames log) */
-static char *jb_get_actions[] = {"Delivered", "Dropped", "Interpolated", "No"};
+static const char * const jb_get_actions[] = {"Delivered", "Dropped", "Interpolated", "No"};
 
 /*! \brief Macros for the frame log files */
 #define jb_framelog(...) do { \
@@ -181,7 +180,7 @@ static void jb_choose_impl(struct ast_channel *chan)
 {
 	struct ast_jb *jb = &chan->jb;
 	struct ast_jb_conf *jbconf = &jb->conf;
-	struct ast_jb_impl *test_impl;
+	const struct ast_jb_impl *test_impl;
 	int i, avail_impl_count = ARRAY_LEN(avail_impl);
 
 	jb->impl = &avail_impl[default_impl];
@@ -303,7 +302,7 @@ int ast_jb_get_when_to_wakeup(struct ast_channel *c0, struct ast_channel *c1, in
 int ast_jb_put(struct ast_channel *chan, struct ast_frame *f)
 {
 	struct ast_jb *jb = &chan->jb;
-	struct ast_jb_impl *jbimpl = jb->impl;
+	const struct ast_jb_impl *jbimpl = jb->impl;
 	void *jbobj = jb->jbobj;
 	struct ast_frame *frr;
 	long now = 0;
@@ -385,7 +384,7 @@ void ast_jb_get_and_deliver(struct ast_channel *c0, struct ast_channel *c1)
 static void jb_get_and_deliver(struct ast_channel *chan)
 {
 	struct ast_jb *jb = &chan->jb;
-	struct ast_jb_impl *jbimpl = jb->impl;
+	const struct ast_jb_impl *jbimpl = jb->impl;
 	void *jbobj = jb->jbobj;
 	struct ast_frame *f, finterp = { .frametype = AST_FRAME_VOICE, };
 	long now;
@@ -410,13 +409,13 @@ static void jb_get_and_deliver(struct ast_channel *chan)
 		case JB_IMPL_DROP:
 			jb_framelog("\tJB_GET {now=%ld}: %s frame with ts=%ld and len=%ld\n",
 				now, jb_get_actions[res], f->ts, f->len);
-			jb->last_format = f->subclass;
+			jb->last_format = f->subclass.codec;
 			ast_frfree(f);
 			break;
 		case JB_IMPL_INTERP:
 			/* interpolate a frame */
 			f = &finterp;
-			f->subclass = jb->last_format;
+			f->subclass.codec = jb->last_format;
 			f->samples  = interpolation_len * 8;
 			f->src  = "JB interpolation";
 			f->delivery = ast_tvadd(jb->timebase, ast_samp2tv(jb->next, 1000));
@@ -446,7 +445,7 @@ static int create_jb(struct ast_channel *chan, struct ast_frame *frr)
 {
 	struct ast_jb *jb = &chan->jb;
 	struct ast_jb_conf *jbconf = &jb->conf;
-	struct ast_jb_impl *jbimpl = jb->impl;
+	const struct ast_jb_impl *jbimpl = jb->impl;
 	void *jbobj;
 	struct ast_channel *bridged;
 	long now;
@@ -477,7 +476,7 @@ static int create_jb(struct ast_channel *chan, struct ast_frame *frr)
 	jb->next = jbimpl->next(jbobj);
 
 	/* Init last format for a first time. */
-	jb->last_format = frr->subclass;
+	jb->last_format = frr->subclass.codec;
 
 	/* Create a frame log file */
 	if (ast_test_flag(jbconf, AST_JB_LOG)) {
@@ -532,7 +531,7 @@ static int create_jb(struct ast_channel *chan, struct ast_frame *frr)
 void ast_jb_destroy(struct ast_channel *chan)
 {
 	struct ast_jb *jb = &chan->jb;
-	struct ast_jb_impl *jbimpl = jb->impl;
+	const struct ast_jb_impl *jbimpl = jb->impl;
 	void *jbobj = jb->jbobj;
 	struct ast_frame *f;
 
@@ -763,6 +762,11 @@ static void jb_destroy_adaptive(void *jb)
 
 static int jb_put_first_adaptive(void *jb, struct ast_frame *fin, long now)
 {
+	jitterbuf *adaptivejb = (jitterbuf *) jb;
+
+	/* Initialize the offset to that of the first frame's timestamp */
+	adaptivejb->info.resync_offset = fin->ts;
+
 	return jb_put_adaptive(jb, fin, now);
 }
 

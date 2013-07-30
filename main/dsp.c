@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 268577 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 349728 $")
 
 #include <math.h>
 
@@ -209,9 +209,15 @@ enum gsamp_thresh {
 #define DTMF_GSIZE		102
 
 /* How many successive hits needed to consider begin of a digit */
-#define DTMF_HITS_TO_BEGIN	2
+#define DTMF_HITS_TO_BEGIN	4
 /* How many successive misses needed to consider end of a digit */
-#define DTMF_MISSES_TO_END	3
+#define DTMF_MISSES_TO_END	4
+
+/*!
+ * \brief The default silence threshold we will use if an alternate
+ * configured value is not present or is invalid.
+ */
+static const int DEFAULT_SILENCE_THRESHOLD = 256;
 
 #define CONFIG_FILE_NAME "dsp.conf"
 
@@ -284,24 +290,17 @@ typedef struct
 	} td;
 } digit_detect_state_t;
 
-static float dtmf_row[] =
-{
+static const float dtmf_row[] = {
 	697.0,  770.0,  852.0,  941.0
 };
-static float dtmf_col[] =
-{
+static const float dtmf_col[] = {
 	1209.0, 1336.0, 1477.0, 1633.0
 };
-
-static float mf_tones[] =
-{
+static const float mf_tones[] = {
 	700.0, 900.0, 1100.0, 1300.0, 1500.0, 1700.0
 };
-
-static char dtmf_positions[] = "123A" "456B" "789C" "*0#D";
-
-static char bell_mf_positions[] = "1247C-358A--69*---0B----#";
-
+static const char dtmf_positions[] = "123A" "456B" "789C" "*0#D";
+static const char bell_mf_positions[] = "1247C-358A--69*---0B----#";
 static int thresholds[THRESHOLD_MAX];
 
 static inline void goertzel_sample(goertzel_state_t *s, short sample)
@@ -400,7 +399,6 @@ struct ast_dsp {
 	digit_detect_state_t digit_state;
 	tone_detect_state_t cng_tone_state;
 	tone_detect_state_t ced_tone_state;
-	int destroy;
 };
 
 static void mute_fragment(struct ast_dsp *dsp, fragment_t *fragment)
@@ -725,41 +723,40 @@ static int dtmf_detect(struct ast_dsp *dsp, digit_detect_state_t *s, int16_t amp
 			}
 		} 
 
-		if (s->td.dtmf.current_hit) {
-			/* We are in the middle of a digit already */
-			if (hit != s->td.dtmf.current_hit) {
-				s->td.dtmf.misses++;
-				if (s->td.dtmf.misses == s->td.dtmf.misses_to_end) {
-					/* There were enough misses to consider digit ended */
-					s->td.dtmf.current_hit = 0;
+		if (hit == s->td.dtmf.lasthit) {
+			if (s->td.dtmf.current_hit) {
+				/* We are in the middle of a digit already */
+				if (hit) {
+					if (hit != s->td.dtmf.current_hit) {
+						/* Look for a start of a new digit.
+						   This is because hits_to_begin may be smaller than misses_to_end
+						   and we may find the beginning of new digit before we consider last one ended. */
+						s->td.dtmf.current_hit = 0;
+					} else {
+						/* Current hit was same as last, so increment digit duration (of last digit) */
+						s->digitlen[s->current_digits - 1] += DTMF_GSIZE;
+					}
+				} else {
+					/* No Digit */
+					s->td.dtmf.misses++;
+					if (s->td.dtmf.misses == s->td.dtmf.misses_to_end) {
+						/* There were enough misses to consider digit ended */
+						s->td.dtmf.current_hit = 0;
+					}
 				}
-			} else {
-				s->td.dtmf.misses = 0;
-				/* Current hit was same as last, so increment digit duration (of last digit) */
-				s->digitlen[s->current_digits - 1] += DTMF_GSIZE;
-			}
-		}
-
-		/* Look for a start of a new digit no matter if we are already in the middle of some
-		   digit or not. This is because hits_to_begin may be smaller than misses_to_end
-		   and we may find begin of new digit before we consider last one ended. */
-		if (hit) {
-			if (hit == s->td.dtmf.lasthit) {
+			} else if (hit) {
+				/* Detecting new digit */
 				s->td.dtmf.hits++;
-			} else {
-				s->td.dtmf.hits = 1;
-			}
-
-			if (s->td.dtmf.hits == s->td.dtmf.hits_to_begin && hit != s->td.dtmf.current_hit) {
-				store_digit(s, hit);
-				s->td.dtmf.current_hit = hit;
-				s->td.dtmf.misses = 0;
+				if (s->td.dtmf.hits == s->td.dtmf.hits_to_begin) {
+					store_digit(s, hit);
+					s->td.dtmf.current_hit = hit;
+				}
 			}
 		} else {
-			s->td.dtmf.hits = 0;
+			s->td.dtmf.hits = 1;
+			s->td.dtmf.misses = 1;
+			s->td.dtmf.lasthit = hit;
 		}
-
-		s->td.dtmf.lasthit = hit;
 
 		/* If we had a hit in this block, include it into mute fragment */
 		if (squelch && hit) {
@@ -797,7 +794,6 @@ static int mf_detect(struct ast_dsp *dsp, digit_detect_state_t *s, int16_t amp[]
 	float energy[6];
 	int best;
 	int second_best;
-	float famp;
 	int i;
 	int j;
 	int sample;
@@ -822,7 +818,6 @@ static int mf_detect(struct ast_dsp *dsp, digit_detect_state_t *s, int16_t amp[]
 		/* The following unrolled loop takes only 35% (rough estimate) of the 
 		   time of a rolled loop on the machine on which it was developed */
 		for (j = sample;  j < limit;  j++) {
-			famp = amp[j];
 			/* With GCC 2.95, the following unrolled code seems to take about 35%
 			   (rough estimate) as long as a neat little 0-3 loop */
 			goertzel_sample(s->td.mf.tone_out, amp[j]);
@@ -1108,7 +1103,7 @@ int ast_dsp_call_progress(struct ast_dsp *dsp, struct ast_frame *inf)
 		ast_log(LOG_WARNING, "Can't check call progress of non-voice frames\n");
 		return 0;
 	}
-	if (inf->subclass != AST_FORMAT_SLINEAR) {
+	if (inf->subclass.codec != AST_FORMAT_SLINEAR) {
 		ast_log(LOG_WARNING, "Can only check call progress in signed-linear frames\n");
 		return 0;
 	}
@@ -1243,7 +1238,7 @@ int ast_dsp_busydetect(struct ast_dsp *dsp)
 	}
 	/* If we know the expected busy tone length, check we are in the range */
 	if (res && (dsp->busy_tonelength > 0)) {
-		if (abs(avgtone - dsp->busy_tonelength) > (dsp->busy_tonelength*BUSY_PAT_PERCENT/100)) {
+		if (abs(avgtone - dsp->busy_tonelength) > MAX(dsp->busy_tonelength*BUSY_PAT_PERCENT/100, 20)) {
 #ifdef BUSYDETECT_DEBUG
 			ast_debug(5, "busy detector: avgtone of %d not close enough to desired %d\n",
 				avgtone, dsp->busy_tonelength);
@@ -1254,7 +1249,7 @@ int ast_dsp_busydetect(struct ast_dsp *dsp)
 #ifndef BUSYDETECT_TONEONLY
 	/* If we know the expected busy tone silent-period length, check we are in the range */
 	if (res && (dsp->busy_quietlength > 0)) {
-		if (abs(avgsilence - dsp->busy_quietlength) > (dsp->busy_quietlength*BUSY_PAT_PERCENT/100)) {
+		if (abs(avgsilence - dsp->busy_quietlength) > MAX(dsp->busy_quietlength*BUSY_PAT_PERCENT/100, 20)) {
 #ifdef BUSYDETECT_DEBUG
 		ast_debug(5, "busy detector: avgsilence of %d not close enough to desired %d\n",
 			avgsilence, dsp->busy_quietlength);
@@ -1282,7 +1277,7 @@ int ast_dsp_silence(struct ast_dsp *dsp, struct ast_frame *f, int *totalsilence)
 		ast_log(LOG_WARNING, "Can't calculate silence on a non-voice frame\n");
 		return 0;
 	}
-	if (f->subclass != AST_FORMAT_SLINEAR) {
+	if (f->subclass.codec != AST_FORMAT_SLINEAR) {
 		ast_log(LOG_WARNING, "Can only calculate silence on signed-linear frames :(\n");
 		return 0;
 	}
@@ -1300,7 +1295,7 @@ int ast_dsp_noise(struct ast_dsp *dsp, struct ast_frame *f, int *totalnoise)
                ast_log(LOG_WARNING, "Can't calculate noise on a non-voice frame\n");
                return 0;
        }
-       if (f->subclass != AST_FORMAT_SLINEAR) {
+       if (f->subclass.codec != AST_FORMAT_SLINEAR) {
                ast_log(LOG_WARNING, "Can only calculate noise on signed-linear frames :(\n");
                return 0;
        }
@@ -1331,12 +1326,13 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 	odata = af->data.ptr;
 	len = af->datalen;
 	/* Make sure we have short data */
-	switch (af->subclass) {
+	switch (af->subclass.codec) {
 	case AST_FORMAT_SLINEAR:
 		shortdata = af->data.ptr;
 		len = af->datalen / 2;
 		break;
 	case AST_FORMAT_ULAW:
+	case AST_FORMAT_TESTLAW:
 		shortdata = alloca(af->datalen * 2);
 		for (x = 0;x < len; x++) {
 			shortdata[x] = AST_MULAW(odata[x]);
@@ -1351,7 +1347,7 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 	default:
 		/*Display warning only once. Otherwise you would get hundreds of warnings every second */
 		if (dsp->display_inband_dtmf_warning)
-			ast_log(LOG_WARNING, "Inband DTMF is not supported on codec %s. Use RFC2833\n", ast_getformatname(af->subclass));
+			ast_log(LOG_WARNING, "Inband DTMF is not supported on codec %s. Use RFC2833\n", ast_getformatname(af->subclass.codec));
 		dsp->display_inband_dtmf_warning = 0;
 		return af;
 	}
@@ -1368,18 +1364,16 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 		memset(&dsp->f, 0, sizeof(dsp->f));
 		dsp->f.frametype = AST_FRAME_NULL;
 		ast_frfree(af);
-		ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
-		return &dsp->f;
+		return ast_frisolate(&dsp->f);
 	}
 	if ((dsp->features & DSP_FEATURE_BUSY_DETECT) && ast_dsp_busydetect(dsp)) {
 		chan->_softhangup |= AST_SOFTHANGUP_DEV;
 		memset(&dsp->f, 0, sizeof(dsp->f));
 		dsp->f.frametype = AST_FRAME_CONTROL;
-		dsp->f.subclass = AST_CONTROL_BUSY;
+		dsp->f.subclass.integer = AST_CONTROL_BUSY;
 		ast_frfree(af);
 		ast_debug(1, "Requesting Hangup because the busy tone was detected on channel %s\n", chan->name);
-		ast_set_flag(&dsp->f, AST_FRFLAG_FROM_DSP);
-		return &dsp->f;
+		return ast_frisolate(&dsp->f);
 	}
 
 	if ((dsp->features & DSP_FEATURE_FAX_DETECT)) {
@@ -1434,7 +1428,7 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 			if (event) {
 				memset(&dsp->f, 0, sizeof(dsp->f));
 				dsp->f.frametype = event;
-				dsp->f.subclass = event_digit;
+				dsp->f.subclass.integer = event_digit;
 				dsp->f.len = event_len;
 				outf = &dsp->f;
 				goto done;
@@ -1447,7 +1441,7 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 
 		memset(&dsp->f, 0, sizeof(dsp->f));
 		dsp->f.frametype = AST_FRAME_DTMF;
-		dsp->f.subclass = fax_digit;
+		dsp->f.subclass.integer = fax_digit;
 		outf = &dsp->f;
 		goto done;
 	}
@@ -1463,7 +1457,7 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 			case AST_CONTROL_HANGUP:
 				memset(&dsp->f, 0, sizeof(dsp->f));
 				dsp->f.frametype = AST_FRAME_CONTROL;
-				dsp->f.subclass = res;
+				dsp->f.subclass.integer = res;
 				dsp->f.src = "dsp_progress";
 				if (chan) 
 					ast_queue_frame(chan, &dsp->f);
@@ -1482,7 +1476,7 @@ done:
 		memset(shortdata + dsp->mute_data[x].start, 0, sizeof(int16_t) * (dsp->mute_data[x].end - dsp->mute_data[x].start));
 	}
 
-	switch (af->subclass) {
+	switch (af->subclass.codec) {
 	case AST_FORMAT_SLINEAR:
 		break;
 	case AST_FORMAT_ULAW:
@@ -1502,8 +1496,7 @@ done:
 			ast_queue_frame(chan, af);
 		}
 		ast_frfree(af);
-		ast_set_flag(outf, AST_FRFLAG_FROM_DSP);
-		return outf;
+		return ast_frisolate(outf);
 	} else {
 		return af;
 	}
@@ -1550,20 +1543,13 @@ struct ast_dsp *ast_dsp_new(void)
 void ast_dsp_set_features(struct ast_dsp *dsp, int features)
 {
 	dsp->features = features;
+	if (!(features & DSP_FEATURE_DIGIT_DETECT)) {
+		dsp->display_inband_dtmf_warning = 0;
+	}
 }
 
 void ast_dsp_free(struct ast_dsp *dsp)
 {
-	if (ast_test_flag(&dsp->f, AST_FRFLAG_FROM_DSP)) {
-		/* If this flag is still set, that means that the dsp's destruction 
-		 * been torn down, while we still have a frame out there being used.
-		 * When ast_frfree() gets called on that frame, this ast_trans_pvt
-		 * will get destroyed, too. */
-
-		dsp->destroy = 1;
-
-		return;
-	}
 	ast_free(dsp);
 }
 
@@ -1694,19 +1680,25 @@ static int _dsp_init(int reload)
 	struct ast_config *cfg;
 
 	cfg = ast_config_load2(CONFIG_FILE_NAME, "dsp", config_flags);
-	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEUNCHANGED || cfg == CONFIG_STATUS_FILEINVALID) {
+	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_verb(5, "Can't find dsp config file %s. Assuming default silencethreshold of %d.\n", CONFIG_FILE_NAME, DEFAULT_SILENCE_THRESHOLD);
+		thresholds[THRESHOLD_SILENCE] = DEFAULT_SILENCE_THRESHOLD;
 		return 0;
 	}
 
-	if (cfg && cfg != CONFIG_STATUS_FILEUNCHANGED) {
+	if (cfg == CONFIG_STATUS_FILEUNCHANGED) {
+		return 0;
+	}
+
+	if (cfg) {
 		const char *value;
 
 		value = ast_variable_retrieve(cfg, "default", "silencethreshold");
 		if (value && sscanf(value, "%30d", &thresholds[THRESHOLD_SILENCE]) != 1) {
-			ast_log(LOG_WARNING, "%s: '%s' is not a valid silencethreshold value\n", CONFIG_FILE_NAME, value);
-			thresholds[THRESHOLD_SILENCE] = 256;
+			ast_verb(5, "%s: '%s' is not a valid silencethreshold value\n", CONFIG_FILE_NAME, value);
+			thresholds[THRESHOLD_SILENCE] = DEFAULT_SILENCE_THRESHOLD;
 		} else if (!value) {
-			thresholds[THRESHOLD_SILENCE] = 256;
+			thresholds[THRESHOLD_SILENCE] = DEFAULT_SILENCE_THRESHOLD;
 		}
 
 		ast_config_destroy(cfg);
@@ -1729,16 +1721,3 @@ int ast_dsp_reload(void)
 	return _dsp_init(1);
 }
 
-void ast_dsp_frame_freed(struct ast_frame *fr)
-{
-	struct ast_dsp *dsp;
-
-	ast_clear_flag(fr, AST_FRFLAG_FROM_DSP);
-
-	dsp = (struct ast_dsp *) (((char *) fr) - offsetof(struct ast_dsp, f));
-
-	if (!dsp->destroy)
-		return;
-	
-	ast_dsp_free(dsp);
-}

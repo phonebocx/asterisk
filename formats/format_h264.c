@@ -23,10 +23,14 @@
  * \ingroup formats
  * \arg See \ref AstVideo
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233694 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -72,7 +76,7 @@ static struct ast_frame *h264_read(struct ast_filestream *s, int *whennext)
 		len = BUF_SIZE;	/* XXX truncate */
 	}
 	s->fr.frametype = AST_FRAME_VIDEO;
-	s->fr.subclass = AST_FORMAT_H264;
+	s->fr.subclass.codec = AST_FORMAT_H264;
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, len);
 	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
@@ -82,7 +86,7 @@ static struct ast_frame *h264_read(struct ast_filestream *s, int *whennext)
 	}
 	s->fr.samples = fs->lastts;
 	s->fr.datalen = len;
-	s->fr.subclass |= mark;
+	s->fr.subclass.codec |= mark;
 	s->fr.delivery.tv_sec = 0;
 	s->fr.delivery.tv_usec = 0;
 	if ((res = fread(&ts, 1, sizeof(ts), s->f)) == sizeof(ts)) {
@@ -104,9 +108,9 @@ static int h264_write(struct ast_filestream *s, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-video frame!\n");
 		return -1;
 	}
-	mark = (f->subclass & 0x1) ? 0x8000 : 0;
-	if ((f->subclass & ~0x1) != AST_FORMAT_H264) {
-		ast_log(LOG_WARNING, "Asked to write non-h264 frame (%d)!\n", f->subclass);
+	mark = (f->subclass.codec & 0x1) ? 0x8000 : 0;
+	if ((f->subclass.codec & ~0x1) != AST_FORMAT_H264) {
+		ast_log(LOG_WARNING, "Asked to write non-h264 frame (%s)!\n", ast_getformatname(f->subclass.codec));
 		return -1;
 	}
 	ts = htonl(f->samples);
@@ -170,10 +174,10 @@ static int load_module(void)
 static int unload_module(void)
 {
 	return ast_format_unregister(h264_f.name);
-}	
+}
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Raw H.264 data",
 	.load = load_module,
 	.unload = unload_module,
-	.load_pri = 10,
+	.load_pri = AST_MODPRI_APP_DEPEND
 );

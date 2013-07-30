@@ -27,12 +27,13 @@
  */
 
 /*** MODULEINFO
+	<support_level>core</support_level>
 	<depend>dahdi</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 206639 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 340863 $")
 
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -55,8 +56,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 206639 $")
 
 #define G723_SAMPLES 240
 #define G729_SAMPLES 160
-
-static unsigned int global_useplc = 0;
 
 static struct channel_usage {
 	int total;
@@ -94,10 +93,10 @@ struct codec_dahdi_pvt {
 };
 
 /* Only used by a decoder */
-static int ulawtolin(struct ast_trans_pvt *pvt)
+static int ulawtolin(struct ast_trans_pvt *pvt, int samples)
 {
 	struct codec_dahdi_pvt *dahdip = pvt->pvt;
-	int i = dahdip->required_samples;
+	int i = samples;
 	uint8_t *src = &dahdip->ulaw_buffer[0];
 	int16_t *dst = pvt->outbuf.i16 + pvt->datalen;
 
@@ -181,7 +180,7 @@ static int dahdi_encoder_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct codec_dahdi_pvt *dahdip = pvt->pvt;
 
-	if (!f->subclass) {
+	if (!f->subclass.codec) {
 		/* We're just faking a return for calculation purposes. */
 		dahdip->fake = 2;
 		pvt->samples = f->samples;
@@ -229,16 +228,15 @@ static struct ast_frame *dahdi_encoder_frameout(struct ast_trans_pvt *pvt)
 	if (2 == dahdip->fake) {
 		dahdip->fake = 1;
 		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass = 0;
+		pvt->f.subclass.codec = 0;
 		pvt->f.samples = dahdip->required_samples;
 		pvt->f.data.ptr = NULL;
 		pvt->f.offset = 0;
 		pvt->f.datalen = 0;
 		pvt->f.mallocd = 0;
-		ast_set_flag(&pvt->f, AST_FRFLAG_FROM_TRANSLATOR);
 		pvt->samples = 0;
 
-		return &pvt->f;
+		return ast_frisolate(&pvt->f);
 
 	} else if (1 == dahdip->fake) {
 		dahdip->fake = 0;
@@ -258,16 +256,15 @@ static struct ast_frame *dahdi_encoder_frameout(struct ast_trans_pvt *pvt)
 		pvt->f.datalen = res;
 		pvt->f.samples = dahdip->required_samples;
 		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass = 1 <<  (pvt->t->dstfmt);
+		pvt->f.subclass.codec = 1 <<  (pvt->t->dstfmt);
 		pvt->f.mallocd = 0;
 		pvt->f.offset = AST_FRIENDLY_OFFSET;
 		pvt->f.src = pvt->t->name;
 		pvt->f.data.ptr = pvt->outbuf.c;
-		ast_set_flag(&pvt->f, AST_FRFLAG_FROM_TRANSLATOR);
 
 		pvt->samples = 0;
 		pvt->datalen = 0;
-		return &pvt->f;
+		return ast_frisolate(&pvt->f);
 	}
 
 	/* Shouldn't get here... */
@@ -278,7 +275,7 @@ static int dahdi_decoder_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct codec_dahdi_pvt *dahdip = pvt->pvt;
 
-	if (!f->subclass) {
+	if (!f->subclass.codec) {
 		/* We're just faking a return for calculation purposes. */
 		dahdip->fake = 2;
 		pvt->samples = f->samples;
@@ -304,15 +301,14 @@ static struct ast_frame *dahdi_decoder_frameout(struct ast_trans_pvt *pvt)
 	if (2 == dahdip->fake) {
 		dahdip->fake = 1;
 		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass = 0;
+		pvt->f.subclass.codec = 0;
 		pvt->f.samples = dahdip->required_samples;
 		pvt->f.data.ptr = NULL;
 		pvt->f.offset = 0;
 		pvt->f.datalen = 0;
 		pvt->f.mallocd = 0;
-		ast_set_flag(&pvt->f, AST_FRFLAG_FROM_TRANSLATOR);
 		pvt->samples = 0;
-		return &pvt->f;
+		return ast_frisolate(&pvt->f);
 	} else if (1 == dahdip->fake) {
 		pvt->samples = 0;
 		dahdip->fake = 0;
@@ -336,23 +332,22 @@ static struct ast_frame *dahdi_decoder_frameout(struct ast_trans_pvt *pvt)
 		}
 	} else {
 		if (dahdip->softslin) {
-			ulawtolin(pvt);
+			ulawtolin(pvt, res);
 			pvt->f.datalen = res * 2;
 		} else {
 			pvt->f.datalen = res;
 		}
 		pvt->datalen = 0;
 		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass = 1 <<  (pvt->t->dstfmt);
+		pvt->f.subclass.codec = 1 <<  (pvt->t->dstfmt);
 		pvt->f.mallocd = 0;
 		pvt->f.offset = AST_FRIENDLY_OFFSET;
 		pvt->f.src = pvt->t->name;
 		pvt->f.data.ptr = pvt->outbuf.c;
-		pvt->f.samples = dahdip->required_samples;
-		ast_set_flag(&pvt->f, AST_FRFLAG_FROM_TRANSLATOR);
+		pvt->f.samples = res;
 		pvt->samples = 0;
 
-		return &pvt->f;
+		return ast_frisolate(&pvt->f);
 	}
 
 	/* Shouldn't get here... */
@@ -493,29 +488,14 @@ static int register_translator(int dst, int src)
 	if (is_encoder(zt)) {
 		zt->t.framein = dahdi_encoder_framein;
 		zt->t.frameout = dahdi_encoder_frameout;
-#if 0
-		zt->t.buffer_samples = 0;
-#endif
 	} else {
 		zt->t.framein = dahdi_decoder_framein;
 		zt->t.frameout = dahdi_decoder_frameout;
-#if 0
-		if (AST_FORMAT_G723_1 == zt->t.srcfmt) {
-			zt->t.plc_samples = G723_SAMPLES;
-		} else {
-			zt->t.plc_samples = G729_SAMPLES;
-		}
-		zt->t.buffer_samples = zt->t.plc_samples * 8;
-#endif
 	}
 	zt->t.destroy = dahdi_destroy;
 	zt->t.buffer_samples = 0;
 	zt->t.newpvt = dahdi_new;
 	zt->t.sample = fakesrc_sample;
-#if 0
-	zt->t.useplc = global_useplc;
-#endif
-	zt->t.useplc = 0;
 	zt->t.native_plc = 0;
 
 	zt->t.desc_size = sizeof(struct codec_dahdi_pvt);
@@ -565,27 +545,6 @@ static void unregister_translators(void)
 		ast_free(cur);
 	}
 	AST_LIST_UNLOCK(&translators);
-}
-
-static int parse_config(int reload)
-{
-	struct ast_variable *var;
-	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
-	struct ast_config *cfg = ast_config_load("codecs.conf", config_flags);
-
-	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEUNCHANGED || cfg == CONFIG_STATUS_FILEINVALID)
-		return 0;
-
-	for (var = ast_variable_browse(cfg, "plc"); var; var = var->next) {
-	       if (!strcasecmp(var->name, "genericplc")) {
-		       global_useplc = ast_true(var->value);
-		       ast_verb(3, "codec_dahdi: %susing generic PLC\n",
-				global_useplc ? "" : "not ");
-	       }
-	}
-
-	ast_config_destroy(cfg);
-	return 0;
 }
 
 static void build_translators(struct format_map *map, unsigned int dstfmts, unsigned int srcfmts)
@@ -662,16 +621,6 @@ static int find_transcoders(void)
 
 static int reload(void)
 {
-	struct translator *cur;
-
-	if (parse_config(1))
-		return AST_MODULE_LOAD_DECLINE;
-
-	AST_LIST_LOCK(&translators);
-	AST_LIST_TRAVERSE(&translators, cur, entry)
-		cur->t.useplc = global_useplc;
-	AST_LIST_UNLOCK(&translators);
-
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
@@ -686,8 +635,6 @@ static int unload_module(void)
 static int load_module(void)
 {
 	ast_ulaw_init();
-	if (parse_config(0))
-		return AST_MODULE_LOAD_DECLINE;
 	find_transcoders();
 	ast_cli_register_multiple(cli, ARRAY_LEN(cli));
 	return AST_MODULE_LOAD_SUCCESS;

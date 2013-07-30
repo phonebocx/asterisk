@@ -33,11 +33,13 @@
 
 /*** MODULEINFO
 	<depend>dahdi</depend>
+	<support_level>deprecated</support_level>
+	<replacement>app_chanspy</replacement>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328446 $")
 
 #include <dahdi/user.h>
 
@@ -70,7 +72,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 		</description>
 	</application>
  ***/
-static char *app = "DAHDIBarge";
+static const char app[] = "DAHDIBarge";
 
 #define CONF_SIZE 160
 
@@ -208,17 +210,17 @@ dahdiretry:
 			f = ast_read(c);
 			if (!f) 
 				break;
-			if ((f->frametype == AST_FRAME_DTMF) && (f->subclass == '#')) {
+			if ((f->frametype == AST_FRAME_DTMF) && (f->subclass.integer == '#')) {
 				ret = 0;
 				ast_frfree(f);
 				break;
 			} else if (fd != chan->fds[0]) {
 				if (f->frametype == AST_FRAME_VOICE) {
-					if (f->subclass == AST_FORMAT_ULAW) {
+					if (f->subclass.codec == AST_FORMAT_ULAW) {
 						/* Carefully write */
 						careful_write(fd, f->data.ptr, f->datalen);
 					} else
-						ast_log(LOG_WARNING, "Huh?  Got a non-ulaw (%d) frame in the conference\n", f->subclass);
+						ast_log(LOG_WARNING, "Huh?  Got a non-ulaw (%s) frame in the conference\n", ast_getformatname(f->subclass.codec));
 				}
 			}
 			ast_frfree(f);
@@ -227,7 +229,7 @@ dahdiretry:
 			if (res > 0) {
 				memset(&fr, 0, sizeof(fr));
 				fr.frametype = AST_FRAME_VOICE;
-				fr.subclass = AST_FORMAT_ULAW;
+				fr.subclass.codec = AST_FORMAT_ULAW;
 				fr.datalen = res;
 				fr.samples = res;
 				fr.data.ptr = buf;
@@ -258,7 +260,7 @@ outrun:
 	return ret;
 }
 
-static int conf_exec(struct ast_channel *chan, void *data)
+static int conf_exec(struct ast_channel *chan, const char *data)
 {
 	int res = -1;
 	int retrycnt = 0;

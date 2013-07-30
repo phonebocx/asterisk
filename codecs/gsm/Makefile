@@ -37,7 +37,15 @@ WAV49	= -DWAV49
 ######### ppro's, etc, as well as the AMD K6 and K7.  The compile will
 ######### probably require gcc. 
 
-ifeq (,$(findstring $(OSARCH),Darwin SunOS))
+# Due to the gsm codec beeing broken when compiled with gcc version 4.2
+# and optimization higher than -O2 we are checking for that version and
+# set the optimization to -O2 in this case.
+
+ifeq ($(shell $(CC) -v 2>&1 | awk '/^gcc version/ { split($$3, v, "."); printf "%s.%s\n", v[1], v[2]; }' ),4.2)
+OPTIMIZE=-O2
+endif
+
+ifeq (,$(findstring $(shell uname -s),Darwin SunOS))
   ifeq (,$(strip $(findstring $(PROC) ,"x86_64 amd64 ultrasparc sparc64 arm armv5b armeb ppc powerpc ppc64 ia64 s390 bfin mipsel mips ")))
     ifeq (,$(strip $(findstring $(shell uname -m) ,"ppc ppc64 alpha armv4l s390 ")))
       OPTIMIZE+=-march=$(PROC)
@@ -45,8 +53,8 @@ ifeq (,$(findstring $(OSARCH),Darwin SunOS))
   endif
 else
   ifneq (,$(findstring $(OSARCH),Darwin))
-    ifeq ($(shell /usr/bin/sw_vers -productVersion | cut -c1-4),10.6)
-      # Snow Leopard reports i386, even though it's really x86_64
+    ifeq ($(shell if test `/usr/bin/sw_vers -productVersion | cut -c4` -gt 5; then echo 6; else echo 0; fi),6)
+      # Snow Leopard/Lion reports i386, even though it's really x86_64
       OPTIMIZE+=-mtune=native
     endif
   endif

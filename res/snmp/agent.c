@@ -16,7 +16,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 352955 $")
 
 /*
  * There is some collision collision between netsmp and asterisk names,
@@ -236,18 +236,31 @@ static u_char *ast_var_channels_table(struct variable *vp, oid *name, size_t *le
 	u_char *ret = NULL;
 	int i, bit;
 	struct ast_str *out = ast_str_alloca(2048);
+	struct ast_channel_iterator *iter;
 
 	if (header_simple_table(vp, name, length, exact, var_len, write_method, ast_active_channels()))
 		return NULL;
 
 	i = name[*length - 1] - 1;
-	for (chan = ast_channel_walk_locked(NULL);
-		 chan && i;
-		 chan = ast_channel_walk_locked(chan), i--)
-		ast_channel_unlock(chan);
-	if (chan == NULL)
+
+	if (!(iter = ast_channel_iterator_all_new())) {
 		return NULL;
+	}
+
+	while ((chan = ast_channel_iterator_next(iter)) && i) {
+		ast_channel_unref(chan);
+		i--;
+	}
+
+	iter = ast_channel_iterator_destroy(iter);
+
+	if (chan == NULL) {
+		return NULL;
+	}
+
 	*var_len = sizeof(long_ret);
+
+	ast_channel_lock(chan);
 
 	switch (vp->magic) {
 	case ASTCHANINDEX:
@@ -406,59 +419,59 @@ static u_char *ast_var_channels_table(struct variable *vp, oid *name, size_t *le
 		ret = (u_char *)&long_ret;
 		break;
 	case ASTCHANCIDDNID:
-		if (chan->cid.cid_dnid) {
-			strncpy(string_ret, chan->cid.cid_dnid, sizeof(string_ret));
+		if (chan->dialed.number.str) {
+			strncpy(string_ret, chan->dialed.number.str, sizeof(string_ret));
 			string_ret[sizeof(string_ret) - 1] = '\0';
 			*var_len = strlen(string_ret);
 			ret = (u_char *)string_ret;
 		}
 		break;
 	case ASTCHANCIDNUM:
-		if (chan->cid.cid_num) {
-			strncpy(string_ret, chan->cid.cid_num, sizeof(string_ret));
+		if (chan->caller.id.number.valid && chan->caller.id.number.str) {
+			strncpy(string_ret, chan->caller.id.number.str, sizeof(string_ret));
 			string_ret[sizeof(string_ret) - 1] = '\0';
 			*var_len = strlen(string_ret);
 			ret = (u_char *)string_ret;
 		}
 		break;
 	case ASTCHANCIDNAME:
-		if (chan->cid.cid_name) {
-			strncpy(string_ret, chan->cid.cid_name, sizeof(string_ret));
+		if (chan->caller.id.name.valid && chan->caller.id.name.str) {
+			strncpy(string_ret, chan->caller.id.name.str, sizeof(string_ret));
 			string_ret[sizeof(string_ret) - 1] = '\0';
 			*var_len = strlen(string_ret);
 			ret = (u_char *)string_ret;
 		}
 		break;
 	case ASTCHANCIDANI:
-		if (chan->cid.cid_ani) {
-			strncpy(string_ret, chan->cid.cid_ani, sizeof(string_ret));
+		if (chan->caller.ani.number.valid && chan->caller.ani.number.str) {
+			strncpy(string_ret, chan->caller.ani.number.str, sizeof(string_ret));
 			string_ret[sizeof(string_ret) - 1] = '\0';
 			*var_len = strlen(string_ret);
 			ret = (u_char *)string_ret;
 		}
 		break;
 	case ASTCHANCIDRDNIS:
-		if (chan->cid.cid_rdnis) {
-			strncpy(string_ret, chan->cid.cid_rdnis, sizeof(string_ret));
+		if (chan->redirecting.from.number.valid && chan->redirecting.from.number.str) {
+			strncpy(string_ret, chan->redirecting.from.number.str, sizeof(string_ret));
 			string_ret[sizeof(string_ret) - 1] = '\0';
 			*var_len = strlen(string_ret);
 			ret = (u_char *)string_ret;
 		}
 		break;
 	case ASTCHANCIDPRES:
-		long_ret = chan->cid.cid_pres;
+		long_ret = ast_party_id_presentation(&chan->caller.id);
 		ret = (u_char *)&long_ret;
 		break;
 	case ASTCHANCIDANI2:
-		long_ret = chan->cid.cid_ani2;
+		long_ret = chan->caller.ani2;
 		ret = (u_char *)&long_ret;
 		break;
 	case ASTCHANCIDTON:
-		long_ret = chan->cid.cid_ton;
+		long_ret = chan->caller.id.number.plan;
 		ret = (u_char *)&long_ret;
 		break;
 	case ASTCHANCIDTNS:
-		long_ret = chan->cid.cid_tns;
+		long_ret = chan->dialed.transit_network_select;
 		ret = (u_char *)&long_ret;
 		break;
 	case ASTCHANAMAFLAGS:
@@ -503,7 +516,10 @@ static u_char *ast_var_channels_table(struct variable *vp, oid *name, size_t *le
 	default:
 		break;
 	}
+
 	ast_channel_unlock(chan);
+	chan = ast_channel_unref(chan);
+
 	return ret;
 }
 
@@ -567,13 +583,26 @@ static u_char *ast_var_channel_types_table(struct variable *vp, oid *name, size_
 		long_ret = tech->transfer ? 1 : 2;
 		return (u_char *)&long_ret;
 	case ASTCHANTYPECHANNELS:
+	{
+		struct ast_channel_iterator *iter;
+
 		long_ret = 0;
-		for (chan = ast_channel_walk_locked(NULL); chan; chan = ast_channel_walk_locked(chan)) {
-			if (chan->tech == tech)
-				long_ret++;
-			ast_channel_unlock(chan);
+
+		if (!(iter = ast_channel_iterator_all_new())) {
+			return NULL;
 		}
+
+		while ((chan = ast_channel_iterator_next(iter))) {
+			if (chan->tech == tech) {
+				long_ret++;
+			}
+			chan = ast_channel_unref(chan);
+		}
+
+		ast_channel_iterator_destroy(iter);
+
 		return (u_char *)&long_ret;
+	}
 	default:
 		break;
 	}
@@ -585,16 +614,28 @@ static u_char *ast_var_channel_bridge(struct variable *vp, oid *name, size_t *le
 {
 	static unsigned long long_ret;
 	struct ast_channel *chan = NULL;
+	struct ast_channel_iterator *iter;
 
 	long_ret = 0;
-	if (header_generic(vp, name, length, exact, var_len, write_method))
-		return NULL;
 
-	while ((chan = ast_channel_walk_locked(chan))) {
-		if (ast_bridged_channel(chan))
-			long_ret++;
-		ast_channel_unlock(chan);
+	if (header_generic(vp, name, length, exact, var_len, write_method)) {
+		return NULL;
 	}
+
+	if (!(iter = ast_channel_iterator_all_new())) {
+		return NULL;
+	}
+
+	while ((chan = ast_channel_iterator_next(iter))) {
+		ast_channel_lock(chan);
+		if (ast_bridged_channel(chan)) {
+			long_ret++;
+		}
+		ast_channel_unlock(chan);
+		chan = ast_channel_unref(chan);
+	}
+
+	ast_channel_iterator_destroy(iter);
 
 	*var_len = sizeof(long_ret);
 
@@ -662,6 +703,7 @@ static u_char *ast_var_indications(struct variable *vp, oid *name, size_t *lengt
 			tz = ast_tone_zone_unref(tz);
 			long_ret++;
 		}
+		ao2_iterator_destroy(&i);
 
 		return (u_char *) &long_ret;
 	}
@@ -702,6 +744,7 @@ static u_char *ast_var_indications_table(struct variable *vp, oid *name, size_t 
 		tz = ast_tone_zone_unref(tz);
 		i--;
 	}
+	ao2_iterator_destroy(&iter);
 
 	if (tz == NULL) {
 		return NULL;
@@ -709,24 +752,27 @@ static u_char *ast_var_indications_table(struct variable *vp, oid *name, size_t 
 
 	switch (vp->magic) {
 	case ASTINDINDEX:
+		ast_tone_zone_unref(tz);
 		long_ret = name[*length - 1];
 		return (u_char *)&long_ret;
 	case ASTINDCOUNTRY:
 		ast_copy_string(ret_buf, tz->country, sizeof(ret_buf));
-		tz = ast_tone_zone_unref(tz);
+		ast_tone_zone_unref(tz);
 		*var_len = strlen(ret_buf);
 		return (u_char *) ret_buf;
 	case ASTINDALIAS:
 		/* No longer exists */
+		ast_tone_zone_unref(tz);
 		return NULL;
 	case ASTINDDESCRIPTION:
 		ast_tone_zone_lock(tz);
 		ast_copy_string(ret_buf, tz->description, sizeof(ret_buf));
 		ast_tone_zone_unlock(tz);
-		tz = ast_tone_zone_unref(tz);
+		ast_tone_zone_unref(tz);
 		*var_len = strlen(ret_buf);
 		return (u_char *) ret_buf;
 	default:
+		ast_tone_zone_unref(tz);
 		break;
 	}
 	return NULL;

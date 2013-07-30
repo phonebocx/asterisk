@@ -55,6 +55,7 @@ AC_DEFUN([AST_LIBCURL_CHECK_CONFIG],
   AH_TEMPLATE([LIBCURL_PROTOCOL_LDAP],[Defined if libcurl supports LDAP])
   AH_TEMPLATE([LIBCURL_PROTOCOL_DICT],[Defined if libcurl supports DICT])
   AH_TEMPLATE([LIBCURL_PROTOCOL_TFTP],[Defined if libcurl supports TFTP])
+  AC_SUBST(PBX_CURL)
 
   AC_ARG_WITH(libcurl,
      AC_HELP_STRING([--with-libcurl=DIR],[look for the curl library in DIR]),
@@ -142,7 +143,7 @@ AC_DEFUN([AST_LIBCURL_CHECK_CONFIG],
            _libcurl_save_libs=$LIBS
            LIBS="$CURL_LIB $LIBS"
 
-           AC_LINK_IFELSE(AC_LANG_PROGRAM([#include <curl/curl.h>],[
+           AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <curl/curl.h>],[
 /* Try and use a few common options to force a failure if we are
    missing symbols or can't link. */
 int x;
@@ -153,7 +154,7 @@ x=CURLOPT_FILE;
 x=CURLOPT_ERRORBUFFER;
 x=CURLOPT_STDERR;
 x=CURLOPT_VERBOSE;
-]),libcurl_cv_lib_curl_usable=yes,libcurl_cv_lib_curl_usable=no)
+])],libcurl_cv_lib_curl_usable=yes,libcurl_cv_lib_curl_usable=no)
 
            CPPFLAGS=$_libcurl_save_cppflags
            LIBS=$_libcurl_save_libs

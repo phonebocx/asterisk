@@ -25,9 +25,13 @@
  * \ingroup functions
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222187 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 343336 $")
 
 #include <sys/stat.h>
 
@@ -140,7 +144,7 @@ static int dialgroup_read(struct ast_channel *chan, const char *cmd, char *data,
 
 	buf[0] = '\0';
 
-	i = ao2_iterator_init(grhead->entries, OBJ_POINTER);
+	i = ao2_iterator_init(grhead->entries, 0);
 	while ((entry = ao2_iterator_next(&i))) {
 		int tmp = strlen(entry->name);
 		/* Ensure that we copy only complete names, not partials */
@@ -236,6 +240,11 @@ static int dialgroup_write(struct ast_channel *chan, const char *cmd, char *data
 
 	if (strcasecmp(args.op, "add") == 0) {
 		for (j = 0; j < inter.argc; j++) {
+			/* Eliminate duplicates */
+			if ((entry = ao2_find(grhead->entries, inter.faces[j], 0))) {
+				ao2_ref(entry, -1);
+				continue;
+			}
 			if ((entry = ao2_alloc(sizeof(*entry), NULL))) {
 				ast_copy_string(entry->name, inter.faces[j], sizeof(entry->name));
 				ao2_link(grhead->entries, entry);

@@ -20,8 +20,8 @@
  * at the top of the source tree.
  */
 
-/*! \file
- *
+/*!
+ * \file
  * \brief PostgreSQL CDR logger
  *
  * \author Matthew D. Hardeman <mhardemn@papersoft.com>
@@ -29,19 +29,18 @@
  *
  * See also
  * \arg \ref Config_cdr
- * \arg http://www.postgresql.org/
+ * \extref PostgreSQL http://www.postgresql.org/
  * \ingroup cdr_drivers
  */
 
 /*** MODULEINFO
 	<depend>pgsql</depend>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253620 $")
-
-#include <time.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <libpq-fe.h>
 
@@ -52,9 +51,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253620 $")
 
 #define DATE_FORMAT "'%Y-%m-%d %T'"
 
-static char *name = "pgsql";
-static char *config = "cdr_pgsql.conf";
-static char *pghostname = NULL, *pgdbname = NULL, *pgdbuser = NULL, *pgpassword = NULL, *pgdbport = NULL, *table = NULL;
+static const char name[] = "pgsql";
+static const char config[] = "cdr_pgsql.conf";
+static char *pghostname = NULL, *pgdbname = NULL, *pgdbuser = NULL, *pgpassword = NULL, *pgdbport = NULL, *table = NULL, *encoding = NULL, *tz = NULL;
 static int connected = 0;
 static int maxsize = 512, maxsize2 = 512;
 
@@ -112,6 +111,13 @@ static int pgsql_log(struct ast_cdr *cdr)
 		conn = PQsetdbLogin(pghostname, pgdbport, NULL, NULL, pgdbname, pgdbuser, pgpassword);
 		if (PQstatus(conn) != CONNECTION_BAD) {
 			connected = 1;
+			if (PQsetClientEncoding(conn, encoding)) {
+#ifdef HAVE_PGSQL_pg_encoding_to_char
+				ast_log(LOG_WARNING, "Failed to set encoding to '%s'.  Encoding set to default '%s'\n", encoding, pg_encoding_to_char(PQclientEncoding(conn)));
+#else
+				ast_log(LOG_WARNING, "Failed to set encoding to '%s'.  Encoding set to default.\n", encoding);
+#endif
+			}
 		} else {
 			pgerror = PQerrorMessage(conn);
 			ast_log(LOG_ERROR, "Unable to connect to database server %s.  Calls will not be logged!\n", pghostname);
@@ -172,7 +178,7 @@ static int pgsql_log(struct ast_cdr *cdr)
 				} else {
 					/* char, hopefully */
 					LENGTHEN_BUF2(31);
-					ast_localtime(&cdr->start, &tm, NULL);
+					ast_localtime(&cdr->start, &tm, tz);
 					ast_strftime(buf, sizeof(buf), DATE_FORMAT, &tm);
 					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", buf);
 				}
@@ -186,7 +192,7 @@ static int pgsql_log(struct ast_cdr *cdr)
 				} else {
 					/* char, hopefully */
 					LENGTHEN_BUF2(31);
-					ast_localtime(&cdr->start, &tm, NULL);
+					ast_localtime(&cdr->answer, &tm, tz);
 					ast_strftime(buf, sizeof(buf), DATE_FORMAT, &tm);
 					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", buf);
 				}
@@ -200,7 +206,7 @@ static int pgsql_log(struct ast_cdr *cdr)
 				} else {
 					/* char, hopefully */
 					LENGTHEN_BUF2(31);
-					ast_localtime(&cdr->end, &tm, NULL);
+					ast_localtime(&cdr->end, &tm, tz);
 					ast_strftime(buf, sizeof(buf), DATE_FORMAT, &tm);
 					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", buf);
 				}
@@ -211,14 +217,14 @@ static int pgsql_log(struct ast_cdr *cdr)
 					LENGTHEN_BUF2(13);
 					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", value);
 				} else if (strncmp(cur->type, "float", 5) == 0) {
-					struct timeval *when = cur->name[0] == 'd' ? &cdr->start : &cdr->answer;
+					struct timeval *when = cur->name[0] == 'd' ? &cdr->start : ast_tvzero(cdr->answer) ? &cdr->end : &cdr->answer;
 					LENGTHEN_BUF2(31);
-					ast_str_append(&sql2, 0, "%s%f", first ? "" : ",", (double)cdr->end.tv_sec - when->tv_sec + cdr->end.tv_usec / 1000000.0 - when->tv_usec / 1000000.0);
+					ast_str_append(&sql2, 0, "%s%f", first ? "" : ",", (double) (ast_tvdiff_us(cdr->end, *when) / 1000000.0));
 				} else {
 					/* Char field, probably */
-					struct timeval *when = cur->name[0] == 'd' ? &cdr->start : &cdr->answer;
+					struct timeval *when = cur->name[0] == 'd' ? &cdr->start : ast_tvzero(cdr->answer) ? &cdr->end : &cdr->answer;
 					LENGTHEN_BUF2(31);
-					ast_str_append(&sql2, 0, "%s'%f'", first ? "" : ",", (double)cdr->end.tv_sec - when->tv_sec + cdr->end.tv_usec / 1000000.0 - when->tv_usec / 1000000.0);
+					ast_str_append(&sql2, 0, "%s'%f'", first ? "" : ",", (double) (ast_tvdiff_us(cdr->end, *when) / 1000000.0));
 				}
 			} else if (strcmp(cur->name, "disposition") == 0 || strcmp(cur->name, "amaflags") == 0) {
 				if (strncmp(cur->type, "int", 3) == 0) {
@@ -331,24 +337,35 @@ static int pgsql_log(struct ast_cdr *cdr)
 static int unload_module(void)
 {
 	struct columns *current;
+
 	ast_cdr_unregister(name);
 
-	/* Give all threads time to finish */
-	usleep(1);
 	PQfinish(conn);
 
-	if (pghostname)
+	if (pghostname) {
 		ast_free(pghostname);
-	if (pgdbname)
+	}
+	if (pgdbname) {
 		ast_free(pgdbname);
-	if (pgdbuser)
+	}
+	if (pgdbuser) {
 		ast_free(pgdbuser);
-	if (pgpassword)
+	}
+	if (pgpassword) {
 		ast_free(pgpassword);
-	if (pgdbport)
+	}
+	if (pgdbport) {
 		ast_free(pgdbport);
-	if (table)
+	}
+	if (table) {
 		ast_free(table);
+	}
+	if (encoding) {
+		ast_free(encoding);
+	}
+	if (tz) {
+		ast_free(tz);
+	}
 
 	AST_RWLIST_WRLOCK(&psql_columns);
 	while ((current = AST_RWLIST_REMOVE_HEAD(&psql_columns, list))) {
@@ -452,6 +469,32 @@ static int config_module(int reload)
 		return -1;
 	}
 
+	if (!(tmp = ast_variable_retrieve(cfg, "global", "encoding"))) {
+		ast_log(LOG_WARNING, "Encoding not specified.  Assuming LATIN9\n");
+		tmp = "LATIN9";
+	}
+
+	if (encoding) {
+		ast_free(encoding);
+	}
+	if (!(encoding = ast_strdup(tmp))) {
+		ast_config_destroy(cfg);
+		return -1;
+	}
+
+	if (!(tmp = ast_variable_retrieve(cfg, "global", "timezone"))) {
+		tmp = "";
+	}
+
+	if (tz) {
+		ast_free(tz);
+		tz = NULL;
+	}
+	if (!ast_strlen_zero(tmp) && !(tz = ast_strdup(tmp))) {
+		ast_config_destroy(cfg);
+		return -1;
+	}
+
 	if (option_debug) {
 		if (ast_strlen_zero(pghostname)) {
 			ast_debug(1, "using default unix socket\n");
@@ -463,6 +506,8 @@ static int config_module(int reload)
 		ast_debug(1, "got dbname of %s\n", pgdbname);
 		ast_debug(1, "got password of %s\n", pgpassword);
 		ast_debug(1, "got sql table name of %s\n", table);
+		ast_debug(1, "got encoding of %s\n", encoding);
+		ast_debug(1, "got timezone of %s\n", tz);
 	}
 
 	conn = PQsetdbLogin(pghostname, pgdbport, NULL, NULL, pgdbname, pgdbuser, pgpassword);
@@ -472,6 +517,13 @@ static int config_module(int reload)
 		int i, rows, version;
 		ast_debug(1, "Successfully connected to PostgreSQL database.\n");
 		connected = 1;
+		if (PQsetClientEncoding(conn, encoding)) {
+#ifdef HAVE_PGSQL_pg_encoding_to_char
+			ast_log(LOG_WARNING, "Failed to set encoding to '%s'.  Encoding set to default '%s'\n", encoding, pg_encoding_to_char(PQclientEncoding(conn)));
+#else
+			ast_log(LOG_WARNING, "Failed to set encoding to '%s'.  Encoding set to default.\n", encoding);
+#endif
+		}
 		version = PQserverVersion(conn);
 
 		if (version >= 70300) {
@@ -529,6 +581,13 @@ static int config_module(int reload)
 		}
 
 		rows = PQntuples(result);
+		if (rows == 0) {
+			ast_log(LOG_ERROR, "cdr_pgsql: Failed to query database columns. No columns found, does the table exist?\n");
+			PQclear(result);
+			unload_module();
+			return AST_MODULE_LOAD_DECLINE;
+		}
+
 		for (i = 0; i < rows; i++) {
 			fname = PQgetvalue(result, i, 0);
 			ftype = PQgetvalue(result, i, 1);
@@ -583,8 +642,9 @@ static int reload(void)
 	return config_module(1);
 }
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "PostgreSQL CDR Backend",
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "PostgreSQL CDR Backend",
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,
+		.load_pri = AST_MODPRI_CDR_DRIVER,
 	       );

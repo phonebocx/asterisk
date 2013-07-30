@@ -21,9 +21,14 @@
  *
  * \ingroup functions
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/module.h"
 #include "asterisk/pbx.h"
@@ -65,6 +70,7 @@ static int ifmodule_read(struct ast_channel *chan, const char *cmd, char *data,
 static struct ast_custom_function ifmodule_function = {
 	.name = "IFMODULE",
 	.read = ifmodule_read,
+	.read_max = 2,
 };
 
 

@@ -11,7 +11,7 @@ AC_DEFUN([AST_EXT_LIB_SETUP],
     $1_DESCRIP="$2"
     $1_OPTION="$3"
     PBX_$1=0
-    AC_ARG_WITH([$3], AC_HELP_STRING([--with-$3=PATH],[use $2 files in PATH $4]),
+    AC_ARG_WITH([$3], AC_HELP_STRING([--with-$3=PATH],[use $2 files in PATH$4]),
     [
 	case ${withval} in
 	n|no)
@@ -36,7 +36,30 @@ AC_DEFUN([AST_EXT_LIB_SETUP],
     AC_SUBST([PBX_$1])
 ])
 
-# AST_EXT_LIB_SETUP_DEPENDENT([package symbol name], [package friendly name], [master package symbol name], [master package option name])
+# AST_OPTION_ONLY([option name], [option variable], [option description], [default value])
+AC_DEFUN([AST_OPTION_ONLY],
+[
+AC_ARG_WITH([$1], AC_HELP_STRING([--with-$1=PATH], [use $3 in PATH]),
+	[
+	case ${withval} in
+	n|no)
+		unset $2
+		;;
+	*)
+		if test "x${withval}" = "x"; then
+			m4_ifval($4, [$2="$4"], [:])
+		else
+			$2="${withval}"
+		fi
+		;;
+	esac
+	],
+	[m4_ifval($4, [$2="$4"], [:])])
+AC_SUBST($2)
+])
+
+# Setup required dependent package
+# AST_EXT_LIB_SETUP_DEPENDENT([dependent package symbol name], [dependent package friendly name], [master package symbol name], [master package name])
 
 AC_DEFUN([AST_EXT_LIB_SETUP_DEPENDENT],
 [
@@ -49,9 +72,27 @@ for i in ${ac_mandatory_list}; do
       break
    fi
 done
+$1_DIR=${$3_DIR}
 ])
 PBX_$1=0
 AH_TEMPLATE(m4_bpatsubst([[HAVE_$1]], [(.*)]), [Define to 1 if you have the $2 library.])
+AC_SUBST([$1_LIB])
+AC_SUBST([$1_INCLUDE])
+AC_SUBST([$1_DIR])
+AC_SUBST([PBX_$1])
+])
+
+# Setup optional dependent package
+# AST_EXT_LIB_SETUP_OPTIONAL([optional package symbol name], [optional package friendly name], [master package symbol name], [master package name])
+
+AC_DEFUN([AST_EXT_LIB_SETUP_OPTIONAL],
+[
+$1_DESCRIP="$2"
+m4_ifval([$4], [$1_OPTION=$4])
+m4_ifval([$3], [$1_DIR=${$3_DIR}
+])
+PBX_$1=0
+AH_TEMPLATE(m4_bpatsubst([[HAVE_$1]], [(.*)]), [Define to 1 if $3 has the $2 feature.])
 AC_SUBST([$1_LIB])
 AC_SUBST([$1_INCLUDE])
 AC_SUBST([$1_DIR])

@@ -29,9 +29,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 170047 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 354884 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -85,13 +89,14 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 170047 $")
 
 static char *app = "ParkAndAnnounce";
 
-static int parkandannounce_exec(struct ast_channel *chan, void *data)
+static int parkandannounce_exec(struct ast_channel *chan, const char *data)
 {
 	int res = -1;
 	int lot, timeout = 0, dres;
 	char *dialtech, *tmp[100], buf[13];
 	int looptemp, i;
 	char *s;
+	struct ast_party_id caller_id;
 
 	struct ast_channel *dchan;
 	struct outgoing_helper oh = { 0, };
@@ -103,7 +108,7 @@ static int parkandannounce_exec(struct ast_channel *chan, void *data)
 		AST_APP_ARG(return_context);
 	);
 	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "ParkAndAnnounce requires arguments: (announce:template|timeout|dial|[return_context])\n");
+		ast_log(LOG_WARNING, "ParkAndAnnounce requires arguments: (announce_template,timeout,dial,[return_context])\n");
 		return -1;
 	}
   
@@ -126,27 +131,45 @@ static int parkandannounce_exec(struct ast_channel *chan, void *data)
 		ast_parseable_goto(chan, args.return_context);
 	}
 
-	ast_verb(3, "Return Context: (%s,%s,%d) ID: %s\n", chan->context, chan->exten, chan->priority, chan->cid.cid_num);
-		if (!ast_exists_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num)) {
+	ast_verb(3, "Return Context: (%s,%s,%d) ID: %s\n", chan->context, chan->exten,
+		chan->priority,
+		S_COR(chan->caller.id.number.valid, chan->caller.id.number.str, ""));
+	if (!ast_exists_extension(chan, chan->context, chan->exten, chan->priority,
+		S_COR(chan->caller.id.number.valid, chan->caller.id.number.str, NULL))) {
 		ast_verb(3, "Warning: Return Context Invalid, call will return to default|s\n");
-		}
+	}
+
+	/* Save the CallerID because the masquerade turns chan into a ZOMBIE. */
+	ast_party_id_init(&caller_id);
+	ast_channel_lock(chan);
+	ast_party_id_copy(&caller_id, &chan->caller.id);
+	ast_channel_unlock(chan);
 
 	/* we are using masq_park here to protect * from touching the channel once we park it.  If the channel comes out of timeout
 	before we are done announcing and the channel is messed with, Kablooeee.  So we use Masq to prevent this.  */
 
 	res = ast_masq_park_call(chan, NULL, timeout, &lot);
-	if (res == -1)
-		return res;
+	if (res) {
+		/* Parking failed. */
+		ast_party_id_free(&caller_id);
+		return -1;
+	}
 
-	ast_verb(3, "Call Parking Called, lot: %d, timeout: %d, context: %s\n", lot, timeout, args.return_context);
+	ast_verb(3, "Call parked in space: %d, timeout: %d, return-context: %s\n",
+		lot, timeout, args.return_context ? args.return_context : "");
 
 	/* Now place the call to the extension */
 
 	snprintf(buf, sizeof(buf), "%d", lot);
 	oh.parent_channel = chan;
 	oh.vars = ast_variable_new("_PARKEDAT", buf, "");
-	dchan = __ast_request_and_dial(dialtech, AST_FORMAT_SLINEAR, args.dial, 30000, &outstate, chan->cid.cid_num, chan->cid.cid_name, &oh);
-
+	dchan = __ast_request_and_dial(dialtech, AST_FORMAT_SLINEAR, chan, args.dial, 30000,
+		&outstate,
+		S_COR(caller_id.number.valid, caller_id.number.str, NULL),
+		S_COR(caller_id.name.valid, caller_id.name.str, NULL),
+		&oh);
+	ast_variables_destroy(oh.vars);
+	ast_party_id_free(&caller_id);
 	if (dchan) {
 		if (dchan->_state == AST_STATE_UP) {
 			ast_verb(4, "Channel %s was answered.\n", dchan->name);
@@ -184,7 +207,6 @@ static int parkandannounce_exec(struct ast_channel *chan, void *data)
 				dres = ast_waitstream(dchan, "");
 			} else {
 				ast_log(LOG_WARNING, "ast_streamfile of %s failed on %s\n", tmp[i], dchan->name);
-				dres = 0;
 			}
 		}
 	}

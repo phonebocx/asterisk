@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 205535 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 205532 $")
 
 #ifdef HAVE_OPENSSL
 #include <openssl/ssl.h>

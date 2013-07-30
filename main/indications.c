@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 257950 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 352955 $")
 
 #include <math.h>
 
@@ -38,8 +38,22 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 257950 $")
 #include "asterisk/cli.h"
 #include "asterisk/module.h"
 #include "asterisk/astobj2.h"
+#include "asterisk/data.h"
 
 #include "asterisk/_private.h" /* _init(), _reload() */
+
+#define DATA_EXPORT_TONE_ZONE(MEMBER)					\
+	MEMBER(ast_tone_zone, country, AST_DATA_STRING)			\
+	MEMBER(ast_tone_zone, description, AST_DATA_STRING)		\
+	MEMBER(ast_tone_zone, nrringcadence, AST_DATA_UNSIGNED_INTEGER)
+
+AST_DATA_STRUCTURE(ast_tone_zone, DATA_EXPORT_TONE_ZONE);
+
+#define DATA_EXPORT_TONE_ZONE_SOUND(MEMBER)			\
+	MEMBER(ast_tone_zone_sound, name, AST_DATA_STRING)	\
+	MEMBER(ast_tone_zone_sound, data, AST_DATA_STRING)
+
+AST_DATA_STRUCTURE(ast_tone_zone_sound, DATA_EXPORT_TONE_ZONE_SOUND);
 
 /* Globals */
 static const char config[] = "indications.conf";
@@ -209,7 +223,7 @@ static int playtones_generator(struct ast_channel *chan, void *data, int len, in
 	}
 
 	ps->f.frametype = AST_FRAME_VOICE;
-	ps->f.subclass = AST_FORMAT_SLINEAR;
+	ps->f.subclass.codec = AST_FORMAT_SLINEAR;
 	ps->f.datalen = len;
 	ps->f.samples = samples;
 	ps->f.offset = AST_FRIENDLY_OFFSET;
@@ -644,6 +658,7 @@ static char *complete_country(struct ast_cli_args *a)
 			break;
 		}
 	}
+	ao2_iterator_destroy(&i);
 
 	return res;
 }
@@ -821,6 +836,7 @@ static char *handle_cli_indication_show(struct ast_cli_entry *e, int cmd, struct
 			ast_tone_zone_unlock(tz);
 			tz = ast_tone_zone_unref(tz);
 		}
+		ao2_iterator_destroy(&iter);
 		return CLI_SUCCESS;
 	}
 
@@ -1100,6 +1116,33 @@ static int ast_tone_zone_cmp(void *obj, void *arg, int flags)
 
 	return (!strcasecmp(zone->country, zone_arg->country)) ?
 			CMP_MATCH | CMP_STOP : 0;
+}
+
+int ast_tone_zone_data_add_structure(struct ast_data *tree, struct ast_tone_zone *zone)
+{
+	struct ast_data *data_zone_sound;
+	struct ast_tone_zone_sound *s;
+
+	ast_data_add_structure(ast_tone_zone, tree, zone);
+
+	if (AST_LIST_EMPTY(&zone->tones)) {
+		return 0;
+	}
+
+	data_zone_sound = ast_data_add_node(tree, "tones");
+	if (!data_zone_sound) {
+		return -1;
+	}
+
+	ast_tone_zone_lock(zone);
+
+	AST_LIST_TRAVERSE(&zone->tones, s, entry) {
+		ast_data_add_structure(ast_tone_zone_sound, data_zone_sound, s);
+	}
+
+	ast_tone_zone_unlock(zone);
+
+	return 0;
 }
 
 /*! \brief Load indications module */

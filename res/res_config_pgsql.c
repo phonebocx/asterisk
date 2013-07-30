@@ -1,8 +1,8 @@
 /*
  * Asterisk -- A telephony toolkit for Linux.
  *
- * Copyright (C) 1999-2005, Digium, Inc.
- * 
+ * Copyright (C) 1999-2010, Digium, Inc.
+ *
  * Manuel Guesdon <mguesdon@oxymium.net> - PostgreSQL RealTime Driver Author/Adaptor
  * Mark Spencer <markster@digium.com>  - Asterisk Author
  * Matthew Boehm <mboehm@cytelcom.com> - MySQL RealTime Driver Author
@@ -19,16 +19,17 @@
  * \author Mark Spencer <markster@digium.com>
  * \author Manuel Guesdon <mguesdon@oxymium.net> - PostgreSQL RealTime Driver Author/Adaptor
  *
- * \arg http://www.postgresql.org
+ * \extref PostgreSQL http://www.postgresql.org
  */
 
 /*** MODULEINFO
 	<depend>pgsql</depend>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 265959 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332816 $")
 
 #include <libpq-fe.h>			/* PostgreSQL */
 
@@ -46,10 +47,11 @@ AST_THREADSTORAGE(sql_buf);
 AST_THREADSTORAGE(findtable_buf);
 AST_THREADSTORAGE(where_buf);
 AST_THREADSTORAGE(escapebuf_buf);
+AST_THREADSTORAGE(semibuf_buf);
 
 #define RES_CONFIG_PGSQL_CONF "res_pgsql.conf"
 
-PGconn *pgsqlConn = NULL;
+static PGconn *pgsqlConn = NULL;
 static int version;
 #define has_schema_support	(version > 70300 ? 1 : 0)
 
@@ -86,7 +88,7 @@ static int pgsql_reconnect(const char *database);
 static char *handle_cli_realtime_pgsql_status(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char *handle_cli_realtime_pgsql_cache(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 
-enum { RQ_WARN, RQ_CREATECLOSE, RQ_CREATECHAR } requirements;
+static enum { RQ_WARN, RQ_CREATECLOSE, RQ_CREATECHAR } requirements;
 
 static struct ast_cli_entry cli_realtime[] = {
 	AST_CLI_DEFINE(handle_cli_realtime_pgsql_status, "Shows connection information for the PostgreSQL RealTime driver"),
@@ -95,11 +97,21 @@ static struct ast_cli_entry cli_realtime[] = {
 
 #define ESCAPE_STRING(buffer, stringname) \
 	do { \
-		int len; \
-		if ((len = strlen(stringname)) > (ast_str_size(buffer) - 1) / 2) { \
-			ast_str_make_space(&buffer, len * 2 + 1); \
+		int len = strlen(stringname); \
+		struct ast_str *semi = ast_str_thread_get(&semibuf_buf, len * 3 + 1); \
+		const char *chunk = stringname; \
+		ast_str_reset(semi); \
+		for (; *chunk; chunk++) { \
+			if (strchr(";^", *chunk)) { \
+				ast_str_append(&semi, 0, "^%02hhX", *chunk); \
+			} else { \
+				ast_str_append(&semi, 0, "%c", *chunk); \
+			} \
 		} \
-		PQescapeStringConn(pgsqlConn, ast_str_buffer(buffer), stringname, len, &pgresult); \
+		if (ast_str_strlen(semi) > (ast_str_size(buffer) - 1) / 2) { \
+			ast_str_make_space(&buffer, ast_str_strlen(semi) * 2 + 1); \
+		} \
+		PQescapeStringConn(pgsqlConn, ast_str_buffer(buffer), ast_str_buffer(semi), ast_str_size(buffer), &pgresult); \
 	} while (0)
 
 static void destroy_table(struct tables *table)
@@ -114,7 +126,7 @@ static void destroy_table(struct tables *table)
 	ast_free(table);
 }
 
-static struct tables *find_table(const char *orig_tablename)
+static struct tables *find_table(const char *database, const char *orig_tablename)
 {
 	struct columns *column;
 	struct tables *table;
@@ -198,6 +210,13 @@ static struct tables *find_table(const char *orig_tablename)
 		ast_str_set(&sql, 0, "SELECT a.attname, t.typname, a.attlen, a.attnotnull, d.adsrc, a.atttypmod FROM pg_class c, pg_type t, pg_attribute a LEFT OUTER JOIN pg_attrdef d ON a.atthasdef AND d.adrelid = a.attrelid AND d.adnum = a.attnum WHERE c.oid = a.attrelid AND a.atttypid = t.oid AND (a.attnum > 0) AND c.relname = '%s' ORDER BY c.relname, attnum", orig_tablename);
 	}
 
+	ast_mutex_lock(&pgsql_lock);
+	if (!pgsql_reconnect(database)) {
+		AST_LIST_UNLOCK(&psql_tables);
+		ast_mutex_unlock(&pgsql_lock);
+		return NULL;
+	}
+
 	result = PQexec(pgsqlConn, ast_str_buffer(sql));
 	ast_debug(1, "Query of table structure complete.  Now retrieving results.\n");
 	if (PQresultStatus(result) != PGRES_TUPLES_OK) {
@@ -205,12 +224,15 @@ static struct tables *find_table(const char *orig_tablename)
 		ast_log(LOG_ERROR, "Failed to query database columns: %s\n", pgerror);
 		PQclear(result);
 		AST_LIST_UNLOCK(&psql_tables);
+		ast_mutex_unlock(&pgsql_lock);
 		return NULL;
 	}
 
 	if (!(table = ast_calloc(1, sizeof(*table) + strlen(orig_tablename) + 1))) {
 		ast_log(LOG_ERROR, "Unable to allocate memory for new table structure\n");
+		PQclear(result);
 		AST_LIST_UNLOCK(&psql_tables);
+		ast_mutex_unlock(&pgsql_lock);
 		return NULL;
 	}
 	strcpy(table->name, orig_tablename); /* SAFE */
@@ -228,8 +250,10 @@ static struct tables *find_table(const char *orig_tablename)
 
 		if (!(column = ast_calloc(1, sizeof(*column) + strlen(fname) + strlen(ftype) + 2))) {
 			ast_log(LOG_ERROR, "Unable to allocate column element for %s, %s\n", orig_tablename, fname);
+			PQclear(result);
 			destroy_table(table);
 			AST_LIST_UNLOCK(&psql_tables);
+			ast_mutex_unlock(&pgsql_lock);
 			return NULL;
 		}
 
@@ -262,6 +286,7 @@ static struct tables *find_table(const char *orig_tablename)
 	AST_LIST_INSERT_TAIL(&psql_tables, table, list);
 	ast_rwlock_rdlock(&table->lock);
 	AST_LIST_UNLOCK(&psql_tables);
+	ast_mutex_unlock(&pgsql_lock);
 	return table;
 }
 
@@ -352,6 +377,7 @@ static struct ast_variable *realtime_pgsql(const char *database, const char *tab
 				"PostgreSQL RealTime: Failed to query '%s@%s'. Check debug for more info.\n", tablename, database);
 		ast_debug(1, "PostgreSQL RealTime: Query: %s\n", ast_str_buffer(sql));
 		ast_debug(1, "PostgreSQL RealTime: Query Failed because: %s\n", PQerrorMessage(pgsqlConn));
+		PQclear(result);
 		ast_mutex_unlock(&pgsql_lock);
 		return NULL;
 	} else {
@@ -380,8 +406,8 @@ static struct ast_variable *realtime_pgsql(const char *database, const char *tab
 		ast_debug(1, "PostgreSQL RealTime: Found %d rows.\n", num_rows);
 
 		if (!(fieldnames = ast_calloc(1, numFields * sizeof(char *)))) {
-			ast_mutex_unlock(&pgsql_lock);
 			PQclear(result);
+			ast_mutex_unlock(&pgsql_lock);
 			return NULL;
 		}
 		for (i = 0; i < numFields; i++)
@@ -391,7 +417,7 @@ static struct ast_variable *realtime_pgsql(const char *database, const char *tab
 				stringp = PQgetvalue(result, rowIndex, i);
 				while (stringp) {
 					chunk = strsep(&stringp, ";");
-					if (!ast_strlen_zero(ast_strip(chunk))) {
+					if (chunk && !ast_strlen_zero(ast_realtime_decode_chunk(ast_strip(chunk)))) {
 						if (prev) {
 							prev->next = ast_variable_new(fieldnames[i], chunk, "");
 							if (prev->next) {
@@ -409,8 +435,8 @@ static struct ast_variable *realtime_pgsql(const char *database, const char *tab
 		ast_debug(1, "Postgresql RealTime: Could not find any rows in table %s@%s.\n", tablename, database);
 	}
 
-	ast_mutex_unlock(&pgsql_lock);
 	PQclear(result);
+	ast_mutex_unlock(&pgsql_lock);
 
 	return var;
 }
@@ -448,6 +474,7 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 			PQfinish(pgsqlConn);
 			pgsqlConn = NULL;
 		}
+		ast_config_destroy(cfg);
 		return NULL;
 	}
 
@@ -468,6 +495,7 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 	if (pgresult) {
 		ast_log(LOG_ERROR, "Postgres detected invalid input: '%s'\n", newval);
 		va_end(ap);
+		ast_config_destroy(cfg);
 		return NULL;
 	}
 
@@ -483,6 +511,7 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 		if (pgresult) {
 			ast_log(LOG_ERROR, "Postgres detected invalid input: '%s'\n", newval);
 			va_end(ap);
+			ast_config_destroy(cfg);
 			return NULL;
 		}
 
@@ -499,6 +528,7 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 	ast_mutex_lock(&pgsql_lock);
 	if (!pgsql_reconnect(database)) {
 		ast_mutex_unlock(&pgsql_lock);
+		ast_config_destroy(cfg);
 		return NULL;
 	}
 
@@ -508,6 +538,7 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 		ast_debug(1, "PostgreSQL RealTime: Query: %s\n", ast_str_buffer(sql));
 		ast_debug(1, "PostgreSQL RealTime: Query Failed because: %s\n", PQerrorMessage(pgsqlConn));
 		ast_mutex_unlock(&pgsql_lock);
+		ast_config_destroy(cfg);
 		return NULL;
 	} else {
 		ExecStatusType result_status = PQresultStatus(result);
@@ -519,7 +550,9 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 			ast_debug(1, "PostgreSQL RealTime: Query: %s\n", ast_str_buffer(sql));
 			ast_debug(1, "PostgreSQL RealTime: Query Failed because: %s (%s)\n",
 						PQresultErrorMessage(result), PQresStatus(result_status));
+			PQclear(result);
 			ast_mutex_unlock(&pgsql_lock);
+			ast_config_destroy(cfg);
 			return NULL;
 		}
 	}
@@ -535,8 +568,9 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 		ast_debug(1, "PostgreSQL RealTime: Found %d rows.\n", num_rows);
 
 		if (!(fieldnames = ast_calloc(1, numFields * sizeof(char *)))) {
-			ast_mutex_unlock(&pgsql_lock);
 			PQclear(result);
+			ast_mutex_unlock(&pgsql_lock);
+			ast_config_destroy(cfg);
 			return NULL;
 		}
 		for (i = 0; i < numFields; i++)
@@ -550,7 +584,7 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 				stringp = PQgetvalue(result, rowIndex, i);
 				while (stringp) {
 					chunk = strsep(&stringp, ";");
-					if (!ast_strlen_zero(ast_strip(chunk))) {
+					if (chunk && !ast_strlen_zero(ast_realtime_decode_chunk(ast_strip(chunk)))) {
 						if (initfield && !strcmp(initfield, fieldnames[i])) {
 							ast_category_rename(cat, chunk);
 						}
@@ -566,8 +600,8 @@ static struct ast_config *realtime_multi_pgsql(const char *database, const char 
 		ast_debug(1, "PostgreSQL RealTime: Could not find any rows in table %s.\n", table);
 	}
 
-	ast_mutex_unlock(&pgsql_lock);
 	PQclear(result);
+	ast_mutex_unlock(&pgsql_lock);
 
 	return cfg;
 }
@@ -588,7 +622,7 @@ static int update_pgsql(const char *database, const char *tablename, const char 
 		return -1;
 	}
 
-	if (!(table = find_table(tablename))) {
+	if (!(table = find_table(database, tablename))) {
 		ast_log(LOG_ERROR, "Table '%s' does not exist!!\n", tablename);
 		return -1;
 	}
@@ -688,6 +722,7 @@ static int update_pgsql(const char *database, const char *tablename, const char 
 			ast_debug(1, "PostgreSQL RealTime: Query: %s\n", ast_str_buffer(sql));
 			ast_debug(1, "PostgreSQL RealTime: Query Failed because: %s (%s)\n",
 						PQresultErrorMessage(result), PQresStatus(result_status));
+			PQclear(result);
 			ast_mutex_unlock(&pgsql_lock);
 			return -1;
 		}
@@ -730,7 +765,7 @@ static int update2_pgsql(const char *database, const char *tablename, va_list ap
 		return -1;
 	}
 
-	if (!(table = find_table(tablename))) {
+	if (!(table = find_table(database, tablename))) {
 		ast_log(LOG_ERROR, "Table '%s' does not exist!!\n", tablename);
 		return -1;
 	}
@@ -744,7 +779,7 @@ static int update2_pgsql(const char *database, const char *tablename, va_list ap
 			release_table(table);
 			return -1;
 		}
-			
+
 		newval = va_arg(ap, const char *);
 		ESCAPE_STRING(escapebuf, newval);
 		if (pgresult) {
@@ -918,6 +953,7 @@ static int store_pgsql(const char *database, const char *table, va_list ap)
 	}
 
 	insertid = PQoidValue(result);
+	PQclear(result);
 	ast_mutex_unlock(&pgsql_lock);
 
 	ast_debug(1, "PostgreSQL RealTime: row inserted on table: %s, id: %u\n", table, insertid);
@@ -1124,7 +1160,7 @@ static struct ast_config *config_pgsql(const char *database, const char *table,
 static int require_pgsql(const char *database, const char *tablename, va_list ap)
 {
 	struct columns *column;
-	struct tables *table = find_table(tablename);
+	struct tables *table = find_table(database, tablename);
 	char *elm;
 	int type, size, res = 0;
 
@@ -1168,9 +1204,16 @@ static int require_pgsql(const char *database, const char *tablename, va_list ap
 							size, column->type);
 						res = -1;
 					}
-				} else if (strncmp(column->type, "float", 5) == 0 && !ast_rq_is_int(type) && type != RQ_FLOAT) {
-					ast_log(LOG_WARNING, "Column %s cannot be a %s\n", column->name, column->type);
-					res = -1;
+				} else if (strncmp(column->type, "float", 5) == 0) {
+					if (!ast_rq_is_int(type) && type != RQ_FLOAT) {
+						ast_log(LOG_WARNING, "Column %s cannot be a %s\n", column->name, column->type);
+						res = -1;
+					}
+				} else if (strncmp(column->type, "timestamp", 9) == 0) {
+					if (type != RQ_DATETIME && type != RQ_DATE) {
+						ast_log(LOG_WARNING, "Column %s cannot be a %s\n", column->name, column->type);
+						res = -1;
+					}
 				} else { /* There are other types that no module implements yet */
 					ast_log(LOG_WARNING, "Possibly unsupported column type '%s' on column '%s'\n", column->type, column->name);
 					res = -1;
@@ -1519,7 +1562,7 @@ static char *handle_cli_realtime_pgsql_cache(struct ast_cli_entry *e, int cmd, s
 		AST_LIST_UNLOCK(&psql_tables);
 	} else if (a->argc == 5) {
 		/* List of columns */
-		if ((cur = find_table(a->argv[4]))) {
+		if ((cur = find_table(NULL, a->argv[4]))) {
 			struct columns *col;
 			ast_cli(a->fd, "Columns for Table Cache '%s':\n", a->argv[4]);
 			ast_cli(a->fd, "%-20.20s %-20.20s %-3.3s %-8.8s\n", "Name", "Type", "Len", "Nullable");
@@ -1588,8 +1631,9 @@ static char *handle_cli_realtime_pgsql_status(struct ast_cli_entry *e, int cmd, 
 }
 
 /* needs usecount semantics defined */
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "PostgreSQL RealTime Configuration Driver",
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "PostgreSQL RealTime Configuration Driver",
 		.load = load_module,
 		.unload = unload_module,
-		.reload = reload
+		.reload = reload,
+		.load_pri = AST_MODPRI_REALTIME_DRIVER,
 	       );

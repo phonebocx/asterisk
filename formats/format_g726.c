@@ -27,10 +27,14 @@
  * \arg 16 kbps: g726-16
  * \ingroup formats
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233694 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -119,7 +123,7 @@ static struct ast_frame *g726_read(struct ast_filestream *s, int *whennext)
 
 	/* Send a frame from the file to the appropriate channel */
 	s->fr.frametype = AST_FRAME_VOICE;
-	s->fr.subclass = AST_FORMAT_G726;
+	s->fr.subclass.codec = AST_FORMAT_G726;
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, frame_size[fs->rate]);
 	s->fr.samples = 8 * FRAME_TIME;
@@ -141,9 +145,9 @@ static int g726_write(struct ast_filestream *s, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
 	}
-	if (f->subclass != AST_FORMAT_G726) {
-		ast_log(LOG_WARNING, "Asked to write non-G726 frame (%d)!\n", 
-						f->subclass);
+	if (f->subclass.codec != AST_FORMAT_G726) {
+		ast_log(LOG_WARNING, "Asked to write non-G726 frame (%s)!\n", 
+						ast_getformatname(f->subclass.codec));
 		return -1;
 	}
 	if (f->datalen % frame_size[fs->rate]) {
@@ -256,10 +260,10 @@ static int unload_module(void)
 			ast_log(LOG_WARNING, "Failed to unregister format %s.\n", f[i].name);
 	}
 	return(0);
-}	
+}
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Raw G.726 (16/24/32/40kbps) data",
 	.load = load_module,
 	.unload = unload_module,
-	.load_pri = 10,
+	.load_pri = AST_MODPRI_APP_DEPEND
 );

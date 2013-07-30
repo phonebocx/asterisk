@@ -35,11 +35,12 @@
 
 /*** MODULEINFO
 	<depend>oss</depend>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335064 $")
 
 #include <ctype.h>		/* isalnum() used here */
 #include <math.h>
@@ -65,14 +66,15 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
 
 #include "console_video.h"
 
-/*! Global jitterbuffer configuration - by default, jb is disabled */
+/*! Global jitterbuffer configuration - by default, jb is disabled
+ *  \note Values shown here match the defaults shown in oss.conf.sample */
 static struct ast_jb_conf default_jbconf =
 {
 	.flags = 0,
-	.max_size = -1,
-	.resync_threshold = -1,
-	.impl = "",
-	.target_extra = -1,
+	.max_size = 200,
+	.resync_threshold = 1000,
+	.impl = "fixed",
+	.target_extra = 40,
 };
 static struct ast_jb_conf global_jbconf;
 
@@ -299,7 +301,7 @@ struct chan_oss_pvt {
 };
 
 /*! forward declaration */
-static struct chan_oss_pvt *find_desc(char *dev);
+static struct chan_oss_pvt *find_desc(const char *dev);
 
 static char *oss_active;	 /*!< the active device */
 
@@ -326,7 +328,8 @@ static struct chan_oss_pvt oss_default = {
 
 static int setformat(struct chan_oss_pvt *o, int mode);
 
-static struct ast_channel *oss_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *oss_request(const char *type, format_t format, const struct ast_channel *requestor,
+									   void *data, int *cause);
 static int oss_digit_begin(struct ast_channel *c, char digit);
 static int oss_digit_end(struct ast_channel *c, char digit, unsigned int duration);
 static int oss_text(struct ast_channel *c, const char *text);
@@ -361,7 +364,7 @@ static struct ast_channel_tech oss_tech = {
 /*!
  * \brief returns a pointer to the descriptor with the given name
  */
-static struct chan_oss_pvt *find_desc(char *dev)
+static struct chan_oss_pvt *find_desc(const char *dev)
 {
 	struct chan_oss_pvt *o = NULL;
 
@@ -591,7 +594,7 @@ static int oss_text(struct ast_channel *c, const char *text)
 static int oss_call(struct ast_channel *c, char *dest, int timeout)
 {
 	struct chan_oss_pvt *o = c->tech_pvt;
-	struct ast_frame f = { 0, };
+	struct ast_frame f = { AST_FRAME_CONTROL, };
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(name);
 		AST_APP_ARG(flags);
@@ -600,26 +603,27 @@ static int oss_call(struct ast_channel *c, char *dest, int timeout)
 
 	AST_NONSTANDARD_APP_ARGS(args, parse, '/');
 
-	ast_verbose(" << Call to device '%s' dnid '%s' rdnis '%s' on console from '%s' <%s> >>\n", dest, c->cid.cid_dnid, c->cid.cid_rdnis, c->cid.cid_name, c->cid.cid_num);
+	ast_verbose(" << Call to device '%s' dnid '%s' rdnis '%s' on console from '%s' <%s> >>\n",
+		dest,
+		S_OR(c->dialed.number.str, ""),
+		S_COR(c->redirecting.from.number.valid, c->redirecting.from.number.str, ""),
+		S_COR(c->caller.id.name.valid, c->caller.id.name.str, ""),
+		S_COR(c->caller.id.number.valid, c->caller.id.number.str, ""));
 	if (!ast_strlen_zero(args.flags) && strcasecmp(args.flags, "answer") == 0) {
-		f.frametype = AST_FRAME_CONTROL;
-		f.subclass = AST_CONTROL_ANSWER;
+		f.subclass.integer = AST_CONTROL_ANSWER;
 		ast_queue_frame(c, &f);
 	} else if (!ast_strlen_zero(args.flags) && strcasecmp(args.flags, "noanswer") == 0) {
-		f.frametype = AST_FRAME_CONTROL;
-		f.subclass = AST_CONTROL_RINGING;
+		f.subclass.integer = AST_CONTROL_RINGING;
 		ast_queue_frame(c, &f);
 		ast_indicate(c, AST_CONTROL_RINGING);
 	} else if (o->autoanswer) {
 		ast_verbose(" << Auto-answered >> \n");
-		f.frametype = AST_FRAME_CONTROL;
-		f.subclass = AST_CONTROL_ANSWER;
+		f.subclass.integer = AST_CONTROL_ANSWER;
 		ast_queue_frame(c, &f);
 		o->hookstate = 1;
 	} else {
 		ast_verbose("<< Type 'answer' to answer, or use 'autoanswer' for future calls >> \n");
-		f.frametype = AST_FRAME_CONTROL;
-		f.subclass = AST_CONTROL_RINGING;
+		f.subclass.integer = AST_CONTROL_RINGING;
 		ast_queue_frame(c, &f);
 		ast_indicate(c, AST_CONTROL_RINGING);
 	}
@@ -717,7 +721,7 @@ static struct ast_frame *oss_read(struct ast_channel *c)
 		return f;
 	/* ok we can build and deliver the frame to the caller */
 	f->frametype = AST_FRAME_VOICE;
-	f->subclass = AST_FORMAT_SLINEAR;
+	f->subclass.codec = AST_FORMAT_SLINEAR;
 	f->samples = FRAME_SIZE;
 	f->datalen = FRAME_SIZE * 2;
 	f->data.ptr = o->oss_read_buf + AST_FRIENDLY_OFFSET;
@@ -751,6 +755,7 @@ static int oss_indicate(struct ast_channel *c, int cond, const void *data, size_
 	int res = 0;
 
 	switch (cond) {
+	case AST_CONTROL_INCOMPLETE:
 	case AST_CONTROL_BUSY:
 	case AST_CONTROL_CONGESTION:
 	case AST_CONTROL_RINGING:
@@ -781,11 +786,11 @@ static int oss_indicate(struct ast_channel *c, int cond, const void *data, size_
 /*!
  * \brief allocate a new channel.
  */
-static struct ast_channel *oss_new(struct chan_oss_pvt *o, char *ext, char *ctx, int state)
+static struct ast_channel *oss_new(struct chan_oss_pvt *o, char *ext, char *ctx, int state, const char *linkedid)
 {
 	struct ast_channel *c;
 
-	c = ast_channel_alloc(1, state, o->cid_num, o->cid_name, "", ext, ctx, 0, "Console/%s", o->device + 5);
+	c = ast_channel_alloc(1, state, o->cid_num, o->cid_name, "", ext, ctx, linkedid, 0, "Console/%s", o->device + 5);
 	if (c == NULL)
 		return NULL;
 	c->tech = &oss_tech;
@@ -805,9 +810,13 @@ static struct ast_channel *oss_new(struct chan_oss_pvt *o, char *ext, char *ctx,
 		ast_string_field_set(c, language, o->language);
 	/* Don't use ast_set_callerid() here because it will
 	 * generate a needless NewCallerID event */
-	c->cid.cid_ani = ast_strdup(o->cid_num);
-	if (!ast_strlen_zero(ext))
-		c->cid.cid_dnid = ast_strdup(ext);
+	if (!ast_strlen_zero(o->cid_num)) {
+		c->caller.ani.number.valid = 1;
+		c->caller.ani.number.str = ast_strdup(o->cid_num);
+	}
+	if (!ast_strlen_zero(ext)) {
+		c->dialed.number.str = ast_strdup(ext);
+	}
 
 	o->owner = c;
 	ast_module_ref(ast_module_info->self);
@@ -824,7 +833,7 @@ static struct ast_channel *oss_new(struct chan_oss_pvt *o, char *ext, char *ctx,
 	return c;
 }
 
-static struct ast_channel *oss_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *oss_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	struct ast_channel *c;
 	struct chan_oss_pvt *o;
@@ -833,6 +842,7 @@ static struct ast_channel *oss_request(const char *type, int format, void *data,
 		AST_APP_ARG(flags);
 	);
 	char *parse = ast_strdupa(data);
+	char buf[256];
 
 	AST_NONSTANDARD_APP_ARGS(args, parse, '/');
 	o = find_desc(args.name);
@@ -844,7 +854,7 @@ static struct ast_channel *oss_request(const char *type, int format, void *data,
 		return NULL;
 	}
 	if ((format & AST_FORMAT_SLINEAR) == 0) {
-		ast_log(LOG_NOTICE, "Format 0x%x unsupported\n", format);
+		ast_log(LOG_NOTICE, "Format %s unsupported\n", ast_getformatname_multiple(buf, sizeof(buf), format));
 		return NULL;
 	}
 	if (o->owner) {
@@ -852,7 +862,7 @@ static struct ast_channel *oss_request(const char *type, int format, void *data,
 		*cause = AST_CAUSE_BUSY;
 		return NULL;
 	}
-	c = oss_new(o, NULL, NULL, AST_STATE_DOWN);
+	c = oss_new(o, NULL, NULL, AST_STATE_DOWN, requestor ? requestor->linkedid : NULL);
 	if (c == NULL) {
 		ast_log(LOG_WARNING, "Unable to create new OSS channel\n");
 		return NULL;
@@ -942,7 +952,7 @@ static char *console_autoanswer(struct ast_cli_entry *e, int cmd, struct ast_cli
 /*! \brief helper function for the answer key/cli command */
 static char *console_do_answer(int fd)
 {
-	struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_ANSWER };
+	struct ast_frame f = { AST_FRAME_CONTROL, { AST_CONTROL_ANSWER } };
 	struct chan_oss_pvt *o = find_desc(oss_active);
 	if (!o->owner) {
 		if (fd > -1)
@@ -1007,7 +1017,7 @@ static char *console_sendtext(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 		int i = strlen(buf);
 		buf[i] = '\n';
 		f.frametype = AST_FRAME_TEXT;
-		f.subclass = 0;
+		f.subclass.integer = 0;
 		f.data.ptr = buf;
 		f.datalen = i + 1;
 		ast_queue_frame(o->owner, &f);
@@ -1043,7 +1053,7 @@ static char *console_hangup(struct ast_cli_entry *e, int cmd, struct ast_cli_arg
 
 static char *console_flash(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_FLASH };
+	struct ast_frame f = { AST_FRAME_CONTROL, { AST_CONTROL_FLASH } };
 	struct chan_oss_pvt *o = find_desc(oss_active);
 
 	if (cmd == CLI_INIT) {
@@ -1069,7 +1079,8 @@ static char *console_flash(struct ast_cli_entry *e, int cmd, struct ast_cli_args
 
 static char *console_dial(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	char *s = NULL, *mye = NULL, *myc = NULL;
+	char *s = NULL;
+	char *mye = NULL, *myc = NULL;
 	struct chan_oss_pvt *o = find_desc(oss_active);
 
 	if (cmd == CLI_INIT) {
@@ -1085,7 +1096,8 @@ static char *console_dial(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 		return CLI_SHOWUSAGE;
 	if (o->owner) {	/* already in a call */
 		int i;
-		struct ast_frame f = { AST_FRAME_DTMF, 0 };
+		struct ast_frame f = { AST_FRAME_DTMF, { 0 } };
+		const char *s;
 
 		if (a->argc == e->args) {	/* argument is mandatory here */
 			ast_cli(a->fd, "Already in a call. You can only dial digits until you hangup.\n");
@@ -1094,7 +1106,7 @@ static char *console_dial(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 		s = a->argv[e->args];
 		/* send the string one char at a time */
 		for (i = 0; i < strlen(s); i++) {
-			f.subclass = s[i];
+			f.subclass.integer = s[i];
 			ast_queue_frame(o->owner, &f);
 		}
 		return CLI_SUCCESS;
@@ -1109,7 +1121,7 @@ static char *console_dial(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 		myc = o->ctx;
 	if (ast_exists_extension(NULL, myc, mye, 1, NULL)) {
 		o->hookstate = 1;
-		oss_new(o, mye, myc, AST_STATE_RINGING);
+		oss_new(o, mye, myc, AST_STATE_RINGING, NULL);
 	} else
 		ast_cli(a->fd, "No such extension '%s' in context '%s'\n", mye, myc);
 	if (s)
@@ -1120,7 +1132,7 @@ static char *console_dial(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 static char *console_mute(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	struct chan_oss_pvt *o = find_desc(oss_active);
-	char *s;
+	const char *s;
 	int toggle = 0;
 	
 	if (cmd == CLI_INIT) {
@@ -1180,9 +1192,10 @@ static char *console_transfer(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 	tmp = ast_ext_ctx(a->argv[2], &ext, &ctx);
 	if (ctx == NULL)			/* supply default context if needed */
 		ctx = o->owner->context;
-	if (!ast_exists_extension(b, ctx, ext, 1, b->cid.cid_num))
+	if (!ast_exists_extension(b, ctx, ext, 1,
+		S_COR(b->caller.id.number.valid, b->caller.id.number.str, NULL))) {
 		ast_cli(a->fd, "No such extension exists\n");
-	else {
+	} else {
 		ast_cli(a->fd, "Whee, transferring %s to %s@%s.\n", b->name, ext, ctx);
 		if (ast_async_goto(b, ctx, ext, 1))
 			ast_cli(a->fd, "Failed to transfer :(\n");
@@ -1457,7 +1470,7 @@ static int load_module(void)
 
 	if (ast_channel_register(&oss_tech)) {
 		ast_log(LOG_ERROR, "Unable to register channel type 'OSS'\n");
-		return AST_MODULE_LOAD_FAILURE;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 
 	ast_cli_register_multiple(cli_oss, ARRAY_LEN(cli_oss));

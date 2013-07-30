@@ -25,9 +25,13 @@
  * \ingroup channel_drivers
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180369 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -39,7 +43,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180369 $")
 #include "asterisk/pbx.h"
 #include "asterisk/sched.h"
 #include "asterisk/io.h"
-#include "asterisk/rtp.h"
 #include "asterisk/acl.h"
 #include "asterisk/callerid.h"
 #include "asterisk/file.h"
@@ -47,7 +50,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180369 $")
 #include "asterisk/app.h"
 #include "asterisk/bridging.h"
 
-static struct ast_channel *bridge_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *bridge_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
 static int bridge_call(struct ast_channel *ast, char *dest, int timeout);
 static int bridge_hangup(struct ast_channel *ast);
 static struct ast_frame *bridge_read(struct ast_channel *ast);
@@ -190,7 +193,7 @@ static int bridge_hangup(struct ast_channel *ast)
 }
 
 /*! \brief Called when we want to place a call somewhere, but not actually call it... yet */
-static struct ast_channel *bridge_request(const char *type, int format, void *data, int *cause)
+static struct ast_channel *bridge_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	struct bridge_pvt *p = NULL;
 
@@ -200,12 +203,12 @@ static struct ast_channel *bridge_request(const char *type, int format, void *da
 	}
 
 	/* Try to grab two Asterisk channels to use as input and output channels */
-	if (!(p->input = ast_channel_alloc(1, AST_STATE_UP, 0, 0, "", "", "", 0, "Bridge/%p-input", p))) {
+	if (!(p->input = ast_channel_alloc(1, AST_STATE_UP, 0, 0, "", "", "", requestor ? requestor->linkedid : NULL, 0, "Bridge/%p-input", p))) {
 		ast_free(p);
 		return NULL;
 	}
-	if (!(p->output = ast_channel_alloc(1, AST_STATE_UP, 0, 0, "", "", "", 0, "Bridge/%p-output", p))) {
-		ast_channel_free(p->input);
+	if (!(p->output = ast_channel_alloc(1, AST_STATE_UP, 0, 0, "", "", "", requestor ? requestor->linkedid : NULL, 0, "Bridge/%p-output", p))) {
+		p->input = ast_channel_release(p->input);
 		ast_free(p);
 		return NULL;
 	}
@@ -243,4 +246,8 @@ static int unload_module(void)
 	return 0;
 }
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Bridge Interaction Channel");
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Bridge Interaction Channel",
+	.load = load_module,
+	.unload = unload_module,
+	.load_pri = AST_MODPRI_CHANNEL_DRIVER,
+);

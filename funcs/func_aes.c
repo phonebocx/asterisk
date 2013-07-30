@@ -22,15 +22,19 @@
  * \ingroup functions
  */
 
+/*** MODULEINFO
+	<use>crypto</use>
+	<support_level>core</support_level>
+ ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 172548 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/module.h"
 #include "asterisk/pbx.h"
 #include "asterisk/app.h"
-#include "asterisk/aes.h"
+#include "asterisk/crypto.h"
 
 #define AES_BLOCK_SIZE 16
 
@@ -50,6 +54,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 172548 $")
 		<description>
 			<para>Returns an AES encrypted string encoded in base64.</para>
 		</description>
+		<see-also>
+			<ref type="function">AES_DECRYPT</ref>
+			<ref type="function">BASE64_ENCODE</ref>
+			<ref type="function">BASE64_DECODE</ref>
+		</see-also>
 	</function>
 	<function name="AES_DECRYPT" language="en_US">
 		<synopsis>
@@ -66,6 +75,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 172548 $")
 		<description>
 			<para>Returns the plain text string.</para>
 		</description>
+		<see-also>
+			<ref type="function">AES_ENCRYPT</ref>
+			<ref type="function">BASE64_ENCODE</ref>
+			<ref type="function">BASE64_DECODE</ref>
+		</see-also>
 	</function>
  ***/
 
@@ -97,8 +111,8 @@ static int aes_helper(struct ast_channel *chan, const char *cmd, char *data,
 		return -1;
 	}
 
-	ast_aes_encrypt_key((unsigned char *) args.key, &ecx);   /* encryption:  plaintext -> encryptedtext -> base64 */
-	ast_aes_decrypt_key((unsigned char *) args.key, &dcx);   /* decryption:  base64 -> encryptedtext -> plaintext */
+	ast_aes_set_encrypt_key((unsigned char *) args.key, &ecx);   /* encryption:  plaintext -> encryptedtext -> base64 */
+	ast_aes_set_decrypt_key((unsigned char *) args.key, &dcx);   /* decryption:  base64 -> encryptedtext -> plaintext */
 	tmp = ast_calloc(1, len);                     /* requires a tmp buffer for the base64 decode */
 	tmpP = tmp;
 	encrypt = strcmp("AES_DECRYPT", cmd);           /* -1 if encrypting, 0 if decrypting */
@@ -160,4 +174,8 @@ static int load_module(void)
 	return res ? AST_MODULE_LOAD_DECLINE : AST_MODULE_LOAD_SUCCESS;
 }
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "AES dialplan functions");
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "AES dialplan functions",
+		.load = load_module,
+		.unload = unload_module,
+		.nonoptreq = "res_crypto",
+	);

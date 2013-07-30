@@ -31,11 +31,12 @@
 	<depend>iksemel</depend>
 	<depend>res_jabber</depend>
 	<use>openssl</use>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 346086 $")
 
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -53,7 +54,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
 #include "asterisk/pbx.h"
 #include "asterisk/sched.h"
 #include "asterisk/io.h"
-#include "asterisk/rtp.h"
+#include "asterisk/rtp_engine.h"
 #include "asterisk/acl.h"
 #include "asterisk/callerid.h"
 #include "asterisk/file.h"
@@ -104,7 +105,7 @@ struct jingle_pvt {
 	iksrule *ringrule;               /*!< Rule for matching RING request */
 	int initiator;                   /*!< If we're the initiator */
 	int alreadygone;
-	int capability;
+	format_t capability;
 	struct ast_codec_pref prefs;
 	struct jingle_candidate *theircandidates;
 	struct jingle_candidate *ourcandidates;
@@ -113,11 +114,11 @@ struct jingle_pvt {
 	char exten[80];                  /*!< Called extension */
 	struct ast_channel *owner;       /*!< Master Channel */
 	char audio_content_name[100];    /*!< name attribute of content tag */
-	struct ast_rtp *rtp;             /*!< RTP audio session */
+	struct ast_rtp_instance *rtp;             /*!< RTP audio session */
 	char video_content_name[100];    /*!< name attribute of content tag */
-	struct ast_rtp *vrtp;            /*!< RTP video session */
-	int jointcapability;             /*!< Supported capability at both ends (codecs ) */
-	int peercapability;
+	struct ast_rtp_instance *vrtp;            /*!< RTP video session */
+	format_t jointcapability;             /*!< Supported capability at both ends (codecs ) */
+	format_t peercapability;
 	struct jingle_pvt *next;	/* Next entity */
 };
 
@@ -147,7 +148,7 @@ struct jingle {
 	char user[100];
 	char context[100];
 	char accountcode[AST_MAX_ACCOUNT_CODE];	/*!< Account code */
-	int capability;
+	format_t capability;
 	ast_group_t callgroup;	/*!< Call group */
 	ast_group_t pickupgroup;	/*!< Pickup group */
 	int callingpres;		/*!< Calling presentation */
@@ -164,12 +165,13 @@ struct jingle_container {
 static const char desc[] = "Jingle Channel";
 static const char channel_type[] = "Jingle";
 
-static int global_capability = AST_FORMAT_ULAW | AST_FORMAT_ALAW | AST_FORMAT_GSM | AST_FORMAT_H263;
+static format_t global_capability = AST_FORMAT_ULAW | AST_FORMAT_ALAW | AST_FORMAT_GSM | AST_FORMAT_H263;
 
 AST_MUTEX_DEFINE_STATIC(jinglelock); /*!< Protect the interface list (of jingle_pvt's) */
 
 /* Forward declarations */
-static struct ast_channel *jingle_request(const char *type, int format, void *data, int *cause);
+static struct ast_channel *jingle_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
+static int jingle_sendtext(struct ast_channel *ast, const char *text);
 static int jingle_digit_begin(struct ast_channel *ast, char digit);
 static int jingle_digit_end(struct ast_channel *ast, char digit, unsigned int duration);
 static int jingle_call(struct ast_channel *ast, char *dest, int timeout);
@@ -184,11 +186,6 @@ static int jingle_sendhtml(struct ast_channel *ast, int subclass, const char *da
 static struct jingle_pvt *jingle_alloc(struct jingle *client, const char *from, const char *sid);
 static char *jingle_show_channels(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char *jingle_do_reload(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
-/*----- RTP interface functions */
-static int jingle_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp,
-							   struct ast_rtp *vrtp, struct ast_rtp *tpeer, int codecs, int nat_active);
-static enum ast_rtp_get_result jingle_get_rtp_peer(struct ast_channel *chan, struct ast_rtp **rtp);
-static int jingle_get_codec(struct ast_channel *chan);
 
 /*! \brief PBX interface structure for channel registration */
 static const struct ast_channel_tech jingle_tech = {
@@ -196,9 +193,10 @@ static const struct ast_channel_tech jingle_tech = {
 	.description = "Jingle Channel Driver",
 	.capabilities = AST_FORMAT_AUDIO_MASK,
 	.requester = jingle_request,
+	.send_text = jingle_sendtext,
 	.send_digit_begin = jingle_digit_begin,
 	.send_digit_end = jingle_digit_end,
-	.bridge = ast_rtp_bridge,
+	.bridge = ast_rtp_instance_bridge,
 	.call = jingle_call,
 	.hangup = jingle_hangup,
 	.answer = jingle_answer,
@@ -216,15 +214,6 @@ static struct sockaddr_in bindaddr = { 0, };	/*!< The address we bind to */
 static struct sched_context *sched;	/*!< The scheduling context */
 static struct io_context *io;	/*!< The IO context */
 static struct in_addr __ourip;
-
-
-/*! \brief RTP driver interface */
-static struct ast_rtp_protocol jingle_rtp = {
-	type: "Jingle",
-	get_rtp_info: jingle_get_rtp_peer,
-	set_rtp_peer: jingle_set_rtp_peer,
-	get_codec: jingle_get_codec,
-};
 
 static struct ast_cli_entry jingle_cli[] = {
 	AST_CLI_DEFINE(jingle_do_reload, "Reload Jingle configuration"),
@@ -305,7 +294,6 @@ static void add_codec_to_answer(const struct jingle_pvt *p, int codec, iks *dcod
 		iks_insert_attrib(payload_g723, "name", "G723");
 		iks_insert_node(dcodecs, payload_g723);
 	}
-	ast_rtp_lookup_code(p->rtp, 1, codec);
 }
 
 static int jingle_accept_call(struct jingle *client, struct jingle_pvt *p)
@@ -314,7 +302,7 @@ static int jingle_accept_call(struct jingle *client, struct jingle_pvt *p)
 	struct aji_client *c = client->connection;
 	iks *iq, *jingle, *dcodecs, *payload_red, *payload_audio, *payload_cn;
 	int x;
-	int pref_codec = 0;
+	format_t pref_codec = 0;
 	int alreadysent = 0;
 
 	if (p->initiator)
@@ -326,7 +314,7 @@ static int jingle_accept_call(struct jingle *client, struct jingle_pvt *p)
 	if (iq && jingle && dcodecs) {
 		iks_insert_attrib(dcodecs, "xmlns", JINGLE_AUDIO_RTP_NS);
 
-		for (x = 0; x < 32; x++) {
+		for (x = 0; x < 64; x++) {
 			if (!(pref_codec = ast_codec_pref_index(&client->prefs, x)))
 				break;
 			if (!(client->capability & pref_codec))
@@ -399,31 +387,32 @@ static int jingle_answer(struct ast_channel *ast)
 	return res;
 }
 
-static enum ast_rtp_get_result jingle_get_rtp_peer(struct ast_channel *chan, struct ast_rtp **rtp)
+static enum ast_rtp_glue_result jingle_get_rtp_peer(struct ast_channel *chan, struct ast_rtp_instance **instance)
 {
 	struct jingle_pvt *p = chan->tech_pvt;
-	enum ast_rtp_get_result res = AST_RTP_GET_FAILED;
+	enum ast_rtp_glue_result res = AST_RTP_GLUE_RESULT_FORBID;
 
 	if (!p)
 		return res;
 
 	ast_mutex_lock(&p->lock);
 	if (p->rtp) {
-		*rtp = p->rtp;
-		res = AST_RTP_TRY_PARTIAL;
+		ao2_ref(p->rtp, +1);
+		*instance = p->rtp;
+		res = AST_RTP_GLUE_RESULT_LOCAL;
 	}
 	ast_mutex_unlock(&p->lock);
 
 	return res;
 }
 
-static int jingle_get_codec(struct ast_channel *chan)
+static format_t jingle_get_codec(struct ast_channel *chan)
 {
 	struct jingle_pvt *p = chan->tech_pvt;
 	return p->peercapability;
 }
 
-static int jingle_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, struct ast_rtp *vrtp, struct ast_rtp *tpeer, int codecs, int nat_active)
+static int jingle_set_rtp_peer(struct ast_channel *chan, struct ast_rtp_instance *rtp, struct ast_rtp_instance *vrtp, struct ast_rtp_instance *tpeer, format_t codecs, int nat_active)
 {
 	struct jingle_pvt *p;
 
@@ -442,6 +431,13 @@ static int jingle_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, st
 	ast_mutex_unlock(&p->lock);
 	return 0;
 }
+
+static struct ast_rtp_glue jingle_rtp_glue = {
+	.type = "Jingle",
+	.get_rtp_info = jingle_get_rtp_peer,
+	.get_codec = jingle_get_codec,
+	.update_peer = jingle_set_rtp_peer,
+};
 
 static int jingle_response(struct jingle *client, ikspak *pak, const char *reasonstr, const char *reasonstr2)
 {
@@ -517,19 +513,19 @@ static int jingle_handle_dtmf(struct jingle *client, ikspak *pak)
 			if((dtmf = iks_find_attrib(dtmfnode, "code"))) {
 				if(iks_find_with_attrib(pak->x, "dtmf", "action", "button-up")) {
 					struct ast_frame f = {AST_FRAME_DTMF_BEGIN, };
-					f.subclass = dtmf[0];
+					f.subclass.integer = dtmf[0];
 					ast_queue_frame(tmp->owner, &f);
-					ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass);
+					ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass.integer);
 				} else if(iks_find_with_attrib(pak->x, "dtmf", "action", "button-down")) {
 					struct ast_frame f = {AST_FRAME_DTMF_END, };
-					f.subclass = dtmf[0];
+					f.subclass.integer = dtmf[0];
 					ast_queue_frame(tmp->owner, &f);
-					ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass);
+					ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass.integer);
 				} else if(iks_find_attrib(pak->x, "dtmf")) { /* 250 millasecond default */
 					struct ast_frame f = {AST_FRAME_DTMF, };
-					f.subclass = dtmf[0];
+					f.subclass.integer = dtmf[0];
 					ast_queue_frame(tmp->owner, &f);
-					ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass);
+					ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass.integer);
 				}
 			}
 		} else if ((dtmfnode = iks_find_with_attrib(pak->x, JINGLE_NODE, "action", "session-info"))) {
@@ -537,14 +533,14 @@ static int jingle_handle_dtmf(struct jingle *client, ikspak *pak)
 				if((dtmf = iks_find_attrib(dtmfchild, "code"))) {
 					if(iks_find_with_attrib(dtmfnode, "dtmf", "action", "button-up")) {
 						struct ast_frame f = {AST_FRAME_DTMF_END, };
-						f.subclass = dtmf[0];
+						f.subclass.integer = dtmf[0];
 						ast_queue_frame(tmp->owner, &f);
-						ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass);
+						ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass.integer);
 					} else if(iks_find_with_attrib(dtmfnode, "dtmf", "action", "button-down")) {
 						struct ast_frame f = {AST_FRAME_DTMF_BEGIN, };
-						f.subclass = dtmf[0];
+						f.subclass.integer = dtmf[0];
 						ast_queue_frame(tmp->owner, &f);
-						ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass);
+						ast_verbose("JINGLE! DTMF-relay event received: %c\n", f.subclass.integer);
 					}
 				}
 			}
@@ -585,8 +581,10 @@ static int jingle_create_candidates(struct jingle *client, struct jingle_pvt *p,
 	struct jingle_candidate *tmp;
 	struct aji_client *c = client->connection;
 	struct jingle_candidate *ours1 = NULL, *ours2 = NULL;
-	struct sockaddr_in sin;
-	struct sockaddr_in dest;
+	struct sockaddr_in sin = { 0, };
+	struct ast_sockaddr sin_tmp;
+	struct ast_sockaddr us_tmp;
+	struct ast_sockaddr bindaddr_tmp;
 	struct in_addr us;
 	struct in_addr externaddr;
 	iks *iq, *jingle, *content, *transport, *candidate;
@@ -622,8 +620,11 @@ static int jingle_create_candidates(struct jingle *client, struct jingle_pvt *p,
 		goto safeout;
 	}
 
-	ast_rtp_get_us(p->rtp, &sin);
-	ast_find_ourip(&us, bindaddr);
+	ast_rtp_instance_get_local_address(p->rtp, &sin_tmp);
+	ast_sockaddr_to_sin(&sin_tmp, &sin);
+	ast_sockaddr_from_sin(&bindaddr_tmp, &bindaddr);
+	ast_find_ourip(&us_tmp, &bindaddr_tmp, AF_INET);
+	us.s_addr = htonl(ast_sockaddr_ipv4(&us_tmp));
 
 	/* Setup our first jingle candidate */
 	ours1->component = 1;
@@ -664,9 +665,6 @@ static int jingle_create_candidates(struct jingle *client, struct jingle_pvt *p,
 		ours2 = NULL;
 	}
 	ours1 = NULL;
-	dest.sin_addr = __ourip;
-	dest.sin_port = sin.sin_port;
-
 
 	for (tmp = p->ourcandidates; tmp; tmp = tmp->next) {
 		snprintf(component, sizeof(component), "%u", tmp->component);
@@ -742,15 +740,17 @@ static struct jingle_pvt *jingle_alloc(struct jingle *client, const char *from, 
 {
 	struct jingle_pvt *tmp = NULL;
 	struct aji_resource *resources = NULL;
-	struct aji_buddy *buddy;
+	struct aji_buddy *buddy = NULL;
 	char idroster[200];
+	struct ast_sockaddr bindaddr_tmp;
 
 	ast_debug(1, "The client is %s for alloc\n", client->name);
 	if (!sid && !strchr(from, '/')) {	/* I started call! */
 		if (!strcasecmp(client->name, "guest")) {
 			buddy = ASTOBJ_CONTAINER_FIND(&client->connection->buddies, from);
-			if (buddy)
+			if (buddy) {
 				resources = buddy->resources;
+			}
 		} else if (client->buddy)
 			resources = client->buddy->resources;
 		while (resources) {
@@ -763,7 +763,13 @@ static struct jingle_pvt *jingle_alloc(struct jingle *client, const char *from, 
 			snprintf(idroster, sizeof(idroster), "%s/%s", from, resources->resource);
 		else {
 			ast_log(LOG_ERROR, "no jingle capable clients to talk to.\n");
+			if (buddy) {
+				ASTOBJ_UNREF(buddy, ast_aji_buddy_destroy);
+			}
 			return NULL;
+		}
+		if (buddy) {
+			ASTOBJ_UNREF(buddy, ast_aji_buddy_destroy);
 		}
 	}
 	if (!(tmp = ast_calloc(1, sizeof(*tmp)))) {
@@ -780,7 +786,8 @@ static struct jingle_pvt *jingle_alloc(struct jingle *client, const char *from, 
 		ast_copy_string(tmp->them, idroster, sizeof(tmp->them));
 		tmp->initiator = 1;
 	}
-	tmp->rtp = ast_rtp_new_with_bindaddr(sched, io, 1, 0, bindaddr.sin_addr);
+	ast_sockaddr_from_sin(&bindaddr_tmp, &bindaddr);
+	tmp->rtp = ast_rtp_instance_new("asterisk", sched, &bindaddr_tmp, NULL);
 	tmp->parent = client;
 	if (!tmp->rtp) {
 		ast_log(LOG_WARNING, "Out of RTP sessions?\n");
@@ -797,7 +804,7 @@ static struct jingle_pvt *jingle_alloc(struct jingle *client, const char *from, 
 }
 
 /*! \brief Start new jingle channel */
-static struct ast_channel *jingle_new(struct jingle *client, struct jingle_pvt *i, int state, const char *title)
+static struct ast_channel *jingle_new(struct jingle *client, struct jingle_pvt *i, int state, const char *title, const char *linkedid)
 {
 	struct ast_channel *tmp;
 	int fmt;
@@ -808,7 +815,7 @@ static struct ast_channel *jingle_new(struct jingle *client, struct jingle_pvt *
 		str = title;
 	else
 		str = i->them;
-	tmp = ast_channel_alloc(1, state, i->cid_num, i->cid_name, "", "", "", 0, "Jingle/%s-%04lx", str, ast_random() & 0xffff);
+	tmp = ast_channel_alloc(1, state, i->cid_num, i->cid_name, "", "", "", linkedid, 0, "Jingle/%s-%04lx", str, ast_random() & 0xffff);
 	if (!tmp) {
 		ast_log(LOG_WARNING, "Unable to allocate Jingle channel structure!\n");
 		return NULL;
@@ -826,18 +833,18 @@ static struct ast_channel *jingle_new(struct jingle *client, struct jingle_pvt *
 
 	/* Set Frame packetization */
 	if (i->rtp)
-		ast_rtp_codec_setpref(i->rtp, &i->prefs);
+		ast_rtp_codecs_packetization_set(ast_rtp_instance_get_codecs(i->rtp), i->rtp, &i->prefs);
 
 	tmp->nativeformats = ast_codec_choose(&i->prefs, what, 1) | (i->jointcapability & AST_FORMAT_VIDEO_MASK);
 	fmt = ast_best_codec(tmp->nativeformats);
 
 	if (i->rtp) {
-		ast_channel_set_fd(tmp, 0, ast_rtp_fd(i->rtp));
-		ast_channel_set_fd(tmp, 1, ast_rtcp_fd(i->rtp));
+		ast_channel_set_fd(tmp, 0, ast_rtp_instance_fd(i->rtp, 0));
+		ast_channel_set_fd(tmp, 1, ast_rtp_instance_fd(i->rtp, 1));
 	}
 	if (i->vrtp) {
-		ast_channel_set_fd(tmp, 2, ast_rtp_fd(i->vrtp));
-		ast_channel_set_fd(tmp, 3, ast_rtcp_fd(i->vrtp));
+		ast_channel_set_fd(tmp, 2, ast_rtp_instance_fd(i->vrtp, 0));
+		ast_channel_set_fd(tmp, 3, ast_rtp_instance_fd(i->vrtp, 1));
 	}
 	if (state == AST_STATE_RING)
 		tmp->rings = 1;
@@ -850,7 +857,8 @@ static struct ast_channel *jingle_new(struct jingle *client, struct jingle_pvt *
 
 	tmp->callgroup = client->callgroup;
 	tmp->pickupgroup = client->pickupgroup;
-	tmp->cid.cid_pres = client->callingpres;
+	tmp->caller.id.name.presentation = client->callingpres;
+	tmp->caller.id.number.presentation = client->callingpres;
 	if (!ast_strlen_zero(client->accountcode))
 		ast_string_field_set(tmp, accountcode, client->accountcode);
 	if (client->amaflags)
@@ -864,9 +872,13 @@ static struct ast_channel *jingle_new(struct jingle *client, struct jingle_pvt *
 	ast_copy_string(tmp->exten, i->exten, sizeof(tmp->exten));
 	/* Don't use ast_set_callerid() here because it will
 	 * generate an unnecessary NewCallerID event  */
-	tmp->cid.cid_ani = ast_strdup(i->cid_num);
-	if (!ast_strlen_zero(i->exten) && strcmp(i->exten, "s"))
-		tmp->cid.cid_dnid = ast_strdup(i->exten);
+	if (!ast_strlen_zero(i->cid_num)) {
+		tmp->caller.ani.number.valid = 1;
+		tmp->caller.ani.number.str = ast_strdup(i->cid_num);
+	}
+	if (!ast_strlen_zero(i->exten) && strcmp(i->exten, "s")) {
+		tmp->dialed.number.str = ast_strdup(i->exten);
+	}
 	tmp->priority = 1;
 	if (i->rtp)
 		ast_jb_configure(tmp, &global_jbconf);
@@ -943,9 +955,9 @@ static void jingle_free_pvt(struct jingle *client, struct jingle_pvt *p)
 	if (p->owner)
 		ast_log(LOG_WARNING, "Uh oh, there's an owner, this is going to be messy.\n");
 	if (p->rtp)
-		ast_rtp_destroy(p->rtp);
+		ast_rtp_instance_destroy(p->rtp);
 	if (p->vrtp)
-		ast_rtp_destroy(p->vrtp);
+		ast_rtp_instance_destroy(p->vrtp);
 	jingle_free_candidates(p->theircandidates);
 	ast_free(p);
 }
@@ -973,22 +985,25 @@ static int jingle_newcall(struct jingle *client, ikspak *pak)
 		tmp = tmp->next;
 	}
 
- 	if (!strcasecmp(client->name, "guest")){
- 		/* the guest account is not tied to any configured XMPP client,
- 		   let's set it now */
- 		client->connection = ast_aji_get_client(from);
- 		if (!client->connection) {
- 			ast_log(LOG_ERROR, "No XMPP client to talk to, us (partial JID) : %s\n", from);
- 			return -1;
- 		}
- 	}
+	if (!strcasecmp(client->name, "guest")){
+		/* the guest account is not tied to any configured XMPP client,
+		   let's set it now */
+		if (client->connection) {
+			ASTOBJ_UNREF(client->connection, ast_aji_client_destroy);
+		}
+		client->connection = ast_aji_get_client(from);
+		if (!client->connection) {
+			ast_log(LOG_ERROR, "No XMPP client to talk to, us (partial JID) : %s\n", from);
+			return -1;
+		}
+	}
 
 	p = jingle_alloc(client, pak->from->partial, iks_find_attrib(pak->query, JINGLE_SID));
 	if (!p) {
 		ast_log(LOG_WARNING, "Unable to allocate jingle structure!\n");
 		return -1;
 	}
-	chan = jingle_new(client, p, AST_STATE_DOWN, pak->from->user);
+	chan = jingle_new(client, p, AST_STATE_DOWN, pak->from->user, NULL);
 	if (!chan) {
 		jingle_free_pvt(client, p);
 		return -1;
@@ -1010,8 +1025,8 @@ static int jingle_newcall(struct jingle *client, ikspak *pak)
 		        ast_copy_string(p->audio_content_name, iks_find_attrib(content, "name"), sizeof(p->audio_content_name));
 
 			while (codec) {
-				ast_rtp_set_m_type(p->rtp, atoi(iks_find_attrib(codec, "id")));
-				ast_rtp_set_rtpmap_type(p->rtp, atoi(iks_find_attrib(codec, "id")), "audio", iks_find_attrib(codec, "name"), 0);
+				ast_rtp_codecs_payloads_set_m_type(ast_rtp_instance_get_codecs(p->rtp), p->rtp, atoi(iks_find_attrib(codec, "id")));
+				ast_rtp_codecs_payloads_set_rtpmap_type(ast_rtp_instance_get_codecs(p->rtp), p->rtp, atoi(iks_find_attrib(codec, "id")), "audio", iks_find_attrib(codec, "name"), 0);
 				codec = iks_next(codec);
 			}
 		}
@@ -1026,8 +1041,8 @@ static int jingle_newcall(struct jingle *client, ikspak *pak)
 		        ast_copy_string(p->video_content_name, iks_find_attrib(content, "name"), sizeof(p->video_content_name));
 
 			while (codec) {
-				ast_rtp_set_m_type(p->rtp, atoi(iks_find_attrib(codec, "id")));
-				ast_rtp_set_rtpmap_type(p->rtp, atoi(iks_find_attrib(codec, "id")), "audio", iks_find_attrib(codec, "name"), 0);
+				ast_rtp_codecs_payloads_set_m_type(ast_rtp_instance_get_codecs(p->rtp), p->rtp, atoi(iks_find_attrib(codec, "id")));
+				ast_rtp_codecs_payloads_set_rtpmap_type(ast_rtp_instance_get_codecs(p->rtp), p->rtp, atoi(iks_find_attrib(codec, "id")), "audio", iks_find_attrib(codec, "name"), 0);
 				codec = iks_next(codec);
 			}
 		}
@@ -1066,6 +1081,7 @@ static int jingle_update_stun(struct jingle *client, struct jingle_pvt *p)
 	struct hostent *hp;
 	struct ast_hostent ahp;
 	struct sockaddr_in sin;
+	struct ast_sockaddr sin_tmp;
 
 	if (time(NULL) == p->laststun)
 		return 0;
@@ -1080,7 +1096,8 @@ static int jingle_update_stun(struct jingle *client, struct jingle_pvt *p)
 		sin.sin_port = htons(tmp->port);
 		snprintf(username, sizeof(username), "%s:%s", tmp->ufrag, p->ourcandidates->ufrag);
 
-		ast_rtp_stun_request(p->rtp, &sin, username);
+		ast_sockaddr_from_sin(&sin_tmp, &sin);
+		ast_rtp_instance_stun_request(p->rtp, &sin_tmp, username);
 		tmp = tmp->next;
 	}
 	return 1;
@@ -1170,22 +1187,22 @@ static struct ast_frame *jingle_rtp_read(struct ast_channel *ast, struct jingle_
 
 	if (!p->rtp)
 		return &ast_null_frame;
-	f = ast_rtp_read(p->rtp);
+	f = ast_rtp_instance_read(p->rtp, 0);
 	jingle_update_stun(p->parent, p);
 	if (p->owner) {
 		/* We already hold the channel lock */
 		if (f->frametype == AST_FRAME_VOICE) {
-			if (f->subclass != (p->owner->nativeformats & AST_FORMAT_AUDIO_MASK)) {
-				ast_debug(1, "Oooh, format changed to %d\n", f->subclass);
+			if (f->subclass.codec != (p->owner->nativeformats & AST_FORMAT_AUDIO_MASK)) {
+				ast_debug(1, "Oooh, format changed to %s\n", ast_getformatname(f->subclass.codec));
 				p->owner->nativeformats =
-					(p->owner->nativeformats & AST_FORMAT_VIDEO_MASK) | f->subclass;
+					(p->owner->nativeformats & AST_FORMAT_VIDEO_MASK) | f->subclass.codec;
 				ast_set_read_format(p->owner, p->owner->readformat);
 				ast_set_write_format(p->owner, p->owner->writeformat);
 			}
 /*			if ((ast_test_flag(p, SIP_DTMF) == SIP_DTMF_INBAND) && p->vad) {
 				f = ast_dsp_process(p->owner, p->vad, f);
 				if (f && (f->frametype == AST_FRAME_DTMF))
-					ast_debug(1, "* Detected inband DTMF '%c'\n", f->subclass);
+					ast_debug(1, "* Detected inband DTMF '%c'\n", f->subclass.codec);
 		        } */
 		}
 	}
@@ -1208,20 +1225,23 @@ static int jingle_write(struct ast_channel *ast, struct ast_frame *frame)
 {
 	struct jingle_pvt *p = ast->tech_pvt;
 	int res = 0;
+	char buf[256];
 
 	switch (frame->frametype) {
 	case AST_FRAME_VOICE:
-		if (!(frame->subclass & ast->nativeformats)) {
+		if (!(frame->subclass.codec & ast->nativeformats)) {
 			ast_log(LOG_WARNING,
-					"Asked to transmit frame type %d, while native formats is %d (read/write = %d/%d)\n",
-					frame->subclass, ast->nativeformats, ast->readformat,
-					ast->writeformat);
+					"Asked to transmit frame type %s, while native formats is %s (read/write = %s/%s)\n",
+					ast_getformatname(frame->subclass.codec),
+					ast_getformatname_multiple(buf, sizeof(buf), ast->nativeformats),
+					ast_getformatname(ast->readformat),
+					ast_getformatname(ast->writeformat));
 			return 0;
 		}
 		if (p) {
 			ast_mutex_lock(&p->lock);
 			if (p->rtp) {
-				res = ast_rtp_write(p->rtp, frame);
+				res = ast_rtp_instance_write(p->rtp, frame);
 			}
 			ast_mutex_unlock(&p->lock);
 		}
@@ -1230,7 +1250,7 @@ static int jingle_write(struct ast_channel *ast, struct ast_frame *frame)
 		if (p) {
 			ast_mutex_lock(&p->lock);
 			if (p->vrtp) {
-				res = ast_rtp_write(p->vrtp, frame);
+				res = ast_rtp_instance_write(p->vrtp, frame);
 			}
 			ast_mutex_unlock(&p->lock);
 		}
@@ -1278,6 +1298,26 @@ static int jingle_indicate(struct ast_channel *ast, int condition, const void *d
 		res = -1;
 	}
 
+	return res;
+}
+
+static int jingle_sendtext(struct ast_channel *chan, const char *text)
+{
+	int res = 0;
+	struct aji_client *client = NULL;
+	struct jingle_pvt *p = chan->tech_pvt;
+
+
+	if (!p->parent) {
+		ast_log(LOG_ERROR, "Parent channel not found\n");
+		return -1;
+	}
+	if (!p->parent->connection) {
+		ast_log(LOG_ERROR, "XMPP client not found\n");
+		return -1;
+	}
+	client = p->parent->connection;
+	res = ast_aji_send_chat(client, p->them, text);
 	return res;
 }
 
@@ -1465,7 +1505,7 @@ static int jingle_hangup(struct ast_channel *ast)
 }
 
 /*! \brief Part of PBX interface */
-static struct ast_channel *jingle_request(const char *request_type, int format, void *data, int *cause)
+static struct ast_channel *jingle_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
 	struct jingle_pvt *p = NULL;
 	struct jingle *client = NULL;
@@ -1493,6 +1533,9 @@ static struct ast_channel *jingle_request(const char *request_type, int format, 
 	if (!strcasecmp(client->name, "guest")){
 		/* the guest account is not tied to any configured XMPP client,
 		   let's set it now */
+		if (client->connection) {
+			ASTOBJ_UNREF(client->connection, ast_aji_client_destroy);
+		}
 		client->connection = ast_aji_get_client(sender);
 		if (!client->connection) {
 			ast_log(LOG_ERROR, "No XMPP client to talk to, us (partial JID) : %s\n", sender);
@@ -1503,7 +1546,7 @@ static struct ast_channel *jingle_request(const char *request_type, int format, 
 	ASTOBJ_WRLOCK(client);
 	p = jingle_alloc(client, to, NULL);
 	if (p)
-		chan = jingle_new(client, p, AST_STATE_DOWN, to);
+		chan = jingle_new(client, p, AST_STATE_DOWN, to, requestor ? requestor->linkedid : NULL);
 	ASTOBJ_UNLOCK(client);
 
 	return chan;
@@ -1822,6 +1865,9 @@ static int jingle_load_config(void)
 					ASTOBJ_CONTAINER_TRAVERSE(clients, 1, {
 						ASTOBJ_WRLOCK(iterator);
 						ASTOBJ_WRLOCK(member);
+						if (member->connection) {
+							ASTOBJ_UNREF(member->connection, ast_aji_client_destroy);
+						}
 						member->connection = NULL;
 						iks_filter_add_rule(iterator->f, jingle_parser, member, IKS_RULE_TYPE, IKS_PAK_IQ, IKS_RULE_NS,	JINGLE_NS, IKS_RULE_DONE);
 						iks_filter_add_rule(iterator->f, jingle_parser, member, IKS_RULE_TYPE, IKS_PAK_IQ, IKS_RULE_NS,	JINGLE_DTMF_NS, IKS_RULE_DONE);
@@ -1849,6 +1895,9 @@ static int jingle_load_config(void)
 /*! \brief Load module into PBX, register channel */
 static int load_module(void)
 {
+	struct ast_sockaddr ourip_tmp;
+	struct ast_sockaddr bindaddr_tmp;
+
 	char *jabber_loaded = ast_module_helper("", "res_jabber.so", 0, 0, 0, 0);
 	free(jabber_loaded);
 	if (!jabber_loaded) {
@@ -1868,19 +1917,23 @@ static int load_module(void)
 	}
 
 	sched = sched_context_create();
-	if (!sched) 
+	if (!sched) {
 		ast_log(LOG_WARNING, "Unable to create schedule context\n");
+	}
 
 	io = io_context_create();
-	if (!io) 
+	if (!io) {
 		ast_log(LOG_WARNING, "Unable to create I/O context\n");
+	}
 
-	if (ast_find_ourip(&__ourip, bindaddr)) {
+	ast_sockaddr_from_sin(&bindaddr_tmp, &bindaddr);
+	if (ast_find_ourip(&ourip_tmp, &bindaddr_tmp, AF_INET)) {
 		ast_log(LOG_WARNING, "Unable to get own IP address, Jingle disabled\n");
 		return 0;
 	}
+	__ourip.s_addr = htonl(ast_sockaddr_ipv4(&ourip_tmp));
 
-	ast_rtp_proto_register(&jingle_rtp);
+	ast_rtp_glue_register(&jingle_rtp_glue);
 	ast_cli_register_multiple(jingle_cli, ARRAY_LEN(jingle_cli));
 	/* Make sure we can register our channel type */
 	if (ast_channel_register(&jingle_tech)) {
@@ -1903,7 +1956,7 @@ static int unload_module(void)
 	ast_cli_unregister_multiple(jingle_cli, ARRAY_LEN(jingle_cli));
 	/* First, take us out of the channel loop */
 	ast_channel_unregister(&jingle_tech);
-	ast_rtp_proto_unregister(&jingle_rtp);
+	ast_rtp_glue_unregister(&jingle_rtp_glue);
 
 	if (!ast_mutex_lock(&jinglelock)) {
 		/* Hangup all interfaces if they have an owner */
@@ -1928,8 +1981,9 @@ static int unload_module(void)
 	return 0;
 }
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Jingle Channel Driver",
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Jingle Channel Driver",
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,
+		.load_pri = AST_MODPRI_CHANNEL_DRIVER,
 	       );

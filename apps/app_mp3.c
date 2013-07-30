@@ -21,13 +21,20 @@
  * \brief Silly application to play an MP3 file -- uses mpg123
  *
  * \author Mark Spencer <markster@digium.com>
+ *
+ * \note Add feature to play local M3U playlist file
+ * Vincent Li <mchun.li@gmail.com>
  * 
  * \ingroup applications
  */
+
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238013 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 336716 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -47,7 +54,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238013 $")
 /*** DOCUMENTATION
 	<application name="MP3Player" language="en_US">
 		<synopsis>
-			Play an MP3 file or stream.
+			Play an MP3 file or M3U playlist file or stream.
 		</synopsis>
 		<syntax>
 			<parameter name="Location" required="true">
@@ -56,15 +63,20 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238013 $")
 			</parameter>
 		</syntax>
 		<description>
-			<para>Executes mpg123 to play the given location, which typically would be a filename or a URL.
+			<para>Executes mpg123 to play the given location, which typically would be a mp3 filename
+			or m3u playlist filename or a URL. Please read http://en.wikipedia.org/wiki/M3U
+			to see how M3U playlist file format is like, Example usage would be
+			exten => 1234,1,MP3Player(/var/lib/asterisk/playlist.m3u)
 			User can exit by pressing any key on the dialpad, or by hanging up.</para>
+			<para>This application does not automatically answer and should be preceeded by an
+			application such as Answer() or Progress().</para>
 		</description>
 	</application>
 
  ***/
 static char *app = "MP3Player";
 
-static int mp3play(char *filename, int fd)
+static int mp3play(const char *filename, int fd)
 {
 	int res;
 
@@ -88,6 +100,14 @@ static int mp3play(char *filename, int fd)
 	    execl(MPG_123, "mpg123", "-q", "-s", "-b", "1024","-f", "8192", "--mono", "-r", "8000", filename, (char *)NULL);
 		/* As a last-ditch effort, try to use PATH */
 	    execlp("mpg123", "mpg123", "-q", "-s", "-b", "1024",  "-f", "8192", "--mono", "-r", "8000", filename, (char *)NULL);
+	}
+	else if (strstr(filename, ".m3u")) {
+		/* Most commonly installed in /usr/local/bin */
+	    execl(LOCAL_MPG_123, "mpg123", "-q", "-z", "-s", "-b", "1024", "-f", "8192", "--mono", "-r", "8000", "-@", filename, (char *)NULL);
+		/* But many places has it in /usr/bin */
+	    execl(MPG_123, "mpg123", "-q", "-z", "-s", "-b", "1024","-f", "8192", "--mono", "-r", "8000", "-@", filename, (char *)NULL);
+		/* As a last-ditch effort, try to use PATH */
+	    execlp("mpg123", "mpg123", "-q", "-z", "-s", "-b", "1024",  "-f", "8192", "--mono", "-r", "8000", "-@", filename, (char *)NULL);
 	}
 	else {
 		/* Most commonly installed in /usr/local/bin */
@@ -117,7 +137,7 @@ static int timed_read(int fd, void *data, int datalen, int timeout)
 	
 }
 
-static int mp3_exec(struct ast_channel *chan, void *data)
+static int mp3_exec(struct ast_channel *chan, const char *data)
 {
 	int res=0;
 	int fds[2];
@@ -154,8 +174,8 @@ static int mp3_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 	
-	res = mp3play((char *)data, fds[1]);
-	if (!strncasecmp((char *)data, "http://", 7)) {
+	res = mp3play(data, fds[1]);
+	if (!strncasecmp(data, "http://", 7)) {
 		timeout = 10000;
 	}
 	/* Wait 1000 ms first */
@@ -171,7 +191,7 @@ static int mp3_exec(struct ast_channel *chan, void *data)
 				res = timed_read(fds[0], myf.frdata, sizeof(myf.frdata), timeout);
 				if (res > 0) {
 					myf.f.frametype = AST_FRAME_VOICE;
-					myf.f.subclass = AST_FORMAT_SLINEAR;
+					myf.f.subclass.codec = AST_FORMAT_SLINEAR;
 					myf.f.datalen = res;
 					myf.f.samples = res / 2;
 					myf.f.mallocd = 0;

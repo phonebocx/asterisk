@@ -24,9 +24,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/module.h"
 #include "asterisk/app.h"
@@ -57,7 +61,7 @@ static char *app_log = "Log";
 			Send arbitrary text to a selected log level.
 		</synopsis>
 		<syntax>
-			<parameter name="level">
+			<parameter name="level" required="true">
 				<para>Level must be one of <literal>ERROR</literal>, <literal>WARNING</literal>, <literal>NOTICE</literal>,
 				<literal>DEBUG</literal>, <literal>VERBOSE</literal> or <literal>DTMF</literal>.</para>	
 			</parameter>
@@ -72,7 +76,7 @@ static char *app_log = "Log";
  ***/
 
 
-static int verbose_exec(struct ast_channel *chan, void *data)
+static int verbose_exec(struct ast_channel *chan, const char *data)
 {
 	int vsize;
 	char *parse;
@@ -118,7 +122,7 @@ static int verbose_exec(struct ast_channel *chan, void *data)
 	return 0;
 }
 
-static int log_exec(struct ast_channel *chan, void *data)
+static int log_exec(struct ast_channel *chan, const char *data)
 {
 	char *parse;
 	int lnum = -1;
@@ -146,8 +150,6 @@ static int log_exec(struct ast_channel *chan, void *data)
 		lnum = __LOG_VERBOSE;
 	} else if (!strcasecmp(args.level, "DTMF")) {
 		lnum = __LOG_DTMF;
-	} else if (!strcasecmp(args.level, "EVENT")) {
-		lnum = __LOG_EVENT;
 	} else {
 		ast_log(LOG_ERROR, "Unknown log level: '%s'\n", args.level);
 	}

@@ -27,9 +27,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -72,9 +76,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
 	</application>
  ***/
 
-static const char *app = "Transfer";
+static const char * const app = "Transfer";
 
-static int transfer_exec(struct ast_channel *chan, void *data)
+static int transfer_exec(struct ast_channel *chan, const char *data)
 {
 	int res;
 	int len;

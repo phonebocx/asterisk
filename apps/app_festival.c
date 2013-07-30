@@ -27,9 +27,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 208116 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <sys/socket.h>
 #include <netdb.h>
@@ -49,6 +53,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 208116 $")
 #include "asterisk/utils.h"
 #include "asterisk/lock.h"
 #include "asterisk/app.h"
+#include "asterisk/endian.h"
 
 #define FESTIVAL_CONFIG "festival.conf"
 #define MAXLEN 180
@@ -127,7 +132,7 @@ static char *socket_receive_file_to_buff(int fd, int *size)
 static int send_waveform_to_fd(char *waveform, int length, int fd)
 {
 	int res;
-#ifdef __PPC__ 
+#if __BYTE_ORDER == __BIG_ENDIAN
 	int x;
 	char c;
 #endif
@@ -142,27 +147,26 @@ static int send_waveform_to_fd(char *waveform, int length, int fd)
 	ast_close_fds_above_n(0);
 	if (ast_opt_high_priority)
 		ast_set_priority(0);
-#ifdef __PPC__  
+#if __BYTE_ORDER == __BIG_ENDIAN
 	for (x = 0; x < length; x += 2) {
 		c = *(waveform + x + 1);
 		*(waveform + x + 1) = *(waveform + x);
 		*(waveform + x) = c;
 	}
 #endif
-	
-	if (write(fd, waveform, length) < 0) {
-		ast_log(LOG_WARNING, "write() failed: %s\n", strerror(errno));
+
+	if (write(0, waveform, length) < 0) {
+		/* Cannot log -- all FDs are already closed */
 	}
 
 	close(fd);
-	exit(0);
+	_exit(0);
 }
 
 static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, int length, char *intkeys)
 {
 	int res = 0;
 	int fds[2];
-	int pid = -1;
 	int needed = 0;
 	int owriteformat;
 	struct ast_frame *f;
@@ -194,7 +198,6 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 	
 	res = send_waveform_to_fd(waveform, length, fds[1]);
 	if (res >= 0) {
-		pid = res;
 		/* Order is important -- there's almost always going to be mp3...  we want to prioritize the
 		   user */
 		for (;;) {
@@ -211,8 +214,8 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 			}
 			if (f->frametype == AST_FRAME_DTMF) {
 				ast_debug(1, "User pressed a key\n");
-				if (intkeys && strchr(intkeys, f->subclass)) {
-					res = f->subclass;
+				if (intkeys && strchr(intkeys, f->subclass.integer)) {
+					res = f->subclass.integer;
 					ast_frfree(f);
 					break;
 				}
@@ -228,7 +231,7 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 				res = read(fds[0], myf.frdata, needed);
 				if (res > 0) {
 					myf.f.frametype = AST_FRAME_VOICE;
-					myf.f.subclass = AST_FORMAT_SLINEAR;
+					myf.f.subclass.codec = AST_FORMAT_SLINEAR;
 					myf.f.datalen = res;
 					myf.f.samples = res / 2;
 					myf.f.offset = AST_FRIENDLY_OFFSET;
@@ -256,16 +259,12 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 	close(fds[0]);
 	close(fds[1]);
 
-#if 0
-	if (pid > -1)
-		kill(pid, SIGKILL);
-#endif
 	if (!res && owriteformat)
 		ast_set_write_format(chan, owriteformat);
 	return res;
 }
 
-static int festival_exec(struct ast_channel *chan, void *vdata)
+static int festival_exec(struct ast_channel *chan, const char *vdata)
 {
 	int usecache;
 	int res = 0;
@@ -283,7 +282,6 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 	char ack[4];
 	char *waveform;
 	int filesize;
-	int wave;
 	char bigstring[MAXFESTLEN];
 	int i;
 	struct MD5Context md5ctx;
@@ -492,7 +490,6 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 
 	/* Read back info from server */
 	/* This assumes only one waveform will come back, also LP is unlikely */
-	wave = 0;
 	do {
 		int read_data;
 		for (n = 0; n < 3; ) {

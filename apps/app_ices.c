@@ -26,10 +26,14 @@
  *
  * \ingroup applications
  */
+
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <signal.h>
 #include <fcntl.h>
@@ -58,7 +62,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
 		<description>
 			<para>Streams to an icecast server using ices (available separately).
 			A configuration file must be supplied for ices (see contrib/asterisk-ices.xml).</para>
-			<note><para>ICES version 2 cient and server required.</para></note>
+			<note><para>ICES version 2 client and server required.</para></note>
 		</description>
 	</application>
 
@@ -104,7 +108,7 @@ static int icesencode(char *filename, int fd)
 	_exit(0);
 }
 
-static int ices_exec(struct ast_channel *chan, void *data)
+static int ices_exec(struct ast_channel *chan, const char *data)
 {
 	int res = 0;
 	int fds[2];
@@ -112,7 +116,6 @@ static int ices_exec(struct ast_channel *chan, void *data)
 	int pid = -1;
 	int flags;
 	int oreadformat;
-	struct timeval last;
 	struct ast_frame *f;
 	char filename[256]="";
 	char *c;
@@ -121,8 +124,6 @@ static int ices_exec(struct ast_channel *chan, void *data)
 		ast_log(LOG_WARNING, "ICES requires an argument (configfile.xml)\n");
 		return -1;
 	}
-	
-	last = ast_tv(0, 0);
 	
 	if (pipe(fds)) {
 		ast_log(LOG_WARNING, "Unable to create pipe\n");

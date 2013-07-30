@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 354884 $")
 
 #include "asterisk/_private.h"
 #include <regex.h>
@@ -51,13 +51,17 @@ static pthread_t refresh_thread = AST_PTHREADT_NULL;
 
 struct ast_dnsmgr_entry {
 	/*! where we will store the resulting IP address and port number */
-	struct sockaddr_in *result;
-	/*! the last result, used to check if address/port has changed */
-	struct sockaddr_in last;
+	struct ast_sockaddr *result;
 	/*! SRV record to lookup, if provided. Composed of service, protocol, and domain name: _Service._Proto.Name */
 	char *service;
+	/*! Address family to filter DNS responses. */
+	unsigned int family;
 	/*! Set to 1 if the entry changes */
 	unsigned int changed:1;
+	/*! Data to pass back to update_func */
+	void *data;
+	/*! The callback function to execute on address update */
+	dns_update_func update_func;
 	ast_mutex_t lock;
 	AST_RWLIST_ENTRY(ast_dnsmgr_entry) list;
 	/*! just 1 here, but we use calloc to allocate the correct size */
@@ -85,28 +89,34 @@ static struct refresh_info master_refresh_info = {
 	.verbose = 0,
 };
 
-struct ast_dnsmgr_entry *ast_dnsmgr_get(const char *name, struct sockaddr_in *result, const char *service)
+struct ast_dnsmgr_entry *ast_dnsmgr_get_family(const char *name, struct ast_sockaddr *result, const char *service, unsigned int family)
 {
 	struct ast_dnsmgr_entry *entry;
 	int total_size = sizeof(*entry) + strlen(name) + (service ? strlen(service) + 1 : 0);
 
-	if (!result || ast_strlen_zero(name) || !(entry = ast_calloc(1, total_size)))
+	if (!result || ast_strlen_zero(name) || !(entry = ast_calloc(1, total_size))) {
 		return NULL;
+	}
 
 	entry->result = result;
 	ast_mutex_init(&entry->lock);
 	strcpy(entry->name, name);
-	memcpy(&entry->last, result, sizeof(entry->last));
 	if (service) {
 		entry->service = ((char *) entry) + sizeof(*entry) + strlen(name);
 		strcpy(entry->service, service);
 	}
+	entry->family = family;
 
 	AST_RWLIST_WRLOCK(&entry_list);
 	AST_RWLIST_INSERT_HEAD(&entry_list, entry, list);
 	AST_RWLIST_UNLOCK(&entry_list);
 
 	return entry;
+}
+
+struct ast_dnsmgr_entry *ast_dnsmgr_get(const char *name, struct ast_sockaddr *result, const char *service)
+{
+	return ast_dnsmgr_get_family(name, result, service, 0);
 }
 
 void ast_dnsmgr_release(struct ast_dnsmgr_entry *entry)
@@ -123,18 +133,28 @@ void ast_dnsmgr_release(struct ast_dnsmgr_entry *entry)
 	ast_free(entry);
 }
 
-int ast_dnsmgr_lookup(const char *name, struct sockaddr_in *result, struct ast_dnsmgr_entry **dnsmgr, const char *service)
+static int internal_dnsmgr_lookup(const char *name, struct ast_sockaddr *result, struct ast_dnsmgr_entry **dnsmgr, const char *service, dns_update_func func, void *data)
 {
-	if (ast_strlen_zero(name) || !result || !dnsmgr)
+	unsigned int family;
+
+	if (ast_strlen_zero(name) || !result || !dnsmgr) {
 		return -1;
+	}
 
-	if (*dnsmgr && !strcasecmp((*dnsmgr)->name, name))
+	if (*dnsmgr && !strcasecmp((*dnsmgr)->name, name)) {
 		return 0;
+	}
 
-	/* if it's actually an IP address and not a name,
-	   there's no need for a managed lookup */
-	if (inet_aton(name, &result->sin_addr))
+	/* Lookup address family filter. */
+	family = result->ss.ss_family;
+
+	/*
+	 * If it's actually an IP address and not a name, there's no
+	 * need for a managed lookup.
+	 */
+	if (ast_sockaddr_parse(result, name, PARSE_PORT_FORBID)) {
 		return 0;
+	}
 
 	ast_verb(4, "doing dnsmgr_lookup for '%s'\n", name);
 
@@ -142,12 +162,25 @@ int ast_dnsmgr_lookup(const char *name, struct sockaddr_in *result, struct ast_d
 	ast_get_ip_or_srv(result, name, service);
 	
 	/* if dnsmgr is not enable don't bother adding an entry */
-	if (!enabled)
+	if (!enabled) {
 		return 0;
+	}
 	
 	ast_verb(3, "adding dns manager for '%s'\n", name);
-	*dnsmgr = ast_dnsmgr_get(name, result, service);
+	*dnsmgr = ast_dnsmgr_get_family(name, result, service, family);
+	(*dnsmgr)->update_func = func;
+	(*dnsmgr)->data = data;
 	return !*dnsmgr;
+}
+
+int ast_dnsmgr_lookup(const char *name, struct ast_sockaddr *result, struct ast_dnsmgr_entry **dnsmgr, const char *service)
+{
+	return internal_dnsmgr_lookup(name, result, dnsmgr, service, NULL, NULL);
+}
+
+int ast_dnsmgr_lookup_cb(const char *name, struct ast_sockaddr *result, struct ast_dnsmgr_entry **dnsmgr, const char *service, dns_update_func func, void *data)
+{
+	return internal_dnsmgr_lookup(name, result, dnsmgr, service, func, data);
 }
 
 /*
@@ -155,28 +188,38 @@ int ast_dnsmgr_lookup(const char *name, struct sockaddr_in *result, struct ast_d
  */
 static int dnsmgr_refresh(struct ast_dnsmgr_entry *entry, int verbose)
 {
-	char iabuf[INET_ADDRSTRLEN];
-	char iabuf2[INET_ADDRSTRLEN];
-	struct sockaddr_in tmp;
+	struct ast_sockaddr tmp = { .len = 0, };
 	int changed = 0;
-        
-	ast_mutex_lock(&entry->lock);
-	if (verbose)
-		ast_verb(3, "refreshing '%s'\n", entry->name);
 
-	tmp.sin_port = entry->last.sin_port;
-	
-	if (!ast_get_ip_or_srv(&tmp, entry->name, entry->service) && inaddrcmp(&tmp, &entry->last)) {
-		ast_copy_string(iabuf, ast_inet_ntoa(entry->last.sin_addr), sizeof(iabuf));
-		ast_copy_string(iabuf2, ast_inet_ntoa(tmp.sin_addr), sizeof(iabuf2));
-		ast_log(LOG_NOTICE, "dnssrv: host '%s' changed from %s:%d to %s:%d\n", 
-			entry->name, iabuf, ntohs(entry->last.sin_port), iabuf2, ntohs(tmp.sin_port));
-		*entry->result = tmp;
-		entry->last = tmp;
-		changed = entry->changed = 1;
+	ast_mutex_lock(&entry->lock);
+
+	if (verbose) {
+		ast_verb(3, "refreshing '%s'\n", entry->name);
+	}
+
+	tmp.ss.ss_family = entry->family;
+	if (!ast_get_ip_or_srv(&tmp, entry->name, entry->service)) {
+		if (!ast_sockaddr_port(&tmp)) {
+			ast_sockaddr_set_port(&tmp, ast_sockaddr_port(entry->result));
+		}
+		if (ast_sockaddr_cmp(&tmp, entry->result)) {
+			const char *old_addr = ast_strdupa(ast_sockaddr_stringify(entry->result));
+			const char *new_addr = ast_strdupa(ast_sockaddr_stringify(&tmp));
+
+			if (entry->update_func) {
+				entry->update_func(entry->result, &tmp, entry->data);
+			} else {
+				ast_log(LOG_NOTICE, "dnssrv: host '%s' changed from %s to %s\n",
+						entry->name, old_addr, new_addr);
+
+				ast_sockaddr_copy(entry->result, &tmp);
+				changed = entry->changed = 1;
+			}
+		}
 	}
 
 	ast_mutex_unlock(&entry->lock);
+
 	return changed;
 }
 

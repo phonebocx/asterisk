@@ -25,9 +25,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 239713 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -53,7 +57,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 239713 $")
 
 static char *app = "WaitForRing";
 
-static int waitforring_exec(struct ast_channel *chan, void *data)
+static int waitforring_exec(struct ast_channel *chan, const char *data)
 {
 	struct ast_frame *f;
 	struct ast_silence_generator *silgen = NULL;
@@ -83,7 +87,7 @@ static int waitforring_exec(struct ast_channel *chan, void *data)
 				res = -1;
 				break;
 			}
-			if ((f->frametype == AST_FRAME_CONTROL) && (f->subclass == AST_CONTROL_RING)) {
+			if ((f->frametype == AST_FRAME_CONTROL) && (f->subclass.integer == AST_CONTROL_RING)) {
 				ast_verb(3, "Got a ring but still waiting for timeout\n");
 			}
 			ast_frfree(f);
@@ -104,7 +108,7 @@ static int waitforring_exec(struct ast_channel *chan, void *data)
 					res = -1;
 					break;
 				}
-				if ((f->frametype == AST_FRAME_CONTROL) && (f->subclass == AST_CONTROL_RING)) {
+				if ((f->frametype == AST_FRAME_CONTROL) && (f->subclass.integer == AST_CONTROL_RING)) {
 					ast_verb(3, "Got a ring after the timeout\n");
 					ast_frfree(f);
 					break;

@@ -71,7 +71,7 @@ struct ast_bridge_technology {
 	/*! Callback for poking a bridge thread */
 	int (*poke)(struct ast_bridge *bridge, struct ast_bridge_channel *bridge_channel);
 	/*! Formats that the bridge technology supports */
-	int formats;
+	format_t formats;
 	/*! Bit to indicate whether the bridge technology is currently suspended or not */
 	unsigned int suspended:1;
 	/*! Module this bridge technology belongs to. Is used for reference counting when creating/destroying a bridge. */
@@ -83,7 +83,7 @@ struct ast_bridge_technology {
 /*! \brief Register a bridge technology for use
  *
  * \param technology The bridge technology to register
- * \param module The module that is registering the bridge technology
+ * \param mod The module that is registering the bridge technology
  *
  * \retval 0 on success
  * \retval -1 on failure

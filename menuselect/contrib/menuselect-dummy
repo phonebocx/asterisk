@@ -110,14 +110,23 @@ sub warning($) {
 # Convert XML syntax to mail-header-like syntax:
 # <var>value</var> --> Var: value
 sub extract_xml_key($) {
+	my %attr = ();
 	my $xml_line = shift;
-	if ($xml_line !~ m{^\s*<([a-zA-Z0-9]*)>([^<]*)</\1>}) {
+	if ($xml_line !~ m{^\s*<([a-z_A-Z0-9]+)(\s+([^>]*))?>([^<]*)</\1>}) {
 		warning "parsed empty value from XML line $xml_line";
 		return ('', ''); # warn?
 	}
-	my ($var, $val) = ($1, $2);
+	my ($var, $val) = ($1, $4);
 	$var =~ s{^[a-z]}{\u$&};
-	return ($var, $val);
+	if (defined $3) {
+		my $attr_text = $3;
+		while ($attr_text =~ /^( *([^=]+)="([^"]+)")/) {
+			my ($var, $val) = ($2, $3);
+			$attr_text =~ s/^$1//;
+			$attr{$var} = $val;
+		}
+	}
+	return ($var, $val, %attr);
 }
 
 # Get information embedded in source files from a subdirectory.
@@ -141,14 +150,16 @@ sub get_subdir_module_info {
 		);
 
 		while (<SRC>) {
-			next unless (m|^/\*\*\* MODULEINFO| .. m|^ ?\*\*\*/|);
+			next unless (m|^/\*\*\* MODULEINFO| .. m|^ *[*]+/|);
 			next unless (m|^[A-Z]| || m|^\s*<|);
 
 			# At this point we can assume we're in the module 
 			# info section.
 			chomp;
-			my ($var, $val) = extract_xml_key($_);
-
+			my ($var, $val, %attr) = extract_xml_key($_);
+			foreach (keys %attr) {
+				push @{$data{$_}},($attr{$_});
+			}
 			if ($var =~ /^(Depend|Use)$/i) {
 				# use uppercase for dependency names;
 				$val = uc($val); 
@@ -443,6 +454,21 @@ sub apply_default_enabled() {
 	}
 }
 
+# We found a dependency we don't know about. Warn the user, and add
+# information about it:
+sub handle_unknown_dep($$) {
+	my ($dep_mod, $mod) = @_;
+
+	my $mod_info = {
+		Type => 'Unknown',
+		Avail => 0,
+		Checked => 0,
+	};
+	$ModInfo{$dep_mod} = $mod_info;
+
+	warning "Unknown dependency module $dep_mod (for e.g. $mod)\n";
+}
+
 # recursively check dependency for a module.
 #
 # We run a scan for modules. Modules marked as 'Checked' are ones we
@@ -481,9 +507,8 @@ sub check_module($) {
 
 	foreach my $dep_mod (@{$ModInfo{$mod}{Depend}} ) {
 		if (!exists ${ModInfo}{$dep_mod}) {
-			# TODO: die here? This should never happen.
-			warning "module $mod depends on $dep_mod that does not exist.";
-			next;
+			handle_unknown_dep($dep_mod, $mod);
+			return 0;
 		}
 		$deps_checked &= check_module($dep_mod);
 		last if(!$deps_checked) # no point testing further if we failed.

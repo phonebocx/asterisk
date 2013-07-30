@@ -25,9 +25,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 262659 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -52,6 +56,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 262659 $")
 			</parameter>
 			<parameter name="minlength">
 				<para>Minimum allowable digits in the input callerid number. Defaults to <literal>10</literal>.</para>
+			</parameter>
+			<parameter name="options">
+				<para>Position reserved for options.</para>
 			</parameter>
 			<parameter name="context">
 				<para>Context to check the given callerid against patterns.</para>
@@ -80,7 +87,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 262659 $")
 
 static char *app = "PrivacyManager";
 
-static int privacy_exec (struct ast_channel *chan, void *data)
+static int privacy_exec(struct ast_channel *chan, const char *data)
 {
 	int res=0;
 	int retries;
@@ -96,8 +103,9 @@ static int privacy_exec (struct ast_channel *chan, void *data)
 		AST_APP_ARG(checkcontext);
 	);
 
-	if (!ast_strlen_zero(chan->cid.cid_num)) {
-		ast_verb(3, "CallerID Present: Skipping\n");
+	if (chan->caller.id.number.valid
+		&& !ast_strlen_zero(chan->caller.id.number.str)) {
+		ast_verb(3, "CallerID number present: Skipping\n");
 	} else {
 		/*Answer the channel if it is not already*/
 		if (chan->_state != AST_STATE_UP) {
@@ -106,7 +114,7 @@ static int privacy_exec (struct ast_channel *chan, void *data)
 			}
 		}
 
-		parse = ast_strdupa(S_OR(data, ""));
+		parse = ast_strdupa(data);
 
 		AST_STANDARD_APP_ARGS(args, parse);
 
@@ -181,14 +189,19 @@ static int privacy_exec (struct ast_channel *chan, void *data)
 				res = ast_waitstream(chan, "");
 			}
 
+			/*
+			 * This is a caller entered number that is going to be used locally.
+			 * Therefore, the given number presentation is allowed and should
+			 * be passed out to other channels.  This is the point of the
+			 * privacy application.
+			 */
+			chan->caller.id.name.presentation = AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED;
+			chan->caller.id.number.presentation = AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED;
+			chan->caller.id.number.plan = 0;/* Unknown */
+
 			ast_set_callerid(chan, phone, "Privacy Manager", NULL);
 
-			/* Clear the unavailable presence bit so if it came in on PRI
-			 * the caller id will now be passed out to other channels
-			 */
-			chan->cid.cid_pres &= (AST_PRES_UNAVAILABLE ^ 0xFF);
-
-			ast_verb(3, "Changed Caller*ID to '%s', callerpres to %d\n", phone, chan->cid.cid_pres);
+			ast_verb(3, "Changed Caller*ID number to '%s'\n", phone);
 
 			pbx_builtin_setvar_helper(chan, "PRIVACYMGRSTATUS", "SUCCESS");
 		} else {

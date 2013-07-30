@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 244555 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 281575 $")
 
 #ifdef DEBUG_SCHEDULER
 #define DEBUG(a) do { \
@@ -46,6 +46,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 244555 $")
 #include "asterisk/dlinkedlists.h"
 #include "asterisk/hashtab.h"
 #include "asterisk/heap.h"
+#include "asterisk/threadstorage.h"
+
+AST_THREADSTORAGE(last_del_id);
 
 struct sched {
 	AST_LIST_ENTRY(sched) list;
@@ -450,7 +453,7 @@ const void *ast_sched_find_data(struct sched_context *con, int id)
 		return res->data;
 	return NULL;
 }
-	
+
 /*! \brief
  * Delete the schedule entry with number
  * "id".  It's nearly impossible that there
@@ -466,9 +469,14 @@ int _ast_sched_del(struct sched_context *con, int id, const char *file, int line
 	struct sched *s, tmp = {
 		.id = id,
 	};
+	int *last_id = ast_threadstorage_get(&last_del_id, sizeof(int *));
 
 	DEBUG(ast_debug(1, "ast_sched_del(%d)\n", id));
-	
+
+	if (id < 0) {
+		return 0;
+	}
+
 	ast_mutex_lock(&con->lock);
 	s = ast_hashtab_lookup(con->schedq_ht, &tmp);
 	if (s) {
@@ -484,7 +492,7 @@ int _ast_sched_del(struct sched_context *con, int id, const char *file, int line
 
 		sched_release(con, s);
 	}
-	
+
 #ifdef DUMP_SCHEDULER
 	/* Dump contents of the context while we have the lock so nothing gets screwed up by accident. */
 	if (option_debug)
@@ -492,16 +500,23 @@ int _ast_sched_del(struct sched_context *con, int id, const char *file, int line
 #endif
 	ast_mutex_unlock(&con->lock);
 
-	if (!s) {
+	if (!s && *last_id != id) {
 		ast_debug(1, "Attempted to delete nonexistent schedule entry %d!\n", id);
 #ifndef AST_DEVMODE
 		ast_assert(s != NULL);
 #else
-		_ast_assert(0, "s != NULL", file, line, function);
+		{
+		char buf[100];
+		snprintf(buf, sizeof(buf), "s != NULL, id=%d", id);
+		_ast_assert(0, buf, file, line, function);
+		}
 #endif
+		*last_id = id;
+		return -1;
+	} else if (!s) {
 		return -1;
 	}
-	
+
 	return 0;
 }
 
@@ -589,13 +604,13 @@ int ast_sched_runq(struct sched_context *con)
 		
 	ast_mutex_lock(&con->lock);
 
+	when = ast_tvadd(ast_tvnow(), ast_tv(0, 1000));
 	for (numevents = 0; (current = ast_heap_peek(con->sched_heap, 1)); numevents++) {
 		/* schedule all events which are going to expire within 1ms.
 		 * We only care about millisecond accuracy anyway, so this will
 		 * help us get more than one event at one time if they are very
 		 * close together.
 		 */
-		when = ast_tvadd(ast_tvnow(), ast_tv(0, 1000));
 		if (ast_tvcmp(current->when, when) != -1) {
 			break;
 		}

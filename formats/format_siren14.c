@@ -22,10 +22,14 @@
  * \arg File name extensions: siren14
  * \ingroup formats
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233694 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -41,7 +45,7 @@ static struct ast_frame *siren14read(struct ast_filestream *s, int *whennext)
 	/* Send a frame from the file to the appropriate channel */
 
 	s->fr.frametype = AST_FRAME_VOICE;
-	s->fr.subclass = AST_FORMAT_SIREN14;
+	s->fr.subclass.codec = AST_FORMAT_SIREN14;
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, BUF_SIZE);
 	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
@@ -61,8 +65,8 @@ static int siren14write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
 	}
-	if (f->subclass != AST_FORMAT_SIREN14) {
-		ast_log(LOG_WARNING, "Asked to write non-Siren14 frame (%d)!\n", f->subclass);
+	if (f->subclass.codec != AST_FORMAT_SIREN14) {
+		ast_log(LOG_WARNING, "Asked to write non-Siren14 frame (%s)!\n", ast_getformatname(f->subclass.codec));
 		return -1;
 	}
 	if ((res = fwrite(f->data.ptr, 1, f->datalen, fs->f)) != f->datalen) {
@@ -133,10 +137,10 @@ static int load_module(void)
 static int unload_module(void)
 {
 	return ast_format_unregister(siren14_f.name);
-}	
+}
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "ITU G.722.1 Annex C (Siren14, licensed from Polycom)",
 	.load = load_module,
 	.unload = unload_module,
-	.load_pri = 10,
+	.load_pri = AST_MODPRI_APP_DEPEND
 );

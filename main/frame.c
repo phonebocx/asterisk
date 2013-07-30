@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 243247 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 271231 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/lock.h"
@@ -80,7 +80,7 @@ enum frame_type {
 
 struct ast_smoother {
 	int size;
-	int format;
+	format_t format;
 	int flags;
 	float samplesperbyte;
 	unsigned int opt_needs_swap:1;
@@ -104,6 +104,7 @@ static const struct ast_format_list AST_FORMAT_LIST[] = {
 	{ AST_FORMAT_LPC10, "lpc10", 8000, "LPC10", 7, 20, 20, 20, 20 },                                       /*!< codec_lpc10.c */ 
 	{ AST_FORMAT_G729A, "g729", 8000, "G.729A", 10, 10, 230, 10, 20, AST_SMOOTHER_FLAG_G729 },             /*!< Binary commercial distribution */
 	{ AST_FORMAT_SPEEX, "speex", 8000, "SpeeX", 10, 10, 60, 10, 20 },                                      /*!< codec_speex.c */
+	{ AST_FORMAT_SPEEX16, "speex16", 16000, "SpeeX 16khz", 10, 10, 60, 10, 20 },                          /*!< codec_speex.c */
 	{ AST_FORMAT_ILBC, "ilbc", 8000, "iLBC", 50, 30, 30, 30, 30 },                                         /*!< codec_ilbc.c */ /* inc=30ms - workaround */
 	{ AST_FORMAT_G726_AAL2, "g726aal2", 8000, "G.726 AAL2", 40, 10, 300, 10, 20 },                         /*!< codec_g726.c */
 	{ AST_FORMAT_G722, "g722", 16000, "G722", 80, 10, 150, 10, 20 },                                       /*!< codec_g722.c */
@@ -119,6 +120,8 @@ static const struct ast_format_list AST_FORMAT_LIST[] = {
 	{ AST_FORMAT_T140, "t140", 0, "Passthrough T.140 Realtime Text" },                                     /*!< Passthrough support for T.140 Realtime Text */
 	{ AST_FORMAT_SIREN7, "siren7", 16000, "ITU G.722.1 (Siren7, licensed from Polycom)", 80, 20, 80, 20, 20 },			/*!< Binary commercial distribution */
 	{ AST_FORMAT_SIREN14, "siren14", 32000, "ITU G.722.1 Annex C, (Siren14, licensed from Polycom)", 120, 20, 80, 20, 20 },	/*!< Binary commercial distribution */
+	{ AST_FORMAT_TESTLAW, "testlaw", 8000, "G.711 test-law", 80, 10, 150, 10, 20 },                        /*!< codec_ulaw.c */
+	{ AST_FORMAT_G719, "g719", 48000, "ITU G.719", 160, 20, 80, 20, 20 },
 };
 
 struct ast_frame ast_null_frame = { AST_FRAME_NULL, };
@@ -205,10 +208,11 @@ int __ast_smoother_feed(struct ast_smoother *s, struct ast_frame *f, int swap)
 		return -1;
 	}
 	if (!s->format) {
-		s->format = f->subclass;
+		s->format = f->subclass.codec;
 		s->samplesperbyte = (float)f->samples / (float)f->datalen;
-	} else if (s->format != f->subclass) {
-		ast_log(LOG_WARNING, "Smoother was working on %d format frames, now trying to feed %d?\n", s->format, f->subclass);
+	} else if (s->format != f->subclass.codec) {
+		ast_log(LOG_WARNING, "Smoother was working on %s format frames, now trying to feed %s?\n",
+			ast_getformatname(s->format), ast_getformatname(f->subclass.codec));
 		return -1;
 	}
 	if (s->len + f->datalen > SMOOTHER_SIZE) {
@@ -259,7 +263,7 @@ struct ast_frame *ast_smoother_read(struct ast_smoother *s)
 		len = s->len;
 	/* Make frame */
 	s->f.frametype = AST_FRAME_VOICE;
-	s->f.subclass = s->format;
+	s->f.subclass.codec = s->format;
 	s->f.data.ptr = s->framedata + AST_FRIENDLY_OFFSET;
 	s->f.offset = AST_FRIENDLY_OFFSET;
 	s->f.datalen = len;
@@ -332,12 +336,6 @@ static void frame_cache_cleanup(void *data)
 
 static void __frame_free(struct ast_frame *fr, int cache)
 {
-	if (ast_test_flag(fr, AST_FRFLAG_FROM_TRANSLATOR)) {
-		ast_translate_frame_freed(fr);
-	} else if (ast_test_flag(fr, AST_FRFLAG_FROM_DSP)) {
-		ast_dsp_frame_freed(fr);
-	}
-
 	if (!fr->mallocd)
 		return;
 
@@ -410,7 +408,7 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr)
 			return NULL;
 		}
 		out->frametype = fr->frametype;
-		out->subclass = fr->subclass;
+		out->subclass.codec = fr->subclass.codec;
 		out->datalen = fr->datalen;
 		out->samples = fr->samples;
 		out->offset = fr->offset;
@@ -422,8 +420,6 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr)
 			out->seqno = fr->seqno;
 		}
 	} else {
-		ast_clear_flag(fr, AST_FRFLAG_FROM_TRANSLATOR);
-		ast_clear_flag(fr, AST_FRFLAG_FROM_DSP);
 		out = fr;
 	}
 	
@@ -519,7 +515,7 @@ struct ast_frame *ast_frdup(const struct ast_frame *f)
 	}
 
 	out->frametype = f->frametype;
-	out->subclass = f->subclass;
+	out->subclass.codec = f->subclass.codec;
 	out->datalen = f->datalen;
 	out->samples = f->samples;
 	out->delivery = f->delivery;
@@ -570,7 +566,7 @@ const struct ast_format_list *ast_get_format_list(size_t *size)
 	return AST_FORMAT_LIST;
 }
 
-char* ast_getformatname(int format)
+char* ast_getformatname(format_t format)
 {
 	int x;
 	char *ret = "unknown";
@@ -583,7 +579,7 @@ char* ast_getformatname(int format)
 	return ret;
 }
 
-char *ast_getformatname_multiple(char *buf, size_t size, int format)
+char *ast_getformatname_multiple(char *buf, size_t size, format_t format)
 {
 	int x;
 	unsigned len;
@@ -591,14 +587,14 @@ char *ast_getformatname_multiple(char *buf, size_t size, int format)
 
 	if (!size)
 		return buf;
-	snprintf(end, size, "0x%x (", format);
+	snprintf(end, size, "0x%llx (", (unsigned long long) format);
 	len = strlen(end);
 	end += len;
 	size -= len;
 	start = end;
 	for (x = 0; x < ARRAY_LEN(AST_FORMAT_LIST); x++) {
 		if (AST_FORMAT_LIST[x].bits & format) {
-			snprintf(end, size,"%s|",AST_FORMAT_LIST[x].name);
+			snprintf(end, size, "%s|", AST_FORMAT_LIST[x].name);
 			len = strlen(end);
 			end += len;
 			size -= len;
@@ -607,7 +603,7 @@ char *ast_getformatname_multiple(char *buf, size_t size, int format)
 	if (start == end)
 		ast_copy_string(start, "nothing)", size);
 	else if (size > 1)
-		*(end -1) = ')';
+		*(end - 1) = ')';
 	return buf;
 }
 
@@ -633,9 +629,10 @@ static const char *ast_expand_codec_alias(const char *in)
 	return in;
 }
 
-int ast_getformatbyname(const char *name)
+format_t ast_getformatbyname(const char *name)
 {
-	int x, all, format = 0;
+	int x, all;
+	format_t format = 0;
 
 	all = strcasecmp(name, "all") ? 0 : 1;
 	for (x = 0; x < ARRAY_LEN(AST_FORMAT_LIST); x++) {
@@ -651,7 +648,7 @@ int ast_getformatbyname(const char *name)
 	return format;
 }
 
-char *ast_codec2str(int codec)
+char *ast_codec2str(format_t codec)
 {
 	int x;
 	char *ret = "unknown";
@@ -671,15 +668,15 @@ static char *show_codecs(struct ast_cli_entry *e, int cmd, struct ast_cli_args *
 
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "core show codecs [audio|video|image]";
-		e->usage = 
-			"Usage: core show codecs [audio|video|image]\n"
+		e->command = "core show codecs [audio|video|image|text]";
+		e->usage =
+			"Usage: core show codecs [audio|video|image|text]\n"
 			"       Displays codec mapping\n";
 		return NULL;
 	case CLI_GENERATE:
 		return NULL;
 	}
-	
+
 	if ((a->argc < 3) || (a->argc > 4))
 		return CLI_SHOWUSAGE;
 
@@ -687,46 +684,60 @@ static char *show_codecs(struct ast_cli_entry *e, int cmd, struct ast_cli_args *
 		ast_cli(a->fd, "Disclaimer: this command is for informational purposes only.\n"
 				"\tIt does not indicate anything about your configuration.\n");
 
-	ast_cli(a->fd, "%11s %9s %10s   TYPE   %8s   %s\n","INT","BINARY","HEX","NAME","DESC");
-	ast_cli(a->fd, "--------------------------------------------------------------------------------\n");
-	if ((a->argc == 3) || (!strcasecmp(a->argv[3],"audio"))) {
-		found = 1;
-		for (i=0;i<13;i++) {
-			snprintf(hex,25,"(0x%x)",1<<i);
-			ast_cli(a->fd, "%11u (1 << %2d) %10s  audio   %8s   (%s)\n",1 << i,i,hex,ast_getformatname(1<<i),ast_codec2str(1<<i));
+	ast_cli(a->fd, "%19s %9s %20s   TYPE   %8s   %s\n","INT","BINARY","HEX","NAME","DESCRIPTION");
+	ast_cli(a->fd, "-----------------------------------------------------------------------------------\n");
+	for (i = 0; i < 63; i++) {
+
+		if (a->argc == 4) {
+			if (!strcasecmp(a->argv[3], "audio")) {
+				if (!((1LL << i) & AST_FORMAT_AUDIO_MASK)) {
+					continue;
+				}
+			} else if (!strcasecmp(a->argv[3], "video")) {
+				if (!((1LL << i) & AST_FORMAT_VIDEO_MASK)) {
+					continue;
+				}
+			} else if (!strcasecmp(a->argv[3], "image")) {
+				if (i != 16 && i != 17) {
+					continue;
+				}
+			} else if (!strcasecmp(a->argv[3], "text")) {
+				if (!((1LL << i) & AST_FORMAT_TEXT_MASK)) {
+					continue;
+				}
+			} else {
+				continue;
+			}
 		}
+
+		snprintf(hex, sizeof(hex), "(0x%llx)", 1LL << i);
+		ast_cli(a->fd, "%19llu (1 << %2d) %20s  %5s   %8s   (%s)\n", 1LL << i, i, hex,
+			((1LL << i) & AST_FORMAT_AUDIO_MASK) ? "audio" :
+			i == 16 || i == 17 ? "image" :
+			((1LL << i) & AST_FORMAT_VIDEO_MASK) ? "video" :
+			((1LL << i) & AST_FORMAT_TEXT_MASK) ? "text" :
+			"(unk)",
+			ast_getformatname(1LL << i), ast_codec2str(1LL << i));
+		found = 1;
 	}
 
-	if ((a->argc == 3) || (!strcasecmp(a->argv[3],"image"))) {
-		found = 1;
-		for (i=16;i<18;i++) {
-			snprintf(hex,25,"(0x%x)",1<<i);
-			ast_cli(a->fd, "%11u (1 << %2d) %10s  image   %8s   (%s)\n",1 << i,i,hex,ast_getformatname(1<<i),ast_codec2str(1<<i));
-		}
-	}
-
-	if ((a->argc == 3) || (!strcasecmp(a->argv[3],"video"))) {
-		found = 1;
-		for (i=18;i<22;i++) {
-			snprintf(hex,25,"(0x%x)",1<<i);
-			ast_cli(a->fd, "%11u (1 << %2d) %10s  video   %8s   (%s)\n",1 << i,i,hex,ast_getformatname(1<<i),ast_codec2str(1<<i));
-		}
-	}
-
-	if (!found)
+	if (!found) {
 		return CLI_SHOWUSAGE;
-	else
+	} else {
 		return CLI_SUCCESS;
+	}
 }
 
 static char *show_codec_n(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	int codec, i, found=0;
+	format_t codec;
+	int i, found = 0;
+	long long type_punned_codec;
 
 	switch (cmd) {
 	case CLI_INIT:
 		e->command = "core show codec";
-		e->usage = 
+		e->usage =
 			"Usage: core show codec <number>\n"
 			"       Displays codec mapping\n";
 		return NULL;
@@ -737,17 +748,19 @@ static char *show_codec_n(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 	if (a->argc != 4)
 		return CLI_SHOWUSAGE;
 
-	if (sscanf(a->argv[3], "%30d", &codec) != 1)
+	if (sscanf(a->argv[3], "%30lld", &type_punned_codec) != 1) {
 		return CLI_SHOWUSAGE;
+	}
+	codec = type_punned_codec;
 
-	for (i = 0; i < 32; i++)
-		if (codec & (1 << i)) {
+	for (i = 0; i < 63; i++)
+		if (codec & (1LL << i)) {
 			found = 1;
-			ast_cli(a->fd, "%11u (1 << %2d)  %s\n",1 << i,i,ast_codec2str(1<<i));
+			ast_cli(a->fd, "%11llu (1 << %2d)  %s\n", 1LL << i, i, ast_codec2str(1LL << i));
 		}
 
 	if (!found)
-		ast_cli(a->fd, "Codec %d not found\n", codec);
+		ast_cli(a->fd, "Codec %lld not found\n", (long long) codec);
 
 	return CLI_SUCCESS;
 }
@@ -785,17 +798,17 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 	switch(f->frametype) {
 	case AST_FRAME_DTMF_BEGIN:
 		strcpy(ftype, "DTMF Begin");
-		subclass[0] = f->subclass;
+		subclass[0] = f->subclass.integer;
 		subclass[1] = '\0';
 		break;
 	case AST_FRAME_DTMF_END:
 		strcpy(ftype, "DTMF End");
-		subclass[0] = f->subclass;
+		subclass[0] = f->subclass.integer;
 		subclass[1] = '\0';
 		break;
 	case AST_FRAME_CONTROL:
 		strcpy(ftype, "Control");
-		switch(f->subclass) {
+		switch (f->subclass.integer) {
 		case AST_CONTROL_HANGUP:
 			strcpy(subclass, "Hangup");
 			break;
@@ -864,7 +877,7 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 			strcpy(subclass, "Stop generators");
 			break;
 		default:
-			snprintf(subclass, sizeof(subclass), "Unknown control '%d'", f->subclass);
+			snprintf(subclass, sizeof(subclass), "Unknown control '%d'", f->subclass.integer);
 		}
 		break;
 	case AST_FRAME_NULL:
@@ -874,7 +887,7 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 	case AST_FRAME_IAX:
 		/* Should never happen */
 		strcpy(ftype, "IAX Specific");
-		snprintf(subclass, sizeof(subclass), "IAX Frametype %d", f->subclass);
+		snprintf(subclass, sizeof(subclass), "IAX Frametype %d", f->subclass.integer);
 		break;
 	case AST_FRAME_TEXT:
 		strcpy(ftype, "Text");
@@ -883,11 +896,11 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 		break;
 	case AST_FRAME_IMAGE:
 		strcpy(ftype, "Image");
-		snprintf(subclass, sizeof(subclass), "Image format %s\n", ast_getformatname(f->subclass));
+		snprintf(subclass, sizeof(subclass), "Image format %s\n", ast_getformatname(f->subclass.codec));
 		break;
 	case AST_FRAME_HTML:
 		strcpy(ftype, "HTML");
-		switch(f->subclass) {
+		switch (f->subclass.integer) {
 		case AST_HTML_URL:
 			strcpy(subclass, "URL");
 			ast_copy_string(moreinfo, f->data.ptr, sizeof(moreinfo));
@@ -918,13 +931,13 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 			strcpy(subclass, "Link Reject");
 			break;
 		default:
-			snprintf(subclass, sizeof(subclass), "Unknown HTML frame '%d'\n", f->subclass);
+			snprintf(subclass, sizeof(subclass), "Unknown HTML frame '%d'\n", f->subclass.integer);
 			break;
 		}
 		break;
 	case AST_FRAME_MODEM:
 		strcpy(ftype, "Modem");
-		switch (f->subclass) {
+		switch (f->subclass.integer) {
 		case AST_MODEM_T38:
 			strcpy(subclass, "T.38");
 			break;
@@ -932,7 +945,7 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 			strcpy(subclass, "V.150");
 			break;
 		default:
-			snprintf(subclass, sizeof(subclass), "Unknown MODEM frame '%d'\n", f->subclass);
+			snprintf(subclass, sizeof(subclass), "Unknown MODEM frame '%d'\n", f->subclass.integer);
 			break;
 		}
 		break;
@@ -945,7 +958,7 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 			    term_color(cft, ftype, COLOR_BRRED, COLOR_BLACK, sizeof(cft)),
 			    f->frametype, 
 			    term_color(csub, subclass, COLOR_BRCYAN, COLOR_BLACK, sizeof(csub)),
-			    f->subclass, 
+			    f->subclass.integer, 
 			    term_color(cmn, moreinfo, COLOR_BRGREEN, COLOR_BLACK, sizeof(cmn)),
 			    term_color(cn, name, COLOR_YELLOW, COLOR_BLACK, sizeof(cn)));
 	else
@@ -954,7 +967,7 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 			    term_color(cft, ftype, COLOR_BRRED, COLOR_BLACK, sizeof(cft)),
 			    f->frametype, 
 			    term_color(csub, subclass, COLOR_BRCYAN, COLOR_BLACK, sizeof(csub)),
-			    f->subclass, 
+			    f->subclass.integer, 
 			    term_color(cn, name, COLOR_YELLOW, COLOR_BLACK, sizeof(cn)));
 }
 
@@ -983,11 +996,11 @@ void ast_codec_pref_convert(struct ast_codec_pref *pref, char *buf, size_t size,
 	} else {
 		to = pref->order;
 		from = buf;
-		mem = 32;
+		mem = sizeof(format_t) * 8;
 	}
 
 	memset(to, 0, mem);
-	for (x = 0; x < 32 ; x++) {
+	for (x = 0; x < sizeof(format_t) * 8; x++) {
 		if (!from[x])
 			break;
 		to[x] = right ? (from[x] + differential) : (from[x] - differential);
@@ -996,15 +1009,16 @@ void ast_codec_pref_convert(struct ast_codec_pref *pref, char *buf, size_t size,
 
 int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size) 
 {
-	int x, codec; 
+	int x;
+	format_t codec; 
 	size_t total_len, slen;
 	char *formatname;
 	
-	memset(buf,0,size);
+	memset(buf, 0, size);
 	total_len = size;
 	buf[0] = '(';
 	total_len--;
-	for(x = 0; x < 32 ; x++) {
+	for (x = 0; x < sizeof(format_t) * 8; x++) {
 		if (total_len <= 0)
 			break;
 		if (!(codec = ast_codec_pref_index(pref,x)))
@@ -1016,7 +1030,7 @@ int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size)
 			strncat(buf, formatname, total_len - 1); /* safe */
 			total_len -= slen;
 		}
-		if (total_len && x < 31 && ast_codec_pref_index(pref , x + 1)) {
+		if (total_len && x < sizeof(format_t) * 8 - 1 && ast_codec_pref_index(pref, x + 1)) {
 			strncat(buf, "|", total_len - 1); /* safe */
 			total_len--;
 		}
@@ -1029,7 +1043,7 @@ int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size)
 	return size - total_len;
 }
 
-int ast_codec_pref_index(struct ast_codec_pref *pref, int idx)
+format_t ast_codec_pref_index(struct ast_codec_pref *pref, int idx)
 {
 	int slot = 0;
 
@@ -1041,7 +1055,7 @@ int ast_codec_pref_index(struct ast_codec_pref *pref, int idx)
 }
 
 /*! \brief Remove codec from pref list */
-void ast_codec_pref_remove(struct ast_codec_pref *pref, int format)
+void ast_codec_pref_remove(struct ast_codec_pref *pref, format_t format)
 {
 	struct ast_codec_pref oldorder;
 	int x, y = 0;
@@ -1064,11 +1078,10 @@ void ast_codec_pref_remove(struct ast_codec_pref *pref, int format)
 			pref->framing[y++] = size;
 		}
 	}
-	
 }
 
 /*! \brief Append codec to list */
-int ast_codec_pref_append(struct ast_codec_pref *pref, int format)
+int ast_codec_pref_append(struct ast_codec_pref *pref, format_t format)
 {
 	int x, newindex = 0;
 
@@ -1094,7 +1107,7 @@ int ast_codec_pref_append(struct ast_codec_pref *pref, int format)
 }
 
 /*! \brief Prepend codec to list */
-void ast_codec_pref_prepend(struct ast_codec_pref *pref, int format, int only_if_existing)
+void ast_codec_pref_prepend(struct ast_codec_pref *pref, format_t format, int only_if_existing)
 {
 	int x, newindex = 0;
 
@@ -1110,7 +1123,7 @@ void ast_codec_pref_prepend(struct ast_codec_pref *pref, int format, int only_if
 		return;
 
 	/* Now find any existing occurrence, or the end */
-	for (x = 0; x < 32; x++) {
+	for (x = 0; x < sizeof(format_t) * 8; x++) {
 		if (!pref->order[x] || pref->order[x] == newindex)
 			break;
 	}
@@ -1131,7 +1144,7 @@ void ast_codec_pref_prepend(struct ast_codec_pref *pref, int format, int only_if
 }
 
 /*! \brief Set packet size for codec */
-int ast_codec_pref_setsize(struct ast_codec_pref *pref, int format, int framems)
+int ast_codec_pref_setsize(struct ast_codec_pref *pref, format_t format, int framems)
 {
 	int x, idx = -1;
 
@@ -1169,7 +1182,7 @@ int ast_codec_pref_setsize(struct ast_codec_pref *pref, int format, int framems)
 }
 
 /*! \brief Get packet size for codec */
-struct ast_format_list ast_codec_pref_getsize(struct ast_codec_pref *pref, int format)
+struct ast_format_list ast_codec_pref_getsize(struct ast_codec_pref *pref, format_t format)
 {
 	int x, idx = -1, framems = 0;
 	struct ast_format_list fmt = { 0, };
@@ -1208,9 +1221,10 @@ struct ast_format_list ast_codec_pref_getsize(struct ast_codec_pref *pref, int f
 }
 
 /*! \brief Pick a codec */
-int ast_codec_choose(struct ast_codec_pref *pref, int formats, int find_best)
+format_t ast_codec_choose(struct ast_codec_pref *pref, format_t formats, int find_best)
 {
-	int x, ret = 0, slot;
+	int x, slot;
+	format_t ret = 0;
 
 	for (x = 0; x < ARRAY_LEN(AST_FORMAT_LIST); x++) {
 		slot = pref->order[x];
@@ -1230,11 +1244,11 @@ int ast_codec_choose(struct ast_codec_pref *pref, int formats, int find_best)
    	return find_best ? ast_best_codec(formats) : 0;
 }
 
-int ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, const char *list, int allowing) 
+int ast_parse_allow_disallow(struct ast_codec_pref *pref, format_t *mask, const char *list, int allowing) 
 {
-	int errors = 0;
+	int errors = 0, framems = 0;
 	char *parse = NULL, *this = NULL, *psize = NULL;
-	int format = 0, framems = 0;
+	format_t format = 0;
 
 	parse = ast_strdupa(list);
 	while ((this = strsep(&parse, ","))) {
@@ -1340,8 +1354,8 @@ static unsigned char get_n_bits_at(unsigned char *data, int n, int bit)
 
 static int speex_get_wb_sz_at(unsigned char *data, int len, int bit)
 {
-	static int SpeexWBSubModeSz[] = {
-		0, 36, 112, 192,
+	static const int SpeexWBSubModeSz[] = {
+		4, 36, 112, 192,
 		352, 0, 0, 0 };
 	int off = bit;
 	unsigned char c;
@@ -1370,12 +1384,12 @@ static int speex_get_wb_sz_at(unsigned char *data, int len, int bit)
 
 static int speex_samples(unsigned char *data, int len)
 {
-	static int SpeexSubModeSz[] = {
+	static const int SpeexSubModeSz[] = {
 		5, 43, 119, 160,
 		220, 300, 364, 492, 
 		79, 0, 0, 0,
 		0, 0, 0, 0 };
-	static int SpeexInBandSz[] = { 
+	static const int SpeexInBandSz[] = { 
 		1, 1, 4, 4,
 		4, 4, 4, 4,
 		8, 8, 16, 16,
@@ -1394,10 +1408,8 @@ static int speex_samples(unsigned char *data, int len)
 		}
 		bit += off;
 
-		if ((len * 8 - bit) < 5) {
-			ast_log(LOG_WARNING, "Not enough bits remaining after wide band for speex samples.\n");
+		if ((len * 8 - bit) < 5)
 			break;
-		}
 
 		/* get control bits */
 		c = get_n_bits_at(data, 5, bit);
@@ -1412,12 +1424,14 @@ static int speex_samples(unsigned char *data, int len)
 			bit += 4;
 			bit += SpeexInBandSz[c];
 		} else if (c == 13) {
-			/* user in-band; next 5 bits contain msg len */
-			c = get_n_bits_at(data, 5, bit);
-			bit += 5;
-			bit += c * 8;
+			/* user in-band; next 4 bits contain msg len */
+			c = get_n_bits_at(data, 4, bit);
+			bit += 4;
+			/* after which it's 5-bit signal id + c bytes of data */
+			bit += 5 + c * 8;
 		} else if (c > 8) {
 			/* unknown */
+			ast_log(LOG_WARNING, "Unknown speex control frame %d\n", c);
 			break;
 		} else {
 			/* skip number bits for submode (less the 5 control bits) */
@@ -1431,10 +1445,14 @@ static int speex_samples(unsigned char *data, int len)
 int ast_codec_get_samples(struct ast_frame *f)
 {
 	int samples = 0;
+	char tmp[64];
 
-	switch(f->subclass) {
+	switch (f->subclass.codec) {
 	case AST_FORMAT_SPEEX:
 		samples = speex_samples(f->data.ptr, f->datalen);
+		break;
+	case AST_FORMAT_SPEEX16:
+		samples = 2 * speex_samples(f->data.ptr, f->datalen);
 		break;
 	case AST_FORMAT_G723_1:
 		samples = g723_samples(f->data.ptr, f->datalen);
@@ -1459,6 +1477,7 @@ int ast_codec_get_samples(struct ast_frame *f)
 		break;
 	case AST_FORMAT_ULAW:
 	case AST_FORMAT_ALAW:
+	case AST_FORMAT_TESTLAW:
 		samples = f->datalen;
 		break;
 	case AST_FORMAT_G722:
@@ -1475,13 +1494,17 @@ int ast_codec_get_samples(struct ast_frame *f)
 		/* 32,000 samples per second at 48kbps is 6,000 bytes per second */
 		samples = (int) f->datalen * ((float) 32000 / 6000);
 		break;
+	case AST_FORMAT_G719:
+		/* 48,000 samples per second at 64kbps is 8,000 bytes per second */
+		samples = (int) f->datalen * ((float) 48000 / 8000);
+		break;
 	default:
-		ast_log(LOG_WARNING, "Unable to calculate samples for format %s\n", ast_getformatname(f->subclass));
+		ast_log(LOG_WARNING, "Unable to calculate samples for format %s\n", ast_getformatname_multiple(tmp, sizeof(tmp), f->subclass.codec));
 	}
 	return samples;
 }
 
-int ast_codec_get_len(int format, int samples)
+int ast_codec_get_len(format_t format, int samples)
 {
 	int len = 0;
 
@@ -1505,6 +1528,7 @@ int ast_codec_get_len(int format, int samples)
 		break;
 	case AST_FORMAT_ULAW:
 	case AST_FORMAT_ALAW:
+	case AST_FORMAT_TESTLAW:
 		len = samples;
 		break;
 	case AST_FORMAT_G722:
@@ -1521,6 +1545,10 @@ int ast_codec_get_len(int format, int samples)
 		/* 32,000 samples per second at 48kbps is 6,000 bytes per second */
 		len = (int) samples / ((float) 32000 / 6000);
 		break;
+	case AST_FORMAT_G719:
+		/* 48,000 samples per second at 64kbps is 8,000 bytes per second */
+		len = (int) samples / ((float) 48000 / 8000);
+		break;
 	default:
 		ast_log(LOG_WARNING, "Unable to calculate sample length for format %s\n", ast_getformatname(format));
 	}
@@ -1534,7 +1562,7 @@ int ast_frame_adjust_volume(struct ast_frame *f, int adjustment)
 	short *fdata = f->data.ptr;
 	short adjust_value = abs(adjustment);
 
-	if ((f->frametype != AST_FRAME_VOICE) || (f->subclass != AST_FORMAT_SLINEAR))
+	if ((f->frametype != AST_FRAME_VOICE) || (f->subclass.codec != AST_FORMAT_SLINEAR))
 		return -1;
 
 	if (!adjustment)
@@ -1556,10 +1584,10 @@ int ast_frame_slinear_sum(struct ast_frame *f1, struct ast_frame *f2)
 	int count;
 	short *data1, *data2;
 
-	if ((f1->frametype != AST_FRAME_VOICE) || (f1->subclass != AST_FORMAT_SLINEAR))
+	if ((f1->frametype != AST_FRAME_VOICE) || (f1->subclass.codec != AST_FORMAT_SLINEAR))
 		return -1;
 
-	if ((f2->frametype != AST_FRAME_VOICE) || (f2->subclass != AST_FORMAT_SLINEAR))
+	if ((f2->frametype != AST_FRAME_VOICE) || (f2->subclass.codec != AST_FORMAT_SLINEAR))
 		return -1;
 
 	if (f1->samples != f2->samples)
@@ -1570,5 +1598,17 @@ int ast_frame_slinear_sum(struct ast_frame *f1, struct ast_frame *f2)
 	     count++, data1++, data2++)
 		ast_slinear_saturated_add(data1, data2);
 
+	return 0;
+}
+
+int ast_frame_clear(struct ast_frame *frame)
+{
+	struct ast_frame *next;
+
+	for (next = AST_LIST_NEXT(frame, frame_list);
+		 frame;
+		 frame = next, next = frame ? AST_LIST_NEXT(frame, frame_list) : NULL) {
+		memset(frame->data.ptr, 0, frame->datalen);
+	}
 	return 0;
 }

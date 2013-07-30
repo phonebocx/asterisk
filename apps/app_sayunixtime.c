@@ -25,9 +25,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 154647 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -89,7 +93,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 154647 $")
 static char *app_sayunixtime = "SayUnixTime";
 static char *app_datetime = "DateTime";
 
-static int sayunixtime_exec(struct ast_channel *chan, void *data)
+static int sayunixtime_exec(struct ast_channel *chan, const char *data)
 {
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(timeval);

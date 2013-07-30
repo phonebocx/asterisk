@@ -23,6 +23,11 @@
  * for operations outside of asterisk. A huge, awful hack.
  *
  */
+
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
+
 #include "asterisk.h"
 
 #undef DEBUG_THREADS
@@ -49,6 +54,7 @@
 #include <pthread.h>
 #include <netdb.h>
 #include <sys/param.h>
+#include <signal.h>
 
 static void ast_log(int level, const char *file, int line, const char *function, const char *fmt, ...) __attribute__((format(printf, 5, 6)));
 void ast_verbose(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -2806,6 +2812,63 @@ static int ast_true(const char *s)
 	return 0;
 }
 
+#define ONE_MILLION	1000000
+/*
+ * put timeval in a valid range. usec is 0..999999
+ * negative values are not allowed and truncated.
+ */
+static struct timeval tvfix(struct timeval a)
+{
+	if (a.tv_usec >= ONE_MILLION) {
+		ast_log(LOG_WARNING, "warning too large timestamp %ld.%ld\n",
+			(long)a.tv_sec, (long int) a.tv_usec);
+		a.tv_sec += a.tv_usec / ONE_MILLION;
+		a.tv_usec %= ONE_MILLION;
+	} else if (a.tv_usec < 0) {
+		ast_log(LOG_WARNING, "warning negative timestamp %ld.%ld\n",
+			(long)a.tv_sec, (long int) a.tv_usec);
+		a.tv_usec = 0;
+	}
+	return a;
+}
+
+struct timeval ast_tvadd(struct timeval a, struct timeval b);
+struct timeval ast_tvadd(struct timeval a, struct timeval b)
+{
+	/* consistency checks to guarantee usec in 0..999999 */
+	a = tvfix(a);
+	b = tvfix(b);
+	a.tv_sec += b.tv_sec;
+	a.tv_usec += b.tv_usec;
+	if (a.tv_usec >= ONE_MILLION) {
+		a.tv_sec++;
+		a.tv_usec -= ONE_MILLION;
+	}
+	return a;
+}
+
+struct timeval ast_tvsub(struct timeval a, struct timeval b);
+struct timeval ast_tvsub(struct timeval a, struct timeval b)
+{
+	/* consistency checks to guarantee usec in 0..999999 */
+	a = tvfix(a);
+	b = tvfix(b);
+	a.tv_sec -= b.tv_sec;
+	a.tv_usec -= b.tv_usec;
+	if (a.tv_usec < 0) {
+		a.tv_sec-- ;
+		a.tv_usec += ONE_MILLION;
+	}
+	return a;
+}
+#undef ONE_MILLION
+
+void ast_mark_lock_failed(void *lock_addr);
+void ast_mark_lock_failed(void *lock_addr)
+{
+	/* Pretend to do something. */
+}
+
 /* stolen from pbx.c */
 #define VAR_BUF_SIZE 4096
 
@@ -3094,7 +3157,7 @@ static void pbx_builtin_setvar_helper(struct ast_channel *chan, const char *name
 
 }
 
-static int pbx_builtin_setvar(struct ast_channel *chan, void *data)
+static int pbx_builtin_setvar(struct ast_channel *chan, const void *data)
 {
 	char *name, *value, *mydata;
 	int argc;
@@ -3129,9 +3192,9 @@ static int pbx_builtin_setvar(struct ast_channel *chan, void *data)
 	return(0);
 }
 
-int localized_pbx_builtin_setvar(struct ast_channel *chan, void *data);
+int localized_pbx_builtin_setvar(struct ast_channel *chan, const void *data);
 
-int localized_pbx_builtin_setvar(struct ast_channel *chan, void *data)
+int localized_pbx_builtin_setvar(struct ast_channel *chan, const void *data)
 {
 	return pbx_builtin_setvar(chan, data);
 }
@@ -3535,7 +3598,6 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 			if (c) {
 				char *cur2;
 				char real_inclusion_name[256];
-				struct ast_config_include *inclu;
                 
 				/* Strip off leading and trailing "'s and <>'s */
 				while((*c == '<') || (*c == '>') || (*c == '\"')) c++;
@@ -3562,7 +3624,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 				/* ast_log(LOG_WARNING, "Reading in included file %s withcomments=%d\n", cur, withcomments); */
 				
 				/* record this inclusion */
-				inclu = ast_include_new(cfg, configfile, cur, do_exec, cur2, lineno, real_inclusion_name, sizeof(real_inclusion_name));
+				ast_include_new(cfg, configfile, cur, do_exec, cur2, lineno, real_inclusion_name, sizeof(real_inclusion_name));
 				
 				do_include = ast_config_internal_load(cur, cfg, withcomments, real_inclusion_name) ? 1 : 0;
 				if(!ast_strlen_zero(exec_file))
@@ -4374,7 +4436,7 @@ int ast_build_timing(struct ast_timing *i, const char *info_in);
 
 int ast_build_timing(struct ast_timing *i, const char *info_in)
 {
-	char *info_save, *info;
+	char *info;
 	int j, num_fields, last_sep = -1;
 
 	/* Check for empty just in case */
@@ -4383,7 +4445,7 @@ int ast_build_timing(struct ast_timing *i, const char *info_in)
 	}
 
 	/* make a copy just in case we were passed a static string */
-	info_save = info = ast_strdupa(info_in);
+	info = ast_strdupa(info_in);
 
 	/* count the number of fields in the timespec */
 	for (j = 0, num_fields = 1; info[j] != '\0'; j++) {
@@ -6196,5 +6258,15 @@ int localized_pbx_load_module(void)
 	printf("=========\n");
 	
 	return 0;
+}
+
+/* For platforms which don't have pthread_rwlock_timedrdlock() */
+struct timeval ast_tvnow(void);
+
+struct timeval ast_tvnow(void)
+{
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return t;
 }
 

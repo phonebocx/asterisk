@@ -20,7 +20,7 @@
 
 #include "asterisk/autoconfig.h"
 
-#if !defined(NO_MALLOC_DEBUG) && !defined(STANDALONE) && defined(MALLOC_DEBUG)
+#if !defined(NO_MALLOC_DEBUG) && !defined(STANDALONE) && !defined(STANDALONE2) && defined(MALLOC_DEBUG)
 #include "asterisk/astmm.h"
 #endif
 
@@ -43,23 +43,22 @@
 #define	setpriority	__PLEASE_USE_ast_set_priority_INSTEAD_OF_setpriority__
 #define	sched_setscheduler	__PLEASE_USE_ast_set_priority_INSTEAD_OF_sched_setscheduler__
 
-#if defined(DEBUG_FD_LEAKS) && !defined(STANDALONE) && !defined(STANDALONE_AEL)
+#if defined(DEBUG_FD_LEAKS) && !defined(STANDALONE) && !defined(STANDALONE2) && !defined(STANDALONE_AEL)
 /* These includes are all about ordering */
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <fcntl.h>
 
 #define	open(a,...)	__ast_fdleak_open(__FILE__,__LINE__,__PRETTY_FUNCTION__, a, __VA_ARGS__)
-#define pipe(a)	__ast_fdleak_pipe(a, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define pipe(a)		__ast_fdleak_pipe(a, __FILE__,__LINE__,__PRETTY_FUNCTION__)
 #define socket(a,b,c)	__ast_fdleak_socket(a, b, c, __FILE__,__LINE__,__PRETTY_FUNCTION__)
 #define close(a)	__ast_fdleak_close(a)
 #define	fopen(a,b)	__ast_fdleak_fopen(a, b, __FILE__,__LINE__,__PRETTY_FUNCTION__)
 #define	fclose(a)	__ast_fdleak_fclose(a)
 #define	dup2(a,b)	__ast_fdleak_dup2(a, b, __FILE__,__LINE__,__PRETTY_FUNCTION__)
-#define dup(a)	__ast_fdleak_dup(a, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define dup(a)		__ast_fdleak_dup(a, __FILE__,__LINE__,__PRETTY_FUNCTION__)
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
@@ -79,6 +78,7 @@ int __ast_fdleak_dup(int oldfd, const char *file, int line, const char *func);
 
 int ast_set_priority(int);			/*!< Provided by asterisk.c */
 int ast_fd_init(void);				/*!< Provided by astfd.c */
+int ast_pbx_init(void);                         /*!< Provided by pbx.c */
 
 /*!
  * \brief Register a function to be executed before Asterisk exits.

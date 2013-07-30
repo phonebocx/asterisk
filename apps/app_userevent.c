@@ -21,9 +21,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253346 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -56,7 +60,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253346 $")
 
 static char *app = "UserEvent";
 
-static int userevent_exec(struct ast_channel *chan, void *data)
+static int userevent_exec(struct ast_channel *chan, const char *data)
 {
 	char *parse;
 	int x;

@@ -18,8 +18,8 @@
  * at the top of the source tree.
  */
 
-/*! \file
- *
+/*!
+ * \file
  * \brief Comma Separated Value CDR records.
  *
  * \author Mark Spencer <markster@digium.com>
@@ -28,11 +28,13 @@
  * \ingroup cdr_drivers
  */
 
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158374 $")
-
-#include <time.h>
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_LOG_DIR */
 #include "asterisk/config.h"
@@ -48,10 +50,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158374 $")
 #define DATE_FORMAT "%Y-%m-%d %T"
 
 static int usegmtime = 0;
+static int accountlogs;
 static int loguniqueid = 0;
 static int loguserfield = 0;
 static int loaded = 0;
-static char *config = "cdr.conf";
+static const char config[] = "cdr.conf";
 
 /* #define CSV_LOGUNIQUEID 1 */
 /* #define CSV_LOGUSERFIELD 1 */
@@ -102,6 +105,7 @@ static int load_config(int reload)
 	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED)
 		return 1;
 
+	accountlogs = 1;
 	usegmtime = 0;
 	loguniqueid = 0;
 	loguserfield = 0;
@@ -116,6 +120,14 @@ static int load_config(int reload)
 		if (usegmtime)
 			ast_debug(1, "logging time in GMT\n");
 	}
+
+	/* Turn on/off separate files per accountcode. Default is on (as before) */
+	if ((tmp = ast_variable_retrieve(cfg, "csv", "accountlogs"))) {
+ 		accountlogs = ast_true(tmp);
+ 		if (accountlogs) {
+			ast_debug(1, "logging in separate files per accountcode\n");
+ 		}
+ 	}
 
 	if ((tmp = ast_variable_retrieve(cfg, "csv", "loguniqueid"))) {
 		loguniqueid = ast_true(tmp);
@@ -133,7 +145,7 @@ static int load_config(int reload)
 	return 1;
 }
 
-static int append_string(char *buf, char *s, size_t bufsize)
+static int append_string(char *buf, const char *s, size_t bufsize)
 {
 	int pos = strlen(buf), spos = 0, error = -1;
 
@@ -306,7 +318,7 @@ static int csv_log(struct ast_cdr *cdr)
 		ast_log(LOG_ERROR, "Unable to re-open master file %s : %s\n", csvmaster, strerror(errno));
 	}
 
-	if (!ast_strlen_zero(cdr->accountcode)) {
+	if (accountlogs && !ast_strlen_zero(cdr->accountcode)) {
 		if (writefile(buf, cdr->accountcode))
 			ast_log(LOG_WARNING, "Unable to write CSV record to account file '%s' : %s\n", cdr->accountcode, strerror(errno));
 	}
@@ -349,8 +361,9 @@ static int reload(void)
 	return 0;
 }
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Comma Separated Values CDR Backend",
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Comma Separated Values CDR Backend",
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,
+		.load_pri = AST_MODPRI_CDR_DRIVER,
 	       );

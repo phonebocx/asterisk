@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 264453 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 340108 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_MODULE_DIR */
@@ -43,13 +43,13 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 264453 $")
 #include "asterisk/manager.h"
 #include "asterisk/cdr.h"
 #include "asterisk/enum.h"
-#include "asterisk/rtp.h"
 #include "asterisk/http.h"
 #include "asterisk/lock.h"
 #include "asterisk/features.h"
 #include "asterisk/dsp.h"
 #include "asterisk/udptl.h"
 #include "asterisk/heap.h"
+#include "asterisk/app.h"
 
 #include <dlfcn.h>
 
@@ -71,7 +71,7 @@ struct ast_module_user {
 
 AST_LIST_HEAD(module_user_list, ast_module_user);
 
-static unsigned char expected_key[] =
+static const unsigned char expected_key[] =
 { 0x87, 0x76, 0x79, 0x35, 0x23, 0xea, 0x3a, 0xd3,
   0x25, 0x2a, 0xbb, 0x35, 0x87, 0xe4, 0x22, 0x24 };
 
@@ -95,6 +95,15 @@ struct ast_module {
 };
 
 static AST_LIST_HEAD_STATIC(module_list, ast_module);
+
+const char *ast_module_name(const struct ast_module *mod)
+{
+	if (!mod || !mod->info) {
+		return NULL;
+	}
+
+	return mod->info->name;
+}
 
 /*
  * module_list is cleared by its constructor possibly after
@@ -126,7 +135,7 @@ static AST_LIST_HEAD_STATIC(reload_queue, reload_queue_item);
    need to know what filename the module was loaded from while it
    is being registered
 */
-struct ast_module *resource_being_loaded;
+static struct ast_module *resource_being_loaded;
 
 /* XXX: should we check for duplicate resource names here? */
 
@@ -253,13 +262,13 @@ static struct reload_classes {
 	{ "extconfig",	read_config_maps },
 	{ "enum",	ast_enum_reload },
 	{ "manager",	reload_manager },
-	{ "rtp",	ast_rtp_reload },
 	{ "http",	ast_http_reload },
 	{ "logger",	logger_reload },
 	{ "features",	ast_features_reload },
 	{ "dsp",	ast_dsp_reload},
 	{ "udptl",	ast_udptl_reload },
 	{ "indications", ast_indications_reload },
+	{ "cel",        ast_cel_engine_reload },
 	{ "plc",        ast_plc_reload },
 	{ NULL, 	NULL }
 };
@@ -414,6 +423,26 @@ static struct ast_module *load_dynamic_module(const char *resource_in, unsigned 
 		return NULL;
 	}
 
+	/* This section is a workaround for a gcc 4.1 bug that has already been
+	 * fixed in later versions.  Unfortunately, some distributions, such as
+	 * RHEL/CentOS 5, distribute gcc 4.1, so we're stuck with having to deal
+	 * with this issue.  This basically ensures that optional_api modules are
+	 * loaded before any module which requires their functionality. */
+#if !defined(HAVE_ATTRIBUTE_weak_import) && !defined(HAVE_ATTRIBUTE_weakref)
+	if (!ast_strlen_zero(mod->info->nonoptreq)) {
+		/* Force any required dependencies to load */
+		char *each, *required_resource = ast_strdupa(mod->info->nonoptreq);
+		while ((each = strsep(&required_resource, ","))) {
+			each = ast_strip(each);
+
+			/* Is it already loaded? */
+			if (!find_resource(each, 0)) {
+				load_dynamic_module(each, global_symbols_only);
+			}
+		}
+	}
+#endif
+
 	while (!dlclose(lib));
 	resource_being_loaded = NULL;
 
@@ -467,7 +496,7 @@ void ast_module_shutdown(void)
 				continue;
 			}
 			AST_LIST_REMOVE_CURRENT(entry);
-			if (mod->info->unload) {
+			if (mod->flags.running && !mod->flags.declined && mod->info->unload) {
 				mod->info->unload();
 			}
 			AST_LIST_HEAD_DESTROY(&mod->users);
@@ -494,8 +523,10 @@ int ast_unload_resource(const char *resource_name, enum ast_module_unload_mode f
 		return -1;
 	}
 
-	if (!(mod->flags.running || mod->flags.declined))
+	if (!mod->flags.running || mod->flags.declined) {
+		ast_log(LOG_WARNING, "Unload failed, '%s' is not loaded.\n", resource_name);
 		error = 1;
+	}
 
 	if (!error && (mod->usecount > 0)) {
 		if (force)
@@ -654,6 +685,22 @@ int ast_module_reload(const char *name)
 	}
 	ast_lastreloadtime = ast_tvnow();
 
+	if (ast_opt_lock_confdir) {
+		int try;
+		int res;
+		for (try = 1, res = AST_LOCK_TIMEOUT; try < 6 && (res == AST_LOCK_TIMEOUT); try++) {
+			res = ast_lock_path(ast_config_AST_CONFIG_DIR);
+			if (res == AST_LOCK_TIMEOUT) {
+				ast_log(LOG_WARNING, "Failed to grab lock on %s, try %d\n", ast_config_AST_CONFIG_DIR, try);
+			}
+		}
+		if (res != AST_LOCK_SUCCESS) {
+			ast_verbose("Cannot grab lock on %s\n", ast_config_AST_CONFIG_DIR);
+			ast_mutex_unlock(&reloadlock);
+			return -1;
+		}
+	}
+
 	/* Call "predefined" reload here first */
 	for (i = 0; reload_classes[i].name; i++) {
 		if (!name || !strcasecmp(name, reload_classes[i].name)) {
@@ -663,6 +710,9 @@ int ast_module_reload(const char *name)
 	}
 
 	if (name && res) {
+		if (ast_opt_lock_confdir) {
+			ast_unlock_path(ast_config_AST_CONFIG_DIR);
+		}
 		ast_mutex_unlock(&reloadlock);
 		return res;
 	}
@@ -697,6 +747,9 @@ int ast_module_reload(const char *name)
 	}
 	AST_LIST_UNLOCK(&module_list);
 
+	if (ast_opt_lock_confdir) {
+		ast_unlock_path(ast_config_AST_CONFIG_DIR);
+	}
 	ast_mutex_unlock(&reloadlock);
 
 	return res;
@@ -775,7 +828,7 @@ static enum ast_module_load_result start_resource(struct ast_module *mod)
  *
  *  If the ast_heap is not provided, the module's load function will be executed
  *  immediately */
-static enum ast_module_load_result load_resource(const char *resource_name, unsigned int global_symbols_only, struct ast_heap *resource_heap)
+static enum ast_module_load_result load_resource(const char *resource_name, unsigned int global_symbols_only, struct ast_heap *resource_heap, int required)
 {
 	struct ast_module *mod;
 	enum ast_module_load_result res = AST_MODULE_LOAD_SUCCESS;
@@ -793,14 +846,14 @@ static enum ast_module_load_result load_resource(const char *resource_name, unsi
 			/* don't generate a warning message during load_modules() */
 			if (!global_symbols_only) {
 				ast_log(LOG_WARNING, "Module '%s' could not be loaded.\n", resource_name);
-				return AST_MODULE_LOAD_DECLINE;
+				return required ? AST_MODULE_LOAD_FAILURE : AST_MODULE_LOAD_DECLINE;
 			} else {
-				return AST_MODULE_LOAD_SKIP;
+				return required ? AST_MODULE_LOAD_FAILURE : AST_MODULE_LOAD_SKIP;
 			}
 		}
 #else
 		ast_log(LOG_WARNING, "Module '%s' could not be loaded.\n", resource_name);
-		return AST_MODULE_LOAD_DECLINE;
+		return required ? AST_MODULE_LOAD_FAILURE : AST_MODULE_LOAD_DECLINE;
 #endif
 	}
 
@@ -809,12 +862,12 @@ static enum ast_module_load_result load_resource(const char *resource_name, unsi
 #ifdef LOADABLE_MODULES
 		unload_dynamic_module(mod);
 #endif
-		return AST_MODULE_LOAD_DECLINE;
+		return required ? AST_MODULE_LOAD_FAILURE : AST_MODULE_LOAD_DECLINE;
 	}
 
-	if (!mod->lib && mod->info->backup_globals()) {
+	if (!mod->lib && mod->info->backup_globals && mod->info->backup_globals()) {
 		ast_log(LOG_WARNING, "Module '%s' was unable to backup its global data.\n", resource_name);
-		return AST_MODULE_LOAD_DECLINE;
+		return required ? AST_MODULE_LOAD_FAILURE : AST_MODULE_LOAD_DECLINE;
 	}
 
 	mod->flags.declined = 0;
@@ -833,7 +886,7 @@ int ast_load_resource(const char *resource_name)
 {
 	int res;
 	AST_LIST_LOCK(&module_list);
-	res = load_resource(resource_name, 0, NULL);
+	res = load_resource(resource_name, 0, NULL, 0);
 	AST_LIST_UNLOCK(&module_list);
 
 	return res;
@@ -841,24 +894,30 @@ int ast_load_resource(const char *resource_name)
 
 struct load_order_entry {
 	char *resource;
+	int required;
 	AST_LIST_ENTRY(load_order_entry) entry;
 };
 
 AST_LIST_HEAD_NOLOCK(load_order, load_order_entry);
 
-static struct load_order_entry *add_to_load_order(const char *resource, struct load_order *load_order)
+static struct load_order_entry *add_to_load_order(const char *resource, struct load_order *load_order, int required)
 {
 	struct load_order_entry *order;
 
 	AST_LIST_TRAVERSE(load_order, order, entry) {
-		if (!resource_name_match(order->resource, resource))
+		if (!resource_name_match(order->resource, resource)) {
+			/* Make sure we have the proper setting for the required field 
+			   (we might have both load= and required= lines in modules.conf) */
+			order->required |= required;
 			return NULL;
+		}
 	}
 
 	if (!(order = ast_calloc(1, sizeof(*order))))
 		return NULL;
 
 	order->resource = ast_strdup(resource);
+	order->required = required;
 	AST_LIST_INSERT_TAIL(load_order, order, entry);
 
 	return order;
@@ -869,9 +928,9 @@ static int mod_load_cmp(void *a, void *b)
 	struct ast_module *a_mod = (struct ast_module *) a;
 	struct ast_module *b_mod = (struct ast_module *) b;
 	int res = -1;
-	/* if load_pri is not set, default is 255.  Lower is better*/
-	unsigned char a_pri = ast_test_flag(a_mod->info, AST_MODFLAG_LOAD_ORDER) ? a_mod->info->load_pri : 255;
-	unsigned char b_pri = ast_test_flag(b_mod->info, AST_MODFLAG_LOAD_ORDER) ? b_mod->info->load_pri : 255;
+	/* if load_pri is not set, default is 128.  Lower is better*/
+	unsigned char a_pri = ast_test_flag(a_mod->info, AST_MODFLAG_LOAD_ORDER) ? a_mod->info->load_pri : 128;
+	unsigned char b_pri = ast_test_flag(b_mod->info, AST_MODFLAG_LOAD_ORDER) ? b_mod->info->load_pri : 128;
 	if (a_pri == b_pri) {
 		res = 0;
 	} else if (a_pri < b_pri) {
@@ -880,7 +939,9 @@ static int mod_load_cmp(void *a, void *b)
 	return res;
 }
 
-/*! loads modules in order by load_pri, updates mod_count */
+/*! loads modules in order by load_pri, updates mod_count 
+	\return -1 on failure to load module, -2 on failure to load required module, otherwise 0
+*/
 static int load_resource_list(struct load_order *load_order, unsigned int global_symbols, int *mod_count)
 {
 	struct ast_heap *resource_heap;
@@ -895,7 +956,7 @@ static int load_resource_list(struct load_order *load_order, unsigned int global
 
 	/* first, add find and add modules to heap */
 	AST_LIST_TRAVERSE_SAFE_BEGIN(load_order, order, entry) {
-		switch (load_resource(order->resource, global_symbols, resource_heap)) {
+		switch (load_resource(order->resource, global_symbols, resource_heap, order->required)) {
 		case AST_MODULE_LOAD_SUCCESS:
 		case AST_MODULE_LOAD_DECLINE:
 			AST_LIST_REMOVE_CURRENT(entry);
@@ -903,7 +964,9 @@ static int load_resource_list(struct load_order *load_order, unsigned int global
 			ast_free(order);
 			break;
 		case AST_MODULE_LOAD_FAILURE:
-			res = -1;
+			ast_log(LOG_ERROR, "*** Failed to load module %s - %s\n", order->resource, order->required ? "Required" : "Not required");
+			fprintf(stderr, "*** Failed to load module %s - %s\n", order->resource, order->required ? "Required" : "Not required");
+			res = order->required ? -2 : -1;
 			goto done;
 		case AST_MODULE_LOAD_SKIP:
 			break;
@@ -980,8 +1043,14 @@ int load_modules(unsigned int preload_only)
 	/* first, find all the modules we have been explicitly requested to load */
 	for (v = ast_variable_browse(cfg, "modules"); v; v = v->next) {
 		if (!strcasecmp(v->name, preload_only ? "preload" : "load")) {
-			add_to_load_order(v->value, &load_order);
+			add_to_load_order(v->value, &load_order, 0);
 		}
+		if (!strcasecmp(v->name, preload_only ? "preload-require" : "require")) {
+			/* Add the module to the list and make sure it's required */
+			add_to_load_order(v->value, &load_order, 1);
+			ast_debug(2, "Adding module to required list: %s (%s)\n", v->value, v->name);
+		}
+
 	}
 
 	/* check if 'autoload' is on */
@@ -995,7 +1064,7 @@ int load_modules(unsigned int preload_only)
 			if (mod->flags.running)
 				continue;
 
-			order = add_to_load_order(mod->resource, &load_order);
+			order = add_to_load_order(mod->resource, &load_order, 0);
 		}
 
 #ifdef LOADABLE_MODULES
@@ -1018,7 +1087,7 @@ int load_modules(unsigned int preload_only)
 				if (find_resource(dirent->d_name, 0))
 					continue;
 
-				add_to_load_order(dirent->d_name, &load_order);
+				add_to_load_order(dirent->d_name, &load_order, 0);
 			}
 
 			closedir(dir);
@@ -1163,6 +1232,10 @@ int ast_loader_unregister(int (*v)(void))
 
 struct ast_module *ast_module_ref(struct ast_module *mod)
 {
+	if (!mod) {
+		return NULL;
+	}
+
 	ast_atomic_fetchadd_int(&mod->usecount, +1);
 	ast_update_use_count();
 
@@ -1171,6 +1244,10 @@ struct ast_module *ast_module_ref(struct ast_module *mod)
 
 void ast_module_unref(struct ast_module *mod)
 {
+	if (!mod) {
+		return;
+	}
+
 	ast_atomic_fetchadd_int(&mod->usecount, -1);
 	ast_update_use_count();
 }

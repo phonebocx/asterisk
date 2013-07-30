@@ -6,6 +6,11 @@
  *   it was copied from;
  * - fixing the formatting
  */
+
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
+
 #include "asterisk.h"
 
 #include <locale.h>
@@ -13,7 +18,7 @@
 #include <regex.h>
 #include <limits.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 236905 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/ast_expr.h"
@@ -591,6 +596,17 @@ int ast_bt_get_addresses(struct ast_bt *bt)
 	return 0;
 }
 
+char **ast_bt_get_symbols(void **addresses, size_t num_frames)
+{
+	char **foo = calloc(num_frames, sizeof(char *) + 1);
+	if (foo) {
+		int i;
+		for (i = 0; i < num_frames; i++) {
+			foo[i] = (char *) foo + sizeof(char *) * num_frames;
+		}
+	}
+	return foo;
+}
 #else
 void ast_remove_lock_info(void *lock_addr)
 {

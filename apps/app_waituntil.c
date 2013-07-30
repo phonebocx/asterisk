@@ -25,9 +25,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
@@ -67,7 +71,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 
 static char *app = "WaitUntil";
 
-static int waituntil_exec(struct ast_channel *chan, void *data)
+static int waituntil_exec(struct ast_channel *chan, const char *data)
 {
 	int res;
 	double fraction;

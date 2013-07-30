@@ -19,14 +19,18 @@
 /*! \file
  *
  * \brief Flat, binary, ulaw PCM file format.
- * \arg File name extension: pcm, ulaw, ul, mu
+ * \arg File name extension: alaw, al, alw, pcm, ulaw, ul, mu, ulw, g722, au
  * 
  * \ingroup formats
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233694 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -80,7 +84,7 @@ static struct ast_frame *pcm_read(struct ast_filestream *s, int *whennext)
 	/* Send a frame from the file to the appropriate channel */
 
 	s->fr.frametype = AST_FRAME_VOICE;
-	s->fr.subclass = s->fmt->format;
+	s->fr.subclass.codec = s->fmt->format;
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, BUF_SIZE);
 	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) < 1) {
@@ -163,8 +167,8 @@ static int pcm_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
 	}
-	if (f->subclass != fs->fmt->format) {
-		ast_log(LOG_WARNING, "Asked to write incompatible format frame (%d)!\n", f->subclass);
+	if (f->subclass.codec != fs->fmt->format) {
+		ast_log(LOG_WARNING, "Asked to write incompatible format frame (%s)!\n", ast_getformatname(f->subclass.codec));
 		return -1;
 	}
 
@@ -492,10 +496,10 @@ static int unload_module(void)
 		|| ast_format_unregister(alaw_f.name)
 		|| ast_format_unregister(au_f.name)
 		|| ast_format_unregister(g722_f.name);
-}	
+}
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Raw/Sun uLaw/ALaw 8KHz (PCM,PCMA,AU), G.722 16Khz",
 	.load = load_module,
 	.unload = unload_module,
-	.load_pri = 10,
+	.load_pri = AST_MODPRI_APP_DEPEND
 );

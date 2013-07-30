@@ -24,9 +24,13 @@
  * \ingroup functions
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -75,20 +79,20 @@ static int isexten_function_read(struct ast_channel *chan, const char *cmd, char
 		if (sscanf(args.priority, "%30d", &priority_num) == 1 && priority_num > 0) {
 			int res;
 			res = ast_exists_extension(chan, args.context, args.exten, priority_num, 
-				chan->cid.cid_num);
+				S_COR(chan->caller.id.number.valid, chan->caller.id.number.str, NULL));
 			if (res)
 				strcpy(buf, "1");
 		} else {
 			int res;
-			res = ast_findlabel_extension(chan, args.context, args.exten, 
-				args.priority, chan->cid.cid_num);
+			res = ast_findlabel_extension(chan, args.context, args.exten, args.priority,
+				S_COR(chan->caller.id.number.valid, chan->caller.id.number.str, NULL));
 			if (res > 0)
 				strcpy(buf, "1");
 		}
 	} else if (!ast_strlen_zero(args.exten)) {
 		int res;
 		res = ast_exists_extension(chan, args.context, args.exten, 1, 
-			chan->cid.cid_num);
+			S_COR(chan->caller.id.number.valid, chan->caller.id.number.str, NULL));
 		if (res)
 			strcpy(buf, "1");
 	} else if (!ast_strlen_zero(args.context)) {
@@ -105,6 +109,7 @@ static int isexten_function_read(struct ast_channel *chan, const char *cmd, char
 static struct ast_custom_function isexten_function = {
 	.name = "DIALPLAN_EXISTS",
 	.read = isexten_function_read,
+	.read_max = 2,
 };
 
 static int unload_module(void)

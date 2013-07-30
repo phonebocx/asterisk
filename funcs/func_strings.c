@@ -25,9 +25,13 @@
  * \ingroup functions
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 251678 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include <regex.h>
 #include <ctype.h>
@@ -38,8 +42,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 251678 $")
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
 #include "asterisk/localtime.h"
+#include "asterisk/test.h"
 
 AST_THREADSTORAGE(result_buf);
+AST_THREADSTORAGE(tmp_buf);
 
 /*** DOCUMENTATION
 	<function name="FIELDQTY" language="en_US">
@@ -57,6 +63,27 @@ AST_THREADSTORAGE(result_buf);
 			by the patterns <literal>\0nnn</literal> and <literal>\xHH</literal>, respectively.  For example, if you wanted
 			to encode a comma as the delimiter, you could use either <literal>\054</literal> or <literal>\x2C</literal>.</para>
 			<para>Example: If ${example} contains <literal>ex-amp-le</literal>, then ${FIELDQTY(example,-)} returns 3.</para>
+		</description>
+	</function>
+	<function name="FIELDNUM" language="en_US">
+		<synopsis>
+			Return the 1-based offset of a field in a list
+		</synopsis>
+		<syntax>
+			<parameter name="varname" required="true" />
+			<parameter name="delim" required="true" />
+			<parameter name="value" required="true" />
+		</syntax>
+		<description>
+			<para>Search the variable named <replaceable>varname</replaceable> for the string <replaceable>value</replaceable>
+			delimited by <replaceable>delim</replaceable> and return a 1-based offset as to its location. If not found
+			or an error occured, return <literal>0</literal>.</para>
+			<para>The delimiter may be specified as a special or extended ASCII character, by encoding it.  The characters
+			<literal>\n</literal>, <literal>\r</literal>, and <literal>\t</literal> are all recognized as the newline,
+			carriage return, and tab characters, respectively.  Also, octal and hexadecimal specifications are recognized
+			by the patterns <literal>\0nnn</literal> and <literal>\xHH</literal>, respectively.  For example, if you wanted
+			to encode a comma as the delimiter, you could use either <literal>\054</literal> or <literal>\x2C</literal>.</para>
+		        <para>Example: If ${example} contains <literal>ex-amp-le</literal>, then ${FIELDNUM(example,-,amp)} returns 2.</para>
 		</description>
 	</function>
 	<function name="LISTFILTER" language="en_US">
@@ -89,6 +116,37 @@ AST_THREADSTORAGE(result_buf);
 			<para>Also <literal>\t</literal>,<literal>\n</literal> and <literal>\r</literal> are recognized.</para> 
 			<note><para>If you want the <literal>-</literal> character it needs to be prefixed with a 
 			<literal>\</literal></para></note>
+		</description>
+	</function>
+	<function name="REPLACE" language="en_US">
+		<synopsis>
+			Replace a set of characters in a given string with another character.
+		</synopsis>
+		<syntax>
+			<parameter name="varname" required="true" />
+			<parameter name="find-chars" required="true" />
+			<parameter name="replace-char" required="false" />
+		</syntax>
+		<description>
+			<para>Iterates through a string replacing all the <replaceable>find-chars</replaceable> with
+			<replaceable>replace-char</replaceable>.  <replaceable>replace-char</replaceable> may be either
+			empty or contain one character.  If empty, all <replaceable>find-chars</replaceable> will be
+			deleted from the output.</para>
+			<note><para>The replacement only occurs in the output.  The original variable is not
+			altered.</para></note>
+		</description>
+	</function>
+	<function name="PASSTHRU" language="en_US">
+		<synopsis>
+			Pass the given argument back as a value.
+		</synopsis>
+		<syntax>
+			<parameter name="string" required="false" />
+		</syntax>
+		<description>
+			<para>Literally returns the given <replaceable>string</replaceable>.  The intent is to permit
+			other dialplan functions which take a variable name as an argument to be able to take a literal
+			string, instead.</para>
 		</description>
 	</function>
 	<function name="REGEX" language="en_US">
@@ -287,12 +345,83 @@ AST_THREADSTORAGE(result_buf);
 			<para>Example: ${CSV_QUOTE("a,b" 123)} will return """a,b"" 123"</para>
 		</description>
 	</function>
+	<function name="SHIFT" language="en_US">
+		<synopsis>
+			Removes and returns the first item off of a variable containing delimited text
+		</synopsis>
+		<syntax>
+			<parameter name="varname" required="true" />
+			<parameter name="delimiter" required="false" default="," />
+		</syntax>
+		<description>
+			<para>Example:</para>
+			<para>exten => s,1,Set(array=one,two,three)</para>
+			<para>exten => s,n,While($["${SET(var=${SHIFT(array)})}" != ""])</para>
+			<para>exten => s,n,NoOp(var is ${var})</para>
+			<para>exten => s,n,EndWhile</para>
+			<para>This would iterate over each value in array, left to right, and
+				would result in NoOp(var is one), NoOp(var is two), and
+				NoOp(var is three) being executed.
+			</para>
+		</description>
+	</function>	
+	<function name="POP" language="en_US">
+		<synopsis>
+			Removes and returns the last item off of a variable containing delimited text
+		</synopsis>
+		<syntax>
+			<parameter name="varname" required="true" />
+			<parameter name="delimiter" required="false" default="," />
+		</syntax>
+		<description>
+			<para>Example:</para>
+			<para>exten => s,1,Set(array=one,two,three)</para>
+			<para>exten => s,n,While($["${SET(var=${POP(array)})}" != ""])</para>
+			<para>exten => s,n,NoOp(var is ${var})</para>
+			<para>exten => s,n,EndWhile</para>
+			<para>This would iterate over each value in array, right to left, and
+				would result in NoOp(var is three), NoOp(var is two), and
+				NoOp(var is one) being executed.
+			</para>
+		</description>
+	</function>	
+	<function name="PUSH" language="en_US">
+		<synopsis>
+			Appends one or more values to the end of a variable containing delimited text
+		</synopsis>
+		<syntax>
+			<parameter name="varname" required="true" />
+			<parameter name="delimiter" required="false" default="," />
+		</syntax>
+		<description>
+			<para>Example: Set(PUSH(array)=one,two,three) would append one,
+				two, and three to the end of the values stored in the variable
+				"array".
+			</para>
+		</description>
+	</function>
+	<function name="UNSHIFT" language="en_US">
+		<synopsis>
+			Inserts one or more values to the beginning of a variable containing delimited text
+		</synopsis>
+		<syntax>
+			<parameter name="varname" required="true" />
+			<parameter name="delimiter" required="false" default="," />
+		</syntax>
+		<description>
+			<para>Example: Set(UNSHIFT(array)=one,two,three) would insert one,
+				two, and three before the values stored in the variable
+				"array".
+			</para>
+		</description>
+	</function>
  ***/
 
-static int function_fieldqty(struct ast_channel *chan, const char *cmd,
-			     char *parse, char *buf, size_t len)
+static int function_fieldqty_helper(struct ast_channel *chan, const char *cmd,
+			     char *parse, char *buf, struct ast_str **sbuf, ssize_t len)
 {
-	char *varsubst, varval[8192], *varval2 = varval;
+	char *varsubst;
+	struct ast_str *str = ast_str_thread_get(&result_buf, 16);
 	int fieldcount = 0;
 	AST_DECLARE_APP_ARGS(args,
 			     AST_APP_ARG(varname);
@@ -301,6 +430,10 @@ static int function_fieldqty(struct ast_channel *chan, const char *cmd,
 	char delim[2] = "";
 	size_t delim_used;
 
+	if (!str) {
+		return -1;
+	}
+
 	AST_STANDARD_APP_ARGS(args, parse);
 	if (args.delim) {
 		ast_get_encoded_char(args.delim, delim, &delim_used);
@@ -308,51 +441,163 @@ static int function_fieldqty(struct ast_channel *chan, const char *cmd,
 		varsubst = alloca(strlen(args.varname) + 4);
 
 		sprintf(varsubst, "${%s}", args.varname);
-		pbx_substitute_variables_helper(chan, varsubst, varval, sizeof(varval) - 1);
-		if (ast_strlen_zero(varval2))
+		ast_str_substitute_variables(&str, 0, chan, varsubst);
+		if (ast_str_strlen(str) == 0) {
 			fieldcount = 0;
-		else {
-			while (strsep(&varval2, delim))
+		} else {
+			char *varval = ast_str_buffer(str);
+			while (strsep(&varval, delim)) {
 				fieldcount++;
+			}
 		}
 	} else {
 		fieldcount = 1;
 	}
-	snprintf(buf, len, "%d", fieldcount);
+	if (sbuf) {
+		ast_str_set(sbuf, len, "%d", fieldcount);
+	} else {
+		snprintf(buf, len, "%d", fieldcount);
+	}
 
 	return 0;
+}
+
+static int function_fieldqty(struct ast_channel *chan, const char *cmd,
+			     char *parse, char *buf, size_t len)
+{
+	return function_fieldqty_helper(chan, cmd, parse, buf, NULL, len);
+}
+
+static int function_fieldqty_str(struct ast_channel *chan, const char *cmd,
+				 char *parse, struct ast_str **buf, ssize_t len)
+{
+	return function_fieldqty_helper(chan, cmd, parse, NULL, buf, len);
 }
 
 static struct ast_custom_function fieldqty_function = {
 	.name = "FIELDQTY",
 	.read = function_fieldqty,
+	.read2 = function_fieldqty_str,
 };
 
-static int listfilter(struct ast_channel *chan, const char *cmd, char *parse, char *buf, size_t len)
+static int function_fieldnum_helper(struct ast_channel *chan, const char *cmd,
+				char *parse, char *buf, struct ast_str **sbuf, ssize_t len)
+{
+	char *varsubst, *field;
+	struct ast_str *str = ast_str_thread_get(&result_buf, 16);
+	int fieldindex = 0, res = 0;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(varname);
+		AST_APP_ARG(delim);
+		AST_APP_ARG(field);
+	);
+	char delim[2] = "";
+	size_t delim_used;
+
+	if (!str) {
+		return -1;
+	}
+
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	if (args.argc < 3) {
+		ast_log(LOG_ERROR, "Usage: FIELDNUM(<listname>,<delimiter>,<fieldvalue>)\n");
+		res = -1;
+	} else {
+		varsubst = alloca(strlen(args.varname) + 4);
+		sprintf(varsubst, "${%s}", args.varname);
+
+		ast_str_substitute_variables(&str, 0, chan, varsubst);
+
+		if (ast_str_strlen(str) == 0 || ast_strlen_zero(args.delim)) {
+			fieldindex = 0;
+		} else if (ast_get_encoded_char(args.delim, delim, &delim_used) == -1) {
+			res = -1;
+		} else {
+			char *varval = ast_str_buffer(str);
+
+			while ((field = strsep(&varval, delim)) != NULL) {
+				fieldindex++;
+
+				if (!strcasecmp(field, args.field)) {
+					break;
+				}
+			}
+
+			if (!field) {
+				fieldindex = 0;
+			}
+
+			res = 0;
+		}
+	}
+
+	if (sbuf) {
+		ast_str_set(sbuf, len, "%d", fieldindex);
+	} else {
+		snprintf(buf, len, "%d", fieldindex);
+	}
+
+	return res;
+}
+
+static int function_fieldnum(struct ast_channel *chan, const char *cmd,
+			     char *parse, char *buf, size_t len)
+{
+	return function_fieldnum_helper(chan, cmd, parse, buf, NULL, len);
+}
+
+static int function_fieldnum_str(struct ast_channel *chan, const char *cmd,
+				 char *parse, struct ast_str **buf, ssize_t len)
+{
+	return function_fieldnum_helper(chan, cmd, parse, NULL, buf, len);
+}
+
+static struct ast_custom_function fieldnum_function = {
+	.name = "FIELDNUM",
+	.read = function_fieldnum,
+	.read2 = function_fieldnum_str,
+};
+
+static int listfilter(struct ast_channel *chan, const char *cmd, char *parse, char *buf, struct ast_str **bufstr, ssize_t len)
 {
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(listname);
 		AST_APP_ARG(delimiter);
 		AST_APP_ARG(fieldvalue);
 	);
-	const char *orig_list, *ptr;
+	const char *ptr;
+	struct ast_str *orig_list = ast_str_thread_get(&tmp_buf, 16);
 	const char *begin, *cur, *next;
 	int dlen, flen, first = 1;
-	struct ast_str *result = ast_str_thread_get(&result_buf, 16);
-	char *delim;
+	struct ast_str *result, **result_ptr = &result;
+	char *delim, *varsubst;
 
 	AST_STANDARD_APP_ARGS(args, parse);
+
+	if (buf) {
+		if (!(result = ast_str_thread_get(&result_buf, 16))) {
+			return -1;
+		}
+	} else {
+		/* Place the result directly into the output buffer */
+		result_ptr = bufstr;
+	}
 
 	if (args.argc < 3) {
 		ast_log(LOG_ERROR, "Usage: LISTFILTER(<listname>,<delimiter>,<fieldvalue>)\n");
 		return -1;
 	}
 
+	varsubst = alloca(strlen(args.listname) + 4);
+	sprintf(varsubst, "${%s}", args.listname);
+
 	/* If we don't lock the channel, the variable could disappear out from underneath us. */
 	if (chan) {
 		ast_channel_lock(chan);
 	}
-	if (!(orig_list = pbx_builtin_getvar_helper(chan, args.listname))) {
+	ast_str_substitute_variables(&orig_list, 0, chan, varsubst);
+	if (!ast_str_strlen(orig_list)) {
 		ast_log(LOG_ERROR, "List variable '%s' not found\n", args.listname);
 		if (chan) {
 			ast_channel_unlock(chan);
@@ -361,8 +606,12 @@ static int listfilter(struct ast_channel *chan, const char *cmd, char *parse, ch
 	}
 
 	/* If the string isn't there, just copy out the string and be done with it. */
-	if (!(ptr = strstr(orig_list, args.fieldvalue))) {
-		ast_copy_string(buf, orig_list, len);
+	if (!(ptr = strstr(ast_str_buffer(orig_list), args.fieldvalue))) {
+		if (buf) {
+			ast_copy_string(buf, ast_str_buffer(orig_list), len);
+		} else {
+			ast_str_set(result_ptr, len, "%s", ast_str_buffer(orig_list));
+		}
 		if (chan) {
 			ast_channel_unlock(chan);
 		}
@@ -380,11 +629,13 @@ static int listfilter(struct ast_channel *chan, const char *cmd, char *parse, ch
 
 	flen = strlen(args.fieldvalue);
 
-	ast_str_reset(result);
+	ast_str_reset(*result_ptr);
 	/* Enough space for any result */
-	ast_str_make_space(&result, strlen(orig_list) + 1);
+	if (len > -1) {
+		ast_str_make_space(result_ptr, len ? len : ast_str_strlen(orig_list) + 1);
+	}
 
-	begin = orig_list;
+	begin = ast_str_buffer(orig_list);
 	next = strstr(begin, delim);
 
 	do {
@@ -402,10 +653,10 @@ static int listfilter(struct ast_channel *chan, const char *cmd, char *parse, ch
 		} else {
 			/* Copy field to output */
 			if (!first) {
-				ast_str_append(&result, 0, "%s", delim);
+				ast_str_append(result_ptr, len, "%s", delim);
 			}
 
-			ast_str_append_substr(&result, 0, begin, cur - begin);
+			ast_str_append_substr(result_ptr, len, begin, cur - begin);
 			first = 0;
 			begin = cur + dlen;
 		}
@@ -414,14 +665,27 @@ static int listfilter(struct ast_channel *chan, const char *cmd, char *parse, ch
 		ast_channel_unlock(chan);
 	}
 
-	ast_copy_string(buf, ast_str_buffer(result), len);
+	if (buf) {
+		ast_copy_string(buf, ast_str_buffer(result), len);
+	}
 
 	return 0;
 }
 
+static int listfilter_read(struct ast_channel *chan, const char *cmd, char *parse, char *buf, size_t len)
+{
+	return listfilter(chan, cmd, parse, buf, NULL, len);
+}
+
+static int listfilter_read2(struct ast_channel *chan, const char *cmd, char *parse, struct ast_str **buf, ssize_t len)
+{
+	return listfilter(chan, cmd, parse, NULL, buf, len);
+}
+
 static struct ast_custom_function listfilter_function = {
 	.name = "LISTFILTER",
-	.read = listfilter,
+	.read = listfilter_read,
+	.read2 = listfilter_read2,
 };
 
 static int filter(struct ast_channel *chan, const char *cmd, char *parse, char *buf,
@@ -459,10 +723,10 @@ static int filter(struct ast_channel *chan, const char *cmd, char *parse, char *
 
 		if (*(args.allowed) == '-') {
 			if (ast_get_encoded_char(args.allowed + 1, &c2, &consumed))
-				c2 = -1;
+				c2 = c1;
 			args.allowed += consumed + 1;
 
-			if ((c2 < c1 || c2 == -1) && !ast_opt_dont_warn) {
+			if ((unsigned char) c2 < (unsigned char) c1 && !ast_opt_dont_warn) {
 				ast_log(LOG_WARNING, "Range wrapping in FILTER(%s,%s).  This may not be what you want.\n", parse, args.string);
 			}
 
@@ -470,7 +734,7 @@ static int filter(struct ast_channel *chan, const char *cmd, char *parse, char *
 			 * Looks a little strange, until you realize that we can overflow
 			 * the size of a char.
 			 */
-			for (ac = c1; ac != c2; ac++) {
+			for (ac = (unsigned char) c1; ac != (unsigned char) c2; ac++) {
 				bitfield[ac / 32] |= 1 << (ac % 32);
 			}
 			bitfield[ac / 32] |= 1 << (ac % 32);
@@ -503,6 +767,76 @@ static int filter(struct ast_channel *chan, const char *cmd, char *parse, char *
 static struct ast_custom_function filter_function = {
 	.name = "FILTER",
 	.read = filter,
+};
+
+static int replace(struct ast_channel *chan, const char *cmd, char *data, struct ast_str **buf, ssize_t len)
+{
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(varname);
+		AST_APP_ARG(find);
+		AST_APP_ARG(replace);
+	);
+	char *strptr, *varsubst;
+	struct ast_str *str = ast_str_thread_get(&result_buf, 16);
+	char find[256]; /* Only 256 characters possible */
+	char replace[2] = "";
+	size_t unused;
+
+	AST_STANDARD_APP_ARGS(args, data);
+
+	if (!str) {
+		return -1;
+	}
+
+	if (args.argc < 2) {
+		ast_log(LOG_ERROR, "Usage: %s(<varname>,<search-chars>[,<replace-char>])\n", cmd);
+		return -1;
+	}
+
+	/* Decode escapes */
+	ast_get_encoded_str(args.find, find, sizeof(find));
+	ast_get_encoded_char(args.replace, replace, &unused);
+
+	if (ast_strlen_zero(find) || ast_strlen_zero(args.varname)) {
+		ast_log(LOG_ERROR, "The characters to search for and the variable name must not be empty.\n");
+		return -1;
+	}
+
+	varsubst = alloca(strlen(args.varname) + 4);
+	sprintf(varsubst, "${%s}", args.varname);
+	ast_str_substitute_variables(&str, 0, chan, varsubst);
+
+	if (!ast_str_strlen(str)) {
+		/* Blank, nothing to replace */
+		return -1;
+	}
+
+	ast_debug(3, "String to search: (%s)\n", ast_str_buffer(str));
+	ast_debug(3, "Characters to find: (%s)\n", find);
+	ast_debug(3, "Character to replace with: (%s)\n", replace);
+
+	for (strptr = ast_str_buffer(str); *strptr; strptr++) {
+		/* buf is already a mutable buffer, so we construct the result
+		 * directly there */
+		if (strchr(find, *strptr)) {
+			if (ast_strlen_zero(replace)) {
+				/* Remove character */
+				strcpy(strptr, strptr + 1); /* SAFE */
+				strptr--;
+			} else {
+				/* Replace character */
+				*strptr = *replace;
+			}
+		}
+	}
+
+	ast_str_set(buf, len, "%s", ast_str_buffer(str));
+	return 0;
+}
+
+static struct ast_custom_function replace_function = {
+	.name = "REPLACE",
+	.read2 = replace,
 };
 
 static int regex(struct ast_channel *chan, const char *cmd, char *parse, char *buf,
@@ -566,7 +900,7 @@ static void clearvar_prefix(struct ast_channel *chan, const char *prefix)
 	AST_LIST_TRAVERSE_SAFE_END
 }
 
-static int exec_clearhash(struct ast_channel *chan, void *data)
+static int exec_clearhash(struct ast_channel *chan, const char *data)
 {
 	char prefix[80];
 	snprintf(prefix, sizeof(prefix), HASH_PREFIX, data ? (char *)data : "null");
@@ -609,17 +943,26 @@ static int array(struct ast_channel *chan, const char *cmd, char *var,
 	 * want them to be surprised by the result.  Hence, we prefer commas as the
 	 * delimiter, but we'll fall back to vertical bars if commas aren't found.
 	 */
-	ast_debug(1, "array (%s=%s)\n", var, value2);
+	ast_debug(1, "array (%s=%s)\n", var, S_OR(value2, ""));
 	AST_STANDARD_APP_ARGS(arg1, var);
 
 	AST_STANDARD_APP_ARGS(arg2, value2);
 
 	for (i = 0; i < arg1.argc; i++) {
 		ast_debug(1, "array set value (%s=%s)\n", arg1.var[i],
-				arg2.val[i]);
+				S_OR(arg2.val[i], ""));
 		if (i < arg2.argc) {
 			if (ishash) {
-				snprintf(varname, sizeof(varname), HASH_FORMAT, origvar, arg1.var[i]);
+				if (origvar[0] == '_') {
+					if (origvar[1] == '_') {
+						snprintf(varname, sizeof(varname), "__" HASH_FORMAT, origvar + 2, arg1.var[i]);
+					} else {
+						snprintf(varname, sizeof(varname), "_" HASH_FORMAT, origvar + 1, arg1.var[i]);
+					}
+				} else {
+					snprintf(varname, sizeof(varname), HASH_FORMAT, origvar, arg1.var[i]);
+				}
+
 				pbx_builtin_setvar_helper(chan, varname, arg2.val[i]);
 			} else {
 				pbx_builtin_setvar_helper(chan, arg1.var[i], arg2.val[i]);
@@ -642,22 +985,44 @@ static int array(struct ast_channel *chan, const char *cmd, char *var,
 static int hashkeys_read(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
 {
 	struct ast_var_t *newvar;
-	int plen;
-	char prefix[80];
-	snprintf(prefix, sizeof(prefix), HASH_PREFIX, data);
-	plen = strlen(prefix);
+	struct ast_str *prefix = ast_str_alloca(80);
 
+	ast_str_set(&prefix, -1, HASH_PREFIX, data);
 	memset(buf, 0, len);
+
 	AST_LIST_TRAVERSE(&chan->varshead, newvar, entries) {
-		if (strncasecmp(prefix, ast_var_name(newvar), plen) == 0) {
+		if (strncasecmp(ast_str_buffer(prefix), ast_var_name(newvar), ast_str_strlen(prefix)) == 0) {
 			/* Copy everything after the prefix */
-			strncat(buf, ast_var_name(newvar) + plen, len - strlen(buf) - 1);
+			strncat(buf, ast_var_name(newvar) + ast_str_strlen(prefix), len - strlen(buf) - 1);
 			/* Trim the trailing ~ */
 			buf[strlen(buf) - 1] = ',';
 		}
 	}
 	/* Trim the trailing comma */
 	buf[strlen(buf) - 1] = '\0';
+	return 0;
+}
+
+static int hashkeys_read2(struct ast_channel *chan, const char *cmd, char *data, struct ast_str **buf, ssize_t len)
+{
+	struct ast_var_t *newvar;
+	struct ast_str *prefix = ast_str_alloca(80);
+	char *tmp;
+
+	ast_str_set(&prefix, -1, HASH_PREFIX, data);
+
+	AST_LIST_TRAVERSE(&chan->varshead, newvar, entries) {
+		if (strncasecmp(ast_str_buffer(prefix), ast_var_name(newvar), ast_str_strlen(prefix)) == 0) {
+			/* Copy everything after the prefix */
+			ast_str_append(buf, len, "%s", ast_var_name(newvar) + ast_str_strlen(prefix));
+			/* Trim the trailing ~ */
+			tmp = ast_str_buffer(*buf);
+			tmp[ast_str_strlen(*buf) - 1] = ',';
+		}
+	}
+	/* Trim the trailing comma */
+	tmp = ast_str_buffer(*buf);
+	tmp[ast_str_strlen(*buf) - 1] = '\0';
 	return 0;
 }
 
@@ -675,7 +1040,15 @@ static int hash_write(struct ast_channel *chan, const char *cmd, char *var, cons
 	}
 
 	AST_STANDARD_APP_ARGS(arg, var);
-	snprintf(varname, sizeof(varname), HASH_FORMAT, arg.hashname, arg.hashkey);
+	if (arg.hashname[0] == '_') {
+		if (arg.hashname[1] == '_') {
+			snprintf(varname, sizeof(varname), "__" HASH_FORMAT, arg.hashname + 2, arg.hashkey);
+		} else {
+			snprintf(varname, sizeof(varname), "_" HASH_FORMAT, arg.hashname + 1, arg.hashkey);
+		}
+	} else {
+		snprintf(varname, sizeof(varname), HASH_FORMAT, arg.hashname, arg.hashkey);
+	}
 	pbx_builtin_setvar_helper(chan, varname, value);
 
 	return 0;
@@ -736,6 +1109,7 @@ static struct ast_custom_function hash_function = {
 static struct ast_custom_function hashkeys_function = {
 	.name = "HASHKEYS",
 	.read = hashkeys_read,
+	.read2 = hashkeys_read2,
 };
 
 static struct ast_custom_function array_function = {
@@ -786,14 +1160,13 @@ static int csv_quote(struct ast_channel *chan, const char *cmd, char *data, char
 {
 	char *bufptr = buf, *dataptr = data;
 
-	if (len < 3){ /* at least two for quotes and one for binary zero */
+	if (len < 3) { /* at least two for quotes and one for binary zero */
 		ast_log(LOG_ERROR, "Not enough buffer");
 		return -1;
 	}
 
 	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "No argument specified!\n");
-		ast_copy_string(buf,"\"\"",len);
+		ast_copy_string(buf, "\"\"", len);
 		return 0;
 	}
 
@@ -833,6 +1206,7 @@ static int len(struct ast_channel *chan, const char *cmd, char *data, char *buf,
 static struct ast_custom_function len_function = {
 	.name = "LEN",
 	.read = len,
+	.read_max = 12,
 };
 
 static int acf_strftime(struct ast_channel *chan, const char *cmd, char *parse,
@@ -924,9 +1298,23 @@ static int function_eval(struct ast_channel *chan, const char *cmd, char *data,
 	return 0;
 }
 
+static int function_eval2(struct ast_channel *chan, const char *cmd, char *data,
+			 struct ast_str **buf, ssize_t buflen)
+{
+	if (ast_strlen_zero(data)) {
+		ast_log(LOG_WARNING, "EVAL requires an argument: EVAL(<string>)\n");
+		return -1;
+	}
+
+	ast_str_substitute_variables(buf, buflen, chan, data);
+
+	return 0;
+}
+
 static struct ast_custom_function eval_function = {
 	.name = "EVAL",
 	.read = function_eval,
+	.read2 = function_eval2,
 };
 
 static int keypadhash(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t buflen)
@@ -978,9 +1366,24 @@ static int string_toupper(struct ast_channel *chan, const char *cmd, char *data,
 	return 0;
 }
 
+static int string_toupper2(struct ast_channel *chan, const char *cmd, char *data, struct ast_str **buf, ssize_t buflen)
+{
+	char *bufptr, *dataptr = data;
+
+	if (buflen > -1) {
+		ast_str_make_space(buf, buflen > 0 ? buflen : strlen(data) + 1);
+	}
+	bufptr = ast_str_buffer(*buf);
+	while ((bufptr < ast_str_buffer(*buf) + ast_str_size(*buf) - 1) && (*bufptr++ = toupper(*dataptr++)));
+	ast_str_update(*buf);
+
+	return 0;
+}
+
 static struct ast_custom_function toupper_function = {
 	.name = "TOUPPER",
 	.read = string_toupper,
+	.read2 = string_toupper2,
 };
 
 static int string_tolower(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t buflen)
@@ -992,17 +1395,266 @@ static int string_tolower(struct ast_channel *chan, const char *cmd, char *data,
 	return 0;
 }
 
+static int string_tolower2(struct ast_channel *chan, const char *cmd, char *data, struct ast_str **buf, ssize_t buflen)
+{
+	char *bufptr, *dataptr = data;
+
+	if (buflen > -1) {
+		ast_str_make_space(buf, buflen > 0 ? buflen : strlen(data) + 1);
+	}
+	bufptr = ast_str_buffer(*buf);
+	while ((bufptr < ast_str_buffer(*buf) + ast_str_size(*buf) - 1) && (*bufptr++ = tolower(*dataptr++)));
+	ast_str_update(*buf);
+
+	return 0;
+}
+
 static struct ast_custom_function tolower_function = {
 	.name = "TOLOWER",
 	.read = string_tolower,
+	.read2 = string_tolower2,
 };
+
+static int shift_pop(struct ast_channel *chan, const char *cmd, char *data, struct ast_str **buf, ssize_t len)
+{
+#define beginning	(cmd[0] == 'S') /* SHIFT */
+	char *after, delimiter[2] = ",", *varsubst;
+	size_t unused;
+	struct ast_str *before = ast_str_thread_get(&result_buf, 16);
+	char *(*search_func)(const char *s, int c) = (beginning ? strchr : strrchr);
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(var);
+		AST_APP_ARG(delimiter);
+	);
+
+	if (!before) {
+		return -1;
+	}
+
+	AST_STANDARD_APP_ARGS(args, data);
+
+	if (ast_strlen_zero(args.var)) {
+		ast_log(LOG_WARNING, "%s requires a variable name\n", cmd);
+		return -1;
+	}
+
+	varsubst = alloca(strlen(args.var) + 4);
+	sprintf(varsubst, "${%s}", args.var);
+	ast_str_substitute_variables(&before, 0, chan, varsubst);
+
+	if (args.argc > 1 && !ast_strlen_zero(args.delimiter)) {
+		ast_get_encoded_char(args.delimiter, delimiter, &unused);
+	}
+
+	if (!ast_str_strlen(before)) {
+		/* Nothing to pop */
+		return -1;
+	}
+
+	if (!(after = search_func(ast_str_buffer(before), delimiter[0]))) {
+		/* Only one entry in array */
+		ast_str_set(buf, len, "%s", ast_str_buffer(before));
+		pbx_builtin_setvar_helper(chan, args.var, "");
+	} else {
+		*after++ = '\0';
+		ast_str_set(buf, len, "%s", beginning ? ast_str_buffer(before) : after);
+		pbx_builtin_setvar_helper(chan, args.var, beginning ? after : ast_str_buffer(before));
+	}
+
+	return 0;
+#undef beginning
+}
+
+static struct ast_custom_function shift_function = {
+	.name = "SHIFT",
+	.read2 = shift_pop,
+};
+
+static struct ast_custom_function pop_function = {
+	.name = "POP",
+	.read2 = shift_pop,
+};
+
+static int unshift_push(struct ast_channel *chan, const char *cmd, char *data, const char *new_value)
+{
+#define beginning	(cmd[0] == 'U') /* UNSHIFT */
+	char delimiter[2] = ",", *varsubst;
+	size_t unused;
+	struct ast_str *buf, *previous_value;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(var);
+		AST_APP_ARG(delimiter);
+	);
+
+	if (!(buf = ast_str_thread_get(&result_buf, 16)) ||
+		!(previous_value = ast_str_thread_get(&tmp_buf, 16))) {
+		return -1;
+	}
+
+	AST_STANDARD_APP_ARGS(args, data);
+
+	if (ast_strlen_zero(args.var)) {
+		ast_log(LOG_WARNING, "%s requires a variable name\n", cmd);
+		return -1;
+	}
+
+	if (args.argc > 1 && !ast_strlen_zero(args.delimiter)) {
+		ast_get_encoded_char(args.delimiter, delimiter, &unused);
+	}
+
+	varsubst = alloca(strlen(args.var) + 4);
+	sprintf(varsubst, "${%s}", args.var);
+	ast_str_substitute_variables(&previous_value, 0, chan, varsubst);
+
+	if (!ast_str_strlen(previous_value)) {
+		ast_str_set(&buf, 0, "%s", new_value);
+	} else {
+		ast_str_set(&buf, 0, "%s%c%s",
+			beginning ? new_value : ast_str_buffer(previous_value),
+			delimiter[0],
+			beginning ? ast_str_buffer(previous_value) : new_value);
+	}
+
+	pbx_builtin_setvar_helper(chan, args.var, ast_str_buffer(buf));
+
+	return 0;
+#undef beginning
+}
+
+static struct ast_custom_function push_function = {
+	.name = "PUSH",
+	.write = unshift_push,
+};
+
+static struct ast_custom_function unshift_function = {
+	.name = "UNSHIFT",
+	.write = unshift_push,
+};
+
+static int passthru(struct ast_channel *chan, const char *cmd, char *data, struct ast_str **buf, ssize_t len)
+{
+	ast_str_set(buf, len, "%s", data);
+	return 0;
+}
+
+static struct ast_custom_function passthru_function = {
+	.name = "PASSTHRU",
+	.read2 = passthru,
+};
+
+#ifdef TEST_FRAMEWORK
+AST_TEST_DEFINE(test_FIELDNUM)
+{
+	int i, res = AST_TEST_PASS;
+	struct ast_channel *chan;
+	struct ast_str *str;
+	char expression[256];
+	struct {
+		const char *fields;
+		const char *delim;
+		const char *field;
+		const char *expected;
+	} test_args[] = {
+		{"abc,def,ghi,jkl", "\\,",     "ghi", "3"},
+		{"abc def ghi jkl", " ",       "abc", "1"},
+		{"abc/def/ghi/jkl", "\\\\x2f", "def", "2"},
+		{"abc$def$ghi$jkl", "",        "ghi", "0"},
+		{"abc,def,ghi,jkl", "-",       "",    "0"},
+		{"abc-def-ghi-jkl", "-",       "mno", "0"}
+	};
+
+	switch (cmd) {
+	case TEST_INIT:
+		info->name = "func_FIELDNUM_test";
+		info->category = "/funcs/func_strings/";
+		info->summary = "Test FIELDNUM function";
+		info->description = "Verify FIELDNUM behavior";
+		return AST_TEST_NOT_RUN;
+	case TEST_EXECUTE:
+		break;
+	}
+
+	if (!(chan = ast_dummy_channel_alloc())) {
+		ast_test_status_update(test, "Unable to allocate dummy channel\n");
+		return AST_TEST_FAIL;
+	}
+
+	if (!(str = ast_str_create(16))) {
+		ast_test_status_update(test, "Unable to allocate dynamic string buffer\n");
+		ast_channel_release(chan);
+		return AST_TEST_FAIL;
+	}
+
+	for (i = 0; i < ARRAY_LEN(test_args); i++) {
+		struct ast_var_t *var = ast_var_assign("FIELDS", test_args[i].fields);
+		AST_LIST_INSERT_HEAD(&chan->varshead, var, entries);
+
+		snprintf(expression, sizeof(expression), "${FIELDNUM(%s,%s,%s)}", var->name, test_args[i].delim, test_args[i].field);
+		ast_str_substitute_variables(&str, 0, chan, expression);
+
+		AST_LIST_REMOVE(&chan->varshead, var, entries);
+		ast_var_delete(var);
+
+		if (strcasecmp(ast_str_buffer(str), test_args[i].expected)) {
+			ast_test_status_update(test, "Evaluation of '%s' returned '%s' instead of the expected value '%s'\n",
+				expression, ast_str_buffer(str), test_args[i].expected);
+			res = AST_TEST_FAIL;
+			break;
+		}
+	}
+
+	ast_free(str);
+	ast_channel_release(chan);
+
+	return res;
+}
+
+AST_TEST_DEFINE(test_FILTER)
+{
+	int i, res = AST_TEST_PASS;
+	const char *test_strings[][2] = {
+		{"A-R",            "DAHDI"},
+		{"A\\-R",          "A"},
+		{"\\x41-R",        "DAHDI"},
+		{"0-9A-Ca-c",      "0042133333A12212"},
+		{"0-9a-cA-C_+\\-", "0042133333A12212"},
+		{NULL,             NULL},
+	};
+
+	switch (cmd) {
+	case TEST_INIT:
+		info->name = "func_FILTER_test";
+		info->category = "/funcs/func_strings/";
+		info->summary = "Test FILTER function";
+		info->description = "Verify FILTER behavior";
+		return AST_TEST_NOT_RUN;
+	case TEST_EXECUTE:
+		break;
+	}
+
+	for (i = 0; test_strings[i][0]; i++) {
+		char tmp[256], tmp2[256] = "";
+		snprintf(tmp, sizeof(tmp), "${FILTER(%s,0042133333&DAHDI/g1/2212)}", test_strings[i][0]);
+		pbx_substitute_variables_helper(NULL, tmp, tmp2, sizeof(tmp2) - 1);
+		if (strcmp(test_strings[i][1], tmp2)) {
+			ast_test_status_update(test, "Format string '%s' substituted to '%s'.  Expected '%s'.\n", test_strings[i][0], tmp2, test_strings[i][1]);
+			res = AST_TEST_FAIL;
+		}
+	}
+	return res;
+}
+#endif
 
 static int unload_module(void)
 {
 	int res = 0;
 
+	AST_TEST_UNREGISTER(test_FIELDNUM);
+	AST_TEST_UNREGISTER(test_FILTER);
 	res |= ast_custom_function_unregister(&fieldqty_function);
+	res |= ast_custom_function_unregister(&fieldnum_function);
 	res |= ast_custom_function_unregister(&filter_function);
+	res |= ast_custom_function_unregister(&replace_function);
 	res |= ast_custom_function_unregister(&listfilter_function);
 	res |= ast_custom_function_unregister(&regex_function);
 	res |= ast_custom_function_unregister(&array_function);
@@ -1018,6 +1670,11 @@ static int unload_module(void)
 	res |= ast_unregister_application(app_clearhash);
 	res |= ast_custom_function_unregister(&toupper_function);
 	res |= ast_custom_function_unregister(&tolower_function);
+	res |= ast_custom_function_unregister(&shift_function);
+	res |= ast_custom_function_unregister(&pop_function);
+	res |= ast_custom_function_unregister(&push_function);
+	res |= ast_custom_function_unregister(&unshift_function);
+	res |= ast_custom_function_unregister(&passthru_function);
 
 	return res;
 }
@@ -1026,8 +1683,12 @@ static int load_module(void)
 {
 	int res = 0;
 
+	AST_TEST_REGISTER(test_FIELDNUM);
+	AST_TEST_REGISTER(test_FILTER);
 	res |= ast_custom_function_register(&fieldqty_function);
+	res |= ast_custom_function_register(&fieldnum_function);
 	res |= ast_custom_function_register(&filter_function);
+	res |= ast_custom_function_register(&replace_function);
 	res |= ast_custom_function_register(&listfilter_function);
 	res |= ast_custom_function_register(&regex_function);
 	res |= ast_custom_function_register(&array_function);
@@ -1043,6 +1704,11 @@ static int load_module(void)
 	res |= ast_register_application_xml(app_clearhash, exec_clearhash);
 	res |= ast_custom_function_register(&toupper_function);
 	res |= ast_custom_function_register(&tolower_function);
+	res |= ast_custom_function_register(&shift_function);
+	res |= ast_custom_function_register(&pop_function);
+	res |= ast_custom_function_register(&push_function);
+	res |= ast_custom_function_register(&unshift_function);
+	res |= ast_custom_function_register(&passthru_function);
 
 	return res;
 }

@@ -25,10 +25,14 @@
  * \arg Extensions: g729 
  * \ingroup formats
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233694 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -46,7 +50,7 @@ static struct ast_frame *g729_read(struct ast_filestream *s, int *whennext)
 	int res;
 	/* Send a frame from the file to the appropriate channel */
 	s->fr.frametype = AST_FRAME_VOICE;
-	s->fr.subclass = AST_FORMAT_G729A;
+	s->fr.subclass.codec = AST_FORMAT_G729A;
 	s->fr.mallocd = 0;
 	s->fr.samples = G729A_SAMPLES;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, BUF_SIZE);
@@ -66,8 +70,8 @@ static int g729_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
 	}
-	if (f->subclass != AST_FORMAT_G729A) {
-		ast_log(LOG_WARNING, "Asked to write non-G729 frame (%d)!\n", f->subclass);
+	if (f->subclass.codec != AST_FORMAT_G729A) {
+		ast_log(LOG_WARNING, "Asked to write non-G729 frame (%s)!\n", ast_getformatname(f->subclass.codec));
 		return -1;
 	}
 	if (f->datalen % 10) {
@@ -143,10 +147,10 @@ static int load_module(void)
 static int unload_module(void)
 {
 	return ast_format_unregister(g729_f.name);
-}	
+}
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Raw G729 data",
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Raw G.729 data",
 	.load = load_module,
 	.unload = unload_module,
-	.load_pri = 10,
+	.load_pri = AST_MODPRI_APP_DEPEND
 );

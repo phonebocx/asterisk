@@ -1,6 +1,6 @@
 ===========================================================
 ===
-=== Information for upgrading between Asterisk 1.6 versions
+=== Information for upgrading between Asterisk versions
 ===
 === These files document all the changes that MUST be taken
 === into account when upgrading between the Asterisk
@@ -17,6 +17,154 @@
 === UPGRADE-1.6.txt -- Upgrade info for 1.4 to 1.6
 ===
 ===========================================================
+
+From 1.6.2 to 1.8:
+
+* chan_sip no longer sets HASH(SIP_CAUSE,<chan name>) on channels by default.
+  This must now be enabled by setting 'sipstorecause' to 'yes' in sip.conf.
+  This carries a performance penalty.
+
+* Asterisk now requires libpri 1.4.11+ for PRI support.
+
+* A couple of CLI commands in res_ais were changed back to their original form:
+    "ais show clm members" --> "ais clm show members"
+    "ais show evt event channels" --> "ais evt show event channels"
+
+* The default value for 'autofill' and 'shared_lastcall' in queues.conf has
+  been changed to 'yes'.
+
+* The default value for the alwaysauthreject option in sip.conf has been changed
+  from "no" to "yes".
+
+* The behavior of the 'parkedcallstimeout' has changed slightly.  The formulation
+  of the extension name that a timed out parked call is delivered to when this
+  option is set to 'no' was modified such that instead of converting '/' to '0',
+  the '/' is converted to an underscore '_'.  See the updated documentation in
+  features.conf.sample for more information on the behavior of the
+  'parkedcallstimeout' option.
+
+* Asterisk-addons no longer exists as an independent package.  Those modules
+  now live in the addons directory of the main Asterisk source tree.  They
+  are not enabled by default.  For more information about why modules live in
+  addons, see README-addons.txt.
+
+* The rarely used 'event_log' and LOG_EVENT channel have been removed; the few
+  users of this channel in the tree have been converted to LOG_NOTICE or removed
+  (in cases where the same message was already generated to another channel).
+
+* The usage of RTP inside of Asterisk has now become modularized. This means
+  the Asterisk RTP stack now exists as a loadable module, res_rtp_asterisk.
+  If you are not using autoload=yes in modules.conf you will need to ensure
+  it is set to load. If not, then any module which uses RTP (such as chan_sip)
+  will not be able to send or receive calls.
+
+* The app_dahdiscan.c file has been removed, but the dialplan app DAHDIScan still 
+  remains. It now exists within app_chanspy.c and retains the exact same 
+  functionality as before. 
+
+* The default behavior for Set, AGI, and pbx_realtime has been changed to implement
+  1.6 behavior by default, if there is no [compat] section in asterisk.conf.  In
+  prior versions, the behavior defaulted to 1.4 behavior, to assist in upgrades.
+  Specifically, that means that pbx_realtime and res_agi expect you to use commas
+  to separate arguments in applications, and Set only takes a single pair of
+  a variable name/value.  The old 1.4 behavior may still be obtained by setting
+  app_set, pbx_realtime, and res_agi each to 1.4 in the [compat] section of
+  asterisk.conf.
+
+* The PRI channels in chan_dahdi can no longer change the channel name if a
+  different B channel is selected during call negotiation.  To prevent using
+  the channel name to infer what B channel a call is using and to avoid name
+  collisions, the channel name format is changed.
+  The new channel naming for PRI channels is:
+  DAHDI/i<span>/<number>[:<subaddress>]-<sequence-number>
+
+* Added CHANNEL(dahdi_span), CHANNEL(dahdi_channel), and CHANNEL(dahdi_type)
+  so the dialplan can determine the B channel currently in use by the channel.
+  Use CHANNEL(no_media_path) to determine if the channel even has a B channel.
+
+* Added AMI event DAHDIChannel to associate a DAHDI channel with an Asterisk
+  channel so AMI applications can passively determine the B channel currently
+  in use.  Calls with "no-media" as the DAHDIChannel do not have an associated
+  B channel.  No-media calls are either on hold or call-waiting.
+
+* The ChanIsAvail application has been changed so the AVAILSTATUS variable
+  no longer contains both the device state and cause code. The cause code
+  is now available in the AVAILCAUSECODE variable. If existing dialplan logic
+  is written to expect AVAILSTATUS to contain the cause code it needs to be
+  changed to use AVAILCAUSECODE.
+
+* ExternalIVR will now send Z events for invalid or missing files, T events
+  now include the interrupted file and bugs in argument parsing have been
+  fixed so there may be arguments specified in incorrect ways that were
+  working that will no longer work. Please see 
+  https://wiki.asterisk.org/wiki/display/AST/External+IVR+Interface for details.
+
+* OSP lookup application changes following variable names:
+  OSPPEERIP to OSPINPEERIP
+  OSPTECH to OSPOUTTECH
+  OSPDEST to OSPDESTINATION
+  OSPCALLING to OSPOUTCALLING
+  OSPCALLED to OSPOUTCALLED
+  OSPRESULTS to OSPDESTREMAILS
+
+* The Manager event 'iax2 show peers' output has been updated.  It now has a
+  similar output of 'sip show peers'.
+
+* VoiceMailMain and VMAuthenticate, if a '*' is entered in the first position
+  of a Mailbox or Password, will, if it exists, jump to the 'a' extension in
+  the current dialplan context.
+
+* The CALLERPRES() dialplan function is deprecated in favor of
+  CALLERID(num-pres) and CALLERID(name-pres).
+
+* Environment variables that start with "AST_" are reserved to the system and
+  may no longer be set from the dialplan.
+
+* When a call is redirected inside of a Dial, the app and appdata fields of the
+  CDR will now be set to "AppDial" and "(Outgoing Line)" instead of being blank.
+
+* The CDR handling of billsec and duration field has changed. If your table
+  definition specifies those fields as float,double or similar they will now
+  be logged with microsecond accuracy instead of a whole integer.
+
+* chan_sip will no longer set up a local call forward when receiving a
+  482 Loop Detected response. The dialplan will just continue from where it
+  left off.
+
+* The 'stunaddr' option has been removed from chan_sip.  This feature did not
+  behave as expected, had no correct use case, and was not RFC compliant. The
+  removal of this feature will hopefully be followed by a correct RFC compliant
+  STUN implementation in chan_sip in the future.
+
+* The default value for the pedantic option in sip.conf has been changed
+  from "no" to "yes".
+
+* The ConnectedLineNum and ConnectedLineName headers were added to many AMI
+  events/responses if the CallerIDNum/CallerIDName headers were also present.
+  The addition of connected line support changes the behavior of the channel
+  caller ID somewhat.  The channel caller ID value no longer time shares with
+  the connected line ID on outgoing call legs.  The timing of some AMI
+  events/responses output the connected line ID as caller ID.  These party ID's
+  are now separate.
+
+* The Dial application d and H options do not automatically answer the call
+  anymore.  It broke DTMF attended transfers.  Since many SIP and ISDN phones
+  cannot send DTMF before a call is connected, you need to answer the call
+  leg to those phones before using Dial with these options for them to have
+  any effect before the dialed party answers.
+
+* The outgoing directory (where .call files are read) now uses inotify to
+  detect file changes instead of polling the directory on a regular basis.
+  If your outgoing folder is on a NFS mount or another network file system,
+  changes to the files will not be detected.  You can revert to polling the
+  directory by specifying --without-inotify to configure before compiling.
+
+* The 'sipusers' realtime table has been removed completely. Use the 'sippeers'
+  table with type 'user' for user type objects.
+
+* The sip.conf allowoverlap option now accepts 'dtmf' as a value.  If you
+  are using the early media DTMF overlap dialing method you now need to set
+  allowoverlap=dtmf.
 
 From 1.6.1 to 1.6.2:
 
@@ -47,16 +195,6 @@ From 1.6.1 to 1.6.2:
   IAX2 security document, doc/IAX2-security.pdf, for information regarding
   backwards compatibility with versions of Asterisk that do not contain these
   changes to IAX2.
-
-* Beginning with this release, Asterisk's internal methods of
-  negotiating T.38 (FAX over IP) sessions changed in
-  non-backwards-compatible ways. Any applications that previously used
-  AST_CONTROL_T38 control frames will have to be upgraded to use
-  AST_CONTROL_T38_PARAMETERS control frames instead; app_fax.c is a good
-  example of how to generate and respond to these frames. These changes
-  were made to solve significant T.38 interoperability problems between
-  Asterisk and various SIP/T.38 endpoints identified by many users of
-  Asterisk.
 
 * The 'canreinvite' option support by the SIP, MGCP and Skinny channel drivers
   has been renamed to 'directmedia', to better reflect what it actually does.
@@ -113,15 +251,20 @@ From 1.6.1 to 1.6.2:
   Georgian was incorrectly specified as "ge" but should be "ka", and Czech is
   "cs", not "cz".
 
-* The prematuremedia option in sip.conf is from this released enabled by
-  default. See sip.conf.sample
-
 * DAHDISendCallreroutingFacility() parameters are now comma-separated,
   instead of the old pipe.
 
 * res_jabber: autoprune has been disabled by default, to avoid misconfiguration 
   that would end up being interpreted as a bug once Asterisk started removing 
   the contacts from a user list.
+
+* The cdr.conf file must exist and be configured correctly in order for CDR
+  records to be written.
+
+* cdr_pgsql now assumes the encoding of strings it is handed are in LATIN9,
+  which should cover most uses of the extended ASCII set.  If your strings
+  use a different encoding in Asterisk, the "encoding" parameter may be set
+  to specify the correct character set.
 
 From 1.6.0.1 to 1.6.1:
 

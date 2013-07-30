@@ -51,7 +51,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 264405 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 339625 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -82,7 +82,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 264405 $")
 static int udptlstart = 4500;
 static int udptlend = 4599;
 static int udptldebug;	                    /*!< Are we debugging? */
-static struct sockaddr_in udptldebugaddr;   /*!< Debug packets to/from this host */
+static struct ast_sockaddr udptldebugaddr;   /*!< Debug packets to/from this host */
 #ifdef SO_NO_CHECK
 static int nochecksums;
 #endif
@@ -121,8 +121,8 @@ struct ast_udptl {
 	unsigned int lasteventseqn;
 	int nat;
 	int flags;
-	struct sockaddr_in us;
-	struct sockaddr_in them;
+	struct ast_sockaddr us;
+	struct ast_sockaddr them;
 	int *ioid;
 	struct sched_context *sched;
 	struct io_context *io;
@@ -170,13 +170,8 @@ struct ast_udptl {
 	 */
 	int local_max_ifp;
 
-	int verbose;
-
-	struct sockaddr_in far;
-
 	unsigned int tx_seq_no;
 	unsigned int rx_seq_no;
-	unsigned int rx_expected_seq_no;
 
 	udptl_fec_tx_buffer_t tx[UDPTL_BUF_MASK + 1];
 	udptl_fec_rx_buffer_t rx[UDPTL_BUF_MASK + 1];
@@ -184,17 +179,20 @@ struct ast_udptl {
 
 static AST_RWLIST_HEAD_STATIC(protos, ast_udptl_protocol);
 
-static inline int udptl_debug_test_addr(const struct sockaddr_in *addr)
+static inline int udptl_debug_test_addr(const struct ast_sockaddr *addr)
 {
 	if (udptldebug == 0)
 		return 0;
-	if (udptldebugaddr.sin_addr.s_addr) {
-		if (((ntohs(udptldebugaddr.sin_port) != 0) &&
-		     (udptldebugaddr.sin_port != addr->sin_port)) ||
-		    (udptldebugaddr.sin_addr.s_addr != addr->sin_addr.s_addr))
-			return 0;
+
+	if (ast_sockaddr_isnull(&udptldebugaddr)) {
+		return 1;
 	}
-	return 1;
+
+	if (ast_sockaddr_port(&udptldebugaddr)) {
+		return !ast_sockaddr_cmp(&udptldebugaddr, addr);
+	} else {
+		return !ast_sockaddr_cmp_addr(&udptldebugaddr, addr);
+	}
 }
 
 static int decode_length(uint8_t *buf, unsigned int limit, unsigned int *len, unsigned int *pvalue)
@@ -217,38 +215,29 @@ static int decode_length(uint8_t *buf, unsigned int limit, unsigned int *len, un
 	}
 	*pvalue = (buf[*len] & 0x3F) << 14;
 	(*len)++;
-	/* Indicate we have a fragment */
+	/* We have a fragment.  Currently we don't process fragments. */
+	ast_debug(1, "UDPTL packet with length greater than 16K received, decoding will fail\n");
 	return 1;
 }
 /*- End of function --------------------------------------------------------*/
 
 static int decode_open_type(uint8_t *buf, unsigned int limit, unsigned int *len, const uint8_t **p_object, unsigned int *p_num_octets)
 {
-	unsigned int octet_cnt;
-	unsigned int octet_idx;
-	unsigned int i;
-	int length; /* a negative length indicates the limit has been reached in decode_length. */
-	const uint8_t **pbuf;
+	unsigned int octet_cnt = 0;
 
-	for (octet_idx = 0, *p_num_octets = 0; ; octet_idx += octet_cnt) {
-		octet_cnt = 0;
-		if ((length = decode_length(buf, limit, len, &octet_cnt)) < 0)
+	if (decode_length(buf, limit, len, &octet_cnt) != 0)
+		return -1;
+
+	if (octet_cnt > 0) {
+		/* Make sure the buffer contains at least the number of bits requested */
+		if ((*len + octet_cnt) > limit)
 			return -1;
-		if (octet_cnt > 0) {
-			*p_num_octets += octet_cnt;
 
-			pbuf = &p_object[octet_idx];
-			i = 0;
-			/* Make sure the buffer contains at least the number of bits requested */
-			if ((*len + octet_cnt) > limit)
-				return -1;
-
-			*pbuf = &buf[*len];
-			*len += octet_cnt;
-		}
-		if (length == 0)
-			break;
+		*p_num_octets = octet_cnt;
+		*p_object = &buf[*len];
+		*len += octet_cnt;
 	}
+
 	return 0;
 }
 /*- End of function --------------------------------------------------------*/
@@ -299,7 +288,7 @@ static int encode_open_type(const struct ast_udptl *udptl, uint8_t *buf, unsigne
 		if ((enclen = encode_length(buf, len, num_octets)) < 0)
 			return -1;
 		if (enclen + *len > buflen) {
-			ast_log(LOG_ERROR, "(%s): Buffer overflow detected (%d + %d > %d)\n",
+			ast_log(LOG_ERROR, "UDPTL (%s): Buffer overflow detected (%d + %d > %d)\n",
 				LOG_TAG(udptl), enclen, *len, buflen);
 			return -1;
 		}
@@ -331,12 +320,12 @@ static int udptl_rx_packet(struct ast_udptl *s, uint8_t *buf, unsigned int len)
 	unsigned int count;
 	int total_count;
 	int seq_no;
-	const uint8_t *ifp;
-	const uint8_t *data;
-	unsigned int ifp_len;
+	const uint8_t *ifp = NULL;
+	const uint8_t *data = NULL;
+	unsigned int ifp_len = 0;
 	int repaired[16];
-	const uint8_t *bufs[16];
-	unsigned int lengths[16];
+	const uint8_t *bufs[ARRAY_LEN(s->f) - 1];
+	unsigned int lengths[ARRAY_LEN(s->f) - 1];
 	int span;
 	int entries;
 	int ifp_no;
@@ -366,13 +355,13 @@ static int udptl_rx_packet(struct ast_udptl *s, uint8_t *buf, unsigned int len)
 			do {
 				if ((stat2 = decode_length(buf, len, &ptr, &count)) < 0)
 					return -1;
-				for (i = 0; i < count; i++) {
+				for (i = 0; i < count && total_count + i < ARRAY_LEN(bufs); i++) {
 					if ((stat1 = decode_open_type(buf, len, &ptr, &bufs[total_count + i], &lengths[total_count + i])) != 0)
 						return -1;
 				}
-				total_count += count;
+				total_count += i;
 			}
-			while (stat2 > 0);
+			while (stat2 > 0 && total_count < ARRAY_LEN(bufs));
 			/* Step through in reverse order, so we go oldest to newest */
 			for (i = total_count; i > 0; i--) {
 				if (seq_no - i >= s->rx_seq_no) {
@@ -380,7 +369,7 @@ static int udptl_rx_packet(struct ast_udptl *s, uint8_t *buf, unsigned int len)
 					/* Decode the secondary IFP packet */
 					//fprintf(stderr, "Secondary %d, len %d\n", seq_no - i, lengths[i - 1]);
 					s->f[ifp_no].frametype = AST_FRAME_MODEM;
-					s->f[ifp_no].subclass = AST_MODEM_T38;
+					s->f[ifp_no].subclass.codec = AST_MODEM_T38;
 
 					s->f[ifp_no].mallocd = 0;
 					s->f[ifp_no].seqno = seq_no - i;
@@ -435,6 +424,9 @@ static int udptl_rx_packet(struct ast_udptl *s, uint8_t *buf, unsigned int len)
 		if (ptr + 1 > len)
 			return -1;
 		entries = buf[ptr++];
+		if (entries > MAX_FEC_ENTRIES) {
+			return -1;
+		}
 		s->rx[x].fec_entries = entries;
 
 		/* Decode the elements */
@@ -482,7 +474,7 @@ static int udptl_rx_packet(struct ast_udptl *s, uint8_t *buf, unsigned int len)
 			if (repaired[l]) {
 				//fprintf(stderr, "Fixed packet %d, len %d\n", j, l);
 				s->f[ifp_no].frametype = AST_FRAME_MODEM;
-				s->f[ifp_no].subclass = AST_MODEM_T38;
+				s->f[ifp_no].subclass.codec = AST_MODEM_T38;
 			
 				s->f[ifp_no].mallocd = 0;
 				s->f[ifp_no].seqno = j;
@@ -503,7 +495,7 @@ static int udptl_rx_packet(struct ast_udptl *s, uint8_t *buf, unsigned int len)
 	if (seq_no >= s->rx_seq_no) {
 		/* Decode the primary IFP packet */
 		s->f[ifp_no].frametype = AST_FRAME_MODEM;
-		s->f[ifp_no].subclass = AST_MODEM_T38;
+		s->f[ifp_no].subclass.codec = AST_MODEM_T38;
 		
 		s->f[ifp_no].mallocd = 0;
 		s->f[ifp_no].seqno = seq_no;
@@ -584,7 +576,7 @@ static int udptl_build_packet(struct ast_udptl *s, uint8_t *buf, unsigned int bu
 		for (i = 0; i < entries; i++) {
 			j = (entry - i - 1) & UDPTL_BUF_MASK;
 			if (encode_open_type(s, buf, buflen, &len, s->tx[j].buf, s->tx[j].buf_len) < 0) {
-				ast_debug(1, "(%s): Encoding failed at i=%d, j=%d\n",
+				ast_debug(1, "UDPTL (%s): Encoding failed at i=%d, j=%d\n",
 					  LOG_TAG(s), i, j);
 				return -1;
 			}
@@ -630,9 +622,6 @@ static int udptl_build_packet(struct ast_udptl *s, uint8_t *buf, unsigned int bu
 		break;
 	}
 
-	if (s->verbose)
-		fprintf(stderr, "\n");
-
 	s->tx_seq_no++;
 	return len;
 }
@@ -672,49 +661,56 @@ static int udptlread(int *id, int fd, short events, void *cbdata)
 struct ast_frame *ast_udptl_read(struct ast_udptl *udptl)
 {
 	int res;
-	struct sockaddr_in sin;
-	socklen_t len;
-	uint16_t seqno = 0;
-	uint16_t *udptlheader;
+	struct ast_sockaddr addr;
+	uint8_t *buf;
 
-	len = sizeof(sin);
-	
+	buf = udptl->rawdata + AST_FRIENDLY_OFFSET;
+
 	/* Cache where the header will go */
-	res = recvfrom(udptl->fd,
-			udptl->rawdata + AST_FRIENDLY_OFFSET,
+	res = ast_recvfrom(udptl->fd,
+			buf,
 			sizeof(udptl->rawdata) - AST_FRIENDLY_OFFSET,
 			0,
-			(struct sockaddr *) &sin,
-			&len);
-	udptlheader = (uint16_t *)(udptl->rawdata + AST_FRIENDLY_OFFSET);
+			&addr);
 	if (res < 0) {
 		if (errno != EAGAIN)
-			ast_log(LOG_WARNING, "(%s): UDPTL read error: %s\n",
+			ast_log(LOG_WARNING, "UDPTL (%s): read error: %s\n",
 				LOG_TAG(udptl), strerror(errno));
 		ast_assert(errno != EBADF);
 		return &ast_null_frame;
 	}
 
 	/* Ignore if the other side hasn't been given an address yet. */
-	if (!udptl->them.sin_addr.s_addr || !udptl->them.sin_port)
+	if (ast_sockaddr_isnull(&udptl->them)) {
 		return &ast_null_frame;
+	}
 
 	if (udptl->nat) {
 		/* Send to whoever sent to us */
-		if ((udptl->them.sin_addr.s_addr != sin.sin_addr.s_addr) ||
-			(udptl->them.sin_port != sin.sin_port)) {
-			memcpy(&udptl->them, &sin, sizeof(udptl->them));
-			ast_debug(1, "UDPTL NAT (%s): Using address %s:%d\n",
-				  LOG_TAG(udptl), ast_inet_ntoa(udptl->them.sin_addr), ntohs(udptl->them.sin_port));
+		if (ast_sockaddr_cmp(&udptl->them, &addr)) {
+			ast_sockaddr_copy(&udptl->them, &addr);
+			ast_debug(1, "UDPTL (%s): NAT, Using address %s\n",
+				  LOG_TAG(udptl), ast_sockaddr_stringify(&udptl->them));
 		}
 	}
 
-	if (udptl_debug_test_addr(&sin)) {
-		ast_verb(1, "UDPTL (%s): packet from %s:%d (type %d, seq %d, len %d)\n",
-			 LOG_TAG(udptl), ast_inet_ntoa(sin.sin_addr), ntohs(sin.sin_port), 0, seqno, res);
+	if (udptl_debug_test_addr(&addr)) {
+		int seq_no;
+
+		/* Decode sequence number just for verbose message. */
+		if (res < 2) {
+			/* Short packet. */
+			seq_no = -1;
+		} else {
+			seq_no = (buf[0] << 8) | buf[1];
+		}
+
+		ast_verb(1, "UDPTL (%s): packet from %s (seq %d, len %d)\n",
+			LOG_TAG(udptl), ast_sockaddr_stringify(&addr), seq_no, res);
 	}
-	if (udptl_rx_packet(udptl, udptl->rawdata + AST_FRIENDLY_OFFSET, res) < 1)
+	if (udptl_rx_packet(udptl, buf, res) < 1) {
 		return &ast_null_frame;
+	}
 
 	return &udptl->f[0];
 }
@@ -724,7 +720,7 @@ static void calculate_local_max_datagram(struct ast_udptl *udptl)
 	unsigned int new_max = 0;
 
 	if (udptl->local_max_ifp == -1) {
-		ast_log(LOG_WARNING, "(%s): Cannot calculate local_max_datagram before local_max_ifp has been set.\n",
+		ast_log(LOG_WARNING, "UDPTL (%s): Cannot calculate local_max_datagram before local_max_ifp has been set.\n",
 			LOG_TAG(udptl));
 		udptl->local_max_datagram = -1;
 		return;
@@ -765,7 +761,7 @@ static void calculate_far_max_ifp(struct ast_udptl *udptl)
 	unsigned new_max = 0;
 
 	if (udptl->far_max_datagram == -1) {
-		ast_log(LOG_WARNING, "(%s): Cannot calculate far_max_ifp before far_max_datagram has been set.\n",
+		ast_log(LOG_WARNING, "UDPTL (%s): Cannot calculate far_max_ifp before far_max_datagram has been set.\n",
 			LOG_TAG(udptl));
 		udptl->far_max_ifp = -1;
 		return;
@@ -916,7 +912,7 @@ unsigned int ast_udptl_get_far_max_ifp(struct ast_udptl *udptl)
 	return udptl->far_max_ifp;
 }
 
-struct ast_udptl *ast_udptl_new_with_bindaddr(struct sched_context *sched, struct io_context *io, int callbackmode, struct in_addr addr)
+struct ast_udptl *ast_udptl_new_with_bindaddr(struct sched_context *sched, struct io_context *io, int callbackmode, struct ast_sockaddr *addr)
 {
 	struct ast_udptl *udptl;
 	int x;
@@ -940,10 +936,8 @@ struct ast_udptl *ast_udptl_new_with_bindaddr(struct sched_context *sched, struc
 		udptl->tx[i].buf_len = -1;
 	}
 
-	udptl->them.sin_family = AF_INET;
-	udptl->us.sin_family = AF_INET;
-
-	if ((udptl->fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	if ((udptl->fd = socket(ast_sockaddr_is_ipv6(addr) ?
+					AF_INET6 : AF_INET, SOCK_DGRAM, 0)) < 0) {
 		ast_free(udptl);
 		ast_log(LOG_WARNING, "Unable to allocate socket: %s\n", strerror(errno));
 		return NULL;
@@ -961,10 +955,11 @@ struct ast_udptl *ast_udptl_new_with_bindaddr(struct sched_context *sched, struc
 	}
 	startplace = x;
 	for (;;) {
-		udptl->us.sin_port = htons(x);
-		udptl->us.sin_addr = addr;
-		if (bind(udptl->fd, (struct sockaddr *) &udptl->us, sizeof(udptl->us)) == 0)
+		ast_sockaddr_copy(&udptl->us, addr);
+		ast_sockaddr_set_port(&udptl->us, x);
+		if (ast_bind(udptl->fd, &udptl->us) == 0) {
 			break;
+		}
 		if (errno != EADDRINUSE) {
 			ast_log(LOG_WARNING, "Unexpected bind error: %s\n", strerror(errno));
 			close(udptl->fd);
@@ -994,21 +989,12 @@ struct ast_udptl *ast_udptl_new_with_bindaddr(struct sched_context *sched, struc
 	return udptl;
 }
 
-struct ast_udptl *ast_udptl_new(struct sched_context *sched, struct io_context *io, int callbackmode)
-{
-	struct in_addr ia;
-	memset(&ia, 0, sizeof(ia));
-	return ast_udptl_new_with_bindaddr(sched, io, callbackmode, ia);
-}
-
 void ast_udptl_set_tag(struct ast_udptl *udptl, const char *format, ...)
 {
 	va_list ap;
 
-	if (udptl->tag) {
-		ast_free(udptl->tag);
-		udptl->tag = NULL;
-	}
+	ast_free(udptl->tag);
+	udptl->tag = NULL;
 	va_start(ap, format);
 	if (ast_vasprintf(&udptl->tag, format, ap) == -1) {
 		udptl->tag = NULL;
@@ -1021,29 +1007,24 @@ int ast_udptl_setqos(struct ast_udptl *udptl, unsigned int tos, unsigned int cos
 	return ast_netsock_set_qos(udptl->fd, tos, cos, "UDPTL");
 }
 
-void ast_udptl_set_peer(struct ast_udptl *udptl, const struct sockaddr_in *them)
+void ast_udptl_set_peer(struct ast_udptl *udptl, const struct ast_sockaddr *them)
 {
-	udptl->them.sin_port = them->sin_port;
-	udptl->them.sin_addr = them->sin_addr;
+	ast_sockaddr_copy(&udptl->them, them);
 }
 
-void ast_udptl_get_peer(const struct ast_udptl *udptl, struct sockaddr_in *them)
+void ast_udptl_get_peer(const struct ast_udptl *udptl, struct ast_sockaddr *them)
 {
-	memset(them, 0, sizeof(*them));
-	them->sin_family = AF_INET;
-	them->sin_port = udptl->them.sin_port;
-	them->sin_addr = udptl->them.sin_addr;
+	ast_sockaddr_copy(them, &udptl->them);
 }
 
-void ast_udptl_get_us(const struct ast_udptl *udptl, struct sockaddr_in *us)
+void ast_udptl_get_us(const struct ast_udptl *udptl, struct ast_sockaddr *us)
 {
-	memcpy(us, &udptl->us, sizeof(udptl->us));
+	ast_sockaddr_copy(us, &udptl->us);
 }
 
 void ast_udptl_stop(struct ast_udptl *udptl)
 {
-	memset(&udptl->them.sin_addr, 0, sizeof(udptl->them.sin_addr));
-	memset(&udptl->them.sin_port, 0, sizeof(udptl->them.sin_port));
+	ast_sockaddr_setnull(&udptl->them);
 }
 
 void ast_udptl_destroy(struct ast_udptl *udptl)
@@ -1068,24 +1049,25 @@ int ast_udptl_write(struct ast_udptl *s, struct ast_frame *f)
 
 	memset(buf, 0, sizeof(buf));
 
-	/* If we have no peer, return immediately */	
-	if (s->them.sin_addr.s_addr == INADDR_ANY)
+	/* If we have no peer, return immediately */
+	if (ast_sockaddr_isnull(&s->them)) {
 		return 0;
+	}
 
 	/* If there is no data length, return immediately */
 	if (f->datalen == 0)
 		return 0;
 	
 	if ((f->frametype != AST_FRAME_MODEM) ||
-	    (f->subclass != AST_MODEM_T38)) {
-		ast_log(LOG_WARNING, "(%s): UDPTL can only send T.38 data.\n",
+	    (f->subclass.codec != AST_MODEM_T38)) {
+		ast_log(LOG_WARNING, "UDPTL (%s): UDPTL can only send T.38 data.\n",
 			LOG_TAG(s));
 		return -1;
 	}
 
 	if (len > s->far_max_ifp) {
 		ast_log(LOG_WARNING,
-			"(%s): UDPTL asked to send %d bytes of IFP when far end only prepared to accept %d bytes; data loss will occur."
+			"UDPTL (%s): UDPTL asked to send %d bytes of IFP when far end only prepared to accept %d bytes; data loss will occur."
 			"You may need to override the T38FaxMaxDatagram value for this endpoint in the channel driver configuration.\n",
 			LOG_TAG(s), len, s->far_max_ifp);
 		len = s->far_max_ifp;
@@ -1097,13 +1079,13 @@ int ast_udptl_write(struct ast_udptl *s, struct ast_frame *f)
 	/* Cook up the UDPTL packet, with the relevant EC info. */
 	len = udptl_build_packet(s, buf, sizeof(buf), f->data.ptr, len);
 
-	if ((signed int) len > 0 && s->them.sin_port && s->them.sin_addr.s_addr) {
-		if ((res = sendto(s->fd, buf, len, 0, (struct sockaddr *) &s->them, sizeof(s->them))) < 0)
-			ast_log(LOG_NOTICE, "(%s): UDPTL Transmission error to %s:%d: %s\n",
-				LOG_TAG(s), ast_inet_ntoa(s->them.sin_addr), ntohs(s->them.sin_port), strerror(errno));
+	if ((signed int) len > 0 && !ast_sockaddr_isnull(&s->them)) {
+		if ((res = ast_sendto(s->fd, buf, len, 0, &s->them)) < 0)
+			ast_log(LOG_NOTICE, "UDPTL (%s): Transmission error to %s: %s\n",
+				LOG_TAG(s), ast_sockaddr_stringify(&s->them), strerror(errno));
 		if (udptl_debug_test_addr(&s->them))
-			ast_verb(1, "UDPTL (%s): packet to %s:%d (type %d, seq %d, len %d)\n",
-				 LOG_TAG(s), ast_inet_ntoa(s->them.sin_addr), ntohs(s->them.sin_port), 0, seq, len);
+			ast_verb(1, "UDPTL (%s): packet to %s (seq %d, len %d)\n",
+				LOG_TAG(s), ast_sockaddr_stringify(&s->them), seq, len);
 	}
 		
 	return 0;
@@ -1156,10 +1138,10 @@ int ast_udptl_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, 
 	struct ast_udptl *p1;
 	struct ast_udptl_protocol *pr0;
 	struct ast_udptl_protocol *pr1;
-	struct sockaddr_in ac0;
-	struct sockaddr_in ac1;
-	struct sockaddr_in t0;
-	struct sockaddr_in t1;
+	struct ast_sockaddr ac0;
+	struct ast_sockaddr ac1;
+	struct ast_sockaddr t0;
+	struct ast_sockaddr t1;
 	void *pvt0;
 	void *pvt1;
 	int to;
@@ -1224,19 +1206,19 @@ int ast_udptl_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, 
 		to = -1;
 		ast_udptl_get_peer(p1, &t1);
 		ast_udptl_get_peer(p0, &t0);
-		if (inaddrcmp(&t1, &ac1)) {
-			ast_debug(1, "Oooh, '%s' changed end address to %s:%d\n", 
-				c1->name, ast_inet_ntoa(t1.sin_addr), ntohs(t1.sin_port));
-			ast_debug(1, "Oooh, '%s' was %s:%d\n", 
-				c1->name, ast_inet_ntoa(ac1.sin_addr), ntohs(ac1.sin_port));
-			memcpy(&ac1, &t1, sizeof(ac1));
+		if (ast_sockaddr_cmp(&t1, &ac1)) {
+			ast_debug(1, "Oooh, '%s' changed end address to %s\n", 
+				c1->name, ast_sockaddr_stringify(&t1));
+			ast_debug(1, "Oooh, '%s' was %s\n", 
+				c1->name, ast_sockaddr_stringify(&ac1));
+			ast_sockaddr_copy(&ac1, &t1);
 		}
-		if (inaddrcmp(&t0, &ac0)) {
-			ast_debug(1, "Oooh, '%s' changed end address to %s:%d\n", 
-				c0->name, ast_inet_ntoa(t0.sin_addr), ntohs(t0.sin_port));
-			ast_debug(1, "Oooh, '%s' was %s:%d\n", 
-				c0->name, ast_inet_ntoa(ac0.sin_addr), ntohs(ac0.sin_port));
-			memcpy(&ac0, &t0, sizeof(ac0));
+		if (ast_sockaddr_cmp(&t0, &ac0)) {
+			ast_debug(1, "Oooh, '%s' changed end address to %s\n", 
+				c0->name, ast_sockaddr_stringify(&t0));
+			ast_debug(1, "Oooh, '%s' was %s\n", 
+				c0->name, ast_sockaddr_stringify(&ac0));
+			ast_sockaddr_copy(&ac0, &t0);
 		}
 		who = ast_waitfor_n(cs, 2, &to);
 		if (!who) {
@@ -1274,12 +1256,6 @@ int ast_udptl_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, 
 
 static char *handle_cli_udptl_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	struct hostent *hp;
-	struct ast_hostent ahp;
-	int port;
-	char *p;
-	char *arg;
-
 	switch (cmd) {
 	case CLI_INIT:
 		e->command = "udptl set debug {on|off|ip}";
@@ -1308,27 +1284,16 @@ static char *handle_cli_udptl_set_debug(struct ast_cli_entry *e, int cmd, struct
 			return CLI_SHOWUSAGE;
 		}
 	} else {
+		struct ast_sockaddr *addrs;
 		if (strncasecmp(a->argv[3], "ip", 2))
 			return CLI_SHOWUSAGE;
-		port = 0;
-		arg = a->argv[4];
-		p = strstr(arg, ":");
-		if (p) {
-			*p = '\0';
-			p++;
-			port = atoi(p);
-		}
-		hp = ast_gethostbyname(arg, &ahp);
-		if (hp == NULL)
+		if (!ast_sockaddr_resolve(&addrs, a->argv[4], 0, 0)) {
 			return CLI_SHOWUSAGE;
-		udptldebugaddr.sin_family = AF_INET;
-		memcpy(&udptldebugaddr.sin_addr, hp->h_addr, sizeof(udptldebugaddr.sin_addr));
-		udptldebugaddr.sin_port = htons(port);
-		if (port == 0)
-			ast_cli(a->fd, "UDPTL Debugging Enabled for IP: %s\n", ast_inet_ntoa(udptldebugaddr.sin_addr));
-		else
-			ast_cli(a->fd, "UDPTL Debugging Enabled for IP: %s:%d\n", ast_inet_ntoa(udptldebugaddr.sin_addr), port);
+		}
+		ast_sockaddr_copy(&udptldebugaddr, &addrs[0]);
+			ast_cli(a->fd, "UDPTL Debugging Enabled for IP: %s\n", ast_sockaddr_stringify(&udptldebugaddr));
 		udptldebug = 1;
+		ast_free(addrs);
 	}
 
 	return CLI_SUCCESS;

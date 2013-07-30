@@ -26,10 +26,13 @@
  * \author Claude Klimos (claude.klimos@aheeva.com)
  */
 
+/*** MODULEINFO
+	<support_level>extended</support_level>
+ ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232359 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 
 #include "asterisk/module.h"
 #include "asterisk/lock.h"
@@ -124,7 +127,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232359 $")
 
  ***/
 
-static char *app = "AMD";
+static const char app[] = "AMD";
 
 #define STATE_IN_WORD       1
 #define STATE_IN_SILENCE    2
@@ -143,7 +146,7 @@ static int dfltMaximumWordLength    = 5000; /* Setting this to a large default s
 /* Set to the lowest ms value provided in amd.conf or application parameters */
 static int dfltMaxWaitTimeForFrame  = 50;
 
-static void isAnsweringMachine(struct ast_channel *chan, void *data)
+static void isAnsweringMachine(struct ast_channel *chan, const char *data)
 {
 	int res = 0;
 	struct ast_frame *f = NULL;
@@ -156,7 +159,6 @@ static void isAnsweringMachine(struct ast_channel *chan, void *data)
 	int iTotalTime = 0;
 	int iWordsCount = 0;
 	int currentState = STATE_IN_WORD;
-	int previousState = STATE_IN_SILENCE;
 	int consecutiveVoiceDuration = 0;
 	char amdCause[256] = "", amdStatus[256] = "";
 	char *parse = ast_strdupa(data);
@@ -188,7 +190,10 @@ static void isAnsweringMachine(struct ast_channel *chan, void *data)
 		AST_APP_ARG(argMaximumWordLength);
 	);
 
-	ast_verb(3, "AMD: %s %s %s (Fmt: %d)\n", chan->name ,chan->cid.cid_ani, chan->cid.cid_rdnis, chan->readformat);
+	ast_verb(3, "AMD: %s %s %s (Fmt: %s)\n", chan->name,
+		S_COR(chan->caller.ani.number.valid, chan->caller.ani.number.str, "(N/A)"),
+		S_COR(chan->redirecting.from.number.valid, chan->redirecting.from.number.str, "(N/A)"),
+		ast_getformatname(chan->readformat));
 
 	/* Lets parse the arguments. */
 	if (!ast_strlen_zero(parse)) {
@@ -270,10 +275,11 @@ static void isAnsweringMachine(struct ast_channel *chan, void *data)
 
 		if (f->frametype == AST_FRAME_VOICE || f->frametype == AST_FRAME_NULL || f->frametype == AST_FRAME_CNG) {
 			/* If the total time exceeds the analysis time then give up as we are not too sure */
-			if (f->frametype == AST_FRAME_VOICE)
+			if (f->frametype == AST_FRAME_VOICE) {
 				framelength = (ast_codec_get_samples(f) / DEFAULT_SAMPLES_PER_MS);
-			else
-				framelength += 2 * maxWaitTimeForFrame;
+			} else {
+				framelength = 2 * maxWaitTimeForFrame;
+			}
 
 			iTotalTime += framelength;
 			if (iTotalTime >= totalAnalysisTime) {
@@ -297,7 +303,6 @@ static void isAnsweringMachine(struct ast_channel *chan, void *data)
 				
 				if (silenceDuration >= betweenWordsSilence) {
 					if (currentState != STATE_IN_SILENCE ) {
-						previousState = currentState;
 						ast_verb(3, "AMD: Channel [%s]. Changed state to STATE_IN_SILENCE\n", chan->name);
 					}
 					/* Find words less than word duration */
@@ -337,7 +342,6 @@ static void isAnsweringMachine(struct ast_channel *chan, void *data)
 				if (consecutiveVoiceDuration >= minimumWordLength && currentState == STATE_IN_SILENCE) {
 					iWordsCount++;
 					ast_verb(3, "AMD: Channel [%s]. Word detected. iWordsCount:%d\n", chan->name, iWordsCount);
-					previousState = currentState;
 					currentState = STATE_IN_WORD;
 				}
 				if (consecutiveVoiceDuration >= maximumWordLength){
@@ -405,7 +409,7 @@ static void isAnsweringMachine(struct ast_channel *chan, void *data)
 }
 
 
-static int amd_exec(struct ast_channel *chan, void *data)
+static int amd_exec(struct ast_channel *chan, const char *data)
 {
 	isAnsweringMachine(chan, data);
 
