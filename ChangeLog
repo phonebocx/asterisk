@@ -1,3 +1,304 @@
+2006-08-22 Kevin P. Fleming <kpfleming@digium.com>
+
+	* Asterisk 1.2.11 released
+
+2006-08-22 02:59 +0000 [r40821]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_random.c: Bug 7779 - Using initstate(3) means that we
+	  cannot unload this module once loaded.
+
+2006-08-21 22:34 +0000 [r40798]  Matt O'Gorman <mogorman@digium.com>
+
+	* asterisk.c: Move the load_modules call so that if a module needs
+	  realtime support it will work, none do currently but a good move
+	  none the less.
+
+2006-08-20 22:09 +0000 [r40692]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* CREDITS: Reformat to match the contribution style of other
+	  contributors
+
+2006-08-20 04:49 +0000 [r40601]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Turn media level c= parsing on by default
+	  (issue #7725 reported by psm)
+
+2006-08-19 01:03 +0000 [r40446]  Jason Parker <jparker@digium.com>
+
+	* apps/app_voicemail.c, apps/app_directory.c: Fix a bug with
+	  app_voicemail when trying to use app_directory to leave messages
+	  to another user (options 3, 5, 2). If the context/extension
+	  didn't exist in the dialplan (and why should it have to?), it
+	  would fail, saying that it's an "invalid extension". Fix was
+	  different in svn trunk. (issue BE-71)
+
+2006-08-18 19:10 +0000 [r40310-40392]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* configs/zapata.conf.sample: make a feeble attempt to avoid the
+	  'how do I enable my hardware echo canceler' questions
+
+	* channels/misdn_config.c (added), channels/chan_misdn_config.c
+	  (removed): rename file per crichter's request
+
+2006-08-17 21:57 +0000 [r40306]  Christian Richter <christian.richter@beronet.com>
+
+	* doc/README.misdn, channels/misdn/mISDN.patch (removed),
+	  channels/misdn/isdn_lib.h, channels/chan_misdn.c,
+	  channels/misdn/fac.c (added), channels/misdn/Makefile,
+	  channels/misdn/chan_misdn_config.h, channels/misdn/ie.c,
+	  channels/misdn/fac.h (added), channels/misdn/portinfo.c
+	  (removed), channels/misdn/isdn_lib_intern.h,
+	  channels/chan_misdn_config.c, channels/misdn/isdn_msg_parser.c,
+	  configs/misdn.conf.sample, channels/Makefile,
+	  channels/misdn/isdn_lib.c: This rather small ;-) commit merges
+	  the changes from my team branch 0.3.0 into t he 1.2 branch. These
+	  changes include the new mISDN mqueue interface which makes it
+	  possible to compile chan_misdn against the current cvs version of
+	  mISDN/mISDNuser. These changes also contain various additions and
+	  numerous bugfixes to chan_misdn . Each change is documented in
+	  the commit logs in the team/crichter/0.3.0 branch.
+
+2006-08-17 16:36 +0000 [r40227]  Russell Bryant <russell@digium.com>
+
+	* channel.c: revert bogus change to attempt to fix bug 7506 which
+	  actually causes half of the channels not to get "Newchannel"
+	  events at all (issue #7745)
+
+2006-08-17 16:22 +0000 [r40223-40225]  Joshua Colp <jcolp@digium.com>
+
+	* funcs/func_cdr.c: Use the last CDR entry instead of the first CDR
+	  entry for variable retrieving variables using the CDR dialplan
+	  function. (issue #7689 reported by voipgate)
+
+	* apps/app_macro.c: Make app_macro compile again
+
+2006-08-17 16:07 +0000 [r40220]  Steve Murphy <murf@digium.com>
+
+	* apps/app_macro.c: In app_macro, changed the previously changed
+	  upper recursion depth limit to a variable, default of the
+	  original val of 7. MACRO_RECURSION is a channel variable that
+	  will override the limit, but until I can understand and fix why
+	  this limit is neccessary, I am not advertising this variable in
+	  the docs. This fix mirrors the changes made in r40200 in trunk.
+
+2006-08-16 18:57 +0000 [r40057]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_mgcp.c: don't allow AUEP responses to overflow the
+	  stack during a string copy (reported by Mu Security)
+
+2006-08-15 22:49 +0000 [r39935]  Russell Bryant <russell@digium.com>
+
+	* res/res_agi.c: use pbx_builtin_getvar_helper() so that GET
+	  VARIABLE can retrieve global variables (issue #7609)
+
+2006-08-15 22:13 +0000 [r39931]  Steve Murphy <murf@digium.com>
+
+	* apps/app_macro.c: This revision fixes bug 7731, the inability for
+	  macros to be called more than one level deep in the 'h'
+	  extension. It also pushes up the limit of recursion depth from 7
+	  to 20.
+
+2006-08-08 18:39 +0000 [r39379]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* CREDITS: add explicit listing of anthm's contributions (issue
+	  #7683)
+
+2006-08-08 17:04 +0000 [r39350]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_sip.c: Increase the buffer size for the callid
+	  (issue #7675, reported by pssatcs)
+
+2006-08-07 01:28 +0000 [r39081]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_zap.c: Fix a crash reported to me by hads on IRC.
+	  This crash would occur with the use of the
+	  "distinctiveringaftercid" option. Also, on this user's system,
+	  the crash would only occur when built without optimizations. This
+	  is because the bug is that the code would write past the end of
+	  an array that was allocated on the stack, and the structure of
+	  the stack is different with or without optimizations enabled.
+
+2006-08-07 00:15 +0000 [r39056]  Joshua Colp <jcolp@digium.com>
+
+	* channel.c: Reset our stream and vstream pointers back to NULL so
+	  that any generator that uses them (file based MOH) will not try
+	  to close them again. (issue #7668 reported by jmls)
+
+2006-08-05 09:01 +0000 [r38903-38982]  Russell Bryant <russell@digium.com>
+
+	* channel.c: Always generate a Newstate event in ast_setstate()
+	  instead of making it a Newchannel event if the state was
+	  AST_STATE_DOWN. The Newchannel event will always be generated in
+	  ast_request(), so this just causes a duplicated Newchannel event
+	  in some cases. (issue #7506, repoted by capouch, fixed by me)
+
+	* apps/app_queue.c: remove duplicate queue log entry when the
+	  caller exits on a timeout (issue #7616, ppyy)
+
+	* channels/chan_sip.c: don't advertise that this function can set a
+	  SIP header when it can only do reads
+
+	* apps/app_dial.c: make sure the priv-callerintros directory exists
+	  before trying to create a file there (issue #7659, patch by hads,
+	  with some modifications by me)
+
+	* channels/chan_mgcp.c, channels/chan_vpb.c, channels/chan_phone.c,
+	  channels/chan_misdn.c, channels/chan_zap.c, channels/chan_sip.c,
+	  channels/chan_skinny.c, channels/chan_h323.c,
+	  channels/chan_modem.c, channels/chan_iax2.c: Fix an issue that
+	  would cause a NewCallerID manager event to be generated before
+	  the channel's NewChannel event. This was due to a somewhat recent
+	  change that included using ast_set_callerid() where it wasn't
+	  before. This function should not be used in the channel driver
+	  "new" functions. (issue #7654, fixed by me) Also, fix a couple
+	  minor bugs in usecount handling. chan_iax2 could have increased
+	  the usecount but then returned an error. The place where chan_sip
+	  increased the usecount did not call ast_update_usecount()
+
+	* channel.c: suppress a compiler warning about the usage of a
+	  potentially uninitialized variable
+
+2006-08-03 19:54 +0000 [r38825]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_musiconhold.c: Treat the file as invalid if we have no
+	  valid formats for it (issue #7643 reported by KNK)
+
+2006-08-03 05:22 +0000 [r38761]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c: Bug 7648 - Checking wrong count for
+	  plurality on new messages for Dutch language
+
+2006-08-02 19:29 +0000 [r38686-38731]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_sip.c: fix brain-damage I introduced when trying to
+	  fix the CANCEL/BYE sending mechanism for pending INVITES accept
+	  unknown 1xx responses as 183 responses (as RFC3261 mandates we
+	  should do)
+
+	* res/res_features.c, channel.c: ensure that the 'feature digit
+	  timeout' value is taken into account when deciding how long the
+	  bridge should run (this fixes a problem report where a digit
+	  press that did not invoke a feature is never passed across the
+	  bridge)
+
+2006-08-01 19:20 +0000 [r38654]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_musiconhold.c: Close the stream when file based MOH stop.
+	  This won't get rid of their position in the file but it will
+	  cause the translation path to be setup again. (issue #7634
+	  reported by asimpson)
+
+2006-07-31 21:14 +0000 [r38611]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_sip.c: don't reissue hangup requests for SIP
+	  channels that have expired their RTP timeouts (one time is
+	  enough) don't rescan the SIP private structure list too fast, it
+	  can cause channels to not be able to hang up (issue #7495, and
+	  probably others) use ast_softhangup_nolock() since we already
+	  hold the channel's lock
+
+2006-07-31 17:09 +0000 [r38585]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_features.c: Add missing code to bring transferee channel
+	  out of MOH/autoservice under certain circumstance (issue #7611
+	  reported by guillecabeza with minor mods by myself)
+
+2006-07-31 04:06 +0000 [r38546-38547]  Russell Bryant <russell@digium.com>
+
+	* frame.c: one more small tweak for thread-safety of TRACE_FRAMES
+
+	* frame.c: Make the frame counting done with TRACE_FRAMES defined
+	  thread-safe
+
+2006-07-29 23:18 +0000 [r38501]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: How many attempts does it take to make a SIP
+	  URI parser that works well? I'm up to 5 personally. On to the
+	  good stuff - parse the domain first, user second, and get rid of
+	  port & options/params last. (issue #7616 reported by andrew)
+
+2006-07-28 18:49 +0000 [r38420]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Make a copy of the request URI in
+	  check_user_full instead of modifying the one on the structure,
+	  and also strip params properly from the user portion of the SIP
+	  URI so as to preserve the domain (issue #7552 reported by dan42)
+
+2006-07-27 22:23 +0000 [r38347-38370]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* apps/app_chanspy.c: use the enum that defines the option
+	  arguments, so that the likelihood of mismatched option indexes is
+	  reduced (which in this case was a bug, the volume argument was
+	  not checked properly)
+
+	* channel.c: do a better job avoiding translation path
+	  teardown/setup when not needed
+
+2006-07-27 04:25 +0000 [r38328]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_iax2.c: Fix crash when using the "regexten" option
+	  with MALLOC_DEBUG enabled. This was not reported in the bug
+	  tracker but the same bug has been demonstrated in other places in
+	  the code.
+
+2006-07-27 02:43 +0000 [r38310]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channel.c: don't do useless translation destroy/build when the
+	  channel is already in the correct format
+
+2006-07-27 01:58 +0000 [r38288]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_sip.c: fix a crash when MALLOC_DEBUG is enabled and
+	  the regexten is enabled. The crash would occur when the extension
+	  got removed. (fixes issue #7484)
+
+2006-07-26 15:26 +0000 [r38234]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Put default callerid into contact when the
+	  one specified is either NULL or has a zero string length. (issue
+	  #7590 reported by key2)
+
+2006-07-25 19:43 +0000 [r38200]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_zap.c: This resolves a deadlock that a tech support
+	  customer was getting frequently when his users would answer call
+	  waiting. If another thread is currently holding the zt_pvt lock
+	  for the first channel, unlock both channels and let asterisk
+	  retry the native bridge, just like what is done for the second
+	  channel directly below these changes.
+
+2006-07-24 17:05 +0000 [r38167]  Steve Murphy <murf@digium.com>
+
+	* codecs/gsm/Makefile: This fixes a compile problem for s390 as
+	  reported in bug 7253. Tested on both an s390 and non-s390
+	  machine.
+
+2006-07-19 17:10 +0000 [r37949]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_iax2.c: ensure that global 'maxauthreq' is reset to
+	  zero during 'reload'
+
+2006-07-18 00:41 +0000 [r37828-37856]  Russell Bryant <russell@digium.com>
+
+	* frame.c: don't crash if the frame has no data, but has a src
+
+	* frame.c: if asked to duplicate a frame that has no data, don't
+	  set the frame's data pointer past the end of the allocatted
+	  buffer for the new frame
+
+2006-07-17 22:36 +0000 [r37765-37808]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* formats/format_h263.c: Backport buffer increase to 1.2
+
+	* formats/format_h263.c: Overflow bad
+
+2006-07-15 23:29 +0000 [r37691]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* enum.c: Bug 7513 - ensure that each time we do a query, the
+	  results are returned in the same logical order, so that when we
+	  iterate over the list, we get all results, not some results
+	  repeated, due to insufficient sorting.
+
 2006-07-14 Kevin P. Fleming <kpfleming@digium.com>
 
 	* Asterisk 1.2.10 released

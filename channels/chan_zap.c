@@ -68,7 +68,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37419 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 39081 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -759,8 +759,6 @@ static struct zt_ring_cadence cadences[NUM_CADENCE_MAX] = {
 	{ { 125, 125, 125, 125, 125, 4000 } },	/*!< Three short bursts */
 	{ { 1000, 500, 2500, 5000 } },	/*!< Long ring */
 };
-
-int receivedRingT; /*!< Used to find out what ringtone we are on */
 
 /*! \brief cidrings says in which pause to transmit the cid information, where the first pause
  * is 1, the second pause is 2 and so on.
@@ -3047,7 +3045,13 @@ static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_chann
 	oc0 = p0->owner;
 	oc1 = p1->owner;
 
-	ast_mutex_lock(&p0->lock);
+	if (ast_mutex_trylock(&p0->lock)) {
+		/* Don't block, due to potential for deadlock */
+		ast_mutex_unlock(&c0->lock);
+		ast_mutex_unlock(&c1->lock);
+		ast_log(LOG_NOTICE, "Avoiding deadlock...\n");
+		return AST_BRIDGE_RETRY;
+	}
 	if (ast_mutex_trylock(&p1->lock)) {
 		/* Don't block, due to potential for deadlock */
 		ast_mutex_unlock(&p0->lock);
@@ -5112,9 +5116,21 @@ static struct ast_channel *zt_new(struct zt_pvt *i, int state, int startpbx, int
 			tmp->cid.cid_dnid = strdup(i->dnid);
 
 #ifdef PRI_ANI
-		ast_set_callerid(tmp, i->cid_num, i->cid_name, ast_strlen_zero(i->cid_ani) ? i->cid_num : i->cid_ani);
+		if (!ast_strlen_zero(i->cid_num))
+			tmp->cid.cid_num = strdup(i->cid_num);
+		if (!ast_strlen_zero(i->cid_name))
+			tmp->cid.cid_name = strdup(i->cid_name);
+		if (!ast_strlen_zero(i->cid_ani))
+			tmp->cid.cid_ani = strdup(i->cid_num);
+		else if (!ast_strlen_zero(i->cid_num))	
+			tmp->cid.cid_ani = strdup(i->cid_num);
 #else
-		ast_set_callerid(tmp, i->cid_num, i->cid_name, i->cid_num);
+		if (!ast_strlen_zero(i->cid_num)) {
+			tmp->cid.cid_num = strdup(i->cid_num);
+			tmp->cid.cid_ani = strdup(i->cid_num);
+		}
+		if (!ast_strlen_zero(i->cid_name))
+			tmp->cid.cid_name = strdup(i->cid_name);
 #endif
 		tmp->cid.cid_pres = i->callingpres;
 		tmp->cid.cid_ton = i->cid_ton;
@@ -5928,9 +5944,8 @@ static void *ss_thread(void *data)
 						len = 0;
 						distMatches = 0;
 						/* Clear the current ring data array so we dont have old data in it. */
-						for (receivedRingT=0; receivedRingT < 3; receivedRingT++) {
+						for (receivedRingT=0; receivedRingT < (sizeof(curRingData) / sizeof(curRingData[0])); receivedRingT++)
 							curRingData[receivedRingT] = 0;
-						}
 						receivedRingT = 0;
 						counter = 0;
 						counter1 = 0;
@@ -5958,8 +5973,10 @@ static void *ss_thread(void *data)
 		
 								if (p->ringt < p->ringt_base/2)
 									break;
-								++receivedRingT; /* Increment the ringT counter so we can match it against
-										values in zapata.conf for distinctive ring */
+								/* Increment the ringT counter so we can match it against
+								   values in zapata.conf for distinctive ring */
+								if (++receivedRingT == (sizeof(curRingData) / sizeof(curRingData[0])))
+									break;
 							} else if (i & ZT_IOMUX_READ) {
 								res = read(p->subs[index].zfd, buf, sizeof(buf));
 								if (res < 0) {
@@ -6030,9 +6047,8 @@ static void *ss_thread(void *data)
 				len = 0;
 				distMatches = 0;
 				/* Clear the current ring data array so we dont have old data in it. */
-				for (receivedRingT=0; receivedRingT < 3; receivedRingT++) {
+				for (receivedRingT=0; receivedRingT < (sizeof(curRingData) / sizeof(curRingData[0])); receivedRingT++)
 					curRingData[receivedRingT] = 0;
-				}
 				receivedRingT = 0;
 				counter = 0;
 				counter1 = 0;
@@ -6062,8 +6078,10 @@ static void *ss_thread(void *data)
 
 						if (p->ringt < p->ringt_base/2)
 							break;
-						++receivedRingT; /* Increment the ringT counter so we can match it against
-								values in zapata.conf for distinctive ring */
+						/* Increment the ringT counter so we can match it against
+						   values in zapata.conf for distinctive ring */
+						if (++receivedRingT == (sizeof(curRingData) / sizeof(curRingData[0])))
+							break;
 					} else if (i & ZT_IOMUX_READ) {
 						res = read(p->subs[index].zfd, buf, sizeof(buf));
 						if (res < 0) {

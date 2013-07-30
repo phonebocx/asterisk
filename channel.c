@@ -45,7 +45,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37361 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40227 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/frame.h"
@@ -1307,10 +1307,16 @@ int ast_hangup(struct ast_channel *chan)
 		return 0;
 	}
 	free_translation(chan);
-	if (chan->stream) 		/* Close audio stream */
+	/* Close audio stream */
+	if (chan->stream) {
 		ast_closestream(chan->stream);
-	if (chan->vstream)		/* Close video stream */
+		chan->stream = NULL;
+	}
+	/* Close video stream */
+	if (chan->vstream) {
 		ast_closestream(chan->vstream);
+		chan->vstream = NULL;
+	}
 	if (chan->sched) {
 		sched_context_destroy(chan->sched);
 		chan->sched = NULL;
@@ -2345,6 +2351,13 @@ static int set_format(struct ast_channel *chan, int fmt, int *rawformat, int *fo
 	
 	/* Now we have a good choice for both. */
 	ast_mutex_lock(&chan->lock);
+
+	if ((*rawformat == native) && (*format == fmt)) {
+		/* the channel is already in these formats, so nothing to do */
+		ast_mutex_unlock(&chan->lock);
+		return 0;
+	}
+
 	*rawformat = native;
 	/* User perspective is fmt */
 	*format = fmt;
@@ -3373,7 +3386,6 @@ enum ast_bridge_result ast_channel_bridge(struct ast_channel *c0, struct ast_cha
 	struct timeval nexteventts = { 0, };
 	char caller_warning = 0;
 	char callee_warning = 0;
-	int to;
 
 	if (c0->_bridge) {
 		ast_log(LOG_WARNING, "%s is already in a bridge with %s\n", 
@@ -3425,20 +3437,28 @@ enum ast_bridge_result ast_channel_bridge(struct ast_channel *c0, struct ast_cha
 	o0nativeformats = c0->nativeformats;
 	o1nativeformats = c1->nativeformats;
 
-	if (config->timelimit) {
+	if (config->feature_timer) {
+		nexteventts = ast_tvadd(config->start_time, ast_samp2tv(config->feature_timer, 1000));
+	} else if (config->timelimit) {
 		nexteventts = ast_tvadd(config->start_time, ast_samp2tv(config->timelimit, 1000));
 		if (caller_warning || callee_warning)
 			nexteventts = ast_tvsub(nexteventts, ast_samp2tv(config->play_warning, 1000));
 	}
 
 	for (/* ever */;;) {
+		struct timeval now = { 0, };
+		int to;
+
 		to = -1;
-		if (config->timelimit) {
-			struct timeval now;
+
+		if (!ast_tvzero(nexteventts)) {
 			now = ast_tvnow();
 			to = ast_tvdiff_ms(nexteventts, now);
 			if (to < 0)
 				to = 0;
+		}
+
+		if (config->timelimit) {
 			time_left_ms = config->timelimit - ast_tvdiff_ms(now, config->start_time);
 			if (time_left_ms < to)
 				to = time_left_ms;

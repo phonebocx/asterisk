@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 31775 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 38825 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -180,6 +180,10 @@ static void moh_files_release(struct ast_channel *chan, void *data)
 	struct moh_files_state *state = chan->music_state;
 
 	if (chan && state) {
+		if (chan->stream) {
+                        ast_closestream(chan->stream);
+                        chan->stream = NULL;
+                }
 		if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "Stopped music on hold on %s\n", chan->name);
 
@@ -215,7 +219,7 @@ static int ast_moh_files_next(struct ast_channel *chan)
 			state->pos %= state->class->total_files;
 
 			/* check to see if this file's format can be opened */
-			if (ast_fileexists(state->class->filearray[state->pos], NULL, NULL) != -1)
+			if (ast_fileexists(state->class->filearray[state->pos], NULL, NULL) > 0)
 				break;
 
 		}

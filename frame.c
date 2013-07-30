@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 33036 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 38547 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h"
@@ -253,9 +253,9 @@ static struct ast_frame *ast_frame_header_new(void)
 		memset(f, 0, sizeof(struct ast_frame));
 #ifdef TRACE_FRAMES
 	if (f) {
-		headers++;
 		f->prev = NULL;
 		ast_mutex_lock(&framelock);
+		headers++;
 		f->next = headerlist;
 		if (headerlist)
 			headerlist->prev = f;
@@ -282,8 +282,8 @@ void ast_frfree(struct ast_frame *fr)
 	}
 	if (fr->mallocd & AST_MALLOCD_HDR) {
 #ifdef TRACE_FRAMES
-		headers--;
 		ast_mutex_lock(&framelock);
+		headers--;
 		if (fr->next)
 			fr->next->prev = fr->prev;
 		if (fr->prev)
@@ -374,7 +374,7 @@ struct ast_frame *ast_frdup(struct ast_frame *f)
 		srclen = strlen(f->src);
 	if (srclen > 0)
 		len += srclen + 1;
-	buf = malloc(len);
+	buf = calloc(1, len);
 	if (!buf)
 		return NULL;
 	out = buf;
@@ -387,16 +387,15 @@ struct ast_frame *ast_frdup(struct ast_frame *f)
 	out->delivery = f->delivery;
 	out->mallocd = AST_MALLOCD_HDR;
 	out->offset = AST_FRIENDLY_OFFSET;
-	out->data = buf + sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET;
+	if (out->datalen) {
+		out->data = buf + sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET;
+		memcpy(out->data, f->data, out->datalen);	
+	}
 	if (srclen > 0) {
-		out->src = out->data + f->datalen;
+		out->src = buf + sizeof(*out) + AST_FRIENDLY_OFFSET + f->datalen;
 		/* Must have space since we allocated for it */
 		strcpy((char *)out->src, f->src);
-	} else
-		out->src = NULL;
-	out->prev = NULL;
-	out->next = NULL;
-	memcpy(out->data, f->data, out->datalen);	
+	}
 	return out;
 }
 
@@ -836,11 +835,11 @@ static int show_frame_stats(int fd, int argc, char *argv[])
 	int x=1;
 	if (argc != 3)
 		return RESULT_SHOWUSAGE;
+	ast_mutex_lock(&framelock);
 	ast_cli(fd, "     Framer Statistics     \n");
 	ast_cli(fd, "---------------------------\n");
 	ast_cli(fd, "Total allocated headers: %d\n", headers);
 	ast_cli(fd, "Queue Dump:\n");
-	ast_mutex_lock(&framelock);
 	for (f=headerlist; f; f = f->next) {
 		ast_cli(fd, "%d.  Type %d, subclass %d from %s\n", x++, f->frametype, f->subclass, f->src ? f->src : "<Unknown>");
 	}

@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37531 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40601 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -592,7 +592,7 @@ static int global_rtautoclear;
 static struct sip_pvt {
 	ast_mutex_t lock;			/*!< Channel private lock */
 	int method;				/*!< SIP method of this packet */
-	char callid[80];			/*!< Global CallID */
+	char callid[128];			/*!< Global CallID */
 	char randdata[80];			/*!< Random data */
 	struct ast_codec_pref prefs;		/*!< codec prefs */
 	unsigned int ocseq;			/*!< Current outgoing seqno */
@@ -834,7 +834,7 @@ struct sip_registry {
 	struct sip_pvt *call;		/*!< create a sip_pvt structure for each outbound "registration call" in progress */
 	int regstate;			/*!< Registration state (see above) */
 	int callid_valid;		/*!< 0 means we haven't chosen callid for this registry yet. */
-	char callid[80];		/*!< Global CallID for this registry */
+	char callid[128];		/*!< Global CallID for this registry */
 	unsigned int ocseq;		/*!< Sequence number we got to for REGISTERs for this registry */
 	struct sockaddr_in us;		/*!< Who the server thinks we are */
  	
@@ -952,6 +952,15 @@ static const struct ast_channel_tech sip_tech = {
 	.bridge = ast_rtp_bridge,
 	.send_text = sip_sendtext,
 };
+
+#ifdef __AST_DEBUG_MALLOC
+static void FREE(void *ptr)
+{
+	free(ptr);
+}
+#else
+#define FREE free
+#endif
 
 /*!
   \brief Thread-safe random number generator
@@ -1625,7 +1634,7 @@ static void register_peer_exten(struct sip_peer *peer, int onoff)
 		stringp = multi;
 		while((ext = strsep(&stringp, "&"))) {
 			if (onoff)
-				ast_add_extension(regcontext, 1, ext, 1, NULL, NULL, "Noop", strdup(peer->name), free, channeltype);
+				ast_add_extension(regcontext, 1, ext, 1, NULL, NULL, "Noop", strdup(peer->name), FREE, channeltype);
 			else
 				ast_context_remove_extension(regcontext, ext, 1, NULL);
 		}
@@ -2812,16 +2821,20 @@ static struct ast_channel *sip_new(struct sip_pvt *i, int state, char *title)
 	if (!ast_strlen_zero(i->musicclass))
 		ast_copy_string(tmp->musicclass, i->musicclass, sizeof(tmp->musicclass));
 	i->owner = tmp;
-	ast_mutex_lock(&usecnt_lock);
-	usecnt++;
-	ast_mutex_unlock(&usecnt_lock);
 	ast_copy_string(tmp->context, i->context, sizeof(tmp->context));
 	ast_copy_string(tmp->exten, i->exten, sizeof(tmp->exten));
-	ast_set_callerid(tmp, i->cid_num, i->cid_name, i->cid_num);
+
+	if (!ast_strlen_zero(i->cid_num)) {
+		tmp->cid.cid_num = strdup(i->cid_num);
+		tmp->cid.cid_ani = strdup(i->cid_num);
+	}
+	if (!ast_strlen_zero(i->cid_name))
+		tmp->cid.cid_name = strdup(i->cid_name);
 	if (!ast_strlen_zero(i->rdnis))
 		tmp->cid.cid_rdnis = strdup(i->rdnis);
 	if (!ast_strlen_zero(i->exten) && strcmp(i->exten, "s"))
 		tmp->cid.cid_dnid = strdup(i->exten);
+
 	tmp->priority = 1;
 	if (!ast_strlen_zero(i->uri)) {
 		pbx_builtin_setvar_helper(tmp, "SIPURI", i->uri);
@@ -2851,6 +2864,11 @@ static struct ast_channel *sip_new(struct sip_pvt *i, int state, char *title)
 	for (v = i->chanvars ; v ; v = v->next)
 		pbx_builtin_setvar_helper(tmp,v->name,v->value);
 				
+	ast_mutex_lock(&usecnt_lock);
+	usecnt++;
+	ast_mutex_unlock(&usecnt_lock);
+	ast_update_use_count();	
+	
 	return tmp;
 }
 
@@ -3571,17 +3589,15 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 		return -2;
 	}
 	/* Check for Media-description-level-address for audio */
-	if (pedanticsipchecking) {
-		c = get_sdp_iterate(&destiterator, req, "c");
-		if (!ast_strlen_zero(c)) {
-			if (sscanf(c, "IN IP4 %256s", host) != 1) {
-				ast_log(LOG_WARNING, "Invalid secondary host in c= line, '%s'\n", c);
-			} else {
-				/* XXX This could block for a long time, and block the main thread! XXX */
-				hp = ast_gethostbyname(host, &ahp);
-				if (!hp) {
-					ast_log(LOG_WARNING, "Unable to lookup host in secondary c= line, '%s'\n", c);
-				}
+	c = get_sdp_iterate(&destiterator, req, "c");
+	if (!ast_strlen_zero(c)) {
+		if (sscanf(c, "IN IP4 %256s", host) != 1) {
+			ast_log(LOG_WARNING, "Invalid secondary host in c= line, '%s'\n", c);
+		} else {
+			/* XXX This could block for a long time, and block the main thread! XXX */
+			hp = ast_gethostbyname(host, &ahp);
+			if (!hp) {
+				ast_log(LOG_WARNING, "Unable to lookup host in secondary c= line, '%s'\n", c);
 			}
 		}
 	}
@@ -3599,17 +3615,15 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 		}
 	}
 	/* Check for Media-description-level-address for video */
-	if (pedanticsipchecking) {
-		c = get_sdp_iterate(&destiterator, req, "c");
-		if (!ast_strlen_zero(c)) {
-			if (sscanf(c, "IN IP4 %256s", host) != 1) {
-				ast_log(LOG_WARNING, "Invalid secondary host in c= line, '%s'\n", c);
-			} else {
-				/* XXX This could block for a long time, and block the main thread! XXX */
-				hp = ast_gethostbyname(host, &ahp);
-				if (!hp) {
-					ast_log(LOG_WARNING, "Unable to lookup host in secondary c= line, '%s'\n", c);
-				}
+	c = get_sdp_iterate(&destiterator, req, "c");
+	if (!ast_strlen_zero(c)) {
+		if (sscanf(c, "IN IP4 %256s", host) != 1) {
+			ast_log(LOG_WARNING, "Invalid secondary host in c= line, '%s'\n", c);
+		} else {
+			/* XXX This could block for a long time, and block the main thread! XXX */
+			hp = ast_gethostbyname(host, &ahp);
+			if (!hp) {
+				ast_log(LOG_WARNING, "Unable to lookup host in secondary c= line, '%s'\n", c);
 			}
 		}
 	}
@@ -4847,7 +4861,7 @@ static void initreqprep(struct sip_request *req, struct sip_pvt *p, int sipmetho
 		l = CALLERID_UNKNOWN;
 		n = l;
 	}
-	if (!l)
+	if (ast_strlen_zero(l))
 		l = default_callerid;
 	if (ast_strlen_zero(n))
 		n = l;
@@ -6624,7 +6638,7 @@ static int get_rdnis(struct sip_pvt *p, struct sip_request *oreq)
 /*! \brief  get_destination: Find out who the call is for --*/
 static int get_destination(struct sip_pvt *p, struct sip_request *oreq)
 {
-	char tmp[256] = "", *uri, *a;
+	char tmp[256] = "", *uri, *a, *user, *domain, *opts;
 	char tmpf[256], *from;
 	struct sip_request *req;
 	char *colon;
@@ -6659,24 +6673,27 @@ static int get_destination(struct sip_pvt *p, struct sip_request *oreq)
 		ast_uri_decode(from);
 	}
 
-	/* Skip any options */
-	if ((a = strchr(uri, ';'))) {
-		*a = '\0';
+	/* Get the target domain first and user */
+	if ((domain = strchr(uri, '@'))) {
+		*domain++ = '\0';
+		user = uri;
+	} else {
+		/* No user portion present */
+		domain = uri;
+		user = "s";
 	}
 
-	/* Get the target domain */
-	if ((a = strchr(uri, '@'))) {
-		*a = '\0';
-		a++;
-	} else {	/* No username part */
-		a = uri;
-		uri = "s";	/* Set extension to "s" */
-	}
-	colon = strchr(a, ':'); /* Remove :port */
-	if (colon)
+	/* Strip port from domain if present */
+	if ((colon = strchr(domain, ':'))) {
 		*colon = '\0';
+	}
 
-	ast_copy_string(p->domain, a, sizeof(p->domain));
+	/* Strip any params or options from user */
+	if ((opts = strchr(user, ';'))) {
+		*opts = '\0';
+	}
+
+	ast_copy_string(p->domain, domain, sizeof(p->domain));
 
 	if (!AST_LIST_EMPTY(&domain_list)) {
 		char domain_context[AST_MAX_EXTENSION];
@@ -6703,19 +6720,19 @@ static int get_destination(struct sip_pvt *p, struct sip_request *oreq)
 			ast_copy_string(p->fromdomain, from, sizeof(p->fromdomain));
 	}
 	if (sip_debug_test_pvt(p))
-		ast_verbose("Looking for %s in %s (domain %s)\n", uri, p->context, p->domain);
+		ast_verbose("Looking for %s in %s (domain %s)\n", user, p->context, p->domain);
 
 	/* Return 0 if we have a matching extension */
-	if (ast_exists_extension(NULL, p->context, uri, 1, from) ||
+	if (ast_exists_extension(NULL, p->context, user, 1, from) ||
 		!strcmp(uri, ast_pickup_ext())) {
 		if (!oreq)
-			ast_copy_string(p->exten, uri, sizeof(p->exten));
+			ast_copy_string(p->exten, user, sizeof(p->exten));
 		return 0;
 	}
 
 	/* Return 1 for overlap dialling support */
-	if (ast_canmatch_extension(NULL, p->context, uri, 1, from) ||
-	    !strncmp(uri, ast_pickup_ext(),strlen(uri))) {
+	if (ast_canmatch_extension(NULL, p->context, user, 1, from) ||
+	    !strncmp(user, ast_pickup_ext(),strlen(user))) {
 		return 1;
 	}
 	
@@ -7072,9 +7089,10 @@ static int check_user_full(struct sip_pvt *p, struct sip_request *req, int sipme
 	char calleridname[50];
 	int debug=sip_debug_test_addr(sin);
 	struct ast_variable *tmpvar = NULL, *v = NULL;
+	char *uri2 = ast_strdupa(uri);
 
 	/* Terminate URI */
-	t = uri;
+	t = uri2;
 	while(*t && (*t > 32) && (*t != ';'))
 		t++;
 	*t = '\0';
@@ -7096,7 +7114,7 @@ static int check_user_full(struct sip_pvt *p, struct sip_request *req, int sipme
 
 	of = get_in_brackets(from);
 	if (ast_strlen_zero(p->exten)) {
-		t = uri;
+		t = uri2;
 		if (!strncmp(t, "sip:", 4))
 			t+= 4;
 		ast_copy_string(p->exten, t, sizeof(p->exten));
@@ -7153,7 +7171,7 @@ static int check_user_full(struct sip_pvt *p, struct sip_request *req, int sipme
 			ast_log(LOG_DEBUG, "Setting NAT on VRTP to %d\n", (ast_test_flag(p, SIP_NAT) & SIP_NAT_ROUTE));
 			ast_rtp_setnat(p->vrtp, (ast_test_flag(p, SIP_NAT) & SIP_NAT_ROUTE));
 		}
-		if (!(res = check_auth(p, req, p->randdata, sizeof(p->randdata), user->name, user->secret, user->md5secret, sipmethod, uri, reliable, ignore))) {
+		if (!(res = check_auth(p, req, p->randdata, sizeof(p->randdata), user->name, user->secret, user->md5secret, sipmethod, uri2, reliable, ignore))) {
 			sip_cancel_destroy(p);
 			ast_copy_flags(p, user, SIP_FLAGS_TO_COPY);
 			/* Copy SIP extensions profile from INVITE */
@@ -7253,7 +7271,7 @@ static int check_user_full(struct sip_pvt *p, struct sip_request *req, int sipme
 				p->peersecret[0] = '\0';
 				p->peermd5secret[0] = '\0';
 			}
-			if (!(res = check_auth(p, req, p->randdata, sizeof(p->randdata), peer->name, p->peersecret, p->peermd5secret, sipmethod, uri, reliable, ignore))) {
+			if (!(res = check_auth(p, req, p->randdata, sizeof(p->randdata), peer->name, p->peersecret, p->peermd5secret, sipmethod, uri2, reliable, ignore))) {
 				ast_copy_flags(p, peer, SIP_FLAGS_TO_COPY);
 				/* If we have a call limit, set flag */
 				if (peer->call_limit)
@@ -7314,7 +7332,7 @@ static int check_user_full(struct sip_pvt *p, struct sip_request *req, int sipme
 #ifdef OSP_SUPPORT			
 			} else if (global_allowguest == 2) {
 				ast_copy_flags(p, &global_flags, SIP_OSPAUTH);
-				res = check_auth(p, req, p->randdata, sizeof(p->randdata), "", "", "", sipmethod, uri, reliable, ignore); 
+				res = check_auth(p, req, p->randdata, sizeof(p->randdata), "", "", "", sipmethod, uri2, reliable, ignore); 
 #endif
 			}
 		}
@@ -9309,7 +9327,7 @@ static char *func_header_read(struct ast_channel *chan, char *cmd, char *data, c
 
 static struct ast_custom_function sip_header_function = {
 	.name = "SIP_HEADER",
-	.synopsis = "Gets or sets the specified SIP header",
+	.synopsis = "Gets the specified SIP header",
 	.syntax = "SIP_HEADER(<name>)",
 	.read = func_header_read,
 };
@@ -9583,14 +9601,20 @@ static void handle_response_invite(struct sip_pvt *p, int resp, char *rest, stru
 		return;
 	}
 
+	/* RFC3261 says we must treat every 1xx response (but not 100)
+	   that we don't recognize as if it was 183.
+	*/
+	if ((resp > 100) &&
+	    (resp < 200) &&
+	    (resp != 180) &&
+	    (resp != 183))
+		resp = 183;
+
 	switch (resp) {
 	case 100:	/* Trying */
 		if (!ignore)
 			sip_cancel_destroy(p);
-		/* must call check_pendings before setting CAN_BYE, so that
-		   if PENDINGBYE is set it will know to send CANCEL instead */
 		check_pendings(p);
-		ast_set_flag(p, SIP_CAN_BYE);
 		break;
 	case 180:	/* 180 Ringing */
 		if (!ignore)
@@ -9607,10 +9631,8 @@ static void handle_response_invite(struct sip_pvt *p, int resp, char *rest, stru
 				ast_queue_control(p->owner, AST_CONTROL_PROGRESS);
 			}
 		}
-		/* must call check_pendings before setting CAN_BYE, so that
-		   if PENDINGBYE is set it will know to send CANCEL instead */
-		check_pendings(p);
 		ast_set_flag(p, SIP_CAN_BYE);
+		check_pendings(p);
 		break;
 	case 183:	/* Session progress */
 		if (!ignore)
@@ -9623,10 +9645,8 @@ static void handle_response_invite(struct sip_pvt *p, int resp, char *rest, stru
 				ast_queue_control(p->owner, AST_CONTROL_PROGRESS);
 			}
 		}
-		/* must call check_pendings before setting CAN_BYE, so that
-		   if PENDINGBYE is set it will know to send CANCEL instead */
-		check_pendings(p);
 		ast_set_flag(p, SIP_CAN_BYE);
+		check_pendings(p);
 		break;
 	case 200:	/* 200 OK on invite - someone's answering our call */
 		if (!ignore)
@@ -9665,6 +9685,7 @@ static void handle_response_invite(struct sip_pvt *p, int resp, char *rest, stru
 		}
 		/* If I understand this right, the branch is different for a non-200 ACK only */
 		transmit_request(p, SIP_ACK, seqno, 0, 1);
+		ast_set_flag(p, SIP_CAN_BYE);
 		check_pendings(p);
 		break;
 	case 407: /* Proxy authentication */
@@ -11426,7 +11447,11 @@ static void *do_monitor(void *data)
 restartsearch:		
 		time(&t);
 		sip = iflist;
-		while(sip) {
+		/* don't scan the interface list if it hasn't been a reasonable period
+		   of time since the last time we did it (when MWI is being sent, we can
+		   get back to this point every millisecond or less)
+		*/
+		while(!fastrestart && sip) {
 			ast_mutex_lock(&sip->lock);
 			if (sip->rtp && sip->owner && (sip->owner->_state == AST_STATE_UP) && !sip->redirip.sin_addr.s_addr) {
 				if (sip->lastrtptx && sip->rtpkeepalive && t > sip->lastrtptx + sip->rtpkeepalive) {
@@ -11451,8 +11476,14 @@ restartsearch:
 							if (sip->owner) {
 								ast_log(LOG_NOTICE, "Disconnecting call '%s' for lack of RTP activity in %ld seconds\n", sip->owner->name, (long)(t - sip->lastrtprx));
 								/* Issue a softhangup */
-								ast_softhangup(sip->owner, AST_SOFTHANGUP_DEV);
+								ast_softhangup_nolock(sip->owner, AST_SOFTHANGUP_DEV);
 								ast_mutex_unlock(&sip->owner->lock);
+								/* forget the timeouts for this call, since a hangup
+								   has already been requested and we don't want to
+								   repeatedly request hangups
+								*/
+								sip->rtptimeout = 0;
+								sip->rtpholdtimeout = 0;
 							}
 						}
 					}

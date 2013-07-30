@@ -44,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 36725 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 38904 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -825,7 +825,14 @@ static struct ast_channel *phone_new(struct phone_pvt *i, int state, char *conte
 			strncpy(tmp->exten, "s",  sizeof(tmp->exten) - 1);
 		if (!ast_strlen_zero(i->language))
 			strncpy(tmp->language, i->language, sizeof(tmp->language)-1);
-		ast_set_callerid(tmp, i->cid_num, i->cid_name, i->cid_num);
+
+		if (!ast_strlen_zero(i->cid_num)) {
+			tmp->cid.cid_num = strdup(i->cid_num);
+			tmp->cid.cid_ani = strdup(i->cid_num);
+		}
+		if (!ast_strlen_zero(i->cid_name))
+			tmp->cid.cid_name = strdup(i->cid_name);
+
 		i->owner = tmp;
 		ast_mutex_lock(&usecnt_lock);
 		usecnt++;

@@ -58,7 +58,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37439 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 38904 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h" 
@@ -662,6 +662,15 @@ static struct iax2_peer *realtime_peer(const char *peername, struct sockaddr_in 
 
 static void destroy_peer(struct iax2_peer *peer);
 static int ast_cli_netstats(int fd, int limit_fmt);
+
+#ifdef __AST_DEBUG_MALLOC
+static void FREE(void *ptr)
+{
+	free(ptr);
+}
+#else
+#define FREE free
+#endif
 
 static void iax_debug_output(const char *data)
 {
@@ -3433,15 +3442,22 @@ static struct ast_channel *ast_iax2_new(int callno, int state, int capability)
 		tmp->writeformat = ast_best_codec(capability);
 		tmp->tech_pvt = CALLNO_TO_PTR(i->callno);
 
-		ast_set_callerid(tmp, i->cid_num, i->cid_name,
-			i->ani ? i->ani : i->cid_num);
+		if (!ast_strlen_zero(i->cid_num))
+			tmp->cid.cid_num = strdup(i->cid_num);
+		if (!ast_strlen_zero(i->cid_name))
+			tmp->cid.cid_name = strdup(i->cid_name);
+		if (!ast_strlen_zero(i->ani))
+			tmp->cid.cid_ani = strdup(i->ani);
+		else if (!ast_strlen_zero(i->cid_num))
+			tmp->cid.cid_ani = strdup(i->cid_num);
+		tmp->cid.cid_pres = i->calling_pres;
+		tmp->cid.cid_ton = i->calling_ton;
+		tmp->cid.cid_tns = i->calling_tns;
+
 		if (!ast_strlen_zero(i->language))
 			ast_copy_string(tmp->language, i->language, sizeof(tmp->language));
 		if (!ast_strlen_zero(i->dnid))
 			tmp->cid.cid_dnid = strdup(i->dnid);
-		tmp->cid.cid_pres = i->calling_pres;
-		tmp->cid.cid_ton = i->calling_ton;
-		tmp->cid.cid_tns = i->calling_tns;
 		if (!ast_strlen_zero(i->accountcode))
 			ast_copy_string(tmp->accountcode, i->accountcode, sizeof(tmp->accountcode));
 		if (i->amaflags)
@@ -3452,10 +3468,6 @@ static struct ast_channel *ast_iax2_new(int callno, int state, int capability)
 		i->owner = tmp;
 		i->capability = capability;
 		ast_setstate(tmp, state);
-		ast_mutex_lock(&usecnt_lock);
-		usecnt++;
-		ast_mutex_unlock(&usecnt_lock);
-		ast_update_use_count();
 		if (state != AST_STATE_DOWN) {
 			if (ast_pbx_start(tmp)) {
 				ast_log(LOG_WARNING, "Unable to start PBX on %s\n", tmp->name);
@@ -3466,6 +3478,10 @@ static struct ast_channel *ast_iax2_new(int callno, int state, int capability)
 		for (v = i->vars ; v ; v = v->next)
 			pbx_builtin_setvar_helper(tmp,v->name,v->value);
 		
+		ast_mutex_lock(&usecnt_lock);
+		usecnt++;
+		ast_mutex_unlock(&usecnt_lock);
+		ast_update_use_count();
 	}
 	return tmp;
 }
@@ -5627,7 +5643,7 @@ static void register_peer_exten(struct iax2_peer *peer, int onoff)
 		while((ext = strsep(&stringp, "&"))) {
 			if (onoff) {
 				if (!ast_exists_extension(NULL, regcontext, ext, 1, NULL))
-					ast_add_extension(regcontext, 1, ext, 1, NULL, NULL, "Noop", strdup(peer->name), free, channeltype);
+					ast_add_extension(regcontext, 1, ext, 1, NULL, NULL, "Noop", strdup(peer->name), FREE, channeltype);
 			} else
 				ast_context_remove_extension(regcontext, ext, 1, NULL);
 		}
@@ -8713,6 +8729,8 @@ static int set_config(char *config_file, int reload)
 
 	min_reg_expire = IAX_DEFAULT_REG_EXPIRE;
 	max_reg_expire = IAX_DEFAULT_REG_EXPIRE;
+
+	maxauthreq = 0;
 
 	v = ast_variable_browse(cfg, "general");
 

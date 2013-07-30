@@ -52,7 +52,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 37571 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40446 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -3445,13 +3445,15 @@ static int forward_message(struct ast_channel *chan, char *context, char *dir, i
 			
 			app = pbx_findapp("Directory");
 			if (app) {
-				/* make mackup copies */
+				/* make backup copies */
+				char vmcontext[256];
 				memcpy(old_context, chan->context, sizeof(chan->context));
 				memcpy(old_exten, chan->exten, sizeof(chan->exten));
 				old_priority = chan->priority;
 				
 				/* call the the Directory, changes the channel */
-				res = pbx_exec(chan, app, context ? context : "default", 1);
+				sprintf(vmcontext, "%s||v", context ? context : "default");
+				res = pbx_exec(chan, app, vmcontext, 1);
 				
 				ast_copy_string(username, chan->exten, sizeof(username));
 				
@@ -4380,7 +4382,7 @@ static int vm_intro_nl(struct ast_channel *chan,struct vm_state *vms)
 		if (vms->newmessages) {
 			res = say_and_wait(chan, vms->newmessages, chan->language);
 			if (!res) {
-				if (vms->oldmessages == 1)
+				if (vms->newmessages == 1)
 					res = ast_play_and_wait(chan, "vm-INBOXs");
 				else
 					res = ast_play_and_wait(chan, "vm-INBOX");

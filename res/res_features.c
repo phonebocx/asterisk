@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 29732 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 38686 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -842,6 +842,9 @@ static int builtin_atxfer(struct ast_channel *chan, struct ast_channel *peer, st
 		}
 	}  else {
 		ast_log(LOG_WARNING, "Did not read data.\n");
+		ast_moh_stop(transferee);
+		ast_autoservice_stop(transferee);
+		ast_indicate(transferee, AST_CONTROL_UNHOLD);
 		res = ast_streamfile(transferer, "beeperr", transferer->language);
 		if (ast_waitstream(transferer, "") < 0) {
 			return -1;
@@ -1469,6 +1472,7 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 					config->start_sound = NULL;
 					config->firstpass = 0;
 				}
+				config->start_time = ast_tvnow();
 				config->feature_timer = featuredigittimeout;
 				ast_log(LOG_DEBUG, "Set time limit to %ld\n", config->feature_timer);
 			}

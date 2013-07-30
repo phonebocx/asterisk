@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24837 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40223 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -101,8 +101,8 @@ static int macro_exec(struct ast_channel *chan, void *data)
 	int oldpriority;
 	char pc[80], depthc[12];
 	char oldcontext[AST_MAX_CONTEXT] = "";
-	char *offsets;
-	int offset, depth;
+	char *offsets, *s;
+	int offset, depth = 0, maxdepth = 7;
 	int setmacrocontext=0;
 	int autoloopflag, dead = 0;
   
@@ -119,6 +119,11 @@ static int macro_exec(struct ast_channel *chan, void *data)
 
 	LOCAL_USER_ADD(u);
 
+	/* does the user want a deeper rabbit hole? */
+	s = pbx_builtin_getvar_helper(chan, "MACRO_RECURSION");
+	if (s)
+		sscanf(s, "%d", &maxdepth);
+
 	/* Count how many levels deep the rabbit hole goes */
 	tmp = pbx_builtin_getvar_helper(chan, "MACRO_DEPTH");
 	if (tmp) {
@@ -127,7 +132,7 @@ static int macro_exec(struct ast_channel *chan, void *data)
 		depth = 0;
 	}
 
-	if (depth >= 7) {
+	if (depth >= maxdepth) {
 		ast_log(LOG_ERROR, "Macro():  possible infinite loop detected.  Returning early.\n");
 		LOCAL_USER_REMOVE(u);
 		return 0;
@@ -241,9 +246,9 @@ static int macro_exec(struct ast_channel *chan, void *data)
 			break;
 		}
 		/* don't stop executing extensions when we're in "h" */
-		if (chan->_softhangup && strcasecmp(oldexten,"h")) {
-			ast_log(LOG_DEBUG, "Extension %s, priority %d returned normally even though call was hung up\n",
-				chan->exten, chan->priority);
+		if (chan->_softhangup && strcasecmp(chan->macroexten,"h")) {
+			ast_log(LOG_DEBUG, "Extension %s, macroexten %s, priority %d returned normally even though call was hung up\n",
+				chan->exten, chan->macroexten, chan->priority);
 			goto out;
 		}
 		chan->priority++;

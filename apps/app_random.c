@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 21037 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40821 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -116,9 +116,8 @@ char *description(void)
 
 int usecount(void)
 {
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
+	/* Don't allow unload, since rand(3) depends upon this module being here. */
+	return 1;
 }
 
 char *key()

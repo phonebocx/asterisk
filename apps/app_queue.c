@@ -66,7 +66,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 35669 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 38972 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -2018,7 +2018,6 @@ static int wait_our_turn(struct queue_ent *qe, int ringing, enum queue_result *r
 		/* If we have timed out, break out */
 		if (qe->expire && (time(NULL) > qe->expire)) {
 			*reason = QUEUE_TIMEOUT;
-			ast_queue_log(qe->parent->name, qe->chan->uniqueid,"NONE", "EXITWITHTIMEOUT", "%d", qe->pos);
 			break;
 		}
 

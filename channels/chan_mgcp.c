@@ -88,7 +88,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 36725 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40057 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -1428,7 +1428,14 @@ static struct ast_channel *mgcp_new(struct mgcp_subchannel *sub, int state)
 		strncpy(tmp->call_forward, i->call_forward, sizeof(tmp->call_forward) - 1);
 		strncpy(tmp->context, i->context, sizeof(tmp->context)-1);
 		strncpy(tmp->exten, i->exten, sizeof(tmp->exten)-1);
-		ast_set_callerid(tmp, i->cid_num, i->cid_name, i->cid_num);
+
+		if (!ast_strlen_zero(i->cid_num)) {
+			tmp->cid.cid_num = strdup(i->cid_num);
+			tmp->cid.cid_ani = strdup(i->cid_num);
+		}
+		if (!ast_strlen_zero(i->cid_name))
+			tmp->cid.cid_name = strdup(i->cid_name);
+		
 		if (!i->adsi)
 			tmp->adsicpe = AST_ADSI_UNAVAILABLE;
 		tmp->priority = 1;
@@ -2471,12 +2478,14 @@ static void handle_response(struct mgcp_endpoint *p, struct mgcp_subchannel *sub
 						if (strncasecmp(v, p->sub->cxident, len) &&
 						    strncasecmp(v, p->sub->next->cxident, len)) {
 							/* connection id not found. delete it */
-							char cxident[80];
-							memcpy(cxident, v, len);
-							cxident[len] = '\0';
+							char cxident[80] = "";
+
+							if (len > (sizeof(cxident) - 1))
+								len = sizeof(cxident) - 1;
+							ast_copy_string(cxident, v, len);
 							if (option_verbose > 2) {
 								ast_verbose(VERBOSE_PREFIX_3 "Non existing connection id %s on %s@%s \n", 
-									cxident, p->name, gw->name);
+									    cxident, p->name, gw->name);
 							}
 							transmit_connection_del_w_params(p, NULL, cxident);
 						}
