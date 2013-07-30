@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182280 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 190297 $")
 
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -538,6 +538,11 @@ static int local_call(struct ast_channel *ast, char *dest, int timeout)
 		return -1;
 	}
 
+	/* Make sure we inherit the ANSWERED_ELSEWHERE flag if it's set on the queue/dial call request in the dialplan */
+	if (ast_test_flag(ast, AST_FLAG_ANSWERED_ELSEWHERE)) {
+		ast_set_flag(p->chan, AST_FLAG_ANSWERED_ELSEWHERE);
+	}
+
 	/* copy the channel variables from the incoming channel to the outgoing channel */
 	/* Note that due to certain assumptions, they MUST be in the same order */
 	AST_LIST_TRAVERSE(&p->owner->varshead, varptr, entries) {
@@ -573,9 +578,13 @@ static int local_hangup(struct ast_channel *ast)
 
 	ast_mutex_lock(&p->lock);
 
-	if (p->chan && ast_test_flag(ast, AST_FLAG_ANSWERED_ELSEWHERE)) 
-		ast_set_flag(p->chan, AST_FLAG_ANSWERED_ELSEWHERE);
 	isoutbound = IS_OUTBOUND(ast, p);
+
+	if (p->chan && ast_test_flag(ast, AST_FLAG_ANSWERED_ELSEWHERE)) {
+		ast_set_flag(p->chan, AST_FLAG_ANSWERED_ELSEWHERE);
+		ast_debug(2, "This local call has the ANSWERED_ELSEWHERE flag set.\n");
+	}
+
 	if (isoutbound) {
 		const char *status = pbx_builtin_getvar_helper(p->chan, "DIALSTATUS");
 		if ((status) && (p->owner)) {
@@ -620,13 +629,10 @@ static int local_hangup(struct ast_channel *ast)
 		   let local_queue do it. */
 		if (glaredetect)
 			ast_set_flag(p, LOCAL_CANCEL_QUEUE);
-		ast_mutex_unlock(&p->lock);
 		/* Remove from list */
 		AST_LIST_LOCK(&locals);
 		AST_LIST_REMOVE(&locals, p, list);
 		AST_LIST_UNLOCK(&locals);
-		/* Grab / release lock just in case */
-		ast_mutex_lock(&p->lock);
 		ast_mutex_unlock(&p->lock);
 		/* And destroy */
 		if (!glaredetect) {

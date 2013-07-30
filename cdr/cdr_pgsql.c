@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 164355 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 164349 $")
 
 #include <time.h>
 
@@ -73,37 +73,31 @@ struct columns {
 
 static AST_RWLIST_HEAD_STATIC(psql_columns, columns);
 
-#define LENGTHEN_BUF1(size)														\
-			do {																\
-				/* Lengthen buffer, if necessary */								\
-				if ((newsize = lensql + (size) + 3) > sizesql) {	\
-					if ((tmp = ast_realloc(sql, (newsize / 512 + 1) * 512))) {	\
-						sql = tmp;												\
-						sizesql = (newsize / 512 + 1) * 512;					\
-					} else {													\
+#define LENGTHEN_BUF1(size)                                               \
+			do {                                                          \
+				/* Lengthen buffer, if necessary */                       \
+				if (ast_str_strlen(sql) + size + 1 > ast_str_size(sql)) { \
+					if (ast_str_make_space(&sql, ((ast_str_size(sql) + size + 3) / 512 + 1) * 512) != 0) {	\
 						ast_log(LOG_ERROR, "Unable to allocate sufficient memory.  Insert CDR failed.\n"); \
-						ast_free(sql);											\
-						ast_free(sql2);											\
-						AST_RWLIST_UNLOCK(&psql_columns);						\
-						return -1;												\
-					}															\
-				}																\
+						ast_free(sql);                                    \
+						ast_free(sql2);                                   \
+						AST_RWLIST_UNLOCK(&psql_columns);                 \
+						return -1;                                        \
+					}                                                     \
+				}                                                         \
 			} while (0)
 
-#define LENGTHEN_BUF2(size)														\
-			do {																\
-				if ((newsize = lensql2 + (size) + 3) > sizesql2) {				\
-					if ((tmp = ast_realloc(sql2, (newsize / 512 + 1) * 512))) {	\
-						sql2 = tmp;												\
-						sizesql2 = (newsize / 512 + 1) * 512;					\
-					} else {													\
+#define LENGTHEN_BUF2(size)                               \
+			do {                                          \
+				if (ast_str_strlen(sql2) + size + 1 > ast_str_size(sql2)) {  \
+					if (ast_str_make_space(&sql2, ((ast_str_size(sql2) + size + 3) / 512 + 1) * 512) != 0) {	\
 						ast_log(LOG_ERROR, "Unable to allocate sufficient memory.  Insert CDR failed.\n");	\
-						ast_free(sql);											\
-						ast_free(sql2);											\
-						AST_RWLIST_UNLOCK(&psql_columns);						\
-						return -1;												\
-					}															\
-				}																\
+						ast_free(sql);                    \
+						ast_free(sql2);                   \
+						AST_RWLIST_UNLOCK(&psql_columns); \
+						return -1;                        \
+					}                                     \
+				}                                         \
 			} while (0)
 
 static int pgsql_log(struct ast_cdr *cdr)
@@ -129,10 +123,10 @@ static int pgsql_log(struct ast_cdr *cdr)
 
 	if (connected) {
 		struct columns *cur;
-		int lensql, lensql2, sizesql = maxsize, sizesql2 = maxsize2, newsize;
-		char *sql = ast_calloc(sizeof(char), sizesql), *sql2 = ast_calloc(sizeof(char), sizesql2), *tmp, *value;
-		char buf[257], escapebuf[513];
-
+		struct ast_str *sql = ast_str_create(maxsize), *sql2 = ast_str_create(maxsize2);
+		char buf[257], escapebuf[513], *value;
+		int first = 1;
+  
 		if (!sql || !sql2) {
 			if (sql) {
 				ast_free(sql);
@@ -143,8 +137,8 @@ static int pgsql_log(struct ast_cdr *cdr)
 			return -1;
 		}
 
-		lensql = snprintf(sql, sizesql, "INSERT INTO %s (", table);
-		lensql2 = snprintf(sql2, sizesql2, " VALUES (");
+		ast_str_set(&sql, 0, "INSERT INTO %s (", table);
+		ast_str_set(&sql2, 0, " VALUES (");
 
 		AST_RWLIST_RDLOCK(&psql_columns);
 		AST_RWLIST_TRAVERSE(&psql_columns, cur, list) {
@@ -157,83 +151,86 @@ static int pgsql_log(struct ast_cdr *cdr)
 				if (cur->notnull && !cur->hasdefault) {
 					/* Field is NOT NULL (but no default), must include it anyway */
 					LENGTHEN_BUF1(strlen(cur->name) + 2);
-					lensql += snprintf(sql + lensql, sizesql - lensql, "\"%s\",", cur->name);
+					ast_str_append(&sql, 0, "%s\"%s\"", first ? "" : ",", cur->name);
 					LENGTHEN_BUF2(3);
-					strcat(sql2, "'',");
-					lensql2 += 3;
+					ast_str_append(&sql2, 0, "%s''", first ? "" : ",");
+					first = 0;
 				}
 				continue;
 			}
 
 			LENGTHEN_BUF1(strlen(cur->name) + 2);
-			lensql += snprintf(sql + lensql, sizesql - lensql, "\"%s\",", cur->name);
+			ast_str_append(&sql, 0, "%s\"%s\"", first ? "" : ",", cur->name);
 
 			if (strcmp(cur->name, "start") == 0 || strcmp(cur->name, "calldate") == 0) {
 				if (strncmp(cur->type, "int", 3) == 0) {
-					LENGTHEN_BUF2(12);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%ld", cdr->start.tv_sec);
+					LENGTHEN_BUF2(13);
+					ast_str_append(&sql2, 0, "%s%ld", first ? "" : ",", cdr->start.tv_sec);
 				} else if (strncmp(cur->type, "float", 5) == 0) {
-					LENGTHEN_BUF2(30);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%f", (double)cdr->start.tv_sec + (double)cdr->start.tv_usec / 1000000.0);
+					LENGTHEN_BUF2(31);
+					ast_str_append(&sql2, 0, "%s%f", first ? "" : ",", (double)cdr->start.tv_sec + (double)cdr->start.tv_usec / 1000000.0);
 				} else {
 					/* char, hopefully */
-					LENGTHEN_BUF2(30);
+					LENGTHEN_BUF2(31);
 					ast_localtime(&cdr->start, &tm, NULL);
-					lensql2 += ast_strftime(sql2 + lensql2, sizesql2 - lensql2, DATE_FORMAT, &tm);
+					ast_strftime(buf, sizeof(buf), DATE_FORMAT, &tm);
+					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", buf);
 				}
 			} else if (strcmp(cur->name, "answer") == 0) {
 				if (strncmp(cur->type, "int", 3) == 0) {
-					LENGTHEN_BUF2(12);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%ld", cdr->answer.tv_sec);
+					LENGTHEN_BUF2(13);
+					ast_str_append(&sql2, 0, "%s%ld", first ? "" : ",", cdr->answer.tv_sec);
 				} else if (strncmp(cur->type, "float", 5) == 0) {
-					LENGTHEN_BUF2(30);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%f", (double)cdr->answer.tv_sec + (double)cdr->answer.tv_usec / 1000000.0);
+					LENGTHEN_BUF2(31);
+					ast_str_append(&sql2, 0, "%s%f", first ? "" : ",", (double)cdr->answer.tv_sec + (double)cdr->answer.tv_usec / 1000000.0);
 				} else {
 					/* char, hopefully */
-					LENGTHEN_BUF2(30);
+					LENGTHEN_BUF2(31);
 					ast_localtime(&cdr->start, &tm, NULL);
-					lensql2 += ast_strftime(sql2 + lensql2, sizesql2 - lensql2, DATE_FORMAT, &tm);
+					ast_strftime(buf, sizeof(buf), DATE_FORMAT, &tm);
+					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", buf);
 				}
 			} else if (strcmp(cur->name, "end") == 0) {
 				if (strncmp(cur->type, "int", 3) == 0) {
-					LENGTHEN_BUF2(12);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%ld", cdr->end.tv_sec);
+					LENGTHEN_BUF2(13);
+					ast_str_append(&sql2, 0, "%s%ld", first ? "" : ",", cdr->end.tv_sec);
 				} else if (strncmp(cur->type, "float", 5) == 0) {
-					LENGTHEN_BUF2(30);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%f", (double)cdr->end.tv_sec + (double)cdr->end.tv_usec / 1000000.0);
+					LENGTHEN_BUF2(31);
+					ast_str_append(&sql2, 0, "%s%f", first ? "" : ",", (double)cdr->end.tv_sec + (double)cdr->end.tv_usec / 1000000.0);
 				} else {
 					/* char, hopefully */
-					LENGTHEN_BUF2(30);
+					LENGTHEN_BUF2(31);
 					ast_localtime(&cdr->end, &tm, NULL);
-					lensql2 += ast_strftime(sql2 + lensql2, sizesql2 - lensql2, DATE_FORMAT, &tm);
+					ast_strftime(buf, sizeof(buf), DATE_FORMAT, &tm);
+					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", buf);
 				}
 			} else if (strcmp(cur->name, "duration") == 0 || strcmp(cur->name, "billsec") == 0) {
 				if (cur->type[0] == 'i') {
 					/* Get integer, no need to escape anything */
 					ast_cdr_getvar(cdr, cur->name, &value, buf, sizeof(buf), 0, 0);
-					LENGTHEN_BUF2(12);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%s", value);
+					LENGTHEN_BUF2(13);
+					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", value);
 				} else if (strncmp(cur->type, "float", 5) == 0) {
 					struct timeval *when = cur->name[0] == 'd' ? &cdr->start : &cdr->answer;
-					LENGTHEN_BUF2(30);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%f", (double)cdr->end.tv_sec - when->tv_sec + cdr->end.tv_usec / 1000000.0 - when->tv_usec / 1000000.0);
+					LENGTHEN_BUF2(31);
+					ast_str_append(&sql2, 0, "%s%f", first ? "" : ",", (double)cdr->end.tv_sec - when->tv_sec + cdr->end.tv_usec / 1000000.0 - when->tv_usec / 1000000.0);
 				} else {
 					/* Char field, probably */
 					struct timeval *when = cur->name[0] == 'd' ? &cdr->start : &cdr->answer;
-					LENGTHEN_BUF2(30);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "'%f'", (double)cdr->end.tv_sec - when->tv_sec + cdr->end.tv_usec / 1000000.0 - when->tv_usec / 1000000.0);
+					LENGTHEN_BUF2(31);
+					ast_str_append(&sql2, 0, "%s'%f'", first ? "" : ",", (double)cdr->end.tv_sec - when->tv_sec + cdr->end.tv_usec / 1000000.0 - when->tv_usec / 1000000.0);
 				}
 			} else if (strcmp(cur->name, "disposition") == 0 || strcmp(cur->name, "amaflags") == 0) {
 				if (strncmp(cur->type, "int", 3) == 0) {
 					/* Integer, no need to escape anything */
 					ast_cdr_getvar(cdr, cur->name, &value, buf, sizeof(buf), 0, 1);
-					LENGTHEN_BUF2(12);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%s", value);
+					LENGTHEN_BUF2(13);
+					ast_str_append(&sql2, 0, "%s%s", first ? "" : ",", value);
 				} else {
 					/* Although this is a char field, there are no special characters in the values for these fields */
 					ast_cdr_getvar(cdr, cur->name, &value, buf, sizeof(buf), 0, 0);
-					LENGTHEN_BUF2(30);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "'%s'", value);
+					LENGTHEN_BUF2(31);
+					ast_str_append(&sql2, 0, "%s'%s'", first ? "" : ",", value);
 				}
 			} else {
 				/* Arbitrary field, could be anything */
@@ -241,20 +238,20 @@ static int pgsql_log(struct ast_cdr *cdr)
 				if (strncmp(cur->type, "int", 3) == 0) {
 					long long whatever;
 					if (value && sscanf(value, "%lld", &whatever) == 1) {
-						LENGTHEN_BUF2(25);
-						lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%lld", whatever);
+						LENGTHEN_BUF2(26);
+						ast_str_append(&sql2, 0, "%s%lld", first ? "" : ",", whatever);
 					} else {
-						LENGTHEN_BUF2(1);
-						lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "0");
+						LENGTHEN_BUF2(2);
+						ast_str_append(&sql2, 0, "%s0", first ? "" : ",");
 					}
 				} else if (strncmp(cur->type, "float", 5) == 0) {
 					long double whatever;
 					if (value && sscanf(value, "%Lf", &whatever) == 1) {
-						LENGTHEN_BUF2(50);
-						lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "%30Lf", whatever);
+						LENGTHEN_BUF2(51);
+						ast_str_append(&sql2, 0, "%s%30Lf", first ? "" : ",", whatever);
 					} else {
-						LENGTHEN_BUF2(1);
-						lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "0");
+						LENGTHEN_BUF2(2);
+						ast_str_append(&sql2, 0, "%s0", first ? "" : ",");
 					}
 				/* XXX Might want to handle dates, times, and other misc fields here XXX */
 				} else {
@@ -262,20 +259,16 @@ static int pgsql_log(struct ast_cdr *cdr)
 						PQescapeStringConn(conn, escapebuf, value, strlen(value), NULL);
 					else
 						escapebuf[0] = '\0';
-					LENGTHEN_BUF2(strlen(escapebuf) + 2);
-					lensql2 += snprintf(sql2 + lensql2, sizesql2 - lensql2, "'%s'", escapebuf);
+					LENGTHEN_BUF2(strlen(escapebuf) + 3);
+					ast_str_append(&sql2, 0, "%s'%s'", first ? "" : ",", escapebuf);
 				}
 			}
-			LENGTHEN_BUF2(1);
-			strcat(sql2 + lensql2, ",");
-			lensql2++;
+			first = 0;
   		}
 		AST_RWLIST_UNLOCK(&psql_columns);
-		LENGTHEN_BUF1(lensql2);
-		sql[lensql - 1] = ')';
-		sql2[lensql2 - 1] = ')';
-		strcat(sql + lensql, sql2);
-		ast_verb(11, "[%s]\n", sql);
+		LENGTHEN_BUF1(ast_str_strlen(sql2) + 2);
+		ast_str_append(&sql, 0, ")%s)", ast_str_buffer(sql2));
+		ast_verb(11, "[%s]\n", ast_str_buffer(sql));
 
 		ast_debug(2, "inserting a CDR record.\n");
 
@@ -303,7 +296,7 @@ static int pgsql_log(struct ast_cdr *cdr)
 				return -1;
 			}
 		}
-		result = PQexec(conn, sql);
+		result = PQexec(conn, ast_str_buffer(sql));
 		if (PQresultStatus(result) != PGRES_COMMAND_OK) {
 			pgerror = PQresultErrorMessage(result);
 			ast_log(LOG_ERROR, "Failed to insert call detail record into database!\n");
@@ -314,7 +307,7 @@ static int pgsql_log(struct ast_cdr *cdr)
 				ast_log(LOG_ERROR, "Connection reestablished.\n");
 				connected = 1;
 				PQclear(result);
-				result = PQexec(conn, sql);
+				result = PQexec(conn, ast_str_buffer(sql));
 				if (PQresultStatus(result) != PGRES_COMMAND_OK) {
 					pgerror = PQresultErrorMessage(result);
 					ast_log(LOG_ERROR, "HARD ERROR!  Attempted reconnection failed.  DROPPING CALL RECORD!\n");
@@ -376,7 +369,7 @@ static int config_module(int reload)
 	struct ast_config *cfg;
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 
-	if ((cfg = ast_config_load(config, config_flags)) == NULL) {
+	if ((cfg = ast_config_load(config, config_flags)) == NULL || cfg == CONFIG_STATUS_FILEINVALID) {
 		ast_log(LOG_WARNING, "Unable to load config for PostgreSQL CDR's: %s\n", config);
 		return -1;
 	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED)

@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 171693 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 189207 $")
 
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -69,39 +69,112 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 171693 $")
 #include "asterisk/stringfields.h"
 #include "asterisk/event.h"
 
+/*** DOCUMENTATION
+	<application name="AgentLogin" language="en_US">
+		<synopsis>
+			Call agent login.
+		</synopsis>
+		<syntax>
+			<parameter name="AgentNo" />
+			<parameter name="options">
+				<optionlist>
+					<option name="s">
+						<para>silent login - do not announce the login ok segment after
+						agent logged on/off</para>
+					</option>
+				</optionlist>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Asks the agent to login to the system. Always returns <literal>-1</literal>.
+			While logged in, the agent can receive calls and will hear a <literal>beep</literal>
+			when a new call comes in. The agent can dump the call by pressing the star key.</para>
+		</description>
+		<see-also>
+			<ref type="application">Queue</ref>
+			<ref type="application">AddQueueMember</ref>
+			<ref type="application">RemoveQueueMember</ref>
+			<ref type="application">PauseQueueMember</ref>
+			<ref type="application">UnpauseQueueMember</ref>
+			<ref type="function">AGENT</ref>
+			<ref type="filename">agents.conf</ref>
+			<ref type="filename">queues.conf</ref>
+		</see-also>
+	</application>
+	<application name="AgentMonitorOutgoing" language="en_US">
+		<synopsis>
+			Record agent's outgoing call.
+		</synopsis>
+		<syntax>
+			<parameter name="options">
+				<optionlist>
+					<option name="d">
+						<para>make the app return <literal>-1</literal> if there is an error condition.</para>
+					</option>
+					<option name="c">
+						<para>change the CDR so that the source of the call is
+						<literal>Agent/agent_id</literal></para>
+					</option>
+					<option name="n">
+						<para>don't generate the warnings when there is no callerid or the
+						agentid is not known. It's handy if you want to have one context
+						for agent and non-agent calls.</para>
+					</option>
+				</optionlist>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Tries to figure out the id of the agent who is placing outgoing call based on
+			comparison of the callerid of the current interface and the global variable
+			placed by the AgentCallbackLogin application. That's why it should be used only
+			with the AgentCallbackLogin app. Uses the monitoring functions in chan_agent
+			instead of Monitor application. That has to be configured in the
+			<filename>agents.conf</filename> file.</para>
+			<para>Normally the app returns <literal>0</literal> unless the options are passed.</para>
+		</description>
+		<see-also>
+			<ref type="filename">agents.conf</ref>
+		</see-also>
+	</application>
+	<function name="AGENT" language="en_US">
+		<synopsis>
+			Gets information about an Agent
+		</synopsis>
+		<syntax argsep=":">
+			<parameter name="agentid" required="true" />
+			<parameter name="item">
+				<para>The valid items to retrieve are:</para>
+				<enumlist>
+					<enum name="status">
+						<para>(default) The status of the agent (LOGGEDIN | LOGGEDOUT)</para>
+					</enum>
+					<enum name="password">
+						<para>The password of the agent</para>
+					</enum>
+					<enum name="name">
+						<para>The name of the agent</para>
+					</enum>
+					<enum name="mohclass">
+						<para>MusicOnHold class</para>
+					</enum>
+					<enum name="exten">
+						<para>The callback extension for the Agent (AgentCallbackLogin)</para>
+					</enum>
+					<enum name="channel">
+						<para>The name of the active channel for the Agent (AgentLogin)</para>
+					</enum>
+				</enumlist>
+			</parameter>
+		</syntax>
+		<description />
+	</function>
+ ***/
+
 static const char tdesc[] = "Call Agent Proxy Channel";
 static const char config[] = "agents.conf";
 
 static const char app[] = "AgentLogin";
 static const char app3[] = "AgentMonitorOutgoing";
-
-static const char synopsis[] = "Call agent login";
-static const char synopsis3[] = "Record agent's outgoing call";
-
-static const char descrip[] =
-"  AgentLogin([AgentNo][,options]):\n"
-"Asks the agent to login to the system.  Always returns -1.  While\n"
-"logged in, the agent can receive calls and will hear a 'beep'\n"
-"when a new call comes in. The agent can dump the call by pressing\n"
-"the star key.\n"
-"The option string may contain zero or more of the following characters:\n"
-"      's' -- silent login - do not announce the login ok segment after agent logged on/off\n";
-
-static const char descrip3[] =
-"  AgentMonitorOutgoing([options]):\n"
-"Tries to figure out the id of the agent who is placing outgoing call based on\n"
-"comparison of the callerid of the current interface and the global variable \n"
-"placed by the AgentCallbackLogin application. That's why it should be used only\n"
-"with the AgentCallbackLogin app. Uses the monitoring functions in chan_agent \n"
-"instead of Monitor application. That has to be configured in the agents.conf file.\n"
-"\nReturn value:\n"
-"Normally the app returns 0 unless the options are passed.\n"
-"\nOptions:\n"
-"	'd' - make the app return -1 if there is an error condition\n"
-"	'c' - change the CDR so that the source of the call is 'Agent/agent_id'\n"
-"	'n' - don't generate the warnings when there is no callerid or the\n"
-"	      agentid is not known.\n"
-"             It's handy if you want to have one context for agent and non-agent calls.\n";
 
 static const char mandescr_agents[] =
 "Description: Will list info about all possible agents.\n"
@@ -246,6 +319,7 @@ static void set_agentbycallerid(const char *callerid, const char *agent);
 static char *complete_agent_logoff_cmd(const char *line, const char *word, int pos, int state);
 static struct ast_channel* agent_get_base_channel(struct ast_channel *chan);
 static int agent_set_base_channel(struct ast_channel *chan, struct ast_channel *base);
+static int agent_logoff(const char *agent, int soft);
 
 /*! \brief Channel interface description for PBX integration */
 static const struct ast_channel_tech agent_tech = {
@@ -448,8 +522,12 @@ static struct ast_frame *agent_read(struct ast_channel *ast)
 	struct ast_frame *f = NULL;
 	static struct ast_frame answer_frame = { AST_FRAME_CONTROL, AST_CONTROL_ANSWER };
 	const char *status;
-	ast_mutex_lock(&p->lock); 
+	int cur_time = time(NULL);
+	ast_mutex_lock(&p->lock);
 	CHECK_FORMATS(ast, p);
+	if (!p->start) {
+		p->start = cur_time;
+	}
 	if (p->chan) {
 		ast_copy_flags(p->chan, ast, AST_FLAG_EXCEPTION);
 		p->chan->fdno = (ast->fdno == AST_AGENT_FD) ? AST_TIMING_FD : ast->fdno;
@@ -466,19 +544,16 @@ static struct ast_frame *agent_read(struct ast_channel *ast)
 				if (p->chan)
 					ast_debug(1, "Bridge on '%s' being cleared (2)\n", p->chan->name);
 				if (p->owner->_state != AST_STATE_UP) {
-					int howlong = time(NULL) - p->start;
-					if (p->autologoff && howlong > p->autologoff) {
-						long logintime = time(NULL) - p->loginstart;
+					int howlong = cur_time - p->start;
+					if (p->autologoff && howlong >= p->autologoff) {
 						p->loginstart = 0;
 							ast_log(LOG_NOTICE, "Agent '%s' didn't answer/confirm within %d seconds (waited %d)\n", p->name, p->autologoff, howlong);
-						agent_logoff_maintenance(p, p->loginchan, logintime, ast->uniqueid, "Autologoff");
-						if (persistent_agents)
-							dump_agents();
+						agent_logoff_maintenance(p, p->loginchan, (cur_time = p->loginstart), ast->uniqueid, "Autologoff");
 					}
 				}
 				status = pbx_builtin_getvar_helper(p->chan, "CHANLOCALSTATUS");
 				if (autologoffunavail && status && !strcasecmp(status, "CHANUNAVAIL")) {
-					long logintime = time(NULL) - p->loginstart;
+					long logintime = cur_time - p->loginstart;
 					p->loginstart = 0;
 					ast_log(LOG_NOTICE, "Agent read: '%s' is not available now, auto logoff\n", p->name);
 					agent_logoff_maintenance(p, p->loginchan, logintime, ast->uniqueid, "Chanunavail");
@@ -491,28 +566,38 @@ static struct ast_frame *agent_read(struct ast_channel *ast)
 			ast_devstate_changed(AST_DEVICE_UNAVAILABLE, "Agent/%s", p->agent);
 			p->acknowledged = 0;
 		}
- 	} else {
- 		/* if acknowledgement is not required, and the channel is up, we may have missed
- 		   an AST_CONTROL_ANSWER (if there was one), so mark the call acknowledged anyway */
- 		if (!p->ackcall && !p->acknowledged && p->chan && (p->chan->_state == AST_STATE_UP))
-  			p->acknowledged = 1;
- 		switch (f->frametype) {
- 		case AST_FRAME_CONTROL:
- 			if (f->subclass == AST_CONTROL_ANSWER) {
- 				if (p->ackcall) {
- 					ast_verb(3, "%s answered, waiting for '%c' to acknowledge\n", p->chan->name, p->acceptdtmf);
- 					/* Don't pass answer along */
- 					ast_frfree(f);
- 					f = &ast_null_frame;
- 				} else {
- 					p->acknowledged = 1;
- 					/* Use the builtin answer frame for the 
+	} else {
+		/* if acknowledgement is not required, and the channel is up, we may have missed
+			an AST_CONTROL_ANSWER (if there was one), so mark the call acknowledged anyway */
+		if (!p->ackcall && !p->acknowledged && p->chan && (p->chan->_state == AST_STATE_UP)) {
+			p->acknowledged = 1;
+		}
+
+		if (!p->acknowledged) {
+			int howlong = cur_time - p->start;
+			if (p->autologoff && (howlong >= p->autologoff)) {
+				ast_log(LOG_NOTICE, "Agent '%s' didn't answer/confirm within %d seconds (waited %d)\n", p->name, p->autologoff, howlong);
+				agent_logoff_maintenance(p, p->loginchan, (cur_time - p->loginstart), ast->uniqueid, "Autologoff");
+				agent_logoff(p->agent, 0);
+			}
+		}
+		switch (f->frametype) {
+		case AST_FRAME_CONTROL:
+			if (f->subclass == AST_CONTROL_ANSWER) {
+				if (p->ackcall) {
+					ast_verb(3, "%s answered, waiting for '%c' to acknowledge\n", p->chan->name, p->acceptdtmf);
+					/* Don't pass answer along */
+					ast_frfree(f);
+					f = &ast_null_frame;
+				} else {
+					p->acknowledged = 1;
+					/* Use the builtin answer frame for the 
 					   recording start check below. */
- 					ast_frfree(f);
- 					f = &answer_frame;
- 				}
- 			}
- 			break;
+					ast_frfree(f);
+					f = &answer_frame;
+				}
+			}
+			break;
 		case AST_FRAME_DTMF_BEGIN:
 			/*ignore DTMF begin's as it can cause issues with queue announce files*/
 			if((!p->acknowledged && f->subclass == p->acceptdtmf) || (f->subclass == p->enddtmf && endcall)){
@@ -520,30 +605,30 @@ static struct ast_frame *agent_read(struct ast_channel *ast)
 				f = &ast_null_frame;
 			}
 			break;
- 		case AST_FRAME_DTMF_END:
- 			if (!p->acknowledged && (f->subclass == p->acceptdtmf)) {
- 				ast_verb(3, "%s acknowledged\n", p->chan->name);
- 				p->acknowledged = 1;
- 				ast_frfree(f);
- 				f = &answer_frame;
- 			} else if (f->subclass == p->enddtmf && endcall) {
- 				/* terminates call */
- 				ast_frfree(f);
- 				f = NULL;
- 			}
- 			break;
- 		case AST_FRAME_VOICE:
- 		case AST_FRAME_VIDEO:
- 			/* don't pass voice or video until the call is acknowledged */
- 			if (!p->acknowledged) {
- 				ast_frfree(f);
- 				f = &ast_null_frame;
- 			}
+		case AST_FRAME_DTMF_END:
+			if (!p->acknowledged && (f->subclass == p->acceptdtmf)) {
+				ast_verb(3, "%s acknowledged\n", p->chan->name);
+				p->acknowledged = 1;
+				ast_frfree(f);
+				f = &answer_frame;
+			} else if (f->subclass == p->enddtmf && endcall) {
+				/* terminates call */
+				ast_frfree(f);
+				f = NULL;
+			}
+			break;
+		case AST_FRAME_VOICE:
+		case AST_FRAME_VIDEO:
+			/* don't pass voice or video until the call is acknowledged */
+			if (!p->acknowledged) {
+				ast_frfree(f);
+				f = &ast_null_frame;
+			}
 		default:
 			/* pass everything else on through */
 			break;
-  		}
-  	}
+		}
+	}
 
 	CLEANUP(ast,p);
 	if (p->chan && !p->chan->_bridge) {
@@ -1092,8 +1177,21 @@ static int read_agent_config(int reload)
 	if (!cfg) {
 		ast_log(LOG_NOTICE, "No agent configuration found -- agent support disabled\n");
 		return 0;
-	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED)
+	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED) {
 		return -1;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_ERROR, "%s contains a parsing error.  Aborting\n", config);
+		return 0;
+	}
+	if ((ucfg = ast_config_load("users.conf", config_flags))) {
+		if (ucfg == CONFIG_STATUS_FILEUNCHANGED) {
+			ucfg = NULL;
+		} else if (ucfg == CONFIG_STATUS_FILEINVALID) {
+			ast_log(LOG_ERROR, "users.conf contains a parsing error.  Aborting\n");
+			return 0;
+		}
+	}
+
 	AST_LIST_LOCK(&agents);
 	AST_LIST_TRAVERSE(&agents, p, list) {
 		p->dead = 1;
@@ -1183,7 +1281,7 @@ static int read_agent_config(int reload)
 		}
 		v = v->next;
 	}
-	if ((ucfg = ast_config_load("users.conf", config_flags)) && ucfg != CONFIG_STATUS_FILEUNCHANGED) {
+	if (ucfg) {
 		genhasagent = ast_true(ast_variable_retrieve(ucfg, "general", "hasagent"));
 		catname = ast_category_browse(ucfg, NULL);
 		while(catname) {
@@ -1558,7 +1656,7 @@ static void agent_logoff_maintenance(struct agent_pvt *p, char *loginchan, long 
 	p->logincallerid[0] = '\0';
 	ast_devstate_changed(AST_DEVICE_UNAVAILABLE, "Agent/%s", p->agent);
 	if (persistent_agents)
-		dump_agents();	
+		dump_agents();
 
 }
 
@@ -2434,17 +2532,7 @@ static int function_agent(struct ast_channel *chan, const char *cmd, char *data,
 
 struct ast_custom_function agent_function = {
 	.name = "AGENT",
-	.synopsis = "Gets information about an Agent",
-	.syntax = "AGENT(<agentid>[:item])",
 	.read = function_agent,
-	.desc = "The valid items to retrieve are:\n"
-	"- status (default)      The status of the agent\n"
-	"                          LOGGEDIN | LOGGEDOUT\n"
-	"- password              The password of the agent\n"
-	"- name                  The name of the agent\n"
-	"- mohclass              MusicOnHold class\n"
-	"- exten                 The callback extension for the Agent (AgentCallbackLogin)\n"
-	"- channel               The name of the active channel for the Agent (AgentLogin)\n"
 };
 
 
@@ -2468,15 +2556,15 @@ static int load_module(void)
 	if (persistent_agents)
 		reload_agents();
 	/* Dialplan applications */
-	ast_register_application(app, login_exec, synopsis, descrip);
-	ast_register_application(app3, agentmonitoroutgoing_exec, synopsis3, descrip3);
+	ast_register_application_xml(app, login_exec);
+	ast_register_application_xml(app3, agentmonitoroutgoing_exec);
 
 	/* Manager commands */
 	ast_manager_register2("Agents", EVENT_FLAG_AGENT, action_agents, "Lists agents and their status", mandescr_agents);
 	ast_manager_register2("AgentLogoff", EVENT_FLAG_AGENT, action_agent_logoff, "Sets an agent as no longer logged in", mandescr_agent_logoff);
 
 	/* CLI Commands */
-	ast_cli_register_multiple(cli_agents, sizeof(cli_agents) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(cli_agents, ARRAY_LEN(cli_agents));
 
 	/* Dialplan Functions */
 	ast_custom_function_register(&agent_function);
@@ -2501,7 +2589,7 @@ static int unload_module(void)
 	/* Unregister dialplan functions */
 	ast_custom_function_unregister(&agent_function);	
 	/* Unregister CLI commands */
-	ast_cli_unregister_multiple(cli_agents, sizeof(cli_agents) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(cli_agents, ARRAY_LEN(cli_agents));
 	/* Unregister dialplan applications */
 	ast_unregister_application(app);
 	ast_unregister_application(app3);

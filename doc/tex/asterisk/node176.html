@@ -26,30 +26,30 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html2944"
+<A NAME="tex2html2949"
   HREF="node177.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html2940"
+<A NAME="tex2html2945"
   HREF="node172.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html2936"
+<A NAME="tex2html2941"
   HREF="node175.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html2942"
+<A NAME="tex2html2947"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html2945"
+<B> Next:</B> <A NAME="tex2html2950"
   HREF="node177.html">mISDN CLI commands</A>
-<B> Up:</B> <A NAME="tex2html2941"
+<B> Up:</B> <A NAME="tex2html2946"
   HREF="node172.html">Configuration</A>
-<B> Previous:</B> <A NAME="tex2html2937"
+<B> Previous:</B> <A NAME="tex2html2942"
   HREF="node175.html">misdn.conf: user/port subsections</A>
- &nbsp; <B>  <A NAME="tex2html2943"
+ &nbsp; <B>  <A NAME="tex2html2948"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
@@ -70,20 +70,32 @@ so the generic dial string looks like:
 mISDN/&lt;port&gt;[:bchannel]|g:&lt;group&gt;/&lt;extension&gt;[/&lt;OPTIONSSTRING&gt;]
 
 The Optionsstring looks Like:
-:&lt;optchar1&gt;&lt;OptParam1&gt;:&lt;optchar2&gt;&lt;OptParam2&gt;
+:&lt;optchar&gt;&lt;optarg&gt;:&lt;optchar&gt;&lt;optarg&gt;...
 
 the ":" character is the delimiter.
 
-The available Optchars are:
-  d - Send display text on called phone, text is the optparam
-  n - don't detect dtmf tones on called channel
-  h - make digital outgoing call
-  c - make crypted outgoing call, param is keyindex
-  e - perform echo cancellation on this channel,
-      takes taps as arguments (32,64,128,256)
-  s - send Non Inband DTMF as inband
-  vr - rxgain control
-  vt - txgain control
+The available options are:
+  a - Have Asterisk detect DTMF tones on called channel
+  c - Make crypted outgoing call, optarg is keyindex
+  d - Send display text to called phone, text is the optarg
+  e - Perform echo cancelation on this channel,
+      takes taps as optarg (32,64,128,256)
+ e! - Disable echo cancelation on this channel
+  f - Enable fax detection
+  h - Make digital outgoing call
+ h1 - Make HDLC mode digital outgoing call
+  i - Ignore detected DTMF tones, don't signal them to Asterisk,
+      they will be transported inband.
+ jb - Set jitter buffer length, optarg is length
+ jt - Set jitter buffer upper threshold, optarg is threshold
+ jn - Disable jitter buffer
+  n - Disable mISDN DSP on channel.
+      Disables: echo cancel, DTMF detection, and volume control.
+  p - Caller ID presentation,
+      optarg is either 'allowed' or 'restricted'
+  s - Send Non-inband DTMF as inband
+ vr - Rx gain control, optarg is gain
+ vt - Tx gain control, optarg is gain
 </PRE><SMALL CLASS="SCRIPTSIZE"><B>
 </LI>
 </UL>
@@ -109,7 +121,7 @@ PSTN_TE --&gt; * Box 2 --&gt; Phone2
 </PRE>
 
 <P>
-The Encryption must be done on the PSTN sides, so the dialplan on the boxes
+The encryption must be done on the PSTN sides, so the dialplan on the boxes
 are:
 
 <P>
@@ -126,7 +138,7 @@ exten =&gt; ${CRYPT_MSN},2,dial(${PHONE2})
 <BR><HR>
 <ADDRESS>
 lmadsen
-2009-03-19
+2009-06-11
 </ADDRESS>
 </BODY>
 </HTML>

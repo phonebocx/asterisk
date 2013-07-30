@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 181199 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 191139 $")
 
 #include <ctype.h>
 
@@ -389,70 +389,10 @@ static char *handle_cli_dialplan_remove_extension(struct ast_cli_entry *e, int c
 	return ret;
 }
 
-#define BROKEN_READLINE 1
-
-#ifdef BROKEN_READLINE
-/*
- * There is one funny thing, when you have word like 300@ and you hit
- * <tab>, you arguments will act as your word is '300 ', so the '@'
- * character acts sometimes as a word delimiter and sometimes as a part
- * of a word.
- *
- * This fix function allocates a new word variable and stores it every
- * time as xxx@yyy. The correct pos is set, too.
- *
- * It's ugly, I know, but I'm waiting for Mark's suggestion if the
- * previous is a bug or a feature ...
- */
-static int fix_complete_args(const char *line, char **word, int *pos)
-{
-	char *_line, *_strsep_line, *_previous_word = NULL, *_word = NULL;
-	int words = 0;
-
-	_line = strdup(line);
-
-	_strsep_line = _line;
-	while (_strsep_line) {
-		_previous_word = _word;
-		_word = strsep(&_strsep_line, " ");
-
-		if (_word && strlen(_word)) words++;
-	}
-
-
-	if (_word || _previous_word) {
-		if (_word) {
-			if (!strlen(_word)) words++;
-			*word = strdup(_word);
-		} else
-			*word = strdup(_previous_word);
-		*pos = words - 1;
-		free(_line);
-		return 0;
-	}
-
-	free(_line);
-	return -1;
-}
-#endif /* BROKEN_READLINE */
-
 static char *complete_dialplan_remove_extension(struct ast_cli_args *a)
 {
 	char *ret = NULL;
 	int which = 0;
-
-#ifdef BROKEN_READLINE
-	char *word2;
-	/*
-	 * Fix arguments, *word is a new allocated structure, REMEMBER to
-	 * free *word when you want to return from this function ...
-	 */
-	if (fix_complete_args(a->line, &word2, &a->pos)) {
-		ast_log(LOG_ERROR, "Out of free memory\n");
-		return NULL;
-	}
-	a->word = word2;
-#endif
 
 	if (a->pos == 3) { /* 'dialplan remove extension _X_' (exten@context ... */
 		struct ast_context *c = NULL;
@@ -463,9 +403,6 @@ static char *complete_dialplan_remove_extension(struct ast_cli_args *a)
 
 		lc = split_ec(a->word, &exten, &context, &cid);
 		if (lc)	{ /* error */
-#ifdef BROKEN_READLINE
-			free(word2);
-#endif
 			return NULL;
 		}
 		le = strlen(exten);
@@ -575,9 +512,6 @@ static char *complete_dialplan_remove_extension(struct ast_cli_args *a)
 		if (exten)
 			free(exten);
 	}
-#ifdef BROKEN_READLINE
-	free(word2);
-#endif
 	return ret; 
 }
 
@@ -1398,9 +1332,39 @@ static int unload_module(void)
 	if (overrideswitch_config) {
 		ast_free(overrideswitch_config);
 	}
-	ast_cli_unregister_multiple(cli_pbx_config, sizeof(cli_pbx_config) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(cli_pbx_config, ARRAY_LEN(cli_pbx_config));
 	ast_context_destroy(NULL, registrar);
 	return 0;
+}
+
+/*!\note Protect against misparsing based upon commas in the middle of fields
+ * like character classes.  We've taken steps to permit pretty much every other
+ * printable character in a character class, so properly handling a comma at
+ * this level is a natural extension.  This is almost like the standard
+ * application parser in app.c, except that it handles square brackets. */
+static char *pbx_strsep(char **destructible, const char *delim)
+{
+	int square = 0;
+	char *res = *destructible;
+	for (; destructible && *destructible && **destructible; (*destructible)++) {
+		if (**destructible == '[' && !strchr(delim, '[')) {
+			square++;
+		} else if (**destructible == ']' && !strchr(delim, ']')) {
+			if (square) {
+				square--;
+			}
+		} else if (**destructible == '\\' && !strchr(delim, '\\')) {
+			(*destructible)++;
+		} else if (strchr(delim, **destructible) && !square) {
+			**destructible = '\0';
+			(*destructible)++;
+			break;
+		}
+	}
+	if (destructible && *destructible && **destructible == '\0') {
+		*destructible = NULL;
+	}
+	return res;
 }
 
 static int pbx_load_config(const char *config_file)
@@ -1420,8 +1384,9 @@ static int pbx_load_config(const char *config_file)
 	const char *aft;
 	const char *newpm, *ovsw;
 	struct ast_flags config_flags = { 0 };
+	char lastextension[256];
 	cfg = ast_config_load(config_file, config_flags);
-	if (!cfg)
+	if (!cfg || cfg == CONFIG_STATUS_FILEINVALID)
 		return 0;
 
 	/* Use existing config to populate the PBX table */
@@ -1443,127 +1408,168 @@ static int pbx_load_config(const char *config_file)
 		}
 	}
 
-	if ((cxt = ast_variable_retrieve(cfg, "general", "userscontext"))) 
-		ast_copy_string(userscontext, cxt, sizeof(userscontext));
-	else
-		ast_copy_string(userscontext, "default", sizeof(userscontext));
+	ast_copy_string(userscontext, ast_variable_retrieve(cfg, "general", "userscontext") ?: "default", sizeof(userscontext));
 								    
 	for (v = ast_variable_browse(cfg, "globals"); v; v = v->next) {
 		pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
 		pbx_builtin_setvar_helper(NULL, v->name, realvalue);
 	}
-	for (cxt = NULL; (cxt = ast_category_browse(cfg, cxt)); ) {
+	for (cxt = ast_category_browse(cfg, NULL);
+	     cxt;
+	     cxt = ast_category_browse(cfg, cxt)) {
 		/* All categories but "general" or "globals" are considered contexts */
-		if (!strcasecmp(cxt, "general") || !strcasecmp(cxt, "globals"))
+		if (!strcasecmp(cxt, "general") || !strcasecmp(cxt, "globals")) {
 			continue;
-		con=ast_context_find_or_create(&local_contexts, local_table, cxt, registrar);
-		if (con == NULL)
+		}
+		if (!(con = ast_context_find_or_create(&local_contexts, local_table, cxt, registrar))) {
 			continue;
+		}
+
+		/* Reset continuation items at the beginning of each context */
+		lastextension[0] = '\0';
+		lastpri = -2;
 
 		for (v = ast_variable_browse(cfg, cxt); v; v = v->next) {
-			if (!strcasecmp(v->name, "exten")) {
-				char *tc = ast_strdup(v->value);
-				if (tc) {
-					int ipri = -2;
-					char realext[256]="";
-					char *plus, *firstp;
-					char *pri, *appl, *data, *cidmatch;
-					char *stringp = tc;
-					char *ext = strsep(&stringp, ",");
-					if (!ext)
-						ext="";
-					pbx_substitute_variables_helper(NULL, ext, realext, sizeof(realext) - 1);
-					cidmatch = strchr(realext, '/');
-					if (cidmatch) {
-						*cidmatch++ = '\0';
-						ast_shrink_phone_number(cidmatch);
-					}
-					pri = strsep(&stringp, ",");
-					if (!pri)
-						pri="";
-					pri = ast_skip_blanks(pri);
-					pri = ast_trim_blanks(pri);
-					label = strchr(pri, '(');
-					if (label) {
-						*label++ = '\0';
-						end = strchr(label, ')');
-						if (end)
-							*end = '\0';
-						else
-							ast_log(LOG_WARNING, "Label missing trailing ')' at line %d\n", v->lineno);
-					}
-					plus = strchr(pri, '+');
-					if (plus)
-						*plus++ = '\0';
-					if (!strcmp(pri,"hint"))
-						ipri=PRIORITY_HINT;
-					else if (!strcmp(pri, "next") || !strcmp(pri, "n")) {
-						if (lastpri > -2)
-							ipri = lastpri + 1;
-						else
-							ast_log(LOG_WARNING, "Can't use 'next' priority on the first entry!\n");
-					} else if (!strcmp(pri, "same") || !strcmp(pri, "s")) {
-						if (lastpri > -2)
-							ipri = lastpri;
-						else
-							ast_log(LOG_WARNING, "Can't use 'same' priority on the first entry!\n");
-					} else if (sscanf(pri, "%d", &ipri) != 1 &&
-					    (ipri = ast_findlabel_extension2(NULL, con, realext, pri, cidmatch)) < 1) {
-						ast_log(LOG_WARNING, "Invalid priority/label '%s' at line %d\n", pri, v->lineno);
-						ipri = 0;
-					}
-					appl = S_OR(stringp, "");
-					/* Find the first occurrence of '(' */
-					firstp = strchr(appl, '(');
-					if (!firstp) {
-						/* No arguments */
-						data = "";
-					} else {
-						appl = strsep(&stringp, "(");
-						data = stringp;
-						end = strrchr(data, ')');
-						if ((end = strrchr(data, ')'))) {
-							*end = '\0';
-						} else {
-							ast_log(LOG_WARNING, "No closing parenthesis found? '%s(%s'\n", appl, data);
-						}
-					}
+			char *tc = NULL;
+			char realext[256] = "";
+			char *stringp, *ext;
 
-					if (!data)
-						data = "";
-					appl = ast_skip_blanks(appl);
-					if (ipri) {
-						if (plus)
-							ipri += atoi(plus);
-						lastpri = ipri;
-						if (!ast_opt_dont_warn && !strcmp(realext, "_."))
-							ast_log(LOG_WARNING, "The use of '_.' for an extension is strongly discouraged and can have unexpected behavior.  Please use '_X.' instead at line %d\n", v->lineno);
-						if (ast_add_extension2(con, 0, realext, ipri, label, cidmatch, appl, strdup(data), ast_free_ptr, registrar)) {
-							ast_log(LOG_WARNING, "Unable to register extension at line %d\n", v->lineno);
-						}
-					}
-					free(tc);
+			if (!strncasecmp(v->name, "same", 4)) {
+				if (ast_strlen_zero(lastextension)) {
+					ast_log(LOG_ERROR, "No previous pattern in the first entry of context '%s' to match '%s'!\n", cxt, v->name);
+					continue;
 				}
+				if ((stringp = tc = ast_strdup(v->value))) {
+					ast_copy_string(realext, lastextension, sizeof(realext));
+					goto process_extension;
+				}
+			} else if (!strcasecmp(v->name, "exten")) {
+				int ipri = -2;
+				char *plus, *firstp;
+				char *pri, *appl, *data, *cidmatch;
+
+				if (!(stringp = tc = ast_strdup(v->value))) {
+					continue;
+				}
+
+				ext = S_OR(pbx_strsep(&stringp, ","), "");
+				pbx_substitute_variables_helper(NULL, ext, realext, sizeof(realext) - 1);
+				ast_copy_string(lastextension, realext, sizeof(lastextension));
+process_extension:
+				if ((cidmatch = strchr(realext, '/'))) {
+					*cidmatch++ = '\0';
+					ast_shrink_phone_number(cidmatch);
+				}
+				pri = S_OR(strsep(&stringp, ","), "");
+				pri = ast_skip_blanks(pri);
+				pri = ast_trim_blanks(pri);
+				if ((label = strchr(pri, '('))) {
+					*label++ = '\0';
+					if ((end = strchr(label, ')'))) {
+						*end = '\0';
+					} else {
+						ast_log(LOG_WARNING, "Label missing trailing ')' at line %d\n", v->lineno);
+					}
+				}
+				if ((plus = strchr(pri, '+'))) {
+					*plus++ = '\0';
+				}
+				if (!strcmp(pri,"hint")) {
+					ipri = PRIORITY_HINT;
+				} else if (!strcmp(pri, "next") || !strcmp(pri, "n")) {
+					if (lastpri > -2) {
+						ipri = lastpri + 1;
+					} else {
+						ast_log(LOG_WARNING, "Can't use 'next' priority on the first entry!\n");
+					}
+				} else if (!strcmp(pri, "same") || !strcmp(pri, "s")) {
+					if (lastpri > -2) {
+						ipri = lastpri;
+					} else {
+						ast_log(LOG_WARNING, "Can't use 'same' priority on the first entry!\n");
+					}
+				} else if (sscanf(pri, "%d", &ipri) != 1 &&
+					   (ipri = ast_findlabel_extension2(NULL, con, realext, pri, cidmatch)) < 1) {
+					ast_log(LOG_WARNING, "Invalid priority/label '%s' at line %d\n", pri, v->lineno);
+					ipri = 0;
+				}
+				appl = S_OR(stringp, "");
+				/* Find the first occurrence of '(' */
+				if (!(firstp = strchr(appl, '('))) {
+					/* No arguments */
+					data = "";
+				} else {
+					appl = strsep(&stringp, "(");
+					data = S_OR(stringp, "");
+					if ((end = strrchr(data, ')'))) {
+						*end = '\0';
+					} else {
+						ast_log(LOG_WARNING, "No closing parenthesis found? '%s(%s'\n", appl, data);
+					}
+				}
+
+				appl = ast_skip_blanks(appl);
+				if (ipri) {
+					if (plus) {
+						ipri += atoi(plus);
+					}
+					lastpri = ipri;
+					if (!ast_opt_dont_warn && !strcmp(realext, "_.")) {
+						ast_log(LOG_WARNING, "The use of '_.' for an extension is strongly discouraged and can have unexpected behavior.  Please use '_X.' instead at line %d\n", v->lineno);
+					}
+					if (ast_add_extension2(con, 0, realext, ipri, label, cidmatch, appl, strdup(data), ast_free_ptr, registrar)) {
+						ast_log(LOG_WARNING, "Unable to register extension at line %d\n", v->lineno);
+					}
+				}
+				free(tc);
 			} else if (!strcasecmp(v->name, "include")) {
 				pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
-				if (ast_context_add_include2(con, realvalue, registrar))
-					ast_log(LOG_WARNING, "Unable to include context '%s' in context '%s'\n", v->value, cxt);
+				if (ast_context_add_include2(con, realvalue, registrar)) {
+					switch (errno) {
+						case ENOMEM:
+							ast_log(LOG_WARNING, "Out of memory for context addition\n");
+							break;
+
+						case EBUSY:
+							ast_log(LOG_WARNING, "Failed to lock context(s) list, please try again later\n");
+							break;
+
+						case EEXIST:
+							ast_log(LOG_WARNING, "Context '%s' already included in '%s' context\n",
+									v->value, cxt);
+							break;
+
+						case ENOENT:
+						case EINVAL:
+							ast_log(LOG_WARNING, "There is no existence of context '%s'\n",
+									errno == ENOENT ? v->value : cxt);
+							break;
+
+						default:
+							ast_log(LOG_WARNING, "Failed to include '%s' in '%s' context\n",
+									v->value, cxt);
+							break;
+					}
+				}
 			} else if (!strcasecmp(v->name, "ignorepat")) {
 				pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
-				if (ast_context_add_ignorepat2(con, realvalue, registrar))
+				if (ast_context_add_ignorepat2(con, realvalue, registrar)) {
 					ast_log(LOG_WARNING, "Unable to include ignorepat '%s' in context '%s'\n", v->value, cxt);
+				}
 			} else if (!strcasecmp(v->name, "switch") || !strcasecmp(v->name, "lswitch") || !strcasecmp(v->name, "eswitch")) {
 				char *stringp = realvalue;
 				char *appl, *data;
 				
-				if (!strcasecmp(v->name, "switch"))
+				if (!strcasecmp(v->name, "switch")) {
 					pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
-				else
+				} else {
 					ast_copy_string(realvalue, v->value, sizeof(realvalue));
+				}
 				appl = strsep(&stringp, "/");
 				data = S_OR(stringp, "");
-				if (ast_context_add_switch2(con, appl, data, !strcasecmp(v->name, "eswitch"), registrar))
+				if (ast_context_add_switch2(con, appl, data, !strcasecmp(v->name, "eswitch"), registrar)) {
 					ast_log(LOG_WARNING, "Unable to include switch '%s' in context '%s'\n", v->value, cxt);
+				}
 			} else {
 				ast_log(LOG_WARNING, "==!!== Unknown directive: %s at line %d -- IGNORING!!!\n", v->name, v->lineno);
 			}
@@ -1724,7 +1730,7 @@ static int load_module(void)
  
 	if (static_config && !write_protect_config)
 		ast_cli_register(&cli_dialplan_save);
-	ast_cli_register_multiple(cli_pbx_config, sizeof(cli_pbx_config) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(cli_pbx_config, ARRAY_LEN(cli_pbx_config));
 
 	return AST_MODULE_LOAD_SUCCESS;
 }

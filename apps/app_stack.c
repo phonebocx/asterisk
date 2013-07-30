@@ -31,44 +31,145 @@
 
 #include "asterisk.h"
  
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 174504 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 195842 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/app.h"
 #include "asterisk/manager.h"
 #include "asterisk/channel.h"
-
-/* usage of AGI is optional, so indicate that to the header file */
-#define ASTERISK_AGI_OPTIONAL
 #include "asterisk/agi.h"
 
+/*** DOCUMENTATION
+	<application name="Gosub" language="en_US">
+		<synopsis>
+			Jump to label, saving return address.
+		</synopsis>
+		<syntax>
+			<parameter name="context" />
+			<parameter name="exten" />
+			<parameter name="priority" required="true" hasparams="optional">
+				<argument name="arg1" multiple="true" required="true" />
+				<argument name="argN" />
+			</parameter>
+		</syntax>
+		<description>
+			<para>Jumps to the label specified, saving the return address.</para>
+		</description>
+		<see-also>
+			<ref type="application">GosubIf</ref>
+			<ref type="application">Macro</ref>
+			<ref type="application">Goto</ref>
+			<ref type="application">Return</ref>
+			<ref type="application">StackPop</ref>
+		</see-also>
+	</application>
+	<application name="GosubIf" language="en_US">
+		<synopsis>
+			Conditionally jump to label, saving return address.
+		</synopsis>
+		<syntax argsep="?">
+			<parameter name="condition" required="true" />
+			<parameter name="destination" required="true" argsep=":">
+				<argument name="labeliftrue" hasparams="optional">
+					<argument name="arg1" required="true" multiple="true" />
+					<argument name="argN" />
+				</argument>
+				<argument name="labeliffalse" hasparams="optional">
+					<argument name="arg1" required="true" multiple="true" />
+					<argument name="argN" />
+				</argument>
+			</parameter>
+		</syntax>
+		<description>
+			<para>If the condition is true, then jump to labeliftrue.  If false, jumps to
+			labeliffalse, if specified.  In either case, a jump saves the return point
+			in the dialplan, to be returned to with a Return.</para>
+		</description>
+		<see-also>
+			<ref type="application">Gosub</ref>
+			<ref type="application">Return</ref>
+			<ref type="application">MacroIf</ref>
+			<ref type="function">IF</ref>
+			<ref type="application">GotoIf</ref>
+		</see-also>
+	</application>
+	<application name="Return" language="en_US">
+		<synopsis>
+			Return from gosub routine.
+		</synopsis>
+		<syntax>
+			<parameter name="value">
+				<para>Return value.</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Jumps to the last label on the stack, removing it. The return <replaceable>value</replaceable>, if
+			any, is saved in the channel variable <variable>GOSUB_RETVAL</variable>.</para>
+		</description>
+		<see-also>
+			<ref type="application">Gosub</ref>
+			<ref type="application">StackPop</ref>
+		</see-also>
+	</application>
+	<application name="StackPop" language="en_US">
+		<synopsis>
+			Remove one address from gosub stack.
+		</synopsis>
+		<syntax />
+		<description>
+			<para>Removes last label on the stack, discarding it.</para>
+		</description>
+		<see-also>
+			<ref type="application">Return</ref>
+			<ref type="application">Gosub</ref>
+		</see-also>
+	</application>
+	<function name="LOCAL" language="en_US">
+		<synopsis>
+			Manage variables local to the gosub stack frame.
+		</synopsis>
+		<syntax>
+			<parameter name="varname" required="true" />
+		</syntax>
+		<description>
+			<para>Read and write a variable local to the gosub stack frame, once we Return() it will be lost
+			(or it will go back to whatever value it had before the Gosub()).</para>
+		</description>
+		<see-also>
+			<ref type="application">Gosub</ref>
+			<ref type="application">GosubIf</ref>
+			<ref type="application">Return</ref>
+		</see-also>
+	</function>
+	<function name="LOCAL_PEEK" language="en_US">
+		<synopsis>
+			Retrieve variables hidden by the local gosub stack frame.
+		</synopsis>
+		<syntax>
+			<parameter name="n" required="true" />
+			<parameter name="varname" required="true" />
+		</syntax>
+		<description>
+			<para>Read a variable <replaceable>varname</replaceable> hidden by
+			<replaceable>n</replaceable> levels of gosub stack frames.  Note that ${LOCAL_PEEK(0,foo)}
+			is the same as <variable>foo</variable>, since the value of <replaceable>n</replaceable>
+			peeks under 0 levels of stack frames; in other words, 0 is the current level.  If
+			<replaceable>n</replaceable> exceeds the available number of stack frames, then an empty
+			string is returned.</para>
+		</description>
+		<see-also>
+			<ref type="application">Gosub</ref>
+			<ref type="application">GosubIf</ref>
+			<ref type="application">Return</ref>
+		</see-also>
+	</function>
+ ***/
 
 static const char *app_gosub = "Gosub";
 static const char *app_gosubif = "GosubIf";
 static const char *app_return = "Return";
 static const char *app_pop = "StackPop";
-
-static const char *gosub_synopsis = "Jump to label, saving return address";
-static const char *gosubif_synopsis = "Conditionally jump to label, saving return address";
-static const char *return_synopsis = "Return from gosub routine";
-static const char *pop_synopsis = "Remove one address from gosub stack";
-
-static const char *gosub_descrip =
-"  Gosub([[context,]exten,]priority[(arg1[,...][,argN])]):\n"
-"Jumps to the label specified, saving the return address.\n";
-static const char *gosubif_descrip =
-"  GosubIf(condition?labeliftrue[(arg1[,...])][:labeliffalse[(arg1[,...])]]):\n"
-"If the condition is true, then jump to labeliftrue.  If false, jumps to\n"
-"labeliffalse, if specified.  In either case, a jump saves the return point\n"
-"in the dialplan, to be returned to with a Return.\n";
-static const char *return_descrip =
-"  Return([return-value]):\n"
-"Jumps to the last label on the stack, removing it.  The return value, if\n"
-"any, is saved in the channel variable GOSUB_RETVAL.\n";
-static const char *pop_descrip =
-"  StackPop():\n"
-"Removes last label on the stack, discarding it.\n";
 
 static void gosub_free(void *data);
 
@@ -100,21 +201,20 @@ static int frame_set_var(struct ast_channel *chan, struct gosub_stack_frame *fra
 		}
 	}
 
-	if (!ast_strlen_zero(value)) {
-		if (!found) {
-			variables = ast_var_assign(var, "");
-			AST_LIST_INSERT_HEAD(&frame->varshead, variables, entries);
-			pbx_builtin_pushvar_helper(chan, var, value);
-		} else
-			pbx_builtin_setvar_helper(chan, var, value);
-
-		manager_event(EVENT_FLAG_DIALPLAN, "VarSet", 
-			"Channel: %s\r\n"
-			"Variable: LOCAL(%s)\r\n"
-			"Value: %s\r\n"
-			"Uniqueid: %s\r\n", 
-			chan->name, var, value, chan->uniqueid);
+	if (!found) {
+		variables = ast_var_assign(var, "");
+		AST_LIST_INSERT_HEAD(&frame->varshead, variables, entries);
+		pbx_builtin_pushvar_helper(chan, var, value);
+	} else {
+		pbx_builtin_setvar_helper(chan, var, value);
 	}
+
+	manager_event(EVENT_FLAG_DIALPLAN, "VarSet",
+		"Channel: %s\r\n"
+		"Variable: LOCAL(%s)\r\n"
+		"Value: %s\r\n"
+		"Uniqueid: %s\r\n",
+		chan->name, var, value, chan->uniqueid);
 	return 0;
 }
 
@@ -298,6 +398,8 @@ static int gosub_exec(struct ast_channel *chan, void *data)
 		frame_set_var(chan, newframe, argname, args2.argval[i]);
 		ast_debug(1, "Setting '%s' to '%s'\n", argname, args2.argval[i]);
 	}
+	snprintf(argname, sizeof(argname), "%d", args2.argc);
+	frame_set_var(chan, newframe, "ARGC", argname);
 
 	/* And finally, save our return address */
 	oldlist = stack_store->data;
@@ -397,10 +499,42 @@ static int local_write(struct ast_channel *chan, const char *cmd, char *var, con
 
 static struct ast_custom_function local_function = {
 	.name = "LOCAL",
-	.synopsis = "Variables local to the gosub stack frame",
-	.syntax = "LOCAL(<varname>)",
 	.write = local_write,
 	.read = local_read,
+};
+
+static int peek_read(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
+{
+	int found = 0, n;
+	struct ast_var_t *variables;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(n);
+		AST_APP_ARG(name);
+	);
+
+	if (!chan) {
+		ast_log(LOG_ERROR, "LOCAL_PEEK must be called on an active channel\n");
+		return -1;
+	}
+
+	AST_STANDARD_APP_ARGS(args, data);
+	n = atoi(args.n);
+	*buf = '\0';
+
+	ast_channel_lock(chan);
+	AST_LIST_TRAVERSE(&chan->varshead, variables, entries) {
+		if (!strcmp(args.name, ast_var_name(variables)) && ++found > n) {
+			ast_copy_string(buf, ast_var_value(variables), len);
+			break;
+		}
+	}
+	ast_channel_unlock(chan);
+	return 0;
+}
+
+static struct ast_custom_function peek_function = {
+	.name = "LOCAL_PEEK",
+	.read = peek_read,
 };
 
 static int handle_gosub(struct ast_channel *chan, AGI *agi, int argc, char **argv)
@@ -512,24 +646,23 @@ static int unload_module(void)
 	ast_unregister_application(app_gosubif);
 	ast_unregister_application(app_gosub);
 	ast_custom_function_unregister(&local_function);
+	ast_custom_function_unregister(&peek_function);
 
 	return 0;
 }
 
 static int load_module(void)
 {
-	/* usage of AGI is optional, so check to see if the ast_agi_register()
-	   function is available; if so, use it.
-	*/
 	if (ast_agi_register) {
-		ast_agi_register(ast_module_info->self, &gosub_agi_command);
+		 ast_agi_register(ast_module_info->self, &gosub_agi_command);
 	}
 
-	ast_register_application(app_pop, pop_exec, pop_synopsis, pop_descrip);
-	ast_register_application(app_return, return_exec, return_synopsis, return_descrip);
-	ast_register_application(app_gosubif, gosubif_exec, gosubif_synopsis, gosubif_descrip);
-	ast_register_application(app_gosub, gosub_exec, gosub_synopsis, gosub_descrip);
+	ast_register_application_xml(app_pop, pop_exec);
+	ast_register_application_xml(app_return, return_exec);
+	ast_register_application_xml(app_gosubif, gosubif_exec);
+	ast_register_application_xml(app_gosub, gosub_exec);
 	ast_custom_function_register(&local_function);
+	ast_custom_function_register(&peek_function);
 
 	return 0;
 }

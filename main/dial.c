@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153225 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153223 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -53,15 +53,15 @@ struct ast_dial {
 
 /*! \brief Dialing channel structure. Contains per-channel dialing options, asterisk channel, and more! */
 struct ast_dial_channel {
-	int num;                               /*!< Unique number for dialed channel */
-	int timeout;                           /*!< Maximum time allowed for attempt */
-	char *tech;                            /*!< Technology being dialed */
-	char *device;                          /*!< Device being dialed */
-	void *options[AST_DIAL_OPTION_MAX];    /*!< Channel specific options */
-	int cause;                             /*!< Cause code in case of failure */
-	int is_running_app:1;                  /*!< Is this running an application? */
-	struct ast_channel *owner;             /*!< Asterisk channel */
-	AST_LIST_ENTRY(ast_dial_channel) list; /*!< Linked list information */
+	int num;				/*!< Unique number for dialed channel */
+	int timeout;				/*!< Maximum time allowed for attempt */
+	char *tech;				/*!< Technology being dialed */
+	char *device;				/*!< Device being dialed */
+	void *options[AST_DIAL_OPTION_MAX];	/*!< Channel specific options */
+	int cause;				/*!< Cause code in case of failure */
+	unsigned int is_running_app:1;		/*!< Is this running an application? */
+	struct ast_channel *owner;		/*!< Asterisk channel */
+	AST_LIST_ENTRY(ast_dial_channel) list;	/*!< Linked list information */
 };
 
 /*! \brief Typedef for dial option enable */
@@ -271,6 +271,7 @@ static int begin_dial_channel(struct ast_dial_channel *channel, struct ast_chann
 	/* Inherit everything from he who spawned this dial */
 	if (chan) {
 		ast_channel_inherit_variables(chan, channel->owner);
+		ast_channel_datastore_inherit(chan, channel->owner);
 
 		/* Copy over callerid information */
 		S_REPLACE(channel->owner->cid.cid_num, ast_strdup(chan->cid.cid_num));

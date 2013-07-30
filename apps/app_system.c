@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 177761 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 177664 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -36,32 +36,69 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 177761 $")
 #include "asterisk/strings.h"
 #include "asterisk/threadstorage.h"
 
+/*** DOCUMENTATION
+	<application name="System" language="en_US">
+		<synopsis>
+			Execute a system command.
+		</synopsis>
+		<syntax>
+			<parameter name="command" required="true">
+				<para>Command to execute</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Executes a command  by  using  system(). If the command
+			fails, the console should report a fallthrough.</para>
+			<para>Result of execution is returned in the <variable>SYSTEMSTATUS</variable> channel variable:</para>
+			<variablelist>
+				<variable name="SYSTEMSTATUS">
+					<value name="FAILURE">
+						Could not execute the specified command.
+					</value>
+					<value name="SUCCESS">
+						Specified command successfully executed.
+					</value>
+				</variable>
+			</variablelist>
+		</description>
+	</application>
+	<application name="TrySystem" language="en_US">
+		<synopsis>
+			Try executing a system command.
+		</synopsis>
+		<syntax>
+			<parameter name="command" required="true">
+				<para>Command to execute</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Executes a command  by  using  system().</para>
+			<para>Result of execution is returned in the <variable>SYSTEMSTATUS</variable> channel variable:</para>
+			<variablelist>
+				<variable name="SYSTEMSTATUS">
+					<value name="FAILURE">
+						Could not execute the specified command.
+					</value>
+					<value name="SUCCESS">
+						Specified command successfully executed.
+					</value>
+					<value name="APPERROR">
+						Specified command successfully executed, but returned error code.
+					</value>
+				</variable>
+			</variablelist>
+		</description>
+	</application>
+
+ ***/
+
 AST_THREADSTORAGE(buf_buf);
 
 static char *app = "System";
 
 static char *app2 = "TrySystem";
 
-static char *synopsis = "Execute a system command";
-
-static char *synopsis2 = "Try executing a system command";
-
 static char *chanvar = "SYSTEMSTATUS";
-
-static char *descrip =
-"  System(command): Executes a command  by  using  system(). If the command\n"
-"fails, the console should report a fallthrough. \n"
-"Result of execution is returned in the SYSTEMSTATUS channel variable:\n"
-"   FAILURE	Could not execute the specified command\n"
-"   SUCCESS	Specified command successfully executed\n";
-
-static char *descrip2 =
-"  TrySystem(command): Executes a command  by  using  system().\n"
-"on any situation.\n"
-"Result of execution is returned in the SYSTEMSTATUS channel variable:\n"
-"   FAILURE	Could not execute the specified command\n"
-"   SUCCESS	Specified command successfully executed\n"
-"   APPERROR	Specified command successfully executed, but returned error code\n";
 
 static int system_exec_helper(struct ast_channel *chan, void *data, int failmode)
 {
@@ -127,8 +164,8 @@ static int load_module(void)
 {
 	int res;
 
-	res = ast_register_application(app2, trysystem_exec, synopsis2, descrip2);
-	res |= ast_register_application(app, system_exec, synopsis, descrip);
+	res = ast_register_application_xml(app2, trysystem_exec);
+	res |= ast_register_application_xml(app, system_exec);
 
 	return res;
 }

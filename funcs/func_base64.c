@@ -24,11 +24,40 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89430 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
 
 #include "asterisk/module.h"
 #include "asterisk/pbx.h"	/* function register/unregister */
 #include "asterisk/utils.h"
+
+/*** DOCUMENTATION
+	<function name="BASE64_ENCODE" language="en_US">
+		<synopsis>
+			Encode a string in base64.
+		</synopsis>
+		<syntax>
+			<parameter name="string" required="true">
+				<para>Input string</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Returns the base64 string.</para>
+		</description>
+	</function>
+	<function name="BASE64_DECODE" language="en_US">
+		<synopsis>
+			Decode a base64 string.
+		</synopsis>
+		<syntax>
+			<parameter name="string" required="true">
+				<para>Input string.</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Returns the plain text string.</para>
+		</description>
+	</function>
+ ***/
 
 static int base64_encode(struct ast_channel *chan, const char *cmd, char *data,
 			 char *buf, size_t len)
@@ -58,17 +87,11 @@ static int base64_decode(struct ast_channel *chan, const char *cmd, char *data,
 
 static struct ast_custom_function base64_encode_function = {
 	.name = "BASE64_ENCODE",
-	.synopsis = "Encode a string in base64",
-	.desc = "Returns the base64 string\n",
-	.syntax = "BASE64_ENCODE(<string>)",
 	.read = base64_encode,
 };
 
 static struct ast_custom_function base64_decode_function = {
 	.name = "BASE64_DECODE",
-	.synopsis = "Decode a base64 string",
-	.desc = "Returns the plain text string\n",
-	.syntax = "BASE64_DECODE(<base64_string>)",
 	.read = base64_decode,
 };
 

@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 164276 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 184632 $")
 
 #include "asterisk/network.h"
 #include <sys/ioctl.h>
@@ -2192,30 +2192,6 @@ static int start_network_thread(void)
 	return 0;
 }
 
-static char *dundi_do_debug_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "dundi [no] debug";
-		e->usage = 
-			"Usage: dundi [no] debug\n"
-			"       Enables/Disables dumping of DUNDi packets for debugging purposes\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-	if (a->argc < 2 || a->argc > 3)
-		return CLI_SHOWUSAGE;
-	if (a->argc == 2) {
-		dundidebug = 1;
-		ast_cli(a->fd, "DUNDi Debugging Enabled\n");
-	} else {
-		dundidebug = 0;
-		ast_cli(a->fd, "DUNDi Debugging Disabled\n");
-	}
-	return CLI_SUCCESS;
-}
-
 static char *dundi_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	switch (cmd) {
@@ -2238,32 +2214,6 @@ static char *dundi_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_ar
 	} else {
 		dundidebug = 0;
 		ast_cli(a->fd, "DUNDi Debugging Disabled\n");
-	}
-	return CLI_SUCCESS;
-}
-
-static char *dundi_do_store_history_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "dundi [no] store history";
-		e->usage = 
-			"Usage: dundi [no] store history\n"
-			"       Enables/Disables storing of DUNDi requests and times for debugging\n"
-			"purposes\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-	if (a->argc < 3 || a->argc > 4)
-		return CLI_SHOWUSAGE;
-	
-	if (a->argc == 3) {
-		global_storehistory = 1;
-		ast_cli(a->fd, "DUNDi History Storage Enabled\n");
-	} else {
-		global_storehistory = 0;
-		ast_cli(a->fd, "DUNDi History Storage Disabled\n");
 	}
 	return CLI_SUCCESS;
 }
@@ -2855,11 +2805,9 @@ static char *dundi_show_precache(struct ast_cli_entry *e, int cmd, struct ast_cl
 #undef FORMAT2
 }
 
-static struct ast_cli_entry cli_dundi_do_debug_deprecated = AST_CLI_DEFINE(dundi_do_debug_deprecated, "Enable/Disable DUNDi debugging");
-static struct ast_cli_entry cli_dundi_do_store_history_deprecated = AST_CLI_DEFINE(dundi_do_store_history_deprecated, "Enable/Disable DUNDi historic records");
 static struct ast_cli_entry cli_dundi[] = {
-	AST_CLI_DEFINE(dundi_set_debug, "Enable/Disable DUNDi debugging", .deprecate_cmd = &cli_dundi_do_debug_deprecated),
-	AST_CLI_DEFINE(dundi_store_history, "Enable/Disable DUNDi historic records", .deprecate_cmd = &cli_dundi_do_store_history_deprecated),
+	AST_CLI_DEFINE(dundi_set_debug, "Enable/Disable DUNDi debugging"),
+	AST_CLI_DEFINE(dundi_store_history, "Enable/Disable DUNDi historic records"),
 	AST_CLI_DEFINE(dundi_flush, "Flush DUNDi cache"),
 	AST_CLI_DEFINE(dundi_show_peers, "Show defined DUNDi peers"),
 	AST_CLI_DEFINE(dundi_show_trans, "Show active DUNDi transactions"),
@@ -4621,14 +4569,13 @@ static int dundi_matchmore(struct ast_channel *chan, const char *context, const 
 	return dundi_helper(chan, context, exten, priority, data, DUNDI_FLAG_MATCHMORE);
 }
 
-static struct ast_switch dundi_switch =
-{
-        name:                   "DUNDi",
-        description:    		"DUNDi Discovered Dialplan Switch",
-        exists:                 dundi_exists,
-        canmatch:               dundi_canmatch,
-        exec:                   dundi_exec,
-        matchmore:              dundi_matchmore,
+static struct ast_switch dundi_switch = {
+	.name        = "DUNDi",
+	.description = "DUNDi Discovered Dialplan Switch",
+	.exists      = dundi_exists,
+	.canmatch    = dundi_canmatch,
+	.exec        = dundi_exec,
+	.matchmore   = dundi_matchmore,
 };
 
 static int set_config(char *config_file, struct sockaddr_in* sin, int reload)
@@ -4646,7 +4593,7 @@ static int set_config(char *config_file, struct sockaddr_in* sin, int reload)
 	int globalpcmodel = 0;
 	dundi_eid testeid;
 
-	if (!(cfg = ast_config_load(config_file, config_flags))) {
+	if (!(cfg = ast_config_load(config_file, config_flags)) || cfg == CONFIG_STATUS_FILEINVALID) {
 		ast_log(LOG_ERROR, "Unable to load config %s\n", config_file);
 		return -1;
 	}
@@ -4667,7 +4614,7 @@ static int set_config(char *config_file, struct sockaddr_in* sin, int reload)
 		ast_log(LOG_WARNING, "Unable to get host name!\n");
 	AST_LIST_LOCK(&peers);
 
-	memcpy(&global_eid, &g_eid, sizeof(global_eid));
+	memcpy(&global_eid, &ast_eid_default, sizeof(global_eid));
 
 	global_storehistory = 0;
 	ast_copy_string(secretpath, "dundi", sizeof(secretpath));
@@ -4792,7 +4739,7 @@ static int unload_module(void)
  		pthread_join(previous_clearcachethreadid, NULL);
  	}
 
-	ast_cli_unregister_multiple(cli_dundi, sizeof(cli_dundi) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(cli_dundi, ARRAY_LEN(cli_dundi));
 	ast_unregister_switch(&dundi_switch);
 	ast_custom_function_unregister(&dundi_function);
 	ast_custom_function_unregister(&dundi_query_function);
@@ -4860,7 +4807,7 @@ static int load_module(void)
 		return AST_MODULE_LOAD_FAILURE;
 	}
 	
-	ast_cli_register_multiple(cli_dundi, sizeof(cli_dundi) / sizeof(*cli_dundi));
+	ast_cli_register_multiple(cli_dundi, ARRAY_LEN(cli_dundi));
 	if (ast_register_switch(&dundi_switch))
 		ast_log(LOG_ERROR, "Unable to register DUNDi switch\n");
 	ast_custom_function_register(&dundi_function);

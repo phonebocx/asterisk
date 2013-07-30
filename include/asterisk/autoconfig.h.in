@@ -94,6 +94,9 @@
 /* Define to 1 if you have the `atexit' function. */
 #undef HAVE_ATEXIT
 
+/* Define to 1 if your GCC C compiler supports the 'alias' attribute. */
+#undef HAVE_ATTRIBUTE_alias
+
 /* Define to 1 if your GCC C compiler supports the 'always_inline' attribute.
    */
 #undef HAVE_ATTRIBUTE_always_inline
@@ -122,6 +125,9 @@
 
 /* Define to 1 if your GCC C compiler supports the 'weak' attribute. */
 #undef HAVE_ATTRIBUTE_weak
+
+/* Define to 1 if your GCC C compiler supports the 'weak_import' attribute. */
+#undef HAVE_ATTRIBUTE_weak_import
 
 /* Define this to indicate the ${BKTR_DESCRIP} library */
 #undef HAVE_BKTR
@@ -153,6 +159,9 @@
 /* Define to 1 if your system has a working `chown' function. */
 #undef HAVE_CHOWN
 
+/* Define to 1 if you have the `closefrom' function. */
+#undef HAVE_CLOSEFROM
+
 /* Define this to indicate the ${COS_DESCRIP} library */
 #undef HAVE_COS
 
@@ -183,6 +192,18 @@
 /* Define if your system has the DAHDI headers. */
 #undef HAVE_DAHDI
 
+/* Define if your system has the DAHDI_HALF_FULL headers. */
+#undef HAVE_DAHDI_HALF_FULL
+
+/* Define DAHDI_HALF_FULL headers version */
+#undef HAVE_DAHDI_HALF_FULL_VERSION
+
+/* Define if your system has the DAHDI_LINEREVERSE_VMWI headers. */
+#undef HAVE_DAHDI_LINEREVERSE_VMWI
+
+/* Define DAHDI_LINEREVERSE_VMWI headers version */
+#undef HAVE_DAHDI_LINEREVERSE_VMWI_VERSION
+
 /* Define DAHDI headers version */
 #undef HAVE_DAHDI_VERSION
 
@@ -199,8 +220,14 @@
 /* Define to 1 if you have the `dup2' function. */
 #undef HAVE_DUP2
 
+/* Define to 1 if you have the `eaccess' function. */
+#undef HAVE_EACCESS
+
 /* Define to 1 if you have the `endpwent' function. */
 #undef HAVE_ENDPWENT
+
+/* Define to 1 if you have the `euidaccess' function. */
+#undef HAVE_EUIDACCESS
 
 /* Define this to indicate the ${EXP_DESCRIP} library */
 #undef HAVE_EXP
@@ -322,6 +349,9 @@
 /* Define to 1 if you have the `getpagesize' function. */
 #undef HAVE_GETPAGESIZE
 
+/* Define to 1 if you have the `getpeereid' function. */
+#undef HAVE_GETPEEREID
+
 /* Define to 1 if you have the `gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
 
@@ -377,8 +407,20 @@
 /* Define to 1 if you have the `inet_ntoa' function. */
 #undef HAVE_INET_NTOA
 
+/* Define this to indicate the ${INOTIFY_DESCRIP} library */
+#undef HAVE_INOTIFY
+
+/* Define to indicate the ${INOTIFY_DESCRIP} library version */
+#undef HAVE_INOTIFY_VERSION
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
+
+/* Define this to indicate the ${IODBC_DESCRIP} library */
+#undef HAVE_IODBC
+
+/* Define to indicate the ${IODBC_DESCRIP} library version */
+#undef HAVE_IODBC_VERSION
 
 /* Define to 1 if you have the `ioperm' function. */
 #undef HAVE_IOPERM
@@ -412,6 +454,9 @@
 
 /* Define to 1 if you have the <libintl.h> header file. */
 #undef HAVE_LIBINTL_H
+
+/* Define if your system has the LIBXML2 libraries. */
+#undef HAVE_LIBXML2
 
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
@@ -560,6 +605,12 @@
 /* Define if your system has the OpenH323 libraries. */
 #undef HAVE_OPENH323
 
+/* Define this to indicate the ${OPENR2_DESCRIP} library */
+#undef HAVE_OPENR2
+
+/* Define to indicate the ${OPENR2_DESCRIP} library version */
+#undef HAVE_OPENR2_VERSION
+
 /* Define this to indicate the ${OPENSSL_DESCRIP} library */
 #undef HAVE_OPENSSL
 
@@ -568,9 +619,6 @@
 
 /* Define this to indicate the ${OSPTK_DESCRIP} library */
 #undef HAVE_OSPTK
-
-/* Define to indicate the ${OSPTK_DESCRIP} library version */
-#undef HAVE_OSPTK_VERSION
 
 /* Define this to indicate the ${OSS_DESCRIP} library */
 #undef HAVE_OSS
@@ -620,6 +668,12 @@
 /* Define to indicate the ${PRI_INBANDDISCONNECT_DESCRIP} library version */
 #undef HAVE_PRI_INBANDDISCONNECT_VERSION
 
+/* Define this to indicate the ${PRI_PROG_W_CAUSE_DESCRIP} library */
+#undef HAVE_PRI_PROG_W_CAUSE
+
+/* Define to indicate the ${PRI_PROG_W_CAUSE_DESCRIP} library version */
+#undef HAVE_PRI_PROG_W_CAUSE_VERSION
+
 /* Define to indicate the ${PRI_DESCRIP} library version */
 #undef HAVE_PRI_VERSION
 
@@ -646,6 +700,9 @@
 /* Define to 1 if your system defines PTHREAD_RWLOCK_PREFER_WRITER_NP in
    pthread.h */
 #undef HAVE_PTHREAD_RWLOCK_PREFER_WRITER_NP
+
+/* Define if your system has pthread_rwlock_timedwrlock() */
+#undef HAVE_PTHREAD_RWLOCK_TIMEDWRLOCK
 
 /* Define to 1 if the system has the type `ptrdiff_t'. */
 #undef HAVE_PTRDIFF_T
@@ -715,12 +772,6 @@
 
 /* Define to indicate the ${ROUND_DESCRIP} library version */
 #undef HAVE_ROUND_VERSION
-
-/* Define if your system has the RTLD_NOLOAD headers. */
-#undef HAVE_RTLD_NOLOAD
-
-/* Define RTLD_NOLOAD headers version */
-#undef HAVE_RTLD_NOLOAD_VERSION
 
 /* Define to 1 if your system has /sbin/launchd. */
 #undef HAVE_SBIN_LAUNCHD
@@ -916,6 +967,12 @@
 /* Define to indicate the ${SUPPSERV_DESCRIP} library version */
 #undef HAVE_SUPPSERV_VERSION
 
+/* Define to 1 if you have the `swapctl' function. */
+#undef HAVE_SWAPCTL
+
+/* Define to 1 if you have the `sysctl' function. */
+#undef HAVE_SYSCTL
+
 /* Define to 1 if your system has sysinfo support */
 #undef HAVE_SYSINFO
 
@@ -990,6 +1047,12 @@
 
 /* Define to 1 if you have the <termios.h> header file. */
 #undef HAVE_TERMIOS_H
+
+/* Define if your system has the TIMERFD headers. */
+#undef HAVE_TIMERFD
+
+/* Define TIMERFD headers version */
+#undef HAVE_TIMERFD_VERSION
 
 /* Define to 1 if your system defines timersub. */
 #undef HAVE_TIMERSUB

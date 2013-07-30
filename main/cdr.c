@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 159375 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 198075 $")
 
 #include <signal.h>
 
@@ -367,8 +367,7 @@ int ast_cdr_serialize_variables(struct ast_cdr *cdr, struct ast_str **buf, char 
 	char workspace[256];
 	int total = 0, x = 0, i;
 
-	(*buf)->used = 0;
-	(*buf)->str[0] = '\0';
+	ast_str_reset(*buf);
 
 	for (; cdr; cdr = recur ? cdr->next : NULL) {
 		if (++x > 1)
@@ -776,7 +775,7 @@ void ast_cdr_setdestchan(struct ast_cdr *cdr, const char *chann)
 	}
 }
 
-void ast_cdr_setapp(struct ast_cdr *cdr, char *app, char *data)
+void ast_cdr_setapp(struct ast_cdr *cdr, const char *app, const char *data)
 {
 
 	for (; cdr; cdr = cdr->next) {
@@ -785,6 +784,30 @@ void ast_cdr_setapp(struct ast_cdr *cdr, char *app, char *data)
 			ast_copy_string(cdr->lastapp, S_OR(app, ""), sizeof(cdr->lastapp));
 			ast_copy_string(cdr->lastdata, S_OR(data, ""), sizeof(cdr->lastdata));
 		}
+	}
+}
+
+void ast_cdr_setanswer(struct ast_cdr *cdr, struct timeval t)
+{
+
+	for (; cdr; cdr = cdr->next) {
+		if (ast_test_flag(cdr, AST_CDR_FLAG_ANSLOCKED))
+			continue;
+		if (ast_test_flag(cdr, AST_CDR_FLAG_DONT_TOUCH) && ast_test_flag(cdr, AST_CDR_FLAG_LOCKED))
+			continue;
+		check_post(cdr);
+		cdr->answer = t;
+	}
+}
+
+void ast_cdr_setdisposition(struct ast_cdr *cdr, long int disposition)
+{
+
+	for (; cdr; cdr = cdr->next) {
+		if (ast_test_flag(cdr, AST_CDR_FLAG_LOCKED))
+			continue;
+		check_post(cdr);
+		cdr->disposition = disposition;
 	}
 }
 
@@ -827,7 +850,7 @@ int ast_cdr_init(struct ast_cdr *cdr, struct ast_channel *c)
 			ast_copy_string(cdr->channel, c->name, sizeof(cdr->channel));
 			set_one_cid(cdr, c);
 
-			cdr->disposition = (c->_state == AST_STATE_UP) ?  AST_CDR_ANSWERED : AST_CDR_NULL;
+			cdr->disposition = (c->_state == AST_STATE_UP) ?  AST_CDR_ANSWERED : AST_CDR_NOANSWER;
 			cdr->amaflags = c->amaflags ? c->amaflags :  ast_default_amaflags;
 			ast_copy_string(cdr->accountcode, c->accountcode, sizeof(cdr->accountcode));
 			/* Destination information */
@@ -870,8 +893,11 @@ void ast_cdr_end(struct ast_cdr *cdr)
 				ast_log(LOG_WARNING, "CDR on channel '%s' has no answer time but is 'ANSWERED'\n", S_OR(cdr->channel, "<unknown>"));
 				cdr->disposition = AST_CDR_FAILED;
 			}
-		} else
+		} else {
 			cdr->billsec = cdr->end.tv_sec - cdr->answer.tv_sec;
+			if (ast_test_flag(&ast_options, AST_OPT_FLAG_INITIATED_SECONDS))
+				cdr->billsec += cdr->end.tv_usec > cdr->answer.tv_usec ? 1 : 0;
+		}
 	}
 }
 
@@ -1011,6 +1037,14 @@ static void post_cdr(struct ast_cdr *cdr)
 			continue;
 		}
 
+		/* don't post CDRs that are for dialed channels unless those
+		 * channels were originated from asterisk (pbx_spool, manager,
+		 * cli) */
+		if (ast_test_flag(cdr, AST_CDR_FLAG_DIALED) && !ast_test_flag(cdr, AST_CDR_FLAG_ORIGINATED)) {
+			ast_set_flag(cdr, AST_CDR_FLAG_POST_DISABLED);
+			continue;
+		}
+
 		chan = S_OR(cdr->channel, "<unknown>");
 		check_post(cdr);
 		ast_set_flag(cdr, AST_CDR_FLAG_POSTED);
@@ -1062,7 +1096,7 @@ void ast_cdr_reset(struct ast_cdr *cdr, struct ast_flags *_flags)
 			cdr->billsec = 0;
 			cdr->duration = 0;
 			ast_cdr_start(cdr);
-			cdr->disposition = AST_CDR_NULL;
+			cdr->disposition = AST_CDR_NOANSWER;
 		}
 	}
 }
@@ -1334,14 +1368,6 @@ static char *handle_cli_status(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	return CLI_SUCCESS;
 }
 
-static char *handle_cli_status_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	char *res = handle_cli_status(e, cmd, a);
-	if (cmd == CLI_INIT)
-		e->command = "cdr status";
-	return res;
-}
-
 static char *handle_cli_submit(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	switch (cmd) {
@@ -1364,8 +1390,7 @@ static char *handle_cli_submit(struct ast_cli_entry *e, int cmd, struct ast_cli_
 }
 
 static struct ast_cli_entry cli_submit = AST_CLI_DEFINE(handle_cli_submit, "Posts all pending batched CDR data");
-static struct ast_cli_entry cli_status_deprecated = AST_CLI_DEFINE(handle_cli_status_deprecated, "Display the CDR status");
-static struct ast_cli_entry cli_status = AST_CLI_DEFINE(handle_cli_status, "Display the CDR status", .deprecate_cmd = &cli_status_deprecated);
+static struct ast_cli_entry cli_status = AST_CLI_DEFINE(handle_cli_status, "Display the CDR status");
 
 static int do_reload(int reload)
 {
@@ -1378,6 +1403,7 @@ static int do_reload(int reload)
 	const char *size_value;
 	const char *time_value;
 	const char *end_before_h_value;
+	const char *initiatedseconds_value;
 	int cfg_size;
 	int cfg_time;
 	int was_enabled;
@@ -1387,6 +1413,9 @@ static int do_reload(int reload)
 
 	if ((config = ast_config_load2("cdr.conf", "cdr", config_flags)) == CONFIG_STATUS_FILEUNCHANGED)
 		return 0;
+	if (config == CONFIG_STATUS_FILEMISSING || config == CONFIG_STATUS_FILEUNCHANGED || config == CONFIG_STATUS_FILEINVALID) {
+		return 0;
+	}
 
 	ast_mutex_lock(&cdr_batch_lock);
 
@@ -1436,6 +1465,8 @@ static int do_reload(int reload)
 		}
 		if ((end_before_h_value = ast_variable_retrieve(config, "general", "endbeforehexten")))
 			ast_set2_flag(&ast_options, ast_true(end_before_h_value), AST_OPT_FLAG_END_CDR_BEFORE_H_EXTEN);
+		if ((initiatedseconds_value = ast_variable_retrieve(config, "general", "initiatedseconds")))
+			ast_set2_flag(&ast_options, ast_true(initiatedseconds_value), AST_OPT_FLAG_INITIATED_SECONDS);
 	}
 
 	if (enabled && !batchmode) {

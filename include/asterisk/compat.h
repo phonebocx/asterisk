@@ -67,7 +67,7 @@
 #include <string.h>
 #endif
 
-#ifdef HAVE_SYS_POLL_H
+#ifndef AST_POLL_COMPAT
 #include <sys/poll.h>
 #else
 #include "asterisk/poll-compat.h"
@@ -180,6 +180,17 @@ typedef unsigned int	uint;
 
 #ifdef __CYGWIN__
 typedef unsigned long long uint64_t;
+#endif
+
+/* glob compat stuff */ 
+#if defined(__Darwin__) || defined(__CYGWIN__)
+#define GLOB_ABORTED GLOB_ABEND
+#endif
+#include <glob.h>
+#ifdef SOLARIS
+#define MY_GLOB_FLAGS   GLOB_NOCHECK
+#else
+#define MY_GLOB_FLAGS   (GLOB_NOMAGIC|GLOB_BRACE)
 #endif
 
 #endif

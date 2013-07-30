@@ -11,7 +11,7 @@ $cached_env_img{$key} = q|<IMG
 $key = q/Rightarrow;MSF=1.6;LFS=12;AAT/;
 $cached_env_img{$key} = q|<IMG
  WIDTH="24" HEIGHT="19" ALIGN="BOTTOM" BORDER="0"
- SRC="|."$dir".q|img9.png"
+ SRC="|."$dir".q|img10.png"
  ALT="$\Rightarrow$">|; 
 
 $key = q/{}and;MSF=1.6;LFS=12;AAT/;
@@ -37,6 +37,16 @@ $cached_env_img{$key} = q|<IMG
  WIDTH="20" HEIGHT="19" ALIGN="BOTTOM" BORDER="0"
  SRC="|."$dir".q|img3.png"
  ALT="\(...\)">|; 
+
+$key = q/{figure}center{{setlength{unitlength}{4cm}{picture{(3,.75)put(0,0){line(0,1){.75vector(-1,0){.4}}{thinlines{picture{center{{{{figure};MSF=1.6;LFS=12;FSF=1.6;AAT/;
+$cached_env_img{$key} = q|<IMG
+ WIDTH="526" HEIGHT="137" BORDER="0"
+ SRC="|."$dir".q|img9.png"
+ ALT="\begin{figure}\begin{center}\setlength{\unitlength}{4cm}
+\begin{picture}(3,.7...
+...t(1.8,.2){\vector(-1,0){.4}}\thinlines
+\end{picture}\end{center}
+\end{figure}">|; 
 
 $key = q/{}or;MSF=1.6;LFS=12;AAT/;
 $cached_env_img{$key} = q|<IMG

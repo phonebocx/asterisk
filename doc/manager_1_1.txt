@@ -1,6 +1,12 @@
 Changes to manager version 1.1:
 -------------------------------
 
+- Action: IAXregistry
+	Modules: chan_iax2
+	Purpose:
+		To list all IAX2 peers in the IAX registry with their registration status.
+	Variables:
+	  ActionID: <id>		Action ID for this transaction. Will be returned.
 
 * SYNTAX CLEANUPS
 -----------------
@@ -119,6 +125,14 @@ Changes to manager version 1.1:
 	If you call out to a subshell in Originate with the Application parameter,
 		you now also need the System privilege.
 
+- Event QueueEntry now also returns the Uniqueid field like other events from app_queue.
+
+- Action IAXpeerlist
+	Now includes if the IAX link is a trunk or not
+
+- Action IAXpeers
+	Now includes if the IAX link is a trunk or not
+
 * NEW ACTIONS
 -------------
 - Action: ModuleLoad
@@ -194,6 +208,51 @@ Changes to manager version 1.1:
 	Variables:
 	  ActionId: <id>		Action ID for this transaction. Will be returned.
 
+- Action: QueueReload
+	Modules: app_queue
+	Purpose:
+		To reload queue rules, a queue's members, a queue's parameters, or all of the aforementioned
+	Variable:
+		Queuename: <name> The name of the queue to take action on. If no queue name is specified, then all queues are affected
+		Rules: <yes or no> Whether to reload queue_rules.conf
+		Members: <yes or no> Whether to reload the queue's members
+		Parameters: <yes or no> Whether to reload the other queue options
+
+- Action: QueueReset
+	Modules: app_queue
+	Purpose:
+		Reset the statistics for a queue
+	Variables:
+		Queuename: <name> The name of the queue on which to reset statistics
+
+- Action: SKINNYdevices
+	Modules: chan_skinny
+	Purpose:
+		To list all SKINNY devices configured.
+	Variables:
+		ActionId: <id> Action ID for this transaction. Will be returned.
+
+- Action: SKINNYlines
+	Modules: chan_skinny
+	Purpose:
+		To list all SKINNY lines configured.
+	Variables:
+		ActionId: <id> Action ID for this transaction. Will be returned.
+
+- Action SKINNYshowdevice
+	Modules: chan_skinny
+	Purpose:
+		To list the information about a specific SKINNY device.
+	Variables:
+		Device: <device> Device to show information about.
+
+- Action SKINNYshowline
+	Modules: chan_skinny
+	Purpose:
+		To list the information about a specific SKINNY line.
+	Variables:
+		Line: <line> Line to show information about.
+		
 * NEW EVENTS
 ------------
 
@@ -328,6 +387,21 @@ Changes to manager version 1.1:
 		RegistrationTime: 1219161830
 	If an actionID was specified for the SipShowRegistry action, it will be appended as the
 	last line of the RegistrationsComplete event.
+
+- Event: ChanSpyStart
+	Modules: app_chanspy
+	Purpose: Reports when an active channel starts to be monitored by someone.
+	Example:
+		Event: ChanSpyStart
+		SpyerChannel: SIP/4321-13bba124
+		SpyeeChannel: SIP/1234-56ecc098
+
+- Event: ChanSpyStop
+	Modules: app_chanspy
+	Purpose: Reports when an active channel stops to be monitored by someone.
+	Example:
+		Event: ChanSpyStop
+		SpyeeChannel: SIP/1234-56ecc098
 
 * TODO
 ------

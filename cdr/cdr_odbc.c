@@ -29,13 +29,13 @@
  */
 
 /*** MODULEINFO
-	<depend>unixodbc</depend>
+	<depend>generic_odbc</depend>
 	<depend>ltdl</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158135 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 168734 $")
 
 #include <time.h>
 
@@ -159,7 +159,7 @@ static int odbc_load_module(int reload)
 
 	do {
 		cfg = ast_config_load(config_file, config_flags);
-		if (!cfg) {
+		if (!cfg || cfg == CONFIG_STATUS_FILEINVALID) {
 			ast_log(LOG_WARNING, "cdr_odbc: Unable to load config for ODBC CDR's: %s\n", config_file);
 			res = AST_MODULE_LOAD_DECLINE;
 			break;
@@ -226,7 +226,7 @@ static int odbc_load_module(int reload)
 		}
 	} while (0);
 
-	if (cfg && cfg != CONFIG_STATUS_FILEUNCHANGED)
+	if (cfg && cfg != CONFIG_STATUS_FILEUNCHANGED && cfg != CONFIG_STATUS_FILEINVALID)
 		ast_config_destroy(cfg);
 	return res;
 }

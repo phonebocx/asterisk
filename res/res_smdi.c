@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 146838 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 198436 $")
 
 #include <termios.h>
 #include <sys/time.h>
@@ -43,6 +43,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 146838 $")
 #include "asterisk/module.h"
 #include "asterisk/lock.h"
 #include "asterisk/utils.h"
+#define AST_API_MODULE
 #include "asterisk/smdi.h"
 #include "asterisk/config.h"
 #include "asterisk/astobj.h"
@@ -305,8 +306,10 @@ static inline void unref_msg(void *msg, enum smdi_message_type type)
 	switch (type) {
 	case SMDI_MWI:
 		ASTOBJ_UNREF(mwi_msg, ast_smdi_mwi_message_destroy);
+		break;
 	case SMDI_MD:
 		ASTOBJ_UNREF(md_msg, ast_smdi_md_message_destroy);
+		break;
 	}
 }
 
@@ -378,7 +381,18 @@ static void *smdi_msg_find(struct ast_smdi_interface *iface,
 
 	switch (type) {
 	case SMDI_MD:
-		if (ast_test_flag(&options, OPT_SEARCH_TERMINAL)) {
+		if (ast_strlen_zero(search_key)) {
+			struct ast_smdi_md_message *md_msg = NULL;
+
+			/* No search key provided (the code from chan_dahdi does this).
+			 * Just pop the top message off of the queue. */
+
+			ASTOBJ_CONTAINER_TRAVERSE(&iface->md_q, !md_msg, do {
+				md_msg = ASTOBJ_REF(iterator);
+			} while (0); );
+
+			msg = md_msg;
+		} else if (ast_test_flag(&options, OPT_SEARCH_TERMINAL)) {
 			struct ast_smdi_md_message *md_msg = NULL;
 
 			/* Searching by the message desk terminal */
@@ -406,7 +420,20 @@ static void *smdi_msg_find(struct ast_smdi_interface *iface,
 		}
 		break;
 	case SMDI_MWI:
-		msg = ASTOBJ_CONTAINER_FIND(&iface->mwi_q, search_key);
+		if (ast_strlen_zero(search_key)) {
+			struct ast_smdi_mwi_message *mwi_msg = NULL;
+
+			/* No search key provided (the code from chan_dahdi does this).
+			 * Just pop the top message off of the queue. */
+
+			ASTOBJ_CONTAINER_TRAVERSE(&iface->mwi_q, !mwi_msg, do {
+				mwi_msg = ASTOBJ_REF(iterator);
+			} while (0); );
+
+			msg = mwi_msg;
+		} else {
+			msg = ASTOBJ_CONTAINER_FIND(&iface->mwi_q, search_key);
+		}
 		break;
 	}
 
@@ -848,7 +875,7 @@ static int smdi_load(int reload)
 	int msdstrip = 0;              /* strip zero digits */
 	long msg_expiry = SMDI_MSG_EXPIRY_TIME;
 
-	if (!(conf = ast_config_load(config_file, config_flags))) {
+	if (!(conf = ast_config_load(config_file, config_flags)) || conf == CONFIG_STATUS_FILEINVALID) {
 		if (reload)
 			ast_log(LOG_NOTICE, "Unable to reload config %s: SMDI untouched\n", config_file);
 		else
@@ -1308,6 +1335,8 @@ static struct ast_custom_function smdi_msg_function = {
 	.read = smdi_msg_read,
 };
 
+static int unload_module(void);
+
 static int load_module(void)
 {
 	int res;
@@ -1325,8 +1354,10 @@ static int load_module(void)
 	/* load the config and start the listener threads*/
 	res = smdi_load(0);
 	if (res < 0) {
+		unload_module();
 		return res;
 	} else if (res == 1) {
+		unload_module();
 		ast_log(LOG_NOTICE, "No SMDI interfaces are available to listen on, not starting SMDI listener.\n");
 		return AST_MODULE_LOAD_DECLINE;
 	}

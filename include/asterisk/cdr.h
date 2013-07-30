@@ -40,6 +40,7 @@
 #define AST_CDR_FLAG_POST_ENABLE    (1 << 10)
 #define AST_CDR_FLAG_DIALED         (1 << 11)
 /*@} */
+#define AST_CDR_FLAG_ORIGINATED		(1 << 11)
 
 /*! \name CDR Flags - Disposition */
 /*@{ */
@@ -282,7 +283,25 @@ void ast_cdr_setdestchan(struct ast_cdr *cdr, const char *chan);
  * Changes the value of the last executed app
  * Returns nothing
  */
-void ast_cdr_setapp(struct ast_cdr *cdr, char *app, char *data);
+void ast_cdr_setapp(struct ast_cdr *cdr, const char *app, const char *data);
+
+/*!
+ * \brief Set the answer time for a call
+ * \param cdr the cdr you wish to associate with the call
+ * \param t the answer time
+ * Starts all CDR stuff necessary for doing CDR when answering a call
+ * NULL argument is just fine.
+ */
+void ast_cdr_setanswer(struct ast_cdr *cdr, struct timeval t);
+
+/*!
+ * \brief Set the disposition for a call
+ * \param cdr the cdr you wish to associate with the call
+ * \param disposition the new disposition
+ * Set the disposition on a call.
+ * NULL argument is just fine.
+ */
+void ast_cdr_setdisposition(struct ast_cdr *cdr, long int disposition);
 
 /*! 
  * \brief Convert a string to a detail record AMA flag 

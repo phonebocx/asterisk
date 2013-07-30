@@ -16,8 +16,8 @@ MENUSELECT_CATEGORY=CHANNELS
 MENUSELECT_DESCRIPTION=Channel Drivers
 
 ifeq ($(OSARCH),OpenBSD)
-  PTLIB=-lpt_OpenBSD_x86_r
-  H323LIB=-lh323_OpenBSD_x86_r
+  PTLIB=-lpt
+  H323LIB=-lh323
 endif
 
 ifeq ($(OSARCH),linux-gnu)
@@ -57,39 +57,31 @@ ifneq ($(findstring $(OSARCH), mingw32 cygwin ),)
   LIBS+= -lres_monitor.so -lres_features.so
 endif
 
+ifneq ($(wildcard h323/Makefile.ast),)
+include h323/Makefile.ast
+endif
+
 clean::
 	$(MAKE) -C misdn clean
-
-ifneq ($(wildcard h323/Makefile.ast),)
-  include h323/Makefile.ast
-H323LDFLAGS+=-Wl,--version-script=h323/noexport.map
-clean::
 	if [ -f h323/Makefile ]; then $(MAKE) -C h323 clean; fi
-else
-h323/libchanh323.a h323/Makefile.ast:
-	$(CMD_PREFIX) $(MAKE) -C h323
-	$(CMD_PREFIX) rm -f ../main/asterisk
-	$(CMD_PREFIX) echo "***************************************************************"
-	$(CMD_PREFIX) echo
-	$(CMD_PREFIX) echo "********** Re-run 'make' to pick up H.323 parameters **********"
-	$(CMD_PREFIX) echo
-	$(CMD_PREFIX) echo "***************************************************************"
-	$(CMD_PREFIX) exit 1
-endif
 
 dist-clean::
 	rm -f h323/Makefile
 
 $(if $(filter chan_iax2,$(EMBEDDED_MODS)),modules.link,chan_iax2.so): iax2-parser.o iax2-provision.o
 
+ifneq ($(filter chan_h323,$(EMBEDDED_MODS)),)
+modules.link: h323/libchanh323.a
+else
 ifeq ($(OSARCH),linux-gnu)
-chan_h323.so: chan_h323.o h323/libchanh323.a h323/Makefile.ast
+chan_h323.so: chan_h323.o h323/libchanh323.a
 	$(ECHO_PREFIX) echo "   [LD] $^ -> $@"
-	$(CMD_PREFIX) $(CXX) $(PTHREAD_CFLAGS) $(ASTLDFLAGS) $(SOLINK) $(H323LDFLAGS) -o $@ $< h323/libchanh323.a $(H323LDLIBS)
+	$(CMD_PREFIX) $(CXX) $(PTHREAD_CFLAGS) $(ASTLDFLAGS) $(SOLINK) -o $@ $< h323/libchanh323.a $(H323LDLIBS)
 else
 chan_h323.so: chan_h323.o h323/libchanh323.a
 	$(ECHO_PREFIX) echo "   [LD] $^ -> $@"
 	$(CMD_PREFIX) $(CXX) $(PTHREAD_CFLAGS) $(ASTLDFLAGS) $(SOLINK) -o $@ $< h323/libchanh323.a $(CHANH323LIB) -L$(PWLIBDIR)/lib $(PTLIB) -L$(OPENH323DIR)/lib $(H323LIB) -L/usr/lib -lcrypto -lssl -lexpat
+endif
 endif
 
 chan_misdn.o: ASTCFLAGS+=-Imisdn
@@ -105,5 +97,10 @@ $(if $(filter chan_oss,$(EMBEDDED_MODS)),modules.link,chan_oss.so): console_vide
 chan_usbradio.o: ./xpmr/xpmr.c ./xpmr/xpmr.h ./xpmr/xpmr_coef.h
 
 chan_usbradio.so: LIBS+=-lusb -lasound
+chan_usbradio.so: ASTCFLAGS+=-DNDEBUG
 
+h323/Makefile.ast:
+	$(CMD_PREFIX) $(MAKE) -C h323 Makefile.ast
 
+h323/libchanh323.a: h323/Makefile.ast
+	$(CMD_PREFIX) $(MAKE) -C h323 libchanh323.a

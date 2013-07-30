@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 173595 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 197894 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_MONITOR_DIR */
 #include "asterisk/file.h"
@@ -46,38 +46,90 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 173595 $")
 #include "asterisk/app.h"
 #include "asterisk/channel.h"
 
+/*** DOCUMENTATION
+	<application name="MixMonitor" language="en_US">
+		<synopsis>
+			Record a call and mix the audio during the recording.
+		</synopsis>
+		<syntax>
+			<parameter name="file" required="true" argsep=".">
+				<argument name="filename" required="true">
+					<para>If <replaceable>filename</replaceable> is an absolute path, uses that path, otherwise
+					creates the file in the configured monitoring directory from <filename>asterisk.conf.</filename></para>
+				</argument>
+				<argument name="extension" required="true" />
+			</parameter>
+			<parameter name="options">
+				<optionlist>
+					<option name="a">
+						<para>Append to the file instead of overwriting it.</para>
+					</option>
+					<option name="b">
+						<para>Only save audio to the file while the channel is bridged.</para>
+						<note><para>Does not include conferences or sounds played to each bridged party</para></note>
+						<note><para>If you utilize this option inside a Local channel, you must make sure the Local
+						channel is not optimized away. To do this, be sure to call your Local channel with the
+						<literal>/n</literal> option. For example: Dial(Local/start@mycontext/n)</para></note>
+					</option>
+					<option name="v">
+						<para>Adjust the <emphasis>heard</emphasis> volume by a factor of <replaceable>x</replaceable>
+						(range <literal>-4</literal> to <literal>4</literal>)</para>
+						<argument name="x" required="true" />
+					</option>
+					<option name="V">
+						<para>Adjust the <emphasis>spoken</emphasis> volume by a factor
+						of <replaceable>x</replaceable> (range <literal>-4</literal> to <literal>4</literal>)</para>
+						<argument name="x" required="true" />
+					</option>
+					<option name="W">
+						<para>Adjust both, <emphasis>heard and spoken</emphasis> volumes by a factor
+						of <replaceable>x</replaceable> (range <literal>-4</literal> to <literal>4</literal>)</para>
+						<argument name="x" required="true" />
+					</option>
+				</optionlist>
+			</parameter>
+			<parameter name="command">
+				<para>Will be executed when the recording is over.</para>
+				<para>Any strings matching <literal>^{X}</literal> will be unescaped to <variable>X</variable>.</para>
+				<para>All variables will be evaluated at the time MixMonitor is called.</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Records the audio on the current channel to the specified file.</para>
+			<variablelist>
+				<variable name="MIXMONITOR_FILENAME">
+					<para>Will contain the filename used to record.</para>
+				</variable>
+			</variablelist>	
+		</description>
+		<see-also>
+			<ref type="application">Monitor</ref>
+			<ref type="application">StopMixMonitor</ref>
+			<ref type="application">PauseMonitor</ref>
+			<ref type="application">UnpauseMonitor</ref>
+		</see-also>
+	</application>
+	<application name="StopMixMonitor" language="en_US">
+		<synopsis>
+			Stop recording a call through MixMonitor.
+		</synopsis>
+		<syntax />
+		<description>
+			<para>Stops the audio recording that was started with a call to <literal>MixMonitor()</literal>
+			on the current channel.</para>
+		</description>
+		<see-also>
+			<ref type="application">MixMonitor</ref>
+		</see-also>
+	</application>
+		
+ ***/
+
 #define get_volfactor(x) x ? ((x > 0) ? (1 << x) : ((1 << abs(x)) * -1)) : 0
 
 static const char *app = "MixMonitor";
-static const char *synopsis = "Record a call and mix the audio during the recording";
-static const char *desc = ""
-"  MixMonitor(<file>.<ext>[,<options>[,<command>]]):\n"
-"Records the audio on the current channel to the specified file.\n"
-"If the filename is an absolute path, uses that path, otherwise\n"
-"creates the file in the configured monitoring directory from\n"
-"asterisk.conf.\n\n"
-"Valid options:\n"
-" a      - Append to the file instead of overwriting it.\n"
-" b      - Only save audio to the file while the channel is bridged.\n"
-"          Note: Does not include conferences or sounds played to each bridged\n"
-"                party.\n"
-" v(<x>) - Adjust the heard volume by a factor of <x> (range -4 to 4)\n"	
-" V(<x>) - Adjust the spoken volume by a factor of <x> (range -4 to 4)\n"	
-" W(<x>) - Adjust the both heard and spoken volumes by a factor of <x>\n"
-"         (range -4 to 4)\n\n"	
-"<command> will be executed when the recording is over\n"
-"Any strings matching ^{X} will be unescaped to ${X}.\n"
-"All variables will be evaluated at the time MixMonitor is called.\n"
-"The variable MIXMONITOR_FILENAME will contain the filename used to record.\n"
-"";
 
 static const char *stop_app = "StopMixMonitor";
-static const char *stop_synopsis = "Stop recording a call through MixMonitor";
-static const char *stop_desc = ""
-"  StopMixMonitor():\n"
-"Stops the audio recording that was started with a call to MixMonitor()\n"
-"on the current channel.\n"
-"";
 
 struct module_symbols *me;
 
@@ -450,7 +502,7 @@ static char *handle_cli_mixmonitor(struct ast_cli_entry *e, int cmd, struct ast_
 
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "mixmonitor [start|stop]";
+		e->command = "mixmonitor {start|stop} {<chan_name>} [args]";
 		e->usage =
 			"Usage: mixmonitor <start|stop> <chan_name> [args]\n"
 			"       The optional arguments are passed to the MixMonitor\n"
@@ -488,7 +540,7 @@ static int unload_module(void)
 {
 	int res;
 
-	ast_cli_unregister_multiple(cli_mixmonitor, sizeof(cli_mixmonitor) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(cli_mixmonitor, ARRAY_LEN(cli_mixmonitor));
 	res = ast_unregister_application(stop_app);
 	res |= ast_unregister_application(app);
 	
@@ -499,9 +551,9 @@ static int load_module(void)
 {
 	int res;
 
-	ast_cli_register_multiple(cli_mixmonitor, sizeof(cli_mixmonitor) / sizeof(struct ast_cli_entry));
-	res = ast_register_application(app, mixmonitor_exec, synopsis, desc);
-	res |= ast_register_application(stop_app, stop_mixmonitor_exec, stop_synopsis, stop_desc);
+	ast_cli_register_multiple(cli_mixmonitor, ARRAY_LEN(cli_mixmonitor));
+	res = ast_register_application_xml(app, mixmonitor_exec);
+	res |= ast_register_application_xml(stop_app, stop_mixmonitor_exec);
 
 	return res;
 }

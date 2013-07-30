@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180740 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180719 $")
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
@@ -97,7 +97,7 @@ HOOK_T ast_tcptls_server_read(struct ast_tcptls_session_instance *tcptls_session
 	return read(tcptls_session->fd, buf, count);
 }
 
-HOOK_T ast_tcptls_server_write(struct ast_tcptls_session_instance *tcptls_session, void *buf, size_t count)
+HOOK_T ast_tcptls_server_write(struct ast_tcptls_session_instance *tcptls_session, const void *buf, size_t count)
 {
 	if (tcptls_session->fd == -1) {
 		ast_log(LOG_ERROR, "server_write called with an fd of -1\n");
@@ -430,13 +430,13 @@ void ast_tcptls_server_start(struct ast_tcptls_session_args *desc)
 
 	/* If there's no new server, stop here */
 	if (desc->local_address.sin_family == 0) {
+		ast_debug(2, "Server disabled:  %s\n", desc->name);
 		return;
 	}
 
 	desc->accept_fd = socket(AF_INET, SOCK_STREAM, 0);
 	if (desc->accept_fd < 0) {
-		ast_log(LOG_ERROR, "Unable to allocate socket for %s: %s\n",
-			desc->name, strerror(errno));
+		ast_log(LOG_ERROR, "Unable to allocate socket for %s: %s\n", desc->name, strerror(errno));
 		return;
 	}
 	
@@ -478,4 +478,5 @@ void ast_tcptls_server_stop(struct ast_tcptls_session_args *desc)
 	if (desc->accept_fd != -1)
 		close(desc->accept_fd);
 	desc->accept_fd = -1;
+	ast_debug(2, "Stopped server :: %s\n", desc->name);
 }

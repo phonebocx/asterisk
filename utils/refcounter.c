@@ -40,7 +40,7 @@
  */
 
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 169674 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 169673 $")
 
 #include <pthread.h>
 #include <sys/stat.h>
@@ -68,6 +68,11 @@ struct rc_obj /* short for refcounted object */
 	struct rc_hist *hist;
 	struct rc_hist *last;
 };
+
+void pbx_substitute_variables_helper_full(struct ast_channel *c, struct varshead *headp, const char *cp1, char *cp2, int cp2_size, size_t *used);
+void pbx_substitute_variables_helper_full(struct ast_channel *c, struct varshead *headp, const char *cp1, char *cp2, int cp2_size, size_t *used)
+{
+}
 
 static unsigned int hashtab_hash_rc(const void *obj)
 {

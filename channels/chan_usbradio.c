@@ -34,7 +34,7 @@
  */
 
 /*** MODULEINFO
-	<depend>ossaudio</depend>
+	<depend>oss</depend>
 	<depend>usb</depend>
 	<defaultenabled>no</defaultenabled>
  ***/
@@ -56,7 +56,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 159053 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 161218 $")
 
 #include <stdio.h>
 #include <ctype.h>
@@ -3524,7 +3524,7 @@ static struct chan_usbradio_pvt *store_config(struct ast_config *cfg, char *ctg)
 	o->txctcssadj = 200;
 	o->rxsquelchadj = 500;
 	o->devstr[0] = 0;
-	if (cfg1) {
+	if (cfg1 && cfg1 != CONFIG_STATUS_FILEINVALID) {
 		for (v = ast_variable_browse(cfg1, o->name); v; v = v->next) {
 	
 			M_START((char *)v->name, (char *)v->value);
@@ -3958,9 +3958,9 @@ static int load_module(void)
 
 	/* load config file */
 #ifdef	NEW_ASTERISK
-	if (!(cfg = ast_config_load(config,zeroflag))) {
+	if (!(cfg = ast_config_load(config,zeroflag)) || cfg == CONFIG_STATUS_FILEINVALID) {
 #else
-	if (!(cfg = ast_config_load(config))) {
+	if (!(cfg = ast_config_load(config))) || cfg == CONFIG_STATUS_FILEINVALID {
 #endif
 		ast_log(LOG_NOTICE, "Unable to load config %s\n", config);
 		return AST_MODULE_LOAD_DECLINE;
@@ -3984,7 +3984,7 @@ static int load_module(void)
 		return AST_MODULE_LOAD_FAILURE;
 	}
 
-	ast_cli_register_multiple(cli_usbradio, sizeof(cli_usbradio) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(cli_usbradio, ARRAY_LEN(cli_usbradio));
 
 	return AST_MODULE_LOAD_SUCCESS;
 }
@@ -3997,7 +3997,7 @@ static int unload_module(void)
 	ast_log(LOG_WARNING, "unload_module() called\n");
 
 	ast_channel_unregister(&usbradio_tech);
-	ast_cli_unregister_multiple(cli_usbradio, sizeof(cli_usbradio) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(cli_usbradio, ARRAY_LEN(cli_usbradio));
 
 	for (o = usbradio_default.next; o; o = o->next) {
 

@@ -314,7 +314,7 @@ enum {HF_SCAN_OFF,HF_SCAN_DOWN_SLOW,HF_SCAN_DOWN_QUICK,
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 174438 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 178870 $")
 
 #include <signal.h>
 #include <stdio.h>
@@ -2013,7 +2013,7 @@ struct ast_variable *vp;
 		ourcfg = ast_config_load(myrpt->p.extnodefile);
 #endif
 		/* if file not there, just bail */
-		if (!ourcfg)
+		if (!ourcfg || ourcfg == CONFIG_STATUS_FILEINVALID)
 		{
 			ast_mutex_unlock(&nodelookuplock);
 			return(NULL);
@@ -2239,7 +2239,7 @@ static char *cs_keywords[] = {"rptena","rptdis","apena","apdis","lnkena","lnkdis
 #else
 	cfg = ast_config_load("rpt.conf");
 #endif
-	if (!cfg) {
+	if (!cfg || cfg == CONFIG_STATUS_FILEINVALID) {
 		ast_mutex_unlock(&rpt_vars[n].lock);
  		ast_log(LOG_NOTICE, "Unable to open radio repeater configuration rpt.conf.  Radio Repeater disabled.\n");
 		pthread_exit(NULL);
@@ -12934,7 +12934,7 @@ char *this,*val;
 	rpt_vars[n].cfg = ast_config_load("rpt.conf");
 #endif
 	cfg = rpt_vars[n].cfg;
-	if (!cfg) {
+	if (!cfg || cfg == CONFIG_STATUS_FILEINVALID) {
 		ast_log(LOG_NOTICE, "Unable to open radio repeater configuration rpt.conf.  Radio Repeater disabled.\n");
 		pthread_exit(NULL);
 	}
@@ -15113,8 +15113,7 @@ static int unload_module(void)
 	res = ast_unregister_application(app);
 
 #ifdef	NEW_ASTERISK
-	ast_cli_unregister_multiple(rpt_cli,sizeof(rpt_cli) / 
-		sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(rpt_cli, ARRAY_LEN(rpt_cli));
 #else
 	/* Unregister cli extensions */
 	ast_cli_unregister(&cli_debug);
@@ -15146,8 +15145,7 @@ static int load_module(void)
 	ast_pthread_create(&rpt_master_thread,NULL,rpt_master,NULL);
 
 #ifdef	NEW_ASTERISK
-	ast_cli_register_multiple(rpt_cli,sizeof(rpt_cli) / 
-		sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(rpt_cli, ARRAY_LEN(rpt_cli));
 	res = 0;
 #else
 	/* Register cli extensions */

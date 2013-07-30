@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 143033 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 198730 $")
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -408,6 +408,135 @@ static void dump_ies(unsigned char *iedata, int len)
 	outputf("\n");
 }
 
+void iax_frame_subclass2str(enum iax_frame_subclass subclass, char *str, size_t len)
+{
+	const char *cmd = "Unknown";
+
+	/* if an error occurs here during compile, that means a new iax frame subclass
+	 * has been added to the iax_frame_subclass enum.  Add the new subclass to the
+	 * switch case and make sure to update it with a new string representation. */
+	switch (subclass) {
+	case IAX_COMMAND_NEW:
+		cmd = "NEW    ";
+		break;
+	case IAX_COMMAND_PING:
+		cmd = "PING   ";
+		break;
+	case IAX_COMMAND_PONG:
+		cmd = "PONG   ";
+		break;
+	case IAX_COMMAND_ACK:
+		cmd = "ACK    ";
+		break;
+	case IAX_COMMAND_HANGUP:
+		cmd = "HANGUP ";
+		break;
+	case IAX_COMMAND_REJECT:
+		cmd = "REJECT ";
+		break;
+	case IAX_COMMAND_ACCEPT:
+		cmd = "ACCEPT ";
+		break;
+	case IAX_COMMAND_AUTHREQ:
+		cmd = "AUTHREQ";
+		break;
+	case IAX_COMMAND_AUTHREP:
+		cmd = "AUTHREP";
+		break;
+	case IAX_COMMAND_INVAL:
+		cmd = "INVAL  ";
+		break;
+	case IAX_COMMAND_LAGRQ:
+		cmd = "LAGRQ  ";
+		break;
+	case IAX_COMMAND_LAGRP:
+		cmd = "LAGRP  ";
+		break;
+	case IAX_COMMAND_REGREQ:
+		cmd = "REGREQ ";
+		break;
+	case IAX_COMMAND_REGAUTH:
+		cmd = "REGAUTH";
+		break;
+	case IAX_COMMAND_REGACK:
+		cmd = "REGACK ";
+		break;
+	case IAX_COMMAND_REGREJ:
+		cmd = "REGREJ ";
+		break;
+	case IAX_COMMAND_REGREL:
+		cmd = "REGREL ";
+		break;
+	case IAX_COMMAND_VNAK:
+		cmd = "VNAK   ";
+		break;
+	case IAX_COMMAND_DPREQ:
+		cmd = "DPREQ  ";
+		break;
+	case IAX_COMMAND_DPREP:
+		cmd = "DPREP  ";
+		break;
+	case IAX_COMMAND_DIAL:
+		cmd = "DIAL   ";
+		break;
+	case IAX_COMMAND_TXREQ:
+		cmd = "TXREQ  ";
+		break;
+	case IAX_COMMAND_TXCNT:
+		cmd = "TXCNT  ";
+		break;
+	case IAX_COMMAND_TXACC:
+		cmd = "TXACC  ";
+		break;
+	case IAX_COMMAND_TXREADY:
+		cmd = "TXREADY";
+		break;
+	case IAX_COMMAND_TXREL:
+		cmd = "TXREL  ";
+		break;
+	case IAX_COMMAND_TXREJ:
+		cmd = "TXREJ  ";
+		break;
+	case IAX_COMMAND_QUELCH:
+		cmd = "QUELCH ";
+		break;
+	case IAX_COMMAND_UNQUELCH:
+		cmd = "UNQULCH";
+		break;
+	case IAX_COMMAND_POKE:
+		cmd = "POKE   ";
+		break;
+	case IAX_COMMAND_PAGE:
+		cmd = "PAGE   ";
+		break;
+	case IAX_COMMAND_MWI:
+		cmd = "MWI    ";
+		break;
+	case IAX_COMMAND_UNSUPPORT:
+		cmd = "UNSPRTD";
+		break;
+	case IAX_COMMAND_TRANSFER:
+		cmd = "TRANSFR";
+		break;
+	case IAX_COMMAND_PROVISION:
+		cmd = "PROVISN";
+		break;
+	case IAX_COMMAND_FWDOWNL:
+		cmd = "FWDWNLD";
+		break;
+	case IAX_COMMAND_FWDATA:
+		cmd = "FWDATA ";
+		break;
+	case IAX_COMMAND_TXMEDIA:
+		cmd = "TXMEDIA";
+		break;
+	case IAX_COMMAND_RTKEY:
+		cmd = "RTKEY  ";
+		break;
+	}
+	ast_copy_string(str, cmd, len);
+}
+
 void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, struct sockaddr_in *sin, int datalen)
 {
 	const char *framelist[] = {
@@ -424,47 +553,6 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"CNG    ",
 		"MODEM  ",
 		"DTMF_B ",
-	};
-	const char *iaxs[] = {
-		"(0?)",
-		"NEW    ",
-		"PING   ",
-		"PONG   ",
-		"ACK    ",
-		"HANGUP ",
-		"REJECT ",
-		"ACCEPT ",
-		"AUTHREQ",
-		"AUTHREP",
-		"INVAL  ",
-		"LAGRQ  ",
-		"LAGRP  ",
-		"REGREQ ",
-		"REGAUTH",
-		"REGACK ",
-		"REGREJ ",
-		"REGREL ",
-		"VNAK   ",
-		"DPREQ  ",
-		"DPREP  ",
-		"DIAL   ",
-		"TXREQ  ",
-		"TXCNT  ",
-		"TXACC  ",
-		"TXREADY",
-		"TXREL  ",
-		"TXREJ  ",
-		"QUELCH ",
-		"UNQULCH",
-		"POKE   ",
-		"PAGE   ",
-		"MWI    ",
-		"UNSPRTD",
-		"TRANSFR",
-		"PROVISN",
-		"FWDWNLD",
-		"FWDATA ",
-		"TXMEDIA"
 	};
 	const char *cmds[] = {
 		"(0?)",
@@ -485,7 +573,10 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"PROCDNG",
 		"HOLD   ",
 		"UNHOLD ",
-		"VIDUPDT", };
+		"VIDUPDT",
+		"T38    ",
+		"SRCUPDT",
+	};
 	struct ast_iax2_full_hdr *fh;
 	char retries[20];
 	char class2[20];
@@ -533,14 +624,10 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		sprintf(subclass2, "%c", fh->csub);
 		subclass = subclass2;
 	} else if (fh->type == AST_FRAME_IAX) {
-		if (fh->csub >= (int)sizeof(iaxs)/(int)sizeof(iaxs[0])) {
-			snprintf(subclass2, sizeof(subclass2), "(%d?)", fh->csub);
+			iax_frame_subclass2str((int)fh->csub, subclass2, sizeof(subclass2));
 			subclass = subclass2;
-		} else {
-			subclass = iaxs[(int)fh->csub];
-		}
 	} else if (fh->type == AST_FRAME_CONTROL) {
-		if (fh->csub >= (int)sizeof(cmds)/(int)sizeof(cmds[0])) {
+		if (fh->csub >= ARRAY_LEN(cmds)) {
 			snprintf(subclass2, sizeof(subclass2), "(%d?)", fh->csub);
 			subclass = subclass2;
 		} else {
@@ -929,7 +1016,7 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				for (var2 = ies->vars, prev = NULL; var2; prev = var2, var2 = var2->next) {
 					if (strcmp(tmp, var2->name) == 0) {
 						ast_str_set(&str, 0, "%s%s", var2->value, tmp2);
-						var = ast_variable_new(tmp, str->str, var2->file);
+						var = ast_variable_new(tmp, ast_str_buffer(str), var2->file);
 						var->next = var2->next;
 						if (prev) {
 							prev->next = var;

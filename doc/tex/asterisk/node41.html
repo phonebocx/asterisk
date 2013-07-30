@@ -27,30 +27,30 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html1134"
+<A NAME="tex2html1139"
   HREF="node42.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html1130"
+<A NAME="tex2html1135"
   HREF="node35.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html1124"
+<A NAME="tex2html1129"
   HREF="node40.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html1132"
+<A NAME="tex2html1137"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html1135"
+<B> Next:</B> <A NAME="tex2html1140"
   HREF="node42.html">Other RTP channels</A>
-<B> Up:</B> <A NAME="tex2html1131"
+<B> Up:</B> <A NAME="tex2html1136"
   HREF="node35.html">IP Quality of Service</A>
-<B> Previous:</B> <A NAME="tex2html1125"
+<B> Previous:</B> <A NAME="tex2html1130"
   HREF="node40.html">IAX2</A>
- &nbsp; <B>  <A NAME="tex2html1133"
+ &nbsp; <B>  <A NAME="tex2html1138"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
@@ -61,21 +61,22 @@ SIP</A>
 </H3>
 
 <P>
-In sip.conf, there are three parameters that control the TOS settings:
+In sip.conf, there are four parameters that control the TOS settings:
 "tos_sip", "tos_audio", "tos_video" and "tos_text". tos_sip controls
 what TOS SIP call signaling packets are set to. tos_audio, tos_video
-and tos_text controls what TOS RTP audio, video or text accordingly
-packets are set to.
+and tos_text control what TOS values are used for RTP audio, video, and text
+packets, respectively.
 
 <P>
 There are four parameters to control 802.1p CoS: "cos_sip", "cos_audio",
-"cos_video" and "cos_text". It behavior the same as written above.
+"cos_video" and "cos_text". The behavior of these parameters is the
+same as for the SIP TOS settings described above.
 
 <P>
 <BR><HR>
 <ADDRESS>
 lmadsen
-2009-03-19
+2009-06-11
 </ADDRESS>
 </BODY>
 </HTML>

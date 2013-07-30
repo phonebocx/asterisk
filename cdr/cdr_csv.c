@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158377 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158374 $")
 
 #include <time.h>
 
@@ -96,7 +96,7 @@ static int load_config(int reload)
 	const char *tmp;
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 
-	if (!(cfg = ast_config_load(config, config_flags))) {
+	if (!(cfg = ast_config_load(config, config_flags)) || cfg == CONFIG_STATUS_FILEINVALID) {
 		ast_log(LOG_WARNING, "unable to load config: %s\n", config);
 		return 0;
 	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED)

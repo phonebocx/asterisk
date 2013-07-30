@@ -420,7 +420,7 @@ struct ast_channel {
 	struct ast_trans_pvt *readtrans;		/*!< Read translation path */
 	struct ast_audiohook_list *audiohooks;
 	struct ast_cdr *cdr;				/*!< Call Detail Record */
-	struct tone_zone *zone;			/*!< Tone zone as set in indications.conf or
+	struct ast_tone_zone *zone;			/*!< Tone zone as set in indications.conf or
 							     in the CHANNEL dialplan function */
 	struct ast_channel_monitor *monitor;		/*!< Channel monitoring */
 #ifdef HAVE_EPOLL
@@ -492,7 +492,14 @@ struct ast_channel {
 
 	unsigned short transfercapability;		/*!< ISDN Transfer Capbility - AST_FLAG_DIGITAL is not enough */
 
-	char unused_old_dtmfq[AST_MAX_EXTENSION];			/*!< (deprecated, use readq instead) Any/all queued DTMF characters */
+	union {
+		char unused_old_dtmfq[AST_MAX_EXTENSION];			/*!< (deprecated, use readq instead) Any/all queued DTMF characters */
+		struct {
+			struct ast_bridge *bridge;                                      /*!< Bridge this channel is participating in */
+			struct ast_timer *timer;					/*!< timer object that provided timingfd */
+		};
+	};
+
 	char context[AST_MAX_CONTEXT];			/*!< Dialplan: Current extension context */
 	char exten[AST_MAX_EXTENSION];			/*!< Dialplan: Current extension number */
 	char macrocontext[AST_MAX_CONTEXT];		/*!< Macro: Current non-macro context. See app_macro.c */
@@ -577,6 +584,7 @@ struct ast_bridge_config {
 	struct ast_flags features_callee;
 	struct timeval start_time;
 	struct timeval nexteventts;
+	struct timeval partialfeature_timer;
 	long feature_timer;
 	long timelimit;
 	long play_warning;
@@ -646,7 +654,7 @@ enum channelreloadreason {
  * \deprecated You should use the ast_datastore_alloc() generic function instead.
  * \version 1.6.1 deprecated
  */
-struct ast_datastore *ast_channel_datastore_alloc(const struct ast_datastore_info *info, const char *uid)
+struct ast_datastore * attribute_malloc ast_channel_datastore_alloc(const struct ast_datastore_info *info, const char *uid)
 	__attribute__((deprecated));
 
 /*!
@@ -706,7 +714,16 @@ int ast_setstate(struct ast_channel *chan, enum ast_channel_state);
  * \note By default, new channels are set to the "s" extension
  *       and "default" context.
  */
-struct ast_channel *ast_channel_alloc(int needqueue, int state, const char *cid_num, const char *cid_name, const char *acctcode, const char *exten, const char *context, const int amaflag, const char *name_fmt, ...) __attribute__((format(printf, 9, 10)));
+struct ast_channel * attribute_malloc __attribute__((format(printf, 12, 13)))
+	__ast_channel_alloc(int needqueue, int state, const char *cid_num,
+			    const char *cid_name, const char *acctcode,
+			    const char *exten, const char *context,
+			    const int amaflag, const char *file, int line,
+			    const char *function, const char *name_fmt, ...);
+
+#define ast_channel_alloc(needqueue, state, cid_num, cid_name, acctcode, exten, context, amaflag, ...) \
+	__ast_channel_alloc(needqueue, state, cid_num, cid_name, acctcode, exten, context, amaflag, \
+			    __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__)
 
 /*!
  * \brief Queue an outgoing frame
@@ -847,6 +864,17 @@ struct ast_channel *ast_request_and_dial(const char *type, int format, void *dat
  */
 struct ast_channel *__ast_request_and_dial(const char *type, int format, void *data,
 	int timeout, int *reason, const char *cid_num, const char *cid_name, struct outgoing_helper *oh);
+/*!
+* \brief Forwards a call to a new channel specified by the original channel's call_forward str.  If possible, the new forwarded channel is created and returned while the original one is terminated.
+* \param caller in channel that requested orig
+* \param orig channel being replaced by the call forward channel
+* \param timeout maximum amount of time to wait for setup of new forward channel
+* \param format requested channel format
+* \param oh outgoing helper used with original channel
+* \param outstate reason why unsuccessful (if uncuccessful)
+* \return Returns the forwarded call's ast_channel on success or NULL on failure
+*/
+struct ast_channel *ast_call_forward(struct ast_channel *caller, struct ast_channel *orig, int *timeout, int format, struct outgoing_helper *oh, int *outstate);
 
 /*!\brief Register a channel technology (a new channel driver)
  * Called by a channel module to register the kind of channels it supports.
@@ -1281,6 +1309,18 @@ struct ast_channel *ast_get_channel_by_exten_locked(const char *exten, const cha
 /*! \brief Get next channel by exten (and optionally context) and lock it */
 struct ast_channel *ast_walk_channel_by_exten_locked(const struct ast_channel *chan, const char *exten,
 						     const char *context);
+
+/*! \brief Search for a channel based on the passed channel matching callback
+ * Search for a channel based on the specified is_match callback, and return the
+ * first channel that we match.  When returned, the channel will be locked.  Note
+ * that the is_match callback is called with the passed channel locked, and should
+ * return 0 if there is no match, and non-zero if there is.
+ * \param is_match callback executed on each channel until non-zero is returned, or we
+ *        run out of channels to search.
+ * \param data data passed to the is_match callback during each invocation.
+ * \return Returns the matched channel, or NULL if no channel was matched.
+ */
+struct ast_channel *ast_channel_search_locked(int (*is_match)(struct ast_channel *, void *), void *data);
 
 /*! ! \brief Waits for a digit
  * \param c channel to wait for a digit on
@@ -1742,7 +1782,7 @@ struct ast_group_info {
 	struct ast_channel *chan;
 	char *category;
 	char *group;
-	AST_LIST_ENTRY(ast_group_info) list;
+	AST_LIST_ENTRY(ast_group_info) group_list;
 };
 
 

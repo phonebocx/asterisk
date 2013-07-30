@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 176023 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 192942 $")
 
 #include <sys/stat.h>
 #include <signal.h>
@@ -439,7 +439,7 @@ static struct unistim_device {
 	char datetimeformat;	    /*!< format used for displaying time/date */
 	char contrast;			  /*!< contrast */
 	char country[3];			/*!< country used for dial tone frequency */
-	struct tone_zone *tz;	       /*!< Tone zone for res_indications (ring, busy, congestion) */
+	struct ast_tone_zone *tz;	       /*!< Tone zone for res_indications (ring, busy, congestion) */
 	char ringvolume;			/*!< Ring volume */
 	char ringstyle;			 /*!< Ring melody */
 	int rtp_port;			   /*!< RTP port used by the phone */
@@ -2470,14 +2470,17 @@ static void HandleCallIncoming(struct unistimsession *s)
 
 static int unistim_do_senddigit(struct unistimsession *pte, char digit)
 {
-
-	struct ast_frame f = { 0, };
+	struct ast_frame f = { .frametype = AST_FRAME_DTMF, .subclass = digit, .src = "unistim" };
 	struct unistim_subchannel *sub;
 	sub = pte->device->lines->subs[SUB_REAL];
-	if (!sub->owner) {
+	if (!sub->owner || sub->alreadygone) {
 		ast_log(LOG_WARNING, "Unable to find subchannel in dtmf senddigit\n");
 		return -1;
 	}
+
+	/* Send DTMF indication _before_ playing sounds */
+	ast_queue_frame(sub->owner, &f);
+
 	if (unistimdebug)
 		ast_verb(0, "Send Digit %c\n", digit);
 	switch (digit) {
@@ -2534,10 +2537,6 @@ static int unistim_do_senddigit(struct unistimsession *pte, char digit)
 	}
 	usleep(150000);			 /* XXX Less than perfect, blocking an important thread is not a good idea */
 	send_tone(pte, 0, 0);
-	f.frametype = AST_FRAME_DTMF;
-	f.subclass = digit;
-	f.src = "unistim";
-	ast_queue_frame(sub->owner, &f);
 	return 0;
 }
 
@@ -4057,17 +4056,17 @@ static char *control2str(int ind)
 	return "UNKNOWN";
 }
 
-static void in_band_indication(struct ast_channel *ast, const struct tone_zone *tz,
+static void in_band_indication(struct ast_channel *ast, const struct ast_tone_zone *tz,
 	const char *indication)
 {
-	const struct tone_zone_sound *ts = NULL;
+	struct ast_tone_zone_sound *ts = NULL;
 
-	ts = ast_get_indication_tone(tz, indication);
-
-	if (ts && ts->data[0])
+	if ((ts = ast_get_indication_tone(tz, indication))) {
 		ast_playtones_start(ast, 0, ts->data, 1);
-	else
+		ts = ast_tone_zone_sound_unref(ts);
+	} else {
 		ast_log(LOG_WARNING, "Unable to get indication tone for %s\n", indication);
+	}
 }
 
 static int unistim_indicate(struct ast_channel *ast, int ind, const void *data, 
@@ -4224,8 +4223,8 @@ static int unistim_senddigit_end(struct ast_channel *ast, char digit, unsigned i
 
 	sub = pte->device->lines->subs[SUB_REAL];
 
-	if (!sub->owner) {
-		ast_log(LOG_WARNING, "Unable to find subchannel in dtmf senddigiti_end\n");
+	if (!sub->owner || sub->alreadygone) {
+		ast_log(LOG_WARNING, "Unable to find subchannel in dtmf senddigit_end\n");
 		return -1;
 	}
 
@@ -4391,7 +4390,6 @@ static int unistim_send_mwi_to_peer(struct unistimsession *s, unsigned int tick)
 	event = ast_event_get_cached(AST_EVENT_MWI,
 		AST_EVENT_IE_MAILBOX, AST_EVENT_IE_PLTYPE_STR, mailbox,
 		AST_EVENT_IE_CONTEXT, AST_EVENT_IE_PLTYPE_STR, context,
-		AST_EVENT_IE_NEWMSGS, AST_EVENT_IE_PLTYPE_EXISTS,
 		AST_EVENT_IE_END);
 
 	if (event) {
@@ -4682,9 +4680,9 @@ static char *unistim_info(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "unistim info";
+		e->command = "unistim show info";
 		e->usage =
-			"Usage: unistim info\n" 
+			"Usage: unistim show info\n" 
 			"       Dump internal structures.\n";
 		return NULL;
 
@@ -4751,27 +4749,27 @@ static char *unistim_sp(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a
 
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "unistim sp";
+		e->command = "unistim send packet";
 		e->usage =
-			"Usage: unistim sp USTM/line@name hexa\n"
-			"       unistim sp USTM/1000@hans 19040004\n";
+			"Usage: unistim send packet USTM/line@name hexa\n"
+			"       unistim send packet USTM/1000@hans 19040004\n";
 		return NULL;
 
 	case CLI_GENERATE:
 		return NULL;	/* no completion */
 	}
 	
-	if (a->argc < 4)
+	if (a->argc < 5)
 		return CLI_SHOWUSAGE;
 
-	if (strlen(a->argv[2]) < 9)
+	if (strlen(a->argv[3]) < 9)
 		return CLI_SHOWUSAGE;
 
-	len = strlen(a->argv[3]);
+	len = strlen(a->argv[4]);
 	if (len % 2)
 		return CLI_SHOWUSAGE;
 
-	ast_copy_string(tmp, a->argv[2] + 5, sizeof(tmp));
+	ast_copy_string(tmp, a->argv[3] + 5, sizeof(tmp));
 	sub = find_subchannel_by_name(tmp);
 	if (!sub) {
 		ast_cli(a->fd, "Can't find '%s'\n", tmp);
@@ -4781,15 +4779,15 @@ static char *unistim_sp(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a
 		ast_cli(a->fd, "'%s' is not connected\n", tmp);
 		return CLI_SUCCESS;
 	}
-	ast_cli(a->fd, "Sending '%s' to %s (%p)\n", a->argv[3], tmp, sub->parent->parent->session);
+	ast_cli(a->fd, "Sending '%s' to %s (%p)\n", a->argv[4], tmp, sub->parent->parent->session);
 	for (i = 0; i < len; i++) {
-		c = a->argv[3][i];
+		c = a->argv[4][i];
 		if (c >= 'a')
 			c -= 'a' - 10;
 		else
 			c -= '0';
 		i++;
-		cc = a->argv[3][i];
+		cc = a->argv[4][i];
 		if (cc >= 'a')
 			cc -= 'a' - 10;
 		else
@@ -5223,6 +5221,9 @@ static struct unistim_device *build_device(const char *cat, const struct ast_var
 		ast_log(LOG_ERROR, "An Unistim device must have at least one line!\n");
 		ast_mutex_destroy(&l->lock);
 		ast_free(l);
+		if (d->tz) {
+			d->tz = ast_tone_zone_unref(d->tz);
+		}
 		ast_free(d);
 		return NULL;
 	}
@@ -5240,6 +5241,9 @@ static struct unistim_device *build_device(const char *cat, const struct ast_var
 			ast_log(LOG_ERROR, "You must specify the mac address with device=\n");
 			ast_mutex_destroy(&l->lock);
 			ast_free(l);
+			if (d->tz) {
+				d->tz = ast_tone_zone_unref(d->tz);
+			}
 			ast_free(d);
 			return NULL;
 		} else
@@ -5303,6 +5307,9 @@ static int reload_config(void)
 	/* We *must* have a config file otherwise stop immediately */
 	if (!cfg) {
 		ast_log(LOG_ERROR, "Unable to load config %s\n", config);
+		return -1;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_ERROR, "Config file %s is in an invalid format.  Aborting.\n", config);
 		return -1;
 	}
 	
@@ -5457,6 +5464,9 @@ static int reload_config(void)
 					}
 					d2 = d2->next;
 				}
+			}
+			if (d->tz) {
+				d->tz = ast_tone_zone_unref(d->tz);
 			}
 			ast_free(d);
 			d = devices;

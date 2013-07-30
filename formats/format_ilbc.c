@@ -24,10 +24,10 @@
  * \arg File name extension: ilbc
  * \ingroup formats
  */
- 
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 117802 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 175827 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"

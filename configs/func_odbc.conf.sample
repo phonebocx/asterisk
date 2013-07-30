@@ -31,6 +31,8 @@
 ;              readhandle.  "dsn" is a synonym for "writehandle".
 ; readsql      The statement to execute when reading from the function class.
 ; writesql     The statement to execute when writing to the function class.
+; insertsql    The statement to execute when writing to the function class
+;              succeeds, but initially indicates that 0 rows were affected.
 ; prefix       Normally, all function classes are prefixed with "ODBC" to keep
 ;              them uniquely named.  You may choose to change this prefix, which
 ;              may be useful to segregate a collection of certain function
@@ -49,10 +51,12 @@
 ;              changes the way that func_odbc normally works.  Instead of the
 ;              invocation of the function returning a row, it returns an opaque
 ;              ID, which may be passed to ODBC_FETCH() to return each row in
-;              turn.  The variable ODBCROWS is set initially, which may be used
-;              in an iterative fashion to return each row in the result.  You
-;              should call ODBC_Finish on the ID to clean up any remaining
-;              results when you are done with the query.
+;              turn.  ODBC_FETCH_STATUS returns SUCCESS or FAILURE, to indicate
+;              whether any results were stored, and you should call ODBC_Finish
+;              on the ID to clean up any remaining results when you are done
+;              with the query.  Also, the variable ODBCROWS is set initially,
+;              which may be used in an iterative fashion to return each row in
+;              the result.
 ;              Please note that multirow queries are isolated to the channel,
 ;              and rows may not be fetched outside of the channel where the
 ;              query was initially performed.  Additionally, as the results are
@@ -77,6 +81,8 @@ dsn=mysql1,mysql2   ; Use mysql1 as the primary handle, but fall back to mysql2
                     ; "writehandle", if it is important to separate reads and
                     ; writes to different databases.
 readsql=SELECT COUNT(*) FROM exgirlfriends WHERE callerid='${SQL_ESC(${ARG1})}'
+syntax=<callerid>
+synopsis=Check if a specified callerid is contained in the ex-gf database
 
 ; ODBC_PRESENCE - Retrieve and update presence
 [PRESENCE]

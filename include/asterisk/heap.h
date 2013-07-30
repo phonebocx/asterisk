@@ -97,8 +97,14 @@ typedef int (*ast_heap_cmp_fn)(void *elm1, void *elm2);
  * \return An instance of a max heap
  * \since 1.6.1
  */
+#ifdef MALLOC_DEBUG
+struct ast_heap *_ast_heap_create(unsigned int init_height, ast_heap_cmp_fn cmp_fn,
+		ssize_t index_offset, const char *file, int lineno, const char *func);
+#define	ast_heap_create(a,b,c)	_ast_heap_create(a,b,c,__FILE__,__LINE__,__PRETTY_FUNCTION__)
+#else
 struct ast_heap *ast_heap_create(unsigned int init_height, ast_heap_cmp_fn cmp_fn,
 		ssize_t index_offset);
+#endif
 
 /*!
  * \brief Destroy a max heap
@@ -120,7 +126,12 @@ struct ast_heap *ast_heap_destroy(struct ast_heap *h);
  * \retval non-zero failure
  * \since 1.6.1
  */
+#ifdef MALLOC_DEBUG
+int _ast_heap_push(struct ast_heap *h, void *elm, const char *file, int lineno, const char *func);
+#define	ast_heap_push(a,b)	_ast_heap_push(a,b,__FILE__,__LINE__,__PRETTY_FUNCTION__)
+#else
 int ast_heap_push(struct ast_heap *h, void *elm);
+#endif
 
 /*!
  * \brief Pop the max element off of the heap
@@ -198,6 +209,8 @@ void *ast_heap_peek(struct ast_heap *h, unsigned int index);
  */
 size_t ast_heap_size(struct ast_heap *h);
 
+#ifndef DEBUG_THREADS
+
 /*!
  * \brief Write-Lock a heap
  *
@@ -235,6 +248,17 @@ int ast_heap_rdlock(struct ast_heap *h);
  * \since 1.6.1
  */
 int ast_heap_unlock(struct ast_heap *h);
+
+#else /* DEBUG_THREADS */
+
+#define ast_heap_wrlock(h) __ast_heap_wrlock(h, __FILE__, __PRETTY_FUNCTION__, __LINE__)
+int __ast_heap_wrlock(struct ast_heap *h, const char *file, const char *func, int line);
+#define ast_heap_rdlock(h) __ast_heap_rdlock(h, __FILE__, __PRETTY_FUNCTION__, __LINE__)
+int __ast_heap_rdlock(struct ast_heap *h, const char *file, const char *func, int line);
+#define ast_heap_unlock(h) __ast_heap_unlock(h, __FILE__, __PRETTY_FUNCTION__, __LINE__)
+int __ast_heap_unlock(struct ast_heap *h, const char *file, const char *func, int line);
+
+#endif /* DEBUG_THREADS */
 
 /*!
  * \brief Verify that a heap has been properly constructed

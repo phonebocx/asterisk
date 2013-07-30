@@ -23,11 +23,16 @@
 #ifndef _ASTERISK_APP_H
 #define _ASTERISK_APP_H
 
+#include "asterisk/strings.h"
+#include "asterisk/threadstorage.h"
+
 struct ast_flags64;
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
+
+AST_THREADSTORAGE_EXTERNAL(ast_str_thread_global_buf);
 
 /* IVR stuff */
 
@@ -518,11 +523,13 @@ int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, 
 /*! \brief Allow to record message and have a review option */
 int ast_record_review(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, const char *path);
 
-/*! \brief Decode an encoded control or extended ASCII character */
+/*! \brief Decode an encoded control or extended ASCII character 
+    \return Returns a pointer to the result string
+*/
 int ast_get_encoded_char(const char *stream, char *result, size_t *consumed);
 
-/*! \brief Decode a string which may contain multiple encoded control or extended ASCII characters */
-int ast_get_encoded_str(const char *stream, char *result, size_t result_size);
+/*! \brief Decode a stream of encoded control or extended ASCII characters */
+char *ast_get_encoded_str(const char *stream, char *result, size_t result_len);
 
 /*! \brief Decode a stream of encoded control or extended ASCII characters */
 int ast_str_get_encoded_str(struct ast_str **str, int maxlen, const char *stream);

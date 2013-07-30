@@ -28,12 +28,12 @@
  */
 
 /*** MODULEINFO
-	<depend>asound</depend>
+	<depend>alsa</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182946 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 196991 $")
 
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -862,8 +862,13 @@ static int load_module(void)
 
 	strcpy(mohinterpret, "default");
 
-	if (!(cfg = ast_config_load(config, config_flags)))
+	if (!(cfg = ast_config_load(config, config_flags))) {
+		ast_log(LOG_ERROR, "Unable to read ALSA configuration file %s.  Aborting.\n", config);
 		return AST_MODULE_LOAD_DECLINE;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_ERROR, "%s is in an invalid format.  Aborting.\n", config);
+		return AST_MODULE_LOAD_DECLINE;
+	}
 
 	v = ast_variable_browse(cfg, "general");
 	for (; v; v = v->next) {
@@ -903,7 +908,7 @@ static int load_module(void)
 		return AST_MODULE_LOAD_FAILURE;
 	}
 
-	ast_cli_register_multiple(cli_alsa, sizeof(cli_alsa) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(cli_alsa, ARRAY_LEN(cli_alsa));
 
 	return AST_MODULE_LOAD_SUCCESS;
 }
@@ -911,7 +916,7 @@ static int load_module(void)
 static int unload_module(void)
 {
 	ast_channel_unregister(&alsa_tech);
-	ast_cli_unregister_multiple(cli_alsa, sizeof(cli_alsa) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(cli_alsa, ARRAY_LEN(cli_alsa));
 
 	if (alsa.icard)
 		snd_pcm_close(alsa.icard);

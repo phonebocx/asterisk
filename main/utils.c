@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182946 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 197542 $")
 
 #include <ctype.h>
 #include <sys/stat.h>
@@ -826,7 +826,7 @@ void log_show_lock(void *this_lock_addr)
 			   it's acquired... */
 			if (lock_info->locks[i].lock_addr == this_lock_addr) {
 				append_lock_information(&str, lock_info, i);
-				ast_log(LOG_NOTICE, "%s", str->str);
+				ast_log(LOG_NOTICE, "%s", ast_str_buffer(str));
 				break;
 			}
 		}
@@ -899,7 +899,7 @@ static char *handle_show_locks(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	if (!str)
 		return CLI_FAILURE;
 
-	ast_cli(a->fd, "%s", str->str);
+	ast_cli(a->fd, "%s", ast_str_buffer(str));
 
 	ast_free(str);
 
@@ -1475,15 +1475,21 @@ const char __ast_string_field_empty[] = ""; /*!< the empty string */
  * We can only allocate from the topmost pool, so the
  * fields in *mgr reflect the size of that only.
  */
-static int add_string_pool(struct ast_string_field_mgr *mgr,
-			   struct ast_string_field_pool **pool_head,
-			   size_t size)
+static int add_string_pool(struct ast_string_field_mgr *mgr, struct ast_string_field_pool **pool_head,
+			   size_t size, const char *file, int lineno, const char *func)
 {
 	struct ast_string_field_pool *pool;
 
-	if (!(pool = ast_calloc(1, sizeof(*pool) + size)))
+#if defined(__AST_DEBUG_MALLOC)
+	if (!(pool = __ast_calloc(1, sizeof(*pool) + size, file, lineno, func))) {
 		return -1;
-	
+	}
+#else
+	if (!(pool = ast_calloc(1, sizeof(*pool) + size))) {
+		return -1;
+	}
+#endif
+
 	pool->prev = *pool_head;
 	*pool_head = pool;
 	mgr->size = size;
@@ -1503,39 +1509,56 @@ static int add_string_pool(struct ast_string_field_mgr *mgr,
  * size < 0 means release all pools.
  *	This must be done before destroying the object.
  */
-int __ast_string_field_init(struct ast_string_field_mgr *mgr,
-			    struct ast_string_field_pool **pool_head,
-			    int size)
+int __ast_string_field_init(struct ast_string_field_mgr *mgr, struct ast_string_field_pool **pool_head,
+			    int needed, const char *file, int lineno, const char *func)
 {
 	const char **p = (const char **) pool_head + 1;
-	struct ast_string_field_pool *cur = *pool_head;
+	struct ast_string_field_pool *cur = NULL;
+	struct ast_string_field_pool *preserve = NULL;
 
 	/* clear fields - this is always necessary */
 	while ((struct ast_string_field_mgr *) p != mgr)
 		*p++ = __ast_string_field_empty;
 	mgr->last_alloc = NULL;
-	if (size > 0) {			/* allocate the initial pool */
+#if defined(__AST_DEBUG_MALLOC)
+	mgr->owner_file = file;
+	mgr->owner_func = func;
+	mgr->owner_line = lineno;
+#endif
+	if (needed > 0) {		/* allocate the initial pool */
 		*pool_head = NULL;
-		return add_string_pool(mgr, pool_head, size);
+		return add_string_pool(mgr, pool_head, needed, file, lineno, func);
 	}
-	if (size < 0) {			/* reset all pools */
-		*pool_head = NULL;
-	} else {			/* preserve the first pool */
-		if (cur == NULL) {
+	if (needed < 0) {		/* reset all pools */
+		if (*pool_head == NULL) {
 			ast_log(LOG_WARNING, "trying to reset empty pool\n");
 			return -1;
 		}
-		cur = cur->prev;
-		(*pool_head)->prev = NULL;
+		cur = *pool_head;
+	} else {			/* preserve the last pool */
+		if (*pool_head == NULL) {
+			ast_log(LOG_WARNING, "trying to reset empty pool\n");
+			return -1;
+		}
 		mgr->used = 0;
+		preserve = *pool_head;
+		cur = preserve->prev;
+	}
+
+	if (preserve) {
+		preserve->prev = NULL;
 	}
 
 	while (cur) {
 		struct ast_string_field_pool *prev = cur->prev;
 
-		ast_free(cur);
+		if (cur != preserve) {
+			ast_free(cur);
+		}
 		cur = prev;
 	}
+
+	*pool_head = preserve;
 
 	return 0;
 }
@@ -1552,8 +1575,13 @@ ast_string_field __ast_string_field_alloc_space(struct ast_string_field_mgr *mgr
 		while (new_size < needed)
 			new_size *= 2;
 
-		if (add_string_pool(mgr, pool_head, new_size))
+#if defined(__AST_DEBUG_MALLOC)
+		if (add_string_pool(mgr, pool_head, new_size, mgr->owner_file, mgr->owner_line, mgr->owner_func))
 			return NULL;
+#else
+		if (add_string_pool(mgr, pool_head, new_size, __FILE__, __LINE__, __FUNCTION__))
+			return NULL;
+#endif
 	}
 
 	result = (*pool_head)->base + mgr->used;
@@ -1622,8 +1650,13 @@ void __ast_string_field_ptr_build_va(struct ast_string_field_mgr *mgr,
 			while (new_size < needed)
 				new_size *= 2;
 			
-			if (add_string_pool(mgr, pool_head, new_size))
+#if defined(__AST_DEBUG_MALLOC)
+			if (add_string_pool(mgr, pool_head, new_size, mgr->owner_file, mgr->owner_line, mgr->owner_func))
 				return;
+#else
+			if (add_string_pool(mgr, pool_head, new_size, NULL, 0, NULL))
+				return;
+#endif
 		}
 
 		target = (*pool_head)->base + mgr->used;
@@ -1715,66 +1748,6 @@ int ast_get_time_t(const char *src, time_t *dst, time_t _default, int *consumed)
 		return 0;
 	} else
 		return -1;
-}
-
-/*!
- * core handler for dynamic strings.
- * This is not meant to be called directly, but rather through the
- * various wrapper macros
- *	ast_str_set(...)
- *	ast_str_append(...)
- *	ast_str_set_va(...)
- *	ast_str_append_va(...)
- */
-
-int __ast_str_helper(struct ast_str **buf, size_t max_len,
-	int append, const char *fmt, va_list ap)
-{
-	int res, need;
-	int offset = (append && (*buf)->len) ? (*buf)->used : 0;
-	va_list aq;
-
-	do {
-		if (max_len < 0) {
-			max_len = (*buf)->len;	/* don't exceed the allocated space */
-		}
-		/*
-		 * Ask vsnprintf how much space we need. Remember that vsnprintf
-		 * does not count the final '\0' so we must add 1.
-		 */
-		va_copy(aq, ap);
-		res = vsnprintf((*buf)->str + offset, (*buf)->len - offset, fmt, aq);
-
-		need = res + offset + 1;
-		/*
-		 * If there is not enough space and we are below the max length,
-		 * reallocate the buffer and return a message telling to retry.
-		 */
-		if (need > (*buf)->len && (max_len == 0 || (*buf)->len < max_len) ) {
-			if (max_len && max_len < need) {	/* truncate as needed */
-				need = max_len;
-			} else if (max_len == 0) {	/* if unbounded, give more room for next time */
-				need += 16 + need / 4;
-			}
-			if (0) {	/* debugging */
-				ast_verbose("extend from %d to %d\n", (int)(*buf)->len, need);
-			}
-			if (ast_str_make_space(buf, need)) {
-				ast_verbose("failed to extend from %d to %d\n", (int)(*buf)->len, need);
-				return AST_DYNSTR_BUILD_FAILED;
-			}
-			(*buf)->str[offset] = '\0';	/* Truncate the partial write. */
-
-			/* Restart va_copy before calling vsnprintf() again. */
-			va_end(aq);
-			continue;
-		}
-		break;
-	} while (1);
-	/* update space used, keep in mind the truncation */
-	(*buf)->used = (res + offset > (*buf)->len) ? (*buf)->len : res + offset;
-
-	return res;
 }
 
 void ast_enable_packet_fragmentation(int sock)

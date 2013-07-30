@@ -23,9 +23,13 @@
  * \author Russell Bryant <russell@digium.com>
  */
 
+/*** MODULEINFO
+	<defaultenabled>no</defaultenabled>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 176637 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 187677 $")
 
 #include "asterisk/module.h"
 #include "asterisk/cli.h"

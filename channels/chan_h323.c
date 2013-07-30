@@ -45,7 +45,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182724 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 191224 $")
 
 #ifdef __cplusplus
 }
@@ -90,6 +90,8 @@ extern "C" {
 }
 #endif
 
+#undef open
+#undef close
 #include "h323/chan_h323.h"
 
 receive_digit_cb on_receive_digit;
@@ -1251,6 +1253,8 @@ static int update_common_options(struct ast_variable *v, struct call_options *op
 
 	if (!strcasecmp(v->name, "allow")) {
 		ast_parse_allow_disallow(&options->prefs, &options->capability, v->value, 1);
+	} else if (!strcasecmp(v->name, "autoframing")) {
+		options->autoframing = ast_true(v->value);
 	} else if (!strcasecmp(v->name, "disallow")) {
 		ast_parse_allow_disallow(&options->prefs, &options->capability, v->value, 0);
 	} else if (!strcasecmp(v->name, "dtmfmode")) {
@@ -1922,15 +1926,6 @@ static struct rtp_info *external_rtp_create(unsigned call_reference, const char 
 	return info;
 }
 
-/* 
- * Definition taken from rtp.c for rtpPayloadType because we need it here.
- */
-
-struct rtpPayloadType {
-	int isAstFormat;	/* whether the following code is an AST_FORMAT */
-	int code;
-};
-
 /*! \brief
   * Call-back function passing remote ip/port information from H.323 to asterisk
   *
@@ -2460,8 +2455,15 @@ static void set_peer_capabilities(unsigned call_reference, const char *token, in
 				ast_debug(1, "prefs[%d]=%s:%d\n", i, (prefs->order[i] ? ast_getformatname(1 << (prefs->order[i]-1)) : "<none>"), prefs->framing[i]);
 			}
 		}
-		if (pvt->rtp)
-			ast_rtp_codec_setpref(pvt->rtp, &pvt->peer_prefs);
+		if (pvt->rtp) {
+			if (pvt->options.autoframing) {
+				ast_debug(2, "Autoframing option set, using peer's packetization settings\n");
+				ast_rtp_codec_setpref(pvt->rtp, &pvt->peer_prefs);
+			} else {
+				ast_debug(2, "Autoframing option not set, ignoring peer's packetization settings\n");
+				ast_rtp_codec_setpref(pvt->rtp, &pvt->options.prefs);
+			}
+		}
 	}
 	ast_mutex_unlock(&pvt->lock);
 }
@@ -2485,8 +2487,15 @@ static void set_local_capabilities(unsigned call_reference, const char *token)
 	ast_mutex_unlock(&pvt->lock);
 	h323_set_capabilities(token, capability, dtmfmode, &prefs, pref_codec);
 
-	if (h323debug)
+	if (h323debug) {
+		int i;
+		for (i = 0; i < 32; i++) {
+			if (!prefs.order[i])
+				break;
+			ast_debug(1, "local prefs[%d]=%s:%d\n", i, (prefs.order[i] ? ast_getformatname(1 << (prefs.order[i]-1)) : "<none>"), prefs.framing[i]);
+		}
 		ast_debug(1, "Capabilities for connection %s is set\n", token);
+	}
 }
 
 static void remote_hold(unsigned call_reference, const char *token, int is_hold)
@@ -2619,20 +2628,23 @@ static char *handle_cli_h323_set_trace(struct ast_cli_entry *e, int cmd, struct 
 {
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "h323 set trace [off]";
+		e->command = "h323 set trace [on|off]";
 		e->usage =
-			"Usage: h323 set trace (off|<trace level>)\n"
+			"Usage: h323 set trace (on|off|<trace level>)\n"
 			"       Enable/Disable H.323 stack tracing for debugging purposes\n";
 		return NULL;
 	case CLI_GENERATE:
 		return NULL;
 	}
 
-	if (a->argc != 4)
+	if (a->argc != e->args)
 		return CLI_SHOWUSAGE;
 	if (!strcasecmp(a->argv[3], "off")) {
 		h323_debug(0, 0);
 		ast_cli(a->fd, "H.323 Trace Disabled\n");
+	} else if (!strcasecmp(a->argv[3], "on")) {
+		h323_debug(1, 1);
+		ast_cli(a->fd, "H.323 Trace Enabled\n");
 	} else {
 		int tracelevel = atoi(a->argv[3]);
 		h323_debug(1, tracelevel);
@@ -2645,21 +2657,21 @@ static char *handle_cli_h323_set_debug(struct ast_cli_entry *e, int cmd, struct 
 {
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "h323 set debug [off]";
+		e->command = "h323 set debug [on|off]";
 		e->usage =
-			"Usage: h323 set debug [off]\n"
+			"Usage: h323 set debug [on|off]\n"
 			"       Enable/Disable H.323 debugging output\n";
 		return NULL;
 	case CLI_GENERATE:
 		return NULL;
 	}
 
-	if (a->argc < 3 || a->argc > 4)
+	if (a->argc != e->args)
 		return CLI_SHOWUSAGE;
-	if (a->argc == 4 && strcasecmp(a->argv[3], "off"))
+	if (strcasecmp(a->argv[3], "on") && strcasecmp(a->argv[3], "off"))
 		return CLI_SHOWUSAGE;
 
-	h323debug = (a->argc == 3) ? 1 : 0;
+	h323debug = (strcasecmp(a->argv[3], "on")) ? 0 : 1;
 	ast_cli(a->fd, "H.323 Debugging %s\n", h323debug ? "Enabled" : "Disabled");
 	return CLI_SUCCESS;
 }
@@ -2838,13 +2850,28 @@ static int reload_config(int is_reload)
 		return 1;
 	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED) {
 		ucfg = ast_config_load("users.conf", config_flags);
-		if (ucfg == CONFIG_STATUS_FILEUNCHANGED)
+		if (ucfg == CONFIG_STATUS_FILEUNCHANGED) {
 			return 0;
+		} else if (ucfg == CONFIG_STATUS_FILEINVALID) {
+			ast_log(LOG_ERROR, "Config file users.conf is in an invalid format.  Aborting.\n");
+			return 0;
+		}
 		ast_clear_flag(&config_flags, CONFIG_FLAG_FILEUNCHANGED);
-		cfg = ast_config_load(config, config_flags);
+		if ((cfg = ast_config_load(config, config_flags)) == CONFIG_STATUS_FILEINVALID) {
+			ast_log(LOG_ERROR, "Config file %s is in an invalid format.  Aborting.\n", config);
+			ast_config_destroy(ucfg);
+			return 0;
+		}
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_ERROR, "Config file %s is in an invalid format.  Aborting.\n", config);
+		return 0;
 	} else {
 		ast_clear_flag(&config_flags, CONFIG_FLAG_FILEUNCHANGED);
-		ucfg = ast_config_load("users.conf", config_flags);
+		if ((ucfg = ast_config_load("users.conf", config_flags)) == CONFIG_STATUS_FILEINVALID) {
+			ast_log(LOG_ERROR, "Config file users.conf is in an invalid format.  Aborting.\n");
+			ast_config_destroy(cfg);
+			return 0;
+		}
 	}
 
 	if (is_reload) {
@@ -2870,6 +2897,7 @@ static int reload_config(int is_reload)
 	global_options.holdHandling = 0;
 	global_options.capability = GLOBAL_CAPABILITY;
 	global_options.bridge = 1;		/* Do native bridging by default */
+	global_options.autoframing = 0;
 	strcpy(default_context, "default");
 	h323_signalling_port = 1720;
 	gatekeeper_disable = 1;

@@ -29,7 +29,7 @@
  */
 
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 118173 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 163991 $")
 
 #include <pthread.h>
 #include <sys/stat.h>
@@ -49,6 +49,11 @@ int64_t ast_mark(int prof_id, int x)
 	return 0;
 }
 #endif
+
+void pbx_substitute_variables_helper_full(struct ast_channel *c, struct varshead *headp, const char *cp1, char *cp2, int cp2_size, size_t *used);
+void pbx_substitute_variables_helper_full(struct ast_channel *c, struct varshead *headp, const char *cp1, char *cp2, int cp2_size, size_t *used)
+{
+}
 
 struct ht_element 
 {

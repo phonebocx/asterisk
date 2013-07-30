@@ -69,7 +69,7 @@
 
 %{
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 162277 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 162271 $")
 
 #include <sys/types.h>
 #include <sys/stat.h>

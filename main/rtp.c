@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180378 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 197619 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -64,7 +64,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180378 $")
 
 #define RTP_MTU		1200
 
-#define DEFAULT_DTMF_TIMEOUT 3000	/*!< samples */
+#define DEFAULT_DTMF_TIMEOUT (150 * (8000 / 1000))	/*!< samples */
 
 static int dtmftimeout = DEFAULT_DTMF_TIMEOUT;
 
@@ -97,12 +97,6 @@ enum strict_rtp_state {
  * RTP session is defined on page 9 of RFC 3550: "An association among a set of participants communicating with RTP.  A participant may be involved in multiple RTP sessions at the same time [...]"
  *
  */
-/*! \brief The value of each payload format mapping: */
-struct rtpPayloadType {
-	int isAstFormat; 	/*!< whether the following code is an AST_FORMAT */
-	int code;
-};
-
 
 /*! \brief RTP session description */
 struct ast_rtp {
@@ -139,7 +133,8 @@ struct ast_rtp {
 	/* DTMF Reception Variables */
 	char resp;
 	unsigned int lastevent;
-	int dtmfcount;
+	unsigned int dtmf_duration;     /*!< Total duration in samples since the digit start event */
+	unsigned int dtmf_timeout;      /*!< When this timestamp is reached we consider END frame lost and forcibly abort digit */
 	unsigned int dtmfsamples;
 	/* DTMF Transmission Variables */
 	unsigned int lastdigitts;
@@ -151,6 +146,7 @@ struct ast_rtp {
 	unsigned int flags;
 	struct sockaddr_in us;		/*!< Socket representation of the local endpoint. */
 	struct sockaddr_in them;	/*!< Socket representation of the remote endpoint. */
+	struct sockaddr_in altthem;	/*!< Alternate source of remote media */
 	struct timeval rxcore;
 	struct timeval txcore;
 	double drxcore;                 /*!< The double representation of the first received packet */
@@ -235,6 +231,7 @@ struct ast_rtcp {
 	int s;				/*!< Socket */
 	struct sockaddr_in us;		/*!< Socket representation of the local endpoint. */
 	struct sockaddr_in them;	/*!< Socket representation of the remote endpoint. */
+	struct sockaddr_in altthem;	/*!< Alternate source for RTCP */
 	unsigned int soc;		/*!< What they told us */
 	unsigned int spc;		/*!< What they told us */
 	unsigned int themrxlsr;		/*!< The middle 32 bits of the NTP timestamp in the last received SR*/
@@ -991,7 +988,7 @@ static struct ast_frame *process_cisco_dtmf(struct ast_rtp *rtp, unsigned char *
 		rtp->resp = 0;
 	} else if (rtp->resp == resp)
 		rtp->dtmfsamples += 20 * 8;
-	rtp->dtmfcount = dtmftimeout;
+	rtp->dtmf_timeout = dtmftimeout;
 	return f;
 }
 
@@ -1048,23 +1045,59 @@ static struct ast_frame *process_rfc2833(struct ast_rtp *rtp, unsigned char *dat
 	if (ast_test_flag(rtp, FLAG_DTMF_COMPENSATE)) {
 		if ((rtp->lastevent != timestamp) || (rtp->resp && rtp->resp != resp)) {
 			rtp->resp = resp;
-			rtp->dtmfcount = 0;
+			rtp->dtmf_timeout = 0;
 			f = send_dtmf(rtp, AST_FRAME_DTMF_END);
 			f->len = 0;
 			rtp->lastevent = timestamp;
 		}
 	} else {
-		if ((!(rtp->resp) && (!(event_end & 0x80))) || (rtp->resp && rtp->resp != resp)) {
-			rtp->resp = resp;
-			f = send_dtmf(rtp, AST_FRAME_DTMF_BEGIN);
-			rtp->dtmfcount = dtmftimeout;
-		} else if ((event_end & 0x80) && (rtp->lastevent != seqno) && rtp->resp) {
-			f = send_dtmf(rtp, AST_FRAME_DTMF_END);
-			f->len = ast_tvdiff_ms(ast_samp2tv(samples, 8000), ast_tv(0, 0)); /* XXX hard coded 8kHz */
-			rtp->resp = 0;
-			rtp->dtmfcount = 0;
-			rtp->lastevent = seqno;
+		/*  The duration parameter measures the complete
+		    duration of the event (from the beginning) - RFC2833.
+		    Account for the fact that duration is only 16 bits long
+		    (about 8 seconds at 8000 Hz) and can wrap is digit
+		    is hold for too long. */
+		unsigned int new_duration = rtp->dtmf_duration;
+		unsigned int last_duration = new_duration & 0xFFFF;
+
+		if (last_duration > 64000 && samples < last_duration)
+			new_duration += 0xFFFF + 1;
+		new_duration = (new_duration & ~0xFFFF) | samples;
+
+		if (event_end & 0x80) {
+			/* End event */
+			if ((rtp->lastevent != seqno) && rtp->resp) {
+				rtp->dtmf_duration = new_duration;
+				f = send_dtmf(rtp, AST_FRAME_DTMF_END);
+				f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, 8000), ast_tv(0, 0));
+				rtp->resp = 0;
+				rtp->dtmf_duration = rtp->dtmf_timeout = 0;
+			}
+		} else {
+			/* Begin/continuation */
+
+			if (rtp->resp && rtp->resp != resp) {
+				/* Another digit already began. End it */
+				f = send_dtmf(rtp, AST_FRAME_DTMF_END);
+				f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, 8000), ast_tv(0, 0));
+				rtp->resp = 0;
+				rtp->dtmf_duration = rtp->dtmf_timeout = 0;
+			}
+
+
+			if (rtp->resp) {
+				/* Digit continues */
+				rtp->dtmf_duration = new_duration;
+			} else {
+				/* New digit began */
+				rtp->resp = resp;
+				f = send_dtmf(rtp, AST_FRAME_DTMF_BEGIN);
+				rtp->dtmf_duration = samples;
+			}
+
+			rtp->dtmf_timeout = timestamp + rtp->dtmf_duration + dtmftimeout;
 		}
+
+		rtp->lastevent = seqno;
 	}
 
 	rtp->dtmfsamples = samples;
@@ -1176,8 +1209,10 @@ struct ast_frame *ast_rtcp_read(struct ast_rtp *rtp)
 	
 	if (rtp->nat) {
 		/* Send to whoever sent to us */
-		if ((rtp->rtcp->them.sin_addr.s_addr != sock_in.sin_addr.s_addr) ||
-		    (rtp->rtcp->them.sin_port != sock_in.sin_port)) {
+		if (((rtp->rtcp->them.sin_addr.s_addr != sock_in.sin_addr.s_addr) ||
+		    (rtp->rtcp->them.sin_port != sock_in.sin_port)) && 
+		    ((rtp->rtcp->altthem.sin_addr.s_addr != sock_in.sin_addr.s_addr) || 
+		    (rtp->rtcp->altthem.sin_port != sock_in.sin_port))) {
 			memcpy(&rtp->rtcp->them, &sock_in, sizeof(rtp->rtcp->them));
 			if (option_debug || rtpdebug)
 				ast_debug(0, "RTCP NAT: Got RTCP from other end. Now sending to address %s:%d\n", ast_inet_ntoa(rtp->rtcp->them.sin_addr), ntohs(rtp->rtcp->them.sin_port));
@@ -1608,8 +1643,10 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 
 	/* Send to whoever send to us if NAT is turned on */
 	if (rtp->nat) {
-		if ((rtp->them.sin_addr.s_addr != sock_in.sin_addr.s_addr) ||
-		    (rtp->them.sin_port != sock_in.sin_port)) {
+		if (((rtp->them.sin_addr.s_addr != sock_in.sin_addr.s_addr) ||
+		    (rtp->them.sin_port != sock_in.sin_port)) && 
+		    ((rtp->altthem.sin_addr.s_addr != sock_in.sin_addr.s_addr) ||
+		    (rtp->altthem.sin_port != sock_in.sin_port))) {
 			rtp->them = sock_in;
 			if (rtp->rtcp) {
 				int h = 0;
@@ -1745,17 +1782,15 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 
 	rtp->rxseqno = seqno;
 
-	if (rtp->dtmfcount) {
-		rtp->dtmfcount -= (timestamp - rtp->lastrxts);
+	if (rtp->dtmf_timeout && rtp->dtmf_timeout < timestamp) {
+		rtp->dtmf_timeout = 0;
 
-		if (rtp->dtmfcount < 0) {
-			rtp->dtmfcount = 0;
-		}
-
-		if (rtp->resp && !rtp->dtmfcount) {
+		if (rtp->resp) {
 			struct ast_frame *f;
 			f = send_dtmf(rtp, AST_FRAME_DTMF_END);
+			f->len = ast_tvdiff_ms(ast_samp2tv(rtp->dtmf_duration, 8000), ast_tv(0, 0));
 			rtp->resp = 0;
+			rtp->dtmf_timeout = rtp->dtmf_duration = 0;
 			return f;
 		}
 	}
@@ -1831,7 +1866,7 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 		/* Add timing data to let ast_generic_bridge() put the frame into a jitterbuf */
 		ast_set_flag(&rtp->f, AST_FRFLAG_HAS_TIMING_INFO);
 		rtp->f.ts = timestamp / 8;
-		rtp->f.len = rtp->f.samples / ( (ast_format_rate(rtp->f.subclass) == 16000) ? 16 : 8 );
+		rtp->f.len = rtp->f.samples / ((ast_format_rate(rtp->f.subclass) / 1000));
 	} else if (rtp->f.subclass & AST_FORMAT_VIDEO_MASK) {
 		/* Video -- samples is # of samples vs. 90000 */
 		if (!rtp->lastividtimestamp)
@@ -1862,40 +1897,46 @@ struct ast_frame *ast_rtp_read(struct ast_rtp *rtp)
 
 /* The following array defines the MIME Media type (and subtype) for each
    of our codecs, or RTP-specific data type. */
-static struct {
+static const struct mimeType {
 	struct rtpPayloadType payloadType;
-	char* type;
-	char* subtype;
+	char *type;
+	char *subtype;
+	unsigned int sample_rate;
 } mimeTypes[] = {
-	{{1, AST_FORMAT_G723_1}, "audio", "G723"},
-	{{1, AST_FORMAT_GSM}, "audio", "GSM"},
-	{{1, AST_FORMAT_ULAW}, "audio", "PCMU"},
-	{{1, AST_FORMAT_ULAW}, "audio", "G711U"},
-	{{1, AST_FORMAT_ALAW}, "audio", "PCMA"},
-	{{1, AST_FORMAT_ALAW}, "audio", "G711A"},
-	{{1, AST_FORMAT_G726}, "audio", "G726-32"},
-	{{1, AST_FORMAT_ADPCM}, "audio", "DVI4"},
-	{{1, AST_FORMAT_SLINEAR}, "audio", "L16"},
-	{{1, AST_FORMAT_LPC10}, "audio", "LPC"},
-	{{1, AST_FORMAT_G729A}, "audio", "G729"},
-	{{1, AST_FORMAT_G729A}, "audio", "G729A"},
-	{{1, AST_FORMAT_G729A}, "audio", "G.729"},
-	{{1, AST_FORMAT_SPEEX}, "audio", "speex"},
-	{{1, AST_FORMAT_ILBC}, "audio", "iLBC"},
-	{{1, AST_FORMAT_G722}, "audio", "G722"},
-	{{1, AST_FORMAT_G726_AAL2}, "audio", "AAL2-G726-32"},
-	{{0, AST_RTP_DTMF}, "audio", "telephone-event"},
-	{{0, AST_RTP_CISCO_DTMF}, "audio", "cisco-telephone-event"},
-	{{0, AST_RTP_CN}, "audio", "CN"},
-	{{1, AST_FORMAT_JPEG}, "video", "JPEG"},
-	{{1, AST_FORMAT_PNG}, "video", "PNG"},
-	{{1, AST_FORMAT_H261}, "video", "H261"},
-	{{1, AST_FORMAT_H263}, "video", "H263"},
-	{{1, AST_FORMAT_H263_PLUS}, "video", "h263-1998"},
-	{{1, AST_FORMAT_H264}, "video", "H264"},
-	{{1, AST_FORMAT_MP4_VIDEO}, "video", "MP4V-ES"},
-	{{1, AST_FORMAT_T140RED}, "text", "RED"},
-	{{1, AST_FORMAT_T140}, "text", "T140"},
+	{{1, AST_FORMAT_G723_1}, "audio", "G723", 8000},
+	{{1, AST_FORMAT_GSM}, "audio", "GSM", 8000},
+	{{1, AST_FORMAT_ULAW}, "audio", "PCMU", 8000},
+	{{1, AST_FORMAT_ULAW}, "audio", "G711U", 8000},
+	{{1, AST_FORMAT_ALAW}, "audio", "PCMA", 8000},
+	{{1, AST_FORMAT_ALAW}, "audio", "G711A", 8000},
+	{{1, AST_FORMAT_G726}, "audio", "G726-32", 8000},
+	{{1, AST_FORMAT_ADPCM}, "audio", "DVI4", 8000},
+	{{1, AST_FORMAT_SLINEAR}, "audio", "L16", 8000},
+	{{1, AST_FORMAT_LPC10}, "audio", "LPC", 8000},
+	{{1, AST_FORMAT_G729A}, "audio", "G729", 8000},
+	{{1, AST_FORMAT_G729A}, "audio", "G729A", 8000},
+	{{1, AST_FORMAT_G729A}, "audio", "G.729", 8000},
+	{{1, AST_FORMAT_SPEEX}, "audio", "speex", 8000},
+	{{1, AST_FORMAT_ILBC}, "audio", "iLBC", 8000},
+	/* this is the sample rate listed in the RTP profile for the G.722
+	   codec, *NOT* the actual sample rate of the media stream
+	*/
+	{{1, AST_FORMAT_G722}, "audio", "G722", 8000},
+	{{1, AST_FORMAT_G726_AAL2}, "audio", "AAL2-G726-32", 8000},
+	{{0, AST_RTP_DTMF}, "audio", "telephone-event", 8000},
+	{{0, AST_RTP_CISCO_DTMF}, "audio", "cisco-telephone-event", 8000},
+	{{0, AST_RTP_CN}, "audio", "CN", 8000},
+	{{1, AST_FORMAT_JPEG}, "video", "JPEG", 90000},
+	{{1, AST_FORMAT_PNG}, "video", "PNG", 90000},
+	{{1, AST_FORMAT_H261}, "video", "H261", 90000},
+	{{1, AST_FORMAT_H263}, "video", "H263", 90000},
+	{{1, AST_FORMAT_H263_PLUS}, "video", "h263-1998", 90000},
+	{{1, AST_FORMAT_H264}, "video", "H264", 90000},
+	{{1, AST_FORMAT_MP4_VIDEO}, "video", "MP4V-ES", 90000},
+	{{1, AST_FORMAT_T140RED}, "text", "RED", 1000},
+	{{1, AST_FORMAT_T140}, "text", "T140", 1000},
+	{{1, AST_FORMAT_SIREN7}, "audio", "G7221", 16000},
+	{{1, AST_FORMAT_SIREN14}, "audio", "G7221", 32000},
 };
 
 /*! 
@@ -1908,7 +1949,7 @@ static struct {
  * See http://www.iana.org/assignments/rtp-parameters for a list of
  * assigned values
  */
-static struct rtpPayloadType static_RTP_PT[MAX_RTP_PT] = {
+static const struct rtpPayloadType static_RTP_PT[MAX_RTP_PT] = {
 	[0] = {1, AST_FORMAT_ULAW},
 #ifdef USE_DEPRECATED_G726
 	[2] = {1, AST_FORMAT_G726}, /* Technically this is G.721, but if Cisco can do it, so can we... */
@@ -1934,6 +1975,7 @@ static struct rtpPayloadType static_RTP_PT[MAX_RTP_PT] = {
 	[98] = {1, AST_FORMAT_H263_PLUS},
 	[99] = {1, AST_FORMAT_H264},
 	[101] = {0, AST_RTP_DTMF},
+	[102] = {1, AST_FORMAT_SIREN7},
 	[103] = {1, AST_FORMAT_H263_PLUS},
 	[104] = {1, AST_FORMAT_MP4_VIDEO},
 	[105] = {1, AST_FORMAT_T140RED},	/* Real time text chat (with redundancy encoding) */
@@ -1941,6 +1983,7 @@ static struct rtpPayloadType static_RTP_PT[MAX_RTP_PT] = {
 	[110] = {1, AST_FORMAT_SPEEX},
 	[111] = {1, AST_FORMAT_G726},
 	[112] = {1, AST_FORMAT_G726_AAL2},
+	[115] = {1, AST_FORMAT_SIREN14},
 	[121] = {0, AST_RTP_CISCO_DTMF}, /* Must be type 121 */
 };
 
@@ -2210,35 +2253,61 @@ void ast_rtp_unset_m_type(struct ast_rtp* rtp, int pt)
  * an SDP "a=rtpmap:" line.
  * \return 0 if the MIME type was found and set, -1 if it wasn't found
  */
-int ast_rtp_set_rtpmap_type(struct ast_rtp *rtp, int pt,
-			     char *mimeType, char *mimeSubtype,
-			     enum ast_rtp_options options)
+int ast_rtp_set_rtpmap_type_rate(struct ast_rtp *rtp, int pt,
+				 char *mimeType, char *mimeSubtype,
+				 enum ast_rtp_options options,
+				 unsigned int sample_rate)
 {
 	unsigned int i;
 	int found = 0;
 
-	if (pt < 0 || pt > MAX_RTP_PT) 
+	if (pt < 0 || pt > MAX_RTP_PT)
 		return -1; /* bogus payload type */
-	
+
 	rtp_bridge_lock(rtp);
 
 	for (i = 0; i < ARRAY_LEN(mimeTypes); ++i) {
-		if (strcasecmp(mimeSubtype, mimeTypes[i].subtype) == 0 &&
-		    strcasecmp(mimeType, mimeTypes[i].type) == 0) {
-			found = 1;
-			rtp->current_RTP_PT[pt] = mimeTypes[i].payloadType;
-			if ((mimeTypes[i].payloadType.code == AST_FORMAT_G726) &&
-			    mimeTypes[i].payloadType.isAstFormat &&
-			    (options & AST_RTP_OPT_G726_NONSTANDARD))
-				rtp->current_RTP_PT[pt].code = AST_FORMAT_G726_AAL2;
-			break;
+		const struct mimeType *t = &mimeTypes[i];
+
+		if (strcasecmp(mimeSubtype, t->subtype)) {
+			continue;
 		}
+
+		if (strcasecmp(mimeType, t->type)) {
+			continue;
+		}
+
+		/* if both sample rates have been supplied, and they don't match,
+		   then this not a match; if one has not been supplied, then the
+		   rates are not compared */
+		if (sample_rate && t->sample_rate &&
+		    (sample_rate != t->sample_rate)) {
+			continue;
+		}
+
+		found = 1;
+		rtp->current_RTP_PT[pt] = t->payloadType;
+
+		if ((t->payloadType.code == AST_FORMAT_G726) &&
+		    t->payloadType.isAstFormat &&
+		    (options & AST_RTP_OPT_G726_NONSTANDARD)) {
+			rtp->current_RTP_PT[pt].code = AST_FORMAT_G726_AAL2;
+		}
+
+		break;
 	}
 
 	rtp_bridge_unlock(rtp);
 
-	return (found ? 0 : -1);
-} 
+	return (found ? 0 : -2);
+}
+
+int ast_rtp_set_rtpmap_type(struct ast_rtp *rtp, int pt,
+			    char *mimeType, char *mimeSubtype,
+			    enum ast_rtp_options options)
+{
+	return ast_rtp_set_rtpmap_type_rate(rtp, pt, mimeType, mimeSubtype, options, 0);
+}
 
 /*! \brief Return the union of all of the codecs that were set by rtp_set...() calls 
  * They're returned as two distinct sets: AST_FORMATs, and AST_RTPs */
@@ -2341,6 +2410,19 @@ const char *ast_rtp_lookup_mime_subtype(const int isAstFormat, const int code,
 	}
 
 	return "";
+}
+
+unsigned int ast_rtp_lookup_sample_rate(int isAstFormat, int code)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_LEN(mimeTypes); ++i) {
+		if ((mimeTypes[i].payloadType.code == code) && (mimeTypes[i].payloadType.isAstFormat == isAstFormat)) {
+			return mimeTypes[i].sample_rate;
+		}
+	}
+
+	return 0;
 }
 
 char *ast_rtp_lookup_mime_multiple(char *buf, size_t size, const int capability,
@@ -2574,6 +2656,16 @@ void ast_rtp_set_peer(struct ast_rtp *rtp, struct sockaddr_in *them)
 		rtp->strict_rtp_state = STRICT_RTP_LEARN;
 }
 
+void ast_rtp_set_alt_peer(struct ast_rtp *rtp, struct sockaddr_in *alt)
+{
+	rtp->altthem.sin_port = alt->sin_port;
+	rtp->altthem.sin_addr = alt->sin_addr;
+	if (rtp->rtcp) {
+		rtp->rtcp->altthem.sin_port = htons(ntohs(alt->sin_port) + 1);
+		rtp->rtcp->altthem.sin_addr = alt->sin_addr;
+	}
+}
+
 int ast_rtp_get_peer(struct ast_rtp *rtp, struct sockaddr_in *them)
 {
 	if ((them->sin_family != AF_INET) ||
@@ -2640,7 +2732,7 @@ void ast_rtp_reset(struct ast_rtp *rtp)
 	rtp->lastevent = 0;
 	rtp->lasttxformat = 0;
 	rtp->lastrxformat = 0;
-	rtp->dtmfcount = 0;
+	rtp->dtmf_timeout = 0;
 	rtp->dtmfsamples = 0;
 	rtp->seqno = 0;
 	rtp->rxseqno = 0;
@@ -3550,14 +3642,14 @@ static int ast_rtp_raw_write(struct ast_rtp *rtp, struct ast_frame *f, int codec
 	} else {
 		pred = rtp->lastotexttimestamp + f->samples;
 		/* Re-calculate last TS */
-		rtp->lastts = rtp->lastts + ms * 90;
+		rtp->lastts = rtp->lastts + ms;
 		/* If it's close to our prediction, go for it */
 		if (ast_tvzero(f->delivery)) {
 			if (abs(rtp->lastts - pred) < 7200) {
 				rtp->lastts = pred;
 				rtp->lastotexttimestamp += f->samples;
 			} else {
-				ast_debug(3, "Difference is %d, ms is %d (%d), pred/ts/samples %d/%d/%d\n", abs(rtp->lastts - pred), ms, ms * 90, rtp->lastts, pred, f->samples);
+				ast_debug(3, "Difference is %d, ms is %d, pred/ts/samples %d/%d/%d\n", abs(rtp->lastts - pred), ms, rtp->lastts, pred, f->samples);
 				rtp->lastotexttimestamp = rtp->lastts;
 			}
 		}
@@ -3727,16 +3819,27 @@ int ast_rtp_write(struct ast_rtp *rtp, struct ast_frame *_f)
 		rtp->smoother = NULL;
 	}
 
-	if (!rtp->smoother && subclass != AST_FORMAT_SPEEX && subclass != AST_FORMAT_G723_1) {
+	if (!rtp->smoother) {
 		struct ast_format_list fmt = ast_codec_pref_getsize(&rtp->pref, subclass);
-		if (fmt.inc_ms) { /* if codec parameters is set / avoid division by zero */
-			if (!(rtp->smoother = ast_smoother_new((fmt.cur_ms * fmt.fr_len) / fmt.inc_ms))) {
-				ast_log(LOG_WARNING, "Unable to create smoother: format: %d ms: %d len: %d\n", subclass, fmt.cur_ms, ((fmt.cur_ms * fmt.fr_len) / fmt.inc_ms));
-				return -1;
+
+		switch (subclass) {
+		case AST_FORMAT_SPEEX:
+		case AST_FORMAT_G723_1:
+		case AST_FORMAT_SIREN7:
+		case AST_FORMAT_SIREN14:
+			/* these are all frame-based codecs and cannot be safely run through
+			   a smoother */
+			break;
+		default:
+			if (fmt.inc_ms) { /* if codec parameters is set / avoid division by zero */
+				if (!(rtp->smoother = ast_smoother_new((fmt.cur_ms * fmt.fr_len) / fmt.inc_ms))) {
+					ast_log(LOG_WARNING, "Unable to create smoother: format: %d ms: %d len: %d\n", subclass, fmt.cur_ms, ((fmt.cur_ms * fmt.fr_len) / fmt.inc_ms));
+					return -1;
+				}
+				if (fmt.flags)
+					ast_smoother_set_flags(rtp->smoother, fmt.flags);
+				ast_debug(1, "Created smoother: format: %d ms: %d len: %d\n", subclass, fmt.cur_ms, ((fmt.cur_ms * fmt.fr_len) / fmt.inc_ms));
 			}
-			if (fmt.flags)
-				ast_smoother_set_flags(rtp->smoother, fmt.flags);
-			ast_debug(1, "Created smoother: format: %d ms: %d len: %d\n", subclass, fmt.cur_ms, ((fmt.cur_ms * fmt.fr_len) / fmt.inc_ms));
 		}
 	}
 	if (rtp->smoother) {
@@ -3894,7 +3997,8 @@ static enum ast_bridge_result bridge_native_loop(struct ast_channel *c0, struct 
 		}
 		if ((inaddrcmp(&t0, &ac0)) ||
 		    (vp0 && inaddrcmp(&vt0, &vac0)) ||
-		    (tp0 && inaddrcmp(&tt0, &tac0))) {
+		    (tp0 && inaddrcmp(&tt0, &tac0)) ||
+		    (codec0 != oldcodec0)) {
 			ast_debug(2, "Oooh, '%s' changed end address to %s:%d (format %d)\n",
 				c0->name, ast_inet_ntoa(t0.sin_addr), ntohs(t0.sin_port), codec0);
 			ast_debug(2, "Oooh, '%s' was %s:%d/(format %d)\n",
@@ -4492,41 +4596,6 @@ static char *rtcp_do_debug_ip(struct ast_cli_args *a)
 	return CLI_SUCCESS;
 }
 
-static char *handle_cli_rtp_debug_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "rtp debug [off|ip]";
-		e->usage =
-			"Usage: rtp debug [off]|[ip host[:port]]\n"
-			"       Enable/Disable dumping of all RTP packets. If 'ip' is\n"
-			"       specified, limit the dumped packets to those to and from\n"
-			"       the specified 'host' with optional port.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc < 2 || a->argc > 4)
-		return CLI_SHOWUSAGE;
-	if (a->argc == 2) {
-		rtpdebug = 1;
-		memset(&rtpdebugaddr, 0, sizeof(rtpdebugaddr));
-		ast_cli(a->fd, "RTP Debugging Enabled\n");
-	} else if (a->argc == 3) {
-		if (strncasecmp(a->argv[2], "off", 3))
-			return CLI_SHOWUSAGE;
-		rtpdebug = 0;
-		ast_cli(a->fd, "RTP Debugging Disabled\n");
-	} else {
-		if (strncasecmp(a->argv[2], "ip", 2))
-			return CLI_SHOWUSAGE;
-		return rtp_do_debug_ip(a);
-	}
-
-	return CLI_SUCCESS;
-}
-
 static char *handle_cli_rtp_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	switch (cmd) {
@@ -4558,41 +4627,6 @@ static char *handle_cli_rtp_set_debug(struct ast_cli_entry *e, int cmd, struct a
 	}
 
 	return CLI_SHOWUSAGE;   /* default, failure */
-}
-
-static char *handle_cli_rtcp_debug_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "rtcp debug [off|ip]";
-		e->usage =
-			"Usage: rtcp debug [off]|[ip host[:port]]\n"
-			"       Enable/Disable dumping of all RTCP packets. If 'ip' is\n"
-			"       specified, limit the dumped packets to those to and from\n"
-			"       the specified 'host' with optional port.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc < 2 || a->argc > 4)
-		return CLI_SHOWUSAGE;
-	if (a->argc == 2) {
-		rtcpdebug = 1;
-		memset(&rtcpdebugaddr, 0, sizeof(rtcpdebugaddr));
-		ast_cli(a->fd, "RTCP Debugging Enabled\n");
-	} else if (a->argc == 3) {
-		if (strncasecmp(a->argv[2], "off", 3))
-			return CLI_SHOWUSAGE;
-		rtcpdebug = 0;
-		ast_cli(a->fd, "RTCP Debugging Disabled\n");
-	} else {
-		if (strncasecmp(a->argv[2], "ip", 2))
-			return CLI_SHOWUSAGE;
-		return rtcp_do_debug_ip(a);
-	}
-
-	return CLI_SUCCESS;
 }
 
 static char *handle_cli_rtcp_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
@@ -4628,29 +4662,6 @@ static char *handle_cli_rtcp_set_debug(struct ast_cli_entry *e, int cmd, struct 
 	return CLI_SHOWUSAGE;   /* default, failure */
 }
 
-static char *handle_cli_rtcp_stats_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "rtcp stats [off]";
-		e->usage =
-			"Usage: rtcp stats [off]\n"
-			"       Enable/Disable dumping of RTCP stats.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc < 2 || a->argc > 3)
-		return CLI_SHOWUSAGE;
-	if (a->argc == 3 && strncasecmp(a->argv[2], "off", 3))
-		return CLI_SHOWUSAGE;
-
-	rtcpstats = (a->argc == 3) ? 0 : 1;
-	ast_cli(a->fd, "RTCP Stats %s\n", rtcpstats ? "Enabled" : "Disabled");
-	return CLI_SUCCESS;
-}
-
 static char *handle_cli_rtcp_set_stats(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	switch (cmd) {
@@ -4675,30 +4686,6 @@ static char *handle_cli_rtcp_set_stats(struct ast_cli_entry *e, int cmd, struct 
 		return CLI_SHOWUSAGE;
 
 	ast_cli(a->fd, "RTCP Stats %s\n", rtcpstats ? "Enabled" : "Disabled");
-	return CLI_SUCCESS;
-}
-
-static char *handle_cli_stun_debug_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "stun debug [off]";
-		e->usage =
-			"Usage: stun debug [off]\n"
-			"       Enable/Disable STUN (Simple Traversal of UDP through NATs)\n"
-			"       debugging\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc < 2 || a->argc > 3)
-		return CLI_SHOWUSAGE;
-	if (a->argc == 3 && strncasecmp(a->argv[2], "off", 3))
-		return CLI_SHOWUSAGE;
-
-	stundebug = (a->argc == 3) ? 0 : 1;
-	ast_cli(a->fd, "STUN Debugging %s\n", stundebug ? "Enabled" : "Disabled");
 	return CLI_SUCCESS;
 }
 
@@ -4730,16 +4717,11 @@ static char *handle_cli_stun_set_debug(struct ast_cli_entry *e, int cmd, struct 
 	return CLI_SUCCESS;
 }
 
-static struct ast_cli_entry cli_rtp_debug_deprecated = AST_CLI_DEFINE(handle_cli_rtp_debug_deprecated,  "Enable/Disable RTP debugging");
-static struct ast_cli_entry cli_rtcp_debug_deprecated = AST_CLI_DEFINE(handle_cli_rtcp_debug_deprecated, "Enable/Disable RTCP debugging");
-static struct ast_cli_entry cli_rtcp_stats_deprecated = AST_CLI_DEFINE(handle_cli_rtcp_stats_deprecated, "Enable/Disable RTCP stats");
-static struct ast_cli_entry cli_stun_debug_deprecated = AST_CLI_DEFINE(handle_cli_stun_debug_deprecated, "Enable/Disable STUN debugging");
-
 static struct ast_cli_entry cli_rtp[] = {
-	AST_CLI_DEFINE(handle_cli_rtp_set_debug,  "Enable/Disable RTP debugging", .deprecate_cmd = &cli_rtp_debug_deprecated),
-	AST_CLI_DEFINE(handle_cli_rtcp_set_debug, "Enable/Disable RTCP debugging", .deprecate_cmd = &cli_rtcp_debug_deprecated),
-	AST_CLI_DEFINE(handle_cli_rtcp_set_stats, "Enable/Disable RTCP stats", .deprecate_cmd = &cli_rtcp_stats_deprecated),
-	AST_CLI_DEFINE(handle_cli_stun_set_debug, "Enable/Disable STUN debugging", .deprecate_cmd = &cli_stun_debug_deprecated),
+	AST_CLI_DEFINE(handle_cli_rtp_set_debug,  "Enable/Disable RTP debugging"),
+	AST_CLI_DEFINE(handle_cli_rtcp_set_debug, "Enable/Disable RTCP debugging"),
+	AST_CLI_DEFINE(handle_cli_rtcp_set_stats, "Enable/Disable RTCP stats"),
+	AST_CLI_DEFINE(handle_cli_stun_set_debug, "Enable/Disable STUN debugging"),
 };
 
 static int __ast_rtp_reload(int reload)
@@ -4748,8 +4730,10 @@ static int __ast_rtp_reload(int reload)
 	const char *s;
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 
-	if ((cfg = ast_config_load2("rtp.conf", "rtp", config_flags)) == CONFIG_STATUS_FILEUNCHANGED)
+	cfg = ast_config_load2("rtp.conf", "rtp", config_flags);
+	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEUNCHANGED || cfg == CONFIG_STATUS_FILEINVALID) {
 		return 0;
+	}
 
 	rtpstart = 5000;
 	rtpend = 31000;
@@ -4792,7 +4776,7 @@ static int __ast_rtp_reload(int reload)
 		}
 		if ((s = ast_variable_retrieve(cfg, "general", "dtmftimeout"))) {
 			dtmftimeout = atoi(s);
-			if ((dtmftimeout < 0) || (dtmftimeout > 20000)) {
+			if ((dtmftimeout < 0) || (dtmftimeout > 64000)) {
 				ast_log(LOG_WARNING, "DTMF timeout of '%d' outside range, using default of '%d' instead\n",
 					dtmftimeout, DEFAULT_DTMF_TIMEOUT);
 				dtmftimeout = DEFAULT_DTMF_TIMEOUT;
@@ -4926,9 +4910,8 @@ void red_buffer_t140(struct ast_rtp *rtp, struct ast_frame *f)
 {
 	if (f->datalen > -1) {
 		struct rtp_red *red = rtp->red;
-		memcpy(&red->buf_data[red->t140.datalen], f->data.ptr, f->datalen); 
+		memcpy(&red->buf_data[red->t140.datalen], f->data.ptr, f->datalen);
 		red->t140.datalen += f->datalen;
 		red->t140.ts = f->ts;
 	}
 }
-

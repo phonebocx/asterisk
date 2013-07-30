@@ -27,30 +27,30 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html1086"
+<A NAME="tex2html1091"
   HREF="node38.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html1082"
+<A NAME="tex2html1087"
   HREF="node35.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html1076"
+<A NAME="tex2html1081"
   HREF="node36.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html1084"
+<A NAME="tex2html1089"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html1087"
+<B> Next:</B> <A NAME="tex2html1092"
   HREF="node38.html">802.1p CoS values</A>
-<B> Up:</B> <A NAME="tex2html1083"
+<B> Up:</B> <A NAME="tex2html1088"
   HREF="node35.html">IP Quality of Service</A>
-<B> Previous:</B> <A NAME="tex2html1077"
+<B> Previous:</B> <A NAME="tex2html1082"
   HREF="node36.html">Introduction</A>
- &nbsp; <B>  <A NAME="tex2html1085"
+ &nbsp; <B>  <A NAME="tex2html1090"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
@@ -59,8 +59,6 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <H3><A NAME="SECTION00315200000000000000">
 IP TOS values</A>
 </H3>
-
-<P>
 The allowable values for any of the tos* parameters are: 
 CS0, CS1, CS2, CS3, CS4, CS5, CS6, CS7, AF11, AF12, AF13, AF21, AF22, AF23, 
 AF31, AF32, AF33, AF41, AF42, AF43 and ef (expedited forwarding),
@@ -69,18 +67,18 @@ AF31, AF32, AF33, AF41, AF42, AF43 and ef (expedited forwarding),
 The tos* parameters also take numeric values.
 
 <P>
-Note, that on Linux system you can use ef value in case your asterisk is running
-from a user other then root only when you have compiled asterisk with libcap.
+Note that on a Linux system, Asterisk must be compiled with libcap in order to
+use the ef tos setting if Asterisk is not run as root.
 
 <P>
-The lowdelay, throughput, reliability, mincost, and none values are removed
+The lowdelay, throughput, reliability, mincost, and none values have been removed
 in current releases.
 
 <P>
 <BR><HR>
 <ADDRESS>
 lmadsen
-2009-03-19
+2009-06-11
 </ADDRESS>
 </BODY>
 </HTML>

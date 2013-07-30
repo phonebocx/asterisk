@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153710 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 198397 $")
 
 #include <ctype.h>
 #include <iksemel.h>
@@ -58,6 +58,115 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153710 $")
 #include "asterisk/astobj.h"
 #include "asterisk/astdb.h"
 #include "asterisk/manager.h"
+
+/*** DOCUMENTATION
+	<application name="JabberSend" language="en_US">
+		<synopsis>
+			Send a Jabber Message
+		</synopsis>
+		<syntax>
+			<parameter name="Jabber" required="true">
+				<para>Client or transport Asterisk uses to connect to Jabber.</para>
+			</parameter>
+			<parameter name="JID" required="true">
+				<para>XMPP/Jabber JID (Name) of recipient.</para>
+			</parameter>
+			<parameter name="Message" required="true">
+				<para>Message to be sent to the buddy.</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Allows user to send a message to a receipent via XMPP.</para>
+		</description>
+	</application>
+	<application name="JabberStatus" language="en_US">
+		<synopsis>
+			Retrieve the status of a jabber list member
+		</synopsis>
+		<syntax>
+			<parameter name="Jabber" required="true">
+				<para>Client or transport Asterisk users to connect to Jabber.</para>
+			</parameter>
+			<parameter name="JID" required="true">
+				<para>XMPP/Jabber JID (Name) of recipient.</para>
+			</parameter>
+			<parameter name="Variable" required="true">
+				<para>Variable to store the status of requested user.</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>This application is deprecated. Please use the JABBER_STATUS() function instead.</para>
+			<para>Retrieves the numeric status associated with the specified buddy <replaceable>JID</replaceable>.
+			The return value in the <replaceable>Variable</replaceable>will be one of the following.</para>
+			<enumlist>
+				<enum name="1">
+					<para>Online.</para>
+				</enum>
+				<enum name="2">
+					<para>Chatty.</para>
+				</enum>
+				<enum name="3">
+					<para>Away.</para>
+				</enum>
+				<enum name="4">
+					<para>Extended Away.</para>
+				</enum>
+				<enum name="5">
+					<para>Do Not Disturb.</para>
+				</enum>
+				<enum name="6">
+					<para>Offline.</para>
+				</enum>
+				<enum name="7">
+					<para>Not In Roster.</para>
+				</enum>
+			</enumlist>
+		</description>
+	</application>
+	<function name="JABBER_STATUS" language="en_US">
+		<synopsis>
+			Retrieve the status of a jabber list member
+		</synopsis>
+		<syntax>
+			<parameter name="sender" required="true">
+				<para>XMPP/Jabber ID (Name) of sender.</para>
+			</parameter>
+			<parameter name="buddy" required="true">
+				<para>XMPP/Jabber JID (Name) of recipient.</para>
+			</parameter>
+			<parameter name="resource">
+				<para>Client or transport Asterisk users to connect to Jabber.</para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Retrieves the numeric status associated with the specified buddy <replaceable>JID</replaceable>.
+			The return value will be one of the following.</para>
+			<enumlist>
+				<enum name="1">
+					<para>Online.</para>
+				</enum>
+				<enum name="2">
+					<para>Chatty.</para>
+				</enum>
+				<enum name="3">
+					<para>Away.</para>
+				</enum>
+				<enum name="4">
+					<para>Extended Away.</para>
+				</enum>
+				<enum name="5">
+					<para>Do Not Disturb.</para>
+				</enum>
+				<enum name="6">
+					<para>Offline.</para>
+				</enum>
+				<enum name="7">
+					<para>Not In Roster.</para>
+				</enum>
+			</enumlist>
+		</description>
+	</function>
+ ***/
 
 /*! \todo This should really be renamed to xmpp.conf. For backwards compatibility, we
  	need to read both files */
@@ -96,7 +205,6 @@ static void *aji_recv_loop(void *data);
 static int aji_initialize(struct aji_client *client);
 static int aji_client_connect(void *data, ikspak *pak);
 static void aji_set_presence(struct aji_client *client, char *to, char *from, int level, char *desc);
-static char *aji_do_debug_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char *aji_do_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char *aji_do_reload(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char *aji_show_clients(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
@@ -123,9 +231,8 @@ static int aji_register_transport(void *data, ikspak *pak);
 static int aji_register_transport2(void *data, ikspak *pak);
 */
 
-static struct ast_cli_entry cli_aji_do_debug_deprecated = AST_CLI_DEFINE(aji_do_debug_deprecated, "Enable/disable jabber debugging");
 static struct ast_cli_entry aji_cli[] = {
-	AST_CLI_DEFINE(aji_do_set_debug, "Enable/Disable Jabber debug", .deprecate_cmd = &cli_aji_do_debug_deprecated),
+	AST_CLI_DEFINE(aji_do_set_debug, "Enable/Disable Jabber debug"),
 	AST_CLI_DEFINE(aji_do_reload, "Reload Jabber configuration"),
 	AST_CLI_DEFINE(aji_show_clients, "Show state of clients and components"),
 	AST_CLI_DEFINE(aji_show_buddies, "Show buddy lists of our clients"),
@@ -134,32 +241,13 @@ static struct ast_cli_entry aji_cli[] = {
 
 static char *app_ajisend = "JabberSend";
 
-static char *ajisend_synopsis = "JabberSend(jabber,screenname,message)";
-
-static char *ajisend_descrip =
-"JabberSend(Jabber,ScreenName,Message)\n"
-"  Jabber - Client or transport Asterisk uses to connect to Jabber\n" 
-"  ScreenName - XMPP/Jabber JID (Name) of recipient\n" 
-"  Message - Message to be sent to the budd (UTF8)y\n";
-
 static char *app_ajistatus = "JabberStatus";
-
-static char *ajistatus_synopsis = "JabberStatus(Jabber,ScreenName,Variable)";
-
-static char *ajistatus_descrip =
-"JabberStatus(Jabber,ScreenName,Variable)\n"
-"  Jabber - Client or transport Asterisk uses to connect to Jabber\n"
-"  ScreenName - User Name to retrieve status from.\n"
-"  Variable - Variable to store presence in will be 1-6.\n" 
-"             In order, 1=Online, 2=Chatty, 3=Away, 4=XAway, 5=DND, 6=Offline\n" 
-"             If not in roster variable will be set to 7\n\n"
-"Note: This application is deprecated. Please use the JABBER_STATUS() function instead.\n";
 
 struct aji_client_container clients;
 struct aji_capabilities *capabilities = NULL;
 
 /*! \brief Global flags, initialized to default values */
-static struct ast_flags globalflags = { AJI_AUTOPRUNE | AJI_AUTOREGISTER };
+static struct ast_flags globalflags = { AJI_AUTOREGISTER };
 
 /*!
  * \brief Deletes the aji_client data structure.
@@ -364,7 +452,7 @@ static int aji_status_exec(struct ast_channel *chan, void *data)
 		ast_log(LOG_WARNING, "JabberStatus is deprecated.  Please use the JABBER_STATUS dialplan function in the future.\n");
 
 	if (!data) {
-		ast_log(LOG_ERROR, "Usage: JabberStatus(<sender>,<screenname>[/<resource>],<varname>\n");
+		ast_log(LOG_ERROR, "Usage: JabberStatus(<sender>,<jid>[/<resource>],<varname>\n");
 		return 0;
 	}
 	s = ast_strdupa(data);
@@ -448,15 +536,7 @@ static int acf_jabberstatus_read(struct ast_channel *chan, const char *name, cha
 
 static struct ast_custom_function jabberstatus_function = {
 	.name = "JABBER_STATUS",
-	.synopsis = "Retrieve buddy status",
-	.syntax = "JABBER_STATUS(<sender>,<buddy>[/<resource>])",
 	.read = acf_jabberstatus_read,
-	.desc =
-"Retrieves the numeric status associated with the specified buddy (jid). If the\n"
-"buddy does not exist in the buddylist, returns 7.\n"
-"Status will be 1-7.\n" 
-"             1=Online, 2=Chatty, 3=Away, 4=XAway, 5=DND, 6=Offline\n" 
-"             If not in roster variable will be set to 7\n\n",
 };
 
 /*!
@@ -645,8 +725,8 @@ static int aji_io_recv(struct aji_client *client, char *buffer, size_t buf_len, 
 static int aji_recv (struct aji_client *client, int timeout)
 {
 	int len, ret;
-	char buf[NET_IO_BUF_SIZE -1];
-	char newbuf[NET_IO_BUF_SIZE -1];
+	char buf[NET_IO_BUF_SIZE - 1];
+	char newbuf[NET_IO_BUF_SIZE - 1];
 	int pos = 0;
 	int newbufpos = 0;
 	unsigned char c;
@@ -655,7 +735,7 @@ static int aji_recv (struct aji_client *client, int timeout)
 	memset(newbuf, 0, sizeof(newbuf));
 
 	while (1) {
-		len = aji_io_recv(client, buf, NET_IO_BUF_SIZE - 1, timeout);
+		len = aji_io_recv(client, buf, NET_IO_BUF_SIZE - 2, timeout);
 		if (len < 0) return IKS_NET_RWERR;
 		if (len == 0) return IKS_NET_EXPIRED;
 		buf[len] = '\0';
@@ -688,8 +768,18 @@ static int aji_recv (struct aji_client *client, int timeout)
 		ret = iks_parse(client->p, newbuf, 0, 0);
 		memset(newbuf, 0, sizeof(newbuf));
 
+		switch (ret) {
+		case IKS_NOMEM:
+			ast_log(LOG_WARNING, "Parsing failure: Out of memory.\n");
+			break;
+		case IKS_BADXML:
+			ast_log(LOG_WARNING, "Parsing failure: Invalid XML.\n");
+			break;
+		case IKS_HOOK:
+			ast_log(LOG_WARNING, "Parsing failure: Hook returned an error.\n");
+			break;
+		}
 		if (ret != IKS_OK) {
-			ast_log(LOG_WARNING, "XML parsing failed\n");
 			return ret;
 		}
 		ast_debug(3, "XML parsing successful\n");	
@@ -2075,7 +2165,7 @@ static void aji_pruneregister(struct aji_client *client)
 		ASTOBJ_RDLOCK(iterator);
 		/* For an aji_buddy, both AUTOPRUNE and AUTOREGISTER will never
 		 * be called at the same time */
-		if (ast_test_flag(&iterator->flags, AJI_AUTOPRUNE)) {
+		if (ast_test_flag(&iterator->flags, AJI_AUTOPRUNE)) { /* If autoprune is set on jabber.conf */
 			res = ast_aji_send(client, iks_make_s10n(IKS_TYPE_UNSUBSCRIBE, iterator->name,
 								 "GoodBye. Your status is no longer needed by Asterisk the Open Source PBX"
 								 " so I am no longer subscribing to your presence.\n"));
@@ -2385,46 +2475,6 @@ static char *aji_do_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 		});
 		ast_cli(a->fd, "Jabber Debugging Disabled.\n");
 		return CLI_SUCCESS;
-	}
-	return CLI_SHOWUSAGE; /* defaults to invalid */
-}
-
-/*!
- * \brief Turn on/off console debugging (deprecated, use aji_do_set_debug).
- * \return CLI_SUCCESS.
- */
-static char *aji_do_debug_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "jabber debug [off]";
-		e->usage =
-			"Usage: jabber debug [off]\n"
-			"       Enables/disables dumping of Jabber packets for debugging purposes.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc == 2) {
-		ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
-			ASTOBJ_RDLOCK(iterator); 
-			iterator->debug = 1;
-			ASTOBJ_UNLOCK(iterator);
-		});
-		ast_cli(a->fd, "Jabber Debugging Enabled.\n");
-		return CLI_SUCCESS;
-	} else if (a->argc == 3) {
-		if (!strncasecmp(a->argv[2], "off", 3)) {
-			ASTOBJ_CONTAINER_TRAVERSE(&clients, 1, {
-				ASTOBJ_RDLOCK(iterator); 
-				iterator->debug = 0;
-				ASTOBJ_UNLOCK(iterator);
-			});
-			ast_cli(a->fd, "Jabber Debugging Disabled.\n");
-			return CLI_SUCCESS;
-		}
 	}
 	return CLI_SHOWUSAGE; /* defaults to invalid */
 }
@@ -2768,14 +2818,6 @@ static int aji_create_client(char *label, struct ast_variable *var, int debug)
 	} else {
 		iks_filter_add_rule(client->f, aji_client_info_handler, client, IKS_RULE_NS, "http://jabber.org/protocol/disco#info", IKS_RULE_DONE);
 	}
-	if (!strchr(client->user, '/') && !client->component) { /*client */
-		resource = NULL;
-		if (asprintf(&resource, "%s/asterisk", client->user) >= 0) {
-			client->jid = iks_id_new(client->stack, resource);
-			ast_free(resource);
-		}
-	} else
-		client->jid = iks_id_new(client->stack, client->user);
 	iks_set_log_hook(client->p, aji_log_hook);
 	ASTOBJ_UNLOCK(client);
 	ASTOBJ_CONTAINER_LINK(&clients,client);
@@ -2878,21 +2920,22 @@ static int aji_load_config(int reload)
 		return -1;
 
 	/* Reset flags to default value */
-	ast_set_flag(&globalflags, AJI_AUTOPRUNE | AJI_AUTOREGISTER);
+	ast_set_flag(&globalflags, AJI_AUTOREGISTER);
 
-	if (!cfg) {
+	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEINVALID) {
 		ast_log(LOG_WARNING, "No such configuration file %s\n", JABBER_CONFIG);
 		return 0;
 	}
 
 	cat = ast_category_browse(cfg, NULL);
 	for (var = ast_variable_browse(cfg, "general"); var; var = var->next) {
-		if (!strcasecmp(var->name, "debug"))
+		if (!strcasecmp(var->name, "debug")) {
 			debug = (ast_false(ast_variable_retrieve(cfg, "general", "debug"))) ? 0 : 1;
-		else if (!strcasecmp(var->name, "autoprune"))
+		} else if (!strcasecmp(var->name, "autoprune")) {
 			ast_set2_flag(&globalflags, ast_true(var->value), AJI_AUTOPRUNE);
-		else if (!strcasecmp(var->name, "autoregister"))
+		} else if (!strcasecmp(var->name, "autoregister")) {
 			ast_set2_flag(&globalflags, ast_true(var->value), AJI_AUTOREGISTER);
+		}
 	}
 
 	while (cat) {
@@ -2942,9 +2985,9 @@ struct aji_client_container *ast_aji_get_clients(void)
 static char mandescr_jabber_send[] =
 "Description: Sends a message to a Jabber Client.\n"
 "Variables: \n"
-"  Jabber:	Client or transport Asterisk uses to connect to JABBER.\n"
-"  ScreenName:	User Name to message.\n"
-"  Message:	Message to be sent to the buddy\n";
+"  Jabber:    Client or transport Asterisk uses to connect to JABBER\n"
+"  JID:       XMPP/Jabber JID (Name) of recipient\n" 
+"  Message:   Message to be sent to the buddy\n";
 
 /*! 
  * \brief  Send a Jabber Message via call from the Manager 
@@ -2978,17 +3021,17 @@ static int manager_jabber_send(struct mansession *s, const struct message *m)
 	if (!client) {
 		astman_send_error(s, m, "Could not find Sender");
 		return 0;
-	}	
-	if (strchr(screenname, '@') && message){
-		ast_aji_send_chat(client, screenname, message);	
-		astman_append(s, "Response: Success\r\n");
-		if (!ast_strlen_zero(id))
-			astman_append(s, "ActionID: %s\r\n",id);
-		return 0;
 	}
-	astman_append(s, "Response: Error\r\n");
-	if (!ast_strlen_zero(id))
+	if (strchr(screenname, '@') && message) {
+		ast_aji_send_chat(client, screenname, message);
+		astman_append(s, "Response: Success\r\n");
+	} else {
+		astman_append(s, "Response: Error\r\n");
+	}
+	if (!ast_strlen_zero(id)) {
 		astman_append(s, "ActionID: %s\r\n",id);
+	}
+	astman_append(s, "\r\n");
 	return 0;
 }
 
@@ -3022,7 +3065,7 @@ static int aji_reload(int reload)
 static int unload_module(void)
 {
 
-	ast_cli_unregister_multiple(aji_cli, sizeof(aji_cli) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(aji_cli, ARRAY_LEN(aji_cli));
 	ast_unregister_application(app_ajisend);
 	ast_unregister_application(app_ajistatus);
 	ast_manager_unregister("JabberSend");
@@ -3050,9 +3093,9 @@ static int load_module(void)
 		return AST_MODULE_LOAD_DECLINE;
 	ast_manager_register2("JabberSend", EVENT_FLAG_SYSTEM, manager_jabber_send,
 			"Sends a message to a Jabber Client", mandescr_jabber_send);
-	ast_register_application(app_ajisend, aji_send_exec, ajisend_synopsis, ajisend_descrip);
-	ast_register_application(app_ajistatus, aji_status_exec, ajistatus_synopsis, ajistatus_descrip);
-	ast_cli_register_multiple(aji_cli, sizeof(aji_cli) / sizeof(struct ast_cli_entry));
+	ast_register_application_xml(app_ajisend, aji_send_exec);
+	ast_register_application_xml(app_ajistatus, aji_status_exec);
+	ast_cli_register_multiple(aji_cli, ARRAY_LEN(aji_cli));
 	ast_custom_function_register(&jabberstatus_function);
 
 	return 0;

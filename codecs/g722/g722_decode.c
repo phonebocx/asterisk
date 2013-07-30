@@ -18,7 +18,7 @@
  * Computer Science, Speech Group
  * Chengxiang Lu and Alex Hauptmann
  *
- * $Id: g722_decode.c 48661 2006-12-21 00:08:21Z mattf $
+ * $Id: g722_decode.c 194725 2009-05-15 18:05:35Z russell $
  */
 
 /*! \file */
@@ -370,7 +370,7 @@ int g722_decode(g722_decode_state_t *s, int16_t amp[], const uint8_t g722_data[]
         {
             if (s->eight_k)
             {
-                amp[outlen++] = (int16_t) rlow;
+                amp[outlen++] = (int16_t) (rlow << 1);
             }
             else
             {
@@ -387,8 +387,8 @@ int g722_decode(g722_decode_state_t *s, int16_t amp[], const uint8_t g722_data[]
                     xout2 += s->x[2*i]*qmf_coeffs[i];
                     xout1 += s->x[2*i + 1]*qmf_coeffs[11 - i];
                 }
-                amp[outlen++] = (int16_t) (xout1 >> 12);
-                amp[outlen++] = (int16_t) (xout2 >> 12);
+                amp[outlen++] = (int16_t) (xout1 >> 11);
+                amp[outlen++] = (int16_t) (xout2 >> 11);
             }
         }
     }

@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 174330 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 195319 $")
 
 #include <signal.h>
 
@@ -122,8 +122,8 @@ static void send_eivr_event(FILE *handle, const char event, const char *data,
 		ast_str_append(&tmp, 0, ",%s", data);
 	}
 
-	fprintf(handle, "%s\n", tmp->str);
-	ast_debug(1, "sent '%s'\n", tmp->str);
+	fprintf(handle, "%s\n", ast_str_buffer(tmp));
+	ast_debug(1, "sent '%s'\n", ast_str_buffer(tmp));
 }
 
 static void *gen_alloc(struct ast_channel *chan, void *params)
@@ -276,35 +276,26 @@ static void ast_eivr_getvariable(struct ast_channel *chan, char *data, char *out
 
 		ast_str_append(&newstring, 0, "%s=%s,", variable, value);
 		ast_channel_unlock(chan);
-		ast_copy_string(outbuf, newstring->str, outbuflen);
+		ast_copy_string(outbuf, ast_str_buffer(newstring), outbuflen);
 	}
 }
 
 static void ast_eivr_setvariable(struct ast_channel *chan, char *data)
 {
-	char buf[1024];
 	char *value;
 
-	char *inbuf, *variable;
+	char *inbuf = ast_strdupa(data), *variable;
 
-	int j;
-
-	for (j = 1, inbuf = data; ; j++, inbuf = NULL) {
-		variable = strsep(&inbuf, ",");
+	for (variable = strsep(&inbuf, ","); variable; variable = strsep(&inbuf, ",")) {
 		ast_debug(1, "Setting up a variable: %s\n", variable);
-		if (variable) {
-			/* variable contains "varname=value" */
-			ast_copy_string(buf, variable, sizeof(buf));
-			value = strchr(buf, '=');
-			if (!value) {
-				value = "";
-			} else {
-				*value++ = '\0';
-			}
-			pbx_builtin_setvar_helper(chan, buf, value);
+		/* variable contains "varname=value" */
+		value = strchr(variable, '=');
+		if (!value) {
+			value = "";
 		} else {
-			break;
+			*value++ = '\0';
 		}
+		pbx_builtin_setvar_helper(chan, variable, value);
 	}
 }
 
@@ -659,7 +650,8 @@ static int eivr_comm(struct ast_channel *chan, struct ivr_localuser *u,
  				continue;
   
 			if (input[0] == 'P') {
- 				send_eivr_event(eivr_events, 'P', args->str, chan);
+				struct ast_str *tmp = (struct ast_str *) args;
+ 				send_eivr_event(eivr_events, 'P', ast_str_buffer(tmp), chan);
 			} else if ( input[0] == 'T' ) {
 				ast_chan_log(LOG_WARNING, chan, "Answering channel if needed and starting generator\n");
 				if (chan->_state != AST_STATE_UP) {

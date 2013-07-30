@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 174590 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 174584 $")
 
 #include "jitterbuf.h"
 #include "asterisk/utils.h"

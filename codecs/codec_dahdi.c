@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 176809 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 176760 $")
 
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -85,10 +85,6 @@ static AST_LIST_HEAD_STATIC(translators, translator);
 
 struct codec_dahdi_pvt {
 	int fd;
-#ifdef DEBUG_TRANSCODE
-	int totalms;
-	int lasttotalms;
-#endif
 	struct dahdi_transcoder_formats fmts;
 	unsigned int softslin:1;
 	unsigned int fake:2;
@@ -577,9 +573,7 @@ static int parse_config(int reload)
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 	struct ast_config *cfg = ast_config_load("codecs.conf", config_flags);
 
-	if (cfg == NULL)
-		return 0;
-	if (cfg == CONFIG_STATUS_FILEUNCHANGED)
+	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEUNCHANGED || cfg == CONFIG_STATUS_FILEINVALID)
 		return 0;
 
 	for (var = ast_variable_browse(cfg, "plc"); var; var = var->next) {

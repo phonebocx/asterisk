@@ -26,7 +26,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 143906 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 161869 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -415,7 +415,7 @@ static off_t au_tell(struct ast_filestream *fs)
 
 static const struct ast_format alaw_f = {
 	.name = "alaw",
-	.exts = "alaw|al",
+	.exts = "alaw|al|alw",
 	.format = AST_FORMAT_ALAW,
 	.write = pcm_write,
 	.seek = pcm_seek,
@@ -432,7 +432,7 @@ static const struct ast_format alaw_f = {
 
 static const struct ast_format pcm_f = {
 	.name = "pcm",
-	.exts = "pcm|ulaw|ul|mu",
+	.exts = "pcm|ulaw|ul|mu|ulw",
 	.format = AST_FORMAT_ULAW,
 	.write = pcm_write,
 	.seek = pcm_seek,

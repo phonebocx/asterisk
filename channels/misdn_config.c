@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 166775 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 193266 $")
 
 #include "chan_misdn_config.h"
 
@@ -134,10 +134,11 @@ static const struct misdn_cfg_spec port_spec[] = {
 	{ "callerid", MISDN_CFG_CALLERID, MISDN_CTYPE_STR, "", NONE,
 		"Sets the caller ID." },
 	{ "method", MISDN_CFG_METHOD, MISDN_CTYPE_STR, "standard", NONE,
-		"Sets the method to use for channel selection:\n"
-		"\t  standard    - always choose the first free channel with the lowest number\n"
-		"\t  round_robin - use the round robin algorithm to select a channel. use this\n"
-		"\t                if you want to balance your load." },
+		"Set the method to use for channel selection:\n"
+		"\t  standard     - Use the first free channel starting from the lowest number.\n"
+		"\t  standard_dec - Use the first free channel starting from the highest number.\n"
+		"\t  round_robin  - Use the round robin algorithm to select a channel. Use this\n"
+		"\t                 if you want to balance your load." },
 	{ "dialplan", MISDN_CFG_DIALPLAN, MISDN_CTYPE_INT, "0", NONE,
 		"Dialplan means Type Of Number in ISDN Terms (for outgoing calls)\n"
 		"\n"
@@ -198,19 +199,19 @@ static const struct misdn_cfg_spec port_spec[] = {
 	{ "presentation", MISDN_CFG_PRES, MISDN_CTYPE_INT, "-1", NONE,
 		"These (presentation and screen) are the exact isdn screening and presentation\n"
 		"\tindicators.\n"
-		"\tIf -1 is given for both values, the presentation indicators are used from\n"
-		"\tAsterisks SetCallerPres application.\n"
+		"\tIf -1 is given for either value, the presentation indicators are used from\n"
+		"\tAsterisk's CALLERPRES function.\n"
 		"\n"
-		"\tscreen=0, presentation=0 -> callerid presented not screened\n"
-		"\tscreen=1, presentation=1 -> callerid presented but screened (the remote end doesn't see it!)" },
+		"\tscreen=0, presentation=0 -> callerid presented\n"
+		"\tscreen=1, presentation=1 -> callerid restricted (the remote end doesn't see it!)" },
 	{ "screen", MISDN_CFG_SCREEN, MISDN_CTYPE_INT, "-1", NONE,
 		"These (presentation and screen) are the exact isdn screening and presentation\n"
 		"\tindicators.\n"
-		"\tIf -1 is given for both values, the presentation indicators are used from\n"
-		"\tAsterisks SetCallerPres application.\n"
+		"\tIf -1 is given for either value, the presentation indicators are used from\n"
+		"\tAsterisk's CALLERPRES function.\n"
 		"\n"
-		"\tscreen=0, presentation=0 -> callerid presented not screened\n"
-		"\tscreen=1, presentation=1 -> callerid presented but screened (the remote end doesn't see it!)" },
+		"\tscreen=0, presentation=0 -> callerid presented\n"
+		"\tscreen=1, presentation=1 -> callerid restricted (the remote end doesn't see it!)" },
 	{ "always_immediate", MISDN_CFG_ALWAYS_IMMEDIATE, MISDN_CTYPE_BOOL, "no", NONE,
 		"Enable this to get into the s dialplan-extension.\n"
 		"\tThere you can use DigitTimeout if you can't or don't want to use\n"
@@ -793,7 +794,9 @@ void misdn_cfg_get_config_string (int port, enum misdn_cfg_elements elem, char* 
 				for (; iter; iter = iter->next) {
 					strncat(tempbuf, iter->msn, sizeof(tempbuf) - strlen(tempbuf) - 1);
 				}
-				tempbuf[strlen(tempbuf)-2] = 0;
+				if (strlen(tempbuf) > 1) {
+					tempbuf[strlen(tempbuf)-2] = 0;
+				}
 			}
 			snprintf(buf, bufsize, " -> msns: %s", *tempbuf ? tempbuf : "none");
 			break;
@@ -1104,8 +1107,8 @@ int misdn_cfg_init(int this_max_ports, int reload)
 	struct ast_variable *v;
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 
-	if (!(cfg = ast_config_load2(config, "chan_misdn", config_flags))) {
-		ast_log(LOG_WARNING, "missing file: misdn.conf\n");
+	if (!(cfg = ast_config_load2(config, "chan_misdn", config_flags)) || cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_WARNING, "missing or invalid file: misdn.conf\n");
 		return -1;
 	} else if (cfg == CONFIG_STATUS_FILEUNCHANGED)
 		return 0;

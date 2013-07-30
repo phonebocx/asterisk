@@ -24,7 +24,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 177294 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 189533 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -395,6 +395,15 @@ hint_word : word { $$ = $1; }
 	}
 	| hint_word AMPER word {  /* there are often '&' in hints */
 		if (asprintf(&($$), "%s&%s", $1, $3) < 0) {
+			ast_log(LOG_WARNING, "asprintf() failed\n");
+			$$ = NULL;
+		} else {
+			free($1);
+			free($3);
+		}
+	}
+	| hint_word AT word {
+		if (asprintf(&($$), "%s@%s", $1, $3) < 0) {
 			ast_log(LOG_WARNING, "asprintf() failed\n");
 			$$ = NULL;
 		} else {

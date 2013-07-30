@@ -23,7 +23,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Version Info: $Id: chan_h323.h 182724 2009-03-17 20:52:54Z jpeeler $
+ * Version Info: $Id: chan_h323.h 189997 2009-04-22 19:45:30Z jpeeler $
  */
 
 #ifndef CHAN_H323_H
@@ -69,6 +69,7 @@ typedef struct call_options {
 	int				nat;
 	int				tunnelOptions;
 	int				holdHandling;
+	int				autoframing; /*!< turn on to override local settings with remote framing length */
 	struct ast_codec_pref	prefs;
 } call_options_t;
 

@@ -34,7 +34,7 @@ void threadstorage_init(void)
 
 #else /* !defined(DEBUG_THREADLOCALS) */
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 164739 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 164737 $")
 
 #include "asterisk/strings.h"
 #include "asterisk/utils.h"

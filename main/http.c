@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 169082 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 187601 $")
 
 #include <time.h>
 #include <sys/time.h>
@@ -213,7 +213,7 @@ static struct ast_str *static_callback(struct ast_tcptls_session_instance *ser, 
 		"Server: Asterisk/%s\r\n"
 		"Date: %s\r\n"
 		"Connection: close\r\n"
-		"Cache-Control: no-cache, no-store\r\n"
+		"Cache-Control: private\r\n"
 		"Content-Length: %d\r\n"
 		"Content-type: %s\r\n\r\n",
 		ast_get_version(), buf, (int) st.st_size, mtype);
@@ -399,7 +399,7 @@ void ast_http_uri_unlink_all_with_key(const char *key)
 			ast_free(urih);
 		}
 	}
-	AST_RWLIST_TRAVERSE_SAFE_END
+	AST_RWLIST_TRAVERSE_SAFE_END;
 	AST_RWLIST_UNLOCK(&uris);
 }
 
@@ -755,14 +755,14 @@ static void *httpd_helper_thread(void *data)
 			* append a random variable to your GET request.  Ex: 'something.html?r=109987734'
 			*/
 		if (!contentlength) {	/* opaque body ? just dump it hoping it is properly formatted */
-			fprintf(ser->f, "%s", out->str);
+			fprintf(ser->f, "%s", ast_str_buffer(out));
 		} else {
-			char *tmp = strstr(out->str, "\r\n\r\n");
+			char *tmp = strstr(ast_str_buffer(out), "\r\n\r\n");
 
 			if (tmp) {
 				fprintf(ser->f, "Content-length: %d\r\n", contentlength);
 				/* first write the header, then the body */
-				if (fwrite(out->str, 1, (tmp + 4 - out->str), ser->f) != tmp + 4 - out->str) {
+				if (fwrite(ast_str_buffer(out), 1, (tmp + 4 - ast_str_buffer(out)), ser->f) != tmp + 4 - ast_str_buffer(out)) {
 					ast_log(LOG_WARNING, "fwrite() failed: %s\n", strerror(errno));
 				}
 				if (fwrite(tmp + 4, 1, contentlength, ser->f) != contentlength ) {
@@ -858,7 +858,8 @@ static int __ast_http_load(int reload)
 	struct http_uri_redirect *redirect;
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 
-	if ((cfg = ast_config_load2("http.conf", "http", config_flags)) == CONFIG_STATUS_FILEUNCHANGED) {
+	cfg = ast_config_load2("http.conf", "http", config_flags);
+	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEUNCHANGED || cfg == CONFIG_STATUS_FILEINVALID) {
 		return 0;
 	}
 
@@ -1023,7 +1024,7 @@ int ast_http_init(void)
 {
 	ast_http_uri_link(&statusuri);
 	ast_http_uri_link(&staticuri);
-	ast_cli_register_multiple(cli_http, sizeof(cli_http) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(cli_http, ARRAY_LEN(cli_http));
 
 	return __ast_http_load(0);
 }

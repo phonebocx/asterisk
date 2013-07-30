@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89512 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
 
 #include <dirent.h>
 
@@ -38,6 +38,30 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89512 $")
 #include "asterisk/lock.h"
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
+
+/*** DOCUMENTATION
+	<function name="VMCOUNT" language="en_US">
+		<synopsis>
+			Count the voicemails in a specified mailbox.
+		</synopsis>
+		<syntax>
+			<parameter name="vmbox" required="true" argsep="@">
+				<argument name="vmbox" required="true" />
+				<argument name="context" required="false">
+					<para>If not specified, defaults to <literal>default</literal>.</para>
+				</argument>
+			</parameter>
+			<parameter name="folder" required="false">
+				<para>If not specified, defaults to <literal>INBOX</literal></para>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Count the number of voicemails in a specified mailbox, you could also specify 
+			the <replaceable>context</replaceable> and the mailbox <replaceable>folder</replaceable>.</para>
+			<para>Example: <literal>exten => s,1,Set(foo=${VMCOUNT(125)})</literal></para>
+		</description>
+	</function>
+ ***/
 
 static int acf_vmcount_exec(struct ast_channel *chan, const char *cmd, char *argsstr, char *buf, size_t len)
 {
@@ -72,11 +96,6 @@ static int acf_vmcount_exec(struct ast_channel *chan, const char *cmd, char *arg
 
 struct ast_custom_function acf_vmcount = {
 	.name = "VMCOUNT",
-	.synopsis = "Counts the voicemail in a specified mailbox",
-	.syntax = "VMCOUNT(vmbox[@context][,folder])",
-	.desc =
-	"  context - defaults to \"default\"\n"
-	"  folder  - defaults to \"INBOX\"\n",
 	.read = acf_vmcount_exec,
 };
 

@@ -27,7 +27,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 144578 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 161218 $")
 
 #include "asterisk/file.h"
 #include "asterisk/pbx.h"
@@ -39,26 +39,49 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 144578 $")
 #include "asterisk/say.h"	/* provides config-file based 'say' functions */
 #include "asterisk/cli.h"
 
+/*** DOCUMENTATION
+	<application name="Playback" language="en_US">
+		<synopsis>
+			Play a file.
+		</synopsis>
+		<syntax>
+			<parameter name="filenames" required="true" argsep="&amp;">
+				<argument name="filename" required="true" />
+				<argument name="filename2" multiple="true" />
+			</parameter>
+			<parameter name="options">
+				<para>Comma separated list of options</para>
+				<optionlist>
+					<option name="skip">
+						<para>Do not play if not answered</para>
+					</option>
+					<option name="noanswer">
+						<para>Playback without answering, otherwise the channel will
+						be answered before the sound is played.</para>
+						<note><para>Not all channel types support playing messages while still on hook.</para></note>
+					</option>
+				</optionlist>
+			</parameter>
+		</syntax>
+		<description>
+			<para>Plays back given filenames (do not put extension of wav/alaw etc).
+			The playback command answer the channel if no options are specified.
+			If the file is non-existant it will fail</para>
+			<para>This application sets the following channel variable upon completion:</para>
+			<variablelist>
+				<variable name="PLAYBACKSTATUS">
+					<para>The status of the playback attempt as a text string.</para>
+					<value name="SUCCESS"/>
+					<value name="FAILED"/>
+				</variable>
+			</variablelist>
+			<para>See Also: Background (application) -- for playing sound files that are interruptible</para>
+			<para>WaitExten (application) -- wait for digits from caller, optionally play music on hold</para>
+		</description>
+	</application>
+ ***/
+
 static char *app = "Playback";
-
-static char *synopsis = "Play a file";
-
-static char *descrip = 
-"  Playback(filename[&filename2...][,option]):  Plays back given filenames (do not put\n"
-"extension). Options may also be included following a comma.\n"
-"The 'skip' option causes the playback of the message to be skipped if the channel\n"
-"is not in the 'up' state (i.e. it hasn't been  answered  yet). If 'skip' is \n"
-"specified, the application will return immediately should the channel not be\n"
-"off hook.  Otherwise, unless 'noanswer' is specified, the channel will\n"
-"be answered before the sound is played. Not all channels support playing\n"
-"messages while still on hook.\n"
-"This application sets the following channel variable upon completion:\n"
-" PLAYBACKSTATUS    The status of the playback attempt as a text string, one of\n"
-"               SUCCESS | FAILED\n"
-"See Also: Background (application) -- for playing soundfiles that are interruptible\n"
-"          WaitExten (application) -- wait for digits from caller, optionally play music on hold\n"
-;
-
 
 static struct ast_config *say_cfg = NULL;
 /* save the say' api calls.
@@ -461,8 +484,12 @@ static int reload(void)
 	struct ast_flags config_flags = { CONFIG_FLAG_FILEUNCHANGED };
 	struct ast_config *newcfg;
 
-	if ((newcfg = ast_config_load("say.conf", config_flags)) == CONFIG_STATUS_FILEUNCHANGED)
+	if ((newcfg = ast_config_load("say.conf", config_flags)) == CONFIG_STATUS_FILEUNCHANGED) {
 		return 0;
+	} else if (newcfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_ERROR, "Config file say.conf is in an invalid format.  Aborting.\n");
+		return 0;
+	}
 
 	if (say_cfg) {
 		ast_config_destroy(say_cfg);
@@ -492,7 +519,7 @@ static int unload_module(void)
 
 	res = ast_unregister_application(app);
 
-	ast_cli_unregister_multiple(cli_playback, sizeof(cli_playback) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(cli_playback, ARRAY_LEN(cli_playback));
 
 	if (say_cfg)
 		ast_config_destroy(say_cfg);
@@ -506,7 +533,7 @@ static int load_module(void)
 	struct ast_flags config_flags = { 0 };
 
 	say_cfg = ast_config_load("say.conf", config_flags);
-	if (say_cfg) {
+	if (say_cfg && say_cfg != CONFIG_STATUS_FILEINVALID) {
 		for (v = ast_variable_browse(say_cfg, "general"); v ; v = v->next) {
     			if (ast_extension_match(v->name, "mode")) {
 				say_init_mode(v->value);
@@ -515,8 +542,8 @@ static int load_module(void)
 		}
 	}
 
-	ast_cli_register_multiple(cli_playback, sizeof(cli_playback) / sizeof(struct ast_cli_entry));
-	return ast_register_application(app, playback_exec, synopsis, descrip);
+	ast_cli_register_multiple(cli_playback, ARRAY_LEN(cli_playback));
+	return ast_register_application_xml(app, playback_exec);
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Sound File Playback Application",

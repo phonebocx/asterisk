@@ -189,6 +189,7 @@ struct ast_module_user_list;
 enum ast_module_flags {
 	AST_MODFLAG_DEFAULT = 0,
 	AST_MODFLAG_GLOBAL_SYMBOLS = (1 << 0),
+	AST_MODFLAG_LOAD_ORDER = (1 << 1),
 };
 
 struct ast_module_info {
@@ -219,6 +220,13 @@ struct ast_module_info {
 
 	/*! The value of AST_BUILDOPT_SUM when this module was compiled */
 	const char buildopt_sum[33];
+
+	/*! This value represents the order in which a module's load() function is initialized.
+	 *  The lower this value, the higher the priority.  The value is only checked if the
+	 *  AST_MODFLAG_LOAD_ORDER flag is set.  If the AST_MODFLAG_LOAD_ORDER flag is not set,
+	 *  this value will never be read and the module will be given the lowest possible priority
+	 *  on load. */
+	unsigned char load_pri;
 };
 
 void ast_module_register(const struct ast_module_info *);
@@ -379,6 +387,23 @@ static void __restore_globals(void)
  * \retval -1 failure.
  */
 #define ast_register_application(app, execute, synopsis, description) ast_register_application2(app, execute, synopsis, description, ast_module_info->self)
+
+/*! 
+ * \brief Register an application using XML documentation.
+ *
+ * \param app Short name of the application
+ * \param execute a function callback to execute the application. It should return
+ *                non-zero if the channel needs to be hung up.
+ * 
+ * This registers an application with Asterisk's internal application list. 
+ * \note The individual applications themselves are responsible for registering and unregistering
+ *       and unregistering their own CLI commands.
+ * 
+ * \retval 0 success 
+ * \retval -1 failure.
+ */
+#define ast_register_application_xml(app, execute) ast_register_application(app, execute, NULL, NULL)
+
 
 /*!
  * \brief Register an application.

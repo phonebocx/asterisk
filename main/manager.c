@@ -43,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180802 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 196950 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -391,7 +391,7 @@ static char *authority_to_str(int authority, struct ast_str **res)
 	int i;
 	char *sep = "";
 
-	(*res)->used = 0;
+	ast_str_reset(*res);
 	for (i = 0; i < ARRAY_LEN(perms) - 1; i++) {
 		if (authority & perms[i].num) {
 			ast_str_append(res, 0, "%s%s", sep, perms[i].label);
@@ -399,10 +399,10 @@ static char *authority_to_str(int authority, struct ast_str **res)
 		}
 	}
 
-	if ((*res)->used == 0)	/* replace empty string with something sensible */
+	if (ast_str_strlen(*res) == 0)	/* replace empty string with something sensible */
 		ast_str_append(res, 0, "<none>");
 
-	return (*res)->str;
+	return ast_str_buffer(*res);
 }
 
 /*! Tells you if smallstr exists inside bigstr
@@ -499,7 +499,7 @@ static struct ast_manager_user *get_manager_by_name_locked(const char *name)
 }
 
 /*! \brief Get displayconnects config option.
- *  \param s manager session to get parameter from.
+ *  \param session manager session to get parameter from.
  *  \return displayconnects config option value.
  */
 static int manager_displayconnects (struct mansession_session *session)
@@ -525,7 +525,7 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	case CLI_INIT:
 		e->command = "manager show command";
 		e->usage = 
-			"Usage: manager show command <actionname>\n"
+			"Usage: manager show command <actionname> [<actionname> [<actionname> [...]]]\n"
 			"	Shows the detailed description for a specific Asterisk manager interface command.\n";
 		return NULL;
 	case CLI_GENERATE:
@@ -542,8 +542,9 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 		return ret;
 	}
 	authority = ast_str_alloca(80);
-	if (a->argc != 4)
+	if (a->argc < 4) {
 		return CLI_SHOWUSAGE;
+	}
 
 	AST_RWLIST_RDLOCK(&actions);
 	AST_RWLIST_TRAVERSE(&actions, cur, list) {
@@ -565,18 +566,18 @@ static char *handle_mandebug(struct ast_cli_entry *e, int cmd, struct ast_cli_ar
 {
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "manager debug [on|off]";
-		e->usage = "Usage: manager debug [on|off]\n	Show, enable, disable debugging of the manager code.\n";
+		e->command = "manager set debug [on|off]";
+		e->usage = "Usage: manager set debug [on|off]\n	Show, enable, disable debugging of the manager code.\n";
 		return NULL;
 	case CLI_GENERATE:
 		return NULL;	
 	}
-	if (a->argc == 2)
+	if (a->argc == 3)
 		ast_cli(a->fd, "manager debug is %s\n", manager_debug? "on" : "off");
-	else if (a->argc == 3) {
-		if (!strcasecmp(a->argv[2], "on"))
+	else if (a->argc == 4) {
+		if (!strcasecmp(a->argv[3], "on"))
 			manager_debug = 1;
-		else if (!strcasecmp(a->argv[2], "off"))
+		else if (!strcasecmp(a->argv[3], "off"))
 			manager_debug = 0;
 		else
 			return CLI_SHOWUSAGE;
@@ -978,7 +979,7 @@ void astman_append(struct mansession *s, const char *fmt, ...)
 	va_end(ap);
 
 	if (s->f != NULL || s->session->f != NULL) {
-		send_string(s, buf->str);
+		send_string(s, ast_str_buffer(buf));
 	} else {
 		ast_verbose("fd == -1 in astman_append, should not happen\n");
 	}
@@ -1135,9 +1136,13 @@ static char mandescr_ping[] =
 
 static int action_ping(struct mansession *s, const struct message *m)
 {
-	astman_append(s, "Response: Success\r\n"
-		"Ping: Pong\r\n"
-		"\r\n");
+	const char *actionid = astman_get_header(m, "ActionID");
+
+	astman_append(s, "Response: Success\r\n");
+	if (!ast_strlen_zero(actionid)){
+		astman_append(s, "ActionID: %s\r\n", actionid);
+	}
+	astman_append(s, "Ping: Pong\r\n\r\n");
 	return 0;
 }
 
@@ -1163,7 +1168,8 @@ static int action_getconfig(struct mansession *s, const struct message *m)
 		astman_send_error(s, m, "Filename not specified");
 		return 0;
 	}
-	if (!(cfg = ast_config_load2(fn, "manager", config_flags))) {
+	cfg = ast_config_load2(fn, "manager", config_flags);
+	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEINVALID) {
 		astman_send_error(s, m, "Config file not found");
 		return 0;
 	}
@@ -1322,7 +1328,7 @@ static enum error_type handle_updates(struct mansession *s, const struct message
 		snprintf(hdr, sizeof(hdr), "Action-%06d", x);
 		action = astman_get_header(m, hdr);
 		if (ast_strlen_zero(action))		/* breaks the for loop if no action header */
-			break;				/* this could cause problems if actions come in misnumbered */
+			break;                      	/* this could cause problems if actions come in misnumbered */
 
 		snprintf(hdr, sizeof(hdr), "Cat-%06d", x);
 		cat = astman_get_header(m, hdr);
@@ -1484,7 +1490,7 @@ static int action_updateconfig(struct mansession *s, const struct message *m)
 	result = handle_updates(s, m, cfg, dfn);
 	if (!result) {
 		ast_include_rename(cfg, sfn, dfn); /* change the include references from dfn to sfn, so things match up */
-		res = config_text_file_save(dfn, cfg, "Manager");
+		res = ast_config_text_file_save(dfn, cfg, "Manager");
 		ast_config_destroy(cfg);
 		if (res) {
 			astman_send_error(s, m, "Save of config failed");
@@ -1552,11 +1558,12 @@ static int action_createconfig(struct mansession *s, const struct message *m)
 	ast_str_set(&filepath, 0, "%s/", ast_config_AST_CONFIG_DIR);
 	ast_str_append(&filepath, 0, "%s", fn);
 
-	if ((fd = open(filepath->str, O_CREAT | O_EXCL, AST_FILE_MODE)) != -1) {
+	if ((fd = open(ast_str_buffer(filepath), O_CREAT | O_EXCL, AST_FILE_MODE)) != -1) {
 		close(fd);
 		astman_send_ack(s, m, "New configuration file created successfully");
-	} else 
+	} else {
 		astman_send_error(s, m, strerror(errno));
+	}
 
 	return 0;
 }
@@ -1845,6 +1852,7 @@ static int action_getvar(struct mansession *s, const struct message *m)
 			if (c) {
 				ast_func_read(c, (char *) varname, workspace, sizeof(workspace));
 				ast_channel_free(c);
+				c = NULL;
 			} else
 				ast_log(LOG_ERROR, "Unable to allocate bogus channel for variable substitution.  Function results may be blank.\n");
 		} else
@@ -1967,7 +1975,7 @@ static int action_status(struct mansession *s, const struct message *m)
 			c->accountcode,
 			c->_state,
 			ast_state2str(c->_state), c->context,
-			c->exten, c->priority, (long)elapsed_seconds, bridge, c->uniqueid, str->str, idText);
+			c->exten, c->priority, (long)elapsed_seconds, bridge, c->uniqueid, ast_str_buffer(str), idText);
 		} else {
 			astman_append(s,
 			"Event: Status\r\n"
@@ -1986,7 +1994,7 @@ static int action_status(struct mansession *s, const struct message *m)
 			S_OR(c->cid.cid_num, "<unknown>"),
 			S_OR(c->cid.cid_name, "<unknown>"),
 			c->accountcode,
-			ast_state2str(c->_state), bridge, c->uniqueid, str->str, idText);
+			ast_state2str(c->_state), bridge, c->uniqueid, ast_str_buffer(str), idText);
 		}
 		ast_channel_unlock(c);
 		if (!all)
@@ -2321,7 +2329,7 @@ static void *fast_originate(void *data)
 		snprintf(requested_channel, AST_CHANNEL_NAME, "%s/%s", in->tech, in->data);	
 	/* Tell the manager what happened with the channel */
 	manager_event(EVENT_FLAG_CALL, "OriginateResponse",
-		"%s"
+		"%s%s"
 		"Response: %s\r\n"
 		"Channel: %s\r\n"
 		"Context: %s\r\n"
@@ -2330,7 +2338,8 @@ static void *fast_originate(void *data)
 		"Uniqueid: %s\r\n"
 		"CallerIDNum: %s\r\n"
 		"CallerIDName: %s\r\n",
-		in->idtext, res ? "Failure" : "Success", chan ? chan->name : requested_channel, in->context, in->exten, reason, 
+		in->idtext, ast_strlen_zero(in->idtext) ? "" : "\r\n", res ? "Failure" : "Success", 
+		chan ? chan->name : requested_channel, in->context, in->exten, reason, 
 		chan ? chan->uniqueid : "<null>",
 		S_OR(in->cid_num, "<unknown>"),
 		S_OR(in->cid_name, "<unknown>")
@@ -2428,7 +2437,7 @@ static int action_originate(struct mansession *s, const struct message *m)
 			res = -1;
 		} else {
 			if (!ast_strlen_zero(id))
-				snprintf(fast->idtext, sizeof(fast->idtext), "ActionID: %s\r\n", id);
+				snprintf(fast->idtext, sizeof(fast->idtext), "ActionID: %s", id);
 			ast_copy_string(fast->tech, tech, sizeof(fast->tech));
    			ast_copy_string(fast->data, data, sizeof(fast->data));
 			ast_copy_string(fast->app, app, sizeof(fast->app));
@@ -2665,7 +2674,7 @@ static int action_userevent(struct mansession *s, const struct message *m)
 		}
 	}
 
-	manager_event(EVENT_FLAG_USER, "UserEvent", "UserEvent: %s\r\n%s", event, body->str);
+	manager_event(EVENT_FLAG_USER, "UserEvent", "UserEvent: %s\r\n%s", event, ast_str_buffer(body));
 	return 0;
 }
 
@@ -2783,15 +2792,15 @@ static char mandescr_coreshowchannels[] =
 static int action_coreshowchannels(struct mansession *s, const struct message *m)
 {
 	const char *actionid = astman_get_header(m, "ActionID");
-	char actionidtext[256];
+	char idText[256];
 	struct ast_channel *c = NULL;
 	int numchans = 0;
 	int duration, durh, durm, durs;
 
 	if (!ast_strlen_zero(actionid))
-		snprintf(actionidtext, sizeof(actionidtext), "ActionID: %s\r\n", actionid);
+		snprintf(idText, sizeof(idText), "ActionID: %s\r\n", actionid);
 	else
-		actionidtext[0] = '\0';
+		idText[0] = '\0';
 
 	astman_send_listack(s, m, "Channels will follow", "start");	
 
@@ -2809,6 +2818,7 @@ static int action_coreshowchannels(struct mansession *s, const struct message *m
 
 		astman_append(s,
 			"Event: CoreShowChannel\r\n"
+			"%s"
 			"Channel: %s\r\n"
 			"UniqueID: %s\r\n"
 			"Context: %s\r\n"
@@ -2823,8 +2833,8 @@ static int action_coreshowchannels(struct mansession *s, const struct message *m
 			"AccountCode: %s\r\n"
 			"BridgedChannel: %s\r\n"
 			"BridgedUniqueID: %s\r\n"
-			"\r\n", c->name, c->uniqueid, c->context, c->exten, c->priority, c->_state, ast_state2str(c->_state),
-			c->appl ? c->appl : "", c->data ? S_OR(c->data, ""): "",
+			"\r\n", idText, c->name, c->uniqueid, c->context, c->exten, c->priority, c->_state,
+			ast_state2str(c->_state), c->appl ? c->appl : "", c->data ? S_OR(c->data, "") : "",
 			S_OR(c->cid.cid_num, ""), durbuf, S_OR(c->accountcode, ""), bc ? bc->name : "", bc ? bc->uniqueid : "");
 		ast_channel_unlock(c);
 		numchans++;
@@ -2835,7 +2845,7 @@ static int action_coreshowchannels(struct mansession *s, const struct message *m
 		"EventList: Complete\r\n"
 		"ListItems: %d\r\n"
 		"%s"
-		"\r\n", numchans, actionidtext);
+		"\r\n", numchans, idText);
 
 	return 0;
 }
@@ -3013,8 +3023,14 @@ static int process_message(struct mansession *s, const struct message *m)
 	}
 	if (ret)
 		return ret;
-	/* Once done with our message, deliver any pending events */
-	return process_events(s);
+	/* Once done with our message, deliver any pending events unless the
+	   requester doesn't want them as part of this response.
+	*/
+	if (ast_strlen_zero(astman_get_header(m, "SuppressEvents"))) {
+		return process_events(s);
+	} else {
+		return ret;
+	}
 }
 
 /*!
@@ -3303,7 +3319,7 @@ int __manager_event(int category, const char *event,
 
 	ast_str_append(&buf, 0, "\r\n");
 
-	append_event(buf->str, category);
+	append_event(ast_str_buffer(buf), category);
 
 	/* Wake up any sleeping sessions */
 	AST_LIST_LOCK(&sessions);
@@ -3324,7 +3340,7 @@ int __manager_event(int category, const char *event,
 
 	AST_RWLIST_RDLOCK(&manager_hooks);
 	AST_RWLIST_TRAVERSE(&manager_hooks, hook, list) {
-		hook->helper(category, event, buf->str);
+		hook->helper(category, event, ast_str_buffer(buf));
 	}
 	AST_RWLIST_UNLOCK(&manager_hooks);
 
@@ -3337,8 +3353,12 @@ int __manager_event(int category, const char *event,
 int ast_manager_unregister(char *action)
 {
 	struct manager_action *cur;
+	struct timespec tv = { 5, };
 
-	AST_RWLIST_WRLOCK(&actions);
+	if (AST_RWLIST_TIMEDWRLOCK(&actions, &tv)) {
+		ast_log(LOG_ERROR, "Could not obtain lock on manager list\n");
+		return -1;
+	}
 	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&actions, cur, list) {
 		if (!strcasecmp(action, cur->action)) {
 			AST_RWLIST_REMOVE_CURRENT(list);
@@ -3366,8 +3386,12 @@ static int manager_state_cb(char *context, char *exten, int state, void *data)
 static int ast_manager_register_struct(struct manager_action *act)
 {
 	struct manager_action *cur, *prev = NULL;
+	struct timespec tv = { 5, };
 
-	AST_RWLIST_WRLOCK(&actions);
+	if (AST_RWLIST_TIMEDWRLOCK(&actions, &tv)) {
+		ast_log(LOG_ERROR, "Could not obtain lock on manager list\n");
+		return -1;
+	}
 	AST_RWLIST_TRAVERSE(&actions, cur, list) {
 		int ret = strcasecmp(cur->action, act->action);
 		if (ret == 0) {
@@ -3380,8 +3404,8 @@ static int ast_manager_register_struct(struct manager_action *act)
 			break;
 		}
 	}
-	
-	if (prev)	
+
+	if (prev)
 		AST_RWLIST_INSERT_AFTER(&actions, prev, act, list);
 	else
 		AST_RWLIST_INSERT_HEAD(&actions, act, list);
@@ -3408,7 +3432,10 @@ int ast_manager_register2(const char *action, int auth, int (*func)(struct manse
 	cur->synopsis = synopsis;
 	cur->description = description;
 
-	ast_manager_register_struct(cur);
+	if (ast_manager_register_struct(cur)) {
+		ast_free(cur);
+		return -1;
+	}
 
 	return 0;
 }
@@ -3791,7 +3818,7 @@ static struct ast_str *generic_http_callback(enum output_format format,
 		 * properties of the rand() function (and the constantcy of s), that
 		 * won't happen twice in a row.
 		 */
-		while ((session->managerid = rand() ^ (unsigned long) session) == 0);
+		while ((session->managerid = ast_random() ^ (unsigned long) session) == 0);
 		session->last_ev = grab_last();
 		AST_LIST_HEAD_INIT_NOLOCK(&session->datastores);
 		AST_LIST_LOCK(&sessions);
@@ -3840,6 +3867,7 @@ static struct ast_str *generic_http_callback(enum output_format format,
 		       "Content-type: text/%s\r\n"
 		       "Cache-Control: no-cache;\r\n"
 		       "Set-Cookie: mansession_id=\"%08x\"; Version=\"1\"; Max-Age=%d\r\n"
+		       "Pragma: SuppressEvents\r\n"
 		       "\r\n",
 			contenttype[format],
 			session->managerid, httptimeout);
@@ -4051,7 +4079,7 @@ static int __init_manager(int reload)
 		ast_manager_register2("ModuleLoad", EVENT_FLAG_SYSTEM, manager_moduleload, "Module management", mandescr_moduleload);
 		ast_manager_register2("ModuleCheck", EVENT_FLAG_SYSTEM, manager_modulecheck, "Check if module is loaded", mandescr_modulecheck);
 
-		ast_cli_register_multiple(cli_manager, sizeof(cli_manager) / sizeof(struct ast_cli_entry));
+		ast_cli_register_multiple(cli_manager, ARRAY_LEN(cli_manager));
 		ast_extension_state_add(NULL, NULL, manager_state_cb, NULL);
 		registered = 1;
 		/* Append placeholder event so master_eventq never runs dry */

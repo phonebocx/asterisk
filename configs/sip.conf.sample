@@ -43,13 +43,11 @@
 ; -------------------------------------------------------------
 ; Useful CLI commands to check peers/users:
 ;   sip show peers               Show all SIP peers (including friends)
-;   sip show users               Show all SIP users (including friends)
 ;   sip show registry            Show status of hosts we register with
 ;
 ;   sip set debug on             Show all SIP messages
 ;
 ;   module reload chan_sip.so    Reload configuration file
-;                                Active SIP peers will not be reconfigured
 ;
 ;------- Naming devices ------------------------------------------------------
 ;
@@ -170,10 +168,13 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
                                 ; and subscriptions (seconds)
 ;minexpiry=60                   ; Minimum length of registrations/subscriptions (default 60)
 ;defaultexpiry=120              ; Default length of incoming/outgoing registration
+;mwiexpiry=3600                 ; Expiry time for outgoing MWI subscriptions
 ;qualifyfreq=60                 ; Qualification: How often to check for the 
                                 ; host to be up in seconds
                                 ; Set to low value if you use low timeout for
                                 ; NAT of UDP sessions
+;qualifygap=100			; Number of milliseconds between each group of peers being qualified
+;qualifypeers=1			; Number of peers in a group to be qualified at the same time
 ;notifymimetype=text/plain      ; Allow overriding of mime type in MWI NOTIFY
 ;buggymwi=no                    ; Cisco SIP firmware doesn't support the MWI RFC
                                 ; fully. Enable this option to not get error messages
@@ -255,9 +256,11 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;authfailureevents=no           ; generate manager "peerstatus" events when peer can't
                                 ; authenticate with Asterisk. Peerstatus will be "rejected".
 ;alwaysauthreject = yes         ; When an incoming INVITE or REGISTER is to be rejected,
-                                ; for any reason, always reject with '401 Unauthorized'
+                                ; for any reason, always reject with an identical response
+                                ; equivalent to valid username and invalid password/hash
                                 ; instead of letting the requester know whether there was
-                                ; a matching user or peer for their request
+                                ; a matching user or peer for their request.  This reduces
+                                ; the ability of an attacker to scan for valid SIP usernames.
 
 ;g726nonstandard = yes          ; If the peer negotiates G726-32 audio, use AAL2 packing
                                 ; order instead of RFC3551 packing order (this is required
@@ -397,22 +400,28 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;subscribecontext = default     ; Set a specific context for SUBSCRIBE requests
                                 ; Useful to limit subscriptions to local extensions
                                 ; Settable per peer/user also
-;notifyringing = yes            ; Control whether subscriptions already INUSE get sent
-                                ; RINGING when another call is sent (default: no)
+;notifyringing = no             ; Control whether subscriptions already INUSE get sent
+                                ; RINGING when another call is sent (default: yes)
 ;notifyhold = yes               ; Notify subscriptions on HOLD state (default: no)
                                 ; Turning on notifyringing and notifyhold will add a lot
                                 ; more database transactions if you are using realtime.
+;notifycid = yes                ; Control whether caller ID information is sent along with
+                                ; dialog-info+xml notifications (supported by snom phones).
+                                ; Note that this feature will only work properly when the
+                                ; incoming call is using the same extension and context that
+                                ; is being used as the hint for the called extension.  This means
+                                ; that it won't work when using subscribecontext for your sip
+                                ; user or peer (if subscribecontext is different than context).
+                                ; This is also limited to a single caller, meaning that if an
+                                ; extension is ringing because multiple calls are incoming,
+                                ; only one will be used as the source of caller ID.  Specify
+                                ; 'ignore-context' to ignore the called context when looking
+                                ; for the caller's channel.  The default value is 'no.' Setting
+                                ; notifycid to 'ignore-context' also causes call-pickups attempted
+                                ; via SNOM's NOTIFY mechanism to set the context for the call pickup
+                                ; to PICKUPMARK.
 ;callcounter = yes              ; Enable call counters on devices. This can be set per
                                 ; device too.
-;counteronpeer = yes            ; Apply call counting on peers only. This will improve 
-                                ; status notification when you are using type=friend
-                                ; Inbound calls, that really apply to the user part
-                                ; of a friend will now be added to and compared with
-                                ; the peer counter instead of applying two call counters,
-                                ; one for the peer and one for the user.
-                                ; "sip show inuse" will only show active calls on 
-                                ; the peer side of a "type=friend" object if this
-                                ; setting is turned on.
 
 ;----------------------------------------- T.38 FAX PASSTHROUGH SUPPORT -----------------------
 ;
@@ -426,10 +435,15 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;
 ; t38pt_udptl = yes            ; Default false
 ;
+; Fax Detect will cause the SIP channel to jump to the 'fax' extension (if it exists)
+; after T.38 is successfully negotiated.
+; 
+; faxdetect = yes              ; Default false	
+;
 ;----------------------------------------- OUTBOUND SIP REGISTRATIONS  ------------------------
 ; Asterisk can register as a SIP user agent to a SIP proxy (provider)
 ; Format for the register statement is:
-;       register => [transport://]user[:secret[:authuser]]@domain[:port][/extension][~expiry]
+;       register => [transport://]user[@domain][:secret[:authuser]]@host[:port][/extension][~expiry]
 ;
 ; 
 ;
@@ -480,15 +494,30 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;    unless you configure a [sip_proxy] section below, and configure a
 ;    context.
 ;    Tip 1: Avoid assigning hostname to a sip.conf section like [provider.com]
-;    Tip 2: Use separate type=peer and type=user sections for SIP providers
+;    Tip 2: Use separate inbound and outbound sections for SIP providers
 ;           (instead of type=friend) if you have calls in both directions
+;
+;register => 3456@mydomain:5082::@mysipprovider.com
+;
+;    Note that in this example, the optional authuser and secret portions have
+;    been left blank because we have specified a port in the user section
   
 ;registertimeout=20             ; retry registration calls every 20 seconds (default)
 ;registerattempts=10            ; Number of registration attempts before we give up
                                 ; 0 = continue forever, hammering the other server
                                 ; until it accepts the registration
                                 ; Default is 0 tries, continue forever
-
+;----------------------------------------- OUTBOUND MWI SUBSCRIPTIONS -------------------------
+; Asterisk can subscribe to receive the MWI from another SIP server and store it locally for retrieval
+; by other phones.
+; Format for the mwi register statement is:
+;       mwi => user[:secret[:authuser]]@host[:port][/mailbox]
+;
+; Examples:
+;mwi => 1234:password@mysipprovider.com/1234
+;
+; MWI received will be stored in the 1234 mailbox of the SIP_Remote context. It can be used by other phones by following the below:
+; mailbox=1234@SIP_Remote
 ;----------------------------------------- NAT SUPPORT ------------------------
 ;
 ; WARNING: SIP operation behind a NAT is tricky and you really need
@@ -613,6 +642,15 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
                                 ; instead of INVITE. This can be combined with 'nonat', as
                                 ; 'canreinvite=update,nonat'. It implies 'yes'.
 
+;ignoresdpversion=yes           ; By default, Asterisk will honor the session version
+                                ; number in SDP packets and will only modify the SDP
+                                ; session if the version number changes. This option will
+                                ; force asterisk to ignore the SDP session version number
+                                ; and treat all SDP data as new data.  This is required
+                                ; for devices that send us non standard SDP packets
+                                ; (observed with Microsoft OCS). By default this option is
+                                ; off.
+
 ;----------------------------------------- REALTIME SUPPORT ------------------------
 ; For additional information on ARA, the Asterisk Realtime Architecture,
 ; please read realtime.txt and extconfig.txt in the /doc directory of the
@@ -735,74 +773,93 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ; Peer auth= override all other authentication settings if we match on realm
 
 ;------------------------------------------------------------------------------
-; Users and peers have different settings available. Friends have all settings,
-; since a friend is both a peer and a user
+; DEVICE CONFIGURATION
+; 
+; The SIP channel has two types of devices, the friend and the peer.
+; * The type=friend is a device type that accepts both incoming and outbound calls,
+;   where Asterisk match on the From: username on incoming calls.
+;   (A synonym for friend is "user"). This is a type you use for your local
+;   SIP phones.
+; * The type=peer also handles both incoming and outbound calls. On inbound calls,
+;   Asterisk only matches on IP/port, not on names. This is mostly used for SIP
+;   trunks.
 ;
-; User config options:        Peer configuration:
-; --------------------        -------------------
-; context                     context
-; callingpres                 callingpres
-; permit                      permit
-; deny                        deny
-; secret                      secret
-; md5secret                   md5secret
-; transport                   transport
-; dtmfmode                    dtmfmode
-; canreinvite                 canreinvite
-; nat                         nat
-; callgroup                   callgroup
-; pickupgroup                 pickupgroup
-; language                    language
-; allow                       allow
-; disallow                    disallow
-; insecure                    insecure
-; trustrpid                   trustrpid
-; progressinband              progressinband
-; promiscredir                promiscredir
-; useclientcode               useclientcode
-; accountcode                 accountcode
-; setvar                      setvar
-; callerid                    callerid
-; amaflags                    amaflags
-; call-limit                  call-limit        (deprecated)
-; callcounter                 callcounter
-; allowoverlap                allowoverlap
-; allowsubscribe              allowsubscribe
-; allowtransfer               allowtransfer
-; subscribecontext            subscribecontext
-; videosupport                videosupport
-; maxcallbitrate              maxcallbitrate
-; rfc2833compensate           mailbox
-; session-timers              busylevel
-; session-expires            
-; session-minse               template
-; session-refresher           fromdomain
-; t38pt_usertpsource          regexten
-;                             fromuser
-;                             host
-;                             port
-;                             qualify
-;                             defaultip
-;                             defaultuser
-;                             rtptimeout
-;                             rtpholdtimeout
-;                             sendrpid
-;                             outboundproxy
-;                             rfc2833compensate
-;                             callbackextension
-;                             registertrying
-;                             session-timers
-;                             session-expires
-;                             session-minse
-;                             session-refresher
-;                             timert1
-;                             timerb
-;                             qualifyfreq
-;                             t38pt_usertpsource
-;                             contactpermit         ; Limit what a host may register as (a neat trick
-;                             contactdeny           ; is to register at the same IP as a SIP provider,
-;                                                   ; then call oneself, and get redirected to that
-;                                                   ; same location).
+; For device names, we recommend using only a-z, numerics (0-9) and underscore
+; 
+; For local phones, type=friend works most of the time
+;
+; If you have one-way audio, you probably have NAT problems. 
+; If Asterisk is on a public IP, and the phone is inside of a NAT device
+; you will need to configure nat option for those phones.
+; Also, turn on qualify=yes to keep the nat session open
+; 
+; Configuration options available 
+; --------------------     
+; context
+; callingpres
+; permit
+; deny
+; secret
+; md5secret
+; remotesecret
+; transport
+; dtmfmode
+; canreinvite
+; nat
+; callgroup
+; pickupgroup
+; language
+; allow
+; disallow
+; insecure
+; trustrpid
+; progressinband
+; promiscredir
+; useclientcode
+; accountcode
+; setvar
+; callerid
+; amaflags
+; callcounter
+; busylevel
+; allowoverlap
+; allowsubscribe
+; allowtransfer
+; ignoresdpversion
+; subscribecontext
+; template
+; videosupport
+; maxcallbitrate
+; rfc2833compensate
+; mailbox
+; session-timers
+; session-expires
+; session-minse
+; session-refresher
+; t38pt_usertpsource
+; regexten
+; fromdomain
+; fromuser
+; host
+; port
+; qualify
+; defaultip
+; defaultuser
+; rtptimeout
+; rtpholdtimeout
+; sendrpid
+; outboundproxy
+; rfc2833compensate
+; callbackextension
+; registertrying
+; timert1
+; timerb
+; qualifyfreq
+; t38pt_usertpsource
+; contactpermit         ; Limit what a host may register as (a neat trick
+; contactdeny           ; is to register at the same IP as a SIP provider,
+;                       ; then call oneself, and get redirected to that
+;                       ; same location).
 
 ;[sip_proxy]
 ; For incoming calls only. Example: FWD (Free World Dialup)
@@ -814,14 +871,17 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 
 ;[sip_proxy-out]
 ;type=peer                        ; we only want to call out, not be called
-;secret=guessit
+;remotesecret=guessit             ; Our password to their service
 ;defaultuser=yourusername         ; Authentication user for outbound proxies
 ;fromuser=yourusername            ; Many SIP providers require this!
-;fromdomain=provider.sip.domain        
+;fromdomain=provider.sip.domain 
 ;host=box.provider.com
-;transport=udp,tcp                ; This sets the transport type to udp for outgoing, and will
-;                                 ;   accept both tcp and udp. Default is udp. The first transport
-;                                 ;   listed will always be used for outgoing connections.
+;transport=udp,tcp                ; This sets the default transport type to udp for outgoing, and will
+;                                 ; accept both tcp and udp. The default transport type is only used for
+;                                 ; outbound messages until a Registration takes place.  During the
+;                                 ; peer Registration the transport type may change to another supported
+;                                 ; type if the peer requests so.
+
 ;usereqphone=yes                  ; This provider requires ";user=phone" on URI
 ;callcounter=yes                  ; Enable call counter
 ;busylevel=2                      ; Signal busy at 2 or more calls
@@ -834,27 +894,13 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;type=peer
 ;host=sip.provider1.com
 ;fromuser=4015552299              ; how your provider knows you
-;secret=youwillneverguessit
+;remotesecret=youwillneverguessit ; The password we use to authenticate to them
+;secret=gissadetdu                ; The password they use to contact us
 ;callbackextension=123            ; Register with this server and require calls coming back to this extension
 ;transport=udp,tcp                ; This sets the transport type to udp for outgoing, and will
 ;                                 ;   accept both tcp and udp. Default is udp. The first transport
 ;                                 ;   listed will always be used for outgoing connections.
 
-;------------------------------------------------------------------------------
-; Definitions of locally connected SIP devices
-;
-; type = user        a device that authenticates to us by "from" field to place calls
-; type = peer        a device we place calls to or that calls us and we match by host
-; type = friend two configurations (peer+user) in one
-;
-; For device names, we recommend using only a-z, numerics (0-9) and underscore
-; 
-; For local phones, type=friend works most of the time
-;
-; If you have one-way audio, you probably have NAT problems. 
-; If Asterisk is on a public IP, and the phone is inside of a NAT device
-; you will need to configure nat option for those phones.
-; Also, turn on qualify=yes to keep the nat session open
 ;
 ; Because you might have a large number of similar sections, it is generally
 ; convenient to use templates for the common parameters, and add them
@@ -1019,7 +1065,7 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;defaultip=192.168.0.4           ; IP address to use until registration
 ;defaultuser=goran               ; Username to use when calling this device before registration
                                  ; Normally you do NOT need to set this parameter
-;setvar=CUSTID=5678              ; Channel variable to be set for all calls from this device
+;setvar=CUSTID=5678              ; Channel variable to be set for all calls from or to this device
 ;setvar=ATTENDED_TRANSFER_COMPLETE_SOUND=beep   ; This channel variable will
                                                 ; cause the given audio file to
                                                 ; be played upon completion of

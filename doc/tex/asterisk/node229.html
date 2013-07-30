@@ -27,30 +27,30 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3632"
+<A NAME="tex2html3637"
   HREF="node230.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3628"
+<A NAME="tex2html3633"
   HREF="node228.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3622"
+<A NAME="tex2html3627"
   HREF="node228.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3630"
+<A NAME="tex2html3635"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3633"
+<B> Next:</B> <A NAME="tex2html3638"
   HREF="node230.html">IMAP Storage</A>
-<B> Up:</B> <A NAME="tex2html3629"
+<B> Up:</B> <A NAME="tex2html3634"
   HREF="node228.html">Voicemail</A>
-<B> Previous:</B> <A NAME="tex2html3623"
+<B> Previous:</B> <A NAME="tex2html3628"
   HREF="node228.html">Voicemail</A>
- &nbsp; <B>  <A NAME="tex2html3631"
+ &nbsp; <B>  <A NAME="tex2html3636"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
@@ -65,40 +65,141 @@ ODBC Storage
 <P>
 ODBC Storage allows you to store voicemail messages within a database 
 instead of using a file.  This is <SPAN  CLASS="textbf">not</SPAN> a full realtime engine and 
-<SPAN  CLASS="textbf">only</SPAN> supports ODBC.  The table description for the "voicemessages" 
+<SPAN  CLASS="textbf">only</SPAN> supports ODBC.  The table description for the <TT>voicemessages</TT>
 table is as follows:
 
 <P>
-<PRE>
-+----------------+-------------+------+-----+---------+-------+
-| Field          | Type        | Null | Key | Default | Extra |
-+----------------+-------------+------+-----+---------+-------+
-| msgnum         | int(11)     | YES  |     | NULL    |       |
-| dir            | varchar(80) | YES  | MUL | NULL    |       |
-| context        | varchar(80) | YES  |     | NULL    |       |
-| macrocontext   | varchar(80) | YES  |     | NULL    |       |
-| callerid       | varchar(40) | YES  |     | NULL    |       |
-| origtime       | varchar(40) | YES  |     | NULL    |       |
-| duration       | varchar(20) | YES  |     | NULL    |       |
-| mailboxuser    | varchar(80) | YES  |     | NULL    |       |
-| mailboxcontext | varchar(80) | YES  |     | NULL    |       |
-| recording      | longblob    | YES  |     | NULL    |       |
-+----------------+-------------+------+-----+---------+-------+
-</PRE>
+<BR><P></P>
+<DIV ALIGN="CENTER"><A NAME="4501"></A>
+<TABLE>
+<CAPTION><STRONG>Table 11.1:</STRONG>
+<TT>voicemessages</TT> Table Schema</CAPTION>
+<TR><TD>
+<DIV ALIGN="CENTER">
+<TABLE CELLPADDING=3 BORDER="1" ALIGN="CENTER">
+<TR><TD ALIGN="LEFT">Field</TD>
+<TD ALIGN="LEFT">Type</TD>
+<TD ALIGN="CENTER">Null</TD>
+<TD ALIGN="CENTER">Key</TD>
+<TD ALIGN="LEFT">Default</TD>
+<TD ALIGN="LEFT">Extra</TD>
+</TR>
+<TR><TD ALIGN="LEFT">msgnum</TD>
+<TD ALIGN="LEFT">int(11)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">dir</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">MUL</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">context</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">macrocontext</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">callerid</TD>
+<TD ALIGN="LEFT">varchar(40)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">origtime</TD>
+<TD ALIGN="LEFT">varchar(40)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">duration</TD>
+<TD ALIGN="LEFT">varchar(20)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">mailboxuser</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">mailboxcontext</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">recording</TD>
+<TD ALIGN="LEFT">longblob</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+</TABLE>
+</DIV>
+</TD></TR>
+</TABLE>
+</DIV><P></P>
+<BR>
 
 <P>
-The database name (from /etc/asterisk/res_odbc.conf) is in the 
-"odbcstorage" variable in the general section of voicemail.conf.
+The database name (from /etc/asterisk/res_odbc.conf) is in the
+<TT>odbcstorage</TT> variable in the general section of voicemail.conf.
 
 <P>
-You may modify the voicemessages table name by using 
-odbctable=??? in voicemail.conf.
-
-<P>
-  <BR><HR>
+You may modify the <TT>voicemessages</TT> table name by using
+<TT>odbctable=<SPAN  CLASS="textit">table_name</SPAN></TT> in voicemail.conf.
+  
+<DIV CLASS="navigation"><HR>
+<!--Navigation Panel-->
+<A NAME="tex2html3637"
+  HREF="node230.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
+ SRC="/usr/share/latex2html/icons/next.png"></A> 
+<A NAME="tex2html3633"
+  HREF="node228.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
+ SRC="/usr/share/latex2html/icons/up.png"></A> 
+<A NAME="tex2html3627"
+  HREF="node228.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
+ SRC="/usr/share/latex2html/icons/prev.png"></A> 
+<A NAME="tex2html3635"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
+ SRC="/usr/share/latex2html/icons/contents.png"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html3638"
+  HREF="node230.html">IMAP Storage</A>
+<B> Up:</B> <A NAME="tex2html3634"
+  HREF="node228.html">Voicemail</A>
+<B> Previous:</B> <A NAME="tex2html3628"
+  HREF="node228.html">Voicemail</A>
+ &nbsp; <B>  <A NAME="tex2html3636"
+  HREF="node1.html">Contents</A></B> </DIV>
+<!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2009-03-19
+2009-06-11
 </ADDRESS>
 </BODY>
 </HTML>

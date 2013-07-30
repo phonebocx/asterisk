@@ -29,7 +29,7 @@
 #include "asterisk.h"
 
 #if !defined(STANDALONE)
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 165794 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 165792 $")
 #endif
 
 #include <ctype.h>
@@ -158,40 +158,6 @@ static int pbx_load_module(void)
 }
 
 /* CLI interface */
-static char *handle_cli_ael_debug_multiple_deprecated(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
-{
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "ael debug [read|tokens|macros|contexts|off]";
-		e->usage =
-			"Usage: ael debug [read|tokens|macros|contexts|off]\n"
-			"       Enable AEL read, token, macro, or context debugging,\n"
-			"       or disable all AEL debugging messages.  Note: this\n"
-			"       currently does nothing.\n";
-		return NULL;
-	case CLI_GENERATE:
-		return NULL;
-	}
-
-	if (a->argc != 3)
-		return CLI_SHOWUSAGE;
-
-	if (!strcasecmp(a->argv[2], "read"))
-		aeldebug |= DEBUG_READ;
-	else if (!strcasecmp(a->argv[2], "tokens"))
-		aeldebug |= DEBUG_TOKENS;
-	else if (!strcasecmp(a->argv[2], "macros"))
-		aeldebug |= DEBUG_MACROS;
-	else if (!strcasecmp(a->argv[2], "contexts"))
-		aeldebug |= DEBUG_CONTEXTS;
-	else if (!strcasecmp(a->argv[2], "off"))
-		aeldebug = 0;
-	else
-		return CLI_SHOWUSAGE;
-
-	return CLI_SUCCESS;
-}
-
 static char *handle_cli_ael_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	switch (cmd) {
@@ -245,22 +211,21 @@ static char *handle_cli_ael_reload(struct ast_cli_entry *e, int cmd, struct ast_
 	return (pbx_load_module() ? CLI_FAILURE : CLI_SUCCESS);
 }
 
-static struct ast_cli_entry cli_ael_debug_multiple_deprecated = AST_CLI_DEFINE(handle_cli_ael_debug_multiple_deprecated, "Enable AEL debugging flags");
 static struct ast_cli_entry cli_ael[] = {
 	AST_CLI_DEFINE(handle_cli_ael_reload,    "Reload AEL configuration"),
-	AST_CLI_DEFINE(handle_cli_ael_set_debug, "Enable AEL debugging flags", .deprecate_cmd = &cli_ael_debug_multiple_deprecated)
+	AST_CLI_DEFINE(handle_cli_ael_set_debug, "Enable AEL debugging flags")
 };
 
 static int unload_module(void)
 {
 	ast_context_destroy(NULL, registrar);
-	ast_cli_unregister_multiple(cli_ael, sizeof(cli_ael) / sizeof(struct ast_cli_entry));
+	ast_cli_unregister_multiple(cli_ael, ARRAY_LEN(cli_ael));
 	return 0;
 }
 
 static int load_module(void)
 {
-	ast_cli_register_multiple(cli_ael, sizeof(cli_ael) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(cli_ael, ARRAY_LEN(cli_ael));
 	return (pbx_load_module());
 }
 

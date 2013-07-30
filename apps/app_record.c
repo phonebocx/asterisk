@@ -27,7 +27,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 175551 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 175549 $")
 
 #include "asterisk/file.h"
 #include "asterisk/pbx.h"
@@ -36,35 +36,77 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 175551 $")
 #include "asterisk/channel.h"
 #include "asterisk/dsp.h"	/* use dsp routines for silence detection */
 
+/*** DOCUMENTATION
+	<application name="Record" language="en_US">
+		<synopsis>
+			Record to a file.
+		</synopsis>
+		<syntax>
+			<parameter name="filename" required="true" argsep=".">
+				<argument name="filename" required="true" />
+				<argument name="format" required="true">
+					<para>Is the format of the file type to be recorded (wav, gsm, etc).</para>
+				</argument>
+			</parameter>
+			<parameter name="silence">
+				<para>Is the number of seconds of silence to allow before returning.</para>
+			</parameter>
+			<parameter name="maxduration">
+				<para>Is the maximum recording duration in seconds. If missing
+				or 0 there is no maximum.</para>
+			</parameter>
+			<parameter name="options">
+				<optionlist>
+					<option name="a">
+						<para>Append to existing recording rather than replacing.</para>
+					</option>
+					<option name="n">
+						<para>Do not answer, but record anyway if line not yet answered.</para>
+					</option>
+					<option name="q">
+						<para>quiet (do not play a beep tone).</para>
+					</option>
+					<option name="s">
+						<para>skip recording if the line is not yet answered.</para>
+					</option>
+					<option name="t">
+						<para>use alternate '*' terminator key (DTMF) instead of default '#'</para>
+					</option>
+					<option name="x">
+						<para>Ignore all terminator keys (DTMF) and keep recording until hangup.</para>
+					</option>
+					<option name="k">
+					        <para>Keep recording if channel hangs up.</para>
+					</option>	
+				</optionlist>
+			</parameter>
+		</syntax>
+		<description>
+			<para>If filename contains <literal>%d</literal>, these characters will be replaced with a number
+			incremented by one each time the file is recorded.
+			Use <astcli>core show file formats</astcli> to see the available formats on your system
+			User can press <literal>#</literal> to terminate the recording and continue to the next priority.
+			If the user hangs up during a recording, all data will be lost and the application will terminate.</para>
+			<variablelist>
+				<variable name="RECORDED_FILE">
+					<para>Will be set to the final filename of the recording.</para>
+				</variable>
+				<variable name="RECORD_STATUS">
+					<para>This is the final status of the command</para>
+					<value name="DTMF">A terminating DTMF was received ('#' or '*', depending upon option 't')</value>
+					<value name="SILENCE">The maximum silence occurred in the recording.</value>
+					<value name="SKIP">The line was not yet answered and the 's' option was specified.</value>
+					<value name="TIMEOUT">The maximum length was reached.</value>
+					<value name="HANGUP">The channel was hung up.</value>
+					<value name="ERROR">An unrecoverable error occurred, which resulted in a WARNING to the logs.</value>
+				</variable>
+			</variablelist>
+		</description>
+	</application>
+
+ ***/
 
 static char *app = "Record";
-
-static char *synopsis = "Record to a file";
-
-static char *descrip = 
-"  Record(filename.format,silence[,maxduration][,options])\n\n"
-"Records from the channel into a given filename. If the file exists it will\n"
-"be overwritten.\n"
-"- 'format' is the format of the file type to be recorded (wav, gsm, etc).\n"
-"- 'silence' is the number of seconds of silence to allow before returning.\n"
-"- 'maxduration' is the maximum recording duration in seconds. If missing\n"
-"or 0 there is no maximum.\n"
-"- 'options' may contain any of the following letters:\n"
-"     'a' : append to existing recording rather than replacing\n"
-"     'k' : keep recorded file upon hangup\n"
-"     'n' : do not answer, but record anyway if line not yet answered\n"
-"     'q' : quiet (do not play a beep tone)\n"
-"     's' : skip recording if the line is not yet answered\n"
-"     't' : use alternate '*' terminator key (DTMF) instead of default '#'\n"
-"     'x' : ignore all terminator keys (DTMF) and keep recording until hangup\n"
-"\n"
-"If filename contains '%d', these characters will be replaced with a number\n"
-"incremented by one each time the file is recorded. A channel variable\n"
-"named RECORDED_FILE will also be set, which contains the final filemname.\n\n"
-"Use 'core show file formats' to see the available formats on your system\n\n"
-"User can press '#' to terminate the recording and continue to the next priority.\n\n"
-"If the user should hangup during a recording, all data will be lost and the\n"
-"application will teminate. \n";
 
 enum {
 	OPTION_APPEND = (1 << 0),
@@ -122,6 +164,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 	/* The next few lines of code parse out the filename and header from the input string */
 	if (ast_strlen_zero(data)) { /* no data implies no filename or anything is present */
 		ast_log(LOG_WARNING, "Record requires an argument (filename)\n");
+		pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 		return -1;
 	}
 
@@ -143,6 +186,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 	}
 	if (!ext) {
 		ast_log(LOG_WARNING, "No extension specified to filename!\n");
+		pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 		return -1;
 	}
 	if (args.silence) {
@@ -209,6 +253,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 	if (chan->_state != AST_STATE_UP) {
 		if (ast_test_flag(&flags, OPTION_SKIP)) {
 			/* At the user's option, skip if the line is not up */
+			pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "SKIP");
 			return 0;
 		} else if (!ast_test_flag(&flags, OPTION_NOANSWER)) {
 			/* Otherwise answer unless we're supposed to record while on-hook */
@@ -218,6 +263,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 
 	if (res) {
 		ast_log(LOG_WARNING, "Could not answer channel '%s'\n", chan->name);
+		pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 		goto out;
 	}
 
@@ -239,11 +285,13 @@ static int record_exec(struct ast_channel *chan, void *data)
 		res = ast_set_read_format(chan, AST_FORMAT_SLINEAR);
 		if (res < 0) {
 			ast_log(LOG_WARNING, "Unable to set to linear mode, giving up\n");
+			pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 			return -1;
 		}
 		sildet = ast_dsp_new();
 		if (!sildet) {
 			ast_log(LOG_WARNING, "Unable to create silence detector :(\n");
+			pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 			return -1;
 		}
 		ast_dsp_set_threshold(sildet, ast_dsp_get_threshold_from_settings(THRESHOLD_SILENCE));
@@ -260,6 +308,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 
 	if (!s) {
 		ast_log(LOG_WARNING, "Could not create file %s\n", args.filename);
+		pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 		goto out;
 	}
 
@@ -276,6 +325,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 		if (maxduration > 0) {
 			if (waitres == 0) {
 				gottimeout = 1;
+				pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "TIMEOUT");
 				break;
 			}
 			maxduration = waitres;
@@ -292,6 +342,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 			if (res) {
 				ast_log(LOG_WARNING, "Problem writing frame\n");
 				ast_frfree(f);
+				pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 				break;
 			}
 
@@ -307,6 +358,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 					/* Ended happily with silence */
 					ast_frfree(f);
 					gotsilence = 1;
+					pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "SILENCE");
 					break;
 				}
 			}
@@ -315,12 +367,14 @@ static int record_exec(struct ast_channel *chan, void *data)
 
 			if (res) {
 				ast_log(LOG_WARNING, "Problem writing frame\n");
+				pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 				ast_frfree(f);
 				break;
 			}
 		} else if ((f->frametype == AST_FRAME_DTMF) &&
 		    (f->subclass == terminator)) {
 			ast_frfree(f);
+			pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "DTMF");
 			break;
 		}
 		ast_frfree(f);
@@ -328,6 +382,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 	if (!f) {
 		ast_debug(1, "Got hangup\n");
 		res = -1;
+		pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "HANGUP");
 		if (!ast_test_flag(&flags, OPTION_KEEP)) {
 			ast_filedelete(args.filename, NULL);
 		}
@@ -365,7 +420,7 @@ static int unload_module(void)
 
 static int load_module(void)
 {
-	return ast_register_application(app, record_exec, synopsis, descrip);
+	return ast_register_application_xml(app, record_exec);
 }
 
 AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Trivial Record Application");

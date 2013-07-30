@@ -30,5 +30,4 @@ fi
 BUILDSUM=`echo ${TMP} | ${MD5} | cut -c1-32`
 
 echo "#define AST_BUILDOPT_SUM \"${BUILDSUM}\""
-
 echo "#define AST_BUILDOPTS \"${BUILDOPTS}\""

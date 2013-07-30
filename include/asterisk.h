@@ -2,7 +2,7 @@
  * Asterisk -- A telephony toolkit for Linux.
  *
  * General Definitions for Asterisk top level program
- * 
+ *
  * Copyright (C) 1999-2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
@@ -43,7 +43,36 @@
 #define	setpriority	__PLEASE_USE_ast_set_priority_INSTEAD_OF_setpriority__
 #define	sched_setscheduler	__PLEASE_USE_ast_set_priority_INSTEAD_OF_sched_setscheduler__
 
+#if defined(DEBUG_FD_LEAKS) && !defined(STANDALONE) && !defined(STANDALONE_AEL)
+/* These includes are all about ordering */
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+#define	open(a,...)	__ast_fdleak_open(__FILE__,__LINE__,__PRETTY_FUNCTION__, a, __VA_ARGS__)
+#define pipe(a)	__ast_fdleak_pipe(a, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define socket(a,b,c)	__ast_fdleak_socket(a, b, c, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define close(a)	__ast_fdleak_close(a)
+#define	fopen(a,b)	__ast_fdleak_fopen(a, b, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define	fclose(a)	__ast_fdleak_fclose(a)
+#define	dup2(a,b)	__ast_fdleak_dup2(a, b, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+#define dup(a)	__ast_fdleak_dup(a, __FILE__,__LINE__,__PRETTY_FUNCTION__)
+
+int __ast_fdleak_open(const char *file, int line, const char *func, const char *path, int flags, ...);
+int __ast_fdleak_pipe(int *fds, const char *file, int line, const char *func);
+int __ast_fdleak_socket(int domain, int type, int protocol, const char *file, int line, const char *func);
+int __ast_fdleak_close(int fd);
+FILE *__ast_fdleak_fopen(const char *path, const char *mode, const char *file, int line, const char *func);
+int __ast_fdleak_fclose(FILE *ptr);
+int __ast_fdleak_dup2(int oldfd, int newfd, const char *file, int line, const char *func);
+int __ast_fdleak_dup(int oldfd, const char *file, int line, const char *func);
+#endif
+
 int ast_set_priority(int);			/*!< Provided by asterisk.c */
+int ast_fd_init(void);				/*!< Provided by astfd.c */
 
 /*!
  * \brief Register a function to be executed before Asterisk exits.
@@ -54,9 +83,9 @@ int ast_set_priority(int);			/*!< Provided by asterisk.c */
  */
 int ast_register_atexit(void (*func)(void));
 
-/*!   
+/*!
  * \brief Unregister a function registered with ast_register_atexit().
- * \param func The callback function to unregister.   
+ * \param func The callback function to unregister.
  */
 void ast_unregister_atexit(void (*func)(void));
 
@@ -64,7 +93,7 @@ void ast_unregister_atexit(void (*func)(void));
 /*!
  * \brief Register the version of a source code file with the core.
  * \param file the source file name
- * \param version the version string (typically a CVS revision keyword string)
+ * \param version the version string (typically a SVN revision keyword string)
  * \return nothing
  *
  * This function should not be called directly, but instead the
@@ -89,11 +118,12 @@ void ast_unregister_file_version(const char *file);
  */
 const char *ast_file_version_find(const char *file);
 
+char *ast_complete_source_filename(const char *partial, int n);
 
 /*!
  * \brief Register/unregister a source code file with the core.
  * \param file the source file name
- * \param version the version string (typically a CVS revision keyword string)
+ * \param version the version string (typically a SVN revision keyword string)
  *
  * This macro will place a file-scope constructor and destructor into the
  * source of the module using it; this will cause the version of this file
@@ -107,8 +137,8 @@ const char *ast_file_version_find(const char *file);
  * \endcode
  *
  * \note The dollar signs above have been protected with backslashes to keep
- * CVS from modifying them in this file; under normal circumstances they would
- * not be present and CVS would expand the Revision keyword into the file's
+ * SVN from modifying them in this file; under normal circumstances they would
+ * not be present and SVN would expand the Revision keyword into the file's
  * revision number.
  */
 #ifdef MTX_PROFILE
@@ -145,10 +175,10 @@ const char *ast_file_version_find(const char *file);
  *
  * (note, this must be documented a lot more)
  * ast_add_profile allocates a generic 'counter' with a given name,
- * which can be shown with the command 'show profile <name>'
+ * which can be shown with the command 'core show profile &lt;name&gt;'
  *
  * The counter accumulates positive or negative values supplied by
- * ast_add_profile(), dividing them by the 'scale' value passed in the
+ * \see ast_add_profile(), dividing them by the 'scale' value passed in the
  * create call, and also counts the number of 'events'.
  * Values can also be taked by the TSC counter on ia32 architectures,
  * in which case you can mark the start of an event calling ast_mark(id, 1)

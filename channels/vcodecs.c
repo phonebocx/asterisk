@@ -16,7 +16,7 @@
 
 /*
  * Video codecs support for console_video.c
- * $Revision: 147811 $
+ * $Revision: 147807 $
  */
 
 #include "asterisk.h"

@@ -33,8 +33,12 @@
 #define _ASTERISK_LOGGER_H
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 176176 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 193197 $")
 
+/*
+ * WARNING: additional #include directives should NOT be placed here, they 
+ * should be placed AFTER '#undef _ASTERISK_LOGGER_H' below
+ */
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_LOG_DIR */
 #include <signal.h>
@@ -295,18 +299,12 @@ static struct logchannel *make_logchannel(const char *channel, const char *compo
 		snprintf(chan->filename, sizeof(chan->filename), "%s", channel);
 		openlog("asterisk", LOG_PID, chan->facility);
 	} else {
-		if (channel[0] == '/') {
-			if (!ast_strlen_zero(hostname)) { 
-				snprintf(chan->filename, sizeof(chan->filename), "%s.%s", channel, hostname);
-			} else {
-				ast_copy_string(chan->filename, channel, sizeof(chan->filename));
-			}
-		}		  
-		
 		if (!ast_strlen_zero(hostname)) {
-			snprintf(chan->filename, sizeof(chan->filename), "%s/%s.%s", ast_config_AST_LOG_DIR, channel, hostname);
+			snprintf(chan->filename, sizeof(chan->filename), "%s/%s.%s",
+				 channel[0] != '/' ? ast_config_AST_LOG_DIR : "", channel, hostname);
 		} else {
-			snprintf(chan->filename, sizeof(chan->filename), "%s/%s", ast_config_AST_LOG_DIR, channel);
+			snprintf(chan->filename, sizeof(chan->filename), "%s/%s",
+				 channel[0] != '/' ? ast_config_AST_LOG_DIR : "", channel);
 		}
 		chan->fileptr = fopen(chan->filename, "a");
 		if (!chan->fileptr) {
@@ -327,7 +325,7 @@ static void init_logger_chain(int locked)
 	const char *s;
 	struct ast_flags config_flags = { 0 };
 
-	if (!(cfg = ast_config_load2("logger.conf", "logger", config_flags)))
+	if (!(cfg = ast_config_load2("logger.conf", "logger", config_flags)) || cfg == CONFIG_STATUS_FILEINVALID)
 		return;
 
 	/* delete our list of log channels */
@@ -619,14 +617,13 @@ static int reload_logger(int rotate)
 				fclose(qlog);
 				qlog = NULL;
 			} else
-				event_rotate = 0;
+				queue_rotate = 0;
 		} else {
 			fclose(qlog);
 			qlog = NULL;
 		}
 	} else 
 		queue_rotate = 0;
-	qlog = NULL;
 
 	ast_mkdir(ast_config_AST_LOG_DIR, 0777);
 
@@ -1019,7 +1016,7 @@ int init_logger(void)
 	}
 
 	/* register the logger cli commands */
-	ast_cli_register_multiple(cli_logger, sizeof(cli_logger) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(cli_logger, ARRAY_LEN(cli_logger));
 
 	ast_mkdir(ast_config_AST_LOG_DIR, 0777);
   
@@ -1112,8 +1109,8 @@ void ast_log(int level, const char *file, int line, const char *function, const 
 			result = ast_str_set_va(&buf, BUFSIZ, fmt, ap); /* XXX BUFSIZ ? */
 			va_end(ap);
 			if (result != AST_DYNSTR_BUILD_FAILED) {
-				term_filter_escapes(buf->str);
-				fputs(buf->str, stdout);
+				term_filter_escapes(ast_str_buffer(buf));
+				fputs(ast_str_buffer(buf), stdout);
 			}
 		}
 		return;
@@ -1146,7 +1143,7 @@ void ast_log(int level, const char *file, int line, const char *function, const 
 		return;
 
 	/* Copy string over */
-	strcpy(logmsg->str, buf->str);
+	strcpy(logmsg->str, ast_str_buffer(buf));
 
 	/* Set type to be normal */
 	logmsg->type = LOGMSG_NORMAL;
@@ -1275,7 +1272,7 @@ void __ast_verbose_ap(const char *file, int line, const char *func, const char *
 	if (!(logmsg = ast_calloc(1, sizeof(*logmsg) + res + 1)))
 		return;
 
-	strcpy(logmsg->str, buf->str);
+	strcpy(logmsg->str, ast_str_buffer(buf));
 
 	ast_log(__LOG_VERBOSE, file, line, func, "%s", logmsg->str + 1);
 

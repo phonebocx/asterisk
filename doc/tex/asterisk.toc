@@ -33,10 +33,10 @@
 \contentsline {subsubsection}{Special extensions}{23}{section*.13}
 \contentsline {subsection}{\numberline {2.1.5}IP Quality of Service}{24}{subsection.2.1.5}
 \contentsline {subsubsection}{Introduction}{24}{section*.14}
-\contentsline {subsubsection}{IP TOS values}{25}{section*.15}
+\contentsline {subsubsection}{IP TOS values}{24}{section*.15}
 \contentsline {subsubsection}{802.1p CoS values}{25}{section*.16}
 \contentsline {subsubsection}{Recommended values}{25}{section*.17}
-\contentsline {subsubsection}{IAX2}{26}{section*.18}
+\contentsline {subsubsection}{IAX2}{25}{section*.18}
 \contentsline {subsubsection}{SIP}{26}{section*.19}
 \contentsline {subsubsection}{Other RTP channels}{26}{section*.20}
 \contentsline {subsubsection}{Reference}{26}{section*.21}
@@ -230,9 +230,9 @@
 \contentsline {subsection}{\numberline {11.2.1}Installation Notes}{153}{subsection.11.2.1}
 \contentsline {subsubsection}{University of Washington IMAP C-Client}{153}{section*.50}
 \contentsline {subsubsection}{Compiling Asterisk}{154}{section*.51}
-\contentsline {subsection}{\numberline {11.2.2}Modify voicemail.conf}{154}{subsection.11.2.2}
+\contentsline {subsection}{\numberline {11.2.2}Modify voicemail.conf}{155}{subsection.11.2.2}
 \contentsline {subsection}{\numberline {11.2.3}IMAP Folders}{155}{subsection.11.2.3}
-\contentsline {subsection}{\numberline {11.2.4}Separate vs. Shared Email Accounts}{155}{subsection.11.2.4}
+\contentsline {subsection}{\numberline {11.2.4}Separate vs. Shared Email Accounts}{156}{subsection.11.2.4}
 \contentsline {subsection}{\numberline {11.2.5}IMAP Server Implementations}{156}{subsection.11.2.5}
 \contentsline {subsubsection}{UW IMAP-2005 or earlier}{156}{section*.52}
 \contentsline {subsubsection}{UW IMAP-2006 Development Branch}{156}{section*.53}

@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180378 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 195212 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/lock.h"
@@ -98,7 +98,7 @@ struct ast_smoother {
 };
 
 /*! \brief Definition of supported media formats (codecs) */
-static struct ast_format_list AST_FORMAT_LIST[] = {
+static const struct ast_format_list AST_FORMAT_LIST[] = {
 	{ AST_FORMAT_G723_1 , "g723", 8000, "G.723.1", 20, 30, 300, 30, 30 },                                  /*!< G723.1 */
 	{ AST_FORMAT_GSM, "gsm", 8000, "GSM", 33, 20, 300, 20, 20 },                                           /*!< codec_gsm.c */
 	{ AST_FORMAT_ULAW, "ulaw", 8000, "G.711 u-law", 80, 10, 150, 10, 20 },                                 /*!< codec_ulaw.c */
@@ -120,8 +120,10 @@ static struct ast_format_list AST_FORMAT_LIST[] = {
 	{ AST_FORMAT_H263_PLUS, "h263p", 0, "H.263+ Video" },                                                  /*!< H.263plus passthrough support See format_h263.c */
 	{ AST_FORMAT_H264, "h264", 0, "H.264 Video" },                                                         /*!< Passthrough support, see format_h263.c */
 	{ AST_FORMAT_MP4_VIDEO, "mpeg4", 0, "MPEG4 Video" },                                                   /*!< Passthrough support for MPEG4 */
-	{ AST_FORMAT_T140RED, "red", 1, "T.140 Realtime Text with redundancy"},                                 /*!< Redundant T.140 Realtime Text */
+	{ AST_FORMAT_T140RED, "red", 1, "T.140 Realtime Text with redundancy"},                                /*!< Redundant T.140 Realtime Text */
 	{ AST_FORMAT_T140, "t140", 0, "Passthrough T.140 Realtime Text" },                                     /*!< Passthrough support for T.140 Realtime Text */
+	{ AST_FORMAT_SIREN7, "siren7", 16000, "ITU G.722.1 (Siren7, licensed from Polycom)", 80, 20, 80, 20, 20 },			/*!< Binary commercial distribution */
+	{ AST_FORMAT_SIREN14, "siren14", 32000, "ITU G.722.1 Annex C, (Siren14, licensed from Polycom)", 120, 20, 80, 20, 20 },	/*!< Binary commercial distribution */
 };
 
 struct ast_frame ast_null_frame = { AST_FRAME_NULL, };
@@ -254,7 +256,7 @@ struct ast_frame *ast_smoother_read(struct ast_smoother *s)
 	/* Make sure we have enough data */
 	if (s->len < s->size) {
 		/* Or, if this is a G.729 frame with VAD on it, send it immediately anyway */
-		if (!((s->flags & AST_SMOOTHER_FLAG_G729) && (s->size % 10)))
+		if (!((s->flags & AST_SMOOTHER_FLAG_G729) && (s->len % 10)))
 			return NULL;
 	}
 	len = s->size;
@@ -538,12 +540,12 @@ void ast_swapcopy_samples(void *dst, const void *src, int samples)
 }
 
 
-struct ast_format_list *ast_get_format_list_index(int idx) 
+const struct ast_format_list *ast_get_format_list_index(int idx) 
 {
 	return &AST_FORMAT_LIST[idx];
 }
 
-struct ast_format_list *ast_get_format_list(size_t *size) 
+const struct ast_format_list *ast_get_format_list(size_t *size) 
 {
 	*size = ARRAY_LEN(AST_FORMAT_LIST);
 	return AST_FORMAT_LIST;
@@ -597,6 +599,8 @@ static struct ast_codec_alias_table {
 	{ "slinear", "slin"},
 	{ "slinear16", "slin16"},
 	{ "g723.1", "g723"},
+	{ "g722.1", "siren7"},
+	{ "g722.1c", "siren14"},
 };
 
 static const char *ast_expand_codec_alias(const char *in)
@@ -977,7 +981,7 @@ static struct ast_cli_entry my_clis[] = {
 
 int init_framer(void)
 {
-	ast_cli_register_multiple(my_clis, sizeof(my_clis) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(my_clis, ARRAY_LEN(my_clis));
 	return 0;	
 }
 
@@ -1440,7 +1444,8 @@ static int speex_samples(unsigned char *data, int len)
 
 int ast_codec_get_samples(struct ast_frame *f)
 {
-	int samples=0;
+	int samples = 0;
+
 	switch(f->subclass) {
 	case AST_FORMAT_SPEEX:
 		samples = speex_samples(f->data.ptr, f->datalen);
@@ -1476,6 +1481,14 @@ int ast_codec_get_samples(struct ast_frame *f)
 	case AST_FORMAT_G726_AAL2:
 		samples = f->datalen * 2;
 		break;
+	case AST_FORMAT_SIREN7:
+		/* 16,000 samples per second at 32kbps is 4,000 bytes per second */
+		samples = f->datalen * (16000 / 4000);
+		break;
+	case AST_FORMAT_SIREN14:
+		/* 32,000 samples per second at 48kbps is 6,000 bytes per second */
+		samples = (int) f->datalen * ((float) 32000 / 6000);
+		break;
 	default:
 		ast_log(LOG_WARNING, "Unable to calculate samples for format %s\n", ast_getformatname(f->subclass));
 	}
@@ -1486,7 +1499,7 @@ int ast_codec_get_len(int format, int samples)
 {
 	int len = 0;
 
-	/* XXX Still need speex, g723, and lpc10 XXX */	
+	/* XXX Still need speex, and lpc10 XXX */	
 	switch(format) {
 	case AST_FORMAT_G723_1:
 		len = (samples / 240) * 20;
@@ -1513,6 +1526,14 @@ int ast_codec_get_len(int format, int samples)
 	case AST_FORMAT_G726:
 	case AST_FORMAT_G726_AAL2:
 		len = samples / 2;
+		break;
+	case AST_FORMAT_SIREN7:
+		/* 16,000 samples per second at 32kbps is 4,000 bytes per second */
+		len = samples / (16000 / 4000);
+		break;
+	case AST_FORMAT_SIREN14:
+		/* 32,000 samples per second at 48kbps is 6,000 bytes per second */
+		len = (int) samples / ((float) 32000 / 6000);
 		break;
 	default:
 		ast_log(LOG_WARNING, "Unable to calculate sample length for format %s\n", ast_getformatname(format));

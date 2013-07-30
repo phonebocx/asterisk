@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182452 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182453 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_DB */
@@ -665,7 +665,7 @@ static int manager_dbdeltree(struct mansession *s, const struct message *m)
 int astdb_init(void)
 {
 	dbinit();
-	ast_cli_register_multiple(cli_database, sizeof(cli_database) / sizeof(struct ast_cli_entry));
+	ast_cli_register_multiple(cli_database, ARRAY_LEN(cli_database));
 	ast_manager_register("DBGet", EVENT_FLAG_SYSTEM | EVENT_FLAG_REPORTING, manager_dbget, "Get DB Entry");
 	ast_manager_register("DBPut", EVENT_FLAG_SYSTEM, manager_dbput, "Put DB Entry");
 	ast_manager_register("DBDel", EVENT_FLAG_SYSTEM, manager_dbdel, "Delete DB Entry");

@@ -45,7 +45,9 @@ enum {
 	CONFIG_FLAG_NOCACHE       = (1 << 2),
 };
 
+#define	CONFIG_STATUS_FILEMISSING	(void *)0
 #define	CONFIG_STATUS_FILEUNCHANGED	(void *)-1
+#define	CONFIG_STATUS_FILEINVALID	(void *)-2
 
 /*!
  * \brief Types used in ast_realtime_require_field
@@ -89,6 +91,7 @@ typedef struct ast_config *config_load_func(const char *database, const char *ta
 typedef struct ast_variable *realtime_var_get(const char *database, const char *table, va_list ap);
 typedef struct ast_config *realtime_multi_get(const char *database, const char *table, va_list ap);
 typedef int realtime_update(const char *database, const char *table, const char *keyfield, const char *entity, va_list ap);
+typedef int realtime_update2(const char *database, const char *table, va_list ap);
 typedef int realtime_store(const char *database, const char *table, va_list ap);
 typedef int realtime_destroy(const char *database, const char *table, const char *keyfield, const char *entity, va_list ap);
 
@@ -111,6 +114,7 @@ struct ast_config_engine {
 	realtime_var_get *realtime_func;
 	realtime_multi_get *realtime_multi_func;
 	realtime_update *update_func;
+	realtime_update2 *update2_func;
 	realtime_store *store_func;
 	realtime_destroy *destroy_func;
 	realtime_require *require_func;
@@ -274,11 +278,15 @@ int ast_realtime_require_field(const char *family, ...) attribute_sentinel;
 /*!
  * \brief Retrieve realtime configuration
  * \param family which family/config to lookup
+ *
  * This will use builtin configuration backends to look up a particular
  * entity in realtime and return a variable list of its parameters. Unlike
  * the ast_load_realtime, this function can return more than one entry and
  * is thus stored inside a traditional ast_config structure rather than
  * just returning a linked list of variables.
+ *
+ * Note that you should use the constant SENTINEL to terminate arguments, in
+ * order to preserve cross-platform compatibility.
  */
 struct ast_config *ast_load_realtime_multientry(const char *family, ...) attribute_sentinel;
 
@@ -290,11 +298,27 @@ struct ast_config *ast_load_realtime_multientry(const char *family, ...) attribu
  * This function is used to update a parameter in realtime configuration space.
  * \return Number of rows affected, or -1 on error.
  *
+ * Note that you should use the constant SENTINEL to terminate arguments, in
+ * order to preserve cross-platform compatibility.
  */
 int ast_update_realtime(const char *family, const char *keyfield, const char *lookup, ...) attribute_sentinel;
 
-/*! 
- * \brief Create realtime configuration 
+/*!
+ * \brief Update realtime configuration
+ * \param family which family/config to be updated
+ * This function is used to update a parameter in realtime configuration space.
+ * It includes the ability to lookup a row based upon multiple key criteria.
+ * As a result, this function includes two sentinel values, one to terminate
+ * lookup values and the other to terminate the listing of fields to update.
+ * \return Number of rows affected, or -1 on error.
+ *
+ * Note that you should use the constant SENTINEL to terminate arguments, in
+ * order to preserve cross-platform compatibility.
+ */
+int ast_update2_realtime(const char *family, ...) attribute_sentinel;
+
+/*!
+ * \brief Create realtime configuration
  * \param family which family/config to be created
  * This function is used to create a parameter in realtime configuration space.
  * \return Number of rows affected, or -1 on error.
@@ -302,6 +326,8 @@ int ast_update_realtime(const char *family, const char *keyfield, const char *lo
  * value is the insert ID.  This value is nonportable and may be changed in a
  * future version to match the other engines.
  *
+ * Note that you should use the constant SENTINEL to terminate arguments, in
+ * order to preserve cross-platform compatibility.
  */
 int ast_store_realtime(const char *family, ...) attribute_sentinel;
 
@@ -314,6 +340,8 @@ int ast_store_realtime(const char *family, ...) attribute_sentinel;
  * Additional params are used as keys.
  * \return Number of rows affected, or -1 on error.
  *
+ * Note that you should use the constant SENTINEL to terminate arguments, in
+ * order to preserve cross-platform compatibility.
  */
 int ast_destroy_realtime(const char *family, const char *keyfield, const char *lookup, ...) attribute_sentinel;
 
@@ -424,7 +452,8 @@ int ast_variable_delete(struct ast_category *category, const char *variable, con
 int ast_variable_update(struct ast_category *category, const char *variable,
 						const char *value, const char *match, unsigned int object);
 
-int config_text_file_save(const char *filename, const struct ast_config *cfg, const char *generator);
+int ast_config_text_file_save(const char *filename, const struct ast_config *cfg, const char *generator);
+int config_text_file_save(const char *filename, const struct ast_config *cfg, const char *generator) __attribute__((deprecated));
 
 struct ast_config *ast_config_internal_load(const char *configfile, struct ast_config *cfg, struct ast_flags flags, const char *suggested_incl_file, const char *who_asked);
 

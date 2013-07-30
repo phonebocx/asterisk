@@ -24,7 +24,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 157042 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 185947 $")
 
 #include <signal.h>
 #include <sys/time.h>
@@ -84,10 +84,10 @@ struct ast_taskprocessor {
 /*! \brief tps_singletons is the astobj2 container for taskprocessor singletons */
 static struct ao2_container *tps_singletons;
 
-/*! \brief CLI 'taskprocessor ping <blah>' operation requires a ping condition */
+/*! \brief CLI <example>taskprocessor ping &lt;blah&gt;</example> operation requires a ping condition */
 static ast_cond_t cli_ping_cond;
 
-/*! \brief CLI 'taskprocessor ping <blah>' operation requires a ping condition lock */
+/*! \brief CLI <example>taskprocessor ping &lt;blah&gt;</example> operation requires a ping condition lock */
 AST_MUTEX_DEFINE_STATIC(cli_ping_cond_lock);
 
 /*! \brief The astobj2 hash callback for taskprocessors */
@@ -101,7 +101,7 @@ static void *tps_processing_function(void *data);
 /*! \brief Destroy the taskprocessor when its refcount reaches zero */
 static void tps_taskprocessor_destroy(void *tps);
 
-/*! \brief CLI 'taskprocessor ping <blah>' handler function */
+/*! \brief CLI <example>taskprocessor ping &lt;blah&gt;</example> handler function */
 static int tps_ping_handler(void *datap);
 
 /*! \brief Remove the front task off the taskprocessor queue */
@@ -114,7 +114,7 @@ static char *cli_tps_ping(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 static char *cli_tps_report(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 
 static struct ast_cli_entry taskprocessor_clis[] = {
-	AST_CLI_DEFINE(cli_tps_ping, "Ping a named task processors"),
+	AST_CLI_DEFINE(cli_tps_ping, "Ping a named task processor"),
 	AST_CLI_DEFINE(cli_tps_report, "List instantiated task processors and statistics"),
 };
 
@@ -196,9 +196,9 @@ static char *cli_tps_ping(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "core taskprocessor ping";
+		e->command = "core ping taskprocessor";
 		e->usage = 
-			"Usage: core taskprocessor ping <taskprocessor>\n"
+			"Usage: core ping taskprocessor <taskprocessor>\n"
 			"	Displays the time required for a task to be processed\n";
 		return NULL;
 	case CLI_GENERATE:

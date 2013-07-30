@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158135 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 186233 $")
 
 #include <time.h>
 #include <radiusclient-ng.h>
@@ -205,12 +205,18 @@ static int radius_log(struct ast_cdr *cdr)
 
 	if (build_radius_record(&tosend, cdr)) {
 		ast_debug(1, "Unable to create RADIUS record. CDR not recorded!\n");
-		return result;
+		goto return_cleanup;
 	}
 
 	result = rc_acct(rh, 0, tosend);
-	if (result != OK_RC)
+	if (result != OK_RC) {
 		ast_log(LOG_ERROR, "Failed to record Radius CDR record!\n");
+	}
+
+return_cleanup:
+	if (tosend) {
+		rc_avpair_free(tosend);
+	}
 
 	return result;
 }
@@ -228,7 +234,7 @@ static int load_module(void)
 	int res;
 	const char *tmp;
 
-	if ((cfg = ast_config_load(cdr_config, config_flags))) {
+	if ((cfg = ast_config_load(cdr_config, config_flags)) && cfg != CONFIG_STATUS_FILEINVALID) {
 		ast_set2_flag(&global_flags, ast_true(ast_variable_retrieve(cfg, "radius", "usegmtime")), RADIUS_FLAG_USEGMTIME);
 		ast_set2_flag(&global_flags, ast_true(ast_variable_retrieve(cfg, "radius", "loguniqueid")), RADIUS_FLAG_LOGUNIQUEID);
 		ast_set2_flag(&global_flags, ast_true(ast_variable_retrieve(cfg, "radius", "loguserfield")), RADIUS_FLAG_LOGUSERFIELD);

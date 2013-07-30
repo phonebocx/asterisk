@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 162278 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 162275 $")
 
 #include <sys/socket.h>
 #include <netdb.h>
@@ -54,15 +54,24 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 162278 $")
 #define MAXLEN 180
 #define MAXFESTLEN 2048
 
+/*** DOCUMENTATION
+	<application name="Festival" language="en_US">
+		<synopsis>
+			Say text to the user.
+		</synopsis>
+		<syntax>
+			<parameter name="text" required="true" />
+			<parameter name="intkeys" />
+		</syntax>
+		<description>
+			<para>Connect to Festival, send the argument, get back the waveform, play it to the user,
+			allowing any given interrupt keys to immediately terminate and return the value, or
+			<literal>any</literal> to allow any number back (useful in dialplan).</para>
+		</description>
+	</application>
+ ***/
+
 static char *app = "Festival";
-
-static char *synopsis = "Say text to the user";
-
-static char *descrip = 
-"  Festival(text[,intkeys]):  Connect to Festival, send the argument, get back the waveform,\n"
-"play it to the user, allowing any given interrupt keys to immediately terminate and return\n"
-"the value, or 'any' to allow any number back (useful in dialplan)\n";
-
 
 static char *socket_receive_file_to_buff(int fd, int *size)
 {
@@ -305,7 +314,11 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 	if (!cfg) {
 		ast_log(LOG_WARNING, "No such configuration file %s\n", FESTIVAL_CONFIG);
 		return -1;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_ERROR, "Config file " FESTIVAL_CONFIG " is in an invalid format.  Aborting.\n");
+		return -1;
 	}
+
 	if (!(host = ast_variable_retrieve(cfg, "general", "host"))) {
 		host = "localhost";
 	}
@@ -532,9 +545,12 @@ static int load_module(void)
 	if (!cfg) {
 		ast_log(LOG_WARNING, "No such configuration file %s\n", FESTIVAL_CONFIG);
 		return AST_MODULE_LOAD_DECLINE;
+	} else if (cfg == CONFIG_STATUS_FILEINVALID) {
+		ast_log(LOG_ERROR, "Config file " FESTIVAL_CONFIG " is in an invalid format.  Aborting.\n");
+		return AST_MODULE_LOAD_DECLINE;
 	}
 	ast_config_destroy(cfg);
-	return ast_register_application(app, festival_exec, synopsis, descrip);
+	return ast_register_application_xml(app, festival_exec);
 }
 
 AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Simple Festival Interface");
