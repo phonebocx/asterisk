@@ -208,7 +208,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 325280 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 315145 $")
 
 #include <signal.h>
 #include <sys/signal.h>
@@ -2472,7 +2472,7 @@ static int sip_check_authtimeout(time_t start)
 */
 static void *_sip_tcp_helper_thread(struct sip_pvt *pvt, struct ast_tcptls_session_instance *tcptls_session)
 {
-	int res, cl, timeout = -1, authenticated = 0, flags, after_poll = 0, need_poll = 1;
+	int res, cl, timeout = -1, authenticated = 0, flags;
 	time_t start;
 	struct sip_request req = { 0, } , reqcpy = { 0, };
 	struct sip_threadinfo *me = NULL;
@@ -2579,7 +2579,6 @@ static void *_sip_tcp_helper_thread(struct sip_pvt *pvt, struct ast_tcptls_sessi
 		/* handle the socket event, check for both reads from the socket fd,
 		 * and writes from alert_pipe fd */
 		if (fds[0].revents) { /* there is data on the socket to be read */
-			after_poll = 1;
 
 			fds[0].revents = 0;
 
@@ -2620,35 +2619,22 @@ static void *_sip_tcp_helper_thread(struct sip_pvt *pvt, struct ast_tcptls_sessi
 					timeout = -1;
 				}
 
-				/* special polling behavior is required for TLS
-				 * sockets because of the buffering done in the
-				 * TLS layer */
-				if (!tcptls_session->ssl || need_poll) {
-					need_poll = 0;
-					after_poll = 1;
-					res = ast_wait_for_input(tcptls_session->fd, timeout);
-					if (res < 0) {
-						ast_debug(2, "SIP TCP server :: ast_wait_for_input returned %d\n", res);
-						goto cleanup;
-					} else if (res == 0) {
-						/* timeout */
-						ast_debug(2, "SIP TCP server timed out\n");
-						goto cleanup;
-					}
+				res = ast_wait_for_input(tcptls_session->fd, timeout);
+				if (res < 0) {
+					ast_debug(2, "SIP %s server :: ast_wait_for_input returned %d\n", tcptls_session->ssl ? "SSL": "TCP", res);
+					goto cleanup;
+				} else if (res == 0) {
+					/* timeout */
+					ast_debug(2, "SIP %s server timed out\n", tcptls_session->ssl ? "SSL": "TCP");
+					goto cleanup;
 				}
 
 				ast_mutex_lock(&tcptls_session->lock);
 				if (!fgets(buf, sizeof(buf), tcptls_session->f)) {
 					ast_mutex_unlock(&tcptls_session->lock);
-					if (after_poll) {
-						goto cleanup;
-					} else {
-						need_poll = 1;
-						continue;
-					}
+					goto cleanup;
 				}
 				ast_mutex_unlock(&tcptls_session->lock);
-				after_poll = 0;
 				if (me->stop) {
 					 goto cleanup;
 				}
@@ -2667,40 +2653,30 @@ static void *_sip_tcp_helper_thread(struct sip_pvt *pvt, struct ast_tcptls_sessi
 						}
 
 						if (timeout == 0) {
-							ast_debug(2, "SIP %s server timed out\n", tcptls_session->ssl ? "SSL": "TCP");
+							ast_debug(2, "SIP %s server timed out", tcptls_session->ssl ? "SSL": "TCP");
 							goto cleanup;
 						}
 					} else {
 						timeout = -1;
 					}
 
-					if (!tcptls_session->ssl || need_poll) {
-						need_poll = 0;
-						after_poll = 1;
-						res = ast_wait_for_input(tcptls_session->fd, timeout);
-						if (res < 0) {
-							ast_debug(2, "SIP TCP server :: ast_wait_for_input returned %d\n", res);
-							goto cleanup;
-						} else if (res == 0) {
-							/* timeout */
-							ast_debug(2, "SIP TCP server timed out\n");
-							goto cleanup;
-						}
+					res = ast_wait_for_input(tcptls_session->fd, timeout);
+					if (res < 0) {
+						ast_debug(2, "SIP %s server :: ast_wait_for_input returned %d\n", tcptls_session->ssl ? "SSL": "TCP", res);
+						goto cleanup;
+					} else if (res == 0) {
+						/* timeout */
+						ast_debug(2, "SIP %s server timed out", tcptls_session->ssl ? "SSL": "TCP");
+						goto cleanup;
 					}
 
 					ast_mutex_lock(&tcptls_session->lock);
 					if (!(bytes_read = fread(buf, 1, MIN(sizeof(buf) - 1, cl), tcptls_session->f))) {
 						ast_mutex_unlock(&tcptls_session->lock);
-						if (after_poll) {
-							goto cleanup;
-						} else {
-							need_poll = 1;
-							continue;
-						}
+						goto cleanup;
 					}
 					buf[bytes_read] = '\0';
 					ast_mutex_unlock(&tcptls_session->lock);
-					after_poll = 0;
 					if (me->stop) {
 						goto cleanup;
 					}
@@ -2752,7 +2728,7 @@ static void *_sip_tcp_helper_thread(struct sip_pvt *pvt, struct ast_tcptls_sessi
 	ast_debug(2, "Shutting down thread for %s server\n", tcptls_session->ssl ? "SSL" : "TCP");
 
 cleanup:
-	if (tcptls_session && !tcptls_session->client && !authenticated) {
+	if (!tcptls_session->client && !authenticated) {
 		ast_atomic_fetchadd_int(&unauth_sessions, -1);
 	}
 
@@ -7397,21 +7373,6 @@ static int addr_is_multicast(const struct ast_sockaddr *addr)
 	return ((ast_sockaddr_ipv4(addr) & 0xf0000000) == 0xe0000000);
 }
 
-/*!
- * \brief Process the Via header according to RFC 3261 section 18.2.2.
- * \param p a sip_pvt structure that will be modified according to the received
- * header
- * \param req a sip request with a Via header to process
- *
- * This function will update the destination of the response according to the
- * Via header in the request and RFC 3261 section 18.2.2. We do not have a
- * transport layer so we ignore certain values like the 'received' param (we
- * set the destination address to the addres the request came from in the
- * respprep() function).
- *
- * \retval -1 error
- * \retval 0 success
- */
 static int process_via(struct sip_pvt *p, const struct sip_request *req)
 {
 	struct sip_via *via = parse_via(get_header(req, "Via"));
@@ -7429,12 +7390,16 @@ static int process_via(struct sip_pvt *p, const struct sip_request *req)
 			return -1;
 		}
 
+		if (via->port) {
+			ast_sockaddr_set_port(&p->sa, via->port);
+		} else {
+			ast_sockaddr_set_port(&p->sa, STANDARD_SIP_PORT);
+		}
+
 		if (addr_is_multicast(&p->sa)) {
 			setsockopt(sipsock, IPPROTO_IP, IP_MULTICAST_TTL, &via->ttl, sizeof(via->ttl));
 		}
 	}
-
-	ast_sockaddr_set_port(&p->sa, via->port ? via->port : STANDARD_SIP_PORT);
 
 	free_via(via);
 	return 0;
@@ -9771,9 +9736,6 @@ static int respprep(struct sip_request *resp, struct sip_pvt *p, const char *msg
 
 	/* default to routing the response to the address where the request
 	 * came from.  Since we don't have a transport layer, we do this here.
-	 * The process_via() function will update the port to either the port
-	 * specified in the via header or the default port later on (per RFC
-	 * 3261 section 18.2.2).
 	 */
 	p->sa = p->recv;
 
@@ -13878,9 +13840,9 @@ static void transmit_fake_auth_response(struct sip_pvt *p, int sipmethod, struct
 {
 	/* We have to emulate EXACTLY what we'd get with a good peer
 	 * and a bad password, or else we leak information. */
-	const char *response = "401 Unauthorized";
-	const char *reqheader = "Authorization";
-	const char *respheader = "WWW-Authenticate";
+	const char *response = "407 Proxy Authentication Required";
+	const char *reqheader = "Proxy-Authorization";
+	const char *respheader = "Proxy-Authenticate";
 	const char *authtoken;
 	struct ast_str *buf;
 	char *c;
@@ -13895,18 +13857,23 @@ static void transmit_fake_auth_response(struct sip_pvt *p, int sipmethod, struct
 		[K_LAST] = { NULL, NULL}
 	};
 
+	if (sipmethod == SIP_REGISTER || sipmethod == SIP_SUBSCRIBE) {
+		response = "401 Unauthorized";
+		reqheader = "Authorization";
+		respheader = "WWW-Authenticate";
+	}
 	authtoken = get_header(req, reqheader);
 	if (req->ignore && !ast_strlen_zero(p->randdata) && ast_strlen_zero(authtoken)) {
 		/* This is a retransmitted invite/register/etc, don't reconstruct authentication
 		 * information */
-		transmit_response_with_auth(p, response, req, p->randdata, reliable, respheader, 0);
+		transmit_response_with_auth(p, response, req, p->randdata, 0, respheader, 0);
 		/* Schedule auto destroy in 32 seconds (according to RFC 3261) */
 		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
 		return;
 	} else if (ast_strlen_zero(p->randdata) || ast_strlen_zero(authtoken)) {
 		/* We have no auth, so issue challenge and request authentication */
 		set_nonce_randdata(p, 1);
-		transmit_response_with_auth(p, response, req, p->randdata, reliable, respheader, 0);
+		transmit_response_with_auth(p, response, req, p->randdata, 0, respheader, 0);
 		/* Schedule auto destroy in 32 seconds */
 		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
 		return;
@@ -14152,7 +14119,7 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct ast_sock
 			ao2_unlock(peer);
 		}
 	}
-	if (!peer && sip_cfg.alwaysauthreject && ast_test_flag(&p->flags[1], SIP_PAGE2_REGISTERTRYING)) {
+	if (!peer && sip_cfg.alwaysauthreject) {
 		/* If we found a peer, we transmit a 100 Trying.  Therefore, if we're
 		 * trying to avoid leaking information, we MUST also transmit the same
 		 * response when we DON'T find a peer. */
@@ -24183,8 +24150,7 @@ static int sipsock_read(int *id, int fd, short events, void *ignore)
 		return -1;
 	}
 
-	/* req.data will have the correct length in case of nulls */
-	req.len = ast_str_strlen(req.data);
+	req.len = res;
 	req.socket.fd = sipsock;
 	set_socket_transport(&req.socket, SIP_TRANSPORT_UDP);
 	req.socket.tcptls_session	= NULL;
