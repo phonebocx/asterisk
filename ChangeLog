@@ -1,3 +1,248 @@
+2006-09-11 Kevin P. Fleming <kpfleming@digium.com>
+
+	* Asterisk 1.2.12.1 released
+
+2006-09-11 21:47 +0000 [r42697-42783]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_meetme.c, apps/app_page.c: When paging, only wait 5
+	  seconds for the marked user to enter the conference. After that,
+	  assume the paging already completed by the time the channel
+	  entered the conference and drop back out. (Issue 7275)
+
+	* configs/extensions.conf.sample, configs/alsa.conf.sample,
+	  configs/zapata.conf.sample, configs/iax.conf.sample,
+	  configs/osp.conf.sample, configs/dundi.conf.sample,
+	  configs/enum.conf.sample, configs/vpb.conf.sample,
+	  configs/cdr.conf.sample, configs/voicemail.conf.sample,
+	  configs/phone.conf.sample, configs/misdn.conf.sample,
+	  configs/sip.conf.sample, configs/skinny.conf.sample,
+	  configs/features.conf.sample: Spelling/grammar fixes (Issue 7929)
+
+	* configs/voicemail.conf.sample: Two grammar issues (bug 7927)
+
+2006-09-09 20:24 +0000 [r42600]  Joshua Colp <jcolp@digium.com>
+
+	* channel.c: Only truly consider the channel in the same format if
+	  the format matches the raw format OR if a translation path
+	  already exists to translate between them. (issue #7887 reported
+	  by softins & issue #7803 reported by alvaro_palma_aste). Thanks
+	  goes to stubert for giving me access to a box and showing me a
+	  scenario where this occured.
+
+2006-09-09 12:14 +0000 [r42535]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: - Reset proper flag - Don't delete SIP
+	  dialog prematurely Strangely enough imported from svn trunk...
+	  It's confusing here in Greenland. (Committing from 36.000 feet
+	  above Greenland, on the way to asterisk@von
+	  http://www.pulver.com/asterisk )
+
+2006-09-08 Kevin P. Fleming <kpfleming@digium.com>
+
+	* Asterisk 1.2.12 released
+
+2006-09-08 18:50 +0000 [r42452]  Joshua Colp <jcolp@digium.com>
+
+	* channel.c: Swap spies during masquerading
+
+2006-09-08 16:06 +0000 [r42421]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_authenticate.c: Jump logic was backwards: goto returns 0
+	  if it succeeds, and we should jump if authentication fails. (Bug
+	  #7907)
+
+2006-09-08 04:37 +0000 [r42402]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_local.c: Use ast_best_codec to set the read/write
+	  format
+
+2006-09-07 23:12 +0000 [r42355]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_record.c: Format vulnerability fix - allowing the user
+	  to specify a format is not a good idea (Bug 7811)
+
+2006-09-07 16:30 +0000 [r42260]  Joshua Colp <jcolp@digium.com>
+
+	* cdr.c: Let's use the same thing we use in other places to
+	  calculate our time for ast_cond_timedwait (issue #7697 reported
+	  by bn999)
+
+2006-09-07 02:14 +0000 [r42150-42200]  Steve Murphy <murf@digium.com>
+
+	* logger.c: This should fix the problem reported in 7564: logger
+	  config file errors getting lost because logging isn't configured
+	  yet. The problem was that the code that exists to handle this
+	  case was not getting reached, because other tests were causing an
+	  early return from ast_log().
+
+	* Makefile: added hours,minutes,seconds .gsm files to the install
+	  portion of the makefile, as per bug 7545
+
+2006-09-06 20:02 +0000 [r42148]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_agi.c: Don't close the second file descriptor if it's the
+	  same as the first one, as it will have already been closed
+	  elsewhere and could cause massive panic. (issue #7699 reported by
+	  bn999)
+
+2006-09-06 18:16 +0000 [r42133]  BJ Weschke <bweschke@btwtech.com>
+
+	* channels/chan_agent.c: Look ma! No more deadlocks! <sic> As
+	  posted from #7458 and others similar to it in Mantis: p->app_lock
+	  was a mutex really designed for use with agents not in callback
+	  mode. That being the case, I've tried to code it so that when
+	  callback mode is used, the app_lock mutex will not be
+	  locked/unlocked at all. Please let me know how you make out - and
+	  if you continue to deadlock now, please reproduce the deadlock
+	  logging information and post to Mantis.
+
+2006-09-06 17:10 +0000 [r42110]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/chan_misdn.c: fixed pipe consuming bug when using
+	  chanIsAvail (#7878), also moved a debug log to the very begining
+	  of misdn_hangup.
+
+2006-09-06 15:55 +0000 [r42054-42086]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_iax2.c: Make realtime regseconds work as people
+	  expected (0 on registration expiration or release, and actual on
+	  normal state) (issue #7684 reported by kshumard)
+
+	* include/asterisk/chanspy.h, apps/app_chanspy.c,
+	  apps/app_mixmonitor.c, channel.c: Merge in last round of spy
+	  fixes. This should hopefully eliminate all the issues people have
+	  been seeing by distinctly separating what each component
+	  (core/spy) is responsible for. Core is responsible for adding a
+	  spy to a channel, feeding frames to the spy, removing the spy
+	  from a channel, and telling the spy to stop. Spy is responsible
+	  for reading frames in, and cleaning up after itself.
+
+2006-09-05 16:27 +0000 [r42014]  Jason Parker <jparker@digium.com>
+
+	* configs/zapata.conf.sample: Small typo in zapata.conf.sample
+	  Reported by ppyy in 7881
+
+2006-09-04 15:46 +0000 [r41989]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Don't kill the pvt before we have sent ACK
+	  on CANCEL
+
+2006-09-03 17:38 +0000 [r41827-41882]  BJ Weschke <bweschke@btwtech.com>
+
+	* apps/app_queue.c: Make sure the forwarded channel inherits
+	  variables appropriately when we receive a call forward in the
+	  queue. (#7867 - raarts reported and patched)
+
+	* apps/app_queue.c: Don't keep trying the same member in certain
+	  strategies when members of the queue are unavailable (#7278 -
+	  diLLec reported and patched)
+
+	* apps/app_chanspy.c: Let's NOT spy on Zap/psuedo channels,
+	  mmmmmmmmk?
+
+	* apps/app_queue.c: Setting a retry of 0 is generally not a good
+	  idea and shouldn't be allowed. (#7574 - reported by regin)
+
+2006-09-01 22:49 +0000 [r41768]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Only wipe the redirected audio & video
+	  IP/port if it's specified, and trigger a reinvite.
+
+2006-09-01 17:35 +0000 [r41716]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_sip.c, include/asterisk/rtp.h, rtp.c: put in proper
+	  fix for issue #7294 instead of the broken partial fix that was
+	  committed, and thereby also fix issue #7438
+
+2006-09-01 16:33 +0000 [r41690-41691]  Joshua Colp <jcolp@digium.com>
+
+	* channel.c: Finish up the last commit (was worse then originally
+	  reported)
+
+	* channel.c: Don't treat an unexpected control subclass as voice
+	  (issue #7858 reported by PCadach)
+
+2006-08-30 19:01 +0000 [r41423]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue #7572 - Hangup when receiving a buggy
+	  487 response to an INVITE
+
+2006-08-30 18:59 +0000 [r41411]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_mgcp.c, channels/chan_phone.c,
+	  channels/chan_local.c, channels/chan_misdn.c,
+	  channels/chan_sip.c, channels/chan_skinny.c,
+	  channels/chan_features.c, channels/chan_h323.c,
+	  channels/chan_iax2.c: Restore original functionality of 1.2 in
+	  places where ANI was not set, but was changed to be set. The
+	  original change was done to ensure that the behavior of the
+	  "callerid" option in each channel driver was consistent, but it
+	  caused an unexpected behavior change of CDR records for users, so
+	  this change is being reverted in 1.2. (issue #7695)
+
+2006-08-30 17:58 +0000 [r41390]  Joshua Colp <jcolp@digium.com>
+
+	* include/asterisk/lock.h: Properly handle an ETIMEDOUT result from
+	  pthread_cond_timedwait (issue #7318 reported by arkadia)
+
+2006-08-30 14:31 +0000 [r41334]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue 7822 - don't use SRV lookups if it's
+	  disabled.
+
+2006-08-29 13:33 +0000 [r41269]  Russell Bryant <russell@digium.com>
+
+	* pbx/pbx_config.c: clean up last commit ... most notably, there is
+	  no reason to do heap allocations here, and it also included a
+	  potential memory leak
+
+2006-08-29 05:49 +0000 [r41239-41262]  Steve Murphy <murf@digium.com>
+
+	* pbx/pbx_config.c: Fixes for bug 7813, via patch submitted by
+	  stevens.
+
+	* doc/README.variables: Removed from the docs the mention of the !
+	  and =~ operators, as these were knocked out of ast_expr2 because
+	  they were new features. Let's hope I can keep them from getting
+	  knocked out of the trunk, too!
+
+	* apps/app_macro.c: According to a note added to 7731 by
+	  mneuhauser, this will repair a break caused by the last fix
+	  (7731).
+
+2006-08-25 15:21 +0000 [r41066-41069]  Matt Frederickson <creslin@digium.com>
+
+	* channels/chan_zap.c: Don't send proceeding twice (#7800)
+
+2006-08-25 15:07 +0000 [r41065]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c: Text only - clarify the reason for entry
+	  into authentication mode when the skipuser option is ignored
+
+2006-08-24 19:41 +0000 [r40994]  Russell Bryant <russell@digium.com>
+
+	* include/asterisk/linkedlists.h, channel.c, pbx.c: Fix a few
+	  issues related to the handling of channel variables - in
+	  pbx_builtin_serialize_variables(), the variable list traversal
+	  would stop on a variables with empty name/values, which is not
+	  appropriate - When removing the GROUP variables, use
+	  AST_LIST_REMOVE_CURRENT instead of AST_LIST_REMOVE - During
+	  masquerading, when copying the variables list from one channel to
+	  the other, using AST_LIST_INSERT_TAIL is not valid for appending
+	  a whole list. It leaves the tail pointer of the list invalid.
+	  Introduce a new macro, AST_LIST_APPEND_LIST that appends a list
+	  properly. (issue #7802, softins)
+
+2006-08-24 17:13 +0000 [r40971-40979]  Joshua Colp <jcolp@digium.com>
+
+	* configs/zapata.conf.sample: Minor documentation fix to add the
+	  'dynamic' dialplan option from angler
+
+2006-08-23 16:05 +0000 [r40901]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* res/res_agi.c: Revert last change - breaks retrieval of builtin
+	  variables
+
 2006-08-22 Kevin P. Fleming <kpfleming@digium.com>
 
 	* Asterisk 1.2.11 released

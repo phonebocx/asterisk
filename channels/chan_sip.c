@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40601 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42535 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -2299,6 +2299,7 @@ static int hangup_sip2cause(int cause)
 	switch(cause) {
 		case 603:	/* Declined */
 		case 403:	/* Not found */
+		case 487:	/* Call cancelled */
 			return AST_CAUSE_CALL_REJECTED;
 		case 404:	/* Not found */
 			return AST_CAUSE_UNALLOCATED;
@@ -2414,7 +2415,7 @@ static int sip_hangup(struct ast_channel *ast)
 {
 	struct sip_pvt *p = ast->tech_pvt;
 	int needcancel = 0;
-	struct ast_flags locflags = {0};
+	int needdestroy = 0;
 
 	if (!p) {
 		ast_log(LOG_DEBUG, "Asked to hangup channel not connected\n");
@@ -2442,7 +2443,6 @@ static int sip_hangup(struct ast_channel *ast)
 		needcancel = 1;
 
 	/* Disconnect */
-	p = ast->tech_pvt;
 	if (p->vad) {
 		ast_dsp_free(p->vad);
 	}
@@ -2454,7 +2454,16 @@ static int sip_hangup(struct ast_channel *ast)
 	ast_mutex_unlock(&usecnt_lock);
 	ast_update_use_count();
 
-	ast_set_flag(&locflags, SIP_NEEDDESTROY);	
+	/* Do not destroy this pvt until we have timeout or
+	   get an answer to the BYE or INVITE/CANCEL 
+	   If we get no answer during retransmit period, drop the call anyway.
+	   (Sorry, mother-in-law, you can't deny a hangup by sending
+	   603 declined to BYE...)
+	*/
+	if (ast_test_flag(p, SIP_ALREADYGONE))
+		needdestroy = 1;	/* Set destroy flag at end of this function */
+	else
+		sip_scheddestroy(p, 32000);
 
 	/* Start the process if it's not already started */
 	if (!ast_test_flag(p, SIP_ALREADYGONE) && !ast_strlen_zero(p->initreq.data)) {
@@ -2467,13 +2476,12 @@ static int sip_hangup(struct ast_channel *ast)
 				   it pending */
 				if (!ast_test_flag(p, SIP_CAN_BYE)) {
 					ast_set_flag(p, SIP_PENDINGBYE);
+					/* Do we need a timer here if we don't hear from them at all? */
 				} else {
 					/* Send a new request: CANCEL */
 					transmit_request_with_auth(p, SIP_CANCEL, p->ocseq, 1, 0);
 					/* Actually don't destroy us yet, wait for the 487 on our original 
 					   INVITE, but do set an autodestruct just in case we never get it. */
-					ast_clear_flag(&locflags, SIP_NEEDDESTROY);
-					sip_scheddestroy(p, 32000);
 				}
 				if ( p->initid != -1 ) {
 					/* channel still up - reverse dec of inUse counter
@@ -2499,7 +2507,8 @@ static int sip_hangup(struct ast_channel *ast)
 			}
 		}
 	}
-	ast_copy_flags(p, (&locflags), SIP_NEEDDESTROY);	
+	if (needdestroy)
+		ast_set_flag(p, SIP_NEEDDESTROY);
 	ast_mutex_unlock(&p->lock);
 	return 0;
 }
@@ -2824,10 +2833,8 @@ static struct ast_channel *sip_new(struct sip_pvt *i, int state, char *title)
 	ast_copy_string(tmp->context, i->context, sizeof(tmp->context));
 	ast_copy_string(tmp->exten, i->exten, sizeof(tmp->exten));
 
-	if (!ast_strlen_zero(i->cid_num)) {
+	if (!ast_strlen_zero(i->cid_num))
 		tmp->cid.cid_num = strdup(i->cid_num);
-		tmp->cid.cid_ani = strdup(i->cid_num);
-	}
 	if (!ast_strlen_zero(i->cid_name))
 		tmp->cid.cid_name = strdup(i->cid_name);
 	if (!ast_strlen_zero(i->rdnis))
@@ -9565,16 +9572,14 @@ static void check_pendings(struct sip_pvt *p)
 {
 	if (ast_test_flag(p, SIP_PENDINGBYE)) {
 		/* if we can't BYE, then this is really a pending CANCEL */
-		if (!ast_test_flag(p, SIP_CAN_BYE)) {
+		if (!ast_test_flag(p, SIP_CAN_BYE))
 			transmit_request_with_auth(p, SIP_CANCEL, p->ocseq, 1, 0);
 			/* Actually don't destroy us yet, wait for the 487 on our original 
 			   INVITE, but do set an autodestruct just in case we never get it. */
-			sip_scheddestroy(p, 32000);
-		} else {
+		else 
 			transmit_request_with_auth(p, SIP_BYE, 0, 1, 1);
-			ast_set_flag(p, SIP_NEEDDESTROY);	
-			ast_clear_flag(p, SIP_NEEDREINVITE);	
-		}
+		ast_clear_flag(p, SIP_PENDINGBYE);	
+		sip_scheddestroy(p, 32000);
 	} else if (ast_test_flag(p, SIP_NEEDREINVITE)) {
 		ast_log(LOG_DEBUG, "Sending pending reinvite on '%s'\n", p->callid);
 		/* Didn't get to reinvite yet, so do it now */
@@ -9989,6 +9994,9 @@ static void handle_response(struct sip_pvt *p, int resp, char *rest, struct sip_
 				handle_response_invite(p, resp, rest, req, ignore, seqno);
 			} else if (sipmethod == SIP_REGISTER) {
 				res = handle_response_register(p, resp, rest, req, ignore, seqno);
+			} else if (sipmethod == SIP_BYE) {
+				/* Ok, we're ready to go */
+				ast_set_flag(p, SIP_NEEDDESTROY);	
 			} 
 			break;
 		case 401: /* Not www-authorized on SIP method */
@@ -10075,6 +10083,8 @@ static void handle_response(struct sip_pvt *p, int resp, char *rest, struct sip_
 					break;
 				case 487:
 					/* channel now destroyed - dec the inUse counter */
+					if (owner)
+						ast_queue_hangup(p->owner);
 					update_call_counter(p, DEC_CALL_LIMIT);
 					break;
 				case 482: /* SIP is incapable of performing a hairpin call, which
@@ -10138,8 +10148,11 @@ static void handle_response(struct sip_pvt *p, int resp, char *rest, struct sip_
 				handle_response_invite(p, resp, rest, req, ignore, seqno);
 			} else if (sipmethod == SIP_CANCEL) {
 				ast_log(LOG_DEBUG, "Got 200 OK on CANCEL\n");
-			} else if (sipmethod == SIP_MESSAGE)
+			} else if (sipmethod == SIP_MESSAGE) 
 				/* We successfully transmitted a message */
+				ast_set_flag(p, SIP_NEEDDESTROY);	
+			else if (sipmethod == SIP_BYE) 
+				/* Ok, we're ready to go */
 				ast_set_flag(p, SIP_NEEDDESTROY);	
 			break;
 		case 401:	/* www-auth */
@@ -10813,10 +10826,15 @@ static int handle_request_bye(struct sip_pvt *p, struct sip_request *req, int de
 			if (p->owner)
 				ast_queue_hangup(p->owner);
 		}
-	} else if (p->owner)
+	} else if (p->owner) {
 		ast_queue_hangup(p->owner);
-	else
+		if (option_debug > 2)
+			ast_log(LOG_DEBUG, "Received bye, issuing owner hangup\n.");
+	} else {
 		ast_set_flag(p, SIP_NEEDDESTROY);	
+		if (option_debug > 2)
+			ast_log(LOG_DEBUG, "Received bye, no owner, selfdestruct soon.\n.");
+	}
 	transmit_response(p, "200 OK", req);
 
 	return 1;
@@ -12367,7 +12385,7 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, int
 				peer->expire = -1;
 				ast_clear_flag(&peer->flags_page2, SIP_PAGE2_DYNAMIC);	
 				if (!obproxyfound || !strcasecmp(v->name, "outboundproxy")) {
-					if (ast_get_ip_or_srv(&peer->addr, v->value, "_sip._udp")) {
+					if (ast_get_ip_or_srv(&peer->addr, v->value, srvlookup ? "_sip._udp" : NULL)) {
 						ASTOBJ_UNREF(peer, sip_destroy_peer);
 						return NULL;
 					}
@@ -12655,7 +12673,7 @@ static int reload_config(void)
 		} else if (!strcasecmp(v->name, "fromdomain")) {
 			ast_copy_string(default_fromdomain, v->value, sizeof(default_fromdomain));
 		} else if (!strcasecmp(v->name, "outboundproxy")) {
-			if (ast_get_ip_or_srv(&outboundproxyip, v->value, "_sip._udp") < 0)
+			if (ast_get_ip_or_srv(&outboundproxyip, v->value, srvlookup ? "_sip._udp" : NULL) < 0)
 				ast_log(LOG_WARNING, "Unable to locate host '%s'\n", v->value);
 		} else if (!strcasecmp(v->name, "outboundproxyport")) {
 			/* Port needs to be after IP */
@@ -12930,21 +12948,29 @@ static struct ast_rtp *sip_get_vrtp_peer(struct ast_channel *chan)
 static int sip_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, struct ast_rtp *vrtp, int codecs, int nat_active)
 {
 	struct sip_pvt *p;
+	int changed = 0;
 
 	p = chan->tech_pvt;
 	if (!p) 
 		return -1;
 	ast_mutex_lock(&p->lock);
-	if (rtp)
-		ast_rtp_get_peer(rtp, &p->redirip);
-	else
+	if (rtp) {
+		changed |= ast_rtp_get_peer(rtp, &p->redirip);
+	} else if (p->redirip.sin_addr.s_addr || ntohs(p->redirip.sin_port) != 0) {
 		memset(&p->redirip, 0, sizeof(p->redirip));
-	if (vrtp)
-		ast_rtp_get_peer(vrtp, &p->vredirip);
-	else
+		changed = 1;
+	}
+	if (vrtp) {
+		changed |= ast_rtp_get_peer(vrtp, &p->vredirip);
+	} else if (p->vredirip.sin_addr.s_addr || ntohs(p->vredirip.sin_port) != 0) {
 		memset(&p->vredirip, 0, sizeof(p->vredirip));
-	p->redircodecs = codecs;
-	if (codecs && !ast_test_flag(p, SIP_GOTREFER)) {
+		changed = 1;
+	}
+	if (codecs && (p->redircodecs != codecs)) {
+		p->redircodecs = codecs;
+		changed = 1;
+	}
+	if (changed && !ast_test_flag(p, SIP_GOTREFER)) {
 		if (!p->pendinginvite) {
 			if (option_debug > 2) {
 				char iabuf[INET_ADDRSTRLEN];

@@ -1952,9 +1952,9 @@ static int misdn_hangup(struct ast_channel *ast)
 	struct chan_list *p;
 	struct misdn_bchannel *bc=NULL;
 	
-	if (!ast || ! (p=MISDN_ASTERISK_TECH_PVT(ast) ) ) return -1;
-	
 	ast_log(LOG_DEBUG, "misdn_hangup(%s)\n", ast->name);
+
+	if (!ast || ! (p=MISDN_ASTERISK_TECH_PVT(ast) ) ) return -1;
 	
 	if (!p) {
 		chan_misdn_log(3, 0, "misdn_hangup called, without chan_list obj.\n");
@@ -1976,11 +1976,15 @@ static int misdn_hangup(struct ast_channel *ast)
 	
 	if (ast->_state == AST_STATE_RESERVED) {
 		/* between request and call */
+		ast_log(LOG_DEBUG, "State Reserved => chanIsAvail\n");
 		MISDN_ASTERISK_TECH_PVT(ast)=NULL;
 		
 		cl_dequeue_chan(&cl_te, p);
-		free(p);
 		
+		close(p->pipe[0]);
+		close(p->pipe[1]);
+		
+		free(p);
 		if (bc)
 			misdn_lib_release(bc);
 		
@@ -2706,10 +2710,8 @@ static struct ast_channel *misdn_new(struct chan_list *chlist, int state,  char 
       
 			ast_callerid_parse(callerid, &cid_name, &cid_num);
 
-			if (!ast_strlen_zero(cid_num)) {
+			if (!ast_strlen_zero(cid_num))
 				tmp->cid.cid_num = strdup(cid_num);
-				tmp->cid.cid_ani = strdup(cid_num);
-			}
 			if (!ast_strlen_zero(cid_name))
 				tmp->cid.cid_name = strdup(cid_name);
 		}

@@ -45,7 +45,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40227 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42600 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/frame.h"
@@ -1017,22 +1017,59 @@ int ast_channel_spy_add(struct ast_channel *chan, struct ast_channel_spy *spy)
 	return 0;
 }
 
+/* Clean up a channel's spy information */
+static void spy_cleanup(struct ast_channel *chan)
+{
+	if (AST_LIST_EMPTY(&chan->spies->list))
+		return;
+	if (chan->spies->read_translator.path)
+		ast_translator_free_path(chan->spies->read_translator.path);
+	if (chan->spies->write_translator.path)
+		ast_translator_free_path(chan->spies->write_translator.path);
+	free(chan->spies);
+	chan->spies = NULL;
+	return;
+}
+
+/* Detach a spy from it's channel */
+static void spy_detach(struct ast_channel_spy *spy, struct ast_channel *chan)
+{
+	ast_mutex_lock(&spy->lock);
+
+	/* We only need to poke them if they aren't already done */
+	if (spy->status != CHANSPY_DONE) {
+		spy->status = CHANSPY_STOP;
+		spy->chan = NULL;
+		if (ast_test_flag(spy, CHANSPY_TRIGGER_MODE) != CHANSPY_TRIGGER_NONE)
+			ast_cond_signal(&spy->trigger);
+	}
+	
+	/* Print it out while we still have a lock so the structure can't go away (if signalled above) */
+	ast_log(LOG_DEBUG, "Spy %s removed from channel %s\n", spy->type, chan->name);
+
+	ast_mutex_unlock(&spy->lock);
+
+	return;
+}
+
 void ast_channel_spy_stop_by_type(struct ast_channel *chan, const char *type)
 {
-	struct ast_channel_spy *spy;
+	struct ast_channel_spy *spy = NULL;
 	
 	if (!chan->spies)
 		return;
 
-	AST_LIST_TRAVERSE(&chan->spies->list, spy, list) {
+	AST_LIST_TRAVERSE_SAFE_BEGIN(&chan->spies->list, spy, list) {
 		ast_mutex_lock(&spy->lock);
 		if ((spy->type == type) && (spy->status == CHANSPY_RUNNING)) {
-			spy->status = CHANSPY_STOP;
-			if (ast_test_flag(spy, CHANSPY_TRIGGER_MODE) != CHANSPY_TRIGGER_NONE)
-				ast_cond_signal(&spy->trigger);
-		}
-		ast_mutex_unlock(&spy->lock);
+			ast_mutex_unlock(&spy->lock);
+			AST_LIST_REMOVE_CURRENT(&chan->spies->list, list);
+			spy_detach(spy, chan);
+		} else
+			ast_mutex_unlock(&spy->lock);
 	}
+	AST_LIST_TRAVERSE_SAFE_END
+	spy_cleanup(chan);
 }
 
 void ast_channel_spy_trigger_wait(struct ast_channel_spy *spy)
@@ -1049,65 +1086,59 @@ void ast_channel_spy_trigger_wait(struct ast_channel_spy *spy)
 
 void ast_channel_spy_remove(struct ast_channel *chan, struct ast_channel_spy *spy)
 {
-	struct ast_frame *f;
-
 	if (!chan->spies)
 		return;
 
 	AST_LIST_REMOVE(&chan->spies->list, spy, list);
 
-	ast_mutex_lock(&spy->lock);
+	spy_detach(spy, chan);
+	spy_cleanup(chan);
+}
 
-	spy->chan = NULL;
+void ast_channel_spy_free(struct ast_channel_spy *spy)
+{
+	struct ast_frame *f = NULL;
 
-	for (f = spy->read_queue.head; f; f = spy->read_queue.head) {
-		spy->read_queue.head = f->next;
-		ast_frfree(f);
-	}
+	if (spy->status == CHANSPY_DONE)
+		return;
+
+	/* Switch status to done in case we get called twice */
+	spy->status = CHANSPY_DONE;
+
+	/* Drop any frames in the queue */
 	for (f = spy->write_queue.head; f; f = spy->write_queue.head) {
 		spy->write_queue.head = f->next;
 		ast_frfree(f);
 	}
+	for (f = spy->read_queue.head; f; f= spy->read_queue.head) {
+		spy->read_queue.head = f->next;
+		ast_frfree(f);
+	}
 
+	/* Destroy the condition if in use */
 	if (ast_test_flag(spy, CHANSPY_TRIGGER_MODE) != CHANSPY_TRIGGER_NONE)
 		ast_cond_destroy(&spy->trigger);
 
-	ast_mutex_unlock(&spy->lock);
+	/* Destroy our mutex since it is no longer in use */
+	ast_mutex_destroy(&spy->lock);
 
-	ast_log(LOG_DEBUG, "Spy %s removed from channel %s\n",
-		spy->type, chan->name);
-
-	if (AST_LIST_EMPTY(&chan->spies->list)) {
-		if (chan->spies->read_translator.path)
-			ast_translator_free_path(chan->spies->read_translator.path);
-		if (chan->spies->write_translator.path)
-			ast_translator_free_path(chan->spies->write_translator.path);
-		free(chan->spies);
-		chan->spies = NULL;
-	}
+	return;
 }
 
 static void detach_spies(struct ast_channel *chan) 
 {
-	struct ast_channel_spy *spy;
+	struct ast_channel_spy *spy = NULL;
 
 	if (!chan->spies)
 		return;
 
-	/* Marking the spies as done is sufficient.  Chanspy or spy users will get the picture. */
-	AST_LIST_TRAVERSE(&chan->spies->list, spy, list) {
-		ast_mutex_lock(&spy->lock);
-		spy->chan = NULL;
-		if (spy->status == CHANSPY_RUNNING)
-			spy->status = CHANSPY_DONE;
-		if (ast_test_flag(spy, CHANSPY_TRIGGER_MODE) != CHANSPY_TRIGGER_NONE)
-			ast_cond_signal(&spy->trigger);
-		ast_mutex_unlock(&spy->lock);
+	AST_LIST_TRAVERSE_SAFE_BEGIN(&chan->spies->list, spy, list) {
+		AST_LIST_REMOVE_CURRENT(&chan->spies->list, list);
+		spy_detach(spy, chan);
 	}
+	AST_LIST_TRAVERSE_SAFE_END
 
-	AST_LIST_TRAVERSE_SAFE_BEGIN(&chan->spies->list, spy, list)
-		ast_channel_spy_remove(chan, spy);
-	AST_LIST_TRAVERSE_SAFE_END;
+	spy_cleanup(chan);
 }
 
 /*--- ast_softhangup_nolock: Softly hangup a channel, don't lock */
@@ -1780,7 +1811,9 @@ int ast_waitfordigit_full(struct ast_channel *c, int ms, int audiofd, int cmdfd)
 					break;
 				default:
 					ast_log(LOG_WARNING, "Unexpected control subclass '%d'\n", f->subclass);
+					break;
 				}
+				break;
 			case AST_FRAME_VOICE:
 				/* Write audio if appropriate */
 				if (audiofd > -1)
@@ -2352,7 +2385,7 @@ static int set_format(struct ast_channel *chan, int fmt, int *rawformat, int *fo
 	/* Now we have a good choice for both. */
 	ast_mutex_lock(&chan->lock);
 
-	if ((*rawformat == native) && (*format == fmt)) {
+	if ((*rawformat == native) && (*format == fmt) && ((*rawformat == *format) || (*trans))) {
 		/* the channel is already in these formats, so nothing to do */
 		ast_mutex_unlock(&chan->lock);
 		return 0;
@@ -2891,7 +2924,7 @@ static void clone_variables(struct ast_channel *original, struct ast_channel *cl
 
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&original->varshead, varptr, entries) {
 		if (!strncmp(ast_var_name(varptr), GROUP_CATEGORY_PREFIX, strlen(GROUP_CATEGORY_PREFIX))) {
-			AST_LIST_REMOVE(&original->varshead, varptr, entries);
+			AST_LIST_REMOVE_CURRENT(&original->varshead, entries);
 			ast_var_delete(varptr);
 		}
 	}
@@ -2900,7 +2933,7 @@ static void clone_variables(struct ast_channel *original, struct ast_channel *cl
 	/* Append variables from clone channel into original channel */
 	/* XXX Is this always correct?  We have to in order to keep MACROS working XXX */
 	if (AST_LIST_FIRST(&clone->varshead))
-		AST_LIST_INSERT_TAIL(&original->varshead, AST_LIST_FIRST(&clone->varshead), entries);
+		AST_LIST_APPEND_LIST(&original->varshead, &clone->varshead, entries);
 }
 
 /*--- ast_do_masquerade: Masquerade a channel */
@@ -2915,6 +2948,8 @@ int ast_do_masquerade(struct ast_channel *original)
 	void *t_pvt;
 	struct ast_callerid tmpcid;
 	struct ast_channel *clone = original->masq;
+	struct ast_channel_spy_list *spy_list;
+	struct ast_channel_spy *spy = NULL;
 	int rformat = original->readformat;
 	int wformat = original->writeformat;
 	char newn[100];
@@ -2991,6 +3026,27 @@ int ast_do_masquerade(struct ast_channel *original)
 	x = original->rawwriteformat;
 	original->rawwriteformat = clone->rawwriteformat;
 	clone->rawwriteformat = x;
+
+	/* Swap the spies */
+	spy_list = original->spies;
+	original->spies = clone->spies;
+	clone->spies = spy_list;
+
+	/* Update channel on respective spy lists if present */
+	if (original->spies) {
+		AST_LIST_TRAVERSE(&original->spies->list, spy, list) {
+			ast_mutex_lock(&spy->lock);
+			spy->chan = original;
+			ast_mutex_unlock(&spy->lock);
+		}
+	}
+	if (clone->spies) {
+		AST_LIST_TRAVERSE(&clone->spies->list, spy, list) {
+			ast_mutex_lock(&spy->lock);
+			spy->chan = clone;
+			ast_mutex_unlock(&spy->lock);
+		}
+	}
 
 	/* Save any pending frames on both sides.  Start by counting
 	 * how many we're going to need... */
