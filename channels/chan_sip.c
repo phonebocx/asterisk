@@ -190,7 +190,6 @@ static int restart_monitor(void);
 static int global_capability = AST_FORMAT_ULAW | AST_FORMAT_ALAW | AST_FORMAT_GSM | AST_FORMAT_H263;
 static int noncodeccapability = AST_RTP_DTMF;
 
-static char ourhost[256];
 static struct in_addr __ourip;
 static int ourport;
 
@@ -301,7 +300,8 @@ static struct sip_pvt {
 	char useragent[256];			/* User agent in SIP request */
 	char context[AST_MAX_EXTENSION];	/* Context for this call */
 	char fromdomain[AST_MAX_EXTENSION];	/* Domain to show in the from field */
-	char fromuser[AST_MAX_EXTENSION];	/* Domain to show in the user field */
+	char fromuser[AST_MAX_EXTENSION];	/* User to show in the user field */
+	char fromname[AST_MAX_EXTENSION];	/* Name to show in the user field */
 	char tohost[AST_MAX_EXTENSION];		/* Host we should put in the "to" field */
 	char language[MAX_LANGUAGE];		/* Default language for this call */
 	char musicclass[MAX_LANGUAGE];          /* Music on Hold class */
@@ -1072,7 +1072,7 @@ static struct sip_user *mysql_user(char *user)
 							if (sscanf(rowval[x], "%li", &regseconds) != 1)
 								regseconds = 0;
 						} else if (!strcasecmp(fields[x].name, "restrictcid")) {
-							u->restrictcid = 1;
+							u->restrictcid = *(rowval[x])-'0';
 						} else if (!strcasecmp(fields[x].name, "callerid")) {
 							strncpy(u->callerid, rowval[x], sizeof(u->callerid) - 1);
 							u->hascallerid=1;
@@ -3669,7 +3669,7 @@ static void initreqprep(struct sip_request *req, struct sip_pvt *p, char *cmd, c
 		ast_callerid_parse(cid, &n, &l);
 		if (l) 
 			ast_shrink_phone_number(l);
-		if (!l || !ast_isphonenumber(l))
+		if (!l || (!ast_isphonenumber(l) && default_callerid[0]))
 				l = default_callerid;
 	}
 	/* if user want's his callerid restricted */
@@ -3682,6 +3682,14 @@ static void initreqprep(struct sip_request *req, struct sip_pvt *p, char *cmd, c
 	/* Allow user to be overridden */
 	if (!ast_strlen_zero(p->fromuser))
 		l = p->fromuser;
+	else /* Save for any further attempts */
+		strncpy(p->fromuser, l, sizeof(p->fromuser) - 1);
+
+	/* Allow user to be overridden */
+	if (!ast_strlen_zero(p->fromname))
+		n = p->fromname;
+	else /* Save for any further attempts */
+		strncpy(p->fromname, n, sizeof(p->fromname) - 1);
 
 	if ((ourport != 5060) && ast_strlen_zero(p->fromdomain))
 		snprintf(from, sizeof(from), "\"%s\" <sip:%s@%s:%d>;tag=as%08x", n, l, ast_strlen_zero(p->fromdomain) ? ast_inet_ntoa(iabuf, sizeof(iabuf), p->ourip) : p->fromdomain, ourport, p->tag);
@@ -4081,7 +4089,15 @@ static int transmit_register(struct sip_registry *r, char *cmd, char *auth, char
 		}
 		/* Find address to hostname */
 		if (create_addr(p,r->hostname)) {
-			sip_destroy(p);
+                        /* we have what we hope is a temporary network error,
+                         * probably DNS.  We need to reschedule a registration try */
+                        sip_destroy(p);
+			if (r->timeout > -1) {
+				ast_log(LOG_WARNING, "Still have a registration timeout (create_addr() error), %d\n", r->timeout);
+				ast_sched_del(sched, r->timeout);
+			}
+			r->timeout = ast_sched_add(sched, 20*1000, sip_reg_timeout, r);
+
 			return 0;
 		}
 
@@ -6082,6 +6098,8 @@ static void receive_info(struct sip_pvt *p, struct sip_request *req)
 				event = 10;
 			else if (buf[0] == '#')
 				event = 11;
+			else if ((buf[0] >= 'A') && (buf[0] <= 'D'))
+				event = 12 + buf[0] - 'A';
 			else
 				event = atoi(buf);
                         if (event < 10) {
@@ -6469,7 +6487,7 @@ static char no_history_usage[] =
 static char history_usage[] = 
 "Usage: sip history\n"
 "       Enables recording of SIP dialog history for debugging purposes.\n"
-"Use 'sip show hitory' to view the history of a call number.\n";
+"Use 'sip show history' to view the history of a call number.\n";
 
 static char sip_reload_usage[] =
 "Usage: sip reload\n"
@@ -7239,7 +7257,6 @@ static int handle_request(struct sip_pvt *p, struct sip_request *req, struct soc
 			/* We do NOT destroy p here, so that our response will be accepted */
 			return 0;
 		}
-		/* Process the SDP portion */
 		if (!ignore) {
 			/* Use this as the basis */
 			if (debug)
@@ -7251,16 +7268,6 @@ static int handle_request(struct sip_pvt *p, struct sip_request *req, struct soc
 			p->pendinginvite = seqno;
 			copy_request(&p->initreq, req);
 			check_via(p, req);
-			if (!ast_strlen_zero(get_header(req, "Content-Type"))) {
-				if (process_sdp(p, req))
-					return -1;
-			} else {
-				p->jointcapability = p->capability;
-				ast_log(LOG_DEBUG, "Hm....  No sdp for the moment\n");
-			}
-			/* Queue NULL frame to prod ast_rtp_bridge if appropriate */
-			if (p->owner)
-				ast_queue_frame(p->owner, &af);
 		} else if (debug)
 			ast_verbose("Ignoring this request\n");
 		if (!p->lastinvite && !ignore && !p->owner) {
@@ -7277,6 +7284,17 @@ static int handle_request(struct sip_pvt *p, struct sip_request *req, struct soc
 				}
 				return 0;
 			}
+			/* Process the SDP portion */
+			if (!ast_strlen_zero(get_header(req, "Content-Type"))) {
+				if (process_sdp(p, req))
+					return -1;
+			} else {
+				p->jointcapability = p->capability;
+				ast_log(LOG_DEBUG, "Hm....  No sdp for the moment\n");
+			}
+			/* Queue NULL frame to prod ast_rtp_bridge if appropriate */
+			if (p->owner)
+				ast_queue_frame(p->owner, &af);
 			/* Initialize the context if it hasn't been already */
 			if (ast_strlen_zero(p->context))
 				strncpy(p->context, default_context, sizeof(p->context) - 1);
@@ -7626,7 +7644,16 @@ static int handle_request(struct sip_pvt *p, struct sip_request *req, struct soc
 				if (p->expiry>max_expiry) {
 					p->expiry = max_expiry;
 				}
-			}	
+			}
+                        /* Go ahead and free RTP port */
+                        if (p->rtp) {
+                                ast_rtp_destroy(p->rtp);
+                                p->rtp = NULL;
+                        }
+                        if (p->vrtp) {
+                                ast_rtp_destroy(p->vrtp);
+                                p->vrtp = NULL;
+                        }	
 			transmit_response(p, "200 OK", req);
 			sip_scheddestroy(p, (p->expiry+10)*1000);
 			transmit_state_notify(p, ast_extension_state(NULL, p->context, p->exten),1);
@@ -7653,6 +7680,15 @@ static int handle_request(struct sip_pvt *p, struct sip_request *req, struct soc
 		if ((res = register_verify(p, sin, req, e, ignore)) < 0) 
 			ast_log(LOG_NOTICE, "Registration from '%s' failed for '%s'\n", get_header(req, "To"), ast_inet_ntoa(iabuf, sizeof(iabuf), sin->sin_addr));
 		if (res < 1) {
+			/* Go ahead and free RTP port */
+			if (p->rtp) {
+				ast_rtp_destroy(p->rtp);
+				p->rtp = NULL;
+			}
+			if (p->vrtp) {
+				ast_rtp_destroy(p->vrtp);
+				p->vrtp = NULL;
+			}
 			/* Destroy the session, but keep us around for just a bit in case they don't
 			   get our 200 OK */
 		    sip_scheddestroy(p, 15*1000);
@@ -8379,14 +8415,23 @@ static struct sip_peer *build_peer(char *name, struct ast_variable *v)
 		peer->lastmsgssent = -1;
 		if (!found) {
 			strncpy(peer->name, name, sizeof(peer->name)-1);
-			strncpy(peer->context, default_context, sizeof(peer->context)-1);
-			strncpy(peer->language, default_language, sizeof(peer->language)-1);
-			strncpy(peer->musicclass, global_musicclass, sizeof(peer->musicclass)-1);
-			peer->addr.sin_port = htons(DEFAULT_SIP_PORT);
+						peer->addr.sin_port = htons(DEFAULT_SIP_PORT);
 			peer->addr.sin_family = AF_INET;
 			peer->defaddr.sin_family = AF_INET;
 			peer->expiry = expiry;
 		}
+		strncpy(peer->context, default_context, sizeof(peer->context)-1);
+		strncpy(peer->language, default_language, sizeof(peer->language)-1);
+		strncpy(peer->musicclass, global_musicclass, sizeof(peer->musicclass)-1);
+		peer->secret[0] = '\0';
+		peer->md5secret[0] = '\0';
+		peer->fromdomain[0] = '\0';
+		peer->fromuser[0] = '\0';
+		peer->regexten[0] = '\0';
+		peer->mailbox[0] = '\0';
+		peer->callgroup = 0;
+		peer->pickupgroup = 0;
+		peer->maxms = 0;
 		peer->prefs = prefs;
 		oldha = peer->ha;
 		peer->ha = NULL;
@@ -8575,10 +8620,6 @@ static int reload_config(void)
 	global_dtmfmode = SIP_DTMF_RFC2833;
 	global_promiscredir = 0;
 	
-	if (gethostname(ourhost, sizeof(ourhost))) {
-		ast_log(LOG_WARNING, "Unable to get hostname, SIP disabled\n");
-		return 0;
-	}
 	cfg = ast_load(config);
 
 	/* We *must* have a config file otherwise stop immediately */
@@ -8799,19 +8840,11 @@ static int reload_config(void)
 		cat = ast_category_browse(cfg, cat);
 	}
 	
-	if (ntohl(bindaddr.sin_addr.s_addr)) {
-		memcpy(&__ourip, &bindaddr.sin_addr, sizeof(__ourip));
-	} else {
-		hp = ast_gethostbyname(ourhost, &ahp);
-		if (!hp) {
-			ast_log(LOG_WARNING, "Unable to get IP address for %s, SIP disabled\n", ourhost);
-			if (!__ourip.s_addr) {
-				ast_destroy(cfg);
-				return 0;
-			}
-		} else
-			memcpy(&__ourip, hp->h_addr, sizeof(__ourip));
-	}
+	if (ast_find_ourip(&__ourip, bindaddr)) {
+		ast_log(LOG_WARNING, "Unable to get own IP address, SIP disabled\n");
+		return 0;
+ 	}
+
 	if (!ntohs(bindaddr.sin_port))
 		bindaddr.sin_port = ntohs(DEFAULT_SIP_PORT);
 	bindaddr.sin_family = AF_INET;
