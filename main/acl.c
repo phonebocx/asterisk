@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232352 $")
 
 #include "asterisk/network.h"
 
@@ -225,7 +225,7 @@ void ast_free_ha(struct ast_ha *ha)
 }
 
 /* Copy HA structure */
-static void ast_copy_ha(struct ast_ha *from, struct ast_ha *to)
+void ast_copy_ha(const struct ast_ha *from, struct ast_ha *to)
 {
 	memcpy(&to->netaddr, &from->netaddr, sizeof(from->netaddr));
 	memcpy(&to->netmask, &from->netmask, sizeof(from->netmask));
@@ -482,7 +482,7 @@ int ast_ouraddrfor(struct in_addr *them, struct in_addr *us)
 		return -1;
 	}
 	sin.sin_family = AF_INET;
-	sin.sin_port = 5060;
+	sin.sin_port = htons(5060);
 	sin.sin_addr = *them;
 	if (connect(s, (struct sockaddr *)&sin, sizeof(sin))) {
 		ast_log(LOG_WARNING, "Cannot connect\n");

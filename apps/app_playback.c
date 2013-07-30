@@ -27,7 +27,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 161218 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 220292 $")
 
 #include "asterisk/file.h"
 #include "asterisk/pbx.h"
@@ -449,9 +449,10 @@ static int playback_exec(struct ast_channel *chan, void *data)
 		if (option_skip) {
 			/* At the user's option, skip if the line is not up */
 			goto done;
-		} else if (!option_noanswer)
+		} else if (!option_noanswer) {
 			/* Otherwise answer unless we're supposed to send this while on-hook */
 			res = ast_answer(chan);
+		}
 	}
 	if (!res) {
 		char *back = args.filenames;

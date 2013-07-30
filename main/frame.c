@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222883 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/lock.h"
@@ -336,8 +336,6 @@ static void __frame_free(struct ast_frame *fr, int cache)
 		ast_translate_frame_freed(fr);
 	} else if (ast_test_flag(fr, AST_FRFLAG_FROM_DSP)) {
 		ast_dsp_frame_freed(fr);
-	} else if (ast_test_flag(fr, AST_FRFLAG_FROM_FILESTREAM)) {
-		ast_filestream_frame_freed(fr);
 	}
 
 	if (!fr->mallocd)
@@ -426,7 +424,6 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr)
 	} else {
 		ast_clear_flag(fr, AST_FRFLAG_FROM_TRANSLATOR);
 		ast_clear_flag(fr, AST_FRFLAG_FROM_DSP);
-		ast_clear_flag(fr, AST_FRFLAG_FROM_FILESTREAM);
 		out = fr;
 	}
 	
@@ -840,7 +837,7 @@ void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix)
 			strcpy(subclass, "Unhold");
 			break;
 		case AST_CONTROL_T38_PARAMETERS:
-			if (f->datalen != sizeof(struct ast_control_t38_parameters *)) {
+			if (f->datalen != sizeof(struct ast_control_t38_parameters)) {
 				message = "Invalid";
 			} else {
 				struct ast_control_t38_parameters *parameters = f->data.ptr;

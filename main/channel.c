@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 214707 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 233130 $")
 
 #include "asterisk/_private.h"
 
@@ -826,7 +826,7 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 
 	if (needqueue) {
 		if (pipe(tmp->alertpipe)) {
-			ast_log(LOG_WARNING, "Channel allocation failed: Can't create alert pipe!\n");
+			ast_log(LOG_WARNING, "Channel allocation failed: Can't create alert pipe! Try increasing max file descriptors with ulimit -n\n");
 alertpipe_failed:
 			if (tmp->timer) {
 				ast_timer_close(tmp->timer);
@@ -931,6 +931,8 @@ alertpipe_failed:
 
 	tmp->tech = &null_tech;
 
+	ast_set_flag(tmp, AST_FLAG_IN_CHANNEL_LIST);
+
 	AST_RWLIST_WRLOCK(&channels);
 	AST_RWLIST_INSERT_HEAD(&channels, tmp, chan_list);
 	AST_RWLIST_UNLOCK(&channels);
@@ -1011,6 +1013,7 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 	for (cur = fin; cur; cur = AST_LIST_NEXT(cur, frame_list)) {
 		if (!(f = ast_frdup(cur))) {
 			ast_frfree(AST_LIST_FIRST(&frames));
+			ast_channel_unlock(chan);
 			return -1;
 		}
 
@@ -1374,17 +1377,21 @@ void ast_channel_free(struct ast_channel *chan)
 	struct varshead *headp;
 	struct ast_datastore *datastore = NULL;
 	char name[AST_CHANNEL_NAME], *dashptr;
+	int inlist;
 	
 	headp=&chan->varshead;
 	
-	AST_RWLIST_WRLOCK(&channels);
-	if (!AST_RWLIST_REMOVE(&channels, chan, chan_list)) {
-		ast_log(LOG_ERROR, "Unable to find channel in list to free. Assuming it has already been done.\n");
+	inlist = ast_test_flag(chan, AST_FLAG_IN_CHANNEL_LIST);
+	if (inlist) {
+		AST_RWLIST_WRLOCK(&channels);
+		if (!AST_RWLIST_REMOVE(&channels, chan, chan_list)) {
+			ast_debug(1, "Unable to find channel in list to free. Assuming it has already been done.\n");
+		}
+		/* Lock and unlock the channel just to be sure nobody has it locked still
+		   due to a reference retrieved from the channel list. */
+		ast_channel_lock(chan);
+		ast_channel_unlock(chan);
 	}
-	/* Lock and unlock the channel just to be sure nobody has it locked still
-	   due to a reference retrieved from the channel list. */
-	ast_channel_lock(chan);
-	ast_channel_unlock(chan);
 
 	/* Get rid of each of the data stores on the channel */
 	while ((datastore = AST_LIST_REMOVE_HEAD(&chan->datastores, entry)))
@@ -1467,7 +1474,8 @@ void ast_channel_free(struct ast_channel *chan)
 
 	ast_string_field_free_memory(chan);
 	ast_free(chan);
-	AST_RWLIST_UNLOCK(&channels);
+	if (inlist)
+		AST_RWLIST_UNLOCK(&channels);
 
 	/* Queue an unknown state, because, while we know that this particular
 	 * instance is dead, we don't know the state of all other possible
@@ -1690,6 +1698,16 @@ int ast_hangup(struct ast_channel *chan)
 		ast_channel_unlock(chan);
 		return 0;
 	}
+	ast_channel_unlock(chan);
+
+	AST_RWLIST_WRLOCK(&channels);
+	if (!AST_RWLIST_REMOVE(&channels, chan, chan_list)) {
+		ast_log(LOG_ERROR, "Unable to find channel in list to free. Assuming it has already been done.\n");
+	}
+	ast_clear_flag(chan, AST_FLAG_IN_CHANNEL_LIST);
+	AST_RWLIST_UNLOCK(&channels);
+
+	ast_channel_lock(chan);
 	free_translation(chan);
 	/* Close audio stream */
 	if (chan->stream) {
@@ -2490,9 +2508,9 @@ static void send_dtmf_event(const struct ast_channel *chan, const char *directio
 
 static void ast_read_generator_actions(struct ast_channel *chan, struct ast_frame *f)
 {
-	if (chan->generatordata &&  !ast_internal_timing_enabled(chan)) {
+	if (chan->generator && chan->generator->generate && chan->generatordata &&  !ast_internal_timing_enabled(chan)) {
 		void *tmp = chan->generatordata;
-		int (*generate)(struct ast_channel *chan, void *tmp, int datalen, int samples) = NULL;
+		int (*generate)(struct ast_channel *chan, void *tmp, int datalen, int samples) = chan->generator->generate;
 		int res;
 		int samples;
 
@@ -2511,9 +2529,6 @@ static void ast_read_generator_actions(struct ast_channel *chan, struct ast_fram
 			samples = f->samples;
 		}
 		
-		if (chan->generator->generate) {
-			generate = chan->generator->generate;
-		}
 		/* This unlock is here based on two assumptions that hold true at this point in the
 		 * code. 1) this function is only called from within __ast_read() and 2) all generators
 		 * call ast_write() in their generate callback.
@@ -3024,6 +3039,17 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 		ast_frame_dump(chan->name, f, "<<");
 	chan->fin = FRAMECOUNT_INC(chan->fin);
 
+	if (f && f->frametype == AST_FRAME_CONTROL && f->subclass == AST_CONTROL_HOLD && f->datalen == 0 && f->data.ptr) {
+		/* fix invalid pointer */
+		f->data.ptr = NULL;
+#ifdef AST_DEVMODE
+		ast_log(LOG_ERROR, "Found HOLD frame with src '%s' on channel '%s' with datalen zero, but non-null data pointer!\n", f->src, chan->name);
+		ast_frame_dump(chan->name, f, "<<");
+#else
+		ast_debug(3, "Found HOLD frame with src '%s' on channel '%s' with datalen zero, but non-null data pointer!\n", f->src, chan->name);
+#endif
+	}
+
 done:
 	if (chan->music_state && chan->generator && chan->generator->digit && f && f->frametype == AST_FRAME_DTMF_END)
 		chan->generator->digit(chan, f->subclass);
@@ -3478,6 +3504,11 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 
 		if (chan->audiohooks) {
 			struct ast_frame *prev = NULL, *new_frame, *cur, *dup;
+			int freeoldlist = 0;
+
+			if (f != fr) {
+				freeoldlist = 1;
+			}
 
 			/* Since ast_audiohook_write may return a new frame, and the cur frame is
 			 * an item in a list of frames, create a new list adding each cur frame back to it
@@ -3488,13 +3519,16 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 				/* if this frame is different than cur, preserve the end of the list,
 				 * free the old frames, and set cur to be the new frame */
 				if (new_frame != cur) {
+
 					/* doing an ast_frisolate here seems silly, but we are not guaranteed the new_frame
 					 * isn't part of local storage, meaning if ast_audiohook_write is called multiple
 					 * times it may override the previous frame we got from it unless we dup it */
 					if ((dup = ast_frisolate(new_frame))) {
 						AST_LIST_NEXT(dup, frame_list) = AST_LIST_NEXT(cur, frame_list);
-						ast_frfree(new_frame);
-						ast_frfree(cur);
+						if (freeoldlist) {
+							AST_LIST_NEXT(cur, frame_list) = NULL;
+							ast_frfree(cur);
+						}
 						cur = dup;
 					}
 				}
@@ -3825,7 +3859,11 @@ struct ast_channel *__ast_request_and_dial(const char *type, int format, void *d
 		while (timeout && chan->_state != AST_STATE_UP) {
 			struct ast_frame *f;
 			res = ast_waitfor(chan, timeout);
-			if (res <= 0) /* error, timeout, or done */
+			if (res == 0) { /* timeout, treat it like ringing */
+				*outstate = AST_CONTROL_RINGING;
+				break;
+			}
+			if (res < 0) /* error or done */
 				break;
 			if (timeout > -1)
 				timeout = res;

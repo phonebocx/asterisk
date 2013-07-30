@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153616 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231191 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
@@ -42,9 +42,15 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153616 $")
 #include "asterisk/paths.h"
 #include "asterisk/hashtab.h"
 
+#ifdef LUA51_PREFIX
 #include <lua5.1/lua.h>
 #include <lua5.1/lauxlib.h>
 #include <lua5.1/lualib.h>
+#else
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+#endif
 
 static char *config = "extensions.lua";
 static char *registrar = "pbx_lua";
@@ -1467,7 +1473,7 @@ static int load_module(void)
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Lua PBX Switch",
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "Lua PBX Switch",
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,

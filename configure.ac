@@ -17,19 +17,25 @@ AC_CANONICAL_HOST
 # check existence of the package
 AC_CONFIG_SRCDIR([main/asterisk.c])
 
-# specify output header file
-AC_CONFIG_HEADER(include/asterisk/autoconfig.h)
-
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 214700 $)
-
-AC_USE_SYSTEM_EXTENSIONS	# note- does not work on FreeBSD
+AC_REVISION($Revision: 226055 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
+# NOTE: This must be done before calling any macros that end up
+# calling AC_PROG_CC or the like, since they will set a default
+# set of CFLAGS ("-g -O2") if the user did not supply any, and
+# we don't want those default flags to be carried over into the
+# rest of the build system since we have other means of controlling
+# debugging symbol generation and optimization.
 CONFIG_CFLAGS="${CFLAGS}"
 CONFIG_LDFLAGS="${LDFLAGS}"
 AC_SUBST(CONFIG_CFLAGS)
 AC_SUBST(CONFIG_LDFLAGS)
+
+# specify output header file
+AC_CONFIG_HEADER(include/asterisk/autoconfig.h)
+
+AC_USE_SYSTEM_EXTENSIONS	# note- does not work on FreeBSD
 
 case "${host_os}" in
      freebsd*)
@@ -114,6 +120,9 @@ case "${host_os}" in
      cygwin)
      OSARCH=cygwin
      PBX_WINARCH=1
+     ;;
+     linux-gnueabi)
+     OSARCH=linux-gnu
      ;;
      *)
      OSARCH=${host_os}
@@ -650,7 +659,7 @@ AST_EXT_LIB_CHECK([ALSA], [asound], [snd_spcm_init], [alsa/asoundlib.h], [-lm -l
 
 AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
 
-if test "x${host_os}" = "xlinux-gnu" ; then
+if test "x${OSARCH}" = "xlinux-gnu" ; then
   AST_EXT_LIB_CHECK([CAP], [cap], [cap_from_text], [sys/capability.h])
 fi
 
@@ -1448,6 +1457,10 @@ if test "${PBX_PWLIB}" = "1" -a "${USE_OPENH323}" != "no" ; then
 fi
 
 AST_EXT_LIB_CHECK([LUA], [lua5.1], [luaL_newstate], [lua5.1/lua.h], [-lm]) 
+if test "x${PBX_LUA}" = "x1" ; then
+	AC_DEFINE_UNQUOTED([LUA51_PREFIX], [1], [Define to 1 if lua is found with a lua5.1 prefix])
+fi
+	
 # Some distributions (like SuSE) remove the 5.1 suffix.
 AST_EXT_LIB_CHECK([LUA], [lua], [luaL_register], [lua.h], [-lm]) 
 
@@ -1596,6 +1609,20 @@ else
   AC_MSG_ERROR(*** termcap support not found)
 fi
 AC_SUBST(EDITLINE_LIB)
+
+if test "x${PBX_UNIXODBC}" = "x1" -o "x${PBX_IODBC}" = "x1"; then
+	# Does ODBC support wide characters?
+	AC_MSG_CHECKING(whether ODBC has support for Unicode types)
+	AC_LINK_IFELSE(
+		AC_LANG_PROGRAM(
+			[#include <sql.h>
+#include <sqlext.h>],
+			[int foo = SQL_WCHAR]),
+		AC_MSG_RESULT(yes)
+			AC_DEFINE([HAVE_ODBC_WCHAR], [1], [Define to 1 if your ODBC library has wide (Unicode) types.]),
+		AC_MSG_RESULT(no)
+	)
+fi
 
 AC_CHECK_HEADER([h323.h], [PBX_H323=1], [PBX_H323=0])
 AC_SUBST(PBX_H323)

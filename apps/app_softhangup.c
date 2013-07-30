@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 229492 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -74,7 +74,7 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 	struct ast_channel *c = NULL;
 	char *cut, *opts[0];
 	char name[AST_CHANNEL_NAME] = "", *parse;
-	struct ast_flags flags;
+	struct ast_flags flags = {0};
 	int lenmatch;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(channel);
@@ -99,11 +99,13 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 		ast_copy_string(name, c->name, sizeof(name));
 		if (ast_test_flag(&flags, OPTION_ALL)) {
 			/* CAPI is set up like CAPI[foo/bar]/clcnt */ 
-			if (!strcmp(c->tech->type, "CAPI")) 
+			if (!strcmp(c->tech->type, "CAPI")) {
 				cut = strrchr(name, '/');
 			/* Basically everything else is Foo/Bar-Z */
-			else
-				cut = strchr(name, '-');
+			} else {
+				/* use strrchr() because Foo/Bar-Z could actually be Foo/B-a-r-Z */
+				cut = strrchr(name,'-');
+			}
 			/* Get rid of what we've cut */
 			if (cut)
 				*cut = 0;

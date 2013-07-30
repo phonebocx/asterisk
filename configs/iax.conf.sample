@@ -148,29 +148,10 @@ forcejitterbuffer=no
 ;resyncthreshold=1000
 ;jittertargetextra=40
 
-;trunkfreq=20			; How frequently to send trunk msgs (in ms)
-
-; Should we send timestamps for the individual sub-frames within trunk frames?
-; There is a small bandwidth use for these (less than 1kbps/call), but they
-; ensure that frame timestamps get sent end-to-end properly.  If both ends of
-; all your trunks go directly to TDM, _and_ your trunkfreq equals the frame
-; length for your codecs, you can probably suppress these.  The receiver must
-; also support this feature, although they do not also need to have it enabled.
-;
-; trunktimestamps=yes
-;
 ; Minimum and maximum amounts of time that IAX peers can request as
 ; a registration expiration interval (in seconds).
 ; minregexpire = 60
 ; maxregexpire = 60
-;
-; With a large amount of traffic on IAX2 trunks, there is a risk of bad voice quality due to
-; the fact that the IAX2 trunking scheme depends on the Linux system to handle fragmentation of
-; UDP packets. This may not be very efficient. 
-; This setting sets the maximum transmission unit for IAX2 UDP trunking.
-; default is 1240 bytes. Zero disables this functionality and let's the O/S handle fragmentation.
-;
-; trunkmtu = 1240
 ;
 ; Enable IAX2 encryption.  The default is no.
 ;
@@ -181,10 +162,46 @@ forcejitterbuffer=no
 ;
 ; forceencryption = yes
 
-; This option defines the maximum size an IAX2 trunk can grow to. The default value is 128000 bytes which
-; represents 40ms uncompressed linear with 200 channels. Depending on different things though
-; (codec in use and channels) you may need to make this value larger.
-; trunkmaxsize = 128000
+; This option defines the maximum payload in bytes an IAX2 trunk can support at a given time.
+; The best way to explain this is to provide an example.  If the maximum number of calls
+; to be supported is 800, and each call transmits 20ms frames of audio using ulaw
+; ((8000hz / 1000ms) * 20ms * 1 byte per sample = 160 bytes per frame), the maximum load
+; in bytes is (160 bytes per frame) * (800 calls) = 128000 bytes total. Once this limit is
+; reached, calls may be dropped or begin to lose audio.  Depending on the codec in use and
+; number of channels to be supported this value may need to be raised, but in most cases the
+; default value is large enough.
+;
+; trunkmaxsize = 128000 ; defaults to 128000 bytes, which supports up to 800 calls of ulaw
+;                       ; at 20ms a frame.
+
+; With a large amount of traffic on IAX2 trunks, there is a risk of bad voice quality when
+; allowing the Linux system to handle fragmentation of UDP packets. Depending on the size of
+; each payload, allowing the O/S to handle fragmentation may not be very efficient. This
+; setting sets the maximum transmission unit for IAX2 UDP trunking. The default is 1240 bytes
+; which means if a trunk's payload is over 1240 bytes for every 20ms it will be broken into
+; multiple 1240 byte messages.  Zero disables this functionality and let's the O/S handle
+; fragmentation.
+;
+; trunkmtu = 1240 ; trunk data will be sent in 1240 byte messages.
+
+; trunkfreq sets how frequently trunk messages are sent in milliseconds. This value is 20ms by
+; default, which means the trunk will send all the date queued to it in the past 20ms.  By
+; increasing the time between sending trunk messages, the trunk's payload size will increase as
+; well.  Note, depending on the size set by trunkmtu, messages may be sent more often than
+; specified.  For example if a trunk's message size grows to the trunkmtu size before 20ms is
+; reached that message will be sent immediately.
+;
+; trunkfreq=20     ; How frequently to send trunk msgs (in ms). This is 20ms by default.
+
+; Should we send timestamps for the individual sub-frames within trunk frames?
+; There is a small bandwidth use for these (less than 1kbps/call), but they
+; ensure that frame timestamps get sent end-to-end properly.  If both ends of
+; all your trunks go directly to TDM, _and_ your trunkfreq equals the frame
+; length for your codecs, you can probably suppress these.  The receiver must
+; also support this feature, although they do not also need to have it enabled.
+;
+; trunktimestamps=yes
+;
 
 ; IAX helper threads
 
@@ -307,6 +324,72 @@ autokill=yes
 ;parkinglot=edvina		; Default parkinglot for IAX peers and users
 				; This can also be configured per device
 				; Parkinglots are defined in features.conf
+
+;
+; The following two options are used to disable call token validation for the
+; purposes of interoperability with IAX2 endpoints that do not yet support it.
+;
+; Call token validation can be set as optional for a single IP address or IP
+; address range by using the 'calltokenoptional' option. 'calltokenoptional' is
+; only a global option.  
+;
+;calltokenoptional=209.16.236.73/255.255.255.0
+;
+; By setting 'requirecalltoken=no', call token validation becomes optional for
+; that peer/user.  By setting 'requirecalltoken=auto', call token validation 
+; is optional until a call token supporting peer registers successfully using
+; call token validation.  This is used as an indication that from now on, we
+; can require it from this peer.  So, requirecalltoken is internally set to yes.
+; requirecalltoken may only be used in peer/user/friend definitions,
+; not in the global scope.
+; By default, 'requirecalltoken=yes'.
+;
+;requirecalltoken=no
+;
+
+;
+; These options are used to limit the amount of call numbers allocated to a
+; single IP address.  Before changing any of these values, it is highly encouraged
+; to read the user guide associated with these options first.  In most cases, the
+; default values for these options are sufficient.
+;
+; The 'maxcallnumbers' option limits the amount of call numbers allowed for each
+; individual remote IP address.  Once an IP address reaches it's call number
+; limit, no more new connections are allowed until the previous ones close.  This
+; option can be used in a peer definition as well, but only takes effect for
+; the IP of a dynamic peer after it completes registration.
+;
+;maxcallnumbers=512
+;
+; The 'maxcallnumbers_nonvalidated' is used to set the combined number of call
+; numbers that can be allocated for connections where call token  validation
+; has been disabled.  Unlike the 'maxcallnumbers' option, this limit is not
+; separate for each individual IP address.  Any connection resulting in a
+; non-call token validated call number being allocated contributes to this
+; limit.  For use cases, see the call token user guide.  This option's 
+; default value of 8192 should be sufficient in most cases.
+;
+;maxcallnumbers_nonvalidated=1024
+;
+; The [callnumberlimits] section allows custom call number limits to be set
+; for specific IP addresses and IP address ranges.  These limits take precedence
+; over the global 'maxcallnumbers' option, but may still be overridden by a
+; peer defined 'maxcallnumbers' entry.  Note that these limits take effect
+; for every individual address within the range, not the range as a whole. 
+;
+;[callnumberlimits]
+;10.1.1.0/255.255.255.0 = 24
+;10.1.2.0/255.255.255.0 = 32
+;
+
+; The shrinkcallerid function removes '(', ' ', ')', non-trailing '.', and '-' not
+; in square brackets.  For example, the caller id value 555.5555 becomes 5555555
+; when this option is enabled.  Disabling this option results in no modification
+; of the caller id value, which is necessary when the caller id represents something
+; that must be preserved.  This option can only be used in the [general] section.
+; By default this option is on.
+;
+;shrinkcallerid=yes     ; on by default
 
 ; Guest sections for unauthenticated connection attempts.  Just specify an
 ; empty secret, or provide no secret section.

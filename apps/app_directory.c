@@ -30,7 +30,7 @@
  ***/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 165318 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 219989 $")
 
 #include <ctype.h>
 
@@ -524,6 +524,11 @@ static int search_directory_sub(const char *context, struct ast_config *vmcfg, s
 		/* password,Full Name,email,pager,options */
 		strsep(&bufptr, ",");
 		pos = strsep(&bufptr, ",");
+
+		/* No name to compare against */
+		if (ast_strlen_zero(pos)) {
+			continue;
+		}
 
 		res = 0;
 		if (ast_test_flag(&flags, OPT_LISTBYLASTNAME)) {

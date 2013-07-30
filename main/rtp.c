@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 210191 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231505 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -175,6 +175,7 @@ struct ast_rtp {
 	struct sockaddr_in strict_rtp_address;  /*!< Remote address information for strict RTP purposes */
 
 	int set_marker_bit:1;           /*!< Whether to set the marker bit or not */
+	unsigned int constantssrc:1;
 	struct rtp_red *red;
 };
 
@@ -1146,7 +1147,6 @@ static struct ast_frame *process_rfc3389(struct ast_rtp *rtp, unsigned char *dat
 	}
 	rtp->f.frametype = AST_FRAME_CNG;
 	rtp->f.subclass = data[0] & 0x7f;
-	rtp->f.datalen = len - 1;
 	rtp->f.samples = 0;
 	rtp->f.delivery.tv_usec = rtp->f.delivery.tv_sec = 0;
 	f = &rtp->f;
@@ -1450,6 +1450,18 @@ struct ast_frame *ast_rtcp_read(struct ast_rtp *rtp)
 	return f;
 }
 
+static void sanitize_tv(struct timeval *tv)
+{
+	while (tv->tv_usec < 0) {
+		tv->tv_usec += 1000000;
+		tv->tv_sec -= 1;
+	}
+	while (tv->tv_usec >= 1000000) {
+		tv->tv_usec -= 1000000;
+		tv->tv_sec += 1;
+	}
+}
+
 static void calc_rxstamp(struct timeval *when, struct ast_rtp *rtp, unsigned int timestamp, int mark)
 {
 	struct timeval now;
@@ -1470,21 +1482,14 @@ static void calc_rxstamp(struct timeval *when, struct ast_rtp *rtp, unsigned int
 		rtp->rxcore.tv_usec -= (timestamp % rate) * 125;
 		/* Round to 0.1ms for nice, pretty timestamps */
 		rtp->rxcore.tv_usec -= rtp->rxcore.tv_usec % 100;
-		if (rtp->rxcore.tv_usec < 0) {
-			/* Adjust appropriately if necessary */
-			rtp->rxcore.tv_usec += 1000000;
-			rtp->rxcore.tv_sec -= 1;
-		}
+		sanitize_tv(&rtp->rxcore);
 	}
 
 	gettimeofday(&now,NULL);
 	/* rxcore is the mapping between the RTP timestamp and _our_ real time from gettimeofday() */
 	when->tv_sec = rtp->rxcore.tv_sec + timestamp / rate;
 	when->tv_usec = rtp->rxcore.tv_usec + (timestamp % rate) * 125;
-	if (when->tv_usec >= 1000000) {
-		when->tv_usec -= 1000000;
-		when->tv_sec += 1;
-	}
+	sanitize_tv(when);
 	prog = (double)((timestamp-rtp->seedrxts)/(float)(rate));
 	dtv = (double)rtp->drxcore + (double)(prog);
 	current_time = (double)now.tv_sec + (double)now.tv_usec/1000000;
@@ -2240,7 +2245,7 @@ int ast_rtp_make_compatible(struct ast_channel *dest, struct ast_channel *src, i
  */
 void ast_rtp_set_m_type(struct ast_rtp* rtp, int pt) 
 {
-	if (pt < 0 || pt > MAX_RTP_PT || static_RTP_PT[pt].code == 0) 
+	if (pt < 0 || pt >= MAX_RTP_PT || static_RTP_PT[pt].code == 0) 
 		return; /* bogus payload type */
 
 	rtp_bridge_lock(rtp);
@@ -2252,7 +2257,7 @@ void ast_rtp_set_m_type(struct ast_rtp* rtp, int pt)
 	an unknown media type */
 void ast_rtp_unset_m_type(struct ast_rtp* rtp, int pt) 
 {
-	if (pt < 0 || pt > MAX_RTP_PT)
+	if (pt < 0 || pt >= MAX_RTP_PT)
 		return; /* bogus payload type */
 
 	rtp_bridge_lock(rtp);
@@ -2273,7 +2278,7 @@ int ast_rtp_set_rtpmap_type_rate(struct ast_rtp *rtp, int pt,
 	unsigned int i;
 	int found = 0;
 
-	if (pt < 0 || pt > MAX_RTP_PT)
+	if (pt < 0 || pt >= MAX_RTP_PT)
 		return -1; /* bogus payload type */
 
 	rtp_bridge_lock(rtp);
@@ -2348,7 +2353,7 @@ struct rtpPayloadType ast_rtp_lookup_pt(struct ast_rtp* rtp, int pt)
 
 	result.isAstFormat = result.code = 0;
 
-	if (pt < 0 || pt > MAX_RTP_PT) 
+	if (pt < 0 || pt >= MAX_RTP_PT) 
 		return result; /* bogus payload type */
 
 	/* Start with negotiated codecs */
@@ -2645,12 +2650,19 @@ int ast_rtp_setqos(struct ast_rtp *rtp, int type_of_service, int class_of_servic
 	return ast_netsock_set_qos(rtp->s, type_of_service, class_of_service, desc);
 }
 
+void ast_rtp_set_constantssrc(struct ast_rtp *rtp)
+{
+	rtp->constantssrc = 1;
+}
+
 void ast_rtp_new_source(struct ast_rtp *rtp)
 {
 	if (rtp) {
 		rtp->set_marker_bit = 1;
+		if (!rtp->constantssrc) {
+			rtp->ssrc = ast_random();
+		}
 	}
-	return;
 }
 
 void ast_rtp_set_peer(struct ast_rtp *rtp, struct sockaddr_in *them)
@@ -2768,7 +2780,7 @@ unsigned int ast_rtp_get_qosvalue(struct ast_rtp *rtp, enum ast_rtp_qos_vars val
 	case AST_RTP_RXCOUNT:
 		return (unsigned int) rtp->rxcount;
 	case AST_RTP_TXJITTER:
-		return (unsigned int) (rtp->rxjitter * 100.0);
+		return (unsigned int) (rtp->rxjitter * 1000.0);
 	case AST_RTP_RXJITTER:
 		return (unsigned int) (rtp->rtcp ? (rtp->rtcp->reported_jitter / (unsigned int) 65536.0) : 0);
 	case AST_RTP_RXPLOSS:
@@ -3778,7 +3790,7 @@ struct ast_codec_pref *ast_rtp_codec_getpref(struct ast_rtp *rtp)
 
 int ast_rtp_codec_getformat(int pt)
 {
-	if (pt < 0 || pt > MAX_RTP_PT)
+	if (pt < 0 || pt >= MAX_RTP_PT)
 		return 0; /* bogus payload type */
 
 	if (static_RTP_PT[pt].isAstFormat)

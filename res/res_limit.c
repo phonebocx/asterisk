@@ -21,9 +21,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
-
-#define _XOPEN_SOURCE 600
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 217036 $")
 
 #include <ctype.h>
 #include <sys/time.h>

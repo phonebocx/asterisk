@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 218219 $")
 
 #include <ctype.h>
 #include <sys/socket.h>
@@ -807,7 +807,6 @@ static int phone_write(struct ast_channel *ast, struct ast_frame *frame)
 		   we have to pad it to 24 bytes still.  */
 		if (frame->datalen == 4) {
 			if (p->silencesupression) {
-				(void) memset(tmpbuf + 4, 0, sizeof(tmpbuf) - 4);
 				memcpy(tmpbuf, frame->data.ptr, 4);
 				expected = 24;
 				res = phone_write_buf(p, tmpbuf, expected, maxfr, 0);

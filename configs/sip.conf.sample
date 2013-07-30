@@ -147,6 +147,9 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
                                 ; Disabling DNS SRV lookups disables the 
                                 ; ability to place SIP calls based on domain 
                                 ; names to some other SIP users on the Internet
+                                ; Specifying a port in a SIP peer definition or
+                                ; when dialing outbound calls will supress SRV
+                                ; lookups for that peer or call.
 
 ;pedantic=yes                   ; Enable checking of tags in headers, 
                                 ; international character conversions in URIs
@@ -209,6 +212,13 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;relaxdtmf=yes                  ; Relax dtmf handling
 ;trustrpid = no                 ; If Remote-Party-ID should be trusted
 ;sendrpid = yes                 ; If Remote-Party-ID should be sent
+;prematuremedia=no		; Some ISDN links send empty media frames before 
+				; the call is in ringing or progress state. The SIP 
+				; channel will then send 183 indicating early media
+				; which will be empty - thus users get no ring signal.
+				; Setting this to "no" will stop any media before we have
+				; call progress. Default is "yes".
+
 ;progressinband=never           ; If we should generate in-band ringing always
                                 ; use 'never' to never use in-band signalling, even in cases
                                 ; where some buggy devices might not render it
@@ -286,6 +296,15 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;contactdeny=0.0.0.0/0.0.0.0           ; Use contactpermit and contactdeny to
 ;contactpermit=172.16.0.0/255.255.0.0  ; restrict at what IPs your users may
                                        ; register their phones.
+
+; The shrinkcallerid function removes '(', ' ', ')', non-trailing '.', and '-' not
+; in square brackets.  For example, the caller id value 555.5555 becomes 5555555
+; when this option is enabled.  Disabling this option results in no modification
+; of the caller id value, which is necessary when the caller id represents something
+; that must be preserved.  This option can only be used in the [general] section.
+; By default this option is on.
+;
+;shrinkcallerid=yes     ; on by default
 
 ;
 ; If regcontext is specified, Asterisk will dynamically create and destroy a
@@ -423,24 +442,33 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ;callcounter = yes              ; Enable call counters on devices. This can be set per
                                 ; device too.
 
-;----------------------------------------- T.38 FAX PASSTHROUGH SUPPORT -----------------------
+;----------------------------------------- T.38 FAX SUPPORT ----------------------------------
 ;
 ; This setting is available in the [general] section as well as in device configurations.
-; Setting this to yes, enables T.38 fax (UDPTL) passthrough on SIP to SIP calls, provided
-; both parties have T38 support enabled in their Asterisk configuration 
-; This has to be enabled in the general section for all devices to work. You can then
-; disable it on a per device basis. 
-;
-; T.38 faxing only works in SIP to SIP calls. It defaults to off.
+; Setting this to yes enables T.38 FAX (UDPTL) on SIP calls; it defaults to off.
 ;
 ; t38pt_udptl = yes            ; Enables T.38 with FEC error correction.
 ; t38pt_udptl = yes,fec        ; Enables T.38 with FEC error correction.
 ; t38pt_udptl = yes,redundancy ; Enables T.38 with redundancy error correction.
 ; t38pt_udptl = yes,none       ; Enables T.38 with no error correction.
-  
 ;
-; Fax Detect will cause the SIP channel to jump to the 'fax' extension (if it exists)
-; after T.38 is successfully negotiated.
+; In some cases, T.38 endpoints will provide a T38FaxMaxDatagram value (during T.38 setup) that
+; is based on an incorrect interpretation of the T.38 recommendation, and results in failures
+; because Asterisk does not believe it can send T.38 packets of a reasonable size to that
+; endpoint (Cisco media gateways are one example of this situation). In these cases, during a
+; T.38 call you will see warning messages on the console/in the logs from the Asterisk UDPTL
+; stack complaining about lack of buffer space to send T.38 FAX packets. If this occurs, you
+; can set an override (globally, or on a per-device basis) to make Asterisk ignore the
+; T38FaxMaxDatagram value specified by the other endpoint, and use a configured value instead.
+; This can be done by appending 'maxdatagram=<value>' to the t38pt_udptl configuration option,
+; like this:
+;
+; t38pt_udptl = yes,fec,maxdatagram=400 ; Enables T.38 with FEC error correction and overrides
+;                                       ; the other endpoint's provided value to assume we can
+;                                       ; send 400 byte T.38 FAX packets to it.
+;
+; FAX detection will cause the SIP channel to jump to the 'fax' extension (if it exists)
+; when a CNG tone is detected on an incoming call.
 ; 
 ; faxdetect = yes              ; Default false	
 ;
@@ -636,6 +664,13 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
                                 ; callers INVITE. This will also fail if directmedia is enabled when
                                 ; the device is actually behind NAT.
 
+                                ; Additionally this option does not disable all reINVITE operations.
+                                ; It only controls Asterisk generating reINVITEs for the specific
+                                ; purpose of setting up a direct media path. If a reINVITE is
+                                ; needed to switch a media stream to inactive (when placed on
+                                ; hold) or to T.38, it will still be done, regardless of this 
+                                ; setting.
+
 ;directmedia=nonat              ; An additional option is to allow media path redirection
                                 ; (reinvite) but only when the peer where the media is being
                                 ; sent is known to not be behind a NAT (as the RTP core can
@@ -654,6 +689,8 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
                                 ; for devices that send us non standard SDP packets
                                 ; (observed with Microsoft OCS). By default this option is
                                 ; off.
+
+;constantssrc=yes               ; Don't change the RTP SSRC when our media stream changes
 
 ;----------------------------------------- REALTIME SUPPORT ------------------------
 ; For additional information on ARA, the Asterisk Realtime Architecture,
@@ -860,6 +897,7 @@ srvlookup=yes                   ; Enable DNS SRV lookups on outbound calls
 ; timerb
 ; qualifyfreq
 ; t38pt_usertpsource
+; constantssrc
 ; contactpermit         ; Limit what a host may register as (a neat trick
 ; contactdeny           ; is to register at the same IP as a SIP provider,
 ;                       ; then call oneself, and get redirected to that

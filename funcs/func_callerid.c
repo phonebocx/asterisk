@@ -17,13 +17,13 @@
 /*! \file
  *
  * \brief Caller ID related dialplan functions
- * 
+ *
  * \ingroup functions
  */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 160856 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 220632 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -43,6 +43,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 160856 $")
 				<enumlist>
 					<enum name="all" />
 					<enum name="num" />
+					<enum name="name" />
 					<enum name="ANI" />
 					<enum name="DNID" />
 					<enum name="RDNIS" />

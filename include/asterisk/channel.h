@@ -563,6 +563,8 @@ enum {
 	 *  bridge terminates, this will allow the hangup in the pbx loop to be run instead.
 	 *  */
 	AST_FLAG_BRIDGE_HANGUP_DONT = (1 << 18),
+	/*! This flag indicates whether the channel is in the channel list or not. */
+	AST_FLAG_IN_CHANNEL_LIST = (1 << 19),
 };
 
 /*! \brief ast_bridge_config flags */
@@ -943,7 +945,7 @@ int ast_hangup(struct ast_channel *chan);
  * \brief Softly hangup up a channel
  *
  * \param chan channel to be soft-hung-up
- * \param cause	Ast hangupcause for hangup
+ * \param reason an AST_SOFTHANGUP_* reason code
  *
  * Call the protocol layer, but don't destroy the channel structure
  * (use this if you are trying to
@@ -953,12 +955,13 @@ int ast_hangup(struct ast_channel *chan);
  *
  * \return Returns 0 regardless
  */
-int ast_softhangup(struct ast_channel *chan, int cause);
+int ast_softhangup(struct ast_channel *chan, int reason);
 
 /*! \brief Softly hangup up a channel (no channel lock)
  * \param chan channel to be soft-hung-up
- * \param cause	Ast hangupcause for hangup (see cause.h) */
-int ast_softhangup_nolock(struct ast_channel *chan, int cause);
+ * \param reason an AST_SOFTHANGUP_* reason code
+ */
+int ast_softhangup_nolock(struct ast_channel *chan, int reason);
 
 /*! \brief Check to see if a channel is needing hang up
  * \param chan channel on which to check for hang up

@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 220292 $")
 
 #include <math.h>
 #include <sys/time.h>
@@ -187,8 +187,7 @@ static int disa_exec(struct ast_channel *chan, void *data)
 			/* answer */
 			ast_answer(chan);
 		}
-	} else
-		special_noanswer = 1;
+	} else special_noanswer = 1;
 
 	ast_debug(1, "Context: %s\n",args.context);
 

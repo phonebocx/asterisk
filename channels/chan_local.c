@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 190297 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 230042 $")
 
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -119,6 +119,7 @@ struct local_pvt {
 #define LOCAL_LAUNCHED_PBX    (1 << 3) /*!< PBX was launched */
 #define LOCAL_NO_OPTIMIZATION (1 << 4) /*!< Do not optimize using masquerading */
 #define LOCAL_BRIDGE          (1 << 5) /*!< Report back the "true" channel as being bridged to */
+#define LOCAL_MOH_PASSTHRU    (1 << 6) /*!< Pass through music on hold start/stop frames */
 
 static AST_LIST_HEAD_STATIC(locals, local_pvt);
 
@@ -175,6 +176,12 @@ static struct ast_channel *local_bridgedchannel(struct ast_channel *chan, struct
 {
 	struct local_pvt *p = bridge->tech_pvt;
 	struct ast_channel *bridged = bridge;
+
+	if (!p) {
+		ast_debug(1, "Asked for bridged channel on '%s'/'%s', returning <none>\n",
+			chan->name, bridge->name);
+		return NULL;
+	}
 
 	ast_mutex_lock(&p->lock);
 
@@ -237,6 +244,9 @@ static int local_queue_frame(struct local_pvt *p, int isoutbound, struct ast_fra
 		return and destroy p.  */
 		ast_mutex_unlock(&p->lock);
 		p = local_pvt_destroy(p);
+		if (other) {
+			ast_channel_unlock(other);
+		}
 		return -1;
 	}
 
@@ -403,9 +413,9 @@ static int local_indicate(struct ast_channel *ast, int condition, const void *da
 		return -1;
 
 	/* If this is an MOH hold or unhold, do it on the Local channel versus real channel */
-	if (condition == AST_CONTROL_HOLD) {
+	if (!ast_test_flag(p, LOCAL_MOH_PASSTHRU) && condition == AST_CONTROL_HOLD) {
 		ast_moh_start(ast, data, NULL);
-	} else if (condition == AST_CONTROL_UNHOLD) {
+	} else if (!ast_test_flag(p, LOCAL_MOH_PASSTHRU) && condition == AST_CONTROL_UNHOLD) {
 		ast_moh_stop(ast);
 	} else {
 		/* Queue up a frame representing the indication as a control frame */
@@ -609,11 +619,11 @@ static int local_hangup(struct ast_channel *ast)
 		ast_clear_flag(p, LOCAL_LAUNCHED_PBX);
 		ast_module_user_remove(p->u_chan);
 	} else {
-		p->owner = NULL;
 		ast_module_user_remove(p->u_owner);
 		while (p->chan && ast_channel_trylock(p->chan)) {
 			DEADLOCK_AVOIDANCE(&p->lock);
 		}
+		p->owner = NULL;
 		if (p->chan) {
 			ast_queue_hangup(p->chan);
 			ast_channel_unlock(p->chan);
@@ -682,6 +692,9 @@ static struct local_pvt *local_alloc(const char *data, int format)
 		}
 		if (strchr(opts, 'b')) {
 			ast_set_flag(tmp, LOCAL_BRIDGE);
+		}
+		if (strchr(opts, 'm')) {
+			ast_set_flag(tmp, LOCAL_MOH_PASSTHRU);
 		}
 	}
 

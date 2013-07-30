@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 213791 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232094 $")
 
 #ifdef __NetBSD__
 #include <pthread.h>
@@ -464,10 +464,8 @@ struct dahdi_mfcr2 {
 	struct dahdi_pvt *pvts[MAX_CHANNELS];     /*!< Member channel pvt structs */
 	int numchans;                          /*!< Number of channels in this R2 block */
 	int monitored_count;                   /*!< Number of channels being monitored */
-	ast_mutex_t monitored_count_lock;      /*!< lock access to the counter */
-	ast_cond_t do_monitor;                 /*!< Condition to wake up the monitor thread when there's work to do */
-
 };
+
 struct dahdi_mfcr2_conf {
 	openr2_variant_t variant;
 	int mfback_timeout;
@@ -1397,7 +1395,7 @@ static int dahdi_indicate(struct ast_channel *chan, int condition, const void *d
 static int dahdi_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
 static int dahdi_setoption(struct ast_channel *chan, int option, void *data, int datalen);
 static int dahdi_func_read(struct ast_channel *chan, const char *function, char *data, char *buf, size_t len);
-static int handle_init_event(struct dahdi_pvt *i, int event);
+static struct dahdi_pvt *handle_init_event(struct dahdi_pvt *i, int event);
 
 static const struct ast_channel_tech dahdi_tech = {
 	.type = "DAHDI",
@@ -1680,7 +1678,7 @@ static void dahdi_r2_on_call_init(openr2_chan_t *r2chan)
 	p->mfcr2_answer_pending = 0;
 	p->mfcr2_call_accepted = 0;
 	ast_mutex_unlock(&p->lock);
-	ast_log(LOG_NOTICE, "New MFC/R2 call detected on chan %d.\n", openr2_chan_get_number(r2chan));
+	ast_verbose("New MFC/R2 call detected on chan %d.\n", openr2_chan_get_number(r2chan));
 }
 
 static int get_alarms(struct dahdi_pvt *p);
@@ -1719,24 +1717,6 @@ static void dahdi_r2_on_protocol_error(openr2_chan_t *r2chan, openr2_protocol_er
 	ast_mutex_unlock(&p->lock);
 }
 
-static void dahdi_r2_update_monitor_count(struct dahdi_mfcr2 *mfcr2, int increment)
-{
-	ast_mutex_lock(&mfcr2->monitored_count_lock);
-	if (increment) {
-		mfcr2->monitored_count++;
-		if (mfcr2->monitored_count == 1) {
-			ast_log(LOG_DEBUG, "At least one device needs monitoring, let's wake up the monitor thread.\n");
-			ast_cond_signal(&mfcr2->do_monitor);
-		}
-	} else {
-		mfcr2->monitored_count--;
-		if (mfcr2->monitored_count < 0) {
-			ast_log(LOG_ERROR, "we have a bug here!.\n");
-		}
-	}
-	ast_mutex_unlock(&mfcr2->monitored_count_lock);
-}
-
 static void dahdi_r2_disconnect_call(struct dahdi_pvt *p, openr2_call_disconnect_cause_t cause)
 {
 	if (openr2_chan_disconnect_call(p->r2chan, cause)) {
@@ -1754,7 +1734,7 @@ static void dahdi_r2_on_call_offered(openr2_chan_t *r2chan, const char *ani, con
 {
 	struct dahdi_pvt *p;
 	struct ast_channel *c;
-	ast_log(LOG_NOTICE, "MFC/R2 call offered on chan %d. ANI = %s, DNIS = %s, Category = %s\n",
+	ast_verbose("MFC/R2 call offered on chan %d. ANI = %s, DNIS = %s, Category = %s\n",
 			openr2_chan_get_number(r2chan), ani ? ani : "(restricted)", dnis,
 			openr2_proto_get_category_string(category));
 	p = openr2_chan_get_client_data(r2chan);
@@ -1789,7 +1769,6 @@ static void dahdi_r2_on_call_offered(openr2_chan_t *r2chan, const char *ani, con
 		/* The user wants us to start the PBX thread right away without accepting the call first */
 		c = dahdi_new(p, AST_STATE_RING, 1, SUB_REAL, DAHDI_LAW_ALAW, 0);
 		if (c) {
-			dahdi_r2_update_monitor_count(p->mfcr2, 0);
 			/* Done here, don't disable reading now since we still need to generate MF tones to accept
 			   the call or reject it and detect the tone off condition of the other end, all of this
 			   will be done in the PBX thread now */
@@ -1809,7 +1788,7 @@ static void dahdi_r2_on_call_offered(openr2_chan_t *r2chan, const char *ani, con
 static void dahdi_r2_on_call_end(openr2_chan_t *r2chan)
 {
 	struct dahdi_pvt *p = openr2_chan_get_client_data(r2chan);
-	ast_log(LOG_NOTICE, "MFC/R2 call end on chan %d\n", p->channel);
+	ast_verbose("MFC/R2 call end on channel %d\n", p->channel);
 	ast_mutex_lock(&p->lock);
 	p->mfcr2call = 0;
 	ast_mutex_unlock(&p->lock);
@@ -1820,12 +1799,12 @@ static void dahdi_r2_on_call_accepted(openr2_chan_t *r2chan, openr2_call_mode_t 
 {
 	struct dahdi_pvt *p = NULL;
 	struct ast_channel *c = NULL;
-	ast_log(LOG_NOTICE, "MFC/R2 call has been accepted on chan %d\n", openr2_chan_get_number(r2chan));
 	p = openr2_chan_get_client_data(r2chan);
 	dahdi_enable_ec(p);
 	p->mfcr2_call_accepted = 1;
 	/* if it's an incoming call ... */
 	if (OR2_DIR_BACKWARD == openr2_chan_get_direction(r2chan)) {
+		ast_verbose("MFC/R2 call has been accepted on backward channel %d\n", openr2_chan_get_number(r2chan));
 		/* If accept on offer is not set, it means at this point the PBX thread is already
 		   launched (was launched in the 'on call offered' handler) and therefore this callback
 		   is being executed already in the PBX thread rather than the monitor thread, don't launch
@@ -1840,7 +1819,6 @@ static void dahdi_r2_on_call_accepted(openr2_chan_t *r2chan, openr2_call_mode_t 
 		}
 		c = dahdi_new(p, AST_STATE_RING, 1, SUB_REAL, DAHDI_LAW_ALAW, 0);
 		if (c) {
-			dahdi_r2_update_monitor_count(p->mfcr2, 0);
 			/* chan_dahdi will take care of reading from now on in the PBX thread, tell the
 			   library to forget about it */
 			openr2_chan_disable_read(r2chan);
@@ -1852,18 +1830,17 @@ static void dahdi_r2_on_call_accepted(openr2_chan_t *r2chan, openr2_call_mode_t 
 		return;
 	}
 	/* this is an outgoing call, no need to launch the PBX thread, most likely we're in one already */
-	ast_log(LOG_NOTICE, "Call accepted on forward channel %d\n", p->channel);
+	ast_verbose("MFC/R2 call has been accepted on forward channel %d\n", p->channel);
 	p->subs[SUB_REAL].needringing = 1;
 	p->dialing = 0;
-	/* chan_dahdi will take care of reading from now on in the PBX thread, tell the
-	   library to forget about it */
+	/* chan_dahdi will take care of reading from now on in the PBX thread, tell the library to forget about it */
 	openr2_chan_disable_read(r2chan);
 }
 
 static void dahdi_r2_on_call_answered(openr2_chan_t *r2chan)
 {
 	struct dahdi_pvt *p = openr2_chan_get_client_data(r2chan);
-	ast_log(LOG_DEBUG, "MFC/R2 call has been answered on chan %d\n", openr2_chan_get_number(r2chan));
+	ast_verbose("MFC/R2 call has been answered on channel %d\n", openr2_chan_get_number(r2chan));
 	p->subs[SUB_REAL].needanswer = 1;
 }
 
@@ -1896,7 +1873,7 @@ static int dahdi_r2_cause_to_ast_cause(openr2_call_disconnect_cause_t cause)
 static void dahdi_r2_on_call_disconnect(openr2_chan_t *r2chan, openr2_call_disconnect_cause_t cause)
 {
 	struct dahdi_pvt *p = openr2_chan_get_client_data(r2chan);
-	ast_verb(3, "MFC/R2 call disconnected on chan %d\n", openr2_chan_get_number(r2chan));
+	ast_verbose("MFC/R2 call disconnected on channel %d\n", openr2_chan_get_number(r2chan));
 	ast_mutex_lock(&p->lock);
 	if (!p->owner) {
 		ast_mutex_unlock(&p->lock);
@@ -1939,7 +1916,7 @@ static void dahdi_r2_write_log(openr2_log_level_t level, char *logmessage)
 {
 	switch (level) {
 	case OR2_LOG_NOTICE:
-		ast_log(LOG_NOTICE, "%s", logmessage);
+		ast_verbose("%s", logmessage);
 		break;
 	case OR2_LOG_WARNING:
 		ast_log(LOG_WARNING, "%s", logmessage);
@@ -2036,6 +2013,11 @@ static void dahdi_r2_on_ani_digit_received(openr2_chan_t *r2chan, char digit)
 	p->cid_name[p->mfcr2_ani_index] = 0;
 }
 
+static void dahdi_r2_on_billing_pulse_received(openr2_chan_t *r2chan)
+{
+	ast_verbose("MFC/R2 billing pulse received on channel %d\n", openr2_chan_get_number(r2chan));
+}
+
 static openr2_event_interface_t dahdi_r2_event_iface = {
 	.on_call_init = dahdi_r2_on_call_init,
 	.on_call_offered = dahdi_r2_on_call_offered,
@@ -2054,7 +2036,7 @@ static openr2_event_interface_t dahdi_r2_event_iface = {
 	.on_dnis_digit_received = dahdi_r2_on_dnis_digit_received,
 	.on_ani_digit_received = dahdi_r2_on_ani_digit_received,
 	/* so far we do nothing with billing pulses */
-	.on_billing_pulse_received = NULL
+	.on_billing_pulse_received = dahdi_r2_on_billing_pulse_received
 };
 
 static inline int16_t dahdi_r2_alaw_to_linear(uint8_t sample)
@@ -3152,7 +3134,11 @@ static int dahdi_call(struct ast_channel *ast, char *rdest, int timeout)
 		ast_log(LOG_WARNING, "Unable to flush input on channel %d: %s\n", p->channel, strerror(errno));
 	p->outgoing = 1;
 
-	set_actual_gain(p->subs[SUB_REAL].dfd, 0, p->rxgain, p->txgain, p->law);
+	if (IS_DIGITAL(ast->transfercapability)){
+		set_actual_gain(p->subs[SUB_REAL].dfd, 0, 0, 0, p->law);
+	} else {
+		set_actual_gain(p->subs[SUB_REAL].dfd, 0, p->rxgain, p->txgain, p->law);
+	}	
 
 	mysig = p->sig;
 	if (p->outsigmod > -1)
@@ -3831,7 +3817,8 @@ static int dahdi_call(struct ast_channel *ast, char *rdest, int timeout)
 				redirect_reason = 0;
 			else if (!strcasecmp(rr_str, "BUSY"))
 				redirect_reason = 1;
-			else if (!strcasecmp(rr_str, "NO_REPLY"))
+			else if (!strcasecmp(rr_str, "NO_REPLY") || !strcasecmp(rr_str, "NOANSWER"))
+			/* the NOANSWER is to match diversion-reason from chan_sip, (which never reads PRIREDIRECTREASON) */
 				redirect_reason = 2;
 			else if (!strcasecmp(rr_str, "UNCONDITIONAL"))
 				redirect_reason = 15;
@@ -3877,8 +3864,9 @@ static void destroy_dahdi_pvt(struct dahdi_pvt **pvt)
 		ast_smdi_interface_unref(p->smdi_iface);
 	if (p->mwi_event_sub)
 		ast_event_unsubscribe(p->mwi_event_sub);
-	if (p->vars)
+	if (p->vars) {
 		ast_variables_destroy(p->vars);
+	}
 	ast_mutex_destroy(&p->lock);
 	dahdi_close_sub(p, SUB_REAL);
 	if (p->owner)
@@ -4344,6 +4332,8 @@ static int dahdi_hangup(struct ast_channel *ast)
 	if ((p->sig == SIG_PRI) || (p->sig == SIG_SS7) || (p->sig == SIG_BRI) || (p->sig == SIG_BRI_PTMP)) {
 		x = 1;
 		ast_channel_setoption(ast,AST_OPTION_AUDIO_MODE,&x,sizeof(char),0);
+		p->cid_num[0] = '\0';
+		p->cid_name[0] = '\0';
 	}
 
 	x = 0;
@@ -4538,6 +4528,8 @@ static int dahdi_hangup(struct ast_channel *ast)
 		}
 #endif
 #ifdef HAVE_OPENR2
+		p->cid_num[0] = '\0';
+		p->cid_name[0] = '\0';
 		if (p->mfcr2 && p->mfcr2call && openr2_chan_get_direction(p->r2chan) != OR2_DIR_STOPPED) {
 			ast_log(LOG_DEBUG, "disconnecting MFC/R2 call on chan %d\n", p->channel);
 			/* If it's an incoming call, check the mfcr2_forced_release setting */
@@ -4550,7 +4542,6 @@ static int dahdi_hangup(struct ast_channel *ast)
 					                                              : dahdi_ast_cause_to_r2_cause(ast->hangupcause);
 				dahdi_r2_disconnect_call(p, r2cause);
 			}
-			dahdi_r2_update_monitor_count(p->mfcr2, 1);
 		} else if (p->mfcr2call) {
 			ast_log(LOG_DEBUG, "Clearing call request on channel %d\n", p->channel);
 			/* since ast_request() was called but not ast_call() we have not yet dialed
@@ -4558,7 +4549,6 @@ static int dahdi_hangup(struct ast_channel *ast)
 			the mfcr2call flag and bump the monitor count so the monitor thread can take
 			care of this channel events from now on */
 			p->mfcr2call = 0;
-			dahdi_r2_update_monitor_count(p->mfcr2, 1);
 		}
 #endif
 #ifdef HAVE_PRI
@@ -6744,7 +6734,10 @@ static struct ast_frame *dahdi_read(struct ast_channel *ast)
 		return NULL;
 	}
 
-	if ((p->radio || (p->oprmode < 0)) && p->inalarm) return NULL;
+	if ((p->radio || (p->oprmode < 0)) && p->inalarm) {
+		ast_mutex_unlock(&p->lock);
+		return NULL;
+	}
 
 	p->subs[idx].f.frametype = AST_FRAME_NULL;
 	p->subs[idx].f.datalen = 0;
@@ -7043,6 +7036,7 @@ static struct ast_frame *dahdi_read(struct ast_channel *ast)
 							if (res < 0) {
 								ast_log(LOG_WARNING, "Unable to initiate dialing on trunk channel %d\n", p->channel);
 								p->dop.dialstr[0] = '\0';
+								ast_mutex_unlock(&p->lock);
 								return NULL;
 							} else {
 								ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", p->dop.dialstr);
@@ -9246,11 +9240,9 @@ static int dahdi_destroy_channel_bynum(int channel)
 	return RESULT_FAILURE;
 }
 
-/* returns < 0 = error, 0 event handled, >0 event handled and thread spawned */
-static int handle_init_event(struct dahdi_pvt *i, int event)
+static struct dahdi_pvt *handle_init_event(struct dahdi_pvt *i, int event)
 {
 	int res;
-	int thread_spawned = 0;
 	pthread_t threadid;
 	struct ast_channel *chan;
 
@@ -9305,8 +9297,6 @@ static int handle_init_event(struct dahdi_pvt *i, int event)
 						if (res < 0)
 							ast_log(LOG_WARNING, "Unable to play congestion tone on channel %d\n", i->channel);
 						ast_hangup(chan);
-					} else {
-						thread_spawned = 1;
 					}
 				} else
 					ast_log(LOG_WARNING, "Unable to create channel\n");
@@ -9348,8 +9338,6 @@ static int handle_init_event(struct dahdi_pvt *i, int event)
 					ast_log(LOG_WARNING, "Unable to play congestion tone on channel %d\n", i->channel);
 				}
 				ast_hangup(chan);
-			} else {
-				thread_spawned = 1;
 			}
 			break;
 		default:
@@ -9357,7 +9345,7 @@ static int handle_init_event(struct dahdi_pvt *i, int event)
 			res = tone_zone_play_tone(i->subs[SUB_REAL].dfd, DAHDI_TONE_CONGESTION);
 			if (res < 0)
 				ast_log(LOG_WARNING, "Unable to play congestion tone on channel %d\n", i->channel);
-			return -1;
+			return NULL;
 		}
 		break;
 	case DAHDI_EVENT_NOALARM:
@@ -9422,7 +9410,7 @@ static int handle_init_event(struct dahdi_pvt *i, int event)
 		default:
 			ast_log(LOG_WARNING, "Don't know how to handle on hook with signalling %s on channel %d\n", sig2str(i->sig), i->channel);
 			res = tone_zone_play_tone(i->subs[SUB_REAL].dfd, -1);
-			return -1;
+			return NULL;
 		}
 		if (i->sig & __DAHDI_SIG_FXO) {
 			i->fxsoffhookstate = 0;
@@ -9449,8 +9437,6 @@ static int handle_init_event(struct dahdi_pvt *i, int event)
 					ast_log(LOG_WARNING, "Cannot allocate new structure on channel %d\n", i->channel);
 				} else if (ast_pthread_create_detached(&threadid, NULL, ss_thread, chan)) {
 					ast_log(LOG_WARNING, "Unable to start simple switch thread on channel %d\n", i->channel);
-				} else {
-					thread_spawned = 1;
 				}
 			}
 			break;
@@ -9460,12 +9446,11 @@ static int handle_init_event(struct dahdi_pvt *i, int event)
 				"interface %d\n", i->channel);
 		}
 		break;
-	case DAHDI_EVENT_REMOVED: /* destroy channel */
+	case DAHDI_EVENT_REMOVED: /* destroy channel, will actually do so in do_monitor */
 		ast_log(LOG_NOTICE,
 				"Got DAHDI_EVENT_REMOVED. Destroying channel %d\n",
 				i->channel);
-		dahdi_destroy_channel_bynum(i->channel);
-		break;
+		return i;
 	case DAHDI_EVENT_NEONMWI_ACTIVE:
 		if (i->mwimonitor_neon) {
 			notify_message(i->mailbox, 1);
@@ -9479,7 +9464,7 @@ static int handle_init_event(struct dahdi_pvt *i, int event)
 		}
 		break;
 	}
-	return thread_spawned;
+	return NULL;
 }
 
 static void *do_monitor(void *data)
@@ -9487,6 +9472,7 @@ static void *do_monitor(void *data)
 	int count, res, res2, spoint, pollres=0;
 	struct dahdi_pvt *i;
 	struct dahdi_pvt *last = NULL;
+	struct dahdi_pvt *doomed;
 	time_t thispass = 0, lastpass = 0;
 	int found;
 	char buf[1024];
@@ -9564,7 +9550,20 @@ static void *do_monitor(void *data)
 		lastpass = thispass;
 		thispass = time(NULL);
 		i = iflist;
-		while (i) {
+		doomed = NULL;
+		for (i = iflist;; i = i->next) {
+			if (doomed) {
+				int res;
+				res = dahdi_destroy_channel_bynum(doomed->channel);
+				if (!res) {
+					ast_log(LOG_WARNING, "Couldn't find channel to destroy, hopefully another destroy operation just happened.\n");
+				}
+				doomed = NULL;
+			}
+			if (!i) {
+				break;
+			}
+
 			if (thispass != lastpass) {
 				if (!found && ((i == last) || ((i == iflist) && !last))) {
 					last = i;
@@ -9602,10 +9601,9 @@ static void *do_monitor(void *data)
 						ast_debug(1, "Monitor doohicky got event %s on radio channel %d\n", event2str(res), i->channel);
 						/* Don't hold iflock while handling init events */
 						ast_mutex_unlock(&iflock);
-						handle_init_event(i, res);
+						doomed = handle_init_event(i, res);
 						ast_mutex_lock(&iflock);
 					}
-					i = i->next;
 					continue;
 				}
 				pollres = ast_fdisset(pfds, i->subs[SUB_REAL].dfd, count, &spoint);
@@ -9615,12 +9613,10 @@ static void *do_monitor(void *data)
 						if (!i->pri)
 #endif
 							ast_log(LOG_WARNING, "Whoa....  I'm owned but found (%d) in read...\n", i->subs[SUB_REAL].dfd);
-						i = i->next;
 						continue;
 					}
 					if (!i->mwimonitor_fsk && !i->mwisendactive) {
 						ast_log(LOG_WARNING, "Whoa....  I'm not looking for MWI or sending MWI but am reading (%d)...\n", i->subs[SUB_REAL].dfd);
-						i = i->next;
 						continue;
 					}
 					res = read(i->subs[SUB_REAL].dfd, buf, sizeof(buf));
@@ -9660,7 +9656,6 @@ static void *do_monitor(void *data)
 						if (!i->pri)
 #endif
 							ast_log(LOG_WARNING, "Whoa....  I'm owned but found (%d)...\n", i->subs[SUB_REAL].dfd);
-						i = i->next;
 						continue;
 					}
 					res = dahdi_get_event(i->subs[SUB_REAL].dfd);
@@ -9668,12 +9663,11 @@ static void *do_monitor(void *data)
 					/* Don't hold iflock while handling init events */
 					ast_mutex_unlock(&iflock);
 					if (0 == i->mwisendactive || 0 == mwi_send_process_event(i, res)) {
-						handle_init_event(i, res);
+						doomed = handle_init_event(i, res);
 					}
 					ast_mutex_lock(&iflock);
 				}
 			}
-			i=i->next;
 		}
 		ast_mutex_unlock(&iflock);
 	}
@@ -9952,8 +9946,6 @@ static int dahdi_r2_set_context(struct dahdi_mfcr2 *r2_link, const struct dahdi_
 			ast_log(LOG_ERROR, "Failed to configure r2context from advanced configuration file %s\n", conf->mfcr2.r2proto_file);
 		}
 	}
-	ast_cond_init(&r2_link->do_monitor, NULL);
-	ast_mutex_init(&r2_link->monitored_count_lock);
 	r2_link->monitored_count = 0;
 	return 0;
 }
@@ -10482,10 +10474,15 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 		ast_copy_string(tmp->mohinterpret, conf->chan.mohinterpret, sizeof(tmp->mohinterpret));
 		ast_copy_string(tmp->mohsuggest, conf->chan.mohsuggest, sizeof(tmp->mohsuggest));
 		ast_copy_string(tmp->context, conf->chan.context, sizeof(tmp->context));
-		ast_copy_string(tmp->cid_num, conf->chan.cid_num, sizeof(tmp->cid_num));
 		ast_copy_string(tmp->parkinglot, conf->chan.parkinglot, sizeof(tmp->parkinglot));
 		tmp->cid_ton = 0;
-		ast_copy_string(tmp->cid_name, conf->chan.cid_name, sizeof(tmp->cid_name));
+		if ((tmp->sig != SIG_PRI) || (tmp->sig != SIG_SS7) || (tmp->sig != SIG_BRI) || (tmp->sig != SIG_BRI_PTMP) || (tmp->sig != SIG_MFCR2)) {
+			ast_copy_string(tmp->cid_num, conf->chan.cid_num, sizeof(tmp->cid_num));
+			ast_copy_string(tmp->cid_name, conf->chan.cid_name, sizeof(tmp->cid_name));
+		} else {
+			tmp->cid_num[0] = '\0';
+			tmp->cid_name[0] = '\0';
+		}
 		ast_copy_string(tmp->mailbox, conf->chan.mailbox, sizeof(tmp->mailbox));
 		if (channel != CHAN_PSEUDO && !ast_strlen_zero(tmp->mailbox)) {
 			char *mailbox, *context;
@@ -10520,7 +10517,7 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 		tmp->callgroup = conf->chan.callgroup;
 		tmp->pickupgroup= conf->chan.pickupgroup;
 		if (conf->chan.vars) {
-			tmp->vars = conf->chan.vars;
+			tmp->vars = ast_variable_new(conf->chan.vars->name, conf->chan.vars->value, "");
 		}
 		tmp->cid_rxgain = conf->chan.cid_rxgain;
 		tmp->rxgain = conf->chan.rxgain;
@@ -10977,7 +10974,6 @@ static struct ast_channel *dahdi_request(const char *type, int format, void *dat
 				}
 				p->mfcr2call = 1;
 				ast_mutex_unlock(&p->lock);
-				dahdi_r2_update_monitor_count(p->mfcr2, 0);
 			}
 #endif
 			if (p->channel == CHAN_PSEUDO) {
@@ -10994,6 +10990,9 @@ static struct ast_channel *dahdi_request(const char *type, int format, void *dat
 			}
 			p->outgoing = 1;
 			tmp = dahdi_new(p, AST_STATE_RESERVED, 0, p->owner ? SUB_CALLWAIT : SUB_REAL, 0, 0);
+			if (!tmp) {
+				p->outgoing = 0;
+			}
 #ifdef HAVE_PRI
 			if (p->bearer) {
 				/* Log owner to bearer channel, too */
@@ -11930,11 +11929,13 @@ static void *mfcr2_monitor(void *data)
 	   could be cancelled at any time and is not
 	   using thread keys, why?, */
 	struct pollfd pollers[sizeof(mfcr2->pvts)];
-	int nextms = 0;
 	int res = 0;
 	int i = 0;
 	int oldstate = 0;
 	int quit_loop = 0;
+	int maxsleep = 20;
+	int was_idle = 0;
+	int pollsize = 0;
 	/* now that we're ready to get calls, unblock our side and
 	   get current line state */
 	for (i = 0; i < mfcr2->numchans; i++) {
@@ -11944,13 +11945,7 @@ static void *mfcr2_monitor(void *data)
 	while (1) {
 		/* we trust here that the mfcr2 channel list will not ever change once
 		   the module is loaded */
-		ast_mutex_lock(&mfcr2->monitored_count_lock);
-		if (mfcr2->monitored_count == 0) {
-			ast_log(LOG_DEBUG, "No one requires my monitoring services :-(\n");
-			ast_cond_wait(&mfcr2->do_monitor, &mfcr2->monitored_count_lock);
-			ast_log(LOG_DEBUG, "Alright, back to work!\n");
-		}
-
+		pollsize = 0;
 		for (i = 0; i < mfcr2->numchans; i++) {
 			pollers[i].revents = 0;
 			pollers[i].events = 0;
@@ -11965,16 +11960,24 @@ static void *mfcr2_monitor(void *data)
 			openr2_chan_enable_read(mfcr2->pvts[i]->r2chan);
 			pollers[i].events = POLLIN | POLLPRI;
 			pollers[i].fd = mfcr2->pvts[i]->subs[SUB_REAL].dfd;
+			pollsize++;
 		}
-		ast_mutex_unlock(&mfcr2->monitored_count_lock);
 		if (quit_loop) {
 			break;
 		}
-		nextms = openr2_context_get_time_to_next_event(mfcr2->protocol_context);
+		if (pollsize == 0) {
+			if (!was_idle) {
+				ast_log(LOG_DEBUG, "Monitor thread going idle since everybody has an owner\n");
+				was_idle = 1;
+			}
+			poll(NULL, 0, maxsleep);
+			continue;
+		}
+		was_idle = 0;
 		/* probably poll() is a valid cancel point, lets just be on the safe side
 		   by calling pthread_testcancel */
 		pthread_testcancel();
-		res = poll(pollers, mfcr2->numchans, nextms);
+		res = poll(pollers, mfcr2->numchans, maxsleep);
 		pthread_testcancel();
 		if ((res < 0) && (errno != EINTR)) {
 			ast_log(LOG_ERROR, "going out, poll failed: %s\n", strerror(errno));
@@ -12675,8 +12678,8 @@ static void *pri_dchannel(void *vpri)
 								pri_destroycall(pri->pri, pri->pvts[x]->call);
 								pri->pvts[x]->call = NULL;
 							}
-							if (pri->pvts[chanpos]->realcall)
-								pri_hangup_all(pri->pvts[chanpos]->realcall, pri);
+							if (pri->pvts[x]->realcall)
+								pri_hangup_all(pri->pvts[x]->realcall, pri);
  							else if (pri->pvts[x]->owner)
 								pri->pvts[x]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
 							ast_mutex_unlock(&pri->pvts[x]->lock);
@@ -13236,9 +13239,12 @@ static void *pri_dchannel(void *vpri)
 							else if (pri->pvts[chanpos]->owner) {
 								/* Queue a BUSY instead of a hangup if our cause is appropriate */
 								pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
-								if (pri->pvts[chanpos]->owner->_state == AST_STATE_UP)
+								switch (pri->pvts[chanpos]->owner->_state) {
+								case AST_STATE_BUSY:
+								case AST_STATE_UP:
 									pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
-								else {
+									break;
+								default:
 									switch (e->hangup.cause) {
 									case PRI_CAUSE_USER_BUSY:
 										pri->pvts[chanpos]->subs[SUB_REAL].needbusy =1;
@@ -13254,6 +13260,7 @@ static void *pri_dchannel(void *vpri)
 									default:
 										pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
 									}
+									break;
 								}
 							}
 							ast_verb(3, "Channel %d/%d, span %d got hangup, cause %d\n",
@@ -13304,9 +13311,12 @@ static void *pri_dchannel(void *vpri)
 							pri_hangup_all(pri->pvts[chanpos]->realcall, pri);
 						else if (pri->pvts[chanpos]->owner) {
 							pri->pvts[chanpos]->owner->hangupcause = e->hangup.cause;
-							if (pri->pvts[chanpos]->owner->_state == AST_STATE_UP)
+							switch (pri->pvts[chanpos]->owner->_state) {
+							case AST_STATE_BUSY:
+							case AST_STATE_UP:
 								pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
-							else {
+								break;
+							default:
 								switch (e->hangup.cause) {
 								case PRI_CAUSE_USER_BUSY:
 									pri->pvts[chanpos]->subs[SUB_REAL].needbusy =1;
@@ -13323,6 +13333,7 @@ static void *pri_dchannel(void *vpri)
 									pri->pvts[chanpos]->owner->_softhangup |= AST_SOFTHANGUP_DEV;
 									break;
 								}
+								break;
 							}
 							ast_verb(3, "Channel %d/%d, span %d got hangup request, cause %d\n", PRI_SPAN(e->hangup.channel), PRI_CHANNEL(e->hangup.channel), pri->span, e->hangup.cause);
 							if (e->hangup.aoc_units > -1)

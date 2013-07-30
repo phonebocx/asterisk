@@ -18,7 +18,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 209282 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 230384 $")
 
 #include <string.h>
 #include <stdlib.h>
@@ -379,8 +379,8 @@ static int transmit_audio(fax_session *s)
 							     .transcoding_jbig = 1,
 	};
 
-	/* if in receive mode, try to use T.38 */
-	if (!s->direction) {
+	/* if in called party mode, try to use T.38 */
+	if (s->caller_mode == FALSE) {
 		/* check if we are already in T.38 mode (unlikely), or if we can request
 		 * a switch... if so, request it now and wait for the result, rather
 		 * than starting an audio FAX session that will have to be cancelled
@@ -492,24 +492,26 @@ static int transmit_audio(fax_session *s)
 	while (!s->finished) {
 		inf = NULL;
 
-		if ((res = ast_waitfor(s->chan, 20)) < 0) {
+		if ((res = ast_waitfor(s->chan, 25)) < 0) {
+			ast_debug(1, "Error waiting for a frame\n");
 			break;
 		}
 
-		/* if nothing arrived, check the watchdog timers */
-		if (res == 0) {
-			now = ast_tvnow();
-			if (ast_tvdiff_sec(now, start) > WATCHDOG_TOTAL_TIMEOUT || ast_tvdiff_sec(now, state_change) > WATCHDOG_STATE_TIMEOUT) {
-				ast_log(LOG_WARNING, "It looks like we hung. Aborting.\n");
-				res = -1;
-				break;
-			} else {
-				/* timers have not triggered, loop around to wait
-				 * again
-				 */
-				continue;
-			}
+		/* Watchdog */
+		now = ast_tvnow();
+		if (ast_tvdiff_sec(now, start) > WATCHDOG_TOTAL_TIMEOUT || ast_tvdiff_sec(now, state_change) > WATCHDOG_STATE_TIMEOUT) {
+			ast_log(LOG_WARNING, "It looks like we hung. Aborting.\n");
+			res = -1;
+			break;
 		}
+
+		if (!res) {
+			/* There was timeout waiting for a frame. Loop around and wait again */
+			continue;
+		}
+
+		/* There is a frame available. Get it */
+		res = 0;
 
 		if (!(inf = ast_read(s->chan))) {
 			ast_debug(1, "Channel hangup\n");
@@ -613,7 +615,8 @@ static int transmit_t38(fax_session *s)
 	memset(&t38, 0, sizeof(t38));
 	if (t38_terminal_init(&t38, s->caller_mode, t38_tx_packet_handler, s->chan) == NULL) {
 		ast_log(LOG_WARNING, "Unable to start T.38 termination.\n");
-		return -1;
+		res = -1;
+		goto disable_t38;
 	}
 
 	t38_set_max_datagram_size(t38state, s->t38parameters.max_ifp);
@@ -699,6 +702,63 @@ static int transmit_t38(fax_session *s)
 
 	t30_terminate(t30state);
 	t38_terminal_release(&t38);
+
+disable_t38:
+	/* if we are not the caller, it's our job to shut down the T.38
+	 * session when the FAX transmisson is complete.
+	 */
+	if ((s->caller_mode == FALSE) &&
+	    (ast_channel_get_t38_state(s->chan) == T38_STATE_NEGOTIATED)) {
+		struct ast_control_t38_parameters t38_parameters = { .request_response = AST_T38_REQUEST_TERMINATE, };
+
+		if (ast_indicate_data(s->chan, AST_CONTROL_T38_PARAMETERS, &t38_parameters, sizeof(t38_parameters)) == 0) {
+			/* wait up to five seconds for negotiation to complete */
+			unsigned int timeout = 5000;
+			int ms;
+			
+			ast_debug(1, "Shutting down T.38 on %s\n", s->chan->name);
+			while (timeout > 0) {
+				ms = ast_waitfor(s->chan, 1000);
+				if (ms < 0) {
+					ast_log(LOG_WARNING, "something bad happened while channel '%s' was polling.\n", s->chan->name);
+					return -1;
+				}
+				if (!ms) {
+					/* nothing happened */
+					if (timeout > 0) {
+						timeout -= 1000;
+						continue;
+					} else {
+						ast_log(LOG_WARNING, "channel '%s' timed-out during the T.38 shutdown.\n", s->chan->name);
+						break;
+					}
+				}
+				if (!(inf = ast_read(s->chan))) {
+					return -1;
+				}
+				if ((inf->frametype == AST_FRAME_CONTROL) &&
+				    (inf->subclass == AST_CONTROL_T38_PARAMETERS) &&
+				    (inf->datalen == sizeof(t38_parameters))) {
+					struct ast_control_t38_parameters *parameters = inf->data.ptr;
+					
+					switch (parameters->request_response) {
+					case AST_T38_TERMINATED:
+						ast_debug(1, "Shut down T.38 on %s\n", s->chan->name);
+						break;
+					case AST_T38_REFUSED:
+						ast_log(LOG_WARNING, "channel '%s' refused to disable T.38\n", s->chan->name);
+						break;
+					default:
+						ast_log(LOG_ERROR, "channel '%s' failed to disable T.38\n", s->chan->name);
+						break;
+					}
+					ast_frfree(inf);
+					break;
+				}
+				ast_frfree(inf);
+			}
+		}
+	}
 
 	return res;
 }

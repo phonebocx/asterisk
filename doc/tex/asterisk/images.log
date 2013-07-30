@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=latex 2009.1.16)  29 AUG 2009 11:01
+This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=latex 2009.1.16)  17 DEC 2009 14:32
 entering extended mode
  %&-line parsing enabled.
 **./images.tex
@@ -258,12 +258,12 @@ l2hSize :tex2html_wrap_inline1485:9.5pt::9.5pt::3.92087pt.
 
 
 ]
-l2hSize :figure4084:98.35826pt::0.0pt::349.0pt.
+l2hSize :figure4086:98.35826pt::0.0pt::349.0pt.
 [9
 
 
 ]
-l2hSize :tex2html_wrap_inline5501:7.75pt::0.0pt::12.58755pt.
+l2hSize :tex2html_wrap_inline5503:7.75pt::0.0pt::12.58755pt.
 [10
 
 
@@ -271,7 +271,7 @@ l2hSize :tex2html_wrap_inline5501:7.75pt::0.0pt::12.58755pt.
 Here is how much of TeX's memory you used:
  3008 strings out of 95087
  42697 string characters out of 1183278
- 98606 words of memory out of 1500000
+ 98602 words of memory out of 1500000
  6192 multiletter control sequences out of 10000+50000
  6376 words of font info for 23 fonts, out of 1200000 for 2000
  28 hyphenation exceptions out of 8191

@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 192737 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222187 $")
 
 #include "asterisk/module.h"
 #include "asterisk/config.h"
@@ -154,10 +154,10 @@ static char *alias_show(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a
 	ast_cli(a->fd, FORMAT, "Alias Command", "Real Command");
 
 	i = ao2_iterator_init(cli_aliases, 0);
-
 	for (; (alias = ao2_iterator_next(&i)); ao2_ref(alias, -1)) {
 		ast_cli(a->fd, FORMAT, alias->alias, alias->real_cmd);
 	}
+	ao2_iterator_destroy(&i);
 
 	return CLI_SUCCESS;
 #undef FORMAT
