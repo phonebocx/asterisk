@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68370 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69708 $")
 
 #include <sys/types.h>
 #include <netinet/in.h>
@@ -96,6 +96,7 @@ struct ast_dnsmgr_entry *ast_dnsmgr_get(const char *name, struct in_addr *result
 	entry->result = result;
 	ast_mutex_init(&entry->lock);
 	strcpy(entry->name, name);
+	memcpy(&entry->last, result, sizeof(entry->last));
 
 	AST_LIST_LOCK(&entry_list);
 	AST_LIST_INSERT_HEAD(&entry_list, entry, list);

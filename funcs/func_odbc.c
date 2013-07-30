@@ -26,12 +26,13 @@
 
 /*** MODULEINFO
 	<depend>unixodbc</depend>
+	<depend>ltdl</depend>
 	<depend>res_odbc</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 66919 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69702 $")
 
 #include <sys/types.h>
 #include <stdio.h>

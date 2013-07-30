@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68595 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72272 $")
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -2238,6 +2238,8 @@ static int pbx_load_config(const char *config_file)
 					pri = strsep(&stringp, ",");
 					if (!pri)
 						pri="";
+					pri = ast_skip_blanks(pri);
+					pri = ast_trim_blanks(pri);
 					label = strchr(pri, '(');
 					if (label) {
 						*label++ = '\0';

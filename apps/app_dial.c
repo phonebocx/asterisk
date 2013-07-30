@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68071 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 70445 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -1575,7 +1575,7 @@ static int dial_exec_full(struct ast_channel *chan, void *data, struct ast_flags
 
 		if (!res) {
 			if (calldurationlimit > 0) {
-				chan->whentohangup = time(NULL) + calldurationlimit;
+				peer->whentohangup = time(NULL) + calldurationlimit;
 			}
 			if (!ast_strlen_zero(dtmfcalled)) { 
 				if (option_verbose > 2)

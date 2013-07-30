@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69558 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 71068 $");
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -533,8 +533,7 @@ static int speech_streamfile(struct ast_channel *chan, const char *filename, con
 	if (ast_applystream(chan, fs))
 		return -1;
 	
-	if (ast_playstream(fs))
-		return -1;
+	ast_playstream(fs);
 
         return 0;
 }

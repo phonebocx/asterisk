@@ -203,6 +203,7 @@ static void display_mem_info(WINDOW *menu, struct member *mem, int start, int en
 		strcpy(buf, "Can use: ");
 		AST_LIST_TRAVERSE(&mem->uses, use, list) {
 			strncat(buf, use->name, sizeof(buf) - strlen(buf) - 1);
+			strncat(buf, use->member ? "(M)" : "(E)", sizeof(buf) - strlen(buf) - 1);
 			if (AST_LIST_NEXT(use, list))
 				strncat(buf, ", ", sizeof(buf) - strlen(buf) - 1);
 		}

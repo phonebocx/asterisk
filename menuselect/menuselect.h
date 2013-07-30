@@ -55,6 +55,8 @@ struct conflict {
 struct use {
 	/*! the name of the used package */
 	const char *name;
+	/*! if this dependency is a member, not an external object */
+	struct member *member;
 	/*! for linking */
 	AST_LIST_ENTRY(use) list;
 };
@@ -84,6 +86,10 @@ struct member {
 	unsigned int conflictsfailed:2;
 	/*! This module's 'enabled' flag was changed by a default only */
 	unsigned int was_defaulted:1;
+	/*! This module is a dependency, and if it is selected then
+	  we have included it in the MENUSELECT_BUILD_DEPS line
+	  in the output file */
+	unsigned int build_deps_output:1;
 	/*! dependencies of this module */
 	AST_LIST_HEAD_NOLOCK(, depend) deps;
 	/*! conflicts of this module */
