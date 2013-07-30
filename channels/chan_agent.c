@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42133 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57092 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -616,7 +616,7 @@ static int agent_indicate(struct ast_channel *ast, int condition)
 	int res = -1;
 	ast_mutex_lock(&p->lock);
 	if (p->chan)
-		res = ast_indicate(p->chan, condition);
+		res = p->chan->tech->indicate ? p->chan->tech->indicate(p->chan, condition) : -1;
 	else
 		res = 0;
 	ast_mutex_unlock(&p->lock);
@@ -790,6 +790,11 @@ static int agent_hangup(struct ast_channel *ast)
 				p->logincallerid[0] = '\0';
 				if (persistent_agents)
 					dump_agents();
+			} else if (!p->loginstart) {
+				p->loginchan[0] = '\0';
+				p->logincallerid[0] = '\0';
+				if (persistent_agents)
+					dump_agents();
 			}
 		} else if (p->dead) {
 			ast_mutex_lock(&p->chan->lock);
@@ -802,9 +807,16 @@ static int agent_hangup(struct ast_channel *ast)
 		}
 	}
 	ast_mutex_unlock(&p->lock);
+
 	/* Only register a device state change if the agent is still logged in */
-	if (p->loginstart)
+	if (!p->loginstart) {
+		p->loginchan[0] = '\0';
+		p->logincallerid[0] = '\0';
+		if (persistent_agents)
+			dump_agents();
+	} else {
 		ast_device_state_changed("Agent/%s", p->agent);
+	}
 
 	if (p->pending) {
 		ast_mutex_lock(&agentlock);
@@ -1473,16 +1485,17 @@ static int agent_logoff(char *agent, int soft)
 	struct agent_pvt *p;
 	long logintime;
 	int ret = -1; /* Return -1 if no agent if found */
+	int defer = 0;
 
 	for (p=agents; p; p=p->next) {
 		if (!strcasecmp(p->agent, agent)) {
+			if (p->owner || p->chan)
+				defer = 1;
 			if (!soft) {
-				if (p->owner) {
+				if (p->owner)
 					ast_softhangup(p->owner, AST_SOFTHANGUP_EXPLICIT);
-				}
-				if (p->chan) {
+				if (p->chan)
 					ast_softhangup(p->chan, AST_SOFTHANGUP_EXPLICIT);
-				}
 			}
 			ret = 0; /* found an agent => return 0 */
 			logintime = time(NULL) - p->loginstart;
@@ -1495,8 +1508,10 @@ static int agent_logoff(char *agent, int soft)
 				      p->agent, p->loginchan, logintime);
 			ast_queue_log("NONE", "NONE", agent, "AGENTCALLBACKLOGOFF", "%s|%ld|%s", p->loginchan, logintime, "CommandLogoff");
 			set_agentbycallerid(p->logincallerid, NULL);
-			p->loginchan[0] = '\0';
-			p->logincallerid[0] = '\0';
+			if (!defer) {
+				p->loginchan[0] = '\0';
+				p->logincallerid[0] = '\0';
+			}
 			ast_device_state_changed("Agent/%s", p->agent);
 			if (persistent_agents)
 				dump_agents();

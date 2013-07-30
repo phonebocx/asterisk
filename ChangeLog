@@ -1,3 +1,208 @@
+2007-03-02 Russell Bryant <russell@digium.com>
+
+	* Asterisk 1.2.16 released
+
+2007-03-02 18:32 +0000 [r57523]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/misdn/isdn_lib.c: fixed typo
+
+2007-03-02 17:02 +0000 [r57475]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: If a SIP message comes in and goes to a
+	  method handler that requires additional values that may not be
+	  present then send back an error.
+
+2007-03-02 16:39 +0000 [r57458]  Steve Murphy <murf@digium.com>
+
+	* pbx.c: further refinement in wording of goto documentation, as
+	  per 9156, goto not proceeding to next instruction
+
+2007-03-01 22:19 +0000 [r57317]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_local.c: Don't even attempt to optimize things when
+	  a proxy channel is involved. It will just explode in weird and
+	  unexplaineable ways. (issue #9175 reported by
+	  clegall_proformatique)
+
+2007-02-28 19:12 +0000 [r57118]  Steve Murphy <murf@digium.com>
+
+	* pbx.c: a small documentation update, to reflect reality in the
+	  goto doc strings, as per 9156, Goto does not proceed to next prio
+	  if jump fails
+
+2007-02-28 18:55 +0000 [r57092]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_agent.c: Fix a few more issues with the agent
+	  logoff CLI command. (issue #9123 reported by arbrandes)
+
+2007-02-28 16:09 +0000 [r57034]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/chan_misdn.c, channels/misdn/isdn_lib.c: fixed
+	  bugs.digium.com bugs: #9157 and bugs.beronet.com bugs: #302,
+	  #303, #304
+
+2007-02-26 20:05 +0000 [r56850]  Joshua Colp <jcolp@digium.com>
+
+	* pbx/pbx_config.c: Obey the clearglobalvars option in extensions
+	  reload (or dialplan reload depending on your version). (issue
+	  #9146 reported by ramonpeek)
+
+2007-02-26 00:34 +0000 [r56729]  Russell Bryant <russell@digium.com>
+
+	* utils.c: Ensure that lock.h is included in utils.c with
+	  AST_API_MODULE defined so that the implementations will be
+	  properly included when the AST_INLINE_API functions are not going
+	  to be inlined. (issue #9124, festr)
+
+2007-02-25 14:38 +0000 [r56684]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* channel.c: Issue 9130 - If prev is the last item on the channel
+	  list, then evaluating additional conditions (e.g. name prefix)
+	  will cause a NULL dereference.
+
+2007-02-23 23:20 +0000 [r56406-56504]  Russell Bryant <russell@digium.com>
+
+	* asterisk.c: Fix up a couple more signal handlers to not do bad
+	  things that could cause various undesirable results. The other
+	  day, I made Asterisk deadlock by hitting Control-C because of a
+	  bad signal handler. Now, signal handlers just set a flag and
+	  write to an alert pipe for the flag to be handled. Then, there is
+	  another thread that is monitoring for these flags. If being run
+	  in console mode, it is just the main thread. If Asterisk is in
+	  the background, a thread is created to do it.
+
+	* channels/chan_iax2.c: Don't destroy mutexes before unregistering
+	  all of the entry points from the core. Also, fix a potential
+	  memory leak from not destroying the locks for all of the possible
+	  call numbers (about 32k of them).
+
+2007-02-22 23:19 +0000 [r56230-56279]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_agent.c: Always defer Agent logoff if any channels
+	  are up until they hang up. (issue #9123 reported by arbrandes)
+
+	* channels/chan_sip.c, channel.c: Only change the original or clone
+	  channel if it's the channel behind the proxy channel, not if it's
+	  just a regular bridged channel.
+
+2007-02-22 00:53 +0000 [r56010]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_sip.c: If we receive a frame that is not in any of
+	  the negotiated formats, then drop it. (potentially issue #8781
+	  and SPD-12)
+
+2007-02-21 20:32 +0000 [r55956]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_meetme.c: Change naughty warning message to provide
+	  useful information. If a write now fails on a channel in meetme
+	  it will tell you the channel name instead of spitting out the
+	  wrong error message.
+
+2007-02-21 14:03 +0000 [r55868]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* build_tools/make_svn_branch_name: use new tag version script
+
+2007-02-21 00:19 +0000 [r55750]  Russell Bryant <russell@digium.com>
+
+	* apps/app_meetme.c, utils.c, include/asterisk/lock.h: Fix random
+	  crashes when using the MeetMe application. This patch converts
+	  list handling to use the linked list macros and most importantly,
+	  implements reference counting on the ast_conference objects. The
+	  reference counting was first backported from 1.4. However, that
+	  code has some problems that caused the reference count to never
+	  hit zero. Those problems are fixed in this patch and will be
+	  resolved in 1.4 and trunk next, with a different patch. (issues
+	  #7647, #9073, #9106, BE-115).
+
+2007-02-20 22:39 +0000 [r55669]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_agent.c: Defer clearing callback information if
+	  channels are up until they are hung up. This ensures the hangup
+	  process goes smoothly and no channels get hung in limbo. (issue
+	  #8088 reported by kebl0155)
+
+2007-02-20 19:49 +0000 [r55588]  Russell Bryant <russell@digium.com>
+
+	* apps/app_page.c: Convert a tab to spaces so that the
+	  documentation is printed out properly aligned.
+
+2007-02-19 18:09 +0000 [r55434]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c: forcename and forcegreetings options should
+	  check to see if the recording already exists
+
+2007-02-18 12:32 +0000 [r55249-55277]  Olle Johansson <oej@edvina.net>
+
+	* apps/app_record.c: Documentation update (#9053, jsmith)
+
+	* channels/chan_sip.c: Issue #9020 - SIP message retransmission
+	  time too short. Backporting fix implemented in 1.4, where we have
+	  a minimum level for the T1 timer.
+
+2007-02-17 03:53 +0000 [r55073-55153]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_dial.c: Answer the channel before recording privacy
+	  information. (issue #8926 reported by lmamane)
+
+	* channels/chan_sip.c: Allow chan_sip to handle attended transfers
+	  from a SIP phone that is sitting behind chan_agent. Yes folks,
+	  all it took was one line of code. (issue #8784 reported by
+	  pzieba)
+
+2007-02-16 22:48 +0000 [r55005]  Russell Bryant <russell@digium.com>
+
+	* apps/app_meetme.c, configs/meetme.conf.sample: Revert the change
+	  I did in revisions 54955, 54969, and 54970, in 1.2, 1.4, and
+	  trunk. I decided that once a conference is created from
+	  meetme.conf, it is acceptable behavior that the pin can not be
+	  changed until the conference goes away. I also added a note in
+	  meetme.conf to describe this behavior. We still have another
+	  issue in 1.4 and trunk where some conferences with no users don't
+	  go away. That is the real bug that needs to be addressed here.
+
+2007-02-16 22:13 +0000 [r54999]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_agent.c: Do not send indications through
+	  ast_indicate in chan_agent but instead go directly to the
+	  technology. This way when indications are emulated they happen on
+	  the Agent channel and do not screw up formats on the channels.
+	  (issue #8439 reported by punkgode)
+
+2007-02-16 20:56 +0000 [r54955]  Russell Bryant <russell@digium.com>
+
+	* apps/app_meetme.c: For conferences that are configured in
+	  meetme.conf, check the configuration file every time someone
+	  joins the conference instead of only when the conference is first
+	  created. This is to ensure that changes to the pin numbers in the
+	  config file are always honored. (issue #9073)
+
+2007-02-16 11:38 +0000 [r54771]  Olle Johansson <oej@edvina.net>
+
+	* res/res_agi.c: Issue #9069 - If we open with TH we should not
+	  close with /TD. (seanbright)
+
+2007-02-15 16:14 +0000 [r54622]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_dial.c: Use a separate variable to indicate execution
+	  should continue instead of the return value. (issue #8842
+	  reported by pluto70)
+
+2007-02-14 18:40 +0000 [r54438]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c:
+
+2007-02-14 16:25 +0000 [r54373]  Matt Frederickson <creslin@digium.com>
+
+	* channels/chan_zap.c: When handling glare on a PRI, move the
+	  requested channel rather than hang up the old one. Fix for 8957
+	  and 9011.
+
+2007-02-13 18:35 +0000 [r54179]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Make sure that outbound calls are applied to
+	  the peer. This fixes some issues with "hints not working", but
+	  only in 1.2.
+
 2007-02-08 Kevin P. Fleming <kpfleming@digium.com>
 
 	* Asterisk 1.2.15 released

@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 41269 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56850 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -1432,6 +1432,8 @@ static int pbx_load_module(void);
 static int handle_reload_extensions(int fd, int argc, char *argv[])
 {
 	if (argc!=2) return RESULT_SHOWUSAGE;
+	if (clearglobalvars_config)
+		pbx_builtin_clear_globals();
 	pbx_load_module();
 	return RESULT_SUCCESS;
 }

@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53045 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 55588 $")
 
 #include "asterisk/options.h"
 #include "asterisk/logger.h"
@@ -56,7 +56,7 @@ static const char *page_descrip =
 "caller is dumped into the conference as a speaker and the room is\n"
 "destroyed when the original caller leaves.  Valid options are:\n"
 "        d - full duplex audio\n"
-"	 q - quiet, do not play beep to caller\n";
+"        q - quiet, do not play beep to caller\n";
 
 STANDARD_LOCAL_USER;
 

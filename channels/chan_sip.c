@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53103 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57475 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -434,6 +434,8 @@ static char regcontext[AST_MAX_CONTEXT] = "";		/*!< Context for auto-extensions 
 
 #define DEFAULT_EXPIRY 900				/*!< Expire slowly */
 static int expiry = DEFAULT_EXPIRY;
+
+#define DEFAULT_T1MIN	100				/*!< Minimial T1 roundtrip time - ms */
 
 static struct sched_context *sched;
 static struct io_context *io;
@@ -1918,7 +1920,7 @@ static int create_addr_from_peer(struct sip_pvt *r, struct sip_peer *peer)
 	r->pickupgroup = peer->pickupgroup;
 	/* Set timer T1 to RTT for this peer (if known by qualify=) */
 	if (peer->maxms && peer->lastms)
-		r->timer_t1 = peer->lastms;
+		r->timer_t1 = peer->lastms < DEFAULT_T1MIN ? DEFAULT_T1MIN : peer->lastms;
 	if ((ast_test_flag(r, SIP_DTMF) == SIP_DTMF_RFC2833) || (ast_test_flag(r, SIP_DTMF) == SIP_DTMF_AUTO))
 		r->noncodeccapability |= AST_RTP_DTMF;
 	else
@@ -2232,8 +2234,7 @@ static int update_call_counter(struct sip_pvt *fup, int event)
 	ast_copy_string(name, fup->username, sizeof(name));
 
 	/* Check the list of users */
-	u = find_user(name, 1);
-	if (u) {
+	if (!outgoing && (u = find_user(name, 1))) {
 		inuse = &u->inUse;
 		call_limit = &u->call_limit;
 		p = NULL;
@@ -2319,7 +2320,7 @@ static int hangup_sip2cause(int cause)
 		case 408:	/* No reaction */
 			return AST_CAUSE_NO_USER_RESPONSE;
 		case 480:	/* No answer */
-			return AST_CAUSE_FAILURE;
+			return AST_CAUSE_NO_ANSWER;
 		case 483:	/* Too many hops */
 			return AST_CAUSE_NO_ANSWER;
 		case 486:	/* Busy everywhere */
@@ -3042,6 +3043,11 @@ static struct ast_frame *sip_rtp_read(struct ast_channel *ast, struct sip_pvt *p
 		/* We already hold the channel lock */
 		if (f->frametype == AST_FRAME_VOICE) {
 			if (f->subclass != p->owner->nativeformats) {
+				if (!(f->subclass & p->jointcapability)) {
+					ast_log(LOG_DEBUG, "Bogus frame of format '%s' received from '%s'!\n",
+						ast_getformatname(f->subclass), p->owner->name);
+					return &null_frame;
+				}
 				ast_log(LOG_DEBUG, "Oooh, format changed to %d\n", f->subclass);
 				p->owner->nativeformats = f->subclass;
 				ast_set_read_format(p->owner, p->owner->readformat);
@@ -11332,6 +11338,12 @@ static int handle_request(struct sip_pvt *p, struct sip_request *req, struct soc
 			}
 			return res;
 		}
+	}
+
+	if (!e && (p->method == SIP_INVITE || p->method == SIP_SUBSCRIBE || p->method == SIP_REGISTER)) {
+		transmit_response(p, "503 Server error", req);
+		ast_set_flag(p, SIP_NEEDDESTROY);
+		return -1;
 	}
 
 	/* Handle various incoming SIP methods in requests */

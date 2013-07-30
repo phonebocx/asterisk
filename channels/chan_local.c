@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47750 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57317 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -187,7 +187,7 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 {
 	if (p->alreadymasqed || p->nooptimization)
 		return;
-	if (!p->chan || !p->owner)
+	if (!p->chan || !p->owner || (p->chan->_bridge != ast_bridged_channel(p->chan)))
 		return;
 
 	/* only do the masquerade if we are being called on the outbound channel,
