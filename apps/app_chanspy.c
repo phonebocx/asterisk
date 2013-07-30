@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 220934 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228195 $")
 
 #include <ctype.h>
 #include <errno.h>
@@ -370,7 +370,12 @@ static int spy_generate(struct ast_channel *chan, void *data, int len, int sampl
 		return -1;
 	}
 
-	f = ast_audiohook_read_frame(&csth->spy_audiohook, samples, AST_AUDIOHOOK_DIRECTION_BOTH, AST_FORMAT_SLINEAR);
+	if (ast_test_flag(&csth->spy_audiohook, OPTION_READONLY)) {
+		/* Option 'o' was set, so don't mix channel audio */
+		f = ast_audiohook_read_frame(&csth->spy_audiohook, samples, AST_AUDIOHOOK_DIRECTION_READ, AST_FORMAT_SLINEAR);
+	} else {
+		f = ast_audiohook_read_frame(&csth->spy_audiohook, samples, AST_AUDIOHOOK_DIRECTION_BOTH, AST_FORMAT_SLINEAR);
+	}
 
 	ast_audiohook_unlock(&csth->spy_audiohook);
 
@@ -481,6 +486,7 @@ static int channel_spy(struct ast_channel *chan, struct chanspy_ds *spyee_chansp
 			spyer_name, name);
 
 	memset(&csth, 0, sizeof(csth));
+	ast_copy_flags(&csth.spy_audiohook, flags, AST_FLAGS_ALL);
 
 	ast_audiohook_init(&csth.spy_audiohook, AST_AUDIOHOOK_TYPE_SPY, "ChanSpy");
 

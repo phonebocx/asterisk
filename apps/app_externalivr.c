@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 195319 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228017 $")
 
 #include <signal.h>
 
@@ -349,6 +349,11 @@ static int app_exec(struct ast_channel *chan, void *data)
 	u->abort_current_sound = 0;
 	u->chan = chan;
 
+	if (ast_strlen_zero(data)) {
+		ast_log(LOG_WARNING, "ExternalIVR requires a command to execute\n");
+		return -1;
+	}
+
 	buf = ast_strdupa(data);
 	AST_STANDARD_APP_ARGS(eivr_args, buf);
 
@@ -433,9 +438,7 @@ static int app_exec(struct ast_channel *chan, void *data)
 		ivr_desc.local_address.sin_family = AF_INET;
 		ivr_desc.local_address.sin_port = htons(port);
 		memcpy(&ivr_desc.local_address.sin_addr.s_addr, hp.hp.h_addr, hp.hp.h_length);
-		ser = ast_tcptls_client_start(&ivr_desc);
-
-		if (!ser) {
+		if (!(ser = ast_tcptls_client_create(&ivr_desc)) || !(ser = ast_tcptls_client_start(ser))) {
 			goto exit;
 		}
 		res = eivr_comm(chan, u, ser->fd, ser->fd, -1, pipe_delim_args, flags);

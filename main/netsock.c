@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222874 $")
 
 #if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__)
 #include <net/if_dl.h>
@@ -81,6 +81,7 @@ int ast_netsock_release(struct ast_netsock_list *list)
 {
 	ASTOBJ_CONTAINER_DESTROYALL(list, ast_netsock_destroy);
 	ASTOBJ_CONTAINER_DESTROY(list);
+	ast_free(list);
 
 	return 0;
 }

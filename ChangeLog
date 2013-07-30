@@ -1,3 +1,1332 @@
+2009-11-13  Leif Madsen <lmadsen@digium.com>
+
+	* Release Asterisk 1.6.2.0-rc6
+
+2009-11-13 15:57 +0000 [r229915]  Joshua Colp <jcolp@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 229912 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r229912 |
+	  file | 2009-11-13 09:56:16 -0600 (Fri, 13 Nov 2009) | 2 lines Fix
+	  T.38 negotiation regression introduced with the SDP parser
+	  changes. ........
+
+2009-11-12 23:31 +0000 [r229752]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_oss.c, /: Merged revisions 229750 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r229750 |
+	  qwell | 2009-11-12 17:30:10 -0600 (Thu, 12 Nov 2009) | 1 line Fix
+	  mute toggling on OSS channels. ........
+
+2009-11-12 16:47 +0000 [r229671]  David Vossel <dvossel@digium.com>
+
+	* funcs/func_audiohookinherit.c, /: Merged revisions 229670 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r229670 | dvossel | 2009-11-12 10:44:39 -0600
+	  (Thu, 12 Nov 2009) | 12 lines Merged revisions 229669 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r229669 | dvossel | 2009-11-12 10:41:49 -0600 (Thu, 12 Nov 2009)
+	  | 6 lines fixes merging error, datastore was being freed in the
+	  wrong function. (closes issue #16219) Reported by: aragon
+	  ........ ................
+
+2009-11-11 20:49 +0000 [r229570]  David Ruggles <thedavidfactor@gmail.com>
+
+	* doc/externalivr.txt: Merged revisions 229568 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r229568 |
+	  diruggles | 2009-11-11 15:47:06 -0500 (Wed, 11 Nov 2009) | 9
+	  lines Remove non-functional feature from ExternalIVR
+	  documentation Remove non-functional socket implementation of
+	  ExternalIVR from documentation (closes issue #16225) Reported by:
+	  thedavidfactor Patches: externalivr.txt.20091111.1542.patch
+	  uploaded by thedavidfactor (license 903) ........
+
+2009-11-11 19:56 +0000 [r229492-229502]  David Brooks <dbrooks@digium.com>
+
+	* main/pbx.c, /: Merged revisions 229499 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r229499 | dbrooks | 2009-11-11 13:48:18 -0600 (Wed, 11 Nov 2009)
+	  | 15 lines Merged revisions 229498 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r229498 | dbrooks | 2009-11-11 13:46:19 -0600 (Wed, 11 Nov 2009)
+	  | 8 lines Solaris doesn't like NULL going to ast_log Solaris will
+	  crash if NULL is passed to ast_log. This simple patch simply uses
+	  S_OR to get around this. (closes issue #15392) Reported by:
+	  yrashk ........ ................
+
+	* /, apps/app_softhangup.c: Merged revisions 229460 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r229460 | dbrooks | 2009-11-11 12:13:56 -0600 (Wed, 11 Nov 2009)
+	  | 7 lines Flags not initialized in app_softhangup.c, causing
+	  undefined behavior Trivial patch [kobaz] to initialize an
+	  ast_flags = {0} (closes issue #16129) Reported by: kobaz ........
+
+2009-11-10 22:17 +0000 [r229366]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/pbx.c, /: Merged revisions 229361 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r229361 | tilghman | 2009-11-10 16:14:22 -0600 (Tue, 10 Nov 2009)
+	  | 19 lines Merged revisions 229360 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r229360 | tilghman | 2009-11-10 16:09:16 -0600 (Tue, 10 Nov 2009)
+	  | 12 lines If two pattern classes start with the same digit and
+	  have the same number of characters, they will compare equal. The
+	  example given in the issue report is that of [234] and [246],
+	  which have these characteristics, yet they are clearly not
+	  equivalent. The code still uses these two characteristics, yet
+	  when the two scores compare equal, an additional check will be
+	  done to compare all characters within the class to verify
+	  equality. (closes issue #15421) Reported by: jsmith Patches:
+	  20091109__issue15421__2.diff.txt uploaded by tilghman (license
+	  14) Tested by: jsmith, thedavidfactor ........ ................
+
+2009-11-10 22:04 +0000 [r229359]  David Ruggles <thedavidfactor@gmail.com>
+
+	* doc/externalivr.txt: Merged revisions 229356 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r229356 | diruggles | 2009-11-10 17:01:50 -0500 (Tue, 10 Nov
+	  2009) | 16 lines Merged revisions 229355 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r229355 | diruggles | 2009-11-10 16:45:15 -0500 (Tue, 10 Nov
+	  2009) | 9 lines Fix ExternalIVR Documentation Remove
+	  documentation for event that doesn't function (closes issue
+	  #16220) Reported by: thedavidfactor Patches:
+	  externalivr.txt.20091110.1622.patch uploaded by thedavidfactor
+	  (license 903) ........ ................
+
+2009-11-10 21:33 +0000 [r229354]  Tilghman Lesher <tlesher@digium.com>
+
+	* apps/app_stack.c, /: Merged revisions 229351 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r229351 |
+	  tilghman | 2009-11-10 15:22:50 -0600 (Tue, 10 Nov 2009) | 7 lines
+	  When GOSUB is invoked within an AGI, it may not exit correctly.
+	  (closes issue #16216) Reported by: atis Patches:
+	  20091110__atis_work.diff.txt uploaded by tilghman (license 14)
+	  Tested by: atis ........
+
+2009-11-10 20:09 +0000 [r229285]  Joshua Colp <jcolp@digium.com>
+
+	* /, codecs/codec_g726.c: Merged revisions 229282 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r229282 | file | 2009-11-10 16:06:13 -0400 (Tue, 10 Nov 2009) |
+	  15 lines Merged revisions 229281 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r229281 | file | 2009-11-10 16:03:14 -0400 (Tue, 10 Nov 2009) | 8
+	  lines Remove broken support for direct transcoding between G.726
+	  RFC3551 and G.726 AAL2. On some systems the translation core
+	  would actually consider g726aal2 -> g726 -> signed linear to be a
+	  quicker path then g726aal2 -> signed linear which exposed this
+	  problem. (closes issue #15504) Reported by: globalnetinc ........
+	  ................
+
+2009-11-10 17:52 +0000 [r229232]  David Vossel <dvossel@digium.com>
+
+	* channels/chan_iax2.c, /: Merged revisions 229168 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r229168 | dvossel | 2009-11-10 11:16:49 -0600
+	  (Tue, 10 Nov 2009) | 15 lines Merged revisions 229167 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r229167 | dvossel | 2009-11-10 11:15:57 -0600 (Tue, 10 Nov 2009)
+	  | 9 lines don't crash on log message in solaris AST-2009-006
+	  (closes issue #16206) Reported by: bklang Tested by: bklang
+	  ........ ................
+
+2009-11-10 17:39 +0000 [r229231]  David Ruggles <thedavidfactor@gmail.com>
+
+	* doc/externalivr.txt: Merged revisions 229228 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r229228 | diruggles | 2009-11-10 12:33:47 -0500 (Tue, 10 Nov
+	  2009) | 18 lines Merged revisions 229191 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r229191 | diruggles | 2009-11-10 12:23:59 -0500 (Tue, 10 Nov
+	  2009) | 11 lines Document ExternalIVR event tag collision
+	  ExternalIVR uses the D tag for two different event types. This
+	  documents that behavior and how to differentiate between the two
+	  cases. Also includes a minor spelling fix and clarification
+	  (closes issue #16211) Reported by: thedavidfactor Patches:
+	  externalivr.txt.20091109.1507.patch uploaded by thedavidfactor
+	  (license 903) ........ ................
+
+2009-11-10 15:47 +0000 [r229101]  Matthew Nicholson <mnicholson@digium.com>
+
+	* UPGRADE-1.6.txt, main/editline/makelist.in, UPGRADE.txt: Reset
+	  props that were accidently deleted in 229088.
+
+2009-11-10 15:28 +0000 [r229094]  David Vossel <dvossel@digium.com>
+
+	* res/res_config_pgsql.c, /: Merged revisions 229093 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r229093 | dvossel | 2009-11-10 09:27:45 -0600 (Tue, 10 Nov 2009)
+	  | 11 lines fixes pgsql double free of threadstorage A thread
+	  storage variable was being freed incorrectly, which resulted in a
+	  double free if two queries were made in the same thread. (closes
+	  issue #16011) Reported by: cristiandimache Patches:
+	  issue16011.diff uploaded by dvossel (license 671) ........
+
+2009-11-10 15:16 +0000 [r229088]  Matthew Nicholson <mnicholson@digium.com>
+
+	* UPGRADE-1.6.txt, main/editline/makelist.in, channels/chan_sip.c,
+	  UPGRADE.txt: Reverted revision 202007. (closes issue #16175)
+	  Reported by: paul-tg Tested by: paul-tg
+
+2009-11-10 11:25 +0000 [r229078]  Gavin Henry <ghenry@suretecsystems.com>
+
+	* contrib/scripts/asterisk.ldap-schema, /: Merged revisions 229050
+	  via svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ........ r229050 | ghenry | 2009-11-10 11:16:10 +0000 (Tue, 10
+	  Nov 2009) | 20 lines Schema file additions * Added
+	  AsteriskDialplan, AsteriskAccount and AsteriskMailbox
+	  objectClasses to allow standalone dialplan, account and mailbox
+	  entries (STRUCTURAL) * Added new Fields: - AstAccountLanguage,
+	  AstAccountTransport, AstAccountPromiscRedir, -
+	  AstAccountAccountCode, AstAccountSetVar, AstAccountAllowOverlap,
+	  - AstAccountVideoSupport, AstAccountIgnoreSDPVersion * Removed
+	  redundant IPaddr (there's already IPAddress) - Gives more
+	  configuration Flags for SIP-Users available (tested) - Allows to
+	  create Asterisk Attributes in defined Asterisk ObjectClasses
+	  without extensibleObject (which really should be the last
+	  resort); gives also additional possibilities for LDAP-filter
+	  (closes issue #15874) Reported by: Medozas Patches:
+	  asterisk.ldap-schema.patch uploaded by Medozas (license 41)
+	  Tested by: Medozas, suretec ........
+
+2009-11-09 22:59 +0000 [r229017]  Terry Wilson <twilson@digium.com>
+
+	* channels/chan_local.c, /: Merged revisions 229015 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r229015 | twilson | 2009-11-09 16:50:22 -0600 (Mon, 09 Nov 2009)
+	  | 8 lines Don't crash when bridge->tech_pvt == NULL This is a
+	  similar solution to what is in place for chan_agent (closes issue
+	  #16003) Reported by: atis Tested by: twilson ........
+
+2009-11-09 22:17 +0000 [r229012]  David Vossel <dvossel@digium.com>
+
+	* channels/chan_sip.c: fixes segfault when transferring a queue
+	  caller In sip_hangup we attempted to lock p->owner after we set
+	  it to NULL. Thanks to fhackenberger for reporting the issue and
+	  submitting a patch. (closes issue #15848) Reported by:
+	  fhackenberger Patches: digium_bug_0015848 uploaded by
+	  fhackenberger (license 592) Tested by: fhackenberger, lmadsen,
+	  TomS, shin-shoryuken, dvossel
+
+2009-11-09  Leif Madsen <lmadsen@digium.com>
+
+	* Release Asterisk 1.6.2.0-rc5
+
+2009-11-09 15:40 +0000 [r228900]  Leif Madsen <lmadsen@digium.com>
+
+	* main/channel.c: Merged revisions 228897 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r228897 | lmadsen | 2009-11-09 09:38:38 -0600 (Mon, 09 Nov 2009)
+	  | 14 lines Merged revisions 228896 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228896 | lmadsen | 2009-11-09 09:37:43 -0600 (Mon, 09 Nov 2009)
+	  | 6 lines Update WARNING message. Update a WARNING message to
+	  give a suggested fix when encountered. (closes issue #16198)
+	  Reported by: atis Tested by: atis ........ ................
+
+2009-11-09 14:48 +0000 [r228859]  Matthew Nicholson <mnicholson@digium.com>
+
+	* /, include/asterisk/lock.h: Merged revisions 228858 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r228858 | mnicholson | 2009-11-09 08:37:07 -0600
+	  (Mon, 09 Nov 2009) | 15 lines Merged revisions 228827 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228827 | mnicholson | 2009-11-09 08:16:03 -0600 (Mon, 09 Nov
+	  2009) | 8 lines Perform limited bounds checking when destroying
+	  ast_mutex_t structures to make sure we don't try to use negative
+	  indices. (closes issue #15588) Reported by: zerohalo Patches:
+	  20090820__issue15588.diff.txt uploaded by tilghman (license 14)
+	  Tested by: zerohalo ........ ................
+
+2009-11-06 22:37 +0000 [r228694]  David Vossel <dvossel@digium.com>
+
+	* main/channel.c, /: Merged revisions 228693 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r228693 | dvossel | 2009-11-06 16:35:44 -0600 (Fri, 06 Nov 2009)
+	  | 16 lines Merged revisions 228692 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228692 | dvossel | 2009-11-06 16:33:27 -0600 (Fri, 06 Nov 2009)
+	  | 9 lines fixes audiohook write crash occuring in chan_spy
+	  whisper mode. After writing to the audiohook list in ast_write(),
+	  frames were being freed incorrectly. Under certain conditions
+	  this resulted in a double free crash. (closes issue #16133)
+	  Reported by: wetwired ........ ................
+
+2009-11-06 20:26 +0000 [r228649]  Matthew Nicholson <mnicholson@digium.com>
+
+	* funcs/func_base64.c, /, main/utils.c: Merged revisions 228620 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r228620 | mnicholson | 2009-11-06 13:47:11 -0600
+	  (Fri, 06 Nov 2009) | 15 lines Merged revisions 228378 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228378 | mnicholson | 2009-11-06 10:26:59 -0600 (Fri, 06 Nov
+	  2009) | 8 lines Properly handle '=' while decoding base64
+	  messages and null terminate strings returned from BASE64_DECODE.
+	  (closes issue #15271) Reported by: chappell Patches:
+	  base64_fix.patch uploaded by chappell (license 8) Tested by:
+	  kobaz ........ ................
+
+2009-11-06 18:43 +0000 [r228551]  Joshua Colp <jcolp@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 228548 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r228548 | file | 2009-11-06 14:37:59 -0400 (Fri, 06 Nov 2009) |
+	  11 lines Merged revisions 228547 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228547 | file | 2009-11-06 14:32:58 -0400 (Fri, 06 Nov 2009) | 4
+	  lines Don't overwrite caller ID name on a trunk with the
+	  configured fullname when using users.conf (issue ABE-1989)
+	  ........ ................
+
+2009-11-06  Leif Madsen <lmadsen@digium.com>
+
+	* Release Asterisk 1.6.2.0-rc4
+
+2009-11-06 17:54 +0000 [r228504]  Joshua Colp <jcolp@digium.com>
+
+	* doc/tex/localchannel.tex, /: Merged revisions 228499 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r228499 | file | 2009-11-06 13:52:00 -0400 (Fri, 06 Nov 2009) | 2
+	  lines Fix the localchannel.tex file. ........
+
+2009-11-06 17:24 +0000 [r228421-228447]  David Vossel <dvossel@digium.com>
+
+	* codecs/codec_ilbc.c, /: Merged revisions 228441 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r228441 |
+	  dvossel | 2009-11-06 11:22:31 -0600 (Fri, 06 Nov 2009) | 3 lines
+	  Fixes merging issue from 1.4, frame data is held in data.ptr in
+	  trunk ........
+
+	* codecs/codec_ilbc.c, /: Merged revisions 228420 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r228420 | dvossel | 2009-11-06 11:09:01 -0600 (Fri, 06 Nov 2009)
+	  | 19 lines Merged revisions 228418 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228418 | dvossel | 2009-11-06 11:07:13 -0600 (Fri, 06 Nov 2009)
+	  | 13 lines fixes segfault in iLBC For reasons not yet known, it
+	  appears possible for an ast_frame to have a datalen greater than
+	  zero while the actual data is NULL during Packet Loss
+	  Concealment. Most codecs don't support PLC so this doesn't affect
+	  them. This patch catches the malformed frame and prevents the
+	  crash from occuring. Additional efforts to determine why it is
+	  possible for a frame to look like this are still being
+	  investigated. (issue #16979) ........ ................
+
+2009-11-06 16:44 +0000 [r228413]  Joshua Colp <jcolp@digium.com>
+
+	* /, main/abstract_jb.c: Merged revisions 228410 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r228410 | file | 2009-11-06 12:42:23 -0400 (Fri, 06 Nov 2009) |
+	  14 lines Merged revisions 228409 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228409 | file | 2009-11-06 12:41:20 -0400 (Fri, 06 Nov 2009) | 7
+	  lines Fix a bug caused by a partially invalid frame (from the
+	  jitterbuffer) passing through the Asterisk core. (closes issue
+	  #15560) Reported by: jvandal (closes issue #15709) Reported by:
+	  covici ........ ................
+
+2009-11-06 15:43 +0000 [r228269-228340]  David Vossel <dvossel@digium.com>
+
+	* /, main/astfd.c: Merged revisions 228339 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r228339 | dvossel | 2009-11-06 09:42:46 -0600 (Fri, 06 Nov 2009)
+	  | 12 lines Merged revisions 228338 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228338 | dvossel | 2009-11-06 09:41:41 -0600 (Fri, 06 Nov 2009)
+	  | 5 lines fixes crash in astfd.c (closes issue #15981) Reported
+	  by: slavon ........ ................
+
+	* funcs/func_audiohookinherit.c, /: Merged revisions 228268 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ........ r228268 | dvossel | 2009-11-06 09:04:24 -0600 (Fri, 06
+	  Nov 2009) | 9 lines fixes memory leak in func_audiohookinherit.c
+	  (closes issue #15394) Reported by: boroda Patches:
+	  bug15394_memoryleak_diff2.txt uploaded by dbrooks (license 790)
+	  Tested by: dbrooks, boroda ........
+
+2009-11-05 22:13 +0000 [r228198]  Tilghman Lesher <tlesher@digium.com>
+
+	* /, apps/app_meetme.c: Merged revisions 228196 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r228196 |
+	  tilghman | 2009-11-05 16:12:45 -0600 (Thu, 05 Nov 2009) | 2 lines
+	  Yet another error message in the dialplan (thanks,
+	  rmudgett/russellb) ........
+
+2009-11-05 21:27 +0000 [r228195]  Jeff Peeler <jpeeler@digium.com>
+
+	* apps/app_chanspy.c, /: Merged revisions 228189 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r228189 |
+	  jpeeler | 2009-11-05 15:23:06 -0600 (Thu, 05 Nov 2009) | 11 lines
+	  Fix the fix for chanspy option o In 224178, I assumed the
+	  uploaded patch was correct as it had received positive feedback.
+	  The flags were being checked in the incorrect location. Upon
+	  testing the fix this time it was also found that the flags from
+	  the dialplan weren't being copied to the
+	  chanspy_translation_helper. (closes issue #16167) Reported by:
+	  marhbere ........
+
+2009-11-05 21:27 +0000 [r228194]  Tilghman Lesher <tlesher@digium.com>
+
+	* /, apps/app_meetme.c: Merged revisions 228191 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r228191 |
+	  tilghman | 2009-11-05 15:24:21 -0600 (Thu, 05 Nov 2009) | 7 lines
+	  MEETME_INFO should not return a literal error message to the
+	  dialplan. (closes issue #15450) Reported by: JimVanM Patches:
+	  meetmeinfopatch.diff.txt uploaded by dbrooks (license 790) Tested
+	  by: JimVanM ........
+
+2009-11-05 19:42 +0000 [r228148]  David Brooks <dbrooks@digium.com>
+
+	* channels/chan_misdn.c, /: Merged revisions 228145 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r228145 | dbrooks | 2009-11-05 13:34:50 -0600
+	  (Thu, 05 Nov 2009) | 16 lines Merged revisions 228078 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228078 | dbrooks | 2009-11-05 12:59:41 -0600 (Thu, 05 Nov 2009)
+	  | 9 lines chan_misdn Asterisk 1.4.27-rc2 crash Crash related to
+	  chan_misdn connection. Patch submitted by gknispel_proformatique,
+	  tested by francesco_r. "I have many crash since i have upgraded
+	  to Asterisk 1.4.27-rc2. Attached a full bt." This patch zeros out
+	  an ast_frame. (closes issue #16041) Reported by: francesco_r
+	  ........ ................
+
+2009-11-05 19:20 +0000 [r228093]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_vpb.cc, /: Merged revisions 228080 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r228080 | qwell | 2009-11-05 13:16:29 -0600
+	  (Thu, 05 Nov 2009) | 15 lines Merged revisions 228079 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r228079 | qwell | 2009-11-05 13:14:25 -0600 (Thu, 05 Nov 2009) |
+	  8 lines Fix crash on VPB exception when no hardware is present.
+	  (closes issue #14970) Reported by: tzafrir Patches:
+	  vpb_exception.diff uploaded by tzafrir (license 46) Tested by:
+	  markwaters ........ ................
+
+2009-11-05 17:14 +0000 [r228017]  Tilghman Lesher <tlesher@digium.com>
+
+	* apps/app_externalivr.c, /: Merged revisions 228015 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r228015 | tilghman | 2009-11-05 11:08:02 -0600 (Thu, 05 Nov 2009)
+	  | 4 lines Don't crash if no arguments are passed. (closes issue
+	  #16119) Reported by: thedavidfactor ........
+
+2009-11-04 23:53 +0000 [r227947]  Jeff Peeler <jpeeler@digium.com>
+
+	* res/res_monitor.c, /: Merged revisions 227945 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r227945 | jpeeler | 2009-11-04 17:50:59 -0600 (Wed, 04 Nov 2009)
+	  | 21 lines Merged revisions 227944 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r227944 | jpeeler | 2009-11-04 17:47:08 -0600 (Wed, 04 Nov 2009)
+	  | 14 lines Fix incorrect filename comparsion after monitor file
+	  change The logic to detect if a requested file is indeed a
+	  different file from the current file was incorrect. The main
+	  issue being confusion of the use of filename_base which was
+	  previously set without pathing information and then compared to
+	  another full path. Robust file comparison logic has been added to
+	  properly check if two files are the same even if symlinks are
+	  used. (closes issue #15313) Reported by: caspy Patches:
+	  20091103__issue15313__1.4.diff.txt uploaded by jpeeler (license
+	  325) but mostly tilghman's work ........ ................
+
+2009-11-04 21:09 +0000 [r227760-227831]  Matthew Nicholson <mnicholson@digium.com>
+
+	* apps/app_dial.c, /: Merged revisions 227829 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r227829 | mnicholson | 2009-11-04 15:03:33 -0600 (Wed, 04 Nov
+	  2009) | 17 lines Merged revisions 227827 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r227827 | mnicholson | 2009-11-04 14:52:27 -0600 (Wed, 04 Nov
+	  2009) | 10 lines This patch modifies the Dial application to
+	  monitor the calling channel for hangups while playing back
+	  announcements. (closes issue #16005) Reported by: falves11
+	  Patches: dial-announce-hangup-fix1.diff uploaded by mnicholson
+	  (license 96) Tested by: mnicholson, falves11 Review:
+	  https://reviewboard.asterisk.org/r/407/ ........ ................
+
+	* channels/chan_sip.c: Modify the SDP parsing code to parse session
+	  and media level items separately. With the new code, media level
+	  proprieties should no longer be confused with session level
+	  proprieties. This change also reorganizes some of the SDP parsing
+	  code which should make it easier to manage in the future. (closes
+	  issue #14994) Reported by: frawd
+
+2009-11-04 19:28 +0000 [r227733-227748]  Joshua Colp <jcolp@digium.com>
+
+	* /, static-http/prototype.js: Merged revisions 227739 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r227739 | file | 2009-11-04 15:26:19 -0400 (Wed,
+	  04 Nov 2009) | 12 lines Merged revisions 227735 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r227735 | file | 2009-11-04 15:25:37 -0400 (Wed, 04 Nov 2009) | 5
+	  lines Fix a security issue where it may be possible for someone
+	  to execute a cross-site AJAX request exploit. (AST-2009-009)
+	  ........ ................
+
+	* /, channels/chan_sip.c: Merged revisions 227712 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r227712 | file | 2009-11-04 15:20:46 -0400 (Wed, 04 Nov 2009) |
+	  12 lines Merged revisions 227700 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r227700 | file | 2009-11-04 15:17:39 -0400 (Wed, 04 Nov 2009) | 5
+	  lines Fix a security issue where sending a REGISTER with a
+	  differing username in the From URI and Authorization header would
+	  reveal whether it was valid or not. (AST-2009-008) ........
+	  ................
+
+2009-11-03 20:01 +0000 [r227375]  Jason Parker <jparker@digium.com>
+
+	* Makefile, /, main/Makefile: Merged revisions 227372 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r227372 | qwell | 2009-11-03 13:59:46 -0600 (Tue, 03 Nov 2009) |
+	  9 lines Fix some build issues on Solaris. (closes issue #14517)
+	  (SWP-109) Reported by: asgaroth Patches: bug_14517.diff uploaded
+	  by snuffy (license 35) Tested by: asgaroth, snuffy, dougm, qwell
+	  ........
+
+2009-11-03 19:49 +0000 [r227364-227371]  Leif Madsen <lmadsen@digium.com>
+
+	* apps/app_controlplayback.c, /: Merged revisions 227368 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ........ r227368 | lmadsen | 2009-11-03 13:48:53 -0600 (Tue, 03
+	  Nov 2009) | 8 lines Change warning message to debug message.
+	  app_controlplayback outputs a warning, when in fact it is normal.
+	  (closes issue #16071) Reported by: atis Patches:
+	  controlplayback_warning.patch uploaded by atis (license 242)
+	  ........
+
+	* configs/extensions.conf.sample, /: Merged revisions 227361 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ........ r227361 | lmadsen | 2009-11-03 13:25:18 -0600 (Tue, 03
+	  Nov 2009) | 11 lines Additional fixes to the
+	  extensions.conf.sample file. Update the extensions.conf.sample
+	  [stdexten] context so that we use the variable instead of
+	  requiring it to be passed explicitly. Also updated uses of the
+	  [stdexten] context throughout. (closes issue #15858) Reported by:
+	  pprindeville Patches: stdexten-context-update.txt uploaded by
+	  lmadsen (license 10) Tested by: pprindeville ........
+
+2009-11-03 18:15 +0000 [r227280]  Richard Mudgett <rmudgett@digium.com>
+
+	* channels/chan_dahdi.c: Merged revisions 227275 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r227275 | rmudgett | 2009-11-03 11:55:47 -0600 (Tue, 03 Nov 2009)
+	  | 4 lines Make sure the outgoing flag is cleared if a new channel
+	  fails to get created for outgoing calls. This is the relevant
+	  portion of asterisk/trunk -r226648 ........
+
+2009-11-03 17:14 +0000 [r227239]  David Vossel <dvossel@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 227238 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r227238 |
+	  dvossel | 2009-11-03 11:12:52 -0600 (Tue, 03 Nov 2009) | 5 lines
+	  user.conf entries in SIP were not having their peer type set.
+	  (closes issue #16120) Reported by: jsmith ........
+
+2009-11-03 15:40 +0000 [r227170]  Joshua Colp <jcolp@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 227167 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r227167 | file | 2009-11-03 11:37:08 -0400 (Tue, 03 Nov 2009) |
+	  12 lines Merged revisions 227166 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r227166 | file | 2009-11-03 11:36:16 -0400 (Tue, 03 Nov 2009) | 5
+	  lines Fix a bug where an RPID header could be generated with a
+	  blank username in the URI. (closes issue #15909) Reported by:
+	  kobaz ........ ................
+
+2009-11-03 15:25 +0000 [r227165]  Leif Madsen <lmadsen@digium.com>
+
+	* configs/extensions.conf.sample, /: Merged revisions 227162 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ........ r227162 | lmadsen | 2009-11-03 09:19:47 -0600 (Tue, 03
+	  Nov 2009) | 7 lines Update extensions.conf.sample file to fix
+	  incorrect extensions. (closes issue #15857) Reported by:
+	  pprindeville Patches: stdexten.patch#2 uploaded by pprindeville
+	  (license 347) Tested by: pprindeville ........
+
+2009-11-03 13:51 +0000 [r227156]  Olle Johansson <oej@edvina.net>
+
+	* Makefile, /, channels/chan_sip.c: Merged revisions 227091 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r227091 | oej | 2009-11-03 12:11:15 +0100 (Tis,
+	  03 Nov 2009) | 15 lines Merged revisions 227088 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r227088 | oej | 2009-11-03 11:29:59 +0100 (Tis, 03 Nov 2009) | 7
+	  lines Use proper response code when violating Contact ACL's.
+	  https://reviewboard.asterisk.org/r/415/ Thanks kpfleming for a
+	  quick review. (EDVX-003) ........ ................
+
+2009-11-02 21:06 +0000 [r226978]  David Brooks <dbrooks@digium.com>
+
+	* channels/chan_sip.c: SIP channel name uniqueness SIP channel
+	  names were supposed to be unique by way of a name suffix derived
+	  from the pointer to the channel's private data. Uniqueness was
+	  preserved on 32-bit systems, but not on 64-bit systems. This
+	  patch, as suggested by kpfleming, replaces this suffix with a
+	  simple incremented unsigned int. (closes issue #15152) Reported
+	  by: palbrecht Review: https://reviewboard.asterisk.org/r/420/
+
+2009-11-02 18:12 +0000 [r226893]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_dial.c, /: Merged revisions 226890 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r226890 | file | 2009-11-02 14:08:54 -0400 (Mon, 02 Nov 2009) |
+	  18 lines Merged revisions 226889 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r226889 | file | 2009-11-02 14:08:11 -0400 (Mon, 02 Nov 2009) |
+	  11 lines Fix a bug where the recorded privacy introduction file
+	  would not get removed if the caller hung up while the called
+	  party had not yet answered. This was fixed by introducing an
+	  argument to the 'n' option which, when enabled, removes the
+	  introduction file under all scenarios. This was done to preserve
+	  the behavior that has existed for quite some time. (closes issue
+	  #14674) Reported by: ulogic Patches: bug14674.patch uploaded by
+	  jpeeler (license 325) ........ ................
+
+2009-11-02 17:17 +0000 [r226815]  Tilghman Lesher <tlesher@digium.com>
+
+	* /, contrib/init.d/rc.redhat.asterisk: Merged revisions 226812 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r226812 | tilghman | 2009-11-02 11:15:31 -0600
+	  (Mon, 02 Nov 2009) | 15 lines Merged revisions 226811 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r226811 | tilghman | 2009-11-02 11:14:20 -0600 (Mon, 02 Nov 2009)
+	  | 8 lines Don't allow two separate instances of safe_asterisk
+	  when restarting from the init script. (closes issue #14562)
+	  Reported by: davidw Patches: Initially
+	  20091022__issue14562.diff.txt uploaded by tilghman (license 14)
+	  Modified to 20091030__Issue14562_diff.txt uploaded by davidw
+	  (license 780) Tested by: davidw ........ ................
+
+2009-10-29 18:18 +0000 [r226540]  Joshua Colp <jcolp@digium.com>
+
+	* doc/tex/localchannel.tex, channels/chan_local.c, /: Merged
+	  revisions 226532 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r226532 | file | 2009-10-29 15:13:42 -0300 (Thu, 29 Oct 2009) |
+	  13 lines Merged revisions 226531 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r226531 | file | 2009-10-29 15:11:26 -0300 (Thu, 29 Oct 2009) | 6
+	  lines Add an option to enabling passing music on hold start and
+	  stop requests through instead of acting on them in chan_local.
+	  (closes issue #14709) Reported by: dimas ........
+	  ................
+
+2009-10-28 21:32 +0000 [r226486]  Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+
+	* build_tools/get_documentation, /: remove empty awk pattern (//)
+	  Solaris 10 nawk doesn't like the empty pattern such as '//' for
+	  'always'. Just remove that. No pattern at all always matches.
+	  Merged revisions 226453 via svnmerge from
+	  http://svn.digium.com/svn/asterisk/trunk
+
+2009-10-28 20:13 +0000 [r226379-226385]  Leif Madsen <lmadsen@digium.com>
+
+	* configs/sip.conf.sample: Merged revisions 226384 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r226384 | lmadsen | 2009-10-28 15:11:07 -0500
+	  (Wed, 28 Oct 2009) | 17 lines Merged revisions 226382 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r226382 | lmadsen | 2009-10-28 15:06:13 -0500 (Wed, 28 Oct 2009)
+	  | 9 lines Update documentation in sip.conf.sample. Update the
+	  documentation in sip.conf.sample in order to make it more clear
+	  that directmedia/canreinvite do not cause Asterisk to ignore
+	  reINVITEs. It is only used to stop Asterisk from generating a
+	  reINVITE, but does not stop it from accepting them if necessary.
+	  (closes issue #15644) Reported by: lmadsen ........
+	  ................
+
+	* doc/tex/channelvariables.tex: Merged revisions 226378 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r226378 | lmadsen | 2009-10-28 14:50:00 -0500
+	  (Wed, 28 Oct 2009) | 15 lines Merged revisions 226377 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r226377 | lmadsen | 2009-10-28 14:48:29 -0500 (Wed, 28 Oct 2009)
+	  | 7 lines Update CALLINGSUBADDR channel variable documentation.
+	  (closes issue #15734) Reported by: alecdavis Patches:
+	  channelvariables.tex.diff.txt uploaded by alecdavis (license 585)
+	  Tested by: alecdavis ........ ................
+
+2009-10-28 18:06 +0000 [r226170-226308]  Tilghman Lesher <tlesher@digium.com>
+
+	* /, include/asterisk/linkedlists.h: Merged revisions 226305 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r226305 | tilghman | 2009-10-28 13:04:05 -0500
+	  (Wed, 28 Oct 2009) | 9 lines Merged revisions 226304 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/branches/1.4
+	  ........ r226304 | tilghman | 2009-10-28 13:02:25 -0500 (Wed, 28
+	  Oct 2009) | 2 lines Fix documentation (pointed out by
+	  TheDavidFactor on #-dev) ........ ................
+
+	* main/manager.c, /: Merged revisions 226159 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r226159 | tilghman | 2009-10-27 15:22:07 -0500 (Tue, 27 Oct 2009)
+	  | 14 lines Merged revisions 226138 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r226138 | tilghman | 2009-10-27 15:16:49 -0500 (Tue, 27 Oct 2009)
+	  | 7 lines Manager output is not always NULL-terminated, so force
+	  a NULL at the end of the filestream. (closes issue #15495)
+	  Reported by: pdf Patches: 20090916__issue15495.diff.txt uploaded
+	  by tilghman (license 14) Tested by: pdf ........ ................
+
+2009-10-27 17:12 +0000 [r226101]  Terry Wilson <twilson@digium.com>
+
+	* res/res_http_post.c, /: Merged revisions 226099 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r226099 |
+	  twilson | 2009-10-27 11:48:54 -0500 (Tue, 27 Oct 2009) | 2 lines
+	  Don't prepend the URI prefix to the post directory ........
+
+2009-10-27 00:16 +0000 [r226055]  Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+
+	* /, configure, configure.ac: detect ARM Linux EABI OSARCH as
+	  linux-gnu instead of linux-gnueabi * Set OSARCH to linux-gnu even
+	  if host_os is linux-gnueabi * When checking if we are Linux,
+	  check OSARCH rather than host_os The newer ARM ABI ("EABI") shows
+	  the OS name 'linux-gnueabi' rather than 'linux-gnu' . This patch
+	  sets OSARCH to be 'linux-gnu' even in such a case. OSARCH is
+	  tested for the value of 'linux-gnu' in one or two places in the
+	  tree. This patch also fixes the check libcap to check for $OSARCH
+	  rather than $host_os . See also:
+	  http://wiki.debian.org/ArmEabiPort Merged revisions 225957 via
+	  svnmerge from http://svn.digium.com/svn/asterisk/branches/1.4
+	  Merged revisions 226018 via svnmerge from
+	  http://svn.digium.com/svn/asterisk/trunk
+
+2009-10-26 19:42 +0000 [r225914]  Jeff Peeler <jpeeler@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 225912 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r225912 |
+	  jpeeler | 2009-10-26 14:40:26 -0500 (Mon, 26 Oct 2009) | 12 lines
+	  ACL check not present for verifying SIP INVITEs The ACL check in
+	  check_peer_ok was missing and has now been restored. The missing
+	  check allowed for calls to be made on prohibited networks where
+	  an ACL was defined in sip.conf and the allowguest option was set
+	  to off. See the AST security advisory below for more information.
+	  Merge code associated with AST-2009-007. (closes issue #16091)
+	  Reported by: thom4fun ........
+
+2009-10-26 15:56 +0000 [r225871]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* apps/app_fax.c: Backport audio handling loop fixes from trunk
+	  version of app_fax. This backport resolves some issues handling
+	  audio frames during FAX processing, and ensures that the FAX
+	  application doesn't accidentally get notified of a T.38
+	  switchover at the end of a successful FAX. (closes issue #16127)
+
+2009-10-23 14:46 +0000 [r225651]  David Vossel <dvossel@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 225650 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r225650 |
+	  dvossel | 2009-10-23 09:41:50 -0500 (Fri, 23 Oct 2009) | 3 lines
+	  Fixes an iterator memory leak and uninitialized memory ........
+
+2009-10-23 14:08 +0000 [r225585]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* Makefile, /: Merged revisions 225582 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r225582 | kpfleming | 2009-10-23 09:02:42 -0500 (Fri, 23 Oct
+	  2009) | 17 lines Merged revisions 225581 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r225581 | kpfleming | 2009-10-23 09:00:01 -0500 (Fri, 23 Oct
+	  2009) | 10 lines Don't force menuselect.makeopts to be rebuilt on
+	  every build. For some reason the menuselect.makeopts file was
+	  listed as PHONY in the Makefile, resulting in 'make' needing to
+	  rebuild it for every build. This then resulted in the embedded
+	  module rules being rebuilt on every build, which can be slow and
+	  is unnecessary. This patch fixes the problem by properly allowing
+	  'make' to know when the menuselect.makeopts file needs to be
+	  rebuilt (defining the proper dependencies). ........
+	  ................
+
+2009-10-22 22:24 +0000 [r225516]  Leif Madsen <lmadsen@digium.com>
+
+	* README, /: Merged revisions 225515 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r225515 |
+	  lmadsen | 2009-10-22 17:24:03 -0500 (Thu, 22 Oct 2009) | 8 lines
+	  Update README documentation. Update the README documentation to
+	  correctly describe which CLI command you should use when
+	  attempting to get help from the CLI. (closes issue #16064)
+	  Reported by: thedavidfactor Patches: readme.patch uploaded by
+	  thedavidfactor (license 903) ........
+
+2009-10-22 21:55 +0000 [r225489]  David Vossel <dvossel@digium.com>
+
+	* apps/app_externalivr.c, include/asterisk/tcptls.h, main/tcptls.c,
+	  /, channels/chan_sip.c: Merged revisions 225445 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r225445 |
+	  dvossel | 2009-10-22 14:55:51 -0500 (Thu, 22 Oct 2009) | 50 lines
+	  SIP TCP/TLS: move client connection setup/write into tcp helper
+	  thread, various related locking/memory fixes. What this patch
+	  fixes 1.Moves sip TCP/TLS connection setup into the TCP helper
+	  thread: Connection setup takes awhile and before this it was
+	  being done while holding the monitor lock. 2.Moves TCP/TLS
+	  writing to the TCP helper thread: Through the use of a packet
+	  queue and an alert pipe, the TCP helper thread can now be woken
+	  up to write data as well as read data. 3.Locking error: sip_xmit
+	  returned an XMIT_ERROR without giving up the tcptls_session lock.
+	  This lock has been completely removed from sip_xmit and placed in
+	  the new sip_tcptls_write() function. 4.Memory leak: When creating
+	  a tcptls_client the tls_cfg was alloced but never freed unless
+	  the tcptls_session failed to start. Now the session_args for a
+	  sip client are an ao2 object which frees the tls_cfg on
+	  destruction. 5.Pointer to stack variable: During
+	  sip_prepare_socket the creation of a client's
+	  ast_tcptls_session_args was done on the stack and stored as a
+	  pointer in the newly created tcptls_session. Depending on the
+	  events that followed, there was a slight possibility that pointer
+	  could have been accessed after the stack returned. Given the new
+	  changes, it is always accessed after the stack returns which is
+	  why I found it. Notable code changes 1.I broke tcptls.c's
+	  ast_tcptls_client_start() function into two functions. One for
+	  creating and allocating the new tcptls_session, and a separate
+	  one for starting and handling the new connection. This allowed me
+	  to create the tcptls_session, launch the helper thread, and then
+	  establish the connection within the helper thread. 2.Writes to a
+	  tcptls_session are now done within the helper thread. This is
+	  done by using an alert pipe to wake up the thread if new data
+	  needs to be sent. The thread's sip_threadinfo object contains the
+	  alert pipe as well as the packet queue. 3.Since the threadinfo
+	  object contains the alert pipe, it must now be accessed outside
+	  of the helper thread for every write (queuing of a packet). For
+	  easy lookup, I moved the threadinfo objects from a linked list to
+	  an ao2_container. (closes issue #13136) Reported by: pabelanger
+	  Tested by: dvossel, whys (closes issue #15894) Reported by:
+	  dvossel Tested by: dvossel Review:
+	  https://reviewboard.asterisk.org/r/380/ ........
+
+2009-10-22 21:54 +0000 [r225488]  Leif Madsen <lmadsen@digium.com>
+
+	* doc/valgrind.txt, contrib/valgrind.supp (added): Merged revisions
+	  225485 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r225485 | lmadsen | 2009-10-22 16:52:30 -0500 (Thu, 22 Oct 2009)
+	  | 19 lines Merged revisions 225484 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r225484 | lmadsen | 2009-10-22 16:51:52 -0500 (Thu, 22 Oct 2009)
+	  | 11 lines Clean valgrind output by suppressing false errors.
+	  Update valgrind.txt documentation and add valgrind.supp file in
+	  order to allow those who are creating valgrind output to have
+	  less false errors in the logfile. (closes issue #16007) Reported
+	  by: atis Patches: valgrind.txt.diff uploaded by atis (license
+	  242) asterisk2.supp uploaded by atis (license 242) Tested by:
+	  atis, amorsen ........ ................
+
+2009-10-22 17:14 +0000 [r225363]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/pbx.c, /, apps/app_meetme.c, include/asterisk/channel.h:
+	  Merged revisions 225360 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r225360 | tilghman | 2009-10-22 12:11:23 -0500 (Thu, 22 Oct 2009)
+	  | 11 lines Merged revisions 225105 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r225105 | tilghman | 2009-10-21 11:02:12 -0500 (Wed, 21 Oct 2009)
+	  | 4 lines Fix documentation for ast_softhangup() and correct the
+	  misuse thereof. (closes issue #16103) Reported by: majorbloodnok
+	  ........ ................
+
+2009-10-21 22:00 +0000 [r225035-225308]  David Vossel <dvossel@digium.com>
+
+	* channels/chan_iax2.c, /: Merged revisions 225307 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r225307 | dvossel | 2009-10-21 16:58:46 -0500
+	  (Wed, 21 Oct 2009) | 20 lines Merged revisions 225243 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r225243 | dvossel | 2009-10-21 15:58:08 -0500 (Wed, 21 Oct 2009)
+	  | 13 lines IAX2: VNAK loop caused by signaling frames with no
+	  destination call number It is possible for the PBX thread to
+	  queue up signaling frames before a destination call number is
+	  received. This can result in signaling frames being sent out with
+	  no destination call number. Since recent versions of Asterisk
+	  require accurate destination callnumbers for all Full Frames,
+	  this can cause a VNAK loop to occur. To resolve this no signaling
+	  frames are sent until a destination callnumber is received, and
+	  destination call numbers are now only required for iax_pvt
+	  matching when the frame is an ACK. Review:
+	  https://reviewboard.asterisk.org/r/413/ ........ ................
+
+	* configs/sip.conf.sample, channels/chan_iax2.c,
+	  configs/iax.conf.sample, /, channels/chan_sip.c: Merged revisions
+	  225033 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r225033 | dvossel | 2009-10-21 09:39:10 -0500 (Wed, 21 Oct 2009)
+	  | 27 lines Merged revisions 225032 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r225032 | dvossel | 2009-10-21 09:37:04 -0500 (Wed, 21 Oct 2009)
+	  | 20 lines IAX/SIP shrinkcallerid option The shrinking of caller
+	  id removes '(', ' ', ')', non-trailing '.', and '-' from the
+	  string. This means values such as 555.5555 and test-test result
+	  in 555555 and testtest. There are instances, such as Skype
+	  integration, where a specific value is passed via caller id that
+	  must be preserved unmodified. This patch makes the shrinking of
+	  caller id optional in chan_sip and chan_iax in order to support
+	  such cases. By default this option is on to preserve previous
+	  expected behavior. (closes issue #15940) Reported by: dimas
+	  Patches: v2-15940.patch uploaded by dimas (license 88)
+	  15940_shrinkcallerid_trunk.c uploaded by dvossel (license 671)
+	  Tested by: dvossel Review:
+	  https://reviewboard.asterisk.org/r/408/ ........ ................
+
+2009-10-20 22:11 +0000 [r224859]  Tilghman Lesher <tlesher@digium.com>
+
+	* main/audiohook.c, funcs/func_speex.c, /: Merged revisions 224856
+	  via svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r224856 | tilghman | 2009-10-20 17:09:07 -0500
+	  (Tue, 20 Oct 2009) | 12 lines Merged revisions 224855 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r224855 | tilghman | 2009-10-20 17:07:11 -0500 (Tue, 20 Oct 2009)
+	  | 5 lines Pay attention to the return value of the manipulate
+	  function. While this looks like an optimization, it prevents a
+	  crash from occurring when used with certain audiohook callbacks
+	  (diagnosed with SVN trunk, backported to 1.4 to keep the source
+	  consistent across versions). ........ ................
+
+2009-10-20 17:50 +0000 [r224777]  Joshua Colp <jcolp@digium.com>
+
+	* /, main/features.c: Merged revisions 224774 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r224774 | file | 2009-10-20 14:47:34 -0300 (Tue, 20 Oct 2009) |
+	  12 lines Merged revisions 224773 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r224773 | file | 2009-10-20 14:46:37 -0300 (Tue, 20 Oct 2009) | 5
+	  lines Add support for relaying early media in the features
+	  attended transfer option. (closes issue #14828) Reported by:
+	  licedey ........ ................
+
+2009-10-20 00:00 +0000 [r224674]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* main/rtp.c, /: Merged revisions 224671 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r224671 | kpfleming | 2009-10-19 18:47:39 -0500 (Mon, 19 Oct
+	  2009) | 14 lines Merged revisions 224670 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r224670 | kpfleming | 2009-10-19 18:44:07 -0500 (Mon, 19 Oct
+	  2009) | 7 lines Correct timestamp calculations when RTP sample
+	  rates over 8kHz are used. While testing some endpoints that
+	  support 16kHz and 32kHz sample rates, some log messages were
+	  generated due to calc_rxstamp() computing timestamps in a way
+	  that produced odd results, so this patch sanitizes the result of
+	  the computations. ........ ................
+
+2009-10-19 19:54 +0000 [r224571]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_dial.c, /: Merged revisions 224567 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r224567 | file | 2009-10-19 16:49:09 -0300 (Mon, 19 Oct 2009) |
+	  12 lines Merged revisions 224565 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r224565 | file | 2009-10-19 16:47:50 -0300 (Mon, 19 Oct 2009) | 5
+	  lines Do not attempt early media bridging (ie: direct RTP setup)
+	  if options are enabled that should prevent it. (closes issue
+	  #14763) Reported by: cupotka ........ ................
+
+2009-10-19 19:41 +0000 [r224563]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* formats/format_siren14.c, /: Merged revisions 224562 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r224562 | kpfleming | 2009-10-19 14:40:26 -0500 (Mon, 19 Oct
+	  2009) | 1 line Remove useless debugging message. ........
+
+2009-10-19 00:13 +0000 [r224447-224451]  Tilghman Lesher <tlesher@digium.com>
+
+	* apps/app_voicemail.c, /: Merged revisions 224448 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r224448 | tilghman | 2009-10-18 19:05:56 -0500 (Sun, 18 Oct 2009)
+	  | 3 lines Allow ODBC storage to be queried with multiple
+	  mailboxes, and remove multiple goto's. This corrects an issue
+	  reported on the -users list. ........
+
+	* configs/res_odbc.conf.sample, /: Merged revisions 224446 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ........ r224446 | tilghman | 2009-10-18 18:41:30 -0500 (Sun, 18
+	  Oct 2009) | 2 lines Clarify that "forcecommit" is NOT an alias
+	  for "autocommit", but instead controls the default disposition of
+	  uncommitted transactions. ........
+
+2009-10-17 01:58 +0000 [r224334]  Jeff Peeler <jpeeler@digium.com>
+
+	* channels/chan_dahdi.c, /: Merged revisions 224331 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r224331 | jpeeler | 2009-10-16 20:36:08 -0500
+	  (Fri, 16 Oct 2009) | 20 lines Merged revisions 224330 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r224330 | jpeeler | 2009-10-16 20:32:47 -0500 (Fri, 16 Oct 2009)
+	  | 13 lines Fix stale caller id data from being reported in AMI
+	  NewChannel event The problem here is that chan_dahdi is designed
+	  in such a way to set certain values in the dahdi_pvt only once.
+	  One of those such values is the configured caller id data in
+	  chan_dahdi.conf. For PRI, the configured caller id data could be
+	  overwritten during a call. Instead of saving the data and
+	  restoring, it was decided that for all non-analog channels it was
+	  simply best to not set the configured caller id in the first
+	  place and also clear it at the end of the call. (closes issue
+	  #15883) Reported by: jsmith ........ ................
+
+2009-10-16 20:58 +0000 [r224264]  Richard Mudgett <rmudgett@digium.com>
+
+	* channels/chan_dahdi.c, /: Merged revisions 224261 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r224261 | rmudgett | 2009-10-16 15:40:57 -0500
+	  (Fri, 16 Oct 2009) | 25 lines Merged revisions 224260 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r224260 | rmudgett | 2009-10-16 15:25:23 -0500 (Fri, 16 Oct 2009)
+	  | 18 lines Never released PRI channels when using Busy() or
+	  Congestion() dialplan apps. When the Busy() or Congestion()
+	  application is used towards ISDN (an ISDN progress is sent), the
+	  responding ISDN Disconnect or Release may contain the ISDN cause
+	  user busy or one of the congestion causes. In chan_dahdi.c these
+	  causes will only set the needbusy or needcongestion flags and not
+	  activate the softhangup procedure. Unfortunately only the latter
+	  can interrupt the endless wait loop of Busy()/Congestion().
+	  Result: PRI channels staying in state busy for the rest of
+	  asterisk life or until the other end times out and forces the
+	  call to clear. (in issue 0014292) Reported by: tomaso Patches:
+	  disc_rel_userbusy.patch uploaded by tomaso (license 564) (This
+	  patch is unrelated to the issue.) ........ ................
+
+2009-10-15 15:58 +0000 [r224181]  Jeff Peeler <jpeeler@digium.com>
+
+	* apps/app_chanspy.c, /: Merged revisions 224178 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r224178 |
+	  jpeeler | 2009-10-15 10:57:14 -0500 (Thu, 15 Oct 2009) | 11 lines
+	  Readd removed ability to allow listening to one side of the call
+	  in app_chanspy (Option o) (closes issue #15675) Reported by:
+	  john8675309 Patches: issue15675patchtrunk.txt uploaded by dbrooks
+	  (license 790) Tested by: jgutierrez on users list:
+	  http://lists.digium.com/pipermail/asterisk-users/2009-October/239155.html
+	  ........
+
+2009-10-12 23:55 +0000 [r223835]  Jeff Peeler <jpeeler@digium.com>
+
+	* apps/app_dial.c, /: Merged revisions 223832 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r223832 | jpeeler | 2009-10-12 18:48:09 -0500 (Mon, 12 Oct 2009)
+	  | 15 lines Merged revisions 223804 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r223804 | jpeeler | 2009-10-12 18:12:50 -0500 (Mon, 12 Oct 2009)
+	  | 8 lines Ensure ringing continues for branched calls after
+	  progress is received While waiting for an answer, don't send
+	  progress for branched calls for which ringing was sent. (closes
+	  issue #15028) Reported by: fnordian ........ ................
+
+2009-10-12 21:01 +0000 [r223757]  David Vossel <dvossel@digium.com>
+
+	* configs/iax.conf.sample, /: Merged revisions 223756 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r223756 | dvossel | 2009-10-12 15:58:27 -0500 (Mon, 12 Oct 2009)
+	  | 5 lines Clarifies trunkmaxsize, trunkfreq, and trunkmtu iax2
+	  options SWP-151 ........
+
+2009-10-12 14:37 +0000 [r223655]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* /, channels/chan_sip.c, apps/app_fax.c: Merged revisions 223652
+	  via svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ........ r223652 | kpfleming | 2009-10-12 09:25:29 -0500 (Mon, 12
+	  Oct 2009) | 13 lines Remove automatic switching from T.38 to
+	  voice mode in chan_sip. chan_sip has some code to automatically
+	  switch from T.38 mode to voice mode when a voice frame is written
+	  to the channel while it is in T.38 mode; this was intended to
+	  handle the situation when a FAX transmission has ended and the
+	  channel is not yet hung up, but is causing problems at the
+	  beginning of FAX sessions as well when there are still voice
+	  frames 'in flight' at the time the T.38 negotiation completes.
+	  This patch removes the automatic switchover, and changes app_fax
+	  to explicitly switch off T.38 mode when the FAX transmission
+	  process ends. (closes issue #16025) Reported by: jamicque
+	  ........
+
+2009-10-11 17:32 +0000 [r223490]  Russell Bryant <russell@digium.com>
+
+	* main/autoservice.c, /: Merged revisions 223487 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r223487 | russell | 2009-10-11 12:25:42 -0500 (Sun, 11 Oct 2009)
+	  | 17 lines Merged revisions 223485-223486 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r223485 | russell | 2009-10-11 12:22:52 -0500 (Sun, 11 Oct 2009)
+	  | 6 lines Don't use data outside of its scope. The purpose of
+	  this code was to have a hangup frame put on the list of deferred
+	  frames. However, the code that read the hangup frame was outside
+	  of the scope of where the hangup frame was declared. ........
+	  r223486 | russell | 2009-10-11 12:25:06 -0500 (Sun, 11 Oct 2009)
+	  | 2 lines Remove some unnecessary code. ........ ................
+
+2009-10-09 23:12 +0000 [r223406]  Jeff Peeler <jpeeler@digium.com>
+
+	* channels/chan_dahdi.c, channels/chan_h323.c: Fix interpretation
+	  of PRIREDIRECTIONREASON set by chan_sip. This commit is the
+	  simplest way to solve a problem that has already been solved in
+	  trunk with the "COLP/CONP and Redirecting party information into
+	  Asterisk" commit. In trunk the redirection reason is translated
+	  into a generic redirect reason. I would have had to do the same
+	  fix except chan_sip never reads PRIREDIRECTREASON. So both
+	  chan_dahdi and chan_h323 have been modified to interpret the one
+	  different redirect reason of "no-answer" properly and set the
+	  ISDN reason code 2 of "no reply". (closes issue #15033) Reported
+	  by: steinwej
+
+2009-10-09 21:01 +0000 [r223333]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* /, apps/app_fax.c: Merged revisions 223330 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r223330 |
+	  kpfleming | 2009-10-09 15:58:44 -0500 (Fri, 09 Oct 2009) | 10
+	  lines Initiate T.38 switchover when acting as called party,
+	  regardless of FAX direction. SendFAX() and ReceiveFAX() can be
+	  given options to indicate whether they should act as the calling
+	  or called party; this mode should be used to decide whether to
+	  initiate a switchover to T.38, not the direction that the FAX
+	  transfer will take place. (closes issue #16039) Reported by:
+	  jamicque ........
+
+2009-10-09 18:53 +0000 [r223286]  Matthew Nicholson <mnicholson@digium.com>
+
+	* main/channel.c, /: Merged revisions 223273 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r223273 | mnicholson | 2009-10-09 13:34:08 -0500 (Fri, 09 Oct
+	  2009) | 14 lines Merged revisions 223225 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r223225 | mnicholson | 2009-10-09 13:20:11 -0500 (Fri, 09 Oct
+	  2009) | 8 lines Signal timeouts by returning AST_CONTROL_RINGING
+	  when originating calls. (closes issue #15104) Reported by:
+	  nblasgen Patches: manager-timeout1.diff uploaded by mnicholson
+	  (license 96) Tested by: nblasgen, mnicholson ........
+	  ................
+
+2009-10-09 18:29 +0000 [r223257]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_dial.c, /: Merged revisions 223215 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r223215 | mmichelson | 2009-10-09 13:17:34 -0500 (Fri, 09 Oct
+	  2009) | 9 lines Recorded merge of revisions 223213 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/branches/1.4
+	  ........ r223213 | mmichelson | 2009-10-09 13:17:12 -0500 (Fri,
+	  09 Oct 2009) | 3 lines Fix potential memory leak in app_dial.c
+	  ........ ................
+
+2009-10-09 17:55 +0000 [r223208]  David Vossel <dvossel@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 223206 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r223206 | dvossel | 2009-10-09 12:53:37 -0500 (Fri, 09 Oct 2009)
+	  | 16 lines Merged revisions 223205 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r223205 | dvossel | 2009-10-09 12:52:35 -0500 (Fri, 09 Oct 2009)
+	  | 10 lines fixes sip registration using authuser in user.conf
+	  (closes issue #14954) Reported by: tornblad Tested by:
+	  mmichelson, tornblad, dvossel ........ ................
+
+2009-10-09 17:27 +0000 [r223173]  Matthew Nicholson <mnicholson@digium.com>
+
+	* cdr/cdr_sqlite3_custom.c, /: Merged revisions 223136 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r223136 | mnicholson | 2009-10-09 12:14:38 -0500 (Fri, 09 Oct
+	  2009) | 8 lines Don't close the sqlite database when reloading.
+	  Only close the database when unloading. (closes issue #15953)
+	  Reported by: frawd Patches: sqlite3_rev220097.diff uploaded by
+	  frawd (license 610) Tested by: frawd ........
+
+2009-10-09 17:09 +0000 [r223089-223133]  David Vossel <dvossel@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 223132 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r223132 |
+	  dvossel | 2009-10-09 11:54:02 -0500 (Fri, 09 Oct 2009) | 9 lines
+	  'auth=' did not parse md5 secret correctly (closes issue #15949)
+	  Reported by: ebroad Patches: authparsefix.patch uploaded by
+	  ebroad (license 878) 15949_trunk.diff uploaded by dvossel
+	  (license 671) Tested by: ebroad ........
+
+	* /, channels/chan_sip.c: Merged revisions 223088 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r223088 |
+	  dvossel | 2009-10-09 10:49:30 -0500 (Fri, 09 Oct 2009) | 14 lines
+	  p->peerauth is always empty in transmit_register() When using
+	  callbackextension or specifing the peer name in a registration
+	  string, the peer's specific auth settings set by the "auth="
+	  strings within the peer definition are not used by the
+	  registration. Thanks to ebroad for reporting the issue and
+	  providing the patch. (closes issue #15955) Reported by: ebroad
+	  Patches: regauthfix.patch uploaded by ebroad (license 878)
+	  ........
+
+2009-10-08 20:00 +0000 [r222883]  Russell Bryant <russell@digium.com>
+
+	* include/asterisk/frame.h, include/asterisk/file.h, main/frame.c,
+	  /, main/file.c: Merged revisions 222880 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r222880 | russell | 2009-10-08 14:52:03 -0500 (Thu, 08 Oct 2009)
+	  | 51 lines Merged revisions 222878 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r222878 | russell | 2009-10-08 14:45:47 -0500 (Thu, 08 Oct 2009)
+	  | 44 lines Make filestream frame handling safer by isolating
+	  frames before returning them. This patch is related to a number
+	  of issues on the bug tracker that show crashes related to freeing
+	  frames that came from a filestream. A number of fixes have been
+	  made over time while trying to figure out these problems, but
+	  there re still people seeing the crash. (Note that some of these
+	  bug reports include information about other problems. I am
+	  specifically addressing the filestream frame crash here.) I'm
+	  still not clear on what the exact problem is. However, what is
+	  _very_ clear is that we have seen quite a few problems over time
+	  related to unexpected behavior when we try to use embedded frames
+	  as an optimization. In some cases, this optimization doesn't
+	  really provide much due to improvements made in other areas. In
+	  this case, the patch modifies filestream handling such that the
+	  embedded frame will not be returned. ast_frisolate() is used to
+	  ensure that we end up with a completely mallocd frame. In
+	  reality, though, we will not actually have to malloc every time.
+	  For filestreams, the frame will almost always be allocated and
+	  freed in the same thread. That means that the thread local frame
+	  cache will be used. So, going this route doesn't hurt. With this
+	  patch in place, some people have reported success in not seeing
+	  the crash anymore. (SWP-150) (AST-208) (ABE-1834) (issue #15609)
+	  Reported by: aragon Patches: filestream_frisolate-1.4.diff2.txt
+	  uploaded by russell (license 2) Tested by: aragon, russell
+	  (closes issue #15817) Reported by: zerohalo Tested by: zerohalo
+	  (closes issue #15845) Reported by: marhbere Review:
+	  https://reviewboard.asterisk.org/r/386/ ........ ................
+
+2009-10-08 19:41 +0000 [r222874]  David Vossel <dvossel@digium.com>
+
+	* main/netsock.c, /, include/asterisk/netsock.h: Merged revisions
+	  222873 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r222873 |
+	  dvossel | 2009-10-08 14:35:30 -0500 (Thu, 08 Oct 2009) | 6 lines
+	  fixes an ast_netsock_list memory leak. ABE-1998 Review:
+	  https://reviewboard.asterisk.org/r/395/ ........
+
+2009-10-08 16:51 +0000 [r222695-222802]  Richard Mudgett <rmudgett@digium.com>
+
+	* channels/misdn_config.c, /: Merged revisions 222799 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r222799 | rmudgett | 2009-10-08 11:44:33 -0500
+	  (Thu, 08 Oct 2009) | 19 lines Merged revisions 222797 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r222797 | rmudgett | 2009-10-08 11:33:06 -0500 (Thu, 08 Oct 2009)
+	  | 12 lines Fix memory leak if chan_misdn config parameter is
+	  repeated. Memory leak when the same config option is set more
+	  than once in an misdn.conf section. Why must this be considered?
+	  Templates! Defining a template with default port options and
+	  later adding to or overriding some of them. Patches:
+	  memleak-misdn.patch JIRA ABE-1998 ........ ................
+
+	* channels/chan_misdn.c, /: Merged revisions 222692 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r222692 | rmudgett | 2009-10-07 16:56:36 -0500
+	  (Wed, 07 Oct 2009) | 21 lines Merged revisions 222691 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r222691 | rmudgett | 2009-10-07 16:51:24 -0500 (Wed, 07 Oct 2009)
+	  | 14 lines chan_misdn.c:process_ast_dsp() memory leak misdn.conf:
+	  astdtmf must be set to "yes". With "no", buffer loss does not
+	  occur. The translated frame "f2" when passing through
+	  ast_dsp_process() is not freed whenever it is not used further in
+	  process_ast_dsp(). Then in the end it is never ever freed.
+	  Patches: translate.patch JIRA ABE-1993 ........ ................
+
+2009-10-07 18:06 +0000 [r222549]  Jason Parker <jparker@digium.com>
+
+	* /, configs/queues.conf.sample: Merged revisions 222548 via
+	  svnmerge from https://origsvn.digium.com/svn/asterisk/trunk
+	  ........ r222548 | qwell | 2009-10-07 13:04:56 -0500 (Wed, 07 Oct
+	  2009) | 5 lines Remove 'keepstats' queue option from sample
+	  config, as it's no longer used.
+	  https://reviewboard.asterisk.org/r/115/ (closes issue #15820)
+	  Reported by: kshumard ........
+
+2009-10-07 18:00 +0000 [r222547]  Sean Bright <sean@malleable.com>
+
+	* funcs/func_strings.c: Fix merge error.
+
+2009-10-07 17:45 +0000 [r222544]  David Vossel <dvossel@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 222543 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ................
+	  r222543 | dvossel | 2009-10-07 12:44:52 -0500 (Wed, 07 Oct 2009)
+	  | 14 lines Merged revisions 222542 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r222542 | dvossel | 2009-10-07 12:41:21 -0500 (Wed, 07 Oct 2009)
+	  | 8 lines crash on transfer handle_invite_replaces() attempts to
+	  uplock a pvt's owner channel without first verifing that it
+	  exists. (issue #16027) ........ ................
+
+2009-10-06 23:59 +0000 [r222354-222466]  Jeff Peeler <jpeeler@digium.com>
+
+	* channels/chan_dahdi.c, /: Merged revisions 222463 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk
+	  ................ r222463 | jpeeler | 2009-10-06 18:56:01 -0500
+	  (Tue, 06 Oct 2009) | 14 lines Merged revisions 222462 via
+	  svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.4 ........
+	  r222462 | jpeeler | 2009-10-06 18:51:19 -0500 (Tue, 06 Oct 2009)
+	  | 8 lines Add missing unlock(s) in dahdi_read (two cases in
+	  trunk, and 1.6.2) (closes issue #15683) Reported by: alecdavis
+	  ........ ................
+
+	* channels/chan_dahdi.c: Fix potential crash when entire span
+	  request is received. The variable index used in this scenario for
+	  accessing the dahdi_pvts was wrong and was most likely copied
+	  from the several other places it is used correctly. (closes issue
+	  #15998) Reported by: tsearle Patches: dahdi_reset_crash.patch
+	  uploaded by tsearle (license 373)
+
+	* channels/chan_dahdi.c, /: Merged revisions 222351 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r222351 | jpeeler | 2009-10-06 15:35:19 -0500 (Tue, 06 Oct 2009)
+	  | 9 lines Fix 222298 (crash during destruction of second channel
+	  when variable set with setvar). I mistakenly reasoned that setvar
+	  would be used on all channels. Since it can be set per channel,
+	  give each dahdi channel a copy of the variable. (related to
+	  #15899) ........
+
+2009-10-06 19:41 +0000 [r222311]  Tilghman Lesher <tlesher@digium.com>
+
+	* cdr/cdr_pgsql.c, res/res_config_pgsql.c, /: Merged revisions
+	  222309 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r222309 |
+	  tilghman | 2009-10-06 14:31:39 -0500 (Tue, 06 Oct 2009) | 10
+	  lines Change schema query to involve the use of an optional
+	  schema parameter. This change is done in such a way as to allow
+	  the driver to continue to function with older databases which
+	  don't have these features. (closes issue #16000) Reported by:
+	  jamicque Patches: 20091002__issue16000.diff.txt uploaded by
+	  tilghman (license 14) 20091002__issue16000__1.6.1.diff.txt
+	  uploaded by tilghman (license 14) Tested by: jamicque ........
+
+2009-10-06 19:27 +0000 [r222304]  Jeff Peeler <jpeeler@digium.com>
+
+	* channels/chan_dahdi.c, /: Merged revisions 222298 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/trunk ........
+	  r222298 | jpeeler | 2009-10-06 14:24:59 -0500 (Tue, 06 Oct 2009)
+	  | 9 lines Fix crash during destruction of second channel when
+	  variable set with setvar. The setvar line in chan_dahdi.conf is
+	  shared among all the channels, so make sure to only free the
+	  resources only when the last channel is destroyed. (closes issue
+	  #15899) Reported by: tzafrir ........
+
+2009-10-06 19:22 +0000 [r222289]  Tilghman Lesher <tlesher@digium.com>
+
+	* res/ael/pval.c, /: Merged revisions 222273 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/trunk ........ r222273 |
+	  tilghman | 2009-10-06 14:17:11 -0500 (Tue, 06 Oct 2009) | 5 lines
+	  When we call a gosub routine, the variables should be scoped to
+	  avoid contaminating the caller. This affected the ~~EXTEN~~ hack,
+	  where a subroutine might have changed the value before it was
+	  used in the caller. Patch by myself, tested by ebroad on
+	  #asterisk ........
+
 2009-10-06  Leif Madsen <lmadsen@digium.com>
 
 	* Released Asterisk 1.6.2.0-rc3

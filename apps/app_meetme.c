@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 217299 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228198 $")
 
 #include <dahdi/user.h>
 
@@ -5141,7 +5141,7 @@ static void sla_handle_hold_event(struct sla_event *event)
 		ast_indicate(event->trunk_ref->trunk->chan, AST_CONTROL_HOLD);
 	}
 
-	ast_softhangup(event->trunk_ref->chan, AST_CAUSE_NORMAL);
+	ast_softhangup(event->trunk_ref->chan, AST_SOFTHANGUP_DEV);
 	event->trunk_ref->chan = NULL;
 }
 
@@ -6371,9 +6371,11 @@ static int acf_meetme_info(struct ast_channel *chan, const char *cmd, char *data
 	if (result > -1) {
 		snprintf(buf, len, "%d", result);
 	} else if (result == -1) {
-		snprintf(buf, len, "%s %s", "Error: invalid keyword:", args.keyword);
+		ast_log(LOG_NOTICE, "Error: invalid keyword: '%s'\n", args.keyword);
+		snprintf(buf, len, "0");
 	} else if (result == -2) {
-		snprintf(buf, len, "Error: conference (%s) not found", args.confno);
+		ast_log(LOG_NOTICE, "Error: conference (%s) not found\n", args.confno); 
+		snprintf(buf, len, "0");
 	}
 
 	return 0;

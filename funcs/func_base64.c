@@ -24,7 +24,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228649 $")
 
 #include "asterisk/module.h"
 #include "asterisk/pbx.h"	/* function register/unregister */
@@ -75,12 +75,19 @@ static int base64_encode(struct ast_channel *chan, const char *cmd, char *data,
 static int base64_decode(struct ast_channel *chan, const char *cmd, char *data,
 			 char *buf, size_t len)
 {
+	int decoded_len;
+
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Syntax: BASE64_DECODE(<base_64 string>) - missing argument!\n");
 		return -1;
 	}
 
-	ast_base64decode((unsigned char *) buf, data, len);
+	decoded_len = ast_base64decode((unsigned char *) buf, data, len);
+	if (decoded_len <= (len - 1)) {		/* if not truncated, */
+		buf[decoded_len] = '\0';
+	} else {
+		buf[len - 1] = '\0';
+	}
 
 	return 0;
 }

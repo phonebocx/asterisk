@@ -43,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 214515 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 226170 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -3918,9 +3918,12 @@ static struct ast_str *generic_http_callback(enum output_format format,
 
 	if (s.f != NULL) {	/* have temporary output */
 		char *buf;
-		size_t l = ftell(s.f);
+		size_t l;
 		
-		if (l) {
+		/* Ensure buffer is NULL-terminated */
+		fprintf(s.f, "%c", 0);
+
+		if ((l = ftell(s.f))) {
 			if ((buf = mmap(NULL, l, PROT_READ | PROT_WRITE, MAP_SHARED, s.fd, 0))) {
 				if (format == FORMAT_XML || format == FORMAT_HTML)
 					xml_translate(&out, buf, params, format);
