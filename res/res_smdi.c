@@ -24,7 +24,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 85517 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 96884 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -625,6 +625,8 @@ static int smdi_load(int reload)
 			ASTOBJ_CONTAINER_INIT(&iface->mwi_q);
 
 			ast_copy_string(iface->name, v->value, sizeof(iface->name));
+
+			iface->thread = AST_PTHREADT_NULL;
 
 			if (!(iface->file = fopen(iface->name, "r"))) {
 				ast_log(LOG_ERROR, "Error opening SMDI interface %s (%s)\n", iface->name, strerror(errno));

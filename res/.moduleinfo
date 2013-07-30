@@ -19,6 +19,7 @@
 	<depend>ssl</depend>
 </member>
 <member name="res_features" displayname="Call Features Resource" remove_on_change="res/res_features.o res/res_features.so">
+        <depend>chan_local</depend>
 </member>
 <member name="res_indications" displayname="Indications Resource" remove_on_change="res/res_indications.o res/res_indications.so">
 </member>

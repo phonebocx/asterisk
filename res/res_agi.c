@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 92933 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 98317 $")
 
 #include <sys/types.h>
 #include <netdb.h>
@@ -977,7 +977,7 @@ static int handle_recordfile(struct ast_channel *chan, AGI *agi, int argc, char 
 			}
 			f = ast_read(chan);
 			if (!f) {
-				fdprintf(agi->fd, "200 result=%d (hangup) endpos=%ld\n", 0, sample_offset);
+				fdprintf(agi->fd, "200 result=%d (hangup) endpos=%ld\n", -1, sample_offset);
 				ast_closestream(fs);
 				if (sildet)
 					ast_dsp_free(sildet);

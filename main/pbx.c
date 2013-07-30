@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 95577 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 101480 $")
 
 #include <sys/types.h>
 #include <string.h>
@@ -4604,7 +4604,8 @@ int ast_async_goto(struct ast_channel *chan, const char *context, const char *ex
 		   at the new location */
 		struct ast_channel *tmpchan = ast_channel_alloc(0, chan->_state, 0, 0, chan->accountcode, chan->exten, chan->context, chan->amaflags, "AsyncGoto/%s", chan->name);
 		if (chan->cdr) {
-			tmpchan->cdr = ast_cdr_dup(chan->cdr);
+			ast_cdr_discard(tmpchan->cdr);
+			tmpchan->cdr = ast_cdr_dup(chan->cdr);  /* share the love */
 		}
 		if (!tmpchan)
 			res = -1;
@@ -5632,10 +5633,14 @@ static int pbx_builtin_waitexten(struct ast_channel *chan, void *data)
 		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 1, chan->cid.cid_num)) {
 			if (option_verbose > 2)
 				ast_verbose(VERBOSE_PREFIX_3 "Timeout on %s, continuing...\n", chan->name);
+		} else if (chan->_softhangup == AST_SOFTHANGUP_TIMEOUT) {
+			if (option_verbose > 2)
+				ast_verbose(VERBOSE_PREFIX_3 "Call timeout on %s, checking for 'T'\n", chan->name);
+			res = -1;
 		} else if (ast_exists_extension(chan, chan->context, "t", 1, chan->cid.cid_num)) {
 			if (option_verbose > 2)
 				ast_verbose(VERBOSE_PREFIX_3 "Timeout on %s, going to 't'\n", chan->name);
-			set_ext_pri(chan, "t", 0); /* XXX is the 0 correct ? */
+			set_ext_pri(chan, "t", 0); /* 0 will become 1, next time through the loop */
 		} else {
 			ast_log(LOG_WARNING, "Timeout but no rule 't' in context '%s'\n", chan->context);
 			res = -1;

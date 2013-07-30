@@ -37,7 +37,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 73398 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100673 $")
 
 #include <stdio.h>
 #include <string.h>

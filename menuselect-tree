@@ -24,6 +24,7 @@
 <member name="app_db" displayname="Database Access Functions" remove_on_change="apps/app_db.o apps/app_db.so">
 </member>
 <member name="app_dial" displayname="Dialing Application" remove_on_change="apps/app_dial.o apps/app_dial.so">
+        <depend>chan_local</depend>
 </member>
 <member name="app_dictate" displayname="Virtual Dictation Machine" remove_on_change="apps/app_dictate.o apps/app_dictate.so">
 </member>
@@ -47,6 +48,7 @@
 	<depend>zaptel</depend>
 </member>
 <member name="app_followme" displayname="Find-Me/Follow-Me Application" remove_on_change="apps/app_followme.o apps/app_followme.so">
+        <depend>chan_local</depend>
 </member>
 <member name="app_forkcdr" displayname="Fork The CDR into 2 separate entities" remove_on_change="apps/app_forkcdr.o apps/app_forkcdr.so">
 </member>
@@ -197,6 +199,7 @@
 </category>
 <category name="MENUSELECT_CHANNELS" displayname="Channel Drivers" remove_on_change="channels/modules.link">
 <member name="chan_agent" displayname="Agent Proxy Channel" remove_on_change="channels/chan_agent.o channels/chan_agent.so">
+        <depend>chan_local</depend>
 </member>
 <member name="chan_alsa" displayname="ALSA Console Channel Driver" remove_on_change="channels/chan_alsa.o channels/chan_alsa.so">
 	<depend>asound</depend>
@@ -217,7 +220,7 @@
 	<use>zaptel</use>
         <depend>res_features</depend>
 </member>
-<member name="chan_local" displayname="Local Proxy Channel" remove_on_change="channels/chan_local.o channels/chan_local.so">
+<member name="chan_local" displayname="Local Proxy Channel (Note: used internally by other modules)" remove_on_change="channels/chan_local.o channels/chan_local.so">
 </member>
 <member name="chan_mgcp" displayname="Media Gateway Control Protocol (MGCP)" remove_on_change="channels/chan_mgcp.o channels/chan_mgcp.so">
         <depend>res_features</depend>
@@ -254,11 +257,11 @@
 </member>
 </category>
 <category name="MENUSELECT_CODECS" displayname="Codec Translators" remove_on_change="codecs/modules.link">
-<member name="codec_a_mu" displayname="A-law and Mulaw direct Coder/Decoder" remove_on_change="codecs/codec_a_mu.o codecs/codec_a_mu.so">
-</member>
 <member name="codec_adpcm" displayname="Adaptive Differential PCM Coder/Decoder" remove_on_change="codecs/codec_adpcm.o codecs/codec_adpcm.so">
 </member>
 <member name="codec_alaw" displayname="A-law Coder/Decoder" remove_on_change="codecs/codec_alaw.o codecs/codec_alaw.so">
+</member>
+<member name="codec_a_mu" displayname="A-law and Mulaw direct Coder/Decoder" remove_on_change="codecs/codec_a_mu.o codecs/codec_a_mu.so">
 </member>
 <member name="codec_g726" displayname="ITU G.726-32kbps G726 Transcoder" remove_on_change="codecs/codec_g726.o codecs/codec_g726.so">
 </member>
@@ -271,6 +274,7 @@
 </member>
 <member name="codec_speex" displayname="Speex Coder/Decoder" remove_on_change="codecs/codec_speex.o codecs/codec_speex.so">
 	<depend>speex</depend>
+	<use>speexdsp</use>
 </member>
 <member name="codec_ulaw" displayname="mu-Law Coder/Decoder" remove_on_change="codecs/codec_ulaw.o codecs/codec_ulaw.so">
 </member>
@@ -371,7 +375,7 @@
 <member name="pbx_dundi" displayname="Distributed Universal Number Discovery (DUNDi)" remove_on_change="pbx/pbx_dundi.o pbx/pbx_dundi.so">
 	<depend>zlib</depend>
 </member>
-<member name="pbx_gtkconsole" displayname="" remove_on_change="pbx/pbx_gtkconsole.o pbx/pbx_gtkconsole.so">
+<member name="pbx_gtkconsole" displayname="GTK Console" remove_on_change="pbx/pbx_gtkconsole.o pbx/pbx_gtkconsole.so">
 	<depend>gtk</depend>
 	<defaultenabled>no</defaultenabled>
 </member>
@@ -380,10 +384,6 @@
 <member name="pbx_realtime" displayname="Realtime Switch" remove_on_change="pbx/pbx_realtime.o pbx/pbx_realtime.so">
 </member>
 <member name="pbx_spool" displayname="Outgoing Spool Support" remove_on_change="pbx/pbx_spool.o pbx/pbx_spool.so">
-</member>
-<member name="pbx_kdeconsole" displayname="" remove_on_change="pbx/pbx_kdeconsole.oo pbx/pbx_kdeconsole.so">
-	<depend>qt</depend>
-	<defaultenabled>no</defaultenabled>
 </member>
 </category>
 <category name="MENUSELECT_RES" displayname="Resource Modules" remove_on_change="res/modules.link">
@@ -407,6 +407,7 @@
 	<depend>ssl</depend>
 </member>
 <member name="res_features" displayname="Call Features Resource" remove_on_change="res/res_features.o res/res_features.so">
+        <depend>chan_local</depend>
 </member>
 <member name="res_indications" displayname="Indications Resource" remove_on_change="res/res_indications.o res/res_indications.so">
 </member>

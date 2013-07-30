@@ -28,9 +28,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+        <depend>chan_local</depend>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 87534 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 99594 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1048,7 +1052,6 @@ static int app_exec(struct ast_channel *chan, void *data)
 			pbx_builtin_setvar_helper(caller, "ANSWEREDTIME", toast);
 			if (outbound)
 				ast_hangup(outbound);
-			res = 1;
 		}
 	}
 	outrun:

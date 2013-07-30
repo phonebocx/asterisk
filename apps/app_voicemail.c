@@ -52,7 +52,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 94543 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100672 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -856,8 +856,11 @@ static void vm_change_password_shell(struct ast_vm_user *vmu, char *newpassword)
 {
 	char buf[255];
 	snprintf(buf,255,"%s %s %s %s",ext_pass_cmd,vmu->context,vmu->mailbox,newpassword);
-	if (!ast_safe_system(buf))
+	if (!ast_safe_system(buf)) {
 		ast_copy_string(vmu->password, newpassword, sizeof(vmu->password));
+		/* Reset the password in memory, too */
+		reset_user_pw(vmu->context, vmu->mailbox, newpassword);
+	}
 }
 
 static int make_dir(char *dest, int len, const char *context, const char *ext, const char *folder)
@@ -2059,36 +2062,57 @@ static int get_date(char *s, int len)
 	return strftime(s, len, "%a %b %e %r %Z %Y", &tm);
 }
 
-static int invent_message(struct ast_channel *chan, char *context, char *ext, int busy, char *ecodes)
+static int play_greeting(struct ast_channel *chan, struct ast_vm_user *vmu, char *filename, char *ecodes)
+{
+	int res = -2;
+
+#ifdef ODBC_STORAGE
+	int success = 
+#endif
+	RETRIEVE(filename, -1);
+	if (ast_fileexists(filename, NULL, NULL) > 0) {
+		res = ast_streamfile(chan, filename, chan->language);
+		if (res > -1) 
+			res = ast_waitstream(chan, ecodes);
+#ifdef ODBC_STORAGE
+		if (success == -1) {
+			/* We couldn't retrieve the file from the database, but we found it on the file system. Let's put it in the database. */
+			if (option_debug)
+				ast_log(LOG_DEBUG, "Greeting not retrieved from database, but found in file storage. Inserting into database\n");
+			store_file(filename, vmu->mailbox, vmu->context, -1);
+		}
+#endif
+	}
+	DISPOSE(filename, -1);
+
+	return res;
+}
+
+static int invent_message(struct ast_channel *chan, struct ast_vm_user *vmu, char *ext, int busy, char *ecodes)
 {
 	int res;
 	char fn[PATH_MAX];
 	char dest[PATH_MAX];
 
-	snprintf(fn, sizeof(fn), "%s%s/%s/greet", VM_SPOOL_DIR, context, ext);
+	snprintf(fn, sizeof(fn), "%s%s/%s/greet", VM_SPOOL_DIR, vmu->context, ext);
 
-	if ((res = create_dirpath(dest, sizeof(dest), context, ext, "greet"))) {
+	if ((res = create_dirpath(dest, sizeof(dest), vmu->context, ext, "greet"))) {
 		ast_log(LOG_WARNING, "Failed to make directory(%s)\n", fn);
 		return -1;
 	}
 
-	RETRIEVE(fn, -1);
-	if (ast_fileexists(fn, NULL, NULL) > 0) {
-		res = ast_stream_and_wait(chan, fn, chan->language, ecodes);
-		if (res) {
-			DISPOSE(fn, -1);
-			return res;
-		}
-	} else {
-		/* Dispose just in case */
-		DISPOSE(fn, -1);
+	res = play_greeting(chan, vmu, fn, ecodes);
+	if (res == -2) {
+		/* File did not exist */
 		res = ast_stream_and_wait(chan, "vm-theperson", chan->language, ecodes);
 		if (res)
 			return res;
 		res = ast_say_digit_str(chan, ext, ecodes, chan->language);
-		if (res)
-			return res;
 	}
+
+	if (res)
+		return res;
+
 	res = ast_stream_and_wait(chan, busy ? "vm-isonphone" : "vm-isunavail", chan->language, ecodes);
 	return res;
 }
@@ -2569,11 +2593,11 @@ static int copy_message(struct ast_channel *chan, struct ast_vm_user *vmu, int i
 		ast_log(LOG_WARNING, "Unable to copy mail, mailbox %s is full\n", recip->mailbox);
 		return -1;
 	}
-	if (!(sendvms = get_vm_state_by_imapuser(vmu->imapuser, 2))) {
+	if (!(sendvms = get_vm_state_by_imapuser(vmu->imapuser, 0))) {
 		ast_log(LOG_ERROR, "Couldn't get vm_state for originator's mailbox!!\n");
 		return -1;
 	}
-	if (!(destvms = get_vm_state_by_imapuser(recip->imapuser, 2))) {
+	if (!(destvms = get_vm_state_by_imapuser(recip->imapuser, 0))) {
 		ast_log(LOG_ERROR, "Couldn't get vm_state for destination mailbox!\n");
 		return -1;
 	}
@@ -2883,27 +2907,13 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_
 
 	/* Play the beginning intro if desired */
 	if (!ast_strlen_zero(prefile)) {
-#ifdef ODBC_STORAGE
-		int success = 
-#endif
-			RETRIEVE(prefile, -1);
-		if (ast_fileexists(prefile, NULL, NULL) > 0) {
-			if (ast_streamfile(chan, prefile, chan->language) > -1) 
-				res = ast_waitstream(chan, ecodes);
-#ifdef ODBC_STORAGE
-			if (success == -1) {
-				/* We couldn't retrieve the file from the database, but we found it on the file system. Let's put it in the database. */
-				if (option_debug)
-					ast_log(LOG_DEBUG, "Greeting not retrieved from database, but found in file storage. Inserting into database\n");
-				store_file(prefile, vmu->mailbox, vmu->context, -1);
-			}
-#endif
-		} else {
+		res = play_greeting(chan, vmu, prefile, ecodes);
+		if (res == -2) {
+			/* The file did not exist */
 			if (option_debug)
 				ast_log(LOG_DEBUG, "%s doesn't exist, doing what we can\n", prefile);
-			res = invent_message(chan, vmu->context, ext, ast_test_flag(options, OPT_BUSY_GREETING), ecodes);
+			res = invent_message(chan, vmu, ext, ast_test_flag(options, OPT_BUSY_GREETING), ecodes);
 		}
-		DISPOSE(prefile, -1);
 		if (res < 0) {
 			if (option_debug)
 				ast_log(LOG_DEBUG, "Hang up during prefile playback\n");
@@ -4070,8 +4080,8 @@ static int forward_message(struct ast_channel *chan, char *context, struct vm_st
 		/* start optimistic */
 		valid_extensions = 1;
 		while (s) {
-			/* Don't forward to ourselves.  find_user is going to malloc since we have a NULL as first argument */
-			if (strcmp(s,sender->mailbox) && (receiver = find_user(NULL, context, s))) {
+			/* Don't forward to ourselves but allow leaving a message for ourselves (flag == 1).  find_user is going to malloc since we have a NULL as first argument */
+			if ((flag == 1 || strcmp(s,sender->mailbox)) && (receiver = find_user(NULL, context, s))) {
 				AST_LIST_INSERT_HEAD(&extensions, receiver, list);
 				found++;
 			} else {
@@ -4721,7 +4731,7 @@ static int init_mailstream(struct vm_state *vms, int box)
 		stream = mail_open (stream, tmp, debug ? OP_DEBUG : NIL);
 		if (stream == NIL) {
 			ast_log (LOG_ERROR, "Can't connect to imap server %s\n", tmp);
-			return NIL;
+			return -1;
 		}
 		get_mailbox_delimiter(stream);
 		/* update delimiter in imapfolder */
@@ -8805,14 +8815,17 @@ static struct vm_state *get_vm_state_by_imapuser(char *user, int interactive)
 {
 	struct vmstate *vlist = NULL;
 
+	ast_mutex_lock(&vmstate_lock);
 	vlist = vmstates;
 	while (vlist) {
 		if (vlist->vms) {
 			if (vlist->vms->imapuser) {
 				if (!strcmp(vlist->vms->imapuser,user)) {
 					if (interactive == 2) {
+						ast_mutex_unlock(&vmstate_lock);
 						return vlist->vms;
 					} else if (vlist->vms->interactive == interactive) {
+						ast_mutex_unlock(&vmstate_lock);
 						return vlist->vms;
 					}
 				}
@@ -8826,6 +8839,7 @@ static struct vm_state *get_vm_state_by_imapuser(char *user, int interactive)
 		}
 		vlist = vlist->next;
 	}
+	ast_mutex_unlock(&vmstate_lock);
 	if (option_debug > 2)
 		ast_log(LOG_DEBUG, "%s not found in vmstates\n",user);
 	return NULL;
@@ -8834,7 +8848,8 @@ static struct vm_state *get_vm_state_by_imapuser(char *user, int interactive)
 static struct vm_state *get_vm_state_by_mailbox(const char *mailbox, int interactive)
 { 
 	struct vmstate *vlist = NULL;
-	
+
+	ast_mutex_lock(&vmstate_lock);
 	vlist = vmstates;
 	if (option_debug > 2) 
 		ast_log(LOG_DEBUG, "Mailbox set to %s\n",mailbox);
@@ -8846,6 +8861,7 @@ static struct vm_state *get_vm_state_by_mailbox(const char *mailbox, int interac
 				if (!strcmp(vlist->vms->username,mailbox) && vlist->vms->interactive == interactive) {
 					if (option_debug > 2)
 						ast_log(LOG_DEBUG, "	Found it!\n");
+					ast_mutex_unlock(&vmstate_lock);
 					return vlist->vms;
 				}
 			} else {
@@ -8858,6 +8874,7 @@ static struct vm_state *get_vm_state_by_mailbox(const char *mailbox, int interac
 		}
 		vlist = vlist->next;
 	}
+	ast_mutex_unlock(&vmstate_lock);
 	if (option_debug > 2)
 		ast_log(LOG_DEBUG, "%s not found in vmstates\n",mailbox);
 	return NULL;

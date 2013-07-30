@@ -33,7 +33,7 @@
  ***/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 92934 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100793 $")
 
 #include <stdio.h>
 #include <pthread.h>
@@ -639,7 +639,7 @@ static int misdn_tasks_add_variable (int timeout, ast_sched_cb callback, const v
 
 static void misdn_tasks_remove (int task_id)
 {
-	ast_sched_del(misdn_tasks, task_id);
+	AST_SCHED_DEL(misdn_tasks, task_id);
 }
 
 static int misdn_l1_task (const void *data)
@@ -672,9 +672,16 @@ static int misdn_overlap_dial_task (const void *data)
 	diff = ast_tvdiff_ms(tv_end, tv_now);
 
 	if (diff <= 100) {
+		char *dad=ch->bc->dad, sexten[]="s";
 		/* if we are 100ms near the timeout, we are satisfied.. */
 		stop_indicate(ch);
-		if (ast_exists_extension(ch->ast, ch->context, ch->bc->dad, 1, ch->bc->oad)) {
+		
+		if (ast_strlen_zero(ch->bc->dad)) {
+			dad=sexten;
+			strcpy(ch->ast->exten, sexten);
+		}
+
+		if (ast_exists_extension(ch->ast, ch->context, dad, 1, ch->bc->oad)) {
 			ch->state=MISDN_DIALING;
 			if (pbx_start_chan(ch) < 0) {
 				chan_misdn_log(-1, ch->bc->port, "ast_pbx_start returned < 0 in misdn_overlap_dial_task\n");
@@ -1120,10 +1127,18 @@ static int misdn_show_cls (int fd, int argc, char *argv[])
 	struct chan_list *help=cl_te;
   
 	ast_cli(fd,"Chan List: %p\n",cl_te); 
-  
+
 	for (;help; help=help->next) {
 		struct misdn_bchannel *bc=help->bc;   
 		struct ast_channel *ast=help->ast;
+		if (!ast) {
+			if (!bc) {
+				ast_cli(fd, "chan_list obj. with l3id:%x has no bc and no ast Leg\n", help->l3id);
+				continue;
+			}
+			ast_cli(fd, "bc with pid:%d has no Ast Leg\n", bc->pid);
+			continue;
+		}
 		if (misdn_debug[0] > 2) ast_cli(fd, "Bc:%p Ast:%p\n", bc, ast);
 		if (bc) {
 			print_bc_info(fd, help, bc);
@@ -4103,6 +4118,7 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 			/*  sending INFOS as DTMF-Frames :) */
 			int digits;
 			struct ast_frame fr;
+			memset(&fr, 0, sizeof(fr));
 			fr.frametype = AST_FRAME_DTMF;
 			fr.subclass = bc->info_dad[0] ;
 			fr.src=NULL;

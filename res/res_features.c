@@ -23,9 +23,13 @@
  * \author Mark Spencer <markster@digium.com> 
  */
 
+/*** MODULEINFO
+        <depend>chan_local</depend>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 94793 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100626 $")
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -325,7 +329,7 @@ static int park_call_full(struct ast_channel *chan, struct ast_channel *peer, in
 			ast_mutex_unlock(&parking_lock);
 			free(pu);
 			ast_log(LOG_WARNING, "Requested parking extension already exists: %s@%s\n", parkingexten, parking_con);
-			return 0;	/* Continue execution if possible */
+			return 1;	/* Continue execution if possible */
 		}
 		ast_copy_string(pu->parkingexten, parkingexten, sizeof(pu->parkingexten));
 		x = atoi(parkingexten);
@@ -452,6 +456,7 @@ int ast_masq_park_call(struct ast_channel *rchan, struct ast_channel *peer, int 
 {
 	struct ast_channel *chan;
 	struct ast_frame *f;
+	char *orig_chan_name = NULL;
 
 	/* Make a new, fake channel that we'll use to masquerade in the real one */
 	if (!(chan = ast_channel_alloc(0, AST_STATE_DOWN, 0, 0, rchan->accountcode, rchan->exten, rchan->context, rchan->amaflags, "Parked/%s",rchan->name))) {
@@ -472,7 +477,10 @@ int ast_masq_park_call(struct ast_channel *rchan, struct ast_channel *peer, int 
 	if (f)
 		ast_frfree(f);
 
-	ast_park_call(chan, peer, timeout, extout);
+	orig_chan_name = ast_strdupa(chan->name);
+
+	park_call_full(chan, peer, timeout, extout, orig_chan_name);
+
 	return 0;
 }
 
@@ -882,8 +890,8 @@ static int builtin_atxfer(struct ast_channel *chan, struct ast_channel *peer, st
 		ast_hangup(newchan);
 		return -1;
 	}
-	tobj->chan = xferchan;
-	tobj->peer = newchan;
+	tobj->chan = newchan;
+	tobj->peer = xferchan;
 	tobj->bconfig = *config;
 
 	if (ast_stream_and_wait(newchan, xfersound, newchan->language, ""))
@@ -1811,12 +1819,17 @@ static int park_call_exec(struct ast_channel *chan, void *data)
 	 * of a park--it is still theoretically possible for a transfer to happen before
 	 * we get here, but it is _really_ unlikely */
 	char *orig_chan_name = ast_strdupa(chan->name);
+	char orig_exten[AST_MAX_EXTENSION];
+	int orig_priority = chan->priority;
+
 	/* Data is unused at the moment but could contain a parking
 	   lot context eventually */
 	int res = 0;
 	struct ast_module_user *u;
 
 	u = ast_module_user_add(chan);
+
+	ast_copy_string(orig_exten, chan->exten, sizeof(orig_exten));
 
 	/* Setup the exten/priority to be s/1 since we don't know
 	   where this call should return */
@@ -1829,12 +1842,20 @@ static int park_call_exec(struct ast_channel *chan, void *data)
 	if (!res)
 		res = ast_safe_sleep(chan, 1000);
 	/* Park the call */
-	if (!res)
-		res = park_call_full(chan, NULL, 0, NULL, orig_chan_name);
+	if (!res) {
+		res = park_call_full(chan, chan, 0, NULL, orig_chan_name);
+		/* Continue on in the dialplan */
+		if (res == 1) {
+			ast_copy_string(chan->exten, orig_exten, sizeof(chan->exten));
+			chan->priority = orig_priority;
+			res = 0;
+		} else if (!res)
+			res = AST_PBX_KEEPALIVE;
+	}
 
 	ast_module_user_remove(u);
 
-	return !res ? AST_PBX_KEEPALIVE : res;
+	return res;
 }
 
 /*! \brief Pickup parked call */

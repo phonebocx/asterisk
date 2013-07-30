@@ -6,7 +6,7 @@
 <member name="pbx_dundi" displayname="Distributed Universal Number Discovery (DUNDi)" remove_on_change="pbx/pbx_dundi.o pbx/pbx_dundi.so">
 	<depend>zlib</depend>
 </member>
-<member name="pbx_gtkconsole" displayname="" remove_on_change="pbx/pbx_gtkconsole.o pbx/pbx_gtkconsole.so">
+<member name="pbx_gtkconsole" displayname="GTK Console" remove_on_change="pbx/pbx_gtkconsole.o pbx/pbx_gtkconsole.so">
 	<depend>gtk</depend>
 	<defaultenabled>no</defaultenabled>
 </member>
@@ -15,9 +15,5 @@
 <member name="pbx_realtime" displayname="Realtime Switch" remove_on_change="pbx/pbx_realtime.o pbx/pbx_realtime.so">
 </member>
 <member name="pbx_spool" displayname="Outgoing Spool Support" remove_on_change="pbx/pbx_spool.o pbx/pbx_spool.so">
-</member>
-<member name="pbx_kdeconsole" displayname="" remove_on_change="pbx/pbx_kdeconsole.oo pbx/pbx_kdeconsole.so">
-	<depend>qt</depend>
-	<defaultenabled>no</defaultenabled>
 </member>
 </category>

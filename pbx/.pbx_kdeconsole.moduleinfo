@@ -1,4 +1,0 @@
-<member name="pbx_kdeconsole" displayname="" remove_on_change="pbx/pbx_kdeconsole.oo pbx/pbx_kdeconsole.so">
-	<depend>qt</depend>
-	<defaultenabled>no</defaultenabled>
-</member>

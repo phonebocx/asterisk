@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2006, Digium, Inc.
+ * Copyright (C) 1999 - 2008, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -30,8 +30,8 @@
  *
  * \section copyright Copyright and author
  *
- * Copyright (C) 1999 - 2006, Digium, Inc.
- * Asterisk is a trade mark registered by Digium, Inc.
+ * Copyright (C) 1999 - 2008, Digium, Inc.
+ * Asterisk is a trademark registered by Digium, Inc.
  *
  * \author Mark Spencer <markster@digium.com>
  * Also see \ref AstCREDITS
@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 94418 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100164 $")
 
 #undef sched_setscheduler
 #undef setpriority
@@ -82,12 +82,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 94418 $")
 #include <sys/stat.h>
 #ifdef linux
 #include <sys/prctl.h>
-#endif
+#ifdef HAVE_CAP
+#include <sys/capability.h>
+#endif /* HAVE_CAP */
+#endif /* linux */
 #include <regex.h>
-
-#ifdef linux
-#include <sys/prctl.h>
-#endif
 
 #if  defined(__FreeBSD__) || defined( __NetBSD__ ) || defined(SOLARIS)
 #include <netdb.h>
@@ -140,7 +139,7 @@ int daemon(int, int);  /* defined in libresolv of all places */
 
 /*! \brief Welcome message when starting a CLI interface */
 #define WELCOME_MESSAGE \
-	ast_verbose("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2007 Digium, Inc. and others.\n"); \
+	ast_verbose("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2008 Digium, Inc. and others.\n"); \
 	ast_verbose("Created by Mark Spencer <markster@digium.com>\n"); \
 	ast_verbose("Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.\n"); \
 	ast_verbose("This is free software, with components licensed under the GNU General Public\n"); \
@@ -2322,7 +2321,7 @@ static int show_version(void)
 }
 
 static int show_cli_help(void) {
-	printf("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2007, Digium, Inc. and others.\n");
+	printf("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2008, Digium, Inc. and others.\n");
 	printf("Usage: asterisk [OPTIONS]\n");
 	printf("Valid Options:\n");
 	printf("   -V              Display version number and exit\n");
@@ -2635,7 +2634,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'x':
 			ast_set_flag(&ast_options, AST_OPT_FLAG_EXEC);
-			xarg = optarg;
+			xarg = ast_strdupa(optarg);
 			break;
 		case 'C':
 			ast_copy_string(ast_config_AST_CONFIG_FILE, optarg, sizeof(ast_config_AST_CONFIG_FILE));
@@ -2657,10 +2656,10 @@ int main(int argc, char *argv[])
 			show_version();
 			exit(0);
 		case 'U':
-			runuser = optarg;
+			runuser = ast_strdupa(optarg);
 			break;
 		case 'G':
-			rungroup = optarg;
+			rungroup = ast_strdupa(optarg);
 			break;
 		case '?':
 			exit(1);
@@ -2734,12 +2733,21 @@ int main(int argc, char *argv[])
 	}
 
 	if (runuser && !ast_test_flag(&ast_options, AST_OPT_FLAG_REMOTE)) {
+#ifdef HAVE_CAP
+		int has_cap = 1;
+#endif /* HAVE_CAP */
 		struct passwd *pw;
 		pw = getpwnam(runuser);
 		if (!pw) {
 			ast_log(LOG_WARNING, "No such user '%s'!\n", runuser);
 			exit(1);
 		}
+#ifdef HAVE_CAP
+		if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0)) {
+			ast_log(LOG_WARNING, "Unable to keep capabilities.\n");
+			has_cap = 0;
+		}
+#endif /* HAVE_CAP */
 		if (!isroot && pw->pw_uid != geteuid()) {
 			ast_log(LOG_ERROR, "Asterisk started as nonroot, but runuser '%s' requested.\n", runuser);
 			exit(1);
@@ -2760,6 +2768,19 @@ int main(int argc, char *argv[])
 		}
 		if (option_verbose)
 			ast_verbose("Running as user '%s'\n", runuser);
+#ifdef HAVE_CAP
+		if (has_cap) {
+			cap_t cap;
+
+			cap = cap_from_text("cap_net_admin=ep");
+
+			if (cap_set_proc(cap))
+				ast_log(LOG_WARNING, "Unable to install capabilities.\n");
+
+			if (cap_free(cap))
+				ast_log(LOG_WARNING, "Unable to drop capabilities.\n");
+		}
+#endif /* HAVE_CAP */
 	}
 
 #endif /* __CYGWIN__ */

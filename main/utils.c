@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 93377 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 97194 $")
 
 #include <ctype.h>
 #include <string.h>
@@ -511,7 +511,7 @@ const char *ast_inet_ntoa(struct in_addr ia)
 #ifdef DEBUG_THREADS
 
 /*! \brief A reasonable maximum number of locks a thread would be holding ... */
-#define AST_MAX_LOCKS 32
+#define AST_MAX_LOCKS 64
 
 /* Allow direct use of pthread_mutex_t and friends */
 #undef pthread_mutex_t

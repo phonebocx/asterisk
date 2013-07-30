@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 62414 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 98372 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -495,6 +495,11 @@ static void *ast_httpd_helper_thread(void *data)
 			ast_cli(ser->fd, "Connection: close\r\n");
 			if (!static_content)
 				ast_cli(ser->fd, "Cache-Control: no-cache, no-store\r\n");
+				/* We set the no-cache headers only for dynamic content.
+				* If you want to make sure the static file you requested is not from cache,
+				* append a random variable to your GET request.  Ex: 'something.html?r=109987734'
+				*/
+
 			if (contentlength) {
 				char *tmp;
 				tmp = strstr(c, "\r\n\r\n");

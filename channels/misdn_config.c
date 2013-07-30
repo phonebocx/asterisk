@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89169 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100930 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -534,7 +534,8 @@ void misdn_cfg_get (int port, enum misdn_cfg_elements elem, void *buf, int bufsi
 					} else if (port_cfg[0][place].str) {
 						if (!memccpy(buf, port_cfg[0][place].str, 0, bufsize))
 							memset(buf, 0, 1);
-					}
+					} else
+						memset(buf, 0, bufsize);
 					break;
 				default:
 					if (port_cfg[port][place].any)

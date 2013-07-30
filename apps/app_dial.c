@@ -25,9 +25,14 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+        <depend>chan_local</depend>
+ ***/
+
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 91783 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 99592 $")
 
 #include <stdlib.h>
 #include <errno.h>

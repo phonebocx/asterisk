@@ -21,6 +21,7 @@
 <member name="app_db" displayname="Database Access Functions" remove_on_change="apps/app_db.o apps/app_db.so">
 </member>
 <member name="app_dial" displayname="Dialing Application" remove_on_change="apps/app_dial.o apps/app_dial.so">
+        <depend>chan_local</depend>
 </member>
 <member name="app_dictate" displayname="Virtual Dictation Machine" remove_on_change="apps/app_dictate.o apps/app_dictate.so">
 </member>
@@ -44,6 +45,7 @@
 	<depend>zaptel</depend>
 </member>
 <member name="app_followme" displayname="Find-Me/Follow-Me Application" remove_on_change="apps/app_followme.o apps/app_followme.so">
+        <depend>chan_local</depend>
 </member>
 <member name="app_forkcdr" displayname="Fork The CDR into 2 separate entities" remove_on_change="apps/app_forkcdr.o apps/app_forkcdr.so">
 </member>

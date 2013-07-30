@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 86661 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100465 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -415,7 +415,7 @@ static void reset_global_eid(void)
 			snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "eth%d", x);
 			if (!ioctl(s, SIOCGIFHWADDR, &ifr)) {
 				memcpy(&global_eid, ((unsigned char *)&ifr.ifr_hwaddr) + 2, sizeof(global_eid));
-				ast_log(LOG_DEBUG, "Seeding global EID '%s' from '%s'\n", dundi_eid_to_str(eid_str, sizeof(eid_str), &global_eid), ifr.ifr_name);
+				ast_log(LOG_DEBUG, "Seeding global EID '%s' from '%s' using 'siocgifhwaddr'\n", dundi_eid_to_str(eid_str, sizeof(eid_str), &global_eid), ifr.ifr_name);
 				close(s);
 				return;
 			}
@@ -430,12 +430,10 @@ static void reset_global_eid(void)
 	if (getifaddrs(&ifap) == 0) {
 		struct ifaddrs *p;
 		for (p = ifap; p; p = p->ifa_next) {
-			if (p->ifa_addr->sa_family == AF_LINK) {
+			if ((p->ifa_addr->sa_family == AF_LINK) && !(p->ifa_flags & IFF_LOOPBACK) && (p->ifa_flags & IFF_RUNNING)) {
 				struct sockaddr_dl* sdp = (struct sockaddr_dl*) p->ifa_addr;
-				memcpy(
-					&(global_eid.eid),
-					sdp->sdl_data + sdp->sdl_nlen, 6);
-				ast_log(LOG_DEBUG, "Seeding global EID '%s' from '%s'\n", dundi_eid_to_str(eid_str, sizeof(eid_str), &global_eid), ifap->ifa_name);
+				memcpy(&(global_eid.eid), sdp->sdl_data + sdp->sdl_nlen, 6);
+				ast_log(LOG_DEBUG, "Seeding global EID '%s' from '%s' using 'getifaddrs'\n", dundi_eid_to_str(eid_str, sizeof(eid_str), &global_eid), p->ifa_name);
 				freeifaddrs(ifap);
 				return;
 			}
@@ -444,7 +442,7 @@ static void reset_global_eid(void)
 	}
 #endif
 #endif
-	ast_log(LOG_NOTICE, "No ethernet interface found for seeding global EID  You will have to set it manually.\n");
+	ast_log(LOG_NOTICE, "No ethernet interface found for seeding global EID. You will have to set it manually.\n");
 }
 
 static int get_trans_id(void)
@@ -1660,8 +1658,7 @@ static int handle_command_response(struct dundi_transaction *trans, struct dundi
 				int expire = default_expiration;
 				char data[256];
 				int needqual = 0;
-				if (peer->registerexpire > -1)
-					ast_sched_del(sched, peer->registerexpire);
+				AST_SCHED_DEL(sched, peer->registerexpire);
 				peer->registerexpire = ast_sched_add(sched, (expire + 10) * 1000, do_register_expire, peer);
 				snprintf(data, sizeof(data), "%s:%d:%d", ast_inet_ntoa(trans->addr.sin_addr), 
 					ntohs(trans->addr.sin_port), expire);
@@ -1947,8 +1944,7 @@ static void destroy_packets(struct packetlist *p)
 	struct dundi_packet *pack;
 	
 	while ((pack = AST_LIST_REMOVE_HEAD(p, list))) {
-		if (pack->retransid > -1)
-			ast_sched_del(sched, pack->retransid);
+		AST_SCHED_DEL(sched, pack->retransid);
 		free(pack);
 	}
 }
@@ -1967,9 +1963,7 @@ static int ack_trans(struct dundi_transaction *trans, int iseqno)
 				destroy_packets(&trans->lasttrans);
 			}
 			AST_LIST_INSERT_HEAD(&trans->lasttrans, pack, list);
-			if (trans->autokillid > -1)
-				ast_sched_del(sched, trans->autokillid);
-			trans->autokillid = -1;
+			AST_SCHED_DEL(sched, trans->autokillid);
 			return 1;
 		}
 	}
@@ -2863,12 +2857,9 @@ static void destroy_packet(struct dundi_packet *pack, int needfree)
 {
 	if (pack->parent)
 		AST_LIST_REMOVE(&pack->parent->packets, pack, list);
-	if (pack->retransid > -1)
-		ast_sched_del(sched, pack->retransid);
+	AST_SCHED_DEL(sched, pack->retransid);
 	if (needfree)
 		free(pack);
-	else
-		pack->retransid = -1;
 }
 
 static void destroy_trans(struct dundi_transaction *trans, int fromtimeout)
@@ -2944,9 +2935,7 @@ static void destroy_trans(struct dundi_transaction *trans, int fromtimeout)
 	AST_LIST_REMOVE(&alltrans, trans, all);
 	destroy_packets(&trans->packets);
 	destroy_packets(&trans->lasttrans);
-	if (trans->autokillid > -1)
-		ast_sched_del(sched, trans->autokillid);
-	trans->autokillid = -1;
+	AST_SCHED_DEL(sched, trans->autokillid);
 	if (trans->thread) {
 		/* If used by a thread, mark as dead and be done */
 		ast_set_flag(trans, FLAG_DEAD);
@@ -3644,7 +3633,7 @@ static void dundi_precache_full(void)
 
 	AST_LIST_TRAVERSE(&mappings, cur, list) {
 		ast_log(LOG_NOTICE, "Should precache context '%s'\n", cur->dcontext);
-		ast_lock_contexts();
+		ast_rdlock_contexts();
 		con = ast_walk_contexts(NULL);
 		while (con) {
 			if (!strcasecmp(cur->lcontext, ast_get_context_name(con))) {
@@ -3891,12 +3880,10 @@ static void destroy_permissions(struct permissionlist *permlist)
 
 static void destroy_peer(struct dundi_peer *peer)
 {
-	if (peer->registerid > -1)
-		ast_sched_del(sched, peer->registerid);
+	AST_SCHED_DEL(sched, peer->registerid);
 	if (peer->regtrans)
 		destroy_trans(peer->regtrans, 0);
-	if (peer->qualifyid > -1)
-		ast_sched_del(sched, peer->qualifyid);
+	AST_SCHED_DEL(sched, peer->qualifyid);
 	destroy_permissions(&peer->permit);
 	destroy_permissions(&peer->include);
 	free(peer);
@@ -4059,9 +4046,7 @@ static int do_qualify(const void *data)
 static void qualify_peer(struct dundi_peer *peer, int schedonly)
 {
 	int when;
-	if (peer->qualifyid > -1)
-		ast_sched_del(sched, peer->qualifyid);
-	peer->qualifyid = -1;
+	AST_SCHED_DEL(sched, peer->qualifyid);
 	if (peer->qualtrans)
 		destroy_trans(peer->qualtrans, 0);
 	peer->qualtrans = NULL;
@@ -4139,9 +4124,7 @@ static void build_peer(dundi_eid *eid, struct ast_variable *v, int *globalpcmode
 	peer->us_eid = global_eid;
 	destroy_permissions(&peer->permit);
 	destroy_permissions(&peer->include);
-	if (peer->registerid > -1)
-		ast_sched_del(sched, peer->registerid);
-	peer->registerid = -1;
+	AST_SCHED_DEL(sched, peer->registerid);
 	for (; v; v = v->next) {
 		if (!strcasecmp(v->name, "inkey")) {
 			ast_copy_string(peer->inkey, v->value, sizeof(peer->inkey));
