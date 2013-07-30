@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 28257 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43924 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -260,7 +260,7 @@ static char *acf_vmcount_exec(struct ast_channel *chan, char *cmd, char *data, c
 
 	args = ast_strdupa(data);
 	if (!args) {
-		ast_log(LOG_ERROR, "Out of memory");
+		ast_log(LOG_ERROR, "Out of memory\n");
 		LOCAL_USER_REMOVE(u);
 		return buf;
 	}

@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 44955 $")
 
 #include "asterisk/netsock.h"
 #include "asterisk/logger.h"
@@ -146,6 +146,8 @@ struct ast_netsock *ast_netsock_bindaddr(struct ast_netsock_list *list, struct i
 
 	if (setsockopt(netsocket, IPPROTO_IP, IP_TOS, &tos, sizeof(tos))) 
 		ast_log(LOG_WARNING, "Unable to set TOS to %d\n", tos);
+
+	ast_enable_packet_fragmentation(netsocket);
 
 	ns = malloc(sizeof(struct ast_netsock));
 	if (ns) {

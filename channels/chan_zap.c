@@ -68,7 +68,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 41069 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42946 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -9329,7 +9329,7 @@ static int handle_pri_show_span(int fd, int argc, char *argv[])
 		return RESULT_SHOWUSAGE;
 	span = atoi(argv[3]);
 	if ((span < 1) || (span > NUM_SPANS)) {
-		ast_cli(fd, "Invalid span %s.  Should be a number %d to %d\n", argv[4], 1, NUM_SPANS);
+		ast_cli(fd, "Invalid span '%s'.  Should be a number from %d to %d\n", argv[3], 1, NUM_SPANS);
 		return RESULT_SUCCESS;
 	}
 	if (!pris[span-1].pri) {

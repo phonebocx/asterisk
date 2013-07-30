@@ -58,7 +58,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42086 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 45048 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h" 
@@ -2600,6 +2600,7 @@ static struct iax2_user *build_user(const char *name, struct ast_variable *v, in
 
 static void destroy_user(struct iax2_user *user);
 static int expire_registry(void *data);
+static void realtime_update_peer(const char *peername, struct sockaddr_in *sin, time_t regtime);
 
 static struct iax2_peer *realtime_peer(const char *peername, struct sockaddr_in *sin)
 {
@@ -2685,6 +2686,7 @@ static struct iax2_peer *realtime_peer(const char *peername, struct sockaddr_in 
 		time(&nowtime);
 		if ((nowtime - regseconds) > IAX_DEFAULT_REG_EXPIRE) {
 			memset(&peer->addr, 0, sizeof(peer->addr));
+			realtime_update_peer(peer->name, &peer->addr, 0);
 			if (option_debug)
 				ast_log(LOG_DEBUG, "realtime_peer: Bah, '%s' is expired (%d/%d/%d)!\n",
 						peername, (int)(nowtime - regseconds), (int)regseconds, (int)nowtime);
@@ -3078,6 +3080,9 @@ static int iax2_call(struct ast_channel *c, char *dest, int timeout)
 		iaxs[callno]->pingtime = autokill / 2;
 		iaxs[callno]->initid = ast_sched_add(sched, autokill * 2, auto_congest, CALLNO_TO_PTR(callno));
 	}
+
+	/* send the command using the appropriate socket for this peer */
+	iaxs[callno]->sockfd = cai.sockfd;
 
 	/* Transmit the string in a "NEW" request */
 	send_command(iaxs[callno], AST_FRAME_IAX, IAX_COMMAND_NEW, 0, ied.buf, ied.pos, -1);
@@ -9339,6 +9344,11 @@ static char *function_iaxpeer(struct ast_channel *chan, char *cmd, char *data, c
 	struct iax2_peer *peer;
 	char *peername, *colname;
 	char iabuf[INET_ADDRSTRLEN];
+
+	buf[0] = '\0';
+
+	if (chan->tech != &iax2_tech)
+		return buf;
 
 	if (!(peername = ast_strdupa(data))) {
 		ast_log(LOG_ERROR, "Memory Error!\n");

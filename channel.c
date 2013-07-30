@@ -45,7 +45,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42600 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43778 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/frame.h"
@@ -1020,7 +1020,7 @@ int ast_channel_spy_add(struct ast_channel *chan, struct ast_channel_spy *spy)
 /* Clean up a channel's spy information */
 static void spy_cleanup(struct ast_channel *chan)
 {
-	if (AST_LIST_EMPTY(&chan->spies->list))
+	if (AST_LIST_FIRST(&chan->spies->list))
 		return;
 	if (chan->spies->read_translator.path)
 		ast_translator_free_path(chan->spies->read_translator.path);
@@ -3351,7 +3351,7 @@ static enum ast_bridge_result ast_generic_bridge(struct ast_channel *c0, struct 
 		if (bridge_end.tv_sec) {
 			to = ast_tvdiff_ms(bridge_end, ast_tvnow());
 			if (to <= 0) {
-				res = AST_BRIDGE_RETRY;
+				res = AST_BRIDGE_COMPLETE;
 				break;
 			}
 		} else
@@ -3510,8 +3510,10 @@ enum ast_bridge_result ast_channel_bridge(struct ast_channel *c0, struct ast_cha
 		if (!ast_tvzero(nexteventts)) {
 			now = ast_tvnow();
 			to = ast_tvdiff_ms(nexteventts, now);
-			if (to < 0)
-				to = 0;
+			if (to <= 0) {
+				res = AST_BRIDGE_COMPLETE;
+				break;
+			}
 		}
 
 		if (config->timelimit) {

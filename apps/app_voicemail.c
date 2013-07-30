@@ -52,7 +52,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 41065 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43815 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -3377,18 +3377,8 @@ static int forward_message(struct ast_channel *chan, char *context, char *dir, i
 			   char *fmt, int flag, signed char record_gain)
 {
 	char username[70]="";
-	char sys[256];
-	char todir[256];
-	int todircount=0;
-	int duration;
-	struct ast_config *mif;
-	char miffile[256];
-	char fn[256];
-	char callerid[512];
-	char ext_context[256]="";
 	int res = 0, cmd = 0;
 	struct ast_vm_user *receiver = NULL, *extensions = NULL, *vmtmp = NULL, *vmfree;
-	char tmp[256];
 	char *stringp, *s;
 	int saved_messages = 0, found = 0;
 	int valid_extensions = 0;
@@ -3523,74 +3513,7 @@ static int forward_message(struct ast_channel *chan, char *context, char *dir, i
 		cmd = vm_forwardoptions(chan, sender, dir, curmsg, vmfmts, context, record_gain);
 		if (!cmd) {
 			while (!res && vmtmp) {
-				/* if (ast_play_and_wait(chan, "vm-savedto"))
-					break;
-				*/
-				snprintf(todir, sizeof(todir), "%s%s/%s/INBOX",  VM_SPOOL_DIR, vmtmp->context, vmtmp->mailbox);
-				snprintf(sys, sizeof(sys), "mkdir -p %s\n", todir);
-				snprintf(ext_context, sizeof(ext_context), "%s@%s", vmtmp->mailbox, vmtmp->context);
-				ast_log(LOG_DEBUG, "%s", sys);
-				ast_safe_system(sys);
-		
-				res = count_messages(receiver, todir);
-
-				if ( (res == ERROR_LOCK_PATH) || (res < 0) ) {
-					if (res == ERROR_LOCK_PATH)
-						ast_log(LOG_WARNING, "Unable to lock the directory %s to forward the requested vmail msg!\n", todir);
-					else
-						ast_log(LOG_WARNING, "Unable to determine how many msgs are in the destination folder!\n");
-					break;
-				}
-				todircount = res;
-				ast_copy_string(tmp, fmt, sizeof(tmp));
-				stringp = tmp;
-				while ((s = strsep(&stringp, "|"))) {
-					/* XXX This is a hack -- we should use build_filename or similar XXX */
-					if (!strcasecmp(s, "wav49"))
-						s = "WAV";
-					snprintf(sys, sizeof(sys), "cp %s/msg%04d.%s %s/msg%04d.%s\n", dir, curmsg, s, todir, todircount, s);
-					ast_log(LOG_DEBUG, "%s", sys);
-					ast_safe_system(sys);
-				}
-				snprintf(sys, sizeof(sys), "cp %s/msg%04d.txt %s/msg%04d.txt\n", dir, curmsg, todir, todircount);
-				ast_log(LOG_DEBUG, "%s", sys);
-				ast_safe_system(sys);
-				snprintf(fn, sizeof(fn), "%s/msg%04d", todir,todircount);
-
-				STORE(todir, vmtmp->mailbox, vmtmp->context, todircount);
-	
-				/* load the information on the source message so we can send an e-mail like a new message */
-				snprintf(miffile, sizeof(miffile), "%s/msg%04d.txt", dir, curmsg);
-				if ((mif=ast_config_load(miffile))) {
-	
-					/* set callerid and duration variables */
-					snprintf(callerid, sizeof(callerid), "FWD from: %s from %s", sender->fullname, ast_variable_retrieve(mif, NULL, "callerid"));
-					s = ast_variable_retrieve(mif, NULL, "duration");
-					if (s)
-						duration = atoi(s);
-					else
-						duration = 0;
-					if (!ast_strlen_zero(vmtmp->email)) {
-						int attach_user_voicemail = ast_test_flag((&globalflags), VM_ATTACH);
-						char *myserveremail = serveremail;
-						attach_user_voicemail = ast_test_flag(vmtmp, VM_ATTACH);
-						if (!ast_strlen_zero(vmtmp->serveremail))
-							myserveremail = vmtmp->serveremail;
-						sendmail(myserveremail, vmtmp, todircount, vmtmp->context, vmtmp->mailbox, chan->cid.cid_num, chan->cid.cid_name, fn, tmp, duration, attach_user_voicemail);
-					}
-
-					if (!ast_strlen_zero(vmtmp->pager)) {
-						char *myserveremail = serveremail;
-						if (!ast_strlen_zero(vmtmp->serveremail))
-							myserveremail = vmtmp->serveremail;
-						sendpage(myserveremail, vmtmp->pager, todircount, vmtmp->context, vmtmp->mailbox, chan->cid.cid_num, chan->cid.cid_name, duration, vmtmp);
-					}
-				  
-					ast_config_destroy(mif); /* or here */
-				}
-				/* Leave voicemail for someone */
-				manager_event(EVENT_FLAG_CALL, "MessageWaiting", "Mailbox: %s\r\nWaiting: %d\r\n", ext_context, has_voicemail(ext_context, NULL));
-				run_externnotify(vmtmp->context, vmtmp->mailbox);
+				copy_message(chan, sender, 0, curmsg, 0, vmtmp, fmt);
 	
 				saved_messages++;
 				vmfree = vmtmp;
@@ -3841,7 +3764,7 @@ static int play_message(struct ast_channel *chan, struct ast_vm_user *vmu, struc
 		return 0;
 	}
 
-	cid = ast_variable_retrieve(msg_cfg, "message", "callerid");
+	cid = ast_strdupa(ast_variable_retrieve(msg_cfg, "message", "callerid"));
 	duration = ast_variable_retrieve(msg_cfg, "message", "duration");
 	category = ast_variable_retrieve(msg_cfg, "message", "category");
 
@@ -3883,7 +3806,9 @@ static int open_mailbox(struct vm_state *vms, struct ast_vm_user *vmu,int box)
 	 */
 	snprintf(vms->vmbox, sizeof(vms->vmbox), "vm-%s", vms->curbox);
 	
-	make_dir(vms->curdir, sizeof(vms->curdir), vmu->context, vms->username, vms->curbox);
+	/* Faster to make the directory than to check if it exists. */
+	create_dirpath(vms->curdir, sizeof(vms->curdir), vmu->context, vms->username, vms->curbox);
+
 	count_msg = count_messages(vmu, vms->curdir);
 	if (count_msg < 0)
 		return count_msg;
@@ -5622,12 +5547,13 @@ static int vm_exec(struct ast_channel *chan, void *data)
 static int append_mailbox(char *context, char *mbox, char *data)
 {
 	/* Assumes lock is already held */
-	char tmp[256] = "";
+	char *tmp;
 	char *stringp;
 	char *s;
 	struct ast_vm_user *vmu;
 
-	ast_copy_string(tmp, data, sizeof(tmp));
+	tmp = ast_strdupa(data);
+
 	vmu = malloc(sizeof(struct ast_vm_user));
 	if (vmu) {
 		memset(vmu, 0, sizeof(struct ast_vm_user));
@@ -6462,13 +6388,11 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 		return 0;
 	}
 
-	cid = ast_variable_retrieve(msg_cfg, "message", "callerid");
+	cid = ast_strdupa(ast_variable_retrieve(msg_cfg, "message", "callerid"));
 
 	context = ast_variable_retrieve(msg_cfg, "message", "context");
 	if (!strncasecmp("macro",context,5)) /* Macro names in contexts are useless for our needs */
 		context = ast_variable_retrieve(msg_cfg, "message","macrocontext");
-
-	ast_config_destroy(msg_cfg);
 
 	if (option == 3) {
 
@@ -6489,8 +6413,10 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 						if (num) {
 							/* Dial the CID number */
 							res = dialout(chan, vmu, num, vmu->callback);
-							if (res)
+							if (res) {
+								ast_config_destroy(msg_cfg);
 								return 9;
+							}
 						} else {
 							res = '2';
 						}
@@ -6500,13 +6426,16 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 						/* Want to enter a different number, can only do this if there's a dialout context for this user */
 						if (!ast_strlen_zero(vmu->dialout)) {
 							res = dialout(chan, vmu, NULL, vmu->dialout);
-							if (res)
+							if (res) {
+								ast_config_destroy(msg_cfg);
 								return 9;
+							}
 						} else {
 							if (option_verbose > 2)
 								ast_verbose( VERBOSE_PREFIX_3 "Caller can not specify callback number - no dialout context available\n");
 							res = ast_play_and_wait(chan, "vm-sorry");
 						}
+						ast_config_destroy(msg_cfg);
 						return res;
 					case '*':
 						res = 't';
@@ -6573,6 +6502,7 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 					ast_verbose(VERBOSE_PREFIX_3 "No CID number available, no reply sent\n");
 				if (!res)
 					res = ast_play_and_wait(chan, "vm-nonumber");
+				ast_config_destroy(msg_cfg);
 				return res;
 			} else {
 				if (find_user(NULL, vmu->context, num)) {
@@ -6586,6 +6516,7 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 					memset(&leave_options, 0, sizeof(leave_options));
 					leave_options.record_gain = record_gain;
 					res = leave_voicemail(chan, mailbox, &leave_options);
+					ast_config_destroy(msg_cfg);
 					if (!res)
 						res = 't';
 					return res;
@@ -6594,6 +6525,7 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 					if (option_verbose > 2)
 						ast_verbose( VERBOSE_PREFIX_3 "No mailbox number '%s' in context '%s', no reply sent\n", num, vmu->context);
 					ast_play_and_wait(chan, "vm-nobox");
+					ast_config_destroy(msg_cfg);
 					res = 't';
 					return res;
 				}
@@ -6607,6 +6539,7 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 		vms->heard[msg] = 1;
 		res = wait_file(chan, vms, vms->fn);
 	}
+	ast_config_destroy(msg_cfg);
 	return res;
 }
  

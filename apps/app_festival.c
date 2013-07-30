@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 33781 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43924 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -471,7 +471,7 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
                         * */
                        if ( read_data == -1 )
                        {
-                               ast_log(LOG_WARNING,"Unable to read from cache/festival fd");
+                               ast_log(LOG_WARNING,"Unable to read from cache/festival fd\n");
 			       close(fd);
 			       ast_config_destroy(cfg);
 			       LOCAL_USER_REMOVE(u);

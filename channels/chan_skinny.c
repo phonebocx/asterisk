@@ -44,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 41411 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 45332 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -1609,7 +1609,7 @@ static struct skinny_device *build_device(char *cat, struct ast_variable *v)
                        					l->sub = sub;
                        				} else {
                        					/* XXX Should find a way to clean up our memory */
-                       					ast_log(LOG_WARNING, "Out of memory allocating subchannel");
+                       					ast_log(LOG_WARNING, "Out of memory allocating subchannel\n");
                       					return NULL;
                        				}
                     			}
@@ -1617,7 +1617,7 @@ static struct skinny_device *build_device(char *cat, struct ast_variable *v)
 					d->lines = l;			
 	    			} else {
 			        	/* XXX Should find a way to clean up our memory */
-                    			ast_log(LOG_WARNING, "Out of memory allocating line");
+                    			ast_log(LOG_WARNING, "Out of memory allocating line\n");
                     			return NULL;
 				}
 			} else {
@@ -2863,6 +2863,10 @@ static int get_input(struct skinnysession *s)
 			return -1;
 		}
 		dlen = letohl(*(int *)s->inbuf);
+		if (dlen < 0) {
+			ast_log(LOG_WARNING, "Skinny Client sent invalid data.\n");
+			return -1;
+		}
 		if (dlen+8 > sizeof(s->inbuf)) {
 			dlen = sizeof(s->inbuf) - 8;
 		}
@@ -3178,7 +3182,7 @@ static int reload_config(void)
 	if (skinnysock < 0) {
 		skinnysock = socket(AF_INET, SOCK_STREAM, 0);
 		if(setsockopt(skinnysock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) == -1) {
-			ast_log(LOG_ERROR, "Set Socket Options failed: errno %d, %s", errno, strerror(errno));
+			ast_log(LOG_ERROR, "Set Socket Options failed: errno %d, %s\n", errno, strerror(errno));
 			ast_config_destroy(cfg);
 			return 0;
 		}
@@ -3215,7 +3219,7 @@ static int reload_config(void)
 	return 0;
 }
 
-void delete_devices(void)
+static void delete_devices(void)
 {
 	struct skinny_device *d, *dlast;
 	struct skinny_line *l, *llast;

@@ -102,7 +102,7 @@ int misdn_jb_empty(struct misdn_jb *jb, char *data, int len);
 
 
 enum misdn_chan_state {
-	MISDN_NOTHING,		/*!< at beginning */
+	MISDN_NOTHING=0,	/*!< at beginning */
 	MISDN_WAITING4DIGS, /*!<  when waiting for infos */
 	MISDN_EXTCANTMATCH, /*!<  when asterisk couldnt match our ext */
 	MISDN_DIALING, /*!<  when pbx_start */
@@ -122,12 +122,18 @@ enum misdn_chan_state {
 	MISDN_HUNGUP_FROM_AST, /*!< when DISCONNECT/RELEASE/REL_COMP came out of */
 	/* misdn_hangup */
 	MISDN_HOLDED, /*!< if this chan is holded */
-	MISDN_HOLD_DISCONNECT /*!< if this chan is holded */
+	MISDN_HOLD_DISCONNECT, /*!< if this chan is holded */
+	MISDN_FIXUP/*!< if this chan is holded */
   
 };
 
 #define ORG_AST 1
 #define ORG_MISDN 2
+
+struct hold_info {
+	int port;
+	int channel;
+};
 
 struct chan_list {
   
@@ -172,7 +178,8 @@ struct chan_list {
 	int dummy;
   
 	struct misdn_bchannel *bc;
-	struct misdn_bchannel *holded_bc;
+
+	struct hold_info hold_info;
 
 	unsigned int l3id;
 	int addr;
@@ -210,7 +217,7 @@ static struct robin_list *robin = NULL;
 
 
 
-struct ast_frame *process_ast_dsp(struct chan_list *tmp, struct ast_frame *frame);
+static struct ast_frame *process_ast_dsp(struct chan_list *tmp, struct ast_frame *frame);
 
 
 
@@ -673,6 +680,7 @@ static struct state_struct state_array[] = {
 	{MISDN_HUNGUP_FROM_MISDN,"HUNGUP_FROM_MISDN"}, /* when DISCONNECT/RELEASE/REL_COMP  cam from misdn */
 	{MISDN_HOLDED,"HOLDED"}, /* when DISCONNECT/RELEASE/REL_COMP  cam from misdn */
 	{MISDN_HOLD_DISCONNECT,"HOLD_DISCONNECT"}, /* when DISCONNECT/RELEASE/REL_COMP  cam from misdn */
+	{MISDN_FIXUP,"FIXUP"}, /**/
 	{MISDN_HUNGUP_FROM_AST,"HUNGUP_FROM_AST"} /* when DISCONNECT/RELEASE/REL_COMP came out of */
 	/* misdn_hangup */
 };
@@ -695,7 +703,7 @@ static char *misdn_get_ch_state(struct chan_list *p)
 
 
 
-void reload_config(void)
+static void reload_config(void)
 {
 	int i, cfg_debug;
 	
@@ -746,7 +754,7 @@ static void print_bc_info (int fd, struct chan_list* help, struct misdn_bchannel
 			"  --> capability: %s\n"
 			"  --> echo_cancel: %d\n"
 			"  --> notone : rx %d tx:%d\n"
-			"  --> bc_hold: %d holded_bc :%d\n",
+			"  --> bc_hold: %d\n",
 			help->ast->name,
 			help->l3id,
 			help->addr,
@@ -760,7 +768,7 @@ static void print_bc_info (int fd, struct chan_list* help, struct misdn_bchannel
 			bc->ec_enable,
 
 			help->norxtone,help->notxtone,
-			bc->holded, help->holded_bc?1:0
+			bc->holded
 			);
   
 }
@@ -777,11 +785,19 @@ static int misdn_show_cls (int fd, int argc, char *argv[])
 		if (misdn_debug[0] > 2) ast_cli(fd, "Bc:%p Ast:%p\n", bc, ast);
 		if (bc) {
 			print_bc_info(fd, help, bc);
-		} else if ( (bc=help->holded_bc) ) {
-			chan_misdn_log(0, 0, "ITS A HOLDED BC:\n");
-			print_bc_info(fd, help,  bc);
 		} else {
-			ast_cli(fd,"* Channel in unknown STATE !!! Exten:%s, Callerid:%s\n", ast->exten, AST_CID_P(ast));
+			if (help->state == MISDN_HOLDED) {
+				chan_misdn_log(0, 0, "ITS A HOLDED BC:\n");
+				chan_misdn_log(0,0," --> l3_id: %x\n"
+						" --> dad:%s oad:%s\n"
+				
+						,help->l3id
+						,ast->exten
+						,AST_CID_P(ast)
+						);
+			} else {
+				ast_cli(fd,"* Channel in unknown STATE !!! Exten:%s, Callerid:%s\n", ast->exten, AST_CID_P(ast));
+			}
 		}
 	}
   
@@ -1630,7 +1646,7 @@ static int misdn_call(struct ast_channel *ast, char *dest, int timeout)
 	
 	{
 		struct chan_list *ch=MISDN_ASTERISK_TECH_PVT(ast);
-		if (!ch) { ast_verbose("No chan_list in misdn_call"); return -1;}
+		if (!ch) { ast_verbose("No chan_list in misdn_call\n"); return -1;}
 		
 		newbc->capability=ast->transfercapability;
 		pbx_builtin_setvar_helper(ast,"TRANSFERCAPABILITY",ast_transfercapability2str(newbc->capability));
@@ -1650,8 +1666,6 @@ static int misdn_call(struct ast_channel *ast, char *dest, int timeout)
 			misdn_set_opt_exec(ast,opts);
 		else
 			chan_misdn_log(2,port,"NO OPTS GIVEN\n");
-		
-		ch->state=MISDN_CALLING;
 		
 		r=misdn_lib_send_event( newbc, EVENT_SETUP );
 		
@@ -1673,6 +1687,8 @@ static int misdn_call(struct ast_channel *ast, char *dest, int timeout)
 	ast->hangupcause=16;
 	
 	if (newbc->nt) stop_bc_tones(ch);
+
+	ch->state=MISDN_CALLING;
 	
 	return 0; 
 }
@@ -1806,7 +1822,7 @@ static int misdn_fixup(struct ast_channel *oldast, struct ast_channel *ast)
 	chan_misdn_log(1, p->bc?p->bc->port:0, "* IND: Got Fixup State:%s L3id:%x\n", misdn_get_ch_state(p), p->l3id);
 	
 	p->ast = ast ;
-	p->state=MISDN_CONNECTED;
+	p->state=MISDN_FIXUP;
   
 	return 0;
 }
@@ -1963,10 +1979,6 @@ static int misdn_hangup(struct ast_channel *ast)
 	
 	bc=p->bc;
 
-	if (!bc) {
-		ast_log(LOG_WARNING,"Hangup with private but no bc ?\n");
-		return 0;
-	}
 
 	
 	MISDN_ASTERISK_TECH_PVT(ast)=NULL;
@@ -1974,9 +1986,15 @@ static int misdn_hangup(struct ast_channel *ast)
 
 	bc=p->bc;
 	
-	if (ast->_state == AST_STATE_RESERVED) {
+	if (ast->_state == AST_STATE_RESERVED || 
+		p->state == MISDN_NOTHING || 
+		p->state == MISDN_HOLDED || 
+		p->state == MISDN_FIXUP || 
+		p->state == MISDN_HOLD_DISCONNECT ) {
+
+		CLEAN_CH:
 		/* between request and call */
-		ast_log(LOG_DEBUG, "State Reserved => chanIsAvail\n");
+		ast_log(LOG_DEBUG, "State Reserved (or nothing) => chanIsAvail\n");
 		MISDN_ASTERISK_TECH_PVT(ast)=NULL;
 		
 		cl_dequeue_chan(&cl_te, p);
@@ -1990,6 +2008,12 @@ static int misdn_hangup(struct ast_channel *ast)
 		
 		return 0;
 	}
+
+	if (!bc) {
+		ast_log(LOG_WARNING,"Hangup with private but no bc ? state:%s l3id:%x\n", misdn_get_ch_state(p), p->l3id);
+		goto CLEAN_CH;
+	}
+
 
 	p->need_hangup=0;
 	p->need_queue_hangup=0;
@@ -2135,6 +2159,7 @@ static struct ast_frame  *misdn_read(struct ast_channel *ast)
 	tmp->frame.samples = len ;
 	tmp->frame.mallocd =0 ;
 	tmp->frame.offset= 0 ;
+	tmp->frame.delivery= ast_tv(0,0) ;
 	tmp->frame.src = NULL;
 	tmp->frame.data = tmp->ast_rd_buf ;
 	
@@ -2152,15 +2177,16 @@ static int misdn_write(struct ast_channel *ast, struct ast_frame *frame)
 	int i  = 0;
 	
 	if (!ast || ! (ch=MISDN_ASTERISK_TECH_PVT(ast)) ) return -1;
-	
-	if (!ch->bc ) {
-		ast_log(LOG_WARNING, "private but no bc\n");
-		return -1;
+
+	if (ch->state == MISDN_HOLDED) {
+		chan_misdn_log(8, 0, "misdn_write: Returning because holded\n");
+		return 0;
 	}
 	
-	if (ch->state == MISDN_HOLDED) {
-		chan_misdn_log(8, ch->bc->port, "misdn_write: Returning because holded\n");
-		return 0;
+	if (!ch->bc ) {
+
+		ast_log(LOG_WARNING, "private but no bc\n");
+		return -1;
 	}
 	
 	if (ch->notxtone) {
@@ -2209,7 +2235,7 @@ static int misdn_write(struct ast_channel *ast, struct ast_frame *frame)
 			break;
 		default:
 		if (!ch->dropped_frame_cnt)
-			chan_misdn_log(5, ch->bc->port, "BC not active (nor bridged) droping: %d frames addr:%x exten:%s cid:%s ch->state:%s bc_state:%d\n",frame->samples,ch->bc->addr, ast->exten, ast->cid.cid_num,misdn_get_ch_state( ch), ch->bc->bc_state);
+			chan_misdn_log(5, ch->bc->port, "BC not active (nor bridged) droping: %d frames addr:%x exten:%s cid:%s ch->state:%s bc_state:%d l3id:%x\n",frame->samples,ch->bc->addr, ast->exten, ast->cid.cid_num,misdn_get_ch_state( ch), ch->bc->bc_state, ch->bc->l3_id);
 		
 		ch->dropped_frame_cnt++;
 		if (ch->dropped_frame_cnt > 100) {
@@ -2261,7 +2287,6 @@ enum ast_bridge_result  misdn_bridge (struct ast_channel *c0,
 	carr[0]=c0;
 	carr[1]=c1;
   
-  
 	if (ch1 && ch2 ) ;
 	else
 		return -1;
@@ -2283,10 +2308,9 @@ enum ast_bridge_result  misdn_bridge (struct ast_channel *c0,
 			ch2->bc->ec_enable=0;
 			manager_ec_disable(ch2->bc); 
 		}
-		
 		/* trying to make a mISDN_dsp conference */
 		chan_misdn_log(1, ch1->bc->port, "I SEND: Making conference with Number:%d\n", ch1->bc->pid +1);
-		
+
 		misdn_lib_bridge(ch1->bc,ch2->bc);
 	}
 	
@@ -2332,7 +2356,11 @@ enum ast_bridge_result  misdn_bridge (struct ast_channel *c0,
 			break;
 		}
 		
-		
+		if (f->frametype == AST_FRAME_VOICE) {
+			chan_misdn_log(1,0,"Got Voice frame in Bridged state..\n");
+			continue;
+		}
+
 		if (who == c0) {
 			ast_write(c1,f);
 		}
@@ -2534,7 +2562,7 @@ static struct ast_channel *misdn_request(const char *type, int format, void *dat
 						
 						
 						if ( port_up>0 )	{
-							newbc = misdn_lib_get_free_bc(port, robin_channel);
+							newbc = misdn_lib_get_free_bc(port, robin_channel,0);
 							if (newbc) {
 								chan_misdn_log(4, port, " Success! Found port:%d channel:%d\n", newbc->port, newbc->channel);
 								if (port_up)
@@ -2568,7 +2596,7 @@ static struct ast_channel *misdn_request(const char *type, int format, void *dat
 					chan_misdn_log(4, port, "portup:%d\n", port_up);
 					
 					if ( port_up>0 ) {
-						newbc = misdn_lib_get_free_bc(port, 0);
+						newbc = misdn_lib_get_free_bc(port, 0, 0);
 						if (newbc)
 							break;
 					}
@@ -2579,7 +2607,7 @@ static struct ast_channel *misdn_request(const char *type, int format, void *dat
 	} else {
 		if (channel)
 			chan_misdn_log(1, port," --> preselected_channel: %d\n",channel);
-		newbc = misdn_lib_get_free_bc(port, channel);
+		newbc = misdn_lib_get_free_bc(port, channel, 0);
 	}
 	
 	if (!newbc) {
@@ -2739,7 +2767,7 @@ static struct ast_channel *misdn_new(struct chan_list *chlist, int state,  char 
 }
 
 
-struct ast_frame *process_ast_dsp(struct chan_list *tmp, struct ast_frame *frame)
+static struct ast_frame *process_ast_dsp(struct chan_list *tmp, struct ast_frame *frame)
 {
 	struct ast_frame *f,*f2;
 	if (tmp->trans)
@@ -2751,7 +2779,7 @@ struct ast_frame *process_ast_dsp(struct chan_list *tmp, struct ast_frame *frame
 	
 	f = ast_dsp_process(tmp->ast, tmp->dsp, f2);
 	if (f && (f->frametype == AST_FRAME_DTMF)) {
-		ast_log(LOG_DEBUG, "Detected inband DTMF digit: %c", f->subclass);
+		ast_log(LOG_DEBUG, "Detected inband DTMF digit: %c\n", f->subclass);
 		if (f->subclass == 'f' && tmp->faxdetect) {
 			/* Fax tone -- Handle and return NULL */
 			struct ast_channel *ast = tmp->ast;
@@ -2800,7 +2828,7 @@ static struct chan_list *find_chan_by_pid(struct chan_list *list, int pid)
 {
 	struct chan_list *help=list;
 	for (;help; help=help->next) {
-		if (help->bc->pid == pid) return help;
+		if ( help->bc && (help->bc->pid == pid) ) return help;
 	}
   
 	chan_misdn_log(6, 0, "$$$ find_chan: No channel found for pid:%d\n",pid);
@@ -2814,13 +2842,29 @@ static struct chan_list *find_holded(struct chan_list *list, struct misdn_bchann
 	
 	chan_misdn_log(6, bc->port, "$$$ find_holded: channel:%d oad:%s dad:%s\n",bc->channel, bc->oad,bc->dad);
 	for (;help; help=help->next) {
-		chan_misdn_log(4, bc->port, "$$$ find_holded: --> holded:%d channel:%d\n",help->bc->holded, help->bc->channel);
-		if (help->bc->port == bc->port
-		    && help->bc->holded ) return help;
+		chan_misdn_log(4, bc->port, "$$$ find_holded: --> holded:%d channel:%d\n",help->state==MISDN_HOLDED, help->hold_info.channel);
+		if (help->hold_info.port == bc->port
+		) return help;
 	}
 	
 	chan_misdn_log(6, bc->port, "$$$ find_chan: No channel found for oad:%s dad:%s\n",bc->oad,bc->dad);
   
+	return NULL;
+}
+
+
+static struct chan_list *find_holded_l3(struct chan_list *list, unsigned long l3_id, int w) 
+
+{
+	struct chan_list *help=list;
+
+	for (;help; help=help->next) {
+		if ( (help->state == MISDN_HOLDED) &&
+			 (help->l3id == l3_id)   
+			) 
+			return help;
+	}
+
 	return NULL;
 }
 
@@ -2878,7 +2922,7 @@ static void cl_dequeue_chan(struct chan_list **list, struct chan_list *chan)
 /** Channel Queue End **/
 
 
-int pbx_start_chan(struct chan_list *ch)
+static int pbx_start_chan(struct chan_list *ch)
 {
 	int ret=ast_pbx_start(ch->ast);	
 
@@ -2892,16 +2936,17 @@ int pbx_start_chan(struct chan_list *ch)
 
 static void hangup_chan(struct chan_list *ch)
 {
+	int port=ch?ch->bc?ch->bc->port:0:0;
 	if (!ch) {
 		cb_log(1,0,"Cannot hangup chan, no ch\n");
 		return;
 	}
 
-	cb_log(1,ch->bc?ch->bc->port:0,"hangup_chan\n");
+	cb_log(1,port,"hangup_chan\n");
 
 	if (ch->need_hangup) 
 	{
-		cb_log(1,ch->bc->port,"-> hangup\n");
+		cb_log(1,port,"-> hangup\n");
 		send_cause2ast(ch->ast,ch->bc,ch);
 		ch->need_hangup=0;
 		ch->need_queue_hangup=0;
@@ -2911,7 +2956,7 @@ static void hangup_chan(struct chan_list *ch)
 	}
 
 	if (!ch->need_queue_hangup) {
-		cb_log(1,ch->bc->port,"No need to queue hangup\n");
+		cb_log(1,port,"No need to queue hangup\n");
 	}
 
 	ch->need_queue_hangup=0;
@@ -2920,9 +2965,9 @@ static void hangup_chan(struct chan_list *ch)
 
 		if (ch->ast)
 			ast_queue_hangup(ch->ast);
-		cb_log(1,ch->bc->port,"-> queue_hangup\n");
+		cb_log(1,port,"-> queue_hangup\n");
 	} else {
-		cb_log(1,ch->bc->port,"Cannot hangup chan, no ast\n");
+		cb_log(1,port,"Cannot hangup chan, no ast\n");
 	}
 }
 
@@ -2932,7 +2977,7 @@ static void release_chan(struct misdn_bchannel *bc) {
 	{
 		struct chan_list *ch=find_chan_by_bc(cl_te, bc);
 		if (!ch)  {
-			chan_misdn_log(0, bc->port, "release_chan: Ch not found!\n");
+			chan_misdn_log(1, bc->port, "release_chan: Ch not found!\n");
 			return;
 		}
 		
@@ -2989,7 +3034,7 @@ static void misdn_transfer_bc(struct chan_list *tmp_ch, struct chan_list *holded
 	ast_moh_stop(AST_BRIDGED_P(holded_chan->ast));
 
 	holded_chan->state=MISDN_CONNECTED;
-	misdn_lib_transfer(holded_chan->bc?holded_chan->bc:holded_chan->holded_bc);
+	//misdn_lib_transfer(holded_chan->bc);
 	ast_channel_masquerade(holded_chan->ast, AST_BRIDGED_P(tmp_ch->ast));
 }
 
@@ -3047,6 +3092,7 @@ static void do_immediate_setup(struct misdn_bchannel *bc,struct chan_list *ch , 
 		fr.samples = 0 ;
 		fr.mallocd =0 ;
 		fr.offset= 0 ;
+		fr.delivery= ast_tv(0,0) ;
 
 		if (ch->ast && MISDN_ASTERISK_PVT(ch->ast) && MISDN_ASTERISK_TECH_PVT(ch->ast)) {
 			ast_queue_frame(ch->ast, &fr);
@@ -3251,6 +3297,7 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 		fr.samples = 0 ;
 		fr.mallocd =0 ;
 		fr.offset= 0 ;
+		fr.delivery= ast_tv(0,0) ;
 		
 		if (!ch->ignore_dtmf) {
 			chan_misdn_log(2, bc->port, " --> DTMF:%c\n", bc->dtmf);
@@ -3273,6 +3320,12 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 		
 		if (ch->state == MISDN_WAITING4DIGS ) {
 			/*  Ok, incomplete Setup, waiting till extension exists */
+
+			if (ast_strlen_zero(bc->info_dad) && ! ast_strlen_zero(bc->keypad)) {
+				chan_misdn_log(1, bc->port, " --> using keypad as info\n");
+				strcpy(bc->info_dad,bc->keypad);
+			}
+
 			{
 				int l = sizeof(bc->dad);
 				strncat(bc->dad,bc->info_dad, l);
@@ -3341,6 +3394,7 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 			fr.samples = 0 ;
 			fr.mallocd =0 ;
 			fr.offset= 0 ;
+			fr.delivery= ast_tv(0,0) ;
 
 			
 			int digits;
@@ -3365,9 +3419,15 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 	case EVENT_SETUP:
 	{
 		struct chan_list *ch=find_chan_by_bc(cl_te, bc);
-		if (ch && ch->state != MISDN_NOTHING ) {
-			chan_misdn_log(1, bc->port, " --> Ignoring Call we have already one\n");
-			return RESPONSE_IGNORE_SETUP_WITHOUT_CLOSE; /*  Ignore MSNs which are not in our List */
+		if (ch) {
+			switch (ch->state) {
+				case MISDN_NOTHING:
+				ch=NULL;
+				break;
+				default:
+				chan_misdn_log(1, bc->port, " --> Ignoring Call we have already one\n");
+				return RESPONSE_IGNORE_SETUP_WITHOUT_CLOSE; /*  Ignore MSNs which are not in our List */
+			}
 		}
 	}
 	
@@ -3378,6 +3438,14 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 		return RESPONSE_IGNORE_SETUP; /*  Ignore MSNs which are not in our List */
 	}
 	
+	if (bc->cw) {
+		chan_misdn_log(0, bc->port, " --> Call Waiting on PMP sending RELEASE_COMPLETE\n");
+		int cause;
+		misdn_cfg_get( bc->port, MISDN_CFG_REJECT_CAUSE, &cause, sizeof(cause));
+		bc->out_cause=cause?cause:16;
+		return RESPONSE_RELEASE_SETUP;
+	}
+
 	print_bearer(bc);
     
 	{
@@ -3685,9 +3753,7 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 		}
 	}
 	
-	
 	/* notice that we don't break here!*/
-
 	case EVENT_CONNECT_ACKNOWLEDGE:
 	{
 		ch->l3id=bc->l3_id;
@@ -3720,18 +3786,21 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 		}
 		
 		/*Check for holded channel, to implement transfer*/
-		if (holded_ch && ch->ast ) {
+		if (	holded_ch && 
+			holded_ch != ch && 
+			ch->ast && 
+			ch->state == MISDN_CONNECTED	) {
 			cb_log(1,bc->port," --> found holded ch\n");
-			if  (ch->state == MISDN_CONNECTED ) {
-				misdn_transfer_bc(ch, holded_ch) ;
-			}
-			hangup_chan(ch);
-			release_chan(bc);
-			break;
+			misdn_transfer_bc(ch, holded_ch) ;
 		}
 		
 		stop_bc_tones(ch);
 		hangup_chan(ch);
+	} else {
+		ch=find_holded_l3(cl_te, bc->l3_id,1);
+		if (ch) {
+			hangup_chan(ch);
+		}
 	}
 	bc->out_cause=-1;
 	if (bc->need_release) misdn_lib_send_event(bc,EVENT_RELEASE);
@@ -3822,6 +3891,7 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 			frame.samples = bc->bframe_len ;
 			frame.mallocd =0 ;
 			frame.offset= 0 ;
+			frame.delivery= ast_tv(0,0) ;
 			frame.src = NULL;
 			frame.data = bc->bframe ;
 			
@@ -3912,23 +3982,25 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 	/***************************/
 	case EVENT_RETRIEVE:
 	{
-		ch=find_holded(cl_te, bc);
+		ch=find_holded_l3(cl_te, bc->l3_id,1);
 		if (!ch) {
 			ast_log(LOG_WARNING, "Found no Holded channel, cannot Retrieve\n");
 			misdn_lib_send_event(bc, EVENT_RETRIEVE_REJECT);
 			break;
 		}
-		struct ast_channel *hold_ast=AST_BRIDGED_P(ch->ast);
+
+		/*remember the channel again*/
+		ch->bc=bc;
 		ch->state = MISDN_CONNECTED;
+
+		struct ast_channel *hold_ast=AST_BRIDGED_P(ch->ast);
 		
 		if (hold_ast) {
 			ast_moh_stop(hold_ast);
 		}
-		
+	
 		if ( misdn_lib_send_event(bc, EVENT_RETRIEVE_ACKNOWLEDGE) < 0)
 			misdn_lib_send_event(bc, EVENT_RETRIEVE_REJECT);
-		
-		
 	}
 	break;
     
@@ -3943,29 +4015,23 @@ cb_events(enum event_e event, struct misdn_bchannel *bc, void *user_data)
 			misdn_lib_send_event(bc, EVENT_HOLD_REJECT);
 			break;
 		}
-
-#if 0
-		{
-			struct chan_list *holded_ch=find_holded(cl_te, bc);
-			if (holded_ch) {
-				misdn_lib_send_event(bc, EVENT_HOLD_REJECT);
-
-				chan_misdn_log(-1, bc->port, "We can't use RETRIEVE at the moment due to mISDN bug!\n");
-				break;
-			}
-		}
-#endif
-		struct ast_channel *bridged=AST_BRIDGED_P(ch->ast);
 		
-		if (bridged){
-			struct chan_list *bridged_ch=MISDN_ASTERISK_TECH_PVT(bridged);
+		struct ast_channel *bridged=AST_BRIDGED_P(ch->ast);
+
+		if (bridged) {
+			chan_misdn_log(2,bc->port,"Bridge Partner is of type: %s\n",bridged->tech->type);
 			ch->state = MISDN_HOLDED;
 			ch->l3id = bc->l3_id;
 			
-			bc->holded_bc=bridged_ch->bc;
 			misdn_lib_send_event(bc, EVENT_HOLD_ACKNOWLEDGE);
 
 			ast_moh_start(bridged, NULL);
+
+			/*forget the channel now*/
+			ch->bc=NULL;
+			ch->hold_info.port=bc->port;
+			ch->hold_info.channel=bc->channel;
+
 		} else {
 			misdn_lib_send_event(bc, EVENT_HOLD_REJECT);
 			chan_misdn_log(0, bc->port, "We aren't bridged to anybody\n");
@@ -4401,7 +4467,10 @@ static int misdn_set_opt_exec(struct ast_channel *chan, void *data)
 			
 			if (strlen(tok) > 1 && tok[1]=='1') {
 				chan_misdn_log(1, ch->bc->port, "SETOPT: HDLC \n");
-				ch->bc->hdlc=1;
+				if (!ch->bc->hdlc) {
+					ch->bc->hdlc=1;
+					misdn_lib_setup_bc(ch->bc);
+				}
 			}  
 			ch->bc->capability=INFO_CAPABILITY_DIGITAL_UNRESTRICTED;
 			break;

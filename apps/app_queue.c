@@ -66,7 +66,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 41882 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 44296 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -432,11 +432,12 @@ enum queue_member_status {
 	QUEUE_NORMAL
 };
 
-static enum queue_member_status get_member_status(const struct call_queue *q)
+static enum queue_member_status get_member_status(struct call_queue *q)
 {
 	struct member *member;
 	enum queue_member_status result = QUEUE_NO_MEMBERS;
 
+	ast_mutex_lock(&q->lock);
 	for (member = q->members; member; member = member->next) {
 		if (member->paused) continue;
 
@@ -448,10 +449,12 @@ static enum queue_member_status get_member_status(const struct call_queue *q)
 			result = QUEUE_NO_REACHABLE_MEMBERS;
 			break;
 		default:
+			ast_mutex_unlock(&q->lock);
 			return QUEUE_NORMAL;
 		}
 	}
 	
+	ast_mutex_unlock(&q->lock);
 	return result;
 }
 
@@ -480,7 +483,14 @@ static void *changethread(void *data)
 
 	AST_LIST_LOCK(&interfaces);
 	AST_LIST_TRAVERSE(&interfaces, curint, list) {
-		if (!strcasecmp(curint->interface, sc->dev))
+		char *interface;
+		char *slash_pos;
+		interface = ast_strdupa(curint->interface);
+		if ((slash_pos = strchr(interface, '/')))
+			if ((slash_pos = strchr(slash_pos + 1, '/')))
+				*slash_pos = '\0';
+
+		if (!strcasecmp(interface, sc->dev))
 			break;
 	}
 	AST_LIST_UNLOCK(&interfaces);
@@ -498,7 +508,14 @@ static void *changethread(void *data)
 	for (q = queues; q; q = q->next) {
 		ast_mutex_lock(&q->lock);
 		for (cur = q->members; cur; cur = cur->next) {
-			if (strcasecmp(sc->dev, cur->interface))
+			char *interface;
+			char *slash_pos;
+			interface = ast_strdupa(cur->interface);
+			if ((slash_pos = strchr(interface, '/')))
+				if ((slash_pos = strchr(slash_pos + 1, '/')))
+					*slash_pos = '\0';
+
+			if (strcasecmp(sc->dev, interface))
 				continue;
 
 			if (cur->status != sc->state) {
@@ -1559,7 +1576,7 @@ static int ring_entry(struct queue_ent *qe, struct localuser *tmp, int *busies)
 		/* Again, keep going even if there's an error */
 		if (option_debug)
 			ast_log(LOG_DEBUG, "ast call on peer returned %d\n", res);
-		else if (option_verbose > 2)
+		if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "Couldn't call %s\n", tmp->interface);
 		ast_hangup(tmp->chan);
 		tmp->chan = NULL;
@@ -3289,7 +3306,7 @@ static void reload_queues(void)
 	struct ast_config *cfg;
 	char *cat, *tmp;
 	struct ast_variable *var;
-	struct member *prev, *cur, *newm;
+	struct member *prev, *cur, *newm, *next;
 	int new;
 	char *general_val = NULL;
 	char interface[80];
@@ -3388,23 +3405,25 @@ static void reload_queues(void)
 				}
 
 				/* Free remaining members marked as delme */
-				for (prev = NULL, newm = NULL, cur = q->members; cur; prev = cur, cur = cur->next) {
-					if (newm) {
-						free(newm);
-						newm = NULL;
+				for (prev = NULL, cur = q->members;
+				     cur;
+				     cur = next) {
+					next = cur->next;
+
+					if (!cur->delme) {
+						prev = cur;
+						continue;
 					}
 
-					if (cur->delme) {
-						if (prev) {
-							prev->next = cur->next;
-							newm = cur;
-						} else {
-							q->members = cur->next;
-							newm = cur;
-						}
-						remove_from_interfaces(cur->interface);
-					}
+					if (prev)
+						prev->next = next;
+					else
+						q->members = next;
+
+					remove_from_interfaces(cur->interface);
+					free(cur);
 				}
+
 				if (!new) 
 					ast_mutex_unlock(&q->lock);
 				if (new) {

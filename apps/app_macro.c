@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 41239 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 44343 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -60,7 +60,13 @@ static char *descrip =
 "If you Goto out of the Macro context, the Macro will terminate and control\n"
 "will be returned at the location of the Goto.\n"
 "If ${MACRO_OFFSET} is set at termination, Macro will attempt to continue\n"
-"at priority MACRO_OFFSET + N + 1 if such a step exists, and N + 1 otherwise.\n";
+"at priority MACRO_OFFSET + N + 1 if such a step exists, and N + 1 otherwise.\n"
+"WARNING: Because of the way Macro is implemented (it executes the priorities\n"
+"         contained within it via sub-engine), and a fixed per-thread\n"
+"         memory stack allowance, macros are limited to 7 levels\n"
+"         of nesting (macro calling macro calling macro, etc.); It\n"
+"         may be possible that stack-intensive applications in deeply nested\n"
+"         macros could cause asterisk to crash earlier than this limit.\n";
 
 static char *if_descrip =
 "  MacroIf(<expr>?macroname_a[|arg1][:macroname_b[|arg1]])\n"
@@ -227,14 +233,14 @@ static int macro_exec(struct ast_channel *chan, void *data)
 			case AST_PBX_KEEPALIVE:
 				if (option_debug)
 					ast_log(LOG_DEBUG, "Spawn extension (%s,%s,%d) exited KEEPALIVE in macro %s on '%s'\n", chan->context, chan->exten, chan->priority, macro, chan->name);
-				else if (option_verbose > 1)
+				if (option_verbose > 1)
 					ast_verbose( VERBOSE_PREFIX_2 "Spawn extension (%s, %s, %d) exited KEEPALIVE in macro '%s' on '%s'\n", chan->context, chan->exten, chan->priority, macro, chan->name);
 				goto out;
 				break;
 			default:
 				if (option_debug)
 					ast_log(LOG_DEBUG, "Spawn extension (%s,%s,%d) exited non-zero on '%s' in macro '%s'\n", chan->context, chan->exten, chan->priority, chan->name, macro);
-				else if (option_verbose > 1)
+				if (option_verbose > 1)
 					ast_verbose( VERBOSE_PREFIX_2 "Spawn extension (%s, %s, %d) exited non-zero on '%s' in macro '%s'\n", chan->context, chan->exten, chan->priority, chan->name, macro);
 				dead = 1;
 				goto out;
