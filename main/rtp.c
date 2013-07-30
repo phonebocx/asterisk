@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 224674 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231505 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -1147,7 +1147,6 @@ static struct ast_frame *process_rfc3389(struct ast_rtp *rtp, unsigned char *dat
 	}
 	rtp->f.frametype = AST_FRAME_CNG;
 	rtp->f.subclass = data[0] & 0x7f;
-	rtp->f.datalen = len - 1;
 	rtp->f.samples = 0;
 	rtp->f.delivery.tv_usec = rtp->f.delivery.tv_sec = 0;
 	f = &rtp->f;

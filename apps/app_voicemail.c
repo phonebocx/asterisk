@@ -85,7 +85,7 @@ c-client (http://www.washington.edu/imap/
 #endif
 #endif
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 224451 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231689 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_SPOOL_DIR */
 #include <sys/time.h>
@@ -10476,7 +10476,7 @@ static int load_config(int reload)
 	char *cat;
 	struct ast_variable *var;
 	const char *val;
-	char *q, *stringp;
+	char *q, *stringp, *tmp;
 	int x;
 	int tmpadsi[4];
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
@@ -10784,8 +10784,16 @@ static int load_config(int reload)
 		}
 
 		val = ast_variable_retrieve(cfg, "general", "format");
-		if (!val)
+		if (!val) {
 			val = "wav";	
+		} else {
+			tmp = ast_strdupa(val);
+			val = ast_format_str_reduce(tmp);
+			if (!val) {
+				ast_log(LOG_ERROR, "Error processing format string, defaulting to format 'wav'\n");
+				val = "wav";
+			}
+		}
 		ast_copy_string(vmfmts, val, sizeof(vmfmts));
 
 		skipms = 3000;

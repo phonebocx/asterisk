@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 228900 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 231302 $")
 
 #include "asterisk/_private.h"
 
@@ -1013,6 +1013,7 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 	for (cur = fin; cur; cur = AST_LIST_NEXT(cur, frame_list)) {
 		if (!(f = ast_frdup(cur))) {
 			ast_frfree(AST_LIST_FIRST(&frames));
+			ast_channel_unlock(chan);
 			return -1;
 		}
 
