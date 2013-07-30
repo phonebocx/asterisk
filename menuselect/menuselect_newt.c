@@ -20,7 +20,7 @@
  * \file
  *
  * \author Sean Bright <sean.bright@gmail.com>
- * 
+ *
  * \brief newt frontend for selection maintenance
  */
 
@@ -122,7 +122,11 @@ static void display_member_info(struct member *mem)
 	}
 
 	if (AST_LIST_EMPTY(&mem->deps)) {
-		newtTextboxSetText(dependsDataTextbox, "N/A");
+		if (mem->is_separator) {
+			newtTextboxSetText(dependsDataTextbox, "");
+		} else {
+			newtTextboxSetText(dependsDataTextbox, "N/A");
+		}
 	} else {
 		strcpy(buffer, "");
 		AST_LIST_TRAVERSE(&mem->deps, dep, list) {
@@ -135,7 +139,11 @@ static void display_member_info(struct member *mem)
 	}
 
 	if (AST_LIST_EMPTY(&mem->uses)) {
-		newtTextboxSetText(usesDataTextbox, "N/A");
+		if (mem->is_separator) {
+			newtTextboxSetText(usesDataTextbox, "");
+		} else {
+			newtTextboxSetText(usesDataTextbox, "N/A");
+		}
 	} else {
 		strcpy(buffer, "");
 		AST_LIST_TRAVERSE(&mem->uses, uses, list) {
@@ -148,7 +156,11 @@ static void display_member_info(struct member *mem)
 	}
 
 	if (AST_LIST_EMPTY(&mem->conflicts)) {
-		newtTextboxSetText(conflictsDataTextbox, "N/A");
+		if (!mem->is_separator) {
+			newtTextboxSetText(conflictsDataTextbox, "N/A");
+		} else {
+			newtTextboxSetText(conflictsDataTextbox, "");
+		}
 	} else {
 		strcpy(buffer, "");
 		AST_LIST_TRAVERSE(&mem->conflicts, con, list) {
@@ -161,14 +173,17 @@ static void display_member_info(struct member *mem)
 	}
 
 	{ /* Support Level */
-		snprintf(buffer, sizeof(buffer), "%s",
-				(mem->support_level && *mem->support_level) ? mem->support_level : "core");
+		snprintf(buffer, sizeof(buffer), "%s", mem->support_level);
 		if (mem->replacement && *mem->replacement) {
 			char buf2[64];
 			snprintf(buf2, sizeof(buf2), ", Replaced by: %s", mem->replacement);
 			strncat(buffer, buf2, sizeof(buffer) - strlen(buffer) - 1);
 		}
-		newtTextboxSetText(supportLevelDataTextbox, buffer);
+		if (mem->is_separator) {
+			newtTextboxSetText(supportLevelDataTextbox, "");
+		} else {
+			newtTextboxSetText(supportLevelDataTextbox, buffer);
+		}
 	}
 }
 
@@ -190,6 +205,8 @@ static void build_members_menu(int overlay)
 
 		if ((mem->depsfailed == HARD_FAILURE) || (mem->conflictsfailed == HARD_FAILURE)) {
 			snprintf(buf, sizeof(buf), "XXX %s", mem->name);
+		} else if (mem->is_separator) {
+			snprintf(buf, sizeof(buf), "    --- %s ---", mem->name);
 		} else if (mem->depsfailed == SOFT_FAILURE) {
 			snprintf(buf, sizeof(buf), "<%s> %s", mem->enabled ? "*" : " ", mem->name);
 		} else if (mem->conflictsfailed == SOFT_FAILURE) {

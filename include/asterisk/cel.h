@@ -17,6 +17,13 @@
 /*! 
  * \file
  * \brief Call Event Logging API 
+ *
+ * \todo TODO: There some event types that have been defined here, but are not
+ *       yet used anywhere in the code. It would be really awesome if someone
+ *       went through and had Asterisk generate these events where it is
+ *       appropriate to do so. The defined, but unused events are:
+ *       CONF_ENTER, CONF_EXIT, CONF_START, CONF_END, 3WAY_START, 3WAY_END,
+ *       TRANSFER, and HOOKFLASH.
  */
 
 #ifndef __AST_CEL_H__
@@ -179,6 +186,15 @@ const char *ast_cel_get_ama_flag_name(enum ast_cel_ama_flag flag);
  * \return nothing
  */
 void ast_cel_check_retire_linkedid(struct ast_channel *chan);
+
+/*!
+ * \brief Inform CEL that a new linkedid is being used
+ * \since 11
+ *
+ * \retval -1 error
+ * \retval 0 success
+ */
+int ast_cel_linkedid_ref(const char *linkedid);
 
 /*!
  * \brief Create a fake channel from data in a CEL event

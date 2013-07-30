@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361429 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -236,11 +236,11 @@ static void *multiplexed_thread_function(void *data)
 				}
 			}
 		}
-		if (winner && winner->bridge) {
-			struct ast_bridge *bridge = winner->bridge;
+		if (winner && ast_channel_internal_bridge(winner)) {
+			struct ast_bridge *bridge = ast_channel_internal_bridge(winner);
 			int stop = 0;
 			ao2_unlock(multiplexed_thread);
-			while ((bridge = winner->bridge) && ao2_trylock(bridge)) {
+			while ((bridge = ast_channel_internal_bridge(winner)) && ao2_trylock(bridge)) {
 				sched_yield();
 				if (multiplexed_thread->thread == AST_PTHREADT_STOP) {
 					stop = 1;
@@ -318,7 +318,7 @@ static int multiplexed_bridge_join(struct ast_bridge *bridge, struct ast_bridge_
 	struct ast_channel *c0 = AST_LIST_FIRST(&bridge->channels)->chan, *c1 = AST_LIST_LAST(&bridge->channels)->chan;
 	struct multiplexed_thread *multiplexed_thread = bridge->bridge_pvt;
 
-	ast_debug(1, "Adding channel '%s' to multiplexed thread '%p' for monitoring\n", bridge_channel->chan->name, multiplexed_thread);
+	ast_debug(1, "Adding channel '%s' to multiplexed thread '%p' for monitoring\n", ast_channel_name(bridge_channel->chan), multiplexed_thread);
 
 	multiplexed_add_or_remove(multiplexed_thread, bridge_channel->chan, 1);
 
@@ -327,7 +327,9 @@ static int multiplexed_bridge_join(struct ast_bridge *bridge, struct ast_bridge_
 		return 0;
 	}
 
-	if (((c0->writeformat == c1->readformat) && (c0->readformat == c1->writeformat) && (c0->nativeformats == c1->nativeformats))) {
+	if ((ast_format_cmp(ast_channel_writeformat(c0), ast_channel_readformat(c1)) == AST_FORMAT_CMP_EQUAL) &&
+		(ast_format_cmp(ast_channel_readformat(c0), ast_channel_writeformat(c1)) == AST_FORMAT_CMP_EQUAL) &&
+		(ast_format_cap_identical(ast_channel_nativeformats(c0), ast_channel_nativeformats(c1)))) {
 		return 0;
 	}
 
@@ -339,7 +341,7 @@ static int multiplexed_bridge_leave(struct ast_bridge *bridge, struct ast_bridge
 {
 	struct multiplexed_thread *multiplexed_thread = bridge->bridge_pvt;
 
-	ast_debug(1, "Removing channel '%s' from multiplexed thread '%p'\n", bridge_channel->chan->name, multiplexed_thread);
+	ast_debug(1, "Removing channel '%s' from multiplexed thread '%p'\n", ast_channel_name(bridge_channel->chan), multiplexed_thread);
 
 	multiplexed_add_or_remove(multiplexed_thread, bridge_channel->chan, 0);
 
@@ -351,7 +353,7 @@ static void multiplexed_bridge_suspend(struct ast_bridge *bridge, struct ast_bri
 {
 	struct multiplexed_thread *multiplexed_thread = bridge->bridge_pvt;
 
-	ast_debug(1, "Suspending channel '%s' from multiplexed thread '%p'\n", bridge_channel->chan->name, multiplexed_thread);
+	ast_debug(1, "Suspending channel '%s' from multiplexed thread '%p'\n", ast_channel_name(bridge_channel->chan), multiplexed_thread);
 
 	multiplexed_add_or_remove(multiplexed_thread, bridge_channel->chan, 0);
 
@@ -363,7 +365,7 @@ static void multiplexed_bridge_unsuspend(struct ast_bridge *bridge, struct ast_b
 {
 	struct multiplexed_thread *multiplexed_thread = bridge->bridge_pvt;
 
-	ast_debug(1, "Unsuspending channel '%s' from multiplexed thread '%p'\n", bridge_channel->chan->name, multiplexed_thread);
+	ast_debug(1, "Unsuspending channel '%s' from multiplexed thread '%p'\n", ast_channel_name(bridge_channel->chan), multiplexed_thread);
 
 	multiplexed_add_or_remove(multiplexed_thread, bridge_channel->chan, 1);
 
@@ -394,7 +396,6 @@ static struct ast_bridge_technology multiplexed_bridge = {
 	.name = "multiplexed_bridge",
 	.capabilities = AST_BRIDGE_CAPABILITY_1TO1MIX,
 	.preference = AST_BRIDGE_PREFERENCE_HIGH,
-	.formats = AST_FORMAT_AUDIO_MASK | AST_FORMAT_VIDEO_MASK | AST_FORMAT_TEXT_MASK,
 	.create = multiplexed_bridge_create,
 	.destroy = multiplexed_bridge_destroy,
 	.join = multiplexed_bridge_join,
@@ -409,6 +410,7 @@ static int unload_module(void)
 	int res = ast_bridge_technology_unregister(&multiplexed_bridge);
 
 	ao2_ref(multiplexed_threads, -1);
+	multiplexed_bridge.format_capabilities = ast_format_cap_destroy(multiplexed_bridge.format_capabilities);
 
 	return res;
 }
@@ -418,7 +420,12 @@ static int load_module(void)
 	if (!(multiplexed_threads = ao2_container_alloc(MULTIPLEXED_BUCKETS, NULL, NULL))) {
 		return AST_MODULE_LOAD_DECLINE;
 	}
-
+	if (!(multiplexed_bridge.format_capabilities = ast_format_cap_alloc())) {
+		return AST_MODULE_LOAD_DECLINE;
+	}
+	ast_format_cap_add_all_by_type(multiplexed_bridge.format_capabilities, AST_FORMAT_TYPE_AUDIO);
+	ast_format_cap_add_all_by_type(multiplexed_bridge.format_capabilities, AST_FORMAT_TYPE_VIDEO);
+	ast_format_cap_add_all_by_type(multiplexed_bridge.format_capabilities, AST_FORMAT_TYPE_TEXT);
 	return ast_bridge_technology_register(&multiplexed_bridge);
 }
 

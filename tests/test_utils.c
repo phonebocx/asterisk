@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332176 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 356397 $");
 
 #include "asterisk/utils.h"
 #include "asterisk/test.h"
@@ -46,9 +46,47 @@ AST_TEST_DEFINE(uri_encode_decode_test)
 {
 	int res = AST_TEST_PASS;
 	const char *in = "abcdefghijklmnopurstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 ~`!@#$%^&*()_-+={[}]|\\:;\"'<,>.?/";
-	const char *expected1 = "abcdefghijklmnopurstuvwxyz%20ABCDEFGHIJKLMNOPQRSTUVWXYZ%201234567890%20~%60!%40%23%24%25%5E%26*()_-%2B%3D%7B%5B%7D%5D%7C%5C%3A%3B%22'%3C%2C%3E.%3F%2F";
-	const char *expected2 = "abcdefghijklmnopurstuvwxyz ABCDEFGHIJKLMNOPQRSTUVWXYZ 1234567890 ~`!@#$%25^&*()_-+={[}]|\\:;\"'<,>.?/";
 	char out[256] = { 0 };
+	char small[4] = { 0 };
+	const struct ast_flags none = {0};
+	int i = 0;
+
+	static struct {
+		const char *spec_str;
+		struct ast_flags spec;
+
+		char *buf;
+		size_t buflen;
+
+		const char *input;
+		const char *output;
+		const char *decoded_output;
+	} tests[5];
+
+#define INIT_ENCODE_TEST(s, buffer, in, out, dec_out) do { \
+	if (i < ARRAY_LEN(tests)) { \
+		tests[i].spec_str = #s; \
+		tests[i].spec = s; \
+		tests[i].buf = buffer; \
+		tests[i].buflen = sizeof(buffer); \
+		tests[i].input = in; \
+		tests[i].output = out; \
+		tests[i].decoded_output = dec_out; \
+		i++; \
+	} else { \
+			ast_test_status_update(test, "error: 'tests' array too small\n"); \
+			res = AST_TEST_FAIL; \
+	} \
+	} while (0)
+
+	INIT_ENCODE_TEST(ast_uri_http, out, in,
+		"abcdefghijklmnopurstuvwxyz%20ABCDEFGHIJKLMNOPQRSTUVWXYZ%201234567890%20~%60!%40%23%24%25%5E%26*()_-%2B%3D%7B%5B%7D%5D%7C%5C%3A%3B%22'%3C%2C%3E.%3F%2F", in);
+	INIT_ENCODE_TEST(ast_uri_http_legacy, out, in,
+		"abcdefghijklmnopurstuvwxyz+ABCDEFGHIJKLMNOPQRSTUVWXYZ+1234567890+~%60!%40%23%24%25%5E%26*()_-%2B%3D%7B%5B%7D%5D%7C%5C%3A%3B%22'%3C%2C%3E.%3F%2F", in);
+	INIT_ENCODE_TEST(ast_uri_sip_user, out, in,
+		"abcdefghijklmnopurstuvwxyz%20ABCDEFGHIJKLMNOPQRSTUVWXYZ%201234567890%20~%60!%40%23$%25%5E&*()_-+=%7B%5B%7D%5D%7C%5C%3A;%22'%3C,%3E.?/", in);
+	INIT_ENCODE_TEST(none, small, in, "%61", "a");
+	INIT_ENCODE_TEST(ast_uri_http, small, in, "abc", "abc");
 
 	switch (cmd) {
 	case TEST_INIT:
@@ -61,43 +99,25 @@ AST_TEST_DEFINE(uri_encode_decode_test)
 		break;
 	}
 
-	ast_test_status_update(test, "Input before executing ast_uri_encode:\n%s\n", in);
-	ast_test_status_update(test, "Output expected for ast_uri_encode with enabling do_special_char: %s\n", expected1);
-	ast_test_status_update(test, "Output expected for ast_uri_encode with out enabling do_special_char: %s\n\n", expected2);
+	for (i = 0; i < ARRAY_LEN(tests); i++) {
+		ast_uri_encode(tests[i].input, tests[i].buf, tests[i].buflen, tests[i].spec);
+		if (strcmp(tests[i].output, tests[i].buf)) {
+			ast_test_status_update(test, "encoding with %s did not match expected output, FAIL\n", tests[i].spec_str);
+			ast_test_status_update(test, "original: %s\n", tests[i].input);
+			ast_test_status_update(test, "expected: %s\n", tests[i].output);
+			ast_test_status_update(test, "result: %s\n", tests[i].buf);
+			res = AST_TEST_FAIL;
+			continue;
+		}
 
-	/* Test with do_special_char enabled */
-	ast_uri_encode(in, out, sizeof(out), 1);
-	ast_test_status_update(test, "Output after enabling do_special_char:\n%s\n", out);
-	if (strcmp(expected1, out)) {
-		ast_test_status_update(test, "ENCODE DOES NOT MATCH EXPECTED, FAIL\n");
-		res = AST_TEST_FAIL;
-	}
-
-	/* Verify uri decode matches original */
-	ast_uri_decode(out);
-	if (strcmp(in, out)) {
-		ast_test_status_update(test, "Decoded string did not match original input\n");
-		res = AST_TEST_FAIL;
-	} else {
-		ast_test_status_update(test, "Decoded string matched original input\n");
-	}
-
-	/* Test with do_special_char disabled */
-	out[0] = '\0';
-	ast_uri_encode(in, out, sizeof(out), 0);
-	ast_test_status_update(test, "Output after disabling do_special_char: %s\n", out);
-	if (strcmp(expected2, out)) {
-		ast_test_status_update(test, "ENCODE DOES NOT MATCH EXPECTED, FAIL\n");
-		res = AST_TEST_FAIL;
-	}
-
-	/* Verify uri decode matches original */
-	ast_uri_decode(out);
-	if (strcmp(in, out)) {
-		ast_test_status_update(test, "Decoded string did not match original input\n");
-		res = AST_TEST_FAIL;
-	} else {
-		ast_test_status_update(test, "Decoded string matched original input\n");
+		ast_uri_decode(tests[i].buf, tests[i].spec);
+		if (strcmp(tests[i].decoded_output, tests[i].buf)) {
+			ast_test_status_update(test, "decoding with %s did not match the original input (or expected decoded output)\n", tests[i].spec_str);
+			ast_test_status_update(test, "original: %s\n", tests[i].input);
+			ast_test_status_update(test, "expected: %s\n", tests[i].decoded_output);
+			ast_test_status_update(test, "decoded: %s\n", tests[i].buf);
+			res = AST_TEST_FAIL;
+		}
 	}
 
 	return res;
@@ -321,7 +341,8 @@ AST_TEST_DEFINE(crypto_loaded_test)
 
 AST_TEST_DEFINE(adsi_loaded_test)
 {
-	struct ast_channel c = { .adsicpe = AST_ADSI_AVAILABLE, };
+	struct ast_channel *c;
+	int res;
 	switch (cmd) {
 	case TEST_INIT:
 		info->name = "adsi_loaded_test";
@@ -333,7 +354,13 @@ AST_TEST_DEFINE(adsi_loaded_test)
 		break;
 	}
 
-	return ast_adsi_available(&c) ? AST_TEST_PASS : AST_TEST_FAIL;
+	if (!(c = ast_dummy_channel_alloc())) {
+		return AST_TEST_FAIL;
+	}
+	ast_channel_adsicpe_set(c, AST_ADSI_AVAILABLE);
+	res = ast_adsi_available(c) ? AST_TEST_PASS : AST_TEST_FAIL;
+	c = ast_channel_unref(c);
+	return res;
 }
 
 static int handle_noop(struct ast_channel *chan, AGI *agi, int arg, const char * const argv[])

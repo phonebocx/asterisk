@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/calendar.h"
@@ -54,7 +54,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 		<syntax>
 			<parameter name="calendar" required="true" />
 		</syntax>
-    	<description>
+		<description>
 			<para>Check the specified calendar's current busy status.</para>
 		</description>
 		<see-also>
@@ -186,6 +186,18 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 		<description>
 			<para>Example: CALENDAR_WRITE(calendar,field1,field2,field3)=val1,val2,val3</para>
 			<para>The field and value arguments can easily be set/passed using the HASHKEYS() and HASH() functions</para>
+			<variablelist>
+				<variable name="CALENDAR_SUCCESS">
+					<para>The status of the write operation to the calendar</para>
+					<value name="1" >
+						The event was successfully written to the calendar.
+					</value>
+					<value name="0" >
+						The event was not written to the calendar due to network issues, permissions, etc.
+					</value>
+				</variable>
+			</variablelist>
+
 		</description>
 		<see-also>
 			<ref type="function">CALENDAR_BUSY</ref>
@@ -199,11 +211,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 #define CALENDAR_BUCKETS 19
 
 static struct ao2_container *calendars;
-static struct sched_context *sched;
+static struct ast_sched_context *sched;
 static pthread_t refresh_thread = AST_PTHREADT_NULL;
 static ast_mutex_t refreshlock;
 static ast_cond_t refresh_condition;
 static ast_mutex_t reloadlock;
+static int module_unloading;
 
 static void event_notification_destroy(void *data);
 static void *event_notification_duplicate(void *data);
@@ -317,6 +330,10 @@ static void calendar_destructor(void *obj)
 	}
 	ast_calendar_clear_events(cal);
 	ast_string_field_free_memory(cal);
+	if (cal->vars) {
+		ast_variables_destroy(cal->vars);
+		cal->vars = NULL;
+	}
 	ao2_ref(cal->events, -1);
 	ao2_unlock(cal);
 }
@@ -357,6 +374,7 @@ static int calendar_is_busy(struct ast_calendar *cal)
 
 static enum ast_device_state calendarstate(const char *data)
 {
+	enum ast_device_state state;
 	struct ast_calendar *cal;
 
 	if (ast_strlen_zero(data) || (!(cal = find_calendar(data)))) {
@@ -364,16 +382,19 @@ static enum ast_device_state calendarstate(const char *data)
 	}
 
 	if (cal->tech->is_busy) {
-		return cal->tech->is_busy(cal) ? AST_DEVICE_INUSE : AST_DEVICE_NOT_INUSE;
+		state = cal->tech->is_busy(cal) ? AST_DEVICE_INUSE : AST_DEVICE_NOT_INUSE;
+	} else {
+		state = calendar_is_busy(cal) ? AST_DEVICE_INUSE : AST_DEVICE_NOT_INUSE;
 	}
 
-	return calendar_is_busy(cal) ? AST_DEVICE_INUSE : AST_DEVICE_NOT_INUSE;
+	cal = unref_calendar(cal);
+	return state;
 }
 
 static struct ast_calendar *build_calendar(struct ast_config *cfg, const char *cat, const struct ast_calendar_tech *tech)
 {
 	struct ast_calendar *cal;
-	struct ast_variable *v;
+	struct ast_variable *v, *last = NULL;
 	int new_calendar = 0;
 
 	if (!(cal = find_calendar(cat))) {
@@ -427,6 +448,26 @@ static struct ast_calendar *build_calendar(struct ast_config *cfg, const char *c
 			cal->refresh = atoi(v->value);
 		} else if (!strcasecmp(v->name, "timeframe")) {
 			cal->timeframe = atoi(v->value);
+		} else if (!strcasecmp(v->name, "setvar")) {
+			char *name, *value;
+			struct ast_variable *var;
+
+			if ((name = (value = ast_strdup(v->value)))) {
+				strsep(&value, "=");
+				if (value) {
+					if ((var = ast_variable_new(ast_strip(name), ast_strip(value), ""))) {
+						if (last) {
+							last->next = var;
+						} else {
+							cal->vars = var;
+						}
+						last = var;
+					}
+				} else {
+					ast_log(LOG_WARNING, "Malformed argument. Should be '%s: variable=value'\n", v->name);
+				}
+				ast_free(name);
+			}
 		}
 	}
 
@@ -495,6 +536,7 @@ int ast_calendar_register(struct ast_calendar_tech *tech)
 		}
 	}
 	AST_LIST_INSERT_HEAD(&techs, tech, list);
+	tech->user = ast_module_user_add(NULL);
 	AST_LIST_UNLOCK(&techs);
 
 	ast_verb(2, "Registered calendar type '%s' (%s)\n", tech->type, tech->description);
@@ -527,6 +569,7 @@ void ast_calendar_unregister(struct ast_calendar_tech *tech)
 		ao2_callback(calendars, OBJ_UNLINK | OBJ_NODATA | OBJ_MULTIPLE, match_caltech_cb, tech);
 
 		AST_LIST_REMOVE_CURRENT(list);
+		ast_module_user_remove(iter->user);
 		ast_verb(2, "Unregistered calendar type '%s'\n", tech->type);
 		break;
 	}
@@ -568,9 +611,9 @@ static struct ast_calendar_event *destroy_event(struct ast_calendar_event *event
 	 * but haven't hit the end event yet, go ahead and set the devicestate to the current busy status */
 	if (event->bs_start_sched < 0 && event->bs_end_sched >= 0) {
 		if (!calendar_is_busy(event->owner)) {
-			ast_devstate_changed(AST_DEVICE_NOT_INUSE, "Calendar:%s", event->owner->name);
+			ast_devstate_changed(AST_DEVICE_NOT_INUSE, AST_DEVSTATE_CACHABLE, "Calendar:%s", event->owner->name);
 		} else {
-			ast_devstate_changed(AST_DEVICE_BUSY, "Calendar:%s", event->owner->name);
+			ast_devstate_changed(AST_DEVICE_BUSY, AST_DEVSTATE_CACHABLE, "Calendar:%s", event->owner->name);
 		}
 	}
 
@@ -670,10 +713,11 @@ static void *do_notify(void *data)
 {
 	struct ast_calendar_event *event = data;
 	struct ast_dial *dial = NULL;
-	struct ast_str *apptext = NULL;
+	struct ast_str *apptext = NULL, *tmpstr = NULL;
 	struct ast_datastore *datastore;
 	enum ast_dial_result res;
 	struct ast_channel *chan = NULL;
+	struct ast_variable *itervar;
 	char *tech, *dest;
 	char buf[8];
 
@@ -705,9 +749,13 @@ static void *do_notify(void *data)
 		goto notify_cleanup;
 	}
 
-	chan->tech = &null_tech;
-	chan->nativeformats = chan->writeformat = chan->rawwriteformat =
-		chan->readformat = chan->rawreadformat = AST_FORMAT_SLINEAR;
+	ast_channel_tech_set(chan, &null_tech);
+	ast_format_set(ast_channel_writeformat(chan), AST_FORMAT_SLINEAR, 0);
+	ast_format_set(ast_channel_readformat(chan), AST_FORMAT_SLINEAR, 0);
+	ast_format_set(ast_channel_rawwriteformat(chan), AST_FORMAT_SLINEAR, 0);
+	ast_format_set(ast_channel_rawreadformat(chan), AST_FORMAT_SLINEAR, 0);
+	/* clear native formats and set to slinear. write format is signlear so just use that to set it */
+	ast_format_cap_set(ast_channel_nativeformats(chan), ast_channel_writeformat(chan));
 
 	if (!(datastore = ast_datastore_alloc(&event_notification_datastore, NULL))) {
 		ast_log(LOG_ERROR, "Could not allocate datastore, notification not being sent!\n");
@@ -719,6 +767,15 @@ static void *do_notify(void *data)
 
 	ao2_ref(event, +1);
 	res = ast_channel_datastore_add(chan, datastore);
+
+	if (!(tmpstr = ast_str_create(32))) {
+		goto notify_cleanup;
+	}
+
+	for (itervar = event->owner->vars; itervar; itervar = itervar->next) {
+		ast_str_substitute_variables(&tmpstr, 0, chan, itervar->value);
+		pbx_builtin_setvar_helper(chan, itervar->name, tmpstr->str);
+	}
 
 	if (!(apptext = ast_str_create(32))) {
 		goto notify_cleanup;
@@ -740,9 +797,9 @@ static void *do_notify(void *data)
 
 		answered = ast_dial_answered_steal(dial);
 		if (ast_strlen_zero(event->owner->notify_app)) {
-			ast_copy_string(answered->context, event->owner->notify_context, sizeof(answered->context));
-			ast_copy_string(answered->exten, event->owner->notify_extension, sizeof(answered->exten));
-			answered->priority = 1;
+			ast_channel_context_set(answered, event->owner->notify_context);
+			ast_channel_exten_set(answered, event->owner->notify_extension);
+			ast_channel_priority_set(answered, 1);
 			ast_pbx_run(answered);
 		}
 	}
@@ -750,6 +807,9 @@ static void *do_notify(void *data)
 notify_cleanup:
 	if (apptext) {
 		ast_free(apptext);
+	}
+	if (tmpstr) {
+		ast_free(tmpstr);
 	}
 	if (dial) {
 		ast_dial_destroy(dial);
@@ -811,9 +871,9 @@ static int calendar_devstate_change(const void *data)
 	/* We can have overlapping events, so ignore the event->busy_state and check busy state
 	 * based on all events in the calendar */
 	if (!calendar_is_busy(event->owner)) {
-		ast_devstate_changed(AST_DEVICE_NOT_INUSE, "Calendar:%s", event->owner->name);
+		ast_devstate_changed(AST_DEVICE_NOT_INUSE, AST_DEVSTATE_CACHABLE, "Calendar:%s", event->owner->name);
 	} else {
-		ast_devstate_changed(AST_DEVICE_BUSY, "Calendar:%s", event->owner->name);
+		ast_devstate_changed(AST_DEVICE_BUSY, AST_DEVSTATE_CACHABLE, "Calendar:%s", event->owner->name);
 	}
 
 	event = ast_calendar_unref_event(event);
@@ -960,9 +1020,9 @@ void ast_calendar_merge_events(struct ast_calendar *cal, struct ao2_container *n
 }
 
 
-static int load_config(void *data)
+static int load_config(int reload)
 {
-	struct ast_flags config_flags = { CONFIG_FLAG_FILEUNCHANGED };
+	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 	struct ast_config *tmpcfg;
 
 	if (!(tmpcfg = ast_config_load2("calendar.conf", "calendar", config_flags)) ||
@@ -1004,6 +1064,7 @@ static int calendar_busy_exec(struct ast_channel *chan, const char *cmd, char *d
 	}
 
 	strcpy(buf, calendar_is_busy(cal) ? "1" : "0");
+	cal = unref_calendar(cal);
 
 	return 0;
 }
@@ -1158,6 +1219,8 @@ static int calendar_query_exec(struct ast_channel *chan, const char *cmd, char *
 			ast_debug(10, "%s (%ld - %ld) overlapped with (%ld - %ld)\n", event->summary, (long) event->start, (long) event->end, (long) start, (long) end);
 			if (add_event_to_list(events, event, start, end) < 0) {
 				event = ast_calendar_unref_event(event);
+				cal = unref_calendar(cal);
+				ao2_ref(events, -1);
 				ao2_iterator_destroy(&i);
 				return -1;
 			}
@@ -1175,6 +1238,8 @@ static int calendar_query_exec(struct ast_channel *chan, const char *cmd, char *
 
 	if (!(eventlist_datastore = ast_datastore_alloc(&eventlist_datastore_info, buf))) {
 		ast_log(LOG_ERROR, "Could not allocate datastore!\n");
+		cal = unref_calendar(cal);
+		ao2_ref(events, -1);
 		return -1;
 	}
 
@@ -1185,6 +1250,7 @@ static int calendar_query_exec(struct ast_channel *chan, const char *cmd, char *
 	ast_channel_datastore_add(chan, eventlist_datastore);
 	ast_channel_unlock(chan);
 
+	cal = unref_calendar(cal);
 	return 0;
 }
 
@@ -1238,7 +1304,7 @@ static int calendar_query_result_exec(struct ast_channel *chan, const char *cmd,
 
 	ast_channel_lock(chan);
 	if (!(datastore = ast_channel_datastore_find(chan, &eventlist_datastore_info, args.id))) {
-		ast_log(LOG_WARNING, "There is no event notification datastore with id '%s' on '%s'!\n", args.id, chan->name);
+		ast_log(LOG_WARNING, "There is no event notification datastore with id '%s' on '%s'!\n", args.id, ast_channel_name(chan));
 		ast_channel_unlock(chan);
 		return -1;
 	}
@@ -1320,7 +1386,7 @@ static int calendar_write_exec(struct ast_channel *chan, const char *cmd, char *
 
 	if (!(val_dup = ast_strdup(value))) {
 		ast_log(LOG_ERROR, "Could not allocate memory for values\n");
-		return -1;
+		goto write_cleanup;
 	}
 
 	AST_STANDARD_APP_ARGS(fields, data);
@@ -1393,6 +1459,11 @@ static int calendar_write_exec(struct ast_channel *chan, const char *cmd, char *
 	}
 
 write_cleanup:
+	if (ret) {
+		pbx_builtin_setvar_helper(chan, "CALENDAR_SUCCESS", "0");
+	} else {
+		pbx_builtin_setvar_helper(chan, "CALENDAR_SUCCESS", "1");
+	}
 	if (cal) {
 		cal = unref_calendar(cal);
 	}
@@ -1437,6 +1508,35 @@ static char *handle_show_calendars(struct ast_cli_entry *e, int cmd, struct ast_
 		cal = unref_calendar(cal);
 	}
 	ao2_iterator_destroy(&i);
+
+	return CLI_SUCCESS;
+#undef FORMAT
+}
+
+/*! \brief CLI command to list of all calendars types currently loaded on the backend */
+static char *handle_show_calendars_types(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
+{
+#define FORMAT "%-10.10s %-30.30s\n"
+        struct ast_calendar_tech *iter;
+
+
+	switch(cmd) {
+	case CLI_INIT:
+		e->command = "calendar show types";
+		e->usage =
+			"Usage: calendar show types\n"
+			"       Lists all registered calendars types.\n";
+		return NULL;
+	case CLI_GENERATE:
+		return NULL;
+	}
+
+	ast_cli(a->fd, FORMAT, "Type", "Description");
+	AST_LIST_LOCK(&techs);
+	AST_LIST_TRAVERSE(&techs, iter, list) {
+		ast_cli(a->fd, FORMAT, iter->type, iter->description);
+	}
+	AST_LIST_UNLOCK(&techs);
 
 	return CLI_SUCCESS;
 #undef FORMAT
@@ -1562,6 +1662,7 @@ static struct ast_cli_entry calendar_cli[] = {
 	AST_CLI_DEFINE(handle_show_calendar, "Display information about a calendar"),
 	AST_CLI_DEFINE(handle_show_calendars, "Show registered calendars"),
 	AST_CLI_DEFINE(handle_dump_sched, "Dump calendar sched context"),
+	AST_CLI_DEFINE(handle_show_calendars_types, "Show all calendar types loaded"),
 };
 
 static int calendar_event_read(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
@@ -1576,7 +1677,7 @@ static int calendar_event_read(struct ast_channel *chan, const char *cmd, char *
 
 	ast_channel_lock(chan);
 	if (!(datastore = ast_channel_datastore_find(chan, &event_notification_datastore, NULL))) {
-		ast_log(LOG_WARNING, "There is no event notification datastore on '%s'!\n", chan->name);
+		ast_log(LOG_WARNING, "There is no event notification datastore on '%s'!\n", ast_channel_name(chan));
 		ast_channel_unlock(chan);
 		return -1;
 	}
@@ -1646,7 +1747,7 @@ static int reload(void)
 
 	/* Mark existing calendars for deletion */
 	ao2_callback(calendars, OBJ_NODATA | OBJ_MULTIPLE, cb_pending_deletion, NULL);
-	load_config(NULL);
+	load_config(1);
 
 	AST_LIST_LOCK(&techs);
 	AST_LIST_TRAVERSE(&techs, iter, list) {
@@ -1673,15 +1774,21 @@ static void *do_refresh(void *data)
 
 		ast_mutex_lock(&refreshlock);
 
-		if ((wait = ast_sched_wait(sched)) < 0) {
-			wait = 1000;
+		while (!module_unloading) {
+			if ((wait = ast_sched_wait(sched)) < 0) {
+				wait = 1000;
+			}
+
+			ts.tv_sec = (now.tv_sec + wait / 1000) + 1;
+			if (ast_cond_timedwait(&refresh_condition, &refreshlock, &ts) == ETIMEDOUT) {
+				break;
+			}
 		}
-
-		ts.tv_sec = (now.tv_sec + wait / 1000) + 1;
-		ast_cond_timedwait(&refresh_condition, &refreshlock, &ts);
-
 		ast_mutex_unlock(&refreshlock);
 
+		if (module_unloading) {
+			break;
+		}
 		ast_sched_runq(sched);
 	}
 
@@ -1704,11 +1811,21 @@ static int unload_module(void)
 	/* Remove all calendars */
 	ao2_callback(calendars, OBJ_UNLINK | OBJ_NODATA | OBJ_MULTIPLE, NULL, NULL);
 
+	ast_mutex_lock(&refreshlock);
+	module_unloading = 1;
+	ast_cond_signal(&refresh_condition);
+	ast_mutex_unlock(&refreshlock);
+	pthread_join(refresh_thread, NULL);
+
 	AST_LIST_LOCK(&techs);
-	AST_LIST_TRAVERSE(&techs, tech, list) {
+	AST_LIST_TRAVERSE_SAFE_BEGIN(&techs, tech, list) {
 		ast_unload_resource(tech->module, 0);
 	}
+	AST_LIST_TRAVERSE_SAFE_END;
 	AST_LIST_UNLOCK(&techs);
+
+	ast_config_destroy(calendar_config);
+	calendar_config = NULL;
 
 	return 0;
 }
@@ -1720,7 +1837,7 @@ static int load_module(void)
 		return AST_MODULE_LOAD_FAILURE;
 	}
 
-	if (load_config(NULL)) {
+	if (load_config(0)) {
 		/* We don't have calendar support enabled */
 		return AST_MODULE_LOAD_DECLINE;
 	}
@@ -1729,7 +1846,7 @@ static int load_module(void)
 	ast_cond_init(&refresh_condition, NULL);
 	ast_mutex_init(&reloadlock);
 
-	if (!(sched = sched_context_create())) {
+	if (!(sched = ast_sched_context_create())) {
 		ast_log(LOG_ERROR, "Unable to create sched context\n");
 		return AST_MODULE_LOAD_FAILURE;
 	}
@@ -1746,9 +1863,6 @@ static int load_module(void)
 	ast_cli_register_multiple(calendar_cli, ARRAY_LEN(calendar_cli));
 
 	ast_devstate_prov_add("Calendar", calendarstate);
-
-	/* Since other modules depend on this, disable unloading */
-	ast_module_ref(ast_module_info->self);
 
 	return AST_MODULE_LOAD_SUCCESS;
 }

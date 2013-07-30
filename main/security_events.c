@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2009, Digium, Inc.
+ * Copyright (C) 2012, Digium, Inc.
  *
  * Russell Bryant <russell@digium.com>
  *
@@ -24,14 +24,19 @@
  * \author Russell Bryant <russell@digium.com>
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 206021 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 376471 $")
 
 #include "asterisk/utils.h"
 #include "asterisk/strings.h"
 #include "asterisk/network.h"
 #include "asterisk/security_events.h"
+#include "asterisk/netsock2.h"
 
 static const size_t TIMESTAMP_STR_LEN = 32;
 
@@ -265,6 +270,7 @@ static const struct {
 		{ AST_EVENT_IE_SESSION_ID, SEC_EVT_FIELD(common, session_id) },
 		{ AST_EVENT_IE_LOCAL_ADDR, SEC_EVT_FIELD(common, local_addr) },
 		{ AST_EVENT_IE_REMOTE_ADDR, SEC_EVT_FIELD(common, remote_addr) },
+		{ AST_EVENT_IE_USING_PASSWORD, SEC_EVT_FIELD(successful_auth, using_password) },
 		{ AST_EVENT_IE_END, 0 }
 	},
 	.optional_ies = {
@@ -335,6 +341,55 @@ static const struct {
 		{ AST_EVENT_IE_SESSION_ID, SEC_EVT_FIELD(common, session_id) },
 		{ AST_EVENT_IE_LOCAL_ADDR, SEC_EVT_FIELD(common, local_addr) },
 		{ AST_EVENT_IE_REMOTE_ADDR, SEC_EVT_FIELD(common, remote_addr) },
+		{ AST_EVENT_IE_CHALLENGE, SEC_EVT_FIELD(inval_password, challenge) },
+		{ AST_EVENT_IE_RECEIVED_CHALLENGE, SEC_EVT_FIELD(inval_password, received_challenge) },
+		{ AST_EVENT_IE_RECEIVED_HASH, SEC_EVT_FIELD(inval_password, received_hash) },
+		{ AST_EVENT_IE_END, 0 }
+	},
+	.optional_ies = {
+		{ AST_EVENT_IE_MODULE, SEC_EVT_FIELD(common, module) },
+		{ AST_EVENT_IE_SESSION_TV, SEC_EVT_FIELD(common, session_tv) },
+		{ AST_EVENT_IE_END, 0 }
+	},
+},
+
+[AST_SECURITY_EVENT_CHAL_SENT] = {
+	.name     = "ChallengeSent",
+	.version  = AST_SECURITY_EVENT_CHAL_SENT_VERSION,
+	.severity = AST_SECURITY_EVENT_SEVERITY_INFO,
+	.required_ies = {
+		{ AST_EVENT_IE_EVENT_TV, 0 },
+		{ AST_EVENT_IE_SEVERITY, 0 },
+		{ AST_EVENT_IE_SERVICE, SEC_EVT_FIELD(common, service) },
+		{ AST_EVENT_IE_EVENT_VERSION, SEC_EVT_FIELD(common, version) },
+		{ AST_EVENT_IE_ACCOUNT_ID, SEC_EVT_FIELD(common, account_id) },
+		{ AST_EVENT_IE_SESSION_ID, SEC_EVT_FIELD(common, session_id) },
+		{ AST_EVENT_IE_LOCAL_ADDR, SEC_EVT_FIELD(common, local_addr) },
+		{ AST_EVENT_IE_REMOTE_ADDR, SEC_EVT_FIELD(common, remote_addr) },
+		{ AST_EVENT_IE_CHALLENGE, SEC_EVT_FIELD(chal_sent, challenge) },
+		{ AST_EVENT_IE_END, 0 }
+	},
+	.optional_ies = {
+		{ AST_EVENT_IE_MODULE, SEC_EVT_FIELD(common, module) },
+		{ AST_EVENT_IE_SESSION_TV, SEC_EVT_FIELD(common, session_tv) },
+		{ AST_EVENT_IE_END, 0 }
+	},
+},
+
+[AST_SECURITY_EVENT_INVAL_TRANSPORT] = {
+	.name     = "InvalidTransport",
+	.version  = AST_SECURITY_EVENT_INVAL_TRANSPORT_VERSION,
+	.severity = AST_SECURITY_EVENT_SEVERITY_ERROR,
+	.required_ies = {
+		{ AST_EVENT_IE_EVENT_TV, 0 },
+		{ AST_EVENT_IE_SEVERITY, 0 },
+		{ AST_EVENT_IE_SERVICE, SEC_EVT_FIELD(common, service) },
+		{ AST_EVENT_IE_EVENT_VERSION, SEC_EVT_FIELD(common, version) },
+		{ AST_EVENT_IE_ACCOUNT_ID, SEC_EVT_FIELD(common, account_id) },
+		{ AST_EVENT_IE_SESSION_ID, SEC_EVT_FIELD(common, session_id) },
+		{ AST_EVENT_IE_LOCAL_ADDR, SEC_EVT_FIELD(common, local_addr) },
+		{ AST_EVENT_IE_REMOTE_ADDR, SEC_EVT_FIELD(common, remote_addr) },
+		{ AST_EVENT_IE_ATTEMPTED_TRANSPORT, SEC_EVT_FIELD(inval_transport, transport) },
 		{ AST_EVENT_IE_END, 0 }
 	},
 	.optional_ies = {
@@ -436,7 +491,7 @@ static struct ast_event *alloc_event(const struct ast_security_event_common *sec
 	return ast_event_new(AST_EVENT_SECURITY,
 		AST_EVENT_IE_SECURITY_EVENT, AST_EVENT_IE_PLTYPE_UINT, sec->event_type,
 		AST_EVENT_IE_EVENT_VERSION, AST_EVENT_IE_PLTYPE_UINT, sec->version,
-		AST_EVENT_IE_EVENT_TV, AST_EVENT_IE_PLTYPE_STR, str->str,
+		AST_EVENT_IE_EVENT_TV, AST_EVENT_IE_PLTYPE_STR, ast_str_buffer(str),
 		AST_EVENT_IE_SERVICE, AST_EVENT_IE_PLTYPE_STR, sec->service,
 		AST_EVENT_IE_SEVERITY, AST_EVENT_IE_PLTYPE_STR, severity_str,
 		AST_EVENT_IE_END);
@@ -452,12 +507,12 @@ static int add_timeval_ie(struct ast_event **event, enum ast_event_ie_type ie_ty
 	return ast_event_append_ie_str(event, ie_type, ast_str_buffer(str));
 }
 
-static int add_ipv4_ie(struct ast_event **event, enum ast_event_ie_type ie_type,
-		const struct ast_security_event_ipv4_addr *addr)
+static int add_ip_ie(struct ast_event **event, enum ast_event_ie_type ie_type,
+		const struct ast_security_event_ip_addr *addr)
 {
 	struct ast_str *str = ast_str_alloca(64);
 
-	ast_str_set(&str, 0, "IPV4/");
+	ast_str_set(&str, 0, (ast_sockaddr_is_ipv4(addr->addr) || ast_sockaddr_is_ipv4_mapped(addr->addr)) ? "IPV4/" : "IPV6/");
 
 	switch (addr->transport) {
 	case AST_SECURITY_EVENT_TRANSPORT_UDP:
@@ -471,9 +526,8 @@ static int add_ipv4_ie(struct ast_event **event, enum ast_event_ie_type ie_type,
 		break;
 	}
 
-	ast_str_append(&str, 0, "%s/%hu",
-			ast_inet_ntoa(addr->sin->sin_addr),
-			ntohs(addr->sin->sin_port));
+	ast_str_append(&str, 0, "%s", ast_sockaddr_stringify_addr(addr->addr));
+	ast_str_append(&str, 0, "/%s", ast_sockaddr_stringify_port(addr->addr));
 
 	return ast_event_append_ie_str(event, ie_type, ast_str_buffer(str));
 }
@@ -500,6 +554,9 @@ static int add_ie(struct ast_event **event, const struct ast_security_event_comm
 	case AST_EVENT_IE_CHALLENGE:
 	case AST_EVENT_IE_RESPONSE:
 	case AST_EVENT_IE_EXPECTED_RESPONSE:
+	case AST_EVENT_IE_RECEIVED_CHALLENGE:
+	case AST_EVENT_IE_RECEIVED_HASH:
+	case AST_EVENT_IE_ATTEMPTED_TRANSPORT:
 	{
 		const char *str;
 
@@ -519,6 +576,7 @@ static int add_ie(struct ast_event **event, const struct ast_security_event_comm
 		break;
 	}
 	case AST_EVENT_IE_EVENT_VERSION:
+	case AST_EVENT_IE_USING_PASSWORD:
 	{
 		uint32_t val;
 		val = *((const uint32_t *)(((const char *) sec) + ie_type->offset));
@@ -529,19 +587,19 @@ static int add_ie(struct ast_event **event, const struct ast_security_event_comm
 	case AST_EVENT_IE_REMOTE_ADDR:
 	case AST_EVENT_IE_EXPECTED_ADDR:
 	{
-		const struct ast_security_event_ipv4_addr *addr;
+		const struct ast_security_event_ip_addr *addr;
 
-		addr = (const struct ast_security_event_ipv4_addr *)(((const char *) sec) + ie_type->offset);
+		addr = (const struct ast_security_event_ip_addr *)(((const char *) sec) + ie_type->offset);
 
-		if (req && !addr->sin) {
+		if (req && !addr->addr) {
 			ast_log(LOG_WARNING, "Required IE '%d' for security event "
 					"type '%d' not present\n", ie_type->ie_type,
 					sec->event_type);
 			res = -1;
 		}
 
-		if (addr->sin) {
-			res = add_ipv4_ie(event, ie_type->ie_type, addr);
+		if (addr->addr) {
+			res = add_ip_ie(event, ie_type->ie_type, addr);
 		}
 		break;
 	}

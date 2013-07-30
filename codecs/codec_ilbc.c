@@ -21,25 +21,35 @@
 /*! \file
  *
  * \brief Translate between signed linear and Internet Low Bitrate Codec
- * 
+ *
  * \ingroup codecs
  */
 
 /*** MODULEINFO
-	<defaultenabled>no</defaultenabled>
+	<use>ilbc</use>
 	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 370407 $")
 
 #include "asterisk/translate.h"
 #include "asterisk/module.h"
 #include "asterisk/utils.h"
 
+#ifdef ILBC_WEBRTC
+#include <ilbc.h>
+typedef WebRtc_UWord16 ilbc_bytes;
+typedef WebRtc_Word16  ilbc_block;
+#define BUF_TYPE i16
+#else
 #include "ilbc/iLBC_encode.h"
 #include "ilbc/iLBC_decode.h"
+typedef unsigned char ilbc_bytes;
+typedef float         ilbc_block;
+#define BUF_TYPE uc
+#endif
 
 #define USE_ILBC_ENHANCER	0
 #define ILBC_MS 			30
@@ -87,10 +97,10 @@ static int ilbctolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 	   the tail location.  Read in as many frames as there are */
 	int x,i;
 	int16_t *dst = pvt->outbuf.i16;
-	float tmpf[ILBC_SAMPLES];
+	ilbc_block tmpf[ILBC_SAMPLES];
 
 	if (!f->data.ptr && f->datalen) {
-		ast_log(LOG_DEBUG, "issue 16070, ILIB ERROR. data = NULL datalen = %d src = %s\n", f->datalen, f->src ? f->src : "no src set");
+		ast_debug(1, "issue 16070, ILIB ERROR. data = NULL datalen = %d src = %s\n", f->datalen, f->src ? f->src : "no src set");
 		f->datalen = 0;
 	}
 
@@ -105,12 +115,12 @@ static int ilbctolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Huh?  An ilbc frame that isn't a multiple of 50 bytes long from %s (%d)?\n", f->src, f->datalen);
 		return -1;
 	}
-	
+
 	for (x=0; x < f->datalen ; x += ILBC_FRAME_LEN) {
-		if (pvt->samples + ILBC_SAMPLES > BUFFER_SAMPLES) {	
+		if (pvt->samples + ILBC_SAMPLES > BUFFER_SAMPLES) {
 			ast_log(LOG_WARNING, "Out of buffer space\n");
 			return -1;
-		}		
+		}
 		iLBC_decode(tmpf, plc_mode ? f->data.ptr + x : NULL, &tmp->dec, plc_mode);
 		for ( i=0; i < ILBC_SAMPLES; i++)
 			dst[pvt->samples + i] = tmpf[i];
@@ -145,13 +155,13 @@ static struct ast_frame *lintoilbc_frameout(struct ast_trans_pvt *pvt)
 	if (pvt->samples < ILBC_SAMPLES)
 		return NULL;
 	while (pvt->samples >= ILBC_SAMPLES) {
-		float tmpf[ILBC_SAMPLES];
+		ilbc_block tmpf[ILBC_SAMPLES];
 		int i;
 
 		/* Encode a frame of data */
 		for (i = 0 ; i < ILBC_SAMPLES ; i++)
 			tmpf[i] = tmp->buf[samples + i];
-		iLBC_encode( pvt->outbuf.uc + datalen, tmpf, &tmp->enc);
+		iLBC_encode( (ilbc_bytes*)pvt->outbuf.BUF_TYPE + datalen, tmpf, &tmp->enc);
 
 		datalen += ILBC_FRAME_LEN;
 		samples += ILBC_SAMPLES;
@@ -167,8 +177,6 @@ static struct ast_frame *lintoilbc_frameout(struct ast_trans_pvt *pvt)
 
 static struct ast_translator ilbctolin = {
 	.name = "ilbctolin", 
-	.srcfmt = AST_FORMAT_ILBC,
-	.dstfmt = AST_FORMAT_SLINEAR,
 	.newpvt = ilbctolin_new,
 	.framein = ilbctolin_framein,
 	.sample = ilbc_sample,
@@ -179,8 +187,6 @@ static struct ast_translator ilbctolin = {
 
 static struct ast_translator lintoilbc = {
 	.name = "lintoilbc", 
-	.srcfmt = AST_FORMAT_SLINEAR,
-	.dstfmt = AST_FORMAT_ILBC,
 	.newpvt = lintoilbc_new,
 	.framein = lintoilbc_framein,
 	.frameout = lintoilbc_frameout,
@@ -202,6 +208,13 @@ static int unload_module(void)
 static int load_module(void)
 {
 	int res;
+
+	ast_format_set(&ilbctolin.src_format, AST_FORMAT_ILBC, 0);
+	ast_format_set(&ilbctolin.dst_format, AST_FORMAT_SLINEAR, 0);
+
+	ast_format_set(&lintoilbc.src_format, AST_FORMAT_SLINEAR, 0);
+	ast_format_set(&lintoilbc.dst_format, AST_FORMAT_ILBC, 0);
+
 
 	res = ast_register_translator(&ilbctolin);
 	if (!res) 

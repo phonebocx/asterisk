@@ -82,7 +82,7 @@ void* ooh323c_call_thread(void* dummy)
  struct callthread* mycthread = (struct callthread *)dummy;
  struct pollfd pfds[1];
  char c;
- int res;
+ int res = 0;
 
  do {
 
@@ -114,7 +114,7 @@ void* ooh323c_call_thread(void* dummy)
 	ast_mutex_unlock(&mycthread->lock);
  	ast_mutex_unlock(&callThreadsLock);
 
- } while (mycthread->call != NULL);
+ } while (mycthread->call != NULL && res >= 0);
 
  
  ast_mutex_destroy(&mycthread->lock);
@@ -124,12 +124,11 @@ void* ooh323c_call_thread(void* dummy)
  free(mycthread);
  ast_module_unref(myself);
  ast_update_use_count();
- return dummy;
+ return NULL;
 }
 
 int ooh323c_start_call_thread(ooCallData *call) {
  char c = 'c';
- int res;
  struct callthread *cur = callThreads;
 
  ast_mutex_lock(&callThreadsLock);
@@ -138,21 +137,22 @@ int ooh323c_start_call_thread(ooCallData *call) {
  }
  ast_mutex_unlock(&callThreadsLock);
 
- if (cur != NULL && cur->inUse) {
+ if (cur != NULL) {
+   if (cur->inUse || write(cur->thePipe[1], &c, 1) < 0) {
 	ast_mutex_unlock(&cur->lock);
 	cur = NULL;
+   }
  }
 
 /* make new thread */
  if (cur == NULL) {
-	if (!(cur = ast_malloc(sizeof(struct callthread)))) {
+	if (!(cur = ast_calloc(1, sizeof(struct callthread)))) {
 		ast_log(LOG_ERROR, "Unable to allocate thread structure for call %s\n",
 							call->callToken);
 		return -1;
 	}
 
 	ast_module_ref(myself);
-	memset(cur, 0, sizeof(cur));
 	if ((socketpair(PF_LOCAL, SOCK_STREAM, 0, cur->thePipe)) == -1) {
 		ast_log(LOG_ERROR, "Can't create thread pipe for call %s\n", call->callToken);
 		free(cur);
@@ -182,7 +182,6 @@ int ooh323c_start_call_thread(ooCallData *call) {
 		ast_debug(1,"using existing call thread for call %s\n", call->callToken);
 	cur->inUse = TRUE;
 	cur->call = call;
-	res = write(cur->thePipe[1], &c, 1);
 	ast_mutex_unlock(&cur->lock);
 
  }
@@ -226,28 +225,32 @@ int ooh323c_stop_stack_thread(void)
 }
 
 int ooh323c_set_capability
-   (struct ast_codec_pref *prefs, int capability, int dtmf, int dtmfcodec)
+   (struct ast_codec_pref *prefs, struct ast_format_cap *cap, int dtmf, int dtmfcodec)
 {
-   int ret = 0, x, format=0;
-   if(gH323Debug)
-     ast_verbose("\tAdding capabilities to H323 endpoint\n");
-   
-   for(x=0; 0 != (format=ast_codec_pref_index(prefs, x)); x++)
+   int ret = 0, x;
+   struct ast_format tmpfmt;
+   if (gH323Debug) {
+     ast_verb(0, "\tAdding capabilities to H323 endpoint\n");
+   }
+
+   for(x=0; ast_codec_pref_index(prefs, x, &tmpfmt); x++)
    {
-      if(format & AST_FORMAT_ULAW)
+      if(tmpfmt.id == AST_FORMAT_ULAW)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g711 ulaw capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g711 ulaw capability to H323 endpoint\n");
+	 }
          ret= ooH323EpAddG711Capability(OO_G711ULAW64K, gtxframes, grxframes, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
                                      &ooh323c_stop_receive_channel, 
                                      &ooh323c_stop_transmit_channel);
       }
-      if(format & AST_FORMAT_ALAW)
+      if(tmpfmt.id == AST_FORMAT_ALAW)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g711 alaw capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g711 alaw capability to H323 endpoint\n");
+	 }
          ret= ooH323EpAddG711Capability(OO_G711ALAW64K, gtxframes, grxframes, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -255,25 +258,28 @@ int ooh323c_set_capability
                                      &ooh323c_stop_transmit_channel);
       }
 
-      if(format & AST_FORMAT_G729A)
+      if(tmpfmt.id == AST_FORMAT_G729A)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g729A capability to H323 endpoint\n");
+         if (gH323Debug) {
+	    ast_verb(0, "\tAdding g729A capability to H323 endpoint\n");
+	 }
          ret = ooH323EpAddG729Capability(OO_G729A, 2, 24, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
                                      &ooh323c_stop_receive_channel, 
                                      &ooh323c_stop_transmit_channel);
 
-         if(gH323Debug)
-            ast_verbose("\tAdding g729 capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g729 capability to H323 endpoint\n");
+	 }
          ret |= ooH323EpAddG729Capability(OO_G729, 2, 24, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
                                      &ooh323c_stop_receive_channel, 
                                      &ooh323c_stop_transmit_channel);
-         if(gH323Debug)
-            ast_verbose("\tAdding g729b capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g729b capability to H323 endpoint\n");
+	 }
          ret |= ooH323EpAddG729Capability(OO_G729B, 2, 24, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -281,10 +287,11 @@ int ooh323c_set_capability
                                      &ooh323c_stop_transmit_channel);
       }
 
-      if(format & AST_FORMAT_G723_1)
+      if(tmpfmt.id == AST_FORMAT_G723_1)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g7231 capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g7231 capability to H323 endpoint\n");
+	 }
          ret = ooH323EpAddG7231Capability(OO_G7231, 1, 1, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -293,10 +300,11 @@ int ooh323c_set_capability
 
       }
 
-      if(format & AST_FORMAT_G726)
+      if(tmpfmt.id == AST_FORMAT_G726)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g726 capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g726 capability to H323 endpoint\n");
+	 }
          ret = ooH323EpAddG726Capability(OO_G726, gtxframes, grxframes, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -305,10 +313,11 @@ int ooh323c_set_capability
 
       }
 
-      if(format & AST_FORMAT_G726_AAL2)
+      if(tmpfmt.id == AST_FORMAT_G726_AAL2)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g726aal2 capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g726aal2 capability to H323 endpoint\n");
+	 }
          ret = ooH323EpAddG726Capability(OO_G726AAL2, gtxframes, grxframes, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -317,10 +326,11 @@ int ooh323c_set_capability
 
       }
 
-      if(format & AST_FORMAT_H263)
+      if(tmpfmt.id == AST_FORMAT_H263)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding h263 capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding h263 capability to H323 endpoint\n");
+	 }
          ret = ooH323EpAddH263VideoCapability(OO_H263VIDEO, 1, 0, 0, 0, 0, 320*1024, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -329,10 +339,11 @@ int ooh323c_set_capability
 
       }
 
-      if(format & AST_FORMAT_GSM)
+      if(tmpfmt.id == AST_FORMAT_GSM)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding gsm capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding gsm capability to H323 endpoint\n");
+	 }
          ret = ooH323EpAddGSMCapability(OO_GSMFULLRATE, 4, FALSE, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -342,10 +353,11 @@ int ooh323c_set_capability
       }
       
 #ifdef AST_FORMAT_AMRNB
-      if(format & AST_FORMAT_AMRNB)
+      if(tmpfmt.id == AST_FORMAT_AMRNB)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding amr nb capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding amr nb capability to H323 endpoint\n");
+	 }
          ret = ooH323EpAddAMRNBCapability(OO_AMRNB, 4, 4, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -356,10 +368,11 @@ int ooh323c_set_capability
 #endif
 
 #ifdef AST_FORMAT_SPEEX
-      if(format & AST_FORMAT_SPEEX)
+      if(tmpfmt.id == AST_FORMAT_SPEEX)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding speex capability to H323 endpoint\n");
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding speex capability to H323 endpoint\n");
+	 }
          ret = ooH323EpAddSpeexCapability(OO_SPEEX, 4, 4, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -384,14 +397,15 @@ int ooh323c_set_capability
 }
 
 int ooh323c_set_capability_for_call
-   (ooCallData *call, struct ast_codec_pref *prefs, int capability, int dtmf, int dtmfcodec,
+   (ooCallData *call, struct ast_codec_pref *prefs, struct ast_format_cap *cap, int dtmf, int dtmfcodec,
 		 int t38support, int g729onlyA)
 {
    int ret = 0, x, txframes;
-   int format=0;
-   if(gH323Debug)
-     ast_verbose("\tAdding capabilities to call(%s, %s)\n", call->callType, 
+   struct ast_format tmpfmt;
+   if (gH323Debug) {
+     ast_verb(0, "\tAdding capabilities to call(%s, %s)\n", call->callType, 
                                                             call->callToken);
+   }
    if(dtmf & H323_DTMF_CISCO || 1)
       ret |= ooCallEnableDTMFCISCO(call,dtmfcodec);
    if(dtmf & H323_DTMF_RFC2833 || 1)
@@ -409,13 +423,14 @@ int ooh323c_set_capability_for_call
 					&ooh323c_stop_transmit_datachannel,
 					0);
 
-   for(x=0; 0 !=(format=ast_codec_pref_index(prefs, x)); x++)
+   for(x=0; ast_codec_pref_index(prefs, x, &tmpfmt); x++)
    {
-      if(format & AST_FORMAT_ULAW)
+      if(tmpfmt.id == AST_FORMAT_ULAW)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g711 ulaw capability to call(%s, %s)\n", 
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g711 ulaw capability to call(%s, %s)\n", 
                                               call->callType, call->callToken);
+	 }
 	 txframes = prefs->framing[x];
          ret= ooCallAddG711Capability(call, OO_G711ULAW64K, txframes, 
                                       txframes, OORXANDTX, 
@@ -424,11 +439,12 @@ int ooh323c_set_capability_for_call
                                       &ooh323c_stop_receive_channel, 
                                       &ooh323c_stop_transmit_channel);
       }
-      if(format & AST_FORMAT_ALAW)
+      if(tmpfmt.id == AST_FORMAT_ALAW)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g711 alaw capability to call(%s, %s)\n",
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g711 alaw capability to call(%s, %s)\n",
                                             call->callType, call->callToken);
+	 }
          txframes = prefs->framing[x];
          ret= ooCallAddG711Capability(call, OO_G711ALAW64K, txframes, 
                                      txframes, OORXANDTX, 
@@ -438,11 +454,12 @@ int ooh323c_set_capability_for_call
                                      &ooh323c_stop_transmit_channel);
       }
 
-      if(format & AST_FORMAT_G726)
+      if(tmpfmt.id == AST_FORMAT_G726)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g726 capability to call (%s, %s)\n",
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g726 capability to call (%s, %s)\n",
                                            call->callType, call->callToken);
+	 }
 	 txframes = prefs->framing[x];
          ret = ooCallAddG726Capability(call, OO_G726, txframes, grxframes, FALSE,
                                      OORXANDTX, &ooh323c_start_receive_channel,
@@ -452,11 +469,12 @@ int ooh323c_set_capability_for_call
 
       }
 
-      if(format & AST_FORMAT_G726_AAL2)
+      if(tmpfmt.id == AST_FORMAT_G726_AAL2)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g726aal2 capability to call (%s, %s)\n",
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g726aal2 capability to call (%s, %s)\n",
                                            call->callType, call->callToken);
+	 }
 	 txframes = prefs->framing[x];
          ret = ooCallAddG726Capability(call, OO_G726AAL2, txframes, grxframes, FALSE,
                                      OORXANDTX, &ooh323c_start_receive_channel,
@@ -466,13 +484,14 @@ int ooh323c_set_capability_for_call
 
       }
 
-      if(format & AST_FORMAT_G729A)
+      if(tmpfmt.id == AST_FORMAT_G729A)
       {
       
          txframes = (prefs->framing[x])/10;
-         if(gH323Debug)
-            ast_verbose("\tAdding g729A capability to call(%s, %s)\n",
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g729A capability to call(%s, %s)\n",
                                             call->callType, call->callToken);
+	 }
          ret= ooCallAddG729Capability(call, OO_G729A, txframes, txframes, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -480,17 +499,19 @@ int ooh323c_set_capability_for_call
                                      &ooh323c_stop_transmit_channel);
 	 if (g729onlyA)
 		continue;
-         if(gH323Debug)
-            ast_verbose("\tAdding g729 capability to call(%s, %s)\n",
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g729 capability to call(%s, %s)\n",
                                             call->callType, call->callToken);
+	 }
          ret|= ooCallAddG729Capability(call, OO_G729, txframes, txframes, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
                                      &ooh323c_stop_receive_channel, 
                                      &ooh323c_stop_transmit_channel);
-         if(gH323Debug)
-            ast_verbose("\tAdding g729B capability to call(%s, %s)\n",
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g729B capability to call(%s, %s)\n",
                                             call->callType, call->callToken);
+	 }
          ret|= ooCallAddG729Capability(call, OO_G729B, txframes, txframes, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -499,11 +520,12 @@ int ooh323c_set_capability_for_call
 
       }
 
-      if(format & AST_FORMAT_G723_1)
+      if(tmpfmt.id == AST_FORMAT_G723_1)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding g7231 capability to call (%s, %s)\n",
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding g7231 capability to call (%s, %s)\n",
                                            call->callType, call->callToken);
+	 }
          ret = ooCallAddG7231Capability(call, OO_G7231, 1, 1, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -512,11 +534,12 @@ int ooh323c_set_capability_for_call
 
       }
 
-      if(format & AST_FORMAT_H263)
+      if(tmpfmt.id == AST_FORMAT_H263)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding h263 capability to call (%s, %s)\n",
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding h263 capability to call (%s, %s)\n",
                                            call->callType, call->callToken);
+	 }
          ret = ooCallAddH263VideoCapability(call, OO_H263VIDEO, 1, 0, 0, 0, 0, 320*1024, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -525,11 +548,12 @@ int ooh323c_set_capability_for_call
 
       }
 
-      if(format & AST_FORMAT_GSM)
+      if(tmpfmt.id == AST_FORMAT_GSM)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding gsm capability to call(%s, %s)\n", 
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding gsm capability to call(%s, %s)\n", 
                                              call->callType, call->callToken);
+	 }
          ret = ooCallAddGSMCapability(call, OO_GSMFULLRATE, 4, FALSE, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -538,11 +562,12 @@ int ooh323c_set_capability_for_call
       }
 
 #ifdef AST_FORMAT_AMRNB
-      if(format & AST_FORMAT_AMRNB)
+      if(tmpfmt.id == AST_FORMAT_AMRNB)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding AMR capability to call(%s, %s)\n", 
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding AMR capability to call(%s, %s)\n", 
                                              call->callType, call->callToken);
+	 }
          ret = ooCallAddAMRNBCapability(call, OO_AMRNB, 4, 4, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -551,11 +576,12 @@ int ooh323c_set_capability_for_call
       }
 #endif
 #ifdef AST_FORMAT_SPEEX
-      if(format & AST_FORMAT_SPEEX)
+      if(tmpfmt.id == AST_FORMAT_SPEEX)
       {
-         if(gH323Debug)
-            ast_verbose("\tAdding Speex capability to call(%s, %s)\n", 
+         if (gH323Debug) {
+            ast_verb(0, "\tAdding Speex capability to call(%s, %s)\n", 
                                              call->callType, call->callToken);
+	 }
          ret = ooCallAddSpeexCapability(call, OO_SPEEX, 4, 4, FALSE, 
                                      OORXANDTX, &ooh323c_start_receive_channel,
                                      &ooh323c_start_transmit_channel,
@@ -596,9 +622,9 @@ int ooh323c_set_aliases(ooAliases * aliases)
    
 int ooh323c_start_receive_channel(ooCallData *call, ooLogicalChannel *pChannel)
 {
-   format_t fmt=-1;
-   fmt = convertH323CapToAsteriskCap(pChannel->chanCap->cap);
-   if(fmt>0) {
+   struct ast_format tmpfmt;
+   convertH323CapToAsteriskCap(pChannel->chanCap->cap, &tmpfmt);
+   if(tmpfmt.id) {
       /* ooh323_set_read_format(call, fmt); */
    }else{
      ast_log(LOG_ERROR, "Invalid capability type for receive channel %s\n",
@@ -610,19 +636,19 @@ int ooh323c_start_receive_channel(ooCallData *call, ooLogicalChannel *pChannel)
 
 int ooh323c_start_transmit_channel(ooCallData *call, ooLogicalChannel *pChannel)
 {
-   format_t fmt;
-   fmt = convertH323CapToAsteriskCap(pChannel->chanCap->cap);
-   if(fmt>0) {
-      switch (fmt) {
+   struct ast_format tmpfmt;
+   convertH323CapToAsteriskCap(pChannel->chanCap->cap, &tmpfmt);
+   if(tmpfmt.id) {
+      switch (tmpfmt.id) {
       case AST_FORMAT_ALAW:
       case AST_FORMAT_ULAW:
-	ooh323_set_write_format(call, fmt, ((OOCapParams *)(pChannel->chanCap->params))->txframes);
+	ooh323_set_write_format(call, &tmpfmt, ((OOCapParams *)(pChannel->chanCap->params))->txframes);
 	break;
       case AST_FORMAT_G729A:
-	ooh323_set_write_format(call, fmt, ((OOCapParams *)(pChannel->chanCap->params))->txframes*10);
+	ooh323_set_write_format(call, &tmpfmt, ((OOCapParams *)(pChannel->chanCap->params))->txframes*10);
 	break;
       default:
-	ooh323_set_write_format(call, fmt, 0);
+	ooh323_set_write_format(call, &tmpfmt, 0);
       }
    }else{
       ast_log(LOG_ERROR, "Invalid capability type for receive channel %s\n",
@@ -667,47 +693,47 @@ int ooh323c_stop_transmit_datachannel(ooCallData *call, ooLogicalChannel *pChann
    return 1;
 }
 
-format_t convertH323CapToAsteriskCap(int cap)
+struct ast_format *convertH323CapToAsteriskCap(int cap, struct ast_format *result)
 {
-
+   ast_format_clear(result);
    switch(cap)
    {
       case OO_G711ULAW64K:
-         return AST_FORMAT_ULAW;
+         return ast_format_set(result, AST_FORMAT_ULAW, 0);
       case OO_G711ALAW64K:
-         return AST_FORMAT_ALAW;
+         return ast_format_set(result, AST_FORMAT_ALAW, 0);
       case OO_GSMFULLRATE:
-         return AST_FORMAT_GSM;
+         return ast_format_set(result, AST_FORMAT_GSM, 0);
 
 #ifdef AST_FORMAT_AMRNB
       case OO_AMRNB:
-         return AST_FORMAT_AMRNB;
+         return ast_format_set(result, AST_FORMAT_AMRNB, 0);
 #endif
 #ifdef AST_FORMAT_SPEEX
       case OO_SPEEX:
-         return AST_FORMAT_SPEEX;
+         return ast_format_set(result, AST_FORMAT_SPEEX, 0);
 #endif
 
       case OO_G729:
-         return AST_FORMAT_G729A;
+         return ast_format_set(result, AST_FORMAT_G729A, 0);
       case OO_G729A:
-         return AST_FORMAT_G729A;
+         return ast_format_set(result, AST_FORMAT_G729A, 0);
       case OO_G729B:
-         return AST_FORMAT_G729A;
+         return ast_format_set(result, AST_FORMAT_G729A, 0);
       case OO_G7231:
-         return AST_FORMAT_G723_1;
+         return ast_format_set(result, AST_FORMAT_G723_1, 0);
       case OO_G726:
-         return AST_FORMAT_G726;
+         return ast_format_set(result, AST_FORMAT_G726, 0);
       case OO_G726AAL2:
-         return AST_FORMAT_G726_AAL2;
+         return ast_format_set(result, AST_FORMAT_G726_AAL2, 0);
       case OO_H263VIDEO:
-         return AST_FORMAT_H263;
+         return ast_format_set(result, AST_FORMAT_H263, 0);
       default:
          ast_debug(1, "Cap %d is not supported by driver yet\n", cap);
-         return -1;
+         return NULL;
    }
 
-   return -1;
+   return NULL;
 }
 
  

@@ -54,7 +54,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 335064 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 366408 $")
 
 #include <sys/signal.h>  /* SIGURG */
 
@@ -185,30 +185,24 @@ static struct ast_jb_conf default_jbconf = {
 static struct ast_jb_conf global_jbconf;
 
 /*! Channel Technology Callbacks @{ */
-static struct ast_channel *console_request(const char *type, format_t format,
-	const struct ast_channel *requestor, void *data, int *cause);
+static struct ast_channel *console_request(const char *type, struct ast_format_cap *cap,
+	const struct ast_channel *requestor, const char *data, int *cause);
 static int console_digit_begin(struct ast_channel *c, char digit);
 static int console_digit_end(struct ast_channel *c, char digit, unsigned int duration);
 static int console_text(struct ast_channel *c, const char *text);
 static int console_hangup(struct ast_channel *c);
 static int console_answer(struct ast_channel *c);
 static struct ast_frame *console_read(struct ast_channel *chan);
-static int console_call(struct ast_channel *c, char *dest, int timeout);
+static int console_call(struct ast_channel *c, const char *dest, int timeout);
 static int console_write(struct ast_channel *chan, struct ast_frame *f);
 static int console_indicate(struct ast_channel *chan, int cond, 
 	const void *data, size_t datalen);
 static int console_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
 /*! @} */
 
-/*!
- * \brief Formats natively supported by this module.
- */
-#define SUPPORTED_FORMATS ( AST_FORMAT_SLINEAR16 )
-
-static const struct ast_channel_tech console_tech = {
+static struct ast_channel_tech console_tech = {
 	.type = "Console",
 	.description = "Console Channel Driver",
-	.capabilities = SUPPORTED_FORMATS,
 	.requester = console_request,
 	.send_digit_begin = console_digit_begin,
 	.send_digit_end = console_digit_end,
@@ -267,12 +261,12 @@ static void *stream_monitor(void *data)
 	PaError res;
 	struct ast_frame f = {
 		.frametype = AST_FRAME_VOICE,
-		.subclass.codec = AST_FORMAT_SLINEAR16,
 		.src = "console_stream_monitor",
 		.data.ptr = buf,
 		.datalen = sizeof(buf),
 		.samples = sizeof(buf) / sizeof(int16_t),
 	};
+	ast_format_set(&f.subclass.format, AST_FORMAT_SLINEAR16, 0);
 
 	for (;;) {
 		pthread_testcancel();
@@ -425,22 +419,22 @@ static struct ast_channel *console_new(struct console_pvt *pvt, const char *ext,
 		return NULL;
 	}
 
-	chan->tech = &console_tech;
-	chan->nativeformats = AST_FORMAT_SLINEAR16;
-	chan->readformat = AST_FORMAT_SLINEAR16;
-	chan->writeformat = AST_FORMAT_SLINEAR16;
-	chan->tech_pvt = ref_pvt(pvt);
+	ast_channel_tech_set(chan, &console_tech);
+	ast_format_set(ast_channel_readformat(chan), AST_FORMAT_SLINEAR16, 0);
+	ast_format_set(ast_channel_writeformat(chan), AST_FORMAT_SLINEAR16, 0);
+	ast_format_cap_add(ast_channel_nativeformats(chan), ast_channel_readformat(chan));
+	ast_channel_tech_pvt_set(chan, ref_pvt(pvt));
 
 	pvt->owner = chan;
 
 	if (!ast_strlen_zero(pvt->language))
-		ast_string_field_set(chan, language, pvt->language);
+		ast_channel_language_set(chan, pvt->language);
 
 	ast_jb_configure(chan, &global_jbconf);
 
 	if (state != AST_STATE_DOWN) {
 		if (ast_pbx_start(chan)) {
-			chan->hangupcause = AST_CAUSE_SWITCH_CONGESTION;
+			ast_channel_hangupcause_set(chan, AST_CAUSE_SWITCH_CONGESTION);
 			ast_hangup(chan);
 			chan = NULL;
 		} else
@@ -450,21 +444,19 @@ static struct ast_channel *console_new(struct console_pvt *pvt, const char *ext,
 	return chan;
 }
 
-static struct ast_channel *console_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
+static struct ast_channel *console_request(const char *type, struct ast_format_cap *cap, const struct ast_channel *requestor, const char *data, int *cause)
 {
-	format_t oldformat = format;
 	struct ast_channel *chan = NULL;
 	struct console_pvt *pvt;
 	char buf[512];
 
 	if (!(pvt = find_pvt(data))) {
-		ast_log(LOG_ERROR, "Console device '%s' not found\n", (char *) data);
+		ast_log(LOG_ERROR, "Console device '%s' not found\n", data);
 		return NULL;
 	}
 
-	format &= SUPPORTED_FORMATS;
-	if (!format) {
-		ast_log(LOG_NOTICE, "Channel requested with unsupported format(s): '%s'\n", ast_getformatname_multiple(buf, sizeof(buf), oldformat));
+	if (!(ast_format_cap_has_joint(cap, console_tech.capabilities))) {
+		ast_log(LOG_NOTICE, "Channel requested with unsupported format(s): '%s'\n", ast_getformatname_multiple(buf, sizeof(buf), cap));
 		goto return_unref;
 	}
 
@@ -475,7 +467,7 @@ static struct ast_channel *console_request(const char *type, format_t format, co
 	}
 
 	console_pvt_lock(pvt);
-	chan = console_new(pvt, NULL, NULL, AST_STATE_DOWN, requestor ? requestor->linkedid : NULL);
+	chan = console_new(pvt, NULL, NULL, AST_STATE_DOWN, requestor ? ast_channel_linkedid(requestor) : NULL);
 	console_pvt_unlock(pvt);
 
 	if (!chan)
@@ -511,7 +503,7 @@ static int console_text(struct ast_channel *c, const char *text)
 
 static int console_hangup(struct ast_channel *c)
 {
-	struct console_pvt *pvt = c->tech_pvt;
+	struct console_pvt *pvt = ast_channel_tech_pvt(c);
 
 	ast_verb(1, V_BEGIN "Hangup on Console" V_END);
 
@@ -519,14 +511,14 @@ static int console_hangup(struct ast_channel *c)
 	pvt->owner = NULL;
 	stop_stream(pvt);
 
-	c->tech_pvt = unref_pvt(pvt);
+	ast_channel_tech_pvt_set(c, unref_pvt(pvt));
 
 	return 0;
 }
 
 static int console_answer(struct ast_channel *c)
 {
-	struct console_pvt *pvt = c->tech_pvt;
+	struct console_pvt *pvt = ast_channel_tech_pvt(c);
 
 	ast_verb(1, V_BEGIN "Call from Console has been Answered" V_END);
 
@@ -562,15 +554,15 @@ static struct ast_frame *console_read(struct ast_channel *chan)
 	return &ast_null_frame;
 }
 
-static int console_call(struct ast_channel *c, char *dest, int timeout)
+static int console_call(struct ast_channel *c, const char *dest, int timeout)
 {
-	struct console_pvt *pvt = c->tech_pvt;
+	struct console_pvt *pvt = ast_channel_tech_pvt(c);
 	enum ast_control_frame_type ctrl;
 
 	ast_verb(1, V_BEGIN "Call to device '%s' on console from '%s' <%s>" V_END,
 		dest,
-		S_COR(c->caller.id.name.valid, c->caller.id.name.str, ""),
-		S_COR(c->caller.id.number.valid, c->caller.id.number.str, ""));
+		S_COR(ast_channel_caller(c)->id.name.valid, ast_channel_caller(c)->id.name.str, ""),
+		S_COR(ast_channel_caller(c)->id.number.valid, ast_channel_caller(c)->id.number.str, ""));
 
 	console_pvt_lock(pvt);
 
@@ -594,7 +586,7 @@ static int console_call(struct ast_channel *c, char *dest, int timeout)
 
 static int console_write(struct ast_channel *chan, struct ast_frame *f)
 {
-	struct console_pvt *pvt = chan->tech_pvt;
+	struct console_pvt *pvt = ast_channel_tech_pvt(chan);
 
 	Pa_WriteStream(pvt->stream, f->data.ptr, f->samples);
 
@@ -603,7 +595,7 @@ static int console_write(struct ast_channel *chan, struct ast_frame *f)
 
 static int console_indicate(struct ast_channel *chan, int cond, const void *data, size_t datalen)
 {
-	struct console_pvt *pvt = chan->tech_pvt;
+	struct console_pvt *pvt = ast_channel_tech_pvt(chan);
 	int res = 0;
 
 	switch (cond) {
@@ -611,6 +603,7 @@ static int console_indicate(struct ast_channel *chan, int cond, const void *data
 	case AST_CONTROL_CONGESTION:
 	case AST_CONTROL_RINGING:
 	case AST_CONTROL_INCOMPLETE:
+	case AST_CONTROL_PVT_CAUSE_CODE:
 	case -1:
 		res = -1;  /* Ask for inband indications */
 		break;
@@ -629,7 +622,7 @@ static int console_indicate(struct ast_channel *chan, int cond, const void *data
 		break;
 	default:
 		ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", 
-			cond, chan->name);
+			cond, ast_channel_name(chan));
 		/* The core will play inband indications for us if appropriate */
 		res = -1;
 	}
@@ -639,7 +632,7 @@ static int console_indicate(struct ast_channel *chan, int cond, const void *data
 
 static int console_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
 {
-	struct console_pvt *pvt = newchan->tech_pvt;
+	struct console_pvt *pvt = ast_channel_tech_pvt(newchan);
 
 	pvt->owner = newchan;
 
@@ -1460,6 +1453,7 @@ static void stop_streams(void)
 
 static int unload_module(void)
 {
+	console_tech.capabilities = ast_format_cap_destroy(console_tech.capabilities);
 	ast_channel_unregister(&console_tech);
 	ast_cli_unregister_multiple(cli_console, ARRAY_LEN(cli_console));
 
@@ -1477,7 +1471,13 @@ static int unload_module(void)
 
 static int load_module(void)
 {
+	struct ast_format tmpfmt;
 	PaError res;
+
+	if (!(console_tech.capabilities = ast_format_cap_alloc())) {
+		return AST_MODULE_LOAD_DECLINE;
+	}
+	ast_format_cap_add(console_tech.capabilities, ast_format_set(&tmpfmt, AST_FORMAT_SLINEAR16, 0));
 
 	init_pvt(&globals, NULL);
 

@@ -168,7 +168,7 @@ extern uint64_t __unsigned_int_flags_dummy64;
 
 
 /* Non-type checking variations for non-unsigned int flags.  You
-   should only use non-unsigned int flags where required by 
+   should only use non-unsigned int flags where required by
    protocol etc and if you know what you're doing :)  */
 #define ast_test_flag_nonstd(p,flag) \
 					((p)->flags & (flag))
@@ -195,14 +195,12 @@ extern uint64_t __unsigned_int_flags_dummy64;
 
 #define AST_FLAGS_ALL UINT_MAX
 
-/*! \brief Structure used to handle boolean flags 
-*/
+/*! \brief Structure used to handle boolean flags */
 struct ast_flags {
 	unsigned int flags;
 };
 
-/*! \brief Structure used to handle a large number of boolean flags == used only in app_dial?
-*/
+/*! \brief Structure used to handle a large number of boolean flags == used only in app_dial? */
 struct ast_flags64 {
 	uint64_t flags;
 };
@@ -215,10 +213,12 @@ struct ast_hostent {
 /*! \brief Thread-safe gethostbyname function to use in Asterisk */
 struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp);
 
-/*!  \brief Produces MD5 hash based on input string */
+/*! \brief Produces MD5 hash based on input string */
 void ast_md5_hash(char *output, const char *input);
 /*! \brief Produces SHA1 hash based on input string */
 void ast_sha1_hash(char *output, const char *input);
+/*! \brief Produces SHA1 hash based on input string, stored in uint8_t array */
+void ast_sha1_hash_uint(uint8_t *digest, const char *input);
 
 int ast_base64encode_full(char *dst, const unsigned char *src, int srclen, int max, int linebreaks);
 
@@ -226,6 +226,8 @@ int ast_base64encode_full(char *dst, const unsigned char *src, int srclen, int m
 #define MIN(a, b) ({ typeof(a) __a = (a); typeof(b) __b = (b); ((__a > __b) ? __b : __a);})
 #undef MAX
 #define MAX(a, b) ({ typeof(a) __a = (a); typeof(b) __b = (b); ((__a < __b) ? __b : __a);})
+
+#define SWAP(a,b) do { typeof(a) __tmp = (a); (a) = (b); (b) = __tmp; } while (0)
 
 /*!
  * \brief Encode data in base64
@@ -248,30 +250,45 @@ int ast_base64encode(char *dst, const unsigned char *src, int srclen, int max);
  */
 int ast_base64decode(unsigned char *dst, const char *src, int max);
 
-/*! \brief Turn text string to URI-encoded %XX version 
- *
- * \note 
- *  At this point, this function is encoding agnostic; it does not
- *  check whether it is fed legal UTF-8. We escape control
- *  characters (\x00-\x1F\x7F), '%', and all characters above 0x7F.
- *  If do_special_char == 1 we will convert all characters except alnum
- *  and the mark set.
- *  Outbuf needs to have more memory allocated than the instring
- *  to have room for the expansion. Every char that is converted
- *  is replaced by three ASCII characters.
- *
- *  \param string	String to be converted
- *  \param outbuf	Resulting encoded string
- *  \param buflen	Size of output buffer
- *  \param do_special_char	Convert all non alphanum characters execept
- *         those in the mark set as defined by rfc 3261 section 25.1
- */
-char *ast_uri_encode(const char *string, char *outbuf, int buflen, int do_special_char);
+#define AST_URI_ALPHANUM     (1 << 0)
+#define AST_URI_MARK         (1 << 1)
+#define AST_URI_UNRESERVED   (AST_URI_ALPHANUM | AST_URI_MARK)
+#define AST_URI_LEGACY_SPACE (1 << 2)
 
-/*!	\brief Decode URI, URN, URL (overwrite string)
-	\param s	String to be decoded 
+#define AST_URI_SIP_USER_UNRESERVED (1 << 20)
+
+extern const struct ast_flags ast_uri_http;
+extern const struct ast_flags ast_uri_http_legacy;
+extern const struct ast_flags ast_uri_sip_user;
+
+/*!
+ * \brief Turn text string to URI-encoded %XX version
+ *
+ * This function encodes characters according to the rules presented in RFC
+ * 2396 and/or RFC 3261 section 19.1.2 and section 25.1.
+ *
+ * Outbuf needs to have more memory allocated than the instring to have room
+ * for the expansion. Every byte that is converted is replaced by three ASCII
+ * characters.
+ *
+ * \param string string to be converted
+ * \param outbuf resulting encoded string
+ * \param buflen size of output buffer
+ * \param spec flags describing how the encoding should be performed
+ * \return a pointer to the uri encoded string
  */
-void ast_uri_decode(char *s);
+char *ast_uri_encode(const char *string, char *outbuf, int buflen, struct ast_flags spec);
+
+/*!
+ * \brief Decode URI, URN, URL (overwrite string)
+ *
+ * \note The ast_uri_http_legacy decode spec flag will cause this function to
+ * decode '+' as ' '.
+ *
+ * \param s string to be decoded
+ * \param spec flags describing how the decoding should be performed
+ */
+void ast_uri_decode(char *s, struct ast_flags spec);
 
 /*!
  * \brief Escape characters found in a quoted string.
@@ -311,7 +328,7 @@ static force_inline void ast_slinear_saturated_subtract(short *input, short *val
 	else
 		*input = (short) res;
 }
-	
+
 static force_inline void ast_slinear_saturated_multiply(short *input, short *value)
 {
 	int res;
@@ -339,14 +356,14 @@ int ast_utils_init(void);
 int ast_wait_for_input(int fd, int ms);
 
 /*!
-	\brief Try to write string, but wait no more than ms milliseconds
-	before timing out.
-
-	\note If you are calling ast_carefulwrite, it is assumed that you are calling
-	it on a file descriptor that _DOES_ have NONBLOCK set.  This way,
-	there is only one system call made to do a write, unless we actually
-	have a need to wait.  This way, we get better performance.
-*/
+ * \brief Try to write string, but wait no more than ms milliseconds
+ * before timing out.
+ *
+ * \note If you are calling ast_carefulwrite, it is assumed that you are calling
+ * it on a file descriptor that _DOES_ have NONBLOCK set.  This way,
+ * there is only one system call made to do a write, unless we actually
+ * have a need to wait.  This way, we get better performance.
+ */
 int ast_carefulwrite(int fd, char *s, int len, int timeoutms);
 
 /*!
@@ -412,17 +429,23 @@ int ast_pthread_create_detached_stack(pthread_t *thread, pthread_attr_t *attr, v
 /* End of thread management support */
 
 /*!
-	\brief Process a string to find and replace characters
-	\param start The string to analyze
-	\param find The character to find
-	\param replace_with The character that will replace the one we are looking for
-*/
+ * \brief Replace '^' in a string with ','
+ * \param s String within which to replace characters
+ */
+void ast_replace_subargument_delimiter(char *s);
+
+/*!
+ * \brief Process a string to find and replace characters
+ * \param start The string to analyze
+ * \param find The character to find
+ * \param replace_with The character that will replace the one we are looking for
+ */
 char *ast_process_quotes_and_slashes(char *start, char find, char replace_with);
 
 long int ast_random(void);
 
 
-/*! 
+/*!
  * \brief free() wrapper
  *
  * ast_free_ptr should be used when a function pointer for free() needs to be passed
@@ -561,7 +584,7 @@ char * attribute_malloc _ast_strdup(const char *str, const char *file, int linen
  * message in the case that the allocation fails.
  *
  * ast_strndup(), unlike strndup(), can safely accept a NULL argument for the
- * string to duplicate. If a NULL argument is provided, ast_strdup will return  
+ * string to duplicate. If a NULL argument is provided, ast_strdup will return
  * NULL without generating any kind of error log message.
  *
  * The arguments and return value are the same as strndup()
@@ -623,14 +646,23 @@ int _ast_vasprintf(char **ret, const char *file, int lineno, const char *func, c
 
 #endif /* AST_DEBUG_MALLOC */
 
+/*!
+  \brief call __builtin_alloca to ensure we get gcc builtin semantics
+  \param size The size of the buffer we want allocated
+
+  This macro will attempt to allocate memory from the stack.  If it fails
+  you won't get a NULL returned, but a SEGFAULT if you're lucky.
+*/
+#define ast_alloca(size) __builtin_alloca(size)
+
 #if !defined(ast_strdupa) && defined(__GNUC__)
 /*!
-  \brief duplicate a string in memory from the stack
-  \param s The string to duplicate
-
-  This macro will duplicate the given string.  It returns a pointer to the stack
-  allocatted memory for the new string.
-*/
+ * \brief duplicate a string in memory from the stack
+ * \param s The string to duplicate
+ *
+ * This macro will duplicate the given string.  It returns a pointer to the stack
+ * allocatted memory for the new string.
+ */
 #define ast_strdupa(s)                                                    \
 	(__extension__                                                    \
 	({                                                                \
@@ -643,27 +675,27 @@ int _ast_vasprintf(char **ret, const char *file, int lineno, const char *func, c
 #endif
 
 /*!
-  \brief Disable PMTU discovery on a socket
-  \param sock The socket to manipulate
-  \return Nothing
-
-  On Linux, UDP sockets default to sending packets with the Dont Fragment (DF)
-  bit set. This is supposedly done to allow the application to do PMTU
-  discovery, but Asterisk does not do this.
-
-  Because of this, UDP packets sent by Asterisk that are larger than the MTU
-  of any hop in the path will be lost. This function can be called on a socket
-  to ensure that the DF bit will not be set.
+ * \brief Disable PMTU discovery on a socket
+ * \param sock The socket to manipulate
+ * \return Nothing
+ *
+ * On Linux, UDP sockets default to sending packets with the Dont Fragment (DF)
+ * bit set. This is supposedly done to allow the application to do PMTU
+ * discovery, but Asterisk does not do this.
+ *
+ * Because of this, UDP packets sent by Asterisk that are larger than the MTU
+ * of any hop in the path will be lost. This function can be called on a socket
+ * to ensure that the DF bit will not be set.
  */
 void ast_enable_packet_fragmentation(int sock);
 
 /*!
-  \brief Recursively create directory path
-  \param path The directory path to create
-  \param mode The permissions with which to try to create the directory
-  \return 0 on success or an error code otherwise
-
-  Creates a directory path, creating parent directories as needed.
+ * \brief Recursively create directory path
+ * \param path The directory path to create
+ * \param mode The permissions with which to try to create the directory
+ * \return 0 on success or an error code otherwise
+ *
+ * Creates a directory path, creating parent directories as needed.
  */
 int ast_mkdir(const char *path, int mode);
 
@@ -687,9 +719,9 @@ struct ast_http_digest {
 };
 
 /*!
- *\brief Parse digest authorization header.
- *\return Returns -1 if we have no auth or something wrong with digest.
- *\note This function may be used for Digest request and responce header.
+ * \brief Parse digest authorization header.
+ * \return Returns -1 if we have no auth or something wrong with digest.
+ * \note This function may be used for Digest request and responce header.
  * request arg is set to nonzero, if we parse Digest Request.
  * pedantic arg can be set to nonzero if we need to do addition Digest check.
  */
@@ -697,36 +729,84 @@ int ast_parse_digest(const char *digest, struct ast_http_digest *d, int request,
 
 
 #ifdef AST_DEVMODE
+void __ast_assert_failed(int condition, const char *condition_str, const char *file, int line, const char *function);
 #define ast_assert(a) _ast_assert(a, # a, __FILE__, __LINE__, __PRETTY_FUNCTION__)
-static void force_inline _ast_assert(int condition, const char *condition_str, 
-	const char *file, int line, const char *function)
+static void force_inline _ast_assert(int condition, const char *condition_str, const char *file, int line, const char *function)
 {
 	if (__builtin_expect(!condition, 1)) {
-		/* Attempt to put it into the logger, but hope that at least someone saw the
-		 * message on stderr ... */
-		ast_log(__LOG_ERROR, file, line, function, "FRACK!, Failed assertion %s (%d)\n",
-			condition_str, condition);
-		fprintf(stderr, "FRACK!, Failed assertion %s (%d) at line %d in %s of %s\n",
-			condition_str, condition, line, function, file);
-		/* Give the logger a chance to get the message out, just in case we abort(), or
-		 * Asterisk crashes due to whatever problem just happened after we exit ast_assert(). */
-		usleep(1);
-#ifdef DO_CRASH
-		abort();
-		/* Just in case abort() doesn't work or something else super silly,
-		 * and for Qwell's amusement. */
-		*((int*)0)=0;
-#endif
+		__ast_assert_failed(condition, condition_str, file, line, function);
 	}
 }
 #else
 #define ast_assert(a)
 #endif
 
+/*!
+ * \brief Force a crash if DO_CRASH is defined.
+ *
+ * \note If DO_CRASH is not defined then the function returns.
+ *
+ * \return Nothing
+ */
+void ast_do_crash(void);
+
 #include "asterisk/strings.h"
 
 /*!
- * \brief An Entity ID is essentially a MAC address, brief and unique 
+ * \brief Return the number of bytes used in the alignment of type.
+ * \param type
+ * \return The number of bytes required for alignment.
+ *
+ * This is really just __alignof__(), but tucked away in this header so we
+ * don't have to look at the nasty underscores in the source.
+ */
+#define ast_alignof(type) __alignof__(type)
+
+/*!
+ * \brief Increase offset so it is a multiple of the required alignment of type.
+ * \param offset The value that should be increased.
+ * \param type The data type that offset should be aligned to.
+ * \return The smallest multiple of alignof(type) larger than or equal to offset.
+ * \see ast_make_room_for()
+ *
+ * Many systems prefer integers to be stored on aligned on memory locations.
+ * This macro will increase an offset so a value of the supplied type can be
+ * safely be stored on such a memory location.
+ *
+ * Examples:
+ * ast_align_for(0x17, int64_t) ==> 0x18
+ * ast_align_for(0x18, int64_t) ==> 0x18
+ * ast_align_for(0x19, int64_t) ==> 0x20
+ *
+ * Don't mind the ugliness, the compiler will optimize it.
+ */
+#define ast_align_for(offset, type) (((offset + __alignof__(type) - 1) / __alignof__(type)) * __alignof__(type))
+
+/*!
+ * \brief Increase offset by the required alignment of type and make sure it is
+ *        a multiple of said alignment.
+ * \param offset The value that should be increased.
+ * \param type The data type that room should be reserved for.
+ * \return The smallest multiple of alignof(type) larger than or equal to offset
+ *         plus alignof(type).
+ * \see ast_align_for()
+ *
+ * A use case for this is when prepending length fields of type int to a buffer.
+ * If you keep the offset a multiple of the alignment of the integer type,
+ * a next block of length+buffer will have the length field automatically
+ * aligned.
+ *
+ * Examples:
+ * ast_make_room_for(0x17, int64_t) ==> 0x20
+ * ast_make_room_for(0x18, int64_t) ==> 0x20
+ * ast_make_room_for(0x19, int64_t) ==> 0x28
+ *
+ * Don't mind the ugliness, the compiler will optimize it.
+ */
+#define ast_make_room_for(offset, type) (((offset + (2 * __alignof__(type) - 1)) / __alignof__(type)) * __alignof__(type))
+
+/*!
+ * \brief An Entity ID is essentially a MAC address, brief and unique
  */
 struct ast_eid {
 	unsigned char eid[6];
@@ -747,7 +827,7 @@ extern struct ast_eid ast_eid_default;
 void ast_set_default_eid(struct ast_eid *eid);
 
 /*!
- * /brief Convert an EID to a string
+ * \brief Convert an EID to a string
  * \since 1.6.1
  */
 char *ast_eid_to_str(char *s, int maxlen, struct ast_eid *eid);
@@ -771,7 +851,15 @@ int ast_str_to_eid(struct ast_eid *eid, const char *s);
  */
 int ast_eid_cmp(const struct ast_eid *eid1, const struct ast_eid *eid2);
 
-/*!\brief Resolve a binary to a full pathname
+/*!
+ * \brief Get current thread ID
+ * \param None
+ * \return the ID if platform is supported, else -1
+ */
+int ast_get_tid(void);
+
+/*!
+ * \brief Resolve a binary to a full pathname
  * \param binary Name of the executable to resolve
  * \param fullpath Buffer to hold the complete pathname
  * \param fullpath_size Size of \a fullpath
@@ -779,5 +867,55 @@ int ast_eid_cmp(const struct ast_eid *eid1, const struct ast_eid *eid2);
  * \return \a fullpath
  */
 char *ast_utils_which(const char *binary, char *fullpath, size_t fullpath_size);
+
+/*!
+ * \brief Declare a variable that will call a destructor function when it goes out of scope.
+ *
+ * Resource Allocation Is Initialization (RAII) variable declaration.
+ *
+ * \since 11.0
+ * \param vartype The type of the variable
+ * \param varname The name of the variable
+ * \param initval The initial value of the variable
+ * \param dtor The destructor function of type' void func(vartype *)'
+ *
+ * \code
+ * void mything_cleanup(struct mything *t)
+ * {
+ *     if (t) {
+ *         ast_free(t->stuff);
+ *     }
+ * }
+ *
+ * void do_stuff(const char *name)
+ * {
+ *     RAII_VAR(struct mything *, thing, mything_alloc(name), mything_cleanup);
+ *     ...
+ * }
+ *
+ * \note This macro is especially useful for working with ao2 objects. A common idiom
+ * would be a function that needed to look up an ao2 object and might have several error
+ * conditions after the allocation that would normally need to unref the ao2 object.
+ * With RAII_VAR, it is possible to just return and leave the cleanup to the destructor
+ * function. For example:
+ * \code
+ * void do_stuff(const char *name)
+ * {
+ *     RAII_VAR(struct mything *, thing, find_mything(name), ao2_cleanup);
+ *     if (!thing) {
+ *         return;
+ *     }
+ *     if (error) {
+ *         return;
+ *     }
+ *     do_stuff_with_thing(thing);
+ * }
+ * \encode
+ */
+#define RAII_VAR(vartype, varname, initval, dtor) \
+    /* Prototype needed due to http://gcc.gnu.org/bugzilla/show_bug.cgi?id=36774 */ \
+    auto void _dtor_ ## varname (vartype * v); \
+    void _dtor_ ## varname (vartype * v) { dtor(*v); } \
+    vartype varname __attribute__((cleanup(_dtor_ ## varname))) = (initval)
 
 #endif /* _ASTERISK_UTILS_H */

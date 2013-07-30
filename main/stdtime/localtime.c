@@ -44,9 +44,13 @@
 
 /*LINTLIBRARY*/
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 291791 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377137 $")
 
 #include <signal.h>
 #include <sys/stat.h>
@@ -67,6 +71,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 291791 $")
 #include "private.h"
 #include "tzfile.h"
 
+#include "asterisk/_private.h"
 #include "asterisk/lock.h"
 #include "asterisk/localtime.h"
 #include "asterisk/strings.h"
@@ -261,6 +266,19 @@ static AST_LIST_HEAD_STATIC(localelist, locale_entry);
 static pthread_t inotify_thread = AST_PTHREADT_NULL;
 static ast_cond_t initialization;
 static ast_mutex_t initialization_lock;
+
+static void add_notify(struct state *sp, const char *path);
+
+/*! Start a notification for every entry already in the list. */
+static void common_startup(void) {
+	struct state *sp;
+	AST_LIST_LOCK(&zonelist);
+	AST_LIST_TRAVERSE(&zonelist, sp, list) {
+		add_notify(sp, sp->name);
+	}
+	AST_LIST_UNLOCK(&zonelist);
+}
+
 #ifdef HAVE_INOTIFY
 static int inotify_fd = -1;
 
@@ -284,6 +302,8 @@ static void *inotify_daemon(void *data)
 		inotify_thread = AST_PTHREADT_NULL;
 		return NULL;
 	}
+
+	common_startup();
 
 	for (;/*ever*/;) {
 		/* This read should block, most of the time. */
@@ -378,6 +398,8 @@ static void *kqueue_daemon(void *data)
 	ast_cond_signal(&initialization);
 	ast_mutex_unlock(&initialization_lock);
 
+	common_startup();
+
 	for (;/*ever*/;) {
 		if (kevent(queue_fd, NULL, 0, &kev, 1, NULL) < 0) {
 			AST_LIST_LOCK(&zonelist);
@@ -423,7 +445,7 @@ static void *kqueue_daemon(void *data)
 			closedir(sp->dir);
 		}
 #endif
-		free(sp);
+		ast_free(sp);
 
 		/* Just in case the signal was sent late */
 		AST_LIST_LOCK(&zonelist);
@@ -537,6 +559,8 @@ static void *notify_daemon(void *data)
 	ast_mutex_lock(&initialization_lock);
 	ast_cond_broadcast(&initialization);
 	ast_mutex_unlock(&initialization_lock);
+
+	common_startup();
 
 	for (;/*ever*/;) {
 		char		fullname[FILENAME_MAX + 1];
@@ -703,7 +727,14 @@ static int tzload(const char *name, struct state * const sp, const int doextend)
 			return -1;
 		if ((fid = open(name, OPEN_MODE)) == -1)
 			return -1;
-		add_notify(sp, name);
+		if (ast_fully_booted) {
+			/* If we don't wait until Asterisk is fully booted, it's possible
+			 * that the watcher thread gets started in the parent process,
+			 * before daemon(3) is called, and the thread won't propagate to
+			 * the child.  Given that bootup only takes a few seconds, it's
+			 * reasonable to only start the watcher later. */
+			add_notify(sp, name);
+		}
 	}
 	nread = read(fid, u.buf, sizeof u.buf);
 	if (close(fid) < 0 || nread <= 0)
@@ -1264,7 +1295,7 @@ static int tzparse(const char *name, struct state *sp, const int lastditch)
 			for (year = EPOCH_YEAR;
 			    sp->timecnt + 2 <= TZ_MAX_TIMES;
 			    ++year) {
-			    	time_t	newfirst;
+				time_t	newfirst;
 
 				starttime = transtime(janfirst, year, &start,
 					stdoffset);
@@ -1404,6 +1435,17 @@ static int gmtload(struct state *sp)
 		return tzparse(gmt, sp, TRUE);
 	else
 		return -1;
+}
+
+void clean_time_zones(void)
+{
+	struct state *sp;
+
+	AST_LIST_LOCK(&zonelist);
+	while ((sp = AST_LIST_REMOVE_HEAD(&zonelist, list))) {
+		ast_free(sp);
+	}
+	AST_LIST_UNLOCK(&zonelist);
 }
 
 static const struct state *ast_tzset(const char *zone)
@@ -1552,23 +1594,23 @@ struct ast_tm *ast_localtime(const struct timeval *timep, struct ast_tm *tmp, co
 }
 
 /*
-** This function provides informaton about daylight savings time 
-** for the given timezone.  This includes whether it can determine 
-** if daylight savings is used for this timezone, the UTC times for 
-** when daylight savings transitions, and the offset in seconds from 
-** UTC. 
+** This function provides informaton about daylight savings time
+** for the given timezone.  This includes whether it can determine
+** if daylight savings is used for this timezone, the UTC times for
+** when daylight savings transitions, and the offset in seconds from
+** UTC.
 */
 
 void ast_get_dst_info(const time_t * const timep, int *dst_enabled, time_t *dst_start, time_t *dst_end, int *gmt_off, const char * const zone)
 {
-	int i;	
+	int i;
 	int transition1 = -1;
 	int transition2 = -1;
 	time_t		seconds;
 	int  bounds_exceeded = 0;
 	time_t  t = *timep;
 	const struct state *sp;
-	
+
 	if (NULL == dst_enabled)
 		return;
 	*dst_enabled = 0;
@@ -1576,17 +1618,17 @@ void ast_get_dst_info(const time_t * const timep, int *dst_enabled, time_t *dst_
 	if (NULL == dst_start || NULL == dst_end || NULL == gmt_off)
 		return;
 
-	*gmt_off = 0; 
-	
+	*gmt_off = 0;
+
 	sp = ast_tzset(zone);
-	if (NULL == sp) 
+	if (NULL == sp)
 		return;
-	
-	/* If the desired time exceeds the bounds of the defined time transitions  
-	* then give give up on determining DST info and simply look for gmt offset 
-	* This requires that I adjust the given time using increments of Gregorian 
-	* repeats to place the time within the defined time transitions in the 
-	* timezone structure.  
+
+	/* If the desired time exceeds the bounds of the defined time transitions
+	* then give give up on determining DST info and simply look for gmt offset
+	* This requires that I adjust the given time using increments of Gregorian
+	* repeats to place the time within the defined time transitions in the
+	* timezone structure.
 	*/
 	if ((sp->goback && t < sp->ats[0]) ||
 			(sp->goahead && t > sp->ats[sp->timecnt - 1])) {
@@ -1609,7 +1651,7 @@ void ast_get_dst_info(const time_t * const timep, int *dst_enabled, time_t *dst_
 			t += seconds;
 		else
 			t -= seconds;
-		
+
 		if (t < sp->ats[0] || t > sp->ats[sp->timecnt - 1])
 			return;	/* "cannot happen" */
 
@@ -1628,26 +1670,26 @@ void ast_get_dst_info(const time_t * const timep, int *dst_enabled, time_t *dst_
 			}
 			*gmt_off = sp->ttis[i].tt_gmtoff;
 			return;
-	} 
+	}
 
 	for (i = 1; i < sp->timecnt; ++i) {
 		if (t < sp->ats[i]) {
 			transition1 = sp->types[i - 1];
 			transition2 = sp->types[i];
 			break;
-		} 
+		}
 	}
-	/* if I found transition times that do not bounded the given time and these correspond to 
+	/* if I found transition times that do not bounded the given time and these correspond to
 		or the bounding zones do not reflect a changes in day light savings, then I do not have dst active */
 	if (i >= sp->timecnt || 0 > transition1 || 0 > transition2 ||
 			(sp->ttis[transition1].tt_isdst == sp->ttis[transition2].tt_isdst)) {
 		*dst_enabled = 0;
-		*gmt_off 	 = sp->ttis[sp->types[sp->timecnt -1]].tt_gmtoff;
+		*gmt_off = sp->ttis[sp->types[sp->timecnt -1]].tt_gmtoff;
 	} else {
 		/* I have valid daylight savings information. */
-		if(sp->ttis[transition2].tt_isdst) 
+		if(sp->ttis[transition2].tt_isdst)
 			*gmt_off = sp->ttis[transition1].tt_gmtoff;
-		else 
+		else
 			*gmt_off = sp->ttis[transition2].tt_gmtoff;
 
 		/* If I adjusted the time earlier, indicate that the dst is invalid */
@@ -1662,7 +1704,7 @@ void ast_get_dst_info(const time_t * const timep, int *dst_enabled, time_t *dst_
 				*dst_end = sp->ats[i];
 			}
 		}
-	}	
+	}
 	return;
 }
 
@@ -2339,7 +2381,11 @@ char *ast_strptime_locale(const char *s, const char *format, struct ast_tm *tm, 
 	prevlocale = ast_setlocale(locale);
 	res = strptime(s, format, &tm2);
 	ast_setlocale(prevlocale);
-	memcpy(tm, &tm2, sizeof(*tm));
+	/* ast_time and tm are not the same size - tm is a subset of
+	 * ast_time.  Hence, the size of tm needs to be used for the
+	 * memcpy
+	 */
+	memcpy(tm, &tm2, sizeof(tm2));
 	tm->tm_usec = 0;
 	/* strptime(3) doesn't set .tm_isdst correctly, so to force ast_mktime(3)
 	 * to deal with it correctly, we set it to -1. */

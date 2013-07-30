@@ -20,12 +20,16 @@
  *
  * \brief Generic File Format Support.
  *
- * \author Mark Spencer <markster@digium.com> 
+ * \author Mark Spencer <markster@digium.com>
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 339086 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 371592 $")
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -48,21 +52,23 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 339086 $")
 #include "asterisk/astobj2.h"
 #include "asterisk/test.h"
 
-/*
+/*! \brief
  * The following variable controls the layout of localized sound files.
  * If 0, use the historical layout with prefix just before the filename
  * (i.e. digits/en/1.gsm , digits/it/1.gsm or default to digits/1.gsm),
  * if 1 put the prefix at the beginning of the filename
  * (i.e. en/digits/1.gsm, it/digits/1.gsm or default to digits/1.gsm).
  * The latter permits a language to be entirely in one directory.
+ *
+ * This is settable in asterisk.conf.
  */
 int ast_language_is_prefix = 1;
 
-static AST_RWLIST_HEAD_STATIC(formats, ast_format);
+static AST_RWLIST_HEAD_STATIC(formats, ast_format_def);
 
-int __ast_format_register(const struct ast_format *f, struct ast_module *mod)
+int __ast_format_def_register(const struct ast_format_def *f, struct ast_module *mod)
 {
-	struct ast_format *tmp;
+	struct ast_format_def *tmp;
 
 	AST_RWLIST_WRLOCK(&formats);
 	AST_RWLIST_TRAVERSE(&formats, tmp, list) {
@@ -87,7 +93,7 @@ int __ast_format_register(const struct ast_format *f, struct ast_module *mod)
 		int align = (char *)&p.b - (char *)&p.a;
 		tmp->buf_size = ((f->buf_size + align - 1) / align) * align;
 	}
-	
+
 	memset(&tmp->list, 0, sizeof(tmp->list));
 
 	AST_RWLIST_INSERT_HEAD(&formats, tmp, list);
@@ -97,9 +103,9 @@ int __ast_format_register(const struct ast_format *f, struct ast_module *mod)
 	return 0;
 }
 
-int ast_format_unregister(const char *name)
+int ast_format_def_unregister(const char *name)
 {
-	struct ast_format *tmp;
+	struct ast_format_def *tmp;
 	int res = -1;
 
 	AST_RWLIST_WRLOCK(&formats);
@@ -126,16 +132,16 @@ int ast_stopstream(struct ast_channel *tmp)
 	ast_channel_lock(tmp);
 
 	/* Stop a running stream if there is one */
-	if (tmp->stream) {
-		ast_closestream(tmp->stream);
-		tmp->stream = NULL;
-		if (tmp->oldwriteformat && ast_set_write_format(tmp, tmp->oldwriteformat))
-			ast_log(LOG_WARNING, "Unable to restore format back to %s\n", ast_getformatname(tmp->oldwriteformat));
+	if (ast_channel_stream(tmp)) {
+		ast_closestream(ast_channel_stream(tmp));
+		ast_channel_stream_set(tmp, NULL);
+		if (ast_channel_oldwriteformat(tmp)->id && ast_set_write_format(tmp, ast_channel_oldwriteformat(tmp)))
+			ast_log(LOG_WARNING, "Unable to restore format back to %s\n", ast_getformatname(ast_channel_oldwriteformat(tmp)));
 	}
 	/* Stop the video stream too */
-	if (tmp->vstream != NULL) {
-		ast_closestream(tmp->vstream);
-		tmp->vstream = NULL;
+	if (ast_channel_vstream(tmp) != NULL) {
+		ast_closestream(ast_channel_vstream(tmp));
+		ast_channel_vstream_set(tmp, NULL);
 	}
 
 	ast_channel_unlock(tmp);
@@ -146,48 +152,44 @@ int ast_stopstream(struct ast_channel *tmp)
 int ast_writestream(struct ast_filestream *fs, struct ast_frame *f)
 {
 	int res = -1;
-	int alt = 0;
 	if (f->frametype == AST_FRAME_VIDEO) {
-		if (fs->fmt->format & AST_FORMAT_AUDIO_MASK) {
+		if (AST_FORMAT_GET_TYPE(fs->fmt->format.id) == AST_FORMAT_TYPE_AUDIO) {
 			/* This is the audio portion.  Call the video one... */
 			if (!fs->vfs && fs->filename) {
-				const char *type = ast_getformatname(f->subclass.codec & ~0x1);
+				const char *type = ast_getformatname(&f->subclass.format);
 				fs->vfs = ast_writefile(fs->filename, type, NULL, fs->flags, 0, fs->mode);
 				ast_debug(1, "Opened video output file\n");
 			}
 			if (fs->vfs)
 				return ast_writestream(fs->vfs, f);
 			/* else ignore */
-			return 0;				
-		} else {
-			/* Might / might not have mark set */
-			alt = 1;
+			return 0;
 		}
 	} else if (f->frametype != AST_FRAME_VOICE) {
 		ast_log(LOG_WARNING, "Tried to write non-voice frame\n");
 		return -1;
 	}
-	if (((fs->fmt->format | alt) & f->subclass.codec) == f->subclass.codec) {
+	if (ast_format_cmp(&f->subclass.format, &fs->fmt->format) != AST_FORMAT_CMP_NOT_EQUAL) {
 		res =  fs->fmt->write(fs, f);
-		if (res < 0) 
+		if (res < 0)
 			ast_log(LOG_WARNING, "Natural write failed\n");
 		else if (res > 0)
 			ast_log(LOG_WARNING, "Huh??\n");
 	} else {
 		/* XXX If they try to send us a type of frame that isn't the normal frame, and isn't
 		       the one we've setup a translator for, we do the "wrong thing" XXX */
-		if (fs->trans && f->subclass.codec != fs->lastwriteformat) {
+		if (fs->trans && (ast_format_cmp(&f->subclass.format, &fs->lastwriteformat) != AST_FORMAT_CMP_EQUAL)) {
 			ast_translator_free_path(fs->trans);
 			fs->trans = NULL;
 		}
-		if (!fs->trans) 
-			fs->trans = ast_translator_build_path(fs->fmt->format, f->subclass.codec);
+		if (!fs->trans)
+			fs->trans = ast_translator_build_path(&fs->fmt->format, &f->subclass.format);
 		if (!fs->trans)
 			ast_log(LOG_WARNING, "Unable to translate to format %s, source format %s\n",
-				fs->fmt->name, ast_getformatname(f->subclass.codec));
+				fs->fmt->name, ast_getformatname(&f->subclass.format));
 		else {
 			struct ast_frame *trf;
-			fs->lastwriteformat = f->subclass.codec;
+			ast_format_copy(&fs->lastwriteformat, &f->subclass.format);
 			/* Get the translated frame but don't consume the original in case they're using it on another stream */
 			if ((trf = ast_translate(fs->trans, f, 0))) {
 				struct ast_frame *cur;
@@ -259,14 +261,12 @@ static char *build_filename(const char *filename, const char *ext)
 		ext = "WAV";
 
 	if (filename[0] == '/') {
-		if (asprintf(&fn, "%s.%s", filename, ext) < 0) {
-			ast_log(LOG_WARNING, "asprintf() failed: %s\n", strerror(errno));
+		if (ast_asprintf(&fn, "%s.%s", filename, ext) < 0) {
 			fn = NULL;
 		}
 	} else {
-		if (asprintf(&fn, "%s/sounds/%s.%s",
+		if (ast_asprintf(&fn, "%s/sounds/%s.%s",
 			     ast_config_AST_DATA_DIR, filename, ext) < 0) {
-			ast_log(LOG_WARNING, "asprintf() failed: %s\n", strerror(errno));
 			fn = NULL;
 		}
 	}
@@ -289,6 +289,33 @@ static int exts_compare(const char *exts, const char *type)
 	return 0;
 }
 
+/*! \internal \brief Close the file stream by canceling any pending read / write callbacks */
+static void filestream_close(struct ast_filestream *f)
+{
+	enum ast_format_type format_type = AST_FORMAT_GET_TYPE(f->fmt->format.id);
+
+	if (!f->owner) {
+		return;
+	}
+
+	/* Stop a running stream if there is one */
+	switch (format_type)
+	{
+	case AST_FORMAT_TYPE_AUDIO:
+		ast_channel_stream_set(f->owner, NULL);
+		AST_SCHED_DEL_ACCESSOR(ast_channel_sched(f->owner), f->owner, ast_channel_streamid, ast_channel_streamid_set);
+		ast_settimeout(f->owner, 0, NULL, NULL);
+		break;
+	case AST_FORMAT_TYPE_VIDEO:
+		ast_channel_vstream_set(f->owner, NULL);
+		AST_SCHED_DEL_ACCESSOR(ast_channel_sched(f->owner), f->owner, ast_channel_vstreamid, ast_channel_vstreamid_set);
+		break;
+	default:
+		ast_log(AST_LOG_WARNING, "Unable to schedule deletion of filestream with unsupported type %s\n", f->fmt->name);
+		break;
+	}
+}
+
 static void filestream_destructor(void *arg)
 {
 	struct ast_filestream *f = arg;
@@ -296,16 +323,8 @@ static void filestream_destructor(void *arg)
 	int pid = -1;
 
 	/* Stop a running stream if there is one */
-	if (f->owner) {
-		if (f->fmt->format < AST_FORMAT_AUDIO_MASK) {
-			f->owner->stream = NULL;
-			AST_SCHED_DEL(f->owner->sched, f->owner->streamid);
-			ast_settimeout(f->owner, 0, NULL, NULL);
-		} else {
-			f->owner->vstream = NULL;
-			AST_SCHED_DEL(f->owner->sched, f->owner->vstreamid);
-		}
-	}
+	filestream_close(f);
+
 	/* destroy the translator on exit */
 	if (f->trans)
 		ast_translator_free_path(f->trans);
@@ -342,7 +361,7 @@ static void filestream_destructor(void *arg)
 	ast_module_unref(f->fmt->module);
 }
 
-static struct ast_filestream *get_filestream(struct ast_format *fmt, FILE *bfile)
+static struct ast_filestream *get_filestream(struct ast_format_def *fmt, FILE *bfile)
 {
 	struct ast_filestream *s;
 
@@ -368,7 +387,7 @@ enum wrap_fn { WRAP_OPEN, WRAP_REWRITE };
 
 static int fn_wrapper(struct ast_filestream *s, const char *comment, enum wrap_fn mode)
 {
-	struct ast_format *f = s->fmt;
+	struct ast_format_def *f = s->fmt;
 	int ret = -1;
 	int (*openfn)(struct ast_filestream *s);
 
@@ -403,18 +422,20 @@ enum file_action {
 };
 
 /*!
+ * \internal
  * \brief perform various actions on a file. Second argument
- * arg2 depends on the command:
- *	unused for EXISTS and DELETE
+ * \note arg2 depends on the command:
+ *	unused for DELETE
+ *  optional ast_format_cap holding all the formats found for a file, for EXISTS.
  *	destination file name (const char *) for COPY and RENAME
- * 	struct ast_channel * for OPEN
+ *	struct ast_channel * for OPEN
  * if fmt is NULL, OPEN will return the first matching entry,
  * whereas other functions will run on all matching entries.
  */
-static format_t ast_filehelper(const char *filename, const void *arg2, const char *fmt, const enum file_action action)
+static int filehelper(const char *filename, const void *arg2, const char *fmt, const enum file_action action)
 {
-	struct ast_format *f;
-	format_t res = (action == ACTION_EXISTS) ? 0 : -1;
+	struct ast_format_def *f;
+	int res = (action == ACTION_EXISTS) ? 0 : -1;
 
 	AST_RWLIST_RDLOCK(&formats);
 	/* Check for a specific format */
@@ -448,9 +469,9 @@ static format_t ast_filehelper(const char *filename, const void *arg2, const cha
 				FILE *bfile;
 				struct ast_filestream *s;
 
-				if ( !(chan->writeformat & f->format) &&
-				     !((f->format & AST_FORMAT_AUDIO_MASK && fmt) ||
-					  (f->format & AST_FORMAT_VIDEO_MASK && fmt))) {
+				if ((ast_format_cmp(ast_channel_writeformat(chan), &f->format) == AST_FORMAT_CMP_NOT_EQUAL) &&
+				     !(((AST_FORMAT_GET_TYPE(f->format.id) == AST_FORMAT_TYPE_AUDIO) && fmt) ||
+					  ((AST_FORMAT_GET_TYPE(f->format.id) == AST_FORMAT_TYPE_VIDEO) && fmt))) {
 					ast_free(fn);
 					continue;	/* not a supported format */
 				}
@@ -478,14 +499,14 @@ static format_t ast_filehelper(const char *filename, const void *arg2, const cha
 				s->fmt = f;
 				s->trans = NULL;
 				s->filename = NULL;
-				if (s->fmt->format & AST_FORMAT_AUDIO_MASK) {
-					if (chan->stream)
-						ast_closestream(chan->stream);
-					chan->stream = s;
+				if (AST_FORMAT_GET_TYPE(s->fmt->format.id) == AST_FORMAT_TYPE_AUDIO) {
+					if (ast_channel_stream(chan))
+						ast_closestream(ast_channel_stream(chan));
+					ast_channel_stream_set(chan, s);
 				} else {
-					if (chan->vstream)
-						ast_closestream(chan->vstream);
-					chan->vstream = s;
+					if (ast_channel_vstream(chan))
+						ast_closestream(ast_channel_vstream(chan));
+					ast_channel_vstream_set(chan, s);
 				}
 				ast_free(fn);
 				break;
@@ -495,7 +516,12 @@ static format_t ast_filehelper(const char *filename, const void *arg2, const cha
 				break;	/* will never get here */
 
 			case ACTION_EXISTS:	/* return the matching format */
-				res |= f->format;
+				/* if arg2 is present, it is a format capabilities structure.
+				 * Add this format to the set of formats this file can be played in */
+				if (arg2) {
+					ast_format_cap_add((struct ast_format_cap *) arg2, &f->format);
+				}
+				res = 1; /* file does exist and format it exists in is returned in arg2 */
 				break;
 
 			case ACTION_DELETE:
@@ -534,11 +560,17 @@ static int is_absolute_path(const char *filename)
 	return filename[0] == '/';
 }
 
-static format_t fileexists_test(const char *filename, const char *fmt, const char *lang,
-			   char *buf, int buflen)
+/*!
+ * \brief test if a file exists for a given format.
+ * \note result_cap is OPTIONAL
+ * \retval 1, true and result_cap represents format capabilities file exists in.
+ * \retval 0, false
+ */
+static int fileexists_test(const char *filename, const char *fmt, const char *lang,
+			   char *buf, int buflen, struct ast_format_cap *result_cap)
 {
 	if (buf == NULL) {
-		return -1;
+		return 0;
 	}
 
 	if (ast_language_is_prefix && !is_absolute_path(filename)) { /* new layout */
@@ -557,25 +589,36 @@ static format_t fileexists_test(const char *filename, const char *fmt, const cha
 		}
 	}
 
-	return ast_filehelper(buf, NULL, fmt, ACTION_EXISTS);
+	return filehelper(buf, result_cap, fmt, ACTION_EXISTS);
 }
 
 /*!
  * \brief helper routine to locate a file with a given format
  * and language preference.
- * Try preflang, preflang with stripped '_' suffices, or NULL.
  *
- * The last parameter(s) point to a buffer of sufficient size,
+ * \note Try preflang, preflang with stripped '_' suffices, or NULL.
+ *
+ * \note The last parameter(s) point to a buffer of sufficient size,
  * which on success is filled with the matching filename.
+ *
+ * \param filename, name of the file.
+ * \param fmt, format to look for the file in. OPTIONAL
+ * \param preflang, the perfered language
+ * \param buf, returns the matching filename
+ * \param buflen, size of the buf
+ * \param result_cap, OPTIONAL format capabilities result structure
+ *        returns what formats the file was found in.
+ *
+ * \retval 1, true. file exists and result format is set
+ * \retval 0, false. file does not exist.
  */
-static format_t fileexists_core(const char *filename, const char *fmt, const char *preflang,
-			   char *buf, int buflen)
+static int fileexists_core(const char *filename, const char *fmt, const char *preflang,
+			   char *buf, int buflen, struct ast_format_cap *result_cap)
 {
-	format_t res = -1;
 	char *lang;
 
 	if (buf == NULL) {
-		return -1;
+		return 0;
 	}
 
 	/* We try languages in the following order:
@@ -591,8 +634,8 @@ static format_t fileexists_core(const char *filename, const char *fmt, const cha
 	while (!ast_strlen_zero(lang)) {
 		char *end;
 
-		if ((res = fileexists_test(filename, fmt, lang, buf, buflen)) > 0) {
-			return res;
+		if (fileexists_test(filename, fmt, lang, buf, buflen, result_cap)) {
+			return 1;
 		}
 
 		if ((end = strrchr(lang, '_')) != NULL) {
@@ -604,14 +647,14 @@ static format_t fileexists_core(const char *filename, const char *fmt, const cha
 	}
 
 	/* Try without any language */
-	if ((res = fileexists_test(filename, fmt, NULL, buf, buflen)) > 0) {
-		return res;
+	if (fileexists_test(filename, fmt, NULL, buf, buflen, result_cap)) {
+		return 1;
 	}
 
 	/* Finally try the default language unless it was already tried before */
 	if ((ast_strlen_zero(preflang) || strcmp(preflang, DEFAULT_LANGUAGE)) && (ast_strlen_zero(lang) || strcmp(lang, DEFAULT_LANGUAGE))) {
-		if ((res = fileexists_test(filename, fmt, DEFAULT_LANGUAGE, buf, buflen)) > 0) {
-			return res;
+		if ((fileexists_test(filename, fmt, DEFAULT_LANGUAGE, buf, buflen, result_cap)) > 0) {
+			return 1;
 		}
 	}
 
@@ -625,43 +668,51 @@ struct ast_filestream *ast_openstream(struct ast_channel *chan, const char *file
 
 struct ast_filestream *ast_openstream_full(struct ast_channel *chan, const char *filename, const char *preflang, int asis)
 {
-	/* 
+	/*
 	 * Use fileexists_core() to find a file in a compatible
 	 * language and format, set up a suitable translator,
 	 * and open the stream.
 	 */
-	format_t fmts, res;
+	struct ast_format_cap *file_fmt_cap;
+	int res;
 	int buflen;
 	char *buf;
 
 	if (!asis) {
 		/* do this first, otherwise we detect the wrong writeformat */
 		ast_stopstream(chan);
-		if (chan->generator)
+		if (ast_channel_generator(chan))
 			ast_deactivate_generator(chan);
 	}
 	if (preflang == NULL)
 		preflang = "";
 	buflen = strlen(preflang) + strlen(filename) + 4;
-	buf = alloca(buflen);
-	if (buf == NULL)
-		return NULL;
-	fmts = fileexists_core(filename, NULL, preflang, buf, buflen);
-	if (fmts > 0)
-		fmts &= AST_FORMAT_AUDIO_MASK;
-	if (fmts < 1) {
-		ast_log(LOG_WARNING, "File %s does not exist in any format\n", filename);
+	buf = ast_alloca(buflen);
+
+	if (!(file_fmt_cap = ast_format_cap_alloc_nolock())) {
 		return NULL;
 	}
-	chan->oldwriteformat = chan->writeformat;
-	/* Set the channel to a format we can work with */
-	res = ast_set_write_format(chan, fmts);
+	if (!fileexists_core(filename, NULL, preflang, buf, buflen, file_fmt_cap) ||
+		!ast_format_cap_has_type(file_fmt_cap, AST_FORMAT_TYPE_AUDIO)) {
+
+		ast_log(LOG_WARNING, "File %s does not exist in any format\n", filename);
+		file_fmt_cap = ast_format_cap_destroy(file_fmt_cap);
+		return NULL;
+	}
+
+	/* Set the channel to a format we can work with and save off the previous format. */
+	ast_format_copy(ast_channel_oldwriteformat(chan), ast_channel_writeformat(chan));
+	/* Set the channel to the best format that exists for the file. */
+	res = ast_set_write_format_from_cap(chan, file_fmt_cap);
+	/* don't need this anymore now that the channel's write format is set. */
+	file_fmt_cap = ast_format_cap_destroy(file_fmt_cap);
+
 	if (res == -1) {	/* No format available that works with this channel */
 		return NULL;
 	}
-	res = ast_filehelper(buf, chan, NULL, ACTION_OPEN);
+	res = filehelper(buf, chan, NULL, ACTION_OPEN);
 	if (res >= 0)
-		return chan->stream;
+		return ast_channel_stream(chan);
 	return NULL;
 }
 
@@ -670,31 +721,51 @@ struct ast_filestream *ast_openvstream(struct ast_channel *chan, const char *fil
 	/* As above, but for video. But here we don't have translators
 	 * so we must enforce a format.
 	 */
-	format_t format;
+	struct ast_format tmp_fmt;
+	struct ast_format_cap *tmp_cap;
 	char *buf;
 	int buflen;
+	const char *fmt;
+	int fd;
 
 	if (preflang == NULL)
 		preflang = "";
 	buflen = strlen(preflang) + strlen(filename) + 4;
-	buf = alloca(buflen);
-	if (buf == NULL)
+	buf = ast_alloca(buflen);
+
+	/* is the channel capable of video without translation ?*/
+	if (!ast_format_cap_has_type(ast_channel_nativeformats(chan), AST_FORMAT_TYPE_VIDEO)) {
 		return NULL;
+	}
+	if (!(tmp_cap = ast_format_cap_alloc_nolock())) {
+		return NULL;
+	}
+	/* Video is supported, so see what video formats exist for this file */
+	if (!fileexists_core(filename, NULL, preflang, buf, buflen, tmp_cap)) {
+		tmp_cap = ast_format_cap_destroy(tmp_cap);
+		return NULL;
+	}
 
-	for (format = AST_FORMAT_FIRST_VIDEO_BIT; format <= AST_FORMAT_VIDEO_MASK; format = format << 1) {
-		int fd;
-		const char *fmt;
+	/* iterate over file formats and pick the first one compatible with the channel's native formats */
+	ast_format_cap_iter_start(tmp_cap);
+	while (!ast_format_cap_iter_next(tmp_cap, &tmp_fmt)) {
+		fmt = ast_getformatname(&tmp_fmt);
+		if ((AST_FORMAT_GET_TYPE(tmp_fmt.id) != AST_FORMAT_TYPE_VIDEO) ||
+			!ast_format_cap_iscompatible(ast_channel_nativeformats(chan), &tmp_fmt)) {
+			continue;
+		}
 
-		if (!(chan->nativeformats & format))
-			continue;
-		fmt = ast_getformatname(format);
-		if ( fileexists_core(filename, fmt, preflang, buf, buflen) < 1)	/* no valid format */
-			continue;
-	 	fd = ast_filehelper(buf, chan, fmt, ACTION_OPEN);
-		if (fd >= 0)
-			return chan->vstream;
+		fd = filehelper(buf, chan, fmt, ACTION_OPEN);
+		if (fd >= 0) {
+			ast_format_cap_iter_end(tmp_cap);
+			tmp_cap = ast_format_cap_destroy(tmp_cap);
+			return ast_channel_vstream(chan);
+		}
 		ast_log(LOG_WARNING, "File %s has video but couldn't be opened\n", filename);
 	}
+	ast_format_cap_iter_end(tmp_cap);
+	tmp_cap = ast_format_cap_destroy(tmp_cap);
+
 	return NULL;
 }
 
@@ -745,7 +816,7 @@ static enum fsread_res ast_readaudio_callback(struct ast_filestream *s)
 	while (!whennext) {
 		struct ast_frame *fr;
 
-		if (s->orig_chan_name && strcasecmp(s->owner->name, s->orig_chan_name)) {
+		if (s->orig_chan_name && strcasecmp(ast_channel_name(s->owner), s->orig_chan_name)) {
 			goto return_failure;
 		}
 
@@ -757,7 +828,7 @@ static enum fsread_res ast_readaudio_callback(struct ast_filestream *s)
 				ast_frfree(fr);
 			}
 			goto return_failure;
-		} 
+		}
 
 		if (fr) {
 			ast_frfree(fr);
@@ -765,16 +836,15 @@ static enum fsread_res ast_readaudio_callback(struct ast_filestream *s)
 	}
 
 	if (whennext != s->lasttimeout) {
-		if (s->owner->timingfd > -1) {
-			float samp_rate = (float) ast_format_rate(s->fmt->format);
+		if (ast_channel_timingfd(s->owner) > -1) {
+			float samp_rate = (float) ast_format_rate(&s->fmt->format);
 			unsigned int rate;
 
 			rate = (unsigned int) roundf(samp_rate / ((float) whennext));
 
 			ast_settimeout(s->owner, rate, ast_fsread_audio, s);
 		} else {
-			s->owner->streamid = ast_sched_add(s->owner->sched, 
-				whennext / (ast_format_rate(s->fmt->format) / 1000), ast_fsread_audio, s);
+			ast_channel_streamid_set(s->owner, ast_sched_add(ast_channel_sched(s->owner), whennext / (ast_format_rate(&s->fmt->format) / 1000), ast_fsread_audio, s));
 		}
 		s->lasttimeout = whennext;
 		return FSREAD_SUCCESS_NOSCHED;
@@ -782,7 +852,7 @@ static enum fsread_res ast_readaudio_callback(struct ast_filestream *s)
 	return FSREAD_SUCCESS_SCHED;
 
 return_failure:
-	s->owner->streamid = -1;
+	ast_channel_streamid_set(s->owner, -1);
 	ast_settimeout(s->owner, 0, NULL, NULL);
 	return FSREAD_FAILURE;
 }
@@ -796,7 +866,7 @@ static int ast_fsread_audio(const void *data)
 
 	if (res == FSREAD_SUCCESS_SCHED)
 		return 1;
-	
+
 	return 0;
 }
 
@@ -814,7 +884,7 @@ static enum fsread_res ast_readvideo_callback(struct ast_filestream *s)
 				ast_log(LOG_WARNING, "Failed to write frame\n");
 				ast_frfree(fr);
 			}
-			s->owner->vstreamid = -1;
+			ast_channel_vstreamid_set(s->owner, -1);
 			return FSREAD_FAILURE;
 		}
 
@@ -824,9 +894,7 @@ static enum fsread_res ast_readvideo_callback(struct ast_filestream *s)
 	}
 
 	if (whennext != s->lasttimeout) {
-		s->owner->vstreamid = ast_sched_add(s->owner->sched, 
-			whennext / (ast_format_rate(s->fmt->format) / 1000), 
-			ast_fsread_video, s);
+		ast_channel_vstreamid_set(s->owner, ast_sched_add(ast_channel_sched(s->owner), whennext / (ast_format_rate(&s->fmt->format) / 1000), ast_fsread_video, s));
 		s->lasttimeout = whennext;
 		return FSREAD_SUCCESS_NOSCHED;
 	}
@@ -843,7 +911,7 @@ static int ast_fsread_video(const void *data)
 
 	if (res == FSREAD_SUCCESS_SCHED)
 		return 1;
-	
+
 	return 0;
 }
 
@@ -857,7 +925,7 @@ int ast_playstream(struct ast_filestream *s)
 {
 	enum fsread_res res;
 
-	if (s->fmt->format & AST_FORMAT_AUDIO_MASK)
+	if (AST_FORMAT_GET_TYPE(s->fmt->format.id) == AST_FORMAT_TYPE_AUDIO)
 		res = ast_readaudio_callback(s);
 	else
 		res = ast_readvideo_callback(s);
@@ -893,22 +961,10 @@ int ast_stream_rewind(struct ast_filestream *fs, off_t ms)
 int ast_closestream(struct ast_filestream *f)
 {
 	/* This used to destroy the filestream, but it now just decrements a refcount.
-	 * We need to force the stream to quit queuing frames now, because we might
+	 * We close the stream in order to quit queuing frames now, because we might
 	 * change the writeformat, which could result in a subsequent write error, if
 	 * the format is different. */
-
-	/* Stop a running stream if there is one */
-	if (f->owner) {
-		if (f->fmt->format < AST_FORMAT_AUDIO_MASK) {
-			f->owner->stream = NULL;
-			AST_SCHED_DEL(f->owner->sched, f->owner->streamid);
-			ast_settimeout(f->owner, 0, NULL, NULL);
-		} else {
-			f->owner->vstream = NULL;
-			AST_SCHED_DEL(f->owner->sched, f->owner->vstreamid);
-		}
-	}
-
+	filestream_close(f);
 	ao2_ref(f, -1);
 	return 0;
 }
@@ -925,25 +981,23 @@ int ast_fileexists(const char *filename, const char *fmt, const char *preflang)
 	if (preflang == NULL)
 		preflang = "";
 	buflen = strlen(preflang) + strlen(filename) + 4;	/* room for everything */
-	buf = alloca(buflen);
-	if (buf == NULL)
-		return 0;
-	return fileexists_core(filename, fmt, preflang, buf, buflen);
+	buf = ast_alloca(buflen);
+	return fileexists_core(filename, fmt, preflang, buf, buflen, NULL) ? 1 : 0;
 }
 
 int ast_filedelete(const char *filename, const char *fmt)
 {
-	return ast_filehelper(filename, NULL, fmt, ACTION_DELETE);
+	return filehelper(filename, NULL, fmt, ACTION_DELETE);
 }
 
 int ast_filerename(const char *filename, const char *filename2, const char *fmt)
 {
-	return ast_filehelper(filename, filename2, fmt, ACTION_RENAME);
+	return filehelper(filename, filename2, fmt, ACTION_RENAME);
 }
 
 int ast_filecopy(const char *filename, const char *filename2, const char *fmt)
 {
-	return ast_filehelper(filename, filename2, fmt, ACTION_COPY);
+	return filehelper(filename, filename2, fmt, ACTION_COPY);
 }
 
 int ast_streamfile(struct ast_channel *chan, const char *filename, const char *preflang)
@@ -951,33 +1005,39 @@ int ast_streamfile(struct ast_channel *chan, const char *filename, const char *p
 	struct ast_filestream *fs;
 	struct ast_filestream *vfs=NULL;
 	char fmt[256];
+	off_t pos;
 	int seekattempt;
 	int res;
 
 	fs = ast_openstream(chan, filename, preflang);
 	if (!fs) {
-		ast_log(LOG_WARNING, "Unable to open %s (format %s): %s\n", filename, ast_getformatname_multiple(fmt, sizeof(fmt), chan->nativeformats), strerror(errno));
+		ast_log(LOG_WARNING, "Unable to open %s (format %s): %s\n", filename, ast_getformatname_multiple(fmt, sizeof(fmt), ast_channel_nativeformats(chan)), strerror(errno));
 		return -1;
 	}
 
 	/* check to see if there is any data present (not a zero length file),
 	 * done this way because there is no where for ast_openstream_full to
 	 * return the file had no data. */
-	seekattempt = fseek(fs->f, -1, SEEK_END);
-	if (seekattempt && errno == EINVAL) {
-		/* Zero-length file, as opposed to a pipe */
-		return 0;
+	pos = ftello(fs->f);
+	seekattempt = fseeko(fs->f, -1, SEEK_END);
+	if (seekattempt) {
+		if (errno == EINVAL) {
+			/* Zero-length file, as opposed to a pipe */
+			return 0;
+		} else {
+			ast_seekstream(fs, 0, SEEK_SET);
+		}
 	} else {
-		ast_seekstream(fs, 0, SEEK_SET);
+		fseeko(fs->f, pos, SEEK_SET);
 	}
 
 	vfs = ast_openvstream(chan, filename, preflang);
 	if (vfs) {
-		ast_debug(1, "Ooh, found a video stream, too, format %s\n", ast_getformatname(vfs->fmt->format));
+		ast_debug(1, "Ooh, found a video stream, too, format %s\n", ast_getformatname(&vfs->fmt->format));
 	}
 
-	if (ast_test_flag(chan, AST_FLAG_MASQ_NOSTREAM))
-		fs->orig_chan_name = ast_strdup(chan->name);
+	if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_MASQ_NOSTREAM))
+		fs->orig_chan_name = ast_strdup(ast_channel_name(chan));
 	if (ast_applystream(chan, fs))
 		return -1;
 	if (vfs && ast_applystream(chan, vfs))
@@ -985,7 +1045,7 @@ int ast_streamfile(struct ast_channel *chan, const char *filename, const char *p
 	res = ast_playstream(fs);
 	if (!res && vfs)
 		res = ast_playstream(vfs);
-	ast_verb(3, "<%s> Playing '%s.%s' (language '%s')\n", chan->name, filename, ast_getformatname(chan->writeformat), preflang ? preflang : "default");
+	ast_verb(3, "<%s> Playing '%s.%s' (language '%s')\n", ast_channel_name(chan), filename, ast_getformatname(ast_channel_writeformat(chan)), preflang ? preflang : "default");
 
 	return res;
 }
@@ -993,10 +1053,10 @@ int ast_streamfile(struct ast_channel *chan, const char *filename, const char *p
 struct ast_filestream *ast_readfile(const char *filename, const char *type, const char *comment, int flags, int check, mode_t mode)
 {
 	FILE *bfile;
-	struct ast_format *f;
+	struct ast_format_def *f;
 	struct ast_filestream *fs = NULL;
 	char *fn;
-	int format_found = 0;	
+	int format_found = 0;
 
 	AST_RWLIST_RDLOCK(&formats);
 
@@ -1004,10 +1064,13 @@ struct ast_filestream *ast_readfile(const char *filename, const char *type, cons
 		fs = NULL;
 		if (!exts_compare(f->exts, type))
 			continue;
-		else 
+		else
 			format_found = 1;
 
 		fn = build_filename(filename, type);
+		if (!fn) {
+			continue;
+		}
 		errno = 0;
 		bfile = fopen(fn, "r");
 
@@ -1019,7 +1082,7 @@ struct ast_filestream *ast_readfile(const char *filename, const char *type, cons
 			fs = NULL;
 			bfile = NULL;
 			ast_free(fn);
-			break;				
+			break;
 		}
 		/* found it */
 		fs->trans = NULL;
@@ -1028,6 +1091,7 @@ struct ast_filestream *ast_readfile(const char *filename, const char *type, cons
 		fs->mode = mode;
 		fs->filename = ast_strdup(filename);
 		fs->vfs = NULL;
+		ast_free(fn);
 		break;
 	}
 
@@ -1043,7 +1107,7 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 	int fd, myflags = 0;
 	/* compiler claims this variable can be used before initialization... */
 	FILE *bfile = NULL;
-	struct ast_format *f;
+	struct ast_format_def *f;
 	struct ast_filestream *fs = NULL;
 	char *buf = NULL;
 	size_t size = 0;
@@ -1053,12 +1117,12 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 
 	/* set the O_TRUNC flag if and only if there is no O_APPEND specified */
 	/* We really can't use O_APPEND as it will break WAV header updates */
-	if (flags & O_APPEND) { 
+	if (flags & O_APPEND) {
 		flags &= ~O_APPEND;
 	} else {
 		myflags = O_TRUNC;
 	}
-	
+
 	myflags |= O_WRONLY | O_CREAT;
 
 	/* XXX need to fix this - we should just do the fopen,
@@ -1075,6 +1139,9 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 			format_found = 1;
 
 		fn = build_filename(filename, type);
+		if (!fn) {
+			continue;
+		}
 		fd = open(fn, flags | myflags, mode);
 		if (fd > -1) {
 			/* fdopen() the resulting file stream */
@@ -1085,7 +1152,7 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 				fd = -1;
 			}
 		}
-		
+
 		if (ast_opt_cache_record_files && (fd > -1)) {
 			char *c;
 
@@ -1100,7 +1167,7 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 					*c = '_';
 
 			size = strlen(fn) + strlen(record_cache_dir) + 2;
-			buf = alloca(size);
+			buf = ast_alloca(size);
 			strcpy(buf, record_cache_dir);
 			strcat(buf, "/");
 			strcat(buf, fn);
@@ -1135,6 +1202,9 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 				if (fs) {
 					ast_closestream(fs);
 					fs = NULL;
+				}
+				if (!buf) {
+					ast_free(fn);
 				}
 				continue;
 			}
@@ -1173,11 +1243,18 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 /*!
  * \brief the core of all waitstream() functions
  */
-static int waitstream_core(struct ast_channel *c, const char *breakon,
-	const char *forward, const char *reverse, int skip_ms,
-	int audiofd, int cmdfd,  const char *context)
+static int waitstream_core(struct ast_channel *c,
+	const char *breakon,
+	const char *forward,
+	const char *reverse,
+	int skip_ms,
+	int audiofd,
+	int cmdfd,
+	const char *context,
+	ast_waitstream_fr_cb cb)
 {
 	const char *orig_chan_name = NULL;
+
 	int err = 0;
 
 	if (!breakon)
@@ -1188,24 +1265,29 @@ static int waitstream_core(struct ast_channel *c, const char *breakon,
 		reverse = "";
 
 	/* Switch the channel to end DTMF frame only. waitstream_core doesn't care about the start of DTMF. */
-	ast_set_flag(c, AST_FLAG_END_DTMF_ONLY);
+	ast_set_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 
-	if (ast_test_flag(c, AST_FLAG_MASQ_NOSTREAM))
-		orig_chan_name = ast_strdupa(c->name);
+	if (ast_test_flag(ast_channel_flags(c), AST_FLAG_MASQ_NOSTREAM))
+		orig_chan_name = ast_strdupa(ast_channel_name(c));
 
-	while (c->stream) {
+	if (ast_channel_stream(c) && cb) {
+		long ms_len = ast_tellstream(ast_channel_stream(c)) / (ast_format_rate(&ast_channel_stream(c)->fmt->format) / 1000);
+		cb(c, ms_len, AST_WAITSTREAM_CB_START);
+	}
+
+	while (ast_channel_stream(c)) {
 		int res;
 		int ms;
 
-		if (orig_chan_name && strcasecmp(orig_chan_name, c->name)) {
+		if (orig_chan_name && strcasecmp(orig_chan_name, ast_channel_name(c))) {
 			ast_stopstream(c);
 			err = 1;
 			break;
 		}
 
-		ms = ast_sched_wait(c->sched);
+		ms = ast_sched_wait(ast_channel_sched(c));
 
-		if (ms < 0 && !c->timingfunc) {
+		if (ms < 0 && !ast_channel_timingfunc(c)) {
 			ast_stopstream(c);
 			break;
 		}
@@ -1215,7 +1297,7 @@ static int waitstream_core(struct ast_channel *c, const char *breakon,
 			res = ast_waitfor(c, ms);
 			if (res < 0) {
 				ast_log(LOG_WARNING, "Select failed (%s)\n", strerror(errno));
-				ast_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+				ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 				return res;
 			}
 		} else {
@@ -1226,11 +1308,11 @@ static int waitstream_core(struct ast_channel *c, const char *breakon,
 				if (errno == EINTR)
 					continue;
 				ast_log(LOG_WARNING, "Wait failed (%s)\n", strerror(errno));
-				ast_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+				ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 				return -1;
 			} else if (outfd > -1) { /* this requires cmdfd set */
 				/* The FD we were watching has something waiting */
-				ast_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+				ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 				return 1;
 			}
 			/* if rchan is set, it is 'c' */
@@ -1239,7 +1321,7 @@ static int waitstream_core(struct ast_channel *c, const char *breakon,
 		if (res > 0) {
 			struct ast_frame *fr = ast_read(c);
 			if (!fr) {
-				ast_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+				ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 				return -1;
 			}
 			switch (fr->frametype) {
@@ -1247,30 +1329,37 @@ static int waitstream_core(struct ast_channel *c, const char *breakon,
 				if (context) {
 					const char exten[2] = { fr->subclass.integer, '\0' };
 					if (ast_exists_extension(c, context, exten, 1,
-						S_COR(c->caller.id.number.valid, c->caller.id.number.str, NULL))) {
+						S_COR(ast_channel_caller(c)->id.number.valid, ast_channel_caller(c)->id.number.str, NULL))) {
 						res = fr->subclass.integer;
 						ast_frfree(fr);
-						ast_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+						ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 						return res;
 					}
 				} else {
+					enum ast_waitstream_fr_cb_values cb_val = 0;
 					res = fr->subclass.integer;
 					if (strchr(forward, res)) {
 						int eoftest;
-						ast_stream_fastforward(c->stream, skip_ms);
-						eoftest = fgetc(c->stream->f);
-						if (feof(c->stream->f)) {
-							ast_stream_rewind(c->stream, skip_ms);
+						ast_stream_fastforward(ast_channel_stream(c), skip_ms);
+						eoftest = fgetc(ast_channel_stream(c)->f);
+						if (feof(ast_channel_stream(c)->f)) {
+							ast_stream_rewind(ast_channel_stream(c), skip_ms);
 						} else {
-							ungetc(eoftest, c->stream->f);
+							ungetc(eoftest, ast_channel_stream(c)->f);
 						}
+						cb_val = AST_WAITSTREAM_CB_FASTFORWARD;
 					} else if (strchr(reverse, res)) {
-						ast_stream_rewind(c->stream, skip_ms);
+						ast_stream_rewind(ast_channel_stream(c), skip_ms);
+						cb_val = AST_WAITSTREAM_CB_REWIND;
 					} else if (strchr(breakon, res)) {
 						ast_frfree(fr);
-						ast_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+						ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 						return res;
-					}					
+					}
+					if (cb_val && cb) {
+						long ms_len = ast_tellstream(ast_channel_stream(c)) / (ast_format_rate(&ast_channel_stream(c)->fmt->format) / 1000);
+						cb(c, ms_len, cb_val);
+					}
 				}
 				break;
 			case AST_FRAME_CONTROL:
@@ -1279,7 +1368,7 @@ static int waitstream_core(struct ast_channel *c, const char *breakon,
 				case AST_CONTROL_BUSY:
 				case AST_CONTROL_CONGESTION:
 					ast_frfree(fr);
-					ast_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+					ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 					return -1;
 				case AST_CONTROL_RINGING:
 				case AST_CONTROL_ANSWER:
@@ -1292,6 +1381,7 @@ static int waitstream_core(struct ast_channel *c, const char *breakon,
 				case AST_CONTROL_REDIRECTING:
 				case AST_CONTROL_AOC:
 				case AST_CONTROL_UPDATE_RTP_PEER:
+				case AST_CONTROL_PVT_CAUSE_CODE:
 				case -1:
 					/* Unimportant */
 					break;
@@ -1312,29 +1402,40 @@ static int waitstream_core(struct ast_channel *c, const char *breakon,
 			}
 			ast_frfree(fr);
 		}
-		ast_sched_runq(c->sched);
+		ast_sched_runq(ast_channel_sched(c));
 	}
 
-	ast_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+	ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
 
-	return (err || c->_softhangup) ? -1 : 0;
+	return (err || ast_channel_softhangup_internal_flag(c)) ? -1 : 0;
+}
+
+int ast_waitstream_fr_w_cb(struct ast_channel *c,
+	const char *breakon,
+	const char *forward,
+	const char *reverse,
+	int ms,
+	ast_waitstream_fr_cb cb)
+{
+	return waitstream_core(c, breakon, forward, reverse, ms,
+		-1 /* no audiofd */, -1 /* no cmdfd */, NULL /* no context */, cb);
 }
 
 int ast_waitstream_fr(struct ast_channel *c, const char *breakon, const char *forward, const char *reverse, int ms)
 {
 	return waitstream_core(c, breakon, forward, reverse, ms,
-		-1 /* no audiofd */, -1 /* no cmdfd */, NULL /* no context */);
+		-1 /* no audiofd */, -1 /* no cmdfd */, NULL /* no context */, NULL /* no callback */);
 }
 
 int ast_waitstream(struct ast_channel *c, const char *breakon)
 {
-	return waitstream_core(c, breakon, NULL, NULL, 0, -1, -1, NULL);
+	return waitstream_core(c, breakon, NULL, NULL, 0, -1, -1, NULL, NULL /* no callback */);
 }
 
 int ast_waitstream_full(struct ast_channel *c, const char *breakon, int audiofd, int cmdfd)
 {
 	return waitstream_core(c, breakon, NULL, NULL, 0,
-		audiofd, cmdfd, NULL /* no context */);
+		audiofd, cmdfd, NULL /* no context */, NULL /* no callback */);
 }
 
 int ast_waitstream_exten(struct ast_channel *c, const char *context)
@@ -1343,9 +1444,9 @@ int ast_waitstream_exten(struct ast_channel *c, const char *context)
 	/* in the current or specified context being pressed */
 
 	if (!context)
-		context = c->context;
+		context = ast_channel_context(c);
 	return waitstream_core(c, NULL, NULL, NULL, 0,
-		-1, -1, context);
+		-1, -1, context, NULL /* no callback */);
 }
 
 /*
@@ -1357,19 +1458,19 @@ int ast_stream_and_wait(struct ast_channel *chan, const char *file, const char *
 {
 	int res = 0;
 	if (!ast_strlen_zero(file)) {
-		ast_test_suite_event_notify("PLAYBACK", "Message: %s", file);
-		res = ast_streamfile(chan, file, chan->language);
+		ast_test_suite_event_notify("PLAYBACK", "Message: %s\r\nChannel: %s", file, ast_channel_name(chan));
+		res = ast_streamfile(chan, file, ast_channel_language(chan));
 		if (!res) {
 			res = ast_waitstream(chan, digits);
 		}
 	}
 	return res;
-} 
+}
 
 char *ast_format_str_reduce(char *fmts)
 {
-	struct ast_format *f;
-	struct ast_format *fmts_ptr[AST_MAX_FORMATS];
+	struct ast_format_def *f;
+	struct ast_format_def *fmts_ptr[AST_MAX_FORMATS];
 	char *fmts_str[AST_MAX_FORMATS];
 	char *stringp, *type;
 	char *orig = fmts;
@@ -1446,7 +1547,7 @@ static char *handle_cli_core_show_file_formats(struct ast_cli_entry *e, int cmd,
 {
 #define FORMAT "%-10s %-10s %-20s\n"
 #define FORMAT2 "%-10s %-10s %-20s\n"
-	struct ast_format *f;
+	struct ast_format_def *f;
 	int count_fmt = 0;
 
 	switch (cmd) {
@@ -1468,7 +1569,7 @@ static char *handle_cli_core_show_file_formats(struct ast_cli_entry *e, int cmd,
 
 	AST_RWLIST_RDLOCK(&formats);
 	AST_RWLIST_TRAVERSE(&formats, f, list) {
-		ast_cli(a->fd, FORMAT2, ast_getformatname(f->format), f->name, f->exts);
+		ast_cli(a->fd, FORMAT2, ast_getformatname(&f->format), f->name, f->exts);
 		count_fmt++;
 	}
 	AST_RWLIST_UNLOCK(&formats);

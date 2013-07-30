@@ -234,16 +234,18 @@ static void display_mem_info(WINDOW *menu, struct member *mem, int start, int en
 		}
 		waddstr(menu, buf);
 	}
-	{ /* support level */
-		wmove(menu, end - start + 6, max_x / 2 - 16);
-		snprintf(buf, sizeof(buf), "Support Level: %s",
-				(mem->support_level && *mem->support_level) ? mem->support_level : "core");
-		if (mem->replacement && *mem->replacement) {
-			char buf2[64];
-			snprintf(buf2, sizeof(buf2), ", Replaced by: %s", mem->replacement);
-			strncat(buf, buf2, sizeof(buf) - strlen(buf) - 1);
+
+	if (!mem->is_separator) { /* Separators lack support levels */
+		{ /* support level */
+			wmove(menu, end - start + 6, max_x / 2 - 16);
+			snprintf(buf, sizeof(buf), "Support Level: %s", mem->support_level);
+			if (mem->replacement && *mem->replacement) {
+				char buf2[64];
+				snprintf(buf2, sizeof(buf2), ", Replaced by: %s", mem->replacement);
+				strncat(buf, buf2, sizeof(buf) - strlen(buf) - 1);
+			}
+			waddstr(menu, buf);
 		}
-		waddstr(menu, buf);
 	}
 }
 
@@ -281,6 +283,8 @@ static void draw_category_menu(WINDOW *menu, struct category *cat, int start, in
 		i++;
 		if ((mem->depsfailed == HARD_FAILURE) || (mem->conflictsfailed == HARD_FAILURE)) {
 			snprintf(buf, sizeof(buf), "XXX %s", mem->name);
+		} else if (mem->is_separator) {
+			snprintf(buf, sizeof(buf), "    --- %s ---", mem->name);
 		} else if (mem->depsfailed == SOFT_FAILURE) {
 			snprintf(buf, sizeof(buf), "<%s> %s", mem->enabled ? "*" : " ", mem->name);
 		} else if (mem->conflictsfailed == SOFT_FAILURE) {
@@ -561,7 +565,9 @@ enum blip_type {
 	BLIP_TANK = 0,
 	BLIP_SHOT,
 	BLIP_BOMB,
-	BLIP_ALIEN
+	BLIP_ALIEN,
+	BLIP_BARRIER,
+	BLIP_UFO
 };
 
 struct blip {
@@ -571,23 +577,43 @@ struct blip {
 	int ox;
 	int oy;
 	int goingleft;
+	int health;
 	AST_LIST_ENTRY(blip) entry;
 };
 
 static AST_LIST_HEAD_NOLOCK(, blip) blips;
 
+static int respawn = 0;
 static int score = 0;
 static int num_aliens = 0;
 static int alien_sleeptime = 0;
+struct blip *ufo = NULL;
 struct blip *tank = NULL;
 
 /*! Probability of a bomb, out of 100 */
 #define BOMB_PROB   1
 
+static int add_barrier(int x, int y)
+{
+	struct blip *cur = NULL;
+
+	cur = calloc(1,sizeof(struct blip));
+	if(!cur) {
+		return -1;
+	}
+	cur->type=BLIP_BARRIER;
+	cur->x = x;
+	cur->y=max_y - y;
+	cur->health = 1;
+	AST_LIST_INSERT_HEAD(&blips, cur,entry);
+	return 0;
+}
+
 static int init_blips(void)
 {
 	int i, j;
 	struct blip *cur;
+	int offset = 4;
 
 	srandom(time(NULL) + getpid());
 
@@ -610,12 +636,29 @@ static int init_blips(void)
 				return -1;
 			cur->type = BLIP_ALIEN;
 			cur->x = (j * 2) + 1;
-			cur->y = (i * 2) + 1;
+			cur->y = (i * 2) + 2;
 			AST_LIST_INSERT_HEAD(&blips, cur, entry);
 			num_aliens++;
 		}
 	}
+	for(i=0; i < 4; i++) {
+		if (i > 0)
+			offset += 5 + ((max_x) -28) / 3;
+		add_barrier(offset + 1, 6);
+		add_barrier(offset + 2, 6);
+		add_barrier(offset + 3, 6);
 
+		add_barrier(offset, 5);
+		add_barrier(offset + 1, 5);
+		add_barrier(offset + 2, 5);
+		add_barrier(offset + 3, 5);
+		add_barrier(offset + 4, 5);
+
+		add_barrier(offset, 4);
+		add_barrier(offset + 1, 4);
+		add_barrier(offset + 3, 4);
+		add_barrier(offset + 4, 4);
+	}
 	return 0;
 }
 
@@ -630,6 +673,10 @@ static inline chtype type2chtype(enum blip_type type)
 		return '|';
 	case BLIP_BOMB:
 		return 'o';
+	case BLIP_BARRIER:
+		return '*';
+	case BLIP_UFO:
+		return '@';
 	default:
 		break;
 	}
@@ -710,9 +757,28 @@ static int tank_shoot(void)
 	return 0;
 }
 
+static int remove_blip(struct blip *blip)
+{
+	if (!blip) {
+		return -1;
+	}
+
+	AST_LIST_REMOVE(&blips, blip, entry);
+
+	if (blip->type == BLIP_ALIEN) {
+		num_aliens--;
+	}
+	wmove(stdscr, blip->oy, blip->ox);
+	waddch(stdscr, ' ');
+	free(blip);
+
+	return 0;
+}
+
 static int move_aliens(void)
 {
 	struct blip *cur;
+	struct blip *current_barrier;
 
 	AST_LIST_TRAVERSE(&blips, cur, entry) {
 		if (cur->type != BLIP_ALIEN) {
@@ -733,6 +799,12 @@ static int move_aliens(void)
 		/* Alien into the tank == game over */
 		if (cur->x == tank->x && cur->y == tank->y)
 			return 1;
+		AST_LIST_TRAVERSE(&blips, current_barrier, entry){
+			if(current_barrier->type!=BLIP_BARRIER)
+				continue;
+			if(cur->y == current_barrier->y && cur->x == current_barrier -> x)
+				remove_blip(current_barrier);
+		}
 		if (random() % 100 < BOMB_PROB && cur->y != max_y) {
 			struct blip *bomb = calloc(1, sizeof(struct blip));
 			if (!bomb)
@@ -750,13 +822,29 @@ static int move_aliens(void)
 static int move_bombs(void)
 {
 	struct blip *cur;
+	struct blip *current_barrier;
 
 	AST_LIST_TRAVERSE(&blips, cur, entry) {
+		int mark = 0;
 		if (cur->type != BLIP_BOMB)
 			continue;
 		cur->y++;
-		if (cur->x == tank->x && cur->y == tank->y)
+		if (cur->x == tank->x && cur->y == tank->y) {
 			return 1;
+		}
+
+		AST_LIST_TRAVERSE(&blips, current_barrier, entry) {
+			if (current_barrier->type != BLIP_BARRIER)
+				continue;
+			if (cur->x == current_barrier->x && cur->y == current_barrier->y) {
+				mark = 1;
+				current_barrier->health--;
+				if (current_barrier->health == 0)
+					remove_blip(current_barrier);
+			}
+		}
+		if (mark){
+			remove_blip(cur);}
 	}
 
 	return 0;
@@ -773,22 +861,38 @@ static void move_shots(void)
 	}
 }
 
-static int remove_blip(struct blip *blip)
+
+static int ufo_action()
 {
-	if (!blip)
-		return -1;
+	struct blip *cur;
 
-	AST_LIST_REMOVE(&blips, blip, entry);
+	AST_LIST_TRAVERSE(&blips, cur, entry) {
+		if (cur->type != BLIP_UFO) {
+			continue;
+		}
 
-	if (blip->type == BLIP_ALIEN)
-		num_aliens--;
+		cur->x--;
 
-	wmove(stdscr, blip->oy, blip->ox);
-	waddch(stdscr, ' ');
+		if (cur->x < 0) {
+			remove_blip(cur);
+			respawn += 1;
+		}
 
-	free(blip);
+	}
 
-	return 0;	
+	if (respawn == 7) {
+		respawn = 0;
+		/* make new mothership*/
+		cur = calloc(1, sizeof(struct blip));
+		if(!cur)
+			return -1;
+		cur->type = BLIP_UFO;
+		cur->x = max_x - 1;
+		cur->y = 1;
+		AST_LIST_INSERT_HEAD(&blips, cur, entry);
+	}
+
+	return 0;
 }
 
 static void game_over(int win)
@@ -812,14 +916,16 @@ static void game_over(int win)
 static int check_shot(struct blip *shot)
 {
 	struct blip *cur;
-	
+
 	AST_LIST_TRAVERSE(&blips, cur, entry) {
-		if (cur->type != BLIP_ALIEN)
-			continue;
-		if (cur->x == shot->x && cur->y == shot->y) {
+		if ((cur->type == BLIP_ALIEN || cur->type == BLIP_UFO) && cur->x == shot->x && cur->y == shot->y){
+			if (cur->type == BLIP_UFO) {
+				score += 80;
+			}
 			score += 20;
-			remove_blip(shot);
 			remove_blip(cur);
+			remove_blip(shot);
+			respawn += 1;
 			if (!num_aliens) {
 				if(alien_sleeptime < 101) {
 					game_over(1);
@@ -828,6 +934,14 @@ static int check_shot(struct blip *shot)
 					alien_sleeptime = alien_sleeptime - 100;
 					return 1;
 				}
+			}
+			break;
+		}
+		if (cur->type == BLIP_BARRIER) {
+			if (shot->x == cur->x && shot->y == cur->y) {
+				remove_blip(cur);
+				remove_blip(shot);
+				break;
 			}
 		}
 	}
@@ -858,6 +972,7 @@ static void play_space(void)
 	int quit = 0;
 	struct blip *blip;
 	alien_sleeptime = 1000;
+	score = 0;
 
 	while(alien_sleeptime > 100) {
 
@@ -888,10 +1003,12 @@ static void play_space(void)
 				/* ignore unknown input */
 				break;
 			}
-			if (quit)
+			if (quit) {
+				alien_sleeptime = 1;
 				break;
+			}
 			if (!(jiffies % 25)) {
-				if (move_aliens() || move_bombs()) {
+				if (move_aliens() || move_bombs() || ufo_action()) {
 					alien_sleeptime = 1;
 					game_over(0);
 					break;

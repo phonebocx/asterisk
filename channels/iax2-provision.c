@@ -23,9 +23,13 @@
  * \author Mark Spencer <markster@digium.com>
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 317474 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 373368 $")
 
 #include <netdb.h>
 #include <netinet/in.h>
@@ -59,7 +63,7 @@ struct iax_template {
 	unsigned short serverport;
 	unsigned int altserver;
 	unsigned int flags;
-	unsigned int format;
+	iax2_format format;
 	unsigned int tos;
 	AST_LIST_ENTRY(iax_template) list;
 };
@@ -258,7 +262,9 @@ int iax_provision_version(unsigned int *version, const char *template, int force
 	memset(&ied, 0, sizeof(ied));
 
 	ast_mutex_lock(&provlock);
-	ast_db_get("iax/provisioning/cache", template, tmp, sizeof(tmp));
+	if (ast_db_get("iax/provisioning/cache", template, tmp, sizeof(tmp))) {
+		ast_log(LOG_ERROR, "ast_db_get failed to retrieve iax/provisioning/cache/%s\n", template);
+	}
 	if (sscanf(tmp, "v%30x", version) != 1) {
 		if (strcmp(tmp, "u")) {
 			ret = iax_provision_build(&ied, version, template, force);
@@ -311,7 +317,7 @@ static int iax_template_parse(struct iax_template *cur, struct ast_config *cfg, 
 		ast_mutex_unlock(&provlock);
 	}
 	if (def)
-		strncpy(cur->src, def, sizeof(cur->src) - 1);
+		ast_copy_string(cur->src, def, sizeof(cur->src));
 	else
 		cur->src[0] = '\0';
 	v = ast_variable_browse(cfg, s);
@@ -338,23 +344,24 @@ static int iax_template_parse(struct iax_template *cur, struct ast_config *cfg, 
 			} else 
 				ast_log(LOG_WARNING, "Ignoring invalid %s '%s' for '%s' at line %d\n", v->name, v->value, s, v->lineno);
 		} else if (!strcasecmp(v->name, "codec")) {
-			if ((x = ast_getformatbyname(v->value)) > 0) {
-				cur->format = x;
+			struct ast_format tmpfmt;
+			if ((ast_getformatbyname(v->value, &tmpfmt)) > 0) {
+				cur->format = ast_format_to_old_bitfield(&tmpfmt);
 			} else
 				ast_log(LOG_WARNING, "Ignoring invalid codec '%s' for '%s' at line %d\n", v->value, s, v->lineno);
 		} else if (!strcasecmp(v->name, "tos")) {
 			if (ast_str2tos(v->value, &cur->tos))
 				ast_log(LOG_WARNING, "Invalid tos value at line %d, refer to QoS documentation\n", v->lineno);
 		} else if (!strcasecmp(v->name, "user")) {
-			strncpy(cur->user, v->value, sizeof(cur->user) - 1);
+			ast_copy_string(cur->user, v->value, sizeof(cur->user));
 			if (strcmp(cur->user, v->value))
 				ast_log(LOG_WARNING, "Truncating username from '%s' to '%s' for '%s' at line %d\n", v->value, cur->user, s, v->lineno);
 		} else if (!strcasecmp(v->name, "pass")) {
-			strncpy(cur->pass, v->value, sizeof(cur->pass) - 1);
+			ast_copy_string(cur->pass, v->value, sizeof(cur->pass));
 			if (strcmp(cur->pass, v->value))
 				ast_log(LOG_WARNING, "Truncating password from '%s' to '%s' for '%s' at line %d\n", v->value, cur->pass, s, v->lineno);
 		} else if (!strcasecmp(v->name, "language")) {
-			strncpy(cur->lang, v->value, sizeof(cur->lang) - 1);
+			ast_copy_string(cur->lang, v->value, sizeof(cur->lang));
 			if (strcmp(cur->lang, v->value))
 				ast_log(LOG_WARNING, "Truncating language from '%s' to '%s' for '%s' at line %d\n", v->value, cur->lang, s, v->lineno);
 		} else if (!strcasecmp(v->name, "flags")) {
@@ -390,7 +397,7 @@ static int iax_process_template(struct ast_config *cfg, char *s, char *def)
 			return -1;
 		}
 		/* Initialize entry */
-		strncpy(cur->name, s, sizeof(cur->name) - 1);
+		ast_copy_string(cur->name, s, sizeof(cur->name));
 		cur->dead = 1;
 	}
 	if (!iax_template_parse(cur, cfg, s, def))
@@ -466,7 +473,7 @@ static char *iax_show_provisioning(struct ast_cli_entry *e, int cmd, struct ast_
 			ast_cli(a->fd, "Server Port:  %d\n", cur->serverport);
 			ast_cli(a->fd, "Alternate:    %s\n", alternate);
 			ast_cli(a->fd, "Flags:        %s\n", iax_provflags2str(flags, sizeof(flags), cur->flags));
-			ast_cli(a->fd, "Format:       %s\n", ast_getformatname(cur->format));
+			ast_cli(a->fd, "Format:       %s\n", iax2_getformatname(cur->format));
 			ast_cli(a->fd, "TOS:          0x%x\n", cur->tos);
 			found++;
 		}

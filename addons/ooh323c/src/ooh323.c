@@ -40,7 +40,7 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg);
 int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg);
 int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg);
 int ooHandleDisplayIE(OOH323CallData *call, Q931Message *q931Msg);
-int ooHandleH2250ID (OOH323CallData *call, H225ProtocolIdentifier protocolIdentifier);
+int ooHandleH2250ID (OOH323CallData *call, H225ProtocolIdentifier* protocolIdentifier);
 
 int ooHandleDisplayIE(OOH323CallData *call, Q931Message *q931Msg) {
    Q931InformationElement* pDisplayIE;
@@ -58,10 +58,10 @@ int ooHandleDisplayIE(OOH323CallData *call, Q931Message *q931Msg) {
    return OO_OK;
 }
 
-int ooHandleH2250ID (OOH323CallData *call, H225ProtocolIdentifier protocolIdentifier) {
-   if (!call->h225version && (protocolIdentifier.numids >= 6) &&
-	(protocolIdentifier.subid[3] == 2250)) {
-	call->h225version = protocolIdentifier.subid[5];
+int ooHandleH2250ID (OOH323CallData *call, H225ProtocolIdentifier* protocolIdentifier) {
+   if (!call->h225version && (protocolIdentifier->numids >= 6) &&
+	(protocolIdentifier->subid[3] == 2250)) {
+	call->h225version = protocolIdentifier->subid[5];
 	OOTRACEDBGC4("Extract H.225 remote version, it's %d, (%s, %s)\n", call->h225version, 
 						call->callType, call->callToken);
 
@@ -104,6 +104,8 @@ int ooHandleFastStart(OOH323CallData *call, H225Facility_UUIE *facility)
                   call->callEndReason = OO_REASON_LOCAL_CLEARED;
                   call->callState = OO_CALL_CLEAR;
                }
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
             memset(olc, 0, sizeof(H245OpenLogicalChannel));
@@ -122,6 +124,8 @@ int ooHandleFastStart(OOH323CallData *call, H225Facility_UUIE *facility)
                   call->callEndReason = OO_REASON_INVALIDMESSAGE;
                   call->callState = OO_CALL_CLEAR;
                }
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
 
@@ -134,6 +138,8 @@ int ooHandleFastStart(OOH323CallData *call, H225Facility_UUIE *facility)
                            "(%s, %s)\n",
                             olc->forwardLogicalChannelNumber, call->callType, 
                             call->callToken);
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
             if(pChannel->channelNo != olc->forwardLogicalChannelNumber)
@@ -165,6 +171,8 @@ int ooHandleFastStart(OOH323CallData *call, H225Facility_UUIE *facility)
                   OOTRACEERR3("ERROR:Invalid OLC received in fast start. No "
                               "forward Logical Channel Parameters found. "
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                if(!h2250lcp->m.mediaChannelPresent)
@@ -187,6 +195,8 @@ int ooHandleFastStart(OOH323CallData *call, H225Facility_UUIE *facility)
                	}
                   OOTRACEERR3("ERROR:Unsupported media channel address type "
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
        
@@ -226,7 +236,7 @@ int ooHandleFastStart(OOH323CallData *call, H225Facility_UUIE *facility)
       if(ret != OO_OK)
       {
          OOTRACEERR3("Error: Unknown H245 address type in received "
-                     "CallProceeding message (%s, %s)", call->callType, 
+                     "Facility message (%s, %s)", call->callType, 
                      call->callToken);
          /* Mark call for clearing */
          if(call->callState < OO_CALL_CLEAR)
@@ -368,8 +378,10 @@ int ooOnReceivedSetup(OOH323CallData *call, Q931Message *q931Msg)
    H245OpenLogicalChannel* olc;
    ASN1OCTET msgbuf[MAXMSGLEN];
    H225TransportAddress_ipAddress_ip *ip = NULL;
+   H225TransportAddress_ip6Address_ip *ip6 = NULL;
    Q931InformationElement* pDisplayIE=NULL;
    OOAliases *pAlias=NULL;
+   char remoteIP[2+8*4+7] = "";
 
    call->callReference = q931Msg->callReference;
  
@@ -386,7 +398,7 @@ int ooOnReceivedSetup(OOH323CallData *call, Q931Message *q931Msg)
                   "%s\n", call->callType, call->callToken);
       return OO_FAILED;
    }
-   ooHandleH2250ID(call, setup->protocolIdentifier);
+   ooHandleH2250ID(call, &setup->protocolIdentifier);
    memcpy(call->callIdentifier.guid.data, setup->callIdentifier.guid.data, 
           setup->callIdentifier.guid.numocts);
    call->callIdentifier.guid.numocts = setup->callIdentifier.guid.numocts;
@@ -507,18 +519,27 @@ int ooOnReceivedSetup(OOH323CallData *call, Q931Message *q931Msg)
                    "setup (%s, %s)\n", call->callType, call->callToken);
    }
    else{
-
-      if(setup->sourceCallSignalAddress.t != T_H225TransportAddress_ipAddress)
-      {
-         OOTRACEERR3("ERROR: Source call signalling address type not ip "
+      if(setup->sourceCallSignalAddress.t == T_H225TransportAddress_ip6Address) {
+        ip6 = &setup->sourceCallSignalAddress.u.ip6Address->ip;
+        inet_ntop(AF_INET6, ip6->data, remoteIP, INET6_ADDRSTRLEN);
+        call->remotePort =  setup->sourceCallSignalAddress.u.ip6Address->port;
+      } else  if(setup->sourceCallSignalAddress.t == T_H225TransportAddress_ipAddress) {
+        ip = &setup->sourceCallSignalAddress.u.ipAddress->ip;
+        sprintf(remoteIP, "%d.%d.%d.%d", ip->data[0], ip->data[1], 
+                                         ip->data[2], ip->data[3]);
+        call->remotePort =  setup->sourceCallSignalAddress.u.ipAddress->port;
+      } else {
+         OOTRACEERR3("ERROR: Source call signalling address type not ip4 nor ip6 "
                      "(%s, %s)\n", call->callType, call->callToken);
          return OO_FAILED;
       }
+   }
 
-      ip = &setup->sourceCallSignalAddress.u.ipAddress->ip;
-      sprintf(call->remoteIP, "%d.%d.%d.%d", ip->data[0], ip->data[1], 
-                                             ip->data[2], ip->data[3]);
-      call->remotePort =  setup->sourceCallSignalAddress.u.ipAddress->port;
+   if (strncmp(remoteIP, call->remoteIP, strlen(remoteIP))) {
+     OOTRACEERR5("ERROR: Security denial remote sig IP isn't a socket ip, %s not %s "
+		     "(%s, %s)\n", remoteIP, call->remoteIP, call->callType, 
+		     call->callToken);
+     return OO_FAILED;
    }
    
    /* check for fast start */
@@ -568,6 +589,8 @@ int ooOnReceivedSetup(OOH323CallData *call, Q931Message *q931Msg)
                call->callEndReason = OO_REASON_LOCAL_CLEARED;
                call->callState = OO_CALL_CLEAR;
             }
+            finishPrint();
+            removeEventHandler(call->pctxt);
             return OO_FAILED;
          }
          memset(olc, 0, sizeof(H245OpenLogicalChannel));
@@ -587,7 +610,9 @@ int ooOnReceivedSetup(OOH323CallData *call, Q931Message *q931Msg)
                call->callEndReason = OO_REASON_INVALIDMESSAGE;
                call->callState = OO_CALL_CLEAR;
             }
-            return OO_FAILED;
+              finishPrint();
+              removeEventHandler(call->pctxt);
+              return OO_FAILED;
          }
          /* For now, just add decoded fast start elemts to list. This list
             will be processed at the time of sending CONNECT message. */
@@ -633,7 +658,7 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
       return OO_FAILED;
    }
 
-   ooHandleH2250ID(call, callProceeding->protocolIdentifier);
+   ooHandleH2250ID(call, &callProceeding->protocolIdentifier);
    /* Handle fast-start */
    if(OO_TESTFLAG (call->flags, OO_M_FASTSTART))
    {
@@ -661,6 +686,8 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
                   call->callEndReason = OO_REASON_LOCAL_CLEARED;
                   call->callState = OO_CALL_CLEAR;
                }
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
             memset(olc, 0, sizeof(H245OpenLogicalChannel));
@@ -679,6 +706,8 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
                   call->callEndReason = OO_REASON_INVALIDMESSAGE;
                   call->callState = OO_CALL_CLEAR;
                }
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
 
@@ -691,6 +720,8 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
                            "(%s, %s)\n",
                             olc->forwardLogicalChannelNumber, call->callType, 
                             call->callToken);
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
             if(pChannel->channelNo != olc->forwardLogicalChannelNumber)
@@ -721,6 +752,8 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:Invalid OLC received in fast start. No "
                               "forward Logical Channel Parameters found. "
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                if(!h2250lcp->m.mediaChannelPresent)
@@ -728,6 +761,8 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:Invalid OLC received in fast start. No "
                               "reverse media channel information found."
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                ret = ooGetIpPortFromH245TransportAddress(call, 
@@ -743,6 +778,8 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
                	}
                   OOTRACEERR3("ERROR:Unsupported media channel address type "
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
        
@@ -751,6 +788,8 @@ int ooOnReceivedCallProceeding(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:No callback registered to start transmit "
                               "channel (%s, %s)\n",call->callType, 
                               call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                pChannel->chanCap->startTransmitChannel(call, pChannel);
@@ -862,7 +901,7 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
       }
       return OO_FAILED;
    }
-   ooHandleH2250ID(call, alerting->protocolIdentifier);
+   ooHandleH2250ID(call, &alerting->protocolIdentifier);
    /*Handle fast-start */
    if(OO_TESTFLAG (call->flags, OO_M_FASTSTART) &&
       !OO_TESTFLAG(call->flags, OO_M_FASTSTARTANSWERED))
@@ -891,6 +930,8 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
                   call->callEndReason = OO_REASON_LOCAL_CLEARED;
                   call->callState = OO_CALL_CLEAR;
                }
+            finishPrint();
+            removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
             memset(olc, 0, sizeof(H245OpenLogicalChannel));
@@ -909,6 +950,8 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
                   call->callEndReason = OO_REASON_INVALIDMESSAGE;
                   call->callState = OO_CALL_CLEAR;
                }
+            finishPrint();
+            removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
 
@@ -921,6 +964,8 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
                            "(%s, %s)\n",
                             olc->forwardLogicalChannelNumber, call->callType, 
                             call->callToken);
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
             if(pChannel->channelNo != olc->forwardLogicalChannelNumber)
@@ -951,6 +996,8 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:Invalid OLC received in fast start. No "
                               "forward Logical Channel Parameters found. "
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                if(!h2250lcp->m.mediaChannelPresent)
@@ -958,6 +1005,8 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:Invalid OLC received in fast start. No "
                               "reverse media channel information found."
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                ret = ooGetIpPortFromH245TransportAddress(call, 
@@ -981,6 +1030,8 @@ int ooOnReceivedAlerting(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:No callback registered to start transmit "
                               "channel (%s, %s)\n",call->callType, 
                               call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                pChannel->chanCap->startTransmitChannel(call, pChannel);
@@ -1099,7 +1150,7 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
       }
       return OO_FAILED;
    }
-   ooHandleH2250ID(call, progress->protocolIdentifier);
+   ooHandleH2250ID(call, &progress->protocolIdentifier);
    /*Handle fast-start */
    if(OO_TESTFLAG (call->flags, OO_M_FASTSTART) &&
       !OO_TESTFLAG(call->flags, OO_M_FASTSTARTANSWERED))
@@ -1128,6 +1179,8 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
                   call->callEndReason = OO_REASON_LOCAL_CLEARED;
                   call->callState = OO_CALL_CLEAR;
                }
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
             memset(olc, 0, sizeof(H245OpenLogicalChannel));
@@ -1146,6 +1199,8 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
                   call->callEndReason = OO_REASON_INVALIDMESSAGE;
                   call->callState = OO_CALL_CLEAR;
                }
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
 
@@ -1158,6 +1213,8 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
                            "(%s, %s)\n",
                             olc->forwardLogicalChannelNumber, call->callType, 
                             call->callToken);
+               finishPrint();
+               removeEventHandler(call->pctxt);
                return OO_FAILED;
             }
             if(pChannel->channelNo != olc->forwardLogicalChannelNumber)
@@ -1188,6 +1245,8 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:Invalid OLC received in fast start. No "
                               "forward Logical Channel Parameters found. "
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                if(!h2250lcp->m.mediaChannelPresent)
@@ -1195,6 +1254,8 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:Invalid OLC received in fast start. No "
                               "reverse media channel information found."
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                ret = ooGetIpPortFromH245TransportAddress(call, 
@@ -1210,6 +1271,8 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
                	}
                   OOTRACEERR3("ERROR:Unsupported media channel address type "
                               "(%s, %s)\n", call->callType, call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
        
@@ -1218,6 +1281,8 @@ int ooOnReceivedProgress(OOH323CallData *call, Q931Message *q931Msg)
                   OOTRACEERR3("ERROR:No callback registered to start transmit "
                               "channel (%s, %s)\n",call->callType, 
                               call->callToken);
+                  finishPrint();
+                  removeEventHandler(call->pctxt);
                   return OO_FAILED;
                }
                pChannel->chanCap->startTransmitChannel(call, pChannel);
@@ -1343,7 +1408,7 @@ int ooOnReceivedSignalConnect(OOH323CallData* call, Q931Message *q931Msg)
       }
       return OO_FAILED;
    }
-   ooHandleH2250ID(call, connect->protocolIdentifier);
+   ooHandleH2250ID(call, &connect->protocolIdentifier);
    /*Handle fast-start */
    if(OO_TESTFLAG (call->flags, OO_M_FASTSTART) && 
       !OO_TESTFLAG (call->flags, OO_M_FASTSTARTANSWERED))
@@ -1352,8 +1417,6 @@ int ooOnReceivedSignalConnect(OOH323CallData* call, Q931Message *q931Msg)
       {
          OOTRACEINFO3("Remote endpoint has rejected fastStart. (%s, %s)\n",
                       call->callType, call->callToken);
-         /* Clear all channels we might have created */
-         ooClearAllLogicalChannels(call);
          OO_CLRFLAG (call->flags, OO_M_FASTSTART);
       }
    }
@@ -1675,11 +1738,12 @@ int ooHandleH2250Message(OOH323CallData *call, Q931Message *q931Msg)
             }
          }
 	 if (call->callState < OO_CALL_CLEAR) {
-         	ooSendCallProceeding(call);/* Send call proceeding message*/
-         	ret = ooH323CallAdmitted (call);
+		ooHandleFastStartChannels(call);
+		ooSendCallProceeding(call);/* Send call proceeding message*/
+		ret = ooH323CallAdmitted (call);
+		call->callState = OO_CALL_CONNECTING;
 	  }
 
-	 call->callState = OO_CALL_CONNECTING;
 
 	 } /* end ret == OO_OK */
          break;
@@ -1792,6 +1856,7 @@ int ooHandleH2250Message(OOH323CallData *call, Q931Message *q931Msg)
       case Q931StatusEnquiryMsg:
          OOTRACEINFO3("H.225 Status Inquiry message Received (%s, %s)\n",
                        call->callType, call->callToken);
+	 ooSendStatus(call);
          ooFreeQ931Message(call->msgctxt, q931Msg);
          break;
       case Q931SetupAckMsg:
@@ -1818,6 +1883,7 @@ int ooOnReceivedFacility(OOH323CallData *call, Q931Message * pQ931Msg)
    H225Facility_UUIE * facility = NULL;
    int ret;
    H225TransportAddress_ipAddress_ip *ip = NULL;
+   H225TransportAddress_ip6Address_ip *ip6 = NULL;
    OOTRACEDBGC3("Received Facility Message.(%s, %s)\n", call->callType, 
                                                         call->callToken);
 
@@ -1840,7 +1906,7 @@ int ooOnReceivedFacility(OOH323CallData *call, Q931Message * pQ931Msg)
    facility = pH323UUPdu->h323_message_body.u.facility;
    if(facility)
    {
-      ooHandleH2250ID(call, facility->protocolIdentifier);
+      ooHandleH2250ID(call, &facility->protocolIdentifier);
       /* Depending on the reason of facility message handle the message */
       if(facility->reason.t == T_H225FacilityReason_transportedInformation)
       {
@@ -1903,6 +1969,21 @@ int ooOnReceivedFacility(OOH323CallData *call, Q931Message * pQ931Msg)
          call->pCallFwdData->aliases = NULL;
          if(facility->m.alternativeAddressPresent)
          {
+	  if (call->versionIP == 6) {
+            if(facility->alternativeAddress.t != 
+                                           T_H225TransportAddress_ip6Address)
+            {
+               OOTRACEERR3("ERROR: Source call signalling address type not ip6 "
+                           "(%s, %s)\n", call->callType, call->callToken);
+           
+               return OO_FAILED;
+            }
+
+            ip6 = &facility->alternativeAddress.u.ip6Address->ip;
+	    inet_ntop(AF_INET6, ip6->data, call->pCallFwdData->ip, INET6_ADDRSTRLEN);
+            call->pCallFwdData->port =  
+                               facility->alternativeAddress.u.ip6Address->port;
+	  } else {
             if(facility->alternativeAddress.t != 
                                            T_H225TransportAddress_ipAddress)
             {
@@ -1917,6 +1998,7 @@ int ooOnReceivedFacility(OOH323CallData *call, Q931Message * pQ931Msg)
                                        ip->data[1], ip->data[2], ip->data[3]);
             call->pCallFwdData->port =  
                                facility->alternativeAddress.u.ipAddress->port;
+          }
          }
 
          if(facility->m.alternativeAliasAddressPresent)
@@ -1973,6 +2055,7 @@ int ooHandleStartH245FacilityMessage
    (OOH323CallData *call, H225Facility_UUIE *facility)
 {
    H225TransportAddress_ipAddress *ipAddress = NULL;
+   H225TransportAddress_ip6Address *ip6Address = NULL;
    int ret;
    
    /* Extract H245 address */
@@ -1982,25 +2065,43 @@ int ooHandleStartH245FacilityMessage
                   "address (%s, %s)\n", call->callType, call->callToken);
       return OO_FAILED;
    }
-   if(facility->h245Address.t != T_H225TransportAddress_ipAddress)
-   {
+   if (call->versionIP == 6) {
+    if(facility->h245Address.t != T_H225TransportAddress_ip6Address)
+    {
       OOTRACEERR3("ERROR:Unknown H245 address type in received startH245 "
                "facility message (%s, %s)\n", call->callType, call->callToken);
       return OO_FAILED;
-   }
-   ipAddress = facility->h245Address.u.ipAddress;
-   if(!ipAddress)
-   {
+    }
+    ip6Address = facility->h245Address.u.ip6Address;
+    if(!ip6Address)
+    {
+      OOTRACEERR3("ERROR:Invalid startH245 facility message. No H245 ip6 "
+                  "address found. (%s, %s)\n", call->callType, call->callToken);
+      return OO_FAILED;
+    }
+    inet_ntop(AF_INET6, ip6Address->ip.data, call->remoteIP, INET6_ADDRSTRLEN);
+    call->remoteH245Port = ip6Address->port;
+   } else {
+    if(facility->h245Address.t != T_H225TransportAddress_ipAddress)
+    {
+      OOTRACEERR3("ERROR:Unknown H245 address type in received startH245 "
+               "facility message (%s, %s)\n", call->callType, call->callToken);
+      return OO_FAILED;
+    }
+    ipAddress = facility->h245Address.u.ipAddress;
+    if(!ipAddress)
+    {
       OOTRACEERR3("ERROR:Invalid startH245 facility message. No H245 ip "
                   "address found. (%s, %s)\n", call->callType, call->callToken);
       return OO_FAILED;
-   }
+    }
    
-   sprintf(call->remoteIP, "%d.%d.%d.%d", ipAddress->ip.data[0],
+    sprintf(call->remoteIP, "%d.%d.%d.%d", ipAddress->ip.data[0],
                                           ipAddress->ip.data[1],
                                           ipAddress->ip.data[2],
                                           ipAddress->ip.data[3]);
-   call->remoteH245Port = ipAddress->port;
+    call->remoteH245Port = ipAddress->port;
+   }
 
    /* disable tunneling for this call */
    OO_CLRFLAG (call->flags, OO_M_TUNNELING);
@@ -2182,15 +2283,16 @@ int ooH323RetrieveAliases
          newAlias->value[strlen(pAliasAddress->u.url_ID)*sizeof(char)]='\0';
          break;
       case T_H225AliasAddress_transportID:
-         newAlias->type = T_H225AliasAddress_transportID;
-         pTransportAddrss = pAliasAddress->u.transportID;
-         if(pTransportAddrss->t != T_H225TransportAddress_ipAddress)
-         {
-            OOTRACEERR3("Error:Alias transportID not an IP address"
-                        "(%s, %s)\n", call->callType, call->callToken);
-            memFreePtr(call->pctxt, newAlias);
-            break;
-         }
+        newAlias->type = T_H225AliasAddress_transportID;
+        pTransportAddrss = pAliasAddress->u.transportID;
+        if(pTransportAddrss->t == T_H225TransportAddress_ip6Address) {
+         /* hopefully ip:port value can't exceed more than 30 
+            characters */
+         newAlias->value = (char*)memAlloc(call->pctxt, 
+                                                      INET6_ADDRSTRLEN*sizeof(char)*2);
+	 inet_ntop(AF_INET6, pTransportAddrss->u.ip6Address->ip.data, newAlias->value, INET6_ADDRSTRLEN);
+	 sprintf(newAlias->value+strlen(newAlias->value), ":%d", pTransportAddrss->u.ip6Address->port);
+        } else if(pTransportAddrss->t == T_H225TransportAddress_ipAddress) {
          /* hopefully ip:port value can't exceed more than 30 
             characters */
          newAlias->value = (char*)memAlloc(call->pctxt, 
@@ -2201,7 +2303,12 @@ int ooH323RetrieveAliases
                                   pTransportAddrss->u.ipAddress->ip.data[2],
                                   pTransportAddrss->u.ipAddress->ip.data[3],
                                   pTransportAddrss->u.ipAddress->port);
-         break;
+	} else {
+         OOTRACEERR3("Error:Alias transportID not an IP4 nor IP6 address"
+                     "(%s, %s)\n", call->callType, call->callToken);
+         memFreePtr(call->pctxt, newAlias);
+	}
+        break;
       case T_H225AliasAddress_email_ID:
          newAlias->type = T_H225AliasAddress_email_ID;
          newAlias->value = (char*)memAlloc(call->pctxt, 
@@ -2475,22 +2582,29 @@ OOAliases* ooH323AddAliasToList
    case T_H225AliasAddress_transportID:
       newAlias->type = T_H225AliasAddress_transportID;
       pTransportAddrss = pAliasAddress->u.transportID;
-      if(pTransportAddrss->t != T_H225TransportAddress_ipAddress)
-      {
-         OOTRACEERR1("Error:Alias transportID not an IP address\n");
-         memFreePtr(pctxt, newAlias);
-         return NULL;
-      }
-      /* hopefully ip:port value can't exceed more than 30 
+      if(pTransportAddrss->t == T_H225TransportAddress_ip6Address) {
+       /* hopefully ip:port value can't exceed more than 30 
          characters */
-      newAlias->value = (char*)memAlloc(pctxt, 
+       newAlias->value = (char*)memAlloc(pctxt, 
+                                              INET6_ADDRSTRLEN*sizeof(char)*2);
+       inet_ntop(AF_INET6, pTransportAddrss->u.ip6Address->ip.data, newAlias->value, INET6_ADDRSTRLEN);
+       sprintf(newAlias->value+strlen(newAlias->value), ":%d", pTransportAddrss->u.ip6Address->port);
+      } else if(pTransportAddrss->t == T_H225TransportAddress_ipAddress) {
+       /* hopefully ip:port value can't exceed more than 30 
+         characters */
+       newAlias->value = (char*)memAlloc(pctxt, 
                                               30*sizeof(char));
-      sprintf(newAlias->value, "%d.%d.%d.%d:%d", 
+       sprintf(newAlias->value, "%d.%d.%d.%d:%d", 
                                pTransportAddrss->u.ipAddress->ip.data[0],
                                pTransportAddrss->u.ipAddress->ip.data[1],
                                pTransportAddrss->u.ipAddress->ip.data[2],
                                pTransportAddrss->u.ipAddress->ip.data[3],
                                pTransportAddrss->u.ipAddress->port);
+      } else {
+       OOTRACEERR1("Error:Alias transportID not an IP4 nor IP6 address\n");
+       memFreePtr(pctxt, newAlias);
+       return NULL;
+      }
       break;
    case T_H225AliasAddress_email_ID:
       newAlias->type = T_H225AliasAddress_email_ID;
@@ -2513,6 +2627,17 @@ OOAliases* ooH323AddAliasToList
 int ooH323GetIpPortFromH225TransportAddress(struct OOH323CallData *call, 
    H225TransportAddress *h225Address, char *ip, int *port)
 {
+   if (call->versionIP == 6) {
+    if(h225Address->t != T_H225TransportAddress_ip6Address)
+    {
+      OOTRACEERR3("Error: Unknown H225 address type. (%s, %s)", call->callType,
+                   call->callToken);
+      return OO_FAILED;
+    }
+    inet_ntop(AF_INET6, h225Address->u.ip6Address->ip.data, ip, INET6_ADDRSTRLEN);
+    *port = h225Address->u.ip6Address->port;
+    return OO_OK;
+   }
    if(h225Address->t != T_H225TransportAddress_ipAddress)
    {
       OOTRACEERR3("Error: Unknown H225 address type. (%s, %s)", call->callType,

@@ -22,7 +22,7 @@
 # Description:		the Asterisk Open Source PBX
 ### END INIT INFO
 
-# $Id: rc.mandriva.asterisk 239270 2010-01-11 23:53:32Z tilghman $
+# $Id: rc.mandriva.asterisk 379889 2013-01-22 18:57:06Z bebuild $
 
 TTY=9			# TTY (if you want one) for Asterisk to run on
 CONSOLE=yes		# Whether or not you want a console
@@ -135,7 +135,7 @@ case "$1" in
 	start)
 		# Check if Asterisk is already running.  If it is, then bug out, because
 		# starting Asterisk when Asterisk is already running is very bad.
-		VERSION=`${ASTSBINDIR}/asterisk -rx 'core show version'`
+		VERSION=`${ASTSBINDIR}/asterisk -rx 'core show version' 2>/dev/null`
 		if [ "`echo $VERSION | cut -c 1-8`" = "Asterisk" ]; then
 			echo "Asterisk is already running.  $0 will exit now."
 			exit 1

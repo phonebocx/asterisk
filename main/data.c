@@ -22,9 +22,13 @@
  * \author Eliel C. Sardanons (LU1ALY) <eliels@gmail.com>
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 275105 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 374196 $")
 
 #include "asterisk/_private.h"
 
@@ -696,7 +700,7 @@ static struct ast_data_search *data_search_alloc(const char *name)
 	res->children = ao2_container_alloc(NUM_DATA_SEARCH_BUCKETS, data_search_hash,
 		data_search_cmp);
 
-	if (!res) {
+	if (!res->children) {
 		ao2_ref(res, -1);
 		return NULL;
 	}
@@ -1042,6 +1046,7 @@ static int data_search_cmp_ptr(const struct ast_data_search *root, const char *n
 	cmp_type = child->cmp_type;
 
 	if (sscanf(child->value, "%p", &node_ptr) <= 0) {
+		ao2_ref(child, -1);
 		return 1;
 	}
 
@@ -1653,7 +1658,7 @@ static struct data_filter *data_filter_alloc(const char *name)
 	res->children = ao2_container_alloc(NUM_DATA_FILTER_BUCKETS, data_filter_hash,
 		data_filter_cmp);
 
-	if (!res) {
+	if (!res->children) {
 		ao2_ref(res, -1);
 		return NULL;
 	}
@@ -2186,6 +2191,7 @@ struct ast_xml_doc *ast_data_get_xml(const struct ast_data_query *query)
 
 	doc = ast_xml_new();
 	if (!doc) {
+		ast_data_free(res);
 		return NULL;
 	}
 
@@ -2496,18 +2502,20 @@ struct ast_data_iterator *ast_data_iterator_init(struct ast_data *tree,
 	struct ast_data *internal = tree;
 	char *path, *ptr = NULL;
 
+	if (!elements) {
+		return NULL;
+	}
+
 	/* tree is the node we want to use to iterate? or we are going
 	 * to iterate thow an internal node? */
-	if (elements) {
-		path = ast_strdupa(elements);
+	path = ast_strdupa(elements);
 
-		ptr = strrchr(path, '/');
-		if (ptr) {
-			*ptr = '\0';
-			internal = data_result_get_node(tree, path);
-			if (!internal) {
-				return NULL;
-			}
+	ptr = strrchr(path, '/');
+	if (ptr) {
+		*ptr = '\0';
+		internal = data_result_get_node(tree, path);
+		if (!internal) {
+			return NULL;
 		}
 	}
 
@@ -3100,7 +3108,7 @@ static int manager_data_get(struct mansession *s, const struct message *m)
 	return RESULT_SUCCESS;
 }
 
-int ast_data_add_codecs(struct ast_data *root, const char *node_name, format_t capability)
+int ast_data_add_codec(struct ast_data *root, const char *node_name, struct ast_format *format)
 {
 	struct ast_data *codecs, *codec;
 	size_t fmlist_size;
@@ -3111,11 +3119,12 @@ int ast_data_add_codecs(struct ast_data *root, const char *node_name, format_t c
 	if (!codecs) {
 		return -1;
 	}
-	fmlist = ast_get_format_list(&fmlist_size);
+	fmlist = ast_format_list_get(&fmlist_size);
 	for (x = 0; x < fmlist_size; x++) {
-		if (fmlist[x].bits & capability) {
+		if (ast_format_cmp(&fmlist[x].format, format) == AST_FORMAT_CMP_EQUAL) {
 			codec = ast_data_add_node(codecs, "codec");
 			if (!codec) {
+				ast_format_list_destroy(fmlist);
 				return -1;
 			}
 			ast_data_add_str(codec, "name", fmlist[x].name);
@@ -3124,6 +3133,37 @@ int ast_data_add_codecs(struct ast_data *root, const char *node_name, format_t c
 			ast_data_add_int(codec, "frame_length", fmlist[x].fr_len);
 		}
 	}
+	ast_format_list_destroy(fmlist);
+
+	return 0;
+}
+
+int ast_data_add_codecs(struct ast_data *root, const char *node_name, struct ast_format_cap *cap)
+{
+	struct ast_data *codecs, *codec;
+	size_t fmlist_size;
+	const struct ast_format_list *fmlist;
+	int x;
+
+	codecs = ast_data_add_node(root, node_name);
+	if (!codecs) {
+		return -1;
+	}
+	fmlist = ast_format_list_get(&fmlist_size);
+	for (x = 0; x < fmlist_size; x++) {
+		if (ast_format_cap_iscompatible(cap, &fmlist[x].format)) {
+			codec = ast_data_add_node(codecs, "codec");
+			if (!codec) {
+				ast_format_list_destroy(fmlist);
+				return -1;
+			}
+			ast_data_add_str(codec, "name", fmlist[x].name);
+			ast_data_add_int(codec, "samplespersecond", fmlist[x].samplespersecond);
+			ast_data_add_str(codec, "description", fmlist[x].desc);
+			ast_data_add_int(codec, "frame_length", fmlist[x].fr_len);
+		}
+	}
+	ast_format_list_destroy(fmlist);
 
 	return 0;
 }
@@ -3274,6 +3314,14 @@ AST_TEST_DEFINE(test_data_get)
 
 #endif
 
+/*! \internal \brief Clean up resources on Asterisk shutdown */
+static void data_shutdown(void)
+{
+	ast_manager_unregister("DataGet");
+	ao2_t_ref(root_data.container, -1, "Unref root_data.container in data_shutdown");
+	ast_rwlock_destroy(&root_data.lock);
+}
+
 int ast_data_init(void)
 {
 	int res = 0;
@@ -3287,11 +3335,13 @@ int ast_data_init(void)
 
 	res |= ast_cli_register_multiple(cli_data, ARRAY_LEN(cli_data));
 
-	res |= ast_manager_register_xml("DataGet", 0, manager_data_get);
+	res |= ast_manager_register_xml_core("DataGet", 0, manager_data_get);
 
 #ifdef TEST_FRAMEWORK
 	AST_TEST_REGISTER(test_data_get);
 #endif
+
+	ast_register_atexit(data_shutdown);
 
 	return res;
 }

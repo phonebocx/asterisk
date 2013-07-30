@@ -88,12 +88,14 @@ TRUNKMSD = 1
 --
 -- More examples can be found below.
 --
--- Before starting long running operations, an autoservice should be started
--- using the autoservice_start() function.  This autoservice will automatically
--- be stopped before executing applications and dialplan functions and will be
--- restarted afterwards.  The autoservice can be stopped using
--- autoservice_stop() and the autoservice_status() function will return true if
--- an autoservice is currently running.
+-- An autoservice is automatically run while lua code is executing.  The
+-- autoservice can be stopped and restarted using the autoservice_stop() and
+-- autoservice_start() functions.  The autservice should be running before
+-- starting long running operations. The autoservice will automatically be
+-- stopped before executing applications and dialplan functions and will be
+-- restarted afterwards.  The autoservice_status() function can be used to
+-- check the current status of the autoservice and will return true if an
+-- autoservice is currently running.
 --
 
 function outgoing_local(c, e)
@@ -142,7 +144,7 @@ extensions = {
 		end;
 
 		["1000"] = function()
-			app.goto("default", "s", 1)
+			app.goto("demo", "s", 1)
 		end;
 
 		["1234"] = function()
@@ -192,8 +194,28 @@ extensions = {
 		include = {"demo"};
 	};
 
+	public = {
+		-- ATTENTION: If your Asterisk is connected to the internet and you do
+		-- not have allowguest=no in sip.conf, everybody out there may use your
+		-- public context without authentication.  In that case you want to
+		-- double check which services you offer to the world.
+		--
+		include = {"demo"};
+	};
+
 	["local"] = {
 		["_NXXXXXX"] = outgoing_local;
+	};
+}
+
+hints = {
+	demo = {
+		[1000] = "SIP/1000";
+		[1001] = "SIP/1001";
+	};
+
+	default = {
+		["1234"] = "SIP/1234";
 	};
 }
 

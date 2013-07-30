@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328259 $")
 
 #include "asterisk/translate.h"
 #include "asterisk/config.h"
@@ -169,8 +169,6 @@ static void gsm_destroy_stuff(struct ast_trans_pvt *pvt)
 
 static struct ast_translator gsmtolin = {
 	.name = "gsmtolin", 
-	.srcfmt = AST_FORMAT_GSM,
-	.dstfmt = AST_FORMAT_SLINEAR,
 	.newpvt = gsm_new,
 	.framein = gsmtolin_framein,
 	.destroy = gsm_destroy_stuff,
@@ -182,8 +180,6 @@ static struct ast_translator gsmtolin = {
 
 static struct ast_translator lintogsm = {
 	.name = "lintogsm", 
-	.srcfmt = AST_FORMAT_SLINEAR,
-	.dstfmt = AST_FORMAT_GSM,
 	.newpvt = gsm_new,
 	.framein = lintogsm_framein,
 	.frameout = lintogsm_frameout,
@@ -213,6 +209,12 @@ static int unload_module(void)
 static int load_module(void)
 {
 	int res;
+
+	ast_format_set(&gsmtolin.src_format, AST_FORMAT_GSM, 0);
+	ast_format_set(&gsmtolin.dst_format, AST_FORMAT_SLINEAR, 0);
+
+	ast_format_set(&lintogsm.src_format, AST_FORMAT_SLINEAR, 0);
+	ast_format_set(&lintogsm.dst_format, AST_FORMAT_GSM, 0);
 
 	res = ast_register_translator(&gsmtolin);
 	if (!res) 

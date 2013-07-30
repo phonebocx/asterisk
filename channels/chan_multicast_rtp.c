@@ -56,17 +56,16 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 static const char tdesc[] = "Multicast RTP Paging Channel Driver";
 
 /* Forward declarations */
-static struct ast_channel *multicast_rtp_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause);
-static int multicast_rtp_call(struct ast_channel *ast, char *dest, int timeout);
+static struct ast_channel *multicast_rtp_request(const char *type, struct ast_format_cap *cap, const struct ast_channel *requestor, const char *data, int *cause);
+static int multicast_rtp_call(struct ast_channel *ast, const char *dest, int timeout);
 static int multicast_rtp_hangup(struct ast_channel *ast);
 static struct ast_frame *multicast_rtp_read(struct ast_channel *ast);
 static int multicast_rtp_write(struct ast_channel *ast, struct ast_frame *f);
 
 /* Channel driver declaration */
-static const struct ast_channel_tech multicast_rtp_tech = {
+static struct ast_channel_tech multicast_rtp_tech = {
 	.type = "MulticastRTP",
 	.description = tdesc,
-	.capabilities = -1,
 	.requester = multicast_rtp_request,
 	.call = multicast_rtp_call,
 	.hangup = multicast_rtp_hangup,
@@ -83,15 +82,15 @@ static struct ast_frame  *multicast_rtp_read(struct ast_channel *ast)
 /*! \brief Function called when we should write a frame to the channel */
 static int multicast_rtp_write(struct ast_channel *ast, struct ast_frame *f)
 {
-	struct ast_rtp_instance *instance = ast->tech_pvt;
+	struct ast_rtp_instance *instance = ast_channel_tech_pvt(ast);
 
 	return ast_rtp_instance_write(instance, f);
 }
 
 /*! \brief Function called when we should actually call the destination */
-static int multicast_rtp_call(struct ast_channel *ast, char *dest, int timeout)
+static int multicast_rtp_call(struct ast_channel *ast, const char *dest, int timeout)
 {
-	struct ast_rtp_instance *instance = ast->tech_pvt;
+	struct ast_rtp_instance *instance = ast_channel_tech_pvt(ast);
 
 	ast_queue_control(ast, AST_CONTROL_ANSWER);
 
@@ -101,24 +100,25 @@ static int multicast_rtp_call(struct ast_channel *ast, char *dest, int timeout)
 /*! \brief Function called when we should hang the channel up */
 static int multicast_rtp_hangup(struct ast_channel *ast)
 {
-	struct ast_rtp_instance *instance = ast->tech_pvt;
+	struct ast_rtp_instance *instance = ast_channel_tech_pvt(ast);
 
 	ast_rtp_instance_destroy(instance);
 
-	ast->tech_pvt = NULL;
+	ast_channel_tech_pvt_set(ast, NULL);
 
 	return 0;
 }
 
 /*! \brief Function called when we should prepare to call the destination */
-static struct ast_channel *multicast_rtp_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
+static struct ast_channel *multicast_rtp_request(const char *type, struct ast_format_cap *cap, const struct ast_channel *requestor, const char *data, int *cause)
 {
 	char *tmp = ast_strdupa(data), *multicast_type = tmp, *destination, *control;
 	struct ast_rtp_instance *instance;
 	struct ast_sockaddr control_address;
 	struct ast_sockaddr destination_address;
 	struct ast_channel *chan;
-	format_t fmt = ast_best_codec(format);
+	struct ast_format fmt;
+	ast_best_codec(cap, &fmt);
 
 	ast_sockaddr_setnull(&control_address);
 
@@ -149,20 +149,22 @@ static struct ast_channel *multicast_rtp_request(const char *type, format_t form
 		goto failure;
 	}
 
-	if (!(chan = ast_channel_alloc(1, AST_STATE_DOWN, "", "", "", "", "", requestor ? requestor->linkedid : "", 0, "MulticastRTP/%p", instance))) {
+	if (!(chan = ast_channel_alloc(1, AST_STATE_DOWN, "", "", "", "", "", requestor ? ast_channel_linkedid(requestor) : "", 0, "MulticastRTP/%p", instance))) {
 		ast_rtp_instance_destroy(instance);
 		goto failure;
 	}
 
 	ast_rtp_instance_set_remote_address(instance, &destination_address);
 
-	chan->tech = &multicast_rtp_tech;
-	chan->nativeformats = fmt;
-	chan->writeformat = fmt;
-	chan->readformat = fmt;
-	chan->rawwriteformat = fmt;
-	chan->rawreadformat = fmt;
-	chan->tech_pvt = instance;
+	ast_channel_tech_set(chan, &multicast_rtp_tech);
+
+	ast_format_cap_add(ast_channel_nativeformats(chan), &fmt);
+	ast_format_copy(ast_channel_writeformat(chan), &fmt);
+	ast_format_copy(ast_channel_rawwriteformat(chan), &fmt);
+	ast_format_copy(ast_channel_readformat(chan), &fmt);
+	ast_format_copy(ast_channel_rawreadformat(chan), &fmt);
+
+	ast_channel_tech_pvt_set(chan, instance);
 
 	return chan;
 
@@ -174,6 +176,10 @@ failure:
 /*! \brief Function called when our module is loaded */
 static int load_module(void)
 {
+	if (!(multicast_rtp_tech.capabilities = ast_format_cap_alloc())) {
+		return AST_MODULE_LOAD_DECLINE;
+	}
+	ast_format_cap_add_all(multicast_rtp_tech.capabilities);
 	if (ast_channel_register(&multicast_rtp_tech)) {
 		ast_log(LOG_ERROR, "Unable to register channel class 'MulticastRTP'\n");
 		return AST_MODULE_LOAD_DECLINE;
@@ -186,6 +192,7 @@ static int load_module(void)
 static int unload_module(void)
 {
 	ast_channel_unregister(&multicast_rtp_tech);
+	multicast_rtp_tech.capabilities = ast_format_cap_destroy(multicast_rtp_tech.capabilities);
 
 	return 0;
 }

@@ -1,6 +1,6 @@
 #
 # Asterisk -- A telephony toolkit for Linux.
-# 
+#
 # Makefile rules for subdirectories containing modules
 #
 # Copyright (C) 2006, Digium, Inc.
@@ -46,7 +46,7 @@ endif
 C_MODS:=$(filter-out $(MENUSELECT_$(MENUSELECT_CATEGORY)),$(ALL_C_MODS))
 CC_MODS:=$(filter-out $(MENUSELECT_$(MENUSELECT_CATEGORY)),$(ALL_CC_MODS))
 
-ifneq ($(findstring $(MENUSELECT_CATEGORY),$(MENUSELECT_EMBED)),)
+ifneq ($(findstring EMBED_$(MENUSELECT_CATEGORY),$(MENUSELECT_EMBED)),)
     EMBEDDED_MODS:=$(C_MODS) $(CC_MODS)
 else
     LOADABLE_MODS:=$(C_MODS) $(CC_MODS)
@@ -122,7 +122,7 @@ clean::
 
 install:: all
 	@echo "Installing modules from `basename $(CURDIR)`..."
-	@for x in $(LOADABLE_MODS:%=%.so); do $(INSTALL) -m 755 $$x "$(DESTDIR)$(MODULES_DIR)" ; done
+	@for x in $(LOADABLE_MODS:%=%.so); do $(INSTALL) -m 755 $$x "$(DESTDIR)$(ASTMODDIR)" ; done
 
 uninstall::
 

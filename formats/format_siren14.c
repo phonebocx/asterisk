@@ -29,7 +29,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364580 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -45,7 +45,7 @@ static struct ast_frame *siren14read(struct ast_filestream *s, int *whennext)
 	/* Send a frame from the file to the appropriate channel */
 
 	s->fr.frametype = AST_FRAME_VOICE;
-	s->fr.subclass.codec = AST_FORMAT_SIREN14;
+	ast_format_set(&s->fr.subclass.format, AST_FORMAT_SIREN14, 0);
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, BUF_SIZE);
 	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
@@ -65,8 +65,8 @@ static int siren14write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
 	}
-	if (f->subclass.codec != AST_FORMAT_SIREN14) {
-		ast_log(LOG_WARNING, "Asked to write non-Siren14 frame (%s)!\n", ast_getformatname(f->subclass.codec));
+	if (f->subclass.format.id != AST_FORMAT_SIREN14) {
+		ast_log(LOG_WARNING, "Asked to write non-Siren14 frame (%s)!\n", ast_getformatname(&f->subclass.format));
 		return -1;
 	}
 	if ((res = fwrite(f->data.ptr, 1, f->datalen, fs->f)) != f->datalen) {
@@ -82,11 +82,20 @@ static int siren14seek(struct ast_filestream *fs, off_t sample_offset, int whenc
 
 	sample_offset = SAMPLES_TO_BYTES(sample_offset);
 
-	cur = ftello(fs->f);
+	if ((cur = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine current position in siren14 filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
 
-	fseeko(fs->f, 0, SEEK_END);
+	if (fseeko(fs->f, 0, SEEK_END) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to seek to end of siren14 filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
 
-	max = ftello(fs->f);
+	if ((max = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine max position in siren14 filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
 
 	if (whence == SEEK_SET)
 		offset = sample_offset;
@@ -106,7 +115,19 @@ static int siren14seek(struct ast_filestream *fs, off_t sample_offset, int whenc
 
 static int siren14trunc(struct ast_filestream *fs)
 {
-	return ftruncate(fileno(fs->f), ftello(fs->f));
+	int fd;
+	off_t cur;
+
+	if ((fd = fileno(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine file descriptor for siren14 filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+	if ((cur = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine current position in siren14 filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+	/* Truncate file to current length */
+	return ftruncate(fd, cur);
 }
 
 static off_t siren14tell(struct ast_filestream *fs)
@@ -114,10 +135,9 @@ static off_t siren14tell(struct ast_filestream *fs)
 	return BYTES_TO_SAMPLES(ftello(fs->f));
 }
 
-static const struct ast_format siren14_f = {
+static struct ast_format_def siren14_f = {
 	.name = "siren14",
 	.exts = "siren14",
-	.format = AST_FORMAT_SIREN14,
 	.write = siren14write,
 	.seek = siren14seek,
 	.trunc = siren14trunc,
@@ -128,7 +148,8 @@ static const struct ast_format siren14_f = {
 
 static int load_module(void)
 {
-	if (ast_format_register(&siren14_f))
+	ast_format_set(&siren14_f.format, AST_FORMAT_SIREN14, 0);
+	if (ast_format_def_register(&siren14_f))
 		return AST_MODULE_LOAD_DECLINE;
 
 	return AST_MODULE_LOAD_SUCCESS;
@@ -136,7 +157,7 @@ static int load_module(void)
 
 static int unload_module(void)
 {
-	return ast_format_unregister(siren14_f.name);
+	return ast_format_def_unregister(siren14_f.name);
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "ITU G.722.1 Annex C (Siren14, licensed from Polycom)",

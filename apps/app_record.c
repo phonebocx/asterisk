@@ -31,7 +31,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 376014 $")
 
 #include "asterisk/file.h"
 #include "asterisk/pbx.h"
@@ -158,9 +158,8 @@ static int record_exec(struct ast_channel *chan, const char *data)
 	int maxduration = 0;		/* max duration of recording in milliseconds */
 	int gottimeout = 0;		/* did we timeout for maxduration exceeded? */
 	int terminator = '#';
-	int rfmt = 0;
+	struct ast_format rfmt;
 	int ioflags;
-	int waitres;
 	struct ast_silence_generator *silgen = NULL;
 	struct ast_flags flags = { 0, };
 	AST_DECLARE_APP_ARGS(args,
@@ -169,7 +168,11 @@ static int record_exec(struct ast_channel *chan, const char *data)
 		AST_APP_ARG(maxduration);
 		AST_APP_ARG(options);
 	);
-	
+	int ms;
+	struct timeval start;
+
+	ast_format_clear(&rfmt);
+
 	/* The next few lines of code parse out the filename and header from the input string */
 	if (ast_strlen_zero(data)) { /* no data implies no filename or anything is present */
 		ast_log(LOG_WARNING, "Record requires an argument (filename)\n");
@@ -253,13 +256,13 @@ static int record_exec(struct ast_channel *chan, const char *data)
 				ast_copy_string(tmp + tmplen, &(fname.piece[idx][1]), sizeof(tmp) - tmplen);
 			}
 			count++;
-		} while (ast_fileexists(tmp, ext, chan->language) > 0);
+		} while (ast_fileexists(tmp, ext, ast_channel_language(chan)) > 0);
 		pbx_builtin_setvar_helper(chan, "RECORDED_FILE", tmp);
 	} else
 		ast_copy_string(tmp, args.filename, sizeof(tmp));
 	/* end of routine mentioned */
 
-	if (chan->_state != AST_STATE_UP) {
+	if (ast_channel_state(chan) != AST_STATE_UP) {
 		if (ast_test_flag(&flags, OPTION_SKIP)) {
 			/* At the user's option, skip if the line is not up */
 			pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "SKIP");
@@ -271,18 +274,18 @@ static int record_exec(struct ast_channel *chan, const char *data)
 	}
 
 	if (res) {
-		ast_log(LOG_WARNING, "Could not answer channel '%s'\n", chan->name);
+		ast_log(LOG_WARNING, "Could not answer channel '%s'\n", ast_channel_name(chan));
 		pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
 		goto out;
 	}
 
 	if (!ast_test_flag(&flags, OPTION_QUIET)) {
 		/* Some code to play a nice little beep to signify the start of the record operation */
-		res = ast_streamfile(chan, "beep", chan->language);
+		res = ast_streamfile(chan, "beep", ast_channel_language(chan));
 		if (!res) {
 			res = ast_waitstream(chan, "");
 		} else {
-			ast_log(LOG_WARNING, "ast_streamfile failed on %s\n", chan->name);
+			ast_log(LOG_WARNING, "ast_streamfile failed on %s\n", ast_channel_name(chan));
 		}
 		ast_stopstream(chan);
 	}
@@ -290,8 +293,8 @@ static int record_exec(struct ast_channel *chan, const char *data)
 	/* The end of beep code.  Now the recording starts */
 
 	if (silence > 0) {
-		rfmt = chan->readformat;
-		res = ast_set_read_format(chan, AST_FORMAT_SLINEAR);
+		ast_format_copy(&rfmt, ast_channel_readformat(chan));
+		res = ast_set_read_format_by_id(chan, AST_FORMAT_SLINEAR);
 		if (res < 0) {
 			ast_log(LOG_WARNING, "Unable to set to linear mode, giving up\n");
 			pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "ERROR");
@@ -330,14 +333,15 @@ static int record_exec(struct ast_channel *chan, const char *data)
 	if (maxduration <= 0)
 		maxduration = -1;
 
-	while ((waitres = ast_waitfor(chan, maxduration)) > -1) {
-		if (maxduration > 0) {
-			if (waitres == 0) {
-				gottimeout = 1;
-				pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "TIMEOUT");
-				break;
-			}
-			maxduration = waitres;
+	start = ast_tvnow();
+	while ((ms = ast_remaining_ms(start, maxduration))) {
+		ms = ast_waitfor(chan, ms);
+		if (ms < 0) {
+			break;
+		}
+
+		if (maxduration > 0 && ms == 0) {
+			break;
 		}
 
 		f = ast_read(chan);
@@ -389,6 +393,12 @@ static int record_exec(struct ast_channel *chan, const char *data)
 		}
 		ast_frfree(f);
 	}
+
+	if (maxduration > 0 && !ms) {
+		gottimeout = 1;
+		pbx_builtin_setvar_helper(chan, "RECORD_STATUS", "TIMEOUT");
+	}
+
 	if (!f) {
 		ast_debug(1, "Got hangup\n");
 		res = -1;
@@ -412,14 +422,16 @@ static int record_exec(struct ast_channel *chan, const char *data)
 		ast_channel_stop_silence_generator(chan, silgen);
 
 out:
-	if ((silence > 0) && rfmt) {
-		res = ast_set_read_format(chan, rfmt);
-		if (res)
-			ast_log(LOG_WARNING, "Unable to restore read format on '%s'\n", chan->name);
-		if (sildet)
-			ast_dsp_free(sildet);
+	if ((silence > 0) && rfmt.id) {
+		res = ast_set_read_format(chan, &rfmt);
+		if (res) {
+			ast_log(LOG_WARNING, "Unable to restore read format on '%s'\n", ast_channel_name(chan));
+		}
 	}
 
+	if (sildet) {
+		ast_dsp_free(sildet);
+	}
 	return res;
 }
 

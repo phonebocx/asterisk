@@ -27,12 +27,13 @@
  */
 
 /*** MODULEINFO
+	<support_level>core</support_level>
 	<depend>dahdi</depend>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 293970 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377383 $")
 
 #include <fcntl.h>
 #include <netinet/in.h>
@@ -55,6 +56,21 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 293970 $")
 
 #define G723_SAMPLES 240
 #define G729_SAMPLES 160
+#define ULAW_SAMPLES 160
+
+#ifndef DAHDI_FORMAT_MAX_AUDIO
+#define DAHDI_FORMAT_G723_1    (1 << 0)
+#define DAHDI_FORMAT_GSM       (1 << 1)
+#define DAHDI_FORMAT_ULAW      (1 << 2)
+#define DAHDI_FORMAT_ALAW      (1 << 3)
+#define DAHDI_FORMAT_G726      (1 << 4)
+#define DAHDI_FORMAT_ADPCM     (1 << 5)
+#define DAHDI_FORMAT_SLINEAR   (1 << 6)
+#define DAHDI_FORMAT_LPC10     (1 << 7)
+#define DAHDI_FORMAT_G729A     (1 << 8)
+#define DAHDI_FORMAT_SPEEX     (1 << 9)
+#define DAHDI_FORMAT_ILBC      (1 << 10)
+#endif
 
 static struct channel_usage {
 	int total;
@@ -88,6 +104,7 @@ struct codec_dahdi_pvt {
 	unsigned int fake:2;
 	uint16_t required_samples;
 	uint16_t samples_in_buffer;
+	uint16_t samples_written_to_hardware;
 	uint8_t ulaw_buffer[1024];
 };
 
@@ -159,27 +176,21 @@ static char *handle_cli_transcoder_show(struct ast_cli_entry *e, int cmd, struct
 static void dahdi_write_frame(struct codec_dahdi_pvt *dahdip, const uint8_t *buffer, const ssize_t count)
 {
 	int res;
-	struct pollfd p = {0};
 	if (!count) return;
 	res = write(dahdip->fd, buffer, count);
-	if (option_verbose > 10) {
-		if (-1 == res) {
-			ast_log(LOG_ERROR, "Failed to write to transcoder: %s\n", strerror(errno));
-		}
-		if (count != res) {
-			ast_log(LOG_ERROR, "Requested write of %zd bytes, but only wrote %d bytes.\n", count, res);
-		}
+	if (-1 == res) {
+		ast_log(LOG_ERROR, "Failed to write to transcoder: %s\n", strerror(errno));
 	}
-	p.fd = dahdip->fd;
-	p.events = POLLOUT;
-	res = poll(&p, 1, 50);
+	if (count != res) {
+		ast_log(LOG_ERROR, "Requested write of %zd bytes, but only wrote %d bytes.\n", count, res);
+	}
 }
 
 static int dahdi_encoder_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct codec_dahdi_pvt *dahdip = pvt->pvt;
 
-	if (!f->subclass.codec) {
+	if (!f->subclass.format.id) {
 		/* We're just faking a return for calculation purposes. */
 		dahdip->fake = 2;
 		pvt->samples = f->samples;
@@ -205,8 +216,9 @@ static int dahdi_encoder_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 		dahdip->samples_in_buffer += f->samples;
 	}
 
-	while (dahdip->samples_in_buffer > dahdip->required_samples) {
+	while (dahdip->samples_in_buffer >= dahdip->required_samples) {
 		dahdi_write_frame(dahdip, dahdip->ulaw_buffer, dahdip->required_samples);
+		dahdip->samples_written_to_hardware += dahdip->required_samples;
 		dahdip->samples_in_buffer -= dahdip->required_samples;
 		if (dahdip->samples_in_buffer) {
 			/* Shift any remaining bytes down. */
@@ -219,6 +231,14 @@ static int dahdi_encoder_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 	return -1;
 }
 
+static void dahdi_wait_for_packet(int fd)
+{
+	struct pollfd p = {0};
+	p.fd = fd;
+	p.events = POLLIN;
+	poll(&p, 1, 10);
+}
+
 static struct ast_frame *dahdi_encoder_frameout(struct ast_trans_pvt *pvt)
 {
 	struct codec_dahdi_pvt *dahdip = pvt->pvt;
@@ -227,7 +247,7 @@ static struct ast_frame *dahdi_encoder_frameout(struct ast_trans_pvt *pvt)
 	if (2 == dahdip->fake) {
 		dahdip->fake = 1;
 		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass.codec = 0;
+		ast_format_clear(&pvt->f.subclass.format);
 		pvt->f.samples = dahdip->required_samples;
 		pvt->f.data.ptr = NULL;
 		pvt->f.offset = 0;
@@ -242,6 +262,10 @@ static struct ast_frame *dahdi_encoder_frameout(struct ast_trans_pvt *pvt)
 		return NULL;
 	}
 
+	if (dahdip->samples_written_to_hardware >= dahdip->required_samples) {
+		dahdi_wait_for_packet(dahdip->fd);
+	}
+
 	res = read(dahdip->fd, pvt->outbuf.c + pvt->datalen, pvt->t->buf_size - pvt->datalen);
 	if (-1 == res) {
 		if (EWOULDBLOCK == errno) {
@@ -253,13 +277,17 @@ static struct ast_frame *dahdi_encoder_frameout(struct ast_trans_pvt *pvt)
 		}
 	} else {
 		pvt->f.datalen = res;
-		pvt->f.samples = dahdip->required_samples;
 		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass.codec = 1 <<  (pvt->t->dstfmt);
+		ast_format_copy(&pvt->f.subclass.format, &pvt->t->dst_format);
 		pvt->f.mallocd = 0;
 		pvt->f.offset = AST_FRIENDLY_OFFSET;
 		pvt->f.src = pvt->t->name;
 		pvt->f.data.ptr = pvt->outbuf.c;
+		pvt->f.samples = ast_codec_get_samples(&pvt->f);
+
+		dahdip->samples_written_to_hardware =
+		  (dahdip->samples_written_to_hardware >= pvt->f.samples) ?
+		     dahdip->samples_written_to_hardware - pvt->f.samples : 0;
 
 		pvt->samples = 0;
 		pvt->datalen = 0;
@@ -274,7 +302,7 @@ static int dahdi_decoder_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
 	struct codec_dahdi_pvt *dahdip = pvt->pvt;
 
-	if (!f->subclass.codec) {
+	if (!f->subclass.format.id) {
 		/* We're just faking a return for calculation purposes. */
 		dahdip->fake = 2;
 		pvt->samples = f->samples;
@@ -287,6 +315,7 @@ static int dahdi_decoder_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 		}
 	}
 	dahdi_write_frame(dahdip, f->data.ptr, f->datalen);
+	dahdip->samples_written_to_hardware += f->samples;
 	pvt->samples += f->samples;
 	pvt->datalen = 0;
 	return -1;
@@ -300,7 +329,7 @@ static struct ast_frame *dahdi_decoder_frameout(struct ast_trans_pvt *pvt)
 	if (2 == dahdip->fake) {
 		dahdip->fake = 1;
 		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass.codec = 0;
+		ast_format_clear(&pvt->f.subclass.format);
 		pvt->f.samples = dahdip->required_samples;
 		pvt->f.data.ptr = NULL;
 		pvt->f.offset = 0;
@@ -312,6 +341,10 @@ static struct ast_frame *dahdi_decoder_frameout(struct ast_trans_pvt *pvt)
 		pvt->samples = 0;
 		dahdip->fake = 0;
 		return NULL;
+	}
+
+	if (dahdip->samples_written_to_hardware >= ULAW_SAMPLES) {
+		dahdi_wait_for_packet(dahdip->fd);
 	}
 
 	/* Let's check to see if there is a new frame for us.... */
@@ -338,13 +371,16 @@ static struct ast_frame *dahdi_decoder_frameout(struct ast_trans_pvt *pvt)
 		}
 		pvt->datalen = 0;
 		pvt->f.frametype = AST_FRAME_VOICE;
-		pvt->f.subclass.codec = 1 <<  (pvt->t->dstfmt);
+		ast_format_copy(&pvt->f.subclass.format, &pvt->t->dst_format);
 		pvt->f.mallocd = 0;
 		pvt->f.offset = AST_FRIENDLY_OFFSET;
 		pvt->f.src = pvt->t->name;
 		pvt->f.data.ptr = pvt->outbuf.c;
 		pvt->f.samples = res;
 		pvt->samples = 0;
+		dahdip->samples_written_to_hardware =
+			(dahdip->samples_written_to_hardware >= res) ?
+			        dahdip->samples_written_to_hardware - res : 0;
 
 		return ast_frisolate(&pvt->f);
 	}
@@ -358,7 +394,7 @@ static void dahdi_destroy(struct ast_trans_pvt *pvt)
 {
 	struct codec_dahdi_pvt *dahdip = pvt->pvt;
 
-	switch (dahdip->fmts.dstfmt) {
+	switch (ast_format_id_from_old_bitfield(dahdip->fmts.dstfmt)) {
 	case AST_FORMAT_G729A:
 	case AST_FORMAT_G723_1:
 		ast_atomic_fetchadd_int(&channels.encoders, -1);
@@ -371,7 +407,7 @@ static void dahdi_destroy(struct ast_trans_pvt *pvt)
 	close(dahdip->fd);
 }
 
-static int dahdi_translate(struct ast_trans_pvt *pvt, int dest, int source)
+static int dahdi_translate(struct ast_trans_pvt *pvt, struct ast_format *dst_format, struct ast_format *src_format)
 {
 	/* Request translation through zap if possible */
 	int fd;
@@ -385,10 +421,10 @@ static int dahdi_translate(struct ast_trans_pvt *pvt, int dest, int source)
 		return -1;
 	}
 
-	dahdip->fmts.srcfmt = (1 << source);
-	dahdip->fmts.dstfmt = (1 << dest);
+	dahdip->fmts.srcfmt = ast_format_to_old_bitfield(src_format);
+	dahdip->fmts.dstfmt = ast_format_to_old_bitfield(dst_format);
 
-	ast_debug(1, "Opening transcoder channel from %d to %d.\n", source, dest);
+	ast_debug(1, "Opening transcoder channel from %s to %s.\n", ast_getformatname(src_format), ast_getformatname(dst_format));
 
 retry:
 	if (ioctl(fd, DAHDI_TC_ALLOCATE, &dahdip->fmts)) {
@@ -401,14 +437,14 @@ retry:
 			 * support for ULAW instead of signed linear and then
 			 * we'll just convert from ulaw to signed linear in
 			 * software. */
-			if (AST_FORMAT_SLINEAR == dahdip->fmts.srcfmt) {
+			if (AST_FORMAT_SLINEAR == ast_format_id_from_old_bitfield(dahdip->fmts.srcfmt)) {
 				ast_debug(1, "Using soft_slin support on source\n");
 				dahdip->softslin = 1;
-				dahdip->fmts.srcfmt = AST_FORMAT_ULAW;
-			} else if (AST_FORMAT_SLINEAR == dahdip->fmts.dstfmt) {
+				dahdip->fmts.srcfmt = ast_format_id_to_old_bitfield(AST_FORMAT_ULAW);
+			} else if (AST_FORMAT_SLINEAR == ast_format_id_from_old_bitfield(dahdip->fmts.dstfmt)) {
 				ast_debug(1, "Using soft_slin support on destination\n");
 				dahdip->softslin = 1;
-				dahdip->fmts.dstfmt = AST_FORMAT_ULAW;
+				dahdip->fmts.dstfmt = ast_format_id_to_old_bitfield(AST_FORMAT_ULAW);
 			}
 			tried_once = 1;
 			goto retry;
@@ -427,9 +463,9 @@ retry:
 
 	dahdip->fd = fd;
 
-	dahdip->required_samples = ((dahdip->fmts.dstfmt|dahdip->fmts.srcfmt)&AST_FORMAT_G723_1) ? G723_SAMPLES : G729_SAMPLES;
+	dahdip->required_samples = ((dahdip->fmts.dstfmt|dahdip->fmts.srcfmt) & (ast_format_id_to_old_bitfield(AST_FORMAT_G723_1))) ? G723_SAMPLES : G729_SAMPLES;
 
-	switch (dahdip->fmts.dstfmt) {
+	switch (ast_format_id_from_old_bitfield(dahdip->fmts.dstfmt)) {
 	case AST_FORMAT_G729A:
 		ast_atomic_fetchadd_int(&channels.encoders, +1);
 		break;
@@ -446,7 +482,9 @@ retry:
 
 static int dahdi_new(struct ast_trans_pvt *pvt)
 {
-	return dahdi_translate(pvt, pvt->t->dstfmt, pvt->t->srcfmt);
+	return dahdi_translate(pvt,
+		&pvt->t->dst_format,
+		&pvt->t->src_format);
 }
 
 static struct ast_frame *fakesrc_sample(void)
@@ -463,7 +501,9 @@ static struct ast_frame *fakesrc_sample(void)
 
 static int is_encoder(struct translator *zt)
 {
-	if (zt->t.srcfmt&(AST_FORMAT_ULAW|AST_FORMAT_ALAW|AST_FORMAT_SLINEAR)) {
+	if ((zt->t.src_format.id == AST_FORMAT_ULAW) ||
+		(zt->t.src_format.id == AST_FORMAT_ALAW) ||
+		(zt->t.src_format.id == AST_FORMAT_SLINEAR)) {
 		return 1;
 	} else {
 		return 0;
@@ -474,15 +514,20 @@ static int register_translator(int dst, int src)
 {
 	struct translator *zt;
 	int res;
+	struct ast_format dst_format;
+	struct ast_format src_format;
+
+	ast_format_from_old_bitfield(&dst_format, (1 << dst));
+	ast_format_from_old_bitfield(&src_format, (1 << src));
 
 	if (!(zt = ast_calloc(1, sizeof(*zt)))) {
 		return -1;
 	}
 
 	snprintf((char *) (zt->t.name), sizeof(zt->t.name), "zap%sto%s",
-		 ast_getformatname((1 << src)), ast_getformatname((1 << dst)));
-	zt->t.srcfmt = (1 << src);
-	zt->t.dstfmt = (1 << dst);
+		 ast_getformatname(&src_format), ast_getformatname(&dst_format));
+	ast_format_copy(&zt->t.src_format, &src_format);
+	ast_format_copy(&zt->t.dst_format, &dst_format);
 	zt->t.buf_size = BUFFER_SIZE;
 	if (is_encoder(zt)) {
 		zt->t.framein = dahdi_encoder_framein;
@@ -518,10 +563,10 @@ static void drop_translator(int dst, int src)
 
 	AST_LIST_LOCK(&translators);
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&translators, cur, entry) {
-		if (cur->t.srcfmt != src)
+		if (cur->t.src_format.id != ast_format_id_from_old_bitfield((1 << src)))
 			continue;
 
-		if (cur->t.dstfmt != dst)
+		if (cur->t.dst_format.id != ast_format_id_from_old_bitfield((1 << dst)))
 			continue;
 
 		AST_LIST_REMOVE_CURRENT(entry);
@@ -571,7 +616,7 @@ static int find_transcoders(void)
 {
 	struct dahdi_transcoder_info info = { 0, };
 	struct format_map map = { { { 0 } } };
-	int fd, res;
+	int fd;
 	unsigned int x, y;
 
 	if ((fd = open("/dev/dahdi/transcode", O_RDWR)) < 0) {
@@ -579,9 +624,8 @@ static int find_transcoders(void)
 		return 0;
 	}
 
-	for (info.tcnum = 0; !(res = ioctl(fd, DAHDI_TC_GETINFO, &info)); info.tcnum++) {
-		if (option_verbose > 1)
-			ast_verbose(VERBOSE_PREFIX_2 "Found transcoder '%s'.\n", info.name);
+	for (info.tcnum = 0; !ioctl(fd, DAHDI_TC_GETINFO, &info); info.tcnum++) {
+		ast_verb(2, "Found transcoder '%s'.\n", info.name);
 
 		/* Complex codecs need to support signed linear.  If the
 		 * hardware transcoder does not natively support signed linear
@@ -589,13 +633,13 @@ static int find_transcoders(void)
 		 * module. Also, do not allow direct ulaw/alaw to complex
 		 * codec translation, since that will prevent the generic PLC
 		 * functions from working. */
-		if (info.dstfmts & (AST_FORMAT_ULAW | AST_FORMAT_ALAW)) {
-			info.dstfmts |= AST_FORMAT_SLINEAR;
-			info.dstfmts &= ~(AST_FORMAT_ULAW | AST_FORMAT_ALAW);
+		if (info.dstfmts & (DAHDI_FORMAT_ULAW | DAHDI_FORMAT_ALAW)) {
+			info.dstfmts |= DAHDI_FORMAT_SLINEAR;
+			info.dstfmts &= ~(DAHDI_FORMAT_ULAW | DAHDI_FORMAT_ALAW);
 		}
-		if (info.srcfmts & (AST_FORMAT_ULAW | AST_FORMAT_ALAW)) {
-			info.srcfmts |= AST_FORMAT_SLINEAR;
-			info.srcfmts &= ~(AST_FORMAT_ULAW | AST_FORMAT_ALAW);
+		if (info.srcfmts & (DAHDI_FORMAT_ULAW | DAHDI_FORMAT_ALAW)) {
+			info.srcfmts |= DAHDI_FORMAT_SLINEAR;
+			info.srcfmts &= ~(DAHDI_FORMAT_ULAW | DAHDI_FORMAT_ALAW);
 		}
 
 		build_translators(&map, info.dstfmts, info.srcfmts);
@@ -605,8 +649,9 @@ static int find_transcoders(void)
 
 	close(fd);
 
-	if (!info.tcnum && (option_verbose > 1))
-		ast_verbose(VERBOSE_PREFIX_2 "No hardware transcoders found.\n");
+	if (!info.tcnum) {
+		ast_verb(2, "No hardware transcoders found.\n");
+	}
 
 	for (x = 0; x < 32; x++) {
 		for (y = 0; y < 32; y++) {

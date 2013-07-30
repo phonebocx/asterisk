@@ -20,12 +20,16 @@
  *
  * \brief Image Management
  *
- * \author Mark Spencer <markster@digium.com> 
+ * \author Mark Spencer <markster@digium.com>
  */
+
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 200620 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 369013 $")
 
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -64,9 +68,9 @@ void ast_image_unregister(struct ast_imager *img)
 
 int ast_supports_images(struct ast_channel *chan)
 {
-	if (!chan || !chan->tech)
+	if (!chan || !ast_channel_tech(chan))
 		return 0;
-	if (!chan->tech->send_image)
+	if (!ast_channel_tech(chan)->send_image)
 		return 0;
 	return 1;
 }
@@ -96,7 +100,7 @@ static void make_filename(char *buf, int len, const char *filename, const char *
 	}
 }
 
-struct ast_frame *ast_read_image(const char *filename, const char *preflang, int format)
+struct ast_frame *ast_read_image(const char *filename, const char *preflang, struct ast_format *format)
 {
 	struct ast_imager *i;
 	char buf[256];
@@ -106,10 +110,11 @@ struct ast_frame *ast_read_image(const char *filename, const char *preflang, int
 	int fd;
 	int len=0;
 	struct ast_frame *f = NULL;
-	
+
 	AST_RWLIST_RDLOCK(&imagers);
 	AST_RWLIST_TRAVERSE(&imagers, i, list) {
-		if (i->format & format) {
+		/* if NULL image format, just pick the first one, otherwise match it. */
+		if (!format || (ast_format_cmp(&i->format, format) == AST_FORMAT_CMP_EQUAL)) {
 			char *stringp=NULL;
 			ast_copy_string(tmp, i->exts, sizeof(tmp));
 			stringp = tmp;
@@ -129,7 +134,7 @@ struct ast_frame *ast_read_image(const char *filename, const char *preflang, int
 			}
 		}
 		if (found)
-			break;	
+			break;
 	}
 
 	if (found) {
@@ -138,7 +143,7 @@ struct ast_frame *ast_read_image(const char *filename, const char *preflang, int
 			if (!found->identify || found->identify(fd)) {
 				/* Reset file pointer */
 				lseek(fd, 0, SEEK_SET);
-				f = found->read_image(fd, len); 
+				f = found->read_image(fd, len);
 			} else
 				ast_log(LOG_WARNING, "%s does not appear to be a %s file\n", buf, found->name);
 			close(fd);
@@ -146,9 +151,9 @@ struct ast_frame *ast_read_image(const char *filename, const char *preflang, int
 			ast_log(LOG_WARNING, "Unable to open '%s': %s\n", buf, strerror(errno));
 	} else
 		ast_log(LOG_WARNING, "Image file '%s' not found\n", filename);
-	
+
 	AST_RWLIST_UNLOCK(&imagers);
-	
+
 	return f;
 }
 
@@ -156,10 +161,10 @@ int ast_send_image(struct ast_channel *chan, const char *filename)
 {
 	struct ast_frame *f;
 	int res = -1;
-	if (chan->tech->send_image) {
-		f = ast_read_image(filename, chan->language, -1);
+	if (ast_channel_tech(chan)->send_image) {
+		f = ast_read_image(filename, ast_channel_language(chan), NULL);
 		if (f) {
-			res = chan->tech->send_image(chan, f);
+			res = ast_channel_tech(chan)->send_image(chan, f);
 			ast_frfree(f);
 		}
 	}
@@ -189,7 +194,7 @@ static char *handle_core_show_image_formats(struct ast_cli_entry *e, int cmd, st
 	ast_cli(a->fd, FORMAT, "----", "----------", "-----------", "------");
 	AST_RWLIST_RDLOCK(&imagers);
 	AST_RWLIST_TRAVERSE(&imagers, i, list) {
-		ast_cli(a->fd, FORMAT2, i->name, i->exts, i->desc, ast_getformatname(i->format));
+		ast_cli(a->fd, FORMAT2, i->name, i->exts, i->desc, ast_getformatname(&i->format));
 		count_fmt++;
 	}
 	AST_RWLIST_UNLOCK(&imagers);

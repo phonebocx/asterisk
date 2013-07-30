@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364580 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -49,7 +49,7 @@ static struct ast_frame *ilbc_read(struct ast_filestream *s, int *whennext)
 	int res;
 	/* Send a frame from the file to the appropriate channel */
 	s->fr.frametype = AST_FRAME_VOICE;
-	s->fr.subclass.codec = AST_FORMAT_ILBC;
+	ast_format_set(&s->fr.subclass.format, AST_FORMAT_ILBC, 0);
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, ILBC_BUF_SIZE);
 	if ((res = fread(s->fr.data.ptr, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
@@ -68,8 +68,8 @@ static int ilbc_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
 	}
-	if (f->subclass.codec != AST_FORMAT_ILBC) {
-		ast_log(LOG_WARNING, "Asked to write non-iLBC frame (%s)!\n", ast_getformatname(f->subclass.codec));
+	if (f->subclass.format.id != AST_FORMAT_ILBC) {
+		ast_log(LOG_WARNING, "Asked to write non-iLBC frame (%s)!\n", ast_getformatname(&f->subclass.format));
 		return -1;
 	}
 	if (f->datalen % 50) {
@@ -111,10 +111,19 @@ static int ilbc_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 
 static int ilbc_trunc(struct ast_filestream *fs)
 {
-	/* Truncate file to current length */
-	if (ftruncate(fileno(fs->f), ftello(fs->f)) < 0)
+	int fd;
+	off_t cur;
+
+	if ((fd = fileno(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine file descriptor for iLBC filestream %p: %s\n", fs, strerror(errno));
 		return -1;
-	return 0;
+	}
+	if ((cur = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine current position in iLBC filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+	/* Truncate file to current length */
+	return ftruncate(fd, cur);
 }
 
 static off_t ilbc_tell(struct ast_filestream *fs)
@@ -123,10 +132,9 @@ static off_t ilbc_tell(struct ast_filestream *fs)
 	return (offset/ILBC_BUF_SIZE)*ILBC_SAMPLES;
 }
 
-static const struct ast_format ilbc_f = {
+static struct ast_format_def ilbc_f = {
 	.name = "iLBC",
 	.exts = "ilbc",
-	.format = AST_FORMAT_ILBC,
 	.write = ilbc_write,
 	.seek = ilbc_seek,
 	.trunc = ilbc_trunc,
@@ -137,14 +145,15 @@ static const struct ast_format ilbc_f = {
 
 static int load_module(void)
 {
-	if (ast_format_register(&ilbc_f))
+	ast_format_set(&ilbc_f.format, AST_FORMAT_ILBC, 0);
+	if (ast_format_def_register(&ilbc_f))
 		return AST_MODULE_LOAD_FAILURE;
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)
 {
-	return ast_format_unregister(ilbc_f.name);
+	return ast_format_def_unregister(ilbc_f.name);
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Raw iLBC data",

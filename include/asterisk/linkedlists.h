@@ -63,7 +63,7 @@
  *
  * \since 1.6.1
  */
-#define	AST_RWLIST_TIMEDWRLOCK(head, ts)	ast_rwlock_timedwrlock(&(head)->lock, ts)
+#define AST_RWLIST_TIMEDWRLOCK(head, ts)	ast_rwlock_timedwrlock(&(head)->lock, ts)
 
 /*!
  * \brief Read locks a list.
@@ -417,7 +417,7 @@ struct {								\
  * \brief Returns the first entry contained in a list.
  * \param head This is a pointer to the list head structure
  */
-#define	AST_LIST_FIRST(head)	((head)->first)
+#define AST_LIST_FIRST(head)	((head)->first)
 
 #define AST_RWLIST_FIRST AST_LIST_FIRST
 
@@ -425,7 +425,7 @@ struct {								\
  * \brief Returns the last entry contained in a list.
  * \param head This is a pointer to the list head structure
  */
-#define	AST_LIST_LAST(head)	((head)->last)
+#define AST_LIST_LAST(head)	((head)->last)
 
 #define AST_RWLIST_LAST AST_LIST_LAST
 
@@ -446,7 +446,7 @@ struct {								\
  * \return zero if the list has entries
  * \return non-zero if not.
  */
-#define	AST_LIST_EMPTY(head)	(AST_LIST_FIRST(head) == NULL)
+#define AST_LIST_EMPTY(head)	(AST_LIST_FIRST(head) == NULL)
 
 #define AST_RWLIST_EMPTY AST_LIST_EMPTY
 
@@ -526,18 +526,20 @@ struct {								\
  * the \a current pointer without affecting the loop traversal.
  */
 #define AST_LIST_TRAVERSE_SAFE_BEGIN(head, var, field) {				\
-	typeof((head)) __list_head = head;						\
-	typeof(__list_head->first) __list_next;						\
-	typeof(__list_head->first) __list_prev = NULL;					\
-	typeof(__list_head->first) __new_prev = NULL;					\
-	for ((var) = __list_head->first, __new_prev = (var),				\
-	      __list_next = (var) ? (var)->field.next : NULL;				\
-	     (var);									\
-	     __list_prev = __new_prev, (var) = __list_next,				\
-	     __new_prev = (var),							\
-	     __list_next = (var) ? (var)->field.next : NULL,				\
-	     (void) __list_prev								\
-	    )
+	typeof((head)) __list_head = head;									\
+	typeof(__list_head->first) __list_next;								\
+	typeof(__list_head->first) __list_prev = NULL;						\
+	typeof(__list_head->first) __list_current;							\
+	for ((var) = __list_head->first,									\
+		__list_current = (var),											\
+		__list_next = (var) ? (var)->field.next : NULL;					\
+		(var);															\
+		__list_prev = __list_current,									\
+		(var) = __list_next,											\
+		__list_current = (var),											\
+		__list_next = (var) ? (var)->field.next : NULL,					\
+		(void) __list_prev /* To quiet compiler? */						\
+		)
 
 #define AST_RWLIST_TRAVERSE_SAFE_BEGIN AST_LIST_TRAVERSE_SAFE_BEGIN
 
@@ -551,23 +553,35 @@ struct {								\
  * the list traversal (and without having to re-traverse the list to modify the
  * previous entry, if any).
  */
-#define AST_LIST_REMOVE_CURRENT(field) do { \
-	__new_prev->field.next = NULL;							\
-	__new_prev = __list_prev;							\
-	if (__list_prev)								\
-		__list_prev->field.next = __list_next;					\
-	else										\
-		__list_head->first = __list_next;					\
-	if (!__list_next)								\
-		__list_head->last = __list_prev;					\
+#define AST_LIST_REMOVE_CURRENT(field) do { 							\
+		__list_current->field.next = NULL;								\
+		__list_current = __list_prev;									\
+		if (__list_prev) {												\
+			__list_prev->field.next = __list_next;						\
+		} else {														\
+			__list_head->first = __list_next;							\
+		}																\
+		if (!__list_next) {												\
+			__list_head->last = __list_prev;							\
+		}																\
 	} while (0)
 
 #define AST_RWLIST_REMOVE_CURRENT AST_LIST_REMOVE_CURRENT
 
-#define AST_LIST_MOVE_CURRENT(newhead, field) do { \
-	typeof ((newhead)->first) __list_cur = __new_prev;				\
+/*!
+ * \brief Move the current list entry to another list.
+ *
+ * \note This is a silly macro.  It should be done explicitly
+ * otherwise the field parameter must be the same for the two
+ * lists.
+ *
+ * AST_LIST_REMOVE_CURRENT(field);
+ * AST_LIST_INSERT_TAIL(newhead, var, other_field);
+ */
+#define AST_LIST_MOVE_CURRENT(newhead, field) do {			\
+	typeof ((newhead)->first) __extracted = __list_current;	\
 	AST_LIST_REMOVE_CURRENT(field);							\
-	AST_LIST_INSERT_TAIL((newhead), __list_cur, field);				\
+	AST_LIST_INSERT_TAIL((newhead), __extracted, field);	\
 	} while (0)
 
 #define AST_RWLIST_MOVE_CURRENT AST_LIST_MOVE_CURRENT
@@ -581,15 +595,15 @@ struct {								\
  * \note This macro can \b only be used inside an AST_LIST_TRAVERSE_SAFE_BEGIN()
  * block.
  */
-#define AST_LIST_INSERT_BEFORE_CURRENT(elm, field) do {			\
-	if (__list_prev) {						\
+#define AST_LIST_INSERT_BEFORE_CURRENT(elm, field) do {		\
+	if (__list_prev) {										\
 		(elm)->field.next = __list_prev->field.next;		\
-		__list_prev->field.next = elm;				\
-	} else {							\
-		(elm)->field.next = __list_head->first;			\
-		__list_head->first = (elm);				\
-	}								\
-	__new_prev = (elm);						\
+		__list_prev->field.next = elm;						\
+	} else {												\
+		(elm)->field.next = __list_head->first;				\
+		__list_head->first = (elm);							\
+	}														\
+	__list_prev = (elm);									\
 } while (0)
 
 #define AST_RWLIST_INSERT_BEFORE_CURRENT AST_LIST_INSERT_BEFORE_CURRENT
@@ -733,24 +747,24 @@ struct {								\
  * \param sortfield Name of the field on which the list is sorted
  * \since 1.6.1
  */
-#define AST_LIST_INSERT_SORTALPHA(head, elm, field, sortfield) do { \
-	if (!(head)->first) {                                           \
-		(head)->first = (elm);                                      \
-		(head)->last = (elm);                                       \
-	} else {                                                        \
-		typeof((head)->first) cur = (head)->first, prev = NULL;     \
-		while (cur && strcmp(cur->sortfield, elm->sortfield) < 0) { \
-			prev = cur;                                             \
-			cur = cur->field.next;                                  \
-		}                                                           \
-		if (!prev) {                                                \
-			AST_LIST_INSERT_HEAD(head, elm, field);                 \
-		} else if (!cur) {                                          \
-			AST_LIST_INSERT_TAIL(head, elm, field);                 \
-		} else {                                                    \
-			AST_LIST_INSERT_AFTER(head, prev, elm, field);          \
-		}                                                           \
-	}                                                               \
+#define AST_LIST_INSERT_SORTALPHA(head, elm, field, sortfield) do {     \
+	if (!(head)->first) {                                               \
+		(head)->first = (elm);                                          \
+		(head)->last = (elm);                                           \
+	} else {                                                            \
+		typeof((head)->first) __cur = (head)->first, __prev = NULL;     \
+		while (__cur && strcmp(__cur->sortfield, elm->sortfield) < 0) { \
+			__prev = __cur;                                             \
+			__cur = __cur->field.next;                                  \
+		}                                                               \
+		if (!__prev) {                                                  \
+			AST_LIST_INSERT_HEAD(head, elm, field);                     \
+		} else if (!__cur) {                                            \
+			AST_LIST_INSERT_TAIL(head, elm, field);                     \
+		} else {                                                        \
+			AST_LIST_INSERT_AFTER(head, __prev, elm, field);            \
+		}                                                               \
+	}                                                                   \
 } while (0)
 
 #define AST_RWLIST_INSERT_SORTALPHA	AST_LIST_INSERT_SORTALPHA
@@ -816,14 +830,14 @@ struct {								\
  * This macro is safe to call on an empty list.
  */
 #define AST_LIST_REMOVE_HEAD(head, field) ({				\
-		typeof((head)->first) cur = (head)->first;		\
-		if (cur) {						\
-			(head)->first = cur->field.next;		\
-			cur->field.next = NULL;				\
-			if ((head)->last == cur)			\
+		typeof((head)->first) __cur = (head)->first;		\
+		if (__cur) {						\
+			(head)->first = __cur->field.next;		\
+			__cur->field.next = NULL;			\
+			if ((head)->last == __cur)			\
 				(head)->last = NULL;			\
 		}							\
-		cur;							\
+		__cur;							\
 	})
 
 #define AST_RWLIST_REMOVE_HEAD AST_LIST_REMOVE_HEAD
@@ -834,34 +848,38 @@ struct {								\
  * \param elm This is a pointer to the entry to be removed.
  * \param field This is the name of the field (declared using AST_LIST_ENTRY())
  * used to link entries of this list together.
- * \warning The removed entry is \b not freed nor modified in any way.
+ * \retval elm if elm was in the list.
+ * \retval NULL if elm was not in the list or elm was NULL.
+ * \warning The removed entry is \b not freed.
  */
-#define AST_LIST_REMOVE(head, elm, field) ({			        \
-	__typeof(elm) __res = NULL; \
-	__typeof(elm) __tmp = elm; \
-	if (!__tmp) { \
-		__res = NULL; \
-	} else if ((head)->first == (elm)) {					\
-		__res = (head)->first;                      \
-		(head)->first = (elm)->field.next;			\
-		if ((head)->last == (elm))			\
-			(head)->last = NULL;			\
-	} else {								\
-		typeof(elm) curelm = (head)->first;			\
-		while (curelm && (curelm->field.next != (elm)))			\
-			curelm = curelm->field.next;			\
-		if (curelm) { \
-			__res = (elm); \
-			curelm->field.next = (elm)->field.next;			\
-			if ((head)->last == (elm))				\
-				(head)->last = curelm;				\
-		} \
-	}								\
-	if (__res) { \
-		(__res)->field.next = NULL; \
-	} \
-	(__res); \
-})
+#define AST_LIST_REMOVE(head, elm, field)						\
+	({															\
+		__typeof(elm) __elm = (elm);							\
+		if (__elm) {											\
+			if ((head)->first == __elm) {						\
+				(head)->first = __elm->field.next;				\
+				__elm->field.next = NULL;						\
+				if ((head)->last == __elm) {					\
+					(head)->last = NULL;						\
+				}												\
+			} else {											\
+				typeof(elm) __prev = (head)->first;				\
+				while (__prev && __prev->field.next != __elm) {	\
+					__prev = __prev->field.next;				\
+				}												\
+				if (__prev) {									\
+					__prev->field.next = __elm->field.next;		\
+					__elm->field.next = NULL;					\
+					if ((head)->last == __elm) {				\
+						(head)->last = __prev;					\
+					}											\
+				} else {										\
+					__elm = NULL;								\
+				}												\
+			}													\
+		}														\
+		__elm;													\
+	})
 
 #define AST_RWLIST_REMOVE AST_LIST_REMOVE
 

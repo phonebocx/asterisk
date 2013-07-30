@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 330213 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364580 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -41,6 +41,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 330213 $")
 /* Portions of the conversion code are by guido@sienanet.it */
 
 #define	WAV_BUF_SIZE	320
+
+#define WAV_HEADER_SIZE 44
 
 struct wav_desc {	/* format-specific parameters */
 	int hz;
@@ -81,7 +83,7 @@ static int check_header_fmt(FILE *f, int hsize, int hz)
 	int bysec;
 	int freq;
 	if (hsize < 16) {
-		ast_log(LOG_WARNING, "Unexpected header size %d\n", ltohl(hsize));
+		ast_log(LOG_WARNING, "Unexpected header size %d\n", hsize);
 		return -1;
 	}
 	if (fread(&format, 1, 2, f) != 2) {
@@ -129,8 +131,8 @@ static int check_header_fmt(FILE *f, int hsize, int hz)
 		return -1;
 	}
 	/* Skip any additional header */
-	if (fseek(f,ltohl(hsize)-16,SEEK_CUR) == -1 ) {
-		ast_log(LOG_WARNING, "Failed to skip remaining header bytes: %d\n", ltohl(hsize)-16 );
+	if (fseek(f,hsize-16,SEEK_CUR) == -1 ) {
+		ast_log(LOG_WARNING, "Failed to skip remaining header bytes: %d\n", hsize-16 );
 		return -1;
 	}
 	return 0;
@@ -317,7 +319,7 @@ static int wav_open(struct ast_filestream *s)
 	   if we did, it would go here.  We also might want to check
 	   and be sure it's a valid file.  */
 	struct wav_desc *tmp = (struct wav_desc *)s->_private;
-	if ((tmp->maxlen = check_header(s->f, (s->fmt->format == AST_FORMAT_SLINEAR16 ? 16000 : 8000))) < 0)
+	if ((tmp->maxlen = check_header(s->f, (s->fmt->format.id == AST_FORMAT_SLINEAR16 ? 16000 : 8000))) < 0)
 		return -1;
 	return 0;
 }
@@ -329,7 +331,7 @@ static int wav_rewrite(struct ast_filestream *s, const char *comment)
 	   and be sure it's a valid file.  */
 
 	struct wav_desc *tmp = (struct wav_desc *)s->_private;
-	tmp->hz = (s->fmt->format == AST_FORMAT_SLINEAR16 ? 16000 : 8000);
+	tmp->hz = (s->fmt->format.id == AST_FORMAT_SLINEAR16 ? 16000 : 8000);
 	if (write_header(s->f,tmp->hz))
 		return -1;
 	return 0;
@@ -378,7 +380,7 @@ static struct ast_frame *wav_read(struct ast_filestream *s, int *whennext)
 		bytes = 0;
 /* 	ast_debug(1, "here: %d, maxlen: %d, bytes: %d\n", here, s->maxlen, bytes); */
 	s->fr.frametype = AST_FRAME_VOICE;
-	s->fr.subclass.codec = (fs->hz == 16000 ? AST_FORMAT_SLINEAR16 : AST_FORMAT_SLINEAR);
+	ast_format_set(&s->fr.subclass.format, (fs->hz == 16000 ? AST_FORMAT_SLINEAR16 : AST_FORMAT_SLINEAR), 0);
 	s->fr.mallocd = 0;
 	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, bytes);
 	
@@ -414,11 +416,11 @@ static int wav_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
 	}
-	if ((f->subclass.codec != AST_FORMAT_SLINEAR) && (f->subclass.codec != AST_FORMAT_SLINEAR16)) {
-		ast_log(LOG_WARNING, "Asked to write non-SLINEAR%s frame (%s)!\n", s->hz == 16000 ? "16" : "", ast_getformatname(f->subclass.codec));
+	if ((f->subclass.format.id != AST_FORMAT_SLINEAR) && (f->subclass.format.id != AST_FORMAT_SLINEAR16)) {
+		ast_log(LOG_WARNING, "Asked to write non-SLINEAR%s frame (%s)!\n", s->hz == 16000 ? "16" : "", ast_getformatname(&f->subclass.format));
 		return -1;
 	}
-	if (f->subclass.codec != fs->fmt->format) {
+	if (ast_format_cmp(&f->subclass.format, &fs->fmt->format) == AST_FORMAT_CMP_NOT_EQUAL) {
 		ast_log(LOG_WARNING, "Can't change SLINEAR frequency during write\n");
 		return -1;
 	}
@@ -452,13 +454,25 @@ static int wav_write(struct ast_filestream *fs, struct ast_frame *f)
 
 static int wav_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 {
-	off_t min, max, cur, offset = 0, samples;
+	off_t min = WAV_HEADER_SIZE, max, cur, offset = 0, samples;
 
 	samples = sample_offset * 2; /* SLINEAR is 16 bits mono, so sample_offset * 2 = bytes */
-	min = 44; /* wav header is 44 bytes */
-	cur = ftello(fs->f);
-	fseeko(fs->f, 0, SEEK_END);
-	max = ftello(fs->f);
+
+	if ((cur = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine current position in wav filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+
+	if (fseeko(fs->f, 0, SEEK_END) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to seek to end of wav filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+
+	if ((max = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine max position in wav filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+
 	if (whence == SEEK_SET)
 		offset = samples + min;
 	else if (whence == SEEK_CUR || whence == SEEK_FORCECUR)
@@ -475,8 +489,21 @@ static int wav_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 
 static int wav_trunc(struct ast_filestream *fs)
 {
-	if (ftruncate(fileno(fs->f), ftello(fs->f)))
+	int fd;
+	off_t cur;
+
+	if ((fd = fileno(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine file descriptor for wav filestream %p: %s\n", fs, strerror(errno));
 		return -1;
+	}
+	if ((cur = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine current position in wav filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+	/* Truncate file to current length */
+	if (ftruncate(fd, cur)) {
+		return -1;
+	}
 	return update_header(fs->f);
 }
 
@@ -488,10 +515,9 @@ static off_t wav_tell(struct ast_filestream *fs)
 	return (offset - 44)/2;
 }
 
-static const struct ast_format wav16_f = {
+static struct ast_format_def wav16_f = {
 	.name = "wav16",
 	.exts = "wav16",
-	.format = AST_FORMAT_SLINEAR16,
 	.open =	wav_open,
 	.rewrite = wav_rewrite,
 	.write = wav_write,
@@ -504,10 +530,9 @@ static const struct ast_format wav16_f = {
 	.desc_size = sizeof(struct wav_desc),
 };
 
-static const struct ast_format wav_f = {
+static struct ast_format_def wav_f = {
 	.name = "wav",
 	.exts = "wav",
-	.format = AST_FORMAT_SLINEAR,
 	.open =	wav_open,
 	.rewrite = wav_rewrite,
 	.write = wav_write,
@@ -522,16 +547,18 @@ static const struct ast_format wav_f = {
 
 static int load_module(void)
 {
-	if (ast_format_register(&wav_f)
-		|| ast_format_register(&wav16_f))
+	ast_format_set(&wav_f.format, AST_FORMAT_SLINEAR, 0);
+	ast_format_set(&wav16_f.format, AST_FORMAT_SLINEAR16, 0);
+	if (ast_format_def_register(&wav_f)
+		|| ast_format_def_register(&wav16_f))
 		return AST_MODULE_LOAD_FAILURE;
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)
 {
-	return ast_format_unregister(wav_f.name)
-		|| ast_format_unregister(wav16_f.name);
+	return ast_format_def_unregister(wav_f.name)
+		|| ast_format_def_unregister(wav16_f.name);
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Microsoft WAV/WAV16 format (8kHz/16kHz Signed Linear)",

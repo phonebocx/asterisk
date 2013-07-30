@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361155 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -80,7 +80,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 	char *newpattern=NULL; \
 	loopback_subst(buf, sizeof(buf), exten, context, priority, data); \
 	loopback_parse(&newexten, &newcontext, &newpriority, &newpattern, buf); \
-	ast_log(LOG_DEBUG, "Parsed into %s @ %s priority %d\n", newexten, newcontext, newpriority); \
+	ast_debug(1, "Parsed into %s @ %s priority %d\n", newexten, newcontext, newpriority); \
 	if (!strcasecmp(newcontext, context)) return -1
 
 static char *loopback_subst(char *buf, int buflen, const char *exten, const char *context, int priority, const char *data)
@@ -163,12 +163,12 @@ static int loopback_matchmore(struct ast_channel *chan, const char *context, con
 
 static struct ast_switch loopback_switch =
 {
-        name:                   "Loopback",
-        description:   		"Loopback Dialplan Switch",
-        exists:                 loopback_exists,
-        canmatch:               loopback_canmatch,
-        exec:                   loopback_exec,
-        matchmore:              loopback_matchmore,
+	.name			= "Loopback",
+	.description		= "Loopback Dialplan Switch",
+	.exists			= loopback_exists,
+	.canmatch		= loopback_canmatch,
+	.exec			= loopback_exec,
+	.matchmore		= loopback_matchmore,
 };
 
 static int unload_module(void)

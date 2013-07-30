@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 376921 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -65,7 +65,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 			<para>Set(VOLUME(TX)=3)</para>
 			<para>Set(VOLUME(RX)=2)</para>
 			<para>Set(VOLUME(TX,p)=3)</para>
-			<para>Set(VOLUME(RX,p)=3></para>
+			<para>Set(VOLUME(RX,p)=3)</para>
 		</description>
 	</function>
  ***/
@@ -90,6 +90,9 @@ static void destroy_callback(void *data)
 	struct volume_information *vi = data;
 
 	/* Destroy the audiohook, and destroy ourselves */
+	ast_audiohook_lock(&vi->audiohook);
+	ast_audiohook_detach(&vi->audiohook);
+	ast_audiohook_unlock(&vi->audiohook);
 	ast_audiohook_destroy(&vi->audiohook);
 	ast_free(vi);
 
@@ -171,7 +174,7 @@ static int volume_write(struct ast_channel *chan, const char *cmd, char *data, c
 			ast_datastore_free(datastore);
 			return 0;
 		}
-		ast_audiohook_init(&vi->audiohook, AST_AUDIOHOOK_TYPE_MANIPULATE, "Volume");
+		ast_audiohook_init(&vi->audiohook, AST_AUDIOHOOK_TYPE_MANIPULATE, "Volume", AST_AUDIOHOOK_MANIPULATE_ALL_RATES);
 		vi->audiohook.manipulate_callback = volume_callback;
 		ast_set_flag(&vi->audiohook, AST_AUDIOHOOK_WANTS_DTMF);
 		is_new = 1;
@@ -206,7 +209,7 @@ static int volume_write(struct ast_channel *chan, const char *cmd, char *data, c
 	
 	if (!ast_strlen_zero(args.options)) {
 		struct ast_flags flags = { 0 };
-		ast_app_parse_options(volume_opts, &flags, &data, args.options);
+		ast_app_parse_options(volume_opts, &flags, NULL, args.options);
 		vi->flags = flags.flags;
 	} else { 
 		vi->flags = 0; 

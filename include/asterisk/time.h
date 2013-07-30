@@ -83,8 +83,9 @@ int64_t ast_tvdiff_ms(struct timeval end, struct timeval start),
 	   is handled for positive and negative numbers, by ensuring
 	   that the divisor is always positive
 	*/
-	return  ((end.tv_sec - start.tv_sec) * 1000) +
-		(((1000000 + end.tv_usec - start.tv_usec) / 1000) - 1000);
+	int64_t sec_dif = (int64_t)(end.tv_sec - start.tv_sec) * 1000;
+	int64_t usec_dif = (1000000 + end.tv_usec - start.tv_usec) / 1000 - 1000;
+	return  sec_dif + usec_dif;
 }
 )
 
@@ -151,6 +152,20 @@ struct timeval ast_tvadd(struct timeval a, struct timeval b);
 struct timeval ast_tvsub(struct timeval a, struct timeval b);
 
 /*!
+ * \brief Calculate remaining milliseconds given a starting timestamp
+ * and upper bound
+ *
+ * If the upper bound is negative, then this indicates that there is no
+ * upper bound on the amount of time to wait. This will result in a
+ * negative return.
+ *
+ * \param start When timing started being calculated
+ * \param max_ms The maximum number of milliseconds to wait from start. May be negative.
+ * \return The number of milliseconds left to wait for. May be negative.
+ */
+int ast_remaining_ms(struct timeval start, int max_ms);
+
+/*!
  * \brief Returns a timeval from sec, usec
  */
 AST_INLINE_API(
@@ -171,7 +186,7 @@ struct timeval ast_tv(ast_time_t sec, ast_suseconds_t usec),
 AST_INLINE_API(
 struct timeval ast_samp2tv(unsigned int _nsamp, unsigned int _rate),
 {
-	return ast_tv(_nsamp / _rate, ((_nsamp % _rate) * (4000000 / _rate)) / 4); /* this calculation is accurate up to 32000Hz. */
+	return ast_tv(_nsamp / _rate, (_nsamp % _rate) * (1000000 / (float) _rate));
 }
 )
 

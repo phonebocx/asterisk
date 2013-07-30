@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 369346 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -89,7 +89,23 @@ static int userevent_exec(struct ast_channel *chan, const char *data)
 		ast_str_append(&body, 0, "%s\r\n", args.extra[x]);
 	}
 
-	manager_event(EVENT_FLAG_USER, "UserEvent", "UserEvent: %s\r\n%s", args.eventname, ast_str_buffer(body));
+	/*** DOCUMENTATION
+	<managerEventInstance>
+		<synopsis>A user defined event raised from the dialplan.</synopsis>
+		<parameter name="UserEvent">
+			<para>The event name, as specified in the dialplan.</para>
+		</parameter>
+		<see-also>
+			<ref type="application">UserEvent</ref>
+		</see-also>
+	</managerEventInstance>
+	***/
+	manager_event(EVENT_FLAG_USER, "UserEvent",
+			"UserEvent: %s\r\n"
+			"Uniqueid: %s\r\n"
+			"%s",
+			args.eventname, ast_channel_uniqueid(chan), ast_str_buffer(body));
+
 	ast_free(body);
 
 	return 0;

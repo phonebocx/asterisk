@@ -33,7 +33,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361476 $")
 
 #include <signal.h>
 #include <fcntl.h>
@@ -97,7 +97,7 @@ static int icesencode(char *filename, int fd)
 	execl(path_BIN "ices2", "ices", filename, SENTINEL);
 	execlp("ices2", "ices", filename, SENTINEL);
 
-	ast_debug(1, "Couldn't find ices version 2, attempting to use ices version 1.");
+	ast_debug(1, "Couldn't find ices version 2, attempting to use ices version 1.\n");
 
 	execl(path_LOCAL "ices", "ices", filename, SENTINEL);
 	execl(path_BIN "ices", "ices", filename, SENTINEL);
@@ -115,11 +115,12 @@ static int ices_exec(struct ast_channel *chan, const char *data)
 	int ms = -1;
 	int pid = -1;
 	int flags;
-	int oreadformat;
+	struct ast_format oreadformat;
 	struct ast_frame *f;
 	char filename[256]="";
 	char *c;
 
+	ast_format_clear(&oreadformat);
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "ICES requires an argument (configfile.xml)\n");
 		return -1;
@@ -134,7 +135,7 @@ static int ices_exec(struct ast_channel *chan, const char *data)
 	
 	ast_stopstream(chan);
 
-	if (chan->_state != AST_STATE_UP)
+	if (ast_channel_state(chan) != AST_STATE_UP)
 		res = ast_answer(chan);
 		
 	if (res) {
@@ -144,8 +145,8 @@ static int ices_exec(struct ast_channel *chan, const char *data)
 		return -1;
 	}
 
-	oreadformat = chan->readformat;
-	res = ast_set_read_format(chan, AST_FORMAT_SLINEAR);
+	ast_format_copy(&oreadformat, ast_channel_readformat(chan));
+	res = ast_set_read_format_by_id(chan, AST_FORMAT_SLINEAR);
 	if (res < 0) {
 		close(fds[0]);
 		close(fds[1]);
@@ -196,8 +197,8 @@ static int ices_exec(struct ast_channel *chan, const char *data)
 
 	if (pid > -1)
 		kill(pid, SIGKILL);
-	if (!res && oreadformat)
-		ast_set_read_format(chan, oreadformat);
+	if (!res && oreadformat.id)
+		ast_set_read_format(chan, &oreadformat);
 
 	return res;
 }

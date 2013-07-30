@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 370655 $")
 
 #include <sys/stat.h>
 
@@ -79,7 +79,7 @@ typedef enum {
 static int play_and_wait(struct ast_channel *chan, char *file, char *digits)
 {
 	int res = -1;
-	if (!ast_streamfile(chan, file, chan->language)) {
+	if (!ast_streamfile(chan, file, ast_channel_language(chan))) {
 		res = ast_waitstream(chan, digits);
 	}
 	return res;
@@ -101,7 +101,6 @@ static int dictate_exec(struct ast_channel *chan, const char *data)
 	int ffactor = 320 * 80,
 		res = 0,
 		done = 0,
-		oldr = 0,
 		lastop = 0,
 		samples = 0,
 		speed = 1,
@@ -109,6 +108,8 @@ static int dictate_exec(struct ast_channel *chan, const char *data)
 		len = 0,
 		maxlen = 0,
 		mode = 0;
+	struct ast_format oldr;
+	ast_format_clear(&oldr);
 
 	snprintf(dftbase, sizeof(dftbase), "%s/dictate", ast_config_AST_SPOOL_DIR);
 	if (!ast_strlen_zero(data)) {
@@ -125,13 +126,13 @@ static int dictate_exec(struct ast_channel *chan, const char *data)
 	if (args.argc > 1 && args.filename) {
 		filename = args.filename;
 	}
-	oldr = chan->readformat;
-	if ((res = ast_set_read_format(chan, AST_FORMAT_SLINEAR)) < 0) {
+	ast_format_copy(&oldr, ast_channel_readformat(chan));
+	if ((res = ast_set_read_format_by_id(chan, AST_FORMAT_SLINEAR)) < 0) {
 		ast_log(LOG_WARNING, "Unable to set to linear mode.\n");
 		return -1;
 	}
 
-	if (chan->_state != AST_STATE_UP) {
+	if (ast_channel_state(chan) != AST_STATE_UP) {
 		ast_answer(chan);
 	}
 	ast_safe_sleep(chan, 200);
@@ -149,7 +150,7 @@ static int dictate_exec(struct ast_channel *chan, const char *data)
 		ast_mkdir(base, 0755);
 		len = strlen(base) + strlen(filein) + 2;
 		if (!path || len > maxlen) {
-			path = alloca(len);
+			path = ast_alloca(len);
 			memset(path, 0, len);
 			maxlen = len;
 		} else {
@@ -187,7 +188,7 @@ static int dictate_exec(struct ast_channel *chan, const char *data)
 						if (speed > 4) {
 							speed = 1;
 						}
-						res = ast_say_number(chan, speed, AST_DIGIT_ANY, chan->language, NULL);
+						res = ast_say_number(chan, speed, AST_DIGIT_ANY, ast_channel_language(chan), NULL);
 						break;
 					case '7':
 						samples -= ffactor;
@@ -274,10 +275,10 @@ static int dictate_exec(struct ast_channel *chan, const char *data)
 						if (lastop != DFLAG_PLAY) {
 							lastop = DFLAG_PLAY;
 							ast_closestream(fs);
-							if (!(fs = ast_openstream(chan, path, chan->language)))
+							if (!(fs = ast_openstream(chan, path, ast_channel_language(chan))))
 								break;
 							ast_seekstream(fs, samples, SEEK_SET);
-							chan->stream = NULL;
+							ast_channel_stream_set(chan, NULL);
 						}
 						lastop = DMODE_PLAY;
 					}
@@ -334,8 +335,8 @@ static int dictate_exec(struct ast_channel *chan, const char *data)
 			ast_frfree(f);
 		}
 	}
-	if (oldr) {
-		ast_set_read_format(chan, oldr);
+	if (oldr.id) {
+		ast_set_read_format(chan, &oldr);
 	}
 	return 0;
 }

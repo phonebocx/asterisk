@@ -33,7 +33,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364580 $")
 
 #include "asterisk/mod_format.h"
 #include "asterisk/module.h"
@@ -399,7 +399,7 @@ static struct ast_frame *wav_read(struct ast_filestream *s, int *whennext)
 	struct wavg_desc *fs = (struct wavg_desc *)s->_private;
 
 	s->fr.frametype = AST_FRAME_VOICE;
-	s->fr.subclass.codec = AST_FORMAT_GSM;
+	ast_format_set(&s->fr.subclass.format, AST_FORMAT_GSM, 0);
 	s->fr.offset = AST_FRIENDLY_OFFSET;
 	s->fr.samples = GSM_SAMPLES;
 	s->fr.mallocd = 0;
@@ -436,8 +436,8 @@ static int wav_write(struct ast_filestream *s, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
 	}
-	if (f->subclass.codec != AST_FORMAT_GSM) {
-		ast_log(LOG_WARNING, "Asked to write non-GSM frame (%s)!\n", ast_getformatname(f->subclass.codec));
+	if (f->subclass.format.id != AST_FORMAT_GSM) {
+		ast_log(LOG_WARNING, "Asked to write non-GSM frame (%s)!\n", ast_getformatname(&f->subclass.format));
 		return -1;
 	}
 	/* XXX this might fail... if the input is a multiple of MSGSM_FRAME_SIZE
@@ -475,13 +475,25 @@ static int wav_write(struct ast_filestream *s, struct ast_frame *f)
 
 static int wav_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 {
-	off_t offset=0, distance, max;
+	off_t offset = 0, min = MSGSM_DATA_OFFSET, distance, max, cur;
 	struct wavg_desc *s = (struct wavg_desc *)fs->_private;
 
-	off_t min = MSGSM_DATA_OFFSET;
-	off_t cur = ftello(fs->f);
-	fseek(fs->f, 0, SEEK_END);
-	max = ftello(fs->f);	/* XXX ideally, should round correctly */
+	if ((cur = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine current position in WAV filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+
+	if (fseeko(fs->f, 0, SEEK_END) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to seek to end of WAV filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+
+	/* XXX ideally, should round correctly */
+	if ((max = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine max position in WAV filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+
 	/* Compute the distance in bytes, rounded to the block size */
 	distance = (sample_offset/MSGSM_SAMPLES) * MSGSM_FRAME_SIZE;
 	if (whence == SEEK_SET)
@@ -511,8 +523,21 @@ static int wav_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 
 static int wav_trunc(struct ast_filestream *fs)
 {
-	if (ftruncate(fileno(fs->f), ftello(fs->f)))
+	int fd;
+	off_t cur;
+
+	if ((fd = fileno(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine file descriptor for WAV filestream %p: %s\n", fs, strerror(errno));
 		return -1;
+	}
+	if ((cur = ftello(fs->f)) < 0) {
+		ast_log(AST_LOG_WARNING, "Unable to determine current position in WAV filestream %p: %s\n", fs, strerror(errno));
+		return -1;
+	}
+	/* Truncate file to current length */
+	if (ftruncate(fd, cur)) {
+		return -1;
+	}
 	return update_header(fs->f);
 }
 
@@ -525,10 +550,9 @@ static off_t wav_tell(struct ast_filestream *fs)
 	return (offset - MSGSM_DATA_OFFSET)/MSGSM_FRAME_SIZE*MSGSM_SAMPLES;
 }
 
-static const struct ast_format wav49_f = {
+static struct ast_format_def wav49_f = {
 	.name = "wav49",
 	.exts = "WAV|wav49",
-	.format = AST_FORMAT_GSM,
 	.open =	wav_open,
 	.rewrite = wav_rewrite,
 	.write = wav_write,
@@ -542,14 +566,15 @@ static const struct ast_format wav49_f = {
 
 static int load_module(void)
 {
-	if (ast_format_register(&wav49_f))
+	ast_format_set(&wav49_f.format, AST_FORMAT_GSM, 0);
+	if (ast_format_def_register(&wav49_f))
 		return AST_MODULE_LOAD_FAILURE;
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)
 {
-	return ast_format_unregister(wav49_f.name);
+	return ast_format_def_unregister(wav49_f.name);
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Microsoft WAV format (Proprietary GSM)",

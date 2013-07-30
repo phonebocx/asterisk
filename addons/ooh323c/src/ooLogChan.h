@@ -42,7 +42,8 @@ typedef enum {
    OO_LOGICALCHAN_IDLE, 
    OO_LOGICALCHAN_PROPOSED, 
    OO_LOGICALCHAN_ESTABLISHED,
-   OO_LOGICALCHAN_PROPOSEDFS
+   OO_LOGICALCHAN_PROPOSEDFS,
+   OO_LOGICALCHAN_CLOSEPENDING
 } OOLogicalChannelState;
 
 /**
@@ -53,12 +54,12 @@ typedef struct OOLogicalChannel {
    int  sessionID;
    enum OOCapType type;
    char dir[10];  /* receive/transmit */
-   char remoteIP[20];
+   char remoteIP[2+8*4+7];
    int  remoteMediaPort;
    int  remoteMediaControlPort;
    int  localRtpPort;
    int  localRtcpPort;
-   char localIP[20];
+   char localIP[2+8*4+7];
    OOLogicalChannelState state;         
    struct ooH323EpCapability *chanCap;
    struct OOLogicalChannel *next;
@@ -181,6 +182,7 @@ EXTERN OOLogicalChannel * ooFindLogicalChannel
 (struct OOH323CallData* call, int sessionID, char *dir, H245DataType* dataType);
 
 EXTERN OOLogicalChannel* ooGetTransmitLogicalChannel(struct OOH323CallData *call);
+EXTERN OOLogicalChannel* ooGetReceiveLogicalChannel(struct OOH323CallData *call);
 
 /** 
  * @} 

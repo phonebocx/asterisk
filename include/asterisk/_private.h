@@ -19,6 +19,7 @@ int load_modules(unsigned int);		/*!< Provided by loader.c */
 int load_pbx(void);			/*!< Provided by pbx.c */
 int init_logger(void);			/*!< Provided by logger.c */
 void close_logger(void);		/*!< Provided by logger.c */
+void clean_time_zones(void);			/*!< Provided by localtime.c */
 int init_framer(void);			/*!< Provided by frame.c */
 int ast_term_init(void);		/*!< Provided by term.c */
 int astdb_init(void);			/*!< Provided by db.c */
@@ -47,6 +48,8 @@ int ast_cel_engine_init(void);		/*!< Provided by cel.c */
 int ast_cel_engine_reload(void);	/*!< Provided by cel.c */
 int ast_ssl_init(void);                 /*!< Provided by ssl.c */
 int ast_test_init(void);            /*!< Provided by test.c */
+int ast_msg_init(void);             /*!< Provided by message.c */
+void ast_msg_shutdown(void);        /*!< Provided by message.c */
 
 /*!
  * \brief Reload asterisk modules.
@@ -90,4 +93,16 @@ int ast_xmldoc_load_documentation(void);
  */
 int ast_plc_reload(void);
 
+/*!
+ * \brief Init the ast_format attribute interface register container.
+ */
+int ast_format_attr_init(void);
+
+/*!
+ * \brief Init the Asterisk global format list after all format attribute modules have been loaded
+ */
+int ast_format_list_init(void);
+
+/*! \brief initializes the rtp engine arrays */
+int ast_rtp_engine_init(void);
 #endif /* _ASTERISK__PRIVATE_H */

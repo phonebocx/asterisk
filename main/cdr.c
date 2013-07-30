@@ -31,9 +31,13 @@
  */
 
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 321547 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377071 $")
 
 #include <signal.h>
 
@@ -50,6 +54,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 321547 $")
 #include "asterisk/cli.h"
 #include "asterisk/stringfields.h"
 #include "asterisk/data.h"
+
+/*** DOCUMENTATION
+ ***/
 
 /*! Default AMA flag for billing records (CDR's) */
 int ast_default_amaflags = AST_CDR_DOCUMENTATION;
@@ -80,7 +87,7 @@ static int cdr_sequence =  0;
 
 static int cdr_seq_inc(struct ast_cdr *cdr);
 
-static struct sched_context *sched;
+static struct ast_sched_context *sched;
 static int cdr_sched = -1;
 static pthread_t cdr_thread = AST_PTHREADT_NULL;
 
@@ -92,6 +99,9 @@ static const int BATCHMODE_DEFAULT = 0;
 
 static int unanswered;
 static const int UNANSWERED_DEFAULT = 0;
+
+static int congestion;
+static const int CONGESTION_DEFAULT = 0;
 
 static int batchsize;
 static const int BATCH_SIZE_DEFAULT = 100;
@@ -179,6 +189,11 @@ void ast_cdr_unregister(const char *name)
 int ast_cdr_isset_unanswered(void)
 {
 	return unanswered;
+}
+
+int ast_cdr_isset_congestion(void)
+{
+	return congestion;
 }
 
 struct ast_cdr *ast_cdr_dup_unique(struct ast_cdr *cdr)
@@ -289,11 +304,11 @@ void ast_cdr_getvar(struct ast_cdr *cdr, const char *name, char **ret, char *wor
 		cdr_get_tv(cdr->answer, raw ? NULL : fmt, workspace, workspacelen);
 	else if (!strcasecmp(name, "end"))
 		cdr_get_tv(cdr->end, raw ? NULL : fmt, workspace, workspacelen);
-	else if (!strcasecmp(name, "duration"))
-		snprintf(workspace, workspacelen, "%ld", cdr->duration ? cdr->duration : (long)ast_tvdiff_ms(ast_tvnow(), cdr->start) / 1000);
-	else if (!strcasecmp(name, "billsec"))
-		snprintf(workspace, workspacelen, "%ld", cdr->billsec || cdr->answer.tv_sec == 0 ? cdr->billsec : (long)ast_tvdiff_ms(ast_tvnow(), cdr->answer) / 1000);
-	else if (!strcasecmp(name, "disposition")) {
+	else if (!strcasecmp(name, "duration")) {
+		snprintf(workspace, workspacelen, "%ld", cdr->end.tv_sec != 0 ? cdr->duration : (long)ast_tvdiff_ms(ast_tvnow(), cdr->start) / 1000);
+	} else if (!strcasecmp(name, "billsec")) {
+		snprintf(workspace, workspacelen, "%ld", (cdr->billsec || !ast_tvzero(cdr->end) || ast_tvzero(cdr->answer)) ? cdr->billsec : (long)ast_tvdiff_ms(ast_tvnow(), cdr->answer) / 1000);	
+	} else if (!strcasecmp(name, "disposition")) {
 		if (raw) {
 			snprintf(workspace, workspacelen, "%ld", cdr->disposition);
 		} else {
@@ -554,7 +569,7 @@ void ast_cdr_merge(struct ast_cdr *to, struct ast_cdr *from)
 		}
 
 		if (ast_test_flag(to, AST_CDR_FLAG_LOCKED)) {
-			ast_log(LOG_WARNING, "Merging into locked CDR... no choice.");
+			ast_log(LOG_WARNING, "Merging into locked CDR... no choice.\n");
 			to = zcdr; /* safety-- if all there are is locked CDR's, then.... ?? */
 			lto = NULL;
 		}
@@ -573,7 +588,9 @@ void ast_cdr_merge(struct ast_cdr *to, struct ast_cdr *from)
 				lfrom = lfrom->next;
 			}
 			/* rip off the last entry and put a copy of the to at the end */
-			llfrom->next = to;
+			if (llfrom) {
+				llfrom->next = to;
+			}
 			from = lfrom;
 		} else {
 			/* save copy of the current *to cdr */
@@ -589,10 +606,11 @@ void ast_cdr_merge(struct ast_cdr *to, struct ast_cdr *from)
 			}
 			from->next = NULL;
 			/* rip off the last entry and put a copy of the to at the end */
-			if (llfrom == from)
+			if (llfrom == from) {
 				to = to->next = ast_cdr_dup(&tcdr);
-			else
+			} else if (llfrom) {
 				to = llfrom->next = ast_cdr_dup(&tcdr);
+			}
 			from = lfrom;
 		}
 	}
@@ -776,6 +794,31 @@ void ast_cdr_noanswer(struct ast_cdr *cdr)
 	}
 }
 
+void ast_cdr_congestion(struct ast_cdr *cdr)
+{
+	char *chan;
+
+	/* if congestion log is disabled, pass the buck to ast_cdr_failed */
+	if (!congestion) {
+		ast_cdr_failed(cdr);
+	}
+
+	while (cdr && congestion) {
+		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
+			chan = !ast_strlen_zero(cdr->channel) ? cdr->channel : "<unknown>";
+
+			if (ast_test_flag(cdr, AST_CDR_FLAG_POSTED)) {
+				ast_log(LOG_WARNING, "CDR on channel '%s' already posted\n", chan);
+			}
+
+			if (cdr->disposition < AST_CDR_CONGESTION) {
+				cdr->disposition = AST_CDR_CONGESTION;
+			}
+		}
+		cdr = cdr->next;
+	}
+}
+
 /* everywhere ast_cdr_disposition is called, it will call ast_cdr_failed()
    if ast_cdr_disposition returns a non-zero value */
 
@@ -791,6 +834,9 @@ int ast_cdr_disposition(struct ast_cdr *cdr, int cause)
 			break;
 		case AST_CAUSE_NO_ANSWER:
 			ast_cdr_noanswer(cdr);
+			break;
+		case AST_CAUSE_NORMAL_CIRCUIT_CONGESTION:
+			ast_cdr_congestion(cdr);
 			break;
 		case AST_CAUSE_NORMAL:
 			break;
@@ -857,18 +903,18 @@ static void set_one_cid(struct ast_cdr *cdr, struct ast_channel *c)
 	}
 
 	/* Grab source from ANI or normal Caller*ID */
-	num = S_COR(c->caller.ani.number.valid, c->caller.ani.number.str,
-		S_COR(c->caller.id.number.valid, c->caller.id.number.str, NULL));
+	num = S_COR(ast_channel_caller(c)->ani.number.valid, ast_channel_caller(c)->ani.number.str,
+		S_COR(ast_channel_caller(c)->id.number.valid, ast_channel_caller(c)->id.number.str, NULL));
 	ast_callerid_merge(cdr->clid, sizeof(cdr->clid),
-		S_COR(c->caller.id.name.valid, c->caller.id.name.str, NULL), num, "");
+		S_COR(ast_channel_caller(c)->id.name.valid, ast_channel_caller(c)->id.name.str, NULL), num, "");
 	ast_copy_string(cdr->src, S_OR(num, ""), sizeof(cdr->src));
-	ast_cdr_setvar(cdr, "dnid", S_OR(c->dialed.number.str, ""), 0);
+	ast_cdr_setvar(cdr, "dnid", S_OR(ast_channel_dialed(c)->number.str, ""), 0);
 
-	if (c->caller.id.subaddress.valid) {
-		ast_cdr_setvar(cdr, "callingsubaddr", S_OR(c->caller.id.subaddress.str, ""), 0);
+	if (ast_channel_caller(c)->id.subaddress.valid) {
+		ast_cdr_setvar(cdr, "callingsubaddr", S_OR(ast_channel_caller(c)->id.subaddress.str, ""), 0);
 	}
-	if (c->dialed.subaddress.valid) {
-		ast_cdr_setvar(cdr, "calledsubaddr", S_OR(c->dialed.subaddress.str, ""), 0);
+	if (ast_channel_dialed(c)->subaddress.valid) {
+		ast_cdr_setvar(cdr, "calledsubaddr", S_OR(ast_channel_dialed(c)->subaddress.str, ""), 0);
 	}
 }
 
@@ -890,21 +936,21 @@ int ast_cdr_init(struct ast_cdr *cdr, struct ast_channel *c)
 {
 	for ( ; cdr ; cdr = cdr->next) {
 		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
-			ast_copy_string(cdr->channel, c->name, sizeof(cdr->channel));
+			ast_copy_string(cdr->channel, ast_channel_name(c), sizeof(cdr->channel));
 			set_one_cid(cdr, c);
 			cdr_seq_inc(cdr);
 
-			cdr->disposition = (c->_state == AST_STATE_UP) ?  AST_CDR_ANSWERED : AST_CDR_NOANSWER;
-			cdr->amaflags = c->amaflags ? c->amaflags :  ast_default_amaflags;
-			ast_copy_string(cdr->accountcode, c->accountcode, sizeof(cdr->accountcode));
-			ast_copy_string(cdr->peeraccount, c->peeraccount, sizeof(cdr->peeraccount));
+			cdr->disposition = (ast_channel_state(c) == AST_STATE_UP) ?  AST_CDR_ANSWERED : AST_CDR_NOANSWER;
+			cdr->amaflags = ast_channel_amaflags(c) ? ast_channel_amaflags(c) :  ast_default_amaflags;
+			ast_copy_string(cdr->accountcode, ast_channel_accountcode(c), sizeof(cdr->accountcode));
+			ast_copy_string(cdr->peeraccount, ast_channel_peeraccount(c), sizeof(cdr->peeraccount));
 			/* Destination information */
-			ast_copy_string(cdr->dst, S_OR(c->macroexten,c->exten), sizeof(cdr->dst));
-			ast_copy_string(cdr->dcontext, S_OR(c->macrocontext,c->context), sizeof(cdr->dcontext));
+			ast_copy_string(cdr->dst, S_OR(ast_channel_macroexten(c),ast_channel_exten(c)), sizeof(cdr->dst));
+			ast_copy_string(cdr->dcontext, S_OR(ast_channel_macrocontext(c),ast_channel_context(c)), sizeof(cdr->dcontext));
 			/* Unique call identifier */
-			ast_copy_string(cdr->uniqueid, c->uniqueid, sizeof(cdr->uniqueid));
+			ast_copy_string(cdr->uniqueid, ast_channel_uniqueid(c), sizeof(cdr->uniqueid));
 			/* Linked call identifier */
-			ast_copy_string(cdr->linkedid, c->linkedid, sizeof(cdr->linkedid));
+			ast_copy_string(cdr->linkedid, ast_channel_linkedid(c), sizeof(cdr->linkedid));
 		}
 	}
 	return 0;
@@ -961,6 +1007,8 @@ char *ast_cdr_disp2str(int disposition)
 		return "BUSY";
 	case AST_CDR_ANSWERED:
 		return "ANSWERED";
+	case AST_CDR_CONGESTION:
+		return "CONGESTION";
 	}
 	return "UNKNOWN";
 }
@@ -981,52 +1029,60 @@ char *ast_cdr_flags2str(int flag)
 
 int ast_cdr_setaccount(struct ast_channel *chan, const char *account)
 {
-	struct ast_cdr *cdr = chan->cdr;
+	struct ast_cdr *cdr = ast_channel_cdr(chan);
 	const char *old_acct = "";
 
-	if (!ast_strlen_zero(chan->accountcode)) {
-		old_acct = ast_strdupa(chan->accountcode);
+	if (!ast_strlen_zero(ast_channel_accountcode(chan))) {
+		old_acct = ast_strdupa(ast_channel_accountcode(chan));
 	}
 
-	ast_string_field_set(chan, accountcode, account);
+	ast_channel_accountcode_set(chan, account);
 	for ( ; cdr ; cdr = cdr->next) {
 		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
-			ast_copy_string(cdr->accountcode, chan->accountcode, sizeof(cdr->accountcode));
+			ast_copy_string(cdr->accountcode, ast_channel_accountcode(chan), sizeof(cdr->accountcode));
 		}
 	}
-
+	/*** DOCUMENTATION
+		<managerEventInstance>
+			<synopsis>Raised when a CDR's AccountCode is changed.</synopsis>
+		</managerEventInstance>
+	***/
 	ast_manager_event(chan, EVENT_FLAG_CALL, "NewAccountCode",
 			"Channel: %s\r\n"
 			"Uniqueid: %s\r\n"
 			"AccountCode: %s\r\n"
 			"OldAccountCode: %s\r\n",
-			chan->name, chan->uniqueid, chan->accountcode, old_acct);
+			ast_channel_name(chan), ast_channel_uniqueid(chan), ast_channel_accountcode(chan), old_acct);
 
 	return 0;
 }
 
 int ast_cdr_setpeeraccount(struct ast_channel *chan, const char *account)
 {
-	struct ast_cdr *cdr = chan->cdr;
+	struct ast_cdr *cdr = ast_channel_cdr(chan);
 	const char *old_acct = "";
 
-	if (!ast_strlen_zero(chan->peeraccount)) {
-		old_acct = ast_strdupa(chan->peeraccount);
+	if (!ast_strlen_zero(ast_channel_peeraccount(chan))) {
+		old_acct = ast_strdupa(ast_channel_peeraccount(chan));
 	}
 
-	ast_string_field_set(chan, peeraccount, account);
+	ast_channel_peeraccount_set(chan, account);
 	for ( ; cdr ; cdr = cdr->next) {
 		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
-			ast_copy_string(cdr->peeraccount, chan->peeraccount, sizeof(cdr->peeraccount));
+			ast_copy_string(cdr->peeraccount, ast_channel_peeraccount(chan), sizeof(cdr->peeraccount));
 		}
 	}
-
+	/*** DOCUMENTATION
+		<managerEventInstance>
+			<synopsis>Raised when a CDR's PeerAccount is changed.</synopsis>
+		</managerEventInstance>
+	***/
 	ast_manager_event(chan, EVENT_FLAG_CALL, "NewPeerAccount",
 			"Channel: %s\r\n"
 			"Uniqueid: %s\r\n"
 			"PeerAccount: %s\r\n"
 			"OldPeerAccount: %s\r\n",
-			chan->name, chan->uniqueid, chan->peeraccount, old_acct);
+			ast_channel_name(chan), ast_channel_uniqueid(chan), ast_channel_peeraccount(chan), old_acct);
 
 	return 0;
 }
@@ -1036,7 +1092,7 @@ int ast_cdr_setamaflags(struct ast_channel *chan, const char *flag)
 	struct ast_cdr *cdr;
 	int newflag = ast_cdr_amaflags2int(flag);
 	if (newflag) {
-		for (cdr = chan->cdr; cdr; cdr = cdr->next) {
+		for (cdr = ast_channel_cdr(chan); cdr; cdr = cdr->next) {
 			if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
 				cdr->amaflags = newflag;
 			}
@@ -1048,7 +1104,7 @@ int ast_cdr_setamaflags(struct ast_channel *chan, const char *flag)
 
 int ast_cdr_setuserfield(struct ast_channel *chan, const char *userfield)
 {
-	struct ast_cdr *cdr = chan->cdr;
+	struct ast_cdr *cdr = ast_channel_cdr(chan);
 
 	for ( ; cdr ; cdr = cdr->next) {
 		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED))
@@ -1060,7 +1116,7 @@ int ast_cdr_setuserfield(struct ast_channel *chan, const char *userfield)
 
 int ast_cdr_appenduserfield(struct ast_channel *chan, const char *userfield)
 {
-	struct ast_cdr *cdr = chan->cdr;
+	struct ast_cdr *cdr = ast_channel_cdr(chan);
 
 	for ( ; cdr ; cdr = cdr->next) {
 		int len = strlen(cdr->userfield);
@@ -1074,20 +1130,20 @@ int ast_cdr_appenduserfield(struct ast_channel *chan, const char *userfield)
 
 int ast_cdr_update(struct ast_channel *c)
 {
-	struct ast_cdr *cdr = c->cdr;
+	struct ast_cdr *cdr = ast_channel_cdr(c);
 
 	for ( ; cdr ; cdr = cdr->next) {
 		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
 			set_one_cid(cdr, c);
 
 			/* Copy account code et-al */
-			ast_copy_string(cdr->accountcode, c->accountcode, sizeof(cdr->accountcode));
-			ast_copy_string(cdr->peeraccount, c->peeraccount, sizeof(cdr->peeraccount));
-			ast_copy_string(cdr->linkedid, c->linkedid, sizeof(cdr->linkedid));
+			ast_copy_string(cdr->accountcode, ast_channel_accountcode(c), sizeof(cdr->accountcode));
+			ast_copy_string(cdr->peeraccount, ast_channel_peeraccount(c), sizeof(cdr->peeraccount));
+			ast_copy_string(cdr->linkedid, ast_channel_linkedid(c), sizeof(cdr->linkedid));
 
 			/* Destination information */ /* XXX privilege macro* ? */
-			ast_copy_string(cdr->dst, S_OR(c->macroexten, c->exten), sizeof(cdr->dst));
-			ast_copy_string(cdr->dcontext, S_OR(c->macrocontext, c->context), sizeof(cdr->dcontext));
+			ast_copy_string(cdr->dst, S_OR(ast_channel_macroexten(c), ast_channel_exten(c)), sizeof(cdr->dst));
+			ast_copy_string(cdr->dcontext, S_OR(ast_channel_macrocontext(c), ast_channel_context(c)), sizeof(cdr->dcontext));
 		}
 	}
 
@@ -1357,11 +1413,13 @@ void ast_cdr_detach(struct ast_cdr *cdr)
 	newtail->cdr = cdr;
 	batch->tail = newtail;
 	curr = batch->size++;
-	ast_mutex_unlock(&cdr_batch_lock);
 
 	/* if we have enough stuff to post, then do it */
-	if (curr >= (batchsize - 1))
+	if (curr >= (batchsize - 1)) {
 		submit_unscheduled_batch();
+	}
+
+	ast_mutex_unlock(&cdr_batch_lock);
 }
 
 static void *do_cdr(void *data)
@@ -1416,7 +1474,8 @@ static char *handle_cli_status(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	ast_cli(a->fd, "  Logging:                    %s\n", enabled ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Mode:                       %s\n", batchmode ? "Batch" : "Simple");
 	if (enabled) {
-		ast_cli(a->fd, "  Log unanswered calls:       %s\n\n", unanswered ? "Yes" : "No");
+		ast_cli(a->fd, "  Log unanswered calls:       %s\n", unanswered ? "Yes" : "No");
+		ast_cli(a->fd, "  Log congestion:             %s\n\n", congestion ? "Yes" : "No");
 		if (batchmode) {
 			ast_cli(a->fd, "* Batch Mode Settings\n");
 			ast_cli(a->fd, "  -------------------\n");
@@ -1472,27 +1531,18 @@ static char *handle_cli_submit(struct ast_cli_entry *e, int cmd, struct ast_cli_
 static struct ast_cli_entry cli_submit = AST_CLI_DEFINE(handle_cli_submit, "Posts all pending batched CDR data");
 static struct ast_cli_entry cli_status = AST_CLI_DEFINE(handle_cli_status, "Display the CDR status");
 
-static int do_reload(int reload)
+static void do_reload(int reload)
 {
 	struct ast_config *config;
-	const char *enabled_value;
-	const char *unanswered_value;
-	const char *batched_value;
-	const char *scheduleronly_value;
-	const char *batchsafeshutdown_value;
-	const char *size_value;
-	const char *time_value;
-	const char *end_before_h_value;
-	const char *initiatedseconds_value;
+	struct ast_variable *v;
 	int cfg_size;
 	int cfg_time;
 	int was_enabled;
 	int was_batchmode;
-	int res=0;
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 
 	if ((config = ast_config_load2("cdr.conf", "cdr", config_flags)) == CONFIG_STATUS_FILEUNCHANGED) {
-		return 0;
+		return;
 	}
 
 	ast_mutex_lock(&cdr_batch_lock);
@@ -1507,51 +1557,50 @@ static int do_reload(int reload)
 	enabled = ENABLED_DEFAULT;
 	batchmode = BATCHMODE_DEFAULT;
 	unanswered = UNANSWERED_DEFAULT;
+	congestion = CONGESTION_DEFAULT;
 
 	if (config == CONFIG_STATUS_FILEMISSING || config == CONFIG_STATUS_FILEINVALID) {
 		ast_mutex_unlock(&cdr_batch_lock);
-		return 0;
+		return;
 	}
 
 	/* don't run the next scheduled CDR posting while reloading */
 	AST_SCHED_DEL(sched, cdr_sched);
 
-	if (config) {
-		if ((enabled_value = ast_variable_retrieve(config, "general", "enable"))) {
-			enabled = ast_true(enabled_value);
-		}
-		if ((unanswered_value = ast_variable_retrieve(config, "general", "unanswered"))) {
-			unanswered = ast_true(unanswered_value);
-		}
-		if ((batched_value = ast_variable_retrieve(config, "general", "batch"))) {
-			batchmode = ast_true(batched_value);
-		}
-		if ((scheduleronly_value = ast_variable_retrieve(config, "general", "scheduleronly"))) {
-			batchscheduleronly = ast_true(scheduleronly_value);
-		}
-		if ((batchsafeshutdown_value = ast_variable_retrieve(config, "general", "safeshutdown"))) {
-			batchsafeshutdown = ast_true(batchsafeshutdown_value);
-		}
-		if ((size_value = ast_variable_retrieve(config, "general", "size"))) {
-			if (sscanf(size_value, "%30d", &cfg_size) < 1)
-				ast_log(LOG_WARNING, "Unable to convert '%s' to a numeric value.\n", size_value);
-			else if (cfg_size < 0)
+	for (v = ast_variable_browse(config, "general"); v; v = v->next) {
+		if (!strcasecmp(v->name, "enable")) {
+			enabled = ast_true(v->value);
+		} else if (!strcasecmp(v->name, "unanswered")) {
+			unanswered = ast_true(v->value);
+		} else if (!strcasecmp(v->name, "congestion")) {
+			congestion = ast_true(v->value);
+		} else if (!strcasecmp(v->name, "batch")) {
+			batchmode = ast_true(v->value);
+		} else if (!strcasecmp(v->name, "scheduleronly")) {
+			batchscheduleronly = ast_true(v->value);
+		} else if (!strcasecmp(v->name, "safeshutdown")) {
+			batchsafeshutdown = ast_true(v->value);
+		} else if (!strcasecmp(v->name, "size")) {
+			if (sscanf(v->value, "%30d", &cfg_size) < 1) {
+				ast_log(LOG_WARNING, "Unable to convert '%s' to a numeric value.\n", v->value);
+			} else if (cfg_size < 0) {
 				ast_log(LOG_WARNING, "Invalid maximum batch size '%d' specified, using default\n", cfg_size);
-			else
+			} else {
 				batchsize = cfg_size;
-		}
-		if ((time_value = ast_variable_retrieve(config, "general", "time"))) {
-			if (sscanf(time_value, "%30d", &cfg_time) < 1)
-				ast_log(LOG_WARNING, "Unable to convert '%s' to a numeric value.\n", time_value);
-			else if (cfg_time < 0)
+			}
+		} else if (!strcasecmp(v->name, "time")) {
+			if (sscanf(v->value, "%30d", &cfg_time) < 1) {
+				ast_log(LOG_WARNING, "Unable to convert '%s' to a numeric value.\n", v->value);
+			} else if (cfg_time < 0) {
 				ast_log(LOG_WARNING, "Invalid maximum batch time '%d' specified, using default\n", cfg_time);
-			else
+			} else {
 				batchtime = cfg_time;
+			}
+		} else if (!strcasecmp(v->name, "endbeforehexten")) {
+			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_END_CDR_BEFORE_H_EXTEN);
+		} else if (!strcasecmp(v->name, "initiatedseconds")) {
+			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_INITIATED_SECONDS);
 		}
-		if ((end_before_h_value = ast_variable_retrieve(config, "general", "endbeforehexten")))
-			ast_set2_flag(&ast_options, ast_true(end_before_h_value), AST_OPT_FLAG_END_CDR_BEFORE_H_EXTEN);
-		if ((initiatedseconds_value = ast_variable_retrieve(config, "general", "initiatedseconds")))
-			ast_set2_flag(&ast_options, ast_true(initiatedseconds_value), AST_OPT_FLAG_INITIATED_SECONDS);
 	}
 
 	if (enabled && !batchmode) {
@@ -1573,7 +1622,6 @@ static int do_reload(int reload)
 		} else {
 			ast_cli_register(&cli_submit);
 			ast_register_atexit(ast_cdr_engine_term);
-			res = 0;
 		}
 	/* if this reload disabled the CDR and/or batch mode and there is a background thread,
 	   kill it */
@@ -1586,43 +1634,50 @@ static int do_reload(int reload)
 		ast_cond_destroy(&cdr_pending_cond);
 		ast_cli_unregister(&cli_submit);
 		ast_unregister_atexit(ast_cdr_engine_term);
-		res = 0;
 		/* if leaving batch mode, then post the CDRs in the batch,
 		   and don't reschedule, since we are stopping CDR logging */
 		if (!batchmode && was_batchmode) {
 			ast_cdr_engine_term();
 		}
-	} else {
-		res = 0;
 	}
 
 	ast_mutex_unlock(&cdr_batch_lock);
 	ast_config_destroy(config);
 	manager_event(EVENT_FLAG_SYSTEM, "Reload", "Module: CDR\r\nMessage: CDR subsystem reload requested\r\n");
+}
 
-	return res;
+static void cdr_engine_shutdown(void)
+{
+	if (cdr_thread != AST_PTHREADT_NULL) {
+		/* wake up the thread so it will exit */
+		pthread_cancel(cdr_thread);
+		pthread_kill(cdr_thread, SIGURG);
+		pthread_join(cdr_thread, NULL);
+		cdr_thread = AST_PTHREADT_NULL;
+		ast_cond_destroy(&cdr_pending_cond);
+	}
+	ast_cli_unregister(&cli_submit);
+
+	ast_cli_unregister(&cli_status);
+	ast_sched_context_destroy(sched);
+	sched = NULL;
+	ast_free(batch);
+	batch = NULL;
 }
 
 int ast_cdr_engine_init(void)
 {
-	int res;
-
-	sched = sched_context_create();
+	sched = ast_sched_context_create();
 	if (!sched) {
 		ast_log(LOG_ERROR, "Unable to create schedule context.\n");
 		return -1;
 	}
 
 	ast_cli_register(&cli_status);
+	do_reload(0);
+	ast_register_atexit(cdr_engine_shutdown);
 
-	res = do_reload(0);
-	if (res) {
-		ast_mutex_lock(&cdr_batch_lock);
-		res = init_batch();
-		ast_mutex_unlock(&cdr_batch_lock);
-	}
-
-	return res;
+	return 0;
 }
 
 /* \note This actually gets called a couple of times at shutdown.  Once, before we start
@@ -1634,7 +1689,8 @@ void ast_cdr_engine_term(void)
 
 int ast_cdr_engine_reload(void)
 {
-	return do_reload(1);
+	do_reload(1);
+	return 0;
 }
 
 int ast_cdr_data_add_structure(struct ast_data *tree, struct ast_cdr *cdr, int recur)

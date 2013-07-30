@@ -22,6 +22,7 @@
  */
 #include "asterisk.h"
 #include "asterisk/lock.h"
+#include "asterisk/netsock2.h"
 
 #include "ooGkClient.h"
 #include "ootypes.h"
@@ -169,23 +170,25 @@ void ooGkClientPrintConfig(ooGkClient *pGkClient)
 
 int ooGkClientDestroy(void)
 {
+   ooGkClient *pGkClient = gH323ep.gkClient;
+
    if(gH323ep.gkClient)
    {
-      if(gH323ep.gkClient->state == GkClientRegistered)
+      ast_mutex_lock(&pGkClient->Lock);
+      gH323ep.gkClient = NULL;
+      if(pGkClient->state == GkClientRegistered)
       {
          OOTRACEINFO1("Unregistering from Gatekeeper\n");
-         if(ooGkClientSendURQ(gH323ep.gkClient, NULL)!=OO_OK)
+         if(ooGkClientSendURQ(pGkClient, NULL)!=OO_OK)
             OOTRACEERR1("Error:Failed to send URQ to gatekeeper\n");
       }
       OOTRACEINFO1("Destroying Gatekeeper Client\n");
-      ooGkClientCloseChannel(gH323ep.gkClient);
-      freeContext(&gH323ep.gkClient->msgCtxt);
-      freeContext(&gH323ep.gkClient->ctxt);
-      ast_mutex_lock(&gH323ep.gkClient->Lock);
-      ast_mutex_unlock(&gH323ep.gkClient->Lock);
-      ast_mutex_destroy(&gH323ep.gkClient->Lock);
-      memFreePtr(&gH323ep.ctxt, gH323ep.gkClient);
-      gH323ep.gkClient = NULL;
+      ooGkClientCloseChannel(pGkClient);
+      freeContext(&pGkClient->msgCtxt);
+      freeContext(&pGkClient->ctxt);
+      ast_mutex_unlock(&pGkClient->Lock);
+      ast_mutex_destroy(&pGkClient->Lock);
+      memFreePtr(&gH323ep.ctxt, pGkClient);
    }
    return OO_OK;
 }
@@ -261,7 +264,7 @@ int ooGkClientCreateChannel(ooGkClient *pGkClient)
    int ret=0;
    OOIPADDR ipaddrs;
    /* Create socket */
-   if((ret=ooSocketCreateUDP(&pGkClient->rasSocket))!=ASN_OK)
+   if((ret=ooSocketCreateUDP(&pGkClient->rasSocket, 4))!=ASN_OK)
    {
       OOTRACEERR1("Failed to create RAS socket\n");
       pGkClient->state = GkClientFailed;
@@ -269,7 +272,7 @@ int ooGkClientCreateChannel(ooGkClient *pGkClient)
    }
    if(pGkClient->localRASPort)
    {
-      ret= ooSocketStrToAddr (pGkClient->localRASIP, &ipaddrs);
+      inet_pton(AF_INET, pGkClient->localRASIP, &ipaddrs);
       if( (ret=ooSocketBind( pGkClient->rasSocket, ipaddrs, 
            pGkClient->localRASPort))!=ASN_OK ) 
       {
@@ -295,7 +298,7 @@ int ooGkClientCreateChannel(ooGkClient *pGkClient)
       OOTRACEDBGA1("Determining ip address for RAS channel "
                    "multihomed mode. \n");
       ret = ooSocketGetIpAndPort(pGkClient->rasSocket, pGkClient->localRASIP, 
-                                 20, &pGkClient->localRASPort);
+                                 20, &pGkClient->localRASPort, NULL);
       if(ret != ASN_OK)
       {
          OOTRACEERR1("Error:Failed to retrieve local ip and port from "
@@ -364,7 +367,7 @@ void ooGkClientFillVendor
 
 int ooGkClientReceive(ooGkClient *pGkClient)
 {
-   ASN1OCTET recvBuf[1024];
+   ASN1OCTET recvBuf[ASN_K_ENCBUFSIZ];
    int recvLen;
    char remoteHost[32];
    int iFromPort=0;
@@ -375,7 +378,7 @@ int ooGkClientReceive(ooGkClient *pGkClient)
    ast_mutex_lock(&pGkClient->Lock);
    pctxt = &pGkClient->msgCtxt;
 
-   recvLen = ooSocketRecvFrom(pGkClient->rasSocket, recvBuf, 1024, remoteHost,
+   recvLen = ooSocketRecvFrom(pGkClient->rasSocket, recvBuf, 2048, remoteHost,
                               32, &iFromPort);
    if(recvLen <0)
    {
@@ -666,7 +669,7 @@ int ooGkClientSendGRQ(ooGkClient *pGkClient)
    }
 
  
-   ooSocketConvertIpToNwAddr(pGkClient->localRASIP, pRasAddress->ip.data);
+   inet_pton(AF_INET, pGkClient->localRASIP, pRasAddress->ip.data);
 
    pRasAddress->ip.numocts = 4;
    pRasAddress->port = pGkClient->localRASPort;
@@ -809,6 +812,9 @@ int ooGkClientHandleGatekeeperConfirm
    if(pGatekeeperConfirm->m.gatekeeperIdentifierPresent) 
    {
       pGkClient->gkId.nchars = pGatekeeperConfirm->gatekeeperIdentifier.nchars;
+      if (pGkClient->gkId.data) {
+         memFreePtr(&pGkClient->ctxt, pGkClient->gkId.data);
+      }
       pGkClient->gkId.data = (ASN116BITCHAR*)memAlloc(&pGkClient->ctxt,
                               sizeof(ASN116BITCHAR)*pGkClient->gkId.nchars);
       if(!pGkClient->gkId.data)
@@ -858,7 +864,6 @@ int ooGkClientHandleGatekeeperConfirm
          memFreePtr(&pGkClient->ctxt, pTimer->cbData);
          ooTimerDelete(&pGkClient->ctxt, &pGkClient->timerList, pTimer);
          OOTRACEDBGA1("Deleted GRQ Timer.\n");
-         break;
       }
    }
 
@@ -932,7 +937,7 @@ int ooGkClientSendRRQ(ooGkClient *pGkClient, ASN1BOOL keepAlive)
    }
    pTransportAddress->t = T_H225TransportAddress_ipAddress;
    pTransportAddress->u.ipAddress = pIpAddress;
-   ooSocketConvertIpToNwAddr(pGkClient->localRASIP, pIpAddress->ip.data);
+   inet_pton(AF_INET, pGkClient->localRASIP, pIpAddress->ip.data);
    pIpAddress->ip.numocts = 4;
    pIpAddress->port = gH323ep.listenPort;
    
@@ -960,7 +965,7 @@ int ooGkClientSendRRQ(ooGkClient *pGkClient, ASN1BOOL keepAlive)
    pTransportAddress->t = T_H225TransportAddress_ipAddress;
    pTransportAddress->u.ipAddress = pIpAddress;
    
-   ooSocketConvertIpToNwAddr(pGkClient->localRASIP, pIpAddress->ip.data);
+   inet_pton(AF_INET, pGkClient->localRASIP, pIpAddress->ip.data);
 
    pIpAddress->ip.numocts = 4;
    pIpAddress->port = pGkClient->localRASPort;
@@ -1063,7 +1068,7 @@ int ooGkClientSendRRQ(ooGkClient *pGkClient, ASN1BOOL keepAlive)
          allocate storage for endpoint-identifier, and populate it from what the
          GK told us from the previous RCF. Only allocate on the first pass thru here */
       pRegReq->endpointIdentifier.data = 
-           (ASN116BITCHAR*)memAlloc(pctxt, pGkClient->gkId.nchars*sizeof(ASN116BITCHAR));
+           (ASN116BITCHAR*)memAlloc(pctxt, pGkClient->endpointId.nchars*sizeof(ASN116BITCHAR));
       if (pRegReq->endpointIdentifier.data) {
          pRegReq->endpointIdentifier.nchars = pGkClient->endpointId.nchars;
          pRegReq->m.endpointIdentifierPresent = TRUE;
@@ -1136,6 +1141,8 @@ int ooGkClientHandleRegistrationConfirm
    ooGkClientTimerCb *cbData;
    ASN1UINT regTTL=0;
    /* Extract Endpoint Id */
+   if (pGkClient->endpointId.data)
+	memFreePtr(&pGkClient->ctxt, pGkClient->endpointId.data);
    pGkClient->endpointId.nchars = 
                               pRegistrationConfirm->endpointIdentifier.nchars;
    pGkClient->endpointId.data = (ASN116BITCHAR*)memAlloc(&pGkClient->ctxt,
@@ -1278,6 +1285,8 @@ int ooGkClientHandleRegistrationReject
    unsigned int x=0;
    DListNode *pNode = NULL;
    OOTimer *pTimer = NULL;
+   ooGkClientTimerCb *cbData=NULL;
+
    /* First delete the corresponding RRQ timer */
    for(x=0; x<pGkClient->timerList.count; x++)
    {
@@ -1288,7 +1297,6 @@ int ooGkClientHandleRegistrationReject
          memFreePtr(&pGkClient->ctxt, pTimer->cbData);
          ooTimerDelete(&pGkClient->ctxt, &pGkClient->timerList, pTimer);
          OOTRACEDBGA1("Deleted RRQ Timer.\n");
-         break;
       }
    }
 
@@ -1368,8 +1376,40 @@ int ooGkClientHandleRegistrationReject
    default:
       OOTRACEINFO1("RRQ Rejected - Invalid Reason\n");
    }
-   pGkClient->state = GkClientGkErr;
+
+   /* send again GRQ/RRQ's */
+   ast_mutex_lock(&pGkClient->Lock);
+   pGkClient->state = GkClientUnregistered;
+   pGkClient->rrqRetries = 0;
+   pGkClient->grqRetries = 0;
+   pGkClient->discoveryComplete = FALSE;
+
+   cbData = (ooGkClientTimerCb*) memAlloc
+                               (&pGkClient->ctxt, sizeof(ooGkClientTimerCb));
+   if(!cbData)
+   {
+      OOTRACEERR1("Error:Failed to allocate memory to GRQ timer callback\n");
+      pGkClient->state = GkClientFailed;
+      ast_mutex_unlock(&pGkClient->Lock);
+      return OO_FAILED;
+   }
+   cbData->timerType = OO_GRQ_TIMER;
+   cbData->pGkClient = pGkClient;
+   if(!ooTimerCreate(&pGkClient->ctxt, &pGkClient->timerList,
+                     &ooGkClientGRQTimerExpired, pGkClient->grqTimeout,
+                     cbData, FALSE))
+   {
+      OOTRACEERR1("Error:Unable to create GRQ timer.\n ");
+      memFreePtr(&pGkClient->ctxt, cbData);
+      pGkClient->state = GkClientFailed;
+      ast_mutex_unlock(&pGkClient->Lock);
+      return OO_FAILED;
+   }
+
+   ast_mutex_unlock(&pGkClient->Lock);
+
    return OO_OK;
+
 }
 
 
@@ -1432,7 +1472,7 @@ int ooGkClientSendURQ(ooGkClient *pGkClient, ooAliases *aliases)
    }
    pTransportAddress->t = T_H225TransportAddress_ipAddress;
    pTransportAddress->u.ipAddress = pIpAddress;
-   ooSocketConvertIpToNwAddr(pGkClient->localRASIP, pIpAddress->ip.data);
+   inet_pton(AF_INET, pGkClient->localRASIP, pIpAddress->ip.data);
    pIpAddress->ip.numocts = 4;
    pIpAddress->port = gH323ep.listenPort;
    
@@ -1667,14 +1707,14 @@ int ooGkClientSendAdmissionRequest
       ast_mutex_unlock(&pGkClient->Lock);
       return OO_FAILED;
    }
-   ooSocketConvertIpToNwAddr(pGkClient->localRASIP, pIpAddressLocal->ip.data);
+   inet_pton(AF_INET, pGkClient->localRASIP, pIpAddressLocal->ip.data);
 
    pIpAddressLocal->ip.numocts = 4;
    pIpAddressLocal->port = gH323ep.listenPort;
 
    if(!ooUtilsIsStrEmpty(call->remoteIP))
    {
-      ooSocketConvertIpToNwAddr(call->remoteIP, pIpAddressRemote->ip.data);
+      inet_pton(AF_INET, call->remoteIP, pIpAddressRemote->ip.data);
       pIpAddressRemote->ip.numocts = 4;
       pIpAddressRemote->port = call->remotePort;
    }
@@ -1954,8 +1994,11 @@ int ooGkClientHandleAdmissionConfirm
                                     ipAddress->ip.data[1],
                                     ipAddress->ip.data[2],
                                     ipAddress->ip.data[3]);
-         if(strcmp(ip, "0.0.0.0"))
+         if(strcmp(ip, "0.0.0.0")) {
+/* fix this when gk client will adopt to work with IPv6 */
+	    pCallAdmInfo->call->versionIP = 4;
             strcpy(pCallAdmInfo->call->remoteIP, ip);
+	 }
          pCallAdmInfo->call->remotePort = ipAddress->port;
          /* Update call model */
          if(pAdmissionConfirm->callModel.t == T_H225CallModel_direct)
@@ -2190,7 +2233,7 @@ int ooGkClientSendIRR
       ast_mutex_unlock(&pGkClient->Lock);
       return OO_FAILED;
    }
-   ooSocketConvertIpToNwAddr(pGkClient->localRASIP, pIpAddressLocal->ip.data);
+   inet_pton(AF_INET, pGkClient->localRASIP, pIpAddressLocal->ip.data);
 
    pIpAddressLocal->ip.numocts = 4;
    pIpAddressLocal->port = gH323ep.listenPort;
@@ -2221,7 +2264,7 @@ int ooGkClientSendIRR
 
    pIpRasAddress->ip.numocts = 4;
    pIpRasAddress->port = pGkClient->localRASPort;
-   ooSocketConvertIpToNwAddr(pGkClient->localRASIP, pIpRasAddress->ip.data);
+   inet_pton(AF_INET, pGkClient->localRASIP, pIpRasAddress->ip.data);
 
    pIRR->rasAddress.u.ipAddress = pIpRasAddress;
    pIRR->rasAddress.t=T_H225TransportAddress_ipAddress; /* IPv4 address */
@@ -2320,11 +2363,11 @@ int ooGkClientSendIRR
       return OO_FAILED;
    }
    pLocalAddr->ip.numocts = 4;
-   ooSocketConvertIpToNwAddr(call->localIP, pLocalAddr->ip.data);
+   inet_pton(AF_INET, call->localIP, pLocalAddr->ip.data);
    pLocalAddr->port = (call->pH225Channel->port) ? call->pH225Channel->port : gH323ep.listenPort;
 
    pRemoteAddr->ip.numocts = 4;
-   ooSocketConvertIpToNwAddr(call->remoteIP, pRemoteAddr->ip.data);
+   inet_pton(AF_INET, call->remoteIP, pRemoteAddr->ip.data);
    pRemoteAddr->port = call->remotePort;
 
    perCallInfo->callSignaling.m.sendAddressPresent = TRUE;

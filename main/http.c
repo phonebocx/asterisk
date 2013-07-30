@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378785 $")
 
 #include <time.h>
 #include <sys/time.h>
@@ -45,7 +45,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 #include <fcntl.h>
 
 #include "asterisk/paths.h"	/* use ast_config_AST_DATA_DIR */
-#include "asterisk/network.h"
 #include "asterisk/cli.h"
 #include "asterisk/tcptls.h"
 #include "asterisk/http.h"
@@ -57,8 +56,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
 #include "asterisk/manager.h"
 #include "asterisk/_private.h"
 #include "asterisk/astobj2.h"
+#include "asterisk/netsock2.h"
 
 #define MAX_PREFIX 80
+#define DEFAULT_PORT 8088
+#define DEFAULT_TLS_PORT 8089
 #define DEFAULT_SESSION_LIMIT 100
 
 /* See http.h for more information about the SSL implementation */
@@ -249,7 +251,7 @@ static int static_callback(struct ast_tcptls_session_instance *ser,
 		goto out403;
 	}
 
-	path = alloca(len);
+	path = ast_alloca(len);
 	sprintf(path, "%s/static-http/%s", ast_config_AST_DATA_DIR, uri);
 	if (stat(path, &st)) {
 		goto out404;
@@ -579,34 +581,16 @@ void ast_http_uri_unlink_all_with_key(const char *key)
 	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&uris, urih, entry) {
 		if (!strcmp(urih->key, key)) {
 			AST_RWLIST_REMOVE_CURRENT(entry);
-		}
-		if (urih->dmallocd) {
-			ast_free(urih->data);
-		}
-		if (urih->mallocd) {
-			ast_free(urih);
+			if (urih->dmallocd) {
+				ast_free(urih->data);
+			}
+			if (urih->mallocd) {
+				ast_free(urih);
+			}
 		}
 	}
 	AST_RWLIST_TRAVERSE_SAFE_END;
 	AST_RWLIST_UNLOCK(&uris);
-}
-
-/*
- * Decode special characters in http uri.
- * We have ast_uri_decode to handle %XX sequences, but spaces
- * are encoded as a '+' so we need to replace them beforehand.
- */
-static void http_decode(char *s)
-{
-	char *t;
-
-	for (t = s; *t; t++) {
-		if (*t == '+') {
-			*t = ' ';
-		}
-	}
-
-	ast_uri_decode(s);
 }
 
 /*
@@ -619,6 +603,7 @@ struct ast_variable *ast_http_get_post_vars(
 	int content_length = 0;
 	struct ast_variable *v, *post_vars=NULL, *prev = NULL;
 	char *buf, *var, *val;
+	int res;
 
 	for (v = headers; v; v = v->next) {
 		if (!strcasecmp(v->name, "Content-Type")) {
@@ -631,30 +616,36 @@ struct ast_variable *ast_http_get_post_vars(
 
 	for (v = headers; v; v = v->next) {
 		if (!strcasecmp(v->name, "Content-Length")) {
-			content_length = atoi(v->value) + 1;
+			content_length = atoi(v->value);
 			break;
 		}
 	}
 
-	if (!content_length) {
+	if (content_length <= 0) {
 		return NULL;
 	}
 
-	if (!(buf = alloca(content_length))) {
+	buf = ast_malloc(content_length + 1);
+	if (!buf) {
 		return NULL;
 	}
-	if (!fgets(buf, content_length, ser->f)) {
-		return NULL;
+
+	res = fread(buf, 1, content_length, ser->f);
+	if (res < content_length) {
+		/* Error, distinguishable by ferror() or feof(), but neither
+		 * is good. */
+		goto done;
 	}
+	buf[content_length] = '\0';
 
 	while ((val = strsep(&buf, "&"))) {
 		var = strsep(&val, "=");
 		if (val) {
-			http_decode(val);
+			ast_uri_decode(val, ast_uri_http_legacy);
 		} else  {
 			val = "";
 		}
-		http_decode(var);
+		ast_uri_decode(var, ast_uri_http_legacy);
 		if ((v = ast_variable_new(var, val, ""))) {
 			if (post_vars) {
 				prev->next = v;
@@ -664,6 +655,9 @@ struct ast_variable *ast_http_get_post_vars(
 			prev = v;
 		}
 	}
+	
+done:
+	ast_free(buf);
 	return post_vars;
 }
 
@@ -688,11 +682,11 @@ static int handle_uri(struct ast_tcptls_session_instance *ser, char *uri,
 		while ((val = strsep(&params, "&"))) {
 			var = strsep(&val, "=");
 			if (val) {
-				http_decode(val);
+				ast_uri_decode(val, ast_uri_http_legacy);
 			} else  {
 				val = "";
 			}
-			http_decode(var);
+			ast_uri_decode(var, ast_uri_http_legacy);
 			if ((v = ast_variable_new(var, val, ""))) {
 				if (get_vars) {
 					prev->next = v;
@@ -703,7 +697,7 @@ static int handle_uri(struct ast_tcptls_session_instance *ser, char *uri,
 			}
 		}
 	}
-	http_decode(uri);
+	ast_uri_decode(uri, ast_uri_http_legacy);
 
 	AST_RWLIST_RDLOCK(&uri_redirects);
 	AST_RWLIST_TRAVERSE(&uri_redirects, redirect, entry) {
@@ -783,7 +777,7 @@ cleanup:
 static HOOK_T ssl_write(void *cookie, const char *buf, LEN_T len)
 {
 #if 0
-	char *s = alloca(len+1);
+	char *s = ast_alloca(len+1);
 	strncpy(s, buf, len);
 	s[len] = '\0';
 	ast_verbose("ssl write size %d <%s>\n", (int)len, s);
@@ -1015,27 +1009,20 @@ static int __ast_http_load(int reload)
 	struct ast_variable *v;
 	int enabled=0;
 	int newenablestatic=0;
-	struct hostent *hp;
-	struct ast_hostent ahp;
 	char newprefix[MAX_PREFIX] = "";
 	struct http_uri_redirect *redirect;
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
-	struct sockaddr_in tmp = {0,};
-	struct sockaddr_in tmp2 = {0,};
+	uint32_t bindport = DEFAULT_PORT;
+	struct ast_sockaddr *addrs = NULL;
+	int num_addrs = 0;
+	int http_tls_was_enabled = 0;
 
 	cfg = ast_config_load2("http.conf", "http", config_flags);
 	if (cfg == CONFIG_STATUS_FILEMISSING || cfg == CONFIG_STATUS_FILEUNCHANGED || cfg == CONFIG_STATUS_FILEINVALID) {
 		return 0;
 	}
 
-	/* default values */
-	tmp.sin_family = AF_INET;
-	tmp.sin_port = htons(8088);
-	ast_sockaddr_from_sin(&http_desc.local_address, &tmp);
-
-	tmp2.sin_family = AF_INET;
-	tmp2.sin_port = htons(8089);
-	ast_sockaddr_from_sin(&https_desc.local_address, &tmp2);
+	http_tls_was_enabled = (reload && http_tls_cfg.enabled);
 
 	http_tls_cfg.enabled = 0;
 	if (http_tls_cfg.certfile) {
@@ -1059,6 +1046,8 @@ static int __ast_http_load(int reload)
 	}
 	AST_RWLIST_UNLOCK(&uri_redirects);
 
+	ast_sockaddr_setnull(&https_desc.local_address);
+
 	if (cfg) {
 		v = ast_variable_browse(cfg, "general");
 		for (; v; v = v->next) {
@@ -1073,17 +1062,12 @@ static int __ast_http_load(int reload)
 			} else if (!strcasecmp(v->name, "enablestatic")) {
 				newenablestatic = ast_true(v->value);
 			} else if (!strcasecmp(v->name, "bindport")) {
-				ast_sockaddr_set_port(&http_desc.local_address,
-						      atoi(v->value));
+				if (ast_parse_arg(v->value, PARSE_UINT32 | PARSE_IN_RANGE | PARSE_DEFAULT, &bindport, DEFAULT_PORT, 0, 65535)) {
+					ast_log(LOG_WARNING, "Invalid port %s specified. Using default port %"PRId32, v->value, DEFAULT_PORT);
+				}
 			} else if (!strcasecmp(v->name, "bindaddr")) {
-				if ((hp = ast_gethostbyname(v->value, &ahp))) {
-					ast_sockaddr_to_sin(&http_desc.local_address,
-							    &tmp);
-					memcpy(&tmp.sin_addr, hp->h_addr, sizeof(tmp.sin_addr));
-					ast_sockaddr_from_sin(&http_desc.local_address,
-							      &tmp);
-				} else {
-					ast_log(LOG_WARNING, "Invalid bind address '%s'\n", v->value);
+				if (!(num_addrs = ast_sockaddr_resolve(&addrs, v->value, 0, AST_AF_UNSPEC))) {
+					ast_log(LOG_WARNING, "Invalid bind address %s\n", v->value);
 				}
 			} else if (!strcasecmp(v->name, "prefix")) {
 				if (!ast_strlen_zero(v->value)) {
@@ -1107,24 +1091,54 @@ static int __ast_http_load(int reload)
 
 		ast_config_destroy(cfg);
 	}
-	/* if the https addres has not been set, default is the same as non secure http */
-	ast_sockaddr_to_sin(&http_desc.local_address, &tmp);
-	ast_sockaddr_to_sin(&https_desc.local_address, &tmp2);
-	if (!tmp2.sin_addr.s_addr) {
-		tmp2.sin_addr = tmp.sin_addr;
-		ast_sockaddr_from_sin(&https_desc.local_address, &tmp2);
-	}
-	if (!enabled) {
-		ast_sockaddr_setnull(&http_desc.local_address);
-		ast_sockaddr_setnull(&https_desc.local_address);
-	}
+
 	if (strcmp(prefix, newprefix)) {
 		ast_copy_string(prefix, newprefix, sizeof(prefix));
 	}
 	enablestatic = newenablestatic;
-	ast_tcptls_server_start(&http_desc);
-	if (ast_ssl_setup(https_desc.tls_cfg)) {
-		ast_tcptls_server_start(&https_desc);
+
+	if (num_addrs && enabled) {
+		int i;
+		for (i = 0; i < num_addrs; ++i) {
+			ast_sockaddr_copy(&http_desc.local_address, &addrs[i]);
+			if (!ast_sockaddr_port(&http_desc.local_address)) {
+				ast_sockaddr_set_port(&http_desc.local_address, bindport);
+			}
+			ast_tcptls_server_start(&http_desc);
+			if (http_desc.accept_fd == -1) {
+				ast_log(LOG_WARNING, "Failed to start HTTP server for address %s\n", ast_sockaddr_stringify(&addrs[i]));
+				ast_sockaddr_setnull(&http_desc.local_address);
+			} else {
+				ast_verb(1, "Bound HTTP server to address %s\n", ast_sockaddr_stringify(&addrs[i]));
+				break;
+			}
+		}
+		/* When no specific TLS bindaddr is specified, we just use
+		 * the non-TLS bindaddress here.
+		 */
+		if (ast_sockaddr_isnull(&https_desc.local_address) && http_desc.accept_fd != -1) {
+			ast_sockaddr_copy(&https_desc.local_address, &https_desc.local_address);
+			/* Of course, we can't use the same port though.
+			 * Since no bind address was specified, we just use the
+			 * default TLS port
+			 */
+			ast_sockaddr_set_port(&https_desc.local_address, DEFAULT_TLS_PORT);
+		}
+	}
+	if (http_tls_was_enabled && !http_tls_cfg.enabled) {
+		ast_tcptls_server_stop(&https_desc);
+	} else if (http_tls_cfg.enabled && !ast_sockaddr_isnull(&https_desc.local_address)) {
+		/* We can get here either because a TLS-specific address was specified
+		 * or because we copied the non-TLS address here. In the case where
+		 * we read an explicit address from the config, there may have been
+		 * no port specified, so we'll just use the default TLS port.
+		 */
+		if (!ast_sockaddr_port(&https_desc.local_address)) {
+			ast_sockaddr_set_port(&https_desc.local_address, DEFAULT_TLS_PORT);
+		}
+		if (ast_ssl_setup(https_desc.tls_cfg)) {
+			ast_tcptls_server_start(&https_desc);
+		}
 	}
 
 	return 0;
@@ -1134,7 +1148,6 @@ static char *handle_show_http(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 {
 	struct ast_http_uri *urih;
 	struct http_uri_redirect *redirect;
-	struct sockaddr_in tmp;
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -1152,17 +1165,14 @@ static char *handle_show_http(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 	}
 	ast_cli(a->fd, "HTTP Server Status:\n");
 	ast_cli(a->fd, "Prefix: %s\n", prefix);
-	ast_sockaddr_to_sin(&http_desc.old_address, &tmp);
-	if (!tmp.sin_family) {
+	if (ast_sockaddr_isnull(&http_desc.old_address)) {
 		ast_cli(a->fd, "Server Disabled\n\n");
 	} else {
-		ast_cli(a->fd, "Server Enabled and Bound to %s:%d\n\n",
-			ast_inet_ntoa(tmp.sin_addr), ntohs(tmp.sin_port));
+		ast_cli(a->fd, "Server Enabled and Bound to %s\n\n",
+			ast_sockaddr_stringify(&http_desc.old_address));
 		if (http_tls_cfg.enabled) {
-			ast_sockaddr_to_sin(&https_desc.old_address, &tmp);
-			ast_cli(a->fd, "HTTPS Server Enabled and Bound to %s:%d\n\n",
-				ast_inet_ntoa(tmp.sin_addr),
-				ntohs(tmp.sin_port));
+			ast_cli(a->fd, "HTTPS Server Enabled and Bound to %s\n\n",
+				ast_sockaddr_stringify(&https_desc.old_address));
 		}
 	}
 

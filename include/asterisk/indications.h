@@ -62,6 +62,8 @@ struct ast_tone_zone_sound {
 	};
 };
 
+#define MAX_TONEZONE_COUNTRY 16
+
 /*!
  * \brief A set of tones for a given locale
  *
@@ -72,7 +74,7 @@ struct ast_tone_zone_sound {
  */
 struct ast_tone_zone {
 	/*! \brief Country code that this set of tones is for */
-	char country[16];
+	char country[MAX_TONEZONE_COUNTRY];
 	/*! 
 	 * \brief Text description of the given country.
 	 *
@@ -174,7 +176,8 @@ int ast_tone_zone_count(void);
 /*!
  * \brief Get an iterator for the available tone zones
  *
- * Use ao2_iterator_next() to iterate the tone zones.
+ * \note Use ao2_iterator_next() to iterate the tone zones.
+ * \note Use ao2_iterator_destroy() to clean up.
  *
  * \return an initialized iterator
  */

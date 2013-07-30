@@ -185,6 +185,14 @@ int ast_sockaddr_cmp_addr(const struct ast_sockaddr *a, const struct ast_sockadd
  *    a.b.c.d for IPv4
  *    [a:b:c:...:d] for IPv6.
  * AST_SOCKADDR_STR_PORT: port only
+ *
+ * \note The string pointer returned by this function will point to a string that
+ * will be changed whenever any form of ast_sockaddr_stringify_fmt is called on that
+ * thread. Because of this, it is important that if you use this function, you use the
+ * string before another use of this function is made elsewhere in the same thread.
+ * The easiest way to accomplish this is by immediately copying the string to a buffer
+ * with something like ast_strdupa.
+ *
  * \retval "(null)" \a addr is null
  * \retval "" An error occurred during processing
  * \retval string The stringified form of the address
@@ -335,7 +343,8 @@ int ast_sockaddr_split_hostport(char *str, char **host, char **port, int flags);
  *
  * Host names are NOT allowed.
  *
- * \param[out] addr The resulting ast_sockaddr
+ * \param[out] addr The resulting ast_sockaddr. This MAY be NULL from 
+ * functions that are performing validity checks only, e.g. ast_parse_arg().
  * \param str The string to parse
  * \param flags If set to zero, a port MAY be present. If set to
  * PARSE_PORT_IGNORE, a port MAY be present but will be ignored. If set to
@@ -374,7 +383,7 @@ int ast_sockaddr_parse(struct ast_sockaddr *addr, const char *str, int flags);
  * port MUST NOT be present.
  *
  * \param family Only addresses of the given family will be returned. Use 0 or
- * AST_SOCKADDR_UNSPEC to get addresses of all families.
+ * AST_AF_UNSPEC to get addresses of all families.
  *
  * \retval 0 Failure
  * \retval non-zero The number of elements in addrs array.
@@ -451,6 +460,20 @@ int ast_sockaddr_is_ipv4(const struct ast_sockaddr *addr);
  * \retval 0 This is not an IPv4-mapped IPv6 address.
  */
 int ast_sockaddr_is_ipv4_mapped(const struct ast_sockaddr *addr);
+
+/*!
+ * \since 10.0
+ *
+ * \brief
+ * Determine if an IPv4 address is a multicast address
+ *
+ * \parm addr the address to check
+ *
+ * This function checks if an address is in the 224.0.0.0/4 network block.
+ *
+ * \return non-zero if this is a multicast address
+ */
+int ast_sockaddr_is_ipv4_multicast(const struct ast_sockaddr *addr);
 
 /*!
  * \since 1.8

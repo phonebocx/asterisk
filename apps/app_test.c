@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 356573 $")
 
 #include <sys/stat.h>
 
@@ -91,9 +91,10 @@ static int measurenoise(struct ast_channel *chan, int ms, char *who)
 	short *foo;
 	struct timeval start;
 	struct ast_frame *f;
-	int rformat;
-	rformat = chan->readformat;
-	if (ast_set_read_format(chan, AST_FORMAT_SLINEAR)) {
+	struct ast_format rformat;
+
+	ast_format_copy(&rformat, ast_channel_readformat(chan));
+	if (ast_set_read_format_by_id(chan, AST_FORMAT_SLINEAR)) {
 		ast_log(LOG_NOTICE, "Unable to set to linear mode!\n");
 		return -1;
 	}
@@ -110,7 +111,7 @@ static int measurenoise(struct ast_channel *chan, int ms, char *who)
 			res = -1;
 			break;
 		}
-		if ((f->frametype == AST_FRAME_VOICE) && (f->subclass.codec == AST_FORMAT_SLINEAR)) {
+		if ((f->frametype == AST_FRAME_VOICE) && (f->subclass.format.id == AST_FORMAT_SLINEAR)) {
 			foo = (short *)f->data.ptr;
 			for (x=0;x<f->samples;x++) {
 				noise += abs(foo[x]);
@@ -120,8 +121,8 @@ static int measurenoise(struct ast_channel *chan, int ms, char *who)
 		ast_frfree(f);
 	}
 
-	if (rformat) {
-		if (ast_set_read_format(chan, rformat)) {
+	if (rformat.id) {
+		if (ast_set_read_format(chan, &rformat)) {
 			ast_log(LOG_NOTICE, "Unable to restore original format!\n");
 			return -1;
 		}
@@ -161,7 +162,7 @@ static int testclient_exec(struct ast_channel *chan, const char *data)
 		return -1;
 	}
 
-	if (chan->_state != AST_STATE_UP)
+	if (ast_channel_state(chan) != AST_STATE_UP)
 		res = ast_answer(chan);
 
 	/* Wait a few just to be sure things get started */
@@ -198,7 +199,7 @@ static int testclient_exec(struct ast_channel *chan, const char *data)
 		snprintf(fn, sizeof(fn), "%s/testresults/%s-client.txt", ast_config_AST_LOG_DIR, testid);
 		if ((f = fopen(fn, "w+"))) {
 			setlinebuf(f);
-			fprintf(f, "CLIENTCHAN:    %s\n", chan->name);
+			fprintf(f, "CLIENTCHAN:    %s\n", ast_channel_name(chan));
 			fprintf(f, "CLIENTTEST ID: %s\n", testid);
 			fprintf(f, "ANSWER:        PASS\n");
 			res = 0;
@@ -316,7 +317,7 @@ static int testclient_exec(struct ast_channel *chan, const char *data)
 		} else
 			res = -1;
 	} else {
-		ast_log(LOG_NOTICE, "Did not read a test ID on '%s'\n", chan->name);
+		ast_log(LOG_NOTICE, "Did not read a test ID on '%s'\n", ast_channel_name(chan));
 		res = -1;
 	}
 	return res;
@@ -328,7 +329,7 @@ static int testserver_exec(struct ast_channel *chan, const char *data)
 	char testid[80]="";
 	char fn[80];
 	FILE *f;
-	if (chan->_state != AST_STATE_UP)
+	if (ast_channel_state(chan) != AST_STATE_UP)
 		res = ast_answer(chan);
 	/* Read version */
 	ast_debug(1, "Read client version\n");
@@ -360,7 +361,7 @@ static int testserver_exec(struct ast_channel *chan, const char *data)
 		snprintf(fn, sizeof(fn), "%s/testresults/%s-server.txt", ast_config_AST_LOG_DIR, testid);
 		if ((f = fopen(fn, "w+"))) {
 			setlinebuf(f);
-			fprintf(f, "SERVERCHAN:    %s\n", chan->name);
+			fprintf(f, "SERVERCHAN:    %s\n", ast_channel_name(chan));
 			fprintf(f, "SERVERTEST ID: %s\n", testid);
 			fprintf(f, "ANSWER:        PASS\n");
 			ast_debug(1, "Processing Test ID '%s'\n", testid);
@@ -466,7 +467,7 @@ static int testserver_exec(struct ast_channel *chan, const char *data)
 		} else
 			res = -1;
 	} else {
-		ast_log(LOG_NOTICE, "Did not read a test ID on '%s'\n", chan->name);
+		ast_log(LOG_NOTICE, "Did not read a test ID on '%s'\n", ast_channel_name(chan));
 		res = -1;
 	}
 	return res;

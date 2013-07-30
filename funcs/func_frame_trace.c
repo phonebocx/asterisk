@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 336314 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 366408 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -140,7 +140,7 @@ static struct ast_frame *hook_event_cb(struct ast_channel *chan, struct ast_fram
 	}
 
 	if (show_frame) {
-		ast_verbose("%s on Channel %s\n", event == AST_FRAMEHOOK_EVENT_READ ? "<--Read" : "--> Write", chan->name);
+		ast_verbose("%s on Channel %s\n", event == AST_FRAMEHOOK_EVENT_READ ? "<--Read" : "--> Write", ast_channel_name(chan));
 		print_frame(frame);
 	}
 	return frame;
@@ -213,14 +213,14 @@ static void print_frame(struct ast_frame *frame)
 		break;
 	case AST_FRAME_VOICE:
 		ast_verbose("FrameType: VOICE\n");
-		ast_verbose("Codec: %s\n", ast_getformatname(frame->subclass.codec));
+		ast_verbose("Codec: %s\n", ast_getformatname(&frame->subclass.format));
 		ast_verbose("MS: %ld\n", frame->len);
 		ast_verbose("Samples: %d\n", frame->samples);
 		ast_verbose("Bytes: %d\n", frame->datalen);
 		break;
 	case AST_FRAME_VIDEO:
 		ast_verbose("FrameType: VIDEO\n");
-		ast_verbose("Codec: %s\n", ast_getformatname(frame->subclass.codec));
+		ast_verbose("Codec: %s\n", ast_getformatname(&frame->subclass.format));
 		ast_verbose("MS: %ld\n", frame->len);
 		ast_verbose("Samples: %d\n", frame->samples);
 		ast_verbose("Bytes: %d\n", frame->datalen);
@@ -312,6 +312,9 @@ static void print_frame(struct ast_frame *frame)
 		case AST_CONTROL_AOC:
 			ast_verbose("SubClass: AOC\n");
 			break;
+		case AST_CONTROL_MCID:
+			ast_verbose("SubClass: MCID\n");
+			break;
 		case AST_CONTROL_INCOMPLETE:
 			ast_verbose("SubClass: INCOMPLETE\n");
 			break;
@@ -320,6 +323,9 @@ static void print_frame(struct ast_frame *frame)
 			break;
 		case AST_CONTROL_UPDATE_RTP_PEER:
 			ast_verbose("SubClass: UPDATE_RTP_PEER\n");
+			break;
+		case AST_CONTROL_PVT_CAUSE_CODE:
+			ast_verbose("SubClass: PVT_CAUSE_CODE\n");
 			break;
 		}
 		

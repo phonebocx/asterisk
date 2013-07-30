@@ -23,9 +23,13 @@
  * \author Viagénie <asteriskv6@viagenie.ca>
  */
 
+/*** MODULEINFO
+	<support_level>core</support_level>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332559 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 369110 $")
 
 #include "asterisk/config.h"
 #include "asterisk/netsock2.h"
@@ -231,8 +235,10 @@ int ast_sockaddr_parse(struct ast_sockaddr *addr, const char *str, int flags)
 			"addresses. Ignoring all but the first.\n");
 	}
 
-	addr->len = res->ai_addrlen;
-	memcpy(&addr->ss, res->ai_addr, addr->len);
+	if (addr) {
+		addr->len = res->ai_addrlen;
+		memcpy(&addr->ss, res->ai_addr, addr->len);
+	}
 
 	freeaddrinfo(res);
 
@@ -268,6 +274,10 @@ int ast_sockaddr_resolve(struct ast_sockaddr **addrs, const char *str,
 	res_cnt = 0;
 	for (ai = res; ai; ai = ai->ai_next) {
 		res_cnt++;
+	}
+
+	if (res_cnt == 0) {
+		goto cleanup;
 	}
 
 	if ((*addrs = ast_malloc(res_cnt * sizeof(struct ast_sockaddr))) == NULL) {
@@ -397,6 +407,11 @@ int ast_sockaddr_is_ipv4_mapped(const struct ast_sockaddr *addr)
 {
 	const struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)&addr->ss;
 	return addr->len && IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr);
+}
+
+int ast_sockaddr_is_ipv4_multicast(const struct ast_sockaddr *addr)
+{
+	return ((ast_sockaddr_ipv4(addr) & 0xf0000000) == 0xe0000000);
 }
 
 int ast_sockaddr_is_ipv6_link_local(const struct ast_sockaddr *addr)
