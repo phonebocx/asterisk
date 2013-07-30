@@ -77,13 +77,20 @@
 #include <sys/stat.h>
 #include <regex.h>
 
+#ifdef linux
+#include <sys/prctl.h>
+#endif 
+
 #if  defined(__FreeBSD__) || defined( __NetBSD__ ) || defined(SOLARIS)
 #include <netdb.h>
+#if defined(SOLARIS)
+extern int daemon(int, int);  /* defined in libresolv of all places */
+#endif
 #endif
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8600 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19351 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -608,6 +615,8 @@ static void *listener(void *unused)
 					consoles[x].fd = s;
 					if (ast_pthread_create(&consoles[x].t, &attr, netconsole, &consoles[x])) {
 						ast_log(LOG_ERROR, "Unable to spawn thread to handle connection: %s\n", strerror(errno));
+						close(consoles[x].p[0]);
+						close(consoles[x].p[1]);
 						consoles[x].fd = -1;
 						fdprint(s, "Server failed to spawn thread\n");
 						close(s);
@@ -1868,7 +1877,7 @@ static void ast_readconfig(void) {
 	/* init with buildtime config */
 	ast_copy_string(ast_config_AST_CONFIG_DIR, AST_CONFIG_DIR, sizeof(ast_config_AST_CONFIG_DIR));
 	ast_copy_string(ast_config_AST_SPOOL_DIR, AST_SPOOL_DIR, sizeof(ast_config_AST_SPOOL_DIR));
-	ast_copy_string(ast_config_AST_MODULE_DIR, AST_MODULE_DIR, sizeof(ast_config_AST_VAR_DIR));
+	ast_copy_string(ast_config_AST_MODULE_DIR, AST_MODULE_DIR, sizeof(ast_config_AST_MODULE_DIR));
  	snprintf(ast_config_AST_MONITOR_DIR, sizeof(ast_config_AST_MONITOR_DIR) - 1, "%s/monitor", ast_config_AST_SPOOL_DIR);
 	ast_copy_string(ast_config_AST_VAR_DIR, AST_VAR_DIR, sizeof(ast_config_AST_VAR_DIR));
 	ast_copy_string(ast_config_AST_LOG_DIR, AST_LOG_DIR, sizeof(ast_config_AST_LOG_DIR));
@@ -1905,7 +1914,8 @@ static void ast_readconfig(void) {
 			snprintf(ast_config_AST_MONITOR_DIR, sizeof(ast_config_AST_MONITOR_DIR) - 1, "%s/monitor", v->value);
 		} else if (!strcasecmp(v->name, "astvarlibdir")) {
 			ast_copy_string(ast_config_AST_VAR_DIR, v->value, sizeof(ast_config_AST_VAR_DIR));
-			snprintf(ast_config_AST_DB, sizeof(ast_config_AST_DB), "%s/%s", v->value, "astdb");    
+			snprintf(ast_config_AST_DB, sizeof(ast_config_AST_DB), "%s/astdb", v->value);
+			snprintf(ast_config_AST_KEY_DIR, sizeof(ast_config_AST_KEY_DIR), "%s/keys", v->value);
 		} else if (!strcasecmp(v->name, "astlogdir")) {
 			ast_copy_string(ast_config_AST_LOG_DIR, v->value, sizeof(ast_config_AST_LOG_DIR));
 		} else if (!strcasecmp(v->name, "astagidir")) {
@@ -2170,7 +2180,7 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 		if (setgid(gr->gr_gid)) {
-			ast_log(LOG_WARNING, "Unable to setgid to %d (%s)\n", gr->gr_gid, rungroup);
+			ast_log(LOG_WARNING, "Unable to setgid to %d (%s)\n", (int)gr->gr_gid, rungroup);
 			exit(1);
 		}
 		if (setgroups(0, NULL)) {
@@ -2190,7 +2200,7 @@ int main(int argc, char *argv[])
 		}
 		if (!rungroup) {
 			if (setgid(pw->pw_gid)) {
-				ast_log(LOG_WARNING, "Unable to setgid to %d!\n", pw->pw_gid);
+				ast_log(LOG_WARNING, "Unable to setgid to %d!\n", (int)pw->pw_gid);
 				exit(1);
 			}
 			if (initgroups(pw->pw_name, pw->pw_gid)) {
@@ -2199,7 +2209,7 @@ int main(int argc, char *argv[])
 			}
 		}
 		if (setuid(pw->pw_uid)) {
-			ast_log(LOG_WARNING, "Unable to setuid to %d (%s)\n", pw->pw_uid, runuser);
+			ast_log(LOG_WARNING, "Unable to setuid to %d (%s)\n", (int)pw->pw_uid, runuser);
 			exit(1);
 		}
 		setenv("ASTERISK_ALREADY_NONROOT","yes",1);
@@ -2208,6 +2218,16 @@ int main(int argc, char *argv[])
 	}
 
 #endif /* __CYGWIN__ */
+
+#ifdef linux
+
+	if (geteuid() && option_dumpcore) {
+		if (prctl(PR_SET_DUMPABLE, 1, 0, 0, 0) < 0) {
+			ast_log(LOG_WARNING, "Unable to set the process for core dumps after changing to a non-root user. %s\n", strerror(errno));
+		}	
+	}
+
+#endif
 
 	term_init();
 	printf(term_end());
@@ -2256,7 +2276,7 @@ int main(int argc, char *argv[])
 	unlink((char *)ast_config_AST_PID);
 	f = fopen((char *)ast_config_AST_PID, "w");
 	if (f) {
-		fprintf(f, "%d\n", getpid());
+		fprintf(f, "%d\n", (int)getpid());
 		fclose(f);
 	} else
 		ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", (char *)ast_config_AST_PID, strerror(errno));
@@ -2267,7 +2287,7 @@ int main(int argc, char *argv[])
 		unlink((char *)ast_config_AST_PID);
 		f = fopen((char *)ast_config_AST_PID, "w");
 		if (f) {
-			fprintf(f, "%d\n", getpid());
+			fprintf(f, "%d\n", (int)getpid());
 			fclose(f);
 		} else
 			ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", (char *)ast_config_AST_PID, strerror(errno));

@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -88,7 +88,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 9609 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -3469,10 +3469,6 @@ static void *do_monitor(void *data)
 
 static int restart_monitor(void)
 {
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);	
-
 	/* If we're supposed to be stopped -- stay stopped */
 	if (monitor_thread == AST_PTHREADT_STOP)
 		return 0;
@@ -3490,7 +3486,7 @@ static int restart_monitor(void)
 		pthread_kill(monitor_thread, SIGURG);
 	} else {
 		/* Start a new monitor */
-		if (ast_pthread_create(&monitor_thread, &attr, do_monitor, NULL) < 0) {
+		if (ast_pthread_create(&monitor_thread, NULL, do_monitor, NULL) < 0) {
 			ast_mutex_unlock(&monlock);
 			ast_log(LOG_ERROR, "Unable to start monitor thread.\n");
 			return -1;
@@ -4392,6 +4388,7 @@ int unload_module()
 	ast_cli_unregister(&cli_debug);
 	ast_cli_unregister(&cli_no_debug);
 	ast_cli_unregister(&cli_mgcp_reload);
+	sched_context_destroy(sched);
 
 	return 0;
 }

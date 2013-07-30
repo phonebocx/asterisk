@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7831 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19345 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -1808,7 +1808,6 @@ int load_module(void)
 
 int reload(void)
 {
-	ast_context_destroy(NULL, registrar);
 	if (clearglobalvars_config)
 		pbx_builtin_clear_globals();
 	pbx_load_module();

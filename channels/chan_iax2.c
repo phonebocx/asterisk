@@ -40,6 +40,7 @@
 #include <sys/signal.h>
 #include <signal.h>
 #include <string.h>
+#include <strings.h>
 #include <errno.h>
 #include <unistd.h>
 #include <netdb.h>
@@ -57,7 +58,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8320 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 16771 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h" 
@@ -1485,6 +1486,8 @@ static int send_packet(struct iax_frame *f)
 	int res;
 	char iabuf[INET_ADDRSTRLEN];
 	/* Called with iaxsl held */
+	if (!iaxs[f->callno])
+		return -1;
 	if (option_debug > 2 && iaxdebug)
 		ast_log(LOG_DEBUG, "Sending %d on %d/%d to %s:%d\n", f->ts, f->callno, iaxs[f->callno]->peercallno, ast_inet_ntoa(iabuf, sizeof(iabuf), iaxs[f->callno]->addr.sin_addr), ntohs(iaxs[f->callno]->addr.sin_port));
 	/* Don't send if there was an error, but return error instead */
@@ -1492,8 +1495,6 @@ static int send_packet(struct iax_frame *f)
 		ast_log(LOG_WARNING, "Call number = %d\n", f->callno);
 		return -1;
 	}
-	if (!iaxs[f->callno])
-		return -1;
 	if (iaxs[f->callno]->error)
 		return -1;
 	if (f->transfer) {
@@ -1958,7 +1959,7 @@ static int iax2_show_peer(int fd, int argc, char *argv[])
 		ast_cli(fd, "  Status       : ");
 		peer_status(peer, status, sizeof(status));	
 		ast_cli(fd, "%s\n",status);
-		ast_cli(fd, " Qualify        : every %d when OK, every %d when UNREACHABLE (sample smoothing %s)\n", peer->pokefreqok, peer->pokefreqnotok, (peer->smoothing == 1) ? "On" : "Off");
+		ast_cli(fd, " Qualify        : every %dms when OK, every %dms when UNREACHABLE (sample smoothing %s)\n", peer->pokefreqok, peer->pokefreqnotok, peer->smoothing ? "On" : "Off");
 		ast_cli(fd,"\n");
 		if (ast_test_flag(peer, IAX_TEMPONLY))
 			destroy_peer(peer);
@@ -2240,11 +2241,12 @@ static int get_from_jb(void *p)
 
 /* while we transition from the old JB to the new one, we can either make two schedule_delivery functions, or 
  * make preprocessor swiss-cheese out of this one.  I'm not sure which is less revolting.. */
-static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtrunk)
+static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtrunk, unsigned int *tsout)
 {
 #ifdef NEWJB
 	int type, len;
 	int ret;
+	int needfree = 0;
 #else
 	int x;
 	int ms;
@@ -2267,7 +2269,7 @@ static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtr
 
 	/* Attempt to recover wrapped timestamps */
 	unwrap_timestamp(fr);
-
+	
 	if (updatehistory) {
 #ifndef NEWJB
 
@@ -2365,8 +2367,10 @@ static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtr
 	}
 
 	if ( (!ast_test_flag(iaxs[fr->callno], IAX_USEJITTERBUF)) ) {
+		if (tsout)
+			*tsout = fr->ts;
 		__do_deliver(fr);
-		return 0;
+		return -1;
 	}
 
 	/* if the user hasn't requested we force the use of the jitterbuffer, and we're bridged to
@@ -2388,8 +2392,10 @@ static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtr
 		iaxs[fr->callno]->jbid = -1;
 
 		/* deliver this frame now */
+		if (tsout)
+			*tsout = fr->ts;
 		__do_deliver(fr);
-		return 0;
+		return -1;
 
 	}
 
@@ -2399,7 +2405,7 @@ static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtr
 	ret = jb_put(iaxs[fr->callno]->jb, fr, type, len, fr->ts,
 			calc_rxstamp(iaxs[fr->callno],fr->ts));
 	if (ret == JB_DROP) {
-		iax2_frame_free(fr);
+		needfree++;
 	} else if (ret == JB_SCHED) {
 		update_jbsched(iaxs[fr->callno]);
 	}
@@ -2468,13 +2474,15 @@ static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtr
 		if ((delay > -4) || (fr->af.frametype != AST_FRAME_VOICE)) {
 			if (option_debug && iaxdebug)
 				ast_log(LOG_DEBUG, "schedule_delivery: Delivering immediately (Calculated delay is %d)\n", delay);
+			if (tsout)
+				*tsout = fr->ts;
 			__do_deliver(fr);
+			return -1;
 		} else {
 			if (option_debug && iaxdebug)
 				ast_log(LOG_DEBUG, "schedule_delivery: Dropping voice packet since %dms delay is too old\n", delay);
 			iaxs[fr->callno]->frames_dropped++;
-			/* Free our iax frame */
-			iax2_frame_free(fr);
+			needfree++;
 		}
 	} else {
 		if (option_debug && iaxdebug)
@@ -2482,6 +2490,13 @@ static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtr
 		fr->retrans = ast_sched_add(sched, delay, do_deliver, fr);
 	}
 #endif
+	if (tsout)
+		*tsout = fr->ts;
+	if (needfree) {
+		/* Free our iax frame */
+		iax2_frame_free(fr);
+		return -1;
+	}
 	return 0;
 }
 
@@ -4846,7 +4861,8 @@ static int check_access(int callno, struct sockaddr_in *sin, struct iax_ies *ies
 				ast_copy_string(iaxs[callno]->cid_name, user->cid_name, sizeof(iaxs[callno]->cid_name));
 				iaxs[callno]->calling_pres = AST_PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN;
 			}
-			ast_copy_string(iaxs[callno]->ani, user->cid_num, sizeof(iaxs[callno]->ani));
+			if (ast_strlen_zero(iaxs[callno]->ani))
+				ast_copy_string(iaxs[callno]->ani, user->cid_num, sizeof(iaxs[callno]->ani));
 		} else {
 			iaxs[callno]->calling_pres = AST_PRES_NUMBER_NOT_AVAILABLE;
 		}
@@ -5279,7 +5295,7 @@ static int try_transfer(struct chan_iax2_pvt *pvt, struct iax_ies *ies)
 	
 	memset(&ied, 0, sizeof(ied));
 	if (ies->apparent_addr)
-		memcpy(&new, ies->apparent_addr, sizeof(new));
+		bcopy(ies->apparent_addr, &new, sizeof(new));
 	if (ies->callno)
 		newcall = ies->callno;
 	if (!newcall || !new.sin_addr.s_addr || !new.sin_port) {
@@ -5430,7 +5446,7 @@ static int iax2_ack_registry(struct iax_ies *ies, struct sockaddr_in *sin, int c
 
 	memset(&us, 0, sizeof(us));
 	if (ies->apparent_addr)
-		memcpy(&us, ies->apparent_addr, sizeof(us));
+		bcopy(ies->apparent_addr, &us, sizeof(us));
 	if (ies->username)
 		ast_copy_string(peer, ies->username, sizeof(peer));
 	if (ies->refresh)
@@ -6396,15 +6412,13 @@ static int socket_read(int *id, int fd, short events, void *cbdata)
 									} else {
 										duped_fr = iaxfrdup2(&fr);
 										if (duped_fr) {
-											schedule_delivery(duped_fr, updatehistory, 1);
-											fr.ts = duped_fr->ts;
+											schedule_delivery(duped_fr, updatehistory, 1, &fr.ts);
 										}
 									}
 #else
 									duped_fr = iaxfrdup2(&fr);
 									if (duped_fr) {
-										schedule_delivery(duped_fr, updatehistory, 1);
-										fr.ts = duped_fr->ts;
+										schedule_delivery(duped_fr, updatehistory, 1, &fr.ts);
 									}
 #endif
 									if (iaxs[fr.callno]->last < fr.ts) {
@@ -7591,15 +7605,13 @@ retryowner2:
 	} else {
 		duped_fr = iaxfrdup2(&fr);
 		if (duped_fr) {
-			schedule_delivery(duped_fr, updatehistory, 0);
-			fr.ts = duped_fr->ts;
+			schedule_delivery(duped_fr, updatehistory, 0, &fr.ts);
 		}
 	}
 #else
 	duped_fr = iaxfrdup2(&fr);
 	if (duped_fr) {
-		schedule_delivery(duped_fr, updatehistory, 0);
-		fr.ts = duped_fr->ts;
+		schedule_delivery(duped_fr, updatehistory, 0, &fr.ts);
 	}
 #endif
 
@@ -8151,6 +8163,7 @@ static struct iax2_peer *build_peer(const char *name, struct ast_variable *v, in
 		peer->pokefreqok = DEFAULT_FREQ_OK;
 		peer->pokefreqnotok = DEFAULT_FREQ_NOTOK;
 		peer->context[0] = '\0';
+		peer->peercontext[0] = '\0';
 		while(v) {
 			if (!strcasecmp(v->name, "secret")) {
 				if (!ast_strlen_zero(peer->secret)) {
@@ -8768,6 +8781,18 @@ static int set_config(char *config_file, int reload)
 		/*	ast_log(LOG_WARNING, "Ignoring %s\n", v->name); */
 		v = v->next;
 	}
+	
+	if (defaultsockfd < 0) {
+		if (!(ns = ast_netsock_bind(netsock, io, "0.0.0.0", portno, tos, socket_read, NULL))) {
+			ast_log(LOG_ERROR, "Unable to create network socket: %s\n", strerror(errno));
+		} else {
+			if (option_verbose > 1)
+				ast_verbose(VERBOSE_PREFIX_2 "Binding IAX2 to default address 0.0.0.0:%d\n", portno);
+			defaultsockfd = ast_netsock_sockfd(ns);
+			ast_netsock_unref(ns);
+		}
+	}
+	
 	if (min_reg_expire > max_reg_expire) {
 		ast_log(LOG_WARNING, "Minimum registration interval of %d is more than maximum of %d, resetting minimum to %d\n",
 			min_reg_expire, max_reg_expire, max_reg_expire);
@@ -9505,6 +9530,7 @@ static int __unload_module(void)
 	ast_channel_unregister(&iax2_tech);
 	delete_users();
 	iax_provision_unload();
+	sched_context_destroy(sched);
 	return 0;
 }
 
@@ -9528,9 +9554,6 @@ int load_module(void)
 	struct iax2_registry *reg;
 	struct iax2_peer *peer;
 	
-	struct ast_netsock *ns;
-	struct sockaddr_in sin;
-	
 	ast_custom_function_register(&iaxpeer_function);
 
 	iax_set_output(iax_debug_output);
@@ -9539,10 +9562,6 @@ int load_module(void)
 	jb_setoutput(jb_error_output, jb_warning_output, NULL);
 #endif
 	
-	sin.sin_family = AF_INET;
-	sin.sin_port = htons(IAX_DEFAULT_PORTNO);
-	sin.sin_addr.s_addr = INADDR_ANY;
-
 #ifdef IAX_TRUNKING
 #ifdef ZT_TIMERACK
 	timingfd = open("/dev/zap/timer", O_RDWR);
@@ -9595,19 +9614,7 @@ int load_module(void)
 
 	if (ast_register_switch(&iax2_switch)) 
 		ast_log(LOG_ERROR, "Unable to register IAX switch\n");
-	
-	if (defaultsockfd < 0) {
-		if (!(ns = ast_netsock_bindaddr(netsock, io, &sin, tos, socket_read, NULL))) {
-			ast_log(LOG_ERROR, "Unable to create network socket: %s\n", strerror(errno));
-			return -1;
-		} else {
-			if (option_verbose > 1)
-				ast_verbose(VERBOSE_PREFIX_2 "Binding IAX2 to default address 0.0.0.0:%d\n", IAX_DEFAULT_PORTNO);
-			defaultsockfd = ast_netsock_sockfd(ns);
-			ast_netsock_unref(ns);
-		}
-	}
-	
+
 	res = start_network_thread();
 	if (!res) {
 		if (option_verbose > 1) 

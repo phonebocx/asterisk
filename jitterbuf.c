@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 10368 $")
 
 #include "jitterbuf.h"
 
@@ -158,7 +158,7 @@ static int history_put(jitterbuf *jb, long ts, long now, long ms)
 		}
 	}
 
-	kicked = jb->history[jb->hist_ptr & JB_HISTORY_SZ];
+	kicked = jb->history[jb->hist_ptr % JB_HISTORY_SZ];
 
 	jb->history[(jb->hist_ptr++) % JB_HISTORY_SZ] = delay;
 

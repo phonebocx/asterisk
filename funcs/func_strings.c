@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8074 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 13925 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -89,10 +89,9 @@ static char *builtin_function_regex(struct ast_channel *chan, char *cmd, char *d
 	/* Regex in quotes */
 	arg = strchr(tmp, '"');
 	if (arg) {
-		arg++;
-		earg = strrchr(arg, '"');
+		earg = ++arg;
+		strsep(&earg, "\"");
 		if (earg) {
-			*earg++ = '\0';
 			/* Skip over any spaces before the data we are checking */
 			while (*earg == ' ')
 				earg++;

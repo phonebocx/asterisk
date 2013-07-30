@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11503 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/cdr.h"
@@ -121,8 +121,8 @@ static int manager_log(struct ast_cdr *cdr)
 	    "StartTime: %s\r\n"
 	    "AnswerTime: %s\r\n"
 	    "EndTime: %s\r\n"
-	    "Duration: %d\r\n"
-	    "BillableSeconds: %d\r\n"
+	    "Duration: %ld\r\n"
+	    "BillableSeconds: %ld\r\n"
 	    "Disposition: %s\r\n"
 	    "AMAFlags: %s\r\n"
 	    "UniqueID: %s\r\n"

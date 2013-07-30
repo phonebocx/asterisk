@@ -1,3 +1,697 @@
+2006-04-13 Kevin P. Fleming <kpfleming@digium.com>
+
+	* Asterisk 1.2.7.1 released
+
+2006-04-13 17:40 +0000 [r19812]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* apps/app_page.c: oops... let's not set a variable and then
+	  immediately overwrite it while assuming its old value will
+	  magically return
+
+2006-04-13 15:56 +0000 [r19768]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* pbx.c: Bug 6957 - variable names beginning with CALLERID weren't
+	  substituted correctly
+
+2006-04-12 Kevin P. Fleming <kpfleming@digium.com>
+
+	* Asterisk 1.2.7 released
+
+2006-04-11 22:39 +0000 [r19394-19397]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_dial.c: Bug 6490 - telco intercept should report
+	  NOANSWER instead of CHANUNAVAIL
+
+	* apps/app_voicemail.c: Bug 6061 - Fix ODBC storage of VM on PGSQL
+	  and MSSQL
+
+2006-04-11 21:58 +0000 [r19353]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* Makefile: don't create a 'voicemail' symlink in the sounds
+	  directory; app_voicemail has not needed it since January of 2005
+	  (issue #6613)
+
+2006-04-11 21:55 +0000 [r19351]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* asterisk.c: Bug 6097 - possible descriptor leak
+
+2006-04-11 21:50 +0000 [r19345-19348]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* apps/app_page.c: don't call the originating device as part of the
+	  Page() operation (issue #6932)
+
+	* channel.c: simplify spy queue flushing logic, and always force a
+	  flush when one side gets full, even if the other side is not
+	  empty (issue #6457)
+
+	* pbx/pbx_config.c: don't destroy the entire dialplan during
+	  'reload', just atomically replace it like 'extensions reload'
+	  does (issue #6047)
+
+2006-04-11 20:46 +0000 [r19303]  Joshua Colp <joshnet@nbnet.nb.ca>
+
+	* include/asterisk/linkedlists.h: Minor linked lists bug fix. When
+	  you're dealing with swapping entries around a lot it can cause a
+	  seg fault.
+
+2006-04-11 20:11 +0000 [r19301]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* apps/app_dial.c: handle call time limit properly when warning is
+	  requested _after_ call would hae already ended (issue #6356)
+
+2006-04-11 01:05 +0000 [r18866-19008]  BJ Weschke <bweschke@btwtech.com>
+
+	* apps/app_voicemail.c, app.c: When using the silence detector in
+	  ast_play_and_record() and ast_play_and_prepend(), the truncation
+	  code never gets called to remove the detected silence, because
+	  the value of res is zero when control gets to that point. #6903
+	  w/some mods (softins)
+
+	* res/res_features.c: Don't say that we can pass an 'exten'
+	  argument in the documentation of Park() when we really cannot.
+	  #6902 (opsys)
+
+2006-04-08 19:20 +0000 [r18436-18494]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c: Bug 6914 - .txt file fails to rename on
+	  operator out
+
+	* formats/format_jpeg.c: Bug 6913 - fix for possible buffer
+	  overflow
+
+2006-04-07 14:16 +0000 [r18250-18260]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: - Fix cause codes - Add cause code for
+	  incompatible formats
+
+	* channels/chan_sip.c: - Fix possible minor memory leak in chan_sip
+	  - Return proper cause code on memory allocation error
+
+2006-04-06 22:15 +0000 [r18087-18089]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* apps/app_meetme.c: fix typo
+
+	* apps/app_meetme.c: small fix... don't try to check conference
+	  details if it couldn't be created or found
+
+	* apps/app_meetme.c: don't try to support 'i' or 'r' options if
+	  chan_zap is not loaded, and warn the user when they attempt to
+	  use them (issue #6675) update application help text to more
+	  clearly define when Zaptel and chan_zap are required
+
+2006-04-06 17:24 +0000 [r17945]  Russell Bryant <russell@digium.com>
+
+	* apps/app_alarmreceiver.c: move continue out of block that checks
+	  verbose level (issue #6880)
+
+2006-04-06 17:00 +0000 [r17702-17905]  Joshua Colp <joshnet@nbnet.nb.ca>
+
+	* pbx.c: Unlock channel on failure so that ast_mutex_destroy
+	  doesn't throw a fit (issue #6647 reported by casper)
+
+2006-04-05 06:50 +0000 [r17335-17489]  Olle Johansson <oej@edvina.net>
+
+	* CREDITS, enum.c: Issue #6654: Enum crash on ADDRESS record,
+	  possibly bad record, but still a crash
+
+	* channels/chan_zap.c: Issue #6878 - Unhide DNDstate manager events
+	  (thanks casper)
+
+	* apps/app_queue.c: Issue #6882 - move "res=-1" out of verbosity
+	  block, minor code cleanups (casper)
+
+2006-04-04 15:24 +0000 [r17283]  Matt O'Gorman <mogorman@digium.com>
+
+	* apps/app_senddtmf.c: Adds documentation to show what the w flag.
+	  Patch from Ian Kinner at Digium.
+
+2006-04-03 20:38 +0000 [r17074-17150]  Olle Johansson <oej@edvina.net>
+
+	* configs/features.conf.sample: Issue 6870 - document that parking
+	  lots need to be numeric
+
+	* channels/chan_sip.c: Issue #6848 take two - Use the tag provided
+	  by the SUBSCRIBE request when sending NOTIFY
+
+	* channels/chan_sip.c: Ugly patch to avoid hangup causes in
+	  non-final responses
+
+2006-03-31 19:11 +0000 [r16744-16771]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_iax2.c: move a NULL check to before the first time
+	  the pointer is dereferenced (issue #6832)
+
+	* channels/chan_iax2.c: fix the situation where bindport is
+	  specified but bindaddr is not (issue #6616)
+
+2006-03-31 18:24 +0000 [r16742]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* pbx.c: ensure that hint watchers (subscribers) cannot be added or
+	  removed while the dialplan is being modified
+
+2006-03-30 22:56 +0000 [r16579-16581]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* channels/chan_sip.c: Bug 6853 - Manager fixes: 1) extra ActionID,
+	  2) missing colon
+
+	* asterisk.c: Bug 6849 - trivial typo fix
+
+2006-03-30 21:44 +0000 [r16534-16559]  Joshua Colp <joshnet@nbnet.nb.ca>
+
+	* codecs/gsm/Makefile: Add another check for 64-bit goodness (issue
+	  #6850 reported by evilbunny)
+
+	* res/res_musiconhold.c: Do not exceed the array size for maximum
+	  allowed moh files. (issue #6842)
+
+2006-03-30 01:34 +0000 [r16303-16346]  Olle Johansson <oej@edvina.net>
+
+	* res/res_features.c: Set initial value on adsipark
+
+	* apps/app_groupcount.c: Typo fix.
+
+	* configs/extensions.conf.sample: Typo (Issue 6839, casper)
+
+2006-03-29 19:11 +0000 [r16082-16192]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* include/asterisk/pbx.h, apps/app_stack.c, pbx.c: Bug 6830 - Let
+	  GosubIf work with the same conditions as a GotoIf (change in API
+	  approved by Russell)
+
+	* pbx.c: Bug 6835 - Updates to GotoIf help text
+
+2006-03-29 04:15 +0000 [r16008]  Russell Bryant <russell@digium.com>
+
+	* strcompat.c: tell unsetenv for solaris to return the result of
+	  the setenv call
+
+2006-03-29 00:58 +0000 [r15898]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue #6823 - Portability issue with the
+	  registration port number patch from yesterday. Be compatible with
+	  more systems than OS/X :-) Thanks Rizzo for the advice.
+
+2006-03-29 00:32 +0000 [r15896]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* include/asterisk/linkedlists.h: ensure that list traversal loops
+	  which skip entries properly update the 'previous entry' pointer
+	  so when entries _are_ removed the list does not get damaged
+
+2006-03-28 20:22 +0000 [r15703-15743]  Russell Bryant <russell@digium.com>
+
+	* agi/Makefile, strcompat.c, astmm.c: backport astmm + sparc fixes
+	  from the trunk
+
+	* channels/chan_iax2.c: fix Bus Error on sparc (issue #6354)
+
+2006-03-28 19:07 +0000 [r15699]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Fix breakage of NAT support for peers with
+	  qualify=yes. Thanks Damin for access to your system, sorry folks.
+
+2006-03-28 18:09 +0000 [r15658]  Russell Bryant <russell@digium.com>
+
+	* pbx/pbx_ael.c: fix the order in which for loops are expanded
+	  (issue #6810)
+
+2006-03-28 17:48 +0000 [r15615]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* contrib/init.d/rc.redhat.asterisk: Bug 6815 - Adding quotes to
+	  make bash happy
+
+2006-03-27 23:45 +0000 [r15366-15381]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue #6736 - Use flags for OPTION messages.
+	  Thanks Casper!
+
+	* channels/chan_sip.c: Issue #6597 - sip show registry shows
+	  incorrect port
+
+	* channels/chan_sip.c: Issue #6409 - Use "s" extension when there's
+	  no username in the URI
+
+2006-03-26 Kevin P. Fleming <kpfleming@digium.com>
+
+	* Asterisk 1.2.6 released
+
+2006-03-25 05:07 +0000 [r14821-14868]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* contrib/init.d/rc.redhat.asterisk: Bug 6601 - More configuration
+	  abilities for the RH init script
+
+	* apps/app_voicemail.c: Fix incorrect size of zeroing (left over
+	  from when maxmsg was hardcoded at 100)
+
+	* apps/app_voicemail.c: Bug 6783 - When context is specified,
+	  voicemail should look for mailboxes in that context
+
+2006-03-24 14:48 +0000 [r14704]  Russell Bryant <russell@digium.com>
+
+	* image.c: use the correct variable in an error message (issue
+	  #6791)
+
+2006-03-24 04:53 +0000 [r14610-14659]  BJ Weschke <bweschke@btwtech.com>
+
+	* apps/app_voicemail.c: Fix a typo in the app description
+
+	* include/asterisk/sched.h: Doxygen comment typo corrections
+
+2006-03-23 21:51 +0000 [r14523]  Joshua Colp <joshnet@nbnet.nb.ca>
+
+	* res/res_features.c: Issue #6764 - Return BUSY signal when other
+	  party is busy at Attended Transfer (Reported by mnachev)
+
+2006-03-23 21:44 +0000 [r14522]  Matt Frederickson <creslin@digium.com>
+
+	* channels/chan_zap.c: Fix SETUP_ACK handling so that we change
+	  channels if so requested
+
+2006-03-23 20:43 +0000 [r14467]  BJ Weschke <bweschke@btwtech.com>
+
+	* apps/app_meetme.c: Bug #5884 - fix a possible race state in
+	  app_meetme when a channel has gone away and we are reading
+	  continuously for more frames. (mneuhauser)
+
+2006-03-23 20:13 +0000 [r14462]  Russell Bryant <russell@digium.com>
+
+	* apps/app_readfile.c: don't crash when asked to read from a file
+	  that doesn't exist (issue #6786)
+
+2006-03-22 22:18 +0000 [r14191-14276]  Joshua Colp <joshnet@nbnet.nb.ca>
+
+	* apps/app_voicemail.c: Fix a minor code issue
+
+	* apps/app_voicemail.c: Issue #6781 - Verbose levels not enforced
+	  in app_voicemail (Reported by flobi)
+
+	* include/asterisk/cdr.h, cdr.c: Issue #5918 - Disposition showing
+	  FAILED even though call is answered successfully (Reported by
+	  tracinet)
+
+	* pbx.c: Issue #6780 - ast_pbx_outgoing_cdr_failed description fix.
+	  (Reported and fixed by casper)
+
+2006-03-22 09:10 +0000 [r14140]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue #6766 - fix ;user=phone functionality.
+	  (Reported by alein, fix by russell - thanks!)
+
+2006-03-21 18:59 +0000 [r13814-13964]  Russell Bryant <russell@digium.com>
+
+	* configs/features.conf.sample: add a note explaining how to set
+	  the DYNAMIC_FEATURES variable to allow the use of custom features
+	  (issue #6747)
+
+	* res/res_features.c: fix crash when using the ParkAndAnnounce
+	  application. When using this application, there will be no peer
+	  channel to play the parking announcement to. (issue #6756)
+
+	* funcs/func_strings.c: fix REGEX on strings that contain quotes
+	  (issue #6678)
+
+	* sounds.txt: fix spelling of whiskey
+
+	* apps/app_meetme.c: don't add conference participant if the user
+	  hangs up while recording their name (issue #6661)
+
+	* sample.call: re-add the Account parameter to the sample call file
+	  since it's not really deprecated since the CDR function is no
+	  longer built in
+
+2006-03-21 06:24 +0000 [r13707-13748]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c: Bug 6714 - Workaround to avoid retrieving
+	  incomplete voicemail message
+
+	* editline/term.c: Do away with some warnings and fix some
+	  indentation
+
+2006-03-20 17:36 +0000 [r13634]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_iax2.c: Do not overwrite ANI if it's set by IE
+	  (sendani=yes in the peer)
+
+2006-03-19 09:59 +0000 [r13550]  Russell Bryant <russell@digium.com>
+
+	* apps/app_dial.c: revert the change made in revision 12927 in
+	  favor of keeping the original behavior of the option. The
+	  documentation has now been updated to reflect the actual
+	  behavior. (issue #6523)
+
+2006-03-19 09:25 +0000 [r13547]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Reset global_rtautoclear at sip reload
+
+2006-03-16 20:05 +0000 [r13279]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* ast_expr2.y, ast_expr2.c: Bug 6737 - Fix compile warning on OS X
+
+2006-03-16 17:58 +0000 [r13239]  Olle Johansson <oej@edvina.net>
+
+	* configs/sip.conf.sample: Issue #6690 - clarify progressinband
+	  default setting
+
+2006-03-16 17:42 +0000 [r13237]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_zap.c: always use the callerid signalling method
+	  set in the zt_pvt strucutre as opposed to the last one read from
+	  the config file (issue #6734, with mods)
+
+2006-03-16 06:56 +0000 [r13197]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: To quote giant developers: "Oops". Thanks,
+	  Tony!
+
+2006-03-15 22:16 +0000 [r13161]  Russell Bryant <russell@digium.com>
+
+	* cdr.c: - remove some calculations that will always result in 0 -
+	  if a CDR was never started, don't try to calculate a duration and
+	  consider it failed
+
+2006-03-15 13:01 +0000 [r13026]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue #6728: Remove parameters to Event:
+	  header on SUBSCRIBE requests
+
+2006-03-14 18:41 +0000 [r12925-12927]  Russell Bryant <russell@digium.com>
+
+	* apps/app_dial.c: when using the G() option to Dial, fix sending
+	  the called channel to 1 priority beyond what was specified (issue
+	  #6523)
+
+	* apps/app_queue.c: fix a problem with not loading realtime queue
+	  members by always reloading a realtime queue from the database
+	  even if it is found in the list (issue #6680)
+
+2006-03-12 19:26 +0000 [r12646]  Russell Bryant <russell@digium.com>
+
+	* pbx.c: add locking to protect the list of global dialplan
+	  variables
+
+2006-03-12 17:57 +0000 [r12577]  Russell Bryant <russell@digium.com>
+
+	* codecs/gsm/Makefile: fix build on parisc (issue #6704)
+
+2006-03-10 12:13 +0000 [r12477-12495]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue #5937 - Make sure SIP CANCEL's are
+	  re-transmitted
+
+	* channels/chan_sip.c: Issue #6576 - SIP_CODEC not used for early
+	  media (reported by gpapadop73)
+
+2006-03-08 10:51 +0000 [r12458]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue #6657 - Ignore 183 session progress
+	  without SDP
+
+2006-03-07 00:05 +0000 [r12161-12195]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* channels/chan_sip.c: Bug 6020 - Race condition where packet could
+	  be lost if first packet on list is acked
+
+	* editline/np/vis.c, editline/readline.c: Bug 6664 - More fixes for
+	  Solaris
+
+2006-03-06 14:23 +0000 [r12036-12072]  Olle Johansson <oej@edvina.net>
+
+	* channel.c: Revert earlier change
+
+	* channel.c: Fix for astmm compilation
+
+2006-03-06 02:32 +0000 [r11946]  Russell Bryant <russell@digium.com>
+
+	* configs/zapata.conf.sample: fix a typo in the description of the
+	  ringtimeout option
+
+2006-03-05 12:40 +0000 [r11849]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Clear page2 flags at reload too
+
+2006-03-04 11:45 +0000 [r11778]  BJ Weschke <bweschke@btwtech.com>
+
+	* apps/app_mixmonitor.c: Substitute variables in the post_process
+	  string (if it exists) before those variables could possibly
+	  disappear (channel hangup) #6462
+
+2006-03-03 Kevin P. Fleming <kpfleming@digium.com>
+
+	* Asterisk 1.2.5 released
+
+2006-03-03 00:38 +0000 [r11607-11635]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* Makefile: Bug 6638 - Use POSIX command for Solaris
+
+	* build_tools/make_build_h: Bug 6638 - Change from a historic BSD
+	  command to a POSIX command for determining username
+
+	* asterisk.c: Bug 6637 - Fixes for Solaris
+
+	* Makefile: If debugging, the frame pointer is helpful
+
+2006-03-02 19:05 +0000 [r11528-11561]  Russell Bryant <russell@digium.com>
+
+	* res/res_monitor.c: fix inaccurate ack message to ChangeMonitor
+	  action (issue #6630)
+
+	* asterisk.sgml: make the terminology used in the synopsis match
+	  the option description
+
+	* asterisk.sgml: add the -L option to the synopsis on the man page
+
+2006-03-01 17:41 +0000 [r11479-11503]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* cdr/cdr_manager.c, cdr/cdr_tds.c, res/res_config_odbc.c,
+	  include/asterisk/cdr.h, cdr/cdr_pgsql.c, cdr/cdr_odbc.c, cdr.c:
+	  Bug 6615 - Fix 64bit conversion errors by using a long int
+
+	* build_tools/make_svn_branch_name: Bug 6618 - Solaris
+	  compatibility fix
+
+2006-02-28 19:46 +0000 [r11382-11410]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_iax2.c: fix the output that indicates whether
+	  qualify smoothing is on or not (issue #6608)
+
+	* asterisk.c: adjust the keys directory when astvarlibdir is
+	  specified in asterisk.conf (issue #6602)
+
+	* res/res_agi.c: add a missing newline in the agi app description
+	  (thanks wunderkin!)
+
+2006-02-27 15:20 +0000 [r11250-11281]  Russell Bryant <russell@digium.com>
+
+	* cli.c: don't try to print the help text for a CLI command when
+	  RESULT_SHOWUSAGE is returned if there is no help text available
+	  (issue #6604)
+
+	* channels/chan_sip.c: fix finding realtime peers that are not
+	  dynamic by ip address (issue #6093)
+
+	* channel.c: don't hang up the channel if its state is set to UP
+	  before we return from ast_call (issue #6569)
+
+2006-02-26 16:26 +0000 [r11165]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* include/asterisk/logger.h, logger.c: Bug 5950 - reenable queue
+	  log rotation; also, eliminate redundant code
+
+2006-02-25 19:54 +0000 [r11120]  Matt Frederickson <creslin@digium.com>
+
+	* translate.c: Backport of fix to translation optimizations. Thanks
+	  again file!
+
+2006-02-25 05:08 +0000 [r11058-11089]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* translate.c: factor the number of translation steps required into
+	  translation path decisions, so that equal cost paths that require
+	  fewer translations are preferred
+
+	* translate.c: reformat code to fit guidelines remember which
+	  translation paths are multi-step paths
+
+	* channel.c: ensure that spy frame queueing is able to deal with
+	  translation failing for any reason (issue #6546)
+
+2006-02-23 23:06 +0000 [r10952]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* Makefile: set PWD properly
+
+2006-02-23 14:57 +0000 [r10736-10863]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* dnsmgr.c, include/asterisk/linkedlists.h: backport list handling
+	  fix from trunk (solves memory leak problem in cdr variables and
+	  device state watchers) remove unused variable to silence
+	  compiler warning
+
+	* configs/iax.conf.sample: add comment warning people about trying
+	  to use hostnames/IPs in the sample config
+
+2006-02-20 23:01 +0000 [r10577]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* app.c: Would be nice to tell people to look in the right file to
+	  increase a constant
+
+2006-02-20 06:17 +0000 [r10511-10535]  Mark Spencer <markster@digium.com>
+
+	* channels/chan_sip.c: Handle ACKing properly (remove gratuitous
+	  -1)
+
+	* channels/chan_iax2.c: Fix numerous places in jitter buffer where
+	  freed memory is referenced
+
+2006-02-19 18:29 +0000 [r10462-10487]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* formats/format_sln.c: Okay, fseek doesn't return an offset
+
+	* apps/app_voicemail.c: Fix possible lack of initialization of
+	  useadsi
+
+	* formats/format_sln.c: Bug 6539 - Division by two negates error
+	  flag
+
+2006-02-18 00:17 +0000 [r10409]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* app.c: Bug 6529 - memory leak in ast_play_and_prepend
+
+2006-02-17 01:55 +0000 [r10301-10368]  Russell Bryant <russell@digium.com>
+
+	* jitterbuf.c: fix incorrent index calculation for jitterbuffer
+	  history (issue #6517)
+
+	* apps/app_voicemail.c: when executing the Directory application
+	  from voicemail and a context is not specified, use the "default"
+	  context, not the channel's current context (issue #6507)
+
+2006-02-15 01:21 +0000 [r10108-10137]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_agent.c: ensure that agents logged in via the
+	  manager interface are stored in the persistence database (related
+	  to issue #6301)
+
+	* funcs/func_enum.c: handle longer ENUM lookup results (issue
+	  #6476)
+
+	* res/res_agi.c: ensure that FastAGI launcher can handle system
+	  call interruption (issue #6449)
+
+2006-02-14 20:56 +0000 [r10021]  Matt O'Gorman <mogorman@digium.com>
+
+	* apps/app_meetme.c: bug fix from 6485 with musiconhold not being
+	  turned off by app_meetme
+
+2006-02-14 20:20 +0000 [r10018]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* apps/app_queue.c: don't double-increment abandon counter for
+	  calls that are hung up while dialing members (issue #6289)
+
+2006-02-14 19:11 +0000 [r9990]  Mark Spencer <markster@digium.com>
+
+	* apps/app_meetme.c: Fix stopstream in menus (bug #6137)
+
+2006-02-14 18:50 +0000 [r9961-9964]  BJ Weschke <bweschke@btwtech.com>
+
+	* asterisk.c: #ifdef the include too.
+
+	* asterisk.c: #ifdef'd the prctl fix to only try and compile on
+	  linux systems. Thanks rizzo for pointing this out.
+
+2006-02-14 18:30 +0000 [r9953-9958]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_sip.c: when answering INVITE, don't send codecs the
+	  peer didn't offer (issue #6052)
+
+	* rtp.c: revert yesterday's temporary fix for issue #6052
+
+2006-02-14 04:45 +0000 [r9861-9870]  BJ Weschke <bweschke@btwtech.com>
+
+	* asterisk.c: Fixed my silly backport error from r9861
+
+	* asterisk.c: Merged changes from r9844 from /trunk. Make sure that
+	  PR_SET_DUMPABLE is set to make certain that we still dump core if
+	  Asterisk has setuid'd to run as non-root.
+
+2006-02-14 00:46 +0000 [r9818]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* rtp.c: don't try to use peer's dynamic codec numbers, it leads to
+	  duplication (issue #6052)
+
+2006-02-13 17:37 +0000 [r9756]  Josh Roberson <josh@asteriasgi.com>
+
+	* apps/app_meetme.c: Don't set the formats before we stop
+	  indications. (issue #6380)
+
+2006-02-11 19:23 +0000 [r9581-9609]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_mgcp.c, channels/chan_sip.c, pbx/pbx_dundi.c,
+	  channels/chan_iax2.c: fix memory leak from not destroying the
+	  scheduler context on module unload
+
+	* apps/app_page.c: fix due to CDR changes
+
+	* manager.c, pbx/pbx_spool.c, include/asterisk/channel.h,
+	  include/asterisk/pbx.h, include/asterisk/manager.h, channel.c,
+	  pbx.c: now that CDR is a loadable module, don't depend on it
+	  elsewhere (issue #6460)
+
+2006-02-11 15:22 +0000 [r9528]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_sip.c, cdr.c: clean up my mess from thread-starting
+	  change
+
+2006-02-11 06:29 +0000 [r9493]  BJ Weschke <bweschke@btwtech.com>
+
+	* channels/chan_sip.c: kpfleming's fix from r9472 backported to 1.2
+
+2006-02-10 20:38 +0000 [r9404]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* channels/chan_mgcp.c, dnsmgr.c, channels/chan_sip.c,
+	  devicestate.c, channels/chan_modem.c, cdr.c: don't create monitor
+	  threads in detached mode, when we need to be able to
+	  pthread_join() them later if the module is unloaded (solve
+	  crash-on-unload problem for these channel modules)
+
+2006-02-09 21:10 +0000 [r9323-9326]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c: Revert behavior change from previous commit
+	  (fixes only)
+
+	* apps/app_voicemail.c: Backport 5929 to 1.2
+
+2006-02-09 02:31 +0000 [r9246-9262]  Russell Bryant <russell@digium.com>
+
+	* apps/Makefile: add another location for postgresql headers (issue
+	  #6419)
+
+	* channels/chan_iax2.c: reload peercontext on iax2 reload (issue
+	  #6442)
+
+2006-02-08 22:34 +0000 [r9233]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* cdr/Makefile: Leave it to RH/CentOS to put the freetds headers in
+	  a completely nonstandard location.
+
+2006-02-08 22:12 +0000 [r9232]  Matt O'Gorman <mogorman@digium.com>
+
+	* logger.c, channels/chan_oss.c: Make logger report
+	  error,warning,notice if logger.conf not found, also updated
+	  chan_oss to give correct error message if its config file is not
+	  found.
+
+2006-02-05 17:10 +0000 [r9156]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_macro.c: Bug 6176 - Fix race condition
+
+2006-02-02 18:37 +0000 [r9086]  Kevin P. Fleming <kpfleming@digium.com>
+
+	* Makefile: don't override ASTERISKVERSIONNUM to 000000 for non-svn
+	  builds
+
+2006-02-02 16:12 +0000 [r9073]  Matt Frederickson <creslin@digium.com>
+
+	* res/res_odbc.c: Fix for (#6309), potential (highly unlikely)
+	  memory leak in res_odbc
+
 2006-01-30 Russell Bryant <russell@digium.com>
 
 	* Asterisk 1.2.4 Released

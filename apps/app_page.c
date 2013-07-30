@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (c) 2004 - 2005 Digium, Inc.  All rights reserved.
+ * Copyright (c) 2004 - 2006 Digium, Inc.  All rights reserved.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7274 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19812 $")
 
 #include "asterisk/options.h"
 #include "asterisk/logger.h"
@@ -85,7 +85,7 @@ static void *page_thread(void *data)
 {
 	struct calloutdata *cd = data;
 	ast_pbx_outgoing_app(cd->tech, AST_FORMAT_SLINEAR, cd->resource, 30000,
-		"MeetMe", cd->meetmeopts, NULL, 0, cd->cidnum, cd->cidname, cd->variables, NULL);
+		"MeetMe", cd->meetmeopts, NULL, 0, cd->cidnum, cd->cidname, cd->variables, NULL, NULL);
 	free(cd);
 	return NULL;
 }
@@ -149,6 +149,7 @@ static int page_exec(struct ast_channel *chan, void *data)
 	struct ast_app *app;
 	char *tmp;
 	int res=0;
+	char originator[AST_CHANNEL_NAME];
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "This application requires at least one argument (destination(s) to page)\n");
@@ -170,12 +171,21 @@ static int page_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
+	ast_copy_string(originator, chan->name, sizeof(originator));
+	if ((tmp = strchr(originator, '-')))
+		*tmp = '\0';
+
 	tmp = strsep(&options, "|");
 	if (options)
 		ast_app_parse_options(page_opts, &flags, NULL, options);
 
 	snprintf(meetmeopts, sizeof(meetmeopts), "%ud|%sqxdw", confid, ast_test_flag(&flags, PAGE_DUPLEX) ? "" : "m");
+
 	while ((tech = strsep(&tmp, "&"))) {
+		/* don't call the originating device */
+		if (!strcasecmp(tech, originator))
+			continue;
+
 		if ((resource = strchr(tech, '/'))) {
 			*resource++ = '\0';
 			launch_page(chan, meetmeopts, tech, resource);
@@ -183,6 +193,7 @@ static int page_exec(struct ast_channel *chan, void *data)
 			ast_log(LOG_WARNING, "Incomplete destination '%s' supplied.\n", tech);
 		}
 	}
+
 	if (!ast_test_flag(&flags, PAGE_QUIET)) {
 		res = ast_streamfile(chan, "beep", chan->language);
 		if (!res)

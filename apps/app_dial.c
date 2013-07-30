@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8608 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19397 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -108,9 +108,10 @@ static char *descrip =
 "           other than the number assigned to the caller.\n"
 "    g    - Proceed with dialplan execution at the current extension if the\n"
 "           destination channel hangs up.\n"
-"    G(context^exten^pri) - If the call is answered, transfer both parties to\n"
-"           the specified priority. Optionally, an extension, or extension and\n"
-"           context may be specified. Otherwise, the current extension is used.\n"
+"    G(context^exten^pri) - If the call is answered, transfer the calling party to\n"
+"           the specified priority and the called party to the specified priority+1.\n"
+"           Optionally, an extension, or extension and context may be specified. \n"
+"           Otherwise, the current extension is used.\n"
 "    h    - Allow the called party to hang up by sending the '*' DTMF digit.\n"
 "    H    - Allow the calling party to hang up by hitting the '*' DTMF digit.\n"
 "    j    - Jump to priority n+101 if all of the requested channels were busy.\n"
@@ -302,6 +303,8 @@ static void hanguptree(struct localuser *outgoing, struct ast_channel *exception
 		if (chan->cdr) \
 			ast_cdr_failed(chan->cdr); \
 		numnochan++; \
+		break; \
+	case AST_CAUSE_NORMAL_CLEARING: \
 		break; \
 	default: \
 		numnochan++; \
@@ -826,6 +829,21 @@ static int dial_exec_full(struct ast_channel *chan, void *data, struct ast_flags
 		if (!timelimit) {
 			timelimit = play_to_caller = play_to_callee = play_warning = warning_freq = 0;
 			warning_sound = NULL;
+		} else if (play_warning > timelimit) {
+			/* If the first warning is requested _after_ the entire call would end,
+			   and no warning frequency is requested, then turn off the warning. If
+			   a warning frequency is requested, reduce the 'first warning' time by
+			   that frequency until it falls within the call's total time limit.
+			*/
+
+			if (!warning_freq) {
+				play_warning = 0;
+			} else {
+				while (play_warning > timelimit)
+					play_warning -= warning_freq;
+				if (play_warning < 1)
+					play_warning = warning_freq = 0;
+			}
 		}
 
 		var = pbx_builtin_getvar_helper(chan,"LIMIT_PLAYAUDIO_CALLER");

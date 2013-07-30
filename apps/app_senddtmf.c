@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17283 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -50,7 +50,7 @@ static char *synopsis = "Sends arbitrary DTMF digits";
 
 static char *descrip = 
 " SendDTMF(digits[|timeout_ms]): Sends DTMF digits on a channel. \n"
-" Accepted digits: 0-9, *#abcd\n"
+" Accepted digits: 0-9, *#abcd, w (.5s pause)\n"
 " The application will either pass the assigned digits or terminate if it\n"
 " encounters an error.\n";
 

@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17489 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -87,8 +87,8 @@ static int parse_ie(char *data, int maxdatalen, char *src, int srclen)
 	len = olen = (int)src[0];
 	src++;
 	srclen--;
-	if (len > srclen) {
-		ast_log(LOG_WARNING, "Want %d, got %d\n", len, srclen);
+	if (len > srclen || len < 0 ) {
+		ast_log(LOG_WARNING, "ENUM parsing failed: Wanted %d characters, got %d\n", len, srclen);
 		return -1;
 	}
 	if (len > maxdatalen)

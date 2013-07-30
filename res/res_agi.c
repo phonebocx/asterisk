@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7557 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11382 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -90,7 +90,7 @@ static char *descrip =
 "and stdout.\n"
 "Returns -1 on hangup (except for DeadAGI) or if application requested\n"
 " hangup, or 0 on non-hangup exit. \n"
-"Using 'EAGI' provides enhanced AGI, with incoming audio available out of band"
+"Using 'EAGI' provides enhanced AGI, with incoming audio available out of band\n"
 "on file descriptor 3\n\n"
 "Use the CLI command 'show agi' to list available agi commands\n";
 
@@ -189,17 +189,23 @@ static int launch_netscript(char *agiurl, char *argv[], int *fds, int *efd, int 
 		close(s);
 		return -1;
 	}
+
 	pfds[0].fd = s;
 	pfds[0].events = POLLOUT;
-	if (poll(pfds, 1, MAX_AGI_CONNECT) != 1) {
-		ast_log(LOG_WARNING, "Connect to '%s' failed!\n", agiurl);
-		close(s);
-		return -1;
+	while (poll(pfds, 1, MAX_AGI_CONNECT) != 1) {
+		if (errno != EINTR) {
+			ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
+			close(s);
+			return -1;
+		}
 	}
-	if (write(s, "agi_network: yes\n", strlen("agi_network: yes\n")) < 0) {
-		ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
-		close(s);
-		return -1;
+
+	while (write(s, "agi_network: yes\n", strlen("agi_network: yes\n")) < 0) {
+		if (errno != EINTR) {
+			ast_log(LOG_WARNING, "Connect to '%s' failed: %s\n", agiurl, strerror(errno));
+			close(s);
+			return -1;
+		}
 	}
 
 	/* If we have a script parameter, relay it to the fastagi server */

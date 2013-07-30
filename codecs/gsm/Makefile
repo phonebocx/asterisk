@@ -40,6 +40,7 @@ WAV49	= -DWAV49
 ifneq (${OSARCH},Darwin)
 ifneq (${OSARCH},SunOS)
 ifneq (${PROC},x86_64)
+ifneq (${PROC},amd64)
 ifneq (${PROC},ultrasparc)
 ifneq ($(shell uname -m),ppc)
 ifneq ($(shell uname -m),ppc64)
@@ -50,6 +51,7 @@ ifneq (${PROC},arm)
 ifneq (${PROC},ppc)
 ifneq (${PROC},ppc64)
 OPTIMIZE+=-march=$(PROC)
+endif
 endif
 endif
 endif
@@ -230,13 +232,17 @@ GSM_SOURCES =	$(SRC)/add.c		\
 		$(SRC)/table.c
 ifeq (${OSARCH},Linux)
 ifneq ($(shell uname -m),x86_64)
+ifneq ($(shell uname -m),amd64)
 ifneq ($(shell uname -m),ppc)
 ifneq ($(shell uname -m),ppc64)
 ifneq ($(shell uname -m),alpha)
 ifneq ($(shell uname -m),armv4l)
 ifneq ($(shell uname -m),sparc64)
 ifneq (${PROC},arm)
+ifneq ($(shell uname -m), parisc)
 GSM_SOURCES+= $(SRC)/k6opt.s
+endif
+endif
 endif
 endif
 endif
@@ -292,12 +298,16 @@ GSM_OBJECTS =	$(SRC)/add.o		\
 
 ifeq (${OSARCH},Linux)
 ifneq ($(shell uname -m), x86_64)
+ifneq ($(shell uname -m), amd64)
 ifneq ($(shell uname -m), ppc)
 ifneq ($(shell uname -m), ppc64)
 ifneq ($(shell uname -m), alpha)
 ifneq ($(shell uname -m), sparc64)
 ifneq ($(shell uname -m), armv4l)
+ifneq ($(shell uname -m), parisc)
 GSM_OBJECTS+= $(SRC)/k6opt.o
+endif
+endif
 endif
 endif
 endif

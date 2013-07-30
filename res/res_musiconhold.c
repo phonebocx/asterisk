@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 16534 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -778,6 +778,11 @@ static int moh_scan_files(struct mohclass *class) {
 
 		if (i == class->total_files)
 			strcpy(class->filearray[class->total_files++], filepath);
+
+		/* If the new total files is equal to the maximum allowed, stop adding new ones */
+		if (class->total_files == MAX_MOHFILES)
+			break;
+
 	}
 
 	closedir(files_DIR);

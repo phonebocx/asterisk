@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7634 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11281 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -1363,7 +1363,10 @@ int ast_cli_command(int fd, char *s)
 			if (e) {
 				switch(e->handler(fd, x, argv)) {
 				case RESULT_SHOWUSAGE:
-					ast_cli(fd, "%s", e->usage);
+					if (e->usage)
+						ast_cli(fd, "%s", e->usage);
+					else
+						ast_cli(fd, "%s", "Invalid usage, but no usage information available.\n");
 					break;
 				}
 			} else 

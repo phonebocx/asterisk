@@ -52,7 +52,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7999 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19394 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -75,6 +75,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7999 $")
 #endif
 
 #define COMMAND_TIMEOUT 5000
+#define	VOICEMAIL_DIR_MODE	0700
+#define	VOICEMAIL_FILE_MODE	0600
 
 #define VOICEMAIL_CONFIG "voicemail.conf"
 #define ASTERISK_USERNAME "asterisk"
@@ -315,7 +317,7 @@ static char *descrip_vm =
 "           message. The units are whole-number decibels (dB).\n"
 "    s    - Skip the playback of instructions for leaving a message to the\n"
 "           calling party.\n"
-"    u    - Play the 'unavailble greeting.\n"
+"    u    - Play the 'unavailable greeting.\n"
 "    j    - Jump to priority n+101 if the mailbox is not found or some other\n"
 "           error occurs.\n";
 
@@ -776,6 +778,41 @@ static int make_dir(char *dest, int len, char *context, char *ext, char *mailbox
 static int make_file(char *dest, int len, char *dir, int num)
 {
 	return snprintf(dest, len, "%s/msg%04d", dir, num);
+}
+
+/** basically mkdir -p $dest/$context/$ext/$mailbox
+ * @dest    String. base directory.
+ * @context String. Ignored if is null or empty string.
+ * @ext     String. Ignored if is null or empty string.
+ * @mailbox String. Ignored if is null or empty string. 
+ * @returns 0 on failure, 1 on success.
+ * */
+static int create_dirpath(char *dest, int len, char *context, char *ext, char *mailbox)
+{
+	mode_t	mode = VOICEMAIL_DIR_MODE;
+
+	if(context && context[0] != '\0') {
+		make_dir(dest, len, context, "", "");
+		if(mkdir(dest, mode) && errno != EEXIST) {
+			ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", dest, strerror(errno));
+			return 0;
+		}
+	}
+	if(ext && ext[0] != '\0') {
+		make_dir(dest, len, context, ext, "");
+		if(mkdir(dest, mode) && errno != EEXIST) {
+			ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", dest, strerror(errno));
+			return 0;
+		}
+	}
+	if(mailbox && mailbox[0] != '\0') {
+		make_dir(dest, len, context, ext, mailbox);
+		if(mkdir(dest, mode) && errno != EEXIST) {
+			ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", dest, strerror(errno));
+			return 0;
+		}
+	}
+	return 1;
 }
 
 /* only return failure if ast_lock_path returns 'timeout',
@@ -1244,7 +1281,7 @@ static int store_file(char *dir, char *mailboxuser, char *mailboxcontext, int ms
 		len = fdlen; /* SQL_LEN_DATA_AT_EXEC(fdlen); */
 		SQLBindParameter(stmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(dir), 0, (void *)dir, 0, NULL);
 		SQLBindParameter(stmt, 2, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(msgnums), 0, (void *)msgnums, 0, NULL);
-		SQLBindParameter(stmt, 3, SQL_PARAM_INPUT, SQL_C_BINARY, SQL_BINARY, fdlen, 0, (void *)fdm, fdlen, &len);
+		SQLBindParameter(stmt, 3, SQL_PARAM_INPUT, SQL_C_BINARY, SQL_LONGVARBINARY, fdlen, 0, (void *)fdm, fdlen, &len);
 		SQLBindParameter(stmt, 4, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(context), 0, (void *)context, 0, NULL);
 		SQLBindParameter(stmt, 5, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(macrocontext), 0, (void *)macrocontext, 0, NULL);
 		SQLBindParameter(stmt, 6, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(callerid), 0, (void *)callerid, 0, NULL);
@@ -1383,7 +1420,7 @@ static int copy(char *infile, char *outfile)
 			ast_log(LOG_WARNING, "Unable to open %s in read-only mode\n", infile);
 			return -1;
 		}
-		if ((ofd = open(outfile, O_WRONLY | O_TRUNC | O_CREAT, 0600)) < 0) {
+		if ((ofd = open(outfile, O_WRONLY | O_TRUNC | O_CREAT, VOICEMAIL_FILE_MODE)) < 0) {
 			ast_log(LOG_WARNING, "Unable to open %s in write-only mode\n", outfile);
 			close(ifd);
 			return -1;
@@ -2275,18 +2312,8 @@ static int copy_message(struct ast_channel *chan, struct ast_vm_user *vmu, int i
 
 	ast_log(LOG_NOTICE, "Copying message from %s@%s to %s@%s\n", vmu->mailbox, vmu->context, recip->mailbox, recip->context);
 
-	make_dir(todir, sizeof(todir), recip->context, "", "");
-	/* It's easier just to try to make it than to check for its existence */
-	if (mkdir(todir, 0700) && (errno != EEXIST))
-		ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", todir, strerror(errno));
-	make_dir(todir, sizeof(todir), recip->context, recip->mailbox, "");
-	/* It's easier just to try to make it than to check for its existence */
-	if (mkdir(todir, 0700) && (errno != EEXIST))
-		ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", todir, strerror(errno));
-	make_dir(todir, sizeof(todir), recip->context, recip->mailbox, "INBOX");
-	if (mkdir(todir, 0700) && (errno != EEXIST))
-		ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", todir, strerror(errno));
-
+	create_dirpath(todir, sizeof(todir), recip->context, recip->mailbox, "INBOX");
+  
 	make_dir(fromdir, sizeof(fromdir), vmu->context, vmu->mailbox, frombox);
 	make_file(frompath, sizeof(frompath), fromdir, msgnum);
 
@@ -2340,7 +2367,7 @@ struct leave_vm_options {
 
 static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_options *options)
 {
-	char txtfile[256];
+	char tmptxtfile[256], txtfile[256];
 	char callerid[256];
 	FILE *txt;
 	int res = 0;
@@ -2402,17 +2429,8 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_
 	if (ast_fileexists(tempfile, NULL, NULL) > 0)
 		ast_copy_string(prefile, tempfile, sizeof(prefile));
 	DISPOSE(tempfile, -1);
-	make_dir(dir, sizeof(dir), vmu->context, "", "");
 	/* It's easier just to try to make it than to check for its existence */
-	if (mkdir(dir, 0700) && (errno != EEXIST))
-		ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", dir, strerror(errno));
-	make_dir(dir, sizeof(dir), vmu->context, ext, "");
-	/* It's easier just to try to make it than to check for its existence */
-	if (mkdir(dir, 0700) && (errno != EEXIST))
-		ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", dir, strerror(errno));
-	make_dir(dir, sizeof(dir), vmu->context, ext, "INBOX");
-	if (mkdir(dir, 0700) && (errno != EEXIST))
-		ast_log(LOG_WARNING, "mkdir '%s' failed: %s\n", dir, strerror(errno));
+	create_dirpath(dir, sizeof(dir), vmu->context, ext, "INBOX");
 
 	/* Check current or macro-calling context for special extensions */
 	if (!ast_strlen_zero(vmu->exit)) {
@@ -2546,7 +2564,8 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_
 				
 			/* Store information */
 			snprintf(txtfile, sizeof(txtfile), "%s.txt", fn);
-			txt = fopen(txtfile, "w+");
+			snprintf(tmptxtfile, sizeof(tmptxtfile), "%s.txt.tmp", fn);
+			txt = fopen(tmptxtfile, "w+");
 			if (txt) {
 				get_date(date, sizeof(date));
 				fprintf(txt, 
@@ -2577,8 +2596,10 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_
 				ast_log(LOG_WARNING, "Error opening text file for output\n");
 			res = play_record_review(chan, NULL, fn, vmmaxmessage, fmt, 1, vmu, &duration, dir, options->record_gain);
 			if (res == '0') {
-				if (txt)
+				if (txt) {
 					fclose(txt);
+					rename(tmptxtfile, txtfile);
+				}
 				goto transfer;
 			}
 			if (res > 0)
@@ -2586,6 +2607,7 @@ static int leave_voicemail(struct ast_channel *chan, char *ext, struct leave_vm_
 			if (txt) {
 				fprintf(txt, "duration=%d\n", duration);
 				fclose(txt);
+				rename(tmptxtfile, txtfile);
 			}
 				
 			if (duration < vmminmessage) {
@@ -2677,9 +2699,8 @@ static int save_to_folder(struct ast_vm_user *vmu, char *dir, int msg, char *con
 	char ddir[256];
 	char *dbox = mbox(box);
 	int x;
-	make_file(sfn, sizeof(sfn), dir, msg);
-	make_dir(ddir, sizeof(ddir), context, username, dbox);
-	mkdir(ddir, 0700);
+ 	make_file(sfn, sizeof(sfn), dir, msg);
+	create_dirpath(ddir, sizeof(ddir), context, username, dbox);
 
 	if (vm_lock_path(ddir))
 		return ERROR_LOCK_PATH;
@@ -3277,7 +3298,7 @@ static int vm_forwardoptions(struct ast_channel *chan, struct ast_vm_user *vmu, 
 				cmd = 't';
 		 }
 	}
-	if (cmd == 't')
+	if (cmd == 't' || cmd == 'S')
 		cmd = 0;
 	return cmd;
 }
@@ -3390,7 +3411,7 @@ static int forward_message(struct ast_channel *chan, char *context, char *dir, i
 				break;
 		}
 		
-		if( use_directory ) {
+		if (use_directory) {
 			/* use app_directory */
 			
 			char old_context[sizeof(chan->context)];
@@ -3407,7 +3428,7 @@ static int forward_message(struct ast_channel *chan, char *context, char *dir, i
 				old_priority = chan->priority;
 				
 				/* call the the Directory, changes the channel */
-				res = pbx_exec(chan, app, ((context)?context:chan->context), 1);
+				res = pbx_exec(chan, app, context ? context : "default", 1);
 				
 				ast_copy_string(username, chan->exten, sizeof(username));
 				
@@ -3464,11 +3485,13 @@ static int forward_message(struct ast_channel *chan, char *context, char *dir, i
 	vmtmp = extensions;
 	if (flag==1) {
 		struct leave_vm_options leave_options;
+		char mailbox[AST_MAX_EXTENSION * 2 + 2];
+		snprintf(mailbox, sizeof(mailbox), "%s@%s", username, context);
 
 		/* Send VoiceMail */
 		memset(&leave_options, 0, sizeof(leave_options));
 		leave_options.record_gain = record_gain;
-		cmd = leave_voicemail(chan, username, &leave_options);
+		cmd = leave_voicemail(chan, mailbox, &leave_options);
 	} else {
 		/* Forward VoiceMail */
 		RETRIEVE(dir, curmsg);
@@ -3688,13 +3711,15 @@ static int play_message_callerid(struct ast_channel *chan, struct vm_state *vms,
 				if (!ast_strlen_zero(prefile)) {
 				/* See if we can find a recorded name for this person instead of their extension number */
 					if (ast_fileexists(prefile, NULL, NULL) > 0) {
-						ast_verbose(VERBOSE_PREFIX_3 "Playing envelope info: CID number '%s' matches mailbox number, playing recorded name\n", callerid);
+						if (option_verbose > 2)
+							ast_verbose(VERBOSE_PREFIX_3 "Playing envelope info: CID number '%s' matches mailbox number, playing recorded name\n", callerid);
 						if (!callback)
 							res = wait_file2(chan, vms, "vm-from");
 						res = ast_streamfile(chan, prefile, chan->language) > -1;
 						res = ast_waitstream(chan, "");
 					} else {
-						ast_verbose(VERBOSE_PREFIX_3 "Playing envelope info: message from '%s'\n", callerid);
+						if (option_verbose > 2)
+							ast_verbose(VERBOSE_PREFIX_3 "Playing envelope info: message from '%s'\n", callerid);
 						/* BB: Say "from extension" as one saying to sound smoother */
 						if (!callback)
 							res = wait_file2(chan, vms, "vm-from-extension");
@@ -3869,7 +3894,7 @@ static int close_mailbox(struct vm_state *vms, struct ast_vm_user *vmu)
 		return ERROR_LOCK_PATH;
 	
 	vms->curmsg = -1; 
-	for (x=0;x < vmu->maxmsg;x++) { 
+	for (x = 0; x < vmu->maxmsg; x++) { 
 		if (!vms->deleted[x] && (strcasecmp(vms->curbox, "INBOX") || !vms->heard[x])) { 
 			/* Save this message.  It's not in INBOX or hasn't been heard */ 
 			make_file(vms->fn, sizeof(vms->fn), vms->curdir, x); 
@@ -3903,9 +3928,9 @@ static int close_mailbox(struct vm_state *vms, struct ast_vm_user *vmu)
 
 done:
 	if (vms->deleted)
-		memset(vms->deleted, 0, sizeof(vms->deleted)); 
+		memset(vms->deleted, 0, vmu->maxmsg * sizeof(int)); 
 	if (vms->heard)
-		memset(vms->heard, 0, sizeof(vms->heard)); 
+		memset(vms->heard, 0, vmu->maxmsg * sizeof(int)); 
 
 	return 0;
 }
@@ -4928,7 +4953,7 @@ static int vm_authenticate(struct ast_channel *chan, char *mailbox, int mailbox_
 			   struct ast_vm_user *res_vmu, const char *context, const char *prefix,
 			   int skipuser, int maxlogins, int silent)
 {
-	int useadsi, valid=0, logretries=0;
+	int useadsi=0, valid=0, logretries=0;
 	char password[AST_MAX_EXTENSION]="", *passptr;
 	struct ast_vm_user vmus, *vmu = NULL;
 
@@ -5134,10 +5159,7 @@ static int vm_execmain(struct ast_channel *chan, void *data)
 	/* Set language from config to override channel language */
 	if (!ast_strlen_zero(vmu->language))
 		ast_copy_string(chan->language, vmu->language, sizeof(chan->language));
-	snprintf(vms.curdir, sizeof(vms.curdir), "%s/%s", VM_SPOOL_DIR, vmu->context);
-	mkdir(vms.curdir, 0700);
-	snprintf(vms.curdir, sizeof(vms.curdir), "%s/%s/%s", VM_SPOOL_DIR, vmu->context, vms.username);
-	mkdir(vms.curdir, 0700);
+	create_dirpath(vms.curdir, sizeof(vms.curdir), vmu->context, vms.username, "");
 	/* Retrieve old and new message counts */
 	res = open_mailbox(&vms, vmu, 1);
 	if (res == ERROR_LOCK_PATH)
@@ -5232,7 +5254,8 @@ static int vm_execmain(struct ast_channel *chan, void *data)
 					cmd = 't';
 					break;
 				case '2': /* Callback */
-					ast_verbose( VERBOSE_PREFIX_3 "Callback Requested\n");
+					if (option_verbose > 2)
+						ast_verbose( VERBOSE_PREFIX_3 "Callback Requested\n");
 					if (!ast_strlen_zero(vmu->callback) && vms.lastmsg > -1) {
 						cmd = advanced_options(chan, vmu, &vms, vms.curmsg, 2, record_gain);
 						if (cmd == 9) {
@@ -6314,7 +6337,8 @@ static int dialout(struct ast_channel *chan, struct ast_vm_user *vmu, char *num,
 	int retries = 0;
 
 	if (!num) {
-		ast_verbose( VERBOSE_PREFIX_3 "Destination number will be entered manually\n");
+		if (option_verbose > 2)
+			ast_verbose( VERBOSE_PREFIX_3 "Destination number will be entered manually\n");
 		while (retries < 3 && cmd != 't') {
 			destination[1] = '\0';
 			destination[0] = cmd = ast_play_and_wait(chan,"vm-enter-num-to-call");
@@ -6334,7 +6358,8 @@ static int dialout(struct ast_channel *chan, struct ast_vm_user *vmu, char *num,
 				if (cmd < 0)
 					return 0;
 				if (cmd == '*') {
-					ast_verbose( VERBOSE_PREFIX_3 "User hit '*' to cancel outgoing call\n");
+					if (option_verbose > 2)
+						ast_verbose( VERBOSE_PREFIX_3 "User hit '*' to cancel outgoing call\n");
 					return 0;
 				}
 				if ((cmd = ast_readstring(chan,destination + strlen(destination),sizeof(destination)-1,6000,10000,"#")) < 0) 
@@ -6348,14 +6373,16 @@ static int dialout(struct ast_channel *chan, struct ast_vm_user *vmu, char *num,
 		}
 		
 	} else {
-		ast_verbose( VERBOSE_PREFIX_3 "Destination number is CID number '%s'\n", num);
+		if (option_verbose > 2)
+			ast_verbose( VERBOSE_PREFIX_3 "Destination number is CID number '%s'\n", num);
 		ast_copy_string(destination, num, sizeof(destination));
 	}
 
 	if (!ast_strlen_zero(destination)) {
 		if (destination[strlen(destination) -1 ] == '*')
 			return 0; 
-		ast_verbose( VERBOSE_PREFIX_3 "Placing outgoing call to extension '%s' in context '%s' from context '%s'\n", destination, outgoing_context, chan->context);
+		if (option_verbose > 2)
+			ast_verbose( VERBOSE_PREFIX_3 "Placing outgoing call to extension '%s' in context '%s' from context '%s'\n", destination, outgoing_context, chan->context);
 		ast_copy_string(chan->exten, destination, sizeof(chan->exten));
 		ast_copy_string(chan->context, outgoing_context, sizeof(chan->context));
 		chan->priority = 0;
@@ -6426,7 +6453,8 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 							if (res)
 								return 9;
 						} else {
-							ast_verbose( VERBOSE_PREFIX_3 "Caller can not specify callback number - no dialout context available\n");
+							if (option_verbose > 2)
+								ast_verbose( VERBOSE_PREFIX_3 "Caller can not specify callback number - no dialout context available\n");
 							res = ast_play_and_wait(chan, "vm-sorry");
 						}
 						return res;
@@ -6447,7 +6475,8 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 						break;
 					default:
 						if (num) {
-							ast_verbose( VERBOSE_PREFIX_3 "Confirm CID number '%s' is number to use for callback\n", num);
+							if (option_verbose > 2)
+								ast_verbose( VERBOSE_PREFIX_3 "Confirm CID number '%s' is number to use for callback\n", num);
 							res = ast_play_and_wait(chan, "vm-num-i-have");
 							if (!res)
 								res = play_message_callerid(chan, vms, num, vmu->context, 1);
@@ -6489,25 +6518,30 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 		if (!ast_strlen_zero(cid)) {
 			ast_callerid_parse(cid, &name, &num);
 			if (!num) {
-				ast_verbose(VERBOSE_PREFIX_3 "No CID number available, no reply sent\n");
+				if (option_verbose > 2)
+					ast_verbose(VERBOSE_PREFIX_3 "No CID number available, no reply sent\n");
 				if (!res)
 					res = ast_play_and_wait(chan, "vm-nonumber");
 				return res;
 			} else {
 				if (find_user(NULL, vmu->context, num)) {
 					struct leave_vm_options leave_options;
+					char mailbox[AST_MAX_EXTENSION * 2 + 2];
+					snprintf(mailbox, sizeof(mailbox), "%s@%s", num, vmu->context);
 
-					ast_verbose(VERBOSE_PREFIX_3 "Leaving voicemail for '%s' in context '%s'\n", num, vmu->context);
+					if (option_verbose > 2)
+						ast_verbose(VERBOSE_PREFIX_3 "Leaving voicemail for '%s' in context '%s'\n", num, vmu->context);
 					
 					memset(&leave_options, 0, sizeof(leave_options));
 					leave_options.record_gain = record_gain;
-					res = leave_voicemail(chan, num, &leave_options);
+					res = leave_voicemail(chan, mailbox, &leave_options);
 					if (!res)
 						res = 't';
 					return res;
 				} else {
 					/* Sender has no mailbox, can't reply */
-					ast_verbose( VERBOSE_PREFIX_3 "No mailbox number '%s' in context '%s', no reply sent\n", num, vmu->context);
+					if (option_verbose > 2)
+						ast_verbose( VERBOSE_PREFIX_3 "No mailbox number '%s' in context '%s', no reply sent\n", num, vmu->context);
 					ast_play_and_wait(chan, "vm-nobox");
 					res = 't';
 					return res;
@@ -6558,7 +6592,8 @@ static int play_record_review(struct ast_channel *chan, char *playfile, char *re
  				break;
  			} else {
  				/* Otherwise 1 is to save the existing message */
- 				ast_verbose(VERBOSE_PREFIX_3 "Saving message as is\n");
+ 				if (option_verbose > 2)
+					ast_verbose(VERBOSE_PREFIX_3 "Saving message as is\n");
  				ast_streamfile(chan, "vm-msgsaved", chan->language);
  				ast_waitstream(chan, "");
 				STORE(recordfile, vmu->mailbox, vmu->context, -1);
@@ -6568,17 +6603,21 @@ static int play_record_review(struct ast_channel *chan, char *playfile, char *re
  			}
  		case '2':
  			/* Review */
- 			ast_verbose(VERBOSE_PREFIX_3 "Reviewing the message\n");
+ 			if (option_verbose > 2)
+				ast_verbose(VERBOSE_PREFIX_3 "Reviewing the message\n");
  			ast_streamfile(chan, recordfile, chan->language);
  			cmd = ast_waitstream(chan, AST_DIGIT_ANY);
  			break;
  		case '3':
  			message_exists = 0;
  			/* Record */
- 			if (recorded == 1)
-				ast_verbose(VERBOSE_PREFIX_3 "Re-recording the message\n");
- 			else	
-				ast_verbose(VERBOSE_PREFIX_3 "Recording the message\n");
+ 			if (recorded == 1) {
+				if (option_verbose > 2)
+					ast_verbose(VERBOSE_PREFIX_3 "Re-recording the message\n");
+ 			} else {	
+				if (option_verbose > 2)
+					ast_verbose(VERBOSE_PREFIX_3 "Recording the message\n");
+			}
 			if (recorded && outsidecaller) {
  				cmd = ast_play_and_wait(chan, INTRO);
  				cmd = ast_play_and_wait(chan, "beep");
@@ -6602,14 +6641,16 @@ static int play_record_review(struct ast_channel *chan, char *playfile, char *re
 #if 0			
  			else if (vmu->review && (*duration < 5)) {
  				/* Message is too short */
- 				ast_verbose(VERBOSE_PREFIX_3 "Message too short\n");
+ 				if (option_verbose > 2)
+					ast_verbose(VERBOSE_PREFIX_3 "Message too short\n");
 				cmd = ast_play_and_wait(chan, "vm-tooshort");
  				cmd = vm_delete(recordfile);
  				break;
  			}
  			else if (vmu->review && (cmd == 2 && *duration < (maxsilence + 3))) {
  				/* Message is all silence */
- 				ast_verbose(VERBOSE_PREFIX_3 "Nothing recorded\n");
+ 				if (option_verbose > 2)
+					ast_verbose(VERBOSE_PREFIX_3 "Nothing recorded\n");
  				cmd = vm_delete(recordfile);
 				cmd = ast_play_and_wait(chan, "vm-nothingrecorded");
 				if (!cmd)

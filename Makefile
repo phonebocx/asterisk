@@ -36,6 +36,8 @@ endif
 # Remember the MAKELEVEL at the top
 MAKETOPLEVEL?=$(MAKELEVEL)
 
+PWD=$(shell pwd)
+
 ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
 ######### More GSM codec optimization
 ######### Uncomment to enable MMXTM optimizations for x86 architecture CPU's
@@ -209,12 +211,13 @@ ifeq ($(OSARCH),Linux)
   MPG123TARG=linux
 endif
 
-PWD=$(shell pwd)
 GREP=grep
+ID=id
 
 ifeq ($(OSARCH),SunOS)
   GREP=/usr/xpg4/bin/grep
   M4=/usr/local/bin/m4
+  ID=/usr/xpg4/bin/id
 endif
 
 INCLUDE+=-Iinclude -I../include
@@ -322,8 +325,6 @@ else
   ifneq ($(wildcard .svn),)
     ASTERISKVERSIONNUM=999999
     ASTERISKVERSION=SVN-$(shell build_tools/make_svn_branch_name)
-  else
-    ASTERISKVERSIONNUM=000000
   endif
 endif
 
@@ -332,7 +333,9 @@ ASTCFLAGS+= $(TRACE_FRAMES)
 ASTCFLAGS+= $(MALLOC_DEBUG)
 ASTCFLAGS+= $(BUSYDETECT)
 ASTCFLAGS+= $(OPTIONS)
+ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
 ASTCFLAGS+= -fomit-frame-pointer 
+endif
 SUBDIRS=res channels pbx apps codecs formats agi cdr funcs utils stdtime
 
 OBJS=io.o sched.o logger.o frame.o loader.o config.o channel.o \
@@ -538,7 +541,7 @@ clean:
 	$(MAKE) -C stdtime clean
 
 datafiles: all
-	if [ x`whoami` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
+	if [ x`$(ID) -un` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/priv-callerintros
 	for x in sounds/digits/*.gsm; do \
@@ -645,7 +648,6 @@ bininstall: all
 	if [ -n "$(OLDHEADERS)" ]; then \
 		rm -f $(addprefix $(DESTDIR)$(ASTHEADERDIR)/,$(OLDHEADERS)) ;\
 	fi
-	rm -f $(DESTDIR)$(ASTVARLIBDIR)/sounds/voicemail
 	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds
 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-csv
 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-custom
@@ -664,7 +666,6 @@ bininstall: all
 	else \
 		echo "You need to do cvs update -d not just cvs update" ; \
 	fi 
-	( cd $(DESTDIR)$(ASTVARLIBDIR)/sounds  ; ln -s $(ASTSPOOLDIR)/voicemail . )
 	if [ -f mpg123-0.59r/mpg123 ]; then $(MAKE) -C mpg123-0.59r install; fi
 	@echo " +---- Asterisk Installation Complete -------+"  
 	@echo " +                                           +"

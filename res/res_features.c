@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8134 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 18866 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -125,7 +125,7 @@ static char *parkcall = "Park";
 
 static char *synopsis2 = "Park yourself";
 
-static char *descrip2 = "Park(exten):"
+static char *descrip2 = "Park():"
 "Used to park yourself (typically in combination with a supervised\n"
 "transfer to know the parking space). This application is always\n"
 "registered internally and does not need to be explicitly added\n"
@@ -362,7 +362,7 @@ int ast_park_call(struct ast_channel *chan, struct ast_channel *peer, int timeou
 		"Timeout: %ld\r\n"
 		"CallerID: %s\r\n"
 		"CallerIDName: %s\r\n"
-		,pu->parkingnum, pu->chan->name, peer->name
+		,pu->parkingnum, pu->chan->name, peer ? peer->name : ""
 		,(long)pu->start.tv_sec + (long)(pu->parkingtime/1000) - (long)time(NULL)
 		,(pu->chan->cid.cid_num ? pu->chan->cid.cid_num : "<unknown>")
 		,(pu->chan->cid.cid_name ? pu->chan->cid.cid_name : "<unknown>")
@@ -1144,6 +1144,9 @@ static struct ast_channel *ast_feature_request_and_dial(struct ast_channel *call
 							ast_indicate(caller, AST_CONTROL_RINGING);
 						} else if ((f->subclass == AST_CONTROL_BUSY) || (f->subclass == AST_CONTROL_CONGESTION)) {
 							state = f->subclass;
+							if (option_verbose > 2)
+								ast_verbose( VERBOSE_PREFIX_3 "%s is busy\n", chan->name);
+							ast_indicate(caller, AST_CONTROL_BUSY);
 							ast_frfree(f);
 							f = NULL;
 							break;
@@ -1972,6 +1975,7 @@ static int load_config(void)
 	parking_start = 701;
 	parking_stop = 750;
 	parkfindnext = 0;
+	adsipark = 0;
 
 	transferdigittimeout = DEFAULT_TRANSFER_DIGIT_TIMEOUT;
 	featuredigittimeout = DEFAULT_FEATURE_DIGIT_TIMEOUT;

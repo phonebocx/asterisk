@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7521 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 14234 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -251,9 +251,9 @@ void ast_cdr_getvar(struct ast_cdr *cdr, const char *name, char **ret, char *wor
 			strftime(workspace, workspacelen, fmt, &tm);
 		}
 	} else if (!strcasecmp(name, "duration"))
-		snprintf(workspace, workspacelen, "%d", cdr->duration);
+		snprintf(workspace, workspacelen, "%ld", cdr->duration);
 	else if (!strcasecmp(name, "billsec"))
-		snprintf(workspace, workspacelen, "%d", cdr->billsec);
+		snprintf(workspace, workspacelen, "%ld", cdr->billsec);
 	else if (!strcasecmp(name, "disposition"))
 		ast_copy_string(workspace, ast_cdr_disp2str(cdr->disposition), workspacelen);
 	else if (!strcasecmp(name, "amaflags"))
@@ -520,8 +520,10 @@ void ast_cdr_failed(struct ast_cdr *cdr)
 		chan = !ast_strlen_zero(cdr->channel) ? cdr->channel : "<unknown>";
 		if (ast_test_flag(cdr, AST_CDR_FLAG_POSTED))
 			ast_log(LOG_WARNING, "CDR on channel '%s' already posted\n", chan);
-		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED))
-			cdr->disposition = AST_CDR_FAILED;
+		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
+			if (cdr->disposition < AST_CDR_FAILED)
+				cdr->disposition = AST_CDR_FAILED;
+		}
 		cdr = cdr->next;
 	}
 }
@@ -807,11 +809,13 @@ static void post_cdr(struct ast_cdr *cdr)
 			ast_log(LOG_WARNING, "CDR on channel '%s' already posted\n", chan);
 		if (ast_tvzero(cdr->end))
 			ast_log(LOG_WARNING, "CDR on channel '%s' lacks end\n", chan);
-		if (ast_tvzero(cdr->start))
+		if (ast_tvzero(cdr->start)) {
 			ast_log(LOG_WARNING, "CDR on channel '%s' lacks start\n", chan);
-		cdr->duration = cdr->end.tv_sec - cdr->start.tv_sec + (cdr->end.tv_usec - cdr->start.tv_usec) / 1000000;
+			cdr->disposition = AST_CDR_FAILED;
+		} else
+			cdr->duration = cdr->end.tv_sec - cdr->start.tv_sec;
 		if (!ast_tvzero(cdr->answer))
-			cdr->billsec = cdr->end.tv_sec - cdr->answer.tv_sec + (cdr->end.tv_usec - cdr->answer.tv_usec) / 1000000;
+			cdr->billsec = cdr->end.tv_sec - cdr->answer.tv_sec;
 		else
 			cdr->billsec = 0;
 		ast_set_flag(cdr, AST_CDR_FLAG_POSTED);
@@ -1136,7 +1140,6 @@ static int do_reload(void)
 	int was_enabled;
 	int was_batchmode;
 	int res=0;
-	pthread_attr_t attr;
 
 	ast_mutex_lock(&cdr_batch_lock);
 
@@ -1197,9 +1200,7 @@ static int do_reload(void)
 	   if it does not exist */
 	if (enabled && batchmode && (!was_enabled || !was_batchmode) && (cdr_thread == AST_PTHREADT_NULL)) {
 		ast_cond_init(&cdr_pending_cond, NULL);
-		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-		if (ast_pthread_create(&cdr_thread, &attr, do_cdr, NULL) < 0) {
+		if (ast_pthread_create(&cdr_thread, NULL, do_cdr, NULL) < 0) {
 			ast_log(LOG_ERROR, "Unable to start CDR thread.\n");
 			ast_sched_del(sched, cdr_sched);
 		} else {

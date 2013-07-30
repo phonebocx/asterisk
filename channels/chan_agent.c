@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8047 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 10137 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -2207,6 +2207,8 @@ static int action_agent_callback_login(struct mansession *s, struct message *m)
 		ast_device_state_changed("Agent/%s", p->agent);
 		ast_mutex_unlock(&p->lock);
 		p = p->next;
+		if (persistent_agents)
+			dump_agents();
 	}
 	ast_mutex_unlock(&agentlock);
 

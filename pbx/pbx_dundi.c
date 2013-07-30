@@ -46,7 +46,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7634 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 9609 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -4726,6 +4726,7 @@ int unload_module(void)
 	ast_unregister_switch(&dundi_switch);
 	ast_custom_function_unregister(&dundi_function);
 	res = ast_unregister_application(app);
+	sched_context_destroy(sched);
 	return res;
 }
 

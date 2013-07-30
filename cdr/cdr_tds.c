@@ -69,7 +69,7 @@ CREATE TABLE [dbo].[cdr] (
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7637 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11503 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"
@@ -169,8 +169,8 @@ static int tds_log(struct ast_cdr *cdr)
 			"%s, "		/* start */
 			"%s, "		/* answer */
 			"%s, "		/* end */
-			"%d, "		/* duration */
-			"%d, "		/* billsec */
+			"%ld, "		/* duration */
+			"%ld, "		/* billsec */
 			"'%s', "	/* disposition */
 			"'%s', "	/* amaflags */
 			"'%s'"		/* uniqueid */

@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2005, Joshua Colp
  *
- * Joshua Colp <jcolp@asterlink.com>
+ * Joshua Colp <jcolp@digium.com>
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7550 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17905 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

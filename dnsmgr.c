@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2005, Kevin P. Fleming
+ * Copyright (C) 2005-2006, Kevin P. Fleming
  *
  * Kevin P. Fleming <kpfleming@digium.com>
  *
@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 10863 $")
 
 #include "asterisk/dnsmgr.h"
 #include "asterisk/linkedlists.h"
@@ -307,7 +307,6 @@ static int do_reload(int loading)
 	const char *enabled_value;
 	int interval;
 	int was_enabled;
-	pthread_attr_t attr;
 	int res = -1;
 
 	/* ensure that no refresh cycles run while the reload is in progress */
@@ -342,9 +341,7 @@ static int do_reload(int loading)
 	/* if this reload enabled the manager, create the background thread
 	   if it does not exist */
 	if (enabled && !was_enabled && (refresh_thread == AST_PTHREADT_NULL)) {
-		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-		if (ast_pthread_create(&refresh_thread, &attr, do_refresh, NULL) < 0) {
+		if (ast_pthread_create(&refresh_thread, NULL, do_refresh, NULL) < 0) {
 			ast_log(LOG_ERROR, "Unable to start refresh thread.\n");
 		}
 		else {

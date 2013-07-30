@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 18436 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/file.h"
@@ -55,7 +55,7 @@ static struct ast_frame *jpeg_read_image(int fd, int len)
 	struct ast_frame fr;
 	int res;
 	char buf[65536];
-	if (len > sizeof(buf)) {
+	if (len > sizeof(buf) || len < 0) {
 		ast_log(LOG_WARNING, "JPEG image too large to read\n");
 		return NULL;
 	}

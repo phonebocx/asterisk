@@ -68,7 +68,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8905 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17367 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -5655,10 +5655,10 @@ static void *ss_thread(void *data)
 				/* Do not disturb */
 				if (option_verbose > 2) {
 					ast_verbose(VERBOSE_PREFIX_3 "Enabled DND on channel %d\n", p->channel);
-					manager_event(EVENT_FLAG_SYSTEM, "DNDState",
-								"Channel: Zap/%d\r\n"
-								"Status: enabled\r\n", p->channel);
 				}
+				manager_event(EVENT_FLAG_SYSTEM, "DNDState",
+							"Channel: Zap/%d\r\n"
+							"Status: enabled\r\n", p->channel);
 				res = tone_zone_play_tone(p->subs[index].zfd, ZT_TONE_DIALRECALL);
 				p->dnd = 1;
 				getforward = 0;
@@ -5666,12 +5666,11 @@ static void *ss_thread(void *data)
 				len = 0;
 			} else if (!strcmp(exten, "*79")) {
 				/* Do not disturb */
-				if (option_verbose > 2) {
+				if (option_verbose > 2)
 					ast_verbose(VERBOSE_PREFIX_3 "Disabled DND on channel %d\n", p->channel);
-					manager_event(EVENT_FLAG_SYSTEM, "DNDState",
+				manager_event(EVENT_FLAG_SYSTEM, "DNDState",
 								"Channel: Zap/%d\r\n"
 								"Status: disabled\r\n", p->channel);
-				}
 				res = tone_zone_play_tone(p->subs[index].zfd, ZT_TONE_DIALRECALL);
 				p->dnd = 0;
 				getforward = 0;
@@ -5856,7 +5855,7 @@ static void *ss_thread(void *data)
 					number = 0;
 			/* If set to use V23 Signalling, launch our FSK gubbins and listen for it */
 			} else if (p->cid_signalling == CID_SIG_V23) {
-				cs = callerid_new(cid_signalling);
+				cs = callerid_new(p->cid_signalling);
 				if (cs) {
 					samples = 0;
 #if 1
@@ -6027,7 +6026,7 @@ static void *ss_thread(void *data)
 			}
 		} else if (p->use_callerid && p->cid_start == CID_START_RING) {
 			/* FSK Bell202 callerID */
-			cs = callerid_new(cid_signalling);
+			cs = callerid_new(p->cid_signalling);
 			if (cs) {
 #if 1
 				bump_gains(p);
@@ -9031,15 +9030,19 @@ static void *pri_dchannel(void *vpri)
 					ast_log(LOG_WARNING, "Received SETUP_ACKNOWLEDGE on unconfigured channel %d/%d span %d\n", 
 						PRI_SPAN(e->setup_ack.channel), PRI_CHANNEL(e->setup_ack.channel), pri->span);
 				} else {
-					ast_mutex_lock(&pri->pvts[chanpos]->lock);
-					pri->pvts[chanpos]->setup_ack = 1;
-					/* Send any queued digits */
-					for (x=0;x<strlen(pri->pvts[chanpos]->dialdest);x++) {
-						ast_log(LOG_DEBUG, "Sending pending digit '%c'\n", pri->pvts[chanpos]->dialdest[x]);
-						pri_information(pri->pri, pri->pvts[chanpos]->call, 
-							pri->pvts[chanpos]->dialdest[x]);
-					}
-					ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+					chanpos = pri_fixup_principle(pri, chanpos, e->ring.call);
+					if (chanpos > -1) {
+						ast_mutex_lock(&pri->pvts[chanpos]->lock);
+						pri->pvts[chanpos]->setup_ack = 1;
+						/* Send any queued digits */
+						for (x=0;x<strlen(pri->pvts[chanpos]->dialdest);x++) {
+							ast_log(LOG_DEBUG, "Sending pending digit '%c'\n", pri->pvts[chanpos]->dialdest[x]);
+							pri_information(pri->pri, pri->pvts[chanpos]->call, 
+								pri->pvts[chanpos]->dialdest[x]);
+						}
+						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+					} else
+						ast_log(LOG_WARNING, "Unable to move channel %d!\n", e->setup_ack.channel);
 				}
 				break;
 			case PRI_EVENT_NOTIFY:
