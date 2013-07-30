@@ -1,5 +1,5 @@
 #!/bin/sh
-# $Id: rc.redhat.asterisk 67061 2007-06-04 17:11:43Z tilghman $
+# $Id: rc.redhat.asterisk 115285 2008-05-05 03:22:25Z tilghman $
 #
 # asterisk    Starts, Stops and Reloads Asterisk.
 #
@@ -68,6 +68,14 @@ fi
 RETVAL=0
 
 start() {
+	# Check if Asterisk is already running.  If it is, then bug out, because
+	# starting safe_asterisk when Asterisk is running is very bad.
+	VERSION=`${AST_SBIN}/asterisk -rx 'core show version'`
+	if [ "${VERSION:0:8}" = "Asterisk" ]; then # otherwise "Unable t"
+		echo "Asterisk is already running."
+		exit 1
+	fi
+
 	# Start daemons.
 	echo -n $"Starting asterisk: "
         if [ -f $SAFE_ASTERISK ] ; then

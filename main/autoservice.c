@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 110395 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115990 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -201,24 +201,28 @@ int ast_autoservice_start(struct ast_channel *chan)
 	ast_channel_unlock(chan);
 
 	AST_LIST_LOCK(&aslist);
-	if (AST_LIST_EMPTY(&aslist))
+
+	if (AST_LIST_EMPTY(&aslist) && asthread != AST_PTHREADT_NULL) {
 		ast_cond_signal(&as_cond);
+	}
+
 	AST_LIST_INSERT_HEAD(&aslist, as, list);
-	AST_LIST_UNLOCK(&aslist);
 
 	if (asthread == AST_PTHREADT_NULL) { /* need start the thread */
 		if (ast_pthread_create_background(&asthread, NULL, autoservice_run, NULL)) {
 			ast_log(LOG_WARNING, "Unable to create autoservice thread :(\n");
 			/* There will only be a single member in the list at this point,
 			   the one we just added. */
-			AST_LIST_LOCK(&aslist);
 			AST_LIST_REMOVE(&aslist, as, list);
-			AST_LIST_UNLOCK(&aslist);
 			free(as);
+			asthread = AST_PTHREADT_NULL;
 			res = -1;
-		} else
+		} else {
 			pthread_kill(asthread, SIGURG);
+		}
 	}
+
+	AST_LIST_UNLOCK(&aslist);
 
 	return res;
 }
@@ -270,10 +274,6 @@ int ast_autoservice_stop(struct ast_channel *chan)
 
 	if (!orig_end_dtmf_flag)
 		ast_clear_flag(chan, AST_FLAG_END_DTMF_ONLY);
-
-	/* Wait for it to un-block */
-	while (ast_test_flag(chan, AST_FLAG_BLOCKING))
-		usleep(1000);
 
 	while ((f = AST_LIST_REMOVE_HEAD(&dtmf_frames, frame_list))) {
 		ast_queue_frame(chan, f);

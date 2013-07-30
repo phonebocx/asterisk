@@ -141,18 +141,31 @@ enum ast_lock_type {
  * lock info struct.  The lock is marked as pending as the thread is waiting
  * on the lock.  ast_mark_lock_acquired() will mark it as held by this thread.
  */
+#if !defined(LOW_MEMORY)
 void ast_store_lock_info(enum ast_lock_type type, const char *filename,
 	int line_num, const char *func, const char *lock_name, void *lock_addr);
+#else
+#define ast_store_lock_info(I,DONT,CARE,ABOUT,THE,PARAMETERS)
+#endif
+
 
 /*!
  * \brief Mark the last lock as acquired
  */
+#if !defined(LOW_MEMORY)
 void ast_mark_lock_acquired(void *lock_addr);
+#else
+#define ast_mark_lock_acquired(ignore)
+#endif
 
 /*!
  * \brief Mark the last lock as failed (trylock)
  */
+#if !defined(LOW_MEMORY)
 void ast_mark_lock_failed(void *lock_addr);
+#else
+#define ast_mark_lock_failed(ignore)
+#endif
 
 /*!
  * \brief remove lock info for the current thread
@@ -160,7 +173,11 @@ void ast_mark_lock_failed(void *lock_addr);
  * this gets called by ast_mutex_unlock so that information on the lock can
  * be removed from the current thread's lock info struct.
  */
+#if !defined(LOW_MEMORY)
 void ast_remove_lock_info(void *lock_addr);
+#else
+#define ast_remove_lock_info(ignore)
+#endif
 
 static void __attribute__((constructor)) init_empty_mutex(void)
 {
@@ -1179,18 +1196,21 @@ AST_INLINE_API(int ast_atomic_dec_and_test(volatile int *p),
 
 struct ast_channel;
 
+#define ast_channel_lock(a) __ast_channel_lock(a, __FILE__, __LINE__, __PRETTY_FUNCTION__)
 /*! \brief Lock AST channel (and print debugging output)
 \note You need to enable DEBUG_CHANNEL_LOCKS for this function */
-int ast_channel_lock(struct ast_channel *chan);
+int __ast_channel_lock(struct ast_channel *chan, const char *file, int lineno, const char *func);
 
+#define ast_channel_unlock(a) __ast_channel_unlock(a, __FILE__, __LINE__, __PRETTY_FUNCTION__)
 /*! \brief Unlock AST channel (and print debugging output)
 \note You need to enable DEBUG_CHANNEL_LOCKS for this function
 */
-int ast_channel_unlock(struct ast_channel *chan);
+int __ast_channel_unlock(struct ast_channel *chan, const char *file, int lineno, const char *func);
 
+#define ast_channel_trylock(a) __ast_channel_trylock(a, __FILE__, __LINE__, __PRETTY_FUNCTION__)
 /*! \brief Lock AST channel (and print debugging output)
 \note   You need to enable DEBUG_CHANNEL_LOCKS for this function */
-int ast_channel_trylock(struct ast_channel *chan);
+int __ast_channel_trylock(struct ast_channel *chan, const char *file, int lineno, const char *func);
 #endif
 
 #endif /* _ASTERISK_LOCK_H */

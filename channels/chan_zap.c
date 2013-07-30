@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 107173 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 115257 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -4413,14 +4413,15 @@ static struct ast_frame *zt_handle_event(struct ast_channel *ast)
 			case SIG_SF_FEATDMF:
 			case SIG_SF_FEATB:
 				/* FGD MF *Must* wait for wink */
-				if (!ast_strlen_zero(p->dop.dialstr))
+				if (!ast_strlen_zero(p->dop.dialstr)) {
 					res = ioctl(p->subs[SUB_REAL].zfd, ZT_DIAL, &p->dop);
-				else if (res < 0) {
-					ast_log(LOG_WARNING, "Unable to initiate dialing on trunk channel %d\n", p->channel);
-					p->dop.dialstr[0] = '\0';
-					return NULL;
-				} else 
-					ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", p->dop.dialstr);
+					if (res < 0) {
+						ast_log(LOG_WARNING, "Unable to initiate dialing on trunk channel %d\n", p->channel);
+						p->dop.dialstr[0] = '\0';
+						return NULL;
+					} else 
+						ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", p->dop.dialstr);
+				}
 				p->dop.dialstr[0] = '\0';
 				break;
 			default:
@@ -4441,14 +4442,15 @@ static struct ast_frame *zt_handle_event(struct ast_channel *ast)
 			case SIG_SF:
 			case SIG_SFWINK:
 			case SIG_SF_FEATD:
-				if (!ast_strlen_zero(p->dop.dialstr)) 
+				if (!ast_strlen_zero(p->dop.dialstr)) {
 					res = ioctl(p->subs[SUB_REAL].zfd, ZT_DIAL, &p->dop);
-				else if (res < 0) {
-					ast_log(LOG_WARNING, "Unable to initiate dialing on trunk channel %d\n", p->channel);
-					p->dop.dialstr[0] = '\0';
-					return NULL;
-				} else 
-					ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", p->dop.dialstr);
+					if (res < 0) {
+						ast_log(LOG_WARNING, "Unable to initiate dialing on trunk channel %d\n", p->channel);
+						p->dop.dialstr[0] = '\0';
+						return NULL;
+					} else 
+						ast_log(LOG_DEBUG, "Sent deferred digit string: %s\n", p->dop.dialstr);
+				}
 				p->dop.dialstr[0] = '\0';
 				p->dop.op = ZT_DIAL_OP_REPLACE;
 				break;
@@ -6221,7 +6223,7 @@ static void *ss_thread(void *data)
 							}
 
 							if (res < 0) {
-								ast_log(LOG_WARNING, "CallerID feed failed: %s\n", strerror(errno));
+								ast_log(LOG_WARNING, "CallerID feed failed on channel '%s'\n", chan->name);
 								break;
 							} else if (res)
 								break;
@@ -6232,9 +6234,6 @@ static void *ss_thread(void *data)
 					if (res == 1) {
 						callerid_get(cs, &name, &number, &flags);
 						ast_log(LOG_NOTICE, "CallerID number: %s, name: %s, flags=%d\n", number, name, flags);
-					}
-					if (res < 0) {
-						ast_log(LOG_WARNING, "CallerID returned with error on channel '%s'\n", chan->name);
 					}
 
 					if (p->cid_signalling == CID_SIG_V23_JP) {
@@ -9610,6 +9609,13 @@ static int handle_pri_set_debug_file(int fd, int argc, char **argv)
 	return RESULT_SUCCESS;
 }
 
+#ifdef HAVE_PRI_VERSION
+static int handle_pri_version(int fd, int agc, char *argv[]) {
+	ast_cli(fd, "libpri version: %s\n", pri_get_version());
+	return RESULT_SUCCESS;
+}
+#endif
+
 static int handle_pri_debug(int fd, int argc, char *argv[])
 {
 	int span;
@@ -9846,6 +9852,11 @@ static struct ast_cli_entry zap_pri_cli[] = {
 
 	{ { "pri", "unset", "debug", "file", NULL },
 	handle_pri_set_debug_file, "Ends PRI debug output to file" },
+
+#ifdef HAVE_PRI_VERSION
+	{ { "pri", "show", "version", NULL },
+	handle_pri_version, "Displays version of libpri" },
+#endif
 };
 
 #endif /* HAVE_PRI */
@@ -11214,6 +11225,8 @@ static int process_zap(struct zt_chan_conf *confp, struct ast_variable *v, int r
 
 				toneduration = atoi(v->value);
 				if (toneduration > -1) {
+					memset(&dps, 0, sizeof(dps));
+
 					dps.dtmf_tonelen = dps.mfv1_tonelen = toneduration;
 					res = ioctl(ctlfd, ZT_SET_DIALPARAMS, &dps);
 					if (res < 0) {
@@ -11365,11 +11378,10 @@ static int setup_zap(int reload)
 				continue;
 			chans = ast_variable_retrieve(cfg, cat, "zapchan");
 			if (!ast_strlen_zero(chans)) {
-				/** \todo At this point we should probably 
-				 * duplicate conf, and pass a copy, to prevent 
-				 * one section from affecting another
-				 */
-				process_zap(&conf, ast_variable_browse(cfg, cat), reload, 0);
+				struct zt_chan_conf sect_conf;
+				memcpy(&sect_conf, &conf, sizeof(sect_conf));
+
+				process_zap(&sect_conf, ast_variable_browse(cfg, cat), reload, 0);
 			}
 		}
 		ast_config_destroy(cfg);

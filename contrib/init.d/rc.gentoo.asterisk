@@ -1,11 +1,19 @@
 #!/sbin/runscript
-# $Id: rc.gentoo.asterisk 67061 2007-06-04 17:11:43Z tilghman $
+# $Id: rc.gentoo.asterisk 115285 2008-05-05 03:22:25Z tilghman $
 
 depend() {
 	need net logger
 }
 
 start() {
+	# Check if Asterisk is already running.  If it is, then bug out, because
+	# starting safe_asterisk when Asterisk is running is very bad.
+	VERSION=`${ASTSBINDIR}/asterisk -rx 'core show version'`
+	if [ "${VERSION:0:8}" = "Asterisk" ]; then # otherwise "Unable t"
+		echo "Asterisk is already running.  $0 will exit now."
+		exit 1
+	fi
+
 	ebegin "Starting Asterisk"
 	/usr/sbin/asterisk
 	eend $? "Failed to start Asterisk"
