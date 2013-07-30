@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 57475 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58847 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -3667,6 +3667,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 			hp = ast_gethostbyname(host, &ahp);
 			if (!hp) {
 				ast_log(LOG_WARNING, "Unable to lookup host in secondary c= line, '%s'\n", c);
+				return -1;
 			}
 		}
 	}
@@ -3693,6 +3694,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 			hp = ast_gethostbyname(host, &ahp);
 			if (!hp) {
 				ast_log(LOG_WARNING, "Unable to lookup host in secondary c= line, '%s'\n", c);
+				return -1;
 			}
 		}
 	}
@@ -5641,10 +5643,17 @@ static int transmit_register(struct sip_registry *r, int sipmethod, char *auth, 
 	
 	/* Fromdomain is what we are registering to, regardless of actual
 	   host name from SRV */
-	if (!ast_strlen_zero(p->fromdomain))
-		snprintf(addr, sizeof(addr), "sip:%s", p->fromdomain);
-	else
-		snprintf(addr, sizeof(addr), "sip:%s", r->hostname);
+	if (!ast_strlen_zero(p->fromdomain)) {
+		if (r->portno && r->portno != DEFAULT_SIP_PORT)
+			snprintf(addr, sizeof(addr), "sip:%s:%d", p->fromdomain, r->portno);
+		else
+			snprintf(addr, sizeof(addr), "sip:%s", p->fromdomain);
+	} else {
+		if (r->portno && r->portno != DEFAULT_SIP_PORT)
+			snprintf(addr, sizeof(addr), "sip:%s:%d", r->hostname, r->portno);
+		else
+			snprintf(addr, sizeof(addr), "sip:%s", r->hostname);
+	}
 	ast_copy_string(p->uri, addr, sizeof(p->uri));
 
 	p->branch ^= thread_safe_rand();
@@ -11082,10 +11091,23 @@ static int handle_request_subscribe(struct sip_pvt *p, struct sip_request *req, 
  					p->subscribed = CPIM_PIDF_XML;    /* RFC 3863 format */
  				} else if (strstr(accept, "application/xpidf+xml")) {
  					p->subscribed = XPIDF_XML;        /* Early pre-RFC 3863 format with MSN additions (Microsoft Messenger) */
+				} else if (ast_strlen_zero(accept)) {
+					if (p->subscribed == NONE) { /* if the subscribed field is not already set, and there is no accept header... */
+						transmit_response(p, "489 Bad Event", req);
+
+						ast_log(LOG_WARNING,"SUBSCRIBE failure: no Accept header: pvt: stateid: %d, laststate: %d, dialogver: %d, subscribecont: '%s'\n",
+							p->stateid, p->laststate, p->dialogver, p->subscribecontext);
+						ast_set_flag(p, SIP_NEEDDESTROY);
+						return 0;
+					}
+					/* if p->subscribed is non-zero, then accept is not obligatory; according to rfc 3265 section 3.1.3, at least.
+					   so, we'll just let it ride, keeping the value from a previous subscription, and not abort the subscription */
 				} else {
  					/* Can't find a format for events that we know about */
- 					transmit_response(p, "489 Bad Event", req);
- 					ast_set_flag(p, SIP_NEEDDESTROY);	
+					char mybuf[200];
+					snprintf(mybuf,sizeof(mybuf),"489 Bad Event (format %s)", accept);
+ 					transmit_response(p, mybuf, req);
+ 					ast_set_flag(p, SIP_NEEDDESTROY);
  					return 0;
  				}
 				if (option_debug > 2)
@@ -11341,7 +11363,7 @@ static int handle_request(struct sip_pvt *p, struct sip_request *req, struct soc
 	}
 
 	if (!e && (p->method == SIP_INVITE || p->method == SIP_SUBSCRIBE || p->method == SIP_REGISTER)) {
-		transmit_response(p, "503 Server error", req);
+		transmit_response(p, "400 Bad request", req);
 		ast_set_flag(p, SIP_NEEDDESTROY);
 		return -1;
 	}

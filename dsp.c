@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 36697 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58388 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/channel.h"
@@ -1292,8 +1292,10 @@ int ast_dsp_busydetect(struct ast_dsp *dsp)
 	}
 #endif
 #if 1
+#ifndef BUSYDETECT_TONEONLY
 	if (res)
 		ast_log(LOG_DEBUG, "ast_dsp_busydetect detected busy, avgtone: %d, avgsilence %d\n", avgtone, avgsilence);
+#endif
 #endif
 	return res;
 }

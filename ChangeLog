@@ -1,3 +1,115 @@
+2007-03-19  Jason Parker <jparker@digium.com>
+
+	* Asterisk 1.2.17 released
+
+2007-03-14 16:38 +0000 [r58896]  Russell Bryant <russell@digium.com>
+
+	* SECURITY: Add a note to the security file that the Asterisk CLI
+	  and log files may contain sensitive information, and that people
+	  should keep this in mind.
+
+2007-03-13 12:58 +0000 [r58849-58850]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/chan_misdn.c: fixed the crypt_keys stuff
+
+	* channels/misdn_config.c, channels/misdn/isdn_lib.h,
+	  channels/chan_misdn.c, channels/misdn/chan_misdn_config.h,
+	  channels/misdn/isdn_lib.c: added method standard_dec for dialing
+	  out on groups, to avoid conflicts, which caused issues with some
+	  ISDN providers
+
+2007-03-13 11:45 +0000 [r58847]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Issue #9229 - No port in request URI on
+	  register to non default SIP ports (neelakantan)
+
+2007-03-12 16:49 +0000 [r58832]  Joshua Colp <jcolp@digium.com>
+
+	* include/asterisk/lock.h: We can't use the assembler version of
+	  fetchadd_int under Intel Macs. (issue #9254 reported by darrell
+	  budic)
+
+2007-03-09 20:46 +0000 [r58579]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: If we are unable to lookup the host in a c
+	  line we have to abort, otherwise the previous data is gone and we
+	  will (potentially) have no data when all is said and done.
+
+2007-03-09 14:43 +0000 [r58558]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/misdn/isdn_lib.c: we can free channel 31 as well, since
+	  we can occupy it
+
+2007-03-08 16:04 +0000 [r58388]  Joshua Colp <jcolp@digium.com>
+
+	* dsp.c: Only print out debug message if the definition that makes
+	  the variables shows up was actually defined. (issue #9233
+	  reported by serginuez)
+
+2007-03-07 18:17 +0000 [r58164-58242]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_iax2.c: Fix a problem where the Asterisk channel
+	  name could be that of the wrong IAX2 user for a call. This is
+	  because the first step of choosing this name is to look for an
+	  IAX2 peer that happens to have the same IP/port number that this
+	  call is coming from and assuming that is it. However, this is not
+	  always correct. So, I have made it change this name after
+	  authentication happens since at that point, we have an exact
+	  match.
+
+	* manager.c: Fix a misplaced block of code in the 1.2 version of
+	  the patch to fix issue #8977
+
+	* manager.c: If the channels acquired using the manager Redirect
+	  action are not up, then don't attempt to do anything with them.
+	  It could lead to weird behavior, including crashes. (issue #8977)
+
+2007-03-06 22:52 +0000 [r58115]  Steve Murphy <murf@digium.com>
+
+	* channels/chan_sip.c: Fix for 9220: Eyebeam cannot renew
+	  subscriptions for presence info. Reason: re-SUBSCRIBE requests
+	  don't include Accept headers, which the rfc says are optional (to
+	  put it tersely), (it uses MAY), and luckily, the sip_pvt struct
+	  has the format info stored, so we simply leave it if the format
+	  is set, and the accept header null.
+
+2007-03-06 20:33 +0000 [r58052]  Olle Johansson <oej@edvina.net>
+
+	* channels/chan_sip.c: Change error message to proper message
+
+2007-03-06 15:17 +0000 [r58008]  BJ Weschke <bweschke@btwtech.com>
+
+	* channels/h323/Makefile: Cleanup the Makefile so that we only
+	  attempt to include a file when we're building and not 'clean'ing
+	  so 'make clean' completes successfully. chan_h323 maintainer:
+	  please check to make sure I haven't broken your build target.
+	  From: jsmith in #asterisk-dev
+
+2007-03-05 23:18 +0000 [r57962]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/Makefile: subdirs like misdn and h323 should be cleaned
+	  by the clean target from channels/Makefile as well
+
+2007-03-05 17:49 +0000 [r57869]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_voicemail.c: Make create_dirpath use our standard for
+	  return values. -1 is failure, 0 is success. (issue #9205 reported
+	  by ballares)
+
+2007-03-05 14:53 +0000 [r57825]  Steve Murphy <murf@digium.com>
+
+	* pbx.c: Fixed a typo introduced via 9156
+
+2007-03-04 10:39 +0000 [r57753]  Christian Richter <christian.richter@beronet.com>
+
+	* channels/chan_misdn.c, channels/misdn/isdn_lib.c: fixed another
+	  place where the out_cause was hardcoded to 16
+
+2007-03-03 06:36 +0000 [r57648]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c: Memory leak of a list, if call recording
+	  was abandoned
+
 2007-03-02 Russell Bryant <russell@digium.com>
 
 	* Asterisk 1.2.16 released
