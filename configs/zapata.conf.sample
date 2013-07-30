@@ -16,7 +16,7 @@
 ; Trunk groups are used for NFAS or GR-303 connections.
 ;
 ; Group: Defines a trunk group.  
-;        group => <trunkgroup>,<dchannel>[,<backup1>...]
+;        trunkgroup => <trunkgroup>,<dchannel>[,<backup1>...]
 ;
 ;        trunkgroup  is the numerical trunk group to create
 ;        dchannel    is the zap channel which will have the 
@@ -62,7 +62,7 @@ context=default
 switchtype=national
 ;
 ; Some switches (AT&T especially) require network specific facility IE
-; supported values are currently 'none', 'sdn', 'megacom', 'accunet'
+; supported values are currently 'none', 'sdn', 'megacom', 'tollfreemegacom', 'accunet'
 ;
 ;nsf=none
 ;
@@ -73,6 +73,7 @@ switchtype=national
 ; local:          Local ISDN
 ; national:	  National ISDN
 ; international:  International ISDN
+; dynamic:	  Dynamically selects the appropriate dialplan
 ;
 ;pridialplan=national
 ;
@@ -83,6 +84,7 @@ switchtype=national
 ; local:          Local ISDN
 ; national:	  National ISDN
 ; international:  International ISDN
+; dynamic:	  Dynamically selects the appropriate dialplan
 ;
 ;prilocaldialplan=national
 ;
@@ -131,6 +133,16 @@ switchtype=national
 ; ISDN Timers
 ; All of the ISDN timers and counters that are used are configurable.  Specify
 ; the timer name, and its value (in ms for timers).
+; K:    Layer 2 max number of outstanding unacknowledged I frames (default 7)
+; N200: Layer 2 max number of retransmissions of a frame (default 3)
+; T200: Layer 2 max time before retransmission of a frame (default 1000 ms)
+; T203: Layer 2 max time without frames being exchanged (default 10000 ms)
+; T305: Wait for DISCONNECT acknowledge (default 30000 ms)
+; T308: Wait for RELEASE acknowledge (default 4000 ms)
+; T309: Maintain active calls on Layer 2 disconnection (default -1, Asterisk clears calls)
+;       EuroISDN: 6000 to 12000 ms, according to (N200 + 1) x T200 + 2s
+;       May vary in other ISDN standards (Q.931 1993 : 90000 ms)
+; T313: Wait for CONNECT acknowledge, CPE side only (default 3000 ms)
 ;
 ; pritimer => t200,1000
 ; pritimer => t313,4000
@@ -148,6 +160,8 @@ switchtype=national
 ; featdmf_ta:     Feature Group D (The real thing, MF (domestic, US)) through
 ;                 a Tandem Access point
 ; featb:          Feature Group B (MF (domestic, US))
+; fgccama	  Feature Group C-CAMA (DP DNIS, MF ANI)
+; fgccamamf	  Feature Group C-CAMA MF (MF DNIS, MF ANI)
 ; fxs_ls:         FXS (Loop Start)
 ; fxs_gs:         FXS (Ground Start)
 ; fxs_ks:         FXS (Kewl Start)
@@ -187,6 +201,15 @@ switchtype=national
 ;
 signalling=fxo_ls
 ;
+; If you have an outbound signalling format that is different from format
+; specified above (but compatible), you can specify outbound signalling format,
+; (see below). The 'signalling' format specified will be the inbound signalling
+; format. If you only specify 'signalling', then it will be the format for
+; both inbound and outbound.
+; 
+; signalling=featdmf
+; outsignalling=featb
+;
 ; For Feature Group D Tandem access, to set the default CIC and OZZ use these
 ; parameters:
 ;defaultozz=0000
@@ -206,13 +229,14 @@ signalling=fxo_ls
 rxwink=300		; Atlas seems to use long (250ms) winks
 ;
 ; How long generated tones (DTMF and MF) will be played on the channel
-; (in miliseconds)
+; (in milliseconds)
 ;toneduration=100
 ;
 ; Whether or not to do distinctive ring detection on FXO lines
 ;
 ;usedistinctiveringdetection=yes
-
+;distinctiveringaftercid=yes	; enable dring detection after callerid for those countries like Australia
+				; where the ring cadence is changed *after* the callerid spill.
 ;
 ; Whether or not to use caller ID
 ;
@@ -221,7 +245,9 @@ usecallerid=yes
 ; Type of caller ID signalling in use
 ;     bell     = bell202 as used in US
 ;     v23      = v23 as used in the UK
+;     v23_jp   = v23 as used in Japan
 ;     dtmf     = DTMF as used in Denmark, Sweden and Netherlands
+;     smdi     = Use SMDI for callerid.  Requires SMDI to be enabled (usesmdi).
 ;
 ;cidsignalling=bell
 ;
@@ -235,7 +261,10 @@ usecallerid=yes
 ;
 hidecallerid=no
 ;
-; Whether or not to enable call waiting on FXO lines
+; Whether or not to enable call waiting on internal extensions
+; With this set to 'yes', busy extensions will hear the call-waiting
+; tone, and can use hook-flash to switch between callers. The Dial()
+; app will not return the "BUSY" result for extensions.
 ;
 callwaiting=yes
 ;
@@ -247,6 +276,7 @@ callwaiting=yes
 ;
 ; Whether or not use the caller ID presentation for the outgoing call that the
 ; calling switch is sending.
+; See README.callingpres
 ;
 usecallingpres=yes
 ;
@@ -289,7 +319,7 @@ callreturn=yes
 ; stutter dialtone instead of a normal one. 
 ;
 ; If a mailbox is specified *with* a voicemail context, the same will result
-; if voicemail recieved in mailbox in the specified voicemail context.
+; if voicemail received in mailbox in the specified voicemail context.
 ;
 ; for default voicemail context, the example below is fine:
 ;
@@ -303,10 +333,17 @@ callreturn=yes
 ; Use either "yes", "no", or a power of two from 32 to 256 if you wish to
 ; actually set the number of taps of cancellation.
 ;
+; Note that if any of your Zaptel cards have hardware echo cancellers,
+; then this setting only turns them on and off; numeric settings will
+; be treated as "yes". There are no special settings required for
+; hardware echo cancellers; when present and enabled in their kernel
+; modules, they take precedence over the software echo canceller compiled
+; into Zaptel automatically.
+;
 echocancel=yes
 ;
 ; Generally, it is not necessary (and in fact undesirable) to echo cancel when
-; the circuit path is entirely TDM.  You may, however, reverse this behavior
+; the circuit path is entirely TDM.  You may, however, change this behavior
 ; by enabling the echo cancel during pure TDM bridging below.
 ;
 echocancelwhenbridged=yes
@@ -317,6 +354,13 @@ echocancelwhenbridged=yes
 ; response to pre-train the echo canceller so it can start out with a much
 ; closer idea of the actual echo.  Value may be "yes", "no", or a number of
 ; milliseconds to delay before training (default = 400)
+;
+; WARNING:  In some cases this option can make echo worse!  If you are
+; trying to debug an echo problem, it is worth checking to see if your echo
+; is better with the option set to yes or no.  Use whatever setting gives
+; the best results.
+;
+; Note that these parameters do not apply to hardware echo cancellers.
 ;
 ;echotraining=yes
 ;echotraining=800
@@ -339,7 +383,7 @@ group=1
 ;
 ; Ring groups (a.k.a. call groups) and pickup groups.  If a phone is ringing
 ; and it is a member of a group which is one of your pickup groups, then
-; you can answer it by picking up and dialing *8#.  For simple offices, just
+; you can answer it by picking up and dialling *8#.  For simple offices, just
 ; make these both the same.  Groups range from 0 to 63.
 ;
 callgroup=1
@@ -375,6 +419,14 @@ immediate=no
 ; basis if you have (or may have) ADSI compatible CPE equipment
 ;
 ;adsi=yes
+;
+; SMDI (Simplified Message Desk Interface) can be enabled on a per-channel
+; basis if you would like that channel to behave like an SMDI message desk.
+; The SMDI port specified should have already been defined in smdi.conf.  The
+; default port is /dev/ttyS0.
+;
+;usesmdi=yes
+;smdiport=/dev/ttyS0
 ;
 ; On trunk interfaces (FXS) and E&M interfaces (E&M, Wink, Feature Group D
 ; etc, it can be useful to perform busy detection either in an effort to 
@@ -448,10 +500,24 @@ immediate=no
 ;faxdetect=outgoing
 ;faxdetect=no
 ;
-; Select which class of music to use for music on hold.  If not specified
-; then the default will be used.
+; This option specifies a preference for which music on hold class this channel
+; should listen to when put on hold if the music class has not been set on the
+; channel with Set(CHANNEL(musicclass)=whatever) in the dialplan, and the peer
+; channel putting this one on hold did not suggest a music class.
 ;
-;musiconhold=default
+; If this option is set to "passthrough", then the hold message will always be
+; passed through as signalling instead of generating hold music locally. This
+; setting is only valid when used on a channel that uses digital signalling.
+;
+; This option may be specified globally, or on a per-user or per-peer basis.
+;
+;mohinterpret=default
+;
+; This option specifies which music on hold class to suggest to the peer channel
+; when this channel places the peer on hold. It may be specified globally or on
+; a per-user or per-peer basis.
+;
+;mohsuggest=default
 ;
 ; PRI channels can have an idle extension and a minunused number.  So long as
 ; at least "minunused" channels are idle, chan_zap will try to call "idledial"
@@ -471,6 +537,29 @@ immediate=no
 ; Configure jitter buffers in zapata (each one is 20ms, default is 4)
 ;
 ;jitterbuffers=4
+;
+;------------------------------ JITTER BUFFER CONFIGURATION --------------------------
+; jbenable = yes              ; Enables the use of a jitterbuffer on the receiving side of a
+                              ; ZAP channel. Defaults to "no". An enabled jitterbuffer will
+                              ; be used only if the sending side can create and the receiving
+                              ; side can not accept jitter. The ZAP channel can't accept jitter,
+                              ; thus an enabled jitterbuffer on the receive ZAP side will always
+                              ; be used if the sending side can create jitter.
+
+; jbmaxsize = 200             ; Max length of the jitterbuffer in milliseconds.
+
+; jbresyncthreshold = 1000    ; Jump in the frame timestamps over which the jitterbuffer is
+                              ; resynchronized. Useful to improve the quality of the voice, with
+                              ; big jumps in/broken timestamps, usually sent from exotic devices
+                              ; and programs. Defaults to 1000.
+
+; jbimpl = fixed              ; Jitterbuffer implementation, used on the receiving side of a ZAP
+                              ; channel. Two implementations are currently available - "fixed"
+                              ; (with size always equals to jbmax-size) and "adaptive" (with
+                              ; variable size, actually the new jb of IAX2). Defaults to fixed.
+
+; jblog = no                  ; Enables jitterbuffer frame logging. Defaults to "no".
+;-----------------------------------------------------------------------------------
 ;
 ; You can define your own custom ring cadences here.  You can define up to 8
 ; pairs.  If the silence is negative, it indicates where the callerid spill is
@@ -555,7 +644,7 @@ immediate=no
 
 ;
 
-;  Used for distintive ring support for x100p.
+;  Used for distinctive ring support for x100p.
 ;  You can see the dringX patterns is to set any one of the dringXcontext fields
 ;  and they will be printed on the console when an inbound call comes in.
 ;

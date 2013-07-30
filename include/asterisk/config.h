@@ -45,7 +45,7 @@ struct ast_variable {
 	char stuff[0];
 };
 
-typedef struct ast_config *config_load_func(const char *database, const char *table, const char *configfile, struct ast_config *config);
+typedef struct ast_config *config_load_func(const char *database, const char *table, const char *configfile, struct ast_config *config, int withcomments);
 typedef struct ast_variable *realtime_var_get(const char *database, const char *table, va_list ap);
 typedef struct ast_config *realtime_multi_get(const char *database, const char *table, va_list ap);
 typedef int realtime_update(const char *database, const char *table, const char *keyfield, const char *entity, va_list ap);
@@ -66,6 +66,7 @@ struct ast_config_engine {
  * Returns NULL on error, or an ast_config data structure on success
  */
 struct ast_config *ast_config_load(const char *filename);
+struct ast_config *ast_config_load_with_comments(const char *filename);
 
 /*! \brief Destroys a config 
  * \param config pointer to config data structure
@@ -73,6 +74,14 @@ struct ast_config *ast_config_load(const char *filename);
  *
  */
 void ast_config_destroy(struct ast_config *config);
+
+/*! \brief returns the root ast_variable of a config
+ * \param config pointer to an ast_config data structure
+ * \param cat name of the category for which you want the root
+ *
+ * Returns the category specified
+ */
+struct ast_variable *ast_category_root(struct ast_config *config, char *cat);
 
 /*! \brief Goes through categories 
  * \param config Which config structure you wish to "browse"
@@ -99,7 +108,7 @@ struct ast_variable *ast_variable_browse(const struct ast_config *config, const 
  *
  * Returns the variable value on success, or NULL if unable to find it.
  */
-char *ast_variable_retrieve(const struct ast_config *config, const char *category, const char *variable);
+const char *ast_variable_retrieve(const struct ast_config *config, const char *category, const char *variable);
 
 /*! \brief Retrieve a category if it exists
  * \param config which config to use
@@ -124,7 +133,7 @@ int ast_category_exist(const struct ast_config *config, const char *category_nam
  * This will use builtin configuration backends to look up a particular 
  * entity in realtime and return a variable list of its parameters.  Note
  * that unlike the variables in ast_config, the resulting list of variables
- * MUST be fred with ast_free_runtime() as there is no container.
+ * MUST be freed with ast_variables_destroy() as there is no container.
  */
 struct ast_variable *ast_load_realtime(const char *family, ...);
 
@@ -166,11 +175,12 @@ int ast_config_engine_register(struct ast_config_engine *newconfig);
 int ast_config_engine_deregister(struct ast_config_engine *del);
 
 int register_config_cli(void);
-void read_config_maps(void);
+int read_config_maps(void);
 
 struct ast_config *ast_config_new(void);
 struct ast_category *ast_config_get_current_category(const struct ast_config *cfg);
 void ast_config_set_current_category(struct ast_config *cfg, const struct ast_category *cat);
+const char *ast_config_option(struct ast_config *cfg, const char *cat, const char *var);
 
 struct ast_category *ast_category_new(const char *name);
 void ast_category_append(struct ast_config *config, struct ast_category *cat);
@@ -181,11 +191,13 @@ void ast_category_rename(struct ast_category *cat, const char *name);
 
 struct ast_variable *ast_variable_new(const char *name, const char *value);
 void ast_variable_append(struct ast_category *category, struct ast_variable *variable);
-int ast_variable_delete(struct ast_config *cfg, char *category, char *variable, char *value);
+int ast_variable_delete(struct ast_category *category, char *variable, char *match);
+int ast_variable_update(struct ast_category *category, const char *variable, 
+	const char *value, const char *match, unsigned int object);
 
 int config_text_file_save(const char *filename, const struct ast_config *cfg, const char *generator);
 
-struct ast_config *ast_config_internal_load(const char *configfile, struct ast_config *cfg);
+struct ast_config *ast_config_internal_load(const char *configfile, struct ast_config *cfg, int withcomments);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

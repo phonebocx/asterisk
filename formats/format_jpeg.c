@@ -24,6 +24,10 @@
  * \ingroup formats
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -34,10 +38,6 @@
 #include <errno.h>
 #include <string.h>
 
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 18436 $")
-
 #include "asterisk/channel.h"
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -46,9 +46,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 18436 $")
 #include "asterisk/image.h"
 #include "asterisk/lock.h"
 #include "asterisk/endian.h"
-
-static char *desc = "JPEG (Joint Picture Experts Group) Image Format";
-
 
 static struct ast_frame *jpeg_read_image(int fd, int len)
 {
@@ -115,30 +112,16 @@ static struct ast_imager jpeg_format = {
 	jpeg_write_image,
 };
 
-int load_module()
+static int load_module(void)
 {
 	return ast_image_register(&jpeg_format);
 }
 
-int unload_module()
+static int unload_module(void)
 {
 	ast_image_unregister(&jpeg_format);
+
 	return 0;
 }	
 
-int usecount()
-{
-	/* We never really have any users */
-	return 0;
-}
-
-char *description()
-{
-	return desc;
-}
-
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "JPEG (Joint Picture Experts Group) Image Format");

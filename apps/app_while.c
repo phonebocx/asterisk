@@ -18,19 +18,21 @@
 
 /*! \file
  *
- * \brief While Loop and ExecIf Implementations
+ * \brief While Loop Implementation
+ *
+ * \author Anthony Minessale <anthmct@yahoo.com>
  * 
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51829 $")
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24911 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -42,16 +44,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24911 $")
 #include "asterisk/lock.h"
 #include "asterisk/options.h"
 
-#define ALL_DONE(u,ret) {LOCAL_USER_REMOVE(u); return ret;}
+#define ALL_DONE(u,ret) {ast_module_user_remove(u); return ret;}
 
-
-static char *exec_app = "ExecIf";
-static char *exec_desc = 
-"Usage:  ExecIF (<expr>|<app>|<data>)\n"
-"If <expr> is true, execute and return the result of <app>(<data>).\n"
-"If <expr> is true, but <app> is not found, then the application\n"
-"will return a non-zero value.";
-static char *exec_synopsis = "Conditional exec";
 
 static char *start_app = "While";
 static char *start_desc = 
@@ -59,70 +53,32 @@ static char *start_desc =
 "Start a While Loop.  Execution will return to this point when\n"
 "EndWhile is called until expr is no longer true.\n";
 
-static char *start_synopsis = "Start A While Loop";
+static char *start_synopsis = "Start a while loop";
 
 
 static char *stop_app = "EndWhile";
 static char *stop_desc = 
 "Usage:  EndWhile()\n"
-"Return to the previous called While\n\n";
+"Return to the previous called While\n";
 
-static char *stop_synopsis = "End A While Loop";
+static char *stop_synopsis = "End a while loop";
 
-static char *tdesc = "While Loops and Conditional Execution";
+static char *exit_app = "ExitWhile";
+static char *exit_desc =
+"Usage:  ExitWhile()\n"
+"Exits a While loop, whether or not the conditional has been satisfied.\n";
+static char *exit_synopsis = "End a While loop";
 
-
-
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
-
-static int execif_exec(struct ast_channel *chan, void *data) {
-	int res=0;
-	struct localuser *u;
-	char *myapp = NULL;
-	char *mydata = NULL;
-	char *expr = NULL;
-	struct ast_app *app = NULL;
-
-	LOCAL_USER_ADD(u);
-
-	expr = ast_strdupa(data);
-	if (!expr) {
-		ast_log(LOG_ERROR, "Out of memory\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
-
-	if ((myapp = strchr(expr,'|'))) {
-		*myapp = '\0';
-		myapp++;
-		if ((mydata = strchr(myapp,'|'))) {
-			*mydata = '\0';
-			mydata++;
-		} else
-			mydata = "";
-
-		if (pbx_checkcondition(expr)) { 
-			if ((app = pbx_findapp(myapp))) {
-				res = pbx_exec(chan, app, mydata, 1);
-			} else {
-				ast_log(LOG_WARNING, "Count not find application! (%s)\n", myapp);
-				res = -1;
-			}
-		}
-	} else {
-		ast_log(LOG_ERROR,"Invalid Syntax.\n");
-		res = -1;
-	}
-		
-	ALL_DONE(u,res);
-}
+static char *continue_app = "ContinueWhile";
+static char *continue_desc =
+"Usage:  ContinueWhile()\n"
+"Returns to the top of the while loop and re-evaluates the conditional.\n";
+static char *continue_synopsis = "Restart a While loop";
 
 #define VAR_SIZE 64
 
 
-static char *get_index(struct ast_channel *chan, const char *prefix, int index) {
+static const char *get_index(struct ast_channel *chan, const char *prefix, int index) {
 	char varname[VAR_SIZE];
 
 	snprintf(varname, VAR_SIZE, "%s_%d", prefix, index);
@@ -208,22 +164,22 @@ static int find_matching_endwhile(struct ast_channel *chan)
 static int _while_exec(struct ast_channel *chan, void *data, int end)
 {
 	int res=0;
-	struct localuser *u;
-	char *while_pri = NULL;
-	char *goto_str = NULL, *my_name = NULL;
-	char *condition = NULL, *label = NULL;
+	struct ast_module_user *u;
+	const char *while_pri = NULL;
+	char *my_name = NULL;
+	const char *condition = NULL, *label = NULL;
 	char varname[VAR_SIZE], end_varname[VAR_SIZE];
 	const char *prefix = "WHILE";
 	size_t size=0;
 	int used_index_i = -1, x=0;
 	char used_index[VAR_SIZE] = "0", new_index[VAR_SIZE] = "0";
-	
+
 	if (!chan) {
 		/* huh ? */
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	/* dont want run away loops if the chan isn't even up
 	   this is up for debate since it slows things down a tad ......
@@ -242,9 +198,8 @@ static int _while_exec(struct ast_channel *chan, void *data, int end)
 	snprintf(used_index, VAR_SIZE, "%d", used_index_i);
 	snprintf(new_index, VAR_SIZE, "%d", used_index_i + 1);
 	
-	if (!end) {
-		condition = ast_strdupa((char *) data);
-	}
+	if (!end)
+		condition = ast_strdupa(data);
 
 	size = strlen(chan->context) + strlen(chan->exten) + 32;
 	my_name = alloca(size);
@@ -269,14 +224,15 @@ static int _while_exec(struct ast_channel *chan, void *data, int end)
 	}
 	
 
-	if (!end && !pbx_checkcondition(condition)) {
+	if ((!end && !pbx_checkcondition(condition)) || (end == 2)) {
 		/* Condition Met (clean up helper vars) */
+		const char *goto_str;
 		pbx_builtin_setvar_helper(chan, varname, NULL);
 		pbx_builtin_setvar_helper(chan, my_name, NULL);
-        snprintf(end_varname,VAR_SIZE,"END_%s",varname);
+		snprintf(end_varname,VAR_SIZE,"END_%s",varname);
 		if ((goto_str=pbx_builtin_getvar_helper(chan, end_varname))) {
-			pbx_builtin_setvar_helper(chan, end_varname, NULL);
 			ast_parseable_goto(chan, goto_str);
+			pbx_builtin_setvar_helper(chan, end_varname, NULL);
 		} else {
 			int pri = find_matching_endwhile(chan);
 			if (pri > 0) {
@@ -291,6 +247,7 @@ static int _while_exec(struct ast_channel *chan, void *data, int end)
 	}
 
 	if (!end && !while_pri) {
+		char *goto_str;
 		size = strlen(chan->context) + strlen(chan->exten) + 32;
 		goto_str = alloca(size);
 		memset(goto_str, 0, size);
@@ -302,6 +259,7 @@ static int _while_exec(struct ast_channel *chan, void *data, int end)
 		/* END of loop */
 		snprintf(end_varname, VAR_SIZE, "END_%s", varname);
 		if (! pbx_builtin_getvar_helper(chan, end_varname)) {
+			char *goto_str;
 			size = strlen(chan->context) + strlen(chan->exten) + 32;
 			goto_str = alloca(size);
 			memset(goto_str, 0, size);
@@ -325,45 +283,53 @@ static int while_end_exec(struct ast_channel *chan, void *data) {
 	return _while_exec(chan, data, 1);
 }
 
+static int while_exit_exec(struct ast_channel *chan, void *data) {
+	return _while_exec(chan, data, 2);
+}
 
-int unload_module(void)
+static int while_continue_exec(struct ast_channel *chan, void *data)
+{
+	int x;
+	const char *prefix = "WHILE", *while_pri=NULL;
+
+	for (x = 0; ; x++) {
+		const char *tmp = get_index(chan, prefix, x);
+		if (tmp)
+			while_pri = tmp;
+		else
+			break;
+	}
+
+	if (while_pri)
+		ast_parseable_goto(chan, while_pri);
+
+	return 0;
+}
+
+static int unload_module(void)
 {
 	int res;
 	
 	res = ast_unregister_application(start_app);
-	res |= ast_unregister_application(exec_app);
 	res |= ast_unregister_application(stop_app);
+	res |= ast_unregister_application(exit_app);
+	res |= ast_unregister_application(continue_app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	int res;
 
 	res = ast_register_application(start_app, while_start_exec, start_synopsis, start_desc);
-	res |= ast_register_application(exec_app, execif_exec, exec_synopsis, exec_desc);
 	res |= ast_register_application(stop_app, while_end_exec, stop_synopsis, stop_desc);
+	res |= ast_register_application(exit_app, while_exit_exec, exit_synopsis, exit_desc);
+	res |= ast_register_application(continue_app, while_continue_exec, continue_synopsis, continue_desc);
 
 	return res;
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
-
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "While Loops and Conditional Execution");

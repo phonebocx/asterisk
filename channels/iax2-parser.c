@@ -19,8 +19,13 @@
 /*! \file
  *
  * \brief Implementation of Inter-Asterisk eXchange Protocol, v 2
- * 
+ *
+ * \author Mark Spencer <markster@digium.com> 
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75445 $")
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -31,13 +36,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
-
 #include "asterisk/frame.h"
 #include "asterisk/utils.h"
 #include "asterisk/unaligned.h"
+#include "asterisk/lock.h"
+#include "asterisk/threadstorage.h"
+
 #include "iax2.h"
 #include "iax2-parser.h"
 #include "iax2-provision.h"
@@ -45,6 +49,17 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 static int frames = 0;
 static int iframes = 0;
 static int oframes = 0;
+
+#if !defined(LOW_MEMORY)
+static void frame_cache_cleanup(void *data);
+
+/*! \brief A per-thread cache of iax_frame structures */
+AST_THREADSTORAGE_CUSTOM(frame_cache, frame_cache_init, frame_cache_cleanup);
+
+/*! \brief This is just so iax_frames, a list head struct for holding a list of
+ *  iax_frame structures, is defined. */
+AST_LIST_HEAD_NOLOCK(iax_frames, iax_frame);
+#endif
 
 static void internaloutput(const char *str)
 {
@@ -62,10 +77,9 @@ static void (*errorf)(const char *str) = internalerror;
 static void dump_addr(char *output, int maxlen, void *value, int len)
 {
 	struct sockaddr_in sin;
-	char iabuf[INET_ADDRSTRLEN];
 	if (len == (int)sizeof(sin)) {
 		memcpy(&sin, value, len);
-		snprintf(output, maxlen, "IPV4 %s:%d", ast_inet_ntoa(iabuf, sizeof(iabuf), sin.sin_addr), ntohs(sin.sin_port));
+		snprintf(output, maxlen, "IPV4 %s:%d", ast_inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 	} else {
 		snprintf(output, maxlen, "Invalid Address");
 	}
@@ -142,11 +156,9 @@ static void dump_datetime(char *output, int maxlen, void *value, int len)
 static void dump_ipaddr(char *output, int maxlen, void *value, int len)
 {
 	struct sockaddr_in sin;
-	char iabuf[INET_ADDRSTRLEN];
 	if (len == (int)sizeof(unsigned int)) {
 		memcpy(&sin.sin_addr, value, len);
-		ast_inet_ntoa(iabuf, sizeof(iabuf), sin.sin_addr);
-		snprintf(output, maxlen, "%s", iabuf);
+		snprintf(output, maxlen, "%s", ast_inet_ntoa(sin.sin_addr));
 	} else
 		ast_copy_string(output, "Invalid IPADDR", maxlen);
 }
@@ -385,7 +397,7 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 {
 	const char *frames[] = {
 		"(0?)",
-		"DTMF   ",
+		"DTMF_E ",
 		"VOICE  ",
 		"VIDEO  ",
 		"CONTROL",
@@ -394,7 +406,10 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"TEXT   ",
 		"IMAGE  ",
 		"HTML   ",
-		"CNG    " };
+		"CNG    ",
+		"MODEM  ",
+		"DTMF_B ",
+	};
 	const char *iaxs[] = {
 		"(0?)",
 		"NEW    ",
@@ -433,7 +448,8 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"TRANSFR",
 		"PROVISN",
 		"FWDWNLD",
-		"FWDATA "
+		"FWDATA ",
+		"TXMEDIA"
 	};
 	const char *cmds[] = {
 		"(0?)",
@@ -443,7 +459,18 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"ANSWER ",
 		"BUSY   ",
 		"TKOFFHK",
-		"OFFHOOK" };
+		"OFFHOOK",
+		"CONGSTN",
+		"FLASH  ",
+		"WINK   ",
+		"OPTION ",
+		"RDKEY  ",
+		"RDUNKEY",
+		"PROGRES",
+		"PROCDNG",
+		"HOLD   ",
+		"UNHOLD ",
+		"VIDUPDT", };
 	struct ast_iax2_full_hdr *fh;
 	char retries[20];
 	char class2[20];
@@ -452,7 +479,6 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 	const char *subclass;
 	char *dir;
 	char tmp[512];
-	char iabuf[INET_ADDRSTRLEN];
 
 	switch(rx) {
 	case 0:
@@ -488,7 +514,7 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 	} else {
 		class = frames[(int)fh->type];
 	}
-	if (fh->type == AST_FRAME_DTMF) {
+	if (fh->type == AST_FRAME_DTMF_BEGIN || fh->type == AST_FRAME_DTMF_END) {
 		sprintf(subclass2, "%c", fh->csub);
 		subclass = subclass2;
 	} else if (fh->type == AST_FRAME_IAX) {
@@ -518,13 +544,13 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		 "   Timestamp: %05lums  SCall: %5.5d  DCall: %5.5d [%s:%d]\n",
 		 (unsigned long)ntohl(fh->ts),
 		 ntohs(fh->scallno) & ~IAX_FLAG_FULL, ntohs(fh->dcallno) & ~IAX_FLAG_RETRANS,
-		 ast_inet_ntoa(iabuf, sizeof(iabuf), sin->sin_addr), ntohs(sin->sin_port));
+		 ast_inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
 	outputf(tmp);
 	if (fh->type == AST_FRAME_IAX)
 		dump_ies(fh->iedata, datalen);
 }
 
-int iax_ie_append_raw(struct iax_ie_data *ied, unsigned char ie, void *data, int datalen)
+int iax_ie_append_raw(struct iax_ie_data *ied, unsigned char ie, const void *data, int datalen)
 {
 	char tmp[256];
 	if (datalen > ((int)sizeof(ied->buf) - ied->pos)) {
@@ -539,7 +565,7 @@ int iax_ie_append_raw(struct iax_ie_data *ied, unsigned char ie, void *data, int
 	return 0;
 }
 
-int iax_ie_append_addr(struct iax_ie_data *ied, unsigned char ie, struct sockaddr_in *sin)
+int iax_ie_append_addr(struct iax_ie_data *ied, unsigned char ie, const struct sockaddr_in *sin)
 {
 	return iax_ie_append_raw(ied, ie, sin, (int)sizeof(struct sockaddr_in));
 }
@@ -558,7 +584,7 @@ int iax_ie_append_short(struct iax_ie_data *ied, unsigned char ie, unsigned shor
 	return iax_ie_append_raw(ied, ie, &newval, (int)sizeof(newval));
 }
 
-int iax_ie_append_str(struct iax_ie_data *ied, unsigned char ie, char *str)
+int iax_ie_append_str(struct iax_ie_data *ied, unsigned char ie, const char *str)
 {
 	return iax_ie_append_raw(ied, ie, str, strlen(str));
 }
@@ -903,48 +929,113 @@ void iax_frame_wrap(struct iax_frame *fr, struct ast_frame *f)
 	fr->af.delivery.tv_sec = 0;
 	fr->af.delivery.tv_usec = 0;
 	fr->af.data = fr->afdata;
+	fr->af.len = f->len;
 	if (fr->af.datalen) {
+		size_t copy_len = fr->af.datalen;
+		if (copy_len > fr->afdatalen) {
+			ast_log(LOG_ERROR, "Losing frame data because destination buffer size '%d' bytes not big enough for '%d' bytes in the frame\n",
+				(int) fr->afdatalen, (int) fr->af.datalen);
+			copy_len = fr->afdatalen;
+		}
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 		/* We need to byte-swap slinear samples from network byte order */
 		if ((fr->af.frametype == AST_FRAME_VOICE) && (fr->af.subclass == AST_FORMAT_SLINEAR)) {
-			ast_swapcopy_samples(fr->af.data, f->data, fr->af.samples);
+			/* 2 bytes / sample for SLINEAR */
+			ast_swapcopy_samples(fr->af.data, f->data, copy_len / 2);
 		} else
 #endif
-		memcpy(fr->af.data, f->data, fr->af.datalen);
+			memcpy(fr->af.data, f->data, copy_len);
 	}
 }
 
-struct iax_frame *iax_frame_new(int direction, int datalen)
+struct iax_frame *iax_frame_new(int direction, int datalen, unsigned int cacheable)
 {
-	struct iax_frame *fr;
-	fr = malloc((int)sizeof(struct iax_frame) + datalen);
-	if (fr) {
-		fr->direction = direction;
-		fr->retrans = -1;
-		frames++;
-		if (fr->direction == DIRECTION_INGRESS)
-			iframes++;
-		else
-			oframes++;
+	struct iax_frame *fr = NULL;
+
+#if !defined(LOW_MEMORY)
+	struct iax_frames *iax_frames;
+
+	/* Attempt to get a frame from this thread's cache */
+	if ((iax_frames = ast_threadstorage_get(&frame_cache, sizeof(*iax_frames)))) {
+		AST_LIST_TRAVERSE_SAFE_BEGIN(iax_frames, fr, list) {
+			if (fr->afdatalen >= datalen) {
+				size_t afdatalen = fr->afdatalen;
+				AST_LIST_REMOVE_CURRENT(iax_frames, list);
+				memset(fr, 0, sizeof(*fr));
+				fr->afdatalen = afdatalen;
+				break;
+			}
+		}
+		AST_LIST_TRAVERSE_SAFE_END
 	}
+	if (!fr) {
+		if (!(fr = ast_calloc_cache(1, sizeof(*fr) + datalen)))
+			return NULL;
+		fr->afdatalen = datalen;
+	}
+#else
+	if (!(fr = ast_calloc(1, sizeof(*fr) + datalen)))
+		return NULL;
+	fr->afdatalen = datalen;
+#endif
+
+
+	fr->direction = direction;
+	fr->retrans = -1;
+	fr->cacheable = cacheable;
+	
+	if (fr->direction == DIRECTION_INGRESS)
+		ast_atomic_fetchadd_int(&iframes, 1);
+	else
+		ast_atomic_fetchadd_int(&oframes, 1);
+	
+	ast_atomic_fetchadd_int(&frames, 1);
+
 	return fr;
 }
 
 void iax_frame_free(struct iax_frame *fr)
 {
+#if !defined(LOW_MEMORY)
+	struct iax_frames *iax_frames;
+#endif
+
 	/* Note: does not remove from scheduler! */
 	if (fr->direction == DIRECTION_INGRESS)
-		iframes--;
+		ast_atomic_fetchadd_int(&iframes, -1);
 	else if (fr->direction == DIRECTION_OUTGRESS)
-		oframes--;
+		ast_atomic_fetchadd_int(&oframes, -1);
 	else {
 		errorf("Attempt to double free frame detected\n");
 		return;
 	}
+	ast_atomic_fetchadd_int(&frames, -1);
+
+#if !defined(LOW_MEMORY)
+	if (!fr->cacheable || !(iax_frames = ast_threadstorage_get(&frame_cache, sizeof(*iax_frames)))) {
+		free(fr);
+		return;
+	}
+
 	fr->direction = 0;
+	AST_LIST_INSERT_HEAD(iax_frames, fr, list);
+#else
 	free(fr);
-	frames--;
+#endif
 }
+
+#if !defined(LOW_MEMORY)
+static void frame_cache_cleanup(void *data)
+{
+	struct iax_frames *frames = data;
+	struct iax_frame *cur;
+
+	while ((cur = AST_LIST_REMOVE_HEAD(frames, list)))
+		free(cur);
+
+	free(frames);
+}
+#endif
 
 int iax_get_frames(void) { return frames; }
 int iax_get_iframes(void) { return iframes; }

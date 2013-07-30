@@ -31,10 +31,14 @@ extern "C" {
 
 #include <sys/types.h>
 #include <sys/time.h>
+
+#include "asterisk/compiler.h"
 #include "asterisk/endian.h"
+#include "asterisk/linkedlists.h"
 
 struct ast_codec_pref {
 	char order[32];
+	char framing[32];
 };
 
 /*! \page Def_Frame AST Multimedia and signalling frames
@@ -50,7 +54,7 @@ struct ast_codec_pref {
 	\arg \b IMAGE:	Image transport, mostly used in IAX
 	\arg \b TEXT:	Text messages
 	\arg \b HTML:	URL's and web pages
-	\arg \b T38:	T38 Fax transport frames
+	\arg \b MODEM:	Modulated data encodings, such as T.38 and V.150
 	\arg \b IAX:	Private frame type for the IAX protocol
 	\arg \b CNG:	Comfort noice frames
 	\arg \b CONTROL:	A control frame, subclass defined as AST_CONTROL_
@@ -84,11 +88,46 @@ struct ast_codec_pref {
 
 */
 
+/*!
+ * \brief Frame types 
+ *
+ * \note It is important that the values of each frame type are never changed,
+ *       because it will break backwards compatability with older versions.
+ */
+enum ast_frame_type {
+	/*! DTMF end event, subclass is the digit */
+	AST_FRAME_DTMF_END = 1,
+	/*! Voice data, subclass is AST_FORMAT_* */
+	AST_FRAME_VOICE,
+	/*! Video frame, maybe?? :) */
+	AST_FRAME_VIDEO,
+	/*! A control frame, subclass is AST_CONTROL_* */
+	AST_FRAME_CONTROL,
+	/*! An empty, useless frame */
+	AST_FRAME_NULL,
+	/*! Inter Asterisk Exchange private frame type */
+	AST_FRAME_IAX,
+	/*! Text messages */
+	AST_FRAME_TEXT,
+	/*! Image Frames */
+	AST_FRAME_IMAGE,
+	/*! HTML Frame */
+	AST_FRAME_HTML,
+	/*! Comfort Noise frame (subclass is level of CNG in -dBov), 
+	    body may include zero or more 8-bit quantization coefficients */
+	AST_FRAME_CNG,
+	/*! Modem-over-IP data streams */
+	AST_FRAME_MODEM,	
+	/*! DTMF begin event, subclass is the digit */
+	AST_FRAME_DTMF_BEGIN,
+};
+#define AST_FRAME_DTMF AST_FRAME_DTMF_END
+
 /*! \brief Data structure associated with a single frame of data
  */
 struct ast_frame {
 	/*! Kind of frame */
-	int frametype;				
+	enum ast_frame_type frametype;				
 	/*! Subclass, frame dependent */
 	int subclass;				
 	/*! Length of data */
@@ -97,6 +136,8 @@ struct ast_frame {
 	int samples;				
 	/*! Was the data malloc'd?  i.e. should we free it when we discard the frame? */
 	int mallocd;				
+	/*! The number of bytes allocated for a malloc'd frame header */
+	size_t mallocd_hdr_len;
 	/*! How many bytes exist _before_ "data" that can be used if needed */
 	int offset;				
 	/*! Optional source of frame for debugging */
@@ -105,11 +146,36 @@ struct ast_frame {
 	void *data;		
 	/*! Global delivery time */		
 	struct timeval delivery;
-	/*! Next/Prev for linking stand alone frames */
-	struct ast_frame *prev;			
-	/*! Next/Prev for linking stand alone frames */
-	struct ast_frame *next;			
+	/*! For placing in a linked list */
+	AST_LIST_ENTRY(ast_frame) frame_list;
+	/*! Timing data flag */
+	int has_timing_info;
+	/*! Timestamp in milliseconds */
+	long ts;
+	/*! Length in milliseconds */
+	long len;
+	/*! Sequence number */
+	int seqno;
 };
+
+/*!
+ * Set the various field of a frame to point to a buffer.
+ * Typically you set the base address of the buffer, the offset as
+ * AST_FRIENDLY_OFFSET, and the datalen as the amount of bytes queued.
+ * The remaining things (to be done manually) is set the number of
+ * samples, which cannot be derived from the datalen unless you know
+ * the number of bits per sample.
+ */
+#define	AST_FRAME_SET_BUFFER(fr, _base, _ofs, _datalen)	\
+	{					\
+	(fr)->data = (char *)_base + (_ofs);	\
+	(fr)->offset = (_ofs);			\
+	(fr)->datalen = (_datalen);		\
+	}
+
+/*! Queueing a null frame is fairly common, so we declare a global null frame object
+    for this purpose instead of having to declare one on the stack */
+extern struct ast_frame ast_null_frame;
 
 #define AST_FRIENDLY_OFFSET 	64	/*! It's polite for a a new frame to
 					  have this number of bytes for additional
@@ -123,30 +189,11 @@ struct ast_frame {
 /*! Need the source be free'd? (haha!) */
 #define AST_MALLOCD_SRC		(1 << 2)
 
-/* Frame types */
-/*! A DTMF digit, subclass is the digit */
-#define AST_FRAME_DTMF		1
-/*! Voice data, subclass is AST_FORMAT_* */
-#define AST_FRAME_VOICE		2
-/*! Video frame, maybe?? :) */
-#define AST_FRAME_VIDEO		3
-/*! A control frame, subclass is AST_CONTROL_* */
-#define AST_FRAME_CONTROL	4
-/*! An empty, useless frame */
-#define AST_FRAME_NULL		5
-/*! Inter Asterisk Exchange private frame type */
-#define AST_FRAME_IAX		6
-/*! Text messages */
-#define AST_FRAME_TEXT		7
-/*! Image Frames */
-#define AST_FRAME_IMAGE		8
-/*! HTML Frame */
-#define AST_FRAME_HTML		9
-/*! Comfort Noise frame (subclass is level of CNG in -dBov), 
-    body may include zero or more 8-bit quantization coefficients */
-#define AST_FRAME_CNG		10
-/*! T.38 Fax-over-IP data stream */
-#define AST_FRAME_T38		11
+/* MODEM subclasses */
+/*! T.38 Fax-over-IP */
+#define AST_MODEM_T38		1
+/*! V.150 Modem-over-IP */
+#define AST_MODEM_V150		2
 
 /* HTML subclasses */
 /*! Sending a URL */
@@ -177,8 +224,8 @@ struct ast_frame {
 #define AST_FORMAT_ULAW		(1 << 2)
 /*! Raw A-law data (G.711) */
 #define AST_FORMAT_ALAW		(1 << 3)
-/*! ADPCM (G.726, 32kbps) */
-#define AST_FORMAT_G726		(1 << 4)
+/*! ADPCM (G.726, 32kbps, AAL2 codeword packing) */
+#define AST_FORMAT_G726_AAL2	(1 << 4)
 /*! ADPCM (IMA) */
 #define AST_FORMAT_ADPCM	(1 << 5)
 /*! Raw 16-bit Signed Linear (8000 Hz) PCM */
@@ -191,8 +238,14 @@ struct ast_frame {
 #define AST_FORMAT_SPEEX	(1 << 9)
 /*! iLBC Free Compression */
 #define AST_FORMAT_ILBC		(1 << 10)
+/*! ADPCM (G.726, 32kbps, RFC3551 codeword packing) */
+#define AST_FORMAT_G726		(1 << 11)
+/*! G.722 */
+#define AST_FORMAT_G722		(1 << 12)
 /*! Maximum audio format */
 #define AST_FORMAT_MAX_AUDIO	(1 << 15)
+/*! Maximum audio mask */
+#define AST_FORMAT_AUDIO_MASK   ((1 << 16)-1)
 /*! JPEG Images */
 #define AST_FORMAT_JPEG		(1 << 16)
 /*! PNG Images */
@@ -203,48 +256,35 @@ struct ast_frame {
 #define AST_FORMAT_H263		(1 << 19)
 /*! H.263+ Video */
 #define AST_FORMAT_H263_PLUS	(1 << 20)
+/*! H.264 Video */
+#define AST_FORMAT_H264		(1 << 21)
 /*! Maximum video format */
 #define AST_FORMAT_MAX_VIDEO	(1 << 24)
+#define AST_FORMAT_VIDEO_MASK   (((1 << 25)-1) & ~(AST_FORMAT_AUDIO_MASK))
 
-/* Control frame types */
-/*! Other end has hungup */
-#define AST_CONTROL_HANGUP		1
-/*! Local ring */
-#define AST_CONTROL_RING		2
-/*! Remote end is ringing */
-#define AST_CONTROL_RINGING 		3
-/*! Remote end has answered */
-#define AST_CONTROL_ANSWER		4
-/*! Remote end is busy */
-#define AST_CONTROL_BUSY		5
-/*! Make it go off hook */
-#define AST_CONTROL_TAKEOFFHOOK		6
-/*! Line is off hook */
-#define AST_CONTROL_OFFHOOK		7
-/*! Congestion (circuits busy) */
-#define AST_CONTROL_CONGESTION		8
-/*! Flash hook */
-#define AST_CONTROL_FLASH		9
-/*! Wink */
-#define AST_CONTROL_WINK		10
-/*! Set a low-level option */
-#define AST_CONTROL_OPTION		11
-/*! Key Radio */
-#define	AST_CONTROL_RADIO_KEY		12
-/*! Un-Key Radio */
-#define	AST_CONTROL_RADIO_UNKEY		13
-/*! Indicate PROGRESS */
-#define AST_CONTROL_PROGRESS            14
-/*! Indicate CALL PROCEEDING */
-#define AST_CONTROL_PROCEEDING		15
-/*! Indicate call is placed on hold */
-#define AST_CONTROL_HOLD			16
-/*! Indicate call is left from hold */
-#define AST_CONTROL_UNHOLD			17
-/*! Indicate video frame update */
-#define AST_CONTROL_VIDUPDATE		18
+enum ast_control_frame_type {
+	AST_CONTROL_HANGUP = 1,		/*!< Other end has hungup */
+	AST_CONTROL_RING = 2,		/*!< Local ring */
+	AST_CONTROL_RINGING = 3,	/*!< Remote end is ringing */
+	AST_CONTROL_ANSWER = 4,		/*!< Remote end has answered */
+	AST_CONTROL_BUSY = 5,		/*!< Remote end is busy */
+	AST_CONTROL_TAKEOFFHOOK = 6,	/*!< Make it go off hook */
+	AST_CONTROL_OFFHOOK = 7,	/*!< Line is off hook */
+	AST_CONTROL_CONGESTION = 8,	/*!< Congestion (circuits busy) */
+	AST_CONTROL_FLASH = 9,		/*!< Flash hook */
+	AST_CONTROL_WINK = 10,		/*!< Wink */
+	AST_CONTROL_OPTION = 11,	/*!< Set a low-level option */
+	AST_CONTROL_RADIO_KEY = 12,	/*!< Key Radio */
+	AST_CONTROL_RADIO_UNKEY = 13,	/*!< Un-Key Radio */
+	AST_CONTROL_PROGRESS = 14,	/*!< Indicate PROGRESS */
+	AST_CONTROL_PROCEEDING = 15,	/*!< Indicate CALL PROCEEDING */
+	AST_CONTROL_HOLD = 16,		/*!< Indicate call is placed on hold */
+	AST_CONTROL_UNHOLD = 17,	/*!< Indicate call is left from hold */
+	AST_CONTROL_VIDUPDATE = 18,	/*!< Indicate video frame update */
+};
 
 #define AST_SMOOTHER_FLAG_G729		(1 << 0)
+#define AST_SMOOTHER_FLAG_BE		(1 << 1)
 
 /* Option identifiers and flags */
 #define AST_OPTION_FLAG_REQUEST		0
@@ -283,21 +323,49 @@ struct ast_frame {
 */
 #define AST_OPTION_RXGAIN		6
 
+/* set channel into "Operator Services" mode */
+#define	AST_OPTION_OPRMODE		7
+
+/*! Explicitly enable or disable echo cancelation for the given channel */
+#define	AST_OPTION_ECHOCAN		8
+
+struct oprmode {
+	struct ast_channel *peer;
+	int mode;
+} ;
+
 struct ast_option_header {
 	/* Always keep in network byte order */
 #if __BYTE_ORDER == __BIG_ENDIAN
-        u_int16_t flag:3;
-        u_int16_t option:13;
+        uint16_t flag:3;
+        uint16_t option:13;
 #else
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-        u_int16_t option:13;
-        u_int16_t flag:3;
+        uint16_t option:13;
+        uint16_t flag:3;
 #else
 #error Byte order not defined
 #endif
 #endif
-		u_int8_t data[0];
+		uint8_t data[0];
 };
+
+
+/*! \brief Definition of supported media formats (codecs) */
+struct ast_format_list {
+	int visible;	/*!< Can we see this entry */
+	int bits;	/*!< bitmask value */
+	char *name;	/*!< short name */
+	char *desc;	/*!< Description */
+	int fr_len;	/*!< Single frame length in bytes */
+	int min_ms;	/*!< Min value */
+	int max_ms;	/*!< Max value */
+	int inc_ms;	/*!< Increment */
+	int def_ms;	/*!< Default value */
+	unsigned int flags;	/*!< Smoother flags */
+	int cur_ms;	/*!< Current value */
+};
+
 
 /*! \brief  Requests a frame to be allocated 
  * 
@@ -309,14 +377,20 @@ struct ast_option_header {
 struct ast_frame *ast_fralloc(char *source, int len);
 #endif
 
-/*!  \brief Frees a frame 
+/*!  
+ * \brief Frees a frame 
+ * 
  * \param fr Frame to free
- * Free a frame, and the memory it used if applicable
- * \return no return.
+ * \param cache Whether to consider this frame for frame caching
  */
-void ast_frfree(struct ast_frame *fr);
+void ast_frame_free(struct ast_frame *fr, int cache);
 
-/*! \brief Copies a frame 
+static void force_inline ast_frfree(struct ast_frame *fr)
+{
+	ast_frame_free(fr, 1);
+}
+
+/*! \brief Makes a frame independent of any static storage
  * \param fr frame to act upon
  * Take a frame, and if it's not been malloc'd, make a malloc'd copy
  * and if the data hasn't been malloced then make the
@@ -328,32 +402,10 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr);
 
 /*! \brief Copies a frame 
  * \param fr frame to copy
- * Dupliates a frame -- should only rarely be used, typically frisolate is good enough
+ * Duplicates a frame -- should only rarely be used, typically frisolate is good enough
  * \return Returns a frame on success, NULL on error
  */
-struct ast_frame *ast_frdup(struct ast_frame *fr);
-
-/*! \brief Reads a frame from an fd
- * Read a frame from a stream or packet fd, as written by fd_write
- * \param fd an opened fd to read from
- * \return returns a frame on success, NULL on error
- */
-struct ast_frame *ast_fr_fdread(int fd);
-
-/*! Writes a frame to an fd
- * Write a frame to an fd
- * \param fd Which fd to write to
- * \param frame frame to write to the fd
- * \return Returns 0 on success, -1 on failure
- */
-int ast_fr_fdwrite(int fd, struct ast_frame *frame);
-
-/*! \brief Sends a hangup to an fd 
- * Send a hangup (NULL equivalent) on an fd
- * \param fd fd to write to
- * \return Returns 0 on success, -1 on failure
- */
-int ast_fr_fdhangup(int fd);
+struct ast_frame *ast_frdup(const struct ast_frame *fr);
 
 void ast_swapcopy_samples(void *dst, const void *src, int samples);
 
@@ -372,7 +424,7 @@ void ast_swapcopy_samples(void *dst, const void *src, int samples);
  * \param format id of format
  * \return A static string containing the name of the format or "UNKN" if unknown.
  */
-extern char* ast_getformatname(int format);
+char* ast_getformatname(int format);
 
 /*! \brief Get the names of a set of formats
  * \param buf a buffer for the output string
@@ -382,33 +434,34 @@ extern char* ast_getformatname(int format);
  * ex: for format=AST_FORMAT_GSM|AST_FORMAT_SPEEX|AST_FORMAT_ILBC it will return "0x602 (GSM|SPEEX|ILBC)"
  * \return The return value is buf.
  */
-extern char* ast_getformatname_multiple(char *buf, size_t size, int format);
+char* ast_getformatname_multiple(char *buf, size_t size, int format);
 
 /*!
  * \brief Gets a format from a name.
  * \param name string of format
  * \return This returns the form of the format in binary on success, 0 on error.
  */
-extern int ast_getformatbyname(char *name);
+int ast_getformatbyname(const char *name);
 
 /*! \brief Get a name from a format 
  * Gets a name from a format
  * \param codec codec number (1,2,4,8,16,etc.)
  * \return This returns a static string identifying the format on success, 0 on error.
  */
-extern char *ast_codec2str(int codec);
+char *ast_codec2str(int codec);
 
 struct ast_smoother;
 
-extern struct ast_format_list *ast_get_format_list_index(int index);
-extern struct ast_format_list *ast_get_format_list(size_t *size);
-extern struct ast_smoother *ast_smoother_new(int bytes);
-extern void ast_smoother_set_flags(struct ast_smoother *smoother, int flags);
-extern int ast_smoother_get_flags(struct ast_smoother *smoother);
-extern void ast_smoother_free(struct ast_smoother *s);
-extern void ast_smoother_reset(struct ast_smoother *s, int bytes);
-extern int __ast_smoother_feed(struct ast_smoother *s, struct ast_frame *f, int swap);
-extern struct ast_frame *ast_smoother_read(struct ast_smoother *s);
+struct ast_format_list *ast_get_format_list_index(int index);
+struct ast_format_list *ast_get_format_list(size_t *size);
+struct ast_smoother *ast_smoother_new(int bytes);
+void ast_smoother_set_flags(struct ast_smoother *smoother, int flags);
+int ast_smoother_get_flags(struct ast_smoother *smoother);
+int ast_smoother_test_flag(struct ast_smoother *s, int flag);
+void ast_smoother_free(struct ast_smoother *s);
+void ast_smoother_reset(struct ast_smoother *s, int bytes);
+int __ast_smoother_feed(struct ast_smoother *s, struct ast_frame *f, int swap);
+struct ast_frame *ast_smoother_read(struct ast_smoother *s);
 #define ast_smoother_feed(s,f) __ast_smoother_feed(s, f, 0)
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define ast_smoother_feed_be(s,f) __ast_smoother_feed(s, f, 1)
@@ -418,39 +471,68 @@ extern struct ast_frame *ast_smoother_read(struct ast_smoother *s);
 #define ast_smoother_feed_le(s,f) __ast_smoother_feed(s, f, 1)
 #endif
 
-extern void ast_frame_dump(char *name, struct ast_frame *f, char *prefix);
+void ast_frame_dump(const char *name, struct ast_frame *f, char *prefix);
 
-/*! \brief Initialize a codec preference to "no preference" */
-extern void ast_codec_pref_init(struct ast_codec_pref *pref);
+/*! \page AudioCodecPref Audio Codec Preferences
+	In order to negotiate audio codecs in the order they are configured
+	in <channel>.conf for a device, we set up codec preference lists
+	in addition to the codec capabilities setting. The capabilities
+	setting is a bitmask of audio and video codecs with no internal
+	order. This will reflect the offer given to the other side, where
+	the prefered codecs will be added to the top of the list in the
+	order indicated by the "allow" lines in the device configuration.
+	
+	Video codecs are not included in the preference lists since they
+	can't be transcoded and we just have to pick whatever is supported
+*/
 
-/*! \brief Codec located at  a particular place in the preference index */
-extern int ast_codec_pref_index(struct ast_codec_pref *pref, int index);
+/*! \brief Initialize an audio codec preference to "no preference" See \ref AudioCodecPref */
+void ast_codec_pref_init(struct ast_codec_pref *pref);
 
-/*! \brief Remove a codec from a preference list */
-extern void ast_codec_pref_remove(struct ast_codec_pref *pref, int format);
+/*! \brief Codec located at a particular place in the preference index See \ref AudioCodecPref */
+int ast_codec_pref_index(struct ast_codec_pref *pref, int index);
 
-/*! \brief Append a codec to a preference list, removing it first if it was already there */
-extern int ast_codec_pref_append(struct ast_codec_pref *pref, int format);
+/*! \brief Remove audio a codec from a preference list */
+void ast_codec_pref_remove(struct ast_codec_pref *pref, int format);
 
-/*! \brief Select the best format according to preference list from supplied options. 
+/*! \brief Append a audio codec to a preference list, removing it first if it was already there 
+*/
+int ast_codec_pref_append(struct ast_codec_pref *pref, int format);
+
+/*! \brief Select the best audio format according to preference list from supplied options. 
    If "find_best" is non-zero then if nothing is found, the "Best" format of 
    the format list is selected, otherwise 0 is returned. */
-extern int ast_codec_choose(struct ast_codec_pref *pref, int formats, int find_best);
+int ast_codec_choose(struct ast_codec_pref *pref, int formats, int find_best);
 
-/*! \brief Parse an "allow" or "deny" line and update the mask and pref if provided */
-extern void ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, const char *list, int allowing);
+/*! \brief Set packet size for codec
+*/
+int ast_codec_pref_setsize(struct ast_codec_pref *pref, int format, int framems);
 
-/*! \brief Dump codec preference list into a string */
-extern int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size);
+/*! \brief Get packet size for codec
+*/
+struct ast_format_list ast_codec_pref_getsize(struct ast_codec_pref *pref, int format);
 
-/*! \brief Shift a codec preference list up or down 65 bytes so that it becomes an ASCII string */
-extern void ast_codec_pref_convert(struct ast_codec_pref *pref, char *buf, size_t size, int right);
+/*! \brief Parse an "allow" or "deny" line in a channel or device configuration 
+        and update the capabilities mask and pref if provided.
+	Video codecs are not added to codec preference lists, since we can not transcode
+ */
+void ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, const char *list, int allowing);
+
+/*! \brief Dump audio codec preference list into a string */
+int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size);
+
+/*! \brief Shift an audio codec preference list up or down 65 bytes so that it becomes an ASCII string */
+void ast_codec_pref_convert(struct ast_codec_pref *pref, char *buf, size_t size, int right);
 
 /*! \brief Returns the number of samples contained in the frame */
-extern int ast_codec_get_samples(struct ast_frame *f);
+int ast_codec_get_samples(struct ast_frame *f);
 
 /*! \brief Returns the number of bytes for the number of samples of the given format */
-extern int ast_codec_get_len(int format, int samples);
+int ast_codec_get_len(int format, int samples);
+
+/*! \brief Appends a frame to the end of a list of frames, truncating the maximum length of the list */
+struct ast_frame *ast_frame_enqueue(struct ast_frame *head, struct ast_frame *f, int maxlen, int dupe);
+
 
 /*! \brief Gets duration in ms of interpolation frame for a format */
 static inline int ast_codec_interp_len(int format) 

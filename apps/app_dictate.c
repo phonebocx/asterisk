@@ -22,18 +22,20 @@
  *
  * \brief Virtual Dictation Machine Application For Asterisk
  *
+ * \author Anthony Minessale II <anthmct@yahoo.com>
+ *
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68527 $")
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/stat.h>	/* for mkdir */
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+#include <sys/stat.h>
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -44,15 +46,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/lock.h"
 #include "asterisk/app.h"
 
-static char *tdesc = "Virtual Dictation Machine";
 static char *app = "Dictate";
 static char *synopsis = "Virtual Dictation Machine";
-static char *desc = "  Dictate([<base_dir>])\n"
+static char *desc = "  Dictate([<base_dir>[|<filename>]])\n"
 "Start dictation machine using optional base dir for files.\n";
 
-
-STANDARD_LOCAL_USER;
-LOCAL_USER_DECL;
 
 typedef enum {
 	DFLAG_RECORD = (1 << 0),
@@ -80,16 +78,20 @@ static int play_and_wait(struct ast_channel *chan, char *file, char *digits)
 
 static int dictate_exec(struct ast_channel *chan, void *data)
 {
-	char *mydata, *argv[2], *path = NULL, filein[256];
+	char *path = NULL, filein[256], *filename = "";
+	char *parse;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(base);
+		AST_APP_ARG(filename);
+	);
 	char dftbase[256];
 	char *base;
 	struct ast_flags flags = {0};
 	struct ast_filestream *fs;
 	struct ast_frame *f = NULL;
-	struct localuser *u;
+	struct ast_module_user *u;
 	int ffactor = 320 * 80,
 		res = 0,
-		argc = 0,
 		done = 0,
 		oldr = 0,
 		lastop = 0,
@@ -100,35 +102,43 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 		maxlen = 0,
 		mode = 0;
 		
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 	
 	snprintf(dftbase, sizeof(dftbase), "%s/dictate", ast_config_AST_SPOOL_DIR);
-	if (!ast_strlen_zero(data) && (mydata = ast_strdupa(data))) {
-		argc = ast_app_separate_args(mydata, '|', argv, sizeof(argv) / sizeof(argv[0]));
-	}
+	if (!ast_strlen_zero(data)) {
+		parse = ast_strdupa(data);
+		AST_STANDARD_APP_ARGS(args, parse);
+	} else
+		args.argc = 0;
 	
-	if (argc) {
-		base = argv[0];
+	if (args.argc && !ast_strlen_zero(args.base)) {
+		base = args.base;
 	} else {
 		base = dftbase;
 	}
-
+	if (args.argc > 1 && args.filename) {
+		filename = args.filename;
+	} 
 	oldr = chan->readformat;
 	if ((res = ast_set_read_format(chan, AST_FORMAT_SLINEAR)) < 0) {
 		ast_log(LOG_WARNING, "Unable to set to linear mode.\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 
 	ast_answer(chan);
 	ast_safe_sleep(chan, 200);
-	for(res = 0; !res;) {
-		if (ast_app_getdata(chan, "dictate/enter_filename", filein, sizeof(filein), 0) || 
-			ast_strlen_zero(filein)) {
-			res = -1;
-			break;
+	for (res = 0; !res;) {
+		if (ast_strlen_zero(filename)) {
+			if (ast_app_getdata(chan, "dictate/enter_filename", filein, sizeof(filein), 0) || 
+				ast_strlen_zero(filein)) {
+				res = -1;
+				break;
+			}
+		} else {
+			ast_copy_string(filein, filename, sizeof(filein));
+			filename = "";
 		}
-		
 		mkdir(base, 0755);
 		len = strlen(base) + strlen(filein) + 2;
 		if (!path || len > maxlen) {
@@ -257,7 +267,8 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 						if (lastop != DFLAG_PLAY) {
 							lastop = DFLAG_PLAY;
 							ast_closestream(fs);
-							fs = ast_openstream(chan, path, chan->language);
+							if (!(fs = ast_openstream(chan, path, chan->language)))
+								break;
 							ast_seekstream(fs, samples, SEEK_SET);
 							chan->stream = NULL;
 						}
@@ -319,40 +330,20 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 	if (oldr) {
 		ast_set_read_format(chan, oldr);
 	}
-	LOCAL_USER_REMOVE(u);
-	return res;
+	ast_module_user_remove(u);
+	return 0;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
-
 	res = ast_unregister_application(app);
-	
-	STANDARD_HANGUP_LOCALUSERS;
-	
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, dictate_exec, synopsis, desc);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
-
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Virtual Dictation Machine");

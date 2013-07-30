@@ -19,18 +19,24 @@
 /*! \file
  *
  * \brief IVR Demo application
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
+
+/*** MODULEINFO
+	<defaultenabled>no</defaultenabled>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -82,21 +88,18 @@ AST_IVR_DECLARE_MENU(ivr_demo, "IVR Demo Main Menu", 0,
 	{ NULL },
 });
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int skel_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "skel requires an argument (filename)\n");
 		return -1;
 	}
 	
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	/* Do our thing here */
 
@@ -105,40 +108,25 @@ static int skel_exec(struct ast_channel *chan, void *data)
 	if (!res)
 		res = ast_ivr_menu_run(chan, &ivr_demo, data);
 	
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 	
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 	
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, skel_exec, tdesc, synopsis);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "IVR Demo Application");

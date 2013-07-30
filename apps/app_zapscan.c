@@ -25,8 +25,18 @@
  *
  * \brief Zap Scanner
  *
+ * \author Mark Spencer <markster@digium.com>
+ *
  * \ingroup applications
  */
+
+/*** MODULEINFO
+	<depend>zaptel</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -34,16 +44,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-
-#ifdef __linux__
-#include <linux/zaptel.h>
-#else
-#include <zaptel.h>
-#endif /* __linux__ */
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+#include <zaptel/zaptel.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -58,8 +59,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/cli.h"
 #include "asterisk/say.h"
 
-static char *tdesc = "Scan Zap channels application";
-
 static char *app = "ZapScan";
 
 static char *synopsis = "Scan Zap channels to monitor calls";
@@ -68,10 +67,6 @@ static char *descrip =
 "  ZapScan([group]) allows a call center manager to monitor Zap channels in\n"
 "a convenient way.  Use '#' to select the next channel and use '*' to exit\n"
 "Limit scanning to a channel GROUP by setting the option group argument.\n";
-
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 
 #define CONF_SIZE 160
@@ -135,7 +130,7 @@ static int conf_run(struct ast_channel *chan, int confno, int confflags)
 		goto outrun;
 	}
 	ast_indicate(chan, -1);
-	retryzap = strcasecmp(chan->type, "Zap");
+	retryzap = strcasecmp(chan->tech->type, "Zap");
  zapretry:
 	origfd = chan->fds[0];
 	if (retryzap) {
@@ -269,6 +264,8 @@ static int conf_run(struct ast_channel *chan, int confno, int confflags)
 					ast_log(LOG_WARNING, "Failed to read frame: %s\n", strerror(errno));
 			}
         }
+	if (f)
+		ast_frfree(f);
         if (fd != chan->fds[0])
 			close(fd);
         else {
@@ -290,22 +287,21 @@ static int conf_run(struct ast_channel *chan, int confno, int confflags)
 static int conf_exec(struct ast_channel *chan, void *data)
 {
 	int res=-1;
-	struct localuser *u;
+	struct ast_module_user *u;
 	int confflags = 0;
 	int confno = 0;
 	char confstr[80] = "", *tmp = NULL;
 	struct ast_channel *tempchan = NULL, *lastchan = NULL,*ichan = NULL;
 	struct ast_frame *f;
-	char *mygroup;
 	char *desired_group;
 	int input=0,search_group=0;
 	
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 	
 	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);
 	
-	desired_group = ast_strdupa((char *) data);
+	desired_group = ast_strdupa(data);
 	if(!ast_strlen_zero(desired_group)) {
 		ast_verbose(VERBOSE_PREFIX_3 "Scanning for group %s\n", desired_group);
 		search_group = 1;
@@ -335,6 +331,7 @@ static int conf_exec(struct ast_channel *chan, void *data)
 			break;
 		
 		if (tempchan && search_group) {
+			const char *mygroup;
 			if((mygroup = pbx_builtin_getvar_helper(tempchan, "GROUP")) && (!strcmp(mygroup, desired_group))) {
 				ast_verbose(VERBOSE_PREFIX_3 "Found Matching Channel %s in group %s\n", tempchan->name, desired_group);
 			} else {
@@ -343,7 +340,7 @@ static int conf_exec(struct ast_channel *chan, void *data)
 				continue;
 			}
 		}
-		if ( tempchan && tempchan->type && (!strcmp(tempchan->type, "Zap")) && (tempchan != chan) ) {
+		if (tempchan && (!strcmp(tempchan->tech->type, "Zap")) && (tempchan != chan) ) {
 			ast_verbose(VERBOSE_PREFIX_3 "Zap channel %s is in-use, monitoring...\n", tempchan->name);
 			ast_copy_string(confstr, tempchan->name, sizeof(confstr));
 			ast_mutex_unlock(&tempchan->lock);
@@ -360,40 +357,25 @@ static int conf_exec(struct ast_channel *chan, void *data)
 			ast_mutex_unlock(&tempchan->lock);
 		lastchan = tempchan;
 	}
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, conf_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Scan Zap channels application");
 

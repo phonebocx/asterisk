@@ -1,15 +1,15 @@
-The Asterisk Open Source PBX
+The Asterisk(R) Open Source PBX
 by Mark Spencer <markster@digium.com>
 and the Asterisk.org developer community
 
-Copyright (C) 2001-2005 Digium, Inc.
+Copyright (C) 2001-2006 Digium, Inc.
 and other copyright holders.
 ================================================================
 
 * SECURITY
   It is imperative that you read and fully understand the contents of
-the SECURITY file before you attempt to configure and run an Asterisk
-server.
+the security information file (doc/security.txt) before you attempt 
+to configure and run an Asterisk server.
 
 * WHAT IS ASTERISK ?
   Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
@@ -51,13 +51,15 @@ ANY special hardware, not even a soundcard) to install and run Asterisk.
 	* All Wildcard (tm) products from Digium (www.digium.com)
 	* QuickNet Internet PhoneJack and LineJack (http://www.quicknet.net)
 	* any full duplex sound card supported by ALSA or OSS
+	* any ISDN card supported by mISDN on Linux (BRI)
+	* The Xorcom AstriBank channel bank
         * VoiceTronix OpenLine products
 
 The are several drivers for ISDN BRI cards available from third party sources.
-Check the voip-info.org wiki for more information on chan_capi, chan_misdn and 
+Check the voip-info.org wiki for more information on chan_capi and 
 zaphfc.
 
-* UPGRADING FROM VERSION 1.0
+* UPGRADING FROM AN EARLIER VERSION
 
   If you are updating from a previous version of Asterisk, make sure you
 read the UPGRADE.txt file in the source directory. There are some files
@@ -82,14 +84,31 @@ On many distributions, these files are installed by packages with names like
 
   So let's proceed:
 
-1) Run "make"
+1) Read this README file.
+
+  There are more documents than this one in the doc/ directory.
+You may also want to check the configuration files that contain
+examples and reference guides. They are all in the configs/
+directory.
+
+2) Run "./configure"
+
+  Execute the configure script to guess values for system-dependent
+variables used during compilation.
+
+3) Run "make menuselect" [optional]
+
+  This is needed if you want to select the modules that will be
+compiled and to check modules dependencies.
+
+4) Run "make"
 
   Assuming the build completes successfully:
 
-2) Run "make install"
+5) Run "make install"
 
-  Each time you update or checkout from CVS, you are strongly encouraged 
-to ensure all previous object files are removed to avoid internal 
+  Each time you update or checkout from the repository, you are strongly
+encouraged to ensure all previous object files are removed to avoid internal 
 inconsistency in Asterisk. Normally, this is automatically done with 
 the presence of the file .cleancount, which increments each time a 'make clean'
 is required, and the file .lastclean, which contains the last .cleancount used. 
@@ -97,7 +116,7 @@ is required, and the file .lastclean, which contains the last .cleancount used.
   If this is your first time working with Asterisk, you may wish to install
 the sample PBX, with demonstration extensions, etc.  If so, run:
 
-3) "make samples"
+6) "make samples"
 
   Doing so will overwrite any existing config files you have.
 
@@ -238,3 +257,6 @@ you're interested in getting more information.
   Welcome to the growing worldwide community of Asterisk users!
 
 Mark Spencer
+
+----
+Asterisk is a trademark belonging to Digium, inc

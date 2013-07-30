@@ -19,19 +19,21 @@
 /*! \file
  *
  * \brief Execute arbitrary system commands
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -41,8 +43,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/module.h"
 #include "asterisk/app.h"
 #include "asterisk/options.h"
-
-static char *tdesc = "Generic System() application";
 
 static char *app = "System";
 
@@ -81,14 +81,11 @@ static char *descrip2 =
 "instance, then  the  channel  will  be  setup  to continue at that\n"
 "priority level.  Otherwise, System will terminate.\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int system_exec_helper(struct ast_channel *chan, void *data, int failmode)
 {
 	int res=0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "System requires an argument(command)\n");
@@ -96,7 +93,7 @@ static int system_exec_helper(struct ast_channel *chan, void *data, int failmode
 		return failmode;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	/* Do our thing here */
 	res = ast_safe_system((char *)data);
@@ -111,7 +108,7 @@ static int system_exec_helper(struct ast_channel *chan, void *data, int failmode
 	} else {
 		if (res < 0) 
 			res = 0;
-		if (option_priority_jumping && res)
+		if (ast_opt_priority_jumping && res)
 			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 
 		if (res != 0)
@@ -121,7 +118,7 @@ static int system_exec_helper(struct ast_channel *chan, void *data, int failmode
 		res = 0;
 	} 
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return res;
 }
@@ -136,19 +133,19 @@ static int trysystem_exec(struct ast_channel *chan, void *data)
 	return system_exec_helper(chan, data, 0);
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 	res |= ast_unregister_application(app2);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	int res;
 
@@ -158,19 +155,4 @@ int load_module(void)
 	return res;
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Generic System() application");

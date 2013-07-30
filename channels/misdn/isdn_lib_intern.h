@@ -1,5 +1,5 @@
 #ifndef ISDN_LIB_INTERN
-#define ISDN_LIB_INTER
+#define ISDN_LIB_INTERN
 
 
 #include <mISDNuser/mISDNlib.h>
@@ -11,22 +11,27 @@
 
 #include "isdn_lib.h"
 
+#if !defined MISDNUSER_VERSION_CODE || (MISDNUSER_VERSION_CODE < MISDNUSER_VERSION(1, 0, 3))
+#error "You need a newer version of mISDNuser ..."
+#endif
 
 
+#define QI_ELEMENT(a) a.off
 
 
 #ifndef mISDNUSER_HEAD_SIZE
 
-#ifdef MISDNUSER_JOLLY
 #define mISDNUSER_HEAD_SIZE (sizeof(mISDNuser_head_t))
-#else
-#define mISDNUSER_HEAD_SIZE (sizeof(mISDN_head_t))
-#endif
+/*#define mISDNUSER_HEAD_SIZE (sizeof(mISDN_head_t))*/
 #endif
 
 
 ibuffer_t *astbuf;
 ibuffer_t *misdnbuf;
+
+struct send_lock {
+	pthread_mutex_t lock;
+};
 
 
 struct isdn_msg {
@@ -37,8 +42,6 @@ struct isdn_msg {
   
 	void (*msg_parser)(struct isdn_msg *msgs, msg_t *msg, struct misdn_bchannel *bc, int nt);
 	msg_t *(*msg_builder)(struct isdn_msg *msgs, struct misdn_bchannel *bc, int nt);
-	void (*msg_printer)(struct isdn_msg *msgs);
-  
 	char *info;
   
 } ; 
@@ -60,9 +63,16 @@ struct misdn_stack {
 	int b_stids[MAX_BCHANS + 1];
   
 	int ptp;
+
+	int l2upcnt;
+
+	int l2_id;
 	int lower_id;
 	int upper_id;
   
+
+  	int blocked;
+
 	int l2link;
   
 	time_t l2establish;
@@ -70,7 +80,7 @@ struct misdn_stack {
 	int l1link;
 	int midev;
   
-	enum mode_e {NT_MODE, TE_MODE} mode;
+	int nt;
 	
 	int pri;
   
@@ -78,6 +88,7 @@ struct misdn_stack {
 	int procids[0x100+1];
 
 	msg_queue_t downqueue;
+	msg_queue_t upqueue;
 	int busy;
   
 	int port;
@@ -95,5 +106,14 @@ struct misdn_stack {
 
 
 struct misdn_stack* get_stack_by_bc(struct misdn_bchannel *bc);
+
+int isdn_msg_get_index(struct isdn_msg msgs[], msg_t *frm, int nt);
+enum event_e isdn_msg_get_event(struct isdn_msg msgs[], msg_t *frm, int nt);
+int isdn_msg_parse_event(struct isdn_msg msgs[], msg_t *frm, struct misdn_bchannel *bc, int nt);
+char * isdn_get_info(struct isdn_msg msgs[], enum event_e event, int nt);
+msg_t * isdn_msg_build_event(struct isdn_msg msgs[], struct misdn_bchannel *bc, enum event_e event, int nt);
+int isdn_msg_get_index_by_event(struct isdn_msg msgs[], enum event_e event, int nt);
+char * isdn_msg_get_info(struct isdn_msg msgs[], msg_t *msg, int nt);
+
 
 #endif

@@ -25,7 +25,10 @@
 
 #include "asterisk/channel.h"
 
-struct ast_channel;
+enum AST_MONITORING_STATE {
+	AST_MONITOR_RUNNING,
+	AST_MONITOR_PAUSED
+};
 
 /*! Responsible for channel monitoring data */
 struct ast_channel_monitor {
@@ -37,6 +40,7 @@ struct ast_channel_monitor {
 	int filename_changed;
 	char *format;
 	int joinfiles;
+	enum AST_MONITORING_STATE state;
 	int (*stop)(struct ast_channel *chan, int need_lock);
 };
 
@@ -52,5 +56,11 @@ int ast_monitor_change_fname(struct ast_channel *chan,
 			     const char *fname_base, int need_lock);
 
 void ast_monitor_setjoinfiles(struct ast_channel *chan, int turnon);
+
+/* Pause monitoring of a channel */
+int ast_monitor_pause(struct ast_channel *chan);
+
+/* Unpause monitoring of a channel */
+int ast_monitor_unpause(struct ast_channel *chan);
 
 #endif /* _ASTERISK_MONITOR_H */

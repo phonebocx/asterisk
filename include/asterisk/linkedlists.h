@@ -28,15 +28,70 @@
 */
 
 /*!
-  \brief Attempts to lock a list.
+  \brief Locks a list.
   \param head This is a pointer to the list head structure
 
   This macro attempts to place an exclusive lock in the
   list head structure pointed to by head.
-  Returns non-zero on success, 0 on failure
+  Returns 0 on success, non-zero on failure
 */
 #define AST_LIST_LOCK(head)						\
 	ast_mutex_lock(&(head)->lock) 
+
+/*!
+  \brief Write locks a list.
+  \param head This is a pointer to the list head structure
+
+  This macro attempts to place an exclusive write lock in the
+  list head structure pointed to by head.
+  Returns 0 on success, non-zero on failure
+*/
+#define AST_RWLIST_WRLOCK(head)                                         \
+        ast_rwlock_wrlock(&(head)->lock)
+
+/*!
+  \brief Read locks a list.
+  \param head This is a pointer to the list head structure
+
+  This macro attempts to place a read lock in the
+  list head structure pointed to by head.
+  Returns 0 on success, non-zero on failure
+*/
+#define AST_RWLIST_RDLOCK(head)                                         \
+        ast_rwlock_rdlock(&(head)->lock)
+	
+/*!
+  \brief Locks a list, without blocking if the list is locked.
+  \param head This is a pointer to the list head structure
+
+  This macro attempts to place an exclusive lock in the
+  list head structure pointed to by head.
+  Returns 0 on success, non-zero on failure
+*/
+#define AST_LIST_TRYLOCK(head)						\
+	ast_mutex_trylock(&(head)->lock) 
+
+/*!
+  \brief Write locks a list, without blocking if the list is locked.
+  \param head This is a pointer to the list head structure
+
+  This macro attempts to place an exclusive write lock in the
+  list head structure pointed to by head.
+  Returns 0 on success, non-zero on failure
+*/
+#define AST_RWLIST_TRYWRLOCK(head)                                      \
+        ast_rwlock_trywrlock(&(head)->lock)
+
+/*!
+  \brief Read locks a list, without blocking if the list is locked.
+  \param head This is a pointer to the list head structure
+
+  This macro attempts to place a read lock in the
+  list head structure pointed to by head.
+  Returns 0 on success, non-zero on failure
+*/
+#define AST_RWLIST_TRYRDLOCK(head)                                      \
+        ast_rwlock_tryrdlock(&(head)->lock)
 	
 /*!
   \brief Attempts to unlock a list.
@@ -48,6 +103,17 @@
 */
 #define AST_LIST_UNLOCK(head) 						\
 	ast_mutex_unlock(&(head)->lock)
+
+/*!
+  \brief Attempts to unlock a read/write based list.
+  \param head This is a pointer to the list head structure
+
+  This macro attempts to remove a read or write lock from the
+  list head structure pointed to by head. If the list
+  was not locked by this thread, this macro has no effect.
+*/
+#define AST_RWLIST_UNLOCK(head)                                         \
+        ast_rwlock_unlock(&(head)->lock)
 
 /*!
   \brief Defines a structure to be used to hold a list of specified type.
@@ -73,6 +139,32 @@ struct name {								\
 	struct type *first;						\
 	struct type *last;						\
 	ast_mutex_t lock;						\
+}
+
+/*!
+  \brief Defines a structure to be used to hold a read/write list of specified type.
+  \param name This will be the name of the defined structure.
+  \param type This is the type of each list entry.
+
+  This macro creates a structure definition that can be used
+  to hold a list of the entries of type \a type. It does not actually
+  declare (allocate) a structure; to do that, either follow this
+  macro with the desired name of the instance you wish to declare,
+  or use the specified \a name to declare instances elsewhere.
+
+  Example usage:
+  \code
+  static AST_RWLIST_HEAD(entry_list, entry) entries;
+  \endcode
+
+  This would define \c struct \c entry_list, and declare an instance of it named
+  \a entries, all intended to hold a list of type \c struct \c entry.
+*/
+#define AST_RWLIST_HEAD(name, type)                                     \
+struct name {                                                           \
+        struct type *first;                                             \
+        struct type *last;                                              \
+        ast_rwlock_t lock;                                              \
 }
 
 /*!
@@ -110,6 +202,15 @@ struct name {								\
 	}
 
 /*!
+  \brief Defines initial values for a declaration of AST_RWLIST_HEAD
+*/
+#define AST_RWLIST_HEAD_INIT_VALUE      {               \
+        .first = NULL,                                  \
+        .last = NULL,                                   \
+        .lock = AST_RWLOCK_INIT_VALUE,                  \
+        }
+
+/*!
   \brief Defines initial values for a declaration of AST_LIST_HEAD_NOLOCK
 */
 #define AST_LIST_HEAD_NOLOCK_INIT_VALUE	{	\
@@ -134,12 +235,72 @@ struct name {								\
   This would define \c struct \c entry_list, intended to hold a list of
   type \c struct \c entry.
 */
+#if defined(AST_MUTEX_INIT_W_CONSTRUCTORS)
+#define AST_LIST_HEAD_STATIC(name, type)				\
+struct name {								\
+	struct type *first;						\
+	struct type *last;						\
+	ast_mutex_t lock;						\
+} name;									\
+static void  __attribute__ ((constructor)) init_##name(void)		\
+{									\
+        AST_LIST_HEAD_INIT(&name);					\
+}									\
+static void  __attribute__ ((destructor)) fini_##name(void)		\
+{									\
+        AST_LIST_HEAD_DESTROY(&name);					\
+}									\
+struct __dummy_##name
+#else
 #define AST_LIST_HEAD_STATIC(name, type)				\
 struct name {								\
 	struct type *first;						\
 	struct type *last;						\
 	ast_mutex_t lock;						\
 } name = AST_LIST_HEAD_INIT_VALUE
+#endif
+
+/*!
+  \brief Defines a structure to be used to hold a read/write list of specified type, statically initialized.
+  \param name This will be the name of the defined structure.
+  \param type This is the type of each list entry.
+
+  This macro creates a structure definition that can be used
+  to hold a list of the entries of type \a type, and allocates an instance
+  of it, initialized to be empty.
+
+  Example usage:
+  \code
+  static AST_RWLIST_HEAD_STATIC(entry_list, entry);
+  \endcode
+
+  This would define \c struct \c entry_list, intended to hold a list of
+  type \c struct \c entry.
+*/
+#ifndef AST_RWLOCK_INIT_VALUE
+#define AST_RWLIST_HEAD_STATIC(name, type)                              \
+struct name {                                                           \
+        struct type *first;                                             \
+        struct type *last;                                              \
+        ast_rwlock_t lock;                                              \
+} name;                                                                 \
+static void  __attribute__ ((constructor)) init_##name(void)            \
+{                                                                       \
+        AST_RWLIST_HEAD_INIT(&name);                                    \
+}                                                                       \
+static void  __attribute__ ((destructor)) fini_##name(void)             \
+{                                                                       \
+        AST_RWLIST_HEAD_DESTROY(&name);                                 \
+}                                                                       \
+struct __dummy_##name
+#else
+#define AST_RWLIST_HEAD_STATIC(name, type)                              \
+struct name {                                                           \
+        struct type *first;                                             \
+        struct type *last;                                              \
+        ast_rwlock_t lock;                                              \
+} name = AST_RWLIST_HEAD_INIT_VALUE
+#endif
 
 /*!
   \brief Defines a structure to be used to hold a list of specified type, statically initialized.
@@ -164,6 +325,20 @@ struct name {								\
 	(head)->first = (entry);					\
 	(head)->last = (entry);						\
 	ast_mutex_init(&(head)->lock);					\
+} while (0)
+
+/*!
+  \brief Initializes an rwlist head structure with a specified first entry.
+  \param head This is a pointer to the list head structure
+  \param entry pointer to the list entry that will become the head of the list
+
+  This macro initializes a list head structure by setting the head
+  entry to the supplied value and recreating the embedded lock.
+*/
+#define AST_RWLIST_HEAD_SET(head, entry) do {                           \
+        (head)->first = (entry);                                        \
+        (head)->last = (entry);                                         \
+        ast_rwlock_init(&(head)->lock);                                 \
 } while (0)
 
 /*!
@@ -200,6 +375,8 @@ struct name {								\
 struct {								\
 	struct type *next;						\
 }
+
+#define AST_RWLIST_ENTRY AST_LIST_ENTRY
  
 /*!
   \brief Returns the first entry contained in a list.
@@ -207,11 +384,15 @@ struct {								\
  */
 #define	AST_LIST_FIRST(head)	((head)->first)
 
+#define AST_RWLIST_FIRST AST_LIST_FIRST
+
 /*!
   \brief Returns the last entry contained in a list.
-  \param head This is a pointer to the list tail structure
+  \param head This is a pointer to the list head structure
  */
 #define	AST_LIST_LAST(head)	((head)->last)
+
+#define AST_RWLIST_LAST AST_LIST_LAST
 
 /*!
   \brief Returns the next entry in the list after the given entry.
@@ -221,6 +402,8 @@ struct {								\
 */
 #define AST_LIST_NEXT(elm, field)	((elm)->field.next)
 
+#define AST_RWLIST_NEXT AST_LIST_NEXT
+
 /*!
   \brief Checks whether the specified list contains any entries.
   \param head This is a pointer to the list head structure
@@ -228,6 +411,8 @@ struct {								\
   Returns non-zero if the list has entries, zero if not.
  */
 #define	AST_LIST_EMPTY(head)	(AST_LIST_FIRST(head) == NULL)
+
+#define AST_RWLIST_EMPTY AST_LIST_EMPTY
 
 /*!
   \brief Loops over (traverses) the entries in a list.
@@ -267,6 +452,8 @@ struct {								\
 */
 #define AST_LIST_TRAVERSE(head,var,field) 				\
 	for((var) = (head)->first; (var); (var) = (var)->field.next)
+
+#define AST_RWLIST_TRAVERSE AST_LIST_TRAVERSE
 
 /*!
   \brief Loops safely over (traverses) the entries in a list.
@@ -313,6 +500,8 @@ struct {								\
 	     __list_next = (var) ? (var)->field.next : NULL				\
 	    )
 
+#define AST_RWLIST_TRAVERSE_SAFE_BEGIN AST_LIST_TRAVERSE_SAFE_BEGIN
+
 /*!
   \brief Removes the \a current entry from a list during a traversal.
   \param head This is a pointer to the list head structure
@@ -324,19 +513,48 @@ struct {								\
   the list traversal (and without having to re-traverse the list to modify the
   previous entry, if any).
  */
-#define AST_LIST_REMOVE_CURRENT(head, field)						\
+#define AST_LIST_REMOVE_CURRENT(head, field) do { \
+	__new_prev->field.next = NULL;							\
 	__new_prev = __list_prev;							\
 	if (__list_prev)								\
 		__list_prev->field.next = __list_next;					\
 	else										\
 		(head)->first = __list_next;						\
 	if (!__list_next)								\
-		(head)->last = __list_prev;
+		(head)->last = __list_prev; \
+	} while (0)
+
+#define AST_RWLIST_REMOVE_CURRENT AST_LIST_REMOVE_CURRENT
+
+/*!
+  \brief Inserts a list entry before the current entry during a traversal.
+  \param head This is a pointer to the list head structure
+  \param elm This is a pointer to the entry to be inserted.
+  \param field This is the name of the field (declared using AST_LIST_ENTRY())
+  used to link entries of this list together.
+
+  \note This macro can \b only be used inside an AST_LIST_TRAVERSE_SAFE_BEGIN()
+  block.
+ */
+#define AST_LIST_INSERT_BEFORE_CURRENT(head, elm, field) do {		\
+	if (__list_prev) {						\
+		(elm)->field.next = __list_prev->field.next;		\
+		__list_prev->field.next = elm;				\
+	} else {							\
+		(elm)->field.next = (head)->first;			\
+		(head)->first = (elm);					\
+	}								\
+	__new_prev = (elm);						\
+} while (0)
+
+#define AST_RWLIST_INSERT_BEFORE_CURRENT AST_LIST_INSERT_BEFORE_CURRENT
 
 /*!
   \brief Closes a safe loop traversal block.
  */
 #define AST_LIST_TRAVERSE_SAFE_END  }
+
+#define AST_RWLIST_TRAVERSE_SAFE_END AST_LIST_TRAVERSE_SAFE_END
 
 /*!
   \brief Initializes a list head structure.
@@ -352,6 +570,19 @@ struct {								\
 }
 
 /*!
+  \brief Initializes an rwlist head structure.
+  \param head This is a pointer to the list head structure
+
+  This macro initializes a list head structure by setting the head
+  entry to \a NULL (empty list) and recreating the embedded lock.
+*/
+#define AST_RWLIST_HEAD_INIT(head) {                                    \
+        (head)->first = NULL;                                           \
+        (head)->last = NULL;                                            \
+        ast_rwlock_init(&(head)->lock);                                 \
+}
+
+/*!
   \brief Destroys a list head structure.
   \param head This is a pointer to the list head structure
 
@@ -363,6 +594,20 @@ struct {								\
 	(head)->first = NULL;						\
 	(head)->last = NULL;						\
 	ast_mutex_destroy(&(head)->lock);				\
+}
+
+/*!
+  \brief Destroys an rwlist head structure.
+  \param head This is a pointer to the list head structure
+
+  This macro destroys a list head structure by setting the head
+  entry to \a NULL (empty list) and destroying the embedded lock.
+  It does not free the structure from memory.
+*/
+#define AST_RWLIST_HEAD_DESTROY(head) {                                 \
+        (head)->first = NULL;                                           \
+        (head)->last = NULL;                                            \
+        ast_rwlock_destroy(&(head)->lock);                              \
 }
 
 /*!
@@ -394,6 +639,8 @@ struct {								\
 		(head)->last = (elm);					\
 } while (0)
 
+#define AST_RWLIST_INSERT_AFTER AST_LIST_INSERT_AFTER
+
 /*!
   \brief Inserts a list entry at the head of a list.
   \param head This is a pointer to the list head structure
@@ -407,6 +654,8 @@ struct {								\
 		if (!(head)->last)					\
 			(head)->last = (elm);				\
 } while (0)
+
+#define AST_RWLIST_INSERT_HEAD AST_LIST_INSERT_HEAD
 
 /*!
   \brief Appends a list entry to the tail of a list.
@@ -429,6 +678,27 @@ struct {								\
       }									\
 } while (0)
 
+#define AST_RWLIST_INSERT_TAIL AST_LIST_INSERT_TAIL
+
+/*!
+  \brief Appends a whole list to the tail of a list.
+  \param head This is a pointer to the list head structure
+  \param list This is a pointer to the list to be appended.
+  \param field This is the name of the field (declared using AST_LIST_ENTRY())
+  used to link entries of this list together.
+ */
+#define AST_LIST_APPEND_LIST(head, list, field) do {			\
+      if (!(head)->first) {						\
+		(head)->first = (list)->first;				\
+		(head)->last = (list)->last;				\
+      } else {								\
+		(head)->last->field.next = (list)->first;		\
+		(head)->last = (list)->last;				\
+      }									\
+} while (0)
+
+#define AST_RWLIST_APPEND_LIST AST_LIST_APPEND_LIST
+
 /*!
   \brief Removes and returns the head entry from a list.
   \param head This is a pointer to the list head structure
@@ -449,6 +719,8 @@ struct {								\
 		cur;							\
 	})
 
+#define AST_RWLIST_REMOVE_HEAD AST_LIST_REMOVE_HEAD
+
 /*!
   \brief Removes a specific entry from a list.
   \param head This is a pointer to the list head structure
@@ -457,8 +729,10 @@ struct {								\
   used to link entries of this list together.
   \warning The removed entry is \b not freed nor modified in any way.
  */
-#define AST_LIST_REMOVE(head, elm, field) do {			        \
+#define AST_LIST_REMOVE(head, elm, field) ({			        \
+	__typeof(elm) __res = NULL; \
 	if ((head)->first == (elm)) {					\
+		__res = (head)->first;                      \
 		(head)->first = (elm)->field.next;			\
 		if ((head)->last == (elm))			\
 			(head)->last = NULL;			\
@@ -467,12 +741,16 @@ struct {								\
 		while (curelm && (curelm->field.next != (elm)))			\
 			curelm = curelm->field.next;			\
 		if (curelm) { \
+			__res = (elm); \
 			curelm->field.next = (elm)->field.next;			\
 			if ((head)->last == (elm))				\
 				(head)->last = curelm;				\
 		} \
 	}								\
-        (elm)->field.next = NULL;                                       \
-} while (0)
+	(elm)->field.next = NULL;                                       \
+	(__res); \
+})
+
+#define AST_RWLIST_REMOVE AST_LIST_REMOVE
 
 #endif /* _ASTERISK_LINKEDLISTS_H */

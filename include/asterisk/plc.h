@@ -24,7 +24,9 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  * This version may be optionally licenced under the GNU LGPL licence.
- * This version is disclaimed to DIGIUM for inclusion in the Asterisk project.
+ *
+ * A license has been granted to Digium (via disclaimer) for the use of
+ * this code.
  */
 
 
@@ -94,8 +96,6 @@ modify the packet a little after a period of packet loss, to blend real syntheti
 When a real packet is not available in time, call plc_fillin() to create a sythetic substitute.
 That's it!
 */
-
-#define SAMPLE_RATE     8000
 
 /*! Minimum allowed pitch (66 Hz) */
 #define PLC_PITCH_MIN           120

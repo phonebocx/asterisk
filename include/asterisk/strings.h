@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -35,6 +35,11 @@ static force_inline int ast_strlen_zero(const char *s)
 	return (!s || (*s == '\0'));
 }
 
+/*! \brief returns the equivalent of logic or for strings:
+ * first one if not empty, otherwise second one.
+ */
+#define S_OR(a, b)	(!ast_strlen_zero(a) ? (a) : (b))
+
 /*!
   \brief Gets a pointer to the first non-whitespace character in a string.
   \param ast_skip_blanks function being used
@@ -42,11 +47,11 @@ static force_inline int ast_strlen_zero(const char *s)
   \return a pointer to the first non-whitespace character
  */
 AST_INLINE_API(
-char *ast_skip_blanks(char *str),
+char *ast_skip_blanks(const char *str),
 {
 	while (*str && *str < 33)
 		str++;
-	return str;
+	return (char *)str;
 }
 )
 
@@ -165,6 +170,7 @@ void ast_copy_string(char *dst, const char *src, size_t size),
 }
 )
 
+
 /*!
   \brief Build a string in a buffer, designed to be called repeatedly
   
@@ -210,6 +216,28 @@ int ast_true(const char *val);
  */
 int ast_false(const char *val);
 
+/*
+  \brief Join an array of strings into a single string.
+  \param s the resulting string buffer
+  \param len the length of the result buffer, s
+  \param w an array of strings to join
+
+  This function will join all of the strings in the array 'w' into a single
+  string.  It will also place a space in the result buffer in between each
+  string from 'w'.
+*/
+void ast_join(char *s, size_t len, char * const w[]);
+
+/*
+  \brief Parse a time (integer) string.
+  \param src String to parse
+  \param dst Destination
+  \param _default Value to use if the string does not contain a valid time
+  \param consumed The number of characters 'consumed' in the string by the parse (see 'man sscanf' for details)
+  \return zero on success, non-zero on failure
+*/
+int ast_get_time_t(const char *src, time_t *dst, time_t _default, int *consumed);
+
 /* The realloca lets us ast_restrdupa(), but you can't mix any other ast_strdup calls! */
 
 struct ast_realloca {
@@ -227,25 +255,5 @@ struct ast_realloca {
 		} \
 		(ra)->ptr; \
 	})
-
-#ifndef HAVE_STRCASESTR
-char *strcasestr(const char *, const char *);
-#endif
-
-#if !defined(HAVE_STRNDUP) && !defined(__AST_DEBUG_MALLOC)
-char *strndup(const char *, size_t);
-#endif
-
-#ifndef HAVE_STRNLEN
-size_t strnlen(const char *, size_t);
-#endif
-
-#if !defined(HAVE_VASPRINTF) && !defined(__AST_DEBUG_MALLOC)
-int vasprintf(char **strp, const char *fmt, va_list ap);
-#endif
-
-#ifndef HAVE_STRTOQ
-uint64_t strtoq(const char *nptr, char **endptr, int base);
-#endif
 
 #endif /* _ASTERISK_STRINGS_H */

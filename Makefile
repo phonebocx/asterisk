@@ -3,7 +3,7 @@
 # 
 # Top level Makefile
 #
-# Copyright (C) 1999-2005, Mark Spencer
+# Copyright (C) 1999-2006, Digium, Inc.
 #
 # Mark Spencer <markster@digium.com>
 #
@@ -11,172 +11,150 @@
 # the GNU General Public License
 #
 
-.EXPORT_ALL_VARIABLES:
+# All Makefiles use the following variables:
+#
+# ASTCFLAGS - compiler options
+# ASTLDFLAGS - linker flags (not libraries)
+# AST_LIBS - libraries to build binaries XXX
+# LIBS - additional libraries, at top-level for all links,
+#      on a single object just for that object
+# SOLINK - linker flags used only for creating shared objects (.so files),
+#      used for all .so links
+#
+# Default values fo ASTCFLAGS and ASTLDFLAGS can be specified in the
+# environment when running make, as follows:
+#
+# $ ASTCFLAGS="-Werror" make
+
+export ASTTOPDIR
+export ASTERISKVERSION
+export ASTERISKVERSIONNUM
+export INSTALL_PATH
+export ASTETCDIR
+export ASTVARRUNDIR
+export MODULES_DIR
+export ASTSPOOLDIR
+export ASTVARLIBDIR
+export ASTDATADIR
+export ASTLOGDIR
+export ASTLIBDIR
+export ASTMANDIR
+export ASTHEADERDIR
+export ASTBINDIR
+export ASTSBINDIR
+export AGI_DIR
+export ASTCONFPATH
+export NOISY_BUILD
+export MENUSELECT_CFLAGS
+export CC
+export CXX
+export AR
+export RANLIB
+export HOST_CC
+export STATIC_BUILD
+export INSTALL
+export DESTDIR
+export PROC
+export SOLINK
+export STRIP
+export DOWNLOAD
+export OSARCH
+export CURSES_DIR
+export NCURSES_DIR
+export TERMCAP_DIR
+export TINFO_DIR
+export GTK2_LIB
+export GTK2_INCLUDE
+
+# even though we could use '-include makeopts' here, use a wildcard
+# lookup anyway, so that make won't try to build makeopts if it doesn't
+# exist (other rules will force it to be built if needed)
+ifneq ($(wildcard makeopts),)
+  include makeopts
+endif
+
+#Uncomment this to see all build commands instead of 'quiet' output
+#NOISY_BUILD=yes
 
 # Create OPTIONS variable
 OPTIONS=
-# If cross compiling, define these to suit
-# CROSS_COMPILE=/opt/montavista/pro/devkit/arm/xscale_be/bin/xscale_be-
-# CROSS_COMPILE_BIN=/opt/montavista/pro/devkit/arm/xscale_be/bin/
-# CROSS_COMPILE_TARGET=/opt/montavista/pro/devkit/arm/xscale_be/target
-CC=$(CROSS_COMPILE)gcc
-HOST_CC=gcc
-# CROSS_ARCH=Linux
-# CROSS_PROC=arm
-# SUB_PROC=xscale # or maverick
 
-ifeq ($(CROSS_COMPILE),)
-  OSARCH=$(shell uname -s)
-  OSREV=$(shell uname -r)
-else
-  OSARCH=$(CROSS_ARCH)
-  OSREV=$(CROSS_REV)
-endif
+ASTTOPDIR:=$(shell pwd)
 
-# Remember the MAKELEVEL at the top
-MAKETOPLEVEL?=$(MAKELEVEL)
-
-PWD=$(shell pwd)
-
-ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
-######### More GSM codec optimization
-######### Uncomment to enable MMXTM optimizations for x86 architecture CPU's
-######### which support MMX instructions.  This should be newer pentiums,
-######### ppro's, etc, as well as the AMD K6 and K7.  
-#K6OPT  = -DK6OPT
-
-#Tell gcc to optimize the code
-OPTIMIZE+=-O6
-endif
-
-#Overwite config files on "make samples"
+# Overwite config files on "make samples"
 OVERWRITE=y
 
-#Include debug and macro symbols in the executables (-g) and profiling info (-pg)
-DEBUG=-g3 #-pg
-
-#Set NOCRYPTO to yes if you do not want to have crypto support or 
-#dependencies
-#NOCRYPTO=yes
-
-# If you are running a radio application, define RADIO_RELAX so that the DTMF
-# will be received more reliably
-#OPTIONS += -DRADIO_RELAX
-
-# If you don't have a lot of memory (e.g. embedded Asterisk), define LOW_MEMORY
-# to reduce the size of certain static buffers
-
-#ifneq ($(CROSS_COMPILE),)
-#OPTIONS += -DLOW_MEMORY
-#endif
-
-# Optional debugging parameters
-DEBUG_THREADS = #-DDUMP_SCHEDULER #-DDEBUG_SCHEDULER #-DDEBUG_THREADS #-DDO_CRASH #-DDETECT_DEADLOCKS
-
-# Uncomment next one to enable ast_frame tracing (for debugging)
-TRACE_FRAMES = #-DTRACE_FRAMES
-
-# Uncomment next one to enable malloc debugging
-# You can view malloc debugging with:
-#   *CLI> show memory allocations [filename]
-#   *CLI> show memory summary [filename]
-#
-MALLOC_DEBUG = #-include $(PWD)/include/asterisk/astmm.h
-
-# Where to install asterisk after compiling
-# Default -> leave empty
-INSTALL_PREFIX?=
+# Include debug and macro symbols in the executables (-g) and profiling info (-pg)
+DEBUG=-g3
 
 # Staging directory
 # Files are copied here temporarily during the install process
 # For example, make DESTDIR=/tmp/asterisk woud put things in
 # /tmp/asterisk/etc/asterisk
-# XXX watch out, put no spaces or comments after the value
-DESTDIR?=
+# !!! Watch out, put no spaces or comments after the value !!!
 #DESTDIR?=/tmp/asterisk
 
-# Original busydetect routine
-BUSYDETECT = #-DBUSYDETECT
-
-# Improved busydetect routine, comment the previous one if you use this one
-BUSYDETECT+= #-DBUSYDETECT_MARTIN 
-# Detect the busy signal looking only at tone lengths
-# For example if you have 3 beeps 100ms tone, 100ms silence separated by 500 ms of silence
-BUSYDETECT+= #-DBUSYDETECT_TONEONLY
-# Inforce the detection of busy singal (get rid of false hangups)
-# Don't use together with -DBUSYDETECT_TONEONLY
-BUSYDETECT+= #-DBUSYDETECT_COMPARE_TONE_AND_SILENCE
-
-ifneq ($(OSARCH),SunOS)
-  ASTLIBDIR=$(INSTALL_PREFIX)/usr/lib/asterisk
-  ASTVARLIBDIR=$(INSTALL_PREFIX)/var/lib/asterisk
-  ASTETCDIR=$(INSTALL_PREFIX)/etc/asterisk
-  ASTSPOOLDIR=$(INSTALL_PREFIX)/var/spool/asterisk
-  ASTLOGDIR=$(INSTALL_PREFIX)/var/log/asterisk
-  ASTHEADERDIR=$(INSTALL_PREFIX)/usr/include/asterisk
-  ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
-  ASTBINDIR=$(INSTALL_PREFIX)/usr/bin
-  ASTSBINDIR=$(INSTALL_PREFIX)/usr/sbin
-  ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run
-  ASTMANDIR=$(INSTALL_PREFIX)/usr/share/man
-  MODULES_DIR=$(ASTLIBDIR)/modules
-  AGI_DIR=$(ASTVARLIBDIR)/agi-bin
+# Define standard directories for various platforms
+# These apply if they are not redefined in asterisk.conf 
+ifeq ($(OSARCH),SunOS)
+  ASTETCDIR=/var/etc/asterisk
+  ASTLIBDIR=/opt/asterisk/lib
+  ASTVARLIBDIR=/var/opt/asterisk
+  ASTSPOOLDIR=/var/spool/asterisk
+  ASTLOGDIR=/var/log/asterisk
+  ASTHEADERDIR=/opt/asterisk/include
+  ASTBINDIR=/opt/asterisk/bin
+  ASTSBINDIR=/opt/asterisk/sbin
+  ASTVARRUNDIR=/var/run/asterisk
+  ASTMANDIR=/opt/asterisk/man
 else
-  ASTLIBDIR=$(INSTALL_PREFIX)/opt/asterisk/lib
-  ASTVARLIBDIR=$(INSTALL_PREFIX)/var/opt/asterisk/lib
-  ASTETCDIR=$(INSTALL_PREFIX)/etc/opt/asterisk
-  ASTSPOOLDIR=$(INSTALL_PREFIX)/var/opt/asterisk/spool
-  ASTLOGDIR=$(INSTALL_PREFIX)/var/opt/asterisk/log
-  ASTHEADERDIR=$(INSTALL_PREFIX)/opt/asterisk/usr/include/asterisk
-  ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
-  ASTBINDIR=$(INSTALL_PREFIX)/opt/asterisk/usr/bin
-  ASTSBINDIR=$(INSTALL_PREFIX)/opt/asterisk/usr/sbin
-  ASTVARRUNDIR=$(INSTALL_PREFIX)/var/opt/asterisk/run
-  ASTMANDIR=$(INSTALL_PREFIX)/opt/asterisk/usr/share/man
-  MODULES_DIR=$(ASTLIBDIR)/modules
-  AGI_DIR=$(ASTVARLIBDIR)/agi-bin
+  ASTETCDIR=$(sysconfdir)/asterisk
+  ASTLIBDIR=$(libdir)/asterisk
+  ASTHEADERDIR=$(includedir)/asterisk
+  ASTBINDIR=$(bindir)
+  ASTSBINDIR=$(sbindir)
+  ASTSPOOLDIR=$(localstatedir)/spool/asterisk
+  ASTLOGDIR=$(localstatedir)/log/asterisk
+  ASTVARRUNDIR=$(localstatedir)/run
+  ASTMANDIR=$(mandir)
+ifneq ($(findstring BSD,$(OSARCH)),)
+  ASTVARLIBDIR=$(prefix)/share/asterisk
+  ASTVARRUNDIR=$(localstatedir)/run/asterisk
+else
+  ASTVARLIBDIR=$(localstatedir)/lib/asterisk
+endif
+endif
+ifeq ($(ASTDATADIR),)
+  ASTDATADIR:=$(ASTVARLIBDIR)
 endif
 
-ASTCFLAGS=
+# Asterisk.conf is located in ASTETCDIR or by using the -C flag
+# when starting Asterisk
+ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
+MODULES_DIR=$(ASTLIBDIR)/modules
+AGI_DIR=$(ASTDATADIR)/agi-bin
 
-# Pentium Pro Optimize
-#PROC=i686
-
-# Pentium & VIA processors optimize
-#PROC=i586
-
-#PROC=k6
-#PROC=ppc
-
-#Uncomment this to use the older DSP routines
-#ASTCFLAGS+=-DOLD_DSP_ROUTINES
-
-# Determine by a grep 'DocumentRoot' of your httpd.conf file
+# If you use Apache, you may determine by a grep 'DocumentRoot' of your httpd.conf file
 HTTP_DOCSDIR=/var/www/html
-# Determine by a grep 'ScriptAlias' of your httpd.conf file
+# Determine by a grep 'ScriptAlias' of your Apache httpd.conf file
 HTTP_CGIDIR=/var/www/cgi-bin
 
+# Uncomment this to use the older DSP routines
+#ASTCFLAGS+=-DOLD_DSP_ROUTINES
+
 # If the file .asterisk.makeopts is present in your home directory, you can
-# include all of your favorite Makefile options so that every time you download
-# a new version of Asterisk, you don't have to edit the makefile to set them. 
-# The file, /etc/asterisk.makeopts will also be included, but can be overridden
+# include all of your favorite menuselect options so that every time you download
+# a new version of Asterisk, you don't have to run menuselect to set them. 
+# The file /etc/asterisk.makeopts will also be included but can be overridden
 # by the file in your home directory.
 
-ifneq ($(wildcard /etc/asterisk.makeopts),)
-  include /etc/asterisk.makeopts
-endif
+GLOBAL_MAKEOPTS=$(wildcard /etc/asterisk.makeopts)
+USER_MAKEOPTS=$(wildcard ~/.asterisk.makeopts)
 
-ifneq ($(wildcard ~/.asterisk.makeopts),)
-  include ~/.asterisk.makeopts
-endif
+MOD_SUBDIR_CFLAGS=-I$(ASTTOPDIR)/include
+OTHER_SUBDIR_CFLAGS=-I$(ASTTOPDIR)/include
 
-ifeq ($(OSARCH),Linux)
-  ifeq ($(CROSS_COMPILE),)
-    PROC?=$(shell uname -m)
-  else
-    PROC=$(CROSS_PROC)
-  endif
-
+ifeq ($(OSARCH),linux-gnu)
   ifeq ($(PROC),x86_64)
     # You must have GCC 3.4 to use k8, otherwise use athlon
     PROC=k8
@@ -207,26 +185,19 @@ ifeq ($(OSARCH),Linux)
       endif
     endif
   endif
-  MPG123TARG=linux
 endif
 
-GREP=grep
-ID=id
+ASTCFLAGS+=-pipe -Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations $(DEBUG)
 
-ifeq ($(OSARCH),SunOS)
-  GREP=/usr/xpg4/bin/grep
-  M4=/usr/local/bin/m4
-  ID=/usr/xpg4/bin/id
+ASTCFLAGS+=-include $(ASTTOPDIR)/include/asterisk/autoconfig.h
+
+ifeq ($(AST_DEVMODE),yes)
+  ASTCFLAGS+=-Werror  -Wunused $(AST_DECLARATION_AFTER_STATEMENT)
 endif
 
-INCLUDE+=-Iinclude -I../include
-ASTCFLAGS+=-pipe  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations $(DEBUG) $(INCLUDE) -D_REENTRANT -D_GNU_SOURCE #-DMAKE_VALGRIND_HAPPY
-ASTCFLAGS+=$(OPTIMIZE)
-ASTOBJ=-o asterisk
-
-ifeq ($(findstring BSD,$(OSARCH)),BSD)
-  PROC=$(shell uname -m)
-  ASTCFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
+ifneq ($(findstring BSD,$(OSARCH)),)
+  ASTCFLAGS+=-I/usr/local/include
+  ASTLDFLAGS+=-L/usr/local/lib
 endif
 
 ifneq ($(PROC),ultrasparc)
@@ -237,44 +208,15 @@ ifeq ($(PROC),ppc)
   ASTCFLAGS+=-fsigned-char
 endif
 
-ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/osp/osp.h),)
-  ASTCFLAGS+=-DOSP_SUPPORT -I$(CROSS_COMPILE_TARGET)/usr/local/include/osp
-else
-  ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/osp/osp.h),)
-    ASTCFLAGS+=-DOSP_SUPPORT -I$(CROSS_COMPILE_TARGET)/usr/include/osp
-  endif
+ifeq ($(OSARCH),FreeBSD)
+  # -V is understood by BSD Make, not by GNU make.
+  BSDVERSION=$(shell make -V OSVERSION -f /usr/share/mk/bsd.port.subdir.mk)
+  ASTCFLAGS+=$(shell if test $(BSDVERSION) -lt 500016 ; then echo "-D_THREAD_SAFE"; fi)
+  AST_LIBS+=$(shell if test  $(BSDVERSION) -lt 502102 ; then echo "-lc_r"; else echo "-pthread"; fi)
 endif
 
-ifeq ($(OSARCH),FreeBSD)
-  BSDVERSION=$(shell make -V OSVERSION -f $(CROSS_COMPILE_TARGET)/usr/share/mk/bsd.port.subdir.mk)
-  ASTCFLAGS+=$(shell if test $(BSDVERSION) -lt 500016 ; then echo "-D_THREAD_SAFE"; fi)
-  LIBS+=$(shell if test  $(BSDVERSION) -lt 502102 ; then echo "-lc_r"; else echo "-pthread"; fi)
-  ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/spandsp),)
-    ASTCFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include/spandsp
-  endif
-  MPG123TARG=freebsd
-
-  # XXX FreeBSD paths
-  PREFIX?=/usr/local
-  ASTLIBDIR=$(INSTALL_PREFIX)$(PREFIX)/lib/asterisk
-  ASTVARLIBDIR=$(INSTALL_PREFIX)$(PREFIX)/share/asterisk
-  ASTETCDIR=$(INSTALL_PREFIX)$(PREFIX)/etc/asterisk
-  ASTSPOOLDIR=$(INSTALL_PREFIX)/var/spool/asterisk
-  ASTLOGDIR=$(INSTALL_PREFIX)/var/log/asterisk
-  ASTHEADERDIR=$(INSTALL_PREFIX)$(PREFIX)/include/asterisk
-  ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
-  ASTBINDIR=$(INSTALL_PREFIX)$(PREFIX)/bin
-  ASTSBINDIR=$(INSTALL_PREFIX)$(PREFIX)/sbin
-  ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run
-  ASTMANDIR=$(INSTALL_PREFIX)$(PREFIX)/man
-  # XXX end FreeBSD paths
-
-endif # FreeBSD
-
 ifeq ($(OSARCH),NetBSD)
-  ASTCFLAGS+=-pthread
-  INCLUDE+=-I$(CROSS_COMPILE_TARGET)/usr/pkg/include
-  MPG123TARG=netbsd
+  ASTCFLAGS+=-pthread -I/usr/pkg/include
 endif
 
 ifeq ($(OSARCH),OpenBSD)
@@ -282,316 +224,167 @@ ifeq ($(OSARCH),OpenBSD)
 endif
 
 ifeq ($(OSARCH),SunOS)
-  ASTCFLAGS+=-Wcast-align -DSOLARIS
-  INCLUDE+=-Iinclude/solaris-compat -I$(CROSS_COMPILE_TARGET)/usr/local/ssl/include
+  ASTCFLAGS+=-Wcast-align -DSOLARIS -I../include/solaris-compat -I/opt/ssl/include -I/usr/local/ssl/include
 endif
 
-ifeq ($(findstring CYGWIN,$(OSARCH)),CYGWIN)
-  CYGLOADER=cygwin_a
-  OSARCH=CYGWIN
-  ASTOBJ=-shared -o asterisk.dll -Wl,--out-implib=libasterisk.dll.a -Wl,--export-all-symbols
-  ASTLINK=
-  LIBS+=-lpthread -lncurses -lm -lresolv
-  ASTSBINDIR=$(MODULES_DIR)
-  PROC=$(shell uname -m)
-endif
-
-ifndef WITHOUT_ZAPTEL
-
-ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/linux/zaptel.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/zaptel.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/pkg/include/zaptel.h),)
-  ASTCFLAGS+=-DZAPTEL_OPTIMIZATIONS
-endif
-
-endif # WITHOUT_ZAPTEL
-
-LIBEDIT=editline/libedit.a
+ASTERISKVERSION:=$(shell build_tools/make_version .)
 
 ifneq ($(wildcard .version),)
-  ASTERISKVERSION:=$(shell cat .version)
-  ASTERISKVERSIONNUM:=$(shell awk -F. '{printf "%02d%02d%02d", $$1, $$2, $$3}' .version)
+  ASTERISKVERSIONNUM:=$(shell awk -F. '{printf "%01d%02d%02d", $$1, $$2, $$3}' .version)
   RPMVERSION:=$(shell sed 's/[-\/:]/_/g' .version)
 else
   RPMVERSION=unknown
 endif
 
-# CVS mirrors of SVN have .svnrevision files showing
-# which SVN revision they are based on, and .svnbranch
-# showing the branch they are made from
-ifneq ($(wildcard .svnrevision),)
+ifneq ($(wildcard .svn),)
   ASTERISKVERSIONNUM=999999
-  ASTERISKVERSION:=SVN-$(shell cat .svnbranch)-r$(shell cat .svnrevision)
+endif
+
+ASTCFLAGS+=$(MALLOC_DEBUG)$(BUSYDETECT)$(OPTIONS)
+
+MOD_SUBDIRS:=res channels pbx apps codecs formats cdr funcs main
+OTHER_SUBDIRS:=utils agi
+SUBDIRS:=$(OTHER_SUBDIRS) $(MOD_SUBDIRS)
+SUBDIRS_INSTALL:=$(SUBDIRS:%=%-install)
+SUBDIRS_CLEAN:=$(SUBDIRS:%=%-clean)
+SUBDIRS_UNINSTALL:=$(SUBDIRS:%=%-uninstall)
+MOD_SUBDIRS_EMBED_LDSCRIPT:=$(MOD_SUBDIRS:%=%-embed-ldscript)
+MOD_SUBDIRS_EMBED_LDFLAGS:=$(MOD_SUBDIRS:%=%-embed-ldflags)
+MOD_SUBDIRS_EMBED_LIBS:=$(MOD_SUBDIRS:%=%-embed-libs)
+
+ifneq ($(findstring darwin,$(OSARCH)),)
+  ASTCFLAGS+=-D__Darwin__
+  AUDIO_LIBS=-framework CoreAudio
+  SOLINK=-dynamic -bundle -undefined suppress -force_flat_namespace
 else
-  ifneq ($(wildcard .svn),)
-    ASTERISKVERSIONNUM=999999
-    ASTERISKVERSION=SVN-$(shell build_tools/make_svn_branch_name)
+# These are used for all but Darwin
+  SOLINK=-shared -Xlinker -x
+  ifneq ($(findstring BSD,$(OSARCH)),)
+    LDFLAGS+=-L/usr/local/lib
   endif
 endif
 
-ASTCFLAGS+= $(DEBUG_THREADS)
-ASTCFLAGS+= $(TRACE_FRAMES)
-ASTCFLAGS+= $(MALLOC_DEBUG)
-ASTCFLAGS+= $(BUSYDETECT)
-ASTCFLAGS+= $(OPTIONS)
-ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
-ASTCFLAGS+= -fomit-frame-pointer 
-endif
-SUBDIRS=res channels pbx apps codecs formats agi cdr funcs utils stdtime
-
-OBJS=io.o sched.o logger.o frame.o loader.o config.o channel.o \
-	translate.o file.o say.o pbx.o cli.o md5.o term.o \
-	ulaw.o alaw.o callerid.o fskmodem.o image.o app.o \
-	cdr.o tdd.o acl.o rtp.o manager.o asterisk.o \
-	dsp.o chanvars.o indications.o autoservice.o db.o privacy.o \
-	astmm.o enum.o srv.o dns.o aescrypt.o aestab.o aeskey.o \
-	utils.o plc.o jitterbuf.o dnsmgr.o devicestate.o \
-	netsock.o slinfactory.o ast_expr2.o ast_expr2f.o \
-	cryptostub.o
-
-ifeq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/sys/poll.h),)
-  OBJS+= poll.o
-  ASTCFLAGS+=-DPOLLCOMPAT
-endif
-
-ifeq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/dlfcn.h),)
-  OBJS+= dlfcn.o
-  ASTCFLAGS+=-DDLFCNCOMPAT
-endif
-
-ifeq ($(OSARCH),Linux)
-  LIBS+=-ldl -lpthread -lncurses -lm -lresolv  #-lnjamd
-else
-  LIBS+=-lncurses -lm
-endif
-
-ifeq ($(OSARCH),Darwin)
-  LIBS+=-lresolv
-  ASTCFLAGS+=-D__Darwin__
-  AUDIO_LIBS=-framework CoreAudio
-  ASTLINK=-Wl,-dynamic
-  SOLINK=-dynamic -bundle -undefined suppress -force_flat_namespace
-  OBJS+= poll.o
-  ASTCFLAGS+=-DPOLLCOMPAT
-else
-#These are used for all but Darwin
-  ASTLINK=-Wl,-E 
-  SOLINK=-shared -Xlinker -x
-endif
-
-ifeq ($(OSARCH),FreeBSD)
-  LIBS+=-lcrypto
-endif
-
-ifeq ($(OSARCH),NetBSD)
-  LIBS+=-lpthread -lcrypto -lm -L$(CROSS_COMPILE_TARGET)/usr/pkg/lib -lncurses
-endif
-
-ifeq ($(OSARCH),OpenBSD)
-  LIBS+=-lcrypto -lpthread -lm -lncurses
-endif
-
 ifeq ($(OSARCH),SunOS)
-  LIBS+=-lpthread -ldl -lnsl -lsocket -lresolv -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
-  OBJS+=strcompat.o
-  ASTLINK=
-  SOLINK=-shared -fpic -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
-endif
-
-ifeq ($(MAKETOPLEVEL),$(MAKELEVEL))
-  CFLAGS+=$(ASTCFLAGS)
+  SOLINK=-shared -fpic -L/usr/local/ssl/lib
 endif
 
 # This is used when generating the doxygen documentation
-ifneq ($(wildcard /usr/local/bin/dot)$(wildcard /usr/bin/dot),)
+ifneq ($(DOT),:)
   HAVEDOT=yes
 else
   HAVEDOT=no
 endif
 
-LIBS+=-lssl
-
-INSTALL=install
-
-_all: all
+all: _all
 	@echo " +--------- Asterisk Build Complete ---------+"  
-	@echo " + Asterisk has successfully been built, but +"  
-	@echo " + cannot be run before being installed by   +"  
-	@echo " + running:                                  +"  
+	@echo " + Asterisk has successfully been built, and +"  
+	@echo " + can be installed by running:              +"
 	@echo " +                                           +"
 	@echo " +               $(MAKE) install                +"  
 	@echo " +-------------------------------------------+"  
 
-all: cleantest depend asterisk subdirs 
+_all: cleantest $(SUBDIRS)
 
-#ifneq ($(wildcard tags),)
-ctags: tags
-#endif
+makeopts: configure
+	@echo "****"
+	@echo "**** The configure script must be executed before running '$(MAKE)'." 
+	@echo "****               Please run \"./configure\"."
+	@echo "****"
+	@exit 1
 
-ifneq ($(wildcard TAGS),)
-all: TAGS
-endif
+menuselect.makeopts: menuselect/menuselect menuselect-tree
+	menuselect/menuselect --check-deps $(GLOBAL_MAKEOPTS) $(USER_MAKEOPTS) menuselect.makeopts
 
-noclean: depend asterisk subdirs
+$(MOD_SUBDIRS_EMBED_LDSCRIPT):
+	@echo "EMBED_LDSCRIPTS+="`$(MAKE) --quiet --no-print-directory -C $(@:-embed-ldscript=) SUBDIR=$(@:-embed-ldscript=) __embed_ldscript` >> makeopts.embed_rules
 
-editline/config.h:
-	cd editline && unset CFLAGS LIBS && CFLAGS="$(OPTIMIZE)" ./configure ; \
+$(MOD_SUBDIRS_EMBED_LDFLAGS):
+	@echo "EMBED_LDFLAGS+="`$(MAKE) --quiet --no-print-directory -C $(@:-embed-ldflags=) SUBDIR=$(@:-embed-ldflags=) __embed_ldflags` >> makeopts.embed_rules
 
-editline/libedit.a: FORCE
-	cd editline && unset CFLAGS LIBS && test -f config.h || CFLAGS="$(OPTIMIZE)" ./configure
-	$(MAKE) -C editline libedit.a
+$(MOD_SUBDIRS_EMBED_LIBS):
+	@echo "EMBED_LIBS+="`$(MAKE) --quiet --no-print-directory -C $(@:-embed-libs=) SUBDIR=$(@:-embed-libs=) __embed_libs` >> makeopts.embed_rules
 
-db1-ast/libdb1.a: FORCE
-	@if [ -d db1-ast ]; then \
-		$(MAKE) -C db1-ast libdb1.a ; \
-	else \
-		echo "You need to do a cvs update -d not just cvs update"; \
-		exit 1; \
-	fi
+makeopts.embed_rules: menuselect.makeopts
+	@echo "Generating embedded module rules ..."
+	@rm -f $@
+	@$(MAKE) --no-print-directory $(MOD_SUBDIRS_EMBED_LDSCRIPT)
+	@$(MAKE) --no-print-directory $(MOD_SUBDIRS_EMBED_LDFLAGS)
+	@$(MAKE) --no-print-directory $(MOD_SUBDIRS_EMBED_LIBS)
 
-ifneq ($(wildcard .depend),)
-  include .depend
-endif
+$(SUBDIRS): include/asterisk/version.h include/asterisk/buildopts.h defaults.h makeopts.embed_rules
 
-ifneq ($(wildcard .tags-depend),)
-  include .tags-depend
-endif
+# ensure that all module subdirectories are processed before 'main' during
+# a parallel build, since if there are modules selected to be embedded the
+# directories containing them must be completed before the main Asterisk
+# binary can be built
+main: $(filter-out main,$(MOD_SUBDIRS))
 
-ast_expr2.c:
-	bison -d --name-prefix=ast_yy ast_expr2.y -o ast_expr2.c
+$(MOD_SUBDIRS):
+	@ASTCFLAGS="$(MOD_SUBDIR_CFLAGS) $(ASTCFLAGS)" ASTLDFLAGS="$(ASTLDFLAGS)" AST_LIBS="$(AST_LIBS)" $(MAKE) --no-print-directory --no-builtin-rules -C $@ SUBDIR=$@ all
 
-ast_expr2f.c:
-	flex --full ast_expr2.fl
+$(OTHER_SUBDIRS):
+	@ASTCFLAGS="$(OTHER_SUBDIR_CFLAGS) $(ASTCFLAGS)" ASTLDFLAGS="$(ASTLDFLAGS)" AUDIO_LIBS="$(AUDIO_LIBS)" $(MAKE) --no-print-directory --no-builtin-rules -C $@ SUBDIR=$@ all
 
-testexpr2: ast_expr2f.c ast_expr2.c ast_expr2.h
-	gcc -g -c -DSTANDALONE ast_expr2f.c
-	gcc -g -c -DSTANDALONE ast_expr2.c
-	gcc -g -o testexpr2 ast_expr2f.o ast_expr2.o
-	rm ast_expr2.o ast_expr2f.o 
-
-manpage: asterisk.8
-
-asterisk.8: asterisk.sgml
-	rm -f asterisk.8
-	docbook2man asterisk.sgml
-	mv ./*.8 asterisk.8
-
-asterisk.pdf: asterisk.sgml
-	docbook2pdf asterisk.sgml
-
-asterisk.ps: asterisk.sgml
-	docbook2ps asterisk.sgml
-
-asterisk.html: asterisk.sgml
-	docbook2html asterisk.sgml
-	mv r1.html asterisk.html
-
-asterisk.txt: asterisk.sgml
-	docbook2txt asterisk.sgml
-
-defaults.h: FORCE
-	build_tools/make_defaults_h > $@.tmp
-	if cmp -s $@.tmp $@ ; then echo ; else \
+defaults.h: makeopts
+	@build_tools/make_defaults_h > $@.tmp
+	@if cmp -s $@.tmp $@ ; then : ; else \
 		mv $@.tmp $@ ; \
 	fi
-	rm -f $@.tmp
+	@rm -f $@.tmp
 
-include/asterisk/version.h: FORCE
-	build_tools/make_version_h > $@.tmp
-	if cmp -s $@.tmp $@ ; then echo; else \
+include/asterisk/version.h:
+	@build_tools/make_version_h > $@.tmp
+	@if cmp -s $@.tmp $@ ; then : ; else \
 		mv $@.tmp $@ ; \
 	fi
-	rm -f $@.tmp
+	@rm -f $@.tmp
 
-stdtime/libtime.a: FORCE
-	@if [ -d stdtime ]; then \
-		$(MAKE) -C stdtime libtime.a ; \
-	else \
-		echo "You need to do a cvs update -d not just cvs update"; \
-		exit 1; \
+include/asterisk/buildopts.h: menuselect.makeopts
+	@build_tools/make_buildopts_h > $@.tmp
+	@if cmp -s $@.tmp $@ ; then : ; else \
+		mv $@.tmp $@ ; \
 	fi
+	@rm -f $@.tmp
 
-cygwin_a:
-	$(MAKE) -C cygwin all
+$(SUBDIRS_CLEAN):
+	@$(MAKE) --no-print-directory -C $(@:-clean=) clean
 
-asterisk: $(CYGLOADER) editline/libedit.a db1-ast/libdb1.a stdtime/libtime.a $(OBJS)
-	build_tools/make_build_h > include/asterisk/build.h.tmp
-	if cmp -s include/asterisk/build.h.tmp include/asterisk/build.h ; then echo ; else \
-		mv include/asterisk/build.h.tmp include/asterisk/build.h ; \
-	fi
-	rm -f include/asterisk/build.h.tmp
-	$(CC) -c -o buildinfo.o $(CFLAGS) buildinfo.c
-	$(CC) $(DEBUG) $(ASTOBJ) $(ASTLINK) $(OBJS) buildinfo.o $(LIBEDIT) db1-ast/libdb1.a stdtime/libtime.a $(LIBS)
-
-muted: muted.o
-	$(CC) $(AUDIO_LIBS) -o muted muted.o
-
-subdirs: 
-	for x in $(SUBDIRS); do $(MAKE) -C $$x || exit 1 ; done
-
-clean:
-	for x in $(SUBDIRS); do $(MAKE) -C $$x clean || exit 1 ; done
-	rm -f *.o *.so asterisk .depend
+clean: $(SUBDIRS_CLEAN)
 	rm -f defaults.h
 	rm -f include/asterisk/build.h
 	rm -f include/asterisk/version.h
-	rm -f .tags-depend .tags-sources tags TAGS
-	@if [ -f editline/Makefile ]; then $(MAKE) -C editline distclean ; fi
-	@if [ -d mpg123-0.59r ]; then $(MAKE) -C mpg123-0.59r clean; fi
-	$(MAKE) -C db1-ast clean
-	$(MAKE) -C stdtime clean
+	@$(MAKE) -C menuselect clean
+	cp -f .cleancount .lastclean
 
-datafiles: all
-	if [ x`$(ID) -un` = xroot ]; then sh mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/priv-callerintros
-	for x in sounds/digits/*.gsm; do \
-		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
-			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/digits ; \
-		else \
-			echo "No description for $$x"; \
-			exit 1; \
-		fi; \
+dist-clean: distclean
+
+distclean: clean
+	@$(MAKE) -C menuselect dist-clean
+	@$(MAKE) -C sounds dist-clean
+	rm -f menuselect.makeopts makeopts menuselect-tree menuselect.makedeps
+	rm -f makeopts.embed_rules
+	rm -f config.log config.status
+	rm -rf autom4te.cache
+	rm -f include/asterisk/autoconfig.h
+	rm -f include/asterisk/buildopts.h
+	rm -rf doc/api
+	rm -f build_tools/menuselect-deps
+
+datafiles: _all
+	if [ x`$(ID) -un` = xroot ]; then CFLAGS="$(ASTCFLAGS)" sh build_tools/mkpkgconfig $(DESTDIR)/usr/lib/pkgconfig; fi
+# Should static HTTP be installed during make samples or even with its own target ala
+# webvoicemail?  There are portions here that *could* be customized but might also be
+# improved a lot.  I'll put it here for now.
+	mkdir -p $(DESTDIR)$(ASTDATADIR)/static-http
+	for x in static-http/*; do \
+		$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTDATADIR)/static-http ; \
 	done
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/dictate
-	for x in sounds/dictate/*.gsm; do \
-		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
-			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/dictate ; \
-		else \
-			echo "No description for $$x"; \
-			exit 1; \
-		fi; \
-	done
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/letters
-	for x in sounds/letters/*.gsm; do \
-		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
-			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/letters ; \
-		else \
-			echo "No description for $$x"; \
-			exit 1; \
-		fi; \
-	done
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds/phonetic
-	for x in sounds/phonetic/*.gsm; do \
-		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
-			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds/phonetic ; \
-		else \
-			echo "No description for $$x"; \
-			exit 1; \
-		fi; \
-	done
-	for x in sounds/demo-* sounds/vm-* sounds/transfer* sounds/pbx-* sounds/ss-* sounds/beep* sounds/dir-* sounds/conf-* sounds/agent-* sounds/invalid* sounds/tt-* sounds/auth-* sounds/privacy-* sounds/queue-* sounds/spy-* sounds/priv-* sounds/screen-* sounds/hello-*; do \
-		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
-			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
-		else \
-			echo "No description for $$x"; \
-			exit 1; \
-		fi; \
-	done
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/mohmp3
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/images
+	mkdir -p $(DESTDIR)$(ASTDATADIR)/images
 	for x in images/*.jpg; do \
-		$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/images ; \
+		$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTDATADIR)/images ; \
 	done
 	mkdir -p $(DESTDIR)$(AGI_DIR)
+	$(MAKE) -C sounds install
 
 update: 
 	@if [ -d .svn ]; then \
@@ -603,15 +396,6 @@ update:
 			grep ^C update.out | cut -b4- ; \
 		fi ; \
 		rm -f update.out; \
-	elif [ -d CVS ]; then \
-		echo "Updating from CVS..." ; \
-		cvs -q -z3 update -Pd | tee update.out; \
-		rm -f .version; \
-		if [ `grep -c ^C update.out` -gt 0 ]; then \
-			echo ; echo "The following files have conflicts:" ; \
-			grep ^C update.out | cut -d' ' -f2- ; \
-		fi ; \
-		rm -f update.out; \
 	else \
 		echo "Not under version control";  \
 	fi
@@ -619,7 +403,7 @@ update:
 NEWHEADERS=$(notdir $(wildcard include/asterisk/*.h))
 OLDHEADERS=$(filter-out $(NEWHEADERS),$(notdir $(wildcard $(DESTDIR)$(ASTHEADERDIR)/*.h)))
 
-bininstall: all
+bininstall: _all
 	mkdir -p $(DESTDIR)$(MODULES_DIR)
 	mkdir -p $(DESTDIR)$(ASTSBINDIR)
 	mkdir -p $(DESTDIR)$(ASTETCDIR)
@@ -631,43 +415,38 @@ bininstall: all
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/tmp
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/meetme
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/monitor
-	if [ -f asterisk ]; then $(INSTALL) -m 755 asterisk $(DESTDIR)$(ASTSBINDIR)/; fi
-	if [ -f cygwin/asterisk.exe ]; then $(INSTALL) -m 755 cygwin/asterisk.exe $(DESTDIR)$(ASTSBINDIR)/; fi
-	if [ -f asterisk.dll ]; then $(INSTALL) -m 755 asterisk.dll $(DESTDIR)$(ASTSBINDIR)/; fi
-	ln -sf asterisk $(DESTDIR)$(ASTSBINDIR)/rasterisk
+	$(INSTALL) -m 755 main/asterisk $(DESTDIR)$(ASTSBINDIR)/
+	$(LN) -sf asterisk $(DESTDIR)$(ASTSBINDIR)/rasterisk
 	$(INSTALL) -m 755 contrib/scripts/astgenkey $(DESTDIR)$(ASTSBINDIR)/
-	$(INSTALL) -m 755 contrib/scripts/autosupport $(DESTDIR)$(ASTSBINDIR)/	
+	$(INSTALL) -m 755 contrib/scripts/autosupport $(DESTDIR)$(ASTSBINDIR)/
 	if [ ! -f $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ]; then \
-		cat contrib/scripts/safe_asterisk | sed 's|__ASTERISK_SBIN_DIR__|$(ASTSBINDIR)|;' > $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ;\
+		cat contrib/scripts/safe_asterisk | sed 's|__ASTERISK_SBIN_DIR__|$(ASTSBINDIR)|;s|__ASTERISK_VARRUN_DIR__|$(ASTVARRUNDIR)|;' > $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ;\
 		chmod 755 $(DESTDIR)$(ASTSBINDIR)/safe_asterisk;\
 	fi
 	$(INSTALL) -d $(DESTDIR)$(ASTHEADERDIR)
+	$(INSTALL) -m 644 include/asterisk.h $(DESTDIR)$(includedir)
 	$(INSTALL) -m 644 include/asterisk/*.h $(DESTDIR)$(ASTHEADERDIR)
 	if [ -n "$(OLDHEADERS)" ]; then \
 		rm -f $(addprefix $(DESTDIR)$(ASTHEADERDIR)/,$(OLDHEADERS)) ;\
 	fi
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds
 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-csv
 	mkdir -p $(DESTDIR)$(ASTLOGDIR)/cdr-custom
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/keys
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/firmware
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/firmware/iax
+	mkdir -p $(DESTDIR)$(ASTDATADIR)/keys
+	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware
+	mkdir -p $(DESTDIR)$(ASTDATADIR)/firmware/iax
 	mkdir -p $(DESTDIR)$(ASTMANDIR)/man8
-	$(INSTALL) -m 644 keys/iaxtel.pub $(DESTDIR)$(ASTVARLIBDIR)/keys
-	$(INSTALL) -m 644 keys/freeworlddialup.pub $(DESTDIR)$(ASTVARLIBDIR)/keys
-	$(INSTALL) -m 644 asterisk.8 $(DESTDIR)$(ASTMANDIR)/man8
+	$(INSTALL) -m 644 keys/iaxtel.pub $(DESTDIR)$(ASTDATADIR)/keys
+	$(INSTALL) -m 644 keys/freeworlddialup.pub $(DESTDIR)$(ASTDATADIR)/keys
+	$(INSTALL) -m 644 doc/asterisk.8 $(DESTDIR)$(ASTMANDIR)/man8
 	$(INSTALL) -m 644 contrib/scripts/astgenkey.8 $(DESTDIR)$(ASTMANDIR)/man8
 	$(INSTALL) -m 644 contrib/scripts/autosupport.8 $(DESTDIR)$(ASTMANDIR)/man8
 	$(INSTALL) -m 644 contrib/scripts/safe_asterisk.8 $(DESTDIR)$(ASTMANDIR)/man8
-	if [ -d contrib/firmware/iax ]; then \
-		$(INSTALL) -m 644 contrib/firmware/iax/iaxy.bin $(DESTDIR)$(ASTVARLIBDIR)/firmware/iax/iaxy.bin; \
-	else \
-		echo "You need to do cvs update -d not just cvs update" ; \
-	fi 
-	if [ -f mpg123-0.59r/mpg123 ]; then $(MAKE) -C mpg123-0.59r install; fi
+	if [ -f contrib/firmware/iax/iaxy.bin ] ; then \
+		$(INSTALL) -m 644 contrib/firmware/iax/iaxy.bin $(DESTDIR)$(ASTDATADIR)/firmware/iax/iaxy.bin; \
+	fi
 
-install-subdirs:
-	for x in $(SUBDIRS); do $(MAKE) -C $$x install || exit 1 ; done
+$(SUBDIRS_INSTALL):
+	@DESTDIR="$(DESTDIR)" ASTSBINDIR="$(ASTSBINDIR)" $(MAKE) -C $(@:-install=) install
 
 NEWMODS=$(notdir $(wildcard */*.so))
 OLDMODS=$(filter-out $(NEWMODS),$(notdir $(wildcard $(DESTDIR)$(MODULES_DIR)/*.so)))
@@ -690,7 +469,7 @@ oldmodcheck:
 		echo " WARNING WARNING WARNING" ;\
 	fi
 
-install: all datafiles bininstall install-subdirs
+install: datafiles bininstall $(SUBDIRS_INSTALL)
 	@if [ -x /usr/sbin/asterisk-post-install ]; then \
 		/usr/sbin/asterisk-post-install $(DESTDIR) . ; \
 	fi
@@ -717,32 +496,32 @@ install: all datafiles bininstall install-subdirs
 	@echo " +-------------------------------------------+"
 	@$(MAKE) -s oldmodcheck
 
-upgrade: all bininstall
+upgrade: bininstall
 
 adsi:
 	mkdir -p $(DESTDIR)$(ASTETCDIR)
 	for x in configs/*.adsi; do \
-		if [ ! -f $(DESTDIR)$(ASTETCDIRX)/$$x ]; then \
-			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTETCDIR)/`basename $$x` ; \
+		if [ ! -f $(DESTDIR)$(ASTETCDIR)/$$x ]; then \
+			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTETCDIR)/`$(BASENAME) $$x` ; \
 		fi ; \
 	done
 
 samples: adsi
 	mkdir -p $(DESTDIR)$(ASTETCDIR)
 	for x in configs/*.sample; do \
-		if [ -f $(DESTDIR)$(ASTETCDIR)/`basename $$x .sample` ]; then \
+		if [ -f $(DESTDIR)$(ASTETCDIR)/`$(BASENAME) $$x .sample` ]; then \
 			if [ "$(OVERWRITE)" = "y" ]; then \
-				if cmp -s $(DESTDIR)$(ASTETCDIR)/`basename $$x .sample` $$x ; then \
+				if cmp -s $(DESTDIR)$(ASTETCDIR)/`$(BASENAME) $$x .sample` $$x ; then \
 					echo "Config file $$x is unchanged"; \
 					continue; \
 				fi ; \
-				mv -f $(DESTDIR)$(ASTETCDIR)/`basename $$x .sample` $(DESTDIR)$(ASTETCDIR)/`basename $$x .sample`.old ; \
+				mv -f $(DESTDIR)$(ASTETCDIR)/`$(BASENAME) $$x .sample` $(DESTDIR)$(ASTETCDIR)/`$(BASENAME) $$x .sample`.old ; \
 			else \
 				echo "Skipping config file $$x"; \
 				continue; \
 			fi ;\
 		fi ; \
-		$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTETCDIR)/`basename $$x .sample` ;\
+		$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTETCDIR)/`$(BASENAME) $$x .sample` ;\
 	done
 	if [ "$(OVERWRITE)" = "y" ] || [ ! -f $(DESTDIR)$(ASTCONFPATH) ]; then \
 		( \
@@ -750,11 +529,15 @@ samples: adsi
 		echo "astetcdir => $(ASTETCDIR)" ; \
 		echo "astmoddir => $(MODULES_DIR)" ; \
 		echo "astvarlibdir => $(ASTVARLIBDIR)" ; \
+		echo "astdatadir => $(ASTDATADIR)" ; \
 		echo "astagidir => $(AGI_DIR)" ; \
 		echo "astspooldir => $(ASTSPOOLDIR)" ; \
 		echo "astrundir => $(ASTVARRUNDIR)" ; \
 		echo "astlogdir => $(ASTLOGDIR)" ; \
 		echo "" ; \
+		echo ";[options]" ; \
+		echo ";internal_timing = yes" ; \
+		echo ";systemname = my_system_name ; prefix uniqueid with a system name for global uniqueness issues" ; \
 		echo "; Changing the following lines may compromise your security." ; \
 		echo ";[files]" ; \
 		echo ";astctlpermissions = 0660" ; \
@@ -765,29 +548,8 @@ samples: adsi
 	else \
 		echo "Skipping asterisk.conf creation"; \
 	fi
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
-	for x in sounds/demo-*; do \
-		if $(GREP) -q "^%`basename $$x`%" sounds.txt; then \
-			$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/sounds ; \
-		else \
-			echo "No description for $$x"; \
-			exit 1; \
-		fi; \
-	done
-	mkdir -p $(DESTDIR)$(ASTVARLIBDIR)/mohmp3 ; \
-	for x in sounds/*.mp3; do \
-		$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTVARLIBDIR)/mohmp3 ; \
-	done
-	rm -f $(DESTDIR)$(ASTVARLIBDIR)/mohmp3/sample-hold.mp3
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/INBOX
-	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm
-	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isunavail; do \
-		cat $(DESTDIR)$(ASTVARLIBDIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/unavail.gsm ; \
-	done
-	:> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm
-	for x in vm-theperson digits/1 digits/2 digits/3 digits/4 vm-isonphone; do \
-		cat $(DESTDIR)$(ASTVARLIBDIR)/sounds/$$x.gsm >> $(DESTDIR)$(ASTSPOOLDIR)/voicemail/default/1234/busy.gsm ; \
-	done
+	build_tools/make_sample_voicemail $(DESTDIR)/$(ASTDATADIR) $(DESTDIR)/$(ASTSPOOLDIR)
 
 webvmail:
 	@[ -d $(DESTDIR)$(HTTP_DOCSDIR)/ ] || ( printf "http docs directory not found.\nUpdate assignment of variable HTTP_DOCSDIR in Makefile!\n" && exit 1 )
@@ -820,7 +582,7 @@ spec:
 
 rpm: __rpm
 
-__rpm: include/asterisk/version.h spec
+__rpm: include/asterisk/version.h include/asterisk/buildopts.h spec
 	rm -rf /tmp/asterisk ; \
 	mkdir -p /tmp/asterisk/redhat/RPMS/i386 ; \
 	$(MAKE) DESTDIR=/tmp/asterisk install ; \
@@ -833,71 +595,100 @@ progdocs:
 	(cat contrib/asterisk-ng-doxygen; echo "HAVE_DOT=$(HAVEDOT)"; \
 	echo "PROJECT_NUMBER=$(ASTERISKVERSION)") | doxygen - 
 
-mpg123:
-	@wget -V >/dev/null || (echo "You need wget" ; false )
-	[ -f mpg123-0.59r.tar.gz ] || wget http://www.mpg123.de/mpg123/mpg123-0.59r.tar.gz
-	[ -d mpg123-0.59r ] || tar xfz mpg123-0.59r.tar.gz
-	$(MAKE) -C mpg123-0.59r $(MPG123TARG)
-
 config:
-	if [ -d /etc/rc.d/init.d ]; then \
-		$(INSTALL) -m 755 contrib/init.d/rc.redhat.asterisk /etc/rc.d/init.d/asterisk; \
-		/sbin/chkconfig --add asterisk; \
-	elif [ -d /etc/init.d ]; then \
-		$(INSTALL) -m 755 init.asterisk /etc/init.d/asterisk; \
-	fi 
+	@if [ "${OSARCH}" = "linux-gnu" ]; then \
+		if [ -f /etc/redhat-release -o -f /etc/fedora-release ]; then \
+			$(INSTALL) -m 755 contrib/init.d/rc.redhat.asterisk /etc/rc.d/init.d/asterisk; \
+			/sbin/chkconfig --add asterisk; \
+		elif [ -f /etc/debian_version ]; then \
+			$(INSTALL) -m 755 contrib/init.d/rc.debian.asterisk /etc/init.d/asterisk; \
+			/usr/sbin/update-rc.d asterisk start 10 2 3 4 5 . stop 91 2 3 4 5 .; \
+		elif [ -f /etc/gentoo-release ]; then \
+			$(INSTALL) -m 755 contrib/init.d/rc.gentoo.asterisk /etc/init.d/asterisk; \
+			/sbin/rc-update add asterisk default; \
+		elif [ -f /etc/mandrake-release ]; then \
+			$(INSTALL) -m 755 contrib/init.d/rc.mandrake.asterisk /etc/rc.d/init.d/asterisk; \
+			/sbin/chkconfig --add asterisk; \
+		elif [ -f /etc/SuSE-release -o -f /etc/novell-release ]; then \
+			$(INSTALL) -m 755 contrib/init.d/rc.suse.asterisk /etc/init.d/asterisk; \
+			/sbin/chkconfig --add asterisk; \
+		elif [ -f /etc/slackware-version ]; then \
+			echo "Slackware is not currently supported, although an init script does exist for it." \
+		else \
+			echo "We could not install init scripts for your distribution."; \
+		fi \
+	else \
+		echo "We could not install init scripts for your operating system."; \
+	fi
 
-dont-optimize: install
-
-valgrind: dont-optimize
-
-depend: include/asterisk/version.h .depend defaults.h 
-	for x in $(SUBDIRS); do $(MAKE) -C $$x depend || exit 1 ; done
-
-.depend: include/asterisk/version.h
-	build_tools/mkdep $(CFLAGS) $(wildcard *.c)
-
-.tags-depend:
-	@echo -n ".tags-depend: " > $@
-	@find . -maxdepth 1 -name \*.c -printf "\t%p \\\\\n" >> $@
-	@find . -maxdepth 1 -name \*.h -printf "\t%p \\\\\n" >> $@
-	@find $(SUBDIRS) -name \*.c -printf "\t%p \\\\\n" >> $@
-	@find $(SUBDIRS) -name \*.h -printf "\t%p \\\\\n" >> $@
-	@find include -name \*.h -printf "\t%p \\\\\n" >> $@
-	@echo >> $@
-
-.tags-sources:
-	@rm -f $@
-	@find . -maxdepth 1 -name \*.c -print >> $@
-	@find . -maxdepth 1 -name \*.h -print >> $@
-	@find $(SUBDIRS) -name \*.c -print >> $@
-	@find $(SUBDIRS) -name \*.h -print >> $@
-	@find include -name \*.h -print >> $@
-
-tags: .tags-depend .tags-sources
-	ctags -L .tags-sources -o $@
-
-ctags: tags
-
-TAGS: .tags-depend .tags-sources
-	etags -o $@ `cat .tags-sources`
-
-etags: TAGS
-
-FORCE:
-
-%_env:
-	$(MAKE) -C $(shell echo $@ | sed "s/_env//g") env
-
-env:
-	env
+sounds:
+	$(MAKE) -C sounds all
 
 # If the cleancount has been changed, force a make clean.
 # .cleancount is the global clean count, and .lastclean is the 
 # last clean count we had
-# We can avoid this by making noclean
 
 cleantest:
-	if cmp -s .cleancount .lastclean ; then echo ; else \
-		$(MAKE) clean; cp -f .cleancount .lastclean;\
+	@if ! cmp -s .cleancount .lastclean ; then \
+		$(MAKE) clean;\
 	fi
+
+$(SUBDIRS_UNINSTALL):
+	@$(MAKE) --no-print-directory -C $(@:-uninstall=) uninstall
+
+_uninstall: $(SUBDIRS_UNINSTALL)
+	rm -f $(DESTDIR)$(MODULES_DIR)/*
+	rm -f $(DESTDIR)$(ASTSBINDIR)/*asterisk*
+	rm -f $(DESTDIR)$(ASTSBINDIR)/astgenkey
+	rm -f $(DESTDIR)$(ASTSBINDIR)/autosupport
+	rm -rf $(DESTDIR)$(ASTHEADERDIR)
+	rm -rf $(DESTDIR)$(ASTDATADIR)/firmware
+	rm -f $(DESTDIR)$(ASTMANDIR)/man8/asterisk.8
+	rm -f $(DESTDIR)$(ASTMANDIR)/man8/astgenkey.8
+	rm -f $(DESTDIR)$(ASTMANDIR)/man8/autosupport.8
+	rm -f $(DESTDIR)$(ASTMANDIR)/man8/safe_asterisk.8
+	$(MAKE) -C sounds uninstall
+
+uninstall: _uninstall
+	@echo " +--------- Asterisk Uninstall Complete -----+"  
+	@echo " + Asterisk binaries, sounds, man pages,     +"  
+	@echo " + headers, modules, and firmware builds,    +"  
+	@echo " + have all been uninstalled.                +"  
+	@echo " +                                           +"
+	@echo " + To remove ALL traces of Asterisk,         +"
+	@echo " + including configuration, spool            +"
+	@echo " + directories, and logs, run the following  +"
+	@echo " + command:                                  +"
+	@echo " +                                           +"
+	@echo " +            $(MAKE) uninstall-all             +"  
+	@echo " +-------------------------------------------+"  
+
+uninstall-all: _uninstall
+	rm -rf $(DESTDIR)$(ASTLIBDIR)
+	rm -rf $(DESTDIR)$(ASTVARLIBDIR)
+	rm -rf $(DESTDIR)$(ASTDATADIR)
+	rm -rf $(DESTDIR)$(ASTSPOOLDIR)
+	rm -rf $(DESTDIR)$(ASTETCDIR)
+	rm -rf $(DESTDIR)$(ASTLOGDIR)
+
+menuconfig: menuselect
+
+gmenuconfig: gmenuselect
+
+menuselect: menuselect/menuselect menuselect-tree
+	-@menuselect/menuselect $(GLOBAL_MAKEOPTS) $(USER_MAKEOPTS) menuselect.makeopts && (echo "menuselect changes saved!"; rm -f channels/h323/Makefile.ast main/asterisk) || echo "menuselect changes NOT saved!"
+
+gmenuselect: menuselect/gmenuselect menuselect-tree
+	-@menuselect/gmenuselect $(GLOBAL_MAKEOPTS) $(USER_MAKEOPTS) menuselect.makeopts && (echo "menuselect changes saved!"; rm -f channels/h323/Makefile.ast main/asterisk) || echo "menuselect changes NOT saved!"
+
+menuselect/menuselect: makeopts menuselect/menuselect.c menuselect/menuselect_curses.c menuselect/menuselect_stub.c menuselect/menuselect.h menuselect/linkedlists.h makeopts
+	@CC="$(HOST_CC)" LD="" AR="" RANLIB="" CFLAGS="" $(MAKE) -C menuselect CONFIGURE_SILENT="--silent"
+
+menuselect/gmenuselect: makeopts menuselect/menuselect.c menuselect/menuselect_gtk.c menuselect/menuselect_stub.c menuselect/menuselect.h menuselect/linkedlists.h makeopts
+	@CC="$(HOST_CC)" CXX="$(CXX)" LD="" AR="" RANLIB="" CFLAGS="" $(MAKE) -C menuselect _gmenuselect CONFIGURE_SILENT="--silent"
+
+menuselect-tree: $(foreach dir,$(filter-out main,$(MOD_SUBDIRS)),$(wildcard $(dir)/*.c) $(wildcard $(dir)/*.cc)) build_tools/cflags.xml sounds/sounds.xml build_tools/embed_modules.xml
+	@echo "Generating input for menuselect ..."
+	@build_tools/prep_moduledeps > $@
+
+.PHONY: menuselect main sounds clean dist-clean distclean all prereqs cleantest uninstall _uninstall uninstall-all dont-optimize $(SUBDIRS_INSTALL) $(SUBDIRS_CLEAN) $(SUBDIRS_UNINSTALL) $(SUBDIRS) $(MOD_SUBDIRS_EMBED_LDSCRIPT) $(MOD_SUBDIRS_EMBED_LDFLAGS) $(MOD_SUBDIRS_EMBED_LIBS) menuselect.makeopts

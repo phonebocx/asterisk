@@ -22,6 +22,10 @@
  * 
  */
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72806 $")
+
 #include <sys/stat.h>
 #include <errno.h>
 #include <time.h>
@@ -33,10 +37,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 9581 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -53,8 +53,18 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 9581 $")
  * The spool file contains a header 
  */
 
-static char *tdesc = "Outgoing Spool Support";
+enum {
+	/*! Always delete the call file after a call succeeds or the
+	 * maximum number of retries is exceeded, even if the
+	 * modification time of the call file is in the future.
+	 */
+	SPOOL_FLAG_ALWAYS_DELETE = (1 << 0),
+	/* Don't unlink the call file after processing, move in qdonedir */
+	SPOOL_FLAG_ARCHIVE = (1 << 1)
+};
+
 static char qdir[255];
+static char qdonedir[255];
 
 struct outgoing {
 	char fn[256];
@@ -67,7 +77,7 @@ struct outgoing {
 	/* How long to wait for an answer */
 	int waittime;
 	/* PID which is currently calling */
-	int callingpid;
+	long callingpid;
 	
 	/* What to connect to outgoing */
 	char tech[256];
@@ -94,6 +104,9 @@ struct outgoing {
 	
 	/* Maximum length of call */
 	int maxlen;
+
+	/* options */
+	struct ast_flags options;
 };
 
 static void init_outgoing(struct outgoing *o)
@@ -102,6 +115,7 @@ static void init_outgoing(struct outgoing *o)
 	o->priority = 1;
 	o->retrytime = 300;
 	o->waittime = 45;
+	ast_set_flag(&o->options, SPOOL_FLAG_ALWAYS_DELETE);
 }
 
 static void free_outgoing(struct outgoing *o)
@@ -152,11 +166,11 @@ static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
 				printf("'%s' is '%s' at line %d\n", buf, c, lineno);
 #endif
 				if (!strcasecmp(buf, "channel")) {
-					strncpy(o->tech, c, sizeof(o->tech) - 1);
+					ast_copy_string(o->tech, c, sizeof(o->tech));
 					if ((c2 = strchr(o->tech, '/'))) {
 						*c2 = '\0';
 						c2++;
-						strncpy(o->dest, c2, sizeof(o->dest) - 1);
+						ast_copy_string(o->dest, c2, sizeof(o->dest));
 					} else {
 						ast_log(LOG_NOTICE, "Channel should be in form Tech/Dest at line %d of %s\n", lineno, fn);
 						o->tech[0] = '\0';
@@ -164,18 +178,18 @@ static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
 				} else if (!strcasecmp(buf, "callerid")) {
 					ast_callerid_split(c, o->cid_name, sizeof(o->cid_name), o->cid_num, sizeof(o->cid_num));
 				} else if (!strcasecmp(buf, "application")) {
-					strncpy(o->app, c, sizeof(o->app) - 1);
+					ast_copy_string(o->app, c, sizeof(o->app));
 				} else if (!strcasecmp(buf, "data")) {
-					strncpy(o->data, c, sizeof(o->data) - 1);
+					ast_copy_string(o->data, c, sizeof(o->data));
 				} else if (!strcasecmp(buf, "maxretries")) {
 					if (sscanf(c, "%d", &o->maxretries) != 1) {
 						ast_log(LOG_WARNING, "Invalid max retries at line %d of %s\n", lineno, fn);
 						o->maxretries = 0;
 					}
 				} else if (!strcasecmp(buf, "context")) {
-					strncpy(o->context, c, sizeof(o->context) - 1);
+					ast_copy_string(o->context, c, sizeof(o->context));
 				} else if (!strcasecmp(buf, "extension")) {
-					strncpy(o->exten, c, sizeof(o->exten) - 1);
+					ast_copy_string(o->exten, c, sizeof(o->exten));
 				} else if (!strcasecmp(buf, "priority")) {
 					if ((sscanf(c, "%d", &o->priority) != 1) || (o->priority < 1)) {
 						ast_log(LOG_WARNING, "Invalid priority at line %d of %s\n", lineno, fn);
@@ -194,7 +208,7 @@ static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
 				} else if (!strcasecmp(buf, "retry")) {
 					o->retries++;
 				} else if (!strcasecmp(buf, "startretry")) {
-					if (sscanf(c, "%d", &o->callingpid) != 1) {
+					if (sscanf(c, "%ld", &o->callingpid) != 1) {
 						ast_log(LOG_WARNING, "Unable to retrieve calling PID!\n");
 						o->callingpid = 0;
 					}
@@ -211,11 +225,14 @@ static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
 							var->next = o->vars;
 							o->vars = var;
 						}
-					} else {
-						ast_log(LOG_WARNING, "Malformed Set: argument! Should be Set: Variable=value\n");
-					}
+					} else
+						ast_log(LOG_WARNING, "Malformed \"%s\" argument.  Should be \"%s: variable=value\"\n", buf, buf);
 				} else if (!strcasecmp(buf, "account")) {
 					ast_copy_string(o->account, c, sizeof(o->account));
+				} else if (!strcasecmp(buf, "alwaysdelete")) {
+					ast_set2_flag(&o->options, ast_true(c), SPOOL_FLAG_ALWAYS_DELETE);
+				} else if (!strcasecmp(buf, "archive")) {
+					ast_set2_flag(&o->options, ast_true(c), SPOOL_FLAG_ARCHIVE);
 				} else {
 					ast_log(LOG_WARNING, "Unknown keyword '%s' at line %d of %s\n", buf, lineno, fn);
 				}
@@ -223,7 +240,7 @@ static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
 				ast_log(LOG_NOTICE, "Syntax error at line %d of %s\n", lineno, fn);
 		}
 	}
-	strncpy(o->fn, fn, sizeof(o->fn) - 1);
+	ast_copy_string(o->fn, fn, sizeof(o->fn));
 	if (ast_strlen_zero(o->tech) || ast_strlen_zero(o->dest) || (ast_strlen_zero(o->app) && ast_strlen_zero(o->exten))) {
 		ast_log(LOG_WARNING, "At least one of app or extension must be specified, along with tech and dest in file %s\n", fn);
 		return -1;
@@ -240,7 +257,7 @@ static void safe_append(struct outgoing *o, time_t now, char *s)
 	if (fd > -1) {
 		f = fdopen(fd, "a");
 		if (f) {
-			fprintf(f, "%s: %ld %d (%ld)\n", s, (long)ast_mainpid, o->retries, (long) now);
+			fprintf(f, "\n%s: %ld %d (%ld)\n", s, (long)ast_mainpid, o->retries, (long) now);
 			fclose(f);
 		} else
 			close(fd);
@@ -250,6 +267,61 @@ static void safe_append(struct outgoing *o, time_t now, char *s)
 		if (utime(o->fn, &tbuf))
 			ast_log(LOG_WARNING, "Unable to set utime on %s: %s\n", o->fn, strerror(errno));
 	}
+}
+
+/*!
+ * \brief Remove a call file from the outgoing queue optionally moving it in the archive dir
+ *
+ * \param o the pointer to outgoing struct
+ * \param status the exit status of the call. Can be "Completed", "Failed" or "Expired"
+ */
+static int remove_from_queue(struct outgoing *o, const char *status)
+{
+	int fd;
+	FILE *f;
+	char newfn[256];
+	const char *bname;
+
+	if (!ast_test_flag(&o->options, SPOOL_FLAG_ALWAYS_DELETE)) {
+		struct stat current_file_status;
+
+		if (!stat(o->fn, &current_file_status))
+			if (time(NULL) < current_file_status.st_mtime)
+				return 0;
+	}
+
+	if (!ast_test_flag(&o->options, SPOOL_FLAG_ARCHIVE)) {
+		unlink(o->fn);
+		return 0;
+	}
+	if (mkdir(qdonedir, 0700) && (errno != EEXIST)) {
+		ast_log(LOG_WARNING, "Unable to create queue directory %s -- outgoing spool archiving disabled\n", qdonedir);
+		unlink(o->fn);
+		return -1;
+	}
+	fd = open(o->fn, O_WRONLY|O_APPEND);
+	if (fd > -1) {
+		f = fdopen(fd, "a");
+		if (f) {
+			fprintf(f, "Status: %s\n", status);
+			fclose(f);
+		} else
+			close(fd);
+	}
+
+	bname = strrchr(o->fn,'/');
+	if (bname == NULL) 
+		bname = o->fn;
+	else 
+		bname++;	
+	snprintf(newfn, sizeof(newfn), "%s/%s", qdonedir, bname);
+	/* a existing call file the archive dir is overwritten */
+	unlink(newfn);
+	if (rename(o->fn, newfn) != 0) {
+		unlink(o->fn);
+		return -1;
+	} else
+		return 0;
 }
 
 static void *attempt_thread(void *data)
@@ -270,7 +342,7 @@ static void *attempt_thread(void *data)
 		if (o->retries >= o->maxretries + 1) {
 			/* Max retries exceeded */
 			ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt%s\n", o->tech, o->dest, o->retries - 1, ((o->retries - 1) != 1) ? "s" : "");
-			unlink(o->fn);
+			remove_from_queue(o, "Expired");
 		} else {
 			/* Notate that the call is still active */
 			safe_append(o, time(NULL), "EndRetry");
@@ -278,7 +350,7 @@ static void *attempt_thread(void *data)
 	} else {
 		ast_log(LOG_NOTICE, "Call completed to %s/%s\n", o->tech, o->dest);
 		ast_log(LOG_EVENT, "Queued call to %s/%s completed\n", o->tech, o->dest);
-		unlink(o->fn);
+		remove_from_queue(o, "Completed");
 	}
 	free_outgoing(o);
 	return NULL;
@@ -295,6 +367,7 @@ static void launch_service(struct outgoing *o)
 		ast_log(LOG_WARNING, "Unable to create thread :( (returned error: %d)\n", ret);
 		free_outgoing(o);
 	}
+	pthread_attr_destroy(&attr);
 }
 
 static int scan_service(char *fn, time_t now, time_t atime)
@@ -315,8 +388,8 @@ static int scan_service(char *fn, time_t now, time_t atime)
 					now += o->retrytime;
 					if (o->callingpid && (o->callingpid == ast_mainpid)) {
 						safe_append(o, time(NULL), "DelayedRetry");
-						free_outgoing(o);
 						ast_log(LOG_DEBUG, "Delaying retry since we're currently running '%s'\n", o->fn);
+						free_outgoing(o);
 					} else {
 						/* Increment retries */
 						o->retries++;
@@ -332,19 +405,19 @@ static int scan_service(char *fn, time_t now, time_t atime)
 				} else {
 					ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt%s\n", o->tech, o->dest, o->retries - 1, ((o->retries - 1) != 1) ? "s" : "");
 					free_outgoing(o);
-					unlink(fn);
+					remove_from_queue(o, "Expired");
 					return 0;
 				}
 			} else {
 				free_outgoing(o);
 				ast_log(LOG_WARNING, "Invalid file contents in %s, deleting\n", fn);
 				fclose(f);
-				unlink(fn);
+				remove_from_queue(o, "Failed");
 			}
 		} else {
 			free_outgoing(o);
 			ast_log(LOG_WARNING, "Unable to open %s: %s, deleting\n", fn, strerror(errno));
-			unlink(fn);
+			remove_from_queue(o, "Failed");
 		}
 	} else
 		ast_log(LOG_WARNING, "Out of memory :(\n");
@@ -405,12 +478,12 @@ static void *scan_thread(void *unused)
 	return NULL;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	return -1;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	pthread_t thread;
 	pthread_attr_t attr;
@@ -420,26 +493,15 @@ int load_module(void)
 		ast_log(LOG_WARNING, "Unable to create queue directory %s -- outgoing spool disabled\n", qdir);
 		return 0;
 	}
+	snprintf(qdonedir, sizeof(qdir), "%s/%s", ast_config_AST_SPOOL_DIR, "outgoing_done");
 	pthread_attr_init(&attr);
  	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	if ((ret = ast_pthread_create(&thread,&attr,scan_thread, NULL)) != 0) {
+	if ((ret = ast_pthread_create_background(&thread,&attr,scan_thread, NULL)) != 0) {
 		ast_log(LOG_WARNING, "Unable to create thread :( (returned error: %d)\n", ret);
 		return -1;
 	}
+	pthread_attr_destroy(&attr);
 	return 0;
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	return 1;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Outgoing Spool Support");

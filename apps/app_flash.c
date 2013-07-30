@@ -19,24 +19,26 @@
 /*! \file
  *
  * \brief App to flash a zap trunk
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
  
+/*** MODULEINFO
+	<depend>zaptel</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#ifdef __linux__
-#include <linux/zaptel.h>
-#else
-#include <zaptel.h>
-#endif /* __linux__ */
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+#include <zaptel/zaptel.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -48,8 +50,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/image.h"
 #include "asterisk/options.h"
 
-static char *tdesc = "Flash zap trunk application";
-
 static char *app = "Flash";
 
 static char *synopsis = "Flashes a Zap Trunk";
@@ -59,9 +59,6 @@ static char *descrip =
 "people who want to perform transfers and such via AGI and is generally\n"
 "quite useless oths application will only work on Zap trunks.\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static inline int zt_wait_event(int fd)
 {
@@ -77,10 +74,10 @@ static int flash_exec(struct ast_channel *chan, void *data)
 {
 	int res = -1;
 	int x;
-	struct localuser *u;
+	struct ast_module_user *u;
 	struct zt_params ztp;
-	LOCAL_USER_ADD(u);
-	if (!strcasecmp(chan->type, "Zap")) {
+	u = ast_module_user_add(chan);
+	if (!strcasecmp(chan->tech->type, "Zap")) {
 		memset(&ztp, 0, sizeof(ztp));
 		res = ioctl(chan->fds[0], ZT_GET_PARAMS, &ztp);
 		if (!res) {
@@ -103,39 +100,25 @@ static int flash_exec(struct ast_channel *chan, void *data)
 			ast_log(LOG_WARNING, "Unable to get parameters of %s: %s\n", chan->name, strerror(errno));
 	} else
 		ast_log(LOG_WARNING, "%s is not a Zap channel\n", chan->name);
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, flash_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Flash channel application");
 
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}

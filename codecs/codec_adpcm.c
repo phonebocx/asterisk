@@ -27,6 +27,10 @@
  * \ingroup codecs
  */
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -34,29 +38,20 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
-
 #include "asterisk/lock.h"
 #include "asterisk/logger.h"
+#include "asterisk/linkedlists.h"
 #include "asterisk/module.h"
 #include "asterisk/config.h"
 #include "asterisk/options.h"
 #include "asterisk/translate.h"
 #include "asterisk/channel.h"
+#include "asterisk/utils.h"
 
 /* define NOT_BLI to use a faster but not bit-level identical version */
 /* #define NOT_BLI */
 
-#define BUFFER_SIZE   8096	/* size for the translation buffers */
-
-AST_MUTEX_DEFINE_STATIC(localuser_lock);
-static int localusecnt = 0;
-
-static char *tdesc = "Adaptive Differential PCM Coder/Decoder";
-
-static int useplc = 0;
+#define BUFFER_SAMPLES   8096	/* size for the translation buffers */
 
 /* Sample frame data */
 
@@ -102,8 +97,7 @@ struct adpcm_state {
  *  Sets the index to the step size table for the next encode.
  */
 
-static inline short
-decode(int encoded, struct adpcm_state* state)
+static inline short decode(int encoded, struct adpcm_state *state)
 {
 	int diff;
 	int step;
@@ -117,9 +111,12 @@ decode(int encoded, struct adpcm_state* state)
 	diff = (((encoded << 1) + 1) * step) >> 3;
 #else /* BLI code */
 	diff = step >> 3;
-	if (encoded & 4) diff += step;
-	if (encoded & 2) diff += step >> 1;
-	if (encoded & 1) diff += step >> 2;
+	if (encoded & 4)
+		diff += step;
+	if (encoded & 2)
+		diff += step >> 1;
+	if (encoded & 1)
+		diff += step >> 2;
 	if ((encoded >> 1) & step & 0x1)
 		diff++;
 #endif
@@ -143,8 +140,7 @@ decode(int encoded, struct adpcm_state* state)
 #ifdef AUTO_RETURN
 	if (encoded)
 		state->zero_count = 0;
-	else if (++(state->zero_count) == 24)
-	{
+	else if (++(state->zero_count) == 24) {
 		state->zero_count = 0;
 		if (state->signal > 0)
 			state->next_flag = 0x1;
@@ -174,51 +170,43 @@ decode(int encoded, struct adpcm_state* state)
  *  signal gets updated with each pass.
  */
 
-static inline int
-adpcm(short csig, struct adpcm_state* state)
+static inline int adpcm(short csig, struct adpcm_state *state)
 {
 	int diff;
 	int step;
 	int encoded;
 
 	/* 
-	* Clip csig if too large or too small
-	*/
+	 * Clip csig if too large or too small
+	 */
 	csig >>= 4;
 
 	step = stpsz[state->ssindex];
 	diff = csig - state->signal;
 
 #ifdef NOT_BLI
-	if (diff < 0)
-	{
+	if (diff < 0) {
 		encoded = (-diff << 2) / step;
 		if (encoded > 7)
 			encoded = 7;
 		encoded |= 0x08;
-	}
-	else
-	{
+	} else {
 		encoded = (diff << 2) / step;
 		if (encoded > 7)
 			encoded = 7;
 	}
 #else /* BLI code */
-	if (diff < 0)
-	{
+	if (diff < 0) {
 		encoded = 8;
 		diff = -diff;
-	}
-	else
+	} else
 		encoded = 0;
-	if (diff >= step)
-	{
+	if (diff >= step) {
 		encoded |= 4;
 		diff -= step;
 	}
 	step >>= 1;
-	if (diff >= step)
-	{
+	if (diff >= step) {
 		encoded |= 2;
 		diff -= step;
 	}
@@ -233,423 +221,184 @@ adpcm(short csig, struct adpcm_state* state)
 	return encoded;
 }
 
-/*
- * Private workspace for translating signed linear signals to ADPCM.
- */
+/*----------------- Asterisk-codec glue ------------*/
 
-struct adpcm_encoder_pvt
-{
-  struct ast_frame f;
-  char offset[AST_FRIENDLY_OFFSET];   /* Space to build offset */
-  short inbuf[BUFFER_SIZE];           /* Unencoded signed linear values */
-  unsigned char outbuf[BUFFER_SIZE];  /* Encoded ADPCM, two nibbles to a word */
-  struct adpcm_state state;
-  int tail;
+/*! \brief Workspace for translating signed linear signals to ADPCM. */
+struct adpcm_encoder_pvt {
+	struct adpcm_state state;
+	int16_t inbuf[BUFFER_SAMPLES];	/* Unencoded signed linear values */
 };
 
-/*
- * Private workspace for translating ADPCM signals to signed linear.
- */
-
-struct adpcm_decoder_pvt
-{
-  struct ast_frame f;
-  char offset[AST_FRIENDLY_OFFSET];	/* Space to build offset */
-  short outbuf[BUFFER_SIZE];	/* Decoded signed linear values */
-  struct adpcm_state state;
-  int tail;
-  plc_state_t plc;
+/*! \brief Workspace for translating ADPCM signals to signed linear. */
+struct adpcm_decoder_pvt {
+	struct adpcm_state state;
 };
 
-/*
- * AdpcmToLin_New
- *  Create a new instance of adpcm_decoder_pvt.
- *
- * Results:
- *  Returns a pointer to the new instance.
- *
- * Side effects:
- *  None.
- */
-
-static struct ast_translator_pvt *
-adpcmtolin_new (void)
+/*! \brief decode 4-bit adpcm frame data and store in output buffer */
+static int adpcmtolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
-  struct adpcm_decoder_pvt *tmp;
-  tmp = malloc (sizeof (struct adpcm_decoder_pvt));
-  if (tmp)
-    {
-	  memset(tmp, 0, sizeof(*tmp));
-      tmp->tail = 0;
-      plc_init(&tmp->plc);
-      localusecnt++;
-      ast_update_use_count ();
-    }
-  return (struct ast_translator_pvt *) tmp;
-}
+	struct adpcm_decoder_pvt *tmp = pvt->pvt;
+	int x = f->datalen;
+	unsigned char *src = f->data;
+	int16_t *dst = (int16_t *)pvt->outbuf + pvt->samples;
 
-/*
- * LinToAdpcm_New
- *  Create a new instance of adpcm_encoder_pvt.
- *
- * Results:
- *  Returns a pointer to the new instance.
- *
- * Side effects:
- *  None.
- */
-
-static struct ast_translator_pvt *
-lintoadpcm_new (void)
-{
-  struct adpcm_encoder_pvt *tmp;
-  tmp = malloc (sizeof (struct adpcm_encoder_pvt));
-  if (tmp)
-    {
-	  memset(tmp, 0, sizeof(*tmp));
-      localusecnt++;
-      ast_update_use_count ();
-      tmp->tail = 0;
-    }
-  return (struct ast_translator_pvt *) tmp;
-}
-
-/*
- * AdpcmToLin_FrameIn
- *  Take an input buffer with packed 4-bit ADPCM values and put decoded PCM in outbuf, 
- *  if there is room left.
- *
- * Results:
- *  Foo
- *
- * Side effects:
- *  tmp->tail is the number of packed values in the buffer.
- */
-
-static int
-adpcmtolin_framein (struct ast_translator_pvt *pvt, struct ast_frame *f)
-{
-  struct adpcm_decoder_pvt *tmp = (struct adpcm_decoder_pvt *) pvt;
-  int x;
-  unsigned char *b;
-
-  if(f->datalen == 0) { /* perform PLC with nominal framesize of 20ms/160 samples */
-        if((tmp->tail + 160) > sizeof(tmp->outbuf) / 2) {
-            ast_log(LOG_WARNING, "Out of buffer space\n");
-            return -1;
-        }
-        if(useplc) {
-	  plc_fillin(&tmp->plc, tmp->outbuf+tmp->tail, 160);
-	  tmp->tail += 160;
+	while (x--) {
+		*dst++ = decode((*src >> 4) & 0xf, &tmp->state);
+		*dst++ = decode(*src++ & 0x0f, &tmp->state);
 	}
-        return 0;
-  }
-
-  if (f->datalen * 4 + tmp->tail * 2 > sizeof(tmp->outbuf)) {
-  	ast_log(LOG_WARNING, "Out of buffer space\n");
-	return -1;
-  }
-
-  b = f->data;
-
-  for (x=0;x<f->datalen;x++) {
-	tmp->outbuf[tmp->tail++] = decode((b[x] >> 4) & 0xf, &tmp->state);
-	tmp->outbuf[tmp->tail++] = decode(b[x] & 0x0f, &tmp->state);
-  }
-
-  if(useplc) plc_rx(&tmp->plc, tmp->outbuf+tmp->tail-f->datalen*2, f->datalen*2);
-
-  return 0;
+	pvt->samples += f->samples;
+	pvt->datalen += 2*f->samples;
+	return 0;
 }
 
-/*
- * AdpcmToLin_FrameOut
- *  Convert 4-bit ADPCM encoded signals to 16-bit signed linear.
- *
- * Results:
- *  Converted signals are placed in tmp->f.data, tmp->f.datalen
- *  and tmp->f.samples are calculated.
- *
- * Side effects:
- *  None.
- */
-
-static struct ast_frame *
-adpcmtolin_frameout (struct ast_translator_pvt *pvt)
+/*! \brief fill input buffer with 16-bit signed linear PCM values. */
+static int lintoadpcm_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 {
-  struct adpcm_decoder_pvt *tmp = (struct adpcm_decoder_pvt *) pvt;
+	struct adpcm_encoder_pvt *tmp = pvt->pvt;
 
-  if (!tmp->tail)
-    return NULL;
-
-  tmp->f.frametype = AST_FRAME_VOICE;
-  tmp->f.subclass = AST_FORMAT_SLINEAR;
-  tmp->f.datalen = tmp->tail *2;
-  tmp->f.samples = tmp->tail;
-  tmp->f.mallocd = 0;
-  tmp->f.offset = AST_FRIENDLY_OFFSET;
-  tmp->f.src = __PRETTY_FUNCTION__;
-  tmp->f.data = tmp->outbuf;
-  tmp->tail = 0;
-  return &tmp->f;
+	memcpy(&tmp->inbuf[pvt->samples], f->data, f->datalen);
+	pvt->samples += f->samples;
+	return 0;
 }
 
-/*
- * LinToAdpcm_FrameIn
- *  Fill an input buffer with 16-bit signed linear PCM values.
- *
- * Results:
- *  None.
- *
- * Side effects:
- *  tmp->tail is number of signal values in the input buffer.
- */
-
-static int
-lintoadpcm_framein (struct ast_translator_pvt *pvt, struct ast_frame *f)
+/*! \brief convert inbuf and store into frame */
+static struct ast_frame *lintoadpcm_frameout(struct ast_trans_pvt *pvt)
 {
-  struct adpcm_encoder_pvt *tmp = (struct adpcm_encoder_pvt *) pvt;
-
-  if ((tmp->tail + f->datalen / 2) < (sizeof (tmp->inbuf) / 2))
-    {
-      memcpy (&tmp->inbuf[tmp->tail], f->data, f->datalen);
-      tmp->tail += f->datalen / 2;
-    }
-  else
-    {
-      ast_log (LOG_WARNING, "Out of buffer space\n");
-      return -1;
-    }
-  return 0;
-}
-
-/*
- * LinToAdpcm_FrameOut
- *  Convert a buffer of raw 16-bit signed linear PCM to a buffer
- *  of 4-bit ADPCM packed two to a byte (Big Endian).
- *
- * Results:
- *  Foo
- *
- * Side effects:
- *  Leftover inbuf data gets packed, tail gets updated.
- */
-
-static struct ast_frame *
-lintoadpcm_frameout (struct ast_translator_pvt *pvt)
-{
-  struct adpcm_encoder_pvt *tmp = (struct adpcm_encoder_pvt *) pvt;
-  int i_max, i;
+	struct adpcm_encoder_pvt *tmp = pvt->pvt;
+	struct ast_frame *f;
+	int i;
+	int samples = pvt->samples;	/* save original number */
   
-  if (tmp->tail < 2) return NULL;
+	if (samples < 2)
+		return NULL;
 
+	pvt->samples &= ~1; /* atomic size is 2 samples */
 
-  i_max = tmp->tail & ~1; /* atomic size is 2 samples */
+	for (i = 0; i < pvt->samples; i += 2) {
+		pvt->outbuf[i/2] =
+			(adpcm(tmp->inbuf[i  ], &tmp->state) << 4) |
+			(adpcm(tmp->inbuf[i+1], &tmp->state)     );
+	};
 
-  /* What is this, state debugging? should be #ifdef'd then
-  tmp->outbuf[0] = tmp->ssindex & 0xff;
-  tmp->outbuf[1] = (tmp->signal >> 8) & 0xff;
-  tmp->outbuf[2] = (tmp->signal & 0xff);
-  tmp->outbuf[3] = tmp->zero_count;
-  tmp->outbuf[4] = tmp->next_flag;
-  */
-  for (i = 0; i < i_max; i+=2)
-  {
-    tmp->outbuf[i/2] =
-      (adpcm(tmp->inbuf[i  ], &tmp->state) << 4) |
-	  (adpcm(tmp->inbuf[i+1], &tmp->state)     );
-  };
+	f = ast_trans_frameout(pvt, pvt->samples/2, 0);
 
+	/*
+	 * If there is a left over sample, move it to the beginning
+	 * of the input buffer.
+	 */
 
-  tmp->f.frametype = AST_FRAME_VOICE;
-  tmp->f.subclass = AST_FORMAT_ADPCM;
-  tmp->f.samples = i_max;
-  tmp->f.mallocd = 0;
-  tmp->f.offset = AST_FRIENDLY_OFFSET;
-  tmp->f.src = __PRETTY_FUNCTION__;
-  tmp->f.data = tmp->outbuf;
-  tmp->f.datalen = i_max / 2;
-
-  /*
-   * If there is a signal left over (there should be no more than
-   * one) move it to the beginning of the input buffer.
-   */
-
-  if (tmp->tail == i_max)
-    tmp->tail = 0;
-  else
-    {
-      tmp->inbuf[0] = tmp->inbuf[tmp->tail];
-      tmp->tail = 1;
-    }
-  return &tmp->f;
+	if (samples & 1) {	/* move the leftover sample at beginning */
+		tmp->inbuf[0] = tmp->inbuf[samples - 1];
+		pvt->samples = 1;
+	}
+	return f;
 }
 
 
-/*
- * AdpcmToLin_Sample
- */
-
-static struct ast_frame *
-adpcmtolin_sample (void)
+/*! \brief AdpcmToLin_Sample */
+static struct ast_frame *adpcmtolin_sample(void)
 {
-  static struct ast_frame f;
-  f.frametype = AST_FRAME_VOICE;
-  f.subclass = AST_FORMAT_ADPCM;
-  f.datalen = sizeof (adpcm_slin_ex);
-  f.samples = sizeof(adpcm_slin_ex) * 2;
-  f.mallocd = 0;
-  f.offset = 0;
-  f.src = __PRETTY_FUNCTION__;
-  f.data = adpcm_slin_ex;
-  return &f;
+	static struct ast_frame f;
+	f.frametype = AST_FRAME_VOICE;
+	f.subclass = AST_FORMAT_ADPCM;
+	f.datalen = sizeof(adpcm_slin_ex);
+	f.samples = sizeof(adpcm_slin_ex) * 2;
+	f.mallocd = 0;
+	f.offset = 0;
+	f.src = __PRETTY_FUNCTION__;
+	f.data = adpcm_slin_ex;
+	return &f;
 }
 
-/*
- * LinToAdpcm_Sample
- */
-
-static struct ast_frame *
-lintoadpcm_sample (void)
+/*! \brief LinToAdpcm_Sample */
+static struct ast_frame *lintoadpcm_sample(void)
 {
-  static struct ast_frame f;
-  f.frametype = AST_FRAME_VOICE;
-  f.subclass = AST_FORMAT_SLINEAR;
-  f.datalen = sizeof (slin_adpcm_ex);
-  /* Assume 8000 Hz */
-  f.samples = sizeof (slin_adpcm_ex) / 2;
-  f.mallocd = 0;
-  f.offset = 0;
-  f.src = __PRETTY_FUNCTION__;
-  f.data = slin_adpcm_ex;
-  return &f;
+	static struct ast_frame f;
+	f.frametype = AST_FRAME_VOICE;
+	f.subclass = AST_FORMAT_SLINEAR;
+	f.datalen = sizeof(slin_adpcm_ex);
+	/* Assume 8000 Hz */
+	f.samples = sizeof(slin_adpcm_ex) / 2;
+	f.mallocd = 0;
+	f.offset = 0;
+	f.src = __PRETTY_FUNCTION__;
+	f.data = slin_adpcm_ex;
+	return &f;
 }
-
-/*
- * Adpcm_Destroy
- *  Destroys a private workspace.
- *
- * Results:
- *  It's gone!
- *
- * Side effects:
- *  None.
- */
-
-static void
-adpcm_destroy (struct ast_translator_pvt *pvt)
-{
-  free (pvt);
-  localusecnt--;
-  ast_update_use_count ();
-}
-
-/*
- * The complete translator for ADPCMToLin.
- */
 
 static struct ast_translator adpcmtolin = {
-  "adpcmtolin",
-  AST_FORMAT_ADPCM,
-  AST_FORMAT_SLINEAR,
-  adpcmtolin_new,
-  adpcmtolin_framein,
-  adpcmtolin_frameout,
-  adpcm_destroy,
-  /* NULL */
-  adpcmtolin_sample
+	.name = "adpcmtolin",
+	.srcfmt = AST_FORMAT_ADPCM,
+	.dstfmt = AST_FORMAT_SLINEAR,
+	.framein = adpcmtolin_framein,
+	.sample = adpcmtolin_sample,
+	.desc_size = sizeof(struct adpcm_decoder_pvt),
+	.buffer_samples = BUFFER_SAMPLES,
+	.buf_size = BUFFER_SAMPLES * 2,
+	.plc_samples = 160,
 };
-
-/*
- * The complete translator for LinToADPCM.
- */
 
 static struct ast_translator lintoadpcm = {
-  "lintoadpcm",
-  AST_FORMAT_SLINEAR,
-  AST_FORMAT_ADPCM,
-  lintoadpcm_new,
-  lintoadpcm_framein,
-  lintoadpcm_frameout,
-  adpcm_destroy,
-  /* NULL */
-  lintoadpcm_sample
+	.name = "lintoadpcm",
+	.srcfmt = AST_FORMAT_SLINEAR,
+	.dstfmt = AST_FORMAT_ADPCM,
+	.framein = lintoadpcm_framein,
+	.frameout = lintoadpcm_frameout,
+	.sample = lintoadpcm_sample,
+	.desc_size = sizeof (struct adpcm_encoder_pvt),
+	.buffer_samples = BUFFER_SAMPLES,
+	.buf_size = BUFFER_SAMPLES/ 2,	/* 2 samples per byte */
 };
 
-static void 
-parse_config(void)
+static void parse_config(void)
 {
-  struct ast_config *cfg;
-  struct ast_variable *var;
-  if ((cfg = ast_config_load("codecs.conf"))) {
-    if ((var = ast_variable_browse(cfg, "plc"))) {
-      while (var) {
-       if (!strcasecmp(var->name, "genericplc")) {
-         useplc = ast_true(var->value) ? 1 : 0;
-         if (option_verbose > 2)
-           ast_verbose(VERBOSE_PREFIX_3 "codec_adpcm: %susing generic PLC\n", useplc ? "" : "not ");
-       }
-       var = var->next;
-      }
-    }
-    ast_config_destroy(cfg);
-  }
+	struct ast_config *cfg = ast_config_load("codecs.conf");
+	struct ast_variable *var;
+	if (cfg == NULL)
+		return;
+	for (var = ast_variable_browse(cfg, "plc"); var ; var = var->next) {
+		if (!strcasecmp(var->name, "genericplc")) {
+			adpcmtolin.useplc = ast_true(var->value) ? 1 : 0;
+			if (option_verbose > 2)
+				ast_verbose(VERBOSE_PREFIX_3 "codec_adpcm: %susing generic PLC\n", adpcmtolin.useplc ? "" : "not ");
+		}
+	}
+	ast_config_destroy(cfg);
 }
 
-int
-reload(void)
+/*! \brief standard module glue */
+static int reload(void)
 {
-  parse_config();
-  return 0;
+	parse_config();
+	return 0;
 }
 
-int
-unload_module (void)
+static int unload_module(void)
 {
-  int res;
-  ast_mutex_lock (&localuser_lock);
-  res = ast_unregister_translator (&lintoadpcm);
-  if (!res)
-    res = ast_unregister_translator (&adpcmtolin);
-  if (localusecnt)
-    res = -1;
-  ast_mutex_unlock (&localuser_lock);
-  return res;
+	int res;
+
+	res = ast_unregister_translator(&lintoadpcm);
+	res |= ast_unregister_translator(&adpcmtolin);
+
+	return res;
 }
 
-int
-load_module (void)
+static int load_module(void)
 {
-  int res;
-  parse_config();
-  res = ast_register_translator (&adpcmtolin);
-  if (!res)
-    res = ast_register_translator (&lintoadpcm);
-  else
-    ast_unregister_translator (&adpcmtolin);
-  return res;
+	int res;
+
+	parse_config();
+	res = ast_register_translator(&adpcmtolin);
+	if (!res)
+		res = ast_register_translator(&lintoadpcm);
+	else
+		ast_unregister_translator(&adpcmtolin);
+
+	return res;
 }
 
-/*
- * Return a description of this module.
- */
-
-char *
-description (void)
-{
-  return tdesc;
-}
-
-int
-usecount (void)
-{
-  int res;
-  STANDARD_USECOUNT (res);
-  return res;
-}
-
-char *
-key ()
-{
-  return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Adaptive Differential PCM Coder/Decoder",
+		.load = load_module,
+		.unload = unload_module,
+		.reload = reload,
+	       );

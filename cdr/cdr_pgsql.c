@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2003 - 2005
+ * Copyright (C) 2003 - 2006
  *
  * Matthew D. Hardeman <mhardemn@papersoft.com> 
  * Adapted from the MySQL CDR logger originally by James Sharp 
@@ -32,19 +32,22 @@
  * \ingroup cdr_drivers
  */
 
+/*** MODULEINFO
+	<depend>pgsql</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 78146 $")
+
 #include <sys/types.h>
 #include <stdio.h>
 #include <string.h>
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
 
 #include <libpq-fe.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11503 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"
@@ -56,26 +59,26 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11503 $")
 
 #define DATE_FORMAT "%Y-%m-%d %T"
 
-static char *desc = "PostgreSQL CDR Backend";
 static char *name = "pgsql";
 static char *config = "cdr_pgsql.conf";
-static char *pghostname = NULL, *pgdbname = NULL, *pgdbuser = NULL, *pgpassword = NULL, *pgdbsock = NULL, *pgdbport = NULL, *table = NULL;
+static char *pghostname = NULL, *pgdbname = NULL, *pgdbuser = NULL, *pgpassword = NULL, *pgdbport = NULL, *table = NULL;
 static int connected = 0;
 
 AST_MUTEX_DEFINE_STATIC(pgsql_lock);
 
-PGconn		*conn;
-PGresult	*result;
+static PGconn	*conn = NULL;
 
 static int pgsql_log(struct ast_cdr *cdr)
 {
 	struct tm tm;
+	time_t t = cdr->start.tv_sec;
 	char sqlcmd[2048] = "", timestr[128];
 	char *pgerror;
+	PGresult *result;
 
 	ast_mutex_lock(&pgsql_lock);
 
-	localtime_r(&cdr->start.tv_sec,&tm);
+	ast_localtime(&t, &tm, NULL);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
 
 	if ((!connected) && pghostname && pgdbuser && pgpassword && pgdbname) {
@@ -85,7 +88,9 @@ static int pgsql_log(struct ast_cdr *cdr)
 		} else {
 			pgerror = PQerrorMessage(conn);
 			ast_log(LOG_ERROR, "cdr_pgsql: Unable to connect to database server %s.  Calls will not be logged!\n", pghostname);
-                        ast_log(LOG_ERROR, "cdr_pgsql: Reason: %s\n", pgerror);
+			ast_log(LOG_ERROR, "cdr_pgsql: Reason: %s\n", pgerror);
+			PQfinish(conn);
+			conn = NULL;
 		}
 	}
 
@@ -118,7 +123,8 @@ static int pgsql_log(struct ast_cdr *cdr)
 			return -1;
 		}
 
-		ast_log(LOG_DEBUG,"cdr_pgsql: inserting a CDR record.\n");
+		if (option_debug > 1)
+			ast_log(LOG_DEBUG, "cdr_pgsql: inserting a CDR record.\n");
 
 		snprintf(sqlcmd,sizeof(sqlcmd),"INSERT INTO %s (calldate,clid,src,dst,dcontext,channel,dstchannel,"
 				 "lastapp,lastdata,duration,billsec,disposition,amaflags,accountcode,uniqueid,userfield) VALUES"
@@ -126,7 +132,8 @@ static int pgsql_log(struct ast_cdr *cdr)
 				 table,timestr,clid,cdr->src, cdr->dst, dcontext,channel, dstchannel, lastapp, lastdata,
 				 cdr->duration,cdr->billsec,ast_cdr_disp2str(cdr->disposition),cdr->amaflags, cdr->accountcode, uniqueid, userfield);
 		
-		ast_log(LOG_DEBUG,"cdr_pgsql: SQL command executed:  %s\n",sqlcmd);
+		if (option_debug > 2)
+			ast_log(LOG_DEBUG, "cdr_pgsql: SQL command executed:  %s\n",sqlcmd);
 		
 		/* Test to be sure we're still connected... */
 		/* If we're connected, and connection is working, good. */
@@ -143,54 +150,50 @@ static int pgsql_log(struct ast_cdr *cdr)
 				pgerror = PQerrorMessage(conn);
 				ast_log(LOG_ERROR, "cdr_pgsql: Unable to reconnect to database server %s. Calls will not be logged!\n", pghostname);
 				ast_log(LOG_ERROR, "cdr_pgsql: Reason: %s\n", pgerror);
+				PQfinish(conn);
+				conn = NULL;
 				connected = 0;
 				ast_mutex_unlock(&pgsql_lock);
 				return -1;
 			}
 		}
 		result = PQexec(conn, sqlcmd);
-		if ( PQresultStatus(result) != PGRES_COMMAND_OK) {
-                        pgerror = PQresultErrorMessage(result);
+		if (PQresultStatus(result) != PGRES_COMMAND_OK) {
+			pgerror = PQresultErrorMessage(result);
 			ast_log(LOG_ERROR,"cdr_pgsql: Failed to insert call detail record into database!\n");
-                        ast_log(LOG_ERROR,"cdr_pgsql: Reason: %s\n", pgerror);
+			ast_log(LOG_ERROR,"cdr_pgsql: Reason: %s\n", pgerror);
 			ast_log(LOG_ERROR,"cdr_pgsql: Connection may have been lost... attempting to reconnect.\n");
 			PQreset(conn);
 			if (PQstatus(conn) == CONNECTION_OK) {
 				ast_log(LOG_ERROR, "cdr_pgsql: Connection reestablished.\n");
 				connected = 1;
+				PQclear(result);
 				result = PQexec(conn, sqlcmd);
-				if ( PQresultStatus(result) != PGRES_COMMAND_OK)
-				{
+				if (PQresultStatus(result) != PGRES_COMMAND_OK) {
 					pgerror = PQresultErrorMessage(result);
 					ast_log(LOG_ERROR,"cdr_pgsql: HARD ERROR!  Attempted reconnection failed.  DROPPING CALL RECORD!\n");
 					ast_log(LOG_ERROR,"cdr_pgsql: Reason: %s\n", pgerror);
 				}
 			}
 			ast_mutex_unlock(&pgsql_lock);
+			PQclear(result);
 			return -1;
 		}
+		PQclear(result);
 	}
 	ast_mutex_unlock(&pgsql_lock);
 	return 0;
 }
 
-char *description(void)
-{
-	return desc;
-}
-
 static int my_unload_module(void)
 { 
-	if (conn)
-		PQfinish(conn);
+	PQfinish(conn);
 	if (pghostname)
 		free(pghostname);
 	if (pgdbname)
 		free(pgdbname);
 	if (pgdbuser)
 		free(pgdbuser);
-	if (pgdbsock)
-		free(pgdbsock);
 	if (pgpassword)
 		free(pgpassword);
 	if (pgdbport)
@@ -203,95 +206,77 @@ static int my_unload_module(void)
 
 static int process_my_load_module(struct ast_config *cfg)
 {
-	int res;
 	struct ast_variable *var;
         char *pgerror;
-	char *tmp;
+	const char *tmp;
 
-	var = ast_variable_browse(cfg, "global");
-	if (!var) {
-		/* nothing configured */
+	if (!(var = ast_variable_browse(cfg, "global")))
 		return 0;
-	}
 
-	tmp = ast_variable_retrieve(cfg,"global","hostname");
-	if (tmp == NULL) {
-		ast_log(LOG_WARNING,"PostgreSQL server hostname not specified.  Assuming localhost\n");
-		tmp = "localhost";
+	if (!(tmp = ast_variable_retrieve(cfg,"global","hostname"))) {
+		ast_log(LOG_WARNING,"PostgreSQL server hostname not specified.  Assuming unix socket connection\n");
+		tmp = "";	/* connect via UNIX-socket by default */
 	}
-	pghostname = strdup(tmp);
-	if (pghostname == NULL) {
-		ast_log(LOG_ERROR,"Out of memory error.\n");
+	
+	if (!(pghostname = ast_strdup(tmp)))
 		return -1;
-	}
 
-	tmp = ast_variable_retrieve(cfg,"global","dbname");
-	if (tmp == NULL) {
+	if (!(tmp = ast_variable_retrieve(cfg, "global", "dbname"))) {
 		ast_log(LOG_WARNING,"PostgreSQL database not specified.  Assuming asterisk\n");
 		tmp = "asteriskcdrdb";
 	}
-	pgdbname = strdup(tmp);
-	if (pgdbname == NULL) {
-		ast_log(LOG_ERROR,"Out of memory error.\n");
+
+	if (!(pgdbname = ast_strdup(tmp)))
 		return -1;
+
+	if (!(tmp = ast_variable_retrieve(cfg, "global", "user"))) {
+		ast_log(LOG_WARNING,"PostgreSQL database user not specified.  Assuming asterisk\n");
+		tmp = "asterisk";
 	}
 
-	tmp = ast_variable_retrieve(cfg,"global","user");
-	if (tmp == NULL) {
-		ast_log(LOG_WARNING,"PostgreSQL database user not specified.  Assuming root\n");
-		tmp = "root";
-	}
-	pgdbuser = strdup(tmp);
-	if (pgdbuser == NULL) {
-		ast_log(LOG_ERROR,"Out of memory error.\n");
+	if (!(pgdbuser = ast_strdup(tmp)))
 		return -1;
-	}
 
-	tmp = ast_variable_retrieve(cfg,"global","password");
-	if (tmp == NULL) {
+	if (!(tmp = ast_variable_retrieve(cfg, "global", "password"))) {
 		ast_log(LOG_WARNING,"PostgreSQL database password not specified.  Assuming blank\n");
 		tmp = "";
 	}
-	pgpassword = strdup(tmp);
-	if (pgpassword == NULL) {
-		ast_log(LOG_ERROR,"Out of memory error.\n");
-		return -1;
-	}
 
-	tmp = ast_variable_retrieve(cfg,"global","port");
-	if (tmp == NULL) {
+	if (!(pgpassword = ast_strdup(tmp)))
+		return -1;
+
+	if (!(tmp = ast_variable_retrieve(cfg,"global","port"))) {
 		ast_log(LOG_WARNING,"PostgreSQL database port not specified.  Using default 5432.\n");
 		tmp = "5432";
 	}
-	pgdbport = strdup(tmp);
-	if (pgdbport == NULL) {
-		ast_log(LOG_ERROR,"Out of memory error.\n");
-		return -1;
-	}
 
-	tmp = ast_variable_retrieve(cfg,"global","table");
-	if (tmp == NULL) {
+	if (!(pgdbport = ast_strdup(tmp)))
+		return -1;
+
+	if (!(tmp = ast_variable_retrieve(cfg, "global", "table"))) {
 		ast_log(LOG_WARNING,"CDR table not specified.  Assuming cdr\n");
 		tmp = "cdr";
 	}
-	table = strdup(tmp);
-	if (table == NULL) {
-		ast_log(LOG_ERROR,"Out of memory error.\n");
-		return -1;
-	}
 
-	ast_log(LOG_DEBUG,"cdr_pgsql: got hostname of %s\n",pghostname);
-	ast_log(LOG_DEBUG,"cdr_pgsql: got port of %s\n",pgdbport);
-	if (pgdbsock)
-		ast_log(LOG_DEBUG,"cdr_pgsql: got sock file of %s\n",pgdbsock);
-	ast_log(LOG_DEBUG,"cdr_pgsql: got user of %s\n",pgdbuser);
-	ast_log(LOG_DEBUG,"cdr_pgsql: got dbname of %s\n",pgdbname);
-	ast_log(LOG_DEBUG,"cdr_pgsql: got password of %s\n",pgpassword);
-	ast_log(LOG_DEBUG,"cdr_pgsql: got sql table name of %s\n",table);
+	if (!(table = ast_strdup(tmp)))
+		return -1;
+
+	if (option_debug) {
+	    	if (ast_strlen_zero(pghostname))
+			ast_log(LOG_DEBUG, "cdr_pgsql: using default unix socket\n");
+		else
+			ast_log(LOG_DEBUG, "cdr_pgsql: got hostname of %s\n", pghostname);
+		ast_log(LOG_DEBUG, "cdr_pgsql: got port of %s\n", pgdbport);
+		ast_log(LOG_DEBUG, "cdr_pgsql: got user of %s\n", pgdbuser);
+		ast_log(LOG_DEBUG, "cdr_pgsql: got dbname of %s\n", pgdbname);
+		ast_log(LOG_DEBUG, "cdr_pgsql: got password of %s\n", pgpassword);
+		ast_log(LOG_DEBUG, "cdr_pgsql: got sql table name of %s\n", table);
+	}
 	
 	conn = PQsetdbLogin(pghostname, pgdbport, NULL, NULL, pgdbname, pgdbuser, pgpassword);
 	if (PQstatus(conn) != CONNECTION_BAD) {
-		ast_log(LOG_DEBUG,"Successfully connected to PostgreSQL database.\n");
+		if (option_debug)
+			ast_log(LOG_DEBUG, "Successfully connected to PostgreSQL database.\n");
 		connected = 1;
 	} else {
                 pgerror = PQerrorMessage(conn);
@@ -300,55 +285,47 @@ static int process_my_load_module(struct ast_config *cfg)
 		connected = 0;
 	}
 
-	res = ast_cdr_register(name, desc, pgsql_log);
-	if (res) {
-		ast_log(LOG_ERROR, "Unable to register PGSQL CDR handling\n");
-	}
-	return res;
+	return ast_cdr_register(name, ast_module_info->description, pgsql_log);
 }
 
 static int my_load_module(void)
 {
 	struct ast_config *cfg;
 	int res;
-	cfg = ast_config_load(config);
-	if (!cfg) {
+
+	if (!(cfg = ast_config_load(config))) {
 		ast_log(LOG_WARNING, "Unable to load config for PostgreSQL CDR's: %s\n", config);
-		return 0;
+		return AST_MODULE_LOAD_DECLINE;
 	}
+
 	res = process_my_load_module(cfg);
 	ast_config_destroy(cfg);
+
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return my_load_module();
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	return my_unload_module();
 }
 
-int reload(void)
+static int reload(void)
 {
+	int res;
+	ast_mutex_lock(&pgsql_lock);
 	my_unload_module();
-	return my_load_module();
+	res = my_load_module();
+	ast_mutex_unlock(&pgsql_lock);
+	return res;
 }
 
-int usecount(void)
-{
-	/* To be able to unload the module */
-	if ( ast_mutex_trylock(&pgsql_lock) ) {
-		return 1;
-	} else {
-		ast_mutex_unlock(&pgsql_lock);
-		return 0;
-	}
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "PostgreSQL CDR Backend",
+		.load = load_module,
+		.unload = unload_module,
+		.reload = reload,
+	       );

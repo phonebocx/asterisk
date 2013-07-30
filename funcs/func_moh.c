@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Russell Bryant <russelb@clemson.edu> 
  *
@@ -19,38 +19,69 @@
 /*! \file
  *
  * \brief Functions for reading or setting the MusicOnHold class
- * 
+ *
+ * \author Russell Bryant <russelb@clemson.edu> 
  */
-
-#include <stdlib.h>
 
 #include "asterisk.h"
 
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61681 $")
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "asterisk/module.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/utils.h"
+#include "asterisk/stringfields.h"
 
-static char *function_moh_read(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
+static int depwarning = 0;
+
+static int moh_read(struct ast_channel *chan, char *cmd, char *data,
+		    char *buf, size_t len)
 {
-	ast_copy_string(buf, chan->musicclass, len);
+	if (!depwarning) {
+		depwarning = 1;
+		ast_log(LOG_WARNING, "MUSICCLASS() is deprecated; use CHANNEL(musicclass) instead.\n");
+	}
 
-	return buf;
+	ast_copy_string(buf, chan ? chan->musicclass : "", len);
+
+	return 0;
 }
 
-static void function_moh_write(struct ast_channel *chan, char *cmd, char *data, const char *value) 
+static int moh_write(struct ast_channel *chan, char *cmd, char *data,
+		     const char *value)
 {
-	ast_copy_string(chan->musicclass, value, sizeof(chan->musicclass));
+	if (!depwarning) {
+		depwarning = 1;
+		ast_log(LOG_WARNING, "MUSICCLASS() is deprecated; use CHANNEL(musicclass) instead.\n");
+	}
+
+	if (chan)
+		ast_string_field_set(chan, musicclass, value);
+
+	return 0;
 }
 
-#ifndef BUILTIN_FUNC
-static
-#endif
-struct ast_custom_function moh_function = {
+static struct ast_custom_function moh_function = {
 	.name = "MUSICCLASS",
 	.synopsis = "Read or Set the MusicOnHold class",
 	.syntax = "MUSICCLASS()",
-	.desc = "This function will read or set the music on hold class for a channel.\n",
-	.read = function_moh_read,
-	.write = function_moh_write,
+	.desc = "Deprecated. Use CHANNEL(musicclass) instead.\n",
+	.read = moh_read,
+	.write = moh_write,
 };
 
+static int unload_module(void)
+{
+	return ast_custom_function_unregister(&moh_function);
+}
+
+static int load_module(void)
+{
+	return ast_custom_function_register(&moh_function);
+}
+
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Music-on-hold dialplan function");

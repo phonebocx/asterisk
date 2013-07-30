@@ -2,7 +2,7 @@
 ; Static and realtime external configuration
 ; engine configuration
 ;
-; Please read doc/README.extconfig for basic table
+; Please read doc/extconfig.txt for basic table
 ; formatting information.
 ;
 [settings]
@@ -40,6 +40,13 @@
 ; the family if the table is not specified
 ;
 ;example => odbc,asterisk,alttable
+;
+; "odbc" is shown in the examples below, but is not the only valid realtime
+; engine.  There is:
+;    odbc ... res_config_odbc
+;    pgsql ... res_config_pgsql
+;    mysql ... res_config_mysql (available from asterisk-addons)
+;
 ;iaxusers => odbc,asterisk
 ;iaxpeers => odbc,asterisk
 ;sipusers => odbc,asterisk

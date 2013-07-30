@@ -80,7 +80,7 @@ struct ast_ivr_menu {
 
 /*!	\brief Runs an IVR menu 
 	\return returns 0 on successful completion, -1 on hangup, or -2 on user error in menu */
-extern int ast_ivr_menu_run(struct ast_channel *c, struct ast_ivr_menu *menu, void *cbdata);
+int ast_ivr_menu_run(struct ast_channel *c, struct ast_ivr_menu *menu, void *cbdata);
 
 /*! \brief Plays a stream and gets DTMF data from a channel 
  * \param c Which channel one is interacting with
@@ -94,16 +94,14 @@ extern int ast_ivr_menu_run(struct ast_channel *c, struct ast_ivr_menu *menu, vo
  *  is pressed during playback, it will immediately break out of the message and continue
  *  execution of your code.
  */
-extern int ast_app_getdata(struct ast_channel *c, char *prompt, char *s, int maxlen, int timeout);
+int ast_app_getdata(struct ast_channel *c, char *prompt, char *s, int maxlen, int timeout);
 
 /*! \brief Full version with audiofd and controlfd.  NOTE: returns '2' on ctrlfd available, not '1' like other full functions */
-extern int ast_app_getdata_full(struct ast_channel *c, char *prompt, char *s, int maxlen, int timeout, int audiofd, int ctrlfd);
-
-/*! Record voice (after playing prompt if specified), waiting for silence (in ms) up to a given timeout (in s) or '#' */
-int ast_app_getvoice(struct ast_channel *c, char *dest, char *dstfmt, char *prompt, int silence, int maxsec);
+int ast_app_getdata_full(struct ast_channel *c, char *prompt, char *s, int maxlen, int timeout, int audiofd, int ctrlfd);
 
 void ast_install_vm_functions(int (*has_voicemail_func)(const char *mailbox, const char *folder),
-			      int (*messagecount_func)(const char *mailbox, int *newmsgs, int *oldmsgs));
+			      int (*inboxcount_func)(const char *mailbox, int *newmsgs, int *oldmsgs),
+			      int (*messagecount_func)(const char *context, const char *mailbox, const char *folder));
   
 void ast_uninstall_vm_functions(void);
 
@@ -111,15 +109,54 @@ void ast_uninstall_vm_functions(void);
 int ast_app_has_voicemail(const char *mailbox, const char *folder);
 
 /*! Determine number of new/old messages in a mailbox */
-int ast_app_messagecount(const char *mailbox, int *newmsgs, int *oldmsgs);
+int ast_app_inboxcount(const char *mailbox, int *newmsgs, int *oldmsgs);
+
+/*! Determine number of messages in a given mailbox and folder */
+int ast_app_messagecount(const char *context, const char *mailbox, const char *folder);
 
 /*! Safely spawn an external program while closing file descriptors 
 	\note This replaces the \b system call in all Asterisk modules
 */
-extern int ast_safe_system(const char *s);
+int ast_safe_system(const char *s);
 
-/*! Send DTMF to chan (optionally entertain peer)   */
-int ast_dtmf_stream(struct ast_channel *chan, struct ast_channel *peer, char *digits, int between);
+/*!
+ * \brief Replace the SIGCHLD handler
+ *
+ * Normally, Asterisk has a SIGCHLD handler that is cleaning up all zombie
+ * processes from forking elsewhere in Asterisk.  However, if you want to
+ * wait*() on the process to retrieve information about it's exit status,
+ * then this signal handler needs to be temporaraly replaced.
+ *
+ * Code that executes this function *must* call ast_unreplace_sigchld()
+ * after it is finished doing the wait*().
+ */
+void ast_replace_sigchld(void);
+
+/*!
+ * \brief Restore the SIGCHLD handler
+ *
+ * This function is called after a call to ast_replace_sigchld.  It restores
+ * the SIGCHLD handler that cleans up any zombie processes.
+ */
+void ast_unreplace_sigchld(void);
+
+/*!
+  \brief Send DTMF to a channel
+
+  \param chan    The channel that will receive the DTMF frames
+  \param peer    (optional) Peer channel that will be autoserviced while the
+                 primary channel is receiving DTMF
+  \param digits  This is a string of characters representing the DTMF digits
+                 to be sent to the channel.  Valid characters are
+                 "0123456789*#abcdABCD".  Note: You can pass arguments 'f' or
+                 'F', if you want to Flash the channel (if supported by the
+                 channel), or 'w' to add a 500 millisecond pause to the DTMF
+                 sequence.
+  \param between This is the number of milliseconds to wait in between each
+                 DTMF digit.  If zero milliseconds is specified, then the
+                 default value of 100 will be used.
+*/
+int ast_dtmf_stream(struct ast_channel *chan, struct ast_channel *peer, const char *digits, int between);
 
 /*! Stream a filename (or file descriptor) as a generator. */
 int ast_linear_stream(struct ast_channel *chan, const char *filename, int fd, int allowoverride);
@@ -166,19 +203,39 @@ int ast_unlock_path(const char *path);
 /*! Read a file into asterisk*/
 char *ast_read_textfile(const char *file);
 
-#define GROUP_CATEGORY_PREFIX "GROUP"
+struct ast_group_info {
+	struct ast_channel *chan;
+	char *category;
+	char *group;
+	AST_LIST_ENTRY(ast_group_info) list;
+};
 
 /*! Split a group string into group and category, returning a default category if none is provided. */
-int ast_app_group_split_group(char *data, char *group, int group_max, char *category, int category_max);
+int ast_app_group_split_group(const char *data, char *group, int group_max, char *category, int category_max);
 
 /*! Set the group for a channel, splitting the provided data into group and category, if specified. */
-int ast_app_group_set_channel(struct ast_channel *chan, char *data);
+int ast_app_group_set_channel(struct ast_channel *chan, const char *data);
 
 /*! Get the current channel count of the specified group and category. */
-int ast_app_group_get_count(char *group, char *category);
+int ast_app_group_get_count(const char *group, const char *category);
 
 /*! Get the current channel count of all groups that match the specified pattern and category. */
-int ast_app_group_match_get_count(char *groupmatch, char *category);
+int ast_app_group_match_get_count(const char *groupmatch, const char *category);
+
+/*! Discard all group counting for a channel */
+int ast_app_group_discard(struct ast_channel *chan);
+
+/*! Update all group counting for a channel to a new one */
+int ast_app_group_update(struct ast_channel *oldchan, struct ast_channel *newchan);
+
+/*! Lock the group count list */
+int ast_app_group_list_lock(void);
+
+/*! Get the head of the group count list */
+struct ast_group_info *ast_app_group_list_head(void);
+
+/*! Unlock the group count list */
+int ast_app_group_list_unlock(void);
 
 /*!
   \brief Define an application argument
@@ -221,6 +278,19 @@ int ast_app_group_match_get_count(char *groupmatch, char *category);
 	args.argc = ast_app_separate_args(parse, '|', args.argv, (sizeof(args) - sizeof(args.argc)) / sizeof(args.argv[0]))
 	
 /*!
+  \brief Performs the 'nonstandard' argument separation process for an application.
+  \param args An argument structure defined using AST_DECLARE_APP_ARGS
+  \param parse A modifiable buffer containing the input to be parsed
+  \param sep A nonstandard separator character
+
+  This function will separate the input string using the nonstandard argument
+  separator character and fill in the provided structure, including
+  the argc argument counter field.
+ */
+#define AST_NONSTANDARD_APP_ARGS(args, parse, sep) \
+	args.argc = ast_app_separate_args(parse, sep, args.argv, (sizeof(args) - sizeof(args.argc)) / sizeof(args.argv[0]))
+	
+/*!
   \brief Separate a string into arguments in an array
   \param buf The string to be parsed (this must be a writable copy, as it will be modified)
   \param delim The character to be used to delimit arguments
@@ -255,6 +325,9 @@ struct ast_app_option {
 	  that should be used for this option's argument. */
 	unsigned int arg_index;
 };
+
+#define BEGIN_OPTIONS {
+#define END_OPTIONS }
 
 /*!
   \brief Declares an array of options for an application.

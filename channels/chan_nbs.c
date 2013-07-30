@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -25,6 +25,14 @@
  * \ingroup channel_drivers
  */
 
+/*** MODULEINFO
+	<depend>nbs</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60989 $")
+
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -37,10 +45,6 @@
 #include <sys/ioctl.h>
 #include <nbs.h>
 
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
-
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
 #include "asterisk/config.h"
@@ -50,18 +54,13 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/options.h"
 #include "asterisk/utils.h"
 
-static const char desc[] = "Network Broadcast Sound Support";
-static const char type[] = "NBS";
 static const char tdesc[] = "Network Broadcast Sound Driver";
-
-static int usecnt =0;
 
 /* Only linear is allowed */
 static int prefformat = AST_FORMAT_SLINEAR;
 
-AST_MUTEX_DEFINE_STATIC(usecnt_lock);
-
 static char context[AST_MAX_EXTENSION] = "default";
+static char type[] = "NBS";
 
 /* NBS creates private structures on demand */
    
@@ -71,6 +70,7 @@ struct nbs_pvt {
 	char app[16];					/* Our app */
 	char stream[80];				/* Our stream */
 	struct ast_frame fr;			/* "null" frame */
+	struct ast_module_user *u;		/*! for holding a reference to this module */
 };
 
 static struct ast_channel *nbs_request(const char *type, int format, void *data, int *cause);
@@ -121,6 +121,7 @@ static void nbs_destroy(struct nbs_pvt *p)
 {
 	if (p->nbs)
 		nbs_delstream(p->nbs);
+	ast_module_user_remove(p->u);
 	free(p);
 }
 
@@ -128,9 +129,10 @@ static struct nbs_pvt *nbs_alloc(void *data)
 {
 	struct nbs_pvt *p;
 	int flags = 0;
-	char stream[256] = "";
+	char stream[256];
 	char *opts;
-	strncpy(stream, data, sizeof(stream) - 1);
+
+	ast_copy_string(stream, data, sizeof(stream));
 	if ((opts = strchr(stream, ':'))) {
 		*opts = '\0';
 		opts++;
@@ -151,7 +153,7 @@ static struct nbs_pvt *nbs_alloc(void *data)
 		} else
 			flags = NBS_FLAG_OVERSPEAK;
 		
-		strncpy(p->stream, stream, sizeof(p->stream) - 1);
+		ast_copy_string(p->stream, stream, sizeof(p->stream));
 		p->nbs = nbs_newstream("asterisk", stream, flags);
 		if (!p->nbs) {
 			ast_log(LOG_WARNING, "Unable to allocate new NBS stream '%s' with flags %d\n", stream, flags);
@@ -230,29 +232,23 @@ static int nbs_xwrite(struct ast_channel *ast, struct ast_frame *frame)
 static struct ast_channel *nbs_new(struct nbs_pvt *i, int state)
 {
 	struct ast_channel *tmp;
-	tmp = ast_channel_alloc(1);
+	tmp = ast_channel_alloc(1, state, 0, 0, "", "s", context, 0, "NBS/%s", i->stream);
 	if (tmp) {
 		tmp->tech = &nbs_tech;
-		snprintf(tmp->name, sizeof(tmp->name), "NBS/%s", i->stream);
-		tmp->type = type;
 		tmp->fds[0] = nbs_fd(i->nbs);
 		tmp->nativeformats = prefformat;
 		tmp->rawreadformat = prefformat;
 		tmp->rawwriteformat = prefformat;
 		tmp->writeformat = prefformat;
 		tmp->readformat = prefformat;
-		ast_setstate(tmp, state);
 		if (state == AST_STATE_RING)
 			tmp->rings = 1;
 		tmp->tech_pvt = i;
-		strncpy(tmp->context, context, sizeof(tmp->context)-1);
-		strncpy(tmp->exten, "s",  sizeof(tmp->exten) - 1);
-		tmp->language[0] = '\0';
+		ast_copy_string(tmp->context, context, sizeof(tmp->context));
+		ast_copy_string(tmp->exten, "s",  sizeof(tmp->exten));
+		ast_string_field_set(tmp, language, "");
 		i->owner = tmp;
-		ast_mutex_lock(&usecnt_lock);
-		usecnt++;
-		ast_mutex_unlock(&usecnt_lock);
-		ast_update_use_count();
+		i->u = ast_module_user_add(tmp);
 		if (state != AST_STATE_DOWN) {
 			if (ast_pbx_start(tmp)) {
 				ast_log(LOG_WARNING, "Unable to start PBX on %s\n", tmp->name);
@@ -286,40 +282,21 @@ static struct ast_channel *nbs_request(const char *type, int format, void *data,
 	return tmp;
 }
 
-static int __unload_module(void)
+static int unload_module(void)
 {
 	/* First, take us out of the channel loop */
 	ast_channel_unregister(&nbs_tech);
 	return 0;
 }
 
-int unload_module(void)
-{
-	return __unload_module();
-}
-
-int load_module()
+static int load_module(void)
 {
 	/* Make sure we can register our channel type */
 	if (ast_channel_register(&nbs_tech)) {
 		ast_log(LOG_ERROR, "Unable to register channel class %s\n", type);
-		__unload_module();
 		return -1;
 	}
 	return 0;
 }
 
-int usecount()
-{
-	return usecnt;
-}
-
-char *description()
-{
-	return (char *) desc;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Network Broadcast Sound Support");

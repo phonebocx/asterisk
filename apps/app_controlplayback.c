@@ -17,18 +17,21 @@
  */
 
 /*! \file
+ * 
  * \brief Trivial application to control playback of a sound file
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -40,8 +43,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/translate.h"
 #include "asterisk/utils.h"
 #include "asterisk/options.h"
-
-static const char *tdesc = "Control Playback Application";
 
 static const char *app = "ControlPlayback";
 
@@ -65,9 +66,6 @@ static const char *descrip =
 "  CPLAYBACKSTATUS -  This variable contains the status of the attempt as a text\n"
 "                     string, one of: SUCCESS | USERSTOPPED | ERROR\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int is_on_phonepad(char key)
 {
@@ -78,7 +76,7 @@ static int controlplayback_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0, priority_jump = 0;
 	int skipms = 0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	char *tmp;
 	int argc;
 	char *argv[8];
@@ -98,7 +96,7 @@ static int controlplayback_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 	
 	tmp = ast_strdupa(data);
 	memset(argv, 0, sizeof(argv));
@@ -107,7 +105,7 @@ static int controlplayback_exec(struct ast_channel *chan, void *data)
 
 	if (argc < 1) {
 		ast_log(LOG_WARNING, "ControlPlayback requires an argument (filename)\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 
@@ -139,7 +137,7 @@ static int controlplayback_exec(struct ast_channel *chan, void *data)
 		pbx_builtin_setvar_helper(chan, "CPLAYBACKSTATUS", "USERSTOPPED");
 	} else {
 		if (res < 0) {
-			if (priority_jump || option_priority_jumping) {
+			if (priority_jump || ast_opt_priority_jumping) {
 				if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
 					ast_log(LOG_WARNING, "ControlPlayback tried to jump to priority n+101 as requested, but priority didn't exist\n");
 				}
@@ -150,41 +148,21 @@ static int controlplayback_exec(struct ast_channel *chan, void *data)
 			pbx_builtin_setvar_helper(chan, "CPLAYBACKSTATUS", "SUCCESS");
 	}
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
-
 	res = ast_unregister_application(app);
-
-	STANDARD_HANGUP_LOCALUSERS;
-
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, controlplayback_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return (char *) tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Control Playback Application");

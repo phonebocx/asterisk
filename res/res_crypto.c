@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -19,8 +19,17 @@
 /*! \file
  *
  * \brief Provide Cryptographic Signature capability
- * 
+ *
+ * \author Mark Spencer <markster@digium.com> 
  */
+
+/*** MODULEINFO
+	<depend>ssl</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47051 $")
 
 #include <sys/types.h>
 #include <openssl/ssl.h>
@@ -31,10 +40,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -214,13 +219,10 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 	/* Make fname just be the normal name now */
 	*c = '\0';
 	if (!key) {
-		key = (struct ast_key *)malloc(sizeof(struct ast_key));
-		if (!key) {
-			ast_log(LOG_WARNING, "Out of memory\n");
+		if (!(key = ast_calloc(1, sizeof(*key)))) {
 			fclose(f);
 			return NULL;
 		}
-		memset(key, 0, sizeof(struct ast_key));
 	}
 	/* At this point we have a key structure (old or new).  Time to
 	   fill it with what we know */
@@ -268,7 +270,7 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 		ast_log(LOG_NOTICE, "Key '%s' needs passcode.\n", key->name);
 		key->ktype |= KEY_NEEDS_PASSCODE;
 		if (!notice) {
-			if (!option_initcrypto) 
+			if (!ast_opt_init_keys) 
 				ast_log(LOG_NOTICE, "Add the '-i' flag to the asterisk command line if you want to automatically initialize passcodes at launch.\n");
 			notice++;
 		}
@@ -552,25 +554,38 @@ static int init_keys(int fd, int argc, char *argv[])
 }
 
 static char show_key_usage[] =
-"Usage: show keys\n"
+"Usage: keys show\n"
 "       Displays information about RSA keys known by Asterisk\n";
 
 static char init_keys_usage[] =
-"Usage: init keys\n"
+"Usage: keys init\n"
 "       Initializes private keys (by reading in pass code from the user)\n";
 
-static struct ast_cli_entry cli_show_keys = 
-{ { "show", "keys", NULL }, show_keys, "Displays RSA key information", show_key_usage };
+static struct ast_cli_entry cli_show_keys_deprecated = {
+	{ "show", "keys", NULL },
+	show_keys, NULL,
+	NULL };
 
-static struct ast_cli_entry cli_init_keys = 
-{ { "init", "keys", NULL }, init_keys, "Initialize RSA key passcodes", init_keys_usage };
+static struct ast_cli_entry cli_init_keys_deprecated = {
+	{ "init", "keys", NULL },
+	init_keys, NULL,
+	NULL };
+
+static struct ast_cli_entry cli_crypto[] = {
+	{ { "keys", "show", NULL },
+	show_keys, "Displays RSA key information",
+	show_key_usage, NULL, &cli_show_keys_deprecated },
+
+	{ { "keys", "init", NULL },
+	init_keys, "Initialize RSA key passcodes",
+	init_keys_usage, NULL, &cli_init_keys_deprecated },
+};
 
 static int crypto_init(void)
 {
 	SSL_library_init();
 	ERR_load_crypto_strings();
-	ast_cli_register(&cli_show_keys);
-	ast_cli_register(&cli_init_keys);
+	ast_cli_register_multiple(cli_crypto, sizeof(cli_crypto) / sizeof(struct ast_cli_entry));
 
 	/* Install ourselves into stubs */
 	ast_key_get = __ast_key_get;
@@ -583,40 +598,31 @@ static int crypto_init(void)
 	return 0;
 }
 
-int reload(void)
+static int reload(void)
 {
 	crypto_load(-1, -1);
 	return 0;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	crypto_init();
-	if (option_initcrypto)
+	if (ast_opt_init_keys)
 		crypto_load(STDIN_FILENO, STDOUT_FILENO);
 	else
 		crypto_load(-1, -1);
 	return 0;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	/* Can't unload this once we're loaded */
 	return -1;
 }
 
-char *description(void)
-{
-	return "Cryptographic Digital Signatures";
-}
-
-int usecount(void)
-{
-	/* We should never be unloaded */
-	return 1;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+/* needs usecount semantics defined */
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "Cryptographic Digital Signatures",
+		.load = load_module,
+		.unload = unload_module,
+		.reload = reload
+	);

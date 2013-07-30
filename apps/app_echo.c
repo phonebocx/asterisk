@@ -19,18 +19,20 @@
 /*! \file
  *
  * \brief Echo application -- play back what you hear to evaluate latency
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 53880 $")
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -39,85 +41,64 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 
-static char *tdesc = "Simple Echo Application";
-
 static char *app = "Echo";
 
-static char *synopsis = "Echo audio read back to the user";
+static char *synopsis = "Echo audio, video, or DTMF back to the calling party";
 
 static char *descrip = 
-"  Echo():  Echo audio read from channel back to the channel. \n"
-"User can exit the application by either pressing the '#' key, \n"
-"or hanging up.\n";
+"  Echo(): This application will echo any audio, video, or DTMF frames read from\n"
+"the calling channel back to itself. If the DTMF digit '#' is received, the\n"
+"application will exit.\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int echo_exec(struct ast_channel *chan, void *data)
 {
-	int res=-1;
-	struct localuser *u;
-	struct ast_frame *f;
-	LOCAL_USER_ADD(u);
-	ast_set_write_format(chan, ast_best_codec(chan->nativeformats));
-	ast_set_read_format(chan, ast_best_codec(chan->nativeformats));
-	/* Do our thing here */
-	while(ast_waitfor(chan, -1) > -1) {
-		f = ast_read(chan);
+	int res = -1;
+	int format;
+	struct ast_module_user *u;
+
+	u = ast_module_user_add(chan);
+
+	format = ast_best_codec(chan->nativeformats);
+	ast_set_write_format(chan, format);
+	ast_set_read_format(chan, format);
+
+	while (ast_waitfor(chan, -1) > -1) {
+		struct ast_frame *f = ast_read(chan);
 		if (!f)
 			break;
 		f->delivery.tv_sec = 0;
 		f->delivery.tv_usec = 0;
-		if (f->frametype == AST_FRAME_VOICE) {
-			if (ast_write(chan, f)) 
-				break;
-		} else if (f->frametype == AST_FRAME_VIDEO) {
-			if (ast_write(chan, f)) 
-				break;
-		} else if (f->frametype == AST_FRAME_DTMF) {
-			if (f->subclass == '#') {
-				res = 0;
-				break;
-			} else
-				if (ast_write(chan, f))
-					break;
+		if (ast_write(chan, f)) {
+			ast_frfree(f);
+			goto end;
+		}
+		if ((f->frametype == AST_FRAME_DTMF) && (f->subclass == '#')) {
+			res = 0;
+			ast_frfree(f);
+			goto end;
 		}
 		ast_frfree(f);
 	}
-	LOCAL_USER_REMOVE(u);
+end:
+	ast_module_user_remove(u);
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, echo_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Simple Echo Application");

@@ -20,18 +20,25 @@
  *
  * \brief page() - Paging application
  *
+ * \author Mark Spencer <markster@digium.com>
+ *
  * \ingroup applications
  */
+
+/*** MODULEINFO
+	<depend>zaptel</depend>
+	<depend>app_meetme</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 66879 $")
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19812 $")
 
 #include "asterisk/options.h"
 #include "asterisk/logger.h"
@@ -41,9 +48,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 19812 $")
 #include "asterisk/file.h"
 #include "asterisk/app.h"
 #include "asterisk/chanvars.h"
-
-
-static const char *tdesc = "Page Multiple Phones";
+#include "asterisk/utils.h"
+#include "asterisk/dial.h"
+#include "asterisk/devicestate.h"
 
 static const char *app_page= "Page";
 
@@ -56,120 +63,48 @@ static const char *page_descrip =
 "caller is dumped into the conference as a speaker and the room is\n"
 "destroyed when the original caller leaves.  Valid options are:\n"
 "        d - full duplex audio\n"
-"	 q - quiet, do not play beep to caller\n";
-
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
+"        q - quiet, do not play beep to caller\n"
+"        r - record the page into a file (see 'r' for app_meetme)\n";
 
 enum {
 	PAGE_DUPLEX = (1 << 0),
 	PAGE_QUIET = (1 << 1),
+	PAGE_RECORD = (1 << 2),
 } page_opt_flags;
 
 AST_APP_OPTIONS(page_opts, {
 	AST_APP_OPTION('d', PAGE_DUPLEX),
 	AST_APP_OPTION('q', PAGE_QUIET),
+	AST_APP_OPTION('r', PAGE_RECORD),
 });
 
-struct calloutdata {
-	char cidnum[64];
-	char cidname[64];
-	char tech[64];
-	char resource[256];
-	char meetmeopts[64];
-	struct ast_variable *variables;
-};
-
-static void *page_thread(void *data)
-{
-	struct calloutdata *cd = data;
-	ast_pbx_outgoing_app(cd->tech, AST_FORMAT_SLINEAR, cd->resource, 30000,
-		"MeetMe", cd->meetmeopts, NULL, 0, cd->cidnum, cd->cidname, cd->variables, NULL, NULL);
-	free(cd);
-	return NULL;
-}
-
-static void launch_page(struct ast_channel *chan, const char *meetmeopts, const char *tech, const char *resource)
-{
-	struct calloutdata *cd;
-	const char *varname;
-	struct ast_variable *lastvar = NULL;
-	struct ast_var_t *varptr;
-	pthread_t t;
-	pthread_attr_t attr;
-	cd = malloc(sizeof(struct calloutdata));
-	if (cd) {
-		memset(cd, 0, sizeof(struct calloutdata));
-		ast_copy_string(cd->cidnum, chan->cid.cid_num ? chan->cid.cid_num : "", sizeof(cd->cidnum));
-		ast_copy_string(cd->cidname, chan->cid.cid_name ? chan->cid.cid_name : "", sizeof(cd->cidname));
-		ast_copy_string(cd->tech, tech, sizeof(cd->tech));
-		ast_copy_string(cd->resource, resource, sizeof(cd->resource));
-		ast_copy_string(cd->meetmeopts, meetmeopts, sizeof(cd->meetmeopts));
-
-		AST_LIST_TRAVERSE(&chan->varshead, varptr, entries) {
-			if (!(varname = ast_var_full_name(varptr)))
-				continue;
-			if (varname[0] == '_') {
-				struct ast_variable *newvar = NULL;
-
-				if (varname[1] == '_') {
-					newvar = ast_variable_new(varname, ast_var_value(varptr));
-				} else {
-					newvar = ast_variable_new(&varname[1], ast_var_value(varptr));
-				}
-
-				if (newvar) {
-					if (lastvar)
-						lastvar->next = newvar;
-					else
-						cd->variables = newvar;
-					lastvar = newvar;
-				}
-			}
-		}
-
-		pthread_attr_init(&attr);
-		pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-		if (ast_pthread_create(&t, &attr, page_thread, cd)) {
-			ast_log(LOG_WARNING, "Unable to create paging thread: %s\n", strerror(errno));
-			free(cd);
-		}
-	}
-}
+#define MAX_DIALS 128
 
 static int page_exec(struct ast_channel *chan, void *data)
 {
-	struct localuser *u;
-	char *options;
-	char *tech, *resource;
-	char meetmeopts[80];
+	struct ast_module_user *u;
+	char *options, *tech, *resource, *tmp;
+	char meetmeopts[88], originator[AST_CHANNEL_NAME];
 	struct ast_flags flags = { 0 };
-	unsigned int confid = rand();
+	unsigned int confid = ast_random();
 	struct ast_app *app;
-	char *tmp;
-	int res=0;
-	char originator[AST_CHANNEL_NAME];
+	int res = 0, pos = 0, i = 0;
+	struct ast_dial *dials[MAX_DIALS];
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "This application requires at least one argument (destination(s) to page)\n");
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	if (!(app = pbx_findapp("MeetMe"))) {
 		ast_log(LOG_WARNING, "There is no MeetMe application available!\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	};
 
 	options = ast_strdupa(data);
-	if (!options) {
-		ast_log(LOG_ERROR, "Out of memory\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
 
 	ast_copy_string(originator, chan->name, sizeof(originator));
 	if ((tmp = strchr(originator, '-')))
@@ -179,19 +114,42 @@ static int page_exec(struct ast_channel *chan, void *data)
 	if (options)
 		ast_app_parse_options(page_opts, &flags, NULL, options);
 
-	snprintf(meetmeopts, sizeof(meetmeopts), "%ud|%sqxdw", confid, ast_test_flag(&flags, PAGE_DUPLEX) ? "" : "m");
+	snprintf(meetmeopts, sizeof(meetmeopts), "MeetMe|%ud|%s%sqxdw(5)", confid, (ast_test_flag(&flags, PAGE_DUPLEX) ? "" : "m"),
+		(ast_test_flag(&flags, PAGE_RECORD) ? "r" : "") );
 
+	/* Go through parsing/calling each device */
 	while ((tech = strsep(&tmp, "&"))) {
+		struct ast_dial *dial = NULL;
+
 		/* don't call the originating device */
 		if (!strcasecmp(tech, originator))
 			continue;
 
-		if ((resource = strchr(tech, '/'))) {
-			*resource++ = '\0';
-			launch_page(chan, meetmeopts, tech, resource);
-		} else {
+		/* If no resource is available, continue on */
+		if (!(resource = strchr(tech, '/'))) {
 			ast_log(LOG_WARNING, "Incomplete destination '%s' supplied.\n", tech);
+			continue;
 		}
+
+		*resource++ = '\0';
+
+		/* Create a dialing structure */
+		if (!(dial = ast_dial_create())) {
+			ast_log(LOG_WARNING, "Failed to create dialing structure.\n");
+			continue;
+		}
+
+		/* Append technology and resource */
+		ast_dial_append(dial, tech, resource);
+
+		/* Set ANSWER_EXEC as global option */
+		ast_dial_option_global_enable(dial, AST_DIAL_OPTION_ANSWER_EXEC, meetmeopts);
+
+		/* Run this dial in async mode */
+		ast_dial_run(dial, chan, 1);
+
+		/* Put in our dialing array */
+		dials[pos++] = dial;
 	}
 
 	if (!ast_test_flag(&flags, PAGE_QUIET)) {
@@ -199,47 +157,47 @@ static int page_exec(struct ast_channel *chan, void *data)
 		if (!res)
 			res = ast_waitstream(chan, "");
 	}
+
 	if (!res) {
-		snprintf(meetmeopts, sizeof(meetmeopts), "%ud|A%sqxd", confid, ast_test_flag(&flags, PAGE_DUPLEX) ? "" : "t");
-		pbx_exec(chan, app, meetmeopts, 1);
+		snprintf(meetmeopts, sizeof(meetmeopts), "%ud|A%s%sqxd", confid, (ast_test_flag(&flags, PAGE_DUPLEX) ? "" : "t"), 
+			(ast_test_flag(&flags, PAGE_RECORD) ? "r" : "") );
+		pbx_exec(chan, app, meetmeopts);
 	}
 
-	LOCAL_USER_REMOVE(u);
+	/* Go through each dial attempt cancelling, joining, and destroying */
+	for (i = 0; i < pos; i++) {
+		struct ast_dial *dial = dials[i];
+
+		/* We have to wait for the async thread to exit as it's possible Meetme won't throw them out immediately */
+		ast_dial_join(dial);
+
+		/* Hangup all channels */
+		ast_dial_hangup(dial);
+
+		/* Destroy dialing structure */
+		ast_dial_destroy(dial);
+	}
+
+	ast_module_user_remove(u);
 
 	return -1;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res =  ast_unregister_application(app_page);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app_page, page_exec, page_synopsis, page_descrip);
 }
 
-char *description(void)
-{
-	return (char *) tdesc;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Page Multiple Phones");
 
-int usecount(void)
-{
-	int res;
-
-	STANDARD_USECOUNT(res);
-
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}

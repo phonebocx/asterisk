@@ -19,17 +19,19 @@
 /*! \file
  *
  * \brief App to send DTMF digits
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 50073 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17283 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -41,8 +43,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17283 $")
 #include "asterisk/options.h"
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
-
-static char *tdesc = "Send DTMF digits Application";
+#include "asterisk/manager.h"
 
 static char *app = "SendDTMF";
 
@@ -54,14 +55,11 @@ static char *descrip =
 " The application will either pass the assigned digits or terminate if it\n"
 " encounters an error.\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int senddtmf_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	char *digits = NULL, *to = NULL;
 	int timeout = 250;
 
@@ -70,14 +68,9 @@ static int senddtmf_exec(struct ast_channel *chan, void *data)
 		return 0;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	digits = ast_strdupa(data);
-	if (!digits) {
-		ast_log(LOG_ERROR, "Out of Memory!\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
 
 	if ((to = strchr(digits,'|'))) {
 		*to = '\0';
@@ -85,45 +78,66 @@ static int senddtmf_exec(struct ast_channel *chan, void *data)
 		timeout = atoi(to);
 	}
 		
-	if(timeout <= 0)
+	if (timeout <= 0)
 		timeout = 250;
 
 	res = ast_dtmf_stream(chan,NULL,digits,timeout);
 		
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return res;
 }
 
-int unload_module(void)
+static char mandescr_playdtmf[] =
+"Description: Plays a dtmf digit on the specified channel.\n"
+"Variables: (all are required)\n"
+"	Channel: Channel name to send digit to\n"
+"	Digit: The dtmf digit to play\n";
+
+static int manager_play_dtmf(struct mansession *s, const struct message *m)
+{
+	const char *channel = astman_get_header(m, "Channel");
+	const char *digit = astman_get_header(m, "Digit");
+	struct ast_channel *chan = ast_get_channel_by_name_locked(channel);
+	
+	if (!chan) {
+		astman_send_error(s, m, "Channel not specified");
+		return 0;
+	}
+	if (!digit) {
+		astman_send_error(s, m, "No digit specified");
+		ast_mutex_unlock(&chan->lock);
+		return 0;
+	}
+
+	ast_senddigit(chan, *digit);
+
+	ast_mutex_unlock(&chan->lock);
+	astman_send_ack(s, m, "DTMF successfully queued");
+	
+	return 0;
+}
+
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
+	res |= ast_manager_unregister("PlayDTMF");
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
-{
-	return ast_register_application(app, senddtmf_exec, synopsis, descrip);
-}
-
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
+static int load_module(void)
 {
 	int res;
-	STANDARD_USECOUNT(res);
+
+	res = ast_manager_register2( "PlayDTMF", EVENT_FLAG_CALL, manager_play_dtmf, "Play DTMF signal on a specific channel.", mandescr_playdtmf );
+	res |= ast_register_application(app, senddtmf_exec, synopsis, descrip);
+
 	return res;
 }
 
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Send DTMF digits Application");

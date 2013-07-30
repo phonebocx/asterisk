@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -31,7 +31,6 @@
 #include "asterisk/frame.h"
 #include <fcntl.h>
 
-
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
 #endif
@@ -41,28 +40,110 @@ extern "C" {
 #define AST_DIGIT_ANY "0123456789#*ABCD"
 #define AST_DIGIT_ANYNUM "0123456789"
 
+/*! structure used for lock and refcount of format handlers.
+ * Should not be here, but this is a temporary workaround
+ * until we implement a more general mechanism.
+ * The format handler should include a pointer to
+ * this structure.
+ * As a trick, if usecnt is initialized with -1,
+ * ast_format_register will init the mutex for you.
+ */
+struct ast_format_lock {
+	ast_mutex_t lock;
+	int usecnt;	/* number of active clients */
+};
+
+/*!
+ * Each supported file format is described by the following fields.
+ * Not all are necessary, the support routine implement default
+ * values for some of them.
+ * A handler typically fills a structure initializing the desired
+ * fields, and then calls ast_format_register() with the (readonly)
+ * structure as an argument.
+ */
+struct ast_format {
+	char name[80];		/*! Name of format */
+	char exts[80];		/*! Extensions (separated by | if more than one) 
+	    			this format can read.  First is assumed for writing (e.g. .mp3) */
+	int format;		/*! Format of frames it uses/provides (one only) */
+	/*! Prepare an input stream for playback. Return 0 on success, -1 on error.
+	 * The FILE is already open (in s->f) so this function only needs to perform
+	 * any applicable validity checks on the file. If none is required, the
+	 * function can be omitted.
+	 */
+	int (*open)(struct ast_filestream *s);
+	/*! Prepare a stream for output, and comment it appropriately if applicable.
+	 *  Return 0 on success, -1 on error. Same as the open, the FILE is already
+	 * open so the function just needs to prepare any header and other fields,
+	 * if any. The function can be omitted if nothing is needed.
+	 */
+	int (*rewrite)(struct ast_filestream *s, const char *comment);
+	/*! Write a frame to a channel */
+	int (*write)(struct ast_filestream *, struct ast_frame *);
+	/*! seek num samples into file, whence - like a normal seek but with offset in samples */
+	int (*seek)(struct ast_filestream *, off_t, int);
+	int (*trunc)(struct ast_filestream *fs);	/*! trunc file to current position */
+	off_t (*tell)(struct ast_filestream *fs);	/*! tell current position */
+	/*! Read the next frame from the filestream (if available) and report
+	 * when to get next frame (in samples)
+	 */
+	struct ast_frame * (*read)(struct ast_filestream *, int *whennext);
+	/*! Do any closing actions, if any. The descriptor and structure are closed
+	 * and destroyed by the generic routines, so they must not be done here. */
+	void (*close)(struct ast_filestream *);
+	char * (*getcomment)(struct ast_filestream *);		/*! Retrieve file comment */
+
+	AST_LIST_ENTRY(ast_format) list;			/*! Link */
+
+	/*!
+	 * If the handler needs a buffer (for read, typically)
+	 * and/or a private descriptor, put here the
+	 * required size (in bytes) and the support routine will allocate them
+	 * for you, pointed by s->buf and s->private, respectively.
+	 * When allocating a buffer, remember to leave AST_FRIENDLY_OFFSET
+	 * spare bytes at the bginning.
+	 */
+	int buf_size;			/*! size of frame buffer, if any, aligned to 8 bytes. */
+	int desc_size;			/*! size of private descriptor, if any */
+
+	struct ast_module *module;
+};
+
+/*
+ * This structure is allocated by file.c in one chunk,
+ * together with buf_size and desc_size bytes of memory
+ * to be used for private purposes (e.g. buffers etc.)
+ */
+struct ast_filestream {
+	/*! Everybody reserves a block of AST_RESERVED_POINTERS pointers for us */
+	struct ast_format *fmt;	/* need to write to the lock and usecnt */
+	int flags;
+	mode_t mode;
+	char *filename;
+	char *realfilename;
+	/*! Video file stream */
+	struct ast_filestream *vfs;
+	/*! Transparently translate from another format -- just once */
+	struct ast_trans_pvt *trans;
+	struct ast_tranlator_pvt *tr;
+	int lastwriteformat;
+	int lasttimeout;
+	struct ast_channel *owner;
+	FILE *f;
+	struct ast_frame fr;	/* frame produced by read, typically */
+	char *buf;		/* buffer pointed to by ast_frame; */
+	void *private;	/* pointer to private buffer */
+};
+
 #define SEEK_FORCECUR	10
 	
-/* Defined by individual formats.  First item MUST be a
-   pointer for use by the stream manager */
-struct ast_filestream;
-
-/*! Registers a new file format */
 /*! Register a new file format capability
- * Adds a format to asterisk's format abilities.  Fill in the fields, and it will work. For examples, look at some of the various format code.
+ * Adds a format to Asterisk's format abilities.
  * returns 0 on success, -1 on failure
  */
-int ast_format_register(const char *name, const char *exts, int format,
-						struct ast_filestream * (*open)(FILE *f),
-						struct ast_filestream * (*rewrite)(FILE *f, const char *comment),
-						int (*write)(struct ast_filestream *, struct ast_frame *),
-						int (*seek)(struct ast_filestream *, long offset, int whence),
-						int (*trunc)(struct ast_filestream *),
-						long (*tell)(struct ast_filestream *),
-						struct ast_frame * (*read)(struct ast_filestream *, int *timetonext),
-						void (*close)(struct ast_filestream *),
-						char * (*getcomment)(struct ast_filestream *));
-	
+int __ast_format_register(const struct ast_format *f, struct ast_module *mod);
+#define ast_format_register(f) __ast_format_register(f, ast_module_info->self)
+
 /*! Unregisters a file format */
 /*!
  * \param name the name of the format you wish to unregister
@@ -81,6 +162,14 @@ int ast_format_unregister(const char *name);
  * Returns 0 on success, or -1 on failure.
  */
 int ast_streamfile(struct ast_channel *c, const char *filename, const char *preflang);
+
+/*
+ * if the file name is non-empty, try to play it.
+ * Return 0 if success, -1 if error, digit if interrupted by a digit.
+ * If digits == "" then we can simply check for non-zero.
+ */
+int ast_stream_and_wait(struct ast_channel *chan, const char *file,
+	const char *language, const char *digits);
 
 /*! Stops a stream */
 /*!
@@ -129,7 +218,7 @@ int ast_filecopy(const char *oldname, const char *newname, const char *fmt);
 
 /*! Waits for a stream to stop or digit to be pressed */
 /*!
- * \param c channel to waitstram on
+ * \param c channel to waitstream on
  * \param breakon string of DTMF digits to break upon
  * Begins playback of a stream...
  * Wait for a stream to stop or for any one of a given digit to arrive,  Returns 0 
@@ -139,7 +228,7 @@ int ast_waitstream(struct ast_channel *c, const char *breakon);
 
 /*! Waits for a stream to stop or digit matching a valid one digit exten to be pressed */
 /*!
- * \param c channel to waitstram on
+ * \param c channel to waitstream on
  * \param context string of context to match digits to break upon
  * Begins playback of a stream...
  * Wait for a stream to stop or for any one of a valid extension digit to arrive,  Returns 0 
@@ -149,7 +238,7 @@ int ast_waitstream_exten(struct ast_channel *c, const char *context);
 
 /*! Same as waitstream but allows stream to be forwarded or rewound */
 /*!
- * \param c channel to waitstram on
+ * \param c channel to waitstream on
  * \param breakon string of DTMF digits to break upon
  * \param forward DTMF digit to fast forward upon
  * \param rewind DTMF digit to rewind upon
@@ -262,7 +351,7 @@ int ast_playstream(struct ast_filestream *s);
  * \param whence SEEK_SET, SEEK_CUR, SEEK_END 
  * Returns 0 for success, or -1 for error
  */
-int ast_seekstream(struct ast_filestream *fs, long sample_offset, int whence);
+int ast_seekstream(struct ast_filestream *fs, off_t sample_offset, int whence);
 
 /*! Trunc stream at current location */
 /*!
@@ -277,7 +366,7 @@ int ast_truncstream(struct ast_filestream *fs);
  * \param ms milliseconds to move
  * Returns 0 for success, or -1 for error
  */
-int ast_stream_fastforward(struct ast_filestream *fs, long ms);
+int ast_stream_fastforward(struct ast_filestream *fs, off_t ms);
 
 /*! Rewind stream ms */
 /*!
@@ -285,14 +374,14 @@ int ast_stream_fastforward(struct ast_filestream *fs, long ms);
  * \param ms milliseconds to move
  * Returns 0 for success, or -1 for error
  */
-int ast_stream_rewind(struct ast_filestream *fs, long ms);
+int ast_stream_rewind(struct ast_filestream *fs, off_t ms);
 
 /*! Tell where we are in a stream */
 /*!
  * \param fs fs to act on
  * Returns a long as a sample offset into stream
  */
-long ast_tellstream(struct ast_filestream *fs);
+off_t ast_tellstream(struct ast_filestream *fs);
 
 /*! Read a frame from a filestream */
 /*!
@@ -306,7 +395,7 @@ struct ast_frame *ast_readframe(struct ast_filestream *s);
  * Initializes all the various file stuff.  Basically just registers the cli stuff
  * Returns 0 all the time
  */
-extern int ast_file_init(void);
+int ast_file_init(void);
 
 
 #define AST_RESERVED_POINTERS 20

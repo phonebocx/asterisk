@@ -57,15 +57,15 @@ extern struct {
  * Revision 1.15  2004/06/26 03:50:14  markster
  * Merge source cleanups (bug #1911)
  *
-/* Revision 1.14  2003/02/12 13:59:14  matteo
-/* mer feb 12 14:56:57 CET 2003
-/*
-/* Revision 1.1.1.1  2003/02/12 13:59:14  matteo
-/* mer feb 12 14:56:57 CET 2003
-/*
-/* Revision 1.2  2000/01/05 08:20:39  markster
-/* Some OSS fixes and a few lpc changes to make it actually work
-/*
+ * Revision 1.14  2003/02/12 13:59:14  matteo
+ * mer feb 12 14:56:57 CET 2003
+ *
+ * Revision 1.1.1.1  2003/02/12 13:59:14  matteo
+ * mer feb 12 14:56:57 CET 2003
+ *
+ * Revision 1.2  2000/01/05 08:20:39  markster
+ * Some OSS fixes and a few lpc changes to make it actually work
+ *
  * Revision 1.2  1996/08/20  20:18:55  jaf
  * Removed all static local variables that were SAVE'd in the Fortran
  * code, and put them in struct lpc10_decoder_state that is passed as an
@@ -159,15 +159,15 @@ extern struct {
  * Revision 1.15  2004/06/26 03:50:14  markster
  * Merge source cleanups (bug #1911)
  *
-/* Revision 1.14  2003/02/12 13:59:14  matteo
-/* mer feb 12 14:56:57 CET 2003
-/*
-/* Revision 1.1.1.1  2003/02/12 13:59:14  matteo
-/* mer feb 12 14:56:57 CET 2003
-/*
-/* Revision 1.2  2000/01/05 08:20:39  markster
-/* Some OSS fixes and a few lpc changes to make it actually work
-/*
+ * Revision 1.14  2003/02/12 13:59:14  matteo
+ * mer feb 12 14:56:57 CET 2003
+ *
+ * Revision 1.1.1.1  2003/02/12 13:59:14  matteo
+ * mer feb 12 14:56:57 CET 2003
+ *
+ * Revision 1.2  2000/01/05 08:20:39  markster
+ * Some OSS fixes and a few lpc changes to make it actually work
+ *
  * Revision 1.2  1996/08/20  20:18:55  jaf
  * Removed all static local variables that were SAVE'd in the Fortran
  * code, and put them in struct lpc10_decoder_state that is passed as an
@@ -196,15 +196,15 @@ extern struct {
  * Revision 1.15  2004/06/26 03:50:14  markster
  * Merge source cleanups (bug #1911)
  *
-/* Revision 1.14  2003/02/12 13:59:14  matteo
-/* mer feb 12 14:56:57 CET 2003
-/*
-/* Revision 1.1.1.1  2003/02/12 13:59:14  matteo
-/* mer feb 12 14:56:57 CET 2003
-/*
-/* Revision 1.2  2000/01/05 08:20:39  markster
-/* Some OSS fixes and a few lpc changes to make it actually work
-/*
+ * Revision 1.14  2003/02/12 13:59:14  matteo
+ * mer feb 12 14:56:57 CET 2003
+ *
+ * Revision 1.1.1.1  2003/02/12 13:59:14  matteo
+ * mer feb 12 14:56:57 CET 2003
+ *
+ * Revision 1.2  2000/01/05 08:20:39  markster
+ * Some OSS fixes and a few lpc changes to make it actually work
+ *
  * Revision 1.2  1996/08/20  20:18:55  jaf
  * Removed all static local variables that were SAVE'd in the Fortran
  * code, and put them in struct lpc10_decoder_state that is passed as an
@@ -372,7 +372,7 @@ e */
 	exc[px] -= pulse;
 /*  Load voiced excitation */
     } else {
-	sscale = sqrt((real) (*ip)) / 6.928f;
+	sscale = (real)sqrt((real) (*ip)) / 6.928f;
 	i__1 = *ip;
 	for (i__ = 1; i__ <= i__1; ++i__) {
 	    exc[contrl_1.order + i__ - 1] = 0.f;
@@ -438,7 +438,7 @@ e */
 /*  Apply gain to match RMS */
     r__1 = *rms * *rms;
     ssq = r__1 * *ip;
-    gain = sqrt(ssq / xssq);
+    gain = (real)sqrt(ssq / xssq);
     i__1 = *ip;
     for (i__ = 1; i__ <= i__1; ++i__) {
 	sout[i__] = gain * exc2[contrl_1.order + i__ - 1];

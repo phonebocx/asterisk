@@ -19,19 +19,21 @@
 /*! \file
  *
  * \brief SoftHangup application
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 46200 $")
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -42,8 +44,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 static char *synopsis = "Soft Hangup Application";
 
-static char *tdesc = "Hangs up the requested channel";
-
 static char *desc = "  SoftHangup(Technology/resource|options)\n"
 "Hangs up the requested channel.  If there are no channels to hangup,\n"
 "the application will report it.\n"
@@ -52,13 +52,10 @@ static char *desc = "  SoftHangup(Technology/resource|options)\n"
 
 static char *app = "SoftHangup";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int softhangup_exec(struct ast_channel *chan, void *data)
 {
-	struct localuser *u;
+	struct ast_module_user *u;
 	struct ast_channel *c=NULL;
 	char *options, *cut, *cdata, *match;
 	char name[AST_CHANNEL_NAME] = "";
@@ -69,7 +66,7 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 		return 0;
 	}
 	
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	cdata = ast_strdupa(data);
 	match = strsep(&cdata, "|");
@@ -77,12 +74,12 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 	all = options && strchr(options,'a');
 	c = ast_channel_walk_locked(NULL);
 	while (c) {
-		strncpy(name, c->name, sizeof(name)-1);
+		ast_copy_string(name, c->name, sizeof(name));
 		ast_mutex_unlock(&c->lock);
 		/* XXX watch out, i think it is wrong to access c-> after unlocking! */
 		if (all) {
 			/* CAPI is set up like CAPI[foo/bar]/clcnt */ 
-			if (!strcmp(c->type,"CAPI")) 
+			if (!strcmp(c->tech->type, "CAPI")) 
 				cut = strrchr(name,'/');
 			/* Basically everything else is Foo/Bar-Z */
 			else
@@ -100,40 +97,25 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 		c = ast_channel_walk_locked(c);
 	}
 	
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return 0;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, softhangup_exec, synopsis, desc);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Hangs up the requested channel");

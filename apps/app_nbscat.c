@@ -19,10 +19,16 @@
 /*! \file
  *
  * \brief Silly application to play an NBScat file -- uses nbscat8k
- * 
+ *
+ * \author Mark Spencer <markster@digium.com>
+ *  
  * \ingroup applications
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48375 $")
+
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
@@ -31,10 +37,6 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <sys/socket.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24019 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -53,8 +55,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24019 $")
 #define AF_LOCAL AF_UNIX
 #endif
 
-static char *tdesc = "Silly NBS Stream Application";
-
 static char *app = "NBScat";
 
 static char *synopsis = "Play an NBS local stream";
@@ -63,24 +63,31 @@ static char *descrip =
 "  NBScat: Executes nbscat to listen to the local NBS stream.\n"
 "User can exit by pressing any key\n.";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int NBScatplay(int fd)
 {
 	int res;
 	int x;
+	sigset_t fullset, oldset;
+
+	sigfillset(&fullset);
+	pthread_sigmask(SIG_BLOCK, &fullset, &oldset);
+
 	res = fork();
 	if (res < 0) 
 		ast_log(LOG_WARNING, "Fork failed\n");
-	if (res)
+	if (res) {
+		pthread_sigmask(SIG_SETMASK, &oldset, NULL);
 		return res;
-	if (option_highpriority)
+	}
+	signal(SIGPIPE, SIG_DFL);
+	pthread_sigmask(SIG_UNBLOCK, &fullset, NULL);
+
+	if (ast_opt_high_priority)
 		ast_set_priority(0);
 
 	dup2(fd, STDOUT_FILENO);
-	for (x=0;x<256;x++) {
+	for (x = STDERR_FILENO + 1; x < 1024; x++) {
 		if (x != STDOUT_FILENO)
 			close(x);
 	}
@@ -88,7 +95,7 @@ static int NBScatplay(int fd)
 	execl(NBSCAT, "nbscat8k", "-d", (char *)NULL);
 	execl(LOCAL_NBSCAT, "nbscat8k", "-d", (char *)NULL);
 	ast_log(LOG_WARNING, "Execute of nbscat8k failed\n");
-	return -1;
+	_exit(0);
 }
 
 static int timed_read(int fd, void *data, int datalen)
@@ -109,7 +116,7 @@ static int timed_read(int fd, void *data, int datalen)
 static int NBScat_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	int fds[2];
 	int ms = -1;
 	int pid = -1;
@@ -122,11 +129,11 @@ static int NBScat_exec(struct ast_channel *chan, void *data)
 		short frdata[160];
 	} myf;
 	
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	if (socketpair(AF_LOCAL, SOCK_STREAM, 0, fds)) {
 		ast_log(LOG_WARNING, "Unable to create socketpair\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 	
@@ -136,7 +143,7 @@ static int NBScat_exec(struct ast_channel *chan, void *data)
 	res = ast_set_write_format(chan, AST_FORMAT_SLINEAR);
 	if (res < 0) {
 		ast_log(LOG_WARNING, "Unable to set write format to signed linear\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 	
@@ -206,40 +213,25 @@ static int NBScat_exec(struct ast_channel *chan, void *data)
 	if (!res && owriteformat)
 		ast_set_write_format(chan, owriteformat);
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, NBScat_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Silly NBS Stream Application");

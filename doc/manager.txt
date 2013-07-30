@@ -31,6 +31,15 @@ If you develop applications, please try to reuse existing manager
 headers and their interpretation. If you are unsure, discuss on
 the asterisk-dev mailing list.
 
+Device status reports
+---------------------
+Manager subscribes to extension status reports from all channels,
+to be able to generate events when an extension or device changes
+state. The level of details in these events may depend on the channel
+and device configuration. Please check each channel configuration
+file for more information. (in sip.conf, check the section on
+subscriptions and call limits)
+
 
 Command Syntax
 --------------
@@ -100,6 +109,9 @@ Parameters: Channel, Exten, Context, Priority, Timeout,
 
 Command: Ping
 Parameters: None
+
+Command: PlayDTMF
+Parameters: Channel, Digit
 
 Command: Redirect
 Parameters: Channel, ExtraChannel, Exten, Context, Priority
@@ -244,7 +256,7 @@ Some standard AMI headers:
  Paused: <num>			-- Queue member paused status
  Peer: <tech/name>		-- "channel" specifier :-)
  PeerStatus: <tech/name>	-- Peer status code 
-					"Unregistred", "Registred", "Lagged", "Reachable"
+					"Unregistered", "Registered", "Lagged", "Reachable"
  Penalty: <num>			-- Queue penalty
  Priority:			-- Extension priority
  Privilege: <privilege>		-- AMI authorization class (system, call, log, verbose, command, agent, user)
@@ -252,6 +264,7 @@ Some standard AMI headers:
  Position: <num>		-- Position in Queue
  Queue:				-- Queue name
  Reason:			-- "Autologoff"
+ Reason:			-- "Chanunavail"
  Response: <response>		-- response code, like "200 OK"
 					"Success", "Error", "Follows"
  Restart:			-- "True", "False"
@@ -280,7 +293,7 @@ Some standard AMI headers:
  Time: <sec>			-- Roundtrip time (latency)
  Timeout:			-- Parking timeout time
  Timeout:			-- Timeout for call setup (Originate)
- Timeout: <seconds>		-- Timout for call
+ Timeout: <seconds>		-- Timeout for call
  Uniqueid:			-- Channel Unique ID
  Uniqueid1:			-- Channel 1 Unique ID (Link event)
  Uniqueid2:			-- Channel 2 Unique ID (Link event)
@@ -295,3 +308,4 @@ Some standard AMI headers:
 
  ** Please try to re-use existing headers to simplify manager message parsing in clients.
 
+Read the CODING-GUIDELINES if you develop new manager commands or events.

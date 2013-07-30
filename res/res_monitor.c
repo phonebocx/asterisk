@@ -20,19 +20,20 @@
  *
  * \brief PBX channel monitoring
  *
+ * \author Mark Spencer <markster@digium.com>
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61961 $")
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <libgen.h>		/* dirname() */
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11561 $")
+#include <libgen.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -48,6 +49,16 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11561 $")
 #include "asterisk/config.h"
 
 AST_MUTEX_DEFINE_STATIC(monitorlock);
+
+#define LOCK_IF_NEEDED(lock, needed) do { \
+	if (needed) \
+		ast_channel_lock(lock); \
+	} while(0)
+
+#define UNLOCK_IF_NEEDED(lock, needed) do { \
+	if (needed) \
+		ast_channel_unlock(lock); \
+	} while (0)
 
 static unsigned long seq = 0;
 
@@ -88,6 +99,29 @@ static char *changemonitor_descrip = "ChangeMonitor(filename_base)\n"
 	"Changes monitoring filename of a channel. Has no effect if the channel is not monitored\n"
 	"The argument is the new filename base to use for monitoring this channel.\n";
 
+static char *pausemonitor_synopsis = "Pause monitoring of a channel";
+
+static char *pausemonitor_descrip = "PauseMonitor\n"
+	"Pauses monitoring of a channel until it is re-enabled by a call to UnpauseMonitor.\n";
+
+static char *unpausemonitor_synopsis = "Unpause monitoring of a channel";
+
+static char *unpausemonitor_descrip = "UnpauseMonitor\n"
+	"Unpauses monitoring of a channel on which monitoring had\n"
+	"previously been paused with PauseMonitor.\n";
+
+static int ast_monitor_set_state(struct ast_channel *chan, int state)
+{
+	LOCK_IF_NEEDED(chan, 1);
+	if (!chan->monitor) {
+		UNLOCK_IF_NEEDED(chan, 1);
+		return -1;
+	}
+	chan->monitor->state = state;
+	UNLOCK_IF_NEEDED(chan, 1);
+	return 0;
+}
+
 /* Start monitoring a channel */
 int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 		const char *fname_base, int need_lock)
@@ -95,12 +129,7 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 	int res = 0;
 	char tmp[256];
 
-	if (need_lock) {
-		if (ast_mutex_lock(&chan->lock)) {
-			ast_log(LOG_WARNING, "Unable to lock channel\n");
-			return -1;
-		}
-	}
+	LOCK_IF_NEEDED(chan, need_lock);
 
 	if (!(chan->monitor)) {
 		struct ast_channel_monitor *monitor;
@@ -114,13 +143,10 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 			}
 		}
 
-		monitor = malloc(sizeof(struct ast_channel_monitor));
-		if (!monitor) {
-			if (need_lock) 
-				ast_mutex_unlock(&chan->lock);
+		if (!(monitor = ast_calloc(1, sizeof(*monitor)))) {
+			UNLOCK_IF_NEEDED(chan, need_lock);
 			return -1;
 		}
-		memset(monitor, 0, sizeof(struct ast_channel_monitor));
 
 		/* Determine file names */
 		if (!ast_strlen_zero(fname_base)) {
@@ -146,17 +172,13 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 			seq++;
 			ast_mutex_unlock(&monitorlock);
 
-			if((channel_name = ast_strdupa(chan->name))) {
-				while((p = strchr(channel_name, '/'))) {
-					*p = '-';
-				}
-				snprintf(monitor->filename_base, FILENAME_MAX, "%s/%d-%s",
-						 ast_config_AST_MONITOR_DIR, (int)time(NULL),channel_name);
-				monitor->filename_changed = 1;
-			} else {
-				ast_log(LOG_ERROR,"Failed to allocate Memory\n");
-				return -1;
+			channel_name = ast_strdupa(chan->name);
+			while ((p = strchr(channel_name, '/'))) {
+				*p = '-';
 			}
+			snprintf(monitor->filename_base, FILENAME_MAX, "%s/%d-%s",
+					 ast_config_AST_MONITOR_DIR, (int)time(NULL), channel_name);
+			monitor->filename_changed = 1;
 		}
 
 		monitor->stop = ast_monitor_stop;
@@ -178,7 +200,7 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 			ast_log(LOG_WARNING, "Could not create file %s\n",
 						monitor->read_filename);
 			free(monitor);
-			ast_mutex_unlock(&chan->lock);
+			UNLOCK_IF_NEEDED(chan, need_lock);
 			return -1;
 		}
 		if (ast_fileexists(monitor->write_filename, NULL, NULL) > 0) {
@@ -191,10 +213,11 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 						monitor->write_filename);
 			ast_closestream(monitor->read_stream);
 			free(monitor);
-			ast_mutex_unlock(&chan->lock);
+			UNLOCK_IF_NEEDED(chan, need_lock);
 			return -1;
 		}
 		chan->monitor = monitor;
+		ast_monitor_set_state(chan, AST_MONITOR_RUNNING);
 		/* so we know this call has been monitored in case we need to bill for it or something */
 		pbx_builtin_setvar_helper(chan, "__MONITORED","true");
 	} else {
@@ -203,24 +226,34 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 		res = -1;
 	}
 
-	if (need_lock) {
-		ast_mutex_unlock(&chan->lock);
-	}
+	UNLOCK_IF_NEEDED(chan, need_lock);
+
+	return res;
+}
+
+/*
+ * The file format extensions that Asterisk uses are not all the same as that
+ * which soxmix expects.  This function ensures that the format used as the
+ * extension on the filename is something soxmix will understand.
+ */
+static const char *get_soxmix_format(const char *format)
+{
+	const char *res = format;
+
+	if (!strcasecmp(format,"ulaw"))
+		res = "ul";
+	if (!strcasecmp(format,"alaw"))
+		res = "al";
+	
 	return res;
 }
 
 /* Stop monitoring a channel */
 int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 {
-	char *execute, *execute_args;
 	int delfiles = 0;
 
-	if (need_lock) {
-		if (ast_mutex_lock(&chan->lock)) {
-			ast_log(LOG_WARNING, "Unable to lock channel\n");
-			return -1;
-		}
-	}
+	LOCK_IF_NEEDED(chan, need_lock);
 
 	if (chan->monitor) {
 		char filename[ FILENAME_MAX ];
@@ -257,15 +290,17 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 		if (chan->monitor->joinfiles && !ast_strlen_zero(chan->monitor->filename_base)) {
 			char tmp[1024];
 			char tmp2[1024];
-			char *format = !strcasecmp(chan->monitor->format,"wav49") ? "WAV" : chan->monitor->format;
+			const char *format = !strcasecmp(chan->monitor->format,"wav49") ? "WAV" : chan->monitor->format;
 			char *name = chan->monitor->filename_base;
 			int directory = strchr(name, '/') ? 1 : 0;
 			char *dir = directory ? "" : ast_config_AST_MONITOR_DIR;
+			const char *execute, *execute_args;
 
 			/* Set the execute application */
 			execute = pbx_builtin_getvar_helper(chan, "MONITOR_EXEC");
 			if (ast_strlen_zero(execute)) { 
 				execute = "nice -n 19 soxmix";
+				format = get_soxmix_format(format);
 				delfiles = 1;
 			} 
 			execute_args = pbx_builtin_getvar_helper(chan, "MONITOR_EXEC_ARGS");
@@ -288,9 +323,32 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 		chan->monitor = NULL;
 	}
 
-	if (need_lock)
-		ast_mutex_unlock(&chan->lock);
+	UNLOCK_IF_NEEDED(chan, need_lock);
+
 	return 0;
+}
+
+
+/* Pause monitoring of a channel */
+int ast_monitor_pause(struct ast_channel *chan)
+{
+	return ast_monitor_set_state(chan, AST_MONITOR_PAUSED);
+}
+
+/* Unpause monitoring of a channel */
+int ast_monitor_unpause(struct ast_channel *chan)
+{
+	return ast_monitor_set_state(chan, AST_MONITOR_RUNNING);
+}
+
+static int pause_monitor_exec(struct ast_channel *chan, void *data)
+{
+	return ast_monitor_pause(chan);
+}
+
+static int unpause_monitor_exec(struct ast_channel *chan, void *data)
+{
+	return ast_monitor_unpause(chan);
 }
 
 /* Change monitoring filename of a channel */
@@ -298,16 +356,11 @@ int ast_monitor_change_fname(struct ast_channel *chan, const char *fname_base, i
 {
 	char tmp[256];
 	if (ast_strlen_zero(fname_base)) {
-		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to null", chan->name);
+		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to null\n", chan->name);
 		return -1;
 	}
-	
-	if (need_lock) {
-		if (ast_mutex_lock(&chan->lock)) {
-			ast_log(LOG_WARNING, "Unable to lock channel\n");
-			return -1;
-		}
-	}
+
+	LOCK_IF_NEEDED(chan, need_lock);
 
 	if (chan->monitor) {
 		int directory = strchr(fname_base, '/') ? 1 : 0;
@@ -320,12 +373,12 @@ int ast_monitor_change_fname(struct ast_channel *chan, const char *fname_base, i
 		}
 
 		snprintf(chan->monitor->filename_base, FILENAME_MAX, "%s/%s", directory ? "" : ast_config_AST_MONITOR_DIR, fname_base);
+		chan->monitor->filename_changed = 1;
 	} else {
 		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to %s, monitoring not started\n", chan->name, fname_base);
 	}
 
-	if (need_lock)
-		ast_mutex_unlock(&chan->lock);
+	UNLOCK_IF_NEEDED(chan, need_lock);
 
 	return 0;
 }
@@ -369,8 +422,8 @@ static int start_monitor_exec(struct ast_channel *chan, void *data)
 	if (urlprefix) {
 		snprintf(tmp,sizeof(tmp) - 1,"%s/%s.%s",urlprefix,fname_base,
 			((strcmp(format,"gsm")) ? "wav" : "gsm"));
-		if (!chan->cdr)
-			chan->cdr = ast_cdr_alloc();
+		if (!chan->cdr && !(chan->cdr = ast_cdr_alloc()))
+			return -1;
 		ast_cdr_setuserfield(chan, tmp);
 	}
 	if (waitforbridge) {
@@ -378,15 +431,13 @@ static int start_monitor_exec(struct ast_channel *chan, void *data)
 		   the following could give NULL results, but we check just to
 		   be pedantic. Reconstructing with checks for 'm' option does not
 		   work if we end up adding more options than 'm' in the future. */
-		delay = ast_strdupa((char*)data);
-		if (delay) {
-			options = strrchr(delay, '|');
-			if (options) {
-				arg = strchr(options, 'b');
-				if (arg) {
-					*arg = 'X';
-					pbx_builtin_setvar_helper(chan,"AUTO_MONITOR",delay);
-				}
+		delay = ast_strdupa(data);
+		options = strrchr(delay, '|');
+		if (options) {
+			arg = strchr(options, 'b');
+			if (arg) {
+				*arg = 'X';
+				pbx_builtin_setvar_helper(chan,"AUTO_MONITOR",delay);
 			}
 		}
 		return 0;
@@ -424,13 +475,13 @@ static char start_monitor_action_help[] =
 "                the input and output channels together after the\n"
 "                recording is finished.\n";
 
-static int start_monitor_action(struct mansession *s, struct message *m)
+static int start_monitor_action(struct mansession *s, const struct message *m)
 {
 	struct ast_channel *c = NULL;
-	char *name = astman_get_header(m, "Channel");
-	char *fname = astman_get_header(m, "File");
-	char *format = astman_get_header(m, "Format");
-	char *mix = astman_get_header(m, "Mix");
+	const char *name = astman_get_header(m, "Channel");
+	const char *fname = astman_get_header(m, "File");
+	const char *format = astman_get_header(m, "Format");
+	const char *mix = astman_get_header(m, "Mix");
 	char *d;
 	
 	if (ast_strlen_zero(name)) {
@@ -444,23 +495,21 @@ static int start_monitor_action(struct mansession *s, struct message *m)
 	}
 
 	if (ast_strlen_zero(fname)) {
-		/* No filename base specified, default to channel name as per CLI */
-		fname = malloc (FILENAME_MAX);
-		if (!fname) {
+		/* No filename base specified, default to channel name as per CLI */		
+		if (!(fname = ast_strdup(c->name))) {
 			astman_send_error(s, m, "Could not start monitoring channel");
-			ast_mutex_unlock(&c->lock);
+			ast_channel_unlock(c);
 			return 0;
 		}
-		memset(fname, 0, FILENAME_MAX);
-		ast_copy_string(fname, c->name, FILENAME_MAX);
 		/* Channels have the format technology/channel_name - have to replace that /  */
-		if ((d=strchr(fname, '/'))) *d='-';
+		if ((d = strchr(fname, '/'))) 
+			*d = '-';
 	}
 	
 	if (ast_monitor_start(c, format, fname, 1)) {
 		if (ast_monitor_change_fname(c, fname, 1)) {
 			astman_send_error(s, m, "Could not start monitoring channel");
-			ast_mutex_unlock(&c->lock);
+			ast_channel_unlock(c);
 			return 0;
 		}
 	}
@@ -469,7 +518,7 @@ static int start_monitor_action(struct mansession *s, struct message *m)
 		ast_monitor_setjoinfiles(c, 1);
 	}
 
-	ast_mutex_unlock(&c->lock);
+	ast_channel_unlock(c);
 	astman_send_ack(s, m, "Started monitoring channel");
 	return 0;
 }
@@ -479,10 +528,10 @@ static char stop_monitor_action_help[] =
 "  started 'Monitor' action.  The only parameter is 'Channel', the name\n"
 "  of the channel monitored.\n";
 
-static int stop_monitor_action(struct mansession *s, struct message *m)
+static int stop_monitor_action(struct mansession *s, const struct message *m)
 {
 	struct ast_channel *c = NULL;
-	char *name = astman_get_header(m, "Channel");
+	const char *name = astman_get_header(m, "Channel");
 	int res;
 	if (ast_strlen_zero(name)) {
 		astman_send_error(s, m, "No channel specified");
@@ -494,7 +543,7 @@ static int stop_monitor_action(struct mansession *s, struct message *m)
 		return 0;
 	}
 	res = ast_monitor_stop(c, 1);
-	ast_mutex_unlock(&c->lock);
+	ast_channel_unlock(c);
 	if (res) {
 		astman_send_error(s, m, "Could not stop monitoring channel");
 		return 0;
@@ -511,11 +560,11 @@ static char change_monitor_action_help[] =
 "  File        - Required.  Is the new name of the file created in the\n"
 "                monitor spool directory.\n";
 
-static int change_monitor_action(struct mansession *s, struct message *m)
+static int change_monitor_action(struct mansession *s, const struct message *m)
 {
 	struct ast_channel *c = NULL;
-	char *name = astman_get_header(m, "Channel");
-	char *fname = astman_get_header(m, "File");
+	const char *name = astman_get_header(m, "Channel");
+	const char *fname = astman_get_header(m, "File");
 	if (ast_strlen_zero(name)) {
 		astman_send_error(s, m, "No channel specified");
 		return 0;
@@ -531,10 +580,10 @@ static int change_monitor_action(struct mansession *s, struct message *m)
 	}
 	if (ast_monitor_change_fname(c, fname, 1)) {
 		astman_send_error(s, m, "Could not change monitored filename of channel");
-		ast_mutex_unlock(&c->lock);
+		ast_channel_unlock(c);
 		return 0;
 	}
-	ast_mutex_unlock(&c->lock);
+	ast_channel_unlock(c);
 	astman_send_ack(s, m, "Changed monitor filename");
 	return 0;
 }
@@ -545,48 +594,97 @@ void ast_monitor_setjoinfiles(struct ast_channel *chan, int turnon)
 		chan->monitor->joinfiles = turnon;
 }
 
-int load_module(void)
+#define IS_NULL_STRING(string) ((!(string)) || (ast_strlen_zero((string))))
+
+enum MONITOR_PAUSING_ACTION
+{
+	MONITOR_ACTION_PAUSE,
+	MONITOR_ACTION_UNPAUSE
+};
+	  
+static int do_pause_or_unpause(struct mansession *s, const struct message *m, int action)
+{
+	struct ast_channel *c = NULL;
+	const char *name = astman_get_header(m, "Channel");
+	
+	if (IS_NULL_STRING(name)) {
+		astman_send_error(s, m, "No channel specified");
+		return -1;
+	}
+	
+	c = ast_get_channel_by_name_locked(name);
+	if (!c) {
+		astman_send_error(s, m, "No such channel");
+		return -1;
+	}
+
+	if (action == MONITOR_ACTION_PAUSE)
+		ast_monitor_pause(c);
+	else
+		ast_monitor_unpause(c);
+	
+	ast_channel_unlock(c);
+	astman_send_ack(s, m, (action == MONITOR_ACTION_PAUSE ? "Paused monitoring of the channel" : "Unpaused monitoring of the channel"));
+	return 0;	
+}
+
+static char pause_monitor_action_help[] =
+	"Description: The 'PauseMonitor' action may be used to temporarily stop the\n"
+	" recording of a channel.  The following parameters may\n"
+	" be used to control this:\n"
+	"  Channel     - Required.  Used to specify the channel to record.\n";
+
+static int pause_monitor_action(struct mansession *s, const struct message *m)
+{
+	return do_pause_or_unpause(s, m, MONITOR_ACTION_PAUSE);
+}
+
+static char unpause_monitor_action_help[] =
+	"Description: The 'UnpauseMonitor' action may be used to re-enable recording\n"
+	"  of a channel after calling PauseMonitor.  The following parameters may\n"
+	"  be used to control this:\n"
+	"  Channel     - Required.  Used to specify the channel to record.\n";
+
+static int unpause_monitor_action(struct mansession *s, const struct message *m)
+{
+	return do_pause_or_unpause(s, m, MONITOR_ACTION_UNPAUSE);
+}
+	
+
+static int load_module(void)
 {
 	ast_register_application("Monitor", start_monitor_exec, monitor_synopsis, monitor_descrip);
 	ast_register_application("StopMonitor", stop_monitor_exec, stopmonitor_synopsis, stopmonitor_descrip);
 	ast_register_application("ChangeMonitor", change_monitor_exec, changemonitor_synopsis, changemonitor_descrip);
+	ast_register_application("PauseMonitor", pause_monitor_exec, pausemonitor_synopsis, pausemonitor_descrip);
+	ast_register_application("UnpauseMonitor", unpause_monitor_exec, unpausemonitor_synopsis, unpausemonitor_descrip);
 	ast_manager_register2("Monitor", EVENT_FLAG_CALL, start_monitor_action, monitor_synopsis, start_monitor_action_help);
 	ast_manager_register2("StopMonitor", EVENT_FLAG_CALL, stop_monitor_action, stopmonitor_synopsis, stop_monitor_action_help);
 	ast_manager_register2("ChangeMonitor", EVENT_FLAG_CALL, change_monitor_action, changemonitor_synopsis, change_monitor_action_help);
+	ast_manager_register2("PauseMonitor", EVENT_FLAG_CALL, pause_monitor_action, pausemonitor_synopsis, pause_monitor_action_help);
+	ast_manager_register2("UnpauseMonitor", EVENT_FLAG_CALL, unpause_monitor_action, unpausemonitor_synopsis, unpause_monitor_action_help);
 
 	return 0;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	ast_unregister_application("Monitor");
 	ast_unregister_application("StopMonitor");
 	ast_unregister_application("ChangeMonitor");
+	ast_unregister_application("PauseMonitor");
+	ast_unregister_application("UnpauseMonitor");
 	ast_manager_unregister("Monitor");
 	ast_manager_unregister("StopMonitor");
 	ast_manager_unregister("ChangeMonitor");
+	ast_manager_unregister("PauseMonitor");
+	ast_manager_unregister("UnpauseMonitor");
+
 	return 0;
 }
 
-char *description(void)
-{
-	return "Call Monitoring Resource";
-}
-
-int usecount(void)
-{
-	/* Never allow monitor to be unloaded because it will
-	   unresolve needed symbols in the channel */
-#if 0
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-#else
-	return 1;
-#endif
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+/* usecount semantics need to be defined */
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "Call Monitoring Resource",
+		.load = load_module,
+		.unload = unload_module,
+		);

@@ -19,19 +19,21 @@
 /*! \file
  *
  * \brief Wait for Ring Application
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -43,8 +45,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 static char *synopsis = "Wait for Ring Application";
 
-static char *tdesc = "Waits until first ring after time";
-
 static char *desc = "  WaitForRing(timeout)\n"
 "Returns 0 after waiting at least timeout seconds. and\n"
 "only after the next ring has completed.  Returns 0 on\n"
@@ -52,13 +52,10 @@ static char *desc = "  WaitForRing(timeout)\n"
 
 static char *app = "WaitForRing";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int waitforring_exec(struct ast_channel *chan, void *data)
 {
-	struct localuser *u;
+	struct ast_module_user *u;
 	struct ast_frame *f;
 	int res = 0;
 	int ms;
@@ -68,7 +65,7 @@ static int waitforring_exec(struct ast_channel *chan, void *data)
 		return 0;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	ms *= 1000;
 	while(ms > 0) {
@@ -115,40 +112,25 @@ static int waitforring_exec(struct ast_channel *chan, void *data)
 			}
 		}
 	}
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, waitforring_exec, synopsis, desc);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Waits until first ring after time");

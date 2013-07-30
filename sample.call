@@ -36,7 +36,7 @@ Priority: 1
 # and its arguments to be run, instead of a context
 # extension and priority
 #
-#Application: VoiceMailMain
+#Application: VoicemailMain
 #Data: 1234
 
 #
@@ -50,6 +50,17 @@ Priority: 1
 #Account: mysuperfunaccountcode
 
 #
+# Normally, a call file is always deleted after the call is successful
+# or the maximum number of tries is reached even if the modification
+# time of the call file was changed during the call to be in the
+# future.  By Setting AlwaysDelete to No the modification time of the
+# call file will be checked after the call is completed or the maximum
+# number of retries is reached.  If the modification time is in the
+# future, the call file will not be deleted.
+#
+#AlwaysDelete: Yes
+
+#
 # You can set channel variables that will be passed to the channel.
 # This includes writable dialplan functions. To set a writable dialplan
 # function, the module containing this function *must* be loaded.
@@ -58,3 +69,12 @@ Priority: 1
 #Set: file2=/tmp/msg
 #Set: timestamp=20021023104500
 #Set: CDR(userfield|r)=42
+
+#
+# Setting Archive to yes the call file is never deleted, but is moved
+# in the subdir "outgoing_done" of the spool directory. In this case 
+# will be appended a line with "Status: value", where value can be 
+# Completed, Expired or Failed.
+#
+#Archive: yes
+

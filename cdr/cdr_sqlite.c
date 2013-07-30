@@ -31,17 +31,20 @@
  * \ingroup cdr_drivers
  */
 
-#include <sys/types.h>
-
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
-#include <stdlib.h>
-#include <sqlite.h>
+/*** MODULEINFO
+	<depend>sqlite</depend>
+ ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 23898 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
+
+#include <sys/types.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <sqlite.h>
 
 #include "asterisk/channel.h"
 #include "asterisk/module.h"
@@ -54,7 +57,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 23898 $")
 /* When you change the DATE_FORMAT, be sure to change the CHAR(19) below to something else */
 #define DATE_FORMAT "%Y-%m-%d %T"
 
-static char *desc = "SQLite CDR Backend";
 static char *name = "sqlite";
 static sqlite* db = NULL;
 
@@ -99,15 +101,15 @@ static int sqlite_log(struct ast_cdr *cdr)
 	ast_mutex_lock(&sqlite_lock);
 
 	t = cdr->start.tv_sec;
-	localtime_r(&t, &tm);
+	ast_localtime(&t, &tm, NULL);
 	strftime(startstr, sizeof(startstr), DATE_FORMAT, &tm);
 
 	t = cdr->answer.tv_sec;
-	localtime_r(&t, &tm);
+	ast_localtime(&t, &tm, NULL);
 	strftime(answerstr, sizeof(answerstr), DATE_FORMAT, &tm);
 
 	t = cdr->end.tv_sec;
-	localtime_r(&t, &tm);
+	ast_localtime(&t, &tm, NULL);
 	strftime(endstr, sizeof(endstr), DATE_FORMAT, &tm);
 
 	for(count=0; count<5; count++) {
@@ -163,13 +165,7 @@ static int sqlite_log(struct ast_cdr *cdr)
 	return res;
 }
 
-
-char *description(void)
-{
-	return desc;
-}
-
-int unload_module(void)
+static int unload_module(void)
 {
 	if (db)
 		sqlite_close(db);
@@ -177,7 +173,7 @@ int unload_module(void)
 	return 0;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	char *zErr;
 	char fn[PATH_MAX];
@@ -205,7 +201,7 @@ int load_module(void)
 		/* TODO: here we should probably create an index */
 	}
 	
-	res = ast_cdr_register(name, desc, sqlite_log);
+	res = ast_cdr_register(name, ast_module_info->description, sqlite_log);
 	if (res) {
 		ast_log(LOG_ERROR, "Unable to register SQLite CDR handling\n");
 		return -1;
@@ -218,17 +214,4 @@ err:
 	return -1;
 }
 
-int reload(void)
-{
-	return 0;
-}
-
-int usecount(void)
-{
-	return 0;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "SQLite CDR Backend");

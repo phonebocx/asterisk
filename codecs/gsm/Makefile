@@ -37,34 +37,12 @@ WAV49	= -DWAV49
 ######### ppro's, etc, as well as the AMD K6 and K7.  The compile will
 ######### probably require gcc. 
 
-ifneq (${OSARCH},Darwin)
- ifneq (${OSARCH},SunOS)
-  ifneq (${PROC},x86_64)
-   ifneq (${PROC},amd64)
-    ifneq (${PROC},ultrasparc)
-     ifneq ($(shell uname -m),ppc)
-      ifneq ($(shell uname -m),ppc64)
-       ifneq ($(shell uname -m),alpha)
-        ifneq ($(shell uname -m),armv4l)
-         ifneq (${PROC},sparc64)
-          ifneq (${PROC},arm)
-           ifneq (${PROC},ppc)
-            ifneq (${PROC},ppc64)
-             ifneq (${PROC},s390)
+ifeq (, $(findstring $(OSARCH) , Darwin SunOS ))
+ifeq (, $(findstring $(PROC) , x86_64 amd64 ultrasparc sparc64 arm armv5b armeb ppc powerpc ppc64 ia64 s390 bfin mipsel ))
+ifeq (, $(findstring $(shell uname -m) , ppc ppc64 alpha armv4l s390 ))
 OPTIMIZE+=-march=$(PROC)
-             endif
-            endif
-           endif
-          endif
-         endif
-        endif
-       endif
-      endif
-     endif
-    endif
-   endif
-  endif
- endif
+endif
+endif
 endif
 
 #The problem with sparc is the best stuff is in newer versions of gcc (post 3.0) only.
@@ -72,7 +50,7 @@ endif
 #A ultrasparc cpu is really v9 but the stock debian stable 3.0 gcc doesn't support it.
 #So we go lowest common available by gcc and go a step down, still a step up from
 #the default as we now have a better instruction set to work with. - Belgarath
-ifeq (${PROC},ultrasparc)
+ifeq ($(PROC),ultrasparc)
 OPTIMIZE+=-mcpu=v8 -mtune=$(PROC) -O3 
 endif
 
@@ -93,14 +71,7 @@ PG =
 # CC		= /usr/lang/acc
 # CCFLAGS 	= -c -O
 
-CC		?= gcc
 CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -funroll-loops $(OPTIMIZE)
-ifneq ($(findstring CYGWIN,${OSARCH}),CYGWIN)
-CCFLAGS   += -fPIC
-endif
-
-
-LD 		= $(CC)
 
 # LD		= gcc
 # LDFLAGS 	=
@@ -183,7 +154,7 @@ INC	= $(ROOT)/inc
 DEBUG	= -DNDEBUG
 ######### Remove -DNDEBUG to enable assertions.
 
-CFLAGS += $(PG) $(CCFLAGS) $(SASR) $(DEBUG) $(MULHACK) $(FAST) \
+ASTCFLAGS += $(PG) $(CCFLAGS) $(SASR) $(DEBUG) $(MULHACK) $(FAST) \
 	$(LTP_CUT) $(WAV49) $(K6OPT) $(CCINC) -I$(INC)
 ######### It's $(CC) $(CFLAGS)
 
@@ -232,26 +203,14 @@ GSM_SOURCES =	$(SRC)/add.c		\
 		$(SRC)/gsm_option.c	\
 		$(SRC)/short_term.c	\
 		$(SRC)/table.c
-ifeq (${OSARCH},Linux)
-ifneq ($(shell uname -m),x86_64)
-ifneq ($(shell uname -m),amd64)
-ifneq ($(shell uname -m),ppc)
-ifneq ($(shell uname -m),ppc64)
-ifneq ($(shell uname -m),alpha)
-ifneq ($(shell uname -m),armv4l)
-ifneq ($(shell uname -m),sparc64)
-ifneq (${PROC},arm)
-ifneq ($(shell uname -m), parisc)
-ifneq (${PROC}, s390)
+
+# add k6-specific code only if not on a non-k6 hardware or proc.
+# XXX Keep a space after each findstring argument
+# XXX should merge with GSM_OBJECTS
+ifeq ($(OSARCH),linux-gnu)
+ifeq (,$(findstring $(shell uname -m) , x86_64 amd64 ppc ppc64 alpha armv4l sparc64 parisc s390 ))
+ifeq (,$(findstring $(PROC) , arm armv5b armeb powerpc ia64 s390 bfin mipsel ))
 GSM_SOURCES+= $(SRC)/k6opt.s
-endif
-endif
-endif
-endif
-endif
-endif
-endif
-endif
 endif
 endif
 endif
@@ -300,22 +259,10 @@ GSM_OBJECTS =	$(SRC)/add.o		\
 		$(SRC)/short_term.o	\
 		$(SRC)/table.o
 
-ifeq (${OSARCH},Linux)
-ifneq ($(shell uname -m), x86_64)
-ifneq ($(shell uname -m), amd64)
-ifneq ($(shell uname -m), ppc)
-ifneq ($(shell uname -m), ppc64)
-ifneq ($(shell uname -m), alpha)
-ifneq ($(shell uname -m), sparc64)
-ifneq ($(shell uname -m), armv4l)
-ifneq ($(shell uname -m), parisc)
+ifeq ($(OSARCH),linux-gnu)
+ifeq (,$(findstring $(shell uname -m) , x86_64 amd64 ppc ppc64 alpha armv4l sparc64 parisc ))
+ifeq (,$(findstring $(PROC) , arm armv5b armeb powerpc ia64 bfin mipsel ))
 GSM_OBJECTS+= $(SRC)/k6opt.o
-endif
-endif
-endif
-endif
-endif
-endif
 endif
 endif
 endif
@@ -371,9 +318,7 @@ TOAST_INSTALL_TARGETS =	\
 
 # Default rules
 
-.c.o:
-		$(CC) $(CFLAGS) $?
-		@-mv `$(BASENAME) $@` $@ > /dev/null 2>&1
+include $(ASTTOPDIR)/Makefile.rules
 
 # Target rules
 
@@ -402,10 +347,10 @@ $(LIBGSMSO):	$(LIB) $(GSM_OBJECTS)
 		ln -fs libgsm.so.1.0.10 lib/libgsm.so.1
 		ln -fs libgsm.so.1.0.10 lib/libgsm.so
 
-$(LIBGSM):	$(LIB) $(GSM_OBJECTS)
-		-rm $(RMFLAGS) $(LIBGSM)
-		$(AR) $(ARFLAGS) $(LIBGSM) $(GSM_OBJECTS)
-		$(RANLIB) $(LIBGSM)
+$(LIBGSM): $(GSM_OBJECTS)
+	$(ECHO_PREFIX) echo "   [AR] $^ -> $@"
+	$(CMD_PREFIX) $(AR) cr $@ $^
+	$(CMD_PREFIX) $(RANLIB) $@
 
 
 # Toast, Untoast and Tcat -- the compress-like frontends to gsm.
@@ -532,6 +477,7 @@ clean:	semi-clean
 			$(TOAST) $(TCAT) $(UNTOAST)	\
 			$(ROOT)/gsm-1.0.tar.Z
 		rm -rf lib
+		rm -f .*.d
 
 # Two tools that helped me generate gsm_encode.c and gsm_decode.c,
 # but aren't generally needed to port this.

@@ -19,17 +19,19 @@
 /*! \file
  *
  * \brief App to set callerid
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -45,9 +47,6 @@ static char *app2 = "SetCallerPres";
 
 static char *synopsis2 = "Set CallerID Presentation";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static char *descrip2 = 
 "  SetCallerPres(presentation): Set Caller*ID presentation on a call.\n"
@@ -67,28 +66,24 @@ static char *descrip2 =
 
 static int setcallerid_pres_exec(struct ast_channel *chan, void *data)
 {
-	struct localuser *u;
+	struct ast_module_user *u;
 	int pres = -1;
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 	
 	pres = ast_parse_caller_presentation(data);
 
 	if (pres < 0) {
 		ast_log(LOG_WARNING, "'%s' is not a valid presentation (see 'show application SetCallerPres')\n",
 			(char *) data);
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return 0;
 	}
 	
 	chan->cid.cid_pres = pres;
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return 0;
 }
-
-
-
-static char *tdesc = "Set CallerID Application";
 
 static char *app = "SetCallerID";
 
@@ -104,23 +99,24 @@ static int setcallerid_exec(struct ast_channel *chan, void *data)
 	char *tmp = NULL;
 	char name[256];
 	char num[256];
-	struct localuser *u;
+	struct ast_module_user *u;
 	char *opt;
 	int anitoo = 0;
+	static int dep_warning = 0;
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "SetCallerID requires an argument!\n");
 		return 0;
 	}
 	
-	LOCAL_USER_ADD(u);
-	
-	tmp = ast_strdupa(data);
-	if (!tmp) {
-		ast_log(LOG_ERROR, "Out of memory\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
+	u = ast_module_user_add(chan);
+
+	if (!dep_warning) {
+		dep_warning = 1;
+		ast_log(LOG_WARNING, "SetCallerID is deprecated.  Please use Set(CALLERID(all)=...) or Set(CALLERID(ani)=...) instead.\n");
 	}
+
+	tmp = ast_strdupa(data);
 	
 	opt = strchr(tmp, '|');
 	if (opt) {
@@ -133,24 +129,24 @@ static int setcallerid_exec(struct ast_channel *chan, void *data)
 	ast_callerid_split(tmp, name, sizeof(name), num, sizeof(num));
 	ast_set_callerid(chan, num, name, anitoo ? num : NULL);
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app2);
 	res |= ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	int res;
 	
@@ -160,19 +156,4 @@ int load_module(void)
 	return res;
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Set CallerID Application");

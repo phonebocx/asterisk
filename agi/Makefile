@@ -3,7 +3,7 @@
 # 
 # Makefile for AGI-related stuff
 #
-# Copyright (C) 1999-2005, Digium
+# Copyright (C) 1999-2006, Digium
 #
 # Mark Spencer <markster@digium.com>
 #
@@ -11,42 +11,37 @@
 # the GNU General Public License
 #
 
-AGIS=agi-test.agi eagi-test eagi-sphinx-test
+.PHONY: clean all uninstall
 
-CFLAGS+=-DNO_AST_MM
+AGIS=agi-test.agi eagi-test eagi-sphinx-test jukebox.agi
 
-LIBS=
 ifeq ($(OSARCH),SunOS)
-  LIBS=-lsocket -lnsl ../strcompat.o
+  LIBS+=-lsocket -lnsl
 endif
 
-ifeq ($(findstring BSD,${OSARCH}),BSD)
-  CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
-endif
+include $(ASTTOPDIR)/Makefile.rules
 
-all: depend $(AGIS)
+all: $(AGIS)
+
+strcompat.c: ../main/strcompat.c
+	@cp $< $@
+
+eagi-test: eagi-test.o strcompat.o
+
+eagi-sphinx-test: eagi-sphinx-test.o
 
 install: all
 	mkdir -p $(DESTDIR)$(AGI_DIR)
 	for x in $(AGIS); do $(INSTALL) -m 755 $$x $(DESTDIR)$(AGI_DIR) ; done
 
-eagi-test: eagi-test.o
-	$(CC) $(CFLAGS) -o eagi-test eagi-test.o $(LIBS)
-
-eagi-sphinx-test: eagi-sphinx-test.o
-	$(CC) $(CFLAGS) -o eagi-sphinx-test eagi-sphinx-test.o $(LIBS) 
+uninstall:
+	for x in $(AGIS); do rm -f $(DESTDIR)$(AGI_DIR)/$$x ; done
 
 clean:
-	rm -f *.so *.o look .depend eagi-test eagi-sphinx-test
+	rm -f *.so *.o look eagi-test eagi-sphinx-test
+	rm -f .*.o.d .*.oo.d
+	rm -f strcompat.c
 
-%.so : %.o
-	$(CC) -shared -Xlinker -x -o $@ $<
-
-ifneq ($(wildcard .depend),)
-include .depend
+ifneq ($(wildcard .*.d),)
+   include .*.d
 endif
-
-depend: .depend
-
-.depend:
-	../build_tools/mkdep $(CFLAGS) `ls *.c`

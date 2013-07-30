@@ -19,9 +19,19 @@
 /*! \file
  *
  * \brief Execute an ISDN RAS
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
+
+/*** MODULEINFO
+	<depend>zaptel</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48375 $")
 
 #include <sys/ioctl.h>
 #include <sys/wait.h>
@@ -38,17 +48,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
-
-/* Need some zaptel help here */
-#ifdef __linux__
-#include <linux/zaptel.h>
-#else
-#include <zaptel.h>
-#endif /* __linux__ */
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24019 $")
+#include <zaptel/zaptel.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -57,8 +57,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24019 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/options.h"
-
-static char *tdesc = "Zap RAS Application";
 
 static char *app = "ZapRAS";
 
@@ -71,9 +69,6 @@ static char *descrip =
 "Your pppd must be patched to be zaptel aware. Arguments should be\n"
 "separated by | characters.\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 #define PPP_MAX_ARGS	32
 #define PPP_EXEC	"/usr/sbin/pppd"
@@ -87,26 +82,34 @@ static pid_t spawn_ras(struct ast_channel *chan, char *args)
 	char *argv[PPP_MAX_ARGS];
 	int argc = 0;
 	char *stringp=NULL;
+	sigset_t fullset, oldset;
+
+	sigfillset(&fullset);
+	pthread_sigmask(SIG_BLOCK, &fullset, &oldset);
 
 	/* Start by forking */
 	pid = fork();
-	if (pid)
+	if (pid) {
+		pthread_sigmask(SIG_SETMASK, &oldset, NULL);
 		return pid;
+	}
+
+	/* Restore original signal handlers */
+	for (x=0;x<NSIG;x++)
+		signal(x, SIG_DFL);
+
+	pthread_sigmask(SIG_UNBLOCK, &fullset, NULL);
 
 	/* Execute RAS on File handles */
 	dup2(chan->fds[0], STDIN_FILENO);
 
 	/* Drop high priority */
-	if (option_highpriority)
+	if (ast_opt_high_priority)
 		ast_set_priority(0);
 
 	/* Close other file descriptors */
 	for (x=STDERR_FILENO + 1;x<1024;x++) 
 		close(x);
-
-	/* Restore original signal handlers */
-	for (x=0;x<NSIG;x++)
-		signal(x, SIG_DFL);
 
 	/* Reset all arguments */
 	memset(argv, 0, sizeof(argv));
@@ -127,12 +130,6 @@ static pid_t spawn_ras(struct ast_channel *chan, char *args)
 	argv[argc++] = "plugin";
 	argv[argc++] = "zaptel.so";
 	argv[argc++] = "stdin";
-
-#if 0
-	for (x=0;x<argc;x++) {
-		fprintf(stderr, "Arg %d: %s\n", x, argv[x]);
-	}
-#endif
 
 	/* Finally launch PPP */
 	execv(PPP_EXEC, argv);
@@ -203,25 +200,20 @@ static int zapras_exec(struct ast_channel *chan, void *data)
 {
 	int res=-1;
 	char *args;
-	struct localuser *u;
+	struct ast_module_user *u;
 	ZT_PARAMS ztp;
 
 	if (!data) 
 		data = "";
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	args = ast_strdupa(data);
-	if (!args) {
-		ast_log(LOG_ERROR, "Out of memory\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
 	
 	/* Answer the channel if it's not up */
 	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);
-	if (strcasecmp(chan->type, "Zap")) {
+	if (strcasecmp(chan->tech->type, "Zap")) {
 		/* If it's not a zap channel, we're done.  Wait a couple of
 		   seconds and then hangup... */
 		if (option_verbose > 1)
@@ -242,39 +234,25 @@ static int zapras_exec(struct ast_channel *chan, void *data)
 			run_ras(chan, args);
 		}
 	}
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void) 
 {
 	int res;
 
 	res = ast_unregister_application(app);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, zapras_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Zap RAS Application");
 
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}

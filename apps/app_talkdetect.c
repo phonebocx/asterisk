@@ -19,17 +19,19 @@
 /*! \file
  *
  * \brief Playback a file with audio detect
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -40,8 +42,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/translate.h"
 #include "asterisk/utils.h"
 #include "asterisk/dsp.h"
-
-static char *tdesc = "Playback with Talk Detection";
 
 static char *app = "BackgroundDetect";
 
@@ -58,14 +58,11 @@ static char *descrip =
 "if available.  If unspecified, sil, min, and max default to 1000, 100, and\n"
 "infinity respectively.\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int background_detect_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	char *tmp;
 	char *options;
 	char *stringp;
@@ -84,14 +81,9 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	tmp = ast_strdupa(data);
-	if (!tmp) {
-		ast_log(LOG_ERROR, "Out of memory\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}	
 
 	stringp=tmp;
 	strsep(&stringp, "|");
@@ -212,39 +204,24 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 	}
 	if (dsp)
 		ast_dsp_free(dsp);
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, background_detect_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Playback with Talk Detection");

@@ -20,17 +20,19 @@
  *
  * \brief ReadFile application -- Reads in a File for you.
  *
+ * \author Matt O'Gorman <mogorman@digium.com>
+ *
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 14462 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -39,8 +41,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 14462 $")
 #include "asterisk/pbx.h"
 #include "asterisk/app.h"
 #include "asterisk/module.h"
-
-static char *tdesc = "Stores output of file into a variable";
 
 static char *app_readfile = "ReadFile";
 
@@ -52,15 +52,11 @@ static char *readfile_descrip =
 "  File - The name of the file to read.\n"
 "  Length - Maximum number of characters to capture.\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
-
 
 static int readfile_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	char *s, *varname=NULL, *file=NULL, *length=NULL, *returnvar=NULL;
 	int len=0;
 
@@ -69,14 +65,9 @@ static int readfile_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	s = ast_strdupa(data);
-	if (!s) {
-		ast_log(LOG_ERROR, "Out of memory\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
 
 	varname = strsep(&s, "=");
 	file = strsep(&s, "|");
@@ -84,7 +75,7 @@ static int readfile_exec(struct ast_channel *chan, void *data)
 
 	if (!varname || !file) {
 		ast_log(LOG_ERROR, "No file or variable specified!\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 
@@ -105,40 +96,25 @@ static int readfile_exec(struct ast_channel *chan, void *data)
 		pbx_builtin_setvar_helper(chan, varname, returnvar);
 		free(returnvar);
 	}
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return res;
 }
 
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app_readfile);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app_readfile, readfile_exec, readfile_synopsis, readfile_descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Stores output of file into a variable");

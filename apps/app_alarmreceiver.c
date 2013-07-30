@@ -22,13 +22,17 @@
  * 
  * *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** 
  *
- * Use at your own risk. Please consult the GNU GPL license document included with Asterisk details. *
+ * Use at your own risk. Please consult the GNU GPL license document included with Asterisk.         *
  *
  * *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING ***
  *
  * \ingroup applications
  */ 
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43933 $")
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -36,10 +40,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <sys/time.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17945 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -56,6 +56,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 17945 $")
 #include "asterisk/localtime.h"
 #include "asterisk/callerid.h"
 #include "asterisk/astdb.h"
+#include "asterisk/utils.h"
 
 #define ALMRCV_CONFIG "alarmreceiver.conf"
 #define ADEMCO_CONTACT_ID "ADEMCO_CONTACT_ID"
@@ -67,11 +68,9 @@ struct event_node{
 
 typedef struct event_node event_node_t;
 
-static char *tdesc = "Alarm Receiver for Asterisk";
-
 static char *app = "AlarmReceiver";
 
-static char *synopsis = "Provide support for receving alarm reports from a burglar or fire alarm panel";
+static char *synopsis = "Provide support for receiving alarm reports from a burglar or fire alarm panel";
 static char *descrip =
 "  AlarmReceiver(): Only 1 signalling format is supported at this time: Ademco\n"
 "Contact ID. This application should be called whenever there is an alarm\n"
@@ -94,17 +93,9 @@ static char event_app[128] = {'\0'};
 static char db_family[128] = {'\0'};
 static char time_stamp_format[128] = {"%a %b %d, %Y @ %H:%M:%S %Z"};
 
-
 /* Misc variables */
-
 	
 static char event_file[14] = "/event-XXXXXX";
-
-
-
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 /*
 * Attempt to access a database variable and increment it,
@@ -145,7 +136,7 @@ static void database_increment( char *key )
 	res = ast_db_put(db_family, key, value);
 	
 	if((res)&&(option_verbose >= 4))
-		ast_verbose(VERBOSE_PREFIX_4 "AlarmReceiver: database_increment write error");
+		ast_verbose(VERBOSE_PREFIX_4 "AlarmReceiver: database_increment write error\n");
 	
 	return;	
 }
@@ -215,6 +206,7 @@ static int send_tone_burst(struct ast_channel *chan, float freq, int duration, i
 
 			i += wf.datalen / 8;
 			if (i > duration) {
+				ast_frfree(f);
 				break;
 			}
 			if (ast_write(chan, &wf)){
@@ -222,6 +214,7 @@ static int send_tone_burst(struct ast_channel *chan, float freq, int duration, i
 					ast_verbose(VERBOSE_PREFIX_4 "AlarmReceiver: Failed to write frame on %s\n", chan->name);
 				ast_log(LOG_WARNING, "AlarmReceiver Failed to write frame on %s\n",chan->name);
 				res = -1;
+				ast_frfree(f);
 				break;
 			}
 		}
@@ -556,9 +549,9 @@ static int receive_ademco_contact_id( struct ast_channel *chan, void *data, int 
 
 		checksum = checksum % 15;
 
-		if(checksum){
+		if (checksum) {
 			database_increment("checksum-errors");
-			if(option_verbose >= 2)
+			if (option_verbose >= 2)
 				ast_verbose(VERBOSE_PREFIX_2 "AlarmReceiver: Nonzero checksum\n");
 			ast_log(LOG_DEBUG, "AlarmReceiver: Nonzero checksum\n");
 			continue;
@@ -578,17 +571,11 @@ static int receive_ademco_contact_id( struct ast_channel *chan, void *data, int 
 
 		events_received++;
 		
-		/* Queue the Event */
-
-		if((enew = malloc(sizeof(event_node_t))) == NULL){
-			if(option_verbose >= 1)
-				ast_verbose(VERBOSE_PREFIX_1 "AlarmReceiver: Failed to allocate memory\n");
-			ast_log(LOG_WARNING, "AlarmReceiver Failed to allocate memory\n");
+		/* Queue the Event */		
+		if (!(enew = ast_calloc(1, sizeof(*enew)))) {
 			res = -1;
-                        break;
+			break;
 		}
-
-		memset(enew, 0, sizeof(event_node_t));
 		
 		enew->next = NULL;
 		ast_copy_string(enew->data, event, sizeof(enew->data));
@@ -639,13 +626,13 @@ static int receive_ademco_contact_id( struct ast_channel *chan, void *data, int 
 static int alarmreceiver_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	event_node_t *elp, *efree;
 	char signalling_type[64] = "";
 
 	event_node_t *event_head = NULL;
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	/* Set write and read formats to ULAW */
 
@@ -654,13 +641,13 @@ static int alarmreceiver_exec(struct ast_channel *chan, void *data)
 
 	if (ast_set_write_format(chan,AST_FORMAT_ULAW)){
 		ast_log(LOG_WARNING, "AlarmReceiver: Unable to set write format to Mu-law on %s\n",chan->name);
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 	
 	if (ast_set_read_format(chan,AST_FORMAT_ULAW)){
 		ast_log(LOG_WARNING, "AlarmReceiver: Unable to set read format to Mu-law on %s\n",chan->name);
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 
@@ -679,7 +666,7 @@ static int alarmreceiver_exec(struct ast_channel *chan, void *data)
 		res = ast_answer(chan);
 		
 		if (res) {
-			LOCAL_USER_REMOVE(u);
+			ast_module_user_remove(u);
 			return -1;
 		}
 	}
@@ -734,7 +721,7 @@ static int alarmreceiver_exec(struct ast_channel *chan, void *data)
 	}
 
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return 0;
 }
@@ -746,7 +733,7 @@ static int alarmreceiver_exec(struct ast_channel *chan, void *data)
 static int load_config(void)
 {
 	struct ast_config *cfg;
-	char *p;
+	const char *p;
 
 	/* Read in the config file */
 
@@ -756,6 +743,7 @@ static int load_config(void)
 	
 		if(option_verbose >= 4)
 			ast_verbose(VERBOSE_PREFIX_4 "AlarmReceiver: No config file\n");
+		return 0;
 	}
 	else{
 
@@ -822,7 +810,7 @@ static int load_config(void)
 		}
 		ast_config_destroy(cfg);
 	}
-	return 0;
+	return 1;
 
 }
 
@@ -831,36 +819,23 @@ static int load_config(void)
 */
 
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
-	load_config();
-	return ast_register_application(app, alarmreceiver_exec, synopsis, descrip);
+	if(load_config())
+		return ast_register_application(app, alarmreceiver_exec, synopsis, descrip);
+	else
+		return AST_MODULE_LOAD_DECLINE;
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Alarm Receiver for Asterisk");

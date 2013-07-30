@@ -3,7 +3,7 @@
 # 
 # Various utilities
 #
-# Copyright (C) 1999-2005, Digium
+# Copyright (C) 1999-2006, Digium
 #
 # Mark Spencer <markster@digium.com>
 #
@@ -11,70 +11,118 @@
 # the GNU General Public License
 #
 
-#
-# Don't use ast mm routines
-#
-CFLAGS+=-DNO_AST_MM
+-include ../menuselect.makeopts
 
-ifeq ($(findstring BSD,${OSARCH}),BSD)
-  CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
+.PHONY: clean all uninstall
+
+# to get check_expr, add it to the ALL_UTILS list
+ALL_UTILS:=astman smsq stereorize streamplayer aelparse muted
+UTILS:=$(ALL_UTILS)
+
+include $(ASTTOPDIR)/Makefile.rules
+
+ifeq ($(OSARCH),SunOS)
+  LIBS+=-lsocket -lnsl
+  UTILS:=$(filter-out muted,$(UTILS))
 endif
 
-TARGET=stereorize streamplayer
-
-ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/popt.h)$(wildcard -f $(CROSS_COMPILE_TARGET)/usr/local/include/popt.h),)
-  TARGET+=smsq
+ifeq ($(OSARCH),OpenBSD)
+  UTILS:=$(filter-out muted,$(UTILS))
 endif
 
-ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/newt.h)$(wildcard -f $(CROSS_COMPILE_TARGET)/usr/local/include/newt.h),)
-  TARGET+=astman
+ifeq ($(POPT_LIB),)
+  UTILS:=$(filter-out smsq,$(UTILS))
 endif
 
-ifeq (${OSARCH},SunOS)
-  SOL=../strcompat.o
-  SOLLIBS=-lsocket -lnsl
+ifeq ($(NEWT_LIB),)
+  UTILS:=$(filter-out astman,$(UTILS))
 endif
 
-all: depend $(TARGET)
+ifneq ($(filter pbx_ael,$(MENUSELECT_PBX)),)
+  UTILS:=$(filter-out aelparse,$(UTILS))
+endif
+
+all: $(UTILS)
 
 install:
-	for x in $(TARGET); do \
+	for x in $(UTILS); do \
 		if [ "$$x" != "none" ]; then \
 			$(INSTALL) -m 755 $$x $(DESTDIR)$(ASTSBINDIR)/$$x; \
 		fi; \
 	done 
 
-clean:
-	rm -f *.o astman smsq stereorize streamplayer check_expr .depend
-	rm -f ast_expr2.o ast_expr2f.o
+uninstall:
+	for x in $(ALL_UTILS); do rm -f $$x $(DESTDIR)$(ASTSBINDIR)/$$x; done
 
-astman: astman.o ../md5.o
-	$(CC) $(CFLAGS) -o astman astman.o ../md5.o -lnewt
+clean:
+	rm -f *.o $(ALL_UTILS) check_expr
+	rm -f .*.o.d .*.oo.d
+	rm -f md5.c strcompat.c ast_expr2.c ast_expr2f.c pbx_ael.c
+	rm -f aelparse.c aelbison.c
+
+md5.c: ../main/md5.c
+	@cp $< $@
+
+astman: astman.o md5.o
+astman: LIBS+=$(NEWT_LIB)
 
 stereorize: stereorize.o frame.o
-	$(CC) $(CFLAGS) -o stereorize stereorize.o frame.o -lm
+stereorize: LIBS+=-lm
 
-ast_expr2.o: ../ast_expr2.c
-	gcc -g -c -o $@ $<
+strcompat.c: ../main/strcompat.c
+	@cp $< $@
 
-ast_expr2f.o: ../ast_expr2f.c
-	gcc -g -c -DSTANDALONE -o $@ $<
+../main/ast_expr2.c:
+	@echo "   [BISON] ../main/ast_expr2.y -> $@"
+	@bison -o $@ -d --name-prefix=ast_yy ../main/ast_expr2.y
 
-check_expr: check_expr.c ast_expr2.o ast_expr2f.o
-	$(CC) $(CFLAGS) -o $@ $^
+../main/ast_expr2f.c:
+	@echo "   [FLEX] ../main/ast_expr2.fl -> $@"
+	@flex -o $@ --full ../main/ast_expr2.fl
 
-smsq: smsq.o
-	$(CC) $(CFLAGS) -o smsq ${SOL} smsq.o -lpopt
+ast_expr2.c: ../main/ast_expr2.c
+	@cp $< $@
+
+ast_expr2f.c: ../main/ast_expr2f.c
+	@cp $< $@
+
+ast_expr2f.o: ASTCFLAGS+=-DSTANDALONE_AEL -I../main
+
+check_expr: check_expr.o ast_expr2.o ast_expr2f.o
+
+aelbison.c: ../pbx/ael/ael.tab.c
+	@cp $< $@
+aelbison.o: aelbison.c ../pbx/ael/ael.tab.h ../include/asterisk/ael_structs.h
+aelbison.o: ASTCFLAGS+=-I../pbx
+
+pbx_ael.c: ../pbx/pbx_ael.c
+	@cp $< $@
+pbx_ael.o: ASTCFLAGS+=-DSTANDALONE_AEL
+
+ael_main.o: ael_main.c ../include/asterisk/ael_structs.h
+
+aelparse.c: ../pbx/ael/ael_lex.c
+	@cp $< $@
+aelparse.o: aelparse.c ../include/asterisk/ael_structs.h ../pbx/ael/ael.tab.h
+aelparse.o: ASTCFLAGS+=-I../pbx -DSTANDALONE_AEL
+
+aelparse: aelparse.o aelbison.o pbx_ael.o ael_main.o ast_expr2f.o ast_expr2.o strcompat.o
+
+testexpr2s: ../main/ast_expr2f.c ../main/ast_expr2.c ../main/ast_expr2.h
+	$(CC) -g -c -I../include -DSTANDALONE_AEL ../main/ast_expr2f.c -o ast_expr2f.o
+	$(CC) -g -c -I../include -DSTANDALONE_AEL ../main/ast_expr2.c -o ast_expr2.o
+	$(CC) -g -o testexpr2s ast_expr2f.o ast_expr2.o
+	rm ast_expr2.o ast_expr2f.o 
+	./testexpr2s expr2.testinput
+
+smsq: smsq.o strcompat.o
+smsq: LIBS+=$(POPT_LIB)
 
 streamplayer: streamplayer.o
-	$(CC) $(CFLAGS) -o streamplayer ${SOL} streamplayer.o ${SOLLIBS}
 
-ifneq ($(wildcard .depend),)
-  include .depend
+muted: muted.o
+muted: LIBS+=$(AUDIO_LIBS)
+
+ifneq ($(wildcard .*.d),)
+   include .*.d
 endif
-
-depend: .depend
-
-.depend:
-	../build_tools/mkdep $(CFLAGS) `ls *.c`
-

@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2005, Russell Bryant <russelb@clemson.edu> 
+ * Copyright (C) 2005-2006, Russell Bryant <russelb@clemson.edu> 
  *
  * func_db.c adapted from the old app_db.c, copyright by the following people 
  * Copyright (C) 2005, Mark Spencer <markster@digium.com>
@@ -21,18 +21,21 @@
 /*! \file
  *
  * \brief Functions for interaction with the Asterisk database
- * 
+ *
+ * \author Russell Bryant <russelb@clemson.edu>
  */
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <regex.h>
 
-#include "asterisk.h"
-
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $") */
-
+#include "asterisk/module.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/logger.h"
@@ -41,129 +44,188 @@
 #include "asterisk/app.h"
 #include "asterisk/astdb.h"
 
-static char *function_db_read(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
+static int function_db_read(struct ast_channel *chan, char *cmd,
+			    char *parse, char *buf, size_t len)
 {
-	int argc;	
-	char *args;
-	char *argv[2];
-	char *family;
-	char *key;
+	AST_DECLARE_APP_ARGS(args,
+			     AST_APP_ARG(family);
+			     AST_APP_ARG(key);
+	);
 
-	if (ast_strlen_zero(data)) {
+	buf[0] = '\0';
+
+	if (ast_strlen_zero(parse)) {
 		ast_log(LOG_WARNING, "DB requires an argument, DB(<family>/<key>)\n");
-		return buf;
+		return -1;
 	}
 
-	args = ast_strdupa(data);
-	argc = ast_app_separate_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
-	
-	if (argc > 1) {
-		family = argv[0];
-		key = argv[1];
-	} else {
+	AST_NONSTANDARD_APP_ARGS(args, parse, '/');
+
+	if (args.argc < 2) {
 		ast_log(LOG_WARNING, "DB requires an argument, DB(<family>/<key>)\n");
-		return buf;
+		return -1;
 	}
 
-	if (ast_db_get(family, key, buf, len-1)) {
-		ast_log(LOG_DEBUG, "DB: %s/%s not found in database.\n", family, key);
+	if (ast_db_get(args.family, args.key, buf, len - 1)) {
+		ast_log(LOG_DEBUG, "DB: %s/%s not found in database.\n", args.family,
+				args.key);
 	} else
 		pbx_builtin_setvar_helper(chan, "DB_RESULT", buf);
 
-	
-	return buf;
+	return 0;
 }
 
-static void function_db_write(struct ast_channel *chan, char *cmd, char *data, const char *value) 
+static int function_db_write(struct ast_channel *chan, char *cmd, char *parse,
+			     const char *value)
 {
-	int argc;	
-	char *args;
-	char *argv[2];
-	char *family;
-	char *key;
+	AST_DECLARE_APP_ARGS(args,
+			     AST_APP_ARG(family);
+			     AST_APP_ARG(key);
+	);
 
-	if (ast_strlen_zero(data)) {
+	if (ast_strlen_zero(parse)) {
 		ast_log(LOG_WARNING, "DB requires an argument, DB(<family>/<key>)=<value>\n");
-		return;
+		return -1;
 	}
 
-	args = ast_strdupa(data);
-	argc = ast_app_separate_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
-	
-	if (argc > 1) {
-		family = argv[0];
-		key = argv[1];
-	} else {
+	AST_NONSTANDARD_APP_ARGS(args, parse, '/');
+
+	if (args.argc < 2) {
 		ast_log(LOG_WARNING, "DB requires an argument, DB(<family>/<key>)=value\n");
-		return;
+		return -1;
 	}
 
-	if (ast_db_put(family, key, (char*)value)) {
+	if (ast_db_put(args.family, args.key, (char *) value))
 		ast_log(LOG_WARNING, "DB: Error writing value to database.\n");
-	}
+
+	return 0;
 }
 
-#ifndef BUILTIN_FUNC
-static
-#endif
-struct ast_custom_function db_function = {
+static struct ast_custom_function db_function = {
 	.name = "DB",
-	.synopsis = "Read or Write from/to the Asterisk database",
+	.synopsis = "Read from or write to the Asterisk database",
 	.syntax = "DB(<family>/<key>)",
-	.desc = "This function will read or write a value from/to the Asterisk database.\n"
-		"DB(...) will read a value from the database, while DB(...)=value\n"
-		"will write a value to the database.  On a read, this function\n"
-		"returns the value from the datase, or NULL if it does not exist.\n"
-		"On a write, this function will always return NULL.  Reading a database value\n"
-		"will also set the variable DB_RESULT.\n",
+	.desc =
+"This function will read from or write a value to the Asterisk database.  On a\n"
+"read, this function returns the corresponding value from the database, or blank\n"
+"if it does not exist.  Reading a database value will also set the variable\n"
+"DB_RESULT.  If you wish to find out if an entry exists, use the DB_EXISTS\n"
+"function.\n",
 	.read = function_db_read,
 	.write = function_db_write,
 };
 
-static char *function_db_exists(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
+static int function_db_exists(struct ast_channel *chan, char *cmd,
+			      char *parse, char *buf, size_t len)
 {
-	int argc;	
-	char *args;
-	char *argv[2];
-	char *family;
-	char *key;
+	AST_DECLARE_APP_ARGS(args,
+			     AST_APP_ARG(family);
+			     AST_APP_ARG(key);
+	);
 
-	if (ast_strlen_zero(data)) {
+	buf[0] = '\0';
+
+	if (ast_strlen_zero(parse)) {
 		ast_log(LOG_WARNING, "DB_EXISTS requires an argument, DB(<family>/<key>)\n");
-		return buf;
+		return -1;
 	}
 
-	args = ast_strdupa(data);
-	argc = ast_app_separate_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
-	
-	if (argc > 1) {
-		family = argv[0];
-		key = argv[1];
-	} else {
+	AST_NONSTANDARD_APP_ARGS(args, parse, '/');
+
+	if (args.argc < 2) {
 		ast_log(LOG_WARNING, "DB_EXISTS requires an argument, DB(<family>/<key>)\n");
-		return buf;
+		return -1;
 	}
 
-	if (ast_db_get(family, key, buf, len-1))
-		ast_copy_string(buf, "0", len);	
+	if (ast_db_get(args.family, args.key, buf, len - 1))
+		strcpy(buf, "0");
 	else {
 		pbx_builtin_setvar_helper(chan, "DB_RESULT", buf);
-		ast_copy_string(buf, "1", len);
+		strcpy(buf, "1");
 	}
-	
-	return buf;
+
+	return 0;
 }
 
-#ifndef BUILTIN_FUNC
-static
-#endif
-struct ast_custom_function db_exists_function = {
+static struct ast_custom_function db_exists_function = {
 	.name = "DB_EXISTS",
 	.synopsis = "Check to see if a key exists in the Asterisk database",
 	.syntax = "DB_EXISTS(<family>/<key>)",
-	.desc = "This function will check to see if a key exists in the Asterisk\n"
+	.desc =
+		"This function will check to see if a key exists in the Asterisk\n"
 		"database. If it exists, the function will return \"1\". If not,\n"
 		"it will return \"0\".  Checking for existence of a database key will\n"
 		"also set the variable DB_RESULT to the key's value if it exists.\n",
 	.read = function_db_exists,
 };
+
+static int function_db_delete(struct ast_channel *chan, char* cmd,
+			      char *parse, char *buf, size_t len)
+{
+	AST_DECLARE_APP_ARGS(args,
+			     AST_APP_ARG(family);
+			     AST_APP_ARG(key);
+	);
+
+	buf[0] = '\0';
+
+	if (ast_strlen_zero(parse)) {
+		ast_log(LOG_WARNING, "DB_DELETE requires an argument, DB_DELETE(<family>/<key>)\n");
+		return -1;
+	}
+
+	AST_NONSTANDARD_APP_ARGS(args, parse, '/');
+
+	if (args.argc < 2) {
+		ast_log(LOG_WARNING, "DB_DELETE requires an argument, DB_DELETE(<family>/<key>)\n");
+		return -1;
+	}
+
+	if (ast_db_get(args.family, args.key, buf, len - 1)) {
+		ast_log(LOG_DEBUG, "DB_DELETE: %s/%s not found in database.\n", args.family, args.key);
+	} else {
+		if (ast_db_del(args.family, args.key)) {
+			ast_log(LOG_DEBUG, "DB_DELETE: %s/%s could not be deleted from the database\n", 
+				args.family, args.key);
+		}
+	}
+	pbx_builtin_setvar_helper(chan, "DB_RESULT", buf);
+
+	return 0;
+}
+
+
+static struct ast_custom_function db_delete_function = {
+	.name = "DB_DELETE",
+	.synopsis = "Return a value from the database and delete it",
+	.syntax = "DB_DELETE(<family>/<key>)",
+	.desc =
+		"This function will retrieve a value from the Asterisk database\n"
+		" and then remove that key from the database.  DB_RESULT\n"
+		"will be set to the key's value if it exists.\n",
+	.read = function_db_delete,
+};
+
+static int unload_module(void)
+{
+	int res = 0;
+
+	res |= ast_custom_function_unregister(&db_function);
+	res |= ast_custom_function_unregister(&db_exists_function);
+	res |= ast_custom_function_unregister(&db_delete_function);
+
+	return res;
+}
+
+static int load_module(void)
+{
+	int res = 0;
+
+	res |= ast_custom_function_register(&db_function);
+	res |= ast_custom_function_register(&db_exists_function);
+	res |= ast_custom_function_register(&db_delete_function);
+
+	return res;
+}
+
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Database (astdb) related dialplan functions");

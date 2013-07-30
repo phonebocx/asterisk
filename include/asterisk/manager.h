@@ -29,22 +29,22 @@
 
 /*!
  \file
- \brief The AMI - Asterisk Manager Interface - is a TCP protocol created to 
+ \brief The AMI - Asterisk Manager Interface - is a TCP protocol created to
  manage Asterisk with third-party software.
 
  Manager protocol packages are text fields of the form a: b.  There is
  always exactly one space after the colon.
- 
+
  The first header type is the "Event" header.  Other headers vary from
  event to event.  Headers end with standard \r\n termination.
  The last line of the manager response or event is an empty line.
  (\r\n)
- 
+
  ** Please try to re-use existing headers to simplify manager message parsing in clients.
     Don't re-use an existing header with a new meaning, please.
     You can find a reference of standard headers in doc/manager.txt
  */
- 
+
 #define DEFAULT_MANAGER_PORT 5038	/* Default port for Asterisk management via TCP */
 
 #define EVENT_FLAG_SYSTEM 		(1 << 0) /* System events such as module load/unload */
@@ -54,54 +54,16 @@
 #define EVENT_FLAG_COMMAND		(1 << 4) /* Ability to read/set commands */
 #define EVENT_FLAG_AGENT		(1 << 5) /* Ability to read/set agent info */
 #define EVENT_FLAG_USER                 (1 << 6) /* Ability to read/set user info */
+#define EVENT_FLAG_CONFIG		(1 << 7) /* Ability to modify configurations */
 
 /* Export manager structures */
-#define AST_MAX_MANHEADERS 80
-#define AST_MAX_MANHEADER_LEN 256
+#define AST_MAX_MANHEADERS 128
 
-struct eventqent {
-	struct eventqent *next;
-	char eventdata[1];
-};
-
-struct mansession {
-	/*! Execution thread */
-	pthread_t t;
-	/*! Thread lock -- don't use in action callbacks, it's already taken care of  */
-	ast_mutex_t __lock;
-	/*! socket address */
-	struct sockaddr_in sin;
-	/*! TCP socket */
-	int fd;
-	/*! Whether or not we're busy doing an action */
-	int busy;
-	/*! Whether or not we're "dead" */
-	int dead;
-	/*! Logged in username */
-	char username[80];
-	/*! Authentication challenge */
-	char challenge[10];
-	/*! Authentication status */
-	int authenticated;
-	/*! Authorization for reading */
-	int readperm;
-	/*! Authorization for writing */
-	int writeperm;
-	/*! Buffer */
-	char inbuf[AST_MAX_MANHEADER_LEN];
-	int inlen;
-	int send_events;
-	/* Queued events that we've not had the ability to send yet */
-	struct eventqent *eventq;
-	/* Timeout for ast_carefulwrite() */
-	int writetimeout;
-	struct mansession *next;
-};
-
+struct mansession;
 
 struct message {
-	int hdrcount;
-	char headers[AST_MAX_MANHEADERS][AST_MAX_MANHEADER_LEN];
+	unsigned int hdrcount;
+	const char *headers[AST_MAX_MANHEADERS];
 };
 
 struct manager_action {
@@ -114,12 +76,10 @@ struct manager_action {
 	/*! Permission required for action.  EVENT_FLAG_* */
 	int authority;
 	/*! Function to be called */
-	int (*func)(struct mansession *s, struct message *m);
+	int (*func)(struct mansession *s, const struct message *m);
 	/*! For easy linking */
 	struct manager_action *next;
 };
-
-int ast_carefulwrite(int fd, char *s, int len, int timeoutms);
 
 /* External routines may register/unregister manager callbacks this way */
 #define ast_manager_register(a, b, c, d) ast_manager_register2(a, b, c, d, NULL)
@@ -133,10 +93,10 @@ int ast_carefulwrite(int fd, char *s, int len, int timeoutms);
 	\param synopsis Help text (one line, up to 30 chars) for CLI manager show commands
 	\param description Help text, several lines
 */
-int ast_manager_register2( 
-	const char *action, 
-	int authority, 
-	int (*func)(struct mansession *s, struct message *m), 
+int ast_manager_register2(
+	const char *action,
+	int authority,
+	int (*func)(struct mansession *s, const struct message *m),
 	const char *synopsis,
 	const char *description);
 
@@ -145,28 +105,44 @@ int ast_manager_register2(
 */
 int ast_manager_unregister( char *action );
 
+/*! 
+ * \brief Verify a session's read permissions against a permission mask.  
+ * \param ident session identity
+ * \param perm permission mask to verify
+ * \returns 1 if the session has the permission mask capabilities, otherwise 0
+ */
+int astman_verify_session_readpermissions(unsigned long ident, int perm);
+
+/*!
+ * \brief Verify a session's write permissions against a permission mask.  
+ * \param ident session identity
+ * \param perm permission mask to verify
+ * \returns 1 if the session has the permission mask capabilities, otherwise 0
+ */
+int astman_verify_session_writepermissions(unsigned long ident, int perm);
+
 /*! External routines may send asterisk manager events this way */
 /*! 	\param category	Event category, matches manager authorization
 	\param event	Event name
 	\param contents	Contents of event
-*/ 
-extern int manager_event(int category, char *event, char *contents, ...)
-	__attribute__ ((format (printf, 3,4)));
+*/
+int __attribute__ ((format (printf, 3,4))) manager_event(int category, const char *event, const char *contents, ...);
 
 /*! Get header from mananger transaction */
-extern char *astman_get_header(struct message *m, char *var);
+const char *astman_get_header(const struct message *m, char *var);
 
 /*! Get a linked list of the Variable: headers */
-struct ast_variable *astman_get_variables(struct message *m);
+struct ast_variable *astman_get_variables(const struct message *m);
 
 /*! Send error in manager transaction */
-extern void astman_send_error(struct mansession *s, struct message *m, char *error);
-extern void astman_send_response(struct mansession *s, struct message *m, char *resp, char *msg);
-extern void astman_send_ack(struct mansession *s, struct message *m, char *msg);
+void astman_send_error(struct mansession *s, const struct message *m, char *error);
+void astman_send_response(struct mansession *s, const struct message *m, char *resp, char *msg);
+void astman_send_ack(struct mansession *s, const struct message *m, char *msg);
+
+void __attribute__ ((format (printf, 2, 3))) astman_append(struct mansession *s, const char *fmt, ...);
 
 /*! Called by Asterisk initialization */
-extern int init_manager(void);
-/*! Called by Asterisk initialization */
-extern int reload_manager(void);
+int init_manager(void);
+int reload_manager(void);
 
 #endif /* _ASTERISK_MANAGER_H */

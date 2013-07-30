@@ -1,7 +1,8 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (c) 2003 Tilghman Lesher.  All rights reserved.
+ * Copyright (c) 2003, 2006 Tilghman Lesher.  All rights reserved.
+ * Copyright (c) 2006 Digium, Inc.
  *
  * Tilghman Lesher <app_sayunixtime__200309@the-tilghman.com>
  *
@@ -18,18 +19,20 @@
 /*! \file
  *
  * \brief SayUnixTime application
+ *
+ * \author Tilghman Lesher <app_sayunixtime__200309@the-tilghman.com>
  * 
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -38,9 +41,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/say.h"
-
-
-static char *tdesc = "Say time";
+#include "asterisk/app.h"
 
 static char *app_sayunixtime = "SayUnixTime";
 static char *app_datetime = "DateTime";
@@ -64,78 +65,55 @@ static char *datetime_descrip =
 "  format:   a format the time is to be said in.  See voicemail.conf.\n"
 "              defaults to \"ABdY 'digits/at' IMp\"\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int sayunixtime_exec(struct ast_channel *chan, void *data)
 {
-	int res=0;
-	struct localuser *u;
-	char *s,*zone=NULL,*timec,*format;
+	AST_DECLARE_APP_ARGS(args,
+			     AST_APP_ARG(timeval);
+			     AST_APP_ARG(timezone);
+			     AST_APP_ARG(format);
+	);
+	char *parse;
+	int res = 0;
+	struct ast_module_user *u;
 	time_t unixtime;
-	struct timeval tv;
 	
-	LOCAL_USER_ADD(u);
+	if (!data)
+		return 0;
 
-	tv = ast_tvnow();
-	unixtime = (time_t)tv.tv_sec;
+	parse = ast_strdupa(data);
 
-	if( !strcasecmp(chan->language, "da" ) ) {
-		format = "A dBY HMS";
-	} else if ( !strcasecmp(chan->language, "de" ) ) {
-		format = "A dBY HMS";
-	} else {
-		format = "ABdY 'digits/at' IMp";
-	} 
+	u = ast_module_user_add(chan);
 
-	if (data) {
-		s = data;
-		s = ast_strdupa(s);
-		if (s) {
-			timec = strsep(&s,"|");
-			if ((timec) && (*timec != '\0')) {
-				long timein;
-				if (sscanf(timec,"%ld",&timein) == 1) {
-					unixtime = (time_t)timein;
-				}
-			}
-			if (s) {
-				zone = strsep(&s,"|");
-				if (zone && (*zone == '\0'))
-					zone = NULL;
-				if (s) {
-					format = s;
-				}
-			}
-		} else {
-			ast_log(LOG_ERROR, "Out of memory error\n");
-		}
-	}
+	AST_STANDARD_APP_ARGS(args, parse);
 
-	if (chan->_state != AST_STATE_UP) {
+	ast_get_time_t(args.timeval, &unixtime, time(NULL), NULL);
+
+	if (chan->_state != AST_STATE_UP)
 		res = ast_answer(chan);
-	}
-	if (!res)
-		res = ast_say_date_with_format(chan, unixtime, AST_DIGIT_ANY, chan->language, format, zone);
 
-	LOCAL_USER_REMOVE(u);
+	if (!res)
+		res = ast_say_date_with_format(chan, unixtime, AST_DIGIT_ANY,
+					       chan->language, args.format, args.timezone);
+
+	ast_module_user_remove(u);
+
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 	
 	res = ast_unregister_application(app_sayunixtime);
 	res |= ast_unregister_application(app_datetime);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 	
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	int res;
 	
@@ -145,19 +123,4 @@ int load_module(void)
 	return res;
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Say time");

@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -20,17 +20,19 @@
  * \brief Asterisk memory usage debugging
  */
 
-#ifndef NO_AST_MM
 #ifndef _ASTERISK_ASTMM_H
 #define _ASTERISK_ASTMM_H
 
 #define __AST_DEBUG_MALLOC
+
+#include "asterisk.h"
 
 /* Include these now to prevent them from being needed later */
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 /* Undefine any macros */
 #undef malloc
@@ -38,14 +40,17 @@
 #undef realloc
 #undef strdup
 #undef strndup
+#undef asprintf
 #undef vasprintf
 
 void *__ast_calloc(size_t nmemb, size_t size, const char *file, int lineno, const char *func);
+void *__ast_calloc_cache(size_t nmemb, size_t size, const char *file, int lineno, const char *func);
 void *__ast_malloc(size_t size, const char *file, int lineno, const char *func);
 void __ast_free(void *ptr, const char *file, int lineno, const char *func);
 void *__ast_realloc(void *ptr, size_t size, const char *file, int lineno, const char *func);
 char *__ast_strdup(const char *s, const char *file, int lineno, const char *func);
 char *__ast_strndup(const char *s, size_t n, const char *file, int lineno, const char *func);
+int __ast_asprintf(const char *file, int lineno, const char *func, char **strp, const char *format, ...);
 int __ast_vasprintf(char **strp, const char *format, va_list ap, const char *file, int lineno, const char *func);
 
 void __ast_mm_init(void);
@@ -54,6 +59,9 @@ void __ast_mm_init(void);
 /* Provide our own definitions */
 #define calloc(a,b) \
 	__ast_calloc(a,b,__FILE__, __LINE__, __PRETTY_FUNCTION__)
+
+#define ast_calloc_cache(a,b) \
+	__ast_calloc_cache(a,b,__FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 #define malloc(a) \
 	__ast_malloc(a,__FILE__, __LINE__, __PRETTY_FUNCTION__)
@@ -70,10 +78,12 @@ void __ast_mm_init(void);
 #define strndup(a,b) \
 	__ast_strndup(a,b,__FILE__, __LINE__, __PRETTY_FUNCTION__)
 
+#define asprintf(a, b, c...) \
+	__ast_asprintf(__FILE__, __LINE__, __PRETTY_FUNCTION__, a, b, c)
+
 #define vasprintf(a,b,c) \
 	__ast_vasprintf(a,b,c,__FILE__, __LINE__, __PRETTY_FUNCTION__)
 
 #else
 #error "NEVER INCLUDE astmm.h DIRECTLY!!"
 #endif /* _ASTERISK_ASTMM_H */
-#endif

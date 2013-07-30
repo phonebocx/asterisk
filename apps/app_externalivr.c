@@ -22,19 +22,25 @@
 /*! \file
  *
  * \brief External IVR application interface
- * 
+ *
+ * \author Kevin P. Fleming <kpfleming@digium.com>
+ *
+ * \note Portions taken from the file-based music-on-hold work
+ * created by Anthony Minessale II in res_musiconhold.c
+ *
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48396 $")
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24019 $")
+#include <signal.h>
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -44,9 +50,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24019 $")
 #include "asterisk/module.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/app.h"
+#include "asterisk/utils.h"
 #include "asterisk/options.h"
-
-static const char *tdesc = "External IVR Interface Application";
 
 static const char *app = "ExternalIVR";
 
@@ -60,7 +65,7 @@ static const char *descrip =
 "will receive all DTMF events received on the channel, and notification\n"
 "if the channel is hung up. The application will not be forcibly terminated\n"
 "when the channel is hung up.\n"
-"See doc/README.externalivr for a protocol specification.\n";
+"See doc/externalivr.txt for a protocol specification.\n";
 
 /* XXX the parser in gcc 2.95 gets confused if you don't put a space between 'name' and the comma */
 #define ast_chan_log(level, channel, format, ...) ast_log(level, "%s: " format, channel->name , ## __VA_ARGS__)
@@ -70,9 +75,8 @@ struct playlist_entry {
 	char filename[1];
 };
 
-struct localuser {
+struct ivr_localuser {
 	struct ast_channel *chan;
-	struct localuser *next;
 	AST_LIST_HEAD(playlist, playlist_entry) playlist;
 	AST_LIST_HEAD(finishlist, playlist_entry) finishlist;
 	int abort_current_sound;
@@ -80,10 +84,9 @@ struct localuser {
 	int option_autoclear;
 };
 
-LOCAL_USER_DECL;
 
 struct gen_state {
-	struct localuser *u;
+	struct ivr_localuser *u;
 	struct ast_filestream *stream;
 	struct playlist_entry *current;
 	int sample_queue;
@@ -106,12 +109,10 @@ static void send_child_event(FILE *handle, const char event, const char *data,
 
 static void *gen_alloc(struct ast_channel *chan, void *params)
 {
-	struct localuser *u = params;
+	struct ivr_localuser *u = params;
 	struct gen_state *state;
-
-	state = calloc(1, sizeof(*state));
-
-	if (!state)
+	
+	if (!(state = ast_calloc(1, sizeof(*state))))
 		return NULL;
 
 	state->u = u;
@@ -140,7 +141,7 @@ static void gen_release(struct ast_channel *chan, void *data)
 /* caller has the playlist locked */
 static int gen_nextfile(struct gen_state *state)
 {
-	struct localuser *u = state->u;
+	struct ivr_localuser *u = state->u;
 	char *file_to_stream;
 	
 	u->abort_current_sound = 0;
@@ -152,7 +153,7 @@ static int gen_nextfile(struct gen_state *state)
 		if (state->current) {
 			file_to_stream = state->current->filename;
 		} else {
-			file_to_stream = "silence-10";
+			file_to_stream = "silence/10";
 			u->playing_silence = 1;
 		}
 
@@ -172,7 +173,7 @@ static int gen_nextfile(struct gen_state *state)
 static struct ast_frame *gen_readframe(struct gen_state *state)
 {
 	struct ast_frame *f = NULL;
-	struct localuser *u = state->u;
+	struct ivr_localuser *u = state->u;
 	
 	if (u->abort_current_sound ||
 	    (u->playing_silence && AST_LIST_FIRST(&u->playlist))) {
@@ -230,10 +231,8 @@ static struct ast_generator gen =
 static struct playlist_entry *make_entry(const char *filename)
 {
 	struct playlist_entry *entry;
-
-	entry = calloc(1, sizeof(*entry) + strlen(filename) + 10);
-
-	if (!entry)
+	
+	if (!(entry = ast_calloc(1, sizeof(*entry) + strlen(filename) + 10))) /* XXX why 10 ? */
 		return NULL;
 
 	strcpy(entry->filename, filename);
@@ -243,7 +242,7 @@ static struct playlist_entry *make_entry(const char *filename)
 
 static int app_exec(struct ast_channel *chan, void *data)
 {
-	struct localuser *u = NULL;
+	struct ast_module_user *lu;
 	struct playlist_entry *entry;
 	const char *args = data;
 	int child_stdin[2] = { 0,0 };
@@ -258,24 +257,28 @@ static int app_exec(struct ast_channel *chan, void *data)
 	FILE *child_commands = NULL;
 	FILE *child_errors = NULL;
 	FILE *child_events = NULL;
+	struct ivr_localuser foo = {
+		.playlist = AST_LIST_HEAD_INIT_VALUE,
+		.finishlist = AST_LIST_HEAD_INIT_VALUE,
+	};
+	struct ivr_localuser *u = &foo;
+	sigset_t fullset, oldset;
 
-	LOCAL_USER_ADD(u);
-	
-	AST_LIST_HEAD_INIT(&u->playlist);
-	AST_LIST_HEAD_INIT(&u->finishlist);
+	lu = ast_module_user_add(chan);
+
+	sigfillset(&fullset);
+	pthread_sigmask(SIG_BLOCK, &fullset, &oldset);
+
 	u->abort_current_sound = 0;
+	u->chan = chan;
 	
 	if (ast_strlen_zero(args)) {
 		ast_log(LOG_WARNING, "ExternalIVR requires a command to execute\n");
-		goto exit;
+		ast_module_user_remove(lu);
+		return -1;	
 	}
 
 	buf = ast_strdupa(data);
-	if (!buf) {
-		ast_log(LOG_ERROR, "Out of memory!\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
 
 	argc = ast_app_separate_args(buf, '|', argv, sizeof(argv) / sizeof(argv[0]));
 
@@ -314,7 +317,10 @@ static int app_exec(struct ast_channel *chan, void *data)
 		/* child process */
 		int i;
 
-		if (option_highpriority)
+		signal(SIGPIPE, SIG_DFL);
+		pthread_sigmask(SIG_UNBLOCK, &fullset, NULL);
+
+		if (ast_opt_high_priority)
 			ast_set_priority(0);
 
 		dup2(child_stdin[0], STDIN_FILENO);
@@ -324,7 +330,7 @@ static int app_exec(struct ast_channel *chan, void *data)
 			close(i);
 		execv(argv[0], argv);
 		fprintf(stderr, "Failed to execute '%s': %s\n", argv[0], strerror(errno));
-		exit(1);
+		_exit(1);
 	} else {
 		/* parent process */
 		int child_events_fd = child_stdin[1];
@@ -336,6 +342,8 @@ static int app_exec(struct ast_channel *chan, void *data)
 		int ready_fd;
 		int waitfds[2] = { child_errors_fd, child_commands_fd };
 		struct ast_channel *rchan;
+
+		pthread_sigmask(SIG_SETMASK, &oldset, NULL);
 
 		close(child_stdin[0]);
 		child_stdin[0] = 0;
@@ -447,7 +455,7 @@ static int app_exec(struct ast_channel *chan, void *data)
 					continue;
 
 				if (input[0] == 'S') {
-					if (ast_fileexists(&input[2], NULL, NULL) == -1) {
+					if (ast_fileexists(&input[2], NULL, u->chan->language) == -1) {
 						ast_chan_log(LOG_WARNING, chan, "Unknown file requested '%s'\n", &input[2]);
 						send_child_event(child_events, 'Z', NULL, chan);
 						strcpy(&input[2], "exception");
@@ -466,7 +474,7 @@ static int app_exec(struct ast_channel *chan, void *data)
 						AST_LIST_INSERT_TAIL(&u->playlist, entry, list);
 					AST_LIST_UNLOCK(&u->playlist);
 				} else if (input[0] == 'A') {
-					if (ast_fileexists(&input[2], NULL, NULL) == -1) {
+					if (ast_fileexists(&input[2], NULL, u->chan->language) == -1) {
 						ast_chan_log(LOG_WARNING, chan, "Unknown file requested '%s'\n", &input[2]);
 						send_child_event(child_events, 'Z', NULL, chan);
 						strcpy(&input[2], "exception");
@@ -546,42 +554,25 @@ static int app_exec(struct ast_channel *chan, void *data)
 	while ((entry = AST_LIST_REMOVE_HEAD(&u->playlist, list)))
 		free(entry);
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(lu);
 
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, app_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return (char *) tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-
-	STANDARD_USECOUNT(res);
-
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "External IVR Interface Application");

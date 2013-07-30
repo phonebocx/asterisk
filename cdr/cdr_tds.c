@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2004 - 2005, Digium, Inc.
+ * Copyright (C) 2004 - 2006, Digium, Inc.
  *
  * See http://www.asterisk.org for more information about
  * the Asterisk project. Please do not directly contact
@@ -55,6 +55,14 @@ CREATE TABLE [dbo].[cdr] (
 
 */
 
+/*** MODULEINFO
+	<depend>freetds</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
+
 #include <sys/types.h>
 #include <stdio.h>
 #include <string.h>
@@ -66,10 +74,6 @@ CREATE TABLE [dbo].[cdr] (
 #include <tds.h>
 #include <tdsconvert.h>
 #include <ctype.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11503 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"
@@ -84,11 +88,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11503 $")
 
 #define DATE_FORMAT "%Y/%m/%d %T"
 
-static char *desc = "MSSQL CDR Backend";
 static char *name = "mssql";
 static char *config = "cdr_tds.conf";
 
 static char *hostname = NULL, *dbname = NULL, *dbuser = NULL, *password = NULL, *charset = NULL, *language = NULL;
+static char *table = NULL;
 
 static int connected = 0;
 
@@ -135,7 +139,7 @@ static int tds_log(struct ast_cdr *cdr)
 
 	sprintf(
 		sqlcmd,
-		"INSERT INTO cdr "
+		"INSERT INTO %s "
 		"("
 			"accountcode, "
 			"src, "
@@ -175,6 +179,7 @@ static int tds_log(struct ast_cdr *cdr)
 			"'%s', "	/* amaflags */
 			"'%s'"		/* uniqueid */
 		")",
+		table,
 		accountcode,
 		src,
 		dst,
@@ -281,7 +286,7 @@ static void get_date(char *dateField, struct timeval tv)
 	if (!ast_tvzero(tv))
 	{
 		t = tv.tv_sec;
-		localtime_r(&t, &tm);
+		ast_localtime(&t, &tm, NULL);
 		strftime(buf, 80, DATE_FORMAT, &tm);
 		sprintf(dateField, "'%s'", buf);
 	}
@@ -289,11 +294,6 @@ static void get_date(char *dateField, struct timeval tv)
 	{
 		strcpy(dateField, "null");
 	}
-}
-
-char *description(void)
-{
-	return desc;
 }
 
 static int mssql_disconnect(void)
@@ -320,7 +320,7 @@ static int mssql_disconnect(void)
 
 static int mssql_connect(void)
 {
-#ifdef FREETDS_0_63
+#if (defined(FREETDS_0_63) || defined(FREETDS_0_64))
 	TDSCONNECTION *connection = NULL;
 #else
 	TDSCONNECTINFO *connection = NULL;
@@ -346,7 +346,11 @@ static int mssql_connect(void)
 	tds_set_packet(login, 512);
 	tds_set_version(login, 7, 0);
 
+#ifdef FREETDS_0_64
+	if (!(context = tds_alloc_context(NULL)))
+#else
 	if (!(context = tds_alloc_context()))
+#endif
 	{
 		ast_log(LOG_ERROR, "tds_alloc_context() failed.\n");
 		goto connect_fail;
@@ -369,7 +373,7 @@ static int mssql_connect(void)
 	{
 		ast_log(LOG_ERROR, "Failed to connect to MSSQL server.\n");
 		tds = NULL;	/* freed by tds_connect() on error */
-#ifdef FREETDS_0_63
+#if (defined(FREETDS_0_63) || defined(FREETDS_0_64))
 		tds_free_connection(connection);
 #else
 		tds_free_connect(connection);
@@ -377,7 +381,7 @@ static int mssql_connect(void)
 		connection = NULL;
 		goto connect_fail;
 	}
-#ifdef FREETDS_0_63
+#if (defined(FREETDS_0_63) || defined(FREETDS_0_64))
 	tds_free_connection(connection);
 #else
 	tds_free_connect(connection);
@@ -415,6 +419,7 @@ static int tds_unload_module(void)
 	if (password) free(password);
 	if (charset) free(charset);
 	if (language) free(language);
+	if (table) free(table);
 
 	return 0;
 }
@@ -424,7 +429,7 @@ static int tds_load_module(void)
 	int res = 0;
 	struct ast_config *cfg;
 	struct ast_variable *var;
-	char *ptr = NULL;
+	const char *ptr = NULL;
 #ifdef FREETDS_PRE_0_62
 	TDS_INT result_type;
 #endif
@@ -475,12 +480,19 @@ static int tds_load_module(void)
 	else
 		language = strdup("us_english");
 
+	ptr = ast_variable_retrieve(cfg,"global","table");
+	if (ptr == NULL) {
+		ast_log(LOG_DEBUG,"cdr_tds: table not specified.  Assuming cdr\n");
+		ptr = "cdr";
+	}
+	table = strdup(ptr);
+
 	ast_config_destroy(cfg);
 
 	mssql_connect();
 
 	/* Register MSSQL CDR handler */
-	res = ast_cdr_register(name, desc, tds_log);
+	res = ast_cdr_register(name, ast_module_info->description, tds_log);
 	if (res)
 	{
 		ast_log(LOG_ERROR, "Unable to register MSSQL CDR handling\n");
@@ -489,34 +501,27 @@ static int tds_load_module(void)
 	return res;
 }
 
-int reload(void)
+static int reload(void)
 {
 	tds_unload_module();
 	return tds_load_module();
 }
 
-int load_module(void)
+static int load_module(void)
 {
-	return tds_load_module();
+	if(!tds_load_module())
+		return AST_MODULE_LOAD_DECLINE;
+	else 
+		return AST_MODULE_LOAD_SUCCESS;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	return tds_unload_module();
 }
 
-int usecount(void)
-{
-	/* Simplistic use count */
-	if (ast_mutex_trylock(&tds_lock)) {
-		return 1;
-	} else {
-		ast_mutex_unlock(&tds_lock);
-		return 0;
-	}
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "MSSQL CDR Backend",
+		.load = load_module,
+		.unload = unload_module,
+		.reload = reload,
+	       );

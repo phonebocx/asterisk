@@ -19,17 +19,19 @@
 /*! \file
  *
  * \brief Block all calls without Caller*ID, require phone # to be entered
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43364 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24097 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -46,8 +48,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 24097 $")
 #include "asterisk/config.h"
 
 #define PRIV_CONFIG "privacy.conf"
-
-static char *tdesc = "Require phone number to be entered, if no CallerID sent";
 
 static char *app = "PrivacyManager";
 
@@ -74,11 +74,6 @@ static char *descrip =
   "          SUCCESS | FAILED \n"
 ;
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
-
-
 
 static int privacy_exec (struct ast_channel *chan, void *data)
 {
@@ -87,9 +82,9 @@ static int privacy_exec (struct ast_channel *chan, void *data)
 	int maxretries = 3;
 	int minlength = 10;
 	int x = 0;
-	char *s;
+	const char *s;
 	char phone[30];
-	struct localuser *u;
+	struct ast_module_user *u;
 	struct ast_config *cfg = NULL;
 	char *parse = NULL;
 	int priority_jump = 0;
@@ -99,7 +94,8 @@ static int privacy_exec (struct ast_channel *chan, void *data)
 		AST_APP_ARG(options);
 	);
 
-	LOCAL_USER_ADD (u);
+	u = ast_module_user_add(chan);
+
 	if (!ast_strlen_zero(chan->cid.cid_num)) {
 		if (option_verbose > 2)
 			ast_verbose (VERBOSE_PREFIX_3 "CallerID Present: Skipping\n");
@@ -108,19 +104,13 @@ static int privacy_exec (struct ast_channel *chan, void *data)
 		if (chan->_state != AST_STATE_UP) {
 			res = ast_answer(chan);
 			if (res) {
-				LOCAL_USER_REMOVE(u);
+				ast_module_user_remove(u);
 				return -1;
 			}
 		}
 
-		if (!ast_strlen_zero((char *)data))
-		{
+		if (!ast_strlen_zero(data)) {
 			parse = ast_strdupa(data);
-			if (!parse) {
-				ast_log(LOG_ERROR, "Out of memory!\n");
-				LOCAL_USER_REMOVE(u);
-				return -1;
-			}
 			
 			AST_STANDARD_APP_ARGS(args, parse);
 
@@ -210,7 +200,7 @@ static int privacy_exec (struct ast_channel *chan, void *data)
 			}
 			pbx_builtin_setvar_helper(chan, "PRIVACYMGRSTATUS", "SUCCESS");
 		} else {
-			if (priority_jump || option_priority_jumping)	
+			if (priority_jump || ast_opt_priority_jumping)	
 				ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 			pbx_builtin_setvar_helper(chan, "PRIVACYMGRSTATUS", "FAILED");
 		}
@@ -218,45 +208,25 @@ static int privacy_exec (struct ast_channel *chan, void *data)
 			ast_config_destroy(cfg);
 	}
 
-  LOCAL_USER_REMOVE (u);
-  return 0;
+	ast_module_user_remove(u);
+
+	return 0;
 }
 
-int
-unload_module (void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application (app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int
-load_module (void)
+static int load_module(void)
 {
-  return ast_register_application (app, privacy_exec, synopsis,
-				   descrip);
+	return ast_register_application (app, privacy_exec, synopsis, descrip);
 }
 
-char *
-description (void)
-{
-  return tdesc;
-}
-
-int
-usecount (void)
-{
-  int res;
-  STANDARD_USECOUNT (res);
-  return res;
-}
-
-char *
-key ()
-{
-  return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Require phone number to be entered, if no CallerID sent");

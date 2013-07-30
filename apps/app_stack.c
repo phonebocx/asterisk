@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (c) 2004-2005 Tilghman Lesher <app_stack_v002@the-tilghman.com>.
+ * Copyright (c) 2004-2006 Tilghman Lesher <app_stack_v002@the-tilghman.com>.
  *
  * This code is released by the author with no restrictions on usage.
  *
@@ -19,9 +19,15 @@
 /*! \file
  *
  * \brief Stack applications Gosub, Return, etc.
+ *
+ * \author Tilghman Lesher <app_stack_v002@the-tilghman.com>
  * 
  * \ingroup applications
  */
+
+#include "asterisk.h"
+ 
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59070 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -38,7 +44,6 @@
 
 #define STACKVAR	"~GOSUB~STACK~"
 
-static const char *tdesc = "Stack Routines";
 
 static const char *app_gosub = "Gosub";
 static const char *app_gosubif = "GosubIf";
@@ -46,7 +51,7 @@ static const char *app_return = "Return";
 static const char *app_pop = "StackPop";
 
 static const char *gosub_synopsis = "Jump to label, saving return address";
-static const char *gosubif_synopsis = "Jump to label, saving return address";
+static const char *gosubif_synopsis = "Conditionally jump to label, saving return address";
 static const char *return_synopsis = "Return from gosub routine";
 static const char *pop_synopsis = "Remove one address from gosub stack";
 
@@ -65,9 +70,6 @@ static const char *pop_descrip =
 "StackPop()\n"
 "  Removes last label on the stack, discarding it.\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int pop_exec(struct ast_channel *chan, void *data)
 {
@@ -78,7 +80,7 @@ static int pop_exec(struct ast_channel *chan, void *data)
 
 static int return_exec(struct ast_channel *chan, void *data)
 {
-	char *label = pbx_builtin_getvar_helper(chan, STACKVAR);
+	const char *label = pbx_builtin_getvar_helper(chan, STACKVAR);
 
 	if (ast_strlen_zero(label)) {
 		ast_log(LOG_ERROR, "Return without Gosub: stack is empty\n");
@@ -95,30 +97,30 @@ static int return_exec(struct ast_channel *chan, void *data)
 static int gosub_exec(struct ast_channel *chan, void *data)
 {
 	char newlabel[AST_MAX_EXTENSION * 2 + 3 + 11];
-	struct localuser *u;
+	struct ast_module_user *u;
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_ERROR, "%s requires an argument: %s([[context|]exten|]priority)\n", app_gosub, app_gosub);
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 	snprintf(newlabel, sizeof(newlabel), "%s|%s|%d", chan->context, chan->exten, chan->priority + 1);
 
 	if (ast_parseable_goto(chan, data)) {
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 
 	pbx_builtin_pushvar_helper(chan, STACKVAR, newlabel);
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return 0;
 }
 
 static int gosubif_exec(struct ast_channel *chan, void *data)
 {
-	struct localuser *u;
+	struct ast_module_user *u;
 	char *condition="", *label1, *label2, *args;
 	int res=0;
 
@@ -127,13 +129,9 @@ static int gosubif_exec(struct ast_channel *chan, void *data)
 		return 0;
 	}
 
-	args = ast_strdupa((char *)data);
-	if (!args) {
-		ast_log(LOG_ERROR, "Out of memory\n");
-		return -1;
-	}
+	args = ast_strdupa(data);
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	condition = strsep(&args, "?");
 	label1 = strsep(&args, ":");
@@ -147,23 +145,23 @@ static int gosubif_exec(struct ast_channel *chan, void *data)
 		res = gosub_exec(chan, label2);
 	}
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	ast_unregister_application(app_return);
 	ast_unregister_application(app_pop);
 	ast_unregister_application(app_gosubif);
 	ast_unregister_application(app_gosub);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return 0;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	ast_register_application(app_pop, pop_exec, pop_synopsis, pop_descrip);
 	ast_register_application(app_return, return_exec, return_synopsis, return_descrip);
@@ -173,21 +171,4 @@ int load_module(void)
 	return 0;
 }
 
-char *description(void)
-{
-	return (char *) tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-
-	STANDARD_USECOUNT(res);
-
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Stack Routines");

@@ -20,17 +20,19 @@
  *
  * \brief App to lookup the callerid number, and see if it is blacklisted
  *
+ * \author Mark Spencer <markster@digium.com>
+ *
  * \ingroup applications
  * 
  */
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56922 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -45,8 +47,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/astdb.h"
 #include "asterisk/options.h"
 
-static char *tdesc = "Look up Caller*ID name/number from blacklist database";
-
 static char *app = "LookupBlacklist";
 
 static char *synopsis = "Look up Caller*ID name/number from blacklist database";
@@ -59,21 +59,52 @@ static char *descrip =
   "This application sets the following channel variable upon completion:\n"
   "	LOOKUPBLSTATUS		The status of the Blacklist lookup as a text string, one of\n"
   "		FOUND | NOTFOUND\n"
-  "Example: exten => 1234,1,LookupBlacklist()\n";
+  "Example: exten => 1234,1,LookupBlacklist()\n\n"
+  "This application is deprecated and may be removed from a future release.\n"
+  "Please use the dialplan function BLACKLIST() instead.\n";
 
-STANDARD_LOCAL_USER;
 
-LOCAL_USER_DECL;
+static int blacklist_read(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
+{
+	char blacklist[1];
+	int bl = 0;
+
+	if (chan->cid.cid_num) {
+		if (!ast_db_get("blacklist", chan->cid.cid_num, blacklist, sizeof (blacklist)))
+			bl = 1;
+	}
+	if (chan->cid.cid_name) {
+		if (!ast_db_get("blacklist", chan->cid.cid_name, blacklist, sizeof (blacklist)))
+			bl = 1;
+	}
+
+	snprintf(buf, len, "%d", bl);
+	return 0;
+}
+
+static struct ast_custom_function blacklist_function = {
+	.name = "BLACKLIST",
+	.synopsis = "Check if the callerid is on the blacklist",
+	.desc = "Uses astdb to check if the Caller*ID is in family 'blacklist'.  Returns 1 or 0.\n",
+	.syntax = "BLACKLIST()",
+	.read = blacklist_read,
+};
 
 static int
 lookupblacklist_exec (struct ast_channel *chan, void *data)
 {
 	char blacklist[1];
-	struct localuser *u;
+	struct ast_module_user *u;
 	int bl = 0;
 	int priority_jump = 0;
+	static int dep_warning = 0;
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
+
+	if (!dep_warning) {
+		dep_warning = 1;
+		ast_log(LOG_WARNING, "LookupBlacklist is deprecated.  Please use ${BLACKLIST()} instead.\n");
+	}
 
 	if (!ast_strlen_zero(data)) {
 		if (strchr(data, 'j'))
@@ -96,46 +127,34 @@ lookupblacklist_exec (struct ast_channel *chan, void *data)
 	}
 
 	if (bl) {
-		if (priority_jump || option_priority_jumping) 
+		if (priority_jump || ast_opt_priority_jumping) 
 			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 		pbx_builtin_setvar_helper(chan, "LOOKUPBLSTATUS", "FOUND");
 	} else
 		pbx_builtin_setvar_helper(chan, "LOOKUPBLSTATUS", "NOTFOUND");	
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return 0;
 }
 
-int unload_module (void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
+	res |= ast_custom_function_unregister(&blacklist_function);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module (void)
+static int load_module(void)
 {
-	return ast_register_application (app, lookupblacklist_exec, synopsis,descrip);
-}
-
-char *description (void)
-{
-	return tdesc;
-}
-
-int usecount (void)
-{
-	int res;
-	STANDARD_USECOUNT (res);
+	int res = ast_custom_function_register(&blacklist_function);
+	res |= ast_register_application (app, lookupblacklist_exec, synopsis,descrip);
 	return res;
 }
 
-char *key ()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Look up Caller*ID name/number from blacklist database");

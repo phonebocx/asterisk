@@ -19,17 +19,19 @@
 /*! \file
  *
  * \brief App to set callerid name from database, based on directory number
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56922 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -43,8 +45,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/callerid.h"
 #include "asterisk/astdb.h"
 
-static char *tdesc = "Look up CallerID Name from local database";
-
 static char *app = "LookupCIDName";
 
 static char *synopsis = "Look up CallerID Name from local database";
@@ -55,66 +55,49 @@ static char *descrip =
   "Caller*ID name.  Does nothing if no Caller*ID was received on the\n"
   "channel.  This is useful if you do not subscribe to Caller*ID\n"
   "name delivery, or if you want to change the names on some incoming\n"
-  "calls.\n";
+  "calls.\n\n"
+  "LookupCIDName is deprecated.  Please use ${DB(cidname/${CALLERID(num)})}\n"
+  "instead.\n";
 
-STANDARD_LOCAL_USER;
 
-LOCAL_USER_DECL;
-
-static int
-lookupcidname_exec (struct ast_channel *chan, void *data)
+static int lookupcidname_exec (struct ast_channel *chan, void *data)
 {
-  char dbname[64];
-  struct localuser *u;
+	char dbname[64];
+	struct ast_module_user *u;
+	static int dep_warning = 0;
 
-  LOCAL_USER_ADD (u);
-  if (chan->cid.cid_num) {
-	if (!ast_db_get ("cidname", chan->cid.cid_num, dbname, sizeof (dbname))) {
-		ast_set_callerid (chan, NULL, dbname, NULL);
-		  if (option_verbose > 2)
-		    ast_verbose (VERBOSE_PREFIX_3 "Changed Caller*ID name to %s\n",
-				 dbname);
+	u = ast_module_user_add(chan);
+	if (!dep_warning) {
+		dep_warning = 1;
+		ast_log(LOG_WARNING, "LookupCIDName is deprecated.  Please use ${DB(cidname/${CALLERID(num)})} instead.\n");
 	}
-  }
-  LOCAL_USER_REMOVE (u);
-  return 0;
+	if (chan->cid.cid_num) {
+		if (!ast_db_get ("cidname", chan->cid.cid_num, dbname, sizeof (dbname))) {
+			ast_set_callerid (chan, NULL, dbname, NULL);
+			if (option_verbose > 2)
+				ast_verbose (VERBOSE_PREFIX_3 "Changed Caller*ID name to %s\n",
+					     dbname);
+		}
+	}
+	ast_module_user_remove(u);
+
+	return 0;
 }
 
-int
-unload_module (void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application (app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int
-load_module (void)
+static int load_module(void)
 {
-  return ast_register_application (app, lookupcidname_exec, synopsis,
-				   descrip);
+	return ast_register_application (app, lookupcidname_exec, synopsis, descrip);
 }
 
-char *
-description (void)
-{
-  return tdesc;
-}
-
-int
-usecount (void)
-{
-  int res;
-  STANDARD_USECOUNT (res);
-  return res;
-}
-
-char *
-key ()
-{
-  return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Look up CallerID Name from local database");

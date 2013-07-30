@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2006, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -21,8 +21,13 @@
  * \brief Save to raw, headerless h263 data.
  * \arg File name extension: h263
  * \ingroup formats
+ * \arg See \ref AstVideo
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -31,10 +36,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -48,133 +49,66 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 /* Portions of the conversion code are by guido@sienanet.it */
 
-struct ast_filestream {
-	void *reserved[AST_RESERVED_POINTERS];
-	/* Believe it or not, we must decode/recode to account for the
-	   weird MS format */
-	/* This is what a filestream means to us */
-	FILE *f; /* Descriptor */
+/* According to:
+ * http://lists.mpegif.org/pipermail/mp4-tech/2005-July/005741.html
+ * the maximum actual frame size is not 2048, but 8192.  Since the maximum
+ * theoretical limit is not much larger (32k = 15bits), we'll go for that
+ * size to ensure we don't corrupt frames sent to us (unless they're
+ * ridiculously large). */
+#define	BUF_SIZE	32768	/* Four real h.263 Frames */
+
+struct h263_desc {
 	unsigned int lastts;
-	struct ast_frame fr;				/* Frame information */
-	char waste[AST_FRIENDLY_OFFSET];	/* Buffer for sending frames, etc */
-	char empty;							/* Empty character */
-	unsigned char h263[4096];				/* Two Real h263 Frames */
 };
 
 
-AST_MUTEX_DEFINE_STATIC(h263_lock);
-static int glistcnt = 0;
-
-static char *name = "h263";
-static char *desc = "Raw h263 data";
-static char *exts = "h263";
-
-static struct ast_filestream *h263_open(FILE *f)
+static int h263_open(struct ast_filestream *s)
 {
-	/* We don't have any header to read or anything really, but
-	   if we did, it would go here.  We also might want to check
-	   and be sure it's a valid file.  */
-	struct ast_filestream *tmp;
 	unsigned int ts;
 	int res;
-	if ((res = fread(&ts, 1, sizeof(ts), f)) < sizeof(ts)) {
+
+	if ((res = fread(&ts, 1, sizeof(ts), s->f)) < sizeof(ts)) {
 		ast_log(LOG_WARNING, "Empty file!\n");
-		return NULL;
+		return -1;
 	}
-		
-	if ((tmp = malloc(sizeof(struct ast_filestream)))) {
-		memset(tmp, 0, sizeof(struct ast_filestream));
-		if (ast_mutex_lock(&h263_lock)) {
-			ast_log(LOG_WARNING, "Unable to lock h263 list\n");
-			free(tmp);
-			return NULL;
-		}
-		tmp->f = f;
-		tmp->fr.data = tmp->h263;
-		tmp->fr.frametype = AST_FRAME_VIDEO;
-		tmp->fr.subclass = AST_FORMAT_H263;
-		/* datalen will vary for each frame */
-		tmp->fr.src = name;
-		tmp->fr.mallocd = 0;
-		glistcnt++;
-		ast_mutex_unlock(&h263_lock);
-		ast_update_use_count();
-	}
-	return tmp;
-}
-
-static struct ast_filestream *h263_rewrite(FILE *f, const char *comment)
-{
-	/* We don't have any header to read or anything really, but
-	   if we did, it would go here.  We also might want to check
-	   and be sure it's a valid file.  */
-	struct ast_filestream *tmp;
-	if ((tmp = malloc(sizeof(struct ast_filestream)))) {
-		memset(tmp, 0, sizeof(struct ast_filestream));
-		if (ast_mutex_lock(&h263_lock)) {
-			ast_log(LOG_WARNING, "Unable to lock h263 list\n");
-			free(tmp);
-			return NULL;
-		}
-		tmp->f = f;
-		glistcnt++;
-		ast_mutex_unlock(&h263_lock);
-		ast_update_use_count();
-	} else
-		ast_log(LOG_WARNING, "Out of memory\n");
-	return tmp;
-}
-
-static void h263_close(struct ast_filestream *s)
-{
-	if (ast_mutex_lock(&h263_lock)) {
-		ast_log(LOG_WARNING, "Unable to lock h263 list\n");
-		return;
-	}
-	glistcnt--;
-	ast_mutex_unlock(&h263_lock);
-	ast_update_use_count();
-	fclose(s->f);
-	free(s);
-	s = NULL;
+	return 0;
 }
 
 static struct ast_frame *h263_read(struct ast_filestream *s, int *whennext)
 {
 	int res;
-	int mark=0;
+	int mark;
 	unsigned short len;
 	unsigned int ts;
+	struct h263_desc *fs = (struct h263_desc *)s->private;
+
 	/* Send a frame from the file to the appropriate channel */
-	s->fr.frametype = AST_FRAME_VIDEO;
-	s->fr.subclass = AST_FORMAT_H263;
-	s->fr.offset = AST_FRIENDLY_OFFSET;
-	s->fr.mallocd = 0;
-	s->fr.data = s->h263;
-	if ((res = fread(&len, 1, sizeof(len), s->f)) < 1) {
+	if ((res = fread(&len, 1, sizeof(len), s->f)) < 1)
+		return NULL;
+	len = ntohs(len);
+	mark = (len & 0x8000) ? 1 : 0;
+	len &= 0x7fff;
+	if (len > BUF_SIZE) {
+		ast_log(LOG_WARNING, "Length %d is too long\n", len);
 		return NULL;
 	}
-	len = ntohs(len);
-	if (len & 0x8000) {
-		mark = 1;
-	}
-	len &= 0x7fff;
-	if (len > sizeof(s->h263)) {
-		ast_log(LOG_WARNING, "Length %d is too long\n", len);
-	}
-	if ((res = fread(s->h263, 1, len, s->f)) != len) {
+	s->fr.frametype = AST_FRAME_VIDEO;
+	s->fr.subclass = AST_FORMAT_H263;
+	s->fr.mallocd = 0;
+	AST_FRAME_SET_BUFFER(&s->fr, s->buf, AST_FRIENDLY_OFFSET, len);
+	if ((res = fread(s->fr.data, 1, s->fr.datalen, s->f)) != s->fr.datalen) {
 		if (res)
 			ast_log(LOG_WARNING, "Short read (%d) (%s)!\n", res, strerror(errno));
 		return NULL;
 	}
-	s->fr.samples = s->lastts;
+	s->fr.samples = fs->lastts;	/* XXX what ? */
 	s->fr.datalen = len;
 	s->fr.subclass |= mark;
 	s->fr.delivery.tv_sec = 0;
 	s->fr.delivery.tv_usec = 0;
 	if ((res = fread(&ts, 1, sizeof(ts), s->f)) == sizeof(ts)) {
-		s->lastts = ntohl(ts);
-		*whennext = s->lastts * 4/45;
+		fs->lastts = ntohl(ts);
+		*whennext = fs->lastts * 4/45;
 	} else
 		*whennext = 0;
 	return &s->fr;
@@ -216,12 +150,7 @@ static int h263_write(struct ast_filestream *fs, struct ast_frame *f)
 	return 0;
 }
 
-static char *h263_getcomment(struct ast_filestream *s)
-{
-	return NULL;
-}
-
-static int h263_seek(struct ast_filestream *fs, long sample_offset, int whence)
+static int h263_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
 {
 	/* No way Jose */
 	return -1;
@@ -230,52 +159,39 @@ static int h263_seek(struct ast_filestream *fs, long sample_offset, int whence)
 static int h263_trunc(struct ast_filestream *fs)
 {
 	/* Truncate file to current length */
-	if (ftruncate(fileno(fs->f), ftell(fs->f)) < 0)
+	if (ftruncate(fileno(fs->f), ftello(fs->f)) < 0)
 		return -1;
 	return 0;
 }
 
-static long h263_tell(struct ast_filestream *fs)
+static off_t h263_tell(struct ast_filestream *fs)
 {
-	/* XXX This is totally bogus XXX */
-	off_t offset;
-	offset = ftell(fs->f);
-	return (offset/20)*160;
+	off_t offset = ftello(fs->f);
+	return offset;	/* XXX totally bogus, needs fixing */
 }
 
-int load_module()
+static const struct ast_format h263_f = {
+	.name = "h263",
+	.exts = "h263",
+	.format = AST_FORMAT_H263,
+	.open = h263_open,
+	.write = h263_write,
+	.seek = h263_seek,
+	.trunc = h263_trunc,
+	.tell = h263_tell,
+	.read = h263_read,
+	.buf_size = BUF_SIZE + AST_FRIENDLY_OFFSET,
+	.desc_size = sizeof(struct h263_desc),
+};
+
+static int load_module(void)
 {
-	return ast_format_register(name, exts, AST_FORMAT_H263,
-								h263_open,
-								h263_rewrite,
-								h263_write,
-								h263_seek,
-								h263_trunc,
-								h263_tell,
-								h263_read,
-								h263_close,
-								h263_getcomment);
-								
-								
+	return ast_format_register(&h263_f);
 }
 
-int unload_module()
+static int unload_module(void)
 {
-	return ast_format_unregister(name);
+	return ast_format_unregister(h263_f.name);
 }	
 
-int usecount()
-{
-	return glistcnt;
-}
-
-char *description()
-{
-	return desc;
-}
-
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Raw H.263 data");

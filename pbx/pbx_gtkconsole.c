@@ -22,13 +22,14 @@
  * 
  */
 
-/* 
- * I know this might seem somewhat pointless in its current phase, but one
- * of the most important parts of this module is demonstrate that modules
- * can require other external libraries and still be loaded (in this
- * case, a host of libraries involving gtk), so long as they are properly
- * linked (see the Makefile)
- */
+/*** MODULEINFO
+	<depend>gtk</depend>
+	<defaultenabled>no</defaultenabled>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43294 $")
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -42,10 +43,6 @@
 
 #include <gtk/gtk.h>
 #include <glib.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -81,7 +78,7 @@ static void update_statusbar(char *msg)
 	gtk_statusbar_push(GTK_STATUSBAR(statusbar), 1, msg);
 }
 
-int unload_module(void)
+static int unload_module(void *mod)
 {
 	if (inuse) {
 		/* Kill off the main thread */
@@ -203,7 +200,7 @@ static void remove_module(void)
 		}
 	}
 }
-static void reload_module(void)
+static int reload_module(void *mod)
 {
 	int res, x;
 	char *module;
@@ -239,11 +236,13 @@ static void reload_module(void)
 			free(module);
 		}
 	}
+
+	return 0;
 }
 
 static void file_ok_sel(GtkWidget *w, GtkFileSelection *fs)
 {
-	char tmp[AST_CONFIG_MAX_PATH];
+	char tmp[PATH_MAX];
 	char *module = gtk_file_selection_get_filename(fs);
 	char buf[256];
 	snprintf(tmp, sizeof(tmp), "%s/", ast_config_AST_MODULE_DIR);
@@ -263,7 +262,7 @@ static void file_ok_sel(GtkWidget *w, GtkFileSelection *fs)
 
 static void add_module(void)
 {
-	char tmp[AST_CONFIG_MAX_PATH];
+	char tmp[PATH_MAX];
 	GtkWidget *filew;
 	snprintf(tmp, sizeof(tmp), "%s/*.so", ast_config_AST_MODULE_DIR);
 	filew = gtk_file_selection_new("Load Module");
@@ -278,15 +277,15 @@ static void add_module(void)
 static int add_mod(const char *module, const char *description, int usecount, const char *like)
 {
 	char use[10];
-	char *pass[4];
+	const char *pass[4];
 	int row;
 	snprintf(use, sizeof(use), "%d", usecount);
 	pass[0] = module;
 	pass[1] = description;
 	pass[2] = use;
 	pass[3] = NULL;
-	row = gtk_clist_append(GTK_CLIST(modules), pass);
-	gtk_clist_set_row_data(GTK_CLIST(modules), row, module);
+	row = gtk_clist_append(GTK_CLIST(modules), (char **) pass);
+	gtk_clist_set_row_data(GTK_CLIST(modules), row, (char *) module);
 	return 0;	
 }
 
@@ -478,7 +477,7 @@ static int show_console(void)
 }
 
 
-int load_module(void)
+static int load_module(void *mod)
 {
 	if (pipe(clipipe)) {
 		ast_log(LOG_WARNING, "Unable to create CLI pipe\n");
@@ -502,17 +501,14 @@ int load_module(void)
 	return 0;
 }
 
-int usecount(void)
-{
-	return inuse;
-}
-
-char *description(void)
+static const char *description(void)
 {
 	return dtext;
 }
 
-char *key(void)
+static const char *key(void)
 {
 	return ASTERISK_GPL_KEY;
 }
+
+STD_MOD(MOD_0, reload_module, NULL, NULL);

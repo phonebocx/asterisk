@@ -23,14 +23,14 @@
  * \ingroup applications
  */
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 21037 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -39,7 +39,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 21037 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 
-static char *tdesc = "Random goto";
+/*! \todo The Random() app should be removed from trunk following the release of 1.4 */
 
 static char *app_random = "Random";
 
@@ -47,81 +47,62 @@ static char *random_synopsis = "Conditionally branches, based upon a probability
 
 static char *random_descrip =
 "Random([probability]:[[context|]extension|]priority)\n"
-"  probability := INTEGER in the range 1 to 100\n";
+"  probability := INTEGER in the range 1 to 100\n"
+"DEPRECATED: Use GotoIf($[${RAND(1,100)} > <number>]?<label>)\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
-
-static char random_state[256];
 
 static int random_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
-	struct localuser *u;
+	struct ast_module_user *u;
 
 	char *s;
 	char *prob;
 	int probint;
-	
+	static int deprecated = 0;
+
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Random requires an argument ([probability]:[[context|]extension|]priority)\n");
 		return -1;
 	}
 	
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	s = ast_strdupa(data);
-	if (!s) {
-		ast_log(LOG_ERROR, "Out of memory!\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
 
 	prob = strsep(&s,":");
 	if ((!prob) || (sscanf(prob, "%d", &probint) != 1))
 		probint = 0;
 
-	if ((random() % 100) + probint >= 100) {
+	if (!deprecated) {
+		deprecated = 1;
+		ast_log(LOG_WARNING, "Random is deprecated in Asterisk 1.4.  Replace with GotoIf($[${RAND(0,99)} + %d >= 100]?%s)\n", probint, s);
+	}
+
+	if ((ast_random() % 100) + probint >= 100) {
 		res = ast_parseable_goto(chan, s);
 		if (option_verbose > 2)
 			ast_verbose( VERBOSE_PREFIX_3 "Random branches to (%s,%s,%d)\n",
 				chan->context,chan->exten, chan->priority+1);
 	}
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 	
 	res = ast_unregister_application(app_random);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
+static int load_module(void)
 {
-	initstate((getppid() * 65535 + getpid()) % RAND_MAX, random_state, 256);
 	return ast_register_application(app_random, random_exec, random_synopsis, random_descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Random goto");

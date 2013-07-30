@@ -18,8 +18,13 @@
  *
  * \brief SMS application - ETSI ES 201 912 protocol 1 implimentation
  * \ingroup applications
- * 
+ *
+ * \author Adrian Kennard
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48583 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -30,10 +35,6 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 28966 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -59,8 +60,6 @@ static volatile unsigned int seq;       /* arbitrary message sequence number for
 
 static char log_file[255];
 static char spool_dir[255];
-
-static char *tdesc = "SMS/PSTN handler";
 
 static char *app = "SMS";
 
@@ -94,9 +93,6 @@ static signed short wave[] = {
 static unsigned char wavea[80];
 #endif
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 /* SMS 7 bit character mapping to UCS-2 */
 static const unsigned short defaultalphabet[] = {
@@ -197,7 +193,7 @@ static void sms_release (struct ast_channel *chan, void *data)
 
 static void sms_messagetx (sms_t * h);
 
-/*--- numcpy: copy number, skipping non digits apart from leading + */
+/*! \brief copy number, skipping non digits apart from leading + */
 static void numcpy (char *d, char *s)
 {
 	if (*s == '+')
@@ -210,7 +206,7 @@ static void numcpy (char *d, char *s)
 	*d = 0;
 }
 
-/*--- isodate: static, return a date/time in ISO format */
+/*! \brief static, return a date/time in ISO format */
 static char * isodate (time_t t)
 {
 	static char date[20];
@@ -218,7 +214,7 @@ static char * isodate (time_t t)
 	return date;
 }
 
-/*--- utf8decode: reads next UCS character from null terminated UTF-8 string and advanced pointer */
+/*! \brief reads next UCS character from null terminated UTF-8 string and advanced pointer */
 /* for non valid UTF-8 sequences, returns character as is */
 /* Does not advance pointer for null termination */
 static long utf8decode (unsigned char **pp)
@@ -264,7 +260,7 @@ static long utf8decode (unsigned char **pp)
 	return *p;                   /* not sensible */
 }
 
-/*--- packsms7: takes a binary header (udhl bytes at udh) and UCS-2 message (udl characters at ud) and packs in to o using SMS 7 bit character codes */
+/*! \brief takes a binary header (udhl bytes at udh) and UCS-2 message (udl characters at ud) and packs in to o using SMS 7 bit character codes */
 /* The return value is the number of septets packed in to o, which is internally limited to SMSLEN */
 /* o can be null, in which case this is used to validate or count only */
 /* if the input contains invalid characters then the return value is -1 */
@@ -334,7 +330,7 @@ static int packsms7 (unsigned char *o, int udhl, unsigned char *udh, int udl, un
 	return n;
 }
 
-/*--- packsms8: takes a binary header (udhl bytes at udh) and UCS-2 message (udl characters at ud) and packs in to o using 8 bit character codes */
+/*! \brief takes a binary header (udhl bytes at udh) and UCS-2 message (udl characters at ud) and packs in to o using 8 bit character codes */
 /* The return value is the number of bytes packed in to o, which is internally limited to 140 */
 /* o can be null, in which case this is used to validate or count only */
 /* if the input contains invalid characters then the return value is -1 */
@@ -366,7 +362,7 @@ static int packsms8 (unsigned char *o, int udhl, unsigned char *udh, int udl, un
 	return p;
 }
 
-/*--- packsms16: takes a binary header (udhl bytes at udh) and UCS-2 
+/*! \brief takes a binary header (udhl bytes at udh) and UCS-2 
 	message (udl characters at ud) and packs in to o using 16 bit 
 	UCS-2 character codes 
 	The return value is the number of bytes packed in to o, which is 
@@ -403,7 +399,7 @@ static int packsms16 (unsigned char *o, int udhl, unsigned char *udh, int udl, u
 	return p;
 }
 
-/*--- packsms: general pack, with length and data, 
+/*! \brief general pack, with length and data, 
 	returns number of bytes of target used */
 static int packsms (unsigned char dcs, unsigned char *base, unsigned int udhl, unsigned char *udh, int udl, unsigned short *ud)
 {
@@ -435,7 +431,7 @@ static int packsms (unsigned char dcs, unsigned char *base, unsigned int udhl, u
 }
 
 
-/*--- packdate: pack a date and return */
+/*! \brief pack a date and return */
 static void packdate (unsigned char *o, time_t w)
 {
 	struct tm *t = localtime (&w);
@@ -456,7 +452,7 @@ static void packdate (unsigned char *o, time_t w)
 		*o++ = ((z % 10) << 4) + z / 10;
 }
 
-/*--- unpackdate: unpack a date and return */
+/*! \brief unpack a date and return */
 static time_t unpackdate (unsigned char *i)
 {
 	struct tm t;
@@ -474,7 +470,7 @@ static time_t unpackdate (unsigned char *i)
 	return mktime (&t);
 }
 
-/*--- unpacksms7: unpacks bytes (7 bit encoding) at i, len l septets, 
+/*! \brief unpacks bytes (7 bit encoding) at i, len l septets, 
 	and places in udh and ud setting udhl and udl. udh not used 
 	if udhi not set */
 static void unpacksms7 (unsigned char *i, unsigned char l, unsigned char *udh, int *udhl, unsigned short *ud, int *udl, char udhi)
@@ -525,7 +521,7 @@ static void unpacksms7 (unsigned char *i, unsigned char l, unsigned char *udh, i
 	*udl = (o - ud);
 }
 
-/*--- unpacksms8: unpacks bytes (8 bit encoding) at i, len l septets, 
+/*! \brief unpacks bytes (8 bit encoding) at i, len l septets, 
       and places in udh and ud setting udhl and udl. udh not used 
       if udhi not set */
 static void unpacksms8 (unsigned char *i, unsigned char l, unsigned char *udh, int *udhl, unsigned short *ud, int *udl, char udhi)
@@ -550,7 +546,7 @@ static void unpacksms8 (unsigned char *i, unsigned char l, unsigned char *udh, i
 	*udl = (o - ud);
 }
 
-/*--- unpacksms16: unpacks bytes (16 bit encoding) at i, len l septets,
+/*! \brief unpacks bytes (16 bit encoding) at i, len l septets,
 	 and places in udh and ud setting udhl and udl. 
 	udh not used if udhi not set */
 static void unpacksms16 (unsigned char *i, unsigned char l, unsigned char *udh, int *udhl, unsigned short *ud, int *udl, char udhi)
@@ -579,7 +575,7 @@ static void unpacksms16 (unsigned char *i, unsigned char l, unsigned char *udh, 
 	*udl = (o - ud);
 }
 
-/*--- unpacksms: general unpack - starts with length byte (octet or septet) and returns number of bytes used, inc length */
+/*! \brief general unpack - starts with length byte (octet or septet) and returns number of bytes used, inc length */
 static int unpacksms (unsigned char dcs, unsigned char *i, unsigned char *udh, int *udhl, unsigned short *ud, int *udl, char udhi)
 {
 	int l = *i++;
@@ -593,7 +589,7 @@ static int unpacksms (unsigned char dcs, unsigned char *i, unsigned char *udh, i
 	return l + 1;
 }
 
-/*--- unpackaddress: unpack an address from i, return byte length, unpack to o */
+/*! \brief unpack an address from i, return byte length, unpack to o */
 static unsigned char unpackaddress (char *o, unsigned char *i)
 {
 	unsigned char l = i[0],
@@ -610,7 +606,7 @@ static unsigned char unpackaddress (char *o, unsigned char *i)
 	return (l + 5) / 2;
 }
 
-/*--- packaddress: store an address at o, and return number of bytes used */
+/*! \brief store an address at o, and return number of bytes used */
 static unsigned char packaddress (unsigned char *o, char *i)
 {
 	unsigned char p = 2;
@@ -635,7 +631,7 @@ static unsigned char packaddress (unsigned char *o, char *i)
 	return p;
 }
 
-/*--- sms_log: Log the output, and remove file */
+/*! \brief Log the output, and remove file */
 static void sms_log (sms_t * h, char status)
 {
 	if (*h->oa || *h->da) {
@@ -673,7 +669,7 @@ static void sms_log (sms_t * h, char status)
 	}
 }
 
-/*--- sms_readfile: parse and delete a file */
+/*! \brief parse and delete a file */
 static void sms_readfile (sms_t * h, char *fn)
 {
 	char line[1000];
@@ -694,7 +690,8 @@ static void sms_readfile (sms_t * h, char *fn)
 		}
 		while (fgets (line, sizeof (line), s))
 		{								 /* process line in file */
-			unsigned char *p;
+			char *p;
+			void *pp = &p;
 			for (p = line; *p && *p != '\n' && *p != '\r'; p++);
 			*p = 0;					 /* strip eoln */
 			p = line;
@@ -714,7 +711,7 @@ static void sms_readfile (sms_t * h, char *fn)
 				{						 /* parse message (UTF-8) */
 					unsigned char o = 0;
 					while (*p && o < SMSLEN)
-						h->ud[o++] = utf8decode((unsigned char **)&p);
+						h->ud[o++] = utf8decode(pp);
 					h->udl = o;
 					if (*p)
 						ast_log (LOG_WARNING, "UD too long in %s\n", fn);
@@ -855,7 +852,7 @@ static void sms_readfile (sms_t * h, char *fn)
 	}
 }
 
-/*--- sms_writefile: white a received text message to a file */
+/*! \brief white a received text message to a file */
 static void sms_writefile (sms_t * h)
 {
 	char fn[200] = "", fn2[200] = "";
@@ -942,7 +939,7 @@ static void sms_writefile (sms_t * h)
 	}
 }
 
-/*--- readdirqueue: read dir skipping dot files... */
+/*! \brief read dir skipping dot files... */
 static struct dirent *readdirqueue (DIR * d, char *queue)
 {
    struct dirent *f;
@@ -952,7 +949,7 @@ static struct dirent *readdirqueue (DIR * d, char *queue)
    return f;
 }
 
-/*--- sms_handleincoming: handle the incoming message */
+/*! \brief handle the incoming message */
 static unsigned char sms_handleincoming (sms_t * h)
 {
 	unsigned char p = 3;
@@ -1023,8 +1020,7 @@ static unsigned char sms_handleincoming (sms_t * h)
 #define NAME_MAX 1024
 #endif
 
-/*--- sms_nextoutgoing: find and fill in next message, 
-	or send a REL if none waiting */
+/*! \brief find and fill in next message, or send a REL if none waiting */
 static void sms_nextoutgoing (sms_t * h)
 {          
 	char fn[100 + NAME_MAX] = "";
@@ -1050,7 +1046,7 @@ static void sms_nextoutgoing (sms_t * h)
 		unsigned char p = 2;
 		h->omsg[0] = 0x91;		  /* SMS_DATA */
 		if (h->smsc) {			 /* deliver */
-			h->omsg[p++] = (more ? 4 : 0);
+			h->omsg[p++] = (more ? 4 : 0) + ((h->udhl > 0) ? 0x40 : 0);
 			p += packaddress (h->omsg + p, h->oa);
 			h->omsg[p++] = h->pid;
 			h->omsg[p++] = h->dcs;
@@ -1178,7 +1174,7 @@ static void sms_messagetx(sms_t * h)
 static int sms_generate (struct ast_channel *chan, void *data, int len, int samples)
 {
 	struct ast_frame f = { 0 };
-#define MAXSAMPLES 800
+#define MAXSAMPLES (800)
 #ifdef OUTALAW
 	unsigned char *buf;
 #else
@@ -1199,13 +1195,13 @@ static int sms_generate (struct ast_channel *chan, void *data, int len, int samp
 	f.frametype = AST_FRAME_VOICE;
 #ifdef OUTALAW
 	f.subclass = AST_FORMAT_ALAW;
-	f.datalen = samples;
 #else
 	f.subclass = AST_FORMAT_SLINEAR;
-	f.datalen = samples * 2;
 #endif
+	f.datalen = samples * SAMPLE2LEN;
 	f.offset = AST_FRIENDLY_OFFSET;
-	f.data = buf + AST_FRIENDLY_OFFSET;
+	f.mallocd = 0;
+	f.data = buf;
 	f.samples = samples;
 	f.src = "app_sms";
 	/* create a buffer containing the digital sms pattern */
@@ -1254,6 +1250,8 @@ static int sms_generate (struct ast_channel *chan, void *data, int len, int samp
 		return -1;
 	}
 	return 0;
+#undef SAMPLE2LEN
+#undef MAXSAMPLES
 }
 
 static void sms_process (sms_t * h, int samples, signed short *data)
@@ -1359,17 +1357,17 @@ static struct ast_generator smsgen = {
 static int sms_exec (struct ast_channel *chan, void *data)
 {
 	int res = -1;
-	struct localuser *u;
+	struct ast_module_user *u;
 	struct ast_frame *f;
 	sms_t h = { 0 };
 	
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	h.ipc0 = h.ipc1 = 20;		  /* phase for cosine */
 	h.dcs = 0xF1;					 /* default */
 	if (!data) {
 		ast_log (LOG_ERROR, "Requires queue name at least\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 
@@ -1382,20 +1380,20 @@ static int sms_exec (struct ast_channel *chan, void *data)
 			answer = 0;
 		if (!*d || *d == '|') {
 			ast_log (LOG_ERROR, "Requires queue name\n");
-			LOCAL_USER_REMOVE(u);
+			ast_module_user_remove(u);
 			return -1;
 		}
 		for (p = d; *p && *p != '|'; p++);
 		if (p - d >= sizeof (h.queue)) {
 			ast_log (LOG_ERROR, "Queue name too long\n");
-			LOCAL_USER_REMOVE(u);
+			ast_module_user_remove(u);
 			return -1;
 		}
-		strncpy (h.queue, d, p - d);
+		strncpy(h.queue, (char *)d, p - d);
 		if (*p == '|')
 			p++;
 		d = p;
-		for (p = h.queue; *p; p++)
+		for (p = (unsigned char *)h.queue; *p; p++)
 			if (!isalnum (*p))
 				*p = '-';			  /* make very safe for filenames */
 		while (*d && *d != '|') {
@@ -1427,20 +1425,20 @@ static int sms_exec (struct ast_channel *chan, void *data)
 		}
 		if (*d == '|') {
 			/* submitting a message, not taking call. */
-			/* depricated, use smsq instead */
+			/* deprecated, use smsq instead */
 			d++;
 			h.scts = time (0);
 			for (p = d; *p && *p != '|'; p++);
 			if (*p)
 				*p++ = 0;
-			if (strlen (d) >= sizeof (h.oa)) {
+			if (strlen ((char *)d) >= sizeof (h.oa)) {
 				ast_log (LOG_ERROR, "Address too long %s\n", d);
 				return 0;
 			}
 			if (h.smsc) {
-				ast_copy_string (h.oa, d, sizeof (h.oa));
+				ast_copy_string (h.oa, (char *)d, sizeof (h.oa));
 			} else {
-				ast_copy_string (h.da, d, sizeof (h.da));
+				ast_copy_string (h.da, (char *)d, sizeof (h.da));
 			}
 			if (!h.smsc)
 				ast_copy_string (h.oa, h.cli, sizeof (h.oa));
@@ -1457,7 +1455,7 @@ static int sms_exec (struct ast_channel *chan, void *data)
 			h.rx = 0;				  /* sent message */
 			h.mr = -1;
 			sms_writefile (&h);
-			LOCAL_USER_REMOVE(u);
+			ast_module_user_remove(u);
 			return 0;
 		}
 
@@ -1481,13 +1479,13 @@ static int sms_exec (struct ast_channel *chan, void *data)
 		res = ast_set_read_format (chan, AST_FORMAT_SLINEAR);
 	if (res < 0) {
 		ast_log (LOG_ERROR, "Unable to set to linear mode, giving up\n");
-		LOCAL_USER_REMOVE (u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 
 	if (ast_activate_generator (chan, &smsgen, &h) < 0) {
 		ast_log (LOG_ERROR, "Failed to activate generator on '%s'\n", chan->name);
-		LOCAL_USER_REMOVE (u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 
@@ -1506,22 +1504,22 @@ static int sms_exec (struct ast_channel *chan, void *data)
 
 	sms_log (&h, '?');			  /* log incomplete message */
 
-	LOCAL_USER_REMOVE (u);
+	ast_module_user_remove(u);
 	return (h.err);
 }
 
-int unload_module (void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application (app);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module (void)
+static int load_module(void)
 {
 #ifdef OUTALAW
 	{
@@ -1535,19 +1533,4 @@ int load_module (void)
 	return ast_register_application (app, sms_exec, synopsis, descrip);
 }
 
-char *description (void)
-{
-	return tdesc;
-}
-
-int usecount (void)
-{
-	int res;
-	STANDARD_USECOUNT (res);
-	return res;
-}
-
-char *key ()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "SMS/PSTN handler");

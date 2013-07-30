@@ -18,10 +18,18 @@
 */
 
 /*! \file
-* \brief Check if Channel is Available
-* 
+ * 
+ * \brief Check if Channel is Available
+ * 
+ * \author Mark Spencer <markster@digium.com>
+ * \author James Golovich <james@gnuinter.net>
+
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -29,10 +37,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -43,8 +47,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/app.h"
 #include "asterisk/devicestate.h"
 #include "asterisk/options.h"
-
-static char *tdesc = "Check channel availability";
 
 static char *app = "ChanIsAvail";
 
@@ -61,36 +63,37 @@ static char *descrip =
 "    s - Consider the channel unavailable if the channel is in use at all\n"
 "    j - Support jumping to priority n+101 if no channel is available\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int chanavail_exec(struct ast_channel *chan, void *data)
 {
 	int res=-1, inuse=-1, option_state=0, priority_jump=0;
 	int status;
-	struct localuser *u;
-	char *info, tmp[512], trychan[512], *peers, *tech, *number, *rest, *cur, *options, *stringp;
+	struct ast_module_user *u;
+	char *info, tmp[512], trychan[512], *peers, *tech, *number, *rest, *cur;
 	struct ast_channel *tempchan;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(reqchans);
+		AST_APP_ARG(options);
+	);
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "ChanIsAvail requires an argument (Zap/1&Zap/2)\n");
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	info = ast_strdupa(data); 
-	stringp = info;
-	strsep(&stringp, "|");
-	options = strsep(&stringp, "|");
-	if (options) {
-		if (strchr(options, 's'))
+
+	AST_STANDARD_APP_ARGS(args, info);
+
+	if (args.options) {
+		if (strchr(args.options, 's'))
 			option_state = 1;
-		if (strchr(options, 'j'))
+		if (strchr(args.options, 'j'))
 			priority_jump = 1;
 	}
-	peers = info;
+	peers = args.reqchans;
 	if (peers) {
 		cur = peers;
 		do {
@@ -104,7 +107,7 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 			number = strchr(tech, '/');
 			if (!number) {
 				ast_log(LOG_WARNING, "ChanIsAvail argument takes format ([technology]/[device])\n");
-				LOCAL_USER_REMOVE(u);
+				ast_module_user_remove(u);
 				return -1;
 			}
 			*number = '\0';
@@ -139,47 +142,32 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 	if (res < 1) {
 		pbx_builtin_setvar_helper(chan, "AVAILCHAN", "");
 		pbx_builtin_setvar_helper(chan, "AVAILORIGCHAN", "");
-		if (priority_jump || option_priority_jumping) {
+		if (priority_jump || ast_opt_priority_jumping) {
 			if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
-				LOCAL_USER_REMOVE(u);
+				ast_module_user_remove(u);
 				return -1;
 			}
 		}
 	}
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return 0;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res = 0;
 
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 	
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, chanavail_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Check channel availability");

@@ -19,16 +19,18 @@
 /*! \file
  *
  * \brief App to set the ISDN Transfer Capability
+ *
+ * \author Frank Sautter - asterisk+at+sautter+dot+com 
  * 
  * \ingroup applications
  */
  
-#include <string.h>
-#include <stdlib.h>
-
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58939 $")
+
+#include <string.h>
+#include <stdlib.h>
 
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
@@ -42,9 +44,6 @@ static char *app = "SetTransferCapability";
 
 static char *synopsis = "Set ISDN Transfer Capability";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static struct {	int val; char *name; } transcaps[] = {
 	{ AST_TRANS_CAP_SPEECH,				"SPEECH" },
@@ -65,20 +64,27 @@ static char *descrip =
 "  RESTRICTED_DIGITAL : 0x09 - Restricted digital information\n"
 "  3K1AUDIO           : 0x10 - 3.1kHz Audio (fax calls)\n"
 "  DIGITAL_W_TONES    : 0x11 - Unrestricted digital information with tones/announcements\n"
-"  VIDEO              : 0x18 - Video:\n"
+"  VIDEO              : 0x18 - Video\n"
 "\n"
+"This application is deprecated in favor of Set(CHANNEL(transfercapability)=...)\n"
 ;
 
 static int settransfercapability_exec(struct ast_channel *chan, void *data)
 {
 	char *tmp = NULL;
-	struct localuser *u;
+	struct ast_module_user *u;
 	int x;
 	char *opts;
 	int transfercapability = -1;
+	static int dep_warning = 0;
 	
-	LOCAL_USER_ADD(u);
-	
+	u = ast_module_user_add(chan);
+
+	if (!dep_warning) {
+		dep_warning = 1;
+		ast_log(LOG_WARNING, "SetTransferCapability is deprecated.  Please use CHANNEL(transfercapability) instead.\n");
+	}
+
 	if (data)
 		tmp = ast_strdupa(data);
 	else
@@ -96,7 +102,7 @@ static int settransfercapability_exec(struct ast_channel *chan, void *data)
 	}
 	if (transfercapability < 0) {
 		ast_log(LOG_WARNING, "'%s' is not a valid transfer capability (see 'show application SetTransferCapability')\n", tmp);
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return 0;
 	}
 		
@@ -105,41 +111,26 @@ static int settransfercapability_exec(struct ast_channel *chan, void *data)
 	if (option_verbose > 2)
 		ast_verbose(VERBOSE_PREFIX_3 "Setting transfer capability to: 0x%.2x - %s.\n", transfercapability, tmp);			
 	
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return 0;
 }
 
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 	
 	res = ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, settransfercapability_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return synopsis;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Set ISDN Transfer Capability");

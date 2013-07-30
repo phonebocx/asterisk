@@ -20,18 +20,21 @@
 /*! \file
  *
  * \brief RealTime App
+ *
+ * \author Anthony Minessale <anthmct@yahoo.com>
+ * \author Mark Spencer <markster@digium.com>
  * 
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 43212 $")
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -46,25 +49,27 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #define next_one(var) var = var->next
 #define crop_data(str) { *(str) = '\0' ; (str)++; }
 
-static char *tdesc = "Realtime Data Lookup/Rewrite";
 static char *app = "RealTime";
 static char *uapp = "RealTimeUpdate";
 static char *synopsis = "Realtime Data Lookup";
 static char *usynopsis = "Realtime Data Rewrite";
 static char *USAGE = "RealTime(<family>|<colmatch>|<value>[|<prefix>])";
 static char *UUSAGE = "RealTimeUpdate(<family>|<colmatch>|<value>|<newcol>|<newval>)";
-static char *desc = "Use the RealTime config handler system to read data into channel variables.\n"
+static char *desc =
+"Use the RealTime config handler system to read data into channel variables.\n"
 "RealTime(<family>|<colmatch>|<value>[|<prefix>])\n\n"
-"All unique column names will be set as channel variables with optional prefix to the name.\n"
-"e.g. prefix of 'var_' would make the column 'name' become the variable ${var_name}\n\n";
+"All unique column names will be set as channel variables with optional prefix\n"
+"to the name.  For example, a prefix of 'var_' would make the column 'name'\n"
+"become the variable ${var_name}.  REALTIMECOUNT will be set with the number\n"
+"of values read.\n";
 static char *udesc = "Use the RealTime config handler system to update a value\n"
 "RealTimeUpdate(<family>|<colmatch>|<value>|<newcol>|<newval>)\n\n"
-"The column <newcol> in 'family' matching column <colmatch>=<value> will be updated to <newval>\n";
+"The column <newcol> in 'family' matching column <colmatch>=<value> will be\n"
+"updated to <newval>.  REALTIMECOUNT will be set with the number of rows\n"
+"updated or -1 if an error occurs.\n";
 
-STANDARD_LOCAL_USER;
-LOCAL_USER_DECL;
 
-static int cli_load_realtime(int fd, int argc, char **argv) 
+static int cli_realtime_load(int fd, int argc, char **argv) 
 {
 	char *header_format = "%30s  %-30s\n";
 	struct ast_variable *var=NULL;
@@ -89,7 +94,7 @@ static int cli_load_realtime(int fd, int argc, char **argv)
 	return RESULT_SUCCESS;
 }
 
-static int cli_update_realtime(int fd, int argc, char **argv) {
+static int cli_realtime_update(int fd, int argc, char **argv) {
 	int res = 0;
 
 	if(argc<7) {
@@ -110,45 +115,49 @@ static int cli_update_realtime(int fd, int argc, char **argv) {
 	return RESULT_SUCCESS;
 }
 
-static char cli_load_realtime_usage[] =
+static char cli_realtime_load_usage[] =
 "Usage: realtime load <family> <colmatch> <value>\n"
 "       Prints out a list of variables using the RealTime driver.\n";
 
-static struct ast_cli_entry cli_load_realtime_cmd = {
-        { "realtime", "load", NULL, NULL }, cli_load_realtime,
-        "Used to print out RealTime variables.", cli_load_realtime_usage, NULL };
-
-static char cli_update_realtime_usage[] =
+static char cli_realtime_update_usage[] =
 "Usage: realtime update <family> <colmatch> <value>\n"
 "       Update a single variable using the RealTime driver.\n";
 
-static struct ast_cli_entry cli_update_realtime_cmd = {
-        { "realtime", "update", NULL, NULL }, cli_update_realtime,
-        "Used to update RealTime variables.", cli_update_realtime_usage, NULL };
+static struct ast_cli_entry cli_realtime[] = {
+	{ { "realtime", "load", NULL, NULL },
+	cli_realtime_load, "Used to print out RealTime variables.",
+	cli_realtime_load_usage, NULL },
+
+	{ { "realtime", "update", NULL, NULL },
+	cli_realtime_update, "Used to update RealTime variables.",
+	cli_realtime_update_usage, NULL },
+};
 
 static int realtime_update_exec(struct ast_channel *chan, void *data) 
 {
 	char *family=NULL, *colmatch=NULL, *value=NULL, *newcol=NULL, *newval=NULL;
-	struct localuser *u;
-	int res = 0;
+	struct ast_module_user *u;
+	int res = 0, count = 0;
+	char countc[13];
+
+        ast_log(LOG_WARNING, "The RealTimeUpdate application has been deprecated in favor of the REALTIME dialplan function.\n");
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_ERROR,"Invalid input: usage %s\n",UUSAGE);
 		return -1;
 	}
 	
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
-	if ((family = ast_strdupa(data))) {
-		if ((colmatch = strchr(family,'|'))) {
-			crop_data(colmatch);
-			if ((value = strchr(colmatch,'|'))) {
-				crop_data(value);
-				if ((newcol = strchr(value,'|'))) {
-					crop_data(newcol);
-					if ((newval = strchr(newcol,'|'))) 
-						crop_data(newval);
-				}
+	family = ast_strdupa(data);
+	if ((colmatch = strchr(family,'|'))) {
+		crop_data(colmatch);
+		if ((value = strchr(colmatch,'|'))) {
+			crop_data(value);
+			if ((newcol = strchr(value,'|'))) {
+				crop_data(newcol);
+				if ((newval = strchr(newcol,'|'))) 
+					crop_data(newval);
 			}
 		}
 	}
@@ -156,10 +165,13 @@ static int realtime_update_exec(struct ast_channel *chan, void *data)
 		ast_log(LOG_ERROR,"Invalid input: usage %s\n",UUSAGE);
 		res = -1;
 	} else {
-		ast_update_realtime(family,colmatch,value,newcol,newval,NULL);
+		count = ast_update_realtime(family,colmatch,value,newcol,newval,NULL);
 	}
 
-	LOCAL_USER_REMOVE(u);
+	snprintf(countc, sizeof(countc), "%d", count);
+	pbx_builtin_setvar_helper(chan, "REALTIMECOUNT", countc);
+
+	ast_module_user_remove(u);
 	
 	return res;
 }
@@ -167,27 +179,29 @@ static int realtime_update_exec(struct ast_channel *chan, void *data)
 
 static int realtime_exec(struct ast_channel *chan, void *data)
 {
-	int res=0;
-	struct localuser *u;
+	int res=0, count=0;
+	struct ast_module_user *u;
 	struct ast_variable *var, *itt;
 	char *family=NULL, *colmatch=NULL, *value=NULL, *prefix=NULL, *vname=NULL;
+	char countc[13];
 	size_t len;
 		
+        ast_log(LOG_WARNING, "The RealTime application has been deprecated in favor of the REALTIME dialplan function.\n");
+
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_ERROR,"Invalid input: usage %s\n",USAGE);
 		return -1;
 	}
 	
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
-	if ((family = ast_strdupa(data))) {
-		if ((colmatch = strchr(family,'|'))) {
-			crop_data(colmatch);
-			if ((value = strchr(colmatch,'|'))) {
-				crop_data(value);
-				if ((prefix = strchr(value,'|')))
-					crop_data(prefix);
-			}
+	family = ast_strdupa(data);
+	if ((colmatch = strchr(family,'|'))) {
+		crop_data(colmatch);
+		if ((value = strchr(colmatch,'|'))) {
+			crop_data(value);
+			if ((prefix = strchr(value,'|')))
+				crop_data(prefix);
 		}
 	}
 	if (! (family && value && colmatch) ) {
@@ -207,56 +221,41 @@ static int realtime_exec(struct ast_channel *chan, void *data)
 					vname = itt->name;
 
 				pbx_builtin_setvar_helper(chan, vname, itt->value);
+				count++;
 			}
 			ast_variables_destroy(var);
 		} else if (option_verbose > 3)
 			ast_verbose(VERBOSE_PREFIX_4"No Realtime Matches Found.\n");
 	}
+	snprintf(countc, sizeof(countc), "%d", count);
+	pbx_builtin_setvar_helper(chan, "REALTIMECOUNT", countc);
 	
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
-	res = ast_cli_unregister(&cli_load_realtime_cmd);
-	res |= ast_cli_unregister(&cli_update_realtime_cmd);
-	res |= ast_unregister_application(uapp);
+	ast_cli_unregister_multiple(cli_realtime, sizeof(cli_realtime) / sizeof(struct ast_cli_entry));
+	res = ast_unregister_application(uapp);
 	res |= ast_unregister_application(app);
 
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	int res;
 
-	res = ast_cli_register(&cli_load_realtime_cmd);
-	res |= ast_cli_register(&cli_update_realtime_cmd);
-	res |= ast_register_application(uapp, realtime_update_exec, usynopsis, udesc);
+	ast_cli_register_multiple(cli_realtime, sizeof(cli_realtime) / sizeof(struct ast_cli_entry));
+	res = ast_register_application(uapp, realtime_update_exec, usynopsis, udesc);
 	res |= ast_register_application(app, realtime_exec, synopsis, desc);
 
 	return res;
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
-
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Realtime Data Lookup/Rewrite");

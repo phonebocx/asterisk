@@ -19,11 +19,20 @@
 /*! \file
  *
  * \brief feature Proxy Channel
- * 
+ *
+ * \author Mark Spencer <markster@digium.com>
+ *
  * \note *** Experimental code ****
  * 
  * \ingroup channel_drivers
  */
+/*** MODULEINFO
+        <defaultenabled>no</defaultenabled>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68196 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -36,10 +45,6 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/signal.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8666 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -59,18 +64,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 8666 $")
 #include "asterisk/app.h"
 #include "asterisk/musiconhold.h"
 #include "asterisk/manager.h"
+#include "asterisk/stringfields.h"
 
-static const char desc[] = "Feature Proxy Channel";
-static const char type[] = "Feature";
 static const char tdesc[] = "Feature Proxy Channel Driver";
 
-static int usecnt =0;
-AST_MUTEX_DEFINE_STATIC(usecnt_lock);
-
 #define IS_OUTBOUND(a,b) (a == b->chan ? 1 : 0)
-
-/* Protect the interface list (of feature_pvt's) */
-AST_MUTEX_DEFINE_STATIC(featurelock);
 
 struct feature_sub {
 	struct ast_channel *owner;
@@ -80,36 +78,40 @@ struct feature_sub {
 	int alertpipebackup[2];
 };
 
-static struct feature_pvt {
+struct feature_pvt {
 	ast_mutex_t lock;			/* Channel private lock */
 	char tech[AST_MAX_EXTENSION];		/* Technology to abstract */
 	char dest[AST_MAX_EXTENSION];		/* Destination to abstract */
 	struct ast_channel *subchan;
 	struct feature_sub subs[3];		/* Subs */
 	struct ast_channel *owner;		/* Current Master Channel */
-	struct feature_pvt *next;		/* Next entity */
-} *features = NULL;
+	AST_LIST_ENTRY(feature_pvt) list;	/* Next entity */
+};
+
+static AST_LIST_HEAD_STATIC(features, feature_pvt);
 
 #define SUB_REAL	0			/* Active call */
 #define SUB_CALLWAIT	1			/* Call-Waiting call on hold */
 #define SUB_THREEWAY	2			/* Three-way call */
 
 static struct ast_channel *features_request(const char *type, int format, void *data, int *cause);
-static int features_digit(struct ast_channel *ast, char digit);
+static int features_digit_begin(struct ast_channel *ast, char digit);
+static int features_digit_end(struct ast_channel *ast, char digit, unsigned int duration);
 static int features_call(struct ast_channel *ast, char *dest, int timeout);
 static int features_hangup(struct ast_channel *ast);
 static int features_answer(struct ast_channel *ast);
 static struct ast_frame *features_read(struct ast_channel *ast);
 static int features_write(struct ast_channel *ast, struct ast_frame *f);
-static int features_indicate(struct ast_channel *ast, int condition);
+static int features_indicate(struct ast_channel *ast, int condition, const void *data, size_t datalen);
 static int features_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
 
 static const struct ast_channel_tech features_tech = {
-	.type = type,
+	.type = "Feature",
 	.description = tdesc,
 	.capabilities = -1,
 	.requester = features_request,
-	.send_digit = features_digit,
+	.send_digit_begin = features_digit_begin,
+	.send_digit_end = features_digit_end,
 	.call = features_call,
 	.hangup = features_hangup,
 	.answer = features_answer,
@@ -169,8 +171,8 @@ static void restore_channel(struct feature_pvt *p, int index)
 	p->subs[index].owner->timingfd = p->subs[index].timingfdbackup;
 	p->subs[index].owner->alertpipe[0] = p->subs[index].alertpipebackup[0];
 	p->subs[index].owner->alertpipe[1] = p->subs[index].alertpipebackup[1];
-	p->subs[index].owner->fds[AST_MAX_FDS-1] = p->subs[index].alertpipebackup[0];
-	p->subs[index].owner->fds[AST_MAX_FDS-2] = p->subs[index].timingfdbackup;
+	p->subs[index].owner->fds[AST_ALERT_FD] = p->subs[index].alertpipebackup[0];
+	p->subs[index].owner->fds[AST_TIMING_FD] = p->subs[index].timingfdbackup;
 }
 
 static void update_features(struct feature_pvt *p, int index)
@@ -240,12 +242,11 @@ static int features_answer(struct ast_channel *ast)
 
 static struct ast_frame  *features_read(struct ast_channel *ast)
 {
-	static struct ast_frame null_frame = { AST_FRAME_NULL, };
 	struct feature_pvt *p = ast->tech_pvt;
 	struct ast_frame *f;
 	int x;
 	
-	f = &null_frame;
+	f = &ast_null_frame;
 	ast_mutex_lock(&p->lock);
 	x = indexof(p, ast, 0);
 	if (!x && p->subchan) {
@@ -286,7 +287,7 @@ static int features_fixup(struct ast_channel *oldchan, struct ast_channel *newch
 	return 0;
 }
 
-static int features_indicate(struct ast_channel *ast, int condition)
+static int features_indicate(struct ast_channel *ast, int condition, const void *data, size_t datalen)
 {
 	struct feature_pvt *p = ast->tech_pvt;
 	int res = -1;
@@ -301,7 +302,7 @@ static int features_indicate(struct ast_channel *ast, int condition)
 	return res;
 }
 
-static int features_digit(struct ast_channel *ast, char digit)
+static int features_digit_begin(struct ast_channel *ast, char digit)
 {
 	struct feature_pvt *p = ast->tech_pvt;
 	int res = -1;
@@ -311,7 +312,23 @@ static int features_digit(struct ast_channel *ast, char digit)
 	ast_mutex_lock(&p->lock);
 	x = indexof(p, ast, 0);
 	if (!x && p->subchan)
-		res = ast_senddigit(p->subchan, digit);
+		res = ast_senddigit_begin(p->subchan, digit);
+	ast_mutex_unlock(&p->lock);
+
+	return res;
+}
+
+static int features_digit_end(struct ast_channel *ast, char digit, unsigned int duration)
+{
+	struct feature_pvt *p = ast->tech_pvt;
+	int res = -1;
+	int x;
+
+	/* Queue up a frame representing the indication as a control frame */
+	ast_mutex_lock(&p->lock);
+	x = indexof(p, ast, 0);
+	if (!x && p->subchan)
+		res = ast_senddigit_end(p->subchan, digit, duration);
 	ast_mutex_unlock(&p->lock);
 	return res;
 }
@@ -328,29 +345,14 @@ static int features_call(struct ast_channel *ast, char *dest, int timeout)
 		ast_mutex_lock(&p->lock);
 		x = indexof(p, ast, 0);
 		if (!x && p->subchan) {
-			if (p->owner->cid.cid_num)
-				p->subchan->cid.cid_num = strdup(p->owner->cid.cid_num);
-			else 
-				p->subchan->cid.cid_num = NULL;
-		
-			if (p->owner->cid.cid_name)
-				p->subchan->cid.cid_name = strdup(p->owner->cid.cid_name);
-			else 
-				p->subchan->cid.cid_name = NULL;
-		
-			if (p->owner->cid.cid_rdnis)
-				p->subchan->cid.cid_rdnis = strdup(p->owner->cid.cid_rdnis);
-			else
-				p->subchan->cid.cid_rdnis = NULL;
-		
-			if (p->owner->cid.cid_ani)
-				p->subchan->cid.cid_ani = strdup(p->owner->cid.cid_ani);
-			else
-				p->subchan->cid.cid_ani = NULL;
+			p->subchan->cid.cid_num = ast_strdup(p->owner->cid.cid_num);
+			p->subchan->cid.cid_name = ast_strdup(p->owner->cid.cid_name);
+			p->subchan->cid.cid_rdnis = ast_strdup(p->owner->cid.cid_rdnis);
+			p->subchan->cid.cid_ani = ast_strdup(p->owner->cid.cid_ani);
 		
 			p->subchan->cid.cid_pres = p->owner->cid.cid_pres;
-			strncpy(p->subchan->language, p->owner->language, sizeof(p->subchan->language) - 1);
-			strncpy(p->subchan->accountcode, p->owner->accountcode, sizeof(p->subchan->accountcode) - 1);
+			ast_string_field_set(p->subchan, language, p->owner->language);
+			ast_string_field_set(p->subchan, accountcode, p->owner->accountcode);
 			p->subchan->cdrflags = p->owner->cdrflags;
 			res = ast_call(p->subchan, dest2, timeout);
 			update_features(p, x);
@@ -364,7 +366,6 @@ static int features_call(struct ast_channel *ast, char *dest, int timeout)
 static int features_hangup(struct ast_channel *ast)
 {
 	struct feature_pvt *p = ast->tech_pvt;
-	struct feature_pvt *cur, *prev=NULL;
 	int x;
 
 	ast_mutex_lock(&p->lock);
@@ -376,24 +377,12 @@ static int features_hangup(struct ast_channel *ast)
 	}
 	ast->tech_pvt = NULL;
 	
-	
 	if (!p->subs[SUB_REAL].owner && !p->subs[SUB_CALLWAIT].owner && !p->subs[SUB_THREEWAY].owner) {
 		ast_mutex_unlock(&p->lock);
 		/* Remove from list */
-		ast_mutex_lock(&featurelock);
-		cur = features;
-		while(cur) {
-			if (cur == p) {
-				if (prev)
-					prev->next = cur->next;
-				else
-					features = cur->next;
-				break;
-			}
-			prev = cur;
-			cur = cur->next;
-		}
-		ast_mutex_unlock(&featurelock);
+		AST_LIST_LOCK(&features);
+		AST_LIST_REMOVE(&features, p, list);
+		AST_LIST_UNLOCK(&features);
 		ast_mutex_lock(&p->lock);
 		/* And destroy */
 		if (p->subchan)
@@ -429,14 +418,12 @@ static struct feature_pvt *features_alloc(char *data, int format)
 			data);
 		return NULL;
 	}
-	ast_mutex_lock(&featurelock);
-	tmp = features;
-	while(tmp) {
+	AST_LIST_LOCK(&features);
+	AST_LIST_TRAVERSE(&features, tmp, list) {
 		if (!strcasecmp(tmp->tech, tech) && !strcmp(tmp->dest, dest))
 			break;
-		tmp = tmp->next;
 	}
-	ast_mutex_unlock(&featurelock);
+	AST_LIST_UNLOCK(&features);
 	if (!tmp) {
 		chan = ast_request(tech, format, dest, &status);
 		if (!chan) {
@@ -449,13 +436,12 @@ static struct feature_pvt *features_alloc(char *data, int format)
 			for (x=0;x<3;x++)
 				init_sub(tmp->subs + x);
 			ast_mutex_init(&tmp->lock);
-			strncpy(tmp->tech, tech, sizeof(tmp->tech) - 1);
-			strncpy(tmp->dest, dest, sizeof(tmp->dest) - 1);
+			ast_copy_string(tmp->tech, tech, sizeof(tmp->tech));
+			ast_copy_string(tmp->dest, dest, sizeof(tmp->dest));
 			tmp->subchan = chan;
-			ast_mutex_lock(&featurelock);
-			tmp->next = features;
-			features = tmp;
-			ast_mutex_unlock(&featurelock);
+			AST_LIST_LOCK(&features);
+			AST_LIST_INSERT_HEAD(&features, tmp, list);
+			AST_LIST_UNLOCK(&features);
 		}
 	}
 	return tmp;
@@ -465,6 +451,7 @@ static struct ast_channel *features_new(struct feature_pvt *p, int state, int in
 {
 	struct ast_channel *tmp;
 	int x,y;
+	char *b2 = 0;
 	if (!p->subchan) {
 		ast_log(LOG_WARNING, "Called upon channel with no subchan:(\n");
 		return NULL;
@@ -473,25 +460,29 @@ static struct ast_channel *features_new(struct feature_pvt *p, int state, int in
 		ast_log(LOG_WARNING, "Called to put index %d already there!\n", index);
 		return NULL;
 	}
-	tmp = ast_channel_alloc(0);
-	if (!tmp) {
-		ast_log(LOG_WARNING, "Unable to allocate channel structure\n");
-		return NULL;
-	}
-	tmp->tech = &features_tech;
+	/* figure out what you want the name to be */
 	for (x=1;x<4;x++) {
-		snprintf(tmp->name, sizeof(tmp->name), "Feature/%s/%s-%d", p->tech, p->dest, x);
+		if (b2)
+			free(b2);
+		b2 = ast_safe_string_alloc("%s/%s-%d", p->tech, p->dest, x);
 		for (y=0;y<3;y++) {
 			if (y == index)
 				continue;
-			if (p->subs[y].owner && !strcasecmp(p->subs[y].owner->name, tmp->name))
+			if (p->subs[y].owner && !strcasecmp(p->subs[y].owner->name, b2))
 				break;
 		}
 		if (y >= 3)
 			break;
 	}
-	tmp->type = type;
-	ast_setstate(tmp, state);
+	tmp = ast_channel_alloc(0, state, 0,0, "", "", "", 0, "Feature/%s", b2);
+	/* free up the name, it was copied into the channel name */
+	if (b2)
+		free(b2);
+	if (!tmp) {
+		ast_log(LOG_WARNING, "Unable to allocate channel structure\n");
+		return NULL;
+	}
+	tmp->tech = &features_tech;
 	tmp->writeformat = p->subchan->writeformat;
 	tmp->rawwriteformat = p->subchan->rawwriteformat;
 	tmp->readformat = p->subchan->readformat;
@@ -501,10 +492,7 @@ static struct ast_channel *features_new(struct feature_pvt *p, int state, int in
 	p->subs[index].owner = tmp;
 	if (!p->owner)
 		p->owner = tmp;
-	ast_mutex_lock(&usecnt_lock);
-	usecnt++;
-	ast_mutex_unlock(&usecnt_lock);
-	ast_update_use_count();
+	ast_module_ref(ast_module_info->self);
 	return tmp;
 }
 
@@ -528,17 +516,19 @@ static int features_show(int fd, int argc, char **argv)
 
 	if (argc != 3)
 		return RESULT_SHOWUSAGE;
-	ast_mutex_lock(&featurelock);
-	p = features;
-	while(p) {
+
+	if (AST_LIST_EMPTY(&features)) {
+		ast_cli(fd, "No feature channels in use\n");
+		return RESULT_SUCCESS;
+	}
+
+	AST_LIST_LOCK(&features);
+	AST_LIST_TRAVERSE(&features, p, list) {
 		ast_mutex_lock(&p->lock);
 		ast_cli(fd, "%s -- %s/%s\n", p->owner ? p->owner->name : "<unowned>", p->tech, p->dest);
 		ast_mutex_unlock(&p->lock);
-		p = p->next;
 	}
-	if (!features)
-		ast_cli(fd, "No feature channels in use\n");
-	ast_mutex_unlock(&featurelock);
+	AST_LIST_UNLOCK(&features);
 	return RESULT_SUCCESS;
 }
 
@@ -546,61 +536,45 @@ static char show_features_usage[] =
 "Usage: feature show channels\n"
 "       Provides summary information on feature channels.\n";
 
-static struct ast_cli_entry cli_show_features = {
-	{ "feature", "show", "channels", NULL }, features_show, 
-	"Show status of feature channels", show_features_usage, NULL };
+static struct ast_cli_entry cli_features[] = {
+	{ { "feature", "show", "channels", NULL },
+	features_show, "List status of feature channels",
+	show_features_usage },
+};
 
-int load_module()
+static int load_module(void)
 {
 	/* Make sure we can register our sip channel type */
 	if (ast_channel_register(&features_tech)) {
-		ast_log(LOG_ERROR, "Unable to register channel class %s\n", type);
+		ast_log(LOG_ERROR, "Unable to register channel class 'Feature'\n");
 		return -1;
 	}
-	ast_cli_register(&cli_show_features);
+	ast_cli_register_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
 	return 0;
 }
 
-int reload()
+static int unload_module(void)
 {
-	return 0;
-}
-
-int unload_module()
-{
-	struct feature_pvt *p, *prev;
+	struct feature_pvt *p;
+	
 	/* First, take us out of the channel loop */
-	ast_cli_unregister(&cli_show_features);
+	ast_cli_unregister_multiple(cli_features, sizeof(cli_features) / sizeof(struct ast_cli_entry));
 	ast_channel_unregister(&features_tech);
-	if (!ast_mutex_lock(&featurelock)) {
-		/* Hangup all interfaces if they have an owner */
-		for (p = features; p; p = p->next) {
-			prev = p;
-			if (p->owner)
-				ast_softhangup(p->owner, AST_SOFTHANGUP_APPUNLOAD);
-			free(prev);
-		}
-		features = NULL;
-		ast_mutex_unlock(&featurelock);
-	} else {
-		ast_log(LOG_WARNING, "Unable to lock the monitor\n");
+	
+	if (!AST_LIST_LOCK(&features))
 		return -1;
-	}		
+	/* Hangup all interfaces if they have an owner */
+	AST_LIST_TRAVERSE_SAFE_BEGIN(&features, p, list) {
+		if (p->owner)
+			ast_softhangup(p->owner, AST_SOFTHANGUP_APPUNLOAD);
+		AST_LIST_REMOVE_CURRENT(&features, list);
+		free(p);
+	}
+	AST_LIST_TRAVERSE_SAFE_END
+	AST_LIST_UNLOCK(&features);
+	
 	return 0;
 }
 
-int usecount()
-{
-	return usecnt;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
-
-char *description()
-{
-	return (char *) desc;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Feature Proxy Channel");
 

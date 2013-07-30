@@ -21,12 +21,18 @@
 /*! \file
  *
  * \brief Custom Comma Separated Value CDR records.
- * 
+ *
+ * \author Mark Spencer <markster@digium.com>
+ *
  * \arg See also \ref AstCDR
  *
  * Logs in LOG_DIR/cdr_custom
  * \ingroup cdr_drivers
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 70841 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -36,10 +42,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <time.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/cdr.h"
@@ -55,13 +57,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 AST_MUTEX_DEFINE_STATIC(lock);
 
-static char *desc = "Customizable Comma Separated Values CDR Backend";
-
 static char *name = "cdr-custom";
 
 static FILE *mf = NULL;
 
-static char master[AST_CONFIG_MAX_PATH];
+static char master[PATH_MAX];
 static char format[1024]="";
 
 static int load_config(int reload) 
@@ -72,21 +72,22 @@ static int load_config(int reload)
 
 	strcpy(format, "");
 	strcpy(master, "");
+	ast_mutex_lock(&lock);
 	if((cfg = ast_config_load("cdr_custom.conf"))) {
 		var = ast_variable_browse(cfg, "mappings");
 		while(var) {
-			ast_mutex_lock(&lock);
 			if (!ast_strlen_zero(var->name) && !ast_strlen_zero(var->value)) {
-				if (strlen(var->value) > (sizeof(format) - 2))
+				if (strlen(var->value) > (sizeof(format) - 1))
 					ast_log(LOG_WARNING, "Format string too long, will be truncated, at line %d\n", var->lineno);
-				strncpy(format, var->value, sizeof(format) - 2);
+				ast_copy_string(format, var->value, sizeof(format) - 1);
 				strcat(format,"\n");
 				snprintf(master, sizeof(master),"%s/%s/%s", ast_config_AST_LOG_DIR, name, var->name);
-				ast_mutex_unlock(&lock);
+				if (var->next) {
+					ast_log(LOG_NOTICE, "Sorry, only one mapping is supported at this time, mapping '%s' will be ignored at line %d.\n", var->next->name, var->next->lineno); 
+					break;
+				}
 			} else
 				ast_log(LOG_NOTICE, "Mapping must have both filename and format at line %d\n", var->lineno);
-			if (var->next)
-				ast_log(LOG_NOTICE, "Sorry, only one mapping is supported at this time, mapping '%s' will be ignored at line %d.\n", var->next->name, var->next->lineno); 
 			var = var->next;
 		}
 		ast_config_destroy(cfg);
@@ -97,6 +98,7 @@ static int load_config(int reload)
 		else
 			ast_log(LOG_WARNING, "Failed to load configuration file. Module not activated.\n");
 	}
+	ast_mutex_unlock(&lock);
 	
 	return res;
 }
@@ -135,12 +137,7 @@ static int custom_log(struct ast_cdr *cdr)
 	return 0;
 }
 
-char *description(void)
-{
-	return desc;
-}
-
-int unload_module(void)
+static int unload_module(void)
 {
 	if (mf)
 		fclose(mf);
@@ -148,31 +145,29 @@ int unload_module(void)
 	return 0;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	int res = 0;
 
 	if (!load_config(0)) {
-		res = ast_cdr_register(name, desc, custom_log);
+		res = ast_cdr_register(name, ast_module_info->description, custom_log);
 		if (res)
 			ast_log(LOG_ERROR, "Unable to register custom CDR handling\n");
 		if (mf)
 			fclose(mf);
-	}
-	return res;
+		return res;
+	} else 
+		return AST_MODULE_LOAD_DECLINE;
 }
 
-int reload(void)
+static int reload(void)
 {
 	return load_config(1);
 }
 
-int usecount(void)
-{
-	return 0;
-}
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Customizable Comma Separated Values CDR Backend",
+		.load = load_module,
+		.unload = unload_module,
+		.reload = reload,
+	       );
 
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}

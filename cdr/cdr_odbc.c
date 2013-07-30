@@ -28,6 +28,15 @@
  * \ingroup cdr_drivers
  */
 
+/*** MODULEINFO
+	<depend>unixodbc</depend>
+	<depend>ltdl</depend>
+ ***/
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69702 $")
+
 #include <sys/types.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,10 +56,6 @@
 #include <w32api/sqltypes.h>
 #endif
 
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 21597 $")
-
 #include "asterisk/config.h"
 #include "asterisk/options.h"
 #include "asterisk/channel.h"
@@ -60,7 +65,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 21597 $")
 
 #define DATE_FORMAT "%Y-%m-%d %T"
 
-static char *desc = "ODBC CDR Backend";
 static char *name = "ODBC";
 static char *config = "cdr_odbc.conf";
 static char *dsn = NULL, *username = NULL, *password = NULL, *table = NULL;
@@ -96,7 +100,7 @@ static int odbc_log(struct ast_cdr *cdr)
 	if (usegmtime) 
 		gmtime_r(&cdr->start.tv_sec,&tm);
 	else
-		localtime_r(&cdr->start.tv_sec,&tm);
+		ast_localtime(&cdr->start.tv_sec, &tm, NULL);
 
 	ast_mutex_lock(&odbc_lock);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
@@ -203,11 +207,6 @@ static int odbc_log(struct ast_cdr *cdr)
 	return 0;
 }
 
-char *description(void)
-{
-	return desc;
-}
-
 static int odbc_unload_module(void)
 {
 	ast_mutex_lock(&odbc_lock);
@@ -248,13 +247,14 @@ static int odbc_load_module(void)
 	int res = 0;
 	struct ast_config *cfg;
 	struct ast_variable *var;
-	char *tmp;
+	const char *tmp;
 
 	ast_mutex_lock(&odbc_lock);
 
 	cfg = ast_config_load(config);
 	if (!cfg) {
 		ast_log(LOG_WARNING, "cdr_odbc: Unable to load config for ODBC CDR's: %s\n", config);
+		res = AST_MODULE_LOAD_DECLINE;
 		goto out;
 	}
 	
@@ -341,7 +341,6 @@ static int odbc_load_module(void)
 		goto out;
 	}
 
-	ast_config_destroy(cfg);
 	if (option_verbose > 2) {
 		ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: dsn is %s\n",dsn);
 		if (username)
@@ -361,28 +360,26 @@ static int odbc_load_module(void)
 			ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: Unable to connect to datasource: %s\n", dsn);
 		}
 	}
-	res = ast_cdr_register(name, desc, odbc_log);
+	res = ast_cdr_register(name, ast_module_info->description, odbc_log);
 	if (res) {
 		ast_log(LOG_ERROR, "cdr_odbc: Unable to register ODBC CDR handling\n");
 	}
 out:
+	if (cfg)
+		ast_config_destroy(cfg);
 	ast_mutex_unlock(&odbc_lock);
 	return res;
 }
 
 static int odbc_do_query(void)
 {
-	SQLINTEGER ODBC_err;
 	int ODBC_res;
-	short int ODBC_mlen;
-	char ODBC_msg[200], ODBC_stat[10];
 	
 	ODBC_res = SQLExecute(ODBC_stmt);
 	
 	if ((ODBC_res != SQL_SUCCESS) && (ODBC_res != SQL_SUCCESS_WITH_INFO)) {
 		if (option_verbose > 10)
 			ast_verbose( VERBOSE_PREFIX_4 "cdr_odbc: Error in Query %d\n", ODBC_res);
-		SQLGetDiagRec(SQL_HANDLE_DBC, ODBC_con, 1, (unsigned char *)ODBC_stat, &ODBC_err, (unsigned char *)ODBC_msg, 100, &ODBC_mlen);
 		SQLFreeHandle(SQL_HANDLE_STMT, ODBC_stmt);
 		odbc_disconnect();
 		return -1;
@@ -448,34 +445,24 @@ static int odbc_init(void)
 	return 0;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return odbc_load_module();
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	return odbc_unload_module();
 }
 
-int reload(void)
+static int reload(void)
 {
 	odbc_unload_module();
 	return odbc_load_module();
 }
 
-int usecount(void)
-{
-	/* Simplistic use count */
-	if (ast_mutex_trylock(&odbc_lock)) {
-		return 1;
-	} else {
-		ast_mutex_unlock(&odbc_lock);
-		return 0;
-	}
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "ODBC CDR Backend",
+		.load = load_module,
+		.unload = unload_module,
+		.reload = reload,
+	       );

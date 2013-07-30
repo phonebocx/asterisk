@@ -19,19 +19,21 @@
 /*! \file
  *
  * \brief App to transmit a text message
+ *
+ * \author Mark Spencer <markster@digium.com>
  * 
- * Requires support of sending text messages from channel driver
+ * \note Requires support of sending text messages from channel driver
  *
  * \ingroup applications
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -43,8 +45,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/image.h"
 #include "asterisk/options.h"
 #include "asterisk/app.h"
-
-static const char *tdesc = "Send Text Applications";
 
 static const char *app = "SendText";
 
@@ -63,14 +63,11 @@ static const char *descrip =
 "'j' -- jump to n+101 priority if the channel doesn't support\n"
 "       text transport\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int sendtext_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
-	struct localuser *u;
+	struct ast_module_user *u;
 	char *status = "UNSUPPORTED";
 	char *parse = NULL;
 	int priority_jump = 0;
@@ -79,20 +76,14 @@ static int sendtext_exec(struct ast_channel *chan, void *data)
 		AST_APP_ARG(options);
 	);
 		
-	LOCAL_USER_ADD(u);	
+	u = ast_module_user_add(chan);	
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "SendText requires an argument (text[|options])\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
-	} else {
+	} else
 		parse = ast_strdupa(data);
-		if (!parse) {
-			ast_log(LOG_ERROR, "Out of memory!\n");
-			LOCAL_USER_REMOVE(u);
-			return -1;
-		}
-	}
 	
 	AST_STANDARD_APP_ARGS(args, parse);
 
@@ -101,56 +92,39 @@ static int sendtext_exec(struct ast_channel *chan, void *data)
 			priority_jump = 1;
 	}
 
-	ast_mutex_lock(&chan->lock);
+	ast_channel_lock(chan);
 	if (!chan->tech->send_text) {
-		ast_mutex_unlock(&chan->lock);
+		ast_channel_unlock(chan);
 		/* Does not support transport */
-		if (priority_jump || option_priority_jumping)
+		if (priority_jump || ast_opt_priority_jumping)
 			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return 0;
 	}
 	status = "FAILURE";
-	ast_mutex_unlock(&chan->lock);
+	ast_channel_unlock(chan);
 	res = ast_sendtext(chan, args.text);
 	if (!res)
 		status = "SUCCESS";
 	pbx_builtin_setvar_helper(chan, "SENDTEXTSTATUS", status);
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	return 0;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 	
 	res = ast_unregister_application(app);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, sendtext_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return (char *) tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-
-	STANDARD_USECOUNT(res);
-
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Send Text Applications");

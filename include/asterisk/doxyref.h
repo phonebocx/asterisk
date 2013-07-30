@@ -36,7 +36,11 @@
  *  \arg \ref AstCDR
  *  \arg \ref AstREADME
  *  \arg \ref AstVar
+ *  \arg \ref AstVideo
  *  \arg \ref AstENUM : The IETF way to redirect from phone numbers to VoIP calls
+ *  \arg \ref AstHTTP
+ *  \arg \ref AstSpeech
+ *  \arg \ref DataStores
  *  \arg \ref ConfigFiles
  *  \arg \ref SoundFiles included in the Asterisk distribution
  *  \arg \ref AstCREDITS : A Thank You to contributors
@@ -64,13 +68,22 @@
  *  \subsection model_txt Generic Model
  *  \verbinclude model.txt
  *  \subsection channel_txt Channels
- *  \arg See \link Def_Channel
- *  \verbinclude channel.txt
+ *  \arg See \ref Def_Channel
  */
 
 /*! \page AstDebug Debugging
  *  \section debug Debugging
- *  \verbinclude README.backtrace
+ *  \verbinclude backtrace.txt
+ */
+
+/*! \page AstSpeech The Generic Speech Recognition API
+ *  \section debug The Generic Speech Recognition API
+ *  \verbinclude speechrec.txt
+ */
+
+/*! \page DataStores Channel Data Stores
+ *  \section debug Channel Data Stores
+ *  \verbinclude datastores.txt
  */
 
 /*! \page AstAMI AMI - The Manager Interface
@@ -84,8 +97,8 @@
  *  \section realtime ARA - a generic API to storage and retrieval
  *  Implemented in \ref config.c 
  *  Implemented in \ref pbx_realtime.c 
- *  \verbinclude README.realtime 
- *  \verbinclude README.extconfig
+ *  \verbinclude realtime.txt
+ *  \verbinclude extconfig.txt
  */
 
 /*!  \page AstDUNDi DUNDi
@@ -106,7 +119,7 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \arg \ref cdr_drivers
  * \arg \ref Config_cdr CDR configuration files
  *
- *  \verbinclude README.cdr
+ * \verbinclude cdrdriver.txt
  */
 
 /*! \page AstREADME README - the general administrator introduction
@@ -117,18 +130,23 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  *  \verbinclude CREDITS
  */
 
+/*! \page AstVideo Video support in Asterisk
+ * \section sectAstVideo Video support in Asterisk
+ *  \verbinclude video.txt
+ */
+
 /*! \page AstVar Global channel variables
  * \section globchan Global Channel Variables
- *  \verbinclude README.variables
+ *  \verbinclude channelvariables.txt
  */
 
 /*! \page AstENUM ENUM
  * \section enumreadme ENUM
  * \arg Configuration: \ref Config_enum
  * \arg \ref enum.c
- * \arg \ref app_enumlookup.c
+ * \arg \ref func_enum.c
  *
- * \verbinclude README.enum
+ * \verbinclude enum.txt
  */
 
 /*! \page ConfigFiles Configuration files
@@ -152,6 +170,7 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \arg \link Config_mm Meetme (conference bridge) configuration  \endlink
  * \arg \link Config_qu Queue system configuration  \endlink
  * \arg \link Config_vm Voicemail configuration  \endlink
+ * \arg \link Config_followme Followme configuration  \endlink
  * \section cdrconf CDR configuration files
  * \arg \link Config_cdr CDR configuration  \endlink
  * \arg \link cdr_custom Custom CDR driver configuration \endlink
@@ -172,7 +191,7 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  */
 
 /*! \page Config_ast Asterisk.conf
- * \verbinclude README.asterisk.conf
+ * \verbinclude asterisk-conf.txt
  */
 /*! \page Config_mod Modules configuration
  * All res_ resource modules are loaded with globals on, which means
@@ -190,6 +209,12 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \verbinclude features.conf.sample
  */
 
+/*! \page Config_followme followme.conf 
+ * \section followmeconf Followme.conf
+ * - See app_followme.c
+ * \verbinclude followme.conf.sample
+ */
+
 /*! \page Config_ext Extensions.conf - the Dial Plan
  * \section dialplan Extensions.conf 
  * \verbinclude extensions.conf.sample
@@ -199,11 +224,11 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * IAX2 is implemented in \ref chan_iax2.c
  * \arg \link Config_iax iax.conf Configuration file example \endlink
  * \section iaxreadme IAX readme file
- * \verbinclude README.iax
+ * \verbinclude iax.txt
  * \section Config_iax IAX Configuration example
  * \verbinclude iax.conf.sample
  * \section iaxjitter IAX Jitterbuffer information
- * \verbinclude README.jitterbuffer
+ * \verbinclude jitterbuffer.txt
  */
 
 /*! \page Config_iax IAX configuration
@@ -228,8 +253,16 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \verbinclude mgcp.conf.sample
  */
 
+/*! \page README_misdn MISDN documentation
+ * \arg See \ref Config_misdn
+ * \section mISDN configuration
+ * \verbinclude misdn.txt
+ */
+
 /*! \page Config_misdn MISDN configuration
  * \arg Implemented in \ref chan_misdn.c
+ * \arg \ref README_misdn
+ * \arg See the mISDN home page: http://www.isdn4linux.de/mISDN/
  * \section misdnconf misdn.conf
  * \verbinclude misdn.conf.sample
  */
@@ -252,7 +285,7 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  * \arg Implemented in \ref chan_h323.c
  * \section h323conf h323.conf
  * \ref chan_h323.c
- * \verbinclude README.h323
+ * \verbinclude h323.txt
  */
 
 /*! \page Config_oss OSS configuration
@@ -290,7 +323,7 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
 /*! \page Config_enum ENUM Configuration
  * \section enumconf enum.conf
  * \arg See also \ref enumreadme
- * \arg Implemented in \ref app_enumlookup.c and \ref enum.c
+ * \arg Implemented in \ref func_enum.c and \ref enum.c
  * \verbinclude enum.conf.sample
  */
 
@@ -394,14 +427,11 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
 
 /*! \page SoundFiles Sound files
  *  \section SecSound Asterisk Sound files
- *  Asterisk includes a large amount of sound files. Many of these
+ *  Asterisk includes a large number of sound files. Many of these
  *  are used by applications and demo scripts within asterisk.
  *
  *  Additional sound files are available in the asterisk-addons
- *  repository on cvs.digium.com
- * 
- *  \section SoundList List of included sound files
- *  \verbinclude sounds.txt
+ *  repository on svn.digium.com
  */
 
 /*! \addtogroup cdr_drivers Module: CDR Drivers
@@ -447,3 +477,12 @@ DUNDi is not itself a Voice-over IP signaling or media protocol. Instead, it pub
  *  \par See also
  *  \arg \ref codecs 
  */
+
+/*! \page AstHTTP AMI over HTTP support
+ * The http.c file includes support for manager transactions over
+ * http.
+ *  \section ami AMI - The manager Interface
+ *  \arg \link Config_ami Configuration file \endlink
+ *  \verbinclude ajam.txt
+ */
+

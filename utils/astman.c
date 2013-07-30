@@ -38,7 +38,7 @@
 #include <stdlib.h>
 
 #include "asterisk/md5.h"
-#include "asterisk/manager.h"
+#include "asterisk/linkedlists.h"
 
 #undef gethostbyname
 
@@ -53,6 +53,13 @@
  */
 #define _NEWT_CAST (void *)
 
+#define DEFAULT_MANAGER_PORT 5038
+
+struct message {
+	unsigned int hdrcount;
+	char headers[MAX_HEADERS][MAX_LEN];
+};
+
 static struct ast_mansession {
 	struct sockaddr_in sin;
 	int fd;
@@ -60,15 +67,17 @@ static struct ast_mansession {
 	int inlen;
 } session;
 
-static struct ast_chan {
+struct ast_chan {
 	char name[80];
 	char exten[20];
 	char context[20];
 	char priority[20];
 	char callerid[40];
 	char state[10];
-	struct ast_chan *next;
-} *chans;
+	AST_LIST_ENTRY(ast_chan) list;
+};
+
+static AST_LIST_HEAD_NOLOCK_STATIC(chans, ast_chan);
 
 /* dummy functions to be compatible with the Asterisk core for md5.c */
 void ast_register_file_version(const char *file, const char *version);
@@ -81,42 +90,52 @@ void ast_unregister_file_version(const char *file)
 {
 }
 
+int ast_add_profile(const char *, uint64_t scale);
+int ast_add_profile(const char *s, uint64_t scale)
+{
+	return -1;
+}
+
+int64_t ast_profile(int, int64_t);
+int64_t ast_profile(int key, int64_t val)
+{
+	return 0;
+}
+int64_t ast_mark(int, int start1_stop0);
+int64_t ast_mark(int key, int start1_stop0)
+{
+	return 0;
+}
+
+/* end of dummy functions */
+
 static struct ast_chan *find_chan(char *name)
 {
-	struct ast_chan *prev = NULL, *chan = chans;
-	while(chan) {
+	struct ast_chan *chan;
+	AST_LIST_TRAVERSE(&chans, chan, list) {
 		if (!strcmp(name, chan->name))
 			return chan;
-		prev = chan;
-		chan = chan->next;
 	}
 	chan = malloc(sizeof(struct ast_chan));
 	if (chan) {
 		memset(chan, 0, sizeof(struct ast_chan));
 		strncpy(chan->name, name, sizeof(chan->name) - 1);
-		if (prev) 
-			prev->next = chan;
-		else
-			chans = chan;
+		AST_LIST_INSERT_TAIL(&chans, chan, list);
 	}
 	return chan;
 }
 
 static void del_chan(char *name)
 {
-	struct ast_chan *prev = NULL, *chan = chans;
-	while(chan) {
+	struct ast_chan *chan;
+	AST_LIST_TRAVERSE_SAFE_BEGIN(&chans, chan, list) {
 		if (!strcmp(name, chan->name)) {
-			if (prev)
-				prev->next = chan->next;
-			else
-				chans = chan->next;
+			AST_LIST_REMOVE_CURRENT(&chans, list);
 			free(chan);
 			return;
 		}
-		prev = chan;
-		chan = chan->next;
 	}
+	AST_LIST_TRAVERSE_SAFE_END
 }
 
 static void fdprintf(int fd, char *fmt, ...)
@@ -247,8 +266,7 @@ static void rebuild_channels(newtComponent c)
 	int x=0;
 	prev = newtListboxGetCurrent(c);
 	newtListboxClear(c);
-	chan = chans;
-	while(chan) {
+	AST_LIST_TRAVERSE(&chans, chan, list) {
 		snprintf(tmpn, sizeof(tmpn), "%s (%s)", chan->name, chan->callerid);
 		if (strlen(chan->exten)) 
 			snprintf(tmp, sizeof(tmp), "%-30s %8s -> %s@%s:%s", 
@@ -259,7 +277,6 @@ static void rebuild_channels(newtComponent c)
 				tmpn, chan->state);
 		newtListboxAppendEntry(c, tmp, chan);
 		x++;
-		chan = chan->next;
 	}
 	if (!x)
 		newtListboxAppendEntry(c, " << No Active Channels >> ", NULL);
@@ -531,7 +548,7 @@ static int manage_calls(char *host)
 	struct newtExitStruct es;
 	char tmp[80];
 
-	/* If there's one thing you learn from this code, it is this...
+	/* Mark: If there's one thing you learn from this code, it is this...
 	   Never, ever fly Air France.  Their customer service is absolutely
 	   the worst.  I've never heard the words "That's not my problem" as 
 	   many times as I have from their staff -- It should, without doubt
@@ -541,7 +558,16 @@ static int manage_calls(char *host)
 	   
 	   If you ever want to make me happy just tell me that you, too, will
 	   never fly Air France again either (in spite of their excellent
-	   cuisine). */
+	   cuisine). 
+	
+	   Update by oej: The merger with KLM has transferred this
+	   behaviour to KLM as well. 
+	   Don't bother giving them business either...
+
+	   Only if you want to travel randomly without luggage, you
+	   might pick either of them.
+	   
+	*/
 	snprintf(tmp, sizeof(tmp), "Asterisk Manager at %s", host);
 	newtCenteredWindow(74, 20, tmp);
 	form = newtForm(NULL, NULL, 0);

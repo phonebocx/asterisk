@@ -22,15 +22,15 @@
  *
  */
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 40722 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -52,7 +52,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/crypto.h"
 #include "asterisk/astdb.h"
 
-static char *tdesc = "Loopback Switch";
 
 /* Loopback switch substitutes ${EXTEN}, ${CONTEXT}, and ${PRIORITY} into
    the data passed to it to try to get a string of the form:
@@ -90,18 +89,14 @@ static char *loopback_helper(char *buf, int buflen, const char *exten, const cha
 	snprintf(tmp, sizeof(tmp), "%d", priority);
 	memset(buf, 0, buflen);
 	AST_LIST_HEAD_INIT_NOLOCK(&headp);
-	newvariable = ast_var_assign("EXTEN", exten);
-	AST_LIST_INSERT_HEAD(&headp, newvariable, entries);
-	newvariable = ast_var_assign("CONTEXT", context);
-	AST_LIST_INSERT_HEAD(&headp, newvariable, entries);
-	newvariable = ast_var_assign("PRIORITY", tmp);
-	AST_LIST_INSERT_HEAD(&headp, newvariable, entries);
-	pbx_substitute_variables_varshead(&headp, data, buf, buflen);
+	AST_LIST_INSERT_HEAD(&headp, ast_var_assign("EXTEN", exten), entries);
+	AST_LIST_INSERT_HEAD(&headp, ast_var_assign("CONTEXT", context), entries);
+	AST_LIST_INSERT_HEAD(&headp, ast_var_assign("PRIORITY", tmp), entries);
 	/* Substitute variables */
-	while (!AST_LIST_EMPTY(&headp)) {           /* List Deletion. */
-		newvariable = AST_LIST_REMOVE_HEAD(&headp, entries);
-		ast_var_delete(newvariable);
-	}
+	pbx_substitute_variables_varshead(&headp, data, buf, buflen);
+	/* free the list */
+	while ((newvariable = AST_LIST_REMOVE_HEAD(&headp, entries)))
+                ast_var_delete(newvariable);
 	return buf;
 }
 
@@ -110,14 +105,11 @@ static void loopback_subst(char **newexten, char **newcontext, int *priority, ch
 	char *con;
 	char *pri;
 	*newpattern = strchr(buf, '/');
-	if (*newpattern) {
-		*(*newpattern) = '\0';
-		(*newpattern)++;
-	}
+	if (*newpattern)
+		*(*newpattern)++ = '\0';
 	con = strchr(buf, '@');
 	if (con) {
-		*con = '\0';
-		con++;
+		*con++ = '\0';
 		pri = strchr(con, ':');
 	} else
 		pri = strchr(buf, ':');
@@ -147,13 +139,11 @@ static int loopback_canmatch(struct ast_channel *chan, const char *context, cons
 	return res;
 }
 
-static int loopback_exec(struct ast_channel *chan, const char *context, const char *exten, int priority, const char *callerid, int newstack, const char *data)
+static int loopback_exec(struct ast_channel *chan, const char *context, const char *exten, int priority, const char *callerid, const char *data)
 {
 	LOOPBACK_COMMON;
-	if (newstack)
-		res = ast_spawn_extension(chan, newcontext, newexten, newpriority, callerid);
-	else
-		res = ast_exec_extension(chan, newcontext, newexten, newpriority, callerid);
+	res = ast_spawn_extension(chan, newcontext, newexten, newpriority, callerid);
+	/* XXX hmmm... res is overridden ? */
 	if (newpattern && !ast_extension_match(newpattern, exten))
 		res = -1;
 	return res;
@@ -171,37 +161,23 @@ static int loopback_matchmore(struct ast_channel *chan, const char *context, con
 static struct ast_switch loopback_switch =
 {
         name:                   "Loopback",
-        description:    		"Loopback Dialplan Switch",
+        description:   		"Loopback Dialplan Switch",
         exists:                 loopback_exists,
         canmatch:               loopback_canmatch,
         exec:                   loopback_exec,
         matchmore:              loopback_matchmore,
 };
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	return 1;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
-
-int unload_module(void)
+static int unload_module(void)
 {
 	ast_unregister_switch(&loopback_switch);
 	return 0;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	ast_register_switch(&loopback_switch);
 	return 0;
 }
 
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Loopback Switch");

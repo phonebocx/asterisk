@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Changes Copyright (c) 2004 - 2005 Todd Freeman <freeman@andrews.edu>
+ * Changes Copyright (c) 2004 - 2006 Todd Freeman <freeman@andrews.edu>
  * 
  * 95% based on HasNewVoicemail by:
  * 
@@ -24,8 +24,17 @@
  *
  * \brief HasVoicemail application
  *
+ * \author Todd Freeman <freeman@andrews.edu>
+ *
+ * \note 95% based on HasNewVoicemail by
+ * Tilghman Lesher <asterisk-hasnewvoicemail-app@the-tilghman.com>
+ *
  * \ingroup applications
  */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 58939 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -33,10 +42,6 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/types.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 28257 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -47,14 +52,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 28257 $")
 #include "asterisk/utils.h"
 #include "asterisk/app.h"
 #include "asterisk/options.h"
-#ifdef USE_ODBC_STORAGE
-#include "asterisk/res_odbc.h"
 
-static char odbc_database[80];
-static char odbc_table[80];
-#endif
-
-static char *tdesc = "Indicator for whether a voice mailbox has messages in a given folder.";
 static char *app_hasvoicemail = "HasVoicemail";
 static char *hasvoicemail_synopsis = "Conditionally branches to priority + 101 with the right options set";
 static char *hasvoicemail_descrip =
@@ -65,7 +63,8 @@ static char *hasvoicemail_descrip =
 "	'j' -- jump to priority n+101, if there is voicemail in the folder indicated.\n"
 "  This application sets the following channel variable upon completion:\n"
 "	HASVMSTATUS		The result of the voicemail check returned as a text string as follows\n"
-"		<# of messages in the folder, 0 for NONE>\n";
+"		<# of messages in the folder, 0 for NONE>\n"
+"\nThis application has been deprecated in favor of the VMCOUNT() function\n";
 
 static char *app_hasnewvoicemail = "HasNewVoicemail";
 static char *hasnewvoicemail_synopsis = "Conditionally branches to priority + 101 with the right options set";
@@ -77,103 +76,13 @@ static char *hasnewvoicemail_descrip =
 "	'j' -- jump to priority n+101, if there is new voicemail in folder 'folder' or INBOX\n"
 "  This application sets the following channel variable upon completion:\n"
 "	HASVMSTATUS		The result of the new voicemail check returned as a text string as follows\n"
-"		<# of messages in the folder, 0 for NONE>\n";
+"		<# of messages in the folder, 0 for NONE>\n"
+"\nThis application has been deprecated in favor of the VMCOUNT() function\n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
-
-#ifdef USE_ODBC_STORAGE
-static int hasvoicemail_internal(const char *context, const char *mailbox, const char *folder)
-{
-	int nummsgs = 0;
-	int res;
-	SQLHSTMT stmt;
-	char sql[256];
-	char rowdata[20];
-
-	if (!folder)
-		folder = "INBOX";
-	/* If no mailbox, return immediately */
-	if (ast_strlen_zero(mailbox))
-		return 0;
-	if (ast_strlen_zero(context))
-		context = "default";
-
-	odbc_obj *obj;
-	obj = fetch_odbc_obj(odbc_database, 0);
-	if (obj) {
-		res = SQLAllocHandle(SQL_HANDLE_STMT, obj->con, &stmt);
-		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-			ast_log(LOG_WARNING, "SQL Alloc Handle failed!\n");
-			goto yuck;
-		}
-		snprintf(sql, sizeof(sql), "SELECT COUNT(*) FROM %s WHERE dir = '%s/voicemail/%s/%s/%s'", odbc_table, ast_config_AST_SPOOL_DIR, context, mailbox, folder);
-		res = SQLPrepare(stmt, sql, SQL_NTS);
-		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {  
-			ast_log(LOG_WARNING, "SQL Prepare failed![%s]\n", sql);
-			SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-			goto yuck;
-		}
-		res = odbc_smart_execute(obj, stmt);
-		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-			ast_log(LOG_WARNING, "SQL Execute error!\n[%s]\n\n", sql);
-			SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-			goto yuck;
-		}
-		res = SQLFetch(stmt);
-		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-			ast_log(LOG_WARNING, "SQL Fetch error!\n[%s]\n\n", sql);
-			SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-			goto yuck;
-		}
-		res = SQLGetData(stmt, 1, SQL_CHAR, rowdata, sizeof(rowdata), NULL);
-		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-			ast_log(LOG_WARNING, "SQL Get Data error!\n[%s]\n\n", sql);
-			SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-			goto yuck;
-		}
-		nummsgs = atoi(rowdata);
-		SQLFreeHandle(SQL_HANDLE_STMT, stmt);
-	} else
-		ast_log(LOG_WARNING, "Failed to obtain database object for '%s'!\n", odbc_database);
-
-yuck:
-	return nummsgs;
-}
-
-#else
-
-static int hasvoicemail_internal(const char *context, const char *mailbox, const char *folder)
-{
-	DIR *dir;
-	struct dirent *de;
-	char fn[256];
-	int count = 0;
-
-	if (ast_strlen_zero(folder))
-		folder = "INBOX";
-	if (ast_strlen_zero(context))
-		context = "default";
-	/* If no mailbox, return immediately */
-	if (ast_strlen_zero(mailbox))
-		return 0;
-	snprintf(fn, sizeof(fn), "%s/voicemail/%s/%s/%s", ast_config_AST_SPOOL_DIR, context, mailbox, folder);
-	dir = opendir(fn);
-	if (!dir)
-		return 0;
-	while ((de = readdir(dir))) {
-		if (!strncasecmp(de->d_name, "msg", 3) && !strcasecmp(de->d_name + 8, "txt"))
-			count++;
-	}
-	closedir(dir);
-	return count;
-}
-#endif
 
 static int hasvoicemail_exec(struct ast_channel *chan, void *data)
 {
-	struct localuser *u;
+	struct ast_module_user *u;
 	char *input, *varname = NULL, *vmbox, *context = "default";
 	char *vmfolder;
 	int vmcount = 0;
@@ -196,22 +105,16 @@ static int hasvoicemail_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
-	input = ast_strdupa((char *)data);
-	if (! input) {
-		ast_log(LOG_ERROR, "Out of memory error\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
+	input = ast_strdupa(data);
 
 	AST_STANDARD_APP_ARGS(args, input);
 
-	if ((vmbox = strsep(&args.vmbox, "@")))
-		if (!ast_strlen_zero(args.vmbox))
-			context = args.vmbox;
-	if (!vmbox)
-		vmbox = args.vmbox;
+	vmbox = strsep(&args.vmbox, "@");
+
+	if (!ast_strlen_zero(args.vmbox))
+		context = args.vmbox;
 
 	vmfolder = strchr(vmbox, '/');
 	if (vmfolder) {
@@ -226,7 +129,7 @@ static int hasvoicemail_exec(struct ast_channel *chan, void *data)
 			priority_jump = 1;
 	}
 
-	vmcount = hasvoicemail_internal(context, vmbox, vmfolder);
+	vmcount = ast_app_messagecount(context, vmbox, vmfolder);
 	/* Set the count in the channel variable */
 	if (varname) {
 		snprintf(tmp, sizeof(tmp), "%d", vmcount);
@@ -235,7 +138,7 @@ static int hasvoicemail_exec(struct ast_channel *chan, void *data)
 
 	if (vmcount > 0) {
 		/* Branch to the next extension */
-		if (priority_jump || option_priority_jumping) {
+		if (priority_jump || ast_opt_priority_jumping) {
 			if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) 
 				ast_log(LOG_WARNING, "VM box %s@%s has new voicemail, but extension %s, priority %d doesn't exist\n", vmbox, context, chan->exten, chan->priority + 101);
 		}
@@ -244,46 +147,42 @@ static int hasvoicemail_exec(struct ast_channel *chan, void *data)
 	snprintf(tmp, sizeof(tmp), "%d", vmcount);
 	pbx_builtin_setvar_helper(chan, "HASVMSTATUS", tmp);
 	
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return 0;
 }
 
-static char *acf_vmcount_exec(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
+static int acf_vmcount_exec(struct ast_channel *chan, char *cmd, char *argsstr, char *buf, size_t len)
 {
-	struct localuser *u;
-	char *args, *context, *box, *folder;
+	struct ast_module_user *u;
+	char *context;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(vmbox);
+		AST_APP_ARG(folder);
+	);
 
-	LOCAL_USER_ACF_ADD(u);
+	u = ast_module_user_add(chan);
 
 	buf[0] = '\0';
 
-	args = ast_strdupa(data);
-	if (!args) {
-		ast_log(LOG_ERROR, "Out of memory");
-		LOCAL_USER_REMOVE(u);
-		return buf;
-	}
+	AST_STANDARD_APP_ARGS(args, argsstr);
 
-	box = strsep(&args, "|");
-	if (strchr(box, '@')) {
-		context = box;
-		box = strsep(&context, "@");
+	if (strchr(args.vmbox, '@')) {
+		context = args.vmbox;
+		args.vmbox = strsep(&context, "@");
 	} else {
 		context = "default";
 	}
 
-	if (args) {
-		folder = args;
-	} else {
-		folder = "INBOX";
+	if (ast_strlen_zero(args.folder)) {
+		args.folder = "INBOX";
 	}
 
-	snprintf(buf, len, "%d", hasvoicemail_internal(context, box, folder));
+	snprintf(buf, len, "%d", ast_app_messagecount(context, args.vmbox, args.folder));
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 	
-	return buf;
+	return 0;
 }
 
 struct ast_custom_function acf_vmcount = {
@@ -296,32 +195,7 @@ struct ast_custom_function acf_vmcount = {
 	.read = acf_vmcount_exec,
 };
 
-static int load_config(void)
-{
-#ifdef USE_ODBC_STORAGE
-	struct ast_config *cfg;
-	char *tmp;
-	cfg = ast_config_load("voicemail.conf");
-	if (cfg) {
-		if (! (tmp = ast_variable_retrieve(cfg, "general", "odbcstorage")))
-			tmp = "asterisk";
-		ast_copy_string(odbc_database, tmp, sizeof(odbc_database));
-
-		if (! (tmp = ast_variable_retrieve(cfg, "general", "odbctable")))
-			tmp = "voicemessages";
-		ast_copy_string(odbc_table, tmp, sizeof(odbc_table));
-		ast_config_destroy(cfg);
-	}
-#endif
-	return 0;
-}
-
-int reload(void)
-{
-	return load_config();
-}
-
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 	
@@ -329,15 +203,15 @@ int unload_module(void)
 	res |= ast_unregister_application(app_hasvoicemail);
 	res |= ast_unregister_application(app_hasnewvoicemail);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	int res;
-	load_config();
+
 	res = ast_custom_function_register(&acf_vmcount);
 	res |= ast_register_application(app_hasvoicemail, hasvoicemail_exec, hasvoicemail_synopsis, hasvoicemail_descrip);
 	res |= ast_register_application(app_hasnewvoicemail, hasvoicemail_exec, hasnewvoicemail_synopsis, hasnewvoicemail_descrip);
@@ -345,19 +219,4 @@ int load_module(void)
 	return res;
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Indicator for whether a voice mailbox has messages in a given folder.");

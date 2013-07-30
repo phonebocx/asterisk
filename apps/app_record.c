@@ -20,16 +20,18 @@
  *
  * \brief Trivial application to record a sound file
  *
+ * \author Matthew Fredrickson <creslin@digium.com>
+ *
  * \ingroup applications
  */
  
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 56839 $")
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-
-#include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -41,8 +43,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 7221 $")
 #include "asterisk/dsp.h"
 #include "asterisk/utils.h"
 #include "asterisk/options.h"
+#include "asterisk/app.h"
 
-static char *tdesc = "Trivial Record Application";
 
 static char *app = "Record";
 
@@ -61,18 +63,17 @@ static char *descrip =
 "     'n' : do not answer, but record anyway if line not yet answered\n"
 "     'q' : quiet (do not play a beep tone)\n"
 "     's' : skip recording if the line is not yet answered\n"
-"     't' : use alternate '*' terminator key instead of default '#'\n"
+"     't' : use alternate '*' terminator key (DTMF) instead of default '#'\n"
+"     'x' : ignore all terminator keys (DTMF) and keep recording until hangup\n"
 "\n"
 "If filename contains '%d', these characters will be replaced with a number\n"
-"incremented by one each time the file is recorded. \n\n"
-"Use 'show file formats' to see the available formats on your system\n\n"
+"incremented by one each time the file is recorded. A channel variable\n"
+"named RECORDED_FILE will also be set, which contains the final filemname.\n\n"
+"Use 'core show file formats' to see the available formats on your system\n\n"
 "User can press '#' to terminate the recording and continue to the next priority.\n\n"
 "If the user should hangup during a recording, all data will be lost and the\n"
 "application will teminate. \n";
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
 
 static int record_exec(struct ast_channel *chan, void *data)
 {
@@ -85,7 +86,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 	char tmp[256];
 
 	struct ast_filestream *s = '\0';
-	struct localuser *u;
+	struct ast_module_user *u;
 	struct ast_frame *f = NULL;
 	
 	struct ast_dsp *sildet = NULL;   	/* silence detector dsp */
@@ -111,15 +112,10 @@ static int record_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
+	u = ast_module_user_add(chan);
 
 	/* Yay for strsep being easy */
 	vdata = ast_strdupa(data);
-	if (!vdata) {
-		ast_log(LOG_ERROR, "Out of memory\n");
-		LOCAL_USER_REMOVE(u);
-		return -1;
-	}
 
 	p = vdata;
 	filename = strsep(&p, "|");
@@ -140,7 +136,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 	}
 	if (!ext) {
 		ast_log(LOG_WARNING, "No extension specified to filename!\n");
-		LOCAL_USER_REMOVE(u);
+		ast_module_user_remove(u);
 		return -1;
 	}
 	if (silstr) {
@@ -173,6 +169,8 @@ static int record_exec(struct ast_channel *chan, void *data)
 				option_append = 1;
 			if (strchr(options, 't'))
 				terminator = '*';
+			if (strchr(options, 'x'))
+				terminator = 0;
 			if (strchr(options, 'q'))
 				option_quiet = 1;
 		}
@@ -183,13 +181,39 @@ static int record_exec(struct ast_channel *chan, void *data)
 	/* these are to allow the use of the %d in the config file for a wild card of sort to
 	  create a new file with the inputed name scheme */
 	if (percentflag) {
+		AST_DECLARE_APP_ARGS(fname,
+			AST_APP_ARG(piece)[100];
+		);
+		char *tmp2 = ast_strdupa(filename);
+		char countstring[15];
+		int i;
+
+		/* Separate each piece out by the format specifier */
+		AST_NONSTANDARD_APP_ARGS(fname, tmp2, '%');
 		do {
-			snprintf(tmp, sizeof(tmp), filename, count);
+			int tmplen;
+			/* First piece has no leading percent, so it's copied verbatim */
+			ast_copy_string(tmp, fname.piece[0], sizeof(tmp));
+			tmplen = strlen(tmp);
+			for (i = 1; i < fname.argc; i++) {
+				if (fname.piece[i][0] == 'd') {
+					/* Substitute the count */
+					snprintf(countstring, sizeof(countstring), "%d", count);
+					ast_copy_string(tmp + tmplen, countstring, sizeof(tmp) - tmplen);
+					tmplen += strlen(countstring);
+				} else if (tmplen + 2 < sizeof(tmp)) {
+					/* Unknown format specifier - just copy it verbatim */
+					tmp[tmplen++] = '%';
+					tmp[tmplen++] = fname.piece[i][0];
+				}
+				/* Copy the remaining portion of the piece */
+				ast_copy_string(tmp + tmplen, &(fname.piece[i][1]), sizeof(tmp) - tmplen);
+			}
 			count++;
-		} while ( ast_fileexists(tmp, ext, chan->language) != -1 );
+		} while (ast_fileexists(tmp, ext, chan->language) > 0);
 		pbx_builtin_setvar_helper(chan, "RECORDED_FILE", tmp);
 	} else
-		strncpy(tmp, filename, sizeof(tmp)-1);
+		ast_copy_string(tmp, filename, sizeof(tmp));
 	/* end of routine mentioned */
 	
 	
@@ -197,7 +221,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 	if (chan->_state != AST_STATE_UP) {
 		if (option_skip) {
 			/* At the user's option, skip if the line is not up */
-			LOCAL_USER_REMOVE(u);
+			ast_module_user_remove(u);
 			return 0;
 		} else if (!option_noanswer) {
 			/* Otherwise answer unless we're supposed to record while on-hook */
@@ -228,13 +252,13 @@ static int record_exec(struct ast_channel *chan, void *data)
 		res = ast_set_read_format(chan, AST_FORMAT_SLINEAR);
 		if (res < 0) {
 			ast_log(LOG_WARNING, "Unable to set to linear mode, giving up\n");
-			LOCAL_USER_REMOVE(u);
+			ast_module_user_remove(u);
 			return -1;
 		}
 		sildet = ast_dsp_new();
 		if (!sildet) {
 			ast_log(LOG_WARNING, "Unable to create silence detector :(\n");
-			LOCAL_USER_REMOVE(u);
+			ast_module_user_remove(u);
 			return -1;
 		}
 		ast_dsp_set_threshold(sildet, 256);
@@ -249,7 +273,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 		goto out;
 	}
 
-	if (option_transmit_silence_during_record)
+	if (ast_opt_transmit_silence)
 		silgen = ast_channel_start_silence_generator(chan);
 	
 	/* Request a video update */
@@ -338,40 +362,25 @@ static int record_exec(struct ast_channel *chan, void *data)
 			ast_dsp_free(sildet);
 	}
 
-	LOCAL_USER_REMOVE(u);
+	ast_module_user_remove(u);
 
 	return res;
 }
 
-int unload_module(void)
+static int unload_module(void)
 {
 	int res;
 
 	res = ast_unregister_application(app);
 	
-	STANDARD_HANGUP_LOCALUSERS;
+	ast_module_user_hangup_all();
 
 	return res;	
 }
 
-int load_module(void)
+static int load_module(void)
 {
 	return ast_register_application(app, record_exec, synopsis, descrip);
 }
 
-char *description(void)
-{
-	return tdesc;
-}
-
-int usecount(void)
-{
-	int res;
-	STANDARD_USECOUNT(res);
-	return res;
-}
-
-char *key()
-{
-	return ASTERISK_GPL_KEY;
-}
+AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Trivial Record Application");
