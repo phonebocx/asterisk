@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 187600 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 169082 $")
 
 #include <time.h>
 #include <sys/time.h>
@@ -213,7 +213,7 @@ static struct ast_str *static_callback(struct ast_tcptls_session_instance *ser, 
 		"Server: Asterisk/%s\r\n"
 		"Date: %s\r\n"
 		"Connection: close\r\n"
-		"Cache-Control: private\r\n"
+		"Cache-Control: no-cache, no-store\r\n"
 		"Content-Length: %d\r\n"
 		"Content-type: %s\r\n\r\n",
 		ast_get_version(), buf, (int) st.st_size, mtype);
@@ -399,7 +399,7 @@ void ast_http_uri_unlink_all_with_key(const char *key)
 			ast_free(urih);
 		}
 	}
-	AST_RWLIST_TRAVERSE_SAFE_END;
+	AST_RWLIST_TRAVERSE_SAFE_END
 	AST_RWLIST_UNLOCK(&uris);
 }
 

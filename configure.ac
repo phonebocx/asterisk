@@ -21,7 +21,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_HEADER(include/asterisk/autoconfig.h)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 183249 $)
+AC_REVISION($Revision: 182946 $)
 
 AC_USE_SYSTEM_EXTENSIONS	# note- does not work on FreeBSD
 
@@ -582,6 +582,8 @@ AC_LINK_IFELSE(
 	),
 	AC_MSG_RESULT(no)
 )
+
+AST_C_DEFINE_CHECK([RTLD_NOLOAD], [RTLD_NOLOAD], [dlfcn.h])
 
 AST_C_DEFINE_CHECK([IP_MTU_DISCOVER], [IP_MTU_DISCOVER], [netinet/in.h])
 

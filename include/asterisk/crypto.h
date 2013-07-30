@@ -40,7 +40,7 @@ struct ast_key;
  * \retval the key on success.
  * \retval NULL on failure.
  */
-extern struct ast_key *(*ast_key_get)(const char *key, int type);
+struct ast_key *(*ast_key_get)(const char *key, int type);
 
 /*! 
  * \brief Check the authenticity of a message signature using a given public key
@@ -52,7 +52,7 @@ extern struct ast_key *(*ast_key_get)(const char *key, int type);
  * \retval -1 otherwise.
  *
  */
-extern int (*ast_check_signature)(struct ast_key *key, const char *msg, const char *sig);
+int (*ast_check_signature)(struct ast_key *key, const char *msg, const char *sig);
 
 /*! 
  * \brief Check the authenticity of a message signature using a given public key
@@ -64,7 +64,7 @@ extern int (*ast_check_signature)(struct ast_key *key, const char *msg, const ch
  * \retval -1 otherwise.
  *
  */
-extern int (*ast_check_signature_bin)(struct ast_key *key, const char *msg, int msglen, const unsigned char *sig);
+int (*ast_check_signature_bin)(struct ast_key *key, const char *msg, int msglen, const unsigned char *sig);
 
 /*!
  * \brief Sign a message signature using a given private key
@@ -77,7 +77,7 @@ extern int (*ast_check_signature_bin)(struct ast_key *key, const char *msg, int 
  * \retval -1 on failure.
  *
  */
-extern int (*ast_sign)(struct ast_key *key, char *msg, char *sig);
+int (*ast_sign)(struct ast_key *key, char *msg, char *sig);
 
 /*!
  * \brief Sign a message signature using a given private key
@@ -90,7 +90,7 @@ extern int (*ast_sign)(struct ast_key *key, char *msg, char *sig);
  * \retval -1 on failure.
  *
  */
-extern int (*ast_sign_bin)(struct ast_key *key, const char *msg, int msglen, unsigned char *sig);
+int (*ast_sign_bin)(struct ast_key *key, const char *msg, int msglen, unsigned char *sig);
 
 /*!
  * \brief Encrypt a message using a given private key
@@ -104,7 +104,7 @@ extern int (*ast_sign_bin)(struct ast_key *key, const char *msg, int msglen, uns
  * \retval -1 on failure.
  *
  */
-extern int (*ast_encrypt_bin)(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key);
+int (*ast_encrypt_bin)(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key);
 
 /*!
  * \brief Decrypt a message using a given private key
@@ -118,7 +118,7 @@ extern int (*ast_encrypt_bin)(unsigned char *dst, const unsigned char *src, int 
  * \retval -1 on failure.
  *
  */
-extern int (*ast_decrypt_bin)(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key);
+int (*ast_decrypt_bin)(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key);
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif

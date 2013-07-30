@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 184765 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182284 $")
 
 #include <sys/mman.h>
 #include <dirent.h>
@@ -175,7 +175,7 @@ static int max_reg_expire;
 
 static int srvlookup = 0;
 
-static struct ast_timer *timer;				/* Timer for trunking */
+static int timingfd = -1;				/* Timing file descriptor */
 
 static struct ast_netsock_list *netsock;
 static struct ast_netsock_list *outsock;		/*!< used if sourceaddress specified and bindaddr == INADDR_ANY */
@@ -188,7 +188,6 @@ int (*iax2_regfunk)(const char *username, int onoff) = NULL;
 /* T1, maybe ISDN */
 #define IAX_CAPABILITY_MEDBANDWIDTH 	(IAX_CAPABILITY_FULLBANDWIDTH & 	\
 					 ~AST_FORMAT_SLINEAR &			\
-					 ~AST_FORMAT_SLINEAR16 &			\
 					 ~AST_FORMAT_ULAW &			\
 					 ~AST_FORMAT_ALAW &			\
 					 ~AST_FORMAT_G722) 
@@ -6523,20 +6522,15 @@ static int register_verify(int callno, struct sockaddr_in *sin, struct iax_ies *
 	ast_devstate_changed(AST_DEVICE_UNKNOWN, "IAX2/%s", p->name); /* Activate notification */
 
 return_unref:
-	if (iaxs[callno]) {
-		ast_string_field_set(iaxs[callno], peer, peer);
-
-		/* Choose lowest expiry number */
-		if (expire && (expire < iaxs[callno]->expiry)) {
-			iaxs[callno]->expiry = expire;
-		}
-	}
+	ast_string_field_set(iaxs[callno], peer, peer);
+	/* Choose lowest expiry number */
+	if (expire && (expire < iaxs[callno]->expiry)) 
+		iaxs[callno]->expiry = expire;
 
 	res = 0;
 
-	if (p) {
+	if (p)
 		peer_unref(p);
-	}
 
 	return res;
 }
@@ -7227,6 +7221,8 @@ static int update_registry(struct sockaddr_in *sin, int callno, char *devtype, i
 			event = ast_event_get_cached(AST_EVENT_MWI,
 				AST_EVENT_IE_MAILBOX, AST_EVENT_IE_PLTYPE_STR, mailbox,
 				AST_EVENT_IE_CONTEXT, AST_EVENT_IE_PLTYPE_STR, context,
+				AST_EVENT_IE_NEWMSGS, AST_EVENT_IE_PLTYPE_EXISTS,
+				AST_EVENT_IE_OLDMSGS, AST_EVENT_IE_PLTYPE_EXISTS,
 				AST_EVENT_IE_END);
 			if (event) {
 				new = ast_event_get_ie_uint(event, AST_EVENT_IE_NEWMSGS);
@@ -7550,8 +7546,8 @@ static int timing_read(int *id, int fd, short events, void *cbdata)
 	if (iaxtrunkdebug)
 		ast_verbose("Beginning trunk processing. Trunk queue ceiling is %d bytes per host\n", trunkmaxsize);
 
-	if (timer) { 
-		ast_timer_ack(timer, 1);
+	if (timingfd > -1) { 
+		ast_timer_ack(timingfd, 1);
 	}
 
 	/* For each peer that supports trunking... */
@@ -10359,8 +10355,8 @@ static void *network_thread(void *ignore)
 	int res, count, wakeup;
 	struct iax_frame *f;
 
-	if (timer)
-		ast_io_add(io, ast_timer_fd(timer), timing_read, AST_IO_IN | AST_IO_PRI, NULL);
+	if (timingfd > -1)
+		ast_io_add(io, timingfd, timing_read, AST_IO_IN | AST_IO_PRI, NULL);
 	
 	for(;;) {
 		pthread_testcancel();
@@ -10669,7 +10665,7 @@ static struct iax2_peer *build_peer(const char *name, struct ast_variable *v, st
 				ast_string_field_set(peer, dbsecret, v->value);
 			} else if (!strcasecmp(v->name, "trunk")) {
 				ast_set2_flag(peer, ast_true(v->value), IAX_TRUNK);	
-				if (ast_test_flag(peer, IAX_TRUNK) && !timer) {
+				if (ast_test_flag(peer, IAX_TRUNK) && (timingfd < 0)) {
 					ast_log(LOG_WARNING, "Unable to support trunking on peer '%s' without a timing interface\n", peer->name);
 					ast_clear_flag(peer, IAX_TRUNK);
 				}
@@ -10924,7 +10920,7 @@ static struct iax2_user *build_user(const char *name, struct ast_variable *v, st
 				ast_parse_allow_disallow(&user->prefs, &user->capability,v->value, 0);
 			} else if (!strcasecmp(v->name, "trunk")) {
 				ast_set2_flag(user, ast_true(v->value), IAX_TRUNK);	
-				if (ast_test_flag(user, IAX_TRUNK) && !timer) {
+				if (ast_test_flag(user, IAX_TRUNK) && (timingfd < 0)) {
 					ast_log(LOG_WARNING, "Unable to support trunking on user '%s' without a timing interface\n", user->name);
 					ast_clear_flag(user, IAX_TRUNK);
 				}
@@ -12321,8 +12317,8 @@ static int __unload_module(void)
 	ao2_ref(users, -1);
 	ao2_ref(iax_peercallno_pvts, -1);
 	ao2_ref(iax_transfercallno_pvts, -1);
-	if (timer) {
-		ast_timer_close(timer);
+	if (timingfd > -1) {
+		ast_timer_close(timingfd);
 	}
 
 	con = ast_context_find(regcontext);
@@ -12463,8 +12459,9 @@ static int load_module(void)
 	ast_manager_register( "IAXpeerlist", EVENT_FLAG_SYSTEM | EVENT_FLAG_REPORTING, manager_iax2_show_peer_list, "List IAX Peers" );
 	ast_manager_register( "IAXnetstats", EVENT_FLAG_SYSTEM | EVENT_FLAG_REPORTING, manager_iax2_show_netstats, "Show IAX Netstats" );
 
-	if ((timer = ast_timer_open())) {
-		ast_timer_set_rate(timer, trunkfreq);
+	timingfd = ast_timer_open();
+	if (timingfd > -1) {
+		ast_timer_set_rate(timingfd, trunkfreq);
 	}
 
 	if (set_config(config, 0) == -1) {

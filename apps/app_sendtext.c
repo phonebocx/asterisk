@@ -29,7 +29,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 187365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 132508 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -60,9 +60,7 @@ static int sendtext_exec(struct ast_channel *chan, void *data)
 		AST_APP_ARG(text);
 	);
 
-	/* NOT ast_strlen_zero, because some protocols (e.g. SIP) MUST be able to
-	 * send a zero-length message. */
-	if (!data) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "SendText requires an argument (text)\n");
 		return -1;
 	} else

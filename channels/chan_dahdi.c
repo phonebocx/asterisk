@@ -47,7 +47,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 188940 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 174043 $")
 
 #ifdef __NetBSD__
 #include <pthread.h>
@@ -1878,6 +1878,9 @@ static int conf_del(struct dahdi_pvt *p, struct dahdi_subchannel *c, int idx)
 		/* Don't delete if we don't think it's conferenced at all (implied) */
 		) return 0;
 	memset(&zi, 0, sizeof(zi));
+	zi.chan = 0;
+	zi.confno = 0;
+	zi.confmode = 0;
 	if (ioctl(c->dfd, DAHDI_SETCONF, &zi)) {
 		ast_log(LOG_WARNING, "Failed to drop %d from conference %d/%d: %s\n", c->dfd, c->curconf.confmode, c->curconf.confno, strerror(errno));
 		return -1;
@@ -1933,12 +1936,11 @@ static int isslavenative(struct dahdi_pvt *p, struct dahdi_pvt **out)
 
 static int reset_conf(struct dahdi_pvt *p)
 {
+	struct dahdi_confinfo zi;
+	memset(&zi, 0, sizeof(zi));
 	p->confno = -1;
 	memset(&p->subs[SUB_REAL].curconf, 0, sizeof(p->subs[SUB_REAL].curconf));
 	if (p->subs[SUB_REAL].dfd > -1) {
-		struct dahdi_confinfo zi;
-
-		memset(&zi, 0, sizeof(zi));
 		if (ioctl(p->subs[SUB_REAL].dfd, DAHDI_SETCONF, &zi))
 			ast_log(LOG_WARNING, "Failed to reset conferencing on channel %d: %s\n", p->channel, strerror(errno));
 	}
@@ -2252,7 +2254,8 @@ static int save_conference(struct dahdi_pvt *p)
 		p->saveconf.confmode = 0;
 		return -1;
 	}
-	memset(&c, 0, sizeof(c));
+	c.chan = 0;
+	c.confno = 0;
 	c.confmode = DAHDI_CONF_NORMAL;
 	res = ioctl(p->subs[SUB_REAL].dfd, DAHDI_SETCONF, &c);
 	if (res) {
@@ -2302,7 +2305,10 @@ static void notify_message(char *mailbox_full, int thereornot)
 		return;
 	}
 
-	ast_event_queue_and_cache(event);
+	ast_event_queue_and_cache(event,
+		AST_EVENT_IE_MAILBOX, AST_EVENT_IE_PLTYPE_STR,
+		AST_EVENT_IE_CONTEXT, AST_EVENT_IE_PLTYPE_STR,
+		AST_EVENT_IE_END);
 
 	if (!ast_strlen_zero(mailbox) && !ast_strlen_zero(mwimonitornotify)) {
 		snprintf(s, sizeof(s), "%s %s %d", mwimonitornotify, mailbox, thereornot);
@@ -2356,6 +2362,7 @@ static int has_voicemail(struct dahdi_pvt *p)
 	event = ast_event_get_cached(AST_EVENT_MWI,
 		AST_EVENT_IE_MAILBOX, AST_EVENT_IE_PLTYPE_STR, mailbox,
 		AST_EVENT_IE_CONTEXT, AST_EVENT_IE_PLTYPE_STR, context,
+		AST_EVENT_IE_NEWMSGS, AST_EVENT_IE_PLTYPE_EXISTS,
 		AST_EVENT_IE_END);
 
 	if (event) {
@@ -2713,7 +2720,6 @@ static int dahdi_call(struct ast_channel *ast, char *rdest, int timeout)
 	case SIG_SS7:
 		/* We'll get it in a moment -- but use dialdest to store pre-setup_ack digits */
 		p->dialdest[0] = '\0';
-		p->dialing = 1;
 		break;
 	default:
 		ast_debug(1, "not yet implemented\n");
@@ -3528,7 +3534,6 @@ static int dahdi_hangup(struct ast_channel *ast)
 		p->onhooktime = time(NULL);
 #if defined(HAVE_PRI) || defined(HAVE_SS7)
 		p->proceeding = 0;
-		p->dialing = 0;
 		p->progress = 0;
 		p->alerting = 0;
 		p->setup_ack = 0;
@@ -3630,7 +3635,6 @@ static int dahdi_hangup(struct ast_channel *ast)
 		case SIG_FXOGS:
 		case SIG_FXOLS:
 		case SIG_FXOKS:
-			memset(&par, 0, sizeof(par));
 			res = ioctl(p->subs[SUB_REAL].dfd, DAHDI_GET_PARAMS, &par);
 			if (!res) {
 #if 0
@@ -3794,7 +3798,6 @@ static int dahdi_answer(struct ast_channel *ast)
 		/* Send a pri acknowledge */
 		if (!pri_grab(p, p->pri)) {
 			p->proceeding = 1;
-			p->dialing = 0;
 			res = pri_answer(p->pri->pri, p->call, 0, !p->digital);
 			pri_rel(p->pri);
 		} else {
@@ -4582,7 +4585,6 @@ static int get_alarms(struct dahdi_pvt *p)
 	}
 
 	/* No alarms on the span. Check for channel alarms. */
-	memset(&params, 0, sizeof(params));
 	if ((res = ioctl(p->subs[SUB_REAL].dfd, DAHDI_GET_PARAMS, &params)) >= 0)
 		return params.chan_alarms;
 
@@ -5164,7 +5166,6 @@ static struct ast_frame *dahdi_handle_event(struct ast_channel *ast)
 			{
 				struct dahdi_params par;
 
-				memset(&par, 0, sizeof(par));
 				if (ioctl(p->oprpeer->subs[SUB_REAL].dfd, DAHDI_GET_PARAMS, &par) != -1)
 				{
 					if (!par.rxisoffhook)
@@ -5658,7 +5659,6 @@ static struct ast_frame  *dahdi_read(struct ast_channel *ast)
 	{
 		struct dahdi_params ps;
 
-		memset(&ps, 0, sizeof(ps));
 		ps.channo = p->channel;
 		if (ioctl(p->subs[SUB_REAL].dfd, DAHDI_GET_PARAMS, &ps) < 0) {
 			ast_mutex_unlock(&p->lock);
@@ -6113,7 +6113,6 @@ static int dahdi_indicate(struct ast_channel *chan, int condition, const void *d
 						ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->span);
 				}
 				p->proceeding = 1;
-				p->dialing = 0;
 			}
 #endif
 #ifdef HAVE_SS7
@@ -6287,7 +6286,6 @@ static struct ast_channel *dahdi_new(struct dahdi_pvt *i, int state, int startpb
 	if (!tmp)
 		return NULL;
 	tmp->tech = &dahdi_tech;
-	memset(&ps, 0, sizeof(ps));
 	ps.channo = i->channel;
 	res = ioctl(i->subs[SUB_REAL].dfd, DAHDI_GET_PARAMS, &ps);
 	if (res) {
@@ -6305,7 +6303,7 @@ static struct ast_channel *dahdi_new(struct dahdi_pvt *i, int state, int startpb
 			deflaw = AST_FORMAT_ULAW;
 	}
 	ast_channel_set_fd(tmp, 0, i->subs[idx].dfd);
-	tmp->nativeformats = deflaw;
+	tmp->nativeformats = AST_FORMAT_SLINEAR | deflaw;
 	/* Start out assuming ulaw since it's smaller :) */
 	tmp->rawreadformat = deflaw;
 	tmp->readformat = deflaw;
@@ -8938,10 +8936,9 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 #endif
 		} else {
 			chan_sig = tmp->sig;
-			if (tmp->subs[SUB_REAL].dfd > -1) {
-				memset(&p, 0, sizeof(p));
+			memset(&p, 0, sizeof(p));
+			if (tmp->subs[SUB_REAL].dfd > -1)
 				res = ioctl(tmp->subs[SUB_REAL].dfd, DAHDI_GET_PARAMS, &p);
-			}
 		}
 		/* Adjust starttime on loopstart and kewlstart trunks to reasonable values */
 		switch (chan_sig) {
@@ -9285,10 +9282,9 @@ static inline int available(struct dahdi_pvt *p, int channelmatch, ast_group_t g
 			if (!p->sig || (p->sig == SIG_FXSLS))
 				return 1;
 			/* Check hook state */
-			if (p->subs[SUB_REAL].dfd > -1) {
-				memset(&par, 0, sizeof(par));
+			if (p->subs[SUB_REAL].dfd > -1)
 				res = ioctl(p->subs[SUB_REAL].dfd, DAHDI_GET_PARAMS, &par);
-			} else {
+			else {
 				/* Assume not off hook on CVRS */
 				res = 0;
 				par.rxisoffhook = 0;
@@ -9887,12 +9883,6 @@ static void ss7_start_call(struct dahdi_pvt *p, struct dahdi_ss7 *linkset)
 
 static void ss7_apply_plan_to_number(char *buf, size_t size, const struct dahdi_ss7 *ss7, const char *number, const unsigned nai)
 {
-	if (ast_strlen_zero(number)) { /* make sure a number exists so prefix isn't placed on an empty string */
-		if (size) {
-			*buf = '\0';
-		}
-		return;
-	}
 	switch (nai) {
 	case SS7_NAI_INTERNATIONAL:
 		snprintf(buf, size, "%s%s", ss7->internationalprefix, number);
@@ -10505,7 +10495,6 @@ static int pri_find_principle(struct dahdi_pri *pri, int channel)
 
 	if (!explicit) {
 		spanfd = pri_active_dchan_fd(pri);
-		memset(&param, 0, sizeof(param));
 		if (ioctl(spanfd, DAHDI_GET_PARAMS, &param))
 			return -1;
 		span = pris[param.spanno - 1].prilogicalspan;
@@ -10796,12 +10785,6 @@ static void apply_plan_to_number(char *buf, size_t size, const struct dahdi_pri 
 {
 	if (pri->dialplan == -2) { /* autodetect the TON but leave the number untouched */
 		snprintf(buf, size, "%s", number);
-		return;
-	}
-	if (ast_strlen_zero(number)) { /* make sure a number exists so prefix isn't placed on an empty string */
-		if (size) {
-			*buf = '\0';
-		}
 		return;
 	}
 	switch (plan) {
@@ -11217,7 +11200,6 @@ static void *pri_dchannel(void *vpri)
 						if (pri->pvts[chanpos]->call == e->ring.call) {
 							ast_log(LOG_WARNING, "Duplicate setup requested on channel %d/%d already in use on span %d\n", 
 								PRI_SPAN(e->ring.channel), PRI_CHANNEL(e->ring.channel), pri->span);
-							ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 							break;
 						} else {
 							/* This is where we handle initial glare */
@@ -11537,12 +11519,8 @@ static void *pri_dchannel(void *vpri)
 								ast_dsp_set_features(pri->pvts[chanpos]->dsp, pri->pvts[chanpos]->dsp_features);
 								pri->pvts[chanpos]->dsp_features = 0;
 							}
-							/* Bring voice path up */
-							f.subclass = AST_CONTROL_PROGRESS;
-							dahdi_queue_frame(pri->pvts[chanpos], &f, pri);
 						}
 						pri->pvts[chanpos]->progress = 1;
-						pri->pvts[chanpos]->dialing = 0;
 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 					}
 				}
@@ -11572,7 +11550,6 @@ static void *pri_dchannel(void *vpri)
 							dahdi_queue_frame(pri->pvts[chanpos], &f, pri);
 						}
 						pri->pvts[chanpos]->proceeding = 1;
-						pri->pvts[chanpos]->dialing = 0;
 						ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 					}
 				}
@@ -11946,7 +11923,6 @@ static int start_pri(struct dahdi_pri *pri)
 			ast_log(LOG_ERROR, "Unable to open D-channel %d (%s)\n", x, strerror(errno));
 			return -1;
 		}
-		memset(&p, 0, sizeof(p));
 		res = ioctl(pri->fds[i], DAHDI_GET_PARAMS, &p);
 		if (res) {
 			dahdi_close_pri_fd(pri, i);
@@ -11968,7 +11944,6 @@ static int start_pri(struct dahdi_pri *pri)
 			pri->dchanavail[i] |= DCHAN_NOTINALARM;
 		else
 			pri->dchanavail[i] &= ~DCHAN_NOTINALARM;
-		memset(&bi, 0, sizeof(bi));
 		bi.txbufpolicy = DAHDI_POLICY_IMMEDIATE;
 		bi.rxbufpolicy = DAHDI_POLICY_IMMEDIATE;
 		bi.numbufs = 32;
@@ -12876,14 +12851,12 @@ static char *dahdi_show_channel(struct ast_cli_entry *e, int cmd, struct ast_cli
 			memset(&ci, 0, sizeof(ci));
 			ps.channo = tmp->channel;
 			if (tmp->subs[SUB_REAL].dfd > -1) {
-				memset(&ci, 0, sizeof(ci));
 				if (!ioctl(tmp->subs[SUB_REAL].dfd, DAHDI_GETCONF, &ci)) {
 					ast_cli(a->fd, "Actual Confinfo: Num/%d, Mode/0x%04x\n", ci.confno, ci.confmode);
 				}
 				if (!ioctl(tmp->subs[SUB_REAL].dfd, DAHDI_GETCONFMUTE, &x)) {
 					ast_cli(a->fd, "Actual Confmute: %s\n", x ? "Yes" : "No");
 				}
-				memset(&ps, 0, sizeof(ps));
 				if (ioctl(tmp->subs[SUB_REAL].dfd, DAHDI_GET_PARAMS, &ps) < 0) {
 					ast_log(LOG_WARNING, "Failed to get parameters on channel %d: %s\n", tmp->channel, strerror(errno));
 				} else {
@@ -13263,7 +13236,7 @@ static struct ast_cli_entry dahdi_cli[] = {
 	AST_CLI_DEFINE(dahdi_show_version, "Show the DAHDI version in use"),
 	AST_CLI_DEFINE(dahdi_set_hwgain, "Set hardware gain on a channel"),
 	AST_CLI_DEFINE(dahdi_set_swgain, "Set software gain on a channel"),
-	AST_CLI_DEFINE(dahdi_set_dnd, "Sets/resets DND (Do Not Disturb) mode on a channel"),
+	AST_CLI_DEFINE(dahdi_set_dnd, "Set software gain on a channel"),
 };
 
 #define TRANSFER	0
@@ -13543,7 +13516,6 @@ static int linkset_addsigchan(int sigchan)
 			ast_log(LOG_ERROR, "Unable to open SS7 sigchan %d (%s)\n", sigchan, strerror(errno));
 			return -1;
 		}
-		memset(&p, 0, sizeof(p));
 		res = ioctl(link->fds[curfd], DAHDI_GET_PARAMS, &p);
 		if (res) {
 			dahdi_close_ss7_fd(link, curfd);
@@ -13556,7 +13528,6 @@ static int linkset_addsigchan(int sigchan)
 			return -1;
 		}
 
-		memset(&bi, 0, sizeof(bi));
 		bi.txbufpolicy = DAHDI_POLICY_IMMEDIATE;
 		bi.rxbufpolicy = DAHDI_POLICY_IMMEDIATE;
 		bi.numbufs = 32;

@@ -43,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 187600 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180802 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -2321,7 +2321,7 @@ static void *fast_originate(void *data)
 		snprintf(requested_channel, AST_CHANNEL_NAME, "%s/%s", in->tech, in->data);	
 	/* Tell the manager what happened with the channel */
 	manager_event(EVENT_FLAG_CALL, "OriginateResponse",
-		"%s%s"
+		"%s"
 		"Response: %s\r\n"
 		"Channel: %s\r\n"
 		"Context: %s\r\n"
@@ -2330,8 +2330,7 @@ static void *fast_originate(void *data)
 		"Uniqueid: %s\r\n"
 		"CallerIDNum: %s\r\n"
 		"CallerIDName: %s\r\n",
-		in->idtext, ast_strlen_zero(in->idtext) ? "" : "\r\n", res ? "Failure" : "Success", 
-		chan ? chan->name : requested_channel, in->context, in->exten, reason, 
+		in->idtext, res ? "Failure" : "Success", chan ? chan->name : requested_channel, in->context, in->exten, reason, 
 		chan ? chan->uniqueid : "<null>",
 		S_OR(in->cid_num, "<unknown>"),
 		S_OR(in->cid_name, "<unknown>")
@@ -2429,7 +2428,7 @@ static int action_originate(struct mansession *s, const struct message *m)
 			res = -1;
 		} else {
 			if (!ast_strlen_zero(id))
-				snprintf(fast->idtext, sizeof(fast->idtext), "ActionID: %s", id);
+				snprintf(fast->idtext, sizeof(fast->idtext), "ActionID: %s\r\n", id);
 			ast_copy_string(fast->tech, tech, sizeof(fast->tech));
    			ast_copy_string(fast->data, data, sizeof(fast->data));
 			ast_copy_string(fast->app, app, sizeof(fast->app));
@@ -3338,12 +3337,8 @@ int __manager_event(int category, const char *event,
 int ast_manager_unregister(char *action)
 {
 	struct manager_action *cur;
-	struct timespec tv = { 5, };
 
-	if (AST_RWLIST_TIMEDWRLOCK(&actions, &tv)) {
-		ast_log(LOG_ERROR, "Could not obtain lock on manager list\n");
-		return -1;
-	}
+	AST_RWLIST_WRLOCK(&actions);
 	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&actions, cur, list) {
 		if (!strcasecmp(action, cur->action)) {
 			AST_RWLIST_REMOVE_CURRENT(list);
@@ -3371,12 +3366,8 @@ static int manager_state_cb(char *context, char *exten, int state, void *data)
 static int ast_manager_register_struct(struct manager_action *act)
 {
 	struct manager_action *cur, *prev = NULL;
-	struct timespec tv = { 5, };
 
-	if (AST_RWLIST_TIMEDWRLOCK(&actions, &tv)) {
-		ast_log(LOG_ERROR, "Could not obtain lock on manager list\n");
-		return -1;
-	}
+	AST_RWLIST_WRLOCK(&actions);
 	AST_RWLIST_TRAVERSE(&actions, cur, list) {
 		int ret = strcasecmp(cur->action, act->action);
 		if (ret == 0) {
@@ -3389,8 +3380,8 @@ static int ast_manager_register_struct(struct manager_action *act)
 			break;
 		}
 	}
-
-	if (prev)
+	
+	if (prev)	
 		AST_RWLIST_INSERT_AFTER(&actions, prev, act, list);
 	else
 		AST_RWLIST_INSERT_HEAD(&actions, act, list);
@@ -3417,10 +3408,7 @@ int ast_manager_register2(const char *action, int auth, int (*func)(struct manse
 	cur->synopsis = synopsis;
 	cur->description = description;
 
-	if (ast_manager_register_struct(cur)) {
-		ast_free(cur);
-		return -1;
-	}
+	ast_manager_register_struct(cur);
 
 	return 0;
 }
@@ -3803,7 +3791,7 @@ static struct ast_str *generic_http_callback(enum output_format format,
 		 * properties of the rand() function (and the constantcy of s), that
 		 * won't happen twice in a row.
 		 */
-		while ((session->managerid = ast_random() ^ (unsigned long) session) == 0);
+		while ((session->managerid = rand() ^ (unsigned long) session) == 0);
 		session->last_ev = grab_last();
 		AST_LIST_HEAD_INIT_NOLOCK(&session->datastores);
 		AST_LIST_LOCK(&sessions);

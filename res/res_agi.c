@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 184675 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 182946 $")
 
 #include <math.h>
 #include <signal.h>
@@ -492,10 +492,6 @@ static enum agi_result launch_asyncagi(struct ast_channel *chan, char *argv[], i
 			}
 			ast_frfree(f);
 		}
-	}
-
-	if (async_agi.speech) {
-		ast_speech_destroy(async_agi.speech);
 	}
 quit:
 	/* notify manager users this channel cannot be
@@ -2755,9 +2751,6 @@ static enum agi_result run_agi(struct ast_channel *chan, char *request, AGI *agi
 				break;
 			}
 		}
-	}
-	if (agi->speech) {
-		ast_speech_destroy(agi->speech);
 	}
 	/* Notify process */
 	if (send_sighup) {

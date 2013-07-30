@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 184845 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 167502 $")
 
 #include <signal.h>
 
@@ -899,7 +899,7 @@ static void end_bridge_callback_data_fixup(struct ast_bridge_config *bconfig, st
 
 static int app_exec(struct ast_channel *chan, void *data)
 {
-	struct fm_args targs = { 0, };
+	struct fm_args targs;
 	struct ast_bridge_config config;
 	struct call_followme *f;
 	struct number *nm, *newnm;

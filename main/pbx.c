@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 189069 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 177789 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_SYSTEM_NAME */
@@ -949,11 +949,6 @@ int pbx_exec(struct ast_channel *c, 		/*!< Channel */
 	c->data = data;
 	if (app->module)
 		u = __ast_module_user_add(app->module, c);
-	if (!ast_strlen_zero(data) && strchr(data, '|') && !strchr(data, ',')) {
-		ast_log(LOG_WARNING, "The application delimiter is now the comma, not "
-			"the pipe.  Did you forget to convert your dialplan?  (%s(%s))\n",
-			app->name, (char *) data);
-	}
 	res = app->execute(c, S_OR(data, ""));
 	if (app->module && u)
 		__ast_module_user_remove(app->module, u);
@@ -2527,7 +2522,7 @@ void pbx_retrieve_variable(struct ast_channel *c, const char *var, char **ret, c
 		} else if (!strcmp(var, "SYSTEMNAME")) {
 			s = ast_config_AST_SYSTEM_NAME;
 		} else if (!strcmp(var, "ENTITYID")) {
-			ast_eid_to_str(workspace, workspacelen, &ast_eid_default);
+			ast_eid_to_str(workspace, workspacelen, &g_eid);
 			s = workspace;
 		}
 	}
@@ -3478,7 +3473,7 @@ int ast_extension_state_del(int id, ast_state_cb_type callback)
 				break;
 			}
 		}
-		AST_LIST_TRAVERSE_SAFE_END;
+		AST_LIST_TRAVERSE_SAFE_END
 	} else { /* callback with extension, find the callback based on ID */
 		struct ast_hint *hint;
 		AST_RWLIST_TRAVERSE(&hints, hint, list) {
@@ -3488,7 +3483,7 @@ int ast_extension_state_del(int id, ast_state_cb_type callback)
 					break;
 				}
 			}
-			AST_LIST_TRAVERSE_SAFE_END;
+			AST_LIST_TRAVERSE_SAFE_END
 
 			if (p_cur)
 				break;
@@ -7731,7 +7726,7 @@ void __ast_context_destroy(struct ast_context *list, struct ast_hashtab *context
 					ast_free(sw);
 				}
 			}
-			AST_LIST_TRAVERSE_SAFE_END;
+			AST_LIST_TRAVERSE_SAFE_END
 
 			if (tmp->root_table) { /* it is entirely possible that the context is EMPTY */
 				exten_iter = ast_hashtab_start_traversal(tmp->root_table);
@@ -7859,10 +7854,8 @@ static int pbx_builtin_busy(struct ast_channel *chan, void *data)
 	ast_indicate(chan, AST_CONTROL_BUSY);
 	/* Don't change state of an UP channel, just indicate
 	   busy in audio */
-	if (chan->_state != AST_STATE_UP) {
+	if (chan->_state != AST_STATE_UP)
 		ast_setstate(chan, AST_STATE_BUSY);
-		ast_cdr_busy(chan->cdr);
-	}
 	wait_for_hangup(chan, data);
 	return -1;
 }

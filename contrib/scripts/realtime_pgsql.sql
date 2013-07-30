@@ -67,8 +67,7 @@ musiconhold character varying(100),
 regseconds bigint DEFAULT 0::bigint NOT NULL,
 ipaddr character varying(15) DEFAULT '' NOT NULL,
 regexten character varying(80) DEFAULT '' NOT NULL,
-cancallforward character varying(3) DEFAULT 'yes',
-lastms integer DEFAULT -1 NOT NULL
+cancallforward character varying(3) DEFAULT 'yes'
 );
 
 drop table voicemail_users;

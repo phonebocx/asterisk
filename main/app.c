@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 187600 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 180080 $")
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
@@ -1033,7 +1033,7 @@ int ast_app_group_update(struct ast_channel *old, struct ast_channel *new)
 			ast_free(gi);
 		}
 	}
-	AST_RWLIST_TRAVERSE_SAFE_END;
+	AST_RWLIST_TRAVERSE_SAFE_END
 	AST_RWLIST_UNLOCK(&groups);
 
 	return 0;

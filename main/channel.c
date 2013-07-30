@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 189280 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 183067 $")
 
 #include "asterisk/_private.h"
 
@@ -806,19 +806,17 @@ struct ast_channel *ast_channel_alloc(int needqueue, int state, const char *cid_
 #endif
 	}
 
-	if ((tmp->timer = ast_timer_open())) {
+	tmp->timingfd = ast_timer_open();
+	if (tmp->timingfd > -1) {
 		needqueue = 0;
-		tmp->timingfd = ast_timer_fd(tmp->timer);
-	} else {
-		tmp->timingfd = -1;
 	}
 
 	if (needqueue) {
 		if (pipe(tmp->alertpipe)) {
 			ast_log(LOG_WARNING, "Channel allocation failed: Can't create alert pipe!\n");
 alertpipe_failed:
-			if (tmp->timer) {
-				ast_timer_close(tmp->timer);
+			if (tmp->timingfd > -1) {
+				ast_timer_close(tmp->timingfd);
 			}
 
 			sched_context_destroy(tmp->sched);
@@ -1007,7 +1005,7 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 				chan->name, f->frametype, f->subclass, qlen, strerror(errno));
 		}
 	} else if (chan->timingfd > -1) {
-		ast_timer_enable_continuous(chan->timer);
+		ast_timer_enable_continuous(chan->timingfd);
 	} else if (ast_test_flag(chan, AST_FLAG_BLOCKING)) {
 		pthread_kill(chan->blocker, SIGURG);
 	}
@@ -1357,9 +1355,8 @@ void ast_channel_free(struct ast_channel *chan)
 		close(fd);
 	if ((fd = chan->alertpipe[1]) > -1)
 		close(fd);
-	if (chan->timer) {
-		ast_timer_close(chan->timer);
-	}
+	if ((fd = chan->timingfd) > -1)
+		ast_timer_close(fd);
 #ifdef HAVE_EPOLL
 	for (i = 0; i < AST_MAX_FDS; i++) {
 		if (chan->epfd_data[i])
@@ -2301,13 +2298,13 @@ int ast_settimeout(struct ast_channel *c, unsigned int rate, int (*func)(const v
 		data = NULL;
 	}
 
-	if (rate && rate > (max_rate = ast_timer_get_max_rate(c->timer))) {
+	if (rate && rate > (max_rate = ast_timer_get_max_rate(c->timingfd))) {
 		real_rate = max_rate;
 	}
 
 	ast_debug(1, "Scheduling timer at (%u requested / %u actual) timer ticks per second\n", rate, real_rate);
 
-	res = ast_timer_set_rate(c->timer, real_rate);
+	res = ast_timer_set_rate(c->timingfd, real_rate);
 
 	c->timingfunc = func;
 	c->timingdata = data;
@@ -2513,6 +2510,12 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 		usleep(1);
 	}
 
+	if (chan->fdno == -1) {
+		ast_log(LOG_ERROR, "ast_read() called with no recorded file descriptor.\n");
+		f = &ast_null_frame;
+		goto done;
+	}
+
 	if (chan->masq) {
 		if (ast_do_masquerade(chan))
 			ast_log(LOG_WARNING, "Failed to perform masquerade\n");
@@ -2525,16 +2528,6 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 	if (ast_test_flag(chan, AST_FLAG_ZOMBIE) || ast_check_hangup(chan)) {
 		if (chan->generator)
 			ast_deactivate_generator(chan);
-		goto done;
-	}
-
-	if (chan->fdno == -1) {
-#ifdef AST_DEVMODE
-		ast_log(LOG_ERROR, "ast_read() called with no recorded file descriptor.\n");
-#else
-		ast_debug(2, "ast_read() called with no recorded file descriptor.\n");
-#endif
-		f = &ast_null_frame;
 		goto done;
 	}
 	prestate = chan->_state;
@@ -2564,11 +2557,11 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 
 		ast_clear_flag(chan, AST_FLAG_EXCEPTION);
 
-		res = ast_timer_get_event(chan->timer);
+		res = ast_timer_get_event(chan->timingfd);
 
 		switch (res) {
 		case AST_TIMING_EVENT_EXPIRED:
-			ast_timer_ack(chan->timer, 1);
+			ast_timer_ack(chan->timingfd, 1);
 
 			if (chan->timingfunc) {
 				/* save a copy of func/data before unlocking the channel */
@@ -2578,7 +2571,7 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 				ast_channel_unlock(chan);
 				func(data);
 			} else {
-				ast_timer_set_rate(chan->timer, 0);
+				ast_timer_set_rate(chan->timingfd, 0);
 				chan->fdno = -1;
 				ast_channel_unlock(chan);
 			}
@@ -2589,7 +2582,7 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 		case AST_TIMING_EVENT_CONTINUOUS:
 			if (AST_LIST_EMPTY(&chan->readq) || 
 				!AST_LIST_NEXT(AST_LIST_FIRST(&chan->readq), frame_list)) {
-				ast_timer_disable_continuous(chan->timer);
+				ast_timer_disable_continuous(chan->timingfd);
 			}
 			break;
 		}
@@ -2623,7 +2616,7 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 			AST_LIST_REMOVE_CURRENT(frame_list);
 			break;
 		}
-		AST_LIST_TRAVERSE_SAFE_END;
+		AST_LIST_TRAVERSE_SAFE_END
 		
 		if (!f) {
 			/* There were no acceptable frames on the readq. */
@@ -2805,13 +2798,6 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 					ast_clear_flag(chan, AST_FLAG_EMULATE_DTMF);
 					chan->emulate_dtmf_digit = 0;
 					ast_log(LOG_DTMF, "DTMF end emulation of '%c' queued on %s\n", f->subclass, chan->name);
-					if (chan->audiohooks) {
-						struct ast_frame *old_frame = f;
-						f = ast_audiohook_write_list(chan, chan->audiohooks, AST_AUDIOHOOK_DIRECTION_READ, f);
-						if (old_frame != f) {
-							ast_frfree(old_frame);
-						}
-					}
 				}
 			}
 			break;
@@ -4862,9 +4848,6 @@ enum ast_bridge_result ast_channel_bridge(struct ast_channel *c0, struct ast_cha
 			}
 			switch (res) {
 			case AST_BRIDGE_RETRY:
-				if (config->play_warning) {
-					ast_set_flag(config, AST_FEATURE_WARNING_ACTIVE);
-				}
 				continue;
 			default:
 				ast_verb(3, "Native bridging %s and %s ended\n", c0->name, c1->name);

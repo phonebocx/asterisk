@@ -136,7 +136,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 189352 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 183110 $")
 
 #include <ctype.h>
 #include <sys/ioctl.h>
@@ -1143,6 +1143,7 @@ static int sipdebug_text;
 /*! \brief T38 States for a call */
 enum t38state {
 	T38_DISABLED = 0,                /*!< Not enabled */
+	T38_LOCAL_DIRECT,                /*!< Offered from local */
 	T38_LOCAL_REINVITE,              /*!< Offered from local - REINVITE */
 	T38_PEER_DIRECT,                 /*!< Offered from peer */
 	T38_PEER_REINVITE,               /*!< Offered from peer - REINVITE */
@@ -1156,7 +1157,6 @@ struct t38properties {
 	int peercapability;		/*!< Peers T38 capability */
 	int jointcapability;		/*!< Supported T38 capability at both ends */
 	enum t38state state;		/*!< T.38 state */
-	unsigned int direct:1;          /*!< Whether the T38 came from the initial invite or not */
 };
 
 /*! \brief Parameters to know status of transfer */
@@ -1357,19 +1357,17 @@ struct sip_pvt {
 	struct ast_channel *owner;		/*!< Who owns us (if we have an owner) */
 	struct sip_route *route;		/*!< Head of linked list of routing steps (fm Record-Route) */
 	int route_persistant;			/*!< Is this the "real" route? */
-	struct ast_variable *notify_headers;    /*!< Custom notify type */
+	struct ast_variable *notify_headers;    /*!< Custom notify type */	
 	struct sip_auth *peerauth;		/*!< Realm authentication */
 	int noncecount;				/*!< Nonce-count */
 	char lastmsg[256];			/*!< Last Message sent/received */
 	int amaflags;				/*!< AMA Flags */
 	int pendinginvite;			/*!< Any pending INVITE or state NOTIFY (in subscribe pvt's) ? (seqno of this) */
-	int glareinvite;			/*!< A invite received while a pending invite is already present is stored here.  Its seqno is the
-						value. Since this glare invite's seqno is not the same as the pending invite's, it must be 
-						held in order to properly process acknowledgements for our 491 response. */
 	struct sip_request initreq;		/*!< Latest request that opened a new transaction
 							within this dialog.
-							NOT the request that opened the dialog */
-
+							NOT the request that opened the dialog
+						*/
+	
 	int initid;				/*!< Auto-congest ID if appropriate (scheduler) */
 	int waitid;				/*!< Wait ID for scheduler after 491 or other delays */
 	int autokillid;				/*!< Auto-kill ID (scheduler) */
@@ -1380,9 +1378,9 @@ struct sip_pvt {
 	int stateid;				/*!< SUBSCRIBE: ID for devicestate subscriptions */
 	int laststate;				/*!< SUBSCRIBE: Last known extension state */
 	int dialogver;				/*!< SUBSCRIBE: Version for subscription dialog-info */
-
+	
 	struct ast_dsp *vad;			/*!< Inband DTMF Detection dsp */
-
+	
 	struct sip_peer *relatedpeer;		/*!< If this dialog is related to a peer, which one 
 							Used in peerpoke, mwi subscriptions */
 	struct sip_registry *registry;		/*!< If this is a REGISTER dialog, to which registry */
@@ -1895,7 +1893,7 @@ static int transmit_response_with_sdp(struct sip_pvt *p, const char *msg, const 
 static int transmit_response_with_unsupported(struct sip_pvt *p, const char *msg, const struct sip_request *req, const char *unsupported);
 static int transmit_response_with_auth(struct sip_pvt *p, const char *msg, const struct sip_request *req, const char *rand, enum xmittype reliable, const char *header, int stale);
 static int transmit_response_with_allow(struct sip_pvt *p, const char *msg, const struct sip_request *req, enum xmittype reliable);
-static void transmit_fake_auth_response(struct sip_pvt *p, int sipmethod, struct sip_request *req, enum xmittype reliable);
+static void transmit_fake_auth_response(struct sip_pvt *p, struct sip_request *req, enum xmittype reliable);
 static int transmit_request(struct sip_pvt *p, int sipmethod, int inc, enum xmittype reliable, int newbranch);
 static int transmit_request_with_auth(struct sip_pvt *p, int sipmethod, int seqno, enum xmittype reliable, int newbranch);
 static int transmit_invite(struct sip_pvt *p, int sipmethod, int sdp, int init);
@@ -1956,7 +1954,7 @@ static void add_codec_to_sdp(const struct sip_pvt *p, int codec, int sample_rate
 static void add_noncodec_to_sdp(const struct sip_pvt *p, int format, int sample_rate,
 				struct ast_str **m_buf, struct ast_str **a_buf,
 				int debug);
-static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int oldsdp, int add_audio, int add_t38);
+static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int oldsdp);
 static void do_setnat(struct sip_pvt *p, int natflags);
 static void stop_media_flows(struct sip_pvt *p);
 
@@ -3160,7 +3158,7 @@ static enum sip_result __sip_reliable_xmit(struct sip_pvt *p, int seqno, int res
 	/* I removed the code from retrans_pkt that does the same thing so it doesn't get loaded into the scheduler */
 	/* According to the RFC some packets need to be retransmitted even if its TCP, so this needs to get revisited */
 	if (!(p->socket.type & SIP_TRANSPORT_UDP)) {
-		xmitres = __sip_xmit(p, data, len);	/* Send packet */
+		xmitres = __sip_xmit(dialog_ref(p, "pasing dialog ptr into callback..."), data, len);	/* Send packet */
 		if (xmitres == XMIT_ERROR) {	/* Serious network trouble, no need to try again */
 			append_history(p, "XmitErr", "%s", fatal ? "(Critical)" : "(Non-critical)");
 			return AST_FAILURE;
@@ -3202,7 +3200,6 @@ static enum sip_result __sip_reliable_xmit(struct sip_pvt *p, int seqno, int res
 		ast_log(LOG_ERROR, "Serious Network Trouble; __sip_xmit returns error for pkt data\n");
 		AST_SCHED_DEL(sched, pkt->retransid);
 		p->packets = pkt->next;
-		pkt->owner = dialog_unref(pkt->owner,"pkt is being freed, its dialog ref is dead now");
 		ast_free(pkt->data);
 		ast_free(pkt);
 		return AST_FAILURE;
@@ -3512,6 +3509,7 @@ static int sip_queryoption(struct ast_channel *chan, int option, void *data, int
 		/* Now if T38 support is enabled we need to look and see what the current state is to get what we want to report back */
 		if (ast_test_flag(&p->t38.t38support, SIP_PAGE2_T38SUPPORT)) {
 			switch (p->t38.state) {
+			case T38_LOCAL_DIRECT:
 			case T38_LOCAL_REINVITE:
 			case T38_PEER_DIRECT:
 			case T38_PEER_REINVITE:
@@ -3731,9 +3729,7 @@ static int sip_sendtext(struct ast_channel *ast, const char *text)
 		ast_verbose("Sending text %s on %s\n", text, ast->name);
 	if (!p)
 		return -1;
-	/* NOT ast_strlen_zero, because a zero-length message is specifically
-	 * allowed by RFC 3428 (See section 10, Examples) */
-	if (!text)
+	if (ast_strlen_zero(text))
 		return 0;
 	if (debug)
 		ast_verbose("Really sending text %s on %s\n", text, ast->name);
@@ -4243,10 +4239,6 @@ static void change_t38_state(struct sip_pvt *p, int state)
 	if (old == state)
 		return;
 
-	if (state == T38_PEER_DIRECT) {
-		p->t38.direct = 1;
-	}
-
 	p->t38.state = state;
 	ast_debug(2, "T38 state changed to %d on channel %s\n", p->t38.state, chan ? chan->name : "<none>");
 
@@ -4479,14 +4471,15 @@ static int create_addr(struct sip_pvt *dialog, const char *opeer, struct sockadd
 		return res;
 	}
 
-	do_setnat(dialog, ast_test_flag(&dialog->flags[0], SIP_NAT) & SIP_NAT_ROUTE);
-
 	ast_string_field_set(dialog, tohost, peername);
 
 	/* Get the outbound proxy information */
 	ref_proxy(dialog, obproxy_get(dialog, NULL));
 
-	if (sin) {
+	if (dialog->outboundproxy) {
+		/* If we have an outbound proxy, don't bother with DNS resolution at all, but set the port */
+		portno = port ? atoi(port) : (dialog->socket.type & SIP_TRANSPORT_TLS) ? STANDARD_TLS_PORT : STANDARD_SIP_PORT;
+	} else if (sin) {
 		/* This address should be updated using dnsmgr */
 		memcpy(&dialog->sa.sin_addr, &sin->sin_addr, sizeof(dialog->sa.sin_addr));
 		if (!sin->sin_port) {
@@ -4596,6 +4589,9 @@ static int sip_call(struct ast_channel *ast, char *dest, int timeout)
 		} else if (!strcasecmp(ast_var_name(current), "SIPTRANSFER_REPLACES")) {
 			/* We're replacing a call. */
 			p->options->replaces = ast_var_value(current);
+		} else if (!strcasecmp(ast_var_name(current), "T38CALL")) {
+			p->t38.state = T38_LOCAL_DIRECT;
+			ast_debug(1, "T38State change to %d on channel %s\n", p->t38.state, ast->name);
 		}
 	}
 
@@ -4618,9 +4614,11 @@ static int sip_call(struct ast_channel *ast, char *dest, int timeout)
 	res = update_call_counter(p, INC_CALL_RINGING);
 
 	if (res == -1) {
-		ast->hangupcause = AST_CAUSE_USER_BUSY;
 		return res;
+	} else {
+		ast->hangupcause = AST_CAUSE_USER_BUSY;
 	}
+
 	p->callingpres = ast->cid.cid_pres;
 	p->jointcapability = ast_translate_available_formats(p->capability, p->prefcodec);
 	p->jointnoncodeccapability = p->noncodeccapability;
@@ -5237,6 +5235,11 @@ static int sip_hangup(struct ast_channel *ast)
 					needdestroy = 0;
 					sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
 				}
+				if ( p->initid != -1 ) {
+					/* channel still up - reverse dec of inUse counter
+					   only if the channel is not auto-congested */
+					update_call_counter(p, INC_CALL_LIMIT);
+				}
 			} else {	/* Incoming call, not up */
 				const char *res;
 				if (p->hangupcause && (res = hangup_cause2sip(p->hangupcause)))
@@ -5262,7 +5265,7 @@ static int sip_hangup(struct ast_channel *ast)
 				if (bridge) {
 					struct sip_pvt *q = bridge->tech_pvt;
 
-					if (IS_SIP_TECH(bridge->tech) && q && q->rtp)
+					if (IS_SIP_TECH(bridge->tech) && q)
 						ast_rtp_set_vars(bridge, q->rtp);
 				}
 
@@ -5343,10 +5346,13 @@ static int sip_answer(struct ast_channel *ast)
 		ast_debug(1, "SIP answering channel: %s\n", ast->name);
 		if (p->t38.state == T38_PEER_DIRECT) {
 			change_t38_state(p, T38_ENABLED);
+			res = transmit_response_with_t38_sdp(p, "200 OK", &p->initreq, XMIT_CRITICAL);
+			ast_set_flag(&p->flags[1], SIP_PAGE2_DIALOG_ESTABLISHED);
+		} else {
+			ast_rtp_new_source(p->rtp);
+			res = transmit_response_with_sdp(p, "200 OK", &p->initreq, XMIT_CRITICAL, FALSE);
+			ast_set_flag(&p->flags[1], SIP_PAGE2_DIALOG_ESTABLISHED);
 		}
-		ast_rtp_new_source(p->rtp);
-		res = transmit_response_with_sdp(p, "200 OK", &p->initreq, XMIT_CRITICAL, FALSE);
-		ast_set_flag(&p->flags[1], SIP_PAGE2_DIALOG_ESTABLISHED);
 	}
 	sip_pvt_unlock(p);
 	return res;
@@ -5383,13 +5389,9 @@ static int sip_write(struct ast_channel *ast, struct ast_frame *frame)
 					p->invitestate = INV_EARLY_MEDIA;
 					transmit_response_with_sdp(p, "183 Session Progress", &p->initreq, XMIT_UNRELIABLE, FALSE);
 					ast_set_flag(&p->flags[0], SIP_PROGRESS_SENT);	
-				} else if (p->t38.state == T38_ENABLED && !p->t38.direct) {
-					change_t38_state(p, T38_DISABLED);
-					transmit_reinvite_with_sdp(p, FALSE, FALSE);
-				} else {
-					p->lastrtptx = time(NULL);
-					res = ast_rtp_write(p->rtp, frame);
 				}
+				p->lastrtptx = time(NULL);
+				res = ast_rtp_write(p->rtp, frame);
 			}
 			sip_pvt_unlock(p);
 		}
@@ -5444,16 +5446,8 @@ static int sip_write(struct ast_channel *ast, struct ast_frame *frame)
 				we simply forget the frames if we get modem frames before the bridge is up.
 				Fax will re-transmit.
 			*/
-			if (ast->_state == AST_STATE_UP) {
-				if (ast_test_flag(&p->flags[1], SIP_PAGE2_T38SUPPORT) && p->t38.state == T38_DISABLED) {
-					if (!p->pendinginvite) {
-						change_t38_state(p, T38_LOCAL_REINVITE);
-						transmit_reinvite_with_sdp(p, TRUE, FALSE);
-					}
-				} else if (p->udptl && p->t38.state == T38_ENABLED) {
-					res = ast_udptl_write(p->udptl, frame);
-				}
-			}
+			if (p->udptl && ast->_state == AST_STATE_UP) 
+				res = ast_udptl_write(p->udptl, frame);
 			sip_pvt_unlock(p);
 		}
 		break;
@@ -5668,7 +5662,7 @@ static int sip_indicate(struct ast_channel *ast, int condition, const void *data
 					AST_SCHED_DEL_UNREF(sched, p->t38id, dialog_unref(p, "when you delete the t38id sched, you should dec the refcount for the stored dialog ptr"));
 					change_t38_state(p, T38_ENABLED);
 					transmit_response_with_t38_sdp(p, "200 OK", &p->initreq, XMIT_CRITICAL);
-				} else if (ast_test_flag(&p->t38.t38support, SIP_PAGE2_T38SUPPORT) && p->t38.state != T38_ENABLED) {
+				} else if (p->t38.state != T38_ENABLED) {
 					change_t38_state(p, T38_LOCAL_REINVITE);
 					if (!p->pendinginvite) {
 						transmit_reinvite_with_sdp(p, TRUE, FALSE);
@@ -5871,6 +5865,10 @@ static struct ast_channel *sip_new(struct sip_pvt *i, int state, const char *tit
 		pbx_builtin_setvar_helper(tmp, "SIPCALLID", i->callid);
 	if (i->rtp)
 		ast_jb_configure(tmp, &global_jbconf);
+
+	/* If the INVITE contains T.38 SDP information set the proper channel variable so a created outgoing call will also have T.38 */
+	if (i->udptl && i->t38.state == T38_PEER_DIRECT)
+		pbx_builtin_setvar_helper(tmp, "_T38CALL", "1");
 
 	/* Set channel variables for this call from configuration */
 	for (v = i->chanvars ; v ; v = v->next)
@@ -6544,7 +6542,7 @@ static int sip_register(const char *value, int lineno)
 	expire = strchr(buf, '~');
 	if (expire)
 		*expire++ = '\0';
-	callback = strrchr(buf, '/');
+	callback = strchr(buf, '/');
 	if (callback)
 		*callback++ = '\0';
 	if (ast_strlen_zero(callback))
@@ -7446,7 +7444,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 
 		/* Remote party offers T38, we need to update state */
 		if (t38action == SDP_T38_ACCEPT) {
-			if (p->t38.state == T38_LOCAL_REINVITE)
+			if (p->t38.state == T38_LOCAL_DIRECT || p->t38.state == T38_LOCAL_REINVITE)
 				change_t38_state(p, T38_ENABLED);
 		} else if (t38action == SDP_T38_INITIATE) {
 			if (p->owner && p->lastinvite) {
@@ -8532,6 +8530,92 @@ static int t38_get_rate(int t38cap)
 	}
 }
 
+/*! \brief Add T.38 Session Description Protocol message */
+static int add_t38_sdp(struct sip_request *resp, struct sip_pvt *p)
+{
+	int len = 0;
+	int x = 0;
+	struct sockaddr_in udptlsin;
+	struct ast_str *m_modem = ast_str_alloca(1024);
+	struct ast_str *a_modem = ast_str_alloca(1024);
+	struct sockaddr_in udptldest = { 0, };
+	int debug;
+	
+	debug = sip_debug_test_pvt(p);
+	len = 0;
+	if (!p->udptl) {
+		ast_log(LOG_WARNING, "No way to add SDP without an UDPTL structure\n");
+		return -1;
+	}
+	
+	if (!p->sessionid) {
+		p->sessionid = (int)ast_random();
+		p->sessionversion = p->sessionid;
+	} else
+		p->sessionversion++;
+	
+	/* Our T.38 end is */
+	ast_udptl_get_us(p->udptl, &udptlsin);
+	
+	/* Determine T.38 UDPTL destination */
+	if (p->udptlredirip.sin_addr.s_addr) {
+		udptldest.sin_port = p->udptlredirip.sin_port;
+		udptldest.sin_addr = p->udptlredirip.sin_addr;
+	} else {
+		udptldest.sin_addr = p->ourip.sin_addr;
+		udptldest.sin_port = udptlsin.sin_port;
+	}
+	
+	if (debug) 
+		ast_debug(1, "T.38 UDPTL is at %s port %d\n", ast_inet_ntoa(p->ourip.sin_addr), ntohs(udptlsin.sin_port));
+	
+	/* We break with the "recommendation" and send our IP, in order that our
+	   peer doesn't have to ast_gethostbyname() us */
+	
+	if (debug) {
+		ast_debug(1, "Our T38 capability (%d), peer T38 capability (%d), joint capability (%d)\n",
+			p->t38.capability,
+			p->t38.peercapability,
+			p->t38.jointcapability);
+	}
+	ast_str_append(&m_modem, 0, "v=0\r\n");
+	ast_str_append(&m_modem, 0, "o=%s %d %d IN IP4 %s\r\n", ast_strlen_zero(global_sdpowner) ? "-" : global_sdpowner , p->sessionid, p->sessionversion, ast_inet_ntoa(udptldest.sin_addr));
+	ast_str_append(&m_modem, 0, "s=%s\r\n", ast_strlen_zero(global_sdpsession) ? "-" : global_sdpsession);
+	ast_str_append(&m_modem, 0, "c=IN IP4 %s\r\n", ast_inet_ntoa(udptldest.sin_addr));
+	ast_str_append(&m_modem, 0, "t=0 0\r\n");
+	ast_str_append(&m_modem, 0, "m=image %d udptl t38\r\n", ntohs(udptldest.sin_port));
+	
+	if ((p->t38.jointcapability & T38FAX_VERSION) == T38FAX_VERSION_0)
+		ast_str_append(&a_modem, 0, "a=T38FaxVersion:0\r\n");
+	if ((p->t38.jointcapability & T38FAX_VERSION) == T38FAX_VERSION_1)
+		ast_str_append(&a_modem, 0, "a=T38FaxVersion:1\r\n");
+	if ((x = t38_get_rate(p->t38.jointcapability)))
+		ast_str_append(&a_modem, 0, "a=T38MaxBitRate:%d\r\n", x);
+	if ((p->t38.jointcapability & T38FAX_FILL_BIT_REMOVAL) == T38FAX_FILL_BIT_REMOVAL)
+		ast_str_append(&a_modem, 0, "a=T38FaxFillBitRemoval\r\n");
+	if ((p->t38.jointcapability & T38FAX_TRANSCODING_MMR) == T38FAX_TRANSCODING_MMR)
+		ast_str_append(&a_modem, 0, "a=T38FaxTranscodingMMR\r\n");
+	if ((p->t38.jointcapability & T38FAX_TRANSCODING_JBIG) == T38FAX_TRANSCODING_JBIG)
+		ast_str_append(&a_modem, 0, "a=T38FaxTranscodingJBIG\r\n");
+	ast_str_append(&a_modem, 0, "a=T38FaxRateManagement:%s\r\n", (p->t38.jointcapability & T38FAX_RATE_MANAGEMENT_LOCAL_TCF) ? "localTCF" : "transferredTCF");
+	x = ast_udptl_get_local_max_datagram(p->udptl);
+	ast_str_append(&a_modem, 0, "a=T38FaxMaxBuffer:%d\r\n", x);
+	ast_str_append(&a_modem, 0, "a=T38FaxMaxDatagram:%d\r\n", x);
+	if (p->t38.jointcapability != T38FAX_UDP_EC_NONE)
+		ast_str_append(&a_modem, 0, "a=T38FaxUdpEC:%s\r\n", (p->t38.jointcapability & T38FAX_UDP_EC_REDUNDANCY) ? "t38UDPRedundancy" : "t38UDPFEC");
+	len = m_modem->used + a_modem->used;
+	add_header(resp, "Content-Type", "application/sdp");
+	add_header_contentLength(resp, len);
+	add_line(resp, m_modem->str);
+	add_line(resp, a_modem->str);
+
+	/* Update lastrtprx when we send our SDP */
+	p->lastrtprx = p->lastrtptx = time(NULL);
+	
+	return 0;
+}
+
+
 /*! \brief Add RFC 2833 DTMF offer to SDP */
 static void add_noncodec_to_sdp(const struct sip_pvt *p, int format, int sample_rate,
 				struct ast_str **m_buf, struct ast_str **a_buf,
@@ -8601,7 +8685,7 @@ static void get_our_media_address(struct sip_pvt *p, int needvideo,
     is used in Session-Timers where RE-INVITEs are used for refreshing SIP sessions 
     without modifying the media session in any way. 
 */
-static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int oldsdp, int add_audio, int add_t38)
+static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int oldsdp)
 {
 	int len = 0;
 	int alreadysent = 0;
@@ -8610,10 +8694,8 @@ static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int 
 	struct sockaddr_in vsin;
 	struct sockaddr_in tsin;
 	struct sockaddr_in dest;
-	struct sockaddr_in udptlsin;
 	struct sockaddr_in vdest = { 0, };
 	struct sockaddr_in tdest = { 0, };
-	struct sockaddr_in udptldest = { 0, };
 
 	/* SDP fields */
 	char *version = 	"v=0\r\n";		/* Protocol version */
@@ -8622,18 +8704,16 @@ static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int 
 	char connection[256];				/* Connection data */
 	char *session_time = "t=0 0\r\n"; 			/* Time the session is active */
 	char bandwidth[256] = "";			/* Max bitrate */
-	char *hold = "";
+	char *hold;
 	struct ast_str *m_audio = ast_str_alloca(256);  /* Media declaration line for audio */
 	struct ast_str *m_video = ast_str_alloca(256);  /* Media declaration line for video */
 	struct ast_str *m_text = ast_str_alloca(256);   /* Media declaration line for text */
-	struct ast_str *m_modem = ast_str_alloca(256);  /* Media declaration line for modem */
 	struct ast_str *a_audio = ast_str_alloca(1024); /* Attributes for audio */
 	struct ast_str *a_video = ast_str_alloca(1024); /* Attributes for video */
 	struct ast_str *a_text = ast_str_alloca(1024);  /* Attributes for text */
-	struct ast_str *a_modem = ast_str_alloca(1024); /* Attributes for modem */
 
 	int x;
-	int capability = 0;
+	int capability;
 	int needaudio = FALSE;
 	int needvideo = FALSE;
 	int needtext = FALSE;
@@ -8664,232 +8744,183 @@ static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int 
 			p->sessionversion++;
 	}
 
+	capability = p->jointcapability;
+
+	/* XXX note, Video and Text are negated - 'true' means 'no' */
+ 	ast_debug(1, "** Our capability: %s Video flag: %s Text flag: %s\n", ast_getformatname_multiple(codecbuf, sizeof(codecbuf), capability), 
+ 		p->novideo ? "True" : "False", p->notext ? "True" : "False");
+	ast_debug(1, "** Our prefcodec: %s \n", ast_getformatname_multiple(codecbuf, sizeof(codecbuf), p->prefcodec));
+	
+#ifdef WHEN_WE_HAVE_T38_FOR_OTHER_TRANSPORTS
+	if (ast_test_flag(&p->t38.t38support, SIP_PAGE2_T38SUPPORT_RTP)) {
+		ast_str_append(&m_audio, 0, " %d", 191);
+		ast_str_append(&a_audio, 0, "a=rtpmap:%d %s/%d\r\n", 191, "t38", 8000);
+	}
+#endif
+
+	/* Check if we need audio */
+	if (capability & AST_FORMAT_AUDIO_MASK)
+		needaudio = TRUE;
+
+	/* Check if we need video in this call */
+	if ((capability & AST_FORMAT_VIDEO_MASK) && !p->novideo) {
+		if (p->vrtp) {
+			needvideo = TRUE;
+			ast_debug(2, "This call needs video offers!\n");
+		} else
+			ast_debug(2, "This call needs video offers, but there's no video support enabled!\n");
+	}
+
+	/* Get our media addresses */
 	get_our_media_address(p, needvideo, &sin, &vsin, &tsin, &dest, &vdest);
+		
+	if (debug) 
+		ast_verbose("Audio is at %s port %d\n", ast_inet_ntoa(p->ourip.sin_addr), ntohs(sin.sin_port));	
+
+	/* Ok, we need video. Let's add what we need for video and set codecs.
+	   Video is handled differently than audio since we can not transcode. */
+	if (needvideo) {
+		ast_str_append(&m_video, 0, "m=video %d RTP/AVP", ntohs(vdest.sin_port));
+
+		/* Build max bitrate string */
+		if (p->maxcallbitrate)
+			snprintf(bandwidth, sizeof(bandwidth), "b=CT:%d\r\n", p->maxcallbitrate);
+		if (debug) 
+			ast_verbose("Video is at %s port %d\n", ast_inet_ntoa(p->ourip.sin_addr), ntohs(vsin.sin_port));	
+	}
+
+	/* Check if we need text in this call */
+	if((capability & AST_FORMAT_TEXT_MASK) && !p->notext) {
+		if (sipdebug_text)
+			ast_verbose("We think we can do text\n");
+		if (p->trtp) {
+			if (sipdebug_text)
+				ast_verbose("And we have a text rtp object\n");
+			needtext = TRUE;
+			ast_debug(2, "This call needs text offers! \n");
+		} else
+			ast_debug(2, "This call needs text offers, but there's no text support enabled ! \n");
+	}
+		
+	/* Ok, we need text. Let's add what we need for text and set codecs.
+	   Text is handled differently than audio since we can not transcode. */
+	if (needtext) {
+		if (sipdebug_text)
+			ast_verbose("Lets set up the text sdp\n");
+		/* Determine text destination */
+		if (p->tredirip.sin_addr.s_addr) {
+			tdest.sin_addr = p->tredirip.sin_addr;
+			tdest.sin_port = p->tredirip.sin_port;
+		} else {
+			tdest.sin_addr = p->ourip.sin_addr;
+			tdest.sin_port = tsin.sin_port;
+		}
+		ast_str_append(&m_text, 0, "m=text %d RTP/AVP", ntohs(tdest.sin_port));
+
+		if (debug) /* XXX should I use tdest below ? */
+			ast_verbose("Text is at %s port %d\n", ast_inet_ntoa(p->ourip.sin_addr), ntohs(tsin.sin_port));	
+
+	}
+
+	/* Start building generic SDP headers */
+
+	/* We break with the "recommendation" and send our IP, in order that our
+	   peer doesn't have to ast_gethostbyname() us */
 
 	snprintf(owner, sizeof(owner), "o=%s %d %d IN IP4 %s\r\n", ast_strlen_zero(global_sdpowner) ? "-" : global_sdpowner, p->sessionid, p->sessionversion, ast_inet_ntoa(dest.sin_addr));
 	snprintf(connection, sizeof(connection), "c=IN IP4 %s\r\n", ast_inet_ntoa(dest.sin_addr));
+	ast_str_append(&m_audio, 0, "m=audio %d RTP/AVP", ntohs(dest.sin_port));
 
-	if (add_audio) {
-		capability = p->jointcapability;
+	if (ast_test_flag(&p->flags[1], SIP_PAGE2_CALL_ONHOLD) == SIP_PAGE2_CALL_ONHOLD_ONEDIR)
+		hold = "a=recvonly\r\n";
+	else if (ast_test_flag(&p->flags[1], SIP_PAGE2_CALL_ONHOLD) == SIP_PAGE2_CALL_ONHOLD_INACTIVE)
+		hold = "a=inactive\r\n";
+	else
+		hold = "a=sendrecv\r\n";
 
-		/* XXX note, Video and Text are negated - 'true' means 'no' */
-		ast_debug(1, "** Our capability: %s Video flag: %s Text flag: %s\n", ast_getformatname_multiple(codecbuf, sizeof(codecbuf), capability), 
-			  p->novideo ? "True" : "False", p->notext ? "True" : "False");
-		ast_debug(1, "** Our prefcodec: %s \n", ast_getformatname_multiple(codecbuf, sizeof(codecbuf), p->prefcodec));
-	
-#ifdef WHEN_WE_HAVE_T38_FOR_OTHER_TRANSPORTS
-		if (ast_test_flag(&p->t38.t38support, SIP_PAGE2_T38SUPPORT_RTP)) {
-			ast_str_append(&m_audio, 0, " %d", 191);
-			ast_str_append(&a_audio, 0, "a=rtpmap:%d %s/%d\r\n", 191, "t38", 8000);
-		}
-#endif
+	/* Now, start adding audio codecs. These are added in this order:
+		- First what was requested by the calling channel
+		- Then preferences in order from sip.conf device config for this peer/user
+		- Then other codecs in capabilities, including video
+	*/
 
-		/* Check if we need audio */
-		if (capability & AST_FORMAT_AUDIO_MASK)
-			needaudio = TRUE;
+	/* Prefer the audio codec we were requested to use, first, no matter what 
+		Note that p->prefcodec can include video codecs, so mask them out
+	 */
+	if (capability & p->prefcodec) {
+		int codec = p->prefcodec & AST_FORMAT_AUDIO_MASK;
 
-		/* Check if we need video in this call */
-		if ((capability & AST_FORMAT_VIDEO_MASK) && !p->novideo) {
-			if (p->vrtp) {
-				needvideo = TRUE;
-				ast_debug(2, "This call needs video offers!\n");
-			} else
-				ast_debug(2, "This call needs video offers, but there's no video support enabled!\n");
-		}
+		add_codec_to_sdp(p, codec, SDP_SAMPLE_RATE(codec),
+				 &m_audio, &a_audio,
+				 debug, &min_audio_packet_size);
+		alreadysent |= codec;
+	}
 
-		if (debug) 
-			ast_verbose("Audio is at %s port %d\n", ast_inet_ntoa(p->ourip.sin_addr), ntohs(sin.sin_port));	
+	/* Start by sending our preferred audio/video codecs */
+	for (x = 0; x < 32; x++) {
+		int codec;
 
-		/* Ok, we need video. Let's add what we need for video and set codecs.
-		   Video is handled differently than audio since we can not transcode. */
-		if (needvideo) {
-			ast_str_append(&m_video, 0, "m=video %d RTP/AVP", ntohs(vdest.sin_port));
+		if (!(codec = ast_codec_pref_index(&p->prefs, x)))
+			break; 
 
-			/* Build max bitrate string */
-			if (p->maxcallbitrate)
-				snprintf(bandwidth, sizeof(bandwidth), "b=CT:%d\r\n", p->maxcallbitrate);
-			if (debug) 
-				ast_verbose("Video is at %s port %d\n", ast_inet_ntoa(p->ourip.sin_addr), ntohs(vsin.sin_port));	
-		}
-
-		/* Check if we need text in this call */
-		if((capability & AST_FORMAT_TEXT_MASK) && !p->notext) {
-			if (sipdebug_text)
-				ast_verbose("We think we can do text\n");
-			if (p->trtp) {
-				if (sipdebug_text)
-					ast_verbose("And we have a text rtp object\n");
-				needtext = TRUE;
-				ast_debug(2, "This call needs text offers! \n");
-			} else
-				ast_debug(2, "This call needs text offers, but there's no text support enabled ! \n");
-		}
-		
-		/* Ok, we need text. Let's add what we need for text and set codecs.
-		   Text is handled differently than audio since we can not transcode. */
-		if (needtext) {
-			if (sipdebug_text)
-				ast_verbose("Lets set up the text sdp\n");
-			/* Determine text destination */
-			if (p->tredirip.sin_addr.s_addr) {
-				tdest.sin_addr = p->tredirip.sin_addr;
-				tdest.sin_port = p->tredirip.sin_port;
-			} else {
-				tdest.sin_addr = p->ourip.sin_addr;
-				tdest.sin_port = tsin.sin_port;
-			}
-			ast_str_append(&m_text, 0, "m=text %d RTP/AVP", ntohs(tdest.sin_port));
-
-			if (debug) /* XXX should I use tdest below ? */
-				ast_verbose("Text is at %s port %d\n", ast_inet_ntoa(p->ourip.sin_addr), ntohs(tsin.sin_port));	
-
-		}
-
-		/* Start building generic SDP headers */
-
-		/* We break with the "recommendation" and send our IP, in order that our
-		   peer doesn't have to ast_gethostbyname() us */
-
-		ast_str_append(&m_audio, 0, "m=audio %d RTP/AVP", ntohs(dest.sin_port));
-
-		if (ast_test_flag(&p->flags[1], SIP_PAGE2_CALL_ONHOLD) == SIP_PAGE2_CALL_ONHOLD_ONEDIR)
-			hold = "a=recvonly\r\n";
-		else if (ast_test_flag(&p->flags[1], SIP_PAGE2_CALL_ONHOLD) == SIP_PAGE2_CALL_ONHOLD_INACTIVE)
-			hold = "a=inactive\r\n";
-		else
-			hold = "a=sendrecv\r\n";
-
-		/* Now, start adding audio codecs. These are added in this order:
-		   - First what was requested by the calling channel
-		   - Then preferences in order from sip.conf device config for this peer/user
-		   - Then other codecs in capabilities, including video
-		*/
-
-		/* Prefer the audio codec we were requested to use, first, no matter what 
-		   Note that p->prefcodec can include video codecs, so mask them out
-		*/
-		if (capability & p->prefcodec) {
-			int codec = p->prefcodec & AST_FORMAT_AUDIO_MASK;
-
-			add_codec_to_sdp(p, codec, SDP_SAMPLE_RATE(codec),
-					 &m_audio, &a_audio,
-					 debug, &min_audio_packet_size);
-			alreadysent |= codec;
-		}
-
-		/* Start by sending our preferred audio/video codecs */
-		for (x = 0; x < 32; x++) {
-			int codec;
-
-			if (!(codec = ast_codec_pref_index(&p->prefs, x)))
-				break; 
-
-			if (!(capability & codec))
-				continue;
-
-			if (alreadysent & codec)
+		if (!(capability & codec))
 			continue;
 
-			add_codec_to_sdp(p, codec, SDP_SAMPLE_RATE(codec),
-					 &m_audio, &a_audio,
-					 debug, &min_audio_packet_size);
-			alreadysent |= codec;
-		}
+		if (alreadysent & codec)
+			continue;
 
-		/* Now send any other common audio and video codecs, and non-codec formats: */
-		for (x = 1; x <= (needtext ? AST_FORMAT_TEXT_MASK : (needvideo ? AST_FORMAT_VIDEO_MASK : AST_FORMAT_AUDIO_MASK)); x <<= 1) {
-			if (!(capability & x))	/* Codec not requested */
-				continue;
-
-			if (alreadysent & x)	/* Already added to SDP */
-				continue;
-
-			if (x & AST_FORMAT_AUDIO_MASK)
-				add_codec_to_sdp(p, x, SDP_SAMPLE_RATE(x),
-						 &m_audio, &a_audio, debug, &min_audio_packet_size);
-			else if (x & AST_FORMAT_VIDEO_MASK) 
-				add_vcodec_to_sdp(p, x, 90000,
-						  &m_video, &a_video, debug, &min_video_packet_size);
-			else if (x & AST_FORMAT_TEXT_MASK)
-				add_tcodec_to_sdp(p, x, 1000,
-						  &m_text, &a_text, debug, &min_text_packet_size);
-		}
-
-		/* Now add DTMF RFC2833 telephony-event as a codec */
-		for (x = 1; x <= AST_RTP_MAX; x <<= 1) {
-			if (!(p->jointnoncodeccapability & x))
-				continue;
-
-			add_noncodec_to_sdp(p, x, 8000, &m_audio, &a_audio, debug);
-		}
-
-		ast_debug(3, "-- Done with adding codecs to SDP\n");
-
-		if (!p->owner || !ast_internal_timing_enabled(p->owner))
-			ast_str_append(&a_audio, 0, "a=silenceSupp:off - - - -\r\n");
-
-		if (min_audio_packet_size)
-			ast_str_append(&a_audio, 0, "a=ptime:%d\r\n", min_audio_packet_size);
-
-		/* XXX don't think you can have ptime for video */
-		if (min_video_packet_size)
-			ast_str_append(&a_video, 0, "a=ptime:%d\r\n", min_video_packet_size);
-
-		/* XXX don't think you can have ptime for text */
-		if (min_text_packet_size)
-			ast_str_append(&a_text, 0, "a=ptime:%d\r\n", min_text_packet_size);
+		add_codec_to_sdp(p, codec, SDP_SAMPLE_RATE(codec),
+				 &m_audio, &a_audio,
+				 debug, &min_audio_packet_size);
+		alreadysent |= codec;
 	}
 
-	if (add_t38) {
-		ast_udptl_get_us(p->udptl, &udptlsin);
+	/* Now send any other common audio and video codecs, and non-codec formats: */
+	for (x = 1; x <= (needtext ? AST_FORMAT_TEXT_MASK : (needvideo ? AST_FORMAT_VIDEO_MASK : AST_FORMAT_AUDIO_MASK)); x <<= 1) {
+		if (!(capability & x))	/* Codec not requested */
+			continue;
 
-		/* Determine T.38 UDPTL destination */
-		if (p->udptlredirip.sin_addr.s_addr) {
-			udptldest.sin_port = p->udptlredirip.sin_port;
-			udptldest.sin_addr = p->udptlredirip.sin_addr;
-		} else {
-			udptldest.sin_addr = p->ourip.sin_addr;
-			udptldest.sin_port = udptlsin.sin_port;
-		}
+		if (alreadysent & x)	/* Already added to SDP */
+			continue;
 
-		if (debug)
-			ast_debug(1, "T.38 UDPTL is at %s port %d\n", ast_inet_ntoa(p->ourip.sin_addr), ntohs(udptlsin.sin_port));
-
-		/* We break with the "recommendation" and send our IP, in order that our
-		   peer doesn't have to ast_gethostbyname() us */
-
-		if (debug) {
-			ast_debug(1, "Our T38 capability (%d), peer T38 capability (%d), joint capability (%d)\n",
-				  p->t38.capability,
-				  p->t38.peercapability,
-				  p->t38.jointcapability);
-		}
-
-		ast_str_append(&m_modem, 0, "m=image %d udptl t38\r\n", ntohs(udptldest.sin_port));
-
-		if ((p->t38.jointcapability & T38FAX_VERSION) == T38FAX_VERSION_0)
-			ast_str_append(&a_modem, 0, "a=T38FaxVersion:0\r\n");
-		if ((p->t38.jointcapability & T38FAX_VERSION) == T38FAX_VERSION_1)
-			ast_str_append(&a_modem, 0, "a=T38FaxVersion:1\r\n");
-		if ((x = t38_get_rate(p->t38.jointcapability)))
-			ast_str_append(&a_modem, 0, "a=T38MaxBitRate:%d\r\n", x);
-		if ((p->t38.jointcapability & T38FAX_FILL_BIT_REMOVAL) == T38FAX_FILL_BIT_REMOVAL)
-			ast_str_append(&a_modem, 0, "a=T38FaxFillBitRemoval\r\n");
-		if ((p->t38.jointcapability & T38FAX_TRANSCODING_MMR) == T38FAX_TRANSCODING_MMR)
-			ast_str_append(&a_modem, 0, "a=T38FaxTranscodingMMR\r\n");
-		if ((p->t38.jointcapability & T38FAX_TRANSCODING_JBIG) == T38FAX_TRANSCODING_JBIG)
-			ast_str_append(&a_modem, 0, "a=T38FaxTranscodingJBIG\r\n");
-		ast_str_append(&a_modem, 0, "a=T38FaxRateManagement:%s\r\n", (p->t38.jointcapability & T38FAX_RATE_MANAGEMENT_LOCAL_TCF) ? "localTCF" : "transferredTCF");
-		x = ast_udptl_get_local_max_datagram(p->udptl);
-		ast_str_append(&a_modem, 0, "a=T38FaxMaxBuffer:%d\r\n", x);
-		ast_str_append(&a_modem, 0, "a=T38FaxMaxDatagram:%d\r\n", x);
-		if (p->t38.jointcapability != T38FAX_UDP_EC_NONE)
-			ast_str_append(&a_modem, 0, "a=T38FaxUdpEC:%s\r\n", (p->t38.jointcapability & T38FAX_UDP_EC_REDUNDANCY) ? "t38UDPRedundancy" : "t38UDPFEC");
+		if (x & AST_FORMAT_AUDIO_MASK)
+			add_codec_to_sdp(p, x, SDP_SAMPLE_RATE(x),
+				 &m_audio, &a_audio, debug, &min_audio_packet_size);
+		else if (x & AST_FORMAT_VIDEO_MASK) 
+			add_vcodec_to_sdp(p, x, 90000,
+				 &m_video, &a_video, debug, &min_video_packet_size);
+		else if (x & AST_FORMAT_TEXT_MASK)
+			add_tcodec_to_sdp(p, x, 1000,
+				 &m_text, &a_text, debug, &min_text_packet_size);
 	}
 
+	/* Now add DTMF RFC2833 telephony-event as a codec */
+	for (x = 1; x <= AST_RTP_MAX; x <<= 1) {
+		if (!(p->jointnoncodeccapability & x))
+			continue;
+
+		add_noncodec_to_sdp(p, x, 8000, &m_audio, &a_audio, debug);
+	}
+
+	ast_debug(3, "-- Done with adding codecs to SDP\n");
+
+	if (!p->owner || !ast_internal_timing_enabled(p->owner))
+		ast_str_append(&a_audio, 0, "a=silenceSupp:off - - - -\r\n");
+
+	if (min_audio_packet_size)
+		ast_str_append(&a_audio, 0, "a=ptime:%d\r\n", min_audio_packet_size);
+
+ 	/* XXX don't think you can have ptime for video */
+	if (min_video_packet_size)
+		ast_str_append(&a_video, 0, "a=ptime:%d\r\n", min_video_packet_size);
+
+ 	/* XXX don't think you can have ptime for text */
+ 	if (min_text_packet_size)
+ 		ast_str_append(&a_text, 0, "a=ptime:%d\r\n", min_text_packet_size);
+ 
 	if (m_audio->len - m_audio->used < 2 || m_video->len - m_video->used < 2 ||
-	    m_text->len - m_text->used < 2 || a_text->len - a_text->used < 2 ||
-	    a_audio->len - a_audio->used < 2 || a_video->len - a_video->used < 2)
+			m_text->len - m_text->used < 2 || a_text->len - a_text->used < 2 ||
+			a_audio->len - a_audio->used < 2 || a_video->len - a_video->used < 2)
 		ast_log(LOG_WARNING, "SIP SDP may be truncated due to undersized buffer!!\n");
 
 	if (needaudio)
@@ -8907,8 +8938,6 @@ static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int 
  		len += m_video->used + a_video->used + strlen(bandwidth) + strlen(hold);
  	if (needtext) /* only if text response is appropriate */
  		len += m_text->used + a_text->used + strlen(hold);
-	if (add_t38)
-		len += m_modem->used + a_modem->used;
 
 	add_header(resp, "Content-Type", "application/sdp");
 	add_header_contentLength(resp, len);
@@ -8934,10 +8963,6 @@ static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int 
 		add_line(resp, a_text->str);
 		add_line(resp, hold);	/* Repeat hold for the text stream */
 	}
-	if (add_t38) {
-		add_line(resp, m_modem->str);
-		add_line(resp, a_modem->str);
-	}
 
 	/* Update lastrtprx when we send our SDP */
 	p->lastrtprx = p->lastrtptx = time(NULL); /* XXX why both ? */
@@ -8960,7 +8985,7 @@ static int transmit_response_with_t38_sdp(struct sip_pvt *p, char *msg, struct s
 	respprep(&resp, p, msg, req);
 	if (p->udptl) {
 		ast_udptl_offered_from_local(p->udptl, 0);
-		add_sdp(&resp, p, 0, 0, 1);
+		add_t38_sdp(&resp, p);
 	} else 
 		ast_log(LOG_ERROR, "Can't add SDP to response, since we have no UDPTL session allocated. Call-ID %s\n", p->callid);
 	if (retrans && !p->pendinginvite)
@@ -9009,12 +9034,8 @@ static int transmit_response_with_sdp(struct sip_pvt *p, const char *msg, const 
 			ast_debug(1, "Setting framing from config on incoming call\n");
 			ast_rtp_codec_setpref(p->rtp, &p->prefs);
 		}
-		try_suggested_sip_codec(p);
-		if (p->t38.state == T38_PEER_DIRECT || p->t38.state == T38_ENABLED) {
-			add_sdp(&resp, p, oldsdp, TRUE, TRUE);
-		} else {
-			add_sdp(&resp, p, oldsdp, TRUE, FALSE);
-		}
+		try_suggested_sip_codec(p);	
+		add_sdp(&resp, p, oldsdp);
 	} else 
 		ast_log(LOG_ERROR, "Can't add SDP to response, since we have no RTP session allocated. Call-ID %s\n", p->callid);
 	if (reliable && !p->pendinginvite)
@@ -9096,9 +9117,9 @@ static int transmit_reinvite_with_sdp(struct sip_pvt *p, int t38version, int old
 	if (p->do_history)
 		append_history(p, "ReInv", "Re-invite sent");
 	if (t38version)
-		add_sdp(&req, p, oldsdp, FALSE, TRUE);
+		add_t38_sdp(&req, p);
 	else
-		add_sdp(&req, p, oldsdp, TRUE, FALSE);
+		add_sdp(&req, p, oldsdp);
 
 	/* Use this as the basis */
 	initialize_initreq(p, &req);
@@ -9491,12 +9512,12 @@ static int transmit_invite(struct sip_pvt *p, int sipmethod, int sdp, int init)
 		ast_channel_unlock(chan);
 	}
 	if (sdp) {
-		if (p->udptl && p->t38.state == T38_LOCAL_REINVITE) {
+		if (p->udptl && (p->t38.state == T38_LOCAL_DIRECT || p->t38.state == T38_LOCAL_REINVITE)) {
 			ast_udptl_offered_from_local(p->udptl, 1);
 			ast_debug(1, "T38 is in state %d on channel %s\n", p->t38.state, p->owner ? p->owner->name : "<none>");
-			add_sdp(&req, p, FALSE, FALSE, TRUE);
+			add_t38_sdp(&req, p);
 		} else if (p->rtp) 
-			add_sdp(&req, p, FALSE, TRUE, FALSE);
+			add_sdp(&req, p, FALSE);
 	} else {
 		if (!p->notify_headers) {
 			add_header_contentLength(&req, 0);
@@ -10380,8 +10401,9 @@ static void destroy_association(struct sip_peer *peer)
 	char *tablename = (realtimeregs) ? "sipregs" : "sippeers";
 
 	if (!sip_cfg.ignore_regexpire) {
-		if (peer->rt_fromcontact && sip_cfg.peer_rtupdate) {
-			ast_update_realtime(tablename, "name", peer->name, "fullcontact", "", "ipaddr", "", "port", "", "regseconds", "0", peer->deprecated_username ? "username" : "defaultuser", "", "regserver", "", "useragent", "", "lastms", "", SENTINEL);
+		if (peer->rt_fromcontact) {
+			ast_update_realtime(tablename, "name", peer->name, "fullcontact", "", "ipaddr", "", "port", "", "regseconds", "0", peer->deprecated_username ? "username" : "defaultuser", "", "regserver", "", "useragent", "", SENTINEL);
+			ast_update_realtime(tablename, "name", peer->name, "lastms", "", SENTINEL);
 		} else {
 			ast_db_del("SIP/Registry", peer->name);
 		}
@@ -11133,96 +11155,10 @@ static int cb_extensionstate(char *context, char* exten, int state, void *data)
 /*! \brief Send a fake 401 Unauthorized response when the administrator
   wants to hide the names of local devices  from fishers
  */
-static void transmit_fake_auth_response(struct sip_pvt *p, int sipmethod, struct sip_request *req, enum xmittype reliable)
+static void transmit_fake_auth_response(struct sip_pvt *p, struct sip_request *req, enum xmittype reliable)
 {
-	/* We have to emulate EXACTLY what we'd get with a good peer
-	 * and a bad password, or else we leak information. */
-	const char *response = "407 Proxy Authentication Required";
-	const char *reqheader = "Proxy-Authorization";
-	const char *respheader = "Proxy-Authenticate";
-	const char *authtoken;
-	struct ast_str *buf;
-	char *c;
-
-	/* table of recognised keywords, and their value in the digest */
-	enum keys { K_NONCE, K_LAST };
-	struct x {
-		const char *key;
-		const char *s;
-	} *i, keys[] = {
-		[K_NONCE] = { "nonce=", "" },
-		[K_LAST] = { NULL, NULL}
-	};
-
-	if (sipmethod == SIP_REGISTER || sipmethod == SIP_SUBSCRIBE) {
-		response = "401 Unauthorized";
-		reqheader = "Authorization";
-		respheader = "WWW-Authenticate";
-	}
-	authtoken = get_header(req, reqheader);
-	if (req->ignore && !ast_strlen_zero(p->randdata) && ast_strlen_zero(authtoken)) {
-		/* This is a retransmitted invite/register/etc, don't reconstruct authentication
-		 * information */
-		transmit_response_with_auth(p, response, req, p->randdata, 0, respheader, 0);
-		/* Schedule auto destroy in 32 seconds (according to RFC 3261) */
-		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
-		return;
-	} else if (ast_strlen_zero(p->randdata) || ast_strlen_zero(authtoken)) {
-		/* We have no auth, so issue challenge and request authentication */
-		ast_string_field_build(p, randdata, "%08lx", ast_random());	/* Create nonce for challenge */
-		transmit_response_with_auth(p, response, req, p->randdata, 0, respheader, 0);
-		/* Schedule auto destroy in 32 seconds */
-		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
-		return;
-	}
-
-	if (!(buf = ast_str_thread_get(&check_auth_buf, CHECK_AUTH_BUF_INITLEN))) {
-		transmit_response(p, "403 Forbidden (Bad auth)", &p->initreq);
-		return;
-	}
-
-	/* Make a copy of the response and parse it */
-	if (ast_str_set(&buf, 0, "%s", authtoken) == AST_DYNSTR_BUILD_FAILED) {
-		transmit_response(p, "403 Forbidden (Bad auth)", &p->initreq);
-		return;
-	}
-
-	c = buf->str;
-
-	while (c && *(c = ast_skip_blanks(c))) { /* lookup for keys */
-		for (i = keys; i->key != NULL; i++) {
-			const char *separator = ",";	/* default */
-
-			if (strncasecmp(c, i->key, strlen(i->key)) != 0) {
-				continue;
-			}
-			/* Found. Skip keyword, take text in quotes or up to the separator. */
-			c += strlen(i->key);
-			if (*c == '"') { /* in quotes. Skip first and look for last */
-				c++;
-				separator = "\"";
-			}
-			i->s = c;
-			strsep(&c, separator);
-			break;
-		}
-		if (i->key == NULL) { /* not found, jump after space or comma */
-			strsep(&c, " ,");
-		}
-	}
-
-	/* Verify nonce from request matches our nonce.  If not, send 401 with new nonce */
-	if (strcasecmp(p->randdata, keys[K_NONCE].s)) {
-		if (!req->ignore) {
-			ast_string_field_build(p, randdata, "%08lx", ast_random());
-		}
-		transmit_response_with_auth(p, response, req, p->randdata, reliable, respheader, FALSE);
-
-		/* Schedule auto destroy in 32 seconds */
-		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
-	} else {
-		transmit_response(p, "403 Forbidden (Bad auth)", &p->initreq);
-	}
+	ast_string_field_build(p, randdata, "%08lx", ast_random());	/* Create nonce for challenge */
+	transmit_response_with_auth(p, "401 Unauthorized", req, p->randdata, reliable, "WWW-Authenticate", 0);
 }
 
 /*!
@@ -11394,14 +11330,6 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct sockaddr
 			}
 		}
 	}
-	if (!peer && global_alwaysauthreject) {
-		/* If we found a peer, we transmit a 100 Trying.  Therefore, if we're
-		 * trying to avoid leaking information, we MUST also transmit the same
-		 * response when we DON'T find a peer. */
-		transmit_response(p, "100 Trying", req);
-		/* Insert a fake delay between the 100 and the subsequent failure. */
-		sched_yield();
-	}
 	if (!res) {
 		ast_devstate_changed(AST_DEVICE_UNKNOWN, "SIP/%s", peer->name);
 	}
@@ -11415,7 +11343,7 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct sockaddr
 					name, ast_inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
 			break;
 		case AUTH_USERNAME_MISMATCH:
-			/* Username and digest username does not match.
+			/* Username and digest username does not match. 
 			   Asterisk uses the From: username for authentication. We need the
 			   devices to use the same authentication user name until we support
 			   proper authentication by digest auth name */
@@ -11428,7 +11356,7 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct sockaddr
 		case AUTH_PEER_NOT_DYNAMIC:
 		case AUTH_ACL_FAILED:
 			if (global_alwaysauthreject) {
-				transmit_fake_auth_response(p, SIP_REGISTER, &p->initreq, XMIT_UNRELIABLE);
+				transmit_fake_auth_response(p, &p->initreq, XMIT_UNRELIABLE);
 			} else {
 				/* URI not found */
 				if (res == AUTH_PEER_NOT_DYNAMIC) {
@@ -15842,15 +15770,12 @@ static void check_pendings(struct sip_pvt *p)
 	to avoid race conditions between asterisk servers.
 	Called from the scheduler.
 */
-static int sip_reinvite_retry(const void *data)
+static int sip_reinvite_retry(const void *data) 
 {
 	struct sip_pvt *p = (struct sip_pvt *) data;
 
-	sip_pvt_lock(p); /* called from schedule thread which requires a lock */
-	ast_set_flag(&p->flags[0], SIP_NEEDREINVITE);
+	ast_set_flag(&p->flags[0], SIP_NEEDREINVITE);	
 	p->waitid = -1;
-	check_pendings(p);
-	sip_pvt_unlock(p);
 	dialog_unref(p, "unref the dialog ptr from sip_reinvite_retry, because it held a dialog ptr");
 	return 0;
 }
@@ -15865,7 +15790,7 @@ static void handle_response_invite(struct sip_pvt *p, int resp, char *rest, stru
 	int reinvite = (p->owner && p->owner->_state == AST_STATE_UP);
 	char *p_hdrval;
 	int rtn;
-
+	
 	if (reinvite)
 		ast_debug(4, "SIP response %d to RE-invite on %s call %s\n", resp, outgoing ? "outgoing" : "incoming", p->callid);
 	else
@@ -16111,6 +16036,20 @@ static void handle_response_invite(struct sip_pvt *p, int resp, char *rest, stru
 
 			/* Trigger a reinvite back to audio */
 			transmit_reinvite_with_sdp(p, FALSE, FALSE);
+		} else if (p->udptl && p->t38.state == T38_LOCAL_DIRECT) {
+			/* We tried to send T.38 out in an initial INVITE and the remote side rejected it,
+			   right now we can't fall back to audio so totally abort.
+			*/
+			/* Try to reset RTP timers */
+			ast_rtp_set_rtptimers_onhold(p->rtp);
+			ast_log(LOG_ERROR, "Got error on T.38 initial invite. Bailing out.\n");
+
+			change_t38_state(p, T38_DISABLED);
+			/* The dialog is now terminated */
+			if (p->owner && !req->ignore)
+				ast_queue_control(p->owner, AST_CONTROL_CONGESTION);
+			p->needdestroy = 1;
+			sip_alreadygone(p);
 		} else {
 			/* We can't set up this call, so give up */
 			if (p->owner && !req->ignore)
@@ -16131,15 +16070,8 @@ static void handle_response_invite(struct sip_pvt *p, int resp, char *rest, stru
 				/* This is a re-invite that failed. */
 				/* Reset the flag after a while 
 				 */
-				int wait;
-				/* RFC 3261, if owner of call, wait between 2.1 to 4 seconds,
-				 * if not owner of call, wait 0 to 2 seconds */
-				if (p->outgoing_call) {
-					wait = 2100 + ast_random() % 2000;
-				} else {
-					wait = ast_random() % 2000;
-				}
-				p->waitid = ast_sched_add(sched, wait, sip_reinvite_retry, dialog_ref(p, "passing dialog ptr into sched structure based on waitid for sip_reinvite_retry."));
+				int wait = 3 + ast_random() % 5;
+				p->waitid = ast_sched_add(sched, wait, sip_reinvite_retry, dialog_ref(p, "passing dialog ptr into sched structure based on waitid for sip_reinvite_retry.")); 
 				ast_log(LOG_WARNING, "just did sched_add waitid(%d) for sip_reinvite_retry for dialog %s in handle_response_invite\n", p->waitid, p->callid);
 				ast_debug(2, "Reinvite race. Waiting %d secs before retry\n", wait);
 			}
@@ -16444,9 +16376,7 @@ static void handle_response_peerpoke(struct sip_pvt *p, int resp, struct sip_req
 		ast_log(LOG_NOTICE, "Peer '%s' is now %s. (%dms / %dms)\n",
 			peer->name, s, pingtime, peer->maxms);
 		ast_devstate_changed(AST_DEVICE_UNKNOWN, "SIP/%s", peer->name);
-		if (sip_cfg.peer_rtupdate) {
-			ast_update_realtime(ast_check_realtime("sipregs") ? "sipregs" : "sippeers", "name", peer->name, "lastms", str_lastms, SENTINEL);
-		}
+		ast_update_realtime(ast_check_realtime("sipregs") ? "sipregs" : "sippeers", "name", peer->name, "lastms", str_lastms, SENTINEL);
 		manager_event(EVENT_FLAG_SYSTEM, "PeerStatus",
 			"ChannelType: SIP\r\nPeer: SIP/%s\r\nPeerStatus: %s\r\nTime: %d\r\n",
 			peer->name, s, pingtime);
@@ -17908,27 +17838,13 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, int
 			return transmit_invite(p, SIP_INVITE, 1, 3);
 		}
 	}
-
+	
 	if (!req->ignore && p->pendinginvite) {
-		if (!ast_test_flag(&p->flags[0], SIP_OUTGOING) && ast_test_flag(&p->flags[1], SIP_PAGE2_DIALOG_ESTABLISHED)) {
-			/* We have received a reINVITE on an incoming call to which we have sent a 200 OK but not yet received
-			 * an ACK. According to RFC 5407, Section 3.1.4, the proper way to handle this race condition is to accept
-			 * the reINVITE since we have established a dialog.
-			 */
-			 
-			/* Note that this will both clear the pendinginvite flag and cancel the 
-			 * retransmission of the 200 OK. Basically, we're accepting this reINVITE as both an ACK
-			 * and a reINVITE in one request.
-			 */
-			__sip_ack(p, p->lastinvite, 1, 0);
-		} else {
-			/* We already have a pending invite. Sorry. You are on hold. */
-			p->glareinvite = seqno;
-			transmit_response_reliable(p, "491 Request Pending", req);
-			ast_debug(1, "Got INVITE on call where we already have pending INVITE, deferring that - %s\n", p->callid);
-			/* Don't destroy dialog here */
-			return 0;
-		}
+		/* We already have a pending invite. Sorry. You are on hold. */
+		transmit_response_reliable(p, "491 Request Pending", req);
+		ast_debug(1, "Got INVITE on call where we already have pending INVITE, deferring that - %s\n", p->callid);
+		/* Don't destroy dialog here */
+		return 0;
 	}
 
 	p_replaces = get_header(req, "Replaces");
@@ -18091,7 +18007,7 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, int
 		if (res < 0) { /* Something failed in authentication */
 			if (res == AUTH_FAKE_AUTH) {
 				ast_log(LOG_NOTICE, "Sending fake auth rejection for device %s\n", get_header(req, "From"));
-				transmit_fake_auth_response(p, SIP_INVITE, req, XMIT_RELIABLE);
+				transmit_fake_auth_response(p, req, XMIT_RELIABLE);
 			} else {
 				ast_log(LOG_NOTICE, "Failed to authenticate device %s\n", get_header(req, "From"));
 				transmit_response_reliable(p, "403 Forbidden", req);
@@ -18175,7 +18091,7 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, int
 
 			make_our_tag(p->tag, sizeof(p->tag));
 			/* First invitation - create the channel */
-			c = sip_new(p, AST_STATE_DOWN, S_OR(p->peername, NULL));
+			c = sip_new(p, AST_STATE_DOWN, S_OR(p->username, NULL));
 			*recount = 1;
 
 			/* Save Record-Route for any later requests we make on this dialogue */
@@ -18530,7 +18446,11 @@ static int local_attended_transfer(struct sip_pvt *transferer, struct sip_dual *
 		append_history(transferer, "Xfer", "Refer failed");
 		if (targetcall_pvt->owner)
 			ast_channel_unlock(targetcall_pvt->owner);
-		ast_clear_flag(&transferer->flags[0], SIP_DEFER_BYE_ON_TRANSFER);
+		/* Right now, we have to hangup, sorry. Bridge is destroyed */
+		if (res != -2)
+			ast_hangup(transferer->owner);
+		else
+			ast_clear_flag(&transferer->flags[0], SIP_DEFER_BYE_ON_TRANSFER);
 	} else {
 		/* Transfer succeeded! */
 
@@ -19092,7 +19012,7 @@ static int handle_request_bye(struct sip_pvt *p, struct sip_request *req)
 		if (bridge) {
 			struct sip_pvt *q = bridge->tech_pvt;
 
-			if (IS_SIP_TECH(bridge->tech) && q && q->rtp)
+			if (IS_SIP_TECH(bridge->tech) && q->rtp)
 				ast_rtp_set_vars(bridge, q->rtp);
 		}
 
@@ -19262,7 +19182,7 @@ static int handle_request_subscribe(struct sip_pvt *p, struct sip_request *req, 
 	if (res < 0) {
 		if (res == AUTH_FAKE_AUTH) {
 			ast_log(LOG_NOTICE, "Sending fake auth rejection for device %s\n", get_header(req, "From"));
-			transmit_fake_auth_response(p, SIP_SUBSCRIBE, req, XMIT_UNRELIABLE);
+			transmit_fake_auth_response(p, req, XMIT_UNRELIABLE);
 		} else {
 			ast_log(LOG_NOTICE, "Failed to authenticate device %s for SUBSCRIBE\n", get_header(req, "From"));
 			transmit_response_reliable(p, "403 Forbidden", req);
@@ -19748,12 +19668,8 @@ static int handle_incoming(struct sip_pvt *p, struct sip_request *req, struct so
 			if (find_sdp(req)) {
 				if (process_sdp(p, req, SDP_T38_NONE))
 					return -1;
-			}
+			} 
 			check_pendings(p);
-		} else if (p->glareinvite == seqno) {
-			/* handle ack for the 491 pending sent for glareinvite */
-			p->glareinvite = 0;
-			__sip_ack(p, seqno, 1, 0);
 		}
 		/* Got an ACK that we did not match. Ignore silently */
 		if (!p->lastinvite && ast_strlen_zero(p->randdata))
@@ -20196,6 +20112,8 @@ static int get_cached_mwi(struct sip_peer *peer, int *new, int *old)
 		event = ast_event_get_cached(AST_EVENT_MWI,
 			AST_EVENT_IE_MAILBOX, AST_EVENT_IE_PLTYPE_STR, mailbox->mailbox,
 			AST_EVENT_IE_CONTEXT, AST_EVENT_IE_PLTYPE_STR, S_OR(mailbox->context, "default"),
+			AST_EVENT_IE_NEWMSGS, AST_EVENT_IE_PLTYPE_EXISTS,
+			AST_EVENT_IE_OLDMSGS, AST_EVENT_IE_PLTYPE_EXISTS,
 			AST_EVENT_IE_END);
 		if (!event)
 			continue;
@@ -20759,9 +20677,7 @@ static int sip_poke_noanswer(const void *data)
 
 	if (peer->lastms > -1) {
 		ast_log(LOG_NOTICE, "Peer '%s' is now UNREACHABLE!  Last qualify: %d\n", peer->name, peer->lastms);
-		if (sip_cfg.peer_rtupdate) {
-			ast_update_realtime(ast_check_realtime("sipregs") ? "sipregs" : "sippeers", "name", peer->name, "lastms", "-1", SENTINEL);
-		}
+		ast_update_realtime(ast_check_realtime("sipregs") ? "sipregs" : "sippeers", "name", peer->name, "lastms", "-1", SENTINEL);
 		manager_event(EVENT_FLAG_SYSTEM, "PeerStatus", "ChannelType: SIP\r\nPeer: SIP/%s\r\nPeerStatus: Unreachable\r\nTime: %d\r\n", peer->name, -1);
 		if (global_regextenonqualify) {
 			register_peer_exten(peer, FALSE);
@@ -23470,7 +23386,6 @@ static int load_module(void)
 		"fullcontact", RQ_CHAR, 35,
 		"regserver", RQ_CHAR, 20,
 		"useragent", RQ_CHAR, 20,
-		"lastms", RQ_INTEGER4, 11,
 		SENTINEL);
 
 	return AST_MODULE_LOAD_SUCCESS;

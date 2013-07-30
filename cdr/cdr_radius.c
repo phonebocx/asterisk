@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 186232 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 158135 $")
 
 #include <time.h>
 #include <radiusclient-ng.h>
@@ -205,18 +205,12 @@ static int radius_log(struct ast_cdr *cdr)
 
 	if (build_radius_record(&tosend, cdr)) {
 		ast_debug(1, "Unable to create RADIUS record. CDR not recorded!\n");
-		goto return_cleanup;
+		return result;
 	}
 
 	result = rc_acct(rh, 0, tosend);
-	if (result != OK_RC) {
+	if (result != OK_RC)
 		ast_log(LOG_ERROR, "Failed to record Radius CDR record!\n");
-	}
-
-return_cleanup:
-	if (tosend) {
-		rc_avpair_free(tosend);
-	}
 
 	return result;
 }

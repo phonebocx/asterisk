@@ -36,7 +36,7 @@
  ***/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 189139 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 168565 $")
 
 #include <pthread.h>
 #include <sys/socket.h>
@@ -5725,6 +5725,7 @@ static int misdn_set_opt_exec(struct ast_channel *chan, void *data)
 	if (ch->ast_dsp) {
 		chan_misdn_log(1, ch->bc->port, "SETOPT: with AST_DSP we deactivate mISDN_dsp\n");
 		ch->bc->nodsp = 1;
+		ch->bc->nojitter = 1;
 	}
 	
 	return 0;
