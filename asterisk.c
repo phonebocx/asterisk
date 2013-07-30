@@ -1,14 +1,56 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Top level source file for asterisk
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+
+/* Doxygenified Copyright Header */
+/*!
+ * \mainpage Asterisk -- An Open Source Telephony Toolkit
+ *
+ * \arg \ref DevDoc 
+ * \arg \ref ConfigFiles
+ *
+ * \section copyright Copyright and author
+ *
+ * Copyright (C) 1999 - 2005, Digium, Inc.
+ * Asterisk is a trade mark registered by Digium, Inc.
+ *
+ * \author Mark Spencer <markster@digium.com>
+ * Also see \ref AstCREDITS
+ *
+ * \section license License
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ *
+ * \verbinclude LICENSE
+ *
+ */
+
+/*! \file
+  \brief Top level source file for Asterisk  - the Open Source PBX. Implementation
+  of PBX core functions and CLI interface.
+  
  */
 
 #include <unistd.h>
@@ -36,7 +78,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.177 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.187 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/options.h"
@@ -66,6 +108,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.177 $")
 #include "asterisk/build.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/devicestate.h"
+
+#include "asterisk/doxyref.h"		/* Doxygen documentation */
 
 #include "defaults.h"
 
@@ -99,25 +143,27 @@ int option_overrideconfig = 0;
 int option_reconnect = 0;
 int option_transcode_slin = 1;
 int option_maxcalls = 0;
+double option_maxload = 0.0;
 int option_dontwarn = 0;
 int option_priority_jumping = 1;
 int fully_booted = 0;
 char record_cache_dir[AST_CACHE_DIR_LEN] = AST_TMP_DIR;
 char debug_filename[AST_FILENAME_MAX] = "";
 
-static int ast_socket = -1;		/* UNIX Socket for allowing remote control */
-static int ast_consock = -1;		/* UNIX Socket for controlling another asterisk */
+static int ast_socket = -1;		/*!< UNIX Socket for allowing remote control */
+static int ast_consock = -1;		/*!< UNIX Socket for controlling another asterisk */
 int ast_mainpid;
 struct console {
-	int fd;					/* File descriptor */
-	int p[2];				/* Pipe */
-	pthread_t t;			/* Thread of handler */
+	int fd;				/*!< File descriptor */
+	int p[2];			/*!< Pipe */
+	pthread_t t;			/*!< Thread of handler */
 };
 
 static struct ast_atexit {
 	void (*func)(void);
 	struct ast_atexit *next;
 } *atexits = NULL;
+
 AST_MUTEX_DEFINE_STATIC(atexitslock);
 
 time_t ast_startuptime;
@@ -211,6 +257,7 @@ static char show_version_files_help[] =
 "       Shows the revision numbers of the files used to build this copy of Asterisk.\n"
 "       Optional regular expression pattern is used to filter the file list.\n";
 
+/*! CLI command to list module versions */
 static int handle_show_version_files(int fd, int argc, char *argv[])
 {
 #define FORMAT "%-25.25s %-40.40s\n"
@@ -332,52 +379,72 @@ static int fdprint(int fd, const char *s)
 	return write(fd, s, strlen(s) + 1);
 }
 
-/* NULL handler so we can collect the child exit status */
+/*! NULL handler so we can collect the child exit status */
 static void null_sig_handler(int signal)
 {
 
 }
 
+AST_MUTEX_DEFINE_STATIC(safe_system_lock);
+static unsigned int safe_system_level = 0;
+static void *safe_system_prev_handler;
+
 int ast_safe_system(const char *s)
 {
-	/* XXX This function needs some optimization work XXX */
 	pid_t pid;
 	int x;
 	int res;
 	struct rusage rusage;
 	int status;
-	void (*prev_handler) = signal(SIGCHLD, null_sig_handler);
+	unsigned int level;
+
+	/* keep track of how many ast_safe_system() functions
+	   are running at this moment
+	*/
+	ast_mutex_lock(&safe_system_lock);
+	level = safe_system_level++;
+
+	/* only replace the handler if it has not already been done */
+	if (level == 0)
+		safe_system_prev_handler = signal(SIGCHLD, null_sig_handler);
+
+	ast_mutex_unlock(&safe_system_lock);
+
 	pid = fork();
+
 	if (pid == 0) {
 		/* Close file descriptors and launch system command */
-		for (x=STDERR_FILENO + 1; x<4096;x++) {
+		for (x = STDERR_FILENO + 1; x < 4096; x++)
 			close(x);
-		}
-		res = execl("/bin/sh", "/bin/sh", "-c", s, NULL);
+		execl("/bin/sh", "/bin/sh", "-c", s, NULL);
 		exit(1);
 	} else if (pid > 0) {
 		for(;;) {
 			res = wait4(pid, &status, 0, &rusage);
 			if (res > -1) {
-				if (WIFEXITED(status))
-					res = WEXITSTATUS(status);
-				else
-					res = -1;
+				res = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 				break;
-			} else {
-				if (errno != EINTR) 
-					break;
-			}
+			} else if (errno != EINTR) 
+				break;
 		}
 	} else {
 		ast_log(LOG_WARNING, "Fork failed: %s\n", strerror(errno));
 		res = -1;
 	}
-	signal(SIGCHLD, prev_handler);
+
+	ast_mutex_lock(&safe_system_lock);
+	level = --safe_system_level;
+
+	/* only restore the handler if we are the last one */
+	if (level == 0)
+		signal(SIGCHLD, safe_system_prev_handler);
+
+	ast_mutex_unlock(&safe_system_lock);
+
 	return res;
 }
 
-/*
+/*!
  * write the string to all attached console clients
  */
 static void ast_network_puts(const char *string)
@@ -389,7 +456,7 @@ static void ast_network_puts(const char *string)
 	}
 }
 
-/*
+/*!
  * write the string to the console, and all attached
  * console clients
  */
@@ -436,8 +503,10 @@ static void *netconsole(void *vconsole)
 	for(;;) {
 		fds[0].fd = con->fd;
 		fds[0].events = POLLIN;
+		fds[0].revents = 0;
 		fds[1].fd = con->p[0];
 		fds[1].events = POLLIN;
+		fds[1].revents = 0;
 
 		res = poll(fds, 2, -1);
 		if (res < 0) {
@@ -624,13 +693,19 @@ static int ast_tryconnect(void)
 		return 1;
 }
 
+/*! Urgent handler
+ Called by soft_hangup to interrupt the poll, read, or other
+ system call.  We don't actually need to do anything though.  
+ Remember: Cannot EVER ast_log from within a signal handler 
+ SLD: seems to be some pthread activity relating to the printf anyway:
+ which is leading to a deadlock? 
+ */
 static void urg_handler(int num)
 {
-	/* Called by soft_hangup to interrupt the poll, read, or other
-	   system call.  We don't actually need to do anything though.  */
-	/* Cannot EVER ast_log from within a signal handler */
+#if 0
 	if (option_debug > 2) 
 		printf("-- Asterisk Urgent handler\n");
+#endif
 	signal(num, urg_handler);
 	return;
 }
@@ -661,9 +736,9 @@ static void child_handler(int sig)
 	signal(sig, child_handler);
 }
 
+/*! Set an X-term or screen title */
 static void set_title(char *text)
 {
-	/* Set an X-term or screen title */
 	if (getenv("TERM") && strstr(getenv("TERM"), "xterm"))
 		fprintf(stdout, "\033]2;%s\007", text);
 }
@@ -674,12 +749,12 @@ static void set_icon(char *text)
 		fprintf(stdout, "\033]1;%s\007", text);
 }
 
+/*! We set ourselves to a high priority, that we might pre-empt everything
+   else.  If your PBX has heavy activity on it, this is a good thing.  */
 int ast_set_priority(int pri)
 {
 	struct sched_param sched;
 	memset(&sched, 0, sizeof(sched));
-	/* We set ourselves to a high priority, that we might pre-empt everything
-	   else.  If your PBX has heavy activity on it, this is a good thing.  */
 #ifdef __linux__
 	if (pri) {  
 		sched.sched_priority = 10;
@@ -819,7 +894,7 @@ static void quit_handler(int num, int nice, int safeshutdown, int restart)
 
 		/* If there is a consolethread running send it a SIGHUP 
 		   so it can execvp, otherwise we can do it ourselves */
-		if (consolethread != AST_PTHREADT_NULL) {
+		if ((consolethread != AST_PTHREADT_NULL) && (consolethread != pthread_self())) {
 			pthread_kill(consolethread, SIGHUP);
 			/* Give the signal handler some time to complete */
 			sleep(2);
@@ -1629,7 +1704,7 @@ static void ast_remotecontrol(char * data)
 	for(;;) {
 		ebuf = (char *)el_gets(el, &num);
 
-		if (ebuf && !ast_strlen_zero(ebuf)) {
+		if (!ast_strlen_zero(ebuf)) {
 			if (ebuf[strlen(ebuf)-1] == '\n')
 				ebuf[strlen(ebuf)-1] = '\0';
 			if (!remoteconsolehandler(ebuf)) {
@@ -1798,6 +1873,15 @@ static void ast_readconfig(void) {
 			if ((sscanf(v->value, "%d", &option_maxcalls) != 1) || (option_maxcalls < 0)) {
 				option_maxcalls = 0;
 			}
+		} else if (!strcasecmp(v->name, "maxload")) {
+			double test[1];
+
+			if (getloadavg(test, 1) == -1) {
+				ast_log(LOG_ERROR, "Cannot obtain load average on this system. 'maxload' option disabled.\n");
+				option_maxload = 0.0;
+			} else if ((sscanf(v->value, "%lf", &option_maxload) != 1) || (option_maxload < 0.0)) {
+				option_maxload = 0.0;
+			}
 		}
 		v = v->next;
 	}
@@ -1856,7 +1940,7 @@ int main(int argc, char *argv[])
 	}
 	*/
 	/* Check for options */
-	while((c=getopt(argc, argv, "tThfdvVqprRgcinx:U:G:C:M:")) != -1) {
+	while((c=getopt(argc, argv, "tThfdvVqprRgcinx:U:G:C:L:M:")) != -1) {
 		switch(c) {
 		case 'd':
 			option_debug++;
@@ -1891,6 +1975,10 @@ int main(int argc, char *argv[])
 		case 'M':
 			if ((sscanf(optarg, "%d", &option_maxcalls) != 1) || (option_maxcalls < 0))
 				option_maxcalls = 0;
+			break;
+		case 'L':
+			if ((sscanf(optarg, "%lf", &option_maxload) != 1) || (option_maxload < 0.0))
+				option_maxload = 0.0;
 			break;
 		case 'q':
 			option_quiet++;
@@ -1929,6 +2017,16 @@ int main(int argc, char *argv[])
 			break;
 		case '?':
 			exit(1);
+		}
+	}
+
+	/* For remote connections, change the name of the remote connection.
+	 * We do this for the benefit of init scripts (which need to know if/when
+	 * the main asterisk process has died yet). */
+	if (option_remote) {
+		strcpy(argv[0], "rasterisk");
+		for (x = 1; x < argc; x++) {
+			argv[x] = argv[0] + 10;
 		}
 	}
 

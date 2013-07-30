@@ -1,14 +1,26 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Skeleton application
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief substr
+ *
+ * \todo Deprecate this application in 1.3dev
  */
 
 #include <sys/types.h>
@@ -19,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -64,6 +76,9 @@ static int substring_exec(struct ast_channel *chan, void *data)
   char newexten[AST_MAX_EXTENSION] = "";
   char *count1, *count2;
   char *first, *second, *stringp;
+  struct localuser *u;
+
+  LOCAL_USER_ADD(u);
 
   stringp=alloca(strlen(data)+1);
   ast_log(LOG_WARNING, "The use of Substring application is deprecated. Please use ${variable:a:b} instead\n");
@@ -76,6 +91,7 @@ static int substring_exec(struct ast_channel *chan, void *data)
     count2=strsep(&stringp,"\0");
     if (!first || !second || !count1 || !count2) {
       ast_log(LOG_DEBUG, "Ignoring, since there is no argument: variable or string or count1 or count2\n");
+      LOCAL_USER_REMOVE(u);
       return 0;
     }
     icount1=atoi(count1);
@@ -107,13 +123,21 @@ static int substring_exec(struct ast_channel *chan, void *data)
   } else {
     ast_log(LOG_DEBUG, "Ignoring, no parameters\n");
   }
+
+  LOCAL_USER_REMOVE(u);
+
   return 0;
 }
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

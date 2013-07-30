@@ -1,18 +1,28 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Convenience Signal Processing routines
- * 
- * Copyright (C) 2002, Digium
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
- *
- * This program is free software, distributed under the terms of
- * the GNU General Public License.
  *
  * Goertzel routines are borrowed from Steve Underwood's tremendous work on the
  * DTMF detector.
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Convenience Signal Processing routines
+ * 
  */
 
 /* Some routines from tone_detect.c by Steven Underwood as published under the zapata library */
@@ -38,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.47 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.50 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/channel.h"
@@ -97,7 +107,7 @@ static struct progress {
 #define BUSY_PAT_PERCENT	7	/* The percentage difference between measured and actual pattern */
 #define BUSY_THRESHOLD		100	/* Max number of ms difference between max and min times in busy */
 #define BUSY_MIN		75	/* Busy must be at least 80 ms in half-cadence */
-#define BUSY_MAX		1100	/* Busy can't be longer than 1100 ms in half-cadence */
+#define BUSY_MAX		3100	/* Busy can't be longer than 3100 ms in half-cadence */
 
 /* Remember last 15 units */
 #define DSP_HISTORY 		15

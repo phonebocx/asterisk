@@ -1,12 +1,24 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Fork CDR application
- * Copyright Anthony Minessale anthmct@yahoo.com
+ * Copyright (C) 1999 - 2005, Anthony Minessale anthmct@yahoo.com
  * Development of this app Sponsered/Funded  by TAAN Softworks Corp
- * 
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Fork CDR application
+ * 
  */
 
 #include <stdlib.h>
@@ -16,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -62,7 +74,7 @@ static int forkcdr_exec(struct ast_channel *chan, void *data)
 	int res=0;
 	struct localuser *u;
 	LOCAL_USER_ADD(u);
-	if (data && !ast_strlen_zero(data))
+	if (!ast_strlen_zero(data))
 		ast_set2_flag(chan->cdr, strchr((char *)data, 'v'), AST_CDR_FLAG_KEEP_VARS);
 	
 	ast_cdr_fork(chan);
@@ -73,8 +85,13 @@ static int forkcdr_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

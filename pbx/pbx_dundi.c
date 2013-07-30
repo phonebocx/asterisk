@@ -1,12 +1,25 @@
 /*
- * Distributed Universal Number Discovery (DUNDi)
+ * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2004 - 2005, Digium Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Written by Mark Spencer <markster@digium.com>
+ * Mark Spencer <markster@digium.com>
  *
- * This program is Free Software distributed under the terms of
- * of the GNU General Public License.
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Distributed Universal Number Discovery (DUNDi)
+ *
  */
 
 #include <stdlib.h>
@@ -32,7 +45,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.39 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.46 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -75,7 +88,9 @@ static char *descrip =
 "${DUNDTECH} and ${DUNDDEST} will contain the technology and destination\n"
 "of the appropriate technology and destination to access the number. If no\n"
 "answer was found, and the priority n + 101 exists, execution will continue\n"
-"at that location.\n";
+"at that location. Note that this will only occur if the global priority\n"
+"jumping option is enabled in extensions.conf. If the 'b' option is specified,\n"
+"the internal DUNDi cache will by bypassed.\n";
 
 #define DUNDI_MODEL_INBOUND		(1 << 0)
 #define DUNDI_MODEL_OUTBOUND	(1 << 1)
@@ -540,11 +555,11 @@ static int dundi_lookup_local(struct dundi_result *dr, struct dundi_mapping *map
 			dr[anscnt].techint = map->tech;
 			dr[anscnt].weight = map->weight;
 			dr[anscnt].expiration = dundi_cache_time;
-			strncpy(dr[anscnt].tech, tech2str(map->tech), sizeof(dr[anscnt].tech));
+			ast_copy_string(dr[anscnt].tech, tech2str(map->tech), sizeof(dr[anscnt].tech));
 			dr[anscnt].eid = *us_eid;
 			dundi_eid_to_str(dr[anscnt].eid_str, sizeof(dr[anscnt].eid_str), &dr[anscnt].eid);
 			if (ast_test_flag(&flags, DUNDI_FLAG_EXISTS)) {
-				AST_LIST_HEAD_INIT(&headp);
+				AST_LIST_HEAD_INIT_NOLOCK(&headp);
 				newvariable = ast_var_assign("NUMBER", called_number);
 				AST_LIST_INSERT_HEAD(&headp, newvariable, entries);
 				newvariable = ast_var_assign("EID", dr[anscnt].eid_str);
@@ -564,7 +579,7 @@ static int dundi_lookup_local(struct dundi_result *dr, struct dundi_mapping *map
 		} else {
 			/* No answers...  Find the fewest number of digits from the
 			   number for which we have no answer. */
-			char tmp[AST_MAX_EXTENSION]="";
+			char tmp[AST_MAX_EXTENSION];
 			for (x=0;x<AST_MAX_EXTENSION;x++) {
 				tmp[x] = called_number[x];
 				if (!tmp[x])
@@ -573,7 +588,7 @@ static int dundi_lookup_local(struct dundi_result *dr, struct dundi_mapping *map
 					/* Oops found something we can't match.  If this is longer
 					   than the running hint, we have to consider it */
 					if (strlen(tmp) > strlen(hmd->exten)) {
-						strncpy(hmd->exten, tmp, sizeof(hmd->exten) - 1);
+						ast_copy_string(hmd->exten, tmp, sizeof(hmd->exten));
 					}
 					break;
 				}
@@ -698,13 +713,13 @@ static void *dundi_query_thread(void *data)
 	if (!dundi_eid_cmp(&st->trans->us_eid, &st->reqeid)) {
 		/* Ooh, it's us! */
 		ast_log(LOG_DEBUG, "Neat, someone look for us!\n");
-		strncpy(dei.orgunit, dept, sizeof(dei.orgunit));
-		strncpy(dei.org, org, sizeof(dei.org));
-		strncpy(dei.locality, locality, sizeof(dei.locality));
-		strncpy(dei.stateprov, stateprov, sizeof(dei.stateprov));
-		strncpy(dei.country, country, sizeof(dei.country));
-		strncpy(dei.email, email, sizeof(dei.email));
-		strncpy(dei.phone, phone, sizeof(dei.phone));
+		ast_copy_string(dei.orgunit, dept, sizeof(dei.orgunit));
+		ast_copy_string(dei.org, org, sizeof(dei.org));
+		ast_copy_string(dei.locality, locality, sizeof(dei.locality));
+		ast_copy_string(dei.stateprov, stateprov, sizeof(dei.stateprov));
+		ast_copy_string(dei.country, country, sizeof(dei.country));
+		ast_copy_string(dei.email, email, sizeof(dei.email));
+		ast_copy_string(dei.phone, phone, sizeof(dei.phone));
 		res = 1;
 	} else {
 		/* If we do not have a canonical result, keep looking */
@@ -760,7 +775,7 @@ static int dundi_answer_entity(struct dundi_transaction *trans, struct dundi_ies
 	st = malloc(totallen);
 	if (st) {
 		memset(st, 0, totallen);
-		strncpy(st->called_context, ies->called_context, sizeof(st->called_context) - 1);
+		ast_copy_string(st->called_context, ies->called_context, sizeof(st->called_context));
 		memcpy(&st->reqeid, ies->reqeid, sizeof(st->reqeid));
 		st->trans = trans;
 		st->ttl = ies->ttl - 1;
@@ -802,7 +817,7 @@ static int cache_save_hint(dundi_eid *eidpeer, struct dundi_request *req, struct
 	char key2[256];
 	char eidpeer_str[20];
 	char eidroot_str[20];
-	char data[80]="";
+	char data[80];
 	time_t timeout;
 
 	if (expiration < 0)
@@ -835,7 +850,7 @@ static int cache_save(dundi_eid *eidpeer, struct dundi_request *req, int start, 
 	int x;
 	char key1[256];
 	char key2[256];
-	char data[1024]="";
+	char data[1024];
 	char eidpeer_str[20];
 	char eidroot_str[20];
 	time_t timeout;
@@ -901,15 +916,15 @@ static int dundi_prop_precache(struct dundi_transaction *trans, struct dundi_ies
 	dr.hmd = &hmd;
 	dr.pfds[0] = dr.pfds[1] = -1;
 	trans->parent = &dr;
-	strncpy(dr.dcontext, ies->called_context ? ies->called_context : "e164", sizeof(dr.dcontext));
-	strncpy(dr.number, ies->called_number, sizeof(dr.number) - 1);
+	ast_copy_string(dr.dcontext, ies->called_context ? ies->called_context : "e164", sizeof(dr.dcontext));
+	ast_copy_string(dr.number, ies->called_number, sizeof(dr.number));
 	
 	for (x=0;x<ies->anscount;x++) {
 		if (trans->parent->respcount < trans->parent->maxcount) {
 			/* Make sure it's not already there */
 			for (z=0;z<trans->parent->respcount;z++) {
 				if ((trans->parent->dr[z].techint == ies->answers[x]->protocol) &&
-				    !strcmp(trans->parent->dr[z].dest, ies->answers[x]->data)) 
+				    !strcmp(trans->parent->dr[z].dest, (char *)ies->answers[x]->data)) 
 						break;
 			}
 			if (z == trans->parent->respcount) {
@@ -925,9 +940,9 @@ static int dundi_prop_precache(struct dundi_transaction *trans, struct dundi_ies
 				dundi_eid_to_str(trans->parent->dr[trans->parent->respcount].eid_str, 
 					sizeof(trans->parent->dr[trans->parent->respcount].eid_str),
 					&ies->answers[x]->eid);
-				strncpy(trans->parent->dr[trans->parent->respcount].dest, ies->answers[x]->data,
+				ast_copy_string(trans->parent->dr[trans->parent->respcount].dest, (char *)ies->answers[x]->data,
 					sizeof(trans->parent->dr[trans->parent->respcount].dest));
-					strncpy(trans->parent->dr[trans->parent->respcount].tech, tech2str(ies->answers[x]->protocol),
+					ast_copy_string(trans->parent->dr[trans->parent->respcount].tech, tech2str(ies->answers[x]->protocol),
 					sizeof(trans->parent->dr[trans->parent->respcount].tech));
 				trans->parent->respcount++;
 				ast_clear_flag_nonstd(trans->parent->hmd, DUNDI_HINT_DONT_ASK);	
@@ -974,8 +989,8 @@ static int dundi_prop_precache(struct dundi_transaction *trans, struct dundi_ies
 	st = malloc(totallen);
 	if (st) {
 		memset(st, 0, totallen);
-		strncpy(st->called_context, ies->called_context, sizeof(st->called_context) - 1);
-		strncpy(st->called_number, ies->called_number, sizeof(st->called_number) - 1);
+		ast_copy_string(st->called_context, ies->called_context, sizeof(st->called_context));
+		ast_copy_string(st->called_number, ies->called_number, sizeof(st->called_number));
 		st->trans = trans;
 		st->ttl = ies->ttl - 1;
 		st->nocache = ies->cbypass;
@@ -1066,8 +1081,8 @@ static int dundi_answer_query(struct dundi_transaction *trans, struct dundi_ies 
 	st = malloc(totallen);
 	if (st) {
 		memset(st, 0, totallen);
-		strncpy(st->called_context, ies->called_context, sizeof(st->called_context) - 1);
-		strncpy(st->called_number, ies->called_number, sizeof(st->called_number) - 1);
+		ast_copy_string(st->called_context, ies->called_context, sizeof(st->called_context));
+		ast_copy_string(st->called_number, ies->called_number, sizeof(st->called_number));
 		st->trans = trans;
 		st->ttl = ies->ttl - 1;
 		st->nocache = ies->cbypass;
@@ -1120,7 +1135,7 @@ static int dundi_answer_query(struct dundi_transaction *trans, struct dundi_ies 
 
 static int cache_lookup_internal(time_t now, struct dundi_request *req, char *key, char *eid_str_full, int *lowexpiration)
 {
-	char data[1024]="";
+	char data[1024];
 	char *ptr, *term, *src;
 	int tech;
 	struct ast_flags flags;
@@ -1166,9 +1181,9 @@ static int cache_lookup_internal(time_t now, struct dundi_request *req, char *ke
 							dundi_str_short_to_eid(&req->dr[req->respcount].eid, src);
 							dundi_eid_to_str(req->dr[req->respcount].eid_str, 
 								sizeof(req->dr[req->respcount].eid_str), &req->dr[req->respcount].eid);
-							strncpy(req->dr[req->respcount].dest, ptr,
+							ast_copy_string(req->dr[req->respcount].dest, ptr,
 								sizeof(req->dr[req->respcount].dest));
-							strncpy(req->dr[req->respcount].tech, tech2str(tech),
+							ast_copy_string(req->dr[req->respcount].tech, tech2str(tech),
 								sizeof(req->dr[req->respcount].tech));
 							req->respcount++;
 							ast_clear_flag_nonstd(req->hmd, DUNDI_HINT_DONT_ASK);	
@@ -1230,7 +1245,7 @@ static int cache_lookup(struct dundi_request *req, dundi_eid *peer_eid, unsigned
 			if (res2) {
 				if (strlen(tmp) > strlen(req->hmd->exten)) {
 					/* Update meta data if appropriate */
-					strncpy(req->hmd->exten, tmp, sizeof(req->hmd->exten) - 1);
+					ast_copy_string(req->hmd->exten, tmp, sizeof(req->hmd->exten));
 				}
 			}
 		}
@@ -1304,7 +1319,7 @@ static int update_key(struct dundi_peer *peer)
 			ast_log(LOG_NOTICE, "Whoa, got a weird encrypt size (%d != %d)!\n", res, 128);
 			return -1;
 		}
-		if ((res = ast_sign_bin(skey, peer->txenckey, 128, peer->txenckey + 128))) {
+		if ((res = ast_sign_bin(skey, (char *)peer->txenckey, 128, peer->txenckey + 128))) {
 			ast_log(LOG_NOTICE, "Failed to sign key (%d)!\n", res);
 			return -1;
 		}
@@ -1475,7 +1490,7 @@ static int check_key(struct dundi_peer *peer, unsigned char *newkey, unsigned ch
 	}
 
 	/* First check signature */
-	res = ast_check_signature_bin(skey, newkey, 128, newsig);
+	res = ast_check_signature_bin(skey, (char *)newkey, 128, newsig);
 	if (res) 
 		return 0;
 
@@ -1644,7 +1659,7 @@ static int handle_command_response(struct dundi_transaction *trans, struct dundi
 							/* Make sure it's not already there */
 							for (z=0;z<trans->parent->respcount;z++) {
 								if ((trans->parent->dr[z].techint == ies.answers[x]->protocol) &&
-								    !strcmp(trans->parent->dr[z].dest, ies.answers[x]->data)) 
+								    !strcmp(trans->parent->dr[z].dest, (char *)ies.answers[x]->data)) 
 										break;
 							}
 							if (z == trans->parent->respcount) {
@@ -1660,9 +1675,9 @@ static int handle_command_response(struct dundi_transaction *trans, struct dundi
 								dundi_eid_to_str(trans->parent->dr[trans->parent->respcount].eid_str, 
 									sizeof(trans->parent->dr[trans->parent->respcount].eid_str),
 									&ies.answers[x]->eid);
-								strncpy(trans->parent->dr[trans->parent->respcount].dest, ies.answers[x]->data,
+								ast_copy_string(trans->parent->dr[trans->parent->respcount].dest, (char *)ies.answers[x]->data,
 									sizeof(trans->parent->dr[trans->parent->respcount].dest));
-								strncpy(trans->parent->dr[trans->parent->respcount].tech, tech2str(ies.answers[x]->protocol),
+								ast_copy_string(trans->parent->dr[trans->parent->respcount].tech, tech2str(ies.answers[x]->protocol),
 									sizeof(trans->parent->dr[trans->parent->respcount].tech));
 								trans->parent->respcount++;
 								ast_clear_flag_nonstd(trans->parent->hmd, DUNDI_HINT_DONT_ASK);
@@ -1683,9 +1698,9 @@ static int handle_command_response(struct dundi_transaction *trans, struct dundi
 						if (ast_test_flag_nonstd(ies.hint, htons(DUNDI_HINT_TTL_EXPIRED)))
 							ast_set_flag_nonstd(trans->parent->hmd, DUNDI_HINT_TTL_EXPIRED);
 						if (ast_test_flag_nonstd(ies.hint, htons(DUNDI_HINT_DONT_ASK))) { 
-							if (strlen(ies.hint->data) > strlen(trans->parent->hmd->exten)) {
-								strncpy(trans->parent->hmd->exten, ies.hint->data, 
-									sizeof(trans->parent->hmd->exten) - 1);
+							if (strlen((char *)ies.hint->data) > strlen(trans->parent->hmd->exten)) {
+								ast_copy_string(trans->parent->hmd->exten, (char *)ies.hint->data, 
+									sizeof(trans->parent->hmd->exten));
 							}
 						} else {
 							ast_clear_flag_nonstd(trans->parent->hmd, DUNDI_HINT_DONT_ASK);
@@ -1725,21 +1740,21 @@ static int handle_command_response(struct dundi_transaction *trans, struct dundi
 					if (!trans->parent->respcount) {
 						trans->parent->respcount++;
 						if (ies.q_dept)
-							strncpy(trans->parent->dei->orgunit, ies.q_dept, sizeof(trans->parent->dei->orgunit) - 1);
+							ast_copy_string(trans->parent->dei->orgunit, ies.q_dept, sizeof(trans->parent->dei->orgunit));
 						if (ies.q_org)
-							strncpy(trans->parent->dei->org, ies.q_org, sizeof(trans->parent->dei->org) - 1);
+							ast_copy_string(trans->parent->dei->org, ies.q_org, sizeof(trans->parent->dei->org));
 						if (ies.q_locality)
-							strncpy(trans->parent->dei->locality, ies.q_locality, sizeof(trans->parent->dei->locality) - 1);
+							ast_copy_string(trans->parent->dei->locality, ies.q_locality, sizeof(trans->parent->dei->locality));
 						if (ies.q_stateprov)
-							strncpy(trans->parent->dei->stateprov, ies.q_stateprov, sizeof(trans->parent->dei->stateprov) - 1);
+							ast_copy_string(trans->parent->dei->stateprov, ies.q_stateprov, sizeof(trans->parent->dei->stateprov));
 						if (ies.q_country)
-							strncpy(trans->parent->dei->country, ies.q_country, sizeof(trans->parent->dei->country) - 1);
+							ast_copy_string(trans->parent->dei->country, ies.q_country, sizeof(trans->parent->dei->country));
 						if (ies.q_email)
-							strncpy(trans->parent->dei->email, ies.q_email, sizeof(trans->parent->dei->email) - 1);
+							ast_copy_string(trans->parent->dei->email, ies.q_email, sizeof(trans->parent->dei->email));
 						if (ies.q_phone)
-							strncpy(trans->parent->dei->phone, ies.q_phone, sizeof(trans->parent->dei->phone) - 1);
+							ast_copy_string(trans->parent->dei->phone, ies.q_phone, sizeof(trans->parent->dei->phone));
 						if (ies.q_ipaddr)
-							strncpy(trans->parent->dei->ipaddr, ies.q_ipaddr, sizeof(trans->parent->dei->ipaddr) - 1);
+							ast_copy_string(trans->parent->dei->ipaddr, ies.q_ipaddr, sizeof(trans->parent->dei->ipaddr));
 						if (!dundi_eid_cmp(&trans->them_eid, &trans->parent->query_eid)) {
 							/* If it's them, update our address */
 							ast_inet_ntoa(trans->parent->dei->ipaddr, sizeof(trans->parent->dei->ipaddr),
@@ -1969,8 +1984,8 @@ static int socket_read(int *id, int fd, short events, void *cbdata)
 	struct sockaddr_in sin;
 	int res;
 	struct dundi_hdr *h;
-	unsigned char buf[MAX_PACKET_SIZE];
-	int len;
+	char buf[MAX_PACKET_SIZE];
+	socklen_t len;
 	len = sizeof(sin);
 	res = recvfrom(netsocket, buf, sizeof(buf) - 1, 0,(struct sockaddr *) &sin, &len);
 	if (res < 0) {
@@ -1994,11 +2009,11 @@ static int socket_read(int *id, int fd, short events, void *cbdata)
 
 static void build_secret(char *secret, int seclen)
 {
-	char tmp[16];
+	unsigned char tmp[16];
 	char *s;
 	build_iv(tmp);
 	secret[0] = '\0';
-	ast_base64encode(secret ,tmp, sizeof(tmp), seclen);
+	ast_base64encode(secret, tmp, sizeof(tmp), seclen);
 	/* Eliminate potential bad characters */
 	while((s = strchr(secret, ';'))) *s = '+';
 	while((s = strchr(secret, '/'))) *s = '+';
@@ -2050,7 +2065,7 @@ static void load_password(void)
 	}
 	if (current) {
 		/* Current key is still valid, just setup rotatation properly */
-		strncpy(cursecret, current, sizeof(cursecret) - 1);
+		ast_copy_string(cursecret, current, sizeof(cursecret));
 		rotatetime = expired;
 	} else {
 		/* Current key is out of date, rotate or eliminate all together */
@@ -2070,7 +2085,7 @@ static void check_password(void)
 #endif
 	if ((now - rotatetime) >= 0) {
 		/* Time to rotate keys */
-		strncpy(oldsecret, cursecret, sizeof(oldsecret) - 1);
+		ast_copy_string(oldsecret, cursecret, sizeof(oldsecret));
 		build_secret(cursecret, sizeof(cursecret));
 		save_secret(cursecret, oldsecret);
 	}
@@ -2102,8 +2117,8 @@ static void *process_precache(void *ign)
 {
 	struct dundi_precache_queue *qe;
 	time_t now;
-	char context[256]="";
-	char number[256]="";
+	char context[256];
+	char number[256];
 	int run;
 	for (;;) {
 		time(&now);
@@ -2118,8 +2133,8 @@ static void *process_precache(void *ign)
 			} else if (pcq->expiration < now) {
 				/* Process this entry */
 				pcq->expiration = 0;
-				strncpy(context, pcq->context, sizeof(context) - 1);
-				strncpy(number, pcq->number, sizeof(number) - 1);
+				ast_copy_string(context, pcq->context, sizeof(context));
+				ast_copy_string(number, pcq->number, sizeof(number));
 				run = 1;
 			}
 		}
@@ -2274,7 +2289,7 @@ static void sort_results(struct dundi_result *results, int count)
 static int dundi_do_lookup(int fd, int argc, char *argv[])
 {
 	int res;
-	char tmp[256] = "";
+	char tmp[256];
 	char fs[80] = "";
 	char *context;
 	int x;
@@ -2289,7 +2304,7 @@ static int dundi_do_lookup(int fd, int argc, char *argv[])
 		else
 			return RESULT_SHOWUSAGE;
 	}
-	strncpy(tmp, argv[2], sizeof(tmp) - 1);
+	ast_copy_string(tmp, argv[2], sizeof(tmp));
 	context = strchr(tmp, '@');
 	if (context) {
 		*context = '\0';
@@ -2315,12 +2330,12 @@ static int dundi_do_lookup(int fd, int argc, char *argv[])
 static int dundi_do_precache(int fd, int argc, char *argv[])
 {
 	int res;
-	char tmp[256] = "";
+	char tmp[256];
 	char *context;
 	struct timeval start;
 	if ((argc < 3) || (argc > 3))
 		return RESULT_SHOWUSAGE;
-	strncpy(tmp, argv[2], sizeof(tmp) - 1);
+	ast_copy_string(tmp, argv[2], sizeof(tmp));
 	context = strchr(tmp, '@');
 	if (context) {
 		*context = '\0';
@@ -2340,7 +2355,7 @@ static int dundi_do_precache(int fd, int argc, char *argv[])
 static int dundi_do_query(int fd, int argc, char *argv[])
 {
 	int res;
-	char tmp[256] = "";
+	char tmp[256];
 	char *context;
 	dundi_eid eid;
 	struct dundi_entity_info dei;
@@ -2350,7 +2365,7 @@ static int dundi_do_query(int fd, int argc, char *argv[])
 		ast_cli(fd, "'%s' is not a valid EID!\n", argv[2]);
 		return RESULT_SHOWUSAGE;
 	}
-	strncpy(tmp, argv[2], sizeof(tmp) - 1);
+	ast_copy_string(tmp, argv[2], sizeof(tmp));
 	context = strchr(tmp, '@');
 	if (context) {
 		*context = '\0';
@@ -2476,15 +2491,15 @@ static int dundi_show_peers(int fd, int argc, char *argv[])
 	ast_mutex_lock(&peerlock);
 	ast_cli(fd, FORMAT2, "EID", "Host", "Model", "AvgTime", "Status");
 	for (peer = peers;peer;peer = peer->next) {
-		char status[20] = "";
-        int print_line = -1;
-		char srch[2000] = "";
+		char status[20];
+		int print_line = -1;
+		char srch[2000];
 		total_peers++;
 		if (registeredonly && !peer->addr.sin_addr.s_addr)
 			continue;
 		if (peer->maxms) {
 			if (peer->lastms < 0) {
-				strncpy(status, "UNREACHABLE", sizeof(status) - 1);
+				strcpy(status, "UNREACHABLE");
 				offline_peers++;
 			}
 			else if (peer->lastms > peer->maxms) {
@@ -2496,11 +2511,11 @@ static int dundi_show_peers(int fd, int argc, char *argv[])
 				online_peers++;
 			}
 			else {
-				strncpy(status, "UNKNOWN", sizeof(status) - 1);
+				strcpy(status, "UNKNOWN");
 				offline_peers++;
 			}
 		} else {
-			strncpy(status, "Unmonitored", sizeof(status) - 1);
+			strcpy(status, "Unmonitored");
 			unmonitored_peers++;
 		}
 		if (peer->avgms) 
@@ -3548,8 +3563,8 @@ static int dundi_lookup_internal(struct dundi_result *result, int maxret, struct
 	dr.expiration = *expiration;
 	dr.cbypass = cbypass;
 	dr.crc32 = avoid_crc32(avoid);
-	strncpy(dr.dcontext, dcontext ? dcontext : "e164", sizeof(dr.dcontext) - 1);
-	strncpy(dr.number, number, sizeof(dr.number) - 1);
+	ast_copy_string(dr.dcontext, dcontext ? dcontext : "e164", sizeof(dr.dcontext));
+	ast_copy_string(dr.number, number, sizeof(dr.number));
 	if (rooteid)
 		dr.root_eid = *rooteid;
 	res = register_request(&dr, &pending);
@@ -3741,8 +3756,8 @@ static int dundi_precache_internal(const char *context, const char *number, int 
 	memset(&dr, 0, sizeof(dr));
 	memset(&hmd, 0, sizeof(hmd));
 	dr.dr = dr2;
-	strncpy(dr.number, number, sizeof(dr.number) - 1);
-	strncpy(dr.dcontext, context ? context : "e164", sizeof(dr.dcontext) - 1);
+	ast_copy_string(dr.number, number, sizeof(dr.number));
+	ast_copy_string(dr.dcontext, context ? context : "e164", sizeof(dr.dcontext));
 	dr.maxcount = MAX_RESULTS;
 	dr.expiration = dundi_cache_time;
 	dr.hmd = &hmd;
@@ -3800,7 +3815,7 @@ static int dundi_query_eid_internal(struct dundi_entity_info *dei, const char *d
 	dr.hmd = hmd;
 	dr.dei = dei;
 	dr.pfds[0] = dr.pfds[1] = -1;
-	strncpy(dr.dcontext, dcontext ? dcontext : "e164", sizeof(dr.dcontext) - 1);
+	ast_copy_string(dr.dcontext, dcontext ? dcontext : "e164", sizeof(dr.dcontext));
 	memcpy(&dr.query_eid, eid, sizeof(dr.query_eid));
 	if (rooteid)
 		dr.root_eid = *rooteid;
@@ -3837,58 +3852,142 @@ int dundi_query_eid(struct dundi_entity_info *dei, const char *dcontext, dundi_e
 
 static int dundi_lookup_exec(struct ast_channel *chan, void *data)
 {
-	char *tmp;
-	char *context = NULL;
+	char *num;
+	char *context;
 	char *opts;
-	int res = 0;
-	int results = 0;
+	int results;
+	int x;
+	int bypass = 0;
+	struct localuser *u;
+	struct dundi_result dr[MAX_RESULTS];
+	static int dep_warning = 0;
+
+	LOCAL_USER_ADD(u);
+
+	if (!dep_warning) {
+		ast_log(LOG_WARNING, "This application has been deprecated in favor of the DUNDILOOKUP dialplan function.\n");
+		dep_warning = 1;
+	}
+
+	if (!data || ast_strlen_zero(data)) {
+		ast_log(LOG_WARNING, "DUNDiLookup requires an argument (number)\n");
+		LOCAL_USER_REMOVE(u);
+		return 0;
+	}
+
+	num = ast_strdupa(data);
+	if (!num) {
+		ast_log(LOG_ERROR, "Out of memory!\n");
+		LOCAL_USER_REMOVE(u);
+		return 0;
+	}
+
+	context = strchr(num, '|');
+	if (context) {
+		*context = '\0';
+		context++;
+		opts = strchr(context, '|');
+		if (opts) {
+			*opts = '\0';
+			opts++;
+			if (strchr(opts, 'b'))
+				bypass = 1;
+		}
+	}
+
+	if (!context || ast_strlen_zero(context))
+		context = "e164";
+	
+	results = dundi_lookup(dr, MAX_RESULTS, NULL, context, num, bypass);
+	if (results > 0) {
+		sort_results(dr, results);
+		for (x = 0; x < results; x++) {
+			if (ast_test_flag(dr + x, DUNDI_FLAG_EXISTS)) {
+				pbx_builtin_setvar_helper(chan, "DUNDTECH", dr[x].tech);
+				pbx_builtin_setvar_helper(chan, "DUNDDEST", dr[x].dest);
+				break;
+			}
+		}
+	} else if (option_priority_jumping)
+		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
+
+	LOCAL_USER_REMOVE(u);
+
+	return 0;
+}
+
+static char *dundifunc_read(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len)
+{
+	char *num;
+	char *context;
+	char *opts;
+	int results;
 	int x;
 	int bypass = 0;
 	struct localuser *u;
 	struct dundi_result dr[MAX_RESULTS];
 
-	if (!data || !strlen(data)) {
-		ast_log(LOG_WARNING, "DUNDiLookup requires an argument (number)\n");
-		return 0;
+	LOCAL_USER_ACF_ADD(u);
+
+	buf[0] = '\0';
+
+	if (!data || ast_strlen_zero(data)) {
+		ast_log(LOG_WARNING, "DUNDILOOKUP requires an argument (number)\n");
+		LOCAL_USER_REMOVE(u);
+		return buf;
 	}
-	LOCAL_USER_ADD(u);
-	tmp = ast_strdupa(data);
-	if (tmp) {
-		context = strchr(tmp, '|');
-		if (context) {
-			*context = '\0';
-			context++;
-			opts = strchr(context, '|');
-			if (opts) {
-				*opts = '\0';
-				opts++;
-			}
-		} else
-			opts = NULL;
-		if (!context || !strlen(context))
-			context = "e164";
-		if (!opts)
-			opts = "";
-		
+
+	num = ast_strdupa(data);
+	if (!num) {
+		ast_log(LOG_ERROR, "Out of memory!\n");
+		LOCAL_USER_REMOVE(u);
+		return buf;
 	}
-	results = dundi_lookup(dr, MAX_RESULTS, NULL, context, tmp, bypass);
+
+	context = strchr(num, '|');
+	if (context) {
+		*context = '\0';
+		context++;
+		opts = strchr(context, '|');
+		if (opts) {
+			*opts = '\0';
+			opts++;
+			if (strchr(opts, 'b'))
+				bypass = 1;
+		}
+	}
+
+	if (!context || ast_strlen_zero(context))
+		context = "e164";
+	
+	results = dundi_lookup(dr, MAX_RESULTS, NULL, context, num, bypass);
 	if (results > 0) {
-        sort_results(dr, results);
-        for (x=0;x<results;x++) {
+		sort_results(dr, results);
+		for (x = 0; x < results; x++) {
 			if (ast_test_flag(dr + x, DUNDI_FLAG_EXISTS)) {
-				pbx_builtin_setvar_helper(chan, "DUNDTECH", dr[x].tech);
-				pbx_builtin_setvar_helper(chan, "DUNDDEST", dr[x].dest);
+				snprintf(buf, len, "%s/%s", dr[x].tech, dr[x].dest);
 				break;
-            }
-        }
-    } else {
-		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-            chan->priority += 100;
+			}
+		}
 	}
+
 	LOCAL_USER_REMOVE(u);
-	return res;
+
+	return buf;
 }
 
+static struct ast_custom_function dundi_function = {
+	.name = "DUNDILOOKUP",
+	.synopsis = "Do a DUNDi lookup of a phone number.",
+	.syntax = "DUNDILOOKUP(number[|context[|options]])",
+	.desc = "This will do a DUNDi lookup of the given phone number.\n"
+	"If no context is given, the default will be e164. The result of\n"
+	"this function will the Technology/Resource found in the DUNDi\n"
+	"lookup. If no results were found, the result will be blank.\n"
+	"If the 'b' option is specified, the internal DUNDi cache will\n"
+	"be bypassed.\n",
+	.read = dundifunc_read,
+};
 
 static void mark_peers(void)
 {
@@ -4051,13 +4150,13 @@ static void build_mapping(char *name, char *value)
 			} /* Russell was here, arrrr! */
 			if ((x == 1) && ast_strlen_zero(fields[0])) {
 				/* Placeholder mapping */
-				strncpy(map->dcontext, name, sizeof(map->dcontext) - 1);
+				ast_copy_string(map->dcontext, name, sizeof(map->dcontext));
 				map->dead = 0;
 			} else if (x >= 4) {
-				strncpy(map->dcontext, name, sizeof(map->dcontext) - 1);
-				strncpy(map->lcontext, fields[0], sizeof(map->lcontext) - 1);
+				ast_copy_string(map->dcontext, name, sizeof(map->dcontext));
+				ast_copy_string(map->lcontext, fields[0], sizeof(map->lcontext));
 				if ((sscanf(fields[1], "%d", &map->weight) == 1) && (map->weight >= 0) && (map->weight < 60000)) {
-					strncpy(map->dest, fields[3], sizeof(map->dest) - 1);
+					ast_copy_string(map->dest, fields[3], sizeof(map->dest));
 					if ((map->tech = str2tech(fields[2]))) {
 						map->dead = 0;
 					}
@@ -4216,9 +4315,9 @@ static void build_peer(dundi_eid *eid, struct ast_variable *v, int *globalpcmode
 		peer->registerid = -1;
 		while(v) {
 			if (!strcasecmp(v->name, "inkey")) {
-				strncpy(peer->inkey, v->value, sizeof(peer->inkey) - 1);
+				ast_copy_string(peer->inkey, v->value, sizeof(peer->inkey));
 			} else if (!strcasecmp(v->name, "outkey")) {
-				strncpy(peer->outkey, v->value, sizeof(peer->outkey) - 1);
+				ast_copy_string(peer->outkey, v->value, sizeof(peer->outkey));
 			} else if (!strcasecmp(v->name, "host")) {
 				if (!strcasecmp(v->value, "dynamic")) {
 					peer->dynamic = 1;
@@ -4450,7 +4549,7 @@ static int set_config(char *config_file, struct sockaddr_in* sin)
 	char *cat;
 	int format;
 	int x;
-	char hn[MAXHOSTNAMELEN]="";
+	char hn[MAXHOSTNAMELEN] = "";
 	struct ast_hostent he;
 	struct hostent *hp;
 	struct sockaddr_in sin2;
@@ -4480,7 +4579,7 @@ static int set_config(char *config_file, struct sockaddr_in* sin)
 	ast_mutex_lock(&peerlock);
 	reset_global_eid();
 	global_storehistory = 0;
-	strncpy(secretpath, "dundi", sizeof(secretpath) - 1);
+	ast_copy_string(secretpath, "dundi", sizeof(secretpath));
 	v = ast_variable_browse(cfg, "general");
 	while(v) {
 		if (!strcasecmp(v->name, "port")){ 
@@ -4544,19 +4643,19 @@ static int set_config(char *config_file, struct sockaddr_in* sin)
 				ast_log(LOG_WARNING, "Invalid tos value at line %d, should be 'lowdelay', 'throughput', 'reliability', or 'none'\n", v->lineno);
 #endif
 		} else if (!strcasecmp(v->name, "department")) {
-			strncpy(dept, v->value, sizeof(dept) - 1);
+			ast_copy_string(dept, v->value, sizeof(dept));
 		} else if (!strcasecmp(v->name, "organization")) {
-			strncpy(org, v->value, sizeof(org) - 1);
+			ast_copy_string(org, v->value, sizeof(org));
 		} else if (!strcasecmp(v->name, "locality")) {
-			strncpy(locality, v->value, sizeof(locality) - 1);
+			ast_copy_string(locality, v->value, sizeof(locality));
 		} else if (!strcasecmp(v->name, "stateprov")) {
-			strncpy(stateprov, v->value, sizeof(stateprov) - 1);
+			ast_copy_string(stateprov, v->value, sizeof(stateprov));
 		} else if (!strcasecmp(v->name, "country")) {
-			strncpy(country, v->value, sizeof(country) - 1);
+			ast_copy_string(country, v->value, sizeof(country));
 		} else if (!strcasecmp(v->name, "email")) {
-			strncpy(email, v->value, sizeof(email) - 1);
+			ast_copy_string(email, v->value, sizeof(email));
 		} else if (!strcasecmp(v->name, "phone")) {
-			strncpy(phone, v->value, sizeof(phone) - 1);
+			ast_copy_string(phone, v->value, sizeof(phone));
 		} else if (!strcasecmp(v->name, "storehistory")) {
 			global_storehistory = ast_true(v->value);
 		} else if (!strcasecmp(v->name, "cachetime")) {
@@ -4617,6 +4716,7 @@ int unload_module(void)
 	ast_cli_unregister(&cli_precache);
 	ast_cli_unregister(&cli_queryeid);
 	ast_unregister_switch(&dundi_switch);
+	ast_custom_function_unregister(&dundi_function);
 	res = ast_unregister_application(app);
 	return res;
 }
@@ -4630,7 +4730,7 @@ int reload(void)
 
 int load_module(void)
 {
-	int res=0;
+	int res = 0;
 	struct sockaddr_in sin;
 	char iabuf[INET_ADDRSTRLEN];
 	
@@ -4649,24 +4749,6 @@ int load_module(void)
 		ast_log(LOG_ERROR, "Out of memory\n");
 		return -1;
 	}
-
-	ast_cli_register(&cli_debug);
-	ast_cli_register(&cli_store_history);
-	ast_cli_register(&cli_flush);
-	ast_cli_register(&cli_no_debug);
-	ast_cli_register(&cli_no_store_history);
-	ast_cli_register(&cli_show_peers);
-	ast_cli_register(&cli_show_entityid);
-	ast_cli_register(&cli_show_trans);
-	ast_cli_register(&cli_show_requests);
-	ast_cli_register(&cli_show_mappings);
-	ast_cli_register(&cli_show_precache);
-	ast_cli_register(&cli_show_peer);
-	ast_cli_register(&cli_lookup);
-	ast_cli_register(&cli_precache);
-	ast_cli_register(&cli_queryeid);
-	if (ast_register_switch(&dundi_switch))
-		ast_log(LOG_ERROR, "Unable to register DUNDi switch\n");
 
 	set_config("dundi.conf",&sin);
 
@@ -4687,16 +4769,37 @@ int load_module(void)
 	if (setsockopt(netsocket, IPPROTO_IP, IP_TOS, &tos, sizeof(tos))) 
 		ast_log(LOG_WARNING, "Unable to set TOS to %d\n", tos);
 	
-	if (!res) {
-		res = start_network_thread();
-		if (option_verbose > 1) 
-			ast_verbose(VERBOSE_PREFIX_2 "DUNDi Ready and Listening on %s port %d\n", ast_inet_ntoa(iabuf, sizeof(iabuf), sin.sin_addr), ntohs(sin.sin_port));
-	} else {
+	res = start_network_thread();
+	if (res) {
 		ast_log(LOG_ERROR, "Unable to start network thread\n");
 		close(netsocket);
+		return -1;
 	}
-	res = ast_register_application(app, dundi_lookup_exec, synopsis, descrip);
-	return 0;
+
+	if (option_verbose > 1)
+		ast_verbose(VERBOSE_PREFIX_2 "DUNDi Ready and Listening on %s port %d\n", ast_inet_ntoa(iabuf, sizeof(iabuf), sin.sin_addr), ntohs(sin.sin_port));
+
+	ast_cli_register(&cli_debug);
+	ast_cli_register(&cli_store_history);
+	ast_cli_register(&cli_flush);
+	ast_cli_register(&cli_no_debug);
+	ast_cli_register(&cli_no_store_history);
+	ast_cli_register(&cli_show_peers);
+	ast_cli_register(&cli_show_entityid);
+	ast_cli_register(&cli_show_trans);
+	ast_cli_register(&cli_show_requests);
+	ast_cli_register(&cli_show_mappings);
+	ast_cli_register(&cli_show_precache);
+	ast_cli_register(&cli_show_peer);
+	ast_cli_register(&cli_lookup);
+	ast_cli_register(&cli_precache);
+	ast_cli_register(&cli_queryeid);
+	if (ast_register_switch(&dundi_switch))
+		ast_log(LOG_ERROR, "Unable to register DUNDi switch\n");
+	ast_register_application(app, dundi_lookup_exec, synopsis, descrip);
+	ast_custom_function_register(&dundi_function); 
+	
+	return res;
 }
 
 char *description(void)

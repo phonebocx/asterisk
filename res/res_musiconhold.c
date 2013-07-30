@@ -1,14 +1,27 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Routines implementing music on hold
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Routines implementing music on hold
+ *
+ * \arg See also \ref Config_moh
+ * 
  */
 
 #include <stdlib.h>
@@ -35,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.68 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.73 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -241,18 +254,19 @@ static int moh_files_generator(struct ast_channel *chan, void *data, int len, in
 	struct moh_files_state *state = chan->music_state;
 	struct ast_frame *f = NULL;
 	int res = 0;
+
 	state->sample_queue += samples;
 
 	while (state->sample_queue > 0) {
 		if ((f = moh_files_readframe(chan))) {
 			state->samples += f->samples;
 			res = ast_write(chan, f);
+			state->sample_queue -= f->samples;
 			ast_frfree(f);
 			if (res < 0) {
 				ast_log(LOG_WARNING, "Failed to write frame to '%s': %s\n", chan->name, strerror(errno));
 				return -1;
 			}
-			state->sample_queue -= f->samples;
 		} else
 			return -1;	
 	}
@@ -799,9 +813,11 @@ static int moh_register(struct mohclass *moh)
 
 		if (!strcasecmp(moh->mode, "custom"))
 			ast_set_flag(moh, MOH_CUSTOM);
-		else if (!strcasecmp(moh->mode, "mp3nb") || !strcasecmp(moh->mode, "quietmp3nb"))
+		else if (!strcasecmp(moh->mode, "mp3nb"))
 			ast_set_flag(moh, MOH_SINGLE);
-		else if (!strcasecmp(moh->mode, "quietmp3") || !strcasecmp(moh->mode, "quietmp3nb"))
+		else if (!strcasecmp(moh->mode, "quietmp3nb"))
+			ast_set_flag(moh, MOH_SINGLE | MOH_QUIET);
+		else if (!strcasecmp(moh->mode, "quietmp3"))
 			ast_set_flag(moh, MOH_QUIET);
 		
 		moh->srcfd = -1;
@@ -1052,7 +1068,7 @@ static void ast_moh_destroy(void)
 			pid = moh->pid;
 			moh->pid = 0;
 			kill(pid, SIGKILL);
-			while ((ast_wait_for_input(moh->srcfd, 100) > -1) && (bytes = read(moh->srcfd, buff, 8192)) && time(NULL) < stime) {
+			while ((ast_wait_for_input(moh->srcfd, 100) > 0) && (bytes = read(moh->srcfd, buff, 8192)) && time(NULL) < stime) {
 				tbytes = tbytes + bytes;
 			}
 			ast_log(LOG_DEBUG, "mpg123 pid %d and child died after %d bytes read\n", pid, tbytes);
@@ -1119,6 +1135,7 @@ static int moh_classes_show(int fd, int argc, char *argv[])
 	ast_mutex_lock(&moh_lock);
 	for (class = mohclasses; class; class = class->next) {
 		ast_cli(fd, "Class: %s\n", class->name);
+		ast_cli(fd, "\tMode: %s\n", ast_strlen_zero(class->mode) ? "<none>" : class->mode);
 		ast_cli(fd, "\tDirectory: %s\n", ast_strlen_zero(class->dir) ? "<none>" : class->dir);
 		if (ast_test_flag(class, MOH_CUSTOM))
 			ast_cli(fd, "\tApplication: %s\n", ast_strlen_zero(class->args) ? "<none>" : class->args);

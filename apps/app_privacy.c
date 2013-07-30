@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Block all calls without Caller*ID, require phone # to be entered
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Block all calls without Caller*ID, require phone # to be entered
+ * 
  */
 
 #include <string.h>
@@ -16,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -74,7 +85,7 @@ privacy_exec (struct ast_channel *chan, void *data)
 	struct ast_config *cfg;
 
 	LOCAL_USER_ADD (u);
-	if (chan->cid.cid_num && !ast_strlen_zero(chan->cid.cid_num)) {
+	if (!ast_strlen_zero(chan->cid.cid_num)) {
 		if (option_verbose > 2)
 			ast_verbose (VERBOSE_PREFIX_3 "CallerID Present: Skipping\n");
 	} else {
@@ -144,9 +155,8 @@ privacy_exec (struct ast_channel *chan, void *data)
 			if (option_verbose > 2)
 				ast_verbose (VERBOSE_PREFIX_3 "Changed Caller*ID to %s\n",phone);
 		} else {
-			/*Send the call to n+101 priority, where n is the current priority*/
-			if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-				chan->priority+=100;
+			/* Send the call to n+101 priority, where n is the current priority  */
+			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 		}
 		if (cfg) 
 			ast_config_destroy(cfg);
@@ -159,8 +169,13 @@ privacy_exec (struct ast_channel *chan, void *data)
 int
 unload_module (void)
 {
-  STANDARD_HANGUP_LOCALUSERS;
-  return ast_unregister_application (app);
+	int res;
+
+	res = ast_unregister_application (app);
+
+	STANDARD_HANGUP_LOCALUSERS;
+
+	return res;
 }
 
 int

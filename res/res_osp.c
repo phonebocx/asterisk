@@ -1,14 +1,26 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Provide Open Settlement Protocol capability
- * 
- * Copyright (C) 2004 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Provide Open Settlement Protocol capability
+ * 
+ * \arg See also: \ref chan_sip.c
  */
 
 #include <sys/types.h>
@@ -26,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -45,6 +57,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 #include "asterisk/lock.h"
 #include "asterisk/causes.h"
 #include "asterisk/callerid.h"
+#include "asterisk/pbx.h"
 
 #define MAX_CERTS 10
 #define MAX_SERVICEPOINTS 10
@@ -62,6 +75,7 @@ AST_MUTEX_DEFINE_STATIC(osplock);
 
 static int initialized = 0;
 static int hardware = 0;
+static unsigned tokenformat = TOKEN_ALGO_SIGNED;
 
 struct osp_provider {
 	char name[OSP_MAX];
@@ -277,13 +291,28 @@ static int show_osp(int fd, int argc, char *argv[])
 	char *search = NULL;
 	int x;
 	int found = 0;
+	char *tokenalgo;
+
 	if ((argc < 2) || (argc > 3))
 		return RESULT_SHOWUSAGE;
 	if (argc > 2)
 		search = argv[2];
-	if (!search) 
-		ast_cli(fd, "OSP: %s %s\n", initialized ? "Initialized" : "Uninitialized", hardware ? "Accelerated" : "Normal");
-	
+	if (!search) {
+		switch (tokenformat) {
+			case TOKEN_ALGO_BOTH:
+				tokenalgo = "Both";
+				break;
+			case TOKEN_ALGO_UNSIGNED:
+				tokenalgo = "Unsigned";
+				break;
+			case TOKEN_ALGO_SIGNED:
+			default:
+				tokenalgo = "Signed";
+				break;
+		}
+		ast_cli(fd, "OSP: %s %s %s\n", initialized ? "Initialized" : "Uninitialized", hardware ? "Accelerated" : "Normal", tokenalgo);
+	}
+
 	ast_mutex_lock(&osplock);
 	osp = providers;
 	while(osp) {
@@ -475,7 +504,7 @@ int ast_osp_validate(char *provider, char *token, int *handle, unsigned int *tim
 		res = 0;
 		dummy = 0;
 		if (!OSPPTransactionValidateAuthorisation(*handle, iabuf, source, NULL, NULL, 
-			callerid, OSPC_E164, extension, OSPC_E164, 0, "", tokenlen, token2, &authorised, timelimit, &dummy, NULL, TOKEN_ALGO_BOTH)) {
+			callerid, OSPC_E164, extension, OSPC_E164, 0, "", tokenlen, token2, &authorised, timelimit, &dummy, NULL, tokenformat)) {
 			if (authorised) {
 				ast_log(LOG_DEBUG, "Validated token for '%s' from '%s@%s'\n", extension, callerid, iabuf);
 				res = 1;
@@ -494,16 +523,17 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 	unsigned int dummy=0;
 	unsigned int timelimit;
 	unsigned int callidlen;
+	char callidstr[OSPC_CALLID_MAXSIZE] = "";
 	struct osp_provider *osp;
 	char source[OSP_MAX] = ""; /* Same length as osp->source */
-	char uniqueid[32] = "";
 	char callednum[2048]="";
 	char callingnum[2048]="";
 	char destination[2048]="";
 	char token[2000];
 	char tmp[256]="", *l, *n;
-	OSPTCALLID *callid;
 	OSPE_DEST_PROT prot;
+	OSPE_DEST_OSP_ENABLED ospenabled;
+	char *devinfo = NULL;
 
 	result->handle = -1;
 	result->numresults = 0;
@@ -528,7 +558,6 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 	callerid = l;
 
 	if (chan) {
-		ast_copy_string(uniqueid, chan->uniqueid, sizeof(uniqueid));
 		cres = ast_autoservice_start(chan);
 		if (cres < 0)
 			return cres;
@@ -550,61 +579,71 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 	ast_mutex_unlock(&osplock);
 	if (res) {
 		res = 0;
-		callid = OSPPCallIdNew(strlen(uniqueid), uniqueid);
-		if (callid) {
-			/* No more than 10 back */
-			counts = 10;
-			dummy = 0;
-			callidlen = sizeof(uniqueid);
-			if (!OSPPTransactionRequestAuthorisation(result->handle, source, "", 
-				  callerid,OSPC_E164, extension, OSPC_E164, NULL, 1, &callid, NULL, &counts, &dummy, NULL)) {
-				if (counts) {
-					tokenlen = sizeof(token);
-					result->numresults = counts - 1;
-					if (!OSPPTransactionGetFirstDestination(result->handle, 0, NULL, NULL, &timelimit, &callidlen, uniqueid, 
-						sizeof(callednum), callednum, sizeof(callingnum), callingnum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
-						ast_log(LOG_DEBUG, "Got destination '%s' and called: '%s' calling: '%s' for '%s' (provider '%s')\n",
-							destination, callednum, callingnum, extension, provider);
-						do {
-							ast_base64encode(result->token, token, tokenlen, sizeof(result->token) - 1);
-							if ((strlen(destination) > 2) && !OSPPTransactionGetDestProtocol(result->handle, &prot)) {
-								res = 1;
-								/* Strip leading and trailing brackets */
-								destination[strlen(destination) - 1] = '\0';
-								switch(prot) {
-								case OSPE_DEST_PROT_H323_SETUP:
-									ast_copy_string(result->tech, "H323", sizeof(result->tech));
-									snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
-									break;
-								case OSPE_DEST_PROT_SIP:
-									ast_copy_string(result->tech, "SIP", sizeof(result->tech));
-									snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
-									break;
-								case OSPE_DEST_PROT_IAX:
-									ast_copy_string(result->tech, "IAX", sizeof(result->tech));
-									snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
-									break;
-								default:
-									ast_log(LOG_DEBUG, "Unknown destination protocol '%d', skipping...\n", prot);
-									res = 0;
-								}
-								if (!res && result->numresults) {
-									result->numresults--;
-									if (OSPPTransactionGetNextDestination(result->handle, OSPC_FAIL_INCOMPATIBLE_DEST, 0, NULL, NULL, &timelimit, &callidlen, uniqueid, 
-											sizeof(callednum), callednum, sizeof(callingnum), callingnum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
-											break;
-									}
-								}
-							} else {
-								ast_log(LOG_DEBUG, "Missing destination protocol\n");
-								break;
-							}
-						} while(!res && result->numresults);
+		/* No more than 10 back */
+		counts = 10;
+		dummy = 0;
+		devinfo = pbx_builtin_getvar_helper (chan, "OSPPEER");
+		if (!devinfo) {
+			devinfo = "";
+		}
+		if (!OSPPTransactionRequestAuthorisation(result->handle, source, devinfo, 
+			  callerid,OSPC_E164, extension, OSPC_E164, NULL, 0, NULL, NULL, &counts, &dummy, NULL)) {
+			if (counts) {
+				tokenlen = sizeof(token);
+				result->numresults = counts - 1;
+				callidlen = sizeof(callidstr);
+				if (!OSPPTransactionGetFirstDestination(result->handle, 0, NULL, NULL, &timelimit, &callidlen, callidstr, 
+					sizeof(callednum), callednum, sizeof(callingnum), callingnum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
+					ast_log(LOG_DEBUG, "Got destination '%s' and called: '%s' calling: '%s' for '%s' (provider '%s')\n",
+						destination, callednum, callingnum, extension, provider);
+					/* Only support OSP server with only one duration limit */
+					if (ast_channel_cmpwhentohangup (chan, timelimit) < 0) {
+						ast_channel_setwhentohangup (chan, timelimit);	
 					}
+					do {
+						if (!OSPPTransactionIsDestOSPEnabled (result->handle, &ospenabled) && (ospenabled == OSPE_OSP_FALSE)) {
+							result->token[0] = 0;
+						}
+						else {
+							ast_base64encode(result->token, token, tokenlen, sizeof(result->token) - 1);
+						}
+						if ((strlen(destination) > 2) && !OSPPTransactionGetDestProtocol(result->handle, &prot)) {
+							res = 1;
+							/* Strip leading and trailing brackets */
+							destination[strlen(destination) - 1] = '\0';
+							switch(prot) {
+							case OSPE_DEST_PROT_H323_SETUP:
+								ast_copy_string(result->tech, "H323", sizeof(result->tech));
+								snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
+								break;
+							case OSPE_DEST_PROT_SIP:
+								ast_copy_string(result->tech, "SIP", sizeof(result->tech));
+								snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
+								break;
+							case OSPE_DEST_PROT_IAX:
+								ast_copy_string(result->tech, "IAX", sizeof(result->tech));
+								snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
+								break;
+							default:
+								ast_log(LOG_DEBUG, "Unknown destination protocol '%d', skipping...\n", prot);
+								res = 0;
+							}
+							if (!res && result->numresults) {
+								result->numresults--;
+								callidlen = sizeof(callidstr);
+								if (OSPPTransactionGetNextDestination(result->handle, OSPC_FAIL_INCOMPATIBLE_DEST, 0, NULL, NULL, &timelimit, &callidlen, callidstr, 
+										sizeof(callednum), callednum, sizeof(callingnum), callingnum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
+										break;
+								}
+							}
+						} else {
+							ast_log(LOG_DEBUG, "Missing destination protocol\n");
+							break;
+						}
+					} while(!res && result->numresults);
 				}
-				
 			}
-			OSPPCallIdDelete(&callid);
+			
 		}
 		if (!res) {
 			OSPPTransactionDelete(result->handle);
@@ -629,12 +668,13 @@ int ast_osp_next(struct ast_osp_result *result, int cause)
 	unsigned int dummy=0;
 	unsigned int timelimit;
 	unsigned int callidlen;
-	char uniqueid[32] = "";
+	char callidstr[OSPC_CALLID_MAXSIZE] = "";
 	char callednum[2048]="";
 	char callingnum[2048]="";
 	char destination[2048]="";
 	char token[2000];
 	OSPE_DEST_PROT prot;
+	OSPE_DEST_OSP_ENABLED ospenabled;
 
 	result->tech[0] = '\0';
 	result->dest[0] = '\0';
@@ -642,14 +682,19 @@ int ast_osp_next(struct ast_osp_result *result, int cause)
 
 	if (result->handle > -1) {
 		dummy = 0;
-		callidlen = sizeof(uniqueid);
 		if (result->numresults) {
 			tokenlen = sizeof(token);
 			while(!res && result->numresults) {
 				result->numresults--;
-				if (!OSPPTransactionGetNextDestination(result->handle, OSPC_FAIL_INCOMPATIBLE_DEST, 0, NULL, NULL, &timelimit, &callidlen, uniqueid, 
+				callidlen = sizeof(callidstr);
+				if (!OSPPTransactionGetNextDestination(result->handle, OSPC_FAIL_INCOMPATIBLE_DEST, 0, NULL, NULL, &timelimit, &callidlen, callidstr, 
 									sizeof(callednum), callednum, sizeof(callingnum), callingnum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
-					ast_base64encode(result->token, token, tokenlen, sizeof(result->token) - 1);
+					if (!OSPPTransactionIsDestOSPEnabled (result->handle, &ospenabled) && (ospenabled == OSPE_OSP_FALSE)) {
+						result->token[0] = 0;
+					}
+					else {
+						ast_base64encode(result->token, token, tokenlen, sizeof(result->token) - 1);
+					}
 					if ((strlen(destination) > 2) && !OSPPTransactionGetDestProtocol(result->handle, &prot)) {
 						res = 1;
 						/* Strip leading and trailing brackets */
@@ -761,6 +806,13 @@ static int config_load(void)
 			else
 				OSPPInit(0);
 			initialized = 1;
+		}
+		cat = ast_variable_retrieve(cfg, "general", "tokenformat");
+		if (cat) {
+			if ((sscanf(cat, "%d", &tokenformat) != 1) || (tokenformat < TOKEN_ALGO_SIGNED) || (tokenformat > TOKEN_ALGO_BOTH)) {
+				tokenformat = TOKEN_ALGO_SIGNED;
+				ast_log(LOG_WARNING, "tokenformat should be an integer from 0 to 2, not '%s'\n", cat);
+			}
 		}
 		cat = ast_category_browse(cfg, NULL);
 		while(cat) {

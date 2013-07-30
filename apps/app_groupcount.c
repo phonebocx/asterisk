@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Group Manipulation Applications
- *
- * Copyright (c) 2004 - 2005, Digium Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Group Manipulation Applications
+ *
  */
 
 #include <stdio.h>
@@ -20,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -106,12 +117,12 @@ static int group_set_exec(struct ast_channel *chan, void *data)
 	struct localuser *u;
 	static int deprecation_warning = 0;
 
+	LOCAL_USER_ADD(u);
+	
 	if (!deprecation_warning) {
 	        ast_log(LOG_WARNING, "The SetGroup application has been deprecated, please use the GROUP() function.\n");
 		deprecation_warning = 1;
 	}
-
-	LOCAL_USER_ADD(u);
 
 	if (ast_app_group_set_channel(chan, data))
 		ast_log(LOG_WARNING, "SetGroup requires an argument (group name)\n");
@@ -129,26 +140,24 @@ static int group_check_exec(struct ast_channel *chan, void *data)
 	char category[80]="";
 	static int deprecation_warning = 0;
 
-	LOCAL_USER_ADD(u);
-
 	if (!deprecation_warning) {
 	        ast_log(LOG_WARNING, "The CheckGroup application has been deprecated, please use a combination of the GotoIf application and the GROUP_COUNT() function.\n");
 		deprecation_warning = 1;
 	}
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "CheckGroup requires an argument(max[@category])\n");
 		return res;
 	}
+
+	LOCAL_USER_ADD(u);
 
   	ast_app_group_split_group(data, limit, sizeof(limit), category, sizeof(category));
 
  	if ((sscanf(limit, "%d", &max) == 1) && (max > -1)) {
 		count = ast_app_group_get_count(pbx_builtin_getvar_helper(chan, category), category);
 		if (count > max) {
-			if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-				chan->priority += 100;
-			else
+			if (!ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101))
 				res = -1;
 		}
 	} else
@@ -258,23 +267,28 @@ static struct ast_cli_entry  cli_show_channels =
 int unload_module(void)
 {
 	int res;
-	STANDARD_HANGUP_LOCALUSERS;
-	ast_cli_unregister(&cli_show_channels);
-	res = ast_unregister_application(app_group_count);
+
+	res = ast_cli_unregister(&cli_show_channels);
+	res |= ast_unregister_application(app_group_count);
 	res |= ast_unregister_application(app_group_set);
 	res |= ast_unregister_application(app_group_check);
 	res |= ast_unregister_application(app_group_match_count);
+
+	STANDARD_HANGUP_LOCALUSERS;
+
 	return res;
 }
 
 int load_module(void)
 {
 	int res;
+
 	res = ast_register_application(app_group_count, group_count_exec, group_count_synopsis, group_count_descrip);
 	res |= ast_register_application(app_group_set, group_set_exec, group_set_synopsis, group_set_descrip);
 	res |= ast_register_application(app_group_check, group_check_exec, group_check_synopsis, group_check_descrip);
 	res |= ast_register_application(app_group_match_count, group_match_count_exec, group_match_count_synopsis, group_match_count_descrip);
-	ast_cli_register(&cli_show_channels);
+	res |= ast_cli_register(&cli_show_channels);
+	
 	return res;
 }
 

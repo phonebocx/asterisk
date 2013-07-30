@@ -1,16 +1,33 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Store CDR records in a SQLite database.
- * 
  * Copyright (C) 2004 - 2005, Holger Schurig
  *
- * Holger Schurig <hs4233@mail.mn-solutions.de>
- *
- * This program is free software, distributed under the terms of
- * the GNU General Public License.
  *
  * Ideas taken from other cdr_*.c files
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Store CDR records in a SQLite database.
+ * 
+ * \author Holger Schurig <hs4233@mail.mn-solutions.de>
+ *
+ * See also
+ * \arg \ref Config_cdr
+ * \arg http://www.sqlite.org/
+ * 
+ * Creates the database and table on-the-fly
  */
 
 #include <sys/types.h>
@@ -22,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/module.h"
@@ -41,6 +58,7 @@ static sqlite* db = NULL;
 
 AST_MUTEX_DEFINE_STATIC(sqlite_lock);
 
+/*! \brief SQL table format */
 static char sql_create_table[] = "CREATE TABLE cdr ("
 "	AcctId		INTEGER PRIMARY KEY,"
 "	clid		VARCHAR(80),"

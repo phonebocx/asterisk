@@ -1,12 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * UserEvent application -- send manager event
- * 
+ * Copyright (C) 1999 - 2005, Digium, Inc.
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
  */
+
+/*! \file
+ *
+ * \brief UserEvent application -- send manager event
+ * 
+ */
+
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -15,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.5 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -49,32 +62,39 @@ LOCAL_USER_DECL;
 static int userevent_exec(struct ast_channel *chan, void *data)
 {
 	struct localuser *u;
-	char info[512];
-    char eventname[512];
+	char *info;
+	char eventname[512];
 	char *eventbody;
 
-	if (!data || !strlen(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "UserEvent requires an argument (eventname|optional event body)\n");
 		return -1;
 	}
 
-	strncpy(info, (char *)data, strlen((char *)data) + AST_MAX_EXTENSION-1);
+	LOCAL_USER_ADD(u);
+
+	info = ast_strdupa(data);
+	if (!info) {
+		ast_log(LOG_ERROR, "Out of memory\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
+
 	snprintf(eventname, sizeof(eventname), "UserEvent%s", info);
 	eventbody = strchr(eventname, '|');
 	if (eventbody) {
 		*eventbody = '\0';
 		eventbody++;
 	}
-	LOCAL_USER_ADD(u);
-
+	
 	if(eventbody) {
             ast_log(LOG_DEBUG, "Sending user event: %s, %s\n", eventname, eventbody);
-            manager_event(EVENT_FLAG_CALL, eventname, 
+            manager_event(EVENT_FLAG_USER, eventname, 
 			"Channel: %s\r\nUniqueid: %s\r\n%s\r\n",
 			chan->name, chan->uniqueid, eventbody);
 	} else {
             ast_log(LOG_DEBUG, "Sending user event: %s\n", eventname);
-            manager_event(EVENT_FLAG_CALL, eventname, 
+            manager_event(EVENT_FLAG_USER, eventname, 
 			"Channel: %s\r\nUniqueid: %s\r\n", chan->name, chan->uniqueid);
 	}
 
@@ -84,8 +104,13 @@ static int userevent_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

@@ -10,6 +10,10 @@
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
+
+/*!\file
+ * \brief Implementation of the IAX2 protocol
+ */
  
 #ifndef _IAX2_PARSER_H
 #define _IAX2_PARSER_H
@@ -136,7 +140,7 @@ extern int iax_ie_append_raw(struct iax_ie_data *ied, unsigned char ie, void *da
 extern int iax_ie_append_addr(struct iax_ie_data *ied, unsigned char ie, struct sockaddr_in *sin);
 extern int iax_ie_append_int(struct iax_ie_data *ied, unsigned char ie, unsigned int value);
 extern int iax_ie_append_short(struct iax_ie_data *ied, unsigned char ie, unsigned short value);
-extern int iax_ie_append_str(struct iax_ie_data *ied, unsigned char ie, unsigned char *str);
+extern int iax_ie_append_str(struct iax_ie_data *ied, unsigned char ie, char *str);
 extern int iax_ie_append_byte(struct iax_ie_data *ied, unsigned char ie, unsigned char dat);
 extern int iax_ie_append(struct iax_ie_data *ied, unsigned char ie);
 extern int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen);

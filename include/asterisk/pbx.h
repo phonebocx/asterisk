@@ -1,15 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Core PBX routines and definitions.
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
  */
+
+/*! \file
+ * \brief Core PBX routines and definitions.
+ */
+
 #ifndef _ASTERISK_PBX_H
 #define _ASTERISK_PBX_H
 
@@ -34,14 +44,35 @@ extern "C" {
 #define PRIORITY_HINT	-1
 
 /*! Extension states */
-/*! No device INUSE or BUSY  */
-#define AST_EXTENSION_NOT_INUSE		0
-/*! One or more devices INUSE */
-#define AST_EXTENSION_INUSE		1
-/*! All devices BUSY */
-#define AST_EXTENSION_BUSY		2
-/*! All devices UNAVAILABLE/UNREGISTERED */
-#define AST_EXTENSION_UNAVAILABLE 	3
+enum ast_extension_states {
+	/*! Extension removed */
+	AST_EXTENSION_REMOVED = -2,
+	/*! Extension hint removed */
+	AST_EXTENSION_DEACTIVATED = -1,
+	/*! No device INUSE or BUSY  */
+	AST_EXTENSION_NOT_INUSE = 0,
+	/*! One or more devices INUSE */
+	AST_EXTENSION_INUSE = 1 << 0,
+	/*! All devices BUSY */
+	AST_EXTENSION_BUSY = 1 << 1,
+	/*! All devices UNAVAILABLE/UNREGISTERED */
+	AST_EXTENSION_UNAVAILABLE = 1 << 2,
+	/*! All devices RINGING */
+	AST_EXTENSION_RINGING = 1 << 3,
+};
+
+
+static const struct cfextension_states {
+	int extension_state;
+	const char * const text;
+} extension_states[] = {
+	{ AST_EXTENSION_NOT_INUSE,                     "Idle" },
+	{ AST_EXTENSION_INUSE,                         "InUse" },
+	{ AST_EXTENSION_BUSY,                          "Busy" },
+	{ AST_EXTENSION_UNAVAILABLE,                   "Unavailable" },
+	{ AST_EXTENSION_RINGING,                       "Ringing" },
+	{ AST_EXTENSION_INUSE | AST_EXTENSION_RINGING, "InUse&Ringing" }
+};
 
 struct ast_context;
 struct ast_exten;     
@@ -49,7 +80,7 @@ struct ast_include;
 struct ast_ignorepat;
 struct ast_sw;
 
-typedef int (*ast_state_cb_type)(char *context, char* id, int state, void *data);
+typedef int (*ast_state_cb_type)(char *context, char* id, enum ast_extension_states state, void *data);
 
 /*! Data structure associated with a custom function */
 struct ast_custom_function {
@@ -153,7 +184,7 @@ struct ast_context *ast_context_create(struct ast_context **extcontexts, const c
 /*! Merge the temporary contexts into a global contexts list and delete from the global list the ones that are being added */
 /*!
  * \param extcontexts pointer to the ast_context structure pointer
- * \param registar of the context; if it's set the routine will delete all contexts that belong to that registrar; if NULL only the contexts that are specified in extcontexts
+ * \param registrar of the context; if it's set the routine will delete all contexts that belong to that registrar; if NULL only the contexts that are specified in extcontexts
  */
 void ast_merge_contexts_and_delete(struct ast_context **extcontexts, const char *registrar);
 
@@ -175,27 +206,34 @@ void ast_context_destroy(struct ast_context *con, const char *registrar);
  */
 struct ast_context *ast_context_find(const char *name);
 
+enum ast_pbx_result {
+	AST_PBX_SUCCESS = 0,
+	AST_PBX_FAILED = -1,
+	AST_PBX_CALL_LIMIT = -2,
+};
+
 /*! Create a new thread and start the PBX (or whatever) */
 /*!
  * \param c channel to start the pbx on
- * Starts a pbx thread on a given channel
- * It returns -1 on failure, and 0 on success
+ * \return Zero on success, non-zero on failure
  */
-int ast_pbx_start(struct ast_channel *c);
+enum ast_pbx_result ast_pbx_start(struct ast_channel *c);
 
 /*! Execute the PBX in the current thread */
 /*!
  * \param c channel to run the pbx on
- * This executes the PBX on a given channel.  It allocates a new
+ * \return Zero on success, non-zero on failure
+ * This executes the PBX on a given channel. It allocates a new
  * PBX structure for the channel, and provides all PBX functionality.
  */
-int ast_pbx_run(struct ast_channel *c);
+enum ast_pbx_result ast_pbx_run(struct ast_channel *c);
 
 /*! 
  * \param context context to add the extension to
  * \param replace
  * \param extension extension to add
  * \param priority priority level of extension addition
+ * \param label extension label
  * \param callerid callerid of extension
  * \param application application to run on the extension with that priority level
  * \param data data to pass to the application
@@ -251,6 +289,13 @@ int ast_unregister_application(const char *app);
  */
 int ast_extension_state(struct ast_channel *c, char *context, char *exten);
 
+/*! Return string of the state of an extension */
+/*!
+ * \param extension_state is the numerical state delivered by ast_extension_state
+ * Returns the state of an extension as string
+ */
+const char *ast_extension_state2str(int extension_state);
+
 /*! Registers a state change callback */
 /*!
  * \param context which context to look in
@@ -266,6 +311,7 @@ int ast_extension_state_add(const char *context, const char *exten,
 /*! Deletes a registered state change callback by ID */
 /*!
  * \param id of the callback to delete
+ * \param callback callback
  * Removes the callback from list of callbacks
  * Return 0 on success, -1 on failure
  */
@@ -275,8 +321,8 @@ int ast_extension_state_del(int id, ast_state_cb_type callback);
 /*!
  * \param hint buffer for hint
  * \param maxlen size of hint buffer
- * \param hint buffer for name portion of hint
- * \param maxlen size of name buffer
+ * \param name buffer for name portion of hint
+ * \param maxnamelen size of name buffer
  * \param c this is not important
  * \param context which context to look in
  * \param exten which extension to search for
@@ -305,7 +351,7 @@ int ast_exists_extension(struct ast_channel *c, const char *context, const char 
  * \param c this is not important
  * \param context which context to look in
  * \param exten which extension to search for
- * \param labellabel of the action within the extension to match to priority
+ * \param label label of the action within the extension to match to priority
  * \param callerid callerid to search for
  * If an priority which matches given label in extension or -1 if not found.
 \ */
@@ -367,6 +413,7 @@ int ast_spawn_extension(struct ast_channel *c, const char *context, const char *
   \param context which context extension is in
   \param exten extension to execute
   \param priority priority to execute within the given extension
+  \param callerid Caller-ID
    If it's not available, do whatever you should do for
    default extensions and halt the thread if necessary.  This function does not
    return, except on error.
@@ -453,7 +500,7 @@ int ast_context_remove_extension2(struct ast_context *con, const char *extension
 /*! Add an ignorepat */
 /*!
  * \param context which context to add the ignorpattern to
- * \param ignorpat ignorepattern to set up for the extension
+ * \param ignorepat ignorepattern to set up for the extension
  * \param registrar registrar of the ignore pattern
  * Adds an ignore pattern to a particular context.
  * Returns 0 on success, -1 on failure
@@ -475,7 +522,7 @@ int ast_context_remove_ignorepat2(struct ast_context *con, const char *ignorepat
 /*! Checks to see if a number should be ignored */
 /*!
  * \param context context to search within
- * \param extension to check whether it should be ignored or not
+ * \param pattern to check whether it should be ignored or not
  * Check if a number should be ignored with respect to dialtone cancellation.  
  * Returns 0 if the pattern should not be ignored, or non-zero if the pattern should be ignored 
  */
@@ -614,5 +661,4 @@ void ast_hint_state_changed(const char *device);
 }
 #endif
 
-
-#endif
+#endif /* _ASTERISK_PBX_H */

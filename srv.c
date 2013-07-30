@@ -1,13 +1,28 @@
 /*
- * ENUM Support for Asterisk
+ * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2003 Digium
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Written by Mark Spencer <markster@digium.com>
+ * Mark Spencer <markster@digium.com>
  *
  * Funding provided by nic.at
  *
- * Distributed under the terms of the GNU GPL
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief DNS SRV Record Lookup Support for Asterisk
+ * 
+ * \arg See also \ref AstENUM
  *
  */
 
@@ -24,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/logger.h"

@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Playback a file with audio detect
- * 
- * Copyright (C) 2004 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Playback a file with audio detect
+ * 
  */
  
 #include <string.h>
@@ -16,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -54,7 +65,7 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
 	struct localuser *u;
-	char tmp[256];
+	char *tmp;
 	char *options;
 	char *stringp;
 	struct ast_frame *fr;
@@ -66,11 +77,21 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 	int x;
 	int origrformat=0;
 	struct ast_dsp *dsp;
-	if (!data || ast_strlen_zero((char *)data)) {
+	
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "BackgroundDetect requires an argument (filename)\n");
 		return -1;
 	}
-	ast_copy_string(tmp, (char *)data, sizeof(tmp));
+
+	LOCAL_USER_ADD(u);
+
+	tmp = ast_strdupa(data);
+	if (!tmp) {
+		ast_log(LOG_ERROR, "Out of memory\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}	
+
 	stringp=tmp;
 	strsep(&stringp, "|");
 	options = strsep(&stringp, "|");
@@ -90,7 +111,6 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 	}
 	ast_log(LOG_DEBUG, "Preparing detect of '%s', sil=%d,min=%d,max=%d\n", 
 						tmp, sil, min, max);
-	LOCAL_USER_ADD(u);
 	if (chan->_state != AST_STATE_UP) {
 		/* Otherwise answer unless we're supposed to send this while on-hook */
 		res = ast_answer(chan);
@@ -155,10 +175,7 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 									sprintf(ms_str, "%d", ms );	
 									pbx_builtin_setvar_helper(chan, "TALK_DETECTED", ms_str);
 									
-									if (ast_exists_extension(chan, chan->context, "talk", 1, chan->cid.cid_num)) {
-										ast_copy_string(chan->exten, "talk", sizeof(chan->exten));
-										chan->priority = 0;
-									}
+									ast_goto_if_exists(chan, chan->context, "talk", 1);
 									res = 0;
 									ast_frfree(fr);
 									break;
@@ -200,8 +217,13 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

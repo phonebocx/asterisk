@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * String manipulation dialplan functions
- * 
  * Copyright (C) 2005, Digium, Inc.
  * Portions Copyright (C) 2005, Tilghman Lesher.  All rights reserved.
  * Portions Copyright (C) 2005, Anthony Minessale II
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief String manipulation dialplan functions
+ * 
  */
 
 #include <stdlib.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -58,39 +69,43 @@ struct ast_custom_function fieldqty_function = {
 
 static char *builtin_function_regex(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len) 
 {
-	char *ret_true = "1", *ret_false = "0", *ret;
-	char *arg, *earg, *tmp, errstr[256] = "";
+	char *arg, *earg = NULL, *tmp, errstr[256] = "";
 	int errcode;
 	regex_t regexbuf;
 
-	ret = ret_false; /* convince me otherwise */
+	ast_copy_string(buf, "0", len);
+	
 	tmp = ast_strdupa(data);
-	if (tmp) {
-		/* Regex in quotes */
-		arg = strchr(tmp, '"');
-		if (arg) {
-			arg++;
-			earg = strrchr(arg, '"');
-			if (earg) {
-				*earg = '\0';
-			}
-		} else {
-			arg = tmp;
-		}
-
-		if ((errcode = regcomp(&regexbuf, arg, REG_EXTENDED | REG_NOSUB))) {
-			regerror(errcode, &regexbuf, errstr, sizeof(errstr));
-			ast_log(LOG_WARNING, "Malformed input %s(%s): %s\n", cmd, data, errstr);
-			ret = NULL;
-		} else {
-			ret = regexec(&regexbuf, data, 0, NULL, 0) ? ret_false : ret_true;
-		}
-		regfree(&regexbuf);
-	} else {
+	if (!tmp) {
 		ast_log(LOG_ERROR, "Out of memory in %s(%s)\n", cmd, data);
+		return buf;
 	}
 
-	return ret;
+	/* Regex in quotes */
+	arg = strchr(tmp, '"');
+	if (arg) {
+		arg++;
+		earg = strrchr(arg, '"');
+		if (earg) {
+			*earg++ = '\0';
+			/* Skip over any spaces before the data we are checking */
+			while (*earg == ' ')
+				earg++;
+		}
+	} else {
+		arg = tmp;
+	}
+
+	if ((errcode = regcomp(&regexbuf, arg, REG_EXTENDED | REG_NOSUB))) {
+		regerror(errcode, &regexbuf, errstr, sizeof(errstr));
+		ast_log(LOG_WARNING, "Malformed input %s(%s): %s\n", cmd, data, errstr);
+	} else {
+		if (!regexec(&regexbuf, earg ? earg : "", 0, NULL, 0))
+			ast_copy_string(buf, "1", len); 
+	}
+	regfree(&regexbuf);
+
+	return buf;
 }
 
 #ifndef BUILTIN_FUNC
@@ -125,42 +140,43 @@ struct ast_custom_function len_function = {
 
 static char *acf_strftime(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len) 
 {
-	char *format, *epoch, *timezone;
+	char *format, *epoch, *timezone = NULL;
 	long epochi;
 	struct tm time;
 
-	if (data) {
-		format = ast_strdupa(data);
-		if (format) {
-			epoch = strsep(&format, "|");
-			timezone = strsep(&format, "|");
+	buf[0] = '\0';
 
-			if (epoch && !ast_strlen_zero(epoch) && sscanf(epoch, "%ld", &epochi) == 1) {
-			} else {
-				struct timeval tv = ast_tvnow();
-				epochi = tv.tv_sec;
-			}
-
-			ast_localtime(&epochi, &time, timezone);
-
-			if (!format) {
-				format = "%c";
-			}
-
-			buf[0] = '\0';
-			if (! strftime(buf, len, format, &time)) {
-				ast_log(LOG_WARNING, "C function strftime() output nothing?!!\n");
-			}
-			buf[len - 1] = '\0';
-
-			return buf;
-		} else {
-			ast_log(LOG_ERROR, "Out of memory\n");
-		}
-	} else {
+	if (!data) {
 		ast_log(LOG_ERROR, "Asterisk function STRFTIME() requires an argument.\n");
+		return buf;
 	}
-	return "";
+	
+	format = ast_strdupa(data);
+	if (!format) {
+		ast_log(LOG_ERROR, "Out of memory\n");
+		return buf;
+	}
+	
+	epoch = strsep(&format, "|");
+	timezone = strsep(&format, "|");
+
+	if (!epoch || ast_strlen_zero(epoch) || !sscanf(epoch, "%ld", &epochi)) {
+		struct timeval tv = ast_tvnow();
+		epochi = tv.tv_sec;
+	}
+
+	ast_localtime(&epochi, &time, timezone);
+
+	if (!format) {
+		format = "%c";
+	}
+
+	if (!strftime(buf, len, format, &time)) {
+		ast_log(LOG_WARNING, "C function strftime() output nothing?!!\n");
+	}
+	buf[len - 1] = '\0';
+
+	return buf;
 }
 
 #ifndef BUILTIN_FUNC
@@ -175,11 +191,13 @@ struct ast_custom_function strftime_function = {
 
 static char *function_eval(struct ast_channel *chan, char *cmd, char *data, char *buf, size_t len) 
 {
+	memset(buf, 0, len);
+
 	if (!data || ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "EVAL requires an argument: EVAL(<variable>)\n");
+		ast_log(LOG_WARNING, "EVAL requires an argument: EVAL(<string>)\n");
 		return buf;
 	}
-	
+
 	pbx_substitute_variables_helper(chan, data, buf, len - 1);
 
 	return buf;

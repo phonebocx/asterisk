@@ -1,15 +1,25 @@
-/** @file res_indications.c 
+/*
+ * Asterisk -- An open source telephony toolkit.
  *
- * Asterisk -- A telephony toolkit for Linux.
- *
- * Load the indications
- * 
  * Copyright (C) 2002, Pauline Middelink
  *
- * Pauline Middelink <middelink@polyware.nl>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file res_indications.c 
+ *
+ * \brief Load the indications
+ * 
+ * \author Pauline Middelink <middelink@polyware.nl>
  *
  * Load the country specific dialtones into the asterisk PBX.
  */
@@ -24,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"

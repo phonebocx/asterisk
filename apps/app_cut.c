@@ -1,15 +1,22 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
- *
- * Cut application
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (c) 2003 Tilghman Lesher.  All rights reserved.
  *
  * Tilghman Lesher <app_cut__v003@the-tilghman.com>
  *
- * $Id: app_cut.c,v 1.12 2005/08/26 20:01:22 kpfleming Exp $
- *
  * This code is released by the author with no restrictions on usage.
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ */
+
+/*! \file
+ * \brief Cut application
  *
  */
 
@@ -20,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -85,7 +92,7 @@ static int sort_subroutine(const void *arg1, const void *arg2)
 static int sort_internal(struct ast_channel *chan, char *data, char *buffer, size_t buflen)
 {
 	char *strings, *ptrkey, *ptrvalue;
-	int count=1, count2;
+	int count=1, count2, element_count=0;
 	struct sortable_keys *sortable_keys;
 
 	memset(buffer, 0, buflen);
@@ -131,12 +138,12 @@ static int sort_internal(struct ast_channel *chan, char *data, char *buffer, siz
 	qsort(sortable_keys, count, sizeof(struct sortable_keys), sort_subroutine);
 
 	for (count2 = 0; count2 < count; count2++) {
-		strncat(buffer + strlen(buffer), sortable_keys[count2].key, buflen - strlen(buffer));
-		strncat(buffer + strlen(buffer), ",", buflen - strlen(buffer));
+		int blen = strlen(buffer);
+		if (element_count++) {
+			strncat(buffer + blen, ",", buflen - blen - 1);
+		}
+		strncat(buffer + blen + 1, sortable_keys[count2].key, buflen - blen - 2);
 	}
-
-	/* Remove trailing comma */
-	buffer[strlen(buffer) - 1] = '\0';
 
 	return 0;
 }
@@ -254,7 +261,6 @@ static int sort_exec(struct ast_channel *chan, void *data)
 	char *varname, *strings, result[512] = "";
 	static int dep_warning=0;
 
-	LOCAL_USER_ADD(u);
 	if (!dep_warning) {
 		ast_log(LOG_WARNING, "The application Sort is deprecated.  Please use the SORT() function instead.\n");
 		dep_warning=1;
@@ -262,9 +268,10 @@ static int sort_exec(struct ast_channel *chan, void *data)
 
 	if (!data) {
 		ast_log(LOG_ERROR, "Sort() requires an argument\n");
-		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
+
+	LOCAL_USER_ADD(u);
 
 	strings = ast_strdupa((char *)data);
 	if (!strings) {
@@ -419,19 +426,28 @@ struct ast_custom_function acf_cut = {
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_custom_function_unregister(&acf_cut);
+	res |= ast_custom_function_unregister(&acf_sort);
+	res |= ast_unregister_application(app_sort);
+	res |= ast_unregister_application(app_cut);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	ast_custom_function_unregister(&acf_cut);
-	ast_custom_function_unregister(&acf_sort);
-	ast_unregister_application(app_sort);
-	return ast_unregister_application(app_cut);
+
+	return res;
 }
 
 int load_module(void)
 {
-	ast_custom_function_register(&acf_cut);
-	ast_custom_function_register(&acf_sort);
-	ast_register_application(app_sort, sort_exec, app_sort_synopsis, app_sort_descrip);
-	return ast_register_application(app_cut, cut_exec, cut_synopsis, cut_descrip);
+	int res;
+
+	res = ast_custom_function_register(&acf_cut);
+	res |= ast_custom_function_register(&acf_sort);
+	res |= ast_register_application(app_sort, sort_exec, app_sort_synopsis, app_sort_descrip);
+	res |= ast_register_application(app_cut, cut_exec, cut_synopsis, cut_descrip);
+
+	return res;
 }
 
 char *description(void)

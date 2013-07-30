@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Compile symbolic Asterisk Extension Logic into Asterisk extensions
- * 
- * Copyright (C) 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Compile symbolic Asterisk Extension Logic into Asterisk extensions
+ * 
  */
 
 #include <sys/types.h>
@@ -20,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/config.h"
@@ -31,7 +42,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
 
 struct stringlink {
 	struct stringlink *next;
-	unsigned char data[0];
+	char data[0];
 };
 
 #define FILLIN_BREAK		1
@@ -63,44 +74,6 @@ static int aeldebug = 0;
 static char *dtext = "Asterisk Extension Language Compiler";
 static char *config = "extensions.ael";
 static char *registrar = "pbx_ael";
-
-/*
- * Static code
- */
-static char *process_quotes_and_slashes(char *start, char find, char replace_with)
-{
- 	char *dataPut = start;
-	int inEscape = 0;
-	int inQuotes = 0;
-
-	for (; *start; start++) {
-		if (inEscape) {
-			*dataPut++ = *start;       /* Always goes verbatim */
-			inEscape = 0;
-    		} else {
-			if (*start == '\\') {
-				inEscape = 1;      /* Do not copy \ into the data */
-			} else if (*start == '\'') {
-				inQuotes = 1-inQuotes;   /* Do not copy ' into the data */
-			} else {
-				/* Replace , with |, unless in quotes */
-				*dataPut++ = inQuotes ? *start : ((*start==find) ? replace_with : *start);
-			}
-		}
-	}
-	if (start != dataPut)
-		*dataPut = 0;
-	return dataPut;
-}
-
-/*
- * Standard module functions ...
- */
-int unload_module(void)
-{
-	ast_context_destroy(NULL, registrar);
-	return 0;
-}
 
 static char *__grab_token(char *src, const char *filename, int lineno, int link)
 {
@@ -137,9 +110,7 @@ static char *__grab_token(char *src, const char *filename, int lineno, int link)
 					*b = '\0'; 
 					b--; 
 				}
-				a = src;
-				while(*a && (*a < 33))
-					a++;
+				a = ast_skip_blanks(src);
 				if (link) {
 					ret = malloc(strlen(a) + sizeof(struct stringlink) + 1);
 					if (ret)
@@ -210,13 +181,13 @@ static char *grab_else(char *args, const char *filename, int lineno)
 								/* Ladies and gentlemen, we have an else clause */
 							*c = '\0';
 							c += 4;
-							while(*c && (*c < 33)) c++;
+							c = ast_skip_blanks(c);
 							ret = c;
 							if (aeldebug & DEBUG_TOKENS)
 								ast_verbose("Returning else clause '%s'\n", c);
 						}
+						break;
 					}
-					break;
 				}
 				c++;
 			}
@@ -237,7 +208,7 @@ static struct stringlink *param_parse(char *parms, const char *macro, const char
 	}
 	s = parms + 1;
 	while(*s) {
-		while(*s && (*s < 33)) s++;
+		s = ast_skip_blanks(s);
 		e = s;
 		while(*e &&  (*e != ')') && (*e != ',')) {
 			if (*e < 33)
@@ -249,7 +220,7 @@ static struct stringlink *param_parse(char *parms, const char *macro, const char
 			*e = '\0';
 			e++;
 			/* Skip over whitespace */
-			while(*e && (*e < 33)) e++;
+			e = ast_skip_blanks(e);
 			/* Link */
 			cur = malloc(strlen(s) + sizeof(struct stringlink) + 1);
 			if (cur) {
@@ -293,15 +264,14 @@ static struct stringlink *split_token(char *token, const char *filename, int lin
 	while (*args && (*args > 32) && (*args != '{') && (*args != '(')) args++;
 	if (*args) {
 		p = args;
-		while (*args && (*args < 33))
-			args++;
+		args = ast_skip_blanks(args);
 		if (*args != '(') {
 			*p = '\0';
 		} else {
 			while (*args && (*args != ')')) args++;
 			if (*args == ')') {
 				args++;
-				while (*args && (*args < 33)) args++;
+				args = ast_skip_blanks(args);
 			}
 		}
 		if (!*args)
@@ -334,8 +304,7 @@ static struct stringlink *split_params(char *token, const char *filename, int li
 		if (*params != '(') {
 			*params = '\0';
 			params++;
-			while(*params && (*params < 33))
-				params++;
+			params = ast_skip_blanks(params);
 		}
 		if (!*params)
 			params = NULL;
@@ -352,18 +321,18 @@ static const char *get_case(char *s, char **restout, int *pattern)
 	char *rest=NULL;
 	if (!strncasecmp(s, "case", 4) && s[4] && ((s[4] < 33) || (s[4] == ':'))) {
 		newcase = s + 4;
-		while (*newcase && (*newcase < 33)) newcase++;
+		newcase = ast_skip_blanks(newcase);
 		rest = newcase;
 		*pattern = 0;
 	} else if (!strncasecmp(s, "pattern", 7) && s[7] && ((s[7] < 33) || (s[7] == ':'))) {
 		newcase = s + 8;
-		while (*newcase && (*newcase < 33)) newcase++;
+		newcase = ast_skip_blanks(newcase);
 		rest = newcase;
 		*pattern = 1;
 	} else if (!strncasecmp(s, "default", 7) && ((s[7] < 33) || (s[7] == ':'))) {
 		newcase = ".";
 		rest = s + 7;
-		while (*rest && (*rest < 33)) rest++;
+		rest = ast_skip_blanks(rest);
 		*pattern = 1;
 	}
 
@@ -438,23 +407,23 @@ static int match_assignment(char *variable, char **value)
 	int inpar = 0;
 	c = variable;
 	
-	while(*c && (*c > 32)) {
-	  if(*c == ')' && (inpar > 0)) {
-	    inpar--;
-	  } else if(*c == '(' && (inpar >= 0)) {
-	    inpar++;
-	  } else if(*c == '=' && (inpar == 0)) {
-	    break;
-	  }
-	  c++;
+	while (*c && (*c > 32)) {
+		if(*c == ')' && (inpar > 0)) {
+			inpar--;
+		} else if(*c == '(' && (inpar >= 0)) {
+			inpar++;
+		} else if(*c == '=' && (inpar == 0)) {
+			break;
+		}
+		c++;
 	} 
 	ws = c;
-	while(*c && (*c < 33)) c++;
+	c = ast_skip_blanks(c);
 	if (*c == '=') {
 		*ws = '\0';
 		*c = '\0';
 		c++;
-		while ((*c) && (*c < 33)) c++;
+		c = ast_skip_blanks(c);
 		*value = c;
 		return 1;
 	}
@@ -470,7 +439,7 @@ static int matches_label(char *data, char **rest)
 		data++;
 	}
 	if (last != ':') {
-		while (*data && (*data < 33)) data++;
+		data = ast_skip_blanks(data);
 		last = *data;
 		data++;
 	}
@@ -482,6 +451,27 @@ static int matches_label(char *data, char **rest)
 		return 1;
 	}
 	return 0;
+}
+
+static char *argument_end(char *str)
+{
+	int level=0;
+	while(*++str) {
+		switch(*str) {
+		case '(':
+			level++;
+			break;
+		case ')':
+			if(level)
+				level--;
+			else
+				return str;
+			break;
+		default:
+			break;
+		}
+	}
+	return NULL;
 }
 
 static int build_step(const char *what, const char *name, const char *filename, int lineno, struct ast_context *con, char *exten, int *pos, char *data, struct fillin **fillout, char **label);
@@ -499,11 +489,12 @@ static int __build_step(const char *what, const char *name, const char *filename
 	int mlen;
 	int pattern = 0;
 	struct fillin *fillin;
-	while (*data && (*data < 33)) data++;
+	
+	data = ast_skip_blanks(data);
 	if (matches_label(data, &c)) {
 		*label = data;
 		data = c;
-		while (*data && (*data < 33)) data++;
+		data = ast_skip_blanks(data);
 	}
 	if (!data || ast_strlen_zero(data))
 		return 0;
@@ -512,7 +503,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 		/* Switch */
 		args = data + strlen("switch");
 		while ((*args < 33) && (*args != '(')) args++;
-		if ((*args == '(') && (c = strchr(args, ')'))) {
+		if ((*args == '(') && (c = argument_end(args))) {
 			args++;
 			*c = '\0';
 			c++;
@@ -522,7 +513,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 			margs = alloca(mlen);
 			app = "Goto";
 			sprintf(margs, "sw-%s-%d-%s|1", name, *pos, args);
-			process_quotes_and_slashes(margs, ',', '|');
+			ast_process_quotes_and_slashes(margs, ',', '|');
 			oargs = args;
 			args = margs;
 			if (ast_add_extension2(con, 0, exten, *pos, *label, NULL, app, strdup(args), FREE, registrar))
@@ -539,7 +530,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 				*label = NULL;
 				(*pos)++;
 			}
-			while(*c && (*c < 33)) c++;
+			c = ast_skip_blanks(c);
 			if (aeldebug & DEBUG_TOKENS)
 				ast_verbose("ARG Parsing '%s'\n", c);
 			swargs = arg_parse(c, filename, lineno);
@@ -597,7 +588,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 		/* If... */
 		args = data + strlen("if");
 		while ((*args < 33) && (*args != '(')) args++;
-		if ((*args == '(') && (c = strchr(args, ')'))) {
+		if ((*args == '(') && (c = argument_end(args))) {
 			int ifblock;
 			int ifstart;
 			int elsestart;
@@ -608,7 +599,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 			args++;
 			*c = '\0';
 			c++;
-			while(*c && (*c < 33)) c++;
+			c = ast_skip_blanks(c);
 			if (aeldebug & DEBUG_TOKENS)
 				ast_verbose("--IF on : '%s' : '%s'\n", args, c);
 			mlen = strlen(exten) + 128 + strlen(args) + strlen(name);
@@ -649,7 +640,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 			if (ifskip) {
 				/* Skip as appropriate around else clause */
 				snprintf(margs, mlen, "%d", ifend);
-				if (ast_add_extension2(con, 0, exten, ifskip, NULL, NULL, app, strdup(margs), FREE, registrar))
+				if (ast_add_extension2(con, 0, exten, ifskip, NULL, NULL, "Goto", strdup(margs), FREE, registrar))
 					ast_log(LOG_WARNING, "Unable to add step at priority '%d' of %s '%s'\n", *pos, what, name);
 			}
 		} else
@@ -659,7 +650,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 		fillin = NULL;
 		args = data + strlen("while");
 		while ((*args < 33) && (*args != '(')) args++;
-		if ((*args == '(') && (c = strchr(args, ')'))) {
+		if ((*args == '(') && (c = argument_end(args))) {
 			int whileblock;
 			int whilestart;
 			int whileend;
@@ -667,7 +658,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 			args++;
 			*c = '\0';
 			c++;
-			while(*c && (*c < 33)) c++;
+			c = ast_skip_blanks(c);
 			if (aeldebug & DEBUG_TOKENS)
 				ast_verbose("--WHILE on : '%s' : '%s'\n", args, c);
 			mlen = strlen(exten) + 128 + strlen(args) + strlen(name);
@@ -707,7 +698,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 		/* Jump... */
 		fillin = NULL;
 		args = data + strlen("jump");
-		while(*args && (*args < 33)) args++;
+		args = ast_skip_blanks(args);
 		if (aeldebug & DEBUG_TOKENS)
 			ast_verbose("--JUMP to : '%s'\n", args);
 		p = strchr(args, ',');
@@ -735,7 +726,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 		/* Jump... */
 		fillin = NULL;
 		args = data + strlen("goto");
-		while(*args && (*args < 33)) args++;
+		args = ast_skip_blanks(args);
 		if (aeldebug & DEBUG_TOKENS)
 			ast_verbose("--GOTO to : '%s'\n", args);
 		app = "Goto";
@@ -747,7 +738,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 		fillin = NULL;
 		args = data + strlen("for");
 		while ((*args < 33) && (*args != '(')) args++;
-		if ((*args == '(') && (c = strchr(args, ')'))) {
+		if ((*args == '(') && (c = argument_end(args))) {
 			int forblock;
 			int forprep;
 			int forstart;
@@ -758,7 +749,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 			args++;
 			*c = '\0';
 			c++;
-			while(*c && (*c < 33)) c++;
+			c = ast_skip_blanks(c);
 			/* Parse arguments first */
 			tmp = alloca(strlen(args) + 10);
 			if (tmp) {
@@ -852,7 +843,7 @@ static int __build_step(const char *what, const char *name, const char *filename
 			if ((c >= args) && (*c == ')')) *c = '\0';
 		} else
 			args = "";
-		process_quotes_and_slashes(args, ',', '|');
+		ast_process_quotes_and_slashes(args, ',', '|');
 		if (app[0] == '&') {
 			app++;
 			margs = alloca(strlen(args) + strlen(app) + 10);
@@ -904,7 +895,7 @@ static int parse_catch(char *data, char **catch, char **rest)
 {
 	/* Skip the word 'catch' */
 	data += 5;
-	while (*data && (*data < 33)) data++;
+	data = ast_skip_blanks(data);
 	/* Here's the extension */
 	*catch = data;
 	if (!*data)
@@ -915,7 +906,7 @@ static int parse_catch(char *data, char **catch, char **rest)
 	/* Trim any trailing spaces */
 	*data = '\0';
 	data++;
-	while(*data && (*data < 33)) data++;
+	data = ast_skip_blanks(data);
 	if (!*data)
 		return 0;
 	*rest = data;
@@ -989,14 +980,14 @@ static int matches_extension(char *exten, char **extout)
 	if (*c) {
 		*c = '\0';
 		c++;
-		while(*c && (*c < 33)) c++;
+		c = ast_skip_blanks(c);
 		if (*c) {
 			if (*c == '=') {
 				*c = '\0';
 				c++;
 				if (*c == '>')
 					c++;
-				while (*c && (*c < 33)) c++;
+				c = ast_skip_blanks(c);
 				*extout = c;
 				return 1;
 			}
@@ -1013,7 +1004,7 @@ static void parse_keyword(char *s, char **o)
 	if (*c) {
 		*c = '\0';
 		c++;
-		while(*c && (*c < 33)) c++;
+		c = ast_skip_blanks(c);
 		*o = c;
 	} else
 		*o = NULL;
@@ -1201,176 +1192,76 @@ static int pbx_load_module(void)
 	for (con = ast_walk_contexts(NULL); con; con = ast_walk_contexts(con))
 		ast_context_verify_includes(con);
 
-#if 0
-		v = ast_variable_browse(cfg, "globals");
-		while(v) {
-			memset(realvalue, 0, sizeof(realvalue));
-			pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
-			pbx_builtin_setvar_helper(NULL, v->name, realvalue);
-			v = v->next;
-		}
-		cxt = ast_category_browse(cfg, NULL);
-		while(cxt) {
-			/* All categories but "general" or "globals" are considered contexts */
-			if (!strcasecmp(cxt, "general") || !strcasecmp(cxt, "globals")) {
-				cxt = ast_category_browse(cfg, cxt);
-				continue;
-			}
-			if ((con=ast_context_create(&local_contexts,cxt, registrar))) {
-				v = ast_variable_browse(cfg, cxt);
-				while(v) {
-					if (!strcasecmp(v->name, "exten")) {
-						char *stringp=NULL;
-						int ipri = -2;
-						char realext[256]="";
-						char *plus;
-						tc = strdup(v->value);
-						if(tc!=NULL){
-							stringp=tc;
-							ext = strsep(&stringp, ",");
-							if (!ext)
-								ext="";
-							cidmatch = strchr(ext, '/');
-							if (cidmatch) {
-								*cidmatch = '\0';
-								cidmatch++;
-								ast_shrink_phone_number(cidmatch);
-							}
-							pri = strsep(&stringp, ",");
-							if (!pri)
-								pri="";
-							label = strchr(pri, '(');
-							if (label) {
-								*label = '\0';
-								label++;
-								end = strchr(label, ')');
-								if (end)
-									*end = '\0';
-								else
-									ast_log(LOG_WARNING, "Label missing trailing ')' at line %d\n", v->lineno);
-							}
-							plus = strchr(pri, '+');
-							if (plus) {
-								*plus = '\0';
-								plus++;
-							}
-							if (!strcmp(pri,"hint"))
-								ipri=PRIORITY_HINT;
-							else if (!strcmp(pri, "next") || !strcmp(pri, "n")) {
-								if (lastpri > -2)
-									ipri = lastpri + 1;
-								else
-									ast_log(LOG_WARNING, "Can't use 'next' priority on the first entry!\n");
-							} else if (!strcmp(pri, "same") || !strcmp(pri, "s")) {
-								if (lastpri > -2)
-									ipri = lastpri;
-								else
-									ast_log(LOG_WARNING, "Can't use 'same' priority on the first entry!\n");
-							} else  {
-								if (sscanf(pri, "%i", &ipri) != 1) {
-									if ((ipri = ast_findlabel_extension2(NULL, con, ext, pri, cidmatch)) < 1) {
-										ast_log(LOG_WARNING, "Invalid priority/label '%s' at line %d\n", pri, v->lineno);
-										ipri = 0;
-									}
-								}
-							}
-							appl = stringp;
-							if (!appl)
-								appl="";
-							if (!(start = strchr(appl, '('))) {
-								if (stringp)
-									appl = strsep(&stringp, ",");
-								else
-									appl = "";
-							}
-							if (start && (end = strrchr(appl, ')'))) {
-								*start = *end = '\0';
-								data = start + 1;
-								process_quotes_and_slashes(data, ',', '|');
-							} else if (stringp!=NULL && *stringp=='"') {
-								stringp++;
-								data = strsep(&stringp, "\"");
-								stringp++;
-							} else {
-								if (stringp)
-									data = strsep(&stringp, ",");
-								else
-									data = "";
-							}
-
-							if (!data)
-								data="";
-							while(*appl && (*appl < 33)) appl++;
-							pbx_substitute_variables_helper(NULL, ext, realext, sizeof(realext) - 1);
-							if (ipri) {
-								if (plus)
-									ipri += atoi(plus);
-								lastpri = ipri;
-								if (!strcmp(realext, "_."))
-									ast_log(LOG_WARNING, "The use of '_.' for an extension is strongly discouraged and can have unexpected behavior.  Please use '_X.' instead at line %d\n", v->lineno);
-								if (ast_add_extension2(con, 0, realext, ipri, label, cidmatch, appl, strdup(data), FREE, registrar)) {
-									ast_log(LOG_WARNING, "Unable to register extension at line %d\n", v->lineno);
-								}
-							}
-							free(tc);
-						} else fprintf(stderr,"Error strdup returned NULL in %s\n",__PRETTY_FUNCTION__);
-					} else if(!strcasecmp(v->name, "include")) {
-						memset(realvalue, 0, sizeof(realvalue));
-						pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
-						if (ast_context_add_include2(con, realvalue, registrar))
-							ast_log(LOG_WARNING, "Unable to include context '%s' in context '%s'\n", v->value, cxt);
-					} else if(!strcasecmp(v->name, "ignorepat")) {
-						memset(realvalue, 0, sizeof(realvalue));
-						pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
-						if (ast_context_add_ignorepat2(con, realvalue, registrar))
-							ast_log(LOG_WARNING, "Unable to include ignorepat '%s' in context '%s'\n", v->value, cxt);
-					} else if (!strcasecmp(v->name, "switch") || !strcasecmp(v->name, "lswitch") || !strcasecmp(v->name, "eswitch")) {
-						char *stringp=NULL;
-						memset(realvalue, 0, sizeof(realvalue));
-						if (!strcasecmp(v->name, "switch"))
-							pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
-						else
-							strncpy(realvalue, v->value, sizeof(realvalue) - 1);
-						tc = realvalue;
-						stringp=tc;
-						appl = strsep(&stringp, "/");
-						data = strsep(&stringp, "");
-						if (!data)
-							data = "";
-						if (ast_context_add_switch2(con, appl, data, !strcasecmp(v->name, "eswitch"), registrar))
-							ast_log(LOG_WARNING, "Unable to include switch '%s' in context '%s'\n", v->value, cxt);
-					}
-					v = v->next;
-				}
-			}
-			cxt = ast_category_browse(cfg, cxt);
-		}
-		ast_config_destroy(cfg);
-	}
-	ast_merge_contexts_and_delete(&local_contexts,registrar);
-
-	for (con = ast_walk_contexts(NULL); con; con = ast_walk_contexts(con))
-		ast_context_verify_includes(con);
-
-	pbx_set_autofallthrough(autofallthrough_config);
-#endif
-
 	return 0;
 }
 
+/* CLI interface */
+static int ael_debug_read(int fd, int argc, char *argv[])
+{
+	aeldebug |= DEBUG_READ;
+	return 0;
+}
+
+static int ael_debug_tokens(int fd, int argc, char *argv[])
+{
+	aeldebug |= DEBUG_TOKENS;
+	return 0;
+}
+
+static int ael_debug_macros(int fd, int argc, char *argv[])
+{
+	aeldebug |= DEBUG_MACROS;
+	return 0;
+}
+
+static int ael_debug_contexts(int fd, int argc, char *argv[])
+{
+	aeldebug |= DEBUG_CONTEXTS;
+	return 0;
+}
+
+static int ael_no_debug(int fd, int argc, char *argv[])
+{
+	aeldebug = 0;
+	return 0;
+}
+
+static int ael_reload(int fd, int argc, char *argv[])
+{
+	ast_context_destroy(NULL, registrar);
+	return (pbx_load_module());
+}
+
+static struct ast_cli_entry  ael_cli[] = {
+	{ { "ael", "reload", NULL }, ael_reload, "Reload AEL configuration"},
+	{ { "ael", "debug", "read", NULL }, ael_debug_read, "Enable AEL read debug"},
+	{ { "ael", "debug", "tokens", NULL }, ael_debug_tokens, "Enable AEL tokens debug"},
+	{ { "ael", "debug", "macros", NULL }, ael_debug_macros, "Enable AEL macros debug"},
+	{ { "ael", "debug", "contexts", NULL }, ael_debug_contexts, "Enable AEL contexts debug"},
+	{ { "ael", "no", "debug", NULL }, ael_no_debug, "Disable AEL debug messages"},
+};
+
+/*
+ * Standard module functions ...
+ */
+int unload_module(void)
+{
+	ast_context_destroy(NULL, registrar);
+	ast_cli_unregister_multiple(ael_cli, sizeof(ael_cli)/ sizeof(ael_cli[0]));
+	return 0;
+}
+
+
 int load_module(void)
 {
-	if (pbx_load_module()) return -1;
- 
-	return 0;
+	ast_cli_register_multiple(ael_cli, sizeof(ael_cli)/ sizeof(ael_cli[0]));
+	return (pbx_load_module());
 }
 
 int reload(void)
 {
-	ast_context_destroy(NULL, registrar);
-	/* For martin's global variables, don't clear them on reload */
-	pbx_load_module();
-	return 0;
+	unload_module();
+	return (load_module());
 }
 
 int usecount(void)

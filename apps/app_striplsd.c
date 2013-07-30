@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Skeleton application
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief striplsd: Strip trailing digits app
+ * 
  */
 
 #include <stdlib.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -53,6 +64,9 @@ static int striplsd_exec(struct ast_channel *chan, void *data)
 	int maxbytes = 0;
 	int stripcount = 0;
 	int extlen = strlen(chan->exten);
+	struct localuser *u;
+
+	LOCAL_USER_ADD(u);
 
 	maxbytes = sizeof(newexten) - 1;
 	if (data) {
@@ -60,6 +74,7 @@ static int striplsd_exec(struct ast_channel *chan, void *data)
 	}
 	if (!stripcount) {
 		ast_log(LOG_DEBUG, "Ignoring, since number of digits to strip is 0\n");
+		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
 	if (extlen > stripcount) {
@@ -69,13 +84,21 @@ static int striplsd_exec(struct ast_channel *chan, void *data)
 		strncpy(newexten, chan->exten, maxbytes);
 	}
 	strncpy(chan->exten, newexten, sizeof(chan->exten)-1);
+
+	LOCAL_USER_REMOVE(u);
+
 	return 0;
 }
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

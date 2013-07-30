@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * A/Open ITU-56/2 Voice Modem Driver (Rockwell, IS-101, and others)
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief A/Open ITU-56/2 Voice Modem Driver (Rockwell, IS-101, and others)
+ * 
  */
 
 #include <stdio.h>
@@ -27,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.44 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.48 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -99,6 +110,8 @@ AST_MUTEX_DEFINE_STATIC(monlock);
 static pthread_t monitor_thread = AST_PTHREADT_NULL;
 
 static int restart_monitor(void);
+
+int dep_warning = 0;
 
 static struct ast_channel *modem_request(const char *type, int format, void *data, int *cause);
 static int modem_digit(struct ast_channel *ast, char digit);
@@ -567,9 +580,9 @@ struct ast_channel *ast_modem_new(struct ast_modem_pvt *i, int state)
 		if (!ast_strlen_zero(i->cid_name))
 			tmp->cid.cid_name = strdup(i->cid_name);
 
-		if (strlen(i->language))
+		if (!ast_strlen_zero(i->language))
 			strncpy(tmp->language,i->language, sizeof(tmp->language)-1);
-		if (strlen(i->dnid))
+		if (!ast_strlen_zero(i->dnid))
 			strncpy(tmp->exten, i->dnid, sizeof(tmp->exten) - 1);
 		i->owner = tmp;
 		ast_mutex_lock(&usecnt_lock);
@@ -815,6 +828,11 @@ static struct ast_channel *modem_request(const char *type, int format, void *dat
 	stringp=dev;
 	strsep(&stringp, ":");
 	oldformat = format;
+
+	if (!dep_warning) {
+		ast_log(LOG_WARNING, "This channel driver is deprecated.  Please see the UPGRADE.txt file.\n");
+		dep_warning = 1;
+	}
 
 	if (dev[0]=='g' && isdigit(dev[1])) {
 		/* Retrieve the group number */

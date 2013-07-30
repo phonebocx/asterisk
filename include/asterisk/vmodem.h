@@ -1,14 +1,23 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Voice Modem Definitions
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Voice Modem Definitions
  */
 
 #ifndef _ASTERISK_VMODEM_H
@@ -26,13 +35,13 @@
 #define MODEM_DEV_SPKRPHONE	6
 #define MODEM_DEV_HANDSET	9
 
-#define MODEM_DTMF_NONE	(1 << 0)
-#define MODEM_DTMF_AST	(1 << 1)
-#define MODEM_DTMF_I4L	(1 << 2)
+#define MODEM_DTMF_NONE		(1 << 0)
+#define MODEM_DTMF_AST		(1 << 1)
+#define MODEM_DTMF_I4L		(1 << 2)
 
 /* Thirty millisecond sections */
-#define MODEM_MAX_LEN 30
-#define MODEM_MAX_BUF MODEM_MAX_LEN * 16
+#define MODEM_MAX_LEN		30
+#define MODEM_MAX_BUF		MODEM_MAX_LEN * 16
 
 #define AST_MAX_INIT_STR	256
 
@@ -171,4 +180,5 @@ extern struct ast_channel *ast_modem_new(struct ast_modem_pvt *i, int state);
 /*! Trim string of trailing stuff */
 /*! Trim off trailing mess */
 extern void ast_modem_trim(char *s);
-#endif
+
+#endif /* _ASTERISK_VMODEM_H */

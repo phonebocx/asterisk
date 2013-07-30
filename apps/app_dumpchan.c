@@ -1,14 +1,27 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Application to dump channel variables
- * 
  * Copyright (C) 2004 - 2005, Anthony Minessale II.
  *
  * Anthony Minessale <anthmct@yahoo.com>
  *
+ * disclaimed to Digium
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License (and disclaimed to Digium)
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Application to dump channel variables
+ * 
  */
 
 #include <stdlib.h>
@@ -17,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -125,9 +138,10 @@ static int dumpchan_exec(struct ast_channel *chan, void *data)
 	char info[1024];
 	int level = 0;
 	static char *line = "================================================================================";
+	
 	LOCAL_USER_ADD(u);
 
-	if (data) {
+	if (!ast_strlen_zero(data)) {
 		level = atoi(data);
 	}
 
@@ -137,13 +151,19 @@ static int dumpchan_exec(struct ast_channel *chan, void *data)
 		ast_verbose("\nDumping Info For Channel: %s:\n%s\nInfo:\n%s\nVariables:\n%s%s\n",chan->name, line, info, vars, line);
 
 	LOCAL_USER_REMOVE(u);
+	
 	return res;
 }
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;
 }
 
 int load_module(void)

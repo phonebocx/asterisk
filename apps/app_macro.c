@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Macro Implementation
- * 
- * Copyright (C) 2003 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Dial plan macro Implementation
+ * 
  */
 
 #include <sys/types.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.32 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -87,10 +98,10 @@ static int macro_exec(struct ast_channel *chan, void *data)
 	int res=0;
 	char oldexten[256]="";
 	int oldpriority;
-	char pc[80];
+	char pc[80], depthc[12];
 	char oldcontext[AST_MAX_CONTEXT] = "";
 	char *offsets;
-	int offset;
+	int offset, depth;
 	int setmacrocontext=0;
 	int autoloopflag;
   
@@ -99,17 +110,36 @@ static int macro_exec(struct ast_channel *chan, void *data)
 	char *save_macro_priority;
 	char *save_macro_offset;
 	struct localuser *u;
-  
-	if (!data || ast_strlen_zero(data)) {
+ 
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Macro() requires arguments. See \"show application macro\" for help.\n");
-		return 0;
+		return -1;
 	}
 
-	tmp = ast_strdupa((char *) data);
+	LOCAL_USER_ADD(u);
+
+	/* Count how many levels deep the rabbit hole goes */
+	tmp = pbx_builtin_getvar_helper(chan, "MACRO_DEPTH");
+	if (tmp) {
+		sscanf(tmp, "%d", &depth);
+	} else {
+		depth = 0;
+	}
+
+	if (depth >= 7) {
+		ast_log(LOG_ERROR, "Macro():  possible infinite loop detected.  Returning early.\n");
+		LOCAL_USER_REMOVE(u);
+		return 0;
+	}
+	snprintf(depthc, sizeof(depthc), "%d", depth + 1);
+	pbx_builtin_setvar_helper(chan, "MACRO_DEPTH", depthc);
+
+	tmp = ast_strdupa(data);
 	rest = tmp;
 	macro = strsep(&rest, "|");
-	if (!macro || ast_strlen_zero(macro)) {
+	if (ast_strlen_zero(macro)) {
 		ast_log(LOG_WARNING, "Invalid macro name specified\n");
+		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
 	snprintf(fullmacro, sizeof(fullmacro), "macro-%s", macro);
@@ -118,10 +148,10 @@ static int macro_exec(struct ast_channel *chan, void *data)
 			ast_log(LOG_WARNING, "No such context '%s' for macro '%s'\n", fullmacro, macro);
 		else
 	  		ast_log(LOG_WARNING, "Context '%s' for macro '%s' lacks 's' extension, priority 1\n", fullmacro, macro);
+		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
-
-	LOCAL_USER_ADD(u);
+	
 	/* Save old info */
 	oldpriority = chan->priority;
 	ast_copy_string(oldexten, chan->exten, sizeof(oldexten));
@@ -174,6 +204,8 @@ static int macro_exec(struct ast_channel *chan, void *data)
 	autoloopflag = ast_test_flag(chan, AST_FLAG_IN_AUTOLOOP);
 	ast_set_flag(chan, AST_FLAG_IN_AUTOLOOP);
 	while(ast_exists_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num)) {
+		/* Reset the macro depth, if it was changed in the last iteration */
+		pbx_builtin_setvar_helper(chan, "MACRO_DEPTH", depthc);
 		if ((res = ast_spawn_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num))) {
 			/* Something bad happened, or a hangup has been requested. */
 			if (((res >= '0') && (res <= '9')) || ((res >= 'A') && (res <= 'F')) ||
@@ -215,6 +247,10 @@ static int macro_exec(struct ast_channel *chan, void *data)
 		chan->priority++;
   	}
 	out:
+	/* Reset the depth back to what it was when the routine was entered (like if we called Macro recursively) */
+	snprintf(depthc, sizeof(depthc), "%d", depth);
+	pbx_builtin_setvar_helper(chan, "MACRO_DEPTH", depthc);
+
 	ast_set2_flag(chan, autoloopflag, AST_FLAG_IN_AUTOLOOP);
   	for (x=1; x<argc; x++) {
   		/* Restore old arguments and delete ours */
@@ -273,24 +309,33 @@ static int macroif_exec(struct ast_channel *chan, void *data)
 {
 	char *expr = NULL, *label_a = NULL, *label_b = NULL;
 	int res = 0;
+	struct localuser *u;
 
-	if((expr = ast_strdupa((char *) data))) {
-		if ((label_a = strchr(expr, '?'))) {
-			*label_a = '\0';
-			label_a++;
-			if ((label_b = strchr(label_a, ':'))) {
-				*label_b = '\0';
-				label_b++;
-			}
-			if (ast_true(expr))
-				macro_exec(chan, label_a);
-			else if (label_b) 
-				macro_exec(chan, label_b);
-			
-		} else
-			ast_log(LOG_WARNING, "Invalid Syntax.\n");
-	} else 
+	LOCAL_USER_ADD(u);
+
+	expr = ast_strdupa(data);
+	if (!expr) {
 		ast_log(LOG_ERROR, "Out of Memory!\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
+
+	if ((label_a = strchr(expr, '?'))) {
+		*label_a = '\0';
+		label_a++;
+		if ((label_b = strchr(label_a, ':'))) {
+			*label_b = '\0';
+			label_b++;
+		}
+		if (ast_true(expr))
+			macro_exec(chan, label_a);
+		else if (label_b) 
+			macro_exec(chan, label_b);
+	} else
+		ast_log(LOG_WARNING, "Invalid Syntax.\n");
+
+	LOCAL_USER_REMOVE(u);
+
 	return res;
 }
 			
@@ -301,17 +346,26 @@ static int macro_exit_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(if_app);
+	res |= ast_unregister_application(exit_app);
+	res |= ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	ast_unregister_application(if_app);
-	ast_unregister_application(exit_app);
-	return ast_unregister_application(app);
+
+	return res;
 }
 
 int load_module(void)
 {
-	ast_register_application(exit_app, macro_exit_exec, exit_synopsis, exit_descrip);
-	ast_register_application(if_app, macroif_exec, if_synopsis, if_descrip);
-	return ast_register_application(app, macro_exec, synopsis, descrip);
+	int res;
+
+	res = ast_register_application(exit_app, macro_exit_exec, exit_synopsis, exit_descrip);
+	res |= ast_register_application(if_app, macroif_exec, if_synopsis, if_descrip);
+	res |= ast_register_application(app, macro_exec, synopsis, descrip);
+
+	return res;
 }
 
 char *description(void)

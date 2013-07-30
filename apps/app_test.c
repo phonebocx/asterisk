@@ -1,15 +1,26 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Applications to test connection and produce report in text file
- * 
- * Copyright (C) 2004 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  * Russell Bryant <russelb@clemson.edu>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Applications to test connection and produce report in text file
+ * 
  */
 
 #include <sys/types.h>
@@ -21,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/options.h"
@@ -31,6 +42,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
 #include "asterisk/app.h"
 #include "asterisk/pbx.h"
 #include "asterisk/utils.h"
+
+STANDARD_LOCAL_USER;
+
+LOCAL_USER_DECL;
 
 static char *tdesc = "Interface Test Application";
 
@@ -112,10 +127,6 @@ static int sendnoise(struct ast_channel *chan, int ms)
 	return res;	
 }
 
-STANDARD_LOCAL_USER;
-
-LOCAL_USER_DECL;
-
 static int testclient_exec(struct ast_channel *chan, void *data)
 {
 	struct localuser *u;
@@ -124,14 +135,15 @@ static int testclient_exec(struct ast_channel *chan, void *data)
 	char fn[80];
 	char serverver[80];
 	FILE *f;
-	LOCAL_USER_ADD(u);
 	
 	/* Check for test id */
-	if (!testid || ast_strlen_zero(testid)) {
+	if (ast_strlen_zero(testid)) {
 		ast_log(LOG_WARNING, "TestClient requires an argument - the test id\n");
 		return -1;
 	}
 	
+	LOCAL_USER_ADD(u);
+
 	if (chan->_state != AST_STATE_UP)
 		res = ast_answer(chan);
 	
@@ -477,15 +489,24 @@ static int testserver_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(testc_app);
+	res |= ast_unregister_application(tests_app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	ast_unregister_application(testc_app);
-	return ast_unregister_application(tests_app);
+
+	return res;	
 }
 
 int load_module(void)
 {
-	ast_register_application(testc_app, testclient_exec, testc_synopsis, testc_descrip);
-	return ast_register_application(tests_app, testserver_exec, tests_synopsis, tests_descrip);
+	int res;
+
+	res = ast_register_application(testc_app, testclient_exec, testc_synopsis, testc_descrip);
+	res |= ast_register_application(tests_app, testserver_exec, tests_synopsis, tests_descrip);
+
+	return res;
 }
 
 char *description(void)

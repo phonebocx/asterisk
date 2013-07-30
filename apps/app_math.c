@@ -1,12 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * simple math application
- * 
  * Copyright (C) 2004 - 2005, Andy Powell 
  *
  * Updated by Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief A simple math application
+ * 
  */
 
 #include <stdlib.h>
@@ -25,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -95,14 +108,19 @@ static int math_exec(struct ast_channel *chan, void *data)
 		deprecation_warning = 1;
 	}
 
-	if (!data) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "No parameters passed. !\n");
 		return -1;
 	}
 
 	LOCAL_USER_ADD(u);
-		
-	s = ast_strdupa((void *) data);
+
+	s = ast_strdupa(data);
+	if (!s) {
+		ast_log(LOG_ERROR, "Out of memory\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
 
 	mvar = strsep(&s, "|");
 	mvalue1 = strsep(&s, "|");
@@ -245,17 +263,17 @@ static int math_exec(struct ast_channel *chan, void *data)
 int unload_module(void)
 {
 	int res;
+	
+	res = ast_unregister_application(app_math);
+
 	STANDARD_HANGUP_LOCALUSERS;
 
-	res  = ast_unregister_application(app_math);
 	return res;
 }
 
 int load_module(void)
 {
-	int res;
-	res = ast_register_application(app_math, math_exec, math_synopsis, math_descrip);
-	return res;
+	return ast_register_application(app_math, math_exec, math_synopsis, math_descrip);
 }
 
 char *description(void)

@@ -1,16 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Check if Channel is Available
- * 
- * Copyright (C) 2003 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  * James Golovich <james@gnuinter.net>
  *
- * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Check if Channel is Available
+ * 
  */
 
 #include <stdlib.h>
@@ -22,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -62,16 +71,17 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 	int res=-1, inuse=-1, option_state=0;
 	int status;
 	struct localuser *u;
-	char info[512], tmp[512], trychan[512], *peers, *tech, *number, *rest, *cur, *options, *stringp;
+	char *info, tmp[512], trychan[512], *peers, *tech, *number, *rest, *cur, *options, *stringp;
 	struct ast_channel *tempchan;
 
-	if (!data) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "ChanIsAvail requires an argument (Zap/1&Zap/2)\n");
 		return -1;
 	}
+
 	LOCAL_USER_ADD(u);
 
-	strncpy(info, (char *)data, sizeof(info)-1);
+	info = ast_strdupa(data); 
 	stringp = info;
 	strsep(&stringp, "|");
 	options = strsep(&stringp, "|");
@@ -91,6 +101,7 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 			number = strchr(tech, '/');
 			if (!number) {
 				ast_log(LOG_WARNING, "ChanIsAvail argument takes format ([technology]/[device])\n");
+				LOCAL_USER_REMOVE(u);
 				return -1;
 			}
 			*number = '\0';
@@ -104,7 +115,7 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 				snprintf(trychan, sizeof(trychan), "%s/%s",cur,number);
 				status = inuse = ast_device_state(trychan);
 			}
-			if ((inuse < 1) && (tempchan = ast_request(tech, chan->nativeformats, number, &status))) {
+			if ((inuse <= 1) && (tempchan = ast_request(tech, chan->nativeformats, number, &status))) {
 					pbx_builtin_setvar_helper(chan, "AVAILCHAN", tempchan->name);
 					/* Store the originally used channel too */
 					snprintf(tmp, sizeof(tmp), "%s/%s", tech, number);
@@ -125,10 +136,10 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 	if (res < 1) {
 		pbx_builtin_setvar_helper(chan, "AVAILCHAN", "");
 		pbx_builtin_setvar_helper(chan, "AVAILORIGCHAN", "");
-		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-			chan->priority+=100;
-		else
+		if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
+			LOCAL_USER_REMOVE(u);
 			return -1;
+		}
 	}
 
 	LOCAL_USER_REMOVE(u);
@@ -137,8 +148,13 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res = 0;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+	
+	return res;
 }
 
 int load_module(void)

@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Flat, binary, ulaw PCM file format.
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Flat, binary, ulaw PCM file format.
+ * 
  */
  
 #include <unistd.h>
@@ -22,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.22 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -37,7 +48,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.22 $")
 struct ast_filestream {
 	void *reserved[AST_RESERVED_POINTERS];
 	/* This is what a filestream means to us */
-	int fd; /* Descriptor */
+	FILE *f; /* Descriptor */
 	struct ast_channel *owner;
 	struct ast_frame fr;				/* Frame information */
 	char waste[AST_FRIENDLY_OFFSET];	/* Buffer for sending frames, etc */
@@ -54,7 +65,7 @@ static char *name = "pcm";
 static char *desc = "Raw uLaw 8khz Audio support (PCM)";
 static char *exts = "pcm|ulaw|ul|mu";
 
-static struct ast_filestream *pcm_open(int fd)
+static struct ast_filestream *pcm_open(FILE *f)
 {
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
@@ -67,7 +78,7 @@ static struct ast_filestream *pcm_open(int fd)
 			free(tmp);
 			return NULL;
 		}
-		tmp->fd = fd;
+		tmp->f = f;
 		tmp->fr.data = tmp->buf;
 		tmp->fr.frametype = AST_FRAME_VOICE;
 		tmp->fr.subclass = AST_FORMAT_ULAW;
@@ -81,7 +92,7 @@ static struct ast_filestream *pcm_open(int fd)
 	return tmp;
 }
 
-static struct ast_filestream *pcm_rewrite(int fd, const char *comment)
+static struct ast_filestream *pcm_rewrite(FILE *f, const char *comment)
 {
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
@@ -94,7 +105,7 @@ static struct ast_filestream *pcm_rewrite(int fd, const char *comment)
 			free(tmp);
 			return NULL;
 		}
-		tmp->fd = fd;
+		tmp->f = f;
 		glistcnt++;
 		ast_mutex_unlock(&pcm_lock);
 		ast_update_use_count();
@@ -112,7 +123,7 @@ static void pcm_close(struct ast_filestream *s)
 	glistcnt--;
 	ast_mutex_unlock(&pcm_lock);
 	ast_update_use_count();
-	close(s->fd);
+	fclose(s->f);
 	free(s);
 	s = NULL;
 }
@@ -128,7 +139,7 @@ static struct ast_frame *pcm_read(struct ast_filestream *s, int *whennext)
 	s->fr.offset = AST_FRIENDLY_OFFSET;
 	s->fr.mallocd = 0;
 	s->fr.data = s->buf;
-	if ((res = read(s->fd, s->buf, BUF_SIZE)) < 1) {
+	if ((res = fread(s->buf, 1, BUF_SIZE, s->f)) < 1) {
 		if (res)
 			ast_log(LOG_WARNING, "Short read (%d) (%s)!\n", res, strerror(errno));
 		return NULL;
@@ -151,7 +162,7 @@ static int pcm_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-ulaw frame (%d)!\n", f->subclass);
 		return -1;
 	}
-	if ((res = write(fs->fd, f->data, f->datalen)) != f->datalen) {
+	if ((res = fwrite(f->data, 1, f->datalen, fs->f)) != f->datalen) {
 			ast_log(LOG_WARNING, "Bad write (%d/%d): %s\n", res, f->datalen, strerror(errno));
 			return -1;
 	}
@@ -163,8 +174,9 @@ static int pcm_seek(struct ast_filestream *fs, long sample_offset, int whence)
 	off_t offset=0,min,cur,max;
 
 	min = 0;
-	cur = lseek(fs->fd, 0, SEEK_CUR);
-	max = lseek(fs->fd, 0, SEEK_END);
+	cur = ftell(fs->f);
+	fseek(fs->f, 0, SEEK_END);
+	max = ftell(fs->f);
 	if (whence == SEEK_SET)
 		offset = sample_offset;
 	else if (whence == SEEK_CUR || whence == SEEK_FORCECUR)
@@ -176,18 +188,18 @@ static int pcm_seek(struct ast_filestream *fs, long sample_offset, int whence)
 	}
 	/* always protect against seeking past begining. */
 	offset = (offset < min)?min:offset;
-	return lseek(fs->fd, offset, SEEK_SET);
+	return fseek(fs->f, offset, SEEK_SET);
 }
 
 static int pcm_trunc(struct ast_filestream *fs)
 {
-	return ftruncate(fs->fd, lseek(fs->fd,0,SEEK_CUR));
+	return ftruncate(fileno(fs->f), ftell(fs->f));
 }
 
 static long pcm_tell(struct ast_filestream *fs)
 {
 	off_t offset;
-	offset = lseek(fs->fd, 0, SEEK_CUR);
+	offset = ftell(fs->f);
 	return offset;
 }
 

@@ -1,12 +1,25 @@
 /*
- * Loopback PBX Module
+ * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2004 - 2005, Digium Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Written by Mark Spencer <markster@digium.com>
+ * Mark Spencer <markster@digium.com>
  *
- * This program is Free Software distributed under the terms of
- * of the GNU General Public License.
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Loopback PBX Module
+ *
  */
 
 #include <stdlib.h>
@@ -16,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -75,7 +88,7 @@ static char *loopback_helper(char *buf, int buflen, const char *exten, const cha
 
 	snprintf(tmp, sizeof(tmp), "%d", priority);
 	memset(buf, 0, buflen);
-	AST_LIST_HEAD_INIT(&headp);
+	AST_LIST_HEAD_INIT_NOLOCK(&headp);
 	newvariable = ast_var_assign("EXTEN", exten);
 	AST_LIST_INSERT_HEAD(&headp, newvariable, entries);
 	newvariable = ast_var_assign("CONTEXT", context);

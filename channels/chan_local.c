@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Local Proxy Channel
- * 
- * Copyright (C) 1999-2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Local Proxy Channel
+ * 
  */
 
 #include <stdio.h>
@@ -25,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.52 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.55 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -172,26 +183,36 @@ static void check_bridge(struct local_pvt *p, int isoutbound)
 {
 	if (p->alreadymasqed || p->nooptimization)
 		return;
-	if (isoutbound && p->chan && p->chan->_bridge /* Not ast_bridged_channel!  Only go one step! */ && p->owner && !p->owner->readq) {
+	if (!p->chan || !p->owner)
+		return;
+	if (isoutbound&& p->chan->_bridge /* Not ast_bridged_channel!  Only go one step! */ && !p->owner->readq) {
 		/* Masquerade bridged channel into owner */
 		/* Lock everything we need, one by one, and give up if
 		   we can't get everything.  Remember, we'll get another
 		   chance in just a little bit */
 		if (!ast_mutex_trylock(&(p->chan->_bridge)->lock)) {
-			if (!ast_mutex_trylock(&p->owner->lock)) {
-				ast_channel_masquerade(p->owner, p->chan->_bridge);
-				p->alreadymasqed = 1;
-				ast_mutex_unlock(&p->owner->lock);
+			if (!p->chan->_bridge->_softhangup) {
+				if (!ast_mutex_trylock(&p->owner->lock)) {
+					if (!p->owner->_softhangup) {
+						ast_channel_masquerade(p->owner, p->chan->_bridge);
+						p->alreadymasqed = 1;
+					}
+					ast_mutex_unlock(&p->owner->lock);
+				}
+				ast_mutex_unlock(&(p->chan->_bridge)->lock);
 			}
-			ast_mutex_unlock(&(p->chan->_bridge)->lock);
 		}
 	} else if (!isoutbound && p->owner && p->owner->_bridge && p->chan && !p->chan->readq) {
 		/* Masquerade bridged channel into chan */
 		if (!ast_mutex_trylock(&(p->owner->_bridge)->lock)) {
-			if (!ast_mutex_trylock(&p->chan->lock)) {
-				ast_channel_masquerade(p->chan, p->owner->_bridge);
-				p->alreadymasqed = 1;
-				ast_mutex_unlock(&p->chan->lock);
+			if (!p->owner->_bridge->_softhangup) {
+				if (!ast_mutex_trylock(&p->chan->lock)) {
+					if (!p->chan->_softhangup) {
+						ast_channel_masquerade(p->chan, p->owner->_bridge);
+						p->alreadymasqed = 1;
+					}
+					ast_mutex_unlock(&p->chan->lock);
+				}
 			}
 			ast_mutex_unlock(&(p->owner->_bridge)->lock);
 		}

@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Trivial application to playback a sound file
- * 
- * Copyright (C) 1999-2005, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Trivial application to playback a sound file
+ * 
  */
  
 #include <string.h>
@@ -16,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.24 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -58,10 +69,21 @@ static int playback_exec(struct ast_channel *chan, void *data)
 	int option_noanswer = 0;
 	char *stringp = NULL;
 	char *front = NULL, *back = NULL;
-	if (!data || ast_strlen_zero((char *)data) || !(tmp = ast_strdupa(data))) {
+	
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Playback requires an argument (filename)\n");
 		return -1;
 	}
+
+	LOCAL_USER_ADD(u);
+
+	tmp = ast_strdupa(data);
+	if (!tmp) {
+		ast_log(LOG_ERROR, "Out of memory!\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;	
+	}
+
 	stringp = tmp;
 	strsep(&stringp, "|");
 	options = strsep(&stringp, "|");
@@ -69,7 +91,7 @@ static int playback_exec(struct ast_channel *chan, void *data)
 		option_skip = 1;
 	if (options && !strcasecmp(options, "noanswer"))
 		option_noanswer = 1;
-	LOCAL_USER_ADD(u);
+	
 	if (chan->_state != AST_STATE_UP) {
 		if (option_skip) {
 			/* At the user's option, skip if the line is not up */
@@ -93,8 +115,7 @@ static int playback_exec(struct ast_channel *chan, void *data)
 				ast_stopstream(chan);
 			} else {
 				ast_log(LOG_WARNING, "ast_streamfile failed on %s for %s\n", chan->name, (char *)data);
-				if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-					chan->priority+=100;
+				ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 				res = 0;
 			}
 			front = back;
@@ -106,8 +127,13 @@ static int playback_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

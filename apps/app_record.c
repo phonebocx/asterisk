@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Trivial application to record a sound file
- * 
- * Copyright (C) 2001, Linux Support Services, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Matthew Fredrickson <creslin@linux-support.net>
+ * Matthew Fredrickson <creslin@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Trivial application to record a sound file
+ *
  */
  
 #include <string.h>
@@ -16,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.34 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.41 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -78,9 +89,8 @@ static int record_exec(struct ast_channel *chan, void *data)
 	int dspsilence = 0;
 	int silence = 0;		/* amount of silence to allow */
 	int gotsilence = 0;		/* did we timeout for silence? */
-	int maxduration = 0;		/* max duration of recording */
+	int maxduration = 0;		/* max duration of recording in milliseconds */
 	int gottimeout = 0;		/* did we timeout for maxduration exceeded? */
-	time_t timeout = 0;
 	int option_skip = 0;
 	int option_noanswer = 0;
 	int option_append = 0;
@@ -89,18 +99,23 @@ static int record_exec(struct ast_channel *chan, void *data)
 	int rfmt = 0;
 	int flags;
 	
-
-
-
 	/* The next few lines of code parse out the filename and header from the input string */
-	if (!data || ast_strlen_zero(data)) { /* no data implies no filename or anything is present */
+	if (ast_strlen_zero(data)) { /* no data implies no filename or anything is present */
 		ast_log(LOG_WARNING, "Record requires an argument (filename)\n");
 		return -1;
 	}
+
+	LOCAL_USER_ADD(u);
+
 	/* Yay for strsep being easy */
 	vdata = ast_strdupa(data);
+	if (!vdata) {
+		ast_log(LOG_ERROR, "Out of memory\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
+
 	p = vdata;
-	
 	filename = strsep(&p, "|");
 	silstr = strsep(&p, "|");
 	maxstr = strsep(&p, "|");	
@@ -119,6 +134,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 	}
 	if (!ext) {
 		ast_log(LOG_WARNING, "No extension specified to filename!\n");
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 	if (silstr) {
@@ -131,7 +147,8 @@ static int record_exec(struct ast_channel *chan, void *data)
 	
 	if (maxstr) {
 		if ((sscanf(maxstr, "%d", &i) == 1) && (i > -1))
-			maxduration = i;
+			/* Convert duration to milliseconds */
+			maxduration = i * 1000;
 		else if (!ast_strlen_zero(maxstr))
 			ast_log(LOG_WARNING, "'%s' is not a valid maximum duration\n", maxstr);
 	}
@@ -169,7 +186,7 @@ static int record_exec(struct ast_channel *chan, void *data)
 		strncpy(tmp, filename, sizeof(tmp)-1);
 	/* end of routine mentioned */
 	
-	LOCAL_USER_ADD(u);
+	
 	
 	if (chan->_state != AST_STATE_UP) {
 		if (option_skip) {
@@ -202,11 +219,13 @@ static int record_exec(struct ast_channel *chan, void *data)
 			res = ast_set_read_format(chan, AST_FORMAT_SLINEAR);
 			if (res < 0) {
 				ast_log(LOG_WARNING, "Unable to set to linear mode, giving up\n");
+				LOCAL_USER_REMOVE(u);
 				return -1;
 			}
 			sildet = ast_dsp_new();
 			if (!sildet) {
 				ast_log(LOG_WARNING, "Unable to create silence detector :(\n");
+				LOCAL_USER_REMOVE(u);
 				return -1;
 			}
 			ast_dsp_set_threshold(sildet, 256);
@@ -216,16 +235,23 @@ static int record_exec(struct ast_channel *chan, void *data)
 		flags = option_append ? O_CREAT|O_APPEND|O_WRONLY : O_CREAT|O_TRUNC|O_WRONLY;
 		s = ast_writefile( tmp, ext, NULL, flags , 0, 0644);
 		
-		
 		if (s) {
-			if (maxduration > 0)
-				timeout = time(NULL) + (time_t)maxduration;
+			int waitres;
+
+			/* Request a video update */
+			ast_indicate(chan, AST_CONTROL_VIDUPDATE);
+
+			if (maxduration <= 0)
+				maxduration = -1;
 			
-			while (ast_waitfor(chan, -1) > -1) {
-				if (maxduration > 0 && time(NULL) > timeout) {
-					gottimeout = 1;
-					break;
-				}
+			while ((waitres = ast_waitfor(chan, maxduration)) > -1) {
+				if (maxduration > 0) {
+					if (waitres == 0) {
+						gottimeout = 1;
+						break;
+					}
+					maxduration = waitres;
+  				}
 				
 				f = ast_read(chan);
 				if (!f) {
@@ -290,7 +316,6 @@ static int record_exec(struct ast_channel *chan, void *data)
 	} else
 		ast_log(LOG_WARNING, "Could not answer channel '%s'\n", chan->name);
 	
-	LOCAL_USER_REMOVE(u);
 	if ((silence > 0) && rfmt) {
 		res = ast_set_read_format(chan, rfmt);
 		if (res)
@@ -298,13 +323,21 @@ static int record_exec(struct ast_channel *chan, void *data)
 		if (sildet)
 			ast_dsp_free(sildet);
 	}
+
+	LOCAL_USER_REMOVE(u);
+
 	return res;
 }
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

@@ -1,15 +1,26 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * App to set rdnis
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  * Oliver Daudey <traveler@xs4all.nl>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief App to set rdnis
+ *
  */
  
 #include <string.h>
@@ -17,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -50,22 +61,25 @@ static int setrdnis_exec(struct ast_channel *chan, void *data)
 {
 	struct localuser *u;
 	char *opt, *n, *l;
-	char tmp[256];
+	char *tmp = NULL;
 	static int deprecation_warning = 0;
 
+	LOCAL_USER_ADD(u);
+	
 	if (!deprecation_warning) {
 		ast_log(LOG_WARNING, "SetRDNIS is deprecated, please use Set(CALLERID(rdnis)=value) instead.\n");
 		deprecation_warning = 1;
 	}
 
 	if (data)
-		ast_copy_string(tmp, (char *)data, sizeof(tmp));
+		tmp = ast_strdupa(data);
 	else
-		tmp[0] = '\0';
+		tmp = "";	
+
 	opt = strchr(tmp, '|');
 	if (opt)
 		*opt = '\0';
-	LOCAL_USER_ADD(u);
+	
 	n = l = NULL;
 	ast_callerid_parse(tmp, &n, &l);
 	if (l) {
@@ -76,14 +90,21 @@ static int setrdnis_exec(struct ast_channel *chan, void *data)
 		chan->cid.cid_rdnis = (l[0]) ? strdup(l) : NULL;
 		ast_mutex_unlock(&chan->lock);
 	}
+
 	LOCAL_USER_REMOVE(u);
+	
 	return 0;
 }
 
 int unload_module(void)
 {
+	int res;
+	
+	res = ast_unregister_application(app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

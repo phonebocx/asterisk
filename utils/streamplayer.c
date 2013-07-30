@@ -1,16 +1,27 @@
 /*
+ * Asterisk -- An open source telephony toolkit.
+ *
+ * Copyright (C) 1999 - 2005, Digium, Inc.
+ *
+ * Russell Bryant <russell@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*
+*
 * streamplayer.c
 *
 * A utility for reading from a stream
 * 
-* Copyright (C) 2005, Digium, Inc.
-*
-* Russell Bryant <russell@digium.com>
-*
-* This program is free software, distributed under the terms of
-* the GNU General Public License
-*
-* $Revision: 1.3 $ 
 */
 
 #include <stdlib.h>
@@ -20,7 +31,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#if defined(__FreeBSD__) || defined(__OpenBSD__)
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__Darwin__)
 #include <netinet/in.h>
 #endif
 #include <sys/time.h>
@@ -37,6 +48,9 @@ int main(int argc, char *argv[])
 	struct timeval tv;
 
 	if (argc != 3) {
+		fprintf(stderr, "streamplayer -- A utility for reading from a stream.\n");
+		fprintf(stderr, "Written for use with Asterisk (http://www.asterisk.org)\n");
+		fprintf(stderr, "Copyright (C) 2005 -- Russell Bryant -- Digium, Inc.\n\n");
 		fprintf(stderr, "Usage: ./streamplayer <ip> <port>\n");
 		exit(1);
 	}

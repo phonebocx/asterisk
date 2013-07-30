@@ -1,16 +1,23 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Asterisk internal frame definitions.
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU Lesser General Public License.  Other components of
- * Asterisk are distributed under The GNU General Public License
- * only.
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Asterisk internal frame definitions.
  */
 
 #ifndef _ASTERISK_FRAME_H
@@ -28,7 +35,6 @@ struct ast_codec_pref {
 	char order[32];
 };
 
-
 /*! Data structure associated with a single frame of data */
 /* A frame of data read used to communicate between 
    between channels and applications */
@@ -43,7 +49,7 @@ struct ast_frame {
 	int samples;				
 	/*! Was the data malloc'd?  i.e. should we free it when we discard the frame? */
 	int mallocd;				
-	/*! How far into "data" the data really starts */
+	/*! How many bytes exist _before_ "data" that can be used if needed */
 	int offset;				
 	/*! Optional source of frame for debugging */
 	const char *src;				
@@ -55,20 +61,11 @@ struct ast_frame {
 	struct ast_frame *prev;			
 	/*! Next/Prev for linking stand alone frames */
 	struct ast_frame *next;			
-								/* Unused except if debugging is turned on, but left
-								   in the struct so that it can be turned on without
-								   requiring a recompile of the whole thing */
-};
-
-struct ast_frame_chain {
-	/* XXX Should ast_frame chain's be just prt of frames, i.e. should they just link? XXX */
-	struct ast_frame *fr;
-	struct ast_frame_chain *next;
 };
 
 #define AST_FRIENDLY_OFFSET 	64		/*! It's polite for a a new frame to
-						    				have this number of bytes for additional
-											headers.  */
+						  have this number of bytes for additional
+						  headers.  */
 #define AST_MIN_OFFSET 		32		/*! Make sure we keep at least this much handy */
 
 /*! Need the header be free'd? */
@@ -100,6 +97,8 @@ struct ast_frame_chain {
 /*! Comfort Noise frame (subclass is level of CNG in -dBov), 
     body may include zero or more 8-bit quantization coefficients */
 #define AST_FRAME_CNG		10
+/*! T.38 Fax-over-IP data stream */
+#define AST_FRAME_T38		11
 
 /* HTML subclasses */
 /*! Sending a URL */
@@ -156,7 +155,7 @@ struct ast_frame_chain {
 #define AST_FORMAT_H263		(1 << 19)
 /*! H.263+ Video */
 #define AST_FORMAT_H263_PLUS	(1 << 20)
-/*! Max one */
+/*! Maximum video format */
 #define AST_FORMAT_MAX_VIDEO	(1 << 24)
 
 /* Control frame types */
@@ -194,6 +193,8 @@ struct ast_frame_chain {
 #define AST_CONTROL_HOLD			16
 /*! Indicate call is left from hold */
 #define AST_CONTROL_UNHOLD			17
+/*! Indicate video frame update */
+#define AST_CONTROL_VIDUPDATE		18
 
 #define AST_SMOOTHER_FLAG_G729		(1 << 0)
 
@@ -217,6 +218,22 @@ struct ast_frame_chain {
 
 /* Set (or clear) Audio (Not-Clear) Mode */
 #define	AST_OPTION_AUDIO_MODE		4
+
+/* Set channel transmit gain */
+/* Option data is a single signed char
+   representing number of decibels (dB)
+   to set gain to (on top of any gain
+   specified in channel driver)
+*/
+#define AST_OPTION_TXGAIN		5
+
+/* Set channel receive gain */
+/* Option data is a single signed char
+   representing number of decibels (dB)
+   to set gain to (on top of any gain
+   specified in channel driver)
+*/
+#define AST_OPTION_RXGAIN		6
 
 struct ast_option_header {
 	/* Always keep in network byte order */
@@ -271,11 +288,6 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr);
  */
 struct ast_frame *ast_frdup(struct ast_frame *fr);
 
-/*! Chains a frame -- unimplemented */
-#if 0 /* unimplemented */
-void ast_frchain(struct ast_frame_chain *fc);
-#endif
-
 /*! Reads a frame from an fd */
 /*! 
  * \param fd an opened fd to read from
@@ -324,7 +336,7 @@ extern char* ast_getformatname(int format);
 /*! Get the names of a set of formats */
 /*!
  * \param buf a buffer for the output string
- * \param n size of buf (bytes)
+ * \param size size of buf (bytes)
  * \param format the format (combined IDs of codecs)
  * Prints a list of readable codec names corresponding to "format".
  * ex: for format=AST_FORMAT_GSM|AST_FORMAT_SPEEX|AST_FORMAT_ILBC it will return "0x602 (GSM|SPEEX|ILBC)"
@@ -387,7 +399,7 @@ extern int ast_codec_pref_append(struct ast_codec_pref *pref, int format);
 extern int ast_codec_choose(struct ast_codec_pref *pref, int formats, int find_best);
 
 /* Parse an "allow" or "deny" line and update the mask and pref if provided */
-extern void ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, char *list, int allowing);
+extern void ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, const char *list, int allowing);
 
 /* Dump codec preference list into a string */
 extern int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size);
@@ -407,9 +419,27 @@ static inline int ast_codec_interp_len(int format)
 	return (format == AST_FORMAT_ILBC) ? 30 : 20;
 }
 
+/*!
+  \brief Adjusts the volume of the audio samples contained in a frame.
+  \param f The frame containing the samples (must be AST_FRAME_VOICE and AST_FORMAT_SLINEAR)
+  \param adjustment The number of dB to adjust up or down.
+  \return 0 for success, non-zero for an error
+ */
+int ast_frame_adjust_volume(struct ast_frame *f, int adjustment);
+
+/*!
+  \brief Sums two frames of audio samples.
+  \param f1 The first frame (which will contain the result)
+  \param f2 The second frame
+  \return 0 for success, non-zero for an error
+
+  The frames must be AST_FRAME_VOICE and must contain AST_FORMAT_SLINEAR samples,
+  and must contain the same number of samples.
+ */
+int ast_frame_slinear_sum(struct ast_frame *f1, struct ast_frame *f2);
+
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif
 
-
-#endif
+#endif /* _ASTERISK_FRAME_H */

@@ -1,7 +1,7 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * PostgreSQL CDR logger 
+ * Copyright (C) 2003 - 2005
  *
  * Matthew D. Hardeman <mhardemn@papersoft.com> 
  * Adapted from the MySQL CDR logger originally by James Sharp 
@@ -9,9 +9,26 @@
  * Modified September 2003
  * Matthew D. Hardeman <mhardemn@papersoft.com>
  *
- * This program is free software, distributed under the terms of
- * the GNU General Public License.
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief PostgreSQL CDR logger 
+ * 
+ * \author Matthew D. Hardeman <mhardemn@papersoft.com> 
+ *
+ * See also
+ * \arg \ref Config_cdr
+ * \arg http://www.postgresql.org/
  */
 
 #include <sys/types.h>
@@ -26,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.23 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"

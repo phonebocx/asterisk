@@ -1,14 +1,23 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Configuration File Parser
- * 
- * Copyright (C) 1999-2005, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Configuration File Parser
  */
 
 #ifndef _ASTERISK_CONFIG_H
@@ -28,15 +37,13 @@ struct ast_variable {
 	char *name;
 	char *value;
 	int lineno;
-	int object;		/* 0 for variable, 1 for object */
-	int blanklines; 	/* Number of blanklines following entry */
+	int object;		/*!< 0 for variable, 1 for object */
+	int blanklines; 	/*!< Number of blanklines following entry */
 	struct ast_comment *precomments;
 	struct ast_comment *sameline;
 	struct ast_variable *next;
 	char stuff[0];
 };
-
-#include "asterisk/config_old.h"
 
 typedef struct ast_config *config_load_func(const char *database, const char *table, const char *configfile, struct ast_config *config);
 typedef struct ast_variable *realtime_var_get(const char *database, const char *table, va_list ap);
@@ -52,25 +59,22 @@ struct ast_config_engine {
 	struct ast_config_engine *next;
 };
 
-/*! Load a config file */
-/*! 
- * \param configfile path of file to open.  If no preceding '/' character, path is considered relative to AST_CONFIG_DIR
+/*! \brief Load a config file 
+ * \param filename path of file to open.  If no preceding '/' character, path is considered relative to AST_CONFIG_DIR
  * Create a config structure from a given configuration file.
  *
  * Returns NULL on error, or an ast_config data structure on success
  */
 struct ast_config *ast_config_load(const char *filename);
 
-/*! Destroys a config */
-/*!
+/*! \brief Destroys a config 
  * \param config pointer to config data structure
  * Free memory associated with a given config
  *
  */
 void ast_config_destroy(struct ast_config *config);
 
-/*! Goes through categories */
-/*!
+/*! \brief Goes through categories 
  * \param config Which config structure you wish to "browse"
  * \param prev A pointer to a previous category.
  * This funtion is kind of non-intuitive in it's use.  To begin, one passes NULL as the second arguement.  It will return a pointer to the string of the first category in the file.  From here on after, one must then pass the previous usage's return value as the second pointer, and it will return a pointer to the category name afterwards.
@@ -79,8 +83,7 @@ void ast_config_destroy(struct ast_config *config);
  */
 char *ast_category_browse(struct ast_config *config, const char *prev);
 
-/*! Goes through variables */
-/*!
+/*! \brief Goes through variables
  * Somewhat similar in intent as the ast_category_browse.
  * List variables of config file category
  *
@@ -88,19 +91,17 @@ char *ast_category_browse(struct ast_config *config, const char *prev);
  */
 struct ast_variable *ast_variable_browse(const struct ast_config *config, const char *category);
 
-/*! Gets a variable */
-/*!
+/*! \brief Gets a variable 
  * \param config which (opened) config to use
  * \param category category under which the variable lies
- * \param value which variable you wish to get the data for
+ * \param variable which variable you wish to get the data for
  * Goes through a given config file in the given category and searches for the given variable
  *
  * Returns the variable value on success, or NULL if unable to find it.
  */
 char *ast_variable_retrieve(const struct ast_config *config, const char *category, const char *variable);
 
-/*! Retrieve a category if it exists */
-/*!
+/*! \brief Retrieve a category if it exists
  * \param config which config to use
  * \param category_name name of the category you're looking for
  * This will search through the categories within a given config file for a match.
@@ -109,8 +110,7 @@ char *ast_variable_retrieve(const struct ast_config *config, const char *categor
  */
 struct ast_category *ast_category_get(const struct ast_config *config, const char *category_name);
 
-/*! Check for category duplicates */
-/*!
+/*! \brief Check for category duplicates 
  * \param config which config to use
  * \param category_name name of the category you're looking for
  * This will search through the categories within a given config file for a match.
@@ -119,11 +119,8 @@ struct ast_category *ast_category_get(const struct ast_config *config, const cha
  */
 int ast_category_exist(const struct ast_config *config, const char *category_name);
 
-/*! Retrieve realtime configuration */
-/*!
+/*! \brief Retrieve realtime configuration 
  * \param family which family/config to lookup
- * \param keyfield which field to use as the key
- * \param lookup which value to look for in the key field to match the entry.
  * This will use builtin configuration backends to look up a particular 
  * entity in realtime and return a variable list of its parameters.  Note
  * that unlike the variables in ast_config, the resulting list of variables
@@ -131,11 +128,8 @@ int ast_category_exist(const struct ast_config *config, const char *category_nam
  */
 struct ast_variable *ast_load_realtime(const char *family, ...);
 
-/*! Retrieve realtime configuration */
-/*!
+/*! \brief Retrieve realtime configuration 
  * \param family which family/config to lookup
- * \param keyfield which field to use as the key
- * \param lookup which value to look for in the key field to match the entry.
  * This will use builtin configuration backends to look up a particular 
  * entity in realtime and return a variable list of its parameters. Unlike
  * the ast_load_realtime, this function can return more than one entry and
@@ -144,33 +138,33 @@ struct ast_variable *ast_load_realtime(const char *family, ...);
  */
 struct ast_config *ast_load_realtime_multientry(const char *family, ...);
 
-/*! Update realtime configuration */
-/*!
+/*! \brief Update realtime configuration 
  * \param family which family/config to be updated
  * \param keyfield which field to use as the key
  * \param lookup which value to look for in the key field to match the entry.
- * \param variable which variable should be updated in the config, NULL to end list
- * \param value the value to be assigned to that variable in the given entity.
  * This function is used to update a parameter in realtime configuration space.
  *
  */
 int ast_update_realtime(const char *family, const char *keyfield, const char *lookup, ...);
 
-/*! Check if realtime engine is configured for family 
-  returns 1 if family is configured in realtime and engine exists
-  \param family which family/config to be checked
+/*! \brief Check if realtime engine is configured for family 
+ * returns 1 if family is configured in realtime and engine exists
+ * \param family which family/config to be checked
 */
 int ast_check_realtime(const char *family);
 
-/*! Free variable list */
-/*!
+/*! \brief Free variable list 
  * \param var the linked list of variables to free
  * This function frees a list of variables.
  */
 void ast_variables_destroy(struct ast_variable *var);
 
+/*! \brief Register config engine */
 int ast_config_engine_register(struct ast_config_engine *newconfig);
+
+/*! \brief Deegister config engine */
 int ast_config_engine_deregister(struct ast_config_engine *del);
+
 int register_config_cli(void);
 void read_config_maps(void);
 
@@ -197,4 +191,4 @@ struct ast_config *ast_config_internal_load(const char *configfile, struct ast_c
 }
 #endif
 
-#endif
+#endif /* _ASTERISK_CONFIG_H */

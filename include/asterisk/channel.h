@@ -1,30 +1,31 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * General Asterisk channel definitions.
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief General Asterisk PBX channel definitions.
  */
 
 #ifndef _ASTERISK_CHANNEL_H
 #define _ASTERISK_CHANNEL_H
 
-#ifdef SOLARIS
-#include <solaris-compat/compat.h>
-#endif
-#include "asterisk/frame.h"
-#include "asterisk/sched.h"
-#include "asterisk/chanvars.h"
-#include "asterisk/config.h"
-
 #include <unistd.h>
 #include <setjmp.h>
-#if defined(__APPLE__)
+#ifdef POLLCOMPAT 
 #include "asterisk/poll-compat.h"
 #else
 #include <sys/poll.h>
@@ -34,18 +35,23 @@
 extern "C" {
 #endif
 
-#include "asterisk/lock.h"
-
 /*! Max length of an extension */
 #define AST_MAX_EXTENSION	80
 
 #define AST_MAX_CONTEXT		80
 
+#define AST_CHANNEL_NAME	80
+
+#include "asterisk/compat.h"
+#include "asterisk/frame.h"
+#include "asterisk/sched.h"
+#include "asterisk/chanvars.h"
+#include "asterisk/config.h"
+#include "asterisk/lock.h"
 #include "asterisk/cdr.h"
 #include "asterisk/monitor.h"
 #include "asterisk/utils.h"
-
-#define AST_CHANNEL_NAME	80
+#include "asterisk/linkedlists.h"
 
 #define MAX_LANGUAGE		20
 
@@ -138,7 +144,7 @@ struct ast_channel_tech {
 
 	/*! Bridge two channels of the same type together */
 	enum ast_bridge_result (* const bridge)(struct ast_channel *c0, struct ast_channel *c1, int flags,
-						struct ast_frame **fo, struct ast_channel **rc);
+						struct ast_frame **fo, struct ast_channel **rc, int timeoutms);
 
 	/*! Indicate a particular condition (e.g. AST_CONTROL_BUSY or AST_CONTROL_RINGING or AST_CONTROL_CONGESTION */
 	int (* const indicate)(struct ast_channel *c, int condition);
@@ -163,17 +169,48 @@ struct ast_channel_tech {
 };
 
 
-#define CHANSPY_NEW 0
-#define CHANSPY_RUNNING 1
-#define CHANSPY_DONE 2
-
-struct ast_channel_spy {
-	struct ast_frame *queue[2];
-	ast_mutex_t lock;
-	char status;
-	struct ast_channel_spy *next;
+enum chanspy_states {
+	CHANSPY_NEW = 0,
+	CHANSPY_RUNNING = 1,
+	CHANSPY_DONE = 2,
 };
 
+enum chanspy_flags {
+	CHANSPY_MIXAUDIO = (1 << 0),
+	CHANSPY_READ_VOLADJUST = (1 << 1),
+	CHANSPY_WRITE_VOLADJUST = (1 << 2),
+	CHANSPY_FORMAT_AUDIO = (1 << 3),
+	CHANSPY_TRIGGER_MODE = (3 << 4),
+	CHANSPY_TRIGGER_READ = (1 << 4),
+	CHANSPY_TRIGGER_WRITE = (2 << 4),
+	CHANSPY_TRIGGER_NONE = (3 << 4),
+	CHANSPY_TRIGGER_FLUSH = (1 << 6),
+};
+
+struct ast_channel_spy_queue {
+	struct ast_frame *head;
+	unsigned int samples;
+	unsigned int format;
+};
+
+struct ast_channel_spy {
+	ast_mutex_t lock;
+	ast_cond_t trigger;
+	struct ast_channel_spy_queue read_queue;
+	struct ast_channel_spy_queue write_queue;
+	unsigned int flags;
+	enum chanspy_states status;
+	const char *type;
+	/* The volume adjustment values are very straightforward:
+	   positive values cause the samples to be multiplied by that amount
+	   negative values cause the samples to be divided by the absolute value of that amount
+	*/
+	int read_vol_adjustment;
+	int write_vol_adjustment;
+	AST_LIST_ENTRY(ast_channel_spy) list;
+};
+
+struct ast_channel_spy_list;
 
 /*! Main Channel structure associated with a channel. */
 /*! 
@@ -280,8 +317,6 @@ struct ast_channel {
 	char dtmfq[AST_MAX_EXTENSION];		
 	/*! DTMF frame */
 	struct ast_frame dtmff;			
-	/*! Private channel implementation details */
-	struct ast_channel_pvt *pvt;
 
 	/*! PBX private structure */
 	struct ast_pbx *pbx;
@@ -340,11 +375,10 @@ struct ast_channel {
 	int rawwriteformat;
 
 	/*! Chan Spy stuff */
-	struct ast_channel_spy *spiers;
+	struct ast_channel_spy_list *spies;
 
 	/*! For easy linking */
 	struct ast_channel *next;
-
 };
 
 /* Channel tech properties: */
@@ -484,6 +518,7 @@ void  ast_channel_free(struct ast_channel *);
  * \param type type of channel to request
  * \param format requested channel format
  * \param data data to pass to the channel requester
+ * \param status status
  * Request a channel of a given type, with data as optional information used 
  * by the low level module
  * Returns an ast_channel on success, NULL on failure.
@@ -495,7 +530,9 @@ struct ast_channel *ast_request(const char *type, int format, void *data, int *s
  * \param format requested channel format
  * \param data data to pass to the channel requester
  * \param timeout maximum amount of time to wait for an answer
- * \param why unsuccessful (if unsuceessful)
+ * \param reason why unsuccessful (if unsuceessful)
+ * \param cidnum Caller-ID Number
+ * \param cidname Caller-ID Name
  * Request a channel of a given type, with data as optional information used 
  * by the low level module and attempt to place a call on it
  * Returns an ast_channel on success or no answer, NULL on failure.  Check the value of chan->_state
@@ -545,7 +582,9 @@ int ast_hangup(struct ast_channel *chan);
  * Returns 0 regardless
  */
 int ast_softhangup(struct ast_channel *chan, int cause);
+
 /*! Softly hangup up a channel (no channel lock) 
+ * \param chan channel to be soft-hung-up
  * \param cause	Ast hangupcause for hangup */
 int ast_softhangup_nolock(struct ast_channel *chan, int cause);
 
@@ -556,6 +595,18 @@ int ast_softhangup_nolock(struct ast_channel *chan, int cause);
  * Returns 0 if not, or 1 if hang up is requested (including time-out).
  */
 int ast_check_hangup(struct ast_channel *chan);
+
+/*! Compare a offset with the settings of when to hang a channel up */
+/*! 
+ * \param chan channel on which to check for hang up
+ * \param offset offset in seconds from current time
+ * \return 1, 0, or -1
+ * This function compares a offset from current time with the absolute time 
+ * out on a channel (when to hang up). If the absolute time out on a channel
+ * is earlier than current time plus the offset, it returns 1, if the two
+ * time values are equal, it return 0, otherwise, it retturn -1.
+ */
+int ast_channel_cmpwhentohangup(struct ast_channel *chan, time_t offset);
 
 /*! Set when to hang a channel up */
 /*! 
@@ -705,7 +756,7 @@ int ast_set_write_format(struct ast_channel *chan, int format);
  * Write text to a display on a channel
  * Returns 0 on success, -1 on failure
  */
-int ast_sendtext(struct ast_channel *chan, char *text);
+int ast_sendtext(struct ast_channel *chan, const char *text);
 
 /*! Receives a text character from a channel */
 /*! 
@@ -748,6 +799,12 @@ struct ast_channel *ast_get_channel_by_name_locked(const char *chan);
 
 /*! Get channel by name prefix (locks channel) */
 struct ast_channel *ast_get_channel_by_name_prefix_locked(const char *name, const int namelen);
+
+/*! Get channel by name prefix (locks channel) */
+struct ast_channel *ast_walk_channel_by_name_prefix_locked(struct ast_channel *chan, const char *name, const int namelen);
+
+/*--- ast_get_channel_by_exten_locked: Get channel by exten (and optionally context) and lock it */
+struct ast_channel *ast_get_channel_by_exten_locked(const char *exten, const char *context);
 
 /*! Waits for a digit */
 /*! 
@@ -800,7 +857,7 @@ int ast_channel_make_compatible(struct ast_channel *c0, struct ast_channel *c1);
 /*! 
  * \param c0 first channel to bridge
  * \param c1 second channel to bridge
- * \param flags for the channels
+ * \param config config for the channels
  * \param fo destination frame(?)
  * \param rc destination channel(?)
  * Bridge two channels (c0 and c1) together.  If an important frame occurs, we return that frame in
@@ -822,7 +879,7 @@ int ast_channel_masquerade(struct ast_channel *original, struct ast_channel *clo
 
 /*! Gives the string form of a given cause code */
 /*! 
- * \param cause cause to get the description of
+ * \param state cause to get the description of
  * Give a name to a cause code
  * Returns the text form of the binary cause code given
  */
@@ -838,7 +895,7 @@ char *ast_state2str(int state);
 
 /*! Gives the string form of a given transfer capability */
 /*!
- * \param transercapability transfercapabilty to get the name of
+ * \param transfercapability transfercapabilty to get the name of
  * Give a name to a transfercapbility
  * See above
  * Returns the text form of the binary transfer capbility
@@ -980,6 +1037,50 @@ void ast_channel_inherit_variables(const struct ast_channel *parent, struct ast_
 */
 void ast_set_variables(struct ast_channel *chan, struct ast_variable *vars);
 
+/*!
+  \brief Adds a spy to a channel, to begin receiving copies of the channel's audio frames.
+  \param chan The channel to add the spy to.
+  \param spy A pointer to ast_channel_spy structure describing how the spy is to be used.
+  \return 0 for success, non-zero for failure
+ */
+int ast_channel_spy_add(struct ast_channel *chan, struct ast_channel_spy *spy);
+
+/*!
+  \brief Remove a spy from a channel.
+  \param chan The channel to remove the spy from
+  \param spy The spy to be removed
+  \return nothing
+ */
+void ast_channel_spy_remove(struct ast_channel *chan, struct ast_channel_spy *spy);
+
+/*!
+  \brief Find all spies of a particular type on a channel and stop them.
+  \param chan The channel to operate on
+  \param type A character string identifying the type of spies to be stopped
+  \return nothing
+ */
+void ast_channel_spy_stop_by_type(struct ast_channel *chan, const char *type);
+
+/*!
+  \brief Read one (or more) frames of audio from a channel being spied upon.
+  \param spy The spy to operate on
+  \param samples The number of audio samples to read
+  \return NULL for failure, one ast_frame pointer, or a chain of ast_frame pointers
+
+  This function can return multiple frames if the spy structure needs to be 'flushed'
+  due to mismatched queue lengths, or if the spy structure is configured to return
+  unmixed audio (in which case each call to this function will return a frame of audio
+  from each side of channel).
+ */
+struct ast_frame *ast_channel_spy_read_frame(struct ast_channel_spy *spy, unsigned int samples);
+
+/*!
+  \brief Efficiently wait until audio is available for a spy, or an exception occurs.
+  \param spy The spy to wait on
+  \return nothing
+ */
+void ast_channel_spy_trigger_wait(struct ast_channel_spy *spy);
+
 /* Misc. functions below */
 
 /* Helper function for migrating select to poll */
@@ -1083,4 +1184,4 @@ extern char *ast_print_group(char *buf, int buflen, ast_group_t group);
 }
 #endif
 
-#endif
+#endif /* _ASTERISK_CHANNEL_H */

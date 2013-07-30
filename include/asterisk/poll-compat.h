@@ -1,5 +1,15 @@
+/*
+ * Asterisk -- An open source telephony toolkit.
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ */
+
 /*---------------------------------------------------------------------------*\
-  $Id: poll-compat.h,v 1.1 2003/10/26 18:50:49 markster Exp $
+  $Id: poll-compat.h,v 1.2 2005/08/30 18:32:10 kpfleming Exp $
 
   NAME
 

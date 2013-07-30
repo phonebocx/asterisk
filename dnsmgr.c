@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Background DNS update manager
- * 
  * Copyright (C) 2005, Kevin P. Fleming
  *
  * Kevin P. Fleming <kpfleming@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Background DNS update manager
+ * 
  */
 
 #include <sys/types.h>
@@ -25,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/dnsmgr.h"
 #include "asterisk/linkedlists.h"
@@ -71,7 +82,7 @@ struct ast_dnsmgr_entry *ast_dnsmgr_get(const char *name, struct in_addr *result
 {
 	struct ast_dnsmgr_entry *entry;
 
-	if (!name || !result || ast_strlen_zero(name))
+	if (!result || ast_strlen_zero(name))
 		return NULL;
 
 	entry = calloc(1, sizeof(*entry) + strlen(name));
@@ -101,7 +112,7 @@ void ast_dnsmgr_release(struct ast_dnsmgr_entry *entry)
 
 int ast_dnsmgr_lookup(const char *name, struct in_addr *result, struct ast_dnsmgr_entry **dnsmgr)
 {
-	if (!name || ast_strlen_zero(name) || !result || !dnsmgr)
+	if (ast_strlen_zero(name) || !result || !dnsmgr)
 		return -1;
 
 	if (*dnsmgr && !strcasecmp((*dnsmgr)->name, name))

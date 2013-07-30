@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Convenient Application Routines
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Convenient Application Routines
+ * 
  */
 
 #include <stdio.h>
@@ -25,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.72 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.80 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -199,6 +210,13 @@ int ast_app_getvoice(struct ast_channel *c, char *dest, char *dstfmt, char *prom
 					ast_frfree(f);
 					break;
 				}
+				res = ast_writestream(writer, f);
+				if (res < 0) {
+					ast_log(LOG_WARNING, "Failed to write to stream at %s!\n", dest);
+					ast_frfree(f);
+					break;
+				}
+					
 			}
 			ast_frfree(f);
 		}
@@ -261,8 +279,8 @@ int ast_app_messagecount(const char *mailbox, int *newmsgs, int *oldmsgs)
 
 int ast_dtmf_stream(struct ast_channel *chan,struct ast_channel *peer,char *digits,int between) 
 {
-	char *ptr=NULL;
-	int res=0;
+	char *ptr;
+	int res = 0;
 	struct ast_frame f;
 	if (!between)
 		between = 100;
@@ -378,11 +396,11 @@ static struct ast_generator linearstream =
 int ast_linear_stream(struct ast_channel *chan, const char *filename, int fd, int allowoverride)
 {
 	struct linear_state *lin;
-	char tmpf[256] = "";
+	char tmpf[256];
 	int res = -1;
 	int autoclose = 0;
 	if (fd < 0) {
-		if (!filename || ast_strlen_zero(filename))
+		if (ast_strlen_zero(filename))
 			return -1;
 		autoclose = 1;
 		if (filename[0] == '/') 
@@ -411,11 +429,11 @@ int ast_control_streamfile(struct ast_channel *chan, const char *file,
 			   const char *stop, const char *pause,
 			   const char *restart, int skipms) 
 {
-	long elapsed = 0,last_elapsed =0;
-	char *breaks=NULL;
-	char *end=NULL;
-	int blen=2;
-	int res=0;
+	long elapsed = 0, last_elapsed = 0;
+	char *breaks = NULL;
+	char *end = NULL;
+	int blen = 2;
+	int res;
 
 	if (stop)
 		blen += strlen(stop);
@@ -439,7 +457,6 @@ int ast_control_streamfile(struct ast_channel *chan, const char *file,
 
 	if (chan)
 		ast_stopstream(chan);
-
 
 	if (file) {
 		if ((end = strchr(file,':'))) {
@@ -615,6 +632,8 @@ int ast_play_and_record(struct ast_channel *chan, const char *playfile, const ch
 			return -1;
 		}
 	}
+	/* Request a video update */
+	ast_indicate(chan, AST_CONTROL_VIDUPDATE);
 
 	if (x == fmtcnt) {
 	/* Loop forever, writing the packets we read to the writer(s), until
@@ -682,7 +701,6 @@ int ast_play_and_record(struct ast_channel *chan, const char *playfile, const ch
 					ast_frfree(f);
 					break;
 				}
-			}
 				if (f->subclass == '0') {
 				/* Check for a '0' during message recording also, in case caller wants operator */
 					if (option_verbose > 2)
@@ -692,6 +710,7 @@ int ast_play_and_record(struct ast_channel *chan, const char *playfile, const ch
 					ast_frfree(f);
 					break;
 				}
+			}
 			if (maxtime) {
 				time(&end);
 				if (maxtime < (end - start)) {
@@ -983,10 +1002,10 @@ int ast_play_and_prepend(struct ast_channel *chan, char *playfile, char *recordf
 int ast_app_group_split_group(char *data, char *group, int group_max, char *category, int category_max)
 {
 	int res=0;
-	char tmp[256] = "";
+	char tmp[256];
 	char *grp=NULL, *cat=NULL;
 
-	if (data && !ast_strlen_zero(data)) {
+	if (!ast_strlen_zero(data)) {
 		ast_copy_string(tmp, data, sizeof(tmp));
 		grp = tmp;
 		cat = strchr(tmp, '@');
@@ -996,7 +1015,7 @@ int ast_app_group_split_group(char *data, char *group, int group_max, char *cate
 		}
 	}
 
-	if (grp && !ast_strlen_zero(grp))
+	if (!ast_strlen_zero(grp))
 		ast_copy_string(group, grp, group_max);
 	else
 		res = -1;
@@ -1028,13 +1047,13 @@ int ast_app_group_get_count(char *group, char *category)
 	struct ast_channel *chan;
 	int count = 0;
 	char *test;
-	char cat[80] = "";
+	char cat[80];
 	char *s;
 
-	if (group == NULL || ast_strlen_zero(group))
+	if (ast_strlen_zero(group))
 		return 0;
 
- 	s = (category && !ast_strlen_zero(category)) ? category : GROUP_CATEGORY_PREFIX;
+ 	s = (!ast_strlen_zero(category)) ? category : GROUP_CATEGORY_PREFIX;
 	ast_copy_string(cat, s, sizeof(cat));
 
 	chan = NULL;
@@ -1054,17 +1073,17 @@ int ast_app_group_match_get_count(char *groupmatch, char *category)
 	struct ast_channel *chan;
 	int count = 0;
 	char *test;
-	char cat[80] = "";
+	char cat[80];
 	char *s;
 
-	if (!groupmatch || ast_strlen_zero(groupmatch))
+	if (ast_strlen_zero(groupmatch))
 		return 0;
 
 	/* if regex compilation fails, return zero matches */
 	if (regcomp(&regexbuf, groupmatch, REG_EXTENDED | REG_NOSUB))
 		return 0;
 
-	s = (category && !ast_strlen_zero(category)) ? category : GROUP_CATEGORY_PREFIX;
+	s = (!ast_strlen_zero(category)) ? category : GROUP_CATEGORY_PREFIX;
 	ast_copy_string(cat, s, sizeof(cat));
 
 	chan = NULL;
@@ -1505,27 +1524,30 @@ int ast_parseoptions(const struct ast_option *options, struct ast_flags *flags, 
 	int argloc;
 	char *arg;
 	int res = 0;
+
 	flags->flags = 0;
+
 	if (!optstr)
 		return 0;
+
 	s = optstr;
-	while(*s) {
+	while (*s) {
 		curarg = *s & 0x7f;
 		flags->flags |= options[curarg].flag;
-		argloc = options[curarg].argoption;
+		argloc = options[curarg].arg_index;
 		s++;
 		if (*s == '(') {
 			/* Has argument */
 			s++;
 			arg = s;
-			while(*s && (*s != ')')) s++;
+			while (*s && (*s != ')')) s++;
 			if (*s) {
 				if (argloc)
 					args[argloc - 1] = arg;
 				*s = '\0';
 				s++;
 			} else {
-				ast_log(LOG_WARNING, "Missing closing parenthesis for argument '%c'\n", curarg);
+				ast_log(LOG_WARNING, "Missing closing parenthesis for argument '%c' in string '%s'\n", curarg, arg);
 				res = -1;
 			}
 		} else if (argloc)
@@ -1533,4 +1555,3 @@ int ast_parseoptions(const struct ast_option *options, struct ast_flags *flags, 
 	}
 	return res;
 }
-

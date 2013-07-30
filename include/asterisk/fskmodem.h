@@ -1,21 +1,28 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * FSK Modem Support 
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License.
- *
- * Includes code and algorithms from the Zapata library.
- *
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
  */
 
-#ifndef _FSKMODEM_H
-#define _FSKMODEM_H
+/*! \file
+ * \brief FSK Modem Support 
+ * \note Includes code and algorithms from the Zapata library.
+ */
+
+#ifndef _ASTERISK_FSKMODEM_H
+#define _ASTERISK_FSKMODEM_H
 
 #define PARITY_NONE		0
 #define PARITY_EVEN		1
@@ -50,7 +57,8 @@ typedef struct {
 	float cola_demod[NCOLA];	/* Cola de muestras demoduladas */
 } fsk_data;
 
-/* Retrieve a serial byte into outbyte.  Buffer is a pointer into a series of 
+/* \brief Retrieve a serial byte into outbyte.
+   Buffer is a pointer into a series of 
    shorts and len records the number of bytes in the buffer.  len will be 
    overwritten with the number of bytes left that were not consumed, and the
    return value is as follows:
@@ -60,4 +68,4 @@ typedef struct {
    He must be called with at least 80 bytes of buffer. */
 extern int fsk_serie(fsk_data *fskd, short *buffer, int *len, int *outbyte);
 
-#endif
+#endif /* _ASTERISK_FSKMODEM_H */

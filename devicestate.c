@@ -1,12 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Device state management
- * 
- * Copyright (C) 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
+ *
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Device state management
+ * 
  */
 
 #include <sys/types.h>
@@ -16,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.5 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/utils.h"
@@ -54,7 +67,7 @@ struct state_change {
 static AST_LIST_HEAD_STATIC(state_changes, state_change);
 
 static pthread_t change_thread = AST_PTHREADT_NULL;
-static pthread_cond_t change_pending;
+static ast_cond_t change_pending;
 
 /*--- devstate2str: Find devicestate as text message for output */
 const char *devstate2str(int devstate) 
@@ -109,9 +122,16 @@ int ast_device_state(const char *device)
 		return ast_parse_device_state(device);	/* No, try the generic function */
 	else {
 		res = chan_tech->devicestate(number);	/* Ask the channel driver for device state */
-		if (res == AST_DEVICE_UNKNOWN)
-			return ast_parse_device_state(device);
-		else
+		if (res == AST_DEVICE_UNKNOWN) {
+			res = ast_parse_device_state(device);
+			/* at this point we know the device exists, but the channel driver
+			   could not give us a state; if there is no channel state available,
+			   it must be 'not in use'
+			*/
+			if (res == AST_DEVICE_UNKNOWN)
+				res = AST_DEVICE_NOT_INUSE;
+			return res;
+		} else
 			return res;
 	}
 }
@@ -173,22 +193,15 @@ static void do_state_change(const char *device)
 	ast_hint_state_changed(device);
 }
 
-/*--- ast_device_state_changed: Accept change notification, add it to change queue */
-int ast_device_state_changed(const char *fmt, ...) 
+static int __ast_device_state_changed_literal(char *buf)
 {
-	char buf[AST_MAX_EXTENSION];
-	char *device;
-	char *parse;
+	char *device, *tmp;
 	struct state_change *change = NULL;
-	va_list ap;
 
-	va_start(ap, fmt);
-	vsnprintf(buf, sizeof(buf), fmt, ap);
-	va_end(ap);
-
-	parse = buf;
-	device = strsep(&parse, "-");
-
+	device = buf;
+	tmp = strrchr(device, '-');
+	if (tmp)
+		*tmp = '\0';
 	if (change_thread != AST_PTHREADT_NULL)
 		change = calloc(1, sizeof(*change) + strlen(device));
 
@@ -203,11 +216,30 @@ int ast_device_state_changed(const char *fmt, ...)
 		AST_LIST_INSERT_TAIL(&state_changes, change, list);
 		if (AST_LIST_FIRST(&state_changes) == change)
 			/* the list was empty, signal the thread */
-			pthread_cond_signal(&change_pending);
+			ast_cond_signal(&change_pending);
 		AST_LIST_UNLOCK(&state_changes);
 	}
 
 	return 1;
+}
+
+int ast_device_state_changed_literal(const char *dev)
+{
+	char *buf;
+	buf = ast_strdupa(dev);
+	return __ast_device_state_changed_literal(buf);
+}
+
+/*--- ast_device_state_changed: Accept change notification, add it to change queue */
+int ast_device_state_changed(const char *fmt, ...) 
+{
+	char buf[AST_MAX_EXTENSION];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	return __ast_device_state_changed_literal(buf);
 }
 
 /*--- do_devstate_changes: Go through the dev state change queue and update changes in the dev state thread */
@@ -228,7 +260,7 @@ static void *do_devstate_changes(void *data)
 		} else {
 			/* there was no entry, so atomically unlock the list and wait for
 			   the condition to be signalled (returns with the lock held) */
-			ast_pthread_cond_wait(&change_pending, &state_changes.lock);
+			ast_cond_wait(&change_pending, &state_changes.lock);
 		}
 	}
 
@@ -240,7 +272,7 @@ int ast_device_state_engine_init(void)
 {
 	pthread_attr_t attr;
 
-	pthread_cond_init(&change_pending, NULL);
+	ast_cond_init(&change_pending, NULL);
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	if (ast_pthread_create(&change_thread, &attr, do_devstate_changes, NULL) < 0) {

@@ -16,17 +16,23 @@
 #
 CFLAGS+=-DNO_AST_MM
 
-OSARCH=$(shell uname -s)
 ifeq ($(findstring BSD,${OSARCH}),BSD)
-CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
+  CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
 endif
 
 TARGET=stereorize streamplayer
 
-TARGET+=$(shell if [ -f $(CROSS_COMPILE_TARGET)/usr/include/popt.h ]; then echo "smsq"; else if [ -f $(CROSS_COMPILE_TARGET)/usr/local/include/popt.h ]; then echo "smsq"; fi ; fi)
-TARGET+=$(shell if [ -f $(CROSS_COMPILE_TARGET)/usr/include/newt.h ]; then echo "astman"; else if [ -f $(CROSS_COMPILE_TARGET)/usr/local/include/newt.h ]; then echo "astman"; fi ; fi)
+ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/popt.h)$(wildcard -f $(CROSS_COMPILE_TARGET)/usr/local/include/popt.h),)
+  TARGET+=smsq
+endif
+
+ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/newt.h)$(wildcard -f $(CROSS_COMPILE_TARGET)/usr/local/include/newt.h),)
+  TARGET+=astman
+endif
+
 ifeq (${OSARCH},SunOS)
-SOL=../strcompat.o
+  SOL=../strcompat.o
+  SOLLIBS=-lsocket -lnsl
 endif
 
 all: depend $(TARGET)
@@ -39,7 +45,8 @@ install:
 	done 
 
 clean:
-	rm -f *.o astman smsq stereorize check_expr .depend
+	rm -f *.o astman smsq stereorize streamplayer check_expr .depend
+	rm -f ast_expr2.o ast_expr2f.o
 
 astman: astman.o ../md5.o
 	$(CC) $(CFLAGS) -o astman astman.o ../md5.o -lnewt
@@ -47,17 +54,23 @@ astman: astman.o ../md5.o
 stereorize: stereorize.o frame.o
 	$(CC) $(CFLAGS) -o stereorize stereorize.o frame.o -lm
 
-check_expr : check_expr.c ../ast_expr.a
-	$(CC) $(CFLAGS) -o check_expr check_expr.c ../ast_expr.a
+ast_expr2.o: ../ast_expr2.c
+	gcc -g -c -o $@ $<
+
+ast_expr2f.o: ../ast_expr2f.c
+	gcc -g -c -DSTANDALONE -o $@ $<
+
+check_expr: check_expr.c ast_expr2.o ast_expr2f.o
+	$(CC) $(CFLAGS) -o $@ $^
 
 smsq: smsq.o
 	$(CC) $(CFLAGS) -o smsq ${SOL} smsq.o -lpopt
 
 streamplayer: streamplayer.o
-	$(CC) $(CFLAGS) -o streamplayer ${SOL} streamplayer.o
+	$(CC) $(CFLAGS) -o streamplayer ${SOL} streamplayer.o ${SOLLIBS}
 
 ifneq ($(wildcard .depend),)
-include .depend
+  include .depend
 endif
 
 depend: .depend

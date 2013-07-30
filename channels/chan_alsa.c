@@ -1,13 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2002 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * By Matthew Fredrickson <creslin@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
  */
+
+/*! \file 
+ * \brief ALSA sound card channel driver 
+ */
+
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -24,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.47 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.51 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/logger.h"
@@ -739,6 +751,9 @@ static int alsa_indicate(struct ast_channel *chan, int cond)
 	case -1:
 		res = -1;
 		break;
+	case AST_CONTROL_VIDUPDATE:
+		res = -1;
+		break;
 	default:
 		ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, chan->name);
 		res = -1;
@@ -763,12 +778,12 @@ static struct ast_channel *alsa_new(struct chan_alsa_pvt *p, int state)
 		tmp->readformat = AST_FORMAT_SLINEAR;
 		tmp->writeformat = AST_FORMAT_SLINEAR;
 		tmp->tech_pvt = p;
-		if (strlen(p->context))
-			strncpy(tmp->context, p->context, sizeof(tmp->context)-1);
-		if (strlen(p->exten))
-			strncpy(tmp->exten, p->exten, sizeof(tmp->exten)-1);
-		if (strlen(language))
-			strncpy(tmp->language, language, sizeof(tmp->language)-1);
+		if (!ast_strlen_zero(p->context))
+			ast_copy_string(tmp->context, p->context, sizeof(tmp->context));
+		if (!ast_strlen_zero(p->exten))
+			ast_copy_string(tmp->exten, p->exten, sizeof(tmp->exten));
+		if (!ast_strlen_zero(language))
+			ast_copy_string(tmp->language, language, sizeof(tmp->language));
 		p->owner = tmp;
 		ast_setstate(tmp, state);
 		ast_mutex_lock(&usecnt_lock);
@@ -836,10 +851,10 @@ static char *autoanswer_complete(char *line, char *word, int pos, int state)
 #endif
 	switch(state) {
 	case 0:
-		if (strlen(word) && !strncasecmp(word, "on", MIN(strlen(word), 2)))
+		if (!ast_strlen_zero(word) && !strncasecmp(word, "on", MIN(strlen(word), 2)))
 			return strdup("on");
 	case 1:
-		if (strlen(word) && !strncasecmp(word, "off", MIN(strlen(word), 3)))
+		if (!ast_strlen_zero(word) && !strncasecmp(word, "off", MIN(strlen(word), 3)))
 			return strdup("off");
 	default:
 		return NULL;
@@ -985,9 +1000,9 @@ static int console_dial(int fd, int argc, char *argv[])
 			stringp=tmp;
 			strsep(&stringp, "@");
 			tmp2 = strsep(&stringp, "@");
-			if (strlen(tmp))
+			if (!ast_strlen_zero(tmp))
 				mye = tmp;
-			if (tmp2 && strlen(tmp2))
+			if (!ast_strlen_zero(tmp2))
 				myc = tmp2;
 		}
 		if (ast_exists_extension(NULL, myc, mye, 1, NULL)) {

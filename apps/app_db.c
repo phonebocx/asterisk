@@ -1,7 +1,5 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
- *
- * Database access functions
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (C) 1999 - 2005, Digium, Inc.
  * Copyright (C) 2003, Jefferson Noxon
@@ -9,8 +7,21 @@
  * Mark Spencer <markster@digium.com>
  * Jefferson Noxon <jeff@debian.org>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Database access functions
+ *
  */
 
 #include <stdlib.h>
@@ -20,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/options.h"
 #include "asterisk/file.h"
@@ -66,25 +77,27 @@ LOCAL_USER_DECL;
 
 static int deltree_exec(struct ast_channel *chan, void *data)
 {
-	int arglen;
 	char *argv, *family, *keytree;
+	struct localuser *u;
 
-	arglen = strlen(data);
-	argv = alloca(arglen + 1);
-	if (!argv) {	/* Why would this fail? */
-		ast_log(LOG_DEBUG, "Memory allocation failed\n");
+	LOCAL_USER_ADD(u);
+
+	argv = ast_strdupa(data);
+	if (!argv) {
+		ast_log(LOG_ERROR, "Memory allocation failed\n");
+		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
-	memcpy(argv, data, arglen + 1);
 
 	if (strchr(argv, '/')) {
 		family = strsep(&argv, "/");
 		keytree = strsep(&argv, "\0");
 			if (!family || !keytree) {
 				ast_log(LOG_DEBUG, "Ignoring; Syntax error in argument\n");
+				LOCAL_USER_REMOVE(u);
 				return 0;
 			}
-		if (!strlen(keytree))
+		if (ast_strlen_zero(keytree))
 			keytree = 0;
 	} else {
 		family = argv;
@@ -103,27 +116,31 @@ static int deltree_exec(struct ast_channel *chan, void *data)
 			ast_verbose(VERBOSE_PREFIX_3 "DBdeltree: Error deleting key from database.\n");
 	}
 
+	LOCAL_USER_REMOVE(u);
+
 	return 0;
 }
 
 static int del_exec(struct ast_channel *chan, void *data)
 {
-	int arglen;
 	char *argv, *family, *key;
+	struct localuser *u;
 
-	arglen = strlen(data);
-	argv = alloca(arglen + 1);
-	if (!argv) {	/* Why would this fail? */
-		ast_log (LOG_DEBUG, "Memory allocation failed\n");
+	LOCAL_USER_ADD(u);
+
+	argv = ast_strdupa(data);
+	if (!argv) {
+		ast_log (LOG_ERROR, "Memory allocation failed\n");
+		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
-	memcpy(argv, data, arglen + 1);
 
 	if (strchr(argv, '/')) {
 		family = strsep(&argv, "/");
 		key = strsep(&argv, "\0");
 		if (!family || !key) {
 			ast_log(LOG_DEBUG, "Ignoring; Syntax error in argument\n");
+			LOCAL_USER_REMOVE(u);
 			return 0;
 		}
 		if (option_verbose > 2)
@@ -135,27 +152,31 @@ static int del_exec(struct ast_channel *chan, void *data)
 	} else {
 		ast_log(LOG_DEBUG, "Ignoring, no parameters\n");
 	}
+
+	LOCAL_USER_REMOVE(u);
+	
 	return 0;
 }
 
 static int put_exec(struct ast_channel *chan, void *data)
 {
-	int arglen;
 	char *argv, *value, *family, *key;
 	static int dep_warning = 0;
+	struct localuser *u;
+
+	LOCAL_USER_ADD(u);
 
 	if (!dep_warning) {
 		ast_log(LOG_WARNING, "This application has been deprecated, please use the ${DB(family/key)} function instead.\n");
 		dep_warning = 1;
 	}
 	
-	arglen = strlen(data);
-	argv = alloca(arglen + 1);
-	if (!argv) {	/* Why would this fail? */
-		ast_log(LOG_DEBUG, "Memory allocation failed\n");
+	argv = ast_strdupa(data);
+	if (!argv) {
+		ast_log(LOG_ERROR, "Memory allocation failed\n");
+		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
-	memcpy(argv, data, arglen + 1);
 
 	if (strchr(argv, '/') && strchr(argv, '=')) {
 		family = strsep(&argv, "/");
@@ -163,6 +184,7 @@ static int put_exec(struct ast_channel *chan, void *data)
 		value = strsep(&argv, "\0");
 		if (!value || !family || !key) {
 			ast_log(LOG_DEBUG, "Ignoring; Syntax error in argument\n");
+			LOCAL_USER_REMOVE(u);
 			return 0;
 		}
 		if (option_verbose > 2)
@@ -175,28 +197,32 @@ static int put_exec(struct ast_channel *chan, void *data)
 	} else	{
 		ast_log (LOG_DEBUG, "Ignoring, no parameters\n");
 	}
+
+	LOCAL_USER_REMOVE(u);
+
 	return 0;
 }
 
 static int get_exec(struct ast_channel *chan, void *data)
 {
-	int arglen;
 	char *argv, *varname, *family, *key;
 	char dbresult[256];
 	static int dep_warning = 0;
+	struct localuser *u;
+
+	LOCAL_USER_ADD(u);
 
 	if (!dep_warning) {
 		ast_log(LOG_WARNING, "This application has been deprecated, please use the ${DB(family/key)} function instead.\n");
 		dep_warning = 1;
 	}
 	
-	arglen = strlen(data);
-	argv = alloca(arglen + 1);
-	if (!argv) {	/* Why would this fail? */
-		ast_log(LOG_DEBUG, "Memory allocation failed\n");
+	argv = ast_strdupa(data);
+	if (!argv) {
+		ast_log(LOG_ERROR, "Memory allocation failed\n");
+		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
-	memcpy(argv, data, arglen + 1);
 
 	if (strchr(argv, '=') && strchr(argv, '/')) {
 		varname = strsep(&argv, "=");
@@ -204,6 +230,7 @@ static int get_exec(struct ast_channel *chan, void *data)
 		key = strsep(&argv, "\0");
 		if (!varname || !family || !key) {
 			ast_log(LOG_DEBUG, "Ignoring; Syntax error in argument\n");
+			LOCAL_USER_REMOVE(u);
 			return 0;
 		}
 		if (option_verbose > 2)
@@ -216,13 +243,14 @@ static int get_exec(struct ast_channel *chan, void *data)
 			if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "DBget: Value not found in database.\n");
 			/* Send the call to n+101 priority, where n is the current priority */
-			if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-				chan->priority += 100;
+			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 		}
-
 	} else {
 		ast_log(LOG_DEBUG, "Ignoring, no parameters\n");
 	}
+
+	LOCAL_USER_REMOVE(u);
+
 	return 0;
 }
 
@@ -230,11 +258,12 @@ int unload_module(void)
 {
 	int retval;
 
-	STANDARD_HANGUP_LOCALUSERS;
 	retval = ast_unregister_application(dt_app);
 	retval |= ast_unregister_application(d_app);
 	retval |= ast_unregister_application(p_app);
 	retval |= ast_unregister_application(g_app);
+
+	STANDARD_HANGUP_LOCALUSERS;
 
 	return retval;
 }
@@ -244,12 +273,10 @@ int load_module(void)
 	int retval;
 
 	retval = ast_register_application(g_app, get_exec, g_synopsis, g_descrip);
-	if (!retval)
-		retval = ast_register_application(p_app, put_exec, p_synopsis, p_descrip);
-	if (!retval)
-		retval = ast_register_application(d_app, del_exec, d_synopsis, d_descrip);
-	if (!retval)
-		retval = ast_register_application(dt_app, deltree_exec, dt_synopsis, dt_descrip);
+	retval |= ast_register_application(p_app, put_exec, p_synopsis, p_descrip);
+	retval |= ast_register_application(d_app, del_exec, d_synopsis, d_descrip);
+	retval |= ast_register_application(dt_app, deltree_exec, dt_synopsis, dt_descrip);
+	
 	return retval;
 }
 

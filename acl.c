@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Various sorts of access control
- * 
- * Copyright (C) 1999-2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Various sorts of access control
+ * 
  */
 
 #include <stdio.h>
@@ -33,16 +44,22 @@
 #include <net/route.h>
 #endif
 
-#if defined (SOLARIS) || defined(__OpenBSD__)
+#if defined(SOLARIS)
 #include <sys/sockio.h>
-/* netinet/ip.h does not define the following (See RFCs 791 and 1349) */
+#endif
+
+/* netinet/ip.h may not define the following (See RFCs 791 and 1349) */
+#if !defined(IPTOS_LOWCOST)
 #define       IPTOS_LOWCOST           0x02
+#endif
+
+#if !defined(IPTOS_MINCOST)
 #define       IPTOS_MINCOST           IPTOS_LOWCOST
 #endif
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.54 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.58 $")
 
 #include "asterisk/acl.h"
 #include "asterisk/logger.h"
@@ -127,7 +144,7 @@ struct ast_ha *ast_append_ha(char *sense, char *stuff, struct ast_ha *path)
 {
 	struct ast_ha *ha = malloc(sizeof(struct ast_ha));
 	char *nm = "255.255.255.255";
-	char tmp[256] = "";
+	char tmp[256];
 	struct ast_ha *prev = NULL;
 	struct ast_ha *ret;
 	int x, z;

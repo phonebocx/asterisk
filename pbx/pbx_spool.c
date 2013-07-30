@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Full-featured outgoing call spool support
- * 
- * Copyright (C) 2002 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Full-featured outgoing call spool support
+ * 
  */
 
 #include <sys/stat.h>
@@ -25,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.27 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.32 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -80,7 +91,6 @@ struct outgoing {
 	
 	/* Maximum length of call */
 	int maxlen;
-	
 };
 
 static void init_outgoing(struct outgoing *o)
@@ -89,6 +99,11 @@ static void init_outgoing(struct outgoing *o)
 	o->priority = 1;
 	o->retrytime = 300;
 	o->waittime = 45;
+}
+
+static void free_outgoing(struct outgoing *o)
+{
+	free(o);
 }
 
 static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
@@ -108,9 +123,17 @@ static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
 			else
 				c++;
 		}
-		c = strchr(buf, ';');
-		if (c)
-			 *c = '\0';
+
+		c = buf;
+		while ((c = strchr(c, ';'))) {
+			if ((c > buf) && (c[-1] == '\\')) {
+				memmove(c - 1, c, strlen(c) + 1);
+				c++;
+			} else {
+				*c = '\0';
+				break;
+			}
+		}
 
 		/* Trim trailing white space */
 		while(!ast_strlen_zero(buf) && buf[strlen(buf) - 1] < 33)
@@ -254,7 +277,7 @@ static void *attempt_thread(void *data)
 		ast_log(LOG_EVENT, "Queued call to %s/%s completed\n", o->tech, o->dest);
 		unlink(o->fn);
 	}
-	free(o);
+	free_outgoing(o);
 	return NULL;
 }
 
@@ -266,7 +289,7 @@ static void launch_service(struct outgoing *o)
  	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 	if (ast_pthread_create(&t,&attr,attempt_thread, o) == -1) {
 		ast_log(LOG_WARNING, "Unable to create thread :(\n");
-		free(o);
+		free_outgoing(o);
 	}
 }
 
@@ -303,18 +326,18 @@ static int scan_service(char *fn, time_t now, time_t atime)
 					return now;
 				} else {
 					ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt%s\n", o->tech, o->dest, o->retries - 1, ((o->retries - 1) != 1) ? "s" : "");
-					free(o);
+					free_outgoing(o);
 					unlink(fn);
 					return 0;
 				}
 			} else {
-				free(o);
+				free_outgoing(o);
 				ast_log(LOG_WARNING, "Invalid file contents in %s, deleting\n", fn);
 				fclose(f);
 				unlink(fn);
 			}
 		} else {
-			free(o);
+			free_outgoing(o);
 			ast_log(LOG_WARNING, "Unable to open %s: %s, deleting\n", fn, strerror(errno));
 			unlink(fn);
 		}

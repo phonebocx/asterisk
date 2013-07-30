@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Implementation of Media Gateway Control Protocol
- * 
- * Copyright (C) 1999-2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Implementation of Media Gateway Control Protocol
+ * 
  */
 
 /* FO: Changes
@@ -73,7 +84,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.128 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.132 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -894,7 +905,7 @@ static int mgcp_call(struct ast_channel *ast, char *dest, int timeout)
 	ast_mutex_lock(&sub->lock);
 	switch (p->hookstate) {
 	case MGCP_OFFHOOK:
-		if (distinctive_ring && !ast_strlen_zero(distinctive_ring)) {
+		if (!ast_strlen_zero(distinctive_ring)) {
 			snprintf(tone, sizeof(tone), "L/wt%s", distinctive_ring);
 			if (mgcpdebug) {
 				ast_verbose(VERBOSE_PREFIX_3 "MGCP distinctive callwait %s\n", tone);
@@ -908,7 +919,7 @@ static int mgcp_call(struct ast_channel *ast, char *dest, int timeout)
 		break;
 	case MGCP_ONHOOK:
 	default:
-		if (distinctive_ring && !ast_strlen_zero(distinctive_ring)) {
+		if (!ast_strlen_zero(distinctive_ring)) {
 			snprintf(tone, sizeof(tone), "L/r%s", distinctive_ring);
 			if (mgcpdebug) {
 				ast_verbose(VERBOSE_PREFIX_3 "MGCP distinctive ring %s\n", tone);
@@ -1790,7 +1801,7 @@ static int process_sdp(struct mgcp_subchannel *sub, struct mgcp_request *req)
 	/* Scan through the RTP payload types specified in a "m=" line: */
 	ast_rtp_pt_clear(sub->rtp);
 	codecs = ast_strdupa(m + len);
-	while (codecs && !ast_strlen_zero(codecs)) {
+	while (!ast_strlen_zero(codecs)) {
 		if (sscanf(codecs, "%d%n", &codec, &len) != 1) {
 			if (codec_count)
 				break;
@@ -3303,7 +3314,7 @@ static int mgcpsock_read(int *id, int fd, short events, void *ignore)
 		/* Must have at least one header */
 		return 1;
 	}
-	if (!req.identifier || ast_strlen_zero(req.identifier)) {
+	if (ast_strlen_zero(req.identifier)) {
 		ast_log(LOG_NOTICE, "Message from %s missing identifier\n", ast_inet_ntoa(iabuf, sizeof(iabuf), sin.sin_addr));
 		return 1;
 	}
@@ -3345,9 +3356,9 @@ static int mgcpsock_read(int *id, int fd, short events, void *ignore)
 				gw->name, ident);
 		}
 	} else {
-		if (!req.endpoint || ast_strlen_zero(req.endpoint) || 
-		    !req.version || ast_strlen_zero(req.version) || 
-			!req.verb || ast_strlen_zero(req.verb)) {
+		if (ast_strlen_zero(req.endpoint) || 
+		    	ast_strlen_zero(req.version) || 
+			ast_strlen_zero(req.verb)) {
 			ast_log(LOG_NOTICE, "Message must have a verb, an idenitifier, version, and endpoint\n");
 			return 1;
 		}
@@ -3928,7 +3939,7 @@ static struct ast_rtp *mgcp_get_rtp_peer(struct ast_channel *chan)
 	return NULL;
 }
 
-static int mgcp_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, struct ast_rtp *vrtp, int codecs)
+static int mgcp_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, struct ast_rtp *vrtp, int codecs, int nat_active)
 {
 	/* XXX Is there such thing as video support with MGCP? XXX */
 	struct mgcp_subchannel *sub;

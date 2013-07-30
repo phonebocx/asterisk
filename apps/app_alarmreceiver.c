@@ -1,15 +1,24 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Central Station Alarm receiver for Ademco Contact ID  
- * 
  * Copyright (C)  2004 - 2005 Steve Rodgers
  *
  * Steve Rodgers <hwstar@rodgers.sdcoxmail.com>
  *
- * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Central Station Alarm receiver for Ademco Contact ID  
+ * 
  * *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** 
  *
  * Use at your own risk. Please consult the GNU GPL license document included with Asterisk details. *
@@ -28,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -108,7 +117,7 @@ static void database_increment( char *key )
 	char value[16];
 	
 	
-	if(!strlen(db_family))
+	if (ast_strlen_zero(db_family))
 		return; /* If not defined, don't do anything */
 	
 	res = ast_db_get(db_family, key, value, sizeof(value) - 1);
@@ -383,7 +392,7 @@ static int log_events(struct ast_channel *chan,  char *signalling_type, event_no
 	FILE *logfile;
 	event_node_t *elp = event;
 	
-	if(strlen(event_spool_dir)){
+	if (!ast_strlen_zero(event_spool_dir)) {
 		
 		/* Make a template */
 		
@@ -507,7 +516,7 @@ static int receive_ademco_contact_id( struct ast_channel *chan, void *data, int 
 				ast_verbose(VERBOSE_PREFIX_2 "AlarmReceiver: Incomplete string: %s, trying again...\n", event);
 
 			if(!got_some_digits){
-				got_some_digits = (strlen(event)) ? 1 : 0;
+				got_some_digits = (!ast_strlen_zero(event)) ? 1 : 0;
 				ack_retries++;
 			}
 			continue;	
@@ -642,11 +651,13 @@ static int alarmreceiver_exec(struct ast_channel *chan, void *data)
 
 	if (ast_set_write_format(chan,AST_FORMAT_ULAW)){
 		ast_log(LOG_WARNING, "AlarmReceiver: Unable to set write format to Mu-law on %s\n",chan->name);
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 	
 	if (ast_set_read_format(chan,AST_FORMAT_ULAW)){
 		ast_log(LOG_WARNING, "AlarmReceiver: Unable to set read format to Mu-law on %s\n",chan->name);
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
@@ -704,7 +715,7 @@ static int alarmreceiver_exec(struct ast_channel *chan, void *data)
 	* Do we exec a command line at the end?
 	*/
 	
-	if((!res) && (strlen(event_app)) && (event_head)){
+	if((!res) && (!ast_strlen_zero(event_app)) && (event_head)){
 		ast_log(LOG_DEBUG,"Alarmreceiver: executing: %s\n", event_app);
 		ast_safe_system(event_app);
 	}
@@ -819,8 +830,13 @@ static int load_config(void)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;
 }
 
 int load_module(void)

@@ -1,16 +1,24 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
- *
- * Eval application
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (c) 2004 - 2005, Tilghman Lesher.  All rights reserved.
  *
  * Tilghman Lesher <app_eval__v001@the-tilghman.com>
  *
- * $Id: app_eval.c,v 1.6 2005/06/06 22:39:31 kpfleming Exp $
- *
  * This code is released by the author with no restrictions on usage.
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ */
+
+/*! \file
+ * \brief Eval application
+ *
+ * \author Tilghman Lesher <app_eval__v001@the-tilghman.com>
  */
 
 #include <stdio.h>
@@ -20,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -56,12 +64,12 @@ static int eval_exec(struct ast_channel *chan, void *data)
 	char *s, *newvar=NULL, tmp[MAXRESULT];
 	static int dep_warning = 0;
 
+	LOCAL_USER_ADD(u);
+	
 	if (!dep_warning) {
 		ast_log(LOG_WARNING, "This application has been deprecated in favor of the dialplan function, EVAL\n");
 		dep_warning = 1;
 	}
-
-	LOCAL_USER_ADD(u);
 
 	/* Check and parse arguments */
 	if (data) {
@@ -85,8 +93,13 @@ static int eval_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app_eval);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app_eval);
+
+	return res;
 }
 
 int load_module(void)

@@ -1,7 +1,5 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
- *
- * Virtual Dictation Machine Application For Asterisk
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (C) 2005, Anthony Minessale II
  *
@@ -9,8 +7,21 @@
  *
  * Donated by Sangoma Technologies <http://www.samgoma.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Virtual Dictation Machine Application For Asterisk
+ *
  */
 
 #include <stdlib.h>
@@ -20,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.4 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -87,9 +98,10 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 		maxlen = 0,
 		mode = 0;
 		
-
+	LOCAL_USER_ADD(u);
+	
 	snprintf(dftbase, sizeof(dftbase), "%s/dictate", ast_config_AST_SPOOL_DIR);
-	if (data && !ast_strlen_zero(data) && (mydata = ast_strdupa(data))) {
+	if (!ast_strlen_zero(data) && (mydata = ast_strdupa(data))) {
 		argc = ast_separate_app_args(mydata, '|', argv, sizeof(argv) / sizeof(argv[0]));
 	}
 	
@@ -102,10 +114,10 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 	oldr = chan->readformat;
 	if ((res = ast_set_read_format(chan, AST_FORMAT_SLINEAR)) < 0) {
 		ast_log(LOG_WARNING, "Unable to set to linear mode.\n");
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
-	LOCAL_USER_ADD(u);
 	ast_answer(chan);
 	ast_safe_sleep(chan, 200);
 	for(res = 0; !res;) {
@@ -311,8 +323,13 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+	
+	return res;
 }
 
 int load_module(void)

@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Skeleton application
- * 
  * Copyright (C) <Year>, <Your Name Here>
  *
  * <Your Name Here> <<You Email Here>>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Skeleton application
+ * 
  */
 
 #include <stdlib.h>
@@ -17,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -61,24 +72,31 @@ static int app_exec(struct ast_channel *chan, void *data)
 	char *opts[2];
 	char *argv[2];
 
-	if (!(args = ast_strdupa((char *)data))) {
-		ast_log(LOG_ERROR, "Out of memory!\n");
-		return -1;
-	}
-
-	if (!data) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "%s requires an argument (dummy|[options])\n",app);
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
 	LOCAL_USER_ADD(u);
+	
+	/* Do our thing here */
+
+	/* We need to make a copy of the input string if we are going to modify it! */
+	args = ast_strdupa(data);	
+	if (!args) {
+		ast_log(LOG_ERROR, "Out of memory!\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
+	
 	if ((argc = ast_separate_app_args(args, '|', argv, sizeof(argv) / sizeof(argv[0])))) {
 		dummy = argv[0];
 		options = argv[1];
 		ast_parseoptions(app_opts, &flags, opts, options);
 	}
 
-	if (dummy && !ast_strlen_zero(dummy)) 
+	if (!ast_strlen_zero(dummy)) 
 		ast_log(LOG_NOTICE, "Dummy value is : %s\n", dummy);
 
 	if (ast_test_flag(&flags, OPTION_A))
@@ -90,15 +108,20 @@ static int app_exec(struct ast_channel *chan, void *data)
 	if (ast_test_flag(&flags, OPTION_C))
 		ast_log(LOG_NOTICE,"Option C is set with : %s\n", opts[1] ? opts[1] : "<unspecified>");
 
-	/* Do our thing here */
 	LOCAL_USER_REMOVE(u);
+	
 	return res;
 }
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Routines implementing call parking
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Routines implementing call parking
+ * 
  */
 
 #include <pthread.h>
@@ -24,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.68 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.75 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -66,35 +77,35 @@ static char *parkedcall = "ParkedCall";
 static int parkingtime = DEFAULT_PARK_TIME;
 
 /* Context for which parking is made accessible */
-static char parking_con[AST_MAX_EXTENSION] = "parkedcalls";
+static char parking_con[AST_MAX_EXTENSION];
 
 /* Context for dialback for parking (KLUDGE) */
-static char parking_con_dial[AST_MAX_EXTENSION] = "park-dial";
+static char parking_con_dial[AST_MAX_EXTENSION];
 
 /* Extension you type to park the call */
-static char parking_ext[AST_MAX_EXTENSION] = "700";
+static char parking_ext[AST_MAX_EXTENSION];
 
-static char pickup_ext[AST_MAX_EXTENSION] = "*8";
+static char pickup_ext[AST_MAX_EXTENSION];
 
 /* Default sounds */
-static char courtesytone[256] = "";
-static char xfersound[256] = "beep";
-static char xferfailsound[256] = "pbx-invalid";
+static char courtesytone[256];
+static char xfersound[256];
+static char xferfailsound[256];
 
 /* First available extension for parking */
-static int parking_start = 701;
+static int parking_start;
 
 /* Last available extension for parking */
-static int parking_stop = 750;
+static int parking_stop;
 
-static int parking_offset = 0;
+static int parking_offset;
 
-static int parkfindnext = 0;
+static int parkfindnext;
 
-static int adsipark = 0;
+static int adsipark;
 
-static int transferdigittimeout = DEFAULT_TRANSFER_DIGIT_TIMEOUT;
-static int featuredigittimeout = DEFAULT_FEATURE_DIGIT_TIMEOUT;
+static int transferdigittimeout;
+static int featuredigittimeout;
 
 /* Default courtesy tone played when party joins conference */
 
@@ -247,11 +258,11 @@ static int adsi_announce_park(struct ast_channel *chan, int parkingnum)
 {
 	int res;
 	int justify[5] = {ADSI_JUST_CENT, ADSI_JUST_CENT, ADSI_JUST_CENT, ADSI_JUST_CENT};
-	char tmp[256] = "";
-	unsigned char *message[5] = {NULL, NULL, NULL, NULL, NULL};
+	char tmp[256];
+	char *message[5] = {NULL, NULL, NULL, NULL, NULL};
 
 	snprintf(tmp, sizeof(tmp), "Parked on %d", parkingnum);
-	message[0] = (unsigned char *)tmp;
+	message[0] = tmp;
 	res = adsi_load_session(chan, NULL, 0, 1);
 	if (res == -1) {
 		return res;
@@ -898,8 +909,9 @@ static struct ast_call_feature *find_feature(char *name)
 	struct ast_call_feature *tmp;
 
 	AST_LIST_LOCK(&feature_list);
-	AST_LIST_TRAVERSE(&feature_list,tmp,feature_entry) {
-		if (!strcasecmp(tmp->sname,name)) break;
+	AST_LIST_TRAVERSE(&feature_list, tmp, feature_entry) {
+		if (!strcasecmp(tmp->sname, name))
+			break;
 	}
 	AST_LIST_UNLOCK(&feature_list);
 
@@ -974,6 +986,7 @@ static int ast_feature_interpret(struct ast_channel *chan, struct ast_channel *p
 	else
 		ast_copy_flags(&features, &(config->features_callee), AST_FLAGS_ALL);	
 	ast_log(LOG_DEBUG, "Feature interpret: chan=%s, peer=%s, sense=%d, features=%d\n", chan->name, peer->name, sense, features.flags);
+
 	for (x=0; x < FEATURES_COUNT; x++) {
 		if ((ast_test_flag(&features, builtin_features[x].feature_mask)) &&
 		    !ast_strlen_zero(builtin_features[x].exten)) {
@@ -983,31 +996,23 @@ static int ast_feature_interpret(struct ast_channel *chan, struct ast_channel *p
 				break;
 			} else if (!strncmp(builtin_features[x].exten, code, strlen(code))) {
 				if (res == FEATURE_RETURN_PASSDIGITS)
-				  res = FEATURE_RETURN_STOREDIGITS;
+					res = FEATURE_RETURN_STOREDIGITS;
 			}
 		}
 	}
 
 
-	if (dynamic_features) {
-		char *tmp=strdup(dynamic_features);
+	if (dynamic_features && !ast_strlen_zero(dynamic_features)) {
+		char *tmp = ast_strdupa(dynamic_features);
 		char *tok;
-		char *begin=tmp;
-		
-		if (!tmp) {
-			ast_log(LOG_ERROR,"strdup failed");
+
+		if (!tmp)
 			return res;
-		}
 		
-		while ( (tok=strsep(&tmp,"#")) != NULL) {
-			AST_LIST_LOCK(&feature_list);
-			AST_LIST_TRAVERSE(&feature_list, feature, feature_entry) {
-				if ( ! strcasecmp(tok,feature->sname))
-					break;
-			}
-			AST_LIST_UNLOCK(&feature_list);			
+		while ((tok = strsep(&tmp, "#")) != NULL) {
+			feature = find_feature(tok);
 			
-			if ( feature ) {
+			if (feature) {
 				/* Feature is up for consideration */
 				if (!strcmp(feature->exten, code)) {
 					if (option_verbose > 2)
@@ -1019,26 +1024,51 @@ static int ast_feature_interpret(struct ast_channel *chan, struct ast_channel *p
 				}
 			}
 		}
-		
-		free(begin);
 	}
 	
 	return res;
 }
 
-static void set_config_flags(struct ast_bridge_config *config)
+static void set_config_flags(struct ast_channel *chan, struct ast_channel *peer, struct ast_bridge_config *config)
 {
 	int x;
-
+	
 	ast_clear_flag(config, AST_FLAGS_ALL);	
 	for (x = 0; x < FEATURES_COUNT; x++) {
-		if (ast_test_flag(&(config->features_caller), builtin_features[x].feature_mask)) {
-			if (ast_test_flag(builtin_features + x, AST_FEATURE_FLAG_NEEDSDTMF))
+		if (ast_test_flag(builtin_features + x, AST_FEATURE_FLAG_NEEDSDTMF)) {
+			if (ast_test_flag(&(config->features_caller), builtin_features[x].feature_mask))
 				ast_set_flag(config, AST_BRIDGE_DTMF_CHANNEL_0);
-		}
-		if (ast_test_flag(&(config->features_callee), builtin_features[x].feature_mask)) {
-			if (ast_test_flag(builtin_features + x, AST_FEATURE_FLAG_NEEDSDTMF))
+
+			if (ast_test_flag(&(config->features_callee), builtin_features[x].feature_mask))
 				ast_set_flag(config, AST_BRIDGE_DTMF_CHANNEL_1);
+		}
+	}
+	
+	if (chan && peer && !(ast_test_flag(config, AST_BRIDGE_DTMF_CHANNEL_0) && ast_test_flag(config, AST_BRIDGE_DTMF_CHANNEL_1))) {
+		char *dynamic_features;
+
+		dynamic_features = pbx_builtin_getvar_helper(chan, "DYNAMIC_FEATURES");
+
+		if (dynamic_features) {
+			char *tmp = ast_strdupa(dynamic_features);
+			char *tok;
+			struct ast_call_feature *feature;
+
+			if (!tmp) {
+				return;
+			}
+
+			/* while we have a feature */
+			while (NULL != (tok = strsep(&tmp, "#"))) {
+				if ((feature = find_feature(tok))) {
+					if (ast_test_flag(feature, AST_FEATURE_FLAG_NEEDSDTMF)) {
+						if (ast_test_flag(feature, AST_FEATURE_FLAG_CALLER))
+							ast_set_flag(config, AST_BRIDGE_DTMF_CHANNEL_0);
+						if (ast_test_flag(feature, AST_FEATURE_FLAG_CALLEE))
+							ast_set_flag(config, AST_BRIDGE_DTMF_CHANNEL_1);
+					}
+				}
+			}
 		}
 	}
 }
@@ -1257,7 +1287,7 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 	allowdisconnect_out = ast_test_flag(&(config->features_caller), AST_FEATURE_DISCONNECT);
 	allowredirect_in = ast_test_flag(&(config->features_callee), AST_FEATURE_REDIRECT);
 	allowredirect_out = ast_test_flag(&(config->features_caller), AST_FEATURE_REDIRECT);
-	set_config_flags(config);
+	set_config_flags(chan, peer, config);
 	config->firstpass = 1;
 
 	/* Answer if need be */
@@ -1786,6 +1816,12 @@ static int handle_showfeatures(int fd, int argc, char *argv[])
 		}
 		AST_LIST_UNLOCK(&feature_list);
 	}
+	ast_cli(fd, "\nCall parking\n");
+	ast_cli(fd, "------------\n");
+	ast_cli(fd,"%-20s:	%s\n", "Parking extension", parking_ext);
+	ast_cli(fd,"%-20s:	%s\n", "Parking context", parking_con);
+	ast_cli(fd,"%-20s:	%d-%d\n", "Parked call extensions", parking_start, parking_stop);
+	ast_cli(fd,"\n");
 	
 	return RESULT_SUCCESS;
 }
@@ -1846,8 +1882,7 @@ static int manager_parking_status( struct mansession *s, struct message *m )
 
         cur=parkinglot;
         while(cur) {
-			ast_mutex_lock(&s->lock);
-                ast_cli(s->fd, "Event: ParkedCall\r\n"
+			ast_cli(s->fd, "Event: ParkedCall\r\n"
 			"Exten: %d\r\n"
 			"Channel: %s\r\n"
 			"Timeout: %ld\r\n"
@@ -1860,7 +1895,6 @@ static int manager_parking_status( struct mansession *s, struct message *m )
 			,(cur->chan->cid.cid_num ? cur->chan->cid.cid_num : "")
 			,(cur->chan->cid.cid_name ? cur->chan->cid.cid_name : "")
 			,idText);
-			ast_mutex_unlock(&s->lock);
 
             cur = cur->next;
         }
@@ -1917,7 +1951,26 @@ static int load_config(void)
 	struct ast_context *con = NULL;
 	struct ast_config *cfg = NULL;
 	struct ast_variable *var = NULL;
-	
+	char old_parking_ext[AST_MAX_EXTENSION];
+	char old_parking_con[AST_MAX_EXTENSION];
+
+	if (!ast_strlen_zero(parking_con)) {
+		strcpy(old_parking_ext, parking_ext);
+		strcpy(old_parking_con, parking_con);
+	} 
+
+	/* Reset to defaults */
+	strcpy(parking_con, "parkedcalls");
+	strcpy(parking_con_dial, "park-dial");
+	strcpy(parking_ext, "700");
+	strcpy(pickup_ext, "*8");
+	courtesytone[0] = '\0';
+	strcpy(xfersound, "beep");
+	strcpy(xferfailsound, "pbx-invalid");
+	parking_start = 701;
+	parking_stop = 750;
+	parkfindnext = 0;
+
 	transferdigittimeout = DEFAULT_TRANSFER_DIGIT_TIMEOUT;
 	featuredigittimeout = DEFAULT_FEATURE_DIGIT_TIMEOUT;
 
@@ -2038,8 +2091,13 @@ static int load_config(void)
 				
 				if (!strcasecmp(party,"caller"))
 					ast_set_flag(feature,AST_FEATURE_FLAG_CALLER);
-				else
+				else if (!strcasecmp(party, "callee"))
 					ast_set_flag(feature,AST_FEATURE_FLAG_CALLEE);
+				else {
+					ast_log(LOG_NOTICE, "Invalid party specification for feature '%s', must be caller, or callee\n", var->name);
+					var = var->next;
+					continue;
+				}
 
 				ast_register_feature(feature);
 				
@@ -2050,9 +2108,11 @@ static int load_config(void)
 	}
 	ast_config_destroy(cfg);
 
-	
-	if (con)
-		ast_context_remove_extension2(con, ast_parking_ext(), 1, registrar);
+	/* Remove the old parking extension */
+	if (!ast_strlen_zero(old_parking_con) && (con = ast_context_find(old_parking_con)))	{
+		ast_context_remove_extension2(con, old_parking_ext, 1, registrar);
+		ast_log(LOG_DEBUG, "Removed old parking extension %s@%s\n", old_parking_ext, old_parking_con);
+	}
 	
 	if (!(con = ast_context_find(parking_con))) {
 		if (!(con = ast_context_create(NULL, parking_con, registrar))) {
@@ -2072,6 +2132,8 @@ int load_module(void)
 	int res;
 	
 	AST_LIST_HEAD_INIT(&feature_list);
+	memset(parking_ext, 0, sizeof(parking_ext));
+	memset(parking_con, 0, sizeof(parking_con));
 
 	if ((res = load_config()))
 		return res;

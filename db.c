@@ -1,19 +1,31 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Channel Management
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
  */
 
-/* DB3 is licensed under Sleepycat Public License and is thus incompatible
-   with GPL.  To avoid having to make another exception (and complicate 
-   licensing even further) we elect to use DB1 which is BSD licensed */
+/*! \file
+ *
+ * \brief ASTdb Management
+ * 
+ *
+ * DB3 is licensed under Sleepycat Public License and is thus incompatible
+ * with GPL.  To avoid having to make another exception (and complicate 
+ * licensing even further) we elect to use DB1 which is BSD licensed 
+ */
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/file.h"
@@ -388,8 +400,8 @@ struct ast_db_entry *ast_db_gettree(const char *family, const char *keytree)
 	struct ast_db_entry *last = NULL;
 	struct ast_db_entry *cur, *ret=NULL;
 
-	if (family && !ast_strlen_zero(family)) {
-		if (keytree && !ast_strlen_zero(keytree)) {
+	if (!ast_strlen_zero(family)) {
+		if (!ast_strlen_zero(keytree)) {
 			/* Family and key tree */
 			snprintf(prefix, sizeof(prefix), "/%s/%s", family, prefix);
 		} else {
@@ -545,7 +557,7 @@ static int manager_dbget(struct mansession *s, struct message *m)
 		return 0;
 	}
 
-	if (id && !ast_strlen_zero(id))
+	if (!ast_strlen_zero(id))
 		snprintf(idText, sizeof(idText) ,"ActionID: %s\r\n", id);
 
 	res = ast_db_get(family, key, tmp, sizeof(tmp));
@@ -553,7 +565,6 @@ static int manager_dbget(struct mansession *s, struct message *m)
 		astman_send_error(s, m, "Database entry not found");
 	} else {
 		astman_send_ack(s, m, "Result will follow");
-		ast_mutex_lock(&s->lock);
 		ast_cli(s->fd, "Event: DBGetResponse\r\n"
 				"Family: %s\r\n"
 				"Key: %s\r\n"
@@ -561,7 +572,6 @@ static int manager_dbget(struct mansession *s, struct message *m)
 				"%s"
 				"\r\n",
 				family, key, tmp, idText);
-		ast_mutex_unlock(&s->lock);
 	}
 	return 0;
 }

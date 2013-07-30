@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Random application
- * 
  * Copyright (c) 2003 - 2005 Tilghman Lesher.  All rights reserved.
  *
  * Tilghman Lesher <asterisk__app_random__200508@the-tilghman.com>
  *
  * This code is released by the author with no restrictions on usage or distribution.
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ */
+
+/*! \file
+ *
+ * \brief Random application
+ *
+ * \author Tilghman Lesher <asterisk__app_random__200508@the-tilghman.com>
  */
 
 #include <stdio.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -51,13 +62,20 @@ static int random_exec(struct ast_channel *chan, void *data)
 	char *s;
 	char *prob;
 	int probint;
-
-	if (!data) {
+	
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Random requires an argument ([probability]:[[context|]extension|]priority)\n");
 		return -1;
 	}
+	
 	LOCAL_USER_ADD(u);
-	s = ast_strdupa((void *) data);
+
+	s = ast_strdupa(data);
+	if (!s) {
+		ast_log(LOG_ERROR, "Out of memory!\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
 
 	prob = strsep(&s,":");
 	if ((!prob) || (sscanf(prob, "%d", &probint) != 1))
@@ -75,8 +93,13 @@ static int random_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+	
+	res = ast_unregister_application(app_random);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app_random);
+
+	return res;	
 }
 
 int load_module(void)

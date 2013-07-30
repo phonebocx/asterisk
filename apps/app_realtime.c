@@ -1,15 +1,26 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * RealTime App
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Anthony Minessale <anthmct@yahoo.com>
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief RealTime App
+ * 
  */
 
 #include <stdlib.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -118,11 +129,14 @@ static int realtime_update_exec(struct ast_channel *chan, void *data)
 	char *family=NULL, *colmatch=NULL, *value=NULL, *newcol=NULL, *newval=NULL;
 	struct localuser *u;
 	int res = 0;
-	if (!data) {
-        ast_log(LOG_ERROR,"Invalid input %s\n",UUSAGE);
-        return -1;
-    }
+
+	if (ast_strlen_zero(data)) {
+		ast_log(LOG_ERROR,"Invalid input: usage %s\n",UUSAGE);
+		return -1;
+	}
+	
 	LOCAL_USER_ADD(u);
+
 	if ((family = ast_strdupa(data))) {
 		if ((colmatch = strchr(family,'|'))) {
 			crop_data(colmatch);
@@ -144,8 +158,8 @@ static int realtime_update_exec(struct ast_channel *chan, void *data)
 	}
 
 	LOCAL_USER_REMOVE(u);
+	
 	return res;
-
 }
 
 
@@ -156,12 +170,14 @@ static int realtime_exec(struct ast_channel *chan, void *data)
 	struct ast_variable *var, *itt;
 	char *family=NULL, *colmatch=NULL, *value=NULL, *prefix=NULL, *vname=NULL;
 	size_t len;
-
-	if (!data) {
+		
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_ERROR,"Invalid input: usage %s\n",USAGE);
 		return -1;
 	}
+	
 	LOCAL_USER_ADD(u);
+
 	if ((family = ast_strdupa(data))) {
 		if ((colmatch = strchr(family,'|'))) {
 			crop_data(colmatch);
@@ -201,19 +217,28 @@ static int realtime_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_cli_unregister(&cli_load_realtime_cmd);
+	res |= ast_cli_unregister(&cli_update_realtime_cmd);
+	res |= ast_unregister_application(uapp);
+	res |= ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	ast_cli_unregister(&cli_load_realtime_cmd);
-	ast_cli_unregister(&cli_update_realtime_cmd);
-	ast_unregister_application(uapp);
-	return ast_unregister_application(app);
+
+	return res;
 }
 
 int load_module(void)
 {
-	ast_cli_register(&cli_load_realtime_cmd);
-	ast_cli_register(&cli_update_realtime_cmd);
-	ast_register_application(uapp, realtime_update_exec, usynopsis, udesc);
-	return ast_register_application(app, realtime_exec, synopsis, desc);
+	int res;
+
+	res = ast_cli_register(&cli_load_realtime_cmd);
+	res |= ast_cli_register(&cli_update_realtime_cmd);
+	res |= ast_register_application(uapp, realtime_update_exec, usynopsis, udesc);
+	res |= ast_register_application(app, realtime_exec, synopsis, desc);
+
+	return res;
 }
 
 char *description(void)

@@ -1,12 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * MD5 checksum application
- * 
  * Copyright (C) 2005, Olle E. Johansson, Edvina.net
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+
+/*! \file
+ *
+ * \brief MD5 checksum application
+ * 
+ * \todo Remove this deprecated application in 1.3dev
  */
 
 #include <stdlib.h>
@@ -15,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -60,11 +73,13 @@ static int md5_exec(struct ast_channel *chan, void *data)
 		dep_warning = 1;
 	}	
 
-	if (!data) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Syntax: md5(<varname>=<string>) - missing argument!\n");
 		return -1;
 	}
+	
 	LOCAL_USER_ADD(u);
+
 	memset(retvar,0, sizeof(retvar));
 	string = ast_strdupa(data);
 	varname = strsep(&string,"=");
@@ -95,11 +110,13 @@ static int md5check_exec(struct ast_channel *chan, void *data)
 		dep_warning = 1;
 	}
 	
-	if (!data) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Syntax: MD5Check(<md5hash>,<string>) - missing argument!\n");
 		return -1;
 	}
+	
 	LOCAL_USER_ADD(u);
+	
 	memset(newhash,0, sizeof(newhash));
 
 	string = ast_strdupa(data);
@@ -118,10 +135,9 @@ static int md5check_exec(struct ast_channel *chan, void *data)
 	}
 	if (option_debug > 2)
 		ast_log(LOG_DEBUG, "ERROR: MD5 not verified: %s -- %s\n", hash, string);
-	if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-		chan->priority += 100;
-	else if (option_debug > 2)
-		ast_log(LOG_DEBUG, "ERROR: Can't jump to exten+101 (e%s,p%d), sorry\n", chan->exten,chan->priority+101);
+	if (!ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101))
+		if (option_debug > 2)
+			ast_log(LOG_DEBUG, "ERROR: Can't jump to exten+101 (e%s,p%d), sorry\n", chan->exten,chan->priority+101);
 	LOCAL_USER_REMOVE(u);
 	return res;
 }
@@ -130,9 +146,11 @@ int unload_module(void)
 {
 	int res;
 
-	STANDARD_HANGUP_LOCALUSERS;
-	res =ast_unregister_application(app_md5);
+	res = ast_unregister_application(app_md5);
 	res |= ast_unregister_application(app_md5check);
+
+	STANDARD_HANGUP_LOCALUSERS;
+
 	return res;
 }
 
@@ -142,6 +160,7 @@ int load_module(void)
 
 	res = ast_register_application(app_md5check, md5check_exec, desc_md5check, synopsis_md5check);
 	res |= ast_register_application(app_md5, md5_exec, desc_md5, synopsis_md5);
+	
 	return res;
 }
 

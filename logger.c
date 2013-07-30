@@ -1,12 +1,24 @@
 /*
- * Asterisk Logger
- * 
- * Mark Spencer <markster@marko.net>
+ * Asterisk -- An open source telephony toolkit.
  *
- * Copyright(C)1999, Linux Support Services, Inc.
- * 
- * Distributed under the terms of the GNU General Public License (GPL) Version 2
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Asterisk Logger
+ * 
  * Logging routines
  *
  */
@@ -27,16 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.79 $")
-
-#include "asterisk/lock.h"
-#include "asterisk/options.h"
-#include "asterisk/channel.h"
-#include "asterisk/config.h"
-#include "asterisk/term.h"
-#include "asterisk/cli.h"
-#include "asterisk/utils.h"
-#include "asterisk/manager.h"
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.86 $")
 
 static int syslog_level_map[] = {
 	LOG_DEBUG,
@@ -51,15 +54,27 @@ static int syslog_level_map[] = {
 #define SYSLOG_NLEVELS 6
 
 #include "asterisk/logger.h"
+#include "asterisk/lock.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/config.h"
+#include "asterisk/term.h"
+#include "asterisk/cli.h"
+#include "asterisk/utils.h"
+#include "asterisk/manager.h"
 
 #define MAX_MSG_QUEUE 200
 
-#if defined(__linux__) && defined(__NR_gettid)
+#if defined(__linux__) && !defined(__NR_gettid)
 #include <asm/unistd.h>
+#endif
+
+#if defined(__linux__) && defined(__NR_gettid)
 #define GETTID() syscall(__NR_gettid)
 #else
 #define GETTID() getpid()
 #endif
+
 
 static char dateformat[256] = "%b %e %T";		/* Original Asterisk Format */
 
@@ -801,46 +816,66 @@ void ast_log(int level, const char *file, int line, const char *function, const 
 	}
 }
 
-extern void ast_verbose(const char *fmt, ...)
+void ast_verbose(const char *fmt, ...)
 {
 	static char stuff[4096];
-	static int pos = 0, opos;
-	static int replacelast = 0, complete;
+	static int len = 0;
+	static int replacelast = 0;
+
+	int complete;
+	int olen;
 	struct msglist *m;
 	struct verb *v;
-	time_t t;
-	struct tm tm;
-	char date[40];
-	char *datefmt;
 	
 	va_list ap;
 	va_start(ap, fmt);
-	ast_mutex_lock(&msglist_lock);
-	time(&t);
-	localtime_r(&t, &tm);
-	strftime(date, sizeof(date), dateformat, &tm);
 
 	if (option_timestamp) {
+		time_t t;
+		struct tm tm;
+		char date[40];
+		char *datefmt;
+
+		time(&t);
+		localtime_r(&t, &tm);
+		strftime(date, sizeof(date), dateformat, &tm);
 		datefmt = alloca(strlen(date) + 3 + strlen(fmt) + 1);
 		if (datefmt) {
 			sprintf(datefmt, "[%s] %s", date, fmt);
 			fmt = datefmt;
 		}
 	}
-	vsnprintf(stuff + pos, sizeof(stuff) - pos, fmt, ap);
-	opos = pos;
-	pos = strlen(stuff);
 
+	/* this lock is also protecting against multiple threads
+	   being in this function at the same time, so it must be
+	   held before any of the static variables are accessed
+	*/
+	ast_mutex_lock(&msglist_lock);
 
-	if (stuff[strlen(stuff)-1] == '\n') 
+	/* there is a potential security problem here: if formatting
+	   the current date using 'dateformat' results in a string
+	   containing '%', then the vsnprintf() call below will
+	   probably try to access random memory
+	*/
+	vsnprintf(stuff + len, sizeof(stuff) - len, fmt, ap);
+	va_end(ap);
+
+	olen = len;
+	len = strlen(stuff);
+
+	complete = (stuff[len - 1] == '\n') ? 1 : 0;
+
+	/* If we filled up the stuff completely, then log it even without the '\n' */
+	if (len >= sizeof(stuff) - 1) {
 		complete = 1;
-	else
-		complete=0;
+		len = 0;
+	}
+
 	if (complete) {
 		if (msgcnt < MAX_MSG_QUEUE) {
 			/* Allocate new structure */
-			m = malloc(sizeof(struct msglist));
-			msgcnt++;
+			if ((m = malloc(sizeof(*m))))
+				msgcnt++;
 		} else {
 			/* Recycle the oldest entry */
 			m = list;
@@ -863,22 +898,18 @@ extern void ast_verbose(const char *fmt, ...)
 			}
 		}
 	}
-	if (verboser) {
-		v = verboser;
-		while(v) {
-			v->verboser(stuff, opos, replacelast, complete);
-			v = v->next;
-		}
-	} /* else
-		fprintf(stdout, stuff + opos); */
+
+	for (v = verboser; v; v = v->next)
+		v->verboser(stuff, olen, replacelast, complete);
+
 	ast_log(LOG_VERBOSE, "%s", stuff);
-	if (strlen(stuff)) {
-		if (stuff[strlen(stuff)-1] != '\n') 
+
+	if (len) {
+		if (!complete)
 			replacelast = 1;
 		else 
-			replacelast = pos = 0;
+			replacelast = len = 0;
 	}
-	va_end(ap);
 
 	ast_mutex_unlock(&msglist_lock);
 }

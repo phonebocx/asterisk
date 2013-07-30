@@ -1,4 +1,6 @@
-/* MD5 checksum routines used for authentication.  Not covered by GPL, but
+
+/*!\file
+\brief     MD5 checksum routines used for authentication.  Not covered by GPL, but
    in the public domain as per the copyright below */
 
 /*
@@ -21,7 +23,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/endian.h"
 #include "asterisk/md5.h"

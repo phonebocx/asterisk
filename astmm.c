@@ -1,26 +1,36 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Memory Management
- * 
- * Copyright (C) 2002-2005, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Memory Management
+ * 
  */
 
 #ifdef __AST_DEBUG_MALLOC
 
-#include <malloc.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.23 $")
 
 #include "asterisk/cli.h"
 #include "asterisk/logger.h"
@@ -46,6 +56,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
 #undef free
 #undef vasprintf
 
+#define FENCE_MAGIC 0xdeadbeef
+
 static FILE *mmlog;
 
 static struct ast_region {
@@ -55,6 +67,7 @@ static struct ast_region {
 	int lineno;
 	int which;
 	size_t len;
+	unsigned int fence;
 	unsigned char data[0];
 } *regions[SOME_PRIME];
 
@@ -68,8 +81,9 @@ static inline void *__ast_alloc_region(size_t size, int which, const char *file,
 {
 	struct ast_region *reg;
 	void *ptr = NULL;
+	unsigned int *fence;
 	int hash;
-	reg = malloc(size + sizeof(struct ast_region));
+	reg = malloc(size + sizeof(struct ast_region) + sizeof(unsigned int));
 	ast_mutex_lock(&reglock);
 	if (reg) {
 		ast_copy_string(reg->file, file, sizeof(reg->file));
@@ -83,6 +97,9 @@ static inline void *__ast_alloc_region(size_t size, int which, const char *file,
 		hash = HASH(ptr);
 		reg->next = regions[hash];
 		regions[hash] = reg;
+		reg->fence = FENCE_MAGIC;
+		fence = (ptr + reg->len);
+		*fence = FENCE_MAGIC;
 	}
 	ast_mutex_unlock(&reglock);
 	if (!reg) {
@@ -118,6 +135,8 @@ static void __ast_free_region(void *ptr, const char *file, int lineno, const cha
 {
 	int hash = HASH(ptr);
 	struct ast_region *reg, *prev = NULL;
+	unsigned int *fence;
+
 	ast_mutex_lock(&reglock);
 	reg = regions[hash];
 	while (reg) {
@@ -134,6 +153,21 @@ static void __ast_free_region(void *ptr, const char *file, int lineno, const cha
 	}
 	ast_mutex_unlock(&reglock);
 	if (reg) {
+		fence = (unsigned int *)(reg->data + reg->len);
+		if (reg->fence != FENCE_MAGIC) {
+			fprintf(stderr, "WARNING: Low fence violation at %p, in %s of %s, line %d\n", reg->data, reg->func, reg->file, reg->lineno);
+			if (mmlog) {
+				fprintf(mmlog, "%ld - WARNING: Low fence violation at %p, in %s of %s, line %d\n", time(NULL), reg->data, reg->func, reg->file, reg->lineno);
+				fflush(mmlog);
+			}
+		}
+		if (*fence != FENCE_MAGIC) {
+			fprintf(stderr, "WARNING: High fence violation at %p, in %s of %s, line %d\n", reg->data, reg->func, reg->file, reg->lineno);
+			if (mmlog) {
+				fprintf(mmlog, "%ld - WARNING: High fence violation at %p, in %s of %s, line %d\n", time(NULL), reg->data, reg->func, reg->file, reg->lineno);
+				fflush(mmlog);
+			}
+		}
 		free(reg);
 	} else {
 		fprintf(stderr, "WARNING: Freeing unused memory at %p, in %s of %s, line %d\n",	ptr, func, file, lineno);
@@ -244,6 +278,7 @@ static int handle_show_memory(int fd, int argc, char *argv[])
 	struct ast_region *reg;
 	unsigned int len = 0;
 	int count = 0;
+	unsigned int *fence;
 	if (argc > 3) 
 		fn = argv[3];
 
@@ -253,6 +288,23 @@ static int handle_show_memory(int fd, int argc, char *argv[])
 	for (x = 0; x < SOME_PRIME; x++) {
 		reg = regions[x];
 		while (reg) {
+			if (!fn || !strcasecmp(fn, reg->file) || !strcasecmp(fn, "anomolies")) {
+				fence = (unsigned int *)(reg->data + reg->len);
+				if (reg->fence != FENCE_MAGIC) {
+					fprintf(stderr, "WARNING: Low fence violation at %p, in %s of %s, line %d\n", reg->data, reg->func, reg->file, reg->lineno);
+					if (mmlog) {
+						fprintf(mmlog, "%ld - WARNING: Low fence violation at %p, in %s of %s, line %d\n", time(NULL), reg->data, reg->func, reg-> file, reg->lineno);
+						fflush(mmlog);
+					}
+				}
+				if (*fence != FENCE_MAGIC) {
+					fprintf(stderr, "WARNING: High fence violation at %p, in %s of %s, line %d\n", reg->data, reg->func, reg->file, reg->lineno);
+					if (mmlog) {
+						fprintf(mmlog, "%ld - WARNING: High fence violation at %p, in %s of %s, line %d\n", time(NULL), reg->data, reg->func, reg->file, reg->lineno);
+						fflush(mmlog);
+					}
+				}
+			}
 			if (!fn || !strcasecmp(fn, reg->file)) {
 				ast_cli(fd, "%10d bytes allocated in %20s at line %5d of %s\n", (int) reg->len, reg->func, reg->lineno, reg->file);
 				len += reg->len;

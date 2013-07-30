@@ -1,14 +1,23 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Convenient Signal Processing routines
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Convenient Signal Processing routines
  */
 
 #ifndef _ASTERISK_DSP_H
@@ -47,54 +56,56 @@ struct ast_dsp;
 
 struct ast_dsp *ast_dsp_new(void);
 void ast_dsp_free(struct ast_dsp *dsp);
-/* Set threshold value for silence */
+
+/*! \brief Set threshold value for silence */
 void ast_dsp_set_threshold(struct ast_dsp *dsp, int threshold);
 
-/* Set number of required cadences for busy */
+/*! \brief Set number of required cadences for busy */
 void ast_dsp_set_busy_count(struct ast_dsp *dsp, int cadences);
 
-/* Set expected lengths of the busy tone */
+/*! \brief Set expected lengths of the busy tone */
 void ast_dsp_set_busy_pattern(struct ast_dsp *dsp, int tonelength, int quietlength);
 
-/* Scans for progress indication in audio */
+/*! \brief Scans for progress indication in audio */
 int ast_dsp_call_progress(struct ast_dsp *dsp, struct ast_frame *inf);
 
-/* Set zone for doing progress detection */
+/*! \brief Set zone for doing progress detection */
 int ast_dsp_set_call_progress_zone(struct ast_dsp *dsp, char *zone);
 
-/* Return AST_FRAME_NULL frames when there is silence, AST_FRAME_BUSY on 
+/*! \brief Return AST_FRAME_NULL frames when there is silence, AST_FRAME_BUSY on 
    busies, and call progress, all dependent upon which features are enabled */
 struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp, struct ast_frame *inf);
 
-/* Return non-zero if this is silence.  Updates "totalsilence" with the total
+/*! \brief Return non-zero if this is silence.  Updates "totalsilence" with the total
    number of seconds of silence  */
 int ast_dsp_silence(struct ast_dsp *dsp, struct ast_frame *f, int *totalsilence);
 
-/* Return non-zero if historically this should be a busy, request that
+/*! \brief Return non-zero if historically this should be a busy, request that
   ast_dsp_silence has already been called */
 int ast_dsp_busydetect(struct ast_dsp *dsp);
 
-/* Return non-zero if DTMF hit was found */
+/*! \brief Return non-zero if DTMF hit was found */
 int ast_dsp_digitdetect(struct ast_dsp *dsp, struct ast_frame *f);
 
-/* Reset total silence count */
+/*! \brief Reset total silence count */
 void ast_dsp_reset(struct ast_dsp *dsp);
 
-/* Reset DTMF detector */
+/*! \brief Reset DTMF detector */
 void ast_dsp_digitreset(struct ast_dsp *dsp);
 
-/* Select feature set */
+/*! \brief Select feature set */
 void ast_dsp_set_features(struct ast_dsp *dsp, int features);
 
-/* Get pending DTMF/MF digits */
+/*! \brief Get pending DTMF/MF digits */
 int ast_dsp_getdigits(struct ast_dsp *dsp, char *buf, int max);
 
-/* Set digit mode */
+/*! \brief Set digit mode */
 int ast_dsp_digitmode(struct ast_dsp *dsp, int digitmode);
 
-/* Get tstate (Tone State) */
+/*! \brief Get tstate (Tone State) */
 int ast_dsp_get_tstate(struct ast_dsp *dsp);
 
-/* Get tcount (Threshold counter) */
+/*! \brief Get tcount (Threshold counter) */
 int ast_dsp_get_tcount(struct ast_dsp *dsp);
-#endif
+
+#endif /* _ASTERISK_DSP_H */

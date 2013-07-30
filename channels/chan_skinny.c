@@ -1,15 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Implementation of the Skinny protocol
- * 
- * Copyright (C) 1999 - 2005 Digium, inc
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * chan_skinny was developed by Jeremy McNamara & Florian Overkamp
  *
- * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Implementation of the Skinny protocol
+ * 
  */
 
 
@@ -32,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.89 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.92 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -1327,7 +1337,7 @@ static struct ast_rtp *skinny_get_rtp_peer(struct ast_channel *chan)
 	return NULL;
 }
 
-static int skinny_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, struct ast_rtp *vrtp, int codecs)
+static int skinny_set_rtp_peer(struct ast_channel *chan, struct ast_rtp *rtp, struct ast_rtp *vrtp, int codecs, int nat_active)
 {
 	struct skinny_subchannel *sub;
 	sub = chan->tech_pvt;

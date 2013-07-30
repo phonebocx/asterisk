@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Generic Linux Telephony Interface driver
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Generic Linux Telephony Interface driver
+ * 
  */
 
 #include <stdio.h>
@@ -32,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.55 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.58 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -250,7 +261,7 @@ static int phone_call(struct ast_channel *ast, char *dest, int timeout)
 		snprintf(cid.min, sizeof(cid.min),     "%02d", tm.tm_min);
 	}
 	/* the standard format of ast->callerid is:  "name" <number>, but not always complete */
-	if (!ast->cid.cid_name || ast_strlen_zero(ast->cid.cid_name))
+	if (ast_strlen_zero(ast->cid.cid_name))
 		strncpy(cid.name, DEFAULT_CALLER_ID, sizeof(cid.name) - 1);
 	else
 		strncpy(cid.name, ast->cid.cid_name, sizeof(cid.name) - 1);
@@ -807,11 +818,11 @@ static struct ast_channel *phone_new(struct phone_pvt *i, int state, char *conte
 			tmp->rings = 1;
 		tmp->tech_pvt = i;
 		strncpy(tmp->context, context, sizeof(tmp->context)-1);
-		if (strlen(i->ext))
+		if (!ast_strlen_zero(i->ext))
 			strncpy(tmp->exten, i->ext, sizeof(tmp->exten)-1);
 		else
 			strncpy(tmp->exten, "s",  sizeof(tmp->exten) - 1);
-		if (strlen(i->language))
+		if (!ast_strlen_zero(i->language))
 			strncpy(tmp->language, i->language, sizeof(tmp->language)-1);
 		if (!ast_strlen_zero(i->cid_num))
 			tmp->cid.cid_num = strdup(i->cid_num);

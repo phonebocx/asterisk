@@ -1,12 +1,25 @@
 /*
- * Distributed Universal Number Discovery (DUNDi)
+ * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2004 - 2005, Digium Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Written by Mark Spencer <markster@digium.com>
+ * Mark Spencer <markster@digium.com>
  *
- * This program is Free Software distributed under the terms of
- * of the GNU General Public License.
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Distributed Universal Number Discovery (DUNDi)
+ *
  */
 
 #include <sys/types.h>
@@ -20,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/utils.h"
@@ -507,7 +520,7 @@ int dundi_ie_append_raw(struct dundi_ie_data *ied, unsigned char ie, void *data,
 	return 0;
 }
 
-int dundi_ie_append_cause(struct dundi_ie_data *ied, unsigned char ie, unsigned char cause, unsigned char *data)
+int dundi_ie_append_cause(struct dundi_ie_data *ied, unsigned char ie, unsigned char cause, char *data)
 {
 	char tmp[256];
 	int datalen = data ? strlen(data) + 1 : 1;
@@ -524,7 +537,7 @@ int dundi_ie_append_cause(struct dundi_ie_data *ied, unsigned char ie, unsigned 
 	return 0;
 }
 
-int dundi_ie_append_hint(struct dundi_ie_data *ied, unsigned char ie, unsigned short flags, unsigned char *data)
+int dundi_ie_append_hint(struct dundi_ie_data *ied, unsigned char ie, unsigned short flags, char *data)
 {
 	char tmp[256];
 	int datalen = data ? strlen(data) + 2 : 2;
@@ -563,7 +576,7 @@ int dundi_ie_append_encdata(struct dundi_ie_data *ied, unsigned char ie, unsigne
 	return 0;
 }
 
-int dundi_ie_append_answer(struct dundi_ie_data *ied, unsigned char ie, dundi_eid *eid, unsigned char protocol, unsigned short flags, unsigned short weight, unsigned char *data)
+int dundi_ie_append_answer(struct dundi_ie_data *ied, unsigned char ie, dundi_eid *eid, unsigned char protocol, unsigned short flags, unsigned short weight, char *data)
 {
 	char tmp[256];
 	int datalen = data ? strlen(data) + 11 : 11;
@@ -609,7 +622,7 @@ int dundi_ie_append_short(struct dundi_ie_data *ied, unsigned char ie, unsigned 
 	return dundi_ie_append_raw(ied, ie, &newval, (int)sizeof(newval));
 }
 
-int dundi_ie_append_str(struct dundi_ie_data *ied, unsigned char ie, unsigned char *str)
+int dundi_ie_append_str(struct dundi_ie_data *ied, unsigned char ie, char *str)
 {
 	return dundi_ie_append_raw(ied, ie, str, strlen(str));
 }
@@ -676,10 +689,10 @@ int dundi_parse_ies(struct dundi_ies *ies, unsigned char *data, int datalen)
 				ies->reqeid = (dundi_eid *)(data + 2);
 			break;
 		case DUNDI_IE_CALLED_CONTEXT:
-			ies->called_context = data + 2;
+			ies->called_context = (char *)data + 2;
 			break;
 		case DUNDI_IE_CALLED_NUMBER:
-			ies->called_number = data + 2;
+			ies->called_number = (char *)data + 2;
 			break;
 		case DUNDI_IE_ANSWER:
 			if (len < sizeof(struct dundi_answer)) {
@@ -731,7 +744,7 @@ int dundi_parse_ies(struct dundi_ies *ies, unsigned char *data, int datalen)
 		case DUNDI_IE_CAUSE:
 			if (len >= 1) {
 				ies->cause = data[2];
-				ies->causestr = data + 3;
+				ies->causestr = (char *)data + 3;
 			} else {
 				snprintf(tmp, (int)sizeof(tmp), "Expected at least one byte cause, but was %d long\n", len);
 				errorf(tmp);
@@ -746,28 +759,28 @@ int dundi_parse_ies(struct dundi_ies *ies, unsigned char *data, int datalen)
 			}
 			break;
 		case DUNDI_IE_DEPARTMENT:
-			ies->q_dept = data + 2;
+			ies->q_dept = (char *)data + 2;
 			break;
 		case DUNDI_IE_ORGANIZATION:
-			ies->q_org = data + 2;
+			ies->q_org = (char *)data + 2;
 			break;
 		case DUNDI_IE_LOCALITY:
-			ies->q_locality = data + 2;
+			ies->q_locality = (char *)data + 2;
 			break;
 		case DUNDI_IE_STATE_PROV:
-			ies->q_stateprov = data + 2;
+			ies->q_stateprov = (char *)data + 2;
 			break;
 		case DUNDI_IE_COUNTRY:
-			ies->q_country = data + 2;
+			ies->q_country = (char *)data + 2;
 			break;
 		case DUNDI_IE_EMAIL:
-			ies->q_email = data + 2;
+			ies->q_email = (char *)data + 2;
 			break;
 		case DUNDI_IE_PHONE:
-			ies->q_phone = data + 2;
+			ies->q_phone = (char *)data + 2;
 			break;
 		case DUNDI_IE_IPADDR:
-			ies->q_ipaddr = data + 2;
+			ies->q_ipaddr = (char *)data + 2;
 			break;
 		case DUNDI_IE_ENCDATA:
 			/* Recalculate len as the remainder of the message, regardless of

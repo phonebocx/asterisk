@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Provide Cryptographic Signature capability
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Provide Cryptographic Signature capability
+ * 
  */
 
 #include <sys/types.h>
@@ -23,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.28 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -118,7 +129,7 @@ static int pw_cb(char *buf, int size, int rwflag, void *userdata)
 	return -1;
 }
 
-struct ast_key *ast_key_get(char *kname, int ktype)
+static struct ast_key *__ast_key_get(const char *kname, int ktype)
 {
 	struct ast_key *key;
 	ast_mutex_lock(&keylock);
@@ -303,7 +314,7 @@ static char *binary(int y, int len)
 
 #endif
 
-int ast_sign_bin(struct ast_key *key, char *msg, int msglen, unsigned char *dsig)
+static int __ast_sign_bin(struct ast_key *key, const char *msg, int msglen, unsigned char *dsig)
 {
 	unsigned char digest[20];
 	unsigned int siglen = 128;
@@ -334,7 +345,7 @@ int ast_sign_bin(struct ast_key *key, char *msg, int msglen, unsigned char *dsig
 	
 }
 
-extern int ast_decrypt_bin(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key)
+static int __ast_decrypt_bin(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key)
 {
 	int res;
 	int pos = 0;
@@ -360,7 +371,7 @@ extern int ast_decrypt_bin(unsigned char *dst, const unsigned char *src, int src
 	return pos;
 }
 
-extern int ast_encrypt_bin(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key)
+static int __ast_encrypt_bin(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key)
 {
 	int res;
 	int bytes;
@@ -388,7 +399,7 @@ extern int ast_encrypt_bin(unsigned char *dst, const unsigned char *src, int src
 	return pos;
 }
 
-int ast_sign(struct ast_key *key, char *msg, char *sig)
+static int __ast_sign(struct ast_key *key, char *msg, char *sig)
 {
 	unsigned char dsig[128];
 	int siglen = sizeof(dsig);
@@ -401,7 +412,7 @@ int ast_sign(struct ast_key *key, char *msg, char *sig)
 	
 }
 
-int ast_check_signature_bin(struct ast_key *key, char *msg, int msglen, unsigned char *dsig)
+static int __ast_check_signature_bin(struct ast_key *key, const char *msg, int msglen, const unsigned char *dsig)
 {
 	unsigned char digest[20];
 	int res;
@@ -417,7 +428,7 @@ int ast_check_signature_bin(struct ast_key *key, char *msg, int msglen, unsigned
 	SHA1((unsigned char *)msg, msglen, digest);
 
 	/* Verify signature */
-	res = RSA_verify(NID_sha1, digest, sizeof(digest), dsig, 128, key->rsa);
+	res = RSA_verify(NID_sha1, digest, sizeof(digest), (unsigned char *)dsig, 128, key->rsa);
 	
 	if (!res) {
 		ast_log(LOG_DEBUG, "Key failed verification: %s\n", key->name);
@@ -427,7 +438,7 @@ int ast_check_signature_bin(struct ast_key *key, char *msg, int msglen, unsigned
 	return 0;
 }
 
-int ast_check_signature(struct ast_key *key, char *msg, char *sig)
+static int __ast_check_signature(struct ast_key *key, const char *msg, const char *sig)
 {
 	unsigned char dsig[128];
 	int res;
@@ -560,6 +571,15 @@ static int crypto_init(void)
 	ERR_load_crypto_strings();
 	ast_cli_register(&cli_show_keys);
 	ast_cli_register(&cli_init_keys);
+
+	/* Install ourselves into stubs */
+	ast_key_get = __ast_key_get;
+	ast_check_signature = __ast_check_signature;
+	ast_check_signature_bin = __ast_check_signature_bin;
+	ast_sign = __ast_sign;
+	ast_sign_bin = __ast_sign_bin;
+	ast_encrypt_bin = __ast_encrypt_bin;
+	ast_decrypt_bin = __ast_decrypt_bin;
 	return 0;
 }
 

@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Old-style G.723 frame/timestamp format.
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Old-style G.723 frame/timestamp format.
+ * 
  */
  
 #include <unistd.h>
@@ -22,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.24 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -40,7 +51,7 @@ struct ast_filestream {
 	/* First entry MUST be reserved for the channel type */
 	void *reserved[AST_RESERVED_POINTERS];
 	/* This is what a filestream means to us */
-	int fd; /* Descriptor */
+	FILE *f; /* Descriptor */
 	struct ast_filestream *next;
 	struct ast_frame *fr;	/* Frame representation of buf */
 	struct timeval orig;	/* Original frame time */
@@ -55,7 +66,7 @@ static char *name = "g723sf";
 static char *desc = "G.723.1 Simple Timestamp File Format";
 static char *exts = "g723|g723sf";
 
-static struct ast_filestream *g723_open(int fd)
+static struct ast_filestream *g723_open(FILE *f)
 {
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
@@ -68,7 +79,7 @@ static struct ast_filestream *g723_open(int fd)
 			free(tmp);
 			return NULL;
 		}
-		tmp->fd = fd;
+		tmp->f = f;
 		tmp->fr = (struct ast_frame *)tmp->buf;
 		tmp->fr->data = tmp->buf + sizeof(struct ast_frame);
 		tmp->fr->frametype = AST_FRAME_VOICE;
@@ -83,7 +94,7 @@ static struct ast_filestream *g723_open(int fd)
 	return tmp;
 }
 
-static struct ast_filestream *g723_rewrite(int fd, const char *comment)
+static struct ast_filestream *g723_rewrite(FILE *f, const char *comment)
 {
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
@@ -96,7 +107,7 @@ static struct ast_filestream *g723_rewrite(int fd, const char *comment)
 			free(tmp);
 			return NULL;
 		}
-		tmp->fd = fd;
+		tmp->f = f;
 		glistcnt++;
 		ast_mutex_unlock(&g723_lock);
 		ast_update_use_count();
@@ -111,11 +122,11 @@ static struct ast_frame *g723_read(struct ast_filestream *s, int *whennext)
 	int res;
 	int delay;
 	/* Read the delay for the next packet, and schedule again if necessary */
-	if (read(s->fd, &delay, 4) == 4) 
+	if (fread(&delay, 1, 4, s->f) == 4) 
 		delay = ntohl(delay);
 	else
 		delay = -1;
-	if (read(s->fd, &size, 2) != 2) {
+	if (fread(&size, 1, 2, s->f) != 2) {
 		/* Out of data, or the file is no longer valid.  In any case
 		   go ahead and stop the stream */
 		return NULL;
@@ -133,7 +144,7 @@ static struct ast_frame *g723_read(struct ast_filestream *s, int *whennext)
 	s->fr->offset = AST_FRIENDLY_OFFSET;
 	s->fr->datalen = size;
 	s->fr->data = s->buf + sizeof(struct ast_frame) + AST_FRIENDLY_OFFSET;
-	if ((res = read(s->fd, s->fr->data , size)) != size) {
+	if ((res = fread(s->fr->data, 1, size, s->f)) != size) {
 		ast_log(LOG_WARNING, "Short read (%d of %d bytes) (%s)!\n", res, size, strerror(errno));
 		return NULL;
 	}
@@ -159,7 +170,7 @@ static void g723_close(struct ast_filestream *s)
 	glistcnt--;
 	ast_mutex_unlock(&g723_lock);
 	ast_update_use_count();
-	close(s->fd);
+	fclose(s->f);
 	free(s);
 	s = NULL;
 }
@@ -187,16 +198,16 @@ static int g723_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Short frame ignored (%d bytes long?)\n", f->datalen);
 		return 0;
 	}
-	if ((res = write(fs->fd, &delay, 4)) != 4) {
+	if ((res = fwrite(&delay, 1, 4, fs->f)) != 4) {
 		ast_log(LOG_WARNING, "Unable to write delay: res=%d (%s)\n", res, strerror(errno));
 		return -1;
 	}
 	size = htons(f->datalen);
-	if ((res =write(fs->fd, &size, 2)) != 2) {
+	if ((res = fwrite(&size, 1, 2, fs->f)) != 2) {
 		ast_log(LOG_WARNING, "Unable to write size: res=%d (%s)\n", res, strerror(errno));
 		return -1;
 	}
-	if ((res = write(fs->fd, f->data, f->datalen)) != f->datalen) {
+	if ((res = fwrite(f->data, 1, f->datalen, fs->f)) != f->datalen) {
 		ast_log(LOG_WARNING, "Unable to write frame: res=%d (%s)\n", res, strerror(errno));
 		return -1;
 	}	
@@ -211,7 +222,7 @@ static int g723_seek(struct ast_filestream *fs, long sample_offset, int whence)
 static int g723_trunc(struct ast_filestream *fs)
 {
 	/* Truncate file to current length */
-	if (ftruncate(fs->fd, lseek(fs->fd, 0, SEEK_CUR)) < 0)
+	if (ftruncate(fileno(fs->f), ftell(fs->f)) < 0)
 		return -1;
 	return 0;
 }

@@ -21,7 +21,7 @@
 #ifndef SOLARIS
 #include <err.h>
 #else
-#define quad_t uint64_t
+#define quad_t int64_t
 #endif
 #include <errno.h>
 #include <regex.h>
@@ -159,7 +159,10 @@ extern int		ast_yylex __P((YYSTYPE *, YYLTYPE *, yyscan_t));
 
 start: expr { ((struct parse_io *)parseio)->val = (struct val *)calloc(sizeof(struct val),1);
               ((struct parse_io *)parseio)->val->type = $$->type;
-              ((struct parse_io *)parseio)->val->u.s = $$->u.s; }
+              if( $$->type == AST_EXPR_integer )
+		((struct parse_io *)parseio)->val->u.i = $$->u.i;
+              else
+                ((struct parse_io *)parseio)->val->u.s = $$->u.s; }
 	;
 
 expr:	TOKEN   { $$= $1;}
@@ -349,7 +352,7 @@ to_string (struct val *vp)
 		return;
 	}
 
-	sprintf (tmp, "%lld", (long long)vp->u.i);
+	sprintf(tmp, "%ld", (long int) vp->u.i);
 	vp->type = AST_EXPR_string;
 	vp->u.s  = tmp;
 }
@@ -390,11 +393,12 @@ void ast_log(int level, const char *file, int line, const char *function, const 
 
 
 int main(int argc,char **argv) {
-	char *s;
-
-	s=ast_expr(argv[1]);
-
-	printf("=====%s======\n",s);
+	char s[4096];
+	
+	if (ast_expr(argv[1], s, sizeof(s)))
+		printf("=====%s======\n",s);
+	else
+		printf("No result\n");
 }
 
 #endif

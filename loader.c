@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Module Loader
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Module Loader
+ * 
  */
 
 #include <stdio.h>
@@ -19,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.50 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.53 $")
 
 #include "asterisk/module.h"
 #include "asterisk/options.h"
@@ -32,7 +43,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.50 $")
 #include "asterisk/enum.h"
 #include "asterisk/rtp.h"
 #include "asterisk/lock.h"
-#ifdef __APPLE__
+#ifdef DLFCNCOMPAT
 #include "asterisk/dlfcn-compat.h"
 #else
 #include <dlfcn.h>

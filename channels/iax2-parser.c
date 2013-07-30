@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Implementation of Inter-Asterisk eXchange
- * 
- * Copyright (C) 2003 - 2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Implementation of Inter-Asterisk eXchange Protocol, v 2
+ * 
  */
 
 #include <sys/types.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.49 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.56 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/utils.h"
@@ -66,7 +77,7 @@ static void dump_string(char *output, int maxlen, void *value, int len)
 	maxlen--;
 	if (maxlen > len)
 		maxlen = len;
-	strncpy(output,value, maxlen);
+	strncpy(output, value, maxlen);
 	output[maxlen] = '\0';
 }
 
@@ -81,7 +92,7 @@ static void dump_prefs(char *output, int maxlen, void *value, int len)
 	if (maxlen > len)
 		maxlen = len;
 
-	strncpy(output,value, maxlen);
+	strncpy(output, value, maxlen);
 	output[maxlen] = '\0';
 	
 	ast_codec_pref_convert(&pref, output, total_len, 0);
@@ -301,7 +312,7 @@ static void dump_prov_ies(char *output, int maxlen, unsigned char *iedata, int l
 				if (prov_ies[x].dump) {
 					prov_ies[x].dump(interp, (int)sizeof(interp), iedata + 2, ielen);
 					snprintf(tmp, (int)sizeof(tmp), "       %-15.15s : %s\n", prov_ies[x].name, interp);
-					strncpy(output, tmp, maxlen - 1);
+					ast_copy_string(output, tmp, maxlen);
 					maxlen -= strlen(output); output += strlen(output);
 				} else {
 					if (ielen)
@@ -309,7 +320,7 @@ static void dump_prov_ies(char *output, int maxlen, unsigned char *iedata, int l
 					else
 						strcpy(interp, "Present");
 					snprintf(tmp, (int)sizeof(tmp), "       %-15.15s : %s\n", prov_ies[x].name, interp);
-					strncpy(output, tmp, maxlen - 1);
+					ast_copy_string(output, tmp, maxlen);
 					maxlen -= strlen(output); output += strlen(output);
 				}
 				found++;
@@ -317,7 +328,7 @@ static void dump_prov_ies(char *output, int maxlen, unsigned char *iedata, int l
 		}
 		if (!found) {
 			snprintf(tmp, (int)sizeof(tmp), "       Unknown Prov IE %03d  : Present\n", ie);
-			strncpy(output, tmp, maxlen - 1);
+			ast_copy_string(output, tmp, maxlen);
 			maxlen -= strlen(output); output += strlen(output);
 		}
 		iedata += (2 + ielen);
@@ -416,14 +427,14 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"TXREJ  ",
 		"QUELCH ",
 		"UNQULCH",
-		"POKE",
-		"PAGE",
-		"MWI",
-		"UNSUPPORTED",
-		"TRANSFER",
-		"PROVISION",
-		"FWDOWNLD",
-		"FWDATA"
+		"POKE   ",
+		"PAGE   ",
+		"MWI    ",
+		"UNSPRTD",
+		"TRANSFR",
+		"PROVISN",
+		"FWDWNLD",
+		"FWDATA "
 	};
 	const char *cmds[] = {
 		"(0?)",
@@ -432,7 +443,7 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"RINGING",
 		"ANSWER ",
 		"BUSY   ",
-		"TKOFFHK ",
+		"TKOFFHK",
 		"OFFHOOK" };
 	struct ast_iax2_full_hdr *fh;
 	char retries[20];
@@ -548,7 +559,7 @@ int iax_ie_append_short(struct iax_ie_data *ied, unsigned char ie, unsigned shor
 	return iax_ie_append_raw(ied, ie, &newval, (int)sizeof(newval));
 }
 
-int iax_ie_append_str(struct iax_ie_data *ied, unsigned char ie, unsigned char *str)
+int iax_ie_append_str(struct iax_ie_data *ied, unsigned char ie, char *str)
 {
 	return iax_ie_append_raw(ied, ie, str, strlen(str));
 }
@@ -595,28 +606,28 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 		}
 		switch(ie) {
 		case IAX_IE_CALLED_NUMBER:
-			ies->called_number = data + 2;
+			ies->called_number = (char *)data + 2;
 			break;
 		case IAX_IE_CALLING_NUMBER:
-			ies->calling_number = data + 2;
+			ies->calling_number = (char *)data + 2;
 			break;
 		case IAX_IE_CALLING_ANI:
-			ies->calling_ani = data + 2;
+			ies->calling_ani = (char *)data + 2;
 			break;
 		case IAX_IE_CALLING_NAME:
-			ies->calling_name = data + 2;
+			ies->calling_name = (char *)data + 2;
 			break;
 		case IAX_IE_CALLED_CONTEXT:
-			ies->called_context = data + 2;
+			ies->called_context = (char *)data + 2;
 			break;
 		case IAX_IE_USERNAME:
-			ies->username = data + 2;
+			ies->username = (char *)data + 2;
 			break;
 		case IAX_IE_PASSWORD:
-			ies->password = data + 2;
+			ies->password = (char *)data + 2;
 			break;
 		case IAX_IE_CODEC_PREFS:
-			ies->codec_prefs = data + 2;
+			ies->codec_prefs = (char *)data + 2;
 			break;
 		case IAX_IE_CAPABILITY:
 			if (len != (int)sizeof(unsigned int)) {
@@ -633,7 +644,7 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				ies->format = ntohl(get_unaligned_uint32(data + 2));
 			break;
 		case IAX_IE_LANGUAGE:
-			ies->language = data + 2;
+			ies->language = (char *)data + 2;
 			break;
 		case IAX_IE_VERSION:
 			if (len != (int)sizeof(unsigned short)) {
@@ -657,10 +668,10 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				ies->samprate = ntohs(get_unaligned_uint16(data + 2));
 			break;
 		case IAX_IE_DNID:
-			ies->dnid = data + 2;
+			ies->dnid = (char *)data + 2;
 			break;
 		case IAX_IE_RDNIS:
-			ies->rdnis = data + 2;
+			ies->rdnis = (char *)data + 2;
 			break;
 		case IAX_IE_AUTHMETHODS:
 			if (len != (int)sizeof(unsigned short))  {
@@ -677,13 +688,13 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				ies->encmethods = ntohs(get_unaligned_uint16(data + 2));
 			break;
 		case IAX_IE_CHALLENGE:
-			ies->challenge = data + 2;
+			ies->challenge = (char *)data + 2;
 			break;
 		case IAX_IE_MD5_RESULT:
-			ies->md5_result = data + 2;
+			ies->md5_result = (char *)data + 2;
 			break;
 		case IAX_IE_RSA_RESULT:
-			ies->rsa_result = data + 2;
+			ies->rsa_result = (char *)data + 2;
 			break;
 		case IAX_IE_APPARENT_ADDR:
 			ies->apparent_addr = ((struct sockaddr_in *)(data + 2));
@@ -710,7 +721,7 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				ies->callno = ntohs(get_unaligned_uint16(data + 2));
 			break;
 		case IAX_IE_CAUSE:
-			ies->cause = data + 2;
+			ies->cause = (char *)data + 2;
 			break;
 		case IAX_IE_CAUSECODE:
 			if (len != 1) {
@@ -763,10 +774,10 @@ int iax_parse_ies(struct iax_ies *ies, unsigned char *data, int datalen)
 				ies->firmwarever = ntohs(get_unaligned_uint16(data + 2));	
 			break;
 		case IAX_IE_DEVICETYPE:
-			ies->devicetype = data + 2;
+			ies->devicetype = (char *)data + 2;
 			break;
 		case IAX_IE_SERVICEIDENT:
-			ies->serviceident = data + 2;
+			ies->serviceident = (char *)data + 2;
 			break;
 		case IAX_IE_FWBLOCKDESC:
 			if (len != (int)sizeof(unsigned int)) {

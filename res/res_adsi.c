@@ -1,17 +1,27 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * ADSI support 
- * 
- * Copyright (C) 2001, Linux Support Services, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
- *
- * This program is free software, distributed under the terms of
- * the GNU General Public License.
+ * Mark Spencer <markster@digium.com>
  *
  * Includes code and algorithms from the Zapata library.
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief ADSI support 
+ * 
  */
 
 #include <time.h>
@@ -24,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/ulaw.h"
 #include "asterisk/alaw.h"
@@ -306,7 +316,7 @@ static int __adsi_transmit_messages(struct ast_channel *chan, unsigned char **ms
 	
 }
 
-int adsi_begin_download(struct ast_channel *chan, unsigned char *service, unsigned char *fdn, unsigned char *sec, int version)
+int adsi_begin_download(struct ast_channel *chan, char *service, unsigned char *fdn, unsigned char *sec, int version)
 {
 	int bytes;
 	unsigned char buf[256];
@@ -428,7 +438,7 @@ static inline int ccopy(unsigned char *dst, unsigned char *src, int max)
 	return x;
 }
 
-int adsi_load_soft_key(unsigned char *buf, int key, unsigned char *llabel, unsigned char *slabel, unsigned char *ret, int data)
+int adsi_load_soft_key(unsigned char *buf, int key, char *llabel, char *slabel, char *ret, int data)
 {
 	int bytes=0;
 
@@ -442,13 +452,13 @@ int adsi_load_soft_key(unsigned char *buf, int key, unsigned char *llabel, unsig
 	buf[bytes++] = key;
 
 	/* Carefully copy long label */
-	bytes += ccopy(buf + bytes, llabel, 18);
+	bytes += ccopy(buf + bytes, (unsigned char *)llabel, 18);
 
 	/* Place delimiter */
 	buf[bytes++] = 0xff;
 
 	/* Short label */
-	bytes += ccopy(buf + bytes, slabel, 7);
+	bytes += ccopy(buf + bytes, (unsigned char *)slabel, 7);
 
 
 	/* If specified, copy return string */
@@ -458,7 +468,7 @@ int adsi_load_soft_key(unsigned char *buf, int key, unsigned char *llabel, unsig
 		if (data)
 			buf[bytes++] = ADSI_SWITCH_TO_DATA2;
 		/* Carefully copy return string */
-		bytes += ccopy(buf + bytes, ret, 20);
+		bytes += ccopy(buf + bytes, (unsigned char *)ret, 20);
 
 	}
 	/* Replace parameter length */
@@ -490,7 +500,7 @@ int adsi_connect_session(unsigned char *buf, unsigned char *fdn, int ver)
 
 }
 
-int adsi_download_connect(unsigned char *buf, unsigned char *service,  unsigned char *fdn, unsigned char *sec, int ver)
+int adsi_download_connect(unsigned char *buf, char *service,  unsigned char *fdn, unsigned char *sec, int ver)
 {
 	int bytes=0;
 	int x;
@@ -502,7 +512,7 @@ int adsi_download_connect(unsigned char *buf, unsigned char *service,  unsigned 
 	bytes++;
 
 	/* Primary column */
-	bytes+= ccopy(buf + bytes, service, 18);
+	bytes+= ccopy(buf + bytes, (unsigned char *)service, 18);
 
 	/* Delimiter */
 	buf[bytes++] = 0xff;
@@ -774,7 +784,7 @@ int adsi_download_disconnect(unsigned char *buf)
 }
 
 int adsi_display(unsigned char *buf, int page, int line, int just, int wrap, 
-		 unsigned char *col1, unsigned char *col2)
+		 char *col1, char *col2)
 {
 	int bytes=0;
 
@@ -804,13 +814,13 @@ int adsi_display(unsigned char *buf, int page, int line, int just, int wrap,
 	buf[bytes++] = 0xff;
 
 	/* Primary column */
-	bytes+= ccopy(buf + bytes, col1, 20);
+	bytes+= ccopy(buf + bytes, (unsigned char *)col1, 20);
 
 	/* Delimiter */
 	buf[bytes++] = 0xff;
 	
 	/* Secondary column */
-	bytes += ccopy(buf + bytes, col2, 20);
+	bytes += ccopy(buf + bytes, (unsigned char *)col2, 20);
 
 	/* Update length */
 	buf[1] = bytes - 2;
@@ -842,7 +852,7 @@ int adsi_input_control(unsigned char *buf, int page, int line, int display, int 
 
 }
 
-int adsi_input_format(unsigned char *buf, int num, int dir, int wrap, unsigned char *format1, unsigned char *format2)
+int adsi_input_format(unsigned char *buf, int num, int dir, int wrap, char *format1, char *format2)
 {
 	int bytes = 0;
 
@@ -852,10 +862,10 @@ int adsi_input_format(unsigned char *buf, int num, int dir, int wrap, unsigned c
 	buf[bytes++] = ADSI_INPUT_FORMAT;
 	bytes++;
 	buf[bytes++] = ((dir & 1) << 7) | ((wrap & 1) << 6) | (num & 0x7);
-	bytes += ccopy(buf + bytes, format1, 20);
+	bytes += ccopy(buf + bytes, (unsigned char *)format1, 20);
 	buf[bytes++] = 0xff;
 	if (format2 && strlen((char *)format2)) {
-		bytes += ccopy(buf + bytes, format2, 20);
+		bytes += ccopy(buf + bytes, (unsigned char *)format2, 20);
 	}
 	buf[1] = bytes - 2;
 	return bytes;
@@ -934,14 +944,14 @@ int adsi_channel_restore(struct ast_channel *chan)
 
 }
 
-int adsi_print(struct ast_channel *chan, unsigned char **lines, int *aligns, int voice)
+int adsi_print(struct ast_channel *chan, char **lines, int *aligns, int voice)
 {
 	unsigned char buf[4096];
 	int bytes=0;
 	int res;
 	int x;
 	for(x=0;lines[x];x++) 
-		bytes += adsi_display(buf + bytes, ADSI_INFO_PAGE, x+1, aligns[x], 0, lines[x], (unsigned char *)"");
+		bytes += adsi_display(buf + bytes, ADSI_INFO_PAGE, x+1, aligns[x], 0, lines[x], "");
 	bytes += adsi_set_line(buf + bytes, ADSI_INFO_PAGE, 1);
 	if (voice) {
 		bytes += adsi_voice_mode(buf + bytes, 0);

@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * SoftHangup application
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief SoftHangup application
+ * 
  */
 
 #include <sys/types.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -49,17 +60,18 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 	char *options, *cut, *cdata, *match;
 	char name[AST_CHANNEL_NAME] = "";
 	int all = 0;
-
-	if (!data) {
+	
+	if (ast_strlen_zero(data)) {
                 ast_log(LOG_WARNING, "SoftHangup requires an argument (Technology/resource)\n");
 		return 0;
 	}
 	
+	LOCAL_USER_ADD(u);
+
 	cdata = ast_strdupa(data);
 	match = strsep(&cdata, "|");
 	options = strsep(&cdata, "|");
 	all = options && strchr(options,'a');
-	LOCAL_USER_ADD(u);
 	c = ast_channel_walk_locked(NULL);
 	while (c) {
 		strncpy(name, c->name, sizeof(name)-1);
@@ -84,6 +96,7 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 		}
 		c = ast_channel_walk_locked(c);
 	}
+	
 	LOCAL_USER_REMOVE(u);
 
 	return 0;
@@ -91,8 +104,13 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

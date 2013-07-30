@@ -1,12 +1,28 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
- * res_config_odbc.c <odbc+odbc plugin for portable configuration engine >
  * Copyright (C) 2004 - 2005 Anthony Minessale II <anthmct@yahoo.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief odbc+odbc plugin for portable configuration engine
+ *
+ *	http://www.unixodbc.org
  */
 
 #include <stdlib.h>
@@ -15,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.28 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.31 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -48,7 +64,6 @@ static struct ast_variable *realtime_odbc(const char *database, const char *tabl
 	int res;
 	int x;
 	struct ast_variable *var=NULL, *prev=NULL;
-	SQLLEN rowcount=0;
 	SQLULEN colsize;
 	SQLSMALLINT colcount=0;
 	SQLSMALLINT datatype;
@@ -110,13 +125,6 @@ static struct ast_variable *realtime_odbc(const char *database, const char *tabl
 		return NULL;
 	}
 
-	res = SQLRowCount(stmt, &rowcount);
-	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-		ast_log(LOG_WARNING, "SQL Row Count error!\n[%s]\n\n", sql);
-		SQLFreeHandle (SQL_HANDLE_STMT, stmt);
-		return NULL;
-	}
-
 	res = SQLNumResultCols(stmt, &colcount);
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 		ast_log(LOG_WARNING, "SQL Column Count error!\n[%s]\n\n", sql);
@@ -124,48 +132,50 @@ static struct ast_variable *realtime_odbc(const char *database, const char *tabl
 		return NULL;
 	}
 
-	if (rowcount) {
-		res = SQLFetch(stmt);
+	res = SQLFetch(stmt);
+	if (res == SQL_NO_DATA) {
+		SQLFreeHandle (SQL_HANDLE_STMT, stmt);
+                return NULL;
+	}
+	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
+		ast_log(LOG_WARNING, "SQL Fetch error!\n[%s]\n\n", sql);
+		SQLFreeHandle (SQL_HANDLE_STMT, stmt);
+		return NULL;
+	}
+	for (x=0;x<colcount;x++) {
+		rowdata[0] = '\0';
+		collen = sizeof(coltitle);
+		res = SQLDescribeCol(stmt, x + 1, coltitle, sizeof(coltitle), &collen, 
+					&datatype, &colsize, &decimaldigits, &nullable);
 		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-			ast_log(LOG_WARNING, "SQL Fetch error!\n[%s]\n\n", sql);
-			SQLFreeHandle (SQL_HANDLE_STMT, stmt);
+			ast_log(LOG_WARNING, "SQL Describe Column error!\n[%s]\n\n", sql);
+			if (var)
+				ast_variables_destroy(var);
 			return NULL;
 		}
-		for (x=0;x<colcount;x++) {
-			rowdata[0] = '\0';
-			collen = sizeof(coltitle);
-			res = SQLDescribeCol(stmt, x + 1, coltitle, sizeof(coltitle), &collen, 
-						&datatype, &colsize, &decimaldigits, &nullable);
-			if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-				ast_log(LOG_WARNING, "SQL Describe Column error!\n[%s]\n\n", sql);
-				if (var)
-					ast_variables_destroy(var);
-				return NULL;
-			}
 
-			indicator = 0;
-			res = SQLGetData(stmt, x + 1, SQL_CHAR, rowdata, sizeof(rowdata), &indicator);
-			if (indicator == SQL_NULL_DATA)
-				continue;
+		indicator = 0;
+		res = SQLGetData(stmt, x + 1, SQL_CHAR, rowdata, sizeof(rowdata), &indicator);
+		if (indicator == SQL_NULL_DATA)
+			continue;
 
-			if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-				ast_log(LOG_WARNING, "SQL Get Data error!\n[%s]\n\n", sql);
-				if (var)
-					ast_variables_destroy(var);
-				return NULL;
-			}
-			stringp = rowdata;
-			while(stringp) {
-				chunk = strsep(&stringp, ";");
-				if (chunk && !ast_strlen_zero(ast_strip(chunk))) {
-					if (prev) {
-						prev->next = ast_variable_new(coltitle, chunk);
-						if (prev->next)
-							prev = prev->next;
+		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
+			ast_log(LOG_WARNING, "SQL Get Data error!\n[%s]\n\n", sql);
+			if (var)
+				ast_variables_destroy(var);
+			return NULL;
+		}
+		stringp = rowdata;
+		while(stringp) {
+			chunk = strsep(&stringp, ";");
+			if (chunk && !ast_strlen_zero(ast_strip(chunk))) {
+				if (prev) {
+					prev->next = ast_variable_new(coltitle, chunk);
+					if (prev->next)
+						prev = prev->next;
 					} else 
 						prev = var = ast_variable_new(coltitle, chunk);
 					
-				}
 			}
 		}
 	}
@@ -194,7 +204,6 @@ static struct ast_config *realtime_multi_odbc(const char *database, const char *
 	struct ast_config *cfg=NULL;
 	struct ast_category *cat=NULL;
 	struct ast_realloca ra;
-	SQLLEN rowcount=0;
 	SQLULEN colsize;
 	SQLSMALLINT colcount=0;
 	SQLSMALLINT datatype;
@@ -262,13 +271,6 @@ static struct ast_config *realtime_multi_odbc(const char *database, const char *
 		return NULL;
 	}
 
-	res = SQLRowCount(stmt, &rowcount);
-	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-		ast_log(LOG_WARNING, "SQL Row Count error!\n[%s]\n\n", sql);
-		SQLFreeHandle (SQL_HANDLE_STMT, stmt);
-		return NULL;
-	}
-
 	res = SQLNumResultCols(stmt, &colcount);
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 		ast_log(LOG_WARNING, "SQL Column Count error!\n[%s]\n\n", sql);
@@ -283,9 +285,8 @@ static struct ast_config *realtime_multi_odbc(const char *database, const char *
 		return NULL;
 	}
 
-	while (rowcount--) {
+	while ((res=SQLFetch(stmt)) != SQL_NO_DATA) {
 		var = NULL;
-		res = SQLFetch(stmt);
 		if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 			ast_log(LOG_WARNING, "SQL Fetch error!\n[%s]\n\n", sql);
 			continue;

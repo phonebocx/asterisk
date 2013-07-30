@@ -1,12 +1,23 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * SMS application - ETSI ES 201 912 protocol 1 implimentation
- * 
  * Copyright (C) 2004 - 2005, Adrian Kennard, rights assigned to Digium
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief SMS application - ETSI ES 201 912 protocol 1 implimentation
+ * 
  */
 
 #include <stdlib.h>
@@ -20,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -134,7 +145,7 @@ typedef struct sms_s
 	unsigned int vp;             /* validity period in minutes, 0 for not set */
 	unsigned short ud[SMSLEN];   /* user data (message), UCS-2 coded */
 	unsigned char udh[SMSLEN];   /* user data header */
-	unsigned char cli[20];       /* caller ID */
+	char cli[20];                /* caller ID */
 	unsigned char ophase;        /* phase (0-79) for 0 and 1 frequencies (1300Hz and 2100Hz) */
 	unsigned char ophasep;       /* phase (0-79) for 1200 bps */
 	unsigned char obyte;         /* byte being sent */
@@ -682,7 +693,7 @@ static void sms_readfile (sms_t * h, char *fn)
 		}
 		while (fgets (line, sizeof (line), s))
 		{								 /* process line in file */
-			unsigned char *p;
+			char *p;
 			for (p = line; *p && *p != '\n' && *p != '\r'; p++);
 			*p = 0;					 /* strip eoln */
 			p = line;
@@ -702,7 +713,7 @@ static void sms_readfile (sms_t * h, char *fn)
 				{						 /* parse message (UTF-8) */
 					unsigned char o = 0;
 					while (*p && o < SMSLEN)
-						h->ud[o++] = utf8decode (&p);
+						h->ud[o++] = utf8decode((unsigned char **)&p);
 					h->udl = o;
 					if (*p)
 						ast_log (LOG_WARNING, "UD too long in %s\n", fn);
@@ -1352,10 +1363,14 @@ static int sms_exec (struct ast_channel *chan, void *data)
 	struct localuser *u;
 	struct ast_frame *f;
 	sms_t h = { 0 };
+	
+	LOCAL_USER_ADD(u);
+
 	h.ipc0 = h.ipc1 = 20;		  /* phase for cosine */
 	h.dcs = 0xF1;					 /* default */
 	if (!data) {
 		ast_log (LOG_ERROR, "Requires queue name at least\n");
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
@@ -1363,16 +1378,18 @@ static int sms_exec (struct ast_channel *chan, void *data)
 		ast_copy_string (h.cli, chan->cid.cid_num, sizeof (h.cli));
 
 	{
-		unsigned char *d = data,
+		char *d = data,
 			*p,
 			answer = 0;
 		if (!*d || *d == '|') {
 			ast_log (LOG_ERROR, "Requires queue name\n");
+			LOCAL_USER_REMOVE(u);
 			return -1;
 		}
 		for (p = d; *p && *p != '|'; p++);
 		if (p - d >= sizeof (h.queue)) {
 			ast_log (LOG_ERROR, "Queue name too long\n");
+			LOCAL_USER_REMOVE(u);
 			return -1;
 		}
 		strncpy (h.queue, d, p - d);
@@ -1431,7 +1448,7 @@ static int sms_exec (struct ast_channel *chan, void *data)
 			d = p;
 			h.udl = 0;
 			while (*p && h.udl < SMSLEN)
-				h.ud[h.udl++] = utf8decode (&p);
+				h.ud[h.udl++] = utf8decode((unsigned char **)&p);
 			if (is7bit (h.dcs) && packsms7 (0, h.udhl, h.udh, h.udl, h.ud) < 0)
 				ast_log (LOG_WARNING, "Invalid 7 bit GSM data\n");
 			if (is8bit (h.dcs) && packsms8 (0, h.udhl, h.udh, h.udl, h.ud) < 0)
@@ -1441,6 +1458,7 @@ static int sms_exec (struct ast_channel *chan, void *data)
 			h.rx = 0;				  /* sent message */
 			h.mr = -1;
 			sms_writefile (&h);
+			LOCAL_USER_REMOVE(u);
 			return 0;
 		}
 
@@ -1452,7 +1470,6 @@ static int sms_exec (struct ast_channel *chan, void *data)
 		}
 	}
 
-	LOCAL_USER_ADD (u);
 	if (chan->_state != AST_STATE_UP)
 		ast_answer (chan);
 
@@ -1464,14 +1481,14 @@ static int sms_exec (struct ast_channel *chan, void *data)
 	if (res >= 0)
 		res = ast_set_read_format (chan, AST_FORMAT_SLINEAR);
 	if (res < 0) {
-		LOCAL_USER_REMOVE (u);
 		ast_log (LOG_ERROR, "Unable to set to linear mode, giving up\n");
+		LOCAL_USER_REMOVE (u);
 		return -1;
 	}
 
 	if (ast_activate_generator (chan, &smsgen, &h) < 0) {
-		LOCAL_USER_REMOVE (u);
 		ast_log (LOG_ERROR, "Failed to activate generator on '%s'\n", chan->name);
+		LOCAL_USER_REMOVE (u);
 		return -1;
 	}
 
@@ -1496,8 +1513,13 @@ static int sms_exec (struct ast_channel *chan, void *data)
 
 int unload_module (void)
 {
+	int res;
+
+	res = ast_unregister_application (app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application (app);
+
+	return res;	
 }
 
 int load_module (void)

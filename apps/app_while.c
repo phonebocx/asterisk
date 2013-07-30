@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * While Loop and ExecIf Implementations
- * 
  * Copyright 2004 - 2005, Anthony Minessale <anthmct@yahoo.com>
  *
  * Anthony Minessale <anthmct@yahoo.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief While Loop and ExecIf Implementations
+ * 
  */
 
 #include <stdlib.h>
@@ -17,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -27,6 +38,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/lock.h"
+#include "asterisk/options.h"
 
 #define ALL_DONE(u,ret) {LOCAL_USER_REMOVE(u); return ret;}
 
@@ -72,7 +84,14 @@ static int execif_exec(struct ast_channel *chan, void *data) {
 	struct ast_app *app = NULL;
 
 	LOCAL_USER_ADD(u);
-	expr = ast_strdupa((char *) data);
+
+	expr = ast_strdupa(data);
+	if (!expr) {
+		ast_log(LOG_ERROR, "Out of memory\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
+
 	if ((myapp = strchr(expr,'|'))) {
 		*myapp = '\0';
 		myapp++;
@@ -108,6 +127,81 @@ static char *get_index(struct ast_channel *chan, const char *prefix, int index) 
 	return pbx_builtin_getvar_helper(chan, varname);
 }
 
+static struct ast_exten *find_matching_priority(struct ast_context *c, const char *exten, int priority, const char *callerid)
+{
+	struct ast_exten *e;
+	struct ast_include *i;
+	struct ast_context *c2;
+
+	for (e=ast_walk_context_extensions(c, NULL); e; e=ast_walk_context_extensions(c, e)) {
+		if (ast_extension_match(ast_get_extension_name(e), exten)) {
+			int needmatch = ast_get_extension_matchcid(e);
+			if ((needmatch && ast_extension_match(ast_get_extension_cidmatch(e), callerid)) ||
+				(!needmatch)) {
+				/* This is the matching extension we want */
+				struct ast_exten *p;
+				for (p=ast_walk_extension_priorities(e, NULL); p; p=ast_walk_extension_priorities(e, p)) {
+					if (priority != ast_get_extension_priority(p))
+						continue;
+					return p;
+				}
+			}
+		}
+	}
+
+	/* No match; run through includes */
+	for (i=ast_walk_context_includes(c, NULL); i; i=ast_walk_context_includes(c, i)) {
+		for (c2=ast_walk_contexts(NULL); c2; c2=ast_walk_contexts(c2)) {
+			if (!strcmp(ast_get_context_name(c2), ast_get_include_name(i))) {
+				e = find_matching_priority(c2, exten, priority, callerid);
+				if (e)
+					return e;
+			}
+		}
+	}
+	return NULL;
+}
+
+static int find_matching_endwhile(struct ast_channel *chan)
+{
+	struct ast_context *c;
+	int res=-1;
+
+	if (ast_lock_contexts()) {
+		ast_log(LOG_ERROR, "Failed to lock contexts list\n");
+		return -1;
+	}
+
+	for (c=ast_walk_contexts(NULL); c; c=ast_walk_contexts(c)) {
+		struct ast_exten *e;
+
+		if (!ast_lock_context(c)) {
+			if (!strcmp(ast_get_context_name(c), chan->context)) {
+				/* This is the matching context we want */
+				int cur_priority = chan->priority + 1, level=1;
+
+				for (e = find_matching_priority(c, chan->exten, cur_priority, chan->cid.cid_num); e; e = find_matching_priority(c, chan->exten, ++cur_priority, chan->cid.cid_num)) {
+					if (!strcasecmp(ast_get_extension_app(e), "WHILE")) {
+						level++;
+					} else if (!strcasecmp(ast_get_extension_app(e), "ENDWHILE")) {
+						level--;
+					}
+
+					if (level == 0) {
+						res = cur_priority;
+						break;
+					}
+				}
+			}
+			ast_unlock_context(c);
+			if (res > 0) {
+				break;
+			}
+		}
+	}
+	ast_unlock_contexts();
+	return res;
+}
 
 static int _while_exec(struct ast_channel *chan, void *data, int end)
 {
@@ -155,7 +249,7 @@ static int _while_exec(struct ast_channel *chan, void *data, int end)
 	memset(my_name, 0, size);
 	snprintf(my_name, size, "%s_%s_%d", chan->context, chan->exten, chan->priority);
 	
-	if (!label || ast_strlen_zero(label)) {
+	if (ast_strlen_zero(label)) {
 		if (end) 
 			label = used_index;
 		else if (!(label = pbx_builtin_getvar_helper(chan, my_name))) {
@@ -181,6 +275,15 @@ static int _while_exec(struct ast_channel *chan, void *data, int end)
 		if ((goto_str=pbx_builtin_getvar_helper(chan, end_varname))) {
 			pbx_builtin_setvar_helper(chan, end_varname, NULL);
 			ast_parseable_goto(chan, goto_str);
+		} else {
+			int pri = find_matching_endwhile(chan);
+			if (pri > 0) {
+				if (option_verbose > 2)
+					ast_verbose(VERBOSE_PREFIX_3 "Jumping to priority %d\n", pri);
+				chan->priority = pri;
+			} else {
+				ast_log(LOG_WARNING, "Couldn't find matching EndWhile? (While at %s@%s priority %d)\n", chan->context, chan->exten, chan->priority);
+			}
 		}
 		ALL_DONE(u,res);
 	}
@@ -223,17 +326,26 @@ static int while_end_exec(struct ast_channel *chan, void *data) {
 
 int unload_module(void)
 {
+	int res;
+	
+	res = ast_unregister_application(start_app);
+	res |= ast_unregister_application(exec_app);
+	res |= ast_unregister_application(stop_app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	ast_unregister_application(start_app);
-	ast_unregister_application(exec_app);
-	return ast_unregister_application(stop_app);
+
+	return res;
 }
 
 int load_module(void)
 {
-	ast_register_application(start_app, while_start_exec, start_synopsis, start_desc);
-	ast_register_application(exec_app, execif_exec, exec_synopsis, exec_desc);
-	return ast_register_application(stop_app, while_end_exec, stop_synopsis, stop_desc);
+	int res;
+
+	res = ast_register_application(start_app, while_start_exec, start_synopsis, start_desc);
+	res |= ast_register_application(exec_app, execif_exec, exec_synopsis, exec_desc);
+	res |= ast_register_application(stop_app, while_end_exec, stop_synopsis, stop_desc);
+
+	return res;
 }
 
 char *description(void)

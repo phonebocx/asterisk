@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Provide a directory of extensions
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Provide a directory of extensions
+ * 
  */
  
 #include <string.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.40 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.49 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -182,11 +193,7 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context, char *dia
 				case '1':
 					/* Name selected */
 					loop = 0;
-					if (ast_exists_extension(chan,dialcontext,ext,1,chan->cid.cid_num)) {
-						ast_copy_string(chan->exten, ext, sizeof(chan->exten));
-						chan->priority = 0;
-						ast_copy_string(chan->context, dialcontext, sizeof(chan->context));
-					} else {
+					if (ast_goto_if_exists(chan, dialcontext, ext, 1)) {
 						ast_log(LOG_WARNING,
 							"Can't find extension '%s' in context '%s'.  "
 							"Did you pass the wrong context to Directory?\n",
@@ -286,35 +293,29 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *
 	int lastuserchoice = 0;
 	char *start, *pos, *conv,*stringp=NULL;
 
-	if (!context || ast_strlen_zero(context)) {
+	if (ast_strlen_zero(context)) {
 		ast_log(LOG_WARNING,
 			"Directory must be called with an argument "
 			"(context in which to interpret extensions)\n");
 		return -1;
 	}
 	if (digit == '0') {
-		if (ast_exists_extension(chan,chan->context,"o",1,chan->cid.cid_num) || 
-			(!ast_strlen_zero(chan->macrocontext) &&
-		     ast_exists_extension(chan, chan->macrocontext, "o", 1, chan->cid.cid_num))) {
-			strcpy(chan->exten, "o");
-			chan->priority = 0;
+		if (!ast_goto_if_exists(chan, chan->context, "o", 1) ||
+		    (!ast_strlen_zero(chan->macrocontext) &&
+		     !ast_goto_if_exists(chan, chan->macrocontext, "o", 1))) {
 			return 0;
 		} else {
-
 			ast_log(LOG_WARNING, "Can't find extension 'o' in current context.  "
 				"Not Exiting the Directory!\n");
 			res = 0;
 		}
 	}	
 	if (digit == '*') {
-		if (ast_exists_extension(chan,chan->context,"a",1,chan->cid.cid_num) || 
-			(!ast_strlen_zero(chan->macrocontext) &&
-		     ast_exists_extension(chan, chan->macrocontext, "a", 1, chan->cid.cid_num))) {
-			strcpy(chan->exten, "a");
-			chan->priority = 0;
+		if (!ast_goto_if_exists(chan, chan->context, "a", 1) ||
+		    (!ast_strlen_zero(chan->macrocontext) &&
+		     !ast_goto_if_exists(chan, chan->macrocontext, "a", 1))) {
 			return 0;
 		} else {
-
 			ast_log(LOG_WARNING, "Can't find extension 'a' in current context.  "
 				"Not Exiting the Directory!\n");
 			res = 0;
@@ -369,11 +370,11 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *
 						lastuserchoice = 0;
 						break;
 					case '1':
-						/* user pressed '1' and extensions exists */
+						/* user pressed '1' and extensions exists;
+						   play_mailbox_owner will already have done
+						   a goto() on the channel
+						 */
 						lastuserchoice = res;
-						ast_copy_string(chan->context, dialcontext, sizeof(chan->context));
-						ast_copy_string(chan->exten, v->name, sizeof(chan->exten));
-						chan->priority = 0;
 						break;
 					case '*':
 						/* user pressed '*' to skip something found */
@@ -409,12 +410,13 @@ static int directory_exec(struct ast_channel *chan, void *data)
 	int last = 1;
 	char *context, *dialcontext, *dirintro, *options;
 
-	if (!data) {
-		ast_log(LOG_WARNING, "directory requires an argument (context[,dialcontext])\n");
+	if (ast_strlen_zero(data)) {
+		ast_log(LOG_WARNING, "Directory requires an argument (context[,dialcontext])\n");
 		return -1;
 	}
 
-top:
+	LOCAL_USER_ADD(u);
+
 	context = ast_strdupa(data);
 	dialcontext = strchr(context, '|');
 	if (dialcontext) {
@@ -431,38 +433,43 @@ top:
 		dialcontext = context;
 
 	cfg = realtime_directory(context);
-	if (!cfg)
+	if (!cfg) {
+		LOCAL_USER_REMOVE(u);
 		return -1;
-
-	LOCAL_USER_ADD(u);
+	}
 
 	dirintro = ast_variable_retrieve(cfg, context, "directoryintro");
-	if (!dirintro || ast_strlen_zero(dirintro))
+	if (ast_strlen_zero(dirintro))
 		dirintro = ast_variable_retrieve(cfg, "general", "directoryintro");
-	if (!dirintro || ast_strlen_zero(dirintro)) {
+	if (ast_strlen_zero(dirintro)) {
 		if (last)
 			dirintro = "dir-intro";	
 		else
 			dirintro = "dir-intro-fn";
 	}
+
 	if (chan->_state != AST_STATE_UP) 
 		res = ast_answer(chan);
-	if (!res)
-		res = ast_streamfile(chan, dirintro, chan->language);
-	if (!res)
-		res = ast_waitstream(chan, AST_DIGIT_ANY);
-	ast_stopstream(chan);
-	if (!res)
-		res = ast_waitfordigit(chan, 5000);
-	if (res > 0) {
-		res = do_directory(chan, cfg, context, dialcontext, res, last);
-		if (res > 0) {
+
+	for (;;) {
+		if (!res)
+			res = ast_streamfile(chan, dirintro, chan->language);
+		if (!res)
 			res = ast_waitstream(chan, AST_DIGIT_ANY);
-			ast_stopstream(chan);
-			if (res >= 0) {
-				goto top;
+		ast_stopstream(chan);
+		if (!res)
+			res = ast_waitfordigit(chan, 5000);
+		if (res > 0) {
+			res = do_directory(chan, cfg, context, dialcontext, res, last);
+			if (res > 0) {
+				res = ast_waitstream(chan, AST_DIGIT_ANY);
+				ast_stopstream(chan);
+				if (res >= 0) {
+					continue;
+				}
 			}
 		}
+		break;
 	}
 	ast_config_destroy(cfg);
 	LOCAL_USER_REMOVE(u);
@@ -471,8 +478,13 @@ top:
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;
 }
 
 int load_module(void)

@@ -1,20 +1,31 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
- * 
+ * Asterisk -- An open source telephony toolkit.
+ *
  * Copyright (C) 1999 - 2005, Digium, Inc.
- *
- * Mark Spencer <markster@digium.com>
- *
- * Wait for Silence
- *   - Waits for up to 'x' milliseconds of silence, 'y' times
- *   - WaitForSilence(500,2) will wait for 1/2 second of silence, twice
- *   - WaitForSilence(1000,1) will wait for 1 second of silence, once
  *
  * WaitForSilence Application by David C. Troy <dave@popvox.com>
  * Version 1.00 2004-01-29
  *
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Wait for Silence
+ *   - Waits for up to 'x' milliseconds of silence, 'y' times
+ *   - WaitForSilence(500,2) will wait for 1/2 second of silence, twice
+ *   - WaitForSilence(1000,1) will wait for 1 second of silence, once
+ *
  */
 
 #include <stdlib.h>
@@ -24,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -141,6 +152,8 @@ static int waitforsilence_exec(struct ast_channel *chan, void *data)
 	int maxsilence = 1000;
 	int iterations = 1, i;
 
+	LOCAL_USER_ADD(u);
+	
 	res = ast_answer(chan); /* Answer the channel */
 
 	if (!data || ((sscanf(data, "%d|%d", &maxsilence, &iterations) != 2) &&
@@ -150,7 +163,7 @@ static int waitforsilence_exec(struct ast_channel *chan, void *data)
 
 	if (option_verbose > 2)
 		ast_verbose(VERBOSE_PREFIX_3 "Waiting %d time(s) for %d ms silence\n", iterations, maxsilence);
-	LOCAL_USER_ADD(u);
+	
 	res = 1;
 	for (i=0; (i<iterations) && (res == 1); i++) {
 		res = do_waiting(chan, maxsilence);
@@ -163,8 +176,13 @@ static int waitforsilence_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;
 }
 
 int load_module(void)

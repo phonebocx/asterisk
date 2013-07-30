@@ -1,15 +1,28 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
- * This program is free software, distributed under the terms of
- * the GNU General Public License
- *
  * FreeBSD changes and multiple device support by Luigi Rizzo, 2005.05.25
  * note-this code best seen with ts=8 (8-spaces tabs) in the editor
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Channel driver for OSS sound cards
+ *
  */
 
 #include <stdio.h>
@@ -33,7 +46,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.55 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.60 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h"
@@ -834,6 +847,9 @@ static int oss_indicate(struct ast_channel *c, int cond)
 		o->cursound = -1;
 		return 0;
 
+	case AST_CONTROL_VIDUPDATE:
+		res = -1;
+		break;
 	default:
 		ast_log(LOG_WARNING,
 		    "Don't know how to display condition %d on %s\n",
@@ -865,11 +881,11 @@ static struct ast_channel *oss_new(struct chan_oss_pvt *o,
 	c->writeformat = AST_FORMAT_SLINEAR;
 	c->tech_pvt = o;
 
-	if (ctx && !ast_strlen_zero(ctx))
+	if (!ast_strlen_zero(ctx))
 		ast_copy_string(c->context, ctx, sizeof(c->context));
-	if (ext && !ast_strlen_zero(ext))
+	if (!ast_strlen_zero(ext))
 		ast_copy_string(c->exten, ext, sizeof(c->exten));
-	if (o->language && !ast_strlen_zero(o->language))
+	if (!ast_strlen_zero(o->language))
 		ast_copy_string(c->language, o->language, sizeof(c->language));
 
 	o->owner = c;
@@ -1189,6 +1205,12 @@ static char transfer_usage[] =
 "       Transfers the currently connected call to the given extension (and\n"
 "context if specified)\n";
 
+static char console_usage[] =
+"Usage: console [device]\n"
+"       If used without a parameter, displays which device is the current\n"
+"console.  If a device is specified, the console sound device is changed to\n"
+"the device specified.\n";
+
 static int console_active(int fd, int argc, char *argv[])
 {
 	if (argc == 1)
@@ -1221,8 +1243,7 @@ static struct ast_cli_entry myclis[] = {
 	{ { "transfer", NULL }, console_transfer, "Transfer a call to a different extension", transfer_usage },
 	{ { "send", "text", NULL }, console_sendtext, "Send text to the remote device", sendtext_usage },
 	{ { "autoanswer", NULL }, console_autoanswer, "Sets/displays autoanswer", autoanswer_usage, autoanswer_complete },
-	{ { "console", NULL }, console_active, "Sets/displays active console",
-		"console foo sets foo as the console"}
+	{ { "console", NULL }, console_active, "Sets/displays active console", console_usage },
 };
 
 /*

@@ -1,21 +1,28 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * CallerID (and other GR30) Generation support 
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License.
- *
- * Includes code and algorithms from the Zapata library.
- *
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
  */
 
-#ifndef _CALLERID_H
-#define _CALLERID_H
+/*! \file
+ * \brief CallerID (and other GR30) Generation support 
+ * Includes code and algorithms from the Zapata library.
+ */
+
+#ifndef _ASTERISK_CALLERID_H
+#define _ASTERISK_CALLERID_H
 
 #define MAX_CALLERID_SIZE 32000
 
@@ -50,6 +57,7 @@ extern void callerid_init(void);
  * \param buf Buffer to use. If "buf" is supplied, it will use that buffer instead of allocating its own.  "buf" must be at least 32000 bytes in size of you want to be sure you don't have an overrun.
  * \param number Use NULL for no number or "P" for "private"
  * \param name name to be used
+ * \param flags passed flags
  * \param callwaiting callwaiting flag
  * \param codec -- either AST_FORMAT_ULAW or AST_FORMAT_ALAW
  * This function creates a stream of callerid (a callerid spill) data in ulaw format. It returns the size
@@ -69,7 +77,7 @@ extern struct callerid_state *callerid_new(int cid_signalling);
 /*! Read samples into the state machine. */
 /*!
  * \param cid Which state machine to act upon
- * \param buffer containing your samples
+ * \param ubuf containing your samples
  * \param samples number of samples contained within the buffer.
  * \param codec which codec (AST_FORMAT_ALAW or AST_FORMAT_ULAW)
  *
@@ -113,7 +121,8 @@ extern void callerid_free(struct callerid_state *cid);
 /*! Generate Caller-ID spill from the "callerid" field of asterisk (in e-mail address like format) */
 /*!
  * \param buf buffer for output samples. See callerid_generate() for details regarding buffer.
- * \param astcid Asterisk format callerid string, taken from the callerid field of asterisk.
+ * \param name Caller-ID Name
+ * \param number Caller-ID Number
  * \param codec Asterisk codec (either AST_FORMAT_ALAW or AST_FORMAT_ULAW)
  *
  * Acts like callerid_generate except uses an asterisk format callerid string.
@@ -131,7 +140,7 @@ extern int ast_callerid_callwaiting_generate(unsigned char *buf, char *name, cha
 
 /*! Destructively parse inbuf into name and location (or number) */
 /*!
- * \param inbuf buffer of callerid stream (in audio form) to be parsed. Warning, data in buffer is changed.
+ * \param instr buffer of callerid stream (in audio form) to be parsed. Warning, data in buffer is changed.
  * \param name address of a pointer-to-char for the name value of the stream.
  * \param location address of a pointer-to-char for the phone number value of the stream.
  * Parses callerid stream from inbuf and changes into useable form, outputed in name and location.
@@ -271,4 +280,4 @@ static inline float callerid_getcarrier(float *cr, float *ci, int bit)
 int ast_parse_caller_presentation(const char *data);
 const char *ast_describe_caller_presentation(int data);
 
-#endif
+#endif /* _ASTERISK_CALLERID_H */

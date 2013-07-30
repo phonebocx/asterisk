@@ -1,11 +1,29 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * FreeTDS CDR logger
+ * Copyright (C) 2004 - 2005, Digium, Inc.
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License.
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
  *
+ * \brief FreeTDS CDR logger
+ *
+ * See also
+ * \arg \ref Config_cdr
+ * \arg http://www.freetds.org/
+ */
+
+/*! \verbatim
  *
  * Table Structure for `cdr`
  *
@@ -32,6 +50,8 @@ CREATE TABLE [dbo].[cdr] (
 	[uniqueid] [varchar] (32) NULL
 ) ON [PRIMARY]
 
+\endverbatim
+
 */
 
 #include <sys/types.h>
@@ -48,7 +68,7 @@ CREATE TABLE [dbo].[cdr] (
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"
@@ -57,8 +77,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 #include "asterisk/module.h"
 #include "asterisk/logger.h"
 
-#if !defined(TDS_INT_EXIT) 
-#define TDS_PRE_0_62
+#ifdef FREETDS_PRE_0_62
 #warning "You have older TDS, you should upgrade!"
 #endif
 
@@ -91,7 +110,7 @@ static int tds_log(struct ast_cdr *cdr)
 	char *accountcode, *src, *dst, *dcontext, *clid, *channel, *dstchannel, *lastapp, *lastdata, *uniqueid;
 	int res = 0;
 	int retried = 0;
-#ifdef TDS_PRE_0_62
+#ifdef FREETDS_PRE_0_62
 	TDS_INT result_type;
 #endif
 
@@ -185,7 +204,7 @@ static int tds_log(struct ast_cdr *cdr)
 			retried = 1;	/* note that we have now tried */
 		}
 
-#ifdef TDS_PRE_0_62
+#ifdef FREETDS_PRE_0_62
 		if (!connected || (tds_submit_query(tds, sqlcmd) != TDS_SUCCEED) || (tds_process_simple_query(tds, &result_type) != TDS_SUCCEED || result_type != TDS_CMD_SUCCEED))
 #else
 		if (!connected || (tds_submit_query(tds, sqlcmd) != TDS_SUCCEED) || (tds_process_simple_query(tds) != TDS_SUCCEED))
@@ -414,7 +433,11 @@ static int mssql_disconnect(void)
 
 static int mssql_connect(void)
 {
+#ifdef FREETDS_0_63
+	TDSCONNECTION *connection = NULL;
+#else
 	TDSCONNECTINFO *connection = NULL;
+#endif
 	char query[128];
 
 	/* Connect to M$SQL Server */
@@ -429,7 +452,7 @@ static int mssql_connect(void)
 	tds_set_passwd(login, password);
 	tds_set_app(login, "TSQL");
 	tds_set_library(login, "TDS-Library");
-#ifndef TDS_PRE_0_62
+#ifndef FREETDS_PRE_0_62
 	tds_set_client_charset(login, charset);
 #endif
 	tds_set_language(login, language);
@@ -459,15 +482,23 @@ static int mssql_connect(void)
 	{
 		ast_log(LOG_ERROR, "Failed to connect to MSSQL server.\n");
 		tds = NULL;	/* freed by tds_connect() on error */
+#ifdef FREETDS_0_63
+		tds_free_connection(connection);
+#else
 		tds_free_connect(connection);
+#endif
 		connection = NULL;
 		goto connect_fail;
 	}
+#ifdef FREETDS_0_63
+	tds_free_connection(connection);
+#else
 	tds_free_connect(connection);
+#endif
 	connection = NULL;
 
 	sprintf(query, "USE %s", dbname);
-#ifdef TDS_PRE_0_62
+#ifdef FREETDS_PRE_0_62
 	if ((tds_submit_query(tds, query) != TDS_SUCCEED) || (tds_process_simple_query(tds, &result_type) != TDS_SUCCEED || result_type != TDS_CMD_SUCCEED))
 #else
 	if ((tds_submit_query(tds, query) != TDS_SUCCEED) || (tds_process_simple_query(tds) != TDS_SUCCEED))
@@ -507,7 +538,7 @@ static int tds_load_module(void)
 	struct ast_config *cfg;
 	struct ast_variable *var;
 	char *ptr = NULL;
-#ifdef TDS_PRE_0_62
+#ifdef FREETDS_PRE_0_62
 	TDS_INT result_type;
 #endif
 

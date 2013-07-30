@@ -1,19 +1,31 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Tone Management
- * 
  * Copyright (C) 2002, Pauline Middelink
  *
- * Pauline Middelink <middelink@polyware.nl>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Tone Management
+ * 
+ * \author Pauline Middelink <middelink@polyware.nl>
  *
  * This set of function allow us to play a list of tones on a channel.
  * Each element has two frequencies, which are mixed together and a
  * duration. For silence both frequencies can be set to 0.
  * The playtones can be given as a comma separated string.
+ *
  */
 
 #include <stdio.h>
@@ -23,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.27 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
 
 #include "asterisk/indications.h"
 #include "asterisk/frame.h"
@@ -50,10 +62,14 @@ static int midi_tohz[128] = {
 			};
 
 struct playtones_item {
-	int freq1;
-	int freq2;
-	int duration;
+	int fac1;
+	int init_v2_1;
+	int init_v3_1;
+	int fac2;
+	int init_v2_2;
+	int init_v3_2;
 	int modulate;
+	int duration;
 };
 
 struct playtones_def {
@@ -66,10 +82,17 @@ struct playtones_def {
 
 struct playtones_state {
 	int vol;
+	int v1_1;
+	int v2_1;
+	int v3_1;
+	int v1_2;
+	int v2_2;
+	int v3_2;
 	int reppos;
 	int nitems;
 	struct playtones_item *items;
 	int npos;
+	int oldnpos;
 	int pos;
 	int origwfmt;
 	struct ast_frame f;
@@ -104,6 +127,7 @@ static void * playtones_alloc(struct ast_channel *chan, void *params)
 		ps->reppos = pd->reppos;
 		ps->nitems = pd->nitems;
 		ps->items = pd->items;
+		ps->oldnpos = -1;
 	}
 	/* Let interrupts interrupt :) */
 	if (pd->interruptible)
@@ -129,20 +153,34 @@ static int playtones_generator(struct ast_channel *chan, void *data, int len, in
 	memset(&ps->f, 0, sizeof(ps->f));
 
 	pi = &ps->items[ps->npos];
-	for (x=0;x<len/2;x++) {
-		if (pi->modulate)
-		/* Modulate 1st tone with 2nd, to 90% modulation depth */
-		ps->data[x] = ps->vol * 2 * (
-			sin((pi->freq1 * 2.0 * M_PI / 8000.0) * (ps->pos + x)) *
-			(0.9 * fabs(sin((pi->freq2 * 2.0 * M_PI / 8000.0) * (ps->pos + x))) + 0.1)
-			);
-		else
-			/* Add 2 tones together */
-			ps->data[x] = ps->vol * (
-				sin((pi->freq1 * 2.0 * M_PI / 8000.0) * (ps->pos + x)) +
-				sin((pi->freq2 * 2.0 * M_PI / 8000.0) * (ps->pos + x))
-			);
+	if (ps->oldnpos != ps->npos) {
+		/* Load new parameters */
+		ps->v1_1 = 0;
+		ps->v2_1 = pi->init_v2_1;
+		ps->v3_1 = pi->init_v3_1;
+		ps->v1_2 = 0;
+		ps->v2_2 = pi->init_v2_2;
+		ps->v3_2 = pi->init_v3_2;
+		ps->oldnpos = ps->npos;
 	}
+	for (x=0;x<len/2;x++) {
+		ps->v1_1 = ps->v2_1;
+		ps->v2_1 = ps->v3_1;
+		ps->v3_1 = (pi->fac1 * ps->v2_1 >> 15) - ps->v1_1;
+		
+		ps->v1_2 = ps->v2_2;
+		ps->v2_2 = ps->v3_2;
+		ps->v3_2 = (pi->fac2 * ps->v2_2 >> 15) - ps->v1_2;
+		if (pi->modulate) {
+			int p;
+			p = ps->v3_2 - 32768;
+			if (p < 0) p = -p;
+			p = ((p * 9) / 10) + 1;
+			ps->data[x] = (ps->v3_1 * p) >> 15;
+		} else
+			ps->data[x] = ps->v3_1 + ps->v3_2; 
+	}
+	
 	ps->f.frametype = AST_FRAME_VOICE;
 	ps->f.subclass = AST_FORMAT_SLINEAR;
 	ps->f.datalen = len;
@@ -181,7 +219,7 @@ int ast_playtones_start(struct ast_channel *chan, int vol, const char *playlst, 
 	if (!data)
 		return -1;
 	if (vol < 1)
-		d.vol = 8192;
+		d.vol = 7219; /* Default to -8db */
 
 	d.interruptible = interruptible;
 	
@@ -267,8 +305,13 @@ int ast_playtones_start(struct ast_channel *chan, int vol, const char *playlst, 
 			ast_log(LOG_WARNING, "Realloc failed!\n");
 			return -1;
 		}
-		d.items[d.nitems].freq1    = freq1;
-		d.items[d.nitems].freq2    = freq2;
+		d.items[d.nitems].fac1 = 2.0 * cos(2.0 * M_PI * (freq1 / 8000.0)) * 32768.0;
+		d.items[d.nitems].init_v2_1 = sin(-4.0 * M_PI * (freq1 / 8000.0)) * d.vol;
+		d.items[d.nitems].init_v3_1 = sin(-2.0 * M_PI * (freq1 / 8000.0)) * d.vol;
+
+		d.items[d.nitems].fac2 = 2.0 * cos(2.0 * M_PI * (freq2 / 8000.0)) * 32768.0;
+		d.items[d.nitems].init_v2_2 = sin(-4.0 * M_PI * (freq2 / 8000.0)) * d.vol;
+		d.items[d.nitems].init_v3_2 = sin(-2.0 * M_PI * (freq2 / 8000.0)) * d.vol;
 		d.items[d.nitems].duration = time;
 		d.items[d.nitems].modulate = modulate;
 		d.nitems++;

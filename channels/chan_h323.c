@@ -1,5 +1,7 @@
 /*
- * chan_h323.c
+ * Asterisk -- An open source telephony toolkit.
+ *
+ * Copyright (C) 1999 - 2005
  *
  * OpenH323 Channel Driver for ASTERISK PBX.
  *			By Jeremy McNamara
@@ -8,22 +10,21 @@
  * chan_h323 has been derived from code created by
  *               Michael Manousos and Mark Spencer
  *
- * This file is part of the chan_h323 driver for Asterisk
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
- * chan_h323 is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version. 
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
  *
- * chan_h323 is distributed WITHOUT ANY WARRANTY; without even 
- * the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR 
- * PURPOSE. See the GNU General Public License for more details. 
+ * \brief This file is part of the chan_h323 driver for Asterisk
  *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
- *
- * Version Info: $Id: chan_h323.c,v 1.124 2005/08/02 03:25:28 jeremy Exp $
  */
 
 #include <sys/socket.h>
@@ -52,7 +53,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.124 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.132 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/logger.h"
@@ -347,25 +348,31 @@ static int oh323_digit(struct ast_channel *c, char digit)
 {
 	struct oh323_pvt *pvt = (struct oh323_pvt *) c->tech_pvt;
 	char *token;
-	if (h323debug)
-		ast_log(LOG_DEBUG, "Sending digit %c on %s\n", digit, c->name);
-	if (!pvt)
+
+	if (!pvt) {
+		ast_log(LOG_ERROR, "No private structure?! This is bad\n");
 		return -1;
+	}
 	ast_mutex_lock(&pvt->lock);
 	if (pvt->rtp && (pvt->options.dtmfmode & H323_DTMF_RFC2833)) {
+		/* out-of-band DTMF */
+		if (h323debug) {
+			ast_log(LOG_DEBUG, "Sending out-of-band digit %c on %s\n", digit, c->name);
+		}
 		ast_rtp_senddigit(pvt->rtp, digit);
-	}
-	/* If in-band DTMF is desired, send that */
-	if ((pvt->options.dtmfmode & H323_DTMF_INBAND)) {
+	} else {
+		/* in-band DTMF */
+		if (h323debug) {
+			ast_log(LOG_DEBUG, "Sending inband digit %c on %s\n", digit, c->name);
+		}
 		token = pvt->cd.call_token ? strdup(pvt->cd.call_token) : NULL;
-		ast_mutex_unlock(&pvt->lock);
 		h323_send_tone(token, digit);
-		if (token)
+		if (token) {
 			free(token);
-		oh323_update_info(c);
+		}
 	}
-	else
-		ast_mutex_unlock(&pvt->lock);
+	ast_mutex_unlock(&pvt->lock);
+	oh323_update_info(c);
 	return 0;
 }
 
@@ -760,12 +767,12 @@ static struct ast_channel *__oh323_new(struct oh323_pvt *pvt, int state, const c
 		}
 		if (!ast_strlen_zero(pvt->cid_num)) {
 			ch->cid.cid_num = strdup(pvt->cid_num);
-		} else if (pvt->cd.call_source_e164 && !ast_strlen_zero(pvt->cd.call_source_e164)) {
+		} else if (!ast_strlen_zero(pvt->cd.call_source_e164)) {
 			ch->cid.cid_num = strdup(pvt->cd.call_source_e164);
 		}
 		if (!ast_strlen_zero(pvt->cid_name)) {
 			ch->cid.cid_name = strdup(pvt->cid_name);
-		} else if (pvt->cd.call_source_e164 && !ast_strlen_zero(pvt->cd.call_source_name)) {
+		} else if (!ast_strlen_zero(pvt->cd.call_source_name)) {
 			ch->cid.cid_name = strdup(pvt->cd.call_source_name);
 		}
 		if (!ast_strlen_zero(pvt->rdnis)) {
@@ -1030,7 +1037,7 @@ static struct ast_channel *oh323_request(const char *type, int format, void *dat
 		ext = NULL;
 	}
 	strtok_r(host, "/", &(h323id));		
-	if (h323id && !ast_strlen_zero(h323id)) {
+	if (!ast_strlen_zero(h323id)) {
 		h323_set_id(h323id);
 	}
 	if (ext) {

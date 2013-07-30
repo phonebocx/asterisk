@@ -1,5 +1,5 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
@@ -7,6 +7,25 @@
  *
  * res_odbc.c <ODBC resource manager>
  * Copyright (C) 2004 - 2005 Anthony Minessale II <anthmct@yahoo.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+
+/*! \file
+ *
+ * \brief ODBC resource manager
+ * 
+ * \arg See also: \ref cdr_odbc
+ *
  */
 
 #include <stdlib.h>
@@ -15,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.23 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -45,7 +64,7 @@ static void odbc_destroy(void)
 
 	for (x = 0; x < MAX_ODBC_HANDLES; x++) {
 		if (ODBC_REGISTRY[x].obj) {
-			destroy_obdc_obj(&ODBC_REGISTRY[x].obj);
+			destroy_odbc_obj(&ODBC_REGISTRY[x].obj);
 			ODBC_REGISTRY[x].obj = NULL;
 		}
 	}
@@ -91,7 +110,7 @@ int odbc_smart_execute(odbc_obj *obj, SQLHSTMT stmt)
 {
 	int res = 0;
 	res = SQLExecute(stmt);
-	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
+	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO) && (res != SQL_NO_DATA)) {
 		ast_log(LOG_WARNING, "SQL Execute error! Attempting a reconnect...\n");
 		ast_mutex_lock(&obj->lock);
 		obj->up = 0;
@@ -128,7 +147,6 @@ int odbc_sanity_check(odbc_obj *obj)
 	char *test_sql = "select 1";
 	SQLHSTMT stmt;
 	int res = 0;
-	SQLLEN rowcount = 0;
 
 	ast_mutex_lock(&obj->lock);
 	if(obj->up) { /* so you say... let's make sure */
@@ -143,11 +161,6 @@ int odbc_sanity_check(odbc_obj *obj)
 				res = SQLExecute(stmt);
 				if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
 					obj->up = 0; /* Liar!*/
-				} else {
-					res = SQLRowCount(stmt, &rowcount);
-					if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
-						obj->up = 0; /* Liar!*/
-					}
 				}
 			}
 		}
@@ -384,7 +397,7 @@ odbc_obj *new_odbc_obj(char *name, char *dsn, char *username, char *password)
 	return new;
 }
 
-void destroy_obdc_obj(odbc_obj **obj)
+void destroy_odbc_obj(odbc_obj **obj)
 {
 	odbc_obj_disconnect(*obj);
 
@@ -426,7 +439,7 @@ odbc_status odbc_obj_disconnect(odbc_obj *obj)
 odbc_status odbc_obj_connect(odbc_obj *obj)
 {
 	int res;
-	int err;
+	SQLINTEGER err;
 	short int mlen;
 	char msg[200], stat[10];
 
@@ -481,7 +494,7 @@ odbc_status odbc_obj_connect(odbc_obj *obj)
 		SQLGetDiagRec(SQL_HANDLE_DBC, obj->con, 1, stat, &err, msg, 100, &mlen);
 		SQLFreeHandle(SQL_HANDLE_ENV, obj->env);
 		ast_mutex_unlock(&obj->lock);
-		ast_log(LOG_WARNING, "res_odbc: Error SQLConnect=%d errno=%d %s\n", res, err, msg);
+		ast_log(LOG_WARNING, "res_odbc: Error SQLConnect=%d errno=%d %s\n", res, (int)err, msg);
 		return ODBC_FAIL;
 	} else {
 

@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Stream to an icecast server via ICES (see contrib/asterisk-ices.xml)
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Stream to an icecast server via ICES (see contrib/asterisk-ices.xml)
+ * 
  */
  
 #include <string.h>
@@ -22,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -89,20 +100,24 @@ static int ices_exec(struct ast_channel *chan, void *data)
 	struct ast_frame *f;
 	char filename[256]="";
 	char *c;
-	last.tv_usec = 0;
-	last.tv_sec = 0;
-	if (!data || !strlen(data)) {
+
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "ICES requires an argument (configfile.xml)\n");
 		return -1;
 	}
+
+	LOCAL_USER_ADD(u);
+	
+	last = ast_tv(0, 0);
+	
 	if (pipe(fds)) {
 		ast_log(LOG_WARNING, "Unable to create pipe\n");
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 	flags = fcntl(fds[1], F_GETFL);
 	fcntl(fds[1], F_SETFL, flags | O_NONBLOCK);
 	
-	LOCAL_USER_ADD(u);
 	ast_stopstream(chan);
 
 	if (chan->_state != AST_STATE_UP)
@@ -112,6 +127,7 @@ static int ices_exec(struct ast_channel *chan, void *data)
 		close(fds[0]);
 		close(fds[1]);
 		ast_log(LOG_WARNING, "Answer failed!\n");
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
@@ -121,6 +137,7 @@ static int ices_exec(struct ast_channel *chan, void *data)
 		close(fds[0]);
 		close(fds[1]);
 		ast_log(LOG_WARNING, "Unable to set write format to signed linear\n");
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 	if (((char *)data)[0] == '/')
@@ -163,18 +180,26 @@ static int ices_exec(struct ast_channel *chan, void *data)
 		}
 	}
 	close(fds[1]);
-	LOCAL_USER_REMOVE(u);
+	
 	if (pid > -1)
 		kill(pid, SIGKILL);
 	if (!res && oreadformat)
 		ast_set_read_format(chan, oreadformat);
+
+	LOCAL_USER_REMOVE(u);
+
 	return res;
 }
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;
 }
 
 int load_module(void)

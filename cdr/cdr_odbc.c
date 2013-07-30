@@ -1,14 +1,30 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * ODBC CDR Backend
- * 
  * Copyright (C) 2003-2005, Digium, Inc.
  *
  * Brian K. West <brian@bkw.org>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief ODBC CDR Backend
+ * 
+ * \author Brian K. West <brian@bkw.org>
+ *
+ * See also:
+ * \arg http://www.unixodbc.org
+ * \arg \ref Config_cdr
  */
 
 #include <sys/types.h>
@@ -19,13 +35,20 @@
 #include <unistd.h>
 #include <time.h>
 
+#ifndef __CYGWIN__
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
+#else
+#include <windows.h>
+#include <w32api/sql.h>
+#include <w32api/sqlext.h>
+#include <w32api/sqltypes.h>
+#endif
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.34 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"
@@ -190,6 +213,7 @@ static int odbc_unload_module(void)
 		SQLDisconnect(ODBC_con);
 		SQLFreeHandle(SQL_HANDLE_DBC, ODBC_con);
 		SQLFreeHandle(SQL_HANDLE_ENV, ODBC_env);
+		connected = 0;
 	}
 	if (dsn) {
 		if (option_verbose > 10)

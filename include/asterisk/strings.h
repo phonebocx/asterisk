@@ -1,12 +1,23 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * String manipulation functions
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Copyright (C) 2005, Digium, Inc.
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief String manipulation functions
  */
 
 #ifndef _ASTERISK_STRINGS_H
@@ -17,14 +28,16 @@
 
 #include "asterisk/inline_api.h"
 #include "asterisk/compiler.h"
+#include "asterisk/compat.h"
 
 static inline int ast_strlen_zero(const char *s)
 {
-	return (*s == '\0');
+	return (!s || (*s == '\0'));
 }
 
 /*!
   \brief Gets a pointer to the first non-whitespace character in a string.
+  \param ast_skip_blanks function being used
   \param str the input string
   \return a pointer to the first non-whitespace character
  */
@@ -39,6 +52,7 @@ char *ast_skip_blanks(char *str),
 
 /*!
   \brief Trims trailing whitespace characters from a string.
+  \param ast_trim_blanks function being used
   \param str the input string
   \return a pointer to the NULL following the string
  */
@@ -64,6 +78,7 @@ char *ast_trim_blanks(char *str),
 
 /*!
   \brief Gets a pointer to first whitespace character in a string.
+  \param ast_skip_noblanks function being used
   \param str the input string
   \return a pointer to the first whitespace character
  */
@@ -123,6 +138,7 @@ char *ast_strip_quoted(char *s, const char *beg_quotes, const char *end_quotes);
 
 /*!
   \brief Size-limited null-terminating string copy.
+  \param ast_copy_string function being used
   \param dst The destination buffer.
   \param src The source string
   \param size The size of the destination buffer
@@ -155,12 +171,26 @@ void ast_copy_string(char *dst, const char *src, size_t size),
   This is a wrapper for snprintf, that properly handles the buffer pointer
   and buffer space available.
 
+  \param buffer current position in buffer to place string into (will be updated on return)
+  \param space remaining space in buffer (will be updated on return)
+  \param fmt printf-style format string
+  \return 0 on success, non-zero on failure.
+*/
+int ast_build_string(char **buffer, size_t *space, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
+
+/*!
+  \brief Build a string in a buffer, designed to be called repeatedly
+  
+  This is a wrapper for snprintf, that properly handles the buffer pointer
+  and buffer space available.
+
   \return 0 on success, non-zero on failure.
   \param buffer current position in buffer to place string into (will be updated on return)
   \param space remaining space in buffer (will be updated on return)
   \param fmt printf-style format string
+  \param ap varargs list of arguments for format
 */
-int ast_build_string(char **buffer, size_t *space, const char *fmt, ...) __attribute__ ((format (printf, 3, 4)));
+int ast_build_string_va(char **buffer, size_t *space, const char *fmt, va_list ap);
 
 /*! Make sure something is true */
 /*!
@@ -198,30 +228,11 @@ struct ast_realloca {
 		(ra)->ptr; \
 	})
 
-#define HAVE_VASPRINTF
-#define HAVE_STRTOQ
-
-#ifdef __linux__
-#define HAVE_STRCASESTR
-#define HAVE_STRNDUP
-#define HAVE_STRNLEN
-#endif
-
-#ifdef SOLARIS
-#undef HAVE_VASPRINTF
-#undef HAVE_STRTOQ
-#endif
-
-#ifdef __CYGWIN__
-#undef HAVE_STRTOQ
-typedef unsigned long long uint64_t;
-#endif
-
 #ifndef HAVE_STRCASESTR
 char *strcasestr(const char *, const char *);
 #endif
 
-#ifndef HAVE_STRNDUP
+#if !defined(HAVE_STRNDUP) && !defined(__AST_DEBUG_MALLOC)
 char *strndup(const char *, size_t);
 #endif
 
@@ -229,7 +240,7 @@ char *strndup(const char *, size_t);
 size_t strnlen(const char *, size_t);
 #endif
 
-#ifndef HAVE_VASPRINTF
+#if !defined(HAVE_VASPRINTF) && !defined(__AST_DEBUG_MALLOC)
 int vasprintf(char **strp, const char *fmt, va_list ap);
 #endif
 

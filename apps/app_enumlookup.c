@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
- *
- * Enumlookup - lookup entry in ENUM
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Enumlookup - lookup entry in ENUM
+ *
  */
 
 #include <stdlib.h>
@@ -19,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -38,7 +49,7 @@ static char *app = "EnumLookup";
 
 static char *synopsis = "Lookup number in ENUM";
 
-static char *descrip = 
+static char *descrip =
 "  EnumLookup(exten):  Looks up an extension via ENUM and sets\n"
 "the variable 'ENUM'. For VoIP URIs this variable will \n"
 "look like 'TECHNOLOGY/URI' with the appropriate technology.\n"
@@ -71,22 +82,30 @@ static int enumlookup_exec(struct ast_channel *chan, void *data)
 	char dest[80];
 	char tmp[256];
 	char *c,*t;
+	static int dep_warning=0;
 	struct localuser *u;
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "EnumLookup requires an argument (extension)\n");
-		res = 0;
+		return -1;
 	}
+		
+	if (!dep_warning) {
+		ast_log(LOG_WARNING, "The application EnumLookup is deprecated.  Please use the ENUMLOOKUP() function instead.\n");
+		dep_warning = 1;
+	}
+
 	LOCAL_USER_ADD(u);
-	if (!res) {
-		res = ast_get_enum(chan, data, dest, sizeof(dest), tech, sizeof(tech));
-		printf("ENUM got '%d'\n", res);
-	}
-	LOCAL_USER_REMOVE(u);
+
+	tech[0] = '\0';
+
+	res = ast_get_enum(chan, data, dest, sizeof(dest), tech, sizeof(tech), NULL, NULL);
+	
 	if (!res) {	/* Failed to do a lookup */
 		/* Look for a "busy" place */
 		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 		pbx_builtin_setvar_helper(chan, "ENUMSTATUS", "ERROR");
+		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
 	pbx_builtin_setvar_helper(chan, "ENUMSTATUS", tech);
@@ -105,7 +124,7 @@ static int enumlookup_exec(struct ast_channel *chan, void *data)
 			snprintf(tmp, sizeof(tmp), "%s/%s", h323driver, c);
 /* do a s!;.*!! on the H323 URI */
 			t = strchr(c,';');
-			if (t) 
+                       if (t)
 				*t = 0;
 			pbx_builtin_setvar_helper(chan, "ENUM", tmp);
 		} else if (!strcasecmp(tech, "iax")) {
@@ -130,7 +149,7 @@ static int enumlookup_exec(struct ast_channel *chan, void *data)
 				res = 0;
 			} else {
 /* now copy over the number, skipping all non-digits and stop at ; or NULL */
-				t = tmp;	
+                               t = tmp;
 				while( *c && (*c != ';') && (t - tmp < (sizeof(tmp) - 1))) {
 					if (isdigit(*c))
 						*t++ = *c;
@@ -148,6 +167,9 @@ static int enumlookup_exec(struct ast_channel *chan, void *data)
 			res = 0;
 		}
 	}
+
+	LOCAL_USER_REMOVE(u);
+
 	return 0;
 }
 
@@ -175,27 +197,32 @@ static int load_config(void)
 /*--- unload_module: Unload this application from PBX */
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;
 }
 
 /*--- load_module: Load this application into PBX */
 int load_module(void)
 {
 	int res;
+	
 	res = ast_register_application(app, enumlookup_exec, synopsis, descrip);
-	if (res)
-		return(res);
-	if ((res=load_config())) {
-		return(res);
-	}
-	return(0);
+	
+	if (!res)
+		res = load_config();
+	
+	return res;
 }
 
 /*--- reload: Reload configuration file */
 int reload(void)
 {
-	return(load_config());
+	return load_config();
 }
 
 

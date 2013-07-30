@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Connect to PostgreSQL
- * 
  * Copyright (C) 2002, Christos Ricudis
  *
  * Christos Ricudis <ricudis@itc.auth.gr>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Connect to PostgreSQL
+ * 
  */
 
 #include <stdlib.h>
@@ -20,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -32,9 +43,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 #include "asterisk/lock.h"
 
 #include "libpq-fe.h"
-
-#define EXTRA_LOG 0
-
 
 static char *tdesc = "Simple PostgreSQL Interface";
 
@@ -490,23 +498,19 @@ static int aPGSQL_debug(struct ast_channel *chan, void *data) {
 	ast_log(LOG_WARNING,"Debug : %s\n",(char *)data);
 	return(0);
 }
-		
-	
 
 static int PGSQL_exec(struct ast_channel *chan, void *data)
 {
 	struct localuser *u;
 	int result;
 
-#if EXTRA_LOG
-	printf("PRSQL_exec: data=%s\n",(char*)data);
-#endif
-
-	if (!data) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "APP_PGSQL requires an argument (see manual)\n");
 		return -1;
 	}
+	
 	LOCAL_USER_ADD(u);
+
 	result=0;
 	
 	if (strncasecmp("connect",data,strlen("connect"))==0) {
@@ -529,14 +533,19 @@ static int PGSQL_exec(struct ast_channel *chan, void *data)
 	}
 		
 	LOCAL_USER_REMOVE(u);                                                                                
+	
 	return result;
-
 }
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+	
+	return res;
 }
 
 int load_module(void)

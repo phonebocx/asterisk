@@ -1,20 +1,29 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Utility functions
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Copyright (C) 2004 - 2005, Digium, Inc.
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Utility functions
  */
 
 #ifndef _ASTERISK_UTILS_H
 #define _ASTERISK_UTILS_H
 
-#ifdef SOLARIS
-#include <solaris-compat/compat.h>
-#endif
+#include "asterisk/compat.h"
 
 #include <netinet/in.h>
 #include <arpa/inet.h>	/* we want to override inet_ntoa */
@@ -25,7 +34,9 @@
 #include "asterisk/time.h"
 #include "asterisk/strings.h"
 
-/* Note:
+/*! \note
+ \verbatim
+   Note:
    It is very important to use only unsigned variables to hold
    bit flags, as otherwise you can fall prey to the compiler's
    sign-extension antics if you try to use the top two bits in
@@ -37,13 +48,13 @@
    type of variable, a warning message similar to this:
 
    warning: comparison of distinct pointer types lacks cast
-
    will be generated.
 
    The "dummy" variable below is used to make these comparisons.
 
    Also note that at -O2 or above, this type-safety checking
    does _not_ produce any additional object code at all.
+ \endverbatim
 */
 
 extern unsigned int __unsigned_int_flags_dummy;
@@ -128,10 +139,66 @@ struct ast_hostent {
 };
 
 extern struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp);
-/* ast_md5_hash: Produces MD5 hash based on input string */
+
+/* ast_md5_hash 
+	\brief Produces MD5 hash based on input string */
 extern void ast_md5_hash(char *output, char *input);
-extern int ast_base64encode(char *dst, unsigned char *src, int srclen, int max);
-extern int ast_base64decode(unsigned char *dst, char *src, int max);
+
+extern int ast_base64encode(char *dst, const unsigned char *src, int srclen, int max);
+extern int ast_base64decode(unsigned char *dst, const char *src, int max);
+
+/*! ast_uri_encode
+	\brief Turn text string to URI-encoded %XX version 
+ 	At this point, we're converting from ISO-8859-x (8-bit), not UTF8
+	as in the SIP protocol spec 
+	If doreserved == 1 we will convert reserved characters also.
+	RFC 2396, section 2.4
+	outbuf needs to have more memory allocated than the instring
+	to have room for the expansion. Every char that is converted
+	is replaced by three ASCII characters.
+	\param string	String to be converted
+	\param outbuf	Resulting encoded string
+	\param buflen	Size of output buffer
+	\param doreserved	Convert reserved characters
+*/
+
+char *ast_uri_encode(char *string, char *outbuf, int buflen, int doreserved);
+
+/*!	\brief Decode URI, URN, URL (overwrite string)
+	\param s	String to be decoded 
+ */
+void ast_uri_decode(char *s);
+
+static inline void ast_slinear_saturated_add(short *input, short *value)
+{
+	int res;
+
+	res = (int) *input + *value;
+	if (res > 32767)
+		*input = 32767;
+	else if (res < -32767)
+		*input = -32767;
+	else
+		*input = (short) res;
+}
+	
+static inline void ast_slinear_saturated_multiply(short *input, short *value)
+{
+	int res;
+
+	res = (int) *input * *value;
+	if (res > 32767)
+		*input = 32767;
+	else if (res < -32767)
+		*input = -32767;
+	else
+		*input = (short) res;
+}
+
+static inline void ast_slinear_saturated_divide(short *input, short *value)
+{
+	*input /= *value;
+}
 
 extern int test_for_thread_safety(void);
 
@@ -155,5 +222,13 @@ static inline int inaddrcmp(const struct sockaddr_in *sin1, const struct sockadd
 #define AST_STACKSIZE 256 * 1024
 #define ast_pthread_create(a,b,c,d) ast_pthread_create_stack(a,b,c,d,0)
 extern int ast_pthread_create_stack(pthread_t *thread, pthread_attr_t *attr, void *(*start_routine)(void *), void *data, size_t stacksize);
+
+/*!
+	\brief Process a string to find and replace characters
+	\param start The string to analyze
+	\param find The character to find
+	\param replace_with The character that will replace the one we are looking for
+*/
+char *ast_process_quotes_and_slashes(char *start, char find, char replace_with);
 
 #endif /* _ASTERISK_UTILS_H */

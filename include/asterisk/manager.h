@@ -1,17 +1,19 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * AMI - Asterisk Management Interface
- * External call management support 
- * 
- * Copyright (C) 1999-2005, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
- * This program is free software, distributed under the terms of
- * the GNU General Public License.
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
- * $Revision: 1.16 $
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
  */
 
 #ifndef _ASTERISK_MANAGER_H
@@ -26,9 +28,9 @@
 #include "asterisk/lock.h"
 
 /*!
-  \file manager.h
-  \brief The AMI - Asterisk Manager Interface - is a TCP protocol created to 
-	 manage Asterisk with third-party software.
+ \file
+ \brief The AMI - Asterisk Manager Interface - is a TCP protocol created to 
+ manage Asterisk with third-party software.
 
  Manager protocol packages are text fields of the form a: b.  There is
  always exactly one space after the colon.
@@ -40,9 +42,7 @@
  
  ** Please try to re-use existing headers to simplify manager message parsing in clients.
     Don't re-use an existing header with a new meaning, please.
-    You can find a reference of standard headers in
-    doc/manager.txt
- 
+    You can find a reference of standard headers in doc/manager.txt
  */
  
 #define DEFAULT_MANAGER_PORT 5038	/* Default port for Asterisk management via TCP */
@@ -59,16 +59,24 @@
 #define MAX_HEADERS 80
 #define MAX_LEN 256
 
+struct eventqent {
+	struct eventqent *next;
+	char eventdata[1];
+};
+
 struct mansession {
 	/*! Execution thread */
 	pthread_t t;
-	/*! Thread lock */
-	ast_mutex_t lock;
+	/*! Thread lock -- don't use in action callbacks, it's already taken care of  */
+	ast_mutex_t __lock;
 	/*! socket address */
 	struct sockaddr_in sin;
 	/*! TCP socket */
 	int fd;
-	int blocking;
+	/*! Whether or not we're busy doing an action */
+	int busy;
+	/*! Whether or not we're "dead" */
+	int dead;
 	/*! Logged in username */
 	char username[80];
 	/*! Authentication challenge */
@@ -83,6 +91,10 @@ struct mansession {
 	char inbuf[MAX_LEN];
 	int inlen;
 	int send_events;
+	/* Queued events that we've not had the ability to send yet */
+	struct eventqent *eventq;
+	/* Timeout for ast_carefulwrite() */
+	int writetimeout;
 	struct mansession *next;
 };
 
@@ -156,4 +168,5 @@ extern void astman_send_ack(struct mansession *s, struct message *m, char *msg);
 extern int init_manager(void);
 /*! Called by Asterisk initialization */
 extern int reload_manager(void);
-#endif
+
+#endif /* _ASTERISK_MANAGER_H */

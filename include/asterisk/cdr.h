@@ -1,17 +1,23 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Call Detail Record API 
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License.
- *
- * Includes code and algorithms from the Zapata library.
- *
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Call Detail Record API 
  */
 
 #ifndef _ASTERISK_CDR_H
@@ -41,7 +47,6 @@
 #include "asterisk/channel.h"
 
 struct ast_channel;
-AST_LIST_HEAD(varshead,ast_var_t);
 
 /*! Responsible for call detail data */
 struct ast_cdr {
@@ -98,26 +103,23 @@ extern int ast_cdr_copy_vars(struct ast_cdr *to_cdr, struct ast_cdr *from_cdr);
 
 typedef int (*ast_cdrbe)(struct ast_cdr *cdr);
 
-/*! Allocate a record */
-/*! 
+/*! \brief Allocate a CDR record 
  * Returns a malloc'd ast_cdr structure, returns NULL on error (malloc failure)
  */
 extern struct ast_cdr *ast_cdr_alloc(void);
 
-/*! Duplicate a record */
-/*! 
+/*! \brief Duplicate a record 
  * Returns a malloc'd ast_cdr structure, returns NULL on error (malloc failure)
  */
 extern struct ast_cdr *ast_cdr_dup(struct ast_cdr *cdr);
 
-/*! Free a record */
-/* \param cdr ast_cdr structure to free
+/*! \brief Free a CDR record 
+ * \param cdr ast_cdr structure to free
  * Returns nothing important
  */
 extern void ast_cdr_free(struct ast_cdr *cdr);
 
-/*! Initialize based on a channel */
-/*! 
+/*! \brief Initialize based on a channel
  * \param cdr Call Detail Record to use for channel
  * \param chan Channel to bind CDR with
  * Initializes a CDR and associates it with a particular channel
@@ -216,6 +218,7 @@ extern void ast_cdr_submit_batch(int shutdown);
 /*! Set the destination channel, if there was one */
 /*!
  * \param cdr Which cdr it's applied to
+ * \param chan Channel to which dest will be
  * Sets the destination channel the CDR is applied to
  * Returns nothing
  */
@@ -241,7 +244,7 @@ extern int ast_cdr_amaflags2int(const char *flag);
 
 /*! Disposition to a string */
 /*!
- * \param flag input binary form
+ * \param disposition input binary form
  * Converts the binary form of a disposition to string form.
  * Returns a pointer to the string form
  */

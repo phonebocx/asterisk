@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Open Settlement Protocol Lookup
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Open Settlement Protocol Lookup
+ * 
  */
 
 #include <stdlib.h>
@@ -18,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -98,10 +109,21 @@ static int osplookup_exec(struct ast_channel *chan, void *data)
 	char *temp;
 	char *provider, *opts=NULL;
 	struct ast_osp_result result;
-	if (!data || ast_strlen_zero(data) || !(temp = ast_strdupa(data))) {
+	
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "OSPLookup requires an argument (extension)\n");
 		return -1;
 	}
+
+	LOCAL_USER_ADD(u);
+
+	temp = ast_strdupa(data);
+	if (!temp) {
+		ast_log(LOG_ERROR, "Out of memory!\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
+
 	provider = strchr(temp, '|');
 	if (provider) {
 		*provider = '\0';
@@ -112,7 +134,7 @@ static int osplookup_exec(struct ast_channel *chan, void *data)
 			opts++;
 		}
 	}
-	LOCAL_USER_ADD(u);
+	
 	ast_log(LOG_DEBUG, "Whoo hoo, looking up OSP on '%s' via '%s'\n", temp, provider ? provider : "<default>");
 	if ((res = ast_osp_lookup(chan, provider, temp, chan->cid.cid_num, &result)) > 0) {
 		char tmp[80];
@@ -132,8 +154,7 @@ static int osplookup_exec(struct ast_channel *chan, void *data)
 	}
 	if (!res) {
 		/* Look for a "busy" place */
-		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-			chan->priority += 100;
+		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 	} else if (res > 0)
 		res = 0;
 	LOCAL_USER_REMOVE(u);
@@ -147,14 +168,18 @@ static int ospnext_exec(struct ast_channel *chan, void *data)
 	char *temp;
 	int cause;
 	struct ast_osp_result result;
-	if (!data || ast_strlen_zero(data)) {
+
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "OSPNext should have an argument (cause)\n");
+		return -1;
 	}
+	
 	LOCAL_USER_ADD(u);
+
 	cause = str2cause((char *)data);
 	temp = pbx_builtin_getvar_helper(chan, "OSPHANDLE");
 	result.handle = -1;
-	if (temp && strlen(temp) && (sscanf(temp, "%d", &result.handle) == 1) && (result.handle > -1)) {
+	if (!ast_strlen_zero(temp) && (sscanf(temp, "%d", &result.handle) == 1) && (result.handle > -1)) {
 		if ((res = ast_osp_next(&result, cause)) > 0) {
 			char tmp[80];
 			snprintf(tmp, sizeof(tmp), "%d", result.handle);
@@ -176,8 +201,7 @@ static int ospnext_exec(struct ast_channel *chan, void *data)
 	}
 	if (!res) {
 		/* Look for a "busy" place */
-		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-			chan->priority += 100;
+		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 	} else if (res > 0)
 		res = 0;
 	LOCAL_USER_REMOVE(u);
@@ -192,9 +216,14 @@ static int ospfinished_exec(struct ast_channel *chan, void *data)
 	int cause;
 	time_t start=0, duration=0;
 	struct ast_osp_result result;
-	if (!data || ast_strlen_zero(data)) {
+
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "OSPFinish should have an argument (cause)\n");
+		return -1;
 	}
+
+	LOCAL_USER_ADD(u);	
+
 	if (chan->cdr) {
 		start = chan->cdr->answer.tv_sec;
 		if (start)
@@ -203,11 +232,11 @@ static int ospfinished_exec(struct ast_channel *chan, void *data)
 			duration = 0;
 	} else
 		ast_log(LOG_WARNING, "OSPFinish called on channel '%s' with no CDR!\n", chan->name);
-	LOCAL_USER_ADD(u);
+	
 	cause = str2cause((char *)data);
 	temp = pbx_builtin_getvar_helper(chan, "OSPHANDLE");
 	result.handle = -1;
-	if (temp && strlen(temp) && (sscanf(temp, "%d", &result.handle) == 1) && (result.handle > -1)) {
+	if (!ast_strlen_zero(temp) && (sscanf(temp, "%d", &result.handle) == 1) && (result.handle > -1)) {
 		if (!ast_osp_terminate(result.handle, cause, start, duration)) {
 			pbx_builtin_setvar_helper(chan, "_OSPHANDLE", "");
 			res = 1;
@@ -223,8 +252,7 @@ static int ospfinished_exec(struct ast_channel *chan, void *data)
 	}
 	if (!res) {
 		/* Look for a "busy" place */
-		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
-			chan->priority += 100;
+		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
 	} else if (res > 0)
 		res = 0;
 	LOCAL_USER_REMOVE(u);
@@ -235,26 +263,25 @@ static int ospfinished_exec(struct ast_channel *chan, void *data)
 int unload_module(void)
 {
 	int res;
-	STANDARD_HANGUP_LOCALUSERS;
+	
 	res = ast_unregister_application(app3);
 	res |= ast_unregister_application(app2);
 	res |= ast_unregister_application(app);
+
+	STANDARD_HANGUP_LOCALUSERS;
+
 	return res;
 }
 
 int load_module(void)
 {
 	int res;
+	
 	res = ast_register_application(app, osplookup_exec, synopsis, descrip);
-	if (res)
-		return(res);
-	res = ast_register_application(app2, ospnext_exec, synopsis2, descrip2);
-	if (res)
-		return(res);
-	res = ast_register_application(app3, ospfinished_exec, synopsis3, descrip3);
-	if (res)
-		return(res);
-	return(0);
+	res |= ast_register_application(app2, ospnext_exec, synopsis2, descrip2);
+	res |= ast_register_application(app3, ospfinished_exec, synopsis3, descrip3);
+	
+	return res;
 }
 
 int reload(void)

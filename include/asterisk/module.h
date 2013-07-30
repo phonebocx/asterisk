@@ -1,14 +1,19 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Module definitions
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
  */
 
 /*! \file
@@ -174,6 +179,7 @@ void ast_update_use_count(void);
 /*! 
  * \brief Ask for a list of modules, descriptions, and use counts.
  * \param modentry A callback to an updater function.
+ * \param like
  *
  * For each of the modules loaded, modentry will be executed with the resource,
  * description, and usecount values of each particular module.
@@ -196,7 +202,7 @@ int ast_loader_register(int (*updater)(void));
 
 /*! 
  * \brief Remove a procedure to be run when modules are updated.
- * \param The updater function to unregister.
+ * \param updater The updater function to unregister.
  *
  * This removes the given function from the updater list.
  * 
@@ -284,6 +290,18 @@ void ast_unregister_atexit(void (*func)(void));
 						static struct localuser *localusers = NULL; \
 						static int localusecnt = 0;
 
+#define STANDARD_INCREMENT_USECOUNT \
+	ast_mutex_lock(&localuser_lock); \
+	localusecnt++; \
+	ast_mutex_unlock(&localuser_lock); \
+	ast_update_use_count();
+
+#define STANDARD_DECREMENT_USECOUNT \
+	ast_mutex_lock(&localuser_lock); \
+	localusecnt--; \
+	ast_mutex_unlock(&localuser_lock); \
+	ast_update_use_count();
+
 /*! 
  * \brief Add a localuser.
  * \param u a pointer to a localuser struct
@@ -369,16 +387,16 @@ void ast_unregister_atexit(void (*func)(void));
 		u = u->next; \
 		free(ul); \
 	} \
-	ast_mutex_unlock(&localuser_lock); \
 	localusecnt=0; \
+	ast_mutex_unlock(&localuser_lock); \
+	ast_update_use_count(); \
 }
 
 /*!
  * \brief Set the specfied integer to the current usecount.
  * \param res the integer variable to set.
  *
- * This macro sets the specfied integer variable to the local usecount.  It
- * handles all the necessary thread synchronization.
+ * This macro sets the specfied integer variable to the local usecount.
  *
  * <b>Sample Usage:</b>
  * \code
@@ -394,9 +412,8 @@ void ast_unregister_atexit(void (*func)(void));
 	res = localusecnt; \
 }
 	
-	
-
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif
-#endif
+
+#endif /* _ASTERISK_MODULE_H */

@@ -76,6 +76,8 @@
 
 %dir-nomore.gsm%There are no more compatible entries in the directory.
 
+%hello-world.gsm%Hello world.
+
 %invalid.gsm%I am sorry, that's not a valid extension.  Please try again.
 
 %pbx-invalid.gsm%I am sorry, that's not a valid extension.  Please try again.
@@ -675,9 +677,9 @@
 
 %conf-kicked.gsm%You have been kicked from this conference
 
-%conf-adminmenu.gsm%Please press 1 to mute or unmute yourself, or press 2 to lock or unlock the conference, or press 6 to kick the last user
+%conf-adminmenu.gsm%Please press 1 to mute or unmute yourself, 2 to lock or unlock the conference, 3 to eject the last user, 4 or 6 to decrease or increase the conference volume, 7 or 9 to decrease or increase your volume, or 8 to exit
 
-%conf-usermenu.gsm%Please press 1 to mute or unmute yourself
+%conf-usermenu.gsm%Please press 1 to mute or unmute yourself, 4 or 6 to decrease or increase the conference volume, 7 or 9 to decrease or increase your volume, or 8 to exit
 
 %conf-errormenu.gsm%Invalid Choice
 
@@ -710,18 +712,18 @@
 %conf-onlyone.gsm%There is currently only one other participant in the conference.
 
 
-%agent.gsm%Agent
+%spy-agent.gsm%Agent
 
-%h323.gsm%H.323
+%spy-h323.gsm%H.323
 
-%iax.gsm%IAX
+%spy-iax.gsm%IAX
 
-%iax2.gsm%IAX (note: does not say "2")
+%spy-iax2.gsm%IAX (note: does not say "2")
 
-%mgcp.gsm%MGCP
+%spy-mgcp.gsm%MGCP
 
-%sip.gsm%SIP
+%spy-sip.gsm%SIP
 
-%skinny.gsm%Skinny
+%spy-skinny.gsm%Skinny
 
-%zap.gsm%Zap
+%spy-zap.gsm%Zap

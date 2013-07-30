@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Frame manipulation routines
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Frame manipulation routines
+ * 
  */
 
 #include <stdlib.h>
@@ -19,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.62 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.69 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/frame.h"
@@ -990,36 +1001,36 @@ int ast_codec_choose(struct ast_codec_pref *pref, int formats, int find_best)
    	return find_best ? ast_best_codec(formats) : 0;
 }
 
-void ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, char *list, int allowing) 
+void ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, const char *list, int allowing) 
 {
-	int format_i = 0;
-	char *next_format = NULL, *last_format = NULL;
+	char *parse;
+	char *this;
+	int format;
 
-	last_format = ast_strdupa(list);
-	while(last_format) {
-		if((next_format = strchr(last_format, ','))) {
-			*next_format = '\0';
-			next_format++;
+	parse = ast_strdupa(list);
+	while ((this = strsep(&parse, ","))) {
+		if (!(format = ast_getformatbyname(this))) {
+			ast_log(LOG_WARNING, "Cannot %s unknown format '%s'\n", allowing ? "allow" : "disallow", this);
+			continue;
 		}
-		if ((format_i = ast_getformatbyname(last_format)) > 0) {
-			if (mask) {
-				if (allowing)
-					(*mask) |= format_i;
-				else
-					(*mask) &= ~format_i;
-			}
-			/* can't consider 'all' a prefered codec*/
-			if(pref && strcasecmp(last_format, "all")) {
-				if(allowing)
-					ast_codec_pref_append(pref, format_i);
-				else
-					ast_codec_pref_remove(pref, format_i);
-			} else if(!allowing) /* disallow all must clear your prefs or it makes no sense */
-				memset(pref, 0, sizeof(struct ast_codec_pref));
-		} else
-			ast_log(LOG_WARNING, "Cannot %s unknown format '%s'\n", allowing ? "allow" : "disallow", last_format);
 
-		last_format = next_format;
+		if (mask) {
+			if (allowing)
+				*mask |= format;
+			else
+				*mask &= ~format;
+		}
+
+		if (pref) {
+			if (strcasecmp(this, "all")) {
+				if (allowing)
+					ast_codec_pref_append(pref, format);
+				else
+					ast_codec_pref_remove(pref, format);
+			} else if (!allowing) {
+				memset(pref, 0, sizeof(*pref));
+			}
+		}
 	}
 }
 
@@ -1240,4 +1251,49 @@ int ast_codec_get_len(int format, int samples)
 	}
 
 	return len;
+}
+
+int ast_frame_adjust_volume(struct ast_frame *f, int adjustment)
+{
+	int count;
+	short *fdata = f->data;
+	short adjust_value = abs(adjustment);
+
+	if ((f->frametype != AST_FRAME_VOICE) || (f->subclass != AST_FORMAT_SLINEAR))
+		return -1;
+
+	if (!adjustment)
+		return 0;
+
+	for (count = 0; count < f->samples; count++) {
+		if (adjustment > 0) {
+			ast_slinear_saturated_multiply(&fdata[count], &adjust_value);
+		} else if (adjustment < 0) {
+			ast_slinear_saturated_divide(&fdata[count], &adjust_value);
+		}
+	}
+
+	return 0;
+}
+
+int ast_frame_slinear_sum(struct ast_frame *f1, struct ast_frame *f2)
+{
+	int count;
+	short *data1, *data2;
+
+	if ((f1->frametype != AST_FRAME_VOICE) || (f1->subclass != AST_FORMAT_SLINEAR))
+		return -1;
+
+	if ((f2->frametype != AST_FRAME_VOICE) || (f2->subclass != AST_FORMAT_SLINEAR))
+		return -1;
+
+	if (f1->samples != f2->samples)
+		return -1;
+
+	for (count = 0, data1 = f1->data, data2 = f2->data;
+	     count < f1->samples;
+	     count++, data1++, data2++)
+		ast_slinear_saturated_add(data1, data2);
+
+	return 0;
 }

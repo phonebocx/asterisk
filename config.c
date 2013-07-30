@@ -1,14 +1,27 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Configuration File Parser
- * 
  * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Configuration File Parser
+ *
+ * Includes the Asterisk Realtime API - ARA
+ * See README.realtime
  */
 
 #include <stdio.h>
@@ -17,6 +30,7 @@
 #include <string.h>
 #include <errno.h>
 #include <time.h>
+#include <sys/stat.h>
 #define AST_INCLUDE_GLOB 1
 #ifdef AST_INCLUDE_GLOB
 #ifdef __Darwin__
@@ -27,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.74 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.81 $")
 
 #include "asterisk/config.h"
 #include "asterisk/cli.h"
@@ -139,12 +153,10 @@ char *ast_variable_retrieve(const struct ast_config *config, const char *categor
 	struct ast_variable *v;
 
 	if (category) {
-		for (v = ast_variable_browse(config, category); v; v = v->next)
-			if (variable == v->name)
-				return v->value;
-		for (v = ast_variable_browse(config, category); v; v = v->next)
+		for (v = ast_variable_browse(config, category); v; v = v->next) {
 			if (!strcasecmp(variable, v->name))
 				return v->value;
+		}
 	} else {
 		struct ast_category *cat;
 
@@ -394,7 +406,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 				} else if (!strcasecmp(cur, "+")) {
 					*cat = category_get(cfg, catname, 1);
 					if (!*cat) {
-						ast_destroy(cfg);
+						ast_config_destroy(cfg);
 						if (newcat)
 							ast_category_destroy(newcat);
 						ast_log(LOG_WARNING, "Category addition requested, but category '%s' does not exist, line %d of %s\n", catname, lineno, configfile);
@@ -527,6 +539,7 @@ static struct ast_config *config_text_file_load(const char *database, const char
 	int comment = 0, nest[MAX_NESTED_COMMENTS];
 	struct ast_category *cat = NULL;
 	int count = 0;
+	struct stat statbuf;
 	
 	cat = ast_config_get_current_category(cfg);
 
@@ -558,11 +571,26 @@ static struct ast_config *config_text_file_load(const char *database, const char
 			for (i=0; i<globbuf.gl_pathc; i++) {
 				ast_copy_string(fn, globbuf.gl_pathv[i], sizeof(fn));
 #endif
-	if ((option_verbose > 1) && !option_debug) {
-		ast_verbose(  VERBOSE_PREFIX_2 "Parsing '%s': ", fn);
-		fflush(stdout);
-	}
-	if ((f = fopen(fn, "r"))) {
+	do {
+		if (stat(fn, &statbuf)) {
+			ast_log(LOG_WARNING, "Cannot stat() '%s', ignoring\n", fn);
+			continue;
+		}
+		if (!S_ISREG(statbuf.st_mode)) {
+			ast_log(LOG_WARNING, "'%s' is not a regular file, ignoring\n", fn);
+			continue;
+		}
+		if ((option_verbose > 1) && !option_debug) {
+			ast_verbose(VERBOSE_PREFIX_2 "Parsing '%s': ", fn);
+			fflush(stdout);
+		}
+		if (!(f = fopen(fn, "r"))) {
+			if (option_debug)
+				ast_log(LOG_DEBUG, "No file to parse: %s\n", fn);
+			else if (option_verbose > 1)
+				ast_verbose( "Not found (%s)\n", strerror(errno));
+			continue;
+		}
 		count++;
 		if (option_debug)
 			ast_log(LOG_DEBUG, "Parsing %s\n", fn);
@@ -620,21 +648,17 @@ static struct ast_config *config_text_file_load(const char *database, const char
 				}
 				if (process_buf) {
 					char *buf = ast_strip(process_buf);
-					if (!ast_strlen_zero(buf))
+					if (!ast_strlen_zero(buf)) {
 						if (process_text_line(cfg, &cat, buf, lineno, filename)) {
 							cfg = NULL;
 							break;
 						}
+					}
 				}
 			}
 		}
 		fclose(f);		
-	} else { /* can't open file */
-		if (option_debug)
-			ast_log(LOG_DEBUG, "No file to parse: %s\n", fn);
-		else if (option_verbose > 1)
-			ast_verbose( "Not found (%s)\n", strerror(errno));
-	}
+	} while(0);
 	if (comment) {
 		ast_log(LOG_WARNING,"Unterminated comment detected beginning on line %d\n", nest[comment]);
 	}

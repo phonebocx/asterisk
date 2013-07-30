@@ -1,17 +1,28 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Zap Barge support
- * 
- * Copyright (C) 2003, Digium
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
- * This program is free software, distributed under the terms of
- * the GNU General Public License
- *
  * Special thanks to comphealth.com for sponsoring this
  * GPL application.
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Zap Barge support
+ * 
  */
 
 #include <stdlib.h>
@@ -29,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -256,14 +267,17 @@ static int conf_exec(struct ast_channel *chan, void *data)
 	int confno = 0;
 	char confstr[80] = "";
 
-	if (data && !ast_strlen_zero(data)) {
+	LOCAL_USER_ADD(u);
+	
+	if (!ast_strlen_zero(data)) {
 		if ((sscanf(data, "Zap/%d", &confno) != 1) &&
 		    (sscanf(data, "%d", &confno) != 1)) {
 			ast_log(LOG_WARNING, "ZapBarge Argument (if specified) must be a channel number, not '%s'\n", (char *)data);
+			LOCAL_USER_REMOVE(u);
 			return 0;
 		}
 	}
-	LOCAL_USER_ADD(u);
+	
 	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);
 
@@ -288,8 +302,13 @@ out:
 
 int unload_module(void)
 {
+	int res;
+	
+	res = ast_unregister_application(app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)

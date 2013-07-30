@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Generic File Format Support.
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Generic File Format Support.
+ * 
  */
 
 #include <sys/types.h>
@@ -24,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.73 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.80 $")
 
 #include "asterisk/frame.h"
 #include "asterisk/file.h"
@@ -48,9 +59,9 @@ struct ast_format {
 	/* Format of frames it uses/provides (one only) */
 	int format;
 	/* Open an input stream, and start playback */
-	struct ast_filestream * (*open)(int fd);
+	struct ast_filestream * (*open)(FILE * f);
 	/* Open an output stream, of a given file descriptor and comment it appropriately if applicable */
-	struct ast_filestream * (*rewrite)(int fd, const char *comment);
+	struct ast_filestream * (*rewrite)(FILE *f, const char *comment);
 	/* Write a frame to a channel */
 	int (*write)(struct ast_filestream *, struct ast_frame *);
 	/* seek num samples into file, whence(think normal seek) */
@@ -92,8 +103,8 @@ AST_MUTEX_DEFINE_STATIC(formatlock);
 static struct ast_format *formats = NULL;
 
 int ast_format_register(const char *name, const char *exts, int format,
-						struct ast_filestream * (*open)(int fd),
-						struct ast_filestream * (*rewrite)(int fd, const char *comment),
+						struct ast_filestream * (*open)(FILE *f),
+						struct ast_filestream * (*rewrite)(FILE *f, const char *comment),
 						int (*write)(struct ast_filestream *, struct ast_frame *),
 						int (*seek)(struct ast_filestream *, long sample_offset, int whence),
 						int (*trunc)(struct ast_filestream *),
@@ -340,6 +351,7 @@ static int ast_filehelper(const char *filename, const char *filename2, const cha
 	struct ast_filestream *s;
 	int res=0, ret = 0;
 	char *ext=NULL, *exts, *fn, *nfn;
+	FILE *bfile;
 	struct ast_channel *chan = (struct ast_channel *)filename2;
 	
 	/* Start with negative response */
@@ -402,9 +414,10 @@ static int ast_filehelper(const char *filename, const char *filename2, const cha
 						case ACTION_OPEN:
 							if ((ret < 0) && ((chan->writeformat & f->format) ||
 										((f->format >= AST_FORMAT_MAX_AUDIO) && fmt))) {
-								ret = open(fn, O_RDONLY);
-								if (ret >= 0) {
-									s = f->open(ret);
+								bfile = fopen(fn, "r");
+								if (bfile) {
+									ret = 1;
+									s = f->open(bfile);
 									if (s) {
 										s->lasttimeout = -1;
 										s->fmt = f;
@@ -415,11 +428,14 @@ static int ast_filehelper(const char *filename, const char *filename2, const cha
 										else
 											chan->vstream = s;
 									} else {
-										close(ret);
-										ast_log(LOG_WARNING, "Unable to open fd on %s\n", fn);
+										fclose(bfile);
+										ast_log(LOG_WARNING, "Unable to open file on %s\n", fn);
+										ret = -1;
 									}
-								} else
+								} else{
 									ast_log(LOG_WARNING, "Couldn't open file %s\n", fn);
+									ret = -1;
+								}
 							}
 							break;
 						default:
@@ -461,10 +477,9 @@ struct ast_filestream *ast_openstream_full(struct ast_channel *chan, const char 
 	       set it up.
 		   
 	*/
-	int fd = -1;
 	int fmts = -1;
 	char filename2[256]="";
-	char filename3[256]="";
+	char filename3[256];
 	char *endpart;
 	int res;
 
@@ -474,7 +489,7 @@ struct ast_filestream *ast_openstream_full(struct ast_channel *chan, const char 
 		if (chan->generator)
 			ast_deactivate_generator(chan);
 	}
-	if (preflang && !ast_strlen_zero(preflang)) {
+	if (!ast_strlen_zero(preflang)) {
 		ast_copy_string(filename3, filename, sizeof(filename3));
 		endpart = strrchr(filename3, '/');
 		if (endpart) {
@@ -497,8 +512,8 @@ struct ast_filestream *ast_openstream_full(struct ast_channel *chan, const char 
 	/* Set the channel to a format we can work with */
 	res = ast_set_write_format(chan, fmts);
 	
- 	fd = ast_filehelper(filename2, (char *)chan, NULL, ACTION_OPEN);
-	if (fd >= 0)
+ 	res = ast_filehelper(filename2, (char *)chan, NULL, ACTION_OPEN);
+	if (res >= 0)
 		return chan->stream;
 	return NULL;
 }
@@ -523,7 +538,7 @@ struct ast_filestream *ast_openvstream(struct ast_channel *chan, const char *fil
 	char lang2[MAX_LANGUAGE];
 	/* XXX H.263 only XXX */
 	char *fmt = "h263";
-	if (preflang && !ast_strlen_zero(preflang)) {
+	if (!ast_strlen_zero(preflang)) {
 		snprintf(filename2, sizeof(filename2), "%s/%s", preflang, filename);
 		fmts = ast_fileexists(filename2, fmt, NULL);
 		if (fmts < 1) {
@@ -724,7 +739,7 @@ int ast_fileexists(const char *filename, const char *fmt, const char *preflang)
 	char *c;
 	char lang2[MAX_LANGUAGE];
 	int res = -1;
-	if (preflang && !ast_strlen_zero(preflang)) {
+	if (!ast_strlen_zero(preflang)) {
 		/* Insert the language between the last two parts of the path */
 		ast_copy_string(tmp, filename, sizeof(tmp));
 		c = strrchr(tmp, '/');
@@ -808,7 +823,7 @@ int ast_streamfile(struct ast_channel *chan, const char *filename, const char *p
 
 struct ast_filestream *ast_readfile(const char *filename, const char *type, const char *comment, int flags, int check, mode_t mode)
 {
-	int fd;
+	FILE *bfile;
 	struct ast_format *f;
 	struct ast_filestream *fs = NULL;
 	char *fn;
@@ -823,13 +838,13 @@ struct ast_filestream *ast_readfile(const char *filename, const char *type, cons
 			continue;
 
 		fn = build_filename(filename, type);
-		fd = open(fn, flags);
-		if (fd >= 0) {
+		bfile = fopen(fn, "r");
+		if (bfile) {
 			errno = 0;
 
-			if (!(fs = f->open(fd))) {
+			if (!(fs = f->open(bfile))) {
 				ast_log(LOG_WARNING, "Unable to open %s\n", fn);
-				close(fd);
+				fclose(bfile);
 				free(fn);
 				continue;
 			}
@@ -855,6 +870,8 @@ struct ast_filestream *ast_readfile(const char *filename, const char *type, cons
 struct ast_filestream *ast_writefile(const char *filename, const char *type, const char *comment, int flags, int check, mode_t mode)
 {
 	int fd, myflags = 0;
+	/* compiler claims this variable can be used before initialization... */
+	FILE *bfile = NULL;
 	struct ast_format *f;
 	struct ast_filestream *fs = NULL;
 	char *fn, *orig_fn = NULL;
@@ -882,11 +899,20 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 
 		fn = build_filename(filename, type);
 		fd = open(fn, flags | myflags, mode);
+		if (fd > -1) {
+			/* fdopen() the resulting file stream */
+			bfile = fdopen(fd, ((flags | myflags) & O_RDWR) ? "w+" : "w");
+			if (!bfile) {
+				ast_log(LOG_WARNING, "Whoa, fdopen failed: %s!\n", strerror(errno));
+				close(fd);
+				fd = -1;
+			}
+		}
 		
-		if (option_cache_record_files && fd >= 0) {
+		if (option_cache_record_files && (fd > -1)) {
 			char *c;
 
-			close(fd);
+			fclose(bfile);
 			/*
 			  We touch orig_fn just as a place-holder so other things (like vmail) see the file is there.
 			  What we are really doing is writing to record_cache_dir until we are done then we will mv the file into place.
@@ -898,16 +924,25 @@ struct ast_filestream *ast_writefile(const char *filename, const char *type, con
 
 			size = strlen(fn) + strlen(record_cache_dir) + 2;
 			buf = alloca(size);
-			memset(buf, 0, size);
-			snprintf(buf, size, "%s/%s", record_cache_dir, fn);
+			strcpy(buf, record_cache_dir);
+			strcat(buf, "/");
+			strcat(buf, fn);
 			free(fn);
 			fn = buf;
 			fd = open(fn, flags | myflags, mode);
+			if (fd > -1) {
+				/* fdopen() the resulting file stream */
+				bfile = fdopen(fd, ((flags | myflags) & O_RDWR) ? "w+" : "w");
+				if (!bfile) {
+					ast_log(LOG_WARNING, "Whoa, fdopen failed: %s!\n", strerror(errno));
+					close(fd);
+					fd = -1;
+				}
+			}
 		}
-		if (fd >= 0) {
+		if (fd > -1) {
 			errno = 0;
-
-			if ((fs = f->rewrite(fd, comment))) {
+			if ((fs = f->rewrite(bfile, comment))) {
 				fs->trans = NULL;
 				fs->fmt = f;
 				fs->flags = flags;
@@ -987,6 +1022,7 @@ int ast_waitstream(struct ast_channel *c, const char *breakon)
 					return -1;
 				case AST_CONTROL_RINGING:
 				case AST_CONTROL_ANSWER:
+				case AST_CONTROL_VIDUPDATE:
 					/* Unimportant */
 					break;
 				default:
@@ -1148,7 +1184,7 @@ int ast_waitstream_exten(struct ast_channel *c, const char *context)
 	/* XXX Maybe I should just front-end ast_waitstream_full ? XXX */
 	int res;
 	struct ast_frame *fr;
-	char exten[AST_MAX_EXTENSION] = "";
+	char exten[AST_MAX_EXTENSION];
 
 	if (!context) context = c->context;
 	while(c->stream) {

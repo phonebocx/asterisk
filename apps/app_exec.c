@@ -1,16 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
- *
- * Exec application
+ * Asterisk -- An open source telephony toolkit.
  *
  * Copyright (c) 2004 - 2005, Tilghman Lesher.  All rights reserved.
  *
  * Tilghman Lesher <app_exec__v001@the-tilghman.com>
  *
- * $Id: app_exec.c,v 1.6 2005/06/06 22:39:31 kpfleming Exp $
- *
  * This code is released by the author with no restrictions on usage.
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
+ */
+
+/*! \file
+ *
+ * \brief Exec application
+ *
+ * \author Tilghman Lesher <app_exec__v001@the-tilghman.com>
  */
 
 #include <stdio.h>
@@ -20,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -92,8 +101,13 @@ static int exec_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app_exec);
+
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app_exec);
+
+	return res;
 }
 
 int load_module(void)

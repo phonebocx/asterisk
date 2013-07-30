@@ -1,14 +1,26 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Real-time Transport Protocol support
- * 
- * Copyright (C) 1999-2005, Digium
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! 
+ * \file rtp.h
+ * \brief Supports RTP and RTCP with Symmetric RTP support for NAT traversal.
+ * 
+ * RTP is defined in RFC 3550.
  */
 
 #ifndef _ASTERISK_RTP_H
@@ -41,18 +53,45 @@ struct ast_rtp_protocol {
 	/* Get RTP struct, or NULL if unwilling to transfer */
 	struct ast_rtp *(* const get_vrtp_info)(struct ast_channel *chan);
 	/* Set RTP peer */
-	int (* const set_rtp_peer)(struct ast_channel *chan, struct ast_rtp *peer, struct ast_rtp *vpeer, int codecs);
+	int (* const set_rtp_peer)(struct ast_channel *chan, struct ast_rtp *peer, struct ast_rtp *vpeer, int codecs, int nat_active);
 	int (* const get_codec)(struct ast_channel *chan);
 	const char * const type;
 	struct ast_rtp_protocol *next;
 };
 
+/*!
+ * \brief Structure representing a RTP session.
+ * 
+ * RTP session is defined on page 9 of RFC 3550: "An association among a set of participants communicating with RTP.  A participant may be involved in multiple RTP sessions at the same time [...]"
+ * 
+ */
 struct ast_rtp;
 
 typedef int (*ast_rtp_callback)(struct ast_rtp *rtp, struct ast_frame *f, void *data);
 
+/*!
+ * \brief Initializate a RTP session.
+ * 
+ * \param sched
+ * \param io
+ * \param rtcpenable
+ * \param callbackmode
+ * \returns A representation (structure) of an RTP session.
+ */
 struct ast_rtp *ast_rtp_new(struct sched_context *sched, struct io_context *io, int rtcpenable, int callbackmode);
 
+/*!
+ * \brief Initializate a RTP session using an in_addr structure.
+ * 
+ * This fuction gets called by ast_rtp_new().
+ * 
+ * \param sched
+ * \param io
+ * \param rtcpenable
+ * \param callbackmode
+ * \param in
+ * \returns A representation (structure) of an RTP session.
+ */
 struct ast_rtp *ast_rtp_new_with_bindaddr(struct sched_context *sched, struct io_context *io, int rtcpenable, int callbackmode, struct in_addr in);
 
 void ast_rtp_set_peer(struct ast_rtp *rtp, struct sockaddr_in *them);
@@ -109,7 +148,7 @@ char *ast_rtp_lookup_mime_multiple(char *buf, int size, const int capability, co
 
 void ast_rtp_setnat(struct ast_rtp *rtp, int nat);
 
-int ast_rtp_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, struct ast_frame **fo, struct ast_channel **rc);
+int ast_rtp_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, struct ast_frame **fo, struct ast_channel **rc, int timeoutms);
 
 int ast_rtp_proto_register(struct ast_rtp_protocol *proto);
 
@@ -125,4 +164,4 @@ void ast_rtp_reload(void);
 }
 #endif
 
-#endif
+#endif /* _ASTERISK_RTP_H */

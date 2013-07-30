@@ -1,14 +1,23 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Generic File Format Support.
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ * \brief Generic File Format Support.
  */
 
 #ifndef _ASTERISK_FILE_H
@@ -40,8 +49,8 @@ struct ast_filestream;
  * returns 0 on success, -1 on failure
  */
 int ast_format_register(const char *name, const char *exts, int format,
-						struct ast_filestream * (*open)(int fd),
-						struct ast_filestream * (*rewrite)(int fd, const char *comment),
+						struct ast_filestream * (*open)(FILE *f),
+						struct ast_filestream * (*rewrite)(FILE *f, const char *comment),
 						int (*write)(struct ast_filestream *, struct ast_frame *),
 						int (*seek)(struct ast_filestream *, long offset, int whence),
 						int (*trunc)(struct ast_filestream *),
@@ -100,7 +109,7 @@ int ast_filerename(const char *oldname, const char *newname, const char *fmt);
 /*! Deletes a file */
 /*! 
  * \param filename name of the file you wish to delete (minus the extension)
- * \param format of the file
+ * \param fmt of the file
  * Delete a given file in a given format, or if fmt is NULL, then do so for all 
  */
 int ast_filedelete(const char *filename, const char *fmt);
@@ -172,7 +181,7 @@ struct ast_filestream *ast_readfile(const char *filename, const char *type, cons
  * \param filename the name of the file to write to
  * \param type format of file you wish to write out to
  * \param comment comment to go with
- * \param oflags output file flags
+ * \param flags output file flags
  * \param check (unimplemented, hence negligible)
  * \param mode Open mode
  * Create an outgoing file stream.  oflags are flags for the open() command, and 
@@ -230,21 +239,21 @@ struct ast_filestream *ast_openvstream(struct ast_channel *chan, const char *fil
 /*! Applys a open stream to a channel. */
 /*!
  * \param chan channel to work
- * \param ast_filestream s to apply
+ * \param s ast_filestream to apply
  * Returns 0 for success, -1 on failure
  */
 int ast_applystream(struct ast_channel *chan, struct ast_filestream *s);
 
 /*! play a open stream on a channel. */
 /*!
- * \param ast_filestream s to play
+ * \param s filestream to play
  * Returns 0 for success, -1 on failure
  */
 int ast_playstream(struct ast_filestream *s);
 
 /*! Seeks into stream */
 /*!
- * \param ast_filestream to perform seek on
+ * \param fs ast_filestream to perform seek on
  * \param sample_offset numbers of samples to seek
  * \param whence SEEK_SET, SEEK_CUR, SEEK_END 
  * Returns 0 for success, or -1 for error
@@ -253,14 +262,14 @@ int ast_seekstream(struct ast_filestream *fs, long sample_offset, int whence);
 
 /*! Trunc stream at current location */
 /*!
- * \param ast_filestream fs 
+ * \param fs filestream to act on
  * Returns 0 for success, or -1 for error
  */
 int ast_truncstream(struct ast_filestream *fs);
 
 /*! Fast forward stream ms */
 /*!
- * \param ast_filestream fs filestream to act on
+ * \param fs filestream to act on
  * \param ms milliseconds to move
  * Returns 0 for success, or -1 for error
  */
@@ -268,23 +277,7 @@ int ast_stream_fastforward(struct ast_filestream *fs, long ms);
 
 /*! Rewind stream ms */
 /*!
- * \param ast_filestream fs filestream to act on
- * \param ms milliseconds to move
- * Returns 0 for success, or -1 for error
- */
-int ast_stream_rewind(struct ast_filestream *fs, long ms);
-
-/*! Fast forward stream ms */
-/*!
- * \param ast_filestream fs filestream to act on
- * \param ms milliseconds to move
- * Returns 0 for success, or -1 for error
- */
-int ast_stream_fastforward(struct ast_filestream *fs, long ms);
-
-/*! Rewind stream ms */
-/*!
- * \param ast_filestream fs filestream to act on
+ * \param fs filestream to act on
  * \param ms milliseconds to move
  * Returns 0 for success, or -1 for error
  */
@@ -292,14 +285,14 @@ int ast_stream_rewind(struct ast_filestream *fs, long ms);
 
 /*! Tell where we are in a stream */
 /*!
- * \param ast_filestream fs to act on
+ * \param fs fs to act on
  * Returns a long as a sample offset into stream
  */
 long ast_tellstream(struct ast_filestream *fs);
 
 /*! Read a frame from a filestream */
 /*!
- * \param ast_filestream fs to act on
+ * \param s ast_filestream to act on
  * Returns a frame or NULL if read failed
  */ 
 struct ast_frame *ast_readframe(struct ast_filestream *s);
@@ -318,6 +311,4 @@ extern int ast_file_init(void);
 }
 #endif
 
-
-
-#endif
+#endif /* _ASTERISK_FILE_H */

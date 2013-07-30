@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Applictions connected with CDR engine
- * 
- * Copyright (C) 2003, Digium
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Justin Huff <jjhuff@mspin.net>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Applictions connected with CDR engine
+ * 
  */
 
 #include <sys/types.h>
@@ -17,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/cdr.h"
@@ -100,9 +111,9 @@ static int setcdruserfield_exec(struct ast_channel *chan, void *data)
 	struct localuser *u;
 	int res = 0;
 	
-	LOCAL_USER_ADD(u)
-	if (chan->cdr && data) 
-	{
+	LOCAL_USER_ADD(u);
+
+	if (chan->cdr && data) {
 		ast_cdr_setuserfield(chan, (char*)data);
 	}
 
@@ -116,9 +127,9 @@ static int appendcdruserfield_exec(struct ast_channel *chan, void *data)
 	struct localuser *u;
 	int res = 0;
 	
-	LOCAL_USER_ADD(u)
-	if (chan->cdr && data) 
-	{
+	LOCAL_USER_ADD(u);
+
+	if (chan->cdr && data) {
 		ast_cdr_appenduserfield(chan, (char*)data);
 	}
 
@@ -130,19 +141,24 @@ static int appendcdruserfield_exec(struct ast_channel *chan, void *data)
 int unload_module(void)
 {
 	int res;
-	STANDARD_HANGUP_LOCALUSERS;
+	
 	res = ast_unregister_application(setcdruserfield_app);
 	res |= ast_unregister_application(appendcdruserfield_app);
-	ast_manager_unregister("SetCDRUserField");
+	res |= ast_manager_unregister("SetCDRUserField");
+
+	STANDARD_HANGUP_LOCALUSERS;
+
 	return res;
 }
 
 int load_module(void)
 {
 	int res;
+
 	res = ast_register_application(setcdruserfield_app, setcdruserfield_exec, setcdruserfield_synopsis, setcdruserfield_descrip);
 	res |= ast_register_application(appendcdruserfield_app, appendcdruserfield_exec, appendcdruserfield_synopsis, appendcdruserfield_descrip);
-	ast_manager_register("SetCDRUserField", EVENT_FLAG_CALL, action_setcdruserfield, "Set the CDR UserField");
+	res |= ast_manager_register("SetCDRUserField", EVENT_FLAG_CALL, action_setcdruserfield, "Set the CDR UserField");
+	
 	return res;
 }
 

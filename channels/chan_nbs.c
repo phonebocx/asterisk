@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Generic Linux Telephony Interface driver
- * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
+ *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
  *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Generic Linux Telephony Interface driver
+ * 
  */
 
 #include <stdio.h>
@@ -25,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -34,6 +45,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 #include "asterisk/module.h"
 #include "asterisk/pbx.h"
 #include "asterisk/options.h"
+#include "asterisk/utils.h"
 
 static const char desc[] = "Network Broadcast Sound Support";
 static const char type[] = "NBS";
@@ -124,7 +136,7 @@ static struct nbs_pvt *nbs_alloc(void *data)
 	p = malloc(sizeof(struct nbs_pvt));
 	if (p) {
 		memset(p, 0, sizeof(struct nbs_pvt));
-		if (strlen(opts)) {
+		if (!ast_strlen_zero(opts)) {
 			if (strchr(opts, 'm'))
 				flags |= NBS_FLAG_MUTE;
 			if (strchr(opts, 'o'))

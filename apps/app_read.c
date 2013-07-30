@@ -1,14 +1,25 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
- * Trivial application to read a variable
- * 
- * Copyright (C) 2003, Digium
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
+ * See http://www.asterisk.org for more information about
+ * the Asterisk project. Please do not directly contact
+ * any of the maintainers of this project for assistance;
+ * the project provides a web site, mailing lists and IRC
+ * channels for your use.
+ *
  * This program is free software, distributed under the terms of
- * the GNU General Public License
+ * the GNU General Public License Version 2. See the LICENSE file
+ * at the top of the source tree.
+ */
+
+/*! \file
+ *
+ * \brief Trivial application to read a variable
+ * 
  */
  
 #include <string.h>
@@ -16,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -78,11 +89,23 @@ static int read_exec(struct ast_channel *chan, void *data)
 	char *argcopy = NULL;
 	char *args[8];
 
-	if (data)
-		argcopy = ast_strdupa((char *)data);
+	if (ast_strlen_zero(data)) {
+		ast_log(LOG_WARNING, "Read requires an argument (variable)\n");
+		return -1;
+	}
+
+	LOCAL_USER_ADD(u);
+	
+	argcopy = ast_strdupa(data);
+	if (!argcopy) {
+		ast_log(LOG_ERROR, "Out of memory\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
 
 	if (ast_separate_app_args(argcopy, '|', args, sizeof(args) / sizeof(args[0])) < 1) {
-		ast_log(LOG_WARNING, "Cannot Parse Arguements.\n");
+		ast_log(LOG_WARNING, "Cannot Parse Arguments.\n");
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
@@ -120,7 +143,7 @@ static int read_exec(struct ast_channel *chan, void *data)
 			to *= 1000;
 	}
 
-	if (!(filename) || ast_strlen_zero(filename)) 
+	if (ast_strlen_zero(filename)) 
 		filename = NULL;
 	if (maxdigitstr) {
 		maxdigits = atoi(maxdigitstr);
@@ -129,11 +152,12 @@ static int read_exec(struct ast_channel *chan, void *data)
 		} else if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "Accepting a maximum of %d digits.\n", maxdigits);
 	}
-	if (!(varname) || ast_strlen_zero(varname)) {
+	if (ast_strlen_zero(varname)) {
 		ast_log(LOG_WARNING, "Invalid! Usage: Read(variable[|filename][|maxdigits][|option][|attempts][|timeout])\n\n");
+		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
-	LOCAL_USER_ADD(u);
+	
 	if (chan->_state != AST_STATE_UP) {
 		if (option_skip) {
 			/* At the user's option, skip if the line is not up */
@@ -177,8 +201,13 @@ static int read_exec(struct ast_channel *chan, void *data)
 
 int unload_module(void)
 {
+	int res;
+
+	res = ast_unregister_application(app);
+	
 	STANDARD_HANGUP_LOCALUSERS;
-	return ast_unregister_application(app);
+
+	return res;	
 }
 
 int load_module(void)
