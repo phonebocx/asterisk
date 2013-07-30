@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100164 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 110628 $")
 
 #undef sched_setscheduler
 #undef setpriority
@@ -1721,7 +1721,8 @@ static int ast_el_read_char(EditLine *el, char *cp)
 	struct pollfd fds[2];
 	int res;
 	int max;
-	char buf[512];
+#define EL_BUF_SIZE 512
+	char buf[EL_BUF_SIZE];
 
 	for (;;) {
 		max = 1;
@@ -1784,7 +1785,7 @@ static int ast_el_read_char(EditLine *el, char *cp)
 			if (!ast_opt_exec && !lastpos)
 				write(STDOUT_FILENO, "\r", 1);
 			write(STDOUT_FILENO, buf, res);
-			if ((buf[res-1] == '\n') || (buf[res-2] == '\n')) {
+			if ((res < EL_BUF_SIZE - 1) && ((buf[res-1] == '\n') || (buf[res-2] == '\n'))) {
 				*cp = CC_REFRESH;
 				return(1);
 			} else {
@@ -1931,9 +1932,10 @@ static char *cli_prompt(EditLine *el)
 		if (color_used) {
 			/* Force colors back to normal at end */
 			term_color_code(term_code, COLOR_WHITE, COLOR_BLACK, sizeof(term_code));
-			if (strlen(term_code) > sizeof(prompt) - strlen(prompt)) {
-				strncat(prompt + sizeof(prompt) - strlen(term_code) - 1, term_code, strlen(term_code));
+			if (strlen(term_code) > sizeof(prompt) - strlen(prompt) - 1) {
+				ast_copy_string(prompt + sizeof(prompt) - strlen(term_code) - 1, term_code, strlen(term_code) + 1);
 			} else {
+				/* This looks wrong, but we've already checked the length of term_code to ensure it's safe */
 				strncat(p, term_code, sizeof(term_code));
 			}
 		}
@@ -2481,8 +2483,8 @@ static void ast_readconfig(void)
 		/* Build transcode paths via SLINEAR, instead of directly */
 		} else if (!strcasecmp(v->name, "transcode_via_sln")) {
 			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_TRANSCODE_VIA_SLIN);
-		/* Transmit SLINEAR silence while a channel is being recorded */
-		} else if (!strcasecmp(v->name, "transmit_silence_during_record")) {
+		/* Transmit SLINEAR silence while a channel is being recorded or DTMF is being generated on a channel */
+		} else if (!strcasecmp(v->name, "transmit_silence_during_record") || !strcasecmp(v->name, "transmit_silence")) {
 			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_TRANSMIT_SILENCE);
 		/* Enable internal timing */
 		} else if (!strcasecmp(v->name, "internal_timing")) {
@@ -2844,6 +2846,7 @@ int main(int argc, char *argv[])
 
 #if HAVE_WORKING_FORK
 	if (ast_opt_always_fork || !ast_opt_no_fork) {
+#ifndef HAVE_SBIN_LAUNCHD
 		daemon(1, 0);
 		ast_mainpid = getpid();
 		/* Blindly re-write pid file since we are forking */
@@ -2854,6 +2857,9 @@ int main(int argc, char *argv[])
 			fclose(f);
 		} else
 			ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", ast_config_AST_PID, strerror(errno));
+#else
+		ast_log(LOG_WARNING, "Mac OS X detected.  Use '/sbin/launchd -d' to launch with the nofork option.\n");
+#endif
 	}
 #endif
 
@@ -2890,6 +2896,8 @@ int main(int argc, char *argv[])
 	threadstorage_init();
 
 	astobj2_init();
+
+	ast_autoservice_init();
 
 	if (load_modules(1)) {
 		printf(term_quit());

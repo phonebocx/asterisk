@@ -26,7 +26,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 87262 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 102214 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -286,9 +286,10 @@ static int acf_sprintf(struct ast_channel *chan, char *cmd, char *data, char *bu
 					i++;
 				state = SPRINTF_CONVERSION;
 				break;
-			} else if (strchr("Lqjzt", arg.format[i]))
+			} else if (strchr("Lqjzt", arg.format[i])) {
 				state = SPRINTF_CONVERSION;
 				break;
+			}
 			state = SPRINTF_CONVERSION;
 		case SPRINTF_CONVERSION:
 			if (strchr("diouxXc", arg.format[i])) {

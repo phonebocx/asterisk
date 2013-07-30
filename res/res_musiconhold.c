@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89053 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 110035 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -120,6 +120,7 @@ struct moh_files_state {
 	int sample_queue;
 	int pos;
 	int save_pos;
+	char *save_pos_filename;
 };
 
 #define MOH_QUIET		(1 << 0)
@@ -200,23 +201,26 @@ static void ast_moh_free_class(struct mohclass **mohclass)
 
 static void moh_files_release(struct ast_channel *chan, void *data)
 {
-	struct moh_files_state *state = chan->music_state;
+	struct moh_files_state *state;
 
-	if (chan && state) {
-		if (chan->stream) {
-                        ast_closestream(chan->stream);
-                        chan->stream = NULL;
-                }
-		if (option_verbose > 2)
-			ast_verbose(VERBOSE_PREFIX_3 "Stopped music on hold on %s\n", chan->name);
+	if (chan) {
+		if ((state = chan->music_state)) {
+			if (chan->stream) {
+        	                ast_closestream(chan->stream);
+                	        chan->stream = NULL;
+	                }
+			if (option_verbose > 2)
+				ast_verbose(VERBOSE_PREFIX_3 "Stopped music on hold on %s\n", chan->name);
+	
+			if (state->origwfmt && ast_set_write_format(chan, state->origwfmt)) {
+				ast_log(LOG_WARNING, "Unable to restore channel '%s' to format '%d'\n", chan->name, state->origwfmt);
+			}
+			state->save_pos = state->pos;
 
-		if (state->origwfmt && ast_set_write_format(chan, state->origwfmt)) {
-			ast_log(LOG_WARNING, "Unable to restore channel '%s' to format '%d'\n", chan->name, state->origwfmt);
+			if (ast_atomic_dec_and_test(&state->class->inuse) && state->class->delete)
+				ast_moh_destroy_one(state->class);
 		}
-		state->save_pos = state->pos;
 	}
-	if (ast_atomic_dec_and_test(&state->class->inuse) && state->class->delete)
-		ast_moh_destroy_one(state->class);
 }
 
 
@@ -236,8 +240,8 @@ static int ast_moh_files_next(struct ast_channel *chan)
 		return -1;
 	}
 
-	/* If a specific file has been saved, use it */
-	if (state->save_pos >= 0) {
+	/* If a specific file has been saved confirm it still exists and that it is still valid */
+	if (state->save_pos >= 0 && state->save_pos < state->class->total_files && state->class->filearray[state->save_pos] == state->save_pos_filename) {
 		state->pos = state->save_pos;
 		state->save_pos = -1;
 	} else if (ast_test_flag(state->class, MOH_RANDOMIZE)) {
@@ -247,11 +251,13 @@ static int ast_moh_files_next(struct ast_channel *chan)
 			if (ast_fileexists(state->class->filearray[state->pos], NULL, NULL) > 0)
 				break;
 		}
+		state->save_pos = -1;
 		state->samples = 0;
 	} else {
 		/* This is easy, just increment our position and make sure we don't exceed the total file count */
 		state->pos++;
 		state->pos %= state->class->total_files;
+		state->save_pos = -1;
 		state->samples = 0;
 	}
 
@@ -261,6 +267,9 @@ static int ast_moh_files_next(struct ast_channel *chan)
 		state->pos %= state->class->total_files;
 		return -1;
 	}
+
+	/* Record the pointer to the filename for position resuming later */
+	state->save_pos_filename = state->class->filearray[state->pos];
 
 	if (option_debug)
 		ast_log(LOG_DEBUG, "%s Opened file %d '%s'\n", chan->name, state->pos, state->class->filearray[state->pos]);

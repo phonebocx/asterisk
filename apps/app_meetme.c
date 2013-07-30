@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 98972 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 110163 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -1658,7 +1658,9 @@ static int conf_run(struct ast_channel *chan, struct ast_conference *conf, int c
 		}
 	}
 
-	if (confflags & CONFFLAG_MONITOR)
+	if (confflags & CONFFLAG_WAITMARKED && !conf->markedusers)
+		ztc.confmode = ZT_CONF_CONF;
+	else if (confflags & CONFFLAG_MONITOR)
 		ztc.confmode = ZT_CONF_CONFMON | ZT_CONF_LISTENER;
 	else if (confflags & CONFFLAG_TALKER)
 		ztc.confmode = ZT_CONF_CONF | ZT_CONF_TALKER;
@@ -4351,7 +4353,9 @@ static int sla_trunk_exec(struct ast_channel *chan, void *data)
 	conf = NULL;
 	trunk->chan = NULL;
 	trunk->on_hold = 0;
-	
+
+	sla_change_trunk_state(trunk, SLA_TRUNK_STATE_IDLE, ALL_TRUNK_REFS, NULL);
+
 	if (!pbx_builtin_getvar_helper(chan, "SLATRUNK_STATUS"))
 		pbx_builtin_setvar_helper(chan, "SLATRUNK_STATUS", "SUCCESS");
 
@@ -4366,7 +4370,6 @@ static int sla_trunk_exec(struct ast_channel *chan, void *data)
 	AST_LIST_TRAVERSE_SAFE_END
 	ast_mutex_unlock(&sla.lock);
 	if (ringing_trunk) {
-		sla_change_trunk_state(ringing_trunk->trunk, SLA_TRUNK_STATE_IDLE, ALL_TRUNK_REFS, NULL);
 		free(ringing_trunk);
 		pbx_builtin_setvar_helper(chan, "SLATRUNK_STATUS", "UNANSWERED");
 		/* Queue reprocessing of ringing trunks to make stations stop ringing
@@ -4790,7 +4793,8 @@ static int sla_load_config(void)
 
 	ast_config_destroy(cfg);
 
-	ast_pthread_create(&sla.thread, NULL, sla_thread, NULL);
+	if (!AST_LIST_EMPTY(&sla_stations) || !AST_LIST_EMPTY(&sla_stations))
+		ast_pthread_create(&sla.thread, NULL, sla_thread, NULL);
 
 	return res;
 }

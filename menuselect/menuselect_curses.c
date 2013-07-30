@@ -446,6 +446,8 @@ int run_menu(void)
 	int c;
 	int res = 0;
 
+	setenv("ESCDELAY", "0", 1); /* So that ESC is processed immediately */
+
 	initscr();
 	getmaxyx(stdscr, max_y, max_x);
 	signal(SIGWINCH, winch_handler); /* handle window resizing in xterm */

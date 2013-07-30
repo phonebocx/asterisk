@@ -26,7 +26,7 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
- * Version Info: $Id: ast_h323.cxx 81383 2007-08-30 15:38:29Z russell $
+ * Version Info: $Id: ast_h323.cxx 103823 2008-02-19 20:28:08Z file $
  */
 #include <arpa/inet.h>
 
@@ -718,7 +718,8 @@ void MyH323Connection::SetCallOptions(void *o, BOOL isIncoming)
 		fastStartState = (opts->fastStart ? FastStartInitiate : FastStartDisabled);
 		h245Tunneling = (opts->h245Tunneling ? TRUE : FALSE);
 	} else {
-		SetLocalPartyName(PString(opts->cid_num));
+		sourceE164 = PString(opts->cid_num);
+		SetLocalPartyName(PString(opts->cid_name));
 		SetDisplayName(PString(opts->cid_name));
 		if (opts->redirect_reason >= 0) {
 			rdnis = PString(opts->cid_rdnis);
@@ -1247,7 +1248,7 @@ BOOL MyH323Connection::OnSendSignalSetup(H323SignalPDU & setupPDU)
 	/* OpenH323 will build calling party information with default
 	   type and presentation information, so build it to be recorded
 	   by embedding routines */
-	setupPDU.GetQ931().SetCallingPartyNumber(GetLocalPartyName(), (cid_ton >> 4) & 0x07,
+	setupPDU.GetQ931().SetCallingPartyNumber(sourceE164, (cid_ton >> 4) & 0x07,
 			cid_ton & 0x0f, (cid_presentation >> 5) & 0x03, cid_presentation & 0x1f);
 	setupPDU.GetQ931().SetDisplayName(GetDisplayName());
 

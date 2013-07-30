@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 100934 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 108083 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -265,7 +265,7 @@ static void launch_monitor_thread(struct ast_channel *chan, const char *filename
 		return;
 	}
 	
-	ast_set_flag(&mixmonitor->audiohook, AST_AUDIOHOOK_TRIGGER_WRITE);
+	ast_set_flag(&mixmonitor->audiohook, AST_AUDIOHOOK_TRIGGER_SYNC);
 	
 	if (readvol)
 		mixmonitor->audiohook.options.read_volume = readvol;

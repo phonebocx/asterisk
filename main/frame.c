@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 99081 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 111280 $")
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -195,23 +195,8 @@ int __ast_smoother_feed(struct ast_smoother *s, struct ast_frame *f, int swap)
 				ast_swapcopy_samples(f->data, f->data, f->samples);
 			s->opt = f;
 			return 0;
-		} else {
-			s->optimizablestream++;
-			if (s->optimizablestream > 10) {
-				/* For the past 10 rounds, we have input and output
-				   frames of the correct size for this smoother, yet
-				   we were unable to optimize because there was still
-				   some cruft left over.  Lets just drop the cruft so
-				   we can move to a fully optimized path */
-				if (swap)
-					ast_swapcopy_samples(f->data, f->data, f->samples);
-				s->len = 0;
-				s->opt = f;
-				return 0;
-			}
 		}
-	} else 
-		s->optimizablestream = 0;
+	}
 	if (s->flags & AST_SMOOTHER_FLAG_G729) {
 		if (s->len % 10) {
 			ast_log(LOG_NOTICE, "Dropping extra frame of G.729 since we already have a VAD frame at the end\n");
@@ -1091,16 +1076,16 @@ int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size)
 			slen = strlen(formatname);
 			if(slen > total_len)
 				break;
-			strncat(buf,formatname,total_len);
+			strncat(buf, formatname, total_len - 1); /* safe */
 			total_len -= slen;
 		}
 		if(total_len && x < 31 && ast_codec_pref_index(pref , x + 1)) {
-			strncat(buf,"|",total_len);
+			strncat(buf, "|", total_len - 1); /* safe */
 			total_len--;
 		}
 	}
 	if(total_len) {
-		strncat(buf,")",total_len);
+		strncat(buf, ")", total_len - 1); /* safe */
 		total_len--;
 	}
 

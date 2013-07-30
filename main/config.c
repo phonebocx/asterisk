@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 93000 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 109908 $")
 
 #include <stdio.h>
 #include <unistd.h>
@@ -1042,15 +1042,21 @@ int config_text_file_save(const char *configfile, const struct ast_config *cfg, 
 			if (!cat->precomments)
 				fprintf(f,"\n");
 			fprintf(f, "[%s]", cat->name);
-			if (cat->ignored)
-				fprintf(f, "(!)");
-			if (!AST_LIST_EMPTY(&cat->template_instances)) {
-				struct ast_category_template_instance *x;
+			if (cat->ignored || !AST_LIST_EMPTY(&cat->template_instances)) {
 				fprintf(f, "(");
-				AST_LIST_TRAVERSE(&cat->template_instances, x, next) {
-					fprintf(f,"%s",x->name);
-					if (x != AST_LIST_LAST(&cat->template_instances))
-						fprintf(f,",");
+				if (cat->ignored) {
+					fprintf(f, "!");
+				}
+				if (cat->ignored && !AST_LIST_EMPTY(&cat->template_instances)) {
+					fprintf(f, ",");
+				}
+				if (!AST_LIST_EMPTY(&cat->template_instances)) {
+					struct ast_category_template_instance *x;
+					AST_LIST_TRAVERSE(&cat->template_instances, x, next) {
+						fprintf(f,"%s",x->name);
+						if (x != AST_LIST_LAST(&cat->template_instances))
+							fprintf(f,",");
+					}
 				}
 				fprintf(f, ")");
 			}
@@ -1063,10 +1069,15 @@ int config_text_file_save(const char *configfile, const struct ast_config *cfg, 
 			var = cat->root;
 			while(var) {
 				struct ast_category_template_instance *x;
+				struct ast_variable *v2;
 				int found = 0;
 				AST_LIST_TRAVERSE(&cat->template_instances, x, next) {
-					const char *pvalue = ast_variable_retrieve(cfg, x->name, var->name);
-					if (pvalue && !strcmp(pvalue, var->value)) {
+					
+					for (v2 = x->inst->root; v2; v2 = v2->next) {
+						if (!strcasecmp(var->name, v2->name))
+							break;
+					}
+					if (v2 && v2->value && !strcmp(v2->value, var->value)) {
 						found = 1;
 						break;
 					}
@@ -1330,7 +1341,8 @@ struct ast_config *ast_config_internal_load(const char *filename, struct ast_con
 	struct ast_config_engine *loader = &text_file_engine;
 	struct ast_config *result; 
 
-	if (cfg->include_level == cfg->max_include_level) {
+	/* The config file itself bumps include_level by 1 */
+	if (cfg->max_include_level > 0 && cfg->include_level == cfg->max_include_level + 1) {
 		ast_log(LOG_WARNING, "Maximum Include level (%d) exceeded\n", cfg->max_include_level);
 		return NULL;
 	}
