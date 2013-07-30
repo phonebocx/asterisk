@@ -46,8 +46,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 189540 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253620 $")
 
+#include <signal.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <float.h>

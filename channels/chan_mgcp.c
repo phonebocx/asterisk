@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253158 $")
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -1455,6 +1455,9 @@ static int mgcp_indicate(struct ast_channel *ast, int ind, const void *data, siz
 		break;
 	case AST_CONTROL_SRCUPDATE:
 		ast_rtp_new_source(sub->rtp);
+		break;
+	case AST_CONTROL_SRCCHANGE:
+		ast_rtp_change_source(sub->rtp);
 		break;
 	case -1:
 		transmit_notify_request(sub, "");

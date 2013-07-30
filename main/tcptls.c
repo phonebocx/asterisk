@@ -27,12 +27,13 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 246982 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253620 $")
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
 
+#include <signal.h>
 #include <sys/signal.h>
 
 #include "asterisk/compat.h"

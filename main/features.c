@@ -25,11 +25,12 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249933 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253801 $")
 
 #include "asterisk/_private.h"
 
 #include <pthread.h>
+#include <signal.h>
 #include <sys/time.h>
 #include <sys/signal.h>
 #include <netinet/in.h>
@@ -574,6 +575,8 @@ static struct parkeduser *park_space_reserve(struct ast_channel *chan,
 	
 	if (peer)
 		parkinglotname = findparkinglotname(peer);
+	else /* peer was NULL, check chan (ParkAndAnnounce / res_agi) */
+		parkinglotname = findparkinglotname(chan);
 
 	if (parkinglotname) {
 		if (option_debug)
@@ -890,7 +893,7 @@ static int masq_park_call(struct ast_channel *rchan, struct ast_channel *peer, i
 	return 0;
 }
 
-/* Park call via masquraded channel */
+/* Park call via masqueraded channel */
 int ast_masq_park_call(struct ast_channel *rchan, struct ast_channel *peer, int timeout, int *extout)
 {
 	return masq_park_call(rchan, peer, timeout, extout, 0, NULL);
@@ -2525,9 +2528,7 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 			if (peer_cdr && !ast_strlen_zero(peer_cdr->userfield)) {
 				ast_copy_string(bridge_cdr->userfield, peer_cdr->userfield, sizeof(bridge_cdr->userfield));
 			}
-			if (peer_cdr && ast_strlen_zero(peer->accountcode)) {
-				ast_cdr_setaccount(peer, chan->accountcode);
-			}
+			ast_cdr_setaccount(peer, chan->accountcode);
 
 		} else {
 			/* better yet, in a xfer situation, find out why the chan cdr got zapped (pun unintentional) */

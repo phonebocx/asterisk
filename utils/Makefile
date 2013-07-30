@@ -80,7 +80,7 @@ install:
 	done 
 
 uninstall:
-	for x in $(ALL_UTILS); do rm -f $$x $(DESTDIR)$(ASTSBINDIR)/$$x; done
+	for x in $(ALL_UTILS); do rm -f $(DESTDIR)$(ASTSBINDIR)/$$x; done
 
 clean:
 	rm -f *.o $(ALL_UTILS) check_expr
@@ -200,6 +200,7 @@ streamplayer: streamplayer.o
 
 muted: muted.o
 muted: LIBS+=$(AUDIO_LIBS)
+muted: _ASTCFLAGS:=$(filter-out -Werror,$(_ASTCFLAGS))
 
 ifneq ($(wildcard .*.d),)
    include .*.d

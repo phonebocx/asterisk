@@ -27,7 +27,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 251683 $")
 
 #include "asterisk/file.h"
 #include "asterisk/pbx.h"
@@ -76,7 +76,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 						<para>Ignore all terminator keys (DTMF) and keep recording until hangup.</para>
 					</option>
 					<option name="k">
-					        <para>Keep recording if channel hangs up.</para>
+					        <para>Keep recorded file upon hangup.</para>
 					</option>	
 				</optionlist>
 			</parameter>

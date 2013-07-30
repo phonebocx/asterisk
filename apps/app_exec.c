@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 153468 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 251887 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -229,13 +229,13 @@ static int execif_exec(struct ast_channel *chan, void *data)
 	} else {
 		/* Preferred syntax */
 
-		AST_NONSTANDARD_APP_ARGS(expr, parse, '?');
+		AST_NONSTANDARD_RAW_ARGS(expr, parse, '?');
 		if (ast_strlen_zero(expr.remainder)) {
 			ast_log(LOG_ERROR, "Usage: ExecIf(<expr>?<appiftrue>(<args>)[:<appiffalse>(<args)])\n");
 			return -1;
 		}
 
-		AST_NONSTANDARD_APP_ARGS(apps, expr.remainder, ':');
+		AST_NONSTANDARD_RAW_ARGS(apps, expr.remainder, ':');
 
 		if (apps.t && (truedata = strchr(apps.t, '('))) {
 			*truedata++ = '\0';

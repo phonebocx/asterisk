@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 248864 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 255955 $")
 
 #include "asterisk/_private.h"
 
@@ -3488,7 +3488,7 @@ int main(int argc, char *argv[])
 		} else
 			ast_log(LOG_WARNING, "Unable to open pid file '%s': %s\n", ast_config_AST_PID, strerror(errno));
 #else
-		ast_log(LOG_WARNING, "Mac OS X detected.  Use '/sbin/launchd -d' to launch with the nofork option.\n");
+		ast_log(LOG_WARNING, "Mac OS X detected.  Use 'launchctl load /Library/LaunchDaemon/org.asterisk.asterisk.plist'.\n");
 #endif
 	}
 #endif
@@ -3510,7 +3510,7 @@ int main(int argc, char *argv[])
 
 			ast_close_fds_above_n(0);
 			ast_set_priority(0);
-			snprintf(ppid, sizeof(ppid), "%d", (int) getpid());
+			snprintf(ppid, sizeof(ppid), "%d", (int) ast_mainpid);
 
 			execlp("astcanary", "astcanary", canary_filename, ppid, (char *)NULL);
 

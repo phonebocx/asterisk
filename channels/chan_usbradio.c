@@ -35,6 +35,7 @@
 
 /*** MODULEINFO
 	<depend>oss</depend>
+	<depend>alsa</depend>
 	<depend>usb</depend>
 	<defaultenabled>no</defaultenabled>
  ***/
@@ -56,7 +57,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 254721 $")
 
 #include <stdio.h>
 #include <ctype.h>

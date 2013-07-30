@@ -283,6 +283,7 @@
 </member>
 <member name="chan_usbradio" displayname="usb Console Channel Driver" remove_on_change="channels/chan_usbradio.o channels/chan_usbradio.so">
 	<depend>oss</depend>
+	<depend>alsa</depend>
 	<depend>usb</depend>
 	<defaultenabled>no</defaultenabled>
 </member>
@@ -547,7 +548,7 @@
 	<depend>timerfd</depend>
 </member>
 </category>
-<category name="MENUSELECT_TEST" displayname="Test Modules" remove_on_change="tests/modules.link">
+<category name="MENUSELECT_TESTS" displayname="Test Modules" remove_on_change="tests/modules.link">
 <member name="test_dlinklists" displayname="Test Doubly-Linked Lists" remove_on_change="tests/test_dlinklists.o tests/test_dlinklists.so">
 	<defaultenabled>no</defaultenabled>
 </member>

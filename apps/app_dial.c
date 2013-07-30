@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 244395 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 255505 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -309,11 +309,13 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 244395 $")
 				</option>
 				<option name="t">
 					<para>Allow the called party to transfer the calling party by sending the
-					DTMF sequence defined in <filename>features.conf</filename>.</para>
+					DTMF sequence defined in <filename>features.conf</filename>. This setting does not perform policy enforcement on
+					transfers initiated by other methods.</para>
 				</option>
 				<option name="T">
 					<para>Allow the calling party to transfer the called party by sending the
-					DTMF sequence defined in <filename>features.conf</filename>.</para>
+					DTMF sequence defined in <filename>features.conf</filename>. This setting does not perform policy enforcement on
+					transfers initiated by other methods.</para>
 				</option>
 				<option name="U" argsep="^">
 					<argument name="x" required="true">
@@ -1497,12 +1499,12 @@ static void end_bridge_callback(void *data)
 
 	ast_channel_lock(chan);
 	if (chan->cdr->answer.tv_sec) {
-		snprintf(buf, sizeof(buf), "%ld", end - chan->cdr->answer.tv_sec);
+		snprintf(buf, sizeof(buf), "%ld", (long) end - chan->cdr->answer.tv_sec);
 		pbx_builtin_setvar_helper(chan, "ANSWEREDTIME", buf);
 	}
 
 	if (chan->cdr->start.tv_sec) {
-		snprintf(buf, sizeof(buf), "%ld", end - chan->cdr->start.tv_sec);
+		snprintf(buf, sizeof(buf), "%ld", (long) end - chan->cdr->start.tv_sec);
 		pbx_builtin_setvar_helper(chan, "DIALEDTIME", buf);
 	}
 	ast_channel_unlock(chan);

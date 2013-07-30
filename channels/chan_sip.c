@@ -207,7 +207,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 250253 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 257217 $")
 
 #include <ctype.h>
 #include <sys/ioctl.h>
@@ -1373,7 +1373,6 @@ struct sip_auth {
 #define SIP_PAGE2_RTCACHEFRIENDS	(1 << 0)	/*!< GP: Should we keep RT objects in memory for extended time? */
 #define SIP_PAGE2_RTAUTOCLEAR		(1 << 2)	/*!< GP: Should we clean memory from peers after expiry? */
 /* Space for addition of other realtime flags in the future */
-#define SIP_PAGE2_CONSTANT_SSRC     (1 << 8)	/*!< GDP: Don't change SSRC on reinvite */
 #define SIP_PAGE2_STATECHANGEQUEUE	(1 << 9)	/*!< D: Unsent state pending change exists */
 
 #define SIP_PAGE2_RPORT_PRESENT         (1 << 10)       /*!< Was rport received in the Via header? */
@@ -1406,7 +1405,7 @@ struct sip_auth {
 	(SIP_PAGE2_ALLOWSUBSCRIBE | SIP_PAGE2_ALLOWOVERLAP | SIP_PAGE2_IGNORESDPVERSION | \
 	SIP_PAGE2_VIDEOSUPPORT | SIP_PAGE2_T38SUPPORT | SIP_PAGE2_RFC2833_COMPENSATE | \
 	SIP_PAGE2_BUGGY_MWI | SIP_PAGE2_TEXTSUPPORT | SIP_PAGE2_FAX_DETECT | \
-	SIP_PAGE2_UDPTL_DESTINATION | SIP_PAGE2_VIDEOSUPPORT_ALWAYS | SIP_PAGE2_CONSTANT_SSRC)
+	SIP_PAGE2_UDPTL_DESTINATION | SIP_PAGE2_VIDEOSUPPORT_ALWAYS)
 
 /*@}*/ 
 
@@ -5150,9 +5149,6 @@ static int create_addr_from_peer(struct sip_pvt *dialog, struct sip_peer *peer)
 		ast_rtp_set_rtptimeout(dialog->rtp, peer->rtptimeout);
 		ast_rtp_set_rtpholdtimeout(dialog->rtp, peer->rtpholdtimeout);
 		ast_rtp_set_rtpkeepalive(dialog->rtp, peer->rtpkeepalive);
-		if (ast_test_flag(&dialog->flags[1], SIP_PAGE2_CONSTANT_SSRC)) {
-			ast_rtp_set_constantssrc(dialog->rtp);
-		}
 		/* Set Frame packetization */
 		ast_rtp_codec_setpref(dialog->rtp, &dialog->prefs);
 		dialog->autoframing = peer->autoframing;
@@ -5163,9 +5159,6 @@ static int create_addr_from_peer(struct sip_pvt *dialog, struct sip_peer *peer)
 		ast_rtp_set_rtptimeout(dialog->vrtp, peer->rtptimeout);
 		ast_rtp_set_rtpholdtimeout(dialog->vrtp, peer->rtpholdtimeout);
 		ast_rtp_set_rtpkeepalive(dialog->vrtp, peer->rtpkeepalive);
-		if (ast_test_flag(&dialog->flags[1], SIP_PAGE2_CONSTANT_SSRC)) {
-			ast_rtp_set_constantssrc(dialog->vrtp);
-		}
 	}
 	if (dialog->trtp) { /* Realtime text */
 		ast_rtp_setdtmf(dialog->trtp, 0);
@@ -6076,7 +6069,7 @@ static int sip_hangup(struct ast_channel *ast)
 				}
 			} else {	/* Incoming call, not up */
 				const char *res;
-				AST_SCHED_DEL(sched, p->provisional_keepalive_sched_id);
+				AST_SCHED_DEL_UNREF(sched, p->provisional_keepalive_sched_id, dialog_unref(p, "when you delete the provisional_keepalive_sched_id, you should dec the refcount for the stored dialog ptr"));
 				if (p->hangupcause && (res = hangup_cause2sip(p->hangupcause)))
 					transmit_response_reliable(p, res, &p->initreq);
 				else 
@@ -6577,6 +6570,9 @@ static int sip_indicate(struct ast_channel *ast, int condition, const void *data
 		break;
 	case AST_CONTROL_SRCUPDATE:
 		ast_rtp_new_source(p->rtp);
+		break;
+	case AST_CONTROL_SRCCHANGE:
+		ast_rtp_change_source(p->rtp);
 		break;
 	case -1:
 		res = -1;
@@ -13139,15 +13135,31 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct sockaddr
 				/* URI not found */
 				if (res == AUTH_PEER_NOT_DYNAMIC) {
 					transmit_response(p, "403 Forbidden", &p->initreq);
-					if (global_authfailureevents)
-						manager_event(EVENT_FLAG_SYSTEM, "PeerStatus", "ChannelType: SIP\r\nPeer: SIP/%s\r\nPeerStatus: Rejected\r\nCause: AUTH_PEER_NOT_DYNAMIC\r\nAddress: %s\r\nPort: %d\r\n", 
+					if (global_authfailureevents) {
+						manager_event(EVENT_FLAG_SYSTEM, "PeerStatus",
+							"ChannelType: SIP\r\n"
+							"Peer: SIP/%s\r\n"
+							"PeerStatus: Rejected\r\n"
+							"Cause: AUTH_PEER_NOT_DYNAMIC\r\n"
+							"Address: %s\r\n"
+							"Port: %d\r\n",
 							name, ast_inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
 					}
-				else
+				} else {
 					transmit_response(p, "404 Not found", &p->initreq);
-					if (global_authfailureevents)
-						manager_event(EVENT_FLAG_SYSTEM, "PeerStatus", "ChannelType: SIP\r\nPeer: SIP/%s\r\nPeerStatus: Rejected\r\nCause: %s\r\nAddress: %s\r\nPort: %d\r\n", 
-							      name, (res == AUTH_USERNAME_MISMATCH) ? "AUTH_USERNAME_MISMATCH" : "URI_NOT_FOUND", ast_inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
+					if (global_authfailureevents) {
+						manager_event(EVENT_FLAG_SYSTEM, "PeerStatus",
+							"ChannelType: SIP\r\n"
+							"Peer: SIP/%s\r\n"
+							"PeerStatus: Rejected\r\n"
+							"Cause: %s\r\n"
+							"Address: %s\r\n"
+							"Port: %d\r\n",
+							name,
+							(res == AUTH_USERNAME_MISMATCH) ? "AUTH_USERNAME_MISMATCH" : "URI_NOT_FOUND",
+							ast_inet_ntoa(sin->sin_addr), ntohs(sin->sin_port));
+					}
+				}
 			}
 			break;
 		case AUTH_BAD_TRANSPORT:
@@ -20002,14 +20014,6 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, int
 				res = -1;
 				goto request_invite_cleanup;
 			}
-			if (ast_test_flag(&p->flags[1], SIP_PAGE2_CONSTANT_SSRC)) {
-				if (p->rtp) {
-					ast_rtp_set_constantssrc(p->rtp);
-				}
-				if (p->vrtp) {
-					ast_rtp_set_constantssrc(p->vrtp);
-				}
-			}
 		} else {	/* No SDP in invite, call control session */
 			p->jointcapability = p->capability;
 			ast_debug(2, "No SDP in Invite, third party call control\n");
@@ -20953,19 +20957,26 @@ static int acf_channel_read(struct ast_channel *chan, const char *funcname, char
 		ast_copy_string(buf, (p->t38.state == T38_DISABLED) ? "0" : "1", buflen);
 	} else if (!strcasecmp(args.param, "rtpdest")) {
 		struct sockaddr_in sin;
+		struct ast_rtp *stream = NULL;
 
 		if (ast_strlen_zero(args.type))
 			args.type = "audio";
 
-		if (!strcasecmp(args.type, "audio"))
-			ast_rtp_get_peer(p->rtp, &sin);
-		else if (!strcasecmp(args.type, "video"))
-			ast_rtp_get_peer(p->vrtp, &sin);
-		else if (!strcasecmp(args.type, "text"))
-			ast_rtp_get_peer(p->trtp, &sin);
-		else
+		if (!strcasecmp(args.type, "audio")) {
+			stream = p->rtp;
+		} else if (!strcasecmp(args.type, "video")) {
+			stream = p->vrtp;
+		} else if (!strcasecmp(args.type, "text")) {
+			stream = p->trtp;
+		} else {
 			return -1;
+		}
 
+		if (!stream) {
+			return -1;
+		}
+
+		ast_rtp_get_peer(stream, &sin);
 		snprintf(buf, buflen, "%s:%d", ast_inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 	} else if (!strcasecmp(args.param, "rtpqos")) {
 		struct ast_rtp_quality qos;
@@ -23406,9 +23417,6 @@ static int handle_common_options(struct ast_flags *flags, struct ast_flags *mask
 	} else if (!strcasecmp(v->name, "buggymwi")) {
 		ast_set_flag(&mask[1], SIP_PAGE2_BUGGY_MWI);
 		ast_set2_flag(&flags[1], ast_true(v->value), SIP_PAGE2_BUGGY_MWI);
-	} else if (!strcasecmp(v->name, "constantssrc")) {
-		ast_set_flag(&mask[1], SIP_PAGE2_CONSTANT_SSRC);
-		ast_set2_flag(&flags[1], ast_true(v->value), SIP_PAGE2_CONSTANT_SSRC);
 	} else
 		res = 0;
 
@@ -24877,8 +24885,6 @@ static int reload_config(enum channelreloadreason reason)
 				default_maxcallbitrate = DEFAULT_MAX_CALL_BITRATE;
 		} else if (!strcasecmp(v->name, "matchexterniplocally")) {
 			sip_cfg.matchexterniplocally = ast_true(v->value);
-		} else if (!strcasecmp(v->name, "constantssrc")) {
-			ast_set2_flag(&global_flags[1], ast_true(v->value), SIP_PAGE2_CONSTANT_SSRC);
 		} else if (!strcasecmp(v->name, "session-timers")) {
 			int i = (int) str2stmode(v->value); 
 			if (i < 0) {

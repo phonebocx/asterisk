@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249916 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 255326 $")
 
 #include "asterisk/network.h"
 #include <sys/ioctl.h>
@@ -40,6 +40,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249916 $")
 #if defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__Darwin__)
 #include <net/if_dl.h>
 #include <ifaddrs.h>
+#include <signal.h>
 #endif
 
 #include "asterisk/file.h"
@@ -4836,7 +4837,7 @@ static int load_module(void)
 	sched = sched_context_create();
 
 	if (!io || !sched)
-		return AST_MODULE_LOAD_FAILURE;
+		return AST_MODULE_LOAD_DECLINE;
 
 	if (set_config("dundi.conf", &sin, 0))
 		return AST_MODULE_LOAD_DECLINE;
@@ -4845,12 +4846,12 @@ static int load_module(void)
 
 	if (netsocket < 0) {
 		ast_log(LOG_ERROR, "Unable to create network socket: %s\n", strerror(errno));
-		return AST_MODULE_LOAD_FAILURE;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 	if (bind(netsocket, (struct sockaddr *) &sin, sizeof(sin))) {
 		ast_log(LOG_ERROR, "Unable to bind to %s port %d: %s\n",
 			ast_inet_ntoa(sin.sin_addr), ntohs(sin.sin_port), strerror(errno));
-		return AST_MODULE_LOAD_FAILURE;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 
 	ast_netsock_set_qos(netsocket, tos, 0, "DUNDi");
@@ -4858,7 +4859,7 @@ static int load_module(void)
 	if (start_network_thread()) {
 		ast_log(LOG_ERROR, "Unable to start network thread\n");
 		close(netsocket);
-		return AST_MODULE_LOAD_FAILURE;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 
 	ast_cli_register_multiple(cli_dundi, ARRAY_LEN(cli_dundi));

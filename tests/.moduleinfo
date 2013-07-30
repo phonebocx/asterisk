@@ -1,4 +1,4 @@
-<category name="MENUSELECT_TEST" displayname="Test Modules" remove_on_change="tests/modules.link">
+<category name="MENUSELECT_TESTS" displayname="Test Modules" remove_on_change="tests/modules.link">
 <member name="test_dlinklists" displayname="Test Doubly-Linked Lists" remove_on_change="tests/test_dlinklists.o tests/test_dlinklists.so">
 	<defaultenabled>no</defaultenabled>
 </member>

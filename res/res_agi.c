@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 246199 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 254447 $")
 
 #include <math.h>
 #include <signal.h>
@@ -2015,7 +2015,7 @@ static int handle_speechcreate(struct ast_channel *chan, AGI *agi, int argc, cha
 static int handle_speechset(struct ast_channel *chan, AGI *agi, int argc, char **argv)
 {
 	/* Check for minimum arguments */
-        if (argc != 3)
+	if (argc != 4)
 		return RESULT_SHOWUSAGE;
 
 	/* Check to make sure speech structure exists */

@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253158 $")
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -4257,6 +4257,9 @@ static int skinny_indicate(struct ast_channel *ast, int ind, const void *data, s
 		break;
 	case AST_CONTROL_SRCUPDATE:
 		ast_rtp_new_source(sub->rtp);
+		break;
+	case AST_CONTROL_SRCCHANGE:
+		ast_rtp_change_source(sub->rtp);
 		break;
 	default:
 		ast_log(LOG_WARNING, "Don't know how to indicate condition %d\n", ind);

@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 218582 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253612 $")
 
 #include <signal.h>
 
@@ -354,7 +354,7 @@ static int reload_followme(int reload)
 	if ((tmpstr = ast_variable_retrieve(cfg, "general", "norecording-prompt")) && !ast_strlen_zero(tmpstr)) {
 		ast_copy_string(norecordingprompt, tmpstr, sizeof(norecordingprompt));
 	} else if ((tmpstr = ast_variable_retrieve(cfg, "general", "norecording_prompt")) && !ast_strlen_zero(tmpstr)) {
-		ast_copy_string(callfromprompt, tmpstr, sizeof(callfromprompt));
+		ast_copy_string(norecordingprompt, tmpstr, sizeof(norecordingprompt));
 	}
 
 
@@ -365,21 +365,21 @@ static int reload_followme(int reload)
 	}
 
 	if ((tmpstr = ast_variable_retrieve(cfg, "general", "pls-hold-prompt")) && !ast_strlen_zero(tmpstr)) {
-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
+		ast_copy_string(plsholdprompt, tmpstr, sizeof(plsholdprompt));
 	} else if ((tmpstr = ast_variable_retrieve(cfg, "general", "pls_hold_prompt")) && !ast_strlen_zero(tmpstr)) {
-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
+		ast_copy_string(plsholdprompt, tmpstr, sizeof(plsholdprompt));
 	}
 
 	if ((tmpstr = ast_variable_retrieve(cfg, "general", "status-prompt")) && !ast_strlen_zero(tmpstr)) {
-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
+		ast_copy_string(statusprompt, tmpstr, sizeof(statusprompt));
 	} else if ((tmpstr = ast_variable_retrieve(cfg, "general", "status_prompt")) && !ast_strlen_zero(tmpstr)) {
-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
+		ast_copy_string(statusprompt, tmpstr, sizeof(statusprompt));
 	}
 
 	if ((tmpstr = ast_variable_retrieve(cfg, "general", "sorry-prompt")) && !ast_strlen_zero(tmpstr)) {
-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
+		ast_copy_string(sorryprompt, tmpstr, sizeof(sorryprompt));
 	} else if ((tmpstr = ast_variable_retrieve(cfg, "general", "sorry_prompt")) && !ast_strlen_zero(tmpstr)) {
-		ast_copy_string(optionsprompt, tmpstr, sizeof(optionsprompt));
+		ast_copy_string(sorryprompt, tmpstr, sizeof(sorryprompt));
 	}
 
 	/* Chug through config file */
@@ -984,12 +984,12 @@ static void end_bridge_callback(void *data)
 
 	ast_channel_lock(chan);
 	if (chan->cdr->answer.tv_sec) {
-		snprintf(buf, sizeof(buf), "%ld", end - chan->cdr->answer.tv_sec);
+		snprintf(buf, sizeof(buf), "%ld", (long) end - chan->cdr->answer.tv_sec);
 		pbx_builtin_setvar_helper(chan, "ANSWEREDTIME", buf);
 	}
 
 	if (chan->cdr->start.tv_sec) {
-		snprintf(buf, sizeof(buf), "%ld", end - chan->cdr->start.tv_sec);
+		snprintf(buf, sizeof(buf), "%ld", (long) end - chan->cdr->start.tv_sec);
 		pbx_builtin_setvar_helper(chan, "DIALEDTIME", buf);
 	}
 	ast_channel_unlock(chan);

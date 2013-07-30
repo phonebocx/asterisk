@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222187 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 252850 $")
 
 #include "asterisk/module.h"
 #include "asterisk/config.h"
@@ -210,7 +210,7 @@ static void load_config(int reload)
 			strcpy(alias->real_cmd, v1->value);
 			alias->cli_entry.handler = cli_alias_passthrough;
 			alias->cli_entry.command = alias->alias;
-			alias->cli_entry.usage = "Aliased CLI Command";
+			alias->cli_entry.usage = "Aliased CLI Command\n";
 
 			ast_cli_register(&alias->cli_entry);
 			ao2_link(cli_aliases, alias);

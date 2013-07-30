@@ -61,6 +61,26 @@ Understanding When To Use /n</A>
 </H2>
 
 <P>
+Lets take a look at an example that demonstrates when the use of the /n
+directive is necessary. If we spawn a Local channel which does a Dial()
+to a SIP channel, but we use the L() option (which is used to limit the
+amount of time a call can be active, along with warning tones when the
+time is nearly up), it will be associated with the Local channel,
+which is then optimized out of the call path, and thus won't perform
+as expected.
+
+<P>
+This following dialplan will not perform as expected.
+
+<P>
+[services]
+exten =&gt; 2,1,Dial(SIP/PHONE_B,,L(60000:45000:15000))
+
+<P>
+[internal]
+exten =&gt; 4,1,Dial(Local/2@services);
+
+<P>
 By default, the Local channel will try to optimize itself out of the call path.
 This means that once the Local channel has established the call between the
 destination and Asterisk, the Local channel will get out of the way and let
@@ -81,20 +101,21 @@ Local channel in the call path, along with any channel variables, or other
 channel specific information.
 
 <P>
-For example, if we were calling a Local channel from the Dial() application, we
-could change:
+In order to make this behave as we expect (limiting the call), we would change:
 
 <P>
 <PRE>
-Dial(Local/201@devices)
+[internal]
+exten =&gt; 4,1,Dial(Local/2@services)
 </PRE>
 
 <P>
-...into the following line:
+...into the following:
 
 <P>
 <PRE>
-Dial(Local/201@devices/n)
+[internal]
+exten =&gt; 4,1,Dial(Local/2@services/n)
 </PRE>
 
 <P>
@@ -102,40 +123,35 @@ By adding /n to the end, our Local channel will now stay in the call path and
 not go away.
 
 <P>
-Lets take a look at an example that demonstrates when the use of the /n 
-directive is necessary. If we spawn a Local channel which then performs another
-Dial() to a SIP channel, but we use the L() option (which is used to limit the
-amount of time a call can be active, along with warning tones when the time is
-nearly up), it will be associated with the Local channel, which is then
-optimized out of the call path, and thus won't perform as expected.
-
-<P>
-Here is an overview of our call flow, and the information associated with the
-channels:
+Why does adding the /n option all of a suddon make the 'L' option work? First
+we need to show an overview of the call flow that doesn't work properly, and
+discuss the information associated with the channels:
 
 <P>
 
 <OL>
 <LI>SIP device PHONE_A calls Asterisk via a SIP INVITE
 </LI>
-<LI>Asterisk accepts the INVITE and then starts processing dialplan logic
+<LI>Asterisk accepts the INVITE and then starts processing dialplan logic in the [internal] context
 </LI>
 <LI>Our dialplan calls Dial(Local/2@services) - notice no /n
 </LI>
-<LI>The Local channel then executes dialplan at extension 2 within the services context
+<LI>The Local channel then executes dialplan at extension 2 within the [services] context
 </LI>
-<LI>Extension 2 within [services] then performs another Dial() to a SIP channel with the line:  Dial(SIP/PHONE_B,,L(60000:450000:15000))
+<LI>Extension 2 within [services] then performs Dial() to PHONE_B with the line:  Dial(SIP/PHONE_B,,L(60000:45000:15000))
 </LI>
-<LI>The call is then placed to SIP/PHONE_B which then answers the call.
+<LI>SIP/PHONE_B then answers the call
 </LI>
-<LI>The Local channel containing the information for tracking the time allowance of the call is then optimized out of the call path, losing all information about when to terminate the call.
+<LI>Even though the L option was given when dialing the SIP device, the L information is stored in the channel that is doing the Dial() which is the Local channel, and not the endpoint SIP channel.
 </LI>
-<LI>SIP/PHONE_A and SIP/PHONE_B then continue talking indefinitely.  
+<LI>The Local channel in the middle, containing the information for tracking the time allowance of the call, is then optimized out of the call path, losing all information about when to terminate the call.
+</LI>
+<LI>SIP/PHONE_A and SIP/PHONE_B then continue talking indefinitely.
 </LI>
 </OL>
 
 <P>
-Now, if we were to modify our dialplan at step three (3) then we would force the
+Now, if we were to add /n to our dialplan at step three (3) then we would force the
 Local channel to stay in the call path, and the L() option associated with the
 Dial() from the Local channel would remain, and our warning sounds and timing
 would work as expected.
@@ -146,15 +162,22 @@ There are two workarounds for the above described scenario:
 <P>
 
 <OL>
-<LI>Use Dial(Local/2@services/n) to cause the Local channel to remain in the call
-path so that the L() option used inside the Local channel is not discarded
-when optimization is performed.
+<LI>Use what we just described, Dial(Local/2@services/n) to cause the Local
+channel to remain in the call path so that the L() option used inside the
+Local channel is not discarded when optimization is performed.
 </LI>
-<LI>Place the L() option outside of the Local channel so that when it is
-optimized out of the call path, the information required to make L() work is
-associated with the outside channel. For example: 
+<LI>Place the L() option at the outermost part of the path so that when the middle
+is optimized out of the call path, the information required to make L() work
+is associated with the outside channel. The L information will then be stored
+on the calling channel, which is PHONE_A. For example:
+
+<P>
 <PRE>
-   Dial(Local/2@services,,L(60000:45000:15000))
+[services]
+exten =&gt; 2,1,Dial(SIP/PHONE_B)
+
+[internal]
+exten =&gt; 4,1,Dial(Local/2@services,,L(60000:45000:15000));
 </PRE>
 </LI>
 </OL>
@@ -191,7 +214,7 @@ associated with the outside channel. For example:
 <!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2010-03-11
+2010-05-03
 </ADDRESS>
 </BODY>
 </HTML>

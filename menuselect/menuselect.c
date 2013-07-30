@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2005 - 2006, Russell Bryant
+ * Copyright (C) 2005 - 2010, Digium, Inc. 
  *
  * Russell Bryant <russell@digium.com>
  *
@@ -29,6 +29,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <stdarg.h>
+#include <getopt.h>
 
 #include "mxml/mxml.h"
 #include "linkedlists.h"
@@ -70,6 +71,12 @@ static int existing_config = 0;
 
 /*! This is set when the --check-deps argument is provided. */
 static int check_deps = 0;
+
+/*! This is set when the --enable-all argument is provided. */
+static int enable_all = 0;
+
+/*! This is set when the --disable-all argument is provided. */
+static int disable_all = 0;
 
 /*! This variable is non-zero when any changes are made */
 int changes_made = 0;
@@ -859,6 +866,21 @@ void toggle_enabled_index(struct category *cat, int index)
 	toggle_enabled(mem);
 }
 
+static void set_member_enabled(struct member *mem)
+{
+	if ((mem->depsfailed == HARD_FAILURE) || (mem->conflictsfailed == HARD_FAILURE))
+		return;
+
+	if (mem->enabled)
+		return;
+
+	enable_member(mem);
+	mem->was_defaulted = 0;
+	changes_made++;
+
+	while (calc_dep_failures(1, 0) || calc_conflict_failures(1, 0));
+}
+
 void set_enabled(struct category *cat, int index)
 {
 	struct member *mem;
@@ -872,13 +894,15 @@ void set_enabled(struct category *cat, int index)
 	if (!mem)
 		return;
 
-	if ((mem->depsfailed == HARD_FAILURE) || (mem->conflictsfailed == HARD_FAILURE))
+	set_member_enabled(mem);
+}
+
+static void clear_member_enabled(struct member *mem)
+{
+	if (!mem->enabled)
 		return;
 
-	if (mem->enabled)
-		return;
-
-	enable_member(mem);
+	mem->enabled = 0;
 	mem->was_defaulted = 0;
 	changes_made++;
 
@@ -898,14 +922,7 @@ void clear_enabled(struct category *cat, int index)
 	if (!mem)
 		return;
 
-	if (!mem->enabled)
-		return;
-
-	mem->enabled = 0;
-	mem->was_defaulted = 0;
-	changes_made++;
-
-	while (calc_dep_failures(1, 0) || calc_conflict_failures(1, 0));
+	clear_member_enabled(mem);
 }
 
 /*! \brief Process a previously failed dependency
@@ -1485,10 +1502,63 @@ static void process_defaults(void)
 
 }
 
+struct member *find_member(const char *name)
+{
+	struct category *cat;
+	struct member *mem;
+
+	AST_LIST_TRAVERSE(&categories, cat, list) {
+		AST_LIST_TRAVERSE(&cat->members, mem, list) {
+			if (!strcasecmp(name, mem->name)) {
+				return mem;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+struct category *find_category(const char *name)
+{
+	struct category *cat;
+
+	AST_LIST_TRAVERSE(&categories, cat, list) {
+		if (!strcasecmp(name, cat->name)) {
+			return cat;
+		}
+	}
+
+	return NULL;
+}
+
 int main(int argc, char *argv[])
 {
 	int res = 0;
 	unsigned int x;
+	static struct option long_options[] = {
+		/* 
+		 * The --check-deps option is used to ask this application to check to
+		 * see if that an existing menuselect.makeopts file contains all of the
+		 * modules that have dependencies that have not been met.  If this
+		 * is not the case, an informative message will be printed to the
+		 * user and the build will fail.
+		 */
+		{ "check-deps",       no_argument,       &check_deps,  1  },
+		{ "enable",           required_argument, 0,           'e' },
+		{ "enable-category",  required_argument, 0,           'E' },
+		{ "enable-all",       no_argument,       &enable_all,  1  },
+		{ "disable",          required_argument, 0,           'd' },
+		{ "disable-category", required_argument, 0,           'D' },
+		{ "disable-all",      no_argument,       &disable_all, 1  },
+
+		{ 0, 0, 0, 0 },
+	};
+	int do_menu = 1;
+	int c, option_index = 0;
+	const char *enable = NULL;
+	const char *enable_cat = NULL;
+	const char *disable = NULL;
+	const char *disable_cat = NULL;
 
 	if (open_debug()) {
 		exit(1);
@@ -1504,15 +1574,35 @@ int main(int argc, char *argv[])
 
 	while (calc_dep_failures(0, 1) || calc_conflict_failures(0, 1));
 
-	/* The --check-deps option is used to ask this application to check to
-	 * see if that an existing menuselect.makeopts file contains all of the
-	 * modules that have dependencies that have not been met.  If this
-	 * is not the case, an informative message will be printed to the
-	 * user and the build will fail. */
-	for (x = 1; x < argc; x++) {
-		if (!strcmp(argv[x], "--check-deps"))
-			check_deps = 1;
-		else {
+	while ((c = getopt_long(argc, argv, "", long_options, &option_index)) != -1) {
+		switch (c) {
+		case 'e':
+			enable = optarg;
+			do_menu = 0;
+			break;
+		case 'E':
+			enable_cat = optarg;
+			do_menu = 0;
+			break;
+		case 'd':
+			disable = optarg;
+			do_menu = 0;
+			break;
+		case 'D':
+			disable_cat = optarg;
+			do_menu = 0;
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (check_deps || enable_all || disable_all) {
+		do_menu = 0;
+	}
+
+	if (optind < argc) {
+		for (x = optind; x < argc; x++) {
 			res = parse_existing_config(argv[x]);
 			if (!res && !strcasecmp(argv[x], OUTPUT_MAKEOPTS_DEFAULT))
 				existing_config = 1;
@@ -1531,10 +1621,58 @@ int main(int argc, char *argv[])
 		res = sanity_check();
 
 	while (calc_dep_failures(0, 0) || calc_conflict_failures(0, 0));
-	
-	/* Run the menu to let the user enable/disable options */
-	if (!check_deps && !res)
+
+	if (do_menu && !res) {
 		res = run_menu();
+	}
+
+	if (!strlen_zero(enable)) {
+		struct member *mem;
+
+		if ((mem = find_member(enable))) {
+			set_member_enabled(mem);
+		} else {
+			fprintf(stderr, "'%s' not found\n", enable);
+		}
+	}
+
+	if (!strlen_zero(enable_cat)) {
+		struct category *cat;
+
+		if ((cat = find_category(enable_cat))) {
+			set_all(cat, 1);
+		} else {
+			fprintf(stderr, "'%s' not found\n", enable_cat);
+		}
+	}
+
+	if (!strlen_zero(disable)) {
+		struct member *mem;
+
+		if ((mem = find_member(disable))) {
+			clear_member_enabled(mem);
+		} else {
+			fprintf(stderr, "'%s' not found\n", disable);
+		}
+	}
+
+	if (!strlen_zero(disable_cat)) {
+		struct category *cat;
+
+		if ((cat = find_category(disable_cat))) {
+			set_all(cat, 0);
+		} else {
+			fprintf(stderr, "'%s' not found\n", disable_cat);
+		}
+	}
+
+	if (enable_all != disable_all) {
+		struct category *cat;
+
+		AST_LIST_TRAVERSE(&categories, cat, list) {
+			set_all(cat, enable_all);
+		}
+	}
 
 	if (!res)
 		res = generate_makeopts_file();
@@ -1542,7 +1680,7 @@ int main(int argc, char *argv[])
 	/* Always generate the dependencies file */
 	if (!res)
 		generate_makedeps_file();
-	
+
 	/* free everything we allocated */
 	free_deps_file();
 	free_trees();

@@ -48,9 +48,9 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 250484 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253595 $")
 
-#ifdef __NetBSD__
+#if defined(__NetBSD__) || defined(__FreeBSD__)
 #include <pthread.h>
 #include <signal.h>
 #else
@@ -646,7 +646,7 @@ struct mwisend_info {
 };
 
 static struct dahdi_pvt {
-	ast_mutex_t lock;
+	ast_mutex_t lock;					/*!< Channel private lock. */
 	struct ast_channel *owner;			/*!< Our current active owner (if applicable) */
 							/*!< Up to three channels can be associated with this call */
 
@@ -16885,6 +16885,8 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct 
 				confp->mfcr2.forced_release = ast_true(v->value) ? 1 : 0;
 			} else if (!strcasecmp(v->name, "mfcr2_immediate_accept")) {
 				confp->mfcr2.immediate_accept = ast_true(v->value) ? 1 : 0;
+			} else if (!strcasecmp(v->name, "mfcr2_skip_category")) {
+				confp->mfcr2.skip_category_request = ast_true(v->value) ? 1 : 0;
 			} else if (!strcasecmp(v->name, "mfcr2_call_files")) {
 				confp->mfcr2.call_files = ast_true(v->value) ? 1 : 0;
 			} else if (!strcasecmp(v->name, "mfcr2_max_ani")) {

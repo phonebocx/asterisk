@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 246207 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 251678 $")
 
 #include <regex.h>
 #include <ctype.h>
@@ -405,7 +405,7 @@ static int listfilter(struct ast_channel *chan, const char *cmd, char *parse, ch
 				ast_str_append(&result, 0, "%s", delim);
 			}
 
-			ast_str_append_substr(&result, 0, begin, cur - begin + 1);
+			ast_str_append_substr(&result, 0, begin, cur - begin);
 			first = 0;
 			begin = cur + dlen;
 		}

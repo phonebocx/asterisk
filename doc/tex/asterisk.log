@@ -1,9 +1,9 @@
-This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=pdflatex 2009.1.16)  11 MAR 2010 14:28
+This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=pdflatex 2010.4.27)  3 MAY 2010 11:25
 entering extended mode
  %&-line parsing enabled.
-**\nonstopmode \input{"/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/asterisk
+**\nonstopmode \input{"/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/asterisk
 .tex"}
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/asterisk.tex
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/asterisk.tex
 (/usr/share/texmf-texlive/tex/latex/base/report.cls
 Document Class: report 2005/09/16 v1.4f Standard LaTeX document class
 (/usr/share/texmf-texlive/tex/latex/base/size12.clo
@@ -135,7 +135,7 @@ Package: fncychap 2004/09/21 v1.33 LaTeX package (Revised chapters)
 LaTeX Warning: Unused global option(s):
     [a4].
 
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/asterisk.aux)
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/asterisk.aux)
 \openout1 = `asterisk.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 37.
@@ -165,8 +165,8 @@ Package: refcount 2006/02/20 v3.0 Data extraction from references (HO)
 LaTeX Info: Redefining \ref on input line 37.
 LaTeX Info: Redefining \pageref on input line 37.
 
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/asterisk.out)
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/asterisk.out)
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/asterisk.out)
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/asterisk.out)
 \@outlinefile=\write3
 \openout3 = `asterisk.out'.
 
@@ -177,7 +177,7 @@ LaTeX Font Info:    External font `cmex10' loaded for size
  [1
 
 {/var/lib/texmf/fonts/map/pdftex/updmap/pdftex.map}]
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/asterisk.toc
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/asterisk.toc
 LaTeX Font Info:    Try loading font information for OT1+phv on input line 1.
 
 (/usr/share/texmf-texlive/tex/latex/psnfss/ot1phv.fd
@@ -258,13 +258,13 @@ Overfull \hbox (13.63054pt too wide) in paragraph at lines 27--29
  OpenSSL, OpenH323
  []
 
-) (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/security.tex
+) (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/security.tex
 Overfull \hbox (2.28671pt too wide) in paragraph at lines 3--6
 \OT1/cmr/m/n/12 IN-FOR-MA-TION. IM-PROPER CON-FIG-U-RA-TION OF AS-TER-ISK COULD
 
  []
 
-[9] [10]) (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/hardware.tex
+[9] [10]) (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/hardware.tex
 LaTeX Font Info:    Try loading font information for OMS+cmr on input line 15.
 
 (/usr/share/texmf-texlive/tex/latex/base/omscmr.fd
@@ -304,14 +304,14 @@ pliant
 
 ) [14]
 Chapter 2.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/configuration.tex [15
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/configuration.tex [15
 
 ]
 [16] [17] [18])
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/asterisk-conf.tex [19]
-[20]) (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/cliprompt.tex [21])
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/extensions.tex [22] [23])
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/qos.tex [24] [25]
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/asterisk-conf.tex [19]
+[20]) (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/cliprompt.tex [21])
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/extensions.tex [22] [23])
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/qos.tex [24] [25]
 Overfull \hbox (1.97046pt too wide) in paragraph at lines 104--109
 \OT1/cmr/m/n/12 In sip.conf, there are four pa-ram-e-ters that con-trol the TOS
  set-tings: "tos[]sip",
@@ -323,9 +323,9 @@ Overfull \hbox (14.78897pt too wide) in paragraph at lines 141--72
  application / pdf / en / us / guest / netsol / ns432 /
  []
 
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/mp3.tex [27])
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/ices.tex)
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/realtime.tex
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/mp3.tex [27])
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/ices.tex)
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/realtime.tex
 Overfull \hbox (10.58061pt too wide) in paragraph at lines 22--25
 []\OT1/cmr/m/n/12 ODBC: Sup-port for UnixODBC, in-te-grated into As-ter-isk The
  UnixODBC
@@ -337,8 +337,8 @@ Overfull \hbox (11.57538pt too wide) in paragraph at lines 22--25
 []$\OT1/cmtt/m/n/10.95 www . unixodbc .
  []
 
-[28] [29] [30]) (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/freetds.tex)
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/privacy.tex [31] [32]
+[28] [29] [30]) (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/freetds.tex)
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/privacy.tex [31] [32]
 Overfull \hbox (148.75745pt too wide) in paragraph at lines 94--94
  []\OT1/cmtt/m/n/8 exten => s,6,GotoIf($[ "${CALLERID(num)}"  = "7773334444" & 
 "${CALLERID(name)}" : "Privacy Manager" ]?callerid-liar,s,1:s,7)[] 
@@ -352,7 +352,7 @@ nce a more sedate introduction,like,[]
 
 [38]) [39]
 Chapter 3.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/channelvariables.tex [40
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/channelvariables.tex [40
 
 ]
 [41] [42] [43] [44] [45] [46] [47] [48]
@@ -810,7 +810,7 @@ atched against the g(grp) option)[]
 
 [60]) [61]
 Chapter 4.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/ael.tex [62
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/ael.tex [62
 
 ] [63] [64]
 [65] [66] [67] [68]
@@ -905,7 +905,7 @@ mr/m/n/12 days of month$\OML/cmm/m/it/12 >$$\OMS/cmsy/m/n/12 j$$\OML/cmm/m/it/1
 
 [85] [86]) [87]
 Chapter 5.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/sla.tex [88
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/sla.tex [88
 
 ] [89] [90]
 [91]
@@ -922,7 +922,7 @@ as con-text=line2.
 
 [92] [93] [94]) [95]
 Chapter 6.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/chaniax.tex [96
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/chaniax.tex [96
 
 ]
 Overfull \hbox (5.26123pt too wide) in paragraph at lines 55--58
@@ -930,15 +930,15 @@ Overfull \hbox (5.26123pt too wide) in paragraph at lines 55--58
 xt, HTML,
  []
 
-[97]) (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/jitterbuffer.tex
-[98] [99]) (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/misdn.tex [100]
+[97]) (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/jitterbuffer.tex
+[98] [99]) (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/misdn.tex [100]
 [101] [102] [103] [104]
 Overfull \hbox (54.60022pt too wide) in paragraph at lines 239--239
 []\OT1/cmtt/m/n/12 - MISDN_ADDRESS_COMPLETE :  Is either set to 1 from the Prov
 ider, or you[] 
  []
 
-[105]) (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/localchannel.tex
+[105]) (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/localchannel.tex
 [106]
 Overfull \hbox (93.50665pt too wide) in paragraph at lines 49--49
  []\OT1/cmtt/m/n/8 -- Executing [201@devices:1] Verbose("SIP/my_desk_phone-0000
@@ -1013,7 +1013,7 @@ ead: Call completed to Local/201@devices[]
 
 [113] [114] [115]) [116]
 Chapter 7.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/dundi.tex [117
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/dundi.tex [117
 
 ]) (../PEERING
 Overfull \hbox (42.25021pt too wide) in paragraph at lines 503--503
@@ -2925,7 +2925,7 @@ lable in[]
 
 ) [131]
 Chapter 8.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/enum.tex
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/enum.tex
 Overfull \hbox (42.4658pt too wide) in paragraph at lines 3--12
 \OT1/cmr/m/n/12 number-to-DNS map-ping scheme, please see []$\OT1/cmtt/m/n/10.9
 5 http : / / www . voip-[]info . org / tiki-[]index .
@@ -3025,7 +3025,7 @@ Overfull \hbox (72.6188pt too wide) in paragraph at lines 232--237
 
 [137] [138]) [139]
 Chapter 9.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/manager.tex [140
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/manager.tex [140
 
 ] [141]
 Overfull \hbox (73.12523pt too wide) in paragraph at lines 254--254
@@ -3225,13 +3225,13 @@ Overfull \hbox (42.25021pt too wide) in paragraph at lines 254--254
 boxstatus)[] 
  []
 
-) (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/ajam.tex [146] [147])
+) (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/ajam.tex [146] [147])
 [148]
 Chapter 10.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/billing.tex [149
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/billing.tex [149
 
 ] [150])
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/cdrdriver.tex
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/cdrdriver.tex
 Overfull \hbox (44.21495pt too wide) in paragraph at lines 83--1
 []\OT1/cmr/m/n/12 In ad-di-tion, you can set your own ex-tra vari-ables by us-i
 ng Set(CDR(name)=value).
@@ -3347,7 +3347,7 @@ rField[]
 
 ) [160]
 Chapter 11.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/odbcstorage.tex
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/odbcstorage.tex
 Overfull \hbox (42.89667pt too wide) in paragraph at lines 30--32
 []\OT1/cmr/m/n/12 The database name (from $\OT1/cmtt/m/n/12 /etc / asterisk / r
 es _ odbc . conf$\OT1/cmr/m/n/12 ) is in the \OT1/cmtt/m/n/12 odbcstorage
@@ -3362,7 +3362,7 @@ Overfull \hbox (40.32272pt too wide) in paragraph at lines 33--124
 
 [161
 
-] (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/imapstorage.tex [162]
+] (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/imapstorage.tex [162]
 [163] [164]
 Overfull \hbox (1.05716pt too wide) in paragraph at lines 174--176
 []\OT1/cmr/m/n/12 By im-ple-ment-ing sep-a-rate IMAP mail-boxes for voice-mail 
@@ -3377,7 +3377,7 @@ MAP. Please
 
 [165] [166]) [167]
 Chapter 12.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/app-sms.tex [168
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/app-sms.tex [168
 
 ] [169]
 [170] [171]
@@ -3515,7 +3515,7 @@ ny user data[]
 [178]) [179]
 Chapter 13.
 
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/queues-with-callback-members.t
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/queues-with-callback-members.t
 ex [180
 
 ] [181] [182]
@@ -3561,7 +3561,7 @@ he QUEUE[]MAX[]PENALTY
  []
 
 [184] [185] [186] [187] [188])
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/queuelog.tex [189]
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/queuelog.tex [189]
 Overfull \hbox (4.60255pt too wide) in paragraph at lines 34--35
 []\OT1/cmr/bx/n/12 AGENTCALLBACKLOGOFF(exten@context$\OMS/cmsy/m/n/12 j$\OT1/cm
 r/bx/n/12 logintime$\OMS/cmsy/m/n/12 j$\OT1/cmr/bx/n/12 reason) 
@@ -3569,7 +3569,7 @@ r/bx/n/12 logintime$\OMS/cmsy/m/n/12 j$\OT1/cmr/bx/n/12 reason)
 
 [190]) [191] [192]
 Chapter 14.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/phoneprov.tex
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/phoneprov.tex
 Overfull \hbox (0.79677pt too wide) in paragraph at lines 3--9
 \OT1/cmr/m/n/12 Asterisk in-cludes ba-sic phone pro-vi-sion-ing sup-port throug
 h the res[]phoneprov
@@ -3585,7 +3585,7 @@ RID}</ct><bw>1</bw></item>|${MAC})}[]
 
 [197] [198]) [199]
 Chapter 15.
-(/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/backtrace.tex
+(/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/backtrace.tex
 Overfull \hbox (29.75574pt too wide) in paragraph at lines 24--24
  []\OT1/cmtt/m/n/8 root     17832  0.0  1.2   2348   788 pts/1    S    Aug12   
 0:00 /bin/sh /usr/sbin/safe_asterisk[] 
@@ -3611,14 +3611,14 @@ Overfull \hbox (148.75745pt too wide) in paragraph at lines 203--203
 ilename=0x8181de8 "DAHDI/pseudo-1324221520") at app_meetme.c:262[] 
  []
 
-) [203] (/home/lmadsen/RELEASES/asterisk-1.6.2.6/doc/tex/asterisk.aux) )
+) [203] (/home/lmadsen/RELEASES/asterisk-1.6.2.7/doc/tex/asterisk.aux) )
 (\end occurred inside a group at level 1)
 
 ### simple group (level 1) entered at line 198 ({)
 ### bottom level 
 Here is how much of TeX's memory you used:
- 3622 strings out of 95086
- 52785 string characters out of 1183255
+ 3623 strings out of 95086
+ 52792 string characters out of 1183255
  108415 words of memory out of 1500000
  6111 multiletter control sequences out of 10000+50000
  21193 words of font info for 53 fonts, out of 1200000 for 2000
@@ -3636,9 +3636,9 @@ share/texmf-texlive/fonts/type1/bluesky/cm/cmtt12.pfb></usr/share/texmf-texlive
 /latex-fonts/linew10.pfb></usr/share/texmf-texlive/fonts/type1/urw/helvetic/uhv
 b8ac.pfb></usr/share/texmf-texlive/fonts/type1/urw/helvetic/uhvr8a.pfb></usr/sh
 are/texmf-texlive/fonts/type1/urw/times/utmr8a.pfb>
-Output written on asterisk.pdf (204 pages, 680942 bytes).
+Output written on asterisk.pdf (204 pages, 681970 bytes).
 PDF statistics:
- 2339 PDF objects out of 2487 (max. 8388607)
- 578 named destinations out of 1000 (max. 131072)
+ 2340 PDF objects out of 2487 (max. 8388607)
+ 579 named destinations out of 1000 (max. 131072)
  1769 words of extra memory for PDF output out of 10000 (max. 10000000)
 

@@ -23,7 +23,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 196951 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253033 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"
@@ -1717,7 +1717,7 @@ static char *xmldoc_build_field(const char *type, const char *name, const char *
 	node = xmldoc_get_node(type, name, documentation_language);
 
 	if (!node) {
-		ast_log(LOG_WARNING, "Counldn't find %s %s in XML documentation\n", type, name);
+		ast_log(LOG_WARNING, "Couldn't find %s %s in XML documentation\n", type, name);
 		return ret;
 	}
 

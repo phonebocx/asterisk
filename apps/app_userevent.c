@@ -23,7 +23,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 169365 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 253346 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -43,7 +43,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 169365 $")
 			<para>Sends an arbitrary event to the manager interface, with an optional
 			<replaceable>body</replaceable> representing additional arguments. The
 			<replaceable>body</replaceable> may be specified as
-			a <literal>|</literal> delimited list of headers. Each additional
+			a <literal>,</literal> delimited list of headers. Each additional
 			argument will be placed on a new line in the event. The format of the
 			event will be:</para>
 			<para>    Event: UserEvent</para>

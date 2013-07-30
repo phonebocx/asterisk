@@ -45,7 +45,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 255413 $")
 
 #ifdef __cplusplus
 }
@@ -915,6 +915,10 @@ static int oh323_indicate(struct ast_channel *c, int condition, const void *data
 		break;
 	case AST_CONTROL_SRCUPDATE:
 		ast_rtp_new_source(pvt->rtp);
+		res = 0;
+		break;
+	case AST_CONTROL_SRCCHANGE:
+		ast_rtp_change_source(pvt->rtp);
 		res = 0;
 		break;
 	case AST_CONTROL_PROCEEDING:
@@ -3306,7 +3310,7 @@ static enum ast_module_load_result load_module(void)
 			ASTOBJ_CONTAINER_DESTROYALL(&aliasl, oh323_destroy_alias);
 			ASTOBJ_CONTAINER_DESTROY(&aliasl);
 
-			return AST_MODULE_LOAD_FAILURE;
+			return AST_MODULE_LOAD_DECLINE;
 		}
 		/* Possibly register with a GK */
 		if (!gatekeeper_disable) {

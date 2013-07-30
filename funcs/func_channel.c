@@ -26,7 +26,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 243485 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 250733 $")
 
 #include <regex.h>
 
@@ -187,6 +187,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 243485 $")
 						<para>    Argument 1:</para>
 						<para>     <literal>audio</literal>             Get audio destination</para>
 						<para>     <literal>video</literal>             Get video destination</para>
+						<para>     <literal>text</literal>              Get text destination</para>
 					</enum>
 				</enumlist>
 				<para><emphasis>chan_iax2</emphasis> provides the following additional options:</para>
