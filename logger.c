@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42200 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 46962 $")
 
 static int syslog_level_map[] = {
 	LOG_DEBUG,
@@ -875,13 +875,14 @@ void ast_verbose(const char *fmt, ...)
 	if (complete) {
 		if (msgcnt < MAX_MSG_QUEUE) {
 			/* Allocate new structure */
-			if ((m = malloc(sizeof(*m))))
+			if ((m = calloc(1, sizeof(*m))))
 				msgcnt++;
 		} else {
 			/* Recycle the oldest entry */
 			m = list;
 			list = list->next;
-			free(m->msg);
+			if (m->msg)
+				free(m->msg);
 		}
 		if (m) {
 			m->msg = strdup(stuff);

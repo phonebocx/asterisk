@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 32582 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 46876 $")
 
 #include "asterisk/ulaw.h"
 #include "asterisk/alaw.h"
@@ -280,6 +280,7 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 		buf += (olen - mylen);
 		if (res < 0) {
 			ast_log(LOG_NOTICE, "fsk_serie failed\n");
+			free(obuf);
 			return -1;
 		}
 		if (res == 1) {

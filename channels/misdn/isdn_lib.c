@@ -420,10 +420,10 @@ static int find_free_chan_in_stack(struct misdn_stack *stack, int channel)
 {
 	int i;
 
-	cb_log(1,stack->port,"find_free_chan: req_chan:%d\n",channel);
+	cb_log(5,stack->port,"find_free_chan: req_chan:%d\n",channel);
 
 	if (channel < 0 || channel > MAX_BCHANS) {
-		cb_log(4, stack->port, " !! out of bound call to find_free_chan_in_stack! (ch:%d)\n", channel);
+		cb_log(0, stack->port, " !! out of bound call to find_free_chan_in_stack! (ch:%d)\n", channel);
 		return 0;
 	}
 	
@@ -432,14 +432,14 @@ static int find_free_chan_in_stack(struct misdn_stack *stack, int channel)
 	for (i = 0; i < stack->b_num; i++) {
 		if (i != 15 && (channel < 0 || i == channel)) { /* skip E1 Dchannel ;) and work with chan preselection */
 			if (!stack->channels[i]) {
-				cb_log (1, stack->port, " --> found chan%s: %d\n", channel>=0?" (preselected)":"", i+1);
+				cb_log (3, stack->port, " --> found chan%s: %d\n", channel>=0?" (preselected)":"", i+1);
 				stack->channels[i] = 1;
 				return i+1;
 			}
 		}
 	}
 
-	cb_log (4, stack->port, " !! NO FREE CHAN IN STACK\n");
+	cb_log (1, stack->port, " !! NO FREE CHAN IN STACK\n");
 	dump_chan_list(stack);
   
 	return 0;
@@ -633,16 +633,11 @@ int clean_up_bc(struct misdn_bchannel *bc)
 	
 	cb_log(2, stack->port, "$$$ Cleaning up bc with stid :%x pid:%d\n", bc->b_stid, bc->pid);
 	
-	manager_bchannel_deactivate(bc);
-
-
 	manager_ec_disable(bc);
 
+	manager_bchannel_deactivate(bc);
 
 	mISDN_write_frame(stack->midev, buff, bc->layer_id|FLG_MSG_TARGET|FLG_MSG_DOWN, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
-	
-	/*mISDN_clear_stack(stack->midev, bc->b_stid);*/
-
 	
 	bc->b_stid = 0;
 	bc_state_change(bc, BCHAN_CLEANED);
@@ -1014,6 +1009,7 @@ int setup_bc(struct misdn_bchannel *bc)
 		mISDN_write_frame(midev, buff, bc->layer_id, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
 		
 		bc_state_change(bc,BCHAN_ERROR);
+		cb_event(EVENT_BCHAN_ERROR, bc, glob_mgr->user_data);
 		return(-EINVAL);
 	}
 
@@ -1024,6 +1020,7 @@ int setup_bc(struct misdn_bchannel *bc)
 		mISDN_write_frame(midev, buff, bc->layer_id, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
 		
 		bc_state_change(bc,BCHAN_ERROR);
+		cb_event(EVENT_BCHAN_ERROR, bc, glob_mgr->user_data);
 		return(-EINVAL);
 	}
 
@@ -1036,6 +1033,8 @@ int setup_bc(struct misdn_bchannel *bc)
 		mISDN_write_frame(midev, buff, bc->layer_id, MGR_DELLAYER | REQUEST, 0, 0, NULL, TIMEOUT_1SEC);
 		
 		bc_state_change(bc,BCHAN_ERROR);
+		cb_event(EVENT_BCHAN_ERROR, bc, glob_mgr->user_data);
+		return (-EINVAL);
 	}
 
 	manager_bchannel_activate(bc);
@@ -1467,7 +1466,7 @@ int handle_event ( struct misdn_bchannel *bc, enum event_e event, iframe_t *frm)
 		case EVENT_SETUP_ACKNOWLEDGE:
 
 		setup_bc(bc);
-		
+
 		case EVENT_SETUP:
 			
 		{
@@ -1511,21 +1510,6 @@ int handle_event ( struct misdn_bchannel *bc, enum event_e event, iframe_t *frm)
 	return 0;
 }
 
-int handle_new_process(struct misdn_stack *stack, iframe_t *frm)
-{
-  
-	struct misdn_bchannel* bc=misdn_lib_get_free_bc(stack->port, 0, 1);
-	
-	
-	if (!bc) {
-		cb_log(0, stack->port, " --> !! lib: No free channel!\n");
-		return -1;
-	}
-  
-	cb_log(7, stack->port, " --> new_process: New L3Id: %x\n",frm->dinfo);
-	bc->l3_id=frm->dinfo;
-	return 0;
-}
 
 int handle_cr ( struct misdn_stack *stack, iframe_t *frm)
 {
@@ -1534,9 +1518,15 @@ int handle_cr ( struct misdn_stack *stack, iframe_t *frm)
 	switch (frm->prim) {
 	case CC_NEW_CR|INDICATION:
 		cb_log(7, stack->port, " --> lib: NEW_CR Ind with l3id:%x on this port.\n",frm->dinfo);
-		if (handle_new_process(stack, frm) <0) {
+
+		struct misdn_bchannel* bc=misdn_lib_get_free_bc(stack->port, 0, 1);
+		if (!bc) {
+			cb_log(0, stack->port, " --> !! lib: No free channel!\n");
 			return -1;
 		}
+  
+		cb_log(7, stack->port, " --> new_process: New L3Id: %x\n",frm->dinfo);
+		bc->l3_id=frm->dinfo;
 		return 1;
 	case CC_NEW_CR|CONFIRM:
 		return 1;
@@ -1681,8 +1671,6 @@ int misdn_lib_port_up(int port, int check)
 	     stack;
 	     stack=stack->next) {
 		
-		if ( !stack->ptp && !check) return 1;
-		
 		if (stack->port == port) {
 
 			if (stack->blocked) {
@@ -1700,7 +1688,7 @@ int misdn_lib_port_up(int port, int check)
 					return 0;
 				}
 			} else {
-				if ( stack->l1link)
+				if ( !check || stack->l1link )
 					return 1;
 				else {
 					cb_log(0,port, "Port down PMP\n");
@@ -1787,18 +1775,26 @@ handle_event_nt(void *dat, void *arg)
       
 		case CC_SETUP|INDICATION:
 		{
-			iframe_t frm; /* fake te frm to add callref to global callreflist */
-			frm.dinfo = hh->dinfo;
-			frm.addr=stack->upper_id;
-			frm.prim = CC_NEW_CR|INDICATION;
-			
-			if (handle_cr(stack, &frm)< 0) {
+			struct misdn_bchannel* bc=misdn_lib_get_free_bc(stack->port, 0, 1);
+			if (!bc) 
+			ERR_NO_CHANNEL:
+			{
 				msg_t *dmsg;
 				cb_log(4, stack->port, "Patch from MEIDANIS:Sending RELEASE_COMPLETE %x (No free Chan for you..)\n", hh->dinfo);
 				dmsg = create_l3msg(CC_RELEASE_COMPLETE | REQUEST,MT_RELEASE_COMPLETE, hh->dinfo,sizeof(RELEASE_COMPLETE_t), 1);
 				stack->nst.manager_l3(&stack->nst, dmsg);
 				free_msg(msg);
 				return 0;
+			}
+  
+			cb_log(7, stack->port, " --> new_process: New L3Id: %x\n",hh->dinfo);
+			bc->l3_id=hh->dinfo;
+
+			if (bc->channel<=0) {
+				bc->channel=find_free_chan_in_stack(stack,0);
+
+				if (bc->channel<=0)
+					goto ERR_NO_CHANNEL;
 			}
 		}
 		break;
@@ -2032,7 +2028,7 @@ handle_event_nt(void *dat, void *arg)
 						if (stack->ptp) 
 							set_chan_in_stack(stack, bc->channel);
 						else 
-							cb_log(0,stack->port," --> PTMP but channel requested\n");
+							cb_log(3,stack->port," --> PTMP but channel requested\n");
 
 					} else {
 
@@ -3175,7 +3171,7 @@ int misdn_lib_send_event(struct misdn_bchannel *bc, enum event_e event )
 	}
 	
 	cb_log(1, stack->port, "I SEND:%s oad:%s dad:%s pid:%d\n", isdn_get_info(msgs_g, event, 0), bc->oad, bc->dad, bc->pid);
-	cb_log(1, stack->port, " --> bc_state:%s\n",bc_state2str(bc->bc_state));
+	cb_log(4, stack->port, " --> bc_state:%s\n",bc_state2str(bc->bc_state));
 	misdn_lib_log_ies(bc);
 	
 	switch (event) {
@@ -4184,7 +4180,7 @@ void manager_ec_enable(struct misdn_bchannel *bc)
 
 	struct misdn_stack *stack=get_stack_by_bc(bc);
 	
-	cb_log(1, stack?stack->port:0,"ec_enable\n");
+	cb_log(4, stack?stack->port:0,"ec_enable\n");
 
 	if (!misdn_cap_is_speech(bc->capability)) {
 		cb_log(1, stack?stack->port:0, " --> no speech? cannot enable EC\n");
@@ -4192,7 +4188,7 @@ void manager_ec_enable(struct misdn_bchannel *bc)
 	}
 
 	if (bc->ec_enable) {
-		cb_log(1, stack?stack->port:0,"Sending Control ECHOCAN_ON taps:%d training:%d\n",bc->ec_deftaps, bc->ec_training);
+		cb_log(3, stack?stack->port:0,"Sending Control ECHOCAN_ON taps:%d training:%d\n",bc->ec_deftaps, bc->ec_training);
 	
 		switch (bc->ec_deftaps) {
 		case 4:
@@ -4224,7 +4220,7 @@ void manager_ec_disable(struct misdn_bchannel *bc)
 {
 	struct misdn_stack *stack=get_stack_by_bc(bc);
 	
-	cb_log(1, stack?stack->port:0,"ec_disable\n");
+	cb_log(4, stack?stack->port:0," --> ec_disable\n");
 
 	if (!misdn_cap_is_speech(bc->capability)) {
 		cb_log(1, stack?stack->port:0, " --> no speech? cannot disable EC\n");
@@ -4232,7 +4228,7 @@ void manager_ec_disable(struct misdn_bchannel *bc)
 	}
 
 	if ( ! bc->ec_enable) {
-		cb_log(1, stack?stack->port:0, "Sending Control ECHOCAN_OFF\n");
+		cb_log(3, stack?stack->port:0, "Sending Control ECHOCAN_OFF\n");
 		manager_ph_control(bc,  ECHOCAN_OFF, 0);
 	}
 }
@@ -4249,7 +4245,7 @@ void misdn_join_conf(struct misdn_bchannel *bc, int conf_id)
 	manager_ph_control(bc, CMX_RECEIVE_OFF, 0);
 	manager_ph_control(bc, CMX_CONF_JOIN, conf_id);
 
-	cb_log(1,bc->port, "Joining bc:%x in conf:%d\n",bc->addr,conf_id);
+	cb_log(3,bc->port, "Joining bc:%x in conf:%d\n",bc->addr,conf_id);
 
 	char data[16];
 	int len=15;
@@ -4267,13 +4263,13 @@ void misdn_split_conf(struct misdn_bchannel *bc, int conf_id)
 	manager_ph_control(bc, CMX_RECEIVE_ON, 0);
 	manager_ph_control(bc, CMX_CONF_SPLIT, conf_id);
 
-	cb_log(1,bc->port, "Splitting bc:%x in conf:%d\n",bc->addr,conf_id);
+	cb_log(4,bc->port, "Splitting bc:%x in conf:%d\n",bc->addr,conf_id);
 }
 
 void misdn_lib_bridge( struct misdn_bchannel * bc1, struct misdn_bchannel *bc2) {
 	int conf_id=bc1->pid +1;
 
-	cb_log(1, bc1->port, "I Send: BRIDGE from:%d to:%d\n",bc1->port,bc2->port);
+	cb_log(4, bc1->port, "I Send: BRIDGE from:%d to:%d\n",bc1->port,bc2->port);
 	
 	struct misdn_bchannel *bc_list[]={
 		bc1,bc2,NULL
@@ -4282,7 +4278,7 @@ void misdn_lib_bridge( struct misdn_bchannel * bc1, struct misdn_bchannel *bc2) 
 		
 	for (bc=bc_list; *bc;  *bc++) { 
 		(*bc)->conf_id=conf_id;
-		cb_log(1, (*bc)->port, " --> bc_addr:%x\n",(*bc)->addr);
+		cb_log(4, (*bc)->port, " --> bc_addr:%x\n",(*bc)->addr);
 	
 		switch((*bc)->bc_state) {
 			case BCHAN_ACTIVATED:
@@ -4317,7 +4313,7 @@ void misdn_lib_split_bridge( struct misdn_bchannel * bc1, struct misdn_bchannel 
 
 void misdn_lib_echo(struct misdn_bchannel *bc, int onoff)
 {
-	cb_log(1,bc->port, " --> ECHO %s\n", onoff?"ON":"OFF");
+	cb_log(3,bc->port, " --> ECHO %s\n", onoff?"ON":"OFF");
 	manager_ph_control(bc, onoff?CMX_ECHO_ON:CMX_ECHO_OFF, 0);
 }
 

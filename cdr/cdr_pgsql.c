@@ -44,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 11503 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 47583 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"
@@ -64,8 +64,8 @@ static int connected = 0;
 
 AST_MUTEX_DEFINE_STATIC(pgsql_lock);
 
-PGconn		*conn;
-PGresult	*result;
+PGconn		*conn = NULL;
+PGresult	*result = NULL;
 
 static int pgsql_log(struct ast_cdr *cdr)
 {

@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 42148 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 48374 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -234,7 +234,7 @@ static int launch_script(char *script, char *argv[], int *fds, int *efd, int *op
 	int audio[2];
 	int x;
 	int res;
-	sigset_t signal_set;
+	sigset_t signal_set, old_set;
 	
 	if (!strncasecmp(script, "agi://", 6))
 		return launch_netscript(script, argv, fds, efd, opid);
@@ -276,6 +276,10 @@ static int launch_script(char *script, char *argv[], int *fds, int *efd, int *op
 			return -1;
 		}
 	}
+
+	/* Block SIGHUP during the fork - prevents a race */
+	sigfillset(&signal_set);
+	pthread_sigmask(SIG_BLOCK, &signal_set, &old_set);
 	pid = fork();
 	if (pid < 0) {
 		ast_log(LOG_WARNING, "Failed to fork(): %s\n", strerror(errno));
@@ -293,11 +297,20 @@ static int launch_script(char *script, char *argv[], int *fds, int *efd, int *op
 		} else {
 			close(STDERR_FILENO + 1);
 		}
-		
+
+		/* Before we unblock our signals, return our trapped signals back to the defaults */
+		signal(SIGHUP, SIG_DFL);
+		signal(SIGCHLD, SIG_DFL);
+		signal(SIGINT, SIG_DFL);
+		signal(SIGURG, SIG_DFL);
+		signal(SIGTERM, SIG_DFL);
+		signal(SIGPIPE, SIG_DFL);
+		signal(SIGXFSZ, SIG_DFL);
+
 		/* unblock important signal handlers */
-		if (sigfillset(&signal_set) || pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL)) {
+		if (pthread_sigmask(SIG_UNBLOCK, &signal_set, NULL)) {
 			ast_log(LOG_WARNING, "unable to unblock signals for AGI script: %s\n", strerror(errno));
-			exit(1);
+			_exit(1);
 		}
 
 		/* Close everything but stdin/out/error */
@@ -308,8 +321,9 @@ static int launch_script(char *script, char *argv[], int *fds, int *efd, int *op
 		execv(script, argv);
 		/* Can't use ast_log since FD's are closed */
 		fprintf(stderr, "Failed to execute '%s': %s\n", script, strerror(errno));
-		exit(1);
+		_exit(1);
 	}
+	pthread_sigmask(SIG_SETMASK, &old_set, NULL);
 	if (option_verbose > 2) 
 		ast_verbose(VERBOSE_PREFIX_3 "Launched AGI Script %s\n", script);
 	fds[0] = toast[0];
@@ -507,12 +521,12 @@ static int handle_controlstreamfile(struct ast_channel *chan, AGI *agi, int argc
 	if ((argc > 5) && (sscanf(argv[5], "%d", &skipms) != 1))
 		return RESULT_SHOWUSAGE;
 
-	if (argc > 6 && !ast_strlen_zero(argv[8]))
+	if (argc > 6 && !ast_strlen_zero(argv[6]))
 		fwd = argv[6];
 	else
 		fwd = "#";
 
-	if (argc > 7 && !ast_strlen_zero(argv[8]))
+	if (argc > 7 && !ast_strlen_zero(argv[7]))
 		rev = argv[7];
 	else
 		rev = "*";

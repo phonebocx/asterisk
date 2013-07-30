@@ -54,6 +54,7 @@ enum misdn_cfg_elements {
 	MISDN_CFG_ECHOCANCEL,          /* int */
 	MISDN_CFG_ECHOCANCELWHENBRIDGED,  /* int (bool) */
 	MISDN_CFG_NEED_MORE_INFOS,     /* bool */
+	MISDN_CFG_NTTIMEOUT,     /* bool */
 	MISDN_CFG_JITTERBUFFER,              /* int */
 	MISDN_CFG_JITTERBUFFER_UPPER_THRESHOLD,              /* int */
 	MISDN_CFG_CALLGROUP,           /* ast_group_t */
@@ -84,7 +85,7 @@ enum misdn_cfg_method {
 };
 
 /* you must call misdn_cfg_init before any other function of this header file */
-void misdn_cfg_init(int max_ports); 
+int misdn_cfg_init(int max_ports); 
 void misdn_cfg_reload(void);
 void misdn_cfg_destroy(void);
 

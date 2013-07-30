@@ -44,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 45332 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 46332 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -2872,7 +2872,6 @@ static int get_input(struct skinnysession *s)
 		}
 		*(int *)s->inbuf = htolel(dlen);
 		res = read(s->fd, s->inbuf+4, dlen+4);
-		ast_mutex_unlock(&s->lock);
 		if (res != (dlen+4)) {
 			ast_log(LOG_WARNING, "Skinny Client sent less data than expected.\n");
 			return -1;

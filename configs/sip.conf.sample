@@ -32,6 +32,7 @@ context=default			; Default context for incoming calls
 				; Realms MUST be globally unique according to RFC 3261
 				; Set this to your host name or domain name
 bindport=5060			; UDP Port to bind to (SIP standard port is 5060)
+				; bindport is the local UDP port that Asterisk will listen on
 bindaddr=0.0.0.0		; IP address to bind to (0.0.0.0 binds to all)
 srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 				; Note: Asterisk only uses the first host 
@@ -187,7 +188,7 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 ;
 ;nat=no				; Global NAT settings  (Affects all peers and users)
                                 ; yes = Always ignore info and assume NAT
-                                ; no = Use NAT mode only according to RFC3581 
+                                ; no = Use NAT mode only according to RFC3581 (;rport)
                                 ; never = Never attempt NAT mode or RFC3581 support
 				; route = Assume NAT, don't send rport 
 				; (work around more UNIDEN bugs)
@@ -327,6 +328,7 @@ srvlookup=yes			; Enable DNS SRV lookups on outbound calls
 ;usereqphone=yes			; This provider requires ";user=phone" on URI
 ;call-limit=5				; permit only 5 simultaneous outgoing calls to this peer
 ;outboundproxy=proxy.provider.domain	; send outbound signaling to this proxy, not directly to the peer
+;port=80				; The port number we want to connect to on the remote side
 
 ;------------------------------------------------------------------------------
 ; Definitions of locally connected SIP phones
