@@ -1,3 +1,11 @@
+2008-07-22  Russell Bryant <russell@digium.com>
+
+	* Asterisk 1.4.21.2 released.
+
+2008-07-22  Tilghman Lesher <tlesher@digium.com>
+
+    * Include fixes for AST-2008-010 and AST-2008-011
+
 2008-06-30  Russell Bryant <russell@digium.com>
 
 	* Asterisk 1.4.21.1 released.
