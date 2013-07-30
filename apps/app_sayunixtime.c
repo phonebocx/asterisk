@@ -19,6 +19,7 @@
  *
  * \brief SayUnixTime application
  * 
+ * \ingroup applications
  */
 
 #include <stdio.h>
@@ -28,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -53,8 +54,7 @@ static char *sayunixtime_descrip =
 "  timezone: timezone, see /usr/share/zoneinfo for a list.\n"
 "              defaults to machine default.\n"
 "  format:   a format the time is to be said in.  See voicemail.conf.\n"
-"              defaults to \"ABdY 'digits/at' IMp\"\n"
-"  Returns 0 or -1 on hangup.\n";
+"              defaults to \"ABdY 'digits/at' IMp\"\n";
 static char *datetime_descrip =
 "DateTime([unixtime][|[timezone][|format]])\n"
 "  unixtime: time, in seconds since Jan 1, 1970.  May be negative.\n"
@@ -62,8 +62,7 @@ static char *datetime_descrip =
 "  timezone: timezone, see /usr/share/zoneinfo for a list.\n"
 "              defaults to machine default.\n"
 "  format:   a format the time is to be said in.  See voicemail.conf.\n"
-"              defaults to \"ABdY 'digits/at' IMp\"\n"
-"  Returns 0 or -1 on hangup.\n";
+"              defaults to \"ABdY 'digits/at' IMp\"\n";
 
 STANDARD_LOCAL_USER;
 

@@ -18,17 +18,18 @@
  *
  * \brief UserEvent application -- send manager event
  * 
+ * \ingroup applications
  */
 
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+#include <unistd.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"

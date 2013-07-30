@@ -19,20 +19,23 @@
 /*! \file
  * \brief ChanSpy: Listen in on any channel.
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <ctype.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.29 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.36 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
+#include "asterisk/chanspy.h"
 #include "asterisk/features.h"
 #include "asterisk/options.h"
 #include "asterisk/app.h"
@@ -49,38 +52,55 @@ AST_MUTEX_DEFINE_STATIC(modlock);
 #define ALL_DONE(u, ret) LOCAL_USER_REMOVE(u); return ret;
 #define get_volfactor(x) x ? ((x > 0) ? (1 << x) : ((1 << abs(x)) * -1)) : 0
 
-static const char *synopsis = "Tap into any type of asterisk channel and listen to audio";
+static const char *synopsis = "Listen to the audio of an active channel\n";
 static const char *app = "ChanSpy";
-static const char *desc = "   Chanspy([<scanspec>][|<options>])\n\n"
-"Valid Options:\n"
-" - q: quiet, don't announce channels beep, etc.\n"
-" - b: bridged, only spy on channels involved in a bridged call.\n"
-" - v([-4..4]): adjust the initial volume. (negative is quieter)\n"
-" - g(grp): enforce group.  Match only calls where their ${SPYGROUP} is 'grp'.\n"
-" - r[(basename)]: Record session to monitor spool dir (with optional basename, default is 'chanspy')\n\n"
-"If <scanspec> is specified, only channel names *beginning* with that string will be scanned.\n"
-"('all' or an empty string are also both valid <scanspec>)\n\n"
-"While Spying:\n\n"
-"Dialing # cycles the volume level.\n"
-"Dialing * will stop spying and look for another channel to spy on.\n"
-"Dialing a series of digits followed by # builds a channel name to append to <scanspec>\n"
-"(e.g. run Chanspy(Agent) and dial 1234# while spying to jump to channel Agent/1234)\n\n"
-"";
+static const char *desc = 
+"  ChanSpy([chanprefix][|options]): This application is used to listen to the\n"
+"audio from an active Asterisk channel. This includes the audio coming in and\n"
+"out of the channel being spied on. If the 'chanprefix' parameter is specified,\n"
+"only channels beginning with this string will be spied upon.\n"
+"  While Spying, the following actions may be performed:\n"
+"    - Dialing # cycles the volume level.\n"
+"    - Dialing * will stop spying and look for another channel to spy on.\n"
+"    - Dialing a series of digits followed by # builds a channel name to append\n"
+"      to 'chanprefix'. For example, executing ChanSpy(Agent) and then dialing\n"
+"      the digits '1234#' while spying will begin spying on the channel,\n"
+"      'Agent/1234'.\n"
+"  Options:\n"
+"    b - Only spy on channels involved in a bridged call.\n"
+"    g(grp) - Match only channels where their ${SPYGROUP} variable is set to\n"
+"             'grp'.\n"
+"    q - Don't play a beep when beginning to spy on a channel.\n"
+"    r[(basename)] - Record the session to the monitor spool directory. An\n"
+"                    optional base for the filename may be specified. The\n"
+"                    default is 'chanspy'.\n"
+"    v([value]) - Adjust the initial volume in the range from -4 to 4. A\n"
+"                 negative value refers to a quieter setting.\n"
+;
 
 static const char *chanspy_spy_type = "ChanSpy";
 
-#define OPTION_QUIET	 (1 << 0)	/* Quiet, no announcement */
-#define OPTION_BRIDGED   (1 << 1)	/* Only look at bridged calls */
-#define OPTION_VOLUME    (1 << 2)	/* Specify initial volume */
-#define OPTION_GROUP     (1 << 3)   /* Only look at channels in group */
-#define OPTION_RECORD    (1 << 4)   /* Record */
+enum {
+	OPTION_QUIET	 = (1 << 0),	/* Quiet, no announcement */
+	OPTION_BRIDGED   = (1 << 1),	/* Only look at bridged calls */
+	OPTION_VOLUME    = (1 << 2),	/* Specify initial volume */
+	OPTION_GROUP     = (1 << 3),	/* Only look at channels in group */
+	OPTION_RECORD    = (1 << 4),	/* Record */
+} chanspy_opt_flags;
 
-AST_DECLARE_OPTIONS(chanspy_opts,{
-	['q'] = { OPTION_QUIET },
-	['b'] = { OPTION_BRIDGED },
-	['v'] = { OPTION_VOLUME, 1 },
-	['g'] = { OPTION_GROUP, 2 },
-	['r'] = { OPTION_RECORD, 3 },
+enum {
+	OPT_ARG_VOLUME = 0,
+	OPT_ARG_GROUP,
+	OPT_ARG_RECORD,
+	OPT_ARG_ARRAY_SIZE,
+} chanspy_opt_args;
+
+AST_APP_OPTIONS(chanspy_opts, {
+	AST_APP_OPTION('q', OPTION_QUIET),
+	AST_APP_OPTION('b', OPTION_BRIDGED),
+	AST_APP_OPTION_ARG('v', OPTION_VOLUME, OPT_ARG_VOLUME),
+	AST_APP_OPTION_ARG('g', OPTION_GROUP, OPT_ARG_GROUP),
+	AST_APP_OPTION_ARG('r', OPTION_RECORD, OPT_ARG_RECORD),
 });
 
 STANDARD_LOCAL_USER;
@@ -384,7 +404,7 @@ static int chanspy_exec(struct ast_channel *chan, void *data)
 
 	ast_set_flag(chan, AST_FLAG_SPYING); /* so nobody can spy on us while we are spying */
 
-	if ((argc = ast_separate_app_args(args, '|', argv, sizeof(argv) / sizeof(argv[0])))) {
+	if ((argc = ast_app_separate_args(args, '|', argv, sizeof(argv) / sizeof(argv[0])))) {
 		spec = argv[0];
 		if ( argc > 1) {
 			options = argv[1];
@@ -395,8 +415,8 @@ static int chanspy_exec(struct ast_channel *chan, void *data)
 	}
 	
 	if (options) {
-		char *opts[3];
-		ast_parseoptions(chanspy_opts, &flags, opts, options);
+		char *opts[OPT_ARG_ARRAY_SIZE];
+		ast_app_parse_options(chanspy_opts, &flags, opts, options);
 		if (ast_test_flag(&flags, OPTION_GROUP)) {
 			mygroup = opts[1];
 		}

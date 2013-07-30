@@ -20,14 +20,16 @@
  *
  * \brief App to send DTMF digits
  * 
+ * \ingroup applications
  */
  
-#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -47,9 +49,10 @@ static char *app = "SendDTMF";
 static char *synopsis = "Sends arbitrary DTMF digits";
 
 static char *descrip = 
-"  SendDTMF(digits[|timeout_ms]): Sends DTMF digits on a channel. \n"
-"  Accepted digits: 0-9, *#abcd\n"
-" Returns 0 on success or -1 on a hangup.\n";
+" SendDTMF(digits[|timeout_ms]): Sends DTMF digits on a channel. \n"
+" Accepted digits: 0-9, *#abcd\n"
+" The application will either pass the assigned digits or terminate if it\n"
+" encounters an error.\n";
 
 STANDARD_LOCAL_USER;
 

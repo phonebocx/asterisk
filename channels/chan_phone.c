@@ -20,6 +20,7 @@
  *
  * \brief Generic Linux Telephony Interface driver
  * 
+ * \ingroup channel_drivers
  */
 
 #include <stdio.h>
@@ -43,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.58 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.59 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

@@ -18,17 +18,19 @@
 
 /*! \file
  *
- * \brief Execute arbitrary system commands
+ * \brief Get ADSI CPE ID
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -47,8 +49,7 @@ static char *synopsis = "Get ADSI CPE ID";
 
 static char *descrip =
 "  GetCPEID: Obtains and displays ADSI CPE ID and other information in order\n"
-"to properly setup zapata.conf for on-hook operations.\n"
-"Returns -1 on hangup only.\n";
+"to properly setup zapata.conf for on-hook operations.\n";
 
 STANDARD_LOCAL_USER;
 

@@ -25,13 +25,21 @@
  * \arg See also \ref AstCDR
  *
  * Logs in LOG_DIR/cdr_custom
+ * \ingroup cdr_drivers
  */
 
 #include <sys/types.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <time.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/cdr.h"
@@ -44,14 +52,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 #define CUSTOM_LOG_DIR "/cdr_custom"
 
 #define DATE_FORMAT "%Y-%m-%d %T"
-
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
 
 AST_MUTEX_DEFINE_STATIC(lock);
 

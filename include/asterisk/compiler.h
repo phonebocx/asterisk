@@ -25,6 +25,9 @@
 
 #if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 96)
 #define __builtin_expect(exp, c) (exp)
+#define force_inline inline
+#else
+#define force_inline inline __attribute__((always_inline))
 #endif
 
 #endif /* _ASTERISK_COMPILER_H */

@@ -20,6 +20,7 @@
  *
  * \brief Execute an ISDN RAS
  * 
+ * \ingroup applications
  */
 
 #include <sys/ioctl.h>
@@ -47,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -68,7 +69,7 @@ static char *descrip =
 "The channel must be a clear channel (i.e. PRI source) and a Zaptel\n"
 "channel to be able to use this function (No modem emulation is included).\n"
 "Your pppd must be patched to be zaptel aware. Arguments should be\n"
-"separated by | characters.  Always returns -1.\n";
+"separated by | characters.\n";
 
 STANDARD_LOCAL_USER;
 

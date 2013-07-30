@@ -20,14 +20,16 @@
  *
  * \brief App to set callerid
  * 
+ * \ingroup applications
  */
  
-#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -49,7 +51,7 @@ LOCAL_USER_DECL;
 
 static char *descrip2 = 
 "  SetCallerPres(presentation): Set Caller*ID presentation on a call.\n"
-"  Always returns 0.  Valid presentations are:\n"
+"  Valid presentations are:\n"
 "\n"
 "      allowed_not_screened    : Presentation Allowed, Not Screened\n"
 "      allowed_passed_screen   : Presentation Allowed, Passed Screen\n" 
@@ -94,7 +96,7 @@ static char *synopsis = "Set CallerID";
 
 static char *descrip = 
 "  SetCallerID(clid[|a]): Set Caller*ID on a call to a new\n"
-"value.  Sets ANI as well if a flag is used.  Always returns 0\n";
+"value.  Sets ANI as well if a flag is used. \n";
 
 static int setcallerid_exec(struct ast_channel *chan, void *data)
 {

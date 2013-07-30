@@ -15,10 +15,14 @@
  * at the top of the source tree.
  */
 
-/*! \file
+/*! 
+ * \file
  *
  * \brief Work with Sun Microsystems AU format.
- * 
+ *
+ * signed linear
+ * \arg File extension: au
+ * \ingroup formats
  */
  
 #include <stdlib.h>
@@ -30,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

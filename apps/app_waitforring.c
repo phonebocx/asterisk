@@ -20,17 +20,18 @@
  *
  * \brief Wait for Ring Application
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+#include <unistd.h>
 #include <sys/types.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

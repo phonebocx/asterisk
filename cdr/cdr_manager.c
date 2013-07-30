@@ -22,6 +22,7 @@
  * \arg \ref AstCDR
  * \arg \ref AstAMI
  * \arg \ref Config_ami
+ * \ingroup cdr_drivers
  */
 
 #include <sys/types.h>
@@ -31,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/cdr.h"

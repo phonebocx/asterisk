@@ -19,15 +19,17 @@
 /*! \file
  * \brief Time of day - Report the time of day
  * 
+ * \ingroup applications
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -44,8 +46,7 @@ static char *app = "DateTime";
 static char *synopsis = "Say the date and time";
 
 static char *descrip = 
-"  DateTime():  Says the current date and time.  Returns -1 on hangup or 0\n"
-"otherwise.\n";
+"  DateTime(): This application will say the current date and time.\n";
 
 STANDARD_LOCAL_USER;
 

@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.75 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.82 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -55,6 +55,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.75 $")
 #include "asterisk/manager.h"
 #include "asterisk/utils.h"
 #include "asterisk/adsi.h"
+#include "asterisk/monitor.h"
 
 #ifdef __AST_DEBUG_MALLOC
 static void FREE(void *ptr)
@@ -183,7 +184,7 @@ static void check_goto_on_transfer(struct ast_channel *chan)
 
 	goto_on_transfer = pbx_builtin_getvar_helper(chan, "GOTO_ON_BLINDXFR");
 
-	if (goto_on_transfer && !ast_strlen_zero(goto_on_transfer) && (xferchan = ast_channel_alloc(0))) {
+	if (!ast_strlen_zero(goto_on_transfer) && (xferchan = ast_channel_alloc(0))) {
 		char *x;
 		struct ast_frame *f;
 		
@@ -216,19 +217,19 @@ static struct ast_channel *ast_feature_request_and_dial(struct ast_channel *call
 static void *ast_bridge_call_thread(void *data) 
 {
 	struct ast_bridge_thread_obj *tobj = data;
+
 	tobj->chan->appl = "Transferred Call";
 	tobj->chan->data = tobj->peer->name;
 	tobj->peer->appl = "Transferred Call";
 	tobj->peer->data = tobj->chan->name;
 	if (tobj->chan->cdr) {
-		ast_cdr_reset(tobj->chan->cdr,0);
+		ast_cdr_reset(tobj->chan->cdr, NULL);
 		ast_cdr_setdestchan(tobj->chan->cdr, tobj->peer->name);
 	}
 	if (tobj->peer->cdr) {
-		ast_cdr_reset(tobj->peer->cdr,0);
+		ast_cdr_reset(tobj->peer->cdr, NULL);
 		ast_cdr_setdestchan(tobj->peer->cdr, tobj->chan->name);
 	}
-
 
 	ast_bridge_call(tobj->peer, tobj->chan, &tobj->bconfig);
 	ast_hangup(tobj->chan);
@@ -243,13 +244,14 @@ static void ast_bridge_call_thread_launch(void *data)
 {
 	pthread_t thread;
 	pthread_attr_t attr;
-	int result;
+	struct sched_param sched;
 
-	result = pthread_attr_init(&attr);
-	pthread_attr_setschedpolicy(&attr, SCHED_RR);
+	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	result = ast_pthread_create(&thread, &attr,ast_bridge_call_thread, data);
-	result = pthread_attr_destroy(&attr);
+	ast_pthread_create(&thread, &attr,ast_bridge_call_thread, data);
+	pthread_attr_destroy(&attr);
+	memset(&sched, 0, sizeof(sched));
+	pthread_setschedparam(thread, SCHED_RR, &sched);
 }
 
 
@@ -1002,7 +1004,7 @@ static int ast_feature_interpret(struct ast_channel *chan, struct ast_channel *p
 	}
 
 
-	if (dynamic_features && !ast_strlen_zero(dynamic_features)) {
+	if (!ast_strlen_zero(dynamic_features)) {
 		char *tmp = ast_strdupa(dynamic_features);
 		char *tok;
 
@@ -1087,7 +1089,7 @@ static struct ast_channel *ast_feature_request_and_dial(struct ast_channel *call
 	
 	if ((chan = ast_request(type, format, data, &cause))) {
 		ast_set_callerid(chan, cid_num, cid_name, cid_num);
-		
+		ast_channel_inherit_variables(caller, chan);	
 		if (!ast_call(chan, data, timeout)) {
 			struct timeval started;
 			int x, len = 0;
@@ -1259,7 +1261,6 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 	struct ast_option_header *aoh;
 	struct timeval start = { 0 , 0 };
 	struct ast_bridge_config backup_config;
-	int allowdisconnect_in, allowdisconnect_out, allowredirect_in, allowredirect_out;
 	char *monitor_exec;
 
 	memset(&backup_config, 0, sizeof(backup_config));
@@ -1283,10 +1284,6 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 			pbx_exec(peer, monitor_app, monitor_exec, 1);
 	}
 	
-	allowdisconnect_in = ast_test_flag(&(config->features_callee), AST_FEATURE_DISCONNECT);
-	allowdisconnect_out = ast_test_flag(&(config->features_caller), AST_FEATURE_DISCONNECT);
-	allowredirect_in = ast_test_flag(&(config->features_callee), AST_FEATURE_REDIRECT);
-	allowredirect_out = ast_test_flag(&(config->features_caller), AST_FEATURE_REDIRECT);
 	set_config_flags(chan, peer, config);
 	config->firstpass = 1;
 
@@ -1873,7 +1870,7 @@ static int manager_parking_status( struct mansession *s, struct message *m )
 	char *id = astman_get_header(m,"ActionID");
 	char idText[256] = "";
 
-	if (id && !ast_strlen_zero(id))
+	if (!ast_strlen_zero(id))
 		snprintf(idText,256,"ActionID: %s\r\n",id);
 
 	astman_send_ack(s, m, "Parked calls will follow");
@@ -1952,7 +1949,7 @@ static int load_config(void)
 	struct ast_config *cfg = NULL;
 	struct ast_variable *var = NULL;
 	char old_parking_ext[AST_MAX_EXTENSION];
-	char old_parking_con[AST_MAX_EXTENSION];
+	char old_parking_con[AST_MAX_EXTENSION] = "";
 
 	if (!ast_strlen_zero(parking_con)) {
 		strcpy(old_parking_ext, parking_ext);

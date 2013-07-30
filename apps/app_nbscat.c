@@ -20,6 +20,7 @@
  *
  * \brief Silly application to play an NBScat file -- uses nbscat8k
  * 
+ * \ingroup applications
  */
  
 #include <string.h>
@@ -33,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -59,8 +60,7 @@ static char *synopsis = "Play an NBS local stream";
 
 static char *descrip = 
 "  NBScat: Executes nbscat to listen to the local NBS stream.\n"
-"Returns  -1  on\n hangup or 0 otherwise. User can exit by \n"
-"pressing any key\n.";
+"User can exit by pressing any key\n.";
 
 STANDARD_LOCAL_USER;
 

@@ -19,6 +19,7 @@
 /*! \file
  * \brief Program Asterisk ADSI Scripts into phone
  * 
+ * \ingroup applications
  */
 
 #include <sys/types.h>
@@ -33,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.23 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -54,9 +55,8 @@ static char *synopsis = "Load Asterisk ADSI Scripts into phone";
 /* #define DUMP_MESSAGES */
 
 static char *descrip =
-"  ADSIProg(script): Programs an ADSI Phone with the given script.\n"
-"If none is specified, the default is used.  Returns 0 unless CPE\n" 
-"is hungup.\n";
+"  ADSIProg(script): This application programs an ADSI Phone with the given\n"
+"script. If nothing is specified, the default script (asterisk.adsi) is used.\n";
 
 STANDARD_LOCAL_USER;
 

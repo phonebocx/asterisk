@@ -23,6 +23,7 @@
  *
  * \brief Translate between signed linear and Global System for Mobile Communications (GSM)
  *
+ * \ingroup codecs
  */
 
 #include <fcntl.h>
@@ -34,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/translate.h"

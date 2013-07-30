@@ -19,16 +19,17 @@
  *
  * \brief Fork CDR application
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
-#include <pthread.h>
+#include <unistd.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -56,26 +57,39 @@ static void ast_cdr_fork(struct ast_channel *chan)
 {
 	struct ast_cdr *cdr;
 	struct ast_cdr *newcdr;
-	if (!chan || !(cdr = chan->cdr))
-		return;
+	struct ast_flags flags = { AST_CDR_FLAG_KEEP_VARS };
+
+	cdr = chan->cdr;
+
 	while (cdr->next)
 		cdr = cdr->next;
+	
 	if (!(newcdr = ast_cdr_dup(cdr)))
 		return;
+	
 	ast_cdr_append(cdr, newcdr);
-	ast_cdr_reset(newcdr, AST_CDR_FLAG_KEEP_VARS);
+	ast_cdr_reset(newcdr, &flags);
+	
 	if (!ast_test_flag(cdr, AST_CDR_FLAG_KEEP_VARS))
 		ast_cdr_free_vars(cdr, 0);
+	
 	ast_set_flag(cdr, AST_CDR_FLAG_CHILD | AST_CDR_FLAG_LOCKED);
 }
 
 static int forkcdr_exec(struct ast_channel *chan, void *data)
 {
-	int res=0;
+	int res = 0;
 	struct localuser *u;
+
+	if (!chan->cdr) {
+		ast_log(LOG_WARNING, "Channel does not have a CDR\n");
+		return 0;
+	}
+
 	LOCAL_USER_ADD(u);
+
 	if (!ast_strlen_zero(data))
-		ast_set2_flag(chan->cdr, strchr((char *)data, 'v'), AST_CDR_FLAG_KEEP_VARS);
+		ast_set2_flag(chan->cdr, strchr(data, 'v'), AST_CDR_FLAG_KEEP_VARS);
 	
 	ast_cdr_fork(chan);
 

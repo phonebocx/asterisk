@@ -20,11 +20,13 @@
  *
  * \brief App to flash a zap trunk
  * 
+ * \ingroup applications
  */
  
+#include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 #ifdef __linux__
 #include <linux/zaptel.h>
@@ -34,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -55,8 +57,7 @@ static char *synopsis = "Flashes a Zap Trunk";
 static char *descrip = 
 "  Flash(): Sends a flash on a zap trunk.  This is only a hack for\n"
 "people who want to perform transfers and such via AGI and is generally\n"
-"quite useless otherwise.  Returns 0 on success or -1 if this is not\n"
-"a zap trunk\n";
+"quite useless oths application will only work on Zap trunks.\n";
 
 STANDARD_LOCAL_USER;
 

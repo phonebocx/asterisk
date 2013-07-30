@@ -24,6 +24,7 @@
  *
  * \brief codec_g726.c - translate between signed linear and ITU G.726-32kbps
  *
+ * \ingroup codecs
  */
 
 #include <fcntl.h>
@@ -35,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/logger.h"

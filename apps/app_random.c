@@ -20,6 +20,7 @@
  * \brief Random application
  *
  * \author Tilghman Lesher <asterisk__app_random__200508@the-tilghman.com>
+ * \ingroup applications
  */
 
 #include <stdio.h>
@@ -29,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

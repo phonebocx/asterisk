@@ -25,6 +25,11 @@
  * \ref amiconf
  */
 
+/*! \addtogroup Group_AMI AMI functions 
+*/
+/*! @{ 
+ Doxygen group */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,7 +46,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.131 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.136 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/file.h"
@@ -309,26 +314,36 @@ char *astman_get_header(struct message *m, char *var)
 
 struct ast_variable *astman_get_variables(struct message *m)
 {
-	int varlen, x;
+	int varlen, x, y;
 	struct ast_variable *head = NULL, *cur;
 	char *var, *val;
+	unsigned int var_count;
+        char *vars[32];
 	
 	varlen = strlen("Variable: ");	
 
 	for (x = 0; x < m->hdrcount; x++) {
-		if (!strncasecmp("Variable: ", m->headers[x], varlen)) {
-			var = val = ast_strdupa(m->headers[x] + varlen);
-			if (!var)
-				return head;				
-			strsep(&val, "=");
-			if (!val || ast_strlen_zero(var))
-				continue;
-			cur = ast_variable_new(var, val);
-			if (head) {
-				cur->next = head;
-				head = cur;
-			} else
-				head = cur;
+		if (strncasecmp("Variable: ", m->headers[x], varlen))
+			continue;
+
+		if (!(var = ast_strdupa(m->headers[x] + varlen)))
+			return head;
+
+		if ((var_count = ast_app_separate_args(var, '|', vars, sizeof(vars) / sizeof(vars[0])))) {
+			for (y = 0; y < var_count; y++) {
+				if (!vars[y])
+					continue;
+				var = val = ast_strdupa(vars[y]);
+				strsep(&val, "=");
+				if (!val || ast_strlen_zero(var))
+					continue;
+				cur = ast_variable_new(var, val);
+				if (head) {
+					cur->next = head;
+					head = cur;
+				} else
+					head = cur;
+			}
 		}
 	}
 
@@ -561,6 +576,7 @@ static int authenticate(struct mansession *s, struct message *m)
 	return -1;
 }
 
+/*! \brief PING: Manager PING */
 static char mandescr_ping[] = 
 "Description: A 'Ping' action will ellicit a 'Pong' response.  Used to keep the "
 "  manager connection open.\n"
@@ -656,9 +672,9 @@ static int action_hangup(struct mansession *s, struct message *m)
 }
 
 static char mandescr_setvar[] = 
-"Description: Set a local channel variable.\n"
+"Description: Set a global or local channel variable.\n"
 "Variables: (Names marked with * are required)\n"
-"	*Channel: Channel to set variable for\n"
+"	Channel: Channel to set variable for\n"
 "	*Variable: Variable name\n"
 "	*Value: Value\n";
 
@@ -669,25 +685,31 @@ static int action_setvar(struct mansession *s, struct message *m)
         char *varname = astman_get_header(m, "Variable");
         char *varval = astman_get_header(m, "Value");
 	
-	if (!strlen(name)) {
-		astman_send_error(s, m, "No channel specified");
-		return 0;
-	}
-	if (!strlen(varname)) {
+	if (ast_strlen_zero(varname)) {
 		astman_send_error(s, m, "No variable specified");
 		return 0;
 	}
-
-	c = ast_get_channel_by_name_locked(name);
-	if (!c) {
-		astman_send_error(s, m, "No such channel");
+	
+	if (ast_strlen_zero(varval)) {
+		astman_send_error(s, m, "No value specified");
 		return 0;
 	}
+
+	if (!ast_strlen_zero(name)) {
+		c = ast_get_channel_by_name_locked(name);
+		if (!c) {
+			astman_send_error(s, m, "No such channel");
+			return 0;
+		}
+	}
 	
-	pbx_builtin_setvar_helper(c,varname,varval);
+	pbx_builtin_setvar_helper(c, varname, varval);
 	  
-	ast_mutex_unlock(&c->lock);
-	astman_send_ack(s, m, "Variable Set");
+	if (c)
+		ast_mutex_unlock(&c->lock);
+
+	astman_send_ack(s, m, "Variable Set");	
+
 	return 0;
 }
 
@@ -1077,6 +1099,8 @@ static int action_originate(struct mansession *s, struct message *m)
 	return 0;
 }
 
+/*! 	\brief Help text for manager command mailboxstatus
+ */
 static char mandescr_mailboxstatus[] = 
 "Description: Checks a voicemail account for status.\n"
 "Variables: (Names marked with * are required)\n"
@@ -1087,6 +1111,7 @@ static char mandescr_mailboxstatus[] =
 "	Mailbox: <mailboxid>\n"
 "	Waiting: <count>\n"
 "\n";
+
 static int action_mailboxstatus(struct mansession *s, struct message *m)
 {
 	char *mailbox = astman_get_header(m, "Mailbox");
@@ -1592,6 +1617,8 @@ static int ast_manager_register_struct(struct manager_action *act)
 	return 0;
 }
 
+/*! \brief register a new command with manager, including online help. This is 
+	the preferred way to register a manager command */
 int ast_manager_register2(const char *action, int auth, int (*func)(struct mansession *s, struct message *m), const char *synopsis, const char *description)
 {
 	struct manager_action *cur;
@@ -1613,6 +1640,8 @@ int ast_manager_register2(const char *action, int auth, int (*func)(struct manse
 
 	return 0;
 }
+/*! @}
+ END Doxygen group */
 
 static int registered = 0;
 

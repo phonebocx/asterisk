@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/file.h"
@@ -52,6 +52,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 #include "asterisk/lock.h"
 #include "asterisk/manager.h"
 #include "db1-ast/include/db.h"
+
+#ifdef __CYGWIN__
+#define dbopen __dbopen
+#endif
 
 static DB *astdb;
 AST_MUTEX_DEFINE_STATIC(dblock);

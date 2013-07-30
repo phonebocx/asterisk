@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.80 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.86 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -52,11 +52,12 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.80 $")
 #define MAX_OTHER_FORMATS 10
 
 
-/* 
+/* !
 This function presents a dialtone and reads an extension into 'collect' 
 which must be a pointer to a **pre-initilized** array of char having a 
 size of 'size' suitable for writing to.  It will collect no more than the smaller 
 of 'maxlen' or 'size' minus the original strlen() of collect digits.
+\return 0 if extension does not exist, 1 if extension exists
 */
 int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, size_t size, int maxlen, int timeout) 
 {
@@ -103,7 +104,7 @@ int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, 
 
 
 
-/* set timeout to 0 for "standard" timeouts. Set timeout to -1 for 
+/*! \param timeout set timeout to 0 for "standard" timeouts. Set timeout to -1 for 
    "ludicrous time" (essentially never times out) */
 int ast_app_getdata(struct ast_channel *c, char *prompt, char *s, int maxlen, int timeout)
 {
@@ -560,6 +561,7 @@ int ast_play_and_record(struct ast_channel *chan, const char *playfile, const ch
 	int dspsilence = 0;
 	int gotsilence = 0;		/* did we timeout for silence? */
 	int rfmt=0;
+	struct ast_silence_generator *silgen = NULL;
 
 	if (silencethreshold < 0)
 		silencethreshold = global_silence_threshold;
@@ -615,8 +617,6 @@ int ast_play_and_record(struct ast_channel *chan, const char *playfile, const ch
 	if (path)
 		ast_unlock_path(path);
 
-
-	
 	if (maxsilence > 0) {
 		sildet = ast_dsp_new(); /* Create the silence detector */
 		if (!sildet) {
@@ -632,8 +632,12 @@ int ast_play_and_record(struct ast_channel *chan, const char *playfile, const ch
 			return -1;
 		}
 	}
+
 	/* Request a video update */
 	ast_indicate(chan, AST_CONTROL_VIDUPDATE);
+
+	if (option_transmit_silence_during_record)
+		silgen = ast_channel_start_silence_generator(chan);
 
 	if (x == fmtcnt) {
 	/* Loop forever, writing the packets we read to the writer(s), until
@@ -734,6 +738,9 @@ int ast_play_and_record(struct ast_channel *chan, const char *playfile, const ch
 	} else {
 		ast_log(LOG_WARNING, "Error creating writestream '%s', format '%s'\n", recordfile, sfmt[x]);
 	}
+
+	if (silgen)
+		ast_channel_stop_silence_generator(chan, silgen);
 
 	*duration = end - start;
 
@@ -1099,7 +1106,7 @@ int ast_app_group_match_get_count(char *groupmatch, char *category)
 	return count;
 }
 
-int ast_separate_app_args(char *buf, char delim, char **array, int arraylen)
+unsigned int ast_app_separate_args(char *buf, char delim, char **array, int arraylen)
 {
 	int argc;
 	char *scan;
@@ -1517,41 +1524,41 @@ char *ast_read_textfile(const char *filename)
 	return output;
 }
 
-int ast_parseoptions(const struct ast_option *options, struct ast_flags *flags, char **args, char *optstr)
+int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags *flags, char **args, char *optstr)
 {
 	char *s;
 	int curarg;
-	int argloc;
+	unsigned int argloc;
 	char *arg;
 	int res = 0;
 
-	flags->flags = 0;
+	ast_clear_flag(flags, AST_FLAGS_ALL);
 
 	if (!optstr)
 		return 0;
 
 	s = optstr;
 	while (*s) {
-		curarg = *s & 0x7f;
-		flags->flags |= options[curarg].flag;
+		curarg = *s++ & 0x7f;
+		ast_set_flag(flags, options[curarg].flag);
 		argloc = options[curarg].arg_index;
-		s++;
 		if (*s == '(') {
 			/* Has argument */
-			s++;
-			arg = s;
-			while (*s && (*s != ')')) s++;
+			arg = ++s;
+			while (*s && (*s != ')'))
+				s++;
 			if (*s) {
 				if (argloc)
 					args[argloc - 1] = arg;
-				*s = '\0';
-				s++;
+				*s++ = '\0';
 			} else {
 				ast_log(LOG_WARNING, "Missing closing parenthesis for argument '%c' in string '%s'\n", curarg, arg);
 				res = -1;
 			}
-		} else if (argloc)
+		} else if (argloc) {
 			args[argloc - 1] = NULL;
+		}
 	}
+
 	return res;
 }

@@ -26,6 +26,7 @@
  *
  * \brief VoiceTronix Interface driver
  * 
+ * \ingroup channel_drivers
  */
 
 
@@ -36,7 +37,7 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.98 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.104 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/utils.h"
@@ -152,6 +153,9 @@ static VPB_TONE Ringbacktone = {440, 480,   0, -20,   -20, -100,  2000, 4000};
 static VPB_DETECT toned_grunt = { 3, VPB_GRUNT, 1, 2000, 3000, 0, 0, -40, 0, 0, 0, 40, { { VPB_DELAY, 1000, 0, 0 }, { VPB_RISING, 0, 40, 0 }, { 0, 100, 0, 0 } } };
 static VPB_DETECT toned_ungrunt = { 2, VPB_GRUNT, 1, 2000, 1, 0, 0, -40, 0, 0, 30, 40, { { 0, 0, 0, 0 } } };
 
+/* Use loop polarity detection for CID */
+static int UsePolarityCID=0;
+
 /* Use loop drop detection */
 static int UseLoopDrop=1;
 
@@ -234,7 +238,7 @@ typedef struct  {
 	struct ast_frame **fo;
 	int flags;
 	ast_mutex_t lock;
-	pthread_cond_t cond;
+	ast_cond_t cond;
 	int endbridge;
 } vpb_bridge_t;
 
@@ -283,6 +287,8 @@ static struct vpb_pvt {
 	char language[MAX_LANGUAGE];		/* language being used */
 	char callerid[AST_MAX_EXTENSION];	/* CallerId used for directly connected phone */
 	int  callerid_type;			/* Caller ID type: 0=>none 1=>vpb 2=>AstV23 3=>AstBell */
+	char cid_num[AST_MAX_EXTENSION];
+	char cid_name[AST_MAX_EXTENSION];
 
 	int dtmf_caller_pos;			/* DTMF CallerID detection (Brazil)*/
 
@@ -317,6 +323,7 @@ static struct vpb_pvt {
 	ast_mutex_t record_lock;		/* This one prevents reentering a record_buf block */
 	ast_mutex_t play_lock;			/* This one prevents reentering a play_buf block */
 	int  play_buf_time;			/* How long the last play_buf took */
+	struct timeval lastplay;		/* Last play time */
 
 	ast_mutex_t play_dtmf_lock;
 	char play_dtmf[16];
@@ -613,10 +620,10 @@ static void get_callerid(struct vpb_pvt *p)
 	int rc;
 	struct ast_channel *owner = p->owner;
 /*
-	void * ws;
 	char callerid[AST_MAX_EXTENSION] = ""; 
 */
 #ifdef ANALYSE_CID
+	void * ws;
 	char * file="cidsams.wav";
 #endif
 
@@ -628,7 +635,9 @@ static void get_callerid(struct vpb_pvt *p)
 			ast_verbose(VERBOSE_PREFIX_4 "CID record - start\n");
 
 		/* Skip any trailing ringtone */
-		vpb_sleep(RING_SKIP);
+		if (UsePolarityCID != 1){
+			vpb_sleep(RING_SKIP);
+		}
 
 		if (option_verbose>3) 
 			ast_verbose(VERBOSE_PREFIX_4 "CID record - skipped %ldms trailing ring\n",
@@ -675,7 +684,13 @@ static void get_callerid(struct vpb_pvt *p)
 				owner->cid.cid_num = strdup(cli_struct->cldn);
 				owner->cid.cid_name = strdup(cli_struct->cn);
 				*/
-				ast_set_callerid(owner, cli_struct->cldn, cli_struct->cn, cli_struct->cldn);
+				if (owner){
+					ast_set_callerid(owner, cli_struct->cldn, cli_struct->cn, cli_struct->cldn);
+				} else {
+					strcpy(p->cid_num, cli_struct->cldn);
+					strcpy(p->cid_name, cli_struct->cn);
+
+				}
 				if (option_verbose>3) 
 					ast_verbose(VERBOSE_PREFIX_4 "CID record - got [%s] [%s]\n",owner->cid.cid_num,owner->cid.cid_name );
 				snprintf(p->callerid,sizeof(p->callerid)-1,"%s %s",cli_struct->cldn,cli_struct->cn);
@@ -963,6 +978,12 @@ static inline int monitor_handle_owned(struct vpb_pvt *p, VPB_EVENT *e)
 					f.frametype = -1;
 			}
 			break;
+		case VPB_LOOP_ONHOOK:
+			if (p->owner->_state == AST_STATE_UP)
+				f.subclass = AST_CONTROL_HANGUP;
+			else
+				f.frametype = -1;
+			break;
 		case VPB_STATION_ONHOOK:
 			f.subclass = AST_CONTROL_HANGUP;
 			break;
@@ -1038,7 +1059,7 @@ static inline int monitor_handle_owned(struct vpb_pvt *p, VPB_EVENT *e)
 
 				ast_mutex_lock(&p->bridge->lock); {
 					p->bridge->endbridge = 1;
-					pthread_cond_signal(&p->bridge->cond);
+					ast_cond_signal(&p->bridge->cond);
 				} ast_mutex_unlock(&p->bridge->lock); 	       		   
 			}	  
 		}
@@ -1097,15 +1118,37 @@ static inline int monitor_handle_notowned(struct vpb_pvt *p, VPB_EVENT *e)
 	}
 
 	switch(e->type) {
+		case VPB_LOOP_ONHOOK:
+		case VPB_LOOP_POLARITY:
+			if (UsePolarityCID == 1){
+				if (option_verbose>3)
+					ast_verbose(VERBOSE_PREFIX_4 "Polarity reversal\n");
+				if(p->callerid_type == 1) {
+					if (option_verbose>3)
+						ast_verbose(VERBOSE_PREFIX_4 "Using VPB Caller ID\n");
+					get_callerid(p);        /* UK CID before 1st ring*/
+				}
+/*				get_callerid_ast(p);    /* Caller ID using the ast functions */
+			}
+			break;
 		case VPB_RING:
 			if (p->mode == MODE_FXO) /* FXO port ring, start * */ {
 				vpb_new(p, AST_STATE_RING, p->context);
-				if(p->callerid_type == 1) {
-					if (option_verbose>3) 
-						ast_verbose(VERBOSE_PREFIX_4 "Using VPB Caller ID\n");
-					get_callerid(p);	/* Australian Caller ID only between 1st and 2nd ring  */
+				if (UsePolarityCID != 1){
+					if(p->callerid_type == 1) {
+						if (option_verbose>3)
+							ast_verbose(VERBOSE_PREFIX_4 "Using VPB Caller ID\n");
+						get_callerid(p);        /* Australian CID only between 1st and 2nd ring  */
+					}
+					get_callerid_ast(p);    /* Caller ID using the ast functions */
 				}
-				get_callerid_ast(p);	/* Caller ID using the ast functions */
+				else {
+					ast_log(LOG_ERROR, "Setting caller ID: %s %s\n",p->cid_num, p->cid_name);
+					ast_set_callerid(p->owner, p->cid_num, p->cid_name, p->cid_num);
+					p->cid_num[0]=0;
+					p->cid_name[0]=0;
+				}
+
 				vpb_timer_stop(p->ring_timer);
 				vpb_timer_start(p->ring_timer);
 			}
@@ -1460,7 +1503,7 @@ static void mkbrd(vpb_model_t model, int echo_cancel)
 			memset(bridges,0,max_bridges * sizeof(vpb_bridge_t));
 			for(int i = 0; i < max_bridges; i++ ) {
 				ast_mutex_init(&bridges[i].lock);
-				pthread_cond_init(&bridges[i].cond, NULL);
+				ast_cond_init(&bridges[i].cond, NULL);
 			}
 		}
 	}
@@ -1477,7 +1520,11 @@ static void mkbrd(vpb_model_t model, int echo_cancel)
 			vpb_echo_canc_enable();
 			ast_log(LOG_NOTICE, "Voicetronix echo cancellation ON\n");
 			if (ec_supp_threshold > -1){
+				#ifdef VPB_PRI
+				vpb_echo_canc_set_sup_thresh(0,(short *)&ec_supp_threshold);
+				#else
 				vpb_echo_canc_set_sup_thresh((short *)&ec_supp_threshold);
+				#endif
 				ast_log(LOG_NOTICE, "Voicetronix EC Sup Thres set\n");
 			}
 		}
@@ -1999,6 +2046,11 @@ static int vpb_hangup(struct ast_channel *ast)
 		else {
 			stoptone(p->handle);
 		}
+		#ifdef VPB_PRI
+		vpb_setloop_async(p->handle, VPB_OFFHOOK);
+		vpb_sleep(100);
+		vpb_setloop_async(p->handle, VPB_ONHOOK);
+		#endif
 	} else {
 		stoptone(p->handle); /* Terminates any dialing */
 		vpb_sethook_sync(p->handle, VPB_ONHOOK);
@@ -2201,6 +2253,9 @@ static int vpb_write(struct ast_channel *ast, struct ast_frame *frame)
 	struct vpb_pvt *p = (struct vpb_pvt *)ast->tech_pvt; 
 	int res = 0, fmt = 0;
 	struct timeval play_buf_time_start;
+	struct ast_frame *nextf;
+	int tdiff;
+
 /*	ast_mutex_lock(&p->lock); */
 	if(option_verbose>5) 
 		ast_verbose("%s: vpb_write: Writing to channel\n", p->dev);
@@ -2219,11 +2274,20 @@ static int vpb_write(struct ast_channel *ast, struct ast_frame *frame)
 	}
 /*	ast_log(LOG_DEBUG, "%s: vpb_write: Checked frame type..\n", p->dev); */
 
+
 	fmt = ast2vpbformat(frame->subclass);
 	if (fmt < 0) {
 		ast_log(LOG_WARNING, "%s: vpb_write: Cannot handle frames of %d format!\n",ast->name, frame->subclass);
 		return -1;
 	}
+
+	tdiff = ast_tvdiff_ms(ast_tvnow(), p->lastplay);
+	ast_log(LOG_DEBUG, "%s: vpb_write: time since last play(%d) \n", p->dev, tdiff); 
+	if (tdiff < (VPB_SAMPLES/8 - 1)){
+		ast_log(LOG_DEBUG, "%s: vpb_write: Asked to play too often (%d) (%d)\n", p->dev, tdiff,frame->datalen); 
+//		return 0;
+	}
+	p->lastplay = ast_tvnow();
 /*
 	ast_log(LOG_DEBUG, "%s: vpb_write: Checked frame format..\n", p->dev); 
 */
@@ -2240,11 +2304,16 @@ static int vpb_write(struct ast_channel *ast, struct ast_frame *frame)
 		if(option_verbose>1) {
 			ast_verbose("%s: vpb_write: Starting play mode (codec=%d)[%s]\n",p->dev,fmt,ast2vpbformatname(frame->subclass));
 		}
+		p->lastoutput = fmt;
+		ast_mutex_unlock(&p->play_lock);
+		return 0;
 	} else if (p->lastoutput != fmt) {
 		vpb_play_buf_finish(p->handle);
 		vpb_play_buf_start(p->handle, fmt);
 		if(option_verbose>1) 
 			ast_verbose("%s: vpb_write: Changed play format (%d=>%d)\n",p->dev,p->lastoutput,fmt);
+		ast_mutex_unlock(&p->play_lock);
+		return 0;
 	}
 	p->lastoutput = fmt;
 
@@ -2255,9 +2324,11 @@ static int vpb_write(struct ast_channel *ast, struct ast_frame *frame)
 		a_gain_vector(p->txswgain - MAX_VPB_GAIN , (short*)frame->data, frame->datalen/sizeof(short));
 
 /*	ast_log(LOG_DEBUG, "%s: vpb_write: Applied gain..\n", p->dev); */
+/*	ast_log(LOG_DEBUG, "%s: vpb_write: play_buf_time %d\n", p->dev, p->play_buf_time); */
 
 	if ((p->read_state == 1)&&(p->play_buf_time<5)){
 		play_buf_time_start = ast_tvnow();
+/*		res = vpb_play_buf_sync(p->handle, (char*)frame->data, tdiff*8*2); */
 		res = vpb_play_buf_sync(p->handle, (char*)frame->data, frame->datalen);
 		if( res == VPB_OK && option_verbose > 5 ) {
 			short * data = (short*)frame->data;
@@ -2412,15 +2483,18 @@ static void *do_chanreads(void *pvt)
 		if (p->lastinput == -1) {
 			vpb_record_buf_start(p->handle, fmt);
 			vpb_reset_record_fifo_alarm(p->handle);
+			p->lastinput = fmt;
 			if(option_verbose>1) 
 				ast_verbose( VERBOSE_PREFIX_2 "%s: Starting record mode (codec=%d)[%s]\n",p->dev,fmt,ast2vpbformatname(afmt));
+			continue;
 		} else if (p->lastinput != fmt) {
 			vpb_record_buf_finish(p->handle);
 			vpb_record_buf_start(p->handle, fmt);
+			p->lastinput = fmt;
 			if(option_verbose>1) 
 				ast_verbose( VERBOSE_PREFIX_2 "%s: Changed record format (%d=>%d)\n",p->dev,p->lastinput,fmt);
+			continue;
 		}
-		p->lastinput = fmt;
 
 		/* Read only if up and not bridged, or a bridge for which we can read. */
 		if (option_verbose > 5) {
@@ -2515,10 +2589,6 @@ static void *do_chanreads(void *pvt)
 					ast_verbose("%s: p->stopreads[%d] p->owner[%p]\n", p->dev, p->stopreads,(void *)p->owner);
 				}  
 			}
-		} else {
-			ast_log(LOG_WARNING,"%s: Record failure (%s)\n", p->dev, vpb_strerror(res));
-			vpb_record_buf_finish(p->handle);
-			vpb_record_buf_start(p->handle, fmt);
 		}
 		if (option_verbose > 4)
 			ast_verbose("%s: chanreads: Finished cycle...\n", p->dev);
@@ -2600,6 +2670,7 @@ static struct ast_channel *vpb_new(struct vpb_pvt *me, int state, char *context)
 		me->faxhandled =0;
 		
 		me->lastgrunt  = ast_tvnow(); /* Assume at least one grunt tone seen now. */
+		me->lastplay  = ast_tvnow(); /* Assume at least one grunt tone seen now. */
 
 		ast_mutex_lock(&usecnt_lock);
 		usecnt++;
@@ -2781,6 +2852,8 @@ int load_module()
 				callgroup = ast_get_group(v->value);
 			} else  if (strcasecmp(v->name, "pickupgroup") == 0){
 				pickupgroup = ast_get_group(v->value);
+			} else  if (strcasecmp(v->name, "usepolaritycid") == 0){
+				UsePolarityCID = atoi(v->value);
 			} else  if (strcasecmp(v->name, "useloopdrop") == 0){
 				UseLoopDrop = atoi(v->value);
 			} else  if (strcasecmp(v->name, "usenativebridge") == 0){
@@ -2949,7 +3022,7 @@ int unload_module()
 	ast_mutex_destroy(&bridge_lock);
 	for(int i = 0; i < max_bridges; i++ ) {
 		ast_mutex_destroy(&bridges[i].lock);
-		pthread_cond_destroy(&bridges[i].cond);
+		ast_cond_destroy(&bridges[i].cond);
 	}
 	free(bridges);
 

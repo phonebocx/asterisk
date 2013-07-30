@@ -20,8 +20,10 @@
  *
  * \brief Use /dev/dsp as an intercom.
  * 
+ * \ingroup applications
  */
  
+#include <stdio.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sys/ioctl.h>
@@ -40,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.29 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -67,8 +69,7 @@ static char *app = "Intercom";
 static char *synopsis = "(Obsolete) Send to Intercom";
 static char *descrip = 
 "  Intercom(): Sends the user to the intercom (i.e. /dev/dsp).  This program\n"
-"is generally considered  obselete by the chan_oss module.  Returns 0 if the\n"
-"user exits with a DTMF tone, or -1 if they hangup.\n";
+"is generally considered  obselete by the chan_oss module.  User can terminate\n"with a DTMF tone, or by hangup.\n";
 
 STANDARD_LOCAL_USER;
 

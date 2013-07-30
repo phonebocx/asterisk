@@ -19,7 +19,9 @@
 /*! \file
  *
  * \brief Flat, binary, ulaw PCM file format.
+ * \arg File name extension: pcm, ulaw, ul, mu
  * 
+ * \ingroup formats
  */
  
 #include <unistd.h>
@@ -33,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

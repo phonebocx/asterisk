@@ -28,13 +28,14 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"

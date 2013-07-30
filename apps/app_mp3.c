@@ -20,6 +20,7 @@
  *
  * \brief Silly application to play an MP3 file -- uses mpg123
  * 
+ * \ingroup applications
  */
  
 #include <string.h>
@@ -32,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.31 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.33 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -53,9 +54,9 @@ static char *app = "MP3Player";
 static char *synopsis = "Play an MP3 file or stream";
 
 static char *descrip = 
-"  MP3Player(location) Executes mpg123 to play the given location\n"
-"which typically would be a filename o a URL. User can exit by pressing any key\n."
-"Returns  -1  on hangup or 0 otherwise."; 
+"  MP3Player(location) Executes mpg123 to play the given location,\n"
+"which typically would be a filename or a URL. User can exit by pressing\n"
+"any key on the dialpad, or by hanging up."; 
 
 STANDARD_LOCAL_USER;
 

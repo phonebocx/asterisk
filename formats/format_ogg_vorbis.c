@@ -17,9 +17,11 @@
 /*! \file
  *
  * \brief OGG/Vorbis streams.
- * 
+ * \arg File name extension: ogg
+ * \ingroup formats
  */
  
+#include <sys/types.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
@@ -39,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.5 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

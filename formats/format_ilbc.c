@@ -21,7 +21,8 @@
 /*! \file
  *
  * \brief Save to raw, headerless iLBC data.
- *
+ * \arg File name extension: ilbc
+ * \ingroup formats
  */
  
 #include <unistd.h>
@@ -35,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

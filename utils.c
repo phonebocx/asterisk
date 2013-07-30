@@ -37,13 +37,14 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.81 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.84 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/io.h"
 #include "asterisk/logger.h"
 #include "asterisk/md5.h"
 #include "asterisk/options.h"
+#include "asterisk/compat.h"
 
 #define AST_API_MODULE		/* ensure that inlinable API functions will be built in this module if required */
 #include "asterisk/strings.h"
@@ -57,7 +58,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.81 $")
 static char base64[64];
 static char b2a[256];
 
-#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined( __NetBSD__ ) || defined(__APPLE__)
+#if defined(__FreeBSD__) || defined(__OpenBSD__) || defined( __NetBSD__ ) || defined(__APPLE__) || defined(__CYGWIN__)
 
 /* duh? ERANGE value copied from web... */
 #define ERANGE 34
@@ -741,10 +742,14 @@ int vasprintf(char **strp, const char *fmt, va_list ap)
 #endif /* !defined(HAVE_VASPRINTF) && !defined(__AST_DEBUG_MALLOC) */
 
 #ifndef HAVE_STRTOQ
+#ifndef LONG_MIN
 #define LONG_MIN        (-9223372036854775807L-1L)
 	                                 /* min value of a "long int" */
+#endif
+#ifndef LONG_MAX
 #define LONG_MAX        9223372036854775807L
 	                                 /* max value of a "long int" */
+#endif
 
 /*
  * Convert a string to a quad integer.
@@ -837,7 +842,7 @@ uint64_t strtoq(const char *nptr, char **endptr, int base)
 }
 #endif /* !HAVE_STRTOQ */
 
-#if (!defined(getloadavg))
+#ifndef HAVE_GETLOADAVG
 #ifdef linux
 /* Alternative method of getting load avg on Linux only */
 int getloadavg(double *list, int nelem)
@@ -871,7 +876,7 @@ int getloadavg(double *list, int nelem)
 	return -1;
 }
 #endif /* linux */
-#endif /* !defined(getloadavg) */
+#endif /* !defined(_BSD_SOURCE) */
 
 char *ast_process_quotes_and_slashes(char *start, char find, char replace_with)
 {

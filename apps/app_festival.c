@@ -20,6 +20,7 @@
  *
  * \brief Connect to festival
  * 
+ * \ingroup applications
  */
 
 #include <sys/types.h>
@@ -41,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.37 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.38 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

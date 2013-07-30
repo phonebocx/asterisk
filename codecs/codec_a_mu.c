@@ -20,6 +20,7 @@
  *
  * \brief codec_a_mu.c - translate between alaw and ulaw directly
  *
+ * \ingroup codecs
  */
 
 #include <fcntl.h>
@@ -31,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/logger.h"

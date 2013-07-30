@@ -24,13 +24,14 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -97,9 +98,9 @@ static char *tdesc = "Realtime Switch";
 			table++;\
 			cxt = buf; \
 		} else cxt = NULL; \
-		if (!cxt || ast_strlen_zero(cxt)) \
+		if (ast_strlen_zero(cxt)) \
 			cxt = context;\
-		if (!table || ast_strlen_zero(table)) \
+		if (ast_strlen_zero(table)) \
 			table = "extensions"; \
 		var = realtime_switch_common(table, cxt, exten, priority, mode); \
 	} else \

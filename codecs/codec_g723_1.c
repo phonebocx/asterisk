@@ -24,6 +24,7 @@
  *
  * \brief Translate between signed linear and G.723.1
  *
+ * \ingroup codecs
  */
 
 #define TYPE_HIGH	 0x0
@@ -42,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/translate.h"

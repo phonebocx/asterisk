@@ -19,6 +19,7 @@
  *
  * \brief Verbose logging application
  *
+ * \ingroup applications
  */
 
 #include <stdio.h>
@@ -28,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
 
 #include "asterisk/options.h"
 #include "asterisk/logger.h"
@@ -45,8 +46,7 @@ static char *verbose_synopsis = "Send arbitrary text to verbose output";
 
 static char *verbose_descrip =
 "Verbose([<level>|]<message>)\n"
-"  level must be an integer value.  If not specified, defaults to 0."
-"  Always returns 0.\n";
+"  level must be an integer value.  If not specified, defaults to 0.\n";
 
 STANDARD_LOCAL_USER;
 

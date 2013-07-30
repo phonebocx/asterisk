@@ -20,6 +20,7 @@
  *
  * \brief A simple math application
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
@@ -38,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -68,7 +69,7 @@ static char *math_descrip =
 "Perform floating point calculation on number 1 to number 2 and \n"
 "store the result in returnvar.  Valid ops are: \n"
 "    +,-,/,*,%,<,>,>=,<=,==\n"
-"and behave as their C equivalents.  Always returns 0.\n";
+"and behave as their C equivalents.\n";
 
 #define ADDFUNCTION 0
 #define DIVIDEFUNCTION 1

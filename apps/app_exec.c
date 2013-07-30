@@ -20,6 +20,8 @@
  * \brief Exec application
  *
  * \author Tilghman Lesher <app_exec__v001@the-tilghman.com>
+ *
+ * \ingroup applications
  */
 
 #include <stdio.h>
@@ -29,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

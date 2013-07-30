@@ -20,6 +20,10 @@
  *
  * \brief Implementation of Media Gateway Control Protocol
  * 
+ * \par See also
+ * \arg \ref Config_mgcp
+ *
+ * \ingroup channel_drivers
  */
 
 /* FO: Changes
@@ -84,7 +88,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.132 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.133 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

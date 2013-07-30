@@ -36,20 +36,22 @@ endif
 # Remember the MAKELEVEL at the top
 MAKETOPLEVEL?=$(MAKELEVEL)
 
+ifneq ($(findstring dont-optimize,$(MAKECMDGOALS)),dont-optimize)
 ######### More GSM codec optimization
 ######### Uncomment to enable MMXTM optimizations for x86 architecture CPU's
 ######### which support MMX instructions.  This should be newer pentiums,
 ######### ppro's, etc, as well as the AMD K6 and K7.  
 #K6OPT  = -DK6OPT
 
+#Tell gcc to optimize the code
+OPTIMIZE+=-O6
+endif
+
 #Overwite config files on "make samples"
 OVERWRITE=y
 
-#Tell gcc to optimize the code
-OPTIMIZE+=-O6
-
-#Include debug symbols in the executables (-g) and profiling info (-pg)
-DEBUG=-g #-pg
+#Include debug and macro symbols in the executables (-g) and profiling info (-pg)
+DEBUG=-g3 #-pg
 
 #Set NOCRYPTO to yes if you do not want to have crypto support or 
 #dependencies
@@ -87,7 +89,9 @@ INSTALL_PREFIX?=
 # Files are copied here temporarily during the install process
 # For example, make DESTDIR=/tmp/asterisk woud put things in
 # /tmp/asterisk/etc/asterisk
-DESTDIR=
+# XXX watch out, put no spaces or comments after the value
+DESTDIR?=
+#DESTDIR?=/tmp/asterisk
 
 # Original busydetect routine
 BUSYDETECT = #-DBUSYDETECT
@@ -101,7 +105,7 @@ BUSYDETECT+= #-DBUSYDETECT_TONEONLY
 # Don't use together with -DBUSYDETECT_TONEONLY
 BUSYDETECT+= #-DBUSYDETECT_COMPARE_TONE_AND_SILENCE
 
-ifneq (${OSARCH},SunOS)
+ifneq ($(OSARCH),SunOS)
   ASTLIBDIR=$(INSTALL_PREFIX)/usr/lib/asterisk
   ASTVARLIBDIR=$(INSTALL_PREFIX)/var/lib/asterisk
   ASTETCDIR=$(INSTALL_PREFIX)/etc/asterisk
@@ -164,7 +168,7 @@ ifneq ($(wildcard ~/.asterisk.makeopts),)
   include ~/.asterisk.makeopts
 endif
 
-ifeq (${OSARCH},Linux)
+ifeq ($(OSARCH),Linux)
   ifeq ($(CROSS_COMPILE),)
     PROC?=$(shell uname -m)
   else
@@ -208,7 +212,7 @@ endif
 PWD=$(shell pwd)
 GREP=grep
 
-ifeq (${OSARCH},SunOS)
+ifeq ($(OSARCH),SunOS)
   GREP=/usr/xpg4/bin/grep
   M4=/usr/local/bin/m4
 endif
@@ -216,8 +220,9 @@ endif
 INCLUDE+=-Iinclude -I../include
 ASTCFLAGS+=-pipe  -Wall -Wstrict-prototypes -Wmissing-prototypes -Wmissing-declarations $(DEBUG) $(INCLUDE) -D_REENTRANT -D_GNU_SOURCE #-DMAKE_VALGRIND_HAPPY
 ASTCFLAGS+=$(OPTIMIZE)
+ASTOBJ=-o asterisk
 
-ifeq ($(findstring BSD,${OSARCH}),BSD)
+ifeq ($(findstring BSD,$(OSARCH)),BSD)
   PROC=$(shell uname -m)
   ASTCFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include -L$(CROSS_COMPILE_TARGET)/usr/local/lib
 endif
@@ -238,34 +243,64 @@ else
   endif
 endif
 
-ifeq (${OSARCH},FreeBSD)
+ifeq ($(OSARCH),FreeBSD)
   BSDVERSION=$(shell make -V OSVERSION -f $(CROSS_COMPILE_TARGET)/usr/share/mk/bsd.port.subdir.mk)
-  ASTCFLAGS+=$(shell if test ${BSDVERSION} -lt 500016 ; then echo "-D_THREAD_SAFE"; fi)
-  LIBS+=$(shell if test  ${BSDVERSION} -lt 502102 ; then echo "-lc_r"; else echo "-pthread"; fi)
+  ASTCFLAGS+=$(shell if test $(BSDVERSION) -lt 500016 ; then echo "-D_THREAD_SAFE"; fi)
+  LIBS+=$(shell if test  $(BSDVERSION) -lt 502102 ; then echo "-lc_r"; else echo "-pthread"; fi)
   ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/spandsp),)
     ASTCFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include/spandsp
   endif
   MPG123TARG=freebsd
+
+  # XXX FreeBSD paths
+  PREFIX?=/usr/local
+  ASTLIBDIR=$(INSTALL_PREFIX)$(PREFIX)/lib/asterisk
+  ASTVARLIBDIR=$(INSTALL_PREFIX)$(PREFIX)/share/asterisk
+  ASTETCDIR=$(INSTALL_PREFIX)$(PREFIX)/etc/asterisk
+  ASTSPOOLDIR=$(INSTALL_PREFIX)/var/spool/asterisk
+  ASTLOGDIR=$(INSTALL_PREFIX)/var/log/asterisk
+  ASTHEADERDIR=$(INSTALL_PREFIX)$(PREFIX)/include/asterisk
+  ASTCONFPATH=$(ASTETCDIR)/asterisk.conf
+  ASTBINDIR=$(INSTALL_PREFIX)$(PREFIX)/bin
+  ASTSBINDIR=$(INSTALL_PREFIX)$(PREFIX)/sbin
+  ASTVARRUNDIR=$(INSTALL_PREFIX)/var/run
+  ASTMANDIR=$(INSTALL_PREFIX)$(PREFIX)/man
+  # XXX end FreeBSD paths
+
 endif # FreeBSD
 
-ifeq (${OSARCH},NetBSD)
+ifeq ($(OSARCH),NetBSD)
   ASTCFLAGS+=-pthread
   INCLUDE+=-I$(CROSS_COMPILE_TARGET)/usr/pkg/include
   MPG123TARG=netbsd
 endif
 
-ifeq (${OSARCH},OpenBSD)
+ifeq ($(OSARCH),OpenBSD)
   ASTCFLAGS+=-pthread
 endif
 
-ifeq (${OSARCH},SunOS)
+ifeq ($(OSARCH),SunOS)
   ASTCFLAGS+=-Wcast-align -DSOLARIS
   INCLUDE+=-Iinclude/solaris-compat -I$(CROSS_COMPILE_TARGET)/usr/local/ssl/include
 endif
 
+ifeq ($(findstring CYGWIN,$(OSARCH)),CYGWIN)
+  CYGLOADER=cygwin_a
+  OSARCH=CYGWIN
+  ASTOBJ=-shared -o asterisk.dll -Wl,--out-implib=libasterisk.dll.a -Wl,--export-all-symbols
+  ASTLINK=
+  LIBS+=-lpthread -lncurses -lm -lresolv
+  ASTSBINDIR=$(MODULES_DIR)
+  PROC=$(shell uname -m)
+endif
+
+ifndef WITHOUT_ZAPTEL
+
 ifneq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/linux/zaptel.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/local/include/zaptel.h)$(wildcard $(CROSS_COMPILE_TARGET)/usr/pkg/include/zaptel.h),)
   ASTCFLAGS+=-DZAPTEL_OPTIMIZATIONS
 endif
+
+endif # WITHOUT_ZAPTEL
 
 LIBEDIT=editline/libedit.a
 
@@ -316,37 +351,39 @@ ifeq ($(wildcard $(CROSS_COMPILE_TARGET)/usr/include/dlfcn.h),)
   ASTCFLAGS+=-DDLFCNCOMPAT
 endif
 
-ifeq (${OSARCH},Linux)
+ifeq ($(OSARCH),Linux)
   LIBS+=-ldl -lpthread -lncurses -lm -lresolv  #-lnjamd
 else
   LIBS+=-lncurses -lm
 endif
 
-ifeq (${OSARCH},Darwin)
+ifeq ($(OSARCH),Darwin)
   LIBS+=-lresolv
   ASTCFLAGS+=-D__Darwin__
   AUDIO_LIBS=-framework CoreAudio
   ASTLINK=-Wl,-dynamic
   SOLINK=-dynamic -bundle -undefined suppress -force_flat_namespace
+  OBJS+=poll.o
+  ASTCFLAGS+=-DPOLLCOMPAT
 else
 #These are used for all but Darwin
   ASTLINK=-Wl,-E 
   SOLINK=-shared -Xlinker -x
 endif
 
-ifeq (${OSARCH},FreeBSD)
+ifeq ($(OSARCH),FreeBSD)
   LIBS+=-lcrypto
 endif
 
-ifeq (${OSARCH},NetBSD)
+ifeq ($(OSARCH),NetBSD)
   LIBS+=-lpthread -lcrypto -lm -L$(CROSS_COMPILE_TARGET)/usr/pkg/lib -lncurses
 endif
 
-ifeq (${OSARCH},OpenBSD)
+ifeq ($(OSARCH),OpenBSD)
   LIBS+=-lcrypto -lpthread -lm -lncurses
 endif
 
-ifeq (${OSARCH},SunOS)
+ifeq ($(OSARCH),SunOS)
   LIBS+=-lpthread -ldl -lnsl -lsocket -lresolv -L$(CROSS_COMPILE_TARGET)/usr/local/ssl/lib
   OBJS+=strcompat.o
   ASTLINK=
@@ -355,6 +392,13 @@ endif
 
 ifeq ($(MAKETOPLEVEL),$(MAKELEVEL))
   CFLAGS+=$(ASTCFLAGS)
+endif
+
+# This is used when generating the doxygen documentation
+ifneq ($(wildcard /usr/local/bin/dot)$(wildcard /usr/bin/dot),)
+  HAVEDOT=yes
+else
+  HAVEDOT=no
 endif
 
 LIBS+=-lssl
@@ -444,18 +488,6 @@ defaults.h: FORCE
 	fi
 	rm -f $@.tmp
 
-include/asterisk/build.h:
-	build_tools/make_build_h > $@.tmp
-	if cmp -s $@.tmp $@ ; then echo ; else \
-		mv $@.tmp $@ ; \
-	fi
-	rm -f $@.tmp
-
-# only force 'build.h' to be made for a non-'install' run
-ifeq ($(findstring install,$(MAKECMDGOALS)),)
-include/asterisk/build.h: FORCE
-endif
-
 include/asterisk/version.h: FORCE
 	build_tools/make_version_h > $@.tmp
 	if cmp -s $@.tmp $@ ; then echo; else \
@@ -471,8 +503,17 @@ stdtime/libtime.a: FORCE
 		exit 1; \
 	fi
 
-asterisk: editline/libedit.a db1-ast/libdb1.a stdtime/libtime.a $(OBJS)
-	$(CC) $(DEBUG) -o asterisk $(ASTLINK) $(OBJS) $(LIBEDIT) db1-ast/libdb1.a stdtime/libtime.a $(LIBS)
+cygwin_a:
+	$(MAKE) -C cygwin all
+
+asterisk: $(CYGLOADER) editline/libedit.a db1-ast/libdb1.a stdtime/libtime.a $(OBJS)
+	build_tools/make_build_h > include/asterisk/build.h.tmp
+	if cmp -s include/asterisk/build.h.tmp include/asterisk/build.h ; then echo ; else \
+		mv include/asterisk/build.h.tmp include/asterisk/build.h ; \
+	fi
+	rm -f include/asterisk/build.h.tmp
+	$(CC) -c -o buildinfo.o $(CFLAGS) buildinfo.c
+	$(CC) $(DEBUG) $(ASTOBJ) $(ASTLINK) $(OBJS) buildinfo.o $(LIBEDIT) db1-ast/libdb1.a stdtime/libtime.a $(LIBS)
 
 muted: muted.o
 	$(CC) $(AUDIO_LIBS) -o muted muted.o
@@ -595,7 +636,9 @@ bininstall: all
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/system
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/tmp
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/meetme
-	$(INSTALL) -m 755 asterisk $(DESTDIR)$(ASTSBINDIR)/
+	if [ -f asterisk ]; then $(INSTALL) -m 755 asterisk $(DESTDIR)$(ASTSBINDIR)/; fi
+	if [ -f cygwin/asterisk.exe ]; then $(INSTALL) -m 755 cygwin/asterisk.exe $(DESTDIR)$(ASTSBINDIR)/; fi
+	if [ -f asterisk.dll ]; then $(INSTALL) -m 755 asterisk.dll $(DESTDIR)$(ASTSBINDIR)/; fi
 	ln -sf asterisk $(DESTDIR)$(ASTSBINDIR)/rasterisk
 	$(INSTALL) -m 755 contrib/scripts/astgenkey $(DESTDIR)$(ASTSBINDIR)/
 	$(INSTALL) -m 755 contrib/scripts/autosupport $(DESTDIR)$(ASTSBINDIR)/	
@@ -706,22 +749,24 @@ samples: adsi
 		fi ; \
 		$(INSTALL) -m 644 $$x $(DESTDIR)$(ASTETCDIR)/`basename $$x .sample` ;\
 	done
-	if [ "$(OVERWRITE)" = "y" ] || [ ! -f $(DESTDIR)$(ASTETCDIR)/asterisk.conf ]; then \
-		echo "[directories]" > $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "astetcdir => $(ASTETCDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "astmoddir => $(MODULES_DIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "astvarlibdir => $(ASTVARLIBDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "astagidir => $(AGI_DIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "astspooldir => $(ASTSPOOLDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "astrundir => $(ASTVARRUNDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "astlogdir => $(ASTLOGDIR)" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo "; Changing the following lines may compromise your security." >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo ";[files]" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo ";astctlpermissions = 0660" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo ";astctlowner = root" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo ";astctlgroup = apache" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
-		echo ";astctl = asterisk.ctl" >> $(DESTDIR)$(ASTETCDIR)/asterisk.conf ; \
+	if [ "$(OVERWRITE)" = "y" ] || [ ! -f $(DESTDIR)$(ASTCONFPATH) ]; then \
+		( \
+		echo "[directories]" ; \
+		echo "astetcdir => $(ASTETCDIR)" ; \
+		echo "astmoddir => $(MODULES_DIR)" ; \
+		echo "astvarlibdir => $(ASTVARLIBDIR)" ; \
+		echo "astagidir => $(AGI_DIR)" ; \
+		echo "astspooldir => $(ASTSPOOLDIR)" ; \
+		echo "astrundir => $(ASTVARRUNDIR)" ; \
+		echo "astlogdir => $(ASTLOGDIR)" ; \
+		echo "" ; \
+		echo "; Changing the following lines may compromise your security." ; \
+		echo ";[files]" ; \
+		echo ";astctlpermissions = 0660" ; \
+		echo ";astctlowner = root" ; \
+		echo ";astctlgroup = apache" ; \
+		echo ";astctl = asterisk.ctl" ; \
+		) > $(DESTDIR)$(ASTCONFPATH) ; \
 	else \
 		echo "Skipping asterisk.conf creation"; \
 	fi
@@ -790,7 +835,8 @@ __rpm: include/asterisk/version.h spec
 	rpmbuild --rcfile /usr/lib/rpm/rpmrc:redhat/rpmrc -bb asterisk.spec
 
 progdocs:
-	doxygen contrib/asterisk-ng-doxygen
+	(cat contrib/asterisk-ng-doxygen; echo "HAVE_DOT=$(HAVEDOT) \
+	PROJECT_NUMBER=$(ASTERISKVERSION)  -  $(ASTERISKVERSIONNUM)") | doxygen - 
 
 mpg123:
 	@wget -V >/dev/null || (echo "You need wget" ; false )
@@ -806,23 +852,22 @@ config:
 		$(INSTALL) -m 755 init.asterisk /etc/init.d/asterisk; \
 	fi 
 
-dont-optimize:
-	$(MAKE) OPTIMIZE= K6OPT= install
+dont-optimize: install
 
 valgrind: dont-optimize
 
-depend: include/asterisk/build.h include/asterisk/version.h .depend defaults.h 
+depend: include/asterisk/version.h .depend defaults.h 
 	for x in $(SUBDIRS); do $(MAKE) -C $$x depend || exit 1 ; done
 
 .depend: include/asterisk/version.h
-	build_tools/mkdep ${CFLAGS} $(wildcard *.c)
+	build_tools/mkdep $(CFLAGS) $(wildcard *.c)
 
 .tags-depend:
 	@echo -n ".tags-depend: " > $@
 	@find . -maxdepth 1 -name \*.c -printf "\t%p \\\\\n" >> $@
 	@find . -maxdepth 1 -name \*.h -printf "\t%p \\\\\n" >> $@
-	@find ${SUBDIRS} -name \*.c -printf "\t%p \\\\\n" >> $@
-	@find ${SUBDIRS} -name \*.h -printf "\t%p \\\\\n" >> $@
+	@find $(SUBDIRS) -name \*.c -printf "\t%p \\\\\n" >> $@
+	@find $(SUBDIRS) -name \*.h -printf "\t%p \\\\\n" >> $@
 	@find include -name \*.h -printf "\t%p \\\\\n" >> $@
 	@echo >> $@
 
@@ -830,8 +875,8 @@ depend: include/asterisk/build.h include/asterisk/version.h .depend defaults.h
 	@rm -f $@
 	@find . -maxdepth 1 -name \*.c -print >> $@
 	@find . -maxdepth 1 -name \*.h -print >> $@
-	@find ${SUBDIRS} -name \*.c -print >> $@
-	@find ${SUBDIRS} -name \*.h -print >> $@
+	@find $(SUBDIRS) -name \*.c -print >> $@
+	@find $(SUBDIRS) -name \*.h -print >> $@
 	@find include -name \*.h -print >> $@
 
 tags: .tags-depend .tags-sources

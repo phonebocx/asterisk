@@ -20,6 +20,17 @@
  *
  * \brief Zaptel Pseudo TDM interface 
  * 
+ * Connects to the zaptel telephony library as well as 
+ * libpri. Libpri is optional and needed only if you are
+ * going to use ISDN connections.
+ *
+ * You need to install libraries before you attempt to compile
+ * and install the zaptel channel.
+ *
+ * \par See also
+ * \arg \ref Config_zap
+ *
+ * \ingroup channel_drivers
  */
 
 #include <stdio.h>
@@ -57,7 +68,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.536 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.543 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -96,8 +107,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.536 $")
 #define ZT_EVENT_DTMFUP 0
 #endif
 
-/*
- * Define ZHONE_HACK to cause us to go off hook and then back on hook when
+/*! 
+ * \note Define ZHONE_HACK to cause us to go off hook and then back on hook when
  * the user hangs up to reset the state machine so ring works properly.
  * This is used to be able to support kewlstart by putting the zhone in
  * groundstart mode since their forward disconnect supervision is entirely
@@ -105,24 +116,23 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.536 $")
  * is entirely unwilling to provide any assistance with their channel banks
  * even though their web site says they support their products for life.
  */
-
 /* #define ZHONE_HACK */
 
-/*
+/*! \note
  * Define if you want to check the hook state for an FXO (FXS signalled) interface
  * before dialing on it.  Certain FXO interfaces always think they're out of
  * service with this method however.
  */
 /* #define ZAP_CHECK_HOOKSTATE */
 
-/* Typically, how many rings before we should send Caller*ID */
+/*! \brief Typically, how many rings before we should send Caller*ID */
 #define DEFAULT_CIDRINGS 1
 
 #define CHANNEL_PSEUDO -12
 
 #define AST_LAW(p) (((p)->law == ZT_LAW_ALAW) ? AST_FORMAT_ALAW : AST_FORMAT_ULAW)
 
-/* Signaling types that need to use MF detection should be placed in this macro */
+/*! \brief Signaling types that need to use MF detection should be placed in this macro */
 #define NEED_MFDETECT(p) (((p)->sig == SIG_FEATDMF) || ((p)->sig == SIG_FEATDMF_TA) || ((p)->sig == SIG_E911) || ((p)->sig == SIG_FEATB)) 
 
 static const char desc[] = "Zapata Telephony"
@@ -171,8 +181,8 @@ static const char config[] = "zapata.conf";
 #define SIG_GR303FXSKS	(0x0100000 | ZT_SIG_FXSKS)
 
 #define NUM_SPANS 		32
-#define NUM_DCHANS		4		/* No more than 4 d-channels */
-#define MAX_CHANNELS	672		/* No more than a DS3 per trunk group */
+#define NUM_DCHANS		4	/*!< No more than 4 d-channels */
+#define MAX_CHANNELS	672		/*!< No more than a DS3 per trunk group */
 
 #define CHAN_PSEUDO	-2
 
@@ -287,7 +297,7 @@ static char nationalprefix[10] = "";
 static char localprefix[20] = "";
 static char privateprefix[20] = "";
 static char unknownprefix[20] = "";
-static long resetinterval = 3600;			/* How often (in seconds) to reset unused channels. Default 1 hour. */
+static long resetinterval = 3600;	/*!< How often (in seconds) to reset unused channels. Default 1 hour. */
 static struct ast_channel inuse = { "GR-303InUse" };
 #ifdef PRI_GETSET_TIMERS
 static int pritimers[PRI_MAX_TIMERS];
@@ -296,19 +306,19 @@ static int pridebugfd = -1;
 static char pridebugfilename[1024]="";
 #endif
 
-/* Wait up to 16 seconds for first digit (FXO logic) */
+/*! \brief Wait up to 16 seconds for first digit (FXO logic) */
 static int firstdigittimeout = 16000;
 
-/* How long to wait for following digits (FXO logic) */
+/*! \brief How long to wait for following digits (FXO logic) */
 static int gendigittimeout = 8000;
 
-/* How long to wait for an extra digit, if there is an ambiguous match */
+/*! \brief How long to wait for an extra digit, if there is an ambiguous match */
 static int matchdigittimeout = 3000;
 
 static int usecnt =0;
 AST_MUTEX_DEFINE_STATIC(usecnt_lock);
 
-/* Protect the interface list (of zt_pvt's) */
+/*! \brief Protect the interface list (of zt_pvt's) */
 AST_MUTEX_DEFINE_STATIC(iflock);
 
 
@@ -318,23 +328,23 @@ static int ifcount = 0;
 AST_MUTEX_DEFINE_STATIC(pridebugfdlock);
 #endif
 
-/* Whether we answer on a Polarity Switch event */
+/*! \brief Whether we answer on a Polarity Switch event */
 static int answeronpolarityswitch = 0;
 
-/* Whether we hang up on a Polarity Switch event */
+/*! \brief Whether we hang up on a Polarity Switch event */
 static int hanguponpolarityswitch = 0;
 
-/* How long (ms) to ignore Polarity Switch events after we answer a call */
+/*! \brief How long (ms) to ignore Polarity Switch events after we answer a call */
 static int polarityonanswerdelay = 600;
 
-/* When to send the CallerID signals (rings) */
+/*! \brief When to send the CallerID signals (rings) */
 static int sendcalleridafter = DEFAULT_CIDRINGS;
 
-/* Protect the monitoring thread, so only one process can kill or start it, and not
+/*! \brief Protect the monitoring thread, so only one process can kill or start it, and not
    when it's doing something critical. */
 AST_MUTEX_DEFINE_STATIC(monlock);
 
-/* This is the thread for the monitor which checks for input on the channels
+/*! \brief This is the thread for the monitor which checks for input on the channels
    which are not currently in use.  */
 static pthread_t monitor_thread = AST_PTHREADT_NULL;
 
@@ -344,17 +354,17 @@ static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_chann
 
 static int zt_sendtext(struct ast_channel *c, const char *text);
 
+/*! \brief Avoid the silly zt_getevent which ignores a bunch of events */
 static inline int zt_get_event(int fd)
 {
-	/* Avoid the silly zt_getevent which ignores a bunch of events */
 	int j;
 	if (ioctl(fd, ZT_GETEVENT, &j) == -1) return -1;
 	return j;
 }
 
+/*! \brief Avoid the silly zt_waitevent which ignores a bunch of events */
 static inline int zt_wait_event(int fd)
 {
-	/* Avoid the silly zt_waitevent which ignores a bunch of events */
 	int i,j=0;
 	i = ZT_IOMUX_SIGEVENT;
 	if (ioctl(fd, ZT_IOMUX, &i) == -1) return -1;
@@ -362,16 +372,16 @@ static inline int zt_wait_event(int fd)
 	return j;
 }
 
-/* Chunk size to read -- we use 20ms chunks to make things happy.  */   
+/*! Chunk size to read -- we use 20ms chunks to make things happy.  */   
 #define READ_SIZE 160
 
-#define MASK_AVAIL		(1 << 0)		/* Channel available for PRI use */
-#define MASK_INUSE		(1 << 1)		/* Channel currently in use */
+#define MASK_AVAIL		(1 << 0)	/*!< Channel available for PRI use */
+#define MASK_INUSE		(1 << 1)	/*!< Channel currently in use */
 
-#define CALLWAITING_SILENT_SAMPLES	( (300 * 8) / READ_SIZE) /* 300 ms */
-#define CALLWAITING_REPEAT_SAMPLES	( (10000 * 8) / READ_SIZE) /* 300 ms */
-#define CIDCW_EXPIRE_SAMPLES		( (500 * 8) / READ_SIZE) /* 500 ms */
-#define MIN_MS_SINCE_FLASH			( (2000) )	/* 2000 ms */
+#define CALLWAITING_SILENT_SAMPLES	( (300 * 8) / READ_SIZE) /*!< 300 ms */
+#define CALLWAITING_REPEAT_SAMPLES	( (10000 * 8) / READ_SIZE) /*!< 300 ms */
+#define CIDCW_EXPIRE_SAMPLES		( (500 * 8) / READ_SIZE) /*!< 500 ms */
+#define MIN_MS_SINCE_FLASH			( (2000) )	/*!< 2000 ms */
 #define DEFAULT_RINGT 				( (8000 * 8) / READ_SIZE)
 
 struct zt_pvt;
@@ -391,44 +401,44 @@ static int ringt_base = DEFAULT_RINGT;
 #define PRI_EXPLICIT(p) (((p) >> 16) & 0x01)
 
 struct zt_pri {
-	pthread_t master;						/* Thread of master */
-	ast_mutex_t lock;						/* Mutex */
-	char idleext[AST_MAX_EXTENSION];				/* Where to idle extra calls */
-	char idlecontext[AST_MAX_CONTEXT];				/* What context to use for idle */
-	char idledial[AST_MAX_EXTENSION];				/* What to dial before dumping */
-	int minunused;							/* Min # of channels to keep empty */
-	int minidle;							/* Min # of "idling" calls to keep active */
-	int nodetype;							/* Node type */
-	int switchtype;							/* Type of switch to emulate */
-	int nsf;							/* Network-Specific Facilities */
-	int dialplan;							/* Dialing plan */
-	int localdialplan;						/* Local dialing plan */
-	char internationalprefix[10];					/* country access code ('00' for european dialplans) */
-	char nationalprefix[10];					/* area access code ('0' for european dialplans) */
-	char localprefix[20];						/* area access code + area code ('0'+area code for european dialplans) */
-	char privateprefix[20];						/* for private dialplans */
-	char unknownprefix[20];						/* for unknown dialplans */
-	int dchannels[NUM_DCHANS];					/* What channel are the dchannels on */
-	int trunkgroup;							/* What our trunkgroup is */
-	int mastertrunkgroup;						/* What trunk group is our master */
-	int prilogicalspan;						/* Logical span number within trunk group */
-	int numchans;							/* Num of channels we represent */
-	int overlapdial;						/* In overlap dialing mode */
-	int facilityenable;						/* Enable facility IEs */
-	struct pri *dchans[NUM_DCHANS];					/* Actual d-channels */
-	int dchanavail[NUM_DCHANS];					/* Whether each channel is available */
-	struct pri *pri;						/* Currently active D-channel */
+	pthread_t master;						/*!< Thread of master */
+	ast_mutex_t lock;						/*!< Mutex */
+	char idleext[AST_MAX_EXTENSION];				/*!< Where to idle extra calls */
+	char idlecontext[AST_MAX_CONTEXT];				/*!< What context to use for idle */
+	char idledial[AST_MAX_EXTENSION];				/*!< What to dial before dumping */
+	int minunused;							/*!< Min # of channels to keep empty */
+	int minidle;							/*!< Min # of "idling" calls to keep active */
+	int nodetype;							/*!< Node type */
+	int switchtype;							/*!< Type of switch to emulate */
+	int nsf;							/*!< Network-Specific Facilities */
+	int dialplan;							/*!< Dialing plan */
+	int localdialplan;						/*!< Local dialing plan */
+	char internationalprefix[10];					/*!< country access code ('00' for european dialplans) */
+	char nationalprefix[10];					/*!< area access code ('0' for european dialplans) */
+	char localprefix[20];						/*!< area access code + area code ('0'+area code for european dialplans) */
+	char privateprefix[20];						/*!< for private dialplans */
+	char unknownprefix[20];						/*!< for unknown dialplans */
+	int dchannels[NUM_DCHANS];					/*!< What channel are the dchannels on */
+	int trunkgroup;							/*!< What our trunkgroup is */
+	int mastertrunkgroup;						/*!< What trunk group is our master */
+	int prilogicalspan;						/*!< Logical span number within trunk group */
+	int numchans;							/*!< Num of channels we represent */
+	int overlapdial;						/*!< In overlap dialing mode */
+	int facilityenable;						/*!< Enable facility IEs */
+	struct pri *dchans[NUM_DCHANS];					/*!< Actual d-channels */
+	int dchanavail[NUM_DCHANS];					/*!< Whether each channel is available */
+	struct pri *pri;						/*!< Currently active D-channel */
 	int debug;
-	int fds[NUM_DCHANS];						/* FD's for d-channels */
+	int fds[NUM_DCHANS];						/*!< FD's for d-channels */
 	int offset;
 	int span;
 	int resetting;
 	int resetpos;
-	time_t lastreset;						/* time when unused channels were last reset */
-	long resetinterval;						/* Interval (in seconds) for resetting unused channels */
-	struct zt_pvt *pvts[MAX_CHANNELS];				/* Member channel pvt structs */
-	struct zt_pvt *crvs;						/* Member CRV structs */
-	struct zt_pvt *crvend;						/* Pointer to end of CRV structs */
+	time_t lastreset;						/*!< time when unused channels were last reset */
+	long resetinterval;						/*!< Interval (in seconds) for resetting unused channels */
+	struct zt_pvt *pvts[MAX_CHANNELS];				/*!< Member channel pvt structs */
+	struct zt_pvt *crvs;						/*!< Member CRV structs */
+	struct zt_pvt *crvend;						/*!< Pointer to end of CRV structs */
 };
 
 
@@ -453,13 +463,13 @@ static int dialplan = PRI_NATIONAL_ISDN + 1;
 static int localdialplan = PRI_NATIONAL_ISDN + 1;
 
 #else
-/* Shut up the compiler */
+/*! Shut up the compiler */
 struct zt_pri;
 #endif
 
-#define SUB_REAL		0			/* Active call */
-#define SUB_CALLWAIT	1			/* Call-Waiting call on hold */
-#define SUB_THREEWAY	2			/* Three-way call */
+#define SUB_REAL	0			/*!< Active call */
+#define SUB_CALLWAIT	1			/*!< Call-Waiting call on hold */
+#define SUB_THREEWAY	2			/*!< Three-way call */
 
 /* Polarity states */
 #define POLARITY_IDLE   0
@@ -490,7 +500,7 @@ struct zt_subchannel {
 	struct ast_channel *owner;
 	int chan;
 	short buffer[AST_FRIENDLY_OFFSET/2 + READ_SIZE];
-	struct ast_frame f;		/* One frame for each channel.  How did this ever work before? */
+	struct ast_frame f;		/*!< One frame for each channel.  How did this ever work before? */
 	unsigned int needringing:1;
 	unsigned int needbusy:1;
 	unsigned int needcongestion:1;
@@ -509,24 +519,24 @@ struct zt_subchannel {
 
 static struct zt_pvt {
 	ast_mutex_t lock;
-	struct ast_channel *owner;			/* Our current active owner (if applicable) */
-							/* Up to three channels can be associated with this call */
+	struct ast_channel *owner;			/*!< Our current active owner (if applicable) */
+							/*!< Up to three channels can be associated with this call */
 		
-	struct zt_subchannel sub_unused;		/* Just a safety precaution */
-	struct zt_subchannel subs[3];			/* Sub-channels */
-	struct zt_confinfo saveconf;			/* Saved conference info */
+	struct zt_subchannel sub_unused;		/*!< Just a safety precaution */
+	struct zt_subchannel subs[3];			/*!< Sub-channels */
+	struct zt_confinfo saveconf;			/*!< Saved conference info */
 
-	struct zt_pvt *slaves[MAX_SLAVES];		/* Slave to us (follows our conferencing) */
-	struct zt_pvt *master;				/* Master to us (we follow their conferencing) */
-	int inconference;				/* If our real should be in the conference */
+	struct zt_pvt *slaves[MAX_SLAVES];		/*!< Slave to us (follows our conferencing) */
+	struct zt_pvt *master;				/*!< Master to us (we follow their conferencing) */
+	int inconference;				/*!< If our real should be in the conference */
 	
-	int sig;					/* Signalling style */
-	int radio;					/* radio type */
+	int sig;					/*!< Signalling style */
+	int radio;					/*!< radio type */
 	float rxgain;
 	float txgain;
-	int tonezone;					/* tone zone for this chan, or -1 for default */
-	struct zt_pvt *next;				/* Next channel in list */
-	struct zt_pvt *prev;				/* Prev channel in list */
+	int tonezone;					/*!< tone zone for this chan, or -1 for default */
+	struct zt_pvt *next;				/*!< Next channel in list */
+	struct zt_pvt *prev;				/*!< Prev channel in list */
 
 	/* flags */
 	unsigned int adsi:1;
@@ -537,9 +547,9 @@ static struct zt_pvt {
 	unsigned int callwaitingcallerid:1;
 	unsigned int cancallforward:1;
 	unsigned int canpark:1;
-	unsigned int confirmanswer:1;			/* Wait for '#' to confirm answer */
+	unsigned int confirmanswer:1;			/*!< Wait for '#' to confirm answer */
 	unsigned int destroy:1;
-	unsigned int didtdd:1;				/* flag to say its done it once */
+	unsigned int didtdd:1;				/*!< flag to say its done it once */
 	unsigned int dialednone:1;
 	unsigned int dialing:1;
 	unsigned int digital:1;
@@ -547,31 +557,31 @@ static struct zt_pvt {
 	unsigned int echobreak:1;
 	unsigned int echocanbridged:1;
 	unsigned int echocanon:1;
-	unsigned int faxhandled:1;			/* Has a fax tone already been handled? */
+	unsigned int faxhandled:1;			/*!< Has a fax tone already been handled? */
 	unsigned int firstradio:1;
 	unsigned int hanguponpolarityswitch:1;
 	unsigned int hardwaredtmf:1;
 	unsigned int hidecallerid;
 	unsigned int ignoredtmf:1;
-	unsigned int immediate:1;			/* Answer before getting digits? */
+	unsigned int immediate:1;			/*!< Answer before getting digits? */
 	unsigned int inalarm:1;
-	unsigned int mate:1;				/* flag to say its in MATE mode */
+	unsigned int mate:1;				/*!< flag to say its in MATE mode */
 	unsigned int outgoing:1;
 	unsigned int overlapdial:1;
 	unsigned int permcallwaiting:1;
-	unsigned int permhidecallerid:1;		/* Whether to hide our outgoing caller ID or not */
+	unsigned int permhidecallerid:1;		/*!< Whether to hide our outgoing caller ID or not */
 	unsigned int priindication_oob:1;
 	unsigned int priexclusive:1;
 	unsigned int pulse:1;
-	unsigned int pulsedial:1;			/* whether a pulse dial phone is detected */
-	unsigned int restrictcid:1;			/* Whether restrict the callerid -> only send ANI */
+	unsigned int pulsedial:1;			/*!< whether a pulse dial phone is detected */
+	unsigned int restrictcid:1;			/*!< Whether restrict the callerid -> only send ANI */
 	unsigned int threewaycalling:1;
 	unsigned int transfer:1;
-	unsigned int use_callerid:1;			/* Whether or not to use caller id on this channel */
-	unsigned int use_callingpres:1;			/* Whether to use the callingpres the calling switch sends */
+	unsigned int use_callerid:1;			/*!< Whether or not to use caller id on this channel */
+	unsigned int use_callingpres:1;			/*!< Whether to use the callingpres the calling switch sends */
 	unsigned int usedistinctiveringdetection:1;
-	unsigned int zaptrcallerid:1;			/* should we use the callerid from incoming call on zap transfer or not */
-	unsigned int transfertobusy:1;			/* allow flash-transfers to busy channels */
+	unsigned int zaptrcallerid:1;			/*!< should we use the callerid from incoming call on zap transfer or not */
+	unsigned int transfertobusy:1;			/*!< allow flash-transfers to busy channels */
 #if defined(ZAPATA_PRI)
 	unsigned int alerting:1;
 	unsigned int alreadyhungup:1;
@@ -598,31 +608,31 @@ static struct zt_pvt {
 	char cid_ani[AST_MAX_EXTENSION];
 #endif
 	char cid_num[AST_MAX_EXTENSION];
-	int cid_ton;					/* Type Of Number (TON) */
+	int cid_ton;					/*!< Type Of Number (TON) */
 	char cid_name[AST_MAX_EXTENSION];
 	char lastcid_num[AST_MAX_EXTENSION];
 	char lastcid_name[AST_MAX_EXTENSION];
-	char *origcid_num;				/* malloced original callerid */
-	char *origcid_name;				/* malloced original callerid */
+	char *origcid_num;				/*!< malloced original callerid */
+	char *origcid_name;				/*!< malloced original callerid */
 	char callwait_num[AST_MAX_EXTENSION];
 	char callwait_name[AST_MAX_EXTENSION];
 	char rdnis[AST_MAX_EXTENSION];
 	char dnid[AST_MAX_EXTENSION];
 	unsigned int group;
 	int law;
-	int confno;					/* Our conference */
-	int confusers;					/* Who is using our conference */
-	int propconfno;					/* Propagated conference number */
+	int confno;					/*!< Our conference */
+	int confusers;					/*!< Who is using our conference */
+	int propconfno;					/*!< Propagated conference number */
 	ast_group_t callgroup;
 	ast_group_t pickupgroup;
-	int channel;					/* Channel Number or CRV */
-	int span;					/* Span number */
-	time_t guardtime;				/* Must wait this much time before using for new call */
-	int cid_signalling;				/* CID signalling type bell202 or v23 */
-	int cid_start;					/* CID start indicator, polarity or ring */
-	int callingpres;				/* The value of callling presentation that we're going to use when placing a PRI call */
-	int callwaitingrepeat;				/* How many samples to wait before repeating call waiting */
-	int cidcwexpire;				/* When to expire our muting for CID/CW */
+	int channel;					/*!< Channel Number or CRV */
+	int span;					/*!< Span number */
+	time_t guardtime;				/*!< Must wait this much time before using for new call */
+	int cid_signalling;				/*!< CID signalling type bell202 or v23 */
+	int cid_start;					/*!< CID start indicator, polarity or ring */
+	int callingpres;				/*!< The value of callling presentation that we're going to use when placing a PRI call */
+	int callwaitingrepeat;				/*!< How many samples to wait before repeating call waiting */
+	int cidcwexpire;				/*!< When to expire our muting for CID/CW */
 	unsigned char *cidspill;
 	int cidpos;
 	int cidlen;
@@ -638,23 +648,23 @@ static struct zt_pvt {
 	int busy_tonelength;
 	int busy_quietlength;
 	int callprogress;
-	struct timeval flashtime;			/* Last flash-hook time */
+	struct timeval flashtime;			/*!< Last flash-hook time */
 	struct ast_dsp *dsp;
-	int cref;					/* Call reference number */
+	int cref;					/*!< Call reference number */
 	ZT_DIAL_OPERATION dop;
-	int whichwink;					/* SIG_FEATDMF_TA Which wink are we on? */
+	int whichwink;					/*!< SIG_FEATDMF_TA Which wink are we on? */
 	char finaldial[64];
-	char accountcode[AST_MAX_ACCOUNT_CODE];		/* Account code */
-	int amaflags;					/* AMA Flags */
-	struct tdd_state *tdd;				/* TDD flag */
+	char accountcode[AST_MAX_ACCOUNT_CODE];		/*!< Account code */
+	int amaflags;					/*!< AMA Flags */
+	struct tdd_state *tdd;				/*!< TDD flag */
 	char call_forward[AST_MAX_EXTENSION];
 	char mailbox[AST_MAX_EXTENSION];
 	char dialdest[256];
 	int onhooktime;
 	int msgstate;
-	int distinctivering;				/* Which distinctivering to use */
-	int cidrings;					/* Which ring to deliver CID on */
-	int dtmfrelax;					/* whether to run in relaxed DTMF mode */
+	int distinctivering;				/*!< Which distinctivering to use */
+	int cidrings;					/*!< Which ring to deliver CID on */
+	int dtmfrelax;					/*!< whether to run in relaxed DTMF mode */
 	int fake_event;
 	int polarityonanswerdelay;
 	struct timeval polaritydelaytv;
@@ -666,13 +676,13 @@ static struct zt_pvt {
 	q931_call *call;
 	int prioffset;
 	int logicalspan;
-	int dsp_features;
 #endif	
 #ifdef ZAPATA_R2
 	int r2prot;
 	mfcr2_t *r2;
 #endif	
 	int polarity;
+	int dsp_features;
 
 } *iflist = NULL, *ifend = NULL;
 
@@ -741,23 +751,23 @@ static int num_cadence = 4;
 static int user_has_defined_cadences = 0;
 
 static struct zt_ring_cadence cadences[NUM_CADENCE_MAX] = {
-	{ { 125, 125, 2000, 4000 } },			/* Quick chirp followed by normal ring */
-	{ { 250, 250, 500, 1000, 250, 250, 500, 4000 } }, /* British style ring */
-	{ { 125, 125, 125, 125, 125, 4000 } },	/* Three short bursts */
-	{ { 1000, 500, 2500, 5000 } },	/* Long ring */
+	{ { 125, 125, 2000, 4000 } },			/*!< Quick chirp followed by normal ring */
+	{ { 250, 250, 500, 1000, 250, 250, 500, 4000 } }, /*!< British style ring */
+	{ { 125, 125, 125, 125, 125, 4000 } },	/*!< Three short bursts */
+	{ { 1000, 500, 2500, 5000 } },	/*!< Long ring */
 };
 
-int receivedRingT; /* Used to find out what ringtone we are on */
+int receivedRingT; /*!< Used to find out what ringtone we are on */
 
-/* cidrings says in which pause to transmit the cid information, where the first pause
+/*! \brief cidrings says in which pause to transmit the cid information, where the first pause
  * is 1, the second pause is 2 and so on.
  */
 
 static int cidrings[NUM_CADENCE_MAX] = {
-	2,										/* Right after first long ring */
-	4,										/* Right after long part */
-	3,										/* After third chirp */
-	2,										/* Second spell */
+	2,										/*!< Right after first long ring */
+	4,										/*!< Right after long part */
+	3,										/*!< After third chirp */
+	2,										/*!< Second spell */
 };
 
 #define ISTRUNK(p) ((p->sig == SIG_FXSLS) || (p->sig == SIG_FXSKS) || \
@@ -2937,7 +2947,10 @@ static void disable_dtmf_detect(struct zt_pvt *p)
 	val = 0;
 	ioctl(p->subs[SUB_REAL].zfd, ZT_TONEDETECT, &val);
 #endif		
-	
+	if (!p->hardwaredtmf && p->dsp) {
+		p->dsp_features &= ~DSP_FEATURE_DTMF_DETECT;
+		ast_dsp_set_features(p->dsp, p->dsp_features);
+	}
 }
 
 static void enable_dtmf_detect(struct zt_pvt *p)
@@ -2952,6 +2965,10 @@ static void enable_dtmf_detect(struct zt_pvt *p)
 	val = ZT_TONEDETECT_ON | ZT_TONEDETECT_MUTE;
 	ioctl(p->subs[SUB_REAL].zfd, ZT_TONEDETECT, &val);
 #endif		
+	if (!p->hardwaredtmf && p->dsp) {
+		p->dsp_features |= DSP_FEATURE_DTMF_DETECT;
+		ast_dsp_set_features(p->dsp, p->dsp_features);
+	}
 }
 
 static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, struct ast_frame **fo, struct ast_channel **rc, int timeoutms)
@@ -3129,10 +3146,10 @@ static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_chann
 		return AST_BRIDGE_FAILED;
 	}
 	
-	if (!(flags & AST_BRIDGE_DTMF_CHANNEL_0))
+	if (!(flags & AST_BRIDGE_DTMF_CHANNEL_0) && (oi0 == SUB_REAL))
 		disable_dtmf_detect(op0);
 
-	if (!(flags & AST_BRIDGE_DTMF_CHANNEL_1))
+	if (!(flags & AST_BRIDGE_DTMF_CHANNEL_1) && (oi1 == SUB_REAL))
 		disable_dtmf_detect(op1);
 
 	for (;;) {
@@ -3165,7 +3182,7 @@ static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_chann
 		    (t0 != p0->subs[SUB_REAL].inthreeway) ||
 		    (t1 != p1->subs[SUB_REAL].inthreeway) ||
 		    (oi0 != i0) ||
-		    (oi1 != i0)) {
+		    (oi1 != i1)) {
 			ast_log(LOG_DEBUG, "Something changed out on %d/%d to %d/%d, returning -3 to restart\n",
 				op0->channel, oi0, op1->channel, oi1);
 			res = AST_BRIDGE_RETRY;
@@ -3198,7 +3215,7 @@ static enum ast_bridge_result zt_bridge(struct ast_channel *c0, struct ast_chann
 		if (f->frametype == AST_FRAME_DTMF) {
 			if ((who == c0) && p0->pulsedial) {
 				ast_write(c1, f);
-			} else if (p1->pulsedial) {
+			} else if ((who == c1) && p1->pulsedial) {
 				ast_write(c0, f);
 			} else {
 				*fo = f;
@@ -3220,10 +3237,10 @@ return_from_bridge:
 	if (op1 == p1)
 		zt_enable_ec(p1);
 
-	if (!(flags & AST_BRIDGE_DTMF_CHANNEL_0))
+	if (!(flags & AST_BRIDGE_DTMF_CHANNEL_0) && (oi0 == SUB_REAL))
 		enable_dtmf_detect(op0);
 
-	if (!(flags & AST_BRIDGE_DTMF_CHANNEL_1))
+	if (!(flags & AST_BRIDGE_DTMF_CHANNEL_1) && (oi1 == SUB_REAL))
 		enable_dtmf_detect(op1);
 
 	zt_unlink(slave, master, 1);
@@ -5016,12 +5033,12 @@ static struct ast_channel *zt_new(struct zt_pvt *i, int state, int startpbx, int
 			} else {
 				i->dsp = ast_dsp_new();
 				if (i->dsp) {
+					i->dsp_features = features & ~DSP_PROGRESS_TALK;
 #ifdef ZAPATA_PRI
 					/* We cannot do progress detection until receives PROGRESS message */
 					if (i->outgoing && (i->sig == SIG_PRI)) {
 						/* Remember requested DSP features, don't treat
 						   talking as ANSWER */
-						i->dsp_features = features & ~DSP_PROGRESS_TALK;
 						features = 0;
 					}
 #endif
@@ -7219,16 +7236,23 @@ static struct zt_pvt *mkintf(int channel, int signalling, int radio, struct zt_p
 	return tmp;
 }
 
-static inline int available(struct zt_pvt *p, int channelmatch, int groupmatch, int *busy)
+static inline int available(struct zt_pvt *p, int channelmatch, int groupmatch, int *busy, int *channelmatched, int *groupmatched)
 {
 	int res;
 	ZT_PARAMS par;
+
 	/* First, check group matching */
-	if ((p->group & groupmatch) != groupmatch)
-		return 0;
+	if (groupmatch) {
+		if ((p->group & groupmatch) != groupmatch)
+			return 0;
+		*groupmatched = 1;
+	}
 	/* Check to see if we have a channel match */
-	if ((channelmatch > 0) && (p->channel != channelmatch))
-		return 0;
+	if (channelmatch != -1) {
+		if (p->channel != channelmatch)
+			return 0;
+		*channelmatched = 1;
+	}
 	/* We're at least busy at this point */
 	if (busy) {
 		if ((p->sig == SIG_FXOKS) || (p->sig == SIG_FXOLS) || (p->sig == SIG_FXOGS))
@@ -7313,7 +7337,7 @@ static inline int available(struct zt_pvt *p, int channelmatch, int groupmatch, 
 	}
 	
 	if ((p->owner->_state != AST_STATE_UP) &&
-		((p->owner->_state != AST_STATE_RINGING) || p->outgoing)) {
+	    ((p->owner->_state != AST_STATE_RINGING) || p->outgoing)) {
 		/* If the current call is not up, then don't allow the call */
 		return 0;
 	}
@@ -7411,6 +7435,8 @@ static struct ast_channel *zt_request(const char *type, int format, void *data, 
 #endif	
 	struct zt_pvt *exit, *start, *end;
 	ast_mutex_t *lock;
+	int channelmatched = 0;
+	int groupmatched = 0;
 	
 	/* Assume we're locking the iflock */
 	lock = &iflock;
@@ -7511,7 +7537,8 @@ static struct ast_channel *zt_request(const char *type, int format, void *data, 
 #if 0
 		ast_verbose("name = %s, %d, %d, %d\n",p->owner ? p->owner->name : "<none>", p->channel, channelmatch, groupmatch);
 #endif
-		if (p && available(p, channelmatch, groupmatch, &busy)) {
+
+		if (p && available(p, channelmatch, groupmatch, &busy, &channelmatched, &groupmatched)) {
 			if (option_debug)
 				ast_log(LOG_DEBUG, "Using channel %d\n", p->channel);
 				if (p->inalarm) 
@@ -7602,8 +7629,17 @@ next:
 	}
 	ast_mutex_unlock(lock);
 	restart_monitor();
-	if (callwait || (!tmp && busy))
+	if (callwait)
 		*cause = AST_CAUSE_BUSY;
+	else if (!tmp) {
+		if (channelmatched) {
+			if (busy)
+				*cause = AST_CAUSE_BUSY;
+		} else if (groupmatched) {
+			*cause = AST_CAUSE_CONGESTION;
+		}
+	}
+		
 	return tmp;
 }
 

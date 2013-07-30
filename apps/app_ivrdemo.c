@@ -20,15 +20,17 @@
  *
  * \brief IVR Demo application
  * 
+ * \ingroup applications
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

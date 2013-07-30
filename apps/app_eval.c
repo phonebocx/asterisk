@@ -19,6 +19,8 @@
  * \brief Eval application
  *
  * \author Tilghman Lesher <app_eval__v001@the-tilghman.com>
+ *
+ * \ingroup applications
  */
 
 #include <stdio.h>
@@ -28,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -49,13 +49,13 @@ static char *function_db_read(struct ast_channel *chan, char *cmd, char *data, c
 	char *family;
 	char *key;
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "DB requires an argument, DB(<family>/<key>)\n");
 		return buf;
 	}
 
 	args = ast_strdupa(data);
-	argc = ast_separate_app_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
+	argc = ast_app_separate_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
 	
 	if (argc > 1) {
 		family = argv[0];
@@ -82,13 +82,13 @@ static void function_db_write(struct ast_channel *chan, char *cmd, char *data, c
 	char *family;
 	char *key;
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "DB requires an argument, DB(<family>/<key>)=<value>\n");
 		return;
 	}
 
 	args = ast_strdupa(data);
-	argc = ast_separate_app_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
+	argc = ast_app_separate_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
 	
 	if (argc > 1) {
 		family = argv[0];
@@ -128,13 +128,13 @@ static char *function_db_exists(struct ast_channel *chan, char *cmd, char *data,
 	char *family;
 	char *key;
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "DB_EXISTS requires an argument, DB(<family>/<key>)\n");
 		return buf;
 	}
 
 	args = ast_strdupa(data);
-	argc = ast_separate_app_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
+	argc = ast_app_separate_args(args, '/', argv, sizeof(argv) / sizeof(argv[0]));
 	
 	if (argc > 1) {
 		family = argv[0];

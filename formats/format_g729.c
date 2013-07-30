@@ -19,7 +19,11 @@
 /*! \file
  *
  * \brief Save to raw, headerless G729 data.
- * 
+ * \note This is not an encoder/decoder. The codec fo g729 is only
+ * available with a commercial license from Digium, due to patent
+ * restrictions. Check http://www.digium.com for information.
+ * \arg Extensions: g729 
+ * \ingroup formats
  */
  
 #include <unistd.h>
@@ -33,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.24 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

@@ -21,6 +21,7 @@
  * See also
  * \arg \ref Config_cdr
  * \arg http://www.freetds.org/
+ * \ingroup cdr_drivers
  */
 
 /*! \verbatim
@@ -68,7 +69,7 @@ CREATE TABLE [dbo].[cdr] (
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"

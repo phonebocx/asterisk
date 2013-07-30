@@ -21,6 +21,7 @@
  *
  * BestData 56SX-92 Voice Modem Driver (Conexant)
  * 
+ * \ingroup channel_drivers
  */
 
 #include <stdio.h>
@@ -32,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/vmodem.h"

@@ -24,6 +24,7 @@
  *
  * \brief Translate between signed linear and LPC10 (Linear Predictor Code)
  *
+ * \ingroup codecs
  */
 
 #include <fcntl.h>
@@ -35,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/translate.h"

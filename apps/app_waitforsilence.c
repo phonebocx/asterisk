@@ -22,20 +22,21 @@
 /*! \file
  *
  * \brief Wait for Silence
- *   - Waits for up to 'x' milliseconds of silence, 'y' times
- *   - WaitForSilence(500,2) will wait for 1/2 second of silence, twice
- *   - WaitForSilence(1000,1) will wait for 1 second of silence, once
+ *   - Waits for up to 'x' milliseconds of silence, 'y' times \n
+ *   - WaitForSilence(500,2) will wait for 1/2 second of silence, twice \n
+ *   - WaitForSilence(1000,1) will wait for 1 second of silence, once \n
  *
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
-#include <pthread.h>
+#include <unistd.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

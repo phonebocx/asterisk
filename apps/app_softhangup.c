@@ -20,16 +20,18 @@
  *
  * \brief SoftHangup application
  * 
+ * \ingroup applications
  */
 
-#include <sys/types.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -43,7 +45,8 @@ static char *synopsis = "Soft Hangup Application";
 static char *tdesc = "Hangs up the requested channel";
 
 static char *desc = "  SoftHangup(Technology/resource|options)\n"
-"Hangs up the requested channel.  Always returns 0\n"
+"Hangs up the requested channel.  If there are no channels to hangup,\n"
+"the application will report it.\n"
 "- 'options' may contain the following letter:\n"
 "     'a' : hang up all channels on a specified device instead of a single resource\n";
 

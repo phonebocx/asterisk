@@ -24,6 +24,7 @@
  * http://www.speex.org
  * \note This work was motivated by Jeremy McNamara 
  * hacked to be configurable by anthm and bkw 9/28/2004
+ * \ingroup codecs
  */
 
 #include <fcntl.h>
@@ -65,7 +66,7 @@ static float pp_dereverb_level = 0.3;
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/translate.h"

@@ -22,15 +22,17 @@
  *
  * \brief Application to dump channel variables
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -50,7 +52,7 @@ static char *desc =
 "Displays information on channel and listing of all channel\n"
 "variables. If min_verbose_level is specified, output is only\n"
 "displayed when the verbose level is currently set to that number\n"
-"or greater. Always returns 0.\n\n";
+"or greater. \n";
 
 STANDARD_LOCAL_USER;
 

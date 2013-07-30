@@ -23,6 +23,7 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -45,7 +46,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.46 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.49 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -1568,7 +1569,7 @@ static int handle_command_response(struct dundi_transaction *trans, struct dundi
 				if (cmd == DUNDI_COMMAND_EIDQUERY) {
 					res = dundi_answer_entity(trans, &ies, ies.called_context);
 				} else {
-					if (!ies.called_number || ast_strlen_zero(ies.called_number)) {
+					if (ast_strlen_zero(ies.called_number)) {
 						/* They're not permitted to access that context */
 						dundi_ie_append_cause(&ied, DUNDI_IE_CAUSE, DUNDI_CAUSE_GENERAL, "Invalid or missing number/entity");
 						dundi_send(trans, resp, 0, 1, &ied);
@@ -3850,6 +3851,9 @@ int dundi_query_eid(struct dundi_entity_info *dei, const char *dcontext, dundi_e
 	return dundi_query_eid_internal(dei, dcontext, &eid, &hmd, dundi_ttl, 0, avoid);
 }
 
+/*! 
+ * \ingroup applications
+ */
 static int dundi_lookup_exec(struct ast_channel *chan, void *data)
 {
 	char *num;
@@ -3869,7 +3873,7 @@ static int dundi_lookup_exec(struct ast_channel *chan, void *data)
 		dep_warning = 1;
 	}
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "DUNDiLookup requires an argument (number)\n");
 		LOCAL_USER_REMOVE(u);
 		return 0;
@@ -3895,7 +3899,7 @@ static int dundi_lookup_exec(struct ast_channel *chan, void *data)
 		}
 	}
 
-	if (!context || ast_strlen_zero(context))
+	if (ast_strlen_zero(context))
 		context = "e164";
 	
 	results = dundi_lookup(dr, MAX_RESULTS, NULL, context, num, bypass);
@@ -3931,7 +3935,7 @@ static char *dundifunc_read(struct ast_channel *chan, char *cmd, char *data, cha
 
 	buf[0] = '\0';
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "DUNDILOOKUP requires an argument (number)\n");
 		LOCAL_USER_REMOVE(u);
 		return buf;
@@ -3957,7 +3961,7 @@ static char *dundifunc_read(struct ast_channel *chan, char *cmd, char *data, cha
 		}
 	}
 
-	if (!context || ast_strlen_zero(context))
+	if (ast_strlen_zero(context))
 		context = "e164";
 	
 	results = dundi_lookup(dr, MAX_RESULTS, NULL, context, num, bypass);
@@ -3975,6 +3979,10 @@ static char *dundifunc_read(struct ast_channel *chan, char *cmd, char *data, cha
 
 	return buf;
 }
+
+/*! DUNDILOOKUP
+ * \ingroup functions
+*/
 
 static struct ast_custom_function dundi_function = {
 	.name = "DUNDILOOKUP",
@@ -4440,19 +4448,19 @@ static int dundi_helper(struct ast_channel *chan, const char *context, const cha
 		/* If done as a macro, use macro extension */
 		if (!strcasecmp(exten, "s")) {
 			exten = pbx_builtin_getvar_helper(chan, "ARG1");
-			if (!exten || ast_strlen_zero(exten))
+			if (ast_strlen_zero(exten))
 				exten = chan->macroexten;
-			if (!exten || ast_strlen_zero(exten))
+			if (ast_strlen_zero(exten))
 				exten = chan->exten;
-			if (!exten || ast_strlen_zero(exten)) {	
+			if (ast_strlen_zero(exten)) {	
 				ast_log(LOG_WARNING, "Called in Macro mode with no ARG1 or MACRO_EXTEN?\n");
 				return -1;
 			}
 		}
-		if (!data || ast_strlen_zero(data))
+		if (ast_strlen_zero(data))
 			data = "e164";
 	} else {
-		if (!data || ast_strlen_zero(data))
+		if (ast_strlen_zero(data))
 			data = context;
 	}
 	res = dundi_lookup(results, MAX_RESULTS, chan, data, exten, 0);
@@ -4491,19 +4499,19 @@ static int dundi_exec(struct ast_channel *chan, const char *context, const char 
 		/* If done as a macro, use macro extension */
 		if (!strcasecmp(exten, "s")) {
 			exten = pbx_builtin_getvar_helper(chan, "ARG1");
-			if (!exten || ast_strlen_zero(exten))
+			if (ast_strlen_zero(exten))
 				exten = chan->macroexten;
-			if (!exten || ast_strlen_zero(exten))
+			if (ast_strlen_zero(exten))
 				exten = chan->exten;
-			if (!exten || ast_strlen_zero(exten)) {	
+			if (ast_strlen_zero(exten)) {	
 				ast_log(LOG_WARNING, "Called in Macro mode with no ARG1 or MACRO_EXTEN?\n");
 				return -1;
 			}
 		}
-		if (!data || ast_strlen_zero(data))
+		if (ast_strlen_zero(data))
 			data = "e164";
 	} else {
-		if (!data || ast_strlen_zero(data))
+		if (ast_strlen_zero(data))
 			data = context;
 	}
 	res = dundi_lookup(results, MAX_RESULTS, chan, data, exten, 0);

@@ -20,15 +20,17 @@
  * \brief MD5 checksum application
  * 
  * \todo Remove this deprecated application in 1.3dev
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -38,20 +40,25 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/lock.h"
+#include "asterisk/app.h"
 
 static char *tdesc_md5 = "MD5 checksum applications";
 static char *app_md5 = "MD5";
 static char *desc_md5 = "Calculate MD5 checksum";
 static char *synopsis_md5 = 
 "  MD5(<var>=<string>): Calculates a MD5 checksum on <string>.\n"
-"Returns hash value in a channel variable. Always return 0\n";
+"Returns hash value in a channel variable. \n";
 
 static char *app_md5check = "MD5Check";
 static char *desc_md5check = "Check MD5 checksum";
 static char *synopsis_md5check = 
-"  MD5Check(<md5hash>,<string>): Calculates a MD5 checksum on <string>\n"
+"  MD5Check(<md5hash>|<string>[|options]): Calculates a MD5 checksum on <string>\n"
 "and compares it with the hash. Returns 0 if <md5hash> is correct for <string>.\n"
-"Jumps to priority+101 if incorrect.\n";
+"The option string may contain zero or more of the following characters:\n"
+"	'j' -- jump to priority n+101 if the hash and string do not match \n"
+"This application sets the following channel variable upon completion:\n"
+"	CHECKMD5STATUS	The status of the MD5 check, one of the following\n"
+"		MATCH | NOMATCH\n";
 
 STANDARD_LOCAL_USER;
 
@@ -100,44 +107,60 @@ static int md5check_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
 	struct localuser *u;
-	char *hash= NULL; /* Hash to compare with */
 	char *string = NULL; /* String to calculate on */
 	char newhash[50]; /* Return value */
 	static int dep_warning = 0;
+	int priority_jump = 0;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(md5hash);
+		AST_APP_ARG(string);
+		AST_APP_ARG(options);
+	);
 
 	if (!dep_warning) {
 		ast_log(LOG_WARNING, "This application has been deprecated, please use the CHECK_MD5 function instead.\n");
 		dep_warning = 1;
 	}
 	
-	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "Syntax: MD5Check(<md5hash>,<string>) - missing argument!\n");
-		return -1;
-	}
-	
 	LOCAL_USER_ADD(u);
-	
-	memset(newhash,0, sizeof(newhash));
 
-	string = ast_strdupa(data);
-	hash = strsep(&string,"|");
-	if (ast_strlen_zero(hash)) {
-		ast_log(LOG_WARNING, "Syntax: MD5Check(<md5hash>,<string>) - missing argument!\n");
+	if (!(string = ast_strdupa(data))) {
+		ast_log(LOG_WARNING, "Memory Error!\n");
 		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
-	ast_md5_hash(newhash, string);
-	if (!strcmp(newhash, hash)) {	/* Verification ok */
+
+	AST_STANDARD_APP_ARGS(args, string);
+
+	if (args.options) {
+		if (strchr(args.options, 'j'))
+			priority_jump = 1;
+	}
+
+	if (ast_strlen_zero(args.md5hash) || ast_strlen_zero(args.string)) {
+		ast_log(LOG_WARNING, "Syntax: MD5Check(<md5hash>|<string>[|options]) - missing argument!\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
+
+	memset(newhash,0, sizeof(newhash));
+
+	ast_md5_hash(newhash, args.string);
+	if (!strcmp(newhash, args.md5hash)) {	/* Verification ok */
 		if (option_debug > 2)
-			ast_log(LOG_DEBUG, "MD5 verified ok: %s -- %s\n", hash, string);
+			ast_log(LOG_DEBUG, "MD5 verified ok: %s -- %s\n", args.md5hash, args.string);
+		pbx_builtin_setvar_helper(chan, "CHECKMD5STATUS", "MATCH");
 		LOCAL_USER_REMOVE(u);
 		return 0;
 	}
 	if (option_debug > 2)
-		ast_log(LOG_DEBUG, "ERROR: MD5 not verified: %s -- %s\n", hash, string);
-	if (!ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101))
-		if (option_debug > 2)
-			ast_log(LOG_DEBUG, "ERROR: Can't jump to exten+101 (e%s,p%d), sorry\n", chan->exten,chan->priority+101);
+		ast_log(LOG_DEBUG, "ERROR: MD5 not verified: %s -- %s\n", args.md5hash, args.string);
+	pbx_builtin_setvar_helper(chan, "CHECKMD5STATUS", "NOMATCH");		
+	if (priority_jump || option_priority_jumping) {
+		if (!ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101))
+			if (option_debug > 2)
+				ast_log(LOG_DEBUG, "ERROR: Can't jump to exten+101 (e%s,p%d), sorry\n", chan->exten,chan->priority+101);
+	}
 	LOCAL_USER_REMOVE(u);
 	return res;
 }

@@ -22,7 +22,12 @@
  * 
  * Includes code and algorithms from the Zapata library.
  *
+ * \note We do a lot of checking here in the CDR code to try to be sure we don't ever let a CDR slip
+ * through our fingers somehow.  If someone allocates a CDR, it must be completely handled normally
+ * or a WARNING shall be logged, so that we can best keep track of any escape condition where the CDR
+ * isn't properly generated and posted.
  */
+
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -32,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.57 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.59 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -48,6 +53,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.57 $")
 #include "asterisk/cli.h"
 #include "asterisk/module.h"
 
+/*! Default AMA flag for billing records (CDR's) */
 int ast_default_amaflags = AST_CDR_DOCUMENTATION;
 char ast_default_accountcode[AST_MAX_ACCOUNT_CODE] = "";
 
@@ -93,13 +99,10 @@ AST_MUTEX_DEFINE_STATIC(cdr_batch_lock);
 AST_MUTEX_DEFINE_STATIC(cdr_pending_lock);
 static ast_cond_t cdr_pending_cond;
 
-/*
- * We do a lot of checking here in the CDR code to try to be sure we don't ever let a CDR slip
- * through our fingers somehow.  If someone allocates a CDR, it must be completely handled normally
- * or a WARNING shall be logged, so that we can best keep track of any escape condition where the CDR
- * isn't properly generated and posted.
- */
 
+/*! Register a CDR driver. Each registered CDR driver generates a CDR 
+	\return 0 on success, -1 on failure 
+*/
 int ast_cdr_register(char *name, char *desc, ast_cdrbe be)
 {
 	struct ast_cdr_beitem *i;
@@ -139,6 +142,7 @@ int ast_cdr_register(char *name, char *desc, ast_cdrbe be)
 	return 0;
 }
 
+/*! unregister a CDR driver */
 void ast_cdr_unregister(char *name)
 {
 	struct ast_cdr_beitem *i = NULL;
@@ -157,6 +161,9 @@ void ast_cdr_unregister(char *name)
 	AST_LIST_UNLOCK(&be_list);
 }
 
+/*! Duplicate a CDR record 
+	\returns Pointer to new CDR record
+*/
 struct ast_cdr *ast_cdr_dup(struct ast_cdr *cdr) 
 {
 	struct ast_cdr *newcdr;
@@ -197,6 +204,7 @@ static const char *ast_cdr_getvar_internal(struct ast_cdr *cdr, const char *name
 	return NULL;
 }
 
+/*! CDR channel variable retrieval */
 void ast_cdr_getvar(struct ast_cdr *cdr, const char *name, char **ret, char *workspace, int workspacelen, int recur) 
 {
 	struct tm tm;
@@ -263,6 +271,9 @@ void ast_cdr_getvar(struct ast_cdr *cdr, const char *name, char **ret, char *wor
 		*ret = workspace;
 }
 
+/*! Set a CDR channel variable 
+	\note You can't set the CDR variables that belong to the actual CDR record, like "billsec".
+*/
 int ast_cdr_setvar(struct ast_cdr *cdr, const char *name, const char *value, int recur) 
 {
 	struct ast_var_t *newvariable;
@@ -670,6 +681,7 @@ char *ast_cdr_disp2str(int disposition)
 	return "UNKNOWN";
 }
 
+/*! Converts AMA flag to printable string */
 char *ast_cdr_flags2str(int flag)
 {
 	switch(flag) {
@@ -809,16 +821,18 @@ static void post_cdr(struct ast_cdr *cdr)
 	}
 }
 
-void ast_cdr_reset(struct ast_cdr *cdr, int flags)
+void ast_cdr_reset(struct ast_cdr *cdr, struct ast_flags *_flags)
 {
-	struct ast_flags tmp = {flags};
 	struct ast_cdr *dup;
+	struct ast_flags flags = { 0 };
 
+	if (_flags)
+		ast_copy_flags(&flags, _flags, AST_FLAGS_ALL);
 
 	while (cdr) {
 		/* Detach if post is requested */
-		if (ast_test_flag(&tmp, AST_CDR_FLAG_LOCKED) || !ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
-			if (ast_test_flag(&tmp, AST_CDR_FLAG_POSTED)) {
+		if (ast_test_flag(&flags, AST_CDR_FLAG_LOCKED) || !ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
+			if (ast_test_flag(&flags, AST_CDR_FLAG_POSTED)) {
 				ast_cdr_end(cdr);
 				if ((dup = ast_cdr_dup(cdr))) {
 					ast_cdr_detach(dup);
@@ -827,7 +841,7 @@ void ast_cdr_reset(struct ast_cdr *cdr, int flags)
 			}
 
 			/* clear variables */
-			if (!ast_test_flag(&tmp, AST_CDR_FLAG_KEEP_VARS)) {
+			if (!ast_test_flag(&flags, AST_CDR_FLAG_KEEP_VARS)) {
 				ast_cdr_free_vars(cdr, 0);
 			}
 
@@ -863,7 +877,7 @@ struct ast_cdr *ast_cdr_append(struct ast_cdr *cdr, struct ast_cdr *newcdr)
 	return ret;
 }
 
-/* Don't call without cdr_batch_lock */
+/*! \note Don't call without cdr_batch_lock */
 static void reset_batch(void)
 {
 	batch->size = 0;
@@ -871,7 +885,7 @@ static void reset_batch(void)
 	batch->tail = NULL;
 }
 
-/* Don't call without cdr_batch_lock */
+/*! \note Don't call without cdr_batch_lock */
 static int init_batch(void)
 {
 	/* This is the single meta-batch used to keep track of all CDRs during the entire life of the program */
@@ -1239,7 +1253,7 @@ int ast_cdr_engine_init(void)
 	return res;
 }
 
-/* This actually gets called a couple of times at shutdown.  Once, before we start
+/* \note This actually gets called a couple of times at shutdown.  Once, before we start
    hanging up channels, and then again, after the channel hangup timeout expires */
 void ast_cdr_engine_term(void)
 {

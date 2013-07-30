@@ -20,7 +20,7 @@
 /*
  *
  * Radio Repeater / Remote Base program 
- *  version 0.36 10/26/05
+ *  version 0.37 11/3/05
  * 
  * See http://www.zapatatelephony.org/app_rpt.html
  *
@@ -157,7 +157,7 @@ enum {HF_SCAN_OFF,HF_SCAN_DOWN_SLOW,HF_SCAN_DOWN_QUICK,HF_SCAN_DOWN_FAST,HF_SCAN
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.46 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.48 $")
 
 #include <signal.h>
 #include <stdio.h>
@@ -197,7 +197,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.46 $")
 #include "asterisk/say.h"
 #include "asterisk/localtime.h"
 
-static  char *tdesc = "Radio Repeater / Remote Base  version 0.36  10/26/2005";
+static  char *tdesc = "Radio Repeater / Remote Base  version 0.37  11/03/2005";
 
 static char *app = "Rpt";
 
@@ -4614,7 +4614,7 @@ char cmd[MAXDTMF+1] = "";
 			ast_set_write_format(myrpt->txchannel,AST_FORMAT_SLINEAR);
 			myrpt->txchannel->whentohangup = 0;
 			myrpt->txchannel->appl = "Apprpt";
-			myrpt->txchannel->data = "(Repeater Rx)";
+			myrpt->txchannel->data = "(Repeater Tx)";
 			if (option_verbose > 2)
 				ast_verbose(VERBOSE_PREFIX_3 "rpt (Tx) initiating call to %s/%s on %s\n",
 					tmpstr,tele,myrpt->txchannel->name);
@@ -5758,6 +5758,7 @@ pthread_attr_t attr;
 		if (!rpt_vars[i].rxchanname)
 		{
 			ast_log(LOG_WARNING,"Did not specify rxchanname for node %s\n",rpt_vars[i].name);
+			ast_config_destroy(cfg);
 			pthread_exit(NULL);
 		}
 		/* if is a remote, dont start one for it */
@@ -5775,6 +5776,7 @@ pthread_attr_t attr;
 		if (!rpt_vars[i].ident)
 		{
 			ast_log(LOG_WARNING,"Did not specify ident for node %s\n",rpt_vars[i].name);
+			ast_config_destroy(cfg);
 			pthread_exit(NULL);
 		}
 	        pthread_attr_init(&attr);
@@ -5821,6 +5823,7 @@ pthread_attr_t attr;
 		}
 		usleep(2000000);
 	}
+	ast_config_destroy(cfg);
 	pthread_exit(NULL);
 }
 
@@ -6022,7 +6025,7 @@ static int rpt_exec(struct ast_channel *chan, void *data)
 			return -1;
 		}
 
-		if (*b1 <= '1')
+		if (*b1 < '1')
 		{
 			ast_log(LOG_WARNING, "Node %s Invalid for connection here!!\n",b1);
 			return -1;

@@ -21,12 +21,13 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
 
 #ifndef BUILTIN_FUNC
 #include "asterisk/module.h"

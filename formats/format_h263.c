@@ -19,7 +19,8 @@
 /*! \file
  *
  * \brief Save to raw, headerless h263 data.
- * 
+ * \arg File name extension: h263
+ * \ingroup formats
  */
  
 #include <unistd.h>
@@ -33,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

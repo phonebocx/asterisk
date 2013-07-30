@@ -45,13 +45,14 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.254 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.260 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/frame.h"
 #include "asterisk/sched.h"
 #include "asterisk/options.h"
 #include "asterisk/channel.h"
+#include "asterisk/chanspy.h"
 #include "asterisk/musiconhold.h"
 #include "asterisk/logger.h"
 #include "asterisk/say.h"
@@ -666,7 +667,11 @@ int ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin)
 int ast_queue_hangup(struct ast_channel *chan)
 {
 	struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_HANGUP };
-	chan->_softhangup |= AST_SOFTHANGUP_DEV;
+	/* Yeah, let's not change a lock-critical value without locking */
+	if (!ast_mutex_trylock(&chan->lock)) {
+		chan->_softhangup |= AST_SOFTHANGUP_DEV;
+		ast_mutex_unlock(&chan->lock);
+	}
 	return ast_queue_frame(chan, &f);
 }
 
@@ -2355,8 +2360,12 @@ struct ast_channel *__ast_request_and_dial(const char *type, int format, void *d
 	chan = ast_request(type, format, data, &cause);
 	if (chan) {
 		if (oh) {
-			ast_set_variables(chan, oh->vars);
-			ast_set_callerid(chan, oh->cid_num, oh->cid_name, oh->cid_num);
+			if (oh->vars)	
+				ast_set_variables(chan, oh->vars);
+			if (oh->cid_num && *oh->cid_num && oh->cid_name && *oh->cid_name)
+				ast_set_callerid(chan, oh->cid_num, oh->cid_name, oh->cid_num);
+			if (oh->parent_channel)
+				ast_channel_inherit_variables(oh->parent_channel, chan);
 		}
 		ast_set_callerid(chan, cid_num, cid_name, cid_num);
 
@@ -3456,14 +3465,10 @@ enum ast_bridge_result ast_channel_bridge(struct ast_channel *c0, struct ast_cha
 			} else {
 				ast_clear_flag(c0, AST_FLAG_NBRIDGE);
 				ast_clear_flag(c1, AST_FLAG_NBRIDGE);
-				ast_verbose(VERBOSE_PREFIX_3 "Native bridge of %s and %s was unsuccessful\n", c0->name, c1->name);
 			}
-			if (res == AST_BRIDGE_RETRY)
-				continue;
 			switch (res) {
 			case AST_BRIDGE_RETRY:
-/*				continue; */
-				break;
+				continue;
 			default:
 				ast_log(LOG_WARNING, "Private bridge between %s and %s failed\n", c0->name, c1->name);
 				/* fallthrough */
@@ -3920,4 +3925,101 @@ struct ast_frame *ast_channel_spy_read_frame(struct ast_channel_spy *spy, unsign
 	}
 
 	return result;
+}
+
+static void *silence_generator_alloc(struct ast_channel *chan, void *data)
+{
+	/* just store the data pointer in the channel structure */
+	return data;
+}
+
+static void silence_generator_release(struct ast_channel *chan, void *data)
+{
+	/* nothing to do */
+}
+
+static int silence_generator_generate(struct ast_channel *chan, void *data, int len, int samples) 
+{
+	if (samples == 160) {
+		short buf[160] = { 0, };
+		struct ast_frame frame = {
+			.frametype = AST_FRAME_VOICE,
+			.subclass = AST_FORMAT_SLINEAR,
+			.data = buf,
+			.samples = 160,
+			.datalen = sizeof(buf),
+		};
+
+		if (ast_write(chan, &frame))
+			return -1;
+	} else {
+		short buf[samples];
+		int x;
+		struct ast_frame frame = {
+			.frametype = AST_FRAME_VOICE,
+			.subclass = AST_FORMAT_SLINEAR,
+			.data = buf,
+			.samples = samples,
+			.datalen = sizeof(buf),
+		};
+
+		for (x = 0; x < samples; x++)
+			buf[x] = 0;
+
+		if (ast_write(chan, &frame))
+			return -1;
+	}
+
+	return 0;
+}
+
+static struct ast_generator silence_generator = {
+	.alloc = silence_generator_alloc,
+	.release = silence_generator_release,
+	.generate = silence_generator_generate, 
+};
+
+struct ast_silence_generator {
+	int old_write_format;
+};
+
+struct ast_silence_generator *ast_channel_start_silence_generator(struct ast_channel *chan)
+{
+	struct ast_silence_generator *state;
+
+	if (!(state = calloc(1, sizeof(*state)))) {
+		ast_log(LOG_WARNING, "Could not allocate state structure\n");
+		return NULL;
+	}
+
+	state->old_write_format = chan->writeformat;
+
+	if (ast_set_write_format(chan, AST_FORMAT_SLINEAR) < 0) {
+		ast_log(LOG_ERROR, "Could not set write format to SLINEAR\n");
+		free(state);
+		return NULL;
+	}
+
+	ast_activate_generator(chan, &silence_generator, state);
+
+	if (option_debug)
+		ast_log(LOG_DEBUG, "Started silence generator on '%s'\n", chan->name);
+
+	return state;
+}
+
+void ast_channel_stop_silence_generator(struct ast_channel *chan, struct ast_silence_generator *state)
+{
+	if (!state)
+		return;
+
+	ast_deactivate_generator(chan);
+
+	if (option_debug)
+		ast_log(LOG_DEBUG, "Stopped silence generator on '%s'\n", chan->name);
+
+	if (ast_set_write_format(chan, state->old_write_format) < 0)
+		ast_log(LOG_ERROR, "Could not return write format to its original state\n");
+
+	free(state);
 }

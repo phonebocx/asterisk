@@ -19,7 +19,8 @@
 /*! \file
  *
  * \brief Save to raw, headerless GSM data.
- * 
+ * \arg File name extension: gsm
+ * \ingroup formats
  */
  
 #include <unistd.h>
@@ -33,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.29 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

@@ -21,14 +21,16 @@
  *
  * \brief App to set rdnis
  *
+ * \ingroup applications
  */
  
-#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -49,7 +51,7 @@ static char *synopsis = "Set RDNIS Number";
 
 static char *descrip = 
 "  SetRDNIS(cnum): Set RDNIS Number on a call to a new\n"
-"value.  Always returns 0\n"
+"value.\n"
 "SetRDNIS has been deprecated in favor of the function\n"
 "CALLERID(rdnis)\n";
 

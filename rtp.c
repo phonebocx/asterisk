@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.152 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.154 $")
 
 #include "asterisk/rtp.h"
 #include "asterisk/frame.h"
@@ -1098,6 +1098,8 @@ static unsigned int calc_txstamp(struct ast_rtp *rtp, struct timeval *delivery)
 	/* Use previous txcore if available */
 	t = (delivery && !ast_tvzero(*delivery)) ? *delivery : ast_tvnow();
 	ms = ast_tvdiff_ms(t, rtp->txcore);
+	if (ms < 0)
+		ms = 0;
 	/* Use what we just got for next time */
 	rtp->txcore = t;
 	return (unsigned int) ms;
@@ -1149,7 +1151,7 @@ int ast_rtp_senddigit(struct ast_rtp *rtp, char digit)
 					ast_inet_ntoa(iabuf, sizeof(iabuf), rtp->them.sin_addr),
 					ntohs(rtp->them.sin_port), strerror(errno));
 			if (rtp_debug_test_addr(&rtp->them))
-				ast_verbose("Sent RTP packet to %s:%d (type %d, seq %d, ts %d, len %d)\n",
+				ast_verbose("Sent RTP packet to %s:%d (type %d, seq %u, ts %u, len %u)\n",
 					    ast_inet_ntoa(iabuf, sizeof(iabuf), rtp->them.sin_addr),
 					    ntohs(rtp->them.sin_port), payload, rtp->seqno, rtp->lastdigitts, res - hdrlen);
 		}
@@ -1226,14 +1228,14 @@ static int ast_rtp_raw_write(struct ast_rtp *rtp, struct ast_frame *f, int codec
 	char iabuf[INET_ADDRSTRLEN];
 	int hdrlen = 12;
 	int res;
-	int ms;
+	unsigned int ms;
 	int pred;
 	int mark = 0;
 
 	ms = calc_txstamp(rtp, &f->delivery);
 	/* Default prediction */
 	if (f->subclass < AST_FORMAT_MAX_AUDIO) {
-                pred = rtp->lastts + f->samples;
+		pred = rtp->lastts + f->samples;
 
 		/* Re-calculate last TS */
 		rtp->lastts = rtp->lastts + ms * 8;
@@ -1292,7 +1294,7 @@ static int ast_rtp_raw_write(struct ast_rtp *rtp, struct ast_frame *f, int codec
 		}
 				
 		if(rtp_debug_test_addr(&rtp->them))
-			ast_verbose("Sent RTP packet to %s:%d (type %d, seq %d, ts %d, len %d)\n"
+			ast_verbose("Sent RTP packet to %s:%d (type %d, seq %u, ts %u, len %u)\n"
 					, ast_inet_ntoa(iabuf, sizeof(iabuf), rtp->them.sin_addr), ntohs(rtp->them.sin_port), codec, rtp->seqno, rtp->lastts,res - hdrlen);
 	}
 

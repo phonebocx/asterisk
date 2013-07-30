@@ -29,6 +29,7 @@
  * See also
  * \arg \ref Config_cdr
  * \arg http://www.postgresql.org/
+ * \ingroup cdr_drivers
  */
 
 #include <sys/types.h>
@@ -43,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.23 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.24 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"

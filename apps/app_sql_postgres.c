@@ -20,6 +20,7 @@
  *
  * \brief Connect to PostgreSQL
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
@@ -31,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

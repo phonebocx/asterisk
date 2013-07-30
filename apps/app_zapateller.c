@@ -20,14 +20,16 @@
  *
  * \brief Playback the special information tone to get rid of telemarketers
  * 
+ * \ingroup applications
  */
  
-#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -45,10 +47,10 @@ static char *synopsis = "Block telemarketers with SIT";
 
 static char *descrip = 
 "  Zapateller(options):  Generates special information tone to block\n"
-"telemarketers from calling you.  Returns 0 normally or -1 on hangup.\n"
-"Options is a pipe-delimited list of options.  The following options\n"
-"are available: 'answer' causes the line to be answered before playing\n"
-"the tone, 'nocallerid' causes Zapateller to only play the tone if there\n"
+"telemarketers from calling you.  Options is a pipe-delimited list of\n" 
+"options.  The following options are available:\n"
+"'answer' causes the line to be answered before playing the tone,\n" 
+"'nocallerid' causes Zapateller to only play the tone if there\n"
 "is no callerid information available.  Options should be separated by |\n"
 "characters\n";
 

@@ -18,6 +18,7 @@
 /*! \file
  * \brief Cut application
  *
+ * \ingroup applications
  */
 
 #include <stdio.h>
@@ -27,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.22 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -36,33 +37,37 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
 #include "asterisk/version.h"
+#include "asterisk/app.h"
 
 /* Maximum length of any variable */
 #define MAXRESULT	1024
 
-static char *tdesc = "String manipulation";
+static char *tdesc = "Cut out information from a string";
 
 static char *app_cut = "Cut";
 
-static char *cut_synopsis = "Splits a variable's content using the specified delimiter";
+static char *cut_synopsis = "Splits a variable's contents using the specified delimiter";
 
 static char *cut_descrip =
-"Usage: Cut(newvar=varname,delimiter,fieldspec)\n"
+"  Cut(newvar=varname,delimiter,fieldspec): This applicaiton will split the\n"
+"contents of a variable based on the given delimeter and store the result in\n"
+"a new variable.\n"
+"Parameters:\n"
 "  newvar    - new variable created from result string\n"
 "  varname   - variable you want cut\n"
 "  delimiter - defaults to '-'\n"
 "  fieldspec - number of the field you want (1-based offset)\n"
-"            may also be specified as a range (with -)\n"
-"            or group of ranges and fields (with &)\n" 
-"  Returns 0 or -1 on hangup or error.\n";
+"              may also be specified as a range (with -)\n"
+"              or group of ranges and fields (with &)\n"
+"This application has been deprecated in favor of the CUT function.\n";
 
 static char *app_sort = "Sort";
 static char *app_sort_synopsis = "Sorts a list of keywords and values";
 static char *app_sort_descrip =
-"   Sort(<newvar>=<key1>:<val1>[,<key2>:<val2>[[...],<keyN>:<valN>]])\n"
-"Sorts the list provided by using the value as a float to order the list of\n"
-"keywords in ascending order.  Sets the variable provided to the list of\n"
-"sorted keywords.  Always returns 0.\n";
+"  Sort(newvar=key1:val1[,key2:val2[[...],keyN:valN]]): This application will\n"
+"sort the list provided in ascending order. The result will be stored in the\n"
+"specified variable name.\n"
+"  This applicaiton has been deprecated in favor of the SORT function.\n";
 
 STANDARD_LOCAL_USER;
 
@@ -150,7 +155,7 @@ static int sort_internal(struct ast_channel *chan, char *data, char *buffer, siz
 
 static int cut_internal(struct ast_channel *chan, char *data, char *buffer, size_t buflen)
 {
-	char *s, *varname=NULL, *delimiter=NULL, *field=NULL;
+	char *s, *args[3], *varname=NULL, *delimiter=NULL, *field=NULL;
 	int args_okay = 0;
 
 	memset(buffer, 0, buflen);
@@ -159,15 +164,13 @@ static int cut_internal(struct ast_channel *chan, char *data, char *buffer, size
 	if (data) {
 		s = ast_strdupa((char *)data);
 		if (s) {
-			varname = strsep(&s, "|");
-			if (varname && (varname[0] != '\0')) {
-				delimiter = strsep(&s, "|");
-				if (delimiter) {
-					field = strsep(&s, "|");
-					if (field) {
-						args_okay = 1;
-					}
-				}
+			ast_app_separate_args(s, '|', args, 3);
+			varname = args[0];
+			delimiter = args[1];
+			field = args[2];
+
+			if (field) {
+				args_okay = 1;
 			}
 		} else {
 			return ERROR_NOMEM;

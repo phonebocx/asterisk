@@ -20,17 +20,18 @@
  *
  * \brief Enumlookup - lookup entry in ENUM
  *
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+#include <unistd.h>
 #include <ctype.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -42,6 +43,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 #include "asterisk/module.h"
 #include "asterisk/enum.h"
 #include "asterisk/utils.h"
+#include "asterisk/app.h"
+#include "asterisk/options.h"
 
 static char *tdesc = "ENUM Lookup";
 
@@ -50,20 +53,17 @@ static char *app = "EnumLookup";
 static char *synopsis = "Lookup number in ENUM";
 
 static char *descrip =
-"  EnumLookup(exten):  Looks up an extension via ENUM and sets\n"
+"  EnumLookup(exten[|option]):  Looks up an extension via ENUM and sets\n"
 "the variable 'ENUM'. For VoIP URIs this variable will \n"
 "look like 'TECHNOLOGY/URI' with the appropriate technology.\n"
-"Returns -1 on hangup, or 0 on completion\n"
 "Currently, the enumservices SIP, H323, IAX, IAX2 and TEL are recognized. \n"
 "\nReturns status in the ENUMSTATUS channel variable:\n"
 "    ERROR	Failed to do a lookup\n"
 "    <tech>	Technology of the successful lookup: SIP, H323, IAX, IAX2 or TEL\n"
 "    BADURI	Got URI Asterisk does not understand.\n"
-"\nOld, depreciated, behaviour:\n"
-"\nA SIP, H323, IAX or IAX2 entry will result in normal priority handling, \n"
-"whereas a TEL entry will increase the priority by 51 (if existing).\n"
-"If the lookup was *not* successful and there exists a priority n + 101,\n"
-"then that priority will be taken next.\n" ;
+"  The option string may contain zero or the following character:\n"
+"       'j' -- jump to +101 priority if the lookup isn't successful.\n"
+"	       and jump to +51 priority on a TEL entry.\n";
 
 #define ENUM_CONFIG "enum.conf"
 
@@ -77,13 +77,18 @@ LOCAL_USER_DECL;
 /*--- enumlookup_exec: Look up number in ENUM and return result */
 static int enumlookup_exec(struct ast_channel *chan, void *data)
 {
-	int res=0;
+	int res=0,priority_jump=0;
 	char tech[80];
 	char dest[80];
 	char tmp[256];
-	char *c,*t;
+	char *c,*t = NULL;
 	static int dep_warning=0;
 	struct localuser *u;
+	char *parse;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(d);
+		AST_APP_ARG(o);
+	);
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "EnumLookup requires an argument (extension)\n");
@@ -97,13 +102,30 @@ static int enumlookup_exec(struct ast_channel *chan, void *data)
 
 	LOCAL_USER_ADD(u);
 
-	tech[0] = '\0';
+	parse = ast_strdupa(data);
+	if (!parse) {
+		ast_log(LOG_ERROR, "Out of memory!\n");
+		LOCAL_USER_REMOVE(u);
+		return -1;
+	}
 
-	res = ast_get_enum(chan, data, dest, sizeof(dest), tech, sizeof(tech), NULL, NULL);
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	tech[0] = '\0';
+	dest[0] = '\0';
+
+	if (args.o) {
+		if (strchr(args.o, 'j'))
+			priority_jump = 1;
+	}
+
+	res = ast_get_enum(chan, args.d, dest, sizeof(dest), tech, sizeof(tech), NULL, NULL);
 	
 	if (!res) {	/* Failed to do a lookup */
-		/* Look for a "busy" place */
-		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
+		if (priority_jump || option_priority_jumping) {
+			/* Look for a "busy" place */
+			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
+		}
 		pbx_builtin_setvar_helper(chan, "ENUMSTATUS", "ERROR");
 		LOCAL_USER_REMOVE(u);
 		return 0;
@@ -158,8 +180,10 @@ static int enumlookup_exec(struct ast_channel *chan, void *data)
 				*t = 0;
 				pbx_builtin_setvar_helper(chan, "ENUM", tmp);
 				ast_log(LOG_NOTICE, "tel: ENUM set to \"%s\"\n", tmp);
-				if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 51))
-					res = 0;
+				if (priority_jump || option_priority_jumping) {
+					if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 51))
+						res = 0;
+				}
 			}
 		} else if (!ast_strlen_zero(tech)) {
 			ast_log(LOG_NOTICE, "Don't know how to handle technology '%s'\n", tech);

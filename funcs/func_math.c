@@ -23,12 +23,13 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.3 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -78,13 +79,13 @@ static char *builtin_function_math(struct ast_channel *chan, char *cmd, char *da
 
 	char *mvalue1, *mvalue2=NULL, *mtype_of_result;
 		
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Syntax: Math(<number1><op><number 2>[,<type_of_result>]) - missing argument!\n");
 		return NULL;
 	}
 
 	args = ast_strdupa(data);	
-	argc = ast_separate_app_args(args, '|', argv, sizeof(argv) / sizeof(argv[0]));
+	argc = ast_app_separate_args(args, '|', argv, sizeof(argv) / sizeof(argv[0]));
 
 	if (argc < 1) {
 		ast_log(LOG_WARNING, "Syntax: Math(<number1><op><number 2>[,<type_of_result>]) - missing argument!\n");

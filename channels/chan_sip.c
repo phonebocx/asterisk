@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.906 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.913 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -384,6 +384,7 @@ static int global_mwitime = DEFAULT_MWITIME;	/*!< Time between MWI checks for pe
 static int usecnt =0;
 AST_MUTEX_DEFINE_STATIC(usecnt_lock);
 
+AST_MUTEX_DEFINE_STATIC(rand_lock);
 
 /*! \brief Protect the interface list (of sip_pvt's) */
 AST_MUTEX_DEFINE_STATIC(iflock);
@@ -942,6 +943,24 @@ static const struct ast_channel_tech sip_tech = {
 	.bridge = ast_rtp_bridge,
 	.send_text = sip_sendtext,
 };
+
+/*!
+  \brief Thread-safe random number generator
+  \return a random number
+
+  This function uses a mutex lock to guarantee that no
+  two threads will receive the same random number.
+ */
+static force_inline int thread_safe_rand(void)
+{
+	int val;
+
+	ast_mutex_lock(&rand_lock);
+	val = rand();
+	ast_mutex_unlock(&rand_lock);
+	
+	return val;
+}
 
 /*! \brief  find_sip_method: Find SIP method from header
  * Strictly speaking, SIP methods are case SENSITIVE, but we don't check 
@@ -2721,7 +2740,7 @@ static struct ast_channel *sip_new(struct sip_pvt *i, int state, char *title)
 	fmt = ast_best_codec(tmp->nativeformats);
 
 	if (title)
-		snprintf(tmp->name, sizeof(tmp->name), "SIP/%s-%04x", title, rand() & 0xffff);
+		snprintf(tmp->name, sizeof(tmp->name), "SIP/%s-%04x", title, thread_safe_rand() & 0xffff);
 	else if (strchr(i->fromdomain,':'))
 		snprintf(tmp->name, sizeof(tmp->name), "SIP/%s-%08x", strchr(i->fromdomain,':')+1, (int)(long)(i));
 	else
@@ -2974,7 +2993,7 @@ static void build_callid(char *callid, int len, struct in_addr ourip, char *from
 	int x;
 	char iabuf[INET_ADDRSTRLEN];
 	for (x=0; x<4; x++) {
-		val = rand();
+		val = thread_safe_rand();
 		res = snprintf(callid, len, "%08x", val);
 		len -= res;
 		callid += res;
@@ -2988,7 +3007,7 @@ static void build_callid(char *callid, int len, struct in_addr ourip, char *from
 
 static void make_our_tag(char *tagbuf, size_t len)
 {
-	snprintf(tagbuf, len, "as%08x", rand());
+	snprintf(tagbuf, len, "as%08x", thread_safe_rand());
 }
 
 /*! \brief  sip_alloc: Allocate SIP_PVT structure and set defaults ---*/
@@ -3021,7 +3040,7 @@ static struct sip_pvt *sip_alloc(char *callid, struct sockaddr_in *sin, int useg
 		memcpy(&p->ourip, &__ourip, sizeof(p->ourip));
 	}
 
-	p->branch = rand();	
+	p->branch = thread_safe_rand();	
 	make_our_tag(p->tag, sizeof(p->tag));
 	/* Start with 101 instead of 1 */
 	p->ocseq = 101;
@@ -3442,7 +3461,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req)
 					return -1;
 				}
 				if (debug)
-					ast_verbose("Found video format %s\n", ast_getformatname(codec));
+					ast_verbose("Found RTP video format %d\n", codec);
 				ast_rtp_set_m_type(p->vrtp, codec);
 				codecs = ast_skip_blanks(codecs + len);
 			}
@@ -4009,7 +4028,7 @@ static int reqprep(struct sip_request *req, struct sip_pvt *p, int sipmethod, in
 	}
 	
 	if (newbranch) {
-		p->branch ^= rand();
+		p->branch ^= thread_safe_rand();
 		build_via(p, p->via, sizeof(p->via));
 	}
 
@@ -4246,6 +4265,9 @@ static void add_codec_to_sdp(const struct sip_pvt *p, int codec, int sample_rate
 	ast_build_string(a_buf, a_size, "a=rtpmap:%d %s/%d\r\n", rtp_code,
 			 ast_rtp_lookup_mime_subtype(1, codec),
 			 sample_rate);
+	if (codec == AST_FORMAT_G729A)
+		/* Indicate that we don't support VAD (G.729 annex B) */
+		ast_build_string(a_buf, a_size, "a=fmtp:%d annexb=no", rtp_code);
 }
 
 static void add_noncodec_to_sdp(const struct sip_pvt *p, int format, int sample_rate,
@@ -4826,7 +4848,7 @@ static int transmit_invite(struct sip_pvt *p, int sipmethod, int sdp, int init)
 	req.method = sipmethod;
 	if (init) {
 		/* Bump branch even on initial requests */
-		p->branch ^= rand();
+		p->branch ^= thread_safe_rand();
 		build_via(p, p->via, sizeof(p->via));
 		if (init > 1)
 			initreqprep(&req, p, sipmethod);
@@ -4845,14 +4867,12 @@ static int transmit_invite(struct sip_pvt *p, int sipmethod, int sdp, int init)
 			add_header(&req, "Referred-By", p->referred_by);
 	}
 #ifdef OSP_SUPPORT
-	if (p->options && p->options->osptoken && !ast_strlen_zero(p->options->osptoken)) {
+	if ((req.method != SIP_OPTIONS) && p->options && !ast_strlen_zero(p->options->osptoken)) {
 		ast_log(LOG_DEBUG,"Adding OSP Token: %s\n", p->options->osptoken);
 		add_header(&req, "P-OSP-Auth-Token", p->options->osptoken);
-	} else {
-		ast_log(LOG_DEBUG,"NOT Adding OSP Token\n");
 	}
 #endif
-	if (p->options && p->options->distinctive_ring && !ast_strlen_zero(p->options->distinctive_ring))
+	if (p->options && !ast_strlen_zero(p->options->distinctive_ring))
 	{
 		add_header(&req, "Alert-Info", p->options->distinctive_ring);
 	}
@@ -5402,7 +5422,7 @@ static int transmit_register(struct sip_registry *r, int sipmethod, char *auth, 
 		snprintf(addr, sizeof(addr), "sip:%s", r->hostname);
 	ast_copy_string(p->uri, addr, sizeof(p->uri));
 
-	p->branch ^= rand();
+	p->branch ^= thread_safe_rand();
 
 	memset(&req, 0, sizeof(req));
 	init_req(&req, sipmethod, addr);
@@ -5672,7 +5692,7 @@ static void reg_source_db(struct sip_peer *peer)
 		/* SIP isn't up yet, so schedule a poke only, pretty soon */
 		if (peer->pokeexpire > -1)
 			ast_sched_del(sched, peer->pokeexpire);
-		peer->pokeexpire = ast_sched_add(sched, rand() % 5000 + 1, sip_poke_peer_s, peer);
+		peer->pokeexpire = ast_sched_add(sched, thread_safe_rand() % 5000 + 1, sip_poke_peer_s, peer);
 	} else
 		sip_poke_peer(peer);
 	if (peer->expire > -1)
@@ -6133,7 +6153,7 @@ static int check_auth(struct sip_pvt *p, struct sip_request *req, char *randdata
 			res = 1;
 		}
 	} else if (ast_strlen_zero(randdata) || ast_strlen_zero(authtoken)) {
-		snprintf(randdata, randlen, "%08x", rand());
+		snprintf(randdata, randlen, "%08x", thread_safe_rand());
 		transmit_response_with_auth(p, response, req, randdata, reliable, respheader, 0);
 		/* Schedule auto destroy in 15 seconds */
 		sip_scheddestroy(p, 15000);
@@ -6249,7 +6269,7 @@ static int check_auth(struct sip_pvt *p, struct sip_request *req, char *randdata
 
 		if (wrongnonce) {
 
-			snprintf(randdata, randlen, "%08x", rand());
+			snprintf(randdata, randlen, "%08x", thread_safe_rand());
 			if (ua_hash && !strncasecmp(ua_hash, resp_hash, strlen(resp_hash))) {
 				if (sipdebug)
 					ast_log(LOG_NOTICE, "stale nonce received from '%s'\n", get_header(req, "To"));
@@ -8558,8 +8578,6 @@ static void handle_request_info(struct sip_pvt *p, struct sip_request *req)
 {
 	char buf[1024];
 	unsigned int event;
-	char resp = 0;
-	struct ast_frame f;
 	char *c;
 	
 	/* Need to check the media/type */
@@ -8575,42 +8593,46 @@ static void handle_request_info(struct sip_pvt *p, struct sip_request *req)
 			ast_copy_string(buf, c, sizeof(buf));
 		}
 	
-		if (p->owner) {	/* PBX call */
-			if (!ast_strlen_zero(buf)) {
-				if (sipdebug)
-					ast_verbose("* DTMF received: '%c'\n", buf[0]);
-				if (buf[0] == '*')
-					event = 10;
-				else if (buf[0] == '#')
-					event = 11;
-				else if ((buf[0] >= 'A') && (buf[0] <= 'D'))
-					event = 12 + buf[0] - 'A';
-				else
-					event = atoi(buf);
-				if (event < 10) {
-					resp = '0' + event;
-				} else if (event < 11) {
-					resp = '*';
-				} else if (event < 12) {
-					resp = '#';
-				} else if (event < 16) {
-					resp = 'A' + (event - 12);
-				}
-				/* Build DTMF frame and deliver to PBX for transmission to other call leg*/
-				memset(&f, 0, sizeof(f));
-				f.frametype = AST_FRAME_DTMF;
-				f.subclass = resp;
-				f.offset = 0;
-				f.data = NULL;
-				f.datalen = 0;
-				ast_queue_frame(p->owner, &f);
-			}
-			transmit_response(p, "200 OK", req);
-			return;
-		} else {
+		if (!p->owner) {	/* not a PBX call */
 			transmit_response(p, "481 Call leg/transaction does not exist", req);
 			ast_set_flag(p, SIP_NEEDDESTROY);
+			return;
 		}
+
+		if (ast_strlen_zero(buf)) {
+			transmit_response(p, "200 OK", req);
+			return;
+		}
+
+		if (sipdebug)
+			ast_verbose("* DTMF-relay event received: '%c'\n", buf[0]);
+		if (buf[0] == '*')
+			event = 10;
+		else if (buf[0] == '#')
+			event = 11;
+		else if ((buf[0] >= 'A') && (buf[0] <= 'D'))
+			event = 12 + buf[0] - 'A';
+		else
+			event = atoi(buf);
+		if (event == 16) {
+			/* send a FLASH event */
+			struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_FLASH, };
+			ast_queue_frame(p->owner, &f);
+		} else {
+			/* send a DTMF event */
+			struct ast_frame f = { AST_FRAME_DTMF, };
+			if (event < 10) {
+				f.subclass = '0' + event;
+			} else if (event < 11) {
+				f.subclass = '*';
+			} else if (event < 12) {
+				f.subclass = '#';
+			} else if (event < 16) {
+				f.subclass = 'A' + (event - 12);
+			}
+			ast_queue_frame(p->owner, &f);
+		}
+		transmit_response(p, "200 OK", req);
 		return;
 	} else if (!strcasecmp(get_header(req, "Content-Type"), "application/media_control+xml")) {
 		/* Eh, we'll just assume it's a fast picture update for now */
@@ -8964,7 +8986,7 @@ static int build_reply_digest(struct sip_pvt *p, int method, char* digest, int d
 	else
 		snprintf(uri, sizeof(uri), "sip:%s@%s",p->username, ast_inet_ntoa(iabuf, sizeof(iabuf), p->sa.sin_addr));
 
-	snprintf(cnonce, sizeof(cnonce), "%08x", rand());
+	snprintf(cnonce, sizeof(cnonce), "%08x", thread_safe_rand());
 
  	/* Check if we have separate auth credentials */
  	if ((auth = find_realm_authentication(authl, p->realm))) {

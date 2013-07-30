@@ -25,13 +25,14 @@
  *
  * \brief Zap Scanner
  *
+ * \ingroup applications
  */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 
 #ifdef __linux__
@@ -42,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.23 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -304,7 +305,8 @@ static int conf_exec(struct ast_channel *chan, void *data)
 	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);
 	
-	if((desired_group = ast_strdupa((char *) data)) && !ast_strlen_zero(desired_group)) {
+	desired_group = ast_strdupa((char *) data);
+	if(!ast_strlen_zero(desired_group)) {
 		ast_verbose(VERBOSE_PREFIX_3 "Scanning for group %s\n", desired_group);
 		search_group = 1;
 	}

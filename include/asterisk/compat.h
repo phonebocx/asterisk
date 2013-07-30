@@ -63,12 +63,20 @@ int unsetenv(const char *name);
 
 #ifdef __CYGWIN__
 #define _WIN32_WINNT 0x0500
-#include <windows.h>
-#include <w32api/ws2tcpip.h>
+#ifndef INET_ADDRSTRLEN
+#define INET_ADDRSTRLEN  16
+#endif
+#ifndef INET6_ADDRSTRLEN
+#define INET6_ADDRSTRLEN 46
+#endif
 #endif /* __CYGWIN__ */
 
 #define HAVE_VASPRINTF
 #define HAVE_STRTOQ
+
+#ifdef _BSD_SOURCE
+#define HAVE_GETLOADAVG
+#endif
 
 #ifdef __linux__
 #define HAVE_STRCASESTR

@@ -20,17 +20,18 @@
  *
  * \brief Digital Milliwatt Test
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
+#include <unistd.h>
 #include <errno.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"

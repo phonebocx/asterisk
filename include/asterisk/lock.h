@@ -36,9 +36,9 @@
 #ifdef __APPLE__
 /* Provide the Linux initializers for MacOS X */
 #define PTHREAD_MUTEX_RECURSIVE_NP			PTHREAD_MUTEX_RECURSIVE
-#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP		 { 0x4d555458, \
-													   { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
-														 0x20 } }
+#define PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP		{ 0x4d555458, \
+							{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+							0x20 } }
 #endif
 
 #ifdef BSD
@@ -51,7 +51,11 @@
 
 /* From now on, Asterisk REQUIRES Recursive (not error checking) mutexes
    and will not run without them. */
-#ifdef PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
+#if defined(__CYGWIN__)
+#define PTHREAD_MUTEX_RECURSIVE_NP	PTHREAD_MUTEX_RECURSIVE
+#define PTHREAD_MUTEX_INIT_VALUE 	(ast_mutex_t)18
+#define AST_MUTEX_KIND			PTHREAD_MUTEX_RECURSIVE_NP
+#elif defined(PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP)
 #define PTHREAD_MUTEX_INIT_VALUE	PTHREAD_RECURSIVE_MUTEX_INITIALIZER_NP
 #define AST_MUTEX_KIND			PTHREAD_MUTEX_RECURSIVE_NP
 #else
@@ -231,7 +235,8 @@ static inline int __ast_pthread_mutex_lock(const char *filename, int lineno, con
 					__ast_mutex_logger("%s line %d (%s): Deadlock? waited %d sec for mutex '%s'?\n",
 							   filename, lineno, func, (int)(current - seconds), mutex_name);
 					__ast_mutex_logger("%s line %d (%s): '%s' was locked here.\n",
-							   t->file, t->lineno, t->func, mutex_name);
+							   t->file[t->reentrancy-1], t->lineno[t->reentrancy-1],
+							   t->func[t->reentrancy-1], mutex_name);
 				}
 				usleep(200);
 			}

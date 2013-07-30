@@ -20,14 +20,16 @@
  *
  * \brief App to set callerid
  *
+ * \ingroup applications
  */
  
-#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -50,7 +52,7 @@ static char *descrip =
 "  SetCIDName(cname[|a]): Set Caller*ID Name on a call to a new\n"
 "value, while preserving the original Caller*ID number.  This is\n"
 "useful for providing additional information to the called\n"
-"party. Always returns 0\n"
+"party. \n"
 "SetCIDName has been deprecated in favor of the function\n"
 "CALLERID(name)\n";
 

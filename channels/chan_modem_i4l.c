@@ -20,6 +20,7 @@
  *
  * \brief ISDN4Linux TTY Driver
  * 
+ * \ingroup channel_drivers
  */
 
 #include <stdio.h>
@@ -32,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.33 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.35 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/vmodem.h"
@@ -328,7 +329,7 @@ static struct ast_frame *i4l_handle_escape(struct ast_modem_pvt *p, char esc)
 
 static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 {
-	char result[256];
+	unsigned char result[256];
 	short *b;
 	struct ast_frame *f=NULL;
 	int res;

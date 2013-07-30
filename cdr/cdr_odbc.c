@@ -25,6 +25,7 @@
  * See also:
  * \arg http://www.unixodbc.org
  * \arg \ref Config_cdr
+ * \ingroup cdr_drivers
  */
 
 #include <sys/types.h>
@@ -48,7 +49,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.34 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.35 $")
 
 #include "asterisk/config.h"
 #include "asterisk/options.h"

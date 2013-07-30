@@ -20,6 +20,7 @@
  *
  * \brief codec_alaw.c - translate between signed linear and alaw
  * 
+ * \ingroup codecs
  */
 
 #include <fcntl.h>
@@ -31,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/logger.h"

@@ -20,6 +20,7 @@
  *
  * \brief Provide a directory of extensions
  * 
+ * \ingroup applications
  */
  
 #include <string.h>
@@ -29,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.49 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.52 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -46,18 +47,23 @@ static char *app = "Directory";
 
 static char *synopsis = "Provide directory of voicemail extensions";
 static char *descrip =
-"  Directory(vm-context[|dial-context[|options]]): Presents the user with a directory\n"
-"of extensions from which they  may  select  by name. The  list  of  names \n"
-"and  extensions  is discovered from  voicemail.conf. The  vm-context  argument\n"
-"is required, and specifies  the  context  of voicemail.conf to use.  The\n"
-"dial-context is the context to use for dialing the users, and defaults to\n"
-"the vm-context if unspecified. The 'f' option causes the directory to match\n"
-"based on the first name in voicemail.conf instead of the last name.\n"
-"Returns 0 unless the user hangs up. It  also sets up the channel on exit\n"
-"to enter the extension the user selected.  If the user enters '0' and there\n"
-"exists an extension 'o' in the current context, the directory will exit with 0\n"
-"and call control will resume at that extension.  Entering '*' will exit similarly,\n"
-"but to the 'a' extension, much like app_voicemail's behavior.\n";
+"  Directory(vm-context[|dial-context[|options]]): This application will present\n"
+"the calling channel with a directory of extensions from which they can search\n"
+"by name. The list of names and corresponding extensions is retrieved from the\n"
+"voicemail configuration file, voicemail.conf.\n"
+"  This applicaiton will immediate exit if one of the following DTMF digits are\n"
+"received and the extension to jump to exists:\n"
+"    0 - Jump to the 'o' extension, if it exists.\n"
+"    * - Jump to the 'a' extension, if it exists.\n\n"
+"  Parameters:\n"
+"    vm-context   - This is the context within voicemail.conf to use for the\n"
+"                   Directory.\n"
+"    dial-context - This is the dialplan context to use when looking for an\n"
+"                   extension that the user has selected, or when jumping to the\n"
+"                   'o' or 'a' extension.\n\n"
+"  Options:\n"
+"    f - Allow the caller to enter the first name of a user in the directory\n"
+"        instead of using the last name.\n"; 
 
 /* For simplicity, I'm keeping the format compatible with the voicemail config,
    but i'm open to suggestions for isolating it */

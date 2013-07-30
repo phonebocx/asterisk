@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.52 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.54 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -1168,7 +1168,7 @@ static int handle_getvariable(struct ast_channel *chan, AGI *agi, int argc, char
 
 static int handle_getvariablefull(struct ast_channel *chan, AGI *agi, int argc, char **argv)
 {
-	char tmp[4096];
+	char tmp[4096] = "";
 	struct ast_channel *chan2=NULL;
 
 	if ((argc != 4) && (argc != 5))
@@ -2009,7 +2009,7 @@ static int agi_exec_full(struct ast_channel *chan, void *data, int enhanced, int
         char *stringp;
 	AGI agi;
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "AGI requires an argument (script)\n");
 		return -1;
 	}

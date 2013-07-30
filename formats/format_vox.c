@@ -19,7 +19,9 @@
 /*! \file
  *
  * \brief Flat, binary, ADPCM vox file format.
+ * \arg File name extensions: vox
  * 
+ * \ingroup formats
  */
  
 #include <unistd.h>
@@ -33,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.27 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

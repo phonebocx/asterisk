@@ -23,13 +23,14 @@
  *
  * \brief Zap Barge support
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 
 #ifdef __linux__
@@ -40,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"

@@ -23,12 +23,13 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/types.h>
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.4 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.5 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"

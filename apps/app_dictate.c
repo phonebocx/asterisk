@@ -22,16 +22,18 @@
  *
  * \brief Virtual Dictation Machine Application For Asterisk
  *
+ * \ingroup applications
  */
 
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/stat.h>	/* for mkdir */
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -102,7 +104,7 @@ static int dictate_exec(struct ast_channel *chan, void *data)
 	
 	snprintf(dftbase, sizeof(dftbase), "%s/dictate", ast_config_AST_SPOOL_DIR);
 	if (!ast_strlen_zero(data) && (mydata = ast_strdupa(data))) {
-		argc = ast_separate_app_args(mydata, '|', argv, sizeof(argv) / sizeof(argv[0]));
+		argc = ast_app_separate_args(mydata, '|', argv, sizeof(argv) / sizeof(argv[0]));
 	}
 	
 	if (argc) {

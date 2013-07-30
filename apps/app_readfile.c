@@ -20,6 +20,7 @@
  *
  * \brief ReadFile application -- Reads in a File for you.
  *
+ * \ingroup applications
  */
 
 #include <stdio.h>
@@ -29,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"

@@ -20,6 +20,7 @@
  *
  * \brief App to set the ISDN Transfer Capability
  * 
+ * \ingroup applications
  */
  
 #include <string.h>
@@ -27,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
@@ -57,7 +58,7 @@ static struct {	int val; char *name; } transcaps[] = {
 static char *descrip = 
 "  SetTransferCapability(transfercapability): Set the ISDN Transfer \n"
 "Capability of a call to a new value.\n"
-"Always returns 0.  Valid Transfer Capabilities are:\n"
+"Valid Transfer Capabilities are:\n"
 "\n"
 "  SPEECH             : 0x00 - Speech (default, voice calls)\n"
 "  DIGITAL            : 0x08 - Unrestricted digital information (data calls)\n"

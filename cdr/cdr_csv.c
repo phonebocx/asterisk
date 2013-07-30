@@ -23,13 +23,21 @@
  * \brief Comma Separated Value CDR records.
  * 
  * \arg See also \ref AstCDR
+ * \ingroup cdr_drivers
  */
 
 #include <sys/types.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <time.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.22 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/cdr.h"
@@ -44,14 +52,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
 
 /* #define CSV_LOGUNIQUEID 1 */
 /* #define CSV_LOGUSERFIELD 1 */
-
-#include <stdio.h>
-#include <string.h>
-#include <errno.h>
-
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
 
 /*----------------------------------------------------
   The values are as follows:

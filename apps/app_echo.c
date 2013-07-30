@@ -20,15 +20,17 @@
  *
  * \brief Echo application -- play back what you hear to evaluate latency
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -44,8 +46,9 @@ static char *app = "Echo";
 static char *synopsis = "Echo audio read back to the user";
 
 static char *descrip = 
-"  Echo():  Echo audio read from channel back to the channel. Returns 0\n"
-"if the user exits with the '#' key, or -1 if the user hangs up.\n";
+"  Echo():  Echo audio read from channel back to the channel. \n"
+"User can exit the application by either pressing the '#' key, \n"
+"or hanging up.\n";
 
 STANDARD_LOCAL_USER;
 

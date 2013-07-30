@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -40,7 +40,7 @@ static char *builtin_function_md5(struct ast_channel *chan, char *cmd, char *dat
 {
 	char md5[33];
 
-	if (!data || ast_strlen_zero(data)) {
+	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "Syntax: MD5(<data>) - missing argument!\n");
 		return NULL;
 	}
@@ -64,7 +64,7 @@ static char *builtin_function_checkmd5(struct ast_channel *chan, char *cmd, char
 	}
 
 	args = ast_strdupa(data);	
-	argc = ast_separate_app_args(args, '|', argv, sizeof(argv) / sizeof(argv[0]));
+	argc = ast_app_separate_args(args, '|', argv, sizeof(argv) / sizeof(argv[0]));
 
 	if (argc < 2) {
 		ast_log(LOG_WARNING, "Syntax: CHECK_MD5(<digest>,<data>) - missing argument!\n");

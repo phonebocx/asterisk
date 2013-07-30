@@ -33,7 +33,7 @@
 #include <sys/stat.h>
 #define AST_INCLUDE_GLOB 1
 #ifdef AST_INCLUDE_GLOB
-#ifdef __Darwin__
+#if defined(__Darwin__) || defined(__CYGWIN__)
 #define GLOB_ABORTED GLOB_ABEND
 #endif
 # include <glob.h>
@@ -41,7 +41,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.81 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.83 $")
 
 #include "asterisk/config.h"
 #include "asterisk/cli.h"
@@ -572,10 +572,9 @@ static struct ast_config *config_text_file_load(const char *database, const char
 				ast_copy_string(fn, globbuf.gl_pathv[i], sizeof(fn));
 #endif
 	do {
-		if (stat(fn, &statbuf)) {
-			ast_log(LOG_WARNING, "Cannot stat() '%s', ignoring\n", fn);
+		if (stat(fn, &statbuf))
 			continue;
-		}
+
 		if (!S_ISREG(statbuf.st_mode)) {
 			ast_log(LOG_WARNING, "'%s' is not a regular file, ignoring\n", fn);
 			continue;
@@ -693,7 +692,11 @@ int config_text_file_save(const char *configfile, const struct ast_config *cfg, 
 	}
 	time(&t);
 	ast_copy_string(date, ctime(&t), sizeof(date));
+#ifdef __CYGWIN__	
+	if ((f = fopen(fn, "w+"))) {
+#else
 	if ((f = fopen(fn, "w"))) {
+#endif	    
 		if ((option_verbose > 1) && !option_debug)
 			ast_verbose(  VERBOSE_PREFIX_2 "Saving '%s': ", fn);
 		fprintf(f, ";!\n");

@@ -19,7 +19,9 @@
 /*! \file
  *
  * \brief Work with WAV in the proprietary Microsoft format.
- * 
+ * Microsoft WAV format (8000hz Signed Linear)
+ * \arg File name extension: wav (lower case)
+ * \ingroup formats
  */
  
 #include <unistd.h>
@@ -33,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.29 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

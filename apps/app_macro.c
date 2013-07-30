@@ -20,16 +20,18 @@
  *
  * \brief Dial plan macro Implementation
  * 
+ * \ingroup applications
  */
 
-#include <sys/types.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.32 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.35 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -57,7 +59,6 @@ static char *descrip =
 "${ARG1}, ${ARG2}, etc in the macro context.\n"
 "If you Goto out of the Macro context, the Macro will terminate and control\n"
 "will be returned at the location of the Goto.\n"
-"Macro returns -1 if any step in the macro returns -1, and 0 otherwise.\n" 
 "If ${MACRO_OFFSET} is set at termination, Macro will attempt to continue\n"
 "at priority MACRO_OFFSET + N + 1 if such a step exists, and N + 1 otherwise.\n";
 

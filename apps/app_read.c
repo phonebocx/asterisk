@@ -20,14 +20,16 @@
  *
  * \brief Trivial application to read a variable
  * 
+ * \ingroup applications
  */
  
-#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -61,7 +63,7 @@ static char *descrip =
 "  attempts   -- if greater than 1, that many attempts will be made in the \n"
 "                event no data is entered.\n"
 "  timeout    -- if greater than 0, that value will override the default timeout.\n\n"
-"Returns -1 on hangup or error and 0 otherwise.\n";
+"Read should disconnect if the function fails or errors out.\n";
 
 STANDARD_LOCAL_USER;
 
@@ -103,7 +105,7 @@ static int read_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 
-	if (ast_separate_app_args(argcopy, '|', args, sizeof(args) / sizeof(args[0])) < 1) {
+	if (ast_app_separate_args(argcopy, '|', args, sizeof(args) / sizeof(args[0])) < 1) {
 		ast_log(LOG_WARNING, "Cannot Parse Arguments.\n");
 		LOCAL_USER_REMOVE(u);
 		return -1;

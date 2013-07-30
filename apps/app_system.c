@@ -20,17 +20,18 @@
  *
  * \brief Execute arbitrary system commands
  * 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
 #include <errno.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.22 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -54,8 +55,8 @@ static char *synopsis2 = "Try executing a system command";
 static char *chanvar = "SYSTEMSTATUS";
 
 static char *descrip =
-"  System(command): Executes a command  by  using  system(). Returns -1 on\n"
-"failure to execute the specified command. \n"
+"  System(command): Executes a command  by  using  system(). If the command\n"
+"fails, the console should report a fallthrough. \n"
 "Result of execution is returned in the SYSTEMSTATUS channel variable:\n"
 "   FAILURE	Could not execute the specified command\n"
 "   SUCCESS	Specified command successfully executed\n"
@@ -65,11 +66,10 @@ static char *descrip =
 "a priority n + 101, where 'n' is the priority of the current instance,\n"
 "then  the  channel  will  be  setup to continue at that priority level.\n"
 "Note that this jump functionality has been deprecated and will only occur\n"
-"if the global priority jumping option is enabled in extensions.conf.\n"
-" Otherwise, System returns 0.\n";
+"if the global priority jumping option is enabled in extensions.conf.\n";
 
 static char *descrip2 =
-"  TrySystem(command): Executes a command  by  using  system(). Returns 0\n"
+"  TrySystem(command): Executes a command  by  using  system().\n"
 "on any situation.\n"
 "Result of execution is returned in the SYSTEMSTATUS channel variable:\n"
 "   FAILURE	Could not execute the specified command\n"
@@ -79,7 +79,7 @@ static char *descrip2 =
 "Old behaviour:\nIf  the command itself executes but is in error, and if\n"
 "there exists a priority n + 101, where 'n' is the priority of the current\n"
 "instance, then  the  channel  will  be  setup  to continue at that\n"
-"priority level.  Otherwise, System returns 0.\n";
+"priority level.  Otherwise, System will terminate.\n";
 
 STANDARD_LOCAL_USER;
 

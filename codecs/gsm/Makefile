@@ -90,7 +90,11 @@ PG =
 # CCFLAGS 	= -c -O
 
 CC		?= gcc
-CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -funroll-loops -fPIC $(OPTIMIZE)
+CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -funroll-loops $(OPTIMIZE)
+ifneq ($(findstring CYGWIN,${OSARCH}),CYGWIN)
+CCFLAGS   += -fPIC
+endif
+
 
 LD 		= $(CC)
 

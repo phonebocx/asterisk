@@ -20,14 +20,16 @@
  *
  * \brief App to set callerid name from database, based on directory number
  * 
+ * \ingroup applications
  */
 
-#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -53,7 +55,7 @@ static char *descrip =
   "Caller*ID name.  Does nothing if no Caller*ID was received on the\n"
   "channel.  This is useful if you do not subscribe to Caller*ID\n"
   "name delivery, or if you want to change the names on some incoming\n"
-  "calls.  Always returns 0.\n";
+  "calls.\n";
 
 STANDARD_LOCAL_USER;
 

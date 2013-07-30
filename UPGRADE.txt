@@ -1,5 +1,5 @@
-Information for Upgrading From Asterisk 1.0
-===========================================
+Information for Upgrading From Previous Asterisk Releases
+=========================================================
 
 Compiling:
 
@@ -33,6 +33,13 @@ Agents:
   specifying an extension@context.  This is to distinguish the options
   string from the extension, so that they do not conflict.  See
   'show application AgentCallbackLogin' for more details.
+
+Parking:
+
+* Parking behavior has changed slightly; when a parked call times out,
+  Asterisk will attempt to deliver the call back to the extension that
+  parked it, rather than the 's' extension. If that extension is busy
+  or unavailable, the parked call will be lost.
 
 Dialing:
 
@@ -152,6 +159,9 @@ AGI:
   behavior has been fixed.  If you do not want your script to terminate 
   at the end of AGI being called (e.g. on a hangup) then set SIGHUP to 
   be ignored within your application.
+
+* CallerID is reported with agi_callerid and agi_calleridname instead
+  of a single parameter holding both.
 
 Music On Hold:
 

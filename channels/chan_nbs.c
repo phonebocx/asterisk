@@ -18,8 +18,11 @@
 
 /*! \file
  *
- * \brief Generic Linux Telephony Interface driver
+ * \brief Network broadcast sound support channel driver
  * 
+ * \author Mark Spencer <markster@digium.com>
+ *
+ * \ingroup channel_drivers
  */
 
 #include <stdio.h>
@@ -36,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

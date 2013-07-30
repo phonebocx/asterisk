@@ -20,6 +20,7 @@
  *
  * A/Open ITU-56/2 Voice Modem Driver (Rockwell, IS-101, and others)
  * 
+ * \ingroup channel_drivers
  */
 
 #include <stdio.h>
@@ -30,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/vmodem.h"

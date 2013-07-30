@@ -1,37 +1,38 @@
 /*
- * Asterisk -- An open source telephony toolkit.
- *
- * Copyright (C) 1999 - 2005, Digium, Inc.
- *
- * Mark Spencer <markster@digium.com>
- * James Golovich <james@gnuinter.net>
- *
- * See http://www.asterisk.org for more information about
- * the Asterisk project. Please do not directly contact
- * any of the maintainers of this project for assistance;
- * the project provides a web site, mailing lists and IRC
- * channels for your use.
- *
- * This program is free software, distributed under the terms of
- * the GNU General Public License Version 2. See the LICENSE file
- * at the top of the source tree.
- */
+* Asterisk -- An open source telephony toolkit.
+*
+* Copyright (C) 1999 - 2005, Digium, Inc.
+*
+* Mark Spencer <markster@digium.com>
+* James Golovich <james@gnuinter.net>
+*
+* See http://www.asterisk.org for more information about
+* the Asterisk project. Please do not directly contact
+* any of the maintainers of this project for assistance;
+* the project provides a web site, mailing lists and IRC
+* channels for your use.
+*
+* This program is free software, distributed under the terms of
+* the GNU General Public License Version 2. See the LICENSE file
+* at the top of the source tree.
+*/
 
 /*! \file
- * \brief Check if Channel is Available
- * 
+* \brief Check if Channel is Available
+* 
+ * \ingroup applications
  */
 
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 #include <sys/ioctl.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.32 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -41,26 +42,24 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.26 $")
 #include "asterisk/module.h"
 #include "asterisk/app.h"
 #include "asterisk/devicestate.h"
+#include "asterisk/options.h"
 
-static char *tdesc = "Check if channel is available";
+static char *tdesc = "Check channel availability";
 
 static char *app = "ChanIsAvail";
 
-static char *synopsis = "Check if channel is available";
+static char *synopsis = "Check channel availability";
 
 static char *descrip = 
-"  ChanIsAvail(Technology/resource[&Technology2/resource2...][|option]): \n"
-"Checks is any of the requested channels are available.  If none\n"
-"of the requested channels are available the new priority will be\n"
-"n+101 (unless such a priority does not exist or on error, in which\n"
-"case ChanIsAvail will return -1).\n"
-"If any of the requested channels are available, the next priority will be n+1,\n"
-"the channel variable ${AVAILCHAN} will be set to the name of the available channel\n"
-"and the ChanIsAvail app will return 0.\n"
-"${AVAILORIGCHAN} is the canonical channel name that was used to create the channel.\n"
-"${AVAILSTATUS} is the status code for the channel.\n"
-"If the option 's' is specified (state), will consider channel unavailable\n"
-"when the channel is in use at all, even if it can take another call.\n";
+"  ChanIsAvail(Technology/resource[&Technology2/resource2...][|options]): \n"
+"This application will check to see if any of the specified channels are\n"
+"available. The following variables will be set by this application:\n"
+"  ${AVAILCHAN}     - the name of the available channel, if one exists\n"
+"  ${AVAILORIGCHAN} - the canonical channel name that was used to create the channel\n"
+"  ${AVAILSTATUS}   - the status code for the available channel\n"
+"  Options:\n"
+"    s - Consider the channel unavailable if the channel is in use at all\n"
+"    j - Support jumping to priority n+101 if no channel is available\n";
 
 STANDARD_LOCAL_USER;
 
@@ -68,7 +67,7 @@ LOCAL_USER_DECL;
 
 static int chanavail_exec(struct ast_channel *chan, void *data)
 {
-	int res=-1, inuse=-1, option_state=0;
+	int res=-1, inuse=-1, option_state=0, priority_jump=0;
 	int status;
 	struct localuser *u;
 	char *info, tmp[512], trychan[512], *peers, *tech, *number, *rest, *cur, *options, *stringp;
@@ -85,8 +84,12 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 	stringp = info;
 	strsep(&stringp, "|");
 	options = strsep(&stringp, "|");
-	if (options && *options == 's')
-		option_state = 1;
+	if (options) {
+		if (strchr(options, 's'))
+			option_state = 1;
+		if (strchr(options, 'j'))
+			priority_jump = 1;
+	}
 	peers = info;
 	if (peers) {
 		cur = peers;
@@ -136,9 +139,11 @@ static int chanavail_exec(struct ast_channel *chan, void *data)
 	if (res < 1) {
 		pbx_builtin_setvar_helper(chan, "AVAILCHAN", "");
 		pbx_builtin_setvar_helper(chan, "AVAILORIGCHAN", "");
-		if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
-			LOCAL_USER_REMOVE(u);
-			return -1;
+		if (priority_jump || option_priority_jumping) {
+			if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
+				LOCAL_USER_REMOVE(u);
+				return -1;
+			}
 		}
 	}
 

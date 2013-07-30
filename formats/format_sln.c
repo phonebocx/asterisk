@@ -18,7 +18,8 @@
 /*! \file
  *
  * \brief RAW SLINEAR Format
- *
+ * \arg File name extensions: sln, raw
+ * \ingroup formats
  */
  
 #include <unistd.h>
@@ -32,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"

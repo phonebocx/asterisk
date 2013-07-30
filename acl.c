@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.58 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.59 $")
 
 #include "asterisk/acl.h"
 #include "asterisk/logger.h"
@@ -68,6 +68,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.58 $")
 #include "asterisk/utils.h"
 #include "asterisk/lock.h"
 #include "asterisk/srv.h"
+#include "asterisk/compat.h"
 
 #if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__)
 AST_MUTEX_DEFINE_STATIC(routeseq_lock);

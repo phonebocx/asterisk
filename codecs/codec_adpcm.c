@@ -24,6 +24,7 @@
  *
  * \brief codec_adpcm.c - translate between signed linear and Dialogic ADPCM
  * 
+ * \ingroup codecs
  */
 
 #include <fcntl.h>
@@ -35,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.22 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/logger.h"

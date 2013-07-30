@@ -21,18 +21,20 @@
  *
  * \brief Applications to test connection and produce report in text file
  * 
+ * \ingroup applications
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/options.h"

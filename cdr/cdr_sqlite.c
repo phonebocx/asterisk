@@ -28,6 +28,7 @@
  * \arg http://www.sqlite.org/
  * 
  * Creates the database and table on-the-fly
+ * \ingroup cdr_drivers
  */
 
 #include <sys/types.h>
@@ -39,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/module.h"

@@ -23,13 +23,14 @@
  */
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -122,9 +123,9 @@ static void loopback_subst(char **newexten, char **newcontext, int *priority, ch
 		pri = strchr(buf, ':');
 	if (!ast_strlen_zero(buf))
 		*newexten = buf;
-	if (con && !ast_strlen_zero(con))
+	if (!ast_strlen_zero(con))
 		*newcontext = con;
-	if (pri && !ast_strlen_zero(pri))
+	if (!ast_strlen_zero(pri))
 		sscanf(pri, "%d", priority);
 }
 

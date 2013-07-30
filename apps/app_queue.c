@@ -19,8 +19,10 @@
 /*! \file
  *
  * \brief True call queues with optional send URL on answer
- * 
  *
+ * \arg Config in \ref Config_qu queues.conf
+ * 
+ * \par Development notes
  * \note 2004-11-25: Persistent Dynamic Members added by:
  *             NetNation Communications (www.netnation.com)
  *             Kevin Lindsay <kevinl@netnation.com>
@@ -49,6 +51,7 @@
  * Fixed to work with CVS as of 2004-02-25 and released as 1.07a
  * by Matthew Enger <m.enger@xi.com.au>
  *
+ * \ingroup applications
  */
 
 #include <stdlib.h>
@@ -63,7 +66,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.174 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.180 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -71,6 +74,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.174 $")
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
 #include "asterisk/options.h"
+#include "asterisk/app.h"
+#include "asterisk/linkedlists.h"
 #include "asterisk/module.h"
 #include "asterisk/translate.h"
 #include "asterisk/say.h"
@@ -122,20 +127,19 @@ static char *synopsis = "Queue a call for a call queue";
 static char *descrip =
 "  Queue(queuename[|options[|URL][|announceoverride][|timeout]]):\n"
 "Queues an incoming call in a particular call queue as defined in queues.conf.\n"
-"  This application returns -1 if the originating channel hangs up, or if the\n"
-"call is bridged and  either of the parties in the bridge terminate the call.\n"
-"Returns 0 if the queue is full, nonexistent, or has no members.\n"
+"This application will return to the dialplan if the queue does not exist, or\n"
+"any of the join options cause the caller to not enter the queue.\n"
 "The option string may contain zero or more of the following characters:\n"
-"      't' -- allow the called user transfer the calling user\n"
-"      'T' -- to allow the calling user to transfer the call.\n"
-"      'w' -- allow the called user to write the conversation to disk via Monitor\n"
-"      'W' -- allow the calling user to write the conversation to disk via Monitor\n"
 "      'd' -- data-quality (modem) call (minimum delay).\n"
 "      'h' -- allow callee to hang up by hitting *.\n"
 "      'H' -- allow caller to hang up by hitting *.\n"
 "      'n' -- no retries on the timeout; will exit this application and \n"
 "	      go to the next step.\n"
 "      'r' -- ring instead of playing MOH\n"
+"      't' -- allow the called user transfer the calling user\n"
+"      'T' -- to allow the calling user to transfer the call.\n"
+"      'w' -- allow the called user to write the conversation to disk via Monitor\n"
+"      'W' -- allow the calling user to write the conversation to disk via Monitor\n"
 "  In addition to transferring the call, a call may be parked and then picked\n"
 "up by another user.\n"
 "  The optional URL will be sent to the called party if the channel supports\n"
@@ -149,29 +153,39 @@ static char *descrip =
 static char *app_aqm = "AddQueueMember" ;
 static char *app_aqm_synopsis = "Dynamically adds queue members" ;
 static char *app_aqm_descrip =
-"   AddQueueMember(queuename[|interface[|penalty]]):\n"
+"   AddQueueMember(queuename[|interface[|penalty[|options]]]):\n"
 "Dynamically adds interface to an existing queue.\n"
 "If the interface is already in the queue and there exists an n+101 priority\n"
 "then it will then jump to this priority.  Otherwise it will return an error\n"
-"Returns -1 if there is an error.\n"
+"The option string may contain zero or more of the following characters:\n"
+"       'j' -- jump to +101 priority when appropriate.\n"
+"  This application sets the following channel variable upon completion:\n"
+"     AQMSTATUS    The status of the attempt to add a queue member as a \n"
+"                     text string, one of\n"
+"           ADDED | MEMBERALREADY | NOSUCHQUEUE \n"
 "Example: AddQueueMember(techsupport|SIP/3000)\n"
 "";
 
 static char *app_rqm = "RemoveQueueMember" ;
 static char *app_rqm_synopsis = "Dynamically removes queue members" ;
 static char *app_rqm_descrip =
-"   RemoveQueueMember(queuename[|interface]):\n"
+"   RemoveQueueMember(queuename[|interface[|options]]):\n"
 "Dynamically removes interface to an existing queue\n"
 "If the interface is NOT in the queue and there exists an n+101 priority\n"
 "then it will then jump to this priority.  Otherwise it will return an error\n"
-"Returns -1 if there is an error.\n"
+"The option string may contain zero or more of the following characters:\n"
+"       'j' -- jump to +101 priority when appropriate.\n"
+"  This application sets the following channel variable upon completion:\n"
+"     RQMSTATUS      The status of the attempt to remove a queue member as a\n"
+"                     text string, one of\n"
+"           REMOVED | NOTINQUEUE | NOSUCHQUEUE \n"
 "Example: RemoveQueueMember(techsupport|SIP/3000)\n"
 "";
 
 static char *app_pqm = "PauseQueueMember" ;
 static char *app_pqm_synopsis = "Pauses a queue member" ;
 static char *app_pqm_descrip =
-"   PauseQueueMember([queuename]|interface):\n"
+"   PauseQueueMember([queuename]|interface[|options]):\n"
 "Pauses (blocks calls for) a queue member.\n"
 "The given interface will be paused in the given queue.  This prevents\n"
 "any calls from being sent from the queue to the interface until it is\n"
@@ -179,28 +193,41 @@ static char *app_pqm_descrip =
 "queuename is given, the interface is paused in every queue it is a\n"
 "member of.  If the interface is not in the named queue, or if no queue\n"
 "is given and the interface is not in any queue, it will jump to\n"
-" priority n+101, if it exists.  Returns -1 if the interface is not\n"
-"found and no extension to jump to exists, 0 otherwise.\n"
+"priority n+101, if it exists and the appropriate options are set.\n"
+"The application will fail if the interface is not found and no extension\n"
+"to jump to exists.\n"
+"The option string may contain zero or more of the following characters:\n"
+"       'j' -- jump to +101 priority when appropriate.\n"
+"  This application sets the following channel variable upon completion:\n"
+"     PQMSTATUS      The status of the attempt to pause a queue member as a\n"
+"                     text string, one of\n"
+"           PAUSED | NOTFOUND\n"
 "Example: PauseQueueMember(|SIP/3000)\n";
 
 static char *app_upqm = "UnpauseQueueMember" ;
 static char *app_upqm_synopsis = "Unpauses a queue member" ;
 static char *app_upqm_descrip =
-"   UnpauseQueueMember([queuename]|interface):\n"
+"   UnpauseQueueMember([queuename]|interface[|options]):\n"
 "Unpauses (resumes calls to) a queue member.\n"
 "This is the counterpart to PauseQueueMember and operates exactly the\n"
 "same way, except it unpauses instead of pausing the given interface.\n"
+"The option string may contain zero or more of the following characters:\n"
+"       'j' -- jump to +101 priority when appropriate.\n"
+"  This application sets the following channel variable upon completion:\n"
+"     UPQMSTATUS       The status of the attempt to unpause a queue \n"
+"                      member as a text string, one of\n"
+"            UNPAUSED | NOTFOUND\n"
 "Example: UnpauseQueueMember(|SIP/3000)\n";
 
-/* Persistent Members astdb family */
+/*! \brief Persistent Members astdb family */
 static const char *pm_family = "/Queue/PersistentMembers";
 /* The maximum lengh of each persistent member queue database entry */
 #define PM_MAX_LEN 2048
 
-/* queues.conf [general] option */
+/*! \brief queues.conf [general] option */
 static int queue_persistent_members = 0;
 
-/* queues.conf per-queue weight option */
+/*! \brief queues.conf per-queue weight option */
 static int use_weight = 0;
 
 enum queue_result {
@@ -226,7 +253,7 @@ const struct {
 	{ QUEUE_FULL, "FULL" },
 };
 
-/* We define a custom "local user" structure because we
+/*! \brief We define a custom "local user" structure because we
    use it not only for keeping track of what is in use but
    also for keeping track of who we're dialing. */
 
@@ -243,35 +270,36 @@ struct localuser {
 
 LOCAL_USER_DECL;
 
+
 struct queue_ent {
-	struct ast_call_queue *parent;	/* What queue is our parent */
-	char moh[80];			/* Name of musiconhold to be used */
-	char announce[80];		/* Announcement to play for member when call is answered */
-	char context[AST_MAX_CONTEXT];	/* Context when user exits queue */
-	char digits[AST_MAX_EXTENSION];	/* Digits entered while in queue */
-	int pos;			/* Where we are in the queue */
-	int prio;			/* Our priority */
-	int last_pos_said;              /* Last position we told the user */
-	time_t last_periodic_announce_time;	/* The last time we played a periodic anouncement */
-	time_t last_pos;                /* Last time we told the user their position */
-	int opos;			/* Where we started in the queue */
-	int handled;			/* Whether our call was handled */
-	time_t start;			/* When we started holding */
-	time_t expire;			/* When this entry should expire (time out of queue) */
-	struct ast_channel *chan;	/* Our channel */
-	struct queue_ent *next;		/* The next queue entry */
+	struct ast_call_queue *parent;	/*!< What queue is our parent */
+	char moh[80];			/*!< Name of musiconhold to be used */
+	char announce[80];		/*!< Announcement to play for member when call is answered */
+	char context[AST_MAX_CONTEXT];	/*!< Context when user exits queue */
+	char digits[AST_MAX_EXTENSION];	/*!< Digits entered while in queue */
+	int pos;			/*!< Where we are in the queue */
+	int prio;			/*!< Our priority */
+	int last_pos_said;              /*!< Last position we told the user */
+	time_t last_periodic_announce_time;	/*!< The last time we played a periodic anouncement */
+	time_t last_pos;                /*!< Last time we told the user their position */
+	int opos;			/*!< Where we started in the queue */
+	int handled;			/*!< Whether our call was handled */
+	time_t start;			/*!< When we started holding */
+	time_t expire;			/*!< When this entry should expire (time out of queue) */
+	struct ast_channel *chan;	/*!< Our channel */
+	struct queue_ent *next;		/*!< The next queue entry */
 };
 
 struct member {
-	char interface[80];		/* Technology/Location */
-	int penalty;			/* Are we a last resort? */
-	int calls;			/* Number of calls serviced by this member */
-	int dynamic;			/* Are we dynamically added? */
-	int status;			/* Status of queue member */
-	int paused;			/* Are we paused (not accepting calls)? */
-	time_t lastcall;		/* When last successful call was hungup */
-	int dead;			/* Used to detect members deleted in realtime */
-	struct member *next;		/* Next member */
+	char interface[80];		/*!< Technology/Location */
+	int penalty;			/*!< Are we a last resort? */
+	int calls;			/*!< Number of calls serviced by this member */
+	int dynamic;			/*!< Are we dynamically added? */
+	int status;			/*!< Status of queue member */
+	int paused;			/*!< Are we paused (not accepting calls)? */
+	time_t lastcall;		/*!< When last successful call was hungup */
+	int dead;			/*!< Used to detect members deleted in realtime */
+	struct member *next;		/*!< Next member */
 };
 
 /* values used in multi-bit flags in ast_call_queue */
@@ -282,10 +310,10 @@ struct member {
 
 struct ast_call_queue {
 	ast_mutex_t lock;	
-	char name[80];			/* Name */
-	char moh[80];			/* Music On Hold class to be used */
-	char announce[80];		/* Announcement to play when call is answered */
-	char context[AST_MAX_CONTEXT];	/* Exit context */
+	char name[80];			/*!< Name */
+	char moh[80];			/*!< Music On Hold class to be used */
+	char announce[80];		/*!< Announcement to play when call is answered */
+	char context[AST_MAX_CONTEXT];	/*!< Exit context */
 		unsigned int monjoin:1;
 		unsigned int dead:1;
 		unsigned int joinempty:2;
@@ -298,41 +326,41 @@ struct ast_call_queue {
 		unsigned int strategy:3;
 		unsigned int maskmemberstatus:1;
 		unsigned int realtime:1;
-	int announcefrequency;          /* How often to announce their position */
-	int periodicannouncefrequency;	/* How often to play periodic announcement */
-	int roundingseconds;            /* How many seconds do we round to? */
-	int holdtime;                   /* Current avg holdtime, based on recursive boxcar filter */
-	int callscompleted;             /* Number of queue calls completed */
-	int callsabandoned;             /* Number of queue calls abandoned */
-	int servicelevel;               /* seconds setting for servicelevel*/
-	int callscompletedinsl;         /* Number of calls answered with servicelevel*/
-	char monfmt[8];                 /* Format to use when recording calls */
-	char sound_next[80];            /* Sound file: "Your call is now first in line" (def. queue-youarenext) */
-	char sound_thereare[80];        /* Sound file: "There are currently" (def. queue-thereare) */
-	char sound_calls[80];           /* Sound file: "calls waiting to speak to a representative." (def. queue-callswaiting)*/
-	char sound_holdtime[80];        /* Sound file: "The current estimated total holdtime is" (def. queue-holdtime) */
-	char sound_minutes[80];         /* Sound file: "minutes." (def. queue-minutes) */
-	char sound_lessthan[80];        /* Sound file: "less-than" (def. queue-lessthan) */
-	char sound_seconds[80];         /* Sound file: "seconds." (def. queue-seconds) */
-	char sound_thanks[80];          /* Sound file: "Thank you for your patience." (def. queue-thankyou) */
-	char sound_reporthold[80];	/* Sound file: "Hold time" (def. queue-reporthold) */
-	char sound_periodicannounce[80];/* Sound file: Custom announce, no default */
+	int announcefrequency;          /*!< How often to announce their position */
+	int periodicannouncefrequency;	/*!< How often to play periodic announcement */
+	int roundingseconds;            /*!< How many seconds do we round to? */
+	int holdtime;                   /*!< Current avg holdtime, based on recursive boxcar filter */
+	int callscompleted;             /*!< Number of queue calls completed */
+	int callsabandoned;             /*!< Number of queue calls abandoned */
+	int servicelevel;               /*!< seconds setting for servicelevel*/
+	int callscompletedinsl;         /*!< Number of calls answered with servicelevel*/
+	char monfmt[8];                 /*!< Format to use when recording calls */
+	char sound_next[80];            /*!< Sound file: "Your call is now first in line" (def. queue-youarenext) */
+	char sound_thereare[80];        /*!< Sound file: "There are currently" (def. queue-thereare) */
+	char sound_calls[80];           /*!< Sound file: "calls waiting to speak to a representative." (def. queue-callswaiting)*/
+	char sound_holdtime[80];        /*!< Sound file: "The current estimated total holdtime is" (def. queue-holdtime) */
+	char sound_minutes[80];         /*!< Sound file: "minutes." (def. queue-minutes) */
+	char sound_lessthan[80];        /*!< Sound file: "less-than" (def. queue-lessthan) */
+	char sound_seconds[80];         /*!< Sound file: "seconds." (def. queue-seconds) */
+	char sound_thanks[80];          /*!< Sound file: "Thank you for your patience." (def. queue-thankyou) */
+	char sound_reporthold[80];	/*!< Sound file: "Hold time" (def. queue-reporthold) */
+	char sound_periodicannounce[80];/*!< Sound file: Custom announce, no default */
 
-	int count;			/* How many entries */
-	int maxlen;			/* Max number of entries */
-	int wrapuptime;			/* Wrapup Time */
+	int count;			/*!< How many entries */
+	int maxlen;			/*!< Max number of entries */
+	int wrapuptime;			/*!< Wrapup Time */
 
-	int retry;			/* Retry calling everyone after this amount of time */
-	int timeout;			/* How long to wait for an answer */
-	int weight;                     /* Respective weight */
+	int retry;			/*!< Retry calling everyone after this amount of time */
+	int timeout;			/*!< How long to wait for an answer */
+	int weight;                     /*!< Respective weight */
 	
 	/* Queue strategy things */
-	int rrpos;			/* Round Robin - position */
-	int memberdelay;		/* Seconds to delay connecting member to caller */
+	int rrpos;			/*!< Round Robin - position */
+	int memberdelay;		/*!< Seconds to delay connecting member to caller */
 
-	struct member *members;		/* Head of the list of members */
-	struct queue_ent *head;		/* Head of the list of callers */
-	struct ast_call_queue *next;	/* Next call queue */
+	struct member *members;		/*!< Head of the list of members */
+	struct queue_ent *head;		/*!< Head of the list of callers */
+	struct ast_call_queue *next;	/*!< Next call queue */
 };
 
 static struct ast_call_queue *queues = NULL;
@@ -370,7 +398,7 @@ static int strat2int(const char *strategy)
 	return -1;
 }
 
-/* Insert the 'new' entry after the 'prev' entry of queue 'q' */
+/*! \brief Insert the 'new' entry after the 'prev' entry of queue 'q' */
 static inline void insert_entry(struct ast_call_queue *q, struct queue_ent *prev, struct queue_ent *new, int *pos)
 {
 	struct queue_ent *cur;
@@ -565,7 +593,8 @@ static void clear_queue(struct ast_call_queue *q)
 	q->wrapuptime = 0;
 }
 
-/* Configure a queue parameter.
+/*! \brief Configure a queue parameter.
+\par
    For error reporting, line number is passed for .conf static configuration.
    For Realtime queues, linenum is -1.
    The failunknown flag is set for config files (and static realtime) to show
@@ -727,8 +756,9 @@ static void rt_handle_member_record(struct ast_call_queue *q, char *interface, c
 }
 
 
-/* Reload a single queue via realtime. Return the queue, or NULL if it doesn't exist.
-   Should be called with the global qlock locked.
+/*!\brief Reload a single queue via realtime.
+   \return Return the queue, or NULL if it doesn't exist.
+   \note Should be called with the global qlock locked.
    When found, the queue is returned with q->lock locked. */
 static struct ast_call_queue *reload_queue_rt(const char *queuename, struct ast_variable *queue_vars, struct ast_config *member_config)
 {
@@ -769,7 +799,7 @@ static struct ast_call_queue *reload_queue_rt(const char *queuename, struct ast_
 	if (!queue_vars) {
 		/* Delete queue from in-core list if it has been deleted in realtime. */
 		if (q) {
-			/* Hmm, can't seem to distinguish a DB failure from a not
+			/*! \note Hmm, can't seem to distinguish a DB failure from a not
 			   found condition... So we might delete an in-core queue
 			   in case of DB failure. */
 			ast_log(LOG_DEBUG, "Queue %s not found in realtime.\n", queuename);
@@ -865,7 +895,7 @@ static int join_queue(char *queuename, struct queue_ent *qe, enum queue_result *
 	int inserted = 0;
 	enum queue_member_status stat;
 
-	/* Load from realtime before taking the global qlock, to avoid blocking all
+	/*! \note Load from realtime before taking the global qlock, to avoid blocking all
 	   queue operations while waiting for the DB.
 
 	   This will be two separate database transactions, so we might
@@ -2020,7 +2050,7 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 	cur = qe->parent->members;
 	if (!ast_strlen_zero(qe->announce))
 		announce = qe->announce;
-	if (announceoverride && !ast_strlen_zero(announceoverride))
+	if (!ast_strlen_zero(announceoverride))
 		announce = announceoverride;
 
 	while(cur) {
@@ -2199,7 +2229,7 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 		}
 		/* Drop out of the queue at this point, to prepare for next caller */
 		leave_queue(qe);			
- 		if (url && !ast_strlen_zero(url) && ast_channel_supports_html(peer)) {
+ 		if (!ast_strlen_zero(url) && ast_channel_supports_html(peer)) {
 			if (option_debug)
 	 			ast_log(LOG_DEBUG, "app_queue: sendurl=%s.\n", url);
  			ast_channel_sendurl(peer, url);
@@ -2552,88 +2582,112 @@ static void reload_queue_members(void)
 static int pqm_exec(struct ast_channel *chan, void *data)
 {
 	struct localuser *u;
-	char *queuename, *interface;
+	char *parse;
+	int priority_jump = 0;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(queuename);
+		AST_APP_ARG(interface);
+		AST_APP_ARG(options);
+	);
 
 	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "PauseQueueMember requires an argument ([queuename]|interface])\n");
+		ast_log(LOG_WARNING, "PauseQueueMember requires an argument ([queuename]|interface[|options])\n");
 		return -1;
 	}
 
 	LOCAL_USER_ADD(u);
 
-	queuename = ast_strdupa((char *)data);
-	if (!queuename) {
-		ast_log(LOG_ERROR, "Out of memory\n");
+	if (!(parse = ast_strdupa(data))) {
+		ast_log(LOG_WARNING, "Memory Error!\n");
 		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
-	interface = strchr(queuename, '|');
-	if (!interface) {
-		ast_log(LOG_WARNING, "Missing interface argument to PauseQueueMember ([queuename]|interface])\n");
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	if (args.options) {
+		if (strchr(args.options, 'j'))
+			priority_jump = 1;
+	}
+
+	if (ast_strlen_zero(args.interface)) {
+		ast_log(LOG_WARNING, "Missing interface argument to PauseQueueMember ([queuename]|interface[|options])\n");
 		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
-	*interface = '\0';
-	interface++;
-
-	if (set_member_paused(queuename, interface, 1)) {
-		ast_log(LOG_WARNING, "Attempt to pause interface %s, not found\n", interface);
-		if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
-			LOCAL_USER_REMOVE(u);
-			return 0;
+	if (set_member_paused(args.queuename, args.interface, 1)) {
+		ast_log(LOG_WARNING, "Attempt to pause interface %s, not found\n", args.interface);
+		if (priority_jump || option_priority_jumping) {
+			if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
+				pbx_builtin_setvar_helper(chan, "PQMSTATUS", "NOTFOUND");
+				LOCAL_USER_REMOVE(u);
+				return 0;
+			}
 		}
 		LOCAL_USER_REMOVE(u);
+		pbx_builtin_setvar_helper(chan, "PQMSTATUS", "NOTFOUND");
 		return -1;
 	}
 
 	LOCAL_USER_REMOVE(u);
-
+	pbx_builtin_setvar_helper(chan, "PQMSTATUS", "PAUSED");
 	return 0;
 }
 
 static int upqm_exec(struct ast_channel *chan, void *data)
 {
 	struct localuser *u;
-	char *queuename, *interface;
+	char *parse;
+	int priority_jump = 0;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(queuename);
+		AST_APP_ARG(interface);
+		AST_APP_ARG(options);
+	);
 
 	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "UnpauseQueueMember requires an argument ([queuename]|interface])\n");
+		ast_log(LOG_WARNING, "UnpauseQueueMember requires an argument ([queuename]|interface[|options])\n");
 		return -1;
 	}
 
 	LOCAL_USER_ADD(u);
 
-	queuename = ast_strdupa((char *)data);
-	if (!queuename) {
-		ast_log(LOG_ERROR, "Out of memory\n");
+	if (!(parse = ast_strdupa(data))) {
+		ast_log(LOG_WARNING, "Memory Error!\n");
 		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
-	interface = strchr(queuename, '|');
-	if (!interface) {
-		ast_log(LOG_WARNING, "Missing interface argument to PauseQueueMember ([queuename]|interface])\n");
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	if (args.options) {
+		if (strchr(args.options, 'j'))
+			priority_jump = 1;
+	}
+
+	if (ast_strlen_zero(args.interface)) {
+		ast_log(LOG_WARNING, "Missing interface argument to PauseQueueMember ([queuename]|interface[|options])\n");
 		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
-	*interface = '\0';
-	interface++;
-
-	if (set_member_paused(queuename, interface, 0)) {
-		ast_log(LOG_WARNING, "Attempt to unpause interface %s, not found\n", interface);
-		if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
-			LOCAL_USER_REMOVE(u);
-			return 0;
+	if (set_member_paused(args.queuename, args.interface, 0)) {
+		ast_log(LOG_WARNING, "Attempt to unpause interface %s, not found\n", args.interface);
+		if (priority_jump || option_priority_jumping) {
+			if (ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101)) {
+				pbx_builtin_setvar_helper(chan, "UPQMSTATUS", "NOTFOUND");
+				LOCAL_USER_REMOVE(u);
+				return 0;
+			}
 		}
 		LOCAL_USER_REMOVE(u);
+		pbx_builtin_setvar_helper(chan, "UPQMSTATUS", "NOTFOUND");
 		return -1;
 	}
 
 	LOCAL_USER_REMOVE(u);
-
+	pbx_builtin_setvar_helper(chan, "UPQMSTATUS", "UNPAUSED");
 	return 0;
 }
 
@@ -2641,52 +2695,58 @@ static int rqm_exec(struct ast_channel *chan, void *data)
 {
 	int res=-1;
 	struct localuser *u;
-	char *info, *queuename;
-	char tmpchan[256]="";
-	char *interface = NULL;
+	char *parse, *temppos = NULL;
+	int priority_jump = 0;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(queuename);
+		AST_APP_ARG(interface);
+		AST_APP_ARG(options);
+	);
+
 
 	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "RemoveQueueMember requires an argument (queuename[|interface])\n");
+		ast_log(LOG_WARNING, "RemoveQueueMember requires an argument (queuename[|interface[|options]])\n");
 		return -1;
 	}
 
 	LOCAL_USER_ADD(u);
 
-	info = ast_strdupa(data);
-	if (!info) {
-		ast_log(LOG_ERROR, "Out of memory\n");
+	if (!(parse = ast_strdupa(data))) {
+		ast_log(LOG_WARNING, "Memory Error!\n");
 		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
-	queuename = info;
-	if (queuename) {
-		interface = strchr(queuename, '|');
-		if (interface) {
-			*interface = '\0';
-			interface++;
-		}
-		else {
-			ast_copy_string(tmpchan, chan->name, sizeof(tmpchan));
-			interface = strrchr(tmpchan, '-');
-			if (interface)
-				*interface = '\0';
-			interface = tmpchan;
-		}
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	if (ast_strlen_zero(args.interface)) {
+		args.interface = ast_strdupa(chan->name);
+		temppos = strrchr(args.interface, '-');
+		if (temppos)
+			*temppos = '\0';
 	}
 
-	switch (remove_from_queue(queuename, interface)) {
+	if (args.options) {
+		if (strchr(args.options, 'j'))
+			priority_jump = 1;
+	}
+
+	switch (remove_from_queue(args.queuename, args.interface)) {
 	case RES_OKAY:
-		ast_log(LOG_NOTICE, "Removed interface '%s' from queue '%s'\n", interface, queuename);
+		ast_log(LOG_NOTICE, "Removed interface '%s' from queue '%s'\n", args.interface, args.queuename);
+		pbx_builtin_setvar_helper(chan, "RQMSTATUS", "REMOVED");
 		res = 0;
 		break;
 	case RES_EXISTS:
-		ast_log(LOG_WARNING, "Unable to remove interface '%s' from queue '%s': Not there\n", interface, queuename);
-		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
+		ast_log(LOG_WARNING, "Unable to remove interface '%s' from queue '%s': Not there\n", args.interface, args.queuename);
+		if (priority_jump || option_priority_jumping) 
+			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
+		pbx_builtin_setvar_helper(chan, "RQMSTATUS", "NOTINQUEUE");
 		res = 0;
 		break;
 	case RES_NOSUCHQUEUE:
-		ast_log(LOG_WARNING, "Unable to remove interface from queue '%s': No such queue\n", queuename);
+		ast_log(LOG_WARNING, "Unable to remove interface from queue '%s': No such queue\n", args.queuename);
+		pbx_builtin_setvar_helper(chan, "RQMSTATUS", "NOSUCHQUEUE");
 		res = 0;
 		break;
 	case RES_OUTOFMEMORY:
@@ -2702,72 +2762,71 @@ static int aqm_exec(struct ast_channel *chan, void *data)
 {
 	int res=-1;
 	struct localuser *u;
-	char *queuename;
-	char *info;
-	char tmpchan[512]="";
-	char *interface=NULL;
-	char *penaltys=NULL;
+	char *parse, *temppos = NULL;
+	int priority_jump = 0;
+	AST_DECLARE_APP_ARGS(args,
+		AST_APP_ARG(queuename);
+		AST_APP_ARG(interface);
+		AST_APP_ARG(penalty);
+		AST_APP_ARG(options);
+	);
 	int penalty = 0;
 
 	if (ast_strlen_zero(data)) {
-		ast_log(LOG_WARNING, "AddQueueMember requires an argument (queuename[|[interface][|penalty]])\n");
+		ast_log(LOG_WARNING, "AddQueueMember requires an argument (queuename[|[interface]|[penalty][|options]])\n");
 		return -1;
 	}
 
 	LOCAL_USER_ADD(u);
 
-	info = ast_strdupa(data);
-	if (!info) {
-		ast_log(LOG_ERROR, "Out of memory\n");
+	if (!(parse = ast_strdupa(data))) {
+		ast_log(LOG_WARNING, "Memory Error!\n");
 		LOCAL_USER_REMOVE(u);
 		return -1;
 	}
 
-	queuename = info;
-	if (queuename) {
-		interface = strchr(queuename, '|');
-		if (interface) {
-			*interface = '\0';
-			interface++;
-		}
-		if (interface) {
-			penaltys = strchr(interface, '|');
-			if (penaltys) {
-				*penaltys = '\0';
-				penaltys++;
-			}
-		}
-		if (ast_strlen_zero(interface)) {
-			ast_copy_string(tmpchan, chan->name, sizeof(tmpchan));
-			interface = strrchr(tmpchan, '-');
-			if (interface)
-				*interface = '\0';
-			interface = tmpchan;
-		}
-		if (!ast_strlen_zero(penaltys)) {
-			if ((sscanf(penaltys, "%d", &penalty) != 1) || penalty < 0) {
-				ast_log(LOG_WARNING, "Penalty '%s' is invalid, must be an integer >= 0\n", penaltys);
-				penalty = 0;
-			}
-		}
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	if (ast_strlen_zero(args.interface)) {
+		args.interface = ast_strdupa(chan->name);
+		temppos = strrchr(args.interface, '-');
+		if (temppos)
+			*temppos = '\0';
 	}
 
-	switch (add_to_queue(queuename, interface, penalty, 0, queue_persistent_members)) {
+	if (!ast_strlen_zero(args.penalty)) {
+		if ((sscanf(args.penalty, "%d", &penalty) != 1) || penalty < 0) {
+			ast_log(LOG_WARNING, "Penalty '%s' is invalid, must be an integer >= 0\n", args.penalty);
+			penalty = 0;
+		}
+	}
+	
+	if (args.options) {
+		if (strchr(args.options, 'j'))
+			priority_jump = 1;
+	}
+
+
+	switch (add_to_queue(args.queuename, args.interface, penalty, 0, queue_persistent_members)) {
 	case RES_OKAY:
-		ast_log(LOG_NOTICE, "Added interface '%s' to queue '%s'\n", interface, queuename);
+		ast_log(LOG_NOTICE, "Added interface '%s' to queue '%s'\n", args.interface, args.queuename);
+		pbx_builtin_setvar_helper(chan, "AQMSTATUS", "ADDED");
 		res = 0;
 		break;
 	case RES_EXISTS:
-		ast_log(LOG_WARNING, "Unable to add interface '%s' to queue '%s': Already there\n", interface, queuename);
-		ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
+		ast_log(LOG_WARNING, "Unable to add interface '%s' to queue '%s': Already there\n", args.interface, args.queuename);
+		if (priority_jump || option_priority_jumping) 
+			ast_goto_if_exists(chan, chan->context, chan->exten, chan->priority + 101);
+		pbx_builtin_setvar_helper(chan, "AQMSTATUS", "MEMBERALREADY");
 		res = 0;
 		break;
 	case RES_NOSUCHQUEUE:
-		ast_log(LOG_WARNING, "Unable to add interface to queue '%s': No such queue\n", queuename);
+		ast_log(LOG_WARNING, "Unable to add interface to queue '%s': No such queue\n", args.queuename);
+		pbx_builtin_setvar_helper(chan, "AQMSTATUS", "NOSUCHQUEUE");
 		res = 0;
 		break;
 	case RES_OUTOFMEMORY:
-		ast_log(LOG_ERROR, "Out of memory adding member %s to queue %s\n", interface, queuename);
+		ast_log(LOG_ERROR, "Out of memory adding member %s to queue %s\n", args.interface, args.queuename);
 		break;
 	}
 
@@ -3314,7 +3373,9 @@ static char *complete_queue(char *line, char *word, int pos, int state)
 	return q ? strdup(q->name) : NULL;
 }
 
-/* JDG: callback to display queues status in manager */
+/*!\brief callback to display queues status in manager 
+   \addtogroup Group_AMI 
+ */
 static int manager_queues_show( struct mansession *s, struct message *m )
 {
 	char *a[] = { "show", "queues" };

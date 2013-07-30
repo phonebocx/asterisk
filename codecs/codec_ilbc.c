@@ -22,6 +22,7 @@
  *
  * \brief Translate between signed linear and Internet Low Bitrate Codec
  * 
+ * \ingroup codecs
  */
 
 #include <fcntl.h>
@@ -33,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/translate.h"

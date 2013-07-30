@@ -20,15 +20,18 @@
  *
  * \brief Skeleton application
  * 
+ * This is a skeleton for development of an Asterisk application */
+ * \ingroup applications
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
 
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -90,7 +93,7 @@ static int app_exec(struct ast_channel *chan, void *data)
 		return -1;
 	}
 	
-	if ((argc = ast_separate_app_args(args, '|', argv, sizeof(argv) / sizeof(argv[0])))) {
+	if ((argc = ast_app_separate_args(args, '|', argv, sizeof(argv) / sizeof(argv[0])))) {
 		dummy = argv[0];
 		options = argv[1];
 		ast_parseoptions(app_opts, &flags, opts, options);

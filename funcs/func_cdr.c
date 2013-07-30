@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $") */
+/* ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $") */
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -45,14 +45,14 @@ static char *builtin_function_cdr_read(struct ast_channel *chan, char *cmd, char
 	char *argv[2];
 	int recursive = 0;
 
-	if (!data || ast_strlen_zero(data))
+	if (ast_strlen_zero(data))
 		return NULL;
 	
 	if (!chan->cdr)
 		return NULL;
 
 	mydata = ast_strdupa(data);
-	argc = ast_separate_app_args(mydata, '|', argv, sizeof(argv) / sizeof(argv[0]));
+	argc = ast_app_separate_args(mydata, '|', argv, sizeof(argv) / sizeof(argv[0]));
 
 	/* check for a trailing flags argument */
 	if (argc > 1) {
@@ -73,11 +73,11 @@ static void builtin_function_cdr_write(struct ast_channel *chan, char *cmd, char
 	char *argv[2];
 	int recursive = 0;
 
-	if (!data || ast_strlen_zero(data) || !value)
+	if (ast_strlen_zero(data) || !value)
 		return;
 	
 	mydata = ast_strdupa(data);
-	argc = ast_separate_app_args(mydata, '|', argv, sizeof(argv) / sizeof(argv[0]));
+	argc = ast_app_separate_args(mydata, '|', argv, sizeof(argv) / sizeof(argv[0]));
 
 	/* check for a trailing flags argument */
 	if (argc > 1) {

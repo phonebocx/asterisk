@@ -18,10 +18,14 @@
 
 
 /*! \file
- * \brief Implementation of Agents
+ * \brief Implementation of Agents (proxy channel)
  *
  * This file is the implementation of Agents modules.
- * It is a dynamic module that is loaded by Asterisk. At load time, load_module is run.
+ * It is a dynamic module that is loaded by Asterisk. 
+ * \par See also
+ * \arg \ref Config_agent
+ *
+ * \ingroup channel_drivers
  */
 
 #include <stdio.h>
@@ -38,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.164 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.168 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -63,6 +67,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.164 $")
 #include "asterisk/causes.h"
 #include "asterisk/astdb.h"
 #include "asterisk/devicestate.h"
+#include "asterisk/monitor.h"
 
 static const char desc[] = "Agent Proxy Channel";
 static const char channeltype[] = "Agent";
@@ -317,7 +322,7 @@ static struct agent_pvt *add_agent(char *agent, int pending)
 	args = ast_strdupa(agent);
 
 	// Extract username (agt), password and name from agent (args).
-	if ((argc = ast_separate_app_args(args, ',', argv, sizeof(argv) / sizeof(argv[0])))) {
+	if ((argc = ast_app_separate_args(args, ',', argv, sizeof(argv) / sizeof(argv[0])))) {
 		agt = argv[0];
 		if (argc > 1) {
 			password = argv[1];
@@ -1654,13 +1659,12 @@ static struct ast_cli_entry cli_agent_logoff = {
 STANDARD_LOCAL_USER;
 LOCAL_USER_DECL;
 
-/**
- * Log in agent application.
+/*!
+ * \brief Log in agent application.
  *
- * @param chan
- * @param data
- * @param callbackmode
- * @returns 
+ * \param chan
+ * \param data
+ * \param callbackmode non-zero for AgentCallbackLogin
  */
 static int __login_exec(struct ast_channel *chan, void *data, int callbackmode)
 {
@@ -1732,10 +1736,9 @@ static int __login_exec(struct ast_channel *chan, void *data, int callbackmode)
 		context = parse;
 	}
 
-	while (!ast_strlen_zero(args.options)) {
-		if (*args.options == 's') {
+	if (!ast_strlen_zero(args.options)) {
+		if (strchr(args.options, 's')) {
 			play_announcement = 0;
-			break;
 		}
 	}
 
