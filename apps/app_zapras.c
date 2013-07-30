@@ -11,6 +11,7 @@
  * the GNU General Public License
  */
 
+#include <asterisk/lock.h>
 #include <asterisk/file.h>
 #include <asterisk/logger.h>
 #include <asterisk/channel.h>
@@ -19,17 +20,26 @@
 #include <asterisk/options.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
+#ifdef __linux__
 #include <sys/signal.h>
+#else
+#include <signal.h>
+#endif /* __linux__ */
 
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-
-#include <pthread.h>
+#include <errno.h>
+#include <stdio.h>
+#include <fcntl.h>
 
 /* Need some zaptel help here */
+#ifdef __linux__
 #include <linux/zaptel.h>
+#else
+#include <zaptel.h>
+#endif /* __linux__ */
 
 static char *tdesc = "Zap RAS Application";
 
@@ -40,7 +50,7 @@ static char *synopsis = "Executes Zaptel ISDN RAS application";
 static char *descrip =
 "  ZapRAS(args): Executes a RAS server using pppd on the given channel.\n"
 "The channel must be a clear channel (i.e. PRI source) and a Zaptel\n"
-"channel to be able to use this function (No modem emulcation is included).\n"
+"channel to be able to use this function (No modem emulation is included).\n"
 "Your pppd must be patched to be zaptel aware. Arguments should be\n"
 "separated by | characters.  Always returns -1.\n";
 
@@ -59,6 +69,7 @@ static pid_t spawn_ras(struct ast_channel *chan, char *args)
 
 	char *argv[PPP_MAX_ARGS];
 	int argc = 0;
+	char *stringp=NULL;
 
 	/* Start by forking */
 	pid = fork();
@@ -85,10 +96,11 @@ static pid_t spawn_ras(struct ast_channel *chan, char *args)
 	argv[argc++] = "nodetach";
 
 	/* And all the other arguments */
-	c = strtok(args, "|");
+	stringp=args;
+	c = strsep(&stringp, "|");
 	while(c && strlen(c) && (argc < (PPP_MAX_ARGS - 4))) {
 		argv[argc++] = c;
-		c = strtok(NULL, "|");
+		c = strsep(&stringp, "|");
 	}
 
 	argv[argc++] = "plugin";
@@ -124,8 +136,8 @@ static void run_ras(struct ast_channel *chan, char *args)
 			res = wait4(pid, &status, WNOHANG, NULL);
 			if (!res) {
 				/* Check for hangup */
-				if (chan->softhangup && !signalled) {
-					ast_log(LOG_DEBUG, "Channel hungup.  Signalling RAS at %d to die...\n", pid);
+				if (chan->_softhangup && !signalled) {
+					ast_log(LOG_DEBUG, "Channel '%s' hungup.  Signalling RAS at %d to die...\n", chan->name, pid);
 					kill(pid, SIGTERM);
 					signalled=1;
 				}
@@ -147,7 +159,7 @@ static void run_ras(struct ast_channel *chan, char *args)
 				}
 			}
 			/* Throw back into audio mode */
-			x = 0;
+			x = 1;
 			ioctl(chan->fds[0], ZT_AUDIOMODE, &x);
 
 			/* Double check buffering too */
@@ -181,7 +193,7 @@ static int zapras_exec(struct ast_channel *chan, void *data)
 	LOCAL_USER_ADD(u);
 	strncpy(args, data, sizeof(args) - 1);
 	/* Answer the channel if it's not up */
-	if (chan->state != AST_STATE_UP)
+	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);
 	if (strcasecmp(chan->type, "Zap")) {
 		/* If it's not a zap channel, we're done.  Wait a couple of

@@ -11,6 +11,7 @@
  * the GNU General Public License
  */
  
+#include <asterisk/lock.h>
 #include <asterisk/channel.h>
 #include <asterisk/file.h>
 #include <asterisk/logger.h>
@@ -22,7 +23,6 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <pthread.h>
 #include <sys/time.h>
 #include "../channels/adtranvofr.h"
 
@@ -34,8 +34,6 @@ struct ast_filestream {
 	void *reserved[AST_RESERVED_POINTERS];
 	/* This is what a filestream means to us */
 	int fd; /* Descriptor */
-	u_int32_t lasttimeout;	/* Last amount of timeout */
-	struct ast_channel *owner;
 	struct ast_filestream *next;
 	struct ast_frame *fr;	/* Frame representation of buf */
 	struct timeval orig;	/* Original frame time */
@@ -43,13 +41,12 @@ struct ast_filestream {
 };
 
 
-static struct ast_filestream *glist = NULL;
-static pthread_mutex_t g723_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(g723_lock);
 static int glistcnt = 0;
 
 static char *name = "g723sf";
 static char *desc = "G.723.1 Simple Timestamp File Format";
-static char *exts = "g723";
+static char *exts = "g723|g723sf";
 
 static struct ast_filestream *g723_open(int fd)
 {
@@ -58,15 +55,12 @@ static struct ast_filestream *g723_open(int fd)
 	   and be sure it's a valid file.  */
 	struct ast_filestream *tmp;
 	if ((tmp = malloc(sizeof(struct ast_filestream)))) {
-		if (ast_pthread_mutex_lock(&g723_lock)) {
+		if (ast_mutex_lock(&g723_lock)) {
 			ast_log(LOG_WARNING, "Unable to lock g723 list\n");
 			free(tmp);
 			return NULL;
 		}
-		tmp->next = glist;
-		glist = tmp;
 		tmp->fd = fd;
-		tmp->owner = NULL;
 		tmp->fr = (struct ast_frame *)tmp->buf;
 		tmp->fr->data = tmp->buf + sizeof(struct ast_frame);
 		tmp->fr->frametype = AST_FRAME_VOICE;
@@ -78,7 +72,7 @@ static struct ast_filestream *g723_open(int fd)
 		tmp->orig.tv_usec = 0;
 		tmp->orig.tv_sec = 0;
 		glistcnt++;
-		ast_pthread_mutex_unlock(&g723_lock);
+		ast_mutex_unlock(&g723_lock);
 		ast_update_use_count();
 	}
 	return tmp;
@@ -91,13 +85,11 @@ static struct ast_filestream *g723_rewrite(int fd, char *comment)
 	   and be sure it's a valid file.  */
 	struct ast_filestream *tmp;
 	if ((tmp = malloc(sizeof(struct ast_filestream)))) {
-		if (ast_pthread_mutex_lock(&g723_lock)) {
+		if (ast_mutex_lock(&g723_lock)) {
 			ast_log(LOG_WARNING, "Unable to lock g723 list\n");
 			free(tmp);
 			return NULL;
 		}
-		tmp->next = glist;
-		glist = tmp;
 		tmp->fd = fd;
 		tmp->owner = NULL;
 		tmp->fr = NULL;
@@ -105,7 +97,7 @@ static struct ast_filestream *g723_rewrite(int fd, char *comment)
 		tmp->orig.tv_usec = 0;
 		tmp->orig.tv_sec = 0;
 		glistcnt++;
-		ast_pthread_mutex_unlock(&g723_lock);
+		ast_mutex_unlock(&g723_lock);
 		ast_update_use_count();
 	} else
 		ast_log(LOG_WARNING, "Out of memory\n");
@@ -120,7 +112,7 @@ static struct ast_frame *g723_read(struct ast_filestream *s)
 static void g723_close(struct ast_filestream *s)
 {
 	struct ast_filestream *tmp, *tmpl = NULL;
-	if (ast_pthread_mutex_lock(&g723_lock)) {
+	if (ast_mutex_lock(&g723_lock)) {
 		ast_log(LOG_WARNING, "Unable to lock g723 list\n");
 		return;
 	}
@@ -143,12 +135,13 @@ static void g723_close(struct ast_filestream *s)
 			ast_sched_del(s->owner->sched, s->owner->streamid);
 		s->owner->streamid = -1;
 	}
-	ast_pthread_mutex_unlock(&g723_lock);
+	ast_mutex_unlock(&g723_lock);
 	ast_update_use_count();
 	if (!tmp) 
 		ast_log(LOG_WARNING, "Freeing a filestream we don't seem to own\n");
 	close(s->fd);
 	free(s);
+	s = NULL;
 }
 
 static int ast_read_callback(void *data)
@@ -198,7 +191,7 @@ static int ast_read_callback(void *data)
 		else
 			s->fr->timelen = delay;
 #else
-		s->fr->timelen = 30;
+		s->fr->samples = 240;
 #endif
 		/* Unless there is no delay, we're going to exit out as soon as we
 		   have processed the current frame. */
@@ -228,9 +221,14 @@ static int ast_read_callback(void *data)
 
 static int g723_apply(struct ast_channel *c, struct ast_filestream *s)
 {
-	u_int32_t delay;
 	/* Select our owner for this stream, and get the ball rolling. */
 	s->owner = c;
+	return 0;
+}
+
+static int g723_play(struct ast_filestream *s)
+{
+	u_int32_t delay;
 	/* Read and ignore the first delay */
 	if (read(s->fd, &delay, 4) != 4) {
 		/* Empty file */
@@ -295,6 +293,21 @@ static int g723_write(struct ast_filestream *fs, struct ast_frame *f)
 	return 0;
 }
 
+static int g723_seek(struct ast_filestream *fs, long sample_offset, int whence)
+{
+	return -1;
+}
+
+static int g723_trunc(struct ast_filestream *fs)
+{
+	return -1;
+}
+
+static long g723_tell(struct ast_filestream *fs)
+{
+	return -1;
+}
+
 static char *g723_getcomment(struct ast_filestream *s)
 {
 	return NULL;
@@ -306,7 +319,11 @@ int load_module()
 								g723_open,
 								g723_rewrite,
 								g723_apply,
+								g723_play,
 								g723_write,
+								g723_seek,
+								g723_trunc,
+								g723_tell,
 								g723_read,
 								g723_close,
 								g723_getcomment);
@@ -317,31 +334,31 @@ int load_module()
 int unload_module()
 {
 	struct ast_filestream *tmp, *tmpl;
-	if (ast_pthread_mutex_lock(&g723_lock)) {
+	if (ast_mutex_lock(&g723_lock)) {
 		ast_log(LOG_WARNING, "Unable to lock g723 list\n");
 		return -1;
 	}
 	tmp = glist;
 	while(tmp) {
 		if (tmp->owner)
-			ast_softhangup(tmp->owner);
+			ast_softhangup(tmp->owner, AST_SOFTHANGUP_APPUNLOAD);
 		tmpl = tmp;
 		tmp = tmp->next;
 		free(tmpl);
 	}
-	ast_pthread_mutex_unlock(&g723_lock);
+	ast_mutex_unlock(&g723_lock);
 	return ast_format_unregister(name);
 }	
 
 int usecount()
 {
 	int res;
-	if (ast_pthread_mutex_lock(&g723_lock)) {
+	if (ast_mutex_lock(&g723_lock)) {
 		ast_log(LOG_WARNING, "Unable to lock g723 list\n");
 		return -1;
 	}
 	res = glistcnt;
-	ast_pthread_mutex_unlock(&g723_lock);
+	ast_mutex_unlock(&g723_lock);
 	return res;
 }
 

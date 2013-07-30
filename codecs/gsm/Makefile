@@ -30,12 +30,35 @@ WAV49	= -DWAV49
 ######### define this, and read about the GSM_OPT_WAV49 option in the
 ######### manual page on gsm_option(3).
 
-K6OPT	= -DK6OPT
+#K6OPT	= -DK6OPT
 #K6OPT	=
 ######### Define to enable MMXTM optimizations for x86 architecture CPU's
 ######### which support MMX instructions.  This should be newer pentiums,
 ######### ppro's, etc, as well as the AMD K6 and K7.  The compile will
 ######### probably require gcc. 
+
+ifneq (${OSARCH},Darwin)
+ifneq (${PROC},x86_64)
+ifneq (${PROC},ultrasparc)
+ifneq ($(shell uname -m),ppc)
+ifneq ($(shell uname -m),alpha)
+ifneq (${PROC},sparc64)
+OPTIMIZE+=-march=$(PROC)
+endif
+endif
+endif
+endif
+endif
+endif
+
+#The problem with sparc is the best stuff is in newer versions of gcc (post 3.0) only.
+#This works for even old (2.96) versions of gcc and provides a small boost either way.
+#A ultrasparc cpu is really v9 but the stock debian stable 3.0 gcc doesn't support it.
+#So we go lowest common available by gcc and go a step down, still a step up from
+#the default as we now have a better instruction set to work with. - Belgarath
+ifeq (${PROC},ultrasparc)
+OPTIMIZE+=-mcpu=v8 -mtune=$(PROC) -O3 -fomit-frame-pointer
+endif
 
 PG =
 #PG = -g -pg
@@ -54,8 +77,8 @@ PG =
 # CC		= /usr/lang/acc
 # CCFLAGS 	= -c -O
 
-CC		= gcc -ansi -pedantic -O6 -mpentium -fschedule-insns2  -fomit-frame-pointer 
-CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -finline-functions -funroll-loops
+CC		?= gcc
+CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -funroll-loops -fPIC $(OPTIMIZE) -fomit-frame-pointer
 
 LD 		= $(CC)
 
@@ -140,7 +163,7 @@ INC	= $(ROOT)/inc
 DEBUG	= -DNDEBUG
 ######### Remove -DNDEBUG to enable assertions.
 
-CFLAGS	= $(PG) $(CCFLAGS) $(SASR) $(DEBUG) $(MULHACK) $(FAST) \
+CFLAGS += $(PG) $(CCFLAGS) $(SASR) $(DEBUG) $(MULHACK) $(FAST) \
 	$(LTP_CUT) $(WAV49) $(K6OPT) $(CCINC) -I$(INC)
 ######### It's $(CC) $(CFLAGS)
 
@@ -175,7 +198,6 @@ GSM_SOURCES =	$(SRC)/add.c		\
 		$(SRC)/code.c		\
 		$(SRC)/debug.c		\
 		$(SRC)/decode.c		\
-		$(SRC)/k6opt.s	\
 		$(SRC)/long_term.c	\
 		$(SRC)/lpc.c		\
 		$(SRC)/preprocess.c	\
@@ -190,6 +212,17 @@ GSM_SOURCES =	$(SRC)/add.c		\
 		$(SRC)/gsm_option.c	\
 		$(SRC)/short_term.c	\
 		$(SRC)/table.c
+ifeq (${OSARCH},Linux)
+ifneq ($(shell uname -m),x86_64)
+ifneq ($(shell uname -m),ppc)
+ifneq ($(shell uname -m),alpha)
+ifneq ($(shell uname -m),sparc64)
+GSM_SOURCES+= $(SRC)/k6opt.s
+endif
+endif
+endif
+endif
+endif
 
 TOAST_SOURCES = $(SRC)/toast.c 		\
 		$(SRC)/toast_lin.c	\
@@ -220,7 +253,6 @@ GSM_OBJECTS =	$(SRC)/add.o		\
 		$(SRC)/code.o		\
 		$(SRC)/debug.o		\
 		$(SRC)/decode.o		\
-		$(SRC)/k6opt.o	\
 		$(SRC)/long_term.o	\
 		$(SRC)/lpc.o		\
 		$(SRC)/preprocess.o	\
@@ -235,6 +267,18 @@ GSM_OBJECTS =	$(SRC)/add.o		\
 		$(SRC)/gsm_option.o	\
 		$(SRC)/short_term.o	\
 		$(SRC)/table.o
+
+ifeq (${OSARCH},Linux)
+ifneq ($(shell uname -m), x86_64)
+ifneq ($(shell uname -m), ppc)
+ifneq ($(shell uname -m), alpha)
+ifneq ($(shell uname -m), sparc64)
+GSM_OBJECTS+= $(SRC)/k6opt.o
+endif
+endif
+endif
+endif
+endif
 
 TOAST_OBJECTS =	$(SRC)/toast.o 		\
 		$(SRC)/toast_lin.o	\
@@ -351,12 +395,12 @@ $(LIB):
 
 gsminstall:
 		-if [ x"$(GSM_INSTALL_ROOT)" != x ] ; then	\
-			make $(GSM_INSTALL_TARGETS) ;	\
+			$(MAKE) $(GSM_INSTALL_TARGETS) ;	\
 		fi
 
 toastinstall:
 		-if [ x"$(TOAST_INSTALL_ROOT)" != x ]; then	\
-			make $(TOAST_INSTALL_TARGETS);	\
+			$(MAKE) $(TOAST_INSTALL_TARGETS);	\
 		fi
 
 gsmuninstall:
@@ -447,7 +491,7 @@ clean:	semi-clean
 		-rm $(RMFLAGS) $(LIBGSM) $(ADDTST)/add		\
 			$(TOAST) $(TCAT) $(UNTOAST)	\
 			$(ROOT)/gsm-1.0.tar.Z
-
+		rm -rf lib
 
 # Two tools that helped me generate gsm_encode.c and gsm_decode.c,
 # but aren't generally needed to port this.

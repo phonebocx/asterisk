@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/share/cvsroot/asterisk-ng/codecs/gsm/src/long_term.c,v 1.2 2001/04/24 02:02:27 markster Exp $ */
+/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/long_term.c,v 1.16 2003/02/12 13:59:14 matteo Exp $ */
 
 #include <stdio.h>
 #include <assert.h>

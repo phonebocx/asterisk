@@ -12,8 +12,8 @@
  */
 
 #include <stdio.h>
-#include <pthread.h>
 #include <string.h>
+#include <asterisk/lock.h>
 #include <asterisk/channel.h>
 #include <asterisk/channel_pvt.h>
 #include <asterisk/config.h>
@@ -21,6 +21,8 @@
 #include <asterisk/module.h>
 #include <asterisk/pbx.h>
 #include <asterisk/options.h>
+#include <asterisk/utils.h>
+#include <asterisk/callerid.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <errno.h>
@@ -31,9 +33,31 @@
 #include <sys/ioctl.h>
 #include <linux/telephony.h>
 /* Still use some IXJ specific stuff */
+#include <linux/version.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,0)
+# include <linux/compiler.h>
+#endif
 #include <linux/ixjuser.h>
 #include "DialTone.h"
 
+#ifdef QTI_PHONEJACK_TJ_PCI	/* check for the newer quicknet driver v.3.1.0 which has this symbol */
+#define QNDRV_VER 310
+#else
+#define QNDRV_VER 100
+#endif
+
+#if QNDRV_VER > 100
+#ifdef __linux__
+#define IXJ_PHONE_RING_START(x)	ioctl(p->fd, PHONE_RING_START, &x);
+#else /* FreeBSD and others */
+#define IXJ_PHONE_RING_START(x)	ioctl(p->fd, PHONE_RING_START, x);
+#endif /* __linux__ */
+#else	/* older driver */
+#define IXJ_PHONE_RING_START(x)	ioctl(p->fd, PHONE_RING_START, &x);
+#endif
+
+
+#define DEFAULT_CALLER_ID "Unknown"
 #define PHONE_MAX_BUF 480
 #define DEFAULT_GAIN 0x100
 
@@ -55,18 +79,18 @@ static int silencesupression = 0;
 
 static int prefformat = AST_FORMAT_G723_1 | AST_FORMAT_SLINEAR | AST_FORMAT_ULAW;
 
-static pthread_mutex_t usecnt_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(usecnt_lock);
 
 /* Protect the interface list (of phone_pvt's) */
-static pthread_mutex_t iflock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(iflock);
 
 /* Protect the monitoring thread, so only one process can kill or start it, and not
    when it's doing something critical. */
-static pthread_mutex_t monlock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(monlock);
 
 /* This is the thread for the monitor which checks for input on the channels
    which are not currently in use.  */
-static pthread_t monitor_thread = -1;
+static pthread_t monitor_thread = AST_PTHREADT_NULL;
 
 static int restart_monitor(void);
 
@@ -109,6 +133,7 @@ static int phone_digit(struct ast_channel *ast, char digit)
 	struct phone_pvt *p;
 	int outdigit;
 	p = ast->pvt->pvt;
+	ast_log(LOG_NOTICE, "Dialed %c\n", digit);
 	switch(digit) {
 	case '0':
 	case '1':
@@ -120,7 +145,7 @@ static int phone_digit(struct ast_channel *ast, char digit)
 	case '7':
 	case '8':
 	case '9':
-		outdigit = digit - '0' + 1;
+		outdigit = digit - '0';
 		break;
 	case '*':
 		outdigit = 11;
@@ -128,11 +153,19 @@ static int phone_digit(struct ast_channel *ast, char digit)
 	case '#':
 		outdigit = 12;
 		break;
+	case 'f':	//flash
+	case 'F':
+		ioctl(p->fd, IXJCTL_PSTN_SET_STATE, PSTN_ON_HOOK);
+		usleep(320000);
+		ioctl(p->fd, IXJCTL_PSTN_SET_STATE, PSTN_OFF_HOOK);
+		p->lastformat = -1;
+		return 0;
 	default:
 		ast_log(LOG_WARNING, "Unknown digit '%c'\n", digit);
 		return -1;
 	}
-	ioctl(p->fd, PHONE_PLAY_TONE, digit);
+	ast_log(LOG_NOTICE, "Dialed %i\n", outdigit);
+	ioctl(p->fd, PHONE_PLAY_TONE, outdigit);
 	p->lastformat = -1;
 	return 0;
 }
@@ -140,17 +173,53 @@ static int phone_digit(struct ast_channel *ast, char digit)
 static int phone_call(struct ast_channel *ast, char *dest, int timeout)
 {
 	struct phone_pvt *p;
+
+	PHONE_CID cid;
+	time_t UtcTime;
+	struct tm tm;
+
+	time(&UtcTime);
+	localtime_r(&UtcTime,&tm);
+
+	memset(&cid, 0, sizeof(PHONE_CID));
+	if(&tm != NULL) {
+		snprintf(cid.month, sizeof(cid.month), "%02d",(tm.tm_mon + 1));
+		snprintf(cid.day, sizeof(cid.day),     "%02d", tm.tm_mday);
+		snprintf(cid.hour, sizeof(cid.hour),   "%02d", tm.tm_hour);
+		snprintf(cid.min, sizeof(cid.min),     "%02d", tm.tm_min);
+	}
+	/* the standard format of ast->callerid is:  "name" <number>, but not always complete */
+	if (!ast->callerid || ast_strlen_zero(ast->callerid)){
+		strncpy(cid.name, DEFAULT_CALLER_ID, sizeof(cid.name) - 1);
+		cid.number[0]='\0';
+	} else {
+		char *n, *l;
+		char callerid[256] = "";
+		strncpy(callerid, ast->callerid, sizeof(callerid) - 1);
+		ast_callerid_parse(callerid, &n, &l);
+		if (l) {
+			ast_shrink_phone_number(l);
+			if (!ast_isphonenumber(l))
+				l = NULL;
+		}
+		if (l)
+			strncpy(cid.number, l, sizeof(cid.number) - 1);
+		if (n)
+			strncpy(cid.name, n, sizeof(cid.name) - 1);
+	}
+
 	p = ast->pvt->pvt;
-	if ((ast->state != AST_STATE_DOWN) && (ast->state != AST_STATE_RESERVED)) {
+
+	if ((ast->_state != AST_STATE_DOWN) && (ast->_state != AST_STATE_RESERVED)) {
 		ast_log(LOG_WARNING, "phone_call called on %s, neither down nor reserved\n", ast->name);
 		return -1;
 	}
-	/* When we call, it just works, really, there's no destination...  Just
-	   ring the phone and wait for someone to answer */
 	if (option_debug)
 		ast_log(LOG_DEBUG, "Ringing %s on %s (%d)\n", dest, ast->name, ast->fds[0]);
-	ioctl(p->fd, PHONE_RING_START);
-	ast->state = AST_STATE_RINGING;
+
+	IXJ_PHONE_RING_START(cid);
+	ast_setstate(ast, AST_STATE_RINGING);
+	ast_queue_control(ast, AST_CONTROL_RINGING);
 	return 0;
 }
 
@@ -165,7 +234,7 @@ static int phone_hangup(struct ast_channel *ast)
 		return 0;
 	}
 	/* XXX Is there anything we can do to really hang up except stop recording? */
-	ast->state = AST_STATE_DOWN;
+	ast_setstate(ast, AST_STATE_DOWN);
 	if (ioctl(p->fd, PHONE_REC_STOP))
 		ast_log(LOG_WARNING, "Failed to stop recording\n");
 	if (ioctl(p->fd, PHONE_PLAY_STOP))
@@ -195,16 +264,16 @@ static int phone_hangup(struct ast_channel *ast)
 	p->dialtone = 0;
 	memset(p->ext, 0, sizeof(p->ext));
 	((struct phone_pvt *)(ast->pvt->pvt))->owner = NULL;
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	usecnt--;
 	if (usecnt < 0) 
 		ast_log(LOG_WARNING, "Usecnt < 0???\n");
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	ast_update_use_count();
 	if (option_verbose > 2) 
 		ast_verbose( VERBOSE_PREFIX_3 "Hungup '%s'\n", ast->name);
 	ast->pvt->pvt = NULL;
-	ast->state = AST_STATE_DOWN;
+	ast_setstate(ast, AST_STATE_DOWN);
 	restart_monitor();
 	return 0;
 }
@@ -239,18 +308,21 @@ static int phone_setup(struct ast_channel *ast)
 		if (p->lastinput != AST_FORMAT_ULAW) {
 			p->lastinput = AST_FORMAT_ULAW;
 			if (ioctl(p->fd, PHONE_REC_CODEC, ULAW)) {
-				ast_log(LOG_WARNING, "Failed to set codec to signed linear 16\n");
+				ast_log(LOG_WARNING, "Failed to set codec to uLaw\n");
 				return -1;
 			}
 		}
 	} else {
-		ast_log(LOG_WARNING, "Can't do format %d\n", ast->pvt->rawreadformat);
+		ast_log(LOG_WARNING, "Can't do format %s\n", ast_getformatname(ast->pvt->rawreadformat));
 		return -1;
 	}
 	if (ioctl(p->fd, PHONE_REC_START)) {
 		ast_log(LOG_WARNING, "Failed to start recording\n");
 		return -1;
 	}
+	//set the DTMF times (the default is too short)
+	ioctl(p->fd, PHONE_SET_TONE_ON_TIME, 300);
+	ioctl(p->fd, PHONE_SET_TONE_OFF_TIME, 200);
 	return 0;
 }
 
@@ -269,10 +341,11 @@ static int phone_answer(struct ast_channel *ast)
 	if (option_debug)
 		ast_log(LOG_DEBUG, "phone_answer(%s)\n", ast->name);
 	ast->rings = 0;
-	ast->state = AST_STATE_UP;
+	ast_setstate(ast, AST_STATE_UP);
 	return 0;
 }
 
+#if 0
 static char phone_2digit(char c)
 {
 	if (c == 12)
@@ -284,6 +357,7 @@ static char phone_2digit(char c)
 	else
 		return '?';
 }
+#endif
 
 static struct ast_frame  *phone_exception(struct ast_channel *ast)
 {
@@ -294,11 +368,13 @@ static struct ast_frame  *phone_exception(struct ast_channel *ast)
 
 	/* Some nice norms */
 	p->fr.datalen = 0;
-	p->fr.timelen = 0;
+	p->fr.samples = 0;
 	p->fr.data =  NULL;
 	p->fr.src = type;
 	p->fr.offset = 0;
 	p->fr.mallocd=0;
+	p->fr.delivery.tv_sec = 0;
+	p->fr.delivery.tv_usec = 0;
 
 	phonee.bytes = ioctl(p->fd, PHONE_EXCEPTION);
 	if (phonee.bits.dtmf_ready)  {
@@ -321,22 +397,22 @@ static struct ast_frame  *phone_exception(struct ast_channel *ast)
 		if (!res && (p->mode != MODE_FXO))
 			return NULL;
 		else {
-			if (ast->state == AST_STATE_RINGING) {
+			if (ast->_state == AST_STATE_RINGING) {
 				/* They've picked up the phone */
 				p->fr.frametype = AST_FRAME_CONTROL;
 				p->fr.subclass = AST_CONTROL_ANSWER;
 				phone_setup(ast);
-				ast->state = AST_STATE_UP;
+				ast_setstate(ast, AST_STATE_UP);
 				return &p->fr;
 			}  else 
-				ast_log(LOG_WARNING, "Got off hook in weird state %d\n", ast->state);
+				ast_log(LOG_WARNING, "Got off hook in weird state %d\n", ast->_state);
 		}
 	}
 #if 1
 	if (phonee.bits.pstn_ring)
 		ast_verbose("Unit is ringing\n");
 	if (phonee.bits.caller_id) {
-		ast_verbose("We have caller ID: %s\n");
+		ast_verbose("We have caller ID\n");
 	}
 	if (phonee.bits.pstn_wink)
 		ast_verbose("Detected Wink\n");
@@ -351,14 +427,17 @@ static struct ast_frame  *phone_read(struct ast_channel *ast)
 {
 	int res;
 	struct phone_pvt *p = ast->pvt->pvt;
+	
 
 	/* Some nice norms */
 	p->fr.datalen = 0;
-	p->fr.timelen = 0;
+	p->fr.samples = 0;
 	p->fr.data =  NULL;
 	p->fr.src = type;
 	p->fr.offset = 0;
 	p->fr.mallocd=0;
+	p->fr.delivery.tv_sec = 0;
+	p->fr.delivery.tv_usec = 0;
 
 	/* Try to read some data... */
 	CHECK_BLOCKING(ast);
@@ -388,6 +467,7 @@ static struct ast_frame  *phone_read(struct ast_channel *ast)
 		res = 4;
 		break;
 	}
+	p->fr.samples = 240;
 	p->fr.datalen = res;
 	p->fr.frametype = AST_FRAME_VOICE;
 	p->fr.subclass = p->lastinput;
@@ -406,24 +486,14 @@ static int phone_write_buf(struct phone_pvt *p, char *buf, int len, int frlen)
 	memcpy(p->obuf + p->obuflen, buf, len);
 	p->obuflen += len;
 	while(p->obuflen > frlen) {
-#if 0
-		res = frlen;
-		ast_log(LOG_DEBUG, "Wrote %d bytes\n", res);
-#else
 		res = write(p->fd, p->obuf, frlen);
-#endif
 		if (res != frlen) {
 			if (res < 1) {
 /*
  * Card is in non-blocking mode now and it works well now, but there are
  * lot of messages like this. So, this message is temporarily disabled.
  */
-#if 0
-				ast_log(LOG_WARNING, "Write failed: %s\n", strerror(errno));
-				return -1;
-#else
 				return 0;
-#endif
 			} else {
 				ast_log(LOG_WARNING, "Only wrote %d of %d bytes\n", res, frlen);
 			}
@@ -448,21 +518,27 @@ static int phone_write(struct ast_channel *ast, struct ast_frame *frame)
 	char tmpbuf[4];
 	/* Write a frame of (presumably voice) data */
 	if (frame->frametype != AST_FRAME_VOICE) {
-		ast_log(LOG_WARNING, "Don't know what to do with  frame type '%d'\n", frame->frametype);
-		ast_frfree(frame);
-		return -1;
+		if (frame->frametype != AST_FRAME_IMAGE)
+			ast_log(LOG_WARNING, "Don't know what to do with  frame type '%d'\n", frame->frametype);
+		return 0;
 	}
 	if (!(frame->subclass &
 		(AST_FORMAT_G723_1 | AST_FORMAT_SLINEAR | AST_FORMAT_ULAW))) {
 		ast_log(LOG_WARNING, "Cannot handle frames in %d format\n", frame->subclass);
-		ast_frfree(frame);
 		return -1;
 	}
+#if 0
 	/* If we're not in up mode, go into up mode now */
-	if (ast->state != AST_STATE_UP) {
-		ast->state = AST_STATE_UP;
+	if (ast->_state != AST_STATE_UP) {
+		ast_setstate(ast, AST_STATE_UP);
 		phone_setup(ast);
 	}
+#else
+	if (ast->_state != AST_STATE_UP) {
+		/* Don't try tos end audio on-hook */
+		return 0;
+	}
+#endif	
 	if (frame->subclass == AST_FORMAT_G723_1) {
 		if (p->lastformat != AST_FORMAT_G723_1) {
 			ioctl(p->fd, PHONE_PLAY_STOP);
@@ -560,17 +636,20 @@ static int phone_write(struct ast_channel *ast, struct ast_frame *frame)
 			res = phone_write_buf(p, pos, expected, maxfr);
 		}
 		if (res != expected) {
-			if (res < 0) 
-				ast_log(LOG_WARNING, "Write returned error (%s)\n", strerror(errno));
-/*
- * Card is in non-blocking mode now and it works well now, but there are
- * lot of messages like this. So, this message is temporarily disabled.
- */
+			if ((errno != EAGAIN) && (errno != EINTR)) {
+				if (res < 0) 
+					ast_log(LOG_WARNING, "Write returned error (%s)\n", strerror(errno));
+	/*
+	 * Card is in non-blocking mode now and it works well now, but there are
+	 * lot of messages like this. So, this message is temporarily disabled.
+	 */
 #if 0
-			else
-				ast_log(LOG_WARNING, "Only wrote %d of %d bytes\n", res, frame->datalen);
+				else
+					ast_log(LOG_WARNING, "Only wrote %d of %d bytes\n", res, frame->datalen);
 #endif
-			return -1;
+				return -1;
+			} else /* Pretend it worked */
+				res = expected;
 		}
 		sofar += res;
 		pos += res;
@@ -581,7 +660,7 @@ static int phone_write(struct ast_channel *ast, struct ast_frame *frame)
 static struct ast_channel *phone_new(struct phone_pvt *i, int state, char *context)
 {
 	struct ast_channel *tmp;
-	tmp = ast_channel_alloc();
+	tmp = ast_channel_alloc(1);
 	if (tmp) {
 		snprintf(tmp->name, sizeof(tmp->name), "Phone/%s", i->dev + 5);
 		tmp->type = type;
@@ -590,7 +669,7 @@ static struct ast_channel *phone_new(struct phone_pvt *i, int state, char *conte
 		tmp->nativeformats = prefformat;
 		tmp->pvt->rawreadformat = prefformat;
 		tmp->pvt->rawwriteformat = prefformat;
-		tmp->state = state;
+		ast_setstate(tmp, state);
 		if (state == AST_STATE_RING)
 			tmp->rings = 1;
 		tmp->pvt->pvt = i;
@@ -604,14 +683,16 @@ static struct ast_channel *phone_new(struct phone_pvt *i, int state, char *conte
 		strncpy(tmp->context, context, sizeof(tmp->context)-1);
 		if (strlen(i->ext))
 			strncpy(tmp->exten, i->ext, sizeof(tmp->exten)-1);
+		else
+			strncpy(tmp->exten, "s",  sizeof(tmp->exten) - 1);
 		if (strlen(i->language))
 			strncpy(tmp->language, i->language, sizeof(tmp->language)-1);
 		if (strlen(i->callerid))
 			tmp->callerid = strdup(i->callerid);
 		i->owner = tmp;
-		ast_pthread_mutex_lock(&usecnt_lock);
+		ast_mutex_lock(&usecnt_lock);
 		usecnt++;
-		ast_pthread_mutex_unlock(&usecnt_lock);
+		ast_mutex_unlock(&usecnt_lock);
 		ast_update_use_count();
 		if (state != AST_STATE_DOWN) {
 			if (state == AST_STATE_RING) {
@@ -635,7 +716,7 @@ static void phone_mini_packet(struct phone_pvt *i)
 	/* Ignore stuff we read... */
 	res = read(i->fd, buf, sizeof(buf));
 	if (res < 1) {
-		ast_log(LOG_WARNING, "Read returned %d\n", res);
+		ast_log(LOG_WARNING, "Read returned %d: %s\n", res, strerror(errno));
 		return;
 	}
 }
@@ -658,15 +739,15 @@ static void phone_check_exception(struct phone_pvt *i)
 			ioctl(i->fd, PHONE_CPT_STOP);
 			i->dialtone = 0;
 			if (strlen(i->ext) < AST_MAX_EXTENSION - 1)
-				strcat(i->ext, digit);
+				strncat(i->ext, digit, sizeof(i->ext) - strlen(i->ext) - 1);
 			if (ast_exists_extension(NULL, i->context, i->ext, 1, i->callerid)) {
 				/* It's a valid extension in its context, get moving! */
 				phone_new(i, AST_STATE_RING, i->context);
 				/* No need to restart monitor, we are the monitor */
 				if (i->owner) {
-					ast_pthread_mutex_lock(&usecnt_lock);
+					ast_mutex_lock(&usecnt_lock);
 					usecnt--;
-					ast_pthread_mutex_unlock(&usecnt_lock);
+					ast_mutex_unlock(&usecnt_lock);
 					ast_update_use_count();
 				}
 			} else if (!ast_canmatch_extension(NULL, i->context, i->ext, 1, i->callerid)) {
@@ -676,9 +757,9 @@ static void phone_check_exception(struct phone_pvt *i)
 					/* Check the default, too... */
 					phone_new(i, AST_STATE_RING, "default");
 					if (i->owner) {
-						ast_pthread_mutex_lock(&usecnt_lock);
+						ast_mutex_lock(&usecnt_lock);
 						usecnt--;
-						ast_pthread_mutex_unlock(&usecnt_lock);
+						ast_mutex_unlock(&usecnt_lock);
 						ast_update_use_count();
 					}
 					/* XXX This should probably be justified better XXX */
@@ -701,9 +782,9 @@ static void phone_check_exception(struct phone_pvt *i)
 			if (i->mode == MODE_IMMEDIATE) {
 				phone_new(i, AST_STATE_RING, i->context);
 			} else if (i->mode == MODE_DIALTONE) {
-				ast_pthread_mutex_lock(&usecnt_lock);
+				ast_mutex_lock(&usecnt_lock);
 				usecnt++;
-				ast_pthread_mutex_unlock(&usecnt_lock);
+				ast_mutex_unlock(&usecnt_lock);
 				ast_update_use_count();
 				/* Reset the extension */
 				i->ext[0] = '\0';
@@ -716,9 +797,9 @@ static void phone_check_exception(struct phone_pvt *i)
 			}
 		} else {
 			if (i->dialtone) {
-				ast_pthread_mutex_lock(&usecnt_lock);
+				ast_mutex_lock(&usecnt_lock);
 				usecnt--;
-				ast_pthread_mutex_unlock(&usecnt_lock);
+				ast_mutex_unlock(&usecnt_lock);
 				ast_update_use_count();
 			}
 			memset(i->ext, 0, sizeof(i->ext));
@@ -762,14 +843,14 @@ static void *do_monitor(void *data)
 	for(;;) {
 		/* Don't let anybody kill us right away.  Nobody should lock the interface list
 		   and wait for the monitor list, but the other way around is okay. */
-		if (ast_pthread_mutex_lock(&monlock)) {
+		if (ast_mutex_lock(&monlock)) {
 			ast_log(LOG_ERROR, "Unable to grab monitor lock\n");
 			return NULL;
 		}
 		/* Lock the interface list */
-		if (ast_pthread_mutex_lock(&iflock)) {
+		if (ast_mutex_lock(&iflock)) {
 			ast_log(LOG_ERROR, "Unable to grab interface lock\n");
-			ast_pthread_mutex_unlock(&monlock);
+			ast_mutex_unlock(&monlock);
 			return NULL;
 		}
 		/* Build the stuff we're going to select on, that is the socket of every
@@ -803,10 +884,10 @@ static void *do_monitor(void *data)
 			i = i->next;
 		}
 		/* Okay, now that we know what to do, release the interface lock */
-		ast_pthread_mutex_unlock(&iflock);
+		ast_mutex_unlock(&iflock);
 		
 		/* And from now on, we're okay to be killed, so release the monitor lock as well */
-		ast_pthread_mutex_unlock(&monlock);
+		ast_mutex_unlock(&monlock);
 		/* Wait indefinitely for something to happen */
 		if (dotone) {
 			/* If we're ready to recycle the time, set it to 30 ms */
@@ -817,9 +898,9 @@ static void *do_monitor(void *data)
 				tv.tv_usec = 30000;
 				tv.tv_sec = 0;
 			}
-			res = select(n + 1, &rfds, NULL, &efds, &tv);
+			res = ast_select(n + 1, &rfds, NULL, &efds, &tv);
 		} else {
-			res = select(n + 1, &rfds, NULL, &efds, NULL);
+			res = ast_select(n + 1, &rfds, NULL, &efds, NULL);
 			tv.tv_usec = 0;
 			tv.tv_sec = 0;
 			tonepos = 0;
@@ -835,7 +916,7 @@ static void *do_monitor(void *data)
 			continue;
 		/* Alright, lock the interface list again, and let's look and see what has
 		   happened */
-		if (ast_pthread_mutex_lock(&iflock)) {
+		if (ast_mutex_lock(&iflock)) {
 			ast_log(LOG_WARNING, "Unable to lock the interface list\n");
 			continue;
 		}
@@ -857,7 +938,7 @@ static void *do_monitor(void *data)
 			}
 			i=i->next;
 		}
-		ast_pthread_mutex_unlock(&iflock);
+		ast_mutex_unlock(&iflock);
 	}
 	/* Never reached */
 	return NULL;
@@ -867,30 +948,30 @@ static void *do_monitor(void *data)
 static int restart_monitor()
 {
 	/* If we're supposed to be stopped -- stay stopped */
-	if (monitor_thread == -2)
+	if (monitor_thread == AST_PTHREADT_STOP)
 		return 0;
-	if (ast_pthread_mutex_lock(&monlock)) {
+	if (ast_mutex_lock(&monlock)) {
 		ast_log(LOG_WARNING, "Unable to lock monitor\n");
 		return -1;
 	}
 	if (monitor_thread == pthread_self()) {
-		ast_pthread_mutex_unlock(&monlock);
+		ast_mutex_unlock(&monlock);
 		ast_log(LOG_WARNING, "Cannot kill myself\n");
 		return -1;
 	}
-	if (monitor_thread != -1) {
+	if (monitor_thread != AST_PTHREADT_NULL) {
 		pthread_cancel(monitor_thread);
 #if 0
 		pthread_join(monitor_thread, NULL);
 #endif
 	}
 	/* Start a new monitor */
-	if (pthread_create(&monitor_thread, NULL, do_monitor, NULL) < 0) {
-		ast_pthread_mutex_unlock(&monlock);
+	if (ast_pthread_create(&monitor_thread, NULL, do_monitor, NULL) < 0) {
+		ast_mutex_unlock(&monlock);
 		ast_log(LOG_ERROR, "Unable to start monitor thread.\n");
 		return -1;
 	}
-	ast_pthread_mutex_unlock(&monlock);
+	ast_mutex_unlock(&monlock);
 	return 0;
 }
 
@@ -966,7 +1047,7 @@ static struct ast_channel *phone_request(char *type, int format, void *data)
 		return NULL;
 	}
 	/* Search for an unowned channel */
-	if (ast_pthread_mutex_lock(&iflock)) {
+	if (ast_mutex_lock(&iflock)) {
 		ast_log(LOG_ERROR, "Unable to lock interface list???\n");
 		return NULL;
 	}
@@ -980,7 +1061,7 @@ static struct ast_channel *phone_request(char *type, int format, void *data)
 		}
 		p = p->next;
 	}
-	ast_pthread_mutex_unlock(&iflock);
+	ast_mutex_unlock(&iflock);
 	restart_monitor();
 	return tmp;
 }
@@ -1008,6 +1089,64 @@ static int parse_gain_value(char *gain_type, char *value)
 	return (int)gain;
 }
 
+static int __unload_module(void)
+{
+	struct phone_pvt *p, *pl;
+	/* First, take us out of the channel loop */
+	ast_channel_unregister(type);
+	if (!ast_mutex_lock(&iflock)) {
+		/* Hangup all interfaces if they have an owner */
+		p = iflist;
+		while(p) {
+			if (p->owner)
+				ast_softhangup(p->owner, AST_SOFTHANGUP_APPUNLOAD);
+			p = p->next;
+		}
+		iflist = NULL;
+		ast_mutex_unlock(&iflock);
+	} else {
+		ast_log(LOG_WARNING, "Unable to lock the monitor\n");
+		return -1;
+	}
+	if (!ast_mutex_lock(&monlock)) {
+		if (monitor_thread > AST_PTHREADT_NULL) {
+			pthread_cancel(monitor_thread);
+			pthread_join(monitor_thread, NULL);
+		}
+		monitor_thread = AST_PTHREADT_STOP;
+		ast_mutex_unlock(&monlock);
+	} else {
+		ast_log(LOG_WARNING, "Unable to lock the monitor\n");
+		return -1;
+	}
+
+	if (!ast_mutex_lock(&iflock)) {
+		/* Destroy all the interfaces and free their memory */
+		p = iflist;
+		while(p) {
+			/* Close the socket, assuming it's real */
+			if (p->fd > -1)
+				close(p->fd);
+			pl = p;
+			p = p->next;
+			/* Free associated memory */
+			free(pl);
+		}
+		iflist = NULL;
+		ast_mutex_unlock(&iflock);
+	} else {
+		ast_log(LOG_WARNING, "Unable to lock the monitor\n");
+		return -1;
+	}
+		
+	return 0;
+}
+
+int unload_module(void)
+{
+	return __unload_module();
+}
+
 int load_module()
 {
 	struct ast_config *cfg;
@@ -1022,7 +1161,7 @@ int load_module()
 		ast_log(LOG_ERROR, "Unable to load config %s\n", config);
 		return -1;
 	}
-	if (ast_pthread_mutex_lock(&iflock)) {
+	if (ast_mutex_lock(&iflock)) {
 		/* It's a little silly to lock it, but we mind as well just to be sure */
 		ast_log(LOG_ERROR, "Unable to lock interface list???\n");
 		return -1;
@@ -1039,8 +1178,8 @@ int load_module()
 				} else {
 					ast_log(LOG_ERROR, "Unable to register channel '%s'\n", v->value);
 					ast_destroy(cfg);
-					ast_pthread_mutex_unlock(&iflock);
-					unload_module();
+					ast_mutex_unlock(&iflock);
+					__unload_module();
 					return -1;
 				}
 		} else if (!strcasecmp(v->name, "silencesupression")) {
@@ -1087,13 +1226,13 @@ int load_module()
 		}	
 		v = v->next;
 	}
-	ast_pthread_mutex_unlock(&iflock);
+	ast_mutex_unlock(&iflock);
 	/* Make sure we can register our Adtranphone channel type */
 	if (ast_channel_register(type, tdesc, 
 			 AST_FORMAT_G723_1 | AST_FORMAT_SLINEAR | AST_FORMAT_ULAW, phone_request)) {
 		ast_log(LOG_ERROR, "Unable to register channel class %s\n", type);
 		ast_destroy(cfg);
-		unload_module();
+		__unload_module();
 		return -1;
 	}
 	ast_destroy(cfg);
@@ -1102,67 +1241,12 @@ int load_module()
 	return 0;
 }
 
-
-
-int unload_module()
-{
-	struct phone_pvt *p, *pl;
-	/* First, take us out of the channel loop */
-	ast_channel_unregister(type);
-	if (!ast_pthread_mutex_lock(&iflock)) {
-		/* Hangup all interfaces if they have an owner */
-		p = iflist;
-		while(p) {
-			if (p->owner)
-				ast_softhangup(p->owner);
-			p = p->next;
-		}
-		iflist = NULL;
-		ast_pthread_mutex_unlock(&iflock);
-	} else {
-		ast_log(LOG_WARNING, "Unable to lock the monitor\n");
-		return -1;
-	}
-	if (!ast_pthread_mutex_lock(&monlock)) {
-		if (monitor_thread > -1) {
-			pthread_cancel(monitor_thread);
-			pthread_join(monitor_thread, NULL);
-		}
-		monitor_thread = -2;
-		ast_pthread_mutex_unlock(&monlock);
-	} else {
-		ast_log(LOG_WARNING, "Unable to lock the monitor\n");
-		return -1;
-	}
-
-	if (!ast_pthread_mutex_lock(&iflock)) {
-		/* Destroy all the interfaces and free their memory */
-		p = iflist;
-		while(p) {
-			/* Close the socket, assuming it's real */
-			if (p->fd > -1)
-				close(p->fd);
-			pl = p;
-			p = p->next;
-			/* Free associated memory */
-			free(pl);
-		}
-		iflist = NULL;
-		ast_pthread_mutex_unlock(&iflock);
-	} else {
-		ast_log(LOG_WARNING, "Unable to lock the monitor\n");
-		return -1;
-	}
-		
-	return 0;
-}
-
 int usecount()
 {
 	int res;
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	res = usecnt;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	return res;
 }
 

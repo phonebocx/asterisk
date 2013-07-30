@@ -14,7 +14,11 @@
 #ifndef _IO_H
 #define _IO_H
 
+#ifdef __APPLE__
+#include <asterisk/poll-compat.h>
+#else
 #include <sys/poll.h>		/* For POLL* constants */
+#endif
 
 #if defined(__cplusplus) || defined(c_plusplus)
 extern "C" {
@@ -122,6 +126,8 @@ extern int ast_hide_password(int fd);
  * Call with result from previous ast_hide_password
  */
 extern int ast_restore_tty(int fd, int oldstatus);
+
+extern int ast_get_termcols(int fd);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

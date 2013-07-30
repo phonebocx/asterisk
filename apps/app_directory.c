@@ -11,6 +11,7 @@
  * the GNU General Public License
  */
  
+#include <asterisk/lock.h>
 #include <asterisk/file.h>
 #include <asterisk/logger.h>
 #include <asterisk/channel.h>
@@ -18,24 +19,28 @@
 #include <asterisk/module.h>
 #include <asterisk/config.h>
 #include <asterisk/say.h>
+#include <asterisk/utils.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <stdio.h>
 #include "../asterisk.h"
+#include "../astconf.h"
 
 static char *tdesc = "Extension Directory";
 static char *app = "Directory";
 
 static char *synopsis = "Provide directory of voicemail extensions";
 static char *descrip =
-"  Directory(context): Presents the user with a directory of extensions from\n"
-"which they  may  select  by name. The  list  of  names  and  extensions  is\n"
-"discovered from  voicemail.conf. The  context  argument  is  required,  and\n"
-"specifies  the  context  in  which to interpret the extensions\n. Returns 0\n"
-"unless the user hangs up. It  also sets up the channel on exit to enter the\n"
-"extension the user selected.\n";
+"  Directory(vm-context[|dial-context[|options]]): Presents the user with a directory\n"
+"of extensions from which they  may  select  by name. The  list  of  names \n"
+"and  extensions  is discovered from  voicemail.conf. The  vm-context  argument\n"
+"is required, and specifies  the  context  of voicemail.conf to use.  The\n"
+"dial-context is the context to use for dialing the users, and defaults to\n"
+"the vm-context if unspecified. The 'f' option causes the directory to match\n"
+"based on the first name in voicemail.conf instead of the last name.\n"
+"Returns 0 unless the user hangs up. It  also sets up the channel on exit\n"
+"to enter the extension the user selected.\n";
 
 /* For simplicity, I'm keeping the format compatible with the voicemail config,
    but i'm open to suggestions for isolating it */
@@ -110,7 +115,6 @@ static char *convert(char *lastname)
 			case 'Z':
 				tmp[lcount++] = '9';
 				break;
-			default:
 			}
 			lastname++;
 		}
@@ -119,19 +123,114 @@ static char *convert(char *lastname)
 	return tmp;
 }
 
-static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *context, char digit)
+/* play name of mailbox owner.
+ * returns:  -1 for bad or missing extension
+ *           '1' for selected entry from directory
+ *           '*' for skipped entry from directory
+ */
+static int play_mailbox_owner(struct ast_channel *chan, char *context, char *dialcontext, char *ext, char *name) {
+	int res = 0;
+	int loop = 3;
+	char fn[256];
+	char fn2[256];
+
+	/* Check for the VoiceMail2 greeting first */
+	snprintf(fn, sizeof(fn), "%s/voicemail/%s/%s/greet",
+		(char *)ast_config_AST_SPOOL_DIR, context, ext);
+
+	/* Otherwise, check for an old-style Voicemail greeting */
+	snprintf(fn2, sizeof(fn2), "%s/vm/%s/greet",
+		(char *)ast_config_AST_SPOOL_DIR, ext);
+
+	if (ast_fileexists(fn, NULL, chan->language) > 0) {
+		res = ast_streamfile(chan, fn, chan->language);
+		if (!res) {
+			res = ast_waitstream(chan, AST_DIGIT_ANY);
+		}
+		ast_stopstream(chan);
+	} else if (ast_fileexists(fn2, NULL, chan->language) > 0) {
+		res = ast_streamfile(chan, fn2, chan->language);
+		if (!res) {
+			res = ast_waitstream(chan, AST_DIGIT_ANY);
+		}
+		ast_stopstream(chan);
+	} else {
+		res = ast_say_character_str(chan, !ast_strlen_zero(name) ? name : ext,
+					AST_DIGIT_ANY, chan->language);
+	}
+
+	while (loop) {
+		if (!res) {
+			res = ast_streamfile(chan, "dir-instr", chan->language);
+		}
+		if (!res) {
+			res = ast_waitstream(chan, AST_DIGIT_ANY);
+		}
+		if (!res) {
+			res = ast_waitfordigit(chan, 3000);
+		}
+		ast_stopstream(chan);
+	
+		if (res > -1) {
+			switch (res) {
+				case '1':
+					/* Name selected */
+					loop = 0;
+					if (ast_exists_extension(chan,dialcontext,ext,1,chan->callerid)) {
+						strncpy(chan->exten, ext, sizeof(chan->exten)-1);
+						chan->priority = 0;
+						strncpy(chan->context, dialcontext, sizeof(chan->context)-1);
+					} else {
+						ast_log(LOG_WARNING,
+							"Can't find extension '%s' in context '%s'.  "
+							"Did you pass the wrong context to Directory?\n",
+							ext, dialcontext);
+						res = -1;
+					}
+					break;
+	
+				case '*':   
+					/* Skip to next match in list */
+					loop = 0;
+					break;
+	
+				default:
+					/* Not '1', or '*', so decrement number of tries */
+					res = 0;
+					loop--;
+					break;
+			} /* end switch */
+		} /* end if */
+		else {
+			/* User hungup, so jump out now */
+			loop = 0;
+		}
+	} /* end while */
+
+	return(res);
+}
+
+static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *context, char *dialcontext, char digit, int last)
 {
 	/* Read in the first three digits..  "digit" is the first digit, already read */
 	char ext[NUMDIGITS + 1];
+	char name[80] = "";
 	struct ast_variable *v;
 	int res;
 	int found=0;
-	char *start, *pos, *conv;
-	char fn[256];
+	int lastuserchoice = 0;
+	char *start, *pos, *conv,*stringp=NULL;
+
+	if (!context || ast_strlen_zero(context)) {
+		ast_log(LOG_WARNING,
+			"Directory must be called with an argument "
+			"(context in which to interpret extensions)\n");
+		return -1;
+	}
 	memset(ext, 0, sizeof(ext));
 	ext[0] = digit;
 	res = 0;
-	if (ast_readstring(chan, ext + 1, NUMDIGITS, 3000, 3000, "#") < 0) res = -1;
+	if (ast_readstring(chan, ext + 1, NUMDIGITS - 1, 3000, 3000, "#") < 0) res = -1;
 	if (!res) {
 		/* Search for all names which start with those digits */
 		v = ast_variable_browse(cfg, context);
@@ -141,11 +240,13 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *
 				/* Find a candidate extension */
 				start = strdup(v->value);
 				if (start) {
-					strtok(start, ",");
-					pos = strtok(NULL, ",");
+					stringp=start;
+					strsep(&stringp, ",");
+					pos = strsep(&stringp, ",");
 					if (pos) {
+						strncpy(name, pos, sizeof(name) - 1);
 						/* Grab the last name */
-						if (strrchr(pos, ' '))
+						if (last && strrchr(pos,' '))
 							pos = strrchr(pos, ' ') + 1;
 						conv = convert(pos);
 						if (conv) {
@@ -163,51 +264,46 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *
 				}
 				v = v->next;
 			}
+
 			if (v) {
 				/* We have a match -- play a greeting if they have it */
-				snprintf(fn, sizeof(fn), "%s/vm/%s/greet", AST_SPOOL_DIR, v->name);
-				if (ast_fileexists(fn, NULL, chan->language)) {
-					res = ast_streamfile(chan, fn, chan->language);
-					if (!res)
-						res = ast_waitstream(chan, AST_DIGIT_ANY);
-					ast_stopstream(chan);
-				} else {
-					res = ast_say_digit_str(chan, v->name, AST_DIGIT_ANY, chan->language);
-				}
-ahem:
-				if (!res)
-					res = ast_streamfile(chan, "dir-instr", chan->language);
-				if (!res)
-					res = ast_waitstream(chan, AST_DIGIT_ANY);
-				if (!res)
-					res = ast_waitfordigit(chan, 3000);
-				ast_stopstream(chan);
-				if (res > -1) {
-					if (res == '1') {
-						strncpy(chan->exten, v->name, sizeof(chan->exten)-1);
+				res = play_mailbox_owner(chan, context, dialcontext, v->name, name);
+				switch (res) {
+					case -1:
+						/* user pressed '1' but extension does not exist, or
+						 * user hungup
+						 */
+						lastuserchoice = 0;
+						break;
+					case '1':
+						/* user pressed '1' and extensions exists */
+						lastuserchoice = res;
+						strncpy(chan->context, dialcontext, sizeof(chan->context) - 1);
+						strncpy(chan->exten, v->name, sizeof(chan->exten) - 1);
 						chan->priority = 0;
-						strncpy(chan->context, context, sizeof(chan->context)-1);
+						break;
+					case '*':
+						/* user pressed '*' to skip something found */
+						lastuserchoice = res;
 						res = 0;
 						break;
-					} else if (res == '*') {
-						res = 0;
-						v = v->next;
-					} else {
-						res = 0;
-						goto ahem;
-					}
+					default:
+						break;
 				}
-			} else {
-				if (found) 
-					res = ast_streamfile(chan, "dir-nomore", chan->language);
-				else
-					res = ast_streamfile(chan, "dir-nomatch", chan->language);
-				if (!res)
-					res = 1;
-				return res;
+				v = v->next;
 			}
 		}
-		
+
+		if (lastuserchoice != '1') {
+			if (found) 
+				res = ast_streamfile(chan, "dir-nomore", chan->language);
+			else
+				res = ast_streamfile(chan, "dir-nomatch", chan->language);
+			if (!res)
+				res = 1;
+			return res;
+		}
+		return 0;
 	}
 	return res;
 }
@@ -217,8 +313,11 @@ static int directory_exec(struct ast_channel *chan, void *data)
 	int res = 0;
 	struct localuser *u;
 	struct ast_config *cfg;
+	int last = 1;
+	char *context, *dialcontext, *dirintro, *options;
+
 	if (!data) {
-		ast_log(LOG_WARNING, "directory requires an argument (context)\n");
+		ast_log(LOG_WARNING, "directory requires an argument (context[,dialcontext])\n");
 		return -1;
 	}
 	cfg = ast_load(DIRECTORY_CONFIG);
@@ -228,15 +327,40 @@ static int directory_exec(struct ast_channel *chan, void *data)
 	}
 	LOCAL_USER_ADD(u);
 top:
+	context = ast_strdupa(data);
+	dialcontext = strchr(context, '|');
+	if (dialcontext) {
+		*dialcontext = '\0';
+		dialcontext++;
+		options = strchr(dialcontext, '|');
+		if (options) {
+			*options = '\0';
+			options++; 
+			if (strchr(options, 'f'))
+				last = 0;
+		}
+	} else	
+		dialcontext = context;
+	dirintro = ast_variable_retrieve(cfg, context, "directoryintro");
+	if (!dirintro || ast_strlen_zero(dirintro))
+		dirintro = ast_variable_retrieve(cfg, "general", "directoryintro");
+	if (!dirintro || ast_strlen_zero(dirintro)) {
+		if (last)
+			dirintro = "dir-intro";	
+		else
+			dirintro = "dir-intro-fn";
+	}
+	if (chan->_state != AST_STATE_UP) 
+		res = ast_answer(chan);
 	if (!res)
-		res = ast_streamfile(chan, "dir-intro", chan->language);
+		res = ast_streamfile(chan, dirintro, chan->language);
 	if (!res)
 		res = ast_waitstream(chan, AST_DIGIT_ANY);
 	ast_stopstream(chan);
 	if (!res)
 		res = ast_waitfordigit(chan, 5000);
 	if (res > 0) {
-		res = do_directory(chan, cfg, (char *)data, res);
+		res = do_directory(chan, cfg, context, dialcontext, res, last);
 		if (res > 0) {
 			res = ast_waitstream(chan, AST_DIGIT_ANY);
 			ast_stopstream(chan);

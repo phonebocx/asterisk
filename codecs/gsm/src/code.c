@@ -4,13 +4,12 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/share/cvsroot/asterisk-ng/codecs/gsm/src/code.c,v 1.1 1999/11/15 06:09:05 markster Exp $ */
+/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/code.c,v 1.18 2003/10/27 20:00:41 markster Exp $ */
 
 #include	"config.h"
 
-
-#ifdef	HAS_STDLIB_H
-#include	<stdlib.h>
+#ifdef	HAS_STRING_H
+#include	<string.h>
 #else
 #	include "proto.h"
 	extern char	* memcpy P((char *, char *, int));
@@ -63,6 +62,10 @@ void Gsm_Coder P8((S,s,LARc,Nc,bc,Mc,xmaxc,xMc),
 
 	word	so[160];
 
+#if !(defined(__GNUC__) && defined(__i386__))
+	longword ltmp;
+#endif
+
 	Gsm_Preprocess			(S, s, so);
 	Gsm_LPC_Analysis		(S, so, LARc);
 	Gsm_Short_Term_Analysis_Filter	(S, LARc, so);
@@ -86,7 +89,6 @@ void Gsm_Coder P8((S,s,LARc,Nc,bc,Mc,xmaxc,xMc),
 		 */
 
 		{ register int i;
-		  register longword ltmp;
 		  for (i = 0; i <= 39; i++)
 			dp[ i ] = GSM_ADD( e[5 + i], dpp[i] );
 		}

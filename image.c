@@ -13,7 +13,6 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <string.h>
 #include <sys/time.h>
 #include <sys/stat.h>
@@ -29,26 +28,28 @@
 #include <asterisk/image.h>
 #include <asterisk/translate.h>
 #include <asterisk/cli.h>
+#include <asterisk/lock.h>
 #include "asterisk.h"
+#include "astconf.h"
 
 static struct ast_imager *list;
-static pthread_mutex_t listlock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(listlock);
 
 int ast_image_register(struct ast_imager *img)
 {
 	if (option_verbose > 1)
 		ast_verbose(VERBOSE_PREFIX_2 "Registered format '%s' (%s)\n", img->name, img->desc);
-	ast_pthread_mutex_lock(&listlock);
+	ast_mutex_lock(&listlock);
 	img->next = list;
 	list = img;
-	ast_pthread_mutex_unlock(&listlock);
+	ast_mutex_unlock(&listlock);
 	return 0;
 }
 
 void ast_image_unregister(struct ast_imager *img)
 {
 	struct ast_imager *i, *prev = NULL;
-	ast_pthread_mutex_lock(&listlock);
+	ast_mutex_lock(&listlock);
 	i = list;
 	while(i) {
 		if (i == img) {
@@ -61,9 +62,9 @@ void ast_image_unregister(struct ast_imager *img)
 		prev = i;
 		i = i->next;
 	}
-	ast_pthread_mutex_unlock(&listlock);
+	ast_mutex_unlock(&listlock);
 	if (i && (option_verbose > 1))
-		ast_verbose(VERBOSE_PREFIX_2 "Registered format '%s' (%s)\n", img->name, img->desc);
+		ast_verbose(VERBOSE_PREFIX_2 "Unregistered format '%s' (%s)\n", img->name, img->desc);
 }
 
 int ast_supports_images(struct ast_channel *chan)
@@ -94,9 +95,9 @@ static void make_filename(char *buf, int len, char *filename, char *preflang, ch
 			snprintf(buf, len, "%s.%s", filename, ext);
 	} else {
 		if (preflang && strlen(preflang))
-			snprintf(buf, len, "%s/%s-%s.%s", AST_IMAGES, filename, preflang, ext);
+			snprintf(buf, len, "%s/%s/%s-%s.%s", ast_config_AST_VAR_DIR, "images", filename, preflang, ext);
 		else
-			snprintf(buf, len, "%s/%s.%s", AST_IMAGES, filename, ext);
+			snprintf(buf, len, "%s/%s/%s.%s", ast_config_AST_VAR_DIR, "images", filename, ext);
 	}
 }
 
@@ -111,13 +112,15 @@ struct ast_frame *ast_read_image(char *filename, char *preflang, int format)
 	int len=0;
 	struct ast_frame *f = NULL;
 #if 0 /* We need to have some sort of read-only lock */
-	ast_pthread_mutex_lock(&listlock);
+	ast_mutex_lock(&listlock);
 #endif	
 	i = list;
 	while(!found && i) {
 		if (i->format & format) {
+			char *stringp=NULL;
 			strncpy(tmp, i->exts, sizeof(tmp)-1);
-			e = strtok(tmp, "|");
+			stringp=tmp;
+			e = strsep(&stringp, "|");
 			while(e) {
 				make_filename(buf, sizeof(buf), filename, preflang, e);
 				if ((len = file_exists(buf))) {
@@ -129,7 +132,7 @@ struct ast_frame *ast_read_image(char *filename, char *preflang, int format)
 					found = i;
 					break;
 				}
-				e = strtok(NULL, "|");
+				e = strsep(&stringp, "|");
 			}
 		}
 		i = i->next;
@@ -149,7 +152,7 @@ struct ast_frame *ast_read_image(char *filename, char *preflang, int format)
 	} else
 		ast_log(LOG_WARNING, "Image file '%s' not found\n", filename);
 #if 0
-	ast_pthread_mutex_unlock(&listlock);
+	ast_mutex_unlock(&listlock);
 #endif	
 	return f;
 }
@@ -172,14 +175,14 @@ int ast_send_image(struct ast_channel *chan, char *filename)
 static int show_image_formats(int fd, int argc, char *argv[])
 {
 #define FORMAT "%10s %10s %50s %10s\n"
-#define FORMAT2 "%10s %10s %50s %10d\n"
+#define FORMAT2 "%10s %10s %50s %10s\n"
 	struct ast_imager *i;
 	if (argc != 3)
 		return RESULT_SHOWUSAGE;
 	ast_cli(fd, FORMAT, "Name", "Extensions", "Description", "Format");
 	i = list;
 	while(i) {
-		ast_cli(fd, FORMAT2, i->name, i->exts, i->desc, i->format);
+		ast_cli(fd, FORMAT2, i->name, i->exts, i->desc, ast_getformatname(i->format));
 		i = i->next;
 	};
 	return RESULT_SUCCESS;

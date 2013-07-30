@@ -20,7 +20,8 @@ extern "C" {
 
 #include <stdarg.h>
 
-extern void ast_cli(int fd, char *fmt, ...);
+extern void ast_cli(int fd, char *fmt, ...)
+	__attribute__ ((format (printf, 2, 3)));
 
 #define RESULT_SUCCESS		0
 #define RESULT_SHOWUSAGE	1
@@ -29,6 +30,8 @@ extern void ast_cli(int fd, char *fmt, ...);
 #define AST_MAX_CMD_LEN 	16
 
 #define AST_MAX_ARGS 64
+
+#define AST_CLI_COMPLETE_EOF	"_EOF_"
 
 //! A command line entry */
 struct ast_cli_entry {
@@ -44,6 +47,8 @@ struct ast_cli_entry {
 	char *(*generator)(char *line, char *word, int pos, int state);
 	/*! For linking */
 	struct ast_cli_entry *next;
+	/*! For keeping track of usage */
+	int inuse;
 };
 
 //! Interprets a command
@@ -74,6 +79,9 @@ extern int ast_cli_unregister(struct ast_cli_entry *e);
  * Returns 0 on success, -1 on failure
  */
 extern char *ast_cli_generator(char *, char *, int);
+
+extern int ast_cli_generatornummatches(char *, char *);
+extern char **ast_cli_completion_matches(char *, char *);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

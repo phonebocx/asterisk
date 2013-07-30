@@ -11,6 +11,7 @@
  * the GNU General Public License
  */
  
+#include <asterisk/lock.h>
 #include <asterisk/file.h>
 #include <asterisk/frame.h>
 #include <asterisk/logger.h>
@@ -23,12 +24,22 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <sys/time.h>
-#include <linux/soundcard.h>
 #include <netinet/in.h>
 
+#if defined(__linux__)
+#include <linux/soundcard.h>
+#elif defined(__FreeBSD__)
+#include <sys/soundcard.h>
+#else
+#include <soundcard.h>
+#endif
+
+#ifdef __OpenBSD__
+#define DEV_DSP "/dev/audio"
+#else
 #define DEV_DSP "/dev/dsp"
+#endif
 
 /* Number of 32 byte buffers -- each buffer is 2 ms */
 #define BUFFER_SIZE 32
@@ -47,30 +58,30 @@ STANDARD_LOCAL_USER;
 
 LOCAL_USER_DECL;
 
-static pthread_mutex_t sound_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(sound_lock);
 static int sound = -1;
 
 static int write_audio(short *data, int len)
 {
 	int res;
 	struct audio_buf_info info;
-	ast_pthread_mutex_lock(&sound_lock);
+	ast_mutex_lock(&sound_lock);
 	if (sound < 0) {
 		ast_log(LOG_WARNING, "Sound device closed?\n");
-		ast_pthread_mutex_unlock(&sound_lock);
+		ast_mutex_unlock(&sound_lock);
 		return -1;
 	}
     if (ioctl(sound, SNDCTL_DSP_GETOSPACE, &info)) {
 		ast_log(LOG_WARNING, "Unable to read output space\n");
-		ast_pthread_mutex_unlock(&sound_lock);
+		ast_mutex_unlock(&sound_lock);
         return -1;
     }
 	res = write(sound, data, len);
-	ast_pthread_mutex_unlock(&sound_lock);
+	ast_mutex_unlock(&sound_lock);
 	return res;
 }
 
-static int create_audio()
+static int create_audio(void)
 {
 	int fmt, desired, res, fd;
 	fd = open(DEV_DSP, O_WRONLY);

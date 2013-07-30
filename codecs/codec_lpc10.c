@@ -17,11 +17,11 @@
  */
 
 
+#include <asterisk/lock.h>
 #include <asterisk/translate.h>
 #include <asterisk/module.h>
 #include <asterisk/logger.h>
 #include <asterisk/channel.h>
-#include <pthread.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -42,7 +42,7 @@
 
 #define LPC10_BYTES_IN_COMPRESSED_FRAME (LPC10_BITS_IN_COMPRESSED_FRAME + 7)/8
 
-static pthread_mutex_t localuser_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(localuser_lock);
 static int localusecnt=0;
 
 static char *tdesc = "LPC10 2.4kbps (signed linear) Voice Coder";
@@ -65,7 +65,7 @@ struct ast_translator_pvt {
 
 #define lpc10_coder_pvt ast_translator_pvt
 
-static struct ast_translator_pvt *lpc10_enc_new()
+static struct ast_translator_pvt *lpc10_enc_new(void)
 {
 	struct lpc10_coder_pvt *tmp;
 	tmp = malloc(sizeof(struct lpc10_coder_pvt));
@@ -81,7 +81,7 @@ static struct ast_translator_pvt *lpc10_enc_new()
 	return tmp;
 }
 
-static struct ast_translator_pvt *lpc10_dec_new()
+static struct ast_translator_pvt *lpc10_dec_new(void)
 {
 	struct lpc10_coder_pvt *tmp;
 	tmp = malloc(sizeof(struct lpc10_coder_pvt));
@@ -96,17 +96,14 @@ static struct ast_translator_pvt *lpc10_dec_new()
 	}
 	return tmp;
 }
-static struct ast_frame *lintolpc10_sample()
+static struct ast_frame *lintolpc10_sample(void)
 {
 	static struct ast_frame f;
-	static int longer = 0;
 	f.frametype = AST_FRAME_VOICE;
 	f.subclass = AST_FORMAT_SLINEAR;
 	f.datalen = sizeof(slin_lpc10_ex);
 	/* Assume 8000 Hz */
-	f.timelen = LPC10_SAMPLES_PER_FRAME/8;
-	f.timelen += longer;
-	longer = 1- longer;
+	f.samples = LPC10_SAMPLES_PER_FRAME;
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
@@ -114,7 +111,7 @@ static struct ast_frame *lintolpc10_sample()
 	return &f;
 }
 
-static struct ast_frame *lpc10tolin_sample()
+static struct ast_frame *lpc10tolin_sample(void)
 {
 	static struct ast_frame f;
 	f.frametype = AST_FRAME_VOICE;
@@ -122,7 +119,7 @@ static struct ast_frame *lpc10tolin_sample()
 	f.datalen = sizeof(lpc10_slin_ex);
 	/* All frames are 22 ms long (maybe a little more -- why did he choose
 	   LPC10_SAMPLES_PER_FRAME sample frames anyway?? */
-	f.timelen = LPC10_SAMPLES_PER_FRAME/8;
+	f.samples = LPC10_SAMPLES_PER_FRAME;
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
@@ -140,7 +137,7 @@ static struct ast_frame *lpc10tolin_frameout(struct ast_translator_pvt *tmp)
 	tmp->f.subclass = AST_FORMAT_SLINEAR;
 	tmp->f.datalen = tmp->tail * 2;
 	/* Assume 8000 Hz */
-	tmp->f.timelen = tmp->tail / 8;
+	tmp->f.samples = tmp->tail;
 	tmp->f.mallocd = 0;
 	tmp->f.offset = AST_FRIENDLY_OFFSET;
 	tmp->f.src = __PRETTY_FUNCTION__;
@@ -253,7 +250,7 @@ static struct ast_frame *lintolpc10_frameout(struct ast_translator_pvt *tmp)
 	if (tmp->tail < LPC10_SAMPLES_PER_FRAME)
 		return NULL;
 	/* Start with an empty frame */
-	tmp->f.timelen = 0;
+	tmp->f.samples = 0;
 	tmp->f.datalen = 0;
 	tmp->f.frametype = AST_FRAME_VOICE;
 	tmp->f.subclass = AST_FORMAT_LPC10;
@@ -269,9 +266,7 @@ static struct ast_frame *lintolpc10_frameout(struct ast_translator_pvt *tmp)
 		lpc10_encode(tmpbuf, bits, tmp->lpc10.enc);
 		build_bits(((unsigned char *)tmp->outbuf) + tmp->f.datalen, bits);
 		tmp->f.datalen += LPC10_BYTES_IN_COMPRESSED_FRAME;
-		tmp->f.timelen += 22;
-		/* We alternate between 22 and 23 ms to simulate 22.5 ms */
-		tmp->f.timelen += tmp->longer;
+		tmp->f.samples += LPC10_SAMPLES_PER_FRAME;
 		/* Use one of the two left over bits to record if this is a 22 or 23 ms frame...
 		   important for IAX use */
 		tmp->longer = 1 - tmp->longer;
@@ -334,13 +329,13 @@ static struct ast_translator lintolpc10 =
 int unload_module(void)
 {
 	int res;
-	ast_pthread_mutex_lock(&localuser_lock);
+	ast_mutex_lock(&localuser_lock);
 	res = ast_unregister_translator(&lintolpc10);
 	if (!res)
 		res = ast_unregister_translator(&lpc10tolin);
 	if (localusecnt)
 		res = -1;
-	ast_pthread_mutex_unlock(&localuser_lock);
+	ast_mutex_unlock(&localuser_lock);
 	return res;
 }
 

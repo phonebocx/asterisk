@@ -15,16 +15,18 @@
  * the GNU General Public License
  */
 
-#define TYPE_SILENCE	 0x2
 #define TYPE_HIGH	 0x0
 #define TYPE_LOW	 0x1
+#define TYPE_SILENCE	 0x2
+#define TYPE_DONTSEND	 0x3
 #define TYPE_MASK	 0x3
 
+#include <sys/types.h>
+#include <asterisk/lock.h>
 #include <asterisk/translate.h>
 #include <asterisk/module.h>
 #include <asterisk/logger.h>
 #include <asterisk/channel.h>
-#include <pthread.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -54,7 +56,7 @@
 #include "slin_g723_ex.h"
 #include "g723_slin_ex.h"
 
-static pthread_mutex_t localuser_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(localuser_lock);
 static int localusecnt=0;
 
 #ifdef ANNEX_B
@@ -92,7 +94,7 @@ struct g723_decoder_pvt {
 	int tail;
 };
 
-static struct ast_translator_pvt *g723tolin_new()
+static struct ast_translator_pvt *g723tolin_new(void)
 {
 	struct g723_decoder_pvt *tmp;
 	tmp = malloc(sizeof(struct g723_decoder_pvt));
@@ -106,14 +108,14 @@ static struct ast_translator_pvt *g723tolin_new()
 	return (struct ast_translator_pvt *)tmp;
 }
 
-static struct ast_frame *lintog723_sample()
+static struct ast_frame *lintog723_sample(void)
 {
 	static struct ast_frame f;
 	f.frametype = AST_FRAME_VOICE;
 	f.subclass = AST_FORMAT_SLINEAR;
 	f.datalen = sizeof(slin_g723_ex);
 	/* Assume 8000 Hz */
-	f.timelen = sizeof(slin_g723_ex)/16;
+	f.samples = sizeof(slin_g723_ex)/2;
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
@@ -121,14 +123,14 @@ static struct ast_frame *lintog723_sample()
 	return &f;
 }
 
-static struct ast_frame *g723tolin_sample()
+static struct ast_frame *g723tolin_sample(void)
 {
 	static struct ast_frame f;
 	f.frametype = AST_FRAME_VOICE;
 	f.subclass = AST_FORMAT_G723_1;
 	f.datalen = sizeof(g723_slin_ex);
 	/* All frames are 30 ms long */
-	f.timelen = 30;
+	f.samples = 240;
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
@@ -136,7 +138,7 @@ static struct ast_frame *g723tolin_sample()
 	return &f;
 }
 
-static struct ast_translator_pvt *lintog723_new()
+static struct ast_translator_pvt *lintog723_new(void)
 {
 	struct g723_encoder_pvt *tmp;
 	tmp = malloc(sizeof(struct g723_encoder_pvt));
@@ -165,7 +167,7 @@ static struct ast_frame *g723tolin_frameout(struct ast_translator_pvt *pvt)
 	tmp->f.subclass = AST_FORMAT_SLINEAR;
 	tmp->f.datalen = tmp->tail * 2;
 	/* Assume 8000 Hz */
-	tmp->f.timelen = tmp->tail / 8;
+	tmp->f.samples = tmp->tail;
 	tmp->f.mallocd = 0;
 	tmp->f.offset = AST_FRIENDLY_OFFSET;
 	tmp->f.src = __PRETTY_FUNCTION__;
@@ -189,7 +191,9 @@ static struct ast_frame *g723tolin_frameout(struct ast_translator_pvt *pvt)
 static int g723_len(unsigned char buf)
 {
 	switch(buf & TYPE_MASK) {
-	case TYPE_MASK:
+	case TYPE_DONTSEND:
+		return 0;
+		break;
 	case TYPE_SILENCE:
 		return 4;
 		break;
@@ -276,7 +280,7 @@ static struct ast_frame *lintog723_frameout(struct ast_translator_pvt *pvt)
 	tmp->f.subclass = AST_FORMAT_G723_1;
 	tmp->f.offset = AST_FRIENDLY_OFFSET;
 	tmp->f.src = __PRETTY_FUNCTION__;
-	tmp->f.timelen = 0;
+	tmp->f.samples = 0;
 	tmp->f.mallocd = 0;
 	while(tmp->tail >= Frame) {
 		/* Encode a frame of data */
@@ -292,8 +296,8 @@ static struct ast_frame *lintog723_frameout(struct ast_translator_pvt *pvt)
 		Coder(&tmp->cod, tmp->buf, tmp->outbuf + cnt);
 #endif
 		/* Assume 8000 Hz */
-		tmp->f.timelen += 30;
-		cnt += g723_len(tmp->outbuf[0]);
+		tmp->f.samples += 240;
+		cnt += g723_len(tmp->outbuf[cnt]);
 		tmp->tail -= Frame;
 		/* Move the data at the end of the buffer to the front */
 		if (tmp->tail)
@@ -358,13 +362,13 @@ static struct ast_translator lintog723 =
 int unload_module(void)
 {
 	int res;
-	ast_pthread_mutex_lock(&localuser_lock);
+	ast_mutex_lock(&localuser_lock);
 	res = ast_unregister_translator(&lintog723);
 	if (!res)
 		res = ast_unregister_translator(&g723tolin);
 	if (localusecnt)
 		res = -1;
-	ast_pthread_mutex_unlock(&localuser_lock);
+	ast_mutex_unlock(&localuser_lock);
 	return res;
 }
 
@@ -391,7 +395,7 @@ int usecount(void)
 	return res;
 }
 
-char *key()
+char *key(void)
 {
 	return ASTERISK_GPL_KEY;
 }

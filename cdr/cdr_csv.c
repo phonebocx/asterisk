@@ -14,19 +14,26 @@
  *
  */
 
+#include <sys/types.h>
 #include <asterisk/channel.h>
 #include <asterisk/cdr.h>
 #include <asterisk/module.h>
 #include <asterisk/logger.h>
+#include <asterisk/utils.h>
 #include "../asterisk.h"
+#include "../astconf.h"
 
-#define CSV_LOG_DIR AST_LOG_DIR "/cdr-csv"
-#define CSV_MASTER CSV_LOG_DIR "/Master.csv"
+#define CSV_LOG_DIR "/cdr-csv"
+#define CSV_MASTER  "/Master.csv"
 
 #define DATE_FORMAT "%Y-%m-%d %T"
 
+/* #define CSV_LOGUNIQUEID 1 */
+/* #define CSV_LOGUSERFIELD 1 */
+
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -35,23 +42,28 @@
 /* The values are as follows:
 
 
-  "accountcode", 
+  "accountcode", 	// accountcode is the account name of detail records, Master.csv contains all records
+  			// Detail records are configured on a channel basis, IAX and SIP are determined by user
+			// Zap is determined by channel in zaptel.conf
   "source",
   "destination",
   "destination context", 
   "callerid",
   "channel",
   "destination channel",	(if applicable)
-  "last application",
-  "last app argument",
+  "last application",	// Last application run on the channel
+  "last app argument",	// argument to the last channel
   "start time", 
   "answer time", 
   "end time", 
-  duration, 
-  billable seconds, 
-  "disposition", 
-  "amaflags",
-
+  duration,   		// Duration is the whole length that the entire call lasted. ie. call rx'd to hangup 
+  			// "end time" minus "start time"
+  billable seconds, 	// the duration that a call was up after other end answered which will be <= to duration 
+  			// "end time" minus "answer time"
+  "disposition",    	// ANSWERED, NO ANSWER, BUSY
+  "amaflags",       	// DOCUMENTATION, BILL, IGNORE etc, specified on a per channel basis like accountcode.
+  "uniqueid",           // unique call identifier
+  "userfield"		// user field set via SetCDRUserField
 */
 
 static char *desc = "Comma Separated Values CDR Backend";
@@ -60,16 +72,16 @@ static char *name = "csv";
 
 static FILE *mf = NULL;
 
-static int append_string(char *buf, char *s, int len)
+static int append_string(char *buf, char *s, size_t bufsize)
 {
 	int pos = strlen(buf);
 	int spos = 0;
 	int error = 0;
-	if (pos >= len - 4)
+	if (pos >= bufsize - 4)
 		return -1;
 	buf[pos++] = '\"';
 	error = -1;
-	while(pos < len - 3) {
+	while(pos < bufsize - 3) {
 		if (!s[spos]) {
 			error = 0;
 			break;
@@ -85,78 +97,87 @@ static int append_string(char *buf, char *s, int len)
 	return error;
 }
 
-static int append_int(char *buf, int s, int len)
+static int append_int(char *buf, int s, size_t bufsize)
 {
 	char tmp[32];
 	int pos = strlen(buf);
 	snprintf(tmp, sizeof(tmp), "%d", s);
-	if (pos + strlen(tmp) > len - 3)
+	if (pos + strlen(tmp) > bufsize - 3)
 		return -1;
-	strncat(buf, tmp, len);
+	strncat(buf, tmp, bufsize - strlen(buf) - 1);
 	pos = strlen(buf);
 	buf[pos++] = ',';
 	buf[pos++] = '\0';
 	return 0;
 }
 
-static int append_date(char *buf, struct timeval tv, int len)
+static int append_date(char *buf, struct timeval tv, size_t bufsize)
 {
-	char tmp[80];
-	struct tm *tm;
+	char tmp[80] = "";
+	struct tm tm;
 	time_t t;
 	t = tv.tv_sec;
-	if (strlen(buf) > len - 3)
+	if (strlen(buf) > bufsize - 3)
 		return -1;
 	if (!tv.tv_sec && !tv.tv_usec) {
-		strncat(buf, ",", len);
+		strncat(buf, ",", bufsize - strlen(buf) - 1);
 		return 0;
 	}
-	tm = localtime(&t);
-	strftime(tmp, sizeof(tmp), DATE_FORMAT, tm);
-	return append_string(buf, tmp, len);
+	localtime_r(&t,&tm);
+	strftime(tmp, sizeof(tmp), DATE_FORMAT, &tm);
+	return append_string(buf, tmp, bufsize);
 }
 
-static int build_csv_record(char *buf, int len, struct ast_cdr *cdr)
+static int build_csv_record(char *buf, size_t bufsize, struct ast_cdr *cdr)
 {
+
 	buf[0] = '\0';
 	/* Account code */
-	append_string(buf, cdr->accountcode, len);
+	append_string(buf, cdr->accountcode, bufsize);
 	/* Source */
-	append_string(buf, cdr->src, len);
+	append_string(buf, cdr->src, bufsize);
 	/* Destination */
-	append_string(buf, cdr->dst, len);
+	append_string(buf, cdr->dst, bufsize);
 	/* Destination context */
-	append_string(buf, cdr->dcontext, len);
+	append_string(buf, cdr->dcontext, bufsize);
 	/* Caller*ID */
-	append_string(buf, cdr->clid, len);
+	append_string(buf, cdr->clid, bufsize);
 	/* Channel */
-	append_string(buf, cdr->channel, len);
+	append_string(buf, cdr->channel, bufsize);
 	/* Destination Channel */
-	append_string(buf, cdr->dstchannel, len);
+	append_string(buf, cdr->dstchannel, bufsize);
 	/* Last Application */
-	append_string(buf, cdr->lastapp, len);
+	append_string(buf, cdr->lastapp, bufsize);
 	/* Last Data */
-	append_string(buf, cdr->lastdata, len);
+	append_string(buf, cdr->lastdata, bufsize);
 	/* Start Time */
-	append_date(buf, cdr->start, len);
+	append_date(buf, cdr->start, bufsize);
 	/* Answer Time */
-	append_date(buf, cdr->answer, len);
+	append_date(buf, cdr->answer, bufsize);
 	/* End Time */
-	append_date(buf, cdr->end, len);
+	append_date(buf, cdr->end, bufsize);
 	/* Duration */
-	append_int(buf, cdr->duration, len);
+	append_int(buf, cdr->duration, bufsize);
 	/* Billable seconds */
-	append_int(buf, cdr->billsec, len);
+	append_int(buf, cdr->billsec, bufsize);
 	/* Disposition */
-	append_string(buf, ast_cdr_disp2str(cdr->disposition), len);
+	append_string(buf, ast_cdr_disp2str(cdr->disposition), bufsize);
 	/* AMA Flags */
-	append_string(buf, ast_cdr_flags2str(cdr->amaflags), len);
+	append_string(buf, ast_cdr_flags2str(cdr->amaflags), bufsize);
 
+#ifdef CSV_LOGUNIQUEID
+	/* Unique ID */
+	append_string(buf, cdr->uniqueid, bufsize);
+#endif
+#ifdef CSV_LOGUSERFIELD
+	/* append the user field */
+	append_string(buf, cdr->userfield,bufsize);	
+#endif
 	/* If we hit the end of our buffer, log an error */
-	if (strlen(buf) < len - 5) {
+	if (strlen(buf) < bufsize - 5) {
 		/* Trim off trailing comma */
 		buf[strlen(buf) - 1] = '\0';
-		strncat(buf, "\n", len);
+		strncat(buf, "\n", bufsize - strlen(buf) - 1);
 		return 0;
 	}
 	return -1;
@@ -164,17 +185,18 @@ static int build_csv_record(char *buf, int len, struct ast_cdr *cdr)
 
 static int writefile(char *s, char *acc)
 {
-	char tmp[256];
+	char tmp[AST_CONFIG_MAX_PATH];
 	FILE *f;
 	if (strchr(acc, '/') || (acc[0] == '.')) {
 		ast_log(LOG_WARNING, "Account code '%s' insecure for writing file\n", acc);
 		return -1;
 	}
-	snprintf(tmp, sizeof(tmp), "%s/%s.csv", CSV_LOG_DIR, acc);
+	snprintf(tmp, sizeof(tmp), "%s/%s/%s.csv", (char *)ast_config_AST_LOG_DIR,CSV_LOG_DIR, acc);
 	f = fopen(tmp, "a");
 	if (!f)
 		return -1;
 	fputs(s, f);
+	fflush(f);
 	fclose(f);
 	return 0;
 }
@@ -184,18 +206,20 @@ static int csv_log(struct ast_cdr *cdr)
 {
 	/* Make sure we have a big enough buf */
 	char buf[1024];
+	char csvmaster[AST_CONFIG_MAX_PATH];
+	snprintf(csvmaster, sizeof(csvmaster),"%s/%s/%s", ast_config_AST_LOG_DIR, CSV_LOG_DIR, CSV_MASTER);
 #if 0
 	printf("[CDR] %s ('%s' -> '%s') Dur: %ds Bill: %ds Disp: %s Flags: %s Account: [%s]\n", cdr->channel, cdr->src, cdr->dst, cdr->duration, cdr->billsec, ast_cdr_disp2str(cdr->disposition), ast_cdr_flags2str(cdr->amaflags), cdr->accountcode);
 #endif
 	if (build_csv_record(buf, sizeof(buf), cdr)) {
-		ast_log(LOG_WARNING, "Unable to create CSV record in %d bytes.  CDR not recorded!\n", sizeof(buf));
+		ast_log(LOG_WARNING, "Unable to create CSV record in %d bytes.  CDR not recorded!\n", (int)sizeof(buf));
 	} else {
 		/* because of the absolutely unconditional need for the
 		   highest reliability possible in writing billing records,
 		   we open write and close the log file each time */
-		mf = fopen(CSV_MASTER, "a");
+		mf = fopen(csvmaster, "a");
 		if (!mf) {
-			ast_log(LOG_ERROR, "Unable to re-open master file %s\n", CSV_MASTER);
+			ast_log(LOG_ERROR, "Unable to re-open master file %s : %s\n", csvmaster, strerror(errno));
 		}
 		if (mf) {
 			fputs(buf, mf);
@@ -203,9 +227,9 @@ static int csv_log(struct ast_cdr *cdr)
 			fclose(mf);
 			mf = NULL;
 		}
-		if (strlen(cdr->accountcode)) {
+		if (!ast_strlen_zero(cdr->accountcode)) {
 			if (writefile(buf, cdr->accountcode))
-				ast_log(LOG_WARNING, "Unable to write CSV record to account file '%s'\n", cdr->accountcode);
+				ast_log(LOG_WARNING, "Unable to write CSV record to account file '%s' : %s\n", cdr->accountcode, strerror(errno));
 		}
 	}
 	return 0;

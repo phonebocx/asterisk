@@ -17,12 +17,15 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <unistd.h>
-#include <pthread.h>
+#include <sys/ioctl.h>
+#include <asterisk/lock.h>
 #include <asterisk/vmodem.h>
 #include <asterisk/module.h>
 #include <asterisk/frame.h>
 #include <asterisk/logger.h>
 #include <asterisk/options.h>
+#include <asterisk/dsp.h>
+#include <asterisk/callerid.h>
 #include "alaw.h"
 
 #define STATE_COMMAND 	0
@@ -32,8 +35,8 @@ static char *breakcmd = "\0x10\0x14\0x10\0x3";
 
 static char *desc = "ISDN4Linux Emulated Modem Driver";
 
-int usecnt;
-pthread_mutex_t usecnt_lock = PTHREAD_MUTEX_INITIALIZER;
+static int usecnt;
+AST_MUTEX_DEFINE_STATIC(usecnt_lock);
 
 static char *i4l_idents[] = {
 	/* Identify ISDN4Linux Driver */
@@ -93,6 +96,21 @@ static int i4l_startrec(struct ast_modem_pvt *p)
 		return -1;
 	}
 	p->ministate = STATE_VOICE;
+	
+	/*  let ast dsp detect dtmf */
+	if (p->dtmfmode & MODEM_DTMF_AST) {
+		if (p->dsp) {
+			ast_log(LOG_DEBUG, "Already have a dsp on %s?\n", p->dev);
+		} else {
+			p->dsp = ast_dsp_new();
+			if (p->dsp) {
+				ast_log(LOG_DEBUG, "Detecting DTMF inband with sw DSP on %s\n",p->dev);
+				ast_dsp_set_features(p->dsp, DSP_FEATURE_DTMF_DETECT);
+				ast_dsp_digitmode(p->dsp, DSP_DIGITMODE_DTMF | 0);
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -151,9 +169,35 @@ static int i4l_init(struct ast_modem_pvt *p)
 			return -1;
 		}
 	}
+	if (strlen(p->incomingmsn)) {
+		char *q;
+		snprintf(cmd, sizeof(cmd), "AT&L%s", p->incomingmsn);
+		// translate , into ; since that is the seperator I4L uses, but can't be directly
+		// put in the config file because it will interpret the rest of the line as comment.
+		q = cmd+4;
+		while (*q) {
+			if (*q == ',') *q = ';';
+			++q;
+		}
+		if (ast_modem_send(p, cmd, 0) ||
+		    ast_modem_expect(p, "OK", 5)) {
+			ast_log(LOG_WARNING, "Unable to set Listen to %s\n", p->msn);
+			return -1;
+		}
+	}
+	if (ast_modem_send(p, "AT&D2", 0) ||
+	     ast_modem_expect(p, "OK", 5)) {
+		ast_log(LOG_WARNING, "Unable to set to DTR disconnect mode\n");
+		return -1;
+	}
 	if (ast_modem_send(p, "ATS18=1", 0) ||
 	     ast_modem_expect(p, "OK", 5)) {
 		ast_log(LOG_WARNING, "Unable to set to audio only mode\n");
+		return -1;
+	}
+	if (ast_modem_send(p, "ATS13.6=1", 0) ||
+	     ast_modem_expect(p, "OK", 5)) {
+		ast_log(LOG_WARNING, "Unable to set to RUNG indication\n");
 		return -1;
 	}
 	if (ast_modem_send(p, "ATS14=4", 0) ||
@@ -189,9 +233,11 @@ static struct ast_frame *i4l_handle_escape(struct ast_modem_pvt *p, char esc)
 	p->fr.subclass = 0;
 	p->fr.data = NULL;
 	p->fr.datalen = 0;
-	p->fr.timelen = 0;
+	p->fr.samples = 0;
 	p->fr.offset = 0;
 	p->fr.mallocd = 0;
+	p->fr.delivery.tv_sec = 0;
+	p->fr.delivery.tv_usec = 0;
 	if (esc && option_debug)
 		ast_log(LOG_DEBUG, "Escaped character '%c'\n", esc);
 	
@@ -208,7 +254,7 @@ static struct ast_frame *i4l_handle_escape(struct ast_modem_pvt *p, char esc)
 		p->fr.frametype = AST_FRAME_CONTROL;
 		p->fr.subclass = AST_CONTROL_ANSWER;
 		if (p->owner)
-			p->owner->state = AST_STATE_UP;
+			ast_setstate(p->owner, AST_STATE_UP);
 		if (i4l_startrec(p))
 			return 	NULL;
 		return &p->fr;
@@ -250,7 +296,7 @@ static struct ast_frame *i4l_handle_escape(struct ast_modem_pvt *p, char esc)
 	case '9':
 	case '*':
 	case '#':
-		ast_log(LOG_DEBUG, "DTMF: '%c' (%d)\n", esc, esc);
+		ast_log(LOG_DEBUG, "Detected outband DTMF digit: '%c' (%d)\n", esc, esc);
 		p->fr.frametype=AST_FRAME_DTMF;
 		p->fr.subclass=esc;
 		return &p->fr;
@@ -271,7 +317,15 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 	int x;
 	if (p->ministate == STATE_COMMAND) {
 		/* Read the first two bytes, first, in case it's a control message */
-		read(p->fd, result, 2);
+		res = read(p->fd, result, 2);
+		if (res < 2) {
+			// short read, means there was a hangup?
+			// (or is this also possible without hangup?)
+			// Anyway, reading from unitialized buffers is a bad idea anytime.
+			if (errno == EAGAIN)
+				return i4l_handle_escape(p, 0);
+			return NULL;
+		}
 		if (result[0] == CHAR_DLE) {
 			return i4l_handle_escape(p, result[1]);
 			
@@ -283,7 +337,7 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 			ast_modem_trim(result);
 			if (!strcasecmp(result, "VCON")) {
 				/* If we're in immediate mode, reply now */
-				if (p->mode == MODEM_MODE_IMMEDIATE)
+//				if (p->mode == MODEM_MODE_IMMEDIATE)
 					return i4l_handle_escape(p, 'X');
 			} else
 			if (!strcasecmp(result, "BUSY")) {
@@ -292,16 +346,22 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 			} else
 			if (!strncasecmp(result, "CALLER NUMBER: ", 15 )) {
 				strncpy(p->cid, result + 15, sizeof(p->cid)-1);
-				return i4l_handle_escape(p, 'R');
+				return i4l_handle_escape(p, 0);
 			} else
 			if (!strcasecmp(result, "RINGING")) {
 				if (option_verbose > 2)
 					ast_verbose(VERBOSE_PREFIX_3 "%s is ringing...\n", p->dev);
 				return i4l_handle_escape(p, 'I');
 			} else
+			if (!strncasecmp(result, "RUNG", 4)) {
+				/* PM2002: the line was hung up before we picked it up, bye bye */
+				if (option_verbose > 2) 
+					ast_verbose(VERBOSE_PREFIX_3 "%s was hung up on before we answered\n", p->dev);
+				return NULL;
+			} else
 			if (!strncasecmp(result, "RING", 4)) {
 				if (result[4]=='/') 
-					strncpy(p->dnid, result + 4, sizeof(p->dnid)-1);
+					strncpy(p->dnid, result + 5, sizeof(p->dnid)-1);
 				return i4l_handle_escape(p, 'R');
 			} else
 			if (!strcasecmp(result, "NO CARRIER")) {
@@ -329,6 +389,7 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 				if (errno == EAGAIN)
 					return i4l_handle_escape(p, 0);
 				ast_log(LOG_WARNING, "Read failed: %s\n", strerror(errno));
+				return NULL;
 			}
 			
 			for (x=0;x<res;x++) {
@@ -367,18 +428,33 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 			if (f)
 				break;
 		}
-		if (f)
+		if (f) {
+			if( ! (!(p->dtmfmode & MODEM_DTMF_I4L) && f->frametype == AST_FRAME_DTMF))
 			return f;
+		}
+
 		/* If we get here, we have a complete voice frame */
 		p->fr.frametype = AST_FRAME_VOICE;
 		p->fr.subclass = AST_FORMAT_SLINEAR;
-		p->fr.timelen = 30;
+		p->fr.samples = 240;
 		p->fr.data = p->obuf;
 		p->fr.datalen = p->obuflen;
 		p->fr.mallocd = 0;
+		p->fr.delivery.tv_sec = 0;
+		p->fr.delivery.tv_usec = 0;
 		p->fr.offset = AST_FRIENDLY_OFFSET;
 		p->fr.src = __FUNCTION__;
 		p->obuflen = 0;
+
+		/* process with dsp */
+		if (p->dsp) {
+			f = ast_dsp_process(p->owner, p->dsp, &p->fr);
+			if (f && (f->frametype == AST_FRAME_DTMF)) {
+				ast_log(LOG_DEBUG, "Detected inband DTMF digit: %c on %s\n", f->subclass, p->dev);
+				return f;
+			}
+		}
+		
 		return &p->fr;
 	}
 	return NULL;
@@ -386,7 +462,7 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 
 static int i4l_write(struct ast_modem_pvt *p, struct ast_frame *f)
 {
-#define MAX_WRITE_SIZE 512
+#define MAX_WRITE_SIZE 2048
 	unsigned char result[MAX_WRITE_SIZE << 1];
 	unsigned char b;
 	int bpos=0, x;
@@ -416,8 +492,10 @@ static int i4l_write(struct ast_modem_pvt *p, struct ast_frame *f)
 	res = write(p->fd, result, bpos);
 #endif
 	if (res < 1) {
-		ast_log(LOG_WARNING, "Failed to write buffer\n");
-		return -1;
+		if (errno != EAGAIN) {
+			ast_log(LOG_WARNING, "Failed to write buffer\n");
+			return -1;
+		}
 	}
 #if 0
 	printf("Result of write is %d\n", res);
@@ -430,19 +508,19 @@ static char *i4l_identify(struct ast_modem_pvt *p)
 	return strdup("Linux ISDN");
 }
 
-static void i4l_incusecnt()
+static void i4l_incusecnt(void)
 {
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	usecnt++;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	ast_update_use_count();
 }
 
-static void i4l_decusecnt()
+static void i4l_decusecnt(void)
 {
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	usecnt++;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	ast_update_use_count();
 }
 
@@ -466,6 +544,21 @@ static int i4l_answer(struct ast_modem_pvt *p)
 		return -1;
 	}
 	p->ministate = STATE_VOICE;
+
+	/*  let ast dsp detect dtmf */
+	if (p->dtmfmode & MODEM_DTMF_AST) {
+		if (p->dsp) {
+			ast_log(LOG_DEBUG, "Already have a dsp on %s?\n", p->dev);
+		} else {
+			p->dsp = ast_dsp_new();
+			if (p->dsp) {
+				ast_log(LOG_DEBUG, "Detecting DTMF inband with sw DSP on %s\n",p->dev);
+				ast_dsp_set_features(p->dsp, DSP_FEATURE_DTMF_DETECT);
+				ast_dsp_digitmode(p->dsp, DSP_DIGITMODE_DTMF | 0);
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -473,9 +566,16 @@ static int i4l_dialdigit(struct ast_modem_pvt *p, char digit)
 {
 	char c[2];
 	if (p->ministate == STATE_VOICE) {
+		if (p->dtmfmodegen & MODEM_DTMF_I4L) {
 		c[0] = CHAR_DLE;
 		c[1] = digit;
 		write(p->fd, c, 2);
+			ast_log(LOG_DEBUG, "Send ISDN out-of-band DTMF %c\n",digit);
+		}
+		if(p->dtmfmodegen & MODEM_DTMF_AST) {
+			ast_log(LOG_DEBUG, "Generating inband DTMF\n");
+			return -1;
+		}
 	} else
 		ast_log(LOG_DEBUG, "Asked to send digit but call not up on %s\n", p->dev);
 	return 0;
@@ -484,6 +584,32 @@ static int i4l_dialdigit(struct ast_modem_pvt *p, char digit)
 static int i4l_dial(struct ast_modem_pvt *p, char *stuff)
 {
 	char cmd[80];
+	char tmp[255];
+	char tmpmsn[255];
+	char *name, *num;
+	struct ast_channel *c = p->owner;
+
+	// Find callerid number first, to set the correct A number
+	if (c && c->callerid && ! c->restrictcid) {
+	  ast_log(LOG_DEBUG, "Finding callerid from %s...\n",c->callerid);
+	  strncpy(tmp, c->callerid, sizeof(tmp) - 1);
+	  ast_callerid_parse(tmp, &name, &num);
+	  if (num) {
+	    ast_shrink_phone_number(num);
+	    snprintf(tmpmsn, sizeof(tmpmsn), ",%s,", num);
+	    if(strlen(p->outgoingmsn) && strstr(p->outgoingmsn,tmpmsn) != NULL) {
+	      // Tell ISDN4Linux to use this as A number
+	      snprintf(cmd, sizeof(cmd), "AT&E%s\n", num);
+	      if (ast_modem_send(p, cmd, strlen(cmd))) {
+		ast_log(LOG_WARNING, "Unable to set A number to %s\n",num);
+	      }
+
+	    } else {
+	      ast_log(LOG_WARNING, "Outgoing MSN %s not allowed (see outgoingmsn=%s in modem.conf)\n",num,p->outgoingmsn);
+	    }
+	  }
+	}
+
 	snprintf(cmd, sizeof(cmd), "ATD%c %s\n", p->dialtype,stuff);
 	if (ast_modem_send(p, cmd, strlen(cmd))) {
 		ast_log(LOG_WARNING, "Unable to dial\n");
@@ -495,32 +621,29 @@ static int i4l_dial(struct ast_modem_pvt *p, char *stuff)
 static int i4l_hangup(struct ast_modem_pvt *p)
 {
 	char dummy[50];
-	sprintf(dummy, "%c%c", 0x10, 0x3);
-	if (write(p->fd, dummy, 2) < 0) {
-		ast_log(LOG_WARNING, "Failed to break\n");
-		return -1;
+	int dtr = TIOCM_DTR;
+
+	/* free the memory used by the DSP */
+	if (p->dsp) {
+		ast_dsp_free(p->dsp);
+		p->dsp = NULL;
 	}
 
+	/* down DTR to hangup modem */
+	ioctl(p->fd, TIOCMBIC, &dtr);
 	/* Read anything outstanding */
 	while(read(p->fd, dummy, sizeof(dummy)) > 0);
 
-	sprintf(dummy, "%c%c", 0x10, 0x14);
-	if (write(p->fd, dummy, 2) < 0) {
-		ast_log(LOG_WARNING, "Failed to break\n");
-		return -1;
-	}
-	ast_modem_expect(p, "VCON", 1);
-#if 0
-	if (ast_modem_expect(p, "VCON", 8)) {
-		ast_log(LOG_WARNING, "Didn't get expected VCON\n");
-		return -1;
-	}
-#endif
+	/* rise DTR to re-enable line */
+	ioctl(p->fd, TIOCMBIS, &dtr);
+	
+	/* Read anything outstanding */
+	while(read(p->fd, dummy, sizeof(dummy)) > 0);
+
+	/* basically we're done, just to be sure */
 	write(p->fd, "\n\n", 2);
 	read(p->fd, dummy, sizeof(dummy));
-	/* Hangup by switching to data, then back to voice */
-	if (ast_modem_send(p, "ATH", 0) ||
-	     ast_modem_expect(p, "NO CARRIER", 8)) {
+	if (ast_modem_send(p, "ATH", 0)) {
 		ast_log(LOG_WARNING, "Unable to hang up\n");
 		return -1;
 	}
@@ -528,6 +651,7 @@ static int i4l_hangup(struct ast_modem_pvt *p)
 		ast_log(LOG_WARNING, "Final 'OK' not received\n");
 		return -1;
 	}
+
 	return 0;
 }
 
@@ -560,9 +684,9 @@ static struct ast_modem_driver i4l_driver =
 int usecount(void)
 {
 	int res;
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	res = usecnt;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	return res;
 }
 

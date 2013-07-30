@@ -24,6 +24,8 @@ extern "C" {
 struct ast_channel_pvt {
 	/*! Private data used by channel backend */
 	void *pvt;
+	struct ast_frame *readq;
+	int alertpipe[2];
 	/*! Write translation path */
 	struct ast_trans_pvt *writetrans;
 	/*! Read translation path */
@@ -63,11 +65,27 @@ struct ast_channel_pvt {
 	int (*setoption)(struct ast_channel *chan, int option, void *data, int datalen);
 	/*! Query a given option */
 	int (*queryoption)(struct ast_channel *chan, int option, void *data, int *datalen);
+	/*! Blind transfer other side */
+	int (*transfer)(struct ast_channel *chan, char *newdest);
+	/*! Write a frame, in standard format */
+	int (*write_video)(struct ast_channel *chan, struct ast_frame *frame);
 };
 
 //! Create a channel structure
 /*! Returns NULL on failure to allocate */
-struct ast_channel *ast_channel_alloc(void);
+struct ast_channel *ast_channel_alloc(int needalertpipe);
+
+/*! Queue an outgoing frame */
+int ast_queue_frame(struct ast_channel *chan, struct ast_frame *f);
+
+int ast_queue_hangup(struct ast_channel *chan);
+
+int ast_queue_control(struct ast_channel *chan, int control);
+
+/*! Change the state of a channel */
+int ast_setstate(struct ast_channel *chan, int state);
+
+void ast_change_name(struct ast_channel *chan, char *newname);
 
 //! Free a channel structure
 void  ast_channel_free(struct ast_channel *);

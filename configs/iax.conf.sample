@@ -1,4 +1,4 @@
-;
+
 ; Inter-Asterisk eXchange driver definition
 ;
 ;
@@ -7,8 +7,19 @@
 ; local addresses).
 ;
 [general]
-port=5036
+;bindport=4569
 ;bindaddr=192.168.0.1
+;
+; Set iaxcompat to yes if you plan to use layered 
+; switches.  It incurs a small performance hit to enable it
+;
+;iaxcompat=yes
+;
+; For increased security against brute force password attacks
+; enable "delayreject" which will delay the sending of authentication
+; reject for REGREQ or AUTHREP if there is a password.  
+;
+;delayreject=yes
 ;
 ; You may specify a global default AMA flag for iaxtel calls.  It must be
 ; one of 'default', 'omit', 'billing', or 'documentation'.  These flags
@@ -20,6 +31,12 @@ port=5036
 ; to specifying on a per-user basis
 ;
 ;accountcode=lss0101
+;
+; You may specify a global default language for users. 
+; Can be specified also on a per-user basis
+; If omitted, will fallback to english
+;
+;language=en
 ;
 ; Specify bandwidth of low, medium, or high to control which codecs are used
 ; in general.
@@ -34,18 +51,51 @@ bandwidth=low
 disallow=lpc10			; Icky sound quality...  Mr. Roboto.
 ;allow=gsm			; Always allow GSM, it's cool :)
 ;
-; You can also adjust several parameters relating to the jitter
-; buffer.  Specifically, you can provide a maximum jitter buffer,
-; you can turn it off entirely, and you can specify an acceptable
-; drop rate (per MEMORY_SIZE, by default 3 of 100).  Disabling the
-; jitter buffer is not recommended.  Finally, you can specify the maximum
-; excess jitter buffer, which if exceeded, causes the jitter buffer to
-; slowly shrink in order to improve latency.
+
+; You can adjust several parameters relating to the jitter buffer.
+; The jitter buffer's function is to compensate for varying
+; network delay.
 ;
-;jitterbuffer=no
-;dropcount=3
+; All the jitter buffer settings except dropcount are in milliseconds.
+; The jitter buffer works for INCOMING audio - the outbound audio
+; will be dejittered by the jitter buffer at the other end.
+;
+; jitterbuffer=yes|no: global default as to whether you want
+; the jitter buffer at all.
+;
+; dropcount: the jitter buffer is sized such that no more than "dropcount"
+; frames would have been "too late" over the last 2 seconds.
+; Set to a small number.  "3" represents 1.5% of frames dropped
+;
+; maxjitterbuffer: a maximum size for the jitter buffer.
+; Setting a reasonable maximum here will prevent the call delay
+; from rising to silly values in extreme situations; you'll hear
+; SOMETHING, even though it will be jittery.
+;
+; maxexcessbuffer: If conditions improve after a period of high jitter,
+; the jitter buffer can end up bigger than necessary.  If it ends up
+; more than "maxexcessbuffer" bigger than needed, Asterisk will start
+; gradually decreasing the amount of jitter buffering.
+;
+; minexcessbuffer: Sets a desired mimimum amount of headroom in 
+; the jitter buffer.  If Asterisk has less headroom than this, then
+; it will start gradually increasing the amount of jitter buffering.
+;
+; jittershrinkrate: when the jitter buffer is being gradually shrunk 
+; (or enlarged), how many millisecs shall we take off per 20ms frame
+; received?  Use a small number, or you will be able to hear it
+; changing.  An example: if you set this to 2, then the jitter buffer
+; size will change by 100 millisecs per second.
+
+jitterbuffer=no
+;dropcount=2
 ;maxjitterbuffer=500
-;maxexccessbuffer=100
+;maxexcessbuffer=80
+;minexcessbuffer=10
+;jittershrinkrate=1
+
+;trunkfreq=20			; How frequently to send trunk msgs (in ms)
+;
 ;
 ; We can register with another IAX server to let him know where we are
 ; in case we have a dynamic IP address for example
@@ -62,6 +112,31 @@ disallow=lpc10			; Icky sound quality...  Mr. Roboto.
 ;
 ;register => marko:[torkey]@tormenta.linux-support.net
 ;
+; Sample Registration for iaxtel
+;
+; Visit http://www.iaxtel.com to register with iaxtel.  Replace "user"
+; and "pass" with your username and password for iaxtel.  Incoming 
+; calls arrive at the "s" extension of "default" context.
+;
+;register => user:pass@iaxtel.com
+;
+; Sample Registration for IAX + FWD
+;
+; To register using IAX with FWD, it must be enabled by visiting the URL
+; http://www.fwdnet.net/index.php?section_id=112
+;
+; Note that you need an extension in you default context which matches
+; your free world dialup number.  Please replace "FWDNumber" with your
+; FWD number and "passwd" with your password.
+;
+;register => FWDNumber:passwd@iax.fwdnet.net
+;
+;
+; You can disable authentication debugging to reduce the amount of 
+; debugging traffic.
+;
+;authdebug=no
+;
 ; Finally, you can set values for your TOS bits to help improve 
 ; performance.  Valid values are:
 ;   lowdelay		-- Minimize delay
@@ -72,23 +147,21 @@ disallow=lpc10			; Icky sound quality...  Mr. Roboto.
 ;
 tos=lowdelay
 ;
-; Trust Caller*ID Coming from iaxtel.com
+; If mailboxdetail is set to "yes", the user receives
+; the actual new/old message counts, not just a yes/no
+; as to whether they have messages.  this can be set on
+; a per-peer basis as well
 ;
-[iaxtel]
-type=user
-context=default
-auth=rsa
-inkeys=iaxtel
-
-[iaxtel2]
+;mailboxdetail=yes
 ;
-; Backwards compatible entry for IAXtel pre-RSA
+; If regcontext is specified, Asterisk will dynamically 
+; create and destroy a NoOp priority 1 extension for a given
+; peer who registers or unregisters with us.  The actual extension
+; is the 'regexten' parameter of the registering peer or its
+; name if 'regexten' is not provided.  More than one regexten may be supplied
+; if they are separated by '&'.  Patterns may be used in regexten.
 ;
-type=user
-context=default
-deny=0.0.0.0/0.0.0.0
-permit=216.207.245.47/255.255.255.255
-
+;regcontext=iaxregistrations
 ;
 ; Guest sections for unauthenticated connection attempts.  Just
 ; specify an empty secret, or provide no secret section.
@@ -97,6 +170,25 @@ permit=216.207.245.47/255.255.255.255
 type=user
 context=default
 callerid="Guest IAX User"
+
+;
+; Trust Caller*ID Coming from iaxtel.com
+;
+[iaxtel]
+type=user
+context=default
+auth=rsa
+inkeys=iaxtel
+
+;
+; Trust Caller*ID Coming from iax.fwdnet.net
+;
+[iaxfwd]
+type=user
+context=default
+auth=rsa
+inkeys=freeworlddialup
+
 ;
 ; Further user sections may be added, specifying a context and a
 ; secret used for connections with that given authentication name.
@@ -126,10 +218,14 @@ callerid="Guest IAX User"
 ;context=local
 ;auth=md5,plaintext,rsa
 ;secret=markpasswd
+;notransfer=yes		; Disable IAX native transfer
+;jitterbuffer=yes	; Override global setting an enable jitter buffer
+;			; for this user
 ;callerid="Mark Spencer" <(256) 428-6275>
 ;deny=0.0.0.0/0.0.0.0
 ;accountcode=markster0101
 ;permit=209.16.236.73/255.255.255.0
+;language=en		; Use english as default language
 ;
 ; Peers may also be specified, with a secret and
 ; a remote hostname.
@@ -138,11 +234,13 @@ callerid="Guest IAX User"
 type=peer
 username=asterisk
 secret=supersecret
-host=216.207.245.57
+host=216.207.245.47
 ;sendani=no
 ;host=asterisk.linux-support.net
 ;port=5036
 ;mask=255.255.255.255
+;qualify=yes	; Make sure this peer is alive
+;jitterbuffer=no	; Turn off jitter buffer for this peer
 
 ;
 ; Peers can remotely register as well, so that they can be
@@ -155,9 +253,20 @@ host=216.207.245.57
 ;[dynamichost]
 ;host=dynamic
 ;secret=mysecret
+;mailbox=1234		; Notify about mailbox 1234
 ;inkeys=key1:key2
+;peercontext=local	; Default context to request for calls to peer
 ;defaultip=216.207.245.34
 ;callerid="Some Host" <(256) 428-6011>
+;
+
+;
+;[biggateway]
+;type=peer
+;host=192.168.0.1
+;context=*
+;secret=myscret
+;trunk=yes		; Use IAX2 trunking with this host
 ;
 
 ;
@@ -167,6 +276,7 @@ host=216.207.245.57
 ;[marko]
 ;type=friend
 ;host=dynamic
+;regexten=1234
 ;secret=moofoo
 ;context=default
 ;permit=0.0.0.0/0.0.0.0

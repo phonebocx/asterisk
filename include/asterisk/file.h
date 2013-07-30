@@ -27,6 +27,8 @@ extern "C" {
 //! Convenient for waiting
 #define AST_DIGIT_ANY "0123456789#*"
 
+#define SEEK_FORCECUR	10
+	
 /* Defined by individual formats.  First item MUST be a
    pointer for use by the stream manager */
 struct ast_filestream;
@@ -39,9 +41,11 @@ struct ast_filestream;
 int ast_format_register(char *name, char *exts, int format,
 						struct ast_filestream * (*open)(int fd),
 						struct ast_filestream * (*rewrite)(int fd, char *comment),
-						int (*apply)(struct ast_channel *, struct ast_filestream *),
 						int (*write)(struct ast_filestream *, struct ast_frame *),
-						struct ast_frame * (*read)(struct ast_filestream *),
+						int (*seek)(struct ast_filestream *, long offset, int whence),
+						int (*trunc)(struct ast_filestream *),
+						long (*tell)(struct ast_filestream *),
+						struct ast_frame * (*read)(struct ast_filestream *, int *timetonext),
 						void (*close)(struct ast_filestream *),
 						char * (*getcomment)(struct ast_filestream *));
 	
@@ -119,6 +123,39 @@ int ast_filecopy(char *oldname, char *newname, char *fmt);
  */
 char ast_waitstream(struct ast_channel *c, char *breakon);
 
+//! Same as waitstream but allows stream to be forwarded or rewound
+/*!
+ * \param c channel to waitstram on
+ * \param breakon string of DTMF digits to break upon
+ * \param forward DTMF digit to fast forward upon
+ * \param rewind DTMF digit to rewind upon
+ * \param ms How many miliseconds to skip forward/back
+ * Begins playback of a stream...
+ * Wait for a stream to stop or for any one of a given digit to arrive,  Returns 0 
+ * if the stream finishes, the character if it was interrupted, and -1 on error 
+ */
+char ast_waitstream_fr(struct ast_channel *c, char *breakon, char *forward, char *rewind, int ms);
+
+/* Same as waitstream, but with audio output to fd and monitored fd checking.  Returns
+   1 if monfd is ready for reading */
+char ast_waitstream_full(struct ast_channel *c, char *breakon, int audiofd, int monfd);
+
+//! Starts reading from a file
+/*!
+ * \param filename the name of the file to read from
+ * \param type format of file you wish to read from
+ * \param comment comment to go with
+ * \param flags file flags
+ * \param check (unimplemented, hence negligible)
+ * \param mode Open mode
+ * Open an incoming file stream.  flags are flags for the open() command, and 
+ * if check is non-zero, then it will not read a file if there are any files that 
+ * start with that name and have an extension
+ * Please note, this is a blocking function.  Program execution will not return until ast_waitstream completes it's execution.
+ * Returns a struct ast_filestream on success, NULL on failure
+ */
+struct ast_filestream *ast_readfile(char *filename, char *type, char *comment, int flags, int check, mode_t mode);
+
 //! Starts writing a file
 /*!
  * \param filename the name of the file to write to
@@ -133,7 +170,7 @@ char ast_waitstream(struct ast_channel *c, char *breakon);
  * Please note, this is a blocking function.  Program execution will not return until ast_waitstream completes it's execution.
  * Returns a struct ast_filestream on success, NULL on failure
  */
-struct ast_filestream *ast_writefile(char *filename, char *type, char *comment, int oflags, int check, mode_t mode);
+struct ast_filestream *ast_writefile(char *filename, char *type, char *comment, int flags, int check, mode_t mode);
 
 //! Writes a frame to a stream
 /*! 
@@ -152,7 +189,110 @@ int ast_writestream(struct ast_filestream *fs, struct ast_frame *f);
  */
 int ast_closestream(struct ast_filestream *f);
 
-#define AST_RESERVED_POINTERS 4
+//! Opens stream for use in seeking, playing
+/*!
+ * \param chan channel to work with
+ * \param filename to use
+ * \param preflang prefered language to use
+ * Returns a ast_filestream pointer if it opens the file, NULL on error
+ */
+struct ast_filestream *ast_openstream(struct ast_channel *chan, char *filename, char *preflang);
+
+//! Opens stream for use in seeking, playing
+/*!
+ * \param chan channel to work with
+ * \param filename to use
+ * \param preflang prefered language to use
+ * Returns a ast_filestream pointer if it opens the file, NULL on error
+ */
+struct ast_filestream *ast_openvstream(struct ast_channel *chan, char *filename, char *preflang);
+
+//! Applys a open stream to a channel.
+/*!
+ * \param chan channel to work
+ * \param ast_filestream s to apply
+ * Returns 0 for success, -1 on failure
+ */
+int ast_applystream(struct ast_channel *chan, struct ast_filestream *s);
+
+//! play a open stream on a channel.
+/*!
+ * \param ast_filestream s to play
+ * Returns 0 for success, -1 on failure
+ */
+int ast_playstream(struct ast_filestream *s);
+
+//! Seeks into stream
+/*!
+ * \param ast_filestream to perform seek on
+ * \param sample_offset numbers of samples to seek
+ * \param whence SEEK_SET, SEEK_CUR, SEEK_END 
+ * Returns 0 for success, or -1 for error
+ */
+int ast_seekstream(struct ast_filestream *fs, long sample_offset, int whence);
+
+//! Trunc stream at current location
+/*!
+ * \param ast_filestream fs 
+ * Returns 0 for success, or -1 for error
+ */
+int ast_truncstream(struct ast_filestream *fs);
+
+//! Fast forward stream ms
+/*!
+ * \param ast_filestream fs filestream to act on
+ * \param ms milliseconds to move
+ * Returns 0 for success, or -1 for error
+ */
+int ast_stream_fastforward(struct ast_filestream *fs, long ms);
+
+//! Rewind stream ms
+/*!
+ * \param ast_filestream fs filestream to act on
+ * \param ms milliseconds to move
+ * Returns 0 for success, or -1 for error
+ */
+int ast_stream_rewind(struct ast_filestream *fs, long ms);
+
+//! Fast forward stream ms
+/*!
+ * \param ast_filestream fs filestream to act on
+ * \param ms milliseconds to move
+ * Returns 0 for success, or -1 for error
+ */
+int ast_stream_fastforward(struct ast_filestream *fs, long ms);
+
+//! Rewind stream ms
+/*!
+ * \param ast_filestream fs filestream to act on
+ * \param ms milliseconds to move
+ * Returns 0 for success, or -1 for error
+ */
+int ast_stream_rewind(struct ast_filestream *fs, long ms);
+
+//! Tell where we are in a stream
+/*!
+ * \param ast_filestream fs to act on
+ * Returns a long as a sample offset into stream
+ */
+long ast_tellstream(struct ast_filestream *fs);
+
+//! Read a frame from a filestream
+/*!
+ * \param ast_filestream fs to act on
+ * Returns a frame or NULL if read failed
+ */ 
+struct ast_frame *ast_readframe(struct ast_filestream *s);
+
+//! Initialize file stuff
+/*!
+ * Initializes all the various file stuff.  Basically just registers the cli stuff
+ * Returns 0 all the time
+ */
+extern int ast_file_init(void);
+
+
+#define AST_RESERVED_POINTERS 20
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

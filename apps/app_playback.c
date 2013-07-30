@@ -11,15 +11,16 @@
  * the GNU General Public License
  */
  
+#include <asterisk/lock.h>
 #include <asterisk/file.h>
 #include <asterisk/logger.h>
 #include <asterisk/channel.h>
 #include <asterisk/pbx.h>
 #include <asterisk/module.h>
 #include <asterisk/translate.h>
+#include <asterisk/utils.h>
 #include <string.h>
 #include <stdlib.h>
-#include <pthread.h>
 
 static char *tdesc = "Trivial Playback Application";
 
@@ -29,14 +30,14 @@ static char *synopsis = "Play a file";
 
 static char *descrip = 
 "  Playback(filename[|option]):  Plays  back  a  given  filename (do not put\n"
-"extension). Options may also be  included following a pipe symbol. The only\n"
-"defined option at this time is 'skip',  which  causes  the  playback of the\n"
-"message to  be  skipped  if  the  channel is not in the 'up' state (i.e. it\n"
-"hasn't been  answered  yet. If 'skip' is specified, the application will\n"
-"return immediately should the channel not be off hook.  Otherwise, unless\n"
-"'noanswer' is specified, the channel channel will be answered before the sound\n"
-"is played. Not all channels support playing messages while on hook. Returns -1\n"
-"if the channel was hung up, or if the file does not exist. Returns 0 otherwise.\n";
+"extension). Options may also be  included following a pipe symbol. The 'skip'\n"
+"option causes the playback of the message to  be  skipped  if  the  channel\n"
+"is not in the 'up' state (i.e. it hasn't been  answered  yet. If 'skip' is \n"
+"specified, the application will return immediately should the channel not be\n"
+"off hook.  Otherwise, unless 'noanswer' is specified, the channel channel will\n"
+"be answered before the sound is played. Not all channels support playing\n"
+"messages while still hook. Returns -1 if the channel was hung up, or if the\n"
+"file does not exist. Returns 0 otherwise.\n";
 
 STANDARD_LOCAL_USER;
 
@@ -50,19 +51,21 @@ static int playback_exec(struct ast_channel *chan, void *data)
 	char *options;
 	int option_skip=0;
 	int option_noanswer = 0;
-	if (!data || !strlen((char *)data)) {
+	char *stringp;
+	if (!data || ast_strlen_zero((char *)data)) {
 		ast_log(LOG_WARNING, "Playback requires an argument (filename)\n");
 		return -1;
 	}
 	strncpy(tmp, (char *)data, sizeof(tmp)-1);
-	strtok(tmp, "|");
-	options = strtok(NULL, "|");
+	stringp=tmp;
+	strsep(&stringp, "|");
+	options = strsep(&stringp, "|");
 	if (options && !strcasecmp(options, "skip"))
 		option_skip = 1;
 	if (options && !strcasecmp(options, "noanswer"))
 		option_noanswer = 1;
 	LOCAL_USER_ADD(u);
-	if (chan->state != AST_STATE_UP) {
+	if (chan->_state != AST_STATE_UP) {
 		if (option_skip) {
 			/* At the user's option, skip if the line is not up */
 			LOCAL_USER_REMOVE(u);
@@ -76,8 +79,10 @@ static int playback_exec(struct ast_channel *chan, void *data)
 		res = ast_streamfile(chan, tmp, chan->language);
 		if (!res) 
 			res = ast_waitstream(chan, "");
-		else
+		else {
 			ast_log(LOG_WARNING, "ast_streamfile failed on %s for %s\n", chan->name, (char *)data);
+			res = 0;
+		}
 		ast_stopstream(chan);
 	}
 	LOCAL_USER_REMOVE(u);

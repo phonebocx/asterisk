@@ -11,12 +11,15 @@
  * the GNU General Public License
  */
  
+#include <sys/types.h>
 #include <asterisk/channel.h>
 #include <asterisk/file.h>
 #include <asterisk/logger.h>
 #include <asterisk/sched.h>
 #include <asterisk/module.h>
 #include <asterisk/image.h>
+#include <asterisk/lock.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -24,9 +27,11 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <pthread.h>
+#ifdef __linux__
 #include <endian.h>
-
+#else
+#include <machine/endian.h>
+#endif
 
 
 static char *desc = "JPEG (Joint Picture Experts Group) Image Format";
@@ -80,7 +85,7 @@ static int jpeg_write_image(int fd, struct ast_frame *fr)
 	if (fr->datalen) {
 		res = write(fd, fr->data, fr->datalen);
 		if (res != fr->datalen) {
-			ast_log(LOG_WARNING, "Only wrote %d of %d bytes: %s\n", res, fr->datalen);
+			ast_log(LOG_WARNING, "Only wrote %d of %d bytes: %s\n", res, fr->datalen, strerror(errno));
 			return -1;
 		}
 	}

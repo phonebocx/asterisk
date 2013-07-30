@@ -19,11 +19,11 @@
 #define TYPE_LOW	 0x1
 #define TYPE_MASK	 0x3
 
+#include <asterisk/lock.h>
 #include <asterisk/translate.h>
 #include <asterisk/module.h>
 #include <asterisk/logger.h>
 #include <asterisk/channel.h>
-#include <pthread.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -32,12 +32,13 @@
 #include <stdio.h>
 
 #include "gsm/inc/gsm.h"
+#include "../formats/msgsm.h"
 
 /* Sample frame data */
 #include "slin_gsm_ex.h"
 #include "gsm_slin_ex.h"
 
-static pthread_mutex_t localuser_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(localuser_lock);
 static int localusecnt=0;
 
 static char *tdesc = "GSM/PCM16 (signed linear) Codec Translator";
@@ -56,7 +57,7 @@ struct ast_translator_pvt {
 
 #define gsm_coder_pvt ast_translator_pvt
 
-static struct ast_translator_pvt *gsm_new()
+static struct ast_translator_pvt *gsm_new(void)
 {
 	struct gsm_coder_pvt *tmp;
 	tmp = malloc(sizeof(struct gsm_coder_pvt));
@@ -71,14 +72,14 @@ static struct ast_translator_pvt *gsm_new()
 	return tmp;
 }
 
-static struct ast_frame *lintogsm_sample()
+static struct ast_frame *lintogsm_sample(void)
 {
 	static struct ast_frame f;
 	f.frametype = AST_FRAME_VOICE;
 	f.subclass = AST_FORMAT_SLINEAR;
 	f.datalen = sizeof(slin_gsm_ex);
 	/* Assume 8000 Hz */
-	f.timelen = sizeof(slin_gsm_ex)/16;
+	f.samples = sizeof(slin_gsm_ex)/2;
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
@@ -86,14 +87,14 @@ static struct ast_frame *lintogsm_sample()
 	return &f;
 }
 
-static struct ast_frame *gsmtolin_sample()
+static struct ast_frame *gsmtolin_sample(void)
 {
 	static struct ast_frame f;
 	f.frametype = AST_FRAME_VOICE;
 	f.subclass = AST_FORMAT_GSM;
 	f.datalen = sizeof(gsm_slin_ex);
 	/* All frames are 20 ms long */
-	f.timelen = 20;
+	f.samples = 160;
 	f.mallocd = 0;
 	f.offset = 0;
 	f.src = __PRETTY_FUNCTION__;
@@ -111,7 +112,7 @@ static struct ast_frame *gsmtolin_frameout(struct ast_translator_pvt *tmp)
 	tmp->f.subclass = AST_FORMAT_SLINEAR;
 	tmp->f.datalen = tmp->tail * 2;
 	/* Assume 8000 Hz */
-	tmp->f.timelen = tmp->tail / 8;
+	tmp->f.samples = tmp->tail;
 	tmp->f.mallocd = 0;
 	tmp->f.offset = AST_FRIENDLY_OFFSET;
 	tmp->f.src = __PRETTY_FUNCTION__;
@@ -127,20 +128,47 @@ static int gsmtolin_framein(struct ast_translator_pvt *tmp, struct ast_frame *f)
 	/* Assuming there's space left, decode into the current buffer at
 	   the tail location.  Read in as many frames as there are */
 	int x;
-	if (f->datalen % 33) {
-		ast_log(LOG_WARNING, "Huh?  A GSM frame that isn't a multiple of 33 bytes long from %s (%d)?\n", f->src, f->datalen);
+	unsigned char data[66];
+	int msgsm=0;
+	
+	if ((f->datalen % 33) && (f->datalen % 65)) {
+		ast_log(LOG_WARNING, "Huh?  A GSM frame that isn't a multiple of 33 or 65 bytes long from %s (%d)?\n", f->src, f->datalen);
 		return -1;
 	}
-	for (x=0;x<f->datalen;x+=33) {
-		if (tmp->tail + 160 < sizeof(tmp->buf)/2) {	
-			if (gsm_decode(tmp->gsm, f->data + x, tmp->buf + tmp->tail)) {
-				ast_log(LOG_WARNING, "Invalid GSM data\n");
+	
+	if (f->datalen % 65 == 0) 
+		msgsm = 1;
+		
+	for (x=0;x<f->datalen;x+=(msgsm ? 65 : 33)) {
+		if (msgsm) {
+			/* Translate MSGSM format to Real GSM format before feeding in */
+			conv65(f->data + x, data);
+			if (tmp->tail + 320 < sizeof(tmp->buf)/2) {	
+				if (gsm_decode(tmp->gsm, data, tmp->buf + tmp->tail)) {
+					ast_log(LOG_WARNING, "Invalid GSM data (1)\n");
+					return -1;
+				}
+				tmp->tail+=160;
+				if (gsm_decode(tmp->gsm, data + 33, tmp->buf + tmp->tail)) {
+					ast_log(LOG_WARNING, "Invalid GSM data (2)\n");
+					return -1;
+				}
+				tmp->tail+=160;
+			} else {
+				ast_log(LOG_WARNING, "Out of (MS) buffer space\n");
 				return -1;
 			}
-			tmp->tail+=160;
 		} else {
-			ast_log(LOG_WARNING, "Out of buffer space\n");
-			return -1;
+			if (tmp->tail + 160 < sizeof(tmp->buf)/2) {	
+				if (gsm_decode(tmp->gsm, f->data + x, tmp->buf + tmp->tail)) {
+					ast_log(LOG_WARNING, "Invalid GSM data\n");
+					return -1;
+				}
+				tmp->tail+=160;
+			} else {
+				ast_log(LOG_WARNING, "Out of buffer space\n");
+				return -1;
+			}
 		}
 	}
 	return 0;
@@ -189,12 +217,14 @@ static struct ast_frame *lintogsm_frameout(struct ast_translator_pvt *tmp)
 		x++;
 	}
 	tmp->f.datalen = x * 33;
-	tmp->f.timelen = x * 20;
+	tmp->f.samples = x * 160;
 	return &tmp->f;	
 }
 
 static void gsm_destroy_stuff(struct ast_translator_pvt *pvt)
 {
+	if (pvt->gsm)
+		gsm_destroy(pvt->gsm);
 	free(pvt);
 	localusecnt--;
 }
@@ -222,13 +252,13 @@ static struct ast_translator lintogsm =
 int unload_module(void)
 {
 	int res;
-	ast_pthread_mutex_lock(&localuser_lock);
+	ast_mutex_lock(&localuser_lock);
 	res = ast_unregister_translator(&lintogsm);
 	if (!res)
 		res = ast_unregister_translator(&gsmtolin);
 	if (localusecnt)
 		res = -1;
-	ast_pthread_mutex_unlock(&localuser_lock);
+	ast_mutex_unlock(&localuser_lock);
 	return res;
 }
 

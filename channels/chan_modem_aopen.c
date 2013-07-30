@@ -16,7 +16,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <pthread.h>
+#include <asterisk/lock.h>
 #include <asterisk/vmodem.h>
 #include <asterisk/module.h>
 #include <asterisk/frame.h>
@@ -33,8 +33,8 @@ static char *breakcmd = "\0x10\0x03";
 
 static char *desc = "A/Open (Rockwell Chipset) ITU-2 VoiceModem Driver";
 
-int usecnt;
-pthread_mutex_t usecnt_lock = PTHREAD_MUTEX_INITIALIZER;
+static int usecnt;
+AST_MUTEX_DEFINE_STATIC(usecnt_lock);
 
 static char *aopen_idents[] = {
 	/* Identify A/Open Modem */
@@ -187,9 +187,11 @@ static struct ast_frame *aopen_handle_escape(struct ast_modem_pvt *p, char esc)
 	p->fr.subclass = 0;
 	p->fr.data = NULL;
 	p->fr.datalen = 0;
-	p->fr.timelen = 0;
+	p->fr.samples = 0;
 	p->fr.offset = 0;
 	p->fr.mallocd = 0;
+        p->fr.delivery.tv_sec = 0;
+        p->fr.delivery.tv_usec = 0;
 	if (esc)
 		ast_log(LOG_DEBUG, "Escaped character '%c'\n", esc);
 	
@@ -202,7 +204,7 @@ static struct ast_frame *aopen_handle_escape(struct ast_modem_pvt *p, char esc)
 		p->fr.frametype = AST_FRAME_CONTROL;
 		p->fr.subclass = AST_CONTROL_RING;
 		if (p->owner)
-			p->owner->state = AST_STATE_UP;
+			ast_setstate(p->owner, AST_STATE_UP);
 		if (aopen_startrec(p))
 			return 	NULL;
 		return &p->fr;
@@ -315,10 +317,12 @@ static struct ast_frame *aopen_read(struct ast_modem_pvt *p)
 		/* If we get here, we have a complete voice frame */
 		p->fr.frametype = AST_FRAME_VOICE;
 		p->fr.subclass = AST_FORMAT_SLINEAR;
-		p->fr.timelen = 30;
+		p->fr.samples = 240;
 		p->fr.data = p->obuf;
 		p->fr.datalen = p->obuflen;
 		p->fr.mallocd = 0;
+		p->fr.delivery.tv_sec = 0;
+		p->fr.delivery.tv_usec = 0;
 		p->fr.offset = AST_FRIENDLY_OFFSET;
 		p->fr.src = __FUNCTION__;
 		if (option_debug)
@@ -361,19 +365,19 @@ static char *aopen_identify(struct ast_modem_pvt *p)
 	return strdup(identity);
 }
 
-static void aopen_incusecnt()
+static void aopen_incusecnt(void)
 {
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	usecnt++;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	ast_update_use_count();
 }
 
-static void aopen_decusecnt()
+static void aopen_decusecnt(void)
 {
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	usecnt++;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	ast_update_use_count();
 }
 
@@ -457,9 +461,9 @@ static struct ast_modem_driver aopen_driver =
 int usecount(void)
 {
 	int res;
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	res = usecnt;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	return res;
 }
 

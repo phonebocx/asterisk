@@ -1,6 +1,18 @@
 /*
 
 $Log: synths.c,v $
+Revision 1.16  2004/06/26 03:50:14  markster
+Merge source cleanups (bug #1911)
+
+Revision 1.15  2003/09/27 02:45:37  markster
+Fix various compiler warnings (bug #322)
+
+Revision 1.2  2003/09/27 02:45:37  markster
+Fix various compiler warnings (bug #322)
+
+Revision 1.1.1.1  2003/02/12 13:59:15  matteo
+mer feb 12 14:56:57 CET 2003
+
 Revision 1.2  2000/01/05 08:20:39  markster
 Some OSS fixes and a few lpc changes to make it actually work
 
@@ -18,6 +30,13 @@ Some OSS fixes and a few lpc changes to make it actually work
 
 */
 
+/*  -- translated by f2c (version 19951025).
+   You must link the resulting object file with the libraries:
+	-lf2c -lm   (in that order)
+*/
+
+#include "f2c.h"
+
 #ifdef P_R_O_T_O_T_Y_P_E_S
 extern int synths_(integer *voice, integer *pitch, real *rms, real *rc, real *speech, integer *k, struct lpc10_decoder_state *st);
 /* comlen contrl_ 12 */
@@ -29,13 +48,6 @@ extern int synths_(integer *voice, integer *pitch, real *rms, real *rc, real *sp
 /*:ref: initbsynz_ 14 0 */
 /*:ref: initdeemp_ 14 0 */
 #endif
-
-/*  -- translated by f2c (version 19951025).
-   You must link the resulting object file with the libraries:
-	-lf2c -lm   (in that order)
-*/
-
-#include "f2c.h"
 
 /* Common Block Declarations */
 
@@ -55,6 +67,18 @@ static real c_b2 = .7f;
 /* 	SYNTHS Version 54 */
 
 /* $Log: synths.c,v $
+/* Revision 1.16  2004/06/26 03:50:14  markster
+/* Merge source cleanups (bug #1911)
+/*
+/* Revision 1.15  2003/09/27 02:45:37  markster
+/* Fix various compiler warnings (bug #322)
+/*
+/* Revision 1.2  2003/09/27 02:45:37  markster
+/* Fix various compiler warnings (bug #322)
+/*
+/* Revision 1.1.1.1  2003/02/12 13:59:15  matteo
+/* mer feb 12 14:56:57 CET 2003
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*
@@ -161,9 +185,6 @@ static real c_b2 = .7f;
     extern /* Subroutine */ int deemp_(real *, integer *, struct lpc10_decoder_state *);
     real ratio;
     integer ipiti[16];
-    extern /* Subroutine */ bsynz_(real *, integer *, 
-	    integer *, real *, real *, real *, real *, struct lpc10_decoder_state *), irc2pc_(real *, real *
-	    , integer *, real *, real *);
     real g2pass;
     real pc[10];
     extern /* Subroutine */ int pitsyn_(integer *, integer *, integer *, real 
@@ -172,6 +193,18 @@ static real c_b2 = .7f;
     real rci[160]	/* was [10][16] */;
 
 /* $Log: synths.c,v $
+/* Revision 1.16  2004/06/26 03:50:14  markster
+/* Merge source cleanups (bug #1911)
+/*
+/* Revision 1.15  2003/09/27 02:45:37  markster
+/* Fix various compiler warnings (bug #322)
+/*
+/* Revision 1.2  2003/09/27 02:45:37  markster
+/* Fix various compiler warnings (bug #322)
+/*
+/* Revision 1.1.1.1  2003/02/12 13:59:15  matteo
+/* mer feb 12 14:56:57 CET 2003
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*
@@ -200,6 +233,18 @@ static real c_b2 = .7f;
 /* Frame size, Prediction order, Pitch period */
 /*       Arguments */
 /* $Log: synths.c,v $
+/* Revision 1.16  2004/06/26 03:50:14  markster
+/* Merge source cleanups (bug #1911)
+/*
+/* Revision 1.15  2003/09/27 02:45:37  markster
+/* Fix various compiler warnings (bug #322)
+/*
+/* Revision 1.2  2003/09/27 02:45:37  markster
+/* Fix various compiler warnings (bug #322)
+/*
+/* Revision 1.1.1.1  2003/02/12 13:59:15  matteo
+/* mer feb 12 14:56:57 CET 2003
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*

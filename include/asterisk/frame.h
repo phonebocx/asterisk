@@ -20,8 +20,48 @@
 extern "C" {
 #endif
 
-#include <endian.h>
 #include <sys/types.h>
+#include <sys/time.h>
+	
+/*
+ * Autodetect system endianess
+ */
+#ifndef __BYTE_ORDER
+#ifdef __linux__
+#include <endian.h>
+#elif defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
+#if defined(__OpenBSD__)
+#include <machine/types.h>
+#endif /* __OpenBSD__ */
+#include <machine/endian.h>
+#define __BYTE_ORDER BYTE_ORDER
+#define __LITTLE_ENDIAN LITTLE_ENDIAN
+#define __BIG_ENDIAN BIG_ENDIAN
+#else
+#ifdef __LITTLE_ENDIAN__
+#define __BYTE_ORDER __LITTLE_ENDIAN
+#endif /* __LITTLE_ENDIAN */
+
+#if defined(i386) || defined(__i386__)
+#define __BYTE_ORDER __LITTLE_ENDIAN
+#endif /* defined i386 */
+
+#if defined(sun) && defined(unix) && defined(sparc)
+#define __BYTE_ORDER __BIG_ENDIAN
+#endif /* sun unix sparc */
+
+#endif /* linux */
+
+#endif /* __BYTE_ORDER */
+
+#ifndef __BYTE_ORDER
+#error Need to know endianess
+#endif /* __BYTE_ORDER */
+
+struct ast_codec_pref {
+	char order[32];
+};
+
 
 //! Data structure associated with a single frame of data
 /* A frame of data read used to communicate between 
@@ -33,8 +73,8 @@ struct ast_frame {
 	int subclass;				
 	/*! Length of data */
 	int datalen;				
-	/*! Amount of time associated with this frame */
-	int timelen;				
+	/*! Number of 8khz samples in this frame */
+	int samples;				
 	/*! Was the data malloc'd?  i.e. should we free it when we discard the frame? */
 	int mallocd;				
 	/*! How far into "data" the data really starts */
@@ -42,7 +82,9 @@ struct ast_frame {
 	/*! Optional source of frame for debugging */
 	char *src;				
 	/*! Pointer to actual data */
-	void *data;				
+	void *data;		
+	/*! Global delivery time */		
+	struct timeval delivery;
 	/*! Next/Prev for linking stand alone frames */
 	struct ast_frame *prev;			
 	/*! Next/Prev for linking stand alone frames */
@@ -59,10 +101,10 @@ struct ast_frame_chain {
 };
 
 #define AST_FRIENDLY_OFFSET 	64		/*! It's polite for a a new frame to
-										   have at least this number of bytes
-										   of offset before your real frame data
-										   so that additional headers can be
-										   added. */
+						    				have this number of bytes for additional
+											headers.  */
+#define AST_MIN_OFFSET 		32		/*! Make sure we keep at least this much handy */
+
 /*! Need the header be free'd? */
 #define AST_MALLOCD_HDR		(1 << 0)
 /*! Need the data be free'd? */
@@ -81,7 +123,7 @@ struct ast_frame_chain {
 #define AST_FRAME_CONTROL	4
 /*! An empty, useless frame */
 #define AST_FRAME_NULL		5
-/*! Inter Aterisk Exchange private frame type */
+/*! Inter Asterisk Exchange private frame type */
 #define AST_FRAME_IAX		6
 /*! Text messages */
 #define AST_FRAME_TEXT		7
@@ -89,6 +131,9 @@ struct ast_frame_chain {
 #define AST_FRAME_IMAGE		8
 /*! HTML Frame */
 #define AST_FRAME_HTML		9
+/*! Comfort Noise frame (subclass is level of CNG in -dBov), 
+    body may include zero or more 8-bit quantization coefficients */
+#define AST_FRAME_CNG		10
 
 /* HTML subclasses */
 /*! Sending a URL */
@@ -119,9 +164,9 @@ struct ast_frame_chain {
 #define AST_FORMAT_ULAW		(1 << 2)
 /*! Raw A-law data (G.711) */
 #define AST_FORMAT_ALAW		(1 << 3)
-/*! MPEG-2 layer 3 */
-#define AST_FORMAT_MP3		(1 << 4)
-/*! ADPCM (whose?) */
+/*! ADPCM (G.726, 32kbps) */
+#define AST_FORMAT_G726		(1 << 4)
+/*! ADPCM (IMA) */
 #define AST_FORMAT_ADPCM	(1 << 5)
 /*! Raw 16-bit Signed Linear (8000 Hz) PCM */
 #define AST_FORMAT_SLINEAR	(1 << 6)
@@ -129,6 +174,10 @@ struct ast_frame_chain {
 #define AST_FORMAT_LPC10	(1 << 7)
 /*! G.729A audio */
 #define AST_FORMAT_G729A	(1 << 8)
+/*! SpeeX Free Compression */
+#define AST_FORMAT_SPEEX	(1 << 9)
+/*! iLBC Free Compression */
+#define AST_FORMAT_ILBC		(1 << 10)
 /*! Maximum audio format */
 #define AST_FORMAT_MAX_AUDIO	(1 << 15)
 /*! JPEG Images */
@@ -139,6 +188,8 @@ struct ast_frame_chain {
 #define AST_FORMAT_H261		(1 << 18)
 /*! H.263 Video */
 #define AST_FORMAT_H263		(1 << 19)
+/*! Max one */
+#define AST_FORMAT_MAX_VIDEO	(1 << 24)
 
 /* Control frame types */
 /*! Other end has hungup */
@@ -163,6 +214,16 @@ struct ast_frame_chain {
 #define AST_CONTROL_WINK		10
 /*! Set a low-level option */
 #define AST_CONTROL_OPTION		11
+/*! Key Radio */
+#define	AST_CONTROL_RADIO_KEY		12
+/*! Un-Key Radio */
+#define	AST_CONTROL_RADIO_UNKEY		13
+/*! Indicate PROGRESS */
+#define AST_CONTROL_PROGRESS            14
+/*! Indicate CALL PROCEEDING */
+#define AST_CONTROL_PROCEEDING		15
+
+#define AST_SMOOTHER_FLAG_G729		(1 << 0)
 
 /* Option identifiers and flags */
 #define AST_OPTION_FLAG_REQUEST		0
@@ -178,6 +239,12 @@ struct ast_frame_chain {
 
 /* Put a compatible channel into TDD (TTY for the hearing-impared) mode */
 #define	AST_OPTION_TDD			2
+
+/* Relax the parameters for DTMF reception (mainly for radio use) */
+#define	AST_OPTION_RELAXDTMF		3
+
+/* Set (or clear) Audio (Not-Clear) Mode */
+#define	AST_OPTION_AUDIO_MODE		4
 
 struct ast_option_header {
 	/* Always keep in network byte order */
@@ -262,7 +329,24 @@ int ast_fr_fdwrite(int fd, struct ast_frame *frame);
  */
 int ast_fr_fdhangup(int fd);
 
-//! Get a format from a name
+//! Get the name of a format
+/*!
+ * \param format id of format
+ * \return A static string containing the name of the format or "UNKN" if unknown.
+ */
+extern char* ast_getformatname(int format);
+
+//! Get the names of a set of formats
+/*!
+ * \param buf a buffer for the output string
+ * \param n size of buf (bytes)
+ * \param format the format (combined IDs of codecs)
+ * Prints a list of readable codec names corresponding to "format".
+ * ex: for format=AST_FORMAT_GSM|AST_FORMAT_SPEEX|AST_FORMAT_ILBC it will return "0x602 (GSM|SPEEX|ILBC)"
+ * \return The return value is buf.
+ */
+extern char* ast_getformatname_multiple(char *buf, size_t size, int format);
+
 /*!
  * \param name string of format
  * Gets a format from a name.
@@ -270,9 +354,57 @@ int ast_fr_fdhangup(int fd);
  */
 extern int ast_getformatbyname(char *name);
 
+//! Get a name from a format
+/*!
+ * \param codec codec number (1,2,4,8,16,etc.)
+ * Gets a name from a format
+ * This returns a static string identifying the format on success, 0 on error.
+ */
+extern char *ast_codec2str(int codec);
+
 //! Pick the best codec 
 /* Choose the best codec...  Uhhh...   Yah. */
 extern int ast_best_codec(int fmts);
+
+struct ast_smoother;
+
+extern struct ast_format_list *ast_get_format_list_index(int index);
+extern struct ast_format_list *ast_get_format_list(size_t *size);
+extern struct ast_smoother *ast_smoother_new(int bytes);
+extern void ast_smoother_set_flags(struct ast_smoother *smoother, int flags);
+extern int ast_smoother_get_flags(struct ast_smoother *smoother);
+extern void ast_smoother_free(struct ast_smoother *s);
+extern void ast_smoother_reset(struct ast_smoother *s, int bytes);
+extern int ast_smoother_feed(struct ast_smoother *s, struct ast_frame *f);
+extern struct ast_frame *ast_smoother_read(struct ast_smoother *s);
+
+extern void ast_frame_dump(char *name, struct ast_frame *f, char *prefix);
+
+/* Initialize a codec preference to "no preference" */
+extern void ast_codec_pref_init(struct ast_codec_pref *pref);
+
+/* Codec located at  a particular place in the preference index */
+extern int ast_codec_pref_index(struct ast_codec_pref *pref, int index);
+
+/* Remove a codec from a preference list */
+extern void ast_codec_pref_remove(struct ast_codec_pref *pref, int format);
+
+/* Append a codec to a preference list, removing it first if it was already there */
+extern int ast_codec_pref_append(struct ast_codec_pref *pref, int format);
+
+/* Select the best format according to preference list from supplied options. 
+   If "find_best" is non-zero then if nothing is found, the "Best" format of 
+   the format list is selected, otherwise 0 is returned. */
+extern int ast_codec_choose(struct ast_codec_pref *pref, int formats, int find_best);
+
+/* Parse an "allow" or "deny" line and update the mask and pref if provided */
+extern void ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, char *list, int allowing);
+
+/* Dump codec preference list into a string */
+extern int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size);
+
+/* Shift a codec preference list up or down 65 bytes so that it becomes an ASCII string */
+extern void ast_codec_pref_shift(struct ast_codec_pref *pref, char *buf, size_t size, int right);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

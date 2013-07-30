@@ -20,10 +20,19 @@ extern "C" {
 
 struct ast_config;
 
+struct ast_comment {
+	struct ast_comment *next;
+	char cmt[0];
+};
+
 struct ast_variable {
 	char *name;
 	char *value;
 	int lineno;
+	int object;		/* 0 for variable, 1 for object */
+	int blanklines; 	/* Number of blanklines following entry */
+	struct ast_comment *precomments;
+	struct ast_comment *sameline;
 	struct ast_variable *next;
 };
 
@@ -78,6 +87,14 @@ char *ast_variable_retrieve(struct ast_config *config, char *category, char *val
  */
 int ast_true(char *val);
 
+//! Make sure something is false
+/*!
+ * Determine falseness of a boolean value.
+ * This function checks to see whether a string passed to it is an indication of a negatirve value.  It checks to see if the string is "no", "false", "n", "f", and "0".  
+ * Returns 0 if the value of s is a NULL pointer, 0 on "truth", and -1 on falsehood.
+ */
+int ast_false(char *val);
+
 //! Check for category duplicates
 /*!
  * \param config which config to use
@@ -85,6 +102,13 @@ int ast_true(char *val);
  * This will search through the categories within a given config file and search for a match.  The passed category_name can be a regular string (as opposed to a pointer of an existent string, lol)
  * Browse config structure and check for category duplicity Return non-zero if found */
 int ast_category_exist(struct ast_config *config, char *category_name);
+
+/* These are only in the config engine at this point */
+struct ast_variable *ast_variable_append_modify(struct ast_config *cfg, char *category, char *variable, char *newvalue, int newcat, int newvar, int move);
+
+int ast_category_delete(struct ast_config *cfg, char *category);
+int ast_variable_delete(struct ast_config *cfg, char *category, char *variable, char *value);
+int ast_save(char *filename, struct ast_config *cfg, char *generator);
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

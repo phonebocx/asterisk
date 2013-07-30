@@ -19,28 +19,30 @@
  * linked (see the Makefile)
  */
 
-
+#include <sys/types.h>
 #include <asterisk/pbx.h>
 #include <asterisk/config.h>
 #include <asterisk/module.h>
 #include <asterisk/logger.h>
 #include <asterisk/options.h>
 #include <asterisk/cli.h>
+#include <asterisk/utils.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <signal.h>
 #include <sys/time.h>
-#include <sys/signal.h>
 
 #include <gtk/gtk.h>
 #include <glib.h>
 /* For where to put dynamic tables */
 #include "../asterisk.h"
+#include "../astconf.h"
 
-static pthread_mutex_t verb_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(verb_lock);
 
 static pthread_t console_thread;
 
@@ -92,12 +94,12 @@ static int cleanup(void *useless)
 }
 
 
-static void __verboser(char *stuff, int opos, int replacelast, int complete)
+static void __verboser(const char *stuff, int opos, int replacelast, int complete)
 {
 	char *s2[2];
 	struct timeval tv;
 	int ms;
-	s2[0] = stuff;
+	s2[0] = (char *)stuff;
 	s2[1] = NULL;
 	gtk_clist_freeze(GTK_CLIST(verb));
 	if (replacelast) 
@@ -122,12 +124,12 @@ static void __verboser(char *stuff, int opos, int replacelast, int complete)
 	}
 }
 
-static void verboser(char *stuff, int opos, int replacelast, int complete) 
+static void verboser(const char *stuff, int opos, int replacelast, int complete) 
 {
-	ast_pthread_mutex_lock(&verb_lock);
+	ast_mutex_lock(&verb_lock);
 	/* Lock appropriately if we're really being called in verbose mode */
 	__verboser(stuff, opos, replacelast, complete);
-	ast_pthread_mutex_unlock(&verb_lock);
+	ast_mutex_unlock(&verb_lock);
 }
 
 static void cliinput(void *data, int source, GdkInputCondition ic)
@@ -169,7 +171,7 @@ static void cliinput(void *data, int source, GdkInputCondition ic)
 }
 
 
-static void remove_module()
+static void remove_module(void)
 {
 	int res;
 	char *module;
@@ -188,7 +190,7 @@ static void remove_module()
 		}
 	}
 }
-static void reload_module()
+static void reload_module(void)
 {
 	int res, x;
 	char *module;
@@ -228,10 +230,12 @@ static void reload_module()
 
 static void file_ok_sel(GtkWidget *w, GtkFileSelection *fs)
 {
+	char tmp[AST_CONFIG_MAX_PATH];
 	char *module = gtk_file_selection_get_filename(fs);
 	char buf[256];
-	if (!strncmp(module, AST_MODULE_DIR "/", strlen(AST_MODULE_DIR "/"))) 
-		module += strlen(AST_MODULE_DIR "/");
+	snprintf(tmp, sizeof(tmp), "%s/", ast_config_AST_MODULE_DIR);
+	if (!strncmp(module, (char *)tmp, strlen(tmp))) 
+		module += strlen(tmp);
 	gdk_threads_leave();
 	if (ast_load_resource(module)) {
 		snprintf(buf, sizeof(buf), "Error loading module '%s'.", module);
@@ -244,15 +248,17 @@ static void file_ok_sel(GtkWidget *w, GtkFileSelection *fs)
 	gtk_widget_destroy(GTK_WIDGET(fs));
 }
 
-static void add_module()
+static void add_module(void)
 {
+	char tmp[AST_CONFIG_MAX_PATH];
 	GtkWidget *filew;
+	snprintf(tmp, sizeof(tmp), "%s/*.so", ast_config_AST_MODULE_DIR);
 	filew = gtk_file_selection_new("Load Module");
 	gtk_signal_connect(GTK_OBJECT (GTK_FILE_SELECTION(filew)->ok_button),
 					"clicked", GTK_SIGNAL_FUNC(file_ok_sel), filew);
 	gtk_signal_connect_object(GTK_OBJECT (GTK_FILE_SELECTION(filew)->cancel_button),
 					"clicked", GTK_SIGNAL_FUNC(gtk_widget_destroy), GTK_OBJECT(filew));
-	gtk_file_selection_set_filename(GTK_FILE_SELECTION(filew), AST_MODULE_DIR "/*.so");
+	gtk_file_selection_set_filename(GTK_FILE_SELECTION(filew), (char *)tmp);
 	gtk_widget_show(filew);
 }
 
@@ -325,10 +331,10 @@ static void *consolethread(void *data)
 	return NULL;
 }
 
-static int cli_activate()
+static int cli_activate(void)
 {
-	char buf[256];
-	strncpy(buf, gtk_entry_get_text(GTK_ENTRY(cli)), sizeof(buf));
+	char buf[256] = "";
+	strncpy(buf, gtk_entry_get_text(GTK_ENTRY(cli)), sizeof(buf) - 1);
 	gtk_entry_set_text(GTK_ENTRY(cli), "");
 	if (strlen(buf)) {
 		ast_cli_command(clipipe[1], buf);
@@ -336,7 +342,7 @@ static int cli_activate()
 	return TRUE;
 }
 
-static int show_console()
+static int show_console(void)
 {
 	GtkWidget *hbox;
 	GtkWidget *wbox;
@@ -445,7 +451,7 @@ static int show_console()
 	gtk_container_add(GTK_CONTAINER(window), hbox);
 	gtk_window_set_title(GTK_WINDOW(window), "Asterisk Console");
 	gtk_widget_grab_focus(cli);
-	pthread_create(&console_thread, NULL, consolethread, NULL);
+	ast_pthread_create(&console_thread, NULL, consolethread, NULL);
 	/* XXX Okay, seriously fix me! XXX */
 	usleep(100000);
 	ast_register_verbose(verboser);

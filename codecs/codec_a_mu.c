@@ -10,6 +10,7 @@
  * the GNU General Public License
  */
 
+#include <asterisk/lock.h>
 #include <asterisk/logger.h>
 #include <asterisk/module.h>
 #include <asterisk/translate.h>
@@ -18,7 +19,6 @@
 #include <asterisk/ulaw.h>
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,7 +26,7 @@
 
 #define BUFFER_SIZE   8096	/* size for the translation buffers */
 
-static pthread_mutex_t localuser_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(localuser_lock);
 static int localusecnt = 0;
 
 static char *tdesc = "A-law and Mulaw direct Coder/Decoder";
@@ -63,7 +63,7 @@ struct ulaw_encoder_pvt
 };
 
 static struct ast_translator_pvt *
-alawtoulaw_new ()
+alawtoulaw_new (void)
 {
   struct ulaw_encoder_pvt *tmp;
   tmp = malloc (sizeof (struct ulaw_encoder_pvt));
@@ -78,7 +78,7 @@ alawtoulaw_new ()
 }
 
 static struct ast_translator_pvt *
-ulawtoalaw_new ()
+ulawtoalaw_new (void)
 {
   struct alaw_encoder_pvt *tmp;
   tmp = malloc (sizeof (struct alaw_encoder_pvt));
@@ -124,7 +124,7 @@ alawtoulaw_frameout (struct ast_translator_pvt *pvt)
   tmp->f.frametype = AST_FRAME_VOICE;
   tmp->f.subclass = AST_FORMAT_ULAW;
   tmp->f.datalen = tmp->tail;
-  tmp->f.timelen = tmp->tail / 8;
+  tmp->f.samples = tmp->tail;
   tmp->f.mallocd = 0;
   tmp->f.offset = AST_FRIENDLY_OFFSET;
   tmp->f.src = __PRETTY_FUNCTION__;
@@ -171,7 +171,7 @@ ulawtoalaw_frameout (struct ast_translator_pvt *pvt)
   if (tmp->tail) {
 	  tmp->f.frametype = AST_FRAME_VOICE;
 	  tmp->f.subclass = AST_FORMAT_ALAW;
-	  tmp->f.timelen = tmp->tail / 8;
+	  tmp->f.samples = tmp->tail;
 	  tmp->f.mallocd = 0;
 	  tmp->f.offset = AST_FRIENDLY_OFFSET;
 	  tmp->f.src = __PRETTY_FUNCTION__;
@@ -188,13 +188,13 @@ ulawtoalaw_frameout (struct ast_translator_pvt *pvt)
  */
 
 static struct ast_frame *
-alawtoulaw_sample ()
+alawtoulaw_sample (void)
 {
   static struct ast_frame f;
   f.frametype = AST_FRAME_VOICE;
   f.subclass = AST_FORMAT_ALAW;
   f.datalen = sizeof (ulaw_slin_ex);
-  f.timelen = sizeof(ulaw_slin_ex) / 8;
+  f.samples = sizeof(ulaw_slin_ex);
   f.mallocd = 0;
   f.offset = 0;
   f.src = __PRETTY_FUNCTION__;
@@ -203,13 +203,13 @@ alawtoulaw_sample ()
 }
 
 static struct ast_frame *
-ulawtoalaw_sample ()
+ulawtoalaw_sample (void)
 {
   static struct ast_frame f;
   f.frametype = AST_FRAME_VOICE;
   f.subclass = AST_FORMAT_ULAW;
   f.datalen = sizeof (ulaw_slin_ex);
-  f.timelen = sizeof(ulaw_slin_ex) / 8;
+  f.samples = sizeof(ulaw_slin_ex);
   f.mallocd = 0;
   f.offset = 0;
   f.src = __PRETTY_FUNCTION__;
@@ -273,13 +273,13 @@ int
 unload_module (void)
 {
   int res;
-  ast_pthread_mutex_lock (&localuser_lock);
+  ast_mutex_lock (&localuser_lock);
   res = ast_unregister_translator (&ulawtoalaw);
   if (!res)
     res = ast_unregister_translator (&alawtoulaw);
   if (localusecnt)
     res = -1;
-  ast_pthread_mutex_unlock (&localuser_lock);
+  ast_mutex_unlock (&localuser_lock);
   return res;
 }
 

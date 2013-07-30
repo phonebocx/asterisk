@@ -1,6 +1,18 @@
 /*
 
 $Log: analys.c,v $
+Revision 1.16  2004/06/26 03:50:14  markster
+Merge source cleanups (bug #1911)
+
+Revision 1.15  2003/09/19 01:20:22  markster
+Code cleanups (bug #66)
+
+Revision 1.2  2003/09/19 01:20:22  markster
+Code cleanups (bug #66)
+
+Revision 1.1.1.1  2003/02/12 13:59:14  matteo
+mer feb 12 14:56:57 CET 2003
+
 Revision 1.2  2000/01/05 08:20:39  markster
 Some OSS fixes and a few lpc changes to make it actually work
 
@@ -17,6 +29,8 @@ Some OSS fixes and a few lpc changes to make it actually work
  *
 
 */
+
+#include "f2c.h"
 
 #ifdef P_R_O_T_O_T_Y_P_E_S
 extern int analys_(real *speech, integer *voice, integer *pitch, real *rms, real *rc, struct lpc10_encoder_state *st);
@@ -46,8 +60,6 @@ extern int analys_(real *speech, integer *voice, integer *pitch, real *rms, real
 	-lf2c -lm   (in that order)
 */
 
-#include "f2c.h"
-
 /* Common Block Declarations */
 
 extern struct {
@@ -76,6 +88,18 @@ static integer c__1 = 1;
 /* 	ANALYS Version 55 */
 
 /* $Log: analys.c,v $
+/* Revision 1.16  2004/06/26 03:50:14  markster
+/* Merge source cleanups (bug #1911)
+/*
+/* Revision 1.15  2003/09/19 01:20:22  markster
+/* Code cleanups (bug #66)
+/*
+/* Revision 1.2  2003/09/19 01:20:22  markster
+/* Code cleanups (bug #66)
+/*
+/* Revision 1.1.1.1  2003/02/12 13:59:14  matteo
+/* mer feb 12 14:56:57 CET 2003
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*
@@ -216,11 +240,7 @@ static integer c__1 = 1;
     extern /* Subroutine */ int onset_(real *, integer *, integer *, integer *
 	    , integer *, integer *, integer *, struct lpc10_encoder_state *);
     integer *osptr;
-    extern /* Subroutine */ placea_(integer *, integer *
-	    , integer *, integer *, integer *, integer *, integer *, integer *
-	    , integer *), dcbias_(integer *, real *, real *), placev_(integer 
-	    *, integer *, integer *, integer *, integer *, integer *, integer 
-	    *, integer *, integer *, integer *, integer *);
+    extern int dcbias_(integer *, real *, real *);
     integer ipitch;
     integer *obound;
     extern /* Subroutine */ int preemp_(real *, real *, integer *, real *, 
@@ -240,6 +260,18 @@ static integer c__1 = 1;
     real phi[100]	/* was [10][10] */, psi[10];
 
 /* $Log: analys.c,v $
+/* Revision 1.16  2004/06/26 03:50:14  markster
+/* Merge source cleanups (bug #1911)
+/*
+/* Revision 1.15  2003/09/19 01:20:22  markster
+/* Code cleanups (bug #66)
+/*
+/* Revision 1.2  2003/09/19 01:20:22  markster
+/* Code cleanups (bug #66)
+/*
+/* Revision 1.1.1.1  2003/02/12 13:59:14  matteo
+/* mer feb 12 14:56:57 CET 2003
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*
@@ -268,6 +300,18 @@ static integer c__1 = 1;
 /* Frame size, Prediction order, Pitch period */
 /*       Arguments to ANALYS */
 /* $Log: analys.c,v $
+/* Revision 1.16  2004/06/26 03:50:14  markster
+/* Merge source cleanups (bug #1911)
+/*
+/* Revision 1.15  2003/09/19 01:20:22  markster
+/* Code cleanups (bug #66)
+/*
+/* Revision 1.2  2003/09/19 01:20:22  markster
+/* Code cleanups (bug #66)
+/*
+/* Revision 1.1.1.1  2003/02/12 13:59:14  matteo
+/* mer feb 12 14:56:57 CET 2003
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*
@@ -464,10 +508,10 @@ static integer c__1 = 1;
     voibuf[0] = voibuf[2];
     voibuf[1] = voibuf[3];
     for (i__ = 1; i__ <= 2; ++i__) {
-	vwin[(i__ << 1) - 2] = vwin[(i__ + 1 << 1) - 2] - contrl_1.lframe;
-	vwin[(i__ << 1) - 1] = vwin[(i__ + 1 << 1) - 1] - contrl_1.lframe;
-	awin[(i__ << 1) - 2] = awin[(i__ + 1 << 1) - 2] - contrl_1.lframe;
-	awin[(i__ << 1) - 1] = awin[(i__ + 1 << 1) - 1] - contrl_1.lframe;
+	vwin[(i__ << 1) - 2] = vwin[((i__ + 1) << 1) - 2] - contrl_1.lframe;
+	vwin[(i__ << 1) - 1] = vwin[((i__ + 1) << 1) - 1] - contrl_1.lframe;
+	awin[(i__ << 1) - 2] = awin[((i__ + 1) << 1) - 2] - contrl_1.lframe;
+	awin[(i__ << 1) - 1] = awin[((i__ + 1) << 1) - 1] - contrl_1.lframe;
 /*       EWIN(*,J) is unused for J .NE. AF, so the following shift is 
 */
 /*       unnecessary.  It also causes error messages when the C versio
@@ -480,7 +524,7 @@ n */
 /* 	   EWIN(2,I) = EWIN(2,I+1) - LFRAME */
 	obound[i__ - 1] = obound[i__];
 	voibuf[i__ * 2] = voibuf[(i__ + 1) * 2];
-	voibuf[(i__ << 1) + 1] = voibuf[(i__ + 1 << 1) + 1];
+	voibuf[(i__ << 1) + 1] = voibuf[((i__ + 1) << 1) + 1];
 	rmsbuf[i__ - 1] = rmsbuf[i__];
 	i__1 = contrl_1.order;
 	for (j = 1; j <= i__1; ++j) {

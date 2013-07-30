@@ -10,6 +10,7 @@
  * the GNU General Public License
  */
 
+#include <asterisk/lock.h>
 #include <asterisk/logger.h>
 #include <asterisk/module.h>
 #include <asterisk/translate.h>
@@ -17,7 +18,6 @@
 #include <asterisk/ulaw.h>
 #include <fcntl.h>
 #include <netinet/in.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,7 +25,7 @@
 
 #define BUFFER_SIZE   8096	/* size for the translation buffers */
 
-static pthread_mutex_t localuser_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(localuser_lock);
 static int localusecnt = 0;
 
 static char *tdesc = "Mu-law Coder/Decoder";
@@ -71,7 +71,7 @@ struct ulaw_decoder_pvt
  */
 
 static struct ast_translator_pvt *
-ulawtolin_new ()
+ulawtolin_new (void)
 {
   struct ulaw_decoder_pvt *tmp;
   tmp = malloc (sizeof (struct ulaw_decoder_pvt));
@@ -97,7 +97,7 @@ ulawtolin_new ()
  */
 
 static struct ast_translator_pvt *
-lintoulaw_new ()
+lintoulaw_new (void)
 {
   struct ulaw_encoder_pvt *tmp;
   tmp = malloc (sizeof (struct ulaw_encoder_pvt));
@@ -150,7 +150,7 @@ ulawtolin_framein (struct ast_translator_pvt *pvt, struct ast_frame *f)
  *
  * Results:
  *  Converted signals are placed in tmp->f.data, tmp->f.datalen
- *  and tmp->f.timelen are calculated.
+ *  and tmp->f.samples are calculated.
  *
  * Side effects:
  *  None.
@@ -167,7 +167,7 @@ ulawtolin_frameout (struct ast_translator_pvt *pvt)
   tmp->f.frametype = AST_FRAME_VOICE;
   tmp->f.subclass = AST_FORMAT_SLINEAR;
   tmp->f.datalen = tmp->tail *2;
-  tmp->f.timelen = tmp->tail / 8;
+  tmp->f.samples = tmp->tail;
   tmp->f.mallocd = 0;
   tmp->f.offset = AST_FRIENDLY_OFFSET;
   tmp->f.src = __PRETTY_FUNCTION__;
@@ -225,7 +225,7 @@ lintoulaw_frameout (struct ast_translator_pvt *pvt)
   if (tmp->tail) {
 	  tmp->f.frametype = AST_FRAME_VOICE;
 	  tmp->f.subclass = AST_FORMAT_ULAW;
-	  tmp->f.timelen = tmp->tail / 8;
+	  tmp->f.samples = tmp->tail;
 	  tmp->f.mallocd = 0;
 	  tmp->f.offset = AST_FRIENDLY_OFFSET;
 	  tmp->f.src = __PRETTY_FUNCTION__;
@@ -242,13 +242,13 @@ lintoulaw_frameout (struct ast_translator_pvt *pvt)
  */
 
 static struct ast_frame *
-ulawtolin_sample ()
+ulawtolin_sample (void)
 {
   static struct ast_frame f;
   f.frametype = AST_FRAME_VOICE;
   f.subclass = AST_FORMAT_ULAW;
   f.datalen = sizeof (ulaw_slin_ex);
-  f.timelen = sizeof(ulaw_slin_ex) / 8;
+  f.samples = sizeof(ulaw_slin_ex);
   f.mallocd = 0;
   f.offset = 0;
   f.src = __PRETTY_FUNCTION__;
@@ -261,14 +261,14 @@ ulawtolin_sample ()
  */
 
 static struct ast_frame *
-lintoulaw_sample ()
+lintoulaw_sample (void)
 {
   static struct ast_frame f;
   f.frametype = AST_FRAME_VOICE;
   f.subclass = AST_FORMAT_SLINEAR;
   f.datalen = sizeof (slin_ulaw_ex);
   /* Assume 8000 Hz */
-  f.timelen = sizeof (slin_ulaw_ex) / 16;
+  f.samples = sizeof (slin_ulaw_ex) / 2;
   f.mallocd = 0;
   f.offset = 0;
   f.src = __PRETTY_FUNCTION__;
@@ -331,13 +331,13 @@ int
 unload_module (void)
 {
   int res;
-  ast_pthread_mutex_lock (&localuser_lock);
+  ast_mutex_lock (&localuser_lock);
   res = ast_unregister_translator (&lintoulaw);
   if (!res)
     res = ast_unregister_translator (&ulawtolin);
   if (localusecnt)
     res = -1;
-  ast_pthread_mutex_unlock (&localuser_lock);
+  ast_mutex_unlock (&localuser_lock);
   return res;
 }
 

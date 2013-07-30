@@ -5,7 +5,7 @@
  * 
  * Copyright (C) 1999, Mark Spencer
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
@@ -16,6 +16,7 @@
 
 #include <asterisk/frame.h>
 #include <asterisk/channel.h>
+#include <asterisk/channel_pvt.h>
 
 #define CHAR_DLE		0x10
 #define CHAR_ETX		0x03
@@ -25,6 +26,10 @@
 #define MODEM_DEV_TELCO_SPK	4
 #define MODEM_DEV_SPKRPHONE	6
 #define MODEM_DEV_HANDSET	9
+
+#define MODEM_DTMF_NONE	(1 << 0)
+#define MODEM_DTMF_AST	(1 << 1)
+#define MODEM_DTMF_I4L	(1 << 2)
 
 /* Thirty millisecond sections */
 #define MODEM_MAX_LEN 30
@@ -39,8 +44,8 @@ struct ast_modem_driver {
 	char **idents;
 	int formats;
 	int fullduplex;
-	void (*incusecnt)();
-	void (*decusecnt)();
+	void (*incusecnt)(void);
+	void (*decusecnt)(void);
 	char * (*identify)(struct ast_modem_pvt *);
 	int (*init)(struct ast_modem_pvt *);
 	int (*setdev)(struct ast_modem_pvt *, int dev);
@@ -106,8 +111,20 @@ struct ast_modem_pvt {
 	char context[AST_MAX_EXTENSION];
 	/*! Multiple Subscriber Number */
 	char msn[AST_MAX_EXTENSION];	
+	/*! Multiple Subscriber Number we listen to (; seperated list) */
+	char incomingmsn[AST_MAX_EXTENSION];	
+	/*! Multiple Subscriber Number we accept for outgoing calls (; seperated list) */
+	char outgoingmsn[AST_MAX_EXTENSION];	
+	/*! Group(s) we belong to if available */
+	unsigned int group;
 	/*! Caller ID if available */
 	char cid[AST_MAX_EXTENSION];	
+	/*! DTMF-detection mode (i4l/asterisk) */
+	int dtmfmode;
+	/*! DTMF-generation mode (i4l (outband) / asterisk (inband) */
+	int dtmfmodegen;
+	/*! DSP for DTMF detection */
+	struct ast_dsp *dsp;
 	/*! Dialed Number if available */
 	char dnid[AST_MAX_EXTENSION];	
 	/*! Modem initialization String */

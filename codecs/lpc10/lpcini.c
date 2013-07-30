@@ -1,6 +1,21 @@
 /*
 
 $Log: lpcini.c,v $
+Revision 1.18  2003/10/21 18:08:11  markster
+Fix include order
+
+Revision 1.5  2003/10/21 18:08:11  markster
+Fix include order
+
+Revision 1.4  2003/10/21 02:57:29  markster
+FreeBSD patch, take 2
+
+Revision 1.3  2003/10/16 21:11:30  martinp
+Revert the previous patch since it's braking compilation
+
+Revision 1.1  2003/02/12 13:59:15  matteo
+Initial revision
+
 Revision 1.2  2000/01/05 08:20:39  markster
 Some OSS fixes and a few lpc changes to make it actually work
 
@@ -26,9 +41,8 @@ extern int lpcini_(void);
 	-lf2c -lm   (in that order)
 */
 
+#include <stdlib.h>
 #include "f2c.h"
-
-#include <malloc.h>
 
 /* Common Block Declarations */
 
@@ -42,6 +56,21 @@ struct {
 /* ***************************************************************** */
 
 /* $Log: lpcini.c,v $
+/* Revision 1.18  2003/10/21 18:08:11  markster
+/* Fix include order
+/*
+/* Revision 1.5  2003/10/21 18:08:11  markster
+/* Fix include order
+/*
+/* Revision 1.4  2003/10/21 02:57:29  markster
+/* FreeBSD patch, take 2
+/*
+/* Revision 1.3  2003/10/16 21:11:30  martinp
+/* Revert the previous patch since it's braking compilation
+/*
+/* Revision 1.1  2003/02/12 13:59:15  matteo
+/* Initial revision
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*
@@ -65,6 +94,21 @@ struct {
 {
 
 /* $Log: lpcini.c,v $
+/* Revision 1.18  2003/10/21 18:08:11  markster
+/* Fix include order
+/*
+/* Revision 1.5  2003/10/21 18:08:11  markster
+/* Fix include order
+/*
+/* Revision 1.4  2003/10/21 02:57:29  markster
+/* FreeBSD patch, take 2
+/*
+/* Revision 1.3  2003/10/16 21:11:30  martinp
+/* Revert the previous patch since it's braking compilation
+/*
+/* Revision 1.1  2003/02/12 13:59:15  matteo
+/* Initial revision
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*
@@ -88,6 +132,21 @@ struct {
 /*   LPC Configuration parameters: */
 /* Frame size, Prediction order, Pitch period */
 /* $Log: lpcini.c,v $
+/* Revision 1.18  2003/10/21 18:08:11  markster
+/* Fix include order
+/*
+/* Revision 1.5  2003/10/21 18:08:11  markster
+/* Fix include order
+/*
+/* Revision 1.4  2003/10/21 02:57:29  markster
+/* FreeBSD patch, take 2
+/*
+/* Revision 1.3  2003/10/16 21:11:30  martinp
+/* Revert the previous patch since it's braking compilation
+/*
+/* Revision 1.1  2003/02/12 13:59:15  matteo
+/* Initial revision
+/*
 /* Revision 1.2  2000/01/05 08:20:39  markster
 /* Some OSS fixes and a few lpc changes to make it actually work
 /*

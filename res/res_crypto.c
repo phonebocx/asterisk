@@ -3,14 +3,15 @@
  *
  * Provide Cryptographic Signature capability
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999-2004, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
+#include <sys/types.h>
 #include <asterisk/file.h>
 #include <asterisk/channel.h>
 #include <asterisk/logger.h>
@@ -21,14 +22,18 @@
 #include <asterisk/md5.h>
 #include <asterisk/cli.h>
 #include <asterisk/io.h>
+#include <asterisk/lock.h>
+#include <asterisk/utils.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <stdio.h>
-#include <pthread.h>
 #include <dirent.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include "../asterisk.h"
+#include "../astconf.h"
 
 /*
  * Asterisk uses RSA keys with SHA-1 message digests for its
@@ -52,10 +57,7 @@
  * XXXX
  */
 
-static char base64[64];
-static char b2a[256];
-
-static pthread_mutex_t keylock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(keylock);
 
 #define KEY_NEEDS_PASSCODE (1 << 16)
 
@@ -81,11 +83,13 @@ struct ast_key {
 
 static struct ast_key *keys = NULL;
 
+
+#if 0
 static int fdprint(int fd, char *s)
 {
         return write(fd, s, strlen(s) + 1);
 }
-
+#endif
 static int pw_cb(char *buf, int size, int rwflag, void *userdata)
 {
 	struct ast_key *key = (struct ast_key *)userdata;
@@ -114,7 +118,7 @@ static int pw_cb(char *buf, int size, int rwflag, void *userdata)
 struct ast_key *ast_key_get(char *kname, int ktype)
 {
 	struct ast_key *key;
-	ast_pthread_mutex_lock(&keylock);
+	ast_mutex_lock(&keylock);
 	key = keys;
 	while(key) {
 		if (!strcmp(kname, key->name) &&
@@ -122,7 +126,7 @@ struct ast_key *ast_key_get(char *kname, int ktype)
 			break;
 		key = key->next;
 	}
-	ast_pthread_mutex_unlock(&keylock);
+	ast_mutex_unlock(&keylock);
 	return key;
 }
 
@@ -150,7 +154,7 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 	/* Get actual filename */
 	snprintf(ffname, sizeof(ffname), "%s/%s", dir, fname);
 
-	ast_pthread_mutex_lock(&keylock);
+	ast_mutex_lock(&keylock);
 	key = keys;
 	while(key) {
 		/* Look for an existing version already */
@@ -158,7 +162,7 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 			break;
 		key = key->next;
 	}
-	ast_pthread_mutex_unlock(&keylock);
+	ast_mutex_unlock(&keylock);
 
 	/* Open file */
 	f = fopen(ffname, "r");
@@ -170,6 +174,7 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 	while(!feof(f)) {
 		/* Calculate a "whatever" quality md5sum of the key */
 		char buf[256];
+		memset(buf, 0, 256);
 		fgets(buf, sizeof(buf), f);
 		if (!feof(f)) {
 			MD5Update(&md5, buf, strlen(buf));
@@ -207,11 +212,11 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 	   fill it with what we know */
 	/* Gotta lock if this one already exists */
 	if (found)
-		ast_pthread_mutex_lock(&keylock);
+		ast_mutex_lock(&keylock);
 	/* First the filename */
-	strncpy(key->fn, ffname, sizeof(key->fn));
+	strncpy(key->fn, ffname, sizeof(key->fn) - 1);
 	/* Then the name */
-	strncpy(key->name, fname, sizeof(key->name));
+	strncpy(key->name, fname, sizeof(key->name) - 1);
 	key->ktype = ktype;
 	/* Yes, assume we're going to be deleted */
 	key->delme = 1;
@@ -229,13 +234,16 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 		key->rsa = PEM_read_RSAPrivateKey(f, NULL, pw_cb, key);
 	fclose(f);
 	if (key->rsa) {
-		/* Key loaded okay */
-		key->ktype &= ~KEY_NEEDS_PASSCODE;
-		if (option_verbose > 2)
-			ast_verbose(VERBOSE_PREFIX_3 "Loaded %s key '%s'\n", key->ktype == AST_KEY_PUBLIC ? "PUBLIC" : "PRIVATE", key->name);
-		if (option_debug)
-			ast_log(LOG_DEBUG, "Key '%s' loaded OK\n", key->name);
-		key->delme = 0;
+		if (RSA_size(key->rsa) == 128) {
+			/* Key loaded okay */
+			key->ktype &= ~KEY_NEEDS_PASSCODE;
+			if (option_verbose > 2)
+				ast_verbose(VERBOSE_PREFIX_3 "Loaded %s key '%s'\n", key->ktype == AST_KEY_PUBLIC ? "PUBLIC" : "PRIVATE", key->name);
+			if (option_debug)
+				ast_log(LOG_DEBUG, "Key '%s' loaded OK\n", key->name);
+			key->delme = 0;
+		} else
+			ast_log(LOG_NOTICE, "Key '%s' is not expected size.\n", key->name);
 	} else if (key->infd != -2) {
 		ast_log(LOG_WARNING, "Key load %s '%s' failed\n",key->ktype == AST_KEY_PUBLIC ? "PUBLIC" : "PRIVATE", key->name);
 		if (ofd > -1) {
@@ -256,12 +264,12 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 		*not2 = 1;
 	}
 	if (found)
-		ast_pthread_mutex_unlock(&keylock);
+		ast_mutex_unlock(&keylock);
 	if (!found) {
-		ast_pthread_mutex_lock(&keylock);
+		ast_mutex_lock(&keylock);
 		key->next = keys;
 		keys = key;
-		ast_pthread_mutex_unlock(&keylock);
+		ast_mutex_unlock(&keylock);
 	}
 	return key;
 }
@@ -292,103 +300,19 @@ static char *binary(int y, int len)
 
 #endif
 
-static int base64decode(unsigned char *dst, char *src, int max)
-{
-	int cnt = 0;
-	unsigned int byte = 0;
-	unsigned int bits = 0;
-	int incnt = 0;
-#if 0
-	unsigned char *odst = dst;
-#endif
-	while(*src && (cnt < max)) {
-		/* Shift in 6 bits of input */
-		byte <<= 6;
-		byte |= (b2a[(int)(*src)]) & 0x3f;
-		bits += 6;
-#if 0
-		printf("Add: %c %s\n", *src, binary(b2a[(int)(*src)] & 0x3f, 6));
-#endif
-		src++;
-		incnt++;
-		/* If we have at least 8 bits left over, take that character 
-		   off the top */
-		if (bits >= 8)  {
-			bits -= 8;
-			*dst = (byte >> bits) & 0xff;
-#if 0
-			printf("Remove: %02x %s\n", *dst, binary(*dst, 8));
-#endif
-			dst++;
-			cnt++;
-		}
-	}
-#if 0
-	dump(odst, cnt);
-#endif
-	/* Dont worry about left over bits, they're extra anyway */
-	return cnt;
-}
-
-static int base64encode(char *dst, unsigned char *src, int srclen, int max)
-{
-	int cnt = 0;
-	unsigned int byte = 0;
-	int bits = 0;
-	int index;
-	int cntin = 0;
-#if 0
-	char *odst = dst;
-	dump(src, srclen);
-#endif
-	/* Reserve one bit for end */
-	max--;
-	while((cntin < srclen) && (cnt < max)) {
-		byte <<= 8;
-#if 0
-		printf("Add: %02x %s\n", *src, binary(*src, 8));
-#endif
-		byte |= *(src++);
-		bits += 8;
-		cntin++;
-		while((bits >= 6) && (cnt < max)) {
-			bits -= 6;
-			/* We want only the top */
-			index = (byte >> bits) & 0x3f;
-			*dst = base64[index];
-#if 0
-			printf("Remove: %c %s\n", *dst, binary(index, 6));
-#endif
-			dst++;
-			cnt++;
-		}
-	}
-	if (bits && (cnt < max)) {
-		/* Add one last character for the remaining bits, 
-		   padding the rest with 0 */
-		byte <<= (6 - bits);
-		index = (byte) & 0x3f;
-		*(dst++) = base64[index];
-		cnt++;
-	}
-	*dst = '\0';
-	return cnt;
-}
-
-int ast_sign(struct ast_key *key, char *msg, char *sig)
+int ast_sign_bin(struct ast_key *key, char *msg, int msglen, unsigned char *dsig)
 {
 	unsigned char digest[20];
-	unsigned char dsig[128];
-	int siglen = sizeof(dsig);
+	int siglen = 128;
 	int res;
 
 	if (key->ktype != AST_KEY_PRIVATE) {
-		ast_log(LOG_WARNING, "Cannot sign with a private key\n");
+		ast_log(LOG_WARNING, "Cannot sign with a public key\n");
 		return -1;
 	}
 
 	/* Calculate digest of message */
-	SHA1((unsigned char *)msg, strlen(msg), digest);
+	SHA1((unsigned char *)msg, msglen, digest);
 
 	/* Verify signature */
 	res = RSA_sign(NID_sha1, digest, sizeof(digest), dsig, &siglen, key->rsa);
@@ -398,21 +322,85 @@ int ast_sign(struct ast_key *key, char *msg, char *sig)
 		return -1;
 	}
 
-	if (siglen != sizeof(dsig)) {
-		ast_log(LOG_WARNING, "Unexpected signature length %d, expecting %d\n", siglen, sizeof(dsig));
+	if (siglen != 128) {
+		ast_log(LOG_WARNING, "Unexpected signature length %d, expecting %d\n", (int)siglen, (int)128);
 		return -1;
 	}
 
-	/* Success -- encode (256 bytes max as documented) */
-	base64encode(sig, dsig, siglen, 256);
 	return 0;
 	
 }
 
-int ast_check_signature(struct ast_key *key, char *msg, char *sig)
+extern int ast_decrypt_bin(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key)
+{
+	int res;
+	int pos = 0;
+	if (key->ktype != AST_KEY_PRIVATE) {
+		ast_log(LOG_WARNING, "Cannot decrypt with a public key\n");
+		return -1;
+	}
+
+	if (srclen % 128) {
+		ast_log(LOG_NOTICE, "Tried to decrypt something not a multiple of 128 bytes\n");
+		return -1;
+	}
+	while(srclen) {
+		/* Process chunks 128 bytes at a time */
+		res = RSA_private_decrypt(128, src, dst, key->rsa, RSA_PKCS1_OAEP_PADDING);
+		if (res < 0)
+			return -1;
+		pos += res;
+		src += 128;
+		srclen -= 128;
+		dst += res;
+	}
+	return pos;
+}
+
+extern int ast_encrypt_bin(unsigned char *dst, const unsigned char *src, int srclen, struct ast_key *key)
+{
+	int res;
+	int bytes;
+	int pos = 0;
+	if (key->ktype != AST_KEY_PUBLIC) {
+		ast_log(LOG_WARNING, "Cannot encrypt with a private key\n");
+		return -1;
+	}
+	
+	while(srclen) {
+		bytes = srclen;
+		if (bytes > 128 - 41)
+			bytes = 128 - 41;
+		/* Process chunks 128-41 bytes at a time */
+		res = RSA_public_encrypt(bytes, src, dst, key->rsa, RSA_PKCS1_OAEP_PADDING);
+		if (res != 128) {
+			ast_log(LOG_NOTICE, "How odd, encrypted size is %d\n", res);
+			return -1;
+		}
+		src += bytes;
+		srclen -= bytes;
+		pos += res;
+		dst += res;
+	}
+	return pos;
+}
+
+int ast_sign(struct ast_key *key, char *msg, char *sig)
+{
+	unsigned char dsig[128];
+	int siglen = sizeof(dsig);
+	int res;
+	res = ast_sign_bin(key, msg, strlen(msg), dsig);
+	if (!res)
+		/* Success -- encode (256 bytes max as documented) */
+		ast_base64encode(sig, dsig, siglen, 256);
+	return res;
+	
+}
+
+int ast_check_signature_bin(struct ast_key *key, char *msg, int msglen, unsigned char *dsig)
 {
 	unsigned char digest[20];
-	unsigned char dsig[128];
 	int res;
 
 	if (key->ktype != AST_KEY_PUBLIC) {
@@ -422,18 +410,11 @@ int ast_check_signature(struct ast_key *key, char *msg, char *sig)
 		return -1;
 	}
 
-	/* Decode signature */
-	res = base64decode(dsig, sig, sizeof(dsig));
-	if (res != sizeof(dsig)) {
-		ast_log(LOG_WARNING, "Signature improper length (expect %d, got %d)\n", sizeof(dsig), res);
-		return -1;
-	}
-
 	/* Calculate digest of message */
-	SHA1((unsigned char *)msg, strlen(msg), digest);
+	SHA1((unsigned char *)msg, msglen, digest);
 
 	/* Verify signature */
-	res = RSA_verify(NID_sha1, digest, sizeof(digest), dsig, sizeof(dsig), key->rsa);
+	res = RSA_verify(NID_sha1, digest, sizeof(digest), dsig, 128, key->rsa);
 	
 	if (!res) {
 		ast_log(LOG_DEBUG, "Key failed verification\n");
@@ -443,33 +424,48 @@ int ast_check_signature(struct ast_key *key, char *msg, char *sig)
 	return 0;
 }
 
+int ast_check_signature(struct ast_key *key, char *msg, char *sig)
+{
+	unsigned char dsig[128];
+	int res;
+
+	/* Decode signature */
+	res = ast_base64decode(dsig, sig, sizeof(dsig));
+	if (res != sizeof(dsig)) {
+		ast_log(LOG_WARNING, "Signature improper length (expect %d, got %d)\n", (int)sizeof(dsig), (int)res);
+		return -1;
+	}
+	res = ast_check_signature_bin(key, msg, strlen(msg), dsig);
+	return res;
+}
+
 static void crypto_load(int ifd, int ofd)
 {
 	struct ast_key *key, *nkey, *last;
-	DIR *dir;
+	DIR *dir = NULL;
 	struct dirent *ent;
 	int note = 0;
 	/* Mark all keys for deletion */
-	ast_pthread_mutex_lock(&keylock);
+	ast_mutex_lock(&keylock);
 	key = keys;
 	while(key) {
 		key->delme = 1;
 		key = key->next;
 	}
-	ast_pthread_mutex_unlock(&keylock);
+	ast_mutex_unlock(&keylock);
 	/* Load new keys */
-	dir = opendir(AST_KEY_DIR);
+	dir = opendir((char *)ast_config_AST_KEY_DIR);
 	if (dir) {
 		while((ent = readdir(dir))) {
-			try_load_key(AST_KEY_DIR, ent->d_name, ifd, ofd, &note);
+			try_load_key((char *)ast_config_AST_KEY_DIR, ent->d_name, ifd, ofd, &note);
 		}
 		closedir(dir);
 	} else
-		ast_log(LOG_WARNING, "Unable to open key directory '%s'\n", AST_KEY_DIR);
+		ast_log(LOG_WARNING, "Unable to open key directory '%s'\n", (char *)ast_config_AST_KEY_DIR);
 	if (note) {
 		ast_log(LOG_NOTICE, "Please run the command 'init keys' to enter the passcodes for the keys\n");
 	}
-	ast_pthread_mutex_lock(&keylock);
+	ast_mutex_lock(&keylock);
 	key = keys;
 	last = NULL;
 	while(key) {
@@ -488,7 +484,7 @@ static void crypto_load(int ifd, int ofd)
 			last = key;
 		key = nkey;
 	}
-	ast_pthread_mutex_unlock(&keylock);
+	ast_mutex_unlock(&keylock);
 }
 
 static void md52sum(char *sum, unsigned char *md5)
@@ -503,7 +499,7 @@ static int show_keys(int fd, int argc, char *argv[])
 	struct ast_key *key;
 	char sum[16 * 2 + 1];
 
-	ast_pthread_mutex_lock(&keylock);
+	ast_mutex_lock(&keylock);
 	key = keys;
 	ast_cli(fd, "%-18s %-8s %-16s %-33s\n", "Key Name", "Type", "Status", "Sum");
 	while(key) {
@@ -514,7 +510,7 @@ static int show_keys(int fd, int argc, char *argv[])
 				
 		key = key->next;
 	}
-	ast_pthread_mutex_unlock(&keylock);
+	ast_mutex_unlock(&keylock);
 	return RESULT_SUCCESS;
 }
 
@@ -523,15 +519,15 @@ static int init_keys(int fd, int argc, char *argv[])
 	struct ast_key *key;
 	int ign;
 	char *kn;
-	char tmp[256];
+	char tmp[256] = "";
 
 	key = keys;
 	while(key) {
 		/* Reload keys that need pass codes now */
 		if (key->ktype & KEY_NEEDS_PASSCODE) {
-			kn = key->fn + strlen(AST_KEY_DIR) + 1;
-			strncpy(tmp, kn, sizeof(tmp));
-			try_load_key(AST_KEY_DIR, tmp, fd, fd, &ign);
+			kn = key->fn + strlen(ast_config_AST_KEY_DIR) + 1;
+			strncpy(tmp, kn, sizeof(tmp) - 1);
+			try_load_key((char *)ast_config_AST_KEY_DIR, tmp, fd, fd, &ign);
 		}
 		key = key->next;
 	}
@@ -552,41 +548,8 @@ static struct ast_cli_entry cli_show_keys =
 static struct ast_cli_entry cli_init_keys = 
 { { "init", "keys", NULL }, init_keys, "Initialize RSA key passcodes", init_keys_usage };
 
-static void base64_init(void)
-{
-	int x;
-	memset(b2a, -1, sizeof(b2a));
-	/* Initialize base-64 Conversion table */
-	for (x=0;x<26;x++) {
-		/* A-Z */
-		base64[x] = 'A' + x;
-		b2a['A' + x] = x;
-		/* a-z */
-		base64[x + 26] = 'a' + x;
-		b2a['a' + x] = x + 26;
-		/* 0-9 */
-		if (x < 10) {
-			base64[x + 52] = '0' + x;
-			b2a['0' + x] = x + 52;
-		}
-	}
-	base64[62] = '+';
-	base64[63] = '/';
-	b2a[(int)'+'] = 62;
-	b2a[(int)'/'] = 63;
-#if 0
-	for (x=0;x<64;x++) {
-		if (b2a[(int)base64[x]] != x) {
-			fprintf(stderr, "!!! %d failed\n", x);
-		} else
-			fprintf(stderr, "--- %d passed\n", x);
-	}
-#endif
-}
-
 static int crypto_init(void)
 {
-	base64_init();
 	SSL_library_init();
 	ERR_load_crypto_strings();
 	ast_cli_register(&cli_show_keys);

@@ -11,11 +11,13 @@
  * the GNU General Public License
  */
  
+#include <asterisk/lock.h>
 #include <asterisk/channel.h>
 #include <asterisk/file.h>
 #include <asterisk/logger.h>
 #include <asterisk/sched.h>
 #include <asterisk/module.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <sys/time.h>
@@ -23,13 +25,25 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#include <pthread.h>
+#ifdef __linux__
 #include <endian.h>
+#else
+#include <machine/endian.h>
+#endif
 #include "msgsm.h"
 
-/* Some Ideas for this code came from makewave.c by Jeffery Chilton */
+/* Some Ideas for this code came from makewave.c by Jeffrey Chilton */
 
 /* Portions of the conversion code are by guido@sienanet.it */
+
+/* begin binary data: */
+char msgsm_silence[] = /* 65 */
+{0x48,0x17,0xD6,0x84,0x02,0x80,0x24,0x49,0x92,0x24,0x89,0x02,0x80,0x24,0x49
+,0x92,0x24,0x89,0x02,0x80,0x24,0x49,0x92,0x24,0x89,0x02,0x80,0x24,0x49,0x92
+,0x24,0x09,0x82,0x74,0x61,0x4D,0x28,0x00,0x48,0x92,0x24,0x49,0x92,0x28,0x00
+,0x48,0x92,0x24,0x49,0x92,0x28,0x00,0x48,0x92,0x24,0x49,0x92,0x28,0x00,0x48
+,0x92,0x24,0x49,0x92,0x00};
+/* end binary data. size = 65 bytes */
 
 struct ast_filestream {
 	void *reserved[AST_RESERVED_POINTERS];
@@ -38,27 +52,22 @@ struct ast_filestream {
 	/* This is what a filestream means to us */
 	int fd; /* Descriptor */
 	int bytes;
-	struct ast_channel *owner;
 	struct ast_frame fr;				/* Frame information */
 	char waste[AST_FRIENDLY_OFFSET];	/* Buffer for sending frames, etc */
 	char empty;							/* Empty character */
 	unsigned char gsm[66];				/* Two Real GSM Frames */
 	int foffset;
 	int secondhalf;						/* Are we on the second half */
-	int lasttimeout;
 	struct timeval last;
-	int adj;
-	struct ast_filestream *next;
 };
 
 
-static struct ast_filestream *glist = NULL;
-static pthread_mutex_t wav_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(wav_lock);
 static int glistcnt = 0;
 
 static char *name = "wav49";
 static char *desc = "Microsoft WAV format (Proprietary GSM)";
-static char *exts = "WAV";
+static char *exts = "WAV|wav49";
 
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define htoll(b) (b)
@@ -201,12 +210,17 @@ static int check_header(int fd)
 	return 0;
 }
 
-static int update_header(int fd, int bytes)
+static int update_header(int fd)
 {
-	int cur;
-	int datalen = htoll(bytes);
-	int filelen = htoll(52 + ((bytes + 1) & ~0x1));
+	off_t cur,end,bytes;
+	int datalen,filelen;
+	
 	cur = lseek(fd, 0, SEEK_CUR);
+	end = lseek(fd, 0, SEEK_END);
+	/* in a gsm WAV, data starts 60 bytes in */
+	bytes = end - 60;
+	datalen = htoll((bytes + 1) & ~0x1);
+	filelen = htoll(52 + ((bytes + 1) & ~0x1));
 	if (cur < 0) {
 		ast_log(LOG_WARNING, "Unable to find our position\n");
 		return -1;
@@ -327,15 +341,12 @@ static struct ast_filestream *wav_open(int fd)
 			free(tmp);
 			return NULL;
 		}
-		if (ast_pthread_mutex_lock(&wav_lock)) {
+		if (ast_mutex_lock(&wav_lock)) {
 			ast_log(LOG_WARNING, "Unable to lock wav list\n");
 			free(tmp);
 			return NULL;
 		}
-		tmp->next = glist;
-		glist = tmp;
 		tmp->fd = fd;
-		tmp->owner = NULL;
 		tmp->fr.data = tmp->gsm;
 		tmp->fr.frametype = AST_FRAME_VOICE;
 		tmp->fr.subclass = AST_FORMAT_GSM;
@@ -343,9 +354,8 @@ static struct ast_filestream *wav_open(int fd)
 		tmp->fr.src = name;
 		tmp->fr.mallocd = 0;
 		tmp->secondhalf = 0;
-		tmp->lasttimeout = -1;
 		glistcnt++;
-		ast_pthread_mutex_unlock(&wav_lock);
+		ast_mutex_unlock(&wav_lock);
 		ast_update_use_count();
 	}
 	return tmp;
@@ -363,81 +373,48 @@ static struct ast_filestream *wav_rewrite(int fd, char *comment)
 			free(tmp);
 			return NULL;
 		}
-		if (ast_pthread_mutex_lock(&wav_lock)) {
+		if (ast_mutex_lock(&wav_lock)) {
 			ast_log(LOG_WARNING, "Unable to lock wav list\n");
 			free(tmp);
 			return NULL;
 		}
-		tmp->next = glist;
-		glist = tmp;
 		tmp->fd = fd;
-		tmp->owner = NULL;
-		tmp->lasttimeout = -1;
 		glistcnt++;
-		ast_pthread_mutex_unlock(&wav_lock);
+		ast_mutex_unlock(&wav_lock);
 		ast_update_use_count();
 	} else
 		ast_log(LOG_WARNING, "Out of memory\n");
 	return tmp;
 }
 
-static struct ast_frame *wav_read(struct ast_filestream *s)
-{
-	return NULL;
-}
-
 static void wav_close(struct ast_filestream *s)
 {
-	struct ast_filestream *tmp, *tmpl = NULL;
 	char zero = 0;
-	if (ast_pthread_mutex_lock(&wav_lock)) {
+	if (ast_mutex_lock(&wav_lock)) {
 		ast_log(LOG_WARNING, "Unable to lock wav list\n");
 		return;
 	}
-	tmp = glist;
-	while(tmp) {
-		if (tmp == s) {
-			if (tmpl)
-				tmpl->next = tmp->next;
-			else
-				glist = tmp->next;
-			break;
-		}
-		tmpl = tmp;
-		tmp = tmp->next;
-	}
 	glistcnt--;
-	if (s->owner) {
-		s->owner->stream = NULL;
-		if (s->owner->streamid > -1)
-			ast_sched_del(s->owner->sched, s->owner->streamid);
-		s->owner->streamid = -1;
-	}
-	ast_pthread_mutex_unlock(&wav_lock);
+	ast_mutex_unlock(&wav_lock);
 	ast_update_use_count();
-	if (!tmp) 
-		ast_log(LOG_WARNING, "Freeing a filestream we don't seem to own\n");
 	/* Pad to even length */
 	if (s->bytes & 0x1)
 		write(s->fd, &zero, 1);
 	close(s->fd);
 	free(s);
+	s = NULL;
 }
 
-static int ast_read_callback(void *data)
+static struct ast_frame *wav_read(struct ast_filestream *s, int *whennext)
 {
-	int retval = 0;
 	int res;
-	int delay = 20;
-	struct ast_filestream *s = data;
 	char msdata[66];
-	struct timeval tv;
 	/* Send a frame from the file to the appropriate channel */
 
 	s->fr.frametype = AST_FRAME_VOICE;
 	s->fr.subclass = AST_FORMAT_GSM;
 	s->fr.offset = AST_FRIENDLY_OFFSET;
-	s->fr.timelen = 20;
+	s->fr.samples = 160;
 	s->fr.datalen = 33;
 	s->fr.mallocd = 0;
 	if (s->secondhalf) {
@@ -447,57 +424,15 @@ static int ast_read_callback(void *data)
 		if ((res = read(s->fd, msdata, 65)) != 65) {
 			if (res && (res != 1))
 				ast_log(LOG_WARNING, "Short read (%d) (%s)!\n", res, strerror(errno));
-			s->owner->streamid = -1;
-			return 0;
+			return NULL;
 		}
 		/* Convert from MS format to two real GSM frames */
 		conv65(msdata, s->gsm);
 		s->fr.data = s->gsm;
 	}
 	s->secondhalf = !s->secondhalf;
-	/* Lastly, process the frame */
-	if (ast_write(s->owner, &s->fr)) {
-		ast_log(LOG_WARNING, "Failed to write frame\n");
-		s->owner->streamid = -1;
-		return 0;
-	}
-	if (s->last.tv_usec || s->last.tv_usec) {
-		int ms;
-		gettimeofday(&tv, NULL);
-		ms = 1000 * (tv.tv_sec - s->last.tv_sec) + 
-			(tv.tv_usec - s->last.tv_usec) / 1000;
-		s->last.tv_sec = tv.tv_sec;
-		s->last.tv_usec = tv.tv_usec;
-		if ((ms - delay) * (ms - delay) > 4) {
-			/* Compensate if we're more than 2 ms off */
-			s->adj -= (ms - delay);
-		}
-#if 0
-		fprintf(stdout, "Delay is %d, adjustment is %d, last was %d\n", delay, s->adj, ms);
-#endif
-		delay += s->adj;
-		if (delay < 1)
-			delay = 1;
-	} else
-		gettimeofday(&s->last, NULL);
-	if (s->lasttimeout != delay) {
-		/* We'll install the next timeout now. */
-		s->owner->streamid = ast_sched_add(s->owner->sched,
-				delay, ast_read_callback, s); 
-		s->lasttimeout = delay;
-	} else {
-		/* Just come back again at the same time */
-		retval = -1;
-	}
-	return retval;
-}
-
-static int wav_apply(struct ast_channel *c, struct ast_filestream *s)
-{
-	/* Select our owner for this stream, and get the ball rolling. */
-	s->owner = c;
-	ast_read_callback(s);
-	return 0;
+	*whennext = 160;
+	return &s->fr;
 }
 
 static int wav_write(struct ast_filestream *fs, struct ast_frame *f)
@@ -505,6 +440,7 @@ static int wav_write(struct ast_filestream *fs, struct ast_frame *f)
 	int res;
 	char msdata[66];
 	int len =0;
+	int alreadyms=0;
 	if (f->frametype != AST_FRAME_VOICE) {
 		ast_log(LOG_WARNING, "Asked to write non-voice frame!\n");
 		return -1;
@@ -513,24 +449,83 @@ static int wav_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log(LOG_WARNING, "Asked to write non-GSM frame (%d)!\n", f->subclass);
 		return -1;
 	}
+	if (!(f->datalen % 65)) 
+		alreadyms = 1;
 	while(len < f->datalen) {
-		if (fs->secondhalf) {
-			memcpy(fs->gsm + 33, f->data + len, 33);
-			conv66(fs->gsm, msdata);
-			if ((res = write(fs->fd, msdata, 65)) != 65) {
+		if (alreadyms) {
+			fs->secondhalf = 0;
+			if ((res = write(fs->fd, f->data + len, 65)) != 65) {
 				ast_log(LOG_WARNING, "Bad write (%d/65): %s\n", res, strerror(errno));
 				return -1;
 			}
 			fs->bytes += 65;
-			update_header(fs->fd, fs->bytes);
+			update_header(fs->fd);
+			len += 65;
 		} else {
-			/* Copy the data and do nothing */
-			memcpy(fs->gsm, f->data + len, 33);
+			if (fs->secondhalf) {
+				memcpy(fs->gsm + 33, f->data + len, 33);
+				conv66(fs->gsm, msdata);
+				if ((res = write(fs->fd, msdata, 65)) != 65) {
+					ast_log(LOG_WARNING, "Bad write (%d/65): %s\n", res, strerror(errno));
+					return -1;
+				}
+				fs->bytes += 65;
+				update_header(fs->fd);
+			} else {
+				/* Copy the data and do nothing */
+				memcpy(fs->gsm, f->data + len, 33);
+			}
+			fs->secondhalf = !fs->secondhalf;
+			len += 33;
 		}
-		fs->secondhalf = !fs->secondhalf;
-		len += 33;
 	}
 	return 0;
+}
+
+static int wav_seek(struct ast_filestream *fs, long sample_offset, int whence)
+{
+	off_t offset=0,distance,cur,min,max;
+	min = 60;
+	cur = lseek(fs->fd, 0, SEEK_CUR);
+	max = lseek(fs->fd, 0, SEEK_END);
+	/* I'm getting sloppy here, I'm only going to go to even splits of the 2
+	 * frames, if you want tighter cuts use format_gsm, format_pcm, or format_wav */
+	distance = (sample_offset/320) * 65;
+	if(whence == SEEK_SET)
+		offset = distance + min;
+	else if(whence == SEEK_CUR || whence == SEEK_FORCECUR)
+		offset = distance + cur;
+	else if(whence == SEEK_END)
+		offset = max - distance;
+	// always protect against seeking past end of header
+	offset = (offset < min)?min:offset;
+	if (whence != SEEK_FORCECUR) {
+		offset = (offset > max)?max:offset;
+	} else if (offset > max) {
+		int i;
+		lseek(fs->fd, 0, SEEK_END);
+		for (i=0; i< (offset - max) / 65; i++) {
+			write(fs->fd, msgsm_silence, 65);
+		}
+	}
+	fs->secondhalf = 0;
+	return lseek(fs->fd, offset, SEEK_SET);
+}
+
+static int wav_trunc(struct ast_filestream *fs)
+{
+	if(ftruncate(fs->fd, lseek(fs->fd, 0, SEEK_CUR)))
+		return -1;
+	return update_header(fs->fd);
+}
+
+static long wav_tell(struct ast_filestream *fs)
+{
+	off_t offset;
+	offset = lseek(fs->fd, 0, SEEK_CUR);
+	/* since this will most likely be used later in play or record, lets stick
+	 * to that level of resolution, just even frames boundaries */
+	return (offset - 52)/65*320;
 }
 
 static char *wav_getcomment(struct ast_filestream *s)
@@ -543,8 +538,10 @@ int load_module()
 	return ast_format_register(name, exts, AST_FORMAT_GSM,
 								wav_open,
 								wav_rewrite,
-								wav_apply,
 								wav_write,
+								wav_seek,
+								wav_trunc,
+								wav_tell,
 								wav_read,
 								wav_close,
 								wav_getcomment);
@@ -554,32 +551,18 @@ int load_module()
 
 int unload_module()
 {
-	struct ast_filestream *tmp, *tmpl;
-	if (ast_pthread_mutex_lock(&wav_lock)) {
-		ast_log(LOG_WARNING, "Unable to lock wav list\n");
-		return -1;
-	}
-	tmp = glist;
-	while(tmp) {
-		if (tmp->owner)
-			ast_softhangup(tmp->owner);
-		tmpl = tmp;
-		tmp = tmp->next;
-		free(tmpl);
-	}
-	ast_pthread_mutex_unlock(&wav_lock);
 	return ast_format_unregister(name);
 }	
 
 int usecount()
 {
 	int res;
-	if (ast_pthread_mutex_lock(&wav_lock)) {
+	if (ast_mutex_lock(&wav_lock)) {
 		ast_log(LOG_WARNING, "Unable to lock wav list\n");
 		return -1;
 	}
 	res = glistcnt;
-	ast_pthread_mutex_unlock(&wav_lock);
+	ast_mutex_unlock(&wav_lock);
 	return res;
 }
 

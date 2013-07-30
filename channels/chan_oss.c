@@ -15,6 +15,7 @@
  * the GNU General Public License
  */
 
+#include <asterisk/lock.h>
 #include <asterisk/frame.h>
 #include <asterisk/logger.h>
 #include <asterisk/channel.h>
@@ -24,6 +25,7 @@
 #include <asterisk/pbx.h>
 #include <asterisk/config.h>
 #include <asterisk/cli.h>
+#include <asterisk/utils.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -32,14 +34,24 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#ifdef __linux
 #include <linux/soundcard.h>
+#elif defined(__FreeBSD__)
+#include <sys/soundcard.h>
+#else
+#include <soundcard.h>
+#endif
 #include "busy.h"
 #include "ringtone.h"
 #include "ring10.h"
 #include "answer.h"
 
 /* Which device to use */
+#if defined( __OpenBSD__ ) || defined( __NetBSD__ )
+#define DEV_DSP "/dev/audio"
+#else
 #define DEV_DSP "/dev/dsp"
+#endif
 
 /* Lets use 160 sample frames, just like GSM.  */
 #define FRAME_SIZE 160
@@ -55,16 +67,11 @@
 static struct timeval lasttime;
 
 static int usecnt;
-static int needanswer = 0;
-static int needringing = 0;
-static int needhangup = 0;
 static int silencesuppression = 0;
 static int silencethreshold = 1000;
 
-static char digits[80] = "";
-static char text2send[80] = "";
 
-static pthread_mutex_t usecnt_lock = PTHREAD_MUTEX_INITIALIZER;
+AST_MUTEX_DEFINE_STATIC(usecnt_lock);
 
 static char *type = "Console";
 static char *desc = "OSS Console Channel Driver";
@@ -75,10 +82,7 @@ static char context[AST_MAX_EXTENSION] = "default";
 static char language[MAX_LANGUAGE] = "";
 static char exten[AST_MAX_EXTENSION] = "s";
 
-/* Command pipe */
-static int cmd[2];
-
-int hookstate=0;
+static int hookstate=0;
 
 static short silence[FRAME_SIZE] = {0, };
 
@@ -110,7 +114,7 @@ static struct chan_oss_pvt {
 	char context[AST_MAX_EXTENSION];
 } oss;
 
-static int time_has_passed()
+static int time_has_passed(void)
 {
 	struct timeval tv;
 	int ms;
@@ -126,7 +130,7 @@ static int time_has_passed()
    with 160 sample frames, and a buffer size of 3, we have a 60ms buffer, 
    usually plenty. */
 
-pthread_t sthread;
+static pthread_t sthread;
 
 #define MAX_BUFFER_SIZE 100
 static int buffersize = 3;
@@ -141,6 +145,7 @@ static int sounddev = -1;
 
 static int autoanswer = 1;
  
+#if 0
 static int calc_loudness(short *frame)
 {
 	int sum = 0;
@@ -154,6 +159,7 @@ static int calc_loudness(short *frame)
 	sum = sum/FRAME_SIZE;
 	return sum;
 }
+#endif
 
 static int cursound = -1;
 static int sampsent = 0;
@@ -213,7 +219,8 @@ static int send_sound(void)
 				}
 			}
 		}
-		res = write(sounddev, frame, res * 2);
+		if (frame)
+			res = write(sounddev, frame, res * 2);
 		if (res > 0)
 			return 0;
 		return res;
@@ -227,17 +234,25 @@ static void *sound_thread(void *unused)
 	fd_set wfds;
 	int max;
 	int res;
+	char ign[4096];
+	if (read(sounddev, ign, sizeof(sounddev)) < 0)
+		ast_log(LOG_WARNING, "Read error on sound device: %s\n", strerror(errno));
 	for(;;) {
 		FD_ZERO(&rfds);
 		FD_ZERO(&wfds);
 		max = sndcmd[0];
 		FD_SET(sndcmd[0], &rfds);
+		if (!oss.owner) {
+			FD_SET(sounddev, &rfds);
+			if (sounddev > max)
+				max = sounddev;
+		}
 		if (cursound > -1) {
 			FD_SET(sounddev, &wfds);
 			if (sounddev > max)
 				max = sounddev;
 		}
-		res = select(max + 1, &rfds, &wfds, NULL, NULL);
+		res = ast_select(max + 1, &rfds, &wfds, NULL, NULL);
 		if (res < 1) {
 			ast_log(LOG_WARNING, "select failed: %s\n", strerror(errno));
 			continue;
@@ -247,6 +262,11 @@ static void *sound_thread(void *unused)
 			silencelen = 0;
 			offset = 0;
 			sampsent = 0;
+		}
+		if (FD_ISSET(sounddev, &rfds)) {
+			/* Ignore read */
+			if (read(sounddev, ign, sizeof(ign)) < 0)
+				ast_log(LOG_WARNING, "Read error on sound device: %s\n", strerror(errno));
 		}
 		if (FD_ISSET(sounddev, &wfds))
 			if (send_sound())
@@ -309,7 +329,11 @@ static int setformat(void)
 		return -1;
 	}
 	res = ioctl(fd, SNDCTL_DSP_SETDUPLEX, 0);
-	if (res >= 0) {
+	
+	/* Check to see if duplex set (FreeBSD Bug)*/
+	res = ioctl(fd, SNDCTL_DSP_GETCAPS, &fmt);
+	
+	if ((fmt & DSP_CAP_DUPLEX) && !res) {
 		if (option_verbose > 1) 
 			ast_verbose(VERBOSE_PREFIX_2 "Console is full duplex\n");
 		full_duplex = -1;
@@ -351,7 +375,7 @@ static int soundcard_setoutput(int force)
 		return 0;
 	readmode = 0;
 	if (force || time_has_passed()) {
-		ioctl(sounddev, SNDCTL_DSP_RESET);
+		ioctl(sounddev, SNDCTL_DSP_RESET, 0);
 		/* Keep the same fd reserved by closing the sound device and copying stdin at the same
 		   time. */
 		/* dup2(0, sound); */ 
@@ -381,7 +405,7 @@ static int soundcard_setinput(int force)
 		return 0;
 	readmode = -1;
 	if (force || time_has_passed()) {
-		ioctl(sounddev, SNDCTL_DSP_RESET);
+		ioctl(sounddev, SNDCTL_DSP_RESET, 0);
 		close(sounddev);
 		/* dup2(0, sound); */
 		fd = open(DEV_DSP, O_RDONLY | O_NONBLOCK);
@@ -402,7 +426,7 @@ static int soundcard_setinput(int force)
 	return 1;
 }
 
-static int soundcard_init()
+static int soundcard_init(void)
 {
 	/* Assume it's full duplex for starters */
 	int fd = open(DEV_DSP, 	O_RDWR | O_NONBLOCK);
@@ -433,13 +457,19 @@ static int oss_text(struct ast_channel *c, char *text)
 static int oss_call(struct ast_channel *c, char *dest, int timeout)
 {
 	int res = 3;
+	struct ast_frame f = { 0, };
 	ast_verbose( " << Call placed to '%s' on console >> \n", dest);
 	if (autoanswer) {
 		ast_verbose( " << Auto-answered >> \n" );
-		needanswer = 1;
+		f.frametype = AST_FRAME_CONTROL;
+		f.subclass = AST_CONTROL_ANSWER;
+		ast_queue_frame(c, &f);
 	} else {
+		nosound = 1;
 		ast_verbose( " << Type 'answer' to answer, or use 'autoanswer' for future calls >> \n");
-		needringing = 1;
+		f.frametype = AST_FRAME_CONTROL;
+		f.subclass = AST_CONTROL_RINGING;
+		ast_queue_frame(c, &f);
 		write(sndcmd[1], &res, sizeof(res));
 	}
 	return 0;
@@ -458,23 +488,22 @@ static int oss_answer(struct ast_channel *c)
 {
 	ast_verbose( " << Console call has been answered >> \n");
 	answer_sound();
-	c->state = AST_STATE_UP;
+	ast_setstate(c, AST_STATE_UP);
 	cursound = -1;
+	nosound=0;
 	return 0;
 }
 
 static int oss_hangup(struct ast_channel *c)
 {
-	int res;
+	int res = 0;
 	cursound = -1;
 	c->pvt->pvt = NULL;
 	oss.owner = NULL;
 	ast_verbose( " << Hangup on console >> \n");
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	usecnt--;
-	ast_pthread_mutex_unlock(&usecnt_lock);
-	needhangup = 0;
-	needanswer = 0;
+	ast_mutex_unlock(&usecnt_lock);
 	if (hookstate) {
 		if (autoanswer) {
 			/* Assume auto-hangup too */
@@ -535,7 +564,7 @@ static int oss_write(struct ast_channel *chan, struct ast_frame *f)
 		return 0;
 	/* Stop any currently playing sound */
 	cursound = -1;
-	if (!full_duplex && (strlen(digits) || needhangup || needanswer)) {
+	if (!full_duplex) {
 		/* If we're half duplex, we have to switch to read mode
 		   to honor immediate needs if necessary */
 		res = soundcard_setinput(1);
@@ -578,65 +607,22 @@ static struct ast_frame *oss_read(struct ast_channel *chan)
 	static char buf[FRAME_SIZE * 2 + AST_FRIENDLY_OFFSET];
 	static int readpos = 0;
 	int res;
-	int b;
-	int nonull=0;
 	
 #if 0
 	ast_log(LOG_DEBUG, "oss_read()\n");
 #endif
-	
-	/* Acknowledge any pending cmd */
-	res = read(cmd[0], &b, sizeof(b));
-	if (res > 0)
-		nonull = 1;
-	
+		
 	f.frametype = AST_FRAME_NULL;
 	f.subclass = 0;
-	f.timelen = 0;
+	f.samples = 0;
 	f.datalen = 0;
 	f.data = NULL;
 	f.offset = 0;
 	f.src = type;
 	f.mallocd = 0;
+	f.delivery.tv_sec = 0;
+	f.delivery.tv_usec = 0;
 	
-	if (needringing) {
-		f.frametype = AST_FRAME_CONTROL;
-		f.subclass = AST_CONTROL_RINGING;
-		needringing = 0;
-		return &f;
-	}
-	
-	if (needhangup) {
-		needhangup = 0;
-		return NULL;
-	}
-	if (strlen(text2send)) {
-		f.frametype = AST_FRAME_TEXT;
-		f.subclass = 0;
-		f.data = text2send;
-		f.datalen = strlen(text2send);
-		strcpy(text2send,"");
-		return &f;
-	}
-	if (strlen(digits)) {
-		f.frametype = AST_FRAME_DTMF;
-		f.subclass = digits[0];
-		for (res=0;res<strlen(digits);res++)
-			digits[res] = digits[res + 1];
-		return &f;
-	}
-	
-	if (needanswer) {
-		needanswer = 0;
-		f.frametype = AST_FRAME_CONTROL;
-		f.subclass = AST_CONTROL_ANSWER;
-		chan->state = AST_STATE_UP;
-		return &f;
-	}
-	
-	if (nonull)
-		return &f;
-		
 	res = soundcard_setinput(0);
 	if (res < 0) {
 		ast_log(LOG_WARNING, "Unable to set input mode\n");
@@ -659,18 +645,20 @@ static struct ast_frame *oss_read(struct ast_channel *chan)
 	if (readpos >= FRAME_SIZE * 2) {
 		/* A real frame */
 		readpos = 0;
-		if (chan->state != AST_STATE_UP) {
+		if (chan->_state != AST_STATE_UP) {
 			/* Don't transmit unless it's up */
 			return &f;
 		}
 		f.frametype = AST_FRAME_VOICE;
 		f.subclass = AST_FORMAT_SLINEAR;
-		f.timelen = FRAME_SIZE / 8;
+		f.samples = FRAME_SIZE;
 		f.datalen = FRAME_SIZE * 2;
 		f.data = buf + AST_FRIENDLY_OFFSET;
 		f.offset = AST_FRIENDLY_OFFSET;
 		f.src = type;
 		f.mallocd = 0;
+		f.delivery.tv_sec = 0;
+		f.delivery.tv_usec = 0;
 #if 0
 		{ static int fd = -1;
 		  if (fd < 0)
@@ -702,6 +690,9 @@ static int oss_indicate(struct ast_channel *chan, int cond)
 	case AST_CONTROL_RINGING:
 		res = 0;
 		break;
+	case -1:
+		cursound = -1;
+		return 0;
 	default:
 		ast_log(LOG_WARNING, "Don't know how to display condition %d on %s\n", cond, chan->name);
 		return -1;
@@ -715,12 +706,11 @@ static int oss_indicate(struct ast_channel *chan, int cond)
 static struct ast_channel *oss_new(struct chan_oss_pvt *p, int state)
 {
 	struct ast_channel *tmp;
-	tmp = ast_channel_alloc();
+	tmp = ast_channel_alloc(1);
 	if (tmp) {
 		snprintf(tmp->name, sizeof(tmp->name), "OSS/%s", DEV_DSP + 5);
 		tmp->type = type;
 		tmp->fds[0] = sounddev;
-		tmp->fds[1] = cmd[0];
 		tmp->nativeformats = AST_FORMAT_SLINEAR;
 		tmp->pvt->pvt = p;
 		tmp->pvt->send_digit = oss_digit;
@@ -739,10 +729,10 @@ static struct ast_channel *oss_new(struct chan_oss_pvt *p, int state)
 		if (strlen(language))
 			strncpy(tmp->language, language, sizeof(tmp->language)-1);
 		p->owner = tmp;
-		tmp->state = state;
-		ast_pthread_mutex_lock(&usecnt_lock);
+		ast_setstate(tmp, state);
+		ast_mutex_lock(&usecnt_lock);
 		usecnt++;
-		ast_pthread_mutex_unlock(&usecnt_lock);
+		ast_mutex_unlock(&usecnt_lock);
 		ast_update_use_count();
 		if (state != AST_STATE_DOWN) {
 			if (ast_pbx_start(tmp)) {
@@ -819,6 +809,7 @@ static char autoanswer_usage[] =
 
 static int console_answer(int fd, int argc, char *argv[])
 {
+	struct ast_frame f = { AST_FRAME_CONTROL, AST_CONTROL_ANSWER };
 	if (argc != 1)
 		return RESULT_SHOWUSAGE;
 	if (!oss.owner) {
@@ -827,7 +818,7 @@ static int console_answer(int fd, int argc, char *argv[])
 	}
 	hookstate = 1;
 	cursound = -1;
-	needanswer++;
+	ast_queue_frame(oss.owner, &f);
 	answer_sound();
 	return RESULT_SUCCESS;
 }
@@ -838,8 +829,10 @@ static char sendtext_usage[] =
 
 static int console_sendtext(int fd, int argc, char *argv[])
 {
-	int tmparg = 1;
-	if (argc < 1)
+	int tmparg = 2;
+	char text2send[256] = "";
+	struct ast_frame f = { 0, };
+	if (argc < 2)
 		return RESULT_SHOWUSAGE;
 	if (!oss.owner) {
 		ast_cli(fd, "No one is calling us\n");
@@ -847,12 +840,18 @@ static int console_sendtext(int fd, int argc, char *argv[])
 	}
 	if (strlen(text2send))
 		ast_cli(fd, "Warning: message already waiting to be sent, overwriting\n");
-	strcpy(text2send, "");
-	while(tmparg <= argc) {
-		strncat(text2send, argv[tmparg++], sizeof(text2send) - strlen(text2send));
-		strncat(text2send, " ", sizeof(text2send) - strlen(text2send));
+	text2send[0] = '\0';
+	while(tmparg < argc) {
+		strncat(text2send, argv[tmparg++], sizeof(text2send) - strlen(text2send) - 1);
+		strncat(text2send, " ", sizeof(text2send) - strlen(text2send) - 1);
 	}
-	needanswer++;
+	if (strlen(text2send)) {
+		f.frametype = AST_FRAME_TEXT;
+		f.subclass = 0;
+		f.data = text2send;
+		f.datalen = strlen(text2send);
+		ast_queue_frame(oss.owner, &f);
+	}
 	return RESULT_SUCCESS;
 }
 
@@ -870,8 +869,9 @@ static int console_hangup(int fd, int argc, char *argv[])
 		return RESULT_FAILURE;
 	}
 	hookstate = 0;
-	if (oss.owner)
-		needhangup++;
+	if (oss.owner) {
+		ast_queue_hangup(oss.owner);
+	}
 	return RESULT_SUCCESS;
 }
 
@@ -884,14 +884,16 @@ static int console_dial(int fd, int argc, char *argv[])
 {
 	char tmp[256], *tmp2;
 	char *mye, *myc;
-	int b = 0;
+	int x;
+	struct ast_frame f = { AST_FRAME_DTMF, 0 };
 	if ((argc != 1) && (argc != 2))
 		return RESULT_SHOWUSAGE;
 	if (oss.owner) {
 		if (argc == 2) {
-			strncat(digits, argv[1], sizeof(digits) - strlen(digits));
-			/* Wake up the polling thread */
-			write(cmd[1], &b, sizeof(b));
+			for (x=0;x<strlen(argv[1]);x++) {
+				f.subclass = argv[1][x];
+				ast_queue_frame(oss.owner, &f);
+			}
 		} else {
 			ast_cli(fd, "You're already in a call.  You can use this only to dial digits until you hangup\n");
 			return RESULT_FAILURE;
@@ -901,9 +903,11 @@ static int console_dial(int fd, int argc, char *argv[])
 	mye = exten;
 	myc = context;
 	if (argc == 2) {
+		char *stringp=NULL;
 		strncpy(tmp, argv[1], sizeof(tmp)-1);
-		strtok(tmp, "@");
-		tmp2 = strtok(NULL, "@");
+		stringp=tmp;
+		strsep(&stringp, "@");
+		tmp2 = strsep(&stringp, "@");
 		if (strlen(tmp))
 			mye = tmp;
 		if (tmp2 && strlen(tmp2))
@@ -913,7 +917,7 @@ static int console_dial(int fd, int argc, char *argv[])
 		strncpy(oss.exten, mye, sizeof(oss.exten)-1);
 		strncpy(oss.context, myc, sizeof(oss.context)-1);
 		hookstate = 1;
-		oss_new(&oss, AST_STATE_UP);
+		oss_new(&oss, AST_STATE_RINGING);
 	} else
 		ast_cli(fd, "No such extension '%s' in context '%s'\n", mye, myc);
 	return RESULT_SUCCESS;
@@ -921,14 +925,47 @@ static int console_dial(int fd, int argc, char *argv[])
 
 static char dial_usage[] =
 "Usage: dial [extension[@context]]\n"
-"       Dials a given extensison (";
+"       Dials a given extensison (and context if specified)\n";
 
+static int console_transfer(int fd, int argc, char *argv[])
+{
+	char tmp[256];
+	char *context;
+	if (argc != 2)
+		return RESULT_SHOWUSAGE;
+	if (oss.owner && oss.owner->bridge) {
+		strncpy(tmp, argv[1], sizeof(tmp) - 1);
+		context = strchr(tmp, '@');
+		if (context) {
+			*context = '\0';
+			context++;
+		} else
+			context = oss.owner->context;
+		if (ast_exists_extension(oss.owner->bridge, context, tmp, 1, oss.owner->bridge->callerid)) {
+			ast_cli(fd, "Whee, transferring %s to %s@%s.\n", 
+					oss.owner->bridge->name, tmp, context);
+			if (ast_async_goto(oss.owner->bridge, context, tmp, 1))
+				ast_cli(fd, "Failed to transfer :(\n");
+		} else {
+			ast_cli(fd, "No such extension exists\n");
+		}
+	} else {
+		ast_cli(fd, "There is no call to transfer\n");
+	}
+	return RESULT_SUCCESS;
+}
+
+static char transfer_usage[] =
+"Usage: transfer <extension>[@context]\n"
+"       Transfers the currently connected call to the given extension (and\n"
+"context if specified)\n";
 
 static struct ast_cli_entry myclis[] = {
 	{ { "answer", NULL }, console_answer, "Answer an incoming console call", answer_usage },
 	{ { "hangup", NULL }, console_hangup, "Hangup a call on the console", hangup_usage },
 	{ { "dial", NULL }, console_dial, "Dial an extension on the console", dial_usage },
-	{ { "send text", NULL }, console_sendtext, "Send text to the remote device", sendtext_usage },
+	{ { "transfer", NULL }, console_transfer, "Transfer a call to a different extension", transfer_usage },
+	{ { "send", "text", NULL }, console_sendtext, "Send text to the remote device", sendtext_usage },
 	{ { "autoanswer", NULL }, console_autoanswer, "Sets/displays autoanswer", autoanswer_usage, autoanswer_complete }
 };
 
@@ -936,23 +973,15 @@ int load_module()
 {
 	int res;
 	int x;
-	int flags;
-	struct ast_config *cfg = ast_load(config);
+	struct ast_config *cfg;
 	struct ast_variable *v;
-	res = pipe(cmd);
 	res = pipe(sndcmd);
 	if (res) {
 		ast_log(LOG_ERROR, "Unable to create pipe\n");
 		return -1;
 	}
-	flags = fcntl(cmd[0], F_GETFL);
-	fcntl(cmd[0], F_SETFL, flags | O_NONBLOCK);
-	flags = fcntl(cmd[1], F_GETFL);
-	fcntl(cmd[1], F_SETFL, flags | O_NONBLOCK);
 	res = soundcard_init();
 	if (res < 0) {
-		close(cmd[1]);
-		close(cmd[0]);
 		if (option_verbose > 1) {
 			ast_verbose(VERBOSE_PREFIX_2 "No sound card detected -- console channel will be unavailable\n");
 			ast_verbose(VERBOSE_PREFIX_2 "Turn off OSS support by adding 'noload=chan_oss.so' in /etc/asterisk/modules.conf\n");
@@ -968,7 +997,7 @@ int load_module()
 	}
 	for (x=0;x<sizeof(myclis)/sizeof(struct ast_cli_entry); x++)
 		ast_cli_register(myclis + x);
-	if (cfg) {
+	if ((cfg = ast_load(config))) {
 		v = ast_variable_browse(cfg, "general");
 		while(v) {
 			if (!strcasecmp(v->name, "autoanswer"))
@@ -987,7 +1016,7 @@ int load_module()
 		}
 		ast_destroy(cfg);
 	}
-	pthread_create(&sthread, NULL, sound_thread, NULL);
+	ast_pthread_create(&sthread, NULL, sound_thread, NULL);
 	return 0;
 }
 
@@ -999,16 +1028,12 @@ int unload_module()
 	for (x=0;x<sizeof(myclis)/sizeof(struct ast_cli_entry); x++)
 		ast_cli_unregister(myclis + x);
 	close(sounddev);
-	if (cmd[0] > 0) {
-		close(cmd[0]);
-		close(cmd[1]);
-	}
 	if (sndcmd[0] > 0) {
 		close(sndcmd[0]);
 		close(sndcmd[1]);
 	}
 	if (oss.owner)
-		ast_softhangup(oss.owner);
+		ast_softhangup(oss.owner, AST_SOFTHANGUP_APPUNLOAD);
 	if (oss.owner)
 		return -1;
 	return 0;
@@ -1022,9 +1047,9 @@ char *description()
 int usecount()
 {
 	int res;
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	res = usecnt;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	return res;
 }
 

@@ -28,12 +28,28 @@ extern "C" {
 
 //! Special return values from applications to the PBX
 #define AST_PBX_KEEPALIVE	10		/* Destroy the thread, but don't hang up the channel */
+#define AST_PBX_NO_HANGUP_PEER       11
+
+//! Special Priority for an hint
+#define PRIORITY_HINT	-1
+
+//! Extension states
+//! No device INUSE or BUSY 
+#define AST_EXTENSION_NOT_INUSE		0
+//! One or more devices INUSE
+#define AST_EXTENSION_INUSE		1
+//! All devices BUSY
+#define AST_EXTENSION_BUSY		2
+//! All devices UNAVAILABLE/UNREGISTERED
+#define AST_EXTENSION_UNAVAILABLE 	3
 
 struct ast_context;
 struct ast_exten;     
 struct ast_include;
 struct ast_ignorepat;
 struct ast_sw;
+
+typedef int (*ast_state_cb_type)(char *context, char* id, int state, void *data);
 
 //! Data structure associated with an asterisk switch
 struct ast_switch {
@@ -49,7 +65,16 @@ struct ast_switch {
 	int (*canmatch)(struct ast_channel *chan, char *context, char *exten, int priority, char *callerid, char *data);
 	
 	int (*exec)(struct ast_channel *chan, char *context, char *exten, int priority, char *callerid, int newstack, char *data);
+
+	int (*matchmore)(struct ast_channel *chan, char *context, char *exten, int priority, char *callerid, char *data);
 };
+
+struct ast_pbx {
+        int dtimeout;                                   /* Timeout between digits (seconds) */
+        int rtimeout;                                   /* Timeout for response
+							   (seconds) */
+};
+
 
 //! Register an alternative switch
 /*!
@@ -93,6 +118,7 @@ int pbx_exec(struct ast_channel *c, struct ast_app *app, void *data, int newstac
 
 //! Register a new context
 /*!
+ * \param extcontexts pointer to the ast_context structure pointer
  * \param name name of the new context
  * \param registrar registrar of the context
  * This will first search for a context with your name.  If it exists already, it will not
@@ -100,7 +126,14 @@ int pbx_exec(struct ast_channel *c, struct ast_app *app, void *data, int newstac
  * and registrar.
  * It returns NULL on failure, and an ast_context structure on success
  */
-struct ast_context *ast_context_create(char *name, char *registrar);
+struct ast_context *ast_context_create(struct ast_context **extcontexts, char *name, char *registrar);
+
+//! Merge the temporary contexts into a global contexts list and delete from the global list the ones that are being added
+/*!
+ * \param extcontexts pointer to the ast_context structure pointer
+ * \param registar of the context; if it's set the routine will delete all contexts that belong to that registrar; if NULL only the contexts that are specified in extcontexts
+ */
+void ast_merge_contexts_and_delete(struct ast_context **extcontexts, char *registrar);
 
 //! Destroy a context (matches the specified context (or ANY context if NULL)
 /*!
@@ -187,6 +220,58 @@ int ast_register_application(char *app, int (*execute)(struct ast_channel *, voi
  */
 int ast_unregister_application(char *app);
 
+//! Uses hint and devicestate callback to get the state of an extension
+/*!
+ * \param c this is not important
+ * \param context which context to look in
+ * \param exten which extension to get state
+ * Returns extension state !! = AST_EXTENSION_???
+ */
+int ast_extension_state(struct ast_channel *c, char *context, char *exten);
+
+//! Tells Asterisk the State for Device is changed
+/*!
+ * \param fmt devicename like a dialstring with format parameters
+ * Asterisk polls the new extensionstates and calls the registered
+ * callbacks for the changed extensions
+ * Returns 0 on success, -1 on failure
+ */
+int ast_device_state_changed(const char *fmt, ...)
+	__attribute__ ((format (printf, 1, 2)));
+
+//! Registers a state change callback
+/*!
+ * \param context which context to look in
+ * \param exten which extension to get state
+ * \param callback callback to call if state changed
+ * \param data to pass to callback
+ * The callback is called if the state for extension is changed
+ * Return -1 on failure, ID on success
+ */ 
+int ast_extension_state_add(char *context, char *exten, 
+			    ast_state_cb_type callback, void *data);
+
+//! Deletes a registered state change callback by ID
+/*!
+ * \param id of the callback to delete
+ * Removes the callback from list of callbacks
+ * Return 0 on success, -1 on failure
+ */
+int ast_extension_state_del(int id, ast_state_cb_type callback);
+
+//! If an extension exists, return non-zero
+/*!
+ * \param hint buffer for hint
+ * \param maxlen size of hint buffer
+ * \param c this is not important
+ * \param context which context to look in
+ * \param exten which extension to search for
+ * If an extension within the given context with the priority PRIORITY_HINT
+ * is found a non zero value will be returned.
+ * Otherwise, 0 is returned.
+ */
+int ast_get_hint(char *hint, int maxlen, struct ast_channel *c, char *context, char *exten);
+
 //! If an extension exists, return non-zero
 // work
 /*!
@@ -212,6 +297,20 @@ int ast_exists_extension(struct ast_channel *c, char *context, char *exten, int 
    what you add to exten, it's not going to be a valid extension anymore
 */
 int ast_canmatch_extension(struct ast_channel *c, char *context, char *exten, int priority, char *callerid);
+
+//! Looks to see if adding anything to this extension might match something. (exists ^ canmatch)
+/*!
+  \param c not really important
+  \param context context to serach within
+  \param exten extension to check
+  \param priority priority of extension path
+  \param callerid callerid of extension being searched for
+   If "exten" *could match* a valid extension in this context with
+   some more digits, return non-zero.  Does NOT return non-zero if this is
+   an exact-match only.  Basically, when this returns 0, no matter
+   what you add to exten, it's not going to be a valid extension anymore
+*/
+int ast_matchmore_extension(struct ast_channel *c, char *context, char *exten, int priority, char *callerid);
 
 //! Determine if a given extension matches a given pattern (in NXX format)
 /*!
@@ -277,6 +376,13 @@ int ast_context_remove_include(char *context, char *include, char *registrar);
  */
 int ast_context_remove_include2(struct ast_context *con, char *include, char *registrar);
 
+//! Verifies includes in an ast_contect structure
+/*!
+ * \param con context in which to verify the includes
+ * Returns 0 if no problems found, -1 if there were any missing context
+ */
+int ast_context_verify_includes(struct ast_context *con);
+	  
 //! Add a switch
 /*!
  * \param context context to which to add the switch
@@ -374,6 +480,19 @@ int ast_lock_context(struct ast_context *con);
  */
 int ast_unlock_context(struct ast_context *con);
 
+
+int ast_async_goto(struct ast_channel *chan, char *context, char *exten, int priority);
+
+int ast_async_goto_by_name(char *chan, char *context, char *exten, int priority);
+
+/* Synchronously or asynchronously make an outbound call and send it to a
+   particular extension */
+int ast_pbx_outgoing_exten(char *type, int format, void *data, int timeout, char *context, char *exten, int priority, int *reason, int sync, char *callerid, char *variable, char *account );
+
+/* Synchronously or asynchronously make an outbound call and send it to a
+   particular application with given extension */
+int ast_pbx_outgoing_app(char *type, int format, void *data, int timeout, char *app, char *appdata, int *reason, int sync, char *callerid, char *variable, char *account);
+
 /* Functions for returning values from structures */
 char *ast_get_context_name(struct ast_context *con);
 char *ast_get_extension_name(struct ast_exten *exten);
@@ -384,6 +503,8 @@ char *ast_get_switch_data(struct ast_sw *sw);
 
 /* Other extension stuff */
 int ast_get_extension_priority(struct ast_exten *exten);
+int ast_get_extension_matchcid(struct ast_exten *e);
+char *ast_get_extension_cidmatch(struct ast_exten *e);
 char *ast_get_extension_app(struct ast_exten *e);
 void *ast_get_extension_app_data(struct ast_exten *e);
 
@@ -405,6 +526,15 @@ struct ast_include *ast_walk_context_includes(struct ast_context *con,
 struct ast_ignorepat *ast_walk_context_ignorepats(struct ast_context *con,
 	struct ast_ignorepat *ip);
 struct ast_sw *ast_walk_context_switches(struct ast_context *con, struct ast_sw *sw);
+
+extern char *pbx_builtin_getvar_helper(struct ast_channel *chan, char *name);
+extern void pbx_builtin_setvar_helper(struct ast_channel *chan, char *name, char *value);
+extern void pbx_builtin_clear_globals(void);
+extern int pbx_builtin_setvar(struct ast_channel *chan, void *data);
+extern void pbx_substitute_variables_helper(struct ast_channel *c,const char *cp1,char *cp2,int count);
+
+int ast_extension_patmatch(const char *pattern, const char *data);
+
 #if defined(__cplusplus) || defined(c_plusplus)
 }
 #endif

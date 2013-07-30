@@ -17,7 +17,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <pthread.h>
+#include <unistd.h>
+#include <asterisk/lock.h>
 #include <asterisk/vmodem.h>
 #include <asterisk/module.h>
 #include <asterisk/frame.h>
@@ -37,8 +38,8 @@ static char *breakcmd = "\020!";
 
 static char *desc = "BestData (Conexant V.90 Chipset) VoiceModem Driver";
 
-int usecnt;
-pthread_mutex_t usecnt_lock = PTHREAD_MUTEX_INITIALIZER;
+static int usecnt;
+AST_MUTEX_DEFINE_STATIC(usecnt_lock);
 
 static char *bestdata_idents[] = {
 	/* Identify BestData Modem */
@@ -151,7 +152,7 @@ static int bestdata_init(struct ast_modem_pvt *p)
 
 static struct ast_frame *bestdata_handle_escape(struct ast_modem_pvt *p, char esc)
 {
-	char name[30],nmbr[30];
+	char name[30]="",nmbr[30]="";
 	time_t	now;
 
 	/* Handle escaped characters -- but sometimes we call it directly as 
@@ -160,9 +161,11 @@ static struct ast_frame *bestdata_handle_escape(struct ast_modem_pvt *p, char es
 	p->fr.subclass = 0;
 	p->fr.data = NULL;
 	p->fr.datalen = 0;
-	p->fr.timelen = 0;
+	p->fr.samples = 0;
 	p->fr.offset = 0;
 	p->fr.mallocd = 0;
+	p->fr.delivery.tv_sec = 0;
+	p->fr.delivery.tv_usec = 0;
 	if (esc)
 		ast_log(LOG_DEBUG, "Escaped character '%c'\n", esc);
 	
@@ -186,14 +189,14 @@ static struct ast_frame *bestdata_handle_escape(struct ast_modem_pvt *p, char es
 		name[0] = nmbr[0] = 0;
 		for(;;)
 		   {
-			char res[1000];
+			char res[1000]="";
 
 			if (ast_modem_read_response(p, 5)) break;
 			strncpy(res, p->response, sizeof(res)-1);
 			ast_modem_trim(res);
 			if (!strncmp(res,"\020.",2)) break;
-			if (!strncmp(res,"NAME",4)) strcpy(name,res + 7);
-			if (!strncmp(res,"NMBR",4)) strcpy(nmbr,res + 7);
+			if (!strncmp(res,"NAME",4)) strncpy(name,res + 7, sizeof(name) - 1);
+			if (!strncmp(res,"NMBR",4)) strncpy(nmbr,res + 7, sizeof(nmbr) - 1);
 		   }
 		p->gotclid = 1;
 		if ((!strcmp(name,"O")) || (!strcmp(name,"P"))) name[0] = 0;
@@ -208,7 +211,7 @@ static struct ast_frame *bestdata_handle_escape(struct ast_modem_pvt *p, char es
 		return &p->fr;
 	case '@': /* response from "OK" in command mode */
 		if (p->owner)
-			p->owner->state = AST_STATE_UP;
+			ast_setstate(p->owner, AST_STATE_UP);
 		if (bestdata_startrec(p)) return NULL;
 		p->fr.frametype = AST_FRAME_CONTROL;
 		p->fr.subclass = AST_CONTROL_RING;
@@ -364,10 +367,12 @@ static struct ast_frame *bestdata_read(struct ast_modem_pvt *p)
 		/* If we get here, we have a complete voice frame */
 		p->fr.frametype = AST_FRAME_VOICE;
 		p->fr.subclass = AST_FORMAT_SLINEAR;
-		p->fr.timelen = 30;
+		p->fr.samples = 240;
 		p->fr.data = p->obuf;
 		p->fr.datalen = p->obuflen;
 		p->fr.mallocd = 0;
+		p->fr.delivery.tv_sec = 0;
+		p->fr.delivery.tv_usec = 0;
 		p->fr.offset = AST_FRIENDLY_OFFSET;
 		p->fr.src = __FUNCTION__;
 		if (option_debug)
@@ -386,7 +391,7 @@ short	*sp;
 unsigned long u;
 #define	DLE	16
 
-	if (p->owner && (p->owner->state == AST_STATE_UP) && 
+	if (p->owner && (p->owner->_state == AST_STATE_UP) && 
 		(p->ministate != STATE_VOICEPLAY) && bestdata_startplay(p)) return -1;
 	sp = (short *) f->data;
 	  /* stick DLE's in ahead of anything else */
@@ -436,19 +441,19 @@ static char *bestdata_identify(struct ast_modem_pvt *p)
 	return strdup(identity);
 }
 
-static void bestdata_incusecnt()
+static void bestdata_incusecnt(void)
 {
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	usecnt++;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	ast_update_use_count();
 }
 
-static void bestdata_decusecnt()
+static void bestdata_decusecnt(void)
 {
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	usecnt++;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	ast_update_use_count();
 }
 
@@ -480,13 +485,13 @@ static int bestdata_dialdigit(struct ast_modem_pvt *p, char digit)
 
 static int bestdata_dial(struct ast_modem_pvt *p, char *stuff)
 {
-	char cmd[800],a[20];
+	char cmd[800] = "",a[20]="";
 	int i,j;
 
 	if (p->ministate != STATE_COMMAND)
 	   {
 		bestdata_break(p);
-		strcpy(cmd,"AT+VTS=");
+		strncpy(cmd, "AT+VTS=", sizeof(cmd) - 1);
 		j = strlen(cmd);
 		for(i = 0; stuff[i]; i++)
 		   {
@@ -497,13 +502,13 @@ static int bestdata_dial(struct ast_modem_pvt *p, char *stuff)
 				a[1] = 0;
 				break;
 			    case ',':
-				strcpy(a,"[,,100]");
+				strncpy(a, "[,,100]", sizeof(a) - 1);
 				break;
 			    default:
-				sprintf(a,"{%c,7}",stuff[i]);
+				snprintf(a, sizeof(a), "{%c,7}", stuff[i]);
 			   }
-			if (stuff[i + 1]) strcat(a,",");
-			strcpy(cmd + j,a);
+			if (stuff[i + 1]) strncat(a, ",", sizeof(a) - strlen(a) - 1);
+			strncpy(cmd + j, a, sizeof(cmd) - j - 1);
 			j += strlen(a);
 		   }
  	   }
@@ -569,9 +574,9 @@ static struct ast_modem_driver bestdata_driver =
 int usecount(void)
 {
 	int res;
-	ast_pthread_mutex_lock(&usecnt_lock);
+	ast_mutex_lock(&usecnt_lock);
 	res = usecnt;
-	ast_pthread_mutex_unlock(&usecnt_lock);
+	ast_mutex_unlock(&usecnt_lock);
 	return res;
 }
 

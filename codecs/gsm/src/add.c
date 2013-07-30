@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/share/cvsroot/asterisk-ng/codecs/gsm/src/add.c,v 1.1 1999/11/15 06:09:05 markster Exp $ */
+/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/add.c,v 1.16 2003/02/12 13:59:14 matteo Exp $ */
 
 /*
  *  See private.h for the more commonly used macro versions.

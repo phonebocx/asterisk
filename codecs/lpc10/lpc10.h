@@ -1,6 +1,24 @@
 /*
 
 $Log: lpc10.h,v $
+Revision 1.18  2004/08/31 13:32:11  markster
+Merge NetBSD and Courtesty tone with modifications (bug #2329)
+
+Revision 1.17  2003/10/26 18:50:49  markster
+Make it build and run on MacOS X
+
+Revision 1.3  2003/10/26 18:50:49  markster
+Make it build and run on MacOS X
+
+Revision 1.2  2003/04/23 19:13:35  markster
+More OpenBSD patches
+
+Revision 1.1.1.2  2003/03/16 22:37:30  matteo
+dom mar 16 23:37:23 CET 2003
+
+Revision 1.2  2003/03/16 16:09:48  markster
+Mere James's cleanups for fewer build warnings
+
 Revision 1.1  2000/01/05 00:20:06  markster
 Add broken lpc10 code...  It's not too far from working I don't think...
 
@@ -26,7 +44,7 @@ Add broken lpc10 code...  It's not too far from working I don't think...
 
  */
 
-#if defined(unix)
+#if defined(unix) || defined(__unix__) || defined(__NetBSD__)
 typedef short		INT16;
 typedef int		INT32;
 #endif
@@ -37,6 +55,10 @@ typedef int		INT16;
 typedef long		INT32;
 #endif
 
+#if defined(__APPLE__)
+typedef short		INT16;
+typedef int		INT32;
+#endif
 
 
 /* The initial values for every member of this structure is 0, except
@@ -215,11 +237,11 @@ struct lpc10_decoder_state {
   
   */
 
-struct lpc10_encoder_state * create_lpc10_encoder_state ();
+struct lpc10_encoder_state * create_lpc10_encoder_state (void);
 void init_lpc10_encoder_state (struct lpc10_encoder_state *st);
 int lpc10_encode (real *speech, INT32 *bits, struct lpc10_encoder_state *st);
 
-struct lpc10_decoder_state * create_lpc10_decoder_state ();
+struct lpc10_decoder_state * create_lpc10_decoder_state (void);
 void init_lpc10_decoder_state (struct lpc10_decoder_state *st);
 int lpc10_decode (INT32 *bits, real *speech, struct lpc10_decoder_state *st);
 

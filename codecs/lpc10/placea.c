@@ -1,6 +1,18 @@
 /*
 
 $Log: placea.c,v $
+Revision 1.16  2004/06/26 03:50:14  markster
+Merge source cleanups (bug #1911)
+
+Revision 1.15  2003/09/19 01:20:22  markster
+Code cleanups (bug #66)
+
+Revision 1.2  2003/09/19 01:20:22  markster
+Code cleanups (bug #66)
+
+Revision 1.1.1.1  2003/02/12 13:59:15  matteo
+mer feb 12 14:56:57 CET 2003
+
 Revision 1.3  2001/04/12 21:27:53  markh
 app_record now supports wildcards of sort so your output file is not overwritten every time it's run.  File.h got a documentation update on the ast_fileexists to include the return call.  Watch out for the placea.c placev.c code, it's updates have not been tested yet.  Just a few parenthesis to make it compile nicer on newer gcc versions with all the -W flags set.
 
@@ -13,10 +25,6 @@ Some OSS fixes and a few lpc changes to make it actually work
 
 */
 
-#ifdef P_R_O_T_O_T_Y_P_E_S
-extern int placea_(integer *ipitch, integer *voibuf, integer *obound, integer *af, integer *vwin, integer *awin, integer *ewin, integer *lframe, integer *maxwin);
-#endif
-
 /*  -- translated by f2c (version 19951025).
    You must link the resulting object file with the libraries:
 	-lf2c -lm   (in that order)
@@ -24,11 +32,27 @@ extern int placea_(integer *ipitch, integer *voibuf, integer *obound, integer *a
 
 #include "f2c.h"
 
+#ifdef P_R_O_T_O_T_Y_P_E_S
+extern int placea_(integer *ipitch, integer *voibuf, integer *obound, integer *af, integer *vwin, integer *awin, integer *ewin, integer *lframe, integer *maxwin);
+#endif
+
 /* *********************************************************************** */
 
 /* 	PLACEA Version 48 */
 
 /* $Log: placea.c,v $
+/* Revision 1.16  2004/06/26 03:50:14  markster
+/* Merge source cleanups (bug #1911)
+/*
+/* Revision 1.15  2003/09/19 01:20:22  markster
+/* Code cleanups (bug #66)
+/*
+/* Revision 1.2  2003/09/19 01:20:22  markster
+/* Code cleanups (bug #66)
+/*
+/* Revision 1.1.1.1  2003/02/12 13:59:15  matteo
+/* mer feb 12 14:56:57 CET 2003
+/*
 /* Revision 1.3  2001/04/12 21:27:53  markh
 /* app_record now supports wildcards of sort so your output file is not overwritten every time it's run.  File.h got a documentation update on the ast_fileexists to include the return call.  Watch out for the placea.c placev.c code, it's updates have not been tested yet.  Just a few parenthesis to make it compile nicer on newer gcc versions with all the -W flags set.
 /*
@@ -146,7 +170,7 @@ extern int placea_(integer *ipitch, integer *voibuf, integer *obound, integer *a
     allv = allv && voibuf[(*af << 1) + 1] == 1;
     allv = allv && voibuf[(*af << 1) + 2] == 1;
     winv = voibuf[(*af << 1) + 1] == 1 || voibuf[(*af << 1) + 2] == 1;
-    if (allv || winv && *obound == 0) {
+    if (allv || (winv && *obound == 0)) {
 /* APHASE:  Phase synchronous window placement. */
 /* Get minimum lower index of the window. */
 	i__ = (lrange + *ipitch - 1 - awin[((*af - 1) << 1) + 1]) / *ipitch;

@@ -138,7 +138,10 @@ int ast_loader_unregister(int (*updater)(void));
  * This reloads all modules set to load in asterisk.  It does NOT run the unload
  * routine and then loads them again, it runs the given reload routine.
  */
-void ast_module_reload(void);
+void ast_module_reload(const char *name);
+
+int ast_register_atexit(void (*func)(void));
+void ast_unregister_atexit(void (*func)(void));
 
 /* Local user routines keep track of which channels are using a given module resource.
    They can help make removing modules safer, particularly if they're in use at the time
@@ -149,28 +152,28 @@ void ast_module_reload(void);
 								struct localuser *next; \
 							}
 
-#define LOCAL_USER_DECL static pthread_mutex_t localuser_lock = PTHREAD_MUTEX_INITIALIZER; \
+#define LOCAL_USER_DECL AST_MUTEX_DEFINE_STATIC(localuser_lock); \
 						static struct localuser *localusers = NULL; \
 						static int localusecnt = 0;
 
 #define LOCAL_USER_ADD(u) { \
  \
-	if (!(u=malloc(sizeof(struct localuser)))) { \
+	if (!(u=(struct localuser *)malloc(sizeof(struct localuser)))) { \
 		ast_log(LOG_WARNING, "Out of memory\n"); \
 		return -1; \
 	} \
-	pthread_mutex_lock(&localuser_lock); \
+	ast_mutex_lock(&localuser_lock); \
 	u->chan = chan; \
 	u->next = localusers; \
 	localusers = u; \
 	localusecnt++; \
-	pthread_mutex_unlock(&localuser_lock); \
+	ast_mutex_unlock(&localuser_lock); \
 	ast_update_use_count(); \
 }
 
 #define LOCAL_USER_REMOVE(u) { \
 	struct localuser *uc, *ul = NULL; \
-	pthread_mutex_lock(&localuser_lock); \
+	ast_mutex_lock(&localuser_lock); \
 	uc = localusers; \
 	while (uc) { \
 		if (uc == u) { \
@@ -185,28 +188,28 @@ void ast_module_reload(void);
 	}\
 	free(u); \
 	localusecnt--; \
-	pthread_mutex_unlock(&localuser_lock); \
+	ast_mutex_unlock(&localuser_lock); \
 	ast_update_use_count(); \
 }
 
 #define STANDARD_HANGUP_LOCALUSERS { \
 	struct localuser *u, *ul; \
-	pthread_mutex_lock(&localuser_lock); \
+	ast_mutex_lock(&localuser_lock); \
 	u = localusers; \
 	while(u) { \
-		ast_softhangup(u->chan); \
+		ast_softhangup(u->chan, AST_SOFTHANGUP_APPUNLOAD); \
 		ul = u; \
 		u = u->next; \
 		free(ul); \
 	} \
-	pthread_mutex_unlock(&localuser_lock); \
+	ast_mutex_unlock(&localuser_lock); \
 	localusecnt=0; \
 }
 
 #define STANDARD_USECOUNT(res) { \
-	pthread_mutex_lock(&localuser_lock); \
+	ast_mutex_lock(&localuser_lock); \
 	res = localusecnt; \
-	pthread_mutex_unlock(&localuser_lock); \
+	ast_mutex_unlock(&localuser_lock); \
 }
 	
 	
