@@ -42,12 +42,13 @@
 	<depend>zaptel_vldtmf</depend>
 	<depend>zaptel</depend>
 	<depend>tonezone</depend>
+	<depend>res_features</depend>
 	<use>pri</use>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89254 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 94251 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -3796,6 +3797,11 @@ static struct ast_frame *zt_handle_event(struct ast_channel *ast)
 							ast_setstate(ast, AST_STATE_UP);
 							p->subs[index].f.frametype = AST_FRAME_CONTROL;
 							p->subs[index].f.subclass = AST_CONTROL_ANSWER;
+							/* If aops=0 and hops=1, this is necessary */
+							p->polarity = POLARITY_REV;
+						} else {
+							/* Start clean, so we can catch the change to REV polarity when party answers */
+							p->polarity = POLARITY_IDLE;
 						}
 					}
 				}
@@ -4084,14 +4090,6 @@ static struct ast_frame *zt_handle_event(struct ast_channel *ast)
 				if (ast->_state == AST_STATE_RING) {
 					p->ringt = p->ringt_base;
 				}
-
-				/* If we get a ring then we cannot be in 
-				 * reversed polarity. So we reset to idle */
-				if (option_debug)
-					ast_log(LOG_DEBUG, "Setting IDLE polarity due "
-						"to ring. Old polarity was %d\n", 
-						p->polarity);
-				p->polarity = POLARITY_IDLE;
 
 				/* Fall through */
 			case SIG_EM:
@@ -6376,6 +6374,14 @@ static void *ss_thread(void *data)
 					if (i & ZT_IOMUX_SIGEVENT) {
 						res = zt_get_event(p->subs[index].zfd);
 						ast_log(LOG_NOTICE, "Got event %d (%s)...\n", res, event2str(res));
+						/* If we get a PR event, they hung up while processing calerid */
+						if ( res == ZT_EVENT_POLARITY && p->hanguponpolarityswitch && p->polarity == POLARITY_REV) {
+							ast_log(LOG_DEBUG, "Hanging up due to polarity reversal on channel %d while detecting callerid\n", p->channel);
+							p->polarity = POLARITY_IDLE;
+							callerid_free(cs);
+							ast_hangup(chan);
+							return NULL;
+						}
 						res = 0;
 						/* Let us detect callerid when the telco uses distinctive ring */
 
@@ -6738,6 +6744,13 @@ static int handle_init_event(struct zt_pvt *i, int event)
 		case SIG_FXSLS:
 		case SIG_FXSKS:
 		case SIG_FXSGS:
+			/* We have already got a PR before the channel was 
+			   created, but it wasn't handled. We need polarity 
+			   to be REV for remote hangup detection to work. 
+			   At least in Spain */
+			if (i->hanguponpolarityswitch)
+				i->polarity = POLARITY_REV;
+
 			if (i->cid_start == CID_START_POLARITY) {
 				i->polarity = POLARITY_REV;
 				ast_verbose(VERBOSE_PREFIX_2 "Starting post polarity "
@@ -8736,8 +8749,13 @@ static void *pri_dchannel(void *vpri)
 					else if (!ast_strlen_zero(e->ring.callednum)) {
 						ast_copy_string(pri->pvts[chanpos]->exten, e->ring.callednum, sizeof(pri->pvts[chanpos]->exten));
 						ast_copy_string(pri->pvts[chanpos]->dnid, e->ring.callednum, sizeof(pri->pvts[chanpos]->dnid));
-					} else
+					} else if (pri->overlapdial)
 						pri->pvts[chanpos]->exten[0] = '\0';
+					else {
+						/* Some PRI circuits are set up to send _no_ digits.  Handle them as 's'. */
+						pri->pvts[chanpos]->exten[0] = 's';
+						pri->pvts[chanpos]->exten[1] = '\0';
+					}
 					/* Set DNID on all incoming calls -- even immediate */
 					if (!ast_strlen_zero(e->ring.callednum))
 						ast_copy_string(pri->pvts[chanpos]->dnid, e->ring.callednum, sizeof(pri->pvts[chanpos]->dnid));
@@ -8795,6 +8813,9 @@ static void *pri_dchannel(void *vpri)
 							} else {
 								c = zt_new(pri->pvts[chanpos], AST_STATE_RESERVED, 0, SUB_REAL, law, e->ring.ctype);
 							}
+
+							ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+
 							if (!ast_strlen_zero(e->ring.callingsubaddr)) {
 								pbx_builtin_setvar_helper(c, "CALLINGSUBADDR", e->ring.callingsubaddr);
 							}
@@ -8813,8 +8834,10 @@ static void *pri_dchannel(void *vpri)
 							pbx_builtin_setvar_helper(c, "CALLEDTON", calledtonstr);
 							if (e->ring.redirectingreason >= 0)
 								pbx_builtin_setvar_helper(c, "PRIREDIRECTREASON", redirectingreason2str(e->ring.redirectingreason));
-							
+						
+							ast_mutex_lock(&pri->pvts[chanpos]->lock);
 							ast_mutex_lock(&pri->lock);
+
 							pthread_attr_init(&attr);
 							pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
 							if (c && !ast_pthread_create(&threadid, &attr, ss_thread, c)) {
@@ -8837,9 +8860,11 @@ static void *pri_dchannel(void *vpri)
 							ast_mutex_unlock(&pri->lock);
 							/* Release PRI lock while we create the channel */
 							c = zt_new(pri->pvts[chanpos], AST_STATE_RING, 1, SUB_REAL, law, e->ring.ctype);
-							ast_mutex_lock(&pri->lock);
 							if (c) {
 								char calledtonstr[10];
+
+								ast_mutex_unlock(&pri->pvts[chanpos]->lock);
+
 								if (e->ring.ani2 >= 0) {
 									snprintf(ani2str, 5, "%d", e->ring.ani2);
 									pbx_builtin_setvar_helper(c, "ANI2", ani2str);
@@ -8856,12 +8881,19 @@ static void *pri_dchannel(void *vpri)
 							
 								snprintf(calledtonstr, sizeof(calledtonstr)-1, "%d", e->ring.calledplan);
 								pbx_builtin_setvar_helper(c, "CALLEDTON", calledtonstr);
+
+								ast_mutex_lock(&pri->pvts[chanpos]->lock);
+								ast_mutex_lock(&pri->lock);
+
 								if (option_verbose > 2)
 									ast_verbose(VERBOSE_PREFIX_3 "Accepting call from '%s' to '%s' on channel %d/%d, span %d\n",
 										plancallingnum, pri->pvts[chanpos]->exten, 
 											pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
 								zt_enable_ec(pri->pvts[chanpos]);
 							} else {
+
+								ast_mutex_lock(&pri->lock);
+
 								ast_log(LOG_WARNING, "Unable to start PBX on channel %d/%d, span %d\n", 
 									pri->pvts[chanpos]->logicalspan, pri->pvts[chanpos]->prioffset, pri->span);
 								pri_hangup(pri->pri, e->ring.call, PRI_CAUSE_SWITCH_CONGESTION);
@@ -8920,7 +8952,10 @@ static void *pri_dchannel(void *vpri)
 
 #ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->ringing.useruserinfo)) {
+							struct ast_channel *owner = pri->pvts[chanpos]->owner;
+							ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->ringing.useruserinfo);
+							ast_mutex_lock(&pri->pvts[chanpos]->lock);
 						}
 #endif
 
@@ -9075,7 +9110,10 @@ static void *pri_dchannel(void *vpri)
 
 #ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->answer.useruserinfo)) {
+							struct ast_channel *owner = pri->pvts[chanpos]->owner;
+							ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->answer.useruserinfo);
+							ast_mutex_lock(&pri->pvts[chanpos]->lock);
 						}
 #endif
 
@@ -9141,7 +9179,10 @@ static void *pri_dchannel(void *vpri)
 
 #ifdef SUPPORT_USERUSER
 						if (pri->pvts[chanpos]->owner && !ast_strlen_zero(e->hangup.useruserinfo)) {
+							struct ast_channel *owner = pri->pvts[chanpos]->owner;
+							ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->hangup.useruserinfo);
+							ast_mutex_lock(&pri->pvts[chanpos]->lock);
 						}
 #endif
 
@@ -9207,7 +9248,10 @@ static void *pri_dchannel(void *vpri)
 
 #ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->hangup.useruserinfo)) {
+							struct ast_channel *owner = pri->pvts[chanpos]->owner;
+							ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->hangup.useruserinfo);
+							ast_mutex_lock(&pri->pvts[chanpos]->lock);
 						}
 #endif
 
@@ -9235,7 +9279,10 @@ static void *pri_dchannel(void *vpri)
 
 #ifdef SUPPORT_USERUSER
 						if (!ast_strlen_zero(e->hangup.useruserinfo)) {
+							struct ast_channel *owner = pri->pvts[chanpos]->owner;
+							ast_mutex_unlock(&pri->pvts[chanpos]->lock);
 							pbx_builtin_setvar_helper(pri->pvts[chanpos]->owner, "USERUSERINFO", e->hangup.useruserinfo);
+							ast_mutex_lock(&pri->pvts[chanpos]->lock);
 						}
 #endif
 

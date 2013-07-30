@@ -35,7 +35,6 @@
 
 #include "menuselect.h"
 
-#define MENU_TITLEBAR	"*************************************"
 #define MENU_HELP	"Press 'h' for help."
 
 #define TITLE_HEIGHT	7
@@ -422,13 +421,17 @@ static int run_category_menu(WINDOW *menu, int cat_num)
 
 static void draw_title_window(WINDOW *title)
 {
+	char titlebar[strlen(menu_name) + 9];
+
+	memset(titlebar, '*', sizeof(titlebar) - 1);
+	titlebar[sizeof(titlebar) - 1] = '\0';
 	wclear(title);
-	wmove(title, 1, (max_x / 2) - (strlen(MENU_TITLEBAR) / 2));
-	waddstr(title, MENU_TITLEBAR);
+	wmove(title, 1, (max_x / 2) - (strlen(titlebar) / 2));
+	waddstr(title, titlebar);
 	wmove(title, 2, (max_x / 2) - (strlen(menu_name) / 2));
 	waddstr(title, menu_name);
-	wmove(title, 3, (max_x / 2) - (strlen(MENU_TITLEBAR) / 2));
-	waddstr(title, MENU_TITLEBAR);
+	wmove(title, 3, (max_x / 2) - (strlen(titlebar) / 2));
+	waddstr(title, titlebar);
 	wmove(title, 5, (max_x / 2) - (strlen(MENU_HELP) / 2));
 	waddstr(title, MENU_HELP);
 	wrefresh(title);

@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 90059 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 92809 $")
 
 #include <sys/types.h>
 #include <string.h>
@@ -269,13 +269,13 @@ static struct pbx_builtin {
 	{ "BackGround", pbx_builtin_background,
 	"Play an audio file while waiting for digits of an extension to go to.",
 	"  Background(filename1[&filename2...][|options[|langoverride][|context]]):\n"
-	"This application will play the given list of files while waiting for an\n"
-	"extension to be dialed by the calling channel. To continue waiting for digits\n"
-	"after this application has finished playing files, the WaitExten application\n"
-	"should be used. The 'langoverride' option explicitly specifies which language\n"
-	"to attempt to use for the requested sound files. If a 'context' is specified,\n"
-	"this is the dialplan context that this application will use when exiting to a\n"
-	"dialed extension."
+	"This application will play the given list of files (do not put extension)\n"
+	"while waiting for an extension to be dialed by the calling channel. To\n"
+	"continue waiting for digits after this application has finished playing\n"
+	"files, the WaitExten application should be used. The 'langoverride' option\n"
+	"explicitly specifies which language to attempt to use for the requested sound\n"
+	"files. If a 'context' is specified, this is the dialplan context that this\n"
+	"application will use when exiting to a dialed extension."
 	"  If one of the requested sound files does not exist, call processing will be\n"
 	"terminated.\n"
 	"  Options:\n"
@@ -1031,7 +1031,15 @@ static struct ast_exten *pbx_find_extension(struct ast_channel *chan,
 		else /* action == E_MATCH */
 			aswf = asw->exists;
 		datap = sw->eval ? sw->tmpdata : sw->data;
-		res = !aswf ? 0 : aswf(chan, context, exten, priority, callerid, datap);
+		if (!aswf)
+			res = 0;
+		else {
+			if (chan)
+				ast_autoservice_start(chan);
+			res = aswf(chan, context, exten, priority, callerid, datap);
+			if (chan)
+				ast_autoservice_stop(chan);
+		}
 		if (res) {	/* Got a match */
 			q->swo = asw;
 			q->data = datap;
@@ -1792,30 +1800,21 @@ static int pbx_extension_helper(struct ast_channel *c, struct ast_context *con,
 
 	int matching_action = (action == E_MATCH || action == E_CANMATCH || action == E_MATCHMORE);
 
-	if (c)
-		ast_autoservice_start(c);
-
 	ast_mutex_lock(&conlock);
 	e = pbx_find_extension(c, con, &q, context, exten, priority, label, callerid, action);
 	if (e) {
 		if (matching_action) {
 			ast_mutex_unlock(&conlock);
-			if (c)
-				ast_autoservice_stop(c);
 			return -1;	/* success, we found it */
 		} else if (action == E_FINDLABEL) { /* map the label to a priority */
 			res = e->priority;
 			ast_mutex_unlock(&conlock);
-			if (c)
-				ast_autoservice_stop(c);
 			return res;	/* the priority we were looking for */
 		} else {	/* spawn */
 			app = pbx_findapp(e->app);
 			ast_mutex_unlock(&conlock);
 			if (!app) {
 				ast_log(LOG_WARNING, "No application '%s' for extension (%s, %s, %d)\n", e->app, context, exten, priority);
-				if (c)
-					ast_autoservice_stop(c);
 				return -1;
 			}
 			if (c->context != context)
@@ -1845,23 +1844,17 @@ static int pbx_extension_helper(struct ast_channel *c, struct ast_context *con,
 					"AppData: %s\r\n"
 					"Uniqueid: %s\r\n",
 					c->name, c->context, c->exten, c->priority, app->name, passdata, c->uniqueid);
-			if (c)
-				ast_autoservice_stop(c);
 			return pbx_exec(c, app, passdata);	/* 0 on success, -1 on failure */
 		}
 	} else if (q.swo) {	/* not found here, but in another switch */
 		ast_mutex_unlock(&conlock);
 		if (matching_action) {
-			if (c)
-				ast_autoservice_stop(c);
 			return -1;
 		} else {
 			if (!q.swo->exec) {
 				ast_log(LOG_WARNING, "No execution engine for switch %s\n", q.swo->name);
 				res = -1;
 			}
-			if (c)
-				ast_autoservice_stop(c);
 			return q.swo->exec(c, q.foundcontext ? q.foundcontext : context, exten, priority, callerid, q.data);
 		}
 	} else {	/* not found anywhere, see what happened */
@@ -1887,9 +1880,6 @@ static int pbx_extension_helper(struct ast_channel *c, struct ast_context *con,
 			if (option_debug)
 				ast_log(LOG_DEBUG, "Shouldn't happen!\n");
 		}
-
-		if (c)
-			ast_autoservice_stop(c);
 
 		return (matching_action) ? 0 : -1;
 	}

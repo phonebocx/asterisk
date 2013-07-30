@@ -2,11 +2,7 @@
 
 AC_PREREQ(2.60)
 
-m4_define([PBX_VERSION],
-          m4_bpatsubst(m4_esyscmd([build_tools/make_version .]),
-                       [\([0-9.]*\)\(\w\|\W\)*],
-                       [\1]))
-AC_INIT(asterisk, PBX_VERSION, www.asterisk.org)
+AC_INIT(asterisk, 1.4, www.asterisk.org)
 
 # cross-compile macros
 AC_CANONICAL_BUILD
@@ -19,7 +15,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_HEADER(include/asterisk/autoconfig.h)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 82385 $)
+AC_REVISION($Revision: 94077 $)
 
 AC_GNU_SOURCE
 AC_USE_SYSTEM_EXTENSIONS	# note- does not work on FreeBSD
@@ -136,6 +132,7 @@ if test "x$with_gnu_ld" = "xyes" ; then
 fi
 AC_SUBST(GNU_LD)
 
+AC_PATH_PROG([AWK], [awk], :)
 AC_PATH_PROG([GREP], [grep], :)
 AC_PATH_PROG([FIND], [find], :)
 AC_PATH_PROG([COMPRESS], [compress], :)
@@ -153,6 +150,11 @@ else
   DOWNLOAD=${FETCH}
 fi
 AC_SUBST(DOWNLOAD)
+
+AC_CHECK_TOOL([SOXMIX], [soxmix], [:])
+if test "${SOXMIX}" != ":" ; then
+	AC_DEFINE([HAVE_SOXMIX], 1, [Define to 1 if your system has soxmix application.])
+fi
 
 ACX_PTHREAD
 
@@ -316,6 +318,7 @@ AST_GCC_ATTRIBUTE(malloc)
 AST_GCC_ATTRIBUTE(const)
 AST_GCC_ATTRIBUTE(unused)
 AST_GCC_ATTRIBUTE(always_inline)
+AST_GCC_ATTRIBUTE(deprecated)
 
 AC_MSG_CHECKING(for -ffunction-sections support)
 saved_CFLAGS="${CFLAGS}"
@@ -788,10 +791,10 @@ if test "${PG_CONFIG}" != No; then
          exit 1
 	  fi
    else 
-      AC_CHECK_LIB([pq], [PQexec], AC_DEFINE_UNQUOTED([HAVE_PGSQL], 1,
+      AC_CHECK_LIB([pq], [PQescapeStringConn], AC_DEFINE_UNQUOTED([HAVE_PGSQL], 1,
       [Define to indicate the PostgreSQL library]), [], -L${PGSQL_libdir} -lz)
 
-      if test "${ac_cv_lib_pq_PQexec}" = "yes"; then
+      if test "${ac_cv_lib_pq_PQescapeStringConn}" = "yes"; then
          PGSQL_LIB="-L${PGSQL_libdir} -lpq -lz"
          PGSQL_INCLUDE="-I${PGSQL_includedir}"
          PBX_PGSQL=1

@@ -24,7 +24,7 @@ LIBS:= mxml/libmxml.a
 # pick gtk library if available
 ifneq ($(GTK2_LIB),)
   G_OBJS += menuselect_gtk.o
-  G_CFLAGS += $(GTK2_INCLUDE)
+  INCLUDE += $(GTK2_INCLUDE)
   G_LIBS += $(GTK2_LIB)
 else
   G_OBJS += menuselect_stub.o
@@ -45,6 +45,7 @@ else
   endif
 endif
 
+CFLAGS+= $(INCLUDE)
 all:
 	@$(MAKE) menuselect
 

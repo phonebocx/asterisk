@@ -56,9 +56,13 @@
  * \ingroup applications
  */
 
+/*** MODULEINFO
+        <depend>res_monitor</depend>
+ ***/
+
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 90163 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 93182 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -93,6 +97,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 90163 $")
 #include "asterisk/devicestate.h"
 #include "asterisk/stringfields.h"
 #include "asterisk/astobj2.h"
+#include "asterisk/global_datastores.h"
 
 enum {
 	QUEUE_STRATEGY_RINGALL = 0,
@@ -307,6 +312,7 @@ struct queue_ent {
 	time_t last_pos;                    /*!< Last time we told the user their position */
 	int opos;                           /*!< Where we started in the queue */
 	int handled;                        /*!< Whether our call was handled */
+	int pending;                        /*!< Non-zero if we are attempting to call a member */
 	int max_penalty;                    /*!< Limit the members that can take this call to this penalty or lower */
 	time_t start;                       /*!< When we started holding */
 	time_t expire;                      /*!< When this entry should expire (time out of queue) */
@@ -1069,6 +1075,8 @@ static void rt_handle_member_record(struct call_queue *q, char *interface, const
 			m->realtime = 1;
 			add_to_interfaces(interface);
 			ao2_link(q->members, m);
+			ao2_ref(m, -1);
+			m = NULL;
 			q->membercount++;
 		}
 	} else {
@@ -2036,7 +2044,6 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 	char *queue = qe->parent->name;
 	struct callattempt *o;
 	int status;
-	int sentringing = 0;
 	int numbusies = prebusies;
 	int numnochan = 0;
 	int stillgoing = 0;
@@ -2131,6 +2138,7 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 						numnochan++;
 					} else {
 						ast_channel_inherit_variables(in, o->chan);
+						ast_channel_datastore_inherit(in, o->chan);
 						if (o->chan->cid.cid_num)
 							free(o->chan->cid.cid_num);
 						o->chan->cid.cid_num = ast_strdup(in->cid.cid_num);
@@ -2207,12 +2215,6 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 						case AST_CONTROL_RINGING:
 							if (option_verbose > 2)
 								ast_verbose( VERBOSE_PREFIX_3 "%s is ringing\n", o->chan->name);
-							if (!sentringing) {
-#if 0
-								ast_indicate(in, AST_CONTROL_RINGING);
-#endif								
-								sentringing++;
-							}
 							break;
 						case AST_CONTROL_OFFHOOK:
 							/* Ignore going off hook */
@@ -2316,7 +2318,7 @@ static int is_our_turn(struct queue_ent *qe)
 		if (option_debug)
 			ast_log(LOG_DEBUG, "There are %d available members.\n", avl);
 	
-		while ((idx < avl) && (ch) && (ch != qe)) {
+		while ((idx < avl) && (ch) &&  !ch->pending && (ch != qe)) {
 			idx++;
 			ch = ch->next;			
 		}
@@ -2498,6 +2500,11 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 	int forwardsallowed = 1;
 	int callcompletedinsl;
 	struct ao2_iterator memi;
+	struct ast_datastore *datastore;
+
+	ast_channel_lock(qe->chan);
+	datastore = ast_channel_datastore_find(qe->chan, &dialed_interface_info, NULL);
+	ast_channel_unlock(qe->chan);
 
 	memset(&bridge_config, 0, sizeof(bridge_config));
 	time(&now);
@@ -2553,7 +2560,8 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 	memi = ao2_iterator_init(qe->parent->members, 0);
 	while ((cur = ao2_iterator_next(&memi))) {
 		struct callattempt *tmp = ast_calloc(1, sizeof(*tmp));
-
+		struct ast_dialed_interface *di;
+		AST_LIST_HEAD(, ast_dialed_interface) *dialed_interfaces;
 		if (!tmp) {
 			ao2_ref(cur, -1);
 			ast_mutex_unlock(&qe->parent->lock);
@@ -2561,6 +2569,68 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 				AST_LIST_UNLOCK(&queues);
 			goto out;
 		}
+		if (!datastore) {
+			if (!(datastore = ast_channel_datastore_alloc(&dialed_interface_info, NULL))) {
+				ao2_ref(cur, -1);
+				ast_mutex_unlock(&qe->parent->lock);
+				if (use_weight)
+					AST_LIST_UNLOCK(&queues);
+				free(tmp);
+				goto out;
+			}
+			datastore->inheritance = DATASTORE_INHERIT_FOREVER;
+			if (!(dialed_interfaces = ast_calloc(1, sizeof(*dialed_interfaces)))) {
+				ao2_ref(cur, -1);
+				ast_mutex_unlock(&qe->parent->lock);
+				if (use_weight)
+					AST_LIST_UNLOCK(&queues);
+				free(tmp);
+				goto out;
+			}
+			datastore->data = dialed_interfaces;
+			AST_LIST_HEAD_INIT(dialed_interfaces);
+
+			ast_channel_lock(qe->chan);
+			ast_channel_datastore_add(qe->chan, datastore);
+			ast_channel_unlock(qe->chan);
+		} else
+			dialed_interfaces = datastore->data;
+
+		AST_LIST_LOCK(dialed_interfaces);
+		AST_LIST_TRAVERSE(dialed_interfaces, di, list) {
+			if (!strcasecmp(cur->interface, di->interface)) {
+				ast_log(LOG_DEBUG, "Skipping dialing interface '%s' since it has already been dialed\n", 
+					di->interface);
+				break;
+			}
+		}
+		AST_LIST_UNLOCK(dialed_interfaces);
+		
+		if (di) {
+			free(tmp);
+			continue;
+		}
+
+		/* It is always ok to dial a Local interface.  We only keep track of
+		 * which "real" interfaces have been dialed.  The Local channel will
+		 * inherit this list so that if it ends up dialing a real interface,
+		 * it won't call one that has already been called. */
+		if (strncasecmp(cur->interface, "Local/", 6)) {
+			if (!(di = ast_calloc(1, sizeof(*di) + strlen(cur->interface)))) {
+				ao2_ref(cur, -1);
+				ast_mutex_unlock(&qe->parent->lock);
+				if (use_weight)
+					AST_LIST_UNLOCK(&queues);
+				free(tmp);
+				goto out;
+			}
+			strcpy(di->interface, cur->interface);
+
+			AST_LIST_LOCK(dialed_interfaces);
+			AST_LIST_INSERT_TAIL(dialed_interfaces, di, list);
+			AST_LIST_UNLOCK(dialed_interfaces);
+		}
+
 		tmp->stillgoing = -1;
 		tmp->member = cur;
 		tmp->oldstatus = cur->status;
@@ -2586,11 +2656,16 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 		to = (qe->expire - now) * 1000;
 	else
 		to = (qe->parent->timeout) ? qe->parent->timeout * 1000 : -1;
+	++qe->pending;
 	ring_one(qe, outgoing, &numbusies);
 	ast_mutex_unlock(&qe->parent->lock);
 	if (use_weight)
 		AST_LIST_UNLOCK(&queues);
 	lpeer = wait_for_answer(qe, outgoing, &to, &digit, numbusies, ast_test_flag(&(bridge_config.features_caller), AST_FEATURE_DISCONNECT), forwardsallowed);
+	if (datastore) {
+		ast_channel_datastore_remove(qe->chan, datastore);
+		ast_channel_datastore_free(datastore);
+	}
 	ast_mutex_lock(&qe->parent->lock);
 	if (qe->parent->strategy == QUEUE_STRATEGY_RRMEMORY) {
 		store_next(qe, outgoing);
@@ -2598,6 +2673,7 @@ static int try_calling(struct queue_ent *qe, const char *options, char *announce
 	ast_mutex_unlock(&qe->parent->lock);
 	peer = lpeer ? lpeer->chan : NULL;
 	if (!peer) {
+		qe->pending = 0;
 		if (to) {
 			/* Must gotten hung up */
 			res = -1;
@@ -3052,6 +3128,9 @@ static int add_to_queue(const char *queuename, const char *interface, const char
 				new_member->penalty, new_member->calls, (int) new_member->lastcall,
 				new_member->status, new_member->paused);
 			
+			ao2_ref(new_member, -1);
+			new_member = NULL;
+
 			if (dump)
 				dump_queue_members(q);
 			
@@ -4021,6 +4100,8 @@ static int reload_queues(void)
 
 						newm = create_queue_member(interface, membername, penalty, cur ? cur->paused : 0);
 						ao2_link(q->members, newm);
+						ao2_ref(newm, -1);
+						newm = NULL;
 
 						if (cur)
 							ao2_ref(cur, -1);

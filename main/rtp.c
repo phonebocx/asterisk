@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89630 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 92204 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1341,6 +1341,7 @@ static struct {
 	{{1, AST_FORMAT_SLINEAR}, "audio", "L16"},
 	{{1, AST_FORMAT_LPC10}, "audio", "LPC"},
 	{{1, AST_FORMAT_G729A}, "audio", "G729"},
+	{{1, AST_FORMAT_G729A}, "audio", "G729A"},
 	{{1, AST_FORMAT_SPEEX}, "audio", "speex"},
 	{{1, AST_FORMAT_ILBC}, "audio", "iLBC"},
 	{{1, AST_FORMAT_G722}, "audio", "G722"},
@@ -2078,20 +2079,34 @@ char *ast_rtp_get_quality(struct ast_rtp *rtp, struct ast_rtp_quality *qual)
 	*rtt           round trip time
 	*/
 
-	if (qual) {
+	if (qual && rtp) {
 		qual->local_ssrc = rtp->ssrc;
-		qual->local_lostpackets = rtp->rtcp->expected_prior - rtp->rtcp->received_prior;
 		qual->local_jitter = rtp->rxjitter;
 		qual->local_count = rtp->rxcount;
 		qual->remote_ssrc = rtp->themssrc;
-		qual->remote_lostpackets = rtp->rtcp->reported_lost;
-		qual->remote_jitter = rtp->rtcp->reported_jitter / 65536.0;
 		qual->remote_count = rtp->txcount;
-		qual->rtt = rtp->rtcp->rtt;
+		if (rtp->rtcp) {
+			qual->local_lostpackets = rtp->rtcp->expected_prior - rtp->rtcp->received_prior;
+			qual->remote_lostpackets = rtp->rtcp->reported_lost;
+			qual->remote_jitter = rtp->rtcp->reported_jitter / 65536.0;
+			qual->rtt = rtp->rtcp->rtt;
+		}
 	}
-	snprintf(rtp->rtcp->quality, sizeof(rtp->rtcp->quality), "ssrc=%u;themssrc=%u;lp=%u;rxjitter=%f;rxcount=%u;txjitter=%f;txcount=%u;rlp=%u;rtt=%f", rtp->ssrc, rtp->themssrc, rtp->rtcp->expected_prior - rtp->rtcp->received_prior, rtp->rxjitter, rtp->rxcount, (double)rtp->rtcp->reported_jitter/65536., rtp->txcount, rtp->rtcp->reported_lost, rtp->rtcp->rtt);
-	
-	return rtp->rtcp->quality;
+	if (rtp->rtcp) {
+		snprintf(rtp->rtcp->quality, sizeof(rtp->rtcp->quality),
+			"ssrc=%u;themssrc=%u;lp=%u;rxjitter=%f;rxcount=%u;txjitter=%f;txcount=%u;rlp=%u;rtt=%f",
+			rtp->ssrc,
+			rtp->themssrc,
+			rtp->rtcp->expected_prior - rtp->rtcp->received_prior,
+			rtp->rxjitter,
+			rtp->rxcount,
+			(double)rtp->rtcp->reported_jitter / 65536.0,
+			rtp->txcount,
+			rtp->rtcp->reported_lost,
+			rtp->rtcp->rtt);
+		return rtp->rtcp->quality;
+	} else
+		return "<Unknown> - RTP/RTCP has already been destroyed";
 }
 
 void ast_rtp_destroy(struct ast_rtp *rtp)
@@ -2748,7 +2763,7 @@ int ast_rtp_write(struct ast_rtp *rtp, struct ast_frame *_f)
 		rtp->smoother = NULL;
 	}
 
-	if (!rtp->smoother && subclass != AST_FORMAT_SPEEX) {
+	if (!rtp->smoother && subclass != AST_FORMAT_SPEEX && subclass != AST_FORMAT_G723_1) {
 		struct ast_format_list fmt = ast_codec_pref_getsize(&rtp->pref, subclass);
 		if (fmt.inc_ms) { /* if codec parameters is set / avoid division by zero */
 			if (!(rtp->smoother = ast_smoother_new((fmt.cur_ms * fmt.fr_len) / fmt.inc_ms))) {

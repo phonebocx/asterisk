@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89599 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 92556 $")
 
 #include <pthread.h>
 #include <stdlib.h>
@@ -420,7 +420,7 @@ static int park_call_full(struct ast_channel *chan, struct ast_channel *peer, in
 	if (!con)	/* Still no context? Bad */
 		ast_log(LOG_ERROR, "Parking context '%s' does not exist and unable to create\n", parking_con);
 	/* Tell the peer channel the number of the parking space */
-	if ((peer && pu->parkingnum != -1 && ast_strlen_zero(orig_chan_name)) || (strlen(orig_chan_name) == strlen(peer->name) && !strncasecmp(peer->name, orig_chan_name, strlen(peer->name)))) { /* Only say number if it's a number and the channel hasn't been masqueraded away */
+	if (peer && ((pu->parkingnum != -1 && ast_strlen_zero(orig_chan_name)) || (strlen(orig_chan_name) == strlen(peer->name) && !strncasecmp(peer->name, orig_chan_name, strlen(peer->name))))) { /* Only say number if it's a number and the channel hasn't been masqueraded away */
 		/* Make sure we don't start saying digits to the channel being parked */
 		ast_set_flag(peer, AST_FLAG_MASQ_NOSTREAM);
 		ast_say_digits(peer, pu->parkingnum, "", peer->language);
@@ -1059,15 +1059,18 @@ static int ast_feature_interpret(struct ast_channel *chan, struct ast_channel *p
 	struct ast_flags features;
 	int res = FEATURE_RETURN_PASSDIGITS;
 	struct ast_call_feature *feature;
-	const char *dynamic_features=pbx_builtin_getvar_helper(chan,"DYNAMIC_FEATURES");
+	const char *dynamic_features;
 	char *tmp, *tok;
 
-	if (sense == FEATURE_SENSE_CHAN)
+	if (sense == FEATURE_SENSE_CHAN) {
 		ast_copy_flags(&features, &(config->features_caller), AST_FLAGS_ALL);	
-	else
+		dynamic_features = pbx_builtin_getvar_helper(chan, "DYNAMIC_FEATURES");
+	} else {
 		ast_copy_flags(&features, &(config->features_callee), AST_FLAGS_ALL);	
+		dynamic_features = pbx_builtin_getvar_helper(peer, "DYNAMIC_FEATURES");
+	}
 	if (option_debug > 2)
-		ast_log(LOG_DEBUG, "Feature interpret: chan=%s, peer=%s, sense=%d, features=%d\n", chan->name, peer->name, sense, features.flags);
+		ast_log(LOG_DEBUG, "Feature interpret: chan=%s, peer=%s, sense=%d, features=%d dynamic=%s\n", chan->name, peer->name, sense, features.flags, dynamic_features);
 
 	ast_rwlock_rdlock(&features_lock);
 	for (x = 0; x < FEATURES_COUNT; x++) {

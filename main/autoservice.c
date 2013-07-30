@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89886 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 91777 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -66,10 +66,24 @@ static AST_LIST_HEAD_STATIC(aslist, asent);
 
 static pthread_t asthread = AST_PTHREADT_NULL;
 
+static void defer_frame(struct ast_channel *chan, struct ast_frame *f)
+{
+	struct ast_frame *dup_f;
+	struct asent *as;
+
+	AST_LIST_LOCK(&aslist);
+	AST_LIST_TRAVERSE(&aslist, as, list) {
+		if (as->chan != chan)
+			continue;
+		if ((dup_f = ast_frdup(f)))
+			AST_LIST_INSERT_TAIL(&as->dtmf_frames, dup_f, frame_list);
+	}
+	AST_LIST_UNLOCK(&aslist);
+}
+
 static void *autoservice_run(void *ign)
 {
-
-	for(;;) {
+	for (;;) {
 		struct ast_channel *mons[MAX_AUTOMONS];
 		struct ast_channel *chan;
 		struct asent *as;
@@ -90,8 +104,21 @@ static void *autoservice_run(void *ign)
 		if (chan) {
 			struct ast_frame *f = ast_read(chan);
 	
-			if (!f)
+			if (!f) {
+				struct ast_frame hangup_frame = { 0, };
+				/* No frame means the channel has been hung up.
+				 * A hangup frame needs to be queued here as ast_waitfor() may
+				 * never return again for the condition to be detected outside
+				 * of autoservice.  So, we'll leave a HANGUP queued up so the
+				 * thread in charge of this channel will know. */
+
+				hangup_frame.frametype = AST_FRAME_CONTROL;
+				hangup_frame.subclass = AST_CONTROL_HANGUP;
+
+				defer_frame(chan, &hangup_frame);
+
 				continue;
+			}
 			
 			/* Do not add a default entry in this switch statement.  Each new
 			 * frame type should be addressed directly as to whether it should
@@ -104,18 +131,8 @@ static void *autoservice_run(void *ign)
 			case AST_FRAME_TEXT:
 			case AST_FRAME_IMAGE:
 			case AST_FRAME_HTML:
-			{
-				struct ast_frame *dup_f;
-
-				AST_LIST_LOCK(&aslist);
-				AST_LIST_TRAVERSE(&aslist, as, list) {
-					if (as->chan != chan)
-						continue;
-					if ((dup_f = ast_frdup(f)))
-						AST_LIST_INSERT_TAIL(&as->dtmf_frames, dup_f, frame_list);
-				}
-				AST_LIST_UNLOCK(&aslist);
-			}
+				defer_frame(chan, f);
+				break;
 
 			/* Throw these frames away */
 			case AST_FRAME_VOICE:
@@ -137,7 +154,7 @@ static void *autoservice_run(void *ign)
 
 int ast_autoservice_start(struct ast_channel *chan)
 {
-	int res = -1;
+	int res = 0;
 	struct asent *as;
 
 	AST_LIST_LOCK(&aslist);
@@ -151,11 +168,16 @@ int ast_autoservice_start(struct ast_channel *chan)
 	}
 
 	/* If not, start autoservice on channel */
-	if (!as && (as = ast_calloc(1, sizeof(*as)))) {
+	if (as) {
+		/* Entry extist, autoservice is already handling this channel */
+	} else if ((as = ast_calloc(1, sizeof(*as))) == NULL) {
+		/* Memory allocation failed */
+		res = -1;
+	} else {
+		/* New entry created */
 		as->chan = chan;
 		as->use_count = 1;
 		AST_LIST_INSERT_HEAD(&aslist, as, list);
-		res = 0;
 		if (asthread == AST_PTHREADT_NULL) { /* need start the thread */
 			if (ast_pthread_create_background(&asthread, NULL, autoservice_run, NULL)) {
 				ast_log(LOG_WARNING, "Unable to create autoservice thread :(\n");
@@ -180,7 +202,7 @@ int ast_autoservice_stop(struct ast_channel *chan)
 	struct asent *as;
 	AST_LIST_HEAD_NOLOCK(, ast_frame) dtmf_frames;
 	struct ast_frame *f;
-	int removed = 1;
+	int removed = 0;
 
 	AST_LIST_HEAD_INIT_NOLOCK(&dtmf_frames);
 
@@ -188,13 +210,12 @@ int ast_autoservice_stop(struct ast_channel *chan)
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&aslist, as, list) {	
 		if (as->chan == chan) {
 			as->use_count--;
-			if (as->use_count) {
-				removed = 0;
+			if (as->use_count)
 				break;
-			}
 			AST_LIST_REMOVE_CURRENT(&aslist, list);
 			AST_LIST_APPEND_LIST(&dtmf_frames, &as->dtmf_frames, frame_list);
 			free(as);
+			removed = 1;
 			if (!chan->_softhangup)
 				res = 0;
 			break;

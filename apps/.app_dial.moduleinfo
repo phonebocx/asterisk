@@ -1,0 +1,2 @@
+<member name="app_dial" displayname="Dialing Application" remove_on_change="apps/app_dial.o apps/app_dial.so">
+</member>

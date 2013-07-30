@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 90160 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 90736 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -720,7 +720,9 @@ static int parse_config(void)
 		dbport = atoi(s);
 	}
 
-	if (!ast_strlen_zero(dbhost) && !(s = ast_variable_retrieve(config, "general", "dbsock"))) {
+	if (!ast_strlen_zero(dbhost)) {
+		/* No socket needed */
+	} else if (!(s = ast_variable_retrieve(config, "general", "dbsock"))) {
 		ast_log(LOG_WARNING,
 				"Postgresql RealTime: No database socket found, using '/tmp/pgsql.sock' as default.\n");
 		strcpy(dbsock, "/tmp/pgsql.sock");
