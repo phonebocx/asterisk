@@ -25,7 +25,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59087 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61961 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -624,7 +624,7 @@ static int do_pause_or_unpause(struct mansession *s, const struct message *m, in
 		ast_monitor_unpause(c);
 	
 	ast_channel_unlock(c);
-	astman_send_ack(s, m, "Paused monitoring of the channel");
+	astman_send_ack(s, m, (action == MONITOR_ACTION_PAUSE ? "Paused monitoring of the channel" : "Unpaused monitoring of the channel"));
 	return 0;	
 }
 

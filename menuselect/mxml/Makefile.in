@@ -224,7 +224,6 @@ Makefile:	Makefile.in
 
 
 config.h:	configure config.h.in
-	autoconf
 	if test -f config.status; then \
 		./config.status --recheck; \
 		./config.status; \

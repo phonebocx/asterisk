@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61690 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61959 $")
 
 #include <stdio.h>
 #include <unistd.h>
@@ -1269,6 +1269,8 @@ struct ast_config *ast_config_internal_load(const char *filename, struct ast_con
 
 	if (result)
 		result->include_level--;
+	else
+		cfg->include_level--;
 
 	return result;
 }
