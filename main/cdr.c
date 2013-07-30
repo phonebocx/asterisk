@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61658 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
 
 #include <unistd.h>
 #include <stdlib.h>
@@ -208,7 +208,8 @@ static void cdr_get_tv(struct timeval tv, const char *fmt, char *buf, int bufsiz
 		time_t t = tv.tv_sec;
 		if (t) {
 			struct tm tm;
-			localtime_r(&t, &tm);
+
+			ast_localtime(&t, &tm, NULL);
 			strftime(buf, bufsize, fmt, &tm);
 		}
 	}
@@ -421,15 +422,6 @@ static void check_post(struct ast_cdr *cdr)
 		ast_log(LOG_NOTICE, "CDR on channel '%s' already posted\n", S_OR(cdr->channel, "<unknown>"));
 }
 
-/*! \brief  print a warning if cdr already started */
-static void check_start(struct ast_cdr *cdr)
-{
-	if (!cdr)
-		return;
-	if (!ast_tvzero(cdr->start))
-		ast_log(LOG_NOTICE, "CDR on channel '%s' already started\n", S_OR(cdr->channel, "<unknown>"));
-}
-
 void ast_cdr_free(struct ast_cdr *cdr)
 {
 
@@ -629,7 +621,6 @@ void ast_cdr_start(struct ast_cdr *cdr)
 		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
 			chan = S_OR(cdr->channel, "<unknown>");
 			check_post(cdr);
-			check_start(cdr);
 			cdr->start = ast_tvnow();
 		}
 	}
@@ -667,6 +658,22 @@ void ast_cdr_failed(struct ast_cdr *cdr)
 			if (cdr->disposition < AST_CDR_FAILED)
 				cdr->disposition = AST_CDR_FAILED;
 		}
+	}
+}
+
+void ast_cdr_noanswer(struct ast_cdr *cdr)
+{
+	char *chan; 
+
+	while (cdr) {
+		chan = !ast_strlen_zero(cdr->channel) ? cdr->channel : "<unknown>";
+		if (ast_test_flag(cdr, AST_CDR_FLAG_POSTED))
+			ast_log(LOG_WARNING, "CDR on channel '%s' already posted\n", chan);
+		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED)) {
+			if (cdr->disposition < AST_CDR_NOANSWER)
+				cdr->disposition = AST_CDR_NOANSWER;
+		}
+		cdr = cdr->next;
 	}
 }
 
@@ -743,7 +750,7 @@ static void set_one_cid(struct ast_cdr *cdr, struct ast_channel *c)
 int ast_cdr_setcid(struct ast_cdr *cdr, struct ast_channel *c)
 {
 	for (; cdr; cdr = cdr->next) {
-		if (ast_test_flag(cdr, AST_CDR_FLAG_LOCKED))
+		if (!ast_test_flag(cdr, AST_CDR_FLAG_LOCKED))
 			set_one_cid(cdr, c);
 	}
 	return 0;
@@ -761,7 +768,7 @@ int ast_cdr_init(struct ast_cdr *cdr, struct ast_channel *c)
 			ast_copy_string(cdr->channel, c->name, sizeof(cdr->channel));
 			set_one_cid(cdr, c);
 
-			cdr->disposition = (c->_state == AST_STATE_UP) ?  AST_CDR_ANSWERED : AST_CDR_NOANSWER;
+			cdr->disposition = (c->_state == AST_STATE_UP) ?  AST_CDR_ANSWERED : AST_CDR_NULL;
 			cdr->amaflags = c->amaflags ? c->amaflags :  ast_default_amaflags;
 			ast_copy_string(cdr->accountcode, c->accountcode, sizeof(cdr->accountcode));
 			/* Destination information */
@@ -792,6 +799,8 @@ void ast_cdr_end(struct ast_cdr *cdr)
 char *ast_cdr_disp2str(int disposition)
 {
 	switch (disposition) {
+	case AST_CDR_NULL:
+		return "NO ANSWER"; /* by default, for backward compatibility */
 	case AST_CDR_NOANSWER:
 		return "NO ANSWER";
 	case AST_CDR_FAILED:
@@ -879,9 +888,11 @@ int ast_cdr_update(struct ast_channel *c)
 
 			/* Copy account code et-al */	
 			ast_copy_string(cdr->accountcode, c->accountcode, sizeof(cdr->accountcode));
-			/* Destination information */ /* XXX privilege macro* ? */
-			ast_copy_string(cdr->dst, S_OR(c->macroexten, c->exten), sizeof(cdr->dst));
-			ast_copy_string(cdr->dcontext, S_OR(c->macrocontext, c->context), sizeof(cdr->dcontext));
+			if (!ast_check_hangup(c)) {
+				/* Destination information */ /* XXX privilege macro* ? */
+				ast_copy_string(cdr->dst, S_OR(c->macroexten, c->exten), sizeof(cdr->dst));
+				ast_copy_string(cdr->dcontext, S_OR(c->macrocontext, c->context), sizeof(cdr->dcontext));
+			}
 		}
 	}
 
@@ -956,7 +967,7 @@ void ast_cdr_reset(struct ast_cdr *cdr, struct ast_flags *_flags)
 			cdr->billsec = 0;
 			cdr->duration = 0;
 			ast_cdr_start(cdr);
-			cdr->disposition = AST_CDR_NOANSWER;
+			cdr->disposition = AST_CDR_NULL;
 		}
 	}
 }

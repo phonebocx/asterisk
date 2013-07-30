@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59076 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69184 $")
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -448,7 +448,8 @@ void iax_showframe(struct iax_frame *f, struct ast_iax2_full_hdr *fhi, int rx, s
 		"TRANSFR",
 		"PROVISN",
 		"FWDWNLD",
-		"FWDATA "
+		"FWDATA ",
+		"TXMEDIA"
 	};
 	const char *cmds[] = {
 		"(0?)",

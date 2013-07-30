@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61805 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69128 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -806,12 +806,16 @@ int ast_app_group_set_channel(struct ast_channel *chan, const char *data)
 		len += strlen(category) + 1;
 	
 	AST_LIST_LOCK(&groups);
-	AST_LIST_TRAVERSE(&groups, gi, list) {
-		if (gi->chan == chan && !strcasecmp(gi->group, group) && (ast_strlen_zero(category) || (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, category))))
+	AST_LIST_TRAVERSE_SAFE_BEGIN(&groups, gi, list) {
+		if ((gi->chan == chan) && ((ast_strlen_zero(category) && ast_strlen_zero(gi->category)) || (!ast_strlen_zero(gi->category) && !strcasecmp(gi->category, category)))) {
+			AST_LIST_REMOVE_CURRENT(&groups, list);
+			free(gi);
 			break;
+		}
 	}
+	AST_LIST_TRAVERSE_SAFE_END
 	
-	if (!gi && (gi = calloc(1, len))) {
+	if ((gi = calloc(1, len))) {
 		gi->chan = chan;
 		gi->group = (char *) gi + sizeof(*gi);
 		strcpy(gi->group, group);
@@ -870,6 +874,20 @@ int ast_app_group_match_get_count(const char *groupmatch, const char *category)
 	regfree(&regexbuf);
 
 	return count;
+}
+
+int ast_app_group_update(struct ast_channel *old, struct ast_channel *new)
+{
+	struct ast_group_info *gi = NULL;
+
+	AST_LIST_LOCK(&groups);
+	AST_LIST_TRAVERSE(&groups, gi, list) {
+		if (gi->chan == old)
+			gi->chan = new;
+	}
+	AST_LIST_UNLOCK(&groups);
+
+	return 0;
 }
 
 int ast_app_group_discard(struct ast_channel *chan)

@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Rev: 43373 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Rev: 69392 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -145,7 +145,7 @@ static int build_radius_record(VALUE_PAIR **send, struct ast_cdr *cdr)
 	if (ast_test_flag(&global_flags, RADIUS_FLAG_USEGMTIME))
 		gmtime_r(&(cdr->start.tv_sec), &tm);
 	else
-		localtime_r(&(cdr->start.tv_sec), &tm);
+		ast_localtime(&(cdr->start.tv_sec), &tm, NULL);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
 	if (!rc_avpair_add(rh, send, PW_AST_START_TIME, timestr, strlen(timestr), VENDOR_CODE))
 		return -1;
@@ -154,7 +154,7 @@ static int build_radius_record(VALUE_PAIR **send, struct ast_cdr *cdr)
 	if (ast_test_flag(&global_flags, RADIUS_FLAG_USEGMTIME))
 		gmtime_r(&(cdr->answer.tv_sec), &tm);
 	else
-		localtime_r(&(cdr->answer.tv_sec), &tm);
+		ast_localtime(&(cdr->answer.tv_sec), &tm, NULL);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
 	if (!rc_avpair_add(rh, send, PW_AST_ANSWER_TIME, timestr, strlen(timestr), VENDOR_CODE))
 		return -1;
@@ -163,7 +163,7 @@ static int build_radius_record(VALUE_PAIR **send, struct ast_cdr *cdr)
 	if (ast_test_flag(&global_flags, RADIUS_FLAG_USEGMTIME))
 		gmtime_r(&(cdr->end.tv_sec), &tm);
 	else
-		localtime_r(&(cdr->end.tv_sec), &tm);
+		ast_localtime(&(cdr->end.tv_sec), &tm, NULL);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
 	if (!rc_avpair_add(rh, send, PW_AST_END_TIME, timestr, strlen(timestr), VENDOR_CODE))
 		return -1;
@@ -238,6 +238,7 @@ static int unload_module(void)
 static int load_module(void)
 {
 	struct ast_config *cfg;
+	int res;
 	const char *tmp;
 
 	if ((cfg = ast_config_load(cdr_config))) {
@@ -256,16 +257,17 @@ static int load_module(void)
 	/* read radiusclient-ng config file */
 	if (!(rh = rc_read_config(radiuscfg))) {
 		ast_log(LOG_NOTICE, "Cannot load radiusclient-ng configuration file %s.\n", radiuscfg);
-		return -1;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 
 	/* read radiusclient-ng dictionaries */
 	if (rc_read_dictionary(rh, rc_conf_str(rh, "dictionary"))) {
 		ast_log(LOG_NOTICE, "Cannot load radiusclient-ng dictionary file.\n");
-		return -1;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 	
-	return ast_cdr_register(name, desc, radius_log);
+	res = ast_cdr_register(name, desc, radius_log);
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "RADIUS CDR Backend");

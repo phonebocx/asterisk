@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 51683 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
 
 #include <time.h>
 #include <string.h>
@@ -660,6 +660,12 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 						default:
 							ast_log(LOG_NOTICE, "Unknown IE %d\n", cid->rawdata[x-1]);
 						}
+						if(0 > cid->rawdata[x]){	/* Negative offset in the CID Spill */
+							ast_log(LOG_NOTICE, "IE %d has bad field length of %d at offset %d\n", cid->rawdata[x-1], cid->rawdata[x], x);
+							/* Try again */
+							cid->sawflag = 0;
+							break; 	/* Exit the loop */
+						}
 						x += cid->rawdata[x];
 						x++;
 					}
@@ -714,7 +720,7 @@ static int callerid_genmsg(char *msg, int size, const char *number, const char *
 	int i,x;
 	/* Get the time */
 	time(&t);
-	localtime_r(&t,&tm);
+	ast_localtime(&t, &tm, NULL);
 	
 	ptr = msg;
 	

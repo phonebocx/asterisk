@@ -27,7 +27,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60936 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 68781 $")
 
 #include <string.h>
 #include <ctype.h>
@@ -98,7 +98,7 @@ static void retrieve_file(char *dir)
 	void *fdm = MAP_FAILED;
 	SQLHSTMT stmt;
 	char sql[256];
-	char fmt[80]="";
+	char fmt[80]="", empty[10] = "";
 	char *c;
 	SQLLEN colsize;
 	char full_fn[256];
@@ -149,7 +149,7 @@ static void retrieve_file(char *dir)
 				break;
 			}
 
-			res = SQLGetData(stmt, 1, SQL_BINARY, NULL, 0, &colsize);
+			res = SQLGetData(stmt, 1, SQL_BINARY, empty, 0, &colsize);
 			fdlen = colsize;
 			if (fd > -1) {
 				char tmp[1]="";
@@ -265,9 +265,6 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context,
 	int res = 0;
 	int loop;
 	char fn[256];
-#ifdef ODBC_STORAGE
-	char fn2[256];
-#endif
 
 	/* Check for the VoiceMail2 greeting first */
 	snprintf(fn, sizeof(fn), "%s/voicemail/%s/%s/greet",
@@ -282,7 +279,7 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context,
 			ast_config_AST_SPOOL_DIR, ext);
 	}
 #ifdef ODBC_STORAGE
-	retrieve_file(fn2);
+	retrieve_file(fn);
 #endif
 
 	if (ast_fileexists(fn, NULL, chan->language) > 0) {
@@ -302,7 +299,6 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context,
 	}
 #ifdef ODBC_STORAGE
 	ast_filedelete(fn, NULL);	
-	ast_filedelete(fn2, NULL);	
 #endif
 
 	for (loop = 3 ; loop > 0; loop--) {

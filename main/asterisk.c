@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60850 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
 
 #undef sched_setscheduler
 #undef setpriority
@@ -124,6 +124,7 @@ int daemon(int, int);  /* defined in libresolv of all places */
 #include "asterisk/version.h"
 #include "asterisk/linkedlists.h"
 #include "asterisk/devicestate.h"
+#include "asterisk/module.h"
 
 #include "asterisk/doxyref.h"		/* Doxygen documentation */
 
@@ -139,7 +140,7 @@ int daemon(int, int);  /* defined in libresolv of all places */
 
 /*! \brief Welcome message when starting a CLI interface */
 #define WELCOME_MESSAGE \
-	ast_verbose("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2006 Digium, Inc. and others.\n"); \
+	ast_verbose("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2007 Digium, Inc. and others.\n"); \
 	ast_verbose("Created by Mark Spencer <markster@digium.com>\n"); \
 	ast_verbose("Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.\n"); \
 	ast_verbose("This is free software, with components licensed under the GNU General Public\n"); \
@@ -1253,6 +1254,9 @@ static void quit_handler(int num, int nice, int safeshutdown, int restart)
 				ast_verbose("Asterisk %s cancelled.\n", restart ? "restart" : "shutdown");
 			return;
 		}
+
+		if (nice)
+			ast_module_shutdown();
 	}
 	if (ast_opt_console || ast_opt_remote) {
 		if (getenv("HOME")) 
@@ -1824,7 +1828,7 @@ static char *cli_prompt(EditLine *el)
 				case 'd': /* date */
 					memset(&tm, 0, sizeof(tm));
 					time(&ts);
-					if (localtime_r(&ts, &tm)) {
+					if (ast_localtime(&ts, &tm, NULL)) {
 						strftime(p, sizeof(prompt) - strlen(prompt), "%Y-%m-%d", &tm);
 					}
 					break;
@@ -1884,7 +1888,7 @@ static char *cli_prompt(EditLine *el)
 				case 't': /* time */
 					memset(&tm, 0, sizeof(tm));
 					time(&ts);
-					if (localtime_r(&ts, &tm)) {
+					if (ast_localtime(&ts, &tm, NULL)) {
 						strftime(p, sizeof(prompt) - strlen(prompt), "%H:%M:%S", &tm);
 					}
 					break;
@@ -2300,7 +2304,7 @@ static int show_version(void)
 }
 
 static int show_cli_help(void) {
-	printf("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2006, Digium, Inc. and others.\n");
+	printf("Asterisk " ASTERISK_VERSION ", Copyright (C) 1999 - 2007, Digium, Inc. and others.\n");
 	printf("Usage: asterisk [OPTIONS]\n");
 	printf("Valid Options:\n");
 	printf("   -V              Display version number and exit\n");

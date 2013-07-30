@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 60989 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 64306 $")
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -748,6 +748,7 @@ static int alsa_indicate(struct ast_channel *chan, int cond, const void *data, s
 			res = 2;
 			break;
 		case AST_CONTROL_RINGING:
+		case AST_CONTROL_PROGRESS:
 			break;
 		case -1:
 			res = -1;

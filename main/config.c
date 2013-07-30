@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 61959 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69470 $")
 
 #include <stdio.h>
 #include <unistd.h>
@@ -630,7 +630,6 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat, 
 				} else if (!strcasecmp(cur, "+")) {
 					*cat = category_get(cfg, catname, 1);
 					if (!(*cat)) {
-						ast_config_destroy(cfg);
 						if (newcat)
 							ast_category_destroy(newcat);
 						ast_log(LOG_WARNING, "Category addition requested, but category '%s' does not exist, line %d of %s\n", catname, lineno, configfile);
@@ -922,7 +921,7 @@ static struct ast_config *config_text_file_load(const char *database, const char
 		fclose(f);		
 	} while(0);
 	if (comment) {
-		ast_log(LOG_WARNING,"Unterminated comment detected beginning on line %d\n", nest[comment]);
+		ast_log(LOG_WARNING,"Unterminated comment detected beginning on line %d\n", nest[comment - 1]);
 	}
 #ifdef AST_INCLUDE_GLOB
 					if (!cfg)

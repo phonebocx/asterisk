@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 59302 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 69392 $")
 
 #include <sys/types.h>
 #include <stdio.h>
@@ -99,7 +99,7 @@ static int odbc_log(struct ast_cdr *cdr)
 	if (usegmtime) 
 		gmtime_r(&cdr->start.tv_sec,&tm);
 	else
-		localtime_r(&cdr->start.tv_sec,&tm);
+		ast_localtime(&cdr->start.tv_sec, &tm, NULL);
 
 	ast_mutex_lock(&odbc_lock);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
