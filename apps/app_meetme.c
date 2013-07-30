@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.125 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.126 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/file.h"
@@ -848,7 +848,7 @@ static int conf_run(struct ast_channel *chan, struct ast_conference *conf, int c
 
 	time(&user->jointime);
 
-	if (conf->locked) {
+	if (conf->locked && (!(confflags & CONFFLAG_ADMIN))) {
 		/* Sorry, but this confernce is locked! */	
 		if (!ast_streamfile(chan, "conf-locked", chan->language))
 			ast_waitstream(chan, "");

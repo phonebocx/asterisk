@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.82 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.85 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -1543,8 +1543,9 @@ int ast_app_parse_options(const struct ast_app_option *options, struct ast_flags
 		argloc = options[curarg].arg_index;
 		if (*s == '(') {
 			/* Has argument */
-			arg = s;
-			while (*++s && (*s != ')'));
+			arg = ++s;
+			while (*s && (*s != ')'))
+				s++;
 			if (*s) {
 				if (argloc)
 					args[argloc - 1] = arg;
