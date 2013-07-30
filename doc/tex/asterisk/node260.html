@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>The Main Menu</TITLE>
-<META NAME="description" CONTENT="The Main Menu">
+<TITLE>Configuring Call Queues</TITLE>
+<META NAME="description" CONTENT="Configuring Call Queues">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,110 +18,84 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node261.html">
+<LINK REL="next" HREF="node270.html">
 <LINK REL="previous" HREF="node259.html">
-<LINK REL="up" HREF="node259.html">
+<LINK REL="up" HREF="node258.html">
 <LINK REL="next" HREF="node261.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html4061"
+<A NAME="tex2html4062"
   HREF="node261.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4057"
-  HREF="node259.html">
+<A NAME="tex2html4058"
+  HREF="node258.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4051"
+<A NAME="tex2html4052"
   HREF="node259.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4059"
+<A NAME="tex2html4060"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html4062"
-  HREF="node261.html">The Contexts referenced from</A>
-<B> Up:</B> <A NAME="tex2html4058"
-  HREF="node259.html">Routing incoming Calls to</A>
-<B> Previous:</B> <A NAME="tex2html4052"
-  HREF="node259.html">Routing incoming Calls to</A>
- &nbsp; <B>  <A NAME="tex2html4060"
+<B> Next:</B> <A NAME="tex2html4063"
+  HREF="node261.html">queues.conf</A>
+<B> Up:</B> <A NAME="tex2html4059"
+  HREF="node258.html">Queues</A>
+<B> Previous:</B> <A NAME="tex2html4053"
+  HREF="node259.html">Introduction</A>
+ &nbsp; <B>  <A NAME="tex2html4061"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H3><A NAME="SECTION001422100000000000000">
-The Main Menu</A>
-</H3>
+<H1><A NAME="SECTION001420000000000000000">
+Configuring Call Queues</A>
+</H1>
 
 <P>
-At Digium, incoming callers are sent to the "mainmenu" context, where they
-are greeted, and directed to the numbers they choose...
+<BR><HR>
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
 
-<P>
-</B></SMALL>
+<UL CLASS="ChildLinks">
+<LI><A NAME="tex2html4064"
+  HREF="node261.html">queues.conf</A>
+<LI><A NAME="tex2html4065"
+  HREF="node262.html">Routing incoming Calls to Queues</A>
 <UL>
-<LI><PRE>
-context mainmenu {
-
-	includes {
-		digium;
-		queues-loginout;
-	}
-
-        0 =&gt; goto dispatch,s,1;
-        2 =&gt; goto sales,s,1;
-        3 =&gt; goto customerservice,s,1;
-        4 =&gt; goto dispatch,s,1;
-
-        s =&gt; {
-                Ringing();
-                Wait(1);
-                Set(attempts=0);
-                Answer();
-                Wait(1);
-                Background(digium/ThankYouForCallingDigium);
-                Background(digium/YourOpenSourceTelecommunicationsSupplier);
-                WaitExten(0.3);
-        repeat:
-                Set(attempts=$[${attempts} + 1]);
-                Background(digium/IfYouKnowYourPartysExtensionYouMayDialItAtAnyTime);
-                WaitExten(0.1);
-                Background(digium/Otherwise);
-                WaitExten(0.1);
-                Background(digium/ForSalesPleasePress2);
-                WaitExten(0.2);
-                Background(digium/ForCustomerServicePleasePress3);
-                WaitExten(0.2);
-                Background(digium/ForAllOtherDepartmentsPleasePress4);
-                WaitExten(0.2);
-                Background(digium/ToSpeakWithAnOperatorPleasePress0AtAnyTime);
-                if( ${attempts} &lt; 2 ) {
-                        WaitExten(0.3);
-                        Background(digium/ToHearTheseOptionsRepeatedPleaseHold);
-                }
-                WaitExten(5);
-                if( ${attempts} &lt; 2 ) goto repeat;
-                Background(digium/YouHaveMadeNoSelection);
-                Background(digium/ThisCallWillBeEnded);
-                Background(goodbye);
-                Hangup();
-        }
-}
-</PRE><SMALL CLASS="SCRIPTSIZE"><B>
-</LI>
+<LI><A NAME="tex2html4066"
+  HREF="node263.html">The Main Menu</A>
+<LI><A NAME="tex2html4067"
+  HREF="node264.html">The Contexts referenced from the queues.conf file</A>
 </UL>
-<P>
+<BR>
+<LI><A NAME="tex2html4068"
+  HREF="node265.html">Assigning agents to Queues</A>
+<UL>
+<LI><A NAME="tex2html4069"
+  HREF="node266.html">Agents Log In and Out</A>
+</UL>
+<BR>
+<LI><A NAME="tex2html4070"
+  HREF="node267.html">Controlling The Way Queues Call the Agents</A>
+<LI><A NAME="tex2html4071"
+  HREF="node268.html">Pre Acknowledgement Message</A>
+<LI><A NAME="tex2html4072"
+  HREF="node269.html">Caveats</A>
+</UL>
+<!--End of Table of Child-Links-->
 <BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

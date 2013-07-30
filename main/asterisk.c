@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 221780 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 248864 $")
 
 #include "asterisk/_private.h"
 
@@ -153,7 +153,7 @@ int daemon(int, int);  /* defined in libresolv of all places */
 
 /*! \brief Welcome message when starting a CLI interface */
 #define WELCOME_MESSAGE \
-    ast_verbose("Asterisk %s, Copyright (C) 1999 - 2009 Digium, Inc. and others.\n" \
+    ast_verbose("Asterisk %s, Copyright (C) 1999 - 2010 Digium, Inc. and others.\n" \
                 "Created by Mark Spencer <markster@digium.com>\n" \
                 "Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.\n" \
                 "This is free software, with components licensed under the GNU General Public\n" \
@@ -275,7 +275,6 @@ static int restartnow;
 static pthread_t consolethread = AST_PTHREADT_NULL;
 static int canary_pid = 0;
 static char canary_filename[128];
-static int canary_pipe = -1;
 
 static char randompool[256];
 
@@ -2745,7 +2744,7 @@ static int show_version(void)
 }
 
 static int show_cli_help(void) {
-	printf("Asterisk %s, Copyright (C) 1999 - 2009, Digium, Inc. and others.\n", ast_get_version());
+	printf("Asterisk %s, Copyright (C) 1999 - 2010, Digium, Inc. and others.\n", ast_get_version());
 	printf("Usage: asterisk [OPTIONS]\n");
 	printf("Valid Options:\n");
 	printf("   -V              Display version number and exit\n");
@@ -3302,6 +3301,12 @@ int main(int argc, char *argv[])
 	 */
 	signal(SIGCHLD, child_handler);
 
+	/* It's common on some platforms to clear /var/run at boot.  Create the
+	 * socket file directory before we drop privileges. */
+	if (mkdir(ast_config_AST_RUN_DIR, 0755) && errno != EEXIST) {
+		ast_log(LOG_WARNING, "Unable to create socket file directory.  Remote consoles will not be able to connect! (%s)\n", strerror(x));
+	}
+
 #ifndef __CYGWIN__
 
 	if (isroot) {
@@ -3314,6 +3319,9 @@ int main(int argc, char *argv[])
 		if (!gr) {
 			ast_log(LOG_WARNING, "No such group '%s'!\n", rungroup);
 			exit(1);
+		}
+		if (chown(ast_config_AST_RUN_DIR, -1, gr->gr_gid)) {
+			ast_log(LOG_WARNING, "Unable to chgrp run directory to %d (%s)\n", (int) gr->gr_gid, rungroup);
 		}
 		if (setgid(gr->gr_gid)) {
 			ast_log(LOG_WARNING, "Unable to setgid to %d (%s)\n", (int)gr->gr_gid, rungroup);
@@ -3336,6 +3344,9 @@ int main(int argc, char *argv[])
 		if (!pw) {
 			ast_log(LOG_WARNING, "No such user '%s'!\n", runuser);
 			exit(1);
+		}
+		if (chown(ast_config_AST_RUN_DIR, pw->pw_uid, -1)) {
+			ast_log(LOG_WARNING, "Unable to chown run directory to %d (%s)\n", (int) pw->pw_uid, runuser);
 		}
 #ifdef HAVE_CAP
 		if (prctl(PR_SET_KEEPCAPS, 1, 0, 0, 0)) {
@@ -3484,15 +3495,6 @@ int main(int argc, char *argv[])
 
 	/* Spawning of astcanary must happen AFTER the call to daemon(3) */
 	if (isroot && ast_opt_high_priority) {
-		int cpipe[2];
-
-		/* PIPE signal ensures that astcanary dies when Asterisk dies */
-		if (pipe(cpipe)) {
-			fprintf(stderr, "Unable to open pipe for canary process: %s\n", strerror(errno));
-			exit(1);
-		}
-		canary_pipe = cpipe[0];
-
 		snprintf(canary_filename, sizeof(canary_filename), "%s/alt.asterisk.canary.tweet.tweet.tweet", ast_config_AST_RUN_DIR);
 
 		/* Don't let the canary child kill Asterisk, if it dies immediately */
@@ -3500,18 +3502,17 @@ int main(int argc, char *argv[])
 
 		canary_pid = fork();
 		if (canary_pid == 0) {
-			char canary_binary[128], *lastslash;
+			char canary_binary[128], *lastslash, ppid[12];
 
 			/* Reset signal handler */
 			signal(SIGCHLD, SIG_DFL);
 			signal(SIGPIPE, SIG_DFL);
 
-			dup2(cpipe[1], 0);
-			close(cpipe[1]);
 			ast_close_fds_above_n(0);
 			ast_set_priority(0);
+			snprintf(ppid, sizeof(ppid), "%d", (int) getpid());
 
-			execlp("astcanary", "astcanary", canary_filename, (char *)NULL);
+			execlp("astcanary", "astcanary", canary_filename, ppid, (char *)NULL);
 
 			/* If not found, try the same path as used to execute asterisk */
 			ast_copy_string(canary_binary, argv[0], sizeof(canary_binary));
@@ -3524,12 +3525,11 @@ int main(int argc, char *argv[])
 			_exit(1);
 		} else if (canary_pid > 0) {
 			pthread_t dont_care;
-			close(cpipe[1]);
 			ast_pthread_create_detached(&dont_care, NULL, canary_thread, NULL);
 		}
 
 		/* Kill the canary when we exit */
-		atexit(canary_exit);
+		ast_register_atexit(canary_exit);
 	}
 
 	if (ast_event_init()) {

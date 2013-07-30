@@ -18,7 +18,7 @@ AC_CANONICAL_HOST
 AC_CONFIG_SRCDIR([main/asterisk.c])
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 236635 $)
+AC_REVISION($Revision: 246199 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -183,6 +183,8 @@ if test "x$with_gnu_ld" = "xyes" ; then
 fi
 AC_SUBST(GNU_LD)
 
+AC_PATH_PROG([BISON], [bison], :)
+AC_PATH_PROG([FLEX], [flex], :)
 AC_PATH_PROG([GREP], [grep], :)
 AC_PATH_PROG([FIND], [find], :)
 AC_PATH_PROG([COMPRESS], [compress], :)
@@ -207,6 +209,49 @@ else
 fi
 fi
 AC_SUBST(DOWNLOAD)
+
+AC_CACHE_CHECK([for bison that supports parse-param], [ac_cv_path_BISON2], [
+	if test "x$BISON" != "x:" ; then
+		# Create a temporary directory $tmp in $TMPDIR (default /tmp).
+		# Use mktemp if possible; otherwise fall back on mkdir,
+		# with $RANDOM to make collisions less likely.
+		: ${TMPDIR=/tmp}
+		{
+		  tmp=`
+		    (umask 077 && mktemp -d "$TMPDIR/fooXXXXXX") 2>/dev/null
+		  ` &&
+		  test -n "$tmp" && test -d "$tmp"
+		} || {
+		  tmp=$TMPDIR/foo$$-$RANDOM
+		  (umask 077 && mkdir "$tmp")
+		} || exit $?
+		cat >$tmp/test.y <<__EOL__
+%parse-param {struct parse_io *parseio}
+%%
+file : { \$\$ = parseio->pval = 1; }
+	;
+%%
+__EOL__
+		${BISON} -o ${tmp}/test.tab.c ${tmp}/test.y >/dev/null 2>&1
+		if test -e "${tmp}/test.tab.c"; then
+			ac_cv_path_BISON2=${BISON}
+		fi
+		rm -rf ${tmp}
+	fi
+	])
+if test "x${ac_cv_path_BISON2}" = "x" ; then
+	BISON=:
+	PBX_BISON=0
+else
+	PBX_BISON=1
+fi
+AC_SUBST(PBX_BISON)
+if test "x${FLEX}" = "x:" ; then
+	PBX_FLEX=0
+else
+	PBX_FLEX=1
+fi
+AC_SUBST(PBX_FLEX)
 
 AC_CHECK_TOOL([SOXMIX], [soxmix], [:])
 if test "${SOXMIX}" != ":" ; then
@@ -503,8 +548,9 @@ saved_CFLAGS="${CFLAGS}"
 CFLAGS="${CFLAGS} -Werror -Wmissing-braces"
 AC_COMPILE_IFELSE(
   [AC_LANG_PROGRAM(
-    [#include <pthread.h>],
-	[pthread_once_t once = PTHREAD_ONCE_INIT;])
+    [#include <pthread.h>
+     void empty(){}],
+	[pthread_once_t once = PTHREAD_ONCE_INIT; pthread_once(&once, empty);])
   ],[
     AC_MSG_RESULT(no)
     ac_cv_pthread_once_needsbraces="no"
@@ -541,6 +587,18 @@ AC_LANG_PROGRAM([], [int foo1; int foo2 = __sync_fetch_and_add(&foo1, 1);]),
 AC_MSG_RESULT(yes)
 AC_DEFINE([HAVE_GCC_ATOMICS], 1, [Define to 1 if your GCC C compiler provides atomic operations.]),
 AC_MSG_RESULT(no)
+)
+
+# glibc, AFAIK, is the only C library that makes printing a NULL to a string safe.
+AC_MSG_CHECKING([if your system printf is NULL-safe.])
+AC_RUN_IFELSE(
+	AC_LANG_PROGRAM([#include <stdio.h>],
+		[printf("%s", NULL)]),
+	AC_DEFINE([HAVE_NULLSAFE_PRINTF], 1, [Define to 1 if your C library can safely print NULL to string formats.])
+	AC_MSG_RESULT(yes),
+	AC_MSG_RESULT(no),
+	# It's unlikely an embedded system will have this.
+	AC_MSG_RESULT(unknown)
 )
 
 AST_GCC_ATTRIBUTE(pure)

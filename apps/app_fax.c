@@ -18,7 +18,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 235013 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 245732 $")
 
 #include <string.h>
 #include <stdlib.h>
@@ -375,8 +375,12 @@ static int transmit_audio(fax_session *s)
 							     .rate = AST_T38_RATE_14400,
 							     .rate_management = AST_T38_RATE_MANAGEMENT_TRANSFERRED_TCF,
 							     .fill_bit_removal = 1,
-							     .transcoding_mmr = 1,
-							     .transcoding_jbig = 1,
+/*
+ * spandsp has API calls to support MMR and JBIG transcoding, but they aren't
+ * implemented quite yet... so don't offer them to the remote endpoint
+ *							     .transcoding_mmr = 1,
+ *							     .transcoding_jbig = 1,
+*/
 	};
 
 	/* if in called party mode, try to use T.38 */
@@ -557,6 +561,7 @@ static int transmit_audio(fax_session *s)
 		}
 
 		ast_frfree(inf);
+		inf = NULL;
 	}
 
 	ast_debug(1, "Loop finished, res=%d\n", res);
@@ -693,6 +698,7 @@ static int transmit_t38(fax_session *s)
 		}
 
 		ast_frfree(inf);
+		inf = NULL;
 	}
 
 	ast_debug(1, "Loop finished, res=%d\n", res);

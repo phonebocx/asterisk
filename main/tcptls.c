@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 225489 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 246982 $")
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
@@ -215,6 +215,11 @@ static void *handle_tcptls_connection(void *data)
 	if (!tcptls_session->f) {
 		close(tcptls_session->fd);
 		ast_log(LOG_WARNING, "FILE * open failed!\n");
+#ifndef DO_SSL
+		if (tcptls_session->parent->tls_cfg) {
+			ast_log(LOG_WARNING, "Attempted a TLS connection without OpenSSL support.  This will not work!\n");
+		}
+#endif
 		ao2_ref(tcptls_session, -1);
 		return NULL;
 	}

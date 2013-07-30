@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------*\
-  $Id: poll.c 238499 2010-01-07 21:17:43Z tilghman $
+  $Id: poll.c 239666 2010-01-13 10:48:16Z oej $
 
   NAME
 
@@ -79,6 +79,7 @@
 #include <assert.h>                          /* assertion macros */
 #include <string.h>                          /* string functions */
 
+#include "asterisk/utils.h"                            /* this package */
 #include "asterisk/poll-compat.h"                            /* this package */
 
 #ifdef AST_POLL_COMPAT

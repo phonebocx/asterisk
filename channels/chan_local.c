@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 237322 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
 
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -59,6 +59,7 @@ static struct ast_jb_conf g_jb_conf = {
 	.max_size = -1,
 	.resync_threshold = -1,
 	.impl = "",
+	.target_extra = -1,
 };
 
 static struct ast_channel *local_request(const char *type, int format, void *data, int *cause);
@@ -251,9 +252,10 @@ static int local_queue_frame(struct local_pvt *p, int isoutbound, struct ast_fra
 	}
 
 	if (other) {
-		if (other->pbx || other->_bridge || !ast_strlen_zero(other->appl)) {
-			ast_queue_frame(other, f);
-		} /* else the frame won't go anywhere */
+		if (f->frametype == AST_FRAME_CONTROL && f->subclass == AST_CONTROL_RINGING) {
+			ast_setstate(other, AST_STATE_RINGING);
+		}
+		ast_queue_frame(other, f);
 		ast_channel_unlock(other);
 	}
 

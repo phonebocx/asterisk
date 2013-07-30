@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Usage notes and subtle features</TITLE>
-<META NAME="description" CONTENT="Usage notes and subtle features">
+<TITLE>The ENUMLOOKUP dialplan function</TITLE>
+<META NAME="description" CONTENT="The ENUMLOOKUP dialplan function">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,188 +18,143 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node197.html">
 <LINK REL="previous" HREF="node195.html">
-<LINK REL="up" HREF="node193.html">
+<LINK REL="up" HREF="node195.html">
 <LINK REL="next" HREF="node197.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3195"
+<A NAME="tex2html3203"
   HREF="node197.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3191"
-  HREF="node193.html">
+<A NAME="tex2html3199"
+  HREF="node195.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3185"
+<A NAME="tex2html3195"
   HREF="node195.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3193"
+<A NAME="tex2html3201"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3196"
-  HREF="node197.html">Some more Examples</A>
-<B> Up:</B> <A NAME="tex2html3192"
-  HREF="node193.html">The ENUMLOOKUP dialplan function</A>
-<B> Previous:</B> <A NAME="tex2html3186"
-  HREF="node195.html">Examples</A>
- &nbsp; <B>  <A NAME="tex2html3194"
+<B> Next:</B> <A NAME="tex2html3204"
+  HREF="node197.html">Arguments</A>
+<B> Up:</B> <A NAME="tex2html3200"
+  HREF="node195.html">ENUM</A>
+<B> Previous:</B> <A NAME="tex2html3196"
+  HREF="node195.html">ENUM</A>
+ &nbsp; <B>  <A NAME="tex2html3202"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H2><A NAME="SECTION00913000000000000000">
-Usage notes and subtle features</A>
-</H2>
-
-<UL>
-<LI>The use of "+" in lookups is confusing, and warrants further
-  explanation.  All E.164 numbers ("global phone numbers") by
-  definition need a leading "+" during ENUM lookup.  If you neglect to
-  add a leading "+", you may discover that numbers that seem to exist
-  in the DNS aren't getting matched by the system or are returned with
-  a null string result.  This is due to the NAPTR reply requiring a
-  "+" in the regular expression matching sequence.  Older versions of
-  Asterisk add a "+" from within the code, which may confuse
-  administrators converting to the new function.  Please ensure that
-  all ENUM (e164.arpa) lookups contain a leading "+" before lookup, so
-  ensure your lookup includes the leading plus sign.  Other DNS trees
-  may or may not require a leading "+" - check before using those
-  trees, as it is possible the parsed NAPTRs will not provide correct
-  results unless you have the correct dialed string.  If you get
-  console messages like "WARNING[24907]: enum.c:222 parse_naptr: NAPTR
-  Regex match failed." then it is very possible that the returned
-  NAPTR expects a leading "+" in the search string (or the returned
-  NAPTR is mis-formed.)
+<H1><A NAME="SECTION00910000000000000000">
+The ENUMLOOKUP dialplan function</A>
+</H1>
 
 <P>
-</LI>
-<LI>If a query is performed of type "c" ("count") and let's say you
-  get back 5 records and then some seconds later a query is made
-  against record 5 in the list, it may not be the case that the DNS
-  resolver has the same answers as it did a second or two ago - maybe
-  there are only 4 records in the list in the newest query.  The
-  resolver should be the canonical storage location for DNS records,
-  since that is the intent of ENUM.  However, some obscure future
-  cases may have wildly changing NAPTR records within several seconds.
-  This is a corner case, and probably only worth noting as a very rare
-  circumstance. (note: I do not object to Asterisk's dnsmgr method of
-  locally caching DNS replies, but this method needs to honor the TTL
-  given by the remote zone master.  Currently, the ENUMLOOKUP function
-  does not use the dnsmgr method of caching local DNS replies.)
+The ENUMLOOKUP function is more complex than it first may appear, and
+this guide is to give a general overview and set of examples that may
+be well-suited for the advanced user to evaluate in their
+consideration of ENUM or ENUM-like lookup strategies.  This document
+assumes a familiarity with ENUM (RFC3761) or ENUM-like methods, as
+well as familiarity with NAPTR DNS records (RFC2915, RFC3401-3404).
+For an overview of NAPTR records, and the use of NAPTRs in the ENUM
+global phone-number-to-DNS mapping scheme, please see
+<TT><A NAME="tex2html26"
+  HREF="http://www.voip-info.org/tiki-index.php?page=ENUM">http://www.voip-info.org/tiki-index.php?page=ENUM</A></TT> for more detail.
 
 <P>
-</LI>
-<LI>If you want strict NAPTR value ordering, then it will be
-  necessary to use the "ALL" method to incrementally step through the
-  different returned NAPTR pointers.  You will need to use string
-  manipulation to strip off the returned method types, since the
-  results will look like "sip:12125551212" in the returned value.
-  This is a non-trivial task, though it is required in order to have
-  strict RFC compliance and to comply with the desires of the remote
-  party who is presenting NAPTRs in a particular order for a reason.
+Using ENUM within Asterisk can be simple or complex, depending on how
+many failover methods and redundancy procedures you wish to utilize.
+Implementation of ENUM paths is supposedly defined by the person
+creating the NAPTR records, but the local administrator may choose to
+ignore certain NAPTR response methods (URI types) or prefer some over
+others, which is in contradiction to the RFC.  The ENUMLOOKUP method
+simply provides administrators a method for determining NAPTR results
+in either the globally unique ENUM (e164.arpa) DNS tree, or in other
+ENUM-like DNS trees which are not globally unique.  The methods to
+actually create channels ("dial") results given by the ENUMLOOKUP
+function is then up to the administrator to implement in a way that
+best suits their environment.
 
 <P>
-</LI>
-<LI>Default behavior for the function (even in event of an error) is
-  to move to the next priority, and the result is a null value.  Most
-  ENUM lookups are going to be failures, and it is the responsibility
-  of the dialplan administrator to manage error conditions within
-  their dialplan.  This is a change from the old app_enumlookup method
-  and it's arbitrary priority jumping based on result type or failure.
+<PRE>
+Function: ENUMLOOKUP(number[,Method-type[,options[,record#[,zone-suffix]]]])
+</PRE>
 
 <P>
-</LI>
-<LI>Anything other than digits will be ignored in lookup strings.
-  Example: a search string of "+4372030blah01721" will turn into
-  1.2.7.1.0.0.3.0.2.7.3.4.e164.arpa. for the lookup.  The NAPTR
-  parsing may cause unexpected results if there are strings inside
-  your NAPTR lookups.
+Performs an ENUM tree lookup on the specified number, method type, and
+  ordinal record offset, and returns one of four different values:
 
 <P>
+
+<OL>
+<LI>post-parsed NAPTR of one method (URI) type
 </LI>
-<LI>If there exist multiple records with the same weight and order as
-  a result of your query, the function will RANDOMLY select a single
-  NAPTR from those equal results.
+<LI>count of elements of one method (URI) type
+</LI>
+<LI>count of all method types
+</LI>
+<LI>full URI of method at a particular point in the list of all possible methods
+</LI>
+</OL>
 
 <P>
-</LI>
-<LI>Currently, the function ignores the settings in enum.conf as the
-  search zone name is now specified within the function, and the H323
-  driver can be chosen by the user via the dialplan.  There were no
-  other values in this file, and so it becomes deprecated.
+<BR><HR>
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
 
-<P>
-</LI>
-<LI>The function will digest and return NAPTRs which use older
-  (deprecated) style, reversed method strings such as "sip+E2U"
-  instead of the more modern "E2U+sip"
-
-<P>
-</LI>
-<LI>There is no provision for multi-part methods at this time.  If
-  there are multiple NAPTRs with (as an example) a method of
-  "E2U+voice:sip" and then another NAPTR in the same DNS record with a
-  method of ""E2U+sip", the system will treat these both as method
-  "sip" and they will be separate records from the perspective of the
-  function.  Of course, if both records point to the same URI and have
-  equal priority/weight (as is often the case) then this will cause no
-  serious difficulty, but it bears mentioning.
-
-<P>
-</LI>
-<LI>ISN (ITAD Subscriber Number) usage:  If the search number is of
-  the form ABC*DEF (where ABC and DEF are at least one numeric digit)
-  then perform an ISN-style lookup where the lookup is manipulated to
-  C.B.A.DEF.domain.tld (all other settings and options apply.)  See
-  <TT><A NAME="tex2html27"
-  HREF="http://www.freenum.org/">http://www.freenum.org/</A></TT> for more details on ISN lookups.  In the
-  unlikely event you wish to avoid ISN re-writes, put an "n" as the
-  first digit of the search string - the "n" will be ignored for the search.
-</LI>
+<UL CLASS="ChildLinks">
+<LI><A NAME="tex2html3205"
+  HREF="node197.html">Arguments</A>
+<LI><A NAME="tex2html3206"
+  HREF="node198.html">Examples</A>
+<LI><A NAME="tex2html3207"
+  HREF="node199.html">Usage notes and subtle features</A>
+<LI><A NAME="tex2html3208"
+  HREF="node200.html">Some more Examples</A>
 </UL>
-
-<P>
+<!--End of Table of Child-Links-->
 
 <DIV CLASS="navigation"><HR>
 <!--Navigation Panel-->
-<A NAME="tex2html3195"
+<A NAME="tex2html3203"
   HREF="node197.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3191"
-  HREF="node193.html">
+<A NAME="tex2html3199"
+  HREF="node195.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3185"
+<A NAME="tex2html3195"
   HREF="node195.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3193"
+<A NAME="tex2html3201"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3196"
-  HREF="node197.html">Some more Examples</A>
-<B> Up:</B> <A NAME="tex2html3192"
-  HREF="node193.html">The ENUMLOOKUP dialplan function</A>
-<B> Previous:</B> <A NAME="tex2html3186"
-  HREF="node195.html">Examples</A>
- &nbsp; <B>  <A NAME="tex2html3194"
+<B> Next:</B> <A NAME="tex2html3204"
+  HREF="node197.html">Arguments</A>
+<B> Up:</B> <A NAME="tex2html3200"
+  HREF="node195.html">ENUM</A>
+<B> Previous:</B> <A NAME="tex2html3196"
+  HREF="node195.html">ENUM</A>
+ &nbsp; <B>  <A NAME="tex2html3202"
   HREF="node1.html">Contents</A></B> </DIV>
 <!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

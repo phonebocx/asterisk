@@ -27,49 +27,109 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html4233"
+<A NAME="tex2html4245"
   HREF="node275.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4229"
+<A NAME="tex2html4241"
   HREF="node273.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4223"
+<A NAME="tex2html4235"
   HREF="node273.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4231"
+<A NAME="tex2html4243"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html4234"
-  HREF="node275.html">Invdividual Users</A>
-<B> Up:</B> <A NAME="tex2html4230"
-  HREF="node273.html">Configuration of users.conf</A>
-<B> Previous:</B> <A NAME="tex2html4224"
-  HREF="node273.html">Configuration of users.conf</A>
- &nbsp; <B>  <A NAME="tex2html4232"
+<B> Next:</B> <A NAME="tex2html4246"
+  HREF="node275.html">Creating phone profiles</A>
+<B> Up:</B> <A NAME="tex2html4242"
+  HREF="node273.html">Configuration of phoneprov.conf</A>
+<B> Previous:</B> <A NAME="tex2html4236"
+  HREF="node273.html">Configuration of phoneprov.conf</A>
+ &nbsp; <B>  <A NAME="tex2html4244"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H2><A NAME="SECTION001531000000000000000">
+<H2><A NAME="SECTION001521000000000000000">
 The [general] section</A>
 </H2>
 
 <P>
-There are only two settings in the general section of users.conf that apply to 
-phone provisioning: localextenlength which maps to template variable EXTENSION_LENGTH 
-and <SPAN  CLASS="textbf">vmexten</SPAN> which maps to the VOICEMAIL_EXTEN variable.
+Below is a sample of the general section of phoneprov.conf:
 
 <P>
-<BR><HR>
+</B></SMALL>
+<UL>
+<LI><PRE>
+[general]
+;serveriface=eth0
+;serveraddr=192.168.1.1
+;serverport=5060
+default_profile=polycom
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+By default, res_phoneprov will set the SERVER variable to the IP address on the server
+that the requesting phone uses to contact the asterisk HTTP server.  The SERVER_PORT
+variable will default to the <SPAN  CLASS="textbf">bindport</SPAN> setting in sip.conf.
+
+<P>
+Should the defaults be insufficient, there are two choices for overriding the default 
+setting of the SERVER variable. If the IP address of the server is known, or the hostname 
+resolvable by the phones, the appropriate <SPAN  CLASS="textbf">serveraddr</SPAN> value should be set.  
+Alternatively, the network interface that the server listens on can be set by specifying a
+<SPAN  CLASS="textbf">serveriface</SPAN> and SERVER will be set to the IP address of that interface.  Only one
+of these options should be set.
+
+<P>
+The default SERVER_PORT variable can be overridden by setting the <SPAN  CLASS="textbf">serverport</SPAN>.
+If <SPAN  CLASS="textbf">bindport</SPAN> is not set in sip.conf and serverport is not specified, it 
+is set to a default value of 5060.
+
+<P>
+Any user set for auto-provisioning in users.conf without a specified profile will be 
+assumed to belong to the profile set with <SPAN  CLASS="textbf">default_profile</SPAN>.
+
+<P>
+
+<DIV CLASS="navigation"><HR>
+<!--Navigation Panel-->
+<A NAME="tex2html4245"
+  HREF="node275.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
+ SRC="/usr/share/latex2html/icons/next.png"></A> 
+<A NAME="tex2html4241"
+  HREF="node273.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
+ SRC="/usr/share/latex2html/icons/up.png"></A> 
+<A NAME="tex2html4235"
+  HREF="node273.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
+ SRC="/usr/share/latex2html/icons/prev.png"></A> 
+<A NAME="tex2html4243"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
+ SRC="/usr/share/latex2html/icons/contents.png"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html4246"
+  HREF="node275.html">Creating phone profiles</A>
+<B> Up:</B> <A NAME="tex2html4242"
+  HREF="node273.html">Configuration of phoneprov.conf</A>
+<B> Previous:</B> <A NAME="tex2html4236"
+  HREF="node273.html">Configuration of phoneprov.conf</A>
+ &nbsp; <B>  <A NAME="tex2html4244"
+  HREF="node1.html">Contents</A></B> </DIV>
+<!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

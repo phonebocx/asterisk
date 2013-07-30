@@ -24,7 +24,7 @@
  */
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 237840 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 243490 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_SYSTEM_NAME */
@@ -3079,7 +3079,10 @@ static char *handle_show_functions(struct ast_cli_entry *e, int cmd, struct ast_
 	AST_RWLIST_TRAVERSE(&acf_root, acf, acflist) {
 		if (!like || strstr(acf->name, a->argv[4])) {
 			count_acf++;
-			ast_cli(a->fd, "%-20.20s  %-35.35s  %s\n", acf->name, acf->syntax, acf->synopsis);
+			ast_cli(a->fd, "%-20.20s  %-35.35s  %s\n",
+				S_OR(acf->name, ""),
+				S_OR(acf->syntax, ""),
+				S_OR(acf->synopsis, ""));
 		}
 	}
 	AST_RWLIST_UNLOCK(&acf_root);
@@ -3609,8 +3612,10 @@ static void pbx_substitute_variables(char *passdata, int datalen, struct ast_cha
 	const char *tmp;
 
 	/* Nothing more to do */
-	if (!e->data)
+	if (!e->data) {
+		*passdata = '\0';
 		return;
+	}
 
 	/* No variables or expressions in e->data, so why scan it? */
 	if ((!(tmp = strchr(e->data, '$'))) || (!strstr(tmp, "${") && !strstr(tmp, "$["))) {
@@ -3938,7 +3943,7 @@ int ast_extension_state_add(const char *context, const char *exten,
 	 */
 	if (e->exten[0] == '_') {
 		ast_add_extension(e->parent->name, 0, exten, e->priority, e->label,
-			e->cidmatch, e->app, ast_strdup(e->data), ast_free_ptr,
+			e->matchcid ? e->cidmatch : NULL, e->app, ast_strdup(e->data), ast_free_ptr,
 			e->registrar);
 		e = ast_hint_extension(NULL, context, exten);
 		if (!e || e->exten[0] == '_') {
@@ -4243,6 +4248,10 @@ static enum ast_pbx_result __ast_pbx_run(struct ast_channel *c,
 			ast_verb(2, "Starting %s at %s,%s,%d still failed so falling back to context 'default'\n", c->name, c->context, c->exten, c->priority);
 			ast_copy_string(c->context, "default", sizeof(c->context));
 		}
+	}
+	if (c->cdr) {
+		/* allow CDR variables that have been collected after channel was created to be visible during call */
+		ast_cdr_update(c);
 	}
 	for (;;) {
 		char dst_exten[256];	/* buffer to accumulate digits */
@@ -6583,7 +6592,7 @@ static void context_merge(struct ast_context **extcontexts, struct ast_hashtab *
 				dupdstr = ast_strdup(prio_item->data);
 
 				res1 = ast_add_extension2(new, 0, prio_item->exten, prio_item->priority, prio_item->label, 
-										  prio_item->cidmatch, prio_item->app, dupdstr, prio_item->datad, prio_item->registrar);
+										  prio_item->matchcid ? prio_item->cidmatch : NULL, prio_item->app, dupdstr, prio_item->datad, prio_item->registrar);
 				if (!res1 && new_exten_item && new_prio_item){
 					ast_verb(3,"Dropping old dialplan item %s/%s/%d [%s(%s)] (registrar=%s) due to conflict with new dialplan\n",
 							context->name, prio_item->exten, prio_item->priority, prio_item->app, (char*)prio_item->data, prio_item->registrar);
@@ -7688,7 +7697,9 @@ static int ast_add_extension2_lockopt(struct ast_context *con,
 	p += ext_strncpy(p, extension, strlen(extension) + 1) + 1;
 	tmp->priority = priority;
 	tmp->cidmatch = p;	/* but use p for assignments below */
-	if (!ast_strlen_zero(callerid)) {
+
+	/* Blank callerid and NULL callerid are two SEPARATE things.  Do NOT confuse the two!!! */
+	if (callerid) {
 		p += ext_strncpy(p, callerid, strlen(callerid) + 1) + 1;
 		tmp->matchcid = 1;
 	} else {
@@ -9037,14 +9048,15 @@ void pbx_builtin_setvar_helper(struct ast_channel *chan, const char *name, const
 			nametail++;
 	}
 
-	AST_LIST_TRAVERSE (headp, newvariable, entries) {
+	AST_LIST_TRAVERSE_SAFE_BEGIN(headp, newvariable, entries) {
 		if (strcasecmp(ast_var_name(newvariable), nametail) == 0) {
 			/* there is already such a variable, delete it */
-			AST_LIST_REMOVE(headp, newvariable, entries);
+			AST_LIST_REMOVE_CURRENT(entries);
 			ast_var_delete(newvariable);
 			break;
 		}
 	}
+	AST_LIST_TRAVERSE_SAFE_END;
 
 	if (value) {
 		if (headp == &globals)

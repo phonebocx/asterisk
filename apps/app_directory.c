@@ -30,7 +30,7 @@
  ***/
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 234896 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249953 $")
 
 #include <ctype.h>
 
@@ -49,8 +49,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 234896 $")
 		</synopsis>
 		<syntax>
 			<parameter name="vm-context">
-				<para>This is the context within voicemail.conf to use for the Directory. If not specified and
-				<literal>searchcontexts=no</literal> in <filename>voicemail.conf</filename>, then <literal>default</literal>
+				<para>This is the context within voicemail.conf to use for the Directory. If not 
+				specified and <literal>searchcontexts=no</literal> in 
+				<filename>voicemail.conf</filename>, then <literal>default</literal> 
 				will be assumed.</para>
 			</parameter>
 			<parameter name="dial-context" required="false">

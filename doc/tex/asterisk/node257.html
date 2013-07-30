@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Configuring Call Queues</TITLE>
-<META NAME="description" CONTENT="Configuring Call Queues">
+<TITLE>Delivery reports</TITLE>
+<META NAME="description" CONTENT="Delivery reports">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,9 +18,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node267.html">
 <LINK REL="previous" HREF="node256.html">
-<LINK REL="up" HREF="node255.html">
+<LINK REL="up" HREF="node248.html">
 <LINK REL="next" HREF="node258.html">
 </HEAD>
 
@@ -32,10 +31,10 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
 <A NAME="tex2html4010"
-  HREF="node255.html">
+  HREF="node248.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4004"
+<A NAME="tex2html4006"
   HREF="node256.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
@@ -45,57 +44,58 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
 <B> Next:</B> <A NAME="tex2html4015"
-  HREF="node258.html">queues.conf</A>
+  HREF="node258.html">Queues</A>
 <B> Up:</B> <A NAME="tex2html4011"
-  HREF="node255.html">Queues</A>
-<B> Previous:</B> <A NAME="tex2html4005"
-  HREF="node256.html">Introduction</A>
+  HREF="node248.html">SMS</A>
+<B> Previous:</B> <A NAME="tex2html4007"
+  HREF="node256.html">File formats</A>
  &nbsp; <B>  <A NAME="tex2html4013"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H1><A NAME="SECTION001420000000000000000">
-Configuring Call Queues</A>
+<H1><A NAME="SECTION001390000000000000000">
+Delivery reports</A>
 </H1>
 
 <P>
-<BR><HR>
-<!--Table of Child-Links-->
-<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+The SMS specification allows for delivery reports. These are requested
+   using the srr bit. However, as these do not work in the UK yet they
+   are not fully implemented in this application. If anyone has a telco
+   that does implement these, please let me know. BT in the UK have a non
+   standard way to do this by starting the message with *0#, and so this
+   application may have a UK specific bodge in the near future to handle
+   these.
 
-<UL CLASS="ChildLinks">
-<LI><A NAME="tex2html4016"
-  HREF="node258.html">queues.conf</A>
-<LI><A NAME="tex2html4017"
-  HREF="node259.html">Routing incoming Calls to Queues</A>
+<P>
+The main changes that are proposed for delivery report handling are :
+
+<P>
+
 <UL>
-<LI><A NAME="tex2html4018"
-  HREF="node260.html">The Main Menu</A>
-<LI><A NAME="tex2html4019"
-  HREF="node261.html">The Contexts referenced from the queues.conf file</A>
+<LI>New queues for sent messages, one file for each destination
+       address and message reference.
+
+<P>
+</LI>
+<LI>New field in message format, user reference, allowing applications
+       to tie up their original message with a report.
+
+<P>
+</LI>
+<LI>Handling of the delivery confirmation/rejection and connecting to
+       the outgoing message - the received message file would then have
+       fields for the original outgoing message and user reference
+       allowing applications to handle confirmations better.
+</LI>
 </UL>
-<BR>
-<LI><A NAME="tex2html4020"
-  HREF="node262.html">Assigning agents to Queues</A>
-<UL>
-<LI><A NAME="tex2html4021"
-  HREF="node263.html">Agents Log In and Out</A>
-</UL>
-<BR>
-<LI><A NAME="tex2html4022"
-  HREF="node264.html">Controlling The Way Queues Call the Agents</A>
-<LI><A NAME="tex2html4023"
-  HREF="node265.html">Pre Acknowledgement Message</A>
-<LI><A NAME="tex2html4024"
-  HREF="node266.html">Caveats</A>
-</UL>
-<!--End of Table of Child-Links-->
+
+<P>
 <BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>About this document ...</TITLE>
-<META NAME="description" CONTENT="About this document ...">
+<TITLE>Putting it all together</TITLE>
+<META NAME="description" CONTENT="Putting it all together">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,64 +18,152 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="previous" HREF="node278.html">
-<LINK REL="up" HREF="asterisk.html">
+<LINK REL="previous" HREF="node279.html">
+<LINK REL="up" HREF="node271.html">
+<LINK REL="next" HREF="node281.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
+<A NAME="tex2html4313"
+  HREF="node281.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
- SRC="/usr/share/latex2html/icons/next_g.png"> 
-<A NAME="tex2html4294"
-  HREF="asterisk.html">
+ SRC="/usr/share/latex2html/icons/next.png"></A> 
+<A NAME="tex2html4309"
+  HREF="node271.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4290"
+<A NAME="tex2html4305"
   HREF="node279.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4296"
+<A NAME="tex2html4311"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Up:</B> <A NAME="tex2html4295"
-  HREF="asterisk.html">Asterisk Reference Information Version</A>
-<B> Previous:</B> <A NAME="tex2html4291"
-  HREF="node279.html">Backtrace</A>
- &nbsp; <B>  <A NAME="tex2html4297"
+<B> Next:</B> <A NAME="tex2html4314"
+  HREF="node281.html">Development</A>
+<B> Up:</B> <A NAME="tex2html4310"
+  HREF="node271.html">Phone Provisioning</A>
+<B> Previous:</B> <A NAME="tex2html4306"
+  HREF="node279.html">Templates</A>
+ &nbsp; <B>  <A NAME="tex2html4312"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H1><A NAME="SECTION001700000000000000000">
-About this document ...</A>
+<H1><A NAME="SECTION001550000000000000000">
+Putting it all together</A>
 </H1>
- <STRONG>Asterisk Reference Information 
-<BR>
-Version 1.6.2.2</STRONG><P>
-This document was generated using the
-<A HREF="http://www.latex2html.org/"><STRONG>LaTeX</STRONG>2<tt>HTML</tt></A> translator Version 2002-2-1 (1.71)
+
 <P>
-Copyright &#169; 1993, 1994, 1995, 1996,
-Nikos Drakos, 
-Computer Based Learning Unit, University of Leeds.
-<BR>
-Copyright &#169; 1997, 1998, 1999,
-<A HREF="http://www.maths.mq.edu.au/~ross/">Ross Moore</A>, 
-Mathematics Department, Macquarie University, Sydney.
+Make sure that manager.conf has:
+
 <P>
-The command line arguments were: <BR>
- <STRONG>latex2html</STRONG> <TT><A NAME="tex2html38"
-  HREF="../asterisk.tex">asterisk.tex</A></TT>
+</B></SMALL>
+<UL>
+<LI><PRE>
+[general]
+enabled = yes
+webenabled = yes
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
 <P>
-The translation was initiated by lmadsen on 2010-02-02
+and that http.conf has:
+
+<P>
+</B></SMALL>
+<UL>
+<LI><PRE>
+[general]
+enabled = yes
+bindaddr = 192.168.1.1 ; Your IP here ;-)
+bindport = 8088 ; Or port 80 if it is the only http server running on the machine
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+With phoneprov.conf and users.conf in place, start Astersik. From the CLI, 
+type "http show status". An example output:
+</B></SMALL>
+<UL>
+<LI><PRE>
+HTTP Server Status:
+Prefix: /asterisk
+Server Enabled and Bound to 192.168.1.1:8088
+
+Enabled URI's:
+/asterisk/httpstatus =&gt; Asterisk HTTP General Status
+/asterisk/phoneprov/... =&gt; Asterisk HTTP Phone Provisioning Tool
+/asterisk/manager =&gt; HTML Manager Event Interface
+/asterisk/rawman =&gt; Raw HTTP Manager Event Interface
+/asterisk/static/... =&gt; Asterisk HTTP Static Delivery
+/asterisk/mxml =&gt; XML Manager Event Interface
+
+Enabled Redirects:
+  None.
+
+POST mappings:
+None.
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+There should be a phoneprov URI listed. Next, from the CLI, type "phoneprov show routes" 
+and verify that the information there is correct. An example output for Polycom phones 
+woud look like:
+
+<P>
+</B></SMALL>
+<UL>
+<LI><PRE>
+Static routes
+
+Relative URI                              Physical location             
+sip.ver                                   configs/sip.ver               
+sip.ld                                    configs/sip.ld                
+bootrom.ver                               configs/bootrom.ver           
+sip.cfg                                   configs/sip.cfg               
+bootrom.ld                                configs/bootrom.ld            
+custom.cfg                                configs/custom.cfg            
+
+Dynamic routes
+
+Relative URI                              Template                      
+deadbeef4dad.cfg                          000000000000.cfg              
+deadbeef4dad-directory.xml                000000000000-directory.xml    
+deadbeef4dad-phone.cfg                    000000000000-phone.cfg        
+config/deadbeef4dad                       polycom.xml
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+With the above examples, the phones would be pointed to 
+<TT><A NAME="tex2html36"
+  HREF="http://192.168.1.1:8080/asterisk/phoneprov">http://192.168.1.1:8080/asterisk/phoneprov</A></TT> for pulling config files. Templates 
+would all be placed in AST_DATA_DIR/phoneprov and static files would be placed in 
+AST_DATA_DIR/phoneprov/configs. Examples of valid URIs would be:
+
+<P>
+
+<UL>
+<LI>http://192.168.1.1:8080/asterisk/phoneprov/sip.cfg
+</LI>
+<LI>http://192.168.1.1:8080/asterisk/phoneprov/deadbeef4dad.cfg
+</LI>
+<LI>http://192.168.1.1:8080/asterisk/phoneprov/config/deadbeef4dad
+</LI>
+</UL>
+
+<P>
 <BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

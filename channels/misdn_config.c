@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222802 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
 
 #include "chan_misdn_config.h"
 
@@ -54,6 +54,7 @@ static struct ast_jb_conf default_jbconf =
 	.max_size = -1,
 	.resync_threshold = -1,
 	.impl = "",
+	.target_extra = -1,
 };
 
 static struct ast_jb_conf global_jbconf;

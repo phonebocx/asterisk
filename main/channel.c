@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 235665 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 246901 $")
 
 #include "asterisk/_private.h"
 
@@ -37,6 +37,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 235665 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/frame.h"
+#include "asterisk/mod_format.h"
 #include "asterisk/sched.h"
 #include "asterisk/channel.h"
 #include "asterisk/musiconhold.h"
@@ -1032,22 +1033,22 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 		}
 	}
 
-	if ((queued_frames + new_frames) > 128) {
-		ast_log(LOG_WARNING, "Exceptionally long queue length queuing to %s\n", chan->name);
-		while ((f = AST_LIST_REMOVE_HEAD(&frames, frame_list))) {
-			ast_frfree(f);
+	if ((queued_frames + new_frames > 128 || queued_voice_frames + new_voice_frames > 96)) {
+		int count = 0;
+		ast_log(LOG_WARNING, "Exceptionally long %squeue length queuing to %s\n", queued_frames + new_frames > 128 ? "" : "voice ", chan->name);
+		AST_LIST_TRAVERSE_SAFE_BEGIN(&chan->readq, cur, frame_list) {
+			/* Save the most recent frame */
+			if (!AST_LIST_NEXT(cur, frame_list)) {
+				break;
+			} else if (cur->frametype == AST_FRAME_VOICE || cur->frametype == AST_FRAME_VIDEO || cur->frametype == AST_FRAME_NULL) {
+				if (++count > 64) {
+					break;
+				}
+				AST_LIST_REMOVE_CURRENT(frame_list);
+				ast_frfree(cur);
+			}
 		}
-		ast_channel_unlock(chan);
-		return 0;
-	}
-
-	if ((queued_voice_frames + new_voice_frames) > 96) {
-		ast_log(LOG_WARNING, "Exceptionally long voice queue length queuing to %s\n", chan->name);
-		while ((f = AST_LIST_REMOVE_HEAD(&frames, frame_list))) {
-			ast_frfree(f);
-		}
-		ast_channel_unlock(chan);
-		return 0;
+		AST_LIST_TRAVERSE_SAFE_END;
 	}
 
 	if (after) {
@@ -1327,21 +1328,39 @@ struct ast_channel *ast_channel_search_locked(int (*is_match)(struct ast_channel
 int ast_safe_sleep_conditional(struct ast_channel *chan, int ms, int (*cond)(void*), void *data)
 {
 	struct ast_frame *f;
+	struct ast_silence_generator *silgen = NULL;
+	int res = 0;
+
+	/* If no other generator is present, start silencegen while waiting */
+	if (ast_opt_transmit_silence && !chan->generatordata) {
+		silgen = ast_channel_start_silence_generator(chan);
+	}
 
 	while (ms > 0) {
-		if (cond && ((*cond)(data) == 0))
-			return 0;
+		if (cond && ((*cond)(data) == 0)) {
+			break;
+		}
 		ms = ast_waitfor(chan, ms);
-		if (ms < 0)
-			return -1;
+		if (ms < 0) {
+			res = -1;
+			break;
+		}
 		if (ms > 0) {
 			f = ast_read(chan);
-			if (!f)
-				return -1;
+			if (!f) {
+				res = -1;
+				break;
+			}
 			ast_frfree(f);
 		}
 	}
-	return 0;
+
+	/* stop silgen if present */
+	if (silgen) {
+		ast_channel_stop_silence_generator(chan, silgen);
+	}
+
+	return res;
 }
 
 /*! \brief Wait, look for hangups */
@@ -1394,9 +1413,11 @@ void ast_channel_free(struct ast_channel *chan)
 	}
 
 	/* Get rid of each of the data stores on the channel */
+	ast_channel_lock(chan);
 	while ((datastore = AST_LIST_REMOVE_HEAD(&chan->datastores, entry)))
 		/* Free the data store */
 		ast_datastore_free(datastore);
+	ast_channel_unlock(chan);
 
 	/* Lock and unlock the channel just to be sure nobody has it locked still
 	   due to a reference that was stored in a datastore. (i.e. app_chanspy) */
@@ -2590,6 +2611,28 @@ static inline int should_skip_dtmf(struct ast_channel *chan)
 	return 0;
 }
 
+/*!
+ * \brief calculates the number of samples to jump forward with in a monitor stream.
+ 
+ * \note When using ast_seekstream() with the read and write streams of a monitor,
+ * the number of samples to seek forward must be of the same sample rate as the stream
+ * or else the jump will not be calculated correctly.
+ *
+ * \retval number of samples to seek forward after rate conversion.
+ */
+static inline int calc_monitor_jump(int samples, int sample_rate, int seek_rate)
+{
+	int diff = sample_rate - seek_rate;
+
+	if (diff > 0) {
+		samples = samples / (float) (sample_rate / seek_rate);
+	} else if (diff < 0) {
+		samples = samples * (float) (seek_rate / sample_rate);
+	}
+
+	return samples;
+}
+
 static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 {
 	struct ast_frame *f = NULL;	/* the return value */
@@ -2974,18 +3017,18 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 #ifndef MONITOR_CONSTANT_DELAY
 					int jump = chan->outsmpl - chan->insmpl - 4 * f->samples;
 					if (jump >= 0) {
-						jump = chan->outsmpl - chan->insmpl;
+						jump = calc_monitor_jump((chan->outsmpl - chan->insmpl), ast_format_rate(f->subclass), ast_format_rate(chan->monitor->read_stream->fmt->format));
 						if (ast_seekstream(chan->monitor->read_stream, jump, SEEK_FORCECUR) == -1)
 							ast_log(LOG_WARNING, "Failed to perform seek in monitoring read stream, synchronization between the files may be broken\n");
-						chan->insmpl += jump + f->samples;
+						chan->insmpl += (chan->outsmpl - chan->insmpl) + f->samples;
 					} else
 						chan->insmpl+= f->samples;
 #else
-					int jump = chan->outsmpl - chan->insmpl;
+					int jump = calc_monitor_jump((chan->outsmpl - chan->insmpl), ast_format_rate(f->subclass), ast_format_rate(chan->monitor->read_stream->fmt->format));
 					if (jump - MONITOR_DELAY >= 0) {
 						if (ast_seekstream(chan->monitor->read_stream, jump - f->samples, SEEK_FORCECUR) == -1)
 							ast_log(LOG_WARNING, "Failed to perform seek in monitoring read stream, synchronization between the files may be broken\n");
-						chan->insmpl += jump;
+						chan->insmpl += chan->outsmpl - chan->insmpl;
 					} else
 						chan->insmpl += f->samples;
 #endif
@@ -3038,17 +3081,6 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 	if (chan->fin & DEBUGCHAN_FLAG)
 		ast_frame_dump(chan->name, f, "<<");
 	chan->fin = FRAMECOUNT_INC(chan->fin);
-
-	if (f && f->frametype == AST_FRAME_CONTROL && f->subclass == AST_CONTROL_HOLD && f->datalen == 0 && f->data.ptr) {
-		/* fix invalid pointer */
-		f->data.ptr = NULL;
-#ifdef AST_DEVMODE
-		ast_log(LOG_ERROR, "Found HOLD frame with src '%s' on channel '%s' with datalen zero, but non-null data pointer!\n", f->src, chan->name);
-		ast_frame_dump(chan->name, f, "<<");
-#else
-		ast_debug(3, "Found HOLD frame with src '%s' on channel '%s' with datalen zero, but non-null data pointer!\n", f->src, chan->name);
-#endif
-	}
 
 done:
 	if (chan->music_state && chan->generator && chan->generator->digit && f && f->frametype == AST_FRAME_DTMF_END)
@@ -3556,19 +3588,19 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 #ifndef MONITOR_CONSTANT_DELAY
 				int jump = chan->insmpl - chan->outsmpl - 4 * cur->samples;
 				if (jump >= 0) {
-					jump = chan->insmpl - chan->outsmpl;
+					jump = calc_monitor_jump((chan->insmpl - chan->outsmpl), ast_format_rate(f->subclass), ast_format_rate(chan->monitor->read_stream->fmt->format));
 					if (ast_seekstream(chan->monitor->write_stream, jump, SEEK_FORCECUR) == -1)
 						ast_log(LOG_WARNING, "Failed to perform seek in monitoring write stream, synchronization between the files may be broken\n");
-					chan->outsmpl += jump + cur->samples;
+					chan->outsmpl += (chan->insmpl - chan->outsmpl) + cur->samples;
 				} else {
 					chan->outsmpl += cur->samples;
 				}
 #else
-				int jump = chan->insmpl - chan->outsmpl;
+				int jump = calc_monitor_jump((chan->insmpl - chan->outsmpl), ast_format_rate(f->subclass), ast_format_rate(chan->monitor->read_stream->fmt->format));
 				if (jump - MONITOR_DELAY >= 0) {
 					if (ast_seekstream(chan->monitor->write_stream, jump - cur->samples, SEEK_FORCECUR) == -1)
 						ast_log(LOG_WARNING, "Failed to perform seek in monitoring write stream, synchronization between the files may be broken\n");
-					chan->outsmpl += jump;
+					chan->outsmpl += chan->insmpl - chan->outsmpl;
 				} else {
 					chan->outsmpl += cur->samples;
 				}
@@ -5690,13 +5722,13 @@ int __ast_channel_unlock(struct ast_channel *chan, const char *filename, int lin
 #endif
 		if (!res)
 			ast_debug(3, "::::==== Channel %s was unlocked\n", chan->name);
-			if (res == EINVAL) {
-				ast_debug(3, "::::==== Channel %s had no lock by this thread. Failed unlocking\n", chan->name);
-			}
+		if (res == EINVAL) {
+			ast_debug(3, "::::==== Channel %s had no lock by this thread. Failed unlocking\n", chan->name);
 		}
-		if (res == EPERM) {
-			/* We had no lock, so okay any way*/
-			ast_debug(4, "::::==== Channel %s was not locked at all \n", chan->name);
+	}
+	if (res == EPERM) {
+		/* We had no lock, so okay any way*/
+		ast_debug(4, "::::==== Channel %s was not locked at all \n", chan->name);
 		res = 0;
 	}
 	return res;

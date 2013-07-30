@@ -11,7 +11,7 @@
 # the GNU General Public License
 #
 
--include $(ASTTOPDIR)/menuselect.makeopts $(ASTTOPDIR)/menuselect.makedeps $(ASTTOPDIR)/makeopts.embed_rules
+-include $(ASTTOPDIR)/menuselect.makeopts $(ASTTOPDIR)/menuselect.makedeps $(ASTTOPDIR)/makeopts.embed_rules $(ASTTOPDIR)/makeopts
 
 all: asterisk
 
@@ -107,22 +107,32 @@ endif
 CHECK_SUBDIR:	# do nothing, just make sure that we recurse in the subdir/
 
 editline/libedit.a: CHECK_SUBDIR
-	cd editline && test -f config.h || CFLAGS="$(PTHREAD_CFLAGS) $(subst $(ASTTOPDIR),../../,$(_ASTCFLAGS:-Werror=) $(ASTCFLAGS))" LDFLAGS="$(ASTLDFLAGS)" ./configure --build=$(BUILD_PLATFORM) --host=$(HOST_PLATFORM) --with-ncurses=$(NCURSES_DIR) --with-curses=$(CURSES_DIR) --with-termcap=$(TERMCAP_DIR) --with-tinfo=$(TINFO_DIR)
+	cd editline && test -f config.h || CFLAGS="$(PTHREAD_CFLAGS) $(subst $(ASTTOPDIR),../../,$(_ASTCFLAGS:-Werror=) $(ASTCFLAGS))" LDFLAGS="$(_ASTLDFLAGS) $(ASTLDFLAGS)" ./configure --build=$(BUILD_PLATFORM) --host=$(HOST_PLATFORM) --with-ncurses=$(NCURSES_DIR) --with-curses=$(CURSES_DIR) --with-termcap=$(TERMCAP_DIR) --with-tinfo=$(TINFO_DIR)
 	$(MAKE) -C editline libedit.a
 
 db1-ast/libdb1.a: CHECK_SUBDIR
 	_ASTCFLAGS="$(_ASTCFLAGS)" ASTCFLAGS="$(ASTCFLAGS) -Wno-strict-aliasing" $(MAKE) -C db1-ast libdb1.a
 
+ifneq ($(findstring REBUILD_PARSERS,$(MENUSELECT_CFLAGS)),)
+ast_expr2.c ast_expr2.h: ast_expr2.y
+else
 ast_expr2.c ast_expr2.h:
-	bison -o $@ -d --name-prefix=ast_yy ast_expr2.y
+endif
+	$(ECHO_PREFIX) echo "   [BISON] $< -> $@"
+	$(CMD_PREFIX) $(BISON) -o $@ -d --name-prefix=ast_yy ast_expr2.y
 
+ifneq ($(findstring REBUILD_PARSERS,$(MENUSELECT_CFLAGS)),)
+ast_expr2f.c: ast_expr2.fl
+else
 ast_expr2f.c:
-	flex -o $@ ast_expr2.fl
-	sed 's@#if __STDC_VERSION__ >= 199901L@#if !defined __STDC_VERSION__ || __STDC_VERSION__ >= 199901L@' $@ > $@.fix
-	echo "#include \"asterisk.h\"" > $@
-	echo >> $@
-	cat $@.fix >> $@
-	rm $@.fix
+endif
+	$(ECHO_PREFIX) echo "   [FLEX] $< -> $@"
+	$(CMD_PREFIX) $(FLEX) -o $@ ast_expr2.fl
+	$(CMD_PREFIX) sed 's@#if __STDC_VERSION__ >= 199901L@#if !defined __STDC_VERSION__ || __STDC_VERSION__ >= 199901L@' $@ > $@.fix
+	$(CMD_PREFIX) echo "#include \"asterisk.h\"" > $@
+	$(CMD_PREFIX) echo >> $@
+	$(CMD_PREFIX) cat $@.fix >> $@
+	$(CMD_PREFIX) rm $@.fix
 
 ast_expr2f.o: _ASTCFLAGS+=-Wno-unused
 
@@ -168,9 +178,9 @@ $(MAIN_TGT): $(OBJS) editline/libedit.a db1-ast/libdb1.a $(AST_EMBED_LDSCRIPTS)
 	@$(CC) -c -o buildinfo.o $(_ASTCFLAGS) buildinfo.c $(ASTCFLAGS)
 	$(ECHO_PREFIX) echo "   [LD] $^ -> $@"
 ifneq ($(findstring chan_h323,$(MENUSELECT_CHANNELS)),)
-	$(CMD_PREFIX) $(CC) $(STATIC_BUILD) -o $@ $(ASTLINK) $(AST_EMBED_LDFLAGS) $(ASTLDFLAGS) $^ buildinfo.o $(AST_LIBS) $(AST_EMBED_LIBS) $(GMIMELDFLAGS)
+	$(CMD_PREFIX) $(CC) $(STATIC_BUILD) -o $@ $(ASTLINK) $(AST_EMBED_LDFLAGS) $(_ASTLDFLAGS) $(ASTLDFLAGS) $^ buildinfo.o $(AST_LIBS) $(AST_EMBED_LIBS) $(GMIMELDFLAGS)
 else
-	$(CMD_PREFIX) $(CXX) $(STATIC_BUILD) -o $@ $(ASTLINK) $(AST_EMBED_LDFLAGS) $(ASTLDFLAGS) $(H323LDFLAGS) $^ buildinfo.o $(AST_LIBS) $(AST_EMBED_LIBS) $(H323LDLIBS) $(GMIMELDFLAGS)
+	$(CMD_PREFIX) $(CXX) $(STATIC_BUILD) -o $@ $(ASTLINK) $(AST_EMBED_LDFLAGS) $(_ASTLDFLAGS) $(ASTLDFLAGS) $(H323LDFLAGS) $^ buildinfo.o $(AST_LIBS) $(AST_EMBED_LIBS) $(H323LDLIBS) $(GMIMELDFLAGS)
 endif
 	$(CMD_PREFIX) $(ASTTOPDIR)/build_tools/strip_nonapi $@ || rm $@
 

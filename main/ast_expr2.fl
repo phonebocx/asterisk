@@ -26,7 +26,7 @@
 #include <stdio.h>
 
 #if !defined(STANDALONE)
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 203445 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 245500 $")
 #else
 #ifndef __USE_ISOC99
 #define __USE_ISOC99 1
@@ -64,6 +64,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 203445 $")
 #include "asterisk/strings.h"
 #include "asterisk/channel.h"
 #endif
+
+/*!\note The latest Flex uses fwrite without checking its return value, which
+ * is a warning on some compilers.  Therefore, we use this workaround, to trick
+ * the compiler into suppressing this warning. */
+#define fwrite(a,b,c,d)	do { int __res = fwrite(a,b,c,d); (__res); } while (0)
 
 enum valtype {
 	AST_EXPR_number, AST_EXPR_numeric_string, AST_EXPR_string
@@ -440,7 +445,7 @@ int ast_yyerror (const char *s,  yyltype *loc, struct parse_io *parseio )
 			(extra_error_message_supplied?extra_error_message:""), s2, parseio->string,spacebuf2);
 #endif
 #ifndef STANDALONE
-	ast_log(LOG_WARNING,"If you have questions, please refer to doc/tex/channelvariables.tex in the asterisk source.\n");
+	ast_log(LOG_WARNING,"If you have questions, please refer to doc/tex/channelvariables.tex.\n");
 #endif
 	free(s2);
 	return(0);

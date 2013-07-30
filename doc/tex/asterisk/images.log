@@ -1,4 +1,4 @@
-This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=latex 2009.1.16)  2 FEB 2010 14:07
+This is pdfTeXk, Version 3.141592-1.40.3 (Web2C 7.5.6) (format=latex 2009.1.16)  11 MAR 2010 14:28
 entering extended mode
  %&-line parsing enabled.
 **./images.tex
@@ -258,12 +258,12 @@ l2hSize :tex2html_wrap_inline1485:9.5pt::9.5pt::3.92087pt.
 
 
 ]
-l2hSize :figure4086:98.35826pt::0.0pt::349.0pt.
+l2hSize :figure4542:98.35826pt::0.0pt::349.0pt.
 [9
 
 
 ]
-l2hSize :tex2html_wrap_inline5515:7.75pt::0.0pt::12.58755pt.
+l2hSize :tex2html_wrap_inline5973:7.75pt::0.0pt::12.58755pt.
 [10
 
 
@@ -275,6 +275,6 @@ Here is how much of TeX's memory you used:
  6192 multiletter control sequences out of 10000+50000
  6376 words of font info for 23 fonts, out of 1200000 for 2000
  28 hyphenation exceptions out of 8191
- 25i,8n,21p,165b,388s stack positions out of 5000i,500n,6000p,200000b,5000s
+ 25i,8n,21p,167b,388s stack positions out of 5000i,500n,6000p,200000b,5000s
 
 Output written on images.dvi (10 pages, 8404 bytes).

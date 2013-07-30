@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Background</TITLE>
-<META NAME="description" CONTENT="Background">
+<TITLE>Application Notes</TITLE>
+<META NAME="description" CONTENT="Application Notes">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,109 +18,76 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node248.html">
 <LINK REL="previous" HREF="node246.html">
-<LINK REL="up" HREF="node245.html">
+<LINK REL="up" HREF="node234.html">
 <LINK REL="next" HREF="node248.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3884"
+<A NAME="tex2html3887"
   HREF="node248.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3880"
-  HREF="node245.html">
+<A NAME="tex2html3883"
+  HREF="node234.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3874"
+<A NAME="tex2html3879"
   HREF="node246.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3882"
+<A NAME="tex2html3885"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3885"
-  HREF="node248.html">Typical use with Asterisk</A>
-<B> Up:</B> <A NAME="tex2html3881"
-  HREF="node245.html">SMS</A>
-<B> Previous:</B> <A NAME="tex2html3875"
-  HREF="node246.html">Introduction</A>
- &nbsp; <B>  <A NAME="tex2html3883"
+<B> Next:</B> <A NAME="tex2html3888"
+  HREF="node248.html">SMS</A>
+<B> Up:</B> <A NAME="tex2html3884"
+  HREF="node234.html">IMAP Storage</A>
+<B> Previous:</B> <A NAME="tex2html3880"
+  HREF="node246.html">Quota Support</A>
+ &nbsp; <B>  <A NAME="tex2html3886"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H1><A NAME="SECTION001320000000000000000">
-Background</A>
-</H1>
+<H2><A NAME="SECTION001227000000000000000">
+Application Notes</A>
+</H2>
 
 <P>
-Short Message Service (SMS), or texting is very popular between mobile
-   phones. A message can be sent between two phones, and normally
-   contains 160 characters. There are ways in which various types of data
-   can be encoded in a text message such as ring tones, and small
-   graphic, etc. Text messaging is being used for voting and
-   competitions, and also SPAM...
+Since the primary storage mechanism is IMAP, all message information that
+was previously stored in an associated text file, AND the recording itself,
+is now stored in a single email message.  This means that the .gsm recording
+will ALWAYS be attached to the message (along with the user's preference of
+recording format if different - ie. .WAV).  The voicemail message information
+is stored in the email message headers.  These headers include:
 
 <P>
-Sending a message involves the mobile phone contacting a message
-   centre (SMSC) and passing the message to it. The message centre then
-   contacts the destination mobile to deliver the message. The SMSC is
-   responsible for storing the message and trying to send it until the
-   destination mobile is available, or a timeout.
+<PRE>
+X-Asterisk-VM-Message-Num
+X-Asterisk-VM-Server-Name
+X-Asterisk-VM-Context
+X-Asterisk-VM-Extension
+X-Asterisk-VM-Priority
+X-Asterisk-VM-Caller-channel
+X-Asterisk-VM-Caller-ID-Num
+X-Asterisk-VM-Caller-ID-Name
+X-Asterisk-VM-Duration
+X-Asterisk-VM-Category
+X-Asterisk-VM-Orig-date
+X-Asterisk-VM-Orig-time
+</PRE>
 
 <P>
-Landline SMS works in basically the same way. You would normally have
-   a suitable text capable landline phone, or a separate texting box such
-   as a Magic Messenger on your phone line. This sends a message to a
-   message centre your telco provides by making a normal call and sending
-   the data using 1200 Baud FSK signaling according to the ETSI spec. To
-   receive a message the message centre calls the line with a specific
-   calling number, and the text capable phone answers the call and
-   receives the data using 1200 Baud FSK signaling. This works
-   particularly well in the UK as the calling line identity is sent
-   before the first ring, so no phones in the house would ring when a
-   message arrives.
-
-<P>
-
-<DIV CLASS="navigation"><HR>
-<!--Navigation Panel-->
-<A NAME="tex2html3884"
-  HREF="node248.html">
-<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
- SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3880"
-  HREF="node245.html">
-<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
- SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3874"
-  HREF="node246.html">
-<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
- SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3882"
-  HREF="node1.html">
-<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
- SRC="/usr/share/latex2html/icons/contents.png"></A>  
-<BR>
-<B> Next:</B> <A NAME="tex2html3885"
-  HREF="node248.html">Typical use with Asterisk</A>
-<B> Up:</B> <A NAME="tex2html3881"
-  HREF="node245.html">SMS</A>
-<B> Previous:</B> <A NAME="tex2html3875"
-  HREF="node246.html">Introduction</A>
- &nbsp; <B>  <A NAME="tex2html3883"
-  HREF="node1.html">Contents</A></B> </DIV>
-<!--End of Navigation Panel-->
+<BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

@@ -43,7 +43,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232585 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 243989 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -381,7 +381,7 @@ static struct permalias {
 	{ EVENT_FLAG_DIALPLAN, "dialplan" },
 	{ EVENT_FLAG_ORIGINATE, "originate" },
 	{ EVENT_FLAG_AGI, "agi" },
-	{ -1, "all" },
+	{ INT_MAX, "all" },
 	{ 0, "none" },
 };
 
@@ -456,7 +456,7 @@ static int strings_to_mask(const char *string)
 	for (p = string; *p; p++)
 		if (*p < '0' || *p > '9')
 			break;
-	if (!p)	/* all digits */
+	if (!*p) /* all digits */
 		return atoi(string);
 	if (ast_false(string))
 		return 0;
@@ -1806,7 +1806,8 @@ static int action_setvar(struct mansession *s, const struct message *m)
 	const char *name = astman_get_header(m, "Channel");
 	const char *varname = astman_get_header(m, "Variable");
 	const char *varval = astman_get_header(m, "Value");
-
+	int res = 0;
+	
 	if (ast_strlen_zero(varname)) {
 		astman_send_error(s, m, "No variable specified");
 		return 0;
@@ -1819,14 +1820,20 @@ static int action_setvar(struct mansession *s, const struct message *m)
 			return 0;
 		}
 	}
-
-	pbx_builtin_setvar_helper(c, varname, S_OR(varval, ""));
+	if (varname[strlen(varname)-1] == ')') {
+		char *function = ast_strdupa(varname);
+		res = ast_func_write(c, function, varval);
+	} else {
+		pbx_builtin_setvar_helper(c, varname, S_OR(varval, ""));
+	}
 
 	if (c)
 		ast_channel_unlock(c);
-
-	astman_send_ack(s, m, "Variable Set");
-
+	if (res == 0) {
+		astman_send_ack(s, m, "Variable Set");	
+	} else {
+		astman_send_error(s, m, "Variable not set");
+	}
 	return 0;
 }
 
@@ -3301,8 +3308,8 @@ int __manager_event(int category, const char *event,
 	struct timeval now;
 	struct ast_str *buf;
 
-	/* Abort if there aren't any manager sessions */
-	if (!num_sessions)
+	/* Abort if there are neither any manager sessions nor hooks */
+	if (!num_sessions && AST_RWLIST_EMPTY(&manager_hooks))
 		return 0;
 
 	if (!(buf = ast_str_thread_get(&manager_event_buf, MANAGER_EVENT_BUF_INITSIZE)))
@@ -3336,28 +3343,32 @@ int __manager_event(int category, const char *event,
 
 	append_event(ast_str_buffer(buf), category);
 
-	/* Wake up any sleeping sessions */
-	AST_LIST_LOCK(&sessions);
-	AST_LIST_TRAVERSE(&sessions, session, list) {
-		ast_mutex_lock(&session->__lock);
-		if (session->waiting_thread != AST_PTHREADT_NULL)
-			pthread_kill(session->waiting_thread, SIGURG);
-		else
-			/* We have an event to process, but the mansession is
-			 * not waiting for it. We still need to indicate that there
-			 * is an event waiting so that get_input processes the pending
-			 * event instead of polling.
-			 */
-			session->pending_event = 1;
-		ast_mutex_unlock(&session->__lock);
+	if (num_sessions) {
+		/* Wake up any sleeping sessions */
+		AST_LIST_LOCK(&sessions);
+		AST_LIST_TRAVERSE(&sessions, session, list) {
+			ast_mutex_lock(&session->__lock);
+			if (session->waiting_thread != AST_PTHREADT_NULL)
+				pthread_kill(session->waiting_thread, SIGURG);
+			else
+				/* We have an event to process, but the mansession is
+				 * not waiting for it. We still need to indicate that there
+				 * is an event waiting so that get_input processes the pending
+				 * event instead of polling.
+				 */
+				session->pending_event = 1;
+			ast_mutex_unlock(&session->__lock);
+		}
+		AST_LIST_UNLOCK(&sessions);
 	}
-	AST_LIST_UNLOCK(&sessions);
 
-	AST_RWLIST_RDLOCK(&manager_hooks);
-	AST_RWLIST_TRAVERSE(&manager_hooks, hook, list) {
-		hook->helper(category, event, ast_str_buffer(buf));
+	if (!AST_RWLIST_EMPTY(&manager_hooks)) {
+		AST_RWLIST_RDLOCK(&manager_hooks);
+		AST_RWLIST_TRAVERSE(&manager_hooks, hook, list) {
+			hook->helper(category, event, ast_str_buffer(buf));
+		}
+		AST_RWLIST_UNLOCK(&manager_hooks);
 	}
-	AST_RWLIST_UNLOCK(&manager_hooks);
 
 	return 0;
 }

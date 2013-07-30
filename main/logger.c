@@ -33,7 +33,7 @@
 #define _ASTERISK_LOGGER_H
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 221923 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 248643 $")
 
 /*
  * WARNING: additional #include directives should NOT be placed here, they 
@@ -909,12 +909,13 @@ static void logger_print_normal(struct logmsg *logmsg)
 				int res = 0;
 
 				/* If no file pointer exists, skip it */
-				if (!chan->fileptr)
+				if (!chan->fileptr) {
 					continue;
-				
+				}
+
 				/* Print out to the file */
 				res = fprintf(chan->fileptr, "[%s] %s[%ld] %s: %s",
-					      logmsg->date, levels[logmsg->level], logmsg->process_id, logmsg->file, logmsg->str);
+					      logmsg->date, levels[logmsg->level], logmsg->process_id, logmsg->file, term_strip(buf, logmsg->str, BUFSIZ));
 				if (res <= 0 && !ast_strlen_zero(logmsg->str)) {
 					fprintf(stderr, "**** Asterisk Logging Error: ***********\n");
 					if (errno == ENOMEM || errno == ENOSPC)

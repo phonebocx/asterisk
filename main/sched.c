@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 178022 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 244555 $")
 
 #ifdef DEBUG_SCHEDULER
 #define DEBUG(a) do { \
@@ -512,6 +512,7 @@ void ast_sched_report(struct sched_context *con, struct ast_str **buf, struct as
 	int countlist[cbnames->numassocs + 1];
 	size_t heap_size;
 	
+	memset(countlist, 0, sizeof(countlist));
 	ast_str_set(buf, 0, " Highwater = %d\n schedcnt = %d\n", con->highwater, con->schedcnt);
 
 	ast_mutex_lock(&con->lock);

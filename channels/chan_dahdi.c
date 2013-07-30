@@ -48,7 +48,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 232094 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 250484 $")
 
 #ifdef __NetBSD__
 #include <pthread.h>
@@ -175,7 +175,8 @@ static struct ast_jb_conf default_jbconf =
 	.flags = 0,
 	.max_size = -1,
 	.resync_threshold = -1,
-	.impl = ""
+	.impl = "",
+	.target_extra = -1,
 };
 static struct ast_jb_conf global_jbconf;
 
@@ -472,17 +473,17 @@ struct dahdi_mfcr2_conf {
 	int metering_pulse_timeout;
 	int max_ani;
 	int max_dnis;
-	int get_ani_first:1;
+	signed int get_ani_first:2;
 #if defined(OR2_LIB_INTERFACE) && OR2_LIB_INTERFACE > 1
-	int skip_category_request:1;
+	signed int skip_category_request:2;
 #endif
-	int call_files:1;
-	int allow_collect_calls:1;
-	int charge_calls:1;
-	int accept_on_offer:1;
-	int forced_release:1;
-	int double_answer:1;
-	int immediate_accept:1;
+	unsigned int call_files:1;
+	unsigned int allow_collect_calls:1;
+	unsigned int charge_calls:1;
+	unsigned int accept_on_offer:1;
+	unsigned int forced_release:1;
+	unsigned int double_answer:1;
+	signed int immediate_accept:2;
 	char logdir[OR2_MAX_PATH];
 	char r2proto_file[OR2_MAX_PATH];
 	openr2_log_level_t loglevel;
@@ -7757,7 +7758,20 @@ static void *ss_thread(void *data)
 		if (ast_exists_extension(chan, chan->context, exten, 1, p->cid_num)) {
 			/* Start the real PBX */
 			ast_copy_string(chan->exten, exten, sizeof(chan->exten));
-			if (p->dsp) ast_dsp_digitreset(p->dsp);
+			if (p->dsp) {
+				ast_dsp_digitreset(p->dsp);
+			}
+			if (p->pri->overlapdial & DAHDI_OVERLAPDIAL_INCOMING) {
+				if (p->pri->pri) {		
+					if (!pri_grab(p, p->pri)) {
+						pri_proceeding(p->pri->pri, p->call, PVT_TO_CHANNEL(p), 0);
+						p->proceeding = 1;
+						pri_rel(p->pri);
+					} else {
+						ast_log(LOG_WARNING, "Unable to grab PRI on span %d\n", p->span);
+					}
+				}
+			}
 			dahdi_enable_ec(p);
 			ast_setstate(chan, AST_STATE_RING);
 			res = ast_pbx_run(chan);
@@ -8420,6 +8434,9 @@ static void *ss_thread(void *data)
 						if (i & DAHDI_IOMUX_SIGEVENT) {
 							res = dahdi_get_event(p->subs[idx].dfd);
 							ast_log(LOG_NOTICE, "Got event %d (%s)...\n", res, event2str(res));
+							if (res == DAHDI_EVENT_NOALARM) {
+								p->inalarm = 0;
+							}
 
 							if (p->cid_signalling == CID_SIG_V23_JP) {
 								if (res == DAHDI_EVENT_RINGBEGIN) {
@@ -8521,6 +8538,9 @@ static void *ss_thread(void *data)
 							if (i & DAHDI_IOMUX_SIGEVENT) {
 								res = dahdi_get_event(p->subs[idx].dfd);
 								ast_log(LOG_NOTICE, "Got event %d (%s)...\n", res, event2str(res));
+								if (res == DAHDI_EVENT_NOALARM) {
+									p->inalarm = 0;
+								}
 								res = 0;
 								/* Let us detect distinctive ring */
 
@@ -8670,6 +8690,9 @@ static void *ss_thread(void *data)
 						if (i & DAHDI_IOMUX_SIGEVENT) {
 							res = dahdi_get_event(p->subs[idx].dfd);
 							ast_log(LOG_NOTICE, "Got event %d (%s)...\n", res, event2str(res));
+							if (res == DAHDI_EVENT_NOALARM) {
+								p->inalarm = 0;
+							}
 							/* If we get a PR event, they hung up while processing calerid */
 							if ( res == DAHDI_EVENT_POLARITY && p->hanguponpolarityswitch && p->polarity == POLARITY_REV) {
 								ast_log(LOG_DEBUG, "Hanging up due to polarity reversal on channel %d while detecting callerid\n", p->channel);
@@ -8739,6 +8762,9 @@ static void *ss_thread(void *data)
 							if (i & DAHDI_IOMUX_SIGEVENT) {
 								res = dahdi_get_event(p->subs[idx].dfd);
 								ast_log(LOG_NOTICE, "Got event %d (%s)...\n", res, event2str(res));
+								if (res == DAHDI_EVENT_NOALARM) {
+									p->inalarm = 0;
+								}
 								res = 0;
 								/* Let us detect callerid when the telco uses distinctive ring */
 
@@ -10517,7 +10543,13 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 		tmp->callgroup = conf->chan.callgroup;
 		tmp->pickupgroup= conf->chan.pickupgroup;
 		if (conf->chan.vars) {
-			tmp->vars = ast_variable_new(conf->chan.vars->name, conf->chan.vars->value, "");
+			struct ast_variable *v, *tmpvar;
+	                for (v = conf->chan.vars ; v ; v = v->next) {
+        	                if ((tmpvar = ast_variable_new(v->name, v->value, v->file))) {
+                	                tmpvar->next = tmp->vars;
+                        	        tmp->vars = tmpvar;
+                        	}
+                	}
 		}
 		tmp->cid_rxgain = conf->chan.cid_rxgain;
 		tmp->rxgain = conf->chan.rxgain;
@@ -16846,7 +16878,7 @@ static int process_dahdi(struct dahdi_chan_conf *confp, const char *cat, struct 
 			} else if (!strcasecmp(v->name, "mfcr2_charge_calls")) {
 				confp->mfcr2.charge_calls = ast_true(v->value) ? 1 : 0;
 			} else if (!strcasecmp(v->name, "mfcr2_accept_on_offer")) {
-				confp->mfcr2.accept_on_offer = ast_true(v->value);
+				confp->mfcr2.accept_on_offer = ast_true(v->value) ? 1 : 0;
 			} else if (!strcasecmp(v->name, "mfcr2_allow_collect_calls")) {
 				confp->mfcr2.allow_collect_calls = ast_true(v->value) ? 1 : 0;
 			} else if (!strcasecmp(v->name, "mfcr2_forced_release")) {

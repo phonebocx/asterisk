@@ -26,7 +26,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 243485 $")
 
 #include <regex.h>
 
@@ -191,9 +191,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 211580 $")
 				</enumlist>
 				<para><emphasis>chan_iax2</emphasis> provides the following additional options:</para>
 				<enumlist>
-					<enum name="osptoken">
-						<para>R/W Get or set the OSP token information for a call.</para>
-					</enum>
 					<enum name="peerip">
 						<para>R/O Get the peer's ip address.</para>
 					</enum>

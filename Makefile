@@ -87,6 +87,7 @@ export AWK
 export GREP
 export ID
 export MD5
+export WGET_EXTRA_ARGS
 
 # even though we could use '-include makeopts' here, use a wildcard
 # lookup anyway, so that make won't try to build makeopts if it doesn't
@@ -305,7 +306,10 @@ MOD_SUBDIRS_MENUSELECT_TREE:=$(MOD_SUBDIRS:%=%-menuselect-tree)
 
 ifneq ($(findstring darwin,$(OSARCH)),)
   _ASTCFLAGS+=-D__Darwin__
-  SOLINK=-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace /usr/lib/bundle1.o
+  SOLINK=-dynamic -bundle -Xlinker -macosx_version_min -Xlinker 10.4 -Xlinker -undefined -Xlinker dynamic_lookup -force_flat_namespace
+  ifeq ($(shell /usr/bin/sw_vers -productVersion | cut -c1-4),10.6)
+    SOLINK+=/usr/lib/bundle1.o
+  endif
 else
 # These are used for all but Darwin
   SOLINK=-shared
@@ -366,8 +370,10 @@ makeopts: configure
 	@exit 1
 
 menuselect.makeopts: menuselect/menuselect menuselect-tree makeopts build_tools/menuselect-deps $(GLOBAL_MAKEOPTS) $(USER_MAKEOPTS)
+ifeq ($(filter %menuselect,$(MAKECMDGOALS)),)
 	menuselect/menuselect --check-deps $@
 	menuselect/menuselect --check-deps $@ $(GLOBAL_MAKEOPTS) $(USER_MAKEOPTS)
+endif
 
 $(MOD_SUBDIRS_EMBED_LDSCRIPT):
 	+@echo "EMBED_LDSCRIPTS+="`$(SILENTMAKE) -C $(@:-embed-ldscript=) SUBDIR=$(@:-embed-ldscript=) __embed_ldscript` >> makeopts.embed_rules
@@ -586,7 +592,7 @@ bininstall: _all installdirs $(SUBDIRS_INSTALL)
 	fi
 
 $(SUBDIRS_INSTALL):
-	@DESTDIR="$(DESTDIR)" ASTSBINDIR="$(ASTSBINDIR)" $(SUBMAKE) -C $(@:-install=) install
+	+@DESTDIR="$(DESTDIR)" ASTSBINDIR="$(ASTSBINDIR)" $(SUBMAKE) -C $(@:-install=) install
 
 NEWMODS:=$(foreach d,$(MOD_SUBDIRS),$(notdir $(wildcard $(d)/*.so)))
 OLDMODS=$(filter-out $(NEWMODS),$(notdir $(wildcard $(DESTDIR)$(MODULES_DIR)/*.so)))
@@ -719,9 +725,13 @@ samples: adsi
 		echo ";maxfiles = 1000 ; Maximum amount of openfiles" ; \
 		echo ";minmemfree = 1 ; in MBs, Asterisk stops accepting new calls if the amount of free memory falls below this watermark" ; \
 		echo ";cache_record_files = yes ; Cache recorded sound files to another directory during recording" ; \
-		echo ";record_cache_dir = /tmp ; Specify cache directory (used in cnjunction with cache_record_files)" ; \
+		echo ";record_cache_dir = /tmp ; Specify cache directory (used in conjunction with cache_record_files)" ; \
 		echo ";transmit_silence_during_record = yes ; Transmit SLINEAR silence while a channel is being recorded" ; \
-		echo ";transmit_silence = yes ; Transmit SLINEAR silence while a channel is being recorded or DTMF is being generated" ; \
+		echo ";transmit_silence = yes ; Transmit silence while a channel is in a waiting state, a recording only state, or when DTMF is" ; \
+		echo "                        ; being generated.  Note that the silence internally is generated in raw signed linear format." ; \
+		echo "                        ; This means that it must be transcoded into the native format of the channel before it can be sent" ; \
+		echo "                        ; to the device.  It is for this reason that this is optional, as it may result in requiring a" ; \
+		echo "                        ; temporary codec translation path for a channel that may not otherwise require one." ; \
 		echo ";transcode_via_sln = yes ; Build transcode paths via SLINEAR, instead of directly" ; \
 		echo ";runuser = asterisk ; The user to run as" ; \
 		echo ";rungroup = asterisk ; The group to run as" ; \
@@ -848,7 +858,7 @@ cleantest:
 	@cmp -s .cleancount .lastclean || $(MAKE) clean
 
 $(SUBDIRS_UNINSTALL):
-	@$(SUBMAKE) -C $(@:-uninstall=) uninstall
+	+@$(SUBMAKE) -C $(@:-uninstall=) uninstall
 
 _uninstall: $(SUBDIRS_UNINSTALL)
 	rm -f $(DESTDIR)$(MODULES_DIR)/*

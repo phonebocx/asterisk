@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>The [general] section</TITLE>
-<META NAME="description" CONTENT="The [general] section">
+<TITLE>Phone Provisioning</TITLE>
+<META NAME="description" CONTENT="Phone Provisioning">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,118 +18,82 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node272.html">
-<LINK REL="previous" HREF="node270.html">
-<LINK REL="up" HREF="node270.html">
+<LINK REL="next" HREF="node281.html">
+<LINK REL="previous" HREF="node258.html">
+<LINK REL="up" HREF="asterisk.html">
 <LINK REL="next" HREF="node272.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html4197"
+<A NAME="tex2html4198"
   HREF="node272.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4193"
-  HREF="node270.html">
+<A NAME="tex2html4194"
+  HREF="asterisk.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4187"
+<A NAME="tex2html4188"
   HREF="node270.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4195"
+<A NAME="tex2html4196"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html4198"
-  HREF="node272.html">Creating phone profiles</A>
-<B> Up:</B> <A NAME="tex2html4194"
-  HREF="node270.html">Configuration of phoneprov.conf</A>
-<B> Previous:</B> <A NAME="tex2html4188"
-  HREF="node270.html">Configuration of phoneprov.conf</A>
- &nbsp; <B>  <A NAME="tex2html4196"
+<B> Next:</B> <A NAME="tex2html4199"
+  HREF="node272.html">Introduction</A>
+<B> Up:</B> <A NAME="tex2html4195"
+  HREF="asterisk.html">Asterisk Reference Information Version</A>
+<B> Previous:</B> <A NAME="tex2html4189"
+  HREF="node270.html">Queue Logs</A>
+ &nbsp; <B>  <A NAME="tex2html4197"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H2><A NAME="SECTION001521000000000000000">
-The [general] section</A>
-</H2>
+<H1><A NAME="SECTION001500000000000000000">
+Phone Provisioning</A>
+</H1>
+  <BR><HR>
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
 
-<P>
-Below is a sample of the general section of phoneprov.conf:
-
-<P>
-</B></SMALL>
+<UL CLASS="ChildLinks">
+<LI><A NAME="tex2html4200"
+  HREF="node272.html">Introduction</A>
+<LI><A NAME="tex2html4201"
+  HREF="node273.html">Configuration of phoneprov.conf</A>
 <UL>
-<LI><PRE>
-[general]
-;serveriface=eth0
-;serveraddr=192.168.1.1
-;serverport=5060
-default_profile=polycom
-</PRE><SMALL CLASS="SCRIPTSIZE"><B>
-</LI>
+<LI><A NAME="tex2html4202"
+  HREF="node274.html">The [general] section</A>
+<LI><A NAME="tex2html4203"
+  HREF="node275.html">Creating phone profiles</A>
 </UL>
-<P>
-By default, res_phoneprov will set the SERVER variable to the IP address on the server
-that the requesting phone uses to contact the asterisk HTTP server.  The SERVER_PORT
-variable will default to the <SPAN  CLASS="textbf">bindport</SPAN> setting in sip.conf.
-
-<P>
-Should the defaults be insufficient, there are two choices for overriding the default 
-setting of the SERVER variable. If the IP address of the server is known, or the hostname 
-resolvable by the phones, the appropriate <SPAN  CLASS="textbf">serveraddr</SPAN> value should be set.  
-Alternatively, the network interface that the server listens on can be set by specifying a
-<SPAN  CLASS="textbf">serveriface</SPAN> and SERVER will be set to the IP address of that interface.  Only one
-of these options should be set.
-
-<P>
-The default SERVER_PORT variable can be overridden by setting the <SPAN  CLASS="textbf">serverport</SPAN>.
-If <SPAN  CLASS="textbf">bindport</SPAN> is not set in sip.conf and serverport is not specified, it 
-is set to a default value of 5060.
-
-<P>
-Any user set for auto-provisioning in users.conf without a specified profile will be 
-assumed to belong to the profile set with <SPAN  CLASS="textbf">default_profile</SPAN>.
-
-<P>
-
-<DIV CLASS="navigation"><HR>
-<!--Navigation Panel-->
-<A NAME="tex2html4197"
-  HREF="node272.html">
-<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
- SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4193"
-  HREF="node270.html">
-<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
- SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4187"
-  HREF="node270.html">
-<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
- SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4195"
-  HREF="node1.html">
-<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
- SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html4198"
-  HREF="node272.html">Creating phone profiles</A>
-<B> Up:</B> <A NAME="tex2html4194"
-  HREF="node270.html">Configuration of phoneprov.conf</A>
-<B> Previous:</B> <A NAME="tex2html4188"
-  HREF="node270.html">Configuration of phoneprov.conf</A>
- &nbsp; <B>  <A NAME="tex2html4196"
-  HREF="node1.html">Contents</A></B> </DIV>
-<!--End of Navigation Panel-->
+<LI><A NAME="tex2html4204"
+  HREF="node276.html">Configuration of users.conf</A>
+<UL>
+<LI><A NAME="tex2html4205"
+  HREF="node277.html">The [general] section</A>
+<LI><A NAME="tex2html4206"
+  HREF="node278.html">Invdividual Users</A>
+</UL>
+<BR>
+<LI><A NAME="tex2html4207"
+  HREF="node279.html">Templates</A>
+<LI><A NAME="tex2html4208"
+  HREF="node280.html">Putting it all together</A>
+</UL>
+<!--End of Table of Child-Links-->
+<BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 234213 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 240670 $")
 
 #include <ctype.h>
 #include <signal.h>
@@ -42,6 +42,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 234213 $")
 #include <sys/stat.h>
 #include <dirent.h>
 #include <sys/ioctl.h>
+#ifdef SOLARIS
+#include <thread.h>
+#endif
+
 #ifdef SOLARIS
 #include <thread.h>
 #endif

@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>RADIUS</TITLE>
-<META NAME="description" CONTENT="RADIUS">
+<TITLE>PostgreSQL</TITLE>
+<META NAME="description" CONTENT="PostgreSQL">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,73 +18,102 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
+<LINK REL="next" HREF="node222.html">
 <LINK REL="previous" HREF="node220.html">
-<LINK REL="up" HREF="node213.html">
+<LINK REL="up" HREF="node216.html">
 <LINK REL="next" HREF="node222.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3532"
+<A NAME="tex2html3546"
   HREF="node222.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3528"
-  HREF="node213.html">
+<A NAME="tex2html3542"
+  HREF="node216.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3524"
+<A NAME="tex2html3536"
   HREF="node220.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3530"
+<A NAME="tex2html3544"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3533"
-  HREF="node222.html">What is needed</A>
-<B> Up:</B> <A NAME="tex2html3529"
-  HREF="node213.html">Storage Backends</A>
-<B> Previous:</B> <A NAME="tex2html3525"
-  HREF="node220.html">SQLite 3</A>
- &nbsp; <B>  <A NAME="tex2html3531"
+<B> Next:</B> <A NAME="tex2html3547"
+  HREF="node222.html">SQLite 2</A>
+<B> Up:</B> <A NAME="tex2html3543"
+  HREF="node216.html">Storage Backends</A>
+<B> Previous:</B> <A NAME="tex2html3537"
+  HREF="node220.html">MySQL</A>
+ &nbsp; <B>  <A NAME="tex2html3545"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H2><A NAME="SECTION001146000000000000000">
-RADIUS</A>
+<H2><A NAME="SECTION001143000000000000000">
+PostgreSQL</A>
 </H2>
+        If you want to go directly to postgresql database, and have the cdr_pgsql.so
+        compiled you can use the following sample setup.
+        On Debian, before compiling asterisk, just install libpqxx-dev.
+        Other distros will likely have a similiar package.
 
 <P>
-<BR><HR>
-<!--Table of Child-Links-->
-<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+Once you have the compile done,
+        copy the sample cdr_pgsql.conf file or create your own.
 
-<UL CLASS="ChildLinks">
-<LI><A NAME="tex2html3534"
-  HREF="node222.html">What is needed</A>
-<LI><A NAME="tex2html3535"
-  HREF="node223.html">Installation of the Radiusclient library</A>
-<LI><A NAME="tex2html3536"
-  HREF="node224.html">Configuration of the Radiusclient library</A>
-<LI><A NAME="tex2html3537"
-  HREF="node225.html">Install FreeRADIUS Server (Version 1.1.1)</A>
-<LI><A NAME="tex2html3538"
-  HREF="node226.html">Configuration of the FreeRADIUS Server</A>
-<LI><A NAME="tex2html3539"
-  HREF="node227.html">Asterisk Accounting Configuration</A>
-<LI><A NAME="tex2html3540"
-  HREF="node228.html">Logged Values</A>
+<P>
+Here is a sample:
+</B></SMALL>
+<UL>
+<LI><PRE>
+        /etc/asterisk/cdr_pgsql.conf
+          ; Sample Asterisk config file for CDR logging to PostgresSQL
+          [global]
+          hostname=localhost
+          port=5432
+          dbname=asterisk
+          password=password
+          user=postgres
+          table=cdr
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>        Now create a table in postgresql for your cdrs
+</B></SMALL>
+<UL>
+<LI><PRE>
+        CREATE TABLE cdr (
+                calldate      time               NOT NULL ,
+                clid          varchar (80)          NOT NULL ,
+                src           varchar (80)          NOT NULL ,
+                dst           varchar (80)          NOT NULL ,
+                dcontext      varchar (80)          NOT NULL ,
+                channel       varchar (80)          NOT NULL ,
+                dstchannel    varchar (80)          NOT NULL ,
+                lastapp       varchar (80)          NOT NULL ,
+                lastdata      varchar (80)          NOT NULL ,
+                duration      int                   NOT NULL ,
+                billsec       int                   NOT NULL ,
+                disposition   varchar (45)          NOT NULL ,
+                amaflags      int                   NOT NULL ,
+                accountcode   varchar (20)          NOT NULL ,
+                uniqueid      varchar (150)         NOT NULL ,
+                userfield     varchar (255)         NOT NULL
+        );
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
 </UL>
-<!--End of Table of Child-Links-->
+<P>
 <BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

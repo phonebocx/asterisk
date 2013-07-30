@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Pre Acknowledgement Message</TITLE>
-<META NAME="description" CONTENT="Pre Acknowledgement Message">
+<TITLE>Assigning agents to Queues</TITLE>
+<META NAME="description" CONTENT="Assigning agents to Queues">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,80 +18,76 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node266.html">
-<LINK REL="previous" HREF="node264.html">
-<LINK REL="up" HREF="node257.html">
+<LINK REL="next" HREF="node267.html">
+<LINK REL="previous" HREF="node262.html">
+<LINK REL="up" HREF="node260.html">
 <LINK REL="next" HREF="node266.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html4118"
+<A NAME="tex2html4131"
   HREF="node266.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4114"
-  HREF="node257.html">
+<A NAME="tex2html4127"
+  HREF="node260.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4108"
+<A NAME="tex2html4121"
   HREF="node264.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4116"
+<A NAME="tex2html4129"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html4119"
-  HREF="node266.html">Caveats</A>
-<B> Up:</B> <A NAME="tex2html4115"
-  HREF="node257.html">Configuring Call Queues</A>
-<B> Previous:</B> <A NAME="tex2html4109"
-  HREF="node264.html">Controlling The Way Queues</A>
- &nbsp; <B>  <A NAME="tex2html4117"
+<B> Next:</B> <A NAME="tex2html4132"
+  HREF="node266.html">Agents Log In and</A>
+<B> Up:</B> <A NAME="tex2html4128"
+  HREF="node260.html">Configuring Call Queues</A>
+<B> Previous:</B> <A NAME="tex2html4122"
+  HREF="node264.html">The Contexts referenced from</A>
+ &nbsp; <B>  <A NAME="tex2html4130"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H2><A NAME="SECTION001425000000000000000">
-Pre Acknowledgement Message</A>
+<H2><A NAME="SECTION001423000000000000000">
+Assigning agents to Queues</A>
 </H2>
 
 <P>
-If you would like to have a pre acknowledge message with option to reject the message
-you can use the following dialplan Macro as a base with the 'M' dial argument.
+In this example dialplan, we want to be able to add and remove agents to
+handle incoming calls, as they feel they are available. As they log in,
+they are added to the queue's agent list, and as they log out, they are
+removed. If no agents are available, the queue command will terminate, and
+it is the duty of the dialplan to do something appropriate, be it sending
+the incoming caller to voicemail, or trying the queue again with a higher
+QUEUE_MAX_PENALTY.
 
 <P>
-</B></SMALL>
-<UL>
-<LI><PRE>
-[macro-screen]
-exten=&gt;s,1,Wait(.25)
-exten=&gt;s,2,Read(ACCEPT,screen-callee-options,1)
-exten=&gt;s,3,Gotoif($[${ACCEPT} = 1] ?50)
-exten=&gt;s,4,Gotoif($[${ACCEPT} = 2] ?30)
-exten=&gt;s,5,Gotoif($[${ACCEPT} = 3] ?40)
-exten=&gt;s,6,Gotoif($[${ACCEPT} = 4] ?30:30)
-exten=&gt;s,30,Set(MACRO_RESULT=CONTINUE)
-exten=&gt;s,40,Read(TEXTEN,custom/screen-exten,)
-exten=&gt;s,41,Gotoif($[${LEN(${TEXTEN})} = 3]?42:45)
-exten=&gt;s,42,Set(MACRO_RESULT=GOTO:from-internal^${TEXTEN}^1)
-exten=&gt;s,45,Gotoif($[${TEXTEN} = 0] ?46:4)
-exten=&gt;s,46,Set(MACRO_RESULT=CONTINUE)
-exten=&gt;s,50,Playback(after-the-tone)
-exten=&gt;s,51,Playback(connected)
-exten=&gt;s,52,Playback(beep)
-</PRE><SMALL CLASS="SCRIPTSIZE"><B>
-</LI>
-</UL>
+Because a single agent can make themselves available to more than one queue,
+the process of joining multiple queues can be handled automatically by the
+dialplan.
+
 <P>
+<BR><HR>
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
+
+<UL CLASS="ChildLinks">
+<LI><A NAME="tex2html4133"
+  HREF="node266.html">Agents Log In and Out</A>
+</UL>
+<!--End of Table of Child-Links-->
 <BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

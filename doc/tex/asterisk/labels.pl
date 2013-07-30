@@ -7,7 +7,7 @@ $external_labels{$key} = "$URL/" . q|node149.html|;
 $noresave{$key} = "$nosave";
 
 $key = q/odbcstorage/;
-$external_labels{$key} = "$URL/" . q|node230.html|; 
+$external_labels{$key} = "$URL/" . q|node233.html|; 
 $noresave{$key} = "$nosave";
 
 $key = q/trunks/;

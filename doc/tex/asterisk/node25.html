@@ -27,30 +27,30 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html941"
+<A NAME="tex2html947"
   HREF="node26.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html937"
+<A NAME="tex2html943"
   HREF="node18.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html931"
+<A NAME="tex2html937"
   HREF="node24.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html939"
+<A NAME="tex2html945"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html942"
+<B> Next:</B> <A NAME="tex2html948"
   HREF="node26.html">Additional Examples</A>
-<B> Up:</B> <A NAME="tex2html938"
+<B> Up:</B> <A NAME="tex2html944"
   HREF="node18.html">Configuration Parser</A>
-<B> Previous:</B> <A NAME="tex2html932"
+<B> Previous:</B> <A NAME="tex2html938"
   HREF="node24.html">Defining a template-only section</A>
- &nbsp; <B>  <A NAME="tex2html940"
+ &nbsp; <B>  <A NAME="tex2html946"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
@@ -80,17 +80,19 @@ consider the following:
 <UL>
 <LI><PRE>
 [foo]
-permit=192.168.0.2
-host=asdf
-deny=192.168.0.1
+disallow=all
+allow=ulaw
+allow=alaw
 
 [bar]
-permit=192.168.1.2
-host=jkl
-deny=192.168.1.1
+allow=gsm
+allow=g729
+permit=192.168.2.1
 
 [baz](foo,bar)
+type=friend
 permit=192.168.3.1
+context=incoming
 host=bnm
 </PRE><SMALL CLASS="SCRIPTSIZE"><B>
 </LI>
@@ -104,22 +106,29 @@ following way:
 <UL>
 <LI><PRE>
 [baz]
-permit=192.168.0.2
-host=asdf
-deny=192.168.0.1
-permit=192.168.1.2
-host=jkl
-deny=192.168.1.1
+disallow=all
+allow=ulaw
+allow=alaw
+allow=gsm
+allow=g729
+permit=192.168.2.1
+type=friend
 permit=192.168.3.1
+context=incoming
 host=bnm
 </PRE><SMALL CLASS="SCRIPTSIZE"><B>
 </LI>
 </UL>
 <P>
+It should also be noted that there are no guaranteed overriding semantics, 
+meaning that if you define something in one template, you should not expect to
+be able to override it by defining it again in another template.
+
+<P>
 <BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

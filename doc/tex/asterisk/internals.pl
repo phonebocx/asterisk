@@ -7,7 +7,7 @@ $ref_files{$key} = "$dir".q|node149.html|;
 $noresave{$key} = "$nosave";
 
 $key = q/odbcstorage/;
-$ref_files{$key} = "$dir".q|node230.html|; 
+$ref_files{$key} = "$dir".q|node233.html|; 
 $noresave{$key} = "$nosave";
 
 $key = q/trunks/;

@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 222547 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 246207 $")
 
 #include <regex.h>
 #include <ctype.h>
@@ -431,19 +431,25 @@ static int filter(struct ast_channel *chan, const char *cmd, char *parse, char *
 			     AST_APP_ARG(allowed);
 			     AST_APP_ARG(string);
 	);
-	char *outbuf = buf, ac;
+	char *outbuf = buf;
+	unsigned char ac;
 	char allowed[256] = "";
 	size_t allowedlen = 0;
+	int32_t bitfield[8] = { 0, }; /* 256 bits */
 
-	AST_STANDARD_APP_ARGS(args, parse);
+	AST_STANDARD_RAW_ARGS(args, parse);
 
 	if (!args.string) {
 		ast_log(LOG_ERROR, "Usage: FILTER(<allowed-chars>,<string>)\n");
 		return -1;
 	}
 
+	if (args.allowed[0] == '"' && !ast_opt_dont_warn) {
+		ast_log(LOG_WARNING, "FILTER allowed characters includes the quote (\") character.  This may not be what you want.\n");
+	}
+
 	/* Expand ranges */
-	for (; *(args.allowed) && allowedlen < sizeof(allowed); ) {
+	for (; *(args.allowed);) {
 		char c1 = 0, c2 = 0;
 		size_t consumed = 0;
 
@@ -456,20 +462,31 @@ static int filter(struct ast_channel *chan, const char *cmd, char *parse, char *
 				c2 = -1;
 			args.allowed += consumed + 1;
 
+			if ((c2 < c1 || c2 == -1) && !ast_opt_dont_warn) {
+				ast_log(LOG_WARNING, "Range wrapping in FILTER(%s,%s).  This may not be what you want.\n", parse, args.string);
+			}
+
 			/*!\note
 			 * Looks a little strange, until you realize that we can overflow
 			 * the size of a char.
 			 */
-			for (ac = c1; ac != c2 && allowedlen < sizeof(allowed) - 1; ac++)
-				allowed[allowedlen++] = ac;
-			allowed[allowedlen++] = ac;
+			for (ac = c1; ac != c2; ac++) {
+				bitfield[ac / 32] |= 1 << (ac % 32);
+			}
+			bitfield[ac / 32] |= 1 << (ac % 32);
 
 			ast_debug(4, "c1=%d, c2=%d\n", c1, c2);
+		} else {
+			ac = (unsigned char) c1;
+			ast_debug(4, "c1=%d, consumed=%d, args.allowed=%s\n", c1, (int) consumed, args.allowed - consumed);
+			bitfield[ac / 32] |= 1 << (ac % 32);
+		}
+	}
 
-			/* Decrement before the loop increment */
-			(args.allowed)--;
-		} else
-			allowed[allowedlen++] = c1;
+	for (ac = 1; ac != 0; ac++) {
+		if (bitfield[ac / 32] & (1 << (ac % 32))) {
+			allowed[allowedlen++] = ac;
+		}
 	}
 
 	ast_debug(1, "Allowed: %s\n", allowed);

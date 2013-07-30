@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 185428 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249895 $")
 
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -78,7 +78,8 @@ static struct ast_jb_conf default_jbconf =
 	.flags = 0,
 	.max_size = -1,
 	.resync_threshold = -1,
-	.impl = ""
+	.impl = "",
+	.target_extra = -1,
 };
 static struct ast_jb_conf global_jbconf;
 

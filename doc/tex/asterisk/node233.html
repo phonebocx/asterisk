@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>University of Washington IMAP C-Client</TITLE>
-<META NAME="description" CONTENT="University of Washington IMAP C-Client">
+<TITLE>ODBC Storage</TITLE>
+<META NAME="description" CONTENT="ODBC Storage">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -27,136 +27,186 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3709"
+<A NAME="tex2html3708"
   HREF="node234.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3705"
+<A NAME="tex2html3704"
   HREF="node232.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3699"
+<A NAME="tex2html3698"
   HREF="node232.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3707"
+<A NAME="tex2html3706"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3710"
-  HREF="node234.html">Compiling Asterisk</A>
-<B> Up:</B> <A NAME="tex2html3706"
-  HREF="node232.html">Installation Notes</A>
-<B> Previous:</B> <A NAME="tex2html3700"
-  HREF="node232.html">Installation Notes</A>
- &nbsp; <B>  <A NAME="tex2html3708"
+<B> Next:</B> <A NAME="tex2html3709"
+  HREF="node234.html">IMAP Storage</A>
+<B> Up:</B> <A NAME="tex2html3705"
+  HREF="node232.html">Voicemail</A>
+<B> Previous:</B> <A NAME="tex2html3699"
+  HREF="node232.html">Voicemail</A>
+ &nbsp; <B>  <A NAME="tex2html3707"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H3><A NAME="SECTION001221100000000000000">
-University of Washington IMAP C-Client</A>
-</H3>
+<H1><A NAME="SECTION001210000000000000000"></A>
+  <A NAME="odbcstorage"></A>
+<BR>
+ODBC Storage
+</H1>
+  
+<P>
+ODBC Storage allows you to store voicemail messages within a database 
+instead of using a file.  This is <SPAN  CLASS="textbf">not</SPAN> a full realtime engine and 
+<SPAN  CLASS="textbf">only</SPAN> supports ODBC.  The table description for the <TT>voicemessages</TT>
+table is as follows:
 
 <P>
-If you do not have the University of Washington's IMAP c-client
-installed on your system, you will need to download the c-client
-source distribution (<TT><A NAME="tex2html34"
-  HREF="http://www.washington.edu/imap/">http://www.washington.edu/imap/</A></TT>) and compile it.
-Asterisk supports the 2007 version of c-client as there appears to be issues
-with older versions which cause Asterisk to crash in certain scenarios. It
-is highly recommended that you utilize a current version of the c-client
-libraries. Additionally, mail_expunge_full is enabled in the 2006 and later
-versions.
+<BR><P></P>
+<DIV ALIGN="CENTER"><A NAME="4962"></A>
+<TABLE>
+<CAPTION><STRONG>Table 11.1:</STRONG>
+<TT>voicemessages</TT> Table Schema</CAPTION>
+<TR><TD>
+<DIV ALIGN="CENTER">
+<TABLE CELLPADDING=3 BORDER="1" ALIGN="CENTER">
+<TR><TD ALIGN="LEFT">Field</TD>
+<TD ALIGN="LEFT">Type</TD>
+<TD ALIGN="CENTER">Null</TD>
+<TD ALIGN="CENTER">Key</TD>
+<TD ALIGN="LEFT">Default</TD>
+<TD ALIGN="LEFT">Extra</TD>
+</TR>
+<TR><TD ALIGN="LEFT">msgnum</TD>
+<TD ALIGN="LEFT">int(11)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">dir</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">MUL</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">context</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">macrocontext</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">callerid</TD>
+<TD ALIGN="LEFT">varchar(40)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">origtime</TD>
+<TD ALIGN="LEFT">varchar(40)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">duration</TD>
+<TD ALIGN="LEFT">varchar(20)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">flag</TD>
+<TD ALIGN="LEFT">varchar(8)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">mailboxuser</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">mailboxcontext</TD>
+<TD ALIGN="LEFT">varchar(80)</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+<TR><TD ALIGN="LEFT">recording</TD>
+<TD ALIGN="LEFT">longblob</TD>
+<TD ALIGN="CENTER">Yes</TD>
+<TD ALIGN="CENTER">&nbsp;</TD>
+<TD ALIGN="LEFT">NULL</TD>
+<TD ALIGN="LEFT">&nbsp;</TD>
+</TR>
+</TABLE>
+</DIV>
+</TD></TR>
+</TABLE>
+</DIV><P></P>
+<BR>
 
 <P>
-Note that Asterisk only uses the 'c-client' portion of the UW IMAP toolkit,
-but building it also builds an IMAP server and various other utilities.
-Because of this, the build instructions for the IMAP toolkit are somewhat
-complicated and can lead to confusion about what is needed.
+The database name (from /etc/asterisk/res_odbc.conf) is in the
+<TT>odbcstorage</TT> variable in the general section of voicemail.conf.
 
 <P>
-If you are going to be connecting Asterisk to an existing IMAP server,
-then you don't need to care about the server or utilities in the IMAP
-toolkit at all. If you want to also install the UW IMAPD server, that
-is outside the scope of this document.
-
-<P>
-Building the c-client library is fairly straightforward; for example, on a
-Debian system there are two possibilities:
-
-<P>
-
-<OL>
-<LI>If you will not be using SSL to connect to the IMAP server:
-   <PRE>
-        $ make slx SSLTYPE=none
-</PRE>
-</LI>
-<LI>If you will be using SSL to connect to the IMAP server:
-   <PRE>
-   $ make slx EXTRACFLAGS="-I/usr/include/openssl"
-</PRE>
-</LI>
-</OL>
-
-<P>
-Additionally, you may wish to build on a 64-bit machine, in which case you
-need to add -fPIC to EXTRACFLAGS. So, building on a 64-bit machine with
-SSL support would look something like:
-
-<P>
-<PRE>
-   $ make slx EXTRACFLAGS="-fPIC -I/usr/include/openssl"
-</PRE>
-
-<P>
-Or without SSL support:
-
-<P>
-<PRE>
-   $ make slx SSLTYPE=none EXTRACFLAGS=-fPIC
-</PRE>
-
-<P>
-Once this completes you can proceed with the Asterisk build; there is no
-need to run 'make install'.
-
-<P>
-
+You may modify the <TT>voicemessages</TT> table name by using
+<TT>odbctable=<SPAN  CLASS="textit">table_name</SPAN></TT> in voicemail.conf.
+  
 <DIV CLASS="navigation"><HR>
 <!--Navigation Panel-->
-<A NAME="tex2html3709"
+<A NAME="tex2html3708"
   HREF="node234.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3705"
+<A NAME="tex2html3704"
   HREF="node232.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3699"
+<A NAME="tex2html3698"
   HREF="node232.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3707"
+<A NAME="tex2html3706"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3710"
-  HREF="node234.html">Compiling Asterisk</A>
-<B> Up:</B> <A NAME="tex2html3706"
-  HREF="node232.html">Installation Notes</A>
-<B> Previous:</B> <A NAME="tex2html3700"
-  HREF="node232.html">Installation Notes</A>
- &nbsp; <B>  <A NAME="tex2html3708"
+<B> Next:</B> <A NAME="tex2html3709"
+  HREF="node234.html">IMAP Storage</A>
+<B> Up:</B> <A NAME="tex2html3705"
+  HREF="node232.html">Voicemail</A>
+<B> Previous:</B> <A NAME="tex2html3699"
+  HREF="node232.html">Voicemail</A>
+ &nbsp; <B>  <A NAME="tex2html3707"
   HREF="node1.html">Contents</A></B> </DIV>
 <!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

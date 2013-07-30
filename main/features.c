@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238137 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 249933 $")
 
 #include "asterisk/_private.h"
 
@@ -145,6 +145,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 238137 $")
 			registered internally and does not need to be explicitly added
 			into the dialplan, although you should include the <literal>parkedcalls</literal>
 			context (or the context specified in <filename>features.conf</filename>).</para>
+			<para>If you set the <variable>PARKINGLOT</variable> variable, the call will be parked
+			in the specifed parking context. Note setting this variable overrides the <variable>
+			PARKINGLOT</variable> set by the <literal>CHANNEL</literal> function.</para>
 			<para>If you set the <variable>PARKINGEXTEN</variable> variable to an extension in your
 			parking context, Park() will park the call on that extension, unless
 			it already exists. In that case, execution will continue at next priority.</para>
@@ -635,7 +638,7 @@ static struct parkeduser *park_space_reserve(struct ast_channel *chan,
 		for (i = start; 1; i++) {
 			if (i == parkinglot->parking_stop + 1) {
 				i = parkinglot->parking_start - 1;
-				continue;
+				break;
 			}
 
 			AST_LIST_TRAVERSE(&parkinglot->parkings, cur, list) {
@@ -643,8 +646,7 @@ static struct parkeduser *park_space_reserve(struct ast_channel *chan,
 					break;
 				}
 			}
-
-			if (!cur || i == start - 1) {
+			if (!cur) {
 				parking_space = i;
 				break;
 			}
@@ -861,6 +863,11 @@ static int masq_park_call(struct ast_channel *rchan, struct ast_channel *peer, i
 	/* Setup the extensions and such */
 	set_c_e_p(chan, rchan->context, rchan->exten, rchan->priority);
 
+	/* Setup the macro extension and such */
+	ast_copy_string(chan->macrocontext,rchan->macrocontext,sizeof(chan->macrocontext));
+	ast_copy_string(chan->macroexten,rchan->macroexten,sizeof(chan->macroexten));
+	chan->macropriority = rchan->macropriority;
+
 	/* Make the masq execute */
 	if ((f = ast_read(chan)))
 		ast_frfree(f);
@@ -869,7 +876,7 @@ static int masq_park_call(struct ast_channel *rchan, struct ast_channel *peer, i
 		peer = chan;
 	}
 
-	if (!play_announcement && args == &park_args) {
+	if (peer && (!play_announcement && args == &park_args)) {
 		args->orig_chan_name = ast_strdupa(peer->name);
 	}
 
@@ -2518,6 +2525,9 @@ int ast_bridge_call(struct ast_channel *chan,struct ast_channel *peer,struct ast
 			if (peer_cdr && !ast_strlen_zero(peer_cdr->userfield)) {
 				ast_copy_string(bridge_cdr->userfield, peer_cdr->userfield, sizeof(bridge_cdr->userfield));
 			}
+			if (peer_cdr && ast_strlen_zero(peer->accountcode)) {
+				ast_cdr_setaccount(peer, chan->accountcode);
+			}
 
 		} else {
 			/* better yet, in a xfer situation, find out why the chan cdr got zapped (pun unintentional) */
@@ -3437,8 +3447,12 @@ static int park_exec_full(struct ast_channel *chan, void *data, struct ast_parki
 		}
 		ast_channel_unlock(peer);
 
+		/* When the datastores for both caller and callee are created, both the callee and caller channels
+		 * use the features_caller flag variable to represent themselves. With that said, the config.features_callee
+		 * flags should be copied from the datastore's caller feature flags regardless if peer was a callee
+		 * or caller. */
 		if (dialfeatures) {
-			ast_copy_flags(&(config.features_callee), dialfeatures->is_caller ? &(dialfeatures->features_caller) : &(dialfeatures->features_callee), AST_FLAGS_ALL);
+			ast_copy_flags(&(config.features_callee), &(dialfeatures->features_caller), AST_FLAGS_ALL);
 		}
 
 		if ((parkinglot->parkedcalltransfers == AST_FEATURE_FLAG_BYCALLEE) || (parkinglot->parkedcalltransfers == AST_FEATURE_FLAG_BYBOTH)) {

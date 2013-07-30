@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Microsoft SQL Server</TITLE>
-<META NAME="description" CONTENT="Microsoft SQL Server">
+<TITLE>CDR Fields</TITLE>
+<META NAME="description" CONTENT="CDR Fields">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,77 +18,141 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node217.html">
+<LINK REL="next" HREF="node215.html">
 <LINK REL="previous" HREF="node213.html">
-<LINK REL="up" HREF="node213.html">
+<LINK REL="up" HREF="node212.html">
 <LINK REL="next" HREF="node215.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3450"
+<A NAME="tex2html3449"
   HREF="node215.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3446"
-  HREF="node213.html">
+<A NAME="tex2html3445"
+  HREF="node212.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3440"
+<A NAME="tex2html3439"
   HREF="node213.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3448"
+<A NAME="tex2html3447"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3451"
-  HREF="node215.html">ODBC using cdr_odbc</A>
-<B> Up:</B> <A NAME="tex2html3447"
-  HREF="node213.html">Storage Backends</A>
-<B> Previous:</B> <A NAME="tex2html3441"
-  HREF="node213.html">Storage Backends</A>
- &nbsp; <B>  <A NAME="tex2html3449"
+<B> Next:</B> <A NAME="tex2html3450"
+  HREF="node215.html">Variables</A>
+<B> Up:</B> <A NAME="tex2html3446"
+  HREF="node212.html">CDR: Call Detail Records</A>
+<B> Previous:</B> <A NAME="tex2html3440"
+  HREF="node213.html">Applications</A>
+ &nbsp; <B>  <A NAME="tex2html3448"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H2><A NAME="SECTION001141000000000000000">
-Microsoft SQL Server</A>
-</H2>
+<H1><A NAME="SECTION001120000000000000000">
+CDR Fields</A>
+</H1>
 
 <P>
-Asterisk can currently store CDRs into an MSSQL database in
-	two different ways:  cdr_odbc or cdr_tds
 
-<P>
-Call Data Records can be stored using unixODBC (which requires
-	the FreeTDS package) [cdr_odbc] or directly by using just the
-	FreeTDS package [cdr_tds]  The following provide some
-	examples known to get asterisk working with mssql.
-
-<P>
-NOTE:  Only choose one db connector.
-
-<P>
-<BR><HR>
-<!--Table of Child-Links-->
-<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
-
-<UL CLASS="ChildLinks">
-<LI><A NAME="tex2html3452"
-  HREF="node215.html">ODBC using cdr_odbc</A>
-<LI><A NAME="tex2html3453"
-  HREF="node216.html">TDS, using cdr_tds</A>
+<UL>
+<LI>accountcode:  What account number to use, (string, 20 characters)
+</LI>
+<LI>src:  Caller*ID number (string, 80 characters)
+</LI>
+<LI>dst:  Destination extension (string, 80 characters)
+</LI>
+<LI>dcontext:  Destination context (string, 80 characters)
+</LI>
+<LI>clid:  Caller*ID with text (80 characters)
+</LI>
+<LI>channel:  Channel used (80 characters)
+</LI>
+<LI>dstchannel:  Destination channel if appropriate (80 characters)
+</LI>
+<LI>lastapp:  Last application if appropriate (80 characters)
+</LI>
+<LI>lastdata:  Last application data (arguments) (80 characters)
+</LI>
+<LI>start:  Start of call (date/time)
+</LI>
+<LI>answer:  Answer of call (date/time)
+</LI>
+<LI>end:  End of call (date/time)
+</LI>
+<LI>duration:  Total time in system, in seconds (integer), from dial to hangup
+</LI>
+<LI>billsec:  Total time call is up, in seconds (integer), from answer to hangup
+</LI>
+<LI>disposition:  What happened to the call: ANSWERED, NO ANSWER, BUSY
+</LI>
+<LI>amaflags:  What flags to use: DOCUMENTATION, BILL, IGNORE etc,
+            specified on a per channel basis like accountcode.
+</LI>
+<LI>user field:  A user-defined field, maximum 255 characters
+</LI>
 </UL>
-<!--End of Table of Child-Links-->
-<BR><HR>
+
+<P>
+In some cases, uniqueid is appended:
+
+<P>
+
+<UL>
+<LI>uniqueid:  Unique Channel Identifier (32 characters)
+      This needs to be enabled in the source code at compile time
+</LI>
+</UL>
+
+<P>
+NOTE: If you use IAX2 channels for your calls, and allow 'full' transfers
+(not media-only transfers), then when the calls is transferred the server
+in the middle will no longer be involved in the signaling path, and thus
+will not generate accurate CDRs for that call. If you can, use media-only
+transfers with IAX2 to avoid this problem, or turn off transfers completely
+(although this can result in a media latency increase since the media packets
+have to traverse the middle server(s) in the call).
+
+<P>
+
+<DIV CLASS="navigation"><HR>
+<!--Navigation Panel-->
+<A NAME="tex2html3449"
+  HREF="node215.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
+ SRC="/usr/share/latex2html/icons/next.png"></A> 
+<A NAME="tex2html3445"
+  HREF="node212.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
+ SRC="/usr/share/latex2html/icons/up.png"></A> 
+<A NAME="tex2html3439"
+  HREF="node213.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
+ SRC="/usr/share/latex2html/icons/prev.png"></A> 
+<A NAME="tex2html3447"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
+ SRC="/usr/share/latex2html/icons/contents.png"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html3450"
+  HREF="node215.html">Variables</A>
+<B> Up:</B> <A NAME="tex2html3446"
+  HREF="node212.html">CDR: Call Detail Records</A>
+<B> Previous:</B> <A NAME="tex2html3440"
+  HREF="node213.html">Applications</A>
+ &nbsp; <B>  <A NAME="tex2html3448"
+  HREF="node1.html">Contents</A></B> </DIV>
+<!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>queues.conf</TITLE>
-<META NAME="description" CONTENT="queues.conf">
+<TITLE>Queues</TITLE>
+<META NAME="description" CONTENT="Queues">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -18,155 +18,91 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 
 <LINK REL="STYLESHEET" HREF="asterisk.css">
 
-<LINK REL="next" HREF="node259.html">
-<LINK REL="previous" HREF="node257.html">
-<LINK REL="up" HREF="node257.html">
+<LINK REL="next" HREF="node271.html">
+<LINK REL="previous" HREF="node248.html">
+<LINK REL="up" HREF="asterisk.html">
 <LINK REL="next" HREF="node259.html">
 </HEAD>
 
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html4035"
+<A NAME="tex2html4026"
   HREF="node259.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4031"
-  HREF="node257.html">
+<A NAME="tex2html4022"
+  HREF="asterisk.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4025"
+<A NAME="tex2html4016"
   HREF="node257.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4033"
+<A NAME="tex2html4024"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html4036"
-  HREF="node259.html">Routing incoming Calls to</A>
-<B> Up:</B> <A NAME="tex2html4032"
-  HREF="node257.html">Configuring Call Queues</A>
-<B> Previous:</B> <A NAME="tex2html4026"
-  HREF="node257.html">Configuring Call Queues</A>
- &nbsp; <B>  <A NAME="tex2html4034"
+<B> Next:</B> <A NAME="tex2html4027"
+  HREF="node259.html">Introduction</A>
+<B> Up:</B> <A NAME="tex2html4023"
+  HREF="asterisk.html">Asterisk Reference Information Version</A>
+<B> Previous:</B> <A NAME="tex2html4017"
+  HREF="node257.html">Delivery reports</A>
+ &nbsp; <B>  <A NAME="tex2html4025"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
-<H2><A NAME="SECTION001421000000000000000">
-queues.conf</A>
-</H2>
-First of all, set up call queues in queue.conf
-
+<H1><A NAME="SECTION001400000000000000000">
+Queues</A>
+</H1>
+  
 <P>
-Here is an example:
+<BR><HR>
+<!--Table of Child-Links-->
+<A NAME="CHILD_LINKS"><STRONG>Subsections</STRONG></A>
 
-<P>
-</B></SMALL>
+<UL CLASS="ChildLinks">
+<LI><A NAME="tex2html4028"
+  HREF="node259.html">Introduction</A>
+<LI><A NAME="tex2html4029"
+  HREF="node260.html">Configuring Call Queues</A>
 <UL>
-<LI><PRE>
-   =========== queues.conf ===========
-   | ; Cool Digium Queues            |
-   | [general]                       |
-   | persistentmembers = yes         |
-   |                                 |
-   | ; General sales queue           |
-   | [sales-general]                 |
-   | music=default                   |
-   | context=sales                   |
-   | strategy=ringall                |
-   | joinempty=strict                |
-   | leavewhenempty=strict           |
-   |                                 |
-   | ; Customer service queue        |
-   | [customerservice]               |
-   | music=default                   |
-   | context=customerservice         |
-   | strategy=ringall                |
-   | joinempty=strict                |
-   | leavewhenempty=strict           |
-   |                                 |
-   | ; Support dispatch queue        |
-   | [dispatch]                      |
-   | music=default                   |
-   | context=dispatch                |
-   | strategy=ringall                |
-   | joinempty=strict                |
-   | leavewhenempty=strict           |
-   ===================================
-</PRE><SMALL CLASS="SCRIPTSIZE"><B>
-</LI>
+<LI><A NAME="tex2html4030"
+  HREF="node261.html">queues.conf</A>
+<LI><A NAME="tex2html4031"
+  HREF="node262.html">Routing incoming Calls to Queues</A>
+<UL>
+<LI><A NAME="tex2html4032"
+  HREF="node263.html">The Main Menu</A>
+<LI><A NAME="tex2html4033"
+  HREF="node264.html">The Contexts referenced from the queues.conf file</A>
 </UL>
-<P>
-In the above, we have defined 3 separate calling queues:
-sales-general, customerservice, and dispatch.
-
-<P>
-Please note that the sales-general queue specifies a
-context of "sales", and that customerservice specifies the
-context of "customerservice", and the dispatch
-queue specifies the context "dispatch". These three
-contexts must be defined somewhere in your dialplan.
-We will show them after the main menu below.
-
-<P>
-In the [general] section, specifying the persistentmembers=yes,
-will cause the agent lists to be stored in astdb, and
-recalled on startup.
-
-<P>
-The strategy=ringall will cause all agents to be dialed
-together, the first to answer is then assigned the incoming
-call.
-
-<P>
-"joinempty" set to "strict" will keep incoming callers from
-being placed in queues where there are no agents to take calls.
-The Queue() application will return, and the dial plan can
-determine what to do next.
-
-<P>
-If there are calls queued, and the last agent logs out, the
-remaining incoming callers will immediately be removed from
-the queue, and the Queue() call will return, IF the "leavewhenempty" is
-set to "strict".
-
-<P>
-
-<DIV CLASS="navigation"><HR>
-<!--Navigation Panel-->
-<A NAME="tex2html4035"
-  HREF="node259.html">
-<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
- SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html4031"
-  HREF="node257.html">
-<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
- SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html4025"
-  HREF="node257.html">
-<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
- SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html4033"
-  HREF="node1.html">
-<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
- SRC="/usr/share/latex2html/icons/contents.png"></A>  
+<LI><A NAME="tex2html4034"
+  HREF="node265.html">Assigning agents to Queues</A>
+<UL>
+<LI><A NAME="tex2html4035"
+  HREF="node266.html">Agents Log In and Out</A>
+</UL>
+<LI><A NAME="tex2html4036"
+  HREF="node267.html">Controlling The Way Queues Call the Agents</A>
+<LI><A NAME="tex2html4037"
+  HREF="node268.html">Pre Acknowledgement Message</A>
+<LI><A NAME="tex2html4038"
+  HREF="node269.html">Caveats</A>
+</UL>
 <BR>
-<B> Next:</B> <A NAME="tex2html4036"
-  HREF="node259.html">Routing incoming Calls to</A>
-<B> Up:</B> <A NAME="tex2html4032"
-  HREF="node257.html">Configuring Call Queues</A>
-<B> Previous:</B> <A NAME="tex2html4026"
-  HREF="node257.html">Configuring Call Queues</A>
- &nbsp; <B>  <A NAME="tex2html4034"
-  HREF="node1.html">Contents</A></B> </DIV>
-<!--End of Navigation Panel-->
+<LI><A NAME="tex2html4039"
+  HREF="node270.html">Queue Logs</A>
+</UL>
+<!--End of Table of Child-Links-->
+<BR><HR>
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>

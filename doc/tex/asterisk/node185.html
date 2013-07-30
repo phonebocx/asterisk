@@ -7,8 +7,8 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
   Jens Lippmann, Marek Rouchal, Martin Wilck and others -->
 <HTML>
 <HEAD>
-<TITLE>Purpose</TITLE>
-<META NAME="description" CONTENT="Purpose">
+<TITLE>Trivial Local channel example</TITLE>
+<META NAME="description" CONTENT="Trivial Local channel example">
 <META NAME="keywords" CONTENT="asterisk">
 <META NAME="resource-type" CONTENT="document">
 <META NAME="distribution" CONTENT="global">
@@ -27,68 +27,192 @@ original version by:  Nikos Drakos, CBLU, University of Leeds
 <BODY >
 
 <DIV CLASS="navigation"><!--Navigation Panel-->
-<A NAME="tex2html3057"
+<A NAME="tex2html3069"
   HREF="node186.html">
 <IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
  SRC="/usr/share/latex2html/icons/next.png"></A> 
-<A NAME="tex2html3053"
+<A NAME="tex2html3065"
   HREF="node182.html">
 <IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
  SRC="/usr/share/latex2html/icons/up.png"></A> 
-<A NAME="tex2html3047"
+<A NAME="tex2html3059"
   HREF="node184.html">
 <IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
  SRC="/usr/share/latex2html/icons/prev.png"></A> 
-<A NAME="tex2html3055"
+<A NAME="tex2html3067"
   HREF="node1.html">
 <IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
  SRC="/usr/share/latex2html/icons/contents.png"></A>  
 <BR>
-<B> Next:</B> <A NAME="tex2html3058"
-  HREF="node186.html">Examples</A>
-<B> Up:</B> <A NAME="tex2html3054"
+<B> Next:</B> <A NAME="tex2html3070"
+  HREF="node186.html">Delay dialing devices</A>
+<B> Up:</B> <A NAME="tex2html3066"
   HREF="node182.html">Local</A>
-<B> Previous:</B> <A NAME="tex2html3048"
-  HREF="node184.html">Syntax</A>
- &nbsp; <B>  <A NAME="tex2html3056"
+<B> Previous:</B> <A NAME="tex2html3060"
+  HREF="node184.html">Examples</A>
+ &nbsp; <B>  <A NAME="tex2html3068"
   HREF="node1.html">Contents</A></B> 
 <BR>
 <BR></DIV>
 <!--End of Navigation Panel-->
 
 <H2><A NAME="SECTION00733000000000000000">
-Purpose</A>
+Trivial Local channel example</A>
 </H2>
 
 <P>
-The Local channel construct can be used to establish dialing into any part of
-the dialplan.
+In our dialplan (extensions.conf), we can Dial() another part of the dialplan
+through the use Local channels. To do this, we can use the following dialplan:
 
 <P>
-Imagine you have a TE410P in your box. You want to do something for which you
-must use a Dial statement (for instance when dropping files in
-/var/spool/outgoing) but you do want to be able to use your dialplans
-least-cost-routes or other intelligent stuff. What you could do before we had
-chan_local was create a cross-link between two ports of the TE410P and then
-Dial out one port and in the other. This way you could control where the call
-was going.
+</B></SMALL>
+<UL>
+<LI><PRE>
+[devices]
+exten =&gt; 201,1,Verbose(2,Dial another part of the dialplan via the Local chan)
+exten =&gt; 201,n,Verbose(2,Outside channel:  ${CHANNEL})
+exten =&gt; 201,n,Dial(Local/201@extensions)
+exten =&gt; 201,n,Hangup()
+
+[extensions]
+exten =&gt; 201,1,Verbose(2,Made it to the Local channel)
+exten =&gt; 201,n,Verbose(2,Inside channel:  ${CHANNEL})
+exten =&gt; 201,n,Dial(SIP/some-named-extension,30)
+exten =&gt; 201,n,Hangup()
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+The output of the dialplan would look something like the following. The output
+has been broken up with some commentary to explain what we're looking at.
 
 <P>
-Of course, this was a nasty hack, and to make it more sensible, chan_local was
-built.
+</B></SMALL>
+<UL>
+<LI><PRE>
+-- Executing [201@devices:1] Verbose("SIP/my_desk_phone-00000014", "2,Dial another part of the dialplan via the 
+             Local chan") in new stack
+== Dial another part of the dialplan via the Local chan
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+We dial extension 201 from SIP/my_desk_phone which has entered the [devices]
+context. The first line simply outputs some information via the Verbose()
+application.
 
 <P>
-The "Local" channel driver allows you to convert an arbitrary extension into a
-channel. It is used in a variety of places, including agents, etc.
+</B></SMALL>
+<UL>
+<LI><PRE>
+-- Executing [201@devices:2] Verbose("SIP/my_desk_phone-00000014", 
+                  "2,Outside channel:  SIP/my_desk_phone-00000014") in new stack
+== Outside channel:  SIP/my_desk_phone-00000014
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+The next line is another Verbose() application statement that tells us our
+current channel name. We can see that the channel executing the current dialplan
+is a desk phone (aptly named 'my_desk_phone').
 
 <P>
-This also allows us to hop to contexts like a GoSub routine; See examples below.
+</B></SMALL>
+<UL>
+<LI><PRE>
+-- Executing [201@devices:3] Dial("SIP/my_desk_phone-00000014", "Local/201@extensions") in new stack
+-- Called 201@extensions
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+Now the third step in our dialplan executes the Dial() application which calls
+extension 201 in the [extensions] context of our dialplan. There is no
+requirement that we use the same extension number - we could have just as
+easily used a named extension, or some other number. Remember that we're dialing
+another channel, but instead of dialing a device, we're "dialing" another part
+of the dialplan.
 
 <P>
-<BR><HR>
+</B></SMALL>
+<UL>
+<LI><PRE>
+-- Executing [201@extensions:1] Verbose("Local/201@extensions-7cf4;2", "2,Made it to the Local 
+             channel") in new stack
+== Made it to the Local channel
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+Now we've verified we've dialed another part of the dialplan. We can see the
+channel executing the dialplan has changed to Local/201@extensions-7cf4;2. The
+part '-7cf4;2' is just the unique identifier, and will be different for you.
+
+<P>
+</B></SMALL>
+<UL>
+<LI><PRE>
+-- Executing [201@extensions:2] Verbose("Local/201@extensions-7cf4;2", "2,Inside channel:  
+             Local/201@extensions-7cf4;2") in new stack
+== Inside channel:  Local/201@extensions-7cf4;2
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+Here we use the Verbose() application to see what our current channel name is.
+As you can see the current channel is a Local channel which we created from our
+SIP channel.
+
+<P>
+</B></SMALL>
+<UL>
+<LI><PRE>
+-- Executing [201@extensions:3] Dial("Local/201@extensions-7cf4;2", "SIP/some-named-extension,30") in new stack
+</PRE><SMALL CLASS="SCRIPTSIZE"><B>
+</LI>
+</UL>
+<P>
+And from here, we're using another Dial() application to call a SIP device
+configured in sip.conf as [some-named-extension].
+
+<P>
+Now that we understand a simple example of calling the Local channel, let's
+expand upon this example by using Local channels to call two devices at the same
+time, but delay calling one of the devices.
+
+<P>
+
+<DIV CLASS="navigation"><HR>
+<!--Navigation Panel-->
+<A NAME="tex2html3069"
+  HREF="node186.html">
+<IMG WIDTH="37" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="next"
+ SRC="/usr/share/latex2html/icons/next.png"></A> 
+<A NAME="tex2html3065"
+  HREF="node182.html">
+<IMG WIDTH="26" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="up"
+ SRC="/usr/share/latex2html/icons/up.png"></A> 
+<A NAME="tex2html3059"
+  HREF="node184.html">
+<IMG WIDTH="63" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="previous"
+ SRC="/usr/share/latex2html/icons/prev.png"></A> 
+<A NAME="tex2html3067"
+  HREF="node1.html">
+<IMG WIDTH="65" HEIGHT="24" ALIGN="BOTTOM" BORDER="0" ALT="contents"
+ SRC="/usr/share/latex2html/icons/contents.png"></A>  
+<BR>
+<B> Next:</B> <A NAME="tex2html3070"
+  HREF="node186.html">Delay dialing devices</A>
+<B> Up:</B> <A NAME="tex2html3066"
+  HREF="node182.html">Local</A>
+<B> Previous:</B> <A NAME="tex2html3060"
+  HREF="node184.html">Examples</A>
+ &nbsp; <B>  <A NAME="tex2html3068"
+  HREF="node1.html">Contents</A></B> </DIV>
+<!--End of Navigation Panel-->
 <ADDRESS>
 lmadsen
-2010-02-02
+2010-03-11
 </ADDRESS>
 </BODY>
 </HTML>
