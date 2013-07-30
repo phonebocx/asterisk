@@ -24,7 +24,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 67526 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 84239 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -46,7 +46,7 @@ extern char *my_file;
 #ifdef AAL_ARGCHECK
 int ael_is_funcname(char *name);
 #endif
-static char *ael_token_subst(char *mess);
+static char *ael_token_subst(const char *mess);
 
 %}
 
@@ -153,7 +153,7 @@ static pval *update_last(pval *, YYLTYPE *);
 
 /* there will be two shift/reduce conflicts, they involve the if statement, where a single statement occurs not wrapped in curlies in the "true" section
    the default action to shift will attach the else to the preceeding if. */
-%expect 8
+%expect 3
 %error-verbose
 
 /*
@@ -204,8 +204,8 @@ context : opt_abstract KW_CONTEXT context_name LC elements RC {
 		if (!$5) {
                         ast_log(LOG_WARNING, "==== File: %s, Line %d, Cols: %d-%d: Warning! The empty context %s will be IGNORED!\n", 
 				my_file, @4.first_line, @4.first_column, @4.last_column, $3 );
+			$$ = 0;
 			free($3);
-
 		} else {
 			$$ = npval2(PV_CONTEXT, &@1, &@6);
 			$$->u1.str = $3;
@@ -233,7 +233,7 @@ globals : KW_GLOBALS LC global_statements RC {
 
 global_statements : { $$ = NULL; }
 	| assignment global_statements {$$ = linku1($1, $2); }
-	| global_statements error {$$=$1;}
+	| error global_statements {$$=$2;}
 	;
 
 assignment : word EQ { reset_semicount(parseio->scanner); }  word SEMI {
@@ -251,7 +251,7 @@ arglist : /* empty */ { $$ = NULL; }
 
 elements : {$$=0;}
 	| element elements { $$ = linku1($1, $2); }
-	| elements error   { $$=$1;}
+	| error elements  { $$=$2;}
 	;
 
 element : extension {$$=$1;}
@@ -295,7 +295,7 @@ extension : word EXTENMARK statement {
 /* list of statements in a block or after a case label - can be empty */
 statements : /* empty */ { $$ = NULL; }
 	| statement statements { $$ = linku1($1, $2); }
-	| statements error {$$=$1;}
+	| error statements {$$=$2;}
 	;
 
 /* hh:mm-hh:mm, due to the way the parser works we do not
@@ -469,7 +469,7 @@ statement : LC statements RC {
 opt_else : KW_ELSE statement { $$ = $2; }
 	| { $$ = NULL ; }
 
-
+ 
 target : goto_word { $$ = nword($1, &@1); }
 	| goto_word BAR goto_word {
 		$$ = nword($1, &@1);
@@ -598,7 +598,7 @@ switchlist : /* empty */ { $$ = NULL; }
 	| word SEMI switchlist { $$ = linku1(nword($1, &@1), $3); }
 	| word AT word SEMI switchlist { char *x; asprintf(&x,"%s@%s", $1,$3); free($1); free($3);
 									  $$ = linku1(nword(x, &@1), $5);}
-	| switchlist error {$$=$1;}
+	| error switchlist {$$=$2;}
 	;
 
 included_entry : context_name { $$ = nword($1, &@1); }
@@ -705,11 +705,11 @@ static char *token_equivs2[] =
 };
 
 
-static char *ael_token_subst(char *mess)
+static char *ael_token_subst(const char *mess)
 {
 	/* calc a length, malloc, fill, and return; yyerror had better free it! */
 	int len=0,i;
-	char *p;
+	const char *p;
 	char *res, *s,*t;
 	int token_equivs_entries = sizeof(token_equivs1)/sizeof(char*);
 
@@ -750,7 +750,7 @@ static char *ael_token_subst(char *mess)
 
 void yyerror(YYLTYPE *locp, struct parse_io *parseio,  char const *s)
 {
-	char *s2 = ael_token_subst((char *)s);
+	char *s2 = ael_token_subst(s);
 	if (locp->first_line == locp->last_line) {
 		ast_log(LOG_ERROR, "==== File: %s, Line %d, Cols: %d-%d: Error: %s\n", my_file, locp->first_line, locp->first_column, locp->last_column, s2);
 	} else {

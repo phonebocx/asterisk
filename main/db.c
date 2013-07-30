@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 71289 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 84851 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +63,7 @@ AST_MUTEX_DEFINE_STATIC(dblock);
 static int dbinit(void) 
 {
 	if (!astdb && !(astdb = dbopen((char *)ast_config_AST_DB, O_CREAT | O_RDWR, 0664, DB_BTREE, NULL))) {
-		ast_log(LOG_WARNING, "Unable to open Asterisk database\n");
+		ast_log(LOG_WARNING, "Unable to open Asterisk database '%s': %s\n", ast_config_AST_DB, strerror(errno));
 		return -1;
 	}
 	return 0;

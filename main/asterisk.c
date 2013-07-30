@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72383 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 83348 $")
 
 #undef sched_setscheduler
 #undef setpriority
@@ -699,22 +699,26 @@ static char *complete_show_version_files(const char *line, const char *word, int
 
 int ast_register_atexit(void (*func)(void))
 {
-	int res = -1;
 	struct ast_atexit *ae;
+
+	if (!(ae = ast_calloc(1, sizeof(*ae))))
+		return -1;
+
+	ae->func = func;
+
 	ast_unregister_atexit(func);	
+
 	AST_LIST_LOCK(&atexits);
-	if ((ae = ast_calloc(1, sizeof(*ae)))) {
-		AST_LIST_INSERT_HEAD(&atexits, ae, list);
-		ae->func = func;
-		res = 0;
-	}
+	AST_LIST_INSERT_HEAD(&atexits, ae, list);
 	AST_LIST_UNLOCK(&atexits);
-	return res;
+
+	return 0;
 }
 
 void ast_unregister_atexit(void (*func)(void))
 {
-	struct ast_atexit *ae;
+	struct ast_atexit *ae = NULL;
+
 	AST_LIST_LOCK(&atexits);
 	AST_LIST_TRAVERSE_SAFE_BEGIN(&atexits, ae, list) {
 		if (ae->func == func) {
@@ -724,6 +728,9 @@ void ast_unregister_atexit(void (*func)(void))
 	}
 	AST_LIST_TRAVERSE_SAFE_END
 	AST_LIST_UNLOCK(&atexits);
+
+	if (ae)
+		free(ae);
 }
 
 static int fdprint(int fd, const char *s)
@@ -2326,14 +2333,16 @@ static int show_cli_help(void) {
 	printf("   -I              Enable internal timing if Zaptel timer is available\n");
 	printf("   -L <load>       Limit the maximum load average before rejecting new calls\n");
 	printf("   -M <value>      Limit the maximum number of calls to the specified value\n");
-	printf("   -m              Mute the console from debugging and verbose output\n");
+	printf("   -m              Mute debugging and console output on the console\n");
 	printf("   -n              Disable console colorization\n");
 	printf("   -p              Run as pseudo-realtime thread\n");
 	printf("   -q              Quiet mode (suppress output)\n");
 	printf("   -r              Connect to Asterisk on this machine\n");
-	printf("   -R              Connect to Asterisk, and attempt to reconnect if disconnected\n");
-	printf("   -t              Record soundfiles in /var/tmp and move them where they belong after they are done.\n");
-	printf("   -T              Display the time in [Mmm dd hh:mm:ss] format for each line of output to the CLI.\n");
+	printf("   -R              Same as -r, except attempt to reconnect if disconnected\n");
+	printf("   -t              Record soundfiles in /var/tmp and move them where they\n");
+	printf("                   belong after they are done\n");
+	printf("   -T              Display the time in [Mmm dd hh:mm:ss] format for each line\n");
+	printf("                   of output to the CLI\n");
 	printf("   -v              Increase verbosity (multiple v's = more verbose)\n");
 	printf("   -x <cmd>        Execute command <cmd> (only valid with -r)\n");
 	printf("\n");
@@ -2804,7 +2813,7 @@ int main(int argc, char *argv[])
 
 #if HAVE_WORKING_FORK
 	if (ast_opt_always_fork || !ast_opt_no_fork) {
-		daemon(0, 0);
+		daemon(1, 0);
 		ast_mainpid = getpid();
 		/* Blindly re-write pid file since we are forking */
 		unlink(ast_config_AST_PID);
@@ -2848,6 +2857,8 @@ int main(int argc, char *argv[])
 	}
 
 	threadstorage_init();
+
+	astobj2_init();
 
 	if (load_modules(1)) {
 		printf(term_quit());

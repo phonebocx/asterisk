@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 79334 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 81406 $");
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -120,7 +120,7 @@ struct ast_speech_result *ast_speech_results_get(struct ast_speech *speech)
 {
 	struct ast_speech_result *result = NULL;
 
-	if (speech->engine->get != NULL && ast_test_flag(speech, AST_SPEECH_HAVE_RESULTS)) {
+	if (speech->engine->get != NULL) {
 		result = speech->engine->get(speech);
 	}
 

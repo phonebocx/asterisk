@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75306 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 81435 $")
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -267,7 +267,7 @@ int ast_search_dns(void *context,
 			ast_log(LOG_WARNING, "DNS Parse error for %s\n", dname);
 			ret = -1;
 		}
-		else if (ret == 0) {
+		else if (res == 0) {
 			ast_log(LOG_DEBUG, "No matches found in DNS for %s\n", dname);
 			ret = 0;
 		}

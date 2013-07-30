@@ -58,6 +58,8 @@ export PROC
 export SOLINK
 export STRIP
 export DOWNLOAD
+export GREP
+export ID
 export OSARCH
 export CURSES_DIR
 export NCURSES_DIR
@@ -72,6 +74,11 @@ export GTK2_INCLUDE
 ifneq ($(wildcard makeopts),)
   include makeopts
 endif
+
+# Some build systems, such as the one in openwrt, like to pass custom target
+# CFLAGS and LDFLAGS in the COPTS and LDOPTS variables.
+ASTCFLAGS+=$(COPTS)
+ASTLDFLAGS+=$(LDOPTS)
 
 #Uncomment this to see all build commands instead of 'quiet' output
 #NOISY_BUILD=yes
@@ -247,6 +254,7 @@ OTHER_SUBDIRS:=utils agi
 SUBDIRS:=$(OTHER_SUBDIRS) $(MOD_SUBDIRS)
 SUBDIRS_INSTALL:=$(SUBDIRS:%=%-install)
 SUBDIRS_CLEAN:=$(SUBDIRS:%=%-clean)
+SUBDIRS_DIST_CLEAN:=$(SUBDIRS:%=%-dist-clean)
 SUBDIRS_UNINSTALL:=$(SUBDIRS:%=%-uninstall)
 MOD_SUBDIRS_EMBED_LDSCRIPT:=$(MOD_SUBDIRS:%=%-embed-ldscript)
 MOD_SUBDIRS_EMBED_LDFLAGS:=$(MOD_SUBDIRS:%=%-embed-ldflags)
@@ -353,6 +361,9 @@ include/asterisk/buildopts.h: menuselect.makeopts
 $(SUBDIRS_CLEAN):
 	@$(MAKE) --no-print-directory -C $(@:-clean=) clean
 
+$(SUBDIRS_DIST_CLEAN):
+	@$(MAKE) --no-print-directory -C $(@:-dist-clean=) dist-clean
+
 clean: $(SUBDIRS_CLEAN)
 	rm -f defaults.h
 	rm -f include/asterisk/build.h
@@ -362,7 +373,7 @@ clean: $(SUBDIRS_CLEAN)
 
 dist-clean: distclean
 
-distclean: clean
+distclean: $(SUBDIRS_DIST_CLEAN) clean
 	@$(MAKE) -C menuselect dist-clean
 	@$(MAKE) -C sounds dist-clean
 	rm -f menuselect.makeopts makeopts menuselect-tree menuselect.makedeps
@@ -641,9 +652,7 @@ sounds:
 # last clean count we had
 
 cleantest:
-	@if ! cmp -s .cleancount .lastclean ; then \
-		$(MAKE) clean;\
-	fi
+	@cmp -s .cleancount .lastclean || $(MAKE) clean
 
 $(SUBDIRS_UNINSTALL):
 	@$(MAKE) --no-print-directory -C $(@:-uninstall=) uninstall
@@ -703,8 +712,8 @@ menuselect/menuselect: makeopts menuselect/menuselect.c menuselect/menuselect_cu
 menuselect/gmenuselect: makeopts menuselect/menuselect.c menuselect/menuselect_gtk.c menuselect/menuselect_stub.c menuselect/menuselect.h menuselect/linkedlists.h makeopts
 	@CC="$(HOST_CC)" CXX="$(CXX)" LD="" AR="" RANLIB="" CFLAGS="" $(MAKE) -C menuselect _gmenuselect CONFIGURE_SILENT="--silent"
 
-menuselect-tree: $(foreach dir,$(filter-out main,$(MOD_SUBDIRS)),$(wildcard $(dir)/*.c) $(wildcard $(dir)/*.cc)) build_tools/cflags.xml sounds/sounds.xml build_tools/embed_modules.xml
+menuselect-tree: $(foreach dir,$(filter-out main,$(MOD_SUBDIRS)),$(wildcard $(dir)/*.c) $(wildcard $(dir)/*.cc)) build_tools/cflags.xml sounds/sounds.xml build_tools/embed_modules.xml configure
 	@echo "Generating input for menuselect ..."
 	@build_tools/prep_moduledeps > $@
 
-.PHONY: menuselect main sounds clean dist-clean distclean all prereqs cleantest uninstall _uninstall uninstall-all dont-optimize $(SUBDIRS_INSTALL) $(SUBDIRS_CLEAN) $(SUBDIRS_UNINSTALL) $(SUBDIRS) $(MOD_SUBDIRS_EMBED_LDSCRIPT) $(MOD_SUBDIRS_EMBED_LDFLAGS) $(MOD_SUBDIRS_EMBED_LIBS) menuselect.makeopts
+.PHONY: menuselect main sounds clean dist-clean distclean all prereqs cleantest uninstall _uninstall uninstall-all dont-optimize $(SUBDIRS_INSTALL) $(SUBDIRS_DIST_CLEAN) $(SUBDIRS_CLEAN) $(SUBDIRS_UNINSTALL) $(SUBDIRS) $(MOD_SUBDIRS_EMBED_LDSCRIPT) $(MOD_SUBDIRS_EMBED_LDFLAGS) $(MOD_SUBDIRS_EMBED_LIBS) menuselect.makeopts

@@ -119,6 +119,8 @@ clean:
 	$(RM) config.cache config.log config.status config.h
 	$(RM) -r autom4te*.cache
 
+distclean: clean
+	$(RM) mxml.list Makefile
 
 #
 # Install everything...

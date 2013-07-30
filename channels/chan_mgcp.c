@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 80132 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 83432 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -604,7 +604,7 @@ static void mgcp_queue_control(struct mgcp_subchannel *sub, int control)
 	return mgcp_queue_frame(sub, &f);
 }
 
-static int retrans_pkt(void *data)
+static int retrans_pkt(const void *data)
 {
 	struct mgcp_gateway *gw = (struct mgcp_gateway *)data;
 	struct mgcp_message *cur, *exq = NULL, *w, *prev;
