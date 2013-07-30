@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72453 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75529 $")
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -3019,7 +3019,7 @@ static void *recordthread(void *args)
 			}
 			if (cnf->origframe)
 				ast_frfree(cnf->origframe);
-			cnf->origframe = f;
+			cnf->origframe = ast_frdup(f);
 			ast_mutex_unlock(&cnf->listenlock);
 			if (s)
 				res = ast_writestream(s, f);

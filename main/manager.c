@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 72926 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 76176 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -819,7 +819,7 @@ static int get_perm(const char *instr)
 	return ret;
 }
 
-static int ast_is_number(char *string) 
+static int ast_is_number(const char *string) 
 {
 	int ret = 1, x = 0;
 
@@ -840,7 +840,7 @@ static int strings_to_mask(const char *string)
 {
 	int x, ret = -1;
 	
-	x = ast_is_number((char *) string);
+	x = ast_is_number(string);
 
 	if (x)
 		ret = x;

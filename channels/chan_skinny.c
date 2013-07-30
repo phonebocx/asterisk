@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 75450 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 76656 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -107,7 +107,7 @@ static char version_id[16] = "P002F202";
 #define htolel(x) (x)
 #define htoles(x) (x)
 #else
-#if defined(SOLARIS) || defined(__Darwin__) || defined(__NetBSD__)
+#if defined(SOLARIS) || defined(__Darwin__) || defined(__NetBSD__) || defined(__OpenBSD__)
 #define __bswap_16(x) \
 	((((x) & 0xff00) >> 8) | \
 	 (((x) & 0x00ff) << 8))
@@ -165,6 +165,12 @@ struct keypad_button_message {
 	uint32_t button;
 	uint32_t lineInstance;
 	uint32_t callReference;
+};
+
+
+#define ENBLOC_CALL_MESSAGE 0x0004
+struct enbloc_call_message {
+       char calledParty[24];
 };
 
 #define STIMULUS_MESSAGE 0x0005
@@ -550,6 +556,7 @@ struct soft_key_definitions {
 
 static const uint8_t soft_key_default_onhook[] = {
 	SOFTKEY_REDIAL,
+	SOFTKEY_NEWCALL,
 	SOFTKEY_CFWDALL,
 	SOFTKEY_CFWDBUSY,
 	SOFTKEY_GPICKUP,
@@ -605,10 +612,8 @@ static const uint8_t soft_key_default_connwithconf[] = {
 };
 
 static const uint8_t soft_key_default_ringout[] = {
+	SOFTKEY_NONE,
 	SOFTKEY_ENDCALL,
-	SOFTKEY_TRNSFER,
-	SOFTKEY_CFWDALL,
-	SOFTKEY_CFWDBUSY,
 };
 
 static const uint8_t soft_key_default_offhookwithfeat[] = {
@@ -745,6 +750,7 @@ union skinny_data {
 	struct display_notify_message displaynotify;
 	struct dialed_number_message dialednumber;
 	struct soft_key_event_message softkeyeventmessage;
+	struct enbloc_call_message enbloccallmessage;
 };
 
 /* packet composition */
@@ -1687,16 +1693,27 @@ static void transmit_displaypromptstatus(struct skinnysession *s, const char *te
 {
 	struct skinny_req *req;
 
-	if (!(req = req_alloc(sizeof(struct display_prompt_status_message), DISPLAY_PROMPT_STATUS_MESSAGE)))
-		return;
+	if (text == 0) {
+		if (!(req = req_alloc(sizeof(struct clear_prompt_message), CLEAR_PROMPT_MESSAGE)))
+			return;
 
-	ast_copy_string(req->data.displaypromptstatus.promptMessage, text, sizeof(req->data.displaypromptstatus.promptMessage));
-	req->data.displaypromptstatus.messageTimeout = htolel(t);
-	req->data.displaypromptstatus.lineInstance = htolel(instance);
-	req->data.displaypromptstatus.callReference = htolel(callid);
+		req->data.clearpromptstatus.lineInstance = htolel(instance);
+		req->data.clearpromptstatus.callReference = htolel(callid);
 
-	if (skinnydebug)
-		ast_verbose("Displaying Prompt Status '%s'\n", text);
+		if (skinnydebug)
+			ast_verbose("Clearing Prompt\n");
+	} else {
+		if (!(req = req_alloc(sizeof(struct display_prompt_status_message), DISPLAY_PROMPT_STATUS_MESSAGE)))
+			return;
+
+		ast_copy_string(req->data.displaypromptstatus.promptMessage, text, sizeof(req->data.displaypromptstatus.promptMessage));
+		req->data.displaypromptstatus.messageTimeout = htolel(t);
+		req->data.displaypromptstatus.lineInstance = htolel(instance);
+		req->data.displaypromptstatus.callReference = htolel(callid);
+
+		if (skinnydebug)
+			ast_verbose("Displaying Prompt Status '%s'\n", text);
+	}
 
 	transmit_response(s, req);
 }
@@ -2175,7 +2192,6 @@ static struct skinny_device *build_device(const char *cat, struct ast_variable *
 					ast_copy_string(l->language, language, sizeof(l->language));
 					ast_copy_string(l->mohinterpret, mohinterpret, sizeof(l->mohinterpret));
 					ast_copy_string(l->mohsuggest, mohsuggest, sizeof(l->mohsuggest));
-					ast_copy_string(l->mailbox, mailbox, sizeof(l->mailbox));
 					ast_copy_string(l->mailbox, mailbox, sizeof(l->mailbox));
 					if (!ast_strlen_zero(mailbox)) {
 						if (option_verbose > 2)
@@ -2848,6 +2864,10 @@ static int skinny_hold(struct skinny_subchannel *sub)
 	struct skinnysession *s = d->session;
 	struct skinny_req *req;
 
+	/* Don't try to hold a channel that doesn't exist */
+	if (!sub || !sub->owner)
+		return 0;
+
 	/* Channel needs to be put on hold */
 	if (skinnydebug)
 		ast_verbose("Putting on Hold(%d)\n", l->instance);
@@ -2887,6 +2907,10 @@ static int skinny_unhold(struct skinny_subchannel *sub)
 	struct skinny_device *d = l->parent;
 	struct skinnysession *s = d->session;
 	struct skinny_req *req;
+
+	/* Don't try to unhold a channel that doesn't exist */
+	if (!sub || !sub->owner)
+		return 0;
 
 	/* Channel is on hold, so we will unhold */
 	if (skinnydebug)
@@ -3070,6 +3094,14 @@ static int handle_stimulus_message(struct skinny_req *req, struct skinnysession 
 			ast_verbose("Received Stimulus: Redial(%d)\n", instance);
 
 #if 0
+ 		if (ast_strlen_zero(l->lastnumberdialed)) {
+ 			ast_log(LOG_WARNING, "Attempted redial, but no previously dialed number found.\n");
+ 			l->hookstate = SKINNY_ONHOOK;
+ 			transmit_speaker_mode(s, SKINNY_SPEAKEROFF);
+ 			transmit_callstate(s, l->instance, SKINNY_ONHOOK, instance);
+ 			break;
+ 		}
+
 		c = skinny_new(l, AST_STATE_DOWN);
 		if(!c) {
 			ast_log(LOG_WARNING, "Unable to create channel for %s@%s\n", l->name, d->name);
@@ -3080,11 +3112,8 @@ static int handle_stimulus_message(struct skinny_req *req, struct skinnysession 
 				ast_verbose("Attempting to Clear display on Skinny %s@%s\n", l->name, d->name);
 			transmit_displaymessage(s, NULL); /* clear display */
 			transmit_tone(s, SKINNY_DIALTONE);
+			transmit_selectsoftkeys(s, l->instance, sub->callid, KEYDEF_RINGOUT);
 
-			if (ast_strlen_zero(l->lastnumberdialed)) {
-				ast_log(LOG_WARNING, "Attempted redial, but no previously dialed number found.\n");
-				return 0;
-			}
 			if (!ast_ignore_pattern(c->context, l->lastnumberdialed)) {
 				transmit_tone(s, SKINNY_SILENCE);
 			}
@@ -3105,6 +3134,14 @@ static int handle_stimulus_message(struct skinny_req *req, struct skinnysession 
 			return 0;
 		}
 
+		if (ast_strlen_zero(l->lastnumberdialed)) {
+			ast_log(LOG_WARNING, "Attempted redial, but no previously dialed number found.\n");
+			l->hookstate = SKINNY_ONHOOK;
+			transmit_speaker_mode(s, SKINNY_SPEAKEROFF);
+			transmit_callstate(s, l->instance, SKINNY_ONHOOK, instance);
+			break;
+		}
+
 		c = skinny_new(l, AST_STATE_DOWN);
 		if(c) {
 			sub = c->tech_pvt;
@@ -3114,6 +3151,7 @@ static int handle_stimulus_message(struct skinny_req *req, struct skinnysession 
 				ast_verbose("Attempting to Clear display on Skinny %s@%s\n", l->name, d->name);
 			transmit_displaymessage(s, NULL); /* clear display */
 			transmit_tone(s, SKINNY_DIALTONE);
+			transmit_selectsoftkeys(s, l->instance, sub->callid, KEYDEF_RINGOUT);
 
 			if (!ast_ignore_pattern(c->context, sd->exten)) {
 				transmit_tone(s, SKINNY_SILENCE);
@@ -3147,13 +3185,11 @@ static int handle_stimulus_message(struct skinny_req *req, struct skinnysession 
 	case STIMULUS_TRANSFER:
 		if (skinnydebug)
 			ast_verbose("Received Stimulus: Transfer(%d)\n", instance);
-		transmit_tone(s, SKINNY_DIALTONE);
 		/* XXX figure out how to transfer */
 		break;
 	case STIMULUS_CONFERENCE:
 		if (skinnydebug)
 			ast_verbose("Received Stimulus: Conference(%d)\n", instance);
-		transmit_tone(s, SKINNY_DIALTONE);
 		/* XXX determine the best way to pull off a conference.  Meetme? */
 		break;
 	case STIMULUS_VOICEMAIL:
@@ -3173,7 +3209,6 @@ static int handle_stimulus_message(struct skinny_req *req, struct skinnysession 
 		/* Because it's the same thing. */
 
 		/* Do not disturb */
-		transmit_tone(s, SKINNY_DIALTONE);
 		if (l->dnd != 0){
 			if (option_verbose > 2)
 				ast_verbose(VERBOSE_PREFIX_3 "Disabling DND on %s@%s\n", l->name, d->name);
@@ -3285,15 +3320,14 @@ static int handle_offhook_message(struct skinny_req *req, struct skinnysession *
 		l = sub->parent;
 	}
 
+	transmit_ringer_mode(s, SKINNY_RING_OFF);
+	l->hookstate = SKINNY_OFFHOOK;
+
 	if (sub && sub->onhold) {
-		transmit_ringer_mode(s, SKINNY_RING_OFF);
-		l->hookstate = SKINNY_OFFHOOK;
 		return 1;
 	}
 
-	transmit_ringer_mode(s, SKINNY_RING_OFF);
 	transmit_lamp_indication(s, STIMULUS_LINE, l->instance, SKINNY_LAMP_ON);
-	l->hookstate = SKINNY_OFFHOOK;
 
 	if (sub && sub->outgoing) {
 		/* We're answering a ringing call */
@@ -3349,17 +3383,17 @@ static int handle_onhook_message(struct skinny_req *req, struct skinnysession *s
 	}
 	l = sub->parent;
 
-	if (sub->onhold) {
-		l->hookstate = SKINNY_ONHOOK;
-		return 0;
-	}
-
 	if (l->hookstate == SKINNY_ONHOOK) {
 		/* Something else already put us back on hook */
 		return 0;
 	}
-	sub->cxmode = SKINNY_CX_RECVONLY;
 	l->hookstate = SKINNY_ONHOOK;
+
+	if (sub->onhold) {
+		return 0;
+	}
+
+	sub->cxmode = SKINNY_CX_RECVONLY;
 	transmit_callstate(s, l->instance, l->hookstate, sub->callid);
 	if (skinnydebug)
 		ast_verbose("Skinny %s@%s went on hook\n", l->name, d->name);
@@ -3498,6 +3532,8 @@ static int handle_time_date_req_message(struct skinny_req *req, struct skinnyses
 	req->data.definetimedate.hour = htolel(cmtime->tm_hour);
 	req->data.definetimedate.minute = htolel(cmtime->tm_min);
 	req->data.definetimedate.seconds = htolel(cmtime->tm_sec);
+	req->data.definetimedate.milliseconds = htolel(0);
+	req->data.definetimedate.timestamp = htolel(timer);
 	transmit_response(s, req);
 	return 1;
 }
@@ -3716,6 +3752,56 @@ static int handle_open_receive_channel_ack_message(struct skinny_req *req, struc
 	return 1;
 }
 
+static int handle_enbloc_call_message(struct skinny_req *req, struct skinnysession *s)
+{
+	struct skinny_device *d = s->device;
+	struct skinny_line *l;
+	struct skinny_subchannel *sub = NULL;
+	struct ast_channel *c;
+	pthread_t t;
+
+	if (skinnydebug)
+		ast_verbose("Received Enbloc Call: %s\n", req->data.enbloccallmessage.calledParty);
+
+	sub = find_subchannel_by_instance_reference(d, d->lastlineinstance, d->lastcallreference);
+
+	if (!sub) {
+		l = find_line_by_instance(d, d->lastlineinstance);
+		if (!l) {
+			return 0;
+		}
+	} else {
+		l = sub->parent;
+	}
+
+	c = skinny_new(l, AST_STATE_DOWN);
+
+	if(!c) {
+		ast_log(LOG_WARNING, "Unable to create channel for %s@%s\n", l->name, d->name);
+	} else {
+		l->hookstate = SKINNY_OFFHOOK;
+
+		sub = c->tech_pvt;
+		transmit_callstate(s, l->instance, SKINNY_OFFHOOK, sub->callid);
+		if (skinnydebug)
+			ast_verbose("Attempting to Clear display on Skinny %s@%s\n", l->name, d->name);
+		transmit_displaymessage(s, NULL); /* clear display */
+		transmit_tone(s, SKINNY_DIALTONE);
+
+		if (!ast_ignore_pattern(c->context, req->data.enbloccallmessage.calledParty)) {
+			transmit_tone(s, SKINNY_SILENCE);
+		}
+		ast_copy_string(c->exten, req->data.enbloccallmessage.calledParty, sizeof(c->exten));
+		if (ast_pthread_create(&t, NULL, skinny_newcall, c)) {
+			ast_log(LOG_WARNING, "Unable to create new call thread: %s\n", strerror(errno));
+			ast_hangup(c);
+		}
+	}
+	
+	return 1;
+}
+
+
 static int handle_soft_key_set_req_message(struct skinny_req *req, struct skinnysession *s)
 {
 	int i;
@@ -3737,6 +3823,7 @@ static int handle_soft_key_set_req_message(struct skinny_req *req, struct skinny
 			for (i = 0; i < (sizeof(soft_key_template_default) / sizeof(struct soft_key_template_definition)); i++) {
 				if (defaults[y] == i+1) {
 					req->data.softkeysets.softKeySetDefinition[softkeymode->mode].softKeyTemplateIndex[y] = htolel(i+1);
+					req->data.softkeysets.softKeySetDefinition[softkeymode->mode].softKeyInfoIndex[y] = htolel(i+301);
 				}
 			}
 		}
@@ -3804,11 +3891,8 @@ static int handle_soft_key_event_message(struct skinny_req *req, struct skinnyse
 				ast_verbose("Attempting to Clear display on Skinny %s@%s\n", l->name, d->name);
 			transmit_displaymessage(s, NULL); /* clear display */
 			transmit_tone(s, SKINNY_DIALTONE);
+			transmit_selectsoftkeys(s, l->instance, sub->callid, KEYDEF_RINGOUT);
 
-			if (ast_strlen_zero(l->lastnumberdialed)) {
-				ast_log(LOG_WARNING, "Attempted redial, but no previously dialed number found.\n");
-				break;
-			}
 			if (!ast_ignore_pattern(c->context, l->lastnumberdialed)) {
 				transmit_tone(s, SKINNY_SILENCE);
 			}
@@ -3820,32 +3904,36 @@ static int handle_soft_key_event_message(struct skinny_req *req, struct skinnyse
 		}
 #endif
 		break;
-	case SOFTKEY_NEWCALL:
-		/* XXX Untested */
+	case SOFTKEY_NEWCALL:  /* Actually the DIAL softkey */
 		if (skinnydebug)
 			ast_verbose("Received Softkey Event: New Call(%d)\n", instance);
 
-		transmit_ringer_mode(s,SKINNY_RING_OFF);
-		transmit_lamp_indication(s, STIMULUS_LINE, l->instance, SKINNY_LAMP_ON);
+		if (!sub || !sub->owner) {
+			c = skinny_new(l, AST_STATE_DOWN);
+		} else {
+			c = sub->owner;
+		}
 
-		l->hookstate = SKINNY_OFFHOOK;
+		if (!c) {
+			ast_log(LOG_WARNING, "Unable to create channel for %s@%s\n", l->name, d->name);
+		} else {
+			sub = c->tech_pvt;
+			if (l->hookstate == SKINNY_ONHOOK) {
+				l->hookstate = SKINNY_OFFHOOK;
+				transmit_speaker_mode(s, SKINNY_SPEAKERON);
+				transmit_callstate(s, l->instance, SKINNY_OFFHOOK, sub->callid);
+			}
 
-		if (sub) {
-			transmit_callstate(s, l->instance, SKINNY_OFFHOOK, sub->callid);
 			if (skinnydebug)
 				ast_verbose("Attempting to Clear display on Skinny %s@%s\n", l->name, d->name);
 			transmit_displaymessage(s, NULL); /* clear display */
 			transmit_tone(s, SKINNY_DIALTONE);
 			transmit_selectsoftkeys(s, l->instance, sub->callid, KEYDEF_OFFHOOK);
-			c = skinny_new(l, AST_STATE_DOWN);
-			if(c) {
-				/* start the switch thread */
-				if (ast_pthread_create(&t, NULL, skinny_ss, c)) {
-					ast_log(LOG_WARNING, "Unable to create switch thread: %s\n", strerror(errno));
-					ast_hangup(c);
-				}
-			} else {
-				ast_log(LOG_WARNING, "Unable to create channel for %s@%s\n", l->name, d->name);
+
+			/* start the switch thread */
+			if (ast_pthread_create(&t, NULL, skinny_ss, c)) {
+				ast_log(LOG_WARNING, "Unable to create switch thread: %s\n", strerror(errno));
+				ast_hangup(c);
 			}
 		}
 		break;
@@ -3865,7 +3953,6 @@ static int handle_soft_key_event_message(struct skinny_req *req, struct skinnyse
 	case SOFTKEY_TRNSFER:
 		if (skinnydebug)
 			ast_verbose("Received Softkey Event: Transfer(%d)\n", instance);
-		transmit_tone(s, SKINNY_DIALTONE);
 		/* XXX figure out how to transfer */
 		break;
 	case SOFTKEY_CFWDALL:
@@ -3873,7 +3960,6 @@ static int handle_soft_key_event_message(struct skinny_req *req, struct skinnyse
 			ast_verbose("Received Softkey Event: Forward All(%d)\n", instance);
 
 		/* Do not disturb */
-		transmit_tone(s, SKINNY_DIALTONE);
 		if (l->dnd != 0){
 			if (option_verbose > 2)
 				ast_verbose(VERBOSE_PREFIX_3 "Disabling DND on %s@%s\n", l->name, d->name);
@@ -3975,8 +4061,7 @@ static int handle_soft_key_event_message(struct skinny_req *req, struct skinnyse
 		break;
 	case SOFTKEY_CONFRN:
 		if (skinnydebug)
-			ast_verbose("Received Softkey Event: Transfer(%d)\n", instance);
-		transmit_tone(s, SKINNY_DIALTONE);
+			ast_verbose("Received Softkey Event: Conference(%d)\n", instance);
 		/* XXX determine the best way to pull off a conference.  Meetme? */
 		break;
 	case SOFTKEY_PARK:
@@ -3995,11 +4080,11 @@ static int handle_soft_key_event_message(struct skinny_req *req, struct skinnyse
 		break;
 	case SOFTKEY_PICKUP:
 		if (skinnydebug)
-			ast_verbose("Received Softkey Event: None(%d)\n", instance);
+			ast_verbose("Received Softkey Event: Pickup(%d)\n", instance);
 		break;
 	case SOFTKEY_GPICKUP:
 		if (skinnydebug)
-			ast_verbose("Received Softkey Event: Group Pickup (%d)\n", instance);
+			ast_verbose("Received Softkey Event: Group Pickup(%d)\n", instance);
 		break;
 	default:
 		if (skinnydebug)
@@ -4077,7 +4162,7 @@ static int handle_message(struct skinny_req *req, struct skinnysession *s)
 
 		sub = find_subchannel_by_instance_reference(d, lineInstance, callReference);
 
-		if (sub && (sub->owner->_state <  AST_STATE_UP)) {
+		if (sub && (sub->owner && sub->owner->_state <  AST_STATE_UP)) {
 			char dgt;
 			int digit = letohl(req->data.keypad.button);
 			size_t len;
@@ -4109,6 +4194,9 @@ static int handle_message(struct skinny_req *req, struct skinnysession *s)
 			}
 		} else
 			res = handle_keypad_button_message(req, s);
+		break;
+	case ENBLOC_CALL_MESSAGE:
+		res = handle_enbloc_call_message(req, s);
 		break;
 	case STIMULUS_MESSAGE:
 		res = handle_stimulus_message(req, s);

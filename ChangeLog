@@ -1,3 +1,262 @@
+2007-07-24  Jason Parker <jparker@digium.com>
+
+	* Asterisk 1.4.9 released.
+
+2007-07-24 16:42 +0000 [r76803-76805]  Jason Parker <jparker@digium.com>
+
+	* /: Blocked revisions 76802 via svnmerge ........ r76802 | qwell |
+	  2007-07-24 11:32:04 -0500 (Tue, 24 Jul 2007) | 3 lines Don't
+	  create the Asterisk channel until we are starting the PBX on it.
+	  (ASA-2007-018) ........
+
+	* channels/chan_iax2.c: Don't create the Asterisk channel until we
+	  are starting the PBX on it. (ASA-2007-018)
+
+2007-07-24 16:26 +0000 [r76801]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: Added a membercount variable to call_queue
+	  struct which keeps track of the number of logged in members in a
+	  particular queue. This makes it so that the 'n' option for
+	  Queue() can act properly depending on which strategy is used. If
+	  the strategy is roundrobin, rrmemory, or ringall, we want to ring
+	  each phone once before moving on in the dialplan. However, if any
+	  other strategy is used, we will only ring one phone since it
+	  cannot be guaranteed that a different phone will ring on
+	  subsequent attempts to ring a phone. As a side effect of this,
+	  the QUEUE_MEMBER_COUNT dialplan function now just reads the
+	  membercount variable instead of traversing through the member
+	  list to figure out how many members there are. Special thanks to
+	  blitzrage for helping to test this out. (closes issue #10127,
+	  reported by bcnit, patched by me, tested by blitzrage)
+
+2007-07-23 22:38 +0000 [r76708]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c: It was our stated intention for 1.4 that
+	  files created in app_voicemail should depend upon the umask.
+	  Unfortunately, mkstemp() creates files with mode 0600, regardless
+	  of the umask. This corrects that deficiency.
+
+2007-07-23 18:59 +0000 [r76656]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_skinny.c: Fix some incorrect softkey labels in
+	  messages. Don't try to play dialtone in some unimplemented
+	  features.
+
+2007-07-23 18:29 +0000 [r76654]  Joshua Colp <jcolp@digium.com>
+
+	* /, channels/chan_agent.c: Merged revisions 76653 via svnmerge
+	  from https://origsvn.digium.com/svn/asterisk/branches/1.2
+	  ........ r76653 | file | 2007-07-23 15:28:13 -0300 (Mon, 23 Jul
+	  2007) | 4 lines (closes issue #5866) Reported by: tyler Do not
+	  force channel format changes when a generator is present. The
+	  generator may have changed the formats itself and changing them
+	  back would cause issues. ........
+
+2007-07-23 17:57 +0000 [r76620]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_skinny.c: Don't try to queue up hold/unhold frames
+	  on a non-existent channel. Issue 10276.
+
+2007-07-23 17:48 +0000 [r76519-76618]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_morsecode.c: Allow app_morsecode to build on PPC Linux
+	  by putting the value of the digit char in an int.
+
+	* /, channels/chan_sip.c: Merged revisions 76560 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.2 ........
+	  r76560 | file | 2007-07-23 11:32:07 -0300 (Mon, 23 Jul 2007) | 6
+	  lines (closes issue #10236) Reported by: homesick Patches:
+	  rpid_1.4_75840.patch uploaded by homesick (license 91) Accept
+	  Remote Party ID on guest calls. ........
+
+	* channels/chan_skinny.c: (closes issue #10268) Reported by:
+	  mvanbaak Patches: chan_skinny_openbsd.diff uploaded by mvanbaak
+	  (license 7) Add another OS that has to use the Macros for byte
+	  ordering.
+
+2007-07-23 12:25 +0000 [r76485]  Russell Bryant <russell@digium.com>
+
+	* channels/chan_iax2.c: Use a signed integer for storing the number
+	  of bytes in the packet read from the network. Using an unsigned
+	  value here made it impossible to handle an error returned from
+	  recvfrom(). Furthermore, in the case that recvfrom() did return
+	  an error, this would cause a crash due to a heap overflow.
+	  (closes issue #10265, reported by and fix suggested by
+	  timrobbins)
+
+2007-07-22 21:42 +0000 [r76410]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* /: Blocked revisions 76409 via svnmerge ........ r76409 |
+	  tilghman | 2007-07-22 16:39:55 -0500 (Sun, 22 Jul 2007) | 2 lines
+	  We should not use C++ reserved words in API headers (closes issue
+	  #10266) ........
+
+2007-07-21 02:02 +0000 [r76227]  Russell Bryant <russell@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 76226 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.2 ........
+	  r76226 | russell | 2007-07-20 21:01:46 -0500 (Fri, 20 Jul 2007) |
+	  4 lines Backport a fix for a memory leak that was fixed in trunk
+	  in reivision 76221 by rizzo. The memory used for the localaddr
+	  list was not freed during a configuration reload. ........
+
+2007-07-20 21:36 +0000 [r76211]  Steve Murphy <murf@digium.com>
+
+	* sounds/Makefile: This patch from 10249 is worth applying! It
+	  prevents downloading sound files if they are already downloaded.
+	  Darn Practical, if you ask me
+
+2007-07-20 21:03 +0000 [r76174-76178]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_skinny.c: Allow getting a call from an existing
+	  "sub" channel. Cancel ringing if endpoint hangs up before
+	  answering. Fixes were backported from trunk (there was apparently
+	  a bit of confusion during merge of a previous patch). (closes
+	  issue #10241)
+
+	* main/manager.c: Eliminate a compiler warning with gcc 4.2 by
+	  constifying a char *
+
+	* channels/chan_skinny.c: It's possible for sub->owner to be NULL
+	  here if you cancel the call immediately after/during sending a
+	  digit.
+
+2007-07-20 18:42 +0000 [r76139]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_directory.c: When using users.conf for the entries in
+	  the directory, if multiple users had the same last name, only the
+	  first user listed would be available in the directory. (closes
+	  issue #10200, reported by mrskippy, patched by me)
+
+2007-07-20 18:22 +0000 [r76132]  Russell Bryant <russell@digium.com>
+
+	* main/channel.c: Use the define that specifies the default length
+	  of an artificially created DTMF digit in the ast_senddigit()
+	  function. The define is set to 100ms by default, which is the
+	  same thing that this function was using. But, using the define
+	  lets changes take effect in this case, as well as the others
+	  where it was already used.
+
+2007-07-20 17:20 +0000 [r76054-76087]  Joshua Colp <jcolp@digium.com>
+
+	* /, channels/chan_sip.c: Merged revisions 76080 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.2 ........
+	  r76080 | file | 2007-07-20 14:16:48 -0300 (Fri, 20 Jul 2007) | 6
+	  lines (closes issue #10247) Reported by: fkasumovic Patches:
+	  chan_sip.patch uploaded by fkasumovic (license #101) Drop any
+	  peer realm authentication entries when reloading so multiple
+	  entries do not get added to the peer. ........
+
+	* res/res_convert.c: (closes issue #10246) Reported by: fkasumovic
+	  Patches: res_conver.patch uploaded by fkasumovic (license #101)
+	  Use the last occurance of . to find the extension, not the first
+	  occurance.
+
+	* apps/app_queue.c: Move makeannouncement variable declaration to
+	  proper place.
+
+2007-07-19 20:36 +0000 [r75980]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_skinny.c: Remove some duplicate code.
+
+2007-07-19 18:59 +0000 [r75969-75978]  Mark Michelson <mmichelson@digium.com>
+
+	* apps/app_queue.c: The diff on this looks pretty big but all I did
+	  was remove a pointless if statement (always evaluates true).
+
+	* apps/app_queue.c: Changes in handling return values of several
+	  functions in app_queue. This all started as a fix for issue
+	  #10008 but now includes all of the following changes: 1.
+	  Simplifying the code to handle positive return values from ast
+	  API calls. 2. Removing the background_file function. 3. The fix
+	  for issue #10008 (closes issue #10008, reported and patched by
+	  dimas)
+
+2007-07-19 15:53 +0000 [r75928]  Russell Bryant <russell@digium.com>
+
+	* /, channels/chan_iax2.c: Merged revisions 75927 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.2 ........
+	  r75927 | russell | 2007-07-19 10:49:42 -0500 (Thu, 19 Jul 2007) |
+	  6 lines When processing full frames, take sequence number
+	  wraparound into account when deciding whether or not we need to
+	  request retransmissions by sending a VNAK. This code could cause
+	  VNAKs to be sent erroneously in some cases, and to not be sent in
+	  other cases when it should have been. (closes issue #10237,
+	  reported and patched by mihai) ........
+
+2007-07-18 22:59 +0000 [r75807]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_skinny.c: Need to make sure we set milliseconds and
+	  timestamp - pointed out by the recent ast_ time stuff from
+	  Tilghman
+
+2007-07-18 21:09 +0000 [r75759]  Russell Bryant <russell@digium.com>
+
+	* /, channels/chan_iax2.c: Merged revisions 75757 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.2 ........
+	  r75757 | russell | 2007-07-18 16:09:13 -0500 (Wed, 18 Jul 2007) |
+	  5 lines When traversing the queue of frames for possible
+	  retransmission after receiving a VNAK, handle sequence number
+	  wraparound so that all frames that should be retransmitted
+	  actually do get retransmitted. (issue #10227, reported and
+	  patched by mihai) ........
+
+2007-07-18 20:40 +0000 [r75749]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_voicemail.c, /: Merged revisions 75748 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.2 ........
+	  r75748 | tilghman | 2007-07-18 15:31:36 -0500 (Wed, 18 Jul 2007)
+	  | 2 lines Store prior to copy (closes issue #10193) ........
+
+2007-07-18 20:17 +0000 [r75732]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_skinny.c: Umm, why are we transmitting dialtone on
+	  cfwdall?
+
+2007-07-18 20:00 +0000 [r75712]  Joshua Colp <jcolp@digium.com>
+
+	* apps/app_voicemail.c, channels/chan_sip.c, channels/chan_agent.c,
+	  pbx/pbx_realtime.c: Backport GCC 4.2 fixes. Without these
+	  Asterisk won't build under devmode using GCC 4.2.
+
+2007-07-18 19:54 +0000 [r75707-75711]  Jason Parker <jparker@digium.com>
+
+	* channels/chan_skinny.c: Fixes for 7935/7936 conference phones.
+	  Issue 9245, patch by slimey.
+
+	* channels/chan_skinny.c: Fix issues with new 79x1 phones. Issue
+	  9887, patches by DEA
+
+2007-07-18 17:56 +0000 [r75658]  Dwayne M. Hubbard <dhubbard@digium.com>
+
+	* /, apps/app_queue.c: Merged revisions 75657 via svnmerge from
+	  https://origsvn.digium.com/svn/asterisk/branches/1.2 ........
+	  r75657 | dhubbard | 2007-07-18 12:48:33 -0500 (Wed, 18 Jul 2007)
+	  | 1 line removed the word 'pissed' from ast_log(...) function
+	  call for BE-90 ........
+
+2007-07-18 15:44 +0000 [r75583-75623]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: Few more places that needs to check for
+	  onhold state.
+
+	* channels/chan_sip.c: (closes issue #10165) Reported by: elandivar
+	  It is possible for hold status to exist without call limits set,
+	  so we need to ensure update_call_counter is executed regardless.
+
+	* channels/chan_h323.c: Don't bother reloading chan_h323 if it did
+	  not load successfully in the first place. This would otherwise
+	  cause a crash.
+
+	* pbx/pbx_dundi.c: (closes issue #10224) Reported by: irroot Record
+	  the threadid of each running thread before shutting them down as
+	  the thread themselves may change the value.
+
+2007-07-18 12:29 +0000 [r75529]  Tilghman Lesher <tilghman@mail.jeffandtilghman.com>
+
+	* apps/app_meetme.c: Using a freed frame causes crashes (closes
+	  issue #9317)
+
 2007-07-17  Russell Bryant <russell@digium.com>
 
 	* Asterisk 1.4.8 released.

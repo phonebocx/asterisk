@@ -90,7 +90,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 74955 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 76561 $")
 
 #include <stdio.h>
 #include <ctype.h>
@@ -2943,7 +2943,7 @@ static void __sip_destroy(struct sip_pvt *p, int lockowner)
 	if (sip_debug_test_pvt(p) || option_debug > 2)
 		ast_verbose("Really destroying SIP dialog '%s' Method: %s\n", p->callid, sip_methods[p->method].text);
 
-	if (ast_test_flag(&p->flags[0], SIP_INC_COUNT)) {
+	if (ast_test_flag(&p->flags[0], SIP_INC_COUNT) || ast_test_flag(&p->flags[1], SIP_PAGE2_CALL_ONHOLD)) {
 		update_call_counter(p, DEC_CALL_LIMIT);
 		if (option_debug > 1)
 			ast_log(LOG_DEBUG, "This call did not properly clean up call limits. Call ID %s\n", p->callid);
@@ -3056,9 +3056,10 @@ static int update_call_counter(struct sip_pvt *fup, int event)
 
 	if (option_debug > 2)
 		ast_log(LOG_DEBUG, "Updating call counter for %s call\n", outgoing ? "outgoing" : "incoming");
+
 	/* Test if we need to check call limits, in order to avoid 
 	   realtime lookups if we do not need it */
-	if (!ast_test_flag(&fup->flags[0], SIP_CALL_LIMIT))
+	if (!ast_test_flag(&fup->flags[0], SIP_CALL_LIMIT) && !ast_test_flag(&fup->flags[1], SIP_PAGE2_CALL_ONHOLD))
 		return 0;
 
 	ast_copy_string(name, fup->username, sizeof(name));
@@ -3343,7 +3344,7 @@ static int sip_hangup(struct ast_channel *ast)
 	}
 
 	if (ast_test_flag(&p->flags[0], SIP_DEFER_BYE_ON_TRANSFER)) {
-		if (ast_test_flag(&p->flags[0], SIP_INC_COUNT)) {
+		if (ast_test_flag(&p->flags[0], SIP_INC_COUNT) || ast_test_flag(&p->flags[1], SIP_PAGE2_CALL_ONHOLD)) {
 			if (option_debug && sipdebug)
 				ast_log(LOG_DEBUG, "update_call_counter(%s) - decrement call limit counter on hangup\n", p->username);
 			update_call_counter(p, DEC_CALL_LIMIT);
@@ -3371,7 +3372,7 @@ static int sip_hangup(struct ast_channel *ast)
 		ast_log(LOG_DEBUG, "Hanging up zombie call. Be scared.\n");
 
 	ast_mutex_lock(&p->lock);
-	if (ast_test_flag(&p->flags[0], SIP_INC_COUNT)) {
+	if (ast_test_flag(&p->flags[0], SIP_INC_COUNT) || ast_test_flag(&p->flags[1], SIP_PAGE2_CALL_ONHOLD)) {
 		if (option_debug && sipdebug)
 			ast_log(LOG_DEBUG, "update_call_counter(%s) - decrement call limit counter on hangup\n", p->username);
 		update_call_counter(p, DEC_CALL_LIMIT);
@@ -4552,7 +4553,7 @@ static int sip_register(char *value, int lineno)
 	regobjs++;
 	ASTOBJ_INIT(reg);
 	ast_string_field_set(reg, contact, contact);
-	if (username)
+	if (!ast_strlen_zero(username))
 		ast_string_field_set(reg, username, username);
 	if (hostname)
 		ast_string_field_set(reg, hostname, hostname);
@@ -9334,7 +9335,14 @@ static enum check_auth_result check_user_full(struct sip_pvt *p, struct sip_requ
 					res = AUTH_FAKE_AUTH; /* reject with fake authorization request */
 				else
 					res = AUTH_SECRET_FAILED; /* we don't want any guests, authentication will fail */
-			}
+			} else if (!ast_strlen_zero(rpid_num) && ast_test_flag(&p->flags[0], SIP_TRUSTRPID)) {
+				char *tmp = ast_strdupa(rpid_num);
+				if (*calleridname)
+					ast_string_field_set(p, cid_name, calleridname);
+				if (ast_is_shrinkable_phonenumber(tmp))
+					ast_shrink_phone_number(tmp);
+				ast_string_field_set(p, cid_num, tmp);
+                        }
 		}
 
 	}
@@ -14249,7 +14257,7 @@ static int handle_request_cancel(struct sip_pvt *p, struct sip_request *req)
 		return 0;
 	}
 
-	if (ast_test_flag(&p->flags[0], SIP_INC_COUNT)) 
+	if (ast_test_flag(&p->flags[0], SIP_INC_COUNT) || ast_test_flag(&p->flags[1], SIP_PAGE2_CALL_ONHOLD)) 
 		update_call_counter(p, DEC_CALL_LIMIT);
 
 	stop_media_flows(p); /* Immediately stop RTP, VRTP and UDPTL as applicable */
@@ -16140,6 +16148,11 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 		peer->chanvars = NULL;
 		/* XXX should unregister ? */
 	}
+
+	/* If we have realm authentication information, remove them (reload) */
+	clear_realm_authentication(peer->auth);
+	peer->auth = NULL;
+
 	for (; v || ((v = alt) && !(alt=NULL)); v = v->next) {
 		if (handle_common_options(&peerflags[0], &mask[0], v))
 			continue;
@@ -16376,6 +16389,7 @@ static int reload_config(enum channelreloadreason reason)
 
 	/* Reset IP addresses  */
 	memset(&bindaddr, 0, sizeof(bindaddr));
+	ast_free_ha(localaddr);
 	memset(&localaddr, 0, sizeof(localaddr));
 	memset(&externip, 0, sizeof(externip));
 	memset(&default_prefs, 0 , sizeof(default_prefs));
