@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 365068 $")
 
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -1112,8 +1112,11 @@ static struct ast_channel *local_new(struct local_pvt *p, int state, const char 
 		ama = p->owner->amaflags;
 	else
 		ama = 0;
+
+	/* Make sure that the ;2 channel gets the same linkedid as ;1. You can't pass linkedid to both
+	 * allocations since if linkedid isn't set, then each channel will generate its own linkedid. */
 	if (!(tmp = ast_channel_alloc(1, state, 0, 0, t, p->exten, p->context, linkedid, ama, "Local/%s@%s-%04x;1", p->exten, p->context, randnum)) 
-		|| !(tmp2 = ast_channel_alloc(1, AST_STATE_RING, 0, 0, t, p->exten, p->context, linkedid, ama, "Local/%s@%s-%04x;2", p->exten, p->context, randnum))) {
+		|| !(tmp2 = ast_channel_alloc(1, AST_STATE_RING, 0, 0, t, p->exten, p->context, tmp->linkedid, ama, "Local/%s@%s-%04x;2", p->exten, p->context, randnum))) {
 		if (tmp) {
 			tmp = ast_channel_release(tmp);
 		}
@@ -1159,20 +1162,26 @@ static struct ast_channel *local_new(struct local_pvt *p, int state, const char 
 /*! \brief Part of PBX interface */
 static struct ast_channel *local_request(const char *type, format_t format, const struct ast_channel *requestor, void *data, int *cause)
 {
-	struct local_pvt *p = NULL;
-	struct ast_channel *chan = NULL;
+	struct local_pvt *p;
+	struct ast_channel *chan;
 
-	/* Allocate a new private structure and then Asterisk channel */
-	if ((p = local_alloc(data, format))) {
-		if (!(chan = local_new(p, AST_STATE_DOWN, requestor ? requestor->linkedid : NULL))) {
-			ao2_unlink(locals, p);
-		}
-		if (chan && ast_channel_cc_params_init(chan, requestor ? ast_channel_get_cc_config_params((struct ast_channel *)requestor) : NULL)) {
-			chan = ast_channel_release(chan);
-			ao2_unlink(locals, p);
-		}
-		ao2_ref(p, -1); /* kill the ref from the alloc */
+	/* Allocate a new private structure and then Asterisk channels */
+	p = local_alloc(data, format);
+	if (!p) {
+		return NULL;
 	}
+	chan = local_new(p, AST_STATE_DOWN, requestor ? requestor->linkedid : NULL);
+	if (!chan) {
+		ao2_unlink(locals, p);
+	} else if (ast_channel_cc_params_init(chan, requestor ? ast_channel_get_cc_config_params((struct ast_channel *)requestor) : NULL)) {
+		ao2_unlink(locals, p);
+		p->owner = ast_channel_release(p->owner);
+		ast_module_user_remove(p->u_owner);
+		p->chan = ast_channel_release(p->chan);
+		ast_module_user_remove(p->u_chan);
+		chan = NULL;
+	}
+	ao2_ref(p, -1); /* kill the ref from the alloc */
 
 	return chan;
 }

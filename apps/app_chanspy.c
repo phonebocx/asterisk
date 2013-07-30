@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 352955 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
 
 #include <ctype.h>
 #include <errno.h>
@@ -526,7 +526,8 @@ static int channel_spy(struct ast_channel *chan, struct ast_autochan *spyee_auto
 
 	/* We now hold the channel lock on spyee */
 
-	if (ast_check_hangup(chan) || ast_check_hangup(spyee_autochan->chan)) {
+	if (ast_check_hangup(chan) || ast_check_hangup(spyee_autochan->chan) ||
+			ast_test_flag(spyee_autochan->chan, AST_FLAG_ZOMBIE)) {
 		return 0;
 	}
 
@@ -745,8 +746,10 @@ redo:
 	}
 
 	if (!strncmp(next->name, "DAHDI/pseudo", pseudo_len)) {
+		ast_channel_unref(next);
 		goto redo;
 	} else if (next == chan) {
+		ast_channel_unref(next);
 		goto redo;
 	}
 
@@ -1074,7 +1077,7 @@ static int chanspy_exec(struct ast_channel *chan, const char *data)
 			if (strchr("0123456789*#", tmp) && tmp != '\0') {
 				user_options.exit = tmp;
 			} else {
-				ast_log(LOG_NOTICE, "Argument for option 'x' must be a valid DTMF digit.");
+				ast_log(LOG_NOTICE, "Argument for option 'x' must be a valid DTMF digit.\n");
 			}
 		}
 
@@ -1083,7 +1086,7 @@ static int chanspy_exec(struct ast_channel *chan, const char *data)
 			if (strchr("0123456789*#", tmp) && tmp != '\0') {
 				user_options.cycle = tmp;
 			} else {
-				ast_log(LOG_NOTICE, "Argument for option 'c' must be a valid DTMF digit.");
+				ast_log(LOG_NOTICE, "Argument for option 'c' must be a valid DTMF digit.\n");
 			}
 		}
 
@@ -1199,7 +1202,7 @@ static int extenspy_exec(struct ast_channel *chan, const char *data)
 			if (strchr("0123456789*#", tmp) && tmp != '\0') {
 				user_options.exit = tmp;
 			} else {
-				ast_log(LOG_NOTICE, "Argument for option 'x' must be a valid DTMF digit.");
+				ast_log(LOG_NOTICE, "Argument for option 'x' must be a valid DTMF digit.\n");
 			}
 		}
 
@@ -1208,7 +1211,7 @@ static int extenspy_exec(struct ast_channel *chan, const char *data)
 			if (strchr("0123456789*#", tmp) && tmp != '\0') {
 				user_options.cycle = tmp;
 			} else {
-				ast_log(LOG_NOTICE, "Argument for option 'c' must be a valid DTMF digit.");
+				ast_log(LOG_NOTICE, "Argument for option 'c' must be a valid DTMF digit.\n");
 			}
 		}
 

@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 353999 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362204 $")
 
 #include <sys/socket.h>
 #include <fcntl.h>
@@ -780,7 +780,7 @@ static int agent_indicate(struct ast_channel *ast, int condition, const void *da
 		while (ast_channel_trylock(p->chan)) {
 			int res;
 			if ((res = ast_channel_unlock(ast))) {
-				ast_log(LOG_ERROR, "chan_agent bug! Channel was not locked upon entry to agent_indicate: %s\n", strerror(res));
+				ast_log(LOG_ERROR, "chan_agent bug! Channel was not locked upon entry to agent_indicate: %s\n", res > 0 ? strerror(res) : "Bad ao2obj data");
 				ast_mutex_unlock(&p->lock);
 				return -1;
 			}
@@ -966,9 +966,7 @@ static int agent_hangup(struct ast_channel *ast)
 		p->chan->_bridge = NULL;
 		/* If they're dead, go ahead and hang up on the agent now */
 		if (p->dead) {
-			ast_channel_lock(p->chan);
 			ast_softhangup(p->chan, AST_SOFTHANGUP_EXPLICIT);
-			ast_channel_unlock(p->chan);
 		} else if (p->loginstart) {
 			indicate_chan = ast_channel_ref(p->chan);
 			tmp_moh = ast_strdupa(p->moh);
@@ -977,11 +975,9 @@ static int agent_hangup(struct ast_channel *ast)
 	ast_mutex_unlock(&p->lock);
 
 	if (indicate_chan) {
-		ast_channel_lock(indicate_chan);
 		ast_indicate_data(indicate_chan, AST_CONTROL_HOLD,
 			S_OR(tmp_moh, NULL),
 			!ast_strlen_zero(tmp_moh) ? strlen(tmp_moh) + 1 : 0);
-		ast_channel_unlock(indicate_chan);
 		indicate_chan = ast_channel_unref(indicate_chan);
 	}
 

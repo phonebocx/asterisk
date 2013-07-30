@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 353770 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361803 $")
 
 #include <time.h>
 #include <sys/time.h>
@@ -582,12 +582,12 @@ void ast_http_uri_unlink_all_with_key(const char *key)
 	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&uris, urih, entry) {
 		if (!strcmp(urih->key, key)) {
 			AST_RWLIST_REMOVE_CURRENT(entry);
-		}
-		if (urih->dmallocd) {
-			ast_free(urih->data);
-		}
-		if (urih->mallocd) {
-			ast_free(urih);
+			if (urih->dmallocd) {
+				ast_free(urih->data);
+			}
+			if (urih->mallocd) {
+				ast_free(urih);
+			}
 		}
 	}
 	AST_RWLIST_TRAVERSE_SAFE_END;

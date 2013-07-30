@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 354545 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
 
 #include "asterisk/io.h"
 #include "asterisk/file.h"
@@ -2581,7 +2581,7 @@ static char *cli_fax_show_sessions(struct ast_cli_entry *e, int cmd, struct ast_
 		ao2_lock(s);
 
 		if (!(filenames = generate_filenames_string(s->details, "", ", "))) {
-			ast_log(LOG_ERROR, "error printing filenames for 'fax show sessions' command");
+			ast_log(LOG_ERROR, "Error printing filenames for 'fax show sessions' command\n");
 			ao2_unlock(s);
 			ao2_ref(s, -1);
 			ao2_iterator_destroy(&i);

@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 356107 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 367965 $")
 
 #include <sys/mman.h>
 #include <dirent.h>
@@ -1842,24 +1842,25 @@ static void send_signaling(struct chan_iax2_pvt *pvt)
  *  we have received a destination call number. */
 static int queue_signalling(struct chan_iax2_pvt *pvt, struct ast_frame *f)
 {
-	struct signaling_queue_entry *new;
+	struct signaling_queue_entry *qe;
 
 	if (f->frametype == AST_FRAME_IAX || !pvt->hold_signaling) {
 		return 1; /* do not queue this frame */
-	} else if (!(new = ast_calloc(1, sizeof(struct signaling_queue_entry)))) {
+	} else if (!(qe = ast_calloc(1, sizeof(struct signaling_queue_entry)))) {
 		return -1;  /* out of memory */
 	}
 
-	memcpy(&new->f, f, sizeof(new->f)); /* copy ast_frame into our queue entry */
-
-	if (new->f.datalen) { /* if there is data in this frame copy it over as well */
-		if (!(new->f.data.ptr = ast_calloc(1, new->f.datalen))) {
-			free_signaling_queue_entry(new);
+	/* copy ast_frame into our queue entry */
+	qe->f = *f;
+	if (qe->f.datalen) {
+		/* if there is data in this frame copy it over as well */
+		if (!(qe->f.data.ptr = ast_malloc(qe->f.datalen))) {
+			free_signaling_queue_entry(qe);
 			return -1;
 		}
-		memcpy(new->f.data.ptr, f->data.ptr, sizeof(*new->f.data.ptr));
+		memcpy(qe->f.data.ptr, f->data.ptr, qe->f.datalen);
 	}
-	AST_LIST_INSERT_TAIL(&pvt->signaling_queue, new, next);
+	AST_LIST_INSERT_TAIL(&pvt->signaling_queue, qe, next);
 
 	return 0;
 }
@@ -4160,7 +4161,16 @@ static int schedule_delivery(struct iax_frame *fr, int updatehistory, int fromtr
 	int needfree = 0;
 	struct ast_channel *owner = NULL;
 	struct ast_channel *bridge = NULL;
-	
+
+	/*
+	 * Clear fr->af.data if there is no data in the buffer.  Things
+	 * like AST_CONTROL_HOLD without a suggested music class must
+	 * have a NULL pointer.
+	 */
+	if (!fr->af.datalen) {
+		memset(&fr->af.data, 0, sizeof(fr->af.data));
+	}
+
 	/* Attempt to recover wrapped timestamps */
 	unwrap_timestamp(fr);
 
@@ -4362,7 +4372,7 @@ static struct iax2_peer *realtime_peer(const char *peername, struct sockaddr_in 
 				if (!strcasecmp(tmp->name, "host")) {
 					struct ast_hostent ahp;
 					struct hostent *hp;
-					if (!(hp = ast_gethostbyname(tmp->value, &ahp)) || (memcmp(hp->h_addr, &sin->sin_addr, sizeof(hp->h_addr)))) {
+					if (!(hp = ast_gethostbyname(tmp->value, &ahp)) || memcmp(hp->h_addr, &sin->sin_addr, hp->h_length)) {
 						/* No match */
 						ast_variables_destroy(var);
 						var = NULL;
@@ -4474,7 +4484,7 @@ static struct iax2_user *realtime_user(const char *username, struct sockaddr_in 
 				if (!strcasecmp(tmp->name, "host")) {
 					struct ast_hostent ahp;
 					struct hostent *hp;
-					if (!(hp = ast_gethostbyname(tmp->value, &ahp)) || (memcmp(hp->h_addr, &sin->sin_addr, sizeof(hp->h_addr)))) {
+					if (!(hp = ast_gethostbyname(tmp->value, &ahp)) || memcmp(hp->h_addr, &sin->sin_addr, hp->h_length)) {
 						/* No match */
 						ast_variables_destroy(var);
 						var = NULL;
@@ -5421,7 +5431,7 @@ static int iax2_start_transfer(unsigned short callno0, unsigned short callno1, i
 	unsigned int transferid = (unsigned int)ast_random();
 
 	if (IAX_CALLENCRYPTED(iaxs[callno0]) || IAX_CALLENCRYPTED(iaxs[callno1])) {
-		ast_debug(1, "transfers are not supported for encrypted calls at this time");
+		ast_debug(1, "transfers are not supported for encrypted calls at this time\n");
 		ast_set_flag64(iaxs[callno0], IAX_NOTRANSFER);
 		ast_set_flag64(iaxs[callno1], IAX_NOTRANSFER);
 		return 0;
@@ -7879,7 +7889,7 @@ static int authenticate_verify(struct chan_iax2_pvt *p, struct iax_ies *ies)
 		user = user_unref(user);
 	}
 	if (ast_test_flag64(p, IAX_FORCE_ENCRYPT) && !p->encmethods) { 
-		ast_log(LOG_NOTICE, "Call Terminated, Incoming call is unencrypted while force encrypt is enabled.");
+		ast_log(LOG_NOTICE, "Call Terminated, Incoming call is unencrypted while force encrypt is enabled.\n");
 		return res;
 	}
 	if (!ast_test_flag(&p->state, IAX_STATE_AUTHENTICATED))
@@ -8227,7 +8237,7 @@ static int authenticate_reply(struct chan_iax2_pvt *p, struct sockaddr_in *sin, 
 	if (ies->encmethods) {
 		ast_set_flag64(p, IAX_ENCRYPTED | IAX_KEYPOPULATED);
 	} else if (ast_test_flag64(iaxs[callno], IAX_FORCE_ENCRYPT)) {
-		ast_log(LOG_NOTICE, "Call initiated without encryption while forceencryption=yes option is set");
+		ast_log(LOG_NOTICE, "Call initiated without encryption while forceencryption=yes option is set\n");
 		return -1;             /* if force encryption is yes, and no encryption methods, then return -1 to hangup */
 	}
 	if (!res) {
@@ -8294,9 +8304,8 @@ static int try_transfer(struct chan_iax2_pvt *pvt, struct iax_ies *ies)
 	int newcall = 0;
 	char newip[256];
 	struct iax_ie_data ied;
-	struct sockaddr_in new;
-	
-	
+	struct sockaddr_in new = { 0, };
+
 	memset(&ied, 0, sizeof(ied));
 	if (ies->apparent_addr)
 		memmove(&new, ies->apparent_addr, sizeof(new));
@@ -12997,7 +13006,7 @@ static void set_config_destroy(void)
 {
 	strcpy(accountcode, "");
 	strcpy(language, "");
-	strcpy(mohinterpret, "default");
+	strcpy(mohinterpret, "");
 	strcpy(mohsuggest, "");
 	trunkmaxsize = MAX_TRUNKDATA;
 	amaflags = 0;
@@ -13244,6 +13253,9 @@ static int set_config(const char *config_file, int reload)
 			} else if (trunkfreq > 1000) {
 				ast_log(LOG_NOTICE, "trunkfreq must be between 10ms and 1000ms, using 1000ms instead.\n");
 				trunkfreq = 1000;
+			}
+			if (timer) {
+				ast_timer_set_rate(timer, 1000 / trunkfreq);
 			}
 		} else if (!strcasecmp(v->name, "trunkmtu")) {
 			mtuv = atoi(v->value);
@@ -14024,12 +14036,12 @@ static int iax2_devicestate(void *data)
 
 static struct ast_switch iax2_switch = 
 {
-	name:        "IAX2",
-	description: "IAX Remote Dialplan Switch",
-	exists:      iax2_exists,
-	canmatch:    iax2_canmatch,
-	exec:        iax2_exec,
-	matchmore:   iax2_matchmore,
+	.name        = "IAX2",
+	.description = "IAX Remote Dialplan Switch",
+	.exists      = iax2_exists,
+	.canmatch    = iax2_canmatch,
+	.exec        = iax2_exec,
+	.matchmore   = iax2_matchmore,
 };
 
 /*

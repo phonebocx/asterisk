@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 321547 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
 
 #include <signal.h>
 
@@ -554,7 +554,7 @@ void ast_cdr_merge(struct ast_cdr *to, struct ast_cdr *from)
 		}
 
 		if (ast_test_flag(to, AST_CDR_FLAG_LOCKED)) {
-			ast_log(LOG_WARNING, "Merging into locked CDR... no choice.");
+			ast_log(LOG_WARNING, "Merging into locked CDR... no choice.\n");
 			to = zcdr; /* safety-- if all there are is locked CDR's, then.... ?? */
 			lto = NULL;
 		}

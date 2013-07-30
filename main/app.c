@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 352029 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364769 $")
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
@@ -342,7 +342,7 @@ int ast_app_inboxcount2(const char *mailbox, int *urgentmsgs, int *newmsgs, int 
 	if (urgentmsgs) {
 		*urgentmsgs = 0;
 	}
-	if (ast_inboxcount_func) {
+	if (ast_inboxcount2_func) {
 		return ast_inboxcount2_func(mailbox, urgentmsgs, newmsgs, oldmsgs);
 	}
 
@@ -523,9 +523,9 @@ static void *linear_alloc(struct ast_channel *chan, void *params)
 
 static struct ast_generator linearstream =
 {
-	alloc: linear_alloc,
-	release: linear_release,
-	generate: linear_generator,
+	.alloc = linear_alloc,
+	.release = linear_release,
+	.generate = linear_generator,
 };
 
 int ast_linear_stream(struct ast_channel *chan, const char *filename, int fd, int allowoverride)

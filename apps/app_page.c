@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 360363 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -131,7 +131,6 @@ AST_APP_OPTIONS(page_opts, {
 	AST_APP_OPTION('q', PAGE_QUIET),
 	AST_APP_OPTION('r', PAGE_RECORD),
 	AST_APP_OPTION('s', PAGE_SKIP),
-	AST_APP_OPTION('i', PAGE_IGNORE_FORWARDS),
 	AST_APP_OPTION('i', PAGE_IGNORE_FORWARDS),
 	AST_APP_OPTION_ARG('A', PAGE_ANNOUNCE, OPT_ARG_ANNOUNCE),
 	AST_APP_OPTION('n', PAGE_NOCALLERANNOUNCE),
@@ -296,6 +295,8 @@ static int page_exec(struct ast_channel *chan, const char *data)
 		/* Destroy dialing structure */
 		ast_dial_destroy(dial);
 	}
+
+	ast_free(dial_list);
 
 	return -1;
 }

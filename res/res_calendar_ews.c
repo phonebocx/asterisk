@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361606 $")
 
 #include <ne_request.h>
 #include <ne_session.h>
@@ -424,6 +424,8 @@ static int endelm(void *userdata, int state, const char *nspace, const char *nam
 		if (ast_str_strlen(ctx->cdata)) {
 			attendee->data = ast_strdup(ast_str_buffer(ctx->cdata));
 			AST_LIST_INSERT_TAIL(&ctx->event->attendees, attendee, next);
+		} else {
+			ast_free(attendee);
 		}
 		ast_debug(3, "EWS: XML: attendee address '%s'\n", ast_str_buffer(ctx->cdata));
 		ast_str_reset(ctx->cdata);

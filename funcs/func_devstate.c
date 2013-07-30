@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361201 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -250,7 +250,7 @@ static char *handle_cli_devstate_change(struct ast_cli_entry *e, int cmd, struct
 			"       Change a custom device to a new state.\n"
 			"       The possible values for the state are:\n"
 			"UNKNOWN | NOT_INUSE | INUSE | BUSY | INVALID | UNAVAILABLE | RINGING\n"
-			"RINGINUSE | ONHOLD\n",
+			"RINGINUSE | ONHOLD\n"
 			"\n"
 			"Examples:\n"
 			"       devstate change Custom:mystate1 INUSE\n"

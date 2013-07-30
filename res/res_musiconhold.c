@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 349194 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362362 $")
 
 #include <ctype.h>
 #include <signal.h>
@@ -642,7 +642,7 @@ static void *monmp3thread(void *data)
 				ast_log(LOG_WARNING, "Unable to spawn mp3player\n");
 				/* Try again later */
 				sleep(500);
-				pthread_testcancel();
+				continue;
 			}
 		}
 		if (class->timer) {

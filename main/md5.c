@@ -22,7 +22,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89333 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 359059 $")
 
 #include "asterisk/endian.h"
 #include "asterisk/md5.h"
@@ -157,7 +157,7 @@ void MD5Final(unsigned char digest[16], struct MD5Context *ctx)
 	MD5Transform(ctx->buf, (uint32_t *) ctx->in);
 	byteReverse((unsigned char *) ctx->buf, 4);
 	memcpy(digest, ctx->buf, 16);
-	memset(ctx, 0, sizeof(ctx));	/* In case it's sensitive */
+	memset(ctx, 0, sizeof(*ctx));	/* In case it's sensitive */
 }
 
 #ifndef ASM_MD5

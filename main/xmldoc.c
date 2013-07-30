@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 340108 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 361471 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"
@@ -2009,7 +2009,7 @@ int ast_xmldoc_load_documentation(void)
 		/* Get doc root node and check if it starts with '<docs>' */
 		root_node = ast_xml_get_root(tmpdoc);
 		if (!root_node) {
-			ast_log(LOG_ERROR, "Error getting documentation root node");
+			ast_log(LOG_ERROR, "Error getting documentation root node\n");
 			ast_xml_close(tmpdoc);
 			continue;
 		}

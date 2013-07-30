@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328209 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 364899 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -206,7 +206,7 @@ static int volume_write(struct ast_channel *chan, const char *cmd, char *data, c
 	
 	if (!ast_strlen_zero(args.options)) {
 		struct ast_flags flags = { 0 };
-		ast_app_parse_options(volume_opts, &flags, &data, args.options);
+		ast_app_parse_options(volume_opts, &flags, NULL, args.options);
 		vi->flags = flags.flags;
 	} else { 
 		vi->flags = 0; 

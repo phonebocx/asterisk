@@ -46,7 +46,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 291791 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362485 $")
 
 #include <signal.h>
 #include <sys/stat.h>
@@ -2339,7 +2339,11 @@ char *ast_strptime_locale(const char *s, const char *format, struct ast_tm *tm, 
 	prevlocale = ast_setlocale(locale);
 	res = strptime(s, format, &tm2);
 	ast_setlocale(prevlocale);
-	memcpy(tm, &tm2, sizeof(*tm));
+	/* ast_time and tm are not the same size - tm is a subset of
+	 * ast_time.  Hence, the size of tm needs to be used for the
+	 * memcpy
+	 */
+	memcpy(tm, &tm2, sizeof(tm2));
 	tm->tm_usec = 0;
 	/* strptime(3) doesn't set .tm_isdst correctly, so to force ast_mktime(3)
 	 * to deal with it correctly, we set it to -1. */
