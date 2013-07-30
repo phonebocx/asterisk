@@ -94,7 +94,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 93668 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 95946 $")
 
 #include <stdio.h>
 #include <ctype.h>
@@ -2487,7 +2487,7 @@ static void update_peer(struct sip_peer *p, int expiry)
 static struct sip_peer *realtime_peer(const char *newpeername, struct sockaddr_in *sin)
 {
 	struct sip_peer *peer=NULL;
-	struct ast_variable *var;
+	struct ast_variable *var = NULL;
 	struct ast_config *peerlist = NULL;
 	struct ast_variable *tmp;
 	struct ast_flags flags = {0};
@@ -2500,33 +2500,34 @@ static struct sip_peer *realtime_peer(const char *newpeername, struct sockaddr_i
 	/* First check on peer name */
 	if (newpeername) {
 		var = ast_load_realtime("sippeers", "name", newpeername, "host", "dynamic", NULL);
-		if (!var && sin) {
+		if (!var && sin)
 			var = ast_load_realtime("sippeers", "name", newpeername, "host", ast_inet_ntoa(sin->sin_addr), NULL);
-			if (!var) {
-				var = ast_load_realtime("sippeers", "name", newpeername, NULL);
-				/*!\note
-				 * If this one loaded something, then we need to ensure that the host
-				 * field matched.  The only reason why we can't have this as a criteria
-				 * is because we only have the IP address and the host field might be
-				 * set as a name (and the reverse PTR might not match).
-				 */
-				if (var) {
-					for (tmp = var; tmp; tmp = tmp->next) {
-						if (!strcasecmp(var->name, "host")) {
-							struct in_addr sin2 = { 0, };
-							struct ast_dnsmgr_entry *dnsmgr = NULL;
-							if ((ast_dnsmgr_lookup(tmp->value, &sin2, &dnsmgr) < 0) || (memcmp(&sin2, &sin->sin_addr, sizeof(sin2)) != 0)) {
-								/* No match */
-								ast_variables_destroy(var);
-								var = NULL;
-							}
-							break;
+		if (!var) {
+			var = ast_load_realtime("sippeers", "name", newpeername, NULL);
+			/*!\note
+			 * If this one loaded something, then we need to ensure that the host
+			 * field matched.  The only reason why we can't have this as a criteria
+			 * is because we only have the IP address and the host field might be
+			 * set as a name (and the reverse PTR might not match).
+			 */
+			if (var) {
+				for (tmp = var; tmp; tmp = tmp->next) {
+					if (!strcasecmp(var->name, "host")) {
+						struct in_addr sin2 = { 0, };
+						struct ast_dnsmgr_entry *dnsmgr = NULL;
+						if ((ast_dnsmgr_lookup(tmp->value, &sin2, &dnsmgr) < 0) || (memcmp(&sin2, &sin->sin_addr, sizeof(sin2)) != 0)) {
+							/* No match */
+							ast_variables_destroy(var);
+							var = NULL;
 						}
+						break;
 					}
 				}
 			}
 		}
-	} else if (sin) {	/* Then check on IP address */
+	}
+
+	if (!var && sin) {	/* Then check on IP address */
 		iabuf = ast_inet_ntoa(sin->sin_addr);
 		portnum = ntohs(sin->sin_port);
 		sprintf(portstring, "%d", portnum);
@@ -2564,8 +2565,7 @@ static struct sip_peer *realtime_peer(const char *newpeername, struct sockaddr_i
 				}
 			}
 		}
-	} else
-		return NULL;
+	}
 
 	if (!var) {
 		if(peerlist)
@@ -5538,10 +5538,6 @@ static int add_header(struct sip_request *req, const char *var, const char *valu
 	snprintf(req->header[req->headers], maxlen, "%s: %s\r\n", var, value);
 	req->len += strlen(req->header[req->headers]);
 	req->headers++;
-	if (req->headers < SIP_MAX_HEADERS)
-		req->headers++;
-	else
-		ast_log(LOG_WARNING, "Out of SIP header space... Will generate broken SIP message\n");
 
 	return 0;	
 }
@@ -5837,7 +5833,7 @@ static int respprep(struct sip_request *resp, struct sip_pvt *p, const char *msg
 			snprintf(contact, sizeof(contact), "%s;expires=%d", p->our_contact, p->expiry);
 			add_header(resp, "Contact", contact);	/* Not when we unregister */
 		}
-	} else if (msg[0] != '4' && p->our_contact[0]) {
+	} else if (msg[0] != '4' && !ast_strlen_zero(p->our_contact)) {
 		add_header(resp, "Contact", p->our_contact);
 	}
 	return 0;
@@ -9052,9 +9048,14 @@ static int get_also_info(struct sip_pvt *p, struct sip_request *oreq)
 {
 	char tmp[256] = "", *c, *a;
 	struct sip_request *req = oreq ? oreq : &p->initreq;
-	struct sip_refer *referdata = p->refer;
+	struct sip_refer *referdata = NULL;
 	const char *transfer_context = NULL;
 	
+	if (!p->refer && !sip_refer_allocate(p))
+		return -1;
+
+	referdata = p->refer;
+
 	ast_copy_string(tmp, get_header(req, "Also"), sizeof(tmp));
 	c = get_in_brackets(tmp);
 
@@ -15497,7 +15498,14 @@ restartsearch:
 		   get back to this point every millisecond or less)
 		*/
 		for (sip = iflist; !fastrestart && sip; sip = sip->next) {
-			ast_mutex_lock(&sip->lock);
+			/*! \note If we can't get a lock on an interface, skip it and come
+			 * back later. Note that there is the possibility of a deadlock with
+			 * sip_hangup otherwise, because sip_hangup is called with the channel
+			 * locked first, and the iface lock is attempted second.
+			 */
+			if (ast_mutex_trylock(&sip->lock))
+				continue;
+
 			/* Check RTP timeouts and kill calls if we have a timeout set and do not get RTP */
 			if (sip->rtp && sip->owner &&
 			    (sip->owner->_state == AST_STATE_UP) &&

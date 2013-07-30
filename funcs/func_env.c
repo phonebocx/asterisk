@@ -22,7 +22,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 89631 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 95470 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -77,7 +77,7 @@ static int stat_read(struct ast_channel *chan, char *cmd, char *data,
 
 	action = strsep(&data, "|");
 	if (stat(data, &s)) {
-		return -1;
+		return 0;
 	} else {
 		switch (*action) {
 		case 'e':

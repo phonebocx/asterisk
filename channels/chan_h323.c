@@ -44,12 +44,13 @@ extern "C" {
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 92696 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 94924 $")
 
 #ifdef __cplusplus
 }
 #endif
 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/signal.h>
 #include <sys/param.h>

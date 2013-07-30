@@ -62,7 +62,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 93182 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 95890 $")
 
 #include <stdlib.h>
 #include <errno.h>
@@ -283,10 +283,18 @@ const struct {
 
 /*! \brief We define a custom "local user" structure because we
    use it not only for keeping track of what is in use but
-   also for keeping track of who we're dialing. */
+   also for keeping track of who we're dialing.
+
+   There are two "links" defined in this structure, q_next and call_next.
+   q_next links ALL defined callattempt structures into a linked list. call_next is
+   a link which allows for a subset of the callattempts to be traversed. This subset
+   is used in wait_for_answer so that irrelevant callattempts are not traversed. This
+   also is helpful so that queue logs are always accurate in the case where a call to 
+   a member times out, especially if using the ringall strategy. */
 
 struct callattempt {
 	struct callattempt *q_next;
+	struct callattempt *call_next;
 	struct ast_channel *chan;
 	char interface[256];
 	int stillgoing;
@@ -1922,17 +1930,15 @@ static int ring_one(struct queue_ent *qe, struct callattempt *outgoing, int *bus
 				if (cur->stillgoing && !cur->chan && cur->metric <= best->metric) {
 					if (option_debug)
 						ast_log(LOG_DEBUG, "(Parallel) Trying '%s' with metric %d\n", cur->interface, cur->metric);
-					ring_entry(qe, cur, busies);
+					ret |= ring_entry(qe, cur, busies);
 				}
 			}
 		} else {
 			/* Ring just the best channel */
 			if (option_debug)
 				ast_log(LOG_DEBUG, "Trying '%s' with metric %d\n", best->interface, best->metric);
-			ring_entry(qe, best, busies);
+			ret = ring_entry(qe, best, busies);
 		}
-		if (best->chan) /* break out with result = 1 */
-			ret = 1;
 	}
 
 	return ret;
@@ -2042,7 +2048,7 @@ static void rna(int rnatime, struct queue_ent *qe, char *interface, char *member
 static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callattempt *outgoing, int *to, char *digit, int prebusies, int caller_disconnect, int forwardsallowed)
 {
 	char *queue = qe->parent->name;
-	struct callattempt *o;
+	struct callattempt *o, *start = NULL, *prev = NULL;
 	int status;
 	int numbusies = prebusies;
 	int numnochan = 0;
@@ -2063,14 +2069,21 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 		int numlines, retry, pos = 1;
 		struct ast_channel *watchers[AST_MAX_WATCHERS];
 		watchers[0] = in;
+		start = NULL;
 
 		for (retry = 0; retry < 2; retry++) {
 			numlines = 0;
 			for (o = outgoing; o; o = o->q_next) { /* Keep track of important channels */
 				if (o->stillgoing) {	/* Keep track of important channels */
 					stillgoing = 1;
-					if (o->chan)
+					if (o->chan) {
 						watchers[pos++] = o->chan;
+						if (!start)
+							start = o;
+						else
+							prev->call_next = o;
+						prev = o;
+					}
 				}
 				numlines++;
 			}
@@ -2092,7 +2105,7 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 			return NULL;
 		}
 		winner = ast_waitfor_n(watchers, pos, to);
-		for (o = outgoing; o; o = o->q_next) {
+		for (o = start; o; o = o->call_next) {
 			if (o->stillgoing && (o->chan) &&  (o->chan->_state == AST_STATE_UP)) {
 				if (!peer) {
 					if (option_verbose > 2)
@@ -2262,8 +2275,10 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 			}
 			ast_frfree(f);
 		}
-		if (!*to)
-			rna(orig, qe, on, membername);
+		if (!*to) {
+			for (o = start; o; o = o->call_next)
+				rna(orig, qe, o->interface, o->member->membername);
+		}
 	}
 
 	return peer;

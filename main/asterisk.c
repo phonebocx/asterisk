@@ -59,7 +59,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 86066 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 94418 $")
 
 #undef sched_setscheduler
 #undef setpriority
@@ -2749,7 +2749,7 @@ int main(int argc, char *argv[])
 				ast_log(LOG_WARNING, "Unable to setgid to %d!\n", (int)pw->pw_gid);
 				exit(1);
 			}
-			if (initgroups(pw->pw_name, pw->pw_gid)) {
+			if (isroot && initgroups(pw->pw_name, pw->pw_gid)) {
 				ast_log(LOG_WARNING, "Unable to init groups for '%s'\n", runuser);
 				exit(1);
 			}
