@@ -377,6 +377,7 @@ bininstall: all
 	mkdir -p $(DESTDIR)$(ASTSPOOLDIR)/tmp
 	install -m 755 asterisk $(DESTDIR)$(ASTSBINDIR)/
 	install -m 755 contrib/scripts/astgenkey $(DESTDIR)$(ASTSBINDIR)/
+	install -m 755 contrib/scripts/autosupport $(DESTDIR)$(ASTSBINDIR)/
 	if [ ! -f $(DESTDIR)$(ASTSBINDIR)/safe_asterisk ]; then \
 		install -m 755 contrib/scripts/safe_asterisk $(DESTDIR)$(ASTSBINDIR)/ ;\
 	fi
@@ -430,6 +431,17 @@ bininstall: all
 	@echo " + **Note** This requires that you have      +"
 	@echo " + doxygen installed on your local system    +"
 	@echo " +-------------------------------------------+"
+	@echo " +                                           +"
+	@echo " + ** NOTE FOR DOWNGRADING FROM CVS HEAD **  +"
+	@echo " +                                           +"
+	@echo " + If you are downgrading from CVS HEAD to   +"
+	@echo " + a stable release, remember to delete      +"
+	@echo " + everything from your asterisk modules     +"
+	@echo " + directory (/usr/lib/asterisk/modules/)    +"
+	@echo " + before doing a '$(MAKE) install'.            +"
+	@echo " +                                           +"
+	@echo " +-------------------------------------------+"
+
 
 install: all datafiles bininstall
 
