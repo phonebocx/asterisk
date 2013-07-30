@@ -14,11 +14,10 @@
 #ifndef _ASTERISK_DSP_H
 #define _ASTERISK_DSP_H
 
-#define DSP_FEATURE_SILENCE_SUPPRESS (1 << 0)
-#define DSP_FEATURE_BUSY_DETECT      (1 << 1)
-#define DSP_FEATURE_CALL_PROGRESS    (1 << 2)
-#define DSP_FEATURE_DTMF_DETECT		 (1 << 3)
-#define DSP_FEATURE_FAX_DETECT		 (1 << 4)
+#define DSP_FEATURE_SILENCE_SUPPRESS	(1 << 0)
+#define DSP_FEATURE_BUSY_DETECT		(1 << 1)
+#define DSP_FEATURE_DTMF_DETECT		(1 << 3)
+#define DSP_FEATURE_FAX_DETECT		(1 << 4)
 
 #define	DSP_DIGITMODE_DTMF			0				/* Detect DTMF digits */
 #define DSP_DIGITMODE_MF			1				/* Detect MF digits */
@@ -27,6 +26,22 @@
 #define DSP_DIGITMODE_MUTECONF		(1 << 9)		/* Mute conference */
 #define DSP_DIGITMODE_MUTEMAX		(1 << 10)		/* Delay audio by a frame to try to extra quelch */
 #define DSP_DIGITMODE_RELAXDTMF		(1 << 11)		/* "Radio" mode (relaxed DTMF) */
+
+#define DSP_PROGRESS_TALK		(1 << 16)		/* Enable talk detection */
+#define DSP_PROGRESS_RINGING		(1 << 17)		/* Enable calling tone detection */
+#define DSP_PROGRESS_BUSY		(1 << 18)		/* Enable busy tone detection */
+#define DSP_PROGRESS_CONGESTION		(1 << 19)		/* Enable congestion tone detection */
+#define DSP_FEATURE_CALL_PROGRESS	(DSP_PROGRESS_TALK | DSP_PROGRESS_RINGING | DSP_PROGRESS_BUSY | DSP_PROGRESS_CONGESTION)
+
+#define DSP_TONE_STATE_SILENCE  0
+#define DSP_TONE_STATE_RINGING  1 
+#define DSP_TONE_STATE_DIALTONE 2
+#define DSP_TONE_STATE_TALKING  3
+#define DSP_TONE_STATE_BUSY     4
+#define DSP_TONE_STATE_SPECIAL1	5
+#define DSP_TONE_STATE_SPECIAL2 6
+#define DSP_TONE_STATE_SPECIAL3 7
+#define DSP_TONE_STATE_HUNGUP 	8
 
 struct ast_dsp;
 
@@ -37,6 +52,9 @@ void ast_dsp_set_threshold(struct ast_dsp *dsp, int threshold);
 
 /* Set number of required cadences for busy */
 void ast_dsp_set_busy_count(struct ast_dsp *dsp, int cadences);
+
+/* Set expected lengths of the busy tone */
+void ast_dsp_set_busy_pattern(struct ast_dsp *dsp, int tonelength, int quietlength);
 
 /* Scans for progress indication in audio */
 int ast_dsp_call_progress(struct ast_dsp *dsp, struct ast_frame *inf);
@@ -74,4 +92,9 @@ int ast_dsp_getdigits(struct ast_dsp *dsp, char *buf, int max);
 /* Set digit mode */
 int ast_dsp_digitmode(struct ast_dsp *dsp, int digitmode);
 
+/* Get tstate (Tone State) */
+int ast_dsp_get_tstate(struct ast_dsp *dsp);
+
+/* Get tcount (Threshold counter) */
+int ast_dsp_get_tcount(struct ast_dsp *dsp);
 #endif

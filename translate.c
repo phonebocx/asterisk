@@ -3,30 +3,35 @@
  *
  * Translate via the use of pseudo channels
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/channel.h>
-#include <asterisk/channel_pvt.h>
-#include <asterisk/logger.h>
-#include <asterisk/translate.h>
-#include <asterisk/options.h>
-#include <asterisk/frame.h>
-#include <asterisk/sched.h>
-#include <asterisk/cli.h>
-#include <asterisk/term.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.42 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/channel.h"
+#include "asterisk/logger.h"
+#include "asterisk/translate.h"
+#include "asterisk/options.h"
+#include "asterisk/frame.h"
+#include "asterisk/sched.h"
+#include "asterisk/cli.h"
+#include "asterisk/term.h"
 
 #define MAX_RECALC 200 /* max sample recalc */
 
@@ -38,7 +43,7 @@ static struct ast_translator *list = NULL;
 
 struct ast_translator_dir {
 	struct ast_translator *step;	/* Next step translator */
-	int cost;						/* Complete cost to destination */
+	int cost;			/* Complete cost to destination */
 };
 
 struct ast_frame_delivery {
@@ -84,52 +89,52 @@ void ast_translator_free_path(struct ast_trans_pvt *p)
 	}
 }
 
+/* Build a set of translators based upon the given source and destination formats */
 struct ast_trans_pvt *ast_translator_build_path(int dest, int source)
 {
 	struct ast_trans_pvt *tmpr = NULL, *tmp = NULL;
-	/* One of the hardest parts:  Build a set of translators based upon
-	   the given source and destination formats */
+	
 	source = powerof(source);
 	dest = powerof(dest);
+	
 	while(source != dest) {
-		if (tr_matrix[source][dest].step) {
-			if (tmp) {
-				tmp->next = malloc(sizeof(struct ast_trans_pvt));
-				tmp = tmp->next;
-			} else
-				tmp = malloc(sizeof(struct ast_trans_pvt));
-
-				
-			if (tmp) {
-				tmp->next = NULL;
-				tmp->nextin.tv_sec = 0;
-				tmp->nextin.tv_usec = 0;
-				tmp->nextout.tv_sec = 0;
-				tmp->nextout.tv_usec = 0;
-				tmp->step = tr_matrix[source][dest].step;
-				tmp->state = tmp->step->newpvt();
-				if (!tmp->state) {
-					ast_log(LOG_WARNING, "Failed to build translator step from %d to %d\n", source, dest);
-					free(tmp);
-					tmp = NULL;
-					return NULL;
-				}
-				/* Set the root, if it doesn't exist yet... */
-				if (!tmpr)
-					tmpr = tmp;
-				/* Keep going if this isn't the final destination */
-				source = tmp->step->dstfmt;
-			} else {
-				/* XXX This could leak XXX */
-				ast_log(LOG_WARNING, "Out of memory\n");
-				return NULL;
-			}
-		} else {
+		if (!tr_matrix[source][dest].step) {
 			/* We shouldn't have allocated any memory */
 			ast_log(LOG_WARNING, "No translator path from %s to %s\n", 
 				ast_getformatname(source), ast_getformatname(dest));
 			return NULL;
 		}
+
+		if (tmp) {
+			tmp->next = malloc(sizeof(*tmp));
+			tmp = tmp->next;
+		} else
+			tmp = malloc(sizeof(*tmp));
+			
+		if (!tmp) {
+			ast_log(LOG_WARNING, "Out of memory\n");
+			if (tmpr)
+				ast_translator_free_path(tmpr);	
+			return NULL;
+		}
+
+		/* Set the root, if it doesn't exist yet... */
+		if (!tmpr)
+			tmpr = tmp;
+
+		tmp->next = NULL;
+		tmp->nextin = tmp->nextout = ast_tv(0, 0);
+		tmp->step = tr_matrix[source][dest].step;
+		tmp->state = tmp->step->newpvt();
+		
+		if (!tmp->state) {
+			ast_log(LOG_WARNING, "Failed to build translator step from %d to %d\n", source, dest);
+			ast_translator_free_path(tmpr);	
+			return NULL;
+		}
+		
+		/* Keep going if this isn't the final destination */
+		source = tmp->step->dstfmt;
 	}
 	return tmpr;
 }
@@ -142,47 +147,28 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 	p = path;
 	/* Feed the first frame into the first translator */
 	p->step->framein(p->state, f);
-	if (f->delivery.tv_sec || f->delivery.tv_usec) {
-		if (path->nextin.tv_sec || path->nextin.tv_usec) {
+	if (!ast_tvzero(f->delivery)) {
+		if (!ast_tvzero(path->nextin)) {
 			/* Make sure this is in line with what we were expecting */
-			if ((path->nextin.tv_sec != f->delivery.tv_sec) ||
-			    (path->nextin.tv_usec != f->delivery.tv_usec)) {
+			if (!ast_tveq(path->nextin, f->delivery)) {
 				/* The time has changed between what we expected and this
-				   most recent time on the new packet.  Adjust our output
-				   time appropriately */
-				long sdiff;
-				long udiff;
-				sdiff = f->delivery.tv_sec - path->nextin.tv_sec;
-				udiff = f->delivery.tv_usec - path->nextin.tv_usec;
-				path->nextin.tv_sec = f->delivery.tv_sec;
-				path->nextin.tv_usec = f->delivery.tv_usec;
-				path->nextout.tv_sec += sdiff;
-				path->nextout.tv_usec += udiff;
-				if (path->nextout.tv_usec < 0) {
-					path->nextout.tv_usec += 1000000;
-					path->nextout.tv_sec--;
-				} else if (path->nextout.tv_usec >= 1000000) {
-					path->nextout.tv_usec -= 1000000;
-					path->nextout.tv_sec++;
+				   most recent time on the new packet.  If we have a
+				   valid prediction adjust our output time appropriately */
+				if (!ast_tvzero(path->nextout)) {
+					path->nextout = ast_tvadd(path->nextout,
+								  ast_tvsub(f->delivery, path->nextin));
 				}
+				path->nextin = f->delivery;
 			}
 		} else {
 			/* This is our first pass.  Make sure the timing looks good */
-			path->nextin.tv_sec = f->delivery.tv_sec;
-			path->nextin.tv_usec = f->delivery.tv_usec;
-			path->nextout.tv_sec = f->delivery.tv_sec;
-			path->nextout.tv_usec = f->delivery.tv_usec;
+			path->nextin = f->delivery;
+			path->nextout = f->delivery;
 		}
 		/* Predict next incoming sample */
-		path->nextin.tv_sec += (f->samples / 8000);
-		path->nextin.tv_usec += ((f->samples % 8000) * 125);
-		if (path->nextin.tv_usec >= 1000000) {
-			path->nextin.tv_usec -= 1000000;
-			path->nextin.tv_sec++;
-		}
+		path->nextin = ast_tvadd(path->nextin, ast_samp2tv(f->samples, 8000));
 	}
-	delivery.tv_sec = f->delivery.tv_sec;
-	delivery.tv_usec = f->delivery.tv_usec;
+	delivery = f->delivery;
 	if (consume)
 		ast_frfree(f);
 	while(p) {
@@ -195,23 +181,23 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 		if (p->next) 
 			p->next->step->framein(p->next->state, out);
 		else {
-			if (delivery.tv_sec || delivery.tv_usec) {
+			if (!ast_tvzero(delivery)) {
+				/* Regenerate prediction after a discontinuity */
+				if (ast_tvzero(path->nextout))
+					path->nextout = ast_tvnow();
+
 				/* Use next predicted outgoing timestamp */
-				out->delivery.tv_sec = path->nextout.tv_sec;
-				out->delivery.tv_usec = path->nextout.tv_usec;
+				out->delivery = path->nextout;
 				
 				/* Predict next outgoing timestamp from samples in this
 				   frame. */
-				path->nextout.tv_sec += (out->samples / 8000);
-				path->nextout.tv_usec += ((out->samples % 8000) * 125);
-				if (path->nextout.tv_usec >= 1000000) {
-					path->nextout.tv_sec++;
-					path->nextout.tv_usec -= 1000000;
-				}
+				path->nextout = ast_tvadd(path->nextout, ast_samp2tv( out->samples, 8000));
 			} else {
-				out->delivery.tv_sec = 0;
-				out->delivery.tv_usec = 0;
+				out->delivery = ast_tv(0, 0);
 			}
+			/* Invalidate prediction if we're entering a silence period */
+			if (out->frametype == AST_FRAME_CNG)
+				path->nextout = ast_tv(0, 0);
 			return out;
 		}
 		p = p->next;
@@ -226,7 +212,7 @@ static void calc_cost(struct ast_translator *t,int samples)
 	int sofar=0;
 	struct ast_translator_pvt *pvt;
 	struct ast_frame *f, *out;
-	struct timeval start, finish;
+	struct timeval start;
 	int cost;
 	if(!samples)
 	  samples = 1;
@@ -243,7 +229,7 @@ static void calc_cost(struct ast_translator *t,int samples)
 		t->cost = 99999;
 		return;
 	}
-	gettimeofday(&start, NULL);
+	start = ast_tvnow();
 	/* Call the encoder until we've processed one second of time */
 	while(sofar < samples * 8000) {
 		f = t->sample();
@@ -260,9 +246,8 @@ static void calc_cost(struct ast_translator *t,int samples)
 			ast_frfree(out);
 		}
 	}
-	gettimeofday(&finish, NULL);
+	cost = ast_tvdiff_ms(ast_tvnow(), start);
 	t->destroy(pvt);
-	cost = (finish.tv_sec - start.tv_sec) * 1000 + (finish.tv_usec - start.tv_usec) / 1000;
 	t->cost = cost / samples;
 	if (!t->cost)
 		t->cost = 1;
@@ -391,8 +376,12 @@ int ast_register_translator(struct ast_translator *t)
 	char tmp[80];
 	t->srcfmt = powerof(t->srcfmt);
 	t->dstfmt = powerof(t->dstfmt);
-	if ((t->srcfmt >= MAX_FORMAT) || (t->dstfmt >= MAX_FORMAT)) {
-		ast_log(LOG_WARNING, "Format %s is larger than MAX_FORMAT\n", ast_getformatname(t->srcfmt));
+	if (t->srcfmt >= MAX_FORMAT) {
+		ast_log(LOG_WARNING, "Source format %s is larger than MAX_FORMAT\n", ast_getformatname(t->srcfmt));
+		return -1;
+	}
+	if (t->dstfmt >= MAX_FORMAT) {
+		ast_log(LOG_WARNING, "Destination format %s is larger than MAX_FORMAT\n", ast_getformatname(t->dstfmt));
 		return -1;
 	}
 	calc_cost(t,1);
@@ -438,37 +427,45 @@ int ast_translator_best_choice(int *dst, int *srcs)
 {
 	/* Calculate our best source format, given costs, and a desired destination */
 	int x,y;
-	int best=-1;
-	int bestdst=0;
+	int best = -1;
+	int bestdst = 0;
 	int cur = 1;
-	int besttime=999999999;
-	ast_mutex_lock(&list_lock);
-	for (y=0;y<MAX_FORMAT;y++) {
-		if ((cur & *dst) && (cur & *srcs)) {
-			/* This is a common format to both.  Pick it if we don't have one already */
-			besttime=0;
-			bestdst = cur;
-			best = cur;
-			break;
+	int besttime = INT_MAX;
+	int common;
+
+	if ((common = (*dst) & (*srcs))) {
+		/* We have a format in common */
+		for (y=0; y < MAX_FORMAT; y++) {
+			if (cur & common) {
+				/* This is a common format to both.  Pick it if we don't have one already */
+				besttime = 0;
+				bestdst = cur;
+				best = cur;
+			}
+			cur = cur << 1;
 		}
-		if (cur & *dst)
-			for (x=0;x<MAX_FORMAT;x++) {
-				if (tr_matrix[x][y].step &&	/* There's a step */
-			   	 (tr_matrix[x][y].cost < besttime) && /* We're better than what exists now */
-					(*srcs & (1 << x)))			/* x is a valid source format */
-					{
+	} else {
+		/* We will need to translate */
+		ast_mutex_lock(&list_lock);
+		for (y=0; y < MAX_FORMAT; y++) {
+			if (cur & *dst)
+				for (x=0; x < MAX_FORMAT; x++) {
+					if ((*srcs & (1 << x)) &&			/* x is a valid source format */
+					    tr_matrix[x][y].step &&			/* There's a step */
+					    (tr_matrix[x][y].cost < besttime)) {	/* It's better than what we have so far */
 						best = 1 << x;
 						bestdst = cur;
 						besttime = tr_matrix[x][y].cost;
 					}
-			}
-		cur = cur << 1;
+				}
+			cur = cur << 1;
+		}
+		ast_mutex_unlock(&list_lock);
 	}
 	if (best > -1) {
 		*srcs = best;
 		*dst = bestdst;
 		best = 0;
 	}
-	ast_mutex_unlock(&list_lock);
 	return best;
 }

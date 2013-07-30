@@ -3,7 +3,7 @@
  *
  * Store CDR records in a SQLite database.
  * 
- * Copyright (C) 2004, Holger Schurig
+ * Copyright (C) 2004 - 2005, Holger Schurig
  *
  * Holger Schurig <hs4233@mail.mn-solutions.de>
  *
@@ -14,18 +14,20 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/cdr.h>
-#include <asterisk/module.h>
-#include <asterisk/logger.h>
-#include <asterisk/utils.h>
-#include "../asterisk.h"
-#include "../astconf.h"
 
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sqlite.h>
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+
+#include "asterisk/channel.h"
+#include "asterisk/module.h"
+#include "asterisk/logger.h"
+#include "asterisk/utils.h"
 
 #define LOG_UNIQUEID	0
 #define LOG_USERFIELD	0

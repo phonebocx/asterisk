@@ -10,6 +10,9 @@ serveremail=asterisk
 ;serveremail=asterisk@linux-support.net
 ; Should the email contain the voicemail as an attachment
 attach=yes
+; Maximum number of messages per folder. If not specified a default value (100) is used.
+; Maximum value for this option is 9999.
+;maxmsg=100
 ; Maximum length of a voicemail message in seconds
 ;maxmessage=180
 ; Minimum length of a voicemail message in seconds
@@ -46,12 +49,11 @@ maxlogins=3
 ;pbxskip=yes
 ; Change the From: string
 ;fromstring=The Asterisk PBX
+; Permit finding entries for forward/compose from the directory
+;usedirectory=yes
 ;
-;Change the From: string for pager messages
-;pagerfromstring=The Asterisk PBX
-;
-; Change the email body and/or subject, variables: 
-;     VM_NAME, VM_DUR, VM_MSGNUM, VM_MAILBOX, VM_CALLERID, VM_DATE
+; Change the from, body and/or subject, variables:
+;     VM_NAME, VM_DUR, VM_MSGNUM, VM_MAILBOX, VM_CALLERID, VM_CIDNUM, VM_CIDNAME, VM_DATE
 ;
 ; Note: The emailbody config row can be up to 512 characters due to a limitation in 
 ;       asterisk config files.
@@ -59,7 +61,19 @@ maxlogins=3
 ; The following definition is very close to the default, but the default shows just 
 ; the CIDNAME, if it is not null, else just the CIDNUM, or "an unknown caller" if they are both null.
 ;emailbody=Dear ${VM_NAME}:\n\n\tjust wanted to let you know you were just left a ${VM_DUR} long message (number ${VM_MSGNUM})\nin mailbox ${VM_MAILBOX} from ${VM_CALLERID}, on ${VM_DATE}, so you might\nwant to check it when you get a chance.  Thanks!\n\n\t\t\t\t--Asterisk\n
-
+;
+; You can also change the Pager From: string, the pager body and/or subject.
+; The above defined variables also can be used here
+;pagerfromstring=The Asterisk PBX
+;pagersubject=New VM
+;pagerbody=New ${VM_DUR} long msg in box ${VM_MAILBOX}\nfrom ${VM_CALLERID}, on ${VM_DATE}
+;
+; Set the date format on outgoing mails. Valid arguments can be found on the strftime(3) man page
+;
+; Default
+emaildateformat=%A, %B %d, %Y at %r
+; 24h date format
+;emaildateformat=%A, %d %B %Y at %H:%M:%S
 ;
 ; You can override the default program to send e-mail if you wish, too
 ;
@@ -87,7 +101,8 @@ maxlogins=3
 ; I or l        Hour, 12 hour clock 
 ; H             Hour, 24 hour clock (single digit hours preceded by "oh") 
 ; k             Hour, 24 hour clock (single digit hours NOT preceded by "oh") 
-; M             Minute 
+; M             Minute, with 00 pronounced as "o'clock" 
+; N             Minute, with 00 pronounced as "hundred" (US military time)
 ; P or p        AM or PM 
 ; Q             "today", "yesterday" or ABdY (*note: not standard strftime value) 
 ; q             "" (for today), "yesterday", weekday, or ABdY (*note: not standard strftime value) 
@@ -108,6 +123,9 @@ maxlogins=3
 ; attach=yes 		; Attach the voicemail to the notification email *NOT* the pager email
 ; saycid=yes 		; Say the caller id information before the message. If not described, 
 			;     or set to no, it will be in the envelope
+; cidinternalcontexts=intern	; Internal Context for Name Playback instead of extension digits when saying caller id.
+; sayduration=no 	; Turn on/off the duration information before the message. [ON by default]
+; saydurationm=2        ; Specify the minimum duration to say. Default is 2 minutes
 ; dialout=fromvm 	; Context to dial out from [option 4 from the advanced menu]
 			;     if not listed, dialing out will not be permitted
 sendvoicemail=yes	; Context to Send voicemail from [option 5 from the advanced menu]
@@ -124,20 +142,32 @@ sendvoicemail=yes	; Context to Send voicemail from [option 5 from the advanced m
 			;     This is intended for use with users who wish to receive their voicemail ONLY by email.
 ; nextaftercmd=yes	; Skips to the next message after hitting 7 or 9 to delete/save current message.
 			;     [global option only at this time] 
-			
+; forcename=yes		; Forces a new user to record their name.  A new user is
+			;     determined by the password being the same as
+			;     the mailbox number.  The default is "no".
+; forcegreetings=no	; This is the same as forcename, except for recording
+			;     greetings.  The default is "no".
+; hidefromdir=yes	; Hide this mailbox from the directory produced by app_directory
+			;     The default is "no".
+
 [zonemessages]
 eastern=America/New_York|'vm-received' Q 'digits/at' IMp
 central=America/Chicago|'vm-received' Q 'digits/at' IMp
-central24=America/Chicago|'vm-received' q 'digits/at' H 'digits/hundred' M 'hours'
+central24=America/Chicago|'vm-received' q 'digits/at' H N 'hours'
+military=Zulu|'vm-received' q 'digits/at' H N 'hours' 'phonetic/z_p'
 
 [default]
+; Define maximum number of messages per folder for partcular context.
+;maxmsg=50
+
 1234 => 4242,Example Mailbox,root@localhost
-;4200 => 9855,Mark Spencer,markster@linux-support.net,mypager@digium.com,attach=no|serveremail=myaddy@digium.com|tz=central
+;4200 => 9855,Mark Spencer,markster@linux-support.net,mypager@digium.com,attach=no|serveremail=myaddy@digium.com|tz=central|maxmsg=10
 ;4300 => 3456,Ben Rigas,ben@american-computer.net
 ;4310 => -5432,Sales,sales@marko.net
-;4069 => 6522,Matt Brooks,matt@marko.net,,|tz=central|attach=yes|saycid=yes|dialout=fromvm|callback=fromvm|review=yes|operator=yes|envelope=yes
+;4069 => 6522,Matt Brooks,matt@marko.net,,|tz=central|attach=yes|saycid=yes|dialout=fromvm|callback=fromvm|review=yes|operator=yes|envelope=yes|sayduration=yes|saydurationm=1
 ;4073 => 1099,Bianca Paige,bianca@biancapaige.com,,delete=1
 ;4110 => 3443,Rob Flynn,rflynn@blueridge.net
+
 
 ;
 ; Mailboxes may be organized into multiple contexts for

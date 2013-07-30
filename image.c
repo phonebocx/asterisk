@@ -19,18 +19,20 @@
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>
-#include <asterisk/sched.h>
-#include <asterisk/options.h>
-#include <asterisk/channel.h>
-#include <asterisk/channel_pvt.h>
-#include <asterisk/logger.h>
-#include <asterisk/file.h>
-#include <asterisk/image.h>
-#include <asterisk/translate.h>
-#include <asterisk/cli.h>
-#include <asterisk/lock.h>
+
 #include "asterisk.h"
-#include "astconf.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
+
+#include "asterisk/sched.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/logger.h"
+#include "asterisk/file.h"
+#include "asterisk/image.h"
+#include "asterisk/translate.h"
+#include "asterisk/cli.h"
+#include "asterisk/lock.h"
 
 static struct ast_imager *list;
 AST_MUTEX_DEFINE_STATIC(listlock);
@@ -69,9 +71,9 @@ void ast_image_unregister(struct ast_imager *img)
 
 int ast_supports_images(struct ast_channel *chan)
 {
-	if (!chan || !chan->pvt)
+	if (!chan || !chan->tech)
 		return 0;
-	if (!chan->pvt->send_image)
+	if (!chan->tech->send_image)
 		return 0;
 	return 1;
 }
@@ -162,10 +164,10 @@ int ast_send_image(struct ast_channel *chan, char *filename)
 {
 	struct ast_frame *f;
 	int res = -1;
-	if (chan->pvt->send_image) {
+	if (chan->tech->send_image) {
 		f = ast_read_image(filename, chan->language, -1);
 		if (f) {
-			res = chan->pvt->send_image(chan, f);
+			res = chan->tech->send_image(chan, f);
 			ast_frfree(f);
 		}
 	}

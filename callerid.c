@@ -3,7 +3,7 @@
  *
  * CallerID Generation support 
  * 
- * Copyright (C) 2001-2004, Digium, Inc.
+ * Copyright (C) 2001 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -21,13 +21,19 @@
 #include <unistd.h>
 #include <math.h>
 #include <ctype.h>
-#include <asterisk/ulaw.h>
-#include <asterisk/alaw.h>
-#include <asterisk/frame.h>
-#include <asterisk/callerid.h>
-#include <asterisk/logger.h>
-#include <asterisk/fskmodem.h>
-#include <asterisk/utils.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.35 $")
+
+#include "asterisk/ulaw.h"
+#include "asterisk/alaw.h"
+#include "asterisk/frame.h"
+#include "asterisk/channel.h"
+#include "asterisk/callerid.h"
+#include "asterisk/logger.h"
+#include "asterisk/fskmodem.h"
+#include "asterisk/utils.h"
 
 struct callerid_state {
 	fsk_data fskd;
@@ -358,7 +364,7 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, int 
 					}
 				} else {
 					/* SDMF */
-					strncpy(cid->number, cid->rawdata + 8, sizeof(cid->number)-1);
+					ast_copy_string(cid->number, cid->rawdata + 8, sizeof(cid->number));
 				}
 				/* Update flags */
 				cid->flags = 0;
@@ -537,7 +543,7 @@ int callerid_generate(unsigned char *buf, char *number, char *name, int flags, i
 	float cr = 1.0;
 	float ci = 0.0;
 	float scont = 0.0;
-	unsigned char msg[256];
+	char msg[256];
 	len = callerid_genmsg(msg, sizeof(msg), number, name, flags);
 	if (!callwaiting) {
 		/* Wait a half a second */
@@ -573,9 +579,30 @@ int callerid_generate(unsigned char *buf, char *number, char *name, int flags, i
 void ast_shrink_phone_number(char *n)
 {
 	int x,y=0;
-	for (x=0;n[x];x++)
-		if (!strchr("( )-.", n[x]))
+	int bracketed=0;
+	for (x=0;n[x];x++) {
+		switch(n[x]) {
+		case '[':
+			bracketed++;
 			n[y++] = n[x];
+			break;
+		case ']':
+			bracketed--;
+			n[y++] = n[x];
+			break;
+		case '-':
+			if (bracketed)
+				n[y++] = n[x];
+			break;
+		case '.':
+			if (!n[x+1])
+				n[y++] = n[x];
+			break;
+		default:
+			if (!strchr("( )", n[x]))
+				n[y++] = n[x];
+		}
+	}
 	n[y] = '\0';
 }
 
@@ -619,7 +646,7 @@ int ast_callerid_parse(char *instr, char **name, char **location)
 			return 0;
 		}
 	} else {
-		strncpy(tmp, instr, sizeof(tmp)-1);
+		ast_copy_string(tmp, instr, sizeof(tmp));
 		ast_shrink_phone_number(tmp);
 		if (ast_isphonenumber(tmp)) {
 			/* Assume it's just a location */
@@ -638,30 +665,98 @@ int ast_callerid_parse(char *instr, char **name, char **location)
 	return -1;
 }
 
-static int __ast_callerid_generate(unsigned char *buf, char *callerid, int callwaiting, int codec)
+static int __ast_callerid_generate(unsigned char *buf, char *name, char *number, int callwaiting, int codec)
 {
-	char tmp[256];
-	char *n, *l;
-	if (!callerid)
-		return callerid_generate(buf, NULL, NULL, 0, callwaiting, codec);
-	strncpy(tmp, callerid, sizeof(tmp)-1);
-	if (ast_callerid_parse(tmp, &n, &l)) {
-		ast_log(LOG_WARNING, "Unable to parse '%s' into CallerID name & number\n", callerid);
-		return callerid_generate(buf, NULL, NULL, 0, callwaiting, codec);
+	if (name && ast_strlen_zero(name))
+		name = NULL;
+	if (number && ast_strlen_zero(number))
+		number = NULL;
+	return callerid_generate(buf, number, name, 0, callwaiting, codec);
+}
+
+int ast_callerid_generate(unsigned char *buf, char *name, char *number, int codec)
+{
+	return __ast_callerid_generate(buf, name, number, 0, codec);
+}
+
+int ast_callerid_callwaiting_generate(unsigned char *buf, char *name, char *number, int codec)
+{
+	return __ast_callerid_generate(buf, name, number, 1, codec);
+}
+
+char *ast_callerid_merge(char *buf, int bufsiz, const char *name, const char *num, const char *unknown)
+{
+	if (!unknown)
+		unknown = "<unknown>";
+	if (name && num)
+		snprintf(buf, bufsiz, "\"%s\" <%s>", name, num);
+	else if (name) 
+		ast_copy_string(buf, name, bufsiz);
+	else if (num)
+		ast_copy_string(buf, num, bufsiz);
+	else
+		ast_copy_string(buf, unknown, bufsiz);
+	return buf;
+}
+int ast_callerid_split(const char *buf, char *name, int namelen, char *num, int numlen)
+{
+	char *tmp;
+	char *l = NULL, *n = NULL;
+	tmp = ast_strdupa(buf);
+	if (!tmp) {
+		name[0] = '\0';
+		num[0] = '\0';
+		return -1;
 	}
-	if (l)
+	ast_callerid_parse(tmp, &n, &l);
+	if (n)
+		ast_copy_string(name, n, namelen);
+	else
+		name[0] = '\0';
+	if (l) {
 		ast_shrink_phone_number(l);
-	if (!ast_isphonenumber(l))
-		return callerid_generate(buf, NULL, n, 0, callwaiting, codec);
-	return callerid_generate(buf, l, n, 0, callwaiting, codec);
+		ast_copy_string(num, l, numlen);
+	} else
+		num[0] = '\0';
+	return 0;
 }
 
-int ast_callerid_generate(unsigned char *buf, char *callerid, int codec)
+static struct {
+	int val;
+	char *name;
+	char *description;
+} pres_types[] = {
+	{  AST_PRES_ALLOWED_USER_NUMBER_NOT_SCREENED, "allowed_not_screened", "Presentation Allowed, Not Screened"},
+	{  AST_PRES_ALLOWED_USER_NUMBER_PASSED_SCREEN, "allowed_passed_screen", "Presentation Allowed, Passed Screen"},
+	{  AST_PRES_ALLOWED_USER_NUMBER_FAILED_SCREEN, "allowed_failed_screen", "Presentation Allowed, Failed Screen"},
+	{  AST_PRES_ALLOWED_NETWORK_NUMBER, "allowed", "Presentation Allowed, Network Number"},
+	{  AST_PRES_PROHIB_USER_NUMBER_NOT_SCREENED, "prohib_not_screened", "Presentation Prohibited, Not Screened"},
+	{  AST_PRES_PROHIB_USER_NUMBER_PASSED_SCREEN, "prohib_passed_screen", "Presentation Prohibited, Passed Screen"},
+	{  AST_PRES_PROHIB_USER_NUMBER_FAILED_SCREEN, "prohib_failed_screen", "Presentation Prohibited, Failed Screen"},
+	{  AST_PRES_PROHIB_NETWORK_NUMBER, "prohib", "Presentation Prohibited, Network Number"},
+	{  AST_PRES_NUMBER_NOT_AVAILABLE, "unavailable", "Number Unavailable"},
+};
+
+int ast_parse_caller_presentation(const char *data)
 {
-	return __ast_callerid_generate(buf, callerid, 0, codec);
+	int i;
+
+	for (i = 0; i < ((sizeof(pres_types) / sizeof(pres_types[0]))); i++) {
+		if (!strcasecmp(pres_types[i].name, data))
+			return pres_types[i].val;
+	}
+
+	return -1;
 }
 
-int ast_callerid_callwaiting_generate(unsigned char *buf, char *callerid, int codec)
+const char *ast_describe_caller_presentation(int data)
 {
-	return __ast_callerid_generate(buf, callerid, 1, codec);
+	int i;
+
+	for (i = 0; i < ((sizeof(pres_types) / sizeof(pres_types[0]))); i++) {
+		if (pres_types[i].val == data)
+			return pres_types[i].description;
+	}
+
+	return "unknown";
 }

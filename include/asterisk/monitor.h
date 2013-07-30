@@ -3,11 +3,11 @@
 
 #include <stdio.h>
 
-#include <asterisk/channel.h>
+#include "asterisk/channel.h"
 
 struct ast_channel;
 
-//! Responsible for channel monitoring data
+/*! Responsible for channel monitoring data */
 struct ast_channel_monitor
 {
 	struct ast_filestream *read_stream;

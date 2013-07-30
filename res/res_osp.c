@@ -3,7 +3,7 @@
  *
  * Provide Open Settlement Protocol capability
  * 
- * Copyright (C) 2004, Digium, Inc.
+ * Copyright (C) 2004 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -12,23 +12,6 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/file.h>
-#include <asterisk/channel.h>
-#include <asterisk/logger.h>
-#include <asterisk/say.h>
-#include <asterisk/module.h>
-#include <asterisk/options.h>
-#include <asterisk/crypto.h>
-#include <asterisk/md5.h>
-#include <asterisk/cli.h>
-#include <asterisk/io.h>
-#include <asterisk/lock.h>
-#include <asterisk/astosp.h>
-#include <asterisk/config.h>
-#include <asterisk/utils.h>
-#include <asterisk/lock.h>
-#include <asterisk/causes.h>
-#include <asterisk/callerid.h>
 #include <osp.h>
 #include <openssl/err.h>
 #include <stdio.h>
@@ -37,12 +20,31 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "../asterisk.h"
-#include "../astconf.h"
 #include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/evp.h>
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+
+#include "asterisk/file.h"
+#include "asterisk/channel.h"
+#include "asterisk/logger.h"
+#include "asterisk/say.h"
+#include "asterisk/module.h"
+#include "asterisk/options.h"
+#include "asterisk/crypto.h"
+#include "asterisk/md5.h"
+#include "asterisk/cli.h"
+#include "asterisk/io.h"
+#include "asterisk/lock.h"
+#include "asterisk/astosp.h"
+#include "asterisk/config.h"
+#include "asterisk/utils.h"
+#include "asterisk/lock.h"
+#include "asterisk/causes.h"
+#include "asterisk/callerid.h"
 
 #define MAX_CERTS 10
 #define MAX_SERVICEPOINTS 10
@@ -114,9 +116,9 @@ static int osp_build(struct ast_config *cfg, char *cat)
 		memset(osp, 0, sizeof(struct osp_provider));
 		osp->handle = -1;
 	}
-	strncpy(osp->name, cat, sizeof(osp->name) - 1);
-	snprintf(osp->localpvtkey, sizeof(osp->localpvtkey), AST_KEY_DIR "/%s-privatekey.pem", cat);
-	snprintf(osp->localcert, sizeof(osp->localpvtkey), AST_KEY_DIR "/%s-localcert.pem", cat);
+	ast_copy_string(osp->name, cat, sizeof(osp->name));
+	snprintf(osp->localpvtkey, sizeof(osp->localpvtkey) ,"%s/%s-privatekey.pem", ast_config_AST_KEY_DIR, cat);
+	snprintf(osp->localcert, sizeof(osp->localpvtkey), "%s/%s-localcert.pem", ast_config_AST_KEY_DIR, cat);
 	osp->maxconnections=OSP_DEFAULT_MAX_CONNECTIONS;
 	osp->retrydelay = OSP_DEFAULT_RETRY_DELAY;
 	osp->retrylimit = OSP_DEFAULT_RETRY_LIMIT;
@@ -127,56 +129,56 @@ static int osp_build(struct ast_config *cfg, char *cat)
 	while(v) {
 		if (!strcasecmp(v->name, "privatekey")) {
 			if (v->value[0] == '/')
-				strncpy(osp->localpvtkey, v->value, sizeof(osp->localpvtkey) - 1);
+				ast_copy_string(osp->localpvtkey, v->value, sizeof(osp->localpvtkey));
 			else
-				snprintf(osp->localpvtkey, sizeof(osp->localpvtkey), AST_KEY_DIR "/%s", v->value);
+				snprintf(osp->localpvtkey, sizeof(osp->localpvtkey), "%s/%s", ast_config_AST_KEY_DIR , v->value);
 		} else if (!strcasecmp(v->name, "localcert")) {
 			if (v->value[0] == '/')
-				strncpy(osp->localcert, v->value, sizeof(osp->localcert) - 1);
+				ast_copy_string(osp->localcert, v->value, sizeof(osp->localcert));
 			else
-				snprintf(osp->localcert, sizeof(osp->localcert), AST_KEY_DIR "/%s", v->value);
+				snprintf(osp->localcert, sizeof(osp->localcert), "%s/%s", ast_config_AST_KEY_DIR, v->value);
 		} else if (!strcasecmp(v->name, "cacert")) {
 			if (osp->cacount < MAX_CERTS) {
 				if (v->value[0] == '/')
-					strncpy(osp->cacerts[osp->cacount], v->value, sizeof(osp->cacerts[0]) - 1);
+					ast_copy_string(osp->cacerts[osp->cacount], v->value, sizeof(osp->cacerts[0]));
 				else
-					snprintf(osp->cacerts[osp->cacount], sizeof(osp->cacerts[0]), AST_KEY_DIR "/%s", v->value);
+					snprintf(osp->cacerts[osp->cacount], sizeof(osp->cacerts[0]), "%s/%s", ast_config_AST_KEY_DIR, v->value);
 				osp->cacount++;
 			} else
 				ast_log(LOG_WARNING, "Too many CA Certificates at line %d\n", v->lineno);
 		} else if (!strcasecmp(v->name, "servicepoint")) {
 			if (osp->spcount < MAX_SERVICEPOINTS) {
-				strncpy(osp->servicepoints[osp->spcount], v->value, sizeof(osp->servicepoints[0]) - 1);
+				ast_copy_string(osp->servicepoints[osp->spcount], v->value, sizeof(osp->servicepoints[0]));
 				osp->spcount++;
 			} else
 				ast_log(LOG_WARNING, "Too many Service points at line %d\n", v->lineno);
 		} else if (!strcasecmp(v->name, "maxconnections")) {
-			if ((sscanf(v->value, "%i", &x) == 1) && (x > 0) && (x <= 1000)) {
+			if ((sscanf(v->value, "%d", &x) == 1) && (x > 0) && (x <= 1000)) {
 				osp->maxconnections = x;
 			} else
 				ast_log(LOG_WARNING, "maxconnections should be an integer from 1 to 1000, not '%s' at line %d\n", v->value, v->lineno);
 		} else if (!strcasecmp(v->name, "retrydelay")) {
-			if ((sscanf(v->value, "%i", &x) == 1) && (x >= 0) && (x <= 10)) {
+			if ((sscanf(v->value, "%d", &x) == 1) && (x >= 0) && (x <= 10)) {
 				osp->retrydelay = x;
 			} else
 				ast_log(LOG_WARNING, "retrydelay should be an integer from 0 to 10, not '%s' at line %d\n", v->value, v->lineno);
 		} else if (!strcasecmp(v->name, "retrylimit")) {
-			if ((sscanf(v->value, "%i", &x) == 1) && (x >= 0) && (x <= 100)) {
+			if ((sscanf(v->value, "%d", &x) == 1) && (x >= 0) && (x <= 100)) {
 				osp->retrylimit = x;
 			} else
 				ast_log(LOG_WARNING, "retrylimit should be an integer from 0 to 100, not '%s' at line %d\n", v->value, v->lineno);
 		} else if (!strcasecmp(v->name, "timeout")) {
-			if ((sscanf(v->value, "%i", &x) == 1) && (x >= 200) && (x <= 10000)) {
+			if ((sscanf(v->value, "%d", &x) == 1) && (x >= 200) && (x <= 10000)) {
 				osp->timeout = x;
 			} else
 				ast_log(LOG_WARNING, "timeout should be an integer from 200 to 10000, not '%s' at line %d\n", v->value, v->lineno);
 		} else if (!strcasecmp(v->name, "source")) {
-			strncpy(osp->source, v->value, sizeof(osp->source) - 1);
+			ast_copy_string(osp->source, v->value, sizeof(osp->source));
 		}
 		v = v->next;
 	}
 	if (osp->cacount < 1) {
-		snprintf(osp->cacerts[osp->cacount], sizeof(osp->cacerts[0]), AST_KEY_DIR "/%s-cacert.pem", cat);
+		snprintf(osp->cacerts[osp->cacount], sizeof(osp->cacerts[0]), "%s/%s-cacert.pem", ast_config_AST_KEY_DIR, cat);
 		osp->cacount++;
 	}
 	for (x=0;x<osp->cacount;x++)
@@ -443,7 +445,7 @@ int ast_osp_validate(char *provider, char *token, int *handle, unsigned int *tim
 	*handle = -1;
 	if (!callerid)
 		callerid = "";
-	strncpy(tmp, callerid, sizeof(tmp) - 1);
+	ast_copy_string(tmp, callerid, sizeof(tmp));
 	ast_callerid_parse(tmp, &n, &l);
 	if (!l)
 		l = "";
@@ -461,7 +463,7 @@ int ast_osp_validate(char *provider, char *token, int *handle, unsigned int *tim
 			if (OSPPTransactionNew(osp->handle, handle)) {
 				ast_log(LOG_WARNING, "Unable to create OSP Transaction handle!\n");
 			} else {
-				strncpy(source, osp->source, sizeof(source) - 1);
+				ast_copy_string(source, osp->source, sizeof(source));
 				res = 1;
 			}
 			break;
@@ -496,6 +498,7 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 	char source[OSP_MAX] = ""; /* Same length as osp->source */
 	char uniqueid[32] = "";
 	char callednum[2048]="";
+	char callingnum[2048]="";
 	char destination[2048]="";
 	char token[2000];
 	char tmp[256]="", *l, *n;
@@ -513,7 +516,7 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 
 	if (!callerid)
 		callerid = "";
-	strncpy(tmp, callerid, sizeof(tmp) - 1);
+	ast_copy_string(tmp, callerid, sizeof(tmp));
 	ast_callerid_parse(tmp, &n, &l);
 	if (!l)
 		l = "";
@@ -525,7 +528,7 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 	callerid = l;
 
 	if (chan) {
-		strncpy(uniqueid, chan->uniqueid, sizeof(uniqueid) - 1);
+		ast_copy_string(uniqueid, chan->uniqueid, sizeof(uniqueid));
 		cres = ast_autoservice_start(chan);
 		if (cres < 0)
 			return cres;
@@ -537,7 +540,7 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 			if (OSPPTransactionNew(osp->handle, &result->handle)) {
 				ast_log(LOG_WARNING, "Unable to create OSP Transaction handle!\n");
 			} else {
-				strncpy(source, osp->source, sizeof(source) - 1);
+				ast_copy_string(source, osp->source, sizeof(source));
 				res = 1;
 			}
 			break;
@@ -559,9 +562,9 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 					tokenlen = sizeof(token);
 					result->numresults = counts - 1;
 					if (!OSPPTransactionGetFirstDestination(result->handle, 0, NULL, NULL, &timelimit, &callidlen, uniqueid, 
-						sizeof(callednum), callednum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
-						ast_log(LOG_DEBUG, "Got destination '%s' and '%s' for '%s' (provider '%s')\n",
-							destination, callednum, extension, provider);
+						sizeof(callednum), callednum, sizeof(callingnum), callingnum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
+						ast_log(LOG_DEBUG, "Got destination '%s' and called: '%s' calling: '%s' for '%s' (provider '%s')\n",
+							destination, callednum, callingnum, extension, provider);
 						do {
 							ast_base64encode(result->token, token, tokenlen, sizeof(result->token) - 1);
 							if ((strlen(destination) > 2) && !OSPPTransactionGetDestProtocol(result->handle, &prot)) {
@@ -570,11 +573,15 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 								destination[strlen(destination) - 1] = '\0';
 								switch(prot) {
 								case OSPE_DEST_PROT_H323_SETUP:
-									strncpy(result->tech, "H323", sizeof(result->tech) - 1);
+									ast_copy_string(result->tech, "H323", sizeof(result->tech));
 									snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
 									break;
 								case OSPE_DEST_PROT_SIP:
-									strncpy(result->tech, "SIP", sizeof(result->tech) - 1);
+									ast_copy_string(result->tech, "SIP", sizeof(result->tech));
+									snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
+									break;
+								case OSPE_DEST_PROT_IAX:
+									ast_copy_string(result->tech, "IAX", sizeof(result->tech));
 									snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
 									break;
 								default:
@@ -584,7 +591,7 @@ int ast_osp_lookup(struct ast_channel *chan, char *provider, char *extension, ch
 								if (!res && result->numresults) {
 									result->numresults--;
 									if (OSPPTransactionGetNextDestination(result->handle, OSPC_FAIL_INCOMPATIBLE_DEST, 0, NULL, NULL, &timelimit, &callidlen, uniqueid, 
-											sizeof(callednum), callednum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
+											sizeof(callednum), callednum, sizeof(callingnum), callingnum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
 											break;
 									}
 								}
@@ -624,6 +631,7 @@ int ast_osp_next(struct ast_osp_result *result, int cause)
 	unsigned int callidlen;
 	char uniqueid[32] = "";
 	char callednum[2048]="";
+	char callingnum[2048]="";
 	char destination[2048]="";
 	char token[2000];
 	OSPE_DEST_PROT prot;
@@ -640,7 +648,7 @@ int ast_osp_next(struct ast_osp_result *result, int cause)
 			while(!res && result->numresults) {
 				result->numresults--;
 				if (!OSPPTransactionGetNextDestination(result->handle, OSPC_FAIL_INCOMPATIBLE_DEST, 0, NULL, NULL, &timelimit, &callidlen, uniqueid, 
-									sizeof(callednum), callednum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
+									sizeof(callednum), callednum, sizeof(callingnum), callingnum, sizeof(destination), destination, 0, NULL, &tokenlen, token)) {
 					ast_base64encode(result->token, token, tokenlen, sizeof(result->token) - 1);
 					if ((strlen(destination) > 2) && !OSPPTransactionGetDestProtocol(result->handle, &prot)) {
 						res = 1;
@@ -648,11 +656,15 @@ int ast_osp_next(struct ast_osp_result *result, int cause)
 						destination[strlen(destination) - 1] = '\0';
 						switch(prot) {
 						case OSPE_DEST_PROT_H323_SETUP:
-							strncpy(result->tech, "H323", sizeof(result->tech) - 1);
+							ast_copy_string(result->tech, "H323", sizeof(result->tech));
 							snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
 							break;
 						case OSPE_DEST_PROT_SIP:
-							strncpy(result->tech, "SIP", sizeof(result->tech) - 1);
+							ast_copy_string(result->tech, "SIP", sizeof(result->tech));
+							snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
+							break;
+						case OSPE_DEST_PROT_IAX:
+							ast_copy_string(result->tech, "IAX", sizeof(result->tech));
 							snprintf(result->dest, sizeof(result->dest), "%s@%s", callednum, destination + 1);
 							break;
 						default:
@@ -700,10 +712,21 @@ int ast_osp_terminate(int handle, int cause, time_t start, time_t duration)
 	unsigned int dummy = 0;
 	int res = -1;
 	enum OSPEFAILREASON reason;
+
+	time_t endTime = 0;
+	time_t alertTime = 0;
+	time_t connectTime = 0;
+	unsigned isPddInfoPresent = 0;
+	unsigned pdd = 0;
+	unsigned releaseSource = 0;
+	unsigned char *confId = "";
+	
 	reason = cause2reason(cause);
 	if (OSPPTransactionRecordFailure(handle, reason))
 		ast_log(LOG_WARNING, "Failed to record call termination for handle %d\n", handle);
-	else if (OSPPTransactionReportUsage(handle, duration, start, 0, 0, 0, 0, &dummy, NULL))
+	else if (OSPPTransactionReportUsage(handle, duration, start,
+			       endTime,alertTime,connectTime,isPddInfoPresent,pdd,releaseSource,confId,
+		       	       0, 0, 0, 0, &dummy, NULL))
 		ast_log(LOG_WARNING, "Failed to report duration for handle %d\n", handle);
 	else {
 		ast_log(LOG_DEBUG, "Completed recording handle %d\n", handle);
@@ -725,7 +748,7 @@ static int config_load(void)
 		osp = osp->next;
 	}
 	ast_mutex_unlock(&osplock);
-	cfg = ast_load("osp.conf");
+	cfg = ast_config_load("osp.conf");
 	if (cfg) {
 		if (!initialized) {
 			cat = ast_variable_retrieve(cfg, "general", "accelerate");
@@ -745,7 +768,7 @@ static int config_load(void)
 				osp_build(cfg, cat);
 			cat = ast_category_browse(cfg, cat);
 		}
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 	} else
 		ast_log(LOG_NOTICE, "No OSP configuration found.  OSP support disabled\n");
 	ast_mutex_lock(&osplock);

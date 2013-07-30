@@ -11,21 +11,25 @@
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/app.h>
-#include <asterisk/astdb.h>
-#include <asterisk/utils.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include <stdlib.h>
 #include <stdio.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/app.h"
+#include "asterisk/astdb.h"
+#include "asterisk/utils.h"
 
 static char *tdesc = "Authentication Application";
 
@@ -42,12 +46,19 @@ static char *descrip =
 "of the following letters:\n"
 "     a - Set account code to the password that is entered\n"
 "     d - Interpret path as database key, not literal file\n"
+"     m - Interpret path as a file which contains a list of\n"
+"         account codes and password hashes delimited with ':'\n"
+"         one per line. When password matched, corresponding\n"
+"         account code will be set\n"
+"     j - Support jumping to n+101\n"
 "     r - Remove database key upon successful entry (valid with 'd' only)\n"
 "\n"
 "When using a database key, the value associated with the key can be\n"
 "anything.\n"
 "Returns 0 if the user enters a valid password within three\n"
-"tries, or -1 otherwise (or on hangup).\n";
+"tries, or -1 on hangup.  If the priority n+101 exists and invalid\n"
+"authentication was entered, and the 'j' flag was specified, processing\n"
+"will jump to n+101 and 0 will be returned.\n";
 
 STANDARD_LOCAL_USER;
 
@@ -56,6 +67,7 @@ LOCAL_USER_DECL;
 static int auth_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
+	int jump = 0;
 	int retries;
 	struct localuser *u;
 	char password[256]="";
@@ -81,6 +93,8 @@ static int auth_exec(struct ast_channel *chan, void *data)
 		opts++;
 	} else
 		opts = "";
+	if (strchr(opts, 'j'))
+		jump = 1;
 	/* Start asking for password */
 	prompt = "agent-pass";
 	for (retries = 0; retries < 3; retries++) {
@@ -105,17 +119,44 @@ static int auth_exec(struct ast_channel *chan, void *data)
 				f = fopen(password, "r");
 				if (f) {
 					char buf[256] = "";
-					while(!feof(f)) {
+					char md5passwd[33] = "";
+					char *md5secret = NULL;
+
+					while (!feof(f)) {
 						fgets(buf, sizeof(buf), f);
 						if (!feof(f) && !ast_strlen_zero(buf)) {
 							buf[strlen(buf) - 1] = '\0';
-							if (!ast_strlen_zero(buf) && !strcmp(passwd, buf))
-								break;
+							if (strchr(opts, 'm')) {
+								md5secret = strchr(buf, ':');
+								if (md5secret == NULL)
+									continue;
+								*md5secret = '\0';
+								md5secret++;
+								ast_md5_hash(md5passwd, passwd);
+								if (!strcmp(md5passwd, md5secret)) {
+									if (strchr(opts, 'a'))
+										ast_cdr_setaccount(chan, buf);
+									break;
+								}
+							} else {
+								if (!strcmp(passwd, buf)) {
+									if (strchr(opts, 'a'))
+										ast_cdr_setaccount(chan, buf);
+									break;
+								}
+							}
 						}
 					}
 					fclose(f);
-					if (!ast_strlen_zero(buf) && !strcmp(passwd, buf))
-						break;
+					if (!ast_strlen_zero(buf)) {
+						if (strchr(opts, 'm')) {
+							if (md5secret && !strcmp(md5passwd, md5secret))
+								break;
+						} else {
+							if (!strcmp(passwd, buf))
+								break;
+						}
+					}
 				} else 
 					ast_log(LOG_WARNING, "Unable to open file '%s' for authentication: %s\n", password, strerror(errno));
 			}
@@ -127,17 +168,20 @@ static int auth_exec(struct ast_channel *chan, void *data)
 		prompt="auth-incorrect";
 	}
 	if ((retries < 3) && !res) {
-		if (strchr(opts, 'a')) 
+		if (strchr(opts, 'a') && !strchr(opts, 'm')) 
 			ast_cdr_setaccount(chan, passwd);
 		res = ast_streamfile(chan, "auth-thankyou", chan->language);
 		if (!res)
 			res = ast_waitstream(chan, "");
 	} else {
-		if (!res)
-			res = ast_streamfile(chan, "vm-goodbye", chan->language);
-		if (!res)
-			res = ast_waitstream(chan, "");
-		res = -1;
+		if (jump && ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num)) {
+			chan->priority+=100;
+			res = 0;
+		} else {
+			if (!ast_streamfile(chan, "vm-goodbye", chan->language))
+				res = ast_waitstream(chan, "");
+			res = -1;
+		}
 	}
 	LOCAL_USER_REMOVE(u);
 	return res;

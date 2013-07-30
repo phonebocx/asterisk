@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/decode.c,v 1.16 2003/02/12 13:59:14 matteo Exp $ */
+/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/decode.c,v 1.17 2005/04/21 06:30:23 kpfleming Exp $ */
 
 #include <stdio.h>
 
@@ -22,7 +22,6 @@ static void Postprocessing P2((S,s),
 {
 	register int		k;
 	register word		msr = S->msr;
-	register longword	ltmp;	/* for GSM_ADD */
 	register word		tmp;
 
 	for (k = 160; k--; s++) {

@@ -3,41 +3,46 @@
  *
  * Trivial application to playback a sound file
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999-2005, Mark Spencer
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
-#include <asterisk/utils.h>
 #include <string.h>
 #include <stdlib.h>
 
-static char *tdesc = "Trivial Playback Application";
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.18 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
+#include "asterisk/utils.h"
+
+static char *tdesc = "Sound File Playback Application";
 
 static char *app = "Playback";
 
 static char *synopsis = "Play a file";
 
 static char *descrip = 
-"  Playback(filename[|option]):  Plays  back  a  given  filename (do not put\n"
+"  Playback(filename[&filename2...][|option]):  Plays back given filenames (do not put\n"
 "extension). Options may also be  included following a pipe symbol. The 'skip'\n"
 "option causes the playback of the message to  be  skipped  if  the  channel\n"
 "is not in the 'up' state (i.e. it hasn't been  answered  yet. If 'skip' is \n"
 "specified, the application will return immediately should the channel not be\n"
 "off hook.  Otherwise, unless 'noanswer' is specified, the channel channel will\n"
 "be answered before the sound is played. Not all channels support playing\n"
-"messages while still hook. Returns -1 if the channel was hung up, or if the\n"
-"file does not exist. Returns 0 otherwise.\n";
+"messages while still hook. Returns -1 if the channel was hung up.  If the\n"
+"file does not exist, will jump to priority n+101 if present.\n";
 
 STANDARD_LOCAL_USER;
 
@@ -47,17 +52,17 @@ static int playback_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
 	struct localuser *u;
-	char tmp[256];
-	char *options;
+	char *tmp = NULL;
+	char *options = NULL;
 	int option_skip=0;
 	int option_noanswer = 0;
-	char *stringp;
-	if (!data || ast_strlen_zero((char *)data)) {
+	char *stringp = NULL;
+	char *front = NULL, *back = NULL;
+	if (!data || ast_strlen_zero((char *)data) || !(tmp = ast_strdupa(data))) {
 		ast_log(LOG_WARNING, "Playback requires an argument (filename)\n");
 		return -1;
 	}
-	strncpy(tmp, (char *)data, sizeof(tmp)-1);
-	stringp=tmp;
+	stringp = tmp;
 	strsep(&stringp, "|");
 	options = strsep(&stringp, "|");
 	if (options && !strcasecmp(options, "skip"))
@@ -76,14 +81,24 @@ static int playback_exec(struct ast_channel *chan, void *data)
 	}
 	if (!res) {
 		ast_stopstream(chan);
-		res = ast_streamfile(chan, tmp, chan->language);
-		if (!res) 
-			res = ast_waitstream(chan, "");
-		else {
-			ast_log(LOG_WARNING, "ast_streamfile failed on %s for %s\n", chan->name, (char *)data);
-			res = 0;
+		front = tmp;
+		while (!res && front) {
+			if ((back = strchr(front, '&'))) {
+				*back = '\0';
+				back++;
+			}
+			res = ast_streamfile(chan, front, chan->language);
+			if (!res) { 
+				res = ast_waitstream(chan, "");	
+				ast_stopstream(chan);
+			} else {
+				ast_log(LOG_WARNING, "ast_streamfile failed on %s for %s\n", chan->name, (char *)data);
+				if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
+					chan->priority+=100;
+				res = 0;
+			}
+			front = back;
 		}
-		ast_stopstream(chan);
 	}
 	LOCAL_USER_REMOVE(u);
 	return res;

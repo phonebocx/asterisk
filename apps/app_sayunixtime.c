@@ -15,13 +15,18 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/say.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/say.h"
 
 
 static char *tdesc = "Say time";
@@ -58,15 +63,22 @@ static int sayunixtime_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
 	struct localuser *u;
-	char *s,*zone=NULL,*timec;
+	char *s,*zone=NULL,*timec,*format;
 	time_t unixtime;
-	char *format = "ABdY 'digits/at' IMp";
 	struct timeval tv;
-
+	
 	LOCAL_USER_ADD(u);
 
-	gettimeofday(&tv,NULL);
+	tv = ast_tvnow();
 	unixtime = (time_t)tv.tv_sec;
+
+	if( !strcasecmp(chan->language, "da" ) ) {
+		format = "A dBY HMS";
+	} else if ( !strcasecmp(chan->language, "de" ) ) {
+		format = "A dBY HMS";
+	} else {
+		format = "ABdY 'digits/at' IMp";
+	} 
 
 	if (data) {
 		s = data;

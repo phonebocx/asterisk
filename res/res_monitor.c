@@ -1,27 +1,39 @@
+/* res_monitor.c 
+ *
+ * Asterisk -- A telephony toolkit for Linux.
+ *
+ * Copyright (C) 2005, Digium
+ *
+ * Mark Spencer, <markster@digium.com>
+ *
+ * This program is free software, distributed under the terms of
+ * the GNU General Public License
+ */
+ 
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <libgen.h>		//dirname()
+#include <libgen.h>		/* dirname() */
 
-#include <asterisk/lock.h>
-#include <asterisk/channel.h>
-#include <asterisk/logger.h>
-#include <asterisk/file.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/manager.h>
-#include <asterisk/cli.h>
-#include <asterisk/monitor.h>
-#include <asterisk/app.h>
-#include <asterisk/utils.h>
-#include <asterisk/config.h>
-#include "../asterisk.h"
-#include "../astconf.h"
+#include "asterisk.h"
 
-#define AST_MONITOR_DIR	AST_SPOOL_DIR "/monitor"
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.37 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/channel.h"
+#include "asterisk/logger.h"
+#include "asterisk/file.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/manager.h"
+#include "asterisk/cli.h"
+#include "asterisk/monitor.h"
+#include "asterisk/app.h"
+#include "asterisk/utils.h"
+#include "asterisk/config.h"
 
 AST_MUTEX_DEFINE_STATIC(monitorlock);
 
@@ -29,7 +41,7 @@ static unsigned long seq = 0;
 
 static char *monitor_synopsis = "Monitor a channel";
 
-static char *monitor_descrip = "Monitor([file_format|[fname_base]|[options]]):\n"
+static char *monitor_descrip = "Monitor([file_format[:urlbase]|[fname_base]|[options]]):\n"
 "Used to start monitoring a channel. The channel's input and output\n"
 "voice packets are logged to files until the channel hangs up or\n"
 "monitoring is stopped by the StopMonitor application.\n"
@@ -66,7 +78,7 @@ static char *changemonitor_descrip = "ChangeMonitor(filename_base)\n"
 
 /* Start monitoring a channel */
 int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
-						const char *fname_base, int need_lock)
+		const char *fname_base, int need_lock)
 {
 	int res = 0;
 	char tmp[256];
@@ -83,16 +95,16 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 		char *channel_name, *p;
 
 		/* Create monitoring directory if needed */
-		if (mkdir(AST_MONITOR_DIR, 0770) < 0) {
+		if (mkdir(ast_config_AST_MONITOR_DIR, 0770) < 0) {
 			if (errno != EEXIST) {
 				ast_log(LOG_WARNING, "Unable to create audio monitor directory: %s\n",
-						strerror(errno));
+					strerror(errno));
 			}
 		}
 
 		monitor = malloc(sizeof(struct ast_channel_monitor));
 		if (!monitor) {
-			if (need_lock)
+			if (need_lock) 
 				ast_mutex_unlock(&chan->lock);
 			return -1;
 		}
@@ -109,39 +121,42 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 				ast_safe_system(tmp);
 			}
 			snprintf(monitor->read_filename, FILENAME_MAX, "%s/%s-in",
-						directory ? "" : AST_MONITOR_DIR, fname_base);
+						directory ? "" : ast_config_AST_MONITOR_DIR, fname_base);
 			snprintf(monitor->write_filename, FILENAME_MAX, "%s/%s-out",
-						directory ? "" : AST_MONITOR_DIR, fname_base);
-			strncpy(monitor->filename_base, fname_base, sizeof(monitor->filename_base) - 1);
+						directory ? "" : ast_config_AST_MONITOR_DIR, fname_base);
+			ast_copy_string(monitor->filename_base, fname_base, sizeof(monitor->filename_base));
 		} else {
 			ast_mutex_lock(&monitorlock);
 			snprintf(monitor->read_filename, FILENAME_MAX, "%s/audio-in-%ld",
-						AST_MONITOR_DIR, seq);
+						ast_config_AST_MONITOR_DIR, seq);
 			snprintf(monitor->write_filename, FILENAME_MAX, "%s/audio-out-%ld",
-						AST_MONITOR_DIR, seq);
+						ast_config_AST_MONITOR_DIR, seq);
 			seq++;
 			ast_mutex_unlock(&monitorlock);
 
-			channel_name = strdup(chan->name);
-			while((p = strchr(channel_name, '/'))) {
-				*p = '-';
+			if((channel_name = ast_strdupa(chan->name))) {
+				while((p = strchr(channel_name, '/'))) {
+					*p = '-';
+				}
+				snprintf(monitor->filename_base, FILENAME_MAX, "%s/%ld-%s",
+						 ast_config_AST_MONITOR_DIR, time(NULL),channel_name);
+				monitor->filename_changed = 1;
+			} else {
+				ast_log(LOG_ERROR,"Failed to allocate Memory\n");
+				return -1;
 			}
-			snprintf(monitor->filename_base, FILENAME_MAX, "%s/%s",
-						AST_MONITOR_DIR, channel_name);
-			monitor->filename_changed = 1;
-			free(channel_name);
 		}
 
 		monitor->stop = ast_monitor_stop;
 
-		// Determine file format
+		/* Determine file format */
 		if (format_spec && !ast_strlen_zero(format_spec)) {
 			monitor->format = strdup(format_spec);
 		} else {
 			monitor->format = strdup("wav");
 		}
 		
-		// open files
+		/* open files */
 		if (ast_fileexists(monitor->read_filename, NULL, NULL) > 0) {
 			ast_filedelete(monitor->read_filename, NULL);
 		}
@@ -168,6 +183,8 @@ int ast_monitor_start(	struct ast_channel *chan, const char *format_spec,
 			return -1;
 		}
 		chan->monitor = monitor;
+		/* so we know this call has been monitored in case we need to bill for it or something */
+		pbx_builtin_setvar_helper(chan, "__MONITORED","true");
 	} else {
 		ast_log(LOG_DEBUG,"Cannot start monitoring %s, already monitored\n",
 					chan->name);
@@ -231,12 +248,12 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 			char *format = !strcasecmp(chan->monitor->format,"wav49") ? "WAV" : chan->monitor->format;
 			char *name = chan->monitor->filename_base;
 			int directory = strchr(name, '/') ? 1 : 0;
-			char *dir = directory ? "" : AST_MONITOR_DIR;
+			char *dir = directory ? "" : ast_config_AST_MONITOR_DIR;
 
 			/* Set the execute application */
 			execute = pbx_builtin_getvar_helper(chan, "MONITOR_EXEC");
 			if (!execute || ast_strlen_zero(execute)) { 
-				execute = "nice -n 19 soxmix"; 
+				execute = "nice -n 19 soxmix";
 				delfiles = 1;
 			} 
 			execute_args = pbx_builtin_getvar_helper(chan, "MONITOR_EXEC_ARGS");
@@ -247,9 +264,9 @@ int ast_monitor_stop(struct ast_channel *chan, int need_lock)
 			snprintf(tmp, sizeof(tmp), "%s \"%s/%s-in.%s\" \"%s/%s-out.%s\" \"%s/%s.%s\" %s &", execute, dir, name, format, dir, name, format, dir, name, format,execute_args);
 			if (delfiles) {
 				snprintf(tmp2,sizeof(tmp2), "( %s& rm -f \"%s/%s-\"* ) &",tmp, dir ,name); /* remove legs when done mixing */
-				strncpy(tmp, tmp2, sizeof(tmp) - 1);
+				ast_copy_string(tmp, tmp2, sizeof(tmp));
 			}
-			ast_verbose("monitor executing %s\n",tmp);
+			ast_log(LOG_DEBUG,"monitor executing %s\n",tmp);
 			if (ast_safe_system(tmp) == -1)
 				ast_log(LOG_WARNING, "Execute of %s failed.\n",tmp);
 		}
@@ -290,7 +307,7 @@ int ast_monitor_change_fname(struct ast_channel *chan, const char *fname_base, i
 			ast_safe_system(tmp);
 		}
 
-		snprintf(chan->monitor->filename_base, FILENAME_MAX, "%s/%s", directory ? "" : AST_MONITOR_DIR, fname_base);
+		snprintf(chan->monitor->filename_base, FILENAME_MAX, "%s/%s", directory ? "" : ast_config_AST_MONITOR_DIR, fname_base);
 	} else {
 		ast_log(LOG_WARNING, "Cannot change monitor filename of channel %s to %s, monitoring not started\n", chan->name, fname_base);
 	}
@@ -308,6 +325,8 @@ static int start_monitor_exec(struct ast_channel *chan, void *data)
 	char *fname_base = NULL;
 	char *options = NULL;
 	char *delay = NULL;
+	char *urlprefix = NULL;
+	char tmp[256];
 	int joinfiles = 0;
 	int waitforbridge = 0;
 	int res = 0;
@@ -329,8 +348,19 @@ static int start_monitor_exec(struct ast_channel *chan, void *data)
 					waitforbridge = 1;
 			}
 		}
+		arg = strchr(format,':');
+		if (arg) {
+			*arg++ = 0;
+			urlprefix = arg;
+		}
 	}
-
+	if (urlprefix) {
+		snprintf(tmp,sizeof(tmp) - 1,"%s/%s.%s",urlprefix,fname_base,
+			((strcmp(format,"gsm")) ? "wav" : "gsm"));
+		if (!chan->cdr)
+			chan->cdr = ast_cdr_alloc();
+		ast_cdr_setuserfield(chan, tmp);
+	}
 	if (waitforbridge) {
 		/* We must remove the "b" option if listed.  In principle none of
 		   the following could give NULL results, but we check just to
@@ -395,21 +425,14 @@ static int start_monitor_action(struct mansession *s, struct message *m)
 		astman_send_error(s, m, "No channel specified");
 		return 0;
 	}
-	c = ast_channel_walk_locked(NULL);
-	while (c) {
-		if (!strcasecmp(c->name, name)) {
-			break;
-		}
-		ast_mutex_unlock(&c->lock);
-		c = ast_channel_walk_locked(c);
-	}
+	c = ast_get_channel_by_name_locked(name);
 	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;
 	}
 
 	if ((!fname) || (ast_strlen_zero(fname))) {
-		// No filename base specified, default to channel name as per CLI
+		/* No filename base specified, default to channel name as per CLI */
 		fname = malloc (FILENAME_MAX);
 		if (!fname) {
 			astman_send_error(s, m, "Could not start monitoring channel");
@@ -417,8 +440,8 @@ static int start_monitor_action(struct mansession *s, struct message *m)
 			return 0;
 		}
 		memset(fname, 0, FILENAME_MAX);
-		strncpy(fname, c->name, FILENAME_MAX-1);
-		// Channels have the format technology/channel_name - have to replace that / 
+		ast_copy_string(fname, c->name, FILENAME_MAX);
+		/* Channels have the format technology/channel_name - have to replace that /  */
 		if ((d=strchr(fname, '/'))) *d='-';
 	}
 	
@@ -453,14 +476,7 @@ static int stop_monitor_action(struct mansession *s, struct message *m)
 		astman_send_error(s, m, "No channel specified");
 		return 0;
 	}
-	c = ast_channel_walk_locked(NULL);
-	while(c) {
-		if (!strcasecmp(c->name, name)) {
-			break;
-		}
-		ast_mutex_unlock(&c->lock);
-		c = ast_channel_walk_locked(c);
-	}
+	c = ast_get_channel_by_name_locked(name);
 	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;
@@ -496,14 +512,7 @@ static int change_monitor_action(struct mansession *s, struct message *m)
 		astman_send_error(s, m, "No filename specified");
 		return 0;
 	}
-	c = ast_channel_walk_locked(NULL);
-	while(c) {
-		if (!strcasecmp(c->name, name)) {
-			break;
-		}
-		ast_mutex_unlock(&c->lock);
-		c = ast_channel_walk_locked(c);
-	}
+	c = ast_get_channel_by_name_locked(name);
 	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;

@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/rpe.c,v 1.16 2003/02/12 13:59:14 matteo Exp $ */
+/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/rpe.c,v 1.17 2005/04/21 06:30:23 kpfleming Exp $ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -362,7 +362,6 @@ static void APCM_inverse_quantization P4((xMc,mant,exp,xMp),
 {
 	int	i;
 	word	temp, temp1, temp2, temp3;
-	longword	ltmp;
 
 	assert( mant >= 0 && mant <= 7 ); 
 

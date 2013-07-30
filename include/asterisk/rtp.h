@@ -3,9 +3,9 @@
  *
  * Real-time Transport Protocol support
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999-2005, Digium
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
@@ -14,10 +14,10 @@
 #ifndef _ASTERISK_RTP_H
 #define _ASTERISK_RTP_H
 
-#include <asterisk/frame.h>
-#include <asterisk/io.h>
-#include <asterisk/sched.h>
-#include <asterisk/channel.h>
+#include "asterisk/frame.h"
+#include "asterisk/io.h"
+#include "asterisk/sched.h"
+#include "asterisk/channel.h"
 
 #include <netinet/in.h>
 
@@ -36,11 +36,14 @@ extern "C" {
 #define AST_RTP_MAX             AST_RTP_CISCO_DTMF
 
 struct ast_rtp_protocol {
-	struct ast_rtp *(*get_rtp_info)(struct ast_channel *chan);				/* Get RTP struct, or NULL if unwilling to transfer */
-	struct ast_rtp *(*get_vrtp_info)(struct ast_channel *chan);				/* Get RTP struct, or NULL if unwilling to transfer */
-	int (*set_rtp_peer)(struct ast_channel *chan, struct ast_rtp *peer, struct ast_rtp *vpeer, int codecs);	/* Set RTP peer */
-	int (*get_codec)(struct ast_channel *chan);
-	char *type;
+	/* Get RTP struct, or NULL if unwilling to transfer */
+	struct ast_rtp *(* const get_rtp_info)(struct ast_channel *chan);
+	/* Get RTP struct, or NULL if unwilling to transfer */
+	struct ast_rtp *(* const get_vrtp_info)(struct ast_channel *chan);
+	/* Set RTP peer */
+	int (* const set_rtp_peer)(struct ast_channel *chan, struct ast_rtp *peer, struct ast_rtp *vpeer, int codecs);
+	int (* const get_codec)(struct ast_channel *chan);
+	const char * const type;
 	struct ast_rtp_protocol *next;
 };
 
@@ -60,6 +63,8 @@ void ast_rtp_get_us(struct ast_rtp *rtp, struct sockaddr_in *us);
 
 void ast_rtp_destroy(struct ast_rtp *rtp);
 
+void ast_rtp_reset(struct ast_rtp *rtp);
+
 void ast_rtp_set_callback(struct ast_rtp *rtp, ast_rtp_callback callback);
 
 void ast_rtp_set_data(struct ast_rtp *rtp, void *data);
@@ -76,9 +81,11 @@ int ast_rtcp_fd(struct ast_rtp *rtp);
 
 int ast_rtp_senddigit(struct ast_rtp *rtp, char digit);
 
+int ast_rtp_sendcng(struct ast_rtp *rtp, int level);
+
 int ast_rtp_settos(struct ast_rtp *rtp, int tos);
 
-// Setting RTP payload types from lines in a SDP description:
+/*  Setting RTP payload types from lines in a SDP description: */
 void ast_rtp_pt_clear(struct ast_rtp* rtp);
 /* Set payload types to defaults */
 void ast_rtp_pt_default(struct ast_rtp* rtp);
@@ -86,7 +93,7 @@ void ast_rtp_set_m_type(struct ast_rtp* rtp, int pt);
 void ast_rtp_set_rtpmap_type(struct ast_rtp* rtp, int pt,
 			 char* mimeType, char* mimeSubtype);
 
-// Mapping between RTP payload format codes and Asterisk codes:
+/*  Mapping between RTP payload format codes and Asterisk codes: */
 struct rtpPayloadType ast_rtp_lookup_pt(struct ast_rtp* rtp, int pt);
 int ast_rtp_lookup_code(struct ast_rtp* rtp, int isAstFormat, int code);
 void ast_rtp_offered_from_local(struct ast_rtp* rtp, int local);
@@ -94,8 +101,11 @@ void ast_rtp_offered_from_local(struct ast_rtp* rtp, int local);
 void ast_rtp_get_current_formats(struct ast_rtp* rtp,
 			     int* astFormats, int* nonAstFormats);
 
-// Mapping an Asterisk code into a MIME subtype (string):
+/*  Mapping an Asterisk code into a MIME subtype (string): */
 char* ast_rtp_lookup_mime_subtype(int isAstFormat, int code);
+
+/* Build a string of MIME subtype names from a capability list */
+char *ast_rtp_lookup_mime_multiple(char *buf, int size, const int capability, const int isAstFormat);
 
 void ast_rtp_setnat(struct ast_rtp *rtp, int nat);
 

@@ -20,12 +20,13 @@
 extern "C" {
 #endif
 
-#include <asterisk/frame.h>
+#include "asterisk/frame.h"
+#include "asterisk/plc.h"
 
 /* Declared by individual translators */
 struct ast_translator_pvt;
 
-//! data structure associated with a translator
+/*! data structure associated with a translator */
 struct ast_translator {
 	/*! Name of translator */
 	char name[80];
@@ -52,7 +53,7 @@ struct ast_translator {
 
 struct ast_trans_pvt;
 
-//! Register a translator
+/*! Register a translator */
 /*! 
  * \param t populated ast_translator structure
  * This registers a codec translator with asterisk
@@ -60,7 +61,7 @@ struct ast_trans_pvt;
  */
 extern int ast_register_translator(struct ast_translator *t);
 
-//! Unregister a translator
+/*! Unregister a translator */
 /*!
  * \param t translator to unregister
  * Unregisters the given tranlator
@@ -68,7 +69,7 @@ extern int ast_register_translator(struct ast_translator *t);
  */
 extern int ast_unregister_translator(struct ast_translator *t);
 
-//! Chooses the best translation path
+/*! Chooses the best translation path */
 /*! 
  * Given a list of sources, and a designed destination format, which should
    I choose? Returns 0 on success, -1 if no path could be found.  Modifies
@@ -76,7 +77,7 @@ extern int ast_unregister_translator(struct ast_translator *t);
    */
 extern int ast_translator_best_choice(int *dsts, int *srcs);
 
-//!Builds a translator path
+/*!Builds a translator path */
 /*! 
  * \param dest destination format
  * \param source source format
@@ -85,14 +86,14 @@ extern int ast_translator_best_choice(int *dsts, int *srcs);
  * */
 extern struct ast_trans_pvt *ast_translator_build_path(int dest, int source);
 
-//! Frees a translator path
+/*! Frees a translator path */
 /*!
  * \param tr translator path to get rid of
  * Frees the given translator path structure
  */
 extern void ast_translator_free_path(struct ast_trans_pvt *tr);
 
-//! translates one or more frames
+/*! translates one or more frames */
 /*! 
  * \param tr translator structure to use for translation
  * \param f frame to translate
@@ -102,7 +103,6 @@ extern void ast_translator_free_path(struct ast_trans_pvt *tr);
  * Returns an ast_frame of the new translation format on success, NULL on failure
  */
 extern struct ast_frame *ast_translate(struct ast_trans_pvt *tr, struct ast_frame *f, int consume);
-
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

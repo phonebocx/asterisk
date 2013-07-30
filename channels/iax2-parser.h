@@ -5,7 +5,7 @@
  * 
  * Copyright (C) 2003, Digium
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
@@ -19,17 +19,22 @@ struct iax_ies {
 	char *calling_number;
 	char *calling_ani;
 	char *calling_name;
+	int calling_ton;
+	int calling_tns;
+	int calling_pres;
 	char *called_context;
 	char *username;
 	char *password;
 	unsigned int capability;
 	unsigned int format;
+	char *codec_prefs;
 	char *language;
 	int version;
 	unsigned short adsicpe;
 	char *dnid;
 	char *rdnis;
 	unsigned int authmethods;
+	unsigned int encmethods;
 	char *challenge;
 	char *md5_result;
 	char *rsa_result;
@@ -38,6 +43,7 @@ struct iax_ies {
 	unsigned short dpstatus;
 	unsigned short callno;
 	char *cause;
+	unsigned char causecode;
 	unsigned char iax_unknown;
 	int msgcount;
 	int autoanswer;
@@ -50,8 +56,17 @@ struct iax_ies {
 	unsigned int fwdesc;
 	unsigned char *fwdata;
 	unsigned char fwdatalen;
+	unsigned char *enckey;
+	unsigned char enckeylen;
 	unsigned int provver;
+	unsigned short samprate;
 	int provverpres;
+	unsigned int rr_jitter;
+	unsigned int rr_loss;
+	unsigned int rr_pkts;
+	unsigned short rr_delay;
+	unsigned int rr_dropped;
+	unsigned int rr_ooo;
 };
 
 #define DIRECTION_INGRESS 1
@@ -61,6 +76,8 @@ struct iax_frame {
 #ifdef LIBIAX
 	struct iax_session *session;
 	struct iax_event *event;
+#else
+	int sockfd;
 #endif
 
 	/* /Our/ call number */

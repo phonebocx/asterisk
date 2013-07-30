@@ -2,7 +2,7 @@
  * Asterisk -- A telephony toolkit for Linux.
  *
  * HasVoicemail application
- * Changes Copyright (c) 2004 Todd Freeman <freeman@andrews.edu>
+ * Changes Copyright (c) 2004 - 2005 Todd Freeman <freeman@andrews.edu>
  * 
  * 95% based on HasNewVoicemail by:
  * 
@@ -32,20 +32,22 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/lock.h>
-#include <asterisk/utils.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
 #include <dirent.h>
 
-#include "../astconf.h"
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/lock.h"
+#include "asterisk/utils.h"
 
 static char *tdesc = "Indicator for whether a voice mailbox has messages in a given folder.";
 static char *app_hasvoicemail = "HasVoicemail";
@@ -59,9 +61,10 @@ static char *hasvoicemail_descrip =
 static char *app_hasnewvoicemail = "HasNewVoicemail";
 static char *hasnewvoicemail_synopsis = "Conditionally branches to priority + 101";
 static char *hasnewvoicemail_descrip =
-"HasNewVoicemail(vmbox[@context][|varname])\n"
-"  Branches to priority + 101, if there is voicemail in folder INBOX."
-"  Optionally sets <varname> to the number of messages in that folder.\n";
+"HasNewVoicemail(vmbox[/folder][@context][|varname])\n"
+"  Branches to priority + 101, if there is voicemail in folder 'folder' or INBOX.\n"
+"if folder is not specified. Optionally sets <varname> to the number of messages\n" 
+"in that folder.\n";
 
 STANDARD_LOCAL_USER;
 
@@ -71,7 +74,8 @@ static int hasvoicemail_exec(struct ast_channel *chan, void *data)
 {
 	int res=0;
 	struct localuser *u;
-	char vmpath[256], *temps, *input, *varname = NULL, *vmbox, *vmfolder = "INBOX", *context = "default";
+	char vmpath[256], *temps, *input, *varname = NULL, *vmbox, *context = "default";
+	char *vmfolder;
 	DIR *vmdir;
 	struct dirent *vment;
 	int vmcount = 0;
@@ -100,7 +104,12 @@ static int hasvoicemail_exec(struct ast_channel *chan, void *data)
 				context = input;
 		if (!vmbox)
 			vmbox = input;
-
+		vmfolder = strchr(vmbox, '/');
+		if (vmfolder) {
+			*vmfolder = '\0';
+			vmfolder++;
+		} else
+			vmfolder = "INBOX";
 		snprintf(vmpath,sizeof(vmpath), "%s/voicemail/%s/%s/%s", (char *)ast_config_AST_SPOOL_DIR, context, vmbox, vmfolder);
 		if (!(vmdir = opendir(vmpath))) {
 			ast_log(LOG_NOTICE, "Voice mailbox %s at %s does not exist\n", vmbox, vmpath);
@@ -121,7 +130,7 @@ static int hasvoicemail_exec(struct ast_channel *chan, void *data)
 
 		if (vmcount > 0) {
 			/* Branch to the next extension */
-			if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->callerid)) {
+			if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num)) {
 				chan->priority += 100;
 			} else
 				ast_log(LOG_WARNING, "VM box %s@%s has new voicemail, but extension %s, priority %d doesn't exist\n", vmbox, context, chan->exten, chan->priority + 101);

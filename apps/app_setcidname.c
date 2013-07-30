@@ -11,18 +11,23 @@
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
-#include <asterisk/image.h>
-#include <asterisk/callerid.h>
-#include <asterisk/utils.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.10 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
+#include "asterisk/image.h"
+#include "asterisk/callerid.h"
+#include "asterisk/utils.h"
 
 static char *tdesc = "Set CallerID Name";
 
@@ -34,7 +39,9 @@ static char *descrip =
 "  SetCIDName(cname[|a]): Set Caller*ID Name on a call to a new\n"
 "value, while preserving the original Caller*ID number.  This is\n"
 "useful for providing additional information to the called\n"
-"party. Sets ANI as well if a flag is used.  Always returns 0\n";
+"party. Always returns 0\n"
+"SetCIDName has been deprecated in favor of the function\n"
+"CALLERID(name)\n";
 
 STANDARD_LOCAL_USER;
 
@@ -44,36 +51,23 @@ static int setcallerid_exec(struct ast_channel *chan, void *data)
 {
 	int res = 0;
 	char tmp[256] = "";
-	char oldcid[256] = "", *l, *n;
-	char newcid[256] = "";
 	struct localuser *u;
 	char *opt;
-	int anitoo = 0;
+	static int deprecation_warning = 0;
+
+	if (!deprecation_warning) {
+		ast_log(LOG_WARNING, "SetCIDName is deprecated, please use Set(CALLERID(name)=value) instead.\n");
+		deprecation_warning = 1;
+	}
+
 	if (data)
-		strncpy(tmp, (char *)data, sizeof(tmp) - 1);
+		ast_copy_string(tmp, (char *)data, sizeof(tmp));
 	opt = strchr(tmp, '|');
 	if (opt) {
 		*opt = '\0';
-		opt++;
-		if (*opt == 'a')
-			anitoo = 1;
 	}
 	LOCAL_USER_ADD(u);
-	if (chan->callerid) {
-		strncpy(oldcid, chan->callerid, sizeof(oldcid) - 1);
-		ast_callerid_parse(oldcid, &n, &l);
-		n = tmp;
-		if (!ast_strlen_zero(n)) {
-			if (l && !ast_strlen_zero(l))
-				snprintf(newcid, sizeof(newcid), "\"%s\" <%s>", n, l);
-			else
-				strncpy(newcid, tmp, sizeof(newcid) - 1);
-		} else if (l && !ast_strlen_zero(l)) {
-			strncpy(newcid, l, sizeof(newcid) - 1);
-		}
-	} else
-		strncpy(newcid, tmp, sizeof(newcid) - 1);
-	ast_set_callerid(chan, !ast_strlen_zero(newcid) ? newcid : NULL, anitoo);
+	ast_set_callerid(chan, NULL, tmp, NULL);
 	LOCAL_USER_REMOVE(u);
 	return res;
 }

@@ -35,14 +35,6 @@ CREATE TABLE [dbo].[cdr] (
 */
 
 #include <sys/types.h>
-#include <asterisk/config.h>
-#include <asterisk/options.h>
-#include <asterisk/channel.h>
-#include <asterisk/cdr.h>
-#include <asterisk/module.h>
-#include <asterisk/logger.h>
-#include "../asterisk.h"
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -53,6 +45,17 @@ CREATE TABLE [dbo].[cdr] (
 #include <tds.h>
 #include <tdsconvert.h>
 #include <ctype.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+
+#include "asterisk/config.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/cdr.h"
+#include "asterisk/module.h"
+#include "asterisk/logger.h"
 
 #if !defined(TDS_INT_EXIT) 
 #define TDS_PRE_0_62
@@ -68,7 +71,6 @@ static char *config = "cdr_tds.conf";
 static char *hostname = NULL, *dbname = NULL, *dbuser = NULL, *password = NULL, *charset = NULL, *language = NULL;
 
 static int connected = 0;
-static time_t connect_time = 0;
 
 AST_MUTEX_DEFINE_STATIC(tds_lock);
 
@@ -148,8 +150,8 @@ static int tds_log(struct ast_cdr *cdr)
 			"%s, "		/* start */
 			"%s, "		/* answer */
 			"%s, "		/* end */
-			"%i, "		/* duration */
-			"%i, "		/* billsec */
+			"%d, "		/* duration */
+			"%d, "		/* billsec */
 			"'%s', "	/* disposition */
 			"'%s', "	/* amaflags */
 			"'%s'"		/* uniqueid */
@@ -370,7 +372,7 @@ static void get_date(char *dateField, struct timeval tv)
 	char buf[80];
 
 	/* To make sure we have date variable if not insert null to SQL */
-	if (tv.tv_sec && tv.tv_usec)
+	if (!ast_tvzero(tv))
 	{
 		t = tv.tv_sec;
 		localtime_r(&t, &tm);
@@ -483,7 +485,7 @@ connect_fail:
 	return -1;
 }
 
-int unload_module(void)
+static int tds_unload_module(void)
 {
 	mssql_disconnect();
 
@@ -499,7 +501,7 @@ int unload_module(void)
 	return 0;
 }
 
-int load_module(void)
+static int tds_load_module(void)
 {
 	int res = 0;
 	struct ast_config *cfg;
@@ -509,7 +511,7 @@ int load_module(void)
 	TDS_INT result_type;
 #endif
 
-	cfg = ast_load(config);
+	cfg = ast_config_load(config);
 	if (!cfg) {
 		ast_log(LOG_NOTICE, "Unable to load config for MSSQL CDR's: %s\n", config);
 		return 0;
@@ -555,7 +557,7 @@ int load_module(void)
 	else
 		language = strdup("us_english");
 
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 
 	mssql_connect();
 
@@ -571,8 +573,18 @@ int load_module(void)
 
 int reload(void)
 {
-	unload_module();
-	return load_module();
+	tds_unload_module();
+	return tds_load_module();
+}
+
+int load_module(void)
+{
+	return tds_load_module();
+}
+
+int unload_module(void)
+{
+	return tds_unload_module();
 }
 
 int usecount(void)

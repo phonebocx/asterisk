@@ -11,21 +11,26 @@
  * the GNU General Public License
  */
 
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/linkedlists.h>
-#include <asterisk/chanvars.h>
-#include <asterisk/lock.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
 #include <sys/types.h>
 #include <stdio.h>
 #include <unistd.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/linkedlists.h"
+#include "asterisk/chanvars.h"
+#include "asterisk/lock.h"
+
 #include "libpq-fe.h"
 
 #define EXTRA_LOG 0
@@ -189,7 +194,7 @@ static int del_identifier(int identifier,int identifier_type) {
 		AST_LIST_TRAVERSE(headp,i,entries) {
 			if ((i->identifier==identifier) && 
 			    (i->identifier_type==identifier_type)) {
-				AST_LIST_REMOVE(headp,i,ast_PGSQL_id,entries);
+				AST_LIST_REMOVE(headp,i,entries);
 				free(i);
 				found=1;
 				break;
@@ -224,7 +229,7 @@ static int aPGSQL_connect(struct ast_channel *chan, void *data) {
 	s1=malloc(l);
 	strncpy(s1, data, l -1);
 	stringp=s1;
-	strsep(&stringp," "); // eat the first token, we already know it :P 
+	strsep(&stringp," "); /* eat the first token, we already know it :P  */
 	var=strsep(&stringp," ");
 	optionstring=strsep(&stringp,"\n");
 		
@@ -265,9 +270,9 @@ static int aPGSQL_query(struct ast_channel *chan, void *data) {
 	s2=malloc(l);
 	strncpy(s1, data, l - 1);
 	stringp=s1;
-	strsep(&stringp," "); // eat the first token, we already know it :P 
+	strsep(&stringp," "); /* eat the first token, we already know it :P  */
 	s3=strsep(&stringp," ");
-	while (1) {	// ugly trick to make branches with break;
+	while (1) {	/* ugly trick to make branches with break; */
 		var=s3;
 		s4=strsep(&stringp," ");
 		id=atoi(s4);
@@ -328,10 +333,10 @@ static int aPGSQL_fetch(struct ast_channel *chan, void *data) {
 	s2=malloc(l);
 	strncpy(s1, data, l - 1);
 	stringp=s1;
-	strsep(&stringp," "); // eat the first token, we already know it :P 
+	strsep(&stringp," "); /* eat the first token, we already know it :P  */
 	fetchid_var=strsep(&stringp," ");
-	while (1) {	// ugly trick to make branches with break;
-	  var=fetchid_var; // fetchid
+	while (1) {	/* ugly trick to make branches with break; */
+	  var=fetchid_var; /* fetchid */
 		fnd=0;
 		
 		AST_LIST_TRAVERSE(headp,variables,entries) {
@@ -348,19 +353,19 @@ static int aPGSQL_fetch(struct ast_channel *chan, void *data) {
 		}
 
 		s4=strsep(&stringp," ");
-		id=atoi(s4); // resultid
+		id=atoi(s4); /* resultid */
 		if ((PGSQLres=find_identifier(id,AST_PGSQL_ID_RESID))==NULL) {
 			ast_log(LOG_WARNING,"Invalid result identifier %d passed in aPGSQL_fetch\n",id);
 			res=-1;
 			break;
 		}
-		id=atoi(s7); //fetchid
+		id=atoi(s7); /*fetchid */
 		if ((lalares=find_identifier(id,AST_PGSQL_ID_FETCHID))==NULL) {
-	    i=0;       // fetching the very first row
+	    i=0;       /* fetching the very first row */
 		} else {
 			i=*lalares;
 			free(lalares);
-	    del_identifier(id,AST_PGSQL_ID_FETCHID); // will re-add it a bit later
+	    del_identifier(id,AST_PGSQL_ID_FETCHID); /* will re-add it a bit later */
 		}
 
 	  if (i<PQntuples(PGSQLres)) {
@@ -381,11 +386,11 @@ static int aPGSQL_fetch(struct ast_channel *chan, void *data) {
 			pbx_builtin_setvar_helper(chan,s5,s6);
 		}
 			lalares=malloc(sizeof(int));
-	    *lalares = ++i; // advance to the next row
+	    *lalares = ++i; /* advance to the next row */
 	    id1 = add_identifier(AST_PGSQL_ID_FETCHID,lalares);
 		} else {
 	    ast_log(LOG_WARNING,"ast_PGSQL_fetch : EOF\n");
-	    id1 = 0; // no more rows
+	    id1 = 0; /* no more rows */
 		}
 		snprintf(s, sizeof(s), "%d", id1);
 	  ast_log(LOG_WARNING,"Setting var '%s' to value '%s'\n",fetchid_var,s);
@@ -411,7 +416,7 @@ static int aPGSQL_reset(struct ast_channel *chan, void *data) {
 	s1=malloc(l);
 	strncpy(s1, data, l - 1);
 	stringp=s1;
-	strsep(&stringp," "); // eat the first token, we already know it :P 
+	strsep(&stringp," "); /* eat the first token, we already know it :P  */
 	s3=strsep(&stringp," ");
 	id=atoi(s3);
 	if ((karoto=find_identifier(id,AST_PGSQL_ID_CONNID))==NULL) {
@@ -437,7 +442,7 @@ static int aPGSQL_clear(struct ast_channel *chan, void *data) {
 	s1=malloc(l);
 	strncpy(s1, data, l - 1);
 	stringp=s1;
-	strsep(&stringp," "); // eat the first token, we already know it :P 
+	strsep(&stringp," "); /* eat the first token, we already know it :P  */
 	s3=strsep(&stringp," ");
 	id=atoi(s3);
 	if ((karoto=find_identifier(id,AST_PGSQL_ID_RESID))==NULL) {
@@ -467,7 +472,7 @@ static int aPGSQL_disconnect(struct ast_channel *chan, void *data) {
 	s1=malloc(l);
 	strncpy(s1, data, l - 1);
 	stringp=s1;
-	strsep(&stringp," "); // eat the first token, we already know it :P 
+	strsep(&stringp," "); /* eat the first token, we already know it :P  */
 	s3=strsep(&stringp," ");
 	id=atoi(s3);
 	if ((karoto=find_identifier(id,AST_PGSQL_ID_CONNID))==NULL) {

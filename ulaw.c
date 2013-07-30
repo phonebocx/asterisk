@@ -11,7 +11,11 @@
  * the GNU General Public License
  */
 
-#include <asterisk/ulaw.h>
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.5 $")
+
+#include "asterisk/ulaw.h"
 
 #define ZEROTRAP    /* turn on the trap as per the MIL-STD */
 #define BIAS 0x84   /* define the add-in bias for 16 bit samples */

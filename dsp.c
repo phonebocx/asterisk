@@ -5,7 +5,7 @@
  * 
  * Copyright (C) 2002, Digium
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License.
@@ -29,13 +29,6 @@
 */
 
 #include <sys/types.h>
-#include <asterisk/frame.h>
-#include <asterisk/channel.h>
-#include <asterisk/channel_pvt.h>
-#include <asterisk/logger.h>
-#include <asterisk/dsp.h>
-#include <asterisk/ulaw.h>
-#include <asterisk/alaw.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -43,12 +36,25 @@
 #include <errno.h>
 #include <stdio.h>
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.47 $")
+
+#include "asterisk/frame.h"
+#include "asterisk/channel.h"
+#include "asterisk/logger.h"
+#include "asterisk/dsp.h"
+#include "asterisk/ulaw.h"
+#include "asterisk/alaw.h"
+
 /* Number of goertzels for progress detect */
 #define GSAMP_SIZE_NA 183			/* North America - 350, 440, 480, 620, 950, 1400, 1800 Hz */
-#define GSAMP_SIZE_CR 188			/* Costa Rica - Only care about 425 Hz */
+#define GSAMP_SIZE_CR 188			/* Costa Rica, Brazil - Only care about 425 Hz */
+#define GSAMP_SIZE_UK 160			/* UK disconnect goertzel feed - shoud trigger 400hz */
 
 #define PROG_MODE_NA		0
 #define PROG_MODE_CR		1	
+#define PROG_MODE_UK		2	
 
 /* For US modes */
 #define HZ_350  0
@@ -59,8 +65,11 @@
 #define HZ_1400 5
 #define HZ_1800 6
 
-/* For CR modes */
+/* For CR/BR modes */
 #define HZ_425	0
+
+/* For UK mode */
+#define HZ_400	0
 
 static struct progalias {
 	char *name;
@@ -69,6 +78,8 @@ static struct progalias {
 	{ "us", PROG_MODE_NA },
 	{ "ca", PROG_MODE_NA },
 	{ "cr", PROG_MODE_CR },
+	{ "br", PROG_MODE_CR },
+	{ "uk", PROG_MODE_UK },
 };
 
 static struct progress {
@@ -77,35 +88,30 @@ static struct progress {
 } modes[] = {
 	{ GSAMP_SIZE_NA, { 350, 440, 480, 620, 950, 1400, 1800 } },	/* North America */
 	{ GSAMP_SIZE_CR, { 425 } },
+	{ GSAMP_SIZE_UK, { 400 } },
 };
 
-#define DEFAULT_THRESHOLD 512
+#define DEFAULT_THRESHOLD	512
 
-#define BUSY_PERCENT		10	/* The percentage diffrence between the two last silence periods */
+#define BUSY_PERCENT		10	/* The percentage difference between the two last silence periods */
+#define BUSY_PAT_PERCENT	7	/* The percentage difference between measured and actual pattern */
 #define BUSY_THRESHOLD		100	/* Max number of ms difference between max and min times in busy */
 #define BUSY_MIN		75	/* Busy must be at least 80 ms in half-cadence */
 #define BUSY_MAX		1100	/* Busy can't be longer than 1100 ms in half-cadence */
 
 /* Remember last 15 units */
-#define DSP_HISTORY 15
+#define DSP_HISTORY 		15
 
 /* Define if you want the fax detector -- NOT RECOMMENDED IN -STABLE */
 #define FAX_DETECT
 
-#define TONE_THRESH 10.0	/* How much louder the tone should be than channel energy */
-#define TONE_MIN_THRESH 1e8	/* How much tone there should be at least to attempt */
-#define COUNT_THRESH  3		/* Need at least 50ms of stuff to count it */
+#define TONE_THRESH		10.0	/* How much louder the tone should be than channel energy */
+#define TONE_MIN_THRESH 	1e8	/* How much tone there should be at least to attempt */
+#define COUNT_THRESH		3	/* Need at least 50ms of stuff to count it */
+#define UK_HANGUP_THRESH	60	/* This is the threshold for the UK */
 
-#define TONE_STATE_SILENCE  0
-#define TONE_STATE_RINGING  1 
-#define TONE_STATE_DIALTONE 2
-#define TONE_STATE_TALKING  3
-#define TONE_STATE_BUSY     4
-#define TONE_STATE_SPECIAL1	5
-#define TONE_STATE_SPECIAL2 6
-#define TONE_STATE_SPECIAL3 7
 
-#define	MAX_DTMF_DIGITS 128
+#define	MAX_DTMF_DIGITS		128
 
 /* Basic DTMF specs:
  *
@@ -119,31 +125,35 @@ static struct progress {
  * Frequency tolerance +- 1.5% will detect, +-3.5% will reject
  */
 
-#define DTMF_THRESHOLD              8.0e7
-#define FAX_THRESHOLD              8.0e7
-#define FAX_2ND_HARMONIC       		2.0     /* 4dB */
-#define DTMF_NORMAL_TWIST           6.3     /* 8dB */
+#define DTMF_THRESHOLD		8.0e7
+#define FAX_THRESHOLD		8.0e7
+#define FAX_2ND_HARMONIC	2.0     /* 4dB */
+#define DTMF_NORMAL_TWIST	6.3     /* 8dB */
 #ifdef	RADIO_RELAX
 #define DTMF_REVERSE_TWIST          ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 6.5 : 2.5)     /* 4dB normal */
 #else
 #define DTMF_REVERSE_TWIST          ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 4.0 : 2.5)     /* 4dB normal */
 #endif
-#define DTMF_RELATIVE_PEAK_ROW      6.3     /* 8dB */
-#define DTMF_RELATIVE_PEAK_COL      6.3     /* 8dB */
+#define DTMF_RELATIVE_PEAK_ROW	6.3     /* 8dB */
+#define DTMF_RELATIVE_PEAK_COL	6.3     /* 8dB */
 #define DTMF_2ND_HARMONIC_ROW       ((digitmode & DSP_DIGITMODE_RELAXDTMF) ? 1.7 : 2.5)     /* 4dB normal */
-#define DTMF_2ND_HARMONIC_COL       63.1    /* 18dB */
-#define DTMF_TO_TOTAL_ENERGY	    42.0
+#define DTMF_2ND_HARMONIC_COL	63.1    /* 18dB */
+#define DTMF_TO_TOTAL_ENERGY	42.0
 
 #ifdef OLD_DSP_ROUTINES
-#define MF_THRESHOLD              8.0e7
-#define MF_NORMAL_TWIST           5.3     /* 8dB */
-#define MF_REVERSE_TWIST          4.0     /* was 2.5 */
-#define MF_RELATIVE_PEAK      5.3     /* 8dB */
-#define MF_2ND_HARMONIC       1.7 /* was 2.5  */
+#define MF_THRESHOLD		8.0e7
+#define MF_NORMAL_TWIST		5.3     /* 8dB */
+#define MF_REVERSE_TWIST	4.0     /* was 2.5 */
+#define MF_RELATIVE_PEAK	5.3     /* 8dB */
+#define MF_2ND_HARMONIC		1.7	/* was 2.5  */
 #else
-#define BELL_MF_THRESHOLD           1.6e9
-#define BELL_MF_TWIST               4.0     /* 6dB */
-#define BELL_MF_RELATIVE_PEAK       12.6    /* 11dB */
+#define BELL_MF_THRESHOLD	1.6e9
+#define BELL_MF_TWIST		4.0     /* 6dB */
+#define BELL_MF_RELATIVE_PEAK	12.6    /* 11dB */
+#endif
+
+#if !defined(BUSYDETECT_MARTIN) && !defined(BUSYDETECT) && !defined(BUSYDETECT_TONEONLY) && !defined(BUSYDETECT_COMPARE_TONE_AND_SILENCE)
+#define BUSYDETECT_MARTIN
 #endif
 
 typedef struct {
@@ -157,36 +167,34 @@ typedef struct {
 
 typedef struct
 {
-
-    goertzel_state_t row_out[4];
-    goertzel_state_t col_out[4];
+	goertzel_state_t row_out[4];
+	goertzel_state_t col_out[4];
 #ifdef FAX_DETECT
 	goertzel_state_t fax_tone;
 #endif
 #ifdef OLD_DSP_ROUTINES
-    goertzel_state_t row_out2nd[4];
-    goertzel_state_t col_out2nd[4];
+	goertzel_state_t row_out2nd[4];
+	goertzel_state_t col_out2nd[4];
 #ifdef FAX_DETECT
 	goertzel_state_t fax_tone2nd;    
 #endif
-    int hit1;
-    int hit2;
-    int hit3;
-    int hit4;
+	int hit1;
+	int hit2;
+	int hit3;
+	int hit4;
 #else
-    int hits[3];
+	int hits[3];
 #endif	
-    int mhit;
-    float energy;
-    int current_sample;
+	int mhit;
+	float energy;
+	int current_sample;
 
-    char digits[MAX_DTMF_DIGITS + 1];
-    int current_digits;
-    int detected_digits;
-    int lost_digits;
-    int digit_hits[16];
-
-
+	char digits[MAX_DTMF_DIGITS + 1];
+	
+	int current_digits;
+	int detected_digits;
+	int lost_digits;
+	int digit_hits[16];
 #ifdef FAX_DETECT
 	int fax_hits;
 #endif
@@ -194,24 +202,25 @@ typedef struct
 
 typedef struct
 {
-    goertzel_state_t tone_out[6];
-    int mhit;
+	goertzel_state_t tone_out[6];
+	int mhit;
 #ifdef OLD_DSP_ROUTINES
-    int hit1;
-    int hit2;
-    int hit3;
-    int hit4;
-    goertzel_state_t tone_out2nd[6];
-    float energy;
+	int hit1;
+	int hit2;
+	int hit3;
+	int hit4;
+	goertzel_state_t tone_out2nd[6];
+	float energy;
 #else
-    int hits[5];
+	int hits[5];
 #endif
+	int current_sample;
+	
+	char digits[MAX_DTMF_DIGITS + 1];
 
-    int current_sample;
-    char digits[MAX_DTMF_DIGITS + 1];
-    int current_digits;
-    int detected_digits;
-    int lost_digits;
+	int current_digits;
+	int detected_digits;
+	int lost_digits;
 #ifdef FAX_DETECT
 	int fax_hits;
 #endif
@@ -219,11 +228,11 @@ typedef struct
 
 static float dtmf_row[] =
 {
-     697.0,  770.0,  852.0,  941.0
+	697.0,  770.0,  852.0,  941.0
 };
 static float dtmf_col[] =
 {
-    1209.0, 1336.0, 1477.0, 1633.0
+	1209.0, 1336.0, 1477.0, 1633.0
 };
 
 static float mf_tones[] =
@@ -254,6 +263,7 @@ static inline void goertzel_sample(goertzel_state_t *s, short sample)
 {
 	float v1;
 	float fsamp  = sample;
+	
 	v1 = s->v2;
 	s->v2 = s->v3;
 	s->v3 = s->fac * s->v2 - v1 + fsamp;
@@ -262,6 +272,7 @@ static inline void goertzel_sample(goertzel_state_t *s, short sample)
 static inline void goertzel_update(goertzel_state_t *s, short *samps, int count)
 {
 	int i;
+	
 	for (i=0;i<count;i++) 
 		goertzel_sample(s, samps[i]);
 }
@@ -294,6 +305,8 @@ struct ast_dsp {
 	int features;
 	int busymaybe;
 	int busycount;
+	int busy_tonelength;
+	int busy_quietlength;
 	int historicnoise[DSP_HISTORY];
 	int historicsilence[DSP_HISTORY];
 	goertzel_state_t freqs[7];
@@ -314,212 +327,179 @@ struct ast_dsp {
 
 static void ast_dtmf_detect_init (dtmf_detect_state_t *s)
 {
-    int i;
+	int i;
 
 #ifdef OLD_DSP_ROUTINES
-    s->hit1 = 
-    s->mhit = 
+	s->hit1 = 
+	s->mhit = 
 	s->hit3 =
 	s->hit4 = 
-    s->hit2 = 0;
+	s->hit2 = 0;
 #else
 	s->hits[0] = s->hits[1] = s->hits[2] = 0;
 #endif
-    for (i = 0;  i < 4;  i++)
-    {
-    
-   		goertzel_init (&s->row_out[i], dtmf_row[i], 102);
-    	goertzel_init (&s->col_out[i], dtmf_col[i], 102);
+	for (i = 0;  i < 4;  i++) {
+		goertzel_init (&s->row_out[i], dtmf_row[i], 102);
+		goertzel_init (&s->col_out[i], dtmf_col[i], 102);
 #ifdef OLD_DSP_ROUTINES
-    	goertzel_init (&s->row_out2nd[i], dtmf_row[i] * 2.0, 102);
-    	goertzel_init (&s->col_out2nd[i], dtmf_col[i] * 2.0, 102);
+		goertzel_init (&s->row_out2nd[i], dtmf_row[i] * 2.0, 102);
+		goertzel_init (&s->col_out2nd[i], dtmf_col[i] * 2.0, 102);
 #endif	
 		s->energy = 0.0;
-    }
-
+	}
 #ifdef FAX_DETECT
 	/* Same for the fax dector */
-    goertzel_init (&s->fax_tone, fax_freq, 102);
+	goertzel_init (&s->fax_tone, fax_freq, 102);
 
 #ifdef OLD_DSP_ROUTINES
 	/* Same for the fax dector 2nd harmonic */
-    goertzel_init (&s->fax_tone2nd, fax_freq * 2.0, 102);
+	goertzel_init (&s->fax_tone2nd, fax_freq * 2.0, 102);
 #endif	
 #endif /* FAX_DETECT */
-	
-    s->current_sample = 0;
-    s->detected_digits = 0;
+	s->current_sample = 0;
+	s->detected_digits = 0;
 	s->current_digits = 0;
 	memset(&s->digits, 0, sizeof(s->digits));
-    s->lost_digits = 0;
-    s->digits[0] = '\0';
+	s->lost_digits = 0;
+	s->digits[0] = '\0';
 }
 
 static void ast_mf_detect_init (mf_detect_state_t *s)
 {
-    int i;
-
+	int i;
 #ifdef OLD_DSP_ROUTINES
-    s->hit1 = 
-    s->hit2 = 0;
+	s->hit1 = 
+	s->hit2 = 0;
 #else	
 	s->hits[0] = s->hits[1] = s->hits[2] = s->hits[3] = s->hits[4] = 0;
 #endif
-    for (i = 0;  i < 6;  i++)
-    {
-    
-   		goertzel_init (&s->tone_out[i], mf_tones[i], 160);
+	for (i = 0;  i < 6;  i++) {
+		goertzel_init (&s->tone_out[i], mf_tones[i], 160);
 #ifdef OLD_DSP_ROUTINES
-    	goertzel_init (&s->tone_out2nd[i], mf_tones[i] * 2.0, 160);
+		goertzel_init (&s->tone_out2nd[i], mf_tones[i] * 2.0, 160);
 		s->energy = 0.0;
 #endif
-	
-    }
-
+	}
 	s->current_digits = 0;
 	memset(&s->digits, 0, sizeof(s->digits));
-    s->current_sample = 0;
-    s->detected_digits = 0;
-    s->lost_digits = 0;
-    s->digits[0] = '\0';
-    s->mhit = 0;
+	s->current_sample = 0;
+	s->detected_digits = 0;
+	s->lost_digits = 0;
+	s->digits[0] = '\0';
+	s->mhit = 0;
 }
 
-static int dtmf_detect (dtmf_detect_state_t *s,
-                 int16_t amp[],
-                 int samples, 
+static int dtmf_detect (dtmf_detect_state_t *s, int16_t amp[], int samples, 
 		 int digitmode, int *writeback, int faxdetect)
 {
-
-    float row_energy[4];
-    float col_energy[4];
+	float row_energy[4];
+	float col_energy[4];
 #ifdef FAX_DETECT
-    float fax_energy;
+	float fax_energy;
 #ifdef OLD_DSP_ROUTINES
-    float fax_energy_2nd;
+	float fax_energy_2nd;
 #endif	
 #endif /* FAX_DETECT */
-    float famp;
-    float v1;
-    int i;
-    int j;
-    int sample;
-    int best_row;
-    int best_col;
-    int hit;
-    int limit;
+	float famp;
+	float v1;
+	int i;
+	int j;
+	int sample;
+	int best_row;
+	int best_col;
+	int hit;
+	int limit;
 
-    hit = 0;
-    for (sample = 0;  sample < samples;  sample = limit)
-    {
-        /* 102 is optimised to meet the DTMF specs. */
-        if ((samples - sample) >= (102 - s->current_sample))
-            limit = sample + (102 - s->current_sample);
-        else
-            limit = samples;
+	hit = 0;
+	for (sample = 0;  sample < samples;  sample = limit) {
+		/* 102 is optimised to meet the DTMF specs. */
+		if ((samples - sample) >= (102 - s->current_sample))
+			limit = sample + (102 - s->current_sample);
+		else
+			limit = samples;
 #if defined(USE_3DNOW)
-        _dtmf_goertzel_update (s->row_out, amp + sample, limit - sample);
-        _dtmf_goertzel_update (s->col_out, amp + sample, limit - sample);
+		_dtmf_goertzel_update (s->row_out, amp + sample, limit - sample);
+		_dtmf_goertzel_update (s->col_out, amp + sample, limit - sample);
 #ifdef OLD_DSP_ROUTINES
-        _dtmf_goertzel_update (s->row_out2nd, amp + sample, limit2 - sample);
-        _dtmf_goertzel_update (s->col_out2nd, amp + sample, limit2 - sample);
+		_dtmf_goertzel_update (s->row_out2nd, amp + sample, limit2 - sample);
+		_dtmf_goertzel_update (s->col_out2nd, amp + sample, limit2 - sample);
 #endif		
 		/* XXX Need to fax detect for 3dnow too XXX */
 		#warning "Fax Support Broken"
 #else
-        /* The following unrolled loop takes only 35% (rough estimate) of the 
-           time of a rolled loop on the machine on which it was developed */
-        for (j = sample;  j < limit;  j++)
-        {
-            famp = amp[j];
-	    
-	    s->energy += famp*famp;
-	    
-            /* With GCC 2.95, the following unrolled code seems to take about 35%
-               (rough estimate) as long as a neat little 0-3 loop */
-            v1 = s->row_out[0].v2;
-            s->row_out[0].v2 = s->row_out[0].v3;
-            s->row_out[0].v3 = s->row_out[0].fac*s->row_out[0].v2 - v1 + famp;
-    
-            v1 = s->col_out[0].v2;
-            s->col_out[0].v2 = s->col_out[0].v3;
-            s->col_out[0].v3 = s->col_out[0].fac*s->col_out[0].v2 - v1 + famp;
-    
-            v1 = s->row_out[1].v2;
-            s->row_out[1].v2 = s->row_out[1].v3;
-            s->row_out[1].v3 = s->row_out[1].fac*s->row_out[1].v2 - v1 + famp;
-    
-            v1 = s->col_out[1].v2;
-            s->col_out[1].v2 = s->col_out[1].v3;
-            s->col_out[1].v3 = s->col_out[1].fac*s->col_out[1].v2 - v1 + famp;
-    
-            v1 = s->row_out[2].v2;
-            s->row_out[2].v2 = s->row_out[2].v3;
-            s->row_out[2].v3 = s->row_out[2].fac*s->row_out[2].v2 - v1 + famp;
-    
-            v1 = s->col_out[2].v2;
-            s->col_out[2].v2 = s->col_out[2].v3;
-            s->col_out[2].v3 = s->col_out[2].fac*s->col_out[2].v2 - v1 + famp;
-    
-            v1 = s->row_out[3].v2;
-            s->row_out[3].v2 = s->row_out[3].v3;
-            s->row_out[3].v3 = s->row_out[3].fac*s->row_out[3].v2 - v1 + famp;
-
-            v1 = s->col_out[3].v2;
-            s->col_out[3].v2 = s->col_out[3].v3;
-            s->col_out[3].v3 = s->col_out[3].fac*s->col_out[3].v2 - v1 + famp;
-
+		/* The following unrolled loop takes only 35% (rough estimate) of the 
+		   time of a rolled loop on the machine on which it was developed */
+		for (j=sample;j<limit;j++) {
+			famp = amp[j];
+			s->energy += famp*famp;
+			/* With GCC 2.95, the following unrolled code seems to take about 35%
+			   (rough estimate) as long as a neat little 0-3 loop */
+			v1 = s->row_out[0].v2;
+			s->row_out[0].v2 = s->row_out[0].v3;
+			s->row_out[0].v3 = s->row_out[0].fac*s->row_out[0].v2 - v1 + famp;
+			v1 = s->col_out[0].v2;
+			s->col_out[0].v2 = s->col_out[0].v3;
+			s->col_out[0].v3 = s->col_out[0].fac*s->col_out[0].v2 - v1 + famp;
+			v1 = s->row_out[1].v2;
+			s->row_out[1].v2 = s->row_out[1].v3;
+			s->row_out[1].v3 = s->row_out[1].fac*s->row_out[1].v2 - v1 + famp;
+			v1 = s->col_out[1].v2;
+			s->col_out[1].v2 = s->col_out[1].v3;
+			s->col_out[1].v3 = s->col_out[1].fac*s->col_out[1].v2 - v1 + famp;
+			v1 = s->row_out[2].v2;
+			s->row_out[2].v2 = s->row_out[2].v3;
+			s->row_out[2].v3 = s->row_out[2].fac*s->row_out[2].v2 - v1 + famp;
+			v1 = s->col_out[2].v2;
+			s->col_out[2].v2 = s->col_out[2].v3;
+			s->col_out[2].v3 = s->col_out[2].fac*s->col_out[2].v2 - v1 + famp;
+			v1 = s->row_out[3].v2;
+			s->row_out[3].v2 = s->row_out[3].v3;
+			s->row_out[3].v3 = s->row_out[3].fac*s->row_out[3].v2 - v1 + famp;
+			v1 = s->col_out[3].v2;
+			s->col_out[3].v2 = s->col_out[3].v3;
+			s->col_out[3].v3 = s->col_out[3].fac*s->col_out[3].v2 - v1 + famp;
 #ifdef FAX_DETECT
 			/* Update fax tone */
-            v1 = s->fax_tone.v2;
-            s->fax_tone.v2 = s->fax_tone.v3;
-            s->fax_tone.v3 = s->fax_tone.fac*s->fax_tone.v2 - v1 + famp;
+			v1 = s->fax_tone.v2;
+			s->fax_tone.v2 = s->fax_tone.v3;
+			s->fax_tone.v3 = s->fax_tone.fac*s->fax_tone.v2 - v1 + famp;
 #endif /* FAX_DETECT */
 #ifdef OLD_DSP_ROUTINES
-            v1 = s->col_out2nd[0].v2;
-            s->col_out2nd[0].v2 = s->col_out2nd[0].v3;
-            s->col_out2nd[0].v3 = s->col_out2nd[0].fac*s->col_out2nd[0].v2 - v1 + famp;
-        
-            v1 = s->row_out2nd[0].v2;
-            s->row_out2nd[0].v2 = s->row_out2nd[0].v3;
-            s->row_out2nd[0].v3 = s->row_out2nd[0].fac*s->row_out2nd[0].v2 - v1 + famp;
-        
-            v1 = s->col_out2nd[1].v2;
-            s->col_out2nd[1].v2 = s->col_out2nd[1].v3;
-            s->col_out2nd[1].v3 = s->col_out2nd[1].fac*s->col_out2nd[1].v2 - v1 + famp;
-    
-            v1 = s->row_out2nd[1].v2;
-            s->row_out2nd[1].v2 = s->row_out2nd[1].v3;
-            s->row_out2nd[1].v3 = s->row_out2nd[1].fac*s->row_out2nd[1].v2 - v1 + famp;
-        
-            v1 = s->col_out2nd[2].v2;
-            s->col_out2nd[2].v2 = s->col_out2nd[2].v3;
-            s->col_out2nd[2].v3 = s->col_out2nd[2].fac*s->col_out2nd[2].v2 - v1 + famp;
-        
-            v1 = s->row_out2nd[2].v2;
-            s->row_out2nd[2].v2 = s->row_out2nd[2].v3;
-            s->row_out2nd[2].v3 = s->row_out2nd[2].fac*s->row_out2nd[2].v2 - v1 + famp;
-        
-            v1 = s->col_out2nd[3].v2;
-            s->col_out2nd[3].v2 = s->col_out2nd[3].v3;
-            s->col_out2nd[3].v3 = s->col_out2nd[3].fac*s->col_out2nd[3].v2 - v1 + famp;
-        
-            v1 = s->row_out2nd[3].v2;
-            s->row_out2nd[3].v2 = s->row_out2nd[3].v3;
-            s->row_out2nd[3].v3 = s->row_out2nd[3].fac*s->row_out2nd[3].v2 - v1 + famp;
-
-
+			v1 = s->col_out2nd[0].v2;
+			s->col_out2nd[0].v2 = s->col_out2nd[0].v3;
+			s->col_out2nd[0].v3 = s->col_out2nd[0].fac*s->col_out2nd[0].v2 - v1 + famp;
+			v1 = s->row_out2nd[0].v2;
+			s->row_out2nd[0].v2 = s->row_out2nd[0].v3;
+			s->row_out2nd[0].v3 = s->row_out2nd[0].fac*s->row_out2nd[0].v2 - v1 + famp;
+			v1 = s->col_out2nd[1].v2;
+			s->col_out2nd[1].v2 = s->col_out2nd[1].v3;
+			s->col_out2nd[1].v3 = s->col_out2nd[1].fac*s->col_out2nd[1].v2 - v1 + famp;
+			v1 = s->row_out2nd[1].v2;
+			s->row_out2nd[1].v2 = s->row_out2nd[1].v3;
+			s->row_out2nd[1].v3 = s->row_out2nd[1].fac*s->row_out2nd[1].v2 - v1 + famp;
+			v1 = s->col_out2nd[2].v2;
+			s->col_out2nd[2].v2 = s->col_out2nd[2].v3;
+			s->col_out2nd[2].v3 = s->col_out2nd[2].fac*s->col_out2nd[2].v2 - v1 + famp;
+			v1 = s->row_out2nd[2].v2;
+			s->row_out2nd[2].v2 = s->row_out2nd[2].v3;
+			s->row_out2nd[2].v3 = s->row_out2nd[2].fac*s->row_out2nd[2].v2 - v1 + famp;
+			v1 = s->col_out2nd[3].v2;
+			s->col_out2nd[3].v2 = s->col_out2nd[3].v3;
+			s->col_out2nd[3].v3 = s->col_out2nd[3].fac*s->col_out2nd[3].v2 - v1 + famp;
+			v1 = s->row_out2nd[3].v2;
+			s->row_out2nd[3].v2 = s->row_out2nd[3].v3;
+			s->row_out2nd[3].v3 = s->row_out2nd[3].fac*s->row_out2nd[3].v2 - v1 + famp;
 #ifdef FAX_DETECT
-		/* Update fax tone */            
-	    v1 = s->fax_tone.v2;
-            s->fax_tone2nd.v2 = s->fax_tone2nd.v3;
-            s->fax_tone2nd.v3 = s->fax_tone2nd.fac*s->fax_tone2nd.v2 - v1 + famp;
+			/* Update fax tone */            
+			v1 = s->fax_tone.v2;
+			s->fax_tone2nd.v2 = s->fax_tone2nd.v3;
+			s->fax_tone2nd.v3 = s->fax_tone2nd.fac*s->fax_tone2nd.v2 - v1 + famp;
 #endif /* FAX_DETECT */
 #endif
-        }
+		}
 #endif
-        s->current_sample += (limit - sample);
-        if (s->current_sample < 102) {
+		s->current_sample += (limit - sample);
+		if (s->current_sample < 102) {
 			if (hit && !((digitmode & DSP_DIGITMODE_NOQUELCH))) {
 				/* If we had a hit last time, go ahead and clear this out since likely it
 				   will be another hit */
@@ -527,176 +507,150 @@ static int dtmf_detect (dtmf_detect_state_t *s,
 					amp[i] = 0;
 				*writeback = 1;
 			}
-            continue;
+			continue;
 		}
-
 #ifdef FAX_DETECT
 		/* Detect the fax energy, too */
 		fax_energy = goertzel_result(&s->fax_tone);
 #endif
-		
-        /* We are at the end of a DTMF detection block */
-        /* Find the peak row and the peak column */
-        row_energy[0] = goertzel_result (&s->row_out[0]);
-        col_energy[0] = goertzel_result (&s->col_out[0]);
+		/* We are at the end of a DTMF detection block */
+		/* Find the peak row and the peak column */
+		row_energy[0] = goertzel_result (&s->row_out[0]);
+		col_energy[0] = goertzel_result (&s->col_out[0]);
 
-	for (best_row = best_col = 0, i = 1;  i < 4;  i++)
-	{
-    	    row_energy[i] = goertzel_result (&s->row_out[i]);
-            if (row_energy[i] > row_energy[best_row])
-                best_row = i;
-    	    col_energy[i] = goertzel_result (&s->col_out[i]);
-            if (col_energy[i] > col_energy[best_col])
-                best_col = i;
-    	}
-        hit = 0;
-        /* Basic signal level test and the twist test */
-        if (row_energy[best_row] >= DTMF_THRESHOLD
-	    &&
-	    col_energy[best_col] >= DTMF_THRESHOLD
-            &&
-            col_energy[best_col] < row_energy[best_row]*DTMF_REVERSE_TWIST
-            &&
-            col_energy[best_col]*DTMF_NORMAL_TWIST > row_energy[best_row])
-        {
-            /* Relative peak test */
-            for (i = 0;  i < 4;  i++)
-            {
-                if ((i != best_col  &&  col_energy[i]*DTMF_RELATIVE_PEAK_COL > col_energy[best_col])
-                    ||
-                    (i != best_row  &&  row_energy[i]*DTMF_RELATIVE_PEAK_ROW > row_energy[best_row]))
-                {
-                    break;
-                }
-            }
+		for (best_row = best_col = 0, i = 1;  i < 4;  i++) {
+			row_energy[i] = goertzel_result (&s->row_out[i]);
+			if (row_energy[i] > row_energy[best_row])
+				best_row = i;
+			col_energy[i] = goertzel_result (&s->col_out[i]);
+			if (col_energy[i] > col_energy[best_col])
+				best_col = i;
+		}
+		hit = 0;
+		/* Basic signal level test and the twist test */
+		if (row_energy[best_row] >= DTMF_THRESHOLD && 
+		    col_energy[best_col] >= DTMF_THRESHOLD &&
+		    col_energy[best_col] < row_energy[best_row]*DTMF_REVERSE_TWIST &&
+		    col_energy[best_col]*DTMF_NORMAL_TWIST > row_energy[best_row]) {
+			/* Relative peak test */
+			for (i = 0;  i < 4;  i++) {
+				if ((i != best_col &&
+				    col_energy[i]*DTMF_RELATIVE_PEAK_COL > col_energy[best_col]) ||
+				    (i != best_row 
+				     && row_energy[i]*DTMF_RELATIVE_PEAK_ROW > row_energy[best_row])) {
+					break;
+				}
+			}
 #ifdef OLD_DSP_ROUTINES
-            /* ... and second harmonic test */
-            if (i >= 4
-	        &&
-		(row_energy[best_row] + col_energy[best_col]) > 42.0*s->energy
-                &&
-                goertzel_result (&s->col_out2nd[best_col])*DTMF_2ND_HARMONIC_COL < col_energy[best_col]
-                &&
-                goertzel_result (&s->row_out2nd[best_row])*DTMF_2ND_HARMONIC_ROW < row_energy[best_row])
+			/* ... and second harmonic test */
+			if (i >= 4 && 
+			    (row_energy[best_row] + col_energy[best_col]) > 42.0*s->energy &&
+                	    goertzel_result(&s->col_out2nd[best_col])*DTMF_2ND_HARMONIC_COL < col_energy[best_col]
+			    && goertzel_result(&s->row_out2nd[best_row])*DTMF_2ND_HARMONIC_ROW < row_energy[best_row]) {
 #else
-            /* ... and fraction of total energy test */
-            if (i >= 4
-                &&
-                (row_energy[best_row] + col_energy[best_col]) > DTMF_TO_TOTAL_ENERGY*s->energy)
+			/* ... and fraction of total energy test */
+			if (i >= 4 &&
+			    (row_energy[best_row] + col_energy[best_col]) > DTMF_TO_TOTAL_ENERGY*s->energy) {
 #endif
-            {
 				/* Got a hit */
-                hit = dtmf_positions[(best_row << 2) + best_col];
+				hit = dtmf_positions[(best_row << 2) + best_col];
 				if (!(digitmode & DSP_DIGITMODE_NOQUELCH)) {
 					/* Zero out frame data if this is part DTMF */
 					for (i=sample;i<limit;i++) 
 						amp[i] = 0;
 					*writeback = 1;
 				}
-                /* Look for two successive similar results */
-                /* The logic in the next test is:
-                   We need two successive identical clean detects, with
-		   something different preceeding it. This can work with
-		   back to back differing digits. More importantly, it
-		   can work with nasty phones that give a very wobbly start
-		   to a digit. */
-		   
+				/* Look for two successive similar results */
+				/* The logic in the next test is:
+				   We need two successive identical clean detects, with
+				   something different preceeding it. This can work with
+				   back to back differing digits. More importantly, it
+				   can work with nasty phones that give a very wobbly start
+				   to a digit */
 #ifdef OLD_DSP_ROUTINES
-                if (hit == s->hit3  &&  s->hit3 != s->hit2)
-                {
-				    s->mhit = hit;
-                    s->digit_hits[(best_row << 2) + best_col]++;
-                    s->detected_digits++;
-                    if (s->current_digits < MAX_DTMF_DIGITS)
-                    {
-                        s->digits[s->current_digits++] = hit;
-                        s->digits[s->current_digits] = '\0';
-                    }
-                    else
-                    {
-                        s->lost_digits++;
-                    }
-                }
+				if (hit == s->hit3  &&  s->hit3 != s->hit2) {
+					s->mhit = hit;
+					s->digit_hits[(best_row << 2) + best_col]++;
+					s->detected_digits++;
+					if (s->current_digits < MAX_DTMF_DIGITS) {
+						s->digits[s->current_digits++] = hit;
+						s->digits[s->current_digits] = '\0';
+					} else {
+						s->lost_digits++;
+					}
+				}
 #else				
-                if (hit == s->hits[2]  &&  hit != s->hits[1]  &&  hit != s->hits[0])
-                {
-				    s->mhit = hit;
-                    s->digit_hits[(best_row << 2) + best_col]++;
-                    s->detected_digits++;
-                    if (s->current_digits < MAX_DTMF_DIGITS)
-                    {
-                        s->digits[s->current_digits++] = hit;
-                        s->digits[s->current_digits] = '\0';
-                    }
-                    else
-                    {
-                        s->lost_digits++;
-                    }
-                }
+				if (hit == s->hits[2]  &&  hit != s->hits[1]  &&  hit != s->hits[0]) {
+					s->mhit = hit;
+					s->digit_hits[(best_row << 2) + best_col]++;
+					s->detected_digits++;
+					if (s->current_digits < MAX_DTMF_DIGITS) {
+						s->digits[s->current_digits++] = hit;
+						s->digits[s->current_digits] = '\0';
+					} else {
+						s->lost_digits++;
+					}
+				}
 #endif
-            }
-        } 
+			}
+		} 
 #ifdef FAX_DETECT
-		if (!hit && (fax_energy >= FAX_THRESHOLD) && (fax_energy >= DTMF_TO_TOTAL_ENERGY*s->energy) && (faxdetect)) {
+		if (!hit && (fax_energy >= FAX_THRESHOLD) && 
+			(fax_energy >= DTMF_TO_TOTAL_ENERGY*s->energy) &&
+			(faxdetect)) {
 #if 0
-				printf("Fax energy/Second Harmonic: %f\n", fax_energy);
+			printf("Fax energy/Second Harmonic: %f\n", fax_energy);
 #endif					
-					/* XXX Probably need better checking than just this the energy XXX */
-				hit = 'f';
-				s->fax_hits++;
-		}
-		else {
+			/* XXX Probably need better checking than just this the energy XXX */
+			hit = 'f';
+			s->fax_hits++;
+		} else {
 			if (s->fax_hits > 5) {
-				 hit = 'f';
-				 s->mhit = 'f';
-	             s->detected_digits++;
-	             if (s->current_digits < MAX_DTMF_DIGITS)
-	             {
-	                  s->digits[s->current_digits++] = hit;
-	                  s->digits[s->current_digits] = '\0';
-	             }
-	             else
-	             {
-	                   s->lost_digits++;
-	             }
+				hit = 'f';
+				s->mhit = 'f';
+				s->detected_digits++;
+				if (s->current_digits < MAX_DTMF_DIGITS) {
+					s->digits[s->current_digits++] = hit;
+					s->digits[s->current_digits] = '\0';
+				} else {
+					s->lost_digits++;
+				}
 			}
 			s->fax_hits = 0;
 		}
 #endif /* FAX_DETECT */
 #ifdef OLD_DSP_ROUTINES
-        s->hit1 = s->hit2;
-        s->hit2 = s->hit3;
-        s->hit3 = hit;
+		s->hit1 = s->hit2;
+		s->hit2 = s->hit3;
+		s->hit3 = hit;
 #else
-        s->hits[0] = s->hits[1];
-        s->hits[1] = s->hits[2];
-        s->hits[2] = hit;
+		s->hits[0] = s->hits[1];
+		s->hits[1] = s->hits[2];
+		s->hits[2] = hit;
 #endif		
-        /* Reinitialise the detector for the next block */
-        for (i = 0;  i < 4;  i++)
-        {
-       	    goertzel_reset(&s->row_out[i]);
-            goertzel_reset(&s->col_out[i]);
+		/* Reinitialise the detector for the next block */
+		for (i = 0;  i < 4;  i++) {
+			goertzel_reset(&s->row_out[i]);
+			goertzel_reset(&s->col_out[i]);
 #ifdef OLD_DSP_ROUTINES
-    	    goertzel_reset(&s->row_out2nd[i]);
-    	    goertzel_reset(&s->col_out2nd[i]);
+			goertzel_reset(&s->row_out2nd[i]);
+			goertzel_reset(&s->col_out2nd[i]);
 #endif			
-        }
+		}
 #ifdef FAX_DETECT
-    	goertzel_reset (&s->fax_tone);
+		goertzel_reset (&s->fax_tone);
 #ifdef OLD_DSP_ROUTINES
-    	goertzel_reset (&s->fax_tone2nd);
+		goertzel_reset (&s->fax_tone2nd);
 #endif			
 #endif
 		s->energy = 0.0;
-        s->current_sample = 0;
-    }
-    if ((!s->mhit) || (s->mhit != hit))
-    {
-	s->mhit = 0;
-	return(0);
-    }
-    return (hit);
+		s->current_sample = 0;
+	}
+	if ((!s->mhit) || (s->mhit != hit)) {
+		s->mhit = 0;
+		return(0);
+	}
+	return (hit);
 }
 
 /* MF goertzel size */
@@ -706,114 +660,96 @@ static int dtmf_detect (dtmf_detect_state_t *s,
 #define MF_GSIZE 120
 #endif
 
-static int mf_detect (mf_detect_state_t *s,
-                 int16_t amp[],
-                 int samples, 
-		 int digitmode, int *writeback)
+static int mf_detect (mf_detect_state_t *s, int16_t amp[],
+                 int samples, int digitmode, int *writeback)
 {
-
 #ifdef OLD_DSP_ROUTINES
-    float tone_energy[6];
-    int best1;
-    int best2;
+	float tone_energy[6];
+	int best1;
+	int best2;
 	float max;
 	int sofarsogood;
 #else
-    float energy[6];
-    int best;
-    int second_best;
+	float energy[6];
+	int best;
+	int second_best;
 #endif
-    float famp;
-    float v1;
-    int i;
-    int j;
-    int sample;
-    int hit;
-    int limit;
+	float famp;
+	float v1;
+	int i;
+	int j;
+	int sample;
+	int hit;
+	int limit;
 
-    hit = 0;
-    for (sample = 0;  sample < samples;  sample = limit)
-    {
-        /* 80 is optimised to meet the MF specs. */
-        if ((samples - sample) >= (MF_GSIZE - s->current_sample))
-            limit = sample + (MF_GSIZE - s->current_sample);
-        else
-            limit = samples;
+	hit = 0;
+	for (sample = 0;  sample < samples;  sample = limit) {
+		/* 80 is optimised to meet the MF specs. */
+		if ((samples - sample) >= (MF_GSIZE - s->current_sample))
+			limit = sample + (MF_GSIZE - s->current_sample);
+		else
+			limit = samples;
 #if defined(USE_3DNOW)
-        _dtmf_goertzel_update (s->row_out, amp + sample, limit - sample);
-        _dtmf_goertzel_update (s->col_out, amp + sample, limit - sample);
+		_dtmf_goertzel_update (s->row_out, amp + sample, limit - sample);
+		_dtmf_goertzel_update (s->col_out, amp + sample, limit - sample);
 #ifdef OLD_DSP_ROUTINES
-        _dtmf_goertzel_update (s->row_out2nd, amp + sample, limit2 - sample);
-        _dtmf_goertzel_update (s->col_out2nd, amp + sample, limit2 - sample);
+		_dtmf_goertzel_update (s->row_out2nd, amp + sample, limit2 - sample);
+		_dtmf_goertzel_update (s->col_out2nd, amp + sample, limit2 - sample);
 #endif
 		/* XXX Need to fax detect for 3dnow too XXX */
 		#warning "Fax Support Broken"
 #else
-        /* The following unrolled loop takes only 35% (rough estimate) of the 
-           time of a rolled loop on the machine on which it was developed */
-        for (j = sample;  j < limit;  j++)
-        {
-            famp = amp[j];
-	    
+		/* The following unrolled loop takes only 35% (rough estimate) of the 
+		   time of a rolled loop on the machine on which it was developed */
+		for (j = sample;  j < limit;  j++) {
+			famp = amp[j];
 #ifdef OLD_DSP_ROUTINES
-	    s->energy += famp*famp;
+			s->energy += famp*famp;
 #endif
-	    
-            /* With GCC 2.95, the following unrolled code seems to take about 35%
-               (rough estimate) as long as a neat little 0-3 loop */
-            v1 = s->tone_out[0].v2;
-            s->tone_out[0].v2 = s->tone_out[0].v3;
-            s->tone_out[0].v3 = s->tone_out[0].fac*s->tone_out[0].v2 - v1 + famp;
-
-            v1 = s->tone_out[1].v2;
-            s->tone_out[1].v2 = s->tone_out[1].v3;
-            s->tone_out[1].v3 = s->tone_out[1].fac*s->tone_out[1].v2 - v1 + famp;
-    
-            v1 = s->tone_out[2].v2;
-            s->tone_out[2].v2 = s->tone_out[2].v3;
-            s->tone_out[2].v3 = s->tone_out[2].fac*s->tone_out[2].v2 - v1 + famp;
-    
-            v1 = s->tone_out[3].v2;
-            s->tone_out[3].v2 = s->tone_out[3].v3;
-            s->tone_out[3].v3 = s->tone_out[3].fac*s->tone_out[3].v2 - v1 + famp;
-
-            v1 = s->tone_out[4].v2;
-            s->tone_out[4].v2 = s->tone_out[4].v3;
-            s->tone_out[4].v3 = s->tone_out[4].fac*s->tone_out[4].v2 - v1 + famp;
-
-            v1 = s->tone_out[5].v2;
-            s->tone_out[5].v2 = s->tone_out[5].v3;
-            s->tone_out[5].v3 = s->tone_out[5].fac*s->tone_out[5].v2 - v1 + famp;
-
+			/* With GCC 2.95, the following unrolled code seems to take about 35%
+			   (rough estimate) as long as a neat little 0-3 loop */
+			v1 = s->tone_out[0].v2;
+			s->tone_out[0].v2 = s->tone_out[0].v3;
+			s->tone_out[0].v3 = s->tone_out[0].fac*s->tone_out[0].v2 - v1 + famp;
+			v1 = s->tone_out[1].v2;
+			s->tone_out[1].v2 = s->tone_out[1].v3;
+			s->tone_out[1].v3 = s->tone_out[1].fac*s->tone_out[1].v2 - v1 + famp;
+			v1 = s->tone_out[2].v2;
+			s->tone_out[2].v2 = s->tone_out[2].v3;
+			s->tone_out[2].v3 = s->tone_out[2].fac*s->tone_out[2].v2 - v1 + famp;
+			v1 = s->tone_out[3].v2;
+			s->tone_out[3].v2 = s->tone_out[3].v3;
+			s->tone_out[3].v3 = s->tone_out[3].fac*s->tone_out[3].v2 - v1 + famp;
+			v1 = s->tone_out[4].v2;
+			s->tone_out[4].v2 = s->tone_out[4].v3;
+			s->tone_out[4].v3 = s->tone_out[4].fac*s->tone_out[4].v2 - v1 + famp;
+			v1 = s->tone_out[5].v2;
+			s->tone_out[5].v2 = s->tone_out[5].v3;
+			s->tone_out[5].v3 = s->tone_out[5].fac*s->tone_out[5].v2 - v1 + famp;
 #ifdef OLD_DSP_ROUTINES
-            v1 = s->tone_out2nd[0].v2;
-            s->tone_out2nd[0].v2 = s->tone_out2nd[0].v3;
-            s->tone_out2nd[0].v3 = s->tone_out2nd[0].fac*s->tone_out2nd[0].v2 - v1 + famp;
-        
-            v1 = s->tone_out2nd[1].v2;
-            s->tone_out2nd[1].v2 = s->tone_out2nd[1].v3;
-            s->tone_out2nd[1].v3 = s->tone_out2nd[1].fac*s->tone_out2nd[1].v2 - v1 + famp;
-        
-            v1 = s->tone_out2nd[2].v2;
-            s->tone_out2nd[2].v2 = s->tone_out2nd[2].v3;
-            s->tone_out2nd[2].v3 = s->tone_out2nd[2].fac*s->tone_out2nd[2].v2 - v1 + famp;
-        
-            v1 = s->tone_out2nd[3].v2;
-            s->tone_out2nd[3].v2 = s->tone_out2nd[3].v3;
-            s->tone_out2nd[3].v3 = s->tone_out2nd[3].fac*s->tone_out2nd[3].v2 - v1 + famp;
-
-            v1 = s->tone_out2nd[4].v2;
-            s->tone_out2nd[4].v2 = s->tone_out2nd[4].v3;
-            s->tone_out2nd[4].v3 = s->tone_out2nd[4].fac*s->tone_out2nd[2].v2 - v1 + famp;
-        
-            v1 = s->tone_out2nd[3].v2;
-            s->tone_out2nd[5].v2 = s->tone_out2nd[6].v3;
-            s->tone_out2nd[5].v3 = s->tone_out2nd[6].fac*s->tone_out2nd[3].v2 - v1 + famp;
+			v1 = s->tone_out2nd[0].v2;
+			s->tone_out2nd[0].v2 = s->tone_out2nd[0].v3;
+			s->tone_out2nd[0].v3 = s->tone_out2nd[0].fac*s->tone_out2nd[0].v2 - v1 + famp;
+			v1 = s->tone_out2nd[1].v2;
+			s->tone_out2nd[1].v2 = s->tone_out2nd[1].v3;
+			s->tone_out2nd[1].v3 = s->tone_out2nd[1].fac*s->tone_out2nd[1].v2 - v1 + famp;
+			v1 = s->tone_out2nd[2].v2;
+			s->tone_out2nd[2].v2 = s->tone_out2nd[2].v3;
+			s->tone_out2nd[2].v3 = s->tone_out2nd[2].fac*s->tone_out2nd[2].v2 - v1 + famp;
+			v1 = s->tone_out2nd[3].v2;
+			s->tone_out2nd[3].v2 = s->tone_out2nd[3].v3;
+			s->tone_out2nd[3].v3 = s->tone_out2nd[3].fac*s->tone_out2nd[3].v2 - v1 + famp;
+			v1 = s->tone_out2nd[4].v2;
+			s->tone_out2nd[4].v2 = s->tone_out2nd[4].v3;
+			s->tone_out2nd[4].v3 = s->tone_out2nd[4].fac*s->tone_out2nd[2].v2 - v1 + famp;
+			v1 = s->tone_out2nd[3].v2;
+			s->tone_out2nd[5].v2 = s->tone_out2nd[6].v3;
+			s->tone_out2nd[5].v3 = s->tone_out2nd[6].fac*s->tone_out2nd[3].v2 - v1 + famp;
 #endif
-        }
+		}
 #endif
-        s->current_sample += (limit - sample);
-        if (s->current_sample < MF_GSIZE) {
+		s->current_sample += (limit - sample);
+		if (s->current_sample < MF_GSIZE) {
 			if (hit && !((digitmode & DSP_DIGITMODE_NOQUELCH))) {
 				/* If we had a hit last time, go ahead and clear this out since likely it
 				   will be another hit */
@@ -821,10 +757,8 @@ static int mf_detect (mf_detect_state_t *s,
 					amp[i] = 0;
 				*writeback = 1;
 			}
-            continue;
+			continue;
 		}
-
-
 #ifdef OLD_DSP_ROUTINES		
 		/* We're at the end of an MF detection block.  Go ahead and calculate
 		   all the energies. */
@@ -857,14 +791,17 @@ static int mf_detect (mf_detect_state_t *s,
 				best2 = i;
 			}
 		}
-				
-        hit = 0;
-		if (best1 != best2) sofarsogood=1;
-		else sofarsogood=0;
+		hit = 0;
+		if (best1 != best2) 
+			sofarsogood=1;
+		else 
+			sofarsogood=0;
 		/* Check for relative energies */
 		for (i=0;i<6;i++) {
-			if (i == best1) continue;
-			if (i == best2) continue;
+			if (i == best1) 
+				continue;
+			if (i == best2) 
+				continue;
 			if (tone_energy[best1] < tone_energy[i] * MF_RELATIVE_PEAK) {
 				sofarsogood = 0;
 				break;
@@ -903,140 +840,113 @@ static int mf_detect (mf_detect_state_t *s,
 			}
 		}
 		
-        s->hit1 = s->hit2;
-        s->hit2 = s->hit3;
-        s->hit3 = hit;
-        /* Reinitialise the detector for the next block */
-        for (i = 0;  i < 6;  i++)
-        {
-       	    goertzel_reset(&s->tone_out[i]);
-            goertzel_reset(&s->tone_out2nd[i]);
-        }
+		s->hit1 = s->hit2;
+		s->hit2 = s->hit3;
+		s->hit3 = hit;
+		/* Reinitialise the detector for the next block */
+		for (i = 0;  i < 6;  i++) {
+			goertzel_reset(&s->tone_out[i]);
+			goertzel_reset(&s->tone_out2nd[i]);
+		}
 		s->energy = 0.0;
-        s->current_sample = 0;
-    }
+		s->current_sample = 0;
+	}
 #else
 		/* We're at the end of an MF detection block.  */
-        /* Find the two highest energies. The spec says to look for
-           two tones and two tones only. Taking this literally -ie
-           only two tones pass the minimum threshold - doesn't work
-           well. The sinc function mess, due to rectangular windowing
-           ensure that! Find the two highest energies and ensure they
-           are considerably stronger than any of the others. */
-        energy[0] = goertzel_result(&s->tone_out[0]);
-        energy[1] = goertzel_result(&s->tone_out[1]);
-        if (energy[0] > energy[1])
-        {
-            best = 0;
-            second_best = 1;
-        }
-        else
-        {
-            best = 1;
-            second_best = 0;
-        }
-        /*endif*/
-        for (i = 2;  i < 6;  i++)
-        {
-            energy[i] = goertzel_result(&s->tone_out[i]);
-            if (energy[i] >= energy[best])
-            {
-                second_best = best;
-                best = i;
-            }
-            else if (energy[i] >= energy[second_best])
-            {
-                second_best = i;
-            }
-        }
-        /* Basic signal level and twist tests */
-        hit = 0;
-        if (energy[best] >= BELL_MF_THRESHOLD
-            &&
-            energy[second_best] >= BELL_MF_THRESHOLD
-            &&
-            energy[best] < energy[second_best]*BELL_MF_TWIST
-            &&
-            energy[best]*BELL_MF_TWIST > energy[second_best])
-        {
-            /* Relative peak test */
-            hit = -1;
-            for (i = 0;  i < 6;  i++)
-            {
-                if (i != best  &&  i != second_best)
-                {
-                    if (energy[i]*BELL_MF_RELATIVE_PEAK >= energy[second_best])
-                    {
-                        /* The best two are not clearly the best */
-                        hit = 0;
-                        break;
-                    }
-                }
-            }
-        }
-        if (hit)
-        {
-            /* Get the values into ascending order */
-            if (second_best < best)
-            {
-                i = best;
-                best = second_best;
-                second_best = i;
-            }
-            best = best*5 + second_best - 1;
-            hit = bell_mf_positions[best];
-            /* Look for two successive similar results */
-            /* The logic in the next test is:
-               For KP we need 4 successive identical clean detects, with
-               two blocks of something different preceeding it. For anything
-               else we need two successive identical clean detects, with
-               two blocks of something different preceeding it. */
-            if (hit == s->hits[4]
-                &&
-                hit == s->hits[3]
-                &&
-                   ((hit != '*'  &&  hit != s->hits[2]  &&  hit != s->hits[1])
-                    ||
-                    (hit == '*'  &&  hit == s->hits[2]  &&  hit != s->hits[1]  &&  hit != s->hits[0])))
-            {
-                s->detected_digits++;
-                if (s->current_digits < MAX_DTMF_DIGITS)
-                {
-                    s->digits[s->current_digits++] = hit;
-                    s->digits[s->current_digits] = '\0';
-                }
-                else
-                {
-                    s->lost_digits++;
-                }
-            }
-        }
-        else
-        {
-            hit = 0;
-        }
-        s->hits[0] = s->hits[1];
-        s->hits[1] = s->hits[2];
-        s->hits[2] = s->hits[3];
-        s->hits[3] = s->hits[4];
-        s->hits[4] = hit;
-        /* Reinitialise the detector for the next block */
-        for (i = 0;  i < 6;  i++)
-       	    goertzel_reset(&s->tone_out[i]);
-        s->current_sample = 0;
-    }
+		/* Find the two highest energies. The spec says to look for
+		   two tones and two tones only. Taking this literally -ie
+		   only two tones pass the minimum threshold - doesn't work
+		   well. The sinc function mess, due to rectangular windowing
+		   ensure that! Find the two highest energies and ensure they
+		   are considerably stronger than any of the others. */
+		energy[0] = goertzel_result(&s->tone_out[0]);
+		energy[1] = goertzel_result(&s->tone_out[1]);
+		if (energy[0] > energy[1]) {
+			best = 0;
+			second_best = 1;
+		} else {
+			best = 1;
+			second_best = 0;
+		}
+		/*endif*/
+		for (i=2;i<6;i++) {
+			energy[i] = goertzel_result(&s->tone_out[i]);
+			if (energy[i] >= energy[best]) {
+				second_best = best;
+				best = i;
+			} else if (energy[i] >= energy[second_best]) {
+				second_best = i;
+			}
+		}
+		/* Basic signal level and twist tests */
+		hit = 0;
+		if (energy[best] >= BELL_MF_THRESHOLD && energy[second_best] >= BELL_MF_THRESHOLD
+	            && energy[best] < energy[second_best]*BELL_MF_TWIST
+	            && energy[best]*BELL_MF_TWIST > energy[second_best]) {
+			/* Relative peak test */
+			hit = -1;
+			for (i=0;i<6;i++) {
+				if (i != best && i != second_best) {
+					if (energy[i]*BELL_MF_RELATIVE_PEAK >= energy[second_best]) {
+						/* The best two are not clearly the best */
+						hit = 0;
+						break;
+					}
+				}
+			}
+		}
+		if (hit) {
+			/* Get the values into ascending order */
+			if (second_best < best) {
+				i = best;
+				best = second_best;
+				second_best = i;
+			}
+			best = best*5 + second_best - 1;
+			hit = bell_mf_positions[best];
+			/* Look for two successive similar results */
+			/* The logic in the next test is:
+			   For KP we need 4 successive identical clean detects, with
+			   two blocks of something different preceeding it. For anything
+			   else we need two successive identical clean detects, with
+			   two blocks of something different preceeding it. */
+			if (hit == s->hits[4] && hit == s->hits[3] &&
+			   ((hit != '*' && hit != s->hits[2] && hit != s->hits[1])||
+			    (hit == '*' && hit == s->hits[2] && hit != s->hits[1] && 
+			    hit != s->hits[0]))) {
+				s->detected_digits++;
+				if (s->current_digits < MAX_DTMF_DIGITS) {
+					s->digits[s->current_digits++] = hit;
+					s->digits[s->current_digits] = '\0';
+				} else {
+					s->lost_digits++;
+				}
+			}
+		} else {
+			hit = 0;
+		}
+		s->hits[0] = s->hits[1];
+		s->hits[1] = s->hits[2];
+		s->hits[2] = s->hits[3];
+		s->hits[3] = s->hits[4];
+		s->hits[4] = hit;
+		/* Reinitialise the detector for the next block */
+		for (i = 0;  i < 6;  i++)
+			goertzel_reset(&s->tone_out[i]);
+		s->current_sample = 0;
+	}
 #endif	
-    if ((!s->mhit) || (s->mhit != hit))
-    {
+	if ((!s->mhit) || (s->mhit != hit)) {
 		s->mhit = 0;
 		return(0);
-    }
-    return (hit);
+	}
+	return (hit);
 }
 
 static int __ast_dsp_digitdetect(struct ast_dsp *dsp, short *s, int len, int *writeback)
 {
 	int res;
+	
 	if (dsp->digitmode & DSP_DIGITMODE_MF)
 		res = mf_detect(&dsp->td.mf, s, len, dsp->digitmode & DSP_DIGITMODE_RELAXDTMF, writeback);
 	else
@@ -1049,6 +959,7 @@ int ast_dsp_digitdetect(struct ast_dsp *dsp, struct ast_frame *inf)
 	short *s;
 	int len;
 	int ign=0;
+
 	if (inf->frametype != AST_FRAME_VOICE) {
 		ast_log(LOG_WARNING, "Can't check call progress of non-voice frames\n");
 		return 0;
@@ -1082,32 +993,28 @@ static inline int pair_there(float p1, float p2, float i1, float i2, float e)
 	return 1;
 }
 
-int ast_dsp_getdigits (struct ast_dsp *dsp,
-              char *buf,
-              int max)
+int ast_dsp_getdigits (struct ast_dsp *dsp, char *buf, int max)
 {
 	if (dsp->digitmode & DSP_DIGITMODE_MF) {
-	    if (max > dsp->td.mf.current_digits)
-	        max = dsp->td.mf.current_digits;
-	    if (max > 0)
-	    {
-	        memcpy (buf, dsp->td.mf.digits, max);
-	        memmove (dsp->td.mf.digits, dsp->td.mf.digits + max, dsp->td.mf.current_digits - max);
-	        dsp->td.mf.current_digits -= max;
-	    }
-	    buf[max] = '\0';
-	    return  max;
+		if (max > dsp->td.mf.current_digits)
+			max = dsp->td.mf.current_digits;
+		if (max > 0) {
+			memcpy(buf, dsp->td.mf.digits, max);
+			memmove(dsp->td.mf.digits, dsp->td.mf.digits + max, dsp->td.mf.current_digits - max);
+			dsp->td.mf.current_digits -= max;
+		}
+		buf[max] = '\0';
+		return  max;
 	} else {
-	    if (max > dsp->td.dtmf.current_digits)
-	        max = dsp->td.dtmf.current_digits;
-	    if (max > 0)
-	    {
-	        memcpy (buf, dsp->td.dtmf.digits, max);
-	        memmove (dsp->td.dtmf.digits, dsp->td.dtmf.digits + max, dsp->td.dtmf.current_digits - max);
-	        dsp->td.dtmf.current_digits -= max;
-	    }
-	    buf[max] = '\0';
-	    return  max;
+		if (max > dsp->td.dtmf.current_digits)
+			max = dsp->td.dtmf.current_digits;
+		if (max > 0) {
+			memcpy (buf, dsp->td.dtmf.digits, max);
+			memmove (dsp->td.dtmf.digits, dsp->td.dtmf.digits + max, dsp->td.dtmf.current_digits - max);
+			dsp->td.dtmf.current_digits -= max;
+		}
+		buf[max] = '\0';
+		return  max;
 	}
 }
 
@@ -1116,15 +1023,16 @@ static int __ast_dsp_call_progress(struct ast_dsp *dsp, short *s, int len)
 	int x;
 	int y;
 	int pass;
-	int newstate = TONE_STATE_SILENCE;
+	int newstate = DSP_TONE_STATE_SILENCE;
 	int res = 0;
+	int thresh = (dsp->progmode == PROG_MODE_UK) ? UK_HANGUP_THRESH : COUNT_THRESH;
 	while(len) {
 		/* Take the lesser of the number of samples we need and what we have */
 		pass = len;
 		if (pass > dsp->gsamp_size - dsp->gsamps) 
 			pass = dsp->gsamp_size - dsp->gsamps;
 		for (x=0;x<pass;x++) {
-			for (y=0;y<=dsp->freqcount;y++) 
+			for (y=0;y<dsp->freqcount;y++) 
 				goertzel_sample(&dsp->freqs[y], s[x]);
 			dsp->genergy += s[x] * s[x];
 		}
@@ -1143,51 +1051,63 @@ static int __ast_dsp_call_progress(struct ast_dsp *dsp, short *s, int len)
 			switch(dsp->progmode) {
 			case PROG_MODE_NA:
 				if (pair_there(hz[HZ_480], hz[HZ_620], hz[HZ_350], hz[HZ_440], dsp->genergy)) {
-					newstate = TONE_STATE_BUSY;
+					newstate = DSP_TONE_STATE_BUSY;
 				} else if (pair_there(hz[HZ_440], hz[HZ_480], hz[HZ_350], hz[HZ_620], dsp->genergy)) {
-					newstate = TONE_STATE_RINGING;
+					newstate = DSP_TONE_STATE_RINGING;
 				} else if (pair_there(hz[HZ_350], hz[HZ_440], hz[HZ_480], hz[HZ_620], dsp->genergy)) {
-					newstate = TONE_STATE_DIALTONE;
+					newstate = DSP_TONE_STATE_DIALTONE;
 				} else if (hz[HZ_950] > TONE_MIN_THRESH * TONE_THRESH) {
-					newstate = TONE_STATE_SPECIAL1;
+					newstate = DSP_TONE_STATE_SPECIAL1;
 				} else if (hz[HZ_1400] > TONE_MIN_THRESH * TONE_THRESH) {
-					if (dsp->tstate == TONE_STATE_SPECIAL1)
-						newstate = TONE_STATE_SPECIAL2;
+					if (dsp->tstate == DSP_TONE_STATE_SPECIAL1)
+						newstate = DSP_TONE_STATE_SPECIAL2;
 				} else if (hz[HZ_1800] > TONE_MIN_THRESH * TONE_THRESH) {
-					if (dsp->tstate == TONE_STATE_SPECIAL2)
-						newstate = TONE_STATE_SPECIAL3;
+					if (dsp->tstate == DSP_TONE_STATE_SPECIAL2)
+						newstate = DSP_TONE_STATE_SPECIAL3;
 				} else if (dsp->genergy > TONE_MIN_THRESH * TONE_THRESH) {
-					newstate = TONE_STATE_TALKING;
+					newstate = DSP_TONE_STATE_TALKING;
 				} else
-					newstate = TONE_STATE_SILENCE;
+					newstate = DSP_TONE_STATE_SILENCE;
 				break;
 			case PROG_MODE_CR:
 				if (hz[HZ_425] > TONE_MIN_THRESH * TONE_THRESH) {
-					newstate = TONE_STATE_RINGING;
+					newstate = DSP_TONE_STATE_RINGING;
 				} else if (dsp->genergy > TONE_MIN_THRESH * TONE_THRESH) {
-					newstate = TONE_STATE_TALKING;
+					newstate = DSP_TONE_STATE_TALKING;
 				} else
-					newstate = TONE_STATE_SILENCE;
+					newstate = DSP_TONE_STATE_SILENCE;
+				break;
+			case PROG_MODE_UK:
+				if (hz[HZ_400] > TONE_MIN_THRESH * TONE_THRESH) {
+					newstate = DSP_TONE_STATE_HUNGUP;
+				}
 				break;
 			default:
 				ast_log(LOG_WARNING, "Can't process in unknown prog mode '%d'\n", dsp->progmode);
 			}
 			if (newstate == dsp->tstate) {
 				dsp->tcount++;
-				if (dsp->tcount == COUNT_THRESH) {
-					if (dsp->tstate == TONE_STATE_BUSY) {
+				if (dsp->tcount == thresh) {
+					if ((dsp->features & DSP_PROGRESS_BUSY) && 
+					    dsp->tstate == DSP_TONE_STATE_BUSY) {
 						res = AST_CONTROL_BUSY;
 						dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
-					} else if (dsp->tstate == TONE_STATE_TALKING) {
+					} else if ((dsp->features & DSP_PROGRESS_TALK) && 
+						   dsp->tstate == DSP_TONE_STATE_TALKING) {
 						res = AST_CONTROL_ANSWER;
 						dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
-					} else if (dsp->tstate == TONE_STATE_RINGING)
+					} else if ((dsp->features & DSP_PROGRESS_RINGING) && 
+						   dsp->tstate == DSP_TONE_STATE_RINGING)
 						res = AST_CONTROL_RINGING;
-					else if (dsp->tstate == TONE_STATE_SPECIAL3) {
+					else if ((dsp->features & DSP_PROGRESS_CONGESTION) && 
+						 dsp->tstate == DSP_TONE_STATE_SPECIAL3) {
 						res = AST_CONTROL_CONGESTION;
 						dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
+					} else if ((dsp->features & DSP_FEATURE_CALL_PROGRESS) &&
+						dsp->tstate == DSP_TONE_STATE_HUNGUP) {
+						res = AST_CONTROL_HANGUP;
+						dsp->features &= ~DSP_FEATURE_CALL_PROGRESS;
 					}
-					
 				}
 			} else {
 #if 0
@@ -1232,12 +1152,12 @@ static int __ast_dsp_silence(struct ast_dsp *dsp, short *s, int len, int *totals
 
 	if (!len)
 		return 0;
-	
 	accum = 0;
 	for (x=0;x<len; x++) 
 		accum += abs(s[x]);
 	accum /= len;
 	if (accum < dsp->threshold) {
+		/* Silent */
 		dsp->totalsilence += len/8;
 		if (dsp->totalnoise) {
 			/* Move and save history */
@@ -1251,6 +1171,7 @@ static int __ast_dsp_silence(struct ast_dsp *dsp, short *s, int len, int *totals
 		dsp->totalnoise = 0;
 		res = 1;
 	} else {
+		/* Not silent */
 		dsp->totalnoise += len/8;
 		if (dsp->totalsilence) {
 			int silence1 = dsp->historicsilence[DSP_HISTORY - 1];
@@ -1260,17 +1181,16 @@ static int __ast_dsp_silence(struct ast_dsp *dsp, short *s, int len, int *totals
 			dsp->historicsilence[DSP_HISTORY - 1] = dsp->totalsilence;
 			/* check if the previous sample differs only by BUSY_PERCENT from the one before it */
 			if (silence1 < silence2) {
-				if (silence1 + silence1/BUSY_PERCENT >= silence2)
+				if (silence1 + silence1*BUSY_PERCENT/100 >= silence2)
 					dsp->busymaybe = 1;
 				else 
 					dsp->busymaybe = 0;
 			} else {
-				if (silence1 - silence1/BUSY_PERCENT <= silence2)
+				if (silence1 - silence1*BUSY_PERCENT/100 <= silence2)
 					dsp->busymaybe = 1;
 				else 
 					dsp->busymaybe = 0;
 			}
-					
 		}
 		dsp->totalsilence = 0;
 	}
@@ -1278,6 +1198,7 @@ static int __ast_dsp_silence(struct ast_dsp *dsp, short *s, int len, int *totals
 		*totalsilence = dsp->totalsilence;
 	return res;
 }
+
 #ifdef BUSYDETECT_MARTIN
 int ast_dsp_busydetect(struct ast_dsp *dsp)
 {
@@ -1301,23 +1222,25 @@ int ast_dsp_busydetect(struct ast_dsp *dsp)
 	for (x=DSP_HISTORY - dsp->busycount;x<DSP_HISTORY;x++) {
 #ifndef BUSYDETECT_TONEONLY
 		if (avgsilence > dsp->historicsilence[x]) {
-			if (avgsilence - (avgsilence / BUSY_PERCENT) <= dsp->historicsilence[x])
+			if (avgsilence - (avgsilence*BUSY_PERCENT/100) <= dsp->historicsilence[x])
 				hitsilence++;
 		} else {
-			if (avgsilence + (avgsilence / BUSY_PERCENT) >= dsp->historicsilence[x])
+			if (avgsilence + (avgsilence*BUSY_PERCENT/100) >= dsp->historicsilence[x])
 				hitsilence++;
 		}
 #endif
 		if (avgtone > dsp->historicnoise[x]) {
-			if (avgtone - (avgtone / BUSY_PERCENT) <= dsp->historicnoise[x])
+			if (avgtone - (avgtone*BUSY_PERCENT/100) <= dsp->historicnoise[x])
 				hittone++;
 		} else {
-			if (avgtone + (avgtone / BUSY_PERCENT) >= dsp->historicnoise[x])
+			if (avgtone + (avgtone*BUSY_PERCENT/100) >= dsp->historicnoise[x])
 				hittone++;
 		}
 	}
 #ifndef BUSYDETECT_TONEONLY
-	if ((hittone >= dsp->busycount - 1) && (hitsilence >= dsp->busycount - 1) && (avgtone >= BUSY_MIN && avgtone <= BUSY_MAX) && (avgsilence >= BUSY_MIN && avgsilence <= BUSY_MAX)) {
+	if ((hittone >= dsp->busycount - 1) && (hitsilence >= dsp->busycount - 1) && 
+	    (avgtone >= BUSY_MIN && avgtone <= BUSY_MAX) && 
+	    (avgsilence >= BUSY_MIN && avgsilence <= BUSY_MAX)) {
 #else
 	if ((hittone >= dsp->busycount - 1) && (avgtone >= BUSY_MIN && avgtone <= BUSY_MAX)) {
 #endif
@@ -1326,19 +1249,39 @@ int ast_dsp_busydetect(struct ast_dsp *dsp)
 #error You cant use BUSYDETECT_TONEONLY together with BUSYDETECT_COMPARE_TONE_AND_SILENCE
 #endif
 		if (avgtone > avgsilence) {
-			if (avgtone - avgtone/(BUSY_PERCENT*2) <= avgsilence)
+			if (avgtone - avgtone*BUSY_PERCENT/100 <= avgsilence)
 				res = 1;
 		} else {
-			if (avgtone + avgtone/(BUSY_PERCENT*2) >= avgsilence)
+			if (avgtone + avgtone*BUSY_PERCENT/100 >= avgsilence)
 				res = 1;
 		}
 #else
 		res = 1;
 #endif
 	}
+	/* If we know the expected busy tone length, check we are in the range */
+	if (res && (dsp->busy_tonelength > 0)) {
+		if (abs(avgtone - dsp->busy_tonelength) > (dsp->busy_tonelength*BUSY_PAT_PERCENT/100)) {
 #if 0
+			ast_log(LOG_NOTICE, "busy detector: avgtone of %d not close enough to desired %d\n",
+						avgtone, dsp->busy_tonelength);
+#endif
+			res = 0;
+		}
+	}
+	/* If we know the expected busy tone silent-period length, check we are in the range */
+	if (res && (dsp->busy_quietlength > 0)) {
+		if (abs(avgsilence - dsp->busy_quietlength) > (dsp->busy_quietlength*BUSY_PAT_PERCENT/100)) {
+#if 0
+			ast_log(LOG_NOTICE, "busy detector: avgsilence of %d not close enough to desired %d\n",
+						avgsilence, dsp->busy_quietlength);
+#endif
+			res = 0;
+		}
+	}
+#if 1
 	if (res)
-		ast_log(LOG_NOTICE, "detected busy, avgtone: %d, avgsilence %d\n", avgtone, avgsilence);
+		ast_log(LOG_DEBUG, "ast_dsp_busydetect detected busy, avgtone: %d, avgsilence %d\n", avgtone, avgsilence);
 #endif
 	return res;
 }
@@ -1413,7 +1356,7 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 	int res;
 	int digit;
 	int x;
-	unsigned short *shortdata;
+	short *shortdata;
 	unsigned char *odata;
 	int len;
 	int writeback = 0;
@@ -1425,11 +1368,11 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 				break; \
 			case AST_FORMAT_ULAW: \
 				for (x=0;x<len;x++) \
-					odata[x] = AST_LIN2MU(shortdata[x]); \
+					odata[x] = AST_LIN2MU((unsigned short)shortdata[x]); \
 				break; \
 			case AST_FORMAT_ALAW: \
 				for (x=0;x<len;x++) \
-					odata[x] = AST_LIN2A(shortdata[x]); \
+					odata[x] = AST_LIN2A((unsigned short)shortdata[x]); \
 				break; \
 			} \
 		} \
@@ -1492,7 +1435,8 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 		if (dsp->digitmode & (DSP_DIGITMODE_MUTECONF | DSP_DIGITMODE_MUTEMAX)) {
 			if (!dsp->thinkdigit) {
 				if (digit) {
-					/* Looks like we might have something.  Request a conference mute for the moment */
+					/* Looks like we might have something.  
+					 * Request a conference mute for the moment */
 					memset(&dsp->f, 0, sizeof(dsp->f));
 					dsp->f.frametype = AST_FRAME_DTMF;
 					dsp->f.subclass = 'm';
@@ -1577,15 +1521,17 @@ struct ast_frame *ast_dsp_process(struct ast_channel *chan, struct ast_dsp *dsp,
 	}
 	if ((dsp->features & DSP_FEATURE_CALL_PROGRESS)) {
 		res = __ast_dsp_call_progress(dsp, shortdata, len);
-		memset(&dsp->f, 0, sizeof(dsp->f));
-		dsp->f.frametype = AST_FRAME_CONTROL;
 		if (res) {
 			switch(res) {
 			case AST_CONTROL_ANSWER:
 			case AST_CONTROL_BUSY:
 			case AST_CONTROL_RINGING:
 			case AST_CONTROL_CONGESTION:
+			case AST_CONTROL_HANGUP:
+				memset(&dsp->f, 0, sizeof(dsp->f));
+				dsp->f.frametype = AST_FRAME_CONTROL;
 				dsp->f.subclass = res;
+				dsp->f.src = "dsp_progress";
 				if (chan) 
 					ast_queue_frame(chan, &dsp->f);
 				break;
@@ -1602,12 +1548,13 @@ static void ast_dsp_prog_reset(struct ast_dsp *dsp)
 {
 	int max = 0;
 	int x;
+	
 	dsp->gsamp_size = modes[dsp->progmode].size;
 	dsp->gsamps = 0;
 	for (x=0;x<sizeof(modes[dsp->progmode].freqs) / sizeof(modes[dsp->progmode].freqs[0]);x++) {
 		if (modes[dsp->progmode].freqs[x]) {
 			goertzel_init(&dsp->freqs[x], (float)modes[dsp->progmode].freqs[x], dsp->gsamp_size);
-			max = x;
+			max = x + 1;
 		}
 	}
 	dsp->freqcount = max;
@@ -1616,6 +1563,7 @@ static void ast_dsp_prog_reset(struct ast_dsp *dsp)
 struct ast_dsp *ast_dsp_new(void)
 {
 	struct ast_dsp *dsp;
+
 	dsp = malloc(sizeof(struct ast_dsp));
 	if (dsp) {
 		memset(dsp, 0, sizeof(struct ast_dsp));
@@ -1654,25 +1602,33 @@ void ast_dsp_set_busy_count(struct ast_dsp *dsp, int cadences)
 	dsp->busycount = cadences;
 }
 
+void ast_dsp_set_busy_pattern(struct ast_dsp *dsp, int tonelength, int quietlength)
+{
+	dsp->busy_tonelength = tonelength;
+	dsp->busy_quietlength = quietlength;
+	ast_log(LOG_DEBUG, "dsp busy pattern set to %d,%d\n", tonelength, quietlength);
+}
+
 void ast_dsp_digitreset(struct ast_dsp *dsp)
 {
 	int i;
+	
 	dsp->thinkdigit = 0;
 	if (dsp->digitmode & DSP_DIGITMODE_MF) {
 		memset(dsp->td.mf.digits, 0, sizeof(dsp->td.mf.digits));
 		dsp->td.mf.current_digits = 0;
 		/* Reinitialise the detector for the next block */
 		for (i = 0;  i < 6;  i++) {
-	       	goertzel_reset(&dsp->td.mf.tone_out[i]);
+			goertzel_reset(&dsp->td.mf.tone_out[i]);
 #ifdef OLD_DSP_ROUTINES
-		    goertzel_reset(&dsp->td.mf.tone_out2nd[i]);
+			goertzel_reset(&dsp->td.mf.tone_out2nd[i]);
 #endif			
 		}
 #ifdef OLD_DSP_ROUTINES
 		dsp->td.mf.energy = 0.0;
-	    dsp->td.mf.hit1 = dsp->td.mf.hit2 = dsp->td.mf.hit3 = dsp->td.mf.hit4 = dsp->td.mf.mhit = 0;
+		dsp->td.mf.hit1 = dsp->td.mf.hit2 = dsp->td.mf.hit3 = dsp->td.mf.hit4 = dsp->td.mf.mhit = 0;
 #else
-	    dsp->td.mf.hits[4] = dsp->td.mf.hits[3] = dsp->td.mf.hits[2] = dsp->td.mf.hits[1] = dsp->td.mf.hits[0] = dsp->td.mf.mhit = 0;
+		dsp->td.mf.hits[4] = dsp->td.mf.hits[3] = dsp->td.mf.hits[2] = dsp->td.mf.hits[1] = dsp->td.mf.hits[0] = dsp->td.mf.mhit = 0;
 #endif		
 		dsp->td.mf.current_sample = 0;
 	} else {
@@ -1680,23 +1636,23 @@ void ast_dsp_digitreset(struct ast_dsp *dsp)
 		dsp->td.dtmf.current_digits = 0;
 		/* Reinitialise the detector for the next block */
 		for (i = 0;  i < 4;  i++) {
-	       	goertzel_reset(&dsp->td.dtmf.row_out[i]);
-		    goertzel_reset(&dsp->td.dtmf.col_out[i]);
+			goertzel_reset(&dsp->td.dtmf.row_out[i]);
+			goertzel_reset(&dsp->td.dtmf.col_out[i]);
 #ifdef OLD_DSP_ROUTINES
-	    	goertzel_reset(&dsp->td.dtmf.row_out2nd[i]);
-	    	goertzel_reset(&dsp->td.dtmf.col_out2nd[i]);
+			goertzel_reset(&dsp->td.dtmf.row_out2nd[i]);
+			goertzel_reset(&dsp->td.dtmf.col_out2nd[i]);
 #endif			
 		}
 #ifdef FAX_DETECT
-	    goertzel_reset (&dsp->td.dtmf.fax_tone);
+		goertzel_reset (&dsp->td.dtmf.fax_tone);
 #endif
 #ifdef OLD_DSP_ROUTINES
 #ifdef FAX_DETECT
-	    goertzel_reset (&dsp->td.dtmf.fax_tone2nd);
+		goertzel_reset (&dsp->td.dtmf.fax_tone2nd);
 #endif
-	    dsp->td.dtmf.hit1 = dsp->td.dtmf.hit2 = dsp->td.dtmf.hit3 = dsp->td.dtmf.hit4 = dsp->td.dtmf.mhit = 0;
+		dsp->td.dtmf.hit1 = dsp->td.dtmf.hit2 = dsp->td.dtmf.hit3 = dsp->td.dtmf.hit4 = dsp->td.dtmf.mhit = 0;
 #else
-	    dsp->td.dtmf.hits[2] = dsp->td.dtmf.hits[1] = dsp->td.dtmf.hits[0] =  dsp->td.dtmf.mhit = 0;
+		dsp->td.dtmf.hits[2] = dsp->td.dtmf.hits[1] = dsp->td.dtmf.hits[0] =  dsp->td.dtmf.mhit = 0;
 #endif		
 		dsp->td.dtmf.energy = 0.0;
 		dsp->td.dtmf.current_sample = 0;
@@ -1706,18 +1662,20 @@ void ast_dsp_digitreset(struct ast_dsp *dsp)
 void ast_dsp_reset(struct ast_dsp *dsp)
 {
 	int x;
+	
 	dsp->totalsilence = 0;
 	dsp->gsamps = 0;
 	for (x=0;x<4;x++)
 		dsp->freqs[x].v2 = dsp->freqs[x].v3 = 0.0;
 	memset(dsp->historicsilence, 0, sizeof(dsp->historicsilence));
-	memset(dsp->historicnoise, 0, sizeof(dsp->historicnoise));
-	
+	memset(dsp->historicnoise, 0, sizeof(dsp->historicnoise));	
 }
 
 int ast_dsp_digitmode(struct ast_dsp *dsp, int digitmode)
 {
-	int new, old;
+	int new;
+	int old;
+	
 	old = dsp->digitmode & (DSP_DIGITMODE_DTMF | DSP_DIGITMODE_MF | DSP_DIGITMODE_MUTECONF | DSP_DIGITMODE_MUTEMAX);
 	new = digitmode & (DSP_DIGITMODE_DTMF | DSP_DIGITMODE_MF | DSP_DIGITMODE_MUTECONF | DSP_DIGITMODE_MUTEMAX);
 	if (old != new) {
@@ -1734,6 +1692,7 @@ int ast_dsp_digitmode(struct ast_dsp *dsp, int digitmode)
 int ast_dsp_set_call_progress_zone(struct ast_dsp *dsp, char *zone)
 {
 	int x;
+	
 	for (x=0;x<sizeof(aliases) / sizeof(aliases[0]);x++) {
 		if (!strcasecmp(aliases[x].name, zone)) {
 			dsp->progmode = aliases[x].mode;
@@ -1742,4 +1701,14 @@ int ast_dsp_set_call_progress_zone(struct ast_dsp *dsp, char *zone)
 		}
 	}
 	return -1;
+}
+
+int ast_dsp_get_tstate(struct ast_dsp *dsp) 
+{
+	return dsp->tstate;
+}
+
+int ast_dsp_get_tcount(struct ast_dsp *dsp) 
+{
+	return dsp->tcount;
 }

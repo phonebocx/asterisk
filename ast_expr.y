@@ -13,32 +13,43 @@
 #include <string.h>
 #include <locale.h>
 #include <ctype.h>
+#ifndef SOLARIS
 #include <err.h>
+#else
+#define quad_t uint64_t
+#endif
 #include <errno.h>
 #include <regex.h>
 #include <limits.h>
-#include <asterisk/ast_expr.h>
-#include <asterisk/logger.h>
 
+#include "asterisk/ast_expr.h"
+#include "asterisk/logger.h"
+
+#ifndef QUAD_MIN
 #ifdef LONG_LONG_MIN
 #define QUAD_MIN LONG_LONG_MIN
-#endif
+#else /* LONG_LONG_MIN */
+#define QUAD_MIN (-0x7fffffffffffffffL-1)
+#endif /* LONG_LONG_MIN */
+#endif /* QUAD_MIN */
+
+#ifndef QUAD_MAX
 #ifdef LONG_LONG_MAX
 #define QUAD_MAX LONG_LONG_MAX
-#endif
-
-#  if ! defined(QUAD_MIN)
-#   define QUAD_MIN     (-0x7fffffffffffffffL-1)
-#  endif
-#  if ! defined(QUAD_MAX)
-#   define QUAD_MAX     (0x7fffffffffffffffL)
-#  endif
+#else /* LONG_LONG_MAX */
+#define QUAD_MAX (0x7fffffffffffffffL)
+#endif /* LONG_LONG_MAX */
+#endif /* QUAD_MAX */
 
 #define YYPARSE_PARAM kota
 #define YYLEX_PARAM kota
 
 /* #define ast_log fprintf
 #define LOG_WARNING stderr */
+
+#ifdef SOLARIS
+#define __P(p) p
+#endif
   
 enum valtype {
 	integer, numeric_string, string

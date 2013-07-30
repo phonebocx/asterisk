@@ -3,7 +3,7 @@
  *
  * Verbose application
  * 
- * Copyright (c) 2004 Tilghman Lesher.  All rights reserved.
+ * Copyright (c) 2004 - 2005 Tilghman Lesher.  All rights reserved.
  *
  * Tilghman Lesher <app_verbose_v001@the-tilghman.com>
  *
@@ -15,11 +15,16 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <asterisk/options.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.5 $")
+
+#include "asterisk/options.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
 
 
 static char *tdesc = "Send verbose output";

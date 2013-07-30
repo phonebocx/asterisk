@@ -26,8 +26,8 @@
 #endif
 #define TZ_STRLEN_MAX	255
 /* #define DEBUG */
-#include <asterisk/lock.h>
-#include <asterisk/localtime.h>
+#include "asterisk/lock.h"
+#include "asterisk/localtime.h"
 
 
 #ifndef lint
@@ -114,6 +114,12 @@ struct lsinfo {				/* leap second information */
 #ifndef TZNAME_MAX
 #define MY_TZNAME_MAX	255
 #endif /* !defined TZNAME_MAX */
+
+#ifdef SOLARIS
+#undef TM_ZONE
+#undef TM_GMTOFF 
+#endif
+
 
 struct state {
 	char	name[TZ_STRLEN_MAX + 1];
@@ -1210,7 +1216,11 @@ const time_t * const	timep;
 char *buf;
 {
         struct tm tm;
+#ifdef SOLARIS
+	return asctime_r(localtime_r(timep, &tm), buf, 256);
+#else
 	return asctime_r(localtime_r(timep, &tm), buf);
+#endif
 }
 
 /*

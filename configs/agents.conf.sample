@@ -1,3 +1,10 @@
+[general]
+;
+; Define whether callbacklogins should be stored in astdb for
+; persistence. Persistent logins will be reloaded after
+; Asterisk restarts.
+;
+persistentagents=yes
 ;
 ; Agent configuration
 ;
@@ -11,9 +18,9 @@
 ;autologoff=15
 ;
 ; Define ackcall to require an acknowledgement by '#' when
-; an agent logs in using agentcallbacklogin.  Default is "yes".
+; an agent logs in using agentcallbacklogin.  Default is "no".
 ;
-;ackcall=yes
+;ackcall=no
 ;
 ; Define wrapuptime.  This is the minimum amount of time when
 ; after disconnecting before the caller can receive a new call

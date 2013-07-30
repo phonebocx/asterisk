@@ -1,11 +1,11 @@
 #
 # Asterisk -- A telephony toolkit for Linux.
 # 
-# Makefile for CDR backends (dynamically loaded)
+# Makefile for resource modules
 #
-# Copyright (C) 1999, Mark Spencer
+# Copyright (C) 1999-2005, Digium
 #
-# Mark Spencer <markster@linux-support.net>
+# Mark Spencer <markster@digium.com>
 #
 # This program is free software, distributed under the terms of
 # the GNU General Public License
@@ -13,20 +13,20 @@
 
 MODS=res_adsi.so res_features.so res_crypto.so res_musiconhold.so res_indications.so res_monitor.so \
      res_agi.so
-MODS+=$(shell if [ -f "/usr/include/odbcinst.h" ]; then echo "res_odbc.so res_config_odbc.so"; fi)
-MODS+=$(shell if [ -f "/usr/local/include/odbcinst.h" ]; then echo "res_odbc.so res_config_odbc.so"; fi)
-MODS+=$(shell if [ -f "/usr/include/osp/osp.h" ]; then echo "res_osp.so"; fi)
+MODS+=$(shell if [ -f "$(CROSS_COMPILE_TARGET)/usr/include/odbcinst.h" ]; then echo "res_odbc.so res_config_odbc.so"; fi)
+MODS+=$(shell if [ -f "$(CROSS_COMPILE_TARGET)/usr/local/include/odbcinst.h" ]; then echo "res_odbc.so res_config_odbc.so"; fi)
+MODS+=$(shell if [ -f "$(CROSS_COMPILE_TARGET)/usr/include/osp/osp.h" ]; then echo "res_osp.so"; fi)
 
 CRYPTO_LIBS=-lssl -lcrypto
 
 CFLAGS+=
-CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
-CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
+CFLAGS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/include/linux/zaptel.h ] && echo " -DZAPATA_MOH")
+CFLAGS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/local/include/zaptel.h ] && echo " -DZAPATA_MOH")
 #
 # Work around buggy RedHat 9.0
 #
 CFLAGS+=-DOPENSSL_NO_KRB5 -fPIC
-OSPLIB=/usr/lib/libosp.a
+OSPLIB=$(CROSS_COMPILE_TARGET)/usr/lib/libosp.a
 
 all: depend $(MODS)
 
@@ -58,7 +58,18 @@ endif
 depend: .depend
 
 .depend:
-	../mkdep $(CFLAGS) `ls *.c`
+	@if [ x`which mpg123 2>/dev/null | grep -v '^no'` != x ] ; then \
+	  if mpg123 --longhelp 2>&1 | grep -q .59r 2>&1 >/dev/null ; then echo ; else \
+			echo "*************************************************************";\
+			echo "*** You have the WRONG version of mpg123... you need .59r ***";\
+			echo "*** Use 'make mpg123' to get the right verison            ***";\
+			echo "*************************************************************";\
+	  fi ;\
+	else \
+		echo "*** You don't have mpg123 installed. You're going to need ***";\
+		echo "***       it if you want MusicOnHold                      ***";\
+	fi
+	../build_tools/mkdep $(CFLAGS) `ls *.c`	
 
 env:
 	env

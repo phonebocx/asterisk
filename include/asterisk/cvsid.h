@@ -3,7 +3,7 @@
  *
  * CVSID Macro for including CVS file Id in source files.
  * 
- * Copyright (C) 2004, William Waites
+ * Copyright (C) 2004 - 2005, William Waites
  *
  * William Waites <ww@styx.org>
  *
@@ -35,9 +35,9 @@
 /*
  * To use this macro, in the source file put the lines:
  *
- * #include <asterisk/cvsid.h>
+ * #include "asterisk/cvsid.h"
  * #ifndef lint
- * CVSID("$Id: cvsid.h,v 1.2 2004/01/27 00:30:03 markster Exp $");
+ * CVSID("$Id: cvsid.h,v 1.4 2005/04/21 06:02:44 kpfleming Exp $");
  * #endif
  *
  * You will then be able to run strings(1) on the resulting

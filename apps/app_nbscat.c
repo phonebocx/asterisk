@@ -11,14 +11,6 @@
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/frame.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
@@ -28,8 +20,25 @@
 #include <sys/time.h>
 #include <sys/socket.h>
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/frame.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
+
 #define LOCAL_NBSCAT "/usr/local/bin/nbscat8k"
 #define NBSCAT "/usr/bin/nbscat8k"
+
+#ifndef AF_LOCAL
+#define AF_LOCAL AF_UNIX
+#endif
 
 static char *tdesc = "Silly NBS Stream Application";
 
@@ -90,7 +99,7 @@ static int NBScat_exec(struct ast_channel *chan, void *data)
 	int ms = -1;
 	int pid = -1;
 	int owriteformat;
-	struct timeval now, next;
+	struct timeval next;
 	struct ast_frame *f;
 	struct myframe {
 		struct ast_frame f;
@@ -113,29 +122,15 @@ static int NBScat_exec(struct ast_channel *chan, void *data)
 	
 	res = NBScatplay(fds[1]);
 	/* Wait 1000 ms first */
-	next = now;
+	next = ast_tvnow();
 	next.tv_sec += 1;
 	if (res >= 0) {
 		pid = res;
 		/* Order is important -- there's almost always going to be mp3...  we want to prioritize the
 		   user */
 		for (;;) {
-			gettimeofday(&now, NULL);
-			ms = (next.tv_sec - now.tv_sec) * 1000;
-			ms += (next.tv_usec - now.tv_usec) / 1000;
-#if 0
-			printf("ms: %d\n", ms);
-#endif			
+			ms = ast_tvdiff_ms(next, ast_tvnow());
 			if (ms <= 0) {
-#if 0
-				{
-					static struct timeval last;
-					struct timeval tv;
-					gettimeofday(&tv, NULL);
-					printf("Since last: %ld\n", (tv.tv_sec - last.tv_sec) * 1000 + (tv.tv_usec - last.tv_usec) / 1000);
-					last = tv;
-				}
-#endif
 				res = timed_read(fds[0], myf.frdata, sizeof(myf.frdata));
 				if (res > 0) {
 					myf.f.frametype = AST_FRAME_VOICE;
@@ -157,14 +152,7 @@ static int NBScat_exec(struct ast_channel *chan, void *data)
 					res = 0;
 					break;
 				}
-				next.tv_usec += res / 2 * 125;
-				if (next.tv_usec >= 1000000) {
-					next.tv_usec -= 1000000;
-					next.tv_sec++;
-				}
-#if 0
-				printf("Next: %d\n", ms);
-#endif				
+				next = ast_tvadd(next, ast_samp2tv(myf.f.samples, 8000));
 			} else {
 				ms = ast_waitfor(chan, ms);
 				if (ms < 0) {

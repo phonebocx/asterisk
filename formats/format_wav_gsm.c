@@ -3,33 +3,35 @@
  *
  * Save GSM in the proprietary Microsoft format.
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/channel.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/sched.h>
-#include <asterisk/module.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#ifdef __linux__
-#include <endian.h>
-#else
-#include <machine/endian.h>
-#endif
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.35 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/channel.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/sched.h"
+#include "asterisk/module.h"
+#include "asterisk/endian.h"
+
 #include "msgsm.h"
 
 /* Some Ideas for this code came from makewave.c by Jeffrey Chilton */
@@ -360,7 +362,7 @@ static struct ast_filestream *wav_open(int fd)
 	return tmp;
 }
 
-static struct ast_filestream *wav_rewrite(int fd, char *comment)
+static struct ast_filestream *wav_rewrite(int fd, const char *comment)
 {
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
@@ -494,7 +496,7 @@ static int wav_seek(struct ast_filestream *fs, long sample_offset, int whence)
 		offset = distance + cur;
 	else if(whence == SEEK_END)
 		offset = max - distance;
-	// always protect against seeking past end of header
+	/* always protect against seeking past end of header */
 	offset = (offset < min)?min:offset;
 	if (whence != SEEK_FORCECUR) {
 		offset = (offset > max)?max:offset;
@@ -553,14 +555,7 @@ int unload_module()
 
 int usecount()
 {
-	int res;
-	if (ast_mutex_lock(&wav_lock)) {
-		ast_log(LOG_WARNING, "Unable to lock wav list\n");
-		return -1;
-	}
-	res = glistcnt;
-	ast_mutex_unlock(&wav_lock);
-	return res;
+	return glistcnt;
 }
 
 char *description()

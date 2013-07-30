@@ -2,6 +2,14 @@
 ; Zapata telephony interface
 ;
 ; Configuration file
+;
+; You need to restart Asterisk to re-configure the Zap channel
+; CLI> reload chan_zap.so 
+;		will reload the configuration file,
+;		but not all configuration options are 
+; 		re-configured during a reload.
+
+
 
 [trunkgroups]
 ;
@@ -16,6 +24,7 @@
 ;        backup1     is an optional list of backup d-channels.
 ;
 ;trunkgroup => 1,24,48
+;trunkgroup => 1,24
 ;
 ; Spanmap: Associates a span with a trunk group
 ;        spanmap => <zapspan>,<trunkgroup>[,<logicalspan>]
@@ -48,6 +57,7 @@ context=default
 ; 5ess:	          Lucent 5ESS
 ; euroisdn:       EuroISDN
 ; ni1:            Old National ISDN 1
+; qsig:           Q.SIG
 ;
 switchtype=national
 ;
@@ -76,6 +86,30 @@ switchtype=national
 ;
 ;prilocaldialplan=national
 ;
+; PRI callerid prefixes based on the given TON/NPI (dialplan)
+; This is especially needed for euroisdn E1-PRIs
+; 
+; sample 1 for Germany 
+;internationalprefix = 00
+;nationalprefix = 0
+;localprefix = 0711
+;privateprefix = 07115678
+;unknownprefix = 
+;
+; sample 2 for Germany 
+;internationalprefix = +
+;nationalprefix = +49
+;localprefix = +49711
+;privateprefix = +497115678
+;unknownprefix = 
+;
+; PRI resetinterval: sets the time in seconds between restart of unused channels, defaults to 3600
+; minimum 60 seconds
+; some PBXs don't like channel restarts. so set the interval to a very long interval e.g. 100000000
+; or 'never' to disable *entirely*.
+;
+;resetinterval = 3600 
+;
 ; Overlap dialing mode (sending overlap digits)
 ;
 ;overlapdial=yes
@@ -90,12 +124,24 @@ switchtype=national
 ;
 ; priindication = outofband
 ;
+; ISDN Timers
+; All of the ISDN timers and counters that are used are configurable.  Specify 
+; the timer name, and its value (in ms for timers)
+;
+; pritimer => t200,1000
+; pritimer => t313,4000
+;
+; To enable transmission of facility-based ISDN supplementary services (such
+; as caller name from CPE over facility) enable this option.
+; facilityenable = yes
+;
 ;
 ; Signalling method (default is fxs).  Valid values:
 ; em:      E & M
 ; em_w:    E & M Wink
 ; featd:   Feature Group D (The fake, Adtran style, DTMF)
 ; featdmf: Feature Group D (The real thing, MF (domestic, US))
+; featdmf_ta : Feature Group D (The real thing, MF (domestic, US)) through a Tandem Access point
 ; featb:   Feature Group B (MF (domestic, US))
 ; fxs_ls:  FXS (Loop Start)
 ; fxs_gs:  FXS (Ground Start)
@@ -112,6 +158,7 @@ switchtype=national
 ; sf_featd:   SF Feature Group D (The fake, Adtran style, DTMF)
 ; sf_featdmf: SF Feature Group D (The real thing, MF (domestic, US))
 ; sf_featb:   SF Feature Group B (MF (domestic, US))
+; e911:    E911 (MF) style signalling
 ; The following are used for Radio interfaces:
 ; fxs_rx:  Receive audio/COR on an FXS kewlstart interface (FXO at the channel bank)
 ; fxs_tx:  Transmit audio/PTT on an FXS loopstart interface (FXO at the channel bank)
@@ -128,6 +175,11 @@ switchtype=national
 ;
 signalling=fxo_ls
 ;
+; For Feature Group D Tandem access, to set the default CIC and OZZ use
+; these parameters:
+;defaultozz=0000
+;defaultcic=303
+;
 ; A variety of timing parameters can be specified as well
 ; Including:
 ;    prewink:     Pre-wink time (default 50ms)
@@ -138,8 +190,13 @@ signalling=fxo_ls
 ;    rxwink:      Receiver wink time (default 300ms)
 ;    rxflash:     Receiver flashtime (default 1250ms)
 ;    debounce:    Debounce timing (default 600ms)
+;    emdigitwait: Time to wait for DID digits on E&M links (default 250ms) (Increase to 500
+;		  or so if you are not getting all DID digits on your E&M link)
 ;
 rxwink=300		; Atlas seems to use long (250ms) winks
+;
+; How long generated tones (DTMF and MF) will be played on the channel (in miliseconds)
+;toneduration=100
 ;
 ; Whether or not to do distinctive ring detection on FXO lines
 ;
@@ -193,8 +250,14 @@ callwaitingcallerid=yes
 threewaycalling=yes
 ;
 ; Support flash-hook call transfer (requires three way calling)
+; Also enables call parking (overrides the 'canpark' parameter)
 ;
 transfer=yes
+;
+; Allow call parking
+; ('canpark=no' is overridden by 'transfer=yes')
+;
+canpark=yes
 ;
 ; Support call forward variable
 ;
@@ -257,7 +320,7 @@ rxgain=0.0
 txgain=0.0
 ;
 ; Logical groups can be assigned to allow outgoing rollover.  Groups
-; range from 0 to 31, and multiple groups can be specified.
+; range from 0 to 63, and multiple groups can be specified.
 ;
 group=1
 ;
@@ -274,6 +337,11 @@ pickupgroup=1
 ; if the simple switch should provide dialtone, read digits, etc.
 ;
 immediate=no
+;
+; Specify whether flash-hook transfers to 'busy' channels should complete
+; or return to the caller performing the transfer (default is yes).
+;
+;transfertobusy=no
 ;
 ; CallerID can be set to "asreceived" or a specific number
 ; if you want to override it.  Note that "asreceived" only
@@ -298,17 +366,46 @@ immediate=no
 ;
 ; On trunk interfaces (FXS) and E&M interfaces (E&M, Wink, Feature Group D
 ; etc, it can be useful to perform busy detection either in an effort to 
-; detect hangup or for detecting busies
+; detect hangup or for detecting busies.  This enables listening for
+; the beep-beep busy pattern.
 ;
 ;busydetect=yes
 ;
 ; If busydetect is enabled, is also possible to specify how many
-; busy tones to wait before hanging up. The default is 4, but
+; busy tones to wait for before hanging up. The default is 4, but
 ; better results can be achieved if set to 6 or even 8. Mind that
 ; higher the number, more time is needed to hangup a channel, but
 ; lower is probability to get random hangups
 ;
 ;busycount=4
+;
+; If busydetect is enabled, is also possible to specify the
+; cadence of your busy signal.  In many countries it is 500mec
+; on, 500msec off.
+; Without busypattern specified, we'll accept any regular
+; sound-silence pattern than repeats busycount times as a busy
+; signal.
+; If you specify busypattern then we'll further check the length
+; of the sound (tone) and silence, which will further reduce the
+; chance of a false positive.
+;
+;busypattern=500,500
+;
+; NOTE: In the Asterisk Makefile you'll find further options to tweak
+; the busy detector.  If your country has a busy tone with the same
+; lengh tone and silence (as many countries do), consider defining
+; the -DBUSYDETECT_COMPARE_TONE_AND_SILENCE option.
+;
+; Use a polarity reversal to mark when a outgoing call is answered by the
+; remote party.
+;
+;answeronpolarityswitch=yes
+;
+; In some countries, a polarity reversal is used to signal the disconnect
+; of a phone line.  If the hanguponpolarityswitch option is selected, the
+; call will be considered "hung up" on a polarity reversal
+;
+;hanguponpolarityswitch=yes
 ;
 ; On trunk interfaces (FXS) it can be useful to attempt to follow the progress
 ; of a call through RINGING, BUSY, and ANSWERING.   If turned on, call
@@ -443,6 +540,7 @@ immediate=no
 ; channel => 1-23
 
 ;
+
 ;  Used for distintive ring support for x100p.
 ;  You can see the dringX patterns is to set any one of the dringXcontext fields
 ;  and they will be printed on the console when an inbound call comes in.

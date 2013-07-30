@@ -3,7 +3,7 @@
  *
  * Execute arbitrary system commands
  * 
- * Copyright (C) 1999-2005, Digium
+ * Copyright (C) 1999-2005, Digium, inc
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -11,18 +11,22 @@
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/adsi.h>
-#include <asterisk/options.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/adsi.h"
+#include "asterisk/options.h"
 
 static char *tdesc = "Get ADSI CPE ID";
 

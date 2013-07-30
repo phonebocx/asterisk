@@ -22,7 +22,13 @@
 
 %auth-thankyou.gsm%Thank you.
 
-%beep.gsm%(this is a simple beep tone)
+%beep.gsm%[this is a simple beep tone]
+
+%beeperr.gsm%[this is an error beep tone]
+
+%conf-hasleft.gsm%has left the conference.
+
+%conf-hasjoin.gsm%has joined the conference.
 
 %conf-getconfno.gsm%Please enter your conference number followed by the pound key.
 
@@ -78,9 +84,13 @@
 
 %pbx-transfer.gsm%Transfer.
 
+%queue-periodic-announce.gsm%All of our represenatives are currently busy. Please stay on the line and your call will be answered by the next available representative.
+
 %queue-callswaiting.gsm%Waiting to speak with a representative
 
 %queue-holdtime.gsm%The estimated hold time is currently
+
+%queue-reporthold.gsm%Hold time
 
 %queue-minutes.gsm%Minutes
 
@@ -95,6 +105,8 @@
 %ss-noservice.gsm%The number you have dialed is not in service. Please check the number and try again.
 
 %transfer.gsm%Please hold while I try that extension.
+
+%vm-forward.gsm%Press 1 to enter an extension, press 2 to use the directory
 
 %vm-Cust1.gsm%folder 5
 
@@ -126,9 +138,11 @@
 
 %vm-goodbye.gsm%Goodbye
  
-%vm-helpexit.gsm%Pres star for help or pound to exit.
+%vm-helpexit.gsm%Press star for help or pound to exit.
 
 %vm-INBOX.gsm%new
+
+%vm-minutes.gsm%minutes
 
 %vm-incorrect-mailbox.gsm%Login incorrect.  Mailbox?
 
@@ -170,7 +184,7 @@
 
 %vm-onefor.gsm%Press 1 for
 
-%vm-options.gsm%Press 1 to record your unavailable message, press 2 to record your busy message, press 3 to record your name, press 4 to change  your password, press star to return to the main menu.
+%vm-options.gsm%Press 1 to record your unavailable message, press 2 to record your busy message, press 3 to record your name, press 4 to record your temporary message, press 5 to change your password, press star to return to the main menu.
 
 %vm-opts.gsm%Press 2 to change folders, press zero for mailbox options.
 
@@ -188,6 +202,8 @@
 
 %vm-rec-unv.gsm%After the tone say your unavailable message and then press the pound key.
 
+%vm-rec-temp.gsm%After the tone, say your temporary message, and then press the pound key.
+
 %vm-reenterpassword.gsm%Please re-enter your password followed by the pound key.
 
 %vm-repeat.gsm%Press 5 to repeat the current message.
@@ -201,6 +217,12 @@
 %vm-savemessage.gsm%or 9 to save this message
 
 %vm-sorry.gsm%I'm sorry I did not understand your response.
+
+%vm-tempgreeting.gsm%press 1 to record your temporary greeting
+
+%vm-tempgreeting2.gsm%press 1 to record your temporary greeting, or press 2 to erase your temporary greeting
+
+%vm-tempremoved.gsm%Your temporary greeting has been removed
 
 %vm-theperson.gsm%The person at extension
 
@@ -218,6 +240,8 @@
 
 %vm-youhave.gsm%you have
 
+%vm-newuser.gsm%Welcome to Comedian Mail. First, I will guide you through a short setup process.
+
 %priv-sayname.gsm%After the tone, please say your name or the company you represent.
 
 %priv-trying.gsm%Please hold while I attempt to contact your party.
@@ -228,9 +252,19 @@
 
 %priv-instruct.gsm%Press 1 to accept this call.  Press 2 to not accept this call.  Press 3 to always accept calls from this number.  Press 4 to never accept calls from this number.  Press 5 to reject calls from this number and request that they add you to their do not call list.
 
+%priv-callee-options.gsm%Dial 1 if you wish this caller to reach you directly now, and in the future.  Dial 2 if you wish to send this caller to voicemail now and forevermore.  Dial 3 to send this caller to the torture menus, now and forevermore.  Dial 4 to send this caller to a polite "don't call" menu, now and forevermore.  Dial 5 to allow this caller to come straight thru to you in the future, but just this once, send them to voicemail.
+
+%screen-callee-options.gsm%You have these options: Dial 1 if you wish to immediately connect to the incoming call.  Dial 2 if you wish to send this caller to voicemail.  Dial 3 to send this callerr to the torture menus.  Dial 4 to send this caller to a polite "don't call" menu.
+
+%priv-introsaved.gsm%Thank you. Please hold, while I attempt to connect you with your party!
+
+%priv-recordintro.gsm%At the tone, please say your name.
+
+%priv-callpending.gsm%I have a caller waiting, who introduces themselves as:
+
 %privacy-unident.gsm%The party you are trying to reach does not accept unidentified calls.
 
-%privacy-prompt.gsm%Please enter your 10 digit phone number, starting with the area code.
+%privacy-prompt.gsm%Please enter your phone number, starting with the area code.
 
 %privacy-incorrect.gsm%I'm sorry, that number is not valid.
 
@@ -245,6 +279,34 @@
 %tt-somethingwrong.gsm%Something is terribly wrong
 
 %tt-weasels.gsm%Weasels have eaten our phone system
+
+;dictate directory - app_dictate
+
+%both_help.gsm%press * to toggle pause, press # to enter a new dictation filename
+
+%enter_filename.gsm%Enter a numeric dictation filename followed by # or just # to exit
+
+%forhelp.gsm%press 0 for help
+
+%inithelp.gsm%1 to switch to playback mode
+
+%pause.gsm%pause
+
+%paused.gsm%paused
+
+%play_help.gsm%press 1 to switch to record mode, press 2 to toggle fast playback, press 7 to jump backwards, press 8 to jump forwards
+
+%playback.gsm%playback
+
+%playback_mode.gsm%playback mode
+
+%record.gsm%record
+
+%record_help.gsm%press 1 to switch to playback mode, press 8 to truncate the file and start over
+
+%record_mode.gsm%record mode
+
+%truncating_audio.gsm%truncating audio
 
 ;digits directory  - File Name Sound File Script
 
@@ -360,21 +422,11 @@
 
 %pound.gsm%pound
 
-%privacy-incorrect.gsm%will_be_added_later
-
-%privacy-prompt.gsm%will_be_added_later
-
-%privacy-thankyou.gsm%will_be_added_later
-
-%privacy-unident.gsm%will_be_added_later
-
 %seconds.gsm%seconds
 
 %star.gsm%star
 
 %thousand.gsm%thousand
-
-%at.gsm%at
 
 %h-1.gsm%first
 
@@ -417,8 +469,6 @@
 %h-20.gsm%twentieth
 
 %h-30.gsm%thirtieth
-
-%at.gsm%at
 
 %today.gsm%today
 
@@ -625,7 +675,7 @@
 
 %conf-kicked.gsm%You have been kicked from this conference
 
-%conf-adminmenu.gsm%Please press 1 to mute or unmute yourself, or press 2 to lock or unlock the conference
+%conf-adminmenu.gsm%Please press 1 to mute or unmute yourself, or press 2 to lock or unlock the conference, or press 6 to kick the last user
 
 %conf-usermenu.gsm%Please press 1 to mute or unmute yourself
 
@@ -642,3 +692,36 @@
 %vm-leavemsg.gsm% Press 5 to send a voicemail message
 
 %queue-less-than.gsm%less than
+
+%conf-waitforleader.gsm%The conference will begin when the leader arrives.
+
+%conf-userwilljoin.gsm%user will join the conference.
+
+%conf-userswilljoin.gsm%users will join the conference.
+
+%conf-leaderhasleft.gsm%The leader has left the conference.
+
+%conf-placeintoconf.gsm%You will now be placed into the conference.
+
+%conf-thereare.gsm%There are currently
+
+%conf-otherinparty.gsm%other participants in the conference
+
+%conf-onlyone.gsm%There is currently only one other participant in the conference.
+
+
+%agent.gsm%Agent
+
+%h323.gsm%H.323
+
+%iax.gsm%IAX
+
+%iax2.gsm%IAX (note: does not say "2")
+
+%mgcp.gsm%MGCP
+
+%sip.gsm%SIP
+
+%skinny.gsm%Skinny
+
+%zap.gsm%Zap

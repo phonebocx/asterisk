@@ -38,15 +38,21 @@ WAV49	= -DWAV49
 ######### probably require gcc. 
 
 ifneq (${OSARCH},Darwin)
+ifneq (${OSARCH},SunOS)
 ifneq (${PROC},x86_64)
 ifneq (${PROC},ultrasparc)
 ifneq ($(shell uname -m),ppc)
+ifneq ($(shell uname -m),ppc64)
 ifneq ($(shell uname -m),alpha)
 ifneq ($(shell uname -m),armv4l)
 ifneq (${PROC},sparc64)
+ifneq (${PROC},arm)
 ifneq (${PROC},ppc)
 ifneq (${PROC},ppc64)
 OPTIMIZE+=-march=$(PROC)
+endif
+endif
+endif
 endif
 endif
 endif
@@ -63,7 +69,7 @@ endif
 #So we go lowest common available by gcc and go a step down, still a step up from
 #the default as we now have a better instruction set to work with. - Belgarath
 ifeq (${PROC},ultrasparc)
-OPTIMIZE+=-mcpu=v8 -mtune=$(PROC) -O3 -fomit-frame-pointer
+OPTIMIZE+=-mcpu=v8 -mtune=$(PROC) -O3 
 endif
 
 PG =
@@ -84,7 +90,7 @@ PG =
 # CCFLAGS 	= -c -O
 
 CC		?= gcc
-CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -funroll-loops -fPIC $(OPTIMIZE) -fomit-frame-pointer
+CCFLAGS 	+= -c -DNeedFunctionPrototypes=1 -funroll-loops -fPIC $(OPTIMIZE)
 
 LD 		= $(CC)
 
@@ -221,10 +227,14 @@ GSM_SOURCES =	$(SRC)/add.c		\
 ifeq (${OSARCH},Linux)
 ifneq ($(shell uname -m),x86_64)
 ifneq ($(shell uname -m),ppc)
+ifneq ($(shell uname -m),ppc64)
 ifneq ($(shell uname -m),alpha)
 ifneq ($(shell uname -m),armv4l)
 ifneq ($(shell uname -m),sparc64)
+ifneq (${PROC},arm)
 GSM_SOURCES+= $(SRC)/k6opt.s
+endif
+endif
 endif
 endif
 endif
@@ -279,10 +289,12 @@ GSM_OBJECTS =	$(SRC)/add.o		\
 ifeq (${OSARCH},Linux)
 ifneq ($(shell uname -m), x86_64)
 ifneq ($(shell uname -m), ppc)
+ifneq ($(shell uname -m), ppc64)
 ifneq ($(shell uname -m), alpha)
-ifneq ($(shell uname -m), armv4l)
 ifneq ($(shell uname -m), sparc64)
+ifneq ($(shell uname -m), armv4l)
 GSM_OBJECTS+= $(SRC)/k6opt.o
+endif
 endif
 endif
 endif

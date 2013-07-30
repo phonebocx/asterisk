@@ -39,7 +39,11 @@ ifneq ($(PROC),alpha)
 ifeq ($(PROC),ultrasparc)
         CFLAGS+= -mtune=$(PROC) -mcpu=v8 -O3 -fomit-frame-pointer
 else
-        CFLAGS+= -march=$(PROC)
+ifneq ($(OSARCH),SunOS)
+ifneq  ($(OSARCH),arm)
+#        CFLAGS+= -march=$(PROC)
+endif
+endif
 endif
 endif
 endif

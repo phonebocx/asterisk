@@ -1,13 +1,13 @@
 /*
- * Asterisk
+ * Asterisk -- A telephony toolkit for Linux.
  * 
- * Mark Spencer <markster@marko.net>
+ * Mark Spencer <markster@digium.com>
  *
  * Copyright(C) Mark Spencer
  * 
  * Distributed under the terms of the GNU General Public License (GPL) Version 2
  *
- * Scheduler Routines (form cheops-NG)
+ * Scheduler Routines (from cheops-NG)
  *
  */
 
@@ -23,21 +23,27 @@
 #include <unistd.h>
 #include <string.h>
 
-#include <asterisk/sched.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/lock.h>
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.23 $")
+
+#include "asterisk/sched.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/lock.h"
+#include "asterisk/utils.h"
 
 /* Determine if a is sooner than b */
 #define SOONER(a,b) (((b).tv_sec > (a).tv_sec) || \
 					 (((b).tv_sec == (a).tv_sec) && ((b).tv_usec > (a).tv_usec)))
 
 struct sched {
-	struct sched *next;				/* Next event in the list */
-	int id; 						/* ID number of event */
-	struct timeval when;			/* Absolute time event should take place */
-	int resched;					/* When to reschedule */
-	void *data; 					/* Data */
+	struct sched *next;		/* Next event in the list */
+	int id; 			/* ID number of event */
+	struct timeval when;		/* Absolute time event should take place */
+	int resched;			/* When to reschedule */
+	int variable;		/* Use return value from callback to reschedule */
+	void *data; 			/* Data */
 	ast_sched_cb callback;		/* Callback */
 };
 
@@ -144,18 +150,13 @@ int ast_sched_wait(struct sched_context *con)
 	 * Return the number of milliseconds 
 	 * until the next scheduled event
 	 */
-	struct timeval tv;
 	int ms;
 	DEBUG(ast_log(LOG_DEBUG, "ast_sched_wait()\n"));
 	ast_mutex_lock(&con->lock);
 	if (!con->schedq) {
 		ms = -1;
-	} else if (gettimeofday(&tv, NULL) < 0) {
-		/* This should never happen */
-		ms = 0;
 	} else {
-		ms = (con->schedq->when.tv_sec - tv.tv_sec) * 1000;
-		ms += (con->schedq->when.tv_usec - tv.tv_usec) / 1000;
+		ms = ast_tvdiff_ms(con->schedq->when, ast_tvnow());
 		if (ms < 0)
 			ms = 0;
 	}
@@ -190,46 +191,27 @@ static void schedule(struct sched_context *con, struct sched *s)
 	con->schedcnt++;
 }
 
-static inline int sched_settime(struct timeval *tv, int when)
+/*
+ * given the last event *tv and the offset in milliseconds 'when',
+ * computes the next value,
+ */
+static int sched_settime(struct timeval *tv, int when)
 {
-	struct timeval tv_tmp;
-	long error_sec, error_usec;
+	struct timeval now = ast_tvnow();
 
-	if (gettimeofday(&tv_tmp, NULL) < 0) {
-		/* This shouldn't ever happen, but let's be sure */
-		ast_log(LOG_NOTICE, "gettimeofday() failed!\n");
-		return -1;
-	}
 	/*ast_log(LOG_DEBUG, "TV -> %lu,%lu\n", tv->tv_sec, tv->tv_usec);*/
-	if (((unsigned long)(tv->tv_sec) > 0)||((unsigned long)(tv->tv_usec) > 0)) {
-		if ((unsigned long)(tv_tmp.tv_usec) < (unsigned long)(tv->tv_usec)) {
-			tv_tmp.tv_usec += 1000000;
-			tv_tmp.tv_sec -= 1;
-		}
-		error_sec = (unsigned long)(tv_tmp.tv_sec) - (unsigned long)(tv->tv_sec);
-		error_usec = (unsigned long)(tv_tmp.tv_usec) - (unsigned long)(tv->tv_usec);
-	} else {
-		/*ast_log(LOG_DEBUG, "Initializing error\n");*/
-		error_sec = 0;
-		error_usec = 0;
-	}
-	/*ast_log(LOG_DEBUG, "ERROR -> %lu,%lu\n", error_sec, error_usec);*/
-	if (error_sec * 1000 + error_usec / 1000 < when) {
-		tv->tv_sec = tv_tmp.tv_sec + (when/1000 - error_sec);
-		tv->tv_usec = tv_tmp.tv_usec + ((when % 1000) * 1000 - error_usec);
-	} else {
+	if (ast_tvzero(*tv))	/* not supplied, default to now */
+		*tv = now;
+	*tv = ast_tvadd(*tv, ast_samp2tv(when, 1000));
+	if (ast_tvcmp(*tv, now) < 0) {
 		ast_log(LOG_DEBUG, "Request to schedule in the past?!?!\n");
-		tv->tv_sec = tv_tmp.tv_sec;
-		tv->tv_usec = tv_tmp.tv_usec;
-	}
-	if (tv->tv_usec > 1000000) {
-		tv->tv_sec++;
-		tv->tv_usec-= 1000000;
+		*tv = now;
 	}
 	return 0;
 }
 
-int ast_sched_add(struct sched_context *con, int when, ast_sched_cb callback, void *data)
+
+int ast_sched_add_variable(struct sched_context *con, int when, ast_sched_cb callback, void *data, int variable)
 {
 	/*
 	 * Schedule callback(data) to happen when ms into the future
@@ -247,8 +229,8 @@ int ast_sched_add(struct sched_context *con, int when, ast_sched_cb callback, vo
 		tmp->callback = callback;
 		tmp->data = data;
 		tmp->resched = when;
-		tmp->when.tv_sec = 0;
-		tmp->when.tv_usec = 0;
+		tmp->variable = variable;
+		tmp->when = ast_tv(0, 0);
 		if (sched_settime(&tmp->when, when)) {
 			sched_release(con, tmp);
 		} else {
@@ -256,8 +238,17 @@ int ast_sched_add(struct sched_context *con, int when, ast_sched_cb callback, vo
 			res = tmp->id;
 		}
 	}
+#ifdef DUMP_SCHEDULER
+	/* Dump contents of the context while we have the lock so nothing gets screwed up by accident. */
+	ast_sched_dump(con);
+#endif
 	ast_mutex_unlock(&con->lock);
 	return res;
+}
+
+int ast_sched_add(struct sched_context *con, int when, ast_sched_cb callback, void *data)
+{
+	return ast_sched_add_variable(con, when, callback, data, 0);
 }
 
 int ast_sched_del(struct sched_context *con, int id)
@@ -285,6 +276,10 @@ int ast_sched_del(struct sched_context *con, int id)
 		last = s;
 		s = s->next;
 	}
+#ifdef DUMP_SCHEDULER
+	/* Dump contents of the context while we have the lock so nothing gets screwed up by accident. */
+	ast_sched_dump(con);
+#endif
 	ast_mutex_unlock(&con->lock);
 	if (!s) {
 		ast_log(LOG_NOTICE, "Attempted to delete nonexistent schedule entry %d!\n", id);
@@ -296,44 +291,34 @@ int ast_sched_del(struct sched_context *con, int id)
 		return 0;
 }
 
-void ast_sched_dump(struct sched_context *con)
+void ast_sched_dump(const struct sched_context *con)
 {
 	/*
 	 * Dump the contents of the scheduler to
 	 * stderr
 	 */
 	struct sched *q;
-	struct timeval tv;
-	time_t s, ms;
-	gettimeofday(&tv, NULL);
+	struct timeval tv = ast_tvnow();
 #ifdef SCHED_MAX_CACHE
-	ast_log(LOG_DEBUG, "Asterisk Schedule Dump (%d in Q, %d Total, %d Cache)\n", 
-							con-> schedcnt, con->eventcnt - 1, con->schedccnt);
+	ast_log(LOG_DEBUG, "Asterisk Schedule Dump (%d in Q, %d Total, %d Cache)\n", con->schedcnt, con->eventcnt - 1, con->schedccnt);
 #else
-	ast_log(LOG_DEBUG, "Asterisk Schedule Dump (%d in Q, %d Total)\n",
-							con-> schedcnt, con->eventcnt - 1);
+	ast_log(LOG_DEBUG, "Asterisk Schedule Dump (%d in Q, %d Total)\n", con->schedcnt, con->eventcnt - 1);
 #endif
 
-	ast_log(LOG_DEBUG, "=================================================\n");
-	ast_log(LOG_DEBUG, "|ID    Callback    Data        Time  (sec:ms)   |\n");
-	ast_log(LOG_DEBUG, "+-----+-----------+-----------+-----------------+\n");
-	q = con->schedq;
-	while(q) {
-		s =  q->when.tv_sec - tv.tv_sec;
-		ms = q->when.tv_usec - tv.tv_usec;
-		if (ms < 0) {
-			ms += 1000000;
-			s--;
-		}
-		ast_log(LOG_DEBUG, "|%.4d | %p | %p | %.6ld : %.6ld |\n", 
-				q->id,
-				q->callback,
-				q->data,
-				(long)s,
-				(long)ms);
-		q=q->next;
+	ast_log(LOG_DEBUG, "=============================================================\n");
+	ast_log(LOG_DEBUG, "|ID    Callback          Data              Time  (sec:ms)   |\n");
+	ast_log(LOG_DEBUG, "+-----+-----------------+-----------------+-----------------+\n");
+ 	for (q = con->schedq; q; q = q->next) {
+ 		struct timeval delta =  ast_tvsub(q->when, tv);
+
+		ast_log(LOG_DEBUG, "|%.4d | %-15p | %-15p | %.6ld : %.6ld |\n", 
+			q->id,
+			q->callback,
+			q->data,
+			delta.tv_sec,
+			delta.tv_usec);
 	}
-	ast_log(LOG_DEBUG, "=================================================\n");
+	ast_log(LOG_DEBUG, "=============================================================\n");
 	
 }
 
@@ -352,15 +337,13 @@ int ast_sched_runq(struct sched_context *con)
 	for(;;) {
 		if (!con->schedq)
 			break;
-		if (gettimeofday(&tv, NULL)) {
-			/* This should never happen */
-			ast_log(LOG_NOTICE, "gettimeofday() failed!\n");
-			break;
-		}
-		/* We only care about millisecond accuracy anyway, so this will
-		   help us get more than one event at one time if they are very
-		   close together. */
-		tv.tv_usec += 1000;
+		
+		/* schedule all events which are going to expire within 1ms.
+		 * We only care about millisecond accuracy anyway, so this will
+		 * help us get more than one event at one time if they are very
+		 * close together.
+		 */
+		tv = ast_tvadd(ast_tvnow(), ast_tv(0, 1000));
 		if (SOONER(con->schedq->when, tv)) {
 			current = con->schedq;
 			con->schedq = con->schedq->next;
@@ -384,7 +367,7 @@ int ast_sched_runq(struct sched_context *con)
 				 * If they return non-zero, we should schedule them to be
 				 * run again.
 				 */
-				if (sched_settime(&current->when, current->resched)) {
+				if (sched_settime(&current->when, current->variable? res : current->resched)) {
 					sched_release(con, current);
 				} else
 					schedule(con, current);
@@ -404,7 +387,6 @@ long ast_sched_when(struct sched_context *con,int id)
 {
 	struct sched *s;
 	long secs;
-	struct timeval now;
 	DEBUG(ast_log(LOG_DEBUG, "ast_sched_when()\n"));
 
 	ast_mutex_lock(&con->lock);
@@ -415,11 +397,8 @@ long ast_sched_when(struct sched_context *con,int id)
 	}
 	secs=-1;
 	if (s!=NULL) {
-		if (gettimeofday(&now, NULL)) {
-			ast_log(LOG_NOTICE, "gettimeofday() failed!\n");
-		} else {
-			secs=s->when.tv_sec-now.tv_sec;
-		}
+		struct timeval now = ast_tvnow();
+		secs=s->when.tv_sec-now.tv_sec;
 	}
 	ast_mutex_unlock(&con->lock);
 	return secs;

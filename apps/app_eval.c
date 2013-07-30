@@ -3,11 +3,11 @@
  *
  * Eval application
  *
- * Copyright (c) 2004 Tilghman Lesher.  All rights reserved.
+ * Copyright (c) 2004 - 2005, Tilghman Lesher.  All rights reserved.
  *
  * Tilghman Lesher <app_eval__v001@the-tilghman.com>
  *
- * $Id: app_eval.c,v 1.1.2.1 2005/05/12 01:43:36 russell Exp $
+ * $Id: app_eval.c,v 1.6 2005/06/06 22:39:31 kpfleming Exp $
  *
  * This code is released by the author with no restrictions on usage.
  *
@@ -17,12 +17,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
 
 /* Maximum length of any variable */
 #define MAXRESULT	1024
@@ -49,6 +54,12 @@ static int eval_exec(struct ast_channel *chan, void *data)
 	int res=0;
 	struct localuser *u;
 	char *s, *newvar=NULL, tmp[MAXRESULT];
+	static int dep_warning = 0;
+
+	if (!dep_warning) {
+		ast_log(LOG_WARNING, "This application has been deprecated in favor of the dialplan function, EVAL\n");
+		dep_warning = 1;
+	}
 
 	LOCAL_USER_ADD(u);
 

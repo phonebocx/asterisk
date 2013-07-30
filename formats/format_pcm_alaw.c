@@ -3,20 +3,15 @@
  *
  * Flat, binary, alaw PCM file format.
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999, Digium, inc
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/channel.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/sched.h>
-#include <asterisk/module.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
@@ -24,18 +19,24 @@
 #include <sys/times.h>
 #include <sys/types.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#ifdef __linux__
-#include <endian.h>
-#else
-#include <machine/endian.h>
-#endif
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.20 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/channel.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/sched.h"
+#include "asterisk/module.h"
+#include "asterisk/endian.h"
 
 #define BUF_SIZE 160		/* 160 samples */
 
-// #define REALTIME_WRITE
+/* #define REALTIME_WRITE */
 
 struct ast_filestream {
 	void *reserved[AST_RESERVED_POINTERS];
@@ -108,7 +109,7 @@ static struct ast_filestream *pcm_open(int fd)
 	return tmp;
 }
 
-static struct ast_filestream *pcm_rewrite(int fd, char *comment)
+static struct ast_filestream *pcm_rewrite(int fd, const char *comment)
 {
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
@@ -188,18 +189,19 @@ static int pcm_write(struct ast_filestream *fs, struct ast_frame *f)
 
 #ifdef REALTIME_WRITE
 	cur_time = get_time();
-	fpos = ( cur_time - fs->start_time ) * 8;	// 8 bytes per msec
-	// Check if we have written to this position yet. If we have, then increment pos by one frame
-	// for some degree of protection against receiving packets in the same clock tick.
+	fpos = ( cur_time - fs->start_time ) * 8;	/* 8 bytes per msec */
+	/* Check if we have written to this position yet. If we have, then increment pos by one frame
+	*  for some degree of protection against receiving packets in the same clock tick.
+	*/
 	fstat( fs->fd, &stat_buf );
 	if( stat_buf.st_size > fpos )
 	{
-		fpos += f->datalen;	// Incrementing with the size of this current frame
+		fpos += f->datalen;	/* Incrementing with the size of this current frame */
 	}
 
 	if( stat_buf.st_size < fpos )
 	{
-		// fill the gap with 0x55 rather than 0.
+		/* fill the gap with 0x55 rather than 0. */
 		char buf[ 512 ];
 		unsigned long cur, to_write;
 
@@ -228,7 +230,7 @@ static int pcm_write(struct ast_filestream *fs, struct ast_frame *f)
 		ast_log( LOG_WARNING, "Cannot seek in file: %s\n", strerror(errno) );
 		return -1;
 	}
-#endif	// REALTIME_WRITE
+#endif	/* REALTIME_WRITE */
 	
 	if ((res = write(fs->fd, f->data, f->datalen)) != f->datalen) {
 			ast_log(LOG_WARNING, "Bad write (%d/%d): %s\n", res, f->datalen, strerror(errno));
@@ -253,7 +255,7 @@ static int pcm_seek(struct ast_filestream *fs, long sample_offset, int whence)
 	if (whence != SEEK_FORCECUR) {
 		offset = (offset > max)?max:offset;
 	}
-	// Always protect against seeking past begining
+	/* Always protect against seeking past begining */
 	offset = (offset < min)?min:offset;
 	return lseek(fs->fd, offset, SEEK_SET);
 }
@@ -297,14 +299,7 @@ int unload_module()
 
 int usecount()
 {
-	int res;
-	if (ast_mutex_lock(&pcm_lock)) {
-		ast_log(LOG_WARNING, "Unable to lock pcm list\n");
-		return -1;
-	}
-	res = glistcnt;
-	ast_mutex_unlock(&pcm_lock);
-	return res;
+	return glistcnt;
 }
 
 char *description()

@@ -11,7 +11,11 @@
  * the GNU General Public License
  */
 
-#include <asterisk/alaw.h>
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.4 $")
+
+#include "asterisk/alaw.h"
 
 #define AMI_MASK 0x55
 

@@ -23,19 +23,23 @@
 #include <errno.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <asterisk/channel.h>
-#include <asterisk/file.h>
-#include <asterisk/app.h>
-#include <asterisk/dsp.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/astdb.h>
-#include <asterisk/cli.h>
-#include <asterisk/utils.h>
-#include <asterisk/lock.h>
-#include "db1-ast/include/db.h"
+
 #include "asterisk.h"
-#include "astconf.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+
+#include "asterisk/channel.h"
+#include "asterisk/file.h"
+#include "asterisk/app.h"
+#include "asterisk/dsp.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/astdb.h"
+#include "asterisk/cli.h"
+#include "asterisk/utils.h"
+#include "asterisk/lock.h"
+#include "asterisk/manager.h"
+#include "db1-ast/include/db.h"
 
 static DB *astdb;
 AST_MUTEX_DEFINE_STATIC(dblock);
@@ -60,9 +64,21 @@ static inline int keymatch(const char *key, const char *prefix)
 		return 1;
 	if (!strcasecmp(key, prefix))
 		return 1;
-	if ((strlen(key) > preflen) &&
-		!strncasecmp(key, prefix, preflen)) {
+	if ((strlen(key) > preflen) && !strncasecmp(key, prefix, preflen)) {
 		if (key[preflen] == '/')
+			return 1;
+	}
+	return 0;
+}
+
+static inline int subkeymatch(const char *key, const char *suffix)
+{
+	int suffixlen = strlen(suffix);
+	if (suffixlen) {
+		const char *subkey = key + strlen(key) - suffixlen;
+		if (subkey < key)
+			return 0;
+		if (!strcasecmp(subkey, suffix))
 			return 1;
 	}
 	return 0;
@@ -77,14 +93,16 @@ int ast_db_deltree(const char *family, const char *keytree)
 	int pass;
 	
 	if (family) {
-		if (keytree)
+		if (keytree) {
 			snprintf(prefix, sizeof(prefix), "/%s/%s", family, keytree);
-		else
+		} else {
 			snprintf(prefix, sizeof(prefix), "/%s", family);
-	} else if (keytree)
+		}
+	} else if (keytree) {
 		return -1;
-	else
+	} else {
 		prefix[0] = '\0';
+	}
 	
 	ast_mutex_lock(&dblock);
 	if (dbinit()) 
@@ -93,12 +111,13 @@ int ast_db_deltree(const char *family, const char *keytree)
 	memset(&key, 0, sizeof(key));
 	memset(&data, 0, sizeof(data));
 	pass = 0;
-	while(!(res = astdb->seq(astdb, &key, &data, pass++ ? R_NEXT : R_FIRST))) {
+	while (!(res = astdb->seq(astdb, &key, &data, pass++ ? R_NEXT : R_FIRST))) {
 		if (key.size) {
 			keys = key.data;
 			keys[key.size - 1] = '\0';
-		} else
+		} else {
 			keys = "<bad key>";
+		}
 		if (keymatch(keys, prefix)) {
 			astdb->del(astdb, &key, 0);
 		}
@@ -137,7 +156,7 @@ int ast_db_put(const char *family, const char *keys, char *value)
 
 int ast_db_get(const char *family, const char *keys, char *value, int valuelen)
 {
-	char fullkey[256]="";
+	char fullkey[256] = "";
 	DBT key, data;
 	int res, fullkeylen;
 
@@ -210,10 +229,11 @@ static int database_put(int fd, int argc, char *argv[])
 	if (argc != 5)
 		return RESULT_SHOWUSAGE;
 	res = ast_db_put(argv[2], argv[3], argv[4]);
-	if (res) 
+	if (res)  {
 		ast_cli(fd, "Failed to update entry\n");
-	else
+	} else {
 		ast_cli(fd, "Updated database successfully\n");
+	}
 	return RESULT_SUCCESS;
 }
 
@@ -224,10 +244,11 @@ static int database_get(int fd, int argc, char *argv[])
 	if (argc != 4)
 		return RESULT_SHOWUSAGE;
 	res = ast_db_get(argv[2], argv[3], tmp, sizeof(tmp));
-	if (res) 
+	if (res) {
 		ast_cli(fd, "Database entry not found.\n");
-	else
+	} else {
 		ast_cli(fd, "Value: %s\n", tmp);
+	}
 	return RESULT_SUCCESS;
 }
 
@@ -237,10 +258,11 @@ static int database_del(int fd, int argc, char *argv[])
 	if (argc != 4)
 		return RESULT_SHOWUSAGE;
 	res = ast_db_del(argv[2], argv[3]);
-	if (res) 
+	if (res) {
 		ast_cli(fd, "Database entry does not exist.\n");
-	else
+	} else {
 		ast_cli(fd, "Database entry removed.\n");
+	}
 	return RESULT_SUCCESS;
 }
 
@@ -249,14 +271,16 @@ static int database_deltree(int fd, int argc, char *argv[])
 	int res;
 	if ((argc < 3) || (argc > 4))
 		return RESULT_SHOWUSAGE;
-	if (argc == 4)
+	if (argc == 4) {
 		res = ast_db_deltree(argv[2], argv[3]);
-	else
+	} else {
 		res = ast_db_deltree(argv[2], NULL);
-	if (res) 
+	}
+	if (res) {
 		ast_cli(fd, "Database entries do not exist.\n");
-	else
+	} else {
 		ast_cli(fd, "Database entries removed.\n");
+	}
 	return RESULT_SUCCESS;
 }
 
@@ -277,8 +301,9 @@ static int database_show(int fd, int argc, char *argv[])
 	} else if (argc == 2) {
 		/* Neither */
 		prefix[0] = '\0';
-	} else
+	} else {
 		return RESULT_SHOWUSAGE;
+	}
 	ast_mutex_lock(&dblock);
 	if (dbinit()) {
 		ast_mutex_unlock(&dblock);
@@ -288,18 +313,64 @@ static int database_show(int fd, int argc, char *argv[])
 	memset(&key, 0, sizeof(key));
 	memset(&data, 0, sizeof(data));
 	pass = 0;
-	while(!(res = astdb->seq(astdb, &key, &data, pass++ ? R_NEXT : R_FIRST))) {
+	while (!(res = astdb->seq(astdb, &key, &data, pass++ ? R_NEXT : R_FIRST))) {
 		if (key.size) {
 			keys = key.data;
 			keys[key.size - 1] = '\0';
-		} else
+		} else {
 			keys = "<bad key>";
+		}
 		if (data.size) {
 			values = data.data;
 			values[data.size - 1]='\0';
-		} else
+		} else {
 			values = "<bad value>";
+		}
 		if (keymatch(keys, prefix)) {
+				ast_cli(fd, "%-50s: %-25s\n", keys, values);
+		}
+	}
+	ast_mutex_unlock(&dblock);
+	return RESULT_SUCCESS;	
+}
+
+static int database_showkey(int fd, int argc, char *argv[])
+{
+	char suffix[256];
+	DBT key, data;
+	char *keys, *values;
+	int res;
+	int pass;
+
+	if (argc == 3) {
+		/* Key only */
+		snprintf(suffix, sizeof(suffix), "/%s", argv[2]);
+	} else {
+		return RESULT_SHOWUSAGE;
+	}
+	ast_mutex_lock(&dblock);
+	if (dbinit()) {
+		ast_mutex_unlock(&dblock);
+		ast_cli(fd, "Database unavailable\n");
+		return RESULT_SUCCESS;	
+	}
+	memset(&key, 0, sizeof(key));
+	memset(&data, 0, sizeof(data));
+	pass = 0;
+	while (!(res = astdb->seq(astdb, &key, &data, pass++ ? R_NEXT : R_FIRST))) {
+		if (key.size) {
+			keys = key.data;
+			keys[key.size - 1] = '\0';
+		} else {
+			keys = "<bad key>";
+		}
+		if (data.size) {
+			values = data.data;
+			values[data.size - 1]='\0';
+		} else {
+			values = "<bad value>";
+		}
+		if (subkeymatch(keys, suffix)) {
 				ast_cli(fd, "%-50s: %-25s\n", keys, values);
 		}
 	}
@@ -318,14 +389,16 @@ struct ast_db_entry *ast_db_gettree(const char *family, const char *keytree)
 	struct ast_db_entry *cur, *ret=NULL;
 
 	if (family && !ast_strlen_zero(family)) {
-		if (keytree && !ast_strlen_zero(keytree))
+		if (keytree && !ast_strlen_zero(keytree)) {
 			/* Family and key tree */
 			snprintf(prefix, sizeof(prefix), "/%s/%s", family, prefix);
-		else
+		} else {
 			/* Family only */
 			snprintf(prefix, sizeof(prefix), "/%s", family);
-	} else
+		}
+	} else {
 		prefix[0] = '\0';
+	}
 	ast_mutex_lock(&dblock);
 	if (dbinit()) {
 		ast_mutex_unlock(&dblock);
@@ -335,30 +408,33 @@ struct ast_db_entry *ast_db_gettree(const char *family, const char *keytree)
 	memset(&key, 0, sizeof(key));
 	memset(&data, 0, sizeof(data));
 	pass = 0;
-	while(!(res = astdb->seq(astdb, &key, &data, pass++ ? R_NEXT : R_FIRST))) {
+	while (!(res = astdb->seq(astdb, &key, &data, pass++ ? R_NEXT : R_FIRST))) {
 		if (key.size) {
 			keys = key.data;
 			keys[key.size - 1] = '\0';
-		} else
+		} else {
 			keys = "<bad key>";
+		}
 		if (data.size) {
 			values = data.data;
-			values[data.size - 1]='\0';
-		} else
+			values[data.size - 1] = '\0';
+		} else {
 			values = "<bad value>";
+		}
 		if (keymatch(keys, prefix)) {
-				cur = malloc(sizeof(struct ast_db_entry) + strlen(keys) + strlen(values) + 2);
-				if (cur) {
-					cur->next = NULL;
-					cur->key = cur->data + strlen(values) + 1;
-					strcpy(cur->data, values);
-					strcpy(cur->key, keys);
-					if (last)
-						last->next = cur;
-					else
-						ret = cur;
-					last = cur;
+			cur = malloc(sizeof(struct ast_db_entry) + strlen(keys) + strlen(values) + 2);
+			if (cur) {
+				cur->next = NULL;
+				cur->key = cur->data + strlen(values) + 1;
+				strcpy(cur->data, values);
+				strcpy(cur->key, keys);
+				if (last) {
+					last->next = cur;
+				} else {
+					ret = cur;
 				}
+				last = cur;
+			}
 		}
 	}
 	ast_mutex_unlock(&dblock);
@@ -368,7 +444,7 @@ struct ast_db_entry *ast_db_gettree(const char *family, const char *keytree)
 void ast_db_freetree(struct ast_db_entry *dbe)
 {
 	struct ast_db_entry *last;
-	while(dbe) {
+	while (dbe) {
 		last = dbe;
 		dbe = dbe->next;
 		free(last);
@@ -379,6 +455,10 @@ static char database_show_usage[] =
 "Usage: database show [family [keytree]]\n"
 "       Shows Asterisk database contents, optionally restricted\n"
 "to a given family, or family and keytree.\n";
+
+static char database_showkey_usage[] =
+"Usage: database showkey <keytree>\n"
+"       Shows Asterisk database contents, restricted to a given key.\n";
 
 static char database_put_usage[] =
 "Usage: database put <family> <key> <value>\n"
@@ -403,6 +483,9 @@ static char database_deltree_usage[] =
 struct ast_cli_entry cli_database_show =
 { { "database", "show", NULL }, database_show, "Shows database contents", database_show_usage };
 
+struct ast_cli_entry cli_database_showkey =
+{ { "database", "showkey", NULL }, database_showkey, "Shows database contents", database_showkey_usage };
+
 struct ast_cli_entry cli_database_get =
 { { "database", "get", NULL }, database_get, "Gets database value", database_get_usage };
 
@@ -415,13 +498,84 @@ struct ast_cli_entry cli_database_del =
 struct ast_cli_entry cli_database_deltree =
 { { "database", "deltree", NULL }, database_deltree, "Removes database keytree/values", database_deltree_usage };
 
+static int manager_dbput(struct mansession *s, struct message *m)
+{
+	char *family = astman_get_header(m, "Family");
+	char *key = astman_get_header(m, "Key");
+	char *val = astman_get_header(m, "Val");
+	int res;
+
+	if (!strlen(family)) {
+		astman_send_error(s, m, "No family specified");
+		return 0;
+	}
+	if (!strlen(key)) {
+		astman_send_error(s, m, "No key specified");
+		return 0;
+	}
+	if (!strlen(val)) {
+		astman_send_error(s, m, "No val specified");
+		return 0;
+	}
+
+	res = ast_db_put(family, key, val);
+	if (res) {
+		astman_send_error(s, m, "Failed to update entry");
+	} else {
+		astman_send_ack(s, m, "Updated database successfully");
+	}
+	return 0;
+}
+
+static int manager_dbget(struct mansession *s, struct message *m)
+{
+	char *id = astman_get_header(m,"ActionID");
+	char idText[256] = "";
+	char *family = astman_get_header(m, "Family");
+	char *key = astman_get_header(m, "Key");
+	char tmp[256];
+	int res;
+
+	if (!strlen(family)) {
+		astman_send_error(s, m, "No family specified.");
+		return 0;
+	}
+	if (!strlen(key)) {
+		astman_send_error(s, m, "No key specified.");
+		return 0;
+	}
+
+	if (id && !ast_strlen_zero(id))
+		snprintf(idText, sizeof(idText) ,"ActionID: %s\r\n", id);
+
+	res = ast_db_get(family, key, tmp, sizeof(tmp));
+	if (res) {
+		astman_send_error(s, m, "Database entry not found");
+	} else {
+		astman_send_ack(s, m, "Result will follow");
+		ast_mutex_lock(&s->lock);
+		ast_cli(s->fd, "Event: DBGetResponse\r\n"
+				"Family: %s\r\n"
+				"Key: %s\r\n"
+				"Val: %s\r\n"
+				"%s"
+				"\r\n",
+				family, key, tmp, idText);
+		ast_mutex_unlock(&s->lock);
+	}
+	return 0;
+}
+
 int astdb_init(void)
 {
 	dbinit();
 	ast_cli_register(&cli_database_show);
+	ast_cli_register(&cli_database_showkey);
 	ast_cli_register(&cli_database_get);
 	ast_cli_register(&cli_database_put);
 	ast_cli_register(&cli_database_del);
 	ast_cli_register(&cli_database_deltree);
+	ast_manager_register("DBGet", EVENT_FLAG_SYSTEM, manager_dbget, "Get DB Entry");
+	ast_manager_register("DBPut", EVENT_FLAG_SYSTEM, manager_dbput, "Put DB Entry");
 	return 0;
 }

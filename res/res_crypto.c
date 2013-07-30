@@ -3,7 +3,7 @@
  *
  * Provide Cryptographic Signature capability
  * 
- * Copyright (C) 1999-2004, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -12,18 +12,6 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/file.h>
-#include <asterisk/channel.h>
-#include <asterisk/logger.h>
-#include <asterisk/say.h>
-#include <asterisk/module.h>
-#include <asterisk/options.h>
-#include <asterisk/crypto.h>
-#include <asterisk/md5.h>
-#include <asterisk/cli.h>
-#include <asterisk/io.h>
-#include <asterisk/lock.h>
-#include <asterisk/utils.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <stdio.h>
@@ -32,8 +20,23 @@
 #include <errno.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include "../asterisk.h"
-#include "../astconf.h"
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.25 $")
+
+#include "asterisk/file.h"
+#include "asterisk/channel.h"
+#include "asterisk/logger.h"
+#include "asterisk/say.h"
+#include "asterisk/module.h"
+#include "asterisk/options.h"
+#include "asterisk/crypto.h"
+#include "asterisk/md5.h"
+#include "asterisk/cli.h"
+#include "asterisk/io.h"
+#include "asterisk/lock.h"
+#include "asterisk/utils.h"
 
 /*
  * Asterisk uses RSA keys with SHA-1 message digests for its
@@ -135,7 +138,7 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 	int ktype = 0;
 	char *c = NULL;
 	char ffname[256];
-	char digest[16];
+	unsigned char digest[16];
 	FILE *f;
 	struct MD5Context md5;
 	struct ast_key *key;
@@ -177,7 +180,7 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 		memset(buf, 0, 256);
 		fgets(buf, sizeof(buf), f);
 		if (!feof(f)) {
-			MD5Update(&md5, buf, strlen(buf));
+			MD5Update(&md5, (unsigned char *) buf, strlen(buf));
 		}
 	}
 	MD5Final(digest, &md5);
@@ -214,9 +217,9 @@ static struct ast_key *try_load_key (char *dir, char *fname, int ifd, int ofd, i
 	if (found)
 		ast_mutex_lock(&keylock);
 	/* First the filename */
-	strncpy(key->fn, ffname, sizeof(key->fn) - 1);
+	ast_copy_string(key->fn, ffname, sizeof(key->fn));
 	/* Then the name */
-	strncpy(key->name, fname, sizeof(key->name) - 1);
+	ast_copy_string(key->name, fname, sizeof(key->name));
 	key->ktype = ktype;
 	/* Yes, assume we're going to be deleted */
 	key->delme = 1;
@@ -303,7 +306,7 @@ static char *binary(int y, int len)
 int ast_sign_bin(struct ast_key *key, char *msg, int msglen, unsigned char *dsig)
 {
 	unsigned char digest[20];
-	int siglen = 128;
+	unsigned int siglen = 128;
 	int res;
 
 	if (key->ktype != AST_KEY_PRIVATE) {
@@ -417,7 +420,7 @@ int ast_check_signature_bin(struct ast_key *key, char *msg, int msglen, unsigned
 	res = RSA_verify(NID_sha1, digest, sizeof(digest), dsig, 128, key->rsa);
 	
 	if (!res) {
-		ast_log(LOG_DEBUG, "Key failed verification\n");
+		ast_log(LOG_DEBUG, "Key failed verification: %s\n", key->name);
 		return -1;
 	}
 	/* Pass */
@@ -498,6 +501,7 @@ static int show_keys(int fd, int argc, char *argv[])
 {
 	struct ast_key *key;
 	char sum[16 * 2 + 1];
+	int count_keys = 0;
 
 	ast_mutex_lock(&keylock);
 	key = keys;
@@ -509,8 +513,10 @@ static int show_keys(int fd, int argc, char *argv[])
 			key->ktype & KEY_NEEDS_PASSCODE ? "[Needs Passcode]" : "[Loaded]", sum);
 				
 		key = key->next;
+		count_keys++;
 	}
 	ast_mutex_unlock(&keylock);
+	ast_cli(fd, "%d known RSA keys.\n", count_keys);
 	return RESULT_SUCCESS;
 }
 
@@ -526,7 +532,7 @@ static int init_keys(int fd, int argc, char *argv[])
 		/* Reload keys that need pass codes now */
 		if (key->ktype & KEY_NEEDS_PASSCODE) {
 			kn = key->fn + strlen(ast_config_AST_KEY_DIR) + 1;
-			strncpy(tmp, kn, sizeof(tmp) - 1);
+			ast_copy_string(tmp, kn, sizeof(tmp));
 			try_load_key((char *)ast_config_AST_KEY_DIR, tmp, fd, fd, &ign);
 		}
 		key = key->next;

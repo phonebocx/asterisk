@@ -1,24 +1,14 @@
 /*
  * Asterisk -- A telephony toolkit for Linux.
  *
- * Copyright (C) 2002, Linux Support Services
+ * Copyright (C) 2002 - 2005, Digium, Inc.
  *
- * By Matthew Fredrickson <creslin@linux-support.net>
+ * By Matthew Fredrickson <creslin@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
-#include <asterisk/frame.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/module.h>
-#include <asterisk/channel_pvt.h>
-#include <asterisk/options.h>
-#include <asterisk/pbx.h>
-#include <asterisk/config.h>
-#include <asterisk/cli.h>
-#include <asterisk/utils.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
@@ -27,11 +17,26 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <endian.h>
 
 #define ALSA_PCM_NEW_HW_PARAMS_API
 #define ALSA_PCM_NEW_SW_PARAMS_API
 #include <alsa/asoundlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.47 $")
+
+#include "asterisk/frame.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/module.h"
+#include "asterisk/options.h"
+#include "asterisk/pbx.h"
+#include "asterisk/config.h"
+#include "asterisk/cli.h"
+#include "asterisk/utils.h"
+#include "asterisk/causes.h"
+#include "asterisk/endian.h"
 
 #include "busy.h"
 #include "ringtone.h"
@@ -81,12 +86,12 @@ static int silencethreshold = 1000;
 AST_MUTEX_DEFINE_STATIC(usecnt_lock);
 AST_MUTEX_DEFINE_STATIC(alsalock);
 
-static char *type = "Console";
-static char *desc = "ALSA Console Channel Driver";
-static char *tdesc = "ALSA Console Channel Driver";
-static char *config = "alsa.conf";
+static const char type[] = "Console";
+static const char desc[] = "ALSA Console Channel Driver";
+static const char tdesc[] = "ALSA Console Channel Driver";
+static const char config[] = "alsa.conf";
 
-static char context[AST_MAX_EXTENSION] = "default";
+static char context[AST_MAX_CONTEXT] = "default";
 static char language[MAX_LANGUAGE] = "";
 static char exten[AST_MAX_EXTENSION] = "s";
 
@@ -119,7 +124,7 @@ static struct chan_alsa_pvt {
 	   keeps this driver as simple as possible -- as it should be. */
 	struct ast_channel *owner;
 	char exten[AST_MAX_EXTENSION];
-	char context[AST_MAX_EXTENSION];
+	char context[AST_MAX_CONTEXT];
 #if 0
 	snd_pcm_t *card;
 #endif
@@ -146,6 +151,34 @@ static int sampsent = 0;
 static int silencelen=0;
 static int offset=0;
 static int nosound=0;
+
+/* ZZ */
+static struct ast_channel *alsa_request(const char *type, int format, void *data, int *cause);
+static int alsa_digit(struct ast_channel *c, char digit);
+static int alsa_text(struct ast_channel *c, const char *text);
+static int alsa_hangup(struct ast_channel *c);
+static int alsa_answer(struct ast_channel *c);
+static struct ast_frame *alsa_read(struct ast_channel *chan);
+static int alsa_call(struct ast_channel *c, char *dest, int timeout);
+static int alsa_write(struct ast_channel *chan, struct ast_frame *f);
+static int alsa_indicate(struct ast_channel *chan, int cond);
+static int alsa_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
+
+static const struct ast_channel_tech alsa_tech = {
+	.type = type,
+	.description = tdesc,
+	.capabilities = AST_FORMAT_SLINEAR,
+	.requester = alsa_request,
+	.send_digit = alsa_digit,
+	.send_text = alsa_text,
+	.hangup = alsa_hangup,
+	.answer = alsa_answer,
+	.read = alsa_read,
+	.call = alsa_call,
+	.write = alsa_write,
+	.indicate = alsa_indicate,
+	.fixup = alsa_fixup,
+};
 
 static int send_sound(void)
 {
@@ -289,14 +322,14 @@ static snd_pcm_t *alsa_card_init(char *dev, snd_pcm_stream_t stream)
 	snd_pcm_sw_params_t *swparams = NULL;
 	struct pollfd pfd;
 	snd_pcm_uframes_t period_size = PERIOD_FRAMES * 4;
-	//int period_bytes = 0;
+	/* int period_bytes = 0; */
 	snd_pcm_uframes_t buffer_size = 0;
 
 	unsigned int rate = DESIRED_RATE;
 #if 0
 	unsigned int per_min = 1;
 #endif
-	//unsigned int per_max = 8;
+	/* unsigned int per_max = 8; */
 	snd_pcm_uframes_t start_threshold, stop_threshold;
 
 	err = snd_pcm_open(&handle, dev, stream, O_NONBLOCK);
@@ -339,7 +372,7 @@ static snd_pcm_t *alsa_card_init(char *dev, snd_pcm_stream_t stream)
 		ast_log(LOG_DEBUG, "Period size is %d\n", err);
 	}
 
-	buffer_size = 4096 * 2; //period_size * 16;
+	buffer_size = 4096 * 2; /* period_size * 16; */
 	err = snd_pcm_hw_params_set_buffer_size_near(handle, hwparams, &buffer_size);
 	if (err < 0) {
 		ast_log(LOG_WARNING, "Problem setting buffer size of %ld: %s\n", buffer_size, snd_strerror(err));
@@ -451,7 +484,7 @@ static int alsa_digit(struct ast_channel *c, char digit)
 	return 0;
 }
 
-static int alsa_text(struct ast_channel *c, char *text)
+static int alsa_text(struct ast_channel *c, const char *text)
 {
 	ast_mutex_lock(&alsalock);
 	ast_verbose( " << Console Received text %s >> \n", text);
@@ -525,7 +558,7 @@ static int alsa_hangup(struct ast_channel *c)
 	int res;
 	ast_mutex_lock(&alsalock);
 	cursound = -1;
-	c->pvt->pvt = NULL;
+	c->tech_pvt = NULL;
 	alsa.owner = NULL;
 	ast_verbose( " << Hangup on console >> \n");
 	ast_mutex_lock(&usecnt_lock);
@@ -547,7 +580,7 @@ static int alsa_write(struct ast_channel *chan, struct ast_frame *f)
 	int len = sizpos;
 	int pos;
 	int res = 0;
-	//size_t frames = 0;
+	/* size_t frames = 0; */
 	snd_pcm_state_t state;
 	/* Immediately return if no sound is enabled */
 	if (nosound)
@@ -593,13 +626,13 @@ static int alsa_write(struct ast_channel *chan, struct ast_frame *f)
 		} else {
 			if (res == -ESTRPIPE) {
 				ast_log(LOG_ERROR, "You've got some big problems\n");
-			}
-			if (res > 0)
-				res = 0;
+			} else if (res < 0)
+				ast_log(LOG_NOTICE, "Error %d on write\n", res);
 		}
 	}
 	ast_mutex_unlock(&alsalock);
-
+	if (res > 0)
+		res = 0;
 	return res;
 }
 
@@ -682,7 +715,7 @@ static struct ast_frame *alsa_read(struct ast_channel *chan)
 
 static int alsa_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
 {
-	struct chan_alsa_pvt *p = newchan->pvt->pvt;
+	struct chan_alsa_pvt *p = newchan->tech_pvt;
 	ast_mutex_lock(&alsalock);
 	p->owner = newchan;
 	ast_mutex_unlock(&alsalock);
@@ -722,20 +755,14 @@ static struct ast_channel *alsa_new(struct chan_alsa_pvt *p, int state)
 	struct ast_channel *tmp;
 	tmp = ast_channel_alloc(1);
 	if (tmp) {
+		tmp->tech = &alsa_tech;
 		snprintf(tmp->name, sizeof(tmp->name), "ALSA/%s", indevname);
 		tmp->type = type;
 		tmp->fds[0] = readdev;
 		tmp->nativeformats = AST_FORMAT_SLINEAR;
-		tmp->pvt->pvt = p;
-		tmp->pvt->send_digit = alsa_digit;
-		tmp->pvt->send_text = alsa_text;
-		tmp->pvt->hangup = alsa_hangup;
-		tmp->pvt->answer = alsa_answer;
-		tmp->pvt->read = alsa_read;
-		tmp->pvt->call = alsa_call;
-		tmp->pvt->write = alsa_write;
-		tmp->pvt->indicate = alsa_indicate;
-		tmp->pvt->fixup = alsa_fixup;
+		tmp->readformat = AST_FORMAT_SLINEAR;
+		tmp->writeformat = AST_FORMAT_SLINEAR;
+		tmp->tech_pvt = p;
 		if (strlen(p->context))
 			strncpy(tmp->context, p->context, sizeof(tmp->context)-1);
 		if (strlen(p->exten))
@@ -759,7 +786,7 @@ static struct ast_channel *alsa_new(struct chan_alsa_pvt *p, int state)
 	return tmp;
 }
 
-static struct ast_channel *alsa_request(char *type, int format, void *data)
+static struct ast_channel *alsa_request(const char *type, int format, void *data, int *cause)
 {
 	int oldformat = format;
 	struct ast_channel *tmp=NULL;
@@ -771,6 +798,7 @@ static struct ast_channel *alsa_request(char *type, int format, void *data)
 	ast_mutex_lock(&alsalock);
 	if (alsa.owner) {
 		ast_log(LOG_NOTICE, "Already have a call on the ALSA channel\n");
+		*cause = AST_CAUSE_BUSY;
 	} else {
 		tmp= alsa_new(&alsa, AST_STATE_DOWN);
 		if (!tmp) {
@@ -873,6 +901,7 @@ static int console_sendtext(int fd, int argc, char *argv[])
 			strncat(text2send, argv[tmparg++], sizeof(text2send) - strlen(text2send) - 1);
 			strncat(text2send, " ", sizeof(text2send) - strlen(text2send) - 1);
 		}
+		text2send[strlen(text2send) - 1] = '\n';
 		f.data = text2send;
 		f.datalen = strlen(text2send) + 1;
 		grab_owner();
@@ -992,7 +1021,7 @@ int load_module()
 	int x;
 	struct ast_config *cfg;
 	struct ast_variable *v;
-	if ((cfg = ast_load(config))) {
+	if ((cfg = ast_config_load(config))) {
 		v = ast_variable_browse(cfg, "general");
 		while(v) {
 			if (!strcasecmp(v->name, "autoanswer"))
@@ -1013,7 +1042,7 @@ int load_module()
 				strncpy(outdevname, v->value, sizeof(outdevname)-1);
 			v=v->next;
 		}
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 	}
 	res = pipe(sndcmd);
 	if (res) {
@@ -1028,11 +1057,8 @@ int load_module()
 		}
 		return 0;
 	}
-#if 0
-	if (!full_duplex)
-		ast_log(LOG_WARNING, "XXX I don't work right with non-full duplex sound cards XXX\n");
-#endif
-	res = ast_channel_register(type, tdesc, AST_FORMAT_SLINEAR, alsa_request);
+
+	res = ast_channel_register(&alsa_tech);
 	if (res < 0) {
 		ast_log(LOG_ERROR, "Unable to register channel class '%s'\n", type);
 		return -1;
@@ -1054,7 +1080,7 @@ int unload_module()
 {
 	int x;
 	
-	ast_channel_unregister(type);
+	ast_channel_unregister(&alsa_tech);
 	for (x=0;x<sizeof(myclis)/sizeof(struct ast_cli_entry); x++)
 		ast_cli_unregister(myclis + x);
 	snd_pcm_close(alsa.icard);
@@ -1072,16 +1098,12 @@ int unload_module()
 
 char *description()
 {
-	return desc;
+	return (char *) desc;
 }
 
 int usecount()
 {
-	int res;
-	ast_mutex_lock(&usecnt_lock);
-	res = usecnt;
-	ast_mutex_unlock(&usecnt_lock);
-	return res;
+	return usecnt;
 }
 
 char *key()

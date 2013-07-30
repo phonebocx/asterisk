@@ -3,46 +3,49 @@
  *
  * A/Open ITU-56/2 Voice Modem Driver (Rockwell, IS-101, and others)
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
-#include <asterisk/lock.h>
-#include <asterisk/channel.h>
-#include <asterisk/channel_pvt.h>
-#include <asterisk/config.h>
-#include <asterisk/logger.h>
-#include <asterisk/module.h>
-#include <asterisk/pbx.h>
-#include <asterisk/options.h>
-#include <asterisk/vmodem.h>
-#include <asterisk/utils.h>
-#include <sys/socket.h>
 #include <sys/time.h>
 #include <errno.h>
-#include <unistd.h>
-#include <stdlib.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/socket.h>
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <sys/termios.h>
 #include <sys/signal.h>
-#include <ctype.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.44 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/channel.h"
+#include "asterisk/config.h"
+#include "asterisk/logger.h"
+#include "asterisk/module.h"
+#include "asterisk/pbx.h"
+#include "asterisk/options.h"
+#include "asterisk/vmodem.h"
+#include "asterisk/utils.h"
 
 /* Up to 10 seconds for an echo to arrive */
 #define ECHO_TIMEOUT 10
 
-static char *desc = "Generic Voice Modem Driver";
-static char *tdesc = "Generic Voice Modem Channel Driver";
-static char *type = "Modem";
-static char *config = "modem.conf";
+static const char desc[] = "Generic Voice Modem Driver";
+static const char tdesc[] = "Generic Voice Modem Channel Driver";
+static const char type[] = "Modem";
+static const char config[] = "modem.conf";
 static char dialtype = 'T';
 static int gmode = MODEM_MODE_IMMEDIATE;
 
@@ -74,7 +77,7 @@ struct ast_dsp *dsp = NULL;
 static char outgoingmsn[AST_MAX_EXTENSION]="";
 
 /* Default group */
-static unsigned int cur_group = 0;
+static ast_group_t cur_group = 0;
 
 static int usecnt =0;
 
@@ -97,6 +100,29 @@ static pthread_t monitor_thread = AST_PTHREADT_NULL;
 
 static int restart_monitor(void);
 
+static struct ast_channel *modem_request(const char *type, int format, void *data, int *cause);
+static int modem_digit(struct ast_channel *ast, char digit);
+static int modem_call(struct ast_channel *ast, char *idest, int timeout);
+static int modem_hangup(struct ast_channel *ast);
+static int modem_answer(struct ast_channel *ast);
+static struct ast_frame *modem_read(struct ast_channel *);
+static int modem_write(struct ast_channel *ast, struct ast_frame *frame);
+static int modem_fixup(struct ast_channel *oldchan, struct ast_channel *newchan);
+
+static const struct ast_channel_tech modem_tech = {
+	.type = type,
+	.description = tdesc,
+	.capabilities = AST_FORMAT_SLINEAR,
+	.requester = modem_request,
+	.send_digit = modem_digit,
+	.call = modem_call,
+	.hangup = modem_hangup,
+	.answer = modem_answer,
+	.read = modem_read,
+	.write = modem_write,
+	.fixup = modem_fixup,
+};
+
 /* The private structures of the Phone Jack channels are linked for
    selecting outgoing channels */
    
@@ -105,7 +131,7 @@ static struct ast_modem_pvt  *iflist = NULL;
 static int modem_digit(struct ast_channel *ast, char digit)
 {
 	struct ast_modem_pvt *p;
-	p = ast->pvt->pvt;
+	p = ast->tech_pvt;
 	if (p->mc->dialdigit)
 		return p->mc->dialdigit(p, digit);
 	ast_log(LOG_DEBUG, "Channel %s lacks digit dialing\n", ast->name);
@@ -113,8 +139,6 @@ static int modem_digit(struct ast_channel *ast, char digit)
 }
 
 static struct ast_modem_driver *drivers = NULL;
-
-static struct ast_frame *modem_read(struct ast_channel *);
 
 static struct ast_modem_driver *find_capability(char *ident)
 {
@@ -191,7 +215,7 @@ static int modem_call(struct ast_channel *ast, char *idest, int timeout)
 		ast_log(LOG_WARNING, "Destination %s requres a real destination (device:destination)\n", idest);
 		return -1;
 	}
-	p = ast->pvt->pvt;
+	p = ast->tech_pvt;
 	strncpy(dstr, where + p->stripmsd, sizeof(dstr) - 1);
 	/* if not a transfer or just sending tones, must be in correct state */
 	if (strcasecmp(rdest, "transfer") && strcasecmp(rdest,"sendtones")) {
@@ -421,7 +445,7 @@ static int modem_hangup(struct ast_channel *ast)
 	struct ast_modem_pvt *p;
 	if (option_debug)
 		ast_log(LOG_DEBUG, "modem_hangup(%s)\n", ast->name);
-	p = ast->pvt->pvt;
+	p = ast->tech_pvt;
 	/* Hang up */
 	if (p->mc->hangup)
 		p->mc->hangup(p);
@@ -429,9 +453,10 @@ static int modem_hangup(struct ast_channel *ast)
 	if (p->mc->init)
 		p->mc->init(p);
 	ast_setstate(ast, AST_STATE_DOWN);
-	memset(p->cid, 0, sizeof(p->cid));
+	memset(p->cid_num, 0, sizeof(p->cid_num));
+	memset(p->cid_name, 0, sizeof(p->cid_name));
 	memset(p->dnid, 0, sizeof(p->dnid));
-	((struct ast_modem_pvt *)(ast->pvt->pvt))->owner = NULL;
+	((struct ast_modem_pvt *)(ast->tech_pvt))->owner = NULL;
 	ast_mutex_lock(&usecnt_lock);
 	usecnt--;
 	if (usecnt < 0) 
@@ -440,7 +465,7 @@ static int modem_hangup(struct ast_channel *ast)
 	ast_update_use_count();
 	if (option_verbose > 2) 
 		ast_verbose( VERBOSE_PREFIX_3 "Hungup '%s'\n", ast->name);
-	ast->pvt->pvt = NULL;
+	ast->tech_pvt = NULL;
 	ast_setstate(ast, AST_STATE_DOWN);
 	restart_monitor();
 	return 0;
@@ -452,7 +477,7 @@ static int modem_answer(struct ast_channel *ast)
 	int res=0;
 	if (option_debug)
 		ast_log(LOG_DEBUG, "modem_answer(%s)\n", ast->name);
-	p = ast->pvt->pvt;
+	p = ast->tech_pvt;
 	if (p->mc->answer) {
 		res = p->mc->answer(p);
 	}
@@ -478,7 +503,7 @@ static char modem_2digit(char c)
 #endif
 static struct ast_frame *modem_read(struct ast_channel *ast)
 {
-	struct ast_modem_pvt *p = ast->pvt->pvt;
+	struct ast_modem_pvt *p = ast->tech_pvt;
 	struct ast_frame *fr=NULL;
 	if (p->mc->read)
 		fr = p->mc->read(p);
@@ -489,7 +514,7 @@ static int modem_write(struct ast_channel *ast, struct ast_frame *frame)
 {
 	int res=0;
 	long flags;
-	struct ast_modem_pvt *p = ast->pvt->pvt;
+	struct ast_modem_pvt *p = ast->tech_pvt;
 
 	/* Modems tend to get upset when they receive data whilst in
 	 * command mode. This makes esp. dial commands short lived.
@@ -511,7 +536,7 @@ static int modem_write(struct ast_channel *ast, struct ast_frame *frame)
 
 static int modem_fixup(struct ast_channel *oldchan, struct ast_channel *newchan)
 {
-        struct ast_modem_pvt *p = newchan->pvt->pvt;
+        struct ast_modem_pvt *p = newchan->tech_pvt;
 ast_log(LOG_WARNING, "fixup called\n");
 	if (p->owner!=oldchan) {
 	    ast_log(LOG_WARNING, "old channel wasn't %p but was %p\n",oldchan,p->owner);
@@ -526,6 +551,7 @@ struct ast_channel *ast_modem_new(struct ast_modem_pvt *i, int state)
 	struct ast_channel *tmp;
 	tmp = ast_channel_alloc(1);
 	if (tmp) {
+		tmp->tech = &modem_tech;
 		snprintf(tmp->name, sizeof(tmp->name), "Modem[%s]/%s", i->mc->name, i->dev + 5);
 		tmp->type = type;
 		tmp->fds[0] = i->fd;
@@ -533,17 +559,14 @@ struct ast_channel *ast_modem_new(struct ast_modem_pvt *i, int state)
 		ast_setstate(tmp, state);
 		if (state == AST_STATE_RING)
 			tmp->rings = 1;
-		tmp->pvt->pvt = i;
-		tmp->pvt->send_digit = modem_digit;
-		tmp->pvt->call = modem_call;
-		tmp->pvt->hangup = modem_hangup;
-		tmp->pvt->answer = modem_answer;
-		tmp->pvt->read = modem_read;
-		tmp->pvt->write = modem_write;
-		tmp->pvt->fixup = modem_fixup;
+		tmp->tech_pvt = i;
 		strncpy(tmp->context, i->context, sizeof(tmp->context)-1);
-		if (strlen(i->cid))
-			tmp->callerid = strdup(i->cid);
+
+		if (!ast_strlen_zero(i->cid_num))
+			tmp->cid.cid_num = strdup(i->cid_num);
+		if (!ast_strlen_zero(i->cid_name))
+			tmp->cid.cid_name = strdup(i->cid_name);
+
 		if (strlen(i->language))
 			strncpy(tmp->language,i->language, sizeof(tmp->language)-1);
 		if (strlen(i->dnid))
@@ -704,8 +727,19 @@ static void stty(struct ast_modem_pvt *p)
 		ast_log(LOG_WARNING, "Unable to get serial parameters on %s: %s\n", p->dev, strerror(errno));
 		return;
 	}
+#ifndef SOLARIS
 	cfmakeraw(&mode);
-	cfsetspeed(&mode, B115200);
+#else
+        mode.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP
+                        |INLCR|IGNCR|ICRNL|IXON);
+        mode.c_oflag &= ~OPOST;
+        mode.c_lflag &= ~(ECHO|ECHONL|ICANON|ISIG|IEXTEN);
+        mode.c_cflag &= ~(CSIZE|PARENB);
+        mode.c_cflag |= CS8;
+#endif
+
+	cfsetispeed(&mode, B115200);
+	cfsetospeed(&mode, B115200);
 	if (tcsetattr(p->fd, TCSANOW, &mode)) 
 		ast_log(LOG_WARNING, "Unable to set serial parameters on %s: %s\n", p->dev, strerror(errno));
 	
@@ -752,7 +786,8 @@ static struct ast_modem_pvt *mkif(char *iface)
 		tmp->dialtype = dialtype;
 		tmp->mode = gmode;
 		tmp->group = cur_group;
-		memset(tmp->cid, 0, sizeof(tmp->cid));
+		memset(tmp->cid_num, 0, sizeof(tmp->cid_num));
+		memset(tmp->cid_name, 0, sizeof(tmp->cid_name));
 		strncpy(tmp->context, context, sizeof(tmp->context)-1);
 		strncpy(tmp->initstr, initstr, sizeof(tmp->initstr)-1);
 		tmp->next = NULL;
@@ -767,13 +802,14 @@ static struct ast_modem_pvt *mkif(char *iface)
 	return tmp;
 }
 
-static struct ast_channel *modem_request(char *type, int format, void *data)
+static struct ast_channel *modem_request(const char *type, int format, void *data, int *cause)
 {
 	int oldformat;
 	struct ast_modem_pvt *p;
 	struct ast_channel *tmp = NULL;
 	char dev[80];
-	unsigned int group = 0;
+	ast_group_t group = 0;
+	int groupint;
 	char *stringp=NULL;
 	strncpy(dev, (char *)data, sizeof(dev)-1);
 	stringp=dev;
@@ -782,11 +818,11 @@ static struct ast_channel *modem_request(char *type, int format, void *data)
 
 	if (dev[0]=='g' && isdigit(dev[1])) {
 		/* Retrieve the group number */
-		if (sscanf(dev+1, "%u", &group) < 1) {
+		if (sscanf(dev+1, "%u", &groupint) < 1) {
 			ast_log(LOG_WARNING, "Unable to determine group from [%s]\n", (char *)data);
 			return NULL;
 		}
-		group = 1 << group;
+		group = 1 << groupint;
 	}
 
 	/* Search for an unowned channel */
@@ -831,11 +867,11 @@ static struct ast_channel *modem_request(char *type, int format, void *data)
 	return tmp;
 }
 
-static unsigned int get_group(char *s)
+static ast_group_t get_group(char *s)
 {
 	char *piece;
 	int start, finish,x;
-	unsigned int group = 0;
+	ast_group_t group = 0;
 	char *copy = ast_strdupa(s);
 	char *stringp=NULL;
 	if (!copy) {
@@ -857,7 +893,7 @@ static unsigned int get_group(char *s)
 		piece = strsep(&stringp, ",");
 
 		for (x=start;x<=finish;x++) {
-			if ((x > 31) || (x < 0)) {
+			if ((x > 63) || (x < 0)) {
 				ast_log(LOG_WARNING, "Ignoring invalid group %d\n", x);
 				break;
 			}
@@ -871,7 +907,7 @@ static int __unload_module(void)
 {
 	struct ast_modem_pvt *p, *pl;
 	/* First, take us out of the channel loop */
-	ast_channel_unregister(type);
+	ast_channel_unregister(&modem_tech);
 	if (!ast_mutex_lock(&iflock)) {
 		/* Hangup all interfaces if they have an owner */
 		p = iflist;
@@ -931,7 +967,7 @@ int load_module()
 	struct ast_variable *v;
 	struct ast_modem_pvt *tmp;
 	char driver[80];
-	cfg = ast_load(config);
+	cfg = ast_config_load(config);
 
 	/* We *must* have a config file otherwise stop immediately */
 	if (!cfg) {
@@ -954,7 +990,7 @@ int load_module()
 					
 				} else {
 					ast_log(LOG_ERROR, "Unable to register channel '%s'\n", v->value);
-					ast_destroy(cfg);
+					ast_config_destroy(cfg);
 					ast_mutex_unlock(&iflock);
 					__unload_module();
 					return -1;
@@ -966,7 +1002,7 @@ int load_module()
 				
 			if (ast_load_resource(driver)) {
 				ast_log(LOG_ERROR, "Failed to load driver %s\n", driver);
-				ast_destroy(cfg);
+				ast_config_destroy(cfg);
 				ast_mutex_unlock(&iflock);
 				__unload_module();
 				return -1;
@@ -1034,14 +1070,13 @@ int load_module()
 		v = v->next;
 	}
 	ast_mutex_unlock(&iflock);
-	if (ast_channel_register(type, tdesc, /* XXX Don't know our types -- maybe we should register more than one XXX */ 
-						AST_FORMAT_SLINEAR, modem_request)) {
+	if (ast_channel_register(&modem_tech)) {
 		ast_log(LOG_ERROR, "Unable to register channel class %s\n", type);
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 		__unload_module();
 		return -1;
 	}
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 	/* And start the monitor for the first time */
 	restart_monitor();
 	return 0;
@@ -1049,16 +1084,12 @@ int load_module()
 
 int usecount(void)
 {
-	int res;
-	ast_mutex_lock(&usecnt_lock);
-	res = usecnt;
-	ast_mutex_unlock(&usecnt_lock);
-	return res;
+	return usecnt;
 }
 
 char *description()
 {
-	return desc;
+	return (char *) desc;
 }
 
 char *key()

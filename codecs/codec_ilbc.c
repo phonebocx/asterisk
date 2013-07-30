@@ -3,27 +3,32 @@
  *
  * Translate between signed linear and Internet Low Bitrate Codec
  *
- * The iLBC code is from The IETF code base and is copyright GlobalSound, AB
+ * The iLBC code is from The IETF code base and is copyright The Internet Society (2004)
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/translate.h>
-#include <asterisk/module.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <stdio.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/translate.h"
+#include "asterisk/module.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
 
 #include "ilbc/iLBC_encode.h"
 #include "ilbc/iLBC_decode.h"
@@ -33,6 +38,8 @@
 #include "ilbc_slin_ex.h"
 
 #define USE_ILBC_ENHANCER	0
+#define ILBC_MS 			30
+/* #define ILBC_MS			20 */
 
 AST_MUTEX_DEFINE_STATIC(localuser_lock);
 static int localusecnt=0;
@@ -61,7 +68,7 @@ static struct ast_translator_pvt *lintoilbc_new(void)
 	if (tmp) {
 		/* Shut valgrind up */
 		memset(&tmp->enc, 0, sizeof(tmp->enc));
-		initEncode(&tmp->enc);
+		initEncode(&tmp->enc, ILBC_MS);
 		tmp->tail = 0;
 		localusecnt++;
 	}
@@ -75,7 +82,7 @@ static struct ast_translator_pvt *ilbctolin_new(void)
 	if (tmp) {
 		/* Shut valgrind up */
 		memset(&tmp->dec, 0, sizeof(tmp->dec));
-		initDecode(&tmp->dec, USE_ILBC_ENHANCER);
+		initDecode(&tmp->dec, ILBC_MS, USE_ILBC_ENHANCER);
 		tmp->tail = 0;
 		localusecnt++;
 	}
@@ -139,7 +146,19 @@ static int ilbctolin_framein(struct ast_translator_pvt *tmp, struct ast_frame *f
 	   the tail location.  Read in as many frames as there are */
 	int x,i;
 	float tmpf[240];
-	
+
+	if (f->datalen == 0) { /* native PLC */
+		if (tmp->tail + 240 < sizeof(tmp->buf)/2) {	
+			iLBC_decode(tmpf, NULL, &tmp->dec, 0);
+			for (i=0;i<240;i++)
+				tmp->buf[tmp->tail + i] = tmpf[i];
+			tmp->tail+=240;
+		} else {
+			ast_log(LOG_WARNING, "Out of buffer space\n");
+			return -1;
+		}		
+	}
+
 	if (f->datalen % 50) {
 		ast_log(LOG_WARNING, "Huh?  An ilbc frame that isn't a multiple of 50 bytes long from %s (%d)?\n", f->src, f->datalen);
 		return -1;

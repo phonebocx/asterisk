@@ -1,17 +1,15 @@
 /*
  * Asterisk -- A telephony toolkit for Linux.
  *
- * Channel Variables
+ * Memory Management
  * 
- * Copyright (C) 2002, Mark Spencer
+ * Copyright (C) 2002-2005, Mark Spencer
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
-
-
 
 #ifdef __AST_DEBUG_MALLOC
 
@@ -19,17 +17,23 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <asterisk/cli.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/lock.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
+
+#include "asterisk/cli.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/lock.h"
+#include "asterisk/strings.h"
 
 #define SOME_PRIME 563
 
-#define FUNC_CALLOC		1
-#define FUNC_MALLOC		2
+#define FUNC_CALLOC	1
+#define FUNC_MALLOC	2
 #define FUNC_REALLOC	3
-#define FUNC_STRDUP		4
+#define FUNC_STRDUP	4
 #define FUNC_STRNDUP	5
 #define FUNC_VASPRINTF	6
 
@@ -63,14 +67,14 @@ AST_MUTEX_DEFINE_STATIC(showmemorylock);
 static inline void *__ast_alloc_region(size_t size, int which, const char *file, int lineno, const char *func)
 {
 	struct ast_region *reg;
-	void *ptr=NULL;
+	void *ptr = NULL;
 	int hash;
 	reg = malloc(size + sizeof(struct ast_region));
 	ast_mutex_lock(&reglock);
 	if (reg) {
-		strncpy(reg->file, file, sizeof(reg->file) - 1);
+		ast_copy_string(reg->file, file, sizeof(reg->file));
 		reg->file[sizeof(reg->file) - 1] = '\0';
-		strncpy(reg->func, func, sizeof(reg->func) - 1);
+		ast_copy_string(reg->func, func, sizeof(reg->func));
 		reg->func[sizeof(reg->func) - 1] = '\0';
 		reg->lineno = lineno;
 		reg->len = size;
@@ -99,7 +103,7 @@ static inline size_t __ast_sizeof_region(void *ptr)
 	
 	ast_mutex_lock(&reglock);
 	reg = regions[hash];
-	while(reg) {
+	while (reg) {
 		if (reg->data == ptr) {
 			len = reg->len;
 			break;
@@ -116,13 +120,13 @@ static void __ast_free_region(void *ptr, const char *file, int lineno, const cha
 	struct ast_region *reg, *prev = NULL;
 	ast_mutex_lock(&reglock);
 	reg = regions[hash];
-	while(reg) {
+	while (reg) {
 		if (reg->data == ptr) {
-			if (prev)
+			if (prev) {
 				prev->next = reg->next;
-			else
+			} else {
 				regions[hash] = reg->next;
-
+			}
 			break;
 		}
 		prev = reg;
@@ -132,11 +136,9 @@ static void __ast_free_region(void *ptr, const char *file, int lineno, const cha
 	if (reg) {
 		free(reg);
 	} else {
-		fprintf(stderr, "WARNING: Freeing unused memory at %p, in %s of %s, line %d\n",
-			ptr, func, file, lineno);
+		fprintf(stderr, "WARNING: Freeing unused memory at %p, in %s of %s, line %d\n",	ptr, func, file, lineno);
 		if (mmlog) {
-			fprintf(mmlog, "%ld - WARNING: Freeing unused memory at %p, in %s of %s, line %d\n", time(NULL),
-			ptr, func, file, lineno);
+			fprintf(mmlog, "%ld - WARNING: Freeing unused memory at %p, in %s of %s, line %d\n", time(NULL), ptr, func, file, lineno);
 			fflush(mmlog);
 		}
 	}
@@ -164,15 +166,13 @@ void __ast_free(void *ptr, const char *file, int lineno, const char *func)
 void *__ast_realloc(void *ptr, size_t size, const char *file, int lineno, const char *func) 
 {
 	void *tmp;
-	size_t len=0;
+	size_t len = 0;
 	if (ptr) {
 		len = __ast_sizeof_region(ptr);
 		if (!len) {
-			fprintf(stderr, "WARNING: Realloc of unalloced memory at %p, in %s of %s, line %d\n",
-				ptr, func, file, lineno);
+			fprintf(stderr, "WARNING: Realloc of unalloced memory at %p, in %s of %s, line %d\n", ptr, func, file, lineno);
 			if (mmlog) {
-				fprintf(mmlog, "%ld - WARNING: Realloc of unalloced memory at %p, in %s of %s, line %d\n",
-					time(NULL), ptr, func, file, lineno);
+				fprintf(mmlog, "%ld - WARNING: Realloc of unalloced memory at %p, in %s of %s, line %d\n", time(NULL), ptr, func, file, lineno);
 				fflush(mmlog);
 			}
 			return NULL;
@@ -227,10 +227,11 @@ int __ast_vasprintf(char **strp, const char *fmt, va_list ap, const char *file, 
 		n = vsnprintf(*strp, size, fmt, ap);
 		if (n > -1 && n < size)
 			return n;
-		if (n > -1)	/* glibc 2.1 */
+		if (n > -1) {	/* glibc 2.1 */
 			size = n+1;
-		else		/* glibc 2.0 */
+		} else {	/* glibc 2.0 */
 			size *= 2;
+		}
 		if ((*strp = __ast_realloc(*strp, size, file, lineno, func)) == NULL)
 			return -1;
 	}
@@ -241,19 +242,19 @@ static int handle_show_memory(int fd, int argc, char *argv[])
 	char *fn = NULL;
 	int x;
 	struct ast_region *reg;
-	unsigned int len=0;
+	unsigned int len = 0;
 	int count = 0;
-	if (argc >3) 
+	if (argc > 3) 
 		fn = argv[3];
 
 	/* try to lock applications list ... */
 	ast_mutex_lock(&showmemorylock);
 
-	for (x=0;x<SOME_PRIME;x++) {
+	for (x = 0; x < SOME_PRIME; x++) {
 		reg = regions[x];
-		while(reg) {
+		while (reg) {
 			if (!fn || !strcasecmp(fn, reg->file)) {
-				ast_cli(fd, "%10d bytes allocated in %20s at line %5d of %s\n", reg->len, reg->func, reg->lineno, reg->file);
+				ast_cli(fd, "%10d bytes allocated in %20s at line %5d of %s\n", (int) reg->len, reg->func, reg->lineno, reg->file);
 				len += reg->len;
 				count++;
 			}
@@ -277,22 +278,22 @@ static int handle_show_memory_summary(int fd, int argc, char *argv[])
 	char *fn = NULL;
 	int x;
 	struct ast_region *reg;
-	unsigned int len=0;
+	unsigned int len = 0;
 	int count = 0;
 	struct file_summary *list = NULL, *cur;
 	
-	if (argc >3) 
+	if (argc > 3) 
 		fn = argv[3];
 
 	/* try to lock applications list ... */
 	ast_mutex_lock(&reglock);
 
-	for (x=0;x<SOME_PRIME;x++) {
+	for (x = 0; x < SOME_PRIME; x++) {
 		reg = regions[x];
-		while(reg) {
+		while (reg) {
 			if (!fn || !strcasecmp(fn, reg->file)) {
 				cur = list;
-				while(cur) {
+				while (cur) {
 					if ((!fn && !strcmp(cur->fn, reg->file)) || (fn && !strcmp(cur->fn, reg->func)))
 						break;
 					cur = cur->next;
@@ -300,7 +301,7 @@ static int handle_show_memory_summary(int fd, int argc, char *argv[])
 				if (!cur) {
 					cur = alloca(sizeof(struct file_summary));
 					memset(cur, 0, sizeof(struct file_summary));
-					strncpy(cur->fn, fn ? reg->func : reg->file, sizeof(cur->fn) - 1);
+					ast_copy_string(cur->fn, fn ? reg->func : reg->file, sizeof(cur->fn));
 					cur->next = list;
 					list = cur;
 				}
@@ -313,14 +314,15 @@ static int handle_show_memory_summary(int fd, int argc, char *argv[])
 	ast_mutex_unlock(&reglock);
 	
 	/* Dump the whole list */
-	while(list) {
+	while (list) {
 		cur = list;
 		len += list->len;
 		count += list->count;
-		if (fn)
+		if (fn) {
 			ast_cli(fd, "%10d bytes in %5d allocations in function '%s' of '%s'\n", list->len, list->count, list->fn, fn);
-		else
+		} else {
 			ast_cli(fd, "%10d bytes in %5d allocations in file '%s'\n", list->len, list->count, list->fn);
+		}
 		list = list->next;
 #if 0
 		free(cur);
@@ -350,14 +352,16 @@ static struct ast_cli_entry show_memory_summary_cli =
 	handle_show_memory_summary, "Summarize outstanding memory allocations",
 	show_memory_summary_help };
 
-
 void __ast_mm_init(void)
 {
+	char filename[80] = "";
 	ast_cli_register(&show_memory_allocations_cli);
 	ast_cli_register(&show_memory_summary_cli);
-	mmlog = fopen("/var/log/asterisk/mmlog", "a+");
+	
+	snprintf(filename, sizeof(filename), "%s/mmlog", (char *)ast_config_AST_LOG_DIR);
+	mmlog = fopen(filename, "a+");
 	if (option_verbose)
-		ast_verbose("Asterisk Malloc Debugger Started (see /var/log/asterisk/mmlog)\n");
+		ast_verbose("Asterisk Malloc Debugger Started (see %s))\n", filename);
 	if (mmlog) {
 		fprintf(mmlog, "%ld - New session\n", time(NULL));
 		fflush(mmlog);

@@ -1,29 +1,26 @@
 #
 # Asterisk -- A telephony toolkit for Linux.
 # 
-# Makefile for PBX frontends (dynamically loaded)
+# Makefile for PBX modules
 #
-# Copyright (C) 1999, Mark Spencer
+# Copyright (C) 1999-2005, Mark Spencer
 #
-# Mark Spencer <markster@linux-support.net>
+# Mark Spencer <markster@digium.com>
 #
 # This program is free software, distributed under the terms of
 # the GNU General Public License
 #
 
-
-
-PBX_LIBS=pbx_config.so pbx_wilcalu.so pbx_spool.so     # pbx_gtkconsole.so pbx_kdeconsole.so
+PBX_LIBS=pbx_config.so pbx_spool.so pbx_dundi.so pbx_loopback.so pbx_realtime.so \
+         pbx_ael.so
 
 # Add GTK console if appropriate
-PBX_LIBS+=$(shell gtk-config --cflags >/dev/null 2>/dev/null && echo "pbx_gtkconsole.so")
+#PBX_LIBS+=$(shell $(CROSS_COMPILE_BIN)gtk-config --cflags >/dev/null 2>/dev/null && echo "pbx_gtkconsole.so")
 # Add KDE Console if appropriate
 #PBX_LIBS+=$(shell [ "$$QTDIR" != "" ] && echo "pbx_kdeconsole.so")
 
-
-GTK_FLAGS=`gtk-config --cflags gthread`
-GTK_LIBS=`gtk-config --libs gthread`
-#CXX=egcs
+GTK_FLAGS=`${CROSS_COMPILE_BIN}gtk-config --cflags gthread`
+GTK_LIBS=`${CROSS_COMPILE_BIN}gtk-config --libs gthread`
 MOC=$(QTDIR)/bin/moc
 KDE_FLAGS=-I$(KDEDIR)/include -I$(KDEDIR)/include/kde -I$(QTDIR)/include
 KDE_LIBS=-L$(KDEDIR)/lib -L$(QTDIR)/lib -lqt -lkdecore -lkdeui
@@ -51,6 +48,9 @@ pbx_kdeconsole_main.o: pbx_kdeconsole_main.cc pbx_kdeconsole.h
 pbx_kdeconsole.so: $(KDE_CONSOLE_OBJS)
 	$(CC) $(SOLINK) -o $@ $(KDE_CONSOLE_OBJS) $(KDE_LIBS)
 
+pbx_dundi.so: dundi-parser.o pbx_dundi.o
+	$(CC) $(SOLINK) -o $@ pbx_dundi.o dundi-parser.o -lz
+
 %.moc : %.h
 	$(MOC) $< -o $@
 
@@ -67,4 +67,4 @@ install: all
 depend: .depend
 
 .depend:
-	../mkdep $(CFLAGS) `ls *.c`
+	../build_tools/mkdep $(CFLAGS) `ls *.c`

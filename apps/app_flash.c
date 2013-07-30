@@ -11,24 +11,29 @@
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
-#include <asterisk/image.h>
-#include <asterisk/options.h>
+#include <string.h>
+#include <errno.h>
+#include <stdlib.h>
 #include <sys/ioctl.h>
 #ifdef __linux__
 #include <linux/zaptel.h>
 #else
 #include <zaptel.h>
 #endif /* __linux__ */
-#include <string.h>
-#include <errno.h>
-#include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
+#include "asterisk/image.h"
+#include "asterisk/options.h"
 
 static char *tdesc = "Flash zap trunk application";
 

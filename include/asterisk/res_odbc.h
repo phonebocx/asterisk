@@ -6,7 +6,7 @@
  * Mark Spencer <markster@linux-support.net>
  *
  * res_odbc.h <ODBC resource manager>
- * Copyright (C) 2004 Anthony Minessale II <anthmct@yahoo.com>
+ * Copyright (C) 2004 - 2005 Anthony Minessale II <anthmct@yahoo.com>
  */
 
 #ifndef _RES_ODBC_H
@@ -45,7 +45,9 @@ odbc_status odbc_obj_connect(odbc_obj *obj);
 odbc_status odbc_obj_disconnect(odbc_obj *obj);
 void destroy_obdc_obj(odbc_obj **obj);
 int register_odbc_obj(char *name,odbc_obj *obj);
-odbc_obj *fetch_odbc_obj(char *name);
+odbc_obj *fetch_odbc_obj(const char *name, int check);
 int odbc_dump_fd(int fd,odbc_obj *obj);
-
+int odbc_sanity_check(odbc_obj *obj);
+int odbc_smart_execute(odbc_obj *obj, SQLHSTMT stmt);
+int odbc_smart_direct_execute(odbc_obj *obj, SQLHSTMT stmt, char *sql);
 #endif

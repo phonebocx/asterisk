@@ -3,27 +3,32 @@
  *
  * App to lookup the callerid number, and see if it is blacklisted
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
-#include <asterisk/image.h>
-#include <asterisk/callerid.h>
-#include <asterisk/astdb.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
+#include "asterisk/image.h"
+#include "asterisk/callerid.h"
+#include "asterisk/astdb.h"
 
 static char *tdesc = "Look up Caller*ID name/number from blacklist database";
 
@@ -48,38 +53,30 @@ LOCAL_USER_DECL;
 static int
 lookupblacklist_exec (struct ast_channel *chan, void *data)
 {
-	char old_cid[144] = "", *num, *name;
 	char blacklist[1];
-	char shrunknum[64] = "";
 	struct localuser *u;
 	int bl = 0;
 
 	LOCAL_USER_ADD (u);
-	if (chan->callerid)
+	if (chan->cid.cid_num)
 	{
-		strncpy (old_cid, chan->callerid, sizeof (old_cid) - 1);
-		ast_callerid_parse (old_cid, &name, &num);
-		if (num)
-			strncpy (shrunknum, num, sizeof (shrunknum) - 1);
-		else
-			num = shrunknum;
-		
-		ast_shrink_phone_number (shrunknum);
-		if (!ast_db_get ("blacklist", shrunknum, blacklist, sizeof (blacklist)))
+		if (!ast_db_get ("blacklist", chan->cid.cid_num, blacklist, sizeof (blacklist)))
 		{
 			if (option_verbose > 2)
-				ast_log(LOG_NOTICE, "Blacklisted number %s found\n",shrunknum);
+				ast_log(LOG_NOTICE, "Blacklisted number %s found\n",chan->cid.cid_num);
 			bl = 1;
 		}
-		else if (!ast_db_get ("blacklist", name, blacklist, sizeof (blacklist)))
+	}
+	if (chan->cid.cid_name) {
+		if (!ast_db_get ("blacklist", chan->cid.cid_name, blacklist, sizeof (blacklist))) 
 		{
 			if (option_verbose > 2)
-				ast_log (LOG_NOTICE,"Blacklisted name \"%s\" found\n",name);
+				ast_log (LOG_NOTICE,"Blacklisted name \"%s\" found\n",chan->cid.cid_name);
 			bl = 1;
 		}
 	}
 	
-	if (bl && ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->callerid))
+	if (bl && ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
 		chan->priority+=100;
 	LOCAL_USER_REMOVE (u);
 	return 0;

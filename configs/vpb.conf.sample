@@ -3,13 +3,24 @@
 ; For [general] section
 ; type = v12pci|v6pci|v4pci
 ; cards = number of cards
+; indication = 1 ( To use Asterisk indication tones)
+; ecsuppthres = 0|2048|4096 (none,-24db,-18db only for use with OpenLine4)
+; dtmfidd = 3000 (Inter Digit Delay timeout for when collecting DTMF tones for dialling from a Station port, in ms)
+; ast-dtmf-det=1 ( To use Asterisk DTMF detection )
+; relaxdtmf=1 ( Used with ast-dtmf-det )
+; break-for-dtmf=no (When a native bridge occurs between 2 vpb channels, it will only break the connection for '#' and '*')
+; timer_period_ring=4000 (Set the maximum period between received rings, default 4000ms)
+;
 ; For [interface] section
 ; board = board_number (1, 2, 3, ...)
 ; channel = channel_number (1,2,3...)
 ; mode = fxo|immediate|dialtone -- for type of line and line handling
 ; context = starting context
 ; echocancel = on|off (on by default of v4pci, off by default for others)
-; callerid = on|off (to collect caller ID if available between 1st/2nd rings)
+; callerid = on|off|v23|bell (on => to collect caller ID if available between 1st/2nd rings using vpb functions)
+;                            (v23|bell => collect caller ID using asterisk functions)
+;            Or for use with FXS channels a '"name" <location>' format can be used to set the channels CID
+;
 ; UseLoopDrop = 0|1 (enables the use of Loop Drop detection, on by default in
 ;                    some cases spurious loop-drops can cause unexpected 
 ;                    hangup detection)

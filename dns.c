@@ -16,15 +16,20 @@
 #include <resolv.h>
 #include <unistd.h>
 
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/dns.h>
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/dns.h"
+#include "asterisk/endian.h"
 
 #define MAX_SIZE 4096
 
 typedef struct {
 	unsigned	id :16;		/* query identification number */
-#if BYTE_ORDER == BIG_ENDIAN
+#if __BYTE_ORDER == __BIG_ENDIAN
 			/* fields in third byte */
 	unsigned	qr: 1;		/* response flag */
 	unsigned	opcode: 4;	/* purpose of message */
@@ -38,7 +43,7 @@ typedef struct {
 	unsigned	cd: 1;		/* checking disabled by resolver */
 	unsigned	rcode :4;	/* response code */
 #endif
-#if BYTE_ORDER == LITTLE_ENDIAN || BYTE_ORDER == PDP_ENDIAN
+#if __BYTE_ORDER == __LITTLE_ENDIAN || __BYTE_ORDER == __PDP_ENDIAN
 			/* fields in third byte */
 	unsigned	rd :1;		/* recursion desired */
 	unsigned	tc :1;		/* truncated message */
@@ -66,7 +71,7 @@ struct dn_answer {
 	unsigned short size;
 } __attribute__ ((__packed__));
 
-static int skip_name(u_char *s, int len)
+static int skip_name(char *s, int len)
 {
 	int x = 0;
 
@@ -89,11 +94,12 @@ static int skip_name(u_char *s, int len)
 	return x;
 }
 
+/*--- dns_parse_answer: Parse DNS lookup result, call callback */
 static int dns_parse_answer(void *context,
-							int class, int type, u_char *answer, int len,
-							int (*callback)(void *context, u_char *answer, int len, u_char *fullanswer))
+	int class, int type, char *answer, int len,
+	int (*callback)(void *context, char *answer, int len, char *fullanswer))
 {
-	u_char *fullanswer = answer;
+	char *fullanswer = answer;
 	struct dn_answer *ans;
 	dns_HEADER *h;
 	int res;
@@ -160,9 +166,10 @@ AST_MUTEX_DEFINE_STATIC(res_lock);
 #endif
 #endif
 
+/*--- ast_search_dns: Lookup record in DNS */
 int ast_search_dns(void *context,
-				   const char *dname, int class, int type,
-				   int (*callback)(void *context, u_char *answer, int len, u_char *fullanswer))
+	   const char *dname, int class, int type,
+	   int (*callback)(void *context, char *answer, int len, char *fullanswer))
 {
 #ifdef HAS_RES_NINIT
 	struct __res_state dnsstate;
@@ -171,8 +178,11 @@ int ast_search_dns(void *context,
 	int res, ret = -1;
 
 #ifdef HAS_RES_NINIT
+#ifdef MAKE_VALGRIND_HAPPY
+	memset(&dnsstate, 0, sizeof(dnsstate));
+#endif	
 	res_ninit(&dnsstate);
-	res = res_nsearch(&dnsstate, dname, class, type, answer, sizeof(answer));
+	res = res_nsearch(&dnsstate, dname, class, type, (unsigned char *)answer, sizeof(answer));
 #else
 	ast_mutex_lock(&res_lock);
 	res_init();
@@ -180,11 +190,11 @@ int ast_search_dns(void *context,
 #endif
 	if (res > 0) {
 		if ((res = dns_parse_answer(context, class, type, answer, res, callback)) < 0) {
-			ast_log(LOG_WARNING, "Parse error\n");
+			ast_log(LOG_WARNING, "DNS Parse error for %s\n", dname);
 			ret = -1;
 		}
 		else if (ret == 0) {
-			ast_log(LOG_DEBUG, "No matches found\n");
+			ast_log(LOG_DEBUG, "No matches found in DNS for %s\n", dname);
 			ret = 0;
 		}
 		else

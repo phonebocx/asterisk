@@ -20,13 +20,6 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/pbx.h>
-#include <asterisk/config.h>
-#include <asterisk/module.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/cli.h>
-#include <asterisk/utils.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -38,9 +31,18 @@
 
 #include <gtk/gtk.h>
 #include <glib.h>
-/* For where to put dynamic tables */
-#include "../asterisk.h"
-#include "../astconf.h"
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.19 $")
+
+#include "asterisk/pbx.h"
+#include "asterisk/config.h"
+#include "asterisk/module.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/cli.h"
+#include "asterisk/utils.h"
 
 AST_MUTEX_DEFINE_STATIC(verb_lock);
 
@@ -105,12 +107,12 @@ static void __verboser(const char *stuff, int opos, int replacelast, int complet
 	if (replacelast) 
 		gtk_clist_remove(GTK_CLIST(verb), GTK_CLIST(verb)->rows - 1);
 	gtk_clist_append(GTK_CLIST(verb), s2);
-	if (last.tv_sec || last.tv_usec) {
+	if (!ast_tvzero(last)) {
 		gdk_threads_leave();
 		gettimeofday(&tv, NULL);
 		if (cleanupid > -1)
 			gtk_timeout_remove(cleanupid);
-		ms = (tv.tv_sec - last.tv_sec) * 1000 + (tv.tv_usec - last.tv_usec) / 1000;
+		ms = ast_tvdiff_ms(tv, last);
 		if (ms < 100) {
 			/* We just got a message within 100ms, so just schedule an update
 			   in the near future */
@@ -262,7 +264,7 @@ static void add_module(void)
 	gtk_widget_show(filew);
 }
 
-static int add_mod(char *module, char *description, int usecount)
+static int add_mod(const char *module, const char *description, int usecount, const char *like)
 {
 	char use[10];
 	char *pass[4];
@@ -286,7 +288,7 @@ static int mod_update(void)
 	}
 	gtk_clist_freeze(GTK_CLIST(modules));
 	gtk_clist_clear(GTK_CLIST(modules));
-	ast_update_module_list(add_mod);
+	ast_update_module_list(add_mod, NULL);
 	if (module)
 		gtk_clist_select_row(GTK_CLIST(modules), gtk_clist_find_row_from_data(GTK_CLIST(modules), module), -1);
 	gtk_clist_thaw(GTK_CLIST(modules));

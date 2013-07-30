@@ -1,11 +1,11 @@
 #
 # Asterisk -- A telephony toolkit for Linux.
 # 
-# Makefile for Channel backends (dynamically loaded)
+# Makefile for channel drivers
 #
-# Copyright (C) 1999, Mark Spencer
+# Copyright (C) 1999-2005, Mark Spencer
 #
-# Mark Spencer <markster@linux-support.net>
+# Mark Spencer <markster@digium.com>
 #
 # Edited By Belgarath <> Aug 28 2004
 # Added bare bones ultrasparc-linux support.
@@ -14,38 +14,28 @@
 # the GNU General Public License
 #
 
+ifeq ($(CROSS_COMPILE),)
 OSARCH=$(shell uname -s)
 PROC=$(shell uname -m)
-
-USE_MYSQL_FRIENDS=0
-USE_SIP_MYSQL_FRIENDS=0
+else
+OSARCH=$(CROSS_ARCH)
+PROC=$(CROSS_PROC) 
+HOSTCC=gcc
+endif
 
 CHANNEL_LIBS=chan_modem.so chan_sip.so \
 	     chan_modem_aopen.so \
-             chan_modem_bestdata.so chan_modem_i4l.so \
+             chan_modem_bestdata.so \
              chan_agent.so chan_mgcp.so chan_iax2.so \
-	     chan_local.so chan_skinny.so
-
-#
-# If you really want IAX1 uncomment the following, but it is
-# unmaintained
-#
-#CHANNEL_LIBS+=chan_iax.so
-
-#
-# If you really want VoFR you can have it :-P
-#
-#CHANNEL_LIBS+=chan_vofr
+	     chan_local.so chan_skinny.so chan_features.so
 
 ifeq (${OSARCH},OpenBSD)
-MYSQLLIB=-L/usr/local/lib/mysql -lmysqlclient
-CFLAGS+=-I/usr/local/include
+CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include
 PTLIB=-lpt_OpenBSD_x86_r
 H323LIB=-lh323_OpenBSD_x86_r
-CHANH323LIB=-L/usr/local/lib
+CHANH323LIB=-L$(CROSS_COMPILE_TARGET)/usr/local/lib
 endif
 ifeq (${OSARCH},Linux)
-MYSQLLIB=-L/usr/lib/mysql -lmysqlclient
 PTLIB=-lpt_linux_x86_r
 H323LIB=-lh323_linux_x86_r
 CHANH323LIB=-ldl
@@ -60,33 +50,39 @@ ifeq (${OSARCH},FreeBSD)
 PTLIB=-lpt_FreeBSD_x86_r
 H323LIB=-lh323_FreeBSD_x86_r
 CHANH323LIB=-pthread
-SOLINK+=-L/usr/local/lib
+SOLINK+=-L$(CROSS_COMPILE_TARGET)/usr/local/lib
 endif
 ifeq (${OSARCH},NetBSD)
 PTLIB=-lpt_NetBSD_x86_r
 H323LIB=-lh323_NetBSD_x86_r
-SOLINK+=-L/usr/local/lib
+SOLINK+=-L$(CROSS_COMPILE_TARGET)/usr/local/lib
 endif
 ifneq (${OSARCH},Darwin)
-CHANNEL_LIBS+=chan_oss.so
+ifneq (${OSARCH},SunOS)
+CHANNEL_LIBS+=chan_oss.so chan_modem_i4l.so 
+endif
 endif
 
-CHANNEL_LIBS+=$(shell [ -f /usr/include/linux/ixjuser.h ] && echo chan_phone.so)
-CHANNEL_LIBS+=$(shell [ -f /usr/local/include/ixjuser.h ] && echo chan_phone.so)
+ifeq (${OSARCH},SunOS)
+SOLINK+=-lrt
+endif
+
+CHANNEL_LIBS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/include/linux/ixjuser.h ] && echo chan_phone.so)
+CHANNEL_LIBS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/local/include/ixjuser.h ] && echo chan_phone.so)
 CHANNEL_LIBS+=$(shell [ -f h323/libchanh323.a ] && echo chan_h323.so)
 
 CFLAGS+=-Wno-missing-prototypes -Wno-missing-declarations
-CFLAGS+=$(shell [ ! -f /usr/include/linux/if_wanpipe.h ] && echo " -DOLD_SANGOMA_API")
-CHANNEL_LIBS+=$(shell [ -f /usr/include/alsa/asoundlib.h ] && echo "chan_alsa.so")
-CFLAGS+=$(shell [ -f /usr/lib/libpri.so.1 ] && echo " -DZAPATA_PRI")
-CFLAGS+=$(shell [ -f /usr/lib/libmfcr2.so.1 ] && echo " -DZAPATA_R2")
+CFLAGS+=$(shell [ ! -f $(CROSS_COMPILE_TARGET)/usr/include/linux/if_wanpipe.h ] && echo " -DOLD_SANGOMA_API")
+CHANNEL_LIBS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/include/alsa/asoundlib.h ] && echo "chan_alsa.so")
+CFLAGS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/lib/libpri.so.1 ] && echo " -DZAPATA_PRI")
+CFLAGS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/lib/libmfcr2.so.1 ] && echo " -DZAPATA_R2")
 CFLAGS+=$(shell [ -f alsa-monitor.h ] && echo " -DALSA_MONITOR")
-ZAPPRI=$(shell [ -f /usr/lib/libpri.so.1 ] && echo "-lpri")
-ZAPR2=$(shell [ -f /usr/lib/libmfcr2.so.1 ] && echo "-lmfcr2")
-CFLAGS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "-DIAX_TRUNKING")
-CFLAGS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "-DIAX_TRUNKING")
-CHANNEL_LIBS+=$(shell [ -f /usr/include/vpbapi.h ] && echo "chan_vpb.so" )
-CFLAGS+=$(shell [ -f /usr/include/vpbapi.h ] && echo " -DLINUX")
+ZAPPRI=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/lib/libpri.so.1 ] && echo "-lpri")
+ZAPR2=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/lib/libmfcr2.so.1 ] && echo "-lmfcr2")
+CFLAGS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/include/linux/zaptel.h ] && echo "-DIAX_TRUNKING")
+CFLAGS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/local/include/zaptel.h ] && echo "-DIAX_TRUNKING")
+CHANNEL_LIBS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/include/vpbapi.h ] && echo "chan_vpb.so" )
+CFLAGS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/include/vpbapi.h ] && echo " -DLINUX")
 
 ALSA_SRC=chan_alsa.c
 ALSA_SRC+=$(shell [ -f alsa-monitor.h ] && echo "alsa-monitor.h")
@@ -94,22 +90,14 @@ ALSA_SRC+=$(shell [ -f alsa-monitor.h ] && echo "alsa-monitor.h")
 CFLAGS+=-DCRYPTO
 CFLAGS+=-fPIC
 
-ifeq ($(USE_MYSQL_FRIENDS),1)
-CFLAGS+=-DMYSQL_FRIENDS
-USE_SIP_MYSQL_FRIENDS=1
-endif
-ifeq ($(USE_SIP_MYSQL_FRIENDS),1)
-CFLAGS+=-DSIP_MYSQL_FRIENDS
-endif
-
 CFLAGS+=#-DVOFRDUMPER
 
 ZAPDIR=/usr/lib
 
-CHANNEL_LIBS+=$(shell [ -f /usr/include/linux/zaptel.h ] && echo "chan_zap.so")
-CHANNEL_LIBS+=$(shell [ -f /usr/local/include/zaptel.h ] && echo "chan_zap.so")
+CHANNEL_LIBS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/include/linux/zaptel.h ] && echo "chan_zap.so")
+CHANNEL_LIBS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/local/include/zaptel.h ] && echo "chan_zap.so")
 
-CHANNEL_LIBS+=$(shell [ -f /usr/include/nbs.h ] && echo "chan_nbs.so" )
+CHANNEL_LIBS+=$(shell [ -f $(CROSS_COMPILE_TARGET)/usr/include/nbs.h ] && echo "chan_nbs.so" )
 
 ifndef OPENH323DIR
 OPENH323DIR=$(HOME)/openh323
@@ -134,11 +122,23 @@ ifneq ($(wildcard .depend),)
 include .depend
 endif
 
+ifneq ($(wildcard h323/Makefile.ast),)
+include h323/Makefile.ast
+endif
+
+ifeq ($(CROSS_COMPILE),)
 gentone: gentone.c
 	$(CC) -o gentone gentone.c -lm
 
 gentone-ulaw: gentone-ulaw.c
 	$(CC) -o gentone-ulaw gentone-ulaw.c -lm
+else
+gentone: gentone.c
+	$(HOSTCC) -o gentone gentone.c -lm
+
+gentone-ulaw: gentone-ulaw.c
+	$(HOSTCC) -o gentone-ulaw gentone-ulaw.c -lm
+endif
 
 busy.h: gentone
 	./gentone busy 480 620
@@ -158,18 +158,7 @@ chan_oss.so: chan_oss.o
 endif
 
 chan_iax2.so: chan_iax2.o iax2-parser.o iax2-provision.o
-ifeq ($(USE_MYSQL_FRIENDS),1)
-	$(CC) $(SOLINK) -o $@ chan_iax2.o iax2-parser.o iax2-provision.o $(MYSQLLIB) -lz
-else
 	$(CC) $(SOLINK) -o $@ chan_iax2.o iax2-parser.o iax2-provision.o
-endif
-
-chan_iax.so: chan_iax.o
-ifeq ($(USE_MYSQL_FRIENDS),1)
-	$(CC) $(SOLINK) -o $@ chan_iax.o $(MYSQLLIB) -lz
-else
-	$(CC) $(SOLINK) -o $@ chan_iax.o
-endif
 
 chan_zap.o: chan_zap.c
 	$(CC) -c $(CFLAGS) -o chan_zap.o chan_zap.c
@@ -178,14 +167,9 @@ chan_zap.so: chan_zap.o
 	$(CC) $(SOLINK) -o $@ $<  $(ZAPPRI) $(ZAPR2) -ltonezone
 
 chan_sip.so: chan_sip.o
-ifeq ($(USE_SIP_MYSQL_FRIENDS),1)
-	$(CC) $(SOLINK) -o $@ chan_sip.o $(MYSQLLIB) -lz
-else
 	$(CC) $(SOLINK) -o $@ chan_sip.o
-endif
 
 chan_alsa.o: $(ALSA_SRC)
-
 
 chan_alsa.so: chan_alsa.o
 	$(CC) $(SOLINK) -o $@ $< -lasound -lm -ldl
@@ -199,8 +183,13 @@ chan_vpb.o: chan_vpb.c
 chan_vpb.so: chan_vpb.o
 	 $(CXX) $(SOLINK) -o $@ $< -lvpb -lpthread -lm -ldl
 
+ifeq (${OSARCH},Linux)
+chan_h323.so: chan_h323.o h323/libchanh323.a h323/Makefile.ast
+	$(CC) $(SOLINK) $(H323LDFLAGS) -o $@ $< h323/libchanh323.a $(H323LDLIBS) -lstdc++
+else
 chan_h323.so: chan_h323.o h323/libchanh323.a
 	$(CC) $(SOLINK) -o $@ $< h323/libchanh323.a $(CHANH323LIB) -L$(PWLIBDIR)/lib $(PTLIB) -L$(OPENH323DIR)/lib $(H323LIB) -L/usr/lib -lcrypto -lssl -lexpat
+endif
 
 
 #chan_modem.so : chan_modem.o
@@ -213,7 +202,7 @@ install: all
 depend: .depend
 
 .depend:
-	../mkdep $(CFLAGS) `ls *.c`
+	../build_tools/mkdep $(CFLAGS) `ls *.c`
 
 env:
 	env

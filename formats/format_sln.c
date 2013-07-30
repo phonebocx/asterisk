@@ -9,25 +9,26 @@
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/channel.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/sched.h>
-#include <asterisk/module.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#ifdef __linux__
-#include <endian.h>
-#else
-#include <machine/endian.h>
-#endif
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/channel.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/sched.h"
+#include "asterisk/module.h"
+#include "asterisk/endian.h"
 
 #define BUF_SIZE 320		/* 320 samples */
 
@@ -78,7 +79,7 @@ static struct ast_filestream *slinear_open(int fd)
 	return tmp;
 }
 
-static struct ast_filestream *slinear_rewrite(int fd, char *comment)
+static struct ast_filestream *slinear_rewrite(int fd, const char *comment)
 {
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
@@ -172,9 +173,9 @@ static int slinear_seek(struct ast_filestream *fs, long sample_offset, int whenc
 	if (whence != SEEK_FORCECUR) {
 		offset = (offset > max)?max:offset;
 	}
-	// always protect against seeking past begining.
+	/* always protect against seeking past begining. */
 	offset = (offset < min)?min:offset;
-	return lseek(fs->fd, offset, SEEK_SET);
+	return lseek(fs->fd, offset, SEEK_SET) / 2;
 }
 
 static int slinear_trunc(struct ast_filestream *fs)
@@ -186,7 +187,7 @@ static long slinear_tell(struct ast_filestream *fs)
 {
 	off_t offset;
 	offset = lseek(fs->fd, 0, SEEK_CUR);
-	return offset;
+	return offset / 2;
 }
 
 static char *slinear_getcomment(struct ast_filestream *s)
@@ -217,14 +218,7 @@ int unload_module()
 
 int usecount()
 {
-	int res;
-	if (ast_mutex_lock(&slinear_lock)) {
-		ast_log(LOG_WARNING, "Unable to lock slinear list\n");
-		return -1;
-	}
-	res = glistcnt;
-	ast_mutex_unlock(&slinear_lock);
-	return res;
+	return glistcnt;
 }
 
 char *description()

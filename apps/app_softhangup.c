@@ -12,23 +12,29 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/lock.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/lock.h"
 
 static char *synopsis = "Soft Hangup Application";
 
 static char *tdesc = "Hangs up the requested channel";
 
-static char *desc = "  SoftHangup(Technology/resource)\n"
-"Hangs up the requested channel.  Always returns 0\n";
+static char *desc = "  SoftHangup(Technology/resource|options)\n"
+"Hangs up the requested channel.  Always returns 0\n"
+"- 'options' may contain the following letter:\n"
+"     'a' : hang up all channels on a specified device instead of a single resource\n";
 
 static char *app = "SoftHangup";
 
@@ -40,19 +46,42 @@ static int softhangup_exec(struct ast_channel *chan, void *data)
 {
 	struct localuser *u;
 	struct ast_channel *c=NULL;
+	char *options, *cut, *cdata, *match;
+	char name[AST_CHANNEL_NAME] = "";
+	int all = 0;
+
 	if (!data) {
                 ast_log(LOG_WARNING, "SoftHangup requires an argument (Technology/resource)\n");
 		return 0;
 	}
+	
+	cdata = ast_strdupa(data);
+	match = strsep(&cdata, "|");
+	options = strsep(&cdata, "|");
+	all = options && strchr(options,'a');
 	LOCAL_USER_ADD(u);
 	c = ast_channel_walk_locked(NULL);
 	while (c) {
-		if (!strcasecmp(c->name, data)) {
-			ast_softhangup(c, AST_SOFTHANGUP_EXPLICIT);
-			ast_mutex_unlock(&c->lock);
-			break;
-		}
+		strncpy(name, c->name, sizeof(name)-1);
 		ast_mutex_unlock(&c->lock);
+		/* XXX watch out, i think it is wrong to access c-> after unlocking! */
+		if (all) {
+			/* CAPI is set up like CAPI[foo/bar]/clcnt */ 
+			if (!strcmp(c->type,"CAPI")) 
+				cut = strrchr(name,'/');
+			/* Basically everything else is Foo/Bar-Z */
+			else
+				cut = strchr(name,'-');
+			/* Get rid of what we've cut */
+			if (cut)
+				*cut = 0;
+		}
+		if (!strcasecmp(name, match)) {
+			ast_log(LOG_WARNING, "Soft hanging %s up.\n",c->name);
+			ast_softhangup(c, AST_SOFTHANGUP_EXPLICIT);
+			if(!all)
+				break;
+		}
 		c = ast_channel_walk_locked(c);
 	}
 	LOCAL_USER_REMOVE(u);

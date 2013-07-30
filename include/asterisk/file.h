@@ -14,8 +14,8 @@
 #ifndef _ASTERISK_FILE_H
 #define _ASTERISK_FILE_H
 
-#include <asterisk/channel.h>
-#include <asterisk/frame.h>
+#include "asterisk/channel.h"
+#include "asterisk/frame.h"
 #include <fcntl.h>
 
 
@@ -24,8 +24,9 @@ extern "C" {
 #endif
 
 
-//! Convenient for waiting
-#define AST_DIGIT_ANY	"0123456789#*"
+/*! Convenient for waiting */
+#define AST_DIGIT_ANY "0123456789#*ABCD"
+#define AST_DIGIT_ANYNUM "0123456789"
 
 #define SEEK_FORCECUR	10
 	
@@ -33,14 +34,14 @@ extern "C" {
    pointer for use by the stream manager */
 struct ast_filestream;
 
-//! Registers a new file format
+/*! Registers a new file format */
 /*! Register a new file format capability
  * Adds a format to asterisk's format abilities.  Fill in the fields, and it will work. For examples, look at some of the various format code.
  * returns 0 on success, -1 on failure
  */
-int ast_format_register(char *name, char *exts, int format,
+int ast_format_register(const char *name, const char *exts, int format,
 						struct ast_filestream * (*open)(int fd),
-						struct ast_filestream * (*rewrite)(int fd, char *comment),
+						struct ast_filestream * (*rewrite)(int fd, const char *comment),
 						int (*write)(struct ast_filestream *, struct ast_frame *),
 						int (*seek)(struct ast_filestream *, long offset, int whence),
 						int (*trunc)(struct ast_filestream *),
@@ -49,15 +50,15 @@ int ast_format_register(char *name, char *exts, int format,
 						void (*close)(struct ast_filestream *),
 						char * (*getcomment)(struct ast_filestream *));
 	
-//! Unregisters a file format
+/*! Unregisters a file format */
 /*!
  * \param name the name of the format you wish to unregister
  * Unregisters a format based on the name of the format.
  * Returns 0 on success, -1 on failure to unregister
  */
-int ast_format_unregister(char *name);
+int ast_format_unregister(const char *name);
 
-//! Streams a file
+/*! Streams a file */
 /*!
  * \param c channel to stream the file to
  * \param filename the name of the file you wish to stream, minus the extension
@@ -66,9 +67,9 @@ int ast_format_unregister(char *name);
  * Also, it will stop any existing streams on the channel.
  * Returns 0 on success, or -1 on failure.
  */
-int ast_streamfile(struct ast_channel *c, char *filename, char *preflang);
+int ast_streamfile(struct ast_channel *c, const char *filename, const char *preflang);
 
-//! Stops a stream
+/*! Stops a stream */
 /*!
  * \param c The channel you wish to stop playback on
  * Stop playback of a stream 
@@ -76,7 +77,7 @@ int ast_streamfile(struct ast_channel *c, char *filename, char *preflang);
  */
 int ast_stopstream(struct ast_channel *c);
 
-//! Checks for the existence of a given file
+/*! Checks for the existence of a given file */
 /*!
  * \param filename name of the file you wish to check, minus the extension
  * \param fmt the format you wish to check (the extension)
@@ -84,9 +85,9 @@ int ast_stopstream(struct ast_channel *c);
  * See if a given file exists in a given format.  If fmt is NULL,  any format is accepted.
  * Returns -1 if file does not exist, non-zero positive otherwise.
  */
-int ast_fileexists(char *filename, char *fmt, char *preflang);
+int ast_fileexists(const char *filename, const char *fmt, const char *preflang);
 
-//! Renames a file
+/*! Renames a file */
 /*! 
  * \param oldname the name of the file you wish to act upon (minus the extension)
  * \param newname the name you wish to rename the file to (minus the extension)
@@ -94,26 +95,26 @@ int ast_fileexists(char *filename, char *fmt, char *preflang);
  * Rename a given file in a given format, or if fmt is NULL, then do so for all 
  * Returns -1 on failure
  */
-int ast_filerename(char *oldname, char *newname, char *fmt);
+int ast_filerename(const char *oldname, const char *newname, const char *fmt);
 
-//! Deletes a file
+/*! Deletes a file */
 /*! 
  * \param filename name of the file you wish to delete (minus the extension)
  * \param format of the file
  * Delete a given file in a given format, or if fmt is NULL, then do so for all 
  */
-int ast_filedelete(char *filename, char *fmt);
+int ast_filedelete(const char *filename, const char *fmt);
 
-//! Copies a file
+/*! Copies a file */
 /*!
  * \param oldname name of the file you wish to copy (minus extension)
  * \param newname name you wish the file to be copied to (minus extension)
  * \param fmt the format of the file
  * Copy a given file in a given format, or if fmt is NULL, then do so for all 
  */
-int ast_filecopy(char *oldname, char *newname, char *fmt);
+int ast_filecopy(const char *oldname, const char *newname, const char *fmt);
 
-//! Waits for a stream to stop or digit to be pressed
+/*! Waits for a stream to stop or digit to be pressed */
 /*!
  * \param c channel to waitstram on
  * \param breakon string of DTMF digits to break upon
@@ -121,9 +122,19 @@ int ast_filecopy(char *oldname, char *newname, char *fmt);
  * Wait for a stream to stop or for any one of a given digit to arrive,  Returns 0 
  * if the stream finishes, the character if it was interrupted, and -1 on error 
  */
-int ast_waitstream(struct ast_channel *c, char *breakon);
+int ast_waitstream(struct ast_channel *c, const char *breakon);
 
-//! Same as waitstream but allows stream to be forwarded or rewound
+/*! Waits for a stream to stop or digit matching a valid one digit exten to be pressed */
+/*!
+ * \param c channel to waitstram on
+ * \param context string of context to match digits to break upon
+ * Begins playback of a stream...
+ * Wait for a stream to stop or for any one of a valid extension digit to arrive,  Returns 0 
+ * if the stream finishes, the character if it was interrupted, and -1 on error 
+ */
+int ast_waitstream_exten(struct ast_channel *c, const char *context);
+
+/*! Same as waitstream but allows stream to be forwarded or rewound */
 /*!
  * \param c channel to waitstram on
  * \param breakon string of DTMF digits to break upon
@@ -134,13 +145,13 @@ int ast_waitstream(struct ast_channel *c, char *breakon);
  * Wait for a stream to stop or for any one of a given digit to arrive,  Returns 0 
  * if the stream finishes, the character if it was interrupted, and -1 on error 
  */
-int ast_waitstream_fr(struct ast_channel *c, char *breakon, char *forward, char *rewind, int ms);
+int ast_waitstream_fr(struct ast_channel *c, const char *breakon, const char *forward, const char *rewind, int ms);
 
 /* Same as waitstream, but with audio output to fd and monitored fd checking.  Returns
    1 if monfd is ready for reading */
-int ast_waitstream_full(struct ast_channel *c, char *breakon, int audiofd, int monfd);
+int ast_waitstream_full(struct ast_channel *c, const char *breakon, int audiofd, int monfd);
 
-//! Starts reading from a file
+/*! Starts reading from a file */
 /*!
  * \param filename the name of the file to read from
  * \param type format of file you wish to read from
@@ -154,9 +165,9 @@ int ast_waitstream_full(struct ast_channel *c, char *breakon, int audiofd, int m
  * Please note, this is a blocking function.  Program execution will not return until ast_waitstream completes it's execution.
  * Returns a struct ast_filestream on success, NULL on failure
  */
-struct ast_filestream *ast_readfile(char *filename, char *type, char *comment, int flags, int check, mode_t mode);
+struct ast_filestream *ast_readfile(const char *filename, const char *type, const char *comment, int flags, int check, mode_t mode);
 
-//! Starts writing a file
+/*! Starts writing a file */
 /*!
  * \param filename the name of the file to write to
  * \param type format of file you wish to write out to
@@ -170,9 +181,9 @@ struct ast_filestream *ast_readfile(char *filename, char *type, char *comment, i
  * Please note, this is a blocking function.  Program execution will not return until ast_waitstream completes it's execution.
  * Returns a struct ast_filestream on success, NULL on failure
  */
-struct ast_filestream *ast_writefile(char *filename, char *type, char *comment, int flags, int check, mode_t mode);
+struct ast_filestream *ast_writefile(const char *filename, const char *type, const char *comment, int flags, int check, mode_t mode);
 
-//! Writes a frame to a stream
+/*! Writes a frame to a stream */
 /*! 
  * \param fs filestream to write to
  * \param f frame to write to the filestream
@@ -181,7 +192,7 @@ struct ast_filestream *ast_writefile(char *filename, char *type, char *comment, 
  */
 int ast_writestream(struct ast_filestream *fs, struct ast_frame *f);
 
-//! Closes a stream
+/*! Closes a stream */
 /*!
  * \param f filestream to close
  * Close a playback or recording stream
@@ -189,25 +200,34 @@ int ast_writestream(struct ast_filestream *fs, struct ast_frame *f);
  */
 int ast_closestream(struct ast_filestream *f);
 
-//! Opens stream for use in seeking, playing
+/*! Opens stream for use in seeking, playing */
 /*!
  * \param chan channel to work with
  * \param filename to use
  * \param preflang prefered language to use
  * Returns a ast_filestream pointer if it opens the file, NULL on error
  */
-struct ast_filestream *ast_openstream(struct ast_channel *chan, char *filename, char *preflang);
+struct ast_filestream *ast_openstream(struct ast_channel *chan, const char *filename, const char *preflang);
 
-//! Opens stream for use in seeking, playing
+/*! Opens stream for use in seeking, playing */
+/*!
+ * \param chan channel to work with
+ * \param filename to use
+ * \param preflang prefered language to use
+ * \param asis if set, don't clear generators
+ * Returns a ast_filestream pointer if it opens the file, NULL on error
+ */
+struct ast_filestream *ast_openstream_full(struct ast_channel *chan, const char *filename, const char *preflang, int asis);
+/*! Opens stream for use in seeking, playing */
 /*!
  * \param chan channel to work with
  * \param filename to use
  * \param preflang prefered language to use
  * Returns a ast_filestream pointer if it opens the file, NULL on error
  */
-struct ast_filestream *ast_openvstream(struct ast_channel *chan, char *filename, char *preflang);
+struct ast_filestream *ast_openvstream(struct ast_channel *chan, const char *filename, const char *preflang);
 
-//! Applys a open stream to a channel.
+/*! Applys a open stream to a channel. */
 /*!
  * \param chan channel to work
  * \param ast_filestream s to apply
@@ -215,14 +235,14 @@ struct ast_filestream *ast_openvstream(struct ast_channel *chan, char *filename,
  */
 int ast_applystream(struct ast_channel *chan, struct ast_filestream *s);
 
-//! play a open stream on a channel.
+/*! play a open stream on a channel. */
 /*!
  * \param ast_filestream s to play
  * Returns 0 for success, -1 on failure
  */
 int ast_playstream(struct ast_filestream *s);
 
-//! Seeks into stream
+/*! Seeks into stream */
 /*!
  * \param ast_filestream to perform seek on
  * \param sample_offset numbers of samples to seek
@@ -231,14 +251,14 @@ int ast_playstream(struct ast_filestream *s);
  */
 int ast_seekstream(struct ast_filestream *fs, long sample_offset, int whence);
 
-//! Trunc stream at current location
+/*! Trunc stream at current location */
 /*!
  * \param ast_filestream fs 
  * Returns 0 for success, or -1 for error
  */
 int ast_truncstream(struct ast_filestream *fs);
 
-//! Fast forward stream ms
+/*! Fast forward stream ms */
 /*!
  * \param ast_filestream fs filestream to act on
  * \param ms milliseconds to move
@@ -246,7 +266,7 @@ int ast_truncstream(struct ast_filestream *fs);
  */
 int ast_stream_fastforward(struct ast_filestream *fs, long ms);
 
-//! Rewind stream ms
+/*! Rewind stream ms */
 /*!
  * \param ast_filestream fs filestream to act on
  * \param ms milliseconds to move
@@ -254,7 +274,7 @@ int ast_stream_fastforward(struct ast_filestream *fs, long ms);
  */
 int ast_stream_rewind(struct ast_filestream *fs, long ms);
 
-//! Fast forward stream ms
+/*! Fast forward stream ms */
 /*!
  * \param ast_filestream fs filestream to act on
  * \param ms milliseconds to move
@@ -262,7 +282,7 @@ int ast_stream_rewind(struct ast_filestream *fs, long ms);
  */
 int ast_stream_fastforward(struct ast_filestream *fs, long ms);
 
-//! Rewind stream ms
+/*! Rewind stream ms */
 /*!
  * \param ast_filestream fs filestream to act on
  * \param ms milliseconds to move
@@ -270,21 +290,21 @@ int ast_stream_fastforward(struct ast_filestream *fs, long ms);
  */
 int ast_stream_rewind(struct ast_filestream *fs, long ms);
 
-//! Tell where we are in a stream
+/*! Tell where we are in a stream */
 /*!
  * \param ast_filestream fs to act on
  * Returns a long as a sample offset into stream
  */
 long ast_tellstream(struct ast_filestream *fs);
 
-//! Read a frame from a filestream
+/*! Read a frame from a filestream */
 /*!
  * \param ast_filestream fs to act on
  * Returns a frame or NULL if read failed
  */ 
 struct ast_frame *ast_readframe(struct ast_filestream *s);
 
-//! Initialize file stuff
+/*! Initialize file stuff */
 /*!
  * Initializes all the various file stuff.  Basically just registers the cli stuff
  * Returns 0 all the time

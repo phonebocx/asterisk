@@ -3,9 +3,9 @@
  *
  * Asterisk internal frame definitions.
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU Lesser General Public License.  Other components of
@@ -22,48 +22,14 @@ extern "C" {
 
 #include <sys/types.h>
 #include <sys/time.h>
-	
-/*
- * Autodetect system endianess
- */
-#ifndef __BYTE_ORDER
-#ifdef __linux__
-#include <endian.h>
-#elif defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__APPLE__)
-#if defined(__OpenBSD__)
-#include <machine/types.h>
-#endif /* __OpenBSD__ */
-#include <machine/endian.h>
-#define __BYTE_ORDER BYTE_ORDER
-#define __LITTLE_ENDIAN LITTLE_ENDIAN
-#define __BIG_ENDIAN BIG_ENDIAN
-#else
-#ifdef __LITTLE_ENDIAN__
-#define __BYTE_ORDER __LITTLE_ENDIAN
-#endif /* __LITTLE_ENDIAN */
-
-#if defined(i386) || defined(__i386__)
-#define __BYTE_ORDER __LITTLE_ENDIAN
-#endif /* defined i386 */
-
-#if defined(sun) && defined(unix) && defined(sparc)
-#define __BYTE_ORDER __BIG_ENDIAN
-#endif /* sun unix sparc */
-
-#endif /* linux */
-
-#endif /* __BYTE_ORDER */
-
-#ifndef __BYTE_ORDER
-#error Need to know endianess
-#endif /* __BYTE_ORDER */
+#include "asterisk/endian.h"
 
 struct ast_codec_pref {
 	char order[32];
 };
 
 
-//! Data structure associated with a single frame of data
+/*! Data structure associated with a single frame of data */
 /* A frame of data read used to communicate between 
    between channels and applications */
 struct ast_frame {
@@ -80,7 +46,7 @@ struct ast_frame {
 	/*! How far into "data" the data really starts */
 	int offset;				
 	/*! Optional source of frame for debugging */
-	char *src;				
+	const char *src;				
 	/*! Pointer to actual data */
 	void *data;		
 	/*! Global delivery time */		
@@ -188,6 +154,8 @@ struct ast_frame_chain {
 #define AST_FORMAT_H261		(1 << 18)
 /*! H.263 Video */
 #define AST_FORMAT_H263		(1 << 19)
+/*! H.263+ Video */
+#define AST_FORMAT_H263_PLUS	(1 << 20)
 /*! Max one */
 #define AST_FORMAT_MAX_VIDEO	(1 << 24)
 
@@ -222,6 +190,10 @@ struct ast_frame_chain {
 #define AST_CONTROL_PROGRESS            14
 /*! Indicate CALL PROCEEDING */
 #define AST_CONTROL_PROCEEDING		15
+/*! Indicate call is placed on hold */
+#define AST_CONTROL_HOLD			16
+/*! Indicate call is left from hold */
+#define AST_CONTROL_UNHOLD			17
 
 #define AST_SMOOTHER_FLAG_G729		(1 << 0)
 
@@ -262,7 +234,7 @@ struct ast_option_header {
 		u_int8_t data[0];
 };
 
-// Requests a frame to be allocated
+/*  Requests a frame to be allocated */
 /* 
  * \param source 
  * Request a frame be allocated.  source is an optional source of the frame, 
@@ -272,7 +244,7 @@ struct ast_option_header {
 struct ast_frame *ast_fralloc(char *source, int len);
 #endif
 
-//! Frees a frame
+/*! Frees a frame */
 /*! 
  * \param fr Frame to free
  * Free a frame, and the memory it used if applicable
@@ -280,7 +252,7 @@ struct ast_frame *ast_fralloc(char *source, int len);
  */
 void ast_frfree(struct ast_frame *fr);
 
-//! Copies a frame
+/*! Copies a frame */
 /*! 
  * \param fr frame to act upon
  * Take a frame, and if it's not been malloc'd, make a malloc'd copy
@@ -291,7 +263,7 @@ void ast_frfree(struct ast_frame *fr);
  */
 struct ast_frame *ast_frisolate(struct ast_frame *fr);
 
-//! Copies a frame
+/*! Copies a frame */
 /*! 
  * \param fr frame to copy
  * Dupliates a frame -- should only rarely be used, typically frisolate is good enough
@@ -299,12 +271,12 @@ struct ast_frame *ast_frisolate(struct ast_frame *fr);
  */
 struct ast_frame *ast_frdup(struct ast_frame *fr);
 
-//! Chains a frame -- unimplemented
+/*! Chains a frame -- unimplemented */
 #if 0 /* unimplemented */
 void ast_frchain(struct ast_frame_chain *fc);
 #endif
 
-//! Reads a frame from an fd
+/*! Reads a frame from an fd */
 /*! 
  * \param fd an opened fd to read from
  * Read a frame from a stream or packet fd, as written by fd_write
@@ -312,7 +284,7 @@ void ast_frchain(struct ast_frame_chain *fc);
  */
 struct ast_frame *ast_fr_fdread(int fd);
 
-//! Writes a frame to an fd
+/*! Writes a frame to an fd */
 /*! 
  * \param fd Which fd to write to
  * \param frame frame to write to the fd
@@ -321,7 +293,7 @@ struct ast_frame *ast_fr_fdread(int fd);
  */
 int ast_fr_fdwrite(int fd, struct ast_frame *frame);
 
-//! Sends a hangup to an fd
+/*! Sends a hangup to an fd */
 /*! 
  * \param fd fd to write to
  * Send a hangup (NULL equivalent) on an fd
@@ -329,26 +301,27 @@ int ast_fr_fdwrite(int fd, struct ast_frame *frame);
  */
 int ast_fr_fdhangup(int fd);
 
-void ast_memcpy_byteswap(void *dst, void *src, int samples);
+void ast_swapcopy_samples(void *dst, const void *src, int samples);
 
-/* Helpers for byteswapping native samples to/from
+/* Helpers for byteswapping native samples to/from 
    little-endian and big-endian. */
 #if __BYTE_ORDER == __LITTLE_ENDIAN
 #define ast_frame_byteswap_le(fr) do { ; } while(0)
-#define ast_frame_byteswap_be(fr) do { struct ast_frame *__f = (fr); ast_memcpy_byteswap(__f->data, __f->data, __f->samples); } while(0)
+#define ast_frame_byteswap_be(fr) do { struct ast_frame *__f = (fr); ast_swapcopy_samples(__f->data, __f->data, __f->samples); } while(0)
 #else
-#define ast_frame_byteswap_le(fr) do { struct ast_frame *__f = (fr); ast_memcpy_byteswap(__f->data, __f->data, __f->samples); } while(0)
+#define ast_frame_byteswap_le(fr) do { struct ast_frame *__f = (fr); ast_swapcopy_samples(__f->data, __f->data, __f->samples); } while(0)
 #define ast_frame_byteswap_be(fr) do { ; } while(0)
 #endif
 
-//! Get the name of a format
+
+/*! Get the name of a format */
 /*!
  * \param format id of format
  * \return A static string containing the name of the format or "UNKN" if unknown.
  */
 extern char* ast_getformatname(int format);
 
-//! Get the names of a set of formats
+/*! Get the names of a set of formats */
 /*!
  * \param buf a buffer for the output string
  * \param n size of buf (bytes)
@@ -366,17 +339,13 @@ extern char* ast_getformatname_multiple(char *buf, size_t size, int format);
  */
 extern int ast_getformatbyname(char *name);
 
-//! Get a name from a format
+/*! Get a name from a format */
 /*!
  * \param codec codec number (1,2,4,8,16,etc.)
  * Gets a name from a format
  * This returns a static string identifying the format on success, 0 on error.
  */
 extern char *ast_codec2str(int codec);
-
-//! Pick the best codec 
-/* Choose the best codec...  Uhhh...   Yah. */
-extern int ast_best_codec(int fmts);
 
 struct ast_smoother;
 
@@ -424,7 +393,19 @@ extern void ast_parse_allow_disallow(struct ast_codec_pref *pref, int *mask, cha
 extern int ast_codec_pref_string(struct ast_codec_pref *pref, char *buf, size_t size);
 
 /* Shift a codec preference list up or down 65 bytes so that it becomes an ASCII string */
-extern void ast_codec_pref_shift(struct ast_codec_pref *pref, char *buf, size_t size, int right);
+extern void ast_codec_pref_convert(struct ast_codec_pref *pref, char *buf, size_t size, int right);
+
+/* Returns the number of samples contained in the frame */
+extern int ast_codec_get_samples(struct ast_frame *f);
+
+/* Returns the number of bytes for the number of samples of the given format */
+extern int ast_codec_get_len(int format, int samples);
+
+/* Gets duration in ms of interpolation frame for a format */
+static inline int ast_codec_interp_len(int format) 
+{ 
+	return (format == AST_FORMAT_ILBC) ? 30 : 20;
+}
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

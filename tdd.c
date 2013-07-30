@@ -21,12 +21,16 @@
 #include <unistd.h>
 #include <math.h>
 #include <ctype.h>
-#include <asterisk/ulaw.h>
-#include <asterisk/tdd.h>
-#include <asterisk/logger.h>
-#include <asterisk/fskmodem.h>
-#include "ecdisa.h"
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+
+#include "asterisk/ulaw.h"
+#include "asterisk/tdd.h"
+#include "asterisk/logger.h"
+#include "asterisk/fskmodem.h"
+#include "ecdisa.h"
 
 struct tdd_state {
 	fsk_data fskd;
@@ -233,7 +237,7 @@ static inline float tdd_getcarrier(float *cr, float *ci, int bit)
 	PUT_TDD_STOP;	/* Stop bit */ \
 } while(0);	
 
-int tdd_generate(struct tdd_state *tdd, unsigned char *buf, char *str)
+int tdd_generate(struct tdd_state *tdd, unsigned char *buf, const char *str)
 {
 	int bytes=0;
 	int i,x;

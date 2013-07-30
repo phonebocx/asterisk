@@ -5,7 +5,7 @@
  * 
  * Copyright (C) 1999, Mark Spencer
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License.
@@ -14,9 +14,13 @@
  *
  */
 
-#include <asterisk/fskmodem.h>
-
 #include <stdio.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+
+#include "asterisk/fskmodem.h"
 
 #define NBW	2
 #define BWLIST	{75,800}

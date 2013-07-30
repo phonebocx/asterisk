@@ -1,102 +1,41 @@
-# include the Makefile of OpenH323 
+#
+# Makefile
+#
+# Make file for OpenH323 support layer
+#
+
+# Verify those options with main Makefile
+STDCCFLAGS	+= -DNDEBUG
+STDCCFLAGS	+= $(shell grep ^DEBUG_THREADS ../../Makefile | sed -e "s/^DEBUG_THREADS[ 	]*=//" -e "s/\([^\#]*\)\#.*/\1/")
+STDCCFLAGS	+= -I../../include
+STDCCFLAGS	+= -Wmissing-prototypes
+STDCCFLAGS	+= -fPIC
+#OPTCCFLAGS	+=
+CFLAGS		+= -pipe
+TARGET		+= libchanh323.a
+TARGET		+= Makefile.ast
+SOURCES		= ast_h323.cxx
+OBJDIR		= .
 
 ifndef OPENH323DIR
 OPENH323DIR=$(HOME)/openh323
 endif
 
-ifndef PWLIBDIR
-PWLIBDIR=$(HOME)/pwlib
-endif
+include $(OPENH323DIR)/openh323u.mak
 
-ifndef ASTERISKDIR
-ASTERISKDIR= /usr/lib/asterisk/modules
-endif
+$(SOURCES)::	$(SOURCES:.cxx=.cpp)
+	ln -f $< $@
 
-ifndef ASTETCDIR
-ASTETCDIR=/etc/asterisk
-endif
+$(SOURCES)::	Makefile ../../Makefile
+	touch $(SOURCES)
 
-#
-# This needs to be updated to deal with more than just little endian machines
-#
-OSARCH=$(shell uname -s)
-ifneq (${OSARCH},FreeBSD)
-ifneq (${OSARCH},NetBSD)
-CFLAGS += -march=$(shell uname -m)
-endif
-endif
-CFLAGS += -DPBYTE_ORDER=PLITTLE_ENDIAN
+libchanh323.a:	$(OBJS)
+	ar crv $@ $(OBJS)
 
-ifeq (${OSARCH},Linux)
-LDLIBS+=-ldl
-endif
+Makefile.ast:	FORCE
+	@echo H323CFLAGS  = $(STDCCFLAGS) $(OPTCCFLAGS) $(CFLAGS) >$@.tmp
+	@echo H323LDFLAGS = $(CFLAGS) $(LDFLAGS) >>$@.tmp
+	@echo H323LDLIBS  = $(LDLIBS) $(ENDLDLIBS) $(ENDLDFLAGS) >>$@.tmp
+	@if [ -r $@ ] && cmp -s $@ $@.tmp; then rm -f $@.tmp; else mv -f $@.tmp $@; fi
 
-#############################################
-#
-# Only change below if you know WTF your doing
-#
-#
-# Janus release directives, comment below if your brave enough for Janus
-#OSARCH=$(shell uname -s)
-#CFLAGS += -DNDEBUG -DDO_CRASH -DDEBUG_THREADS
-#CFLAGS += -pipe -Wall -fPIC -Wmissing-prototypes -Wmissing-declarations 
-#CFLAGS += -D_REENTRANT -D_GNU_SOURCE
-#CFLAGS += -I../../include
-#CFLAGS += -I$(PWLIBDIR)/include 
-#CFLAGS += -I$(OPENH323DIR)/include -Wno-missing-prototypes -Wno-missing-declarations
-
-# Pre Janus release directives
-CFLAGS += -DNDEBUG -DDO_CRASH -DDEBUG_THREADS
-CFLAGS += -pipe -Wall -fPIC
-ifeq (${OSARCH},Linux)
-CFLAGS += -DP_LINUX
-LIBS+=-lpthread
-endif
-ifeq ($(findstring BSD,${OSARCH}),BSD)
-CFLAGS += -pthread
-endif
-CFLAGS += -D_REENTRANT -D_GNU_SOURCE
-CFLAGS += -DP_HAS_SEMAPHORES -DP_SSL -DP_PTHREADS
-CFLAGS += -DPHAS_TEMPLATES -DPTRACING -DP_USE_PRAGMA
-CFLAGS += -I../../include
-CFLAGS += -I$(PWLIBDIR)/include/ptlib/unix -I$(PWLIBDIR)/include
-CFLAGS += -I$(OPENH323DIR)/include
-CFLAGS += -Wno-missing-prototypes -Wno-missing-declarations
-LIBS+= -lcrypto -lssl -lexpat
-
-all:	depend libchanh323.a
-
-samples: 
-	if [ -f $(ASTETCDIR)/h323.conf ]; then \
-		mv -f $(ASTETCDIR)/h323.conf $(ASTETCDIR)/h323.conf.old ; \
-	fi ; 
-	install h323.conf.sample $(ASTETCDIR)/h323.conf
- 
-
-libchanh323.a:	ast_h323.o
-	ar cr libchanh323.a ast_h323.o
-
-ast_h323.o:	ast_h323.cpp
-	$(CXX) -g -c -fno-rtti -o $@ $(CFLAGS) $<
-
-ifneq ($(wildcard .depend),)
-include .depend
-endif
-
-chan_h323.so:	
-	$(CXX)  -g -shared -Xlinker -x -o chan_h323.so chan_h323.o ast_h323.o -L$(PWLIBDIR)/lib  -lpt_linux_x86_r -L$(OPENH323DIR)/lib -lh323_linux_x86_r -L/usr/lib $(CHANH323LIB)
-
-chan_h323_d.so:	chan_h323.o ast_h323.o
-	$(CXX)     -shared -Xlinker -x -o chan_h323.so chan_h323.o ast_h323.o -L$(PWLIBDIR)/lib  -lpt_linux_x86_d -L$(OPENH323DIR)/lib -lh323_linux_x86_d -L/usr/lib $(CHANH323LIB)
-
-chan_h323_s.so:	chan_h323.o ast_h323.o
-	$(CXX)  -shared -Xlinker -x -o chan_h323.so chan_h323.o ast_h323.o -L$(PWLIBDIR)/lib  -lpt_linux_x86_r_s -L$(OPENH323DIR)/lib -lh323_linux_x86_r_s -L/usr/lib $(CHANH323LIB)
-clean:
-	rm -f *.o *.so core.* libchanh323.a .depend
-
-depend: .depend
-
-.depend:
-	../../mkdep $(CFLAGS) `ls *.cpp`
-
-
+FORCE:

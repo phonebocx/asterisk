@@ -3,7 +3,7 @@
  *
  * Asterisk Interface
  *
- * Copyright (C) 2004 Digium, Inc.
+ * Copyright (C) 2004-2005 Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -12,19 +12,23 @@
  *
  */
 
-#include <asterisk/config.h>
-#include <asterisk/logger.h>
-#include <asterisk/cli.h>
-#include <asterisk/lock.h>
-#include <asterisk/frame.h>
-#include <asterisk/options.h>
-#include <asterisk/md5.h>
-#include <asterisk/astdb.h>
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
+
+#include "asterisk/config.h"
+#include "asterisk/logger.h"
+#include "asterisk/cli.h"
+#include "asterisk/lock.h"
+#include "asterisk/frame.h"
+#include "asterisk/options.h"
+#include "asterisk/md5.h"
+#include "asterisk/astdb.h"
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
 #include <netinet/ip.h>
 #include <sys/socket.h>
-#include <asterisk/utils.h>
+#include "asterisk/utils.h"
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -65,6 +69,10 @@ static struct iax_flag {
 	{ "secure", PROV_FLAG_SECURE },
 	{ "heartbeat", PROV_FLAG_HEARTBEAT },
 	{ "debug", PROV_FLAG_DEBUG },
+	{ "disablecid", PROV_FLAG_DIS_CALLERID },
+	{ "disablecw", PROV_FLAG_DIS_CALLWAIT },
+	{ "disablecidcw", PROV_FLAG_DIS_CIDCW },
+	{ "disable3way", PROV_FLAG_DIS_THREEWAY },
 };
 
 char *iax_provflags2str(char *buf, int buflen, unsigned int flags)
@@ -283,7 +291,7 @@ static int iax_template_parse(struct iax_template *cur, struct ast_config *cfg, 
 	v = ast_variable_browse(cfg, s);
 	while(v) {
 		if (!strcasecmp(v->name, "port") || !strcasecmp(v->name, "serverport")) {
-			if ((sscanf(v->value, "%i", &x) == 1) && (x > 0) && (x < 65535)) {
+			if ((sscanf(v->value, "%d", &x) == 1) && (x > 0) && (x < 65535)) {
 				if (!strcasecmp(v->name, "port")) {
 					cur->port = x;
 					foundportno = 1;
@@ -309,7 +317,7 @@ static int iax_template_parse(struct iax_template *cur, struct ast_config *cfg, 
 			} else
 				ast_log(LOG_WARNING, "Ignoring invalid codec '%s' for '%s' at line %d\n", v->value, s, v->lineno);
 		} else if (!strcasecmp(v->name, "tos")) {
-			if (sscanf(v->value, "%i", &x) == 1)
+			if (sscanf(v->value, "%d", &x) == 1)
 				cur->tos = x & 0xff;
 			else if (!strcasecmp(v->value, "lowdelay"))
 				cur->tos = IPTOS_LOWDELAY;
@@ -479,7 +487,7 @@ int iax_provision_reload(void)
 		cur->dead = 1;
 		cur = cur->next;
 	}
-	cfg = ast_load("iaxprov.conf");
+	cfg = ast_config_load("iaxprov.conf");
 	if (cfg) {
 		/* Load as appropriate */
 		cat = ast_category_browse(cfg, NULL);

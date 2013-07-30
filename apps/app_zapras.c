@@ -11,13 +11,6 @@
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/options.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
 #ifdef __linux__
@@ -40,6 +33,18 @@
 #else
 #include <zaptel.h>
 #endif /* __linux__ */
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.12 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/options.h"
 
 static char *tdesc = "Zap RAS Application";
 
@@ -125,8 +130,14 @@ static void run_ras(struct ast_channel *chan, char *args)
 	int status;
 	int res;
 	int signalled = 0;
-	struct zt_bufferinfo bi;
+	struct zt_bufferinfo savebi;
 	int x;
+	
+	res = ioctl(chan->fds[0], ZT_GET_BUFINFO, &savebi);
+	if(res) {
+		ast_log(LOG_WARNING, "Unable to check buffer policy on channel %s\n", chan->name);
+		return;
+	}
 
 	pid = spawn_ras(chan, args);
 	if (pid < 0) {
@@ -162,20 +173,11 @@ static void run_ras(struct ast_channel *chan, char *args)
 			x = 1;
 			ioctl(chan->fds[0], ZT_AUDIOMODE, &x);
 
-			/* Double check buffering too */
-			res = ioctl(chan->fds[0], ZT_GET_BUFINFO, &bi);
-			if (!res) {
-				/* XXX This is ZAP_BLOCKSIZE XXX */
-				bi.bufsize = 204;
-				bi.txbufpolicy = ZT_POLICY_IMMEDIATE;
-				bi.rxbufpolicy = ZT_POLICY_IMMEDIATE;
-				bi.numbufs = 4;
-				res = ioctl(chan->fds[0], ZT_SET_BUFINFO, &bi);
-				if (res < 0) {
-					ast_log(LOG_WARNING, "Unable to set buffer policy on channel %s\n", chan->name);
-				}
-			} else
-				ast_log(LOG_WARNING, "Unable to check buffer policy on channel %s\n", chan->name);
+			/* Restore saved values */
+			res = ioctl(chan->fds[0], ZT_SET_BUFINFO, &savebi);
+			if (res < 0) {
+				ast_log(LOG_WARNING, "Unable to set buffer policy on channel %s\n", chan->name);
+			}
 			break;
 		}
 	}
@@ -191,7 +193,7 @@ static int zapras_exec(struct ast_channel *chan, void *data)
 	if (!data) 
 		data = "";
 	LOCAL_USER_ADD(u);
-	strncpy(args, data, sizeof(args) - 1);
+	ast_copy_string(args, data, sizeof(args));
 	/* Answer the channel if it's not up */
 	if (chan->_state != AST_STATE_UP)
 		ast_answer(chan);

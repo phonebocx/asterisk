@@ -12,15 +12,6 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/md5.h>
-#include <asterisk/config.h>
-#include <asterisk/utils.h>
-#include <asterisk/lock.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
@@ -37,6 +28,19 @@
 #include <fcntl.h>
 #include <ctype.h>
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.32 $")
+
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/md5.h"
+#include "asterisk/config.h"
+#include "asterisk/utils.h"
+#include "asterisk/lock.h"
 
 #define FESTIVAL_CONFIG "festival.conf"
 
@@ -120,7 +124,7 @@ static int send_waveform_to_fd(char *waveform, int length, int fd) {
                 if (x != fd)
                         close(x);
         }
-//IAS
+/*IAS */
 #ifdef __PPC__  
 	for( x=0; x<length; x+=2)
 	{
@@ -215,7 +219,7 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 						res = -1;
 						break;
 					}
-					if (res < needed) { // last frame
+					if (res < needed) { /* last frame */
 						ast_log(LOG_DEBUG, "Last frame\n");
 						res=0;
 						break;
@@ -230,8 +234,9 @@ static int send_waveform_to_channel(struct ast_channel *chan, char *waveform, in
 	}
 	close(fds[0]);
 	close(fds[1]);
-//	if (pid > -1)
-//		kill(pid, SIGKILL);
+
+/*	if (pid > -1) */
+/*		kill(pid, SIGKILL); */
 	if (!res && owriteformat)
 		ast_set_write_format(chan, owriteformat);
 	return res;
@@ -280,7 +285,7 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 	char *intstr;
 	
 	struct ast_config *cfg;
-	cfg = ast_load(FESTIVAL_CONFIG);
+	cfg = ast_config_load(FESTIVAL_CONFIG);
 	if (!cfg) {
 		ast_log(LOG_WARNING, "No such configuration file %s\n", FESTIVAL_CONFIG);
 		return -1;
@@ -306,7 +311,7 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 	}
 	if (!vdata || ast_strlen_zero(vdata)) {
 		ast_log(LOG_WARNING, "festival requires an argument (text)\n");
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 		return -1;
 	}
 	strncpy(data, vdata, sizeof(data) - 1);
@@ -324,7 +329,7 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 
     	if (fd < 0) {
 		ast_log(LOG_WARNING,"festival_client: can't get socket\n");
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
         	return -1;
 	}
         memset(&serv_addr, 0, sizeof(serv_addr));
@@ -333,7 +338,7 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 	        serverhost = ast_gethostbyname(host, &ahp);
 	        if (serverhost == (struct hostent *)0) {
         	    	ast_log(LOG_WARNING,"festival_client: gethostbyname failed\n");
-			ast_destroy(cfg);
+			ast_config_destroy(cfg);
 	            	return -1;
         	}
 	        memmove(&serv_addr.sin_addr,serverhost->h_addr, serverhost->h_length);
@@ -343,7 +348,7 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
 
 	if (connect(fd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) != 0) {
 		ast_log(LOG_WARNING,"festival_client: connect to server failed\n");
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
         	return -1;
     	}
     	
@@ -446,7 +451,7 @@ static int festival_exec(struct ast_channel *chan, void *vdata)
     		}
 	} while (strcmp(ack,"OK\n") != 0);
 	close(fd);
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 	LOCAL_USER_REMOVE(u);                                                                                
 	return res;
 

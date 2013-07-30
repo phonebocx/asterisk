@@ -19,21 +19,25 @@
 #include <errno.h>
 #include <unistd.h>
 #include <math.h>			/* For PI */
-#include <asterisk/pbx.h>
-#include <asterisk/frame.h>
-#include <asterisk/sched.h>
-#include <asterisk/options.h>
-#include <asterisk/channel.h>
-#include <asterisk/channel_pvt.h>
-#include <asterisk/logger.h>
-#include <asterisk/file.h>
-#include <asterisk/translate.h>
-#include <asterisk/manager.h>
-#include <asterisk/chanvars.h>
-#include <asterisk/linkedlists.h>
-#include <asterisk/indications.h>
-#include <asterisk/lock.h>
-#include <asterisk/utils.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.13 $")
+
+#include "asterisk/pbx.h"
+#include "asterisk/frame.h"
+#include "asterisk/sched.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/logger.h"
+#include "asterisk/file.h"
+#include "asterisk/translate.h"
+#include "asterisk/manager.h"
+#include "asterisk/chanvars.h"
+#include "asterisk/linkedlists.h"
+#include "asterisk/indications.h"
+#include "asterisk/lock.h"
+#include "asterisk/utils.h"
 
 #define MAX_AUTOMONS 256
 
@@ -147,7 +151,7 @@ int ast_autoservice_stop(struct ast_channel *chan)
 		pthread_kill(asthread, SIGURG);
 	ast_mutex_unlock(&autolock);
 	/* Wait for it to un-block */
-	while(chan->blocking)
+	while(ast_test_flag(chan, AST_FLAG_BLOCKING))
 		usleep(1000);
 	return res;
 }

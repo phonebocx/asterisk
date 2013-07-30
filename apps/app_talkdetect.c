@@ -3,7 +3,7 @@
  *
  * Playback a file with audio detect
  * 
- * Copyright (C) 2004, Digium, Inc.
+ * Copyright (C) 2004 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -11,17 +11,22 @@
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
-#include <asterisk/utils.h>
-#include <asterisk/dsp.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.11 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
+#include "asterisk/utils.h"
+#include "asterisk/dsp.h"
 
 static char *tdesc = "Playback with Talk Detection";
 
@@ -54,7 +59,7 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 	char *stringp;
 	struct ast_frame *fr;
 	int notsilent=0;
-	struct timeval start = { 0, 0}, end = {0, 0};
+	struct timeval start = { 0, 0};
 	int sil = 1000;
 	int min = 100;
 	int max = -1;
@@ -65,7 +70,7 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 		ast_log(LOG_WARNING, "BackgroundDetect requires an argument (filename)\n");
 		return -1;
 	}
-	strncpy(tmp, (char *)data, sizeof(tmp)-1);
+	ast_copy_string(tmp, (char *)data, sizeof(tmp));
 	stringp=tmp;
 	strsep(&stringp, "|");
 	options = strsep(&stringp, "|");
@@ -124,7 +129,7 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 						char t[2];
 						t[0] = fr->subclass;
 						t[1] = '\0';
-						if (ast_canmatch_extension(chan, chan->context, t, 1, chan->callerid)) {
+						if (ast_canmatch_extension(chan, chan->context, t, 1, chan->cid.cid_num)) {
 							/* They entered a valid  extension, or might be anyhow */
 							res = fr->subclass;
 							ast_frfree(fr);
@@ -138,16 +143,20 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 							/* We've been quiet a little while */
 							if (notsilent) {
 								/* We had heard some talking */
-								gettimeofday(&end, NULL);
-								ms = (end.tv_sec - start.tv_sec) * 1000;
-								ms += (end.tv_usec - start.tv_usec) / 1000;
+								ms = ast_tvdiff_ms(ast_tvnow(), start);
 								ms -= sil;
 								if (ms < 0)
 									ms = 0;
 								if ((ms > min) && ((max < 0) || (ms < max))) {
+									char ms_str[10];
 									ast_log(LOG_DEBUG, "Found qualified token of %d ms\n", ms);
-									if (ast_exists_extension(chan, chan->context, "talk", 1, chan->callerid)) {
-										strncpy(chan->exten, "talk", sizeof(chan->exten) -1 );
+
+									/* Save detected talk time (in milliseconds) */ 
+									sprintf(ms_str, "%d", ms );	
+									pbx_builtin_setvar_helper(chan, "TALK_DETECTED", ms_str);
+									
+									if (ast_exists_extension(chan, chan->context, "talk", 1, chan->cid.cid_num)) {
+										ast_copy_string(chan->exten, "talk", sizeof(chan->exten));
 										chan->priority = 0;
 									}
 									res = 0;
@@ -160,7 +169,7 @@ static int background_detect_exec(struct ast_channel *chan, void *data)
 						} else {
 							if (!notsilent) {
 								/* Heard some audio, mark the begining of the token */
-								gettimeofday(&start, NULL);
+								start = ast_tvnow();
 								ast_log(LOG_DEBUG, "Start of voice token!\n");
 								notsilent = 1;
 							}

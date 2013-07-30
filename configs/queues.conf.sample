@@ -1,17 +1,18 @@
 [general]
 ;
 ; Global settings for call queues
-;   (none exist currently)
+;
+; Persistent Members
+;    Store each dynamic agent in each queue in the astdb so that
+;    when asterisk is restarted, each agent will be automatically
+;    readded into their recorded queues. Default is 'yes'.
+;
+persistentmembers = yes
 ;
 ; Note that a timeout to fail out of a queue may be passed as part of application call
 ; from extensions.conf:
 ; Queue(queuename|[options]|[optionalurl]|[announceoverride]|[timeout])
 ; example: Queue(dave|t|||45)
-
-[default]
-;
-; Default settings for queues (currently unused)
-;
 
 ;[markq]
 ;
@@ -41,6 +42,10 @@
 ;
 ;strategy = ringall
 ;
+; Second settings for service level (default 0)
+; Used for service level statistics (calls completed within service level time frame)
+;servicelevel = 60
+;
 ; A context may be specified, in which if the user types a SINGLE
 ; digit extension while they are in the queue, they will be taken out
 ; of the queue and sent to that extension in this context.
@@ -55,6 +60,12 @@
 ;
 ;retry = 5
 ;
+; Weight of queue - when compared to other queues, higher weights get 
+; first shot at available channels when the same channel is included in 
+; more than one queue.
+;
+;weight=0
+;
 ; After a successful call, how long to wait before sending a potentially
 ; free member another call (default is 0, or no delay)
 ;
@@ -68,6 +79,11 @@
 ; How often to announce queue position and/or estimated holdtime to caller (0=off)
 ;
 ;announce-frequency = 90 
+;
+;
+; How often to make any periodic announcement (see periodic-announce)
+;
+;periodic-announce-frequency=60
 ;
 ; Should we include estimated hold time in position announcements?
 ; Either yes, no, or only once.
@@ -93,6 +109,8 @@
 ;queue-seconds = queue-seconds			;	("seconds.")
 ;queue-thankyou = queue-thankyou		;	("Thank you for your patience.")
 ;queue-lessthan = queue-less-than		;       ("less than")
+;queue-reporthold = queue-reporthold		;       ("Hold time")
+;periodic-announce = queue-periodic-announce    ;       ("All reps busy / wait for next")
 ;
 ; Calls may be recorded using Asterisk's monitor resource
 ; This can be enabled from within the Queue application, starting recording
@@ -101,7 +119,7 @@
 ; To enable monitoring, simply specify "monitor-format";  it will be disabled
 ; otherwise.
 ;
-; You can specify the monitor filename with by calling SetVar(MONITOR_FILENAME=foo)
+; You can specify the monitor filename with by calling Set(MONITOR_FILENAME=foo)
 ; Otherwise it will use ${UNIQUEID}
 ;
 ; monitor-format = gsm|wav|wav49
@@ -110,20 +128,49 @@
 ;
 ; monitor-join = yes
 ;
-; If you wish to allow queues that have no members currently to be joined, then set this
-; to yes.  Note that this is for use with dynamic queue members!
+; This setting controls whether callers can join a queue with no members. There are three
+; choices:
+;
+; yes - callers can join a queue with no members or only unavailable members
+; no - callers cannot join a queue with no members
+; strict - callers cannot join a queue with no members or only unavailable members
 ;
 ; joinempty = yes
 ;
-; If you wish to remove callers from the queue if there are no agents present, then set
-; this to yes.  Note that this is for use with dynamic queue members!
+; If you wish to remove callers from the queue when new callers cannot join, set this setting
+; to one of the same choices for 'joinempty'
 ;
 ; leavewhenempty = yes
 ;
-; Asterisk can generate AgentCalled events when an agent is rung, if this is turned on
-; (may generate a LOT of extra manager events)
+;
+; If this is set to yes, the following manager events will be generated:
+; AgentCalled, AgentDump, AgentConnect, AgentComplete
+; (may generate some extra manager events, but probably ones you want)
 ;
 ; eventwhencalled = yes
+;
+; If this is set to no, the following manager events will be generated:
+; QueueMemberStatus
+; (may generate a WHOLE LOT of extra manager events)
+;
+; eventmemberstatusoff = no
+;
+; If you wish to report the caller's hold time to the member before they are connected
+; to the caller, set this to yes.
+;
+; reportholdtime = no
+;
+;
+; If you wish to have a delay before the member is connected to the caller (or before the member
+; hears any announcement messages), set this to the number of seconds to delay.
+;
+; memberdelay = 0
+;
+; If timeoutrestart is set to yes, then the timeout for an agent to answer is
+; reset if a BUSY or CONGESTION is received.  This can be useful if agents
+; are able to cancel a call with reject or similar.
+;
+; timeoutrestart = no
 ;
 ; Each member of this call queue is listed on a separate line in
 ; the form technology/dialstring.  "member" means a normal member of a

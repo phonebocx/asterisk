@@ -26,6 +26,8 @@ Wasim - Hangup detect
 PhoneJack and Linejack card to the project.  (http://www.quicknet.net)
 
 === MISCELLANEOUS PATCHES ===
+Russell Bryant - Asterisk 1.0 maintainer and misc. enhancements
+       russelb@clemson.edu
 Anthony Minessale - Countless big and small fixes, and relentless forward push
        anthmct@yahoo.com              http://www.asterlink.com
 James Golovich - Innumerable contributions
@@ -57,9 +59,15 @@ Thorsten Lockert - OpenBSD, FreeBSD ports, making MacOS X port run on 10.3,
 	dialplan include verification, route lookup on OpenBSD, various other
 	bugs. tholo@sigmasoft.com
 Brian West - ODBC support and Bug Marshaling  
+Josh Roberson - chan_zap reload support, Advanced Voicemail Features, other misc. patches,
+		and Bug Marshalling. - josh@asteriasgi.com, http://www.asteriasgi.com
 William Waites - syslog support, SIP NAT traversal for SIP-UA. ww@styx.org
 Rich Murphey - Porting to FreeBSD, NetBSD, OpenBSD, and Darwin.
 	rich@whiteoaklabs.com  http://whiteoaklabs.com
+Simon Lockhart - Porting to Solaris (based on work of Logan ???)	
+	simon@slimey.org
+Olle Johansson - SIP RFC compliance and testing, testing, testing
+	oej@edvina.net
 
 === OTHER CONTRIBUTIONS ===
 John Todd - Monkey sounds and associated teletorture prompt

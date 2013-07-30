@@ -3,24 +3,29 @@
  *
  * App to transmit a URL
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
-#include <asterisk/image.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
+#include "asterisk/image.h"
 
 static char *tdesc = "Send URL Applications";
 
@@ -65,7 +70,7 @@ static int sendurl_exec(struct ast_channel *chan, void *data)
 	LOCAL_USER_ADD(u);
 	if (!ast_channel_supports_html(chan)) {
 		/* Does not support transport */
-		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->callerid))
+		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
 			chan->priority += 100;
 		LOCAL_USER_REMOVE(u);
 		return 0;
@@ -92,7 +97,7 @@ static int sendurl_exec(struct ast_channel *chan, void *data)
 						break;
 					case AST_HTML_NOSUPPORT:
 						/* Does not support transport */
-						if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->callerid))
+						if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
 							chan->priority += 100;
 						res = 0;
 						goto out;

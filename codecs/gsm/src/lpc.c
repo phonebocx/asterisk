@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/lpc.c,v 1.16 2003/02/12 13:59:14 matteo Exp $ */
+/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/lpc.c,v 1.17 2005/04/21 06:30:23 kpfleming Exp $ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -211,7 +211,6 @@ static void Reflection_coefficients P2( (L_ACF, r),
 {
 	register int	i, m, n;
 	register word	temp;
-	register longword ltmp;
 	word		ACF[9];	/* 0..8 */
 	word		P[  9];	/* 0..8 */
 	word		K[  9]; /* 2..8 */
@@ -319,7 +318,6 @@ static void Quantization_and_coding P1((LAR),
 )
 {
 	register word	temp;
-	longword	ltmp;
 
 
 	/*  This procedure needs four tables; the following equations

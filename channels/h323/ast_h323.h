@@ -23,15 +23,14 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * Version Info: $Id: ast_h323.h,v 1.26 2004/09/21 18:42:37 jeremy Exp $ 
+ * Version Info: $Id: ast_h323.h,v 1.33 2005/05/19 19:13:19 jeremy Exp $ 
  */
 
 #ifndef AST_H323_H
 #define AST_H323_H
 
 /**  These need to be redefined here because the C++
-	 side of this driver is blind to the asterisk headers */
-	
+	 side of this driver is blind to the asterisk headers */	
 /*! G.723.1 compression */
 #define AST_FORMAT_G723_1	(1 << 0)
 /*! GSM compression */
@@ -61,31 +60,16 @@ class H323_G7231Capability : public H323AudioCapability
 {
     PCLASSINFO(H323_G7231Capability, H323AudioCapability);
   public:
-    H323_G7231Capability(
-      BOOL annexA = TRUE  /// Enable Annex A silence insertion descriptors
-    );
-    Comparison Compare(const PObject & obj) const;
-
-    PObject * Clone() const;
-  
-	virtual H323Codec * CreateCodec(
-      H323Codec::Direction direction  /// Direction in which this instance runs
-    ) const;
-
+    	H323_G7231Capability(BOOL annexA = TRUE);
+    	Comparison Compare(const PObject & obj) const;
+   	PObject * Clone() const;
+  	virtual H323Codec * CreateCodec(H323Codec::Direction direction) const;
 	unsigned GetSubType() const;
-    PString GetFormatName() const;
-    BOOL OnSendingPDU(
-      H245_AudioCapability & pdu,  /// PDU to set information on
-      unsigned packetSize          /// Packet size to use in capability
-    ) const;
-
-    BOOL OnReceivedPDU(
-      const H245_AudioCapability & pdu,  /// PDU to get information from
-      unsigned & packetSize              /// Packet size to use in capability
-    );
-  
+	PString GetFormatName() const;
+    	BOOL OnSendingPDU(H245_AudioCapability & pdu, unsigned packetSize) const;
+	BOOL OnReceivedPDU(const H245_AudioCapability & pdu, unsigned & packetSize);
   protected:
-    BOOL annexA;
+    	BOOL annexA;
 };
 
 /**This class describes the (fake) G729 codec capability.
@@ -95,100 +79,58 @@ class AST_G729Capability : public H323AudioCapability
   PCLASSINFO(AST_G729Capability, H323AudioCapability);
 
   public:
-  /**@name Construction */
-  //@{
-    /**Create a new G.729 capability.
-     */
     AST_G729Capability();
-  //@}
-
-  /**@name Overrides from class PObject */
-  //@{
-    /**Create a copy of the object.
-      */
+    /* Create a copy of the object. */
     virtual PObject * Clone() const;
-  //@}
 
-  /**@name Operations */
-  //@{
-    /**Create the codec instance, allocating resources as required.
-     */
-    virtual H323Codec * CreateCodec(
-      H323Codec::Direction direction  /// Direction in which this instance runs
-    ) const;
-  //@}
+    /* Create the codec instance, allocating resources as required. */
+    virtual H323Codec * CreateCodec(H323Codec::Direction direction) const;
 
-  /**@name Identification functions */
-  //@{
-    /**Get the sub-type of the capability. This is a code dependent on the
+    /* Get the sub-type of the capability. This is a code dependent on the
        main type of the capability.
 
        This returns one of the four possible combinations of mode and speed
-       using the enum values of the protocol ASN H245_AudioCapability class.
-     */
+       using the enum values of the protocol ASN H245_AudioCapability class. */
     virtual unsigned GetSubType() const;
 
-    /**Get the name of the media data format this class represents.
-     */
+    /* Get the name of the media data format this class represents. */
     virtual PString GetFormatName() const;
-  //@}
+
 };
 
-
-/**This class describes the VoiceAge G729A codec capability.
- */
+/* This class describes the VoiceAge G729A codec capability. */
 class AST_G729ACapability : public H323AudioCapability
 {
   PCLASSINFO(AST_G729ACapability, H323AudioCapability);
 
   public:
-  /**@name Construction */
-  //@{
-    /**Create a new G.729A capability.
-     */
+    /* Create a new G.729A capability. */
     AST_G729ACapability();
-  //@}
 
-  /**@name Overrides from class PObject */
-  //@{
-    /**Create a copy of the object.
-      */
+    /* Create a copy of the object. */
     virtual PObject * Clone() const;
-  //@}
+    /* Create the codec instance, allocating resources as required. */
+    virtual H323Codec * CreateCodec(H323Codec::Direction direction) const;
 
-  /**@name Operations */
-  //@{
-    /**Create the codec instance, allocating resources as required.
-     */
-    virtual H323Codec * CreateCodec(
-      H323Codec::Direction direction  /// Direction in which this instance runs
-    ) const;
-  //@}
-
-  /**@name Identification functions */
-  //@{
-    /**Get the sub-type of the capability. This is a code dependent on the
+    /* Get the sub-type of the capability. This is a code dependent on the
        main type of the capability.
 
        This returns one of the four possible combinations of mode and speed
-       using the enum values of the protocol ASN H245_AudioCapability class.
-     */
+       using the enum values of the protocol ASN H245_AudioCapability class. */
     virtual unsigned GetSubType() const;
 
-    /**Get the name of the media data format this class represents.
-     */
+    /* Get the name of the media data format this class represents. */
     virtual PString GetFormatName() const;
-  //@}
 };
-
 
 class MyH323EndPoint : public H323EndPoint {
 
 	PCLASSINFO(MyH323EndPoint, H323EndPoint);
 
 	public:
-
-	int MakeCall(const PString &, PString &, unsigned int *, unsigned int, char *, char *s);
+	MyH323EndPoint();
+	int MakeCall(const PString &, PString &, unsigned int *, call_options_t *opts);
+	BOOL ClearCall(const PString &, H323Connection::CallEndReason reason);
 	BOOL ClearCall(const PString &);
 
 	void OnClosedLogicalChannel(H323Connection &, const H323Channel &);
@@ -196,15 +138,11 @@ class MyH323EndPoint : public H323EndPoint {
 	void OnConnectionCleared(H323Connection &, const PString &);
 	H323Connection * CreateConnection(unsigned, void *);
 	void SendUserTone(const PString &, char);
-	H323Capabilities GetCapabilities(void);
 	BOOL OnConnectionForwarded(H323Connection &, const PString &, const H323SignalPDU &);
- 
 	BOOL ForwardConnection(H323Connection &, const PString &, const H323SignalPDU &);
-
-	PStringArray SupportedPrefixes;	
-	
     	void SetEndpointTypeInfo( H225_EndpointType & info ) const;
     	void SetGateway(void);
+	PStringArray SupportedPrefixes;	
 };
 
 class MyH323Connection : public H323Connection {
@@ -214,12 +152,14 @@ class MyH323Connection : public H323Connection {
 	public:
 	MyH323Connection(MyH323EndPoint &, unsigned, unsigned);
 	~MyH323Connection();
-
 	H323Channel * CreateRealTimeLogicalChannel(const H323Capability &, 
 						   H323Channel::Directions, 
 					 	   unsigned, 
-						   const H245_H2250LogicalChannelParameters *);
-	H323Connection::AnswerCallResponse OnAnswerCall(const PString &, const H323SignalPDU &, H323SignalPDU &);
+						   const H245_H2250LogicalChannelParameters *,
+						   RTP_QOS *);
+	H323Connection::AnswerCallResponse OnAnswerCall(const PString &, 
+							const H323SignalPDU &, 
+							H323SignalPDU &);
 	void OnReceivedReleaseComplete(const H323SignalPDU &);
 	BOOL OnAlerting(const H323SignalPDU &, const PString &);
 	BOOL OnSendReleaseComplete(H323SignalPDU &);
@@ -231,18 +171,30 @@ class MyH323Connection : public H323Connection {
 	void SendUserInputTone(char, unsigned);
 	void OnUserInputTone(char, unsigned, unsigned, unsigned);
 	void OnUserInputString(const PString &value);
+	BOOL OnReceivedProgress(const H323SignalPDU &);
+	void OnSendCapabilitySet(H245_TerminalCapabilitySet &);
+	void OnSetLocalCapabilities();
+	void SetCapabilities(int, int);
+	BOOL OnReceivedCapabilitySet(const H323Capabilities &, const H245_MultiplexCapability *,
+				     H245_TerminalCapabilitySetReject &);
+	void SetCause(int _cause) { cause = _cause; };
 
 	PString sourceAliases;
 	PString destAliases;
 	PString sourceE164;
 	PString destE164;
 
-	PIPSocket::Address externalIpAddress;	
-	WORD externalPort;
 	WORD sessionId;
 	BOOL bridging;			
-        BOOL AST_RTP_Connected;
-        BOOL AST_Outgoing;
+
+	unsigned progressSetup;
+	unsigned progressAlert;
+	int cause;
+
+	RTP_DataFrame::PayloadTypes dtmfCodec;
+
+	PString ast_cid_num;
+	PString ast_cid_name;
 };
 
 class MyH323_ExternalRTPChannel : public H323_ExternalRTPChannel {
@@ -251,40 +203,29 @@ class MyH323_ExternalRTPChannel : public H323_ExternalRTPChannel {
 
         public:
 	MyH323_ExternalRTPChannel(
-      		MyH323Connection & connection,     
+		MyH323Connection & connection,
       		const H323Capability & capability, 
       		Directions direction,              
       		unsigned sessionID);
 
-    	MyH323_ExternalRTPChannel(
-      		MyH323Connection & connection,      
-      		const H323Capability & capability,  
-      		Directions direction,               
-      		unsigned sessionID,                 
-      		const H323TransportAddress & data,  
-      		const H323TransportAddress & control);
-    
-	/* Create a new channel. */
-    	MyH323_ExternalRTPChannel(
-      		MyH323Connection & connection,        
-      		const H323Capability & capability,  
-      		Directions direction,               
-      		unsigned sessionID,                 
-      		const PIPSocket::Address & ip,      
-      		WORD dataPort); 
-
-	/* Destructor */
 	~MyH323_ExternalRTPChannel();
-	
-     	BOOL OnReceivedAckPDU(const H245_H2250LogicalChannelAckParameters & param);
 
-     	PIPSocket::Address externalIpAddress;   
-     	WORD externalPort;               
+	/* Overrides */
+	BOOL Start(void);
+	BOOL OnReceivedAckPDU(const H245_H2250LogicalChannelAckParameters & param);
+
+	protected:
+	BYTE payloadCode;
+
+	PIPSocket::Address localIpAddr;
+	PIPSocket::Address remoteIpAddr;
+        WORD localPort;
+        WORD remotePort;
 }; 
 
 /**
  * The MyProcess is a necessary descendant PProcess class so that the H323EndPoint 
- * objected to be created from within that class. (Who owns main() problem). 
+ * objected to be created from within that class. (Solves the who owns main() problem). 
  */
 class MyProcess : public PProcess {
 
@@ -292,10 +233,7 @@ class MyProcess : public PProcess {
     
 	public:
 	MyProcess();
-
 	void Main(); 
-	
-	
 };
 
 #endif /* !defined AST_H323_H */

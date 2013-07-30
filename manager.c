@@ -5,7 +5,7 @@
  *
  * Channel Management and more
  * 
- * Copyright (C) 1999-2004, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -26,40 +26,46 @@
 #include <signal.h>
 #include <errno.h>
 #include <unistd.h>
-#include <sys/poll.h>
-#include <asterisk/channel.h>
-#include <asterisk/file.h>
-#include <asterisk/manager.h>
-#include <asterisk/config.h>
-#include <asterisk/lock.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/cli.h>
-#include <asterisk/app.h>
-#include <asterisk/pbx.h>
-#include <asterisk/md5.h>
-#include <asterisk/acl.h>
-#include <asterisk/utils.h>
 
-struct fast_originate_helper
-{
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.110 $")
+
+#include "asterisk/channel.h"
+#include "asterisk/file.h"
+#include "asterisk/manager.h"
+#include "asterisk/config.h"
+#include "asterisk/callerid.h"
+#include "asterisk/lock.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/cli.h"
+#include "asterisk/app.h"
+#include "asterisk/pbx.h"
+#include "asterisk/md5.h"
+#include "asterisk/acl.h"
+#include "asterisk/utils.h"
+
+struct fast_originate_helper {
 	char tech[256];
 	char data[256];
 	int timeout;
 	char app[256];
 	char appdata[256];
-	char callerid[256];
-	char variable[256];
-	char account[256];
+	char cid_name[256];
+	char cid_num[256];
 	char context[256];
 	char exten[256];
 	char idtext[256];
 	int priority;
+	struct ast_variable *vars;
 };
 
 static int enabled = 0;
 static int portno = DEFAULT_MANAGER_PORT;
 static int asock = -1;
+static int displayconnects = 1;
+
 static pthread_t t;
 AST_MUTEX_DEFINE_STATIC(sessionlock);
 static int block_sockets = 0;
@@ -76,12 +82,17 @@ static struct permalias {
 	{ EVENT_FLAG_AGENT, "agent" },
 	{ EVENT_FLAG_USER, "user" },
 	{ -1, "all" },
+	{ 0, "none" },
 };
 
 static struct mansession *sessions = NULL;
 static struct manager_action *first_action = NULL;
 AST_MUTEX_DEFINE_STATIC(actionlock);
 
+/* If you are calling carefulwrite, it is assumed that you are calling
+   it on a file descriptor that _DOES_ have NONBLOCK set.  This way,
+   there is only one system call made to do a write, unless we actually
+   have a need to wait.  This way, we get better performance. */
 int ast_carefulwrite(int fd, char *s, int len, int timeoutms) 
 {
 	/* Try to write string, but wait no more than ms milliseconds
@@ -106,6 +117,7 @@ int ast_carefulwrite(int fd, char *s, int len, int timeoutms)
 	return res;
 }
 
+/*--- authority_to_str: Convert authority code to string with serveral options */
 static char *authority_to_str(int authority, char *res, int reslen)
 {
 	int running_total = 0, i;
@@ -121,7 +133,7 @@ static char *authority_to_str(int authority, char *res, int reslen)
 		}
 	}
 	if (ast_strlen_zero(res)) {
-		strncpy(res, "<none>", reslen);
+		ast_copy_string(res, "<none>", reslen);
 	}
 	return res;
 }
@@ -168,14 +180,17 @@ static int handle_showmancmd(int fd, int argc, char *argv[])
 	return RESULT_SUCCESS;
 }
 
+/*--- handle_showmancmds: CLI command */
+/* Should change to "manager show commands" */
 static int handle_showmancmds(int fd, int argc, char *argv[])
 {
 	struct manager_action *cur = first_action;
 	char authority[80];
-	char *format = "  %-15.15s  %-10.10s  %-45.45s\n";
+	char *format = "  %-15.15s  %-15.15s  %-55.55s\n";
 
 	ast_mutex_lock(&actionlock);
 	ast_cli(fd, format, "Action", "Privilege", "Synopsis");
+	ast_cli(fd, format, "------", "---------", "--------");
 	while (cur) { /* Walk the list of actions */
 		ast_cli(fd, format, cur->action, authority_to_str(cur->authority, authority, sizeof(authority) -1), cur->synopsis);
 		cur = cur->next;
@@ -185,6 +200,8 @@ static int handle_showmancmds(int fd, int argc, char *argv[])
 	return RESULT_SUCCESS;
 }
 
+/*--- handle_showmanconn: CLI command show manager connected */
+/* Should change to "manager show connected" */
 static int handle_showmanconn(int fd, int argc, char *argv[])
 {
 	struct mansession *s;
@@ -204,28 +221,28 @@ static int handle_showmanconn(int fd, int argc, char *argv[])
 
 static char showmancmd_help[] = 
 "Usage: show manager command <actionname>\n"
-"	Shows the detailed description for a specific manager command.\n";
+"	Shows the detailed description for a specific Asterisk manager interface command.\n";
 
 static char showmancmds_help[] = 
 "Usage: show manager commands\n"
-"	Prints a listing of all the available manager commands.\n";
+"	Prints a listing of all the available Asterisk manager interface commands.\n";
 
 static char showmanconn_help[] = 
 "Usage: show manager connected\n"
-"	Prints a listing of the users that are connected to the\n"
-"manager interface.\n";
+"	Prints a listing of the users that are currently connected to the\n"
+"Asterisk manager interface.\n";
 
 static struct ast_cli_entry show_mancmd_cli =
 	{ { "show", "manager", "command", NULL },
-	handle_showmancmd, "Show manager command", showmancmd_help, complete_show_mancmd };
+	handle_showmancmd, "Show a manager interface command", showmancmd_help, complete_show_mancmd };
 
 static struct ast_cli_entry show_mancmds_cli =
 	{ { "show", "manager", "commands", NULL },
-	handle_showmancmds, "Show manager commands", showmancmds_help };
+	handle_showmancmds, "List manager interface commands", showmancmds_help };
 
 static struct ast_cli_entry show_manconn_cli =
 	{ { "show", "manager", "connected", NULL },
-	handle_showmanconn, "Show connected manager users", showmanconn_help };
+	handle_showmanconn, "Show connected manager interface users", showmanconn_help };
 
 static void destroy_session(struct mansession *s)
 {
@@ -262,6 +279,34 @@ char *astman_get_header(struct message *m, char *var)
 		if (!strncasecmp(cmp, m->headers[x], strlen(cmp)))
 			return m->headers[x] + strlen(cmp);
 	return "";
+}
+
+struct ast_variable *astman_get_variables(struct message *m)
+{
+	int varlen, x;
+	struct ast_variable *head = NULL, *cur;
+	char *var, *val;
+	
+	varlen = strlen("Variable: ");	
+
+	for (x = 0; x < m->hdrcount; x++) {
+		if (!strncasecmp("Variable: ", m->headers[x], varlen)) {
+			var = val = ast_strdupa(m->headers[x] + varlen);
+			if (!var)
+				return head;				
+			strsep(&val, "=");
+			if (!val || ast_strlen_zero(var))
+				continue;
+			cur = ast_variable_new(var, val);
+			if (head) {
+				cur->next = head;
+				head = cur;
+			} else
+				head = cur;
+		}
+	}
+
+	return head;
 }
 
 void astman_send_error(struct mansession *s, struct message *m, char *error)
@@ -350,19 +395,21 @@ static int ast_is_number(char *string)
 
 static int ast_strings_to_mask(char *string) 
 {
-	int x = 0, ret = -1;
+	int x, ret = -1;
 	
 	x = ast_is_number(string);
 
-	if (x) 
+	if (x) {
 		ret = x;
-	else if (!string || ast_strlen_zero(string))
+	} else if (!string || ast_strlen_zero(string)) {
 		ret = -1;
-	else if (!strcasecmp(string, "off") || ast_false(string))
+	} else if (ast_false(string)) {
 		ret = 0;
-	else if (!strcasecmp(string, "on") || ast_true(string))
-		ret = -1;
-	else {
+	} else if (ast_true(string)) {
+		ret = 0;
+		for (x=0; x<sizeof(perms) / sizeof(perms[0]); x++)
+			ret |= perms[x].num;		
+	} else {
 		ret = 0;
 		for (x=0; x<sizeof(perms) / sizeof(perms[0]); x++) {
 			if (ast_instring(string, perms[x].label, ',')) 
@@ -383,10 +430,11 @@ static int set_eventmask(struct mansession *s, char *eventmask)
 	int maskint = ast_strings_to_mask(eventmask);
 
 	ast_mutex_lock(&s->lock);
-	s->send_events = maskint;
+	if (maskint >= 0)	
+		s->send_events = maskint;
 	ast_mutex_unlock(&s->lock);
 	
-	return s->send_events;
+	return maskint;
 }
 
 static int authenticate(struct mansession *s, struct message *m)
@@ -400,7 +448,7 @@ static int authenticate(struct mansession *s, struct message *m)
 	char *key = astman_get_header(m, "Key");
 	char *events = astman_get_header(m, "Events");
 	
-	cfg = ast_load("manager.conf");
+	cfg = ast_config_load("manager.conf");
 	if (!cfg)
 		return -1;
 	cat = ast_category_browse(cfg, NULL);
@@ -417,14 +465,15 @@ static int authenticate(struct mansession *s, struct message *m)
 						password = v->value;
 					} else if (!strcasecmp(v->name, "permit") ||
 						   !strcasecmp(v->name, "deny")) {
-							ha = ast_append_ha(v->name, v->value, ha);
-					}						
+						ha = ast_append_ha(v->name, v->value, ha);
+					}	
+				    		
 					v = v->next;
 				}
 				if (ha && !ast_apply_ha(ha, &(s->sin))) {
 					ast_log(LOG_NOTICE, "%s failed to pass IP ACL as '%s'\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr), user);
 					ast_free_ha(ha);
-					ast_destroy(cfg);
+					ast_config_destroy(cfg);
 					return -1;
 				} else if (ha)
 					ast_free_ha(ha);
@@ -436,15 +485,15 @@ static int authenticate(struct mansession *s, struct message *m)
 						struct MD5Context md5;
 						unsigned char digest[16];
 						MD5Init(&md5);
-						MD5Update(&md5, s->challenge, strlen(s->challenge));
-						MD5Update(&md5, password, strlen(password));
+						MD5Update(&md5, (unsigned char *) s->challenge, strlen(s->challenge));
+						MD5Update(&md5, (unsigned char *) password, strlen(password));
 						MD5Final(digest, &md5);
 						for (x=0;x<16;x++)
 							len += sprintf(md5key + len, "%2.2x", digest[x]);
 						if (!strcmp(md5key, key))
 							break;
 						else {
-							ast_destroy(cfg);
+							ast_config_destroy(cfg);
 							return -1;
 						}
 					}
@@ -452,7 +501,7 @@ static int authenticate(struct mansession *s, struct message *m)
 					break;
 				} else {
 					ast_log(LOG_NOTICE, "%s failed to authenticate as '%s'\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr), user);
-					ast_destroy(cfg);
+					ast_config_destroy(cfg);
 					return -1;
 				}	
 			}
@@ -460,16 +509,16 @@ static int authenticate(struct mansession *s, struct message *m)
 		cat = ast_category_browse(cfg, cat);
 	}
 	if (cat) {
-		strncpy(s->username, cat, sizeof(s->username) - 1);
+		ast_copy_string(s->username, cat, sizeof(s->username));
 		s->readperm = get_perm(ast_variable_retrieve(cfg, cat, "read"));
 		s->writeperm = get_perm(ast_variable_retrieve(cfg, cat, "write"));
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 		if (events)
 			set_eventmask(s, events);
 		return 0;
 	}
 	ast_log(LOG_NOTICE, "%s tried to authenticate with nonexistent user '%s'\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr), user);
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 	return -1;
 }
 
@@ -493,6 +542,7 @@ static int action_listcommands(struct mansession *s, struct message *m)
 {
 	struct manager_action *cur = first_action;
 	char idText[256] = "";
+	char temp[BUFSIZ];
 	char *id = astman_get_header(m,"ActionID");
 
 	if (id && !ast_strlen_zero(id))
@@ -502,7 +552,7 @@ static int action_listcommands(struct mansession *s, struct message *m)
 	ast_mutex_lock(&actionlock);
 	while (cur) { /* Walk the list of actions */
 		if ((s->writeperm & cur->authority) == cur->authority)
-			ast_cli(s->fd, "%s: %s\r\n", cur->action, cur->synopsis);
+			ast_cli(s->fd, "%s: %s (Priv: %s)\r\n", cur->action, cur->synopsis, authority_to_str(cur->authority, temp, sizeof(temp)) );
 		cur = cur->next;
 	}
 	ast_mutex_unlock(&actionlock);
@@ -557,14 +607,7 @@ static int action_hangup(struct mansession *s, struct message *m)
 		astman_send_error(s, m, "No channel specified");
 		return 0;
 	}
-	c = ast_channel_walk_locked(NULL);
-	while(c) {
-		if (!strcasecmp(c->name, name)) {
-			break;
-		}
-		ast_mutex_unlock(&c->lock);
-		c = ast_channel_walk_locked(c);
-	}
+	c = ast_get_channel_by_name_locked(name);
 	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;
@@ -598,14 +641,7 @@ static int action_setvar(struct mansession *s, struct message *m)
 		return 0;
 	}
 
-	c = ast_channel_walk_locked(NULL);
-	while(c) {
-		if (!strcasecmp(c->name, name)) {
-			break;
-		}
-		ast_mutex_unlock(&c->lock);
-		c = ast_channel_walk_locked(c);
-	}
+	c = ast_get_channel_by_name_locked(name);
 	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;
@@ -632,6 +668,7 @@ static int action_getvar(struct mansession *s, struct message *m)
         char *varname = astman_get_header(m, "Variable");
 	char *id = astman_get_header(m,"ActionID");
 	char *varval;
+	char *varval2=NULL;
 
 	if (!strlen(name)) {
 		astman_send_error(s, m, "No channel specified");
@@ -642,25 +679,21 @@ static int action_getvar(struct mansession *s, struct message *m)
 		return 0;
 	}
 
-	c = ast_channel_walk_locked(NULL);
-	while(c) {
-		if (!strcasecmp(c->name, name)) {
-			break;
-		}
-		ast_mutex_unlock(&c->lock);
-		c = ast_channel_walk_locked(c);
-	}
+	c = ast_get_channel_by_name_locked(name);
 	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;
 	}
 	
 	varval=pbx_builtin_getvar_helper(c,varname);
-	  
+	if (varval)
+		varval2 = ast_strdupa(varval);
+	if (!varval2)
+		varval2 = "";
 	ast_mutex_unlock(&c->lock);
 	ast_mutex_lock(&s->lock);
 	ast_cli(s->fd, "Response: Success\r\n"
-		"%s: %s\r\n" ,varname,varval);
+		"%s: %s\r\n" ,varname,varval2);
 	if (id && !ast_strlen_zero(id))
 		ast_cli(s->fd, "ActionID: %s\r\n",id);
 	ast_cli(s->fd, "\r\n");
@@ -670,6 +703,8 @@ static int action_getvar(struct mansession *s, struct message *m)
 }
 
 
+/*--- action_status: Manager "status" command to show channels */
+/* Needs documentation... */
 static int action_status(struct mansession *s, struct message *m)
 {
 	char *id = astman_get_header(m,"ActionID");
@@ -677,30 +712,26 @@ static int action_status(struct mansession *s, struct message *m)
 	char idText[256] = "";
 	struct ast_channel *c;
 	char bridge[256];
-	struct timeval now;
+	struct timeval now = ast_tvnow();
 	long elapsed_seconds=0;
+	int all = !name || ast_strlen_zero(name); /* set if we want all channels */
 
-	gettimeofday(&now, NULL);
 	astman_send_ack(s, m, "Channel status will follow");
-	c = ast_channel_walk_locked(NULL);
         if (id && !ast_strlen_zero(id))
                 snprintf(idText,256,"ActionID: %s\r\n",id);
-	if (name && !ast_strlen_zero(name)) {
-		while (c) {
-			if (!strcasecmp(c->name, name)) {
-				break;
-			}
-			ast_mutex_unlock(&c->lock);
-			c = ast_channel_walk_locked(c);
-		}
+	if (all)
+		c = ast_channel_walk_locked(NULL);
+	else {
+		c = ast_get_channel_by_name_locked(name);
 		if (!c) {
 			astman_send_error(s, m, "No such channel");
 			return 0;
 		}
 	}
+	/* if we look by name, we break after the first iteration */
 	while(c) {
-		if (c->bridge)
-			snprintf(bridge, sizeof(bridge), "Link: %s\r\n", c->bridge->name);
+		if (c->_bridge)
+			snprintf(bridge, sizeof(bridge), "Link: %s\r\n", c->_bridge->name);
 		else
 			bridge[0] = '\0';
 		ast_mutex_lock(&s->lock);
@@ -710,8 +741,10 @@ static int action_status(struct mansession *s, struct message *m)
 			}
 			ast_cli(s->fd,
 			"Event: Status\r\n"
+			"Privilege: Call\r\n"
 			"Channel: %s\r\n"
 			"CallerID: %s\r\n"
+			"CallerIDName: %s\r\n"
 			"Account: %s\r\n"
 			"State: %s\r\n"
 			"Context: %s\r\n"
@@ -722,30 +755,35 @@ static int action_status(struct mansession *s, struct message *m)
 			"Uniqueid: %s\r\n"
 			"%s"
 			"\r\n",
-			c->name, c->callerid ? c->callerid : "<unknown>", 
+			c->name, 
+			c->cid.cid_num ? c->cid.cid_num : "<unknown>", 
+			c->cid.cid_name ? c->cid.cid_name : "<unknown>", 
 			c->accountcode,
 			ast_state2str(c->_state), c->context,
 			c->exten, c->priority, (long)elapsed_seconds, bridge, c->uniqueid, idText);
 		} else {
 			ast_cli(s->fd,
 			"Event: Status\r\n"
+			"Privilege: Call\r\n"
 			"Channel: %s\r\n"
 			"CallerID: %s\r\n"
+			"CallerIDName: %s\r\n"
 			"Account: %s\r\n"
 			"State: %s\r\n"
 			"%s"
 			"Uniqueid: %s\r\n"
 			"%s"
 			"\r\n",
-			c->name, c->callerid ? c->callerid : "<unknown>", 
+			c->name, 
+			c->cid.cid_num ? c->cid.cid_num : "<unknown>", 
+			c->cid.cid_name ? c->cid.cid_name : "<unknown>", 
 			c->accountcode,
 			ast_state2str(c->_state), bridge, c->uniqueid, idText);
 		}
 		ast_mutex_unlock(&s->lock);
 		ast_mutex_unlock(&c->lock);
-		if (name && !ast_strlen_zero(name)) {
+		if (!all)
 			break;
-		}
 		c = ast_channel_walk_locked(c);
 	}
 	ast_mutex_lock(&s->lock);
@@ -757,6 +795,17 @@ static int action_status(struct mansession *s, struct message *m)
 	return 0;
 }
 
+static char mandescr_redirect[] = 
+"Description: Redirect (transfer) a call.\n"
+"Variables: (Names marked with * are required)\n"
+"	*Channel: Channel to redirect\n"
+"	ExtraChannel: Second call leg to transfer (optional)\n"
+"	*Exten: Extension to transfer to\n"
+"	*Context: Context to transfer to\n"
+"	*Priority: Priority to transfer to\n"
+"	ActionID: Optional Action id for message matching.\n";
+
+/*--- action_redirect: The redirect manager command */
 static int action_redirect(struct mansession *s, struct message *m)
 {
 	char *name = astman_get_header(m, "Channel");
@@ -767,6 +816,7 @@ static int action_redirect(struct mansession *s, struct message *m)
 	struct ast_channel *chan, *chan2 = NULL;
 	int pi = 0;
 	int res;
+
 	if (!name || ast_strlen_zero(name)) {
 		astman_send_error(s, m, "Channel not specified");
 		return 0;
@@ -777,7 +827,9 @@ static int action_redirect(struct mansession *s, struct message *m)
 	}
 	chan = ast_get_channel_by_name_locked(name);
 	if (!chan) {
-		astman_send_error(s, m, "Channel not existent");
+		char buf[BUFSIZ];
+		snprintf(buf, sizeof(buf), "Channel does not exist: %s", name);
+		astman_send_error(s, m, buf);
 		return 0;
 	}
 	if (!ast_strlen_zero(name2))
@@ -809,6 +861,8 @@ static char mandescr_command[] =
 "Variables: (Names marked with * are required)\n"
 "	*Command: Asterisk CLI command to run\n"
 "	ActionID: Optional Action id for message matching.\n";
+
+/*--- action_command: Manager command "command" - execute CLI command */
 static int action_command(struct mansession *s, struct message *m)
 {
 	char *cmd = astman_get_header(m, "Command");
@@ -816,7 +870,7 @@ static int action_command(struct mansession *s, struct message *m)
 	ast_mutex_lock(&s->lock);
 	s->blocking = 1;
 	ast_mutex_unlock(&s->lock);
-	ast_cli(s->fd, "Response: Follows\r\n");
+	ast_cli(s->fd, "Response: Follows\r\nPrivilege: Command\r\n");
 	if (id && !ast_strlen_zero(id))
 		ast_cli(s->fd, "ActionID: %s\r\n", id);
 	/* FIXME: Wedge a ActionID response in here, waiting for later changes */
@@ -833,10 +887,18 @@ static void *fast_originate(void *data)
 	struct fast_originate_helper *in = data;
 	int res;
 	int reason = 0;
+	struct ast_channel *chan = NULL;
+
 	if (!ast_strlen_zero(in->app)) {
-		res = ast_pbx_outgoing_app(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->app, in->appdata, &reason, 1, !ast_strlen_zero(in->callerid) ? in->callerid : NULL, in->variable, in->account);
+		res = ast_pbx_outgoing_app(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->app, in->appdata, &reason, 1, 
+			!ast_strlen_zero(in->cid_num) ? in->cid_num : NULL, 
+			!ast_strlen_zero(in->cid_name) ? in->cid_name : NULL,
+			in->vars, &chan);
 	} else {
-		res = ast_pbx_outgoing_exten(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->context, in->exten, in->priority, &reason, 1, !ast_strlen_zero(in->callerid) ? in->callerid : NULL, in->variable, in->account);
+		res = ast_pbx_outgoing_exten(in->tech, AST_FORMAT_SLINEAR, in->data, in->timeout, in->context, in->exten, in->priority, &reason, 1, 
+			!ast_strlen_zero(in->cid_num) ? in->cid_num : NULL, 
+			!ast_strlen_zero(in->cid_name) ? in->cid_name : NULL,
+			in->vars, &chan);
 	}   
 	if (!res)
 		manager_event(EVENT_FLAG_CALL,
@@ -844,17 +906,24 @@ static void *fast_originate(void *data)
 			"%s"
 			"Channel: %s/%s\r\n"
 			"Context: %s\r\n"
-			"Exten: %s\r\n",
-			in->idtext, in->tech, in->data, in->context, in->exten);
+			"Exten: %s\r\n"
+			"Reason: %d\r\n"
+			"Uniqueid: %s\r\n",
+			in->idtext, in->tech, in->data, in->context, in->exten, reason, chan ? chan->uniqueid : "<null>");
 	else
 		manager_event(EVENT_FLAG_CALL,
 			"OriginateFailure",
 			"%s"
 			"Channel: %s/%s\r\n"
 			"Context: %s\r\n"
-			"Exten: %s\r\n",
-			in->idtext, in->tech, in->data, in->context, in->exten);
+			"Exten: %s\r\n"
+			"Reason: %d\r\n"
+			"Uniqueid: %s\r\n",
+			in->idtext, in->tech, in->data, in->context, in->exten, reason, chan ? chan->uniqueid : "<null>");
 
+	/* Locked by ast_pbx_outgoing_exten or ast_pbx_outgoing_app */
+	if (chan)
+		ast_mutex_unlock(&chan->lock);
 	free(in);
 	return NULL;
 }
@@ -883,18 +952,21 @@ static int action_originate(struct mansession *s, struct message *m)
 	char *priority = astman_get_header(m, "Priority");
 	char *timeout = astman_get_header(m, "Timeout");
 	char *callerid = astman_get_header(m, "CallerID");
-    	char *variable = astman_get_header(m, "Variable");
-    	char *account = astman_get_header(m, "Account");
+	char *account = astman_get_header(m, "Account");
 	char *app = astman_get_header(m, "Application");
 	char *appdata = astman_get_header(m, "Data");
 	char *async = astman_get_header(m, "Async");
 	char *id = astman_get_header(m, "ActionID");
+	struct ast_variable *vars = astman_get_variables(m);
 	char *tech, *data;
+	char *l=NULL, *n=NULL;
 	int pi = 0;
 	int res;
 	int to = 30000;
 	int reason = 0;
 	char tmp[256];
+	char tmp2[256];
+	
 	pthread_t th;
 	pthread_attr_t attr;
 	if (!name) {
@@ -909,7 +981,7 @@ static int action_originate(struct mansession *s, struct message *m)
 		astman_send_error(s, m, "Invalid timeout\n");
 		return 0;
 	}
-	strncpy(tmp, name, sizeof(tmp) - 1);
+	ast_copy_string(tmp, name, sizeof(tmp));
 	tech = tmp;
 	data = strchr(tmp, '/');
 	if (!data) {
@@ -918,6 +990,23 @@ static int action_originate(struct mansession *s, struct message *m)
 	}
 	*data = '\0';
 	data++;
+	ast_copy_string(tmp2, callerid, sizeof(tmp2));
+	ast_callerid_parse(tmp2, &n, &l);
+	if (n) {
+		if (ast_strlen_zero(n))
+			n = NULL;
+	}
+	if (l) {
+		ast_shrink_phone_number(l);
+		if (ast_strlen_zero(l))
+			l = NULL;
+	}
+	if (account) {
+		struct ast_variable *newvar;
+		newvar = ast_variable_new("CDR(accountcode|r)", account);
+		newvar->next = vars;
+		vars = newvar;
+	}
 	if (ast_true(async)) {
 		struct fast_originate_helper *fast = malloc(sizeof(struct fast_originate_helper));
 		if (!fast) {
@@ -926,15 +1015,17 @@ static int action_originate(struct mansession *s, struct message *m)
 			memset(fast, 0, sizeof(struct fast_originate_helper));
 			if (id && !ast_strlen_zero(id))
 				snprintf(fast->idtext, sizeof(fast->idtext), "ActionID: %s\r\n", id);
-			strncpy(fast->tech, tech, sizeof(fast->tech) - 1);
-   			strncpy(fast->data, data, sizeof(fast->data) - 1);
-			strncpy(fast->app, app, sizeof(fast->app) - 1);
-			strncpy(fast->appdata, appdata, sizeof(fast->appdata) - 1);
-			strncpy(fast->callerid, callerid, sizeof(fast->callerid) - 1);
-			strncpy(fast->variable, variable, sizeof(fast->variable) - 1);
-			strncpy(fast->account, account, sizeof(fast->account) - 1);
-			strncpy(fast->context, context, sizeof(fast->context) - 1);
-			strncpy(fast->exten, exten, sizeof(fast->exten) - 1);
+			ast_copy_string(fast->tech, tech, sizeof(fast->tech));
+   			ast_copy_string(fast->data, data, sizeof(fast->data));
+			ast_copy_string(fast->app, app, sizeof(fast->app));
+			ast_copy_string(fast->appdata, appdata, sizeof(fast->appdata));
+			if (l)
+				ast_copy_string(fast->cid_num, l, sizeof(fast->cid_num));
+			if (n)
+				ast_copy_string(fast->cid_name, n, sizeof(fast->cid_name));
+			fast->vars = vars;	
+			ast_copy_string(fast->context, context, sizeof(fast->context));
+			ast_copy_string(fast->exten, exten, sizeof(fast->exten));
 			fast->timeout = to;
 			fast->priority = pi;
 			pthread_attr_init(&attr);
@@ -946,10 +1037,10 @@ static int action_originate(struct mansession *s, struct message *m)
 			}
 		}
 	} else if (!ast_strlen_zero(app)) {
-        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, !ast_strlen_zero(callerid) ? callerid : NULL, variable, account);
+        	res = ast_pbx_outgoing_app(tech, AST_FORMAT_SLINEAR, data, to, app, appdata, &reason, 1, l, n, vars, NULL);
     	} else {
 		if (exten && context && pi)
-	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, !ast_strlen_zero(callerid) ? callerid : NULL, variable, account);
+	        	res = ast_pbx_outgoing_exten(tech, AST_FORMAT_SLINEAR, data, to, context, exten, pi, &reason, 1, l, n, vars, NULL);
 		else {
 			astman_send_error(s, m, "Originate with 'Exten' requires 'Context' and 'Priority'");
 			return 0;
@@ -984,7 +1075,7 @@ static int action_mailboxstatus(struct mansession *s, struct message *m)
 	}
         if (id && !ast_strlen_zero(id))
                 snprintf(idText,256,"ActionID: %s\r\n",id);
-	ret = ast_app_has_voicemail(mailbox);
+	ret = ast_app_has_voicemail(mailbox, NULL);
 	ast_mutex_lock(&s->lock);
 	ast_cli(s->fd, "Response: Success\r\n"
 				   "%s"
@@ -1059,7 +1150,7 @@ static int action_extensionstate(struct mansession *s, struct message *m)
 	if (!context || ast_strlen_zero(context))
 		context = "default";
 	status = ast_extension_state(NULL, context, exten);
-	ast_get_hint(hint, sizeof(hint) - 1, NULL, context, exten);
+	ast_get_hint(hint, sizeof(hint) - 1, NULL, 0, NULL, context, exten);
         if (id && !ast_strlen_zero(id)) {
                 snprintf(idText,256,"ActionID: %s\r\n",id);
         }
@@ -1096,14 +1187,7 @@ static int action_timeout(struct mansession *s, struct message *m)
 		astman_send_error(s, m, "No timeout specified");
 		return 0;
 	}
-	c = ast_channel_walk_locked(NULL);
-	while(c) {
-		if (!strcasecmp(c->name, name)) {
-			break;
-		}
-		ast_mutex_unlock(&c->lock);
-		c = ast_channel_walk_locked(c);
-	}
+	c = ast_get_channel_by_name_locked(name);
 	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;
@@ -1122,7 +1206,7 @@ static int process_message(struct mansession *s, struct message *m)
 	char idText[256] = "";
 	char iabuf[INET_ADDRSTRLEN];
 
-	strncpy(action, astman_get_header(m, "Action"), sizeof(action) - 1);
+	ast_copy_string(action, astman_get_header(m, "Action"), sizeof(action));
 	ast_log( LOG_DEBUG, "Manager received command '%s'\n", action );
 
 	if (ast_strlen_zero(action)) {
@@ -1160,8 +1244,11 @@ static int process_message(struct mansession *s, struct message *m)
 				return -1;
 			} else {
 				s->authenticated = 1;
-				if (option_verbose > 1) 
-					ast_verbose(VERBOSE_PREFIX_2 "Manager '%s' logged on from %s\n", s->username, ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
+				if (option_verbose > 1) {
+					if ( displayconnects ) {
+						ast_verbose(VERBOSE_PREFIX_2 "Manager '%s' logged on from %s\n", s->username, ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
+					}
+				}
 				ast_log(LOG_EVENT, "Manager '%s' logged on from %s\n", s->username, ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
 				astman_send_ack(s, m, "Authentication accepted");
 			}
@@ -1216,6 +1303,7 @@ static int get_input(struct mansession *s, char *output)
 	res = poll(fds, 1, -1);
 	if (res < 0) {
 		ast_log(LOG_WARNING, "Select returned error: %s\n", strerror(errno));
+ 		return -1;
 	} else if (res > 0) {
 		ast_mutex_lock(&s->lock);
 		res = read(s->fd, s->inbuf + s->inlen, sizeof(s->inbuf) - 1 - s->inlen);
@@ -1256,12 +1344,16 @@ static void *session_do(void *data)
 			break;
 	}
 	if (s->authenticated) {
-		if (option_verbose > 1) 
-			ast_verbose(VERBOSE_PREFIX_2 "Manager '%s' logged off from %s\n", s->username, ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
+		if (option_verbose > 1) {
+			if (displayconnects) 
+				ast_verbose(VERBOSE_PREFIX_2 "Manager '%s' logged off from %s\n", s->username, ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));    
+		}
 		ast_log(LOG_EVENT, "Manager '%s' logged off from %s\n", s->username, ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
 	} else {
-		if (option_verbose > 1)
-			ast_verbose(VERBOSE_PREFIX_2 "Connect attempt from '%s' unable to authenticate\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
+		if (option_verbose > 1) {
+			if ( displayconnects )
+				ast_verbose(VERBOSE_PREFIX_2 "Connect attempt from '%s' unable to authenticate\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
+		}
 		ast_log(LOG_EVENT, "Failed attempt from %s\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
 	}
 	destroy_session(s);
@@ -1272,7 +1364,7 @@ static void *accept_thread(void *ignore)
 {
 	int as;
 	struct sockaddr_in sin;
-	int sinlen;
+	socklen_t sinlen;
 	struct mansession *s;
 	struct protoent *p;
 	int arg = 1;
@@ -1290,7 +1382,7 @@ static void *accept_thread(void *ignore)
 			continue;
 		}
 		p = getprotobyname("tcp");
-		if( p ) {
+		if (p) {
 			if( setsockopt(as, p->p_proto, TCP_NODELAY, (char *)&arg, sizeof(arg) ) < 0 ) {
 				ast_log(LOG_WARNING, "Failed to set manager tcp connection to TCP_NODELAY mode: %s\n", strerror(errno));
 			}
@@ -1322,6 +1414,7 @@ static void *accept_thread(void *ignore)
 	return NULL;
 }
 
+/*--- manager_event: Send AMI event to client */
 int manager_event(int category, char *event, char *fmt, ...)
 {
 	struct mansession *s;
@@ -1335,6 +1428,7 @@ int manager_event(int category, char *event, char *fmt, ...)
 			ast_mutex_lock(&s->lock);
 			if (!s->blocking) {
 				ast_cli(s->fd, "Event: %s\r\n", event);
+				ast_cli(s->fd, "Privilege: %s\r\n", authority_to_str(category, tmp, sizeof(tmp)));
 				va_start(ap, fmt);
 				vsnprintf(tmp, sizeof(tmp), fmt, ap);
 				va_end(ap);
@@ -1417,7 +1511,7 @@ static int ast_manager_register_struct(struct manager_action *act)
 	return 0;
 }
 
-int ast_manager_register2(char *action, int auth, int (*func)(struct mansession *s, struct message *m), char *synopsis, char *description)
+int ast_manager_register2(const char *action, int auth, int (*func)(struct mansession *s, struct message *m), const char *synopsis, const char *description)
 {
 	struct manager_action *cur;
 
@@ -1450,20 +1544,20 @@ int init_manager(void)
 	int x = 1;
 	if (!registered) {
 		/* Register default actions */
-		ast_manager_register2("Ping", 0, action_ping, "Ping", mandescr_ping);
-		ast_manager_register2("Events", 0, action_events, "Contol Event Flow", mandescr_events);
+		ast_manager_register2("Ping", 0, action_ping, "Keepalive command", mandescr_ping);
+		ast_manager_register2("Events", 0, action_events, "Control Event Flow", mandescr_events);
 		ast_manager_register2("Logoff", 0, action_logoff, "Logoff Manager", mandescr_logoff);
 		ast_manager_register2("Hangup", EVENT_FLAG_CALL, action_hangup, "Hangup Channel", mandescr_hangup);
-		ast_manager_register( "Status", EVENT_FLAG_CALL, action_status, "Status" );
-		ast_manager_register2( "Setvar", EVENT_FLAG_CALL, action_setvar, "Set Channel Variable", mandescr_setvar );
-		ast_manager_register2( "Getvar", EVENT_FLAG_CALL, action_getvar, "Gets a Channel Variable", mandescr_getvar );
-		ast_manager_register( "Redirect", EVENT_FLAG_CALL, action_redirect, "Redirect" );
+		ast_manager_register("Status", EVENT_FLAG_CALL, action_status, "Lists channel status" );
+		ast_manager_register2("Setvar", EVENT_FLAG_CALL, action_setvar, "Set Channel Variable", mandescr_setvar );
+		ast_manager_register2("Getvar", EVENT_FLAG_CALL, action_getvar, "Gets a Channel Variable", mandescr_getvar );
+		ast_manager_register2("Redirect", EVENT_FLAG_CALL, action_redirect, "Redirect (transfer) a call", mandescr_redirect );
 		ast_manager_register2("Originate", EVENT_FLAG_CALL, action_originate, "Originate Call", mandescr_originate);
-		ast_manager_register2( "Command", EVENT_FLAG_COMMAND, action_command, "Execute Command", mandescr_command );
-		ast_manager_register2( "ExtensionState", EVENT_FLAG_CALL, action_extensionstate, "Check Extension Status", mandescr_extensionstate );
-		ast_manager_register2( "AbsoluteTimeout", EVENT_FLAG_CALL, action_timeout, "Set Absolute Timeout", mandescr_timeout );
-		ast_manager_register2( "MailboxStatus", EVENT_FLAG_CALL, action_mailboxstatus, "Check Mailbox", mandescr_mailboxstatus );
-		ast_manager_register2( "MailboxCount", EVENT_FLAG_CALL, action_mailboxcount, "Check Mailbox Message Count", mandescr_mailboxcount );
+		ast_manager_register2("Command", EVENT_FLAG_COMMAND, action_command, "Execute Asterisk CLI Command", mandescr_command );
+		ast_manager_register2("ExtensionState", EVENT_FLAG_CALL, action_extensionstate, "Check Extension Status", mandescr_extensionstate );
+		ast_manager_register2("AbsoluteTimeout", EVENT_FLAG_CALL, action_timeout, "Set Absolute Timeout", mandescr_timeout );
+		ast_manager_register2("MailboxStatus", EVENT_FLAG_CALL, action_mailboxstatus, "Check Mailbox", mandescr_mailboxstatus );
+		ast_manager_register2("MailboxCount", EVENT_FLAG_CALL, action_mailboxcount, "Check Mailbox Message Count", mandescr_mailboxcount );
 		ast_manager_register2("ListCommands", 0, action_listcommands, "List available manager commands", mandescr_listcommands);
 
 		ast_cli_register(&show_mancmd_cli);
@@ -1473,7 +1567,8 @@ int init_manager(void)
 		registered = 1;
 	}
 	portno = DEFAULT_MANAGER_PORT;
-	cfg = ast_load("manager.conf");
+	displayconnects = 1;
+	cfg = ast_config_load("manager.conf");
 	if (!cfg) {
 		ast_log(LOG_NOTICE, "Unable to open management configuration manager.conf.  Call management disabled.\n");
 		return 0;
@@ -1499,6 +1594,11 @@ int init_manager(void)
 		}
 		ast_log(LOG_NOTICE, "Use of portno in manager.conf deprecated.  Please use 'port=%s' instead.\n", val);
 	}
+	/* Parsing the displayconnects */
+	if ((val = ast_variable_retrieve(cfg, "general", "displayconnects"))) {
+			displayconnects = ast_true(val);;
+	}
+				
 	
 	ba.sin_family = AF_INET;
 	ba.sin_port = htons(portno);
@@ -1520,7 +1620,7 @@ int init_manager(void)
 		ast_log(LOG_WARNING, "Unable to change management port / enabled\n");
 #endif
 	}
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 	
 	/* If not enabled, do nothing */
 	if (!enabled) {

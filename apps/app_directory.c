@@ -3,29 +3,32 @@
  *
  * Provide a directory of extensions
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/config.h>
-#include <asterisk/say.h>
-#include <asterisk/utils.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../asterisk.h"
-#include "../astconf.h"
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.40 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/config.h"
+#include "asterisk/say.h"
+#include "asterisk/utils.h"
 
 static char *tdesc = "Extension Directory";
 static char *app = "Directory";
@@ -40,12 +43,15 @@ static char *descrip =
 "the vm-context if unspecified. The 'f' option causes the directory to match\n"
 "based on the first name in voicemail.conf instead of the last name.\n"
 "Returns 0 unless the user hangs up. It  also sets up the channel on exit\n"
-"to enter the extension the user selected.\n";
+"to enter the extension the user selected.  If the user enters '0' and there\n"
+"exists an extension 'o' in the current context, the directory will exit with 0\n"
+"and call control will resume at that extension.  Entering '*' will exit similarly,\n"
+"but to the 'a' extension, much like app_voicemail's behavior.\n";
 
 /* For simplicity, I'm keeping the format compatible with the voicemail config,
    but i'm open to suggestions for isolating it */
 
-#define DIRECTORY_CONFIG "voicemail.conf"
+#define VOICEMAIL_CONFIG "voicemail.conf"
 
 /* How many digits to read in */
 #define NUMDIGITS 3
@@ -176,10 +182,10 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context, char *dia
 				case '1':
 					/* Name selected */
 					loop = 0;
-					if (ast_exists_extension(chan,dialcontext,ext,1,chan->callerid)) {
-						strncpy(chan->exten, ext, sizeof(chan->exten)-1);
+					if (ast_exists_extension(chan,dialcontext,ext,1,chan->cid.cid_num)) {
+						ast_copy_string(chan->exten, ext, sizeof(chan->exten));
 						chan->priority = 0;
-						strncpy(chan->context, dialcontext, sizeof(chan->context)-1);
+						ast_copy_string(chan->context, dialcontext, sizeof(chan->context));
 					} else {
 						ast_log(LOG_WARNING,
 							"Can't find extension '%s' in context '%s'.  "
@@ -210,6 +216,65 @@ static int play_mailbox_owner(struct ast_channel *chan, char *context, char *dia
 	return(res);
 }
 
+static struct ast_config *realtime_directory(char *context)
+{
+	struct ast_config *cfg;
+	struct ast_config *rtdata;
+	struct ast_category *cat;
+	struct ast_variable *var;
+	char *mailbox;
+	char *fullname;
+	char *hidefromdir;
+	char tmp[100];
+
+	/* Load flat file config. */
+	cfg = ast_config_load(VOICEMAIL_CONFIG);
+
+	if (!cfg) {
+		/* Loading config failed. */
+		ast_log(LOG_WARNING, "Loading config failed.\n");
+		return NULL;
+	}
+
+	/* Get realtime entries, categorized by their mailbox number
+	   and present in the requested context */
+	rtdata = ast_load_realtime_multientry("voicemail", "mailbox LIKE", "%", "context", context, NULL);
+
+	/* if there are no results, just return the entries from the config file */
+	if (!rtdata)
+		return cfg;
+
+	/* Does the context exist within the config file? If not, make one */
+	cat = ast_category_get(cfg, context);
+	if (!cat) {
+		cat = ast_category_new(context);
+		if (!cat) {
+			ast_log(LOG_WARNING, "Out of memory\n");
+			ast_config_destroy(cfg);
+			return NULL;
+		}
+		ast_category_append(cfg, cat);
+	}
+
+	mailbox = ast_category_browse(rtdata, NULL);
+	while (mailbox) {
+		fullname = ast_variable_retrieve(rtdata, mailbox, "fullname");
+		hidefromdir = ast_variable_retrieve(rtdata, mailbox, "hidefromdir");
+		snprintf(tmp, sizeof(tmp), "no-password,%s,hidefromdir=%s",
+			 fullname ? fullname : "",
+			 hidefromdir ? hidefromdir : "no");
+		var = ast_variable_new(mailbox, tmp);
+		if (var)
+			ast_variable_append(cat, var);
+		else
+			ast_log(LOG_WARNING, "Out of memory adding mailbox '%s'\n", mailbox);
+		mailbox = ast_category_browse(rtdata, mailbox);
+	}
+	ast_config_destroy(rtdata);
+
+	return cfg;
+}
+
 static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *context, char *dialcontext, char digit, int last)
 {
 	/* Read in the first three digits..  "digit" is the first digit, already read */
@@ -227,6 +292,34 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *
 			"(context in which to interpret extensions)\n");
 		return -1;
 	}
+	if (digit == '0') {
+		if (ast_exists_extension(chan,chan->context,"o",1,chan->cid.cid_num) || 
+			(!ast_strlen_zero(chan->macrocontext) &&
+		     ast_exists_extension(chan, chan->macrocontext, "o", 1, chan->cid.cid_num))) {
+			strcpy(chan->exten, "o");
+			chan->priority = 0;
+			return 0;
+		} else {
+
+			ast_log(LOG_WARNING, "Can't find extension 'o' in current context.  "
+				"Not Exiting the Directory!\n");
+			res = 0;
+		}
+	}	
+	if (digit == '*') {
+		if (ast_exists_extension(chan,chan->context,"a",1,chan->cid.cid_num) || 
+			(!ast_strlen_zero(chan->macrocontext) &&
+		     ast_exists_extension(chan, chan->macrocontext, "a", 1, chan->cid.cid_num))) {
+			strcpy(chan->exten, "a");
+			chan->priority = 0;
+			return 0;
+		} else {
+
+			ast_log(LOG_WARNING, "Can't find extension 'a' in current context.  "
+				"Not Exiting the Directory!\n");
+			res = 0;
+		}
+	}	
 	memset(ext, 0, sizeof(ext));
 	ext[0] = digit;
 	res = 0;
@@ -239,12 +332,12 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *
 			while(v) {
 				/* Find a candidate extension */
 				start = strdup(v->value);
-				if (start) {
+				if (start && !strcasestr(start, "hidefromdir=yes")) {
 					stringp=start;
 					strsep(&stringp, ",");
 					pos = strsep(&stringp, ",");
 					if (pos) {
-						strncpy(name, pos, sizeof(name) - 1);
+						ast_copy_string(name, pos, sizeof(name));
 						/* Grab the last name */
 						if (last && strrchr(pos,' '))
 							pos = strrchr(pos, ' ') + 1;
@@ -278,8 +371,8 @@ static int do_directory(struct ast_channel *chan, struct ast_config *cfg, char *
 					case '1':
 						/* user pressed '1' and extensions exists */
 						lastuserchoice = res;
-						strncpy(chan->context, dialcontext, sizeof(chan->context) - 1);
-						strncpy(chan->exten, v->name, sizeof(chan->exten) - 1);
+						ast_copy_string(chan->context, dialcontext, sizeof(chan->context));
+						ast_copy_string(chan->exten, v->name, sizeof(chan->exten));
 						chan->priority = 0;
 						break;
 					case '*':
@@ -320,12 +413,7 @@ static int directory_exec(struct ast_channel *chan, void *data)
 		ast_log(LOG_WARNING, "directory requires an argument (context[,dialcontext])\n");
 		return -1;
 	}
-	cfg = ast_load(DIRECTORY_CONFIG);
-	if (!cfg) {
-		ast_log(LOG_WARNING, "Unable to open directory configuration %s\n", DIRECTORY_CONFIG);
-		return -1;
-	}
-	LOCAL_USER_ADD(u);
+
 top:
 	context = ast_strdupa(data);
 	dialcontext = strchr(context, '|');
@@ -341,6 +429,13 @@ top:
 		}
 	} else	
 		dialcontext = context;
+
+	cfg = realtime_directory(context);
+	if (!cfg)
+		return -1;
+
+	LOCAL_USER_ADD(u);
+
 	dirintro = ast_variable_retrieve(cfg, context, "directoryintro");
 	if (!dirintro || ast_strlen_zero(dirintro))
 		dirintro = ast_variable_retrieve(cfg, "general", "directoryintro");
@@ -369,7 +464,7 @@ top:
 			}
 		}
 	}
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 	LOCAL_USER_REMOVE(u);
 	return res;
 }

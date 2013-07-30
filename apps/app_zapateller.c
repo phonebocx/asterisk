@@ -3,23 +3,28 @@
  *
  * Playback the special information tone to get rid of telemarketers
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
 #include <string.h>
 #include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.9 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
 
 static char *tdesc = "Block Telemarketers with Special Information Tone";
 
@@ -70,7 +75,7 @@ static int zapateller_exec(struct ast_channel *chan, void *data)
 			res = ast_safe_sleep(chan, 500);
 		}
 	}
-	if (chan->callerid && nocallerid) {
+	if (chan->cid.cid_num && nocallerid) {
 		LOCAL_USER_REMOVE(u);
 		return res;
 	} 

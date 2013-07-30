@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/short_term.c,v 1.16 2003/02/12 13:59:14 matteo Exp $ */
+/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/short_term.c,v 1.17 2005/04/21 06:30:23 kpfleming Exp $ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -30,7 +30,6 @@ static void Decoding_of_the_coded_Log_Area_Ratios P2((LARc,LARpp),
 	word	* LARpp)	/* out: decoded ..			*/
 {
 	register word	temp1 /* , temp2 */;
-	register long	ltmp;	/* for GSM_ADD */
 
 	/*  This procedure requires for efficient implementation
 	 *  two tables.
@@ -99,7 +98,6 @@ static void Coefficients_0_12 P3((LARpp_j_1, LARpp_j, LARp),
 	register word * LARp)
 {
 	register int 	i;
-	register longword ltmp;
 
 	for (i = 1; i <= 8; i++, LARp++, LARpp_j_1++, LARpp_j++) {
 		*LARp = GSM_ADD( SASR( *LARpp_j_1, 2 ), SASR( *LARpp_j, 2 ));
@@ -113,7 +111,6 @@ static void Coefficients_13_26 P3((LARpp_j_1, LARpp_j, LARp),
 	register word * LARp)
 {
 	register int i;
-	register longword ltmp;
 	for (i = 1; i <= 8; i++, LARpp_j_1++, LARpp_j++, LARp++) {
 		*LARp = GSM_ADD( SASR( *LARpp_j_1, 1), SASR( *LARpp_j, 1 ));
 	}
@@ -125,7 +122,6 @@ static void Coefficients_27_39 P3((LARpp_j_1, LARpp_j, LARp),
 	register word * LARp)
 {
 	register int i;
-	register longword ltmp;
 
 	for (i = 1; i <= 8; i++, LARpp_j_1++, LARpp_j++, LARp++) {
 		*LARp = GSM_ADD( SASR( *LARpp_j_1, 2 ), SASR( *LARpp_j, 2 ));
@@ -156,7 +152,6 @@ static void LARp_to_rp P1((LARp),
 {
 	register int 		i;
 	register word		temp;
-	register longword	ltmp;
 
 	for (i = 1; i <= 8; i++, LARp++) {
 

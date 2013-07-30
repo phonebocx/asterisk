@@ -3,28 +3,32 @@
  *
  * Populate and remember extensions from static config file
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
 #include <sys/types.h>
-#include <asterisk/pbx.h>
-#include <asterisk/config.h>
-#include <asterisk/module.h>
-#include <asterisk/logger.h>
-#include <asterisk/cli.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
-/* For where to put dynamic tables */
-#include "../asterisk.h"
-#include "../astconf.h"
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.67 $")
+
+#include "asterisk/pbx.h"
+#include "asterisk/config.h"
+#include "asterisk/options.h"
+#include "asterisk/module.h"
+#include "asterisk/logger.h"
+#include "asterisk/cli.h"
+#include "asterisk/callerid.h"
 
 #ifdef __AST_DEBUG_MALLOC
 static void FREE(void *ptr)
@@ -41,6 +45,8 @@ static char *registrar = "pbx_config";
 
 static int static_config = 0;
 static int write_protect_config = 1;
+static int autofallthrough_config = 0;
+static int clearglobalvars_config = 0;
 
 AST_MUTEX_DEFINE_STATIC(save_dialplan_lock);
 
@@ -50,17 +56,18 @@ static struct ast_context *local_contexts = NULL;
  * Help for commands provided by this module ...
  */
 static char context_dont_include_help[] =
-"Usage: dont include context in include\n"
-"       Remove include from context.\n";
+"Usage: dont include <context> in <context>\n"
+"       Remove an included context from another context.\n";
 
 static char context_remove_extension_help[] =
 "Usage: remove extension exten@context [priority]\n"
-"       Remove whole extension from context. If priority is set, we are only\n"
-"       removing extension with given priority.\n";
+"       Remove an extension from a given context. If a priority\n"
+"       is given, only that specific priority from the given extension\n"
+"       will be removed.\n";
 
 static char context_add_include_help[] =
-"Usage: include context in context\n"
-"       Include context in other context.\n";
+"Usage: include <context> in <context>\n"
+"       Include a context in another context.\n";
 
 static char save_dialplan_help[] =
 "Usage: save dialplan [/path/to/extension/file]\n"
@@ -81,19 +88,20 @@ static char context_add_extension_help[] =
 
 static char context_add_ignorepat_help[] =
 "Usage: add ignorepat <pattern> into <context>\n"
-"       This command add new ignore pattern into context <context>\n"
+"       This command adds a new ignore pattern into context <context>\n"
 "\n"
 "Example: add ignorepat _3XX into local\n";
 
 static char context_remove_ignorepat_help[] =
 "Usage: remove ignorepat <pattern> from <context>\n"
-"       This command remove ignore pattern from context <context>\n"
+"       This command removes an ignore pattern from context <context>\n"
 "\n"
 "Example: remove ignorepat _3XX from local\n";
 
 static char reload_extensions_help[] =
 "Usage: reload extensions.conf without reloading any other modules\n"
-"       This command does not delete global variables\n"
+"       This command does not delete global variables unless\n"
+"       clearglobalvars is set to yes in extensions.conf\n"
 "\n"
 "Example: extensions reload\n";
 
@@ -970,13 +978,13 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 		snprintf(filename, sizeof(filename), "%s/%s",
 			(char *)ast_config_AST_CONFIG_DIR, config);
 
-	cfg = ast_load("extensions.conf");
+	cfg = ast_config_load("extensions.conf");
 
 	/* try to lock contexts list */
 	if (ast_lock_contexts()) {
 		ast_cli(fd, "Failed to lock contexts list\n");
 		ast_mutex_unlock(&save_dialplan_lock);
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 		return RESULT_FAILURE;
 	}
 
@@ -986,7 +994,7 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 			filename);
 		ast_unlock_contexts();
 		ast_mutex_unlock(&save_dialplan_lock);
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 		return RESULT_FAILURE;
 	}
 
@@ -1004,7 +1012,7 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 		fprintf(output, "\n");
 	}
 
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 	
 	/* walk all contexts */
 	c = ast_walk_contexts(NULL);
@@ -1155,7 +1163,7 @@ static int handle_save_dialplan(int fd, int argc, char *argv[])
 		return RESULT_FAILURE;
 	}
 
-	ast_cli(fd, "Dialplane successfully saved into '%s'\n",
+	ast_cli(fd, "Dialplan successfully saved into '%s'\n",
 		filename);
 	return RESULT_SUCCESS;
 }
@@ -1189,7 +1197,7 @@ static int handle_context_add_extension(int fd, int argc, char *argv[])
     	if (!strcmp(prior, "hint")) {
 			iprior = PRIORITY_HINT;
 		} else {
-			if (sscanf(prior, "%i", &iprior) != 1) {
+			if (sscanf(prior, "%d", &iprior) != 1) {
 				ast_cli(fd, "'%s' is not a valid priority\n", prior);
 				prior = NULL;
 			}
@@ -1215,7 +1223,7 @@ static int handle_context_add_extension(int fd, int argc, char *argv[])
 
 	if (!app_data)
 		app_data="";
-	if (ast_add_extension(argv[4], argc == 6 ? 1 : 0, exten, iprior, cidmatch, app,
+	if (ast_add_extension(argv[4], argc == 6 ? 1 : 0, exten, iprior, NULL, cidmatch, app,
 		(void *)strdup(app_data), free, registrar)) {
 		switch (errno) {
 			case ENOMEM:
@@ -1616,16 +1624,25 @@ static int pbx_load_module(void)
 	struct ast_variable *v;
 	char *cxt, *ext, *pri, *appl, *data, *tc, *cidmatch;
 	struct ast_context *con;
-	char *start, *end;
+	char *end;
+	char *label;
 	char realvalue[256];
+	int lastpri = -2;
 
-	cfg = ast_load(config);
+	cfg = ast_config_load(config);
 	if (cfg) {
 		/* Use existing config to populate the PBX table */
 		static_config = ast_true(ast_variable_retrieve(cfg, "general",
-			"static"));
+							       "static"));
 		write_protect_config = ast_true(ast_variable_retrieve(cfg, "general",
-			"writeprotect"));
+								      "writeprotect"));
+		autofallthrough_config = ast_true(ast_variable_retrieve(cfg, "general",
+									"autofallthrough"));
+		clearglobalvars_config = ast_true(ast_variable_retrieve(cfg, "general", 
+									"clearglobalvars"));
+		option_priority_jumping = ast_true(ast_variable_retrieve(cfg, "general",
+									 "priorityjumping"));
+
 		v = ast_variable_browse(cfg, "globals");
 		while(v) {
 			memset(realvalue, 0, sizeof(realvalue));
@@ -1647,57 +1664,97 @@ static int pbx_load_module(void)
 						char *stringp=NULL;
 						int ipri = -2;
 						char realext[256]="";
+						char *plus, *firstp, *firstc;
 						tc = strdup(v->value);
 						if(tc!=NULL){
 							stringp=tc;
 							ext = strsep(&stringp, ",");
 							if (!ext)
 								ext="";
+							pbx_substitute_variables_helper(NULL, ext, realext, sizeof(realext) - 1);
+							cidmatch = strchr(realext, '/');
+							if (cidmatch) {
+								*cidmatch = '\0';
+								cidmatch++;
+								ast_shrink_phone_number(cidmatch);
+							}
 							pri = strsep(&stringp, ",");
 							if (!pri)
 								pri="";
+							label = strchr(pri, '(');
+							if (label) {
+								*label = '\0';
+								label++;
+								end = strchr(label, ')');
+								if (end)
+									*end = '\0';
+								else
+									ast_log(LOG_WARNING, "Label missing trailing ')' at line %d\n", v->lineno);
+							}
+							plus = strchr(pri, '+');
+							if (plus) {
+								*plus = '\0';
+								plus++;
+							}
 							if (!strcmp(pri,"hint"))
 								ipri=PRIORITY_HINT;
-							else {
-								if (sscanf(pri, "%i", &ipri) != 1) {
-									ast_log(LOG_WARNING, "Invalid priority '%s' at line %d\n", pri, v->lineno);
-									ipri = 0;
+							else if (!strcmp(pri, "next") || !strcmp(pri, "n")) {
+								if (lastpri > -2)
+									ipri = lastpri + 1;
+								else
+									ast_log(LOG_WARNING, "Can't use 'next' priority on the first entry!\n");
+							} else if (!strcmp(pri, "same") || !strcmp(pri, "s")) {
+								if (lastpri > -2)
+									ipri = lastpri;
+								else
+									ast_log(LOG_WARNING, "Can't use 'same' priority on the first entry!\n");
+							} else  {
+								if (sscanf(pri, "%d", &ipri) != 1) {
+									if ((ipri = ast_findlabel_extension2(NULL, con, realext, pri, cidmatch)) < 1) {
+										ast_log(LOG_WARNING, "Invalid priority/label '%s' at line %d\n", pri, v->lineno);
+										ipri = 0;
+									}
 								}
 							}
 							appl = stringp;
 							if (!appl)
 								appl="";
-							if (!(start = strchr(appl, '('))) {
-								if (stringp)
-									appl = strsep(&stringp, ",");
-								else
-									appl = "";
-							}
-							if (start && (end = strrchr(appl, ')'))) {
-								*start = *end = '\0';
-								data = start + 1;
-								process_quotes_and_slashes(data, ',', '|');
-							} else if (stringp!=NULL && *stringp=='"') {
-								stringp++;
-								data = strsep(&stringp, "\"");
-								stringp++;
+							/* Find the first occurrence of either '(' or ',' */
+							firstc = strchr(appl, ',');
+							firstp = strchr(appl, '(');
+							if (firstc && ((!firstp) || (firstc < firstp))) {
+								/* comma found, no parenthesis */
+								/* or both found, but comma found first */
+								appl = strsep(&stringp, ",");
+								data = stringp;
+							} else if ((!firstc) && (!firstp)) {
+								/* Neither found */
+								data = "";
 							} else {
-								if (stringp)
-									data = strsep(&stringp, ",");
-								else
-									data = "";
+								/* Final remaining case is parenthesis found first */
+								appl = strsep(&stringp, "(");
+								data = stringp;
+								end = strrchr(data, ')');
+								if ((end = strrchr(data, ')'))) {
+									*end = '\0';
+								} else {
+									ast_log(LOG_WARNING, "No closing parenthesis found? '%s(%s'\n", appl, data);
+								}
+								process_quotes_and_slashes(data, ',', '|');
 							}
-							pbx_substitute_variables_helper(NULL, ext, realext, sizeof(realext)-1);
-							stringp = realext;
-							ext = strsep(&stringp, "/");
-							cidmatch = stringp;
+
 							if (!data)
 								data="";
 							while(*appl && (*appl < 33)) appl++;
 							if (ipri) {
-								if (!strcmp(realext, "_."))
-									ast_log(LOG_WARNING, "The use of '_.' for an extension is strongly discouraged and can have unexpected behavior.  Please use '_X.' instead at line %d\n", v->lineno);
-								if (ast_add_extension2(con, 0, realext, ipri, cidmatch, appl, strdup(data), FREE, registrar)) {
+								if (plus)
+									ipri += atoi(plus);
+								lastpri = ipri;
+								if(!option_dontwarn) {
+									if (!strcmp(realext, "_."))
+										ast_log(LOG_WARNING, "The use of '_.' for an extension is strongly discouraged and can have unexpected behavior.  Please use '_X.' instead at line %d\n", v->lineno);
+								}
+								if (ast_add_extension2(con, 0, realext, ipri, label, cidmatch, appl, strdup(data), FREE, registrar)) {
 									ast_log(LOG_WARNING, "Unable to register extension at line %d\n", v->lineno);
 								}
 							}
@@ -1713,17 +1770,20 @@ static int pbx_load_module(void)
 						pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
 						if (ast_context_add_ignorepat2(con, realvalue, registrar))
 							ast_log(LOG_WARNING, "Unable to include ignorepat '%s' in context '%s'\n", v->value, cxt);
-					} else if (!strcasecmp(v->name, "switch")) {
+					} else if (!strcasecmp(v->name, "switch") || !strcasecmp(v->name, "lswitch") || !strcasecmp(v->name, "eswitch")) {
 						char *stringp=NULL;
 						memset(realvalue, 0, sizeof(realvalue));
-						pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
+						if (!strcasecmp(v->name, "switch"))
+							pbx_substitute_variables_helper(NULL, v->value, realvalue, sizeof(realvalue) - 1);
+						else
+							strncpy(realvalue, v->value, sizeof(realvalue) - 1);
 						tc = realvalue;
 						stringp=tc;
 						appl = strsep(&stringp, "/");
 						data = strsep(&stringp, "");
 						if (!data)
 							data = "";
-						if (ast_context_add_switch2(con, appl, data, registrar))
+						if (ast_context_add_switch2(con, appl, data, !strcasecmp(v->name, "eswitch"), registrar))
 							ast_log(LOG_WARNING, "Unable to include switch '%s' in context '%s'\n", v->value, cxt);
 					}
 					v = v->next;
@@ -1731,12 +1791,14 @@ static int pbx_load_module(void)
 			}
 			cxt = ast_category_browse(cfg, cxt);
 		}
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 	}
 	ast_merge_contexts_and_delete(&local_contexts,registrar);
 
 	for (con = ast_walk_contexts(NULL); con; con = ast_walk_contexts(con))
 		ast_context_verify_includes(con);
+
+	pbx_set_autofallthrough(autofallthrough_config);
 
 	return 0;
 }
@@ -1761,10 +1823,8 @@ int load_module(void)
 int reload(void)
 {
 	ast_context_destroy(NULL, registrar);
-	/* For martin's global variables, don't clear them on reload */
-#if 0
-	pbx_builtin_clear_globals();
-#endif	
+	if (clearglobalvars_config)
+		pbx_builtin_clear_globals();
 	pbx_load_module();
 	return 0;
 }

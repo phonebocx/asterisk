@@ -1,11 +1,11 @@
 #
 # Asterisk -- A telephony toolkit for Linux.
 # 
-# Makefile for PBX frontends (dynamically loaded)
+# Makefile for PBX applications
 #
-# Copyright (C) 1999, Mark Spencer
+# Copyright (C) 1999-2005, Digium
 #
-# Mark Spencer <markster@linux-support.net>
+# Mark Spencer <markster@digium.com>
 #
 # This program is free software, distributed under the terms of
 # the GNU General Public License
@@ -17,7 +17,7 @@ USE_POSTGRES_VM_INTERFACE=0
 #APPS=app_dial.so app_playback.so app_directory.so app_intercom.so app_mp3.so 
 APPS=app_dial.so app_playback.so app_voicemail.so app_directory.so app_mp3.so\
      app_system.so app_echo.so app_record.so app_image.so app_url.so app_disa.so \
-     app_qcall.so app_adsiprog.so app_getcpeid.so app_milliwatt.so \
+     app_adsiprog.so app_getcpeid.so app_milliwatt.so \
      app_zapateller.so app_setcallerid.so app_festival.so \
      app_queue.so app_senddtmf.so app_parkandannounce.so app_striplsd.so \
      app_setcidname.so app_lookupcidname.so app_substring.so app_macro.so \
@@ -29,29 +29,53 @@ APPS=app_dial.so app_playback.so app_voicemail.so app_directory.so app_mp3.so\
      app_nbscat.so app_sendtext.so app_exec.so app_sms.so \
      app_groupcount.so app_txtcidname.so app_controlplayback.so \
      app_talkdetect.so app_alarmreceiver.so app_userevent.so app_verbose.so \
-     app_test.so app_forkcdr.so
+     app_test.so app_forkcdr.so app_math.so app_realtime.so \
+     app_dumpchan.so app_waitforsilence.so app_while.so app_setrdnis.so \
+     app_md5.so app_readfile.so app_chanspy.so app_settransfercapability.so \
+     app_dictate.so app_externalivr.so
 
 ifneq (${OSARCH},Darwin)
-APPS+=app_intercom.so
+ifneq (${OSARCH},SunOS)
+#APPS+=app_intercom.so
 endif
+endif
+
+#
+# Obsolete things...
+#
 
 #APPS+=app_sql_postgres.so
 #APPS+=app_sql_odbc.so
 #APPS+=app_rpt.so
+#
+# Experimental things
+#
+#APPS+=app_ivrdemo.so
+#APPS+=app_skel.so
 
-APPS+=$(shell if [ -f /usr/include/linux/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
-APPS+=$(shell if [ -f /usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
-APPS+=$(shell if [ -f /usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
+APPS+=$(shell if [ -f $(CROSS_COMPILE_TARGET)/usr/include/linux/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
+APPS+=$(shell if [ -f $(CROSS_COMPILE_TARGET)/usr/local/include/zaptel.h ]; then echo "app_zapras.so app_meetme.so app_flash.so app_zapbarge.so app_zapscan.so" ; fi)
+APPS+=$(shell if [ -f $(CROSS_COMPILE_TARGET)/usr/include/osp/osp.h ]; then echo "app_osplookup.so" ; fi)
 
+CURLLIBS=$(shell $(CROSS_COMPILE_BIN)curl-config --libs)
+ifneq ($(shell if [[ 0x`$(CROSS_COMPILE_BIN)curl-config --vernum` -ge 0x70907 ]]; then echo "OK" ; fi),)
+	ifneq (${CURLLIBS},)
+		APPS+=app_curl.so
+		ifeq (${OSARCH},OpenBSD)
+			CFLAGS+=-I$(CROSS_COMPILE_TARGET)/usr/local/include
+		endif
+	endif 
+endif
 CFLAGS+=-fPIC
-
-ifeq ($(USE_POSTGRES_VM_INTERFACE),1)
-CFLAGS+=-DUSEPOSTGRESVM
-endif
-
-ifeq ($(USE_MYSQL_VM_INTERFACE),1)
-CFLAGS+=-DUSEMYSQLVM
-endif
+#
+# If you have MySQL 4.1 or later you can use ODBC
+# storage
+#
+# Uncomment to use odbc storage
+#CFLAGS+=-DUSE_ODBC_STORAGE
+# Uncomment for extended odbc voicemail storage
+#CFLAGS+=-DEXTENDED_ODBC_STORAGE
+# See doc/README.odbcstorage for more information
 
 all: $(APPS)
 
@@ -67,6 +91,10 @@ app_rpt.so : app_rpt.o
 install: all
 	for x in $(APPS); do $(INSTALL) -m 755 $$x $(DESTDIR)$(MODULES_DIR) ; done
 	rm -f $(DESTDIR)$(MODULES_DIR)/app_datetime.so
+	rm -f $(DESTDIR)$(MODULES_DIR)/app_qcall.so
+
+app_curl.so: app_curl.o
+	$(CC) $(SOLINK) -o $@ $< $(CURLLIBS)
 
 app_voicemail.so : app_voicemail.o
 ifeq ($(USE_MYSQL_VM_INTERFACE),1)
@@ -91,6 +119,12 @@ app_sql_odbc.so: app_sql_odbc.o
 look:	look.c
 	$(CC) -pipe -O6 -g look.c -o look -lncurses
 
+ifeq (SunOS,$(shell uname))
+app_chanspy.so: app_chanspy.o
+	$(CC) $(SOLINK) -o $@ $< -lrt
+endif
+
+
 ifneq ($(wildcard .depend),)
 include .depend
 endif
@@ -98,7 +132,7 @@ endif
 depend: .depend
 
 .depend:
-	../mkdep $(CFLAGS) `ls *.c`
+	../build_tools/mkdep $(CFLAGS) `ls *.c`
 
 env:
 	env

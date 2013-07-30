@@ -3,7 +3,7 @@
  *
  * Central Station Alarm receiver for Ademco Contact ID  
  * 
- * Copyright (C) 2004 Steve Rodgers
+ * Copyright (C)  2004 - 2005 Steve Rodgers
  *
  * Steve Rodgers <hwstar@rodgers.sdcoxmail.com>
  *
@@ -18,21 +18,6 @@
  *
  */ 
  
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/translate.h>
-#include <asterisk/ulaw.h>
-#include <asterisk/options.h>
-#include <asterisk/app.h>
-#include <asterisk/dsp.h>
-#include <asterisk/config.h>
-#include <asterisk/localtime.h>
-#include <asterisk/callerid.h>
-#include <asterisk/astdb.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -40,6 +25,26 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <sys/time.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/translate.h"
+#include "asterisk/ulaw.h"
+#include "asterisk/options.h"
+#include "asterisk/app.h"
+#include "asterisk/dsp.h"
+#include "asterisk/config.h"
+#include "asterisk/localtime.h"
+#include "asterisk/callerid.h"
+#include "asterisk/astdb.h"
 
 #define ALMRCV_CONFIG "alarmreceiver.conf"
 #define ADEMCO_CONTACT_ID "ADEMCO_CONTACT_ID"
@@ -214,20 +219,6 @@ static int send_tone_burst(struct ast_channel *chan, float freq, int duration, i
 }
 
 /*
-* Return the difference in milliseconds between two timeval structs
-*/
-
-static int ms_diff(struct timeval *tv1, struct timeval *tv2){
-
-	int	ms;
-	
-	ms = (tv1->tv_sec - tv2->tv_sec) * 1000;
-	ms += (tv1->tv_usec - tv2->tv_usec) / 1000;
-	
-	return(ms);
-}
-
-/*
 * Receive a string of DTMF digits where the length of the digit string is known in advance. Do not give preferential
 * treatment to any digit value, and allow separate time out values to be specified for the first digit and all subsequent
 * digits.
@@ -244,14 +235,12 @@ static int receive_dtmf_digits(struct ast_channel *chan, char *digit_string, int
 	int i = 0;
 	int r;
 	struct ast_frame *f;
-	struct timeval now, lastdigittime;
+	struct timeval lastdigittime;
 	
-	gettimeofday(&lastdigittime,NULL);
+	lastdigittime = ast_tvnow();
 	for(;;){
-		gettimeofday(&now,NULL);
-		
 		  /* if outa time, leave */
-		if (ms_diff(&now,&lastdigittime) > 
+		if (ast_tvdiff_ms(ast_tvnow(), lastdigittime) >
 		    ((i > 0) ? sdto : fdto)){
 			if(option_verbose >= 4)
 				ast_verbose(VERBOSE_PREFIX_4 "AlarmReceiver: DTMF Digit Timeout on %s\n", chan->name);
@@ -296,7 +285,7 @@ static int receive_dtmf_digits(struct ast_channel *chan, char *digit_string, int
 		if(i >= length)
 			break;
 		
-		gettimeofday(&lastdigittime,NULL);
+		lastdigittime = ast_tvnow();
 	}
 	
 	digit_string[i] = '\0'; /* Nul terminate the end of the digit string */
@@ -318,8 +307,8 @@ static int write_metadata( FILE *logfile, char *signalling_type, struct ast_chan
 	char timestamp[80];
 	
 	/* Extract the caller ID location */
-	
-	strncpy(workstring, chan->callerid, sizeof(workstring) - 1);
+	if (chan->cid.cid_num)
+		ast_copy_string(workstring, chan->cid.cid_num, sizeof(workstring));
 	workstring[sizeof(workstring) - 1] = '\0';
 	
 	ast_callerid_parse(workstring, &cn, &cl);
@@ -398,7 +387,7 @@ static int log_events(struct ast_channel *chan,  char *signalling_type, event_no
 		
 		/* Make a template */
 		
-		strncpy(workstring, event_spool_dir, sizeof(workstring) - 1);
+		ast_copy_string(workstring, event_spool_dir, sizeof(workstring));
 		strncat(workstring, event_file, sizeof(workstring) - strlen(workstring) - 1);
 		
 		/* Make the temporary file */
@@ -590,7 +579,7 @@ static int receive_ademco_contact_id( struct ast_channel *chan, void *data, int 
 		memset(enew, 0, sizeof(event_node_t));
 		
 		enew->next = NULL;
-		strncpy(enew->data, event, sizeof(enew->data) - 1);
+		ast_copy_string(enew->data, event, sizeof(enew->data));
 
 		/*
 		* Insert event onto end of list
@@ -663,7 +652,7 @@ static int alarmreceiver_exec(struct ast_channel *chan, void *data)
 
 	/* Set default values for this invokation of the application */
 	
-	strncpy(signalling_type, ADEMCO_CONTACT_ID, sizeof(signalling_type) - 1);
+	ast_copy_string(signalling_type, ADEMCO_CONTACT_ID, sizeof(signalling_type));
 
 
 	/* Answer the channel if it is not already */
@@ -747,7 +736,7 @@ static int load_config(void)
 
 	/* Read in the config file */
 
-	cfg = ast_load(ALMRCV_CONFIG);
+	cfg = ast_config_load(ALMRCV_CONFIG);
                                                                                                                                   
 	if(!cfg){
 	
@@ -760,7 +749,7 @@ static int load_config(void)
 		p = ast_variable_retrieve(cfg, "general", "eventcmd");
 		
 		if(p){
-			strncpy(event_app, p, sizeof(event_app) - 1);
+			ast_copy_string(event_app, p, sizeof(event_app));
 			event_app[sizeof(event_app) - 1] = '\0';
 		}
 		
@@ -800,24 +789,24 @@ static int load_config(void)
 		p = ast_variable_retrieve(cfg, "general", "eventspooldir");
 			
 		if(p){
-			strncpy(event_spool_dir, p, sizeof(event_spool_dir) - 1);
+			ast_copy_string(event_spool_dir, p, sizeof(event_spool_dir));
 			event_spool_dir[sizeof(event_spool_dir) - 1] = '\0';
 		}
 		
 		p = ast_variable_retrieve(cfg, "general", "timestampformat");
 			
 		if(p){
-			strncpy(time_stamp_format, p, sizeof(time_stamp_format) - 1);
+			ast_copy_string(time_stamp_format, p, sizeof(time_stamp_format));
 			time_stamp_format[sizeof(time_stamp_format) - 1] = '\0';
 		}
 
 		p = ast_variable_retrieve(cfg, "general", "db-family");
                                                                                                                                             
 		if(p){
-			strncpy(db_family, p, sizeof(db_family) - 1);
+			ast_copy_string(db_family, p, sizeof(db_family));
 			db_family[sizeof(db_family) - 1] = '\0';
 		}
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 	}
 	return 0;
 

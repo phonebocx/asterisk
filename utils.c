@@ -3,27 +3,43 @@
  *
  * Utility functions
  *
- * Copyright (C) 2004, Digium
+ * Copyright (C)  2004 - 2005, Digium, Inc.
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
-#ifdef Linux	/* For strcasestr */
-#define __USE_GNU
-#endif
 #include <ctype.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <asterisk/lock.h>
-#include <asterisk/utils.h>
-#include <asterisk/logger.h>
+#include <stdarg.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.65 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/io.h"
+#include "asterisk/logger.h"
+#include "asterisk/md5.h"
+#include "asterisk/options.h"
+
+#define AST_API_MODULE		/* ensure that inlinable API functions will be built in this module if required */
+#include "asterisk/strings.h"
+
+#define AST_API_MODULE		/* ensure that inlinable API functions will be built in this module if required */
+#include "asterisk/time.h"
+
+#define AST_API_MODULE		/* ensure that inlinable API functions will be built in this module if required */
+#include "asterisk/utils.h"
 
 static char base64[64];
 static char b2a[256];
@@ -36,7 +52,10 @@ static char b2a[256];
 
 AST_MUTEX_DEFINE_STATIC(__mutex);
 
-/* Recursive replacement for gethostbyname for BSD-based systems */
+/* Recursive replacement for gethostbyname for BSD-based systems.  This
+routine is derived from code originally written and placed in the public 
+domain by Enzo Michelangeli <em@em.no-ip.com> */
+
 static int gethostbyname_r (const char *name, struct hostent *ret, char *buf,
 				size_t buflen, struct hostent **result, 
 				int *h_errnop) 
@@ -134,8 +153,8 @@ static int gethostbyname_r (const char *name, struct hostent *ret, char *buf,
 
 #endif
 
-/* Recursive thread safe version of gethostbyname that replaces the 
-   standard gethostbyname (which is not recursive)
+/* Re-entrant (thread safe) version of gethostbyname that replaces the 
+   standard gethostbyname (which is not thread safe)
 */
 struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp)
 {
@@ -148,6 +167,7 @@ struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp)
 	   integers, we break with tradition and refuse to look up a
 	   pure integer */
 	s = host;
+	res = 0;
 	while(s && *s) {
 		if (!isdigit(*s))
 			break;
@@ -155,10 +175,17 @@ struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp)
 	}
 	if (!s || !*s)
 		return NULL;
+#ifdef SOLARIS
+	result = gethostbyname_r(host, &hp->hp, hp->buf, sizeof(hp->buf), &herrno);
+
+	if (!result || !hp->hp.h_addr_list || !hp->hp.h_addr_list[0])
+		return NULL;
+#else
 	res = gethostbyname_r(host, &hp->hp, hp->buf, sizeof(hp->buf), &result, &herrno);
 
 	if (res || !result || !hp->hp.h_addr_list || !hp->hp.h_addr_list[0])
 		return NULL;
+#endif
 	return &hp->hp;
 }
 
@@ -222,6 +249,22 @@ int test_for_thread_safety(void)
 		test_errors++;
 	pthread_join(test_thread, NULL);
 	return(test_errors);          /* return 0 on success. */
+}
+
+/*--- ast_md5_hash: Produce 16 char MD5 hash of value. ---*/
+void ast_md5_hash(char *output, char *input)
+{
+	struct MD5Context md5;
+	unsigned char digest[16];
+	char *ptr;
+	int x;
+
+	MD5Init(&md5);
+	MD5Update(&md5, (unsigned char *)input, strlen(input));
+	MD5Final(digest, &md5);
+	ptr = output;
+	for (x=0; x<16; x++)
+		ptr += sprintf(ptr, "%2.2x", digest[x]);
 }
 
 int ast_base64decode(unsigned char *dst, char *src, int max)
@@ -351,39 +394,171 @@ int ast_utils_init(void)
 	return 0;
 }
 
-
-#ifndef LINUX
+#ifndef __linux__
 #undef pthread_create /* For ast_pthread_create function only */
-int ast_pthread_create(pthread_t *thread, pthread_attr_t *attr, void *(*start_routine)(void *), void *data)
+#endif /* ! LINUX */
+int ast_pthread_create_stack(pthread_t *thread, pthread_attr_t *attr, void *(*start_routine)(void *), void *data, size_t stacksize)
 {
 	pthread_attr_t lattr;
 	if (!attr) {
 		pthread_attr_init(&lattr);
 		attr = &lattr;
 	}
-	errno = pthread_attr_setstacksize(attr, PTHREAD_ATTR_STACKSIZE);
+	if (!stacksize)
+		stacksize = AST_STACKSIZE;
+	errno = pthread_attr_setstacksize(attr, stacksize);
 	if (errno)
 		ast_log(LOG_WARNING, "pthread_attr_setstacksize returned non-zero: %s\n", strerror(errno));
 	return pthread_create(thread, attr, start_routine, data); /* We're in ast_pthread_create, so it's okay */
 }
-#endif /* ! LINUX */
 
-static char *upper(const char *orig, char *buf, int bufsize)
+int ast_wait_for_input(int fd, int ms)
 {
-	int i;
-	memset(buf, 0, bufsize);
-	for (i=0; i<bufsize - 1; i++) {
-		buf[i] = toupper(orig[i]);
-		if (orig[i] == '\0') {
-			break;
+	struct pollfd pfd[1];
+	memset(pfd, 0, sizeof(pfd));
+	pfd[0].fd = fd;
+	pfd[0].events = POLLIN|POLLPRI;
+	return poll(pfd, 1, ms);
+}
+
+char *ast_strip_quoted(char *s, const char *beg_quotes, const char *end_quotes)
+{
+	char *e;
+	char *q;
+
+	s = ast_strip(s);
+	if ((q = strchr(beg_quotes, *s))) {
+		e = s + strlen(s) - 1;
+		if (*e == *(end_quotes + (q - beg_quotes))) {
+			s++;
+			*e = '\0';
 		}
 	}
+
+	return s;
+}
+
+int ast_build_string(char **buffer, size_t *space, const char *fmt, ...)
+{
+	va_list ap;
+	int result;
+
+	if (!buffer || !*buffer || !space || !*space)
+		return -1;
+
+	va_start(ap, fmt);
+	result = vsnprintf(*buffer, *space, fmt, ap);
+	va_end(ap);
+
+	if (result < 0)
+		return -1;
+	else if (result > *space)
+		result = *space;
+
+	*buffer += result;
+	*space -= result;
+	return 0;
+}
+
+int ast_true(const char *s)
+{
+	if (!s || ast_strlen_zero(s))
+		return 0;
+
+	/* Determine if this is a true value */
+	if (!strcasecmp(s, "yes") ||
+	    !strcasecmp(s, "true") ||
+	    !strcasecmp(s, "y") ||
+	    !strcasecmp(s, "t") ||
+	    !strcasecmp(s, "1") ||
+	    !strcasecmp(s, "on"))
+		return -1;
+
+	return 0;
+}
+
+int ast_false(const char *s)
+{
+	if (!s || ast_strlen_zero(s))
+		return 0;
+
+	/* Determine if this is a false value */
+	if (!strcasecmp(s, "no") ||
+	    !strcasecmp(s, "false") ||
+	    !strcasecmp(s, "n") ||
+	    !strcasecmp(s, "f") ||
+	    !strcasecmp(s, "0") ||
+	    !strcasecmp(s, "off"))
+		return -1;
+
+	return 0;
+}
+
+#define ONE_MILLION	1000000
+/*
+ * put timeval in a valid range. usec is 0..999999
+ * negative values are not allowed and truncated.
+ */
+static struct timeval tvfix(struct timeval a)
+{
+	if (a.tv_usec >= ONE_MILLION) {
+		ast_log(LOG_WARNING, "warning too large timestamp %ld.%ld\n",
+			a.tv_sec, a.tv_usec);
+		a.tv_sec += a.tv_usec % ONE_MILLION;
+		a.tv_usec %= ONE_MILLION;
+	} else if (a.tv_usec < 0) {
+		ast_log(LOG_WARNING, "warning negative timestamp %ld.%ld\n",
+				a.tv_sec, a.tv_usec);
+		a.tv_usec = 0;
+	}
+	return a;
+}
+
+struct timeval ast_tvadd(struct timeval a, struct timeval b)
+{
+	/* consistency checks to guarantee usec in 0..999999 */
+	a = tvfix(a);
+	b = tvfix(b);
+	a.tv_sec += b.tv_sec;
+	a.tv_usec += b.tv_usec;
+	if (a.tv_usec >= ONE_MILLION) {
+		a.tv_sec++;
+		a.tv_usec -= ONE_MILLION;
+	}
+	return a;
+}
+
+struct timeval ast_tvsub(struct timeval a, struct timeval b)
+{
+	/* consistency checks to guarantee usec in 0..999999 */
+	a = tvfix(a);
+	b = tvfix(b);
+	a.tv_sec -= b.tv_sec;
+	a.tv_usec -= b.tv_usec;
+	if (a.tv_usec < 0) {
+		a.tv_sec-- ;
+		a.tv_usec += ONE_MILLION;
+	}
+	return a;
+}
+#undef ONE_MILLION
+
+#ifndef HAVE_STRCASESTR
+static char *upper(const char *orig, char *buf, int bufsize)
+{
+	int i = 0;
+
+	while (i < (bufsize - 1) && orig[i]) {
+		buf[i] = toupper(orig[i]);
+		i++;
+	}
+
+	buf[i] = '\0';
+
 	return buf;
 }
 
-/* Case-insensitive substring matching */
-#ifndef LINUX
-char *ast_strcasestr(const char *haystack, const char *needle)
+char *strcasestr(const char *haystack, const char *needle)
 {
 	char *u1, *u2;
 	int u1len = strlen(haystack) + 1, u2len = strlen(needle) + 1;
@@ -399,7 +574,7 @@ char *ast_strcasestr(const char *haystack, const char *needle)
 		offset = strstr(upper(haystack, u1, u1len), upper(needle, u2, u2len));
 		if (offset) {
 			/* Return the offset into the original string */
-			return ((char *)((unsigned int)haystack + (unsigned int)(offset - u1)));
+			return ((char *)((unsigned long)haystack + (unsigned long)(offset - u1)));
 		} else {
 			return NULL;
 		}
@@ -410,3 +585,146 @@ char *ast_strcasestr(const char *haystack, const char *needle)
 }
 #endif
 
+#ifndef HAVE_STRNLEN
+size_t strnlen(const char *s, size_t n)
+{
+	size_t len;
+
+	for (len=0; len < n; len++)
+		if (s[len] == '\0')
+			break;
+
+	return len;
+}
+#endif
+
+#ifndef HAVE_STRNDUP
+char *strndup(const char *s, size_t n)
+{
+	size_t len = strnlen(s, n);
+	char *new = malloc(len + 1);
+
+	if (!new)
+		return NULL;
+
+	new[len] = '\0';
+	return memcpy(new, s, len);
+}
+#endif
+
+#ifndef HAVE_VASPRINTF
+int vasprintf(char **strp, const char *fmt, va_list ap)
+{
+	int size;
+	va_list ap2;
+	char s;
+
+	*strp = NULL;
+	va_copy(ap2, ap);
+	size = vsnprintf(&s, 1, fmt, ap2);
+	va_end(ap2);
+	*strp = malloc(size + 1);
+	if (!*strp)
+		return -1;
+	vsnprintf(*strp, size + 1, fmt, ap);
+
+	return size;
+}
+#endif
+
+#ifndef HAVE_STRTOQ
+#define LONG_MIN        (-9223372036854775807L-1L)
+                                        /* min value of a "long int" */
+#define LONG_MAX        9223372036854775807L
+                                        /* max value of a "long int" */
+
+/*
+ * Convert a string to a quad integer.
+ *
+ * Ignores `locale' stuff.  Assumes that the upper and lower case
+ * alphabets and digits are each contiguous.
+ */
+uint64_t strtoq(const char *nptr, char **endptr, int base)
+{
+        const char *s;
+        uint64_t acc;
+        unsigned char c;
+        uint64_t qbase, cutoff;
+        int neg, any, cutlim;
+
+        /*
+         * Skip white space and pick up leading +/- sign if any.
+         * If base is 0, allow 0x for hex and 0 for octal, else
+         * assume decimal; if base is already 16, allow 0x.
+         */
+        s = nptr;
+        do {
+                c = *s++;
+        } while (isspace(c));
+        if (c == '-') {
+                neg = 1;
+                c = *s++;
+        } else {
+                neg = 0;
+                if (c == '+')
+                        c = *s++;
+        }
+        if ((base == 0 || base == 16) &&
+            c == '\0' && (*s == 'x' || *s == 'X')) {
+                c = s[1];
+                s += 2;
+                base = 16;
+        }
+        if (base == 0)
+                base = c == '\0' ? 8 : 10;
+
+        /*
+         * Compute the cutoff value between legal numbers and illegal
+         * numbers.  That is the largest legal value, divided by the
+         * base.  An input number that is greater than this value, if
+         * followed by a legal input character, is too big.  One that
+         * is equal to this value may be valid or not; the limit
+         * between valid and invalid numbers is then based on the last
+         * digit.  For instance, if the range for quads is
+         * [-9223372036854775808..9223372036854775807] and the input base
+         * is 10, cutoff will be set to 922337203685477580 and cutlim to
+         * either 7 (neg==0) or 8 (neg==1), meaning that if we have
+         * accumulated a value > 922337203685477580, or equal but the
+         * next digit is > 7 (or 8), the number is too big, and we will
+         * return a range error.
+         *
+         * Set any if any `digits' consumed; make it negative to indicate
+         * overflow.
+         */
+        qbase = (unsigned)base;
+        cutoff = neg ? (uint64_t)-(LONG_MIN + LONG_MAX) + LONG_MAX : LONG_MAX;
+        cutlim = cutoff % qbase;
+        cutoff /= qbase;
+        for (acc = 0, any = 0;; c = *s++) {
+                if (!isascii(c))
+                        break;
+                if (isdigit(c))
+                        c -= '\0';
+                else if (isalpha(c))
+                        c -= isupper(c) ? 'A' - 10 : 'a' - 10;
+                else
+                        break;
+                if (c >= base)
+                        break;
+                if (any < 0 || acc > cutoff || (acc == cutoff && c > cutlim))
+                        any = -1;
+                else {
+                        any = 1;
+                        acc *= qbase;
+                        acc += c;
+                }
+        }
+        if (any < 0) {
+                acc = neg ? LONG_MIN : LONG_MAX;
+        } else if (neg)
+                acc = -acc;
+        if (endptr != 0)
+                *((const char **)endptr) = any ? s - 1 : nptr;
+        return (acc);
+}
+#endif

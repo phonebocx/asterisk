@@ -23,12 +23,28 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA. 
  *
- * Version Info: $Id: chan_h323.h,v 1.27.2.2 2004/11/04 23:14:26 russell Exp $
+ * Version Info: $Id: chan_h323.h,v 1.46 2005/06/01 16:00:13 jeremy Exp $
  */
 
 #include <arpa/inet.h>
 
-static struct sockaddr_in bindaddr;
+/** call_option struct holds various bits
+ *         of information for each call */
+typedef struct call_options {
+	char			cid_num[80];
+	char			cid_name[80];
+	int				noFastStart;
+	int				noH245Tunneling;
+	int				noSilenceSuppression;
+	int				progress_setup;
+	int				progress_alert;
+	int				progress_audio;
+	int				dtmfcodec;
+	int				dtmfmode;
+	int				capability;
+	int				bridge;
+	int				nat;
+} call_options_t;
 
 /* structure to hold the valid asterisk users */
 struct oh323_user {
@@ -36,19 +52,12 @@ struct oh323_user {
 	char context[80];
 	char secret[80];
 	char callerid[80];
-	char accountcode[20];
+	char accountcode[AST_MAX_ACCOUNT_CODE];
 	int amaflags;
-	int noFastStart;
-	int noH245Tunneling;
-	int noSilenceSuppression;
-	int inUse;
-	int incominglimit;
-	int bridge;
-	int nat;
-	int dtmfmode;
 	int host;
-	struct ast_ha *ha;
 	struct sockaddr_in addr;
+	struct ast_ha *ha;
+	call_options_t options;
 	struct oh323_user *next;
 };
 
@@ -56,17 +65,11 @@ struct oh323_user {
    All peers are registered to a GK if there is one */
 struct oh323_peer {
 	char name[80];
-	char context[80];
-	int  noFastStart;
-	int  noH245Tunneling;
-	int  noSilenceSuppression;
-	int  inUse;
-	int  outgoinglimit;
-	int  bridge;
-	int  nat;
-	int  dtmfmode;
+	char mailbox[80];
 	int delme;
 	struct sockaddr_in addr;
+	struct ast_ha *ha;
+	call_options_t options;
 	struct oh323_peer *next;
 };
 
@@ -81,18 +84,6 @@ struct oh323_alias {
 	struct oh323_alias *next;	
 };
 
-/** call_option struct is filled from the 
-	PBX application and passed through make_call 
-	function*/
-typedef struct call_options {
-	char		*callerid;
-	char		*callername;
-	int	  	noFastStart;
-	int		noH245Tunneling;
-	int		noSilenceSuppression;
-	unsigned int	port;
-} call_options_t;
-
 /** call_details struct call detail records 
 	to asterisk for processing and used for matching up 
 	asterisk channels to acutal h.323 connections */
@@ -104,56 +95,77 @@ typedef struct call_details {
 	char *call_source_name;
 	char *call_source_e164;
 	char *call_dest_e164;
+	int presentation;
+	int screening;
 	char *sourceIp;
 } call_details_t;
 
 typedef struct rtp_info {
-	const char *addr;
+	char addr[32];
 	unsigned int port;
 } rtp_info_t;
 
 /* This is a callback prototype function, called pass
    DTMF down the RTP. */
 typedef int (*send_digit_cb)(unsigned, char, const char *);
-extern send_digit_cb	on_send_digit; 
+extern send_digit_cb on_send_digit; 
 
 /* This is a callback prototype function, called to collect
    the external RTP port from Asterisk. */
-typedef rtp_info_t *(*on_connection_cb)(unsigned, const char *);
-extern on_connection_cb	on_create_connection; 
+typedef rtp_info_t *(*on_rtp_cb)(unsigned, const char *);
+extern on_rtp_cb on_external_rtp_create; 
+
+/* This is a callback prototype function, called to send
+   the remote IP and RTP port from H.323 to Asterisk */ 
+typedef void (*start_rtp_cb)(unsigned int, const char *, int, const char *, int);
+extern start_rtp_cb on_start_rtp_channel; 
+
+/* This is a callback that happens when call progress is
+ * made, and handles inband progress */
+typedef int (*progress_cb)(unsigned, const char *, int);
+extern progress_cb on_progress;
 
 /* This is a callback prototype function, called upon
    an incoming call happens. */
-typedef int (*setup_incoming_cb)(call_details_t);
-extern setup_incoming_cb		on_incoming_call;
+typedef call_options_t *(*setup_incoming_cb)(call_details_t *);
+extern setup_incoming_cb on_incoming_call;
 
 /* This is a callback prototype function, called upon
    an outbound call. */
-typedef int (*setup_outbound_cb)(call_details_t);
-extern setup_outbound_cb	on_outgoing_call; 
+typedef int (*setup_outbound_cb)(call_details_t *);
+extern setup_outbound_cb on_outgoing_call; 
 
-/* This is a callback prototype function, called when the openh323 
-   OnStartLogicalChannel is invoked. */
-typedef void (*start_logchan_cb)(unsigned int, const char *, int, const char *);
-extern start_logchan_cb	on_start_logical_channel; 
-
-/* This is a callback prototype function, called when openh323
+/* This is a callback prototype function, called when
    OnAlerting is invoked */
 typedef void (*chan_ringing_cb)(unsigned, const char *);
-extern chan_ringing_cb		on_chan_ringing;
+extern chan_ringing_cb on_chan_ringing;
 
-/* This is a callback protoype function, called when the openh323
+/* This is a callback protoype function, called when
    OnConnectionEstablished is inovked */
 typedef void (*con_established_cb)(unsigned, const char *);
-extern con_established_cb		on_connection_established;
+extern con_established_cb on_connection_established;
 
-/* This is a callback prototype function, called when the openH323
+/* This is a callback prototype function, called when
    OnConnectionCleared callback is invoked */
-typedef void (*clear_con_cb)(call_details_t);
-extern clear_con_cb		on_connection_cleared;
+typedef void (*clear_con_cb)(unsigned, const char *);
+extern clear_con_cb on_connection_cleared;
 
+/* This is a callback prototype function, called when
+    an H.323 call is answered */
 typedef int (*answer_call_cb)(unsigned, const char *);
-extern answer_call_cb		on_answer_call;
+extern answer_call_cb on_answer_call;
+
+/* This is a callback prototype function, called when
+   we know which RTP payload type RFC2833 will be
+   transmitted */
+typedef void (*rfc2833_cb)(unsigned, const char *, int);
+extern rfc2833_cb on_set_rfc2833_payload;
+
+typedef void (*hangup_cb)(unsigned, const char *, int);
+extern hangup_cb on_hangup;
+
+typedef void (*setcapabilities_cb)(unsigned, const char *);
+extern setcapabilities_cb on_setcapabilities;
 
 /* debug flag */
 extern int h323debug;
@@ -161,12 +173,16 @@ extern int h323debug;
 #define H323_DTMF_RFC2833	(1 << 0)
 #define H323_DTMF_INBAND	(1 << 1)
 
+#ifndef BOOL
+#define BOOL int
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif   
     
 	void h323_gk_urq(void);
-	void h323_end_point_create(int, int);
+	void h323_end_point_create(void);
 	void h323_end_process(void);
 	int  h323_end_point_exist(void);
     
@@ -175,19 +191,20 @@ extern "C" {
 	/* callback function handler*/
 	void h323_callback_register(setup_incoming_cb,  
 				    setup_outbound_cb,
- 				    on_connection_cb,
- 				    start_logchan_cb,
+ 				    on_rtp_cb,
+				    start_rtp_cb,
  				    clear_con_cb,
  				    chan_ringing_cb,
 				    con_established_cb,
  				    send_digit_cb,
- 				    answer_call_cb);
-
-
-	int h323_set_capability(int, int);
+ 				    answer_call_cb,
+				    progress_cb,
+				    rfc2833_cb,
+				    hangup_cb,
+				    setcapabilities_cb);
+	int h323_set_capabilities(const char *, int, int);
 	int h323_set_alias(struct oh323_alias *);
 	int h323_set_gk(int, char *, char *);
-
 	void h323_set_id(char *);
 	void h323_show_tokens(void);
 
@@ -200,22 +217,16 @@ extern "C" {
 	void h323_send_tone(const char *call_token, char tone);
 
 	/* H323 create and destroy sessions */
-	int h323_make_call(char *host, call_details_t *cd, call_options_t);
-	int h323_clear_call(const char *);
-	void h323_set_options(int nofs, int noh245tun);	
+	int h323_make_call(char *dest, call_details_t *cd, call_options_t *);
+	int h323_clear_call(const char *, int cause);
 	
 	/* H.323 alerting and progress */
 	int h323_send_alerting(const char *token);
 	int h323_send_progress(const char *token);
-
 	int h323_answering_call(const char *token, int);
 	int h323_soft_hangup(const char *data);	
 	int h323_show_codec(int fd, int argc, char *argv[]);
 
-
 #ifdef __cplusplus
 }
 #endif
-
-
-

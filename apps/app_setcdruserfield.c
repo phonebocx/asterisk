@@ -12,16 +12,21 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/channel.h>
-#include <asterisk/cdr.h>
-#include <asterisk/module.h>
-#include <asterisk/pbx.h>
-#include <asterisk/logger.h>
-#include <asterisk/config.h>
-#include <asterisk/manager.h>
-#include <asterisk/utils.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.8 $")
+
+#include "asterisk/channel.h"
+#include "asterisk/cdr.h"
+#include "asterisk/module.h"
+#include "asterisk/pbx.h"
+#include "asterisk/logger.h"
+#include "asterisk/config.h"
+#include "asterisk/manager.h"
+#include "asterisk/utils.h"
 
 
 static char *tdesc = "CDR user field apps";
@@ -76,13 +81,7 @@ static int action_setcdruserfield(struct mansession *s, struct message *m)
 		astman_send_error(s, m, "No UserField specified");
 		return 0;
 	}
-	c = ast_channel_walk_locked(NULL);
-	while (c) {
-		if (!strcasecmp(c->name, channel))
-			break;
-		ast_mutex_unlock(&c->lock);
-		c = ast_channel_walk_locked(c);
-	}
+	c = ast_get_channel_by_name_locked(channel);
 	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;

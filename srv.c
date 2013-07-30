@@ -22,12 +22,16 @@
 #include <string.h>
 #include <unistd.h>
 
-#include <asterisk/channel.h>
-#include <asterisk/logger.h>
-#include <asterisk/srv.h>
-#include <asterisk/dns.h>
-#include <asterisk/options.h>
-#include <asterisk/utils.h>
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
+
+#include "asterisk/channel.h"
+#include "asterisk/logger.h"
+#include "asterisk/srv.h"
+#include "asterisk/dns.h"
+#include "asterisk/options.h"
+#include "asterisk/utils.h"
 
 #ifdef __APPLE__
 #undef T_SRV
@@ -40,7 +44,7 @@ struct srv {
 	unsigned short portnum;
 } __attribute__ ((__packed__));
 
-static int parse_srv(unsigned char *host, int hostlen, int *portno, unsigned char *answer, int len, unsigned char *msg)
+static int parse_srv(char *host, int hostlen, int *portno, char *answer, int len, char *msg)
 {
 	int res = 0;
 	struct srv *srv = (struct srv *)answer;
@@ -53,7 +57,7 @@ static int parse_srv(unsigned char *host, int hostlen, int *portno, unsigned cha
 	answer += sizeof(struct srv);
 	len -= sizeof(struct srv);
 
-	if ((res = dn_expand(msg,answer + len,answer, repl, sizeof(repl) - 1)) < 0) {
+	if ((res = dn_expand((unsigned char *)msg, (unsigned char *)answer + len, (unsigned char *)answer, repl, sizeof(repl) - 1)) < 0) {
 		ast_log(LOG_WARNING, "Failed to expand hostname\n");
 		return -1;
 	}
@@ -61,14 +65,14 @@ static int parse_srv(unsigned char *host, int hostlen, int *portno, unsigned cha
 		if (option_verbose > 3)
 			ast_verbose( VERBOSE_PREFIX_3 "parse_srv: SRV mapped to host %s, port %d\n", repl, ntohs(srv->portnum));
 		if (host) {
-			strncpy(host, repl, hostlen - 1);
+			ast_copy_string(host, repl, hostlen);
 			host[hostlen-1] = '\0';
 		}
 		if (portno)
 			*portno = ntohs(srv->portnum);
-		return(0);
+		return 0;
 	}
-	return(-1);
+	return -1;
 }
 
 struct srv_context {
@@ -77,7 +81,7 @@ struct srv_context {
 	int *port;
 };
 
-static int srv_callback(void *context, u_char *answer, int len, u_char *fullanswer)
+static int srv_callback(void *context, char *answer, int len, char *fullanswer)
 {
 	struct srv_context *c = (struct srv_context *)context;
 

@@ -3,7 +3,7 @@
  *
  * Full-featured outgoing call spool support
  * 
- * Copyright (C) 2002, Digium
+ * Copyright (C) 2002 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -11,14 +11,6 @@
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/options.h>
-#include <asterisk/utils.h>
 #include <sys/stat.h>
 #include <errno.h>
 #include <time.h>
@@ -30,7 +22,20 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
-#include "../astconf.h"
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.27 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/callerid.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/options.h"
+#include "asterisk/utils.h"
 
 /*
  * pbx_spool is similar in spirit to qcall, but with substantially enhanced functionality...
@@ -67,12 +72,11 @@ struct outgoing {
 	int priority;
 
 	/* CallerID Information */
-	char callerid[256];
+	char cid_num[256];
+	char cid_name[256];
 
-	/* Channel variables */
-	char variable[10*256];
-	/* Account code */
-	char account[256];
+	/* Variables and Functions */
+	struct ast_variable *vars;
 	
 	/* Maximum length of call */
 	int maxlen;
@@ -92,96 +96,106 @@ static int apply_outgoing(struct outgoing *o, char *fn, FILE *f)
 	char buf[256];
 	char *c, *c2;
 	int lineno = 0;
+	struct ast_variable *var;
+
 	while(fgets(buf, sizeof(buf), f)) {
 		lineno++;
-			/* Trim comments */
-			c = buf;
-			while ((c = strchr(c, '#'))) {
-				if ((c == buf) || (*(c-1) == ' ') || (*(c-1) == '\t'))
-					*c = '\0';
-				else
-					c++;
-			}
-			c = strchr(buf, ';');
-			if (c)
-				 *c = '\0';
+		/* Trim comments */
+		c = buf;
+		while ((c = strchr(c, '#'))) {
+			if ((c == buf) || (*(c-1) == ' ') || (*(c-1) == '\t'))
+				*c = '\0';
+			else
+				c++;
+		}
+		c = strchr(buf, ';');
+		if (c)
+			 *c = '\0';
 
-			/* Trim trailing white space */
-			while(!ast_strlen_zero(buf) && buf[strlen(buf) - 1] < 33)
-				buf[strlen(buf) - 1] = '\0';
-			if (!ast_strlen_zero(buf)) {
-				c = strchr(buf, ':');
-				if (c) {
-					*c = '\0';
+		/* Trim trailing white space */
+		while(!ast_strlen_zero(buf) && buf[strlen(buf) - 1] < 33)
+			buf[strlen(buf) - 1] = '\0';
+		if (!ast_strlen_zero(buf)) {
+			c = strchr(buf, ':');
+			if (c) {
+				*c = '\0';
+				c++;
+				while ((*c) && (*c < 33))
 					c++;
-					while ((*c) && (*c < 33))
-						c++;
 #if 0
-					printf("'%s' is '%s' at line %d\n", buf, c, lineno);
-#endif					
-					if (!strcasecmp(buf, "channel")) {
-						strncpy(o->tech, c, sizeof(o->tech) - 1);
-						if ((c2 = strchr(o->tech, '/'))) {
-							*c2 = '\0';
-							c2++;
-							strncpy(o->dest, c2, sizeof(o->dest) - 1);
-						} else {
-							ast_log(LOG_NOTICE, "Channel should be in form Tech/Dest at line %d of %s\n", lineno, fn);
-							o->tech[0] = '\0';
-						}
-					} else if (!strcasecmp(buf, "callerid")) {
-						strncpy(o->callerid, c, sizeof(o->callerid) - 1);
-					} else if (!strcasecmp(buf, "application")) {
-						strncpy(o->app, c, sizeof(o->app) - 1);
-					} else if (!strcasecmp(buf, "data")) {
-						strncpy(o->data, c, sizeof(o->data) - 1);
-					} else if (!strcasecmp(buf, "maxretries")) {
-						if (sscanf(c, "%d", &o->maxretries) != 1) {
-							ast_log(LOG_WARNING, "Invalid max retries at line %d of %s\n", lineno, fn);
-							o->maxretries = 0;
-						}
-					} else if (!strcasecmp(buf, "context")) {
-						strncpy(o->context, c, sizeof(o->context) - 1);
-					} else if (!strcasecmp(buf, "extension")) {
-						strncpy(o->exten, c, sizeof(o->exten) - 1);
-					} else if (!strcasecmp(buf, "priority")) {
-						if ((sscanf(c, "%d", &o->priority) != 1) || (o->priority < 1)) {
-							ast_log(LOG_WARNING, "Invalid priority at line %d of %s\n", lineno, fn);
-							o->priority = 1;
-						}
-					} else if (!strcasecmp(buf, "retrytime")) {
-						if ((sscanf(c, "%d", &o->retrytime) != 1) || (o->retrytime < 1)) {
-							ast_log(LOG_WARNING, "Invalid retrytime at line %d of %s\n", lineno, fn);
-							o->retrytime = 300;
-						}
-					} else if (!strcasecmp(buf, "waittime")) {
-						if ((sscanf(c, "%d", &o->waittime) != 1) || (o->waittime < 1)) {
-							ast_log(LOG_WARNING, "Invalid retrytime at line %d of %s\n", lineno, fn);
-							o->waittime = 45;
-						}
-					} else if (!strcasecmp(buf, "retry")) {
-						o->retries++;
-					} else if (!strcasecmp(buf, "startretry")) {
-						if (sscanf(c, "%d", &o->callingpid) != 1) {
-							ast_log(LOG_WARNING, "Unable to retrieve calling PID!\n");
-							o->callingpid = 0;
-						}
-					} else if (!strcasecmp(buf, "endretry") || !strcasecmp(buf, "abortretry")) {
-						o->callingpid = 0;
-						o->retries++;
-					} else if (!strcasecmp(buf, "delayedretry")) {
-					} else if (!strcasecmp(buf, "setvar")) { /* JDG variable support */
-						strncat(o->variable, c, sizeof(o->variable) - strlen(o->variable) - 1);
-						strncat(o->variable, "|", sizeof(o->variable) - strlen(o->variable) - 1);
- 
-					} else if (!strcasecmp(buf, "account")) {
-						strncpy(o->account, c, sizeof(o->account) - 1);
+				printf("'%s' is '%s' at line %d\n", buf, c, lineno);
+#endif
+				if (!strcasecmp(buf, "channel")) {
+					strncpy(o->tech, c, sizeof(o->tech) - 1);
+					if ((c2 = strchr(o->tech, '/'))) {
+						*c2 = '\0';
+						c2++;
+						strncpy(o->dest, c2, sizeof(o->dest) - 1);
 					} else {
-						ast_log(LOG_WARNING, "Unknown keyword '%s' at line %d of %s\n", buf, lineno, fn);
+						ast_log(LOG_NOTICE, "Channel should be in form Tech/Dest at line %d of %s\n", lineno, fn);
+						o->tech[0] = '\0';
 					}
-				} else
-					ast_log(LOG_NOTICE, "Syntax error at line %d of %s\n", lineno, fn);
-			}
+				} else if (!strcasecmp(buf, "callerid")) {
+					ast_callerid_split(c, o->cid_name, sizeof(o->cid_name), o->cid_num, sizeof(o->cid_num));
+				} else if (!strcasecmp(buf, "application")) {
+					strncpy(o->app, c, sizeof(o->app) - 1);
+				} else if (!strcasecmp(buf, "data")) {
+					strncpy(o->data, c, sizeof(o->data) - 1);
+				} else if (!strcasecmp(buf, "maxretries")) {
+					if (sscanf(c, "%d", &o->maxretries) != 1) {
+						ast_log(LOG_WARNING, "Invalid max retries at line %d of %s\n", lineno, fn);
+						o->maxretries = 0;
+					}
+				} else if (!strcasecmp(buf, "context")) {
+					strncpy(o->context, c, sizeof(o->context) - 1);
+				} else if (!strcasecmp(buf, "extension")) {
+					strncpy(o->exten, c, sizeof(o->exten) - 1);
+				} else if (!strcasecmp(buf, "priority")) {
+					if ((sscanf(c, "%d", &o->priority) != 1) || (o->priority < 1)) {
+						ast_log(LOG_WARNING, "Invalid priority at line %d of %s\n", lineno, fn);
+						o->priority = 1;
+					}
+				} else if (!strcasecmp(buf, "retrytime")) {
+					if ((sscanf(c, "%d", &o->retrytime) != 1) || (o->retrytime < 1)) {
+						ast_log(LOG_WARNING, "Invalid retrytime at line %d of %s\n", lineno, fn);
+						o->retrytime = 300;
+					}
+				} else if (!strcasecmp(buf, "waittime")) {
+					if ((sscanf(c, "%d", &o->waittime) != 1) || (o->waittime < 1)) {
+						ast_log(LOG_WARNING, "Invalid retrytime at line %d of %s\n", lineno, fn);
+						o->waittime = 45;
+					}
+				} else if (!strcasecmp(buf, "retry")) {
+					o->retries++;
+				} else if (!strcasecmp(buf, "startretry")) {
+					if (sscanf(c, "%d", &o->callingpid) != 1) {
+						ast_log(LOG_WARNING, "Unable to retrieve calling PID!\n");
+						o->callingpid = 0;
+					}
+				} else if (!strcasecmp(buf, "endretry") || !strcasecmp(buf, "abortretry")) {
+					o->callingpid = 0;
+					o->retries++;
+				} else if (!strcasecmp(buf, "delayedretry")) {
+				} else if (!strcasecmp(buf, "setvar") || !strcasecmp(buf, "set")) {
+					c2 = c;
+					strsep(&c2, "=");
+					var = ast_variable_new(c, c2);
+					if (var) {
+						var->next = o->vars;
+						o->vars = var;
+					}
+				} else if (!strcasecmp(buf, "account")) {
+					var = ast_variable_new("CDR(accountcode|r)", c);
+					if (var) {	
+						var->next = o->vars;
+						o->vars = var;
+					}
+				} else {
+					ast_log(LOG_WARNING, "Unknown keyword '%s' at line %d of %s\n", buf, lineno, fn);
+				}
+			} else
+				ast_log(LOG_NOTICE, "Syntax error at line %d of %s\n", lineno, fn);
+		}
 	}
 	strncpy(o->fn, fn, sizeof(o->fn) - 1);
 	if (ast_strlen_zero(o->tech) || ast_strlen_zero(o->dest) || (ast_strlen_zero(o->app) && ast_strlen_zero(o->exten))) {
@@ -219,17 +233,17 @@ static void *attempt_thread(void *data)
 	if (!ast_strlen_zero(o->app)) {
 		if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "Attempting call on %s/%s for application %s(%s) (Retry %d)\n", o->tech, o->dest, o->app, o->data, o->retries);
-		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, o->callerid, o->variable, o->account);
+		res = ast_pbx_outgoing_app(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->app, o->data, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, NULL);
 	} else {
 		if (option_verbose > 2)
 			ast_verbose(VERBOSE_PREFIX_3 "Attempting call on %s/%s for %s@%s:%d (Retry %d)\n", o->tech, o->dest, o->exten, o->context,o->priority, o->retries);
-		res = ast_pbx_outgoing_exten(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->context, o->exten, o->priority, &reason, 2 /* wait to finish */, o->callerid, o->variable, o->account);
+		res = ast_pbx_outgoing_exten(o->tech, AST_FORMAT_SLINEAR, o->dest, o->waittime * 1000, o->context, o->exten, o->priority, &reason, 2 /* wait to finish */, o->cid_num, o->cid_name, o->vars, NULL);
 	}
 	if (res) {
 		ast_log(LOG_NOTICE, "Call failed to go through, reason %d\n", reason);
 		if (o->retries >= o->maxretries + 1) {
 			/* Max retries exceeded */
-			ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt(s)\n", o->tech, o->dest, o->retries - 1);
+			ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt%s\n", o->tech, o->dest, o->retries - 1, ((o->retries - 1) != 1) ? "s" : "");
 			unlink(o->fn);
 		} else {
 			/* Notate that the call is still active */
@@ -288,7 +302,7 @@ static int scan_service(char *fn, time_t now, time_t atime)
 					now += o->retrytime;
 					return now;
 				} else {
-					ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt(s)\n", o->tech, o->dest, o->retries - 1);
+					ast_log(LOG_EVENT, "Queued call to %s/%s expired without completion after %d attempt%s\n", o->tech, o->dest, o->retries - 1, ((o->retries - 1) != 1) ? "s" : "");
 					free(o);
 					unlink(fn);
 					return 0;

@@ -11,25 +11,26 @@
  * the GNU General Public License
  */
  
-#include <asterisk/lock.h>
-#include <asterisk/channel.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/sched.h>
-#include <asterisk/module.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <sys/time.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <errno.h>
 #include <string.h>
-#ifdef __linux__
-#include <endian.h>
-#else
-#include <machine/endian.h>
-#endif
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.21 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/channel.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/sched.h"
+#include "asterisk/module.h"
+#include "asterisk/endian.h"
 
 /* Some Ideas for this code came from makeg729e.c by Jeffrey Chilton */
 
@@ -82,7 +83,7 @@ static struct ast_filestream *g729_open(int fd)
 	return tmp;
 }
 
-static struct ast_filestream *g729_rewrite(int fd, char *comment)
+static struct ast_filestream *g729_rewrite(int fd, const char *comment)
 {
 	/* We don't have any header to read or anything really, but
 	   if we did, it would go here.  We also might want to check
@@ -183,7 +184,7 @@ static int g729_seek(struct ast_filestream *fs, long sample_offset, int whence)
 	if (whence != SEEK_FORCECUR) {
 		offset = (offset > max)?max:offset;
 	}
-	// protect against seeking beyond begining.
+	/* protect against seeking beyond begining. */
 	offset = (offset < min)?min:offset;
 	if (lseek(fs->fd, offset, SEEK_SET) < 0)
 		return -1;
@@ -228,14 +229,7 @@ int unload_module()
 
 int usecount()
 {
-	int res;
-	if (ast_mutex_lock(&g729_lock)) {
-		ast_log(LOG_WARNING, "Unable to lock g729 list\n");
-		return -1;
-	}
-	res = glistcnt;
-	ast_mutex_unlock(&g729_lock);
-	return res;
+	return glistcnt;
 }
 
 char *description()

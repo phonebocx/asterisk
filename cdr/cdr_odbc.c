@@ -12,14 +12,6 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/config.h>
-#include <asterisk/options.h>
-#include <asterisk/channel.h>
-#include <asterisk/cdr.h>
-#include <asterisk/module.h>
-#include <asterisk/logger.h>
-#include "../asterisk.h"
-
 #include <stdio.h>
 #include <string.h>
 
@@ -31,14 +23,26 @@
 #include <sqlext.h>
 #include <sqltypes.h>
 
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
+
+#include "asterisk/config.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/cdr.h"
+#include "asterisk/module.h"
+#include "asterisk/logger.h"
+
 #define DATE_FORMAT "%Y-%m-%d %T"
 
 static char *desc = "ODBC CDR Backend";
 static char *name = "ODBC";
 static char *config = "cdr_odbc.conf";
-static char *dsn = NULL, *username = NULL, *password = NULL;
-static int dsn_alloc = 0, username_alloc = 0, password_alloc = 0;
+static char *dsn = NULL, *username = NULL, *password = NULL, *table = NULL;
 static int loguniqueid = 0;
+static int usegmtime = 0;
+static int dispositionstring = 0;
 static int connected = 0;
 
 AST_MUTEX_DEFINE_STATIC(odbc_lock);
@@ -52,7 +56,7 @@ static SQLHSTMT	ODBC_stmt;			/* global ODBC Statement Handle */
 
 static int odbc_log(struct ast_cdr *cdr)
 {
-	long int ODBC_err;
+	SQLINTEGER ODBC_err;
 	short int ODBC_mlen;
 	int ODBC_res;
 	char ODBC_msg[200], ODBC_stat[10];
@@ -60,21 +64,24 @@ static int odbc_log(struct ast_cdr *cdr)
 	int res = 0;
 	struct tm tm;
 
-	localtime_r(&cdr->start.tv_sec,&tm);
+	if (usegmtime) 
+		gmtime_r(&cdr->start.tv_sec,&tm);
+	else
+		localtime_r(&cdr->start.tv_sec,&tm);
 
 	ast_mutex_lock(&odbc_lock);
 	strftime(timestr, sizeof(timestr), DATE_FORMAT, &tm);
 	memset(sqlcmd,0,2048);
 	if (loguniqueid) {
-		snprintf(sqlcmd,sizeof(sqlcmd),"INSERT INTO cdr "
+		snprintf(sqlcmd,sizeof(sqlcmd),"INSERT INTO %s "
 		"(calldate,clid,src,dst,dcontext,channel,dstchannel,lastapp,"
 		"lastdata,duration,billsec,disposition,amaflags,accountcode,uniqueid,userfield) "
-		"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+		"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", table);
 	} else {
-		snprintf(sqlcmd,sizeof(sqlcmd),"INSERT INTO cdr "
+		snprintf(sqlcmd,sizeof(sqlcmd),"INSERT INTO %s "
 		"(calldate,clid,src,dst,dcontext,channel,dstchannel,lastapp,lastdata,"
 		"duration,billsec,disposition,amaflags,accountcode) "
-		"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+		"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", table);
 	}
 
 	if (!connected) {
@@ -125,7 +132,10 @@ static int odbc_log(struct ast_cdr *cdr)
 	SQLBindParameter(ODBC_stmt, 9, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, sizeof(cdr->lastdata), 0, cdr->lastdata, 0, NULL);
 	SQLBindParameter(ODBC_stmt, 10, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &cdr->duration, 0, NULL);
 	SQLBindParameter(ODBC_stmt, 11, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &cdr->billsec, 0, NULL);
-	SQLBindParameter(ODBC_stmt, 12, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &cdr->disposition, 0, NULL);
+	if (dispositionstring)
+		SQLBindParameter(ODBC_stmt, 12, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(ast_cdr_disp2str(cdr->disposition)) + 1, 0, ast_cdr_disp2str(cdr->disposition), 0, NULL);
+	else
+		SQLBindParameter(ODBC_stmt, 12, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &cdr->disposition, 0, NULL);
 	SQLBindParameter(ODBC_stmt, 13, SQL_PARAM_INPUT, SQL_C_SLONG, SQL_INTEGER, 0, 0, &cdr->amaflags, 0, NULL);
 	SQLBindParameter(ODBC_stmt, 14, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, sizeof(cdr->accountcode), 0, cdr->accountcode, 0, NULL);
 
@@ -180,30 +190,27 @@ static int odbc_unload_module(void)
 		SQLDisconnect(ODBC_con);
 		SQLFreeHandle(SQL_HANDLE_DBC, ODBC_con);
 		SQLFreeHandle(SQL_HANDLE_ENV, ODBC_env);
-		connected = 0;
 	}
-	if (dsn && dsn_alloc) {
+	if (dsn) {
 		if (option_verbose > 10)
 			ast_verbose( VERBOSE_PREFIX_4 "cdr_odbc: free dsn\n");
 		free(dsn);
-		dsn = NULL;
-		dsn_alloc = 0;
 	}
-	if (username && username_alloc) {
+	if (username) {
 		if (option_verbose > 10)
 			ast_verbose( VERBOSE_PREFIX_4 "cdr_odbc: free username\n");
 		free(username);
-		username = NULL;
-		username_alloc = 0;
 	}
-	if (password && password_alloc) {
+	if (password) {
 		if (option_verbose > 10)
 			ast_verbose( VERBOSE_PREFIX_4 "cdr_odbc: free password\n");
 		free(password);
-		password = NULL;
-		password_alloc = 0;
 	}
-	loguniqueid = 0;
+	if (table) {
+		if (option_verbose > 10)
+			ast_verbose( VERBOSE_PREFIX_4 "cdr_odbc: free table\n");
+		free(table);
+	}
 
 	ast_cdr_unregister(name);
 	ast_mutex_unlock(&odbc_lock);
@@ -219,7 +226,7 @@ static int odbc_load_module(void)
 
 	ast_mutex_lock(&odbc_lock);
 
-	cfg = ast_load(config);
+	cfg = ast_config_load(config);
 	if (!cfg) {
 		ast_log(LOG_WARNING, "cdr_odbc: Unable to load config for ODBC CDR's: %s\n", config);
 		goto out;
@@ -232,74 +239,93 @@ static int odbc_load_module(void)
 	}
 
 	tmp = ast_variable_retrieve(cfg,"global","dsn");
-	if (tmp) {
-		dsn = malloc(strlen(tmp) + 1);
-		if (dsn != NULL) {
-			memset(dsn, 0, strlen(tmp) + 1);
-			dsn_alloc = 1;
-			strncpy(dsn, tmp, strlen(tmp));
-		} else {
-			ast_log(LOG_ERROR,"cdr_odbc: Out of memory error.\n");
-			res = -1;
-			goto out;
-		}
-	} else {
+	if (tmp == NULL) {
 		ast_log(LOG_WARNING,"cdr_odbc: dsn not specified.  Assuming asteriskdb\n");
-		dsn = "asteriskdb";
+		tmp = "asteriskdb";
+	}
+	dsn = strdup(tmp);
+	if (dsn == NULL) {
+		ast_log(LOG_ERROR,"cdr_odbc: Out of memory error.\n");
+		res = -1;
+		goto out;
 	}
 
+	tmp = ast_variable_retrieve(cfg,"global","dispositionstring");
+	if (tmp) {
+		dispositionstring = ast_true(tmp);
+	} else {
+		dispositionstring = 0;
+	}
+		
 	tmp = ast_variable_retrieve(cfg,"global","username");
 	if (tmp) {
-		username = malloc(strlen(tmp) + 1);
-		if (username != NULL) {
-			memset(username, 0, strlen(tmp) + 1);
-			username_alloc = 1;
-			strncpy(username, tmp, strlen(tmp));
-		} else {
+		username = strdup(tmp);
+		if (username == NULL) {
 			ast_log(LOG_ERROR,"cdr_odbc: Out of memory error.\n");
 			res = -1;
 			goto out;
 		}
-	} else {
-		ast_log(LOG_WARNING,"cdr_odbc: username not specified.  Assuming root\n");
-		username = "root";
 	}
 
 	tmp = ast_variable_retrieve(cfg,"global","password");
 	if (tmp) {
-		password = malloc(strlen(tmp) + 1);
-		if (password != NULL) {
-			memset(password, 0, strlen(tmp) + 1);
-			password_alloc = 1;
-			strncpy(password, tmp, strlen(tmp));
-		} else {
+		password = strdup(tmp);
+		if (password == NULL) {
 			ast_log(LOG_ERROR,"cdr_odbc: Out of memory error.\n");
 			res = -1;
 			goto out;
 		}
-	} else {
-		ast_log(LOG_WARNING,"cdr_odbc: database password not specified.  Assuming blank\n");
-		password = "";
 	}
 
 	tmp = ast_variable_retrieve(cfg,"global","loguniqueid");
 	if (tmp) {
 		loguniqueid = ast_true(tmp);
 		if (loguniqueid) {
-			ast_log(LOG_NOTICE,"cdr_odbc: Logging uniqueid\n");
+			ast_log(LOG_DEBUG,"cdr_odbc: Logging uniqueid\n");
 		} else {
-			ast_log(LOG_ERROR,"cdr_odbc: Not logging uniqueid\n");
+			ast_log(LOG_DEBUG,"cdr_odbc: Not logging uniqueid\n");
 		}
 	} else {
-		ast_log(LOG_WARNING,"cdr_odbc: Not logging uniqueid\n");
+		ast_log(LOG_DEBUG,"cdr_odbc: Not logging uniqueid\n");
 		loguniqueid = 0;
 	}
 
-	ast_destroy(cfg);
+	tmp = ast_variable_retrieve(cfg,"global","usegmtime");
+	if (tmp) {
+		usegmtime = ast_true(tmp);
+		if (usegmtime) {
+			ast_log(LOG_DEBUG,"cdr_odbc: Logging in GMT\n");
+		} else {
+			ast_log(LOG_DEBUG,"cdr_odbc: Not logging in GMT\n");
+		}
+	} else {
+		ast_log(LOG_DEBUG,"cdr_odbc: Not logging in GMT\n");
+		usegmtime = 0;
+	}
+
+	tmp = ast_variable_retrieve(cfg,"global","table");
+	if (tmp == NULL) {
+		ast_log(LOG_WARNING,"cdr_odbc: table not specified.  Assuming cdr\n");
+		tmp = "cdr";
+	}
+	table = strdup(tmp);
+	if (table == NULL) {
+		ast_log(LOG_ERROR,"cdr_odbc: Out of memory error.\n");
+		res = -1;
+		goto out;
+	}
+
+	ast_config_destroy(cfg);
 	if (option_verbose > 2) {
 		ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: dsn is %s\n",dsn);
-		ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: username is %s\n",username);
-		ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: password is [secret]\n");
+		if (username)
+		{
+			ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: username is %s\n",username);
+			ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: password is [secret]\n");
+		}
+		else
+			ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: retreiving username and password from odbc config\n");
+		ast_verbose( VERBOSE_PREFIX_3 "cdr_odbc: table is %s\n",table);
 	}
 	
 	res = odbc_init();
@@ -320,7 +346,7 @@ out:
 
 static int odbc_do_query(void)
 {
-	long int ODBC_err;
+	SQLINTEGER ODBC_err;
 	int ODBC_res;
 	short int ODBC_mlen;
 	char ODBC_msg[200], ODBC_stat[10];
@@ -344,7 +370,7 @@ static int odbc_do_query(void)
 
 static int odbc_init(void)
 {
-	long int ODBC_err;
+	SQLINTEGER ODBC_err;
 	short int ODBC_mlen;
 	int ODBC_res;
 	char ODBC_msg[200], ODBC_stat[10];
@@ -380,6 +406,8 @@ static int odbc_init(void)
 		SQLSetConnectAttr(ODBC_con, SQL_LOGIN_TIMEOUT, (SQLPOINTER *)10, 0);	
 	}
 
+	/* Note that the username and password could be NULL here, but that is allowed in ODBC.
+           In this case, the default username and password will be used from odbc.conf */
 	ODBC_res = SQLConnect(ODBC_con, (SQLCHAR*)dsn, SQL_NTS, (SQLCHAR*)username, SQL_NTS, (SQLCHAR*)password, SQL_NTS);
 
 	if ((ODBC_res != SQL_SUCCESS) && (ODBC_res != SQL_SUCCESS_WITH_INFO)) {
@@ -415,7 +443,13 @@ int reload(void)
 
 int usecount(void)
 {
-	return connected;
+	/* Simplistic use count */
+	if (ast_mutex_trylock(&odbc_lock)) {
+		return 1;
+	} else {
+		ast_mutex_unlock(&odbc_lock);
+		return 0;
+	}
 }
 
 char *key()

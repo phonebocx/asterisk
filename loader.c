@@ -3,7 +3,7 @@
  *
  * Module Loader
  * 
- * Copyright (C) 1999-2004, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -16,31 +16,40 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <asterisk/module.h>
-#include <asterisk/options.h>
-#include <asterisk/config.h>
-#include <asterisk/config_pvt.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/term.h>
-#include <asterisk/manager.h>
-#include <asterisk/enum.h>
-#include <asterisk/rtp.h>
-#include <asterisk/lock.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.50 $")
+
+#include "asterisk/module.h"
+#include "asterisk/options.h"
+#include "asterisk/config.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/term.h"
+#include "asterisk/manager.h"
+#include "asterisk/cdr.h"
+#include "asterisk/enum.h"
+#include "asterisk/rtp.h"
+#include "asterisk/lock.h"
 #ifdef __APPLE__
-#include <asterisk/dlfcn-compat.h>
+#include "asterisk/dlfcn-compat.h"
 #else
 #include <dlfcn.h>
 #endif
-#include <asterisk/md5.h>
-#include "asterisk.h"
-#include "astconf.h"
+#include "asterisk/md5.h"
 
 #ifndef RTLD_NOW
 #define RTLD_NOW 0
 #endif
 
-static char expected_key[] =
+AST_MUTEX_DEFINE_STATIC(modlock);
+AST_MUTEX_DEFINE_STATIC(reloadlock);
+
+static struct module *module_list=NULL;
+static int modlistver = 0;
+
+static unsigned char expected_key[] =
 { 0x8e, 0x93, 0x22, 0x83, 0xf5, 0xc3, 0xc0, 0x75,
   0xff, 0x8b, 0xa9, 0xbe, 0x7c, 0x43, 0x74, 0x63 };
 
@@ -56,13 +65,18 @@ struct module {
 	struct module *next;
 };
 
+static struct loadupdate {
+	int (*updater)(void);
+	struct loadupdate *next;
+} *updaters = NULL;
+
 static int printdigest(unsigned char *d)
 {
 	int x;
 	char buf[256];
 	char buf2[16];
 	snprintf(buf, sizeof(buf), "Unexpected signature:");
-	for (x=0;x<16;x++) {
+	for (x=0; x<16; x++) {
 		snprintf(buf2, sizeof(buf2), " %02x", *(d++));
 		strcat(buf, buf2);
 	}
@@ -71,22 +85,22 @@ static int printdigest(unsigned char *d)
 	return 0;
 }
 
-static int key_matches(char *key1, char *key2)
+static int key_matches(unsigned char *key1, unsigned char *key2)
 {
 	int match = 1;
 	int x;
-	for (x=0;x<16;x++) {
+	for (x=0; x<16; x++) {
 		match &= (key1[x] == key2[x]);
 	}
 	return match;
 }
 
-static int verify_key(char *key)
+static int verify_key(unsigned char *key)
 {
 	struct MD5Context c;
-	char digest[16];
+	unsigned char digest[16];
 	MD5Init(&c);
-	MD5Update(&c, key, strlen(key));
+	MD5Update(&c, key, strlen((char *)key));
 	MD5Final(digest, &c);
 	if (key_matches(expected_key, digest))
 		return 0;
@@ -94,18 +108,7 @@ static int verify_key(char *key)
 	return -1;
 }
 
-static struct loadupdate {
-	int (*updater)(void);
-	struct loadupdate *next;
-} *updaters = NULL;
-
-AST_MUTEX_DEFINE_STATIC(modlock);
-AST_MUTEX_DEFINE_STATIC(reloadlock);
-
-static struct module *module_list=NULL;
-static int modlistver = 0;
-
-int ast_unload_resource(char *resource_name, int force)
+int ast_unload_resource(const char *resource_name, int force)
 {
 	struct module *m, *ml = NULL;
 	int res = -1;
@@ -149,39 +152,98 @@ int ast_unload_resource(char *resource_name, int force)
 	return res;
 }
 
-void ast_module_reload(const char *name)
+char *ast_module_helper(char *line, char *word, int pos, int state, int rpos, int needsreload)
 {
 	struct module *m;
+	int which=0;
+	char *ret;
+
+	if (pos != rpos)
+		return NULL;
+	ast_mutex_lock(&modlock);
+	m = module_list;
+	while(m) {
+		if (!strncasecmp(word, m->resource, strlen(word)) && (m->reload || !needsreload)) {
+			if (++which > state)
+				break;
+		}
+		m = m->next;
+	}
+	if (m) {
+		ret = strdup(m->resource);
+	} else {
+		ret = NULL;
+		if (!strncasecmp(word, "extconfig", strlen(word))) {
+			if (++which > state)
+				ret = strdup("extconfig");
+		} else if (!strncasecmp(word, "manager", strlen(word))) {
+			if (++which > state)
+				ret = strdup("manager");
+		} else if (!strncasecmp(word, "enum", strlen(word))) {
+			if (++which > state)
+				ret = strdup("enum");
+		} else if (!strncasecmp(word, "rtp", strlen(word))) {
+			if (++which > state)
+				ret = strdup("rtp");
+		}
+			
+	}
+	ast_mutex_unlock(&modlock);
+	return ret;
+}
+
+int ast_module_reload(const char *name)
+{
+	struct module *m;
+	int reloaded = 0;
 	int oldversion;
 	int (*reload)(void);
-
 	/* We'll do the logger and manager the favor of calling its reload here first */
 
 	if (ast_mutex_trylock(&reloadlock)) {
 		ast_verbose("The previous reload command didn't finish yet\n");
-		return;
+		return -1;
 	}
-	if (!name || !strcasecmp(name, "astconfig"))
-		read_ast_cust_config();
-	if (!name || !strcasecmp(name, "manager"))
+	if (!name || !strcasecmp(name, "extconfig")) {
+		read_config_maps();
+		reloaded = 2;
+	}
+	if (!name || !strcasecmp(name, "manager")) {
 		reload_manager();
-	if (!name || !strcasecmp(name, "enum"))
+		reloaded = 2;
+	}
+	if (!name || !strcasecmp(name, "cdr")) {
+		ast_cdr_engine_reload();
+		reloaded = 2;
+	}
+	if (!name || !strcasecmp(name, "enum")) {
 		ast_enum_reload();
-	if (!name || !strcasecmp(name, "rtp"))
+		reloaded = 2;
+	}
+	if (!name || !strcasecmp(name, "rtp")) {
 		ast_rtp_reload();
+		reloaded = 2;
+	}
+	if (!name || !strcasecmp(name, "dnsmgr")) {
+		dnsmgr_reload();
+		reloaded = 2;
+	}
 	time(&ast_lastreloadtime);
 
 	ast_mutex_lock(&modlock);
-	oldversion = modlistver;	
+	oldversion = modlistver;
 	m = module_list;
 	while(m) {
 		if (!name || !strcasecmp(name, m->resource)) {
+			if (reloaded < 1)
+				reloaded = 1;
 			reload = m->reload;
 			ast_mutex_unlock(&modlock);
 			if (reload) {
+				reloaded = 2;
 				if (option_verbose > 2) 
 					ast_verbose(VERBOSE_PREFIX_3 "Reloading module '%s' (%s)\n", m->resource, m->description());
-				reload();	
+				reload();
 			}
 			ast_mutex_lock(&modlock);
 			if (oldversion != modlistver)
@@ -191,9 +253,10 @@ void ast_module_reload(const char *name)
 	}
 	ast_mutex_unlock(&modlock);
 	ast_mutex_unlock(&reloadlock);
+	return reloaded;
 }
 
-int ast_load_resource(char *resource_name)
+static int __load_resource(const char *resource_name, const struct ast_config *cfg)
 {
 	static char fn[256];
 	int errors=0;
@@ -203,24 +266,17 @@ int ast_load_resource(char *resource_name)
 #ifdef RTLD_GLOBAL
 	char *val;
 #endif
-	char *key;
-	int o;
-	struct ast_config *cfg;
+	unsigned char *key;
 	char tmp[80];
-	/* Keep the module file parsing silent */
-	o = option_verbose;
+
 	if (strncasecmp(resource_name, "res_", 4)) {
-		option_verbose = 0;
-		cfg = ast_load(AST_MODULE_CONFIG);
-		option_verbose = o;
-		if (cfg) {
 #ifdef RTLD_GLOBAL
+		if (cfg) {
 			if ((val = ast_variable_retrieve(cfg, "global", resource_name))
 					&& ast_true(val))
 				flags |= RTLD_GLOBAL;
-#endif
-			ast_destroy(cfg);
 		}
+#endif
 	} else {
 		/* Resource modules are always loaded global and lazy */
 #ifdef RTLD_GLOBAL
@@ -295,10 +351,12 @@ int ast_load_resource(char *resource_name)
 		ast_log(LOG_WARNING, "No key routine in module %s\n", fn);
 		errors++;
 	}
+
 	m->reload = dlsym(m->lib, "reload");
 	if (m->reload == NULL)
 		m->reload = dlsym(m->lib, "_reload");
-	if (!m->key || !(key = m->key())) {
+
+	if (!m->key || !(key = (unsigned char *) m->key())) {
 		ast_log(LOG_WARNING, "Key routine returned NULL in module %s\n", fn);
 		key = NULL;
 		errors++;
@@ -308,7 +366,7 @@ int ast_load_resource(char *resource_name)
 		errors++;
 	}
 	if (errors) {
-		ast_log(LOG_WARNING, "%d error(s) loading module %s, aborted\n", errors, fn);
+		ast_log(LOG_WARNING, "%d error%s loading module %s, aborted\n", errors, (errors != 1) ? "s" : "", fn);
 		dlclose(m->lib);
 		free(m);
 		ast_mutex_unlock(&modlock);
@@ -324,21 +382,21 @@ int ast_load_resource(char *resource_name)
 			ast_verbose(VERBOSE_PREFIX_1 "Loaded %s => (%s)\n", fn, m->description());
 	}
 
-	// add module 'm' to end of module_list chain
-	// so reload commands will be issued in same order modules were loaded
+	/* add module 'm' to end of module_list chain
+  	   so reload commands will be issued in same order modules were loaded */
 	m->next = NULL;
 	if (module_list == NULL) {
-		// empty list so far, add at front
+		/* empty list so far, add at front */
 		module_list = m;
 	}
 	else {
 		struct module *i;
-		// find end of chain, and add there
+		/* find end of chain, and add there */
 		for (i = module_list; i->next; i = i->next)
 			;
 		i->next = m;
 	}
-
+	
 	modlistver = rand();
 	ast_mutex_unlock(&modlock);
 	if ((res = m->load_module())) {
@@ -348,6 +406,23 @@ int ast_load_resource(char *resource_name)
 	}
 	ast_update_use_count();
 	return 0;
+}
+
+int ast_load_resource(const char *resource_name)
+{
+	int o;
+	struct ast_config *cfg = NULL;
+	int res;
+
+	/* Keep the module file parsing silent */
+	o = option_verbose;
+	option_verbose = 0;
+	cfg = ast_config_load(AST_MODULE_CONFIG);
+	option_verbose = o;
+	res = __load_resource(resource_name, cfg);
+	if (cfg)
+		ast_config_destroy(cfg);
+	return res;
 }	
 
 static int ast_resource_exists(char *resource)
@@ -368,47 +443,75 @@ static int ast_resource_exists(char *resource)
 		return 0;
 }
 
-int load_modules()
+static const char *loadorder[] =
+{
+	"res_",
+	"chan_",
+	"pbx_",
+	NULL,
+};
+
+int load_modules(const int preload_only)
 {
 	struct ast_config *cfg;
 	struct ast_variable *v;
 	char tmp[80];
-	if (option_verbose) 
-		ast_verbose( "Asterisk Dynamic Loader Starting:\n");
-	cfg = ast_load(AST_MODULE_CONFIG);
+
+	if (option_verbose) {
+		if (preload_only)
+			ast_verbose("Asterisk Dynamic Loader loading preload modules:\n");
+		else
+			ast_verbose("Asterisk Dynamic Loader Starting:\n");
+	}
+
+	cfg = ast_config_load(AST_MODULE_CONFIG);
 	if (cfg) {
+		int doload;
+
 		/* Load explicitly defined modules */
-		v = ast_variable_browse(cfg, "modules");
-		while(v) {
-			if (!strcasecmp(v->name, "load")) {
+		for (v = ast_variable_browse(cfg, "modules"); v; v = v->next) {
+			doload = 0;
+
+			if (preload_only)
+				doload = !strcasecmp(v->name, "preload");
+			else
+				doload = !strcasecmp(v->name, "load");
+
+		       if (doload) {
 				if (option_debug && !option_verbose)
 					ast_log(LOG_DEBUG, "Loading module %s\n", v->value);
 				if (option_verbose) {
-					ast_verbose( VERBOSE_PREFIX_1 "[%s]", term_color(tmp, v->value, COLOR_BRWHITE, 0, sizeof(tmp)));
+					ast_verbose(VERBOSE_PREFIX_1 "[%s]", term_color(tmp, v->value, COLOR_BRWHITE, 0, sizeof(tmp)));
 					fflush(stdout);
 				}
-				if (ast_load_resource(v->value)) {
+				if (__load_resource(v->value, cfg)) {
 					ast_log(LOG_WARNING, "Loading module %s failed!\n", v->value);
-					if (cfg)
-						ast_destroy(cfg);
+					ast_config_destroy(cfg);
 					return -1;
 				}
 			}
-			v=v->next;
 		}
 	}
+
+	if (preload_only) {
+		ast_config_destroy(cfg);
+		return 0;
+	}
+
 	if (!cfg || ast_true(ast_variable_retrieve(cfg, "modules", "autoload"))) {
 		/* Load all modules */
 		DIR *mods;
 		struct dirent *d;
 		int x;
-		/* Make two passes.  First, load any resource modules, then load the others. */
-		for (x=0;x<2;x++) {
+
+		/* Loop through each order */
+		for (x=0; x<sizeof(loadorder) / sizeof(loadorder[0]); x++) {
 			mods = opendir((char *)ast_config_AST_MODULE_DIR);
 			if (mods) {
 				while((d = readdir(mods))) {
 					/* Must end in .so to load it.  */
-					if ((strlen(d->d_name) > 3) && (x || !strncasecmp(d->d_name, "res_", 4)) && 
+					if ((strlen(d->d_name) > 3) && 
+					    (!loadorder[x] || !strncasecmp(d->d_name, loadorder[x], strlen(loadorder[x]))) && 
 					    !strcasecmp(d->d_name + strlen(d->d_name) - 3, ".so") &&
 						!ast_resource_exists(d->d_name)) {
 						/* It's a shared library -- Just be sure we're allowed to load it -- kinda
@@ -430,16 +533,16 @@ int load_modules()
 							}
 							
 						}
-					    if (option_debug && !option_verbose)
+						if (option_debug && !option_verbose)
 							ast_log(LOG_DEBUG, "Loading module %s\n", d->d_name);
 						if (option_verbose) {
 							ast_verbose( VERBOSE_PREFIX_1 "[%s]", term_color(tmp, d->d_name, COLOR_BRWHITE, 0, sizeof(tmp)));
 							fflush(stdout);
 						}
-						if (ast_load_resource(d->d_name)) {
+						if (__load_resource(d->d_name, cfg)) {
 							ast_log(LOG_WARNING, "Loading module %s failed!\n", d->d_name);
 							if (cfg)
-								ast_destroy(cfg);
+								ast_config_destroy(cfg);
 							return -1;
 						}
 					}
@@ -451,7 +554,7 @@ int load_modules()
 			}
 		}
 	} 
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 	return 0;
 }
 
@@ -471,20 +574,24 @@ void ast_update_use_count(void)
 	
 }
 
-int ast_update_module_list(int (*modentry)(char *module, char *description, int usecnt))
+int ast_update_module_list(int (*modentry)(const char *module, const char *description, int usecnt, const char *like),
+			   const char *like)
 {
 	struct module *m;
 	int unlock = -1;
+	int total_mod_loaded = 0;
+
 	if (ast_mutex_trylock(&modlock))
 		unlock = 0;
 	m = module_list;
-	while(m) {
-		modentry(m->resource, m->description(), m->usecount());
+	while (m) {
+		total_mod_loaded += modentry(m->resource, m->description(), m->usecount(), like);
 		m = m->next;
 	}
 	if (unlock)
 		ast_mutex_unlock(&modlock);
-	return 0;
+
+	return total_mod_loaded;
 }
 
 int ast_loader_register(int (*v)(void)) 

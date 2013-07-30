@@ -3,7 +3,7 @@
  *
  * Caller*id name lookup - Look up the caller's name via DNS
  * 
- * Copyright (C) 1999-2004, Digium
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@linux-support.net>
  *
@@ -11,21 +11,26 @@
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/options.h>
-#include <asterisk/config.h>
-#include <asterisk/module.h>
-#include <asterisk/enum.h>
-#include <asterisk/utils.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <ctype.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.14 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/options.h"
+#include "asterisk/config.h"
+#include "asterisk/module.h"
+#include "asterisk/enum.h"
+#include "asterisk/utils.h"
 
 static char *tdesc = "TXTCIDName";
 
@@ -34,7 +39,7 @@ static char *app = "TXTCIDName";
 static char *synopsis = "Lookup caller name from TXT record";
 
 static char *descrip = 
-"  TXTLookup(CallerID):  Looks up a Caller Name via DNS and sets\n"
+"  TXTCIDName(<CallerIDNumber>):  Looks up a Caller Name via DNS and sets\n"
 "the variable 'TXTCIDNAME'. TXTCIDName will either be blank\n"
 "or return the value found in the TXT record in DNS.\n" ;
 
@@ -75,7 +80,7 @@ static int txtcidname_exec(struct ast_channel *chan, void *data)
 	}
 	if (!res) {
 		/* Look for a "busy" place */
-		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->callerid))
+		if (ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num))
 			chan->priority += 100;
 	} else if (res > 0)
 		res = 0;
@@ -87,14 +92,14 @@ static int load_config(void)
 	struct ast_config *cfg;
 	char *s;
 
-	cfg = ast_load(ENUM_CONFIG);
+	cfg = ast_config_load(ENUM_CONFIG);
 	if (cfg) {
 		if (!(s=ast_variable_retrieve(cfg, "general", "h323driver"))) {
-			strncpy(h323driver, H323DRIVERDEFAULT, sizeof(h323driver) - 1);
+			ast_copy_string(h323driver, H323DRIVERDEFAULT, sizeof(h323driver));
 		} else {
-			strncpy(h323driver, s, sizeof(h323driver) - 1);
+			ast_copy_string(h323driver, s, sizeof(h323driver));
 		}
-		ast_destroy(cfg);
+		ast_config_destroy(cfg);
 		return 0;
 	}
 	ast_log(LOG_NOTICE, "No ENUM Config file, using defaults\n");

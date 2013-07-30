@@ -4,7 +4,7 @@
  * details.  THERE IS ABSOLUTELY NO WARRANTY FOR THIS SOFTWARE.
  */
 
-/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/long_term.c,v 1.16 2003/02/12 13:59:14 matteo Exp $ */
+/* $Header: /usr/cvsroot/asterisk/codecs/gsm/src/long_term.c,v 1.17 2005/04/21 06:30:23 kpfleming Exp $ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -852,7 +852,6 @@ static void Long_term_analysis_filtering P6((bc,Nc,dp,d,dpp,e),
  */
 {
 	register int      k;
-	register longword ltmp;
 
 #	undef STEP
 #	define STEP(BP)					\
@@ -921,7 +920,6 @@ void Gsm_Long_Term_Synthesis_Filtering P5((S,Ncr,bcr,erp,drp),
  *  table 4.3b.
  */
 {
-	register longword	ltmp;	/* for ADD */
 	register int 		k;
 	word			brp, drpp, Nr;
 

@@ -9,24 +9,27 @@
  */
 
 #include <sys/types.h>
-#include <asterisk/channel.h>
-#include <asterisk/cdr.h>
-#include <asterisk/module.h>
-#include <asterisk/logger.h>
-#include <asterisk/utils.h>
-#include <asterisk/manager.h>
-#include <asterisk/config.h>
-#include "../asterisk.h"
-#include "../astconf.h"
 #include <strings.h>
 #include <unistd.h>
 #include <time.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.7 $")
+
+#include "asterisk/channel.h"
+#include "asterisk/cdr.h"
+#include "asterisk/module.h"
+#include "asterisk/logger.h"
+#include "asterisk/utils.h"
+#include "asterisk/manager.h"
+#include "asterisk/config.h"
 
 #define DATE_FORMAT 	"%Y-%m-%d %T"
 #define CONF_FILE	"cdr_manager.conf"
 
 static char *desc = "Asterisk Call Manager CDR Backend";
-static char *name = "cdr_as";
+static char *name = "cdr_manager";
 
 static int enablecdr = 0;
 
@@ -36,7 +39,7 @@ static void loadconfigurationfile(void)
 	struct ast_config *cfg;
 	struct ast_variable *v;
 	
-	cfg = ast_load(CONF_FILE);
+	cfg = ast_config_load(CONF_FILE);
 	if (!cfg) {
 		/* Standard configuration */
 		enablecdr = 0;
@@ -60,7 +63,7 @@ static void loadconfigurationfile(void)
 		cat = ast_category_browse(cfg, cat);
 	}
 	
-	ast_destroy(cfg);
+	ast_config_destroy(cfg);
 }
 
 static int manager_log(struct ast_cdr *cdr)

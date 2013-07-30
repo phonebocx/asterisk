@@ -8,26 +8,32 @@
  *
  * See http://www.arl.wustl.edu/~jaf/ 
  * 
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005  Digium,inc 
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
-
-#include <asterisk/lock.h>
-#include <asterisk/translate.h>
-#include <asterisk/module.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <stdio.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.16 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/translate.h"
+#include "asterisk/config.h"
+#include "asterisk/options.h"
+#include "asterisk/module.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
 
 #include "lpc10/lpc10.h"
 
@@ -47,6 +53,8 @@ static int localusecnt=0;
 
 static char *tdesc = "LPC10 2.4kbps (signed linear) Voice Coder";
 
+static int useplc = 0;
+
 struct ast_translator_pvt {
 	union {
 		struct lpc10_encoder_state *enc;
@@ -61,6 +69,7 @@ struct ast_translator_pvt {
 	short buf[8000];
 	int tail;
 	int longer;
+	plc_state_t plc; /* god only knows why I bothered to implement PLC for LPC10 :) */
 };
 
 #define lpc10_coder_pvt ast_translator_pvt
@@ -92,6 +101,7 @@ static struct ast_translator_pvt *lpc10_dec_new(void)
 		}
 		tmp->tail = 0;
 		tmp->longer = 0;
+		plc_init(&tmp->plc);
 		localusecnt++;
 	}
 	return tmp;
@@ -199,6 +209,19 @@ static int lpc10tolin_framein(struct ast_translator_pvt *tmp, struct ast_frame *
 	float tmpbuf[LPC10_SAMPLES_PER_FRAME];
 	short *sd;
 	INT32 bits[LPC10_BITS_IN_COMPRESSED_FRAME];
+
+	if(f->datalen == 0) { /* perform PLC with nominal framesize of LPC10_SAMPLES_PER_FRAME */
+	      if((tmp->tail + LPC10_SAMPLES_PER_FRAME) > sizeof(tmp->buf)/2) {
+		  ast_log(LOG_WARNING, "Out of buffer space\n");
+		  return -1;
+	      }
+	      if(useplc) {
+		  plc_fillin(&tmp->plc, tmp->buf+tmp->tail, LPC10_SAMPLES_PER_FRAME);
+		  tmp->tail += LPC10_SAMPLES_PER_FRAME;
+	      }
+	      return 0;
+	}
+
 	while(len + LPC10_BYTES_IN_COMPRESSED_FRAME <= f->datalen) {
 		if (tmp->tail + LPC10_SAMPLES_PER_FRAME < sizeof(tmp->buf)/2) {
 			sd = tmp->buf + tmp->tail;
@@ -211,6 +234,8 @@ static int lpc10tolin_framein(struct ast_translator_pvt *tmp, struct ast_frame *
 				/* Convert to a real between -1.0 and 1.0 */
 				sd[x] = 32768.0 * tmpbuf[x];
 			}
+
+			if(useplc) plc_rx(&tmp->plc, tmp->buf + tmp->tail, LPC10_SAMPLES_PER_FRAME);
 			
 			tmp->tail+=LPC10_SAMPLES_PER_FRAME;
 		} else {
@@ -326,6 +351,32 @@ static struct ast_translator lintolpc10 =
 	   lintolpc10_sample
 	   };
 
+static void parse_config(void)
+{
+        struct ast_config *cfg;
+        struct ast_variable *var;
+        if ((cfg = ast_config_load("codecs.conf"))) {
+                if ((var = ast_variable_browse(cfg, "plc"))) {
+                        while (var) {
+                               if (!strcasecmp(var->name, "genericplc")) {
+                                       useplc = ast_true(var->value) ? 1 : 0;
+                                       if (option_verbose > 2)
+                                               ast_verbose(VERBOSE_PREFIX_3 "codec_lpc10: %susing generic PLC\n", useplc ? "" : "not ");
+                               }
+                               var = var->next;
+                        }
+                }
+		ast_config_destroy(cfg);
+        }
+}
+
+int reload(void)
+{
+        parse_config();
+        return 0;
+}
+
+
 int unload_module(void)
 {
 	int res;
@@ -342,6 +393,7 @@ int unload_module(void)
 int load_module(void)
 {
 	int res;
+	parse_config();
 	res=ast_register_translator(&lpc10tolin);
 	if (!res) 
 		res=ast_register_translator(&lintolpc10);

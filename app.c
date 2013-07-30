@@ -3,7 +3,7 @@
  *
  * Convenient Application Routines
  * 
- * Copyright (C) 1999-2004, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -19,19 +19,78 @@
 #include <errno.h>
 #include <unistd.h>
 #include <dirent.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/file.h>
-#include <asterisk/app.h>
-#include <asterisk/dsp.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/utils.h>
-#include <asterisk/lock.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <regex.h>
+
 #include "asterisk.h"
-#include "astconf.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.72 $")
+
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/file.h"
+#include "asterisk/app.h"
+#include "asterisk/dsp.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/utils.h"
+#include "asterisk/lock.h"
+#include "asterisk/indications.h"
 
 #define MAX_OTHER_FORMATS 10
+
+
+/* 
+This function presents a dialtone and reads an extension into 'collect' 
+which must be a pointer to a **pre-initilized** array of char having a 
+size of 'size' suitable for writing to.  It will collect no more than the smaller 
+of 'maxlen' or 'size' minus the original strlen() of collect digits.
+*/
+int ast_app_dtget(struct ast_channel *chan, const char *context, char *collect, size_t size, int maxlen, int timeout) 
+{
+	struct tone_zone_sound *ts;
+	int res=0, x=0;
+
+	if(maxlen > size)
+		maxlen = size;
+	
+	if(!timeout && chan->pbx)
+		timeout = chan->pbx->dtimeout;
+	else if(!timeout)
+		timeout = 5;
+	
+	ts = ast_get_indication_tone(chan->zone,"dial");
+	if (ts && ts->data[0])
+		res = ast_playtones_start(chan, 0, ts->data, 0);
+	else 
+		ast_log(LOG_NOTICE,"Huh....? no dial for indications?\n");
+	
+	for (x = strlen(collect); strlen(collect) < maxlen; ) {
+		res = ast_waitfordigit(chan, timeout);
+		if (!ast_ignore_pattern(context, collect))
+			ast_playtones_stop(chan);
+		if (res < 1)
+			break;
+		collect[x++] = res;
+		if (!ast_matchmore_extension(chan, context, collect, 1, chan->cid.cid_num)) {
+			if (collect[x-1] == '#') {
+				/* Not a valid extension, ending in #, assume the # was to finish dialing */
+				collect[x-1] = '\0';
+			}
+			break;
+		}
+	}
+	if (res >= 0) {
+		if (ast_exists_extension(chan, context, collect, 1, chan->cid.cid_num))
+			res = 1;
+		else
+			res = 0;
+	}
+	return res;
+}
+
+
 
 /* set timeout to 0 for "standard" timeouts. Set timeout to -1 for 
    "ludicrous time" (essentially never times out) */
@@ -49,8 +108,10 @@ int ast_app_getdata(struct ast_channel *c, char *prompt, char *s, int maxlen, in
 	fto = c->pbx ? c->pbx->rtimeout * 1000 : 6000;
 	to = c->pbx ? c->pbx->dtimeout * 1000 : 2000;
 
-	if (timeout > 0) fto = to = timeout;
-	if (timeout < 0) fto = to = 1000000000;
+	if (timeout > 0) 
+		fto = to = timeout;
+	if (timeout < 0) 
+		fto = to = 1000000000;
 	res = ast_readstring(c, s, maxlen, to, fto, "#");
 	return res;
 }
@@ -66,8 +127,10 @@ int ast_app_getdata_full(struct ast_channel *c, char *prompt, char *s, int maxle
 	}
 	fto = 6000;
 	to = 2000;
-	if (timeout > 0) fto = to = timeout;
-	if (timeout < 0) fto = to = 1000000000;
+	if (timeout > 0) 
+		fto = to = timeout;
+	if (timeout < 0) 
+		fto = to = 1000000000;
 	res = ast_readstring_full(c, s, maxlen, to, fto, "#", audiofd, ctrlfd);
 	return res;
 }
@@ -148,119 +211,51 @@ int ast_app_getvoice(struct ast_channel *c, char *dest, char *dstfmt, char *prom
 	return 0;
 }
 
-int ast_app_has_voicemail(const char *mailbox)
+static int (*ast_has_voicemail_func)(const char *mailbox, const char *folder) = NULL;
+static int (*ast_messagecount_func)(const char *mailbox, int *newmsgs, int *oldmsgs) = NULL;
+
+void ast_install_vm_functions(int (*has_voicemail_func)(const char *mailbox, const char *folder),
+			      int (*messagecount_func)(const char *mailbox, int *newmsgs, int *oldmsgs))
 {
-	DIR *dir;
-	struct dirent *de;
-	char fn[256];
-	char tmp[256]="";
-	char *mb, *cur;
-	char *context;
-	int ret;
-	/* If no mailbox, return immediately */
-	if (ast_strlen_zero(mailbox))
-		return 0;
-	if (strchr(mailbox, ',')) {
-		strncpy(tmp, mailbox, sizeof(tmp) - 1);
-		mb = tmp;
-		ret = 0;
-		while((cur = strsep(&mb, ","))) {
-			if (!ast_strlen_zero(cur)) {
-				if (ast_app_has_voicemail(cur))
-					return 1; 
-			}
-		}
-		return 0;
+	ast_has_voicemail_func = has_voicemail_func;
+	ast_messagecount_func = messagecount_func;
+}
+
+void ast_uninstall_vm_functions(void)
+{
+	ast_has_voicemail_func = NULL;
+	ast_messagecount_func = NULL;
+}
+
+int ast_app_has_voicemail(const char *mailbox, const char *folder)
+{
+	static int warned = 0;
+	if (ast_has_voicemail_func)
+		return ast_has_voicemail_func(mailbox, folder);
+
+	if ((option_verbose > 2) && !warned) {
+		ast_verbose(VERBOSE_PREFIX_3 "Message check requested for mailbox %s/folder %s but voicemail not loaded.\n", mailbox, folder ? folder : "INBOX");
+		warned++;
 	}
-	strncpy(tmp, mailbox, sizeof(tmp) - 1);
-	context = strchr(tmp, '@');
-	if (context) {
-		*context = '\0';
-		context++;
-	} else
-		context = "default";
-	snprintf(fn, sizeof(fn), "%s/voicemail/%s/%s/INBOX", (char *)ast_config_AST_SPOOL_DIR, context, tmp);
-	dir = opendir(fn);
-	if (!dir)
-		return 0;
-	while ((de = readdir(dir))) {
-		if (!strncasecmp(de->d_name, "msg", 3))
-			break;
-	}
-	closedir(dir);
-	if (de)
-		return 1;
 	return 0;
 }
 
+
 int ast_app_messagecount(const char *mailbox, int *newmsgs, int *oldmsgs)
 {
-	DIR *dir;
-	struct dirent *de;
-	char fn[256];
-	char tmp[256]="";
-	char *mb, *cur;
-	char *context;
-	int ret;
+	static int warned = 0;
 	if (newmsgs)
 		*newmsgs = 0;
 	if (oldmsgs)
 		*oldmsgs = 0;
-	/* If no mailbox, return immediately */
-	if (ast_strlen_zero(mailbox))
-		return 0;
-	if (strchr(mailbox, ',')) {
-		int tmpnew, tmpold;
-		strncpy(tmp, mailbox, sizeof(tmp) - 1);
-		mb = tmp;
-		ret = 0;
-		while((cur = strsep(&mb, ", "))) {
-			if (!ast_strlen_zero(cur)) {
-				if (ast_app_messagecount(cur, newmsgs ? &tmpnew : NULL, oldmsgs ? &tmpold : NULL))
-					return -1;
-				else {
-					if (newmsgs)
-						*newmsgs += tmpnew; 
-					if (oldmsgs)
-						*oldmsgs += tmpold;
-				}
-			}
-		}
-		return 0;
+	if (ast_messagecount_func)
+		return ast_messagecount_func(mailbox, newmsgs, oldmsgs);
+
+	if (!warned && (option_verbose > 2)) {
+		warned++;
+		ast_verbose(VERBOSE_PREFIX_3 "Message count requested for mailbox %s but voicemail not loaded.\n", mailbox);
 	}
-	strncpy(tmp, mailbox, sizeof(tmp) - 1);
-	context = strchr(tmp, '@');
-	if (context) {
-		*context = '\0';
-		context++;
-	} else
-		context = "default";
-	if (newmsgs) {
-		snprintf(fn, sizeof(fn), "%s/voicemail/%s/%s/INBOX", (char *)ast_config_AST_SPOOL_DIR, context, tmp);
-		dir = opendir(fn);
-		if (dir) {
-			while ((de = readdir(dir))) {
-				if ((strlen(de->d_name) > 3) && !strncasecmp(de->d_name, "msg", 3) &&
-					!strcasecmp(de->d_name + strlen(de->d_name) - 3, "txt"))
-						(*newmsgs)++;
-					
-			}
-			closedir(dir);
-		}
-	}
-	if (oldmsgs) {
-		snprintf(fn, sizeof(fn), "%s/voicemail/%s/%s/Old", (char *)ast_config_AST_SPOOL_DIR, context, tmp);
-		dir = opendir(fn);
-		if (dir) {
-			while ((de = readdir(dir))) {
-				if ((strlen(de->d_name) > 3) && !strncasecmp(de->d_name, "msg", 3) &&
-					!strcasecmp(de->d_name + strlen(de->d_name) - 3, "txt"))
-						(*oldmsgs)++;
-					
-			}
-			closedir(dir);
-		}
-	}
+
 	return 0;
 }
 
@@ -360,9 +355,9 @@ static void *linear_alloc(struct ast_channel *chan, void *params)
 	if (params) {
 		ls = params;
 		if (ls->allowoverride)
-			chan->writeinterrupt = 1;
+			ast_set_flag(chan, AST_FLAG_WRITE_INT);
 		else
-			chan->writeinterrupt = 0;
+			ast_clear_flag(chan, AST_FLAG_WRITE_INT);
 		ls->origwfmt = chan->writeformat;
 		if (ast_set_write_format(chan, AST_FORMAT_SLINEAR)) {
 			ast_log(LOG_WARNING, "Unable to set '%s' to linear format (write)\n", chan->name);
@@ -391,7 +386,7 @@ int ast_linear_stream(struct ast_channel *chan, const char *filename, int fd, in
 			return -1;
 		autoclose = 1;
 		if (filename[0] == '/') 
-			strncpy(tmpf, filename, sizeof(tmpf) - 1);
+			ast_copy_string(tmpf, filename, sizeof(tmpf));
 		else
 			snprintf(tmpf, sizeof(tmpf), "%s/%s/%s", (char *)ast_config_AST_VAR_DIR, "sounds", filename);
 		fd = open(tmpf, O_RDONLY);
@@ -411,9 +406,11 @@ int ast_linear_stream(struct ast_channel *chan, const char *filename, int fd, in
 	return res;
 }
 
-int ast_control_streamfile(struct ast_channel *chan, char *file, char *fwd, char *rev, char *stop, char *pause, int skipms) 
+int ast_control_streamfile(struct ast_channel *chan, const char *file,
+			   const char *fwd, const char *rev,
+			   const char *stop, const char *pause,
+			   const char *restart, int skipms) 
 {
-	struct timeval started, ended;
 	long elapsed = 0,last_elapsed =0;
 	char *breaks=NULL;
 	char *end=NULL;
@@ -424,12 +421,18 @@ int ast_control_streamfile(struct ast_channel *chan, char *file, char *fwd, char
 		blen += strlen(stop);
 	if (pause)
 		blen += strlen(pause);
+	if (restart)
+		blen += strlen(restart);
 
 	if (blen > 2) {
 		breaks = alloca(blen + 1);
 		breaks[0] = '\0';
-		strcat(breaks, stop);
-		strcat(breaks, pause);
+		if (stop)
+			strcat(breaks, stop);
+		if (pause)
+			strcat(breaks, pause);
+		if (restart)
+			strcat(breaks, restart);
 	}
 	if (chan->_state != AST_STATE_UP)
 		res = ast_answer(chan);
@@ -448,7 +451,7 @@ int ast_control_streamfile(struct ast_channel *chan, char *file, char *fwd, char
 	}
 
 	for (;;) {
-		gettimeofday(&started,NULL);
+		struct timeval started = ast_tvnow();
 
 		if (chan)
 			ast_stopstream(chan);
@@ -472,9 +475,15 @@ int ast_control_streamfile(struct ast_channel *chan, char *file, char *fwd, char
 		if (res < 1)
 			break;
 
+		/* We go at next loop if we got the restart char */
+		if (restart && strchr(restart, res)) {
+			ast_log(LOG_DEBUG, "we'll restart the stream here at next loop\n");
+			elapsed=0; /* To make sure the next stream will start at beginning */
+			continue;
+		}
+
 		if (pause != NULL && strchr(pause, res)) {
-			gettimeofday(&ended, NULL);
-			elapsed = (((ended.tv_sec * 1000) + ended.tv_usec / 1000) - ((started.tv_sec * 1000) + started.tv_usec / 1000) + last_elapsed);
+			elapsed = ast_tvdiff_ms(ast_tvnow(), started) + last_elapsed;
 			for(;;) {
 				if (chan)
 					ast_stopstream(chan);
@@ -504,7 +513,7 @@ int ast_control_streamfile(struct ast_channel *chan, char *file, char *fwd, char
 	return res;
 }
 
-int ast_play_and_wait(struct ast_channel *chan, char *fn)
+int ast_play_and_wait(struct ast_channel *chan, const char *fn)
 {
 	int d;
 	d = ast_streamfile(chan, fn, chan->language);
@@ -518,7 +527,7 @@ int ast_play_and_wait(struct ast_channel *chan, char *fn)
 static int global_silence_threshold = 128;
 static int global_maxsilence = 0;
 
-int ast_play_and_record(struct ast_channel *chan, char *playfile, char *recordfile, int maxtime, char *fmt, int *duration, int silencethreshold, int maxsilence, const char *path)
+int ast_play_and_record(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, int silencethreshold, int maxsilence, const char *path)
 {
 	int d;
 	char *fmts;
@@ -579,7 +588,7 @@ int ast_play_and_record(struct ast_channel *chan, char *playfile, char *recordfi
 	end=start;  /* pre-initialize end to be same as start in case we never get into loop */
 	for (x=0;x<fmtcnt;x++) {
 		others[x] = ast_writefile(recordfile, sfmt[x], comment, O_TRUNC, 0, 0700);
-		ast_verbose( VERBOSE_PREFIX_3 "x=%i, open writing:  %s format: %s, %p\n", x, recordfile, sfmt[x], others[x]);
+		ast_verbose( VERBOSE_PREFIX_3 "x=%d, open writing:  %s format: %s, %p\n", x, recordfile, sfmt[x], others[x]);
 
 		if (!others[x]) {
 			break;
@@ -588,6 +597,7 @@ int ast_play_and_record(struct ast_channel *chan, char *playfile, char *recordfi
 
 	if (path)
 		ast_unlock_path(path);
+
 
 	
 	if (maxsilence > 0) {
@@ -646,8 +656,8 @@ int ast_play_and_record(struct ast_channel *chan, char *playfile, char *recordfi
 
 					if (totalsilence > maxsilence) {
 						/* Ended happily with silence */
-                                        	if (option_verbose > 2)
-                                                	ast_verbose( VERBOSE_PREFIX_3 "Recording automatically stopped after a silence of %d seconds\n", totalsilence/1000);
+						if (option_verbose > 2)
+							ast_verbose( VERBOSE_PREFIX_3 "Recording automatically stopped after a silence of %d seconds\n", totalsilence/1000);
 						ast_frfree(f);
 						gotsilence = 1;
 						outmsg=2;
@@ -779,7 +789,7 @@ int ast_play_and_prepend(struct ast_channel *chan, char *playfile, char *recordf
 		if (d < 0)
 			return -1;
 	}
-	strncpy(prependfile, recordfile, sizeof(prependfile) -1);	
+	ast_copy_string(prependfile, recordfile, sizeof(prependfile));	
 	strncat(prependfile, "-prepend", sizeof(prependfile) - strlen(prependfile) - 1);
 			
 	fmts = ast_strdupa(fmt);
@@ -801,7 +811,7 @@ int ast_play_and_prepend(struct ast_channel *chan, char *playfile, char *recordf
 	end=start;  /* pre-initialize end to be same as start in case we never get into loop */
 	for (x=0;x<fmtcnt;x++) {
 		others[x] = ast_writefile(prependfile, sfmt[x], comment, O_TRUNC, 0, 0700);
-		ast_verbose( VERBOSE_PREFIX_3 "x=%i, open writing:  %s format: %s, %p\n", x, prependfile, sfmt[x], others[x]);
+		ast_verbose( VERBOSE_PREFIX_3 "x=%d, open writing:  %s format: %s, %p\n", x, prependfile, sfmt[x], others[x]);
 		if (!others[x]) {
 			break;
 		}
@@ -968,36 +978,178 @@ int ast_play_and_prepend(struct ast_channel *chan, char *playfile, char *recordf
 	return res;
 }
 
-int ast_lock_path(const char *path)
+/* Channel group core functions */
+
+int ast_app_group_split_group(char *data, char *group, int group_max, char *category, int category_max)
+{
+	int res=0;
+	char tmp[256] = "";
+	char *grp=NULL, *cat=NULL;
+
+	if (data && !ast_strlen_zero(data)) {
+		ast_copy_string(tmp, data, sizeof(tmp));
+		grp = tmp;
+		cat = strchr(tmp, '@');
+		if (cat) {
+			*cat = '\0';
+			cat++;
+		}
+	}
+
+	if (grp && !ast_strlen_zero(grp))
+		ast_copy_string(group, grp, group_max);
+	else
+		res = -1;
+
+	if (cat)
+		snprintf(category, category_max, "%s_%s", GROUP_CATEGORY_PREFIX, cat);
+	else
+		ast_copy_string(category, GROUP_CATEGORY_PREFIX, category_max);
+
+	return res;
+}
+
+int ast_app_group_set_channel(struct ast_channel *chan, char *data)
+{
+	int res=0;
+	char group[80] = "";
+	char category[80] = "";
+
+	if (!ast_app_group_split_group(data, group, sizeof(group), category, sizeof(category))) {
+		pbx_builtin_setvar_helper(chan, category, group);
+	} else
+		res = -1;
+
+	return res;
+}
+
+int ast_app_group_get_count(char *group, char *category)
+{
+	struct ast_channel *chan;
+	int count = 0;
+	char *test;
+	char cat[80] = "";
+	char *s;
+
+	if (group == NULL || ast_strlen_zero(group))
+		return 0;
+
+ 	s = (category && !ast_strlen_zero(category)) ? category : GROUP_CATEGORY_PREFIX;
+	ast_copy_string(cat, s, sizeof(cat));
+
+	chan = NULL;
+	while ((chan = ast_channel_walk_locked(chan)) != NULL) {
+ 		test = pbx_builtin_getvar_helper(chan, cat);
+		if (test && !strcasecmp(test, group))
+ 			count++;
+		ast_mutex_unlock(&chan->lock);
+	}
+
+	return count;
+}
+
+int ast_app_group_match_get_count(char *groupmatch, char *category)
+{
+	regex_t regexbuf;
+	struct ast_channel *chan;
+	int count = 0;
+	char *test;
+	char cat[80] = "";
+	char *s;
+
+	if (!groupmatch || ast_strlen_zero(groupmatch))
+		return 0;
+
+	/* if regex compilation fails, return zero matches */
+	if (regcomp(&regexbuf, groupmatch, REG_EXTENDED | REG_NOSUB))
+		return 0;
+
+	s = (category && !ast_strlen_zero(category)) ? category : GROUP_CATEGORY_PREFIX;
+	ast_copy_string(cat, s, sizeof(cat));
+
+	chan = NULL;
+	while ((chan = ast_channel_walk_locked(chan)) != NULL) {
+		test = pbx_builtin_getvar_helper(chan, cat);
+		if (test && !regexec(&regexbuf, test, 0, NULL, 0))
+			count++;
+		ast_mutex_unlock(&chan->lock);
+	}
+
+	regfree(&regexbuf);
+
+	return count;
+}
+
+int ast_separate_app_args(char *buf, char delim, char **array, int arraylen)
+{
+	int argc;
+	char *scan;
+	int paren = 0;
+
+	if (!buf || !array || !arraylen)
+		return 0;
+
+	memset(array, 0, arraylen * sizeof(*array));
+
+	scan = buf;
+
+	for (argc = 0; *scan && (argc < arraylen - 1); argc++) {
+		array[argc] = scan;
+		for (; *scan; scan++) {
+			if (*scan == '(')
+				paren++;
+			else if (*scan == ')') {
+				if (paren)
+					paren--;
+			} else if ((*scan == delim) && !paren) {
+				*scan++ = '\0';
+				break;
+			}
+		}
+	}
+
+	if (*scan)
+		array[argc++] = scan;
+
+	return argc;
+}
+
+enum AST_LOCK_RESULT ast_lock_path(const char *path)
 {
 	char *s;
 	char *fs;
 	int res;
 	int fd;
 	time_t start;
+
 	s = alloca(strlen(path) + 10);
 	fs = alloca(strlen(path) + 20);
+
 	if (!fs || !s) {
 		ast_log(LOG_WARNING, "Out of memory!\n");
-		return -1;
+		return AST_LOCK_FAILURE;
 	}
-	snprintf(fs, strlen(path) + 19, "%s/%s-%08x", path, ".lock", rand());
+
+	snprintf(fs, strlen(path) + 19, "%s/.lock-%08x", path, rand());
 	fd = open(fs, O_WRONLY | O_CREAT | O_EXCL, 0600);
 	if (fd < 0) {
-		fprintf(stderr, "Unable to create lock file: %s\n", strerror(errno));
-		return -1;
+		fprintf(stderr, "Unable to create lock file '%s': %s\n", path, strerror(errno));
+		return AST_LOCK_PATH_NOT_FOUND;
 	}
 	close(fd);
-	snprintf(s, strlen(path) + 9, "%s/%s", path, ".lock");
+
+	snprintf(s, strlen(path) + 9, "%s/.lock", path);
 	time(&start);
 	while (((res = link(fs, s)) < 0) && (errno == EEXIST) && (time(NULL) - start < 5))
 		usleep(1);
-	if (res < 0) {
+	if (res) {
 		ast_log(LOG_WARNING, "Failed to lock path '%s': %s\n", path, strerror(errno));
+		return AST_LOCK_TIMEOUT;
+	} else {
+		unlink(fs);
+		ast_log(LOG_DEBUG, "Locked path '%s'\n", path);
+		return AST_LOCK_SUCCESS;
 	}
-	unlink(fs);
-	ast_log(LOG_DEBUG, "Locked path '%s'\n", path);
-	return res;
 }
 
 int ast_unlock_path(const char *path)
@@ -1009,5 +1161,376 @@ int ast_unlock_path(const char *path)
 	snprintf(s, strlen(path) + 9, "%s/%s", path, ".lock");
 	ast_log(LOG_DEBUG, "Unlocked path '%s'\n", path);
 	return unlink(s);
+}
+
+int ast_record_review(struct ast_channel *chan, const char *playfile, const char *recordfile, int maxtime, const char *fmt, int *duration, const char *path) 
+{
+	int silencethreshold = 128; 
+	int maxsilence=0;
+	int res = 0;
+	int cmd = 0;
+	int max_attempts = 3;
+	int attempts = 0;
+	int recorded = 0;
+	int message_exists = 0;
+	/* Note that urgent and private are for flagging messages as such in the future */
+
+	/* barf if no pointer passed to store duration in */
+	if (duration == NULL) {
+		ast_log(LOG_WARNING, "Error ast_record_review called without duration pointer\n");
+		return -1;
+	}
+
+	cmd = '3';	 /* Want to start by recording */
+
+	while ((cmd >= 0) && (cmd != 't')) {
+		switch (cmd) {
+		case '1':
+			if (!message_exists) {
+				/* In this case, 1 is to record a message */
+				cmd = '3';
+				break;
+			} else {
+				ast_streamfile(chan, "vm-msgsaved", chan->language);
+				ast_waitstream(chan, "");
+				cmd = 't';
+				return res;
+			}
+		case '2':
+			/* Review */
+			ast_verbose(VERBOSE_PREFIX_3 "Reviewing the recording\n");
+			ast_streamfile(chan, recordfile, chan->language);
+			cmd = ast_waitstream(chan, AST_DIGIT_ANY);
+			break;
+		case '3':
+			message_exists = 0;
+			/* Record */
+			if (recorded == 1)
+				ast_verbose(VERBOSE_PREFIX_3 "Re-recording\n");
+			else	
+				ast_verbose(VERBOSE_PREFIX_3 "Recording\n");
+			recorded = 1;
+			cmd = ast_play_and_record(chan, playfile, recordfile, maxtime, fmt, duration, silencethreshold, maxsilence, path);
+			if (cmd == -1) {
+			/* User has hung up, no options to give */
+				return cmd;
+			}
+			if (cmd == '0') {
+				break;
+			} else if (cmd == '*') {
+				break;
+			} 
+			else {
+				/* If all is well, a message exists */
+				message_exists = 1;
+				cmd = 0;
+			}
+			break;
+		case '4':
+		case '5':
+		case '6':
+		case '7':
+		case '8':
+		case '9':
+		case '*':
+		case '#':
+			cmd = ast_play_and_wait(chan, "vm-sorry");
+			break;
+		default:
+			if (message_exists) {
+				cmd = ast_play_and_wait(chan, "vm-review");
+			}
+			else {
+				cmd = ast_play_and_wait(chan, "vm-torerecord");
+				if (!cmd)
+					cmd = ast_waitfordigit(chan, 600);
+			}
+			
+			if (!cmd)
+				cmd = ast_waitfordigit(chan, 6000);
+			if (!cmd) {
+				attempts++;
+			}
+			if (attempts > max_attempts) {
+				cmd = 't';
+			}
+		}
+	}
+	if (cmd == 't')
+		cmd = 0;
+	return cmd;
+}
+
+#define RES_UPONE (1 << 16)
+#define RES_EXIT  (1 << 17)
+#define RES_REPEAT (1 << 18)
+#define RES_RESTART ((1 << 19) | RES_REPEAT)
+
+static int ast_ivr_menu_run_internal(struct ast_channel *chan, struct ast_ivr_menu *menu, void *cbdata);
+static int ivr_dispatch(struct ast_channel *chan, struct ast_ivr_option *option, char *exten, void *cbdata)
+{
+	int res;
+	int (*ivr_func)(struct ast_channel *, void *);
+	char *c;
+	char *n;
+	
+	switch(option->action) {
+	case AST_ACTION_UPONE:
+		return RES_UPONE;
+	case AST_ACTION_EXIT:
+		return RES_EXIT | (((unsigned long)(option->adata)) & 0xffff);
+	case AST_ACTION_REPEAT:
+		return RES_REPEAT | (((unsigned long)(option->adata)) & 0xffff);
+	case AST_ACTION_RESTART:
+		return RES_RESTART ;
+	case AST_ACTION_NOOP:
+		return 0;
+	case AST_ACTION_BACKGROUND:
+		res = ast_streamfile(chan, (char *)option->adata, chan->language);
+		if (!res) {
+			res = ast_waitstream(chan, AST_DIGIT_ANY);
+		} else {
+			ast_log(LOG_NOTICE, "Unable to find file '%s'!\n", (char *)option->adata);
+			res = 0;
+		}
+		return res;
+	case AST_ACTION_PLAYBACK:
+		res = ast_streamfile(chan, (char *)option->adata, chan->language);
+		if (!res) {
+			res = ast_waitstream(chan, "");
+		} else {
+			ast_log(LOG_NOTICE, "Unable to find file '%s'!\n", (char *)option->adata);
+			res = 0;
+		}
+		return res;
+	case AST_ACTION_MENU:
+		res = ast_ivr_menu_run_internal(chan, (struct ast_ivr_menu *)option->adata, cbdata);
+		/* Do not pass entry errors back up, treaat ast though ti was an "UPONE" */
+		if (res == -2)
+			res = 0;
+		return res;
+	case AST_ACTION_WAITOPTION:
+		res = ast_waitfordigit(chan, 1000 * (chan->pbx ? chan->pbx->rtimeout : 10));
+		if (!res)
+			return 't';
+		return res;
+	case AST_ACTION_CALLBACK:
+		ivr_func = option->adata;
+		res = ivr_func(chan, cbdata);
+		return res;
+	case AST_ACTION_TRANSFER:
+		res = ast_parseable_goto(chan, option->adata);
+		return 0;
+	case AST_ACTION_PLAYLIST:
+	case AST_ACTION_BACKLIST:
+		res = 0;
+		c = ast_strdupa(option->adata);
+		if (c) {
+			while((n = strsep(&c, ";")))
+				if ((res = ast_streamfile(chan, n, chan->language)) || (res = ast_waitstream(chan, (option->action == AST_ACTION_BACKLIST) ? AST_DIGIT_ANY : "")))
+					break;
+			ast_stopstream(chan);
+		}
+		return res;
+	default:
+		ast_log(LOG_NOTICE, "Unknown dispatch function %d, ignoring!\n", option->action);
+		return 0;
+	};
+	return -1;
+}
+
+static int option_exists(struct ast_ivr_menu *menu, char *option)
+{
+	int x;
+	for (x=0;menu->options[x].option;x++)
+		if (!strcasecmp(menu->options[x].option, option))
+			return x;
+	return -1;
+}
+
+static int option_matchmore(struct ast_ivr_menu *menu, char *option)
+{
+	int x;
+	for (x=0;menu->options[x].option;x++)
+		if ((!strncasecmp(menu->options[x].option, option, strlen(option))) && 
+				(menu->options[x].option[strlen(option)]))
+			return x;
+	return -1;
+}
+
+static int read_newoption(struct ast_channel *chan, struct ast_ivr_menu *menu, char *exten, int maxexten)
+{
+	int res=0;
+	int ms;
+	while(option_matchmore(menu, exten)) {
+		ms = chan->pbx ? chan->pbx->dtimeout : 5000;
+		if (strlen(exten) >= maxexten - 1) 
+			break;
+		res = ast_waitfordigit(chan, ms);
+		if (res < 1)
+			break;
+		exten[strlen(exten) + 1] = '\0';
+		exten[strlen(exten)] = res;
+	}
+	return res > 0 ? 0 : res;
+}
+
+static int ast_ivr_menu_run_internal(struct ast_channel *chan, struct ast_ivr_menu *menu, void *cbdata)
+{
+	/* Execute an IVR menu structure */
+	int res=0;
+	int pos = 0;
+	int retries = 0;
+	char exten[AST_MAX_EXTENSION] = "s";
+	if (option_exists(menu, "s") < 0) {
+		strcpy(exten, "g");
+		if (option_exists(menu, "g") < 0) {
+			ast_log(LOG_WARNING, "No 's' nor 'g' extension in menu '%s'!\n", menu->title);
+			return -1;
+		}
+	}
+	while(!res) {
+		while(menu->options[pos].option) {
+			if (!strcasecmp(menu->options[pos].option, exten)) {
+				res = ivr_dispatch(chan, menu->options + pos, exten, cbdata);
+				ast_log(LOG_DEBUG, "IVR Dispatch of '%s' (pos %d) yields %d\n", exten, pos, res);
+				if (res < 0)
+					break;
+				else if (res & RES_UPONE)
+					return 0;
+				else if (res & RES_EXIT)
+					return res;
+				else if (res & RES_REPEAT) {
+					int maxretries = res & 0xffff;
+					if ((res & RES_RESTART) == RES_RESTART) {
+						retries = 0;
+					} else
+						retries++;
+					if (!maxretries)
+						maxretries = 3;
+					if ((maxretries > 0) && (retries >= maxretries)) {
+						ast_log(LOG_DEBUG, "Max retries %d exceeded\n", maxretries);
+						return -2;
+					} else {
+						if (option_exists(menu, "g") > -1) 
+							strcpy(exten, "g");
+						else if (option_exists(menu, "s") > -1)
+							strcpy(exten, "s");
+					}
+					pos=0;
+					continue;
+				} else if (res && strchr(AST_DIGIT_ANY, res)) {
+					ast_log(LOG_DEBUG, "Got start of extension, %c\n", res);
+					exten[1] = '\0';
+					exten[0] = res;
+					if ((res = read_newoption(chan, menu, exten, sizeof(exten))))
+						break;
+					if (option_exists(menu, exten) < 0) {
+						if (option_exists(menu, "i")) {
+							ast_log(LOG_DEBUG, "Invalid extension entered, going to 'i'!\n");
+							strcpy(exten, "i");
+							pos = 0;
+							continue;
+						} else {
+							ast_log(LOG_DEBUG, "Aborting on invalid entry, with no 'i' option!\n");
+							res = -2;
+							break;
+						}
+					} else {
+						ast_log(LOG_DEBUG, "New existing extension: %s\n", exten);
+						pos = 0;
+						continue;
+					}
+				}
+			}
+			pos++;
+		}
+		ast_log(LOG_DEBUG, "Stopping option '%s', res is %d\n", exten, res);
+		pos = 0;
+		if (!strcasecmp(exten, "s"))
+			strcpy(exten, "g");
+		else
+			break;
+	}
+	return res;
+}
+
+int ast_ivr_menu_run(struct ast_channel *chan, struct ast_ivr_menu *menu, void *cbdata)
+{
+	int res;
+	res = ast_ivr_menu_run_internal(chan, menu, cbdata);
+	/* Hide internal coding */
+	if (res > 0)
+		res = 0;
+	return res;
+}
+	
+char *ast_read_textfile(const char *filename)
+{
+	int fd;
+	char *output=NULL;
+	struct stat filesize;
+	int count=0;
+	int res;
+	if(stat(filename,&filesize)== -1){
+		ast_log(LOG_WARNING,"Error can't stat %s\n", filename);
+		return NULL;
+	}
+	count=filesize.st_size + 1;
+	fd = open(filename, O_RDONLY);
+	if (fd < 0) {
+		ast_log(LOG_WARNING, "Cannot open file '%s' for reading: %s\n", filename, strerror(errno));
+		return NULL;
+	}
+	output=(char *)malloc(count);
+	if (output) {
+		res = read(fd, output, count - 1);
+		if (res == count - 1) {
+			output[res] = '\0';
+		} else {
+			ast_log(LOG_WARNING, "Short read of %s (%d of %d): %s\n", filename, res, count -  1, strerror(errno));
+			free(output);
+			output = NULL;
+		}
+	} else 
+		ast_log(LOG_WARNING, "Out of memory!\n");
+	close(fd);
+	return output;
+}
+
+int ast_parseoptions(const struct ast_option *options, struct ast_flags *flags, char **args, char *optstr)
+{
+	char *s;
+	int curarg;
+	int argloc;
+	char *arg;
+	int res = 0;
+	flags->flags = 0;
+	if (!optstr)
+		return 0;
+	s = optstr;
+	while(*s) {
+		curarg = *s & 0x7f;
+		flags->flags |= options[curarg].flag;
+		argloc = options[curarg].argoption;
+		s++;
+		if (*s == '(') {
+			/* Has argument */
+			s++;
+			arg = s;
+			while(*s && (*s != ')')) s++;
+			if (*s) {
+				if (argloc)
+					args[argloc - 1] = arg;
+				*s = '\0';
+				s++;
+			} else {
+				ast_log(LOG_WARNING, "Missing closing parenthesis for argument '%c'\n", curarg);
+				res = -1;
+			}
+		} else if (argloc)
+			args[argloc - 1] = NULL;
+	}
+	return res;
 }
 

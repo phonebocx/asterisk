@@ -3,11 +3,11 @@
  *
  * Exec application
  *
- * Copyright (c) 2004 Tilghman Lesher.  All rights reserved.
+ * Copyright (c) 2004 - 2005, Tilghman Lesher.  All rights reserved.
  *
  * Tilghman Lesher <app_exec__v001@the-tilghman.com>
  *
- * $Id: app_exec.c,v 1.1 2004/04/20 20:05:14 citats Exp $
+ * $Id: app_exec.c,v 1.6 2005/06/06 22:39:31 kpfleming Exp $
  *
  * This code is released by the author with no restrictions on usage.
  *
@@ -17,12 +17,17 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.6 $")
+
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
 
 /* Maximum length of any variable */
 #define MAXRESULT	1024
@@ -31,13 +36,14 @@ static char *tdesc = "Executes applications";
 
 static char *app_exec = "Exec";
 
-static char *exec_synopsis = "Exec(Appname(arguments))";
+static char *exec_synopsis = "Executes internal application";
 
 static char *exec_descrip =
-"Exec(appname(arguments))\n"
+"Usage: Exec(appname(arguments))\n"
 "  Allows an arbitrary application to be invoked even when not\n"
-"hardcoded into the dialplan.  Returns whatever value the\n"
-"app returns or -2 when the app cannot be found.\n";
+"hardcoded into the dialplan. To invoke external applications\n"
+"see the application System. Returns whatever value the\n"
+"app returns or a non-zero value if the app cannot be found.\n";
 
 STANDARD_LOCAL_USER;
 
@@ -71,7 +77,7 @@ static int exec_exec(struct ast_channel *chan, void *data)
 					res = pbx_exec(chan, app, args, 1);
 				} else {
 					ast_log(LOG_WARNING, "Could not find application (%s)\n", appname);
-					res = -2;
+					res = -1;
 				}
 			}
 		} else {

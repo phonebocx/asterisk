@@ -16,12 +16,17 @@
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <asterisk/lock.h>
-#include <asterisk/vmodem.h>
-#include <asterisk/module.h>
-#include <asterisk/frame.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.17 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/vmodem.h"
+#include "asterisk/module.h"
+#include "asterisk/frame.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
 
 #define STATE_COMMAND 	0
 #define STATE_VOICE 	1
@@ -460,11 +465,7 @@ static struct ast_modem_driver aopen_driver =
 
 int usecount(void)
 {
-	int res;
-	ast_mutex_lock(&usecnt_lock);
-	res = usecnt;
-	ast_mutex_unlock(&usecnt_lock);
-	return res;
+	return usecnt;
 }
 
 int load_module(void)

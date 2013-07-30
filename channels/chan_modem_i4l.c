@@ -18,15 +18,21 @@
 #include <errno.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
-#include <asterisk/lock.h>
-#include <asterisk/vmodem.h>
-#include <asterisk/module.h>
-#include <asterisk/frame.h>
-#include <asterisk/logger.h>
-#include <asterisk/options.h>
-#include <asterisk/dsp.h>
-#include <asterisk/callerid.h>
-#include "alaw.h"
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.30 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/vmodem.h"
+#include "asterisk/module.h"
+#include "asterisk/frame.h"
+#include "asterisk/logger.h"
+#include "asterisk/options.h"
+#include "asterisk/dsp.h"
+#include "asterisk/callerid.h"
+#include "asterisk/ulaw.h"
+#include "asterisk/pbx.h"
 
 #define STATE_COMMAND 	0
 #define STATE_VOICE 	1
@@ -105,7 +111,7 @@ static int i4l_startrec(struct ast_modem_pvt *p)
 			p->dsp = ast_dsp_new();
 			if (p->dsp) {
 				ast_log(LOG_DEBUG, "Detecting DTMF inband with sw DSP on %s\n",p->dev);
-				ast_dsp_set_features(p->dsp, DSP_FEATURE_DTMF_DETECT);
+				ast_dsp_set_features(p->dsp, DSP_FEATURE_DTMF_DETECT|DSP_FEATURE_FAX_DETECT);
 				ast_dsp_digitmode(p->dsp, DSP_DIGITMODE_DTMF | 0);
 			}
 		}
@@ -172,8 +178,8 @@ static int i4l_init(struct ast_modem_pvt *p)
 	if (strlen(p->incomingmsn)) {
 		char *q;
 		snprintf(cmd, sizeof(cmd), "AT&L%s", p->incomingmsn);
-		// translate , into ; since that is the seperator I4L uses, but can't be directly
-		// put in the config file because it will interpret the rest of the line as comment.
+		/* translate , into ; since that is the seperator I4L uses, but can't be directly */
+		/* put in the config file because it will interpret the rest of the line as comment. */
 		q = cmd+4;
 		while (*q) {
 			if (*q == ',') *q = ';';
@@ -211,9 +217,9 @@ static int i4l_init(struct ast_modem_pvt *p)
 		return -1;
 	}
 
-	if (ast_modem_send(p, "AT+VSM=5", 0) ||
+	if (ast_modem_send(p, "AT+VSM=6", 0) ||
 	     ast_modem_expect(p, "OK", 5)) {
-		ast_log(LOG_WARNING, "Unable to set to aLAW mode\n");
+		ast_log(LOG_WARNING, "Unable to set to muLAW mode\n");
 		return -1;
 	}
 	if (ast_modem_send(p, "AT+VLS=2", 0) ||
@@ -319,9 +325,9 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 		/* Read the first two bytes, first, in case it's a control message */
 		res = read(p->fd, result, 2);
 		if (res < 2) {
-			// short read, means there was a hangup?
-			// (or is this also possible without hangup?)
-			// Anyway, reading from unitialized buffers is a bad idea anytime.
+			/* short read, means there was a hangup? */
+			/* (or is this also possible without hangup?) */
+			/* Anyway, reading from unitialized buffers is a bad idea anytime. */
 			if (errno == EAGAIN)
 				return i4l_handle_escape(p, 0);
 			return NULL;
@@ -337,7 +343,7 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 			ast_modem_trim(result);
 			if (!strcasecmp(result, "VCON")) {
 				/* If we're in immediate mode, reply now */
-//				if (p->mode == MODEM_MODE_IMMEDIATE)
+/*				if (p->mode == MODEM_MODE_IMMEDIATE) */
 					return i4l_handle_escape(p, 'X');
 			} else
 			if (!strcasecmp(result, "BUSY")) {
@@ -345,7 +351,7 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 				return i4l_handle_escape(p, 'b');
 			} else
 			if (!strncasecmp(result, "CALLER NUMBER: ", 15 )) {
-				strncpy(p->cid, result + 15, sizeof(p->cid)-1);
+				strncpy(p->cid_num, result + 15, sizeof(p->cid_num)-1);
 				return i4l_handle_escape(p, 0);
 			} else
 			if (!strcasecmp(result, "RINGING")) {
@@ -420,7 +426,7 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 						if (!f)
 							return NULL;
 					} else {
-						*(b++) = ALAW2INT(result[x] & 0xff);
+						*(b++) = AST_MULAW((int)result[x]);
 						p->obuflen += 2;
 					}
 				}
@@ -451,6 +457,31 @@ static struct ast_frame *i4l_read(struct ast_modem_pvt *p)
 			f = ast_dsp_process(p->owner, p->dsp, &p->fr);
 			if (f && (f->frametype == AST_FRAME_DTMF)) {
 				ast_log(LOG_DEBUG, "Detected inband DTMF digit: %c on %s\n", f->subclass, p->dev);
+				if (f->subclass == 'f') {
+					/* Fax tone -- Handle and return NULL */
+					struct ast_channel *ast = p->owner;
+					if (!p->faxhandled) {
+						p->faxhandled++;
+						if (strcmp(ast->exten, "fax")) {
+							const char *target_context = ast_strlen_zero(ast->macrocontext) ? ast->context : ast->macrocontext;
+							
+							if (ast_exists_extension(ast, target_context, "fax", 1, ast->cid.cid_num)) {
+								if (option_verbose > 2)
+									ast_verbose(VERBOSE_PREFIX_3 "Redirecting %s to fax extension\n", ast->name);
+								/* Save the DID/DNIS when we transfer the fax call to a "fax" extension */
+								pbx_builtin_setvar_helper(ast, "FAXEXTEN", ast->exten);
+								if (ast_async_goto(ast, target_context, "fax", 1))
+									ast_log(LOG_WARNING, "Failed to async goto '%s' into fax of '%s'\n", ast->name, target_context);
+							} else
+								ast_log(LOG_NOTICE, "Fax detected, but no fax extension\n");
+						} else
+							ast_log(LOG_DEBUG, "Already in a fax extension, not redirecting\n");
+					} else
+						ast_log(LOG_DEBUG, "Fax already handled\n");
+					p->fr.frametype = AST_FRAME_NULL;
+					p->fr.subclass = 0;
+					f = &p->fr;
+				}
 				return f;
 			}
 		}
@@ -480,7 +511,7 @@ static int i4l_write(struct ast_modem_pvt *p, struct ast_frame *f)
 		return -1;
 	}
 	for (x=0;x<f->datalen/2;x++) {
-		b = INT2ALAW(((short *)f->data)[x]);
+		b = AST_LIN2MU(((short *)f->data)[x]);
 		result[bpos++] = b;
 		if (b == CHAR_DLE)
 			result[bpos++]=b;
@@ -553,7 +584,7 @@ static int i4l_answer(struct ast_modem_pvt *p)
 			p->dsp = ast_dsp_new();
 			if (p->dsp) {
 				ast_log(LOG_DEBUG, "Detecting DTMF inband with sw DSP on %s\n",p->dev);
-				ast_dsp_set_features(p->dsp, DSP_FEATURE_DTMF_DETECT);
+				ast_dsp_set_features(p->dsp, DSP_FEATURE_DTMF_DETECT|DSP_FEATURE_FAX_DETECT);
 				ast_dsp_digitmode(p->dsp, DSP_DIGITMODE_DTMF | 0);
 			}
 		}
@@ -584,30 +615,22 @@ static int i4l_dialdigit(struct ast_modem_pvt *p, char digit)
 static int i4l_dial(struct ast_modem_pvt *p, char *stuff)
 {
 	char cmd[80];
-	char tmp[255];
 	char tmpmsn[255];
-	char *name, *num;
 	struct ast_channel *c = p->owner;
 
-	// Find callerid number first, to set the correct A number
-	if (c && c->callerid && ! c->restrictcid) {
-	  ast_log(LOG_DEBUG, "Finding callerid from %s...\n",c->callerid);
-	  strncpy(tmp, c->callerid, sizeof(tmp) - 1);
-	  ast_callerid_parse(tmp, &name, &num);
-	  if (num) {
-	    ast_shrink_phone_number(num);
-	    snprintf(tmpmsn, sizeof(tmpmsn), ",%s,", num);
+	/* Find callerid number first, to set the correct A number */
+	if (c && c->cid.cid_num && !(c->cid.cid_pres & 0x20)) {
+	    snprintf(tmpmsn, sizeof(tmpmsn), ",%s,", c->cid.cid_num);
 	    if(strlen(p->outgoingmsn) && strstr(p->outgoingmsn,tmpmsn) != NULL) {
-	      // Tell ISDN4Linux to use this as A number
-	      snprintf(cmd, sizeof(cmd), "AT&E%s\n", num);
+	      /* Tell ISDN4Linux to use this as A number */
+	      snprintf(cmd, sizeof(cmd), "AT&E%s\n", c->cid.cid_num);
 	      if (ast_modem_send(p, cmd, strlen(cmd))) {
-		ast_log(LOG_WARNING, "Unable to set A number to %s\n",num);
+		ast_log(LOG_WARNING, "Unable to set A number to %s\n", c->cid.cid_num);
 	      }
 
 	    } else {
-	      ast_log(LOG_WARNING, "Outgoing MSN %s not allowed (see outgoingmsn=%s in modem.conf)\n",num,p->outgoingmsn);
+	      ast_log(LOG_WARNING, "Outgoing MSN %s not allowed (see outgoingmsn=%s in modem.conf)\n",c->cid.cid_num,p->outgoingmsn);
 	    }
-	  }
 	}
 
 	snprintf(cmd, sizeof(cmd), "ATD%c %s\n", p->dialtype,stuff);
@@ -683,11 +706,7 @@ static struct ast_modem_driver i4l_driver =
 
 int usecount(void)
 {
-	int res;
-	ast_mutex_lock(&usecnt_lock);
-	res = usecnt;
-	ast_mutex_unlock(&usecnt_lock);
-	return res;
+	return usecnt;
 }
 
 int load_module(void)

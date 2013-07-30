@@ -3,7 +3,7 @@
  *
  * Execute arbitrary system commands
  * 
- * Copyright (C) 1999-2004, Digium, Inc.
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -11,18 +11,23 @@
  * the GNU General Public License
  */
 
-#include <asterisk/lock.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/app.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
 #include <errno.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+
+#include "asterisk/lock.h"
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/app.h"
 
 static char *tdesc = "Generic System() application";
 
@@ -72,7 +77,7 @@ static int system_exec_helper(struct ast_channel *chan, void *data, int failmode
 	} else {
 		if (res < 0)
 			res = 0;
-		if (res && ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->callerid)) 
+		if (res && ast_exists_extension(chan, chan->context, chan->exten, chan->priority + 101, chan->cid.cid_num)) 
 			chan->priority+=100;
 		res = 0;
 	}

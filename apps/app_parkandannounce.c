@@ -6,31 +6,33 @@
  *    With TONS of help from Mark!
  * 
  * Asterisk is Copyrighted as follows
- * Copyright (C) 1999, Mark Spencer
+ * Copyright (C) 1999 - 2005, Digium, Inc.
  *
- * Mark Spencer <markster@linux-support.net>
+ * Mark Spencer <markster@digium.com>
  *
  * This program is free software, distributed under the terms of
  * the GNU General Public License
  */
 
 #include <sys/types.h>
-#include <asterisk/file.h>
-#include <asterisk/logger.h>
-#include <asterisk/channel.h>
-#include <asterisk/channel_pvt.h>
-#include <asterisk/pbx.h>
-#include <asterisk/module.h>
-#include <asterisk/features.h>
-#include <asterisk/options.h>
-#include <asterisk/logger.h>
-#include <asterisk/say.h>
-#include <asterisk/lock.h>
-
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
-#include <stdlib.h>
+
+#include "asterisk.h"
+
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 1.15 $")
+
+#include "asterisk/file.h"
+#include "asterisk/logger.h"
+#include "asterisk/channel.h"
+#include "asterisk/pbx.h"
+#include "asterisk/module.h"
+#include "asterisk/features.h"
+#include "asterisk/options.h"
+#include "asterisk/logger.h"
+#include "asterisk/say.h"
+#include "asterisk/lock.h"
 
 static char *tdesc = "Call Parking and Announce Application";
 
@@ -142,8 +144,8 @@ static int parkandannounce_exec(struct ast_channel *chan, void *data)
 
 
 	if(option_verbose > 2) {
-		ast_verbose( VERBOSE_PREFIX_3 "Return Context: (%s,%s,%d) ID: %s\n", chan->context,chan->exten, chan->priority, chan->callerid);
-		if(!ast_exists_extension(chan, chan->context, chan->exten, chan->priority, chan->callerid)) {
+		ast_verbose( VERBOSE_PREFIX_3 "Return Context: (%s,%s,%d) ID: %s\n", chan->context,chan->exten, chan->priority, chan->cid.cid_num);
+		if(!ast_exists_extension(chan, chan->context, chan->exten, chan->priority, chan->cid.cid_num)) {
 			ast_verbose( VERBOSE_PREFIX_3 "Warning: Return Context Invalid, call will return to default|s\n");
 		}
 	}
@@ -161,7 +163,7 @@ static int parkandannounce_exec(struct ast_channel *chan, void *data)
 
 	/* Now place the call to the extention */
 
-	dchan = ast_request_and_dial(dialtech, AST_FORMAT_SLINEAR, dialstr,30000, &outstate, chan->callerid);
+	dchan = ast_request_and_dial(dialtech, AST_FORMAT_SLINEAR, dialstr,30000, &outstate, chan->cid.cid_num, chan->cid.cid_name);
 
 	if(dchan) {
 		if(dchan->_state == AST_STATE_UP) {
