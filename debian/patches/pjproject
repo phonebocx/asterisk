@@ -97,9 +97,9 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  /*** MODULEINFO
 +	<use type="external">pjproject</use>
+ 	<depend>uuid</depend>
  	<support_level>core</support_level>
   ***/
- 
 @@ -46,9 +47,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include <openssl/bio.h>
  #endif
