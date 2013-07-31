@@ -29,12 +29,13 @@
  */
 
 /*** MODULEINFO
+	<depend>uuid</depend>
 	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 384049 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 388112 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -2012,7 +2013,7 @@ static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, cha
 {
 	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
 	struct ast_sockaddr remote_address = { {0,} };
-	int hdrlen = 12, res = 0, i = 0;
+	int hdrlen = 12, res = -1, i = 0;
 	char data[256];
 	unsigned int *rtpheader = (unsigned int*)data;
 	unsigned int measured_samples;
@@ -2021,7 +2022,7 @@ static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, cha
 
 	/* Make sure we know where the remote side is so we can send them the packet we construct */
 	if (ast_sockaddr_isnull(&remote_address)) {
-		return -1;
+		goto cleanup;
 	}
 
 	/* Convert the given digit to the one we are going to send */
@@ -2037,7 +2038,7 @@ static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, cha
 		digit = digit - 'a' + 12;
 	} else {
 		ast_log(LOG_WARNING, "Don't know how to represent '%c'\n", digit);
-		return -1;
+		goto cleanup;
 	}
 
 	rtp->dtmfmute = ast_tvadd(ast_tvnow(), ast_tv(0, 500000));
@@ -2078,13 +2079,15 @@ static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, cha
 
 		rtp->seqno++;
 	}
+	res = 0;
 
 	/* Oh and we can't forget to turn off the stuff that says we are sending DTMF */
 	rtp->lastts += rtp->send_duration;
+cleanup:
 	rtp->sending_digit = 0;
 	rtp->send_digit = 0;
 
-	return 0;
+	return res;
 }
 
 static int ast_rtp_dtmf_end(struct ast_rtp_instance *instance, char digit)
@@ -4136,8 +4139,7 @@ static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level)
 {
 	unsigned int *rtpheader;
 	int hdrlen = 12;
-	int res;
-	int payload;
+	int res, payload = 0;
 	char data[256];
 	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
 	struct ast_sockaddr remote_address = { {0,} };
@@ -4157,7 +4159,7 @@ static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level)
 
 	/* Get a pointer to the header */
 	rtpheader = (unsigned int *)data;
-	rtpheader[0] = htonl((2 << 30) | (1 << 23) | (payload << 16) | (rtp->seqno++));
+	rtpheader[0] = htonl((2 << 30) | (payload << 16) | (rtp->seqno));
 	rtpheader[1] = htonl(rtp->lastts);
 	rtpheader[2] = htonl(rtp->ssrc); 
 	data[12] = level;
@@ -4177,6 +4179,8 @@ static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level)
 			    ice ? " (via ICE)" : "",
 			    AST_RTP_CN, rtp->seqno, rtp->lastdigitts, res - hdrlen);
 	}
+
+	rtp->seqno++;
 
 	return res;
 }

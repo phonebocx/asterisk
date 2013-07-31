@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 378592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 388769 $")
 
 #include <srtp/srtp.h>
 
@@ -546,6 +546,9 @@ static void res_srtp_shutdown(void)
 {
 	srtp_install_event_handler(NULL);
 	ast_rtp_engine_unregister_srtp();
+#ifdef HAVE_SRTP_SHUTDOWN
+	srtp_shutdown();
+#endif
 	g_initialized = 0;
 }
 

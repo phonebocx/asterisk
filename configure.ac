@@ -20,7 +20,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_AUX_DIR(`pwd`)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 382111 $)
+AC_REVISION($Revision: 388769 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -466,6 +466,7 @@ AST_EXT_LIB_SETUP_DEPENDENT([SPEEX_PREPROCESS], [speex_preprocess_ctl], [], [spe
 AST_EXT_LIB_SETUP([SQLITE], [SQLite], [sqlite])
 AST_EXT_LIB_SETUP([SQLITE3], [SQLite], [sqlite3])
 AST_EXT_LIB_SETUP([SRTP], [Secure RTP], [srtp])
+AST_EXT_LIB_SETUP_OPTIONAL([SRTP_SHUTDOWN], [SRTP Library Shutdown Function], [SRTP], [srtp])
 AST_EXT_LIB_SETUP([OPENSSL], [OpenSSL Secure Sockets Layer], [ssl])
 AST_EXT_LIB_SETUP([SUPPSERV], [mISDN Supplemental Services], [suppserv])
 AST_EXT_LIB_SETUP([FREETDS], [FreeTDS], [tds])
@@ -474,6 +475,7 @@ AST_EXT_LIB_SETUP([TIMERFD], [timerfd], [timerfd])
 AST_EXT_LIB_SETUP([TINFO], [Term Info], [tinfo])
 AST_EXT_LIB_SETUP([TONEZONE], [tonezone], [tonezone])
 AST_EXT_LIB_SETUP([UNIXODBC], [unixODBC], [unixodbc])
+AST_EXT_LIB_SETUP([UUID], [UUID], [uuid])
 AST_EXT_LIB_SETUP([VORBIS], [Vorbis], [vorbis])
 AST_EXT_LIB_SETUP([VPB], [Voicetronix API], [vpb])
 AST_EXT_LIB_SETUP([X11], [X11], [x11])
@@ -2180,6 +2182,7 @@ then
     CFLAGS="${saved_cflags}"
 fi
 
+AST_EXT_LIB_CHECK([SRTP_SHUTDOWN], [srtp], [srtp_shutdown], [srtp/srtp.h])
 
 for ver in 2.0 2.2 2.4 2.6; do
 	AST_PKG_CONFIG_CHECK([GMIME], gmime-$ver)
@@ -2199,6 +2202,8 @@ if test "${tonezone_does_not_need_lm}" = "no" ; then
 fi
 
 AST_EXT_LIB_CHECK([TONEZONE], [tonezone], [tone_zone_find], [dahdi/tonezone.h], [${tonezone_extra} ${DAHDI_INCLUDE}])
+
+AST_EXT_LIB_CHECK([UUID], [uuid], [uuid_generate_random], [uuid/uuid.h])
 
 if test "${OSARCH}" = "OpenBSD";
 then

@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 382234 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 394181 $")
 
 #include <sys/mman.h>
 #include <dirent.h>
@@ -9685,6 +9685,9 @@ static void defer_full_frame(struct iax2_thread *from_here, struct iax2_thread *
 	if (!cur_pkt_buf)
 		AST_LIST_INSERT_TAIL(&to_here->full_frames, pkt_buf, entry);
 
+	to_here->iostate = IAX_IOSTATE_READY;
+	ast_cond_signal(&to_here->cond);
+
 	ast_mutex_unlock(&to_here->lock);
 }
 
@@ -11506,65 +11509,99 @@ immediatedial:
 				}
 				break;
 			case IAX_COMMAND_TXREJ:
-				iaxs[fr->callno]->transferring = 0;
+				if (iaxs[fr->callno]->bridgecallno) {
+					while (ast_mutex_trylock(&iaxsl[iaxs[fr->callno]->bridgecallno])) {
+						DEADLOCK_AVOIDANCE(&iaxsl[fr->callno]);
+					}
+					if (!iaxs[fr->callno]) {
+						break;
+					}
+				}
+
+				iaxs[fr->callno]->transferring = TRANSFER_NONE;
 				ast_verb(3, "Channel '%s' unable to transfer\n", iaxs[fr->callno]->owner ? ast_channel_name(iaxs[fr->callno]->owner) : "<Unknown>");
 				memset(&iaxs[fr->callno]->transfer, 0, sizeof(iaxs[fr->callno]->transfer));
-				if (iaxs[fr->callno]->bridgecallno) {
-					if (iaxs[iaxs[fr->callno]->bridgecallno]->transferring) {
-						iaxs[iaxs[fr->callno]->bridgecallno]->transferring = 0;
-						send_command(iaxs[iaxs[fr->callno]->bridgecallno], AST_FRAME_IAX, IAX_COMMAND_TXREJ, 0, NULL, 0, -1);
-					}
+
+				if (!iaxs[fr->callno]->bridgecallno) {
+					break;
 				}
+
+				if (iaxs[iaxs[fr->callno]->bridgecallno]->transferring) {
+					iaxs[iaxs[fr->callno]->bridgecallno]->transferring = TRANSFER_NONE;
+					send_command(iaxs[iaxs[fr->callno]->bridgecallno], AST_FRAME_IAX, IAX_COMMAND_TXREJ, 0, NULL, 0, -1);
+				}
+				ast_mutex_unlock(&iaxsl[iaxs[fr->callno]->bridgecallno]);
 				break;
 			case IAX_COMMAND_TXREADY:
-				if ((iaxs[fr->callno]->transferring == TRANSFER_BEGIN) ||
-				    (iaxs[fr->callno]->transferring == TRANSFER_MBEGIN)) {
-					if (iaxs[fr->callno]->transferring == TRANSFER_MBEGIN)
-						iaxs[fr->callno]->transferring = TRANSFER_MREADY;
-					else
-						iaxs[fr->callno]->transferring = TRANSFER_READY;
-					ast_verb(3, "Channel '%s' ready to transfer\n", iaxs[fr->callno]->owner ? ast_channel_name(iaxs[fr->callno]->owner) : "<Unknown>");
-					if (iaxs[fr->callno]->bridgecallno) {
-						if ((iaxs[iaxs[fr->callno]->bridgecallno]->transferring == TRANSFER_READY) ||
-						    (iaxs[iaxs[fr->callno]->bridgecallno]->transferring == TRANSFER_MREADY)) {
-							/* They're both ready, now release them. */
-							if (iaxs[fr->callno]->transferring == TRANSFER_MREADY) {
-								ast_verb(3, "Attempting media bridge of %s and %s\n", iaxs[fr->callno]->owner ? ast_channel_name(iaxs[fr->callno]->owner) : "<Unknown>",
-										iaxs[iaxs[fr->callno]->bridgecallno]->owner ? ast_channel_name(iaxs[iaxs[fr->callno]->bridgecallno]->owner) : "<Unknown>");
-
-								iaxs[iaxs[fr->callno]->bridgecallno]->transferring = TRANSFER_MEDIA;
-								iaxs[fr->callno]->transferring = TRANSFER_MEDIA;
-
-								memset(&ied0, 0, sizeof(ied0));
-								memset(&ied1, 0, sizeof(ied1));
-								iax_ie_append_short(&ied0, IAX_IE_CALLNO, iaxs[iaxs[fr->callno]->bridgecallno]->peercallno);
-								iax_ie_append_short(&ied1, IAX_IE_CALLNO, iaxs[fr->callno]->peercallno);
-								send_command(iaxs[fr->callno], AST_FRAME_IAX, IAX_COMMAND_TXMEDIA, 0, ied0.buf, ied0.pos, -1);
-								send_command(iaxs[iaxs[fr->callno]->bridgecallno], AST_FRAME_IAX, IAX_COMMAND_TXMEDIA, 0, ied1.buf, ied1.pos, -1);
-							} else {
-								ast_verb(3, "Releasing %s and %s\n", iaxs[fr->callno]->owner ? ast_channel_name(iaxs[fr->callno]->owner) : "<Unknown>",
-										iaxs[iaxs[fr->callno]->bridgecallno]->owner ? ast_channel_name(iaxs[iaxs[fr->callno]->bridgecallno]->owner) : "<Unknown>");
-
-								iaxs[iaxs[fr->callno]->bridgecallno]->transferring = TRANSFER_RELEASED;
-								iaxs[fr->callno]->transferring = TRANSFER_RELEASED;
-								ast_set_flag64(iaxs[iaxs[fr->callno]->bridgecallno], IAX_ALREADYGONE);
-								ast_set_flag64(iaxs[fr->callno], IAX_ALREADYGONE);
-
-								/* Stop doing lag & ping requests */
-								stop_stuff(fr->callno);
-								stop_stuff(iaxs[fr->callno]->bridgecallno);
-
-								memset(&ied0, 0, sizeof(ied0));
-								memset(&ied1, 0, sizeof(ied1));
-								iax_ie_append_short(&ied0, IAX_IE_CALLNO, iaxs[iaxs[fr->callno]->bridgecallno]->peercallno);
-								iax_ie_append_short(&ied1, IAX_IE_CALLNO, iaxs[fr->callno]->peercallno);
-								send_command(iaxs[fr->callno], AST_FRAME_IAX, IAX_COMMAND_TXREL, 0, ied0.buf, ied0.pos, -1);
-								send_command(iaxs[iaxs[fr->callno]->bridgecallno], AST_FRAME_IAX, IAX_COMMAND_TXREL, 0, ied1.buf, ied1.pos, -1);
-							}
-
-						}
+				if (iaxs[fr->callno]->bridgecallno) {
+					while (ast_mutex_trylock(&iaxsl[iaxs[fr->callno]->bridgecallno])) {
+						DEADLOCK_AVOIDANCE(&iaxsl[fr->callno]);
+					}
+					if (!iaxs[fr->callno]) {
+						break;
 					}
 				}
+
+				if (iaxs[fr->callno]->transferring == TRANSFER_BEGIN) {
+					iaxs[fr->callno]->transferring = TRANSFER_READY;
+				} else if (iaxs[fr->callno]->transferring == TRANSFER_MBEGIN) {
+					iaxs[fr->callno]->transferring = TRANSFER_MREADY;
+				} else {
+					if (iaxs[fr->callno]->bridgecallno) {
+						ast_mutex_unlock(&iaxsl[iaxs[fr->callno]->bridgecallno]);
+					}
+					break;
+				}
+				ast_verb(3, "Channel '%s' ready to transfer\n", iaxs[fr->callno]->owner ? ast_channel_name(iaxs[fr->callno]->owner) : "<Unknown>");
+
+				if (!iaxs[fr->callno]->bridgecallno) {
+					break;
+				}
+
+				if (!(iaxs[iaxs[fr->callno]->bridgecallno]->transferring == TRANSFER_READY) &&
+				    !(iaxs[iaxs[fr->callno]->bridgecallno]->transferring == TRANSFER_MREADY)) {
+					ast_mutex_unlock(&iaxsl[iaxs[fr->callno]->bridgecallno]);
+					break;
+				}
+
+				/* Both sides are ready */
+
+				/* XXX what isn't checked here is that both sides match transfer types. */
+
+				if (iaxs[fr->callno]->transferring == TRANSFER_MREADY) {
+					ast_verb(3, "Attempting media bridge of %s and %s\n", iaxs[fr->callno]->owner ? ast_channel_name(iaxs[fr->callno]->owner) : "<Unknown>",
+							iaxs[iaxs[fr->callno]->bridgecallno]->owner ? ast_channel_name(iaxs[iaxs[fr->callno]->bridgecallno]->owner) : "<Unknown>");
+
+					iaxs[iaxs[fr->callno]->bridgecallno]->transferring = TRANSFER_MEDIA;
+					iaxs[fr->callno]->transferring = TRANSFER_MEDIA;
+
+					memset(&ied0, 0, sizeof(ied0));
+					memset(&ied1, 0, sizeof(ied1));
+					iax_ie_append_short(&ied0, IAX_IE_CALLNO, iaxs[iaxs[fr->callno]->bridgecallno]->peercallno);
+					iax_ie_append_short(&ied1, IAX_IE_CALLNO, iaxs[fr->callno]->peercallno);
+					send_command(iaxs[fr->callno], AST_FRAME_IAX, IAX_COMMAND_TXMEDIA, 0, ied0.buf, ied0.pos, -1);
+					send_command(iaxs[iaxs[fr->callno]->bridgecallno], AST_FRAME_IAX, IAX_COMMAND_TXMEDIA, 0, ied1.buf, ied1.pos, -1);
+				} else {
+					ast_verb(3, "Releasing %s and %s\n", iaxs[fr->callno]->owner ? ast_channel_name(iaxs[fr->callno]->owner) : "<Unknown>",
+							iaxs[iaxs[fr->callno]->bridgecallno]->owner ? ast_channel_name(iaxs[iaxs[fr->callno]->bridgecallno]->owner) : "<Unknown>");
+
+					iaxs[iaxs[fr->callno]->bridgecallno]->transferring = TRANSFER_RELEASED;
+					iaxs[fr->callno]->transferring = TRANSFER_RELEASED;
+					ast_set_flag64(iaxs[iaxs[fr->callno]->bridgecallno], IAX_ALREADYGONE);
+					ast_set_flag64(iaxs[fr->callno], IAX_ALREADYGONE);
+
+					/* Stop doing lag & ping requests */
+					stop_stuff(fr->callno);
+					stop_stuff(iaxs[fr->callno]->bridgecallno);
+
+					memset(&ied0, 0, sizeof(ied0));
+					memset(&ied1, 0, sizeof(ied1));
+					iax_ie_append_short(&ied0, IAX_IE_CALLNO, iaxs[iaxs[fr->callno]->bridgecallno]->peercallno);
+					iax_ie_append_short(&ied1, IAX_IE_CALLNO, iaxs[fr->callno]->peercallno);
+					send_command(iaxs[fr->callno], AST_FRAME_IAX, IAX_COMMAND_TXREL, 0, ied0.buf, ied0.pos, -1);
+					send_command(iaxs[iaxs[fr->callno]->bridgecallno], AST_FRAME_IAX, IAX_COMMAND_TXREL, 0, ied1.buf, ied1.pos, -1);
+				}
+				ast_mutex_unlock(&iaxsl[iaxs[fr->callno]->bridgecallno]);
 				break;
 			case IAX_COMMAND_TXREQ:
 				try_transfer(iaxs[fr->callno], &ies);
@@ -12402,16 +12439,26 @@ static int start_network_thread(void)
 			ast_cond_init(&thread->cond, NULL);
 			ast_mutex_init(&thread->init_lock);
 			ast_cond_init(&thread->init_cond, NULL);
+
+			ast_mutex_lock(&thread->init_lock);
+
 			if (ast_pthread_create_background(&thread->threadid, NULL, iax2_process_thread, thread)) {
 				ast_log(LOG_WARNING, "Failed to create new thread!\n");
 				ast_mutex_destroy(&thread->lock);
 				ast_cond_destroy(&thread->cond);
+				ast_mutex_unlock(&thread->init_lock);
 				ast_mutex_destroy(&thread->init_lock);
 				ast_cond_destroy(&thread->init_cond);
 				ast_free(thread);
 				thread = NULL;
 				continue;
 			}
+			/* Wait for the thread to be ready */
+			ast_cond_wait(&thread->init_cond, &thread->init_lock);
+
+			/* Done with init_lock */
+			ast_mutex_unlock(&thread->init_lock);
+
 			AST_LIST_LOCK(&idle_list);
 			AST_LIST_INSERT_TAIL(&idle_list, thread, list);
 			AST_LIST_UNLOCK(&idle_list);

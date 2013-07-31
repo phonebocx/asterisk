@@ -32,7 +32,7 @@
 #include "asterisk.h"
 #include "speex/speex_resampler.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362307 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 385582 $")
 
 #include "asterisk/module.h"
 #include "asterisk/translate.h"
@@ -113,7 +113,7 @@ static int load_module(void)
 	int res = 0;
 	int x, y, idx = 0;
 
-	trans_size = ARRAY_LEN(id_list) * ARRAY_LEN(id_list);
+	trans_size = ARRAY_LEN(id_list) * (ARRAY_LEN(id_list) - 1);
 	if (!(translators = ast_calloc(1, sizeof(struct ast_translator) * trans_size))) {
 		return AST_MODULE_LOAD_FAILURE;
 	}
