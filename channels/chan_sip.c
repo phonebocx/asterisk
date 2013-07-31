@@ -210,7 +210,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 384163 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 388601 $")
 
 #include <signal.h>
 #include <sys/signal.h>
@@ -1294,6 +1294,8 @@ static struct ast_config *notify_types = NULL;    /*!< The list of manual NOTIFY
 		(head) = (element)->next;	\
 	} while (0)
 
+struct show_peers_context;
+
 /*---------------------------- Forward declarations of functions in chan_sip.c */
 /* Note: This is added to help splitting up chan_sip.c into several files
 	in coming releases. */
@@ -1447,6 +1449,8 @@ static int sip_notify_alloc(struct sip_pvt *p);
 static void ast_quiet_chan(struct ast_channel *chan);
 static int attempt_transfer(struct sip_dual *transferer, struct sip_dual *target);
 static int do_magic_pickup(struct ast_channel *channel, const char *extension, const char *context);
+static void set_peer_nat(const struct sip_pvt *p, struct sip_peer *peer);
+static void check_for_nat(const struct ast_sockaddr *them, struct sip_pvt *p);
 
 /*--- Device monitoring and Device/extension state/event handling */
 static int extensionstate_update(const char *context, const char *exten, struct state_notify_data *data, struct sip_pvt *p, int force);
@@ -1467,6 +1471,7 @@ static char *transfermode2str(enum transfermodes mode) attribute_const;
 static int peer_status(struct sip_peer *peer, char *status, int statuslen);
 static char *sip_show_sched(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char * _sip_show_peers(int fd, int *total, struct mansession *s, const struct message *m, int argc, const char *argv[]);
+static struct sip_peer *_sip_show_peers_one(int fd, struct mansession *s, struct show_peers_context *cont, struct sip_peer *peer);
 static char *sip_show_peers(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static char *sip_show_objects(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 static void  print_group(int fd, ast_group_t group, int crlf);
@@ -7253,6 +7258,11 @@ static int sip_answer(struct ast_channel *ast)
 	int res = 0;
 	struct sip_pvt *p = ast_channel_tech_pvt(ast);
 
+	if (!p) {
+		ast_debug(1, "Asked to answer channel %s without tech pvt; ignoring\n",
+				ast_channel_name(ast));
+		return res;
+	}
 	sip_pvt_lock(p);
 	if (ast_channel_state(ast) != AST_STATE_UP) {
 		try_suggested_sip_codec(p);
@@ -7422,6 +7432,12 @@ static int sip_senddigit_begin(struct ast_channel *ast, char digit)
 	struct sip_pvt *p = ast_channel_tech_pvt(ast);
 	int res = 0;
 
+	if (!p) {
+		ast_debug(1, "Asked to begin DTMF digit on channel %s with no pvt; ignoring\n",
+				ast_channel_name(ast));
+		return res;
+	}
+
 	sip_pvt_lock(p);
 	switch (ast_test_flag(&p->flags[0], SIP_DTMF)) {
 	case SIP_DTMF_INBAND:
@@ -7445,6 +7461,12 @@ static int sip_senddigit_end(struct ast_channel *ast, char digit, unsigned int d
 {
 	struct sip_pvt *p = ast_channel_tech_pvt(ast);
 	int res = 0;
+
+	if (!p) {
+		ast_debug(1, "Asked to end DTMF digit on channel %s with no pvt; ignoring\n",
+				ast_channel_name(ast));
+		return res;
+	}
 
 	sip_pvt_lock(p);
 	switch (ast_test_flag(&p->flags[0], SIP_DTMF)) {
@@ -7470,6 +7492,12 @@ static int sip_transfer(struct ast_channel *ast, const char *dest)
 {
 	struct sip_pvt *p = ast_channel_tech_pvt(ast);
 	int res;
+
+	if (!p) {
+		ast_debug(1, "Asked to transfer channel %s with no pvt; ignoring\n",
+				ast_channel_name(ast));
+		return -1;
+	}
 
 	if (dest == NULL)	/* functions below do not take a NULL */
 		dest = "";
@@ -7665,6 +7693,12 @@ static int sip_indicate(struct ast_channel *ast, int condition, const void *data
 {
 	struct sip_pvt *p = ast_channel_tech_pvt(ast);
 	int res = 0;
+
+	if (!p) {
+		ast_debug(1, "Asked to indicate condition on channel %s with no pvt; ignoring\n",
+				ast_channel_name(ast));
+		return res;
+	}
 
 	sip_pvt_lock(p);
 	switch(condition) {
@@ -14681,7 +14715,20 @@ static int transmit_state_notify(struct sip_pvt *p, struct state_notify_data *da
 
 	p->pendinginvite = p->ocseq;	/* Remember that we have a pending NOTIFY in order not to confuse the NOTIFY subsystem */
 
-	return send_request(p, &req, XMIT_RELIABLE, p->ocseq);
+	/* Send as XMIT_CRITICAL as we may never receive a 200 OK Response which clears p->pendinginvite.
+	 *
+	 * extensionstate_update() uses p->pendinginvite for queuing control.
+	 * Updates stall if pendinginvite <> 0.
+	 *
+	 * The most appropriate solution is to remove the subscription when the NOTIFY transaction fails.
+	 * The client will re-subscribe after restarting or maxexpiry timeout.
+	 */
+
+	/* RFC6665 4.2.2.  Sending State Information to Subscribers
+	 * If the NOTIFY request fails due to expiration of SIP Timer F (transaction timeout),
+	 * the notifier SHOULD remove the subscription.
+	 */
+	return send_request(p, &req, XMIT_CRITICAL, p->ocseq);
 }
 
 /*! \brief Notify user of messages waiting in voicemail (RFC3842)
@@ -16833,22 +16880,12 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct ast_sock
 			ast_log(LOG_ERROR, "Peer '%s' is trying to register, but not configured as host=dynamic\n", peer->name);
 			res = AUTH_PEER_NOT_DYNAMIC;
 		} else {
-			if (ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
-				if (p->natdetected) {
-					ast_set_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT);
-				} else {
-					ast_clear_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT);
-				}
-			}
-			if (ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA)) {
-				if (p->natdetected) {
-					ast_set_flag(&peer->flags[1], SIP_PAGE2_SYMMETRICRTP);
-				} else {
-					ast_clear_flag(&peer->flags[1], SIP_PAGE2_SYMMETRICRTP);
-				}
+
+			set_peer_nat(p, peer);
+			if (p->natdetected && ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
+				ast_copy_flags(&p->flags[0], &peer->flags[0], SIP_NAT_FORCE_RPORT);
 			}
 
-			ast_copy_flags(&p->flags[0], &peer->flags[0], SIP_NAT_FORCE_RPORT);
 			if (!(res = check_auth(p, req, peer->name, peer->secret, peer->md5secret, SIP_REGISTER, uri2, XMIT_UNRELIABLE))) {
 				if (sip_cancel_destroy(p))
 					ast_log(LOG_WARNING, "Unable to cancel SIP destruction.  Expect bad things.\n");
@@ -17860,6 +17897,67 @@ static int get_also_info(struct sip_pvt *p, struct sip_request *oreq)
 	return -1;
 }
 
+/*! \brief Set the peers nat flags if they are using auto_* settings */
+static void set_peer_nat(const struct sip_pvt *p, struct sip_peer *peer)
+{
+
+	if (!p || !peer) {
+		return;
+	}
+
+	if (ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
+		if (p->natdetected) {
+			ast_set_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT);
+		} else {
+			ast_clear_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT);
+		}
+	}
+
+	if (ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA)) {
+		if (p->natdetected) {
+			ast_set_flag(&peer->flags[1], SIP_PAGE2_SYMMETRICRTP);
+		} else {
+			ast_clear_flag(&peer->flags[1], SIP_PAGE2_SYMMETRICRTP);
+		}
+	}
+}
+
+/*! \brief Check and see if the requesting UA is likely to be behind a NAT.
+ *
+ * If the requesting NAT is behind NAT, set the * natdetected flag so that
+ * later, peers with nat=auto_* can use the value. Also, set the flags so
+ * that Asterisk responds identically whether or not a peer exists so as
+ * not to leak peer name information.
+ */
+static void check_for_nat(const struct ast_sockaddr *addr, struct sip_pvt *p)
+{
+
+	if (!addr || !p) {
+		return;
+	}
+
+	if (ast_sockaddr_cmp(addr, &p->recv)) {
+		char *tmp_str = ast_strdupa(ast_sockaddr_stringify(addr));
+		ast_debug(3, "NAT detected for %s / %s\n", tmp_str, ast_sockaddr_stringify(&p->recv));
+		p->natdetected = 1;
+		if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
+			ast_set_flag(&p->flags[0], SIP_NAT_FORCE_RPORT);
+		}
+		if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA)) {
+			ast_set_flag(&p->flags[1], SIP_PAGE2_SYMMETRICRTP);
+		}
+	} else {
+		p->natdetected = 0;
+		if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
+			ast_clear_flag(&p->flags[0], SIP_NAT_FORCE_RPORT);
+		}
+		if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA)) {
+			ast_clear_flag(&p->flags[1], SIP_PAGE2_SYMMETRICRTP);
+		}
+	}
+
+}
+
 /*! \brief check Via: header for hostname, port and rport request/answer */
 static void check_via(struct sip_pvt *p, const struct sip_request *req)
 {
@@ -17923,29 +18021,7 @@ static void check_via(struct sip_pvt *p, const struct sip_request *req)
 
 		ast_sockaddr_set_port(&p->sa, port);
 
-		/* Check and see if the requesting UA is likely to be behind a NAT. If they are, set the
-		 * natdetected flag so that later, peers with nat=auto_* can use the value. Also
-		 * set the flags so that Asterisk responds identically whether or not a peer exists
-		 * so as not to leak peer name information. */
-		if (ast_sockaddr_cmp(&tmp, &p->recv)) {
-			char *tmp_str = ast_strdupa(ast_sockaddr_stringify(&tmp));
-			ast_debug(3, "NAT detected for %s / %s\n", tmp_str, ast_sockaddr_stringify(&p->recv));
-			p->natdetected = 1;
-			if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
-				ast_set_flag(&p->flags[0], SIP_NAT_FORCE_RPORT);
-			}
-			if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA)) {
-				ast_set_flag(&p->flags[1], SIP_PAGE2_SYMMETRICRTP);
-			}
-		} else {
-			p->natdetected = 0;
-			if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
-				ast_clear_flag(&p->flags[0], SIP_NAT_FORCE_RPORT);
-			}
-			if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA)) {
-				ast_clear_flag(&p->flags[1], SIP_PAGE2_SYMMETRICRTP);
-			}
-		}
+		check_for_nat(&tmp, p);
 
 		if (sip_debug_test_pvt(p)) {
 			ast_verbose("Sending to %s (%s)\n",
@@ -18013,13 +18089,10 @@ static enum check_auth_result check_peer_ok(struct sip_pvt *p, char *of,
 	 *  are set on the peer.  So we check for that here and set the peer's
 	 *  address accordingly.
 	 */
-	if (p->natdetected && ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
-		ast_set_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT);
-		ast_sockaddr_copy(&peer->addr, &p->recv);
-	}
+	set_peer_nat(p, peer);
 
-	if (p->natdetected && ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA)) {
-		ast_set_flag(&peer->flags[1], SIP_PAGE2_SYMMETRICRTP);
+	if (p->natdetected && ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
+		ast_sockaddr_copy(&peer->addr, &p->recv);
 	}
 
 	if (!ast_apply_acl(peer->acl, addr, "SIP Peer ACL: ")) {
@@ -18759,7 +18832,7 @@ static char *sip_show_users(struct ast_cli_entry *e, int cmd, struct ast_cli_arg
 		return CLI_SHOWUSAGE;
 	}
 
-	ast_cli(a->fd, FORMAT, "Username", "Secret", "Accountcode", "Def.Context", "ACL", "ForcerPort");
+	ast_cli(a->fd, FORMAT, "Username", "Secret", "Accountcode", "Def.Context", "ACL", "Forcerport");
 
 	user_iter = ao2_iterator_init(peers, 0);
 	while ((user = ao2_t_iterator_next(&user_iter, "iterate thru peers table"))) {
@@ -18895,46 +18968,58 @@ int peercomparefunc(const void *a, const void *b)
 	return strcmp((*ap)->name, (*bp)->name);
 }
 
+/* the last argument is left-aligned, so we don't need a size anyways */
+#define PEERS_FORMAT2 "%-25.25s %-39.39s %-3.3s %-10.10s %-3.3s %-8s %-11s %-32.32s %s\n"
+
+/*! \brief Used in the sip_show_peers functions to pass parameters */
+struct show_peers_context {
+	regex_t regexbuf;
+	int havepattern;
+	char idtext[256];
+	int realtimepeers;
+	int peers_mon_online;
+	int peers_mon_offline;
+	int peers_unmon_offline;
+	int peers_unmon_online;
+};
 
 /*! \brief Execute sip show peers command */
 static char *_sip_show_peers(int fd, int *total, struct mansession *s, const struct message *m, int argc, const char *argv[])
 {
-	regex_t regexbuf;
-	int havepattern = FALSE;
+	struct show_peers_context cont = {
+		.havepattern = FALSE,
+		.idtext = "",
+
+		.peers_mon_online = 0,
+		.peers_mon_offline = 0,
+		.peers_unmon_online = 0,
+		.peers_unmon_offline = 0,
+	};
+
 	struct sip_peer *peer;
 	struct ao2_iterator* it_peers;
 
-/* the last argument is left-aligned, so we don't need a size anyways */
-#define FORMAT2 "%-25.25s %-39.39s %-3.3s %-10.10s %-3.3s %-8s %-11s %-32.32s %s\n"
-
-	char name[256];
 	int total_peers = 0;
-	int peers_mon_online = 0;
-	int peers_mon_offline = 0;
-	int peers_unmon_offline = 0;
-	int peers_unmon_online = 0;
 	const char *id;
-	char idtext[256] = "";
-	int realtimepeers;
 	struct sip_peer **peerarray;
 	int k;
 
-	realtimepeers = ast_check_realtime("sippeers");
+	cont.realtimepeers = ast_check_realtime("sippeers");
 
 	if (s) {	/* Manager - get ActionID */
 		id = astman_get_header(m, "ActionID");
 		if (!ast_strlen_zero(id)) {
-			snprintf(idtext, sizeof(idtext), "ActionID: %s\r\n", id);
+			snprintf(cont.idtext, sizeof(cont.idtext), "ActionID: %s\r\n", id);
 		}
 	}
 
 	switch (argc) {
 	case 5:
 		if (!strcasecmp(argv[3], "like")) {
-			if (regcomp(&regexbuf, argv[4], REG_EXTENDED | REG_NOSUB)) {
+			if (regcomp(&cont.regexbuf, argv[4], REG_EXTENDED | REG_NOSUB)) {
 				return CLI_SHOWUSAGE;
 			}
-			havepattern = TRUE;
+			cont.havepattern = TRUE;
 		} else {
 			return CLI_SHOWUSAGE;
 		}
@@ -18946,7 +19031,7 @@ static char *_sip_show_peers(int fd, int *total, struct mansession *s, const str
 
 	if (!s) {
 		/* Normal list */
-		ast_cli(fd, FORMAT2, "Name/username", "Host", "Dyn", "Forcerport", "ACL", "Port", "Status", "Description", (realtimepeers ? "Realtime" : ""));
+		ast_cli(fd, PEERS_FORMAT2, "Name/username", "Host", "Dyn", "Forcerport", "ACL", "Port", "Status", "Description", (cont.realtimepeers ? "Realtime" : ""));
 	}
 
 	ao2_lock(peers);
@@ -18972,7 +19057,7 @@ static char *_sip_show_peers(int fd, int *total, struct mansession *s, const str
 			continue;
 		}
 
-		if (havepattern && regexec(&regexbuf, peer->name, 0, NULL, 0)) {
+		if (cont.havepattern && regexec(&cont.regexbuf, peer->name, 0, NULL, 0)) {
 			ao2_unlock(peer);
 			sip_unref_peer(peer, "toss iterator peer ptr before continue");
 			continue;
@@ -18986,110 +19071,16 @@ static char *_sip_show_peers(int fd, int *total, struct mansession *s, const str
 	qsort(peerarray, total_peers, sizeof(struct sip_peer *), peercomparefunc);
 
 	for(k = 0; k < total_peers; k++) {
-		char status[20] = "";
-		char pstatus;
-
-		/*
-		 * tmp_port and tmp_host store copies of ast_sockaddr_stringify strings since the
-		 * string pointers for that function aren't valid between subsequent calls to
-		 * ast_sockaddr_stringify functions
-		 */
-		char *tmp_port;
-		char *tmp_host;
-
-		peer = peerarray[k];
-
-		tmp_port = ast_sockaddr_isnull(&peer->addr) ?
-			"0" : ast_strdupa(ast_sockaddr_stringify_port(&peer->addr));
-
-		tmp_host = ast_sockaddr_isnull(&peer->addr) ?
-			"(Unspecified)" : ast_strdupa(ast_sockaddr_stringify_addr(&peer->addr));
-
-		ao2_lock(peer);
-		if (havepattern && regexec(&regexbuf, peer->name, 0, NULL, 0)) {
-			ao2_unlock(peer);
-			peer = peerarray[k] = sip_unref_peer(peer, "toss iterator peer ptr before continue");
-			continue;
-		}
-
-		if (!ast_strlen_zero(peer->username) && !s) {
-			snprintf(name, sizeof(name), "%s/%s", peer->name, peer->username);
-		} else {
-			ast_copy_string(name, peer->name, sizeof(name));
-		}
-
-		pstatus = peer_status(peer, status, sizeof(status));
-		if (pstatus == 1) {
-			peers_mon_online++;
-		} else if (pstatus == 0) {
-			peers_mon_offline++;
-		} else {
-			if (ast_sockaddr_isnull(&peer->addr) ||
-			    !ast_sockaddr_port(&peer->addr)) {
-				peers_unmon_offline++;
-			} else {
-				peers_unmon_online++;
-			}
-		}
-
-		if (!s) { /* Normal CLI list */
-			ast_cli(fd, FORMAT2, name,
-			tmp_host,
-			peer->host_dynamic ? " D " : "   ",	/* Dynamic or not? */
-			ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) ?
-				ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? " A " : " a " :
-				ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? " N " : "   ",	/* NAT=yes? */
-			(!ast_acl_list_is_empty(peer->acl)) ? " A " : "   ",       /* permit/deny */
-			tmp_port, status,
-			peer->description ? peer->description : "",
-			realtimepeers ? (peer->is_realtime ? "Cached RT" : "") : "");
-		} else {	/* Manager format */
-			/* The names here need to be the same as other channels */
-			astman_append(s,
-			"Event: PeerEntry\r\n%s"
-			"Channeltype: SIP\r\n"
-			"ObjectName: %s\r\n"
-			"ChanObjectType: peer\r\n"	/* "peer" or "user" */
-			"IPaddress: %s\r\n"
-			"IPport: %s\r\n"
-			"Dynamic: %s\r\n"
-			"AutoForcerport: %s\r\n"
-			"Forcerport: %s\r\n"
-			"AutoComedia: %s\r\n"
-			"Comedia: %s\r\n"
-			"VideoSupport: %s\r\n"
-			"TextSupport: %s\r\n"
-			"ACL: %s\r\n"
-			"Status: %s\r\n"
-			"RealtimeDevice: %s\r\n"
-			"Description: %s\r\n\r\n",
-			idtext,
-			peer->name,
-			ast_sockaddr_isnull(&peer->addr) ? "-none-" : tmp_host,
-			ast_sockaddr_isnull(&peer->addr) ? "0" : tmp_port,
-			peer->host_dynamic ? "yes" : "no",	/* Dynamic or not? */
-			ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) ? "yes" : "no",
-			ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? "yes" : "no",	/* NAT=yes? */
-			ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA) ? "yes" : "no",
-			ast_test_flag(&peer->flags[1], SIP_PAGE2_SYMMETRICRTP) ? "yes" : "no",
-			ast_test_flag(&peer->flags[1], SIP_PAGE2_VIDEOSUPPORT) ? "yes" : "no",	/* VIDEOSUPPORT=yes? */
-			ast_test_flag(&peer->flags[1], SIP_PAGE2_TEXTSUPPORT) ? "yes" : "no",	/* TEXTSUPPORT=yes? */
-			ast_acl_list_is_empty(peer->acl) ? "no" : "yes",       /* permit/deny/acl */
-			status,
-			realtimepeers ? (peer->is_realtime ? "yes" : "no") : "no",
-			peer->description);
-		}
-		ao2_unlock(peer);
-		peer = peerarray[k] = sip_unref_peer(peer, "toss iterator peer ptr");
+		peerarray[k] = _sip_show_peers_one(fd, s, &cont, peerarray[k]);
 	}
 
 	if (!s) {
 		ast_cli(fd, "%d sip peers [Monitored: %d online, %d offline Unmonitored: %d online, %d offline]\n",
-		        total_peers, peers_mon_online, peers_mon_offline, peers_unmon_online, peers_unmon_offline);
+		        total_peers, cont.peers_mon_online, cont.peers_mon_offline, cont.peers_unmon_online, cont.peers_unmon_offline);
 	}
 
-	if (havepattern) {
-		regfree(&regexbuf);
+	if (cont.havepattern) {
+		regfree(&cont.regexbuf);
 	}
 
 	if (total) {
@@ -19099,8 +19090,111 @@ static char *_sip_show_peers(int fd, int *total, struct mansession *s, const str
 	ast_free(peerarray);
 
 	return CLI_SUCCESS;
-#undef FORMAT2
 }
+
+/*! \brief Emit informations for one peer during sip show peers command */
+static struct sip_peer *_sip_show_peers_one(int fd, struct mansession *s, struct show_peers_context *cont, struct sip_peer *peer)
+{
+	/* _sip_show_peers_one() is separated from _sip_show_peers() to properly free the ast_strdupa
+	 * (this is executed in a loop in _sip_show_peers() )
+	 */
+
+	char name[256];
+	char status[20] = "";
+	char pstatus;
+
+	/*
+	 * tmp_port and tmp_host store copies of ast_sockaddr_stringify strings since the
+	 * string pointers for that function aren't valid between subsequent calls to
+	 * ast_sockaddr_stringify functions
+	 */
+	char *tmp_port;
+	char *tmp_host;
+
+	tmp_port = ast_sockaddr_isnull(&peer->addr) ?
+		"0" : ast_strdupa(ast_sockaddr_stringify_port(&peer->addr));
+
+	tmp_host = ast_sockaddr_isnull(&peer->addr) ?
+		"(Unspecified)" : ast_strdupa(ast_sockaddr_stringify_addr(&peer->addr));
+
+	ao2_lock(peer);
+	if (cont->havepattern && regexec(&cont->regexbuf, peer->name, 0, NULL, 0)) {
+		ao2_unlock(peer);
+		return sip_unref_peer(peer, "toss iterator peer ptr no match");
+	}
+
+	if (!ast_strlen_zero(peer->username) && !s) {
+		snprintf(name, sizeof(name), "%s/%s", peer->name, peer->username);
+	} else {
+		ast_copy_string(name, peer->name, sizeof(name));
+	}
+
+	pstatus = peer_status(peer, status, sizeof(status));
+	if (pstatus == 1) {
+		cont->peers_mon_online++;
+	} else if (pstatus == 0) {
+		cont->peers_mon_offline++;
+	} else {
+		if (ast_sockaddr_isnull(&peer->addr) ||
+		    !ast_sockaddr_port(&peer->addr)) {
+			cont->peers_unmon_offline++;
+		} else {
+			cont->peers_unmon_online++;
+		}
+	}
+
+	if (!s) { /* Normal CLI list */
+		ast_cli(fd, PEERS_FORMAT2, name,
+		tmp_host,
+		peer->host_dynamic ? " D " : "   ",	/* Dynamic or not? */
+		ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) ?
+			ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? " A " : " a " :
+			ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? " N " : "   ",	/* NAT=yes? */
+		(!ast_acl_list_is_empty(peer->acl)) ? " A " : "   ",       /* permit/deny */
+		tmp_port, status,
+		peer->description ? peer->description : "",
+		cont->realtimepeers ? (peer->is_realtime ? "Cached RT" : "") : "");
+	} else {	/* Manager format */
+		/* The names here need to be the same as other channels */
+		astman_append(s,
+		"Event: PeerEntry\r\n%s"
+		"Channeltype: SIP\r\n"
+		"ObjectName: %s\r\n"
+		"ChanObjectType: peer\r\n"	/* "peer" or "user" */
+		"IPaddress: %s\r\n"
+		"IPport: %s\r\n"
+		"Dynamic: %s\r\n"
+		"AutoForcerport: %s\r\n"
+		"Forcerport: %s\r\n"
+		"AutoComedia: %s\r\n"
+		"Comedia: %s\r\n"
+		"VideoSupport: %s\r\n"
+		"TextSupport: %s\r\n"
+		"ACL: %s\r\n"
+		"Status: %s\r\n"
+		"RealtimeDevice: %s\r\n"
+		"Description: %s\r\n\r\n",
+		cont->idtext,
+		peer->name,
+		ast_sockaddr_isnull(&peer->addr) ? "-none-" : tmp_host,
+		ast_sockaddr_isnull(&peer->addr) ? "0" : tmp_port,
+		peer->host_dynamic ? "yes" : "no",	/* Dynamic or not? */
+		ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) ? "yes" : "no",
+		ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? "yes" : "no",	/* NAT=yes? */
+		ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA) ? "yes" : "no",
+		ast_test_flag(&peer->flags[1], SIP_PAGE2_SYMMETRICRTP) ? "yes" : "no",
+		ast_test_flag(&peer->flags[1], SIP_PAGE2_VIDEOSUPPORT) ? "yes" : "no",	/* VIDEOSUPPORT=yes? */
+		ast_test_flag(&peer->flags[1], SIP_PAGE2_TEXTSUPPORT) ? "yes" : "no",	/* TEXTSUPPORT=yes? */
+		ast_acl_list_is_empty(peer->acl) ? "no" : "yes",       /* permit/deny/acl */
+		status,
+		cont->realtimepeers ? (peer->is_realtime ? "yes" : "no") : "no",
+		peer->description);
+	}
+	ao2_unlock(peer);
+
+	return sip_unref_peer(peer, "toss iterator peer ptr");
+}
+#undef PEERS_FORMAT2
 
 static int peer_dump_func(void *userobj, void *arg, int flags)
 {
@@ -20555,7 +20649,7 @@ static char *sip_show_settings(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	ast_cli(a->fd, "\n");
 	ast_cli(a->fd, "  Relax DTMF:             %s\n", AST_CLI_YESNO(global_relaxdtmf));
 	ast_cli(a->fd, "  RFC2833 Compensation:   %s\n", AST_CLI_YESNO(ast_test_flag(&global_flags[1], SIP_PAGE2_RFC2833_COMPENSATE)));
-	ast_cli(a->fd, "  Symmetric RTP:          %s\n", AST_CLI_YESNO(ast_test_flag(&global_flags[1], SIP_PAGE2_SYMMETRICRTP)));
+	ast_cli(a->fd, "  Symmetric RTP:          %s\n", comedia_string(global_flags));
 	ast_cli(a->fd, "  Compact SIP headers:    %s\n", AST_CLI_YESNO(sip_cfg.compactheaders));
 	ast_cli(a->fd, "  RTP Keepalive:          %d %s\n", global_rtpkeepalive, global_rtpkeepalive ? "" : "(Disabled)" );
 	ast_cli(a->fd, "  RTP Timeout:            %d %s\n", global_rtptimeout, global_rtptimeout ? "" : "(Disabled)" );
@@ -21036,7 +21130,6 @@ static char *sip_show_channel(struct ast_cli_entry *e, int cmd, struct ast_cli_a
  				if (cur->stimer->st_active == TRUE) {
  					ast_cli(a->fd, "  S-Timer Interval:       %d\n", cur->stimer->st_interval);
  					ast_cli(a->fd, "  S-Timer Refresher:      %s\n", strefresher2str(cur->stimer->st_ref));
- 					ast_cli(a->fd, "  S-Timer Expirys:        %d\n", cur->stimer->st_expirys);
  					ast_cli(a->fd, "  S-Timer Sched Id:       %d\n", cur->stimer->st_schedid);
  					ast_cli(a->fd, "  S-Timer Peer Sts:       %s\n", cur->stimer->st_active_peer_ua ? "Active" : "Inactive");
  					ast_cli(a->fd, "  S-Timer Cached Min-SE:  %d\n", cur->stimer->st_cached_min_se);
@@ -21303,7 +21396,7 @@ static void handle_request_info(struct sip_pvt *p, struct sip_request *req)
 					feat = ast_find_call_feature(p->relatedpeer->record_on_feature);
 				}
 			} else if (!strcasecmp(c, "off")) {
-				if (ast_strlen_zero(p->relatedpeer->record_on_feature)) {
+				if (ast_strlen_zero(p->relatedpeer->record_off_feature)) {
 					suppress_warning = 1;
 				} else {
 					feat = ast_find_call_feature(p->relatedpeer->record_off_feature);
@@ -22759,7 +22852,7 @@ static void handle_response_invite(struct sip_pvt *p, int resp, const char *rest
 		}
 
 		/* Check for Session-Timers related headers */
-		if (st_get_mode(p, 0) != SESSION_TIMER_MODE_REFUSE && p->outgoing_call == TRUE && !reinvite) {
+		if (st_get_mode(p, 0) != SESSION_TIMER_MODE_REFUSE) {
 			p_hdrval = (char*)sip_get_header(req, "Session-Expires");
 			if (!ast_strlen_zero(p_hdrval)) {
 				/* UAS supports Session-Timers */
@@ -25488,9 +25581,6 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, str
 			}
 
 			restart_session_timer(p);
-			if (p->stimer->st_expirys > 0) {
-				p->stimer->st_expirys--;
-			}
 		}
 	}
 
@@ -28898,6 +28988,8 @@ static void stop_session_timer(struct sip_pvt *p)
 /*! \brief Session-Timers: Start session timer */
 static void start_session_timer(struct sip_pvt *p)
 {
+	unsigned int timeout_ms;
+
 	if (!p->stimer) {
 		ast_log(LOG_WARNING, "Null stimer in start_session_timer - %s\n", p->callid);
 		return;
@@ -28910,14 +29002,31 @@ static void start_session_timer(struct sip_pvt *p)
 			dialog_unref(p, "unref stimer->st_schedid from dialog"));
 	}
 
-	p->stimer->st_schedid  = ast_sched_add(sched, p->stimer->st_interval * 1000 / 2, proc_session_timer, 
+	/*
+	 * RFC 4028 Section 10
+	 * If the side not performing refreshes does not receive a
+	 * session refresh request before the session expiration, it SHOULD send
+	 * a BYE to terminate the session, slightly before the session
+	 * expiration.  The minimum of 32 seconds and one third of the session
+	 * interval is RECOMMENDED.
+	 */
+
+	timeout_ms = (1000 * p->stimer->st_interval);
+	if (p->stimer->st_ref == SESSION_TIMER_REFRESHER_US) {
+		timeout_ms /= 2;
+	} else {
+		timeout_ms -= MIN(timeout_ms / 3, 32000);
+	}
+
+	p->stimer->st_schedid = ast_sched_add(sched, timeout_ms, proc_session_timer,
 			dialog_ref(p, "adding session timer ref"));
+
 	if (p->stimer->st_schedid < 0) {
 		dialog_unref(p, "removing session timer ref");
 		ast_log(LOG_ERROR, "ast_sched_add failed - %s\n", p->callid);
 	} else {
 		p->stimer->st_active = TRUE;
-		ast_debug(2, "Session timer started: %d - %s\n", p->stimer->st_schedid, p->callid);
+		ast_debug(2, "Session timer started: %d - %s %ums\n", p->stimer->st_schedid, p->callid, timeout_ms);
 	}
 }
 
@@ -28951,30 +29060,25 @@ static int proc_session_timer(const void *vp)
 			transmit_reinvite_with_sdp(p, FALSE, TRUE);
 		}
 	} else {
-		p->stimer->st_expirys++;
-		if (p->stimer->st_expirys >= 2) {
-			if (p->stimer->quit_flag) {
+		if (p->stimer->quit_flag) {
+			goto return_unref;
+		}
+		ast_log(LOG_WARNING, "Session-Timer expired - %s\n", p->callid);
+		sip_pvt_lock(p);
+		while (p->owner && ast_channel_trylock(p->owner)) {
+			sip_pvt_unlock(p);
+			usleep(1);
+			if (p->stimer && p->stimer->quit_flag) {
 				goto return_unref;
 			}
-			ast_log(LOG_WARNING, "Session-Timer expired - %s\n", p->callid);
 			sip_pvt_lock(p);
-			while (p->owner && ast_channel_trylock(p->owner)) {
-				sip_pvt_unlock(p);
-				usleep(1);
-				if (p->stimer && p->stimer->quit_flag) {
-					goto return_unref;
-				}
-				sip_pvt_lock(p);
-			}
-
-			manager_event(EVENT_FLAG_CALL, "SessionTimeout", "Source: SIPSessionTimer\r\n"
-					"Channel: %s\r\nUniqueid: %s\r\n", ast_channel_name(p->owner), ast_channel_uniqueid(p->owner));
-			ast_softhangup_nolock(p->owner, AST_SOFTHANGUP_DEV);
-			ast_channel_unlock(p->owner);
-			sip_pvt_unlock(p);
-		} else {
-			res = 1;
 		}
+
+		manager_event(EVENT_FLAG_CALL, "SessionTimeout", "Source: SIPSessionTimer\r\n"
+				"Channel: %s\r\nUniqueid: %s\r\n", ast_channel_name(p->owner), ast_channel_uniqueid(p->owner));
+		ast_softhangup_nolock(p->owner, AST_SOFTHANGUP_DEV);
+		ast_channel_unlock(p->owner);
+		sip_pvt_unlock(p);
 	}
 
 return_unref:
@@ -29639,6 +29743,29 @@ static struct ast_channel *sip_request_call(const char *type, struct ast_format_
 		ast_string_field_set(p, peername, ext);
 	/* Recalculate our side, and recalculate Call ID */
 	ast_sip_ouraddrfor(&p->sa, &p->ourip, p);
+	/* When chan_sip is first loaded or reloaded, we need to check for NAT and set the appropiate flags
+	   now that we have the auto_* settings. */
+	check_for_nat(&p->sa, p);
+	/* If there is a peer related to this outgoing call and it hasn't re-registered after
+	   a reload, we need to set the peer's NAT flags accordingly. */
+	if (p->relatedpeer) {
+
+		if (!ast_strlen_zero(p->relatedpeer->fullcontact) && !p->natdetected &&
+			(ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) && !ast_test_flag(&p->flags[0], SIP_NAT_FORCE_RPORT))) {
+			/* We need to make an attempt to determine if a peer is behind NAT
+			   if the peer has the auto_force_rport flag set. */
+			struct ast_sockaddr tmpaddr;
+
+			__set_address_from_contact(p->relatedpeer->fullcontact, &tmpaddr, 0);
+
+			check_for_nat(&tmpaddr, p);
+		}
+
+		set_peer_nat(p, p->relatedpeer);
+	}
+
+	do_setnat(p);
+
 	build_via(p);
 
 	/* Change the dialog callid. */
@@ -30845,7 +30972,8 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 		 * specified, use that address instead. */
 		/* XXX May need to revisit the final argument; does the realtime DB store whether
 		 * the original contact was over TLS or not? XXX */
-		if (!ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) || ast_sockaddr_isnull(&peer->addr)) {
+		if ((!ast_test_flag(&peer->flags[2],  SIP_PAGE3_NAT_AUTO_RPORT) && !ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT))
+		    || ast_sockaddr_isnull(&peer->addr)) {
 			__set_address_from_contact(ast_str_buffer(fullcontact), &peer->addr, 0);
 		}
 	}
@@ -31052,7 +31180,8 @@ static int reload_config(enum channelreloadreason reason)
 	struct sip_peer *peer;
 	char *cat, *stringp, *context, *oldregcontext;
 	char newcontexts[AST_MAX_CONTEXT], oldcontexts[AST_MAX_CONTEXT];
-	struct ast_flags dummy[3];
+	struct ast_flags mask[3] = {{0}};
+	struct ast_flags setflags[3] = {{0}};
 	struct ast_flags config_flags = { (reason == CHANNEL_MODULE_LOAD || reason == CHANNEL_ACL_RELOAD) ? 0 : ast_test_flag(&global_flags[1], SIP_PAGE2_RTCACHEFRIENDS) ? 0 : CONFIG_FLAG_FILEUNCHANGED };
 	int auto_sip_domains = FALSE;
 	struct ast_sockaddr old_bindaddr = bindaddr;
@@ -31297,13 +31426,12 @@ static int reload_config(enum channelreloadreason reason)
 	ast_clear_flag(&global_flags[1], SIP_PAGE2_TEXTSUPPORT);
 	ast_clear_flag(&global_flags[1], SIP_PAGE2_IGNORESDPVERSION);
 
-
 	/* Read the [general] config section of sip.conf (or from realtime config) */
 	for (v = ast_variable_browse(cfg, "general"); v; v = v->next) {
-		if (handle_common_options(&global_flags[0], &dummy[0], v)) {
+		if (handle_common_options(&setflags[0], &mask[0], v)) {
 			continue;
 		}
-		if (handle_t38_options(&global_flags[0], &dummy[0], v, &global_t38_maxdatagram)) {
+		if (handle_t38_options(&setflags[0], &mask[0], v, &global_t38_maxdatagram)) {
 			continue;
 		}
 		/* handle jb conf */
@@ -31844,6 +31972,11 @@ static int reload_config(enum channelreloadreason reason)
 			global_refer_addheaders = ast_true(v->value);
 		}
 	}
+
+	/* Override global defaults if setting found in general section */
+	ast_copy_flags(&global_flags[0], &setflags[0], mask[0].flags);
+	ast_copy_flags(&global_flags[1], &setflags[1], mask[1].flags);
+	ast_copy_flags(&global_flags[2], &setflags[2], mask[2].flags);
 
 	/* For backwards compatibility the corresponding registration timer value is used if subscription timer value isn't set by configuration */
 	if (!min_subexpiry_set) {

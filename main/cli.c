@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377075 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 386051 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_MODULE_DIR */
@@ -93,9 +93,9 @@ struct module_level {
 AST_RWLIST_HEAD(module_level_list, module_level);
 
 /*! list of module names and their debug levels */
-static struct module_level_list debug_modules;
+static struct module_level_list debug_modules = AST_RWLIST_HEAD_INIT_VALUE;
 /*! list of module names and their verbose levels */
-static struct module_level_list verbose_modules;
+static struct module_level_list verbose_modules = AST_RWLIST_HEAD_INIT_VALUE;
 
 AST_THREADSTORAGE(ast_cli_buf);
 

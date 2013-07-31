@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 382390 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 387030 $")
 
 #include "asterisk/_private.h"
 
@@ -216,6 +216,8 @@ static const char * const event_names[AST_EVENT_TOTAL] = {
 	[AST_EVENT_SECURITY]            = "Security",
 	[AST_EVENT_NETWORK_CHANGE]      = "NetworkChange",
 	[AST_EVENT_PRESENCE_STATE]      = "PresenceState",
+	[AST_EVENT_ACL_CHANGE]          = "ACLChange",
+	[AST_EVENT_PING]                = "Ping",
 };
 
 /*!
