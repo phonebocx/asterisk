@@ -1,4 +1,4 @@
-asterisk (1:11.4.0~rc1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:11.5.0~dfsg-1) UNRELEASED; urgency=low
 
   [ Faidon Liambotis ]
   * New major upstream release.
