@@ -473,6 +473,7 @@ License: GPL-2
 
 Files: apps/app_morsecode.c
  apps/app_verbose.c
+ funcs/func_curl.c
  funcs/func_cut.c
  res/res_limit.c
 Copyright: 2003-2006, Tilghman Lesher.
@@ -933,11 +934,6 @@ License: UNKNOWN
 Files: apps/app_exec.c
 Copyright: 2004-2005, Tilghman Lesher.
   2006, Philipp Dunkel
-License: UNKNOWN
- FIXME
-
-Files: funcs/func_curl.c
-Copyright: 2004, - 2006, Tilghman Lesher
 License: UNKNOWN
  FIXME
 
