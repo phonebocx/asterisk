@@ -395,7 +395,6 @@ LICENSE: GPL-2-Asterisk
 Files:
  apps/app_fax.c
  bootstrap.sh
- channels/console_gui.c
  doc/appdocsxml.dtd
  formats/msgsm.h
  main/ast_expr2f.c
