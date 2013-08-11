@@ -503,8 +503,7 @@ Files: formats/format_g719.c
  formats/format_siren7.c
 Copyright: 1999, - 2008, Anthony Minessale and Digium, Inc
   1999, - 2010, Anthony Minessale and Digium, Inc
-License: GPL-2
- FIXME
+License: GPL-2-Asterisk
 
 Files: funcs/func_base64.c
  funcs/func_rand.c
