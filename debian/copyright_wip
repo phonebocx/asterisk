@@ -558,13 +558,11 @@ Copyright: 2005, Anthony Minessale II
   2005-2006, Digium, Inc
 License: GPL-2-Asterisk
 
-Files: res/res_config_odbc.c
- res/res_odbc.c
-Copyright: 1999, - 2010, Digium, Inc
+Files: res/res_config_odbc.c res/res_odbc.c
+Copyright:
   1999, - 2012, Digium, Inc
   2004-2005, Anthony Minessale II <anthmct@yahoo.com>
-License: GPL-2
- FIXME
+License: GPL-2-Asterisk
 
 Files: main/abstract_jb.c
  main/fixedjitterbuf.c
