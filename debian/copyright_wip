@@ -89,6 +89,7 @@ Files: addons/chan_mobile.c
  channels/chan_sip.c
  channels/chan_skinny.c
  channels/iax2-parser.c
+ channels/iax2-parser.h
  channels/iax2-provision.c
  channels/sig_analog.c
  channels/sig_analog.h
@@ -527,7 +528,7 @@ Files: tests/test_abstract_jb.c
 Copyright: 2012, Matt Jordan
 License: GPL-2-Asterisk
 
-Files: channels/iax2-parser.h
+Files:
  channels/iax2-provision.h
  channels/iax2.h
 Copyright: 2003, Digium
@@ -535,10 +536,15 @@ License: UNKNOWN
  FIXME
 
 Files: addons/cdr_mysql.c
- addons/format_mp3.c
-Copyright: *No copyright*
-License: GPL-2
- FIXME
+Copyright:
+ 2003 Tilghman Lesher <asterisk__cdr__cdr_mysql__200308@the-tilghman.com>
+ 2005 Joseph Benden <joe@thrallingpenguin.com>
+ 2006 Martin Portmann <map@infinitum.ch>
+License: GPL-2-Asterisk
+
+Files: addons/format_mp3.c
+Copyright: Anthony Minessale <anthmct@yahoo.com>
+License: GPL-2-Asterisk
 
 Files: apps/app_skel.c
  tests/test_skel.c
