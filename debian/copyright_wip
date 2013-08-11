@@ -392,8 +392,7 @@ LICENSE: GPL-2-Asterisk
  .
  http://www.digium.com/en/company/profile/trademarkpolicy.php
 
-Files: agi/eagi-sphinx-test.c
- agi/eagi-test.c
+Files:
  apps/app_fax.c
  bootstrap.sh
  channels/console_gui.c
@@ -413,6 +412,14 @@ License: UNKNOWN
  stereorize.c, frame.c and frame.h: originally from markdsp:
  http://web.archive.org/web/20060525134915/http://www.manumark.de/markdsp.html
 
+Files: agi/eagi-sphinx-test.c agi/eagi-test.c
+Copyright: -
+License: public-domain
+
+Files: channels/console_gui.c
+Copyright: 2007-2008 Luigi Rizzo <rizzo@icir.org>
+License: GPL-2-Asterisk
+
 Files: codecs/ex_adpcm.h
  codecs/ex_alaw.h
  codecs/ex_g722.h
@@ -427,7 +434,7 @@ Files: codecs/ex_adpcm.h
 Copyright: 1999-2006, Digium, Inc
   1999-2010, Digium, Inc
   2008, Digium, Inc
-License: GPL-2
+License: GPL-2-Asterisk
 
 Files: cdr/cdr_manager.c
  cdr/cdr_pgsql.c
