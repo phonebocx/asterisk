@@ -3,395 +3,12 @@ Source: http://downloads.asterisk.org/pub/asterisk
 License: Mostly GPLv2 with an SSL exception.
 Upstream-Name: Asterisk
 
-Files: addons/chan_mobile.c
- addons/res_config_mysql.c
- apps/app_adsiprog.c
- apps/app_authenticate.c
- apps/app_cdr.c
- apps/app_celgenuserevent.c
- apps/app_chanisavail.c
- apps/app_confbridge.c
- apps/app_controlplayback.c
- apps/app_dahdibarge.c
- apps/app_dahdiras.c
- apps/app_dial.c
- apps/app_directory.c
- apps/app_disa.c
- apps/app_echo.c
- apps/app_externalivr.c
- apps/app_flash.c
- apps/app_getcpeid.c
- apps/app_ices.c
- apps/app_image.c
- apps/app_ivrdemo.c
- apps/app_macro.c
- apps/app_meetme.c
- apps/app_milliwatt.c
- apps/app_minivm.c
- apps/app_mp3.c
- apps/app_nbscat.c
- apps/app_osplookup.c
- apps/app_parkandannounce.c
- apps/app_playback.c
- apps/app_playtones.c
- apps/app_privacy.c
- apps/app_queue.c
- apps/app_read.c
- apps/app_readfile.c
- apps/app_record.c
- apps/app_senddtmf.c
- apps/app_sendtext.c
- apps/app_setcallerid.c
- apps/app_softhangup.c
- apps/app_speech_utils.c
- apps/app_system.c
- apps/app_talkdetect.c
- apps/app_test.c
- apps/app_transfer.c
- apps/app_url.c
- apps/app_userevent.c
- apps/app_voicemail.c
- apps/app_waitforring.c
- apps/app_waitforsilence.c
- apps/app_zapateller.c
- bridges/bridge_builtin_features.c
- bridges/bridge_multiplexed.c
- bridges/bridge_simple.c
- bridges/bridge_softmix.c
- build_tools/get_documentation.py
- build_tools/post_process_documentation.py
- cdr/cdr_csv.c
- cdr/cdr_custom.c
- cdr/cdr_odbc.c
- cdr/cdr_radius.c
- cdr/cdr_sqlite3_custom.c
- cdr/cdr_tds.c
- cel/cel_custom.c
- cel/cel_manager.c
- cel/cel_radius.c
- cel/cel_sqlite3_custom.c
- cel/cel_tds.c
- channels/chan_agent.c
- channels/chan_alsa.c
- channels/chan_bridge.c
- channels/chan_console.c
- channels/chan_dahdi.c
- channels/chan_gtalk.c
- channels/chan_iax2.c
- channels/chan_jingle.c
- channels/chan_local.c
- channels/chan_mgcp.c
- channels/chan_motif.c
- channels/chan_multicast_rtp.c
- channels/chan_nbs.c
- channels/chan_oss.c
- channels/chan_phone.c
- channels/chan_sip.c
- channels/chan_skinny.c
- channels/iax2-parser.c
- channels/iax2-parser.h
- channels/iax2-provision.c
- channels/sig_analog.c
- channels/sig_analog.h
- channels/sig_pri.c
- channels/sig_pri.h
- channels/sig_ss7.c
- channels/sig_ss7.h
- codecs/codec_a_mu.c
- codecs/codec_adpcm.c
- codecs/codec_alaw.c
- codecs/codec_dahdi.c
- codecs/codec_g722.c
- codecs/codec_g726.c
- codecs/codec_gsm.c
- codecs/codec_lpc10.c
- codecs/codec_resample.c
- codecs/codec_speex.c
- codecs/codec_ulaw.c
- formats/format_g723.c
- formats/format_g729.c
- formats/format_gsm.c
- formats/format_h263.c
- formats/format_h264.c
- formats/format_ilbc.c
- formats/format_jpeg.c
- formats/format_pcm.c
- formats/format_vox.c
- formats/format_wav.c
- formats/format_wav_gsm.c
- funcs/func_aes.c
- funcs/func_audiohookinherit.c
- funcs/func_blacklist.c
- funcs/func_callcompletion.c
- funcs/func_callerid.c
- funcs/func_channel.c
- funcs/func_config.c
- funcs/func_devstate.c
- funcs/func_dialplan.c
- funcs/func_env.c
- funcs/func_extstate.c
- funcs/func_frame_trace.c
- funcs/func_groupcount.c
- funcs/func_hangupcause.c
- funcs/func_jitterbuffer.c
- funcs/func_module.c
- funcs/func_presencestate.c
- funcs/func_shell.c
- funcs/func_speex.c
- funcs/func_srv.c
- funcs/func_sysinfo.c
- funcs/func_timeout.c
- funcs/func_uri.c
- funcs/func_version.c
- funcs/func_volume.c
- main/acl.c
- main/adsi.c
- main/alaw.c
- main/aoc.c
- main/app.c
- main/astfd.c
- main/astmm.c
- main/audiohook.c
- main/autochan.c
- main/autoservice.c
- main/bridging.c
- main/buildinfo.c
- main/callerid.c
- main/ccss.c
- main/cdr.c
- main/cel.c
- main/channel.c
- main/channel_internal_api.c
- main/chanvars.c
- main/cli.c
- main/config.c
- main/config_options.c
- main/cygload.c
- main/datastore.c
- main/db.c
- main/devicestate.c
- main/dial.c
- main/enum.c
- main/event.c
- main/file.c
- main/format.c
- main/format_cap.c
- main/format_pref.c
- main/frame.c
- main/framehook.c
- main/fskmodem.c
- main/fskmodem_float.c
- main/fskmodem_int.c
- main/global_datastores.c
- main/hashtab.c
- main/heap.c
- main/http.c
- main/image.c
- main/io.c
- main/libasteriskssl.c
- main/loader.c
- main/lock.c
- main/logger.c
- main/manager.c
- main/message.c
- main/named_acl.c
- main/netsock.c
- main/netsock2.c
- main/pbx.c
- main/presencestate.c
- main/privacy.c
- main/rtp_engine.c
- main/say.c
- main/sched.c
- main/security_events.c
- main/sip_api.c
- main/srv.c
- main/strcompat.c
- main/strings.c
- main/stun.c
- main/taskprocessor.c
- main/tcptls.c
- main/tdd.c
- main/term.c
- main/test.c
- main/threadstorage.c
- main/timing.c
- main/translate.c
- main/ulaw.c
- main/utils.c
- menuselect/linkedlists.h
- menuselect/menuselect.c
- menuselect/strcompat.c
- pbx/dundi-parser.c
- pbx/pbx_ael.c
- pbx/pbx_config.c
- pbx/pbx_dundi.c
- pbx/pbx_loopback.c
- pbx/pbx_lua.c
- pbx/pbx_realtime.c
- pbx/pbx_spool.c
- res/res_adsi.c
- res/res_ael_share.c
- res/res_agi.c
- res/res_calendar.c
- res/res_calendar_caldav.c
- res/res_calendar_ews.c
- res/res_calendar_exchange.c
- res/res_calendar_icalendar.c
- res/res_clialiases.c
- res/res_clioriginate.c
- res/res_config_curl.c
- res/res_convert.c
- res/res_crypto.c
- res/res_curl.c
- res/res_fax.c
- res/res_fax_spandsp.c
- res/res_format_attr_celt.c
- res/res_format_attr_h263.c
- res/res_format_attr_h264.c
- res/res_format_attr_silk.c
- res/res_http_post.c
- res/res_http_websocket.c
- res/res_jabber.c
- res/res_monitor.c
- res/res_musiconhold.c
- res/res_phoneprov.c
- res/res_realtime.c
- res/res_rtp_asterisk.c
- res/res_rtp_multicast.c
- res/res_security_log.c
- res/res_smdi.c
- res/res_speech.c
- res/res_stun_monitor.c
- res/res_timing_dahdi.c
- res/res_timing_kqueue.c
- res/res_timing_pthread.c
- res/res_timing_timerfd.c
- res/res_xmpp.c
- tests/test_acl.c
- tests/test_amihooks.c
- tests/test_aoc.c
- tests/test_app.c
- tests/test_ast_format_str_reduce.c
- tests/test_astobj2.c
- tests/test_config.c
- tests/test_db.c
- tests/test_devicestate.c
- tests/test_event.c
- tests/test_expr.c
- tests/test_format_api.c
- tests/test_func_file.c
- tests/test_gosub.c
- tests/test_heap.c
- tests/test_locale.c
- tests/test_logger.c
- tests/test_netsock2.c
- tests/test_pbx.c
- tests/test_poll.c
- tests/test_sched.c
- tests/test_security_events.c
- tests/test_strings.c
- tests/test_substitution.c
- tests/test_time.c
- tests/test_utils.c
- utils/astcanary.c
- utils/astdb2bdb.c
- utils/astdb2sqlite3.c
- utils/astman.c
- utils/check_expr.c
- utils/conf2ael.c
- utils/extconf.c
- utils/muted.c
- utils/streamplayer.c
-Copyright: 1999, - 2005, Digium, Inc
-  1999, - 2006, Digium, Inc
-  1999, - 2007, Digium, Inc
-  1999, - 2008, Digium, Inc
-  1999, - 2009, Digium, Inc
-  1999, - 2010, Digium, Inc
-  1999, - 2012, Digium, Inc
-  1999-2005, Digium, Inc
-  1999-2010, Digium, Inc
-  1999-2012, Digium, Inc
-  2001, - 2005, Digium, Inc
-  2003-2005, Digium, Inc
-  2004, - 2006, Digium, Inc
-  2005, - 2010, Digium, Inc
-  2005, Digium, Inc
-  2005-2006, Digium, Inc
-  2005-2008, Digium, Inc
-  2006, - 2008, Digium, Inc
-  2006, Digium, Inc
-  2006-2012, Digium, Inc
-  2007, - 2009, Digium, Inc
-  2007, Digium, Inc
-  2007-2008, Digium, Inc
-  2008, Digium, Inc
-  2008-2009, Digium, Inc
-  2009, Digium, Inc
-  2009-2010, Digium, Inc
-  2009-2012, Digium, Inc
-  2010, Digium, Inc
-  2011, Digium, Inc
-  2011-2012, Digium, Inc
-  2012, Digium, Inc
+Files: *
+Copyright: 1999, - 2012, Digium, Inc
 License: GPL-2-Asterisk
-
 Comment: This specifies the license used for most of Asterisk's files.
  Informally: GPL-2 with exceptions for linking with OpenSSL, OpenH323
  and UW-Imap. Below is copied from the file LICENSE in the source tree.
-LICENSE: GPL-2-Asterisk
- Asterisk is distributed under the GNU General Public License version 2
- and is also available under alternative licenses negotiated directly
- with Digium, Inc. If you obtained Asterisk under the GPL, then the GPL
- applies to all loadable Asterisk modules used on your system as well,
- except as defined below. The GPL (version 2) is included in this
- source tree in the file COPYING.
- .
- (On Debian systems you will find a copy of the GPL (version 2) at
- /usr/share/common-licenses/GPL-2).
- .
- This package also includes various components that are not part of
- Asterisk itself; these components are in the 'contrib' directory
- and its subdirectories. These components are also distributed under the
- GPL version 2 as well.
- .
- Digium, Inc. (formerly Linux Support Services) holds copyright
- and/or sufficient licenses to all components of the Asterisk
- package, and therefore can grant, at its sole discretion, the ability
- for companies, individuals, or organizations to create proprietary or
- Open Source (even if not GPL) modules which may be dynamically linked at
- runtime with the portions of Asterisk which fall under our
- copyright/license umbrella, or are distributed under more flexible
- licenses than GPL.
- .
- If you wish to use our code in other GPL programs, don't worry --
- there is no requirement that you provide the same exception in your
- GPL'd products (although if you've written a module for Asterisk we
- would strongly encourage you to make the same exception that we do).
- .
- Specific permission is also granted to link Asterisk with OpenSSL, OpenH323
- and/or the UW IMAP Toolkit and distribute the resulting binary files.
- .
- In addition, Asterisk implements two management/control protocols: the
- Asterisk Manager Interface (AMI) and the Asterisk Gateway Interface
- (AGI). It is our belief that applications using these protocols to
- manage or control an Asterisk instance do not have to be licensed
- under the GPL or a compatible license, as we believe these protocols
- do not create a 'derivative work' as referred to in the GPL. However,
- should any court or other judiciary body find that these protocols do
- fall under the terms of the GPL, then we hereby grant you a license to
- use these protocols in combination with Asterisk in external
- applications licensed under any license you wish.
- .
- The 'Asterisk' name and logos are trademarks owned by Digium, Inc.,
- and use of them is subject to our trademark licensing policies. If you
- wish to use these trademarks for purposes other than simple
- redistribution of Asterisk source code obtained from Digium, you
- should contact our licensing department to determine the necessary
- steps you must take. For more information on this policy, please read:
- .
- http://www.digium.com/en/company/profile/trademarkpolicy.php
 
 Files:
  apps/app_fax.c
@@ -404,13 +21,25 @@ Files:
  tests/test_ami_security_events.sh
  utils/ael_main.c
  utils/clicompat.c
+Copyright: *No copyright*
+License: UNKNOWN
+
+Files:
  utils/frame.c
  utils/frame.h
  utils/stereorize.c
-Copyright: *No copyright*
-License: UNKNOWN
+Comment:
  stereorize.c, frame.c and frame.h: originally from markdsp:
  http://web.archive.org/web/20060525134915/http://www.manumark.de/markdsp.html
+ .
+ Author notified by private mail:
+ > Have you intended for that package to be released under a Free Software
+ > license (basically: one that allows distribution and modification)? If
+ > so, could you please provide a version of that source package licensed
+ > under some standard free software license (GPL? LGPL? MIT?)
+ .
+ Thank you for your trouble. I intended the software to be free. GPL is
+ fine. Please add the appropriate text to the file for me, in my name.
 
 Files: agi/eagi-sphinx-test.c agi/eagi-test.c
 Copyright: -
@@ -418,22 +47,6 @@ License: public-domain
 
 Files: channels/console_gui.c
 Copyright: 2007-2008 Luigi Rizzo <rizzo@icir.org>
-License: GPL-2-Asterisk
-
-Files: codecs/ex_adpcm.h
- codecs/ex_alaw.h
- codecs/ex_g722.h
- codecs/ex_g726.h
- codecs/ex_gsm.h
- codecs/ex_ilbc.h
- codecs/ex_lpc10.h
- codecs/ex_speex.h
- codecs/ex_ulaw.h
- include/asterisk.h
- res/res_config_pgsql.c
-Copyright: 1999-2006, Digium, Inc
-  1999-2010, Digium, Inc
-  2008, Digium, Inc
 License: GPL-2-Asterisk
 
 Files: cdr/cdr_manager.c
@@ -447,6 +60,13 @@ Copyright: 1999, - 2005
   2003, - 2012
   2004-2005
   2008
+License: GPL-2-Asterisk
+
+Files:
+License: GPL-2-Asterisk
+
+Files: cdr/cdr_pgsql.c
+Copyright: 2003-2012 Matthew D. Hardeman <mhardemn@papersoft.com>
 License: GPL-2-Asterisk
 
 Files: apps/app_jack.c
@@ -465,6 +85,13 @@ Copyright: 2006, Tilghman Lesher
   2007, Tilghman Lesher
 License: GPL-2-Asterisk
 
+Files: apps/app_exec.c
+Copyright: 2004-2005, Tilghman Lesher.
+  2006, Philipp Dunkel
+License: GPL-2-Asterisk
+ FIXME
+ See above comment.
+
 Files: addons/chan_ooh323.c
  addons/chan_ooh323.h
  addons/ooh323cDriver.c
@@ -477,11 +104,12 @@ Files: apps/app_morsecode.c
  funcs/func_curl.c
  funcs/func_cut.c
  res/res_limit.c
+ apps/app_sayunixtime.c
 Copyright: 2003-2006, Tilghman Lesher.
-  2004-2005, Tilghman Lesher.
-  2006, Tilghman Lesher.
-License: UNKNOWN
- FIXME
+License: GPL-2-Asterisk
+ FIXME:
+ Files carry a different license. Author verified in private mail the
+ new license. Should be updated in Upstream soon.
 
 Files: apps/app_dictate.c
  apps/app_dumpchan.c
@@ -616,8 +244,32 @@ License: GPL-2-Asterisk
 Files: main/ast_expr2.c
  main/ast_expr2.h
 Copyright: 1984, 1989-1990, 2000-2006
-License: GPL-3+
- FIXME
+License: GPL-3+ with bison exception
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
+ .
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ .
+ As a special exception, you may create a larger work that contains
+ part or all of the Bison parser skeleton and distribute that work
+ under terms of your choice, so long as that work isn't itself a
+ parser generator using the skeleton or a modified version thereof
+ as a parser skeleton.  Alternatively, if you modify or redistribute
+ the parser skeleton itself, you may (at your option) remove this
+ special exception, which will cause the skeleton and the resulting
+ Bison output files to be licensed under the GNU General Public
+ License without this special exception.
+ .
+ This special exception was added by the Free Software Foundation in
+ version 2.2 of Bison.
 
 Files: codecs/log2comp.h
  pbx/dundi-parser.h
@@ -897,31 +549,34 @@ License: public-domain
  written by Colin Plumb in 1993, no copyright is claimed.
  This code is in the public domain; do with it what you wish.
 
-Files: apps/app_followme.c
-Copyright: 2005-2006, BJ Weschke
-License: UNKNOWN
- FIXME
-
-Files: funcs/func_realtime.c
+Files: apps/app_followme.c funcs/func_realtime.c
 Copyright: 2005-2006, BJ Weschke.
 License: UNKNOWN
+ This code is released by the author with no restrictions on usage.
  FIXME
 
 Files: main/poll.c
 Copyright: 1995-2002, Brian M. Clapper
-License: UNKNOWN
- FIXME
+License: BSD-3-clause
+ Redistribution and use in source and binary forms are
+ permitted provided that: (1) source distributions retain
+ this entire copyright notice and comment; (2) modifications
+ made to the software are prominently mentioned, and a copy
+ of the original software (or a pointer to its location) are
+ included; and (3) distributions including binaries display
+ the following acknowledgement: "This product includes
+ software developed by Brian M. Clapper <bmc@clapper.org>"
+ in the documentation or other materials provided with the
+ distribution. The name of the author may not be used to
+ endorse or promote products derived from this software
+ without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS
+ OR IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ PARTICULAR PURPOSE.
 
-Files: apps/app_sayunixtime.c
-Copyright: 2003, 2006 Tilghman Lesher.
-  2006, Digium, Inc
-License: UNKNOWN
- FIXME
-
-Files: apps/app_page.c
-Copyright: 2004, - 2006, Digium, Inc.
-License: UNKNOWN
- FIXME
+ 
 
 Files: include/jitterbuf.h
 Copyright: 2004-2005, Horizon Wimba, Inc
@@ -929,19 +584,61 @@ Copyright: 2004-2005, Horizon Wimba, Inc
 License: UNKNOWN
  FIXME
 
-Files: channels/chan_phone.h
-Copyright: 1999, Mark Spencer
-License: UNKNOWN
- FIXME
-
-Files: apps/app_exec.c
-Copyright: 2004-2005, Tilghman Lesher.
-  2006, Philipp Dunkel
-License: UNKNOWN
- FIXME
-
 Files: menuselect/menuselect_gtk.c
 Copyright: 2007\n");
 License: UNKNOWN
  FIXME
+ Likely GPL-2-Asterisk, according to VCS
 
+LICENSE: GPL-2-Asterisk
+ Asterisk is distributed under the GNU General Public License version 2
+ and is also available under alternative licenses negotiated directly
+ with Digium, Inc. If you obtained Asterisk under the GPL, then the GPL
+ applies to all loadable Asterisk modules used on your system as well,
+ except as defined below. The GPL (version 2) is included in this
+ source tree in the file COPYING.
+ .
+ (On Debian systems you will find a copy of the GPL (version 2) at
+ /usr/share/common-licenses/GPL-2).
+ .
+ This package also includes various components that are not part of
+ Asterisk itself; these components are in the 'contrib' directory
+ and its subdirectories. These components are also distributed under the
+ GPL version 2 as well.
+ .
+ Digium, Inc. (formerly Linux Support Services) holds copyright
+ and/or sufficient licenses to all components of the Asterisk
+ package, and therefore can grant, at its sole discretion, the ability
+ for companies, individuals, or organizations to create proprietary or
+ Open Source (even if not GPL) modules which may be dynamically linked at
+ runtime with the portions of Asterisk which fall under our
+ copyright/license umbrella, or are distributed under more flexible
+ licenses than GPL.
+ .
+ If you wish to use our code in other GPL programs, don't worry --
+ there is no requirement that you provide the same exception in your
+ GPL'd products (although if you've written a module for Asterisk we
+ would strongly encourage you to make the same exception that we do).
+ .
+ Specific permission is also granted to link Asterisk with OpenSSL, OpenH323
+ and/or the UW IMAP Toolkit and distribute the resulting binary files.
+ .
+ In addition, Asterisk implements two management/control protocols: the
+ Asterisk Manager Interface (AMI) and the Asterisk Gateway Interface
+ (AGI). It is our belief that applications using these protocols to
+ manage or control an Asterisk instance do not have to be licensed
+ under the GPL or a compatible license, as we believe these protocols
+ do not create a 'derivative work' as referred to in the GPL. However,
+ should any court or other judiciary body find that these protocols do
+ fall under the terms of the GPL, then we hereby grant you a license to
+ use these protocols in combination with Asterisk in external
+ applications licensed under any license you wish.
+ .
+ The 'Asterisk' name and logos are trademarks owned by Digium, Inc.,
+ and use of them is subject to our trademark licensing policies. If you
+ wish to use these trademarks for purposes other than simple
+ redistribution of Asterisk source code obtained from Digium, you
+ should contact our licensing department to determine the necessary
+ steps you must take. For more information on this policy, please read:
+ .
+ http://www.digium.com/en/company/profile/trademarkpolicy.php
