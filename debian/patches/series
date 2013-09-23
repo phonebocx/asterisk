@@ -23,3 +23,8 @@ ilbc_disable
 astdatadir
 bzero
 pjproject
+
+# Backport of dynamic generation of DAHDI channels:
+dahdi_pri_event_removed
+dahdi_create_channels
+

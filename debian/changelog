@@ -26,6 +26,8 @@ asterisk (1:11.5.0~dfsg-1) UNRELEASED; urgency=low
       stupidity inflicted by pjproject.
     - get-orig-source: remove res/pjproject from the source tarball.
   * debian/rules: switch to dh.
+  * Patches dahdi_create_channels, dahdi_pri_event_removed: backport dynamic
+    DAHDI support.
 
   [ David Sarmiento ]
   * Re-enabled pjproject
