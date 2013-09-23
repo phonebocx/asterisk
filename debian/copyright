@@ -1,33 +1,37 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Source: http://downloads.asterisk.org/pub/asterisk
-License: Mostly GPLv2 with an SSL exception.
 Upstream-Name: Asterisk
 
 Files: *
-Copyright: 1999, - 2012, Digium, Inc
+Copyright: 1999-2012, Digium, Inc
 License: GPL-2-Asterisk
 Comment: This specifies the license used for most of Asterisk's files.
  Informally: GPL-2 with exceptions for linking with OpenSSL, OpenH323
- and UW-Imap. Below is copied from the file LICENSE in the source tree.
+ and UW-Imap.
 
-Files:
- apps/app_fax.c
- bootstrap.sh
- doc/appdocsxml.dtd
- formats/msgsm.h
- main/ast_expr2f.c
- main/ecdisa.h
- menuselect/bootstrap.sh
- tests/test_ami_security_events.sh
- utils/ael_main.c
- utils/clicompat.c
-Copyright: *No copyright*
+Files: apps/app_fax.c
+Copyright: 2007-2008, Dmitry Andrianov <asterisk@dima.spb.ru>
+License: GPL-2-Asterisk
+
+Files: utils/ael_main.c
+Copyright: 2006, Steve Murphy
+License: GPL-2-Asterisk
+
+Files: formats/msgsm.h
+Copyright: 1999,
 License: UNKNOWN
+Comment:
+ Not clear. Created by Mark Specer (?) but derived from code by
+ guido@sienanet.it. License should be GPL-2-Asterisk.
 
 Files:
  utils/frame.c
  utils/frame.h
  utils/stereorize.c
+Copyright:
+ Mark Roberts <mark@manumark.de>
+ Michael Labuschke <michael@labuschke.de>
+License: GPL-2-Asterisk
 Comment:
  stereorize.c, frame.c and frame.h: originally from markdsp:
  http://web.archive.org/web/20060525134915/http://www.manumark.de/markdsp.html
@@ -44,25 +48,11 @@ Comment:
 Files: agi/eagi-sphinx-test.c agi/eagi-test.c
 Copyright: -
 License: public-domain
+ This code is released into public domain
+ without any warranty of any kind.
 
 Files: channels/console_gui.c
 Copyright: 2007-2008 Luigi Rizzo <rizzo@icir.org>
-License: GPL-2-Asterisk
-
-Files: cdr/cdr_manager.c
- cdr/cdr_pgsql.c
- cel/cel_pgsql.c
- channels/chan_h323.c
- funcs/func_enum.c
- utils/smsq.c
-Copyright: 1999, - 2005
-  1999, - 2006
-  2003, - 2012
-  2004-2005
-  2008
-License: GPL-2-Asterisk
-
-Files:
 License: GPL-2-Asterisk
 
 Files: cdr/cdr_pgsql.c
@@ -85,19 +75,19 @@ Copyright: 2006, Tilghman Lesher
   2007, Tilghman Lesher
 License: GPL-2-Asterisk
 
-Files: apps/app_exec.c
-Copyright: 2004-2005, Tilghman Lesher.
-  2006, Philipp Dunkel
-License: GPL-2-Asterisk
- FIXME
- See above comment.
-
 Files: addons/chan_ooh323.c
  addons/chan_ooh323.h
  addons/ooh323cDriver.c
  addons/ooh323cDriver.h
 Copyright: 2004-2005, Objective Systems, Inc
 License: GPL-2
+ This software is furnished under an open source license and may be 
+ used and copied only in accordance with the terms of this license. 
+ The text of the license may generally be found in the root 
+ directory of this installation in the COPYING file.
+ .
+ (On Debian systems you will find a copy of the GPL (version 2) at
+ /usr/share/common-licenses/GPL-2).
 
 Files: apps/app_morsecode.c
  apps/app_verbose.c
@@ -107,9 +97,17 @@ Files: apps/app_morsecode.c
  apps/app_sayunixtime.c
 Copyright: 2003-2006, Tilghman Lesher.
 License: GPL-2-Asterisk
- FIXME:
+Comment:
  Files carry a different license. Author verified in private mail the
- new license. Should be updated in Upstream soon.
+ new license. Should be updated in Upstream soon (and anyway, Digium has
+ the legal right to relicense this code).
+
+Files: apps/app_exec.c
+Copyright: 2004-2005, Tilghman Lesher.
+  2006, Philipp Dunkel
+License: GPL-2-Asterisk
+Comment:
+ See above comment.
 
 Files: apps/app_dictate.c
  apps/app_dumpchan.c
@@ -155,13 +153,6 @@ Files: tests/test_abstract_jb.c
  tests/test_voicemail_api.c
 Copyright: 2012, Matt Jordan
 License: GPL-2-Asterisk
-
-Files:
- channels/iax2-provision.h
- channels/iax2.h
-Copyright: 2003, Digium
-License: UNKNOWN
- FIXME
 
 Files: addons/cdr_mysql.c
 Copyright:
@@ -271,17 +262,14 @@ License: GPL-3+ with bison exception
  This special exception was added by the Free Software Foundation in
  version 2.2 of Bison.
 
-Files: codecs/log2comp.h
- pbx/dundi-parser.h
-Copyright: 2004-2005, Digium Inc
-License: UNKNOWN
- FIXME
-
-Files: apps/enter.h
- apps/leave.h
+Files: apps/enter.h apps/leave.h
 Copyright: 1999, Mark Spencer and Linux Support Services
 License: UNKNOWN
- FIXME
+Comment:
+ See https://issues.asterisk.org/jira/browse/ASTERISK-22568 .
+ License should be GPL-2 by the count of being included in the source
+ tree. The source is missing but could be programmatically reproduced:
+ raw signed-linear audio file.
 
 Files: main/sha1.c include/asterisk/sha1.h
 Copyright: 2011 IETF Trust and the persons identified as authors of the code.
@@ -315,6 +303,12 @@ License: BSD-3-clause
  EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Files: addons/mp3/*
+Copyright: 1995,1996,1997 by Michael Hipp
+License: GPL-2
+ you may use this source under GPL terms!
+ .
+ (On Debian systems you will find a copy of the GPL (version 2) at
+ /usr/share/common-licenses/GPL-2).
 Comment: included in the patch mpglib
 
 Files: apps/app_sms.c
@@ -343,7 +337,7 @@ License: GPL-2-Asterisk
 
 Files: apps/app_chanspy.c
 Copyright: 2005, - 2008, Digium, Inc
-  2005, Anthony Minessale II (anthmct@yahoo.com)
+ 2005, Anthony Minessale II (anthmct@yahoo.com)
 License: GPL-2-Asterisk
 
 Files: apps/app_forkcdr.c
@@ -375,15 +369,15 @@ License: GPL-2-Asterisk
 Files: addons/app_mysql.c
 Copyright: 2004, Constantine Filin and Christos Ricudis
 License: GPL-2
+ This program is free software, distributed under the terms of
+ the GNU General Public License Version 2. See the LICENSE file
+ at the top of the source tree.
+ .
+ (On Debian systems you will find a copy of the GPL (version 2) at
+ /usr/share/common-licenses/GPL-2).
 
 Files: cel/cel_odbc.c
 Copyright: 2008, Digium
-License: GPL-2-Asterisk
-
-Files: main/asterisk.c
-Copyright: 1999, - 2012, Digium, Inc
-  Header */
-  and Author
 License: GPL-2-Asterisk
 
 Files: apps/app_db.c
@@ -529,6 +523,13 @@ Files: apps/app_stack.c
 Copyright: 2004-2006, Tilghman Lesher <app_stack_v003@the-tilghman.com>
 License: GPL-2-Asterisk
 
+Files: apps/app_followme.c funcs/func_realtime.c
+Copyright: 2005-2006, BJ Weschke.
+License: This code is released by the author with no restrictions on usage.
+ Likewise here author clarified on private mail:
+ "No limitations on redistribution and or redistribution of modified
+ copies." and likewise Digium is allowed to relicense the code.
+
 Files: funcs/func_vmcount.c
 Copyright: 2006, Tilghman Lesher.
 License: GPL-2-Asterisk
@@ -548,12 +549,6 @@ License: public-domain
  The algorithm is due to Ron Rivest.  This code was
  written by Colin Plumb in 1993, no copyright is claimed.
  This code is in the public domain; do with it what you wish.
-
-Files: apps/app_followme.c funcs/func_realtime.c
-Copyright: 2005-2006, BJ Weschke.
-License: UNKNOWN
- This code is released by the author with no restrictions on usage.
- FIXME
 
 Files: main/poll.c
 Copyright: 1995-2002, Brian M. Clapper
@@ -576,21 +571,26 @@ License: BSD-3-clause
  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
  PARTICULAR PURPOSE.
 
- 
-
 Files: include/jitterbuf.h
 Copyright: 2004-2005, Horizon Wimba, Inc
   on this file is disclaimed to Digium for inclusion in Asterisk
-License: UNKNOWN
- FIXME
+License: LGPL-2.1
+ This program is free software, distributed under the terms of
+ the GNU Lesser (Library) General Public License
+ . 
+ Copyright on this file is disclaimed to Digium for inclusion in Asterisk
+ .
+ (On Debian systems you will find a copy of the LGPL (version 2) at
+ /usr/share/common-licenses/LGPL-2.1).
 
 Files: menuselect/menuselect_gtk.c
 Copyright: 2007\n");
 License: UNKNOWN
- FIXME
- Likely GPL-2-Asterisk, according to VCS
+Comment:
+ Likely GPL-2-Asterisk, according to VCS, as it was created by Digium
+ employees.
 
-LICENSE: GPL-2-Asterisk
+License: GPL-2-Asterisk
  Asterisk is distributed under the GNU General Public License version 2
  and is also available under alternative licenses negotiated directly
  with Digium, Inc. If you obtained Asterisk under the GPL, then the GPL
@@ -642,3 +642,4 @@ LICENSE: GPL-2-Asterisk
  steps you must take. For more information on this policy, please read:
  .
  http://www.digium.com/en/company/profile/trademarkpolicy.php
+
