@@ -28,6 +28,7 @@ asterisk (1:11.5.0~dfsg-1) UNRELEASED; urgency=low
   * debian/rules: switch to dh.
   * Patches dahdi_create_channels, dahdi_pri_event_removed: backport dynamic
     DAHDI support.
+  * Patch astdb_man: Man pages for astdb2bdb and astdb2sqlite3.
 
   [ David Sarmiento ]
   * Re-enabled pjproject
