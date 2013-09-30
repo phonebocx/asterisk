@@ -1,4 +1,4 @@
-asterisk (1:11.5.1~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:11.5.1~dfsg-1) unstable; urgency=low
 
   [ Faidon Liambotis ]
   * New major upstream release.
@@ -44,7 +44,7 @@ asterisk (1:11.5.1~dfsg-1) UNRELEASED; urgency=low
   * Modified rules file to be able to build pjproject
   * Updated build-deps
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 30 Jan 2013 23:58:29 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 30 Sep 2013 21:28:22 +0300
 
 asterisk (1:1.8.13.0~dfsg-1) unstable; urgency=high
 
