@@ -5,7 +5,15 @@ asterisk (1:11.5.1~dfsg-1) UNRELEASED; urgency=low
     - Drop patch kfreebsd, fixed upstream.
     - Drop patch httpd_port.
     - Drop patch menuselect_cflags, merged upstream.
+    - Drop patch bluetooth_bind, merged upstream.
     - Replace libopenais-dev with corosync-dev, res_corosync replaces res_ais.
+    - Fixes CVE-2013-5641, CVE-2013-5642 (Closes: #721220).
+    - Patch fix_xmpp_19532 also included (Closes: #545272).
+    - Patch powerpcspe also included (Closes: #701505).
+    - Fixes incorrect sip causes issue (Closes: #710557).
+    - Patch powerpcspe also included (Closes: #701505).
+    - Patces merged upstream: AST-2012-012, ASt-2012-013,
+      AST-2012-014, AST-2012-015, AST-2013-002, AST-2013-003
   * Do not ship the removed-but-reincluded docs, they're outdated by now.
     Upstream wants their Wiki to be the primary Asterisk documentation place.
   * Ship UPGRADE-{10,1.8,1.4,1.2}.txt in asterisk-doc.
