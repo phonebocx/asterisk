@@ -16,8 +16,6 @@ Origin: http://svnview.digium.com/svn/asterisk?view=rev&rev=382292
  res/res_rtp_asterisk.c |    4 ----
  2 files changed, 15 deletions(-)
 
-diff --git a/include/asterisk.h b/include/asterisk.h
-index a25f291..e99bdee 100644
 --- a/include/asterisk.h
 +++ b/include/asterisk.h
 @@ -213,17 +213,6 @@ struct ast_variable;
@@ -38,11 +36,9 @@ index a25f291..e99bdee 100644
  /* Some handy macros for turning a preprocessor token into (effectively) a quoted string */
  #define __stringify_1(x)	#x
  #define __stringify(x)		__stringify_1(x)
-diff --git a/res/res_rtp_asterisk.c b/res/res_rtp_asterisk.c
-index 4450a51..05ebf0a 100644
 --- a/res/res_rtp_asterisk.c
 +++ b/res/res_rtp_asterisk.c
-@@ -46,10 +46,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
+@@ -47,10 +47,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include <openssl/bio.h>
  #endif
  
@@ -53,6 +49,3 @@ index 4450a51..05ebf0a 100644
  #include "pjlib.h"
  #include "pjlib-util.h"
  #include "pjnath.h"
--- 
-1.7.10.4
-

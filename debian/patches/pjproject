@@ -28,7 +28,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  AST_EXT_LIB_SETUP([POPT], [popt], [popt])
  AST_EXT_LIB_SETUP([PORTAUDIO], [PortAudio], [portaudio])
  AST_EXT_LIB_SETUP([PRI], [ISDN PRI], [pri])
-@@ -1994,6 +1995,8 @@ if test "${PG_CONFIG}" != No; then
+@@ -1996,6 +1997,8 @@ if test "${PG_CONFIG}" != No; then
     fi
  fi
  
@@ -100,7 +100,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	<depend>uuid</depend>
  	<support_level>core</support_level>
   ***/
-@@ -46,9 +47,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
+@@ -47,9 +48,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
  #include <openssl/bio.h>
  #endif
  
@@ -115,7 +115,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  #include "asterisk/stun.h"
  #include "asterisk/pbx.h"
-@@ -129,6 +132,7 @@ static int nochecksums;
+@@ -130,6 +133,7 @@ static int nochecksums;
  #endif
  static int strictrtp = DEFAULT_STRICT_RTP; /*< Only accept RTP frames from a defined source. If we receive an indication of a changing source, enter learning mode. */
  static int learning_min_sequential = DEFAULT_LEARNING_MIN_SEQUENTIAL; /*< Number of sequential RTP frames needed from a single source during learning mode to accept new source. */
@@ -123,7 +123,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  static int icesupport = DEFAULT_ICESUPPORT;
  static struct sockaddr_in stunaddr;
  static pj_str_t turnaddr;
-@@ -153,6 +157,7 @@ static pj_thread_t *thread;
+@@ -154,6 +158,7 @@ static pj_thread_t *thread;
  
  /*! \brief Notification that the ICE/TURN worker thread should stop */
  static int worker_terminate;
@@ -131,7 +131,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  #define FLAG_3389_WARNING               (1 << 0)
  #define FLAG_NAT_ACTIVE                 (3 << 1)
-@@ -250,12 +255,14 @@ struct ast_rtp {
+@@ -251,12 +256,14 @@ struct ast_rtp {
  
  	struct rtp_red *red;
  
@@ -148,7 +148,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	unsigned int passthrough:1; /*!< Bit to indicate that the received packet should be passed through */
  	unsigned int ice_started:1; /*!< Bit to indicate ICE connectivity checks have started */
  
-@@ -267,6 +274,7 @@ struct ast_rtp {
+@@ -268,6 +275,7 @@ struct ast_rtp {
  
  	struct ao2_container *local_candidates;   /*!< The local ICE candidates */
  	struct ao2_container *remote_candidates;  /*!< The remote ICE candidates */
@@ -156,7 +156,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  #ifdef HAVE_OPENSSL_SRTP
  	SSL_CTX *ssl_ctx; /*!< SSL context */
-@@ -394,6 +402,22 @@ static int ast_rtp_activate(struct ast_r
+@@ -395,6 +403,22 @@ static int ast_rtp_activate(struct ast_r
  
  static int __rtp_sendto(struct ast_rtp_instance *instance, void *buf, size_t size, int flags, struct ast_sockaddr *sa, int rtcp, int *ice, int use_srtp);
  
@@ -179,7 +179,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  /*! \brief Destructor for locally created ICE candidates */
  static void ast_rtp_ice_candidate_destroy(void *obj)
  {
-@@ -476,19 +500,6 @@ static void pj_thread_register_check(voi
+@@ -477,19 +501,6 @@ static void pj_thread_register_check(voi
  	return;
  }
  
@@ -199,7 +199,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  static void ast_rtp_ice_start(struct ast_rtp_instance *instance)
  {
  	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
-@@ -692,6 +703,7 @@ static struct ast_rtp_engine_ice ast_rtp
+@@ -693,6 +704,7 @@ static struct ast_rtp_engine_ice ast_rtp
  	.get_local_candidates = ast_rtp_ice_get_local_candidates,
  	.ice_lite = ast_rtp_ice_lite,
  };
@@ -207,7 +207,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  #ifdef HAVE_OPENSSL_SRTP
  static void dtls_info_callback(const SSL *ssl, int where, int ret)
-@@ -1019,13 +1031,16 @@ static struct ast_rtp_engine asterisk_rt
+@@ -1020,13 +1032,16 @@ static struct ast_rtp_engine asterisk_rt
  	.stop = ast_rtp_stop,
  	.qos = ast_rtp_qos_set,
  	.sendcng = ast_rtp_sendcng,
@@ -224,7 +224,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  static void rtp_learning_seq_init(struct rtp_learning_info *info, uint16_t seq);
  
  static void ast_rtp_on_ice_complete(pj_ice_sess *ice, pj_status_t status)
-@@ -1195,6 +1210,7 @@ static int ice_worker_thread(void *data)
+@@ -1196,6 +1211,7 @@ static int ice_worker_thread(void *data)
  
  	return 0;
  }
@@ -232,7 +232,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  static inline int rtp_debug_test_addr(struct ast_sockaddr *addr)
  {
-@@ -1449,6 +1465,7 @@ static int __rtp_recvfrom(struct ast_rtp
+@@ -1450,6 +1466,7 @@ static int __rtp_recvfrom(struct ast_rtp
  	}
  #endif
  
@@ -240,7 +240,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	if (rtp->ice) {
  		pj_str_t combined = pj_str(ast_sockaddr_stringify(sa));
  		pj_sockaddr address;
-@@ -1474,6 +1491,7 @@ static int __rtp_recvfrom(struct ast_rtp
+@@ -1475,6 +1492,7 @@ static int __rtp_recvfrom(struct ast_rtp
  		}
  		rtp->passthrough = 0;
  	}
@@ -248,7 +248,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  	if ((*in & 0xC0) && res_srtp && srtp && res_srtp->unprotect(srtp, buf, &len, rtcp) < 0) {
  	   return -1;
-@@ -1505,6 +1523,7 @@ static int __rtp_sendto(struct ast_rtp_i
+@@ -1506,6 +1524,7 @@ static int __rtp_sendto(struct ast_rtp_i
  		return -1;
  	}
  
@@ -256,7 +256,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	if (rtp->ice) {
  		pj_thread_register_check();
  
-@@ -1513,6 +1532,7 @@ static int __rtp_sendto(struct ast_rtp_i
+@@ -1514,6 +1533,7 @@ static int __rtp_sendto(struct ast_rtp_i
  			return 0;
  		}
  	}
@@ -264,7 +264,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  	return ast_sendto(rtcp ? rtp->rtcp->s : rtp->s, temp, len, flags, sa);
  }
-@@ -1630,6 +1650,7 @@ static int rtp_learning_rtp_seq_update(s
+@@ -1631,6 +1651,7 @@ static int rtp_learning_rtp_seq_update(s
  	return (info->packets == 0);
  }
  
@@ -272,7 +272,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  static void rtp_add_candidates_to_ice(struct ast_rtp_instance *instance, struct ast_rtp *rtp, struct ast_sockaddr *addr, int port, int component,
  				      int transport, const pj_turn_sock_cb *turn_cb, pj_turn_sock **turn_sock)
  {
-@@ -1694,6 +1715,7 @@ static void rtp_add_candidates_to_ice(st
+@@ -1695,6 +1716,7 @@ static void rtp_add_candidates_to_ice(st
  		}
  	}
  }
@@ -280,7 +280,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  static int ast_rtp_new(struct ast_rtp_instance *instance,
  		       struct ast_sched_context *sched, struct ast_sockaddr *addr,
-@@ -1701,8 +1723,10 @@ static int ast_rtp_new(struct ast_rtp_in
+@@ -1702,8 +1724,10 @@ static int ast_rtp_new(struct ast_rtp_in
  {
  	struct ast_rtp *rtp = NULL;
  	int x, startplace;
@@ -291,7 +291,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  	/* Create a new RTP structure to hold all of our data */
  	if (!(rtp = ast_calloc(1, sizeof(*rtp)))) {
-@@ -1760,6 +1784,7 @@ static int ast_rtp_new(struct ast_rtp_in
+@@ -1761,6 +1785,7 @@ static int ast_rtp_new(struct ast_rtp_in
  		}
  	}
  
@@ -299,7 +299,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	pj_thread_register_check();
  
  	pj_stun_config_init(&stun_config, &cachingpool.factory, 0, ioqueue, timerheap);
-@@ -1772,13 +1797,14 @@ static int ast_rtp_new(struct ast_rtp_in
+@@ -1773,13 +1798,14 @@ static int ast_rtp_new(struct ast_rtp_in
  	ast_rtp_instance_set_data(instance, rtp);
  
  	/* Create an ICE session for ICE negotiation */
@@ -315,7 +315,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  	/* Record any information we may need */
  	rtp->sched = sched;
-@@ -1821,6 +1847,7 @@ static int ast_rtp_destroy(struct ast_rt
+@@ -1822,6 +1848,7 @@ static int ast_rtp_destroy(struct ast_rt
  		ast_free(rtp->red);
  	}
  
@@ -323,7 +323,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	pj_thread_register_check();
  
  	/* Destroy the ICE session if being used */
-@@ -1848,6 +1875,7 @@ static int ast_rtp_destroy(struct ast_rt
+@@ -1849,6 +1876,7 @@ static int ast_rtp_destroy(struct ast_rt
  	if (rtp->remote_candidates) {
  		ao2_ref(rtp->remote_candidates, -1);
  	}
@@ -331,7 +331,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  #ifdef HAVE_OPENSSL_SRTP
  	/* Destroy the SSL context if present */
-@@ -3872,10 +3900,12 @@ static void ast_rtp_prop_set(struct ast_
+@@ -3875,10 +3903,12 @@ static void ast_rtp_prop_set(struct ast_
  			ast_debug(1, "Setup RTCP on RTP instance '%p'\n", instance);
  			rtp->rtcp->schedid = -1;
  
@@ -344,7 +344,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  			return;
  		} else {
-@@ -4352,12 +4382,14 @@ static int rtp_reload(int reload)
+@@ -4356,12 +4386,14 @@ static int rtp_reload(int reload)
  	 * the pool this will cause a small memory leak.
  	 */
  
@@ -359,7 +359,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
  	if (cfg) {
  		if ((s = ast_variable_retrieve(cfg, "general", "rtpstart"))) {
-@@ -4408,6 +4440,7 @@ static int rtp_reload(int reload)
+@@ -4412,6 +4444,7 @@ static int rtp_reload(int reload)
  					DEFAULT_LEARNING_MIN_SEQUENTIAL);
  			}
  		}
@@ -367,7 +367,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  		if ((s = ast_variable_retrieve(cfg, "general", "icesupport"))) {
  			icesupport = ast_true(s);
  		}
-@@ -4435,6 +4468,7 @@ static int rtp_reload(int reload)
+@@ -4439,6 +4472,7 @@ static int rtp_reload(int reload)
  		if ((s = ast_variable_retrieve(cfg, "general", "turnpassword"))) {
  			pj_strdup2(pool, &turnpassword, s);
  		}
@@ -375,7 +375,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  		ast_config_destroy(cfg);
  	}
  	if (rtpstart >= rtpend) {
-@@ -4454,6 +4488,7 @@ static int reload_module(void)
+@@ -4458,6 +4492,7 @@ static int reload_module(void)
  
  static int load_module(void)
  {
@@ -383,7 +383,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	pj_lock_t *lock;
  
  	pj_log_set_level(0);
-@@ -4501,23 +4536,28 @@ static int load_module(void)
+@@ -4505,23 +4540,28 @@ static int load_module(void)
  		pj_shutdown();
  		return AST_MODULE_LOAD_DECLINE;
  	}
@@ -412,7 +412,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  		return AST_MODULE_LOAD_DECLINE;
  	}
  
-@@ -4531,6 +4571,7 @@ static int unload_module(void)
+@@ -4535,6 +4575,7 @@ static int unload_module(void)
  	ast_rtp_engine_unregister(&asterisk_rtp_engine);
  	ast_cli_unregister_multiple(cli_rtp, ARRAY_LEN(cli_rtp));
  
@@ -420,7 +420,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	worker_terminate = 1;
  
  	pj_thread_register_check();
-@@ -4540,6 +4581,7 @@ static int unload_module(void)
+@@ -4544,6 +4585,7 @@ static int unload_module(void)
  
  	pj_caching_pool_destroy(&cachingpool);
  	pj_shutdown();

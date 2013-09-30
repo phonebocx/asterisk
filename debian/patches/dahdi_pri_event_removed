@@ -26,11 +26,9 @@ Trivial backport from trunk / 12.
  channels/chan_dahdi.c |   97 +++++++++++++++++++++++++++++++++++++++++++++++++
  1 file changed, 97 insertions(+)
 
-diff --git a/channels/chan_dahdi.c b/channels/chan_dahdi.c
-index 28fd65f..8f38893 100644
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c
-@@ -3371,6 +3371,8 @@ static int sig_pri_tone_to_dahditone(enum sig_pri_tone tone)
+@@ -3217,6 +3217,8 @@ static int sig_pri_tone_to_dahditone(enu
  #endif	/* defined(HAVE_PRI) */
  
  #if defined(HAVE_PRI)
@@ -39,7 +37,7 @@ index 28fd65f..8f38893 100644
  static void my_handle_dchan_exception(struct sig_pri_span *pri, int index)
  {
  	int x;
-@@ -3398,6 +3400,9 @@ static void my_handle_dchan_exception(struct sig_pri_span *pri, int index)
+@@ -3244,6 +3246,9 @@ static void my_handle_dchan_exception(st
  	case DAHDI_EVENT_NOALARM:
  		pri_event_noalarm(pri, index, 0);
  		break;
@@ -49,7 +47,7 @@ index 28fd65f..8f38893 100644
  	default:
  		break;
  	}
-@@ -15059,6 +15064,97 @@ static char *handle_pri_show_spans(struct ast_cli_entry *e, int cmd, struct ast_
+@@ -14887,6 +14892,97 @@ static char *handle_pri_show_spans(struc
  #endif	/* defined(HAVE_PRI) */
  
  #if defined(HAVE_PRI)
@@ -147,7 +145,7 @@ index 28fd65f..8f38893 100644
  static char *handle_pri_show_span(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
  {
  	int span;
-@@ -15164,6 +15260,7 @@ static struct ast_cli_entry dahdi_pri_cli[] = {
+@@ -14992,6 +15088,7 @@ static struct ast_cli_entry dahdi_pri_cl
  	AST_CLI_DEFINE(handle_pri_show_channels, "Displays PRI channel information"),
  	AST_CLI_DEFINE(handle_pri_show_spans, "Displays PRI span information"),
  	AST_CLI_DEFINE(handle_pri_show_span, "Displays PRI span information"),
@@ -155,6 +153,3 @@ index 28fd65f..8f38893 100644
  	AST_CLI_DEFINE(handle_pri_show_debug, "Displays current PRI debug settings"),
  	AST_CLI_DEFINE(handle_pri_set_debug_file, "Sends PRI debug output to the specified file"),
  	AST_CLI_DEFINE(handle_pri_version, "Displays libpri version"),
--- 
-1.7.10.4
-
