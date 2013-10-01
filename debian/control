@@ -52,7 +52,7 @@ Build-Depends: debhelper (>= 8),
  libical-dev,
  libsrtp0-dev [!sparc !hurd-i386],
  zlib1g-dev
-Standards-Version: 3.9.2.0
+Standards-Version: 3.9.4
 Homepage: http://www.asterisk.org/
 Vcs-Git: git://anonscm.debian.org/pkg-voip/asterisk.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-voip/asterisk.git
