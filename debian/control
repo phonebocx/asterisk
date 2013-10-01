@@ -54,8 +54,8 @@ Build-Depends: debhelper (>= 8),
  zlib1g-dev
 Standards-Version: 3.9.2.0
 Homepage: http://www.asterisk.org/
-Vcs-Svn: svn://svn.debian.org/pkg-voip/asterisk/trunk/
-Vcs-Browser: http://svn.debian.org/wsvn/pkg-voip/asterisk/?op=log
+Vcs-Git: git://anonscm.debian.org/pkg-voip/asterisk.git
+Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-voip/asterisk.git
 
 Package: asterisk
 Architecture: any

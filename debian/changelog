@@ -1,3 +1,10 @@
+asterisk (1:11.5.1~dfsg-2) UNRELEASED; urgency=low
+
+  [ Jeremy Lainé ]
+  * Fix Vcs-Browser and Vcs-Git URLs.
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Tue, 01 Oct 2013 17:47:45 +0200
+
 asterisk (1:11.5.1~dfsg-1) unstable; urgency=low
 
   [ Faidon Liambotis ]
