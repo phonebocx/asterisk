@@ -50,7 +50,7 @@ Build-Depends: debhelper (>= 8),
  libncurses-dev,
  libneon27-gnutls-dev | libneon27-dev,
  libical-dev,
- libsrtp0-dev [!sparc !hurd-i386],
+ libsrtp0-dev,
  zlib1g-dev
 Standards-Version: 3.9.4
 Homepage: http://www.asterisk.org/
