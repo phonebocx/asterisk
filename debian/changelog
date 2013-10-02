@@ -9,6 +9,7 @@ asterisk (1:11.5.1~dfsg-2) UNRELEASED; urgency=low
   * Patch reenable: reenable chan_vpb.
   * Depend on srtp even on sparc and hurd: the build fails if srtp is not
     installed.
+  * Add Jeremy Lainé to uploaders.
 
  -- Jeremy Lainé <jeremy.laine@m4x.org>  Tue, 01 Oct 2013 17:47:45 +0200
 
