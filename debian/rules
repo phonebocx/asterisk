@@ -152,7 +152,7 @@ override_dh_fixperms:
 	# should follow dh_fixperms; asterisk configurations may contain
 	# sensitive information, such as passwords
 	if [ -d $(CURDIR)/debian/asterisk-config ]; then \
-		chmod o-rwx $(CURDIR)/debian/asterisk-config/etc/asterisk/*; \
+		chmod o-rwx $(CURDIR)/debian/asterisk-config/etc/asterisk/*; \
 		chmod o+rx  $(CURDIR)/debian/asterisk-config/etc/asterisk/manager.d; \
 	fi
 
