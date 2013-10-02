@@ -1,4 +1,4 @@
-asterisk (1:11.5.1~dfsg-2) UNRELEASED; urgency=low
+asterisk (1:11.5.1~dfsg-2) unstable; urgency=low
 
   [ Jeremy Lainé ]
   * Fix FTBFS for binary-arch builds.
@@ -11,7 +11,7 @@ asterisk (1:11.5.1~dfsg-2) UNRELEASED; urgency=low
     installed.
   * Add Jeremy Lainé to uploaders.
 
- -- Jeremy Lainé <jeremy.laine@m4x.org>  Tue, 01 Oct 2013 17:47:45 +0200
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Wed, 02 Oct 2013 13:46:40 +0200
 
 asterisk (1:11.5.1~dfsg-1) unstable; urgency=low
 
