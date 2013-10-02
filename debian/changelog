@@ -5,6 +5,9 @@ asterisk (1:11.5.1~dfsg-2) UNRELEASED; urgency=low
   * Fix Vcs-Browser and Vcs-Git URLs.
   * Update Standards-Version to 3.9.4 (no changes).
 
+  [ Tzafrir Cohen ]
+  * Patch reenable: reenable chan_vpb.
+
  -- Jeremy Lainé <jeremy.laine@m4x.org>  Tue, 01 Oct 2013 17:47:45 +0200
 
 asterisk (1:11.5.1~dfsg-1) unstable; urgency=low
