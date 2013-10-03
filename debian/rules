@@ -56,7 +56,7 @@ endif
 DEBVERSION:=$(shell dpkg-parsechangelog | sed -n -e 's/Version: //p')
 DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
 DEB_SRC_VERSION:=$(shell echo $(DEB_NOEPOCH_VERSION) | sed -e 's/-[^-]\+$$//')
-UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg//' -e 's/~\(\(rc\|beta\)[0-9]\)/-\1/')
+UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg[0-9]*//' -e 's/~\(\(rc\|beta\)[0-9]\)/-\1/')
 
 FILENAME := asterisk_$(DEB_SRC_VERSION).orig.tar.gz
 UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
@@ -181,6 +181,7 @@ get-orig-source:
 	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-Admin-Guide/
 	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-Admin-Guide.pdf
 	@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc
+	@rm -rf $(TMP_TARBALL_TOP)/res/pjproject
 	# While we're at it: remove some generated files that will become
 	# invalid:
 	@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts
