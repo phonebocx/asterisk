@@ -21,7 +21,6 @@ no_uname
 
 ilbc_disable
 astdatadir
-bzero
 pjproject
 
 # Backport of dynamic generation of DAHDI channels:

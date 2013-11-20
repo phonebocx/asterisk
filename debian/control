@@ -114,6 +114,20 @@ Description: DAHDI devices support for the Asterisk PBX
  For more information about the Asterisk PBX, have a look at the Asterisk
  package.
 
+Package: asterisk-vpb
+Architecture: linux-any
+Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
+Breaks: asterisk-modules (<< 1:11.6.0)
+Replaces: asterisk-modules (<< 1:11.6.0)
+Description: VoiceTronix devices support for the Asterisk PBX
+ Asterisk is an Open Source PBX and telephony toolkit.
+ .
+ This package includes the VoiceTronix channel driver (chan_vpb.so).
+ It will not be useful without kernel-level VoiceTronix support.
+ .
+ For more information about the Asterisk PBX, have a look at the Asterisk
+ package.
+
 Package: asterisk-voicemail
 Architecture: any
 Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}

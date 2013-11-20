@@ -63,13 +63,13 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  
 --- a/res/Makefile
 +++ b/res/Makefile
-@@ -67,26 +67,4 @@ endif
+@@ -67,29 +67,8 @@ endif
  ael/pval.o: ael/pval.c
  
  clean::
 -	@if [ -f pjproject/build.mak ]; then $(MAKE) -C pjproject realclean; fi
  	rm -f snmp/*.o snmp/*.i ael/*.o ael/*.i ais/*.o ais/*.i
--
+ 
 -dist-clean::
 -	rm -f pjproject/build.mak
 -
@@ -86,221 +86,42 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
 -$(PJ_LIB_FILES): FORCE
 -	$(MAKE) -C $(patsubst %/lib/,%,$(dir $@))/build/ ../lib/$(notdir $@)
 -
+-ifeq ($(subst 1:0,1,$(UUID)), 1)
++ifeq ($(subst 1:0,1,$(PJPROJECT)), 1)
 -res_rtp_asterisk.o: $(PJ_LIB_FILES)
+ res_rtp_asterisk.o: _ASTCFLAGS+=-DUSE_PJPROJECT
 -res_rtp_asterisk.o: _ASTCFLAGS+=$(PJ_CFLAGS)
 -res_rtp_asterisk.so: _ASTLDFLAGS+=$(PJ_LDFLAGS)
 -res_rtp_asterisk.so: LIBS+=$(PJ_LDLIBS)
+-endif
+\ No newline at end of file
++endif
 --- a/res/res_rtp_asterisk.c
 +++ b/res/res_rtp_asterisk.c
-@@ -29,6 +29,7 @@
+@@ -29,7 +29,7 @@
   */
  
  /*** MODULEINFO
+-	<use type="external">uuid</use>
 +	<use type="external">pjproject</use>
- 	<depend>uuid</depend>
  	<support_level>core</support_level>
   ***/
-@@ -47,9 +48,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
- #include <openssl/bio.h>
- #endif
  
+@@ -52,9 +52,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 397604 $")
+  * here since it is used internally by pjlib. The only other option would be to modify pjlib... which won't happen. */
+ #undef bzero
+ #define bzero bzero
 -#include "pjlib.h"
 -#include "pjlib-util.h"
 -#include "pjnath.h"
-+#ifdef HAVE_PJPROJECT
 +#include <pjlib.h>
 +#include <pjlib-util.h>
 +#include <pjnath.h>
-+#endif
+ #endif
  
  #include "asterisk/stun.h"
- #include "asterisk/pbx.h"
-@@ -130,6 +133,7 @@ static int nochecksums;
- #endif
- static int strictrtp = DEFAULT_STRICT_RTP; /*< Only accept RTP frames from a defined source. If we receive an indication of a changing source, enter learning mode. */
- static int learning_min_sequential = DEFAULT_LEARNING_MIN_SEQUENTIAL; /*< Number of sequential RTP frames needed from a single source during learning mode to accept new source. */
-+#ifdef HAVE_PJPROJECT
- static int icesupport = DEFAULT_ICESUPPORT;
- static struct sockaddr_in stunaddr;
- static pj_str_t turnaddr;
-@@ -154,6 +158,7 @@ static pj_thread_t *thread;
- 
- /*! \brief Notification that the ICE/TURN worker thread should stop */
- static int worker_terminate;
-+#endif
- 
- #define FLAG_3389_WARNING               (1 << 0)
- #define FLAG_NAT_ACTIVE                 (3 << 1)
-@@ -251,12 +256,14 @@ struct ast_rtp {
- 
- 	struct rtp_red *red;
- 
-+	ast_mutex_t lock;           /*!< Lock for synchronization purposes */
-+	ast_cond_t cond;            /*!< Condition for signaling */
-+
-+#ifdef HAVE_PJPROJECT
- 	pj_ice_sess *ice;           /*!< ICE session */
- 	pj_turn_sock *turn_rtp;     /*!< RTP TURN relay */
- 	pj_turn_sock *turn_rtcp;    /*!< RTCP TURN relay */
--	ast_mutex_t lock;           /*!< Lock for synchronization purposes */
- 	pj_turn_state_t turn_state; /*!< Current state of the TURN relay session */
--	ast_cond_t cond;            /*!< Condition for signaling */
- 	unsigned int passthrough:1; /*!< Bit to indicate that the received packet should be passed through */
- 	unsigned int ice_started:1; /*!< Bit to indicate ICE connectivity checks have started */
- 
-@@ -268,6 +275,7 @@ struct ast_rtp {
- 
- 	struct ao2_container *local_candidates;   /*!< The local ICE candidates */
- 	struct ao2_container *remote_candidates;  /*!< The remote ICE candidates */
-+#endif
- 
- #ifdef HAVE_OPENSSL_SRTP
- 	SSL_CTX *ssl_ctx; /*!< SSL context */
-@@ -395,6 +403,22 @@ static int ast_rtp_activate(struct ast_r
- 
- static int __rtp_sendto(struct ast_rtp_instance *instance, void *buf, size_t size, int flags, struct ast_sockaddr *sa, int rtcp, int *ice, int use_srtp);
- 
-+/*! \brief Helper function which updates an ast_sockaddr with the candidate used for the component */
-+static void update_address_with_ice_candidate(struct ast_rtp *rtp, int component, struct ast_sockaddr *cand_address)
-+{
-+#ifdef HAVE_PJPROJECT
-+	char address[PJ_INET6_ADDRSTRLEN];
-+
-+	if (!rtp->ice || (component < 1) || !rtp->ice->comp[component - 1].valid_check) {
-+		return;
-+	}
-+
-+	ast_sockaddr_parse(cand_address, pj_sockaddr_print(&rtp->ice->comp[component - 1].valid_check->rcand->addr, address, sizeof(address), 0), 0);
-+	ast_sockaddr_set_port(cand_address, pj_sockaddr_get_port(&rtp->ice->comp[component - 1].valid_check->rcand->addr));
-+#endif
-+}
-+
-+#ifdef HAVE_PJPROJECT
- /*! \brief Destructor for locally created ICE candidates */
- static void ast_rtp_ice_candidate_destroy(void *obj)
- {
-@@ -477,19 +501,6 @@ static void pj_thread_register_check(voi
- 	return;
- }
- 
--/*! \brief Helper function which updates an ast_sockaddr with the candidate used for the component */
--static void update_address_with_ice_candidate(struct ast_rtp *rtp, int component, struct ast_sockaddr *cand_address)
--{
--	char address[PJ_INET6_ADDRSTRLEN];
--
--	if (!rtp->ice || (component < 1) || !rtp->ice->comp[component - 1].valid_check) {
--		return;
--	}
--
--	ast_sockaddr_parse(cand_address, pj_sockaddr_print(&rtp->ice->comp[component - 1].valid_check->rcand->addr, address, sizeof(address), 0), 0);
--	ast_sockaddr_set_port(cand_address, pj_sockaddr_get_port(&rtp->ice->comp[component - 1].valid_check->rcand->addr));
--}
--
- static void ast_rtp_ice_start(struct ast_rtp_instance *instance)
- {
- 	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
-@@ -693,6 +704,7 @@ static struct ast_rtp_engine_ice ast_rtp
- 	.get_local_candidates = ast_rtp_ice_get_local_candidates,
- 	.ice_lite = ast_rtp_ice_lite,
- };
-+#endif
- 
- #ifdef HAVE_OPENSSL_SRTP
- static void dtls_info_callback(const SSL *ssl, int where, int ret)
-@@ -1020,13 +1032,16 @@ static struct ast_rtp_engine asterisk_rt
- 	.stop = ast_rtp_stop,
- 	.qos = ast_rtp_qos_set,
- 	.sendcng = ast_rtp_sendcng,
-+#ifdef HAVE_PJPROJECT
- 	.ice = &ast_rtp_ice,
-+#endif
- #ifdef HAVE_OPENSSL_SRTP
- 	.dtls = &ast_rtp_dtls,
- 	.activate = ast_rtp_activate,
- #endif
- };
- 
-+#ifdef HAVE_PJPROJECT
- static void rtp_learning_seq_init(struct rtp_learning_info *info, uint16_t seq);
- 
- static void ast_rtp_on_ice_complete(pj_ice_sess *ice, pj_status_t status)
-@@ -1196,6 +1211,7 @@ static int ice_worker_thread(void *data)
- 
- 	return 0;
- }
-+#endif
- 
- static inline int rtp_debug_test_addr(struct ast_sockaddr *addr)
- {
-@@ -1450,6 +1466,7 @@ static int __rtp_recvfrom(struct ast_rtp
- 	}
- #endif
- 
-+#ifdef HAVE_PJPROJECT
- 	if (rtp->ice) {
- 		pj_str_t combined = pj_str(ast_sockaddr_stringify(sa));
- 		pj_sockaddr address;
-@@ -1475,6 +1492,7 @@ static int __rtp_recvfrom(struct ast_rtp
- 		}
- 		rtp->passthrough = 0;
- 	}
-+#endif
- 
- 	if ((*in & 0xC0) && res_srtp && srtp && res_srtp->unprotect(srtp, buf, &len, rtcp) < 0) {
- 	   return -1;
-@@ -1506,6 +1524,7 @@ static int __rtp_sendto(struct ast_rtp_i
- 		return -1;
- 	}
- 
-+#ifdef HAVE_PJPROJECT
- 	if (rtp->ice) {
- 		pj_thread_register_check();
- 
-@@ -1514,6 +1533,7 @@ static int __rtp_sendto(struct ast_rtp_i
- 			return 0;
- 		}
- 	}
-+#endif
- 
- 	return ast_sendto(rtcp ? rtp->rtcp->s : rtp->s, temp, len, flags, sa);
- }
-@@ -1631,6 +1651,7 @@ static int rtp_learning_rtp_seq_update(s
- 	return (info->packets == 0);
- }
- 
-+#ifdef HAVE_PJPROJECT
- static void rtp_add_candidates_to_ice(struct ast_rtp_instance *instance, struct ast_rtp *rtp, struct ast_sockaddr *addr, int port, int component,
- 				      int transport, const pj_turn_sock_cb *turn_cb, pj_turn_sock **turn_sock)
- {
-@@ -1695,6 +1716,7 @@ static void rtp_add_candidates_to_ice(st
- 		}
- 	}
- }
-+#endif
- 
- static int ast_rtp_new(struct ast_rtp_instance *instance,
- 		       struct ast_sched_context *sched, struct ast_sockaddr *addr,
-@@ -1702,8 +1724,10 @@ static int ast_rtp_new(struct ast_rtp_in
- {
- 	struct ast_rtp *rtp = NULL;
- 	int x, startplace;
-+#ifdef HAVE_PJPROJECT
- 	pj_stun_config stun_config;
- 	pj_str_t ufrag, passwd;
-+#endif
- 
- 	/* Create a new RTP structure to hold all of our data */
- 	if (!(rtp = ast_calloc(1, sizeof(*rtp)))) {
-@@ -1761,6 +1785,7 @@ static int ast_rtp_new(struct ast_rtp_in
- 		}
- 	}
- 
-+#ifdef HAVE_PJPROJECT
- 	pj_thread_register_check();
- 
- 	pj_stun_config_init(&stun_config, &cachingpool.factory, 0, ioqueue, timerheap);
-@@ -1773,13 +1798,14 @@ static int ast_rtp_new(struct ast_rtp_in
- 	ast_rtp_instance_set_data(instance, rtp);
+@@ -1801,7 +1801,7 @@ static int ast_rtp_new(struct ast_rtp_instance *instance,
+ 	passwd = pj_str(rtp->local_passwd);
  
  	/* Create an ICE session for ICE negotiation */
 -	if (icesupport && pj_ice_sess_create(&stun_config, NULL, PJ_ICE_SESS_ROLE_UNKNOWN, 2, &ast_rtp_ice_sess_cb, &ufrag, &passwd, &rtp->ice) == PJ_SUCCESS) {
@@ -308,123 +129,3 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  		/* Make this available for the callbacks */
  		rtp->ice->user_data = rtp;
  
- 		/* Add all of the available candidates to the ICE session */
- 		rtp_add_candidates_to_ice(instance, rtp, addr, x, COMPONENT_RTP, TRANSPORT_SOCKET_RTP, &ast_rtp_turn_rtp_sock_cb, &rtp->turn_rtp);
- 	}
-+#endif
- 
- 	/* Record any information we may need */
- 	rtp->sched = sched;
-@@ -1822,6 +1848,7 @@ static int ast_rtp_destroy(struct ast_rt
- 		ast_free(rtp->red);
- 	}
- 
-+#ifdef HAVE_PJPROJECT
- 	pj_thread_register_check();
- 
- 	/* Destroy the ICE session if being used */
-@@ -1849,6 +1876,7 @@ static int ast_rtp_destroy(struct ast_rt
- 	if (rtp->remote_candidates) {
- 		ao2_ref(rtp->remote_candidates, -1);
- 	}
-+#endif
- 
- #ifdef HAVE_OPENSSL_SRTP
- 	/* Destroy the SSL context if present */
-@@ -3875,10 +3903,12 @@ static void ast_rtp_prop_set(struct ast_
- 			ast_debug(1, "Setup RTCP on RTP instance '%p'\n", instance);
- 			rtp->rtcp->schedid = -1;
- 
-+#ifdef HAVE_PJPROJECT
- 			if (rtp->ice) {
- 				rtp_add_candidates_to_ice(instance, rtp, &rtp->rtcp->us, ast_sockaddr_port(&rtp->rtcp->us), COMPONENT_RTCP, TRANSPORT_SOCKET_RTCP,
- 							  &ast_rtp_turn_rtcp_sock_cb, &rtp->turn_rtcp);
- 			}
-+#endif
- 
- 			return;
- 		} else {
-@@ -4356,12 +4386,14 @@ static int rtp_reload(int reload)
- 	 * the pool this will cause a small memory leak.
- 	 */
- 
-+#ifdef HAVE_PJPROJECT
- 	icesupport = DEFAULT_ICESUPPORT;
- 	turnport = DEFAULT_TURN_PORT;
- 	memset(&stunaddr, 0, sizeof(stunaddr));
- 	turnaddr = pj_str(NULL);
- 	turnusername = pj_str(NULL);
- 	turnpassword = pj_str(NULL);
-+#endif
- 
- 	if (cfg) {
- 		if ((s = ast_variable_retrieve(cfg, "general", "rtpstart"))) {
-@@ -4412,6 +4444,7 @@ static int rtp_reload(int reload)
- 					DEFAULT_LEARNING_MIN_SEQUENTIAL);
- 			}
- 		}
-+#ifdef HAVE_PJPROJECT
- 		if ((s = ast_variable_retrieve(cfg, "general", "icesupport"))) {
- 			icesupport = ast_true(s);
- 		}
-@@ -4439,6 +4472,7 @@ static int rtp_reload(int reload)
- 		if ((s = ast_variable_retrieve(cfg, "general", "turnpassword"))) {
- 			pj_strdup2(pool, &turnpassword, s);
- 		}
-+#endif
- 		ast_config_destroy(cfg);
- 	}
- 	if (rtpstart >= rtpend) {
-@@ -4458,6 +4492,7 @@ static int reload_module(void)
- 
- static int load_module(void)
- {
-+#ifdef HAVE_PJPROJECT
- 	pj_lock_t *lock;
- 
- 	pj_log_set_level(0);
-@@ -4505,23 +4540,28 @@ static int load_module(void)
- 		pj_shutdown();
- 		return AST_MODULE_LOAD_DECLINE;
- 	}
-+#endif
- 
- 	if (ast_rtp_engine_register(&asterisk_rtp_engine)) {
-+#ifdef HAVE_PJPROJECT
- 		worker_terminate = 1;
- 		pj_thread_join(thread);
- 		pj_thread_destroy(thread);
- 		pj_caching_pool_destroy(&cachingpool);
- 		pj_shutdown();
-+#endif
- 		return AST_MODULE_LOAD_DECLINE;
- 	}
- 
- 	if (ast_cli_register_multiple(cli_rtp, ARRAY_LEN(cli_rtp))) {
-+#ifdef HAVE_PJPROJECT
- 		worker_terminate = 1;
- 		pj_thread_join(thread);
- 		pj_thread_destroy(thread);
- 		ast_rtp_engine_unregister(&asterisk_rtp_engine);
- 		pj_caching_pool_destroy(&cachingpool);
- 		pj_shutdown();
-+#endif
- 		return AST_MODULE_LOAD_DECLINE;
- 	}
- 
-@@ -4535,6 +4575,7 @@ static int unload_module(void)
- 	ast_rtp_engine_unregister(&asterisk_rtp_engine);
- 	ast_cli_unregister_multiple(cli_rtp, ARRAY_LEN(cli_rtp));
- 
-+#ifdef HAVE_PJPROJECT
- 	worker_terminate = 1;
- 
- 	pj_thread_register_check();
-@@ -4544,6 +4585,7 @@ static int unload_module(void)
- 
- 	pj_caching_pool_destroy(&cachingpool);
- 	pj_shutdown();
-+#endif
- 
- 	return 0;
- }
