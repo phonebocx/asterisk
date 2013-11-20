@@ -31,7 +31,7 @@
 
 #ifdef DEBUG_FD_LEAKS
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 369013 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 397107 $")
 
 #include <stdio.h>
 #include <string.h>
@@ -274,8 +274,14 @@ static char *handle_show_fd(struct ast_cli_entry *e, int cmd, struct ast_cli_arg
 
 static struct ast_cli_entry cli_show_fd = AST_CLI_DEFINE(handle_show_fd, "Show open file descriptors");
 
+static void fd_shutdown(void)
+{
+	ast_cli_unregister(&cli_show_fd);
+}
+
 int ast_fd_init(void)
 {
+	ast_register_atexit(fd_shutdown);
 	return ast_cli_register(&cli_show_fd);
 }
 

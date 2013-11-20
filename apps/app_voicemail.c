@@ -91,7 +91,7 @@
 #endif
 #endif
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 388816 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398281 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_SPOOL_DIR */
 #include <sys/time.h>
@@ -15159,6 +15159,7 @@ static int message_range_and_existence_check(struct vm_state *vms, const char *m
 				DISPOSE(vms->curdir, vms->curmsg);
 				break;
 			}
+			ast_config_destroy(msg_cfg);
 			DISPOSE(vms->curdir, vms->curmsg);
 		}
 		if (!found) {

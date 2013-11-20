@@ -18,7 +18,7 @@
 #include <regex.h>
 #include <limits.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 358812 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398749 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/ast_expr.h"
@@ -647,5 +647,11 @@ void ast_store_lock_info(enum ast_lock_type type, const char *filename,
 {
 }
 #endif /* HAVE_BKTR */
+void ast_suspend_lock_info(void *lock_addr)
+{
+}
+void ast_restore_lock_info(void *lock_addr)
+{
+}
 #endif /* !defined(LOW_MEMORY) */
 #endif /* DEBUG_THREADS */

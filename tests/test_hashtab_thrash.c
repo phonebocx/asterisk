@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 376339 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 396657 $")
 #include <pthread.h>
 #include "asterisk/hashtab.h"
 #include "asterisk/lock.h"
@@ -197,8 +197,10 @@ static void *hash_test_count(void *d)
 		ast_hashtab_end_traversal(it);
 
 		if (last_count == count) {
-			/* Allow other threads to run. */
-			sched_yield();
+			/* Give other threads ample chance to run, note that using sched_yield here does not
+			 * provide enough of a chance and can cause this thread to starve others.
+			 */
+			usleep(1);
 		} else if (last_count > count) {
 			/* Make sure the hashtable never shrinks */
 			return "hashtab unexpectedly shrank";

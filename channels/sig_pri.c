@@ -1296,6 +1296,7 @@ static void pri_queue_pvt_cause_data(struct sig_pri_span *pri, int chanpos, cons
 	if (chan) {
 		int datalen = sizeof(*cause_code) + strlen(cause);
 		cause_code = ast_alloca(datalen);
+		memset(cause_code, 0, datalen);
 		cause_code->ast_cause = ast_cause;
 		ast_copy_string(cause_code->chan_name, ast_channel_name(chan), AST_CHANNEL_NAME);
 		ast_copy_string(cause_code->code, cause, datalen + 1 - sizeof(*cause_code));
@@ -9286,7 +9287,7 @@ void sig_pri_cli_show_span(int fd, int *dchannels, struct sig_pri_span *pri)
 			info_str = pri_dump_info_str(pri->pri);
 			if (info_str) {
 				ast_cli(fd, "%s", info_str);
-				free(info_str);
+				ast_std_free(info_str);
 			}
 #else
 			pri_dump_info(pri->pri);

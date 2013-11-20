@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 366917 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398758 $")
 
 #include <sys/stat.h>
 
@@ -174,11 +174,17 @@ static int dialgroup_refreshdb(struct ast_channel *chan, const char *cdialgroup)
 {
 	int len = 500, res = 0;
 	char *buf = NULL;
+	char *new_buf;
 	char *dialgroup = ast_strdupa(cdialgroup);
 
 	do {
 		len *= 2;
-		buf = ast_realloc(buf, len);
+		new_buf = ast_realloc(buf, len);
+		if (!new_buf) {
+			ast_free(buf);
+			return -1;
+		}
+		buf = new_buf;
 
 		if ((res = dialgroup_read(chan, "", dialgroup, buf, len)) < 0) {
 			ast_free(buf);

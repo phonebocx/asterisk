@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 386677 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398103 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_CONFIG_DIR */
 #include "asterisk/network.h"	/* we do some sockaddr manipulation here */
@@ -3164,6 +3164,10 @@ static void config_shutdown(void)
 
 	AST_LIST_LOCK(&cfmtime_head);
 	while ((cfmtime = AST_LIST_REMOVE_HEAD(&cfmtime_head, list))) {
+		struct cache_file_include *cfinclude;
+		while ((cfinclude = AST_LIST_REMOVE_HEAD(&cfmtime->includes, list))) {
+			ast_free(cfinclude);
+		}
 		ast_free(cfmtime);
 	}
 	AST_LIST_UNLOCK(&cfmtime_head);

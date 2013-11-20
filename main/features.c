@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 387038 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 399305 $")
 
 #include "asterisk/_private.h"
 
@@ -1145,7 +1145,7 @@ static void *bridge_call_thread(void *data)
 
 	if (tobj->return_to_pbx) {
 		if (!ast_check_hangup(tobj->peer)) {
-			ast_log(LOG_VERBOSE, "putting peer %s into PBX again\n", ast_channel_name(tobj->peer));
+			ast_verb(0, "putting peer %s into PBX again\n", ast_channel_name(tobj->peer));
 			if (ast_pbx_start(tobj->peer)) {
 				ast_log(LOG_WARNING, "FAILED continuing PBX on peer %s\n", ast_channel_name(tobj->peer));
 				ast_autoservice_chan_hangup_peer(tobj->chan, tobj->peer);
@@ -1154,7 +1154,7 @@ static void *bridge_call_thread(void *data)
 			ast_autoservice_chan_hangup_peer(tobj->chan, tobj->peer);
 		}
 		if (!ast_check_hangup(tobj->chan)) {
-			ast_log(LOG_VERBOSE, "putting chan %s into PBX again\n", ast_channel_name(tobj->chan));
+			ast_verb(0, "putting chan %s into PBX again\n", ast_channel_name(tobj->chan));
 			if (ast_pbx_start(tobj->chan)) {
 				ast_log(LOG_WARNING, "FAILED continuing PBX on chan %s\n", ast_channel_name(tobj->chan));
 				ast_hangup(tobj->chan);
@@ -3613,6 +3613,10 @@ static int feature_interpret_helper(struct ast_channel *chan, struct ast_channel
 				res = AST_FEATURE_RETURN_SUCCESS; /* We found something */
 			} else if (operation == FEATURE_INTERPRET_DO) {
 				res = builtin_features[x].operation(chan, peer, config, code, sense, NULL);
+				ast_test_suite_event_notify("FEATURE_DETECTION",
+						"Result: success\r\n"
+						"Feature: %s",
+						builtin_features[x].sname);
 			}
 			if (feature) {
 				memcpy(feature, &builtin_features[x], sizeof(*feature));
@@ -3625,6 +3629,12 @@ static int feature_interpret_helper(struct ast_channel *chan, struct ast_channel
 			}
 		}
 	}
+
+	if (operation == FEATURE_INTERPRET_CHECK && x == FEATURES_COUNT) {
+		ast_test_suite_event_notify("FEATURE_DETECTION",
+				"Result: fail");
+	}
+
 	ast_rwlock_unlock(&features_lock);
 
 	if (ast_strlen_zero(dynamic_features_buf) || feature_detected) {
@@ -6126,19 +6136,9 @@ static void process_applicationmap_line(struct ast_variable *var)
 	);
 
 	AST_STANDARD_APP_ARGS(args, tmp_val);
-	if ((new_syn = strchr(args.app, '('))) {
-		/* New syntax */
-		args.moh_class = args.app_args;
-		args.app_args = new_syn;
-		*args.app_args++ = '\0';
-		if (args.app_args[strlen(args.app_args) - 1] == ')') {
-			args.app_args[strlen(args.app_args) - 1] = '\0';
-		}
-	}
 
 	activateon = strsep(&args.activatedby, "/");
 
-	/*! \todo XXX var_name or app_args ? */
 	if (ast_strlen_zero(args.app)
 		|| ast_strlen_zero(args.exten)
 		|| ast_strlen_zero(activateon)
@@ -6149,6 +6149,16 @@ static void process_applicationmap_line(struct ast_variable *var)
 		return;
 	}
 
+	if ((new_syn = strchr(args.app, '('))) {
+		/* New syntax */
+		args.moh_class = args.app_args;
+		args.app_args = new_syn;
+		*args.app_args++ = '\0';
+		if (args.app_args[strlen(args.app_args) - 1] == ')') {
+			args.app_args[strlen(args.app_args) - 1] = '\0';
+		}
+	}
+	
 	AST_RWLIST_RDLOCK(&feature_list);
 	if (find_dynamic_feature(var->name)) {
 		AST_RWLIST_UNLOCK(&feature_list);
@@ -8840,6 +8850,7 @@ AST_TEST_DEFINE(features_test)
 		}
 		res = -1;
 	}
+	parked_chan = ast_channel_unref(parked_chan);
 
 
 exit_features_test:
@@ -9025,6 +9036,9 @@ static void features_shutdown(void)
 	ast_unregister_application(parkcall);
 	ast_unregister_application(parkedcall);
 	ast_unregister_application(app_bridge);
+#if defined(TEST_FRAMEWORK)
+	AST_TEST_UNREGISTER(features_test);
+#endif	/* defined(TEST_FRAMEWORK) */
 
 	pthread_cancel(parking_thread);
 	pthread_kill(parking_thread, SIGURG);
@@ -9072,4 +9086,3 @@ int ast_features_init(void)
 
 	return res;
 }
-

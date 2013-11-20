@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 382385 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 391700 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -3098,7 +3098,7 @@ static int load_module(void)
 {
 	int res = 0;
 
-	if (conf_load_config(0)) {
+	if (conf_load_config()) {
 		ast_log(LOG_ERROR, "Unable to load config. Not loading module.\n");
 		return AST_MODULE_LOAD_DECLINE;
 	}
@@ -3145,7 +3145,7 @@ static int load_module(void)
 
 static int reload(void)
 {
-	return conf_load_config(1);
+	return conf_reload_config();
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Conference Bridge Application",
