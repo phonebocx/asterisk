@@ -210,7 +210,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 397828 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401235 $")
 
 #include <signal.h>
 #include <sys/signal.h>
@@ -15159,6 +15159,8 @@ static int transmit_register(struct sip_registry *r, int sipmethod, const char *
 			append_history(p, "RegistryInit", "Account: %s@%s", r->username, r->hostname);
 		}
 
+		p->socket.type = r->transport;
+
 		/* Use port number specified if no SRV record was found */
 		if (!ast_sockaddr_isnull(&r->us)) {
 			if (!ast_sockaddr_port(&r->us) && r->portno) {
@@ -16020,7 +16022,7 @@ static enum parse_register_result parse_register_contact(struct sip_pvt *pvt, st
 	if (ast_apply_acl(sip_cfg.contact_acl, &peer->addr, "SIP contact ACL: ") != AST_SENSE_ALLOW ||
 			ast_apply_acl(peer->contactacl, &peer->addr, "SIP contact ACL: ") != AST_SENSE_ALLOW) {
 		ast_log(LOG_WARNING, "Domain '%s' disallowed by contact ACL (violating IP %s)\n", hostport,
-			ast_sockaddr_stringify_addr(&testsa));
+				ast_sockaddr_stringify_addr(&peer->addr));
 		ast_string_field_set(peer, fullcontact, "");
 		ast_string_field_set(pvt, our_contact, "");
 		return PARSE_REGISTER_DENIED;
@@ -16882,9 +16884,8 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct ast_sock
 		} else {
 
 			set_peer_nat(p, peer);
-			if (p->natdetected && ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
-				ast_copy_flags(&p->flags[0], &peer->flags[0], SIP_NAT_FORCE_RPORT);
-			}
+
+			ast_copy_flags(&p->flags[0], &peer->flags[0], SIP_NAT_FORCE_RPORT);
 
 			if (!(res = check_auth(p, req, peer->name, peer->secret, peer->md5secret, SIP_REGISTER, uri2, XMIT_UNRELIABLE))) {
 				if (sip_cancel_destroy(p))
@@ -17936,9 +17937,9 @@ static void check_for_nat(const struct ast_sockaddr *addr, struct sip_pvt *p)
 		return;
 	}
 
-	if (ast_sockaddr_cmp(addr, &p->recv)) {
-		char *tmp_str = ast_strdupa(ast_sockaddr_stringify(addr));
-		ast_debug(3, "NAT detected for %s / %s\n", tmp_str, ast_sockaddr_stringify(&p->recv));
+	if (ast_sockaddr_cmp_addr(addr, &p->recv)) {
+		char *tmp_str = ast_strdupa(ast_sockaddr_stringify_addr(addr));
+		ast_debug(3, "NAT detected for %s / %s\n", tmp_str, ast_sockaddr_stringify_addr(&p->recv));
 		p->natdetected = 1;
 		if (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT)) {
 			ast_set_flag(&p->flags[0], SIP_NAT_FORCE_RPORT);
@@ -18558,7 +18559,24 @@ static void receive_message(struct sip_pvt *p, struct sip_request *req, struct a
 		ast_string_field_set(p, context, sip_cfg.messagecontext);
 	}
 
-	get_destination(p, NULL, NULL);
+	switch (get_destination(p, NULL, NULL)) {
+	case SIP_GET_DEST_REFUSED:
+		/* Okay to send 403 since this is after auth processing */
+		transmit_response(p, "403 Forbidden", req);
+		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
+		return;
+	case SIP_GET_DEST_INVALID_URI:
+		transmit_response(p, "416 Unsupported URI Scheme", req);
+		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
+		return;
+	case SIP_GET_DEST_EXTEN_NOT_FOUND:
+	case SIP_GET_DEST_EXTEN_MATCHMORE:
+		transmit_response(p, "404 Not Found", req);
+		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
+		return;
+	case SIP_GET_DEST_EXTEN_FOUND:
+		break;
+	}
 
 	if (!(msg = ast_msg_alloc())) {
 		transmit_response(p, "500 Internal Server Error", req);
@@ -23013,8 +23031,8 @@ static void handle_response_invite(struct sip_pvt *p, int resp, const char *rest
 					wait = ast_random() % 2000;
 				}
 				p->waitid = ast_sched_add(sched, wait, sip_reinvite_retry, dialog_ref(p, "passing dialog ptr into sched structure based on waitid for sip_reinvite_retry."));
-				ast_log(LOG_WARNING, "just did sched_add waitid(%d) for sip_reinvite_retry for dialog %s in handle_response_invite\n", p->waitid, p->callid);
-				ast_debug(2, "Reinvite race. Waiting %d secs before retry\n", wait);
+				ast_debug(2, "Reinvite race. Scheduled sip_reinvite_retry in %d secs in handle_response_invite (waitid %d, dialog '%s')\n",
+						wait, p->waitid, p->callid);
 			}
 		}
 		break;
@@ -26830,6 +26848,21 @@ static int sip_msg_send(const struct ast_msg *msg, const char *to, const char *f
 
 			sender = ast_strdupa(from);
 			ast_callerid_parse(sender, &name, &location);
+			if (ast_strlen_zero(location)) {
+				/* This can occur if either
+				 *  1) A name-addr style From header does not close the angle brackets
+				 *  properly.
+				 *  2) The From header is not in name-addr style and the content of the
+				 *  From contains characters other than 0-9, *, #, or +.
+				 *
+				 *  In both cases, ast_callerid_parse() should have parsed the From header
+				 *  as a name rather than a number. So we just need to set the location
+				 *  to what was parsed as a name, and set the name NULL since there was
+				 *  no name present.
+				 */
+				location = name;
+				name = NULL;
+			}
 			ast_string_field_set(pvt, fromname, name);
 			if (strchr(location, ':')) { /* Must be a URI */
 				parse_uri(location, "sip:,sips:", &user, NULL, &domain, NULL);
@@ -28035,6 +28068,7 @@ static int handle_incoming(struct sip_pvt *p, struct sip_request *req, struct as
 				/* size of the string making up the cause code is "SIP " + cause length */
 				data_size += 4 + strlen(REQ_OFFSET_TO_STR(req, rlpart2));
 				cause_code = ast_alloca(data_size);
+				memset(cause_code, 0, data_size);
 
 				ast_copy_string(cause_code->chan_name, ast_channel_name(p->owner), AST_CHANNEL_NAME);
 
@@ -28349,9 +28383,7 @@ static int handle_request_do(struct sip_request *req, struct ast_sockaddr *addr)
 
 	copy_socket_data(&p->socket, &req->socket);
 
-	if (ast_sockaddr_isnull(&p->recv)) { /* This may already be set before getting here */
-		ast_sockaddr_copy(&p->recv, addr);
-	}
+	ast_sockaddr_copy(&p->recv, addr);
 
 	/* if we have an owner, then this request has been authenticated */
 	if (p->owner) {
@@ -34684,7 +34716,12 @@ static int unload_module(void)
 
 	clear_sip_domains();
 	sip_cfg.contact_acl = ast_free_acl_list(sip_cfg.contact_acl);
+	if (sipsock_read_id) {
+		ast_io_remove(io, sipsock_read_id);
+		sipsock_read_id = NULL;
+	}
 	close(sipsock);
+	io_context_destroy(io);
 	ast_sched_context_destroy(sched);
 	con = ast_context_find(used_context);
 	if (con) {
@@ -34697,6 +34734,11 @@ static int unload_module(void)
 
 	sip_reqresp_parser_exit();
 	sip_unregister_tests();
+
+	if (notify_types) {
+		ast_config_destroy(notify_types);
+		notify_types = NULL;
+	}
 
 	ast_format_cap_destroy(sip_tech.capabilities);
 	sip_cfg.caps = ast_format_cap_destroy(sip_cfg.caps);

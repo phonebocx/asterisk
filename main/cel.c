@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377883 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 397034 $")
 
 #include "asterisk/_private.h"
 
@@ -310,7 +310,7 @@ static int do_reload(void)
 
 	config = ast_config_load2("cel.conf", "cel", config_flags);
 
-	if (config == CONFIG_STATUS_FILEMISSING) {
+	if (config == CONFIG_STATUS_FILEMISSING || config == CONFIG_STATUS_FILEUNCHANGED || config == CONFIG_STATUS_FILEINVALID) {
 		config = NULL;
 		goto return_cleanup;
 	}

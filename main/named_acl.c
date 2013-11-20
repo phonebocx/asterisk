@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377340 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398103 $")
 
 #include "asterisk/config.h"
 #include "asterisk/config_options.h"
@@ -555,9 +555,19 @@ static struct ast_cli_entry cli_named_acl[] = {
 	AST_CLI_DEFINE(handle_show_named_acl_cmd, "Show a named ACL or list all named ACLs"),
 };
 
+static void named_acl_cleanup(void)
+{
+	ast_cli_unregister_multiple(cli_named_acl, ARRAY_LEN(cli_named_acl));
+
+	aco_info_destroy(&cfg_info);
+	ao2_global_obj_release(globals);
+}
+
 int ast_named_acl_init()
 {
 	ast_cli_register_multiple(cli_named_acl, ARRAY_LEN(cli_named_acl));
+
+	ast_register_atexit(named_acl_cleanup);
 
 	if (aco_info_init(&cfg_info)) {
 		return 0;

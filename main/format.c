@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377244 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 391507 $");
 
 #include "asterisk/_private.h"
 #include "asterisk/format.h"
@@ -916,7 +916,7 @@ int init_framer(void)
 
 static int format_list_add_custom(struct ast_format_list *new)
 {
-	struct ast_format_list *entry;
+	RAII_VAR(struct ast_format_list *, entry, NULL, ao2_cleanup);
 	if (!(entry = ao2_alloc(sizeof(*entry), NULL))) {
 		return -1;
 	}

@@ -54,7 +54,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377849 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 399442 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -1420,7 +1420,17 @@ static int removed_options_handler(const struct aco_option *opt, struct ast_vari
 static void __ast_udptl_reload(int reload)
 {
 	if (aco_process_config(&cfg_info, reload) == ACO_PROCESS_ERROR) {
-		ast_log(LOG_WARNING, "Could not reload udptl config\n");
+		if (!reload) {
+			RAII_VAR(struct udptl_config *, udptl_cfg, udptl_snapshot_alloc(), ao2_cleanup);
+
+			if (aco_set_defaults(&general_option, "general", udptl_cfg->general)) {
+				ast_log(LOG_ERROR, "Failed to load udptl.conf and failed to initialize defaults.\n");
+				return;
+			}
+
+			ast_log(LOG_NOTICE, "Could not load udptl config; using defaults\n");
+			ao2_global_obj_replace_unref(globals, udptl_cfg);
+		}
 	}
 }
 

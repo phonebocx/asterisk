@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 1999 - 2012, Digium, Inc.
+ * Copyright (C) 1999 - 2013, Digium, Inc.
  *
  * Mark Spencer <markster@digium.com>
  *
@@ -39,7 +39,7 @@
  *
  * \section copyright Copyright and Author
  *
- * Copyright (C) 1999 - 2012, Digium, Inc.
+ * Copyright (C) 1999 - 2013, Digium, Inc.
  * Asterisk is a <a href="http://www.digium.com/en/company/view-policy.php?id=Trademark-Policy">registered trademark</a>
  * of <a href="http://www.digium.com">Digium, Inc</a>.
  *
@@ -65,7 +65,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 379790 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 399267 $")
 
 #include "asterisk/_private.h"
 
@@ -173,7 +173,7 @@ int daemon(int, int);  /* defined in libresolv of all places */
 
 /*! \brief Welcome message when starting a CLI interface */
 #define WELCOME_MESSAGE \
-    ast_verbose("Asterisk %s, Copyright (C) 1999 - 2012 Digium, Inc. and others.\n" \
+    ast_verbose("Asterisk %s, Copyright (C) 1999 - 2013 Digium, Inc. and others.\n" \
                 "Created by Mark Spencer <markster@digium.com>\n" \
                 "Asterisk comes with ABSOLUTELY NO WARRANTY; type 'core show warranty' for details.\n" \
                 "This is free software, with components licensed under the GNU General Public\n" \
@@ -1721,8 +1721,8 @@ static int can_safely_quit(shutdown_nice_t niceness, int restart)
 		time_t s, e;
 		/* Begin shutdown routine, hanging up active channels */
 		ast_begin_shutdown(1);
-		if (option_verbose && ast_opt_console) {
-			ast_verbose("Beginning asterisk %s....\n", restart ? "restart" : "shutdown");
+		if (ast_opt_console) {
+			ast_verb(0, "Beginning asterisk %s....\n", restart ? "restart" : "shutdown");
 		}
 		time(&s);
 		for (;;) {
@@ -1738,7 +1738,7 @@ static int can_safely_quit(shutdown_nice_t niceness, int restart)
 		if (niceness != SHUTDOWN_REALLY_NICE) {
 			ast_begin_shutdown(0);
 		}
-		if (option_verbose && ast_opt_console) {
+		if (ast_opt_console) {
 			ast_verb(0, "Waiting for inactivity to perform %s...\n", restart ? "restart" : "halt");
 		}
 		for (;;) {
@@ -1753,7 +1753,7 @@ static int can_safely_quit(shutdown_nice_t niceness, int restart)
 	 * case someone else has taken over the shutdown. */
 	ast_mutex_lock(&safe_system_lock);
 	if (shuttingdown != niceness) {
-		if (shuttingdown == NOT_SHUTTING_DOWN && option_verbose && ast_opt_console) {
+		if (shuttingdown == NOT_SHUTTING_DOWN && ast_opt_console) {
 			ast_verb(0, "Asterisk %s cancelled.\n", restart ? "restart" : "shutdown");
 		}
 		ast_mutex_unlock(&safe_system_lock);
@@ -1892,17 +1892,43 @@ static void __remote_quit_handler(int num)
 	sig_flags.need_quit = 1;
 }
 
-static const char *fix_header(char *outbuf, int maxout, const char *s, char *cmp)
+static const char *fix_header(char *outbuf, int maxout, const char *s, char level)
 {
-	const char *c;
+	const char *cmp;
+
+	switch (level) {
+	case 0: *outbuf = '\0';
+		return s;
+	case 1: cmp = VERBOSE_PREFIX_1;
+		break;
+	case 2: cmp = VERBOSE_PREFIX_2;
+		break;
+	case 3: cmp = VERBOSE_PREFIX_3;
+		break;
+	default: cmp = VERBOSE_PREFIX_4;
+		break;
+	}
 
 	if (!strncmp(s, cmp, strlen(cmp))) {
-		c = s + strlen(cmp);
-		term_color(outbuf, cmp, COLOR_GRAY, 0, maxout);
-		return c;
+		s += strlen(cmp);
 	}
-	return NULL;
+	term_color(outbuf, cmp, COLOR_GRAY, 0, maxout);
+
+	return s;
 }
+
+struct console_state_data {
+	char verbose_line_level;
+};
+
+static int console_state_init(void *ptr)
+{
+	struct console_state_data *state = ptr;
+	state->verbose_line_level = 0;
+	return 0;
+}
+
+AST_THREADSTORAGE_CUSTOM(console_state, console_state_init, ast_free_ptr);
 
 /* These gymnastics are due to platforms which designate char as unsigned by
  * default. Level is the negative character -- offset by 1, because \0 is the
@@ -1910,31 +1936,83 @@ static const char *fix_header(char *outbuf, int maxout, const char *s, char *cmp
 #define VERBOSE_MAGIC2LEVEL(x) (((char) -*(signed char *) (x)) - 1)
 #define VERBOSE_HASMAGIC(x)	(*(signed char *) (x) < 0)
 
+static int console_print(const char *s, int local)
+{
+	struct console_state_data *state =
+		ast_threadstorage_get(&console_state, sizeof(*state));
+
+	char prefix[80];
+	const char *c;
+	int num, res = 0;
+	unsigned int newline;
+
+	do {
+		if (VERBOSE_HASMAGIC(s)) {
+			/* always use the given line's level, otherwise
+			   we'll use the last line's level */
+			state->verbose_line_level = VERBOSE_MAGIC2LEVEL(s);
+			/* move past magic */
+			s++;
+
+			if (local) {
+				s = fix_header(prefix, sizeof(prefix), s,
+					       state->verbose_line_level);
+			}
+		} else {
+			*prefix = '\0';
+		}
+		c = s;
+
+		/* for a given line separate on verbose magic, newline, and eol */
+		if ((s = strchr(c, '\n'))) {
+			++s;
+			newline = 1;
+		} else {
+			s = strchr(c, '\0');
+			newline = 0;
+		}
+
+		/* check if we should write this line after calculating begin/end
+		   so we process the case of a higher level line embedded within
+		   two lower level lines */
+		if (state->verbose_line_level > option_verbose) {
+			continue;
+		}
+
+		if (local && !ast_strlen_zero(prefix)) {
+			fputs(prefix, stdout);
+		}
+
+		num = s - c;
+		if (fwrite(c, sizeof(char), num, stdout) < num) {
+			break;
+		}
+
+		if (!res) {
+			/* if at least some info has been written
+			   we'll want to return true */
+			res = 1;
+		}
+	} while (*s);
+
+	if (newline) {
+		/* if ending on a newline then reset last level to zero
+		    since what follows may be not be logging output */
+		state->verbose_line_level = 0;
+	}
+
+	if (res) {
+		fflush(stdout);
+	}
+
+	return res;
+}
+
 static void console_verboser(const char *s)
 {
-	char tmp[80];
-	const char *c = NULL;
-	char level = 0;
-
-	if (VERBOSE_HASMAGIC(s)) {
-		level = VERBOSE_MAGIC2LEVEL(s);
-		s++;
-		if (level > option_verbose) {
-			return;
-		}
+	if (!console_print(s, 1)) {
+		return;
 	}
-
-	if ((c = fix_header(tmp, sizeof(tmp), s, VERBOSE_PREFIX_4)) ||
-	    (c = fix_header(tmp, sizeof(tmp), s, VERBOSE_PREFIX_3)) ||
-	    (c = fix_header(tmp, sizeof(tmp), s, VERBOSE_PREFIX_2)) ||
-	    (c = fix_header(tmp, sizeof(tmp), s, VERBOSE_PREFIX_1))) {
-		fputs(tmp, stdout);
-		fputs(c, stdout);
-	} else {
-		fputs(s, stdout);
-	}
-
-	fflush(stdout);
 
 	/* Wake up a poll()ing console */
 	if (ast_opt_console && consolethread != AST_PTHREADT_NULL) {
@@ -1977,6 +2055,11 @@ static int remoteconsolehandler(char *s)
 	/* Called when readline data is available */
 	if (!ast_all_zeros(s))
 		ast_el_add_history(s);
+
+	while (isspace(*s)) {
+		s++;
+	}
+
 	/* The real handler for bang */
 	if (s[0] == '!') {
 		if (s[1])
@@ -2337,23 +2420,6 @@ static struct ast_cli_entry cli_asterisk[] = {
 #endif /* ! LOW_MEMORY */
 };
 
-struct el_read_char_state_struct {
-	unsigned int line_full:1;
-	unsigned int prev_line_full:1;
-	char prev_line_verbosity;
-};
-
-static int el_read_char_state_init(void *ptr)
-{
-	struct el_read_char_state_struct *state = ptr;
-	state->line_full = 1;
-	state->prev_line_full = 1;
-	state->prev_line_verbosity = 0;
-	return 0;
-}
-
-AST_THREADSTORAGE_CUSTOM(el_read_char_state, el_read_char_state_init, ast_free_ptr);
-
 static int ast_el_read_char(EditLine *editline, char *cp)
 {
 	int num_read = 0;
@@ -2363,7 +2429,6 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 	int max;
 #define EL_BUF_SIZE 512
 	char buf[EL_BUF_SIZE];
-	struct el_read_char_state_struct *state = ast_threadstorage_get(&el_read_char_state, sizeof(*state));
 
 	for (;;) {
 		max = 1;
@@ -2393,8 +2458,6 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 			}
 		}
 		if (fds[0].revents) {
-			char level = 0;
-			char *curline = buf, *nextline;
 			res = read(ast_consock, buf, sizeof(buf) - 1);
 			/* if the remote side disappears exit */
 			if (res < 1) {
@@ -2434,33 +2497,7 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 				}
 			}
 
-			do {
-				state->prev_line_full = state->line_full;
-				if ((nextline = strchr(curline, '\n'))) {
-					state->line_full = 1;
-					nextline++;
-				} else {
-					state->line_full = 0;
-					nextline = strchr(curline, '\0');
-				}
-
-				if (state->prev_line_full && VERBOSE_HASMAGIC(curline)) {
-					level = VERBOSE_MAGIC2LEVEL(curline);
-					curline++;
-				} else if (state->prev_line_full && !VERBOSE_HASMAGIC(curline)) {
-					/* Non-verbose output */
-					level = 0;
-				} else {
-					level = state->prev_line_verbosity;
-				}
-				if ((!state->prev_line_full && state->prev_line_verbosity <= option_verbose) || (state->prev_line_full && level <= option_verbose)) {
-					if (write(STDOUT_FILENO, curline, nextline - curline) < 0) {
-					}
-				}
-
-				state->prev_line_verbosity = level;
-				curline = nextline;
-			} while (!ast_strlen_zero(curline));
+			console_print(buf, 0);
 
 			if ((res < EL_BUF_SIZE - 1) && ((buf[res-1] == '\n') || (buf[res-2] == '\n'))) {
 				*cp = CC_REFRESH;
@@ -2603,45 +2640,62 @@ static char *cli_prompt(EditLine *editline)
 	return ast_str_buffer(prompt);
 }
 
+static void destroy_match_list(char **match_list, int matches)
+{
+	if (match_list) {
+		int idx;
+
+		for (idx = 0; idx < matches; ++idx) {
+			ast_free(match_list[idx]);
+		}
+		ast_free(match_list);
+	}
+}
+
 static char **ast_el_strtoarr(char *buf)
 {
-	char **match_list = NULL, **match_list_tmp, *retstr;
-	size_t match_list_len;
+	char *retstr;
+	char **match_list = NULL;
+	char **new_list;
+	size_t match_list_len = 1;
 	int matches = 0;
 
-	match_list_len = 1;
-	while ( (retstr = strsep(&buf, " ")) != NULL) {
-
-		if (!strcmp(retstr, AST_CLI_COMPLETE_EOF))
+	while ((retstr = strsep(&buf, " "))) {
+		if (!strcmp(retstr, AST_CLI_COMPLETE_EOF)) {
 			break;
+		}
 		if (matches + 1 >= match_list_len) {
 			match_list_len <<= 1;
-			if ((match_list_tmp = ast_realloc(match_list, match_list_len * sizeof(char *)))) {
-				match_list = match_list_tmp;
-			} else {
-				if (match_list)
-					ast_free(match_list);
-				return (char **) NULL;
+			new_list = ast_realloc(match_list, match_list_len * sizeof(char *));
+			if (!new_list) {
+				destroy_match_list(match_list, matches);
+				return NULL;
 			}
+			match_list = new_list;
 		}
 
-		match_list[matches++] = ast_strdup(retstr);
+		retstr = ast_strdup(retstr);
+		if (!retstr) {
+			destroy_match_list(match_list, matches);
+			return NULL;
+		}
+		match_list[matches++] = retstr;
 	}
 
-	if (!match_list)
-		return (char **) NULL;
+	if (!match_list) {
+		return NULL;
+	}
 
 	if (matches >= match_list_len) {
-		if ((match_list_tmp = ast_realloc(match_list, (match_list_len + 1) * sizeof(char *)))) {
-			match_list = match_list_tmp;
-		} else {
-			if (match_list)
-				ast_free(match_list);
-			return (char **) NULL;
+		new_list = ast_realloc(match_list, (match_list_len + 1) * sizeof(char *));
+		if (!new_list) {
+			destroy_match_list(match_list, matches);
+			return NULL;
 		}
+		match_list = new_list;
 	}
 
-	match_list[matches] = (char *) NULL;
+	match_list[matches] = NULL;
 
 	return match_list;
 }
@@ -2742,7 +2796,9 @@ static char *cli_complete(EditLine *editline, int ch)
 
 		if (nummatches > 0) {
 			char *mbuf;
+			char *new_mbuf;
 			int mlen = 0, maxmbuf = 2048;
+
 			/* Start with a 2048 byte buffer */
 			if (!(mbuf = ast_malloc(maxmbuf))) {
 				*((char *) lf->cursor) = savechr;
@@ -2756,10 +2812,13 @@ static char *cli_complete(EditLine *editline, int ch)
 				if (mlen + 1024 > maxmbuf) {
 					/* Every step increment buffer 1024 bytes */
 					maxmbuf += 1024;
-					if (!(mbuf = ast_realloc(mbuf, maxmbuf))) {
+					new_mbuf = ast_realloc(mbuf, maxmbuf);
+					if (!new_mbuf) {
+						ast_free(mbuf);
 						*((char *) lf->cursor) = savechr;
 						return (char *)(CC_ERROR);
 					}
+					mbuf = new_mbuf;
 				}
 				/* Only read 1024 bytes at a time */
 				res = read(ast_consock, mbuf + mlen, 1024);
@@ -3070,7 +3129,7 @@ static int show_version(void)
 
 static int show_cli_help(void)
 {
-	printf("Asterisk %s, Copyright (C) 1999 - 2012, Digium, Inc. and others.\n", ast_get_version());
+	printf("Asterisk %s, Copyright (C) 1999 - 2013, Digium, Inc. and others.\n", ast_get_version());
 	printf("Usage: asterisk [OPTIONS]\n");
 	printf("Valid Options:\n");
 	printf("   -V              Display version number and exit\n");
@@ -3472,7 +3531,7 @@ static void env_init(void)
 
 static void print_intro_message(const char *runuser, const char *rungroup)
 {
-	if (ast_opt_console || option_verbose || (ast_opt_remote && !ast_opt_exec)) {
+ 	if (ast_opt_console || option_verbose || (ast_opt_remote && !ast_opt_exec)) {
 		if (ast_register_verbose(console_verboser)) {
 			fprintf(stderr, "Unable to register console verboser?\n");
 			return;
@@ -3964,8 +4023,8 @@ int main(int argc, char *argv[])
 
 	print_intro_message(runuser, rungroup);
 
-	if (ast_opt_console && !option_verbose) {
-		ast_verbose("[ Initializing Custom Configuration Options ]\n");
+	if (ast_opt_console) {
+		ast_verb(0, "[ Initializing Custom Configuration Options ]\n");
 	}
 	/* custom config setup */
 	register_config_cli();

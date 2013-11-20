@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 384119 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 397309 $")
 
 #include <time.h>
 #include <sys/time.h>
@@ -666,7 +666,7 @@ struct ast_variable *ast_http_get_post_vars(
 			prev = v;
 		}
 	}
-	
+
 done:
 	ast_free(buf);
 	return post_vars;
@@ -843,7 +843,7 @@ struct ast_variable *ast_http_get_cookies(struct ast_variable *headers)
 	struct ast_variable *v, *cookies=NULL;
 
 	for (v = headers; v; v = v->next) {
-		if (!strncasecmp(v->name, "Cookie", 6)) {
+		if (!strcasecmp(v->name, "Cookie")) {
 			char *tmp = ast_strdupa(v->value);
 			if (cookies) {
 				ast_variables_destroy(cookies);
@@ -1024,7 +1024,7 @@ static int __ast_http_load(int reload)
 	struct http_uri_redirect *redirect;
 	struct ast_flags config_flags = { reload ? CONFIG_FLAG_FILEUNCHANGED : 0 };
 	uint32_t bindport = DEFAULT_PORT;
-	struct ast_sockaddr *addrs = NULL;
+	RAII_VAR(struct ast_sockaddr *, addrs, NULL, ast_free);
 	int num_addrs = 0;
 	int http_tls_was_enabled = 0;
 
@@ -1229,7 +1229,25 @@ static struct ast_cli_entry cli_http[] = {
 
 static void http_shutdown(void)
 {
+	struct http_uri_redirect *redirect;
 	ast_cli_unregister_multiple(cli_http, ARRAY_LEN(cli_http));
+
+	ast_tcptls_server_stop(&http_desc);
+	if (http_tls_cfg.enabled) {
+		ast_tcptls_server_stop(&https_desc);
+	}
+	ast_free(http_tls_cfg.certfile);
+	ast_free(http_tls_cfg.pvtfile);
+	ast_free(http_tls_cfg.cipher);
+
+	ast_http_uri_unlink(&statusuri);
+	ast_http_uri_unlink(&staticuri);
+
+	AST_RWLIST_WRLOCK(&uri_redirects);
+	while ((redirect = AST_RWLIST_REMOVE_HEAD(&uri_redirects, entry))) {
+		ast_free(redirect);
+	}
+	AST_RWLIST_UNLOCK(&uri_redirects);
 }
 
 int ast_http_init(void)

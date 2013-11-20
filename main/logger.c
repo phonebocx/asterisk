@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 389677 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401235 $")
 
 /* When we include logger.h again it will trample on some stuff in syslog.h, but
  * nothing we care about in here. */
@@ -1542,7 +1542,11 @@ void ast_log(int level, const char *file, int line, const char *function, const 
 	callid = ast_read_threadstorage_callid();
 
 	va_start(ap, fmt);
-	ast_log_full(level, file, line, function, callid, fmt, ap);
+	if (level == __LOG_VERBOSE) {
+		__ast_verbose_ap(file, line, function, 0, callid, fmt, ap);
+	} else {
+		ast_log_full(level, file, line, function, callid, fmt, ap);
+	}
 	va_end(ap);
 
 	if (callid) {
@@ -1593,7 +1597,7 @@ void *ast_bt_destroy(struct ast_bt *bt)
 
 char **ast_bt_get_symbols(void **addresses, size_t num_frames)
 {
-	char **strings = NULL;
+	char **strings;
 #if defined(BETTER_BACKTRACES)
 	int stackfr;
 	bfd *bfdobj;           /* bfd.h */
@@ -1613,9 +1617,12 @@ char **ast_bt_get_symbols(void **addresses, size_t num_frames)
 
 #if defined(BETTER_BACKTRACES)
 	strings_size = num_frames * sizeof(*strings);
-	eachlen = ast_calloc(num_frames, sizeof(*eachlen));
 
-	if (!(strings = ast_calloc(num_frames, sizeof(*strings)))) {
+	eachlen = ast_calloc(num_frames, sizeof(*eachlen));
+	strings = ast_std_calloc(num_frames, sizeof(*strings));
+	if (!eachlen || !strings) {
+		ast_free(eachlen);
+		ast_std_free(strings);
 		return NULL;
 	}
 
@@ -1630,6 +1637,7 @@ char **ast_bt_get_symbols(void **addresses, size_t num_frames)
 
 		if (strcmp(dli.dli_fname, "asterisk") == 0) {
 			char asteriskpath[256];
+
 			if (!(dli.dli_fname = ast_utils_which("asterisk", asteriskpath, sizeof(asteriskpath)))) {
 				/* This will fail to find symbols */
 				ast_debug(1, "Failed to find asterisk binary for debug symbols.\n");
@@ -1638,11 +1646,11 @@ char **ast_bt_get_symbols(void **addresses, size_t num_frames)
 		}
 
 		lastslash = strrchr(dli.dli_fname, '/');
-		if (	(bfdobj = bfd_openr(dli.dli_fname, NULL)) &&
-				bfd_check_format(bfdobj, bfd_object) &&
-				(allocsize = bfd_get_symtab_upper_bound(bfdobj)) > 0 &&
-				(syms = ast_malloc(allocsize)) &&
-				(symbolcount = bfd_canonicalize_symtab(bfdobj, syms))) {
+		if ((bfdobj = bfd_openr(dli.dli_fname, NULL)) &&
+			bfd_check_format(bfdobj, bfd_object) &&
+			(allocsize = bfd_get_symtab_upper_bound(bfdobj)) > 0 &&
+			(syms = ast_malloc(allocsize)) &&
+			(symbolcount = bfd_canonicalize_symtab(bfdobj, syms))) {
 
 			if (bfdobj->flags & DYNAMIC) {
 				offset = addresses[stackfr] - dli.dli_fbase;
@@ -1651,9 +1659,9 @@ char **ast_bt_get_symbols(void **addresses, size_t num_frames)
 			}
 
 			for (section = bfdobj->sections; section; section = section->next) {
-				if (	!bfd_get_section_flags(bfdobj, section) & SEC_ALLOC ||
-						section->vma > offset ||
-						section->size + section->vma < offset) {
+				if (!bfd_get_section_flags(bfdobj, section) & SEC_ALLOC ||
+					section->vma > offset ||
+					section->size + section->vma < offset) {
 					continue;
 				}
 
@@ -1668,7 +1676,9 @@ char **ast_bt_get_symbols(void **addresses, size_t num_frames)
 				found++;
 				if ((lastslash = strrchr(file, '/'))) {
 					const char *prevslash;
-					for (prevslash = lastslash - 1; *prevslash != '/' && prevslash >= file; prevslash--);
+
+					for (prevslash = lastslash - 1; *prevslash != '/' && prevslash >= file; prevslash--) {
+					}
 					if (prevslash >= file) {
 						lastslash = prevslash;
 					}
@@ -1690,9 +1700,7 @@ char **ast_bt_get_symbols(void **addresses, size_t num_frames)
 		}
 		if (bfdobj) {
 			bfd_close(bfdobj);
-			if (syms) {
-				ast_free(syms);
-			}
+			ast_free(syms);
 		}
 
 		/* Default output, if we cannot find the information within BFD */
@@ -1712,27 +1720,31 @@ char **ast_bt_get_symbols(void **addresses, size_t num_frames)
 
 		if (!ast_strlen_zero(msg)) {
 			char **tmp;
-			eachlen[stackfr] = strlen(msg);
-			if (!(tmp = ast_realloc(strings, strings_size + eachlen[stackfr] + 1))) {
-				ast_free(strings);
+
+			eachlen[stackfr] = strlen(msg) + 1;
+			if (!(tmp = ast_std_realloc(strings, strings_size + eachlen[stackfr]))) {
+				ast_std_free(strings);
 				strings = NULL;
 				break; /* out of stack frame iteration */
 			}
 			strings = tmp;
 			strings[stackfr] = (char *) strings + strings_size;
-			ast_copy_string(strings[stackfr], msg, eachlen[stackfr] + 1);
-			strings_size += eachlen[stackfr] + 1;
+			strcpy(strings[stackfr], msg);/* Safe since we just allocated the room. */
+			strings_size += eachlen[stackfr];
 		}
 	}
 
 	if (strings) {
-		/* Recalculate the offset pointers */
+		/* Recalculate the offset pointers because of the reallocs. */
 		strings[0] = (char *) strings + num_frames * sizeof(*strings);
 		for (stackfr = 1; stackfr < num_frames; stackfr++) {
-			strings[stackfr] = strings[stackfr - 1] + eachlen[stackfr - 1] + 1;
+			strings[stackfr] = strings[stackfr - 1] + eachlen[stackfr - 1];
 		}
 	}
+	ast_free(eachlen);
+
 #else /* !defined(BETTER_BACKTRACES) */
+
 	strings = backtrace_symbols(addresses, num_frames);
 #endif /* defined(BETTER_BACKTRACES) */
 	return strings;
@@ -1758,9 +1770,7 @@ void ast_backtrace(void)
 			ast_debug(1, "#%d: [%p] %s\n", i - 3, bt->addresses[i], strings[i]);
 		}
 
-		/* MALLOC_DEBUG will erroneously report an error here, unless we undef the macro. */
-#undef free
-		free(strings);
+		ast_std_free(strings);
 	} else {
 		ast_debug(1, "Could not allocate memory for backtrace\n");
 	}
@@ -1772,10 +1782,11 @@ void ast_backtrace(void)
 
 void __ast_verbose_ap(const char *file, int line, const char *func, int level, struct ast_callid *callid, const char *fmt, va_list ap)
 {
-	struct ast_str *buf = NULL;
+	const char *p;
+	struct ast_str *prefixed, *buf = NULL;
 	int res = 0;
 	const char *prefix = level >= 4 ? VERBOSE_PREFIX_4 : level == 3 ? VERBOSE_PREFIX_3 : level == 2 ? VERBOSE_PREFIX_2 : level == 1 ? VERBOSE_PREFIX_1 : "";
-	signed char magic = level > 127 ? -128 : -level - 1; /* 0 => -1, 1 => -2, etc.  Can't pass NUL, as it is EOS-delimiter */
+	signed char magic = level > 9 ? -10 : -level - 1; /* 0 => -1, 1 => -2, etc.  Can't pass NUL, as it is EOS-delimiter */
 
 	/* For compatibility with modules still calling ast_verbose() directly instead of using ast_verb() */
 	if (level < 0) {
@@ -1792,37 +1803,43 @@ void __ast_verbose_ap(const char *file, int line, const char *func, int level, s
 		}
 	}
 
-	if (!(buf = ast_str_thread_get(&verbose_buf, VERBOSE_BUF_INIT_SIZE))) {
+	if (!(prefixed = ast_str_thread_get(&verbose_buf, VERBOSE_BUF_INIT_SIZE)) ||
+	    !(buf = ast_str_create(VERBOSE_BUF_INIT_SIZE))) {
 		return;
 	}
 
-	if (ast_opt_timestamp) {
-		struct timeval now;
-		struct ast_tm tm;
-		char date[40];
-		char *datefmt;
-
-		now = ast_tvnow();
-		ast_localtime(&now, &tm, NULL);
-		ast_strftime(date, sizeof(date), dateformat, &tm);
-		datefmt = ast_alloca(strlen(date) + 3 + strlen(prefix) + strlen(fmt) + 1);
-		sprintf(datefmt, "%c[%s] %s%s", (char) magic, date, prefix, fmt);
-		fmt = datefmt;
-	} else {
-		char *tmp = ast_alloca(strlen(prefix) + strlen(fmt) + 2);
-		sprintf(tmp, "%c%s%s", (char) magic, prefix, fmt);
-		fmt = tmp;
-	}
-
-	/* Build string */
 	res = ast_str_set_va(&buf, 0, fmt, ap);
-
 	/* If the build failed then we can drop this allocated message */
 	if (res == AST_DYNSTR_BUILD_FAILED) {
+		ast_free(buf);
 		return;
 	}
 
-	ast_log_callid(__LOG_VERBOSE, file, line, func, callid, "%s", ast_str_buffer(buf));
+	ast_str_reset(prefixed);
+	/* for every newline found in the buffer add verbose prefix data */
+	fmt = ast_str_buffer(buf);
+	do {
+		if (!(p = strchr(fmt, '\n'))) {
+			p = strchr(fmt, '\0') - 1;
+		}
+		++p;
+
+		if (ast_opt_timestamp) {
+			struct ast_tm tm;
+			char date[40];
+			struct timeval now = ast_tvnow();
+			ast_localtime(&now, &tm, NULL);
+			ast_strftime(date, sizeof(date), dateformat, &tm);
+			ast_str_append(&prefixed, 0, "%c[%s] %s", (char) magic, date, prefix);
+		} else {
+			ast_str_append(&prefixed, 0, "%c%s", (char) magic, prefix);
+		}
+		ast_str_append_substr(&prefixed, 0, fmt, p - fmt);
+		fmt = p;
+	} while (p && *p);
+
+	ast_log_callid(__LOG_VERBOSE, file, line, func, callid, "%s", ast_str_buffer(prefixed));
+	ast_free(buf);
 }
 
 void __ast_verbose(const char *file, int line, const char *func, int level, const char *fmt, ...)
@@ -1999,4 +2016,3 @@ void ast_logger_unregister_level(const char *name)
 		AST_RWLIST_UNLOCK(&logchannels);
 	}
 }
-

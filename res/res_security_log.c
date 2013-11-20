@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328259 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398103 $");
 
 #include "asterisk/module.h"
 #include "asterisk/logger.h"
@@ -158,6 +158,8 @@ static int unload_module(void)
 	if (security_event_sub) {
 		security_event_sub = ast_event_unsubscribe(security_event_sub);
 	}
+
+	ast_logger_unregister_level(LOG_SECURITY_NAME);
 
 	ast_verb(3, "Security Logging Disabled\n");
 
