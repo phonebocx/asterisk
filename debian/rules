@@ -115,6 +115,9 @@ override_dh_clean:
 
 	dh_clean
 
+	rm -rf addons/mp3
+	rm -f apps/app_voicemail_*
+
 SUBPACKS_EXTRA = \
 		 voicemail voicemail-odbcstorage voicemail-imapstorage \
 		 ooh323 mysql mp3
