@@ -51,7 +51,8 @@ Build-Depends: debhelper (>= 8),
  libneon27-gnutls-dev | libneon27-dev,
  libical-dev,
  libsrtp0-dev,
- zlib1g-dev
+ zlib1g-dev,
+ binutils-dev
 Standards-Version: 3.9.4
 Homepage: http://www.asterisk.org/
 Vcs-Git: git://anonscm.debian.org/pkg-voip/asterisk.git

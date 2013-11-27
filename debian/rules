@@ -96,6 +96,7 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	$(MAKE) menuselect.makeopts
+	menuselect/menuselect --enable BETTER_BACKTRACES menuselect.makeopts
 	@if [ "x${ENABLE_DEBUG}" != "x" ] ; then \
 		menuselect/menuselect --enable DONT_OPTIMIZE menuselect.makeopts ; \
 		menuselect/menuselect --enable DEBUG_THREADS menuselect.makeopts ; \
