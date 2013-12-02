@@ -2,9 +2,9 @@ asterisk (1:11.6.0~dfsg-1) UNRELEASED; urgency=low
 
   * New upstream release.
     - Drop bzero patch, fixed upstream.
-    - Updated pjproject patch.
+    - Update pjproject patch.
   * Move VoiceTronix support to asterisk-vpb (Closes: #492329).
-  * Enable BETTER_BACKTRACES and add Build-Depends on binutils-dev.
+  * Enable BETTER_BACKTRACES for debug builds.
 
  -- Jeremy Lainé <jeremy.laine@m4x.org>  Wed, 20 Nov 2013 13:57:43 +0100
 
