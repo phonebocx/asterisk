@@ -1,0 +1,18 @@
+Description: Do not build astdb2* (GPL linked against 4-clause BSD)
+Author: Jeremy Lainé <jeremy.laine@m4x.org>
+--- a/utils/utils.xml
++++ b/utils/utils.xml
+@@ -8,11 +8,11 @@
+ 	<support_level>core</support_level>
+   </member>
+   <member name="astdb2sqlite3">
+-	<defaultenabled>yes</defaultenabled>
++	<defaultenabled>no</defaultenabled>
+ 	<support_level>core</support_level>
+   </member>
+   <member name="astdb2bdb">
+-	<defaultenabled>yes</defaultenabled>
++	<defaultenabled>no</defaultenabled>
+ 	<support_level>core</support_level>
+   </member>
+   <member name="astman">

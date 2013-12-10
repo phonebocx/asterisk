@@ -27,6 +27,6 @@ pjproject
 dahdi_pri_event_removed
 dahdi_create_channels
 
-astdb_mans
+astdb_remove
 hyphen
 reenable
