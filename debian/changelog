@@ -1,8 +1,13 @@
 asterisk (1:11.6.0~dfsg-2) UNRELEASED; urgency=medium
 
+  [ Jeremy Lainé ]
   * Do not build astdb2* (GPL linked against 4-clause BSD).
+  
+  [ Tzafrir Cohen ]
+  * Restore SE Linux settings on directories created in init script
+    (Russell Coker, Closes: #731397). 
 
- -- Jeremy Lainé <jeremy.laine@m4x.org>  Tue, 10 Dec 2013 20:23:27 +0100
+ -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 10 Dec 2013 16:50:39 +0200
 
 asterisk (1:11.6.0~dfsg-1) unstable; urgency=low
 
