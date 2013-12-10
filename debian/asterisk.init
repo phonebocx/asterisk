@@ -98,6 +98,7 @@ test -x $DAEMON || exit 0
 
 for dir in /var/run/asterisk /var/log/asterisk /var/log/asterisk/cdr-csv /var/log/asterisk/cdr-custom; do
 	[ -d $dir ] || install -d -o $USER -g $GROUP $dir
+	[ -x /sbin/restorecon ] && /sbin/restorecon $dir
 done
 
 set -e
