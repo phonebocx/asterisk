@@ -31,3 +31,4 @@ astdb_mans
 hyphen
 reenable
 freeradius-client
+ignore_failed_channels.patch
