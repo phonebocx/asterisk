@@ -10,6 +10,7 @@ asterisk (1:11.6.0~dfsg-2) UNRELEASED; urgency=medium
   * Restore SE Linux settings on directories created in init script
     (Russell Coker, Closes: #731397). 
   * ignore_failed_channels.patch: allow dahdi to start after Asterisk.
+  * Move app_flash to asterisk-dahdi.
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 10 Dec 2013 16:50:39 +0200
 
