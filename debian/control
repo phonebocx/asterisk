@@ -53,7 +53,7 @@ Build-Depends: debhelper (>= 8),
  libsrtp0-dev,
  zlib1g-dev,
  binutils-dev
-Standards-Version: 3.9.4
+Standards-Version: 3.9.5
 Homepage: http://www.asterisk.org/
 Vcs-Git: git://anonscm.debian.org/pkg-voip/asterisk.git
 Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-voip/asterisk.git
@@ -63,7 +63,7 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, asterisk-modules (= ${binary:Version}), adduser, asterisk-core-sounds-en-gsm | asterisk-prompt-en
 Provides: asterisk-11
 Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage, asterisk-moh-opsound-gsm
-Suggests: asterisk-doc, asterisk-dev, asterisk-ooh323, asterisk-dahdi
+Suggests: asterisk-doc, asterisk-dev, asterisk-ooh323, asterisk-dahdi, asterisk-vpb
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a
  sense, middleware between Internet and telephony channels on the bottom,
