@@ -1,3 +1,14 @@
+asterisk (1:11.6.0~dfsg-2) unstable; urgency=medium
+
+  A number of Asterisk modules have been moved to their own packages:
+  * asterisk-dahdi: chan_dahdi and other modules that depend on DAHDI.
+  * asterisk-vpb: chan_vpb.
+
+  If you have DAHDI devices or VoiceTronix devices that use chan_vpb, you
+  need one of those two respective packagees installed.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 11 Dec 2013 18:11:16 +0200
+
 asterisk (1:1.6.2.0~dfsg~rc1-1) unstable; urgency=low
 
   The fix for AST-2009-006 breaks IAX2 line protocol by adding an extra
