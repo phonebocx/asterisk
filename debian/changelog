@@ -3,6 +3,7 @@ asterisk (1:11.6.0~dfsg-2) UNRELEASED; urgency=medium
   [ Jeremy Lainé ]
   * Update Standards-Version to 3.9.5 (no changes).
   * Add Suggests on asterisk-vpb.
+  * Build against libfreeradius-client (Closes: #721622).
 
   [ Tzafrir Cohen ]
   * Restore SE Linux settings on directories created in init script
