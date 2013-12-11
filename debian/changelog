@@ -1,8 +1,5 @@
 asterisk (1:11.6.0~dfsg-2) UNRELEASED; urgency=medium
 
-  [ Jeremy Lainé ]
-  * Do not build astdb2* (GPL linked against 4-clause BSD).
-  
   [ Tzafrir Cohen ]
   * Restore SE Linux settings on directories created in init script
     (Russell Coker, Closes: #731397). 
