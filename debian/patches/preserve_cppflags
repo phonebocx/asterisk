@@ -1,0 +1,49 @@
+Index: asterisk/configure.ac
+===================================================================
+--- asterisk.orig/configure.ac	2013-12-11 13:40:47.915458039 +0100
++++ asterisk/configure.ac	2013-12-11 13:41:02.567365173 +0100
+@@ -22,7 +22,7 @@
+ AC_COPYRIGHT("Asterisk")
+ AC_REVISION($Revision: 388769 $)
+ 
+-# preserve any CFLAGS or LDFLAGS that may be set
++# preserve any CFLAGS, CPPFLAGS or LDFLAGS that may be set
+ # NOTE: This must be done before calling any macros that end up
+ # calling AC_PROG_CC or the like, since they will set a default
+ # set of CFLAGS ("-g -O2") if the user did not supply any, and
+@@ -30,8 +30,10 @@
+ # rest of the build system since we have other means of controlling
+ # debugging symbol generation and optimization.
+ CONFIG_CFLAGS="${CFLAGS}"
++CONFIG_CPPFLAGS="${CPPFLAGS}"
+ CONFIG_LDFLAGS="${LDFLAGS}"
+ AC_SUBST(CONFIG_CFLAGS)
++AC_SUBST(CONFIG_CPPFLAGS)
+ AC_SUBST(CONFIG_LDFLAGS)
+ 
+ # specify output header file
+Index: asterisk/makeopts.in
+===================================================================
+--- asterisk.orig/makeopts.in	2013-12-11 13:40:47.915458039 +0100
++++ asterisk/makeopts.in	2013-12-11 13:40:47.911458064 +0100
+@@ -58,6 +58,7 @@
+ PTHREAD_LIBS=@PTHREAD_LIBS@
+ 
+ CONFIG_CFLAGS=@CONFIG_CFLAGS@
++CONFIG_CPPFLAGS=@CONFIG_CPPFLAGS@
+ CONFIG_LDFLAGS=@CONFIG_LDFLAGS@
+ 
+ GNU_LD=@GNU_LD@
+Index: asterisk/Makefile.rules
+===================================================================
+--- asterisk.orig/Makefile.rules	2013-12-11 13:40:47.915458039 +0100
++++ asterisk/Makefile.rules	2013-12-11 13:40:47.911458064 +0100
+@@ -58,6 +58,8 @@
+     _ASTCFLAGS+=$(CONFIG_CFLAGS)
+ endif
+ 
++_ASTCFLAGS+=$(CONFIG_CPPFLAGS)
++
+ # shortcuts for common combinations of flags; these must be recursively expanded so that
+ # per-target settings will be applied
+ CC_CFLAGS=$(PTHREAD_CFLAGS) $(_ASTCFLAGS) $(ASTCFLAGS)

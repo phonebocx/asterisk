@@ -31,3 +31,4 @@ astdb_mans
 hyphen
 reenable
 freeradius-client
+preserve_cppflags
