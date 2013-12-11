@@ -52,6 +52,7 @@ Build-Depends: debhelper (>= 8),
  libical-dev,
  libsrtp0-dev,
  zlib1g-dev,
+ libedit-dev,
  binutils-dev
 Standards-Version: 3.9.5
 Homepage: http://www.asterisk.org/
