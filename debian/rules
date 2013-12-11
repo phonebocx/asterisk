@@ -77,10 +77,12 @@ override_dh_autoreconf:
 
 # Make sure the configure script gets an CFLAGS parameter. Otherwise
 # it will build with -march=native
+# Pass CPPFLAGS in the CFLAGS as otherwise the build system will
+# ignore them.
 override_dh_auto_configure:
 	chmod 755 $(CURDIR)/debian/dummyprogs/fetch
 	$(FETCH_ENV) ./configure			\
-		CFLAGS="$(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+		CFLAGS="$(CFLAGS) $(CPPFLAGS)" LDFLAGS="$(LDFLAGS)" \
 		--host=$(DEB_HOST_GNU_TYPE)		\
 		--build=$(DEB_BUILD_GNU_TYPE)		\
 		--prefix=/usr				\
