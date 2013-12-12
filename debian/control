@@ -119,8 +119,8 @@ Description: DAHDI devices support for the Asterisk PBX
 Package: asterisk-vpb
 Architecture: linux-any
 Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}
-Breaks: asterisk-modules (<< 1:11.6.0)
-Replaces: asterisk-modules (<< 1:11.6.0)
+Breaks: asterisk-modules (<< 1:11.6.0~dfsg-1)
+Replaces: asterisk-modules (<< 1:11.6.0~dfsg-1)
 Description: VoiceTronix devices support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
