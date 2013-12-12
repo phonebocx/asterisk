@@ -1,4 +1,4 @@
-asterisk (1:11.6.0~dfsg-2) UNRELEASED; urgency=medium
+asterisk (1:11.6.0~dfsg-2) unstable; urgency=medium
 
   [ Jeremy Lainé ]
   * Update Standards-Version to 3.9.5 (no changes).
@@ -13,7 +13,7 @@ asterisk (1:11.6.0~dfsg-2) UNRELEASED; urgency=medium
   * ignore_failed_channels.patch: allow dahdi to start after Asterisk.
   * Move app_flash to asterisk-dahdi.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 10 Dec 2013 16:50:39 +0200
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Thu, 12 Dec 2013 19:04:39 +0100
 
 asterisk (1:11.6.0~dfsg-1) unstable; urgency=low
 
