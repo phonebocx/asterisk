@@ -1,3 +1,9 @@
+asterisk (1:11.6.0~dfsg-3) unstable; urgency=medium
+
+  * Fix default RADIUS configuration path when using libfreeradius-client.
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 13 Dec 2013 10:10:50 +0100
+
 asterisk (1:11.6.0~dfsg-2) unstable; urgency=medium
 
   [ Jeremy Lainé ]
