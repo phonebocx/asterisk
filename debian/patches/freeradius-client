@@ -1,6 +1,7 @@
 Description: allows either libfreeradius-client or libradiusclient-ng
 Author: Daniel Pocock <daniel@pocock.com.au>
 Author: Jeremy Lainé <jeremy.laine@m4x.org>
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-22980
 --- a/cdr/cdr_radius.c	2013-12-11 10:08:13.537159711 +0100
 +++ b/cdr/cdr_radius.c	2013-12-11 10:08:13.529159762 +0100
 @@ -36,7 +36,11 @@
