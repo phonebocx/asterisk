@@ -1,3 +1,19 @@
+asterisk (1:11.6.0~dfsg-3) unstable; urgency=medium
+
+  The cdr_radius.so and cel_radius.so modules are now linked against
+  libfreeradius-client2 instead of libradiusclient-ng2 so the default RADIUS
+  configuration file has changed to /etc/radiusclient/radiusclient.conf.
+
+  If you use a custom RADIUS configuration file, please update it so that it
+  is compatible with libfreeradius-client2 by adding:
+
+  radius_deadtime 0
+
+  If you do not take this step you are likely to encounter a SEGFAULT when
+  asterisk starts up.
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 13 Dec 2013 10:10:50 +0100
+
 asterisk (1:11.6.0~dfsg-2) unstable; urgency=medium
 
   A number of Asterisk modules have been moved to their own packages:
