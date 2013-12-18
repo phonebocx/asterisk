@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 372630 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401661 $")
 
 #include <math.h>
 
@@ -502,6 +502,9 @@ AST_TEST_DEFINE(test_MATH_function)
 				ast_str_buffer(result));
 		res = AST_TEST_FAIL;
 	}
+
+	ast_free(expr);
+	ast_free(result);
 
 	return res;
 }

@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 375301 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401705 $")
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
@@ -2579,7 +2579,9 @@ int ast_app_parse_timelen(const char *timestr, int *result, enum ast_timelen uni
 		return -1;
 	}
 
-	if ((res = sscanf(timestr, FMT, &amount, u)) == 0) {
+	res = sscanf(timestr, FMT, &amount, u);
+
+	if (res == 0 || res == EOF) {
 #undef FMT
 		return -1;
 	} else if (res == 2) {

@@ -20,7 +20,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_AUX_DIR(`pwd`)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 388769 $)
+AC_REVISION($Revision: 400768 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -1217,6 +1217,11 @@ if test "${PBX_BFD}" = "0"; then
   AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_check_format], [bfd.h], [-ldl -liberty])
 fi
 
+if test "${PBX_BFD}" = "0"; then
+  # openSUSE requires -lz
+  AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_check_format], [bfd.h], [-ldl -liberty -lz])
+fi
+
 if test "x${OSARCH}" = "xlinux-gnu" ; then
   AST_EXT_LIB_CHECK([CAP], [cap], [cap_from_text], [sys/capability.h])
 fi
@@ -2410,6 +2415,15 @@ echo "   \$\$\$\$\$\$\$.           .7\$\$\$\$\$\$  \$\$      "
 echo "     \$\$\$\$\$\$\$\$\$\$\$\$7\$\$\$\$\$\$\$\$\$.\$\$\$\$\$\$      "
 echo "       \$\$\$\$\$\$\$\$\$\$\$\$\$\$\$\$.                "
 echo
+fi
+
+if test "x${AST_IODBC_FOUND}" = "xyes"; then
+	echo "WARNING: iodbc libs/headers found!"
+	echo
+	echo "  If you plan to use ODBC functionality, you should consider"
+	echo "  switching to unixodbc instead."
+	echo "  See: https://issues.asterisk.org/jira/browse/ASTERISK-22459"
+	echo
 fi
 
 AC_MSG_NOTICE(Package configured for: )

@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401235 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401833 $")
 
 /* When we include logger.h again it will trample on some stuff in syslog.h, but
  * nothing we care about in here. */
@@ -254,7 +254,6 @@ static unsigned int make_components(const char *s, int lineno, int *verbosity)
 			break;
 		} else if (!strncasecmp(w, "verbose(", 8) && sscanf(w + 8, "%d)", verbosity) == 1) {
 			res |= (1 << __LOG_VERBOSE);
-			break;
 		} else for (x = 0; x < ARRAY_LEN(levels); x++) {
 			if (levels[x] && !strcasecmp(w, levels[x])) {
 				res |= (1 << x);
