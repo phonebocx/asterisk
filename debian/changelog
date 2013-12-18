@@ -1,10 +1,10 @@
-asterisk (1:11.7.0~dfsg-1) UNRELEASED; urgency=high
+asterisk (1:11.7.0~dfsg-1) unstable; urgency=high
 
   * New upstream security release (Closes: #732355).
     - Drop astdb_mans patch, fixed upstream.
   * Fix versioned Breaks/Replaces for asterisk-dahdi (Closes: #732419).
 
- -- Jeremy Lainé <jeremy.laine@m4x.org>  Wed, 18 Dec 2013 08:17:27 +0100
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Wed, 18 Dec 2013 09:47:58 +0100
 
 asterisk (1:11.6.0~dfsg-3) unstable; urgency=medium
 
