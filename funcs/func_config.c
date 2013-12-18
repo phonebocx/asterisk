@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328259 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 400697 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -120,7 +120,7 @@ static int config_function_read(struct ast_channel *chan, const char *cmd, char 
 			/* At worst, we might leak an entry while upgrading locks */
 			AST_RWLIST_UNLOCK(&configs);
 			AST_RWLIST_WRLOCK(&configs);
-			if (!(cur = ast_malloc(sizeof(*cur) + strlen(args.filename) + 1))) {
+			if (!(cur = ast_calloc(1, sizeof(*cur) + strlen(args.filename) + 1))) {
 				AST_RWLIST_UNLOCK(&configs);
 				return -1;
 			}
@@ -149,7 +149,7 @@ static int config_function_read(struct ast_channel *chan, const char *cmd, char 
 		}
 
 		if (!cur) {
-			if (!(cur = ast_malloc(sizeof(*cur) + strlen(args.filename) + 1))) {
+			if (!(cur = ast_calloc(1, sizeof(*cur) + strlen(args.filename) + 1))) {
 				AST_RWLIST_UNLOCK(&configs);
 				return -1;
 			}

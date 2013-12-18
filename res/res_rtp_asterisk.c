@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 397604 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401620 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -96,6 +96,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 397604 $")
 #define RTCP_PT_APP     204
 
 #define RTP_MTU		1200
+#define DTMF_SAMPLE_RATE_MS    8 /*!< DTMF samples per millisecond */
 
 #define DEFAULT_DTMF_TIMEOUT (150 * (8000 / 1000))	/*!< samples */
 
@@ -1660,7 +1661,13 @@ static void rtp_add_candidates_to_ice(struct ast_rtp_instance *instance, struct 
 	unsigned int count = PJ_ARRAY_SIZE(address), pos = 0;
 
 	/* Add all the local interface IP addresses */
-	pj_enum_ip_interface(ast_sockaddr_is_ipv4(addr) ? pj_AF_INET() : pj_AF_INET6(), &count, address);
+	if (ast_sockaddr_is_ipv4(addr)) {
+		pj_enum_ip_interface(pj_AF_INET(), &count, address);
+	} else if (ast_sockaddr_is_any(addr)) {
+		pj_enum_ip_interface(pj_AF_UNSPEC(), &count, address);
+	} else {
+		pj_enum_ip_interface(pj_AF_INET6(), &count, address);
+	}
 
 	for (pos = 0; pos < count; pos++) {
 		pj_sockaddr_set_port(&address[pos], port);
@@ -1718,6 +1725,35 @@ static void rtp_add_candidates_to_ice(struct ast_rtp_instance *instance, struct 
 	}
 }
 #endif
+
+/*!
+ * \internal
+ * \brief Calculates the elapsed time from issue of the first tx packet in an
+ *        rtp session and a specified time
+ *
+ * \param rtp pointer to the rtp struct with the transmitted rtp packet
+ * \param delivery time of delivery - if NULL or zero value, will be ast_tvnow()
+ *
+ * \return time elapsed in milliseconds
+ */
+static unsigned int calc_txstamp(struct ast_rtp *rtp, struct timeval *delivery)
+{
+	struct timeval t;
+	long ms;
+
+	if (ast_tvzero(rtp->txcore)) {
+		rtp->txcore = ast_tvnow();
+		rtp->txcore.tv_usec -= rtp->txcore.tv_usec % 20000;
+	}
+
+	t = (delivery && !ast_tvzero(*delivery)) ? *delivery : ast_tvnow();
+	if ((ms = ast_tvdiff_ms(t, rtp->txcore)) < 0) {
+		ms = 0;
+	}
+	rtp->txcore = t;
+
+	return (unsigned int) ms;
+}
 
 static int ast_rtp_new(struct ast_rtp_instance *instance,
 		       struct ast_sched_context *sched, struct ast_sockaddr *addr,
@@ -1952,6 +1988,7 @@ static int ast_rtp_dtmf_begin(struct ast_rtp_instance *instance, char digit)
 
 	rtp->dtmfmute = ast_tvadd(ast_tvnow(), ast_tv(0, 500000));
 	rtp->send_duration = 160;
+	rtp->lastts += calc_txstamp(rtp, NULL) * DTMF_SAMPLE_RATE_MS;
 	rtp->lastdigitts = rtp->lastts + rtp->send_duration;
 
 	/* Create the actual packet that we will be sending */
@@ -2036,6 +2073,7 @@ static int ast_rtp_dtmf_continuation(struct ast_rtp_instance *instance)
 	/* And now we increment some values for the next time we swing by */
 	rtp->seqno++;
 	rtp->send_duration += 160;
+	rtp->lastts += calc_txstamp(rtp, NULL) * DTMF_SAMPLE_RATE_MS;
 
 	return 0;
 }
@@ -2115,7 +2153,7 @@ static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, cha
 	res = 0;
 
 	/* Oh and we can't forget to turn off the stuff that says we are sending DTMF */
-	rtp->lastts += rtp->send_duration;
+	rtp->lastts += calc_txstamp(rtp, NULL) * DTMF_SAMPLE_RATE_MS;
 cleanup:
 	rtp->sending_digit = 0;
 	rtp->send_digit = 0;
@@ -2163,25 +2201,6 @@ static void ast_rtp_change_source(struct ast_rtp_instance *instance)
 	rtp->ssrc = ssrc;
 
 	return;
-}
-
-static unsigned int calc_txstamp(struct ast_rtp *rtp, struct timeval *delivery)
-{
-	struct timeval t;
-	long ms;
-
-	if (ast_tvzero(rtp->txcore)) {
-		rtp->txcore = ast_tvnow();
-		rtp->txcore.tv_usec -= rtp->txcore.tv_usec % 20000;
-	}
-
-	t = (delivery && !ast_tvzero(*delivery)) ? *delivery : ast_tvnow();
-	if ((ms = ast_tvdiff_ms(t, rtp->txcore)) < 0) {
-		ms = 0;
-	}
-	rtp->txcore = t;
-
-	return (unsigned int) ms;
 }
 
 static void timeval2ntp(struct timeval tv, unsigned int *msw, unsigned int *lsw)
@@ -3654,8 +3673,16 @@ static struct ast_frame *ast_rtp_read(struct ast_rtp_instance *instance, int rtc
 		f = ast_frisolate(&srcupdate);
 		AST_LIST_INSERT_TAIL(&frames, f, frame_list);
 
+		rtp->seedrxseqno = 0;
+		rtp->rxcount = 0;
+		rtp->cycles = 0;
+		rtp->lastrxseqno = 0;
 		rtp->last_seqno = 0;
 		rtp->last_end_timestamp = 0;
+		if (rtp->rtcp) {
+			rtp->rtcp->expected_prior = 0;
+			rtp->rtcp->received_prior = 0;
+		}
 	}
 
 	rtp->rxssrc = ssrc;

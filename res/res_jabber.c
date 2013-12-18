@@ -40,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398577 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401120 $")
 
 #include <ctype.h>
 #include <iksemel.h>
@@ -3567,7 +3567,7 @@ static int aji_handle_pubsub_error(void *data, ikspak *pak)
 	iks *orig_pubsub = iks_find(pak->x, "pubsub");
 	struct aji_client *client;
 	if (!orig_pubsub) {
-		ast_log(LOG_ERROR, "Error isn't a PubSub error, why are we here?\n");
+		ast_debug(1, "Error isn't a PubSub error, why are we here?\n");
 		return IKS_FILTER_EAT;
 	}
 	orig_request = iks_child(orig_pubsub);

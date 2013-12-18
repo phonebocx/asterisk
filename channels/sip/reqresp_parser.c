@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 379393 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401661 $")
 
 #include "include/sip.h"
 #include "include/sip_utils.h"
@@ -806,7 +806,7 @@ AST_TEST_DEFINE(get_calleridname_test)
 int get_name_and_number(const char *hdr, char **name, char **number)
 {
 	char header[256];
-	char tmp_name[50];
+	char tmp_name[256];
 	char *tmp_number = NULL;
 	char *hostport = NULL;
 	char *dummy = NULL;
@@ -1561,6 +1561,10 @@ AST_TEST_DEFINE(parse_contact_header_test)
 				}
 
 				contactptr = AST_LIST_NEXT(contactptr,list);
+			}
+
+			while ((contactptr = AST_LIST_REMOVE_HEAD(contactlistptr,list))) {
+				ast_free(contactptr);
 			}
 		}
 	}

@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 399159 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401016 $")
 
 #include <sys/mman.h>
 #include <dirent.h>
@@ -5655,35 +5655,44 @@ static enum ast_bridge_result iax2_bridge(struct ast_channel *c0, struct ast_cha
 			break;
 		}
 		other = (who == c0) ? c1 : c0;  /* the 'other' channel */
-		if ((f->frametype == AST_FRAME_CONTROL)) {
-			if (f->subclass.integer == AST_CONTROL_PVT_CAUSE_CODE) {
+		if (f->frametype == AST_FRAME_CONTROL && !(flags & AST_BRIDGE_IGNORE_SIGS)) {
+			switch (f->subclass.integer) {
+			case AST_CONTROL_VIDUPDATE:
+			case AST_CONTROL_SRCUPDATE:
+			case AST_CONTROL_SRCCHANGE:
+			case AST_CONTROL_T38_PARAMETERS:
+				ast_write(other, f);
+				break;
+			case AST_CONTROL_PVT_CAUSE_CODE:
 				ast_channel_hangupcause_hash_set(other, f->data.ptr, f->datalen);
-			} else if (!(flags & AST_BRIDGE_IGNORE_SIGS)
-				&& (f->subclass.integer != AST_CONTROL_SRCUPDATE)) {
+				break;
+			default:
 				*fo = f;
 				*rc = who;
-				res =  AST_BRIDGE_COMPLETE;
+				res = AST_BRIDGE_COMPLETE;
 				break;
 			}
-		}
-		if ((f->frametype == AST_FRAME_VOICE) ||
-			(f->frametype == AST_FRAME_TEXT) ||
-			(f->frametype == AST_FRAME_VIDEO) || 
-			(f->frametype == AST_FRAME_IMAGE) ||
-			(f->frametype == AST_FRAME_DTMF) ||
-			(f->frametype == AST_FRAME_CONTROL && f->subclass.integer != AST_CONTROL_PVT_CAUSE_CODE)) {
+			if (res == AST_BRIDGE_COMPLETE) {
+				break;
+			}
+		} else if (f->frametype == AST_FRAME_VOICE
+			|| f->frametype == AST_FRAME_TEXT
+			|| f->frametype == AST_FRAME_VIDEO
+			|| f->frametype == AST_FRAME_IMAGE) {
+			ast_write(other, f);
+		} else if (f->frametype == AST_FRAME_DTMF) {
 			/* monitored dtmf take out of the bridge.
 			 * check if we monitor the specific source.
 			 */
 			int monitored_source = (who == c0) ? AST_BRIDGE_DTMF_CHANNEL_0 : AST_BRIDGE_DTMF_CHANNEL_1;
-			if (f->frametype == AST_FRAME_DTMF && (flags & monitored_source)) {
+
+			if (flags & monitored_source) {
 				*rc = who;
 				*fo = f;
 				res = AST_BRIDGE_COMPLETE;
 				/* Remove from native mode */
 				break;
 			}
-			/* everything else goes to the other side */
 			ast_write(other, f);
 		}
 		ast_frfree(f);
@@ -8718,7 +8727,7 @@ static void __expire_registry(const void *data)
 		realtime_update_peer(peer->name, &peer->addr, 0);
 	manager_event(EVENT_FLAG_SYSTEM, "PeerStatus", "ChannelType: IAX2\r\nPeer: IAX2/%s\r\nPeerStatus: Unregistered\r\nCause: Expired\r\n", peer->name);
 	/* modify entry in peercnts table as _not_ registered */
-	peercnt_modify(0, 0, &peer->addr);
+	peercnt_modify((unsigned char) 0, 0, &peer->addr);
 	/* Reset the address */
 	memset(&peer->addr, 0, sizeof(peer->addr));
 	/* Reset expiry value */
@@ -8860,7 +8869,7 @@ static int update_registry(struct sockaddr_in *sin, int callno, char *devtype, i
 		}
 
 		/* modify entry in peercnts table as _not_ registered */
-		peercnt_modify(0, 0, &p->addr);
+		peercnt_modify((unsigned char) 0, 0, &p->addr);
 
 		/* Stash the IP address from which they registered */
 		ast_sockaddr_from_sin(&p->addr, sin);
@@ -8888,7 +8897,7 @@ static int update_registry(struct sockaddr_in *sin, int callno, char *devtype, i
 
 	/* modify entry in peercnts table as registered */
 	if (p->maxcallno) {
-		peercnt_modify(1, p->maxcallno, &p->addr);
+		peercnt_modify((unsigned char) 1, p->maxcallno, &p->addr);
 	}
 
 	/* Make sure our call still exists, an INVAL at the right point may make it go away */
@@ -10533,9 +10542,9 @@ static int socket_process_helper(struct iax2_thread *thread)
 										ast_set_read_format(iaxs[fr->callno]->owner, ast_channel_readformat(iaxs[fr->callno]->owner));
 									}
 									ast_format_cap_copy(native, orignative);
-									ast_channel_unlock(iaxs[fr->callno]->owner);
 									orignative = ast_format_cap_destroy(orignative);
 								}
+								ast_channel_unlock(iaxs[fr->callno]->owner);
 							}
 						} else {
 							ast_debug(1, "Neat, somebody took away the channel at a magical time but i found it!\n");
@@ -12681,7 +12690,7 @@ static struct iax2_peer *build_peer(const char *name, struct ast_variable *v, st
 			peer->pokefreqok = DEFAULT_FREQ_OK;
 			peer->pokefreqnotok = DEFAULT_FREQ_NOTOK;
 			peer->maxcallno = 0;
-			peercnt_modify(0, 0, &peer->addr);
+			peercnt_modify((unsigned char) 0, 0, &peer->addr);
 			peer->calltoken_required = CALLTOKEN_DEFAULT;
 			ast_string_field_set(peer,context,"");
 			ast_string_field_set(peer,peercontext,"");
@@ -12869,7 +12878,7 @@ static struct iax2_peer *build_peer(const char *name, struct ast_variable *v, st
 				if (sscanf(v->value, "%10hu", &peer->maxcallno) != 1) {
 					ast_log(LOG_WARNING, "maxcallnumbers must be set to a valid number. %s is not valid at line %d.\n", v->value, v->lineno);
 				} else {
-					peercnt_modify(1, peer->maxcallno, &peer->addr);
+					peercnt_modify((unsigned char) 1, peer->maxcallno, &peer->addr);
 				}
 			} else if (!strcasecmp(v->name, "requirecalltoken")) {
 				/* default is required unless in optional ip list */

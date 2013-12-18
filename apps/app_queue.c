@@ -63,7 +63,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398885 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401433 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -7192,7 +7192,7 @@ stop:
 			}
 		} else if (qe.valid_digits) {
 			ast_queue_log(args.queuename, ast_channel_uniqueid(chan), "NONE", "EXITWITHKEY",
-				"%s|%d", qe.digits, qe.pos);
+				"%s|%d|%d|%ld", qe.digits, qe.pos, qe.opos, (long) time(NULL) - qe.start);
 		}
 	}
 
@@ -8253,9 +8253,10 @@ static char *__queues_show(struct mansession *s, int fd, int argc, const char * 
 		ao2_lock(q);
 		/* This check is to make sure we don't print information for realtime
 		 * queues which have been deleted from realtime but which have not yet
-		 * been deleted from the in-core container
+		 * been deleted from the in-core container. Only do this if we're not
+		 * looking for a specific queue.
 		 */
-		if (q->realtime) {
+		if (argc < 3 && q->realtime) {
 			realtime_queue = find_load_queue_rt_friendly(q->name);
 			if (!realtime_queue) {
 				ao2_unlock(q);
@@ -9134,6 +9135,7 @@ static char *handle_queue_remove_member(struct ast_cli_entry *e, int cmd, struct
 {
 	const char *queuename, *interface;
 	struct member *mem = NULL;
+	char *res = CLI_FAILURE;
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -9155,36 +9157,39 @@ static char *handle_queue_remove_member(struct ast_cli_entry *e, int cmd, struct
 	queuename = a->argv[5];
 	interface = a->argv[3];
 
+	if (log_membername_as_agent) {
+		mem = find_member_by_queuename_and_interface(queuename, interface);
+	}
+
 	switch (remove_from_queue(queuename, interface)) {
 	case RES_OKAY:
-		if (log_membername_as_agent) {
-			mem = find_member_by_queuename_and_interface(queuename, interface);
-		}
 		if (!mem || ast_strlen_zero(mem->membername)) {
 			ast_queue_log(queuename, "CLI", interface, "REMOVEMEMBER", "%s", "");
 		} else {
 			ast_queue_log(queuename, "CLI", mem->membername, "REMOVEMEMBER", "%s", "");
 		}
-		if (mem) {
-			ao2_ref(mem, -1);
-		}
 		ast_cli(a->fd, "Removed interface %s from queue '%s'\n", interface, queuename);
-		return CLI_SUCCESS;
+		res = CLI_SUCCESS;
+		break;
 	case RES_EXISTS:
 		ast_cli(a->fd, "Unable to remove interface '%s' from queue '%s': Not there\n", interface, queuename);
-		return CLI_FAILURE;
+		break;
 	case RES_NOSUCHQUEUE:
 		ast_cli(a->fd, "Unable to remove interface from queue '%s': No such queue\n", queuename);
-		return CLI_FAILURE;
+		break;
 	case RES_OUTOFMEMORY:
 		ast_cli(a->fd, "Out of memory\n");
-		return CLI_FAILURE;
+		break;
 	case RES_NOT_DYNAMIC:
 		ast_cli(a->fd, "Unable to remove interface '%s' from queue '%s': Member is not dynamic\n", interface, queuename);
-		return CLI_FAILURE;
-	default:
-		return CLI_FAILURE;
+		break;
 	}
+
+	if (mem) {
+		ao2_ref(mem, -1);
+	}
+
+	return res;
 }
 
 static char *complete_queue_pause_member(const char *line, const char *word, int pos, int state)

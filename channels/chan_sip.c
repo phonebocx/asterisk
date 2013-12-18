@@ -210,7 +210,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401235 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401884 $")
 
 #include <signal.h>
 #include <sys/signal.h>
@@ -770,6 +770,7 @@ static int global_rtpholdtimeout;   /*!< Time out call if no RTP during hold */
 static int global_rtpkeepalive;     /*!< Send RTP keepalives */
 static int global_reg_timeout;      /*!< Global time between attempts for outbound registrations */
 static int global_regattempts_max;  /*!< Registration attempts before giving up */
+static int global_reg_retry_403;    /*!< Treat 403 responses to registrations as 401 responses */
 static int global_shrinkcallerid;   /*!< enable or disable shrinking of caller id  */
 static int global_callcounter;      /*!< Enable call counters for all devices. This is currently enabled by setting the peer
                                      *   call-limit to INT_MAX. When we remove the call-limit from the code, we can make it
@@ -7257,6 +7258,7 @@ static int sip_answer(struct ast_channel *ast)
 {
 	int res = 0;
 	struct sip_pvt *p = ast_channel_tech_pvt(ast);
+	int oldsdp = FALSE;
 
 	if (!p) {
 		ast_debug(1, "Asked to answer channel %s without tech pvt; ignoring\n",
@@ -7267,10 +7269,14 @@ static int sip_answer(struct ast_channel *ast)
 	if (ast_channel_state(ast) != AST_STATE_UP) {
 		try_suggested_sip_codec(p);
 
+		if (ast_test_flag(&p->flags[0], SIP_PROGRESS_SENT)) {
+			oldsdp = TRUE;
+		}
+
 		ast_setstate(ast, AST_STATE_UP);
 		ast_debug(1, "SIP answering channel: %s\n", ast_channel_name(ast));
 		ast_rtp_instance_update_source(p->rtp);
-		res = transmit_response_with_sdp(p, "200 OK", &p->initreq, XMIT_CRITICAL, FALSE, TRUE);
+		res = transmit_response_with_sdp(p, "200 OK", &p->initreq, XMIT_CRITICAL, oldsdp, TRUE);
 		ast_set_flag(&p->flags[1], SIP_PAGE2_DIALOG_ESTABLISHED);
 	}
 	sip_pvt_unlock(p);
@@ -10104,11 +10110,26 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 				}
 
 				if ((!strcmp(protocol, "RTP/SAVPF") || !strcmp(protocol, "UDP/TLS/RTP/SAVPF")) && !ast_test_flag(&p->flags[2], SIP_PAGE3_USE_AVPF)) {
-					ast_log(LOG_WARNING, "Received SAVPF profle in audio offer but AVPF is not enabled: %s\n", m);
-					continue;
+					if (req->method != SIP_RESPONSE) {
+						ast_log(LOG_NOTICE, "Received SAVPF profle in audio offer but AVPF is not enabled, enabling: %s\n", m);
+						secure_audio = 1;
+						ast_set_flag(&p->flags[2], SIP_PAGE3_USE_AVPF);
+					}
+					else {
+
+						ast_log(LOG_WARNING, "Received SAVPF profle in audio answer but AVPF is not enabled: %s\n", m);
+						continue;
+					}
 				} else if ((!strcmp(protocol, "RTP/SAVP") || !strcmp(protocol, "UDP/TLS/RTP/SAVP")) && ast_test_flag(&p->flags[2], SIP_PAGE3_USE_AVPF)) {
-					ast_log(LOG_WARNING, "Received SAVP profile in audio offer but AVPF is enabled: %s\n", m);
-					continue;
+					if (req->method != SIP_RESPONSE) {
+						ast_log(LOG_NOTICE, "Received SAVP profle in audio offer but AVPF is enabled, disabling: %s\n", m);
+						secure_audio = 1;
+						ast_clear_flag(&p->flags[2], SIP_PAGE3_USE_AVPF);
+					}
+					else {
+						ast_log(LOG_WARNING, "Received SAVP profile in audio offer but AVPF is enabled: %s\n", m);
+						continue;
+					}
 				} else if (!strcmp(protocol, "UDP/TLS/RTP/SAVP") || !strcmp(protocol, "UDP/TLS/RTP/SAVPF")) {
 					secure_audio = 1;
 
@@ -10118,11 +10139,23 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 				} else if (!strcmp(protocol, "RTP/SAVP") || !strcmp(protocol, "RTP/SAVPF")) {
 					secure_audio = 1;
 				} else if (!strcmp(protocol, "RTP/AVPF") && !ast_test_flag(&p->flags[2], SIP_PAGE3_USE_AVPF)) {
-					ast_log(LOG_WARNING, "Received AVPF profile in audio offer but AVPF is not enabled: %s\n", m);
-					continue;
+					if (req->method != SIP_RESPONSE) {
+						ast_log(LOG_NOTICE, "Received AVPF profile in audio offer but AVPF is not enabled, enabling: %s\n", m);
+						ast_set_flag(&p->flags[2], SIP_PAGE3_USE_AVPF);
+					}
+					else {
+						ast_log(LOG_WARNING, "Received AVP profile in audio answer but AVPF is enabled: %s\n", m);
+						continue;
+					}
 				} else if (!strcmp(protocol, "RTP/AVP") && ast_test_flag(&p->flags[2], SIP_PAGE3_USE_AVPF)) {
-					ast_log(LOG_WARNING, "Received AVP profile in audio offer but AVPF is enabled: %s\n", m);
-					continue;
+					if (req->method != SIP_RESPONSE) {
+						ast_log(LOG_NOTICE, "Received AVP profile in audio answer but AVPF is enabled, disabling: %s\n", m);
+						ast_clear_flag(&p->flags[2], SIP_PAGE3_USE_AVPF);
+					}
+					else {
+						ast_log(LOG_WARNING, "Received AVP profile in audio answer but AVPF is enabled: %s\n", m);
+						continue;
+					}
 				} else if ((!strcmp(protocol, "UDP/TLS/RTP/SAVP") || !strcmp(protocol, "UDP/TLS/RTP/SAVPF")) &&
 					   (!(dtls = ast_rtp_instance_get_dtls(p->rtp)) || !dtls->active(p->rtp))) {
 					ast_log(LOG_WARNING, "Received UDP/TLS in audio offer but DTLS is not enabled: %s\n", m);
@@ -13191,19 +13224,18 @@ static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int 
 		*/
 
 		/* Prefer the audio codec we were requested to use, first, no matter what
-		   Note that p->prefcodec can include video codecs, so mask them out
+		   Note that p->prefcodec can include video codecs, so ignore them
 		*/
-		if (ast_format_cap_has_joint(tmpcap, p->prefcaps)) {
-			ast_format_cap_iter_start(p->prefcaps);
-			while (!(ast_format_cap_iter_next(p->prefcaps, &tmp_fmt))) {
-				if (AST_FORMAT_GET_TYPE(tmp_fmt.id) != AST_FORMAT_TYPE_AUDIO) {
-					continue;
-				}
-				add_codec_to_sdp(p, &tmp_fmt, &m_audio, &a_audio, debug, &min_audio_packet_size);
-				ast_format_cap_add(alreadysent, &tmp_fmt);
+		ast_format_cap_iter_start(p->prefcaps);
+		while (!(ast_format_cap_iter_next(p->prefcaps, &tmp_fmt))) {
+			if (AST_FORMAT_GET_TYPE(tmp_fmt.id) != AST_FORMAT_TYPE_AUDIO ||
+				!ast_format_cap_iscompatible(tmpcap, &tmp_fmt)) {
+				continue;
 			}
-			ast_format_cap_iter_end(p->prefcaps);
+			add_codec_to_sdp(p, &tmp_fmt, &m_audio, &a_audio, debug, &min_audio_packet_size);
+			ast_format_cap_add(alreadysent, &tmp_fmt);
 		}
+		ast_format_cap_iter_end(p->prefcaps);
 
 		/* Start by sending our preferred audio/video codecs */
 		for (x = 0; x < AST_CODEC_PREF_SIZE; x++) {
@@ -13282,13 +13314,9 @@ static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int 
 		/* Our T.38 end is */
 		ast_udptl_get_us(p->udptl, &udptladdr);
 
-		/* Determine T.38 UDPTL destination */
-		if (!ast_sockaddr_isnull(&p->udptlredirip)) {
-			ast_sockaddr_copy(&udptldest, &p->udptlredirip);
-		} else {
-			ast_sockaddr_copy(&udptldest, &p->ourip);
-			ast_sockaddr_set_port(&udptldest, ast_sockaddr_port(&udptladdr));
-		}
+		/* We don't use directmedia for T.38, so keep the destination the same as our IP address. */
+		ast_sockaddr_copy(&udptldest, &p->ourip);
+		ast_sockaddr_set_port(&udptldest, ast_sockaddr_port(&udptladdr));
 
 		if (debug) {
 			ast_debug(1, "T.38 UDPTL is at %s port %d\n", ast_sockaddr_stringify_addr(&p->ourip), ast_sockaddr_port(&udptladdr));
@@ -13299,9 +13327,9 @@ static enum sip_result add_sdp(struct sip_request *resp, struct sip_pvt *p, int 
 
 		ast_str_append(&m_modem, 0, "m=image %d udptl t38\r\n", ast_sockaddr_port(&udptldest));
 
-		if (!ast_sockaddr_cmp(&udptldest, &dest)) {
+		if (ast_sockaddr_cmp(&udptldest, &dest)) {
 			ast_str_append(&m_modem, 0, "c=IN %s %s\r\n",
-					(ast_sockaddr_is_ipv6(&dest) && !ast_sockaddr_is_ipv4_mapped(&dest)) ?
+					(ast_sockaddr_is_ipv6(&udptldest) && !ast_sockaddr_is_ipv4_mapped(&udptldest)) ?
 					"IP6" : "IP4", ast_sockaddr_stringify_addr_remote(&udptldest));
 		}
 
@@ -15912,6 +15940,14 @@ static enum parse_register_result parse_register_contact(struct sip_pvt *pvt, st
 		}
 	}
 
+	if (expire > max_expiry) {
+		expire = max_expiry;
+	}
+	if (expire < min_expiry && expire != 0) {
+		expire = min_expiry;
+	}
+	pvt->expiry = expire;
+
 	copy_socket_data(&pvt->socket, &req->socket);
 
 	do {
@@ -16051,12 +16087,6 @@ static enum parse_register_result parse_register_contact(struct sip_pvt *pvt, st
 	AST_SCHED_DEL_UNREF(sched, peer->expire,
 			sip_unref_peer(peer, "remove register expire ref"));
 
-	if (expire > max_expiry) {
-		expire = max_expiry;
-	}
-	if (expire < min_expiry) {
-		expire = min_expiry;
-	}
 	if (peer->is_realtime && !ast_test_flag(&peer->flags[1], SIP_PAGE2_RTCACHEFRIENDS)) {
 		peer->expire = -1;
 	} else {
@@ -16066,7 +16096,6 @@ static enum parse_register_result parse_register_contact(struct sip_pvt *pvt, st
 			sip_unref_peer(peer, "remote registration ref");
 		}
 	}
-	pvt->expiry = expire;
 	snprintf(data, sizeof(data), "%s:%d:%s:%s", ast_sockaddr_stringify(&peer->addr),
 		 expire, peer->username, peer->fullcontact);
 	/* We might not immediately be able to reconnect via TCP, but try caching it anyhow */
@@ -16918,7 +16947,10 @@ static enum check_auth_result register_verify(struct sip_pvt *p, struct ast_sock
 						break;
 					case PARSE_REGISTER_UPDATE:
 						ast_string_field_set(p, fullcontact, peer->fullcontact);
-						update_peer(peer, p->expiry);
+						/* If expiry is 0, peer has been unregistered already */
+						if (p->expiry != 0) {
+							update_peer(peer, p->expiry);
+						}
 						/* Say OK and ask subsystem to retransmit msg counter */
 						transmit_response_with_date(p, "200 OK", req);
 						send_mwi = 1;
@@ -18275,9 +18307,9 @@ static enum check_auth_result check_user_full(struct sip_pvt *p, struct sip_requ
 					      int sipmethod, const char *uri, enum xmittype reliable,
 					      struct ast_sockaddr *addr, struct sip_peer **authpeer)
 {
-	char from[256] = "", *of, *name, *unused_password, *domain;
+	char from[256], *of, *name, *unused_password, *domain;
 	enum check_auth_result res = AUTH_DONT_KNOW;
-	char calleridname[50];
+	char calleridname[256];
 	char *uri2 = ast_strdupa(uri);
 
 	terminate_uri(uri2);	/* trim extra stuff */
@@ -20682,6 +20714,7 @@ static char *sip_show_settings(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	ast_cli(a->fd, "  Sub. max duration:      %d secs\n", max_subexpiry);
 	ast_cli(a->fd, "  Outbound reg. timeout:  %d secs\n", global_reg_timeout);
 	ast_cli(a->fd, "  Outbound reg. attempts: %d\n", global_regattempts_max);
+	ast_cli(a->fd, "  Outbound reg. retry 403:%d\n", global_reg_retry_403);
 	ast_cli(a->fd, "  Notify ringing state:   %s\n", AST_CLI_YESNO(sip_cfg.notifyringing));
 	if (sip_cfg.notifyringing) {
 		ast_cli(a->fd, "    Include CID:          %s%s\n",
@@ -22780,13 +22813,26 @@ static void handle_response_invite(struct sip_pvt *p, int resp, const char *rest
 		}
 		p->authtries = 0;
 		if (find_sdp(req)) {
-			if ((res = process_sdp(p, req, SDP_T38_ACCEPT)) && !req->ignore)
+			if ((res = process_sdp(p, req, SDP_T38_ACCEPT)) && !req->ignore) {
 				if (!reinvite) {
 					/* This 200 OK's SDP is not acceptable, so we need to ack, then hangup */
 					/* For re-invites, we try to recover */
 					ast_set_flag(&p->flags[0], SIP_PENDINGBYE);
+					ast_channel_hangupcause_set(p->owner, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
+					p->hangupcause = AST_CAUSE_BEARERCAPABILITY_NOTAVAIL;
+					sip_queue_hangup_cause(p, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
 				}
+			}
 			ast_rtp_instance_activate(p->rtp);
+		} else if (!reinvite) {
+			struct ast_sockaddr remote_address = {{0,}};
+
+			ast_rtp_instance_get_remote_address(p->rtp, &remote_address);
+			if (ast_sockaddr_isnull(&remote_address) || (!ast_strlen_zero(p->theirprovtag) && strcmp(p->theirtag, p->theirprovtag))) {
+				ast_log(LOG_WARNING, "Received response: \"200 OK\" from '%s' without SDP\n", p->relatedpeer->name);
+				ast_set_flag(&p->flags[0], SIP_PENDINGBYE);
+				ast_rtp_instance_activate(p->rtp);
+			}
 		}
 
 		if (!req->ignore && p->owner) {
@@ -22846,7 +22892,7 @@ static void handle_response_invite(struct sip_pvt *p, int resp, const char *rest
 		}
 
 		if (!req->ignore && p->owner) {
-			if (!reinvite) {
+			if (!reinvite && !res) {
 				ast_queue_control(p->owner, AST_CONTROL_ANSWER);
 				if (sip_cfg.callevents) {
 					manager_event(EVENT_FLAG_SYSTEM, "ChannelUpdate",
@@ -23406,8 +23452,9 @@ static int handle_response_register(struct sip_pvt *p, int resp, const char *res
 			}
 			tmptmp = strcasestr(contact, "expires=");
 			if (tmptmp) {
-				if (sscanf(tmptmp + 8, "%30d;", &expires) != 1)
+				if (sscanf(tmptmp + 8, "%30d", &expires) != 1) {
 					expires = 0;
+				}
 			}
 			
 		}
@@ -23709,7 +23756,11 @@ static void handle_response(struct sip_pvt *p, int resp, const char *rest, struc
 
 		gettag(req, "To", tag, sizeof(tag));
 		ast_string_field_set(p, theirtag, tag);
+	} else {
+		/* Store theirtag to track for changes when 200 responses to invites are received without SDP */
+		ast_string_field_set(p, theirprovtag, p->theirtag);
 	}
+
 	/* This needs to be configurable on a channel/peer level,
 	   not mandatory for all communication. Sadly enough, NAT implementations
 	   are not so stable so we can always rely on these headers.
@@ -31376,6 +31427,7 @@ static int reload_config(enum channelreloadreason reason)
 	sip_cfg.compactheaders = DEFAULT_COMPACTHEADERS;
 	global_reg_timeout = DEFAULT_REGISTRATION_TIMEOUT;
 	global_regattempts_max = 0;
+	global_reg_retry_403 = 0;
 	sip_cfg.pedanticsipchecking = DEFAULT_PEDANTIC;
 	sip_cfg.autocreatepeer = DEFAULT_AUTOCREATEPEER;
 	global_autoframing = 0;
@@ -31763,6 +31815,8 @@ static int reload_config(enum channelreloadreason reason)
 			}
 		} else if (!strcasecmp(v->name, "registerattempts")) {
 			global_regattempts_max = atoi(v->value);
+		} else if (!strcasecmp(v->name, "register_retry_403")) {
+			global_reg_retry_403 = ast_true(v->value);
 		} else if (!strcasecmp(v->name, "bindaddr") || !strcasecmp(v->name, "udpbindaddr")) {
 			if (ast_parse_arg(v->value, PARSE_ADDR, &bindaddr)) {
 				ast_log(LOG_WARNING, "Invalid address: %s\n", v->value);

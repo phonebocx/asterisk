@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 391700 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 400741 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1341,6 +1341,9 @@ static int alloc_playback_chan(struct conference_bridge *conference_bridge)
 	cap = ast_format_cap_destroy(cap);
 
 	ast_channel_internal_bridge_set(conference_bridge->playback_chan, conference_bridge->bridge);
+
+	/* To make sure playback_chan has the same language of that profile */
+	ast_channel_language_set(conference_bridge->playback_chan, conference_bridge->b_profile.language);
 
 	if (ast_call(conference_bridge->playback_chan, "", 0)) {
 		ast_hangup(conference_bridge->playback_chan);
