@@ -1,5 +1,6 @@
 Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 Description: hyphen/minus fixes in asterisk.8
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-23028
 
 groff considers '-' as hyphen and '\-' as minus.
 --- a/doc/asterisk.8
