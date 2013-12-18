@@ -187,8 +187,9 @@ groff considers '-' as hyphen and '\-' as minus.
  for controlling it. Additionally, if connection to the Asterisk 
  process is lost, attempt to reconnect for as long as 30 seconds.
  .TP 
- -s \fIsocket file name\fR
+--s \fIsocket file name\fR
 -In combination with \fB-r\fR, connect directly to a specified
++\-s \fIsocket file name\fR
 +In combination with \fB\-r\fR, connect directly to a specified
  Asterisk server socket.
  .TP 
