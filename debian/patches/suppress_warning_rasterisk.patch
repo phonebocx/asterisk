@@ -1,0 +1,42 @@
+From: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Date: Fri, 3 Jan 2014 22:24:18 +0000
+Subject: suppress live_dangerously warning on rasterisk
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-23084
+Origin: http://svnview.digium.com/svn/asterisk?view=rev&rev=404888
+
+Even since the fixes of AST-2013-007, Asterisk prints the following
+warning on startup if the user decided to live dangerously:
+
+  Privilege escalation protection disabled!
+  See https://wiki.asterisk.org/wiki/x/1gKfAQ for more details.
+
+This message is intended for the logs and interactive startup. No need
+for it to appear on a remote console. This commit removes it from there.
+
+Patch included upstream and wil be part of version 11.8.0 .
+
+Review: https://reviewboard.asterisk.org/r/3101/
+
+Merged revisions 404861 from http://svn.asterisk.org/svn/asterisk/branches/1.8
+---
+ main/asterisk.c |    4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/main/asterisk.c b/main/asterisk.c
+index 0ed1b2b..b8bd4be 100644
+--- a/main/asterisk.c
++++ b/main/asterisk.c
+@@ -3421,7 +3421,9 @@ static void ast_readconfig(void)
+ 			live_dangerously = ast_true(v->value);
+ 		}
+ 	}
+-	pbx_live_dangerously(live_dangerously);
++	if (!ast_opt_remote) {
++		pbx_live_dangerously(live_dangerously);
++	}
+ 	for (v = ast_variable_browse(cfg, "compat"); v; v = v->next) {
+ 		float version;
+ 		if (sscanf(v->value, "%30f", &version) != 1) {
+-- 
+1.7.10.4
+

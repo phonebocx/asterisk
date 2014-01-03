@@ -1,3 +1,10 @@
+asterisk (1:11.7.0~dfsg-2) UNRELEASED; urgency=low
+
+  * suppress_warning_rasterisk.patch: rasterisk should not print a
+    warning.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 04 Jan 2014 01:23:28 +0200
+
 asterisk (1:11.7.0~dfsg-1) unstable; urgency=high
 
   * New upstream security release (Closes: #732355).
