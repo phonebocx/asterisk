@@ -32,3 +32,4 @@ reenable
 freeradius-client
 ignore_failed_channels.patch
 suppress_warning_rasterisk.patch
+smsq_enable.patch

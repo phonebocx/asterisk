@@ -1,7 +1,11 @@
 asterisk (1:11.7.0~dfsg-2) UNRELEASED; urgency=low
 
+  [ Tzafrir Cohen ]
   * suppress_warning_rasterisk.patch: rasterisk should not print a
     warning.
+
+  [ Frederic Van Espen ]
+  * smsq_enable.patch: enable smsq compilation (Closes: #738588)
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 04 Jan 2014 01:23:28 +0200
 
