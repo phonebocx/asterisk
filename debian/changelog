@@ -1,4 +1,4 @@
-asterisk (1:11.8.0~dfsg-1) UNRELEASED; urgency=low
+asterisk (1:11.8.0~dfsg-1) unstable; urgency=low
 
   [ Jeremy Lainé ]
   * New upstream release.
@@ -8,7 +8,7 @@ asterisk (1:11.8.0~dfsg-1) UNRELEASED; urgency=low
   [ Frederic Van Espen ]
   * smsq_enable.patch: enable smsq compilation (Closes: #738588)
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 04 Jan 2014 01:23:28 +0200
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Tue, 04 Mar 2014 16:27:58 +0100
 
 asterisk (1:11.7.0~dfsg-1) unstable; urgency=high
 
