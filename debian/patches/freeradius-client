@@ -56,9 +56,9 @@ Bug: https://issues.asterisk.org/jira/browse/ASTERISK-22980
  
 --- a/configure.ac	2013-12-11 10:08:13.537159711 +0100
 +++ b/configure.ac	2013-12-11 10:11:02.420053317 +0100
-@@ -2103,7 +2103,14 @@
+@@ -2114,7 +2117,14 @@ fi
  # Some distributions (like SuSE) remove the 5.1 suffix.
- AST_EXT_LIB_CHECK([LUA], [lua], [luaL_register], [lua.h], [-lm])
+ AST_EXT_LIB_CHECK([LUA], [lua], [luaL_openlib], [lua.h], [-lm])
  
 -AST_EXT_LIB_CHECK([RADIUS], [radiusclient-ng], [rc_read_config], [radiusclient-ng.h])
 +# Accept either RADIUS client library, their APIs are fully compatible,
