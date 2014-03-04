@@ -32,3 +32,4 @@ reenable
 freeradius-client
 ignore_failed_channels.patch
 smsq_enable.patch
+ASTERISK-23310.patch

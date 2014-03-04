@@ -3,6 +3,7 @@ asterisk (1:11.8.0~dfsg-1) UNRELEASED; urgency=low
   [ Jeremy Lainé ]
   * New upstream release.
     - rasterisk no longer prints a warning when live_dangerously is set.
+  * Patch ASTERISK-23310: fixes crash when a leg of a remote RTP bridge fails.
 
   [ Frederic Van Espen ]
   * smsq_enable.patch: enable smsq compilation (Closes: #738588)

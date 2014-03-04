@@ -1,0 +1,14 @@
+Description: fixes a crash when one leg of a remote RTP bridge fails
+Author: Kinsey Moore <kmoore@digium.com>
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-23310
+--- a/main/rtp_engine.c	(revision 408955)
++++ b/main/rtp_engine.c	(working copy)
+@@ -1391,7 +1391,7 @@
+ 				*rc = who;
+ 				ast_debug(1, "Got a FRAME_CONTROL (%d) frame on channel %s\n", fr->subclass.integer, ast_channel_name(who));
+ 				res = AST_BRIDGE_COMPLETE;
+-				goto remote_bridge_cleanup;
++				break;
+ 			}
+ 		} else {
+ 			if ((fr->frametype == AST_FRAME_DTMF_BEGIN) ||
