@@ -20,7 +20,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_AUX_DIR(`pwd`)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 400768 $)
+AC_REVISION($Revision: 405091 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -2093,6 +2093,15 @@ if test "${PBX_PWLIB}" = "1" -a "${USE_OPENH323}" != "no" ; then
 		[${PWLIB_INCLUDE}], [${PWLIB_LIB}])
 fi
 
+AST_EXT_LIB_CHECK([LUA], [lua5.2], [luaL_newstate], [lua5.2/lua.h], [-lm])
+if test "x${PBX_LUA}" = "x1" ; then
+	if test x"${LUA_DIR}" = x; then
+		LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua5.2"
+	else
+		LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua5.2"
+	fi
+fi
+
 AST_EXT_LIB_CHECK([LUA], [lua5.1], [luaL_newstate], [lua5.1/lua.h], [-lm])
 if test "x${PBX_LUA}" = "x1" ; then
 	if test x"${LUA_DIR}" = x; then
@@ -2103,7 +2112,7 @@ if test "x${PBX_LUA}" = "x1" ; then
 fi
 
 # Some distributions (like SuSE) remove the 5.1 suffix.
-AST_EXT_LIB_CHECK([LUA], [lua], [luaL_register], [lua.h], [-lm])
+AST_EXT_LIB_CHECK([LUA], [lua], [luaL_openlib], [lua.h], [-lm])
 
 AST_EXT_LIB_CHECK([RADIUS], [radiusclient-ng], [rc_read_config], [radiusclient-ng.h])
 

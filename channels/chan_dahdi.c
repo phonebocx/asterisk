@@ -49,7 +49,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401705 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404785 $")
 
 #if defined(__NetBSD__) || defined(__FreeBSD__)
 #include <pthread.h>
@@ -1800,11 +1800,8 @@ static int my_get_callerid(void *pvt, char *namebuf, char *numbuf, enum analog_e
 		 * a failure and die, and returning 2 means no event was received. */
 		res = read(p->subs[index].dfd, buf, sizeof(buf));
 		if (res < 0) {
-			if (errno != ELAST) {
-				ast_log(LOG_WARNING, "read returned error: %s\n", strerror(errno));
-				callerid_free(p->cs);
-				return -1;
-			}
+			ast_log(LOG_WARNING, "read returned error: %s\n", strerror(errno));
+			return -1;
 		}
 
 		if (analog_p->ringt > 0) {
@@ -15544,8 +15541,8 @@ static int action_dahdirestart(struct mansession *s, const struct message *m)
 
 static char *dahdi_show_channels(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-#define FORMAT "%7s %-10.10s %-15.15s %-10.10s %-20.20s %-10.10s %-10.10s %-32.32s\n"
-#define FORMAT2 "%7s %-10.10s %-15.15s %-10.10s %-20.20s %-10.10s %-10.10s %-32.32s\n"
+#define FORMAT "%7s %-15.15s %-15.15s %-10.10s %-20.20s %-10.10s %-10.10s %-32.32s\n"
+#define FORMAT2 "%7s %-15.15s %-15.15s %-10.10s %-20.20s %-10.10s %-10.10s %-32.32s\n"
 	ast_group_t targetnum = 0;
 	int filtertype = 0;
 	struct dahdi_pvt *tmp = NULL;

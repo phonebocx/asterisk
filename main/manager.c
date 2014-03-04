@@ -47,7 +47,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 398061 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405431 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -1588,13 +1588,13 @@ static struct ast_manager_user *get_manager_by_name_locked(const char *name)
  *  \param session manager session to get parameter from.
  *  \return displayconnects config option value.
  */
-static int manager_displayconnects (struct mansession_session *session)
+static int manager_displayconnects(struct mansession_session *session)
 {
 	struct ast_manager_user *user = NULL;
 	int ret = 0;
 
 	AST_RWLIST_RDLOCK(&users);
-	if ((user = get_manager_by_name_locked (session->username))) {
+	if ((user = get_manager_by_name_locked(session->username))) {
 		ret = user->displayconnects;
 	}
 	AST_RWLIST_UNLOCK(&users);
@@ -5581,7 +5581,9 @@ static void purge_sessions(int n_max)
 	while ((session = ao2_iterator_next(&i)) && n_max > 0) {
 		ao2_lock(session);
 		if (session->sessiontimeout && (now > session->sessiontimeout) && !session->inuse) {
-			if (session->authenticated && manager_displayconnects(session)) {
+			if (session->authenticated
+				&& VERBOSITY_ATLEAST(2)
+				&& manager_displayconnects(session)) {
 				ast_verb(2, "HTTP Manager '%s' timed out from %s\n",
 					session->username, ast_sockaddr_stringify_addr(&session->addr));
 			}
@@ -5775,20 +5777,47 @@ static int manager_state_cb(char *context, char *exten, struct ast_state_cb_info
 {
 	/* Notify managers of change */
 	char hint[512];
-	int state = info->exten_state;
-
-	/* only interested in device state for this right now */
-	if (info->reason !=  AST_HINT_UPDATE_DEVICE) {
-		return 0;
-	}
 
 	ast_get_hint(hint, sizeof(hint), NULL, 0, NULL, context, exten);
-	/*** DOCUMENTATION
-		<managerEventInstance>
-			<synopsis>Raised when an extension state has changed.</synopsis>
-		</managerEventInstance>
-	***/
-	manager_event(EVENT_FLAG_CALL, "ExtensionStatus", "Exten: %s\r\nContext: %s\r\nHint: %s\r\nStatus: %d\r\n", exten, context, hint, state);
+
+	switch(info->reason) {
+	case AST_HINT_UPDATE_DEVICE:
+		/*** DOCUMENTATION
+			<managerEventInstance>
+				<synopsis>Raised when an extension state has changed.</synopsis>
+			</managerEventInstance>
+		***/
+		manager_event(EVENT_FLAG_CALL, "ExtensionStatus",
+			"Exten: %s\r\n"
+			"Context: %s\r\n"
+			"Hint: %s\r\n"
+			"Status: %d\r\n",
+			exten,
+			context,
+			hint,
+			info->exten_state);
+		break;
+	case AST_HINT_UPDATE_PRESENCE:
+		/*** DOCUMENTATION
+			<managerEventInstance>
+				<synopsis>Raised when a presence state has changed.</synopsis>
+			</managerEventInstance>
+		***/
+		manager_event(EVENT_FLAG_CALL, "PresenceStatus",
+			"Exten: %s\r\n"
+			"Context: %s\r\n"
+			"Hint: %s\r\n"
+			"Status: %s\r\n"
+			"Subtype: %s\r\n"
+			"Message: %s\r\n",
+			exten,
+			context,
+			hint,
+			ast_presence_state2str(info->presence_state),
+			info->presence_subtype,
+			info->presence_message);
+		break;
+	}
 	return 0;
 }
 
