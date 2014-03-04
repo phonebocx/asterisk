@@ -56,7 +56,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377657 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404351 $")
 
 #include "asterisk/io.h"
 #include "asterisk/file.h"
@@ -3343,7 +3343,7 @@ static struct ast_frame *fax_detect_framehook(struct ast_channel *chan, struct a
 	case AST_FRAME_VOICE:
 		/* we have no DSP this means we not detecting CNG */
 		if (!faxdetect->dsp) {
-			break;
+			return f;
 		}
 		/* We can only process some formats*/
 		switch (f->subclass.format.id) {

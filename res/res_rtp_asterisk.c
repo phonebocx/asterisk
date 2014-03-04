@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401620 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409150 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -176,9 +176,6 @@ static int worker_terminate;
 #define TRANSPORT_SOCKET_RTCP 2
 #define TRANSPORT_TURN_RTP 3
 #define TRANSPORT_TURN_RTCP 4
-
-#define COMPONENT_RTP 1
-#define COMPONENT_RTCP 2
 
 /*! \brief RTP learning mode tracking information */
 struct rtp_learning_info {
@@ -541,9 +538,9 @@ static void ast_rtp_ice_start(struct ast_rtp_instance *instance)
 			candidates[cand_cnt].type = PJ_ICE_CAND_TYPE_RELAYED;
 		}
 
-		if (candidate->id == COMPONENT_RTP && rtp->turn_rtp) {
+		if (candidate->id == AST_RTP_ICE_COMPONENT_RTP && rtp->turn_rtp) {
 			pj_turn_sock_set_perm(rtp->turn_rtp, 1, &candidates[cand_cnt].addr, 1);
-		} else if (candidate->id == COMPONENT_RTCP && rtp->turn_rtcp) {
+		} else if (candidate->id == AST_RTP_ICE_COMPONENT_RTCP && rtp->turn_rtcp) {
 			pj_turn_sock_set_perm(rtp->turn_rtcp, 1, &candidates[cand_cnt].addr, 1);
 		}
 
@@ -557,7 +554,17 @@ static void ast_rtp_ice_start(struct ast_rtp_instance *instance)
 		pj_timer_heap_poll(timerheap, NULL);
 		rtp->ice_started = 1;
 		rtp->strict_rtp_state = STRICT_RTP_OPEN;
+		return;
 	}
+
+	/* even though create check list failed don't stop ice as
+	   it might still work */
+	ast_debug(1, "Failed to create ICE session check list\n");
+	/* however we do need to reset remote candidates since
+	   this function may be re-entered */
+	ao2_ref(rtp->remote_candidates, -1);
+	rtp->remote_candidates = NULL;
+	rtp->ice->rcand_cnt = rtp->ice->clist.count = 0;
 }
 
 static void ast_rtp_ice_stop(struct ast_rtp_instance *instance)
@@ -671,7 +678,7 @@ static void ast_rtp_ice_add_cand(struct ast_rtp *rtp, unsigned comp_id, unsigned
 		return;
 	}
 
-	if (pj_ice_sess_add_cand(rtp->ice, comp_id, transport_id, type, local_pref, &foundation, addr, addr, rel_addr, addr_len, NULL) != PJ_SUCCESS) {
+	if (pj_ice_sess_add_cand(rtp->ice, comp_id, transport_id, type, local_pref, &foundation, addr, base_addr, rel_addr, addr_len, NULL) != PJ_SUCCESS) {
 		ao2_ref(candidate, -1);
 		return;
 	}
@@ -1478,7 +1485,7 @@ static int __rtp_recvfrom(struct ast_rtp_instance *instance, void *buf, size_t s
 
 		pj_sockaddr_parse(pj_AF_UNSPEC(), 0, &combined, &address);
 
-		status = pj_ice_sess_on_rx_pkt(rtp->ice, rtcp ? COMPONENT_RTCP : COMPONENT_RTP,
+		status = pj_ice_sess_on_rx_pkt(rtp->ice, rtcp ? AST_RTP_ICE_COMPONENT_RTCP : AST_RTP_ICE_COMPONENT_RTP,
 			rtcp ? TRANSPORT_SOCKET_RTCP : TRANSPORT_SOCKET_RTP, buf, len, &address,
 			pj_sockaddr_get_len(&address));
 		if (status != PJ_SUCCESS) {
@@ -1530,7 +1537,7 @@ static int __rtp_sendto(struct ast_rtp_instance *instance, void *buf, size_t siz
 	if (rtp->ice) {
 		pj_thread_register_check();
 
-		if (pj_ice_sess_send_data(rtp->ice, rtcp ? COMPONENT_RTCP : COMPONENT_RTP, temp, len) == PJ_SUCCESS) {
+		if (pj_ice_sess_send_data(rtp->ice, rtcp ? AST_RTP_ICE_COMPONENT_RTCP : AST_RTP_ICE_COMPONENT_RTP, temp, len) == PJ_SUCCESS) {
 			*ice = 1;
 			return 0;
 		}
@@ -1676,15 +1683,19 @@ static void rtp_add_candidates_to_ice(struct ast_rtp_instance *instance, struct 
 	}
 
 	/* If configured to use a STUN server to get our external mapped address do so */
-	if (stunaddr.sin_addr.s_addr && ast_sockaddr_is_ipv4(addr)) {
+	if (stunaddr.sin_addr.s_addr && ast_sockaddr_is_ipv4(addr) && count) {
 		struct sockaddr_in answer;
 
-		if (!ast_stun_request(rtp->s, &stunaddr, NULL, &answer)) {
+		if (!ast_stun_request(component == AST_RTP_ICE_COMPONENT_RTCP ? rtp->rtcp->s : rtp->s, &stunaddr, NULL, &answer)) {
+			pj_sockaddr base;
 			pj_str_t mapped = pj_str(ast_strdupa(ast_inet_ntoa(answer.sin_addr)));
+
+			/* Use the first local host candidate as the base */
+			pj_sockaddr_cp(&base, &address[0]);
 
 			pj_sockaddr_init(pj_AF_INET(), &address[0], &mapped, ntohs(answer.sin_port));
 
-			ast_rtp_ice_add_cand(rtp, component, transport, PJ_ICE_CAND_TYPE_SRFLX, 65535, &address[0], &address[0],
+			ast_rtp_ice_add_cand(rtp, component, transport, PJ_ICE_CAND_TYPE_SRFLX, 65535, &address[0], &base,
 					     NULL, pj_sockaddr_get_len(&address[0]));
 		}
 	}
@@ -1842,7 +1853,7 @@ static int ast_rtp_new(struct ast_rtp_instance *instance,
 		rtp->ice->user_data = rtp;
 
 		/* Add all of the available candidates to the ICE session */
-		rtp_add_candidates_to_ice(instance, rtp, addr, x, COMPONENT_RTP, TRANSPORT_SOCKET_RTP, &ast_rtp_turn_rtp_sock_cb, &rtp->turn_rtp);
+		rtp_add_candidates_to_ice(instance, rtp, addr, x, AST_RTP_ICE_COMPONENT_RTP, TRANSPORT_SOCKET_RTP, &ast_rtp_turn_rtp_sock_cb, &rtp->turn_rtp);
 	}
 #endif
 
@@ -2008,7 +2019,7 @@ static int ast_rtp_dtmf_begin(struct ast_rtp_instance *instance, char digit)
 				strerror(errno));
 		}
 #ifdef USE_PJPROJECT
-		update_address_with_ice_candidate(rtp, COMPONENT_RTP, &remote_address);
+		update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTP, &remote_address);
 #endif
 		if (rtp_debug_test_addr(&remote_address)) {
 			ast_verbose("Sent RTP DTMF packet to %s%s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u)\n",
@@ -2060,7 +2071,7 @@ static int ast_rtp_dtmf_continuation(struct ast_rtp_instance *instance)
 	}
 
 #ifdef USE_PJPROJECT
-	update_address_with_ice_candidate(rtp, COMPONENT_RTP, &remote_address);
+	update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTP, &remote_address);
 #endif
 
 	if (rtp_debug_test_addr(&remote_address)) {
@@ -2138,7 +2149,7 @@ static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, cha
 		}
 
 #ifdef USE_PJPROJECT
-		update_address_with_ice_candidate(rtp, COMPONENT_RTP, &remote_address);
+		update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTP, &remote_address);
 #endif
 
 		if (rtp_debug_test_addr(&remote_address)) {
@@ -2304,7 +2315,7 @@ static int ast_rtcp_write_rr(struct ast_rtp_instance *instance)
 	rtp->rtcp->rr_count++;
 
 #ifdef USE_PJPROJECT
-	update_address_with_ice_candidate(rtp, COMPONENT_RTCP, &remote_address);
+	update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTCP, &remote_address);
 #endif
 
 	if (rtcp_debug_test_addr(&remote_address)) {
@@ -2417,7 +2428,7 @@ static int ast_rtcp_write_sr(struct ast_rtp_instance *instance)
 	rtp->rtcp->lastsrtxcount = rtp->txcount;
 
 #ifdef USE_PJPROJECT
-	update_address_with_ice_candidate(rtp, COMPONENT_RTCP, &remote_address);
+	update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTCP, &remote_address);
 #endif
 
 	if (rtcp_debug_test_addr(&rtp->rtcp->them)) {
@@ -2608,7 +2619,7 @@ static int ast_rtp_raw_write(struct ast_rtp_instance *instance, struct ast_frame
 		}
 
 #ifdef USE_PJPROJECT
-		update_address_with_ice_candidate(rtp, COMPONENT_RTP, &remote_address);
+		update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTP, &remote_address);
 #endif
 
 		if (rtp_debug_test_addr(&remote_address)) {
@@ -3489,7 +3500,7 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance, unsigned int 
 	}
 
 #ifdef USE_PJPROJECT
-	update_address_with_ice_candidate(rtp, COMPONENT_RTP, &remote_address);
+	update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTP, &remote_address);
 #endif
 
 	if (rtp_debug_test_addr(&remote_address)) {
@@ -3949,7 +3960,7 @@ static void ast_rtp_prop_set(struct ast_rtp_instance *instance, enum ast_rtp_pro
 
 #ifdef USE_PJPROJECT
 			if (rtp->ice) {
-				rtp_add_candidates_to_ice(instance, rtp, &rtp->rtcp->us, ast_sockaddr_port(&rtp->rtcp->us), COMPONENT_RTCP, TRANSPORT_SOCKET_RTCP,
+				rtp_add_candidates_to_ice(instance, rtp, &rtp->rtcp->us, ast_sockaddr_port(&rtp->rtcp->us), AST_RTP_ICE_COMPONENT_RTCP, TRANSPORT_SOCKET_RTCP,
 							  &ast_rtp_turn_rtcp_sock_cb, &rtp->turn_rtcp);
 			}
 #endif
@@ -4242,7 +4253,7 @@ static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level)
 	}
 
 #ifdef USE_PJPROJECT
-	update_address_with_ice_candidate(rtp, COMPONENT_RTP, &remote_address);
+	update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTP, &remote_address);
 #endif
 
 	if (rtp_debug_test_addr(&remote_address)) {

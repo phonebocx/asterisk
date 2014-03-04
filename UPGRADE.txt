@@ -20,11 +20,47 @@
 ===
 ===========================================================
 
+From 11.7 to 11.8:
+* The per console verbose level feature as previously implemented caused a
+  large performance penalty.  The fix required some minor incompatibilities
+  if the new rasterisk is used to connect to an earlier version.  If the new
+  rasterisk connects to an older Asterisk version then the root console verbose
+  level is always affected by the "core set verbose" command of the remote
+  console even though it may appear to only affect the current console.  If
+  an older version of rasterisk connects to the new version then the
+  "core set verbose" command will have no effect.
+
+CLI commands:
+ - "core show settings" now lists the current console verbosity in addition
+   to the root console verbosity.
+
+ - "core set verbose" has not been able to support the by module verbose
+   logging levels since verbose logging levels were made per console.  That
+   syntax is now removed and a silence option added in its place.
+
+Configuration Files:
+ - The 'verbose' setting in logger.conf still takes an optional argument,
+   specifying the verbosity level for each logging destination.  However,
+   the default is now to once again follow the current root console level.
+   As a result, using the AMI Command action with "core set verbose" could
+   again set the root console verbose level and affect the verbose level
+   logged.
+
 From 11.6 to 11.7:
 ConfBridge
  - ConfBridge now has the ability to set the language of announcements to the
    conference.  The language can be set on a bridge profile in confbridge.conf
    or by the dialplan function CONFBRIDGE(bridge,language)=en.
+chan_sip - Clarify The "sip show peers" Forcerport Column And Add Comedia
+ - Under the "Forcerport" column, the "N" used to mean NAT (i.e. Yes).  With
+   the additon of auto_* NAT settings, the meaning changed and there was a
+   certain combination of letters added to indicate the current setting. The
+   combination of using "Y", "N", "A" or "a", can be confusing.  Therefore, we
+   now display clearly what the current Forcerport setting is: "Yes", "No",
+   "Auto (Yes)", "Auto (No)".
+ - Since we are clarifying the Forcerport column, we have added a column to
+   display the Comedia setting since this is useful information as well.  We
+   no longer have a simple "NAT" setting like other versions before 11.
 
 * Certain dialplan functions have been marked as 'dangerous', and may only be
   executed from the dialplan. Execution from extenal sources (AMI's GetVar and
@@ -44,6 +80,7 @@ From 11.5 to 11.6:
 * The option "register_retry_403" has been added to chan_sip to work around
   servers that are known to erroneously send 403 in response to valid
   REGISTER requests and allows Asterisk to continue attepmting to connect.
+  Due to a failed merge, this option is present, but non-functional until 11.8.0.
 
 From 11.4 to 11.5:
 * The default settings for chan_sip are now overriden properly by the general

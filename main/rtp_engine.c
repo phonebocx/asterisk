@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 402042 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404045 $")
 
 #include <math.h>
 
@@ -2183,7 +2183,7 @@ static void add_static_payload(int map, const struct ast_format *format, int rtp
 	}
 
 	if (map < 0) {
-		ast_log(LOG_WARNING, "No Dynamic RTP mapping avaliable for format %s\n" ,ast_getformatname(format));
+		ast_log(LOG_WARNING, "No Dynamic RTP mapping available for format %s\n" ,ast_getformatname(format));
 		ast_rwlock_unlock(&static_RTP_PT_lock);
 		return;
 	}

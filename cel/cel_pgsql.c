@@ -44,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 372175 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404858 $")
 
 #include <libpq-fe.h>
 
@@ -345,11 +345,12 @@ ast_log_cleanup:
 static int my_unload_module(void)
 {
 	struct columns *current;
-	AST_RWLIST_WRLOCK(&psql_columns);
+
 	if (event_sub) {
 		event_sub = ast_event_unsubscribe(event_sub);
-		event_sub = NULL;
 	}
+
+	AST_RWLIST_WRLOCK(&psql_columns);
 	if (conn) {
 		PQfinish(conn);
 		conn = NULL;
@@ -558,6 +559,10 @@ static int my_load_module(int reload)
 		return AST_MODULE_LOAD_SUCCESS;
 	}
 
+	if (reload) {
+		my_unload_module();
+	}
+
 	process_my_load_module(cfg);
 	ast_config_destroy(cfg);
 
@@ -578,7 +583,6 @@ static int load_module(void)
 
 static int reload(void)
 {
-	my_unload_module();
 	return my_load_module(1);
 }
 

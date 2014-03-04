@@ -210,7 +210,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401884 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409303 $")
 
 #include <signal.h>
 #include <sys/signal.h>
@@ -1619,6 +1619,7 @@ static char *generate_random_string(char *buf, size_t size);
 static void build_callid_pvt(struct sip_pvt *pvt);
 static void change_callid_pvt(struct sip_pvt *pvt, const char *callid);
 static void build_callid_registry(struct sip_registry *reg, const struct ast_sockaddr *ourip, const char *fromdomain);
+static void build_localtag_registry(struct sip_registry *reg);
 static void make_our_tag(struct sip_pvt *pvt);
 static int add_header(struct sip_request *req, const char *var, const char *value);
 static int add_max_forwards(struct sip_pvt *dialog, struct sip_request *req);
@@ -6106,6 +6107,7 @@ static int create_addr_from_peer(struct sip_pvt *dialog, struct sip_peer *peer)
 	dialog->chanvars = copy_vars(peer->chanvars);
 	if (peer->fromdomainport)
 		dialog->fromdomainport = peer->fromdomainport;
+	dialog->callingpres = peer->callingpres;
 
 	return 0;
 }
@@ -8574,6 +8576,12 @@ static void build_callid_registry(struct sip_registry *reg, const struct ast_soc
 	const char *host = S_OR(fromdomain, ast_sockaddr_stringify_host_remote(ourip));
 
 	ast_string_field_build(reg, callid, "%s@%s", generate_random_string(buf, sizeof(buf)), host);
+}
+
+/*! \brief Build SIP From tag value for REGISTER */
+static void build_localtag_registry(struct sip_registry *reg)
+{
+	ast_string_field_build(reg, localtag, "as%08lx", ast_random());
 }
 
 /*! \brief Make our SIP dialog tag */
@@ -12616,7 +12624,13 @@ static void add_ice_to_sdp(struct ast_rtp_instance *instance, struct ast_str **a
 	while ((candidate = ao2_iterator_next(&i))) {
 		ast_str_append(a_buf, 0, "a=candidate:%s %d %s %d ", candidate->foundation, candidate->id, candidate->transport, candidate->priority);
 		ast_str_append(a_buf, 0, "%s ", ast_sockaddr_stringify_host(&candidate->address));
-		ast_str_append(a_buf, 0, "%s typ ", ast_sockaddr_stringify_port(&candidate->address));
+
+		if (candidate->type == AST_RTP_ICE_CANDIDATE_TYPE_SRFLX
+			&& candidate->id == AST_RTP_ICE_COMPONENT_RTCP) {
+			ast_str_append(a_buf, 0, "%d typ ", ast_sockaddr_port(&candidate->address) + 1);
+		} else {
+			ast_str_append(a_buf, 0, "%s typ ", ast_sockaddr_stringify_port(&candidate->address));
+		}
 
 		if (candidate->type == AST_RTP_ICE_CANDIDATE_TYPE_HOST) {
 			ast_str_append(a_buf, 0, "host");
@@ -14556,29 +14570,51 @@ static void state_notify_build_xml(struct state_notify_data *data, int full, con
 
 				callee = find_ringing_channel(data->device_state_info, p);
 				if (callee) {
+					static char *anonymous = "anonymous";
+					static char *invalid = "anonymous.invalid";
 					char *cid_num;
 					char *connected_num;
 					int need;
+					int cid_num_restricted, connected_num_restricted;
 
 					ast_channel_lock(callee);
+
+					cid_num_restricted = (ast_channel_caller(callee)->id.number.presentation &
+								   AST_PRES_RESTRICTION) == AST_PRES_RESTRICTED;
 					cid_num = S_COR(ast_channel_caller(callee)->id.number.valid,
-						ast_channel_caller(callee)->id.number.str, "");
-					need = strlen(cid_num) + strlen(p->fromdomain) + sizeof("sip:@");
+							S_COR(cid_num_restricted, anonymous,
+							      ast_channel_caller(callee)->id.number.str), "");
+
+					need = strlen(cid_num) + (cid_num_restricted ? strlen(invalid) :
+								  strlen(p->fromdomain)) + sizeof("sip:@");
 					local_target = ast_alloca(need);
-					snprintf(local_target, need, "sip:%s@%s", cid_num, p->fromdomain);
+
+					snprintf(local_target, need, "sip:%s@%s", cid_num,
+						 cid_num_restricted ? invalid : p->fromdomain);
 
 					ast_xml_escape(S_COR(ast_channel_caller(callee)->id.name.valid,
-							     ast_channel_caller(callee)->id.name.str, ""),
+							     S_COR((ast_channel_caller(callee)->id.name.presentation &
+								     AST_PRES_RESTRICTION) == AST_PRES_RESTRICTED, anonymous,
+								   ast_channel_caller(callee)->id.name.str), ""),
 						       local_display, sizeof(local_display));
 
+					connected_num_restricted = (ast_channel_connected(callee)->id.number.presentation &
+								    AST_PRES_RESTRICTION) == AST_PRES_RESTRICTED;
 					connected_num = S_COR(ast_channel_connected(callee)->id.number.valid,
-						ast_channel_connected(callee)->id.number.str, "");
-					need = strlen(connected_num) + strlen(p->fromdomain) + sizeof("sip:@");
+							      S_COR(connected_num_restricted, anonymous,
+								    ast_channel_connected(callee)->id.number.str), "");
+
+					need = strlen(connected_num) + (connected_num_restricted ? strlen(invalid) :
+									strlen(p->fromdomain)) + sizeof("sip:@");
 					remote_target = ast_alloca(need);
-					snprintf(remote_target, need, "sip:%s@%s", connected_num, p->fromdomain);
+
+					snprintf(remote_target, need, "sip:%s@%s", connected_num,
+						 connected_num_restricted ? invalid : p->fromdomain);
 
 					ast_xml_escape(S_COR(ast_channel_connected(callee)->id.name.valid,
-							     ast_channel_connected(callee)->id.name.str, ""),
+							     S_COR((ast_channel_connected(callee)->id.name.presentation &
+								     AST_PRES_RESTRICTION) == AST_PRES_RESTRICTED, anonymous,
+								    ast_channel_connected(callee)->id.name.str), ""),
 						       remote_display, sizeof(remote_display));
 
 					ast_channel_unlock(callee);
@@ -15168,13 +15204,13 @@ static int transmit_register(struct sip_registry *r, int sipmethod, const char *
 			return 0;
 		} else {
 			p = dialog_ref(r->call, "getting a copy of the r->call dialog in transmit_register");
-			make_our_tag(p);	/* create a new local tag for every register attempt */
 			ast_string_field_set(p, theirtag, NULL);	/* forget their old tag, so we don't match tags when getting response */
 		}
 	} else {
 		/* Build callid for registration if we haven't registered before */
 		if (!r->callid_valid) {
 			build_callid_registry(r, &internip, default_fromdomain);
+			build_localtag_registry(r);
 			r->callid_valid = TRUE;
 		}
 		/* Allocate SIP dialog for registration */
@@ -15182,7 +15218,10 @@ static int transmit_register(struct sip_registry *r, int sipmethod, const char *
 			ast_log(LOG_WARNING, "Unable to allocate registration transaction (memory or socket error)\n");
 			return 0;
 		}
-		
+
+		/* reset tag to consistent value from registry */
+		ast_string_field_set(p, tag, r->localtag);
+
 		if (p->do_history) {
 			append_history(p, "RegistryInit", "Account: %s@%s", r->username, r->hostname);
 		}
@@ -19019,7 +19058,7 @@ int peercomparefunc(const void *a, const void *b)
 }
 
 /* the last argument is left-aligned, so we don't need a size anyways */
-#define PEERS_FORMAT2 "%-25.25s %-39.39s %-3.3s %-10.10s %-3.3s %-8s %-11s %-32.32s %s\n"
+#define PEERS_FORMAT2 "%-25.25s %-39.39s %-3.3s %-10.10s %-10.10s %-3.3s %-8s %-11s %-32.32s %s\n"
 
 /*! \brief Used in the sip_show_peers functions to pass parameters */
 struct show_peers_context {
@@ -19081,7 +19120,7 @@ static char *_sip_show_peers(int fd, int *total, struct mansession *s, const str
 
 	if (!s) {
 		/* Normal list */
-		ast_cli(fd, PEERS_FORMAT2, "Name/username", "Host", "Dyn", "Forcerport", "ACL", "Port", "Status", "Description", (cont.realtimepeers ? "Realtime" : ""));
+		ast_cli(fd, PEERS_FORMAT2, "Name/username", "Host", "Dyn", "Forcerport", "Comedia", "ACL", "Port", "Status", "Description", (cont.realtimepeers ? "Realtime" : ""));
 	}
 
 	ao2_lock(peers);
@@ -19197,9 +19236,8 @@ static struct sip_peer *_sip_show_peers_one(int fd, struct mansession *s, struct
 		ast_cli(fd, PEERS_FORMAT2, name,
 		tmp_host,
 		peer->host_dynamic ? " D " : "   ",	/* Dynamic or not? */
-		ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) ?
-			ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? " A " : " a " :
-			ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? " N " : "   ",	/* NAT=yes? */
+		force_rport_string(peer->flags),
+		comedia_string(peer->flags),
 		(!ast_acl_list_is_empty(peer->acl)) ? " A " : "   ",       /* permit/deny */
 		tmp_port, status,
 		peer->description ? peer->description : "",
@@ -19230,7 +19268,7 @@ static struct sip_peer *_sip_show_peers_one(int fd, struct mansession *s, struct
 		ast_sockaddr_isnull(&peer->addr) ? "0" : tmp_port,
 		peer->host_dynamic ? "yes" : "no",	/* Dynamic or not? */
 		ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) ? "yes" : "no",
-		ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? "yes" : "no",	/* NAT=yes? */
+		ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) ? "yes" : "no",
 		ast_test_flag(&peer->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA) ? "yes" : "no",
 		ast_test_flag(&peer->flags[1], SIP_PAGE2_SYMMETRICRTP) ? "yes" : "no",
 		ast_test_flag(&peer->flags[1], SIP_PAGE2_VIDEOSUPPORT) ? "yes" : "no",	/* VIDEOSUPPORT=yes? */
@@ -22818,9 +22856,11 @@ static void handle_response_invite(struct sip_pvt *p, int resp, const char *rest
 					/* This 200 OK's SDP is not acceptable, so we need to ack, then hangup */
 					/* For re-invites, we try to recover */
 					ast_set_flag(&p->flags[0], SIP_PENDINGBYE);
-					ast_channel_hangupcause_set(p->owner, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
 					p->hangupcause = AST_CAUSE_BEARERCAPABILITY_NOTAVAIL;
-					sip_queue_hangup_cause(p, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
+					if (p->owner) {
+						ast_channel_hangupcause_set(p->owner, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
+						sip_queue_hangup_cause(p, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
+					}
 				}
 			}
 			ast_rtp_instance_activate(p->rtp);
@@ -23352,6 +23392,13 @@ static int handle_response_register(struct sip_pvt *p, int resp, const char *res
 		}
 		break;
 	case 403:	/* Forbidden */
+		if (global_reg_retry_403) {
+			ast_log(LOG_NOTICE, "Treating 403 response to REGISTER as non-fatal for %s@%s\n",
+				p->registry->username, p->registry->hostname);
+			ast_string_field_set(r, nonce, "");
+			ast_string_field_set(p, nonce, "");
+			break;
+		}
 		ast_log(LOG_WARNING, "Forbidden - wrong password on authentication for REGISTER for '%s' to '%s'\n", p->registry->username, p->registry->hostname);
 		AST_SCHED_DEL_UNREF(sched, r->timeout, registry_unref(r, "reg ptr unref from handle_response_register 403"));
 		r->regstate = REG_STATE_NOAUTH;
@@ -23424,9 +23471,9 @@ static int handle_response_register(struct sip_pvt *p, int resp, const char *res
 		if (r->call)
 			r->call = dialog_unref(r->call, "unsetting registry->call pointer-- case 200");
 		p->registry = registry_unref(p->registry, "unref registry entry p->registry");
-		/* Let this one hang around until we have all the responses */
-		sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
-		/* p->needdestroy = 1; */
+
+		/* destroy dialog now to avoid interference with next register */
+		pvt_set_needdestroy(p, "Registration successfull");
 
 		/* set us up for re-registering
 		 * figure out how long we got registered for
@@ -24139,6 +24186,7 @@ static void handle_response(struct sip_pvt *p, int resp, const char *rest, struc
 static void *sip_park_thread(void *stuff)
 {
 	struct ast_channel *transferee, *transferer;	/* Chan1: The transferee, Chan2: The transferer */
+	struct sip_pvt *transferer_pvt;
 	struct sip_dual *d;
 	int ext;
 	int res;
@@ -24146,43 +24194,46 @@ static void *sip_park_thread(void *stuff)
 	d = stuff;
 	transferee = d->chan1;
 	transferer = d->chan2;
+	transferer_pvt = ast_channel_tech_pvt(transferer);
 
 	ast_debug(4, "SIP Park: Transferer channel %s, Transferee %s\n", ast_channel_name(transferer), ast_channel_name(transferee));
 
 	res = ast_park_call_exten(transferee, transferer, d->park_exten, d->park_context, 0, &ext);
 
-	sip_pvt_lock(ast_channel_tech_pvt(transferer));
+	sip_pvt_lock(transferer_pvt);
 #ifdef WHEN_WE_KNOW_THAT_THE_CLIENT_SUPPORTS_MESSAGE
 	if (res) {
-		destroy_msg_headers(ast_channel_tech_pvt(transferer));
-		ast_string_field_set(ast_channel_tech_pvt(transferer), msg_body, "Unable to park call.");
-		transmit_message(ast_channel_tech_pvt(transferer), 0, 0);
+		destroy_msg_headers(transferer_pvt);
+		ast_string_field_set(transferer_pvt, msg_body, "Unable to park call.");
+		transmit_message(transferer_pvt, 0, 0);
 	} else {
 		/* Then tell the transferer what happened */
-		destroy_msg_headers(ast_channel_tech_pvt(transferer));
+		destroy_msg_headers(transferer_pvt);
 		sprintf(buf, "Call parked on extension '%d'.", ext);
-		ast_string_field_set(ast_channel_tech_pvt(transferer), msg_body, buf);
-		transmit_message(ast_channel_tech_pvt(transferer), 0, 0);
+		ast_string_field_set(transferer_pvt, msg_body, buf);
+		transmit_message(transferer_pvt, 0, 0);
 	}
 #endif
 
 	/* Any way back to the current call??? */
 	/* Transmit response to the REFER request */
+	ast_set_flag(&transferer_pvt->flags[0], SIP_DEFER_BYE_ON_TRANSFER);
 	if (!res)	{
 		/* Transfer succeeded */
-		append_history(ast_channel_tech_pvt(transferer), "SIPpark", "Parked call on %d", ext);
-		transmit_notify_with_sipfrag(ast_channel_tech_pvt(transferer), d->seqno, "200 OK", TRUE);
-		sip_pvt_unlock(ast_channel_tech_pvt(transferer));
+		append_history(transferer_pvt, "SIPpark", "Parked call on %d", ext);
+		transmit_notify_with_sipfrag(transferer_pvt, d->seqno, "200 OK", TRUE);
+		sip_pvt_unlock(transferer_pvt);
 		ast_channel_hangupcause_set(transferer, AST_CAUSE_NORMAL_CLEARING);
-		ast_hangup(transferer); /* This will cause a BYE */
 		ast_debug(1, "SIP Call parked on extension '%d'\n", ext);
 	} else {
-		transmit_notify_with_sipfrag(ast_channel_tech_pvt(transferer), d->seqno, "503 Service Unavailable", TRUE);
-		append_history(ast_channel_tech_pvt(transferer), "SIPpark", "Parking failed\n");
-		sip_pvt_unlock(ast_channel_tech_pvt(transferer));
-		ast_debug(1, "SIP Call parked failed \n");
-		/* Do not hangup call */
+		transmit_notify_with_sipfrag(transferer_pvt, d->seqno, "503 Service Unavailable", TRUE);
+		append_history(transferer_pvt, "SIPpark", "Parking failed\n");
+		sip_pvt_unlock(transferer_pvt);
+		ast_log(AST_LOG_NOTICE, "SIP Call parked failed for %s\n", ast_channel_name(transferee));
+		ast_hangup(transferee);
 	}
+	ast_hangup(transferer);
+
 	deinit_req(&d->req);
 	ast_free(d->park_exten);
 	ast_free(d->park_context);
@@ -24252,6 +24303,7 @@ static int sip_park(struct ast_channel *chan1, struct ast_channel *chan2, struct
 
 	/* Prepare for taking over the channel */
 	if (ast_channel_masquerade(transferer, chan2)) {
+		ast_hangup(transferee);
 		ast_hangup(transferer);
 		ast_free(d->park_exten);
 		ast_free(d->park_context);
@@ -24273,6 +24325,8 @@ static int sip_park(struct ast_channel *chan1, struct ast_channel *chan2, struct
 	d->seqno = seqno;
 	if (ast_pthread_create_detached_background(&th, NULL, sip_park_thread, d) < 0) {
 		/* Could not start thread */
+		ast_hangup(transferer);
+		ast_hangup(transferee);
 		deinit_req(&d->req);
 		ast_free(d->park_exten);
 		ast_free(d->park_context);
@@ -24841,12 +24895,11 @@ static int handle_invite_replaces(struct sip_pvt *p, struct sip_request *req, st
 	if (ast_do_masquerade(replacecall)) {
 		ast_log(LOG_WARNING, "Failed to perform masquerade with INVITE replaces\n");
 	}
-	ast_channel_lock(c);
 	if (earlyreplace || oneleggedreplace ) {
+		ast_channel_lock(c);
 		ast_channel_hangupcause_set(c, AST_CAUSE_SWITCH_CONGESTION);
+		ast_channel_unlock(c);
 	}
-	ast_setstate(c, AST_STATE_DOWN);
-	ast_channel_unlock(c);
 
 	/* c and c's tech pvt must be unlocked at this point for ast_hangup */
 	ast_hangup(c);
@@ -30378,6 +30431,10 @@ static void set_peer_defaults(struct sip_peer *peer)
 	peer->disallowed_methods = sip_cfg.disallowed_methods;
 	peer->transports = default_transports;
 	peer->default_outbound_transport = default_primary_transport;
+	if (peer->outboundproxy) {
+		ao2_ref(peer->outboundproxy, -1);
+		peer->outboundproxy = NULL;
+	}
 }
 
 /*! \brief Create temporary peer (used in autocreatepeer mode) */

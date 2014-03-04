@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401179 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404579 $")
 
 #include "asterisk/_private.h"
 
@@ -289,7 +289,7 @@ static const char *party_number_plan2str(int plan)
 /*! \brief Show channel types - CLI command */
 static char *handle_cli_core_show_channeltypes(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-#define FORMAT  "%-10.10s  %-40.40s %-12.12s %-12.12s %-12.12s\n"
+#define FORMAT  "%-15.15s  %-40.40s %-12.12s %-12.12s %-12.12s\n"
 	struct chanlist *cl;
 	int count_chan = 0;
 
@@ -309,7 +309,7 @@ static char *handle_cli_core_show_channeltypes(struct ast_cli_entry *e, int cmd,
 		return CLI_SHOWUSAGE;
 
 	ast_cli(a->fd, FORMAT, "Type", "Description",       "Devicestate", "Indications", "Transfer");
-	ast_cli(a->fd, FORMAT, "----------", "-----------", "-----------", "-----------", "--------");
+	ast_cli(a->fd, FORMAT, "-----------", "-----------", "-----------", "-----------", "-----------");
 
 	AST_RWLIST_RDLOCK(&backends);
 	AST_RWLIST_TRAVERSE(&backends, cl, list) {
@@ -5590,7 +5590,7 @@ struct ast_channel *ast_call_forward(struct ast_channel *caller, struct ast_chan
 			ast_cdr_setaccount(new_chan, oh->account);
 			ast_channel_unlock(new_chan);
 		}
-	} else if (caller) { /* no outgoing helper so use caller if avaliable */
+	} else if (caller) { /* no outgoing helper so use caller if available */
 		call_forward_inherit(new_chan, caller, orig);
 	}
 
@@ -6493,18 +6493,19 @@ void ast_channel_inherit_variables(const struct ast_channel *parent, struct ast_
 			newvar = ast_var_assign(&varname[1], ast_var_value(current));
 			if (newvar) {
 				AST_LIST_INSERT_TAIL(ast_channel_varshead(child), newvar, entries);
-				ast_debug(1, "Copying soft-transferable variable %s.\n", ast_var_name(newvar));
+				ast_debug(1, "Inheriting variable %s from %s to %s.\n",
+					ast_var_name(newvar), ast_channel_name(parent), ast_channel_name(child));
 			}
 			break;
 		case 2:
 			newvar = ast_var_assign(varname, ast_var_value(current));
 			if (newvar) {
 				AST_LIST_INSERT_TAIL(ast_channel_varshead(child), newvar, entries);
-				ast_debug(1, "Copying hard-transferable variable %s.\n", ast_var_name(newvar));
+				ast_debug(1, "Inheriting variable %s from %s to %s.\n",
+					ast_var_name(newvar), ast_channel_name(parent), ast_channel_name(child));
 			}
 			break;
 		default:
-			ast_debug(1, "Not copying variable %s.\n", ast_var_name(current));
 			break;
 		}
 	}
