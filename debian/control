@@ -104,8 +104,8 @@ Description: loadable modules for the Asterisk PBX
 Package: asterisk-dahdi
 Architecture: linux-any
 Depends: asterisk (= ${binary:Version}), ${shlibs:Depends}, ${misc:Depends}, dahdi
-Breaks: asterisk (<< 1:11.6.0~dfsg-2)
-Replaces: asterisk (<< 1:11.6.0~dfsg-2)
+Breaks: asterisk-modules (<< 1:11.6.0~dfsg-2)
+Replaces: asterisk-modules (<< 1:11.6.0~dfsg-2)
 Description: DAHDI devices support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
