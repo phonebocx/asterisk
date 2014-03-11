@@ -1,3 +1,9 @@
+asterisk (1:11.8.1~dfsg-1) unstable; urgency=high
+
+  * New upstream security release (Closes: #741313).
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Tue, 11 Mar 2014 07:44:54 +0100
+
 asterisk (1:11.8.0~dfsg-2) unstable; urgency=medium
 
   * Really fix versioned Breaks/Replaces for asterisk-dahdi (Closes: #732419).
