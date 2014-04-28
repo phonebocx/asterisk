@@ -1,6 +1,7 @@
 asterisk (1:11.9.0~dfsg-1) UNRELEASED; urgency=medium
 
   * New upstream release.
+    - Drop ASTERISK-23310 patch, fixed upstream.
     - Drop dahdi_pri_event_removed patch, fixed upstream.
     - Drop freeradius-client patch, fixed upstream.
     - Drop hyphen patch, fixed upstream.

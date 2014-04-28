@@ -29,4 +29,3 @@ dahdi_create_channels
 reenable
 ignore_failed_channels.patch
 smsq_enable.patch
-ASTERISK-23310.patch
