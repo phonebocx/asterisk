@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 370655 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 410749 $")
 
 #include <time.h>
 #include <math.h>
@@ -621,7 +621,7 @@ int callerid_feed(struct callerid_state *cid, unsigned char *ubuf, int len, stru
 				}
 				break;
 			case 5: /* Check checksum */
-				if (b != (256 - (cid->cksum & 0xff))) {
+				if ((b + cid->cksum) & 0xff) {
 					ast_log(LOG_NOTICE, "Caller*ID failed checksum\n");
 					/* Try again */
 					cid->sawflag = 0;

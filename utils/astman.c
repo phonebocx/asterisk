@@ -27,7 +27,7 @@
  ***/
 
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 359118 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409083 $")
 #include "asterisk.h"
 
 #include <newt.h>
@@ -737,7 +737,6 @@ static int manager_login(char *hostname)
 					show_message("Login Failed", get_header(m, "Message"));
 				}
 			} else {
-				memset(m, 0, sizeof(m));
 				manager_action("Login", 
 					"Username: %s\r\n"
 					"Secret: %s\r\n",

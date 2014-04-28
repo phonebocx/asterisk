@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 371592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 
 #include "asterisk/module.h"
 #include "asterisk/file.h"
@@ -800,6 +800,11 @@ static int acf_fetch(struct ast_channel *chan, const char *cmd, char *data, char
 	struct ast_datastore *store;
 	struct odbc_datastore *resultset;
 	struct odbc_datastore_row *row;
+
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
 
 	ast_channel_lock(chan);
 	store = ast_channel_datastore_find(chan, &odbc_info, data);

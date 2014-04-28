@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 370655 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 408786 $")
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -60,7 +60,6 @@ extern struct ast_flags ast_compat;
 extern int localized_pbx_load_module(void);
 
 static char expr_output[2096];
-#define AST_PBX_MAX_STACK  128
 #define BUF_SIZE 2000
 
 /* these functions are in ../ast_expr2.fl */

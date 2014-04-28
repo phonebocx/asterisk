@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 399305 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 
 #include "asterisk/_private.h"
 
@@ -2497,7 +2497,7 @@ static const char *real_ctx(struct ast_channel *transferer, struct ast_channel *
 
 /*!
  * \brief Blind transfer user to another extension
- * \param chan channel to be transfered
+ * \param chan channel to be transferred
  * \param peer channel initiated blind transfer
  * \param config
  * \param code
@@ -2661,7 +2661,7 @@ static void atxfer_fail_cleanup(struct ast_channel *transferee, struct ast_chann
 
 /*!
  * \brief Attended transfer
- * \param chan transfered user
+ * \param chan transferred user
  * \param peer person transfering call
  * \param config
  * \param code
@@ -3845,7 +3845,7 @@ static void set_config_flags(struct ast_channel *chan, struct ast_bridge_config 
  * \details
  * Request channel, set channel variables, initiate call,
  * check if they want to disconnect, go into loop, check if timeout has elapsed,
- * check if person to be transfered hung up, check for answer break loop,
+ * check if person to be transferred hung up, check for answer break loop,
  * set cdr return channel.
  *
  * \retval Channel Connected channel for transfer.
@@ -4463,7 +4463,7 @@ int ast_bridge_call(struct ast_channel *chan, struct ast_channel *peer, struct a
 				ast_set_flag(peer_cdr, AST_CDR_FLAG_BRIDGED);
 			}
 		}
-		/* the DIALED flag may be set if a dialed channel is transfered
+		/* the DIALED flag may be set if a dialed channel is transferred
 		 * and then bridged to another channel.  In order for the
 		 * bridge CDR to be written, the DIALED flag must not be
 		 * present. */
@@ -8157,7 +8157,7 @@ int ast_bridge_timelimit(struct ast_channel *chan, struct ast_bridge_config *con
  *
  * Split data, check we aren't bridging with ourself, check valid channel,
  * answer call if not already, check compatible channels, setup bridge config
- * now bridge call, if transfered party hangs up return to PBX extension.
+ * now bridge call, if transferred party hangs up return to PBX extension.
  */
 static int bridge_exec(struct ast_channel *chan, const char *data)
 {
@@ -8913,6 +8913,11 @@ static int feature_read(struct ast_channel *chan, const char *cmd, char *data,
 {
 	int res = 0;
 
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
+
 	if (!strcasecmp(data, "parkingtime")) {
 		snprintf(buf, len, "%u", get_parkingtime(chan, NULL) / 1000);
 	} else {
@@ -8928,6 +8933,11 @@ static int feature_write(struct ast_channel *chan, const char *cmd, char *data,
 {
 	int res = 0;
 	struct feature_ds *feature_ds;
+
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
 
 	ast_channel_lock(chan);
 
@@ -8961,6 +8971,11 @@ static int featuremap_read(struct ast_channel *chan, const char *cmd, char *data
 {
 	int res;
 
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
+
 	ast_rdlock_call_features();
 
 	if ((res = builtin_feature_get_exten(chan, data, buf, len))) {
@@ -8977,6 +8992,11 @@ static int featuremap_write(struct ast_channel *chan, const char *cmd, char *dat
 {
 	struct feature_ds *feature_ds;
 	struct feature_exten *fe;
+
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
 
 	if (!ast_find_call_feature(data)) {
 		ast_log(LOG_WARNING, "Invalid argument '%s' to FEATUREMAP()\n", data);

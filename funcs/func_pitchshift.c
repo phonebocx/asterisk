@@ -64,7 +64,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328259 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -199,6 +199,11 @@ static int pitchshift_helper(struct ast_channel *chan, const char *cmd, char *da
 	struct pitchshift_data *shift = NULL;
 	int new = 0;
 	float amount = 0;
+
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
 
 	ast_channel_lock(chan);
 	if (!(datastore = ast_channel_datastore_find(chan, &pitchshift_datastore, NULL))) {

@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362817 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $");
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -284,7 +284,11 @@ static struct ast_speech *find_speech(struct ast_channel *chan)
 {
 	struct ast_speech *speech = NULL;
 	struct ast_datastore *datastore = NULL;
-	
+
+	if (!chan) {
+		return NULL;
+	}
+
 	datastore = ast_channel_datastore_find(chan, &speech_datastore, NULL);
 	if (datastore == NULL) {
 		return NULL;

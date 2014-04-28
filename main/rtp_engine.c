@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404045 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409524 $")
 
 #include <math.h>
 
@@ -731,6 +731,14 @@ static int rtp_payload_type_find_format(void *obj, void *arg, int flags)
 	return (type->asterisk_format && (ast_format_cmp(&type->format, format) != AST_FORMAT_CMP_NOT_EQUAL)) ? CMP_MATCH | CMP_STOP : 0;
 }
 
+static int rtp_payload_type_find_nonast_format(void *obj, void *arg, int flags)
+{
+	struct ast_rtp_payload_type *type = obj;
+	int *rtp_code = arg;
+
+	return ((!type->asterisk_format && (type->rtp_code == *rtp_code)) ? CMP_MATCH | CMP_STOP : 0);
+}
+
 int ast_rtp_codecs_payload_code(struct ast_rtp_codecs *codecs, int asterisk_format, const struct ast_format *format, int code)
 {
 	struct ast_rtp_payload_type *type;
@@ -740,7 +748,7 @@ int ast_rtp_codecs_payload_code(struct ast_rtp_codecs *codecs, int asterisk_form
 		res = type->payload;
 		ao2_ref(type, -1);
 		return res;
-	} else if (!asterisk_format && (type = ao2_find(codecs->payloads, &code, OBJ_NOLOCK | OBJ_KEY))) {
+	} else if (!asterisk_format && (type = ao2_callback(codecs->payloads, OBJ_NOLOCK, rtp_payload_type_find_nonast_format, (void*)&code))) {
 		res = type->payload;
 		ao2_ref(type, -1);
 		return res;
@@ -1216,10 +1224,12 @@ static enum ast_bridge_result remote_bridge_loop(struct ast_channel *c0,
 		if (tinstance1) {
 			ast_rtp_instance_get_remote_address(tinstance1, &tt1);
 		}
-		if (glue1->get_codec) {
+		ast_channel_lock(c1);
+		if (glue1->get_codec && ast_channel_tech_pvt(c1)) {
 			ast_format_cap_remove_all(cap1);
 			glue1->get_codec(c1, cap1);
 		}
+		ast_channel_unlock(c1);
 
 		ast_rtp_instance_get_remote_address(instance0, &t0);
 		if (vinstance0) {
@@ -1228,10 +1238,12 @@ static enum ast_bridge_result remote_bridge_loop(struct ast_channel *c0,
 		if (tinstance0) {
 			ast_rtp_instance_get_remote_address(tinstance0, &tt0);
 		}
-		if (glue0->get_codec) {
+		ast_channel_lock(c0);
+		if (glue0->get_codec && ast_channel_tech_pvt(c0)) {
 			ast_format_cap_remove_all(cap0);
 			glue0->get_codec(c0, cap0);
 		}
+		ast_channel_unlock(c0);
 
 		if ((ast_sockaddr_cmp(&t1, &ac1)) ||
 		    (vinstance1 && ast_sockaddr_cmp(&vt1, &vac1)) ||
@@ -1345,6 +1357,7 @@ static enum ast_bridge_result remote_bridge_loop(struct ast_channel *c0,
 				ast_rtp_instance_get_remote_address(instance1, &t1);
 				ast_sockaddr_copy(&ac1, &t1);
 				/* Update codec information */
+				ast_channel_lock(c0);
 				if (glue0->get_codec && ast_channel_tech_pvt(c0)) {
 					ast_format_cap_remove_all(cap0);
 					ast_format_cap_remove_all(oldcap0);
@@ -1352,12 +1365,15 @@ static enum ast_bridge_result remote_bridge_loop(struct ast_channel *c0,
 					ast_format_cap_append(oldcap0, cap0);
 
 				}
+				ast_channel_unlock(c0);
+				ast_channel_lock(c1);
 				if (glue1->get_codec && ast_channel_tech_pvt(c1)) {
 					ast_format_cap_remove_all(cap1);
 					ast_format_cap_remove_all(oldcap1);
 					glue1->get_codec(c1, cap1);
 					ast_format_cap_append(oldcap1, cap1);
 				}
+				ast_channel_unlock(c1);
 				/* Since UPDATE_BRIDGE_PEER is only used by the bridging code, don't forward it */
 				if (fr->subclass.integer != AST_CONTROL_UPDATE_RTP_PEER) {
 					ast_indicate_data(other, fr->subclass.integer, fr->data.ptr, fr->datalen);
@@ -1383,7 +1399,7 @@ static enum ast_bridge_result remote_bridge_loop(struct ast_channel *c0,
 				*rc = who;
 				ast_debug(1, "Got a FRAME_CONTROL (%d) frame on channel %s\n", fr->subclass.integer, ast_channel_name(who));
 				res = AST_BRIDGE_COMPLETE;
-				goto remote_bridge_cleanup;
+				break;
 			}
 		} else {
 			if ((fr->frametype == AST_FRAME_DTMF_BEGIN) ||
@@ -1849,7 +1865,7 @@ char *ast_rtp_instance_get_quality(struct ast_rtp_instance *instance, enum ast_r
 	/* Now actually fill the buffer with the good information */
 	if (field == AST_RTP_INSTANCE_STAT_FIELD_QUALITY) {
 		snprintf(buf, size, "ssrc=%i;themssrc=%u;lp=%u;rxjitter=%f;rxcount=%u;txjitter=%f;txcount=%u;rlp=%u;rtt=%f",
-			 stats.local_ssrc, stats.remote_ssrc, stats.rxploss, stats.txjitter, stats.rxcount, stats.rxjitter, stats.txcount, stats.txploss, stats.rtt);
+			 stats.local_ssrc, stats.remote_ssrc, stats.rxploss, stats.rxjitter, stats.rxcount, stats.txjitter, stats.txcount, stats.txploss, stats.rtt);
 	} else if (field == AST_RTP_INSTANCE_STAT_FIELD_QUALITY_JITTER) {
 		snprintf(buf, size, "minrxjitter=%f;maxrxjitter=%f;avgrxjitter=%f;stdevrxjitter=%f;reported_minjitter=%f;reported_maxjitter=%f;reported_avgjitter=%f;reported_stdevjitter=%f;",
 			 stats.local_minjitter, stats.local_maxjitter, stats.local_normdevjitter, sqrt(stats.local_stdevjitter), stats.remote_minjitter, stats.remote_maxjitter, stats.remote_normdevjitter, sqrt(stats.remote_stdevjitter));
@@ -1925,11 +1941,15 @@ int ast_rtp_instance_make_compatible(struct ast_channel *chan, struct ast_rtp_in
 	}
 
 	glue->get_rtp_info(peer, &peer_instance);
-
-	if (!peer_instance || peer_instance->engine != instance->engine) {
+	if (!peer_instance) {
+		ast_log(LOG_ERROR, "Unable to get_rtp_info for peer type %s\n", glue->type);
+		ast_channel_unlock(peer);
+		return -1;
+	}
+	if (peer_instance->engine != instance->engine) {
+		ast_log(LOG_ERROR, "Peer engine mismatch for type %s\n", glue->type);
 		ast_channel_unlock(peer);
 		ao2_ref(peer_instance, -1);
-		peer_instance = NULL;
 		return -1;
 	}
 

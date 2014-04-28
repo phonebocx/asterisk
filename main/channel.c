@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404579 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 412324 $")
 
 #include "asterisk/_private.h"
 
@@ -1129,7 +1129,7 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 
 	AST_LIST_HEAD_INIT_NOLOCK(ast_channel_autochans(tmp));
 
-	ast_channel_language_set(tmp, defaultlanguage);
+	ast_channel_language_set(tmp, ast_defaultlanguage);
 
 	ast_channel_tech_set(tmp, &null_tech);
 
@@ -3555,6 +3555,11 @@ int ast_waitfordigit(struct ast_channel *c, int ms)
 
 int ast_settimeout(struct ast_channel *c, unsigned int rate, int (*func)(const void *data), void *data)
 {
+	return ast_settimeout_full(c, rate, func, data, 0);
+}
+
+int ast_settimeout_full(struct ast_channel *c, unsigned int rate, int (*func)(const void *data), void *data, unsigned int is_ao2_obj)
+{
 	int res;
 	unsigned int real_rate = rate, max_rate;
 
@@ -3578,8 +3583,19 @@ int ast_settimeout(struct ast_channel *c, unsigned int rate, int (*func)(const v
 
 	res = ast_timer_set_rate(ast_channel_timer(c), real_rate);
 
+	if (ast_channel_timingdata(c) && ast_test_flag(ast_channel_flags(c), AST_FLAG_TIMINGDATA_IS_AO2_OBJ)) {
+		ao2_ref(ast_channel_timingdata(c), -1);
+	}
+
 	ast_channel_timingfunc_set(c, func);
 	ast_channel_timingdata_set(c, data);
+
+	if (data && is_ao2_obj) {
+		ao2_ref(data, 1);
+		ast_set_flag(ast_channel_flags(c), AST_FLAG_TIMINGDATA_IS_AO2_OBJ);
+	} else {
+		ast_clear_flag(ast_channel_flags(c), AST_FLAG_TIMINGDATA_IS_AO2_OBJ);
+	}
 
 	if (func == NULL && rate == 0 && ast_channel_fdno(c) == AST_TIMING_FD) {
 		/* Clearing the timing func and setting the rate to 0
@@ -3913,9 +3929,17 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 				/* save a copy of func/data before unlocking the channel */
 				ast_timing_func_t func = ast_channel_timingfunc(chan);
 				void *data = ast_channel_timingdata(chan);
+				int got_ref = 0;
+				if (data && ast_test_flag(ast_channel_flags(chan), AST_FLAG_TIMINGDATA_IS_AO2_OBJ)) {
+					ao2_ref(data, 1);
+					got_ref = 1;
+				}
 				ast_channel_fdno_set(chan, -1);
 				ast_channel_unlock(chan);
 				func(data);
+				if (got_ref) {
+					ao2_ref(data, -1);
+				}
 			} else {
 				ast_timer_set_rate(ast_channel_timer(chan), 0);
 				ast_channel_fdno_set(chan, -1);
@@ -6797,6 +6821,7 @@ int ast_do_masquerade(struct ast_channel *original)
 	unsigned int orig_disablestatecache;
 	unsigned int clone_disablestatecache;
 	int visible_indication;
+	int moh_is_playing;
 	int clone_was_zombie = 0;/*!< TRUE if the clonechan was a zombie before the masquerade. */
 	struct ast_frame *current;
 	const struct ast_channel_tech *t;
@@ -6890,6 +6915,8 @@ int ast_do_masquerade(struct ast_channel *original)
 	} else {
 		xfer_colp = NULL;
 	}
+
+	moh_is_playing = ast_test_flag(ast_channel_flags(original), AST_FLAG_MOH);
 
 	/*
 	 * Stop any visible indication on the original channel so we can
@@ -7232,6 +7259,12 @@ int ast_do_masquerade(struct ast_channel *original)
 	 */
 	if (visible_indication) {
 		ast_indicate(original, visible_indication);
+	}
+
+	/* if moh is playing on the original channel then it needs to be
+	   maintained on the channel that is replacing it. */
+	if (moh_is_playing) {
+		ast_moh_start(original, NULL, NULL);
 	}
 
 	ast_channel_lock(original);

@@ -37,7 +37,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404457 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411244 $")
 
 #include <netinet/in.h>
 #include <time.h>
@@ -1901,17 +1901,17 @@ static void powiedz(struct ast_channel *chan, const char *language, int audiofd,
 	if (i100>0)
 		pl_odtworz_plik(chan, language, audiofd, ctrlfd, ints, odm->setki[i100]);
 
-	if ( m100 > 0 && m100 <=9 ) {
-		if (m1000>0)
+	if (m100 > 0 && m100 <= 9) {
+		if (m1000 > 0)
 			pl_odtworz_plik(chan, language, audiofd, ctrlfd, ints, odm->cyfry2[m100]);
 		else
 			pl_odtworz_plik(chan, language, audiofd, ctrlfd, ints, odm->cyfry[m100]);
-	} else if (m100 % 10 == 0) {
+	} else if (m100 % 10 == 0 && m100 != 0) {
 		pl_odtworz_plik(chan, language, audiofd, ctrlfd, ints, odm->dziesiatki[m100 / 10]);
-	} else if (m100 <= 19 ) {
+	} else if (m100 > 10 && m100 <= 19) {
 		pl_odtworz_plik(chan, language, audiofd, ctrlfd, ints, odm->nastki[m100 % 10]);
-	} else if (m100 != 0) {
-		if (odm->separator_dziesiatek[0]==' ') {
+	} else if (m100 > 20) {
+		if (odm->separator_dziesiatek[0] == ' ') {
 			pl_odtworz_plik(chan, language, audiofd, ctrlfd, ints, odm->dziesiatki[m100 / 10]);
 			pl_odtworz_plik(chan, language, audiofd, ctrlfd, ints, odm->cyfry2[m100 % 10]);
 		} else {

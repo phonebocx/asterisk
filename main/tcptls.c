@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 403917 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411463 $")
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
@@ -172,6 +172,8 @@ static void *handle_tcptls_connection(void *data)
 	 */
 	if (ast_thread_inhibit_escalations()) {
 		ast_log(LOG_ERROR, "Failed to inhibit privilege escalations; killing connection\n");
+		ast_tcptls_close_session_file(tcptls_session);
+		ao2_ref(tcptls_session, -1);
 		return NULL;
 	}
 
@@ -391,7 +393,7 @@ static int __ssl_setup(struct ast_tls_config *cfg, int client)
 
 	if (!ast_strlen_zero(cfg->certfile)) {
 		char *tmpprivate = ast_strlen_zero(cfg->pvtfile) ? cfg->certfile : cfg->pvtfile;
-		if (SSL_CTX_use_certificate_file(cfg->ssl_ctx, cfg->certfile, SSL_FILETYPE_PEM) == 0) {
+		if (SSL_CTX_use_certificate_chain_file(cfg->ssl_ctx, cfg->certfile) == 0) {
 			if (!client) {
 				/* Clients don't need a certificate, but if its setup we can use it */
 				ast_verb(0, "SSL error loading cert file. <%s>\n", cfg->certfile);
@@ -623,12 +625,22 @@ error:
 void ast_tcptls_close_session_file(struct ast_tcptls_session_instance *tcptls_session)
 {
 	if (tcptls_session->f) {
+		/*
+		 * Issuing shutdown() is necessary here to avoid a race
+		 * condition where the last data written may not appear
+		 * in the TCP stream.  See ASTERISK-23548
+		*/
+		fflush(tcptls_session->f);
+		if (tcptls_session->fd != -1) {
+			shutdown(tcptls_session->fd, SHUT_RDWR);
+		}
 		if (fclose(tcptls_session->f)) {
 			ast_log(LOG_ERROR, "fclose() failed: %s\n", strerror(errno));
 		}
 		tcptls_session->f = NULL;
 		tcptls_session->fd = -1;
 	} else if (tcptls_session->fd != -1) {
+		shutdown(tcptls_session->fd, SHUT_RDWR);
 		if (close(tcptls_session->fd)) {
 			ast_log(LOG_ERROR, "close() failed: %s\n", strerror(errno));
 		}

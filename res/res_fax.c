@@ -56,7 +56,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404351 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409053 $")
 
 #include "asterisk/io.h"
 #include "asterisk/file.h"
@@ -323,7 +323,7 @@ struct fax_module {
 };
 static AST_RWLIST_HEAD_STATIC(faxmodules, fax_module);
 
-#define RES_FAX_MINRATE 2400
+#define RES_FAX_MINRATE 4800
 #define RES_FAX_MAXRATE 14400
 #define RES_FAX_STATUSEVENTS 0
 #define RES_FAX_MODEM (AST_FAX_MODEM_V17 | AST_FAX_MODEM_V27 | AST_FAX_MODEM_V29)
@@ -704,7 +704,7 @@ static int check_modem_rate(enum ast_fax_modems modems, unsigned int rate)
 {
 	switch (rate) {
 	case 2400:
-		if (!(modems & (AST_FAX_MODEM_V27 | AST_FAX_MODEM_V34))) {
+		if (!(modems & (AST_FAX_MODEM_V34))) {
 			return 1;
 		}
 		break;
@@ -714,8 +714,12 @@ static int check_modem_rate(enum ast_fax_modems modems, unsigned int rate)
 		}
 		break;
 	case 7200:
-	case 9600:
 		if (!(modems & (AST_FAX_MODEM_V17 | AST_FAX_MODEM_V29 | AST_FAX_MODEM_V34))) {
+			return 1;
+		}
+		break;
+	case 9600:
+		if (!(modems & (AST_FAX_MODEM_V17 | AST_FAX_MODEM_V27 | AST_FAX_MODEM_V29 | AST_FAX_MODEM_V34))) {
 			return 1;
 		}
 		break;
@@ -3877,6 +3881,13 @@ static int set_config(int reload)
 		ast_log(LOG_ERROR, "maxrate %d is less than minrate %d\n", options.maxrate, options.minrate);
 		res = -1;
 		goto end;
+	}
+
+	if (options.minrate == 2400 && (options.modems & AST_FAX_MODEM_V27) && !(options.modems & (AST_FAX_MODEM_V34))) {
+		ast_fax_modem_to_str(options.modems, modems, sizeof(modems));
+		ast_log(LOG_WARNING, "'modems' setting '%s' is no longer accepted with 'minrate' setting %d\n", modems, options.minrate);
+		ast_log(LOG_WARNING, "'minrate' has been reset to 4800, please update res_fax.conf.\n");
+		options.minrate = 4800;
 	}
 
 	if (check_modem_rate(options.modems, options.minrate)) {

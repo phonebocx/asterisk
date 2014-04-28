@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405431 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 408786 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_SYSTEM_NAME */
@@ -1628,10 +1628,6 @@ int pbx_exec(struct ast_channel *c,	/*!< Channel */
 	ast_channel_data_set(c, saved_c_data);
 	return res;
 }
-
-
-/*! Go no deeper than this through includes (not counting loops) */
-#define AST_PBX_MAX_STACK	128
 
 /*! \brief Find application handle in linked list
  */
@@ -3957,6 +3953,7 @@ int ast_custom_function_unregister(struct ast_custom_function *acf)
 	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&escalation_root, cur_escalation, list) {
 		if (cur_escalation->acf == acf) {
 			AST_RWLIST_REMOVE_CURRENT(list);
+			ast_free(cur_escalation);
 			break;
 		}
 	}
@@ -8923,6 +8920,16 @@ void ast_merge_contexts_and_delete(struct ast_context **extcontexts, struct ast_
 	begintime = ast_tvnow();
 	ast_mutex_lock(&context_merge_lock);/* Serialize ast_merge_contexts_and_delete */
 	ast_wrlock_contexts();
+
+	if (!contexts_table) {
+		/* Well, that's odd. There are no contexts. */
+		contexts_table = exttable;
+		contexts = *extcontexts;
+		ast_unlock_contexts();
+		ast_mutex_unlock(&context_merge_lock);
+		return;
+	}
+
 	iter = ast_hashtab_start_traversal(contexts_table);
 	while ((tmp = ast_hashtab_next(iter))) {
 		context_merge(extcontexts, exttable, tmp, registrar);
@@ -9281,6 +9288,8 @@ int ast_build_timing(struct ast_timing *i, const char *info_in)
 	char *info;
 	int j, num_fields, last_sep = -1;
 
+	i->timezone = NULL;
+
 	/* Check for empty just in case */
 	if (ast_strlen_zero(info_in)) {
 		return 0;
@@ -9300,8 +9309,6 @@ int ast_build_timing(struct ast_timing *i, const char *info_in)
 	/* save the timezone, if it is specified */
 	if (num_fields == 5) {
 		i->timezone = ast_strdup(info + last_sep + 1);
-	} else {
-		i->timezone = NULL;
 	}
 
 	/* Assume everything except time */

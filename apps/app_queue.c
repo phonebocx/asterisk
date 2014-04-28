@@ -63,7 +63,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 402646 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409208 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -227,10 +227,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 402646 $")
 				connected to a queue member.</para>
 			</parameter>
 			<parameter name="macro">
-				<para>Will run a macro on the calling party's channel once they are connected to a queue member.</para>
+				<para>Will run a macro on the called party's channel (the queue member) once the parties are connected.</para>
 			</parameter>
 			<parameter name="gosub">
-				<para>Will run a gosub on the calling party's channel once they are connected to a queue member.</para>
+				<para>Will run a gosub on the called party's channel (the queue member) once the parties are connected.</para>
 			</parameter>
 			<parameter name="rule">
 				<para>Will cause the queue's defaultrule to be overridden by the rule specified.</para>
@@ -6276,22 +6276,25 @@ static int set_member_paused(const char *queuename, const char *interface, const
 
 				ast_queue_log(q->name, "NONE", mem->membername, (paused ? "PAUSE" : "UNPAUSE"), "%s", S_OR(reason, ""));
 
-				/*** DOCUMENTATION
-				<managerEventInstance>
-					<synopsis>Raised when a member is paused/unpaused in the queue with a reason.</synopsis>
-					<syntax>
-						<xi:include xpointer="xpointer(/docs/managerEvent[@name='QueueMemberStatus']/managerEventInstance/syntax/parameter[@name='Queue'])" />
-						<xi:include xpointer="xpointer(/docs/managerEvent[@name='QueueMemberStatus']/managerEventInstance/syntax/parameter[@name='Location'])" />
-						<xi:include xpointer="xpointer(/docs/managerEvent[@name='QueueMemberStatus']/managerEventInstance/syntax/parameter[@name='MemberName'])" />
-						<xi:include xpointer="xpointer(/docs/managerEvent[@name='QueueMemberStatus']/managerEventInstance/syntax/parameter[@name='Paused'])" />
-					</syntax>
-					<see-also>
-						<ref type="application">PauseQueueMember</ref>
-						<ref type="application">UnPauseQueueMember</ref>
-					</see-also>
-				</managerEventInstance>
-				***/
 				if (!ast_strlen_zero(reason)) {
+					/*** DOCUMENTATION
+					<managerEventInstance>
+						<synopsis>Raised when a member is paused/unpaused in the queue with a reason.</synopsis>
+						<syntax>
+							<xi:include xpointer="xpointer(/docs/managerEvent[@name='QueueMemberStatus']/managerEventInstance/syntax/parameter[@name='Queue'])" />
+							<xi:include xpointer="xpointer(/docs/managerEvent[@name='QueueMemberStatus']/managerEventInstance/syntax/parameter[@name='Location'])" />
+							<xi:include xpointer="xpointer(/docs/managerEvent[@name='QueueMemberStatus']/managerEventInstance/syntax/parameter[@name='MemberName'])" />
+							<xi:include xpointer="xpointer(/docs/managerEvent[@name='QueueMemberStatus']/managerEventInstance/syntax/parameter[@name='Paused'])" />
+							<parameter name="Reason">
+								<para>The reason given for pausing or unpausing a queue member.</para>
+							</parameter>
+						</syntax>
+						<see-also>
+							<ref type="application">PauseQueueMember</ref>
+							<ref type="application">UnPauseQueueMember</ref>
+						</see-also>
+					</managerEventInstance>
+					***/
 					manager_event(EVENT_FLAG_AGENT, "QueueMemberPaused",
 						"Queue: %s\r\n"
 						"Location: %s\r\n"
