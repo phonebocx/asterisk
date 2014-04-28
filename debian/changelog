@@ -1,3 +1,13 @@
+asterisk (1:11.9.0~dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - Drop dahdi_pri_event_removed patch, fixed upstream.
+    - Drop freeradius-client patch, fixed upstream.
+    - Drop hyphen patch, fixed upstream.
+    - Update pjproject patch.
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Mon, 28 Apr 2014 14:20:49 +0200
+
 asterisk (1:11.8.1~dfsg-1) unstable; urgency=high
 
   * New upstream security release (Closes: #741313).

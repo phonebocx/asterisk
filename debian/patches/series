@@ -24,12 +24,9 @@ astdatadir
 pjproject
 
 # Backport of dynamic generation of DAHDI channels:
-dahdi_pri_event_removed
 dahdi_create_channels
 
-hyphen
 reenable
-freeradius-client
 ignore_failed_channels.patch
 smsq_enable.patch
 ASTERISK-23310.patch
