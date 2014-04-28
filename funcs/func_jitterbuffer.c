@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 375895 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -324,6 +324,11 @@ static int jb_helper(struct ast_channel *chan, const char *cmd, char *data, cons
 		.destroy_cb = hook_destroy_cb,
 	};
 	int i = 0;
+
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
 
 	if (!(framedata = ast_calloc(1, sizeof(*framedata)))) {
 		return 0;

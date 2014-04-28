@@ -34,9 +34,13 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 328259 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 406802 $")
 
+#ifdef FREERADIUS_CLIENT
+#include <freeradius-client.h>
+#else
 #include <radiusclient-ng.h>
+#endif
 
 #include "asterisk/channel.h"
 #include "asterisk/cdr.h"
@@ -82,7 +86,11 @@ static const char desc[] = "RADIUS CDR Backend";
 static const char name[] = "radius";
 static const char cdr_config[] = "cdr.conf";
 
+#ifdef FREERADIUS_CLIENT
+static char radiuscfg[PATH_MAX] = "/etc/radiusclient/radiusclient.conf";
+#else
 static char radiuscfg[PATH_MAX] = "/etc/radiusclient-ng/radiusclient.conf";
+#endif
 
 static struct ast_flags global_flags = { RADIUS_FLAG_USEGMTIME | RADIUS_FLAG_LOGUNIQUEID | RADIUS_FLAG_LOGUSERFIELD };
 

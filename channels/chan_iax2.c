@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404045 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 
 #include <sys/mman.h>
 #include <dirent.h>
@@ -1301,6 +1301,92 @@ static void iax2_lock_owner(int callno)
 		/* Avoid deadlock by pausing and trying again */
 		DEADLOCK_AVOIDANCE(&iaxsl[callno]);
 	}
+}
+
+/*!
+ * \internal
+ * \brief Check if a control subtype is allowed on the wire.
+ *
+ * \param subtype Control frame subtype to check if allowed to/from the wire.
+ *
+ * \retval non-zero if allowed.
+ */
+static int iax2_is_control_frame_allowed(int subtype)
+{
+	enum ast_control_frame_type control = subtype;
+	int is_allowed;
+
+	/*
+	 * Note: If we compare the enumeration type, which does not have any
+	 * negative constants, the compiler may optimize this code away.
+	 * Therefore, we must perform an integer comparison here.
+	 */
+	if (subtype == -1) {
+		return -1;
+	}
+
+	/* Default to not allowing control frames to pass. */
+	is_allowed = 0;
+
+	/*
+	 * The switch default is not present in order to take advantage
+	 * of the compiler complaining of a missing enum case.
+	 */
+	switch (control) {
+	/*
+	 * These control frames make sense to send/receive across the link.
+	 */
+	case AST_CONTROL_HANGUP:
+	case AST_CONTROL_RING:
+	case AST_CONTROL_RINGING:
+	case AST_CONTROL_ANSWER:
+	case AST_CONTROL_BUSY:
+	case AST_CONTROL_TAKEOFFHOOK:
+	case AST_CONTROL_OFFHOOK:
+	case AST_CONTROL_CONGESTION:
+	case AST_CONTROL_FLASH:
+	case AST_CONTROL_WINK:
+	case AST_CONTROL_OPTION:
+	case AST_CONTROL_RADIO_KEY:
+	case AST_CONTROL_RADIO_UNKEY:
+	case AST_CONTROL_PROGRESS:
+	case AST_CONTROL_PROCEEDING:
+	case AST_CONTROL_HOLD:
+	case AST_CONTROL_UNHOLD:
+	case AST_CONTROL_VIDUPDATE:
+	case AST_CONTROL_CONNECTED_LINE:
+	case AST_CONTROL_REDIRECTING:
+	case AST_CONTROL_T38_PARAMETERS:
+	case AST_CONTROL_AOC:
+	case AST_CONTROL_INCOMPLETE:
+	case AST_CONTROL_MCID:
+		is_allowed = -1;
+		break;
+
+	/*
+	 * These control frames do not make sense to send/receive across the link.
+	 */
+	case _XXX_AST_CONTROL_T38:
+		/* The control value is deprecated in favor of AST_CONTROL_T38_PARAMETERS. */
+	case AST_CONTROL_SRCUPDATE:
+		/* Across an IAX link the source is still the same. */
+	case AST_CONTROL_TRANSFER:
+		/* A success/fail status report from calling ast_transfer() on this machine. */
+	case AST_CONTROL_CC:
+		/* The payload contains pointers that are valid for the sending machine only. */
+	case AST_CONTROL_SRCCHANGE:
+		/* Across an IAX link the source is still the same. */
+	case AST_CONTROL_READ_ACTION:
+		/* The action can only be done by the sending machine. */
+	case AST_CONTROL_END_OF_Q:
+		/* This frame would cause the call to unexpectedly hangup. */
+	case AST_CONTROL_UPDATE_RTP_PEER:
+		/* Only meaningful across a bridge on this machine for direct-media exchange. */
+	case AST_CONTROL_PVT_CAUSE_CODE:
+		/* Intended only for the sending machine's local channel structure. */
+		break;
+	}
+	return is_allowed;
 }
 
 static void mwi_event_cb(const struct ast_event *event, void *userdata)
@@ -5602,7 +5688,7 @@ static enum ast_bridge_result iax2_bridge(struct ast_channel *c0, struct ast_cha
 			unlock_both(callno0, callno1);
 			return AST_BRIDGE_FAILED_NOWARN;
 		}
-		/* check if transfered and if we really want native bridging */
+		/* check if transferred and if we really want native bridging */
 		if (!transferstarted && !ast_test_flag64(iaxs[callno0], IAX_NOTRANSFER) && !ast_test_flag64(iaxs[callno1], IAX_NOTRANSFER)) {
 			/* Try the transfer */
 			if (iax2_start_transfer(callno0, callno1, (flags & (AST_BRIDGE_DTMF_CHANNEL_0 | AST_BRIDGE_DTMF_CHANNEL_1)) ||
@@ -5752,8 +5838,13 @@ static int iax2_indicate(struct ast_channel *c, int condition, const void *data,
 		}
 		break;
 	case AST_CONTROL_CONNECTED_LINE:
-		if (!ast_test_flag64(pvt, IAX_SENDCONNECTEDLINE))
+	case AST_CONTROL_REDIRECTING:
+		if (!ast_test_flag64(pvt, IAX_SENDCONNECTEDLINE)) {
+			/* We are not configured to allow sending these updates. */
+			ast_debug(2, "Callno %u: Config blocked sending control frame %d.\n",
+				callno, condition);
 			goto done;
+		}
 		break;
 	case AST_CONTROL_PVT_CAUSE_CODE:
 		res = -1;
@@ -7599,6 +7690,12 @@ static int __send_command(struct chan_iax2_pvt *i, char type, int command, unsig
 
 static int send_command(struct chan_iax2_pvt *i, char type, int command, unsigned int ts, const unsigned char *data, int datalen, int seqno)
 {
+	if (type == AST_FRAME_CONTROL && !iax2_is_control_frame_allowed(command)) {
+		/* Control frame should not go out on the wire. */
+		ast_debug(2, "Callno %u: Blocked sending control frame %d.\n",
+			i->callno, command);
+		return 0;
+	}
 	return __send_command(i, type, command, ts, data, datalen, seqno, 0, 0, 0);
 }
 
@@ -9916,10 +10013,16 @@ static int socket_process_meta(int packet_len, struct ast_iax2_meta_hdr *meta, s
 
 static int acf_iaxvar_read(struct ast_channel *chan, const char *cmd, char *data, char *buf, size_t len)
 {
-	struct ast_datastore *variablestore = ast_channel_datastore_find(chan, &iax2_variable_datastore_info, NULL);
+	struct ast_datastore *variablestore;
 	AST_LIST_HEAD(, ast_var_t) *varlist;
 	struct ast_var_t *var;
 
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
+
+	variablestore = ast_channel_datastore_find(chan, &iax2_variable_datastore_info, NULL);
 	if (!variablestore) {
 		*buf = '\0';
 		return 0;
@@ -9939,10 +10042,16 @@ static int acf_iaxvar_read(struct ast_channel *chan, const char *cmd, char *data
 
 static int acf_iaxvar_write(struct ast_channel *chan, const char *cmd, char *data, const char *value)
 {
-	struct ast_datastore *variablestore = ast_channel_datastore_find(chan, &iax2_variable_datastore_info, NULL);
+	struct ast_datastore *variablestore;
 	AST_LIST_HEAD(, ast_var_t) *varlist;
 	struct ast_var_t *var;
 
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
+
+	variablestore = ast_channel_datastore_find(chan, &iax2_variable_datastore_info, NULL);
 	if (!variablestore) {
 		variablestore = ast_datastore_alloc(&iax2_variable_datastore_info, NULL);
 		if (!variablestore) {
@@ -10564,13 +10673,6 @@ static int socket_process_helper(struct iax2_thread *thread)
 			if (f.subclass.format.id != ast_format_id_from_old_bitfield(iaxs[fr->callno]->videoformat)) {
 				ast_debug(1, "Ooh, video format changed to %s\n", ast_getformatname(&f.subclass.format));
 				iaxs[fr->callno]->videoformat = ast_format_to_old_bitfield(&f.subclass.format);
-			}
-		}
-		if (f.frametype == AST_FRAME_CONTROL && iaxs[fr->callno]->owner) {
-			if (f.subclass.integer == AST_CONTROL_BUSY) {
-				ast_channel_hangupcause_set(iaxs[fr->callno]->owner, AST_CAUSE_BUSY);
-			} else if (f.subclass.integer == AST_CONTROL_CONGESTION) {
-				ast_channel_hangupcause_set(iaxs[fr->callno]->owner, AST_CAUSE_CONGESTION);
 			}
 		}
 		if (f.frametype == AST_FRAME_IAX) {
@@ -11777,23 +11879,58 @@ immediatedial:
 		fr->ts = (iaxs[fr->callno]->last & 0xFFFF0000L) | ntohs(mh->ts);
 		/* FIXME? Surely right here would be the right place to undo timestamp wraparound? */
 	}
+
 	/* Don't pass any packets until we're started */
-	if (!ast_test_flag(&iaxs[fr->callno]->state, IAX_STATE_STARTED)) {
+	if (!iaxs[fr->callno]
+		|| !ast_test_flag(&iaxs[fr->callno]->state, IAX_STATE_STARTED)) {
 		ast_variables_destroy(ies.vars);
 		ast_mutex_unlock(&iaxsl[fr->callno]);
 		return 1;
 	}
-	/* Don't allow connected line updates unless we are configured to */
-	if (f.frametype == AST_FRAME_CONTROL && f.subclass.integer == AST_CONTROL_CONNECTED_LINE) {
-		struct ast_party_connected_line connected;
 
-		if (!ast_test_flag64(iaxs[fr->callno], IAX_RECVCONNECTEDLINE)) {
+	if (f.frametype == AST_FRAME_CONTROL) {
+		if (!iax2_is_control_frame_allowed(f.subclass.integer)) {
+			/* Control frame not allowed to come from the wire. */
+			ast_debug(2, "Callno %u: Blocked receiving control frame %d.\n",
+				fr->callno, f.subclass.integer);
 			ast_variables_destroy(ies.vars);
 			ast_mutex_unlock(&iaxsl[fr->callno]);
 			return 1;
 		}
+		if (f.subclass.integer == AST_CONTROL_CONNECTED_LINE
+			|| f.subclass.integer == AST_CONTROL_REDIRECTING) {
+			if (iaxs[fr->callno]
+				&& !ast_test_flag64(iaxs[fr->callno], IAX_RECVCONNECTEDLINE)) {
+				/* We are not configured to allow receiving these updates. */
+				ast_debug(2, "Callno %u: Config blocked receiving control frame %d.\n",
+					fr->callno, f.subclass.integer);
+				ast_variables_destroy(ies.vars);
+				ast_mutex_unlock(&iaxsl[fr->callno]);
+				return 1;
+			}
+		}
 
-		/* Initialize defaults */
+		iax2_lock_owner(fr->callno);
+		if (iaxs[fr->callno] && iaxs[fr->callno]->owner) {
+			if (f.subclass.integer == AST_CONTROL_BUSY) {
+				ast_channel_hangupcause_set(iaxs[fr->callno]->owner, AST_CAUSE_BUSY);
+			} else if (f.subclass.integer == AST_CONTROL_CONGESTION) {
+				ast_channel_hangupcause_set(iaxs[fr->callno]->owner, AST_CAUSE_CONGESTION);
+			}
+			ast_channel_unlock(iaxs[fr->callno]->owner);
+		}
+	}
+
+	if (f.frametype == AST_FRAME_CONTROL
+		&& f.subclass.integer == AST_CONTROL_CONNECTED_LINE
+		&& iaxs[fr->callno]) {
+		struct ast_party_connected_line connected;
+
+		/*
+		 * Process a received connected line update.
+		 *
+		 * Initialize defaults.
+		 */
 		ast_party_connected_line_init(&connected);
 		connected.id.number.presentation = iaxs[fr->callno]->calling_pres;
 		connected.id.name.presentation = iaxs[fr->callno]->calling_pres;
@@ -11816,6 +11953,7 @@ immediatedial:
 		}
 		ast_party_connected_line_free(&connected);
 	}
+
 	/* Common things */
 	f.src = "IAX2";
 	f.mallocd = 0;
@@ -11841,9 +11979,11 @@ immediatedial:
 		fr->outoforder = -1;
 	}
 	fr->cacheable = ((f.frametype == AST_FRAME_VOICE) || (f.frametype == AST_FRAME_VIDEO));
-	duped_fr = iaxfrdup2(fr);
-	if (duped_fr) {
-		schedule_delivery(duped_fr, updatehistory, 0, &fr->ts);
+	if (iaxs[fr->callno]) {
+		duped_fr = iaxfrdup2(fr);
+		if (duped_fr) {
+			schedule_delivery(duped_fr, updatehistory, 0, &fr->ts);
+		}
 	}
 	if (iaxs[fr->callno] && iaxs[fr->callno]->last < fr->ts) {
 		iaxs[fr->callno]->last = fr->ts;
@@ -14179,8 +14319,9 @@ static int function_iaxpeer(struct ast_channel *chan, const char *cmd, char *dat
 	/* if our channel, return the IP address of the endpoint of current channel */
 	if (!strcmp(peername,"CURRENTCHANNEL")) {
 	        unsigned short callno;
-		if (ast_channel_tech(chan) != &iax2_tech)
+		if (!chan || ast_channel_tech(chan) != &iax2_tech) {
 			return -1;
+		}
 		callno = PTR_TO_CALLNO(ast_channel_tech_pvt(chan));	
 		ast_copy_string(buf, iaxs[callno]->addr.sin_addr.s_addr ? ast_inet_ntoa(iaxs[callno]->addr.sin_addr) : "", len);
 		return 0;

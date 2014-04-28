@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 381554 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 412324 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -131,6 +131,9 @@ static void *autoservice_run(void *ign)
 
 		callid = ast_channel_callid(chan);
 		ast_callid_threadassoc_change(callid);
+		if (callid) {
+			callid = ast_callid_unref(callid);
+		}
 
 		f = ast_read(chan);
 
@@ -172,11 +175,6 @@ static void *autoservice_run(void *ign)
 		} else if (f) {
 			ast_frfree(f);
 		}
-	}
-
-	if (callid) {
-		ast_callid_threadassoc_remove();
-		callid = ast_callid_unref(callid);
 	}
 
 	asthread = AST_PTHREADT_NULL;

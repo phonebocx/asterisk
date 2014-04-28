@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 376014 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 
 #include <limits.h>
 
@@ -950,6 +950,11 @@ static int jack_hook_write(struct ast_channel *chan, const char *cmd, char *data
 	const char *value)
 {
 	int res;
+
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
 
 	if (!strcasecmp(value, "on"))
 		res = enable_jack_hook(chan, data);

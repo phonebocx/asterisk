@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404045 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 408537 $")
 
 #include <ctype.h>
 #include <errno.h>
@@ -158,7 +158,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404045 $")
 					</option>
 					<option name="x">
 						<argument name="digit" required="true">
-							<para>Specify a DTMF digit that can be used to exit the application.</para>
+							<para>Specify a DTMF digit that can be used to exit the application while actively
+							spying on a channel. If there is no channel being spied on, the DTMF digit will be
+							ignored.</para>
 						</argument>
 					</option>
 					<option name="X">
@@ -295,7 +297,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404045 $")
 					</option>
 					<option name="x">
 						<argument name="digit" required="true">
-							<para>Specify a DTMF digit that can be used to exit the application.</para>
+							<para>Specify a DTMF digit that can be used to exit the application while actively
+							spying on a channel. If there is no channel being spied on, the DTMF digit will be
+							ignored.</para>
 						</argument>
 					</option>
 					<option name="X">

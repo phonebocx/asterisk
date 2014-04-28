@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405215 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 410965 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -182,7 +182,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405215 $")
 		<syntax>
 			<xi:include xpointer="xpointer(/docs/manager[@name='Login']/syntax/parameter[@name='ActionID'])" />
 			<parameter name="Conference" required="true" />
-			<parameter name="Channel" required="true" />
+			<parameter name="Channel" required="true">
+				<para>If this parameter is not a complete channel name, the first channel with this prefix will be used.</para>
+			</parameter>
 		</syntax>
 		<description>
 		</description>
@@ -194,7 +196,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405215 $")
 		<syntax>
 			<xi:include xpointer="xpointer(/docs/manager[@name='Login']/syntax/parameter[@name='ActionID'])" />
 			<parameter name="Conference" required="true" />
-			<parameter name="Channel" required="true" />
+			<parameter name="Channel" required="true">
+				<para>If this parameter is not a complete channel name, the first channel with this prefix will be used.</para>
+			</parameter>
 		</syntax>
 		<description>
 		</description>
@@ -264,7 +268,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405215 $")
 		<syntax>
 			<xi:include xpointer="xpointer(/docs/manager[@name='Login']/syntax/parameter[@name='ActionID'])" />
 			<parameter name="Conference" required="true" />
-			<parameter name="Channel" required="true" />
+			<parameter name="Channel" required="true">
+				<para>If this parameter is not a complete channel name, the first channel with this prefix will be used.</para>
+			</parameter>
 		</syntax>
 		<description>
 		</description>
@@ -365,6 +371,8 @@ const char *conf_get_sound(enum conf_sounds sound, struct bridge_profile_sounds 
 		return S_OR(custom_sounds->participantsmuted, "conf-now-muted");
 	case CONF_SOUND_PARTICIPANTS_UNMUTED:
 		return S_OR(custom_sounds->participantsunmuted, "conf-now-unmuted");
+	case CONF_SOUND_BEGIN:
+		return S_OR(custom_sounds->begin, "confbridge-conf-begin");
 	}
 
 	return "";
@@ -984,6 +992,13 @@ void conf_update_user_mute(struct conference_bridge_user *user)
 		ast_channel_name(user->chan), mute_effective ? "muted" : "unmuted",
 		mute_user, mute_system);
 	user->features.mute = mute_effective;
+	ast_test_suite_event_notify("CONF_MUTE_UPDATE",
+		"Mode: %s\r\n"
+		"Conference: %s\r\n"
+		"Channel: %s",
+		mute_effective ? "muted" : "unmuted",
+		user->b_profile.name,
+		ast_channel_name(user->chan));
 }
 
 void conf_moh_stop(struct conference_bridge_user *user)
@@ -1072,14 +1087,6 @@ static void conf_moh_suspend(struct conference_bridge_user *user)
 		ast_moh_stop(user->chan);
 	}
 	ao2_unlock(user->conference_bridge);
-}
-
-int conf_handle_first_marked_common(struct conference_bridge_user *cbu)
-{
-	if (!ast_test_flag(&cbu->u_profile, USER_OPT_QUIET) && play_prompt_to_user(cbu, conf_get_sound(CONF_SOUND_PLACE_IN_CONF, cbu->b_profile.sounds))) {
-		return -1;
-	}
-	return 0;
 }
 
 int conf_handle_inactive_waitmarked(struct conference_bridge_user *cbu)
@@ -1664,6 +1671,12 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 			conf_name);
 	}
 
+	/* If the caller should be joined already muted, set the flag before we join. */
+	if (ast_test_flag(&conference_bridge_user.u_profile, USER_OPT_STARTMUTED)) {
+		/* Set user level mute request. */
+		conference_bridge_user.muted = 1;
+	}
+
 	/* Look for a conference bridge matching the provided name */
 	if (!(conference_bridge = join_conference_bridge(args.conf_name, &conference_bridge_user))) {
 		res = -1;
@@ -1673,12 +1686,6 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 	/* Keep a copy of volume adjustments so we can restore them later if need be */
 	volume_adjustments[0] = ast_audiohook_volume_get(chan, AST_AUDIOHOOK_DIRECTION_READ);
 	volume_adjustments[1] = ast_audiohook_volume_get(chan, AST_AUDIOHOOK_DIRECTION_WRITE);
-
-	/* If the caller should be joined already muted, make it so */
-	if (ast_test_flag(&conference_bridge_user.u_profile, USER_OPT_STARTMUTED)) {
-		/* Set user level mute request. */
-		conference_bridge_user.muted = 1;
-	}
 
 	if (ast_test_flag(&conference_bridge_user.u_profile, USER_OPT_DROP_SILENCE)) {
 		conference_bridge_user.tech_args.drop_silence = 1;
@@ -2421,7 +2428,10 @@ static char *handle_cli_confbridge_mute(struct ast_cli_entry *e, int cmd, struct
 		e->command = "confbridge mute";
 		e->usage =
 			"Usage: confbridge mute <conference> <channel>\n"
-			"       Mute a channel in a conference.\n";
+			"       Mute a channel in a conference.\n"
+			"       If the specified channel is a prefix,\n"
+			"       the action will be taken on the first\n"
+			"       matching channel.\n";
 		return NULL;
 	case CLI_GENERATE:
 		if (a->pos == 2) {
@@ -2448,7 +2458,10 @@ static char *handle_cli_confbridge_unmute(struct ast_cli_entry *e, int cmd, stru
 		e->command = "confbridge unmute";
 		e->usage =
 			"Usage: confbridge unmute <conference> <channel>\n"
-			"       Unmute a channel in a conference.\n";
+			"       Unmute a channel in a conference.\n"
+			"       If the specified channel is a prefix,\n"
+			"       the action will be taken on the first\n"
+			"       matching channel.\n";
 		return NULL;
 	case CLI_GENERATE:
 		if (a->pos == 2) {

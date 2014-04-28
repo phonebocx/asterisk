@@ -33,9 +33,13 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Rev: 328259 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Rev: 406802 $")
 
+#ifdef FREERADIUS_CLIENT
+#include <freeradius-client.h>
+#else
 #include <radiusclient-ng.h>
+#endif
 
 #include "asterisk/channel.h"
 #include "asterisk/cel.h"
@@ -79,7 +83,11 @@ enum {
 
 static char *cel_config = "cel.conf";
 
+#ifdef FREERADIUS_CLIENT
+static char radiuscfg[PATH_MAX] = "/etc/radiusclient/radiusclient.conf";
+#else
 static char radiuscfg[PATH_MAX] = "/etc/radiusclient-ng/radiusclient.conf";
+#endif
 
 static struct ast_flags global_flags = { RADIUS_FLAG_USEGMTIME | RADIUS_FLAG_LOGUNIQUEID | RADIUS_FLAG_LOGUSERFIELD };
 

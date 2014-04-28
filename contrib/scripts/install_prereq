@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# $Id: install_prereq 379643 2013-01-21 04:39:23Z lathama $
+# $Id: install_prereq 408733 2014-02-21 19:04:21Z kharwell $
 #
 
 # install_prereq: a script to install distribution-specific
@@ -10,7 +10,7 @@ set -e
 
 usage() {
   echo "$0: a script to install distribution-specific prerequirement"
-  echo 'Revision: $Id: install_prereq 379643 2013-01-21 04:39:23Z lathama $'
+  echo 'Revision: $Id: install_prereq 408733 2014-02-21 19:04:21Z kharwell $'
   echo ""
   echo "Usage: $0:                    Shows this message."
   echo "Usage: $0 test                Prints commands it is about to run."
@@ -21,7 +21,7 @@ usage() {
 # Basic build system:
 PACKAGES_DEBIAN="build-essential"
 # Asterisk: basic requirements:
-PACKAGES_DEBIAN="$PACKAGES_DEBIAN libncurses-dev libz-dev libssl-dev libxml2-dev libsqlite3-dev"
+PACKAGES_DEBIAN="$PACKAGES_DEBIAN libncurses-dev libz-dev libssl-dev libxml2-dev libsqlite3-dev uuid-dev uuid"
 # Asterisk: for addons:
 PACKAGES_DEBIAN="$PACKAGES_DEBIAN libcurl-dev libspeex-dev libspeexdsp-dev libogg-dev libvorbis-dev libasound2-dev portaudio19-dev libcurl4-openssl-dev"
 PACKAGES_DEBIAN="$PACKAGES_DEBIAN libpq-dev unixodbc-dev libsqlite0-dev libmysqlclient15-dev libneon27-dev libgmime-dev libusb-dev liblua5.1-0-dev lua5.1"

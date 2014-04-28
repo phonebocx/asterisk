@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
  
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 396287 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -687,6 +687,11 @@ static int local_read(struct ast_channel *chan, const char *cmd, char *data, cha
 	struct gosub_stack_frame *frame;
 	struct ast_var_t *variables;
 
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
+
 	ast_channel_lock(chan);
 	if (!(stack_store = ast_channel_datastore_find(chan, &stack_info, NULL))) {
 		ast_channel_unlock(chan);
@@ -720,6 +725,11 @@ static int local_write(struct ast_channel *chan, const char *cmd, char *var, con
 	struct ast_datastore *stack_store;
 	struct gosub_stack_list *oldlist;
 	struct gosub_stack_frame *frame;
+
+	if (!chan) {
+		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
 
 	ast_channel_lock(chan);
 	if (!(stack_store = ast_channel_datastore_find(chan, &stack_info, NULL))) {
@@ -763,6 +773,12 @@ static int peek_read(struct ast_channel *chan, const char *cmd, char *data, char
 	}
 
 	AST_STANDARD_RAW_ARGS(args, data);
+
+	if (ast_strlen_zero(args.n) || ast_strlen_zero(args.name)) {
+		ast_log(LOG_ERROR, "LOCAL_PEEK requires parameters n and varname\n");
+		return -1;
+	}
+
 	n = atoi(args.n);
 	*buf = '\0';
 
@@ -801,6 +817,11 @@ static int stackpeek_read(struct ast_channel *chan, const char *cmd, char *data,
 
 	data = ast_strdupa(data);
 	AST_STANDARD_APP_ARGS(args, data);
+
+	if (ast_strlen_zero(args.n) || ast_strlen_zero(args.which)) {
+		ast_log(LOG_ERROR, "STACK_PEEK requires parameters n and which\n");
+		return -1;
+	}
 
 	n = atoi(args.n);
 	if (n <= 0) {

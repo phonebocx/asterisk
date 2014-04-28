@@ -119,7 +119,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 385917 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 407338 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/channel.h"
@@ -505,7 +505,7 @@ int ast_devstate_changed_literal(enum ast_device_state state, enum ast_devstate_
 		AST_LIST_UNLOCK(&state_changes);
 	}
 
-	return 1;
+	return 0;
 }
 
 int ast_device_state_changed_literal(const char *dev)
