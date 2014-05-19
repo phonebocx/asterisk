@@ -12,6 +12,10 @@ asterisk (1:11.9.0~dfsg-1) UNRELEASED; urgency=medium
   [ Daniel Pocock ]
   * Make init script more adaptable for multiple instances.
 
+  [ Tzafrir Cohen ]
+  * pri_destroy_span_prilist.patch, sigpri_handle_enodev_1.patch: fix
+    regressions due to dahdi_pri_event_removed.
+
  -- Jeremy Lainé <jeremy.laine@m4x.org>  Mon, 19 May 2014 09:38:36 +0200
 
 asterisk (1:11.8.1~dfsg-1) unstable; urgency=high
