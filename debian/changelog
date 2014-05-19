@@ -1,13 +1,18 @@
 asterisk (1:11.9.0~dfsg-1) UNRELEASED; urgency=medium
 
+  [ Jeremy Lainé ]
   * New upstream release.
     - Drop ASTERISK-23310 patch, fixed upstream.
     - Drop dahdi_pri_event_removed patch, fixed upstream.
     - Drop freeradius-client patch, fixed upstream.
     - Drop hyphen patch, fixed upstream.
     - Update pjproject patch.
+  * Add Daniel Pocock to uploaders.
 
- -- Jeremy Lainé <jeremy.laine@m4x.org>  Mon, 28 Apr 2014 14:20:49 +0200
+  [ Daniel Pocock ]
+  * Make init script more adaptable for multiple instances.
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Mon, 19 May 2014 09:38:36 +0200
 
 asterisk (1:11.8.1~dfsg-1) unstable; urgency=high
 
