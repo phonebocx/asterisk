@@ -7,7 +7,7 @@ asterisk (1:11.9.0~dfsg-1) UNRELEASED; urgency=medium
     - Drop freeradius-client patch, fixed upstream.
     - Update pjproject patch.
   * Provide a manpage for smsq.
-  * Use "set -e" in asterisk.prerm (fixes lintian warning).
+  * Use "set -e" in asterisk.(postrm|prerm) (fixes lintian warning).
   * Add Daniel Pocock to uploaders.
 
   [ Daniel Pocock ]
