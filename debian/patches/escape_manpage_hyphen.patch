@@ -1,5 +1,6 @@
 Author: Jeremy Lainé <jeremy.laine@m4x.org>
 Description: fix groff error in asterisk manpage
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-23768
 
 Fix an unescaped hyphen in the asterisk manpage.
 

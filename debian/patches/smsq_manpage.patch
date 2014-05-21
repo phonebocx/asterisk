@@ -1,3 +1,5 @@
+Provide a manpage for the smsq application.
+
 diff --git a/doc/smsq.8 b/doc/smsq.8
 new file mode 100644
 index 0000000..d8b0406
