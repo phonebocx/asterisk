@@ -1,4 +1,4 @@
-asterisk (1:11.9.0~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:11.9.0~dfsg-1) unstable; urgency=medium
 
   [ Jeremy Lainé ]
   * New upstream release.
@@ -18,7 +18,7 @@ asterisk (1:11.9.0~dfsg-1) UNRELEASED; urgency=medium
   * pri_destroy_span_prilist.patch, sigpri_handle_enodev_1.patch: fix
     regressions due to dahdi_pri_event_removed.
 
- -- Jeremy Lainé <jeremy.laine@m4x.org>  Mon, 19 May 2014 09:38:36 +0200
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Wed, 21 May 2014 12:03:09 +0200
 
 asterisk (1:11.8.1~dfsg-1) unstable; urgency=high
 
