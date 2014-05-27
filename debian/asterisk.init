@@ -24,18 +24,13 @@
 
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 NAME=asterisk
-INSTANCE=$NAME
 USER=$NAME
 GROUP=$USER
 DAEMON=/usr/sbin/$NAME
 CANARY=/usr/sbin/astcanary
 DESC="Asterisk PBX"
-ETCDIR=/etc/$INSTANCE
-LOGDIR=/var/log/$INSTANCE
-RUNDIR=/var/run/$INSTANCE
-PIDFILE="${RUNDIR}/asterisk.pid"
-ASTSAFE_PIDFILE="${RUNDIR}/asterisk_safe.pid"
-ASTCTL="${RUNDIR}/${NAME}.ctl"
+PIDFILE="/var/run/asterisk/asterisk.pid"
+ASTSAFE_PIDFILE="/var/run/asterisk/asterisk_safe.pid"
 UMASK=007 # by default
 #MAXFILES=1024 # (the system default)
 
@@ -50,21 +45,13 @@ AST_DUMPCORE="no"
 AST_DUMPCORE_DIR="/var/spool/asterisk" # only used if AST_DUMPCORE != no
 # core_pattern. See: http://lxr.linux.no/source/Documentation/sysctl/kernel.txt
 #CORE_PATTERN=
-if [ -r /etc/default/$INSTANCE ]; then . /etc/default/$INSTANCE ; fi
+if [ -r /etc/default/$NAME ]; then . /etc/default/$NAME; fi
 
 if [ "$RUNASTERISK" != "yes" ];then
-	echo "Asterisk not yet configured. Edit /etc/default/$INSTANCE first."
+	echo "Asterisk not yet configured. Edit /etc/default/asterisk first."
 	exit 0
 fi
 
-if [ ! -z "$ETCDIR" ]
-then
-   PARAMS="$PARAMS -C $ETCDIR"
-fi
-if [ ! -z "$ASTCTL" ]
-then
-   PARAMS="$PARAMS -s $ASTCTL"
-fi
 if [ "$AST_REALTIME" != "no" ]
 then
   PARAMS="$PARAMS -p"
@@ -109,7 +96,7 @@ fi
 
 test -x $DAEMON || exit 0
 
-for dir in ${RUNDIR} ${LOGDIR} ${LOGDIR}/cdr-csv ${LOGDIR}/cdr-custom; do
+for dir in /var/run/asterisk /var/log/asterisk /var/log/asterisk/cdr-csv /var/log/asterisk/cdr-custom; do
 	[ -d $dir ] || install -d -o $USER -g $GROUP $dir
 	[ -x /sbin/restorecon ] && /sbin/restorecon $dir
 done
@@ -128,9 +115,6 @@ then
 fi
 
 status() {
-	# it is not clear whether it is better to use $NAME or $INSTANCE here,
-	# status_of_proc will always try to use the PID file if it really exists
-	# fortunately
 	status_of_proc -p "$PIDFILE" "$NAME" "$DESC" && return 0 || return $?
 }
 
@@ -140,7 +124,7 @@ asterisk_rx() {
 	# if $HOME is set, asterisk -rx writes a .asterisk_history there
 	(
 		unset HOME
-		$DAEMON -r -s "${ASTCTL}" -x "$1"
+		$DAEMON -rx "$1"
 	)
 }
 
@@ -180,10 +164,10 @@ case "$1" in
 	fi
 		
 	
-	echo "$INSTANCE."
+	echo "$NAME."
 	;;
   stop)
-	echo -n "Stopping $DESC: $INSTANCE"
+	echo -n "Stopping $DESC: $NAME"
 	# Try gracefully.
 	# this may hang in some cases. Specifically, when the asterisk
 	# processes is stopped. No bother to worry about cleanup: 
@@ -223,7 +207,7 @@ case "$1" in
 	exit $?
 	;;
   *)
-	N=/etc/init.d/$INSTANCE
+	N=/etc/init.d/$NAME
 	echo "Usage: $N {start|stop|restart|reload|status|debug|logger-reload|extensions-reload|restart-convenient|force-reload}" >&2
 	exit 1
 	;;
