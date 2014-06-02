@@ -44,7 +44,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 404858 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include <libpq-fe.h>
 
@@ -203,11 +203,11 @@ static void pgsql_log(const struct ast_event *event, void *userdata)
 				if (strncmp(cur->type, "int", 3) == 0) {
 					/* Integer, no need to escape anything */
 					LENGTHEN_BUF2(13);
-					ast_str_append(&sql2, 0, "%s%d", SEP, record.amaflag);
+					ast_str_append(&sql2, 0, "%s%u", SEP, record.amaflag);
 				} else {
 					/* Although this is a char field, there are no special characters in the values for these fields */
 					LENGTHEN_BUF2(31);
-					ast_str_append(&sql2, 0, "%s'%d'", SEP, record.amaflag);
+					ast_str_append(&sql2, 0, "%s'%u'", SEP, record.amaflag);
 				}
 			} else {
 				/* Arbitrary field, could be anything */

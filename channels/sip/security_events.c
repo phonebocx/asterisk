@@ -30,9 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 385689 $")
-
-/* #define  REF_DEBUG 1 */
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 412115 $")
 
 #include "include/sip.h"
 #include "include/security_events.h"

@@ -40,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 371592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 412468 $")
 
 #include <ctype.h>		/* isalnum() used here */
 #include <math.h>
@@ -48,7 +48,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 371592 $")
 
 #ifdef __linux
 #include <linux/soundcard.h>
-#elif defined(__FreeBSD__) || defined(__CYGWIN__) || defined(__GLIBC__)
+#elif defined(__FreeBSD__) || defined(__CYGWIN__) || defined(__GLIBC__) || defined(__sun)
 #include <sys/soundcard.h>
 #else
 #include <soundcard.h>

@@ -28,7 +28,7 @@
  ***/
 
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 377883 $");
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $");
 
 #include "asterisk/aoc.h"
 #include "asterisk/utils.h"
@@ -1431,7 +1431,7 @@ static void aoc_d_event(const struct ast_aoc_decoded *decoded, struct ast_channe
 					decoded->unit_list[idx].amount);
 			}
 			if (decoded->unit_list[idx].valid_type) {
-				ast_str_append(msg, 0, "%s/TypeOf: %d\r\n", prefix,
+				ast_str_append(msg, 0, "%s/TypeOf: %u\r\n", prefix,
 					decoded->unit_list[idx].type);
 			}
 		}
@@ -1499,7 +1499,7 @@ static void aoc_e_event(const struct ast_aoc_decoded *decoded, struct ast_channe
 					decoded->unit_list[idx].amount);
 			}
 			if (decoded->unit_list[idx].valid_type) {
-				ast_str_append(msg, 0, "%s/TypeOf: %d\r\n", prefix,
+				ast_str_append(msg, 0, "%s/TypeOf: %u\r\n", prefix,
 					decoded->unit_list[idx].type);
 			}
 		}

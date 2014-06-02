@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411408 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -59,11 +59,31 @@ struct custom_prepare_struct {
 	unsigned long long skip;
 };
 
+#define ENCODE_CHUNK(buffer, s) \
+	do { \
+		char *eptr = buffer; \
+		const char *vptr = s; \
+		for (; *vptr && eptr < buffer + sizeof(buffer); vptr++) { \
+			if (strchr("^;", *vptr)) { \
+				/* We use ^XX, instead of %XX because '%' is a special character in SQL */ \
+				snprintf(eptr, buffer + sizeof(buffer) - eptr, "^%02hhX", *vptr); \
+				eptr += 3; \
+			} else { \
+				*eptr++ = *vptr; \
+			} \
+		} \
+		if (eptr < buffer + sizeof(buffer)) { \
+			*eptr = '\0'; \
+		} else { \
+			buffer[sizeof(buffer) - 1] = '\0'; \
+		} \
+	} while(0)
+
 static void decode_chunk(char *chunk)
 {
 	for (; *chunk; chunk++) {
 		if (*chunk == '^' && strchr("0123456789ABCDEF", chunk[1]) && strchr("0123456789ABCDEF", chunk[2])) {
-			sscanf(chunk + 1, "%02hhX", chunk);
+			sscanf(chunk + 1, "%02hhX", (unsigned char *)chunk);
 			memmove(chunk + 1, chunk + 3, strlen(chunk + 3) + 1);
 		}
 	}
@@ -90,7 +110,7 @@ static SQLHSTMT custom_prepare(struct odbc_obj *obj, void *data)
 		return NULL;
 	}
 
-	ast_debug(1, "Skip: %lld; SQL: %s\n", cps->skip, cps->sql);
+	ast_debug(1, "Skip: %llu; SQL: %s\n", cps->skip, cps->sql);
 
 	res = SQLPrepare(stmt, (unsigned char *)cps->sql, SQL_NTS);
 	if ((res != SQL_SUCCESS) && (res != SQL_SUCCESS_WITH_INFO)) {
@@ -103,27 +123,12 @@ static SQLHSTMT custom_prepare(struct odbc_obj *obj, void *data)
 	while ((newparam = va_arg(ap, const char *))) {
 		newval = va_arg(ap, const char *);
 		if ((1LL << count++) & cps->skip) {
-			ast_debug(1, "Skipping field '%s'='%s' (%llo/%llo)\n", newparam, newval, 1LL << (count - 1), cps->skip);
+			ast_debug(1, "Skipping field '%s'='%s' (%llo/%llo)\n", newparam, newval, 1ULL << (count - 1), cps->skip);
 			continue;
 		}
 		ast_debug(1, "Parameter %d ('%s') = '%s'\n", x, newparam, newval);
 		if (strchr(newval, ';') || strchr(newval, '^')) {
-			char *eptr = encodebuf;
-			const char *vptr = newval;
-			for (; *vptr && eptr < encodebuf + sizeof(encodebuf); vptr++) {
-				if (strchr("^;", *vptr)) {
-					/* We use ^XX, instead of %XX because '%' is a special character in SQL */
-					snprintf(eptr, encodebuf + sizeof(encodebuf) - eptr, "^%02hhX", *vptr);
-					eptr += 3;
-				} else {
-					*eptr++ = *vptr;
-				}
-			}
-			if (eptr < encodebuf + sizeof(encodebuf)) {
-				*eptr = '\0';
-			} else {
-				encodebuf[sizeof(encodebuf) - 1] = '\0';
-			}
+			ENCODE_CHUNK(encodebuf, newval);
 			ast_string_field_set(cps, encoding[x], encodebuf);
 			newval = cps->encoding[x];
 		}
@@ -131,8 +136,16 @@ static SQLHSTMT custom_prepare(struct odbc_obj *obj, void *data)
 	}
 	va_end(ap);
 
-	if (!ast_strlen_zero(cps->extra))
-		SQLBindParameter(stmt, x++, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(cps->extra), 0, (void *)cps->extra, 0, NULL);
+	if (!ast_strlen_zero(cps->extra)) {
+		const char *newval = cps->extra;
+		if (strchr(newval, ';') || strchr(newval, '^')) {
+			ENCODE_CHUNK(encodebuf, newval);
+			ast_string_field_set(cps, encoding[x], encodebuf);
+			newval = cps->encoding[x];
+		} 
+		SQLBindParameter(stmt, x++, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_CHAR, strlen(newval), 0, (void *)newval, 0, NULL);
+	}
+
 	return stmt;
 }
 
@@ -744,6 +757,10 @@ static int store_odbc(const char *database, const char *table, va_list ap)
 		return -1;
 	}
 
+	if (ast_string_field_init(&cps, 256)) {
+		return -1;
+	}
+
 	obj = ast_odbc_request_obj2(database, connected_flag);
 	if (!obj) {
 		return -1;
@@ -821,6 +838,10 @@ static int destroy_odbc(const char *database, const char *table, const char *key
 	struct ast_flags connected_flag = { RES_ODBC_CONNECTED };
 
 	if (!table) {
+		return -1;
+	}
+
+	if (ast_string_field_init(&cps, 256)) {
 		return -1;
 	}
 

@@ -65,7 +65,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 412324 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "asterisk/_private.h"
 
@@ -509,7 +509,6 @@ static char *handle_show_settings(struct ast_cli_entry *e, int cmd, struct ast_c
 	ast_cli(a->fd, "  User name and group:         %s/%s\n", ast_config_AST_RUN_USER, ast_config_AST_RUN_GROUP);
 	ast_cli(a->fd, "  Executable includes:         %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_EXEC_INCLUDES) ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Transcode via SLIN:          %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_TRANSCODE_VIA_SLIN) ? "Enabled" : "Disabled");
-	ast_cli(a->fd, "  Internal timing:             %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_INTERNAL_TIMING) ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Transmit silence during rec: %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_TRANSMIT_SILENCE) ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Generic PLC:                 %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_GENERIC_PLC) ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Min DTMF duration::          %u\n", option_dtmfminduration);
@@ -696,14 +695,14 @@ static char *handle_show_sysinfo(struct ast_cli_entry *e, int cmd, struct ast_cl
 
 	ast_cli(a->fd, "\nSystem Statistics\n");
 	ast_cli(a->fd, "-----------------\n");
-	ast_cli(a->fd, "  System Uptime:             %lu hours\n", uptime);
+	ast_cli(a->fd, "  System Uptime:             %ld hours\n", uptime);
 	ast_cli(a->fd, "  Total RAM:                 %" PRIu64 " KiB\n", physmem / 1024);
 	ast_cli(a->fd, "  Free RAM:                  %" PRIu64 " KiB\n", freeram);
 #if defined(HAVE_SYSINFO)
 	ast_cli(a->fd, "  Buffer RAM:                %" PRIu64 " KiB\n", ((uint64_t) sys_info.bufferram * sys_info.mem_unit) / 1024);
 #endif
 #if defined (HAVE_SYSCTL) || defined(HAVE_SWAPCTL)
-	ast_cli(a->fd, "  Total Swap Space:          %u KiB\n", totalswap);
+	ast_cli(a->fd, "  Total Swap Space:          %d KiB\n", totalswap);
 	ast_cli(a->fd, "  Free Swap Space:           %" PRIu64 " KiB\n\n", freeswap);
 #endif
 	ast_cli(a->fd, "  Number of Processes:       %d \n\n", nprocs);
@@ -1570,7 +1569,7 @@ static int ast_makesocket(void)
 		ast_log(LOG_WARNING, "Unable to change ownership of %s: %s\n", ast_config_AST_SOCKET, strerror(errno));
 
 	if (!ast_strlen_zero(ast_config_AST_CTL_PERMISSIONS)) {
-		int p1;
+		unsigned int p1;
 		mode_t p;
 		sscanf(ast_config_AST_CTL_PERMISSIONS, "%30o", &p1);
 		p = p1;
@@ -3228,7 +3227,6 @@ static int show_cli_help(void)
 	printf("   -g              Dump core in case of a crash\n");
 	printf("   -h              This help screen\n");
 	printf("   -i              Initialize crypto keys at startup\n");
-	printf("   -I              Enable internal timing if DAHDI timer is available\n");
 	printf("   -L <load>       Limit the maximum load average before rejecting new calls\n");
 	printf("   -M <value>      Limit the maximum number of calls to the specified value\n");
 	printf("   -m              Mute debugging and console output on the console\n");
@@ -3404,7 +3402,11 @@ static void ast_readconfig(void)
 			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_TRANSMIT_SILENCE);
 		/* Enable internal timing */
 		} else if (!strcasecmp(v->name, "internal_timing")) {
-			ast_set2_flag(&ast_options, ast_true(v->value), AST_OPT_FLAG_INTERNAL_TIMING);
+			if (!ast_opt_remote) {
+				fprintf(stderr,
+					"NOTICE: The internal_timing option is no longer needed.\n"
+					"  It will always be enabled if you have a timing module loaded.\n");
+			}
 		} else if (!strcasecmp(v->name, "mindtmfduration")) {
 			if (sscanf(v->value, "%30u", &option_dtmfminduration) != 1) {
 				option_dtmfminduration = AST_MIN_DTMF_DURATION;
@@ -3731,7 +3733,9 @@ int main(int argc, char *argv[])
 			show_cli_help();
 			exit(0);
 		case 'I':
-			ast_set_flag(&ast_options, AST_OPT_FLAG_INTERNAL_TIMING);
+			fprintf(stderr,
+				"NOTICE: The -I option is no longer needed.\n"
+				"  It will always be enabled if you have a timing module loaded.\n");
 			break;
 		case 'i':
 			ast_set_flag(&ast_options, AST_OPT_FLAG_INIT_KEYS);
@@ -4124,6 +4128,8 @@ int main(int argc, char *argv[])
 	register_config_cli();
 	read_config_maps();
 
+	astobj2_init();
+
 	if (ast_opt_console) {
 		if (el_hist == NULL || el == NULL)
 			ast_el_initialize();
@@ -4203,8 +4209,6 @@ int main(int argc, char *argv[])
 	}
 
 	threadstorage_init();
-
-	astobj2_init();
 
 	ast_format_attr_init();
 	ast_format_list_init();

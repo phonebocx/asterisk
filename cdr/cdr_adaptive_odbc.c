@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401579 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include <sys/types.h>
 #include <time.h>
@@ -611,7 +611,7 @@ static int odbc_log(struct ast_cdr *cdr)
 					if (ast_strlen_zero(colptr)) {
 						continue;
 					} else {
-						char integer = 0;
+						signed char integer = 0;
 						if (sscanf(colptr, "%30hhd", &integer) != 1) {
 							ast_log(LOG_WARNING, "CDR variable %s is not an integer.\n", entry->name);
 							continue;
@@ -626,7 +626,7 @@ static int odbc_log(struct ast_cdr *cdr)
 					if (ast_strlen_zero(colptr)) {
 						continue;
 					} else {
-						char integer = 0;
+						signed char integer = 0;
 						if (sscanf(colptr, "%30hhd", &integer) != 1) {
 							ast_log(LOG_WARNING, "CDR variable %s is not an integer.\n", entry->name);
 							continue;

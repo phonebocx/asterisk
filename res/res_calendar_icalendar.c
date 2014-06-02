@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 380452 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include <libical/ical.h>
 #include <ne_session.h>
@@ -245,7 +245,7 @@ static void icalendar_add_event(icalcomponent *comp, struct icaltime_span *span,
 			ast_string_field_set(event, uid, event->summary);
 		} else {
 			char tmp[100];
-			snprintf(tmp, sizeof(tmp), "%lu", event->start);
+			snprintf(tmp, sizeof(tmp), "%ld", event->start);
 			ast_string_field_set(event, uid, tmp);
 		}
 	}

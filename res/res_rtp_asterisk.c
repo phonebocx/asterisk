@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409565 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -286,6 +286,7 @@ struct ast_rtp {
 	SSL *ssl;         /*!< SSL session */
 	BIO *read_bio;    /*!< Memory buffer for reading */
 	BIO *write_bio;   /*!< Memory buffer for writing */
+	ast_mutex_t dtls_timer_lock;           /*!< Lock for synchronization purposes */
 	enum ast_rtp_dtls_setup dtls_setup; /*!< Current setup state */
 	enum ast_srtp_suite suite;   /*!< SRTP crypto suite */
 	char local_fingerprint[160]; /*!< Fingerprint of our certificate */
@@ -294,6 +295,7 @@ struct ast_rtp {
 	unsigned int dtls_failure:1; /*!< Failure occurred during DTLS negotiation */
 	unsigned int rekey; /*!< Interval at which to renegotiate and rekey */
 	int rekeyid; /*!< Scheduled item id for rekeying */
+	int dtlstimerid; /*!< Scheduled item id for DTLS retransmission for RTP */
 #endif
 };
 
@@ -403,6 +405,7 @@ static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level);
 
 #ifdef HAVE_OPENSSL_SRTP
 static int ast_rtp_activate(struct ast_rtp_instance *instance);
+static void dtls_srtp_check_pending(struct ast_rtp_instance *instance, struct ast_rtp *rtp);
 #endif
 
 static int __rtp_sendto(struct ast_rtp_instance *instance, void *buf, size_t size, int flags, struct ast_sockaddr *sa, int rtcp, int *ice, int use_srtp);
@@ -857,7 +860,7 @@ static int ast_rtp_dtls_set_configuration(struct ast_rtp_instance *instance, con
 		}
 
 		for (i = 0; i < size; i++) {
-			sprintf(local_fingerprint, "%.2X:", fingerprint[i]);
+			sprintf(local_fingerprint, "%.2X:", (unsigned)fingerprint[i]);
 			local_fingerprint += 3;
 		}
 
@@ -1319,9 +1322,43 @@ static inline int rtcp_debug_test_addr(struct ast_sockaddr *addr)
 }
 
 #ifdef HAVE_OPENSSL_SRTP
+
+static int dtls_srtp_handle_timeout(const void *data)
+{
+	struct ast_rtp_instance *instance = (struct ast_rtp_instance *)data;
+	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
+
+	if (!rtp)
+	{
+		return 0;
+	}
+
+	ast_mutex_lock(&rtp->dtls_timer_lock);
+	if (rtp->dtlstimerid == -1)
+	{
+		ast_mutex_unlock(&rtp->dtls_timer_lock);
+		ao2_ref(instance, -1);
+		return 0;
+	}
+
+	rtp->dtlstimerid = -1;
+	ast_mutex_unlock(&rtp->dtls_timer_lock);
+
+	if (rtp->ssl) {
+		DTLSv1_handle_timeout(rtp->ssl);
+	}
+
+	dtls_srtp_check_pending(instance, rtp);
+
+	ao2_ref(instance, -1);
+
+	return 0;
+}
+
 static void dtls_srtp_check_pending(struct ast_rtp_instance *instance, struct ast_rtp *rtp)
 {
 	size_t pending = BIO_ctrl_pending(rtp->write_bio);
+	struct timeval dtls_timeout; /* timeout on DTLS  */
 
 	if (pending > 0) {
 		char outgoing[pending];
@@ -1337,6 +1374,23 @@ static void dtls_srtp_check_pending(struct ast_rtp_instance *instance, struct as
 		}
 
 		out = BIO_read(rtp->write_bio, outgoing, sizeof(outgoing));
+
+		/* Stop existing DTLS timer if running */
+		ast_mutex_lock(&rtp->dtls_timer_lock);
+		if (rtp->dtlstimerid > -1) {
+			AST_SCHED_DEL_UNREF(rtp->sched, rtp->dtlstimerid, ao2_ref(instance, -1));
+			rtp->dtlstimerid = -1;
+		}
+
+		if (DTLSv1_get_timeout(rtp->ssl, &dtls_timeout)) {
+			int timeout = dtls_timeout.tv_sec * 1000 + dtls_timeout.tv_usec / 1000;
+			ao2_ref(instance, +1);
+			if ((rtp->dtlstimerid = ast_sched_add(rtp->sched, timeout, dtls_srtp_handle_timeout, instance)) < 0) {
+				ao2_ref(instance, -1);
+				ast_log(LOG_WARNING, "scheduling DTLS retransmission for RTP instance [%p] failed.\n", instance);
+			}
+		}
+		ast_mutex_unlock(&rtp->dtls_timer_lock);
 
 		__rtp_sendto(instance, outgoing, out, 0, &remote_address, 0, &ice, 0);
 	}
@@ -1428,7 +1482,7 @@ static int dtls_srtp_setup(struct ast_rtp *rtp, struct ast_srtp *srtp, struct as
 	}
 
 	if (res_srtp_policy->set_suite(local_policy, rtp->suite)) {
-		ast_log(LOG_WARNING, "Could not set suite to '%d' on local policy of '%p' when setting up DTLS-SRTP\n", rtp->suite, rtp);
+		ast_log(LOG_WARNING, "Could not set suite to '%u' on local policy of '%p' when setting up DTLS-SRTP\n", rtp->suite, rtp);
 		goto error;
 	}
 
@@ -1448,7 +1502,7 @@ static int dtls_srtp_setup(struct ast_rtp *rtp, struct ast_srtp *srtp, struct as
 	}
 
 	if (res_srtp_policy->set_suite(remote_policy, rtp->suite)) {
-		ast_log(LOG_WARNING, "Could not set suite to '%d' on remote policy of '%p' when setting up DTLS-SRTP\n", rtp->suite, rtp);
+		ast_log(LOG_WARNING, "Could not set suite to '%u' on remote policy of '%p' when setting up DTLS-SRTP\n", rtp->suite, rtp);
 		goto error;
 	}
 
@@ -1973,6 +2027,7 @@ static int ast_rtp_new(struct ast_rtp_instance *instance,
 
 #ifdef HAVE_OPENSSL_SRTP
 	rtp->rekeyid = -1;
+	rtp->dtlstimerid = -1;
 #endif
 
 	return 0;
@@ -2133,7 +2188,7 @@ static int ast_rtp_dtmf_begin(struct ast_rtp_instance *instance, char digit)
 		update_address_with_ice_candidate(rtp, AST_RTP_ICE_COMPONENT_RTP, &remote_address);
 #endif
 		if (rtp_debug_test_addr(&remote_address)) {
-			ast_verbose("Sent RTP DTMF packet to %s%s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u)\n",
+			ast_verbose("Sent RTP DTMF packet to %s%s (type %-2.2d, seq %-6.6d, ts %-6.6u, len %-6.6d)\n",
 				    ast_sockaddr_stringify(&remote_address),
 				    ice ? " (via ICE)" : "",
 				    payload, rtp->seqno, rtp->lastdigitts, res - hdrlen);
@@ -2186,7 +2241,7 @@ static int ast_rtp_dtmf_continuation(struct ast_rtp_instance *instance)
 #endif
 
 	if (rtp_debug_test_addr(&remote_address)) {
-		ast_verbose("Sent RTP DTMF packet to %s%s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u)\n",
+		ast_verbose("Sent RTP DTMF packet to %s%s (type %-2.2d, seq %-6.6d, ts %-6.6u, len %-6.6d)\n",
 			    ast_sockaddr_stringify(&remote_address),
 			    ice ? " (via ICE)" : "",
 			    rtp->send_payload, rtp->seqno, rtp->lastdigitts, res - hdrlen);
@@ -2235,7 +2290,7 @@ static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, cha
 	rtp->dtmfmute = ast_tvadd(ast_tvnow(), ast_tv(0, 500000));
 
 	if (duration > 0 && (measured_samples = duration * rtp_get_rate(&rtp->f.subclass.format) / 1000) > rtp->send_duration) {
-		ast_debug(2, "Adjusting final end duration from %u to %u\n", rtp->send_duration, measured_samples);
+		ast_debug(2, "Adjusting final end duration from %d to %u\n", rtp->send_duration, measured_samples);
 		rtp->send_duration = measured_samples;
 	}
 
@@ -2264,7 +2319,7 @@ static int ast_rtp_dtmf_end_with_duration(struct ast_rtp_instance *instance, cha
 #endif
 
 		if (rtp_debug_test_addr(&remote_address)) {
-			ast_verbose("Sent RTP DTMF packet to %s%s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u)\n",
+			ast_verbose("Sent RTP DTMF packet to %s%s (type %-2.2d, seq %-6.6d, ts %-6.6u, len %-6.6d)\n",
 				    ast_sockaddr_stringify(&remote_address),
 				    ice ? " (via ICE)" : "",
 				    rtp->send_payload, rtp->seqno, rtp->lastdigitts, res - hdrlen);
@@ -2550,7 +2605,7 @@ static int ast_rtcp_write_sr(struct ast_rtp_instance *instance)
 		ast_verbose("  Sent packets: %u\n", rtp->txcount);
 		ast_verbose("  Sent octets: %u\n", rtp->txoctetcount);
 		ast_verbose("  Report block:\n");
-		ast_verbose("  Fraction lost: %u\n", fraction);
+		ast_verbose("  Fraction lost: %d\n", fraction);
 		ast_verbose("  Cumulative loss: %u\n", lost);
 		ast_verbose("  IA jitter: %.4f\n", rtp->rxjitter);
 		ast_verbose("  Their last SR: %u\n", rtp->rtcp->themrxlsr);
@@ -2563,7 +2618,7 @@ static int ast_rtcp_write_sr(struct ast_rtp_instance *instance)
 					    "SentPackets: %u\r\n"
 					    "SentOctets: %u\r\n"
 					    "ReportBlock:\r\n"
-					    "FractionLost: %u\r\n"
+					    "FractionLost: %d\r\n"
 					    "CumulativeLoss: %u\r\n"
 					    "IAJitter: %.4f\r\n"
 					    "TheirLastSR: %u\r\n"
@@ -2640,7 +2695,7 @@ static int ast_rtp_raw_write(struct ast_rtp_instance *instance, struct ast_frame
 			if (abs(rtp->lastts - pred) < MAX_TIMESTAMP_SKEW) {
 				rtp->lastts = pred;
 			} else {
-				ast_debug(3, "Difference is %d, ms is %d\n", abs(rtp->lastts - pred), ms);
+				ast_debug(3, "Difference is %d, ms is %u\n", abs(rtp->lastts - pred), ms);
 				mark = 1;
 			}
 		}
@@ -2655,7 +2710,7 @@ static int ast_rtp_raw_write(struct ast_rtp_instance *instance, struct ast_frame
 				rtp->lastts = pred;
 				rtp->lastovidtimestamp += frame->samples;
 			} else {
-				ast_debug(3, "Difference is %d, ms is %d (%d), pred/ts/samples %d/%d/%d\n", abs(rtp->lastts - pred), ms, ms * 90, rtp->lastts, pred, frame->samples);
+				ast_debug(3, "Difference is %d, ms is %u (%u), pred/ts/samples %u/%d/%d\n", abs(rtp->lastts - pred), ms, ms * 90, rtp->lastts, pred, frame->samples);
 				rtp->lastovidtimestamp = rtp->lastts;
 			}
 		}
@@ -2669,7 +2724,7 @@ static int ast_rtp_raw_write(struct ast_rtp_instance *instance, struct ast_frame
 				rtp->lastts = pred;
 				rtp->lastotexttimestamp += frame->samples;
 			} else {
-				ast_debug(3, "Difference is %d, ms is %d, pred/ts/samples %d/%d/%d\n", abs(rtp->lastts - pred), ms, rtp->lastts, pred, frame->samples);
+				ast_debug(3, "Difference is %d, ms is %u, pred/ts/samples %u/%d/%d\n", abs(rtp->lastts - pred), ms, rtp->lastts, pred, frame->samples);
 				rtp->lastotexttimestamp = rtp->lastts;
 			}
 		}
@@ -2734,7 +2789,7 @@ static int ast_rtp_raw_write(struct ast_rtp_instance *instance, struct ast_frame
 #endif
 
 		if (rtp_debug_test_addr(&remote_address)) {
-			ast_verbose("Sent RTP packet to      %s%s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u)\n",
+			ast_verbose("Sent RTP packet to      %s%s (type %-2.2d, seq %-6.6d, ts %-6.6u, len %-6.6d)\n",
 				    ast_sockaddr_stringify(&remote_address),
 				    ice ? " (via ICE)" : "",
 				    codec, rtp->seqno, rtp->lastts, res - hdrlen);
@@ -3008,7 +3063,7 @@ static void process_dtmf_rfc2833(struct ast_rtp_instance *instance, unsigned cha
 	samples &= 0xFFFF;
 
 	if (rtp_debug_test_addr(&remote_address)) {
-		ast_verbose("Got  RTP RFC2833 from   %s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u, mark %d, event %08x, end %d, duration %-5.5d) \n",
+		ast_verbose("Got  RTP RFC2833 from   %s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6d, mark %d, event %08x, end %d, duration %-5.5u) \n",
 			    ast_sockaddr_stringify(&remote_address),
 			    payloadtype, seqno, timestamp, len, (mark?1:0), event, ((event_end & 0x80)?1:0), samples);
 	}
@@ -3068,7 +3123,7 @@ static void process_dtmf_rfc2833(struct ast_rtp_instance *instance, unsigned cha
 				rtp->dtmf_duration = rtp->dtmf_timeout = 0;
 				AST_LIST_INSERT_TAIL(frames, f, frame_list);
 			} else if (rtpdebug) {
-				ast_debug(1, "Dropping re-transmitted, duplicate, or out of order DTMF END frame (seqno: %d, ts %d, digit %c)\n",
+				ast_debug(1, "Dropping re-transmitted, duplicate, or out of order DTMF END frame (seqno: %u, ts %u, digit %c)\n",
 					seqno, timestamp, resp);
 			}
 		} else {
@@ -3085,7 +3140,7 @@ static void process_dtmf_rfc2833(struct ast_rtp_instance *instance, unsigned cha
 				 * this.
 				 */
 				if (rtpdebug) {
-					ast_debug(1, "Dropping out of order DTMF frame (seqno %d, ts %d, digit %c)\n",
+					ast_debug(1, "Dropping out of order DTMF frame (seqno %u, ts %u, digit %c)\n",
 						seqno, timestamp, resp);
 				}
 				return;
@@ -3170,7 +3225,7 @@ static struct ast_frame *process_dtmf_cisco(struct ast_rtp_instance *instance, u
 	event = data[3] & 0x1f;
 
 	if (rtpdebug)
-		ast_debug(0, "Cisco DTMF Digit: %02x (len=%d, seq=%d, flags=%02x, power=%d, history count=%d)\n", event, len, seq, flags, power, (len - 4) / 2);
+		ast_debug(0, "Cisco DTMF Digit: %02x (len=%d, seq=%d, flags=%02x, power=%u, history count=%d)\n", event, len, seq, flags, power, (len - 4) / 2);
 	if (event < 10) {
 		resp = '0' + event;
 	} else if (event < 11) {
@@ -3397,8 +3452,8 @@ static struct ast_frame *ast_rtcp_read(struct ast_rtp_instance *instance)
 					rtp->rtcp->rtt_count++;
 				} else if (rtcp_debug_test_addr(&addr)) {
 					ast_verbose("Internal RTCP NTP clock skew detected: "
-							   "lsr=%u, now=%u, dlsr=%u (%d:%03dms), "
-						    "diff=%d\n",
+							   "lsr=%u, now=%u, dlsr=%u (%u:%03ums), "
+						    "diff=%u\n",
 						    lsr, comp, dlsr, dlsr / 65536,
 						    (dlsr % 65536) * 1000 / 65536,
 						    dlsr - (comp - lsr));
@@ -3446,7 +3501,7 @@ static struct ast_frame *ast_rtcp_read(struct ast_rtp_instance *instance)
 
 			if (rtcp_debug_test_addr(&addr)) {
 				ast_verbose("  Fraction lost: %ld\n", (((long) ntohl(rtcpheader[i + 1]) & 0xff000000) >> 24));
-				ast_verbose("  Packets lost so far: %d\n", rtp->rtcp->reported_lost);
+				ast_verbose("  Packets lost so far: %u\n", rtp->rtcp->reported_lost);
 				ast_verbose("  Highest sequence number: %ld\n", (long) (ntohl(rtcpheader[i + 2]) & 0xffff));
 				ast_verbose("  Sequence number cycles: %ld\n", (long) (ntohl(rtcpheader[i + 2])) >> 16);
 				ast_verbose("  Interarrival jitter: %u\n", rtp->rtcp->reported_jitter);
@@ -3461,7 +3516,7 @@ static struct ast_frame *ast_rtcp_read(struct ast_rtp_instance *instance)
 								    "ReceptionReports: %d\r\n"
 								    "SenderSSRC: %u\r\n"
 								    "FractionLost: %ld\r\n"
-								    "PacketsLost: %d\r\n"
+								    "PacketsLost: %u\r\n"
 								    "HighestSequence: %ld\r\n"
 								    "SequenceNumberCycles: %ld\r\n"
 								    "IAJitter: %u\r\n"
@@ -3486,7 +3541,7 @@ static struct ast_frame *ast_rtcp_read(struct ast_rtp_instance *instance)
 								    "ReceptionReports: %d\r\n"
 								    "SenderSSRC: %u\r\n"
 								    "FractionLost: %ld\r\n"
-								    "PacketsLost: %d\r\n"
+								    "PacketsLost: %u\r\n"
 								    "HighestSequence: %ld\r\n"
 								    "SequenceNumberCycles: %ld\r\n"
 								    "IAJitter: %u\r\n"
@@ -3615,7 +3670,7 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance, unsigned int 
 #endif
 
 	if (rtp_debug_test_addr(&remote_address)) {
-		ast_verbose("Sent RTP P2P packet to %s%s (type %-2.2d, len %-6.6u)\n",
+		ast_verbose("Sent RTP P2P packet to %s%s (type %-2.2d, len %-6.6d)\n",
 			    ast_sockaddr_stringify(&remote_address),
 			    ice ? " (via ICE)" : "",
 			    bridged_payload, len - hdrlen);
@@ -3824,7 +3879,7 @@ static struct ast_frame *ast_rtp_read(struct ast_rtp_instance *instance, int rtc
 		hdrlen += (ntohl(rtpheader[hdrlen/4]) & 0xffff) << 2;
 		hdrlen += 4;
 		if (option_debug) {
-			int profile;
+			unsigned int profile;
 			profile = (ntohl(rtpheader[3]) & 0xffff0000) >> 16;
 			if (profile == 0x505a)
 				ast_debug(1, "Found Zfone extension in RTP stream - zrtp - not supported.\n");
@@ -3865,7 +3920,7 @@ static struct ast_frame *ast_rtp_read(struct ast_rtp_instance *instance, int rtc
 	}
 
 	if (rtp_debug_test_addr(&addr)) {
-		ast_verbose("Got  RTP packet from    %s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u)\n",
+		ast_verbose("Got  RTP packet from    %s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6d)\n",
 			    ast_sockaddr_stringify(&addr),
 			    payloadtype, seqno, timestamp,res - hdrlen);
 	}
@@ -4295,6 +4350,9 @@ static void ast_rtp_stop(struct ast_rtp_instance *instance)
 
 #ifdef HAVE_OPENSSL_SRTP
 	AST_SCHED_DEL_UNREF(rtp->sched, rtp->rekeyid, ao2_ref(instance, -1));
+	ast_mutex_lock(&rtp->dtls_timer_lock);
+	AST_SCHED_DEL_UNREF(rtp->sched, rtp->dtlstimerid, ao2_ref(instance, -1));
+	ast_mutex_unlock(&rtp->dtls_timer_lock);
 #endif
 
 	if (rtp->rtcp && rtp->rtcp->schedid > 0) {
@@ -4368,7 +4426,7 @@ static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level)
 #endif
 
 	if (rtp_debug_test_addr(&remote_address)) {
-		ast_verbose("Sent Comfort Noise RTP packet to %s%s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6u)\n",
+		ast_verbose("Sent Comfort Noise RTP packet to %s%s (type %-2.2d, seq %-6.6d, ts %-6.6u, len %-6.6d)\n",
 			    ast_sockaddr_stringify(&remote_address),
 			    ice ? " (via ICE)" : "",
 			    AST_RTP_CN, rtp->seqno, rtp->lastdigitts, res - hdrlen);

@@ -27,7 +27,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 375532 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include <ne_request.h>
 #include <ne_session.h>
@@ -456,7 +456,7 @@ static int endelm(void *userdata, int state, const char *nspace, const char *nam
 		}
 	} else if (!strcmp(name, "Envelope")) {
 		/* Events end */
-		ast_debug(3, "EWS: XML: %d of %d event(s) has been parsed…\n", ao2_container_count(ctx->pvt->events), ctx->pvt->items);
+		ast_debug(3, "EWS: XML: %d of %u event(s) has been parsed…\n", ao2_container_count(ctx->pvt->events), ctx->pvt->items);
 		if (ao2_container_count(ctx->pvt->events) >= ctx->pvt->items) {
 			ast_debug(3, "EWS: XML: All events has been parsed, merging…\n");
 			ast_calendar_merge_events(ctx->pvt->owner, ctx->pvt->events);
