@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 407457 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 414270 $")
 
 #include <fcntl.h>
 #include <sys/signal.h>
@@ -429,8 +429,11 @@ static int local_queue_frame(struct local_pvt *p, int isoutbound, struct ast_fra
 		return 0;
 	}
 
-	/* do not queue frame if generator is on both local channels */
-	if (us && ast_channel_generator(us) && ast_channel_generator(other)) {
+	/* do not queue media frames if a generator is on both local channels */
+	if (us
+		&& (f->frametype == AST_FRAME_VOICE || f->frametype == AST_FRAME_VIDEO)
+		&& ast_channel_generator(us)
+		&& ast_channel_generator(other)) {
 		return 0;
 	}
 
@@ -1243,8 +1246,8 @@ static struct ast_channel *local_new(struct local_pvt *p, int state, const char 
 
 	/* Make sure that the ;2 channel gets the same linkedid as ;1. You can't pass linkedid to both
 	 * allocations since if linkedid isn't set, then each channel will generate its own linkedid. */
-	if (!(tmp = ast_channel_alloc(1, state, 0, 0, t, p->exten, p->context, linkedid, ama, "Local/%s@%s-%08x;1", p->exten, p->context, generated_seqno))
-		|| !(tmp2 = ast_channel_alloc(1, AST_STATE_RING, 0, 0, t, p->exten, p->context, ast_channel_linkedid(tmp), ama, "Local/%s@%s-%08x;2", p->exten, p->context, generated_seqno))) {
+	if (!(tmp = ast_channel_alloc(1, state, 0, 0, t, p->exten, p->context, linkedid, ama, "Local/%s@%s-%08x;1", p->exten, p->context, (unsigned)generated_seqno))
+		|| !(tmp2 = ast_channel_alloc(1, AST_STATE_RING, 0, 0, t, p->exten, p->context, ast_channel_linkedid(tmp), ama, "Local/%s@%s-%08x;2", p->exten, p->context, (unsigned)generated_seqno))) {
 		if (tmp) {
 			tmp = ast_channel_release(tmp);
 		}

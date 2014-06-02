@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 400421 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "asterisk/utils.h"
 #include "asterisk/strings.h"
@@ -564,7 +564,7 @@ static int add_ie(struct ast_event **event, const struct ast_security_event_comm
 
 		if (req && !str) {
 			ast_log(LOG_WARNING, "Required IE '%d' for security event "
-					"type '%d' not present\n", ie_type->ie_type,
+					"type '%u' not present\n", ie_type->ie_type,
 					sec->event_type);
 			res = -1;
 		}
@@ -593,7 +593,7 @@ static int add_ie(struct ast_event **event, const struct ast_security_event_comm
 
 		if (req && !addr->addr) {
 			ast_log(LOG_WARNING, "Required IE '%d' for security event "
-					"type '%d' not present\n", ie_type->ie_type,
+					"type '%u' not present\n", ie_type->ie_type,
 					sec->event_type);
 			res = -1;
 		}
@@ -611,7 +611,7 @@ static int add_ie(struct ast_event **event, const struct ast_security_event_comm
 
 		if (req && !tval) {
 			ast_log(LOG_WARNING, "Required IE '%d' for security event "
-					"type '%d' not present\n", ie_type->ie_type,
+					"type '%u' not present\n", ie_type->ie_type,
 					sec->event_type);
 			res = -1;
 		}

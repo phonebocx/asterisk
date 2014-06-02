@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 350223 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include <netinet/in.h>
 #include <ctype.h>
@@ -202,7 +202,7 @@ static int process_token(void *out, char *src, int maxlen, int argtype)
 		if (!(argtype & ARG_NUMBER))
 			return -1;
 		/* Octal value */
-		if (sscanf(src, "%30o", (int *)out) != 1)
+		if (sscanf(src, "%30o", (unsigned *)out) != 1)
 			return -1;
 		if (argtype & ARG_STRING) {
 			/* Convert */

@@ -47,7 +47,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411463 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -773,6 +773,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411463 $")
 			Check if module is loaded.
 		</synopsis>
 		<syntax>
+			<xi:include xpointer="xpointer(/docs/manager[@name='Login']/syntax/parameter[@name='ActionID'])" />
 			<parameter name="Module" required="true">
 				<para>Asterisk module name (not including extension).</para>
 			</parameter>
@@ -2636,7 +2637,7 @@ static int authenticate(struct mansession *s, const struct message *m)
 			MD5Update(&md5, (unsigned char *) user->secret, strlen(user->secret));
 			MD5Final(digest, &md5);
 			for (x = 0; x < 16; x++)
-				len += sprintf(md5key + len, "%2.2x", digest[x]);
+				len += sprintf(md5key + len, "%2.2x", (unsigned)digest[x]);
 			if (!strcmp(md5key, key)) {
 				error = 0;
 			} else {
@@ -3641,7 +3642,7 @@ static int action_status(struct mansession *s, const struct message *m)
 			"ConnectedLineNum: %s\r\n"
 			"ConnectedLineName: %s\r\n"
 			"Accountcode: %s\r\n"
-			"ChannelState: %d\r\n"
+			"ChannelState: %u\r\n"
 			"ChannelStateDesc: %s\r\n"
 			"Context: %s\r\n"
 			"Extension: %s\r\n"
@@ -5052,7 +5053,7 @@ static int action_coreshowchannels(struct mansession *s, const struct message *m
 			"Context: %s\r\n"
 			"Extension: %s\r\n"
 			"Priority: %d\r\n"
-			"ChannelState: %d\r\n"
+			"ChannelState: %u\r\n"
 			"ChannelStateDesc: %s\r\n"
 			"Application: %s\r\n"
 			"ApplicationData: %s\r\n"
@@ -5536,7 +5537,7 @@ static void *session_do(void *data)
 
 	/* here we set TCP_NODELAY on the socket to disable Nagle's algorithm.
 	 * This is necessary to prevent delays (caused by buffering) as we
-	 * write to the socket in bits and peices. */
+	 * write to the socket in bits and pieces. */
 	p = getprotobyname("tcp");
 	if (p) {
 		int arg = 1;

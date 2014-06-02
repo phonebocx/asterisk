@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 370773 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "include/sip.h"
 #include "include/config_parser.h"
@@ -684,7 +684,7 @@ int sip_parse_host(char *line, int lineno, char **hostname, int *portnum, enum s
 	}
 
 	if (port) {
-		if (!sscanf(port, "%5u", portnum)) {
+		if (!sscanf(port, "%5d", portnum)) {
 			if (lineno) {
 				ast_log(LOG_NOTICE, "'%s' is not a valid port number on line %d of sip.conf. using default.\n", port, lineno);
 			} else {

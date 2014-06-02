@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 412324 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "asterisk/_private.h"
 
@@ -846,7 +846,7 @@ const char *ast_state2str(enum ast_channel_state state)
 	default:
 		if (!(buf = ast_threadstorage_get(&state2str_threadbuf, STATE2STR_BUFSIZE)))
 			return "Unknown";
-		snprintf(buf, STATE2STR_BUFSIZE, "Unknown (%d)", state);
+		snprintf(buf, STATE2STR_BUFSIZE, "Unknown (%u)", state);
 		return buf;
 	}
 }
@@ -1334,7 +1334,7 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 
 	if (ast_channel_alert_writable(chan)) {
 		if (ast_channel_alert_write(chan)) {
-			ast_log(LOG_WARNING, "Unable to write to alert pipe on %s (qlen = %d): %s!\n",
+			ast_log(LOG_WARNING, "Unable to write to alert pipe on %s (qlen = %u): %s!\n",
 				ast_channel_name(chan), queued_frames, strerror(errno));
 		}
 	} else if (ast_channel_timingfd(chan) > -1) {
@@ -2981,7 +2981,7 @@ int __ast_answer(struct ast_channel *chan, unsigned int delay, int cdr_answer)
 					break;
 				}
 				if (ms == 0) {
-					ast_debug(2, "Didn't receive a media frame from %s within %d ms of answering. Continuing anyway\n", ast_channel_name(chan), MAX(delay, 500));
+					ast_debug(2, "Didn't receive a media frame from %s within %u ms of answering. Continuing anyway\n", ast_channel_name(chan), MAX(delay, 500));
 					break;
 				}
 				cur = ast_read(chan);
@@ -3055,12 +3055,13 @@ int ast_answer(struct ast_channel *chan)
 	return __ast_answer(chan, 0, 1);
 }
 
-void ast_deactivate_generator(struct ast_channel *chan)
+static void deactivate_generator_nolock(struct ast_channel *chan)
 {
-	ast_channel_lock(chan);
 	if (ast_channel_generatordata(chan)) {
-		if (ast_channel_generator(chan) && ast_channel_generator(chan)->release) {
-			ast_channel_generator(chan)->release(chan, ast_channel_generatordata(chan));
+		struct ast_generator *generator = ast_channel_generator(chan);
+
+		if (generator && generator->release) {
+			generator->release(chan, ast_channel_generatordata(chan));
 		}
 		ast_channel_generatordata_set(chan, NULL);
 		ast_channel_generator_set(chan, NULL);
@@ -3068,14 +3069,23 @@ void ast_deactivate_generator(struct ast_channel *chan)
 		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_WRITE_INT);
 		ast_settimeout(chan, 0, NULL, NULL);
 	}
+}
+
+void ast_deactivate_generator(struct ast_channel *chan)
+{
+	ast_channel_lock(chan);
+	deactivate_generator_nolock(chan);
 	ast_channel_unlock(chan);
 }
 
 static void generator_write_format_change(struct ast_channel *chan)
 {
+	struct ast_generator *generator;
+
 	ast_channel_lock(chan);
-	if (ast_channel_generator(chan) && ast_channel_generator(chan)->write_format_change) {
-		ast_channel_generator(chan)->write_format_change(chan, ast_channel_generatordata(chan));
+	generator = ast_channel_generator(chan);
+	if (generator && generator->write_format_change) {
+		generator->write_format_change(chan, ast_channel_generatordata(chan));
 	}
 	ast_channel_unlock(chan);
 }
@@ -3121,8 +3131,10 @@ int ast_activate_generator(struct ast_channel *chan, struct ast_generator *gen, 
 
 	ast_channel_lock(chan);
 	if (ast_channel_generatordata(chan)) {
-		if (ast_channel_generator(chan) && ast_channel_generator(chan)->release) {
-			ast_channel_generator(chan)->release(chan, ast_channel_generatordata(chan));
+		struct ast_generator *generator_old = ast_channel_generator(chan);
+
+		if (generator_old && generator_old->release) {
+			generator_old->release(chan, ast_channel_generatordata(chan));
 		}
 	}
 	if (gen->alloc && !(generatordata = gen->alloc(chan, params))) {
@@ -3746,48 +3758,56 @@ static void send_dtmf_event(struct ast_channel *chan, const char *direction, con
 
 static void ast_read_generator_actions(struct ast_channel *chan, struct ast_frame *f)
 {
-	if (ast_channel_generator(chan) && ast_channel_generator(chan)->generate && ast_channel_generatordata(chan) &&  !ast_internal_timing_enabled(chan)) {
-		void *tmp = ast_channel_generatordata(chan);
-		int (*generate)(struct ast_channel *chan, void *tmp, int datalen, int samples) = ast_channel_generator(chan)->generate;
-		int res;
-		int samples;
+	struct ast_generator *generator;
+	void *gendata;
+	int res;
+	int samples;
 
-		if (ast_channel_timingfunc(chan)) {
-			ast_debug(1, "Generator got voice, switching to phase locked mode\n");
-			ast_settimeout(chan, 0, NULL, NULL);
-		}
+	generator = ast_channel_generator(chan);
+	if (!generator
+		|| !generator->generate
+		|| f->frametype != AST_FRAME_VOICE
+		|| !ast_channel_generatordata(chan)
+		|| ast_channel_timingfunc(chan)) {
+		return;
+	}
 
-		ast_channel_generatordata_set(chan, NULL);     /* reset, to let writes go through */
+	/*
+	 * We must generate frames in phase locked mode since
+	 * we have no internal timer available.
+	 */
 
-		if (ast_format_cmp(&f->subclass.format, ast_channel_writeformat(chan)) == AST_FORMAT_CMP_NOT_EQUAL) {
-			float factor;
-			factor = ((float) ast_format_rate(ast_channel_writeformat(chan))) / ((float) ast_format_rate(&f->subclass.format));
-			samples = (int) ( ((float) f->samples) * factor );
-		} else {
-			samples = f->samples;
-		}
+	if (ast_format_cmp(&f->subclass.format, ast_channel_writeformat(chan)) == AST_FORMAT_CMP_NOT_EQUAL) {
+		float factor;
 
-		/* This unlock is here based on two assumptions that hold true at this point in the
-		 * code. 1) this function is only called from within __ast_read() and 2) all generators
-		 * call ast_write() in their generate callback.
-		 *
-		 * The reason this is added is so that when ast_write is called, the lock that occurs
-		 * there will not recursively lock the channel. Doing this will cause intended deadlock
-		 * avoidance not to work in deeper functions
-		 */
-		ast_channel_unlock(chan);
-		res = generate(chan, tmp, f->datalen, samples);
-		ast_channel_lock(chan);
-		ast_channel_generatordata_set(chan, tmp);
+		factor = ((float) ast_format_rate(ast_channel_writeformat(chan))) / ((float) ast_format_rate(&f->subclass.format));
+		samples = (int) (((float) f->samples) * factor);
+	} else {
+		samples = f->samples;
+	}
+
+	gendata = ast_channel_generatordata(chan);
+	ast_channel_generatordata_set(chan, NULL);     /* reset, to let writes go through */
+
+	/*
+	 * This unlock is here based on two assumptions that hold true at
+	 * this point in the code. 1) this function is only called from
+	 * within __ast_read() and 2) all generators call ast_write() in
+	 * their generate callback.
+	 *
+	 * The reason this is added is so that when ast_write is called,
+	 * the lock that occurs there will not recursively lock the
+	 * channel.  Doing this will allow deadlock avoidance to work in
+	 * deeper functions.
+	 */
+	ast_channel_unlock(chan);
+	res = generator->generate(chan, gendata, f->datalen, samples);
+	ast_channel_lock(chan);
+	if (generator == ast_channel_generator(chan)) {
+		ast_channel_generatordata_set(chan, gendata);
 		if (res) {
 			ast_debug(1, "Auto-deactivating generator\n");
 			ast_deactivate_generator(chan);
-		}
-
-	} else if (f->frametype == AST_FRAME_CNG) {
-		if (ast_channel_generator(chan) && !ast_channel_timingfunc(chan) && (ast_channel_timingfd(chan) > -1)) {
-			ast_debug(1, "Generator got CNG, switching to timed mode\n");
-			ast_settimeout(chan, 50, generator_force, chan);
 		}
 	}
 }
@@ -4168,7 +4188,7 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 					f->len = option_dtmfminduration;
 				}
 				if (f->len < option_dtmfminduration && !ast_test_flag(ast_channel_flags(chan), AST_FLAG_END_DTMF_ONLY)) {
-					ast_log(LOG_DTMF, "DTMF end '%c' has duration %ld but want minimum %d, emulating on %s\n", f->subclass.integer, f->len, option_dtmfminduration, ast_channel_name(chan));
+					ast_log(LOG_DTMF, "DTMF end '%c' has duration %ld but want minimum %u, emulating on %s\n", f->subclass.integer, f->len, option_dtmfminduration, ast_channel_name(chan));
 					ast_set_flag(ast_channel_flags(chan), AST_FLAG_EMULATE_DTMF);
 					ast_channel_dtmf_digit_to_emulate_set(chan, f->subclass.integer);
 					ast_channel_emulate_dtmf_duration_set(chan, option_dtmfminduration - f->len);
@@ -4380,7 +4400,7 @@ done:
 
 int ast_internal_timing_enabled(struct ast_channel *chan)
 {
-	return (ast_opt_internal_timing && ast_channel_timingfd(chan) > -1);
+	return ast_channel_timingfd(chan) > -1;
 }
 
 struct ast_frame *ast_read(struct ast_channel *chan)
@@ -4644,14 +4664,14 @@ int ast_indicate_data(struct ast_channel *chan, int _condition,
 
 	if (ts) {
 		/* We have a tone to play, yay. */
-		ast_debug(1, "Driver for channel '%s' does not support indication %d, emulating it\n", ast_channel_name(chan), condition);
+		ast_debug(1, "Driver for channel '%s' does not support indication %u, emulating it\n", ast_channel_name(chan), condition);
 		res = ast_playtones_start(chan, 0, ts->data, 1);
 		ts = ast_tone_zone_sound_unref(ts);
 	}
 
 	if (res) {
 		/* not handled */
-		ast_log(LOG_WARNING, "Unable to handle indication %d for '%s'\n", condition, ast_channel_name(chan));
+		ast_log(LOG_WARNING, "Unable to handle indication %u for '%s'\n", condition, ast_channel_name(chan));
 	}
 
 indicate_cleanup:
@@ -6937,7 +6957,7 @@ int ast_do_masquerade(struct ast_channel *original)
 	/* Start the masquerade channel contents rearangement. */
 	ast_channel_lock_both(original, clonechan);
 
-	ast_debug(4, "Actually Masquerading %s(%d) into the structure of %s(%d)\n",
+	ast_debug(4, "Actually Masquerading %s(%u) into the structure of %s(%u)\n",
 		ast_channel_name(clonechan), ast_channel_state(clonechan), ast_channel_name(original), ast_channel_state(original));
 
 	chans[0] = clonechan;
@@ -7274,7 +7294,7 @@ int ast_do_masquerade(struct ast_channel *original)
 		pthread_kill(ast_channel_blocker(original), SIGURG);
 	}
 
-	ast_debug(1, "Done Masquerading %s (%d)\n", ast_channel_name(original), ast_channel_state(original));
+	ast_debug(1, "Done Masquerading %s (%u)\n", ast_channel_name(original), ast_channel_state(original));
 
 	if ((bridged = ast_bridged_channel(original))) {
 		ast_channel_ref(bridged);
@@ -7434,7 +7454,7 @@ int ast_setstate(struct ast_channel *chan, enum ast_channel_state state)
 	***/
 	ast_manager_event(chan, EVENT_FLAG_CALL, "Newstate",
 		"Channel: %s\r\n"
-		"ChannelState: %d\r\n"
+		"ChannelState: %u\r\n"
 		"ChannelStateDesc: %s\r\n"
 		"CallerIDNum: %s\r\n"
 		"CallerIDName: %s\r\n"
@@ -8800,30 +8820,24 @@ struct ast_silence_generator *ast_channel_start_silence_generator(struct ast_cha
 	return state;
 }
 
-static int internal_deactivate_generator(struct ast_channel *chan, void* generator)
+static int deactivate_silence_generator(struct ast_channel *chan)
 {
 	ast_channel_lock(chan);
 
 	if (!ast_channel_generatordata(chan)) {
-		ast_debug(1, "Trying to stop silence generator when there is no "
-		    "generator on '%s'\n", ast_channel_name(chan));
+		ast_debug(1, "Trying to stop silence generator when there is no generator on '%s'\n",
+			ast_channel_name(chan));
 		ast_channel_unlock(chan);
 		return 0;
 	}
-	if (ast_channel_generator(chan) != generator) {
-		ast_debug(1, "Trying to stop silence generator when it is not the current "
-		    "generator on '%s'\n", ast_channel_name(chan));
+	if (ast_channel_generator(chan) != &silence_generator) {
+		ast_debug(1, "Trying to stop silence generator when it is not the current generator on '%s'\n",
+			ast_channel_name(chan));
 		ast_channel_unlock(chan);
 		return 0;
 	}
-	if (ast_channel_generator(chan) && ast_channel_generator(chan)->release) {
-		ast_channel_generator(chan)->release(chan, ast_channel_generatordata(chan));
-	}
-	ast_channel_generatordata_set(chan, NULL);
-	ast_channel_generator_set(chan, NULL);
-	ast_channel_set_fd(chan, AST_GENERATOR_FD, -1);
-	ast_clear_flag(ast_channel_flags(chan), AST_FLAG_WRITE_INT);
-	ast_settimeout(chan, 0, NULL, NULL);
+	deactivate_generator_nolock(chan);
+
 	ast_channel_unlock(chan);
 
 	return 1;
@@ -8831,10 +8845,11 @@ static int internal_deactivate_generator(struct ast_channel *chan, void* generat
 
 void ast_channel_stop_silence_generator(struct ast_channel *chan, struct ast_silence_generator *state)
 {
-	if (!state)
+	if (!state) {
 		return;
+	}
 
-	if (internal_deactivate_generator(chan, &silence_generator)) {
+	if (deactivate_silence_generator(chan)) {
 		ast_debug(1, "Stopped silence generator on '%s'\n", ast_channel_name(chan));
 		if (ast_set_write_format(chan, &state->old_write_format) < 0)
 			ast_log(LOG_ERROR, "Could not return write format to its original state\n");

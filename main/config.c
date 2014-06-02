@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409917 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_CONFIG_DIR */
 #include "asterisk/network.h"	/* we do some sockaddr manipulation here */
@@ -124,8 +124,10 @@ static void  CB_ADD(struct ast_str **cb, const char *str)
 static void  CB_ADD_LEN(struct ast_str **cb, const char *str, int len)
 {
 	char *s = ast_alloca(len + 1);
-	ast_copy_string(s, str, len);
-	ast_str_append(cb, 0, "%s", str);
+
+	memcpy(s, str, len);
+	s[len] = '\0';
+	ast_str_append(cb, 0, "%s", s);
 }
 
 static void CB_RESET(struct ast_str *cb, struct ast_str *llb)
@@ -1785,7 +1787,7 @@ static struct ast_config *config_text_file_load(const char *database, const char
 					} else if ((comment_p >= new_buf + 2) &&
 						   (*(comment_p - 1) == COMMENT_TAG) &&
 						   (*(comment_p - 2) == COMMENT_TAG)) {
-						/* Meta-Comment end detected */
+						/* Meta-Comment end detected "--;" */
 						comment--;
 						new_buf = comment_p + 1;
 						if (!comment) {
@@ -2875,7 +2877,7 @@ char *ast_realtime_decode_chunk(char *chunk)
 	char *orig = chunk;
 	for (; *chunk; chunk++) {
 		if (*chunk == '^' && strchr("0123456789ABCDEFabcdef", chunk[1]) && strchr("0123456789ABCDEFabcdef", chunk[2])) {
-			sscanf(chunk + 1, "%02hhX", chunk);
+			sscanf(chunk + 1, "%02hhX", (unsigned char *)chunk);
 			memmove(chunk + 1, chunk + 3, strlen(chunk + 3) + 1);
 		}
 	}

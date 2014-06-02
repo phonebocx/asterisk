@@ -29,11 +29,18 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 401830 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include <ctype.h>
 #include <sys/stat.h>
-#include <sys/stat.h>
+
+#include <sys/syscall.h>
+#include <unistd.h>
+#if defined(__APPLE__)
+#include <mach/mach.h>
+#elif defined(HAVE_SYS_THR_H)
+#include <sys/thr.h>
+#endif
 
 #ifdef HAVE_DEV_URANDOM
 #include <fcntl.h>
@@ -254,7 +261,7 @@ void ast_md5_hash(char *output, const char *input)
 	MD5Final(digest, &md5);
 	ptr = output;
 	for (x = 0; x < 16; x++)
-		ptr += sprintf(ptr, "%2.2x", digest[x]);
+		ptr += sprintf(ptr, "%2.2x", (unsigned)digest[x]);
 }
 
 /*! \brief Produce 40 char SHA1 hash of value. */
@@ -272,7 +279,7 @@ void ast_sha1_hash(char *output, const char *input)
 	SHA1Result(&sha, Message_Digest);
 	ptr = output;
 	for (x = 0; x < 20; x++)
-		ptr += sprintf(ptr, "%2.2x", Message_Digest[x]);
+		ptr += sprintf(ptr, "%2.2x", (unsigned)Message_Digest[x]);
 }
 
 /*! \brief Produce a 20 byte SHA1 hash of value. */
@@ -423,7 +430,7 @@ char *ast_uri_encode(const char *string, char *outbuf, int buflen, struct ast_fl
 			if (out - outbuf >= buflen - 3) {
 				break;
 			}
-			out += sprintf(out, "%%%02X", (unsigned char) *ptr);
+			out += sprintf(out, "%%%02X", (unsigned) *ptr);
 		} else {
 			*out = *ptr;	/* Continue copying the string */
 			out++;

@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409524 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413788 $")
 
 #include <math.h>
 
@@ -1864,7 +1864,7 @@ char *ast_rtp_instance_get_quality(struct ast_rtp_instance *instance, enum ast_r
 
 	/* Now actually fill the buffer with the good information */
 	if (field == AST_RTP_INSTANCE_STAT_FIELD_QUALITY) {
-		snprintf(buf, size, "ssrc=%i;themssrc=%u;lp=%u;rxjitter=%f;rxcount=%u;txjitter=%f;txcount=%u;rlp=%u;rtt=%f",
+		snprintf(buf, size, "ssrc=%u;themssrc=%u;lp=%u;rxjitter=%f;rxcount=%u;txjitter=%f;txcount=%u;rlp=%u;rtt=%f",
 			 stats.local_ssrc, stats.remote_ssrc, stats.rxploss, stats.rxjitter, stats.rxcount, stats.txjitter, stats.txcount, stats.txploss, stats.rtt);
 	} else if (field == AST_RTP_INSTANCE_STAT_FIELD_QUALITY_JITTER) {
 		snprintf(buf, size, "minrxjitter=%f;maxrxjitter=%f;avgrxjitter=%f;stdevrxjitter=%f;reported_minjitter=%f;reported_maxjitter=%f;reported_avgjitter=%f;reported_stdevjitter=%f;",
@@ -2301,7 +2301,7 @@ int ast_rtp_engine_init()
 	set_next_mime_type(ast_format_set(&tmpfmt, AST_FORMAT_PNG, 0), 0, "video", "PNG", 90000);
 	set_next_mime_type(ast_format_set(&tmpfmt, AST_FORMAT_H261, 0), 0, "video", "H261", 90000);
 	set_next_mime_type(ast_format_set(&tmpfmt, AST_FORMAT_H263, 0), 0, "video", "H263", 90000);
-	set_next_mime_type(ast_format_set(&tmpfmt, AST_FORMAT_H263_PLUS, 0), 0, "video", "h263-1998", 90000);
+	set_next_mime_type(ast_format_set(&tmpfmt, AST_FORMAT_H263_PLUS, 0), 0, "video", "H263-1998", 90000);
 	set_next_mime_type(ast_format_set(&tmpfmt, AST_FORMAT_H264, 0), 0, "video", "H264", 90000);
 	set_next_mime_type(ast_format_set(&tmpfmt, AST_FORMAT_MP4_VIDEO, 0), 0, "video", "MP4V-ES", 90000);
 	set_next_mime_type(ast_format_set(&tmpfmt, AST_FORMAT_T140RED, 0), 0, "text", "RED", 1000);

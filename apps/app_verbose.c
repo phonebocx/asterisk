@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405431 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "asterisk/module.h"
 #include "asterisk/app.h"
@@ -78,7 +78,7 @@ static char *app_log = "Log";
 
 static int verbose_exec(struct ast_channel *chan, const char *data)
 {
-	int vsize;
+	unsigned int vsize;
 	char *parse;
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(level);

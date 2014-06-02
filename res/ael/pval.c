@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 408786 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -1388,7 +1388,7 @@ static void find_pval_goto_item(pval *item, int lev)
 	struct pval *p4;
 	
 	if (lev>100) {
-		ast_log(LOG_ERROR,"find_pval_goto in infinite loop! item_type: %d\n\n", item->type);
+		ast_log(LOG_ERROR,"find_pval_goto in infinite loop! item_type: %u\n\n", item->type);
 		return;
 	}
 	

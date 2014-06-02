@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
  
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 
 #include "asterisk/pbx.h"
 #include "asterisk/module.h"
@@ -620,7 +620,7 @@ static int gosub_exec(struct ast_channel *chan, const char *data)
 		frame_set_var(chan, newframe, argname, i < args2.argc ? args2.argval[i] : "");
 		ast_debug(1, "Setting '%s' to '%s'\n", argname, i < args2.argc ? args2.argval[i] : "");
 	}
-	snprintf(argname, sizeof(argname), "%d", args2.argc);
+	snprintf(argname, sizeof(argname), "%u", args2.argc);
 	frame_set_var(chan, newframe, "ARGC", argname);
 
 	/* And finally, save our return address */
@@ -852,6 +852,7 @@ static int stackpeek_read(struct ast_channel *chan, const char *cmd, char *data,
 		if (!ast_true(args.suppress)) {
 			ast_log(LOG_ERROR, "Stack peek of '%s' is more stack frames than I have\n", args.n);
 		}
+		AST_LIST_UNLOCK(oldlist);
 		ast_channel_unlock(chan);
 		return -1;
 	}
