@@ -1,3 +1,9 @@
+asterisk (1:11.10.0~dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Mon, 02 Jun 2014 15:45:49 +0200
+
 asterisk (1:11.9.0~dfsg-2) unstable; urgency=medium
 
   * Rollback changes to init script (Closes: #749024).
