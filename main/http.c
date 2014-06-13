@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 415905 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416069 $")
 
 #include <time.h>
 #include <sys/time.h>
@@ -892,6 +892,9 @@ static void *httpd_helper_thread(void *data)
 	flags = fcntl(ser->fd, F_GETFL);
 	flags |= O_NONBLOCK;
 	fcntl(ser->fd, F_SETFL, flags);
+
+	/* We can let the stream wait for data to arrive. */
+	ast_tcptls_stream_set_exclusive_input(ser->stream_cookie, 1);
 
 	ast_tcptls_stream_set_timeout_inactivity(ser->stream_cookie, session_inactivity);
 

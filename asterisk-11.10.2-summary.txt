@@ -1,8 +1,8 @@
                                 Release Summary
 
-                                asterisk-11.10.1
+                                asterisk-11.10.2
 
-                                Date: 2014-06-12
+                                Date: 2014-06-13
 
                            <asteriskteam@digium.com>
 
@@ -49,7 +49,7 @@
    release.
 
      Coders                   Testers                  Reporters              
-   3 bebuild                
+   5 bebuild                
 
      ----------------------------------------------------------------------
 
@@ -65,13 +65,19 @@
    +------------------------------------------------------------------------+
    | Revision | Author  | Summary                       | Issues Referenced |
    |----------+---------+-------------------------------+-------------------|
-   | 415787   | bebuild | Create 11.10.1                |                   |
+   | 416057   | bebuild | Create 11.10.2                |                   |
    |----------+---------+-------------------------------+-------------------|
-   | 415792   | bebuild | Update .version, remove       |                   |
+   | 416062   | bebuild | Update .version, remove       |                   |
    |          |         | summaries                     |                   |
    |----------+---------+-------------------------------+-------------------|
-   | 415905   | bebuild | Merge changes for             |                   |
-   |          |         | AST-2014-006, AST-2014-007    |                   |
+   |          |         | Merge fix for regression      |                   |
+   | 416069   | bebuild | caused by fix for             |                   |
+   |          |         | AST-2014-007                  |                   |
+   |----------+---------+-------------------------------+-------------------|
+   | 416092   | bebuild | Importing release summary for |                   |
+   |          |         | 11.10.2 release.              |                   |
+   |----------+---------+-------------------------------+-------------------|
+   | 416139   | bebuild | Update ChangeLog              |                   |
    +------------------------------------------------------------------------+
 
      ----------------------------------------------------------------------
@@ -84,20 +90,14 @@
    release that was generated using the diffstat utility.
 
  .version                      |    2
- ChangeLog                     |   58 ++++
- UPGRADE.txt                   |   13 +
- apps/app_mixmonitor.c         |    6
- asterisk-11.10.0-summary.html |  400 -------------------------------
- asterisk-11.10.0-summary.txt  |  500 ---------------------------------------
- channels/chan_sip.c           |    4
- configs/http.conf.sample      |    6
- include/asterisk/tcptls.h     |   47 +++
- include/asterisk/utils.h      |    1
- main/http.c                   |   34 ++
- main/manager.c                |   73 ++---
- main/tcptls.c                 |  536 +++++++++++++++++++++++++++++++++++-------
- main/utils.c                  |   19 +
- res/res_http_websocket.c      |    7
- 15 files changed, 673 insertions(+), 1033 deletions(-)
+ ChangeLog                     |   11 ++++
+ asterisk-11.10.1-summary.html |   72 -----------------------------
+ asterisk-11.10.1-summary.txt  |  103 ------------------------------------------
+ channels/chan_sip.c           |    6 ++
+ include/asterisk/tcptls.h     |   16 ++++++
+ main/http.c                   |    3 +
+ main/manager.c                |    6 ++
+ main/tcptls.c                 |   17 ++++++
+ 9 files changed, 58 insertions(+), 178 deletions(-)
 
      ----------------------------------------------------------------------

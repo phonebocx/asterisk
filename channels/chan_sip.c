@@ -210,7 +210,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 415905 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416069 $")
 
 #include <signal.h>
 #include <sys/signal.h>
@@ -3095,6 +3095,12 @@ static void *_sip_tcp_helper_thread(struct ast_tcptls_session_instance *tcptls_s
 		ast_log(LOG_ERROR, "error executing time(): %s\n", strerror(errno));
 		goto cleanup;
 	}
+
+	/*
+	 * We cannot let the stream exclusively wait for data to arrive.
+	 * We have to wake up the task to send outgoing messages.
+	 */
+	ast_tcptls_stream_set_exclusive_input(tcptls_session->stream_cookie, 0);
 
 	ast_tcptls_stream_set_timeout_sequence(tcptls_session->stream_cookie, ast_tvnow(),
 		tcptls_session->client ? -1 : (authtimeout * 1000));
