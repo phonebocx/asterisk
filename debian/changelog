@@ -1,3 +1,11 @@
+asterisk (1:11.10.2~dfsg-1) unstable; urgency=high
+
+  * New upstream security release, fixes:
+    - AST-2014-006: Asterisk Manager User Unauthorized Shell Access
+    - AST-2014-007: Exhaustion of Allowed Concurrent HTTP Connections
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 13 Jun 2014 22:02:37 +0200
+
 asterisk (1:11.10.0~dfsg-1) unstable; urgency=medium
 
   * New upstream release.
