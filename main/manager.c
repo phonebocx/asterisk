@@ -47,7 +47,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 415905 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416069 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -5566,6 +5566,12 @@ static void *session_do(void *data)
 		goto done;
 	}
 	ao2_unlock(session);
+
+	/*
+	 * We cannot let the stream exclusively wait for data to arrive.
+	 * We have to wake up the task to send async events.
+	 */
+	ast_tcptls_stream_set_exclusive_input(ser->stream_cookie, 0);
 
 	ast_tcptls_stream_set_timeout_sequence(ser->stream_cookie,
 		ast_tvnow(), authtimeout * 1000);
