@@ -1,4 +1,4 @@
-asterisk (1:11.11.0~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:11.11.0~dfsg-1) unstable; urgency=medium
 
   * New upstream release.
     - Drop safe_asterisk-config and safe_asterisk-nobg patches, fixed upstream
@@ -6,7 +6,7 @@ asterisk (1:11.11.0~dfsg-1) UNRELEASED; urgency=medium
     - Update pjproject patch.
   * Remove svn-upgrade from watch file.
 
- -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 11 Jul 2014 00:07:01 +0200
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 11 Jul 2014 00:59:13 +0200
 
 asterisk (1:11.10.2~dfsg-1) unstable; urgency=high
 
