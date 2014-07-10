@@ -24,7 +24,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 412115 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 417505 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/astobj2.h"
@@ -518,12 +518,8 @@ int __ao2_ref_debug(void *user_data, int delta, const char *tag, const char *fil
 {
 	struct astobj2 *obj = INTERNAL_OBJ(user_data);
 
-	if (obj == NULL) {
-		return -1;
-	}
-
-	if (ref_log) {
-		if (obj->priv_data.ref_counter + delta == 0) {
+	if (ref_log && user_data) {
+		if (obj && obj->priv_data.ref_counter + delta == 0) {
 			fprintf(ref_log, "%p,%d,%d,%s,%d,%s,**destructor**,%s\n", user_data, delta, ast_get_tid(), file, line, func, tag);
 			fflush(ref_log);
 		} else if (delta != 0) {
@@ -532,6 +528,11 @@ int __ao2_ref_debug(void *user_data, int delta, const char *tag, const char *fil
 			fflush(ref_log);
 		}
 	}
+
+	if (obj == NULL) {
+		return -1;
+	}
+
 	return internal_ao2_ref(user_data, delta, file, line, func);
 }
 

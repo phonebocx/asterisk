@@ -1256,7 +1256,8 @@ static void process_prev_failed_deps(char *buf)
 static int parse_existing_config(const char *infile)
 {
 	FILE *f;
-	char buf[2048];
+#define PARSE_BUF_SIZE 8192
+	char *buf = NULL;
 	char *category, *parse, *member;
 	int lineno = 0;
 
@@ -1266,7 +1267,13 @@ static int parse_existing_config(const char *infile)
 		return -1;
 	}
 
-	while (fgets(buf, sizeof(buf), f)) {
+	buf = malloc(PARSE_BUF_SIZE);
+	if (!buf) {
+		fprintf(stderr, "Unable to allocate buffer for reading existing config.\n");
+		exit(1);
+	}
+
+	while (fgets(buf, PARSE_BUF_SIZE, f)) {
 		lineno++;
 
 		if (strlen_zero(buf))
@@ -1309,6 +1316,7 @@ static int parse_existing_config(const char *infile)
 		}
 	}
 
+	free(buf);
 	fclose(f);
 
 	return 0;

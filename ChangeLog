@@ -1,71 +1,662 @@
-2014-06-13  Asterisk Development Team <asteriskteam@digium.com>
+2014-07-10  Asterisk Development Team <asteriskteam@digium.com>
 
-	* Asterisk 11.10.2 Released.
+	* Asterisk 11.11.0 Released.
 
-	* AST-2014-007: Fix of fix to allow AMI and SIP TCP to send messages.
+2014-07-08  Asterisk Development Team <asteriskteam@digium.com>
 
-	  The original fix for AST-2014-007 inadvertently introduced a
-	  regression in Asterisk's TCP and TLS handling that prevented
-	  Asterisk from sending data over these transports. This patch fixes
-	  that regression.
+	* Asterisk 11.11.0-rc1 Released.
 
-2014-06-12  Asterisk Development Team <asteriskteam@digium.com>
+2014-07-03 21:48 +0000 [r417957]  Richard Mudgett <rmudgett@digium.com>
 
-	* Asterisk 11.10.1 Released.
+	* channels/sig_pri.h, channels/chan_dahdi.c,
+	  configs/chan_dahdi.conf.sample, /, UPGRADE.txt,
+	  channels/sig_pri.c: chan_dahdi: Add inband_on_setup_ack
+	  compatibility option. The new inband_on_setup_ack option causes
+	  Asterisk to assume inband audio may be present when a
+	  SETUP_ACKNOWLEDGE message is received. Q.931 Section 5.1.3 says
+	  that in scenarios with overlap dialing, when a dialtone is sent
+	  from the network side, progress indicator 8 "Inband info now
+	  available" MAY be sent to the CPE if no digits were received with
+	  the SETUP. It is thus implied that the ie is mandatory if digits
+	  came with the SETUP and dialtone is needed. This option should be
+	  enabled, when the network sends dialtone and you want to hear it,
+	  but the network doesn't send the progress indicator when needed.
+	  NOTE: For Q.SIG setups this option should be enabled when
+	  outgoing overlap dialing is also enabled because Q.SIG does not
+	  send the progress indicator with the SETUP ACK. The commit
+	  -r413714 (AST-1338) which causes this issue was dealing with a
+	  SIP-to-ISDN interoperability issue. This commit is a merge of the
+	  two patches indicated below. ASTERISK-23897 #close Reported by:
+	  Pavel Troller Patches: pri-4.diff (license #6302) patch uploaded
+	  by Pavel Troller jira_asterisk_23897_v11.patch (license #5621)
+	  patch uploaded by rmudgett Review:
+	  https://reviewboard.asterisk.org/r/3633/ ........ Merged
+	  revisions 417956 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
 
-	* AST-2014-006: Add class authorization requirements to MixMonitor AMI
-	  commands
+2014-07-03 11:24 +0000 [r417798]  Matthew Jordan <mjordan@digium.com>
 
-	  MixMonitor AMI commands StartMixMonitor and StopMixMonitor lacked
-	  class authorization. StopMixMonitor now requires that the manager
-	  user either have the call or system class authorization.
-	  StartMixMonitor is a slightly larger issue since it can execute shell
-	  commands if the right arguments are passed into it, and we consider
-	  this a permission escalation.
+	* /, main/utils.c: main/untils: Prevent potential infinite loop in
+	  ast_careful_fwrite A loop in ast_careful_fwrite exists that will
+	  continually attempt to write to a file stream, even in the
+	  presence of EAGAIN/EINTR errors. However, if a connection that
+	  uses ast_careful_fwrite closes suddenly, ast_careful_fwrite's
+	  call to fflush may return EAGAIN/EINTER along with EOF. A
+	  subsequent call to fflush will return EOF but not clear errno,
+	  resulting in an infinite loop. This patch clears errno after it
+	  is detected and handled the loop, such that any subsequent call
+	  to fflush will not get erroneously stuck. Review:
+	  https://reviewboard.asterisk.org/r/3704 #ASTERISK-23984 #close
+	  Reported by: Steve Davies patches: fflush_loop_fix uploaded by
+	  one47 (License 5012) ........ Merged revisions 417797 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
 
-	  ASTERISK-23609 #close
-	  Reported by: Corey Farrell
+2014-06-30 19:42 +0000 [r417677]  Joshua Colp <jcolp@digium.com>
 
-	* AST-2014-007: Fix DOS by consuming the number of allowed HTTP
-	  connections.
+	* channels/sip/include/sip.h, res/res_rtp_asterisk.c,
+	  main/rtp_engine.c, channels/chan_sip.c, UPGRADE.txt,
+	  configs/sip.conf.sample, include/asterisk/rtp_engine.h:
+	  res_rtp_asterisk: Add SHA-256 support for DTLS and perform DTLS
+	  negotiation on RTCP. This change fixes up DTLS support in
+	  res_rtp_asterisk so it can accept and provide a SHA-256
+	  fingerprint, so it occurs on RTCP, and so it occurs after ICE
+	  negotiation completes. Configuration options to chan_sip have
+	  also been added to allow behavior to be tweaked (such as forcing
+	  the AVP type media transports in SDP). ASTERISK-22961 #close
+	  Reported by: Jay Jideliov Review:
+	  https://reviewboard.asterisk.org/r/3679/
 
-	  Simply establishing a TCP connection and never sending anything to
-	  the configured HTTP port in http.conf will tie up a HTTP connection.
-	  Since there is a maximum number of open HTTP sessions allowed at a
-	  time you can block legitimate connections.
+2014-06-30 03:23 +0000 [r417588]  Matthew Jordan <mjordan@digium.com>
 
-	  A similar problem exists if a HTTP request is started but never
-	  finished.
+	* /, channels/chan_sip.c: chan_sip: be more tolerant of whitespace
+	  between attributes in SDP fmtp line This patch is essentially a
+	  backport of a small portion of r397526 from ASTERISK-21981. In
+	  that patch, pass through support and format attribute negotiation
+	  was added for Opus. Part of that included being more tolerant to
+	  whitespace in the fmtp line of an SDP; that part of the patch is
+	  being applied here. As the author of the backport pointed out, in
+	  SDP, the fmtp line is allowed to include whitespace between
+	  attributes. RFC 3267 chapter 8.3 (from 2001) includes an example
+	  for this. This was not removed in the updated RFC 4867 in 2007.
+	  Review: https://reviewboard.asterisk.org/r/3658 ASTERISK-23916
+	  #close Reported by: Alexander Traud patches:
+	  sdpFMTPspace_Asterisk11.patch uploaded by Alexander Traud
+	  (License 6520) ........ Merged revisions 417587 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
 
-	  * Added http.conf session_inactivity timer option to close HTTP
-	    connections that aren't doing anything.  Defaults to 30000 ms.
+2014-06-27 19:26 +0000 [r417481-417505]  Corey Farrell <git@cfware.com>
 
-	  * Removed the undocumented manager.conf block-sockets option.  It
-	    interferes with TCP/TLS inactivity timeouts.
+	* /, main/astobj2.c: Ensure REF_DEBUG records entrys for attempts
+	  to ao2_ref an invalid object This change ensures that
+	  __ao2_ref_debug writes to ref_log when given a non-NULL pointer
+	  to an invalid ao2 object. This is to ensure that we record any
+	  attempt manipulate references of already freed objects.
+	  ASTERISK-23948 #close Reported by: Corey Farrell Review:
+	  https://reviewboard.asterisk.org/r/3677/ ........ Merged
+	  revisions 417500 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
 
-	  * AMI and SIP TLS connections now have better authentication timeout
-	    protection. Though I didn't remove the bizzare TLS timeout polling
-	    code from chan_sip.
+	* /, contrib/scripts/refcounter.py: refcounter.py: prevent use of
+	  excessive RAM with large refs logs When processing a 212MB refs
+	  file, refcounter.py used over 3GB of RAM. This change greatly
+	  reduces memory usage in two ways: * Saving object history in
+	  whole lines instead of separated values. * Not saving
+	  normal/skewed/leaked object lists unless they are requested.
+	  ASTERISK-23921 #close Reported by: Corey Farrell Review:
+	  https://reviewboard.asterisk.org/r/3668/ ........ Merged
+	  revisions 417480 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
 
+2014-06-26 18:25 +0000 [r417310-417419]  Matthew Jordan <mjordan@digium.com>
+
+	* res/res_http_websocket.exports.in: res_http_websocket: Export
+	  symbol for ast_websocket_set_timeout Thanks to Sean Bright for
+	  pointing out that this was missed in #asterisk-dev.
+
+	* main/udptl.c, /: udptl: Correct FEC to not consider negative
+	  sequence numbers as missing When using FEC, with span=3 and
+	  entries=4 Asterisk will attempt to repair the packet with
+	  sequence number 5, as it will see that packet -4 is missing. The
+	  result is Asterisk sending garbage packets that can kill a fax.
+	  This patch adds a check to see if the sequence number is valid
+	  before checking if the packet is missing. Review:
+	  https://reviewboard.asterisk.org/r/3657/ #ASTERISK-23908 #close
+	  Reported by: Torrey Searle patches: udptl_fec.patch uploaded by
+	  Torrey Searle (License 5334) ........ Merged revisions 417318
+	  from http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* UPGRADE.txt, configs/sip.conf.sample, res/res_http_websocket.c,
+	  channels/sip/include/sip.h, channels/chan_sip.c,
+	  include/asterisk/http_websocket.h: res_http_websocket: Close
+	  websocket correctly and use careful fwrite When a client takes a
+	  long time to process information received from Asterisk, a write
+	  operation using fwrite may fail to write all information. This
+	  causes the underlying file stream to be in an unknown state, such
+	  that the socket must be disconnected. Unfortunately, there are
+	  two problems with this in Asterisk's existing websocket code: 1.
+	  Periodically, during the read loop, Asterisk must write to the
+	  connected websocket to respond to pings. As such, Asterisk
+	  maintains a reference to the session during the loop. When
+	  ast_http_websocket_write fails, it may cause the session to
+	  decrement its ref count, but this in and of itself does not break
+	  the read loop. The read loop's write, on the other hand, does not
+	  break the loop if it fails. This causes the socket to get in a
+	  'stuck' state, preventing the client from reconnecting to the
+	  server. 2. More importantly, however, is that the fwrite in
+	  ast_http_websocket_write fails with a large volume of data when
+	  the client takes awhile to process the information. When it does
+	  fail, it fails writing only a portion of the bytes. With some
+	  debugging, it was shown that this was failing in a similar
+	  fashion to ASTERISK-12767. Switching this over to
+	  ast_careful_fwrite with a long enough timeout solved the problem.
+	  ASTERISK-23917 #close Reported by: Matt Jordan Review:
+	  https://reviewboard.asterisk.org/r/3624/
+
+2014-06-26 10:04 +0000 [r417249]  Corey Farrell <git@cfware.com>
+
+	* /, channels/chan_sip.c: chan_sip: Fix handling of "From" headers
+	  longer than 256 characters From headers were processed using a
+	  256 character buffer on the stack. This change replaces that with
+	  a heap allocation by ast_strdup. ASTERISK-23790 #close Reported
+	  by: uniken1 Tested by: uniken1 Review:
+	  https://reviewboard.asterisk.org/r/3669/ Patches:
+	  chan_sip-large-from-header-1.8-r3.patch uploaded by wdoekes
+	  (license 5674) ........ Merged revisions 417248 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-23 18:49 +0000 [r417141]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_rtp_asterisk.c: res_rtp_asterisk: Return the length of
+	  data written when sending via ICE instead of 0. ASTERISK-23834
+	  #close Reported by: Richard Kenner
+
+2014-06-23 14:35 +0000 [r417077]  Rusty Newton <rnewton@digium.com>
+
+	* configs/features.conf.sample: main/features - documentation -
+	  reformat examples and options in features.conf.sample to show
+	  clearly which options apply in which section The features.conf
+	  sample can be a bit confusing about what parking options can be
+	  set only in the general context, or both in the general context
+	  (for the default parking lot) and in other parking lot contexts.
+	  A bug was filed due to confusion and a little googling will show
+	  lots of other confused users. Despite some comments on the
+	  individual options, it still reads in a confusing way. In this
+	  patch I separate out those options with some headings in to
+	  attempt a better layout. I went ahead and modified other headings
+	  in the file, or added them to facilitate better visual scanning.
+	  ASTERISK-23667 Review: https://reviewboard.asterisk.org/r/3622/
+
+2014-06-22 20:52 +0000 [r417017]  George Joseph <george.joseph@fairview5.com>
+
+	* Makefile.rules, Makefile, /: build: Turn FORTIFY_SOURCE off if
+	  DONT_OPTIMIZE is set. AST_FORTIFY_SOURCE is automatically set in
+	  ./Makefile even if DONT_OPTIMIZE is set in menuselect. This
+	  causes gcc to complain that _FORTIFY_SOURCE requires optimization
+	  and the build will fail. You can specify "make
+	  AST_FORTIFY_SOURCE=''" but I always forget. This patch moves the
+	  set of AST_FORTIFY_SOURCE to Makefile.rules and only sets it if
+	  DONT_OPTIMIZE is "no". The move is necessary because the
+	  top-level Makefile doesn't include menuselect.makeopts. This
+	  doesn't solve the entire problem however because res_config_mysql
+	  seems to force _FORTIFY_SOURCE so res_config_mysql has to be
+	  disabled for now if DONT_OPTIMIZE is set. Tested by: George
+	  Joseph Review: https://reviewboard.asterisk.org/r/3664/ ........
+	  Merged revisions 417016 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-20 23:14 +0000 [r416870-416930]  George Joseph <george.joseph@fairview5.com>
+
+	* /, configure, include/asterisk/autoconfig.h.in: build: Allow
+	  autoconf/ast_ext_tool_check to handle cross-compiling better.
+	  ast_ext_tool_check.m4 isn't handling cases where a path to a
+	  package is provided (E.G. --with-mysqlclient=/some/sysroot) and
+	  the package has a config tool (E.G. mysql_config) and the package
+	  has its own subdirectories in include or lib. For example,
+	  mysql's libraries are in ${MYSQLCLIENT_DIR}/usr/lib/mysql but
+	  ast_ext_tool_check sets MYSQLCLIENT_LIB to
+	  ${MYSQLCLIENT_DIR}/usr/lib. libxml2 has the same problem with its
+	  includes. They're in ${LIBXML2_DIR}/usr/include/libxml2 not
+	  directly in ${LIBXML2_DIR}/usr/include. Both cause configure to
+	  fail and there are others in the same boat. The problem is caused
+	  by logic in ast_ext_tool_check that overrides the result of the
+	  config tool's --cflags and --libs options if package_DIR is set.
+	  This patch prepends package_DIR (if specified) to the -L and -I
+	  results from the package's config tool instead of overriding
+	  them. A regenerated ./configure and
+	  include/asterisk/autoconfig.h.in are included but can be
+	  regenerated by running ./bootstrap.sh at any time. Tested by:
+	  George Joseph Tested by: Matt Jordan Review:
+	  https://reviewboard.asterisk.org/r/3550/ ........ Merged
+	  revisions 416929 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* autoconf/ast_ext_tool_check.m4: build: Allow
+	  autoconf/ast_ext_tool_check to handle cross-compiling better.
+	  ast_ext_tool_check.m4 isn't handling cases where a path to a
+	  package is provided (E.G. --with-mysqlclient=/some/sysroot) and
+	  the package has a config tool (E.G. mysql_config) and the package
+	  has its own subdirectories in include or lib. For example,
+	  mysql's libraries are in ${MYSQLCLIENT_DIR}/usr/lib/mysql but
+	  ast_ext_tool_check sets MYSQLCLIENT_LIB to
+	  ${MYSQLCLIENT_DIR}/usr/lib. libxml2 has the same problem with its
+	  includes. They're in ${LIBXML2_DIR}/usr/include/libxml2 not
+	  directly in ${LIBXML2_DIR}/usr/include. Both cause configure to
+	  fail and there are others in the same boat. The problem is caused
+	  by logic in ast_ext_tool_check that overrides the result of the
+	  config tool's --cflags and --libs options if package_DIR is set.
+	  This patch prepends package_DIR (if specified) to the -L and -I
+	  results from the package's config tool instead of overriding
+	  them. Tested by: George Joseph Tested by: Matt Jordan Review:
+	  https://reviewboard.asterisk.org/r/3550/
+
+2014-06-19 19:34 +0000 [r416733]  Kinsey Moore <kmoore@digium.com>
+
+	* main/bridging.c, /, channels/sip/reqresp_parser.c, main/logger.c,
+	  main/test.c: Fix build warnings with TEST_FRAMEWORK enabled
+	  ........ Merged revisions 416732 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-19 16:02 +0000 [r416581-416668]  George Joseph <george.joseph@fairview5.com>
+
+	* pbx/pbx_lua.c: Remove the problematic and unneeded
+	  AST_MODFLAG_GLOBAL_SYMBOLS from pbx_lua.c
+	  AST_MODFLAG_GLOBAL_SYMBOLS was causing the module to be
+	  incorrectly loaded before pbx_config. pbx_config was therefore
+	  blowing away contexts that were created by pbx_lua. With
+	  AST_MODFLAG_DEFAULT the load order is now correct and contexs are
+	  being properly merged. AST_MODFLAG_GLOBAL_SYMBOLS was not needed
+	  anyway since no other modules needed its global symbols that
+	  early. ASTERISK-23818 #close Reported by: Dennis Guse Tested by:
+	  Dennis Guse Tested by: George Joseph Review:
+	  https://reviewboard.asterisk.org/r/3629/
+
+	* configs/extensions.lua.sample: Update extensions.lua.sample with
+	  naming conflict guidance. The sample extensions.lua was causing
+	  pbx_lua to fail to load when parsing 'app.goto("default", "s",
+	  1)' because in Lua 5.2, 'goto' is now a reserved word. This patch
+	  adds guidance to extensions.lua.sample and changed
+	  'app.goto("default", "s", 1)' to 'app.['goto']("default", "s",
+	  1)'. ASTERISK-23844 #close Reported by: rnewton Tested by:
+	  gtjoseph Review: https://reviewboard.asterisk.org/r/3627/
+
+2014-06-17 18:40 +0000 [r416501]  Mark Michelson <mmichelson@digium.com>
+
+	* /, funcs/func_strings.c: Allow the PUSH and UNSHIFT functions to
+	  set inheritable channel variables. ........ Merged revisions
+	  416500 from http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-17 16:21 +0000 [r416440]  Kinsey Moore <kmoore@digium.com>
+
+	* res/res_musiconhold.c, /: MoH: Don't restart stream on repeated
+	  start calls Currently, music on hold will stop and then start
+	  again from the beginning if ast_moh_start() is called multiple
+	  times. This can happen if a call is put on hold repeatedly (the
+	  channel receives multiple HOLD control frames) and can be
+	  triggered from ARI by starting MoH on a channel multiple times.
+	  This is fairly jarring/annoying to users. This change prevents
+	  MoH from being restarted if the requested music class is the same
+	  as the one currently playing. This includes an extra check to
+	  prevent the errors previously experienced in the testsuite and
+	  has 100+ test runs behind it. Review:
+	  https://reviewboard.asterisk.org/r/3615/ ........ Merged
+	  revisions 416439 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-16 09:00 +0000 [r416337]  Igor Goncharovskiy <igor.goncharovsky@gmail.com>
+
+	* cel/cel_sqlite3_custom.c, main/db.c, res/res_config_sqlite3.c,
+	  cdr/cdr_sqlite3_custom.c, /: We have faced situation when using
+	  CDR and CEL by sqlite3 modules. With system having high load
+	  (~100 concurrent calls created by sipp) we found many cdr and cel
+	  records missed. There is special finction in sqlite3, that make
+	  able to fix this situation - sqlite3_wait_timeout, that also can
+	  replace awful code cdr_sqlite3 ad cel_sqlite3 modules. Also this
+	  function can be used for aastdb and res_config_sqlite3 to avoid
+	  missed writes to sqlite db. #ASTERISK-23766 #close Reported by:
+	  Igor Goncharovsky Review:
+	  https://reviewboard.asterisk.org/r/3559/ ........ Merged
+	  revisions 416336 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-15 21:17 +0000 [r416252]  Matthew Jordan <mjordan@digium.com>
+
+	* /, res/res_musiconhold.c: MoH: Undo commit r416150 (1.8) This
+	  patch reverts r416150. When the comparison between mohclass->name
+	  and state->class->name is made, you are not guaranteed that (a)
+	  state->class is non-NULL or that state or state->class are in a
+	  safe state. Crashes caught by the bridges/transfer_capabilities
+	  test. ........ Merged revisions 416251 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-13 13:08 +0000 [r416151]  Kinsey Moore <kmoore@digium.com>
+
+	* /, res/res_musiconhold.c: MoH: Don't restart stream on repeated
+	  start calls Currently, music on hold will stop and then start
+	  again from the beginning if ast_moh_start() is called multiple
+	  times. This can happen if a call is put on hold repeatedly (the
+	  channel receives multiple HOLD control frames) and can be
+	  triggered from ARI by starting MoH on a channel multiple times.
+	  This is fairly jarring/annoying to users. This change prevents
+	  MoH from being restarted if the requested music class is the same
+	  as the one currently playing. Review:
+	  https://reviewboard.asterisk.org/r/3615/ ........ Merged
+	  revisions 416150 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-13 05:06 +0000 [r416067]  Richard Mudgett <rmudgett@digium.com>
+
+	* main/tcptls.c, main/manager.c, /, channels/chan_sip.c,
+	  main/http.c, include/asterisk/tcptls.h: AST-2014-007: Fix of fix
+	  to allow AMI and SIP TCP to send messages. ASTERISK-23673 #close
+	  Reported by: Richard Mudgett Review:
+	  https://reviewboard.asterisk.org/r/3617/ ........ Merged
+	  revisions 416066 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-12 21:16 +0000 [r415999]  Rusty Newton <rnewton@digium.com>
+
+	* main/pbx.c, /: main/pbx - documentation - enhance 'core show
+	  hints' and 'core show hint' help text Adds descriptive help text
+	  to 'core show hints' and 'core show hint'. The text describes the
+	  various columns for the sake of clarity. ASTERISK-23764 Review:
+	  https://reviewboard.asterisk.org/r/3610/ ........ Merged
+	  revisions 415998 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-12 17:20 +0000 [r415915]  Corey Farrell <git@cfware.com>
+
+	* channels/sip/sdp_crypto.c, /: chan_sip: DEBUG messages in
+	  sdp_crypto.c display despite a DEBUG level of zero Change debug
+	  level for messages in sdp_crypto.c from zero to one. This ensures
+	  the messages are not displayed when debugging is disabled. Change
+	  does not apply to 12+ as it was already fixed in those versions.
+	  ASTERISK-23246 #close Reported by: Rusty Newton Review:
+	  https://reviewboard.asterisk.org/r/3605/ ........ Merged
+	  revisions 415908 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-12 16:22 +0000 [r415854]  Richard Mudgett <rmudgett@digium.com>
+
+	* res/res_http_websocket.c, configs/http.conf.sample,
+	  include/asterisk/utils.h, main/tcptls.c, main/manager.c, /,
+	  channels/chan_sip.c, main/http.c, UPGRADE.txt, main/utils.c,
+	  include/asterisk/tcptls.h: AST-2014-007: Fix DOS by consuming the
+	  number of allowed HTTP connections. Simply establishing a TCP
+	  connection and never sending anything to the configured HTTP port
+	  in http.conf will tie up a HTTP connection. Since there is a
+	  maximum number of open HTTP sessions allowed at a time you can
+	  block legitimate connections. A similar problem exists if a HTTP
+	  request is started but never finished. * Added http.conf
+	  session_inactivity timer option to close HTTP connections that
+	  aren't doing anything. Defaults to 30000 ms. * Removed the
+	  undocumented manager.conf block-sockets option. It interferes
+	  with TCP/TLS inactivity timeouts. * AMI and SIP TLS connections
+	  now have better authentication timeout protection. Though I
+	  didn't remove the bizzare TLS timeout polling code from chan_sip.
 	  * chan_sip can now handle SSL certificate renegotiations in the
-	    middle of a session. It couldn't do that before because the socket
-	    was non-blocking and the SSL calls were not restarted as documented
-	    by the OpenSSL documentation.
+	  middle of a session. It couldn't do that before because the
+	  socket was non-blocking and the SSL calls were not restarted as
+	  documented by the OpenSSL documentation. * Fixed an off nominal
+	  leak of the ssl struct in handle_tcptls_connection() if the FILE
+	  stream failed to open and the SSL certificate negotiations
+	  failed. The patch creates a custom FILE stream handler to give
+	  the created FILE streams inactivity timeout and timeout after a
+	  specific moment in time capability. This approach eliminates the
+	  need for code using the FILE stream to be redesigned to deal with
+	  the timeouts. This patch indirectly fixes most of ASTERISK-18345
+	  by fixing the usage of the SSL_read/SSL_write operations.
+	  ASTERISK-23673 #close Reported by: Richard Mudgett ........
+	  Merged revisions 415841 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
 
-	  * Fixed an off nominal leak of the ssl struct in
-	    handle_tcptls_connection() if the FILE stream failed to open and
-	    the SSL certificate negotiations failed.
+2014-06-12 15:42 +0000 [r415837]  Jonathan Rose <jrose@digium.com>
 
-	  The patch creates a custom FILE stream handler to give the created FILE
-	  streams inactivity timeout and timeout after a specific moment in time
-	  capability.  This approach eliminates the need for code using the FILE
-	  stream to be redesigned to deal with the timeouts.
+	* UPGRADE.txt: Correct UPGRADE.txt notes in r415825 The change was
+	  marked against the wrong version of Asterisk. My apologies.
 
-	  This patch indirectly fixes most of ASTERISK-18345 by fixing the usage
-	  of the SSL_read/SSL_write operations.
+2014-06-12 15:40 +0000 [r415835]  Scott Griepentrog <sgriepentrog@digium.com>
 
-	  ASTERISK-23673 #close
-	  Reported by: Richard Mudgett
+	* /, apps/app_queue.c: app_queue: delayed state can cause early
+	  leavewhenempty ringing In app_queue, device state changes arrive
+	  in event messages and update the queue member status value. That
+	  value is checked in get_member_status() to decide that the caller
+	  should leave when there are no available members. Although event
+	  messages can be delayed by other activity, there is no adverse
+	  affect by lagged status except in one specific case: there is
+	  only one available member, it was just rung, and leavewhenempty
+	  is enabled set for ringing members. This change adds a direct
+	  check of the device state only under this condition where the
+	  caller may be dropped incorrectly, resolving this issue without
+	  affecting performance of app_queue normally. AST-1248 #close
+	  Review: https://reviewboard.asterisk.org/r/3595/ Reported by:
+	  Thomas Arimont ........ Merged revisions 415833 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-12 15:22 +0000 [r415825]  Jonathan Rose <jrose@digium.com>
+
+	* UPGRADE.txt, apps/app_mixmonitor.c: MixMonitor: Add class
+	  authorization requirements to MixMonitor AMI commands MixMonitor
+	  AMI commands StartMixMonitor and StopMixMonitor lacked class
+	  authorization. StopMixMonitor now requires that the manager user
+	  either have the call or system class authorization.
+	  StartMixMonitor is a slightly larger issue since it can execute
+	  shell commands if the right arguments are passed into it, and we
+	  consider this a permission escalation. A security release will be
+	  issued for problem this shortly. ASTERISK-23609 #close Reported
+	  by: Corey Farrell
+
+2014-06-11 22:44 +0000 [r415728]  Richard Mudgett <rmudgett@digium.com>
+
+	* main/format.c: format.c: Fix misuse of hash container function.
+	  The supplied hash function to a container must be idempotent
+	  given the object's key value to figure out which container bucket
+	  the object belongs in. Returning a random number or the current
+	  container count is not idempotent. The "computed hash" value
+	  doesn't help find the object later in those cases. * Fixed the
+	  format_list container to actually be a list since that is how the
+	  container is used. Conceptually, if more than 283 formats were
+	  added to the format_list then odd things may have happened before
+	  the fix.
+
+2014-06-10 09:13 +0000 [r415599]  Alexandr Anikin <may@telecom-service.ru>
+
+	* addons/chan_ooh323.c: chan_ooh323: fix loading module failure if
+	  there no accessible h323_log or ooh323 config file change return
+	  1 to return AST_MODULE_LOAD_FAILURE on module load routine few
+	  cosmetic changes ASTERISK-23814 #close (closes issue
+	  ASTERISK-23814) Reported by: Igor Goncharovsky Patches:
+	  ASTERISK-23814-ast11.patch
+
+2014-06-09 11:57 +0000 [r415522]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* contrib/scripts/safe_asterisk, /: safe_asterisk: Cleanup
+	  additions to r415132. Replaced a stray echo that should've been a
+	  message call in safe_asterisk. I'm using the contents of the old
+	  message inside the if $NOTIFY so peoples log parsing scripts
+	  won't get confused by new messages. I'll clean that up in trunk.
+	  (Note that a 'make install' still won't overwrite your old
+	  safe_asterisk if it exists. See ASTERISK-21965.) ASTERISK-23492
+	  #close ........ Merged revisions 415521 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-09 03:47 +0000 [r415464]  Corey Farrell <git@cfware.com>
+
+	* main/autoservice.c, /: autoservice: stop thread on graceful
+	  shutdown This change adds thread shutdown to autoservice for
+	  graceful shutdowns only. ast_register_cleanup is backported to
+	  1.8 to allow this. The logger callid is also released on shutdown
+	  in 11+. ASTERISK-23827 #close Reported by: Corey Farrell Review:
+	  https://reviewboard.asterisk.org/r/3594/ ........ Merged
+	  revisions 415463 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-06 21:27 +0000 [r415390]  Jonathan Rose <jrose@digium.com>
+
+	* include/asterisk/manager.h, main/config.c, main/manager.c, /,
+	  channels/chan_sip.c, include/asterisk/config.h: chan_sip: Fix
+	  order of variables specified in SIPNotify action Prior to this
+	  patch, sequential variables would be ordered in reverse from the
+	  order specified in the manager action. Review:
+	  https://reviewboard.asterisk.org/r/3588/ ........ Merged
+	  revisions 415359 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-05 17:45 +0000 [r415229]  Richard Mudgett <rmudgett@digium.com>
+
+	* main/config.c, /: config: Fix config files not reloading when
+	  only an included file changes. The twisted logic determining if a
+	  config file should be reloaded was mostly broken and disabled.
+	  The incorrect test that ASTERISK-23383 fixed actually reenabled
+	  the broken logic. The incorrect test was causing the timestamp to
+	  always be cleared which caused config files with includes to
+	  always be reloaded. * Made wildcard includes always cause a
+	  reload. Determining if a file was deleted cannot be determined
+	  without restructuring the cache to determine if any files are
+	  missing from the last files actually loaded. Also without
+	  refactoring config_text_file_load(), the glob loop couldn't check
+	  more than one file for changes anyway. * Made remove the cache
+	  entry if the file no longer exists when trying to get its
+	  timestamp or it is no longer a regular file. This fixes the
+	  corner case where the file was loaded, then deleted, then the
+	  config reloaded, then the file restored with the same timestamp,
+	  and then the config reloaded again. * Made remove the cache entry
+	  include list when actually loading the file. This gets rid of any
+	  stale includes the file had from the last time the file was
+	  loaded. ASTERISK-23683 #close Reported by: tootai Review:
+	  https://reviewboard.asterisk.org/r/3575/ ........ Merged
+	  revisions 415225 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-05 14:32 +0000 [r415206]  Matthew Jordan <mjordan@digium.com>
+
+	* apps/app_confbridge.c: app_confbridge: Allow muting of users
+	  waiting to enter a ConfBridge Prior to this patch, users waiting
+	  to enter a ConfBridge were not considered when muted via the CLI
+	  or via AMI. Instead, a confusing message would be emitted stating
+	  that the channel did not exist. This patch allows a user to be
+	  muted when waiting to enter a ConfBridge conference. This is
+	  equivalent to start when muted, only toggled via the CLI or AMI.
+	  Review: https://reviewboard.asterisk.org/r/3582 ASTERISK-23824
+	  #close patches: rb3582.patch uploaded by tm1000 (License 6524)
+
+2014-06-04 20:12 +0000 [r415171]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* contrib/scripts/safe_asterisk, /: safe_asterisk: Cleanup and
+	  debian compatibility. Cleans up the safe_asterisk script and adds
+	  the ASTSAFE_FOREGROUND option that allows the debian asterisk
+	  init script to capture the right pid. * Drop the vim #modeline
+	  which wasn't used. Use test consistently without the odd
+	  configure xno syntax. Double quote all paths. General cleanup. *
+	  Don't output message()s to the console but only to TTY if set. *
+	  Allow TTY to be "no" as well as empty (debian compatibility with
+	  debian/patches/safe_asterisk-config). * Add option to export
+	  ASTSAFE_FOREGROUND=1 from the init script that calls this to
+	  disable backgrounding. Debian uses a similar method in
+	  debian/patches/safe_asterisk-nobg). ASTERISK-23492 #close Review:
+	  https://reviewboard.asterisk.org/r/3574/ ........ Merged
+	  revisions 415132 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-04 07:20 +0000 [r415066]  Corey Farrell <git@cfware.com>
+
+	* /, apps/confbridge/include/confbridge.h, apps/app_confbridge.c:
+	  app_confbridge: Correct verification of conference name length
+	  Conference names were not checked for maximum length, allowing
+	  unexpected behaviour. This change adds checking to ensure the
+	  maximum length is not exceeded. The maximum length is also
+	  changed from 32 to AST_MAX_EXTENSION. ASTERISK-23035 #close
+	  Reported by: Iñaki Cívico Tested by: Iñaki Cívico Patches:
+	  confbridge-enforce_max-1.8.patch uploaded by coreyfarrell
+	  (license 5909) confbridge-enforce_max-11up.patch uploaded by
+	  coreyfarrell (license 5909) ........ Merged revisions 415060 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-06-03 07:32 +0000 [r414998]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* /, funcs/func_odbc.c: func_odbc: Fix fixed size buffers fix
+	  (r414968). The change that removed the fixed size buffers in
+	  odbc-related code -- removing arbitrary column width limits --
+	  was incomplete. This change adds: no segfault on writesql without
+	  insertsql and return value checks after strdup. While I was in
+	  the vicinity I cleaned up the linefeeds in the odbc function
+	  descriptions, moved some code for clarity, removed some blobs and
+	  noted (but didn't fix) that the 'odbc write ... exec' CLI command
+	  doesn't behave as the dialplan equivalent when insertsql= is
+	  used. #ASTERISK-23582 #close Review:
+	  https://reviewboard.asterisk.org/r/3579/ ........ Merged
+	  revisions 414997 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-05-30 11:59 +0000 [r414881]  Matthew Jordan <mjordan@digium.com>
+
+	* main/config.c, /: main/config.c: AMI action UpdateConfig EmptyCat
+	  clears all categories When invoking UpdateConfig AMI action with
+	  Action set to EmptyCat, Asterisk will make all categories empty
+	  in the config but the one requested with a Cat variable. This is
+	  due to a bug in ast_category_empty (main/config.c) that makes an
+	  incorrect comparison for a category name. This patch corrects the
+	  comparison such that only the requested category is cleared.
+	  Review: https://reviewboard.asterisk.org/r/3573/ ASTERISK-23803
+	  #close Reported by: zvision patches: manager.c.diff uploaded by
+	  zvision (License 5755) ........ Merged revisions 414880 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-05-29 18:33 +0000 [r414859]  Kinsey Moore <kmoore@digium.com>
+
+	* main/pbx.c, /: PBX: Prevent incorrect hint parsing Dynamic and
+	  pattern matching hints should not be checked for their last known
+	  state until they are instantiated by subscribers. (closes issue
+	  AFS-56) Reported by: John Hardin Patch AFS-56-pbx.diff submitted
+	  by Matt Jordan (license 6283) ........ Merged revisions 414813
+	  from http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-05-28 11:36 +0000 [r414694]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_config_odbc.c, /, funcs/func_odbc.c: res_config_odbc: Use
+	  dynamically sized buffers to store row data so values do not get
+	  truncated. ASTERISK-23582 #close ASTERISk-23582 #comment Reported
+	  by: Walter Doekes Review:
+	  https://reviewboard.asterisk.org/r/3557/ ........ Merged
+	  revisions 414693 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-05-28 09:41 +0000 [r414565-414677]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* channels/chan_unistim.c: chan_unistim: Unlock mutex in rare OOM
+	  condition. ASTERISK-23792 #close Reported by: Peter Whisker
+	  Review: https://reviewboard.asterisk.org/r/3567/
+
+	* /, channels/chan_sip.c: chan_sip: Start session timer at 200, not
+	  at INVITE. Asterisk started counting the session timer at INVITE
+	  while the other end correctly started at 200. This meant that for
+	  short session-expiries (90 seconds) combined with long ringing
+	  times (e.g. 30 seconds), asterisk would wrongly assume that the
+	  timer was hit before the other end thought it was time to send a
+	  session refresh. This resulted in prematurely ended calls. This
+	  changes the session timer to start counting first at 200 like RFC
+	  says it should. (Also removed a few excess NULL checks that would
+	  never hit, because if they did, asterisk would have crashed
+	  already.) ASTERISK-22551 #close Reported by: i2045 Review:
+	  https://reviewboard.asterisk.org/r/3562/ ........ Merged
+	  revisions 414620 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* res/res_config_odbc.c, /: res_config_odbc: Fix old and new
+	  ast_string_field memory leaks. The ODBC realtime driver uses ^NN
+	  parameter encoding to cope with the special meaning of the
+	  semi-colon. A semi-colon in a field is interpreted as if the key
+	  was supplied twice, something which isn't otherwise possible with
+	  fixed database columns. E.g. allow=alaw;ulaw is parsed as
+	  allow=alaw and allow=ulaw. A literal semi-colon is rewritten to
+	  ^3B when stored in the database. The module uses a stringfield to
+	  efficiently store the encoded parameters. However, this
+	  stringfield wasn't always freed in some off-nominal cases. Commit
+	  r413241 fixed initialization so the encoding for INSERT and
+	  DELETE queries wouldn't crash. (Only SELECTs and UPDATEs worked
+	  apparently.) But that commit forgot the frees. This change cleans
+	  that up. Review: https://reviewboard.asterisk.org/r/3555/
+	  ........ Merged revisions 414564 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
 
 2014-05-29  Asterisk Development Team <asteriskteam@digium.com>
 

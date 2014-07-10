@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416069 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416067 $")
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>

@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 415905 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 415825 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_MONITOR_DIR */
 #include "asterisk/stringfields.h"
