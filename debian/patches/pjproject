@@ -28,7 +28,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  AST_EXT_LIB_SETUP([POPT], [popt], [popt])
  AST_EXT_LIB_SETUP([PORTAUDIO], [PortAudio], [portaudio])
  AST_EXT_LIB_SETUP([PRI], [ISDN PRI], [pri])
-@@ -1996,6 +1997,8 @@ if test "${PG_CONFIG}" != No; then
+@@ -2008,6 +2009,8 @@ if test "${PG_CONFIG}" != No; then
     fi
  fi
  
@@ -39,7 +39,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  AST_EXT_LIB_CHECK([PORTAUDIO], [portaudio], [Pa_GetDeviceCount], [portaudio.h])
 --- a/include/asterisk/autoconfig.h.in
 +++ b/include/asterisk/autoconfig.h.in
-@@ -551,6 +551,9 @@
+@@ -554,6 +554,9 @@
  /* Define to indicate presence of the pg_encoding_to_char API. */
  #undef HAVE_PGSQL_pg_encoding_to_char
  
@@ -106,7 +106,7 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  	<support_level>core</support_level>
   ***/
  
-@@ -52,9 +52,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 409565 $")
+@@ -52,9 +52,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revisi
   * here since it is used internally by pjlib. The only other option would be to modify pjlib... which won't happen. */
  #undef bzero
  #define bzero bzero
@@ -119,12 +119,12 @@ ICE/STUN/TURN support in res_rtp_asterisk is also now optional.
  #endif
  
  #include "asterisk/stun.h"
-@@ -1862,7 +1862,7 @@ static int ice_create(struct ast_rtp_instance *instance, struct ast_sockaddr *ad
+@@ -2067,7 +2067,7 @@ static int ice_create(struct ast_rtp_ins
  
  	/* Create an ICE session for ICE negotiation */
  	if (pj_ice_sess_create(&stun_config, NULL, PJ_ICE_SESS_ROLE_UNKNOWN, 2,
 -			&ast_rtp_ice_sess_cb, &ufrag, &passwd, &rtp->ice) == PJ_SUCCESS) {
 +			&ast_rtp_ice_sess_cb, &ufrag, &passwd, NULL, &rtp->ice) == PJ_SUCCESS) {
  		/* Make this available for the callbacks */
- 		rtp->ice->user_data = rtp;
+ 		rtp->ice->user_data = instance;
  
