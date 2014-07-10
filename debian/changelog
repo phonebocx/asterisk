@@ -1,6 +1,8 @@
 asterisk (1:11.11.0~dfsg-1) UNRELEASED; urgency=medium
 
   * New upstream release.
+    - Drop safe_asterisk-config and safe_asterisk-nobg patches, fixed upstream
+      in bug ASTERISK-23492.
   * Remove svn-upgrade from watch file.
 
  -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 11 Jul 2014 00:07:01 +0200

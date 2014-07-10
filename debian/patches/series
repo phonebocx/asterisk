@@ -4,8 +4,6 @@ allow-tilde-destdir
 hack-multiple-app-voicemail
 # Not used ATM. See comment in patch:
 #make-clean-fixes
-safe_asterisk-config
-safe_asterisk-nobg
 #
 #h323-no-deps-on-asterisk
 #h323-workaround-openh323-segfault

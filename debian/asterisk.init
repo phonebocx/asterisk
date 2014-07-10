@@ -152,11 +152,11 @@ case "$1" in
 			echo "$DESC is already running. Use restart."
 			exit 0
 		fi
-		export SAFE_AST_BACKGROUND=1
 		start-stop-daemon --start --group $GROUP --pidfile "$PIDFILE" \
 			$CHDIR_PARM \
 			--exec $REALDAEMON -- $PARAMS > /dev/null
 	else
+		export ASTSAFE_FOREGROUND=1
 		start-stop-daemon --start --group $GROUP \
 			--background --make-pidfile \
 			$CHDIR_PARM --pidfile "$ASTSAFE_PIDFILE" \
