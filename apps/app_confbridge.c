@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 415206 $")
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -1587,16 +1587,22 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 		ast_answer(chan);
 	}
 
-	if (ast_strlen_zero(data)) {
+	/* We need to make a copy of the input string if we are going to modify it! */
+	parse = ast_strdupa(data);
+
+	AST_STANDARD_APP_ARGS(args, parse);
+
+	if (ast_strlen_zero(args.conf_name)) {
 		ast_log(LOG_WARNING, "%s requires an argument (conference name[,options])\n", app);
 		res = -1;
 		goto confbridge_cleanup;
 	}
 
-	/* We need to make a copy of the input string if we are going to modify it! */
-	parse = ast_strdupa(data);
-
-	AST_STANDARD_APP_ARGS(args, parse);
+	if (strlen(args.conf_name) >= MAX_CONF_NAME) {
+		ast_log(LOG_WARNING, "%s does not accept conference names longer than %d\n", app, MAX_CONF_NAME - 1);
+		res = -1;
+		goto confbridge_cleanup;
+	}
 
 	/* bridge profile name */
 	if (args.argc > 1 && !ast_strlen_zero(args.b_profile_name)) {
@@ -2384,6 +2390,14 @@ static int generic_mute_unmute_helper(int mute, const char *conference, const ch
 	AST_LIST_TRAVERSE(&bridge->active_list, participant, list) {
 		if (!strncmp(user, ast_channel_name(participant->chan), strlen(user))) {
 			break;
+		}
+	}
+	if (!participant) {
+		/* user is not in the active list so check the waiting list as well */
+		AST_LIST_TRAVERSE(&bridge->waiting_list, participant, list) {
+			if (!strncmp(user, ast_channel_name(participant->chan), strlen(user))) {
+				break;
+			}
 		}
 	}
 	if (participant) {

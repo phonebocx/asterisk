@@ -36,7 +36,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 362307 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416337 $")
 
 #include <sqlite3.h>
 
@@ -315,6 +315,7 @@ static int db_open(struct realtime_sqlite3_db *db)
 		ao2_unlock(db);
 		return -1;
 	}
+	sqlite3_busy_timeout(db->handle, 1000);
 
 	if (db->debug) {
 		sqlite3_trace(db->handle, trace_cb, db);
