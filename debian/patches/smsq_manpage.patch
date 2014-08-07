@@ -1,3 +1,6 @@
+From: Jeremy Lainé <jeremy.laine@m4x.org>
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-24170
+
 Provide a manpage for the smsq application.
 
 diff --git a/doc/smsq.8 b/doc/smsq.8
