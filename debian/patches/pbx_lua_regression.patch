@@ -1,0 +1,75 @@
+commit 48c0e63c92142e3608e18c3f08b7926964cd1502
+Author: George Joseph <george.joseph@fairview5.com>
+Date:   Wed Aug 6 16:12:26 2014 +0000
+
+    pbx_lua: fix regression with global sym export and context clash by pbx_config.
+    
+    ASTERISK-23818 (lua contexts being overwritten by contexts of the same name in
+    pbx_config) surfaced because pbx_lua, having the AST_MODFLAG_GLOBAL_SYMBOLS
+    set, was always force loaded before pbx_config.  Since I couldn't find any
+    reason for pbx_lua to export it's symbols to the rest of Asterisk, I simply
+    changed the flag to AST_MODFLAG_DEFAULT.  Problem solved.  What I didn't
+    realize was that the symbols need to be exported not because Asterisk needs
+    them but because any external Lua modules like luasql.mysql need the base
+    Lua language APIs exported (ASTERISK-17279).
+    
+    Back to ASTERISK-23818...  It looks like there's an issue in pbx.c where
+    context_merge was only merging includes, switches and ignore patterns if
+    the context was already existing AND has extensions, or if the context was
+    brand new.  If pbx_lua is loaded before pbx_config, the context will exist
+    BUT pbx_lua, being implemented as a switch, will never place extensions in
+    it, just the switch statement.  The result is that when pbx_config loads,
+    it never merges the switch statement created by pbx_lua into the final
+    context.
+    
+    This patch sets pbx_lua's modflag back to AST_MODFLAG_GLOBAL_SYMBOLS and adds
+    an "else if" in context_merge that catches the case where an existing context
+    has includes, switchs or ingore patterns but no actual extensions.
+    
+    ASTERISK-23818 #close
+    Reported by: Dennis Guse
+    Reported by: Timo Teräs
+    Tested by: George Joseph
+    Review: https://reviewboard.asterisk.org/r/3891/
+    ........
+    
+    Merged revisions 420146 from http://svn.asterisk.org/svn/asterisk/branches/1.8
+    ........
+    
+    Merged revisions 420147 from http://svn.asterisk.org/svn/asterisk/branches/11
+    ........
+    
+    Merged revisions 420148 from http://svn.asterisk.org/svn/asterisk/branches/12
+    
+    
+    git-svn-id: http://svn.asterisk.org/svn/asterisk/trunk@420149 f38db490-d61c-443f-a65b-d21fe96a405b
+
+diff --git a/main/pbx.c b/main/pbx.c
+index 4004e14..2dda200 100644
+--- a/main/pbx.c
++++ b/main/pbx.c
+@@ -8828,6 +8828,11 @@ static void context_merge(struct ast_context **extcontexts, struct ast_hashtab *
+ 			ast_hashtab_end_traversal(prio_iter);
+ 		}
+ 		ast_hashtab_end_traversal(exten_iter);
++	} else if (new) {
++		/* If the context existed but had no extensions, we still want to merge
++		 * the includes, switches and ignore patterns.
++		 */
++		context_merge_incls_swits_igps_other_registrars(new, context, registrar);
+ 	}
+ 
+ 	if (!insert_count && !new && (strcmp(context->registrar, registrar) != 0 ||
+diff --git a/pbx/pbx_lua.c b/pbx/pbx_lua.c
+index ece8984..77762e2 100644
+--- a/pbx/pbx_lua.c
++++ b/pbx/pbx_lua.c
+@@ -1672,7 +1672,7 @@ static int load_module(void)
+ 	return AST_MODULE_LOAD_SUCCESS;
+ }
+ 
+-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Lua PBX Switch",
++AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "Lua PBX Switch",
+ 		.support_level = AST_MODULE_SUPPORT_EXTENDED,
+ 		.load = load_module,
+ 		.unload = unload_module,
