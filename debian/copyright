@@ -21,6 +21,8 @@ Files: formats/msgsm.h
 Copyright: 1999,
 License: UNKNOWN
 Comment:
+ See: https://issues.asterisk.org/jira/browse/ASTERISK-24172
+ .
  Not clear. Created by Mark Specer (?) but derived from code by
  guido@sienanet.it. License should be GPL-2-Asterisk.
 
@@ -266,7 +268,8 @@ Files: apps/enter.h apps/leave.h
 Copyright: 1999, Mark Spencer and Linux Support Services
 License: UNKNOWN
 Comment:
- See https://issues.asterisk.org/jira/browse/ASTERISK-22568 .
+ See https://issues.asterisk.org/jira/browse/ASTERISK-22568
+ .
  License should be GPL-2 by the count of being included in the source
  tree. The source is missing but could be programmatically reproduced:
  raw signed-linear audio file.
@@ -584,9 +587,11 @@ License: LGPL-2.1
  /usr/share/common-licenses/LGPL-2.1).
 
 Files: menuselect/menuselect_gtk.c
-Copyright: 2007\n");
+Copyright: 2007
 License: UNKNOWN
 Comment:
+ See https://issues.asterisk.org/jira/browse/ASTERISK-24173
+ .
  Likely GPL-2-Asterisk, according to VCS, as it was created by Digium
  employees.
 
