@@ -33,3 +33,4 @@ smsq_manpage.patch
 escape_manpage_hyphen.patch
 pbx_lua_regression.patch
 aelparse_enable.patch
+aelparse_manpage.patch
