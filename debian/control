@@ -62,7 +62,7 @@ Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-voip/asterisk.git
 Package: asterisk
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, asterisk-config (= ${source:Version}) | asterisk-config-custom, asterisk-modules (= ${binary:Version}), adduser, asterisk-core-sounds-en-gsm | asterisk-prompt-en
-Provides: asterisk-11
+Provides: asterisk-${asterisk:ABI}
 Recommends: sox, asterisk-voicemail | asterisk-voicemail-storage, asterisk-moh-opsound-gsm
 Suggests: asterisk-doc, asterisk-dev, asterisk-ooh323, asterisk-dahdi, asterisk-vpb
 Description: Open Source Private Branch Exchange (PBX)

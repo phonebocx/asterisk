@@ -118,6 +118,10 @@ override_dh_clean:
 
 	dh_clean
 
+override_dh_gencontrol:
+	AST_BUILDOPT_SUM=`grep AST_BUILDOPT_SUM include/asterisk/buildopts.h  | sed -e 's/.\+ "\(.\+\)\"/\1/g'`; \
+		dh_gencontrol -- -Vasterisk:ABI=$$AST_BUILDOPT_SUM
+
 SUBPACKS_EXTRA = \
 		 voicemail voicemail-odbcstorage voicemail-imapstorage \
 		 ooh323 mysql mp3
