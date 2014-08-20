@@ -1,3 +1,222 @@
+2014-08-19  Asterisk Development Team <asteriskteam@digium.com>
+
+	* Asterisk 11.12.0 Released.
+
+2014-08-11  Asterisk Development Team <asteriskteam@digium.com>
+
+	* Asterisk 11.12.0-rc1 Released.
+
+2014-08-11 10:36 +0000 [r420655-420715]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* /, main/utils.c: general: Fix memory Corruption in
+	  __ast_string_field_ptr_build_va. If the space left in a
+	  stringfield is between 0 and
+	  (alignof(ast_string_field_allocation)-1) adding new data would
+	  cause memory corruption, because we would assume enough space
+	  (unsigned underrun). Thanks Arnd Schmitter for reporting and
+	  finding out the cause! ASTERISK-23508 #close Reported by: Arnd
+	  Schmitter Tested by: Arnd Schmitter, JoshE Review:
+	  https://reviewboard.asterisk.org/r/3898/ ........ Merged
+	  revisions 420680 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* main/tcptls.c, /: tcptls: Avoid compiler warning on non-dev-mode.
+	  ........ Merged revisions 420654 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-07 21:37 +0000 [r420435]  Richard Mudgett <rmudgett@digium.com>
+
+	* /, channels/chan_sip.c: chan_sip: Replace sip_tls_read() and
+	  resolve the large SDP poll issue. Replace sip_tls_read() and
+	  sip_tcp_read() with a single function and resolve the poll/wait
+	  issue with large SDP payloads. ASTERISK-18345 #close Reported by:
+	  Stephane Chazelas Patches: tcptls_pollv4.diff (license #5835)
+	  patch uploaded by Elazar Broad Review:
+	  https://reviewboard.asterisk.org/r/3882/ ........ Merged
+	  revisions 420434 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-06 16:08 +0000 [r420147]  George Joseph <george.joseph@fairview5.com>
+
+	* pbx/pbx_lua.c, main/pbx.c, /: pbx_lua: fix regression with global
+	  sym export and context clash by pbx_config. ASTERISK-23818 (lua
+	  contexts being overwritten by contexts of the same name in
+	  pbx_config) surfaced because pbx_lua, having the
+	  AST_MODFLAG_GLOBAL_SYMBOLS set, was always force loaded before
+	  pbx_config. Since I couldn't find any reason for pbx_lua to
+	  export it's symbols to the rest of Asterisk, I simply changed the
+	  flag to AST_MODFLAG_DEFAULT. Problem solved. What I didn't
+	  realize was that the symbols need to be exported not because
+	  Asterisk needs them but because any external Lua modules like
+	  luasql.mysql need the base Lua language APIs exported
+	  (ASTERISK-17279). Back to ASTERISK-23818... It looks like there's
+	  an issue in pbx.c where context_merge was only merging includes,
+	  switches and ignore patterns if the context was already existing
+	  AND has extensions, or if the context was brand new. If pbx_lua
+	  is loaded before pbx_config, the context will exist BUT pbx_lua,
+	  being implemented as a switch, will never place extensions in it,
+	  just the switch statement. The result is that when pbx_config
+	  loads, it never merges the switch statement created by pbx_lua
+	  into the final context. This patch sets pbx_lua's modflag back to
+	  AST_MODFLAG_GLOBAL_SYMBOLS and adds an "else if" in context_merge
+	  that catches the case where an existing context has includes,
+	  switchs or ingore patterns but no actual extensions.
+	  ASTERISK-23818 #close Reported by: Dennis Guse Reported by: Timo
+	  Teräs Tested by: George Joseph Review:
+	  https://reviewboard.asterisk.org/r/3891/ ........ Merged
+	  revisions 420146 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-05 18:23 +0000 [r420054]  Richard Mudgett <rmudgett@digium.com>
+
+	* main/format.c: format.c: Add reason comments for the format_list
+	  ordering.
+
+2014-08-04 19:44 +0000 [r419943]  Rusty Newton <rnewton@digium.com>
+
+	* main/manager.c, /: Manager - Improve documentation for manager
+	  commands Getvar and Setvar. The documentation for these commands
+	  did not make it clear that they could accept expressions and
+	  functions. Modified to make this clear, but tried not to be
+	  overly explicit. ASTERISK-21178 #close Reported by: Rusty Newton
+	  Tested by: Rusty Newton Review:
+	  https://reviewboard.asterisk.org/r/3854 ........ Merged revisions
+	  419942 from http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-07-28 18:34 +0000 [r419685]  Richard Mudgett <rmudgett@digium.com>
+
+	* funcs/func_jitterbuffer.c, apps/app_queue.c,
+	  apps/app_speech_utils.c, /, funcs/func_frame_trace.c: datastores:
+	  Audit ast_channel_datastore_remove usage. Audit of v1.8 usage of
+	  ast_channel_datastore_remove() for datastore memory leaks. *
+	  Fixed leaks in app_speech_utils and func_frame_trace. * Fixed
+	  app_speech_utils not locking the channel when accessing the
+	  channel datastore list. Review:
+	  https://reviewboard.asterisk.org/r/3859/ Audit of v11 usage of
+	  ast_channel_datastore_remove() for datastore memory leaks. *
+	  Fixed leak in func_jitterbuffer. Review:
+	  https://reviewboard.asterisk.org/r/3860/ ........ Merged
+	  revisions 419684 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-07-25 23:13 +0000 [r419631]  Richard Mudgett <rmudgett@digium.com>
+
+	* main/features.c, /: features.c: Allow appliationmap to use Gosub.
+	  Using DYNAMIC_FEATURES with a Gosub application as the mapped
+	  application does not work. It does not work because Gosub just
+	  pushes the current dialplan context, exten, and priority onto a
+	  stack and sets the specified Gosub location. Gosub does not have
+	  a dialplan execution loop to run dialplan like Macro. * Made the
+	  DYNAMIC_FEATURES application mapping feature call
+	  ast_app_exec_macro() and ast_app_exec_sub() for the Macro and
+	  Gosub applications respectively. * Backported
+	  ast_app_exec_macro() and ast_app_exec_sub() from v11 to execute
+	  dialplan routines from the DYNAMIC_FEATURES application mapping
+	  feature. NOTE: This issue does not affect v12+ because it already
+	  does what this patch implements. AST-1391 #close Reported by:
+	  Guenther Kelleter Review:
+	  https://reviewboard.asterisk.org/r/3844/ ........ Merged
+	  revisions 419630 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-07-24 17:56 +0000 [r419441]  Corey Farrell <git@cfware.com>
+
+	* /, channels/chan_sip.c: chan_sip: sip_subscribe_mwi_destroy
+	  should not call sip_destroy sip_subscribe_mwi_destroy calls
+	  sip_destroy on the reference counted mwi->call. This results in
+	  the fields of mwi->call being freed, but mwi->call itself it
+	  leaked. If other code is still using mwi->call it can cause
+	  problems. This change uses dialog_unref instead, to balance the
+	  ref provided by sip_alloc(). ASTERISK-24087 #close Reported by:
+	  Corey Farrell Review: https://reviewboard.asterisk.org/r/3834/
+	  ........ Merged revisions 419440 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-07-24 16:49 +0000 [r419375]  Jason Parker <jparker@digium.com>
+
+	* addons/chan_ooh323.c, /: Don't cause Asterisk to exit if
+	  ooh323.conf not found. (closes issue ASTERISK-23814) ........
+	  Merged revisions 419374 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-07-23 13:21 +0000 [r419284]  Scott Griepentrog <sgriepentrog@digium.com>
+
+	* apps/app_voicemail.c: app_voicemail: use a consistent generator
+	  string When updating voicemail.conf when a user changes their
+	  pin, change the generator string to be the same as the module
+	  name when reading so that the same config_hook will be called.
+	  Review: https://reviewboard.asterisk.org/r/3837/
+
+2014-07-22 14:00 +0000 [r419162]  Kinsey Moore <kmoore@digium.com>
+
+	* tests/test_voicemail_api.c, tests/test_aoc.c,
+	  tests/test_astobj2.c, tests/test_config.c,
+	  addons/ooh323c/src/printHandler.c, addons/ooh323c/src/ooq931.c,
+	  addons/chan_ooh323.c, tests/test_astobj2_thrash.c, /,
+	  apps/app_meetme.c, tests/test_abstract_jb.c, tests/test_logger.c,
+	  tests/test_event.c, tests/test_format_api.c,
+	  tests/test_hashtab_thrash.c, res/res_jabber.c: Fix more dev-mode
+	  build issues ........ Merged revisions 419129 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-07-15 22:05 +0000 [r418713]  Matthew Jordan <mjordan@digium.com>
+
+	* main/manager.c: manager: Return ActionID on nominal responses to
+	  PresenceState action When the PresenceState action is executed,
+	  the nominal path fails to include the ActionID in the successful
+	  response. This patch adds a call to astman_start_ack, which
+	  guarantees that an ActionID (if provided) will be sent back to
+	  the AMI client. Review: https://reviewboard.asterisk.org/r/3776/
+	  ASTERISK-23985 #close
+
+2014-07-15 17:32 +0000 [r418649]  Jonathan Rose <jrose@digium.com>
+
+	* funcs/func_uri.c, /: func_uri: URIENCODE/URIDECODE - allow empty
+	  strings as argument Previously these two dialplan functions would
+	  issue warnings and return failure when an empty string is used as
+	  the argument. Now they will not issue a warning and will
+	  successfully return an empty string. ASTERISK-23911 #close
+	  Reported by: Matt Jordan Review:
+	  https://reviewboard.asterisk.org/r/3745/ ........ Merged
+	  revisions 418641 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-07-13 21:51 +0000 [r418465-418505]  Corey Farrell <git@cfware.com>
+
+	* /, main/astobj2.c, contrib/scripts/refcounter.py: astobj2: work
+	  around REF_DEBUG race which causes out of order log entries *
+	  Update refcounter.py to use delta's to track the current
+	  reference count. * Use result from internal_ao2_ref to write
+	  old_refcount to refs_log. Review:
+	  https://reviewboard.asterisk.org/r/3756/ ........ Merged
+	  revisions 418504 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* apps/app_skel.c: Fix minor reference leaks in app_skel and
+	  TEST_FRAMEWORK * Cleanup games object in app_skel. * Cleanup
+	  stasis subscription to TEST_FRAMEWORK in manager.c (12+). Review:
+	  https://reviewboard.asterisk.org/r/3757/
+
+2014-07-11 14:23 +0000 [r418366]  Scott Griepentrog <sgriepentrog@digium.com>
+
+	* main/config.c: config: inform config hook of change when writing
+	  file When updated configuration is written back to the conf file
+	  - for example when a user changes their voicemail pin, make sure
+	  that any config hook that wants to know of changes is informed.
+	  Review: https://reviewboard.asterisk.org/r/3708/
+
+2014-07-10 15:35 +0000 [r418323]  Matthew Jordan <mjordan@digium.com>
+
+	* include/asterisk/xmpp.h: include/asterisk/xmpp.h: Convert
+	  indentation to tabs This is a whitespace only change.
+
+2014-07-10 01:42 +0000 [r418262]  Richard Mudgett <rmudgett@digium.com>
+
+	* /, channels/sig_pri.c: chan_dahdi/sig_pri: Fix type mismatch in
+	  the idledial feature's channel creation. Square pegs in round
+	  holes don't work very well. ........ Merged revisions 418261 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
 2014-07-10  Asterisk Development Team <asteriskteam@digium.com>
 
 	* Asterisk 11.11.0 Released.
