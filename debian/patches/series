@@ -31,6 +31,5 @@ ignore_failed_channels.patch
 smsq_enable.patch
 smsq_manpage.patch
 escape_manpage_hyphen.patch
-pbx_lua_regression.patch
 aelparse_enable.patch
 aelparse_manpage.patch
