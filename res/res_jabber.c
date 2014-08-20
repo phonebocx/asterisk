@@ -40,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419162 $")
 
 #include <ctype.h>
 #include <iksemel.h>
@@ -2623,7 +2623,7 @@ static void aji_handle_subscribe(struct aji_client *client, ikspak *pak)
 			ASTOBJ_UNREF(buddy, ast_aji_buddy_destroy);
 		}
 	default:
-		ast_verb(5, "JABBER: This is a subcription of type %i\n", pak->subtype);
+		ast_verb(5, "JABBER: This is a subcription of type %u\n", pak->subtype);
 	}
 }
 

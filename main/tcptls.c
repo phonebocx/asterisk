@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416067 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420655 $")
 
 #ifdef HAVE_FCNTL_H
 #include <fcntl.h>
@@ -434,7 +434,12 @@ static int tcptls_stream_close(void *cookie)
  */
 static void tcptls_stream_dtor(void *cookie)
 {
+#ifdef AST_DEVMODE
+	/* Since the ast_assert below is the only one using stream,
+	 * and ast_assert is only available with AST_DEVMODE, we
+	 * put this in a conditional to avoid compiler warnings. */
 	struct ast_tcptls_stream *stream = cookie;
+#endif
 
 	ast_assert(stream->fd == -1);
 }

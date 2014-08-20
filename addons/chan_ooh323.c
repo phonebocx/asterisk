@@ -493,7 +493,7 @@ static struct ast_channel *ooh323_new(struct ooh323_pvt *i, int state,
 		if (ch) {
 			manager_event(EVENT_FLAG_SYSTEM, "ChannelUpdate", 
 				"Channel: %s\r\nChanneltype: %s\r\n"
-				"CallRef: %d\r\n", ast_channel_name(ch), "OOH323", i->call_reference);
+				"CallRef: %u\r\n", ast_channel_name(ch), "OOH323", i->call_reference);
 		}
 	} else
 		ast_log(LOG_WARNING, "Unable to allocate channel structure\n");
@@ -1125,7 +1125,7 @@ static int ooh323_answer(struct ast_channel *ast)
 			ast_channel_lock(ast);
 			if (!p->alertsent) {
 	    			if (gH323Debug) {
-					ast_debug(1, "Sending forced ringback for %s, res = %d\n", 
+					ast_debug(1, "Sending forced ringback for %s, res = %u\n", 
 						callToken, ooManualRingback(callToken));
 				} else {
 	    				ooManualRingback(callToken);
@@ -1180,7 +1180,7 @@ static int ooh323_write(struct ast_channel *ast, struct ast_frame *f)
 		p->lastrtptx = time(NULL);
 
 		if (f->frametype == AST_FRAME_MODEM) {
-			ast_debug(1, "Send UDPTL %d/%d len %d for %s\n",
+			ast_debug(1, "Send UDPTL %u/%d len %d for %s\n",
 				f->frametype, f->subclass.integer, f->datalen, ast_channel_name(ast));
 			if (p->udptl)
 				res = ast_udptl_write(p->udptl, f);
@@ -1225,7 +1225,7 @@ static int ooh323_write(struct ast_channel *ast, struct ast_frame *f)
 			ast_mutex_unlock(&p->lock);
 			return 0;
 		} else {
-			ast_log(LOG_WARNING, "Can't send %d type frames with OOH323 write\n", 
+			ast_log(LOG_WARNING, "Can't send %u type frames with OOH323 write\n", 
 									 f->frametype);
 			ast_mutex_unlock(&p->lock);
 			return 0;
@@ -1289,7 +1289,7 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 		if (ast_channel_state(ast) != AST_STATE_UP) {
 	    		if (!p->progsent) {
 	     			if (gH323Debug) {
-					ast_debug(1, "Sending manual progress for %s, res = %d\n", callToken,
+					ast_debug(1, "Sending manual progress for %s, res = %u\n", callToken,
              				ooManualProgress(callToken));	
 				} else {
 	     				ooManualProgress(callToken);
@@ -1302,7 +1302,7 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 		if (ast_channel_state(ast) == AST_STATE_RING || ast_channel_state(ast) == AST_STATE_RINGING) {
 			if (!p->alertsent) {
 				if (gH323Debug) {
-					ast_debug(1, "Sending manual ringback for %s, res = %d\n",
+					ast_debug(1, "Sending manual ringback for %s, res = %u\n",
 						callToken,
 						ooManualRingback(callToken));
 				} else {
@@ -2153,7 +2153,7 @@ int onCallEstablished(ooCallData *call)
 			ast_queue_control(c, AST_CONTROL_ANSWER);
    			ast_channel_unlock(p->owner);
 			manager_event(EVENT_FLAG_SYSTEM,"ChannelUpdate","Channel: %s\r\nChanneltype: %s\r\n"
-				"CallRef: %d\r\n", ast_channel_name(c), "OOH323", p->call_reference);
+				"CallRef: %u\r\n", ast_channel_name(c), "OOH323", p->call_reference);
 		}
 		ast_mutex_unlock(&p->lock);
 
@@ -3190,7 +3190,7 @@ static char *handle_cli_ooh323_show_peer(struct ast_cli_entry *e, int cmd, struc
 		ast_cli(a->fd, "%-15.15s%s\n", "AccountCode: ", peer->accountcode);
 		ast_cli(a->fd, "%-15.15s%s\n", "AMA flags: ", ast_cdr_flags2str(peer->amaflags));
 		ast_cli(a->fd, "%-15.15s%s\n", "IP:Port: ", ip_port);
-		ast_cli(a->fd, "%-15.15s%d\n", "OutgoingLimit: ", peer->outgoinglimit);
+		ast_cli(a->fd, "%-15.15s%u\n", "OutgoingLimit: ", peer->outgoinglimit);
 		ast_cli(a->fd, "%-15.15s%d\n", "rtptimeout: ", peer->rtptimeout);
 		ast_cli(a->fd, "%-15.15s%s\n", "nat: ", peer->nat?"yes":"no");
 		if (peer->rtpmaskstr[0]) {
@@ -3350,7 +3350,7 @@ static char *handle_cli_ooh323_show_user(struct ast_cli_entry *e, int cmd, struc
 		ast_cli(a->fd, "%-15.15s%s\n", "AMA flags: ", ast_cdr_flags2str(user->amaflags));
 		ast_cli(a->fd, "%-15.15s%s\n", "Context: ", user->context);
 		ast_cli(a->fd, "%-15.15s%d\n", "IncomingLimit: ", user->incominglimit);
-		ast_cli(a->fd, "%-15.15s%d\n", "InUse: ", user->inUse);
+		ast_cli(a->fd, "%-15.15s%u\n", "InUse: ", user->inUse);
 		ast_cli(a->fd, "%-15.15s%d\n", "rtptimeout: ", user->rtptimeout);
 		ast_cli(a->fd, "%-15.15s%s\n", "nat: ", user->nat?"yes":"no");
 		if (user->rtpmaskstr[0]) {
@@ -3752,10 +3752,10 @@ static int load_module(void)
 		.onMediaChanged = (cb_OnMediaChanged) setup_rtp_remote,
 	};
 	if (!(gCap = ast_format_cap_alloc())) {
-		return AST_MODULE_LOAD_FAILURE; 
+		return AST_MODULE_LOAD_DECLINE; 
 	}
 	if (!(ooh323_tech.capabilities = ast_format_cap_alloc())) {
-		return AST_MODULE_LOAD_FAILURE;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 	ast_format_cap_add(gCap, ast_format_set(&tmpfmt, AST_FORMAT_ULAW, 0));
 	ast_format_cap_add_all(ooh323_tech.capabilities);
@@ -3787,13 +3787,13 @@ static int load_module(void)
 		if (OO_OK != ooH323EpInitialize(OO_CALLMODE_AUDIOCALL, gLogFile)) {
          		ast_log(LOG_ERROR, "Failed to initialize OOH323 endpoint-"
                             "OOH323 Disabled\n");
-			return AST_MODULE_LOAD_FAILURE;
+			return AST_MODULE_LOAD_DECLINE;
 		}
 
 		/* Make sure we can register our OOH323 channel type */
 		if (ast_channel_register(&ooh323_tech)) {
 			ast_log(LOG_ERROR, "Unable to register channel class %s\n", type);
-			return AST_MODULE_LOAD_FAILURE;
+			return AST_MODULE_LOAD_DECLINE;
 		}
 		ast_rtp_glue_register(&ooh323_rtp);
 		ast_udptl_proto_register(&ooh323_udptl);
@@ -3899,7 +3899,7 @@ static int load_module(void)
 		restart_monitor();
 	} else {
 		ast_log(LOG_ERROR, "Can't load ooh323 config file, OOH323 Disabled\n");
-		return AST_MODULE_LOAD_FAILURE;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 
 	return 0;
@@ -4376,7 +4376,7 @@ static enum ast_rtp_glue_result ooh323_get_rtp_peer(struct ast_channel *chan, st
 
 	ast_rtp_instance_get_remote_address(*rtp, &tmp);
 	if (gH323Debug) {
-		ast_verb(0, "ooh323_get_rtp_peer  %s -> %s:%d, %d\n", ast_channel_name(chan), ast_sockaddr_stringify_addr(&tmp),
+		ast_verb(0, "ooh323_get_rtp_peer  %s -> %s:%d, %u\n", ast_channel_name(chan), ast_sockaddr_stringify_addr(&tmp),
 						ast_sockaddr_port(&tmp), res);
 	}
 	if (gH323Debug) {
@@ -4962,7 +4962,7 @@ struct ast_frame *ooh323_rtp_read(struct ast_channel *ast, struct ooh323_pvt *p)
 	case 5:
 		f = ast_udptl_read(p->udptl);		/* UDPTL t.38 data */
 		if (gH323Debug) {
-			 ast_debug(1, "Got UDPTL %d/%d len %d for %s\n",
+			 ast_debug(1, "Got UDPTL %u/%d len %d for %s\n",
 				f->frametype, f->subclass.integer, f->datalen, ast_channel_name(ast));
 		}
 		p->lastrtprx = time(NULL);

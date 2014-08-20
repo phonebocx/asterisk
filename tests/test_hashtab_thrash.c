@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 396657 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419162 $")
 #include <pthread.h>
 #include "asterisk/hashtab.h"
 #include "asterisk/lock.h"
@@ -73,7 +73,7 @@ static char *ht_new(int i)
 	if (keybuf == NULL) {
 		return NULL;
 	}
-	needed = snprintf(keybuf, buflen, "key%08x", i);
+	needed = snprintf(keybuf, buflen, "key%08x", (unsigned)i);
 	ast_assert(needed + 1 <= buflen);
 	return keybuf;
 }

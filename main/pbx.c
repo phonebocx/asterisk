@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 415999 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420147 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_SYSTEM_NAME */
@@ -8891,6 +8891,11 @@ static void context_merge(struct ast_context **extcontexts, struct ast_hashtab *
 			ast_hashtab_end_traversal(prio_iter);
 		}
 		ast_hashtab_end_traversal(exten_iter);
+	} else if (new) {
+		/* If the context existed but had no extensions, we still want to merge
+		 * the includes, switches and ignore patterns.
+		 */
+		context_merge_incls_swits_igps_other_registrars(new, context, registrar);
 	}
 
 	if (!insert_count && !new && (strcmp(context->registrar, registrar) != 0 ||
