@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 421602 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_MODULE_DIR */
@@ -227,7 +227,7 @@ static char *complete_fn(const char *word, int state)
 	if (c)
 		c = ast_strdup(c);
 
-	free(d);
+	ast_std_free(d);
 
 	return c;
 }

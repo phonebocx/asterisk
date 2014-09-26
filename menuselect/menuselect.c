@@ -457,7 +457,7 @@ static int parse_tree(const char *tree_file)
 
 			if (!cat->positive_output) {
 				mem->enabled = 1;
-				if (!(mem->defaultenabled && strcasecmp(mem->defaultenabled, "no"))) {
+				if (!mem->defaultenabled || strcasecmp(mem->defaultenabled, "no")) {
 					mem->was_enabled = 1;
 					print_debug("Enabled %s because the category does not have positive output\n", mem->name);
 				}

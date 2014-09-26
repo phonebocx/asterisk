@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 421233 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -1267,7 +1267,7 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 					ast_channel_unlock(in);
 				}
 
-				do_forward(o, &num, peerflags, single, caller_entertained, to,
+				do_forward(o, &num, peerflags, single, caller_entertained, &orig,
 					forced_clid, stored_clid);
 
 				if (single && o->chan
