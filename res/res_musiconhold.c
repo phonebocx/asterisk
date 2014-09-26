@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416440 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 421977 $")
 
 #include <ctype.h>
 #include <signal.h>
@@ -162,6 +162,8 @@ struct moh_files_state {
 	int sample_queue;
 	int pos;
 	int save_pos;
+	int save_total;
+	char name[MAX_MUSICCLASS];
 	char save_pos_filename[PATH_MAX];
 };
 
@@ -234,21 +236,17 @@ static int reload(void);
 #define mohclass_unref(class,string) _mohclass_unref(class, string, __FILE__,__LINE__,__PRETTY_FUNCTION__)
 static struct mohclass *_mohclass_unref(struct mohclass *class, const char *tag, const char *file, int line, const char *funcname)
 {
-	struct mohclass *dup;
-	if ((dup = ao2_find(mohclasses, class, OBJ_POINTER))) {
+	struct mohclass *dup = ao2_callback(mohclasses, OBJ_POINTER, ao2_match_by_addr, class);
+
+	if (dup) {
 		if (__ao2_ref_debug(dup, -1, (char *) tag, (char *) file, line, funcname) == 2) {
-			FILE *ref = fopen("/tmp/refs", "a");
-			if (ref) {
-				fprintf(ref, "%p =1   %s:%d:%s (%s) BAD ATTEMPT!\n", class, file, line, funcname, tag);
-				fclose(ref);
-			}
 			ast_log(LOG_WARNING, "Attempt to unref mohclass %p (%s) when only 1 ref remained, and class is still in a container! (at %s:%d (%s))\n",
 				class, class->name, file, line, funcname);
 		} else {
 			ao2_ref(class, -1);
 		}
 	} else {
-		ao2_t_ref(class, -1, (char *) tag);
+		__ao2_ref_debug(class, -1, (char *) tag, (char *) file, line, funcname);
 	}
 	return NULL;
 }
@@ -456,11 +454,9 @@ static void *moh_files_alloc(struct ast_channel *chan, void *params)
 		}
 	}
 
-	/* class is reffed, so we can safely compare it against the (possibly
-	 * recently unreffed) state->class. The unref was done after the ref
-	 * of class, so we're sure that they won't point to the same memory
-	 * by accident. */
-	if (state->class != class) {
+	/* Resume MOH from where we left off last time or start from scratch? */
+	if (state->save_total != class->total_files || strcmp(state->name, class->name) != 0) {
+		/* Start MOH from scratch. */
 		memset(state, 0, sizeof(*state));
 		if (ast_test_flag(class, MOH_RANDOMIZE) && class->total_files) {
 			state->pos = ast_random() % class->total_files;
@@ -470,6 +466,9 @@ static void *moh_files_alloc(struct ast_channel *chan, void *params)
 	state->class = mohclass_ref(class, "Reffing music class for channel");
 	ast_format_copy(&state->origwfmt, ast_channel_writeformat(chan));
 	ast_format_copy(&state->mohwfmt, ast_channel_writeformat(chan));
+	/* For comparison on restart of MOH (see above) */
+	ast_copy_string(state->name, class->name, sizeof(state->name));
+	state->save_total = class->total_files;
 
 
 	ast_verb(3, "Started music on hold, class '%s', on %s\n", class->name, ast_channel_name(chan));

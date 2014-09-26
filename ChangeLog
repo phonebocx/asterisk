@@ -1,23 +1,377 @@
-2014-09-18  Asterisk Development Team <asteriskteam@digium.com>
+2014-09-24  Asterisk Development Team <asteriskteam@digium.com>
 
-	* Asterisk 11.12.1 Released.
+	* Asterisk 11.13.0 Released.
 
-	* AST-2014-010: Resolve crash when the Message channel technology
-	  enters into the ReceiveFax application using res_fax_spandsp
+2014-09-19  Asterisk Development Team <asteriskteam@digium.com>
 
-	  If faxing fails at a very early stage, then it is possible for
-	  us to pass a NULL t30 state pointer to spandsp, which spandsp
-	  is none too pleased with.
+	* Asterisk 11.13.0-rc1 Released.
 
-	  This patch ensures that we pass the correct pointer to spandsp
-	  in the situation where we have not yet set our local t30 state
-	  pointer.
+2014-09-18 16:30 +0000 [r423400]  Richard Mudgett <rmudgett@digium.com>
 
-	  An advisory was made for this issue due to the likelihood of
-	  it occurring in some Asterisk configurations.
+	* /, main/astobj2.c, contrib/scripts/refcounter.py:
+	  astobj2.c/refcounter.py: Fix to deal with invalid object refs. *
+	  Make astob2 REF_DEBUG output an invalid object line when an
+	  invalid ao2 object ref/unref is attempted. This is similar to the
+	  constructor/destructor lines. * Fixed refcounter.py to handle
+	  skewed objects that have constructor/destructor states. * Made
+	  refcounter.py highlight the invalid ao2 object refs by putting
+	  them in their own section of the processed output file. * Made
+	  refcounter.py highlight unreffing an object by more than one that
+	  results in a negative ref count and the object being destroyed.
+	  The abnormally destroyed object is reported in the invalid and
+	  finalized object sections of the output. Review:
+	  https://reviewboard.asterisk.org/r/3971/ ........ Merged
+	  revisions 423349 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
 
-	  ASTERISK-24301 #close
-	  Reported by Matt Jordan, Philippe Lindheimer
+2014-09-18 16:19 +0000 [r423360]  Mark Michelson <mmichelson@digium.com>
+
+	* res/res_fax_spandsp.c: res_fax_spandsp: Properly handle cleanup
+	  before starting FAXes. If faxing fails at a very early stage,
+	  then it is possible for us to pass a NULL t30 state pointer to
+	  spandsp, which spandsp is none too pleased with. This patch
+	  ensures that we pass the correct pointer to spandsp in the
+	  situation where we have not yet set our local t30 state pointer.
+	  ASTERISK-24301 #close Reported by Matt Jordan Patches:
+	  ASTERISK-24301-fax.diff Uploaded by Mark Michelson (License
+	  #5049)
+
+2014-09-18 14:42 +0000 [r423277]  George Joseph <george.joseph@fairview5.com>
+
+	* main/config.c, main/manager.c, /, include/asterisk/config.h:
+	  config: bug: Fix SEGV in ast_category_insert when matching
+	  category isn't found If you call ast_category_insert with a match
+	  category that doesn't exist, the list traverse runs out of 'next'
+	  categories and you get a SEGV. This patch adds check for the
+	  end-of-list condition and changes the signature to return an int
+	  for success/failure indication instead of a void. The only
+	  consumer of this function is manager and it was also changed to
+	  use the return value. Tested by: George Joseph Review:
+	  https://reviewboard.asterisk.org/r/3993/ ........ Merged
+	  revisions 423276 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-09-17 18:02 +0000 [r423150-423253]  Joshua Colp <jcolp@digium.com>
+
+	* res/res_rtp_asterisk.c: res_rtp_asterisk: Ensure that the thread
+	  terminating pj stuff is registered.
+
+	* res/res_rtp_asterisk.c: res_rtp_asterisk: Fix 100% CPU usage due
+	  to timer heap thread spinning. Side note: I need a vacation.
+
+	* res/res_rtp_asterisk.c: res_rtp_asterisk: Fix building when
+	  pjproject is not used.
+
+	* res/res_rtp_asterisk.c: res_rtp_asterisk: Fix a myriad of TURN
+	  client issues. 1. The number of file descriptors an ioqueue
+	  instance can handle is fixed, so we now spawn the required number
+	  to handle the load. 2. Our transport identifiers were exceeding
+	  the range supported by pjnath. 3. The TURN client did not set up
+	  client binding causing needless bandwidth usage. 4. The code no
+	  longer updates address information on each packet. 5. STUN
+	  traffic was getting looped back to Asterisk instead of going
+	  through the TURN server. 6. Synchronization now ensures things
+	  are completely setup or destroyed. 7. Logging now reflects the
+	  target the TURN server is sending to/receiving from on our
+	  behalf. ASTERISK-23577 #close Reported by: Jay Jideliov
+	  ASTERISK-23634 #close Reported by: Roman Skvirsky Review:
+	  https://reviewboard.asterisk.org/r/3982/
+
+2014-09-14 15:49 +0000 [r423067]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* configs/sip.conf.sample, /: chan_sip: Clarify that sipdebug=yes
+	  cannot be undone by the CLI. Document it in sip.conf.
+	  ASTERISK-24249 #close Reported by: Avinash Mohod Review:
+	  https://reviewboard.asterisk.org/r/3926/ ........ Merged
+	  revisions 423066 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-09-12 18:18 +0000 [r423010]  Kinsey Moore <kmoore@digium.com>
+
+	* main/channel.c, /: Bridging: Fix bouncing native bridge This
+	  fixes a situation in Asterisk 1.8 and 11 where ast_channel_bridge
+	  could cause a bouncing native bridge. In the case of the
+	  dial_LS_options test, this was a remote RTP bridge which caused
+	  the audio path to continually cycle between Asterisk and the
+	  remote endpoints generating a large number of SIP messages and
+	  delaying the test long enough to cause it to fail (checking
+	  timing was part of the test). The root cause was that the code to
+	  decide whether to use native bridging was expecting a
+	  time-remaining value of 0 to be the default instead of the actual
+	  default value of -1. A value of 0 or negative numbers could also
+	  be generated by preceding code in some circumstances. Both issues
+	  are addressed in this patch. ASTERISK-24211 #close Reported by:
+	  Matt Jordan Review: https://reviewboard.asterisk.org/r/3987/
+	  ........ Merged revisions 423006 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-09-10 16:01 +0000 [r422903]  George Joseph <george.joseph@fairview5.com>
+
+	* /, main/config.c: config: bug: fix truncation of included config
+	  files on permissions error ast_config_text_file_save() currently
+	  truncates include files as they are processed. If a subsequent
+	  include file or the main config file has a permissions error that
+	  prevents writing, earlier include files are left truncated
+	  resulting in a frantic search for backups. This patch causes
+	  ast_config_text_file_save to check for write access on all files
+	  before it truncates any of them. Will be applied 1.8 > trunk.
+	  Tested by: George Joseph Review:
+	  https://reviewboard.asterisk.org/r/3986/ ........ Merged
+	  revisions 422900 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-09-07 00:08 +0000 [r422790]  Rusty Newton <rnewton@digium.com>
+
+	* sounds/sounds.xml, sounds/Makefile, /: Sounds/BuildSystem:
+	  Modifications to include new releases and Japanese language.
+	  Modifying Makefile and sounds.xml to include new core 1.4.26 and
+	  extra 1.4.15 sound prompt releases, plus the new Japanese core
+	  sound prompts contributed by QLOOG. ASTERISK-23324 Reported by:
+	  Kevin McCoy Tested by: Rusty Newton ........ Merged revisions
+	  422789 from http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-09-04 20:39 +0000 [r422625]  Jonathan Rose <jrose@digium.com>
+
+	* main/manager.c, /: Manager: Require read permission for SYSTEM in
+	  order to send FullyBooted Review:
+	  https://reviewboard.asterisk.org/r/3969/ ........ Merged
+	  revisions 422584 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-30 17:22 +0000 [r422440]  George Joseph <george.joseph@fairview5.com>
+
+	* main/manager.c, /: manager: Make WaitEvent action respect
+	  eventfilters A WaitEvent issued via an http session isn't
+	  respecting eventfilters defined for the user. I just added a
+	  match_filter to the predicate that controls astman_append. Tested
+	  by: George Joseph Review:
+	  https://reviewboard.asterisk.org/r/3958/ ........ Merged
+	  revisions 422439 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-29 19:39 +0000 [r422294-422377]  Matthew Jordan <mjordan@digium.com>
+
+	* doc/smsq.8 (added), /: doc: Add a manpage for the smsq utility
+	  This patch adds a manpage for the smsq utility. Note that this is
+	  one of the patches the Debian distro applies for the Asterisk
+	  project, as per ASTERISK-24191. Review:
+	  https://reviewboard.asterisk.org/r/3895/ ASTERISK-24171 #close
+	  Reported by: Jeremy Laine patches: smsq.8 uploaded by Jeremy
+	  Laine (License 6561) ........ Merged revisions 422376 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* doc/aelparse.8 (added), /: doc: Add a manpage for the aelparse
+	  utility This patch adds a manpage for the aelparse utility. Note
+	  that this is one of the patches the Debian distro applies for the
+	  Asterisk project, as per ASTERISK-24191. Review:
+	  https://reviewboard.asterisk.org/r/3896/ ASTERISK-24171 #close
+	  Reported by: Jeremy Laine patches: aelparse.8 uploaded by Jeremy
+	  Laine (License 6561) ........ Merged revisions 422371 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* /, LICENSE: LICENSE: Clarify language in Asterisk's LICENSE to
+	  allow for linking to UniMRCP The UniMRCP project distributes
+	  Asterisk modules that integrate Asterisk with UniMRCP, and other
+	  Asterisk users use the UniMRCP library as well. Unfortunately,
+	  the UniMRCP license is Apache 2.0, which per the Free Software
+	  Foundation, is not a compatible license with the GPLv2. "Please
+	  note that this license is not compatible with GPL version 2,
+	  because it has some requirements that are not in that GPL
+	  version. These include certain patent termination and
+	  indemnification provisions. The patent termination provision is a
+	  good thing, which is why we recommend the Apache 2.0 license for
+	  substantial programs over other lax permissive licenses." On the
+	  other hand, UniMRCP is a great project and we'd like to let
+	  people use it with Asterisk. This patch updates the LICENSE text
+	  to allow users to link Asterisk with UniMRCP and distribute the
+	  resulting binaries. ........ Merged revisions 422293 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-28 20:26 +0000 [r422274]  Michael L. Young <elgueromexicano@gmail.com>
+
+	* channels/chan_iax2.c: chan_iax2: Fix Dynamic IAX2 Registrations
+	  After Temporary DNS Failure The reporter on the issue found some
+	  issues when upgrading from version 10 to 11 on 55 hosts. Two
+	  situations that can occur with dynamic registrations. 1. With
+	  dnsmgr disabled, if the host is not resolvable we are not trying
+	  to resolve the host again when it is time to attempt to register
+	  again. This results in never registering to the host. 2. With
+	  dnsmgr enabled, when the host is temporarily not resolvable the
+	  address is set to 0.0.0.0:0 and then when the host is resolvable
+	  the port is not being restored and stays set to 0. This patch
+	  resolves these two issues by: * Storing the hostname so that it
+	  can be used for resolving with DNS. * Resolve the hostname on the
+	  next scheduled attempt to register. * Storing the port used to
+	  reach the host so that when the hostname is resolvable again, we
+	  can set the port again if the port is still unset after looking
+	  up the host. ASTERISK-23767 #close Reported by: David Herselman
+	  Tested by: David Herselman, Michael L. Young Patches:
+	  asterisk-23767-dns_reg_retry_and_set_port_11_v3.diff uploaded by
+	  Michael L. Young (license 5026) Review:
+	  https://reviewboard.asterisk.org/r/3856/
+
+2014-08-27 15:01 +0000 [r422113]  Kinsey Moore <kmoore@digium.com>
+
+	* /, channels/chan_sip.c, tests/test_callerid.c (added),
+	  tests/test_utils.c, main/callerid.c, main/utils.c,
+	  include/asterisk/utils.h: CallerID: Fix parsing of malformed
+	  callerid This allows the callerid parsing function to handle
+	  malformed input strings and strings containing escaped and
+	  unescaped double quotes. This also adds a unittest to cover many
+	  of the cases where the parsing algorithm previously failed.
+	  Review: https://reviewboard.asterisk.org/r/3923/ ........ Merged
+	  revisions 422112 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-25 16:07 +0000 [r421977]  Richard Mudgett <rmudgett@digium.com>
+
+	* /, res/res_musiconhold.c: res_musiconhold: Fix MOH restarting
+	  where it left off from the last hold. Restore code removed by
+	  https://reviewboard.asterisk.org/r/3536/ that introduced a
+	  regression that prevents MOH from restarting were it left off the
+	  last time. ASTERISK-24019 #close Reported by: Jason Richards
+	  Patches: jira_asterisk_24019_v1.8.patch (license #5621) patch
+	  uploaded by rmudgett Review:
+	  https://reviewboard.asterisk.org/r/3928/ ........ Merged
+	  revisions 421976 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-24 17:19 +0000 [r421909]  Joshua Colp <jcolp@digium.com>
+
+	* channels/chan_sip.c: chan_sip: Use the server reflexive ICE
+	  candidate RTCP port as provided. This code originally worked
+	  around an issue within res_rtp_asterisk itself. The wrong socket
+	  was being used for the STUN check for RTCP, causing the port to
+	  be the same as RTP. This was subsequently fixed and the RTCP port
+	  provided for the ICE candidate is correct and does not need to be
+	  incremented. ASTERISK-23997 #close Reported by: Badalian
+	  Vyacheslav Patches: plus1.diff submitted by Badalian Vyacheslav
+	  (license 5249)
+
+2014-08-21 22:03 +0000 [r421800]  Richard Mudgett <rmudgett@digium.com>
+
+	* /, res/res_musiconhold.c: res_musiconhold.c: Remove obsolete
+	  REF_DEBUG code. Remove unneeded code that writes to the wrong
+	  file location in an obsolete format. ........ Merged revisions
+	  421799 from http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-21 21:00 +0000 [r421777]  Jonathan Rose <jrose@digium.com>
+
+	* res/res_musiconhold.c, /: res_musiconhold: Fix reference leaks
+	  caused when reloading with REF_DEBUG set Due to a faulty function
+	  for debugging reference decrementing, it was possible to reduce
+	  the refcount on the wrong object if two moh classes of the same
+	  name were in the moh class container. (closes issue
+	  ASTERISK-22252) Reported by: Walter Doekes Patches:
+	  18_moh_debug_ref_patch.diff Uploaded by Jonathan Rose (license
+	  6182) ........ Merged revisions 398937 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-21 17:32 +0000 [r421718]  Matthew Jordan <mjordan@digium.com>
+
+	* /, channels/chan_sip.c: chan_sip: Don't use port derived from
+	  fromdomain if it isn't set If a user does not provide a port in
+	  the fromdomain setting, chan_sip will set the fromdomainport to
+	  STANDARD_SIP_PORT (5060). The fromdomainport value will then get
+	  used unilaterally in certain places. This causes issues with TLS,
+	  where the default port is expected to be 5061. This patch
+	  modifies chan_sip such that fromdomainport is only used if it is
+	  not the standard SIP port; otherwise, the port from the SIP pvt's
+	  recorded self IP address is used. Review:
+	  https://reviewboard.asterisk.org/r/3893/ ASTERISK-24178 #close
+	  Reported by: Elazar Broad patches: fromdomainport_fix.diff
+	  uploaded by Elazar Broad (License 5835) ........ Merged revisions
+	  421717 from http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-20 22:17 +0000 [r421602]  Richard Mudgett <rmudgett@digium.com>
+
+	* /, main/cli.c: cli.c: Fix tab completion of "module load" when
+	  MALLOC_DEBUG is enabled. filename_completion_function() returns
+	  memory that was not allocated by the MALLOC_DEBUG allocation
+	  tracker so the memory must be freed by ast_std_free(). ........
+	  Merged revisions 421600 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-19 19:41 +0000 [r421443]  Kinsey Moore <kmoore@digium.com>
+
+	* main/manager.c, /: AMI Docs: Fix Status channel parameter
+	  optionality ........ Merged revisions 421442 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-18 20:16 +0000 [r421328]  George Joseph <george.joseph@fairview5.com>
+
+	* funcs/func_config.c, /: func_config: Change 'Not Found' message
+	  from ERROR to DEBUG When you call the CONFIG dialplan function
+	  with the name of a variable that doesn't exist in the target
+	  context you get an ERROR. This does nothing but clutter up the
+	  logs with messages that may be perfectly acceptable. Just because
+	  a variable wasn't in the context doesn't mean it's an error.
+	  Maybei t's optional or just needs to be defaulted or ignored.
+	  This patch changes the log level from ERROR to DEBUG. If a
+	  dialplan developer wants to debug their dialplan they still canby
+	  setting the console debug level as needed. Tested by: George
+	  Joseph Review: https://reviewboard.asterisk.org/r/3919/ ........
+	  Merged revisions 421327 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-17 23:07 +0000 [r421228-421233]  Matthew Jordan <mjordan@digium.com>
+
+	* apps/app_dial.c, /: apps/app_dial: Fix Dial 'z' option The 'z'
+	  option is supposed to disable the dial timeout in the case of a
+	  call forward. Unfortunately, the wrong timeout timer was passed
+	  to the do_forward function, resulting in the option not working.
+	  ASTERISK-24225 #close Reported by: dimitripietro Tested by:
+	  dimitripietro patches: jira_asterisk_24225_v1.8.patch uploaded by
+	  rmudgett (License 5621) jira_asterisk_24225_v11.patch uploaded by
+	  rmudgett (License 5621) ........ Merged revisions 421232 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* /, configure, configure.ac: configure: Undefine FORTIFY_SOURCE
+	  prior to defining it for patched gcc Some distributions of Linux
+	  patch gcc to define FORTIFY_SOURCE when gcc is executed with
+	  optimization. This "help" unfortunately results in re-definition
+	  warnings when FORTIFY_SOURCE is later defined in Asterisk's build
+	  system. This patch undefines FORTIFY_SOURCE prior to defining it
+	  to prevent this warning. Review:
+	  https://reviewboard.asterisk.org/r/3912/ ASTERISK-24032 #close
+	  Reported by: Kilburn Tested by: Kilburn, wdoekes patches:
+	  1.8.diff uploaded by cloos (License 5956) 10.diff uploaded by
+	  cloos (License 5956) 11.diff uploaded by cloos (License 5956)
+	  12.diff uploaded by cloos (License 5956) 13.diff uploaded by
+	  cloos (License 5956) ........ Merged revisions 421227 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-15 15:36 +0000 [r421060-421164]  Matthew Jordan <mjordan@digium.com>
+
+	* apps/app_voicemail.c, main/app.c: app_voicemail/app: Remove test
+	  events that were duplicated by r421059 Moving the test event
+	  raised when a file is played back (which occurred in r421059)
+	  broke the ever loving snot out of the voicemail tests. This
+	  caused duplicate test events to get raised, as app_voicemail and
+	  main/app were raising events prior to call ast_streamfile. The
+	  voicemail tests did not enjoy getting multiple events. Since
+	  raising the playback event in ast_streamfile is far more useful
+	  to the vast majority of tests, this patch keeps the call there
+	  and simply removes the extraneous calls that duplicated the
+	  event. ........ Merged revisions 421125 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+	* /, main/file.c, main/app.c: main/file: Move test event to emit
+	  PLAYBACK event more consistently This is being done in advance of
+	  the test for ASTERISK-23953 ........ Merged revisions 421059 from
+	  http://svn.asterisk.org/svn/asterisk/branches/1.8
+
+2014-08-13 07:47 +0000 [r420897]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* main/logger.c: logger: Don't store verbose-magic in the log
+	  files. In r399267, the verbose2magic stuff was edited. This time
+	  it results in magic characters in the log files for multiline
+	  messages. In trunk (and 13) this was fixed by the "stripping" of
+	  those characters from multiline messages (in r414798). This is a
+	  backport of that fix to 11. That fix is altered to actually strip
+	  the characters and not replace them with blanks. Review:
+	  https://reviewboard.asterisk.org/r/3901/ Review:
+	  https://reviewboard.asterisk.org/r/3902/
 
 2014-08-19  Asterisk Development Team <asteriskteam@digium.com>
 
