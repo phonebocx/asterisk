@@ -93,7 +93,6 @@ override_dh_auto_build:
 	$(MAKE) menuselect.makeopts BUILD_CFLAGS="$(CFLAGS) $(CPPFLAGS)" BUILD_LDFLAGS="$(LDFLAGS)"
 	@if [ "x${ENABLE_DEBUG}" != "x" ] ; then \
 		menuselect/menuselect --enable BETTER_BACKTRACES menuselect.makeopts ; \
-		menuselect/menuselect --enable DONT_OPTIMIZE menuselect.makeopts ; \
 		menuselect/menuselect --enable DEBUG_THREADS menuselect.makeopts ; \
 	fi
 	$(FETCH_ENV) dh_auto_build -- $(BUILDFLAGS)
