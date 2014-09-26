@@ -1,4 +1,4 @@
-asterisk (1:11.13.0~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:11.13.0~dfsg-1) unstable; urgency=medium
 
   * New upstream release.
     - Drop aelparse_manpage.patch and smsq_manpage.patch, fixed upstream.
@@ -6,7 +6,7 @@ asterisk (1:11.13.0~dfsg-1) UNRELEASED; urgency=medium
   * Allow res_calendar_ews to work with neon 0.30.x (Closes: #761677).
   * Build with all hardening options enabled.
 
- -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 26 Sep 2014 09:56:15 +0200
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 26 Sep 2014 12:30:57 +0200
 
 asterisk (1:11.12.1~dfsg-1) unstable; urgency=high
 
