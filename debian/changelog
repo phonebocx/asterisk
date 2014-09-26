@@ -4,6 +4,7 @@ asterisk (1:11.13.0~dfsg-1) UNRELEASED; urgency=medium
     - Drop aelparse_manpage.patch and smsq_manpage.patch, fixed upstream.
   * Fix an out of bounds error in res_fax.c.
   * Allow res_calendar_ews to work with neon 0.30.x (Closes: #761677).
+  * Build with all hardening options enabled.
 
  -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 26 Sep 2014 09:56:15 +0200
 
