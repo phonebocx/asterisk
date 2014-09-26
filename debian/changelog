@@ -1,3 +1,11 @@
+asterisk (1:11.13.0~dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+    - Drop aelparse_manpage.patch and smsq_manpage.patch, fixed upstream.
+  * Fix an out of bounds error in res_fax.c.
+
+ -- Jeremy Lainé <jeremy.laine@m4x.org>  Fri, 26 Sep 2014 09:56:15 +0200
+
 asterisk (1:11.12.1~dfsg-1) unstable; urgency=high
 
   * New upstream security release, fixes:

@@ -29,7 +29,6 @@ sigpri_handle_enodev_1.patch
 reenable
 ignore_failed_channels.patch
 smsq_enable.patch
-smsq_manpage.patch
 escape_manpage_hyphen.patch
 aelparse_enable.patch
-aelparse_manpage.patch
+res_fax_bounds.patch
