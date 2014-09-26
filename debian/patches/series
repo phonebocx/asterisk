@@ -32,3 +32,4 @@ smsq_enable.patch
 escape_manpage_hyphen.patch
 aelparse_enable.patch
 res_fax_bounds.patch
+buildflags.patch

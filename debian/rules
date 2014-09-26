@@ -2,9 +2,6 @@
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
-# Necessary to pass hardening flags to menuselect.
-# export CFLAGS LDFLAGS BUILD_CFLAGS BUILD_LDFLAGS
-
 # Starting with dpkg-dev >= 1.16.1.1 you can use the new buildflags.mk file
 # to set all *FLAGS
 # When building programs that handle untrusted data
@@ -34,12 +31,8 @@ BUILD_OS=$(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
 
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
-ifneq (,$(filter noopt,$(DEB_BUILD_OPTIONS)))
-	BUILDFLAGS += OPTIMIZE=-O0
-else
-	BUILDFLAGS += OPTIMIZE=-O2
-endif
-BUILDFLAGS += MAKECMDGOALS=dont-optimize
+# don't let asterisk mess with build flags
+BUILDFLAGS += MAKECMDGOALS=dont-optimize DEBUG= OPTIMIZE=
 
 # show full gcc arguments instead of [CC] and [LD]
 BUILDFLAGS += NOISY_BUILD=yes
@@ -97,7 +90,7 @@ override_dh_auto_configure:
 #		--with-cap \
 
 override_dh_auto_build:
-	$(MAKE) menuselect.makeopts
+	$(MAKE) menuselect.makeopts BUILD_CFLAGS="$(CFLAGS) $(CPPFLAGS)" BUILD_LDFLAGS="$(LDFLAGS)"
 	@if [ "x${ENABLE_DEBUG}" != "x" ] ; then \
 		menuselect/menuselect --enable BETTER_BACKTRACES menuselect.makeopts ; \
 		menuselect/menuselect --enable DONT_OPTIMIZE menuselect.makeopts ; \
