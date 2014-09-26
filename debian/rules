@@ -32,7 +32,7 @@ BUILD_OS=$(shell dpkg-architecture -qDEB_BUILD_ARCH_OS)
 export PROC := $(shell dpkg-architecture -qDEB_BUILD_GNU_CPU)
 
 # don't let asterisk mess with build flags
-BUILDFLAGS += MAKECMDGOALS=dont-optimize DEBUG= OPTIMIZE=
+BUILDFLAGS += AST_FORTIFY_SOURCE= DEBUG= OPTIMIZE=
 
 # show full gcc arguments instead of [CC] and [LD]
 BUILDFLAGS += NOISY_BUILD=yes
