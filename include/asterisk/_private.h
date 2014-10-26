@@ -8,7 +8,7 @@
  *
  * \brief
  * Prototypes for public functions only of internal interest,
- * 
+ *
  */
 
 
@@ -20,17 +20,15 @@ int load_pbx(void);			/*!< Provided by pbx.c */
 int init_logger(void);			/*!< Provided by logger.c */
 void close_logger(void);		/*!< Provided by logger.c */
 void clean_time_zones(void);			/*!< Provided by localtime.c */
-int init_framer(void);			/*!< Provided by frame.c */
 int ast_term_init(void);		/*!< Provided by term.c */
 int astdb_init(void);			/*!< Provided by db.c */
 void ast_channels_init(void);		/*!< Provided by channel.c */
 void ast_builtins_init(void);		/*!< Provided by cli.c */
 int ast_cli_perms_init(int reload);	/*!< Provided by cli.c */
-int dnsmgr_init(void);			/*!< Provided by dnsmgr.c */ 
+int dnsmgr_init(void);			/*!< Provided by dnsmgr.c */
 void dnsmgr_start_refresh(void);	/*!< Provided by dnsmgr.c */
 int dnsmgr_reload(void);		/*!< Provided by dnsmgr.c */
 void threadstorage_init(void);		/*!< Provided by threadstorage.c */
-int ast_event_init(void);		/*!< Provided by event.c */
 int ast_device_state_engine_init(void);	/*!< Provided by devicestate.c */
 int astobj2_init(void);			/*!< Provided by astobj2.c */
 int ast_file_init(void);		/*!< Provided by file.c */
@@ -50,6 +48,39 @@ int ast_ssl_init(void);                 /*!< Provided by ssl.c */
 int ast_test_init(void);            /*!< Provided by test.c */
 int ast_msg_init(void);             /*!< Provided by message.c */
 void ast_msg_shutdown(void);        /*!< Provided by message.c */
+int aco_init(void);             /*!< Provided by config_options.c */
+
+/*!
+ * \since 12
+ * \brief Possible return types for \ref ast_module_reload
+ */
+enum ast_module_reload_result {
+	AST_MODULE_RELOAD_SUCCESS = 0,      /*!< The module was reloaded succesfully */
+	AST_MODULE_RELOAD_QUEUED,           /*!< The module reload request was queued */
+	AST_MODULE_RELOAD_NOT_FOUND,        /*!< The requested module was not found */
+	AST_MODULE_RELOAD_ERROR,            /*!< An error occurred while reloading the module */
+	AST_MODULE_RELOAD_IN_PROGRESS,      /*!< A module reload request is already in progress */
+	AST_MODULE_RELOAD_UNINITIALIZED,    /*!< The module has not been initialized */
+	AST_MODULE_RELOAD_NOT_IMPLEMENTED,  /*!< This module doesn't support reloading */
+};
+
+/*!
+ * \brief Initialize the bridging system.
+ * \since 12.0.0
+ *
+ * \retval 0 on success.
+ * \retval -1 on error.
+ */
+int ast_bridging_init(void);
+
+/*!
+ * \brief Initialize the local proxy channel.
+ * \since 12.0.0
+ *
+ * \retval 0 on success.
+ * \retval -1 on error.
+ */
+int ast_local_init(void);
 
 /*!
  * \brief Reload asterisk modules.
@@ -60,13 +91,10 @@ void ast_msg_shutdown(void);        /*!< Provided by message.c */
  *
  * \note Modules are reloaded using their reload() functions, not unloading
  * them and loading them again.
- * 
- * \return 0 if the specified module was not found.
- * \retval 1 if the module was found but cannot be reloaded.
- * \retval -1 if a reload operation is already in progress.
- * \retval 2 if the specfied module was found and reloaded.
+ *
+ * \retval The \ref ast_module_reload_result status of the module load request
  */
-int ast_module_reload(const char *name);
+enum ast_module_reload_result ast_module_reload(const char *name);
 
 /*!
  * \brief Process reload requests received during startup.
@@ -80,9 +108,9 @@ int ast_module_reload(const char *name);
  */
 void ast_process_pending_reloads(void);
 
-/*! \brief Load XML documentation. Provided by xmldoc.c 
+/*! \brief Load XML documentation. Provided by xmldoc.c
  *  \retval 1 on error.
- *  \retval 0 on success. 
+ *  \retval 0 on success.
  */
 int ast_xmldoc_load_documentation(void);
 
@@ -93,16 +121,23 @@ int ast_xmldoc_load_documentation(void);
  */
 int ast_plc_reload(void);
 
-/*!
- * \brief Init the ast_format attribute interface register container.
- */
-int ast_format_attr_init(void);
-
-/*!
- * \brief Init the Asterisk global format list after all format attribute modules have been loaded
- */
-int ast_format_list_init(void);
-
 /*! \brief initializes the rtp engine arrays */
 int ast_rtp_engine_init(void);
+
+/*!
+ * \brief initializes the rtp engine arrays
+ * \since 12.0.0
+ */
+int ast_parking_stasis_init(void);
+
+/*! \brief initialize the sounds index */
+int ast_sounds_index_init(void);
+
+/*!
+ * \brief Endpoint support initialization.
+ * \return 0 on success.
+ * \return Non-zero on error.
+ */
+int ast_endpoint_init(void);
+
 #endif /* _ASTERISK__PRIVATE_H */

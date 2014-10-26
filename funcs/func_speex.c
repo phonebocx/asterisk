@@ -26,7 +26,7 @@
  *
  * \ingroup functions
  *
- * \extref The Speex 1.2 library - http://www.speex.org
+ * The Speex 1.2 library - http://www.speex.org
  * \note Requires the 1.2 version of the Speex library (which might not be what you find in Linux packages)
  */
 
@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419044 $")
 
 #include <speex/speex_preprocess.h>
 #include "asterisk/module.h"
@@ -165,8 +165,8 @@ static int speex_callback(struct ast_audiohook *audiohook, struct ast_channel *c
 		return -1;
 	}
 
-	if ((sdi->samples != frame->samples) || (ast_format_rate(&frame->subclass.format) != si->lastrate)) {
-		si->lastrate = ast_format_rate(&frame->subclass.format);
+	if ((sdi->samples != frame->samples) || (ast_format_get_sample_rate(frame->subclass.format) != si->lastrate)) {
+		si->lastrate = ast_format_get_sample_rate(frame->subclass.format);
 		if (sdi->state) {
 			speex_preprocess_state_destroy(sdi->state);
 		}

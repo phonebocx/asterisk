@@ -28,7 +28,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 424752 $")
 
 #include "asterisk/_private.h"
 
@@ -45,6 +45,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
 #include "asterisk/manager.h"
 #include "asterisk/test.h"
 #include "asterisk/frame.h"
+#include "asterisk/codec.h"
 
 /*** DOCUMENTATION
 	<manager name="DataGet" language="en_US">
@@ -2797,7 +2798,7 @@ static void data_result_print_cli_node(int fd, const struct ast_data *node, uint
 
 	ast_free(tabs);
 
-	ast_term_color_code(&output, COLOR_WHITE, 0);
+	ast_term_color_code(&output, 0, 0);
 
 	ast_cli(fd, "%s", ast_str_buffer(output));
 
@@ -2841,19 +2842,7 @@ static void __data_result_print_cli(int fd, const struct ast_data *root, uint32_
  */
 static void data_result_print_cli(int fd, const struct ast_data *root)
 {
-	struct ast_str *output;
-
-	/* print the initial node. */
-	output = ast_str_create(30);
-	if (!output) {
-		return;
-	}
-
-	ast_term_color_code(&output, data_result_get_color(root->type), 0);
-	ast_str_append(&output, 0, "%s\n", root->name);
-	ast_term_color_code(&output, COLOR_WHITE, 0);
-	ast_cli(fd, "%s", ast_str_buffer(output));
-	ast_free(output);
+	ast_cli(fd, COLORIZE_FMT "\n", COLORIZE(data_result_get_color(root->type), 0, root->name));
 
 	__data_result_print_cli(fd, root, 0);
 
@@ -3109,62 +3098,69 @@ static int manager_data_get(struct mansession *s, const struct message *m)
 	return RESULT_SUCCESS;
 }
 
-int ast_data_add_codec(struct ast_data *root, const char *node_name, struct ast_format *format)
-{
-	struct ast_data *codecs, *codec;
-	size_t fmlist_size;
-	const struct ast_format_list *fmlist;
-	int x;
+static int data_add_codec(struct ast_data *codecs, struct ast_format *format) {
+	struct ast_data *codec;
+	struct ast_codec *tmp;
 
-	codecs = ast_data_add_node(root, node_name);
-	if (!codecs) {
+	tmp = ast_codec_get_by_id(ast_format_get_codec_id(format));
+	if (!tmp) {
 		return -1;
 	}
-	fmlist = ast_format_list_get(&fmlist_size);
-	for (x = 0; x < fmlist_size; x++) {
-		if (ast_format_cmp(&fmlist[x].format, format) == AST_FORMAT_CMP_EQUAL) {
-			codec = ast_data_add_node(codecs, "codec");
-			if (!codec) {
-				ast_format_list_destroy(fmlist);
-				return -1;
-			}
-			ast_data_add_str(codec, "name", fmlist[x].name);
-			ast_data_add_int(codec, "samplespersecond", fmlist[x].samplespersecond);
-			ast_data_add_str(codec, "description", fmlist[x].desc);
-			ast_data_add_int(codec, "frame_length", fmlist[x].fr_len);
-		}
+
+	codec = ast_data_add_node(codecs, "codec");
+	if (!codec) {
+		ao2_ref(tmp, -1);
+		return -1;
 	}
-	ast_format_list_destroy(fmlist);
+
+	ast_data_add_str(codec, "name", tmp->name);
+	ast_data_add_int(codec, "samplespersecond", tmp->sample_rate);
+	ast_data_add_str(codec, "description", tmp->description);
+	ast_data_add_int(codec, "frame_length", tmp->minimum_bytes);
+	ao2_ref(tmp, -1);
 
 	return 0;
 }
 
-int ast_data_add_codecs(struct ast_data *root, const char *node_name, struct ast_format_cap *cap)
+int ast_data_add_codec(struct ast_data *root, const char *node_name, struct ast_format *format)
 {
-	struct ast_data *codecs, *codec;
-	size_t fmlist_size;
-	const struct ast_format_list *fmlist;
-	int x;
+	struct ast_data *codecs;
 
 	codecs = ast_data_add_node(root, node_name);
 	if (!codecs) {
 		return -1;
 	}
-	fmlist = ast_format_list_get(&fmlist_size);
-	for (x = 0; x < fmlist_size; x++) {
-		if (ast_format_cap_iscompatible(cap, &fmlist[x].format)) {
-			codec = ast_data_add_node(codecs, "codec");
-			if (!codec) {
-				ast_format_list_destroy(fmlist);
-				return -1;
-			}
-			ast_data_add_str(codec, "name", fmlist[x].name);
-			ast_data_add_int(codec, "samplespersecond", fmlist[x].samplespersecond);
-			ast_data_add_str(codec, "description", fmlist[x].desc);
-			ast_data_add_int(codec, "frame_length", fmlist[x].fr_len);
-		}
+
+	return data_add_codec(codecs, format);
+}
+
+int ast_data_add_codecs(struct ast_data *root, const char *node_name, struct ast_format_cap *cap)
+{
+	struct ast_data *codecs;
+	size_t i;
+	size_t count;
+
+	codecs = ast_data_add_node(root, node_name);
+	if (!codecs) {
+		return -1;
 	}
-	ast_format_list_destroy(fmlist);
+
+	count = ast_format_cap_count(cap);
+	for (i = 0; i < count; ++i) {
+		struct ast_format *fmt;
+
+		fmt = ast_format_cap_get_format(cap, i);
+		if (!fmt) {
+			return -1;
+		}
+
+		if (data_add_codec(codecs, fmt)) {
+			ao2_ref(fmt, -1);
+			return -1;
+		}
+
+		ao2_ref(fmt, -1);
+	}
 
 	return 0;
 }
@@ -3315,7 +3311,10 @@ AST_TEST_DEFINE(test_data_get)
 
 #endif
 
-/*! \internal \brief Clean up resources on Asterisk shutdown */
+/*!
+ * \internal
+ * \brief Clean up resources on Asterisk shutdown
+ */
 static void data_shutdown(void)
 {
 	ast_manager_unregister("DataGet");

@@ -17,11 +17,26 @@
  */
 
 
-/*
- *
+/*!
+ * \file extconf
  * A condensation of the pbx_config stuff, to read into exensions.conf, and provide an interface to the data there,
  * for operations outside of asterisk. A huge, awful hack.
  *
+ */
+
+/*!
+ * \li \ref extconf.c uses the configuration file \ref extconfig.conf and \ref extensions.conf and \ref asterisk.conf
+ * \addtogroup configuration_file Configuration Files
+ */
+
+/*!
+ * \page extconfig.conf extconfig.conf
+ * \verbinclude extconfig.conf.sample
+ */
+
+/*!
+ * \page extensions.conf extensions.conf
+ * \verbinclude extensions.conf.sample
  */
 
 /*** MODULEINFO
@@ -96,7 +111,7 @@ struct ast_channel
 #define VERBOSE_PREFIX_3 "    -- "
 #define VERBOSE_PREFIX_4 "       > "
 
-void ast_backtrace(void);
+void ast_log_backtrace(void);
 
 void ast_queue_log(const char *queuename, const char *callid, const char *agent, const char *event, const char *fmt, ...)
 	__attribute__((format(printf, 5, 6)));
@@ -1316,7 +1331,6 @@ int ast_safe_system(const char *s)
 	int x;
 #endif
 	int res;
-	struct rusage rusage;
 	int status;
 
 #if defined(HAVE_WORKING_FORK) || defined(HAVE_WORKING_VFORK)
@@ -1338,7 +1352,7 @@ int ast_safe_system(const char *s)
 		_exit(1);
 	} else if (pid > 0) {
 		for(;;) {
-			res = wait4(pid, &status, 0, &rusage);
+			res = waitpid(pid, &status, 0);
 			if (res > -1) {
 				res = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 				break;
@@ -1827,8 +1841,6 @@ enum ast_option_flags {
 	AST_OPT_FLAG_DONT_WARN = (1 << 18),
 	/*! End CDRs before the 'h' extension */
 	AST_OPT_FLAG_END_CDR_BEFORE_H_EXTEN = (1 << 19),
-	/*! Use DAHDI Timing for generators if available */
-	AST_OPT_FLAG_INTERNAL_TIMING = (1 << 20),
 	/*! Always fork, even if verbose or debug settings are non-zero */
 	AST_OPT_FLAG_ALWAYS_FORK = (1 << 21),
 	/*! Disable log/verbose output to remote consoles */
@@ -1874,14 +1886,13 @@ struct ast_flags ast_options = { AST_DEFAULT_OPTIONS };
 #define ast_opt_transmit_silence	ast_test_flag(&ast_options, AST_OPT_FLAG_TRANSMIT_SILENCE)
 #define ast_opt_dont_warn		ast_test_flag(&ast_options, AST_OPT_FLAG_DONT_WARN)
 #define ast_opt_end_cdr_before_h_exten	ast_test_flag(&ast_options, AST_OPT_FLAG_END_CDR_BEFORE_H_EXTEN)
-#define ast_opt_internal_timing		ast_test_flag(&ast_options, AST_OPT_FLAG_INTERNAL_TIMING)
 #define ast_opt_always_fork		ast_test_flag(&ast_options, AST_OPT_FLAG_ALWAYS_FORK)
 #define ast_opt_mute			ast_test_flag(&ast_options, AST_OPT_FLAG_MUTE)
 
 extern int option_verbose;
 extern int option_debug;		/*!< Debugging */
-extern int option_maxcalls;		/*!< Maximum number of simultaneous channels */
-extern double option_maxload;
+extern int ast_option_maxcalls;		/*!< Maximum number of simultaneous channels */
+extern double ast_option_maxload;
 extern char ast_defaultlanguage[];
 
 extern pid_t ast_mainpid;

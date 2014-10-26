@@ -30,6 +30,15 @@
  * \arg See also: \ref cdr_odbc
  */
 
+/*! \li \ref res_odbc.c uses the configuration file \ref res_odbc.conf
+ * \addtogroup configuration_file Configuration Files
+ */
+
+/*! 
+ * \page res_odbc.conf res_odbc.conf
+ * \verbinclude res_odbc.conf.sample
+ */
+
 /*** MODULEINFO
 	<depend>generic_odbc</depend>
 	<depend>ltdl</depend>
@@ -38,7 +47,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -128,7 +137,6 @@ struct odbc_class
 	unsigned int delme:1;                /*!< Purge the class */
 	unsigned int backslash_is_escape:1;  /*!< On this database, the backslash is a native escape sequence */
 	unsigned int forcecommit:1;          /*!< Should uncommitted transactions be auto-committed on handle release? */
-	unsigned int allow_empty_strings:1;  /*!< Implicit conversion from an empty string to a number is valid for this database */
 	unsigned int isolation;              /*!< Flags for how the DB should deal with data in other, uncommitted transactions */
 	unsigned int limit;                  /*!< Maximum number of database handles we will allow */
 	int count;                           /*!< Running count of pooled connections */
@@ -538,7 +546,7 @@ struct odbc_cache_tables *ast_odbc_find_table(const char *database, const char *
 				entry->octetlen = entry->size;
 			}
 
-			ast_verb(10, "Found %s column with type %hd with len %ld, octetlen %ld, and numlen (%hd,%hd)\n", entry->name, entry->type, (long) entry->size, (long) entry->octetlen, entry->decimals, entry->radix);
+			ast_debug(3, "Found %s column with type %hd with len %ld, octetlen %ld, and numlen (%hd,%hd)\n", entry->name, entry->type, (long) entry->size, (long) entry->octetlen, entry->decimals, entry->radix);
 			/* Insert column info into column list */
 			AST_LIST_INSERT_TAIL(&(tableptr->columns), entry, list);
 		}
@@ -773,7 +781,7 @@ static int load_odbc_config(void)
 	struct ast_variable *v;
 	char *cat;
 	const char *dsn, *username, *password, *sanitysql;
-	int enabled, pooling, limit, bse, conntimeout, forcecommit, isolation, allow_empty_strings;
+	int enabled, pooling, limit, bse, conntimeout, forcecommit, isolation;
 	struct timeval ncache = { 0, 0 };
 	unsigned int idlecheck;
 	int preconnect = 0, res = 0;
@@ -802,7 +810,6 @@ static int load_odbc_config(void)
 			bse = 1;
 			conntimeout = 10;
 			forcecommit = 0;
-			allow_empty_strings = 1;
 			isolation = SQL_TXN_READ_COMMITTED;
 			for (v = ast_variable_browse(config, cat); v; v = v->next) {
 				if (!strcasecmp(v->name, "pooling")) {
@@ -838,8 +845,6 @@ static int load_odbc_config(void)
 					sanitysql = v->value;
 				} else if (!strcasecmp(v->name, "backslash_is_escape")) {
 					bse = ast_true(v->value);
-				} else if (!strcasecmp(v->name, "allow_empty_string_in_nontext")) {
-					allow_empty_strings = ast_true(v->value);
 				} else if (!strcasecmp(v->name, "connect_timeout")) {
 					if (sscanf(v->value, "%d", &conntimeout) != 1 || conntimeout < 1) {
 						ast_log(LOG_WARNING, "connect_timeout must be a positive integer\n");
@@ -901,7 +906,6 @@ static int load_odbc_config(void)
 				new->idlecheck = idlecheck;
 				new->conntimeout = conntimeout;
 				new->negative_connection_cache = ncache;
-				new->allow_empty_strings = allow_empty_strings ? 1 : 0;
 
 				if (cat)
 					ast_copy_string(new->name, cat, sizeof(new->name));
@@ -1117,11 +1121,6 @@ void ast_odbc_release_obj(struct odbc_obj *obj)
 int ast_odbc_backslash_is_escape(struct odbc_obj *obj)
 {
 	return obj->parent->backslash_is_escape;
-}
-
-int ast_odbc_allow_empty_string_in_nontext(struct odbc_obj *obj)
-{
-	return obj->parent->allow_empty_strings;
 }
 
 static int commit_exec(struct ast_channel *chan, const char *data)
@@ -1885,6 +1884,16 @@ static int unload_module(void)
 	return -1;
 }
 
+/*!
+ * \brief Load the module
+ *
+ * Module loading including tests for configuration or dependencies.
+ * This function can return AST_MODULE_LOAD_FAILURE, AST_MODULE_LOAD_DECLINE,
+ * or AST_MODULE_LOAD_SUCCESS. If a dependency or environment variable fails
+ * tests return AST_MODULE_LOAD_FAILURE. If the module can not load the 
+ * configuration file or other non-critical problem return 
+ * AST_MODULE_LOAD_DECLINE. On success return AST_MODULE_LOAD_SUCCESS.
+ */
 static int load_module(void)
 {
 	if (!(class_container = ao2_container_alloc(1, null_hash_fn, ao2_match_by_addr)))
@@ -1901,6 +1910,7 @@ static int load_module(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "ODBC resource",
+		.support_level = AST_MODULE_SUPPORT_CORE,
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,

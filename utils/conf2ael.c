@@ -28,7 +28,7 @@
  ***/
 
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 408786 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 418019 $")
 
 #include "asterisk/paths.h"	/* CONFIG_DIR */
 #include <locale.h>
@@ -56,7 +56,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 408786 $")
 #include "asterisk/pval.h"
 #include "asterisk/extconf.h"
 
-struct ast_flags ast_compat = { 7 };
 const char *ast_config_AST_CONFIG_DIR = "/etc/asterisk";	/* placeholder */
 
 void get_start_stop(unsigned int *word, int bitsperword, int totalbits, int *start, int *end);
@@ -748,12 +747,12 @@ void ast_store_lock_info(enum ast_lock_type type, const char *filename,
 {
 }
 
-int ast_bt_get_addresses(struct ast_bt *bt)
+int __ast_bt_get_addresses(struct ast_bt *bt)
 {
 	return 0;
 }
 
-char **ast_bt_get_symbols(void **addresses, size_t num_frames)
+char **__ast_bt_get_symbols(void **addresses, size_t num_frames)
 {
 	char **foo = calloc(num_frames, sizeof(char *) + 1);
 	if (foo) {

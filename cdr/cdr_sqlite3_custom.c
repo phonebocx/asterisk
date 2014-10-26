@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416337 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 
 #include <sqlite3.h>
 
@@ -197,7 +197,7 @@ static int load_config(int reload)
 		return -1;
 	}
 
-	ast_verb(3, "cdr_sqlite3_custom: Logging CDR records to table '%s' in 'master.db'\n", table);
+	ast_verb(4, "cdr_sqlite3_custom: Logging CDR records to table '%s' in 'master.db'\n", table);
 
 	ast_config_destroy(cfg);
 
@@ -279,7 +279,9 @@ static int write_cdr(struct ast_cdr *cdr)
 
 static int unload_module(void)
 {
-	ast_cdr_unregister(name);
+	if (ast_cdr_unregister(name)) {
+		return -1;
+	}
 
 	free_config(0);
 
@@ -345,6 +347,7 @@ static int reload(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "SQLite3 Custom CDR Module",
+	.support_level = AST_MODULE_SUPPORT_EXTENDED,
 	.load = load_module,
 	.unload = unload_module,
 	.reload = reload,

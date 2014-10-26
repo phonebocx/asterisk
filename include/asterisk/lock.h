@@ -59,6 +59,7 @@
 #include "asterisk/time.h"
 #endif
 
+#include "asterisk/backtrace.h"
 #include "asterisk/logger.h"
 #include "asterisk/compiler.h"
 
@@ -303,7 +304,22 @@ void ast_restore_lock_info(void *lock_addr);
  * \param this_lock_addr lock address to return lock information
  * \since 1.6.1
  */
-void log_show_lock(void *this_lock_addr);
+void ast_log_show_lock(void *this_lock_addr);
+
+/*!
+ * \brief Generate a lock dump equivalent to "core show locks".
+ *
+ * The lock dump generated is generally too large to be output by a
+ * single ast_verbose/log/debug/etc. call. Only ast_cli() handles it
+ * properly without changing BUFSIZ in logger.c.
+ *
+ * Note: This must be ast_free()d when you're done with it.
+ *
+ * \retval An ast_str containing the lock dump
+ * \retval NULL on error
+ * \since 12
+ */
+struct ast_str *ast_dump_locks(void);
 
 /*!
  * \brief retrieve lock info for the specified mutex
@@ -323,6 +339,28 @@ int ast_find_lock_info(void *lock_addr, char *filename, size_t filename_size, in
  * used during deadlock avoidance, to preserve the original location where
  * a lock was originally acquired.
  */
+#define AO2_DEADLOCK_AVOIDANCE(obj) \
+	do { \
+		char __filename[80], __func[80], __mutex_name[80]; \
+		int __lineno; \
+		int __res = ast_find_lock_info(ao2_object_get_lockaddr(obj), __filename, sizeof(__filename), &__lineno, __func, sizeof(__func), __mutex_name, sizeof(__mutex_name)); \
+		int __res2 = ao2_unlock(obj); \
+		usleep(1); \
+		if (__res < 0) { /* Could happen if the ao2 object does not have a mutex. */ \
+			if (__res2) { \
+				ast_log(LOG_WARNING, "Could not unlock ao2 object '%s': %s and no lock info found!  I will NOT try to relock.\n", #obj, strerror(__res2)); \
+			} else { \
+				ao2_lock(obj); \
+			} \
+		} else { \
+			if (__res2) { \
+				ast_log(LOG_WARNING, "Could not unlock ao2 object '%s': %s.  {{{Originally locked at %s line %d: (%s) '%s'}}}  I will NOT try to relock.\n", #obj, strerror(__res2), __filename, __lineno, __func, __mutex_name); \
+			} else { \
+				__ao2_lock(obj, AO2_LOCK_REQ_MUTEX, __filename, __func, __lineno, __mutex_name); \
+			} \
+		} \
+	} while (0)
+
 #define CHANNEL_DEADLOCK_AVOIDANCE(chan) \
 	do { \
 		char __filename[80], __func[80], __mutex_name[80]; \
@@ -477,12 +515,17 @@ static inline void delete_reentrancy_cs(struct ast_lock_track **plt)
 
 #else /* !DEBUG_THREADS */
 
-#define	CHANNEL_DEADLOCK_AVOIDANCE(chan) \
+#define AO2_DEADLOCK_AVOIDANCE(obj) \
+	ao2_unlock(obj); \
+	usleep(1); \
+	ao2_lock(obj);
+
+#define CHANNEL_DEADLOCK_AVOIDANCE(chan) \
 	ast_channel_unlock(chan); \
 	usleep(1); \
 	ast_channel_lock(chan);
 
-#define	DEADLOCK_AVOIDANCE(lock) \
+#define DEADLOCK_AVOIDANCE(lock) \
 	do { \
 		int __res; \
 		if (!(__res = ast_mutex_unlock(lock))) { \
@@ -548,6 +591,81 @@ static void  __attribute__((destructor)) fini_##rwlock(void) \
 
 #define AST_RWLOCK_DEFINE_STATIC(rwlock) __AST_RWLOCK_DEFINE(static, rwlock, AST_RWLOCK_INIT_VALUE, 1)
 #define AST_RWLOCK_DEFINE_STATIC_NOTRACKING(rwlock) __AST_RWLOCK_DEFINE(static, rwlock, AST_RWLOCK_INIT_VALUE_NOTRACKING, 0)
+
+/*!
+ * \brief Scoped Locks
+ *
+ * Scoped locks provide a way to use RAII locks. In other words,
+ * declaration of a scoped lock will automatically define and lock
+ * the lock. When the lock goes out of scope, it will automatically
+ * be unlocked.
+ *
+ * \code
+ * int some_function(struct ast_channel *chan)
+ * {
+ *     SCOPED_LOCK(lock, chan, ast_channel_lock, ast_channel_unlock);
+ *
+ *     if (!strcmp(ast_channel_name(chan, "foo")) {
+ *         return 0;
+ *     }
+ *
+ *     return -1;
+ * }
+ * \endcode
+ *
+ * In the above example, neither return path requires explicit unlocking
+ * of the channel.
+ *
+ * \note
+ * Care should be taken when using SCOPED_LOCKS in conjunction with ao2 objects.
+ * ao2 objects should be unlocked before they are unreffed. Since SCOPED_LOCK runs
+ * once the variable goes out of scope, this can easily lead to situations where the
+ * variable gets unlocked after it is unreffed.
+ *
+ * \param varname The unique name to give to the scoped lock. You are not likely to reference
+ * this outside of the SCOPED_LOCK invocation.
+ * \param lock The variable to lock. This can be anything that can be passed to a locking
+ * or unlocking function.
+ * \param lockfunc The function to call to lock the lock
+ * \param unlockfunc The function to call to unlock the lock
+ */
+#define SCOPED_LOCK(varname, lock, lockfunc, unlockfunc) \
+	RAII_VAR(typeof((lock)), varname, ({lockfunc((lock)); (lock); }), unlockfunc)
+
+/*!
+ * \brief scoped lock specialization for mutexes
+ */
+#define SCOPED_MUTEX(varname, lock) SCOPED_LOCK(varname, (lock), ast_mutex_lock, ast_mutex_unlock)
+
+/*!
+ * \brief scoped lock specialization for read locks
+ */
+#define SCOPED_RDLOCK(varname, lock) SCOPED_LOCK(varname, (lock), ast_rwlock_rdlock, ast_rwlock_unlock)
+
+/*!
+ * \brief scoped lock specialization for write locks
+ */
+#define SCOPED_WRLOCK(varname, lock) SCOPED_LOCK(varname, (lock), ast_rwlock_wrlock, ast_rwlock_unlock)
+
+/*!
+ * \brief scoped lock specialization for ao2 mutexes.
+ */
+#define SCOPED_AO2LOCK(varname, obj) SCOPED_LOCK(varname, (obj), ao2_lock, ao2_unlock)
+
+/*!
+ * \brief scoped lock specialization for ao2 read locks.
+ */
+#define SCOPED_AO2RDLOCK(varname, obj) SCOPED_LOCK(varname, (obj), ao2_rdlock, ao2_unlock)
+
+/*!
+ * \brief scoped lock specialization for ao2 write locks.
+ */
+#define SCOPED_AO2WRLOCK(varname, obj) SCOPED_LOCK(varname, (obj), ao2_wrlock, ao2_unlock)
+
+/*!
+ * \brief scoped lock specialization for channels.
+ */
+#define SCOPED_CHANNELLOCK(varname, chan) SCOPED_LOCK(varname, (chan), ast_channel_lock, ast_channel_unlock)
 
 #ifndef __CYGWIN__	/* temporary disabled for cygwin */
 #define pthread_mutex_t		use_ast_mutex_t_instead_of_pthread_mutex_t

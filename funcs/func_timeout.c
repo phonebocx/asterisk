@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405431 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405436 $")
 
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
@@ -155,7 +155,9 @@ static int timeout_write(struct ast_channel *chan, const char *cmd, char *data,
 	switch (*data) {
 	case 'a':
 	case 'A':
+		ast_channel_lock(chan);
 		ast_channel_setwhentohangup_tv(chan, when);
+		ast_channel_unlock(chan);
 		if (VERBOSITY_ATLEAST(3)) {
 			if (!ast_tvzero(*ast_channel_whentohangup(chan))) {
 				when = ast_tvadd(when, ast_tvnow());

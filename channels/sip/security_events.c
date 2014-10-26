@@ -25,34 +25,21 @@
  */
 
 /*** MODULEINFO
-	<support_level>core</support_level>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 412115 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420562 $")
 
 #include "include/sip.h"
 #include "include/security_events.h"
 
 /*! \brief Determine transport type used to receive request*/
 
-static enum ast_security_event_transport_type security_event_get_transport(const struct sip_pvt *p)
+static enum ast_transport security_event_get_transport(const struct sip_pvt *p)
 {
-	int res = 0;
-
-	switch (p->socket.type) {
-	case SIP_TRANSPORT_UDP:
-		return AST_SECURITY_EVENT_TRANSPORT_UDP;
-	case SIP_TRANSPORT_TCP:
-	case SIP_TRANSPORT_WS:
-		return AST_SECURITY_EVENT_TRANSPORT_TCP;
-	case SIP_TRANSPORT_TLS:
-	case SIP_TRANSPORT_WSS:
-		return AST_SECURITY_EVENT_TRANSPORT_TLS;
-	}
-
-	return res;
+	return p->socket.type;
 }
 
 void sip_report_invalid_peer(const struct sip_pvt *p)

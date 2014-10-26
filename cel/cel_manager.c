@@ -35,7 +35,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 405582 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/cel.h"
@@ -57,12 +57,12 @@ static int enablecel;
 /*! \brief show_user_def is off by default */
 #define CEL_SHOW_USERDEF_DEFAULT	0
 
+#define MANAGER_BACKEND_NAME "Manager Event Logging"
+
 /*! TRUE if we should set the EventName header to USER_DEFINED on user events. */
 static unsigned char cel_show_user_def;
 
-static struct ast_event_sub *event_sub;
-
-static void manager_log(const struct ast_event *event, void *userdata)
+static void manager_log(struct ast_event *event)
 {
 	struct ast_tm timeresult;
 	char start_time[80] = "";
@@ -129,7 +129,7 @@ static void manager_log(const struct ast_event *event, void *userdata)
 		record.application_name,
 		record.application_data,
 		start_time,
-		ast_cel_get_ama_flag_name(record.amaflag),
+		ast_channel_amaflags2string(record.amaflag),
 		record.unique_id,
 		record.linked_id,
 		record.user_field,
@@ -185,12 +185,9 @@ static int load_config(int reload)
 
 	cel_show_user_def = new_cel_show_user_def;
 	if (enablecel && !newenablecel) {
-		if (event_sub) {
-			event_sub = ast_event_unsubscribe(event_sub);
-		}
+		ast_cel_backend_unregister(MANAGER_BACKEND_NAME);
 	} else if (!enablecel && newenablecel) {
-		event_sub = ast_event_subscribe(AST_EVENT_CEL, manager_log, "Manager Event Logging", NULL, AST_EVENT_IE_END);
-		if (!event_sub) {
+		if (ast_cel_backend_register(MANAGER_BACKEND_NAME, manager_log)) {
 			ast_log(LOG_ERROR, "Unable to register Asterisk Call Manager CEL handling\n");
 		}
 	}
@@ -201,9 +198,7 @@ static int load_config(int reload)
 
 static int unload_module(void)
 {
-	if (event_sub) {
-		event_sub = ast_event_unsubscribe(event_sub);
-	}
+	ast_cel_backend_unregister(MANAGER_BACKEND_NAME);
 	return 0;
 }
 
@@ -222,6 +217,7 @@ static int reload(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Asterisk Manager Interface CEL Backend",
+	.support_level = AST_MODULE_SUPPORT_CORE,
 	.load = load_module,
 	.unload = unload_module,
 	.reload = reload,

@@ -29,24 +29,13 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 422113 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 423478 $")
 
 #include <ctype.h>
+#include <fcntl.h>
 #include <sys/stat.h>
-
 #include <sys/syscall.h>
 #include <unistd.h>
-#if defined(__APPLE__)
-#include <mach/mach.h>
-#elif defined(HAVE_SYS_THR_H)
-#include <sys/thr.h>
-#endif
-
-#ifdef HAVE_DEV_URANDOM
-#include <fcntl.h>
-#endif
-
-#include <sys/syscall.h>
 #if defined(__APPLE__)
 #include <mach/mach.h>
 #elif defined(HAVE_SYS_THR_H)
@@ -63,6 +52,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 422113 $")
 #include "asterisk/sha1.h"
 #include "asterisk/cli.h"
 #include "asterisk/linkedlists.h"
+#include "asterisk/astobj2.h"
 
 #define AST_API_MODULE		/* ensure that inlinable API functions will be built in this module if required */
 #include "asterisk/strings.h"
@@ -590,9 +580,7 @@ const char *ast_inet_ntoa(struct in_addr ia)
 	return inet_ntop(AF_INET, &ia, buf, INET_ADDRSTRLEN);
 }
 
-#ifdef HAVE_DEV_URANDOM
 static int dev_urandom_fd;
-#endif
 
 #ifndef __linux__
 #undef pthread_create /* For ast_pthread_create function only */
@@ -625,11 +613,11 @@ struct thr_lock_info {
 	/*! This is the actual container of info for what locks this thread holds */
 	struct {
 		const char *file;
-		int line_num;
 		const char *func;
 		const char *lock_name;
 		void *lock_addr;
 		int times_locked;
+		int line_num;
 		enum ast_lock_type type;
 		/*! This thread is waiting on this lock */
 		int pending:2;
@@ -643,6 +631,8 @@ struct thr_lock_info {
 	 *  The index (num_locks - 1) has the info on the last one in the
 	 *  locks member */
 	unsigned int num_locks;
+	/*! The LWP id (which GDB prints) */
+	int lwp;
 	/*! Protects the contents of the locks member
 	 * Intentionally not ast_mutex_t */
 	pthread_mutex_t lock;
@@ -692,9 +682,10 @@ static void lock_info_destroy(void *data)
 	}
 
 	pthread_mutex_destroy(&lock_info->lock);
-	if (lock_info->thread_name)
-		free((void *) lock_info->thread_name);
-	free(lock_info);
+	if (lock_info->thread_name) {
+		ast_free((void *) lock_info->thread_name);
+	}
+	ast_free(lock_info);
 }
 
 /*!
@@ -1019,7 +1010,7 @@ static void append_lock_information(struct ast_str **str, struct thr_lock_info *
 	which will give a stack trace and continue. -- that aught to do the job!
 
 */
-void log_show_lock(void *this_lock_addr)
+void ast_log_show_lock(void *this_lock_addr)
 {
 	struct thr_lock_info *lock_info;
 	struct ast_str *str;
@@ -1050,28 +1041,16 @@ void log_show_lock(void *this_lock_addr)
 }
 
 
-static char *handle_show_locks(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
+struct ast_str *ast_dump_locks(void)
 {
 	struct thr_lock_info *lock_info;
 	struct ast_str *str;
 
-	switch (cmd) {
-	case CLI_INIT:
-		e->command = "core show locks";
-		e->usage =
-			"Usage: core show locks\n"
-			"       This command is for lock debugging.  It prints out which locks\n"
-			"are owned by each active thread.\n";
-		return NULL;
-
-	case CLI_GENERATE:
+	if (!(str = ast_str_create(4096))) {
 		return NULL;
 	}
 
-	if (!(str = ast_str_create(4096)))
-		return CLI_FAILURE;
-
-	ast_str_append(&str, 0, "\n" 
+	ast_str_append(&str, 0, "\n"
 	               "=======================================================================\n"
 	               "=== %s\n"
 	               "=== Currently Held Locks\n"
@@ -1080,8 +1059,9 @@ static char *handle_show_locks(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	               "=== <pending> <lock#> (<file>): <lock type> <line num> <function> <lock name> <lock addr> (times locked)\n"
 	               "===\n", ast_get_version());
 
-	if (!str)
-		return CLI_FAILURE;
+	if (!str) {
+		return NULL;
+	}
 
 	pthread_mutex_lock(&lock_infos_lock.mutex);
 	AST_LIST_TRAVERSE(&lock_infos, lock_info, entry) {
@@ -1095,8 +1075,13 @@ static char *handle_show_locks(struct ast_cli_entry *e, int cmd, struct ast_cli_
 			}
 
 			if (!header_printed) {
-				ast_str_append(&str, 0, "=== Thread ID: 0x%lx (%s)\n", (long) lock_info->thread_id,
-					lock_info->thread_name);
+				if (lock_info->lwp != -1) {
+					ast_str_append(&str, 0, "=== Thread ID: 0x%lx LWP:%d (%s)\n",
+						(long unsigned) lock_info->thread_id, lock_info->lwp, lock_info->thread_name);
+				} else {
+					ast_str_append(&str, 0, "=== Thread ID: 0x%lx (%s)\n",
+						(long unsigned) lock_info->thread_id, lock_info->thread_name);
+				}
 				header_printed = 1;
 			}
 
@@ -1116,14 +1101,37 @@ static char *handle_show_locks(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	}
 	pthread_mutex_unlock(&lock_infos_lock.mutex);
 
-	if (!str)
-		return CLI_FAILURE;
+	if (!str) {
+		return NULL;
+	}
 
 	ast_str_append(&str, 0, "=======================================================================\n"
 	               "\n");
 
-	if (!str)
+	return str;
+}
+
+static char *handle_show_locks(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
+{
+	struct ast_str *str;
+
+	switch (cmd) {
+	case CLI_INIT:
+		e->command = "core show locks";
+		e->usage =
+			"Usage: core show locks\n"
+			"       This command is for lock debugging.  It prints out which locks\n"
+			"are owned by each active thread.\n";
+		return NULL;
+
+	case CLI_GENERATE:
+		return NULL;
+	}
+
+	str = ast_dump_locks();
+	if (!str) {
 		return CLI_FAILURE;
+	}
 
 	ast_cli(a->fd, "%s", ast_str_buffer(str));
 
@@ -1168,6 +1176,7 @@ static void *dummy_start(void *data)
 		return NULL;
 
 	lock_info->thread_id = pthread_self();
+	lock_info->lwp = ast_get_tid();
 	lock_info->thread_name = strdup(a.name);
 
 	pthread_mutexattr_init(&mutex_attr);
@@ -1464,6 +1473,66 @@ char *ast_strip_quoted(char *s, const char *beg_quotes, const char *end_quotes)
 	return s;
 }
 
+char *ast_strsep(char **iss, const char sep, uint32_t flags)
+{
+	char *st = *iss;
+	char *is;
+	int inquote = 0;
+	int found = 0;
+	char stack[8];
+
+	if (iss == NULL || *iss == '\0') {
+		return NULL;
+	}
+
+	memset(stack, 0, sizeof(stack));
+
+	for(is = st; *is; is++) {
+		if (*is == '\\') {
+			if (*++is != '\0') {
+				is++;
+			} else {
+				break;
+			}
+		}
+
+		if (*is == '\'' || *is == '"') {
+			if (*is == stack[inquote]) {
+				stack[inquote--] = '\0';
+			} else {
+				if (++inquote >= sizeof(stack)) {
+					return NULL;
+				}
+				stack[inquote] = *is;
+			}
+		}
+
+		if (*is == sep && !inquote) {
+			*is = '\0';
+			found = 1;
+			*iss = is + 1;
+			break;
+		}
+	}
+	if (!found) {
+		*iss = NULL;
+	}
+
+	if (flags & AST_STRSEP_STRIP) {
+		st = ast_strip_quoted(st, "'\"", "'\"");
+	}
+
+	if (flags & AST_STRSEP_TRIM) {
+		st = ast_strip(st);
+	}
+
+	if (flags & AST_STRSEP_UNESCAPE) {
+		ast_unescape_quoted(st);
+	}
+
+	return st;
+}
+
 char *ast_unescape_semicolon(char *s)
 {
 	char *e;
@@ -1667,10 +1736,16 @@ int ast_remaining_ms(struct timeval start, int max_ms)
 	return ms;
 }
 
-#undef ONE_MILLION
+void ast_format_duration_hh_mm_ss(int duration, char *buf, size_t length)
+{
+	int durh, durm, durs;
+	durh = duration / 3600;
+	durm = (duration % 3600) / 60;
+	durs = duration % 60;
+	snprintf(buf, length, "%02d:%02d:%02d", durh, durm, durs);
+}
 
-/*! \brief glibc puts a lock inside random(3), so that the results are thread-safe.
- * BSD libc (and others) do not. */
+#undef ONE_MILLION
 
 #ifndef linux
 AST_MUTEX_DEFINE_STATIC(randomlock);
@@ -1679,7 +1754,7 @@ AST_MUTEX_DEFINE_STATIC(randomlock);
 long int ast_random(void)
 {
 	long int res;
-#ifdef HAVE_DEV_URANDOM
+
 	if (dev_urandom_fd >= 0) {
 		int read_res = read(dev_urandom_fd, &res, sizeof(res));
 		if (read_res > 0) {
@@ -1689,7 +1764,14 @@ long int ast_random(void)
 			return res % rm;
 		}
 	}
-#endif
+
+	/* XXX - Thread safety really depends on the libc, not the OS.
+	 *
+	 * But... popular Linux libc's (uClibc, glibc, eglibc), all have a
+	 * somewhat thread safe random(3) (results are random, but not
+	 * reproducible). The libc's for other systems (BSD, et al.), not so
+	 * much.
+	 */
 #ifdef linux
 	res = random();
 #else
@@ -1735,7 +1817,7 @@ char *ast_process_quotes_and_slashes(char *start, char find, char replace_with)
 	return dataPut;
 }
 
-void ast_join(char *s, size_t len, const char * const w[])
+void ast_join_delim(char *s, size_t len, const char * const w[], unsigned int size, char delim)
 {
 	int x, ofs = 0;
 	const char *src;
@@ -1743,15 +1825,34 @@ void ast_join(char *s, size_t len, const char * const w[])
 	/* Join words into a string */
 	if (!s)
 		return;
-	for (x = 0; ofs < len && w[x]; x++) {
+	for (x = 0; ofs < len && w[x] && x < size; x++) {
 		if (x > 0)
-			s[ofs++] = ' ';
+			s[ofs++] = delim;
 		for (src = w[x]; *src && ofs < len; src++)
 			s[ofs++] = *src;
 	}
 	if (ofs == len)
 		ofs--;
 	s[ofs] = '\0';
+}
+
+char *ast_to_camel_case_delim(const char *s, const char *delim)
+{
+	char *res = ast_strdup(s);
+	char *front, *back, *buf = res;
+	int size;
+
+	front = strtok_r(buf, delim, &back);
+
+	while (front) {
+		size = strlen(front);
+		*front = toupper(*front);
+		ast_copy_string(buf, front, size + 1);
+		buf += size;
+		front = strtok_r(NULL, delim, &back);
+	}
+
+	return res;
 }
 
 /*
@@ -2223,12 +2324,104 @@ int ast_mkdir(const char *path, int mode)
 	return 0;
 }
 
+static int safe_mkdir(const char *base_path, char *path, int mode)
+{
+	RAII_VAR(char *, absolute_path, NULL, ast_std_free);
+
+	absolute_path = realpath(path, NULL);
+
+	if (absolute_path) {
+		/* Path exists, but is it in the right place? */
+		if (!ast_begins_with(absolute_path, base_path)) {
+			return EPERM;
+		}
+
+		/* It is in the right place! */
+		return 0;
+	} else {
+		/* Path doesn't exist. */
+
+		/* The slash terminating the subpath we're checking */
+		char *path_term = strchr(path, '/');
+		/* True indicates the parent path is within base_path */
+		int parent_is_safe = 0;
+		int res;
+
+		while (path_term) {
+			RAII_VAR(char *, absolute_subpath, NULL, ast_std_free);
+
+			/* Truncate the path one past the slash */
+			char c = *(path_term + 1);
+			*(path_term + 1) = '\0';
+			absolute_subpath = realpath(path, NULL);
+
+			if (absolute_subpath) {
+				/* Subpath exists, but is it safe? */
+				parent_is_safe = ast_begins_with(
+					absolute_subpath, base_path);
+			} else if (parent_is_safe) {
+				/* Subpath does not exist, but parent is safe
+				 * Create it */
+				res = mkdir(path, mode);
+				if (res != 0) {
+					ast_assert(errno != EEXIST);
+					return errno;
+				}
+			} else {
+				/* Subpath did not exist, parent was not safe
+				 * Fail! */
+				errno = EPERM;
+				return errno;
+			}
+			/* Restore the path */
+			*(path_term + 1) = c;
+			/* Move on to the next slash */
+			path_term = strchr(path_term + 1, '/');
+		}
+
+		/* Now to build the final path, but only if it's safe */
+		if (!parent_is_safe) {
+			errno = EPERM;
+			return errno;
+		}
+
+		res = mkdir(path, mode);
+		if (res != 0 && errno != EEXIST) {
+			return errno;
+		}
+
+		return 0;
+	}
+}
+
+int ast_safe_mkdir(const char *base_path, const char *path, int mode)
+{
+	RAII_VAR(char *, absolute_base_path, NULL, ast_std_free);
+	RAII_VAR(char *, p, NULL, ast_free);
+
+	if (base_path == NULL || path == NULL) {
+		errno = EFAULT;
+		return errno;
+	}
+
+	p = ast_strdup(path);
+	if (p == NULL) {
+		errno = ENOMEM;
+		return errno;
+	}
+
+	absolute_base_path = realpath(base_path, NULL);
+	if (absolute_base_path == NULL) {
+		return errno;
+	}
+
+	return safe_mkdir(absolute_base_path, p, mode);
+}
+
 static void utils_shutdown(void)
 {
-#ifdef HAVE_DEV_URANDOM
 	close(dev_urandom_fd);
 	dev_urandom_fd = -1;
-#endif
 #if defined(DEBUG_THREADS) && !defined(LOW_MEMORY)
 	ast_cli_unregister_multiple(utils_cli, ARRAY_LEN(utils_cli));
 #endif
@@ -2236,9 +2429,7 @@ static void utils_shutdown(void)
 
 int ast_utils_init(void)
 {
-#ifdef HAVE_DEV_URANDOM
 	dev_urandom_fd = open("/dev/urandom", O_RDONLY);
-#endif
 	base64_init();
 #ifdef DEBUG_THREADS
 #if !defined(LOW_MEMORY)
@@ -2446,6 +2637,10 @@ void __ast_assert_failed(int condition, const char *condition_str, const char *f
 		condition_str, condition);
 	fprintf(stderr, "FRACK!, Failed assertion %s (%d) at line %d in %s of %s\n",
 		condition_str, condition, line, function, file);
+
+	/* Generate a backtrace for the assert */
+	ast_log_backtrace();
+
 	/*
 	 * Give the logger a chance to get the message out, just in case
 	 * we abort(), or Asterisk crashes due to whatever problem just
@@ -2455,3 +2650,110 @@ void __ast_assert_failed(int condition, const char *condition_str, const char *f
 	ast_do_crash();
 }
 #endif	/* defined(AST_DEVMODE) */
+
+char *ast_eid_to_str(char *s, int maxlen, struct ast_eid *eid)
+{
+	int x;
+	char *os = s;
+	if (maxlen < 18) {
+		if (s && (maxlen > 0)) {
+			*s = '\0';
+		}
+	} else {
+		for (x = 0; x < 5; x++) {
+			sprintf(s, "%02x:", (unsigned)eid->eid[x]);
+			s += 3;
+		}
+		sprintf(s, "%02x", (unsigned)eid->eid[5]);
+	}
+	return os;
+}
+
+void ast_set_default_eid(struct ast_eid *eid)
+{
+#if defined(SIOCGIFHWADDR) && defined(HAVE_STRUCT_IFREQ_IFR_IFRU_IFRU_HWADDR)
+	int s, x = 0;
+	char eid_str[20];
+	struct ifreq ifr;
+	static const unsigned int MAXIF = 10;
+
+	s = socket(AF_INET, SOCK_STREAM, 0);
+	if (s < 0) {
+		return;
+	}
+	for (x = 0; x < MAXIF; x++) {
+		static const char *prefixes[] = { "eth", "em" };
+		unsigned int i;
+
+		for (i = 0; i < ARRAY_LEN(prefixes); i++) {
+			memset(&ifr, 0, sizeof(ifr));
+			snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s%d", prefixes[i], x);
+			if (!ioctl(s, SIOCGIFHWADDR, &ifr)) {
+				break;
+			}
+		}
+
+		if (i == ARRAY_LEN(prefixes)) {
+			/* Try pciX#[1..N] */
+			for (i = 0; i < MAXIF; i++) {
+				memset(&ifr, 0, sizeof(ifr));
+				snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "pci%d#%u", x, i);
+				if (!ioctl(s, SIOCGIFHWADDR, &ifr)) {
+					break;
+				}
+			}
+			if (i == MAXIF) {
+				continue;
+			}
+		}
+
+		memcpy(eid, ((unsigned char *)&ifr.ifr_hwaddr) + 2, sizeof(*eid));
+		ast_debug(1, "Seeding global EID '%s' from '%s' using 'siocgifhwaddr'\n", ast_eid_to_str(eid_str, sizeof(eid_str), eid), ifr.ifr_name);
+		close(s);
+		return;
+	}
+	close(s);
+#else
+#if defined(ifa_broadaddr) && !defined(SOLARIS)
+	char eid_str[20];
+	struct ifaddrs *ifap;
+
+	if (getifaddrs(&ifap) == 0) {
+		struct ifaddrs *p;
+		for (p = ifap; p; p = p->ifa_next) {
+			if ((p->ifa_addr->sa_family == AF_LINK) && !(p->ifa_flags & IFF_LOOPBACK) && (p->ifa_flags & IFF_RUNNING)) {
+				struct sockaddr_dl* sdp = (struct sockaddr_dl*) p->ifa_addr;
+				memcpy(&(eid->eid), sdp->sdl_data + sdp->sdl_nlen, 6);
+				ast_debug(1, "Seeding global EID '%s' from '%s' using 'getifaddrs'\n", ast_eid_to_str(eid_str, sizeof(eid_str), eid), p->ifa_name);
+				freeifaddrs(ifap);
+				return;
+			}
+		}
+		freeifaddrs(ifap);
+	}
+#endif
+#endif
+	ast_debug(1, "No ethernet interface found for seeding global EID. You will have to set it manually.\n");
+}
+
+int ast_str_to_eid(struct ast_eid *eid, const char *s)
+{
+	unsigned int eid_int[6];
+	int x;
+
+	if (sscanf(s, "%2x:%2x:%2x:%2x:%2x:%2x", &eid_int[0], &eid_int[1], &eid_int[2],
+		 &eid_int[3], &eid_int[4], &eid_int[5]) != 6) {
+			return -1;
+	}
+
+	for (x = 0; x < 6; x++) {
+		eid->eid[x] = eid_int[x];
+	}
+
+	return 0;
+}
+
+int ast_eid_cmp(const struct ast_eid *eid1, const struct ast_eid *eid2)
+{
+	return memcmp(eid1, eid2, sizeof(*eid1));
+}

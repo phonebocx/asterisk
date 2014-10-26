@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411328 $")
 
 #include <sys/stat.h>
 
@@ -39,7 +39,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 #include "asterisk/pbx.h"
 #include "asterisk/channel.h"
 #include "asterisk/app.h"
-#include "asterisk/manager.h"
+#include "asterisk/stasis_channels.h"
 
 /*** DOCUMENTATION
 	<function name="GLOBAL" language="en_US">
@@ -83,7 +83,25 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 411314 $")
 			using it in a set of calculations (or you might be surprised by the result).</para>
 		</description>
 	</function>
-
+	<managerEvent language="en_US" name="VarSet">
+		<managerEventInstance class="EVENT_FLAG_DIALPLAN">
+			<synopsis>Raised when a variable is shared between channels.</synopsis>
+			<syntax>
+				<channel_snapshot/>
+				<parameter name="Variable">
+					<para>The SHARED variable being set.</para>
+					<note><para>The variable name will always be enclosed with
+					<literal>SHARED()</literal></para></note>
+				</parameter>
+				<parameter name="Value">
+					<para>The new value of the variable.</para>
+				</parameter>
+			</syntax>
+			<see-also>
+				<ref type="function">SHARED</ref>
+			</see-also>
+		</managerEventInstance>
+	</managerEvent>
  ***/
 
 static void shared_variable_free(void *data);
@@ -200,6 +218,8 @@ static int shared_write(struct ast_channel *chan, const char *cmd, char *data, c
 		AST_APP_ARG(chan);
 	);
 	struct ast_channel *c_ref = NULL;
+	int len;
+	RAII_VAR(char *, shared_buffer, NULL, ast_free);
 
 	if (ast_strlen_zero(data)) {
 		ast_log(LOG_WARNING, "SHARED() requires an argument: SHARED(<var>[,<chan>])\n");
@@ -218,6 +238,15 @@ static int shared_write(struct ast_channel *chan, const char *cmd, char *data, c
 		chan = c_ref;
 	} else if (!chan) {
 		ast_log(LOG_WARNING, "No channel was provided to %s function.\n", cmd);
+		return -1;
+	}
+
+	len = 9 + strlen(args.var); /* SHARED() + var */
+	shared_buffer = ast_malloc(len);
+	if (!shared_buffer) {
+		if (c_ref) {
+			ast_channel_unref(c_ref);
+		}
 		return -1;
 	}
 
@@ -261,13 +290,9 @@ static int shared_write(struct ast_channel *chan, const char *cmd, char *data, c
 
 	if ((var = ast_var_assign(args.var, S_OR(value, "")))) {
 		AST_LIST_INSERT_HEAD(varshead, var, entries);
-		manager_event(EVENT_FLAG_DIALPLAN, "VarSet", 
-			"Channel: %s\r\n"
-			"Variable: SHARED(%s)\r\n"
-			"Value: %s\r\n"
-			"Uniqueid: %s\r\n", 
-			chan ? ast_channel_name(chan) : "none", args.var, value, 
-			chan ? ast_channel_uniqueid(chan) : "none");
+
+		sprintf(shared_buffer, "SHARED(%s)", args.var);
+		ast_channel_publish_varset(chan, shared_buffer, value);
 	}
 
 	ast_channel_unlock(chan);

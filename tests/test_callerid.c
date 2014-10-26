@@ -34,7 +34,7 @@
 #include "asterisk.h"
 #include "asterisk/callerid.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 422113 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 425155 $")
 
 #include "asterisk/utils.h"
 #include "asterisk/module.h"
@@ -56,10 +56,14 @@ AST_TEST_DEFINE(parse_nominal)
 		{"\"\" <number>", NULL, "number"},
 		{"<number>", NULL, "number"},
 		{"name", "name", NULL},
+		{" name", "name", NULL},
 		{"\"name\"", "name", NULL},
+		{"\"*10\"", "*10", NULL},
+		{" \"*10\"", "*10", NULL},
 		{"\"name\" <>", "name", NULL},
 		{"name <>", "name", NULL},
 		{"1234", NULL, "1234"},
+		{" 1234", NULL, "1234"},
 		{"\"na\\\"me\" <number>", "na\"me", "number"},
 	};
 	char *name;
