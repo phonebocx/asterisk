@@ -26,13 +26,22 @@
  * CLI commands.
  */
 
+/*! \li \ref res_clialiases.c uses the configuration file \ref cli_aliases.conf
+ * \addtogroup configuration_file Configuration Files
+ */
+
+/*! 
+ * \page cli_aliases.conf cli_aliases.conf
+ * \verbinclude cli_aliases.conf.sample
+ */
+
 /*** MODULEINFO
 	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 407210 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 
 #include "asterisk/module.h"
 #include "asterisk/config.h"
@@ -267,7 +276,16 @@ static int unload_module(void)
 	return 0;
 }
 
-/*! \brief Function called to load the module */
+/*!
+ * \brief Load the module
+ *
+ * Module loading including tests for configuration or dependencies.
+ * This function can return AST_MODULE_LOAD_FAILURE, AST_MODULE_LOAD_DECLINE,
+ * or AST_MODULE_LOAD_SUCCESS. If a dependency or environment variable fails
+ * tests return AST_MODULE_LOAD_FAILURE. If the module can not load the 
+ * configuration file or other non-critical problem return 
+ * AST_MODULE_LOAD_DECLINE. On success return AST_MODULE_LOAD_SUCCESS.
+ */
 static int load_module(void)
 {
 	if (!(cli_aliases = ao2_container_alloc(MAX_ALIAS_BUCKETS, alias_hash_cb, alias_cmp_cb))) {
@@ -282,6 +300,7 @@ static int load_module(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "CLI Aliases",
+		.support_level = AST_MODULE_SUPPORT_CORE,
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload_module,

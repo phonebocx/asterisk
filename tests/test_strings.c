@@ -34,7 +34,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 332178 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 423478 $")
 
 #include "asterisk/test.h"
 #include "asterisk/utils.h"
@@ -251,15 +251,158 @@ cleanup:
 	return res;
 }
 
+AST_TEST_DEFINE(begins_with_test)
+{
+	switch (cmd) {
+	case TEST_INIT:
+		info->name = "begins_with";
+		info->category = "/main/strings/";
+		info->summary = "Test ast_begins_with";
+		info->description = "Test ast_begins_with";
+		return AST_TEST_NOT_RUN;
+	case TEST_EXECUTE:
+		break;
+	}
+
+	// prefixes
+	ast_test_validate(test, 1 == ast_begins_with("foobar", "foobar"));
+	ast_test_validate(test, 1 == ast_begins_with("foobar", "foo"));
+	ast_test_validate(test, 1 == ast_begins_with("foobar", ""));
+	ast_test_validate(test, 1 == ast_begins_with("", ""));
+
+	// not prefixes
+	ast_test_validate(test, 0 == ast_begins_with("foobar", "bang"));
+	ast_test_validate(test, 0 == ast_begins_with("foobar", "foobat"));
+	ast_test_validate(test, 0 == ast_begins_with("boo", "boom"));
+	ast_test_validate(test, 0 == ast_begins_with("", "blitz"));
+
+	// nothing failed; we're all good!
+	return AST_TEST_PASS;
+}
+
+AST_TEST_DEFINE(ends_with_test)
+{
+	switch (cmd) {
+	case TEST_INIT:
+		info->name = "ends_with";
+		info->category = "/main/strings/";
+		info->summary = "Test ast_ends_with";
+		info->description = "Test ast_ends_with";
+		return AST_TEST_NOT_RUN;
+	case TEST_EXECUTE:
+		break;
+	}
+
+	// prefixes
+	ast_test_validate(test, 1 == ast_ends_with("foobar", "foobar"));
+	ast_test_validate(test, 1 == ast_ends_with("foobar", "bar"));
+	ast_test_validate(test, 1 == ast_ends_with("foobar", ""));
+	ast_test_validate(test, 1 == ast_ends_with("", ""));
+
+	// not suffixes
+	ast_test_validate(test, 0 == ast_ends_with("bar", "bbar"));
+	ast_test_validate(test, 0 == ast_ends_with("foobar", "bang"));
+	ast_test_validate(test, 0 == ast_ends_with("foobar", "foobat"));
+	ast_test_validate(test, 0 == ast_ends_with("boo", "boom"));
+	ast_test_validate(test, 0 == ast_ends_with("", "blitz"));
+
+	// nothing failed; we're all good!
+	return AST_TEST_PASS;
+}
+
+AST_TEST_DEFINE(strsep_test)
+{
+	char *test1, *test2, *test3;
+
+	switch (cmd) {
+	case TEST_INIT:
+		info->name = "strsep";
+		info->category = "/main/strings/";
+		info->summary = "Test ast_strsep";
+		info->description = "Test ast_strsep";
+		return AST_TEST_NOT_RUN;
+	case TEST_EXECUTE:
+		break;
+	}
+
+	test1 = ast_strdupa("ghi=jkl,mno='pqr,stu',abc=def, vwx = yz1 ,  vwx = yz1 ,  '"
+		" vwx = yz1 ' ,  ' vwx , yz1 ',v\"w\"x, '\"x,v\",\"x\"' , \" i\\'m a test\""
+		", \" i\\'m a, test\", \" i\\'m a, test\", e\\,nd, end\\");
+
+	test2 = ast_strsep(&test1, ',', 0);
+	ast_test_validate(test, 0 == strcmp("ghi=jkl", test2));
+
+	test3 = ast_strsep(&test2, '=', 0);
+	ast_test_validate(test, 0 == strcmp("ghi", test3));
+
+	test3 = ast_strsep(&test2, '=', 0);
+	ast_test_validate(test, 0 == strcmp("jkl", test3));
+
+	test2 = ast_strsep(&test1, ',', 0);
+	ast_test_validate(test, 0 == strcmp("mno='pqr,stu'", test2));
+
+	test3 = ast_strsep(&test2, '=', 0);
+	ast_test_validate(test, 0 == strcmp("mno", test3));
+
+	test3 = ast_strsep(&test2, '=', 0);
+	ast_test_validate(test, 0 == strcmp("'pqr,stu'", test3));
+
+	test2 = ast_strsep(&test1, ',', 0);
+	ast_test_validate(test, 0 == strcmp("abc=def", test2));
+
+	test2 = ast_strsep(&test1, ',', 0);
+	ast_test_validate(test, 0 == strcmp(" vwx = yz1 ", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_TRIM);
+	ast_test_validate(test, 0 == strcmp("vwx = yz1", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_STRIP);
+	ast_test_validate(test, 0 == strcmp(" vwx = yz1 ", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_STRIP | AST_STRSEP_TRIM);
+	ast_test_validate(test, 0 == strcmp("vwx , yz1", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_STRIP | AST_STRSEP_TRIM);
+	ast_test_validate(test, 0 == strcmp("v\"w\"x", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_TRIM);
+	ast_test_validate(test, 0 == strcmp("'\"x,v\",\"x\"'", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_TRIM);
+	ast_test_validate(test, 0 == strcmp("\" i\\'m a test\"", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
+	ast_test_validate(test, 0 == strcmp("\" i'm a, test\"", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_ALL);
+	ast_test_validate(test, 0 == strcmp("i'm a, test", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
+	ast_test_validate(test, 0 == strcmp("e,nd", test2));
+
+	test2 = ast_strsep(&test1, ',', AST_STRSEP_TRIM | AST_STRSEP_UNESCAPE);
+	ast_test_validate(test, 0 == strcmp("end", test2));
+
+	// nothing failed; we're all good!
+	return AST_TEST_PASS;
+}
+
+
 static int unload_module(void)
 {
 	AST_TEST_UNREGISTER(str_test);
+	AST_TEST_UNREGISTER(begins_with_test);
+	AST_TEST_UNREGISTER(ends_with_test);
+	AST_TEST_UNREGISTER(strsep_test);
 	return 0;
 }
 
 static int load_module(void)
 {
 	AST_TEST_REGISTER(str_test);
+	AST_TEST_REGISTER(begins_with_test);
+	AST_TEST_REGISTER(ends_with_test);
+	AST_TEST_REGISTER(strsep_test);
 	return AST_MODULE_LOAD_SUCCESS;
 }
 

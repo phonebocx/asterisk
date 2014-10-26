@@ -50,7 +50,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 423360 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 423372 $")
 
 #define SPANDSP_EXPOSE_INTERNAL_STRUCTURES
 #include <spandsp.h>
@@ -65,6 +65,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 423360 $")
 #include "asterisk/astobj2.h"
 #include "asterisk/res_fax.h"
 #include "asterisk/channel.h"
+#include "asterisk/format_cache.h"
 
 #define SPANDSP_FAX_SAMPLES 160
 #define SPANDSP_FAX_TIMER_RATE 8000 / SPANDSP_FAX_SAMPLES	/* 50 ticks per second, 20ms, 160 samples per second */
@@ -86,6 +87,8 @@ static void spandsp_v21_tone(void *data, int code, int level, int delay);
 
 static char *spandsp_fax_cli_show_capabilities(int fd);
 static char *spandsp_fax_cli_show_session(struct ast_fax_session *s, int fd);
+static void spandsp_manager_fax_session(struct mansession *s,
+	const char *id_text, struct ast_fax_session *session);
 static char *spandsp_fax_cli_show_stats(int fd);
 static char *spandsp_fax_cli_show_settings(int fd);
 
@@ -113,6 +116,7 @@ static struct ast_fax_tech spandsp_fax_tech = {
 	.switch_to_t38 = spandsp_fax_switch_to_t38,
 	.cli_show_capabilities = spandsp_fax_cli_show_capabilities,
 	.cli_show_session = spandsp_fax_cli_show_session,
+	.manager_fax_session = spandsp_manager_fax_session,
 	.cli_show_stats = spandsp_fax_cli_show_stats,
 	.cli_show_settings = spandsp_fax_cli_show_settings,
 };
@@ -623,9 +627,9 @@ static struct ast_frame *spandsp_fax_read(struct ast_fax_session *s)
 	struct ast_frame fax_frame = {
 		.frametype = AST_FRAME_VOICE,
 		.src = "res_fax_spandsp_g711",
+		.subclass.format = ast_format_slin,
 	};
 	struct ast_frame *f = &fax_frame;
-	ast_format_set(&fax_frame.subclass.format, AST_FORMAT_SLINEAR, 0);
 
 	if (ast_timer_ack(p->timer, 1) < 0) {
 		ast_log(LOG_ERROR, "Failed to acknowledge timer for FAX session '%u'\n", s->id);
@@ -678,20 +682,21 @@ static int spandsp_v21_detect(struct ast_fax_session *s, const struct ast_frame 
 		return -1;
 	}
 
-	ast_debug(5, "frame={ datalen=%d, samples=%d, mallocd=%d, src=%s, flags=%u, ts=%ld, len=%ld, seqno=%d, data.ptr=%p, subclass.format.id=%u  }\n", f->datalen, f->samples, f->mallocd, f->src, f->flags, f->ts, f->len, f->seqno, f->data.ptr, f->subclass.format.id);
+	ast_debug(5, "frame={ datalen=%d, samples=%d, mallocd=%d, src=%s, flags=%u, ts=%ld, len=%ld, seqno=%d, data.ptr=%p, subclass.format=%s  }\n", f->datalen, f->samples, f->mallocd, f->src, f->flags, f->ts, f->len, f->seqno, f->data.ptr, ast_format_get_name(f->subclass.format));
 
 	/* slinear frame can be passed to spandsp */
-	if (f->subclass.format.id == AST_FORMAT_SLINEAR) {
+	if (ast_format_cmp(f->subclass.format, ast_format_slin) == AST_FORMAT_CMP_EQUAL) {
 		modem_connect_tones_rx(p->tone_state, f->data.ptr, f->samples);
 
 	/* alaw/ulaw frame must be converted to slinear before passing to spandsp */
-	} else if (f->subclass.format.id == AST_FORMAT_ALAW || f->subclass.format.id == AST_FORMAT_ULAW) {
+	} else if (ast_format_cmp(f->subclass.format, ast_format_alaw) == AST_FORMAT_CMP_EQUAL ||
+	           ast_format_cmp(f->subclass.format, ast_format_ulaw) == AST_FORMAT_CMP_EQUAL) {
 		if (!(slndata = ast_malloc(sizeof(*slndata) * f->samples))) {
 			return -1;
 		}
-		decoder = g711_init(NULL, (f->subclass.format.id == AST_FORMAT_ALAW ? G711_ALAW : G711_ULAW));
+		decoder = g711_init(NULL, (ast_format_cmp(f->subclass.format, ast_format_alaw) == AST_FORMAT_CMP_EQUAL ? G711_ALAW : G711_ULAW));
 		g711_decode(decoder, slndata, f->data.ptr, f->samples);
-		ast_debug(5, "spandsp transcoding frame from %s to slinear for v21 detection\n", (f->subclass.format.id == AST_FORMAT_ALAW ? "G711_ALAW" : "G711_ULAW"));
+		ast_debug(5, "spandsp transcoding frame from %s to slinear for v21 detection\n", ast_format_get_name(f->subclass.format));
 		modem_connect_tones_rx(p->tone_state, slndata, f->samples);
 		g711_release(decoder);
 #if SPANDSP_RELEASE_DATE >= 20090220
@@ -701,7 +706,7 @@ static int spandsp_v21_detect(struct ast_fax_session *s, const struct ast_frame 
 
 	/* frame in other formats cannot be passed to spandsp, it could cause segfault */
 	} else {
-		ast_log(LOG_WARNING, "Unknown frame format %u, v.21 detection skipped\n", f->subclass.format.id);
+		ast_log(LOG_WARNING, "Frame format %s not supported, v.21 detection skipped\n", ast_format_get_name(f->subclass.format));
 		return -1;
 	}
 
@@ -763,6 +768,7 @@ static int spandsp_fax_gw_t30_gen(struct ast_channel *chan, void *data, int len,
 	struct ast_frame *f;
 	struct ast_frame t30_frame = {
 		.frametype = AST_FRAME_VOICE,
+		.subclass.format = ast_format_slin,
 		.src = "res_fax_spandsp_g711",
 		.samples = samples,
 		.flags = AST_FAX_FRFLAG_GATEWAY,
@@ -770,7 +776,6 @@ static int spandsp_fax_gw_t30_gen(struct ast_channel *chan, void *data, int len,
 
 	AST_FRAME_SET_BUFFER(&t30_frame, buffer, AST_FRIENDLY_OFFSET, t30_frame.samples * sizeof(int16_t));
 
-	ast_format_set(&t30_frame.subclass.format, AST_FORMAT_SLINEAR, 0);
 	if (!(f = ast_frisolate(&t30_frame))) {
 		return p->isdone ? -1 : res;
 	}
@@ -804,7 +809,7 @@ static int spandsp_fax_gateway_start(struct ast_fax_session *s) {
 	struct spandsp_pvt *p = s->tech_pvt;
 	struct ast_fax_t38_parameters *t38_param;
 	int i;
-	struct ast_channel *peer;
+	RAII_VAR(struct ast_channel *, peer, NULL, ao2_cleanup);
 	static struct ast_generator t30_gen = {
 		.alloc = spandsp_fax_gw_gen_alloc,
 		.release = spandsp_fax_gw_gen_release,
@@ -825,7 +830,7 @@ static int spandsp_fax_gateway_start(struct ast_fax_session *s) {
 
 	p->ist38 = 1;
 	p->ast_t38_state = ast_channel_get_t38_state(s->chan);
-	if (!(peer = ast_bridged_channel(s->chan))) {
+	if (!(peer = ast_channel_bridge_peer(s->chan))) {
 		ast_channel_unlock(s->chan);
 		return -1;
 	}
@@ -892,7 +897,8 @@ static int spandsp_fax_gateway_process(struct ast_fax_session *s, const struct a
 	/* Process a IFP packet */
 	if ((f->frametype == AST_FRAME_MODEM) && (f->subclass.integer == AST_MODEM_T38)) {
 		return t38_core_rx_ifp_packet(p->t38_core_state, f->data.ptr, f->datalen, f->seqno);
-	} else if ((f->frametype == AST_FRAME_VOICE) && (f->subclass.format.id == AST_FORMAT_SLINEAR)) {
+	} else if ((f->frametype == AST_FRAME_VOICE) &&
+		(ast_format_cmp(f->subclass.format, ast_format_slin) == AST_FORMAT_CMP_EQUAL)) {
 		return t38_gateway_rx(&p->t38_gw_state, f->data.ptr, f->samples);
 	}
 
@@ -1090,6 +1096,97 @@ static char *spandsp_fax_cli_show_session(struct ast_fax_session *s, int fd)
 	return CLI_SUCCESS;
 }
 
+static void spandsp_manager_fax_session(struct mansession *s,
+	const char *id_text, struct ast_fax_session *session)
+{
+	struct ast_str *message_string;
+	struct spandsp_pvt *span_pvt = session->tech_pvt;
+	int res;
+
+	message_string = ast_str_create(128);
+
+	if (!message_string) {
+		return;
+	}
+
+	ao2_lock(session);
+	res = ast_str_append(&message_string, 0, "SessionNumber: %u\r\n", session->id);
+	res |= ast_str_append(&message_string, 0, "Operation: %s\r\n", ast_fax_session_operation_str(session));
+	res |= ast_str_append(&message_string, 0, "State: %s\r\n", ast_fax_state_to_str(session->state));
+
+	if (session->details->caps & AST_FAX_TECH_GATEWAY) {
+		t38_stats_t stats;
+
+		if (session->state == AST_FAX_STATE_UNINITIALIZED) {
+			goto skip_cap_additions;
+		}
+
+		t38_gateway_get_transfer_statistics(&span_pvt->t38_gw_state, &stats);
+		res |= ast_str_append(&message_string, 0, "ErrorCorrectionMode: %s\r\n",
+			stats.error_correcting_mode ? "yes" : "no");
+		res |= ast_str_append(&message_string, 0, "DataRate: %d\r\n",
+			stats.bit_rate);
+		res |= ast_str_append(&message_string, 0, "PageNumber: %d\r\n",
+			stats.pages_transferred + 1);
+	} else if (!(session->details->caps & AST_FAX_TECH_V21_DETECT)) { /* caps is SEND/RECEIVE */
+		t30_stats_t stats;
+
+		if (session->state == AST_FAX_STATE_UNINITIALIZED) {
+			goto skip_cap_additions;
+		}
+
+		t30_get_transfer_statistics(span_pvt->t30_state, &stats);
+		res |= ast_str_append(&message_string, 0, "ErrorCorrectionMode: %s\r\n",
+			stats.error_correcting_mode ? "Yes" : "No");
+		res |= ast_str_append(&message_string, 0, "DataRate: %d\r\n",
+			stats.bit_rate);
+		res |= ast_str_append(&message_string, 0, "ImageResolution: %dx%d\r\n",
+			stats.x_resolution, stats.y_resolution);
+#if SPANDSP_RELEASE_DATE >= 20090220
+		res |= ast_str_append(&message_string, 0, "PageNumber: %d\r\n",
+			((session->details->caps & AST_FAX_TECH_RECEIVE) ? stats.pages_rx : stats.pages_tx) + 1);
+#else
+		res |= ast_str_append(&message_string, 0, "PageNumber: %d\r\n",
+			stats.pages_transferred + 1);
+#endif
+		res |= ast_str_append(&message_string, 0, "FileName: %s\r\n",
+			session->details->caps & AST_FAX_TECH_RECEIVE ? span_pvt->t30_state->rx_file :
+			span_pvt->t30_state->tx_file);
+#if SPANDSP_RELEASE_DATE >= 20090220
+		res |= ast_str_append(&message_string, 0, "PagesTransmitted: %d\r\n",
+			stats.pages_tx);
+		res |= ast_str_append(&message_string, 0, "PagesReceived: %d\r\n",
+			stats.pages_rx);
+#else
+		res |= ast_str_append(&message_string, 0, "PagesTransmitted: %d\r\n",
+			(session->details->caps & AST_FAX_TECH_SEND) ? stats.pages_transferred : 0);
+		res |= ast_str_append(&message_string, 0, "PagesReceived: %d\r\n",
+			(session->details->caps & AST_FAX_TECH_RECEIVE) ? stats.pages_transferred : 0);
+#endif
+		res |= ast_str_append(&message_string, 0, "TotalBadLines: %d\r\n",
+			stats.bad_rows);
+	}
+
+skip_cap_additions:
+
+	ao2_unlock(session);
+
+	if (res < 0) {
+		/* One or more of the ast_str_append attempts failed, cancel the message */
+		ast_free(message_string);
+		return;
+	}
+
+	astman_append(s, "Event: FAXSession\r\n"
+		"%s"
+		"%s"
+		"\r\n",
+		id_text,
+		ast_str_buffer(message_string));
+
+	ast_free(message_string);
+}
+
 /*! \brief */
 static char *spandsp_fax_cli_show_stats(int fd)
 {
@@ -1160,6 +1257,7 @@ static int load_module(void)
 
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Spandsp G.711 and T.38 FAX Technologies",
+		.support_level = AST_MODULE_SUPPORT_EXTENDED,
 		.load = load_module,
 		.unload = unload_module,
 	       );

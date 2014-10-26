@@ -25,13 +25,22 @@
  * \ingroup cdr_drivers
  */
 
+/*! \li \ref cdr_manager.c uses the configuration file \ref cdr_manager.conf
+ * \addtogroup configuration_file Configuration Files
+ */
+
+/*!
+ * \page cdr_manager.conf cdr_manager.conf
+ * \verbinclude cdr_manager.conf.sample
+ */
+
 /*** MODULEINFO
 	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 356042 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 
 #include <time.h>
 
@@ -77,8 +86,9 @@ static int load_config(int reload)
 	if (!cfg) {
 		/* Standard configuration */
 		ast_log(LOG_WARNING, "Failed to load configuration file. Module not activated.\n");
-		if (enablecdr)
-			ast_cdr_unregister(name);
+		if (enablecdr) {
+			ast_cdr_backend_suspend(name);
+		}
 		enablecdr = 0;
 		return -1;
 	}
@@ -126,10 +136,11 @@ static int load_config(int reload)
 
 	ast_config_destroy(cfg);
 
-	if (enablecdr && !newenablecdr)
-		ast_cdr_unregister(name);
-	else if (!enablecdr && newenablecdr)
-		ast_cdr_register(name, "Asterisk Manager Interface CDR Backend", manager_log);
+	if (!newenablecdr) {
+		ast_cdr_backend_suspend(name);
+	} else if (newenablecdr) {
+		ast_cdr_backend_unsuspend(name);
+	}
 	enablecdr = newenablecdr;
 
 	return 0;
@@ -194,14 +205,17 @@ static int manager_log(struct ast_cdr *cdr)
 	    cdr->accountcode, cdr->src, cdr->dst, cdr->dcontext, cdr->clid, cdr->channel,
 	    cdr->dstchannel, cdr->lastapp, cdr->lastdata, strStartTime, strAnswerTime, strEndTime,
 	    cdr->duration, cdr->billsec, ast_cdr_disp2str(cdr->disposition),
-	    ast_cdr_flags2str(cdr->amaflags), cdr->uniqueid, cdr->userfield,buf);
+	    ast_channel_amaflags2string(cdr->amaflags), cdr->uniqueid, cdr->userfield,buf);
 
 	return 0;
 }
 
 static int unload_module(void)
 {
-	ast_cdr_unregister(name);
+	if (ast_cdr_unregister(name)) {
+		return -1;
+	}
+
 	if (customfields)
 		ast_free(customfields);
 
@@ -210,7 +224,12 @@ static int unload_module(void)
 
 static int load_module(void)
 {
+	if (ast_cdr_register(name, "Asterisk Manager Interface CDR Backend", manager_log)) {
+		return AST_MODULE_LOAD_DECLINE;
+	}
+
 	if (load_config(0)) {
+		ast_cdr_unregister(name);
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
@@ -223,6 +242,7 @@ static int reload(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Asterisk Manager Interface CDR Backend",
+		.support_level = AST_MODULE_SUPPORT_CORE,
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,

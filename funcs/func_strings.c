@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416501 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416503 $")
 
 #include <regex.h>
 #include <ctype.h>
@@ -1001,7 +1001,7 @@ static void clearvar_prefix(struct ast_channel *chan, const char *prefix)
 	struct ast_var_t *var;
 	int len = strlen(prefix);
 	AST_LIST_TRAVERSE_SAFE_BEGIN(ast_channel_varshead(chan), var, entries) {
-		if (strncasecmp(prefix, ast_var_name(var), len) == 0) {
+		if (strncmp(prefix, ast_var_name(var), len) == 0) {
 			AST_LIST_REMOVE_CURRENT(entries);
 			ast_free(var);
 		}
@@ -1106,7 +1106,7 @@ static int hashkeys_read(struct ast_channel *chan, const char *cmd, char *data, 
 	memset(buf, 0, len);
 
 	AST_LIST_TRAVERSE(ast_channel_varshead(chan), newvar, entries) {
-		if (strncasecmp(ast_str_buffer(prefix), ast_var_name(newvar), ast_str_strlen(prefix)) == 0) {
+		if (strncmp(ast_str_buffer(prefix), ast_var_name(newvar), ast_str_strlen(prefix)) == 0) {
 			/* Copy everything after the prefix */
 			strncat(buf, ast_var_name(newvar) + ast_str_strlen(prefix), len - strlen(buf) - 1);
 			/* Trim the trailing ~ */
@@ -1132,7 +1132,7 @@ static int hashkeys_read2(struct ast_channel *chan, const char *cmd, char *data,
 	ast_str_set(&prefix, -1, HASH_PREFIX, data);
 
 	AST_LIST_TRAVERSE(ast_channel_varshead(chan), newvar, entries) {
-		if (strncasecmp(ast_str_buffer(prefix), ast_var_name(newvar), ast_str_strlen(prefix)) == 0) {
+		if (strncmp(ast_str_buffer(prefix), ast_var_name(newvar), ast_str_strlen(prefix)) == 0) {
 			/* Copy everything after the prefix */
 			ast_str_append(buf, len, "%s", ast_var_name(newvar) + ast_str_strlen(prefix));
 			/* Trim the trailing ~ */

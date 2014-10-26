@@ -80,10 +80,16 @@ struct ast_callid;
 void ast_log_callid(int level, const char *file, int line, const char *function, struct ast_callid *callid, const char *fmt, ...)
 	__attribute__((format(printf, 6, 7)));
 
-void ast_backtrace(void);
+/*!
+ * \brief Log a backtrace of the current thread's execution stack to the Asterisk log
+ */
+void ast_log_backtrace(void);
 
 /*! \brief Reload logger without rotating log files */
 int logger_reload(void);
+
+/*! \brief Reload logger while rotating log files */
+int ast_logger_rotate(void);
 
 void __attribute__((format(printf, 5, 6))) ast_queue_log(const char *queuename, const char *callid, const char *agent, const char *event, const char *fmt, ...);
 
@@ -260,6 +266,15 @@ int ast_logger_register_level(const char *name);
 void ast_logger_unregister_level(const char *name);
 
 /*!
+ * \brief Get the logger configured date format
+ *
+ * \retval The date format string
+ *
+ * \since 13.0.0
+ */
+const char *ast_logger_get_dateformat(void);
+
+/*!
  * \brief factory function to create a new uniquely identifying callid.
  *
  * \retval ast_callid struct pointer containing the call id
@@ -295,7 +310,16 @@ struct ast_callid *ast_read_threadstorage_callid(void);
  *
  * \retval NULL always
  */
-#define ast_callid_unref(c) ({ ao2_ref(c, -1); (NULL); })
+#define ast_callid_unref(c) ({ ao2_ref(c, -1); (struct ast_callid *) (NULL); })
+
+/*!
+ * \brief Cleanup a callid reference (NULL safe ao2 unreference)
+ *
+ * \param c the ast_callid
+ *
+ * \retval NULL always
+ */
+#define ast_callid_cleanup(c) ({ ao2_cleanup(c); (struct ast_callid *) (NULL); })
 
 /*!
  * \brief Sets what is stored in the thread storage to the given
@@ -366,15 +390,21 @@ void ast_callid_strnprint(char *buffer, size_t buffer_size, struct ast_callid *c
 
 #define ast_log_dynamic_level(level, ...) ast_log(level, __FILE__, __LINE__, __PRETTY_FUNCTION__, __VA_ARGS__)
 
+#define DEBUG_ATLEAST(level) \
+	(option_debug >= (level) \
+		|| (ast_opt_dbg_module && ast_debug_get_by_module(AST_MODULE) >= (level)))
+
 /*!
  * \brief Log a DEBUG message
  * \param level The minimum value of option_debug for this message
  *        to get logged
  */
-#define ast_debug(level, ...) do {       \
-	if (option_debug >= (level) || (ast_opt_dbg_module && ast_debug_get_by_module(AST_MODULE) >= (level)) ) \
-		ast_log(AST_LOG_DEBUG, __VA_ARGS__); \
-} while (0)
+#define ast_debug(level, ...) \
+	do { \
+		if (DEBUG_ATLEAST(level)) { \
+			ast_log(AST_LOG_DEBUG, __VA_ARGS__); \
+		} \
+	} while (0)
 
 extern int ast_verb_sys_level;
 
@@ -432,63 +462,6 @@ int ast_verb_console_get(void);
  * \return Nothing
  */
 void ast_verb_console_set(int verb_level);
-
-#ifndef _LOGGER_BACKTRACE_H
-#define _LOGGER_BACKTRACE_H
-#ifdef HAVE_BKTR
-#define AST_MAX_BT_FRAMES 32
-/* \brief
- *
- * A structure to hold backtrace information. This structure provides an easy means to
- * store backtrace information or pass backtraces to other functions.
- */
-struct ast_bt {
-	/*! The addresses of the stack frames. This is filled in by calling the glibc backtrace() function */
-	void *addresses[AST_MAX_BT_FRAMES];
-	/*! The number of stack frames in the backtrace */
-	int num_frames;
-	/*! Tells if the ast_bt structure was dynamically allocated */
-	unsigned int alloced:1;
-};
-
-/* \brief
- * Allocates memory for an ast_bt and stores addresses and symbols.
- *
- * \return Returns NULL on failure, or the allocated ast_bt on success
- * \since 1.6.1
- */
-struct ast_bt *ast_bt_create(void);
-
-/* \brief
- * Fill an allocated ast_bt with addresses
- *
- * \retval 0 Success
- * \retval -1 Failure
- * \since 1.6.1
- */
-int ast_bt_get_addresses(struct ast_bt *bt);
-
-/* \brief
- *
- * Free dynamically allocated portions of an ast_bt
- *
- * \retval NULL.
- * \since 1.6.1
- */
-void *ast_bt_destroy(struct ast_bt *bt);
-
-/* \brief Retrieve symbols for a set of backtrace addresses
- *
- * \param addresses A list of addresses, such as the ->addresses structure element of struct ast_bt.
- * \param num_frames Number of addresses in the addresses list
- * \retval NULL Unable to allocate memory
- * \return List of strings. Free the entire list with a single ast_std_free call.
- * \since 1.6.2.16
- */
-char **ast_bt_get_symbols(void **addresses, size_t num_frames);
-
-#endif /* HAVE_BKTR */
-#endif /* _LOGGER_BACKTRACE_H */
 
 #if defined(__cplusplus) || defined(c_plusplus)
 }

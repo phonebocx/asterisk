@@ -1,5 +1,5 @@
 /*
- * Asterisk -- A telephony toolkit for Linux.
+ * Asterisk -- An open source telephony toolkit.
  *
  * UDPTL support for T.38
  *
@@ -48,13 +48,22 @@
  * - app_fax.c
  */
 
+/*! \li \ref udptl.c uses the configuration file \ref udptl.conf
+ * \addtogroup configuration_file Configuration Files
+ */
+
+/*!
+ * \page udptl.conf udptl.conf
+ * \verbinclude udptl.conf.sample
+ */
+
 /*** MODULEINFO
 	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 417320 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 417327 $")
 
 #include <sys/time.h>
 #include <signal.h>
@@ -70,6 +79,40 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 417320 $")
 #include "asterisk/netsock2.h"
 #include "asterisk/cli.h"
 #include "asterisk/unaligned.h"
+
+/*** DOCUMENTATION
+	<configInfo name="udptl" language="en_US">
+		<configFile name="udptl.conf">
+			<configObject name="global">
+				<synopsis>Global options for configuring UDPTL</synopsis>
+				<configOption name="udptlstart">
+					<synopsis>The start of the UDPTL port range</synopsis>
+				</configOption>
+				<configOption name="udptlend">
+					<synopsis>The end of the UDPTL port range</synopsis>
+				</configOption>
+				<configOption name="udptlchecksums">
+					<synopsis>Whether to enable or disable UDP checksums on UDPTL traffic</synopsis>
+				</configOption>
+				<configOption name="udptlfecentries">
+					<synopsis>The number of error correction entries in a UDPTL packet</synopsis>
+				</configOption>
+				<configOption name="udptlfecspan">
+					<synopsis>The span over which parity is calculated for FEC in a UDPTL packet</synopsis>
+				</configOption>
+				<configOption name="use_even_ports">
+					<synopsis>Whether to only use even-numbered UDPTL ports</synopsis>
+				</configOption>
+				<configOption name="t38faxudpec">
+					<synopsis>Removed</synopsis>
+				</configOption>
+				<configOption name="t38faxmaxdatagram">
+					<synopsis>Removed</synopsis>
+				</configOption>
+			</configObject>
+		</configFile>
+	</configInfo>
+***/
 
 #define UDPTL_MTU		1200
 
@@ -175,8 +218,6 @@ struct ast_udptl {
 	udptl_fec_rx_buffer_t rx[UDPTL_BUF_MASK + 1];
 };
 
-static AST_RWLIST_HEAD_STATIC(protos, ast_udptl_protocol);
-
 struct udptl_global_options {
 	unsigned int start; /*< The UDPTL start port */
 	unsigned int end;   /*< The UDPTL end port */
@@ -197,6 +238,7 @@ static int udptl_pre_apply_config(void);
 
 static struct aco_type general_option = {
 	.type = ACO_GLOBAL,
+	.name = "global",
 	.category_match = ACO_WHITELIST,
 	.item_offset = offsetof(struct udptl_config, general),
 	.category = "^general$",
@@ -209,7 +251,7 @@ static struct aco_file udptl_conf = {
 	.types = ACO_TYPES(&general_option),
 };
 
-CONFIG_INFO_STANDARD(cfg_info, globals, udptl_snapshot_alloc,
+CONFIG_INFO_CORE("udptl", cfg_info, globals, udptl_snapshot_alloc,
 	.files = ACO_FILES(&udptl_conf),
 	.pre_apply_config = udptl_pre_apply_config,
 );
@@ -1146,169 +1188,6 @@ int ast_udptl_write(struct ast_udptl *s, struct ast_frame *f)
 	}
 
 	return 0;
-}
-
-void ast_udptl_proto_unregister(struct ast_udptl_protocol *proto)
-{
-	AST_RWLIST_WRLOCK(&protos);
-	AST_RWLIST_REMOVE(&protos, proto, list);
-	AST_RWLIST_UNLOCK(&protos);
-}
-
-int ast_udptl_proto_register(struct ast_udptl_protocol *proto)
-{
-	struct ast_udptl_protocol *cur;
-
-	AST_RWLIST_WRLOCK(&protos);
-	AST_RWLIST_TRAVERSE(&protos, cur, list) {
-		if (cur->type == proto->type) {
-			ast_log(LOG_WARNING, "Tried to register same protocol '%s' twice\n", cur->type);
-			AST_RWLIST_UNLOCK(&protos);
-			return -1;
-		}
-	}
-	AST_RWLIST_INSERT_TAIL(&protos, proto, list);
-	AST_RWLIST_UNLOCK(&protos);
-	return 0;
-}
-
-static struct ast_udptl_protocol *get_proto(struct ast_channel *chan)
-{
-	struct ast_udptl_protocol *cur = NULL;
-
-	AST_RWLIST_RDLOCK(&protos);
-	AST_RWLIST_TRAVERSE(&protos, cur, list) {
-		if (cur->type == ast_channel_tech(chan)->type)
-			break;
-	}
-	AST_RWLIST_UNLOCK(&protos);
-
-	return cur;
-}
-
-int ast_udptl_bridge(struct ast_channel *c0, struct ast_channel *c1, int flags, struct ast_frame **fo, struct ast_channel **rc)
-{
-	struct ast_frame *f;
-	struct ast_channel *who;
-	struct ast_channel *cs[3];
-	struct ast_udptl *p0;
-	struct ast_udptl *p1;
-	struct ast_udptl_protocol *pr0;
-	struct ast_udptl_protocol *pr1;
-	struct ast_sockaddr ac0;
-	struct ast_sockaddr ac1;
-	struct ast_sockaddr t0;
-	struct ast_sockaddr t1;
-	void *pvt0;
-	void *pvt1;
-	int to;
-
-	ast_channel_lock(c0);
-	while (ast_channel_trylock(c1)) {
-		ast_channel_unlock(c0);
-		usleep(1);
-		ast_channel_lock(c0);
-	}
-	pr0 = get_proto(c0);
-	pr1 = get_proto(c1);
-	if (!pr0) {
-		ast_log(LOG_WARNING, "Can't find native functions for channel '%s'\n", ast_channel_name(c0));
-		ast_channel_unlock(c0);
-		ast_channel_unlock(c1);
-		return -1;
-	}
-	if (!pr1) {
-		ast_log(LOG_WARNING, "Can't find native functions for channel '%s'\n", ast_channel_name(c1));
-		ast_channel_unlock(c0);
-		ast_channel_unlock(c1);
-		return -1;
-	}
-	pvt0 = ast_channel_tech_pvt(c0);
-	pvt1 = ast_channel_tech_pvt(c1);
-	p0 = pr0->get_udptl_info(c0);
-	p1 = pr1->get_udptl_info(c1);
-	if (!p0 || !p1) {
-		/* Somebody doesn't want to play... */
-		ast_channel_unlock(c0);
-		ast_channel_unlock(c1);
-		return -2;
-	}
-	if (pr0->set_udptl_peer(c0, p1)) {
-		ast_log(LOG_WARNING, "Channel '%s' failed to talk to '%s'\n", ast_channel_name(c0), ast_channel_name(c1));
-		memset(&ac1, 0, sizeof(ac1));
-	} else {
-		/* Store UDPTL peer */
-		ast_udptl_get_peer(p1, &ac1);
-	}
-	if (pr1->set_udptl_peer(c1, p0)) {
-		ast_log(LOG_WARNING, "Channel '%s' failed to talk back to '%s'\n", ast_channel_name(c1), ast_channel_name(c0));
-		memset(&ac0, 0, sizeof(ac0));
-	} else {
-		/* Store UDPTL peer */
-		ast_udptl_get_peer(p0, &ac0);
-	}
-	ast_channel_unlock(c0);
-	ast_channel_unlock(c1);
-	cs[0] = c0;
-	cs[1] = c1;
-	cs[2] = NULL;
-	for (;;) {
-		if ((ast_channel_tech_pvt(c0) != pvt0) ||
-			(ast_channel_tech_pvt(c1) != pvt1) ||
-			(ast_channel_masq(c0) || ast_channel_masqr(c0) || ast_channel_masq(c1) || ast_channel_masqr(c1))) {
-				ast_debug(1, "Oooh, something is weird, backing out\n");
-				/* Tell it to try again later */
-				return -3;
-		}
-		to = -1;
-		ast_udptl_get_peer(p1, &t1);
-		ast_udptl_get_peer(p0, &t0);
-		if (ast_sockaddr_cmp(&t1, &ac1)) {
-			ast_debug(1, "Oooh, '%s' changed end address to %s\n",
-				ast_channel_name(c1), ast_sockaddr_stringify(&t1));
-			ast_debug(1, "Oooh, '%s' was %s\n",
-				ast_channel_name(c1), ast_sockaddr_stringify(&ac1));
-			ast_sockaddr_copy(&ac1, &t1);
-		}
-		if (ast_sockaddr_cmp(&t0, &ac0)) {
-			ast_debug(1, "Oooh, '%s' changed end address to %s\n",
-				ast_channel_name(c0), ast_sockaddr_stringify(&t0));
-			ast_debug(1, "Oooh, '%s' was %s\n",
-				ast_channel_name(c0), ast_sockaddr_stringify(&ac0));
-			ast_sockaddr_copy(&ac0, &t0);
-		}
-		who = ast_waitfor_n(cs, 2, &to);
-		if (!who) {
-			ast_debug(1, "Ooh, empty read...\n");
-			/* check for hangup / whentohangup */
-			if (ast_check_hangup(c0) || ast_check_hangup(c1))
-				break;
-			continue;
-		}
-		f = ast_read(who);
-		if (!f) {
-			*fo = f;
-			*rc = who;
-			ast_debug(1, "Oooh, got a %s\n", f ? "digit" : "hangup");
-			/* That's all we needed */
-			return 0;
-		} else {
-			if (f->frametype == AST_FRAME_MODEM) {
-				/* Forward T.38 frames if they happen upon us */
-				if (who == c0) {
-					ast_write(c1, f);
-				} else if (who == c1) {
-					ast_write(c0, f);
-				}
-			}
-			ast_frfree(f);
-		}
-		/* Swap priority. Not that it's a big deal at this point */
-		cs[2] = cs[0];
-		cs[0] = cs[1];
-		cs[1] = cs[2];
-	}
-	return -1;
 }
 
 static char *handle_cli_udptl_set_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)

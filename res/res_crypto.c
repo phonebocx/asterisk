@@ -22,7 +22,7 @@
  *
  * \author Mark Spencer <markster@digium.com>
  *
- * \extref Uses the OpenSSL library, available at
+ * Uses the OpenSSL library, available at
  *	http://www.openssl.org/
  */
 
@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_KEY_DIR */
 #include <openssl/ssl.h>
@@ -663,6 +663,7 @@ static int unload_module(void)
 
 /* needs usecount semantics defined */
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "Cryptographic Digital Signatures",
+		.support_level = AST_MODULE_SUPPORT_CORE,
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,

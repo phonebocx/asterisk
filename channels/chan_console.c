@@ -29,7 +29,7 @@
  * 
  * \ingroup channel_drivers
  *
- * \extref Portaudio http://www.portaudio.com/
+ * Portaudio http://www.portaudio.com/
  *
  * To install portaudio v19 from svn, check it out using the following command:
  *  - svn co https://www.portaudio.com/repos/portaudio/branches/v19-devel
@@ -47,6 +47,14 @@
  * - console_video support
  */
 
+/*! \li \ref chan_console.c uses the configuration file \ref console.conf
+ * \addtogroup configuration_file
+ */
+
+/*! \page console.conf console.conf
+ * \verbinclude console.conf.sample
+ */
+
 /*** MODULEINFO
 	<depend>portaudio</depend>
 	<support_level>extended</support_level>
@@ -54,7 +62,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 366408 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 
 #include <sys/signal.h>  /* SIGURG */
 
@@ -68,6 +76,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 366408 $")
 #include "asterisk/musiconhold.h"
 #include "asterisk/callerid.h"
 #include "asterisk/astobj2.h"
+#include "asterisk/stasis_channels.h"
+#include "asterisk/format_cache.h"
 
 /*! 
  * \brief The sample rate to request from PortAudio 
@@ -186,7 +196,7 @@ static struct ast_jb_conf global_jbconf;
 
 /*! Channel Technology Callbacks @{ */
 static struct ast_channel *console_request(const char *type, struct ast_format_cap *cap,
-	const struct ast_channel *requestor, const char *data, int *cause);
+	const struct ast_assigned_ids *assignedids, const struct ast_channel *requestor, const char *data, int *cause);
 static int console_digit_begin(struct ast_channel *c, char digit);
 static int console_digit_end(struct ast_channel *c, char digit, unsigned int duration);
 static int console_text(struct ast_channel *c, const char *text);
@@ -261,12 +271,12 @@ static void *stream_monitor(void *data)
 	PaError res;
 	struct ast_frame f = {
 		.frametype = AST_FRAME_VOICE,
+		.subclass.format = ast_format_slin16,
 		.src = "console_stream_monitor",
 		.data.ptr = buf,
 		.datalen = sizeof(buf),
 		.samples = sizeof(buf) / sizeof(int16_t),
 	};
-	ast_format_set(&f.subclass.format, AST_FORMAT_SLINEAR16, 0);
 
 	for (;;) {
 		pthread_testcancel();
@@ -410,19 +420,30 @@ static int stop_stream(struct console_pvt *pvt)
 /*!
  * \note Called with the pvt struct locked
  */
-static struct ast_channel *console_new(struct console_pvt *pvt, const char *ext, const char *ctx, int state, const char *linkedid)
+static struct ast_channel *console_new(struct console_pvt *pvt, const char *ext, const char *ctx, int state, const struct ast_assigned_ids *assignedids, const struct ast_channel *requestor)
 {
+	struct ast_format_cap *caps;
 	struct ast_channel *chan;
 
-	if (!(chan = ast_channel_alloc(1, state, pvt->cid_num, pvt->cid_name, NULL, 
-		ext, ctx, linkedid, 0, "Console/%s", pvt->name))) {
+	caps = ast_format_cap_alloc(AST_FORMAT_CAP_FLAG_DEFAULT);
+	if (!caps) {
 		return NULL;
 	}
 
+	if (!(chan = ast_channel_alloc(1, state, pvt->cid_num, pvt->cid_name, NULL, 
+		ext, ctx, assignedids, requestor, 0, "Console/%s", pvt->name))) {
+		ao2_ref(caps, -1);
+		return NULL;
+	}
+
+	ast_channel_stage_snapshot(chan);
+
 	ast_channel_tech_set(chan, &console_tech);
-	ast_format_set(ast_channel_readformat(chan), AST_FORMAT_SLINEAR16, 0);
-	ast_format_set(ast_channel_writeformat(chan), AST_FORMAT_SLINEAR16, 0);
-	ast_format_cap_add(ast_channel_nativeformats(chan), ast_channel_readformat(chan));
+	ast_channel_set_readformat(chan, ast_format_slin16);
+	ast_channel_set_writeformat(chan, ast_format_slin16);
+	ast_format_cap_append(caps, ast_format_slin16, 0);
+	ast_channel_nativeformats_set(chan, caps);
+	ao2_ref(caps, -1);
 	ast_channel_tech_pvt_set(chan, ref_pvt(pvt));
 
 	pvt->owner = chan;
@@ -431,6 +452,9 @@ static struct ast_channel *console_new(struct console_pvt *pvt, const char *ext,
 		ast_channel_language_set(chan, pvt->language);
 
 	ast_jb_configure(chan, &global_jbconf);
+
+	ast_channel_stage_snapshot_done(chan);
+	ast_channel_unlock(chan);
 
 	if (state != AST_STATE_DOWN) {
 		if (ast_pbx_start(chan)) {
@@ -444,19 +468,20 @@ static struct ast_channel *console_new(struct console_pvt *pvt, const char *ext,
 	return chan;
 }
 
-static struct ast_channel *console_request(const char *type, struct ast_format_cap *cap, const struct ast_channel *requestor, const char *data, int *cause)
+static struct ast_channel *console_request(const char *type, struct ast_format_cap *cap, const struct ast_assigned_ids *assignedids, const struct ast_channel *requestor, const char *data, int *cause)
 {
 	struct ast_channel *chan = NULL;
 	struct console_pvt *pvt;
-	char buf[512];
 
 	if (!(pvt = find_pvt(data))) {
 		ast_log(LOG_ERROR, "Console device '%s' not found\n", data);
 		return NULL;
 	}
 
-	if (!(ast_format_cap_has_joint(cap, console_tech.capabilities))) {
-		ast_log(LOG_NOTICE, "Channel requested with unsupported format(s): '%s'\n", ast_getformatname_multiple(buf, sizeof(buf), cap));
+	if (!(ast_format_cap_iscompatible(cap, console_tech.capabilities))) {
+		struct ast_str *cap_buf = ast_str_alloca(64);
+		ast_log(LOG_NOTICE, "Channel requested with unsupported format(s): '%s'\n",
+			ast_format_cap_get_names(cap, &cap_buf));
 		goto return_unref;
 	}
 
@@ -467,7 +492,7 @@ static struct ast_channel *console_request(const char *type, struct ast_format_c
 	}
 
 	console_pvt_lock(pvt);
-	chan = console_new(pvt, NULL, NULL, AST_STATE_DOWN, requestor ? ast_channel_linkedid(requestor) : NULL);
+	chan = console_new(pvt, NULL, NULL, AST_STATE_DOWN, assignedids, requestor);
 	console_pvt_unlock(pvt);
 
 	if (!chan)
@@ -830,7 +855,7 @@ static char *cli_console_dial(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 	if (ast_exists_extension(NULL, myc, mye, 1, NULL)) {
 		console_pvt_lock(pvt);
 		pvt->hookstate = 1;
-		console_new(pvt, mye, myc, AST_STATE_RINGING, NULL);
+		console_new(pvt, mye, myc, AST_STATE_RINGING, NULL, NULL);
 		console_pvt_unlock(pvt);
 	} else
 		ast_cli(a->fd, "No such extension '%s' in context '%s'\n", mye, myc);
@@ -1453,7 +1478,8 @@ static void stop_streams(void)
 
 static int unload_module(void)
 {
-	console_tech.capabilities = ast_format_cap_destroy(console_tech.capabilities);
+	ao2_ref(console_tech.capabilities, -1);
+	console_tech.capabilities = NULL;
 	ast_channel_unregister(&console_tech);
 	ast_cli_unregister_multiple(cli_console, ARRAY_LEN(cli_console));
 
@@ -1469,15 +1495,24 @@ static int unload_module(void)
 	return 0;
 }
 
+/*!
+ * \brief Load the module
+ *
+ * Module loading including tests for configuration or dependencies.
+ * This function can return AST_MODULE_LOAD_FAILURE, AST_MODULE_LOAD_DECLINE,
+ * or AST_MODULE_LOAD_SUCCESS. If a dependency or environment variable fails
+ * tests return AST_MODULE_LOAD_FAILURE. If the module can not load the 
+ * configuration file or other non-critical problem return 
+ * AST_MODULE_LOAD_DECLINE. On success return AST_MODULE_LOAD_SUCCESS.
+ */
 static int load_module(void)
 {
-	struct ast_format tmpfmt;
 	PaError res;
 
-	if (!(console_tech.capabilities = ast_format_cap_alloc())) {
+	if (!(console_tech.capabilities = ast_format_cap_alloc(AST_FORMAT_CAP_FLAG_DEFAULT))) {
 		return AST_MODULE_LOAD_DECLINE;
 	}
-	ast_format_cap_add(console_tech.capabilities, ast_format_set(&tmpfmt, AST_FORMAT_SLINEAR16, 0));
+	ast_format_cap_append(console_tech.capabilities, ast_format_slin16, 0);
 
 	init_pvt(&globals, NULL);
 
@@ -1514,6 +1549,8 @@ return_error:
 	if (pvts)
 		ao2_ref(pvts, -1);
 	pvts = NULL;
+	ao2_ref(console_tech.capabilities, -1);
+	console_tech.capabilities = NULL;
 	pvt_destructor(&globals);
 
 	return AST_MODULE_LOAD_DECLINE;
@@ -1525,6 +1562,7 @@ static int reload(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Console Channel Driver",
+		.support_level = AST_MODULE_SUPPORT_EXTENDED,
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,

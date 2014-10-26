@@ -1,5 +1,6 @@
 #!/bin/sh
 
+ASTETCDIR="__ASTERISK_ETC_DIR__"
 ASTSBINDIR="__ASTERISK_SBIN_DIR__"
 ASTVARRUNDIR="__ASTERISK_VARRUN_DIR__"
 ASTVARLOGDIR="__ASTERISK_LOG_DIR__"
@@ -66,12 +67,17 @@ if test `id -u` != 0; then
 	message "safe_asterisk was started by `id -n` (uid `id -u`)."
 else
 	if `uname -s | grep Linux >/dev/null 2>&1`; then
-		# maximum number of open files is set to the system maximum divided by two if
-		# MAXFILES is not set.
+		# maximum number of open files is set to the system maximum
+		# divided by two if MAXFILES is not set.
 		if test -z "$MAXFILES"; then
 			# just check if file-max is readable
 			if test -r /proc/sys/fs/file-max; then
-				MAXFILES=$(( `cat /proc/sys/fs/file-max` / 2 ))
+				MAXFILES=$((`cat /proc/sys/fs/file-max` / 2))
+				# don't exceed upper limit of 2^20 for open
+				# files on systems where file-max is > 2^21
+				if test $MAXFILES -gt 1048576; then
+					MAXFILES=1048576
+				fi
 			fi
 		fi
 		SYSCTL_MAXFILES="fs.file-max"
@@ -146,10 +152,10 @@ trap '' PIPE
 # Run scripts to set any environment variables or do any other system-specific setup needed
 #
 
-if test -d /etc/asterisk/startup.d; then
-	for script in /etc/asterisk/startup.d/*.sh; do
-		if test -r ${script}; then
-			. ${script}
+if test -d "${ASTETCDIR}/startup.d"; then
+	for script in "${ASTETCDIR}/startup.d/"*.sh; do
+		if test -r "${script}"; then
+			. "${script}"
 		fi
 	done
 fi
@@ -173,10 +179,10 @@ run_asterisk()
 			exit 0
 		elif test $EXITSTATUS -gt 128; then
 			EXITSIGNAL=$((EXITSTATUS - 128))
-			message "Exited on signal $EXITSIGNAL"
+			message "Asterisk exited on signal $EXITSIGNAL."
 			if test -n "$NOTIFY"; then
 				echo "Asterisk on $MACHINE exited on signal $EXITSIGNAL.  Might want to take a peek." | \
-				mail -s "Asterisk Died" $NOTIFY
+				mail -s "Asterisk on $MACHINE died (sig $EXITSIGNAL)" $NOTIFY
 			fi
 			if test -n "$EXEC"; then
 				$EXEC

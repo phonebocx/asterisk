@@ -45,21 +45,28 @@
  * \todo The service type selection needs to be redone.
  */
 
+/*! \li \ref enum.c uses the configuration file \ref enum.conf
+ * \addtogroup configuration_file Configuration Files
+ */
+
+/*!
+ * \page enum.conf enum.conf
+ * \verbinclude enum.conf.sample
+ */
+
 /*** MODULEINFO
 	<support_level>core</support_level>
  ***/
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413589 $")
 
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/nameser.h>
 #ifdef __APPLE__
-#if __APPLE_CC__ >= 1495
 #include <arpa/nameser_compat.h>
-#endif
 #endif
 #include <resolv.h>
 #include <ctype.h>
@@ -1000,7 +1007,6 @@ static int private_enum_init(int reload)
 		ast_config_destroy(cfg);
 	}
 	ast_mutex_unlock(&enumlock);
-	manager_event(EVENT_FLAG_SYSTEM, "Reload", "Module: Enum\r\nStatus: Enabled\r\nMessage: ENUM reload Requested\r\n");
 	return 0;
 }
 

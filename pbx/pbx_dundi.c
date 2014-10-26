@@ -21,6 +21,15 @@
  * \brief Distributed Universal Number Discovery (DUNDi)
  */
 
+/*! \li \ref pbx_dundi.c uses configuration file \ref dundi.conf
+ * \addtogroup configuration_file Configuration Files
+ */
+
+/*!
+ * \page dundi.conf dundi.conf
+ * \verbinclude dundi.conf.sample
+ */
+
 /*** MODULEINFO
 	<depend>zlib</depend>
 	<use type="external">crypto</use>
@@ -29,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 
 #include "asterisk/network.h"
 #include <sys/ioctl.h>
@@ -5043,6 +5052,7 @@ static int load_module(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Distributed Universal Number Discovery (DUNDi)",
+		.support_level = AST_MODULE_SUPPORT_EXTENDED,
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,

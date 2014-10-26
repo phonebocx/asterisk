@@ -104,9 +104,11 @@ int ast_odbc_smart_execute(struct odbc_obj *obj, SQLHSTMT stmt) __attribute__((d
  * \brief Retrieves a connected ODBC object
  * \param name The name of the ODBC class for which a connection is needed.
  * \param flags One or more of the following flags:
- * \li RES_ODBC_SANITY_CHECK Whether to ensure that a connection is valid before returning the handle.  Usually unnecessary.
- * \li RES_ODBC_INDEPENDENT_CONNECTION Return a handle which is independent from all others.  Usually used when starting a transaction.
- * \li RES_ODBC_CONNECTED Only return a connected handle.  Intended for use with peers which use idlecheck, which are checked periodically for reachability.
+ *	\li RES_ODBC_SANITY_CHECK Whether to ensure that a connection is valid before returning the handle.  Usually unnecessary.
+ *	\li RES_ODBC_INDEPENDENT_CONNECTION Return a handle which is independent from all others.  Usually used when starting a transaction.
+ *	\li RES_ODBC_CONNECTED Only return a connected handle.  Intended for use with peers which use idlecheck, which are checked periodically for reachability.
+ * \param  file, function, lineno
+ *
  * \return ODBC object
  * \retval NULL if there is no connection available with the requested name.
  *
@@ -220,11 +222,5 @@ int ast_odbc_clear_cache(const char *database, const char *tablename);
  * \param StrLen_or_Ind A pointer to a length indicator, specifying the total length of data.
  */
 SQLRETURN ast_odbc_ast_str_SQLGetData(struct ast_str **buf, int pmaxlen, SQLHSTMT StatementHandle, SQLUSMALLINT ColumnNumber, SQLSMALLINT TargetType, SQLLEN *StrLen_or_Ind);
-
-/*! \brief Checks if the database natively supports implicit conversion from an empty string to a number (0).
- * \param obj The ODBC object
- * \return Returns 1 if the implicit conversion is valid and non-text columns can take empty strings, 0 if the conversion is not valid and NULLs should be used instead '\'
- */
-int ast_odbc_allow_empty_string_in_nontext(struct odbc_obj *obj);
 
 #endif /* _ASTERISK_RES_ODBC_H */

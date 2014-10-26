@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420147 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420149 $")
 
 #include "asterisk/logger.h"
 #include "asterisk/channel.h"
@@ -422,7 +422,6 @@ static void lua_update_registry(lua_State *L, const char *context, const char *e
  * The value on the top of the stack is popped and used as the name.
  *
  * \param L the lua_State to use
- * \param name the name of the variable
  */
 static void lua_push_variable_table(lua_State *L)
 {
@@ -1674,6 +1673,7 @@ static int load_module(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "Lua PBX Switch",
+		.support_level = AST_MODULE_SUPPORT_EXTENDED,
 		.load = load_module,
 		.unload = unload_module,
 		.reload = reload,

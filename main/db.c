@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 416337 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419504 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use ast_config_AST_DB */
@@ -983,7 +983,10 @@ static void *db_sync_thread(void *data)
 	return NULL;
 }
 
-/*! \internal \brief Clean up resources on Asterisk shutdown */
+/*!
+ * \internal
+ * \brief Clean up resources on Asterisk shutdown
+ */
 static void astdb_atexit(void)
 {
 	ast_cli_unregister_multiple(cli_database, ARRAY_LEN(cli_database));
