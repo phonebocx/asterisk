@@ -1,3 +1,15 @@
+asterisk (1:13.0.0~dfsg-1) UNRELEASED; urgency=medium
+
+  * Fix list of files to remove
+  * Imported Upstream version 11.13.1
+  * A systemd service
+  * Imported Upstream version 13.0.0~dfsg
+  * Fixed / removed patches for Asterisk 13
+  * Fix systemd support
+  * Compat level 9
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 26 Oct 2014 12:05:21 +0200
+
 asterisk (1:11.13.1~dfsg-1) unstable; urgency=high
 
   * New upstream release: fixes AST-2014-011 (CVE-2014-3566, POODLE).
