@@ -1,14 +1,25 @@
-asterisk (1:13.0.0~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:13.0.0~dfsg-1) unstable; urgency=medium
 
-  * Fix list of files to remove
-  * Imported Upstream version 11.13.1
-  * A systemd service
-  * Imported Upstream version 13.0.0~dfsg
-  * Fixed / removed patches for Asterisk 13
-  * Fix systemd support
-  * Compat level 9
+  * New upstream release (Closes: #716931, #504741)
+    - Patches merged upstream:
+      - allow-tilde-destdir
+      - dahdi_create_channels
+      - enable_addons
+      - escape_manpage_hyphen.patch
+      - ignore_failed_channels.patch
+      - neon_version_check.patch
+      - pjproject
+      - pri_destroy_span_prilist.patch
+      - res_fax_bounds.patch
+      - series
+      - sigpri_handle_enodev_1.patch
+  * A systemd service.
+  * Compat level 9.
+  * Extra build dependencies for Asterisk 13.
+  * Re-enable chan_mgcp: work around a bug in menuselect? (Closes: #745718).
+  * Some fixes to the copyright file.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 26 Oct 2014 12:05:21 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 26 Oct 2014 22:52:12 +0200
 
 asterisk (1:11.13.1~dfsg-1) unstable; urgency=high
 
