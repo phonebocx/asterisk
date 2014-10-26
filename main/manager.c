@@ -47,7 +47,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419943 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 423277 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -194,7 +194,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419943 $")
 		</synopsis>
 		<syntax>
 			<xi:include xpointer="xpointer(/docs/manager[@name='Login']/syntax/parameter[@name='ActionID'])" />
-			<parameter name="Channel" required="true">
+			<parameter name="Channel" required="false">
 				<para>The name of the channel to query for status.</para>
 			</parameter>
 			<parameter name="Variables">
@@ -1199,6 +1199,8 @@ static AO2_GLOBAL_OBJ_STATIC(event_docs);
 static void free_channelvars(void);
 
 static enum add_filter_result manager_add_filter(const char *filter_pattern, struct ao2_container *whitefilters, struct ao2_container *blackfilters);
+
+static int match_filter(struct mansession *s, char *eventdata);
 
 /*!
  * \internal
@@ -2931,7 +2933,11 @@ static enum error_type handle_updates(struct mansession *s, const struct message
 			if (ast_strlen_zero(match)) {
 				ast_category_append(cfg, category);
 			} else {
-				ast_category_insert(cfg, category, match);
+				if (ast_category_insert(cfg, category, match)) {
+					result = FAILURE_NEWCAT;
+					ast_category_destroy(category);
+					break;
+				}
 			}
 		} else if (!strcasecmp(action, "renamecat")) {
 			if (ast_strlen_zero(value)) {
@@ -3205,8 +3211,9 @@ static int action_waitevent(struct mansession *s, const struct message *m)
 		struct eventqent *eqe = s->session->last_ev;
 		astman_send_response(s, m, "Success", "Waiting for Event completed.");
 		while ((eqe = advance_event(eqe))) {
-			if (((s->session->readperm & eqe->category) == eqe->category) &&
-			    ((s->session->send_events & eqe->category) == eqe->category)) {
+			if (((s->session->readperm & eqe->category) == eqe->category)
+				&& ((s->session->send_events & eqe->category) == eqe->category)
+				&& match_filter(s, eqe->eventdata)) {
 				astman_append(s, "%s", eqe->eventdata);
 			}
 			s->session->last_ev = eqe;
@@ -3314,6 +3321,7 @@ static int action_login(struct mansession *s, const struct message *m)
 	}
 	astman_send_ack(s, m, "Authentication accepted");
 	if ((s->session->send_events & EVENT_FLAG_SYSTEM)
+		&& (s->session->readperm & EVENT_FLAG_SYSTEM)
 		&& ast_test_flag(&ast_options, AST_OPT_FLAG_FULLY_BOOTED)) {
 		struct ast_str *auth = ast_str_alloca(80);
 		const char *cat_str = authority_to_str(EVENT_FLAG_SYSTEM, &auth);

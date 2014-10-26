@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 413587 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 421164 $")
 
 #ifdef HAVE_SYS_STAT_H
 #include <sys/stat.h>
@@ -190,7 +190,6 @@ enum ast_getdata_result ast_app_getdata(struct ast_channel *c, const char *promp
 
 	filename = ast_strdupa(prompt);
 	while ((front = strsep(&filename, "&"))) {
-		ast_test_suite_event_notify("PLAYBACK", "Message: %s\r\nChannel: %s", front, ast_channel_name(c));
 		if (!ast_strlen_zero(front)) {
 			res = ast_streamfile(c, front, ast_channel_language(c));
 			if (res)
@@ -1086,7 +1085,6 @@ int ast_play_and_wait(struct ast_channel *chan, const char *fn)
 {
 	int d = 0;
 
-	ast_test_suite_event_notify("PLAYBACK", "Message: %s\r\nChannel: %s", fn, ast_channel_name(chan));
 	if ((d = ast_streamfile(chan, fn, ast_channel_language(chan)))) {
 		return d;
 	}

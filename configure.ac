@@ -20,7 +20,7 @@ AC_CONFIG_SRCDIR([main/asterisk.c])
 AC_CONFIG_AUX_DIR(`pwd`)
 
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision: 413765 $)
+AC_REVISION($Revision: 421228 $)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -1005,9 +1005,9 @@ fi
 AC_SUBST(AST_TRAMPOLINES)
 
 AC_MSG_CHECKING(for _FORTIFY_SOURCE support)
-if $(${CC} -D_FORTIFY_SOURCE=2 -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
+if $(${CC} -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2 -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
 	AC_MSG_RESULT(yes)
-	AST_FORTIFY_SOURCE=-D_FORTIFY_SOURCE=2
+	AST_FORTIFY_SOURCE="-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2"
 else
 	AC_MSG_RESULT(no)
 	AST_FORTIFY_SOURCE=
