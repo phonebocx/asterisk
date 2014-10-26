@@ -214,7 +214,6 @@ Copyright: 2007, Luigi Rizzo
 License: GPL-2-Asterisk
 
 Files: tests/test_dlinklists.c
- utils/refcounter.c
 Copyright: 2008, Steve Murphy
 License: GPL-2-Asterisk
 
@@ -324,10 +323,6 @@ License: GPL-2-Asterisk
 
 Files: funcs/func_math.c
 Copyright: 2004, - 2006, Andy Powell
-License: GPL-2-Asterisk
-
-Files: addons/app_saycountpl.c
-Copyright: 2004, Andy Powell & TAAN Softworks Corp
 License: GPL-2-Asterisk
 
 Files: formats/format_sln.c
@@ -528,7 +523,9 @@ License: GPL-2-Asterisk
 
 Files: apps/app_followme.c funcs/func_realtime.c
 Copyright: 2005-2006, BJ Weschke.
-License: This code is released by the author with no restrictions on usage.
+License: unlimited-license
+ This code is released by the author with no restrictions on usage.
+Comment:
  Likewise here author clarified on private mail:
  "No limitations on redistribution and or redistribution of modified
  copies." and likewise Digium is allowed to relicense the code.
