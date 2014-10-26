@@ -20,16 +20,6 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
  	<support_level>deprecated</support_level>
  	<replacement>func_odbc</replacement>
   ***/
---- a/addons/app_saycountpl.c
-+++ b/addons/app_saycountpl.c
-@@ -21,7 +21,6 @@
-  */
- 
- /*** MODULEINFO
--	<defaultenabled>no</defaultenabled>
- 	<support_level>deprecated</support_level>
- 	<replacement>say.conf</replacement>
-  ***/
 --- a/addons/chan_mobile.c
 +++ b/addons/chan_mobile.c
 @@ -27,7 +27,6 @@
