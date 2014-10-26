@@ -1420,7 +1420,6 @@
 	  read/write format comments. * Fixed a doxygen tag typo.
 
 	* main/astobj2.c, contrib/scripts/refcounter.py, /:
->>>>>>> upstream/13.0.0_dfsg
 	  astobj2.c/refcounter.py: Fix to deal with invalid object refs. *
 	  Make astob2 REF_DEBUG output an invalid object line when an
 	  invalid ao2 object ref/unref is attempted. This is similar to the
