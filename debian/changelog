@@ -1,3 +1,9 @@
+asterisk (1:11.13.1~dfsg-1) unstable; urgency=high
+
+  * New upstream release: fixes AST-2014-011 (CVE-2014-3566, POODLE).
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 26 Oct 2014 05:47:00 +0200
+
 asterisk (1:11.13.0~dfsg-1) unstable; urgency=medium
 
   * New upstream release.
