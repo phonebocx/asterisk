@@ -1,3 +1,10 @@
+asterisk (1:13.0.0~dfsg-2) unstable; urgency=medium
+
+  * Patch bigendian: fix building chan_phone on big endian platforms.
+  * Makefile_kfreebsd: Have Makefile's 'config' target install the same
+    files as kFreeBSD as it does on Linux.
+ -- Tzafrir Cohen <tzafrir@debian.org>  Mon, 27 Oct 2014 23:13:36 +0200
+
 asterisk (1:13.0.0~dfsg-1) unstable; urgency=medium
 
   * New upstream release (Closes: #716931, #504741)
