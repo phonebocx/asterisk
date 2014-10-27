@@ -22,3 +22,5 @@ reenable
 smsq_enable.patch
 aelparse_enable.patch
 systemd.patch
+Makefile_kfreebsd
+bigendian.patch
