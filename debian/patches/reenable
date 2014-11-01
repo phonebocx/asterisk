@@ -20,13 +20,3 @@ Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
  	<support_level>extended</support_level>
   ***/
  
---- a/res/res_corosync.c
-+++ b/res/res_corosync.c
-@@ -26,7 +26,6 @@
- 
- /*** MODULEINFO
- 	<depend>corosync</depend>
--	<defaultenabled>no</defaultenabled>
- 	<support_level>extended</support_level>
-  ***/
- 
