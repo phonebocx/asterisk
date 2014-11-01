@@ -1,3 +1,11 @@
+asterisk (1:13.0.0~dfsg-3) unstable; urgency=medium
+
+  * sanity check to avoid changing the ABI hash
+  * A disabled patch for the test framework
+  * Remove corosync support: doesn't work
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Sat, 01 Nov 2014 19:21:54 +0200
+
 asterisk (1:13.0.0~dfsg-2) unstable; urgency=medium
 
   * Patch bigendian: fix building chan_phone on big endian platforms.
