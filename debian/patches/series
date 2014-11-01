@@ -24,3 +24,4 @@ aelparse_enable.patch
 systemd.patch
 Makefile_kfreebsd
 bigendian.patch
+#test_framework.patch
