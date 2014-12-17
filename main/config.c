@@ -32,7 +32,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 425714 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428734 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_CONFIG_DIR */
 #include "asterisk/network.h"	/* we do some sockaddr manipulation here */
@@ -720,9 +720,14 @@ const char *ast_variable_retrieve_filtered(struct ast_config *config,
 
 const char *ast_variable_find(const struct ast_category *category, const char *variable)
 {
-	struct ast_variable *v;
+	return ast_variable_find_in_list(category->root, variable);
+}
 
-	for (v = category->root; v; v = v->next) {
+const char *ast_variable_find_in_list(const struct ast_variable *list, const char *variable)
+{
+	const struct ast_variable *v;
+
+	for (v = list; v; v = v->next) {
 		if (!strcasecmp(variable, v->name)) {
 			return v->value;
 		}
@@ -1678,7 +1683,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat,
 				} else {
 					struct ast_category *base;
 
-					base = ast_category_get(cfg, cur, "TEMPLATES=restrict");
+					base = ast_category_get(cfg, cur, "TEMPLATES=include");
 					if (!base) {
 						ast_log(LOG_WARNING, "Inheritance requested, but category '%s' does not exist, line %d of %s\n", cur, lineno, configfile);
 						return -1;
@@ -2513,6 +2518,7 @@ int ast_config_text_file_save(const char *configfile, const struct ast_config *c
 			while (var) {
 				struct ast_category_template_instance *x;
 				int found = 0;
+
 				AST_LIST_TRAVERSE(&cat->template_instances, x, next) {
 					struct ast_variable *v;
 					for (v = x->inst->root; v; v = v->next) {
@@ -2558,10 +2564,22 @@ int ast_config_text_file_save(const char *configfile, const struct ast_config *c
 					if (cmt->cmt[0] != ';' || cmt->cmt[1] != '!')
 						fprintf(f,"%s", cmt->cmt);
 				}
-				if (var->sameline)
-					fprintf(f, "%s %s %s  %s", var->name, (var->object ? "=>" : "="), var->value, var->sameline->cmt);
-				else
-					fprintf(f, "%s %s %s\n", var->name, (var->object ? "=>" : "="), var->value);
+
+				{ /* Block for 'escaped' scope */
+					int escaped_len = 2 * strlen(var->value) + 1;
+					char escaped[escaped_len];
+
+					ast_escape_semicolons(var->value, escaped, escaped_len);
+
+					if (var->sameline) {
+						fprintf(f, "%s %s %s  %s", var->name, (var->object ? "=>" : "="),
+							escaped, var->sameline->cmt);
+					} else {
+						fprintf(f, "%s %s %s\n", var->name, (var->object ? "=>" : "="),
+							escaped);
+					}
+				}
+
 				for (cmt = var->trailing; cmt; cmt=cmt->next) {
 					if (cmt->cmt[0] != ';' || cmt->cmt[1] != '!')
 						fprintf(f,"%s", cmt->cmt);

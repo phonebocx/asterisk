@@ -33,7 +33,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420992 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 429062 $")
 
 #include <unistd.h>
 #include <fcntl.h>
@@ -1532,6 +1532,15 @@ void ast_channel_internal_swap_uniqueid_and_linkedid(struct ast_channel *a, stru
 	temp = a->linkedid;
 	a->linkedid = b->linkedid;
 	b->linkedid = temp;
+}
+
+void ast_channel_internal_swap_topics(struct ast_channel *a, struct ast_channel *b)
+{
+	struct stasis_cp_single *temp;
+
+	temp = a->topics;
+	a->topics = b->topics;
+	b->topics = temp;
 }
 
 void ast_channel_internal_set_fake_ids(struct ast_channel *chan, const char *uniqueid, const char *linkedid)

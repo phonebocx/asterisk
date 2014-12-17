@@ -697,3 +697,9 @@ ALTER TABLE sippeers CHANGE directmedia directmedia ENUM('yes','no','nonat','upd
 
 UPDATE alembic_version SET version_num='10aedae86a32';
 
+-- Running upgrade 10aedae86a32 -> eb88a14f2a
+
+ALTER TABLE ps_endpoints ADD COLUMN media_encryption_optimistic ENUM('yes','no');
+
+UPDATE alembic_version SET version_num='eb88a14f2a';
+

@@ -102,7 +102,7 @@
 #endif
 #endif
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 425384 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428865 $")
 
 #include "asterisk/paths.h"	/* use ast_config_AST_SPOOL_DIR */
 #include <sys/time.h>
@@ -510,6 +510,9 @@ static int expungeonhangup = 1;
 static int imapgreetings = 0;
 static char delimiter = '\0';
 
+/* mail_open cannot be protected on a stream basis */
+ast_mutex_t mail_open_lock;
+
 struct vm_state;
 struct ast_vm_user;
 
@@ -861,7 +864,8 @@ struct vm_state {
 #ifdef IMAP_STORAGE
 	ast_mutex_t lock;
 	int updated;                         /*!< decremented on each mail check until 1 -allows delay */
-	long msgArray[VMSTATE_MAX_MSG_ARRAY];
+	long *msgArray;
+	unsigned msg_array_max;
 	MAILSTREAM *mailstream;
 	int vmArrayIndex;
 	char imapuser[80];                   /*!< IMAP server login */
@@ -2440,6 +2444,7 @@ static int __messagecount(const char *context, const char *mailbox, const char *
 		free_user(vmu);
 		return -1;
 	}
+	ast_assert(msgnum < vms->msg_array_max);
 
 	/* check if someone is accessing this box right now... */
 	vms_p = get_vm_state_by_imapuser(vmu->imapuser, 1);
@@ -2953,7 +2958,9 @@ static int init_mailstream(struct vm_state *vms, int box)
 		/* Connect to INBOX first to get folders delimiter */
 		imap_mailbox_name(tmp, sizeof(tmp), vms, 0, 1);
 		ast_mutex_lock(&vms->lock);
+		ast_mutex_lock(&mail_open_lock);
 		stream = mail_open (stream, tmp, debug ? OP_DEBUG : NIL);
+		ast_mutex_unlock(&mail_open_lock);
 		ast_mutex_unlock(&vms->lock);
 		if (stream == NIL) {
 			ast_log(LOG_ERROR, "Can't connect to imap server %s\n", tmp);
@@ -2969,7 +2976,9 @@ static int init_mailstream(struct vm_state *vms, int box)
 	imap_mailbox_name(tmp, sizeof(tmp), vms, box, 1);
 	ast_debug(3, "Before mail_open, server: %s, box:%d\n", tmp, box);
 	ast_mutex_lock(&vms->lock);
+	ast_mutex_lock(&mail_open_lock);
 	vms->mailstream = mail_open (stream, tmp, debug ? OP_DEBUG : NIL);
+	ast_mutex_unlock(&mail_open_lock);
 	ast_mutex_unlock(&vms->lock);
 	if (vms->mailstream == NIL) {
 		return -1;
@@ -3081,6 +3090,17 @@ static void update_messages_by_imapuser(const char *user, unsigned long number)
 	}
 
 	ast_debug(3, "saving mailbox message number %lu as message %d. Interactive set to %d\n", number, vms->vmArrayIndex, vms->interactive);
+
+	/* Ensure we have room for the next message. */
+	if (vms->vmArrayIndex >= vms->msg_array_max) {
+		long *new_mem = ast_realloc(vms->msgArray, 2 * vms->msg_array_max * sizeof(long));
+		if (!new_mem) {
+			return;
+		}
+		vms->msgArray = new_mem;
+		vms->msg_array_max *= 2;
+	}
+
 	vms->msgArray[vms->vmArrayIndex++] = number;
 }
 
@@ -3358,6 +3378,7 @@ static struct vm_state *create_vm_state_from_user(struct ast_vm_user *vmu)
 		return vms_p;
 	}
 	ast_debug(5, "Adding new vmstate for %s\n", vmu->imapuser);
+	/* XXX: Is this correctly freed always? */
 	if (!(vms_p = ast_calloc(1, sizeof(*vms_p))))
 		return NULL;
 	ast_copy_string(vms_p->imapuser, vmu->imapuser, sizeof(vms_p->imapuser));
@@ -3472,6 +3493,7 @@ static void vmstate_insert(struct vm_state *vms)
 			vms->newmessages = altvms->newmessages;
 			vms->oldmessages = altvms->oldmessages;
 			vms->vmArrayIndex = altvms->vmArrayIndex;
+			/* XXX: no msgArray copying? */
 			vms->lastmsg = altvms->lastmsg;
 			vms->curmsg = altvms->curmsg;
 			/* get a pointer to the persistent store */
@@ -3530,10 +3552,14 @@ static void vmstate_delete(struct vm_state *vms)
 	
 	if (vc) {
 		ast_mutex_destroy(&vc->vms->lock);
+		ast_free(vc->vms->msgArray);
+		vc->vms->msgArray = NULL;
+		vc->vms->msg_array_max = 0;
+		/* XXX: is no one supposed to free vms itself? */
 		ast_free(vc);
-	}
-	else
+	} else {
 		ast_log(AST_LOG_ERROR, "No vmstate found for user:%s, mailbox %s\n", vms->imapuser, vms->username);
+	}
 }
 
 static void set_update(MAILSTREAM * stream)
@@ -3555,11 +3581,13 @@ static void set_update(MAILSTREAM * stream)
 
 static void init_vm_state(struct vm_state *vms)
 {
-	int x;
-	vms->vmArrayIndex = 0;
-	for (x = 0; x < VMSTATE_MAX_MSG_ARRAY; x++) {
-		vms->msgArray[x] = 0;
+	vms->msg_array_max = VMSTATE_MAX_MSG_ARRAY;
+	vms->msgArray = ast_calloc(vms->msg_array_max, sizeof(long));
+	if (!vms->msgArray) {
+		/* Out of mem? This can't be good. */
+		vms->msg_array_max = 0;
 	}
+	vms->vmArrayIndex = 0;
 	ast_mutex_init(&vms->lock);
 }
 
@@ -5042,7 +5070,7 @@ static void make_email_file(FILE *p,
 	fprintf(p, "To:");
 	first_line = 1;
 	while ((email = strsep(&emailsbuf, "|"))) {
-		char *next = strchr(S_OR(emailsbuf, ""), '|');
+		char *next = emailsbuf;
 		if (check_mime(vmu->fullname)) {
 			char *ptr;
 			ast_str_encode_mime(&str2, 0, vmu->fullname, first_line ? strlen("To: ") : 0, strlen(email) + 3 + (next ? strlen(",") : 0));
@@ -6137,6 +6165,7 @@ static int msg_create_from_file(struct ast_vm_recording_data *recdata)
 				ast_log(LOG_ERROR,"Unable to determine sample rate of recording %s\n", recdata->recording_file);
 			}
 		}
+		ast_closestream(recording_fs);
 	}
 
 	/* If the duration was below the minimum duration for the user, let's just drop the whole thing now */

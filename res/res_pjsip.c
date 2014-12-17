@@ -430,6 +430,14 @@
 						</enumlist>
 					</description>
 				</configOption>
+				<configOption name="media_encryption_optimistic" default="no">
+					<synopsis>Determines whether encryption should be used if possible but does not terminate the
+					session if not achieved.</synopsis>
+					<description><para>
+						This option only applies if <replaceable>media_encryption</replaceable> is
+						set to <literal>sdes</literal> or <literal>dtls</literal>.
+					</para></description>
+				</configOption>
 				<configOption name="inband_progress" default="no">
 					<synopsis>Determines whether chan_pjsip will indicate ringing using inband
 					    progress.</synopsis>
@@ -817,6 +825,12 @@
 				</configOption>
 				<configOption name="cert_file">
 					<synopsis>Certificate file for endpoint (TLS ONLY)</synopsis>
+					<description><para>
+						A path to a .crt or .pem file can be provided.  However, only
+						the certificate is read from the file, not the private key.
+						The <literal>priv_key_file</literal> option must supply a
+						matching key file.
+					</para></description>
 				</configOption>
 				<configOption name="cipher">
 					<synopsis>Preferred cryptography cipher names (TLS ONLY)</synopsis>
@@ -1129,6 +1143,13 @@
 				<configOption name="threadpool_max_size" default="0">
 					<synopsis>Maximum number of threads in the res_pjsip threadpool.
 					A value of 0 indicates no maximum.</synopsis>
+				</configOption>
+				<configOption name="disable_tcp_switch" default="yes">
+					<synopsis>Disable automatic switching from UDP to TCP transports.</synopsis>
+					<description><para>
+						Disable automatic switching from UDP to TCP transports if outgoing
+						request is too large.  See RFC 3261 section 18.1.1.
+					</para></description>
 				</configOption>
 				<configOption name="type">
 					<synopsis>Must be of type 'system'.</synopsis>
@@ -1480,6 +1501,9 @@
 				</parameter>
 				<parameter name="MediaEncryption">
 					<para><xi:include xpointer="xpointer(/docs/configInfo[@name='res_pjsip']/configFile[@name='pjsip.conf']/configObject[@name='endpoint']/configOption[@name='media_encryption']/synopsis/node())"/></para>
+				</parameter>
+				<parameter name="MediaEncryptionOptimistic">
+					<para><xi:include xpointer="xpointer(/docs/configInfo[@name='res_pjsip']/configFile[@name='pjsip.conf']/configObject[@name='endpoint']/configOption[@name='media_encryption_optimistic']/synopsis/node())"/></para>
 				</parameter>
 				<parameter name="UseAvpf">
 					<para><xi:include xpointer="xpointer(/docs/configInfo[@name='res_pjsip']/configFile[@name='pjsip.conf']/configObject[@name='endpoint']/configOption[@name='use_avpf']/synopsis/node())"/></para>
@@ -2178,12 +2202,13 @@ pjsip_dialog *ast_sip_create_dialog_uac(const struct ast_sip_endpoint *endpoint,
 	return dlg;
 }
 
-pjsip_dialog *ast_sip_create_dialog_uas(const struct ast_sip_endpoint *endpoint, pjsip_rx_data *rdata)
+pjsip_dialog *ast_sip_create_dialog_uas(const struct ast_sip_endpoint *endpoint, pjsip_rx_data *rdata, pj_status_t *status)
 {
 	pjsip_dialog *dlg;
 	pj_str_t contact;
 	pjsip_transport_type_e type = rdata->tp_info.transport->key.type;
-	pj_status_t status;
+
+	ast_assert(status != NULL);
 
 	contact.ptr = pj_pool_alloc(rdata->tp_info.pool, PJSIP_MAX_URL_SIZE);
 	contact.slen = pj_ansi_snprintf(contact.ptr, PJSIP_MAX_URL_SIZE,
@@ -2196,11 +2221,11 @@ pjsip_dialog *ast_sip_create_dialog_uas(const struct ast_sip_endpoint *endpoint,
 			(type != PJSIP_TRANSPORT_UDP && type != PJSIP_TRANSPORT_UDP6) ? ";transport=" : "",
 			(type != PJSIP_TRANSPORT_UDP && type != PJSIP_TRANSPORT_UDP6) ? pjsip_transport_get_type_name(type) : "");
 
-	status = pjsip_dlg_create_uas(pjsip_ua_instance(), rdata, &contact, &dlg);
-	if (status != PJ_SUCCESS) {
+	*status = pjsip_dlg_create_uas(pjsip_ua_instance(), rdata, &contact, &dlg);
+	if (*status != PJ_SUCCESS) {
 		char err[PJ_ERR_MSG_SIZE];
 
-		pj_strerror(status, err, sizeof(err));
+		pj_strerror(*status, err, sizeof(err));
 		ast_log(LOG_ERROR, "Could not create dialog with endpoint %s. %s\n",
 				ast_sorcery_object_get_id(endpoint), err);
 		return NULL;

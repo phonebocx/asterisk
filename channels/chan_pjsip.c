@@ -38,7 +38,7 @@
 #include <pjsip_ua.h>
 #include <pjlib.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 425691 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428302 $")
 
 #include "asterisk/lock.h"
 #include "asterisk/channel.h"
@@ -488,6 +488,11 @@ static int answer(void *data)
 	pj_status_t status = PJ_SUCCESS;
 	pjsip_tx_data *packet = NULL;
 	struct ast_sip_session *session = data;
+
+	if (session->inv_session->state == PJSIP_INV_STATE_DISCONNECTED) {
+		ao2_ref(session, -1);
+		return 0;
+	}
 
 	pjsip_dlg_inc_lock(session->inv_session->dlg);
 	if (session->inv_session->invite_tsx) {
@@ -1001,7 +1006,8 @@ static int indicate(void *data)
 	struct ast_sip_session *session = ind_data->session;
 	int response_code = ind_data->response_code;
 
-	if (pjsip_inv_answer(session->inv_session, response_code, NULL, NULL, &packet) == PJ_SUCCESS) {
+	if ((session->inv_session->state != PJSIP_INV_STATE_DISCONNECTED) &&
+		(pjsip_inv_answer(session->inv_session, response_code, NULL, NULL, &packet) == PJ_SUCCESS)) {
 		ast_sip_session_send_response(session, packet);
 	}
 
@@ -1052,6 +1058,10 @@ static int update_connected_line_information(void *data)
 
 	if ((ast_channel_state(session->channel) != AST_STATE_UP) && (session->inv_session->role == PJSIP_UAS_ROLE)) {
 		int response_code = 0;
+
+		if (session->inv_session->state == PJSIP_INV_STATE_DISCONNECTED) {
+			return 0;
+		}
 
 		if (ast_channel_state(session->channel) == AST_STATE_RING) {
 			response_code = !session->endpoint->inband_progress ? 180 : 183;
@@ -1775,6 +1785,7 @@ static int request(void *obj)
 	}
 
 	if (!(session = ast_sip_session_create_outgoing(endpoint, NULL, args.aor, request_user, req_data->caps))) {
+		ast_log(LOG_ERROR, "Failed to create outgoing session to endpoint '%s'\n", endpoint_name);
 		req_data->cause = AST_CAUSE_NO_ROUTE_DESTINATION;
 		return -1;
 	}
@@ -2292,12 +2303,6 @@ end:
 	return AST_MODULE_LOAD_FAILURE;
 }
 
-/*! \brief Reload module */
-static int reload(void)
-{
-	return -1;
-}
-
 /*! \brief Unload the PJSIP channel from Asterisk */
 static int unload_module(void)
 {
@@ -2323,6 +2328,5 @@ AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "PJSIP Channel Driver"
 		.support_level = AST_MODULE_SUPPORT_CORE,
 		.load = load_module,
 		.unload = unload_module,
-		.reload = reload,
 		.load_pri = AST_MODPRI_CHANNEL_DRIVER,
 	       );

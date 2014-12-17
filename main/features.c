@@ -39,7 +39,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 424669 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 427737 $")
 
 #include "asterisk/_private.h"
 
@@ -844,6 +844,7 @@ static int action_bridge(struct mansession *s, const struct message *m)
 	}
 
 	astman_send_ack(s, m, "Channels have been bridged");
+	ao2_cleanup(bridge);
 
 	return 0;
 }

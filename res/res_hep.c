@@ -76,7 +76,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 424313 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 427405 $")
 
 #include "asterisk/module.h"
 #include "asterisk/astobj2.h"
@@ -532,6 +532,7 @@ int hepv3_send_packet(struct hepv3_capture_info *capture_info)
 	int res;
 
 	if (!config || !config->general->enabled) {
+		ao2_ref(capture_info, -1);
 		return 0;
 	}
 

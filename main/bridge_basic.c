@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420338 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428505 $")
 
 #include "asterisk/channel.h"
 #include "asterisk/utils.h"
@@ -47,6 +47,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420338 $")
 #include "asterisk/stasis_bridges.h"
 #include "asterisk/features.h"
 #include "asterisk/format_cache.h"
+#include "asterisk/test.h"
 
 #define NORMAL_FLAGS	(AST_BRIDGE_FLAG_DISSOLVE_HANGUP | AST_BRIDGE_FLAG_DISSOLVE_EMPTY \
 			| AST_BRIDGE_FLAG_SMART)
@@ -1606,33 +1607,21 @@ static void get_transfer_parties(struct ast_channel *transferer, struct ast_brid
 static void publish_transfer_success(struct attended_transfer_properties *props,
 		struct ast_channel *transferee_channel, struct ast_channel *target_channel)
 {
-	struct ast_bridge_channel_pair transferee = {
-		.channel = props->transferer,
-		.bridge = props->transferee_bridge,
-	};
-	struct ast_bridge_channel_pair transfer_target = {
-		.channel = props->transferer,
-		.bridge = props->target_bridge,
-	};
+	struct ast_attended_transfer_message *transfer_msg;
 
-	if (transferee.bridge && transfer_target.bridge) {
-		ast_bridge_lock_both(transferee.bridge, transfer_target.bridge);
-	} else if (transferee.bridge) {
-		ast_bridge_lock(transferee.bridge);
-	} else if (transfer_target.bridge) {
-		ast_bridge_lock(transfer_target.bridge);
+	transfer_msg = ast_attended_transfer_message_create(0, props->transferer,
+			props->transferee_bridge, props->transferer, props->target_bridge,
+			transferee_channel, target_channel);
+
+	if (!transfer_msg) {
+		ast_log(LOG_ERROR, "Unable to publish successful attended transfer from %s\n",
+				ast_channel_name(props->transferer));
+		return;
 	}
 
-	ast_bridge_publish_attended_transfer_bridge_merge(0, AST_BRIDGE_TRANSFER_SUCCESS,
-			&transferee, &transfer_target, props->transferee_bridge, transferee_channel,
-			target_channel);
-
-	if (transferee.bridge) {
-		ast_bridge_unlock(transferee.bridge);
-	}
-	if (transfer_target.bridge) {
-		ast_bridge_unlock(transfer_target.bridge);
-	}
+	ast_attended_transfer_message_add_merge(transfer_msg, props->transferee_bridge);
+	ast_bridge_publish_attended_transfer(transfer_msg);
+	ao2_cleanup(transfer_msg);
 }
 
 /*!
@@ -1641,37 +1630,22 @@ static void publish_transfer_success(struct attended_transfer_properties *props,
 static void publish_transfer_threeway(struct attended_transfer_properties *props,
 		struct ast_channel *transferee_channel, struct ast_channel *target_channel)
 {
-	struct ast_bridge_channel_pair transferee = {
-		.channel = props->transferer,
-		.bridge = props->transferee_bridge,
-	};
-	struct ast_bridge_channel_pair transfer_target = {
-		.channel = props->transferer,
-		.bridge = props->target_bridge,
-	};
-	struct ast_bridge_channel_pair threeway = {
-		.channel = props->transferer,
-		.bridge = props->transferee_bridge,
-	};
+	struct ast_attended_transfer_message *transfer_msg;
 
-	if (transferee.bridge && transfer_target.bridge) {
-		ast_bridge_lock_both(transferee.bridge, transfer_target.bridge);
-	} else if (transferee.bridge) {
-		ast_bridge_lock(transferee.bridge);
-	} else if (transfer_target.bridge) {
-		ast_bridge_lock(transfer_target.bridge);
+	transfer_msg = ast_attended_transfer_message_create(0, props->transferer,
+			props->transferee_bridge, props->transferer, props->target_bridge,
+			transferee_channel, target_channel);
+
+	if (!transfer_msg) {
+		ast_log(LOG_ERROR, "Unable to publish successful three-way transfer from %s\n",
+				ast_channel_name(props->transferer));
+		return;
 	}
 
-	ast_bridge_publish_attended_transfer_threeway(0, AST_BRIDGE_TRANSFER_SUCCESS,
-			&transferee, &transfer_target, &threeway, transferee_channel,
-			target_channel);
-
-	if (transferee.bridge) {
-		ast_bridge_unlock(transferee.bridge);
-	}
-	if (transfer_target.bridge) {
-		ast_bridge_unlock(transfer_target.bridge);
-	}
+	ast_attended_transfer_message_add_threeway(transfer_msg, props->transferer,
+			props->transferee_bridge);
+	ast_bridge_publish_attended_transfer(transfer_msg);
+	ao2_cleanup(transfer_msg);
 }
 
 /*!
@@ -1679,38 +1653,21 @@ static void publish_transfer_threeway(struct attended_transfer_properties *props
  */
 static void publish_transfer_fail(struct attended_transfer_properties *props)
 {
-	struct ast_bridge_channel_pair transferee = {
-		.channel = props->transferer,
-		.bridge = props->transferee_bridge,
-	};
-	struct ast_bridge_channel_pair transfer_target = {
-		.channel = props->transferer,
-		.bridge = props->target_bridge,
-	};
-	struct ast_channel *transferee_channel;
-	struct ast_channel *target_channel;
+	struct ast_attended_transfer_message *transfer_msg;
 
-	if (transferee.bridge && transfer_target.bridge) {
-		ast_bridge_lock_both(transferee.bridge, transfer_target.bridge);
-	} else if (transferee.bridge) {
-		ast_bridge_lock(transferee.bridge);
-	} else if (transfer_target.bridge) {
-		ast_bridge_lock(transfer_target.bridge);
+	transfer_msg = ast_attended_transfer_message_create(0, props->transferer,
+			props->transferee_bridge, props->transferer, props->target_bridge,
+			NULL, NULL);
+
+	if (!transfer_msg) {
+		ast_log(LOG_ERROR, "Unable to publish failed transfer from %s\n",
+				ast_channel_name(props->transferer));
+		return;
 	}
 
-	get_transfer_parties(props->transferer, props->transferee_bridge, props->target_bridge,
-			&transferee_channel, &target_channel);
-	ast_bridge_publish_attended_transfer_fail(0, AST_BRIDGE_TRANSFER_FAIL,
-			&transferee, &transfer_target, transferee_channel, target_channel);
-	ast_channel_cleanup(transferee_channel);
-	ast_channel_cleanup(target_channel);
-
-	if (transferee.bridge) {
-		ast_bridge_unlock(transferee.bridge);
-	}
-	if (transfer_target.bridge) {
-		ast_bridge_unlock(transfer_target.bridge);
-	}
+	transfer_msg->result = AST_BRIDGE_TRANSFER_FAIL;
+	ast_bridge_publish_attended_transfer(transfer_msg);
+	ao2_cleanup(transfer_msg);
 }
 
 /*!
@@ -3021,7 +2978,11 @@ static int grab_transfer(struct ast_channel *chan, char *exten, size_t exten_len
 {
 	int res;
 	int digit_timeout;
+	int attempts = 0;
+	int max_attempts;
 	RAII_VAR(struct ast_features_xfer_config *, xfer_cfg, NULL, ao2_cleanup);
+	char *retry_sound;
+	char *invalid_sound;
 
 	ast_channel_lock(chan);
 	xfer_cfg = ast_get_chan_features_xfer_config(chan);
@@ -3031,6 +2992,9 @@ static int grab_transfer(struct ast_channel *chan, char *exten, size_t exten_len
 		return -1;
 	}
 	digit_timeout = xfer_cfg->transferdigittimeout * 1000;
+	max_attempts = xfer_cfg->transferdialattempts;
+	retry_sound = ast_strdupa(xfer_cfg->transferretrysound);
+	invalid_sound = ast_strdupa(xfer_cfg->transferinvalidsound);
 	ast_channel_unlock(chan);
 
 	/* Play the simple "transfer" prompt out and wait */
@@ -3046,25 +3010,50 @@ static int grab_transfer(struct ast_channel *chan, char *exten, size_t exten_len
 	}
 
 	/* Drop to dialtone so they can enter the extension they want to transfer to */
-	res = ast_app_dtget(chan, context, exten, exten_len, exten_len - 1, digit_timeout);
-	if (res < 0) {
-		/* Hangup or error */
-		res = -1;
-	} else if (!res) {
-		/* 0 for invalid extension dialed. */
-		if (ast_strlen_zero(exten)) {
-			ast_debug(1, "%s dialed no digits.\n", ast_channel_name(chan));
+	do {
+		++attempts;
+
+		ast_test_suite_event_notify("TRANSFER_BEGIN_DIAL",
+				"Channel: %s\r\n"
+				"Attempt: %d",
+				ast_channel_name(chan), attempts);
+		res = ast_app_dtget(chan, context, exten, exten_len, exten_len - 1, digit_timeout);
+		ast_test_suite_event_notify("TRANSFER_DIALLED",
+				"Channel: %s\r\n"
+				"Attempt: %d\r\n"
+				"Dialled: %s\r\n"
+				"Result: %s",
+				ast_channel_name(chan), attempts, exten, res > 0 ? "Success" : "Failure");
+		if (res < 0) {
+			/* Hangup or error */
+			res = -1;
+		} else if (!res) {
+			/* 0 for invalid extension dialed. */
+			if (ast_strlen_zero(exten)) {
+				ast_debug(1, "%s dialed no digits.\n", ast_channel_name(chan));
+			} else {
+				ast_debug(1, "%s dialed '%s@%s' does not exist.\n",
+					ast_channel_name(chan), exten, context);
+			}
+			if (attempts < max_attempts) {
+				ast_stream_and_wait(chan, retry_sound, AST_DIGIT_NONE);
+			} else {
+				ast_stream_and_wait(chan, invalid_sound, AST_DIGIT_NONE);
+			}
+			memset(exten, 0, exten_len);
+			res = 1;
 		} else {
-			ast_debug(1, "%s dialed '%s@%s' does not exist.\n",
-				ast_channel_name(chan), exten, context);
+			/* Dialed extension is valid. */
+			res = 0;
 		}
-		ast_stream_and_wait(chan, "pbx-invalid", AST_DIGIT_NONE);
-		res = -1;
-	} else {
-		/* Dialed extension is valid. */
-		res = 0;
-	}
-	return res;
+	} while (res > 0 && attempts < max_attempts);
+
+	ast_test_suite_event_notify("TRANSFER_DIAL_FINAL",
+			"Channel: %s\r\n"
+			"Result: %s",
+			ast_channel_name(chan), res == 0 ? "Success" : "Failure");
+
+	return res ? -1 : 0;
 }
 
 static void copy_caller_data(struct ast_channel *dest, struct ast_channel *caller)

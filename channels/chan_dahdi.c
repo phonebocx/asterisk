@@ -54,7 +54,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428687 $")
 
 #if defined(__NetBSD__) || defined(__FreeBSD__)
 #include <pthread.h>
@@ -12581,7 +12581,7 @@ static struct dahdi_pvt *mkintf(int channel, const struct dahdi_chan_conf *conf,
 
 			mailbox_specific_topic = ast_mwi_topic(tmp->mailbox);
 			if (mailbox_specific_topic) {
-				tmp->mwi_event_sub = stasis_subscribe(mailbox_specific_topic, mwi_event_cb, NULL);
+				tmp->mwi_event_sub = stasis_subscribe_pool(mailbox_specific_topic, mwi_event_cb, NULL);
 			}
 		}
 #ifdef HAVE_DAHDI_LINEREVERSE_VMWI

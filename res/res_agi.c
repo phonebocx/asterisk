@@ -31,7 +31,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 426362 $")
 
 #include <math.h>
 #include <signal.h>
@@ -150,10 +150,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
 			<parameter name="escape_digits" required="true" />
 			<parameter name="skipms" />
 			<parameter name="ffchar">
-				<para>Defaults to <literal>*</literal></para>
+				<para>Defaults to <literal>#</literal></para>
 			</parameter>
 			<parameter name="rewchr">
-				<para>Defaults to <literal>#</literal></para>
+				<para>Defaults to <literal>*</literal></para>
 			</parameter>
 			<parameter name="pausechr" />
 			<parameter name="offsetms">

@@ -729,7 +729,11 @@ ALTER TABLE sippeers ALTER COLUMN directmedia TYPE sip_directmedia_values_v2 USI
 
 DROP TYPE sip_directmedia_values;
 
-INSERT INTO alembic_version (version_num) VALUES ('10aedae86a32');
+-- Running upgrade 10aedae86a32 -> eb88a14f2a
+
+ALTER TABLE ps_endpoints ADD COLUMN media_encryption_optimistic yesno_values;
+
+INSERT INTO alembic_version (version_num) VALUES ('eb88a14f2a');
 
 COMMIT;
 

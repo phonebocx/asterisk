@@ -29,7 +29,7 @@
  
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 429033 $")
 
 #include <sys/stat.h>
 #include <libgen.h>
@@ -402,6 +402,8 @@ int AST_OPTIONAL_API_NAME(ast_monitor_start)(struct ast_channel *chan, const cha
 		} else
 			monitor->write_stream = NULL;
 
+		ast_channel_insmpl_set(chan, 0);
+		ast_channel_outsmpl_set(chan, 0);
 		ast_channel_monitor_set(chan, monitor);
 		ast_monitor_set_state(chan, AST_MONITOR_RUNNING);
 		/* so we know this call has been monitored in case we need to bill for it or something */

@@ -86,8 +86,6 @@ static void leave_marked(struct confbridge_user *user)
 	conf_remove_user_marked(user->conference, user);
 
 	if (user->conference->markedusers == 0) {
-		need_prompt = 1;
-
 		AST_LIST_TRAVERSE_SAFE_BEGIN(&user->conference->active_list, user_iter, list) {
 			/* Kick ENDMARKED cbu_iters */
 			if (ast_test_flag(&user_iter->u_profile, USER_OPT_ENDMARKED) && !user_iter->kicked) {
@@ -103,16 +101,17 @@ static void leave_marked(struct confbridge_user *user)
 				ast_bridge_remove(user_iter->conference->bridge, user_iter->chan);
 			} else if (ast_test_flag(&user_iter->u_profile, USER_OPT_WAITMARKED)
 				&& !ast_test_flag(&user_iter->u_profile, USER_OPT_MARKEDUSER)) {
+				need_prompt = 1;
+
 				AST_LIST_REMOVE_CURRENT(list);
 				user_iter->conference->activeusers--;
 				AST_LIST_INSERT_TAIL(&user_iter->conference->waiting_list, user_iter, list);
 				user_iter->conference->waitingusers++;
-
-				/* Handle moh of user_iter if necessary */
-				if (ast_test_flag(&user_iter->u_profile, USER_OPT_MUSICONHOLD)) {
-					conf_moh_start(user_iter);
-				}
-				conf_update_user_mute(user_iter);
+			} else {
+				/* User is neither wait_marked nor end_marked; however, they
+				 * should still hear the prompt.
+				 */
+				need_prompt = 1;
 			}
 		}
 		AST_LIST_TRAVERSE_SAFE_END;
@@ -167,6 +166,18 @@ static void leave_marked(struct confbridge_user *user)
 				conf_get_sound(CONF_SOUND_LEADER_HAS_LEFT, user->b_profile.sounds));
 			ast_autoservice_stop(user->chan);
 			ao2_lock(user->conference);
+		}
+
+		AST_LIST_TRAVERSE(&user->conference->waiting_list, user_iter, list) {
+			if (user_iter->kicked) {
+				continue;
+			}
+
+			if (ast_test_flag(&user_iter->u_profile, USER_OPT_MUSICONHOLD)) {
+				conf_moh_start(user_iter);
+			}
+
+			conf_update_user_mute(user_iter);
 		}
 	}
 }

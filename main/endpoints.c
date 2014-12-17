@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420124 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428687 $")
 
 #include "asterisk/astobj2.h"
 #include "asterisk/endpoints.h"
@@ -310,7 +310,7 @@ static struct ast_endpoint *endpoint_internal_create(const char *tech, const cha
 	}
 
 	if (!ast_strlen_zero(resource)) {
-		endpoint->router = stasis_message_router_create(ast_endpoint_topic(endpoint));
+		endpoint->router = stasis_message_router_create_pool(ast_endpoint_topic(endpoint));
 		if (!endpoint->router) {
 			return NULL;
 		}

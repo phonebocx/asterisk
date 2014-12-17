@@ -241,7 +241,7 @@ endif
 _ASTCFLAGS+=$(OPTIONS)
 
 MOD_SUBDIRS:=channels pbx apps codecs formats cdr cel bridges funcs tests main res addons $(LOCAL_MOD_SUBDIRS)
-OTHER_SUBDIRS:=utils agi
+OTHER_SUBDIRS:=utils agi contrib
 SUBDIRS:=$(OTHER_SUBDIRS) $(MOD_SUBDIRS)
 SUBDIRS_INSTALL:=$(SUBDIRS:%=%-install)
 SUBDIRS_CLEAN:=$(SUBDIRS:%=%-clean)
@@ -790,7 +790,7 @@ install-logrotate:
 	rm -f contrib/scripts/asterisk.logrotate.tmp
 
 config:
-	@if [ "${OSARCH}" = "linux-gnu" ]; then \
+	@if [ "${OSARCH}" = "linux-gnu" -o "${OSARCH}" = "kfreebsd-gnu" ]; then \
 		if [ -f /etc/redhat-release -o -f /etc/fedora-release ]; then \
 			./build_tools/install_subst contrib/init.d/rc.redhat.asterisk  "$(DESTDIR)/etc/rc.d/init.d/asterisk"; \
 			if [ ! -f "$(DESTDIR)/etc/sysconfig/asterisk" ] ; then \

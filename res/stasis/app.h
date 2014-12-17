@@ -259,15 +259,14 @@ int app_set_replace_channel_app(struct ast_channel *chan, const char *replace_ap
 char *app_get_replace_channel_app(struct ast_channel *chan);
 
 /*!
- * \brief Replace channel topic forwards for the old channel with forwards for the new channel
+ * \brief Send StasisEnd message to the listening app
  *
  * \param app The app that owns the channel
- * \param old_id The unique ID of the channel to be replaced
- * \param new_chan The channel that is replacing the old one
+ * \param chan The channel for which the message is being sent
  *
  * \retval zero on success
  * \return non-zero on failure
  */
-int app_replace_channel_forwards(struct stasis_app *app, const char *old_id, struct ast_channel *new_chan);
+int app_send_end_msg(struct stasis_app *app, struct ast_channel *chan);
 
 #endif /* _ASTERISK_RES_STASIS_APP_H */

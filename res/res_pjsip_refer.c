@@ -149,6 +149,7 @@ static void refer_progress_bridge(void *data, struct stasis_subscription *sub,
 	struct refer_progress *progress = data;
 	struct ast_bridge_blob *enter_blob;
 	struct refer_progress_notification *notification;
+	struct ast_channel *chan;
 
 	if (stasis_subscription_final_message(sub, message)) {
 		ao2_ref(progress, -1);
@@ -180,6 +181,20 @@ static void refer_progress_bridge(void *data, struct stasis_subscription *sub,
 		}
 		progress->bridge_sub = stasis_unsubscribe(progress->bridge_sub);
 	}
+
+	chan = ast_channel_get_by_name(progress->transferee);
+	if (!chan) {
+		/* The channel is already gone */
+		return;
+	}
+
+	ast_channel_lock(chan);
+	ast_debug(3, "Detaching REFER progress monitoring hook from '%s' as it has joined a bridge\n",
+		ast_channel_name(chan));
+	ast_framehook_detach(chan, progress->framehook);
+	ast_channel_unlock(chan);
+
+	ast_channel_unref(chan);
 }
 
 /*! \brief Progress monitoring frame hook - examines frames to determine state of transfer */
@@ -550,7 +565,7 @@ static void refer_blind_callback(struct ast_channel *chan, struct transfer_chann
 		/* We also will need to detect if the transferee enters a bridge. This is currently the only reliable way to
 		 * detect if the transfer target has answered the call
 		 */
-		refer->progress->bridge_sub = stasis_subscribe(ast_bridge_topic_all(), refer_progress_bridge, refer->progress);
+		refer->progress->bridge_sub = stasis_subscribe_pool(ast_bridge_topic_all(), refer_progress_bridge, refer->progress);
 		if (!refer->progress->bridge_sub) {
 			struct refer_progress_notification *notification = refer_progress_notification_alloc(refer->progress, 200,
 				PJSIP_EVSUB_STATE_TERMINATED);
@@ -785,6 +800,12 @@ static int refer_incoming_invite_request(struct ast_sip_session *session, struct
 	other_session = ast_sip_dialog_get_session(other_dlg);
 	pjsip_dlg_dec_lock(other_dlg);
 
+	/* Don't accept an in-dialog INVITE with Replaces as it does not make much sense */
+	if (session->inv_session->dlg->state == PJSIP_DIALOG_STATE_ESTABLISHED) {
+		response = 488;
+		goto end;
+	}
+
 	if (!other_session) {
 		response = 481;
 		ast_debug(3, "INVITE with Replaces received on channel '%s' from endpoint '%s', but requested session does not exist\n",
@@ -831,14 +852,20 @@ static int refer_incoming_invite_request(struct ast_sip_session *session, struct
 
 end:
 	if (response) {
-		ast_debug(3, "INVITE with Replaces failed on channel '%s', sending response of '%d'\n",
-			ast_channel_name(session->channel), response);
-		session->defer_terminate = 1;
-		ast_hangup(session->channel);
-		session->channel = NULL;
+		if (session->inv_session->dlg->state != PJSIP_DIALOG_STATE_ESTABLISHED) {
+			ast_debug(3, "INVITE with Replaces failed on channel '%s', sending response of '%d'\n",
+				ast_channel_name(session->channel), response);
+			session->defer_terminate = 1;
+			ast_hangup(session->channel);
+			session->channel = NULL;
 
-		if (pjsip_inv_end_session(session->inv_session, response, NULL, &packet) == PJ_SUCCESS) {
-			ast_sip_session_send_response(session, packet);
+			if (pjsip_inv_end_session(session->inv_session, response, NULL, &packet) == PJ_SUCCESS) {
+				ast_sip_session_send_response(session, packet);
+			}
+		} else {
+			ast_debug(3, "INVITE with Replaces in-dialog on channel '%s', hanging up\n",
+				ast_channel_name(session->channel));
+			ast_queue_hangup(session->channel);
 		}
 	}
 
@@ -848,14 +875,14 @@ end:
 static int refer_incoming_refer_request(struct ast_sip_session *session, struct pjsip_rx_data *rdata)
 {
 	pjsip_generic_string_hdr *refer_to;
-	pjsip_fromto_hdr *target;
+	char *uri;
+	pjsip_uri *target;
 	pjsip_sip_uri *target_uri;
 	RAII_VAR(struct refer_progress *, progress, NULL, ao2_cleanup);
 	pjsip_param *replaces;
 	int response;
 
 	static const pj_str_t str_refer_to = { "Refer-To", 8 };
-	static const pj_str_t str_to = { "To", 2 };
 	static const pj_str_t str_replaces = { "Replaces", 8 };
 
 	if (!session->endpoint->allowtransfer) {
@@ -874,12 +901,16 @@ static int refer_incoming_refer_request(struct ast_sip_session *session, struct 
 		return 0;
 	}
 
-	/* Parse the provided URI string as a To header so we can get the target */
-	target = pjsip_parse_hdr(rdata->tp_info.pool, &str_to,
-		(char *) pj_strbuf(&refer_to->hvalue), pj_strlen(&refer_to->hvalue), NULL);
+	/* This is done on purpose (and is safe) - it's done so that the value passed to
+	 * pjsip_parse_uri is NULL terminated as required
+	 */
+	uri = refer_to->hvalue.ptr;
+	uri[refer_to->hvalue.slen] = '\0';
+
+	target = pjsip_parse_uri(rdata->tp_info.pool, refer_to->hvalue.ptr, refer_to->hvalue.slen, 0);
 	if (!target
-		|| (!PJSIP_URI_SCHEME_IS_SIP(target->uri)
-			&& !PJSIP_URI_SCHEME_IS_SIPS(target->uri))) {
+		|| (!PJSIP_URI_SCHEME_IS_SIP(target)
+			&& !PJSIP_URI_SCHEME_IS_SIPS(target))) {
 		size_t uri_size = pj_strlen(&refer_to->hvalue) + 1;
 		char *uri = ast_alloca(uri_size);
 
@@ -890,7 +921,7 @@ static int refer_incoming_refer_request(struct ast_sip_session *session, struct 
 			uri, ast_channel_name(session->channel), ast_sorcery_object_get_id(session->endpoint));
 		return 0;
 	}
-	target_uri = pjsip_uri_get_uri(target->uri);
+	target_uri = pjsip_uri_get_uri(target);
 
 	/* Set up REFER progress subscription if requested/possible */
 	if (refer_progress_alloc(session, rdata, &progress)) {
