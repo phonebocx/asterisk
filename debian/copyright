@@ -1,6 +1,25 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Source: http://downloads.asterisk.org/pub/asterisk
 Upstream-Name: Asterisk
+Comment:
+ Excluded files:
+ * codecs/ilbc: due to patent issues
+ * doc/ (admin guide and reference): 
+   Documentation that is generated from wiki.asterisk.org. No source
+   included here. License is CC-BY-SA, though.
+ * makeopts, moduleinfo: while we're at it. Makes modifications easier.
+ * soudss tarballs: while we're at it. Take lots of space and included in
+   other packages anyway.
+Files-Excluded:
+ codecs/ilbc
+ doc/Asterisk-Admin-Guide/
+ doc/Asterisk-Admin-Guide.pdf
+ doc/Asterisk-*-Reference.pdf
+ */.makeopts
+ */.*.makeopts
+ */.moduleinfo
+ */.*.moduleinfo
+ sounds/*.tar.gz
 
 Files: *
 Copyright: 1999-2012, Digium, Inc
