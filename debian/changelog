@@ -1,3 +1,9 @@
+asterisk (1:13.1.0~dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 17 Dec 2014 07:47:50 +0200
+
 asterisk (1:13.0.0~dfsg-3) unstable; urgency=medium
 
   * sanity check to avoid changing the ABI hash
