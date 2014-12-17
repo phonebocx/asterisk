@@ -69,7 +69,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420624 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428687 $")
 
 #include <sys/time.h>
 #include <sys/signal.h>
@@ -113,9 +113,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420624 $")
 #include "asterisk/mixmonitor.h"
 #include "asterisk/core_unreal.h"
 #include "asterisk/bridge_basic.h"
-
-/* Define, to debug reference counts on queues, without debugging reference counts on queue members */
-/* #define REF_DEBUG_ONLY_QUEUES */
 
 /*!
  * \par Please read before modifying this file.
@@ -1776,7 +1773,7 @@ static void queue_member_follower_removal(struct call_queue *queue, struct membe
 	ao2_callback(queue->members, OBJ_NODATA | OBJ_MULTIPLE, queue_member_decrement_followers, &pos);
 }
 
-#ifdef REF_DEBUG_ONLY_QUEUES
+#ifdef REF_DEBUG
 #define queue_ref(q)				_queue_ref(q, "", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 #define queue_unref(q)				_queue_unref(q, "", __FILE__, __LINE__, __PRETTY_FUNCTION__)
 #define queue_t_ref(q, tag)			_queue_ref(q, tag, __FILE__, __LINE__, __PRETTY_FUNCTION__)
@@ -3496,6 +3493,7 @@ static void update_realtime_members(struct call_queue *q)
 			}
 			ao2_ref(m, -1);
 		}
+		ao2_iterator_destroy(&mem_iter);
 		ast_debug(3, "Queue %s has no realtime members defined. No need for update\n", q->name);
 		ao2_unlock(q);
 		return;
@@ -5733,7 +5731,7 @@ static void handle_blind_transfer(void *userdata, struct stasis_subscription *su
 	ao2_lock(queue_data);
 
 	if (ast_strlen_zero(queue_data->bridge_uniqueid) ||
-			strcmp(queue_data->bridge_uniqueid, transfer_msg->to_transferee.bridge_snapshot->uniqueid)) {
+			strcmp(queue_data->bridge_uniqueid, transfer_msg->bridge->uniqueid)) {
 		ao2_unlock(queue_data);
 		return;
 	}
@@ -6058,7 +6056,7 @@ static int setup_stasis_subs(struct queue_ent *qe, struct ast_channel *peer, str
 		return -1;
 	}
 
-	queue_data->bridge_router = stasis_message_router_create(ast_bridge_topic_all());
+	queue_data->bridge_router = stasis_message_router_create_pool(ast_bridge_topic_all());
 	if (!queue_data->bridge_router) {
 		ao2_ref(queue_data, -1);
 		return -1;
@@ -6073,7 +6071,7 @@ static int setup_stasis_subs(struct queue_ent *qe, struct ast_channel *peer, str
 	stasis_message_router_set_default(queue_data->bridge_router,
 			queue_bridge_cb, queue_data);
 
-	queue_data->channel_router = stasis_message_router_create(ast_channel_topic_all());
+	queue_data->channel_router = stasis_message_router_create_pool(ast_channel_topic_all());
 	if (!queue_data->channel_router) {
 		/* Unsubscribing from the bridge router will remove the only ref of queue_data,
 		 * thus beginning the destruction process
@@ -7224,6 +7222,7 @@ static int set_member_value(const char *queuename, const char *interface, int pr
 					if ((q = find_load_queue_rt_friendly(name))) {
 						foundqueue++;
 						foundinterface += set_member_value_help_members(q, interface, property, value);
+						queue_unref(q);
 					}
 				}
 			}
@@ -7234,12 +7233,14 @@ static int set_member_value(const char *queuename, const char *interface, int pr
 		while ((q = ao2_t_iterator_next(&queue_iter, "Iterate through queues"))) {
 			foundqueue++;
 			foundinterface += set_member_value_help_members(q, interface, property, value);
+			queue_unref(q);
 		}
 		ao2_iterator_destroy(&queue_iter);
 	} else { /* We actually have a queuename, so we can just act on the single queue. */
 		if ((q = find_load_queue_rt_friendly(queuename))) {
 			foundqueue++;
 			foundinterface += set_member_value_help_members(q, interface, property, value);
+			queue_unref(q);
 		}
 	}
 

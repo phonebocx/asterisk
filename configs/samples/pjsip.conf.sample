@@ -646,6 +646,8 @@
 ;media_encryption=no    ; Determines whether res_pjsip will use and enforce
                         ; usage of media encryption for this endpoint (default:
                         ; "no")
+;media_encryption_optimistic=no ; Use encryption if possible but don't fail the call
+								; if not possible.
 ;inband_progress=no     ; Determines whether chan_pjsip will indicate ringing
                         ; using inband progress (default: "no")
 ;call_group=    ; The numeric pickup groups for a channel (default: "")
@@ -747,7 +749,10 @@
         ; "")
 ;ca_list_file=  ; File containing a list of certificates to read TLS ONLY
                 ; (default: "")
-;cert_file=     ; Certificate file for endpoint TLS ONLY (default: "")
+;cert_file=     ; Certificate file for endpoint TLS ONLY
+                ; Will read .crt or .pem file but only uses cert,
+                ; a .key file must be specified via priv_key_file
+                ; (default: "")
 ;cipher=        ; Preferred cryptography cipher names TLS ONLY (default: "")
 ;domain=        ; Domain the transport comes from (default: "")
 ;external_media_address=        ; External IP address to use in RTP handling
@@ -825,6 +830,12 @@
                                 ; should be disposed of (default: "60")
 ;threadpool_max_size=0  ; Maximum number of threads in the res_pjsip threadpool
                         ; A value of 0 indicates no maximum (default: "0")
+;disable_tcp_switch=yes ; Disable automatic switching from UDP to TCP transports
+                        ; if outgoing request is too large.
+                        ; See RFC 3261 section 18.1.1.
+						; Disabling this option has been known to cause interoperability
+						; issues, so disable at your own risk.
+                        ; (default: "yes")
 ;type=  ; Must be of type system (default: "")
 
 ;==========================GLOBAL SECTION OPTIONS=========================

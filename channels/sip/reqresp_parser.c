@@ -25,7 +25,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420562 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 426865 $")
 
 #include "include/sip.h"
 #include "include/sip_utils.h"
@@ -1692,17 +1692,12 @@ unsigned int parse_sip_options(const char *options, char *unsupported, size_t un
 	size_t outlen = unsupported_len;
 	char *cur_out = out;
 
-	if (out && (outlen > 0)) {
-		memset(out, 0, outlen);
-	}
-
 	if (ast_strlen_zero(options) )
 		return 0;
 
 	temp = ast_strdupa(options);
 
 	ast_debug(3, "Begin: parsing SIP \"Supported: %s\"\n", options);
-
 	for (next = temp; next; next = sep) {
 		found = FALSE;
 		supported = FALSE;
@@ -1862,6 +1857,7 @@ AST_TEST_DEFINE(sip_parse_options_test)
 
 	/* Test with unsupported char buffer */
 	AST_LIST_TRAVERSE(&testdatalist, testdataptr, list) {
+		memset(unsupported, 0, sizeof(unsupported));
 		option_profile = parse_sip_options(testdataptr->input_options, unsupported, ARRAY_LEN(unsupported));
 		if (option_profile != testdataptr->expected_profile ||
 			strcmp(unsupported, testdataptr->expected_unsupported)) {

@@ -23,7 +23,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428687 $")
 
 #include "asterisk/astdb.h"
 #include "asterisk/astobj2.h"
@@ -330,7 +330,7 @@ static int subscribe_device_state(struct stasis_app *app, void *obj)
 		return 0;
 	}
 
-	if (!(sub->sub = stasis_subscribe(
+	if (!(sub->sub = stasis_subscribe_pool(
 			ast_device_state_topic(sub->device_name),
 			device_state_cb, sub))) {
 		ast_log(LOG_ERROR, "Unable to subscribe to device %s\n",

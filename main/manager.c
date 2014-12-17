@@ -54,7 +54,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 425384 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428946 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/paths.h"	/* use various ast_config_AST_* */
@@ -640,7 +640,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 425384 $")
 			<synopsis>Raised in response to an Originate command.</synopsis>
 			<syntax>
 				<parameter name="ActionID" required="false"/>
-				<parameter name="Resonse">
+				<parameter name="Response">
 					<enumlist>
 						<enum name="Failure"/>
 						<enum name="Success"/>
@@ -1191,11 +1191,76 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision: 425384 $")
 		<managerEventInstance class="EVENT_FLAG_CALL">
 			<synopsis>Raised when a hint changes due to a device state change.</synopsis>
 			<syntax>
-				<parameter name="Exten" />
-				<parameter name="Context" />
-				<parameter name="Hint" />
-				<parameter name="Status" />
-				<parameter name="StatusText" />
+				<parameter name="Exten">
+					<para>Name of the extension.</para>
+				</parameter>
+				<parameter name="Context">
+					<para>Context that owns the extension.</para>
+				</parameter>
+				<parameter name="Hint">
+					<para>Hint set for the extension</para>
+				</parameter>
+				<parameter name="Status">
+					<para>Numerical value of the extension status. Extension
+					status is determined by the combined device state of all items
+					contained in the hint.</para>
+					<enumlist>
+						<enum name="-2">
+							<para>The extension was removed from the dialplan.</para>
+						</enum>
+						<enum name="-1">
+							<para>The extension's hint was removed from the dialplan.</para>
+						</enum>
+						<enum name="0">
+							<para><literal>Idle</literal> - Related device(s) are in an idle
+							state.</para>
+						</enum>
+						<enum name="1">
+							<para><literal>InUse</literal> - Related device(s) are in active
+							calls but may take more calls.</para>
+						</enum>
+						<enum name="2">
+							<para><literal>Busy</literal> - Related device(s) are in active
+							calls and may not take any more calls.</para>
+						</enum>
+						<enum name="4">
+							<para><literal>Unavailable</literal> - Related device(s) are
+							not reachable.</para>
+						</enum>
+						<enum name="8">
+							<para><literal>Ringing</literal> - Related device(s) are
+							currently ringing.</para>
+						</enum>
+						<enum name="9">
+							<para><literal>InUse&amp;Ringing</literal> - Related device(s)
+							are currently ringing and in active calls.</para>
+						</enum>
+						<enum name="16">
+							<para><literal>Hold</literal> - Related device(s) are
+							currently on hold.</para>
+						</enum>
+						<enum name="17">
+							<para><literal>InUse&amp;Hold</literal> - Related device(s)
+							are currently on hold and in active calls.</para>
+						</enum>
+					</enumlist>
+				</parameter>
+				<parameter name="StatusText">
+					<para>Text representation of <literal>Status</literal>.</para>
+					<enumlist>
+						<enum name="Idle" />
+						<enum name="InUse" />
+						<enum name="Busy" />
+						<enum name="Unavailable" />
+						<enum name="Ringing" />
+						<enum name="InUse&amp;Ringing" />
+						<enum name="Hold" />
+						<enum name="InUse&amp;Hold" />
+						<enum name="Unknown">
+							<para>Status does not match any of the above values.</para>
+						</enum>
+					</enumlist>
+				</parameter>
 			</syntax>
 		</managerEventInstance>
 	</managerEvent>
@@ -1302,7 +1367,8 @@ static struct stasis_forward *rtp_topic_forwarder;
 static struct stasis_forward *security_topic_forwarder;
 
 #ifdef TEST_FRAMEWORK
-struct stasis_subscription *test_suite_sub;
+/*! \brief The \ref stasis_subscription for forwarding the Test topic to the AMI topic */
+static struct stasis_forward *test_suite_forwarder;
 #endif
 
 #define MGR_SHOW_TERMINAL_WIDTH 80
@@ -1781,6 +1847,9 @@ static const struct permalias {
 	{ 0, "none" },
 };
 
+/*! Maximum string length of the AMI authority permission string buildable from perms[]. */
+#define MAX_AUTH_PERM_STRING	150
+
 /*! \brief Checks to see if a string which can be used to evaluate functions should be rejected */
 static int function_capable_string_allowed_with_auths(const char *evaluating, int writepermlist)
 {
@@ -1809,8 +1878,10 @@ static const char *user_authority_to_str(int authority, struct ast_str **res)
 		}
 	}
 
-	if (ast_str_strlen(*res) == 0)	/* replace empty string with something sensible */
+	if (ast_str_strlen(*res) == 0) {
+		/* replace empty string with something sensible */
 		ast_str_append(res, 0, "<none>");
+	}
 
 	return ast_str_buffer(*res);
 }
@@ -1824,15 +1895,19 @@ static const char *authority_to_str(int authority, struct ast_str **res)
 	char *sep = "";
 
 	ast_str_reset(*res);
-	for (i = 0; i < ARRAY_LEN(perms) - 1; i++) {
-		if (authority & perms[i].num) {
-			ast_str_append(res, 0, "%s%s", sep, perms[i].label);
-			sep = ",";
+	if (authority != EVENT_FLAG_SHUTDOWN) {
+		for (i = 0; i < ARRAY_LEN(perms) - 1; i++) {
+			if (authority & perms[i].num) {
+				ast_str_append(res, 0, "%s%s", sep, perms[i].label);
+				sep = ",";
+			}
 		}
 	}
 
-	if (ast_str_strlen(*res) == 0)	/* replace empty string with something sensible */
+	if (ast_str_strlen(*res) == 0) {
+		/* replace empty string with something sensible */
 		ast_str_append(res, 0, "<none>");
+	}
 
 	return ast_str_buffer(*res);
 }
@@ -2074,6 +2149,7 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	struct manager_action *cur;
 	struct ast_str *authority;
 	int num, l, which;
+	const char *auth_str;
 	char *ret = NULL;
 #ifdef AST_XML_DOCS
 	char syntax_title[64], description_title[64], synopsis_title[64], seealso_title[64];
@@ -2100,7 +2176,7 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 		AST_RWLIST_UNLOCK(&actions);
 		return ret;
 	}
-	authority = ast_str_alloca(80);
+	authority = ast_str_alloca(MAX_AUTH_PERM_STRING);
 	if (a->argc < 4) {
 		return CLI_SHOWUSAGE;
 	}
@@ -2121,7 +2197,7 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	AST_RWLIST_TRAVERSE(&actions, cur, list) {
 		for (num = 3; num < a->argc; num++) {
 			if (!strcasecmp(cur->action, a->argv[num])) {
-				authority_to_str(cur->authority, &authority);
+				auth_str = authority_to_str(cur->authority, &authority);
 
 #ifdef AST_XML_DOCS
 				if (cur->docsrc == AST_XML_DOC) {
@@ -2130,7 +2206,7 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 					char *description = ast_xmldoc_printable(S_OR(cur->description, "Not available"), 1);
 					char *arguments = ast_xmldoc_printable(S_OR(cur->arguments, "Not available"), 1);
 					char *seealso = ast_xmldoc_printable(S_OR(cur->seealso, "Not available"), 1);
-					char *privilege = ast_xmldoc_printable(S_OR(authority->str, "Not available"), 1);
+					char *privilege = ast_xmldoc_printable(S_OR(auth_str, "Not available"), 1);
 					char *responses = ast_xmldoc_printable("None", 1);
 					ast_cli(a->fd, "%s%s\n\n%s%s\n\n%s%s\n\n%s%s\n\n%s%s\n\n%s%s\n\n%s",
 						syntax_title, syntax,
@@ -2164,7 +2240,7 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 				{
 					ast_cli(a->fd, "Action: %s\nSynopsis: %s\nPrivilege: %s\n%s\n",
 						cur->action, cur->synopsis,
-						authority->str,
+						auth_str,
 						S_OR(cur->description, ""));
 				}
 			}
@@ -2205,8 +2281,8 @@ static char *handle_showmanager(struct ast_cli_entry *e, int cmd, struct ast_cli
 	struct ast_manager_user *user = NULL;
 	int l, which;
 	char *ret = NULL;
-	struct ast_str *rauthority = ast_str_alloca(128);
-	struct ast_str *wauthority = ast_str_alloca(128);
+	struct ast_str *rauthority = ast_str_alloca(MAX_AUTH_PERM_STRING);
+	struct ast_str *wauthority = ast_str_alloca(MAX_AUTH_PERM_STRING);
 	struct ast_variable *v;
 
 	switch (cmd) {
@@ -3894,7 +3970,7 @@ static int action_waitevent(struct mansession *s, const struct message *m)
 static int action_listcommands(struct mansession *s, const struct message *m)
 {
 	struct manager_action *cur;
-	struct ast_str *temp = ast_str_alloca(256);
+	struct ast_str *temp = ast_str_alloca(MAX_AUTH_PERM_STRING);
 
 	astman_start_ack(s, m);
 	AST_RWLIST_RDLOCK(&actions);
@@ -3983,8 +4059,9 @@ static int action_login(struct mansession *s, const struct message *m)
 	if ((s->session->send_events & EVENT_FLAG_SYSTEM)
 		&& (s->session->readperm & EVENT_FLAG_SYSTEM)
 		&& ast_test_flag(&ast_options, AST_OPT_FLAG_FULLY_BOOTED)) {
-		struct ast_str *auth = ast_str_alloca(80);
+		struct ast_str *auth = ast_str_alloca(MAX_AUTH_PERM_STRING);
 		const char *cat_str = authority_to_str(EVENT_FLAG_SYSTEM, &auth);
+
 		astman_append(s, "Event: FullyBooted\r\n"
 			"Privilege: %s\r\n"
 			"Status: Fully Booted\r\n\r\n", cat_str);
@@ -6474,7 +6551,7 @@ int __ast_manager_event_multichan(int category, const char *event, int chancount
 	RAII_VAR(struct ao2_container *, sessions, ao2_global_obj_ref(mgr_sessions), ao2_cleanup);
 	struct mansession_session *session;
 	struct manager_custom_hook *hook;
-	struct ast_str *auth = ast_str_alloca(80);
+	struct ast_str *auth = ast_str_alloca(MAX_AUTH_PERM_STRING);
 	const char *cat_str;
 	va_list ap;
 	struct timeval now;
@@ -7431,11 +7508,16 @@ generic_callback_out:
 	ast_free(http_header);
 	ast_free(out);
 
-	if (session && blastaway) {
-		session_destroy(session);
-	} else if (session && session->f) {
-		fclose(session->f);
-		session->f = NULL;
+	if (session) {
+		if (blastaway) {
+			session_destroy(session);
+		} else {
+			if (session->f) {
+				fclose(session->f);
+				session->f = NULL;
+			}
+			unref_mansession(session);
+		}
 	}
 
 	return 0;
@@ -8260,49 +8342,6 @@ static void load_channelvars(struct ast_variable *var)
 	ast_channel_set_manager_vars(args.argc, args.vars);
 }
 
-#ifdef TEST_FRAMEWORK
-
-static void test_suite_event_cb(void *data, struct stasis_subscription *sub,
-		struct stasis_message *message)
-{
-	struct ast_test_suite_message_payload *payload;
-	struct ast_json *blob;
-	const char *type;
-
-	if (stasis_message_type(message) != ast_test_suite_message_type()) {
-		return;
-	}
-
-	payload = stasis_message_data(message);
-	if (!payload) {
-		return;
-	}
-	blob = ast_test_suite_get_blob(payload);
-	if (!blob) {
-		return;
-	}
-
-	type = ast_json_string_get(ast_json_object_get(blob, "type"));
-	if (ast_strlen_zero(type) || strcmp("testevent", type)) {
-		return;
-	}
-
-	manager_event(EVENT_FLAG_TEST, "TestEvent",
-		"Type: StateChange\r\n"
-		"State: %s\r\n"
-		"AppFile: %s\r\n"
-		"AppFunction: %s\r\n"
-		"AppLine: %jd\r\n"
-		"%s\r\n",
-		ast_json_string_get(ast_json_object_get(blob, "state")),
-		ast_json_string_get(ast_json_object_get(blob, "appfile")),
-		ast_json_string_get(ast_json_object_get(blob, "appfunction")),
-		ast_json_integer_get(ast_json_object_get(blob, "line")),
-		ast_json_string_get(ast_json_object_get(blob, "data")));
-}
-
-#endif
-
 /*!
  * \internal
  * \brief Free a user record.  Should already be removed from the list
@@ -8378,7 +8417,8 @@ static void manager_shutdown(void)
 #endif
 
 #ifdef TEST_FRAMEWORK
-	stasis_unsubscribe(test_suite_sub);
+	stasis_forward_cancel(test_suite_forwarder);
+	test_suite_forwarder = NULL;
 #endif
 
 	if (stasis_router) {
@@ -8408,6 +8448,7 @@ static void manager_shutdown(void)
 	while ((user = AST_LIST_REMOVE_HEAD(&users, list))) {
 		manager_free_user(user);
 	}
+	acl_change_stasis_unsubscribe();
 }
 
 
@@ -8573,7 +8614,7 @@ static int __init_manager(int reload, int by_external_config)
 		ast_manager_register_xml_core("BlindTransfer", EVENT_FLAG_CALL, action_blind_transfer);
 
 #ifdef TEST_FRAMEWORK
-		test_suite_sub = stasis_subscribe(ast_test_suite_topic(), test_suite_event_cb, NULL);
+		test_suite_forwarder = stasis_forward_all(ast_test_suite_topic(), manager_topic);
 #endif
 
 		ast_cli_register_multiple(cli_manager, ARRAY_LEN(cli_manager));

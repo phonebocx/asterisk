@@ -29,7 +29,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 421210 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 429317 $")
 
 #include "asterisk/module.h"
 #include "asterisk/http.h"
@@ -416,27 +416,27 @@ static inline int ws_safe_read(struct ast_websocket *session, char *buf, int len
 	for (sanity = 10; sanity; sanity--) {
 		clearerr(session->f);
 		rlen = fread(rbuf, 1, xlen, session->f);
-		if (0 == rlen && ferror(session->f) && errno != EAGAIN) {
+		if (!rlen && ferror(session->f) && errno != EAGAIN) {
 			ast_log(LOG_ERROR, "Error reading from web socket: %s\n", strerror(errno));
-			(*opcode) = AST_WEBSOCKET_OPCODE_CLOSE;
+			*opcode = AST_WEBSOCKET_OPCODE_CLOSE;
 			session->closing = 1;
 			return -1;
 		}
-		xlen = (xlen - rlen);
+		xlen = xlen - rlen;
 		rbuf = rbuf + rlen;
-		if (0 == xlen) {
+		if (!xlen) {
 			break;
 		}
 		if (ast_wait_for_input(session->fd, 1000) < 0) {
 			ast_log(LOG_ERROR, "ast_wait_for_input returned err: %s\n", strerror(errno));
-			(*opcode) = AST_WEBSOCKET_OPCODE_CLOSE;
+			*opcode = AST_WEBSOCKET_OPCODE_CLOSE;
 			session->closing = 1;
 			return -1;
 		}
 	}
 	if (!sanity) {
 		ast_log(LOG_WARNING, "Websocket seems unresponsive, disconnecting ...\n");
-		(*opcode) = AST_WEBSOCKET_OPCODE_CLOSE;
+		*opcode = AST_WEBSOCKET_OPCODE_CLOSE;
 		session->closing = 1;
 		return -1;
 	}
@@ -502,7 +502,7 @@ int AST_OPTIONAL_API_NAME(ast_websocket_read)(struct ast_websocket *session, cha
 			return -1;
 		}
 
-		if (ws_safe_read(session, (*payload), (*payload_len), opcode)) {
+		if (ws_safe_read(session, *payload, *payload_len, opcode)) {
 			return 0;
 		}
 		/* If a mask is present unmask the payload */
@@ -513,14 +513,6 @@ int AST_OPTIONAL_API_NAME(ast_websocket_read)(struct ast_websocket *session, cha
 			}
 		}
 
-		if (!(new_payload = ast_realloc(session->payload, (session->payload_len + *payload_len)))) {
-			ast_log(LOG_WARNING, "Failed allocation: %p, %zu, %"PRIu64"\n",
-				session->payload, session->payload_len, *payload_len);
-			*payload_len = 0;
-			ast_websocket_close(session, 1009);
-			return 0;
-		}
-
 		/* Per the RFC for PING we need to send back an opcode with the application data as received */
 		if ((*opcode == AST_WEBSOCKET_OPCODE_PING) && (ast_websocket_write(session, AST_WEBSOCKET_OPCODE_PONG, *payload, *payload_len))) {
 			*payload_len = 0;
@@ -528,9 +520,22 @@ int AST_OPTIONAL_API_NAME(ast_websocket_read)(struct ast_websocket *session, cha
 			return 0;
 		}
 
-		session->payload = new_payload;
-		memcpy((session->payload + session->payload_len), (*payload), (*payload_len));
-		session->payload_len += *payload_len;
+		if (*payload_len) {
+			if (!(new_payload = ast_realloc(session->payload, (session->payload_len + *payload_len)))) {
+				ast_log(LOG_WARNING, "Failed allocation: %p, %zu, %"PRIu64"\n",
+					session->payload, session->payload_len, *payload_len);
+				*payload_len = 0;
+				ast_websocket_close(session, 1009);
+				return 0;
+			}
+
+			session->payload = new_payload;
+			memcpy((session->payload + session->payload_len), (*payload), (*payload_len));
+			session->payload_len += *payload_len;
+		} else if (!session->payload_len && session->payload) {
+			ast_free(session->payload);
+			session->payload = NULL;
+		}
 
 		if (!fin && session->reconstruct && (session->payload_len < session->reconstruct)) {
 			/* If this is not a final message we need to defer returning it until later */
@@ -839,7 +844,7 @@ static void websocket_echo_callback(struct ast_websocket *session, struct ast_va
 	}
 
 end:
-	ast_debug(1, "Exitting WebSocket echo loop\n");
+	ast_debug(1, "Exiting WebSocket echo loop\n");
 	ast_websocket_unref(session);
 }
 
@@ -1292,7 +1297,7 @@ static int load_module(void)
 
 static int unload_module(void)
 {
-	ast_websocket_remove_protocol("echo", websocket_echo_callback);
+	websocket_remove_protocol_internal("echo", websocket_echo_callback);
 	ast_http_uri_unlink(&websocketuri);
 	ao2_ref(websocketuri.data, -1);
 	websocketuri.data = NULL;

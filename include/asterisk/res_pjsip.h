@@ -483,6 +483,8 @@ struct ast_sip_media_rtp_configuration {
 	unsigned int srtp_tag_32;
 	/*! Do we use media encryption? what type? */
 	enum ast_sip_session_media_encryption encryption;
+	/*! Do we want to optimistically support encryption if possible? */
+	unsigned int encryption_optimistic;
 };
 
 /*!
@@ -1223,8 +1225,9 @@ pjsip_dialog *ast_sip_create_dialog_uac(const struct ast_sip_endpoint *endpoint,
  *
  * \param endpoint A pointer to the endpoint
  * \param rdata The request that is starting the dialog
+ * \param[out] status On failure, the reason for failure in creating the dialog
  */
-pjsip_dialog *ast_sip_create_dialog_uas(const struct ast_sip_endpoint *endpoint, pjsip_rx_data *rdata);
+pjsip_dialog *ast_sip_create_dialog_uas(const struct ast_sip_endpoint *endpoint, pjsip_rx_data *rdata, pj_status_t *status);
 
 /*!
  * \brief General purpose method for creating an rdata structure using specific information

@@ -38,7 +38,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428246 $")
 
 #include "asterisk/_private.h"
 #include "asterisk/channel.h"
@@ -803,7 +803,7 @@ static void *do_notify(void *data)
 
 	for (itervar = event->owner->vars; itervar; itervar = itervar->next) {
 		ast_str_substitute_variables(&tmpstr, 0, chan, itervar->value);
-		pbx_builtin_setvar_helper(chan, itervar->name, tmpstr->str);
+		pbx_builtin_setvar_helper(chan, itervar->name, ast_str_buffer(tmpstr));
 	}
 
 	if (!(apptext = ast_str_create(32))) {

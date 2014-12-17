@@ -40,7 +40,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428687 $")
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -1835,17 +1835,12 @@ static struct mgcp_subchannel *find_subchannel_and_lock(char *name, int msgid, s
 			/* not dynamic, check if the name matches */
 			} else if (name) {
 				if (strcasecmp(g->name, at)) {
-					g = g->next;
 					continue;
 				}
 			/* not dynamic, no name, check if the addr matches */
 			} else if (!name && sin) {
 				if ((g->addr.sin_addr.s_addr != sin->sin_addr.s_addr) ||
 				    (g->addr.sin_port != sin->sin_port)) {
-					if(!g->next)
-						g = find_realtime_gw(name, at, sin);
-					else
-						g = g->next;
 					continue;
 				}
 			} else {
@@ -4242,7 +4237,7 @@ static struct mgcp_gateway *build_gateway(char *cat, struct ast_variable *v)
 
 					mailbox_specific_topic = ast_mwi_topic(e->mailbox);
 					if (mailbox_specific_topic) {
-						e->mwi_event_sub = stasis_subscribe(mailbox_specific_topic, mwi_event_cb, NULL);
+						e->mwi_event_sub = stasis_subscribe_pool(mailbox_specific_topic, mwi_event_cb, NULL);
 					}
 				}
 				snprintf(e->rqnt_ident, sizeof(e->rqnt_ident), "%08lx", (unsigned long)ast_random());

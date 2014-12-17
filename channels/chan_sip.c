@@ -221,7 +221,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 425821 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 429317 $")
 
 #include <signal.h>
 #include <sys/signal.h>
@@ -1257,6 +1257,7 @@ static int dialog_find_multiple(void *obj, void *arg, int flags);
 static struct ast_channel *sip_pvt_lock_full(struct sip_pvt *pvt);
 /* static int sip_addrcmp(char *name, struct sockaddr_in *sin);	Support for peer matching */
 static int sip_refer_alloc(struct sip_pvt *p);
+static void sip_refer_destroy(struct sip_pvt *p);
 static int sip_notify_alloc(struct sip_pvt *p);
 static int do_magic_pickup(struct ast_channel *channel, const char *extension, const char *context);
 static void set_peer_nat(const struct sip_pvt *p, struct sip_peer *peer);
@@ -2643,12 +2644,16 @@ static void sip_websocket_callback(struct ast_websocket *session, struct ast_var
 
 		if (opcode == AST_WEBSOCKET_OPCODE_TEXT || opcode == AST_WEBSOCKET_OPCODE_BINARY) {
 			struct sip_request req = { 0, };
+			char data[payload_len + 1];
 
 			if (!(req.data = ast_str_create(payload_len + 1))) {
 				goto end;
 			}
 
-			if (ast_str_set(&req.data, -1, "%s", payload) == AST_DYNSTR_BUILD_FAILED) {
+			strncpy(data, payload, payload_len);
+			data[payload_len] = '\0';
+
+			if (ast_str_set(&req.data, -1, "%s", data) == AST_DYNSTR_BUILD_FAILED) {
 				deinit_req(&req);
 				goto end;
 			}
@@ -6476,11 +6481,7 @@ void __sip_destroy(struct sip_pvt *p, int lockowner, int lockdialoglist)
 		ast_udptl_destroy(p->udptl);
 		p->udptl = NULL;
 	}
-	if (p->refer) {
-		ast_string_field_free_memory(p->refer);
-		ast_free(p->refer);
-		p->refer = NULL;
-	}
+	sip_refer_destroy(p);
 	sip_route_clear(&p->route);
 	deinit_req(&p->initreq);
 
@@ -9583,7 +9584,7 @@ static unsigned int set_pvt_allowed_methods(struct sip_pvt *pvt, struct sip_requ
 	This is enabled if pedanticsipchecking is enabled */
 static void lws2sws(struct ast_str *data)
 {
-	char *msgbuf = data->str;
+	char *msgbuf = ast_str_buffer(data);
 	int len = ast_str_strlen(data);
 	int h = 0, t = 0;
 	int lws = 0;
@@ -9624,7 +9625,7 @@ static void lws2sws(struct ast_str *data)
 			lws = 0;
 	}
 	msgbuf[t] = '\0';
-	data->used = t;
+	ast_str_update(data);
 }
 
 /*! \brief Parse a SIP message
@@ -9632,7 +9633,7 @@ static void lws2sws(struct ast_str *data)
 */
 static int parse_request(struct sip_request *req)
 {
-	char *c = req->data->str;
+	char *c = ast_str_buffer(req->data);
 	ptrdiff_t *dst = req->header;
 	int i = 0, lim = SIP_MAX_HEADERS - 1;
 	unsigned int skipping_headers = 0;
@@ -13709,12 +13710,12 @@ static int transmit_response_with_sdp(struct sip_pvt *p, const char *msg, const 
 /*! \brief Parse first line of incoming SIP request */
 static int determine_firstline_parts(struct sip_request *req)
 {
-	char *e = ast_skip_blanks(req->data->str);	/* there shouldn't be any */
+	char *e = ast_skip_blanks(ast_str_buffer(req->data));	/* there shouldn't be any */
 	char *local_rlpart1;
 
 	if (!*e)
 		return -1;
-	req->rlpart1 = e - req->data->str;	/* method or protocol */
+	req->rlpart1 = e - ast_str_buffer(req->data);	/* method or protocol */
 	local_rlpart1 = e;
 	e = ast_skip_nonblanks(e);
 	if (*e)
@@ -13728,7 +13729,7 @@ static int determine_firstline_parts(struct sip_request *req)
 	if (!strcasecmp(local_rlpart1, "SIP/2.0") ) { /* We have a response */
 		if (strlen(e) < 3)	/* status code is 3 digits */
 			return -1;
-		req->rlpart2 = e - req->data->str;
+		req->rlpart2 = e - ast_str_buffer(req->data);
 	} else { /* We have a request */
 		if ( *e == '<' ) { /* XXX the spec says it must not be in <> ! */
 			ast_debug(3, "Oops. Bogus uri in <> %s\n", e);
@@ -13736,7 +13737,7 @@ static int determine_firstline_parts(struct sip_request *req)
 			if (!*e)
 				return -1;
 		}
-		req->rlpart2 = e - req->data->str;	/* URI */
+		req->rlpart2 = e - ast_str_buffer(req->data);	/* URI */
 		e = ast_skip_nonblanks(e);
 		if (*e)
 			*e++ = '\0';
@@ -15555,8 +15556,19 @@ static int transmit_message(struct sip_pvt *p, int init, int auth)
 /*! \brief Allocate SIP refer structure */
 static int sip_refer_alloc(struct sip_pvt *p)
 {
+	sip_refer_destroy(p);
 	p->refer = ast_calloc_with_stringfields(1, struct sip_refer, 512);
 	return p->refer ? 1 : 0;
+}
+
+/*! \brief Destroy SIP refer structure */
+static void sip_refer_destroy(struct sip_pvt *p)
+{
+	if (p->refer) {
+		ast_string_field_free_memory(p->refer);
+		ast_free(p->refer);
+		p->refer = NULL;
+	}
 }
 
 /*! \brief Allocate SIP refer structure */
@@ -16537,7 +16549,7 @@ static enum check_auth_result check_auth(struct sip_pvt *p, struct sip_request *
 		return AUTH_SECRET_FAILED; /*! XXX \todo need a better return code here */
 	}
 
-	c = buf->str;
+	c = ast_str_buffer(buf);
 
 	sip_digest_parser(c, keys);
 
@@ -16876,7 +16888,7 @@ static void transmit_fake_auth_response(struct sip_pvt *p, struct sip_request *r
 		return;
 	}
 
-	c = buf->str;
+	c = ast_str_buffer(buf);
 
 	while (c && *(c = ast_skip_blanks(c))) { /* lookup for keys */
 		for (i = keys; i->key != NULL; i++) {
@@ -18114,8 +18126,9 @@ static int get_also_info(struct sip_pvt *p, struct sip_request *oreq)
 	struct sip_refer *refer = NULL;
 	const char *transfer_context = NULL;
 
-	if (!p->refer && !sip_refer_alloc(p))
+	if (!sip_refer_alloc(p)) {
 		return -1;
+	}
 
 	refer = p->refer;
 
@@ -23215,6 +23228,8 @@ static void handle_response_invite(struct sip_pvt *p, int resp, const char *rest
 		}
 		break;
 
+	case 414: /* Bad request URI */
+	case 493: /* Undecipherable */
 	case 404: /* Not found */
 		xmitres = transmit_request(p, SIP_ACK, seqno, XMIT_UNRELIABLE, FALSE);
 		if (p->owner && !req->ignore) {
@@ -23468,12 +23483,16 @@ static void handle_response_subscribe(struct sip_pvt *p, int resp, const char *r
 		ao2_t_ref(p->mwi, -1, "received 481 response");
 		pvt_set_needdestroy(p, "received 481 response");
 		break;
+
+	case 400: /* Bad Request */
+	case 414: /* Request URI too long */
+	case 493: /* Undecipherable */
 	case 500:
 	case 501:
 		ast_log(LOG_WARNING, "Subscription failed for MWI. The remote side may have suffered a heart attack.\n");
 		p->mwi->call = NULL;
 		ao2_t_ref(p->mwi, -1, "received 500/501 response");
-		pvt_set_needdestroy(p, "received 500/501 response");
+		pvt_set_needdestroy(p, "received serious error (500/501/493/414/400) response");
 		break;
 	}
 }
@@ -23649,11 +23668,14 @@ static int handle_response_register(struct sip_pvt *p, int resp, const char *res
 		}
 		sip_publish_registry(r->username, r->hostname, regstate2str(r->regstate));
 		break;
-	case 479:	/* SER: Not able to process the URI - address is wrong in register*/
-		ast_log(LOG_WARNING, "Got error 479 on register to %s@%s, giving up (check config)\n", p->registry->username, p->registry->hostname);
-		pvt_set_needdestroy(p, "received 479 response");
+	case 400:	/* Bad request */
+	case 414:	/* Request URI too long */
+	case 493:	/* Undecipherable */
+	case 479:	/* Kamailio/OpenSIPS: Not able to process the URI - address is wrong in register*/
+		ast_log(LOG_WARNING, "Got error %d on register to %s@%s, giving up (check config)\n", resp, p->registry->username, p->registry->hostname);
+		pvt_set_needdestroy(p, "received 4xx response");
 		if (r->call)
-			r->call = dialog_unref(r->call, "unsetting registry->call pointer-- case 479");
+			r->call = dialog_unref(r->call, "unsetting registry->call pointer-- case 4xx");
 		r->regstate = REG_STATE_REJECTED;
 		sip_publish_registry(r->username, r->hostname, regstate2str(r->regstate));
 		AST_SCHED_DEL_UNREF(sched, r->timeout, ao2_t_ref(r, -1, "reg ptr unref from handle_response_register 479"));
@@ -24127,6 +24149,9 @@ static void handle_response(struct sip_pvt *p, int resp, const char *rest, struc
 				pvt_set_needdestroy(p, "received 403 response");
 			}
 			break;
+		case 400: /* Bad Request */
+		case 414: /* Request URI too long */
+		case 493: /* Undecipherable */
 		case 404: /* Not found */
 			if (p->registry && sipmethod == SIP_REGISTER)
 				handle_response_register(p, resp, rest, req, seqno);
@@ -25071,7 +25096,9 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, str
 	int reinvite = 0;
 	struct ast_party_redirecting redirecting;
 	struct ast_set_party_redirecting update_redirecting;
-
+	int supported_start = 0;
+	int require_start = 0;
+	char unsupported[256] = { 0, };
 	struct {
 		char exten[AST_MAX_EXTENSION];
 		char context[AST_MAX_CONTEXT];
@@ -25083,30 +25110,36 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, str
 
 	/* Find out what they support */
 	if (!p->sipoptions) {
-		const char *supported = sip_get_header(req, "Supported");
-		if (!ast_strlen_zero(supported)) {
-			p->sipoptions = parse_sip_options(supported, NULL, 0);
-		}
+		const char *supported = NULL;
+		do {
+			supported = __get_header(req, "Supported", &supported_start);
+			if (!ast_strlen_zero(supported)) {
+				p->sipoptions |= parse_sip_options(supported, NULL, 0);
+			}
+		} while (!ast_strlen_zero(supported));
 	}
 
 	/* Find out what they require */
-	required = sip_get_header(req, "Require");
-	if (!ast_strlen_zero(required)) {
-		char unsupported[256] = { 0, };
-		required_profile = parse_sip_options(required, unsupported, ARRAY_LEN(unsupported));
-
-		/* If there are any options required that we do not support,
-		 * then send a 420 with only those unsupported options listed */
-		if (!ast_strlen_zero(unsupported)) {
-			transmit_response_with_unsupported(p, "420 Bad extension (unsupported)", req, unsupported);
-			ast_log(LOG_WARNING, "Received SIP INVITE with unsupported required extension: required:%s unsupported:%s\n", required, unsupported);
-			p->invitestate = INV_COMPLETED;
-			if (!p->lastinvite)
-				sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
-			res = INV_REQ_ERROR;
-			goto request_invite_cleanup;
+	do {
+		required = __get_header(req, "Require", &require_start);
+		if (!ast_strlen_zero(required)) {
+			required_profile |= parse_sip_options(required, unsupported, ARRAY_LEN(unsupported));
 		}
+	} while (!ast_strlen_zero(required));
+
+	/* If there are any options required that we do not support,
+	 * then send a 420 with only those unsupported options listed */
+	if (!ast_strlen_zero(unsupported)) {
+		transmit_response_with_unsupported(p, "420 Bad extension (unsupported)", req, unsupported);
+		ast_log(LOG_WARNING, "Received SIP INVITE with unsupported required extension: required:%s unsupported:%s\n", required, unsupported);
+		p->invitestate = INV_COMPLETED;
+		if (!p->lastinvite) {
+			sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
+		}
+		res = -1;
+		goto request_invite_cleanup;
 	}
+
 
 	/* The option tags may be present in Supported: or Require: headers.
 	Include the Require: option tags for further processing as well */
@@ -25213,7 +25246,7 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, str
 		replace_id = ast_strdupa(p_replaces);
 		ast_uri_decode(replace_id, ast_uri_sip_user);
 
-		if (!p->refer && !sip_refer_alloc(p)) {
+		if (!sip_refer_alloc(p)) {
 			transmit_response_reliable(p, "500 Server Internal Error", req);
 			append_history(p, "Xfer", "INVITE/Replace Failed. Out of memory.");
 			sip_scheddestroy(p, DEFAULT_TRANS_TIMEOUT);
@@ -26072,7 +26105,7 @@ static int handle_request_refer(struct sip_pvt *p, struct sip_request *req, uint
 	}
 
 	/* Allocate memory for call transfer data */
-	if (!p->refer && !sip_refer_alloc(p)) {
+	if (!sip_refer_alloc(p)) {
 		transmit_response(p, "500 Internal Server Error", req);
 		append_history(p, "Xfer", "Refer failed. Memory allocation error.");
 		return -3;
@@ -27216,7 +27249,7 @@ static void add_peer_mwi_subs(struct sip_peer *peer)
 			if (!peer_name) {
 				return;
 			}
-			mailbox->event_sub = stasis_subscribe(mailbox_specific_topic, mwi_event_cb, peer_name);
+			mailbox->event_sub = stasis_subscribe_pool(mailbox_specific_topic, mwi_event_cb, peer_name);
 		}
 	}
 }

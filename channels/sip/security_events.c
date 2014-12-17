@@ -30,7 +30,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 420562 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428246 $")
 
 #include "include/sip.h"
 #include "include/security_events.h"
@@ -311,7 +311,7 @@ int sip_report_security_event(const struct sip_pvt *p, const struct sip_request 
 		authtoken = sip_get_header(req, reqheader);
 		buf = ast_str_thread_get(&check_auth_buf, CHECK_AUTH_BUF_INITLEN);
 		ast_str_set(&buf, 0, "%s", authtoken);
-		c = buf->str;
+		c = ast_str_buffer(buf);
 
 		sip_digest_parser(c, keys);
 

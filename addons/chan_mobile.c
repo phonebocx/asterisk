@@ -42,7 +42,7 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 419592 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 427611 $")
 
 #include <pthread.h>
 #include <signal.h>
@@ -3801,7 +3801,7 @@ static void *do_monitor_phone(void *data)
 {
 	struct mbl_pvt *pvt = (struct mbl_pvt *)data;
 	struct hfp_pvt *hfp = pvt->hfp;
-	char buf[256];
+	char buf[350];
 	int t;
 	at_message_t at_msg;
 	struct msg_queue_entry *entry;

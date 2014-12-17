@@ -972,7 +972,17 @@ ALTER TABLE sippeers ADD CONSTRAINT sip_directmedia_values_v2 CHECK (directmedia
 
 GO
 
-INSERT INTO alembic_version (version_num) VALUES ('10aedae86a32');
+-- Running upgrade 10aedae86a32 -> eb88a14f2a
+
+ALTER TABLE ps_endpoints ADD media_encryption_optimistic VARCHAR(3) NULL;
+
+GO
+
+ALTER TABLE ps_endpoints ADD CONSTRAINT yesno_values CHECK (media_encryption_optimistic IN ('yes', 'no'));
+
+GO
+
+INSERT INTO alembic_version (version_num) VALUES ('eb88a14f2a');
 
 GO
 

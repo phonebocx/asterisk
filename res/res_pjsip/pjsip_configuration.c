@@ -955,6 +955,14 @@ static int sip_endpoint_apply_handler(const struct ast_sorcery *sorcery, void *o
 		ast_log(LOG_ERROR, "Invalid outbound proxy '%s' specified on endpoint '%s'\n",
 			endpoint->outbound_proxy, ast_sorcery_object_get_id(endpoint));
 		return -1;
+	} else if (endpoint->extensions.timer.min_se < 90) {
+		ast_log(LOG_ERROR, "Session timer minimum expires time must be 90 or greater on endpoint '%s'\n",
+			ast_sorcery_object_get_id(endpoint));
+		return -1;
+	} else if (endpoint->extensions.timer.sess_expires < endpoint->extensions.timer.min_se) {
+		ast_log(LOG_ERROR, "Session timer expires must be greater than minimum session expires time on endpoint '%s'\n",
+			ast_sorcery_object_get_id(endpoint));
+		return -1;
 	}
 
 	return 0;
@@ -1754,6 +1762,7 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "dtls_setup", "", dtls_handler, dtlssetup_to_str, NULL, 0, 0);
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "dtls_fingerprint", "", dtls_handler, dtlsfingerprint_to_str, NULL, 0, 0);
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "srtp_tag_32", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, media.rtp.srtp_tag_32));
+	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "media_encryption_optimistic", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, media.rtp.encryption_optimistic));
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "redirect_method", "user", redirect_handler, NULL, NULL, 0, 0);
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "set_var", "", set_var_handler, set_var_to_str, set_var_to_vl, 0, 0);
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "message_context", "", OPT_STRINGFIELD_T, 1, STRFLDSET(struct ast_sip_endpoint, message_context));
