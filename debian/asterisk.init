@@ -178,10 +178,7 @@ case "$1" in
 				  --pidfile $ASTSAFE_PIDFILE
 		rm -f $ASTSAFE_PIDFILE
 	fi
-	# just making sure it's really, really dead. 
-	# KILL is necessary just in case there's an asterisk -r in the background
-	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $DAEMON
-	start-stop-daemon --stop --quiet --oknodo --retry=0/2/TERM/2/KILL/5 --exec $CANARY
+	start-stop-daemon --stop --quiet --oknodo --exec $DAEMON --pidfile=$PIDFILE
 	echo "."
 	;;
   reload)
