@@ -1,8 +1,31 @@
-asterisk (1:13.1.0~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:13.1.0~dfsg-1) unstable; urgency=high
 
-  * New upstream release.
+  [ Tzafrir Cohen ]
+  * New upstream release, fixes various security holes (Closes: #771463):
+    - AST-2014-012 (CVE-2014-8412): Mixed IP address families in ACLs
+      may permit unwanted traffic
+    - AST-2014-013 (CVE-2014-8413): PJSIP ACLs not loaded at startup
+    - AST-2014-014 (CVE-2014-8414): High call load may result in hung
+      channels in ConfBridge
+    - AST-2014-015 (CVE-2014-8415): Remote Crash Vulnerability in PJSIP
+      channel driver
+    - AST-2014-016 (CVE-2014-8416): Remote Crash Vulnerability in PJSIP
+      channel driver
+    - AST-2014-017 (CVE-2014-8417): Mark CONFBRIDGE as a sensitive
+      function for external APIs
+    - AST-2014-018 (CVE-2014-8418): Mark DB as a sensitive function for
+      external APIs
+    - AST-2014-019.patch (CVE-2014-9374): Remote Crash Vulnerability in
+    WebSocket Server (Closes: #773230). 
+  * The key file better be ascii-armoured, indeed
+  * init script: kill with PID (Closes: #742783)
+  * Describe patch astdatadir
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 17 Dec 2014 07:47:50 +0200
+  [ Stappers Geert ]
+  * new file: debian/README.source (Closes: #772469).
+  * asterisk-config-custom (Closes: #760032)
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 31 Dec 2014 14:58:53 +0200
 
 asterisk (1:13.0.0~dfsg-3) unstable; urgency=medium
 
