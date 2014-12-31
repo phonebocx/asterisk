@@ -138,6 +138,10 @@ SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
 override_dh_auto_install:
 	$(FETCH_ENV) dh_auto_install -- $(BUILDFLAGS) config samples
 	cp -a configs $(CURDIR)/debian/tmp/usr/share/asterisk/conf
+	mkdir -p $(CURDIR)/debian/tmp/usr/bin/
+	mkdir -p $(CURDIR)/debian/tmp/usr/share/man/man1
+	cp -a debian/asterisk-config-custom $(CURDIR)/debian/tmp/usr/bin/
+	cp -a debian/asterisk-config-custom $(CURDIR)/debian/tmp/usr/share/man/man1/
 	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/conf2ael
 	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/muted
 	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/streamplayer
