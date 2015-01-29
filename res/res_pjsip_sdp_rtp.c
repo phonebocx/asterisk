@@ -38,7 +38,7 @@
 #include <pjmedia.h>
 #include <pjlib.h>
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision: 428222 $")
+ASTERISK_FILE_VERSION(__FILE__, "$Revision: 431327 $")
 
 #include "asterisk/module.h"
 #include "asterisk/format.h"
@@ -1237,6 +1237,7 @@ static void stream_destroy(struct ast_sip_session_media *session_media)
 		ast_rtp_instance_stop(session_media->rtp);
 		ast_rtp_instance_destroy(session_media->rtp);
 	}
+	session_media->rtp = NULL;
 }
 
 /*! \brief SDP handler for 'audio' media stream */
