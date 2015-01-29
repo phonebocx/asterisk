@@ -1,3 +1,9 @@
+asterisk (1:13.1.1~dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream bugfix release: fixes AST-2015-001 and AST-2015-002.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 29 Jan 2015 21:47:34 +0200
+
 asterisk (1:13.1.0~dfsg-1) unstable; urgency=high
 
   [ Tzafrir Cohen ]
