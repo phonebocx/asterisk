@@ -1,8 +1,8 @@
-From: Tzafrir Cohen <tzafrir@debian.org>
-Subject: A systemd service
-
-Do away with safe_asterisk. But try very hard to let live_ast work with
-it.
+Description: A systemd service
+ Do away with safe_asterisk. But try very hard to let live_ast work with
+ it.
+Author: Tzafrir Cohen <tzafrir@debian.org>
+Last-Update: 2016-03-19
 
 --- a/contrib/scripts/live_ast
 +++ b/contrib/scripts/live_ast

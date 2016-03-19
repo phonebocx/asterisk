@@ -1,4 +1,8 @@
-Enable the aelparse application.
+Description: Enable the aelparse application.
+Author: Jeremy Lainé <jeremy.laine@m4x.org>
+Forwarded: no
+Bug-Debian: https://bugs.debian.org/747866
+Last-Update: 2016-03-19
 
 --- a/utils/utils.xml
 +++ b/utils/utils.xml

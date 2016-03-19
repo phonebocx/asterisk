@@ -1,12 +1,12 @@
-From: Tzafrir Cohen <tzafrir@debian.org>
-Subject: place asterisk read-only data files under /usr/share
+Description: place asterisk read-only data files under /usr/share
+ On Debian read-only resources belong under /usr. The space taken from
+ the writable /var should be minimized.
+ .
+ Upstream prefers defaults to have those files under /var/lib, though
+ supports a separate datadir.
+Author: Tzafrir Cohen <tzafrir@debian.org>
 Forwarded: no
-
-On Debian read-only resources belong under /usr. The space taken from
-the writable /var should be minimized.
-
-Upstream prefers defaults to have those files under /var/lib, though
-supports a separate datadir.
+Last-Update: 2016-03-19
 
 --- a/configure.ac
 +++ b/configure.ac

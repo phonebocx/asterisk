@@ -1,15 +1,15 @@
-From; Tzafrir Cohen <tzafrir@debian.org>
-Subject: Enable the test framework
-
-Note that enabling this patch breaks the ABI hash. Take care.
-
-Test modules are normally only enabled in development mode. This patch
-enables them without the need to enable dev-mode.
-
-The modules provide simple tests. Try: asterisk -rx 'test execute all'
-
-Those modules should not be confused with the tests in the
-asterisk-testsute package.
+Description: Enable the test framework
+ Note that enabling this patch breaks the ABI hash. Take care.
+ .
+ Test modules are normally only enabled in development mode. This patch
+ enables them without the need to enable dev-mode.
+ .
+ The modules provide simple tests. Try: asterisk -rx 'test execute all'
+ .
+ Those modules should not be confused with the tests in the
+ asterisk-testsute package.
+Author: Tzafrir Cohen <tzafrir@debian.org>
+Last-Update: 2016-03-19
 
 --- a/build_tools/cflags-devmode.xml
 +++ b/build_tools/cflags-devmode.xml

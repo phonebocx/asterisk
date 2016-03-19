@@ -1,12 +1,12 @@
 Description: mpglib code originally in asterisk-addons
+ The package asterisk-addons originally included mpglib. After the merge
+ with asterisk, that code is no longer included and needs to be fetched
+ (contrib/scripts/get_mpg_source.sh). This patch includes that fetched
+ source (rev. 180).
+ .
+ TODO: get rid of this code and use libmpg123 or whatever.
 Origin:  http://svn.digium.com/svn/thirdparty/mp3/trunk
-
-The package asterisk-addons originally included mpglib. After the merge
-with asterisk, that code is no longer included and needs to be fetched
-(contrib/scripts/get_mpg_source.sh). This patch includes that fetched
-source (rev. 180).
-
-TODO: get rid of this code and use libmpg123 or whatever.
+Last-Update: 2016-03-19
 
 --- /dev/null
 +++ b/addons/mp3/common.c

@@ -1,10 +1,10 @@
-Bug: https://reviewboard.asterisk.org/r/1330/
-Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 Description: fix detection of weakref attribute in menuselect
-
-Asterisk relies on weakref symbols for optional dependencies. Their
-detection broke with gcc 4.6. This fixes their detection. Requires
-re-running autoconf in menuselect.
+ Asterisk relies on weakref symbols for optional dependencies. Their
+ detection broke with gcc 4.6. This fixes their detection. Requires
+ re-running autoconf in menuselect.
+Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Bug: https://reviewboard.asterisk.org/r/1330/
+Last-Update: 2016-03-19
 
 --- a/menuselect/acinclude.m4
 +++ b/menuselect/acinclude.m4

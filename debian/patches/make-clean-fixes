@@ -1,15 +1,15 @@
-Subject: Don't remove sounds on dist-clean
+Description: Don't remove sounds on dist-clean
+ Upstream build system may optionally download some extra sound files.
+ Thus those sound files are deleted on dist-clean. The tarballs include
+ some soundfiles tarballs by default. Thus the normal procedure of
+ running 'make dist-clean' before building the package would delete
+ them.
+ .
+ Not used ATM as we ship a tarball with the sound files stripped out.
+ May be re-used in the future.
 Author: Faidon Liambotis <paravoid@debian.org>
 Forwarded: not-needed
-Last-Update: 2010-10-20
-
-Upstream build system may optionally download some extra sound files.
-Thus those sound files are deleted on dist-clean. The tarballs include
-some soundfiles tarballs by default. Thus the normal procedure of
-running 'make dist-clean' before building the package would delete them.
-
-Not used ATM as we ship a tarball with the sound files stripped out. May be
-re-used in the future.
+Last-Update: 2016-03-19
 
 --- a/Makefile
 +++ b/Makefile

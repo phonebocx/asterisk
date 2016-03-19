@@ -1,27 +1,28 @@
-From: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
-Subject: DAHDI_EVENT_REMOVED on a D-Channel - Disconnect PRI/BRI Astribank
+Description: DAHDI_EVENT_REMOVED on a D-Channel - Disconnect PRI/BRI Astribank
+ When a DAHDI device is removed at run-time it sends the event
+ DAHDI_EVENT_REMOVED on each channel. This is intended to signal the
+ userspace program to close the respective file handle, as the driver of
+ the device will need all of them closed to properly clean-up.
+ .
+ This event has long since been handled in chan_dahdi (chan_zap at the
+ time). However the event that is sent on a D-Channel of a "PRI" (ISDN)
+ span simply gets ignored.
+ .
+ This code adds handling for closing the file descriptor (and shutting
+ down the span, while we're at it). It also adds a CLI command to help
+ test it.
+ .
+ This patch is included in the package to help test it. It is not yet
+ included in upstream trunk.
+ .
+ NOTE: At the moment this patch should not be considered safe for
+ inclusion in squeeze, till further testing. Make sure it is disabled
+ before uploading the package. This patch should not have any effect on
+ system without such Astribanks, though.
+Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
 Bug: https://issues.asterisk.org/view.php?id=17525
 Applied-Upsteam: no
-
-When a DAHDI device is removed at run-time it sends the event
-DAHDI_EVENT_REMOVED on each channel. This is intended to signal the
-userspace program to close the respective file handle, as the driver of
-the device will need all of them closed to properly clean-up.
-
-This event has long since been handled in chan_dahdi (chan_zap at the
-time). However the event that is sent on a D-Channel of a "PRI" (ISDN)
-span simply gets ignored.
-
-This code adds handling for closing the file descriptor (and shutting down
-the span, while we're at it). It also adds a CLI command to help test it.
-
-This patch is included in the package to help test it. It is not yet
-included in upstream trunk.
-
-NOTE: At the moment this patch should not be considered safe for inclusion
-in squeeze, till further testing. Make sure it is disabled before uploading
-the package. This patch should not have any effect on system without such
-Astribanks, though.
+Last-Update: 2016-03-19
 
 --- a/channels/chan_dahdi.c
 +++ b/channels/chan_dahdi.c

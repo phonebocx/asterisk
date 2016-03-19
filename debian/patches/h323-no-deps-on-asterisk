@@ -1,15 +1,16 @@
-Subject: Avoid linking the asterisk binary with the H.323 libraries
+Description: Avoid linking the asterisk binary with the H.323 libraries
+ Don't link the Asterisk binary with the H.323 libraries since they are
+ only used by separate shared object, chan_h323.so.
+ .
+ WARNING: this will make Asterisk segfault (see #435146) when loading
+ chan_h323.so because libopenh323 is buggy (#438815).
+ .
+ We are working around this, see patch
+ h323-workaround-openh323-segfault.
 Author: Faidon Liambotis <paravoid@debian.org>
+Bug-Debian: https://bugs.debian.org/433884
 Forwarded: no
-Last-Update: 2010-10-20
-
-Don't link the Asterisk binary with the H.323 libraries since they are only
-used by separate shared object, chan_h323.so. (Closes: #433884)
-
-WARNING: this will make Asterisk segfault (see #435146) when loading
-chan_h323.so because libopenh323 is buggy (#438815).
-
-We are working around this, see patch h323-workaround-openh323-segfault.
+Last-Update: 2016-03-19
 
 --- a/main/Makefile
 +++ b/main/Makefile
