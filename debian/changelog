@@ -1,6 +1,11 @@
 asterisk (1:13.1.1~dfsg-1) UNRELEASED; urgency=medium
 
-  * New upstream bugfix release: fixes AST-2015-001 and AST-2015-002.
+  [ upstream ]
+  * New bugfix release:
+    + Fixes AST-2015-001.
+      CVE-2015-1558. Closes: Bug#780601.
+    + Fixes AST-2015-002.
+      Related to CVE-2014-8150.
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 29 Jan 2015 21:47:34 +0200
 
