@@ -1,6 +1,6 @@
 --- a/configure.ac
 +++ b/configure.ac
-@@ -178,7 +178,7 @@ case "${host_os}" in
+@@ -178,7 +178,7 @@
       OSARCH=cygwin
       PBX_WINARCH=1
       ;;

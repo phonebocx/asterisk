@@ -3,10 +3,9 @@ Subject: A systemd service
 
 Do away with safe_asterisk. But try very hard to let live_ast work with
 it.
-Index: trunk/contrib/scripts/live_ast
-===================================================================
---- trunk/contrib/scripts/live_ast	(revision 407855)
-+++ trunk/contrib/scripts/live_ast	(working copy)
+
+--- a/contrib/scripts/live_ast
++++ b/contrib/scripts/live_ast
 @@ -175,6 +175,43 @@
    | sed  -e '/^#* \(Begin\|End\) Samples/d' >"$LIVE_CONF"
  }
@@ -59,10 +58,8 @@ Index: trunk/contrib/scripts/live_ast
    ;;
  conf-file)
    # Just regenerate live.conf from the sample if it does not already exist:
-Index: trunk/contrib/scripts/asterisk_cleanup
-===================================================================
---- trunk/contrib/scripts/asterisk_cleanup	(revision 0)
-+++ trunk/contrib/scripts/asterisk_cleanup	(revision 0)
+--- /dev/null
++++ b/contrib/scripts/asterisk_cleanup
 @@ -0,0 +1,18 @@
 +#!/bin/sh
 +
@@ -82,25 +79,8 @@ Index: trunk/contrib/scripts/asterisk_cleanup
 +	mkdir -p "${DUMPDROP}"
 +	mv ${RUNDIR}/core ${DUMPDROP}/core.`hostname`-$DATE &
 +fi
-
-Property changes on: contrib/scripts/asterisk_cleanup
-___________________________________________________________________
-Added: svn:executable
-   + *
-Added: svn:mime-type
-   + text/plain
-Added: svn:keywords
-   + Author Date Id Revision
-Added: svn:eol-style
-   + native
-
-svn: warning: cannot set LC_CTYPE locale
-svn: warning: environment variable LC_ALL is en_US.UTF-8
-svn: warning: please check that your locale name is correct
-Index: trunk/contrib/asterisk.service
-===================================================================
---- trunk/contrib/asterisk.service	(revision 0)
-+++ trunk/contrib/asterisk.service	(revision 0)
+--- /dev/null
++++ b/contrib/asterisk.service
 @@ -0,0 +1,49 @@
 +[Unit]
 +Description=Asterisk PBX
@@ -151,20 +131,8 @@ Index: trunk/contrib/asterisk.service
 +
 +[Install]
 +WantedBy=multi-user.target
-
-Property changes on: contrib/asterisk.service
-___________________________________________________________________
-Added: svn:mime-type
-   + text/plain
-Added: svn:keywords
-   + Author Date Id Revision
-Added: svn:eol-style
-   + native
-
-Index: trunk/Makefile
-===================================================================
---- trunk/Makefile	(revision 407855)
-+++ trunk/Makefile	(working copy)
+--- a/Makefile
++++ b/Makefile
 @@ -791,6 +791,8 @@
  
  config:

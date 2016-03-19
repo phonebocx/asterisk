@@ -12,7 +12,7 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
 
 --- a/addons/app_mysql.c
 +++ b/addons/app_mysql.c
-@@ -25,7 +25,6 @@
+@@ -34,7 +34,6 @@
  
  /*** MODULEINFO
  	<depend>mysqlclient</depend>
@@ -22,7 +22,7 @@ included. See contrib/scripts/get_mp3_source.sh in the source tree.
   ***/
 --- a/addons/chan_mobile.c
 +++ b/addons/chan_mobile.c
-@@ -27,7 +27,6 @@
+@@ -36,7 +36,6 @@
  
  /*** MODULEINFO
  	<depend>bluetooth</depend>

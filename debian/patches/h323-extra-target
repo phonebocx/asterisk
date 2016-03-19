@@ -9,7 +9,7 @@ the main 'make' command.
 
 --- a/Makefile
 +++ b/Makefile
-@@ -965,6 +965,9 @@ pdf: asterisk.pdf
+@@ -965,6 +965,9 @@
  asterisk.txt:
  	$(MAKE) -C doc/tex asterisk.txt
  

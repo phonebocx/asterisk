@@ -16,7 +16,7 @@ Should be removed when #438815 closes.
 
 --- a/main/loader.c
 +++ b/main/loader.c
-@@ -382,6 +382,12 @@ static struct ast_module *load_dynamic_m
+@@ -382,6 +382,12 @@
  	if (missing_so)
  		strcat(resource_being_loaded->resource, ".so");
  

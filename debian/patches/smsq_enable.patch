@@ -2,7 +2,7 @@ Enable the smsq application.
 
 --- a/utils/utils.xml
 +++ b/utils/utils.xml
-@@ -41,7 +41,7 @@
+@@ -37,7 +37,7 @@
  	<support_level>extended</support_level>
    </member>
    <member name="smsq">

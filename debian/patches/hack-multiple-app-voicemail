@@ -18,7 +18,7 @@ upstream RPM packages include packages that are only somewhat cleaner.
 
 --- a/apps/Makefile
 +++ b/apps/Makefile
-@@ -15,6 +15,8 @@ MODULE_PREFIX=app
+@@ -15,6 +15,8 @@
  MENUSELECT_CATEGORY=APPS
  MENUSELECT_DESCRIPTION=Applications
  
@@ -27,7 +27,7 @@ upstream RPM packages include packages that are only somewhat cleaner.
  MENUSELECT_OPTS_app_directory:=$(MENUSELECT_OPTS_app_voicemail)
  ifneq ($(findstring ODBC_STORAGE,$(MENUSELECT_OPTS_app_voicemail)),)
    MENUSELECT_DEPENDS_app_voicemail+=$(MENUSELECT_DEPENDS_ODBC_STORAGE)
-@@ -25,6 +27,25 @@ endif
+@@ -25,6 +27,25 @@
  
  all: _all
  
@@ -55,7 +55,7 @@ upstream RPM packages include packages that are only somewhat cleaner.
  clean::
 --- a/Makefile.moddir_rules
 +++ b/Makefile.moddir_rules
-@@ -37,7 +37,7 @@ include $(ASTTOPDIR)/Makefile.rules
+@@ -37,7 +37,7 @@
  # Use MODULE_EXCLUDE to specify additional modules to exclude.
  
  ifneq ($(MODULE_PREFIX),)

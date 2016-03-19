@@ -6,8 +6,6 @@ Asterisk relies on weakref symbols for optional dependencies. Their
 detection broke with gcc 4.6. This fixes their detection. Requires
 re-running autoconf in menuselect.
 
-diff --git a/acinclude.m4 b/acinclude.m4
-index 9410608..3517918 100644
 --- a/menuselect/acinclude.m4
 +++ b/menuselect/acinclude.m4
 @@ -1,35 +1,20 @@
@@ -49,11 +47,9 @@ index 9410608..3517918 100644
  CFLAGS="$saved_CFLAGS"
  ])
  
-diff --git a/configure.ac b/configure.ac
-index d04aeb7..d4472a5 100644
 --- a/menuselect/configure.ac
 +++ b/menuselect/configure.ac
-@@ -51,9 +51,8 @@ AC_ARG_ENABLE([debug],
+@@ -51,9 +51,8 @@
      esac])
  AC_SUBST(MENUSELECT_DEBUG)
  

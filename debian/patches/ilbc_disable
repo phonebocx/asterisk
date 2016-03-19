@@ -23,7 +23,7 @@ packaged into Debian, no reason to remove it.
  
 --- a/codecs/Makefile
 +++ b/codecs/Makefile
-@@ -27,7 +27,6 @@ LIBLPC10 := $(SUB_LPC10)/liblpc10.a
+@@ -27,7 +27,6 @@
  
  SUB_DIRS := \
  	$(SUB_GSM) \

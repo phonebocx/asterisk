@@ -1,5 +1,6 @@
 Description: reenable some drivers
 Author: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+
 --- a/channels/chan_vpb.cc
 +++ b/channels/chan_vpb.cc
 @@ -49,7 +49,6 @@
