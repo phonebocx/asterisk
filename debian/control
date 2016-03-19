@@ -62,8 +62,8 @@ Build-Depends: debhelper (>= 9),
  binutils-dev
 Standards-Version: 3.9.5
 Homepage: http://www.asterisk.org/
-Vcs-Git: git://anonscm.debian.org/pkg-voip/asterisk.git
-Vcs-Browser: http://anonscm.debian.org/gitweb/?p=pkg-voip/asterisk.git
+Vcs-Git: https://anonscm.debian.org/git/pkg-voip/asterisk.git
+Vcs-Browser: https://anonscm.debian.org/cgit/pkg-voip/asterisk.git
 
 Package: asterisk
 Architecture: any
