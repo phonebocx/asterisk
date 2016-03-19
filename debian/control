@@ -17,12 +17,11 @@ Build-Depends:
  debhelper (>= 9),
  dh-autoreconf,
  dh-systemd,
- dpkg-dev (>= 1.16.1.1),
  freetds-dev,
  libasound2-dev,
  libbluetooth-dev [linux-any],
- libc-client2007e-dev | libc-client2007b-dev,
- libcap-dev (>= 1:2.16-4) [linux-any] | libcap2-dev [linux-any],
+ libc-client2007e-dev,
+ libcap-dev [linux-any],
  libcurl4-openssl-dev | libcurl-dev,
  libedit-dev,
  libfreeradius-client-dev | libradiusclient-ng-dev,
@@ -34,7 +33,7 @@ Build-Depends:
  libjansson-dev,
  libldap-dev,
  liblua5.1-0-dev,
- libmysqlclient-dev | libmysqlclient15-dev,
+ libmysqlclient-dev,
  libncurses-dev,
  libneon27-gnutls-dev | libneon27-dev,
  libnewt-dev,
@@ -43,25 +42,24 @@ Build-Depends:
  libpjproject-dev,
  libpopt-dev,
  libpq-dev,
- libpri-dev (>= 1.4.12),
- libreadline-dev | libreadline5-dev,
+ libpri-dev,
+ libreadline-dev,
  libresample1-dev,
  libsnmp-dev,
  libspandsp-dev,
  libspeex-dev,
  libspeexdsp-dev,
- libsqlite0-dev | libsqlite-dev,
+ libsqlite0-dev,
  libsqlite3-dev,
  libsrtp-dev,
  libsrtp0-dev,
  libss7-dev,
  libssl-dev,
- libtonezone-dev (>= 1:2.0.0) [linux-any],
+ libtonezone-dev [linux-any],
  libvorbis-dev,
  libvpb-dev [linux-any],
  libxml2-dev,
  libxslt1-dev,
- lsb-base (>= 3.2-14),
  portaudio19-dev,
  unixodbc-dev,
  uuid-dev,
@@ -122,11 +120,6 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends}
 Section: libs
-Breaks:
- asterisk (<< 1:1.8.3.3),
- asterisk-h323 (<< 1:1.8.4.4~dfsg-2)
-Replaces:
- asterisk (<< 1:1.8.3.3)
 Description: loadable modules for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -183,10 +176,6 @@ Provides:
  asterisk-voicemail-storage
 Conflicts:
  asterisk-voicemail-storage
-Breaks:
- asterisk (<< 1:1.8.3.3)
-Replaces:
- asterisk (<< 1:1.8.3.3)
 Description: simple voicemail support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -208,10 +197,6 @@ Provides:
  asterisk-voicemail-storage
 Conflicts:
  asterisk-voicemail-storage
-Breaks:
- asterisk (<< 1:1.8.3.3)
-Replaces:
- asterisk (<< 1:1.8.3.3)
 Description: IMAP voicemail storage support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -232,10 +217,6 @@ Provides:
  asterisk-voicemail-storage
 Conflicts:
  asterisk-voicemail-storage
-Breaks:
- asterisk (<< 1:1.8.3.3)
-Replaces:
- asterisk (<< 1:1.8.3.3)
 Description: ODBC voicemail storage support for the Asterisk PBX
  Asterisk is an Open Source PBX and telephony toolkit.
  .
