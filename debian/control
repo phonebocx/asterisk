@@ -55,6 +55,7 @@ Build-Depends:
  libss7-dev,
  libssl-dev,
  libtonezone-dev [linux-any],
+ liburiparser-dev,
  libvorbis-dev,
  libvpb-dev [linux-any],
  libxml2-dev,
