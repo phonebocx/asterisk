@@ -1,11 +1,47 @@
 asterisk (1:13.1.1~dfsg-1) UNRELEASED; urgency=medium
 
   [ upstream ]
-  * New bugfix release:
+  * New bugfix release.
     + Fixes AST-2015-001.
       CVE-2015-1558. Closes: Bug#780601.
     + Fixes AST-2015-002.
       Related to CVE-2014-8150.
+
+  [ Jonas Smedegaard ]
+  * Update patches:
+    + Unfuzz patches enable_addons smsq_enable.
+    + Refresh and tighten all patches.
+    + Add/update DEP3 patch headers, with long descriptions embedded in
+      Description field.
+  * Modernize Vcs-* field URLs:
+    + Use https protocol.
+    + Use cgit viewer.
+  * Declare compliance with Debian Policy 3.9.7.
+  * Wrap and sort control file.
+  * Add myself as uploader.
+  * Tidy copyright info: Strip trailing whitespace.
+  * Drop/simplify obsolete versioning or fallbacks in build-dependencies
+    or breaks/replaces.
+  * Treat PJProject and SDL as experimental: Disable in non-experimental
+    releases.
+    Closes: Bug#804460, #792303.
+  * Fix drop superfluous build-dependency on libsrtp0-dev (already
+    build-depending on its virtual counterpart).
+  * Build-depend on liburiparser-dev, for (presumably) a more uniform
+    URI parsing.
+    Closes: Bug#786926.
+  * Update watch file:
+    + Bump to file format 4.
+    + Always repackage, using xz.
+  * Update upstream PGP keyring: Add Joshua Colp (0xDAB29B236B940F89).
+  * Git-ignore quilt .pc dir.
+  * Have git-buildpackage filter upstream .gitignore files, enable
+    signed tags, and enable use of pristine-tar.
+  * Drop custom get-orig-source target: Use "gbp import-orig --uscan"
+    instead.
+  * Update copyright info:
+    + Fix include reasons for repackaging in Source field (not separate
+      Comment field) as mandated by file format 1.0.
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 29 Jan 2015 21:47:34 +0200
 
