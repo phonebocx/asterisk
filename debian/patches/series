@@ -23,3 +23,5 @@ smsq_enable.patch
 aelparse_enable.patch
 systemd.patch
 #test_framework.patch
+
+configure-osarch

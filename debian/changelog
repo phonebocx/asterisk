@@ -4,6 +4,20 @@ asterisk (1:13.1.1~dfsg-1) UNRELEASED; urgency=medium
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 29 Jan 2015 21:47:34 +0200
 
+asterisk (1:13.1.0~dfsg-1.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+
+  [ Matthias Klose ]
+  * Build with -fgnu89-inline. Closes: #777782.
+  * CVE-2015-1558: File descriptor leak when incompatible codecs are offered.
+    Closes: #780601.
+
+  [ James Cowgill ]
+  * Fix OSARCH detection on all linux architectures. Closes: #780287.
+
+ -- Matthias Klose <doko@debian.org>  Fri, 10 Jul 2015 12:56:51 +0200
+
 asterisk (1:13.1.0~dfsg-1) unstable; urgency=high
 
   [ Tzafrir Cohen ]
