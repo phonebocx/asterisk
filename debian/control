@@ -5,6 +5,7 @@ Maintainer: Debian VoIP Team <pkg-voip-maintainers@lists.alioth.debian.org>
 Uploaders:
  Daniel Pocock <daniel@pocock.com.au>,
  Jeremy Lainé <jeremy.laine@m4x.org>,
+ Jonas Smedegaard <dr@jones.dk>,
  Mark Purcell <msp@debian.org>,
  Tzafrir Cohen <tzafrir@debian.org>
 Build-Depends:
