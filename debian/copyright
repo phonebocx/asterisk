@@ -81,10 +81,10 @@ Comment:
  fine. Please add the appropriate text to the file for me, in my name.
 
 Files: agi/eagi-sphinx-test.c agi/eagi-test.c
-Copyright: -
+Copyright: None
 License: public-domain
- This code is released into public domain
- without any warranty of any kind.
+ This code is released into public domain without any warranty of any
+ kind.
 
 Files: channels/console_gui.c
 Copyright: 2007-2008 Luigi Rizzo <rizzo@icir.org>
@@ -576,11 +576,9 @@ Copyright: 2004-2005, inAccess Networks
 License: GPL-2-Asterisk
 
 Files: main/md5.c
-Copyright: -
+Copyright: None
 License: public-domain
- This code implements the MD5 message-digest algorithm.
- The algorithm is due to Ron Rivest.  This code was
- written by Colin Plumb in 1993, no copyright is claimed.
+ This code was written by Colin Plumb in 1993, no copyright is claimed.
  This code is in the public domain; do with it what you wish.
 
 Files: main/poll.c
