@@ -39,6 +39,7 @@ Build-Depends:
  libnewt-dev,
  libogg-dev,
  libopenr2-dev [linux-any],
+ libopus-dev,
  libpjproject-dev,
  libpopt-dev,
  libpq-dev,

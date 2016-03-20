@@ -25,3 +25,6 @@ systemd.patch
 #test_framework.patch
 
 configure-osarch
+
+opus.patch
+vp8.patch
