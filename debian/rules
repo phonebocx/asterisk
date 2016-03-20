@@ -104,7 +104,7 @@ override_dh_auto_build:
 	    echo "  Was: $(SAVED_ABI_HASH)"; \
 	    echo "  Now: $$abi_hash"; \
 	    echo "Check include/asterisk/buildopts.h"; \
-	    exit 1; \
+	    [ -n "$(EXP_RELEASE)" ] || exit 1; \
 	  fi
 
 SND_FILE=asterisk-core-sounds-en-gsm-1.4.20.tar.gz
