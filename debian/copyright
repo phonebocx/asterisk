@@ -615,13 +615,15 @@ License: LGPL-2.1
  /usr/share/common-licenses/LGPL-2.1).
 
 Files: menuselect/menuselect_gtk.c
-Copyright: 2007
-License: UNKNOWN
+Copyright: 2007, Russell Bryant <russell@digium.com>
+License: GPL-2-Asterisk
 Comment:
- See https://issues.asterisk.org/jira/browse/ASTERISK-24173
+ File lacks copyright and licensing, but contains UI dialogue string
+ "Russell Bryant <russell@digium.com> Copyright (C) 2007" which may seem
+ like a copyright holder not granting a license. We instead assume that
+ the file has same licensing as the project generally.
  .
- Likely GPL-2-Asterisk, according to VCS, as it was created by Digium
- employees.
+ See https://issues.asterisk.org/jira/browse/ASTERISK-24173
 
 License: GPL-2-Asterisk
  Asterisk is distributed under the GNU General Public License version 2
