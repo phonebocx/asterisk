@@ -1,7 +1,7 @@
-asterisk (1:13.1.1~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:13.7.2~dfsg-1) unstable; urgency=medium
 
   [ upstream ]
-  * New bugfix release.
+  * New minor releases.
     + Fixes AST-2015-001.
       CVE-2015-1558. Closes: Bug#780601.
     + Fixes AST-2015-002.
@@ -33,6 +33,7 @@ asterisk (1:13.1.1~dfsg-1) UNRELEASED; urgency=medium
   * Update watch file:
     + Bump to file format 4.
     + Always repackage, using xz.
+    + Mangle debian version: strip ~dfsg suffix.
   * Update upstream PGP keyring: Add Joshua Colp (0xDAB29B236B940F89).
   * Git-ignore quilt .pc dir.
   * Have git-buildpackage filter upstream .gitignore files, enable
@@ -42,8 +43,36 @@ asterisk (1:13.1.1~dfsg-1) UNRELEASED; urgency=medium
   * Update copyright info:
     + Fix include reasons for repackaging in Source field (not separate
       Comment field) as mandated by file format 1.0.
+    + Consider formats/msgsm.h as non-copyright-protected, with comment
+      on reasoning.
+    + Consider formats/msgsm.h as non-copyright-protected, with comment
+      on reasoning.
+    + Fix use License shortnames BSD-3-clause~IETF BSD-4-clause~Clapper
+      (not BSD-3-clause).
+    + Fix include full verbatim BSD-3-clause~IETF license.
+    + Wrap at 72 chars.
+    + Use "None" (not "-") as copyright holder for files in the public
+      domain.
+    + Strip non-license text.
+    + Assume unversioned GPL is same as generally for the project.
+    + Drop comment on audio data encoded as C header file lacking
+      source: Upstream is free to choose that format as preferred form
+      (similar to pnm for graphics).
+    + Assume GTK+ dialogue code without explicit licensing has same
+      license as project generally.
+    + Use License-Grant and License-Reference fields.
+      Thanks to Ben Finney.
+  * Improve Opus and VP8 support:
+    + Add patch to add Opus codec module supporting transcoding.
+    + Add patch to add VP8 format module supporting read/write to file.
+    + Build-depend on libopus-dev.
+    Closes: bug#786972.
+  * Bump ABI hash.
+  * Add lintian override regarding license in License-Reference field.
+    See bug#786450.
+  * Tidy README.Debian: Fix typo.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 29 Jan 2015 21:47:34 +0200
+ -- Jonas Smedegaard <dr@jones.dk>  Sun, 20 Mar 2016 14:15:31 +0100
 
 asterisk (1:13.1.0~dfsg-1.1) unstable; urgency=medium
 
