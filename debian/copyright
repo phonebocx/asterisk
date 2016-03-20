@@ -1,7 +1,6 @@
 Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Source: http://downloads.asterisk.org/pub/asterisk
 Upstream-Name: Asterisk
-Comment:
+Source: http://downloads.asterisk.org/pub/asterisk
  Excluded files:
  * codecs/ilbc: due to patent issues
  * doc/ (admin guide and reference):
