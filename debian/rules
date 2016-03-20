@@ -113,8 +113,6 @@ override_dh_clean:
 	GREP=grep AWK=awk $(MAKE) distclean
 	if [ -r debian/$(SND_FILE) ]; then mv debian/$(SND_FILE) sounds/; fi
 
-	-test -d configs && chmod -x configs/*.sample
-
 	[ ! -f .version.debian_sav ] || mv .version.debian_sav .version
 	if [ -f configure.debian_sav ]; then mv configure.debian_sav configure; fi
 
