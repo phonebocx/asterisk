@@ -28,3 +28,4 @@ configure-osarch
 
 opus.patch
 vp8.patch
+amr.patch

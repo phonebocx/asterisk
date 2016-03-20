@@ -38,6 +38,8 @@ Build-Depends:
  libneon27-gnutls-dev | libneon27-dev,
  libnewt-dev,
  libogg-dev,
+ libopencore-amrnb-dev,
+ libopencore-amrwb-dev,
  libopenr2-dev [linux-any],
  libopus-dev,
  libpjproject-dev,
