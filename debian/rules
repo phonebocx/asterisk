@@ -51,12 +51,6 @@ endif
 
 DEBVERSION:=$(shell dpkg-parsechangelog | sed -n -e 's/Version: //p')
 DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
-DEB_SRC_VERSION:=$(shell echo $(DEB_NOEPOCH_VERSION) | sed -e 's/-[^-]\+$$//')
-UPVERSION:=$(shell echo $(DEB_SRC_VERSION) | sed -e 's/[.~]dfsg[0-9]*//' -e 's/~\(\(rc\|beta\)[0-9]\)/-\1/')
-
-FILENAME := asterisk_$(DEB_SRC_VERSION).orig.tar.gz
-UPFILENAME := asterisk_$(UPVERSION).orig.tar.gz
-URL := http://downloads.asterisk.org/pub/telephony/asterisk/releases/asterisk-$(UPVERSION).tar.gz
 
 # make sure we have 'fetch' . We need to have either wget or fetch
 # on the system. However it is generally not a good idea to actually
@@ -176,43 +170,5 @@ override_dh_fixperms:
 
 override_dh_strip:
 	dh_strip -a --dbg-package=asterisk-dbg
-
-print-version:
-	@@echo "Debian version:          $(DEBVERSION)"
-	@@echo "Upstream version:        $(UPVERSION)"
-
-TMP_TARBALL_TOP=../tarballs/asterisk-$(UPVERSION).tmp/asterisk-$(UPVERSION)
-get-orig-source:
-	@@dh_testdir
-	#@@[ -d ../tarballs/. ]||mkdir -p ../tarballs
-	#@@echo Downloading $(FILENAME) from $(URL) ...
-	#@@wget -nv -T10 -t3 -O ../tarballs/$(FILENAME) $(URL)
-	@echo Downloading $(UPFILENAME) from $(URL) ...
-	@wget -nv -T10 -t3 -O ../tarballs/$(UPFILENAME) $(URL)
-	@echo Repacking as DFSG-free...
-	@mkdir -p ../tarballs/asterisk-$(UPVERSION).tmp/
-	@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
-		tar xfz ../$(UPFILENAME)
-	@# in case the tarball is not clean:
-	@#FIXME: AST.* and res/pjproject are no longer in the tarball.
-	@rm -rf $(TMP_TARBALL_TOP)/AST.txt
-	@rm -rf $(TMP_TARBALL_TOP)/AST.pdf
-	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-Admin-Guide/
-	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-Admin-Guide.pdf
-	@rm -rf $(TMP_TARBALL_TOP)/doc/Asterisk-*-Reference.pdf
-	@rm -rf $(TMP_TARBALL_TOP)/codecs/ilbc
-	@rm -rf $(TMP_TARBALL_TOP)/res/pjproject
-	# While we're at it: remove some generated files that will become
-	# invalid:
-	@rm -rf $(TMP_TARBALL_TOP)/*/.makeopts
-	@rm -rf $(TMP_TARBALL_TOP)/*/.*.makeopts
-	@rm -rf $(TMP_TARBALL_TOP)/*/.moduleinfo
-	@rm -rf $(TMP_TARBALL_TOP)/*/.*.moduleinfo
-	# And some large sound files we already ship in a different package:
-	@rm -rf $(TMP_TARBALL_TOP)/sounds/*.tar.gz
-	@cd ../tarballs/asterisk-$(UPVERSION).tmp ; \
-	 	tar cf - * | gzip -9 >../$(FILENAME)
-	@echo Cleaning up...
-	@$(RM) -rf ../tarballs/asterisk-$(UPVERSION).tmp/
 
 # .PHONY: binary-indep binary-arch binary install
