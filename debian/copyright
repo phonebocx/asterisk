@@ -115,14 +115,12 @@ Files: addons/chan_ooh323.c
  addons/ooh323cDriver.c
  addons/ooh323cDriver.h
 Copyright: 2004-2005, Objective Systems, Inc
+License-Grant:
+ This software is furnished under an open source license and may be used
+ and copied only in accordance with the terms of this license. The text
+ of the license may generally be found in the root directory of this
+ installation in the COPYING file.
 License: GPL-2
- This software is furnished under an open source license and may be
- used and copied only in accordance with the terms of this license.
- The text of the license may generally be found in the root
- directory of this installation in the COPYING file.
- .
- (On Debian systems you will find a copy of the GPL (version 2) at
- /usr/share/common-licenses/GPL-2).
 
 Files: apps/app_morsecode.c
  apps/app_verbose.c
@@ -335,11 +333,9 @@ License: BSD-3-clause~IETF
 
 Files: addons/mp3/*
 Copyright: 1995,1996,1997 by Michael Hipp
-License: GPL-2
+License-Grant:
  you may use this source under GPL terms!
- .
- (On Debian systems you will find a copy of the GPL (version 2) at
- /usr/share/common-licenses/GPL-2).
+License: GPL-2
 Comment: included in the patch mpglib
 
 Files: apps/app_sms.c
@@ -395,13 +391,11 @@ License: GPL-2-Asterisk
 
 Files: addons/app_mysql.c
 Copyright: 2004, Constantine Filin and Christos Ricudis
+License-Grant:
+ This program is free software, distributed under the terms of the GNU
+ General Public License Version 2. See the LICENSE file at the top of
+ the source tree.
 License: GPL-2
- This program is free software, distributed under the terms of
- the GNU General Public License Version 2. See the LICENSE file
- at the top of the source tree.
- .
- (On Debian systems you will find a copy of the GPL (version 2) at
- /usr/share/common-licenses/GPL-2).
 
 Files: cel/cel_odbc.c
 Copyright: 2008, Digium
@@ -605,14 +599,12 @@ License: BSD-4-clause~Clapper
 Files: include/jitterbuf.h
 Copyright: 2004-2005, Horizon Wimba, Inc
   on this file is disclaimed to Digium for inclusion in Asterisk
-License: LGPL-2.1
+License-Grant:
  This program is free software, distributed under the terms of
  the GNU Lesser (Library) General Public License
- .
- Copyright on this file is disclaimed to Digium for inclusion in Asterisk
- .
- (On Debian systems you will find a copy of the LGPL (version 2) at
- /usr/share/common-licenses/LGPL-2.1).
+License: LGPL-2.1
+Comment:
+ Version of license not mentioned.  Assumed to be version 2.1.
 
 Files: menuselect/menuselect_gtk.c
 Copyright: 2007, Russell Bryant <russell@digium.com>
@@ -632,9 +624,6 @@ License: GPL-2-Asterisk
  applies to all loadable Asterisk modules used on your system as well,
  except as defined below. The GPL (version 2) is included in this
  source tree in the file COPYING.
- .
- (On Debian systems you will find a copy of the GPL (version 2) at
- /usr/share/common-licenses/GPL-2).
  .
  This package also includes various components that are not part of
  Asterisk itself; these components are in the 'contrib' directory
@@ -677,3 +666,10 @@ License: GPL-2-Asterisk
  steps you must take. For more information on this policy, please read:
  .
  http://www.digium.com/en/company/profile/trademarkpolicy.php
+License-Reference: /usr/share/common-licenses/GPL-2
+
+License: GPL-2
+License-Reference: /usr/share/common-licenses/GPL-2
+
+License: LGPL-2.1
+License-Reference: /usr/share/common-licenses/LGPL-2.1
