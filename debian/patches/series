@@ -29,3 +29,6 @@ configure-osarch
 opus.patch
 vp8.patch
 amr.patch
+
+ffmpeg-detection.patch
+ffmpeg-includes.patch
