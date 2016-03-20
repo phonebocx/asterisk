@@ -81,7 +81,7 @@ use those, and never needed to set LANGUAGE/language and such - all
 should work just fine.
 
 When Asterisk is asked to play 'some/file' it will search in the the
-following places on a Debian system (in whish the datadir is set to
+following places on a Debian system (in wish the datadir is set to
 /usr/share/asterisk)
 
   /usr/share/sounds/${LANG_FULL}/some/file.TYPE
