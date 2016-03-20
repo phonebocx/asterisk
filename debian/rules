@@ -18,7 +18,7 @@ DPKG_EXPORT_BUILDFLAGS = 1
 include /usr/share/dpkg/buildflags.mk
 
 # Sanity check for a stable release:
-SAVED_ABI_HASH = 32b00085fac294c16fcde5db8ce7e676
+SAVED_ABI_HASH = fa819827cbff2ea35341af5458859233
 
 export DEB_HOST_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
 export DEB_BUILD_GNU_TYPE ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
