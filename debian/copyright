@@ -298,13 +298,9 @@ License: GPL-3+ with bison exception
 
 Files: apps/enter.h apps/leave.h
 Copyright: 1999, Mark Spencer and Linux Support Services
-License: UNKNOWN
+License: GPL-2-Asterisk
 Comment:
- See https://issues.asterisk.org/jira/browse/ASTERISK-22568
- .
- License should be GPL-2 by the count of being included in the source
- tree. The source is missing but could be programmatically reproduced:
- raw signed-linear audio file.
+ License assumed to be same as generally for the project.
 
 Files: main/sha1.c include/asterisk/sha1.h
 Copyright: 2011 IETF Trust and the persons identified as authors of the code.
