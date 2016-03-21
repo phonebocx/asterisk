@@ -1,3 +1,18 @@
+asterisk (1:13.7.2~dfsg-2) experimental; urgency=medium
+
+  * Ignore ABI drift on experimental builds.
+  * Add patch to add AMR and AMR-WB codec modules supporting
+    transcoding.
+  * Enable video support in console:
+    + Add patch to use pkg-config for libavcodec and libswscale flags.
+    + Add patch to adjust paths to libavcodec and libswscale.
+    + Build-depend on libavcodec-dev libswscale-dev libsdl-image1.2-dev.
+    Closes: bug#531728.
+  * Fix build-depend on libavformat-dev libsdl2-dev libv4l-dev, as
+    workaround for libpjproject-dev not doing so.
+
+ -- Jonas Smedegaard <dr@jones.dk>  Mon, 21 Mar 2016 00:39:45 +0100
+
 asterisk (1:13.7.2~dfsg-1) unstable; urgency=medium
 
   [ upstream ]
