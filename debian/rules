@@ -85,7 +85,7 @@ override_dh_auto_configure:
 		--with-gsm				\
 		--with-imap=system			\
 		--without-pwlib				\
-		$(if $(EXP_RELEASE),,--without-pjproject --without-sdl) \
+		$(if $(EXP_RELEASE),,--without-pjproject --without-sdl --without-ffmpeg) \
 		${ENABLE_DEBUG}
 
 #		--with-cap \
