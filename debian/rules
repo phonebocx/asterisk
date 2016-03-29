@@ -86,7 +86,7 @@ override_dh_auto_configure:
 		--with-imap=system			\
 		--without-pwlib				\
 		$(if $(EXP_RELEASE),,--without-pjproject --without-sdl --without-ffmpeg) \
-		${ENABLE_DEBUG}
+		${ENABLE_DEBUG} || { cat config.log; exit 1; }
 
 #		--with-cap \
 
