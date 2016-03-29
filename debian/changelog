@@ -1,21 +1,4 @@
-asterisk (1:13.7.2~dfsg-2) experimental; urgency=medium
-
-  * Ignore ABI drift on experimental builds.
-  * Add AMR support:
-    + Add patch to add AMR and AMR-WB codec modules supporting
-      transcoding.
-    + Build-depend on libopencore-amrnb-dev libopencore-amrwb-dev.
-  * Enable video support in console:
-    + Add patch to use pkg-config for libavcodec and libswscale flags.
-    + Add patch to adjust paths to libavcodec and libswscale.
-    + Build-depend on libavcodec-dev libswscale-dev libsdl-image1.2-dev.
-    Closes: bug#531728.
-  * Fix build-depend on libavformat-dev libsdl2-dev libv4l-dev, as
-    workaround for libpjproject-dev not doing so.
-
- -- Jonas Smedegaard <dr@jones.dk>  Mon, 21 Mar 2016 01:35:13 +0100
-
-asterisk (1:13.7.2~dfsg-1) unstable; urgency=medium
+asterisk (1:13.7.2~dfsg-1) UNRELEASED; urgency=medium
 
   [ upstream ]
   * New minor releases.
@@ -41,6 +24,7 @@ asterisk (1:13.7.2~dfsg-1) unstable; urgency=medium
     or breaks/replaces.
   * Treat PJProject and SDL as experimental: Disable in non-experimental
     releases.
+    Ignore ABI drift on experimental builds.
     Closes: Bug#804460, #792303.
   * Fix drop superfluous build-dependency on libsrtp0-dev (already
     build-depending on its virtual counterpart).
@@ -88,6 +72,15 @@ asterisk (1:13.7.2~dfsg-1) unstable; urgency=medium
   * Add lintian override regarding license in License-Reference field.
     See bug#786450.
   * Tidy README.Debian: Fix typo.
+  * Add AMR support:
+    + Add patch to add AMR and AMR-WB codec modules supporting
+      transcoding.
+    + Build-depend on libopencore-amrnb-dev libopencore-amrwb-dev.
+  * Enable video support in console:
+    + Add patch to use pkg-config for libavcodec and libswscale flags.
+    + Add patch to adjust paths to libavcodec and libswscale.
+    + Build-depend on libavcodec-dev libswscale-dev libsdl-image1.2-dev.
+    Closes: bug#531728.
 
  -- Jonas Smedegaard <dr@jones.dk>  Sun, 20 Mar 2016 14:15:31 +0100
 
