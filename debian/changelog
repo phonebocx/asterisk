@@ -1,4 +1,4 @@
-asterisk (1:13.7.2~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:13.7.2~dfsg-1) unstable; urgency=medium
 
   [ upstream ]
   * New minor releases.
@@ -22,12 +22,14 @@ asterisk (1:13.7.2~dfsg-1) UNRELEASED; urgency=medium
   * Tidy copyright info: Strip trailing whitespace.
   * Drop/simplify obsolete versioning or fallbacks in build-dependencies
     or breaks/replaces.
-  * Treat PJProject and SDL as experimental: Disable in non-experimental
-    releases.
-    Ignore ABI drift on experimental builds.
+  * Avoid X11-related on not-in-testing linkage (until in testing and
+    X11-related binaries are in separate binary package).
+    + Only enable PJProject, SDL or FFMpeg when targeted experimental.
+    + Disable in non-experimental releases.
+    + Ignore ABI drift on experimental builds.
+    + Temporarily stop build-depend on libpjproject-dev.
     Closes: Bug#804460, #792303.
-  * Fix drop superfluous build-dependency on libsrtp0-dev (already
-    build-depending on its virtual counterpart).
+  * Fix build-depend only on libsrtp-dev (not also libsrtp0-dev).
   * Build-depend on liburiparser-dev, for (presumably) a more uniform
     URI parsing.
     Closes: Bug#786926.
@@ -63,26 +65,22 @@ asterisk (1:13.7.2~dfsg-1) UNRELEASED; urgency=medium
       license as project generally.
     + Use License-Grant and License-Reference fields.
       Thanks to Ben Finney.
-  * Improve Opus and VP8 support:
+  * Improve media support:
     + Add patch to add Opus codec module supporting transcoding.
     + Add patch to add VP8 format module supporting read/write to file.
-    + Build-depend on libopus-dev.
-    Closes: bug#786972.
+    + Add patch to add AMR and AMR-WB modules supporting transcoding.
+    + Add patches to support video in console.
+    + Build-depend on libopus-dev libopencore-amrnb-dev
+      libopencore-amrwb-dev libavcodec-dev libswscale-dev
+      libsdl-image1.2-dev.
+    Closes: bug#786972, #531728.
   * Bump ABI hash.
   * Add lintian override regarding license in License-Reference field.
     See bug#786450.
   * Tidy README.Debian: Fix typo.
-  * Add AMR support:
-    + Add patch to add AMR and AMR-WB codec modules supporting
-      transcoding.
-    + Build-depend on libopencore-amrnb-dev libopencore-amrwb-dev.
-  * Enable video support in console:
-    + Add patch to use pkg-config for libavcodec and libswscale flags.
-    + Add patch to adjust paths to libavcodec and libswscale.
-    + Build-depend on libavcodec-dev libswscale-dev libsdl-image1.2-dev.
-    Closes: bug#531728.
+  * Emit config.log if configure fails.
 
- -- Jonas Smedegaard <dr@jones.dk>  Sun, 20 Mar 2016 14:15:31 +0100
+ -- Jonas Smedegaard <dr@jones.dk>  Tue, 29 Mar 2016 16:31:49 +0200
 
 asterisk (1:13.1.0~dfsg-1.1) unstable; urgency=medium
 
