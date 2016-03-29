@@ -43,7 +43,7 @@ Build-Depends:
  libopencore-amrwb-dev,
  libopenr2-dev [linux-any],
  libopus-dev,
- libpjproject-dev,
+# libpjproject-dev,
  libpopt-dev,
  libpq-dev,
  libpri-dev,
