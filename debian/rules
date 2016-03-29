@@ -59,8 +59,8 @@ DEB_NOEPOCH_VERSION:=$(shell echo $(DEBVERSION) | cut -d':' -f 2)
 # fetch script that always returns an error.
 FETCH_ENV = PATH=$$PATH:$(CURDIR)/debian/dummyprogs
 
-# resplve if release is experimental
-EXP_RELEASE := $(if $(shell dpkg-parsechangelog | grep -x 'Distribution: \(experimental\|UNRELEASED\)'),exp)
+# resolve if release is experimental
+EXP_RELEASE := $(if $(shell dpkg-parsechangelog | grep '^Distribution: \(experimental\|UNRELEASED\)'),exp)
 
 override_dh_autoreconf:
 	if [ ! -r configure.debian_sav ]; then cp -a configure configure.debian_sav; fi
