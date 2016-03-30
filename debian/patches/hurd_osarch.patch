@@ -1,0 +1,28 @@
+From: Gabriele Giacone <1o5g4r8o@gmail.com>
+Subject: Makefile, netsock: support HURD as well
+Bug-Debian: https://bugs.debian.org/784551
+
+HURD is also GNU and should be considered as such.
+
+--- a/main/netsock.c
++++ b/main/netsock.c
+@@ -33,7 +33,7 @@
+ 
+ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
+ 
+-#ifndef __linux__
++#if !defined (__linux__) && !defined (__GNU__)
+ #if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__) || defined(__GLIBC__)
+ #include <net/if_dl.h>
+ #endif
+--- a/Makefile
++++ b/Makefile
+@@ -819,7 +819,7 @@ install-logrotate:
+ 	rm -f contrib/scripts/asterisk.logrotate.tmp
+ 
+ config:
+-	@if [ "${OSARCH}" = "linux-gnu" -o "${OSARCH}" = "kfreebsd-gnu" ]; then \
++	@if [ "${OSARCH}" = "linux-gnu" -o "${OSARCH}" = "kfreebsd-gnu" -o "${OSARCH}" = "gnu" ]; then \
+ 		$(INSTALL) -d $(DESTDIR)/lib/systemd/system; \
+ 		./build_tools/install_subst -d contrib/asterisk.service $(DESTDIR)/lib/systemd/system/asterisk.service; \
+ 		if [ -f /etc/redhat-release -o -f /etc/fedora-release ]; then \
