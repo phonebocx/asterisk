@@ -1,3 +1,18 @@
+asterisk (1:13.8.0~dfsg-1) experimental; urgency=medium
+
+  [ upstream ]
+  * New release.
+
+  [ Tzafrir Cohen ]
+  * hurd_osarch.patch: set osarch to support HURD
+  * hurd_path_max.patch (Closes: #784551)
+
+  [ Jonas Smedegaard ]
+  * Build-depend on libpjproject-dev.
+  * Unfuzz patches.
+
+ -- Jonas Smedegaard <dr@jones.dk>  Sat, 02 Apr 2016 13:49:38 +0200
+
 asterisk (1:13.7.2~dfsg-1) unstable; urgency=medium
 
   [ upstream ]
