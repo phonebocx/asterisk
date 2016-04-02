@@ -231,6 +231,7 @@ static void serializer_destroy(void *obj)
 
 static struct serializer *serializer_create(const char *aor_name)
 {
+	char tps_name[AST_TASKPROCESSOR_MAX_NAME + 1];
 	size_t size = strlen(aor_name) + 1;
 	struct serializer *ser = ao2_alloc(
 		sizeof(*ser) + size, serializer_destroy);
@@ -239,7 +240,11 @@ static struct serializer *serializer_create(const char *aor_name)
 		return NULL;
 	}
 
-	if (!(ser->serializer = ast_sip_create_serializer())) {
+	/* Create name with seq number appended. */
+	ast_taskprocessor_build_name(tps_name, sizeof(tps_name), "pjsip/aor/%s",
+		aor_name);
+
+	if (!(ser->serializer = ast_sip_create_serializer_named(tps_name))) {
 		ao2_ref(ser, -1);
 		return NULL;
 	}
@@ -646,8 +651,12 @@ static pj_bool_t registrar_on_rx_request(struct pjsip_rx_data *rdata)
 	configured_aors = ast_strdupa(endpoint->aors);
 
 	/* Iterate the configured AORs to see if the user or the user+domain match */
-	while ((aor_name = strsep(&configured_aors, ","))) {
+	while ((aor_name = ast_strip(strsep(&configured_aors, ",")))) {
 		struct ast_sip_domain_alias *alias = NULL;
+
+		if (ast_strlen_zero(aor_name)) {
+			continue;
+		}
 
 		if (!pj_strcmp2(&uri->user, aor_name)) {
 			break;

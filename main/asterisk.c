@@ -1608,15 +1608,14 @@ static void *listener(void *unused)
 			if (errno != EINTR)
 				ast_log(LOG_WARNING, "Accept returned %d: %s\n", s, strerror(errno));
 		} else {
-#if !defined(SO_PASSCRED)
-			{
-#else
+#if defined(SO_PASSCRED)
 			int sckopt = 1;
 			/* turn on socket credentials passing. */
 			if (setsockopt(s, SOL_SOCKET, SO_PASSCRED, &sckopt, sizeof(sckopt)) < 0) {
 				ast_log(LOG_WARNING, "Unable to turn on socket credentials passing\n");
-			} else {
+			} else
 #endif
+			{
 				for (x = 0; x < AST_MAX_CONNECTS; x++) {
 					if (consoles[x].fd >= 0) {
 						continue;
@@ -2808,11 +2807,12 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 
 			console_print(buf, 0);
 
-			if ((res < EL_BUF_SIZE - 1) && ((buf[res-1] == '\n') || (buf[res-2] == '\n'))) {
+			if ((res < EL_BUF_SIZE - 1) && ((buf[res-1] == '\n') || (res >= 2 && buf[res-2] == '\n'))) {
 				*cp = CC_REFRESH;
 				return(1);
-			} else
+			} else {
 				lastpos = 1;
+			}
 		}
 	}
 
@@ -4530,6 +4530,11 @@ static void asterisk_daemon(int isroot, const char *runuser, const char *rungrou
 		exit(1);
 	}
 
+	if (ast_pj_init()) {
+		printf("Failed: ast_pj_init\n%s", term_quit());
+		exit(1);
+	}
+
 	if (app_init()) {
 		printf("App core initialization failed.\n%s", term_quit());
 		exit(1);
@@ -4640,6 +4645,36 @@ static void asterisk_daemon(int isroot, const char *runuser, const char *rungrou
 
 	if (load_pbx()) {
 		printf("Failed: load_pbx\n%s", term_quit());
+		exit(1);
+	}
+
+	if (load_pbx_builtins()) {
+		printf("Failed: load_pbx_builtins\n%s", term_quit());
+		exit(1);
+	}
+
+	if (load_pbx_functions_cli()) {
+		printf("Failed: load_pbx_functions_cli\n%s", term_quit());
+		exit(1);
+	}
+
+	if (load_pbx_variables()) {
+		printf("Failed: load_pbx_variables\n%s", term_quit());
+		exit(1);
+	}
+
+	if (load_pbx_switch()) {
+		printf("Failed: load_pbx_switch\n%s", term_quit());
+		exit(1);
+	}
+
+	if (load_pbx_app()) {
+		printf("Failed: load_pbx_app\n%s", term_quit());
+		exit(1);
+	}
+
+	if (load_pbx_hangup_handler()) {
+		printf("Failed: load_pbx_hangup_handler\n%s", term_quit());
 		exit(1);
 	}
 

@@ -1202,8 +1202,6 @@ static void subscription_tree_destructor(void *obj)
 
 	ast_debug(3, "Destroying subscription tree %p\n", sub_tree);
 
-	remove_subscription(sub_tree);
-
 	ao2_cleanup(sub_tree->endpoint);
 
 	destroy_subscriptions(sub_tree->root);
@@ -1234,6 +1232,7 @@ static void subscription_setup_dialog(struct sip_subscription_tree *sub_tree, pj
 static struct sip_subscription_tree *allocate_subscription_tree(struct ast_sip_endpoint *endpoint)
 {
 	struct sip_subscription_tree *sub_tree;
+	char tps_name[AST_TASKPROCESSOR_MAX_NAME + 1];
 
 	sub_tree = ao2_alloc(sizeof *sub_tree, subscription_tree_destructor);
 	if (!sub_tree) {
@@ -1242,7 +1241,11 @@ static struct sip_subscription_tree *allocate_subscription_tree(struct ast_sip_e
 
 	ast_module_ref(ast_module_info->self);
 
-	sub_tree->serializer = ast_sip_create_serializer();
+	/* Create name with seq number appended. */
+	ast_taskprocessor_build_name(tps_name, sizeof(tps_name), "pjsip/pubsub/%s",
+		ast_sorcery_object_get_id(endpoint));
+
+	sub_tree->serializer = ast_sip_create_serializer_named(tps_name);
 	if (!sub_tree->serializer) {
 		ao2_ref(sub_tree, -1);
 		return NULL;
@@ -1251,7 +1254,6 @@ static struct sip_subscription_tree *allocate_subscription_tree(struct ast_sip_e
 	sub_tree->endpoint = ao2_bump(endpoint);
 	sub_tree->notify_sched_id = -1;
 
-	add_subscription(sub_tree);
 	return sub_tree;
 }
 
@@ -1324,6 +1326,8 @@ static struct sip_subscription_tree *create_subscription_tree(const struct ast_s
 	if (AST_VECTOR_SIZE(&sub_tree->root->children) > 0) {
 		sub_tree->is_list = 1;
 	}
+
+	add_subscription(sub_tree);
 
 	return sub_tree;
 }
@@ -1555,6 +1559,28 @@ void *ast_sip_subscription_get_header(const struct ast_sip_subscription *sub, co
 	return pjsip_msg_find_hdr_by_name(msg, &name, NULL);
 }
 
+/*!
+ * \internal
+ * \brief Wrapper for pjsip_evsub_send_request
+ *
+ * This function (re)sets the transport before sending to catch cases
+ * where the transport might have changed.
+ *
+ * If pjproject gives us the ability to resend, we'll only reset the transport
+ * if PJSIP_ETPNOTAVAIL is returned from send.
+ *
+ * \returns pj_status_t
+ */
+static pj_status_t internal_pjsip_evsub_send_request(struct sip_subscription_tree *sub_tree, pjsip_tx_data *tdata)
+{
+	pjsip_tpselector selector = { .type = PJSIP_TPSELECTOR_NONE, };
+
+	ast_sip_set_tpselector_from_transport_name(sub_tree->endpoint->transport, &selector);
+	pjsip_dlg_set_transport(sub_tree->dlg, &selector);
+
+	return pjsip_evsub_send_request(sub_tree->evsub, tdata);
+}
+
 /* XXX This function is not used. */
 struct ast_sip_subscription *ast_sip_create_subscription(const struct ast_sip_subscription_handler *handler,
 		struct ast_sip_endpoint *endpoint, const char *resource)
@@ -1602,7 +1628,7 @@ struct ast_sip_subscription *ast_sip_create_subscription(const struct ast_sip_su
 	evsub = sub_tree->evsub;
 
 	if (pjsip_evsub_initiate(evsub, NULL, -1, &tdata) == PJ_SUCCESS) {
-		pjsip_evsub_send_request(evsub, tdata);
+		internal_pjsip_evsub_send_request(sub_tree, tdata);
 	} else {
 		/* pjsip_evsub_terminate will result in pubsub_on_evsub_state,
 		 * being called and terminating the subscription. Therefore, we don't
@@ -1612,6 +1638,8 @@ struct ast_sip_subscription *ast_sip_create_subscription(const struct ast_sip_su
 		ao2_ref(sub_tree, -1);
 		return NULL;
 	}
+
+	add_subscription(sub_tree);
 
 	return sub;
 }
@@ -1681,8 +1709,8 @@ static int sip_subscription_send_request(struct sip_subscription_tree *sub_tree,
 {
 #ifdef TEST_FRAMEWORK
 	struct ast_sip_endpoint *endpoint = sub_tree->endpoint;
-#endif
 	pjsip_evsub *evsub = sub_tree->evsub;
+#endif
 	int res;
 
 	if (allocate_tdata_buffer(tdata)) {
@@ -1690,7 +1718,8 @@ static int sip_subscription_send_request(struct sip_subscription_tree *sub_tree,
 		return -1;
 	}
 
-	res = pjsip_evsub_send_request(evsub, tdata) == PJ_SUCCESS ? 0 : -1;
+	res = internal_pjsip_evsub_send_request(sub_tree, tdata);
+
 	subscription_persistence_update(sub_tree, NULL);
 
 	ast_test_suite_event_notify("SUBSCRIPTION_STATE_SET",
@@ -1699,7 +1728,7 @@ static int sip_subscription_send_request(struct sip_subscription_tree *sub_tree,
 		pjsip_evsub_get_state_name(evsub),
 		ast_sorcery_object_get_id(endpoint));
 
-	return res;
+	return (res == PJ_SUCCESS ? 0 : -1);
 }
 
 /*!
@@ -3290,6 +3319,7 @@ static void pubsub_on_evsub_state(pjsip_evsub *evsub, pjsip_event *event)
 		}
 	}
 
+	remove_subscription(sub_tree);
 	pjsip_evsub_set_mod_data(evsub, pubsub_module.id, NULL);
 	sub_tree->evsub = NULL;
 	ast_sip_dialog_set_serializer(sub_tree->dlg, NULL);
@@ -3624,7 +3654,11 @@ static int list_item_handler(const struct aco_option *opt,
 	char *items = ast_strdupa(var->value);
 	char *item;
 
-	while ((item = strsep(&items, ","))) {
+	while ((item = ast_strip(strsep(&items, ",")))) {
+		if (ast_strlen_zero(item)) {
+			continue;
+		}
+
 		if (item_in_vector(list, item)) {
 			ast_log(LOG_WARNING, "Ignoring duplicated list item '%s'\n", item);
 			continue;
