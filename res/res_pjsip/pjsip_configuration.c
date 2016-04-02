@@ -21,6 +21,7 @@
 #include "asterisk/callerid.h"
 #include "asterisk/test.h"
 #include "asterisk/statsd.h"
+#include "asterisk/pbx.h"
 
 /*! \brief Number of buckets for persistent endpoint information */
 #define PERSISTENT_BUCKETS 53
@@ -68,6 +69,7 @@ static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 	struct ao2_iterator i;
 	struct ast_sip_contact *contact;
 	enum ast_endpoint_state state = AST_ENDPOINT_OFFLINE;
+	char *regcontext;
 
 	if (status) {
 		char rtt[32];
@@ -116,15 +118,36 @@ static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 		return 0;
 	}
 
+	regcontext = ast_sip_get_regcontext();
+
 	if (state == AST_ENDPOINT_ONLINE) {
 		ast_endpoint_set_state(endpoint, AST_ENDPOINT_ONLINE);
 		blob = ast_json_pack("{s: s}", "peer_status", "Reachable");
+
+		if (!ast_strlen_zero(regcontext)) {
+			if (!ast_exists_extension(NULL, regcontext, ast_endpoint_get_resource(endpoint), 1, NULL)) {
+				ast_add_extension(regcontext, 1, ast_endpoint_get_resource(endpoint), 1, NULL, NULL,
+					"Noop", ast_strdup(ast_endpoint_get_resource(endpoint)), ast_free_ptr, "SIP");
+			}
+		}
+
 		ast_verb(1, "Endpoint %s is now Reachable\n", ast_endpoint_get_resource(endpoint));
 	} else {
 		ast_endpoint_set_state(endpoint, AST_ENDPOINT_OFFLINE);
 		blob = ast_json_pack("{s: s}", "peer_status", "Unreachable");
+
+		if (!ast_strlen_zero(regcontext)) {
+			struct pbx_find_info q = { .stacklen = 0 };
+
+			if (pbx_find_extension(NULL, NULL, &q, regcontext, ast_endpoint_get_resource(endpoint), 1, NULL, "", E_MATCH)) {
+				ast_context_remove_extension(regcontext, ast_endpoint_get_resource(endpoint), 1, NULL);
+			}
+		}
+
 		ast_verb(1, "Endpoint %s is now Unreachable\n", ast_endpoint_get_resource(endpoint));
 	}
+
+	ast_free(regcontext);
 
 	ast_endpoint_blob_publish(endpoint, ast_endpoint_state_type(), blob);
 	ast_json_unref(blob);
@@ -390,7 +413,7 @@ int ast_sip_auth_vector_init(struct ast_sip_auth_vector *auths, const char *valu
 		return -1;
 	}
 
-	while ((val = strsep(&auth_names, ","))) {
+	while ((val = ast_strip(strsep(&auth_names, ",")))) {
 		if (ast_strlen_zero(val)) {
 			continue;
 		}
@@ -457,7 +480,11 @@ static int ident_handler(const struct aco_option *opt, struct ast_variable *var,
 	char *idents = ast_strdupa(var->value);
 	char *val;
 
-	while ((val = strsep(&idents, ","))) {
+	while ((val = ast_strip(strsep(&idents, ",")))) {
+		if (ast_strlen_zero(val)) {
+			continue;
+		}
+
 		if (!strcasecmp(val, "username")) {
 			endpoint->ident_method |= AST_SIP_ENDPOINT_IDENTIFY_BY_USERNAME;
 		} else {
@@ -1850,6 +1877,7 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "outbound_auth", "", outbound_auth_handler, outbound_auths_to_str, NULL, 0, 0);
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "aors", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, aors));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "media_address", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, media.address));
+	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "bind_rtp_to_media_address", "no", OPT_BOOL_T, 1, STRFLDSET(struct ast_sip_endpoint, media.bind_rtp_to_media_address));
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "identify_by", "username", ident_handler, ident_to_str, NULL, 0, 0);
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "direct_media", "yes", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, media.direct_media.enabled));
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "direct_media_method", "invite", direct_media_method_handler, direct_media_method_to_str, NULL, 0, 0);
@@ -2002,18 +2030,24 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 
 void ast_res_pjsip_destroy_configuration(void)
 {
+	if (!sip_sorcery) {
+		return;
+	}
+
 	ast_sorcery_observer_remove(sip_sorcery, CONTACT_STATUS, &state_contact_status_observer);
 	ast_sorcery_observer_remove(sip_sorcery, "contact", &state_contact_observer);
 	ast_sip_destroy_sorcery_global();
 	ast_sip_destroy_sorcery_location();
 	ast_sip_destroy_sorcery_auth();
 	ast_sip_destroy_sorcery_transport();
+	ast_sorcery_unref(sip_sorcery);
+	sip_sorcery = NULL;
 	ast_manager_unregister(AMI_SHOW_ENDPOINT);
 	ast_manager_unregister(AMI_SHOW_ENDPOINTS);
 	ast_cli_unregister_multiple(cli_commands, ARRAY_LEN(cli_commands));
 	ast_sip_unregister_cli_formatter(endpoint_formatter);
 	ast_sip_unregister_cli_formatter(channel_formatter);
-	ast_sorcery_unref(sip_sorcery);
+	ast_sip_destroy_cli();
 	ao2_cleanup(persistent_endpoints);
 }
 
