@@ -2,7 +2,7 @@ Description: A systemd service
  Do away with safe_asterisk. But try very hard to let live_ast work with
  it.
 Author: Tzafrir Cohen <tzafrir@debian.org>
-Last-Update: 2016-03-19
+Last-Update: 2016-04-02
 
 --- a/contrib/scripts/live_ast
 +++ b/contrib/scripts/live_ast
@@ -133,7 +133,7 @@ Last-Update: 2016-03-19
 +WantedBy=multi-user.target
 --- a/Makefile
 +++ b/Makefile
-@@ -791,6 +791,8 @@
+@@ -826,6 +826,8 @@
  
  config:
  	@if [ "${OSARCH}" = "linux-gnu" -o "${OSARCH}" = "kfreebsd-gnu" ]; then \

@@ -1,13 +1,11 @@
-From: Gabriele Giacone <1o5g4r8o@gmail.com>
-Subject: set PATH_MAX if not set (HURD)
+Description: set PATH_MAX if not set (HURD)
+Author: Gabriele Giacone <1o5g4r8o@gmail.com>
 Bug-Debian: https://bugs.debian.org/784551
-
-In the HURD, PATH_MAX is not set. Asterisk has many buffers with the
-size of PATH_MAX. However it 
+Last-Update: 2016-04-02
 
 --- a/include/asterisk.h
 +++ b/include/asterisk.h
-@@ -293,4 +293,8 @@ struct ast_sched_context;
+@@ -313,4 +313,8 @@
  #define __stringify_1(x)	#x
  #define __stringify(x)		__stringify_1(x)
  

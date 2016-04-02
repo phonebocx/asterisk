@@ -22,10 +22,8 @@ Description: Add AMR and AMR-WB codec modules supporting transcoding
  [InterSpeech 2011](http://research.nokia.com/files/public/%5B16%5D_InterSpeech2011_Voice_Quality_Characterization_of_IETF_Opus_Codec.pdf).
  Further
  [examples…](http://www.voiceage.com/Audio-Samples-Listening-Room.html)
-
 Origin: https://github.com/traud/asterisk-amr
 Author: Alexander Traud <pabstraud@compuserve.com>
-Last-Update: 2016-03-21
 License: Unlicense
  This is free and unencumbered software released into the public domain.
  .
@@ -51,6 +49,7 @@ License: Unlicense
  OTHER DEALINGS IN THE SOFTWARE.
  .
  For more information, please refer to <http://unlicense.org/>
+Last-Update: 2016-04-02
 
 --- a/build_tools/menuselect-deps.in
 +++ b/build_tools/menuselect-deps.in
@@ -524,7 +523,7 @@ License: Unlicense
 +}
 --- a/configure.ac
 +++ b/configure.ac
-@@ -400,6 +400,9 @@
+@@ -401,6 +401,9 @@
  # to make things easier for the users.
  
  AST_EXT_LIB_SETUP([ALSA], [Advanced Linux Sound Architecture], [asound])
@@ -534,7 +533,7 @@ License: Unlicense
  AST_EXT_LIB_SETUP([BFD], [Debug symbol decoding], [bfd])
  
  # BKTR is used for backtrace support on platforms that do not
-@@ -1284,6 +1287,10 @@
+@@ -1375,6 +1378,10 @@
  
  AST_EXT_LIB_CHECK([ALSA], [asound], [snd_spcm_init], [alsa/asoundlib.h], [-lm -ldl])
  
@@ -763,7 +762,7 @@ License: Unlicense
  }
 --- a/makeopts.in
 +++ b/makeopts.in
-@@ -119,6 +119,13 @@
+@@ -120,6 +120,13 @@
  ALSA_INCLUDE=@ALSA_INCLUDE@
  ALSA_LIB=@ALSA_LIB@
  

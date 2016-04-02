@@ -3,11 +3,11 @@ Origin: https://github.com/seanbright/asterisk-opus
 Author: Lorenzo Miniero <lorenzo@meetecho.com>
 Forwarded: yes
 Bug-Debian: http://bugs.debian.org/786972
-Last-Update: 2016-03-19
+Last-Update: 2016-04-02
 
 --- a/main/Makefile
 +++ b/main/Makefile
-@@ -40,6 +40,7 @@
+@@ -43,6 +43,7 @@
  AST_LIBS+=$(URIPARSER_LIB)
  AST_LIBS+=$(UUID_LIB)
  AST_LIBS+=$(CRYPT_LIB)
@@ -15,7 +15,7 @@ Last-Update: 2016-03-19
  AST_LIBS+=$(AST_CLANG_BLOCKS_LIBS)
  
  ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc kfreebsd-gnu),)
-@@ -160,6 +161,7 @@
+@@ -163,6 +164,7 @@
  bucket.o: _ASTCFLAGS+=$(URIPARSER_INCLUDE)
  crypt.o: _ASTCFLAGS+=$(CRYPT_INCLUDE)
  uuid.o: _ASTCFLAGS+=$(UUID_INCLUDE)

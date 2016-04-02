@@ -1,8 +1,8 @@
-From: Gabriele Giacone <1o5g4r8o@gmail.com>
-Subject: Makefile, netsock: support HURD as well
+Description: support HURD as well
+ HURD is also GNU and should be considered as such.
+Author: Gabriele Giacone <1o5g4r8o@gmail.com>
 Bug-Debian: https://bugs.debian.org/784551
-
-HURD is also GNU and should be considered as such.
+Last-Update: 2016-04-02
 
 --- a/main/netsock.c
 +++ b/main/netsock.c
@@ -17,7 +17,7 @@ HURD is also GNU and should be considered as such.
  #endif
 --- a/Makefile
 +++ b/Makefile
-@@ -819,7 +819,7 @@ install-logrotate:
+@@ -825,7 +825,7 @@
  	rm -f contrib/scripts/asterisk.logrotate.tmp
  
  config:
