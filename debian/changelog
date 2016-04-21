@@ -1,3 +1,9 @@
+asterisk (1:13.8.2~dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream release (Fixes AST-2016-005).
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 21 Apr 2016 16:30:39 +0300
+
 asterisk (1:13.8.0~dfsg-1) experimental; urgency=medium
 
   [ upstream ]
