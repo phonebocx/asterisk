@@ -25,7 +25,7 @@ Build-Depends:
  libcap-dev [linux-any],
  libcurl4-openssl-dev | libcurl-dev,
  libedit-dev,
- libfreeradius-client-dev | libradiusclient-ng-dev,
+ libradcli-dev | libfreeradius-client-dev | libradiusclient-ng-dev,
  libgmime-2.6-dev,
  libgsm1-dev,
  libical-dev,

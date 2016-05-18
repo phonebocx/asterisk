@@ -1,0 +1,62 @@
+Description: Autodetect radcli, favored over freeradius-client or radiusclient-ng
+Author: Jonas Smedegaard <dr@jones.dk>
+Last-Update: 2016-05-18
+
+--- a/configure.ac
++++ b/configure.ac
+@@ -2323,11 +2323,16 @@
+ 
+ # Accept either RADIUS client library, their APIs are fully compatible,
+ # just different header filenames and different SONAMEs
+-AST_EXT_LIB_CHECK([RADIUS], [freeradius-client], [rc_read_config], [freeradius-client.h])
++AST_EXT_LIB_CHECK([RADIUS], [radcli], [rc_read_config], [radcli/radcli.h])
+ if test "x${PBX_RADIUS}" = "x1"; then
+-	AC_DEFINE(FREERADIUS_CLIENT, [], [Use the FreeRADIUS-client library])
++	AC_DEFINE(RADCLI, [], [Use the radcli library])
+ else
+-	AST_EXT_LIB_CHECK([RADIUS], [radiusclient-ng], [rc_read_config], [radiusclient-ng.h])
++	AST_EXT_LIB_CHECK([RADIUS], [freeradius-client], [rc_read_config], [freeradius-client.h])
++	if test "x${PBX_RADIUS}" = "x1"; then
++		AC_DEFINE(FREERADIUS_CLIENT, [], [Use the FreeRADIUS-client library])
++	else
++		AST_EXT_LIB_CHECK([RADIUS], [radiusclient-ng], [rc_read_config], [radiusclient-ng.h])
++	fi
+ fi
+ 
+ AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcfg])
+--- a/cdr/cdr_radius.c
++++ b/cdr/cdr_radius.c
+@@ -41,11 +41,15 @@
+ 
+ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
+ 
++#ifdef RADCLI
++#include <radcli/radcli.h>
++#else
+ #ifdef FREERADIUS_CLIENT
+ #include <freeradius-client.h>
+ #else
+ #include <radiusclient-ng.h>
+ #endif
++#endif
+ 
+ #include "asterisk/channel.h"
+ #include "asterisk/cdr.h"
+--- a/cel/cel_radius.c
++++ b/cel/cel_radius.c
+@@ -35,11 +35,15 @@
+ 
+ ASTERISK_FILE_VERSION(__FILE__, "$Rev$")
+ 
++#ifdef RADCLI
++#include <radcli/radcli.h>
++#else
+ #ifdef FREERADIUS_CLIENT
+ #include <freeradius-client.h>
+ #else
+ #include <radiusclient-ng.h>
+ #endif
++#endif
+ 
+ #include "asterisk/channel.h"
+ #include "asterisk/cel.h"
