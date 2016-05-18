@@ -1,8 +1,18 @@
-asterisk (1:13.8.2~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:13.8.2~dfsg-1) unstable; urgency=medium
 
+  [ Tzafrir Cohen ]
   * New upstream release (Fixes AST-2016-005).
+  * systemd: only restart on failure
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 21 Apr 2016 16:30:39 +0300
+  [ Jonas Smedegaard ]
+  * Link against radcli favored over freeradius-client/radiusclient-ng:
+    + Add patch to autodetect radcli.
+    + Build-depend on libradcli-dev, with libfreeradius-client-dev or
+      libradiusclient-ng-dev only as fallbacks.
+    Closes: Bug#822339. Thanks to Daniel Pocock.
+  * Enable PJProject and FFMpeg: Both projects has re-entered testing.
+
+ -- Jonas Smedegaard <dr@jones.dk>  Wed, 18 May 2016 14:44:34 +0200
 
 asterisk (1:13.8.0~dfsg-1) experimental; urgency=medium
 
