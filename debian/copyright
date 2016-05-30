@@ -89,9 +89,69 @@ Comment: This specifies the license used for most of Asterisk's files.
  Informally: GPL-2 with exceptions for linking with OpenSSL, OpenH323
  and UW-Imap.
 
-Files: apps/app_fax.c
-Copyright: 2007-2008, Dmitry Andrianov <asterisk@dima.spb.ru>
-License: GPL-2-Asterisk
+Files: */Makefile
+ Makefile.moddir_rules
+ Makefile.rules
+ apps/app_fax.c
+ channels/iax2/include/iax2.h
+ channels/iax2/include/parser.h
+ channels/misdn/chan_misdn_config.h
+ channels/misdn/ie.c
+ channels/misdn/isdn_lib.c
+ channels/misdn/isdn_lib.h
+ channels/misdn/isdn_msg_parser.c
+ codecs/log2comp.h
+ include/asterisk.h
+ include/asterisk/compat.h
+ include/asterisk/paths.h
+ include/asterisk/udptl.h
+ res/ari.make
+ rest-api-templates/ari.make.mustache
+Copyright: 1999-2014, Digium, Inc.
+  2004-2005, Christian Richter <crich@beronet.com>
+  2005, Steve Underwood
+  2007-2008, Dmitry Andrianov <asterisk@dima.spb.ru>
+License-Grant:
+ This program is free software, distributed under the terms of the GNU
+ General Public License
+License: GPL-2
+Comment:
+ Version of license not mentioned.  Assumed to be version 2.
+
+Files: apps/enter.h
+ apps/leave.h
+ channels/chan_phone.h
+ codecs/ex_adpcm.h
+ codecs/ex_alaw.h
+ codecs/ex_g722.h
+ codecs/ex_g726.h
+ codecs/ex_gsm.h
+ codecs/ex_ilbc.h
+ codecs/ex_lpc10.h
+ codecs/ex_speex.h
+ codecs/ex_ulaw.h
+ contrib/scripts/astversion
+ contrib/scripts/vmail.cgi
+Copyright: 1999,2002, Linux Support Services, LLC.
+  1999, Mark Spencer
+  2008,2015, Digium, Inc.
+License-Grant:
+ Distributed under the terms of the GNU General Public License
+License: GPL-2
+Comment:
+ Version of license not mentioned.  Assumed to be version 2.
+
+Files: channels/misdn/Makefile
+ codecs/lpc10/Makefile
+ doc/Makefile
+ main/stdtime/Makefile
+ third-party/Makefile
+ third-party/pjproject/Makefile
+ utils/db1-ast/Makefile
+Copyright: None
+License: None
+Comment:
+ Makefiles listed explicitly to to counteract */Makefile elsewhere.
 
 Files: include/solaris-compat/sys/queue.h
  main/editline/*
@@ -112,9 +172,12 @@ License-Grant:
 License: GPL-2
 
 Files: codecs/gsm/*
+ codecs/gsm/Makefile
 Copyright: 1992-1996, Carsten Bormann <cabo@cs.tu-berlin.de>
   1992-1996, Jutta Degener <jutta@cs.tu-berlin.de>
 License: GSM
+Comment:
+ Makefile listed explicitly to to counteract */Makefile elsewhere.
 
 Files: main/editline/editline.3
  main/editline/editrc.5
@@ -247,12 +310,6 @@ License: GPL-3+ with bison exception
  This special exception was added by the Free Software Foundation in
  version 2.2 of Bison.
 
-Files: apps/enter.h apps/leave.h
-Copyright: 1999, Mark Spencer and Linux Support Services
-License: GPL-2-Asterisk
-Comment:
- License assumed to be same as generally for the project.
-
 Files: main/sha1.c include/asterisk/sha1.h
 Copyright: 2011 IETF Trust and the persons identified as authors of the code.
 License: BSD-3-clause~IETF
@@ -351,6 +408,14 @@ Comment:
  the file has same licensing as the project generally.
  .
  See https://issues.asterisk.org/jira/browse/ASTERISK-24173
+
+Files: debian/patches/opus.patch
+Copyright: 2014, Lorenzo Miniero
+License-Grant:
+ Distributed under the terms of the GNU General Public License
+License: GPL-2
+Comment:
+ Version of license not mentioned.  Assumed to be version 2.
 
 License: GPL-2-Asterisk
  Asterisk is distributed under the GNU General Public License version 2
