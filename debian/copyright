@@ -10,8 +10,8 @@ Source: http://downloads.asterisk.org/pub/asterisk
  * soudss tarballs: while we're at it. Take lots of space and included in
    other packages anyway.
 Files-Excluded:
- codecs/ilbc
- doc/Asterisk-Admin-Guide/
+ codecs/ilbc/*
+ doc/Asterisk-Admin-Guide/*
  doc/Asterisk-Admin-Guide.pdf
  doc/Asterisk-*-Reference.pdf
  */.makeopts
