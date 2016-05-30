@@ -37,6 +37,18 @@ Files: include/solaris-compat/sys/queue.h
 Copyright: 1989-1994, The Regents of the University of California.
 License: BSD-4-Clause-UC
 
+Files: addons/chan_ooh323.*
+ addons/ooh323cDriver.*
+ addons/ooh323c/*
+Copyright: 2004-2005, Objective Systems, Inc.
+  2005, Page Iberica, S.A.
+License-Grant:
+ This software is furnished under an open source license and may be used
+ and copied only in accordance with the terms of this license. The text
+ of the license may generally be found in the root directory of this
+ installation in the COPYING file.
+License: GPL-2
+
 Files: main/editline/editline.3
  main/editline/editrc.5
  main/editline/np/fgetln.c
@@ -124,18 +136,6 @@ Files: cdr/cdr_adaptive_odbc.c
 Copyright: 2006, Tilghman Lesher
   2007, Tilghman Lesher
 License: GPL-2-Asterisk
-
-Files: addons/chan_ooh323.c
- addons/chan_ooh323.h
- addons/ooh323cDriver.c
- addons/ooh323cDriver.h
-Copyright: 2004-2005, Objective Systems, Inc
-License-Grant:
- This software is furnished under an open source license and may be used
- and copied only in accordance with the terms of this license. The text
- of the license may generally be found in the root directory of this
- installation in the COPYING file.
-License: GPL-2
 
 Files: apps/app_morsecode.c
  apps/app_verbose.c
