@@ -31,6 +31,12 @@ Files: apps/app_fax.c
 Copyright: 2007-2008, Dmitry Andrianov <asterisk@dima.spb.ru>
 License: GPL-2-Asterisk
 
+Files: include/solaris-compat/sys/queue.h
+ main/editline/*
+ utils/db1-ast/*
+Copyright: 1989-1994, The Regents of the University of California.
+License: BSD-4-Clause-UC
+
 Files: utils/ael_main.c
 Copyright: 2006, Steve Murphy
 License: GPL-2-Asterisk
@@ -258,6 +264,11 @@ Files: apps/app_readexten.c
 Copyright: 2007-2008, Trinity College Computing Center
   2008, Trinity College Computing Center
 License: GPL-2-Asterisk
+
+Files: main/editline/np/vis.c
+Copyright: 1989,1993, The Regents of the University of California.
+  1999, The NetBSD Foundation, Inc.
+License: BSD-4-Clause-UC
 
 Files: cdr/cdr_syslog.c
  main/syslog.c
@@ -673,3 +684,33 @@ License-Reference: /usr/share/common-licenses/GPL-2
 
 License: LGPL-2.1
 License-Reference: /usr/share/common-licenses/LGPL-2.1
+
+License: BSD-4-Clause-UC
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are
+ met:
+ .
+ 1. Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+ 2. Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+ 3. All advertising materials mentioning features or use of this
+    software must display the following acknowledgement: This product
+    includes software developed by the University of California,
+    Berkeley and its contributors.
+ 4. Neither the name of the University nor the names of itscontributors
+    may be used to endorse or promote products derived from this
+    software without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
+ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS
+ BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+ ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
