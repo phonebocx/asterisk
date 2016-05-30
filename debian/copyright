@@ -184,25 +184,28 @@ Files: channels/console_gui.c
 Copyright: 2007-2008 Luigi Rizzo <rizzo@icir.org>
 License: GPL-2-Asterisk
 
-Files: apps/app_morsecode.c
- apps/app_verbose.c
- funcs/func_curl.c
- funcs/func_cut.c
- res/res_limit.c
- apps/app_sayunixtime.c
-Copyright: 2003-2006, Tilghman Lesher.
-License: GPL-2-Asterisk
-Comment:
- Files carry a different license. Author verified in private mail the
- new license. Should be updated in Upstream soon (and anyway, Digium has
- the legal right to relicense this code).
-
 Files: apps/app_exec.c
-Copyright: 2004-2005, Tilghman Lesher.
-  2006, Philipp Dunkel
-License: GPL-2-Asterisk
-Comment:
- See above comment.
+ apps/app_followme.c
+ apps/app_morsecode.c
+ apps/app_sayunixtime.c
+ apps/app_stack.c
+ apps/app_verbose.c
+ funcs/func_cut.c
+ funcs/func_realtime.c
+ res/res_limit.c
+Copyright:
+  2003-2006, Tilghman Lesher
+  2005-2006, BJ Weschke <bweschke@btwtech.com>
+  2006, Digium, Inc.
+  2006, Philipp Dunkel <philipp.dunkel@ebox.at>
+License: Unrestricted~author
+ This code is released by the author with no restrictions on usage.
+
+Files: funcs/func_curl.c
+Copyright: 2004-2006, Tilghman Lesher
+License: Unrestricted~app_curl
+ app_curl.c is distributed with no restrictions on usage or
+ redistribution.
 
 Files: apps/app_skel.c
  tests/test_skel.c
@@ -296,19 +299,6 @@ License: GPL-2-Asterisk
 Files: main/plc.c
 Copyright: 2004, Steve Underwood
 License: GPL-2-Asterisk
-
-Files: apps/app_stack.c
-Copyright: 2004-2006, Tilghman Lesher <app_stack_v003@the-tilghman.com>
-License: GPL-2-Asterisk
-
-Files: apps/app_followme.c funcs/func_realtime.c
-Copyright: 2005-2006, BJ Weschke.
-License: unlimited-license
- This code is released by the author with no restrictions on usage.
-Comment:
- Likewise here author clarified on private mail:
- "No limitations on redistribution and or redistribution of modified
- copies." and likewise Digium is allowed to relicense the code.
 
 Files: main/md5.c
 Copyright: None
