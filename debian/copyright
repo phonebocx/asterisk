@@ -21,7 +21,7 @@ Files-Excluded:
  sounds/*.tar.gz
 
 Files: *
-Copyright: 1999-2012, Digium, Inc
+Copyright: 1999-2016, Digium, Inc.
 License: GPL-2-Asterisk
 Comment: This specifies the license used for most of Asterisk's files.
  Informally: GPL-2 with exceptions for linking with OpenSSL, OpenH323
