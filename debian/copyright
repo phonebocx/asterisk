@@ -313,34 +313,7 @@ License: GPL-3+ with bison exception
 
 Files: main/sha1.c include/asterisk/sha1.h
 Copyright: 2011 IETF Trust and the persons identified as authors of the code.
-License: BSD-3-clause~IETF
- Redistribution and use in source and binary forms, with or without
- modification, are permitted provided that the following conditions are
- met:
- .
-  - Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
- .
-  - Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
- .
-  - Neither the name of Internet Society, IETF or IETF Trust, nor the
-    names of specific contributors, may be used to endorse or promote
-    products derived from this software without specific prior written
-    permission.
- .
- THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
- IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
- PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
- OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
- SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
- LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
- DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
- THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License: BSD-3-Clause~IETF
 
 Files: addons/mp3/*
 Copyright: 1995,1996,1997 by Michael Hipp
@@ -368,28 +341,7 @@ License: public-domain
 
 Files: main/poll.c
 Copyright: 1995-2002, Brian M. Clapper
-License: BSD-4-clause~Clapper
- Redistribution and use in source and binary forms are permitted
- provided that:
- .
-  (1) source distributions retain this entire copyright notice and
-      comment;
- .
-  (2) modifications made to the software are prominently mentioned, and
-      a copy of the original software (or a pointer to its location) are
-      included; and
- .
-  (3) distributions including binaries display the following
-      acknowledgement: "This product includes software developed by
-      Brian M. Clapper <bmc@clapper.org>" in the documentation or other
-      materials provided with the distribution.
- .
- The name of the author may not be used to endorse or promote products
- derived from this software without specific prior written permission.
- .
- THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
- WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
- MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
+License: BSD-4-Clause~Clapper
 
 Files: include/jitterbuf.h
 Copyright: 2004-2005, Horizon Wimba, Inc
@@ -527,6 +479,33 @@ License: BSD-3-Clause~Xiph
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+License: BSD-3-Clause~IETF
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions are
+ met:
+ .
+  - Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+  - Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+  - Neither the name of Internet Society, IETF or IETF Trust, nor the
+    names of specific contributors, may be used to endorse or promote
+    products derived from this software without specific prior written
+    permission.
+ .
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+ IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A
+ PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT
+ OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 License: BSD-4-Clause-UC
  Redistribution and use in source and binary forms, with or without
  modification, are permitted provided that the following conditions are
@@ -587,6 +566,29 @@ License: BSD-4-Clause~NetBSD
  TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
  USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  DAMAGE.
+
+License: BSD-4-Clause~Clapper
+ Redistribution and use in source and binary forms are permitted
+ provided that:
+ .
+ (1) source distributions retain this entire copyright notice and
+     comment;
+ .
+ (2) modifications made to the software are prominently mentioned, and a
+     copy of the original software (or a pointer to its location) are
+     included; and
+ .
+ (3) distributions including binaries display the following
+     acknowledgement: "This product includes software developed by Brian
+     M. Clapper <bmc@clapper.org>" in the documentation or other
+     materials provided with the distribution.
+ .
+ The name of the author may not be used to endorse or promote products
+ derived from this software without specific prior written permission.
+ .
+ THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR IMPLIED
+ WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+ MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 
 License: GSM
  Any use of this software is permitted provided that this notice is not
