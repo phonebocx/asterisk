@@ -350,9 +350,9 @@ License: GPL-2
 Comment: included in the patch mpglib
 
 Files: funcs/func_pitchshift.c
-Copyright: 1999-2009, Stephan M. Bernsee <smb [AT
-  2010, Digium, Inc
-License: GPL-2-Asterisk
+Copyright: 1999-2009, Stephan M. Bernsee <smb@dspdimension.com>
+  2010, Digium, Inc.
+License: WOL and GPL-2-Asterisk
 
 Files: main/plc.c
 Copyright: 2004, Steve Underwood
@@ -597,3 +597,13 @@ License: GSM
  As a matter of courtesy, the authors request to be informed about uses
  this software has found, about bugs in this software, and about any
  improvements that may be of general interest.
+
+License: WOL
+ The Wide Open License (WOL)
+ .
+ Permission to use, copy, modify, distribute and sell this software and
+ its documentation for any purpose is hereby granted without fee,
+ provided that the above copyright notice and this license appear in all
+ source copies. THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT EXPRESS OR
+ IMPLIED WARRANTY OF ANY KIND. See http://www.dspguru.com/wol.htm for
+ more information.
