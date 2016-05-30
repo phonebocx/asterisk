@@ -233,7 +233,7 @@ Files:
 Copyright:
  Mark Roberts <mark@manumark.de>
  Michael Labuschke <michael@labuschke.de>
-License: GPL-2-Asterisk
+License: GPL-2
 Comment:
  stereorize.c, frame.c and frame.h: originally from markdsp:
  http://web.archive.org/web/20060525134915/http://www.manumark.de/markdsp.html
