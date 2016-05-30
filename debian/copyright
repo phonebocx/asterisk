@@ -202,10 +202,6 @@ Files: main/editline/editline.3
 Copyright: 1997-2001, The NetBSD Foundation, Inc.
 License: BSD-4-Clause~NetBSD
 
-Files: utils/ael_main.c
-Copyright: 2006, Steve Murphy
-License: GPL-2-Asterisk
-
 Files: formats/msgsm.h
 Copyright: None
 License: None
@@ -257,10 +253,6 @@ License: public-domain
  This code is released into public domain without any warranty of any
  kind.
 
-Files: channels/console_gui.c
-Copyright: 2007-2008 Luigi Rizzo <rizzo@icir.org>
-License: GPL-2-Asterisk
-
 Files: apps/app_exec.c
  apps/app_followme.c
  apps/app_morsecode.c
@@ -283,11 +275,6 @@ Copyright: 2004-2006, Tilghman Lesher
 License: Unrestricted~app_curl
  app_curl.c is distributed with no restrictions on usage or
  redistribution.
-
-Files: apps/app_skel.c
- tests/test_skel.c
-Copyright: <Year>, <Your Name Here>
-License: GPL-2-Asterisk
 
 Files: main/editline/np/vis.c
 Copyright: 1989,1993, The Regents of the University of California.
