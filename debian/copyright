@@ -348,7 +348,8 @@ License: public-domain
  This code was written by Colin Plumb in 1993, no copyright is claimed.
  This code is in the public domain; do with it what you wish.
 
-Files: main/poll.c
+Files: include/asterisk/poll-compat.h
+ main/poll.c
 Copyright: 1995-2002, Brian M. Clapper
 License: BSD-4-Clause~Clapper
 
