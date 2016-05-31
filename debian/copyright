@@ -206,6 +206,13 @@ Files: main/editline/editline.3
 Copyright: 1997-2001, The NetBSD Foundation, Inc.
 License: BSD-4-Clause~NetBSD
 
+Files: main/stdtime/private.h
+ main/stdtime/tzfile.h
+Copyright: None
+License: public-domain
+ This file is in the public domain, so clarified as of 1996-06-05 by
+ Arthur David Olson.
+
 Files: formats/msgsm.h
 Copyright: None
 License: None
