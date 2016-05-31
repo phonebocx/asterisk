@@ -84,6 +84,10 @@ Copyright: 1999-2006, Brett Bryant <bbryant@digium.com>
   2014-2015, Richard Mudgett <rmudgett@digium.com>
   2015, Alexander Traud <pabstraud@compuserve.com>
   2015-2016, 2016, CFWare, LLC
+License-Grant:
+ This program is free software, distributed under the terms of the GNU
+ General Public License Version 2. See the LICENSE file at the top of
+ the source tree.
 License: GPL-2-Asterisk
 Comment: This specifies the license used for most of Asterisk's files.
  Informally: GPL-2 with exceptions for linking with OpenSSL, OpenH323
@@ -233,19 +237,22 @@ Files:
 Copyright:
  Mark Roberts <mark@manumark.de>
  Michael Labuschke <michael@labuschke.de>
+License-Grant:
+ > Have you intended for that package to be released under a Free
+ > Software license (basically: one that allows distribution and
+ > modification)? If so, could you please provide a version of that
+ > source package licensed under some standard free software license
+ > (GPL? LGPL? MIT?)
+ .
+ Thank you for your trouble. I intended the software to be free. GPL is
+ fine. Please add the appropriate text to the file for me, in my name.
 License: GPL-2
 Comment:
  stereorize.c, frame.c and frame.h: originally from markdsp:
  http://web.archive.org/web/20060525134915/http://www.manumark.de/markdsp.html
  .
- Author notified by private mail:
- > Have you intended for that package to be released under a Free Software
- > license (basically: one that allows distribution and modification)? If
- > so, could you please provide a version of that source package licensed
- > under some standard free software license (GPL? LGPL? MIT?)
- .
- Thank you for your trouble. I intended the software to be free. GPL is
- fine. Please add the appropriate text to the file for me, in my name.
+ Code lacks explicit licensing, but author notified by private mail the
+ license grant included here.
 
 Files: agi/eagi-sphinx-test.c agi/eagi-test.c
 Copyright: None
@@ -284,32 +291,21 @@ License: BSD-4-Clause-UC
 Files: main/ast_expr2.c
  main/ast_expr2.h
 Copyright: 1984, 1989-1990, 2000-2006
+License-Grant:
+ This program is free software: you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by the
+ Free Software Foundation, either version 3 of the License, or (at your
+ option) any later version.
 License: GPL-3+ with bison exception
- This program is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
- .
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
- .
- You should have received a copy of the GNU General Public License
- along with this program.  If not, see <http://www.gnu.org/licenses/>.
- .
- As a special exception, you may create a larger work that contains
- part or all of the Bison parser skeleton and distribute that work
- under terms of your choice, so long as that work isn't itself a
- parser generator using the skeleton or a modified version thereof
- as a parser skeleton.  Alternatively, if you modify or redistribute
- the parser skeleton itself, you may (at your option) remove this
- special exception, which will cause the skeleton and the resulting
- Bison output files to be licensed under the GNU General Public
- License without this special exception.
- .
- This special exception was added by the Free Software Foundation in
- version 2.2 of Bison.
+ As a special exception, you may create a larger work that contains part
+ or all of the Bison parser skeleton and distribute that work under
+ terms of your choice, so long as that work isn't itself a parser
+ generator using the skeleton or a modified version thereof as a parser
+ skeleton.  Alternatively, if you modify or redistribute the parser
+ skeleton itself, you may (at your option) remove this special
+ exception, which will cause the skeleton and the resulting Bison output
+ files to be licensed under the GNU General Public License without this
+ special exception.
 
 Files: main/sha1.c include/asterisk/sha1.h
 Copyright: 2011 IETF Trust and the persons identified as authors of the code.
@@ -320,15 +316,28 @@ Copyright: 1995,1996,1997 by Michael Hipp
 License-Grant:
  you may use this source under GPL terms!
 License: GPL-2
-Comment: included in the patch mpglib
+Comment:
+ Code included in the patch mpglib.
+ .
+ Version of license not mentioned.  Assumed to be version 2.
 
 Files: funcs/func_pitchshift.c
 Copyright: 1999-2009, Stephan M. Bernsee <smb@dspdimension.com>
   2010, Digium, Inc.
+License-Grant:
+ This program is free software, distributed under the terms of the GNU
+ General Public License Version 2. See the LICENSE file at the top of
+ the source tree.
 License: WOL and GPL-2-Asterisk
 
 Files: main/plc.c
 Copyright: 2004, Steve Underwood <steveu@coppice.org>
+License-Grant:
+ This program is free software, distributed under the terms of the GNU
+ General Public License Version 2. See the LICENSE file at the top of
+ the source tree.
+ .
+ This version may be optionally licenced under the GNU LGPL licence.
 License: LGPL-2.1 or GPL-2-Asterisk
 Comment:
  Version of LGPL license not mentioned.  Assumed to be version 2.1.
