@@ -355,6 +355,13 @@ License: public-domain
  This code was written by Colin Plumb in 1993, no copyright is claimed.
  This code is in the public domain; do with it what you wish.
 
+Files: main/strcompat.c
+ menuselect/strcompat.c
+Copyright: 1997 Todd C. Miller <Todd.Miller@courtesan.com>
+  1999-2006, Digium, Inc.
+  2004 Darren Tucker
+License: ISC
+
 Files: include/asterisk/poll-compat.h
  main/poll.c
 Copyright: 1995-2002, Brian M. Clapper
@@ -618,6 +625,11 @@ License: GSM
  As a matter of courtesy, the authors request to be informed about uses
  this software has found, about bugs in this software, and about any
  improvements that may be of general interest.
+
+License: ISC
+ Permission to use, copy, modify, and distribute this software for any
+ purpose with or without fee is hereby granted, provided that the above
+ copyright notice and this permission notice appear in all copies.
 
 License: WOL
  The Wide Open License (WOL)
