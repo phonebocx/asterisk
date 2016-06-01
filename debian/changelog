@@ -6,7 +6,6 @@ asterisk (1:13.8.2~dfsg-2) UNRELEASED; urgency=medium
     + Fix extend coverage for main upstream author to include recent
       years.
     + Fix extend Files section for ooh323.
-    + Fix append asterisk for dirs to strip from repackaged tarball.
     + Fix cover GSM licensed files.
     + Fix add more copyright holders to initial catch-all Files section,
       and merge with more specific same-licensed Files sections.
