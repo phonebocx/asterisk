@@ -24,6 +24,8 @@ asterisk (1:13.8.2~dfsg-2) UNRELEASED; urgency=medium
     + Fix add files in the public domain.
     + Fix cover ISC licensed files.
     + Fix file path (track patch not not patch content).
+    + Fix strip trailing / from excluded files.
+      Thanks to Vasuded Kamath.
   * Add copyright-check scripts to source package.
 
  -- Jonas Smedegaard <dr@jones.dk>  Wed, 01 Jun 2016 09:49:49 +0200
