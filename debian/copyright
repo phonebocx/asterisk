@@ -11,7 +11,7 @@ Source: http://downloads.asterisk.org/pub/asterisk
    other packages anyway.
 Files-Excluded:
  codecs/ilbc
- doc/Asterisk-Admin-Guide/
+ doc/Asterisk-Admin-Guide
  doc/Asterisk-Admin-Guide.pdf
  doc/Asterisk-*-Reference.pdf
  */.makeopts
