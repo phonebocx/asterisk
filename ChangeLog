@@ -1,3 +1,1676 @@
+2016-05-13 17:41 +0000  Asterisk Development Team <asteriskteam@digium.com>
+
+	* asterisk 13.9.1 Released.
+
+2016-05-13 12:41 +0000 [1cff642773]  Kevin Harwell <kharwell@digium.com>
+
+	* Release summaries: Remove previous versions
+
+2016-05-13 12:41 +0000 [03be442bf0]  Kevin Harwell <kharwell@digium.com>
+
+	* .version: Update for 13.9.1
+
+2016-05-13 12:41 +0000 [ee94d92141]  Kevin Harwell <kharwell@digium.com>
+
+	* .lastclean: Update for 13.9.1
+
+2016-05-13 12:41 +0000 [05da780cc7]  Kevin Harwell <kharwell@digium.com>
+
+	* realtime: Add database scripts for 13.9.1
+
+2016-05-12 14:36 +0000 [15c427c64d]  Mark Michelson <mmichelson@digium.com>
+
+	* Use doubles instead of floats for conversions when comparing strings.
+
+	  In 13.9.0, there was an issue where PJSIP contacts added to an AOR would
+	  be deleted at seemingly random times.
+
+	  One reason this was happening was because of an operation to retrieve
+	  the contacts whose expiration time was less than or equal to the current
+	  time. When retrieving existing contacts, the contact's expiration time
+	  and the current time were converted from a string to a float, and those
+	  two floats were compared.
+
+	  On some systems, including mine, this conversion was horribly off. For
+	  instance, I could regularly see the string "1463079214" get converted
+	  into 1463079168.000000. When switching from using a float to using a
+	  double, the conversion was as expected.
+
+	  Why was the conversion to float off? My best guess is that the
+	  conversion to float was attempting to store the entire value in the 23
+	  bit significand of the IEEE-754 floating point number. In particular, if
+	  you take only the 23 most significant bits of 1463079214, you get the
+	  messed up 1463079168 that we were seeing in the conversion. It likely
+	  was possible to get a more precise value by composing the number using
+	  an exponent, but the conversion did not work that way. With a double,
+	  you have a 52 bit significand, allowing the entire value to fit there,
+	  and thereby allowing an accurate conversion.
+
+	  ASTERISK-26007 #close
+	  Reported by Greg Siemon
+
+	  Change-Id: I83ca7944aae8b7cd994b254c78ec02411d321070
+
+2016-05-12 15:18 +0000 [d27ee3b1bf]  Mark Michelson <mmichelson@digium.com>
+
+	* res_sorcery_astdb: Fix creation of retrieved objects.
+
+	  The contents of this commit come from a portion of commit
+	  a01ce2b88912cd802bb045e40fe264906e55bc45 of the 13 branch.
+
+	  The commit referenced above's main point was to introduce some
+	  performance enhancements for realtime. However, mixed in with that was a
+	  bug fix for sorcery's astdb backend. The astdb was using an empty
+	  objectset to create an object.
+
+	  This, combined with the floating point conversion bug, was what was
+	  contributing to contacts being deleted early.
+
+	  ASTERISK-26007 #close
+	  Reported by Greg Siemon
+
+	  Change-Id: I84594079356a6fb2d2f61d56bf644e5409925ee2
+
+2016-05-09 13:04 +0000  Asterisk Development Team <asteriskteam@digium.com>
+
+	* asterisk 13.9.0 Released.
+
+2016-05-09 08:04 +0000 [3bb17c43b0]  Joshua Colp <jcolp@digium.com>
+
+	* Release summaries: Add summaries for 13.9.0
+
+2016-05-09 08:01 +0000 [549465b89a]  Joshua Colp <jcolp@digium.com>
+
+	* Release summaries: Remove previous versions
+
+2016-05-09 08:01 +0000 [d805a1c1ab]  Joshua Colp <jcolp@digium.com>
+
+	* .version: Update for 13.9.0
+
+2016-05-09 08:01 +0000 [7c2ff2c29f]  Joshua Colp <jcolp@digium.com>
+
+	* .lastclean: Update for 13.9.0
+
+2016-05-09 08:01 +0000 [addd49f1a4]  Joshua Colp <jcolp@digium.com>
+
+	* realtime: Add database scripts for 13.9.0
+
+2016-05-03 12:22 +0000  Asterisk Development Team <asteriskteam@digium.com>
+
+	* asterisk 13.9.0-rc2 Released.
+
+2016-05-03 07:21 +0000 [45b84418ac]  Joshua Colp <jcolp@digium.com>
+
+	* Release summaries: Add summaries for 13.9.0-rc2
+
+2016-05-03 07:21 +0000 [0581fa02e5]  Joshua Colp <jcolp@digium.com>
+
+	* Release summaries: Remove previous versions
+
+2016-05-03 07:21 +0000 [31b9b476fc]  Joshua Colp <jcolp@digium.com>
+
+	* .version: Update for 13.9.0-rc2
+
+2016-05-03 07:21 +0000 [b64d540059]  Joshua Colp <jcolp@digium.com>
+
+	* .lastclean: Update for 13.9.0-rc2
+
+2016-05-03 07:21 +0000 [a9467ce7d7]  Joshua Colp <jcolp@digium.com>
+
+	* realtime: Add database scripts for 13.9.0-rc2
+
+2016-04-27 13:23 +0000 [b470aabb7b]  Mark Michelson <mmichelson@digium.com>
+
+	* func_odbc: Check connection status before executing queries.
+
+	  A recent change to func_odbc made it so that a single connection was
+	  maintained per DSN. The problem was that the code was optimistic about
+	  the health of the connection after initially opening it and did nothing
+	  to re-connect in case the connection had died.
+
+	  This change adds a check before executing a query to ensure that the
+	  connection to the database is still up and running.
+
+	  ASTERISK-25963 #close
+	  Reported by Ross Beer
+
+	  Change-Id: Id33c86eb04ff48ca088bb2e3086c27b3b683491d
+	  (cherry picked from commit 677d5b515151b51ed8be5e760ce0c7b99dae2761)
+
+2016-04-28 16:54 +0000 [e702b9fc40]  gtjoseph <gjoseph@digium.com>
+
+	* pjproject_bundled:  Disable PJSIP_UNESCAPE_IN_PLACE
+
+	  When pjsip_parse_uri is called with PJSIP_UNESCAPE_IN_PLACE enabled,
+	  the input uri string will become corrupted if it contains escape sequences.
+	  It's not possible to automatically strdup or strdupa the input string because
+	  the output uri pj_str_t's will have pointers to chunks of the input string.
+	  Getting around this would require more memory management code and wouldn't
+	  be worth the savings of doing the unescape in place.
+
+	  ASTERISK-25970 #close
+	  Reported-by: Dmitriy Serov
+
+	  Change-Id: I28dc0e599b5108f7959b9c46dc8278371b372f88
+
+2016-04-25 21:43 +0000  Asterisk Development Team <asteriskteam@digium.com>
+
+	* asterisk 13.9.0-rc1 Released.
+
+2016-04-25 16:42 +0000 [5237b7cd47]  Joshua Colp <jcolp@digium.com>
+
+	* Release summaries: Add summaries for 13.9.0-rc1
+
+2016-04-25 16:40 +0000 [5a3850ecba]  Joshua Colp <jcolp@digium.com>
+
+	* .version: Update for 13.9.0-rc1
+
+2016-04-25 16:40 +0000 [60b39040e4]  Joshua Colp <jcolp@digium.com>
+
+	* .lastclean: Update for 13.9.0-rc1
+
+2016-04-25 16:40 +0000 [5078454464]  Joshua Colp <jcolp@digium.com>
+
+	* realtime: Add database scripts for 13.9.0-rc1
+
+2016-04-22 17:53 +0000 [eb7c581806]  gtjoseph <gjoseph@digium.com>
+
+	* res_agi:  Prevent run_agi from eating frames it shouldn't
+
+	  The run_agi function is eating control frames when it shouldn't be. This is
+	  causing issues when an AGI is run from CONNECTED_LINE_SEND_SUB in a blond
+	  transfer.
+
+	  Alice calls Bob. Bob attended transfers to Charlie but hangs up before Charlie
+	  answers.
+
+	  Alice gets the COLP UPDATE indicating Charlie but Charlie never gets an UPDATE
+	  and is left thinking he's connected to Bob.
+
+	  In this case, when CONNECTED_LINE_SEND_SUB runs on Alice's channel and it calls
+	  an AGI, the extra eaten frames prevent CONNECTED_LINE_SEND_SUB from running on
+	  Charlie's channel.
+
+	  The fix was to accumulate deferrable frames in the "forever" loop instead of
+	  dropping them, and re-queue them just before running the actual agi command
+	  or exiting.
+
+	  ASTERISK-25951 #close
+
+	  Change-Id: I0f4bbfd72fc1126c2aaba41da3233a33d0433645
+
+2016-04-22 13:49 +0000 [068ae54c76]  Mark Michelson <mmichelson@digium.com>
+
+	* func_odbc: Use one connection per DSN.
+
+	  res_odbc was changed in Asterisk 13.8.0 to remove connection management,
+	  opting instead to let unixodbc maintain open connections and return
+	  those to Asterisk as requested.
+
+	  This was a boon for realtime, since it meant that multiple threads could
+	  potentially run parallel queries since they could each be using their
+	  own database connections.
+
+	  However, on the user-facing side, func_odbc, there were some inherent
+	  behaviors being relied on that no longer hold true after the change.
+	  One such reported behavior was that MySQL's LAST_INSERTED_ID() works
+	  per-connection. This means that if Asterisk uses separate connections
+	  for every database operation, whereas before it used one connection for
+	  everything, we have broken expectations and functionality.
+
+	  The fix provided in this patch is to make func_odbc use a single
+	  database connection per DSN. This way, user-facing database usage will
+	  have the same behavior as it did pre-13.8.0. However, realtime, which is
+	  the real workhorse of database interaction, will continue to let
+	  unixodbc manage connections.
+
+	  ASTERISK-25938 #close
+	  Reported by Edwin Vandamme
+
+	  Change-Id: Iac961fe79154c6211569afcdfec843c0c24c46dc
+
+2016-04-22 13:02 +0000 [6aeefa89bc]  Leif Madsen <leif@leifmadsen.com>
+
+	* Remove reference to non-existent sip.conf option
+
+	  Option was removed in commit 7f883ef495b57ae9182e47213d01d5e8009dbf3f
+
+	  ASTERISK-25927 #close
+
+	  Change-Id: I92f9b0196d9fc41d1d58354c07340c465ef1fcf8
+
+2016-04-21 08:26 +0000 [e750ea9b5b]  Diederik de Groot <dkgroot@talon.nl>
+
+	* lock.c: Check *lt before dereferencing it
+
+	  *lt is NULL if t->tracking == 0
+
+	  ASTERISK-25948 #close
+
+	  Change-Id: I4a81af28f9c82a74aa82413d772a7dc8fa6f45ba
+
+2016-04-15 14:36 +0000 [a036c35903]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_stasis: Handle re-enter stasis bridge with swap channel.
+
+	  We lose the fact that there is a swap channel if there is one.  We
+	  currently wind up rejoining the stasis bridge as a normal join after the
+	  swap channel has already been kicked from the bridge.
+
+	  This patch preserves the swap channel so the AMI/ARI events can note that
+	  the channel joining the bridge is swapping with another channel.  Another
+	  benefit to swaqpping in one operation is if there are any channels that
+	  get lonely (MOH, bridge playback, and bridge record channels).  The lonely
+	  channels won't leave before the joining channel has a chance to come back
+	  in under stasis if the swap channel is the only reason the lonely channels
+	  are staying in the bridge.
+
+	  ASTERISK-25947 #close
+	  Reported by: Richard Mudgett
+
+	  ASTERISK-24649
+	  Reported by: John Bigelow
+
+	  ASTERISK-24782
+	  Reported by: John Bigelow
+
+	  Change-Id: If37ea508831d1fed6dbfac2f191c638fc0a850ee
+
+2016-04-19 16:58 +0000 [9942d50aa5]  Richard Mudgett <rmudgett@digium.com>
+
+	* bridge: Hold off more than one imparting channel at a time.
+
+	  An earlier patch blocked the ast_bridge_impart() call until the channel
+	  either entered the target bridge or it failed.  Unfortuantely, if the
+	  target bridge is stasis and the imprted channel is not a stasis channel,
+	  stasis bounces the channel out of the bridge to come back into the bridge
+	  as a proper stasis channel.  When the channel is bounced out, that
+	  released the block on ast_bridge_impart() to continue.  If the impart was
+	  a result of a transfer, then it became a race to see if the swap channel
+	  would get hung up before the imparted channel could come back into the
+	  stasis bridge.  If the imparted channel won then everything is fine.  If
+	  the swap channel gets hung up first then the transfer will fail because
+	  the swap channel is leaving the bridge.
+
+	  * Allow a chain of ast_bridge_impart()'s to happen before any are
+	  unblocked to prevent the race condition described above.  When the channel
+	  finally joins the bridge or completely fails to join the bridge then the
+	  ast_bridge_impart() instances are unblocked.
+
+	  ASTERISK-25947
+	  Reported by: Richard Mudgett
+
+	  ASTERISK-24649
+	  Reported by: John Bigelow
+
+	  ASTERISK-24782
+	  Reported by: John Bigelow
+
+	  Change-Id: I8fef369171f295f580024ab4971e95c799d0dde1
+
+2016-04-19 17:52 +0000 [516c626a7d]  gtjoseph <george.joseph@fairview5.com>
+
+	* res_pjsip_callerid:  Clear out display name if id->name is not valid
+
+	  When create_new_id_hdr creates a new RPID or PAI header, it starts by cloning
+	  the From header, then it overwrites the display name and uri from the channel's
+	  connected.id.  If the connected.id.name wasn't valid, create_new_id_hdr was
+	  leaving the display name from the From header in the new RPID or PAI header.
+	  On an attended transfer where the originator had a caller id number set but not
+	  a display name, the re-INVITE to the final transferee had the number of the
+	  originator but the display name of the transferer.
+
+	  Added a check to clear out the display name in the new header if
+	  connected.id.name was invalid.
+
+	  ASTERISK-25942 #close
+
+	  Change-Id: I60b4bf7a7ece9b7425eba74151c0b4969cd2738b
+
+2016-04-19 13:02 +0000 [ded3794fc6]  Joshua Colp <jcolp@digium.com>
+
+	* app_talkdetect: Make the module core supported.
+
+	  This module is used as part of testsuite tests to confirm
+	  stuff works. I'm accordingly marking it as core as it is
+	  required by those tests.
+
+	  Change-Id: I558e7af7679b22b8ed641d7dd37ee4ca35b11e88
+
+2016-04-18 12:12 +0000 [efae187217]  Mark Michelson <mmichelson@digium.com>
+
+	* PJSIP: Remove PJSIP parsing functions from uri length validation.
+
+	  The PJSIP parsing functions provide a nice concise way to check the
+	  length of a hostname in a SIP URI. The problem is that in order to use
+	  those parsing functions, it's required to use them from a thread that
+	  has registered with PJLib.
+
+	  On startup, when parsing AOR configuration, the permanent URI handler
+	  may not be run from a PJLib-registered thread. Specifically, this could
+	  happen when Asterisk was started in daemon mode rather than
+	  console-mode. If PJProject were compiled with assertions enabled, then
+	  this would cause Asterisk to crash on startup.
+
+	  The solution presented here is to do our own parsing of the contact URI
+	  in order to ensure that the hostname in the URI is not too long. The
+	  parsing does not attempt to perform a full SIP URI parse/validation,
+	  since the hostname in the URI is what is important.
+
+	  ASTERISK-25928 #close
+	  Reported by Joshua Colp
+
+	  Change-Id: Ic3d6c20ff3502507c17244a8b7e2ca761dc7fb60
+
+2016-04-18 17:00 +0000 [f436b9ab11]  Mark Michelson <mmichelson@digium.com>
+
+	* res_pjsip_registrar: Fix bad memory-ness with user_agent.
+
+	  Recent changes to the PJSIP registrar resulted in tests failing due to
+	  missing AOR_CONTACT_ADDED test events. The reason for this was that the
+	  user_agent string had junk values in it, resulting in being unable to
+	  generate the event.
+
+	  I'm going to be honest here, I have no idea why this was happening. Here
+	  are the steps needed for the user_agent variable to get messed up:
+	  * REGISTER is received
+	  * First contact in the REGISTER results in a contact being removed
+	  * Second contact in the REGISTER results in a contact being added
+	  * The contact, AOR, expiration, and user agent all have to be passed as
+	    format parameters to the creation of a string. Any subset of those
+	    parameters would not be enough to cause the problem.
+
+	  Looking into what was happening, the thing that struck me as odd was
+	  that the user_agent variable was meant to be set to the value of the
+	  User-Agent SIP header in the incoming REGISTER. However, when removing a
+	  contact, the user_agent variable would be set (via ast_strdupa inside a
+	  loop) to the stored contact's user_agent. This means that the
+	  user_agent's value would be incorrect when attempting to process further
+	  contacts in the incoming REGISTER.
+
+	  The fix here is to use a different variable for the stored user agent
+	  when removing a contact. Correcting the behavior to be correct also
+	  means the memory usage is less weird, and the issue no longer occurs.
+
+	  ASTERISK-25929 #close
+	  Reported by Joshua Colp
+
+	  Change-Id: I7cd24c86a38dec69ebcc94150614bc25f46b8c08
+
+2016-04-18 13:41 +0000 [49bfdc9ac0]  Joshua Colp <jcolp@digium.com>
+
+	* res_pjsip_transport_management: Allow unload to occur.
+
+	  At shutdown it is possible for modules to be unloaded that wouldn't
+	  normally be unloaded. This allows the environment to be cleaned up.
+
+	  The res_pjsip_transport_management module did not have the unload
+	  logic in it to clean itself up causing the res_pjsip module to not
+	  get unloaded. As a result the res_pjsip monitor thread kept going
+	  processing traffic and timers when it shouldn't.
+
+	  Change-Id: Ic8cadee131e3b2c436a81d3ae8bb5775999ae00a
+
+2016-04-15 11:41 +0000 [f4693d1897]  Richard Mudgett <rmudgett@digium.com>
+
+	* bridge_channel.c: Ignore role setup failure in channel push.
+
+	  We have to setup the channel roles after the bridge class push is called
+	  because the bridge class push callback may have set roles on the incoming
+	  channel.  Since we have already partially pushed the channel into the
+	  bridge and reversing what we have already done could be problematic, the
+	  only thing we can do is press on to complete pushing the channel into the
+	  bridge.
+
+	  * Ignore any channel role setup errors after pushing the channel into a
+	  bridge.  The channel may behave incorrectly in the bridge but we can no
+	  longer abort the push at this time.
+
+	  Change-Id: I08a97082b729052ee65cdca6bb730cf1289ede00
+
+2016-04-17 15:37 +0000 [22335fe18a]  Jaco Kroon <jaco@uls.co.za>
+
+	* chan_sip: Don't verify table if rtupdate=no
+
+	  If rtupdate=no do not verify sipregs/peers table has updatable fields.
+
+	  ASTERISK-25934 #close
+
+	  Change-Id: Iaa2c53037b93daccc7e7333c40d61861847b856d
+
+2016-04-18 04:53 +0000 [3b9d8b60b2]  ibercom <ibercom123@gmail.com>
+
+	* app_queue: Frequent segfaults in function can_ring_entry()
+
+	  ASTERISK-25888 #close
+
+	  Change-Id: I007a2f2dd99823e04fb5be3ff01f02b0a2956117
+
+2016-04-15 16:51 +0000 [724acb6ce7]  Richard Mudgett <rmudgett@digium.com>
+
+	* stasis_bridge.c: Update stasis bridge push diagnostic messages.
+
+	  Change-Id: I195b14994c9dcccb9452491ca20a885d2a54605a
+
+2016-04-14 13:49 +0000 [5f78801859]  Mark Michelson <mmichelson@digium.com>
+
+	* transport management: Register thread with PJProject.
+
+	  The scheduler thread that kills idle TCP connections was not registering
+	  with PJProject properly and causing assertions if PJProject was built in
+	  debug mode.
+
+	  This change registers the thread with PJProject the first time that the
+	  scheduler callback executes.
+
+	  AST-2016-005
+
+	  Change-Id: I5f7a37e2c80726a99afe9dc2a4a69bdedf661283
+
+2016-03-08 12:12 +0000 [7fb3724a77]  Mark Michelson <mmichelson@digium.com>
+
+	* res_pjsip_transport_management: Kill idle TCP connections.
+
+	  "Idle" here means that someone connects to us and does not send a SIP
+	  request. PJProject will not automatically time out such connections, so
+	  it's up to Asterisk to do it instead.
+
+	  When we receive an incoming TCP connection, we will start a timer
+	  (equivalent to transaction timer D) waiting to receive an incoming
+	  request. If we do not receive a request in that timeframe, then we will
+	  shut down the TCP connection.
+
+	  ASTERISK-25796 #close
+	  Reported by George Joseph
+
+	  AST-2016-005
+
+	  Change-Id: I7b0d303e5d140d0ccaf2f7af562071e3d1130ac6
+
+2016-03-08 10:52 +0000 [707fd4dcd0]  Mark Michelson <mmichelson@digium.com>
+
+	* Rename res_pjsip_keepalive res_pjsip_transport_management
+
+	  ASTERISK-25796
+	  Reported by George Joseph
+
+	  AST-2016-005
+
+	  Change-Id: Id322a05f927392293570599730050bc677d99433
+
+2016-04-14 07:15 +0000 [0b4bb19e0b]  Mark Michelson <mmichelson@digium.com>
+
+	* AST-2016-004: Fix crash on REGISTER with long URI.
+
+	  Due to some ignored return values, Asterisk could crash if processing an
+	  incoming REGISTER whose contact URI was above a certain length.
+
+	  ASTERISK-25707 #close
+	  Reported by George Joseph
+
+	  Patches:
+	  	0001-res_pjsip-Validate-that-URIs-don-t-exceed-pjproject-.patch
+
+	  AST-2016-004
+
+	  Change-Id: I0ed3898fe7ab10121b76c8c79046692de3a1be55
+
+2016-04-12 13:10 +0000 [f6e080c6a4]  Richard Mudgett <rmudgett@digium.com>
+
+	* bridge_softmix.c: Fix crash if could not allocate the dsp.
+
+	  Fix off nominal crash where we could not setup the channel to process
+	  frames for the softmix bridge technology because of allocation failure.
+
+	  Change-Id: Ic307a8386e46bf551e48fcd1eb97276714d56372
+
+2016-04-12 15:41 +0000 [cf15a2f2d3]  gtjoseph <george.joseph@fairview5.com>
+
+	* pjproject:  Add patch for removing strip of '[]' from header params
+
+	  From the patch submitted to Teluu on 4/12/2016
+	  <<<<<<<<<
+	  The wholesale stripping of '[]' from header parameters causes issues if
+	  something (like a port) occurs after the final ']'.
+
+	  '[2001:a::b]' will correctly parse to '2001:a::b'
+	  '[2001:a::b]:8080' will correctly parse to '2001:a::b' but the scanner is left
+	  with ':8080' and parsing stops with a syntax error.
+
+	  I can't even find a case where stripping the '[]' is a good thing anyway.  Even
+	  if you continued to parse and resulted in a string that looks like this...
+	  '2001:a::b:8080', it's not valid.
+
+	  This came up in Asterisk because Kamailio sends us a Contact with an alias
+	  URI parameter that has an IPv6 address in it like this:
+	  Contact: <sip:1171@127.0.0.1:5080;alias=[2001:1:2::3]~43691~6>
+	  which should be legal but causes a syntax error because of the characters
+	  after the final ']'.  Even if it didn't, the '[]' should still not be stripped.
+
+	  I've run the Asterisk Test Suite for PJSIP (252 tests) many of which are IPv6
+	  enabled.  No issues were caused by removing the code that strips the '[]'.
+	  >>>>>>>>>>>
+
+	  ASTERISK-25123 #close
+	  Reported-by: Anthony Messina
+
+	  Change-Id: I5cb33f4ebf07ee1f2b26d07caae715e2ec65595a
+
+2016-04-12 09:10 +0000 [daa086fae4]  Joshua Colp <jcolp@digium.com>
+
+	* app_voicemail: Fix test_voicemail_notify_endl test.
+
+	  The test_voicemail_notify_endl test checks the end-of-line
+	  characters of an email message to confirm that they are consistent.
+	  The test wrongfully assumed that reading from the email message
+	  into a buffer will always result in more than 1 character being
+	  read. This is incorrect. If only 1 character was read the test
+	  would go outside of the buffer and access other memory causing
+	  a crash.
+
+	  The test now checks to ensure that 2 or more characters are read
+	  in ensuring the test stays within the buffer.
+
+	  ASTERISK-25874 #close
+
+	  Change-Id: Ic2c89cea6e90f2c0bc2d8138306ebbffd4f8b710
+
+2016-04-07 12:02 +0000 [f896136460]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* app_voicemail/IMAP: function 'save_to_folder' creates wrong folder
+
+	  If try to move message to Cust1 (number 5)
+	  the function 'save_to_folder' tries to create Greeting folder instead of Cust1.
+
+	  This patch fixed it by setting GREETINGS_FOLDER = -1
+
+	  ASTERISK-24927 #close
+
+	  Change-Id: I03d1a761894bcc2d130ec9b003bbcddc28e25c51
+
+2016-04-07 16:18 +0000 [70b7673f09]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* res_pjsip: Add headers to AMI Event ContactStatusDetail
+
+	  * Added Useragent and RegExpire headers to AMI Event
+	  ContactStatusDetail with associated documentation.
+
+	  ASTERISK-25903 #close
+
+	  Change-Id: If3d121e943e588d016ba51d4eb9c6a421a562239
+
+2016-04-11 16:20 +0000 [64ecd41c8f]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* Codecs: strip codec name while parsing allow/disallow options
+
+	  Failed registration using PJSIP/Realtime if one of the codec name
+	  in allow/disallow option is wrong or contains space.
+
+	  This patch strip codec name.
+
+	  ASTERISK-25914
+
+	  Change-Id: Ifdf02de94e5ddbce305640f6f0666084a3b9283d
+
+2016-04-11 14:26 +0000 [3f6c4667b8]  Jaco Kroon <jaco@uls.co.za>
+
+	* core_unreal: Fix hangupcauses not getting set on Local channels
+
+	  ASTERISK-25912 #close
+
+	  Change-Id: I8e72e6894feaf36c9450f2788d205d07baec23aa
+
+2016-04-01 13:30 +0000 [fe7e48db03]  gtjoseph <george.joseph@fairview5.com>
+
+	* res_pjsip contact:  Lock expiration/addition of contacts
+
+	  Contact expiration can occur in several places:  res_pjsip_registrar,
+	  res_pjsip_registrar_expire, and automatically when anyone calls
+	  ast_sip_location_retrieve_aor_contact.  At the same time, res_pjsip_registrar
+	  may also be attempting to renew or add a contact.  Since none of this was locked
+	  it was possible for one thread to be renewing a contact and another thread to
+	  expire it immediately because it was working off of stale data.  This was the
+	  casue of intermittent registration/inbound/nominal/multiple_contacts test
+	  failures.
+
+	  Now, the new named lock functionality is used to lock the aor during contact
+	  expire and add operations and res_pjsip_registrar_expire now checks the
+	  expiration with the lock held before deleting the contact.
+
+	  ASTERISK-25885 #close
+	  Reported-by: Josh Colp
+
+	  Change-Id: I83d413c46a47796f3ab052ca3b349f21cca47059
+
+2016-04-10 14:16 +0000 [0c414eaf35]  gtjoseph <george.joseph@fairview5.com>
+
+	* pjproject:  Add patch to fix Via IPv6 parsing
+
+	  There's a bug in pjproject's sip_parser where the ":" wasn't correctly
+	  interpreted. This is causing IPv6 addresses in the "received" parameter of the
+	  Via header to cause a syntax check failure.
+
+	  This patch was submitted to Teluu on 4/10/2016.
+
+	  ASTERISK-25910 #close
+	  Reported-by: Anthony Messina
+
+	  Change-Id: Ic7e4c4aa14ded61860401ec349f5177568c4d922
+
+2016-03-31 20:04 +0000 [772ff3048f]  gtjoseph <george.joseph@fairview5.com>
+
+	* lock:  Add named lock capability
+
+	  Locking some objects like sorcery objects can be tricky because the underlying
+	  ao2 object may not be the same for all callers.  For instance, two threads that
+	  call ast_sorcery_retrieve_by_id on the same aor name might actually get 2
+	  different ao2 objects if the underlying wizard had to rehydrate the aor from a
+	  database. Locking one ao2 object doesn't have any effect on the other even if
+	  those objects had locks in the first place.
+
+	  Named locks allow access control by keyspace and key strings.  Now an "aor"
+	  named "1000" can be locked and any other thread attempting to lock "aor" "1000"
+	  will wait regardless of whether the underlying ao2 object is the same or not.
+	  Mutex and rwlocks are supported.
+
+	  This capability will initially be used to lock an aor when multiple threads may
+	  be attempting to prune expired contacts from it.
+
+	  Change-Id: If258c0b7f92b02d07243ce70e535821a1ea7fb45
+
+2016-04-05 16:56 +0000 [fd601f26f7]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* res_pjsip_outbound_publish: Add transport for outbound PUBLISH
+
+	  The first available transport of the appropriate type is used now.
+	  This patch adds new config option 'transport' for outbound-publish.
+	  If transport is set then outbound PUBLISH requests will use this transport.
+
+	  ASTERISK-25901 #close
+
+	  Change-Id: Ib389130489b70e36795b0003fa5fd386e2680151
+
+2016-04-07 16:39 +0000 [5f768d2a9c]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* res_pjsip_dialog_info: Add missing "direction" attribute in NOTIFY event
+
+	  BLF pickup isn't working on Cisco SPA and Snom phones
+	  if the direction="recipient" attribute is missing in 'dialog' tag.
+
+	  This patch adds direction="recipient" if extension state is
+	  Ringing.
+
+	  ASTERISK-24601 #close
+
+	  Change-Id: I5b2c097ca29fd59e92ba237ca5d397cb1b0bcd8c
+
+2016-04-07 10:59 +0000 [82638fb0c7]  Richard Mudgett <rmudgett@digium.com>
+
+	* pbx.c: Minor code rearangements.
+
+	  * Pull out a loop invariant.
+
+	  * Convert an else-if ladder to a switch statement.
+
+	  Change-Id: I0a95cfa9474a4600b9865f7b444534d275b37e95
+
+2016-04-07 11:37 +0000 [bc320df173]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* app_voicemail/IMAP: IMAP access FATAL error: Out of memory
+
+	  Sometimes uw-imap function 'mail_fetchbody' returns huge len
+	  which then pass to uw-imap function 'rfc822_base64'.
+	  uw-imap tries to allocate huge memory and abort() on fail.
+
+	  This patch check the len.
+	  If the len more than max size (128 Mbytes) log error.
+	  This patch also set variables len, newlen to avoid uninizialezed len.
+	  This patch also check pointer returned by rfc822_base64.
+
+	  ASTERISK-25899 #close
+
+	  Change-Id: I4a0e7d655f11abef6a5224e2169df6d5c1f1caca
+
+2016-04-07 12:26 +0000 [2ef8a954b3]  Richard Mudgett <rmudgett@digium.com>
+
+	* pbx: Update doxygen for extension state watchers.
+
+	  Change-Id: Id1403b12136de62a272c01bb355aef65fd2c2d1e
+
+2016-04-07 11:49 +0000 [d312fdeb1b]  gtjoseph <george.joseph@fairview5.com>
+
+	* alembic:  Remove batch operations (and sqlite support)
+
+	  Because SQLite doesn't support full ALTER capabilities, alembic scripts
+	  require batch operations.  However, that capability wasn't available until
+	  0.7.0 which some distributions haven't reached yet.  Therefore, the batch
+	  operations introduced in commit 86d6e44cc (review 2319) have been reverted
+	  and SQLite is unsupported again, for now anyway.
+
+	  Tested the full upgrade and downgrade on MySQL/Mariadb and Postgresql.
+
+	  ASTERISK-25890 #close
+	  Reported-by: Harley Peters
+
+	  Change-Id: I82eba5456736320256f6775f5b0b40133f4d1c80
+
+2016-04-07 11:05 +0000 [901e8d78c4]  Joshua Colp <jcolp@digium.com>
+
+	* res_pjsip_registrar_expire: Fix race condition at shutdown.
+
+	  When shutting down, the PJSIP sorcery is destroyed. The registrar
+	  expiration module queries the PJSIP sorcery to determine what
+	  to expire. As there was no synchronization between termination
+	  of the expiration thread and the unloading of the module it was
+	  possible for the thread to try to access the PJSIP sorcery after
+	  it had been destroyed.
+
+	  This change ensures that the thread is shut down before allowing
+	  the module to be considered unloaded.
+
+	  Change-Id: I69fd239edbaaf160c2d37ae00d3ac06e5596fe8b
+
+2016-04-06 16:28 +0000 [8207372e66]  Joshua Colp <jcolp@digium.com>
+
+	* res_pjsip: Fix configuration setting of "regcontext".
+
+	  Due to a merge problem two options were swapped causing the
+	  regcontext setting to not get set.
+
+	  Change-Id: Icb33edc668e7357bacbaec2861a6b5ac64edaff1
+
+2016-04-06 08:01 +0000 [0735a4d6d7]  Jacek Konieczny <jkonieczny@eggsoft.pl>
+
+	* frame.c: Copy the whole subclass in ast_frdup().
+
+	  The problem is ast_frdup() does not copy whole frame.subclass for voice,
+	  video and image frames, only the format is copied.  For video frames, the
+	  subclass structure contains the .frame_ending flag used to put the RTP
+	  marker where it needs to be.
+
+	  ASTERISK-25894 #close
+
+	  Change-Id: I812ca90e84ed5d4f473b997d0dd0d3c5a915fe33
+
+2016-04-05 14:23 +0000 [c61dca6419]  Mark Michelson <mmichelson@digium.com>
+
+	* res_pjsip: Handle deferred SDP hold/unhold properly.
+
+	  Some SIP devices indicate hold/unhold using deferred SDP reinvites. In
+	  other words, they provide no SDP in the reinvite.
+
+	  A typical transaction that starts hold might look something like this:
+
+	  * Device sends reinvite with no SDP
+	  * Asterisk sends 200 OK with SDP indicating sendrecv on streams.
+	  * Device sends ACK with SDP indicating sendonly on streams.
+
+	  At this point, PJMedia's SDP negotiator saves Asterisk's local state as
+	  being recvonly.
+
+	  Now, when the device attempts to unhold, it again uses a deferred SDP
+	  reinvite, so we end up doing the following:
+
+	  * Device sends reinvite with no SDP
+	  * Asterisk sends 200 OK with SDP indicating recvonly on streams
+	  * Device sends ACK with SDP indicating sendonly on streams
+
+	  The problem here is that Asterisk offered recvonly, and by RFC 3264's
+	  rules, if an offer is recvonly, the answer has to be sendonly. The
+	  result is that the device is not taken off hold.
+
+	  What is supposed to happen is that Asterisk should indicate sendrecv in
+	  the 200 OK that it sends. This way, the device has the freedom to
+	  indicate sendrecv if it wants the stream taken off hold, or it can
+	  continue to respond with sendonly if the purpose of the reinvite was
+	  something else (like a session timer refresher).
+
+	  The fix here is to alter the SDP negotiator's state when we receive a
+	  reinvite with no SDP. If the negotiator's state is currently in the
+	  recvonly or inactive state, then we alter our local state to be
+	  sendrecv. This way, we allow the device to indicate the stream state as
+	  desired.
+
+	  ASTERISK-25854 #close
+	  Reported by Robert McGilvray
+
+	  Change-Id: I7615737276165eef3a593038413d936247dcc6ed
+
+2016-03-27 23:33 +0000 [50b0922a22]  gtjoseph <george.joseph@fairview5.com>
+
+	* config:  Allow filters when appending to a category
+
+	  In sorcery based config files where there are multiple categories with the same
+	  name, you can't use the (+) operator to reliably append to a category because
+	  config.c stops looking when it finds the first one with the same name.
+
+	  Example:
+
+	  [1000]
+	  type = endpoint
+
+	  [1000]
+	  type = aor
+
+	  [1000](+)
+	  authenticate_qualify = yes
+
+	  This config will fail because config.c appends authenticate_qualify to the
+	  first category it finds, the endpoint, and that's not valid for endpoint.
+
+	  Solution:
+
+	  The capability to find a category that contains a certain variable already
+	  exists so the only real change was to parse anything after the '+' that's not a
+	  comma, as a filter string.
+
+	  [1000]
+	  type = endpoint
+
+	  [1000]
+	  type = aor
+
+	  [1000](+type=aor)
+	  authenticate_qualify = yes
+
+	  This now works as expected.
+
+	  Although the following example doesn't make any sense for pjsip, you can even
+	  specify multiple filters:
+
+	  [1000](+type=aor&qualify_frequency=10)
+
+	  ASTERISK-25868 #close
+	  Reported-by: Nick Repin
+
+	  Change-Id: I10773da4c79db36fbf1993961992af63d3441580
+
+2016-04-05 10:21 +0000 [cb56ef8069]  Joshua Colp <jcolp@digium.com>
+
+	* res_http_websocket: Make core supported.
+
+	  Websockets are a core part of ARI support and as such this
+	  module should also be core supported.
+
+	  Change-Id: I8f9283c6a167152761b92984779bb39e3db51a9c
+
+2016-03-25 23:22 +0000 [f6f4cf459f]  gtjoseph <george.joseph@fairview5.com>
+
+	* stringfields:  Refactor to allow fields to be added to the end of structures
+
+	  String fields are great, except that you can't add new ones without breaking
+	  ABI compatibility because it shifts down everything else in the structure.
+	  The only alternative is to add your own char * field to the end of the
+	  structure and manage the memory yourself which isn't ideal, especially since
+	  you then can't use the OPT_STRINGFIELD_T type.
+
+	  Background:
+
+	  The reason string fields had to be declared inside the
+	  AST_DECLARE_STRING_FIELDS block was to facilitate iteration over all declared
+	  fields for initialization, compare and copy.  Since AST_DECLARE_STRING_FIELDS
+	  declared the pool, then the fields, then the manager, you could use the offsets
+	  of the pool and manager and iterate over the sequential addresses in between to
+	  access the fields. The actual pool, field allocation and field set operations
+	  don't actually care where the field is.  It's just iteration over the fields
+	  that was the problem.
+
+	  Solution: Extended String Fields
+
+	  An extended string field is one that is declared outside the
+	  AST_DECLARE_STRING_FIELDS block but still (anywhere) inside the parent
+	  structure.  Other than using AST_STRING_FIELD_EXTENDED instead of
+	  AST_STRING_FIELD, it looks the same as other string fields.  It's storage comes
+	  from the pool and it participates in string field compare and copy operations
+	  peformed on the parent structure. It's also a valid target for the
+	  OPT_STRINGFIELD_T aco option type.
+
+	  Implementation:
+
+	  To keep track of the extended fields and make sure that ABI isn't broken, the
+	  existing embedded_pool pointer in the manager structure was repurposed to be a
+	  pointer to a separate header structure that contains the embedded_pool pointer
+	  plus a vector of fields.  The length of the manager structure didn't change and
+	  the embedded_pool pointer isn't used in the macros, only the stringfields C
+	  code.  A side benefit of this is that changing the header structure in the
+	  future won't break ABI.
+
+	  ast_string_fields_init initializes the normal string fields and appends them to
+	  the vector, and subsequent calls to ast_string_field_init_extended initialize
+	  and append the extended fields. Cleanup, ast_string_fields_cmp, and
+	  ast_string_fields_copy can now work on the vector instead of sequentially
+	  traversing the addresses between the pool and manager.
+
+	  The total size of a structure using string fields didn't change, whether using
+	  extended fields or not, nor have the offsets of any structure members, either
+	  inside the original block or outside.  Adding an extended field to the end of a
+	  structure is the same as adding a char *.
+
+	  Details:
+
+	  The stringfield C code was pulled out from utils.c and into stringfields.c.
+	  It just made sense.
+
+	  Additional work was done in ast_string_field_init and
+	  ast_calloc_with_stringfields to handle the allocation of the new header
+	  structure and the vector, and the associated cleanup.  In the process some
+	  additional NULL pointer checking was added.
+
+	  A lot of work was done in stringfields.h since the logic for compare and copy
+	  is there.  Documentation was added as well as somne additional NULL checking.
+
+	  The ability to call ast_calloc_with_stringfields with a number of structures
+	  greater than 1 never really worked.  Well, the calloc worked but there was no
+	  way to access the additional structures or clean them up.  It was agreed that
+	  there was no use case for requesting more than 1 structure so an ast_assert
+	  was added to prevent it and the iteration code removed.
+
+	  Testing:
+
+	  The stringfield unit tests were updated to test both normal and extended
+	  fields.  Tests for ast_string_field_ptr_set_by_fields and
+	  ast_calloc_with_stringfields were also added.
+
+	  As an ABI test, 13 was compiled from git and the res_pjsip_* modules, except
+	  res_pjsip itself, saved off.  The patch was then added and a full compile and
+	  install was performed.  Then the older res_pjsip_* moduled were copied over the
+	  installed versions so res_pjsip was new and the rest were old.  No issues.
+
+	  contact->aor, which is a char * at the end of contact, was then changed to an
+	  extended string field and a recompile and reinstall was performed, again
+	  leaving stock versions of the the res_pjsip_* modules.  Again, no issues with
+	  the res_pjsip_* modules using the old stringfield implementation and with
+	  contact->aor as a char *, and res_pjsip itself using the new stringfield
+	  implementation and contact->aor being an extended string field.
+
+	  Finally, several existing string fields were converted to extended string
+	  fields to test OPT_STRINGFIELD_T.  Again, no issues.
+
+	  Change-Id: I235db338c5b178f5a13b7946afbaa5d4a0f91d61
+
+2016-04-04 18:02 +0000 [fe448ac8a7]  gtjoseph <george.joseph@fairview5.com>
+
+	* res_pjsip_mwi:  Fix segv caused by 16c7d8e74a9af13f98c3c22aa9c43ce39965f6b7
+
+	  I forgot the new voicemail_extension wasn't a stringfield and didn't check
+	  for NULL where I should have.
+
+	  Change-Id: I029482d5c2ab72474838750461bd46b0809c90fb
+
+2016-04-03 11:47 +0000 [9d4318f798]  gtjoseph <george.joseph@fairview5.com>
+
+	* install_prereq:  Fix check_installed_debs remove subversion
+
+	  check_installed_debs wasn't handling virtual packages like libsrtp-dev and
+	  libresample-dev and on multiarch systems it was accidentally filtering out all
+	  packages if any :i386 packages were found instead of just filtering out the
+	  :i386 packages themselves.
+
+	  Change-Id: Ifd68da0d1ee30cc84df14de3f9b9079d7c3cecda
+
+2016-04-01 13:09 +0000 [566601837e]  gtjoseph <george.joseph@fairview5.com>
+
+	* utils.c:  Fix typo in handle_show_locks
+
+	  ast_cli_allow_on_shutdown(e) should have been ast_cli_allow_at_shutdown(e).
+
+	  Change-Id: I4f092495c0b2bfd85c2651e0b5877bf4d05d9faf
+
+2016-03-30 18:34 +0000 [964f54bd5d]  gtjoseph <george.joseph@fairview5.com>
+
+	* pjproject_bundled:  Fix use of LDCONFIG for shared library link creation
+
+	  LDCONFIG apparently isn't set to something sane on all systems so the creation
+	  of the shared library links fails.  Instead of just testing for non-blank,
+	  main/Makefile now checks that LDCONFIG is actually executable and reverts to
+	  LN if it isn't.
+
+	  This applies to both libasteriskpj and libasteriskssl.
+
+	  Thanks to 'abelbeck' for pointing out that the issue was LDCONFIG.
+
+	  ASTERISK-25873 #close
+	  Reported-by: Hans van Eijsden
+
+	  Change-Id: I25b76379bc637726ec044b2c0e709b56b3701729
+
+2016-03-30 13:31 +0000 [5f73c2ef0a]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_stasis.c: Protect channel datastore list from stasis end.
+
+	  Change-Id: Ifadc469590bd4d5368e19d3763db3bd1f80fdb95
+
+2016-03-29 18:06 +0000 [74d63f56ee]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_ari: Cannot get control also means channel is unavailable.
+
+	  The only caller of ari_bridges_play_found() has this note:
+
+	  If ari_bridges_play_found fails because the channel is unavailable for
+	  playback, The channel will be removed from the playback list soon.  We can
+	  keep trying to get channels from the list until we either get one that
+	  will work or else there isn't a channel for this bridge anymore, in which
+	  case we'll revert to ari_bridges_play_new.
+
+	  Change-Id: Ib068141b367ccaa17be0dab4181c98e26c5127d6
+
+2016-03-29 14:29 +0000 [cf49b44090]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_stasis_recording.c: Cleanup stasis_app_recording_find_by_name().
+
+	  Change-Id: Ic7d93c402c498677a122505558859c853d4e5ac7
+
+2016-03-28 14:23 +0000 [7f53f1d89e]  Richard Mudgett <rmudgett@digium.com>
+
+	* core_unreal.c: Add clarification comment about channel ref.
+
+	  Change-Id: I0be0627260cd8d6b6c3cc345949dcfdf32eff1f3
+
+2016-03-29 13:47 +0000 [ecf4102d02]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_stasis: Add control ref to playback and recording structs.
+
+	  The stasis_app_playback and stasis_app_recording structs need to have a
+	  struct stasis_app_control ref.  Other threads can get a reference to the
+	  playback and recording structs from their respective global container.
+	  These other threads can then use the control pointer they contain after
+	  the control struct has gone.
+
+	  * Add control ref to stasis_app_playback and stasis_app_recording structs.
+
+	  With the refs added, the control command queue can now have a circular
+	  control reference which will cause the control struct to never get
+	  released if the control's command queue is not flushed when the channel
+	  leaves the Stasis application.  Also the command queue needs better
+	  protection from adding commands if the control->is_done flag is set.
+
+	  * Flush the control command queue on exit.
+
+	  ASTERISK-25882 #close
+
+	  Change-Id: I3cf1fb59cbe6f50f20d9e35a2c07ac07d7f4320d
+
+2016-03-28 18:10 +0000 [a179aba65e]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_stasis: Fix crash on a hanging up channel.
+
+	  * Give the struct stasis_app_control ao2 object a ref to the channel held
+	  in the object.  Now the channel will still be around if a thread needs to
+	  post a stasis message instead of crash because the topic was destroyed.
+
+	  * Moved stopping any lingering silence generator out of the struct
+	  stasis_app_control destructor and made it a part of exiting the Stasis
+	  application.  Who knows which thread the destructor will be called under
+	  so it cannot affect the channel's silence generator.  Not only was the
+	  channel unprotected when the silence generator was stopped, stasis may no
+	  longer even control the channel.
+
+	  ASTERISK-25882
+
+	  Change-Id: I21728161b5fe638cef7976fa36a605043a7497e4
+
+2016-03-30 12:38 +0000 [16c7d8e74a]  gtjoseph <george.joseph@fairview5.com>
+
+	* res_pjsip_mwi:  Allow subscribe to vm access extension as an alias
+
+	  Background:
+
+	  If your extension is 1000 and the voicemail access extension is 1571 and you
+	  dial 1571, usually a dialplan rule calls voicemailmain with your extension and
+	  you are placed directly in your mailbox.  Therefore most admins program the
+	  voicemail (or other speed dial) button on their phones to the access extension.
+	  Some phones (Snom at least) use whatever is programmed there to also subscribe
+	  for MWI and so can't dial one number and subscribe to another.  This works fine
+	  in chan_sip because chan_sip completely ignores the user portion of the
+	  SUBSCRIBE message request URI.  If it can match the peer, is subscribes to the
+	  peer's mailbox.  The user could be set to anything or nothing and you'd still
+	  get subscribed to your mailbox.
+
+	  Issue:
+
+	  chan_pjsip actually uses the user portion of the URI to find an aor and its
+	  mailboxes.  Therefore a subscribe to 1571 results in a 404.  Sure, you can
+	  create an aor for 1571 but you certainly can't add your entire voicemail
+	  system's mailboxes to it and everyone would get notified of every MWI.
+
+	  Solution:
+
+	  When an MWI subscribe comes in and an aor can't be found that matches the
+	  resource directly, check the resource against the endpoint's aors.  If an aor
+	  is found that has a voicemail_extension that matches the resource, use it.
+
+	  ASTERISK-25865
+	  Reported-by: Ross Beer
+
+	  Change-Id: I770ea185f751f1ada888fafb4b452115f1c06e9e
+
+2016-03-24 22:55 +0000 [d8f0bc3572]  gtjoseph <george.joseph@fairview5.com>
+
+	* res_pjsip_mwi:  Add voicemail extension and mwi_subscribe_replaces_unsolicited
+
+	  res_pjsip_mwi was missing the chan_sip "vmexten" functionality which adds
+	  the Message-Account header to the MWI NOTIFY.  Also, specifying mailboxes
+	  on endpoints for unsolicited mwi and on aors for subscriptions required
+	  that the admin know in advance which the client wanted.  If you specified
+	  mailboxes on the endpoint, subscriptions were rejected even if you also
+	  specified mailboxes on the aor.
+
+	  Voicemail extension:
+	  * Added a global default_voicemail_extension which defaults to "".
+	  * Added voicemail_extension to both endpoint and aor.
+	  * Added ast_sip_subscription_get_dialog for support.
+	  * Added ast_sip_subscription_get_sip_uri for support.
+
+	  When an unsolicited NOTIFY is constructed, the From header is parsed, the
+	  voicemail extension from the endpoint is substituted for the user, and the
+	  result placed in the Message-Account field in the body.
+
+	  When a subscribed NOTIFY is constructed, the subscription dialog local uri
+	  is parsed, the voicemail_extension from the aor (looked up from the
+	  subscription resource name) is substituted for the user, and the result
+	  placed in the Message-Account field in the body.
+
+	  If no voicemail extension was defined, the Message-Account field is not added
+	  to the NOTIFY body.
+
+	  mwi_subscribe_replaces_unsolicited:
+	  * Added mwi_subscribe_replaces_unsolicited to endpoint.
+
+	  The previous behavior was to reject a subscribe if a previous internal
+	  subscription for unsolicited MWI was found for the mailbox.  That remains the
+	  default.  However, if there are mailboxes also set on the aor and the client
+	  subscribes and mwi_subscribe_replaces_unsolicited is set, the existing internal
+	  subscription is removed and replaced with the external subscription.  This
+	  allows an admin to configure mailboxes on both the endpoint and aor and allows
+	  the client to select which to use.
+
+	  ASTERISK-25865 #close
+	  Reported-by: Ross Beer
+
+	  Change-Id: Ic15a9415091760539c7134a5ba3dc4a6a1217cea
+
+2016-03-30 09:46 +0000 [8dc8d6ceb8]  gtjoseph <george.joseph@fairview5.com>
+
+	* res_rtp_asterisk:  Fix placement of txcount increment
+
+	  Commit 1bce690ccb36a4744a327c07af23a9a3a0fa20cd was incrementing txcount
+	  for rtcp packets as well as rtp packets and that was causing sender reports
+	  to be generated instead of receiver reports in cases where no rtp was actually
+	  being sent.
+
+	  Moved the txcount increment from __rtp_sento, which handles both rtp and rtcp,
+	  to rtp_sento which only handles rtp packets.
+
+	  Discovered by the hep/rtcp-receiver test.
+
+	  Change-Id: Ie442e4bb947a68847a676497021ba10ffaf376d5
+
+2016-03-26 22:33 +0000 [c7eb18d865]  gtjoseph <george.joseph@fairview5.com>
+
+	* chan_pjsip:  Add 'pjsip show channelstats'
+
+	  Added the ability to show channel statistics to chan_pjsip (cli_functions.c)
+
+	  Moved the existing 'pjsip show channel(s)' functionality from
+	  pjsip_configuration to cli_functions.c.  The stats needed chan_pjsip's
+	  private header so it made sense to move the existing channel commands as well.
+
+	  Now using stasis_cache_dump to get the channel snapshots rather than retrieving
+	  all endpoints, then getting each one's channel snapshots.  Much more efficient.
+
+	  Change-Id: I03b114522126d27434030b285bf6d531ddd79869
+
+2016-03-10 19:52 +0000 [1583559a06]  gtjoseph <george.joseph@fairview5.com>
+
+	* res_pjsip/pjsip_options:  Fix From generation on outgoing OPTIONS
+
+	  No one seemed to notice but every time an OPTIONS goes out, it goes
+	  out with a From of "asterisk" (or whatever the default from_user is set to),
+	  even if you specify an endpoint.
+
+	  The issue had several causes...
+	  qualify_contact is only called with an endpoint if called from the CLI.
+	  If the endpoint is NULL, qualify_contact only looks up the endpoint if
+	  authenticate_qualify=yes. Even then, it never passes it on to
+	  ast_sip_create_request where the From header is set.  Therefore From
+	  is always "asterisk" (or whatever the default from_user is set to).
+	  Even if ast_sip_create_request were to get an endpoint, it only sets
+	  the From if endpoint->from_user is set.
+
+	  The fix is 4 parts...
+
+	  First, create_out_of_dialog_request was modified to use the endpoint id
+	  if endpoint was specified and from_user is not set.
+
+	  Second, qualify_contact was modified to always look up an endpoint if
+	  one wasn't specified regardless of authenticate_qualify.  It then passes
+	  the endpoint on to create_out_of_dialog_request.
+
+	  Third (and most importantly), find_an_endpoint was modified to find
+	  an endpoint by using an "aors LIKE %contact->aor%" predicate with
+	  ast_sorcery_retrieve_by_fields.  As such, this patch will only work
+	  if the sorcery realtime optimizations patch goes in.  Otherwise we'd
+	  be pulling the entire endpoints database every time we send an OPTIONS.
+	  Since we already know the contact's aor, the on_endpoint callback was also
+	  modified to just check if the contact->aor is an exact match to one of
+	  the endpoint's.
+
+	  Finally, since we now have an endpoint for every OPTIONS request,
+	  res_pjsip/endpt_send_request (which handles out-of-dialog reqests) was
+	  updated to get the transport from the endpoint and set it on tdata.
+	  Now the correct transport is used.
+
+	  Change-Id: I2207e12bb435e373bd1e03ad091d82e5aba011af
+2016-03-25 10:59 +0000 [0cfab30b28]  Jacek Konieczny <jkonieczny@eggsoft.pl>
+
+	* res_rtp_asterisk: Use separate SRTP session for RTCP with DTLS
+
+	  Asterisk uses separate UDP ports for RTP and RTCP traffic and RFC 5764
+	  explicitly states:
+
+	    There MUST be a separate DTLS-SRTP session for each distinct pair of
+	    source and destination ports used by a media session
+
+	  This means RTP keying material cannot be used for DTLS RTCP, which was
+	  the reason why RTCP encryption would fail.
+
+	  ASTERISK-25642
+
+	  Change-Id: I7e8779d8b63e371088081bb113131361b2847e3a
+
+2016-03-25 10:42 +0000 [6a9c18fb59]  Jacek Konieczny <jkonieczny@eggsoft.pl>
+
+	* app_echo: forward and generate VIDUPDATE frames
+
+	  When using app_echo via WebRTC with VP8 video the video would appear
+	  only after a few minutes, because there would be nothing to request
+	  a full reference frame.
+
+	  This fixes the problem in both ways:
+	  - echos any VIDUPDATE frames received on the channel
+	  - sends one such frame when first video frame is to be forwarded
+
+	  This makes the echo work with Firefox and Chrome WebRTC implementation.
+
+	  ASTERISK-25867 #close
+
+	  Change-Id: I73bda87bf7532ee8bfb28d917045a21034908c1e
+
+2016-03-27 12:53 +0000 [1bce690ccb]  gtjoseph <george.joseph@fairview5.com>
+
+	* res_rtp_asterisk:  Fix packet stats on bridged connection
+
+	  rxcount, txcount, rxoctetcount and txoctetcount weren't being calculated
+	  for bridged streams because the calulations were being done after the
+	  bridged short-circuit.  Actually, rxoctetcount wasn't ever being calculated.
+
+	  Moved the calculations so they occur for all valid received packets and
+	  all transmitted packets.  Also added rxoctetcount and txoctetcount to
+	  ast_rtp_instance_stat.
+
+	  Change-Id: I08fb06011a82d38c3b4068867a615068fbe59cbb
+
+2016-03-25 23:19 +0000 [50f90d4099]  Philip Correia
+
+	* res_parking: Fix blind transfer dynamic lots creation.
+
+	  Blind transfers to a recognized parking extension need to use the parker's
+	  channel variable values to create the dynamic parking lot.  This is
+	  because there is always only one parker while the parkee may actually be a
+	  multi-party bridge.  A multi-party bridge can never supply the needed
+	  channel variables to create the dynamic parking lot.  In the multi-party
+	  bridge blind transfer scenario, the parker's CHANNEL(parkinglot) value and
+	  channel variables are inherited by the local channel used to park the
+	  bridge.
+
+	  * In park_common_setup(), make use the parker instead of the parkee to
+	  supply the dynamic parking lot channel variable values.  In all but one
+	  case, the parkee is the same as the parker.  However, in the recognized
+	  parking extension blind transfer scenario for a two party bridge they are
+	  different channels.  For consistency, we need to use the parker channel.
+
+	  * In park_local_transfer(), pass the CHANNEL(parkinglot) value to the
+	  local channel when blind transferring a multi-party bridge to a recognized
+	  parking extension.
+
+	  * When a local channel starts a call, the Local;2 side needs to inherit
+	  the CHANNEL(parkinglot) value from Local;1.
+
+	  The DTMF one-touch parking case wasn't even trying to create dynamic
+	  parking lots before it aborted the attempt.
+
+	  * In parking_park_call(), add missing code to create a dynamic parking
+	  lot.
+
+	  A DTMF bridge hook is documented as returning -1 to remove the hook.
+	  Though the hook caller is really coded to accept non-zero.  See the
+	  ast_bridge_hook_callback typedef.
+
+	  * In feature_park_call(), don't remove the DTMF one-touch parking hook
+	  because of an error.
+
+	  ASTERISK-24605 #close
+	  Reported by:  Philip Correia
+	  Patches:
+	        call_park.patch (license #6672) patch uploaded by Philip Correia
+
+	  Change-Id: I221d3a8fcc181877a1158d17004474d35d8016c9
+
+2016-03-08 15:55 +0000 [5aa5c49413]  gtjoseph <george.joseph@fairview5.com>
+
+	* sorcery/res_pjsip:  Refactor for realtime performance
+
+	  There were a number of places in the res_pjsip stack that were getting
+	  all endpoints or all aors, and then filtering them locally.
+
+	  A good example is pjsip_options which, on startup, retrieves all
+	  endpoints, then the aors for those endpoints, then tests the aors to see
+	  if the qualify_frequency is > 0.  One issue was that it never did
+	  anything with the endpoints other than retrieve the aors so we probably
+	  could have skipped a step and just retrieved all aors. But nevermind.
+
+	  This worked reasonably well with local config files but with a realtime
+	  backend and thousands of objects, this was a nightmare.  The issue
+	  really boiled down to the fact that while realtime supports predicates
+	  that are passed to the database engine, the non-realtime sorcery
+	  backends didn't.
+
+	  They do now.
+
+	  The realtime engines have a scheme for doing simple comparisons. They
+	  take in an ast_variable (or list) for matching, and the name of each
+	  variable can contain an operator.  For instance, a name of
+	  "qualify_frequency >" and a value of "0" would create a SQL predicate
+	  that looks like "where qualify_frequency > '0'".  If there's no operator
+	  after the name, the engines add an '=' so a simple name of
+	  "qualify_frequency" and a value of "10" would return exact matches.
+
+	  The non-realtime backends decide whether to include an object in a
+	  result set by calling ast_sorcery_changeset_create on every object in
+	  the internal container.  However, ast_sorcery_changeset_create only does
+	  exact string matches though so a name of "qualify_frequency >" and a
+	  value of "0" returns nothing because the literal "qualify_frequency >"
+	  doesn't match any name in the objset set.
+
+	  So, the real task was to create a generic string matcher that can take a
+	  left value, operator and a right value and perform the match. To that
+	  end, strings.c has a new ast_strings_match(left, operator, right)
+	  function.  Left and right are the strings to operate on and the operator
+	  can be a string containing any of the following: = (or NULL or ""), !=,
+	  >, >=, <, <=, like or regex.  If the operator is like or regex, the
+	  right string should be a %-pattern or a regex expression.  If both left
+	  and right can be converted to float, then a numeric comparison is
+	  performed, otherwise a string comparison is performed.
+
+	  To use this new function on ast_variables, 2 new functions were added to
+	  config.c.  One that compares 2 ast_variables, and one that compares 2
+	  ast_variable lists.  The former is useful when you want to compare 2
+	  ast_variables that happen to be in a list but don't want to traverse the
+	  list.  The latter will traverse the right list and return true if all
+	  the variables in it match the left list.
+
+	  Now, the backends' fields_cmp functions call ast_variable_lists_match
+	  instead of ast_sorcery_changeset_create and they can now process the
+	  same syntax as the realtime engines.  The realtime backend just passes
+	  the variable list unaltered to the engine.  The only gotcha is that
+	  there's no common realtime engine support for regex so that's been noted
+	  in the api docs for ast_sorcery_retrieve_by_fields.
+
+	  Only one more change to sorcery was done...  A new config flag
+	  "allow_unqualified_fetch" was added to reg_sorcery_realtime.
+	  "no": ignore fetches if no predicate fields were supplied.
+	  "error": same as no but emit an error. (good for testing)
+	  "yes": allow (the default);
+	  "warn": allow but emit a warning. (good for testing)
+
+	  Now on to res_pjsip...
+
+	  pjsip_options was modified to retrieve aors with qualify_frequency > 0
+	  rather than all endpoints then all aors.  Not only was this a big
+	  improvement in realtime retrieval but even for config files there's an
+	  improvement because we're not going through endpoints anymore.
+
+	  res_pjsip_mwi was modified to retieve only endpoints with something in
+	  the mailboxes field instead of all endpoints then testing mailboxes.
+
+	  res_pjsip_registrar_expire was completely refactored.  It was retrieving
+	  all contacts then setting up scheduler entries to check for expiration.
+	  Now, it's a single thread (like keepalive) that periodically retrieves
+	  only contacts whose expiration time is < now and deletes them.  A new
+	  contact_expiration_check_interval was added to global with a default of
+	  30 seconds.
+
+	  Ross Beer reports that with this patch, his Asterisk startup time dropped
+	  from around an hour to under 30 seconds.
+
+	  There are still objects that can't be filtered at the database like
+	  identifies, transports, and registrations.  These are not going to be
+	  anywhere near as numerous as endpoints, aors, auths, contacts however.
+
+	  Back to allow_unqualified_fetch.  If this is set to yes and you have a
+	  very large number of objects in the database, the pjsip CLI commands
+	  will attempt to retrive ALL of them if not qualified with a LIKE.
+	  Worse, if you type "pjsip show endpoint <tab>" guess what's going to
+	  happen? :)  Having a cache helps but all the objects will have to be
+	  retrieved at least once to fill the cache.  Setting
+	  allow_unqualified_fetch=no prevents the mass retrieve and should be used
+	  on endpoints, auths, aors, and contacts.  It should NOT be used for
+	  identifies, registrations and transports since these MUST be
+	  retrieved in bulk.
+
+	  Example sorcery.conf:
+
+	  [res_pjsip]
+	  endpoint=config,pjsip.conf,criteria=type=endpoint
+	  endpoint=realtime,ps_endpoints,allow_unqualified_fetch=error
+
+	  ASTERISK-25826 #close
+	  Reported-by: Ross Beer
+	  Tested-by: Ross Beer
+
+	  Change-Id: Id2691e447db90892890036e663aaf907b2dc1c67
+
+2016-03-23 14:24 +0000 [05fc3a96d1]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_parking: Cleanup find_channel_parking_lot_name() usage.
+
+	  Change-Id: I8f7a8890aef27824301c642d4d15407ac83e6f02
+
+2016-03-18 14:01 +0000 [a4189763ab]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_parking: Misc fixes.
+
+	  res/parking/parking_applications.c:
+
+	  * Add malloc fail checks in setup_park_common_datastore().
+
+	  * Fix playing parking failed announcement to only happen on non-blind
+	  transfers in park_app_exec().  It could never go out before because a test
+	  was provedly always false.
+
+	  res/parking/parking_bridge.c:
+
+	  * Fix NULL tolerance in generate_parked_user() because
+	  bridge_parking_push() can theoretically pass a NULL parker channel if the
+	  parker channel went away for some reason.
+
+	  * Clarify some weird code dealing with blind_transfer in
+	  bridge_parking_push().
+
+	  res/parking/parking_bridge_features.c:
+
+	  * Made park_local_transfer() set BLINDTRANSFER on the Local;1 channel
+	  which will be bulk copied to the Local;2 channel on the subsequent
+	  ast_call().  The additional advantage is if the parker channel has the
+	  BLINDTRANSFER and ATTENDEDTRANSFER variables set they are now guaranteed
+	  to be overridden.
+
+	  res/parking/parking_manager.c:
+
+	  * Fix AMI Park action input range checking of the Timeout header in
+	  manager_park().
+
+	  * Reduced locking scope to where needed in manager_park().
+
+	  res/res_parking.c:
+
+	  * Fix some off nominal missing unlocks by eliminating the returns.
+
+	  Change-Id: Ib64945bc285acb05a306dc12e6f16854898915ca
+
+2014-12-15 05:23 +0000 [6f95b5eda1]  Philip Correia
+
+	* res_parking: Update parking documentation for dynamic parking lots.
+
+	  * Remove duplicate res_parking.conf courtesytone config option
+	  documentation.
+
+	  ASTERISK-24596 #close
+	  Reported by:  Philip Correia
+
+	  ASTERISK-24605
+	  Reported by:  Philip Correia
+	  Patches:
+	        call_park_app_doc.patch (license #6672) patch uploaded by Philip Correia
+
+	  Change-Id: I90a92a891c6494dc08173e675856afcc4764c5b5
+
+2016-03-24 14:08 +0000 [81ce60f6d4]  Alexander Traud <pabstraud@compuserve.com>
+
+	* chan_sip: Do not send all codecs on INVITE. Do not break on Session-Timers.
+
+	  Asterisk 13.7.0 included a fix for ASTERISK-24543, not to send all those
+	  codecs, which the caller did not request/support. That fix was not complete
+	  because on the second Session Timer all codecs were sent again. Some VoIP/SIP
+	  clients interpreted that complete codec-list as a change in the SIP session.
+	  Because of that, Asterisk did not send the RTP audio via NAT anymore which
+	  created a non-audio scenario after the second Session Timer fired.
+
+	  ASTERISK-24543 #close
+
+	  Change-Id: I1881827816ab7fd47eb4287a95961179b34a0b66
+
+2016-03-19 07:34 +0000 [c6e4c48e67]  Gianluca Merlo <gianluca.merlo@gmail.com>
+
+	* config: fix flags in uint option handler
+
+	  The configuration unsigned integer option handler sets flags for the
+	  parser as if the option should be a signed integer (PARSE_INT32),
+	  leading to errors on "out of range" values. Fix flags (PARSE_UINT32).
+
+	  A fix to res_pjsip is also present which stops invalid flags from
+	  being passed when registering sorcery object fields for qualify
+	  status.
+
+	  ASTERISK-25612 #close
+
+	  Change-Id: I96b539336275e0e72a8e8033487d2c3344debd3e
+
+2016-03-10 16:58 +0000 [59c8e189fd]  Mark Michelson <mmichelson@digium.com>
+
+	* Restrict CLI/AMI commands on shutdown.
+
+	  During stress testing, we have frequently seen crashes occur because a
+	  CLI or AMI command attempts to access information that is in the process
+	  of being destroyed.
+
+	  When addressing how to fix this issue, we initially considered fixing
+	  individual crashes we observed. However, the changes required to fix
+	  those problems would introduce considerable overhead to the nominal
+	  case. This is not reasonable in order to prevent a crash from occurring
+	  while Asterisk is already shutting down.
+
+	  Instead, this change makes it so AMI and CLI commands cannot be executed
+	  if Asterisk is being shut down. For AMI, this is absolute. For CLI,
+	  though, certain commands can be registered so that they may be run
+	  during Asterisk shutdown.
+
+	  ASTERISK-25825 #close
+
+	  Change-Id: I8887e215ac352fadf7f4c1e082da9089b1421990
+2016-03-24 07:45 +0000 [ff3eebf454]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* musiconhold: Only warn if music class is not found in memory and database.
+
+	  The log message when a MusicOnHold music class was not found was changed
+	  from debug level to WARNING level in Asterisk 11.19 and 13.5.  For those
+	  using realtime musiconhold, this message is wrong because it warns
+	  before checking the database.
+
+	  This changeset delays the warning until after the database has been
+	  checked.
+
+	  Reported-by: Conrad de Wet
+	  ASTERISK-25444 #close
+
+	  Change-Id: I6cfb2db2f9cfbd2bb3d30566ecae361c4abf6dbf
+
+2016-03-24 05:38 +0000 [82e55e4883]  Walter Doekes <walter+asterisk@wjd.nu>
+
+	* core/logging: Fix broken syslog levels on older glibc.
+
+	  The fix to ASTERISK-25407 introduced the usage of LOG_MAKEPRI. However
+	  this macro is broken in older glibc (< 2.17); it would left-shift the
+	  facility a second time, causing the resultant priority to become
+	  invalid.
+
+	  The syslog manpage mentions nothing about LOG_MAKEPRI and suggests this:
+
+	      The priority argument is formed by ORing the facility and the level
+	      values [...].
+
+	  ASTERISK-25510 #close
+	  Reported by: Michael Newton
+
+	  Change-Id: Ia89debe7fac5ad090c7ef595c0707f31bb1e3d03
+
+2016-03-23 08:59 +0000 [d963a33749]  gtjoseph <george.joseph@fairview5.com>
+
+	* pjproject-bundled:  Cleanups for reported issues
+
+	  PortAudio should no longer be required
+	  PJSIP_MAX_PKT_LEN is now 6000
+	  Older autoconf issue fixed. (CentOS 6)
+
+	  Change-Id: I463fa9586cbe7c6b3b603289f535bd8e361611dd
+
+2015-11-20 08:02 +0000 [c5170677e7]  Francesco Castellano <francesco.castellano@messagenet.it>
+
+	* chan_sip.c: Space after port causes unnecessary resolution attempt
+
+	  check_via() already skips leading blanks where the sent-by address (with the
+	  optional port) should be placed.
+
+	  Since RFC 3261 allows for blanks between the port ant the Via parameters:
+	  > https://tools.ietf.org/html/rfc3261#section-20.42
+	  (actually it allows a lot of blanks more ;-)). I just switched from
+	  ast_skip_blanks() to ast_strip() on the local copy of the string.
+
+	  ASTERISK-21301 #close
+
+	  Change-Id: Ie5b8fe5a07067b7c0dc9bcdd1707e99b23b02b06
+
+2016-03-19 17:49 +0000 [51deadee38]  gtjoseph <george.joseph@fairview5.com>
+
+	* progdocs:  Exclude ./third-party from documentation generation
+
+	  We don't need pjproject's documentation embedded in Asterisk's.
+
+	  Change-Id: Iea6f5a621c0f4e3168dda3321eaab258d9f24a17
+
+2016-03-18 20:32 +0000 [aa2fcd244e]  Gianluca Merlo <gianluca.merlo@gmail.com>
+
+	* func_aes: fix misuse of strlen on binary data
+
+	  The encryption code for AES_ENCRYPT evaluates the length of the data to
+	  be encoded in base64 using strlen. The data is binary, thus the length
+	  of it can be underestimated at the first NULL character.
+	  Reuse the write pointer offset to evaluate it, instead.
+
+	  ASTERISK-25857 #close
+
+	  Change-Id: If686b5d570473eb926693c73461177b35b13b186
+
 2016-04-20 10:46 +0000  Asterisk Development Team <asteriskteam@digium.com>
 
 	* asterisk 13.8.2 Released.

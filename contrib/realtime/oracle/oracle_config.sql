@@ -1288,3 +1288,35 @@ UPDATE alembic_version SET version_num='3bcc0b5bc2c9' WHERE alembic_version.vers
 
 /
 
+-- Running upgrade 3bcc0b5bc2c9 -> 5813202e92be
+
+ALTER TABLE ps_globals ADD contact_expiration_check_interval INTEGER
+
+/
+
+UPDATE alembic_version SET version_num='5813202e92be' WHERE alembic_version.version_num = '3bcc0b5bc2c9'
+
+/
+
+-- Running upgrade 5813202e92be -> 1c688d9a003c
+
+ALTER TABLE ps_globals ADD default_voicemail_extension VARCHAR2(40 CHAR)
+
+/
+
+ALTER TABLE ps_aors ADD voicemail_extension VARCHAR2(40 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD voicemail_extension VARCHAR2(40 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD mwi_subscribe_replaces_unsolicited INTEGER
+
+/
+
+UPDATE alembic_version SET version_num='1c688d9a003c' WHERE alembic_version.version_num = '5813202e92be'
+
+/
+
