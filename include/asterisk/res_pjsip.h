@@ -310,6 +310,8 @@ struct ast_sip_aor {
 	unsigned int support_path;
 	/*! Qualify timeout. 0 is diabled. */
 	double qualify_timeout;
+	/* Voicemail extension to set in Message-Account */
+	char *voicemail_extension;
 };
 
 /*!
@@ -464,6 +466,10 @@ struct ast_sip_mwi_configuration {
 	);
 	/* Should mailbox states be combined into a single notification? */
 	unsigned int aggregate;
+	/* Should a subscribe replace unsolicited notifies? */
+	unsigned int subscribe_replaces_unsolicited;
+	/* Voicemail extension to set in Message-Account */
+	char *voicemail_extension;
 };
 
 /*!
@@ -998,8 +1004,26 @@ struct ast_sip_contact *ast_sip_location_retrieve_first_aor_contact(const struct
  *
  * \retval NULL if no contacts available
  * \retval non-NULL if contacts available
+ *
+ * \warning
+ * Since this function prunes expired contacts before returning, it holds a named write
+ * lock on the aor.  If you already hold the lock, call ast_sip_location_retrieve_aor_contacts_nolock instead.
  */
 struct ao2_container *ast_sip_location_retrieve_aor_contacts(const struct ast_sip_aor *aor);
+
+/*!
+ * \brief Retrieve all contacts currently available for an AOR without locking the AOR
+ * \since 13.9.0
+ *
+ * \param aor Pointer to the AOR
+ *
+ * \retval NULL if no contacts available
+ * \retval non-NULL if contacts available
+ *
+ * \warning
+ * This function should only be called if you already hold a named write lock on the aor.
+ */
+struct ao2_container *ast_sip_location_retrieve_aor_contacts_nolock(const struct ast_sip_aor *aor);
 
 /*!
  * \brief Retrieve the first bound contact from a list of AORs
@@ -1051,8 +1075,33 @@ struct ast_sip_contact *ast_sip_location_retrieve_contact(const char *contact_na
  *
  * \retval -1 failure
  * \retval 0 success
+ *
+ * \warning
+ * This function holds a named write lock on the aor.  If you already hold the lock
+ * you should call ast_sip_location_add_contact_nolock instead.
  */
 int ast_sip_location_add_contact(struct ast_sip_aor *aor, const char *uri,
+	struct timeval expiration_time, const char *path_info, const char *user_agent,
+	struct ast_sip_endpoint *endpoint);
+
+/*!
+ * \brief Add a new contact to an AOR without locking the AOR
+ * \since 13.9.0
+ *
+ * \param aor Pointer to the AOR
+ * \param uri Full contact URI
+ * \param expiration_time Optional expiration time of the contact
+ * \param path_info Path information
+ * \param user_agent User-Agent header from REGISTER request
+ * \param endpoint The endpoint that resulted in the contact being added
+ *
+ * \retval -1 failure
+ * \retval 0 success
+ *
+ * \warning
+ * This function should only be called if you already hold a named write lock on the aor.
+ */
+int ast_sip_location_add_contact_nolock(struct ast_sip_aor *aor, const char *uri,
 	struct timeval expiration_time, const char *path_info, const char *user_agent,
 	struct ast_sip_endpoint *endpoint);
 
@@ -2164,6 +2213,16 @@ char *ast_sip_get_regcontext(void);
 char *ast_sip_get_endpoint_identifier_order(void);
 
 /*!
+ * \brief Retrieve the default voicemail extension.
+ * \since 13.9.0
+ *
+ * \note returned string needs to be de-allocated by caller.
+ *
+ * \retval the default voicemail extension
+ */
+char *ast_sip_get_default_voicemail_extension(void);
+
+/*!
  * \brief Retrieve the global default from user.
  *
  * This is the value placed in outbound requests' From header if there
@@ -2191,6 +2250,14 @@ void ast_sip_get_default_from_user(char *from_user, size_t size);
  * \retval the keep alive interval.
  */
 unsigned int ast_sip_get_keep_alive_interval(void);
+
+/*!
+ * \brief Retrieve the system contact expiration check interval setting.
+ *
+ * \retval the contact expiration check interval.
+ */
+unsigned int ast_sip_get_contact_expiration_check_interval(void);
+
 
 /*!
  * \brief Retrieve the system max initial qualify time.
@@ -2293,5 +2360,6 @@ int ast_sip_set_tpselector_from_transport_name(const char *transport_name, pjsip
  */
 void ast_sip_modify_id_header(pj_pool_t *pool, pjsip_fromto_hdr *id_hdr,
 	const struct ast_party_id *id);
+
 
 #endif /* _RES_PJSIP_H */
