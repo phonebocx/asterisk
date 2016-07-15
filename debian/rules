@@ -145,7 +145,7 @@ override_dh_auto_install:
 	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/hashtest*
 	$(RM) -f $(CURDIR)/debian/tmp/usr/sbin/refcounter
 
-override_dh_install:
+override_dh_install-arch:
 	dh_install
 	extra_packs=`find $(SUBPACKS_EXTRA_DIRS_MOD) -name '*.so' -printf '%f\n'`\
 		    ; cd $(CURDIR)/debian/asterisk-modules/usr/lib/asterisk/modules \
