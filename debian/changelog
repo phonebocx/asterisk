@@ -1,3 +1,16 @@
+asterisk (1:13.9.1~dfsg-2) unstable; urgency=medium
+
+  [ Tzafrir Cohen ]
+  * provide a usable sounds/priv-callerintros
+
+  [ Jonas Smedegaard ]
+  * Fix override dh_install only for architecture-dependent targets.
+    Closes: Bug#821018. Thanks to Santiago Vila.
+  * Build-depend on libfreeradius-client-dev, with libradcli-dev only as
+    fallback (see bug#825121).
+
+ -- Jonas Smedegaard <dr@jones.dk>  Fri, 15 Jul 2016 04:40:40 +0200
+
 asterisk (1:13.9.1~dfsg-1) unstable; urgency=medium
 
   [ upstream ]
