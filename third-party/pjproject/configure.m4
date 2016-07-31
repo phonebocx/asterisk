@@ -21,14 +21,14 @@ AC_DEFUN([PJPROJECT_CONFIGURE],
 [
 	AC_MSG_CHECKING(for embedded pjproject (may have to download))
 	AC_MSG_RESULT(configuring)
-	make --quiet --no-print-directory -C $1 configure
+	${GNU_MAKE} --quiet --no-print-directory -C $1 configure
 	if test $? -ne 0 ; then
 		AC_MSG_RESULT(failed)
 		AC_MSG_NOTICE(Unable to configure $1)
-		AC_MSG_ERROR(Run "make -C $1 NOISY_BUILD=yes configure" to see error details.)
+		AC_MSG_ERROR(Run "${GNU_MAKE} -C $1 NOISY_BUILD=yes configure" to see error details.)
 	fi
 
-	PJPROJECT_INCLUDE=$(make --quiet --no-print-directory -C $1 echo_cflags)
+	PJPROJECT_INCLUDE=$(${GNU_MAKE} --quiet --no-print-directory -C $1 echo_cflags)
 	PJPROJECT_CFLAGS="$PJPROJECT_INCLUDE"
 	PBX_PJPROJECT=1
 	PJPROJECT_BUNDLED=yes
@@ -44,4 +44,5 @@ AC_DEFUN([PJPROJECT_CONFIGURE],
 	PJPROJECT_SYMBOL_CHECK([PJ_SSL_CERT_LOAD_FROM_FILES2], [pj_ssl_cert_load_from_files2], [pjlib.h])
 	PJPROJECT_SYMBOL_CHECK([PJSIP_EXTERNAL_RESOLVER], [pjsip_endpt_set_ext_resolver], [pjsip.h])
 	AC_DEFINE([HAVE_PJSIP_TLS_TRANSPORT_PROTO], 1, [Define if your system has PJSIP_TLS_TRANSPORT_PROTO])
+	AC_DEFINE([HAVE_PJSIP_EVSUB_GRP_LOCK], 1, [Define if your system has PJSIP_EVSUB_GRP_LOCK])
 ])
