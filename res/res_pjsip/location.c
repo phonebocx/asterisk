@@ -23,7 +23,9 @@
 #include "asterisk/res_pjsip.h"
 #include "asterisk/logger.h"
 #include "asterisk/astobj2.h"
+#include "asterisk/paths.h"
 #include "asterisk/sorcery.h"
+#include "asterisk/taskprocessor.h"
 #include "include/res_pjsip_private.h"
 #include "asterisk/res_pjsip_cli.h"
 #include "asterisk/statsd.h"
@@ -119,6 +121,10 @@ static void *contact_alloc(const char *name)
 		ao2_cleanup(contact);
 		return NULL;
 	}
+
+	ast_string_field_init_extended(contact, reg_server);
+	ast_string_field_init_extended(contact, via_addr);
+	ast_string_field_init_extended(contact, call_id);
 
 	/* Dynamic contacts are delimited with ";@" and static ones with "@@" */
 	if ((aor_separator = strstr(id, ";@")) || (aor_separator = strstr(id, "@@"))) {
@@ -305,6 +311,7 @@ struct ast_sip_contact *ast_sip_location_retrieve_contact(const char *contact_na
 
 int ast_sip_location_add_contact_nolock(struct ast_sip_aor *aor, const char *uri,
 		struct timeval expiration_time, const char *path_info, const char *user_agent,
+		const char *via_addr, int via_port, const char *call_id,
 		struct ast_sip_endpoint *endpoint)
 {
 	char name[MAX_OBJECT_FIELD * 2 + 3];
@@ -335,6 +342,19 @@ int ast_sip_location_add_contact_nolock(struct ast_sip_aor *aor, const char *uri
 		ast_string_field_set(contact, user_agent, user_agent);
 	}
 
+	if (!ast_strlen_zero(ast_config_AST_SYSTEM_NAME)) {
+		ast_string_field_set(contact, reg_server, ast_config_AST_SYSTEM_NAME);
+	}
+
+	if (!ast_strlen_zero(via_addr)) {
+		ast_string_field_set(contact, via_addr, via_addr);
+	}
+	contact->via_port = via_port;
+
+	if (!ast_strlen_zero(call_id)) {
+		ast_string_field_set(contact, call_id, call_id);
+	}
+
 	contact->endpoint = ao2_bump(endpoint);
 
 	return ast_sorcery_create(ast_sip_get_sorcery(), contact);
@@ -342,6 +362,7 @@ int ast_sip_location_add_contact_nolock(struct ast_sip_aor *aor, const char *uri
 
 int ast_sip_location_add_contact(struct ast_sip_aor *aor, const char *uri,
 		struct timeval expiration_time, const char *path_info, const char *user_agent,
+		const char *via_addr, int via_port, const char *call_id,
 		struct ast_sip_endpoint *endpoint)
 {
 	int res;
@@ -354,6 +375,7 @@ int ast_sip_location_add_contact(struct ast_sip_aor *aor, const char *uri,
 
 	ao2_wrlock(lock);
 	res = ast_sip_location_add_contact_nolock(aor, uri, expiration_time, path_info, user_agent,
+		via_addr, via_port, call_id,
 		endpoint);
 	ao2_unlock(lock);
 	ast_named_lock_put(lock);
@@ -1098,6 +1120,8 @@ int ast_sip_initialize_sorcery_location(void)
 	ast_pjproject_get_buildopt("PJSIP_MAX_URL_SIZE", "%d", &pjsip_max_url_size);
 
 	ast_sorcery_apply_default(sorcery, "contact", "astdb", "registrar");
+	ast_sorcery_object_set_congestion_levels(sorcery, "contact", -1,
+		3 * AST_TASKPROCESSOR_HIGH_WATER_LEVEL);
 	ast_sorcery_apply_default(sorcery, "aor", "config", "pjsip.conf,criteria=type=aor");
 
 	if (ast_sorcery_object_register(sorcery, "contact", contact_alloc, NULL, contact_apply_handler) ||
@@ -1114,8 +1138,13 @@ int ast_sip_initialize_sorcery_location(void)
 	ast_sorcery_object_field_register(sorcery, "contact", "qualify_frequency", 0, OPT_UINT_T,
 		PARSE_IN_RANGE, FLDSET(struct ast_sip_contact, qualify_frequency), 0, 86400);
 	ast_sorcery_object_field_register(sorcery, "contact", "qualify_timeout", "3.0", OPT_DOUBLE_T, 0, FLDSET(struct ast_sip_contact, qualify_timeout));
+	ast_sorcery_object_field_register(sorcery, "contact", "authenticate_qualify", "no", OPT_YESNO_T, 1, FLDSET(struct ast_sip_contact, authenticate_qualify));
 	ast_sorcery_object_field_register(sorcery, "contact", "outbound_proxy", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_contact, outbound_proxy));
 	ast_sorcery_object_field_register(sorcery, "contact", "user_agent", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_contact, user_agent));
+	ast_sorcery_object_field_register(sorcery, "contact", "reg_server", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_contact, reg_server));
+	ast_sorcery_object_field_register(sorcery, "contact", "via_addr", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_contact, via_addr));
+	ast_sorcery_object_field_register(sorcery, "contact", "via_port", "0", OPT_UINT_T, 0, FLDSET(struct ast_sip_contact, via_port));
+	ast_sorcery_object_field_register(sorcery, "contact", "call_id", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_contact, call_id));
 
 	ast_sorcery_object_field_register(sorcery, "aor", "type", "", OPT_NOOP_T, 0, 0);
 	ast_sorcery_object_field_register(sorcery, "aor", "minimum_expiration", "60", OPT_UINT_T, 0, FLDSET(struct ast_sip_aor, minimum_expiration));

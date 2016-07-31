@@ -839,3 +839,61 @@ ALTER TABLE ps_endpoints ADD COLUMN mwi_subscribe_replaces_unsolicited INTEGER;
 
 UPDATE alembic_version SET version_num='1c688d9a003c' WHERE alembic_version.version_num = '5813202e92be';
 
+-- Running upgrade 1c688d9a003c -> 8d478ab86e29
+
+ALTER TABLE ps_globals ADD COLUMN disable_multi_domain ENUM('yes','no');
+
+UPDATE alembic_version SET version_num='8d478ab86e29' WHERE alembic_version.version_num = '1c688d9a003c';
+
+-- Running upgrade 8d478ab86e29 -> 65eb22eb195
+
+ALTER TABLE ps_globals ADD COLUMN unidentified_request_count INTEGER;
+
+ALTER TABLE ps_globals ADD COLUMN unidentified_request_period INTEGER;
+
+ALTER TABLE ps_globals ADD COLUMN unidentified_request_prune_interval INTEGER;
+
+ALTER TABLE ps_globals ADD COLUMN default_realm VARCHAR(40);
+
+UPDATE alembic_version SET version_num='65eb22eb195' WHERE alembic_version.version_num = '8d478ab86e29';
+
+-- Running upgrade 65eb22eb195 -> 81b01a191a46
+
+ALTER TABLE ps_contacts ADD COLUMN reg_server VARCHAR(20);
+
+ALTER TABLE ps_contacts ADD CONSTRAINT ps_contacts_uq UNIQUE (id, reg_server);
+
+UPDATE alembic_version SET version_num='81b01a191a46' WHERE alembic_version.version_num = '65eb22eb195';
+
+-- Running upgrade 81b01a191a46 -> 6be31516058d
+
+ALTER TABLE ps_contacts ADD COLUMN authenticate_qualify ENUM('yes','no');
+
+UPDATE alembic_version SET version_num='6be31516058d' WHERE alembic_version.version_num = '81b01a191a46';
+
+-- Running upgrade 6be31516058d -> bca7113d796f
+
+ALTER TABLE ps_endpoints ADD COLUMN deny VARCHAR(95);
+
+ALTER TABLE ps_endpoints ADD COLUMN permit VARCHAR(95);
+
+ALTER TABLE ps_endpoints ADD COLUMN acl VARCHAR(40);
+
+ALTER TABLE ps_endpoints ADD COLUMN contact_deny VARCHAR(95);
+
+ALTER TABLE ps_endpoints ADD COLUMN contact_permit VARCHAR(95);
+
+ALTER TABLE ps_endpoints ADD COLUMN contact_acl VARCHAR(40);
+
+UPDATE alembic_version SET version_num='bca7113d796f' WHERE alembic_version.version_num = '6be31516058d';
+
+-- Running upgrade bca7113d796f -> a845e4d8ade8
+
+ALTER TABLE ps_contacts ADD COLUMN via_addr VARCHAR(40);
+
+ALTER TABLE ps_contacts ADD COLUMN via_port INTEGER;
+
+ALTER TABLE ps_contacts ADD COLUMN call_id VARCHAR(255);
+
+UPDATE alembic_version SET version_num='a845e4d8ade8' WHERE alembic_version.version_num = 'bca7113d796f';
+

@@ -1403,12 +1403,11 @@ struct ast_sip_channel_pvt *ast_sip_channel_pvt_alloc(void *pvt, struct ast_sip_
 }
 
 struct ast_sip_session *ast_sip_session_alloc(struct ast_sip_endpoint *endpoint,
-	struct ast_sip_contact *contact, pjsip_inv_session *inv_session)
+	struct ast_sip_contact *contact, pjsip_inv_session *inv_session, pjsip_rx_data *rdata)
 {
 	RAII_VAR(struct ast_sip_session *, session, NULL, ao2_cleanup);
 	struct ast_sip_session_supplement *iter;
 	int dsp_features = 0;
-	char tps_name[AST_TASKPROCESSOR_MAX_NAME + 1];
 
 	session = ao2_alloc(sizeof(*session), session_destructor);
 	if (!session) {
@@ -1429,11 +1428,24 @@ struct ast_sip_session *ast_sip_session_alloc(struct ast_sip_endpoint *endpoint,
 	/* fill session->media with available types */
 	ao2_callback(sdp_handlers, OBJ_NODATA, add_session_media, session);
 
-	/* Create name with seq number appended. */
-	ast_taskprocessor_build_name(tps_name, sizeof(tps_name), "pjsip/session/%s",
-		ast_sorcery_object_get_id(endpoint));
+	if (rdata) {
+		/*
+		 * We must continue using the serializer that the original
+		 * INVITE came in on for the dialog.  There may be
+		 * retransmissions already enqueued in the original
+		 * serializer that can result in reentrancy and message
+		 * sequencing problems.
+		 */
+		session->serializer = ast_sip_get_distributor_serializer(rdata);
+	} else {
+		char tps_name[AST_TASKPROCESSOR_MAX_NAME + 1];
 
-	session->serializer = ast_sip_create_serializer_named(tps_name);
+		/* Create name with seq number appended. */
+		ast_taskprocessor_build_name(tps_name, sizeof(tps_name), "pjsip/outsess/%s",
+			ast_sorcery_object_get_id(endpoint));
+
+		session->serializer = ast_sip_create_serializer_named(tps_name);
+	}
 	if (!session->serializer) {
 		return NULL;
 	}
@@ -1731,7 +1743,9 @@ struct ast_sip_session *ast_sip_session_create_outgoing(struct ast_sip_endpoint 
 	timer.sess_expires = endpoint->extensions.timer.sess_expires;
 	pjsip_timer_init_session(inv_session, &timer);
 
-	if (!(session = ast_sip_session_alloc(endpoint, found_contact ? found_contact : contact, inv_session))) {
+	session = ast_sip_session_alloc(endpoint, found_contact ? found_contact : contact,
+		inv_session, NULL);
+	if (!session) {
 		pjsip_inv_terminate(inv_session, 500, PJ_FALSE);
 		return NULL;
 	}
@@ -1780,29 +1794,38 @@ void ast_sip_session_terminate(struct ast_sip_session *session, int response)
 		response = 603;
 	}
 
-	if ((session->inv_session->state == PJSIP_INV_STATE_CONFIRMED) && session->inv_session->invite_tsx) {
-		ast_debug(3, "Delay sending BYE to %s because of outstanding transaction...\n",
-				ast_sorcery_object_get_id(session->endpoint));
-		/* If this is delayed the only thing that will happen is a BYE request so we don't
-		 * actually need to store the response code for when it happens.
-		 */
-		delay_request(session, NULL, NULL, NULL, 0, DELAYED_METHOD_BYE);
-	} else if (session->inv_session->state == PJSIP_INV_STATE_NULL) {
+	switch (session->inv_session->state) {
+	case PJSIP_INV_STATE_NULL:
 		pjsip_inv_terminate(session->inv_session, response, PJ_TRUE);
-	} else if (((status = pjsip_inv_end_session(session->inv_session, response, NULL, &packet)) == PJ_SUCCESS)
-		&& packet) {
-		struct ast_sip_session_delayed_request *delay;
-
-		/* Flush any delayed requests so they cannot overlap this transaction. */
-		while ((delay = AST_LIST_REMOVE_HEAD(&session->delayed_requests, next))) {
-			ast_free(delay);
+		break;
+	case PJSIP_INV_STATE_CONFIRMED:
+		if (session->inv_session->invite_tsx) {
+			ast_debug(3, "Delay sending BYE to %s because of outstanding transaction...\n",
+					ast_sorcery_object_get_id(session->endpoint));
+			/* If this is delayed the only thing that will happen is a BYE request so we don't
+			 * actually need to store the response code for when it happens.
+			 */
+			delay_request(session, NULL, NULL, NULL, 0, DELAYED_METHOD_BYE);
+			break;
 		}
+		/* Fall through */
+	default:
+		status = pjsip_inv_end_session(session->inv_session, response, NULL, &packet);
+		if (status == PJ_SUCCESS && packet) {
+			struct ast_sip_session_delayed_request *delay;
 
-		if (packet->msg->type == PJSIP_RESPONSE_MSG) {
-			ast_sip_session_send_response(session, packet);
-		} else {
-			ast_sip_session_send_request(session, packet);
+			/* Flush any delayed requests so they cannot overlap this transaction. */
+			while ((delay = AST_LIST_REMOVE_HEAD(&session->delayed_requests, next))) {
+				ast_free(delay);
+			}
+
+			if (packet->msg->type == PJSIP_RESPONSE_MSG) {
+				ast_sip_session_send_response(session, packet);
+			} else {
+				ast_sip_session_send_request(session, packet);
+			}
 		}
+		break;
 	}
 }
 
@@ -2142,7 +2165,7 @@ static void handle_new_invite_request(pjsip_rx_data *rdata)
 		return;
 	}
 
-	session = ast_sip_session_alloc(endpoint, NULL, inv_session);
+	session = ast_sip_session_alloc(endpoint, NULL, inv_session, rdata);
 	if (!session) {
 		if (pjsip_inv_initial_answer(inv_session, rdata, 500, NULL, NULL, &tdata) == PJ_SUCCESS) {
 			pjsip_inv_terminate(inv_session, 500, PJ_FALSE);
@@ -2292,7 +2315,8 @@ static void reschedule_reinvite(struct ast_sip_session *session, ast_sip_session
 
 static void __print_debug_details(const char *function, pjsip_inv_session *inv, pjsip_transaction *tsx, pjsip_event *e)
 {
-	struct ast_sip_session *session;
+	int id = session_module.id;
+	struct ast_sip_session *session = NULL;
 
 	if (!DEBUG_ATLEAST(5)) {
 		/* Debug not spamy enough */
@@ -2307,7 +2331,9 @@ static void __print_debug_details(const char *function, pjsip_inv_session *inv, 
 			pjsip_tsx_state_str(tsx->state));
 		return;
 	}
-	session = inv->mod_data[session_module.id];
+	if (id > -1) {
+		session = inv->mod_data[session_module.id];
+	}
 	if (!session) {
 		ast_log(LOG_DEBUG, "inv_session %p has no ast session\n", inv);
 	} else {
@@ -2529,8 +2555,21 @@ static void session_inv_on_new_session(pjsip_inv_session *inv, pjsip_event *e)
 static void session_inv_on_tsx_state_changed(pjsip_inv_session *inv, pjsip_transaction *tsx, pjsip_event *e)
 {
 	ast_sip_session_response_cb cb;
-	struct ast_sip_session *session = inv->mod_data[session_module.id];
+	int id = session_module.id;
+	struct ast_sip_session *session;
 	pjsip_tx_data *tdata;
+
+	/*
+	 * A race condition exists at shutdown where the res_pjsip_session can be
+	 * unloaded but this callback may still get called afterwards. In this case
+	 * the id may end up being -1 which is useless to us. To work around this
+	 * we store the current value and check/use it.
+	 */
+	if (id < 0) {
+		return;
+	}
+
+	session = inv->mod_data[id];
 
 	print_debug_details(inv, tsx, e);
 	if (!session) {
@@ -2545,10 +2584,10 @@ static void session_inv_on_tsx_state_changed(pjsip_inv_session *inv, pjsip_trans
 		 * we transfer the data into the transaction. This way, when we receive a response, we
 		 * can dig this data out again
 		 */
-		tsx->mod_data[session_module.id] = e->body.tsx_state.src.tdata->mod_data[session_module.id];
+		tsx->mod_data[id] = e->body.tsx_state.src.tdata->mod_data[id];
 		break;
 	case PJSIP_EVENT_RX_MSG:
-		cb = ast_sip_mod_data_get(tsx->mod_data, session_module.id, MOD_DATA_ON_RESPONSE);
+		cb = ast_sip_mod_data_get(tsx->mod_data, id, MOD_DATA_ON_RESPONSE);
 		/* As the PJSIP invite session implementation responds with a 200 OK before we have a
 		 * chance to be invoked session supplements for BYE requests actually end up executing
 		 * in the invite session state callback as well. To prevent session supplements from
@@ -2627,7 +2666,7 @@ static void session_inv_on_tsx_state_changed(pjsip_inv_session *inv, pjsip_trans
 		 * Clear the module data now to block session_inv_on_state_changed()
 		 * from calling session_end() if it hasn't already done so.
 		 */
-		inv->mod_data[session_module.id] = NULL;
+		inv->mod_data[id] = NULL;
 
 		if (inv->state != PJSIP_INV_STATE_DISCONNECTED) {
 			session_end(session);
@@ -2650,8 +2689,8 @@ static void session_inv_on_tsx_state_changed(pjsip_inv_session *inv, pjsip_trans
 			 * the dialog locked to get the session by other threads.
 			 */
 			pjsip_dlg_inc_lock(inv->dlg);
-			session = inv->mod_data[session_module.id];
-			inv->mod_data[session_module.id] = NULL;
+			session = inv->mod_data[id];
+			inv->mod_data[id] = NULL;
 			pjsip_dlg_dec_lock(inv->dlg);
 
 			/*

@@ -38,6 +38,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/format_cache.h"
 #include "asterisk/frame.h"
 
+int __ast_codec_register_with_format(struct ast_codec *codec, const char *format_name,
+	struct ast_module *mod);
+
 enum frame_type {
 	TYPE_HIGH,     /* 0x0 */
 	TYPE_LOW,      /* 0x1 */
@@ -774,7 +777,7 @@ static struct ast_codec t140 = {
 		int __res_ ## __LINE__ = 0; \
 		struct ast_format *__fmt_ ## __LINE__; \
 		struct ast_codec *__codec_ ## __LINE__; \
-		res |= __ast_codec_register(&(codec), NULL); \
+		res |= __ast_codec_register_with_format(&(codec), (codec).name, NULL); \
 		__codec_ ## __LINE__ = ast_codec_get((codec).name, (codec).type, (codec).sample_rate); \
 		__fmt_ ## __LINE__ = __codec_ ## __LINE__ ? ast_format_create(__codec_ ## __LINE__) : NULL; \
 		res |= ast_format_cache_set(__fmt_ ## __LINE__); \
@@ -783,14 +786,14 @@ static struct ast_codec t140 = {
 		__res_ ## __LINE__; \
 	})
 
-#define CODEC_REGISTER_AND_CACHE_NAMED(format_name, codec) \
+#define CODEC_REGISTER_AND_CACHE_NAMED(fmt_name, codec) \
 	({ \
 		int __res_ ## __LINE__ = 0; \
 		struct ast_format *__fmt_ ## __LINE__; \
 		struct ast_codec *__codec_ ## __LINE__; \
-		res |= __ast_codec_register(&(codec), NULL); \
+		res |= __ast_codec_register_with_format(&(codec), fmt_name, NULL); \
 		__codec_ ## __LINE__ = ast_codec_get((codec).name, (codec).type, (codec).sample_rate); \
-		__fmt_ ## __LINE__ = ast_format_create_named((format_name), __codec_ ## __LINE__); \
+		__fmt_ ## __LINE__ = ast_format_create_named((fmt_name), __codec_ ## __LINE__); \
 		res |= ast_format_cache_set(__fmt_ ## __LINE__); \
 		ao2_ref(__fmt_ ## __LINE__, -1); \
 		ao2_ref(__codec_ ## __LINE__, -1); \

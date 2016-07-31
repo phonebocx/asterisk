@@ -58,6 +58,40 @@ static int persistent_endpoint_cmp(void *obj, void *arg, int flags)
 	return !strcmp(ast_endpoint_get_resource(persistent1->endpoint), id) ? CMP_MATCH | CMP_STOP : 0;
 }
 
+static void endpoint_publish_contact_status(struct ast_endpoint *endpoint, struct ast_sip_contact_status *contact)
+{
+	struct ast_json *blob;
+	char rtt[32];
+
+	snprintf(rtt, sizeof(rtt), "%" PRId64, contact->rtt);
+	blob = ast_json_pack("{s: s, s: s, s: s, s: s, s: s}",
+		"contact_status", ast_sip_get_contact_status_label(contact->status),
+		"aor", contact->aor,
+		"uri", contact->uri,
+		"roundtrip_usec", rtt,
+		"endpoint_name", ast_endpoint_get_resource(endpoint));
+	if (blob) {
+		ast_endpoint_blob_publish(endpoint, ast_endpoint_contact_state_type(), blob);
+		ast_json_unref(blob);
+	}
+}
+
+/*! \brief Callback function for publishing the status of an endpoint */
+static int persistent_endpoint_publish_status(void *obj, void *arg, int flags)
+{
+	struct sip_persistent_endpoint *persistent = obj;
+	struct ast_endpoint *endpoint = persistent->endpoint;
+	struct ast_sip_contact_status *status = arg;
+
+	/* If the status' aor isn't one of the endpoint's, we skip */
+	if (!strstr(persistent->aors, status->aor)) {
+		return 0;
+	}
+
+	endpoint_publish_contact_status(endpoint, status);
+	return 0;
+}
+
 /*! \brief Callback function for changing the state of an endpoint */
 static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 {
@@ -72,22 +106,12 @@ static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 	char *regcontext;
 
 	if (status) {
-		char rtt[32];
-
 		/* If the status' aor isn't one of the endpoint's, we skip */
 		if (!strstr(persistent->aors, status->aor)) {
 			return 0;
 		}
 
-		snprintf(rtt, sizeof(rtt), "%" PRId64, status->rtt);
-		blob = ast_json_pack("{s: s, s: s, s: s, s: s, s: s}",
-			"contact_status", ast_sip_get_contact_status_label(status->status),
-			"aor", status->aor,
-			"uri", status->uri,
-			"roundtrip_usec", rtt,
-			"endpoint_name", ast_endpoint_get_resource(endpoint));
-		ast_endpoint_blob_publish(endpoint, ast_endpoint_contact_state_type(), blob);
-		ast_json_unref(blob);
+		endpoint_publish_contact_status(endpoint, status);
 	}
 
 	/* Find all the contacts for this endpoint.  If ANY are available,
@@ -131,7 +155,7 @@ static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 			}
 		}
 
-		ast_verb(1, "Endpoint %s is now Reachable\n", ast_endpoint_get_resource(endpoint));
+		ast_verb(2, "Endpoint %s is now Reachable\n", ast_endpoint_get_resource(endpoint));
 	} else {
 		ast_endpoint_set_state(endpoint, AST_ENDPOINT_OFFLINE);
 		blob = ast_json_pack("{s: s}", "peer_status", "Unreachable");
@@ -144,7 +168,7 @@ static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 			}
 		}
 
-		ast_verb(1, "Endpoint %s is now Unreachable\n", ast_endpoint_get_resource(endpoint));
+		ast_verb(2, "Endpoint %s is now Unreachable\n", ast_endpoint_get_resource(endpoint));
 	}
 
 	ast_free(regcontext);
@@ -176,7 +200,7 @@ static void persistent_endpoint_contact_created_observer(const void *object)
 	}
 	contact_status->status = CREATED;
 
-	ast_verb(1, "Contact %s/%s has been created\n",contact->aor, contact->uri);
+	ast_verb(2, "Contact %s/%s has been created\n",contact->aor, contact->uri);
 
 	ao2_callback(persistent_endpoints, OBJ_NODATA, persistent_endpoint_update_state, contact_status);
 	ao2_cleanup(contact_status);
@@ -195,7 +219,7 @@ static void persistent_endpoint_contact_deleted_observer(const void *object)
 		return;
 	}
 
-	ast_verb(1, "Contact %s/%s has been deleted\n", contact->aor, contact->uri);
+	ast_verb(2, "Contact %s/%s has been deleted\n", contact->aor, contact->uri);
 	ast_statsd_log_string_va("PJSIP.contacts.states.%s", AST_STATSD_GAUGE,
 		"-1", 1.0, ast_sip_get_contact_status_label(contact_status->status));
 	ast_statsd_log_string_va("PJSIP.contacts.states.%s", AST_STATSD_GAUGE,
@@ -217,13 +241,20 @@ static void persistent_endpoint_contact_status_observer(const void *object)
 {
 	struct ast_sip_contact_status *contact_status = (struct ast_sip_contact_status *)object;
 
+	if (contact_status->refresh) {
+		/* We are only re-publishing the contact status. */
+		ao2_callback(persistent_endpoints, OBJ_NODATA,
+			persistent_endpoint_publish_status, contact_status);
+		return;
+	}
+
 	/* If rtt_start is set (this is the outgoing OPTIONS), ignore. */
 	if (contact_status->rtt_start.tv_sec > 0) {
 		return;
 	}
 
 	if (contact_status->status != contact_status->last_status) {
-		ast_verb(1, "Contact %s/%s is now %s.  RTT: %.3f msec\n", contact_status->aor, contact_status->uri,
+		ast_verb(3, "Contact %s/%s is now %s.  RTT: %.3f msec\n", contact_status->aor, contact_status->uri,
 			ast_sip_get_contact_status_label(contact_status->status),
 			contact_status->rtt / 1000.0);
 
@@ -265,6 +296,65 @@ static const struct ast_sorcery_observer endpoint_observers = {
 	.deleted = endpoint_deleted_observer,
 };
 
+static int endpoint_acl_handler(const struct aco_option *opt, struct ast_variable *var, void *obj)
+{
+	struct ast_sip_endpoint *endpoint = obj;
+	int error = 0;
+	int ignore;
+
+	if (ast_strlen_zero(var->value)) return 0;
+
+	if (!strncmp(var->name, "contact_", 8)) {
+		ast_append_acl(var->name + 8, var->value, &endpoint->contact_acl, &error, &ignore);
+	} else {
+		ast_append_acl(var->name, var->value, &endpoint->acl, &error, &ignore);
+	}
+
+	return error;
+}
+
+static int acl_to_str(const void *obj, const intptr_t *args, char **buf)
+{
+	const struct ast_sip_endpoint *endpoint = obj;
+	struct ast_acl_list *acl_list;
+	struct ast_acl *first_acl;
+
+	if (endpoint && !ast_acl_list_is_empty(acl_list=endpoint->acl)) {
+		AST_LIST_LOCK(acl_list);
+		first_acl = AST_LIST_FIRST(acl_list);
+		if (ast_strlen_zero(first_acl->name)) {
+			*buf = "deny/permit";
+		} else {
+			*buf = first_acl->name;
+		}
+		AST_LIST_UNLOCK(acl_list);
+	}
+
+	*buf = ast_strdup(*buf);
+	return 0;
+}
+
+static int contact_acl_to_str(const void *obj, const intptr_t *args, char **buf)
+{
+	const struct ast_sip_endpoint *endpoint = obj;
+	struct ast_acl_list *acl_list;
+	struct ast_acl *first_acl;
+
+	if (endpoint && !ast_acl_list_is_empty(acl_list=endpoint->contact_acl)) {
+		AST_LIST_LOCK(acl_list);
+		first_acl = AST_LIST_FIRST(acl_list);
+		if (ast_strlen_zero(first_acl->name)) {
+			*buf = "deny/permit";
+		} else {
+			*buf = first_acl->name;
+		}
+		AST_LIST_UNLOCK(acl_list);
+	}
+
+	*buf = ast_strdup(*buf);
+	return 0;
+}
+
 static int dtmf_handler(const struct aco_option *opt, struct ast_variable *var, void *obj)
 {
 	struct ast_sip_endpoint *endpoint = obj;
@@ -275,8 +365,8 @@ static int dtmf_handler(const struct aco_option *opt, struct ast_variable *var, 
 		endpoint->dtmf = AST_SIP_DTMF_INBAND;
 	} else if (!strcasecmp(var->value, "info")) {
 		endpoint->dtmf = AST_SIP_DTMF_INFO;
-        } else if (!strcasecmp(var->value, "auto")) {
-                endpoint->dtmf = AST_SIP_DTMF_AUTO;
+	} else if (!strcasecmp(var->value, "auto")) {
+		endpoint->dtmf = AST_SIP_DTMF_AUTO;
 	} else if (!strcasecmp(var->value, "none")) {
 		endpoint->dtmf = AST_SIP_DTMF_NONE;
 	} else {
@@ -298,7 +388,7 @@ static int dtmf_to_str(const void *obj, const intptr_t *args, char **buf)
 	case AST_SIP_DTMF_INFO :
 		*buf = "info"; break;
        case AST_SIP_DTMF_AUTO :
-                *buf = "auto"; break;
+		*buf = "auto"; break;
 	default:
 		*buf = "none";
 	}
@@ -479,6 +569,16 @@ static int ident_handler(const struct aco_option *opt, struct ast_variable *var,
 	struct ast_sip_endpoint *endpoint = obj;
 	char *idents = ast_strdupa(var->value);
 	char *val;
+	enum ast_sip_endpoint_identifier_type method;
+
+	/*
+	 * If there's already something in the vector when we get here,
+	 * it's the default value so we need to clean it out.
+	 */
+	if (AST_VECTOR_SIZE(&endpoint->ident_method_order)) {
+		AST_VECTOR_RESET(&endpoint->ident_method_order, AST_VECTOR_ELEM_CLEANUP_NOOP);
+		endpoint->ident_method = 0;
+	}
 
 	while ((val = ast_strip(strsep(&idents, ",")))) {
 		if (ast_strlen_zero(val)) {
@@ -486,27 +586,55 @@ static int ident_handler(const struct aco_option *opt, struct ast_variable *var,
 		}
 
 		if (!strcasecmp(val, "username")) {
-			endpoint->ident_method |= AST_SIP_ENDPOINT_IDENTIFY_BY_USERNAME;
+			method = AST_SIP_ENDPOINT_IDENTIFY_BY_USERNAME;
+		} else	if (!strcasecmp(val, "auth_username")) {
+			method = AST_SIP_ENDPOINT_IDENTIFY_BY_AUTH_USERNAME;
 		} else {
 			ast_log(LOG_ERROR, "Unrecognized identification method %s specified for endpoint %s\n",
 					val, ast_sorcery_object_get_id(endpoint));
+			AST_VECTOR_RESET(&endpoint->ident_method_order, AST_VECTOR_ELEM_CLEANUP_NOOP);
+			endpoint->ident_method = 0;
 			return -1;
 		}
+
+		endpoint->ident_method |= method;
+		AST_VECTOR_APPEND(&endpoint->ident_method_order, method);
 	}
+
 	return 0;
 }
 
 static int ident_to_str(const void *obj, const intptr_t *args, char **buf)
 {
 	const struct ast_sip_endpoint *endpoint = obj;
-	switch (endpoint->ident_method) {
-	case AST_SIP_ENDPOINT_IDENTIFY_BY_USERNAME :
-		*buf = "username"; break;
-	default:
+	int methods;
+	char *method;
+	int i;
+	int j = 0;
+
+	methods = AST_VECTOR_SIZE(&endpoint->ident_method_order);
+	if (!methods) {
 		return 0;
 	}
 
-	*buf = ast_strdup(*buf);
+	if (!(*buf = ast_calloc(MAX_OBJECT_FIELD, sizeof(char)))) {
+		return -1;
+	}
+
+	for (i = 0; i < methods; i++) {
+		switch (AST_VECTOR_GET(&endpoint->ident_method_order, i)) {
+		case AST_SIP_ENDPOINT_IDENTIFY_BY_USERNAME :
+			method = "username";
+			break;
+		case AST_SIP_ENDPOINT_IDENTIFY_BY_AUTH_USERNAME :
+			method = "auth_username";
+			break;
+		default:
+			continue;
+		}
+		j = sprintf(*buf + j, "%s%s", method, i < methods - 1 ? "," : "");
+	}
+
 	return 0;
 }
 
@@ -1724,6 +1852,12 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "set_var", "", set_var_handler, set_var_to_str, set_var_to_vl, 0, 0);
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "message_context", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, message_context));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "accountcode", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, accountcode));
+	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "deny", "", endpoint_acl_handler, NULL, NULL, 0, 0);
+	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "permit", "", endpoint_acl_handler, NULL, NULL, 0, 0);
+	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "acl", "", endpoint_acl_handler, acl_to_str, NULL, 0, 0);
+	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_deny", "", endpoint_acl_handler, NULL, NULL, 0, 0);
+	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_permit", "", endpoint_acl_handler, NULL, NULL, 0, 0);
+	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_acl", "", endpoint_acl_handler, contact_acl_to_str, NULL, 0, 0);
 
 	if (ast_sip_initialize_sorcery_transport()) {
 		ast_log(LOG_ERROR, "Failed to register SIP transport support with sorcery\n");
@@ -1851,6 +1985,7 @@ static void endpoint_destructor(void* obj)
 	endpoint->pickup.named_pickupgroups = ast_unref_namedgroups(endpoint->pickup.named_pickupgroups);
 	ao2_cleanup(endpoint->persistent);
 	ast_variables_destroy(endpoint->channel_vars);
+	AST_VECTOR_FREE(&endpoint->ident_method_order);
 }
 
 static int init_subscription_configuration(struct ast_sip_endpoint_subscription_configuration *subscription)
@@ -1895,6 +2030,11 @@ void *ast_sip_endpoint_alloc(const char *name)
 		return NULL;
 	}
 	ast_party_id_init(&endpoint->id.self);
+
+	if (AST_VECTOR_INIT(&endpoint->ident_method_order, 1)) {
+		return NULL;
+	}
+
 	return endpoint;
 }
 

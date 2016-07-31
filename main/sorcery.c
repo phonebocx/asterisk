@@ -290,6 +290,12 @@ static int bool_handler_fn(const void *obj, const intptr_t *args, char **buf)
 	return !(*buf = ast_strdup(*field ? "true" : "false")) ? -1 : 0;
 }
 
+static int yesno_handler_fn(const void *obj, const intptr_t *args, char **buf)
+{
+	unsigned int *field = (unsigned int *)(obj + args[0]);
+	return !(*buf = ast_strdup(*field ? "yes" : "no")) ? -1 : 0;
+}
+
 static int sockaddr_handler_fn(const void *obj, const intptr_t *args, char **buf)
 {
 	struct ast_sockaddr *field = (struct ast_sockaddr *)(obj + args[0]);
@@ -313,6 +319,7 @@ static sorcery_field_handler sorcery_field_default_handler(enum aco_option_type 
 {
 	switch(type) {
 	case OPT_BOOL_T: return bool_handler_fn;
+	case OPT_YESNO_T: return yesno_handler_fn;
 	case OPT_CHAR_ARRAY_T: return chararray_handler_fn;
 	case OPT_CODEC_T: return codec_handler_fn;
 	case OPT_DOUBLE_T: return double_handler_fn;
@@ -1159,6 +1166,20 @@ int __ast_sorcery_object_register(struct ast_sorcery *sorcery, const char *type,
 		sorcery->module_name, sorcery, type);
 
 	return 0;
+}
+
+int ast_sorcery_object_set_congestion_levels(struct ast_sorcery *sorcery, const char *type, long low_water, long high_water)
+{
+	struct ast_sorcery_object_type *object_type;
+	int res = -1;
+
+	object_type = ao2_find(sorcery->types, type, OBJ_SEARCH_KEY);
+	if (object_type) {
+		res = ast_taskprocessor_alert_set_levels(object_type->serializer,
+			low_water, high_water);
+		ao2_ref(object_type, -1);
+	}
+	return res;
 }
 
 void ast_sorcery_object_set_copy_handler(struct ast_sorcery *sorcery, const char *type, sorcery_copy_handler copy)

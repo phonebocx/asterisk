@@ -1320,3 +1320,115 @@ UPDATE alembic_version SET version_num='1c688d9a003c' WHERE alembic_version.vers
 
 /
 
+-- Running upgrade 1c688d9a003c -> 8d478ab86e29
+
+ALTER TABLE ps_globals ADD disable_multi_domain VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_globals ADD CONSTRAINT yesno_values CHECK (disable_multi_domain IN ('yes', 'no'))
+
+/
+
+UPDATE alembic_version SET version_num='8d478ab86e29' WHERE alembic_version.version_num = '1c688d9a003c'
+
+/
+
+-- Running upgrade 8d478ab86e29 -> 65eb22eb195
+
+ALTER TABLE ps_globals ADD unidentified_request_count INTEGER
+
+/
+
+ALTER TABLE ps_globals ADD unidentified_request_period INTEGER
+
+/
+
+ALTER TABLE ps_globals ADD unidentified_request_prune_interval INTEGER
+
+/
+
+ALTER TABLE ps_globals ADD default_realm VARCHAR2(40 CHAR)
+
+/
+
+UPDATE alembic_version SET version_num='65eb22eb195' WHERE alembic_version.version_num = '8d478ab86e29'
+
+/
+
+-- Running upgrade 65eb22eb195 -> 81b01a191a46
+
+ALTER TABLE ps_contacts ADD reg_server VARCHAR2(20 CHAR)
+
+/
+
+ALTER TABLE ps_contacts ADD CONSTRAINT ps_contacts_uq UNIQUE (id, reg_server)
+
+/
+
+UPDATE alembic_version SET version_num='81b01a191a46' WHERE alembic_version.version_num = '65eb22eb195'
+
+/
+
+-- Running upgrade 81b01a191a46 -> 6be31516058d
+
+ALTER TABLE ps_contacts ADD authenticate_qualify VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_contacts ADD CONSTRAINT yesno_values CHECK (authenticate_qualify IN ('yes', 'no'))
+
+/
+
+UPDATE alembic_version SET version_num='6be31516058d' WHERE alembic_version.version_num = '81b01a191a46'
+
+/
+
+-- Running upgrade 6be31516058d -> bca7113d796f
+
+ALTER TABLE ps_endpoints ADD deny VARCHAR2(95 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD permit VARCHAR2(95 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD acl VARCHAR2(40 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD contact_deny VARCHAR2(95 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD contact_permit VARCHAR2(95 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD contact_acl VARCHAR2(40 CHAR)
+
+/
+
+UPDATE alembic_version SET version_num='bca7113d796f' WHERE alembic_version.version_num = '6be31516058d'
+
+/
+
+-- Running upgrade bca7113d796f -> a845e4d8ade8
+
+ALTER TABLE ps_contacts ADD via_addr VARCHAR2(40 CHAR)
+
+/
+
+ALTER TABLE ps_contacts ADD via_port INTEGER
+
+/
+
+ALTER TABLE ps_contacts ADD call_id VARCHAR2(255 CHAR)
+
+/
+
+UPDATE alembic_version SET version_num='a845e4d8ade8' WHERE alembic_version.version_num = 'bca7113d796f'
+
+/
+
