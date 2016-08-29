@@ -1,3 +1,19 @@
+asterisk (1:13.10.0~dfsg-1) unstable; urgency=medium
+
+  [ upstream ]
+  * New release(s).
+
+  [ Jonas Smedegaard ]
+  * Update upstream signing-key:
+    + Add Richard Mudgett (0x6CB44E557BD982D8).
+    + Drop Rusty Newton (0x123FD04E861FFB7D).
+    + Drop Matthew Fredrickson (0x8438CBA18D0CAA72).
+  * Update AMR patch.
+  * Unfuzz patches.
+  * Update copyright info.
+
+ -- Jonas Smedegaard <dr@jones.dk>  Mon, 29 Aug 2016 17:07:40 +0200
+
 asterisk (1:13.9.1~dfsg-2) unstable; urgency=medium
 
   [ Tzafrir Cohen ]

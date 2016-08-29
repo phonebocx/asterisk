@@ -793,61 +793,61 @@ Files: Makefile
  utils/extconf.c
  utils/muted.c
  utils/streamplayer.c
-Copyright: 1999, - 2005, Digium, Inc
-  1999, - 2006, Digium, Inc
-  1999, - 2007, Digium, Inc
-  1999, - 2008, Digium, Inc
-  1999, - 2009, Digium, Inc
-  1999, - 2010, Digium, Inc
-  1999, - 2012, Digium, Inc
-  1999, - 2013, Digium, Inc
-  1999, - 2014, Digium, Inc
-  1999, - 2015, Digium, Inc
-  1999-2004, Digium, Inc
-  1999-2005, Digium, Inc
-  1999-2006, Digium, Inc
-  1999-2008, Digium, Inc
-  1999-2009, Digium, Inc
-  1999-2010, Digium, Inc
-  1999-2012, Digium, Inc
-  1999-2014, Digium, Inc
-  2001, - 2005, Digium, Inc
-  2001-2009, Digium, Inc
-  2003-2005, Digium, Inc
-  2004, - 2006, Digium, Inc
-  2004, Digium, Inc
-  2005, - 2010, Digium, Inc
-  2005, Digium, Inc
-  2005-2006, Digium, Inc
-  2005-2007, Digium, Inc
-  2005-2008, Digium, Inc
-  2005-2016, Digium, Inc
-  2006, - 2008, Digium, Inc
-  2006, Digium, Inc
-  2006-2010, Digium, Inc
-  2006-2012, Digium, Inc
-  2007, - 2009, 2013 Digium, Inc
-  2007, - 2009, Digium, Inc
-  2007, Digium, Inc
-  2007-2008, Digium, Inc
-  2007-2013, Digium, Inc
-  2008, Digium, Inc
-  2008-2009, Digium, Inc
-  2008-2013, Digium, Inc
-  2009, - Digium, Inc
-  2009, Digium, Inc
-  2009-2010, Digium, Inc
-  2009-2012, Digium, Inc
-  2009-2013, Digium, Inc
-  2010, Digium, Inc
-  2011, Digium, Inc
-  2011-2012, Digium, Inc
-  2012, Digium, Inc
-  2012-2013, Digium, Inc
-  2013, Digium, Inc
-  2014, Digium, Inc
-  2015, Digium, Inc
-  2016, Digium, Inc
+Copyright: 1999, - 2005, Digium, Inc.
+  1999, - 2006, Digium, Inc.
+  1999, - 2007, Digium, Inc.
+  1999, - 2008, Digium, Inc.
+  1999, - 2009, Digium, Inc.
+  1999, - 2010, Digium, Inc.
+  1999, - 2012, Digium, Inc.
+  1999, - 2013, Digium, Inc.
+  1999, - 2014, Digium, Inc.
+  1999, - 2015, Digium, Inc.
+  1999-2004, Digium, Inc.
+  1999-2005, Digium, Inc.
+  1999-2006, Digium, Inc.
+  1999-2008, Digium, Inc.
+  1999-2009, Digium, Inc.
+  1999-2010, Digium, Inc.
+  1999-2012, Digium, Inc.
+  1999-2014, Digium, Inc.
+  2001, - 2005, Digium, Inc.
+  2001-2009, Digium, Inc.
+  2003-2005, Digium, Inc.
+  2004, - 2006, Digium, Inc.
+  2004, Digium, Inc.
+  2005, - 2010, Digium, Inc.
+  2005, Digium, Inc.
+  2005-2006, Digium, Inc.
+  2005-2007, Digium, Inc.
+  2005-2008, Digium, Inc.
+  2005-2016, Digium, Inc.
+  2006, - 2008, Digium, Inc.
+  2006, Digium, Inc.
+  2006-2010, Digium, Inc.
+  2006-2012, Digium, Inc.
+  2007, - 2009, 2013 Digium, Inc.
+  2007, - 2009, Digium, Inc.
+  2007, Digium, Inc.
+  2007-2008, Digium, Inc.
+  2007-2013, Digium, Inc.
+  2008, Digium, Inc.
+  2008-2009, Digium, Inc.
+  2008-2013, Digium, Inc.
+  2009, - Digium, Inc.
+  2009, Digium, Inc.
+  2009-2010, Digium, Inc.
+  2009-2012, Digium, Inc.
+  2009-2013, Digium, Inc.
+  2010, Digium, Inc.
+  2011, Digium, Inc.
+  2011-2012, Digium, Inc.
+  2012, Digium, Inc.
+  2012-2013, Digium, Inc.
+  2013, Digium, Inc.
+  2014, Digium, Inc.
+  2015, Digium, Inc.
+  2016, Digium, Inc.
 License: UNKNOWN
  FIXME
 
@@ -1887,18 +1887,18 @@ License: UNKNOWN
 Files: apps/app_mixmonitor.c
  funcs/func_cdr.c
  funcs/func_logic.c
-Copyright: 1999, - 2006, Digium, Inc
-  1999-2006, Digium, Inc
+Copyright: 1999, - 2006, Digium, Inc.
+  1999-2006, Digium, Inc.
   2005, Anthony Minessale II
-  2005-2006, Digium, Inc
+  2005-2006, Digium, Inc.
 License: UNKNOWN
  FIXME
 
 Files: formats/format_g719.c
  formats/format_siren14.c
  formats/format_siren7.c
-Copyright: 1999, - 2008, Anthony Minessale and Digium, Inc
-  1999, - 2010, Anthony Minessale and Digium, Inc
+Copyright: 1999, - 2008, Anthony Minessale and Digium, Inc.
+  1999, - 2010, Anthony Minessale and Digium, Inc.
 License: UNKNOWN
  FIXME
 
@@ -1906,18 +1906,18 @@ Files: funcs/func_base64.c
  funcs/func_rand.c
  funcs/func_sha1.c
 Copyright: 2005, Claude Patry
-  2005-2006, Digium, Inc
+  2005-2006, Digium, Inc.
   2006, Claude Patry
-  2006, Digium, Inc
+  2006, Digium, Inc.
 License: UNKNOWN
  FIXME
 
 Files: main/features.c
  main/pickup.c
  res/res_corosync.c
-Copyright: 1999, - 2012, Digium, Inc
-  1999, - 2013, Digium, Inc
-  2007, Digium, Inc
+Copyright: 1999, - 2012, Digium, Inc.
+  1999, - 2013, Digium, Inc.
+  2007, Digium, Inc.
   2012, Russell Bryant
 License: UNKNOWN
  FIXME
@@ -1977,7 +1977,7 @@ License: GPL-ever
 
 Files: main/strcompat.c
  menuselect/strcompat.c
-Copyright: 1999, - 2006, Digium, Inc
+Copyright: 1999, - 2006, Digium, Inc.
 License: ISC
  FIXME
 
@@ -1995,8 +1995,8 @@ License: UNKNOWN
 
 Files: res/res_config_odbc.c
  res/res_odbc.c
-Copyright: 1999, - 2010, Digium, Inc
-  1999, - 2012, Digium, Inc
+Copyright: 1999, - 2010, Digium, Inc.
+  1999, - 2012, Digium, Inc.
   2004-2005, Anthony Minessale II <anthmct@yahoo.com>
 License: UNKNOWN
  FIXME
@@ -2027,8 +2027,8 @@ License: UNKNOWN
 
 Files: main/libasteriskpj.c
  res/res_phoneprov.c
-Copyright: 1999, - 2008, Digium, Inc
-  2009-2012, Digium, Inc
+Copyright: 1999, - 2008, Digium, Inc.
+  2009-2012, Digium, Inc.
   2014, Fairview 5 Engineering, LLC
   2015, Fairview 5 Engineering, LLC
 License: UNKNOWN
@@ -2037,7 +2037,7 @@ License: UNKNOWN
 Files: include/asterisk/indications.h
  main/indications.c
 Copyright: 2002, Pauline Middelink
-  2009, Digium, Inc
+  2009, Digium, Inc.
 License: UNKNOWN
  FIXME
 
@@ -2151,7 +2151,7 @@ License: UNKNOWN
  FIXME
 
 Files: apps/app_chanspy.c
-Copyright: 2005, - 2008, Digium, Inc
+Copyright: 2005, - 2008, Digium, Inc.
   2005, Anthony Minessale II (anthmct@yahoo.com)
 License: UNKNOWN
  FIXME
@@ -2199,7 +2199,7 @@ License: UNKNOWN
  FIXME
 
 Files: apps/app_db.c
-Copyright: 1999, - 2005, Digium, Inc
+Copyright: 1999, - 2005, Digium, Inc.
   2003, Jefferson Noxon
 License: UNKNOWN
  FIXME
@@ -2207,30 +2207,30 @@ License: UNKNOWN
 Files: funcs/func_md5.c
 Copyright: 2005, Olle E. Johansson, Edvina.net
   2005, Russell Bryant <russelb@clemson.edu>
-  2005-2006, Digium, Inc
+  2005-2006, Digium, Inc.
 License: UNKNOWN
  FIXME
 
 Files: res/res_config_ldap.c
 Copyright: 2005, Oxymium sarl
-  2007, Digium, Inc
+  2007, Digium, Inc.
 License: UNKNOWN
  FIXME
 
 Files: apps/app_originate.c
-Copyright: 2008, Digium, Inc
+Copyright: 2008, Digium, Inc.
   2008, Roberto Casas
 License: UNKNOWN
  FIXME
 
 Files: codecs/codec_ilbc.c
-Copyright: 1999, - 2005, Digium, Inc
+Copyright: 1999, - 2005, Digium, Inc.
   The Internet Society (2004)
 License: UNKNOWN
  FIXME
 
 Files: apps/app_page.c
-Copyright: 2004, - 2006, Digium, Inc.
+Copyright: 2004, - 2006, Digium, Inc..
 License: UNKNOWN
  FIXME
 
