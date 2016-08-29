@@ -25,16 +25,16 @@ Last-Update: 2016-04-02
  http.o: _ASTCFLAGS+=$(GMIME_INCLUDE)
 --- a/main/codec_builtin.c
 +++ b/main/codec_builtin.c
-@@ -38,6 +38,8 @@
- #include "asterisk/format_cache.h"
- #include "asterisk/frame.h"
+@@ -41,6 +41,8 @@
+ int __ast_codec_register_with_format(struct ast_codec *codec, const char *format_name,
+ 	struct ast_module *mod);
  
 +#include <opus/opus.h>
 +
  enum frame_type {
  	TYPE_HIGH,     /* 0x0 */
  	TYPE_LOW,      /* 0x1 */
-@@ -698,6 +700,11 @@
+@@ -701,6 +703,11 @@
  	.get_length = g719_length,
  };
  
@@ -46,7 +46,7 @@ Last-Update: 2016-04-02
  static struct ast_codec opus = {
  	.name = "opus",
  	.description = "Opus Codec",
-@@ -707,6 +714,7 @@
+@@ -710,6 +717,7 @@
  	.maximum_ms = 60,
  	.default_ms = 20,
  	.minimum_bytes = 10,

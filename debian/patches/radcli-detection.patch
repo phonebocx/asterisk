@@ -4,7 +4,7 @@ Last-Update: 2016-05-18
 
 --- a/configure.ac
 +++ b/configure.ac
-@@ -2323,11 +2323,16 @@
+@@ -2328,11 +2328,16 @@
  
  # Accept either RADIUS client library, their APIs are fully compatible,
  # just different header filenames and different SONAMEs

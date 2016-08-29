@@ -15,14 +15,3 @@ Last-Update: 2016-04-02
  #if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__) || defined(__GLIBC__)
  #include <net/if_dl.h>
  #endif
---- a/Makefile
-+++ b/Makefile
-@@ -825,7 +825,7 @@
- 	rm -f contrib/scripts/asterisk.logrotate.tmp
- 
- config:
--	@if [ "${OSARCH}" = "linux-gnu" -o "${OSARCH}" = "kfreebsd-gnu" ]; then \
-+	@if [ "${OSARCH}" = "linux-gnu" -o "${OSARCH}" = "kfreebsd-gnu" -o "${OSARCH}" = "gnu" ]; then \
- 		$(INSTALL) -d $(DESTDIR)/lib/systemd/system; \
- 		./build_tools/install_subst -d contrib/asterisk.service $(DESTDIR)/lib/systemd/system/asterisk.service; \
- 		if [ -f /etc/redhat-release -o -f /etc/fedora-release ]; then \

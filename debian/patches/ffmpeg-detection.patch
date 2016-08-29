@@ -20,7 +20,7 @@ Last-Update: 2016-04-02
  AST_EXT_LIB_SETUP([GSM], [External GSM], [gsm], [, use 'internal' GSM otherwise])
  AST_EXT_LIB_SETUP([ILBC], [System iLBC], [ilbc], [, use 'internal' iLBC otherwise])
  AST_EXT_LIB_SETUP([GTK2], [gtk2], [gtk2])
-@@ -2556,7 +2556,18 @@
+@@ -2561,7 +2561,18 @@
  
  AST_EXT_TOOL_CHECK([SDL], [sdl-config])
  AST_EXT_LIB_CHECK([SDL_IMAGE], [SDL_image], [IMG_Load], [SDL_image.h], [${SDL_LIB}], [${SDL_INCLUDE}])
