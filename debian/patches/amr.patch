@@ -533,7 +533,7 @@ Last-Update: 2016-08-29
  AST_EXT_LIB_SETUP([BFD], [Debug symbol decoding], [bfd])
  
  # BKTR is used for backtrace support on platforms that do not
-@@ -1375,6 +1378,10 @@
+@@ -1369,6 +1372,10 @@
  
  AST_EXT_LIB_CHECK([ALSA], [asound], [snd_spcm_init], [alsa/asoundlib.h], [-lm -ldl])
  
@@ -568,8 +568,8 @@ Last-Update: 2016-08-29
 +#endif /* _AST_FORMAT_AMR_H */
 --- a/include/asterisk/format_cache.h
 +++ b/include/asterisk/format_cache.h
-@@ -224,6 +224,16 @@
- extern struct ast_format *ast_format_none;
+@@ -232,6 +232,16 @@
+ extern struct ast_format *ast_format_silk24;
  
  /*!
 + * \brief Built-in cached AMR format.
@@ -587,8 +587,8 @@ Last-Update: 2016-08-29
   * \retval 0 success
 --- a/main/codec_builtin.c
 +++ b/main/codec_builtin.c
-@@ -780,6 +780,54 @@
- 	.type = AST_MEDIA_TYPE_TEXT,
+@@ -839,6 +839,54 @@
+ 	.samples_count = silk_samples
  };
  
 +static int amr_samples(struct ast_frame *frame)
@@ -642,7 +642,7 @@ Last-Update: 2016-08-29
  #define CODEC_REGISTER_AND_CACHE(codec) \
  	({ \
  		int __res_ ## __LINE__ = 0; \
-@@ -812,6 +860,8 @@
+@@ -871,6 +919,8 @@
  {
  	int res = 0;
  
@@ -670,7 +670,7 @@ Last-Update: 2016-08-29
   * \brief Built-in cached t140 format.
   */
  struct ast_format *ast_format_t140;
-@@ -292,6 +302,8 @@
+@@ -300,6 +310,8 @@
  	ao2_cleanup(formats);
  	formats = NULL;
  
@@ -679,7 +679,7 @@ Last-Update: 2016-08-29
  	ao2_replace(ast_format_g723, NULL);
  	ao2_replace(ast_format_ulaw, NULL);
  	ao2_replace(ast_format_alaw, NULL);
-@@ -404,6 +416,10 @@
+@@ -416,6 +428,10 @@
  		ao2_replace(ast_format_g719, format);
  	} else if (!strcmp(name, "opus")) {
  		ao2_replace(ast_format_opus, format);
