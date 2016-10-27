@@ -1,3 +1,20 @@
+asterisk (1:13.11.2~dfsg-1) unstable; urgency=medium
+
+  * Update d/u/signing-keys.asc for 13.11.2
+    - Add Matthew Fredrickson (0x8438CBA18D0CAA72)
+    - Drop Joshua Colp (0xDAB29B236B940F89)
+  * New upstream version 13.11.2~dfsg
+    - Update d/p/systemd.patch for new release
+    - Refresh/unfuzz patches
+    - fixes CVE-2016-7550 (Closes: #838833)
+    - fixes CVE-2016-7551 (Closes: #838832)
+  * Build-depend on libradcli-dev again, libfreeradius-client-dev is dropped
+    from sid (Closes: #836953)
+  * fix obsolete build-dep libmysqlclient-dev -> default-libmysqlclient-dev
+  * add lsb-base dependency to asterisk
+
+ -- Bernhard Schmidt <berni@debian.org>  Thu, 27 Oct 2016 13:06:22 +0200
+
 asterisk (1:13.10.0~dfsg-1) unstable; urgency=medium
 
   [ upstream ]
