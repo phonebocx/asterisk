@@ -58,6 +58,53 @@ static int persistent_endpoint_cmp(void *obj, void *arg, int flags)
 	return !strcmp(ast_endpoint_get_resource(persistent1->endpoint), id) ? CMP_MATCH | CMP_STOP : 0;
 }
 
+/*! \brief Internal function for changing the state of an endpoint */
+static void endpoint_update_state(struct ast_endpoint *endpoint, enum ast_endpoint_state state)
+{
+	struct ast_json *blob;
+	char *regcontext;
+
+	/* If there was no state change, don't publish anything. */
+	if (ast_endpoint_get_state(endpoint) == state) {
+		return;
+	}
+
+	regcontext = ast_sip_get_regcontext();
+
+	if (state == AST_ENDPOINT_ONLINE) {
+		ast_endpoint_set_state(endpoint, AST_ENDPOINT_ONLINE);
+		blob = ast_json_pack("{s: s}", "peer_status", "Reachable");
+
+		if (!ast_strlen_zero(regcontext)) {
+			if (!ast_exists_extension(NULL, regcontext, ast_endpoint_get_resource(endpoint), 1, NULL)) {
+				ast_add_extension(regcontext, 1, ast_endpoint_get_resource(endpoint), 1, NULL, NULL,
+					"Noop", ast_strdup(ast_endpoint_get_resource(endpoint)), ast_free_ptr, "SIP");
+			}
+		}
+
+		ast_verb(2, "Endpoint %s is now Reachable\n", ast_endpoint_get_resource(endpoint));
+	} else {
+		ast_endpoint_set_state(endpoint, AST_ENDPOINT_OFFLINE);
+		blob = ast_json_pack("{s: s}", "peer_status", "Unreachable");
+
+		if (!ast_strlen_zero(regcontext)) {
+			struct pbx_find_info q = { .stacklen = 0 };
+
+			if (pbx_find_extension(NULL, NULL, &q, regcontext, ast_endpoint_get_resource(endpoint), 1, NULL, "", E_MATCH)) {
+				ast_context_remove_extension(regcontext, ast_endpoint_get_resource(endpoint), 1, NULL);
+			}
+		}
+
+		ast_verb(2, "Endpoint %s is now Unreachable\n", ast_endpoint_get_resource(endpoint));
+	}
+
+	ast_free(regcontext);
+
+	ast_endpoint_blob_publish(endpoint, ast_endpoint_state_type(), blob);
+	ast_json_unref(blob);
+	ast_devstate_changed(AST_DEVICE_UNKNOWN, AST_DEVSTATE_CACHABLE, "PJSIP/%s", ast_endpoint_get_resource(endpoint));
+}
+
 static void endpoint_publish_contact_status(struct ast_endpoint *endpoint, struct ast_sip_contact_status *contact)
 {
 	struct ast_json *blob;
@@ -99,28 +146,24 @@ static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 	struct ast_endpoint *endpoint = persistent->endpoint;
 	struct ast_sip_contact_status *status = arg;
 	struct ao2_container *contacts;
-	struct ast_json *blob;
-	struct ao2_iterator i;
+	struct ao2_iterator iter;
 	struct ast_sip_contact *contact;
 	enum ast_endpoint_state state = AST_ENDPOINT_OFFLINE;
-	char *regcontext;
 
-	if (status) {
-		/* If the status' aor isn't one of the endpoint's, we skip */
-		if (!strstr(persistent->aors, status->aor)) {
-			return 0;
-		}
-
-		endpoint_publish_contact_status(endpoint, status);
+	/* If the status' aor isn't one of the endpoint's, we skip */
+	if (!strstr(persistent->aors, status->aor)) {
+		return 0;
 	}
+
+	endpoint_publish_contact_status(endpoint, status);
 
 	/* Find all the contacts for this endpoint.  If ANY are available,
 	 * mark the endpoint as ONLINE.
 	 */
 	contacts = ast_sip_location_retrieve_contacts_from_aor_list(persistent->aors);
 	if (contacts) {
-		i = ao2_iterator_init(contacts, 0);
-		while (state == AST_ENDPOINT_OFFLINE && (contact = ao2_iterator_next(&i))) {
+		iter = ao2_iterator_init(contacts, 0);
+		while (state == AST_ENDPOINT_OFFLINE && (contact = ao2_iterator_next(&iter))) {
 			struct ast_sip_contact_status *contact_status;
 			const char *contact_id = ast_sorcery_object_get_id(contact);
 
@@ -133,49 +176,11 @@ static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 			ao2_cleanup(contact_status);
 			ao2_ref(contact, -1);
 		}
-		ao2_iterator_destroy(&i);
+		ao2_iterator_destroy(&iter);
 		ao2_ref(contacts, -1);
 	}
 
-	/* If there was no state change, don't publish anything. */
-	if (ast_endpoint_get_state(endpoint) == state) {
-		return 0;
-	}
-
-	regcontext = ast_sip_get_regcontext();
-
-	if (state == AST_ENDPOINT_ONLINE) {
-		ast_endpoint_set_state(endpoint, AST_ENDPOINT_ONLINE);
-		blob = ast_json_pack("{s: s}", "peer_status", "Reachable");
-
-		if (!ast_strlen_zero(regcontext)) {
-			if (!ast_exists_extension(NULL, regcontext, ast_endpoint_get_resource(endpoint), 1, NULL)) {
-				ast_add_extension(regcontext, 1, ast_endpoint_get_resource(endpoint), 1, NULL, NULL,
-					"Noop", ast_strdup(ast_endpoint_get_resource(endpoint)), ast_free_ptr, "SIP");
-			}
-		}
-
-		ast_verb(2, "Endpoint %s is now Reachable\n", ast_endpoint_get_resource(endpoint));
-	} else {
-		ast_endpoint_set_state(endpoint, AST_ENDPOINT_OFFLINE);
-		blob = ast_json_pack("{s: s}", "peer_status", "Unreachable");
-
-		if (!ast_strlen_zero(regcontext)) {
-			struct pbx_find_info q = { .stacklen = 0 };
-
-			if (pbx_find_extension(NULL, NULL, &q, regcontext, ast_endpoint_get_resource(endpoint), 1, NULL, "", E_MATCH)) {
-				ast_context_remove_extension(regcontext, ast_endpoint_get_resource(endpoint), 1, NULL);
-			}
-		}
-
-		ast_verb(2, "Endpoint %s is now Unreachable\n", ast_endpoint_get_resource(endpoint));
-	}
-
-	ast_free(regcontext);
-
-	ast_endpoint_blob_publish(endpoint, ast_endpoint_state_type(), blob);
-	ast_json_unref(blob);
-	ast_devstate_changed(AST_DEVICE_UNKNOWN, AST_DEVSTATE_CACHABLE, "PJSIP/%s", ast_endpoint_get_resource(endpoint));
+	endpoint_update_state(endpoint, state);
 
 	return 0;
 }
@@ -200,7 +205,7 @@ static void persistent_endpoint_contact_created_observer(const void *object)
 	}
 	contact_status->status = CREATED;
 
-	ast_verb(2, "Contact %s/%s has been created\n",contact->aor, contact->uri);
+	ast_verb(2, "Contact %s/%s has been created\n", contact->aor, contact->uri);
 
 	ao2_callback(persistent_endpoints, OBJ_NODATA, persistent_endpoint_update_state, contact_status);
 	ao2_cleanup(contact_status);
@@ -214,7 +219,7 @@ static void persistent_endpoint_contact_deleted_observer(const void *object)
 
 	contact_status = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), CONTACT_STATUS, ast_sorcery_object_get_id(contact));
 	if (!contact_status) {
-		ast_log(LOG_ERROR, "Unable to create ast_sip_contact_status for contact %s/%s\n",
+		ast_log(LOG_ERROR, "Unable to find ast_sip_contact_status for contact %s/%s\n",
 			contact->aor, contact->uri);
 		return;
 	}
@@ -254,7 +259,8 @@ static void persistent_endpoint_contact_status_observer(const void *object)
 	}
 
 	if (contact_status->status != contact_status->last_status) {
-		ast_verb(3, "Contact %s/%s is now %s.  RTT: %.3f msec\n", contact_status->aor, contact_status->uri,
+		ast_verb(3, "Contact %s/%s is now %s.  RTT: %.3f msec\n",
+			contact_status->aor, contact_status->uri,
 			ast_sip_get_contact_status_label(contact_status->status),
 			contact_status->rtt / 1000.0);
 
@@ -265,19 +271,23 @@ static void persistent_endpoint_contact_status_observer(const void *object)
 
 		ast_test_suite_event_notify("AOR_CONTACT_UPDATE",
 			"Contact: %s\r\n"
-				"Status: %s",
+			"Status: %s",
 			ast_sorcery_object_get_id(contact_status),
 			ast_sip_get_contact_status_label(contact_status->status));
 
-		ao2_callback(persistent_endpoints, OBJ_NODATA, persistent_endpoint_update_state, contact_status);
+		ao2_callback(persistent_endpoints, OBJ_NODATA, persistent_endpoint_update_state,
+			contact_status);
 	} else {
 		ast_debug(3, "Contact %s/%s status didn't change: %s, RTT: %.3f msec\n",
-			contact_status->aor, contact_status->uri, ast_sip_get_contact_status_label(contact_status->status),
+			contact_status->aor, contact_status->uri,
+			ast_sip_get_contact_status_label(contact_status->status),
 			contact_status->rtt / 1000.0);
 	}
 
 	ast_statsd_log_full_va("PJSIP.contacts.%s.rtt", AST_STATSD_TIMER,
-		contact_status->status != AVAILABLE ? -1 : contact_status->rtt / 1000, 1.0, ast_sorcery_object_get_id(contact_status));
+		contact_status->status != AVAILABLE ? -1 : contact_status->rtt / 1000,
+		1.0,
+		ast_sorcery_object_get_id(contact_status));
 }
 
 /*! \brief Observer for contacts so state can be updated on respective endpoints */
@@ -1215,6 +1225,20 @@ static void persistent_endpoint_destroy(void *obj)
 	ast_free(persistent->aors);
 }
 
+int ast_sip_persistent_endpoint_update_state(const char *endpoint_name, enum ast_endpoint_state state)
+{
+	RAII_VAR(struct sip_persistent_endpoint *, persistent, NULL, ao2_cleanup);
+	SCOPED_AO2LOCK(lock, persistent_endpoints);
+
+	if (!(persistent = ao2_find(persistent_endpoints, endpoint_name, OBJ_KEY | OBJ_NOLOCK))) {
+		return -1;
+	}
+
+	endpoint_update_state(persistent->endpoint, state);
+
+	return 0;
+}
+
 /*! \brief Internal function which finds (or creates) persistent endpoint information */
 static struct ast_endpoint *persistent_endpoint_find_or_create(const struct ast_sip_endpoint *endpoint)
 {
@@ -1232,11 +1256,7 @@ static struct ast_endpoint *persistent_endpoint_find_or_create(const struct ast_
 
 		persistent->aors = ast_strdup(endpoint->aors);
 
-		if (ast_strlen_zero(persistent->aors)) {
-			ast_endpoint_set_state(persistent->endpoint, AST_ENDPOINT_UNKNOWN);
-		} else {
-			persistent_endpoint_update_state(persistent, NULL, 0);
-		}
+		ast_endpoint_set_state(persistent->endpoint, AST_ENDPOINT_OFFLINE);
 
 		ao2_link_flags(persistent_endpoints, persistent, OBJ_NOLOCK);
 	}
@@ -1717,6 +1737,22 @@ static struct ast_cli_entry cli_commands[] = {
 struct ast_sip_cli_formatter_entry *channel_formatter;
 struct ast_sip_cli_formatter_entry *endpoint_formatter;
 
+static int on_load_endpoint(void *obj, void *arg, int flags)
+{
+	return sip_endpoint_apply_handler(sip_sorcery, obj);
+}
+
+static void load_all_endpoints(void)
+{
+	struct ao2_container *endpoints;
+
+	endpoints = ast_sorcery_retrieve_by_fields(sip_sorcery, "endpoint", AST_RETRIEVE_FLAG_MULTIPLE | AST_RETRIEVE_FLAG_ALL, NULL);
+	if (endpoints) {
+		ao2_callback(endpoints, OBJ_NODATA, on_load_endpoint, NULL);
+		ao2_ref(endpoints, -1);
+	}
+}
+
 int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_module_info)
 {
 	if (ast_manager_register_xml(AMI_SHOW_ENDPOINTS, EVENT_FLAG_SYSTEM, ami_show_endpoints) ||
@@ -1816,6 +1852,7 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "t38_udptl_ec", "none", t38udptl_ec_handler, t38udptl_ec_to_str, NULL, 0, 0);
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "t38_udptl_maxdatagram", "0", OPT_UINT_T, 0, FLDSET(struct ast_sip_endpoint, media.t38.maxdatagram));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "fax_detect", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, faxdetect));
+	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "fax_detect_timeout", "0", OPT_UINT_T, 0, FLDSET(struct ast_sip_endpoint, faxdetect_timeout));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "t38_udptl_nat", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, media.t38.nat));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "t38_udptl_ipv6", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, media.t38.ipv6));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "tone_zone", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, zone));
@@ -1858,6 +1895,7 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_deny", "", endpoint_acl_handler, NULL, NULL, 0, 0);
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_permit", "", endpoint_acl_handler, NULL, NULL, 0, 0);
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_acl", "", endpoint_acl_handler, contact_acl_to_str, NULL, 0, 0);
+	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "subscribe_context", "", OPT_CHAR_ARRAY_T, 0, CHARFLDSET(struct ast_sip_endpoint, subscription.context));
 
 	if (ast_sip_initialize_sorcery_transport()) {
 		ast_log(LOG_ERROR, "Failed to register SIP transport support with sorcery\n");
@@ -1917,6 +1955,8 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_cli_register_multiple(cli_commands, ARRAY_LEN(cli_commands));
 
 	ast_sorcery_load(sip_sorcery);
+
+	load_all_endpoints();
 
 	return 0;
 }
