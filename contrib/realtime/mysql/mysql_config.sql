@@ -897,3 +897,27 @@ ALTER TABLE ps_contacts ADD COLUMN call_id VARCHAR(255);
 
 UPDATE alembic_version SET version_num='a845e4d8ade8' WHERE alembic_version.version_num = 'bca7113d796f';
 
+-- Running upgrade a845e4d8ade8 -> ef7efc2d3964
+
+ALTER TABLE ps_contacts ADD COLUMN endpoint VARCHAR(40);
+
+ALTER TABLE ps_contacts MODIFY expiration_time BIGINT NULL;
+
+CREATE INDEX ps_contacts_qualifyfreq_exp ON ps_contacts (qualify_frequency, expiration_time);
+
+CREATE INDEX ps_aors_qualifyfreq_contact ON ps_aors (qualify_frequency, contact);
+
+UPDATE alembic_version SET version_num='ef7efc2d3964' WHERE alembic_version.version_num = 'a845e4d8ade8';
+
+-- Running upgrade ef7efc2d3964 -> 9deac0ae4717
+
+ALTER TABLE ps_endpoints ADD COLUMN subscribe_context VARCHAR(40);
+
+UPDATE alembic_version SET version_num='9deac0ae4717' WHERE alembic_version.version_num = 'ef7efc2d3964';
+
+-- Running upgrade 9deac0ae4717 -> 4a6c67fa9b7a
+
+ALTER TABLE ps_endpoints ADD COLUMN fax_detect_timeout INTEGER;
+
+UPDATE alembic_version SET version_num='4a6c67fa9b7a' WHERE alembic_version.version_num = '9deac0ae4717';
+

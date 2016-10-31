@@ -2337,10 +2337,17 @@ static void pending_members_remove(struct member *mem)
 */
 static void update_status(struct call_queue *q, struct member *m, const int status)
 {
-	m->status = status;
+	if (m->status != status) {
+		m->status = status;
 
-	/* Whatever the status is clear the member from the pending members pool */
-	pending_members_remove(m);
+		/* Remove the member from the pending members pool only when the status changes.
+		 * This is not done unconditionally because we can occasionally see multiple
+		 * device state notifications of not in use after a previous call has ended,
+		 * including after we have initiated a new call. This is more likely to
+		 * happen when there is latency in the connection to the member.
+		 */
+		pending_members_remove(m);
+	}
 
 	queue_publish_member_blob(queue_member_status_type(), queue_member_blob_create(q, m));
 }
@@ -4070,6 +4077,17 @@ static void hangupcalls(struct queue_ent *qe, struct callattempt *outgoing, stru
 				ast_channel_hangupcause_set(outgoing->chan, AST_CAUSE_ANSWERED_ELSEWHERE);
 			}
 			ast_channel_publish_dial(qe->chan, outgoing->chan, outgoing->interface, "CANCEL");
+
+			/* When dialing channels it is possible that they may not ever
+			 * leave the not in use state (Local channels in particular) by
+			 * the time we cancel them. If this occurs but we know they were
+			 * dialed we explicitly remove them from the pending members
+			 * container so that subsequent call attempts occur.
+			 */
+			if (outgoing->member->status == AST_DEVICE_NOT_INUSE) {
+				pending_members_remove(outgoing->member);
+			}
+
 			ast_hangup(outgoing->chan);
 		}
 		oo = outgoing;
