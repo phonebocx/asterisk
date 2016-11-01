@@ -282,18 +282,30 @@ AC_PATH_PROG([CATDVI], [catdvi], :)
 AC_PATH_PROG([KPATHSEA], [kpsewhich], :)
 AC_PATH_PROG([XMLLINT], [xmllint], :)
 AC_PATH_PROG([XMLSTARLET], [xmlstarlet], :)
+AC_PATH_PROG([BASH], [bash], :)
 AC_PATH_PROG([GIT], [git], :)
 AC_PATH_PROG([ALEMBIC], [alembic], :)
+AC_PATH_PROG([BZIP2], [bzip2], :)
+AC_PATH_PROG([TAR], [tar], :)
+AC_PATH_PROG([PATCH], [patch], :)
+AC_PATH_PROG([SED], [sed], :)
+AC_PATH_PROG([NM], [nm], :)
+
 if test "${WGET}" != ":" ; then
   DOWNLOAD=${WGET}
+  DOWNLOAD_TO_STDOUT="${WGET} -O-"
 else if test "${CURL}" != ":" ; then
   DOWNLOAD="${CURL} -O --progress-bar -w \"%{url_effective}\n\""
+  DOWNLOAD_TO_STDOUT="${CURL} -L --progress-bar -w \"%{url_effective}\n\""
 else
   AC_PATH_PROG([FETCH], [fetch], [:])
   DOWNLOAD=${FETCH}
+  DOWNLOAD_TO_STDOUT="${FETCH} -o-"
 fi
 fi
+
 AC_SUBST(DOWNLOAD)
+AC_SUBST(DOWNLOAD_TO_STDOUT)
 AC_PATH_PROG([LDCONFIG], [ldconfig], :)
 AC_PATH_PROG([SHA1SUM], [sha1sum], $ac_aux_dir/build_tools/sha1sum-sh)
 AC_PATH_PROG([OPENSSL], [openssl], :)
@@ -341,6 +353,20 @@ else
 fi
 AC_SUBST(PBX_FLEX)
 
+if test "x${XMLSTARLET}" = "x:" ; then
+	PBX_XMLSTARLET=0
+else
+	PBX_XMLSTARLET=1
+fi
+AC_SUBST(PBX_XMLSTARLET)
+
+if test "x${BASH}" = "x:" ; then
+	PBX_BASH=0
+else
+	PBX_BASH=1
+fi
+AC_SUBST(PBX_BASH)
+
 AC_CHECK_TOOL([SOXMIX], [soxmix], [:])
 if test "${SOXMIX}" != ":" ; then
 	AC_DEFINE([HAVE_SOXMIX], 1, [Define to 1 if your system has soxmix application.])
@@ -376,6 +402,9 @@ AC_SUBST(NOISY_BUILD)
 AC_SUBST(AST_DEVMODE)
 AC_SUBST(AST_DEVMODE_STRICT)
 
+AST_OPTION_ONLY([sounds-cache], [SOUNDS_CACHE_DIR], [cached sound tarfiles], [])
+AST_OPTION_ONLY([externals-cache], [EXTERNALS_CACHE_DIR], [cached external module tarfiles], [])
+
 AST_CODE_COVERAGE=no
 AC_ARG_ENABLE([coverage],
 	[AS_HELP_STRING([--enable-coverage],
@@ -389,6 +418,19 @@ AC_SUBST(AST_CODE_COVERAGE)
 
 AST_CHECK_RAII()
 AST_CHECK_STRSEP_ARRAY_BOUNDS()
+
+PJPROJECT_BUNDLED=no
+AH_TEMPLATE(m4_bpatsubst([[HAVE_PJPROJECT_BUNDLED]], [(.*)]), [Define to 1 when using the bundled pjproject.])
+
+AC_ARG_WITH([pjproject-bundled],
+	[AS_HELP_STRING([--with-pjproject-bundled],
+		[Use bundled pjproject libraries])],
+	[case "${enableval}" in
+	      n|no) PJPROJECT_BUNDLED=no ;;
+	      *) PJPROJECT_BUNDLED=yes ;;
+	esac])
+
+THIRD_PARTY_CONFIGURE()
 
 # AST_EXT_LIB_SETUP is used to tell configure to handle variables for
 # various packages.
@@ -457,28 +499,8 @@ AST_EXT_LIB_SETUP([OSPTK], [OSP Toolkit], [osptk])
 AST_EXT_LIB_SETUP([OSS], [Open Sound System], [oss])
 AST_EXT_LIB_SETUP([PGSQL], [PostgreSQL], [postgres])
 
+if test "x${PBX_PJPROJECT}" != "x1" ; then
 AST_EXT_LIB_SETUP([PJPROJECT], [PJPROJECT], [pjproject])
-PJPROJECT_BUNDLED=no
-AH_TEMPLATE(m4_bpatsubst([[HAVE_PJPROJECT_BUNDLED]], [(.*)]), [Define to 1 when using the bundled pjproject.])
-
-AC_ARG_WITH([pjproject-bundled],
-	[AS_HELP_STRING([--with-pjproject-bundled],
-		[Use bundled pjproject libraries])],
-	[case "${enableval}" in
-	      n|no) PJPROJECT_BUNDLED=no ;;
-	      *) PJPROJECT_BUNDLED=yes ;;
-	esac])
-AC_SUBST(PJPROJECT_BUNDLED)
-
-if test "$PJPROJECT_BUNDLED" = "yes" -a "${ac_mandatory_list#*PJPROJECT*}" != "$ac_mandatory_list" ; then
-   AC_MSG_ERROR(--with-pjproject and --with-pjproject-bundled can't both be specified)
-fi
-
-if test "$PJPROJECT_BUNDLED" = "yes" ; then
-   ac_mandatory_list="$ac_mandatory_list PJPROJECT"
-   PJPROJECT_DIR="${ac_top_build_prefix}third-party/pjproject"
-fi
-
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_DLG_CREATE_UAS_AND_INC_LOCK], [PJSIP Dialog Create UAS with Incremented Lock], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJ_TRANSACTION_GRP_LOCK], [PJSIP Transaction Group Lock Support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_REPLACE_MEDIA_STREAM], [PJSIP Media Stream Replacement Support], [PJPROJECT], [pjsip])
@@ -487,6 +509,8 @@ AST_EXT_LIB_SETUP_OPTIONAL([PJ_SSL_CERT_LOAD_FROM_FILES2], [pj_ssl_cert_load_fro
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_EXTERNAL_RESOLVER], [PJSIP External Resolver Support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_TLS_TRANSPORT_PROTO], [PJSIP TLS Transport proto field support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_EVSUB_GRP_LOCK], [PJSIP EVSUB Group Lock support], [PJPROJECT], [pjsip])
+AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_INV_SESSION_REF], [PJSIP INVITE Session Reference Count support], [PJPROJECT], [pjsip])
+fi
 
 AST_EXT_LIB_SETUP([POPT], [popt], [popt])
 AST_EXT_LIB_SETUP([PORTAUDIO], [PortAudio], [portaudio])
@@ -520,7 +544,6 @@ AST_EXT_LIB_SETUP([RADIUS], [Radius Client], [radius])
 AST_EXT_LIB_SETUP([RESAMPLE], [LIBRESAMPLE], [resample])
 AST_EXT_LIB_SETUP([SDL], [Sdl], [sdl])
 AST_EXT_LIB_SETUP([SDL_IMAGE], [Sdl Image], [SDL_image])
-AST_OPTION_ONLY([sounds-cache], [SOUNDS_CACHE_DIR], [cached sound tarfiles], [])
 AST_EXT_LIB_SETUP([SPANDSP], [SPANDSP], [spandsp])
 AST_EXT_LIB_SETUP([SS7], [ISDN SS7], [ss7])
 AST_EXT_LIB_SETUP([SPEEX], [Speex], [speex])
@@ -2161,9 +2184,7 @@ if test "${PG_CONFIG}" != No; then
 fi
 
 if test "$USE_PJPROJECT" != "no" ; then
-   if test "$PJPROJECT_BUNDLED" = "yes" ; then
-       PJPROJECT_CONFIGURE([$PJPROJECT_DIR])
-   else
+   if test "$PJPROJECT_BUNDLED" = "no" ; then
       AST_PKG_CONFIG_CHECK([PJPROJECT], [libpjproject])
 
       AST_EXT_LIB_CHECK([PJSIP_DLG_CREATE_UAS_AND_INC_LOCK], [pjsip], [pjsip_dlg_create_uas_and_inc_lock], [pjsip.h], [$PJPROJECT_LIBS], [$PJPROJECT_CFLAGS])
@@ -2178,7 +2199,7 @@ if test "$USE_PJPROJECT" != "no" ; then
       CPPFLAGS="${saved_cppflags}"
 
       AST_EXT_LIB_CHECK([PJSIP_GET_DEST_INFO], [pjsip], [pjsip_get_dest_info], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
-      AST_EXT_LIB_CHECK([PJ_SSL_CERT_LOAD_FROM_FILES2], [pj], [pjsip/include/pjsip/sip_util.h], [pjlib.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
+      AST_EXT_LIB_CHECK([PJ_SSL_CERT_LOAD_FROM_FILES2], [pj], [pj_ssl_cert_load_from_files2], [pjlib.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
       AST_EXT_LIB_CHECK([PJSIP_EXTERNAL_RESOLVER], [pjsip], [pjsip_endpt_set_ext_resolver], [pjsip.h], [$PJPROJECT_LIBS], [$PJPROJECT_CFLAGS])
 
       saved_cppflags="${CPPFLAGS}"
@@ -2190,6 +2211,7 @@ if test "$USE_PJPROJECT" != "no" ; then
       CPPFLAGS="${saved_cppflags}"
 
       AST_EXT_LIB_CHECK([PJSIP_EVSUB_GRP_LOCK], [pjsip], [pjsip_evsub_add_ref], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
+      AST_EXT_LIB_CHECK([PJSIP_INV_SESSION_REF], [pjsip], [pjsip_inv_add_ref], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
    fi
 fi
 
@@ -2582,6 +2604,11 @@ fi
 AC_SUBST([GENERIC_ODBC_LIB])
 AC_SUBST([GENERIC_ODBC_INCLUDE])
 AC_SUBST([PBX_GENERIC_ODBC])
+
+AC_SUBST([PBX_SYSTEMD])
+AC_SUBST([SYSTEMD_LIB])
+AC_SUBST([SYSTEMD_INCLUDE])
+AST_PKG_CONFIG_CHECK([SYSTEMD], [libsystemd])
 
 PBX_SYSLOG=0
 

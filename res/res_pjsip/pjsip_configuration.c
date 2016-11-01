@@ -169,7 +169,6 @@ static int persistent_endpoint_update_state(void *obj, void *arg, int flags)
 
 			contact_status = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(),
 				CONTACT_STATUS, contact_id);
-
 			if (contact_status && contact_status->status != UNAVAILABLE) {
 				state = AST_ENDPOINT_ONLINE;
 			}
@@ -299,7 +298,8 @@ static void endpoint_deleted_observer(const void *object)
 {
 	const struct ast_sip_endpoint *endpoint = object;
 
-	ao2_find(persistent_endpoints, ast_endpoint_get_resource(endpoint->persistent), OBJ_SEARCH_KEY | OBJ_UNLINK | OBJ_NODATA);
+	ao2_find(persistent_endpoints, ast_endpoint_get_resource(endpoint->persistent),
+		OBJ_SEARCH_KEY | OBJ_UNLINK | OBJ_NODATA);
 }
 
 static const struct ast_sorcery_observer endpoint_observers = {
@@ -605,6 +605,10 @@ static int ident_handler(const struct aco_option *opt, struct ast_variable *var,
 			AST_VECTOR_RESET(&endpoint->ident_method_order, AST_VECTOR_ELEM_CLEANUP_NOOP);
 			endpoint->ident_method = 0;
 			return -1;
+		}
+		if (endpoint->ident_method & method) {
+			/* We are already indentifying by this method.  No need to do it again. */
+			continue;
 		}
 
 		endpoint->ident_method |= method;
@@ -966,7 +970,9 @@ static int dtls_handler(const struct aco_option *opt,
 {
 	struct ast_sip_endpoint *endpoint = obj;
 	char *name = ast_strdupa(var->name);
-	char *front, *back, *buf = name;
+	char *front = NULL;
+	char *back = NULL;
+	char *buf = name;
 
 	/* strip out underscores in the name */
 	front = strtok_r(buf, "_", &back);
@@ -1211,6 +1217,31 @@ static int voicemail_extension_to_str(const void *obj, const intptr_t *args, cha
 	return 0;
 }
 
+static int contact_user_handler(const struct aco_option *opt,
+	struct ast_variable *var, void *obj)
+{
+	struct ast_sip_endpoint *endpoint = obj;
+
+	endpoint->contact_user = ast_strdup(var->value);
+	if (!endpoint->contact_user) {
+		return -1;
+	}
+
+	return 0;
+}
+
+static int contact_user_to_str(const void *obj, const intptr_t *args, char **buf)
+{
+	const struct ast_sip_endpoint *endpoint = obj;
+
+	*buf = ast_strdup(endpoint->contact_user);
+	if (!(*buf)) {
+		return -1;
+	}
+
+	return 0;
+}
+
 static void *sip_nat_hook_alloc(const char *name)
 {
 	return ast_sorcery_generic_alloc(sizeof(struct ast_sip_nat_hook), NULL);
@@ -1227,16 +1258,16 @@ static void persistent_endpoint_destroy(void *obj)
 
 int ast_sip_persistent_endpoint_update_state(const char *endpoint_name, enum ast_endpoint_state state)
 {
-	RAII_VAR(struct sip_persistent_endpoint *, persistent, NULL, ao2_cleanup);
-	SCOPED_AO2LOCK(lock, persistent_endpoints);
+	struct sip_persistent_endpoint *persistent;
 
-	if (!(persistent = ao2_find(persistent_endpoints, endpoint_name, OBJ_KEY | OBJ_NOLOCK))) {
-		return -1;
+	ao2_lock(persistent_endpoints);
+	persistent = ao2_find(persistent_endpoints, endpoint_name, OBJ_SEARCH_KEY | OBJ_NOLOCK);
+	if (persistent) {
+		endpoint_update_state(persistent->endpoint, state);
+		ao2_ref(persistent, -1);
 	}
-
-	endpoint_update_state(persistent->endpoint, state);
-
-	return 0;
+	ao2_unlock(persistent_endpoints);
+	return persistent ? 0 : -1;
 }
 
 /*! \brief Internal function which finds (or creates) persistent endpoint information */
@@ -1245,16 +1276,25 @@ static struct ast_endpoint *persistent_endpoint_find_or_create(const struct ast_
 	RAII_VAR(struct sip_persistent_endpoint *, persistent, NULL, ao2_cleanup);
 	SCOPED_AO2LOCK(lock, persistent_endpoints);
 
-	if (!(persistent = ao2_find(persistent_endpoints, ast_sorcery_object_get_id(endpoint), OBJ_KEY | OBJ_NOLOCK))) {
-		if (!(persistent = ao2_alloc(sizeof(*persistent), persistent_endpoint_destroy))) {
+	persistent = ao2_find(persistent_endpoints, ast_sorcery_object_get_id(endpoint),
+		OBJ_SEARCH_KEY | OBJ_NOLOCK);
+	if (!persistent) {
+		persistent = ao2_alloc_options(sizeof(*persistent), persistent_endpoint_destroy,
+			AO2_ALLOC_OPT_LOCK_NOLOCK);
+		if (!persistent) {
 			return NULL;
 		}
 
-		if (!(persistent->endpoint = ast_endpoint_create("PJSIP", ast_sorcery_object_get_id(endpoint)))) {
+		persistent->endpoint = ast_endpoint_create("PJSIP",
+			ast_sorcery_object_get_id(endpoint));
+		if (!persistent->endpoint) {
 			return NULL;
 		}
 
 		persistent->aors = ast_strdup(endpoint->aors);
+		if (!persistent->aors) {
+			return NULL;
+		}
 
 		ast_endpoint_set_state(persistent->endpoint, AST_ENDPOINT_OFFLINE);
 
@@ -1760,7 +1800,9 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 		return -1;
 	}
 
-	if (!(persistent_endpoints = ao2_container_alloc(PERSISTENT_BUCKETS, persistent_endpoint_hash, persistent_endpoint_cmp))) {
+	persistent_endpoints = ao2_container_alloc_hash(AO2_ALLOC_OPT_LOCK_MUTEX, 0,
+		PERSISTENT_BUCKETS, persistent_endpoint_hash, NULL, persistent_endpoint_cmp);
+	if (!persistent_endpoints) {
 		return -1;
 	}
 
@@ -1896,6 +1938,7 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_permit", "", endpoint_acl_handler, NULL, NULL, 0, 0);
 	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_acl", "", endpoint_acl_handler, contact_acl_to_str, NULL, 0, 0);
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "subscribe_context", "", OPT_CHAR_ARRAY_T, 0, CHARFLDSET(struct ast_sip_endpoint, subscription.context));
+	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "contact_user", "", contact_user_handler, contact_user_to_str, NULL, 0, 0);
 
 	if (ast_sip_initialize_sorcery_transport()) {
 		ast_log(LOG_ERROR, "Failed to register SIP transport support with sorcery\n");
@@ -1981,6 +2024,7 @@ void ast_res_pjsip_destroy_configuration(void)
 	ast_sip_unregister_cli_formatter(endpoint_formatter);
 	ast_sip_destroy_cli();
 	ao2_cleanup(persistent_endpoints);
+	persistent_endpoints = NULL;
 }
 
 int ast_res_pjsip_reload_configuration(void)
@@ -2026,6 +2070,7 @@ static void endpoint_destructor(void* obj)
 	ao2_cleanup(endpoint->persistent);
 	ast_variables_destroy(endpoint->channel_vars);
 	AST_VECTOR_FREE(&endpoint->ident_method_order);
+	ast_free(endpoint->contact_user);
 }
 
 static int init_subscription_configuration(struct ast_sip_endpoint_subscription_configuration *subscription)

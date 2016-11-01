@@ -568,11 +568,11 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 			for all of the sip peers will be retrieved.</para>
 		</description>
 	</manager>
-	<info name="SIPMessageFromInfo" language="en_US" tech="SIP">
+	<info name="MessageFromInfo" language="en_US" tech="SIP">
 		<para>The <literal>from</literal> parameter can be a configured peer name
 		or in the form of "display-name" &lt;URI&gt;.</para>
 	</info>
-	<info name="SIPMessageToInfo" language="en_US" tech="SIP">
+	<info name="MessageToInfo" language="en_US" tech="SIP">
 		<para>Specifying a prefix of <literal>sip:</literal> will send the
 		message as a SIP MESSAGE request.</para>
 	</info>
@@ -1277,6 +1277,7 @@ static void mwi_event_cb(void *, struct stasis_subscription *, struct stasis_mes
 static void network_change_stasis_cb(void *data, struct stasis_subscription *sub, struct stasis_message *message);
 static void acl_change_stasis_cb(void *data, struct stasis_subscription *sub, struct stasis_message *message);
 static void sip_keepalive_all_peers(void);
+#define peer_in_destruction(peer) (ao2_ref(peer, 0) == 0)
 
 /*--- Applications, functions, CLI and manager command helpers */
 static const char *sip_nat_mode(const struct sip_pvt *p);
@@ -1477,7 +1478,8 @@ static int handle_response_register(struct sip_pvt *p, int resp, const char *res
 static void handle_response(struct sip_pvt *p, int resp, const char *rest, struct sip_request *req, uint32_t seqno);
 
 /*------ SRTP Support -------- */
-static int process_crypto(struct sip_pvt *p, struct ast_rtp_instance *rtp, struct ast_sdp_srtp **srtp, const char *a);
+static int process_crypto(struct sip_pvt *p, struct ast_rtp_instance *rtp, struct ast_sdp_srtp **srtp,
+		const char *a, int secure_transport);
 
 /*------ T38 Support --------- */
 static int transmit_response_with_t38_sdp(struct sip_pvt *p, char *msg, struct sip_request *req, int retrans);
@@ -3837,7 +3839,7 @@ static void ast_sip_ouraddrfor(const struct ast_sockaddr *them, struct ast_socka
 	    (!sip_cfg.matchexternaddrlocally || !ast_apply_ha(localaddr, us)) ) {
 		/* if we used externhost, see if it is time to refresh the info */
 		if (externexpire && time(NULL) >= externexpire) {
-			if (ast_sockaddr_resolve_first(&externaddr, externhost, 0)) {
+			if (ast_sockaddr_resolve_first_af(&externaddr, externhost, 0, AST_AF_INET)) {
 				ast_log(LOG_NOTICE, "Warning: Re-lookup of '%s' failed!\n", externhost);
 			}
 			externexpire = time(NULL) + externrefresh;
@@ -4237,7 +4239,10 @@ static enum sip_result __sip_reliable_xmit(struct sip_pvt *p, uint32_t seqno, in
 	pkt->retrans_stop_time = 64 * (pkt->timer_t1 ? pkt->timer_t1 : DEFAULT_TIMER_T1); /* time in ms after pkt->time_sent to stop retransmission */
 
 	if (!(p->socket.type & AST_TRANSPORT_UDP)) {
+		/* TCP does not need retransmits as that's built in, but with
+		 * retrans_stop set, we must give it the full timer_H treatment */
 		pkt->retrans_stop = 1;
+		siptimer_a = pkt->retrans_stop_time;
 	}
 
 	/* Schedule retransmission */
@@ -5193,13 +5198,24 @@ static void destroy_mailbox(struct sip_mailbox *mailbox)
 	ast_free(mailbox);
 }
 
+#define REMOVE_MAILBOX_WITH_LOCKED_PEER(__peer) \
+({\
+	struct sip_mailbox *__mailbox;\
+	ao2_lock(__peer);\
+	__mailbox = AST_LIST_REMOVE_HEAD(&(__peer->mailboxes), entry);\
+	ao2_unlock(__peer);\
+	__mailbox;\
+})
+
 /*! Destroy all peer-related mailbox subscriptions */
 static void clear_peer_mailboxes(struct sip_peer *peer)
 {
 	struct sip_mailbox *mailbox;
 
-	while ((mailbox = AST_LIST_REMOVE_HEAD(&peer->mailboxes, entry)))
+	/* Lock the peer while accessing/updating the linked list but NOT while destroying the mailbox */
+	while ((mailbox = REMOVE_MAILBOX_WITH_LOCKED_PEER(peer))) {
 		destroy_mailbox(mailbox);
+	}
 }
 
 static void sip_destroy_peer_fn(void *peer)
@@ -8132,12 +8148,17 @@ static struct ast_channel *sip_new(struct sip_pvt *i, int state, const char *tit
 	   We also check for vrtp. If it's not there, we are not allowed do any video anyway.
 	 */
 	if (i->vrtp) {
-		if (ast_test_flag(&i->flags[1], SIP_PAGE2_VIDEOSUPPORT))
+		if (ast_test_flag(&i->flags[1], SIP_PAGE2_VIDEOSUPPORT_ALWAYS))
 			needvideo = 1;
 		else if (ast_format_cap_count(i->prefcaps))
 			needvideo = ast_format_cap_has_type(i->prefcaps, AST_MEDIA_TYPE_VIDEO);	/* Outbound call */
 		else
 			needvideo = ast_format_cap_has_type(i->jointcaps, AST_MEDIA_TYPE_VIDEO);	/* Inbound call */
+
+		if (!needvideo) {
+			ast_rtp_instance_destroy(i->vrtp);
+			i->vrtp = NULL;
+		}
 	}
 
 	if (i->trtp) {
@@ -8607,7 +8628,9 @@ static struct ast_frame *sip_read(struct ast_channel *ast)
 
 	sip_pvt_lock(p);
 	fr = sip_rtp_read(ast, p, &faxdetected);
-	p->lastrtprx = time(NULL);
+	if (fr && fr->frametype != AST_FRAME_NULL) {
+		p->lastrtprx = time(NULL);
+	}
 
 	/* If we detect a CNG tone and fax detection is enabled then send us off to the fax extension */
 	if (faxdetected && ast_test_flag(&p->flags[1], SIP_PAGE2_FAX_DETECT_CNG)) {
@@ -10633,7 +10656,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 						}
 					} else if (process_sdp_a_sendonly(value, &sendonly)) {
 						processed = TRUE;
-					} else if (!processed_crypto && process_crypto(p, p->rtp, &p->srtp, value)) {
+					} else if (!processed_crypto && process_crypto(p, p->rtp, &p->srtp, value, secure_audio)) {
 						processed_crypto = TRUE;
 						processed = TRUE;
 					} else if (process_sdp_a_audio(value, p, &newaudiortp, &last_rtpmap_codec)) {
@@ -10650,7 +10673,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 						if (p->vsrtp) {
 							ast_set_flag(p->vsrtp, AST_SRTP_CRYPTO_OFFER_OK);
 						}
-					} else if (!processed_crypto && process_crypto(p, p->vrtp, &p->vsrtp, value)) {
+					} else if (!processed_crypto && process_crypto(p, p->vrtp, &p->vsrtp, value, secure_video)) {
 						processed_crypto = TRUE;
 						processed = TRUE;
 					} else if (process_sdp_a_video(value, p, &newvideortp, &last_rtpmap_codec)) {
@@ -10663,7 +10686,7 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 						processed = TRUE;
 					} else if (process_sdp_a_text(value, p, &newtextrtp, red_fmtp, &red_num_gen, red_data_pt, &last_rtpmap_codec)) {
 						processed = TRUE;
-					} else if (!processed_crypto && process_crypto(p, p->trtp, &p->tsrtp, value)) {
+					} else if (!processed_crypto && process_crypto(p, p->trtp, &p->tsrtp, value, 1)) {
 						processed_crypto = TRUE;
 						processed = TRUE;
 					}
@@ -12996,10 +13019,7 @@ static void add_codec_to_sdp(const struct sip_pvt *p,
 
 	framing = ast_format_cap_get_format_framing(p->caps, format);
 
-	if (ast_format_cmp(format, ast_format_g729) == AST_FORMAT_CMP_EQUAL) {
-		/* Indicate that we don't support VAD (G.729 annex B) */
-		ast_str_append(a_buf, 0, "a=fmtp:%d annexb=no\r\n", rtp_code);
-	} else if (ast_format_cmp(format, ast_format_g723) == AST_FORMAT_CMP_EQUAL) {
+	if (ast_format_cmp(format, ast_format_g723) == AST_FORMAT_CMP_EQUAL) {
 		/* Indicate that we don't support VAD (G.723.1 annex A) */
 		ast_str_append(a_buf, 0, "a=fmtp:%d annexa=no\r\n", rtp_code);
 	} else if (ast_format_cmp(format, ast_format_g719) == AST_FORMAT_CMP_EQUAL) {
@@ -16739,7 +16759,7 @@ static enum parse_register_result parse_register_contact(struct sip_pvt *pvt, st
 	}
 
 	if ((transport_type != AST_TRANSPORT_WS) && (transport_type != AST_TRANSPORT_WSS) &&
-	    (!ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) && !ast_test_flag(&peer->flags[0], SIP_NAT_RPORT_PRESENT))) {
+	    (!ast_test_flag(&peer->flags[0], SIP_NAT_FORCE_RPORT) && !ast_test_flag(&pvt->flags[0], SIP_NAT_RPORT_PRESENT))) {
 		/* use the data provided in the Contact header for call routing */
 		ast_debug(1, "Store REGISTER's Contact header for call routing.\n");
 		/* XXX This could block for a long time XXX */
@@ -17192,19 +17212,21 @@ static void sip_peer_hold(struct sip_pvt *p, int hold)
 /*! \brief Receive MWI events that we have subscribed to */
 static void mwi_event_cb(void *userdata, struct stasis_subscription *sub, struct stasis_message *msg)
 {
-	char *peer_name = userdata;
-	struct sip_peer *peer = sip_find_peer(peer_name, NULL, TRUE, FINDALLDEVICES, FALSE, 0);
+	struct sip_peer *peer = userdata;
 
-	if (stasis_subscription_final_message(sub, msg)) {
-		/* peer can be non-NULL during reload. */
-		ao2_cleanup(peer);
-		ast_free(peer_name);
+	/*
+	 * peer can't be NULL here but the peer can be in the process of being
+	 * destroyed.  If it is, we don't want to send any messages.  In most cases,
+	 * the peer is actually gone and there's no sense sending NOTIFYs that will
+	 * never be answered.
+	 */
+	if (stasis_subscription_final_message(sub, msg) || peer_in_destruction(peer)) {
 		return;
 	}
-	if (peer && ast_mwi_state_type() == stasis_message_type(msg)) {
+
+	if (ast_mwi_state_type() == stasis_message_type(msg)) {
 		sip_send_mwi_to_peer(peer, 0);
 	}
-	ao2_cleanup(peer);
 }
 
 static void network_change_stasis_subscribe(void)
@@ -26057,12 +26079,15 @@ static int handle_request_invite(struct sip_pvt *p, struct sip_request *req, str
 		copy_request(&p->initreq, req);		/* Save this INVITE as the transaction basis */
 		if (sipdebug)
 			ast_debug(1, "Initializing initreq for method %s - callid %s\n", sip_methods[req->method].text, p->callid);
+
+		/* Parse new contact both for existing (re-invite) and new calls. */
+		parse_ok_contact(p, req);
+
 		if (!p->owner) {	/* Not a re-invite */
 			if (req->debug)
 				ast_verbose("Using INVITE request as basis request - %s\n", p->callid);
 			if (newcall)
 				append_history(p, "Invite", "New call: %s", p->callid);
-			parse_ok_contact(p, req);
 		} else {	/* Re-invite on existing call */
 			ast_clear_flag(&p->flags[0], SIP_OUTGOING);	/* This is now an inbound dialog */
 			if (get_rpid(p, req)) {
@@ -27926,15 +27951,14 @@ static void add_peer_mwi_subs(struct sip_peer *peer)
 
 	AST_LIST_TRAVERSE(&peer->mailboxes, mailbox, entry) {
 		struct stasis_topic *mailbox_specific_topic;
-		mailbox->event_sub = stasis_unsubscribe(mailbox->event_sub);
+
+		if (mailbox->status != SIP_MAILBOX_STATUS_NEW) {
+			continue;
+		}
 
 		mailbox_specific_topic = ast_mwi_topic(mailbox->id);
 		if (mailbox_specific_topic) {
-			char *peer_name = ast_strdup(peer->name);
-			if (!peer_name) {
-				return;
-			}
-			mailbox->event_sub = stasis_subscribe_pool(mailbox_specific_topic, mwi_event_cb, peer_name);
+			mailbox->event_sub = stasis_subscribe_pool(mailbox_specific_topic, mwi_event_cb, peer);
 		}
 	}
 }
@@ -29159,7 +29183,9 @@ static int get_cached_mwi(struct sip_peer *peer, int *new, int *old)
 }
 
 /*! \brief Send message waiting indication to alert peer that they've got voicemail
- *  \note Both peer and associated sip_pvt must be unlocked prior to calling this function
+ *  \note Both peer and associated sip_pvt must be unlocked prior to calling this function.
+ *  It's possible that this function will get called during peer destruction as final messages
+ *  are processed.  The peer will still be valid however.
  *  \returns -1 on failure, 0 on success
  */
 static int sip_send_mwi_to_peer(struct sip_peer *peer, int cache_only)
@@ -30982,6 +31008,7 @@ static void add_peer_mailboxes(struct sip_peer *peer, const char *value)
 		AST_LIST_TRAVERSE(&peer->mailboxes, mailbox, entry) {
 			if (!strcmp(mailbox->id, mbox)) {
 				duplicate = 1;
+				mailbox->status = SIP_MAILBOX_STATUS_EXISTING;
 				break;
 			}
 		}
@@ -30994,14 +31021,18 @@ static void add_peer_mailboxes(struct sip_peer *peer, const char *value)
 			continue;
 		}
 		strcpy(mailbox->id, mbox); /* SAFE */
+		mailbox->status = SIP_MAILBOX_STATUS_NEW;
+		mailbox->peer = peer;
 
 		AST_LIST_INSERT_TAIL(&peer->mailboxes, mailbox, entry);
 	}
 }
 
 /*! \brief Build peer from configuration (file or realtime static/dynamic) */
-static struct sip_peer *build_peer(const char *name, struct ast_variable *v, struct ast_variable *alt, int realtime, int devstate_only)
+static struct sip_peer *build_peer(const char *name, struct ast_variable *v_head, struct ast_variable *alt, int realtime, int devstate_only)
 {
+	/* We preserve the original value of v_head to make analyzing backtraces easier */
+	struct ast_variable *v = v_head;
 	struct sip_peer *peer = NULL;
 	struct ast_acl_list *oldacl = NULL;
 	struct ast_acl_list *olddirectmediaacl = NULL;
@@ -31065,6 +31096,7 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 			return NULL;
 		}
 
+
 		if (realtime && !ast_test_flag(&global_flags[1], SIP_PAGE2_RTCACHEFRIENDS)) {
 			ast_atomic_fetchadd_int(&rpeerobjs, 1);
 			ast_debug(3, "-REALTIME- peer built. Name: %s. Peer objects: %d\n", name, rpeerobjs);
@@ -31114,7 +31146,7 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 	if (!devstate_only) {
 		struct sip_mailbox *mailbox;
 		AST_LIST_TRAVERSE(&peer->mailboxes, mailbox, entry) {
-			mailbox->delme = 1;
+			mailbox->status = SIP_MAILBOX_STATUS_UNKNOWN;
 		}
 	}
 
@@ -31563,7 +31595,7 @@ static struct sip_peer *build_peer(const char *name, struct ast_variable *v, str
 	if (!devstate_only) {
 		struct sip_mailbox *mailbox;
 		AST_LIST_TRAVERSE_SAFE_BEGIN(&peer->mailboxes, mailbox, entry) {
-			if (mailbox->delme) {
+			if (mailbox->status == SIP_MAILBOX_STATUS_UNKNOWN) {
 				AST_LIST_REMOVE_CURRENT(entry);
 				destroy_mailbox(mailbox);
 			}
@@ -32449,7 +32481,7 @@ static int reload_config(enum channelreloadreason reason)
 			externexpire = 0;
 		} else if (!strcasecmp(v->name, "externhost")) {
 			ast_copy_string(externhost, v->value, sizeof(externhost));
-			if (ast_sockaddr_resolve_first(&externaddr, externhost, 0)) {
+			if (ast_sockaddr_resolve_first_af(&externaddr, externhost, 0, AST_AF_INET)) {
 				ast_log(LOG_WARNING, "Invalid address for externhost keyword: %s\n", externhost);
 			}
 			externexpire = time(NULL);
@@ -33658,7 +33690,8 @@ static void sip_send_all_mwi_subscriptions(void)
 	ao2_iterator_destroy(&iter);
 }
 
-static int process_crypto(struct sip_pvt *p, struct ast_rtp_instance *rtp, struct ast_sdp_srtp **srtp, const char *a)
+static int process_crypto(struct sip_pvt *p, struct ast_rtp_instance *rtp, struct ast_sdp_srtp **srtp,
+		const char *a, int secure_transport)
 {
 	struct ast_rtp_engine_dtls *dtls;
 
@@ -33673,6 +33706,23 @@ static int process_crypto(struct sip_pvt *p, struct ast_rtp_instance *rtp, struc
 	}
 	/* skip "crypto:" */
 	a += strlen("crypto:");
+
+	if (!secure_transport) {
+		/* > The Secure Real-time Transport Protocol (SRTP)
+		 * > [RFC3711] provides security services for RTP media
+		 * > and is signaled by use of secure RTP transport (e.g.,
+		 * > "RTP/SAVP" or "RTP/SAVPF") in an SDP media (m=) line.
+		 * > ...
+		 * > The "crypto" attribute MUST only appear at the SDP
+		 * > media level (not at the session level).
+		 *
+		 * Ergo, we can trust RTP/(S)AVP to be read from the m=
+		 * line before we get here. If it was RTP/AVP, then this
+		 * is SNOM-specific optional SRTP. Ignore it.
+		 */
+		ast_log(LOG_WARNING, "Ignoring crypto attribute in SDP because RTP transport is insecure\n");
+		return FALSE;
+	}
 
 	if (!*srtp) {
 		if (ast_test_flag(&p->flags[0], SIP_OUTGOING)) {

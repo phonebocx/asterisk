@@ -354,6 +354,32 @@
 	AST_VECTOR_REMOVE(vec, idx, 1)
 
 /*!
+ * \brief Remove all elements from a vector that matches the given comparison
+ *
+ * \param vec Vector to remove from.
+ * \param value Value to pass into comparator.
+ * \param cmp Comparator function/macros (called as \c cmp(elem, value))
+ * \param cleanup How to cleanup a removed element macro/function.
+ *
+ * \return the number of deleted elements.
+ */
+#define AST_VECTOR_REMOVE_ALL_CMP_UNORDERED(vec, value, cmp, cleanup) ({	\
+	int count = 0;							\
+	size_t idx;							\
+	typeof(value) __value = (value);				\
+	for (idx = 0; idx < (vec)->current; ) {				\
+		if (cmp((vec)->elems[idx], __value)) {			\
+			cleanup((vec)->elems[idx]);			\
+			AST_VECTOR_REMOVE_UNORDERED((vec), idx);	\
+			++count;					\
+		} else {						\
+			++idx;						\
+		}							\
+	}								\
+	count;								\
+})
+
+/*!
  * \brief Remove an element from a vector that matches the given comparison
  *
  * \param vec Vector to remove from.
@@ -380,6 +406,32 @@
 })
 
 /*!
+ * \brief Remove all elements from a vector that matches the given comparison while maintaining order
+ *
+ * \param vec Vector to remove from.
+ * \param value Value to pass into comparator.
+ * \param cmp Comparator function/macros (called as \c cmp(elem, value))
+ * \param cleanup How to cleanup a removed element macro/function.
+ *
+ * \return the number of deleted elements.
+ */
+#define AST_VECTOR_REMOVE_ALL_CMP_ORDERED(vec, value, cmp, cleanup) ({	\
+	int count = 0;							\
+	size_t idx;							\
+	typeof(value) __value = (value);				\
+	for (idx = 0; idx < (vec)->current; ) {				\
+		if (cmp((vec)->elems[idx], __value)) {			\
+			cleanup((vec)->elems[idx]);			\
+			AST_VECTOR_REMOVE_ORDERED((vec), idx);		\
+			++count;					\
+		} else {						\
+			++idx;						\
+		}							\
+	}								\
+	count;								\
+})
+
+/*!
  * \brief Remove an element from a vector that matches the given comparison while maintaining order
  *
  * \param vec Vector to remove from.
@@ -397,7 +449,7 @@
 	for (idx = 0; idx < (vec)->current; ++idx) {			\
 		if (cmp((vec)->elems[idx], __value)) {			\
 			cleanup((vec)->elems[idx]);			\
-			AST_VECTOR_REMOVE_ORDERED((vec), idx);	\
+			AST_VECTOR_REMOVE_ORDERED((vec), idx);		\
 			res = 0;					\
 			break;						\
 		}							\

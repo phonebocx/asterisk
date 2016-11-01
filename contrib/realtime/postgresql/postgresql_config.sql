@@ -450,7 +450,8 @@ CREATE TABLE extensions (
     priority INTEGER NOT NULL, 
     app VARCHAR(40) NOT NULL, 
     appdata VARCHAR(256) NOT NULL, 
-    PRIMARY KEY (id, context, exten, priority), 
+    PRIMARY KEY (id), 
+    UNIQUE (context, exten, priority), 
     UNIQUE (id)
 );
 
@@ -990,6 +991,40 @@ UPDATE alembic_version SET version_num='9deac0ae4717' WHERE alembic_version.vers
 ALTER TABLE ps_endpoints ADD COLUMN fax_detect_timeout INTEGER;
 
 UPDATE alembic_version SET version_num='4a6c67fa9b7a' WHERE alembic_version.version_num = '9deac0ae4717';
+
+-- Running upgrade 4a6c67fa9b7a -> c7a44a5a0851
+
+ALTER TABLE ps_globals ADD COLUMN mwi_tps_queue_high INTEGER;
+
+ALTER TABLE ps_globals ADD COLUMN mwi_tps_queue_low INTEGER;
+
+ALTER TABLE ps_globals ADD COLUMN mwi_disable_initial_unsolicited yesno_values;
+
+UPDATE alembic_version SET version_num='c7a44a5a0851' WHERE alembic_version.version_num = '4a6c67fa9b7a';
+
+-- Running upgrade c7a44a5a0851 -> 3772f8f828da
+
+ALTER TYPE pjsip_identify_by_values RENAME TO pjsip_identify_by_values_tmp;
+
+CREATE TYPE pjsip_identify_by_values AS ENUM ('username', 'auth_username');
+
+ALTER TABLE ps_endpoints ALTER COLUMN identify_by TYPE pjsip_identify_by_values USING identify_by::text::pjsip_identify_by_values;
+
+DROP TYPE pjsip_identify_by_values_tmp;
+
+UPDATE alembic_version SET version_num='3772f8f828da' WHERE alembic_version.version_num = 'c7a44a5a0851';
+
+-- Running upgrade 3772f8f828da -> 4e2493ef32e6
+
+ALTER TABLE ps_endpoints ADD COLUMN contact_user VARCHAR(80);
+
+UPDATE alembic_version SET version_num='4e2493ef32e6' WHERE alembic_version.version_num = '3772f8f828da';
+
+-- Running upgrade 4e2493ef32e6 -> a6ef36f1309
+
+ALTER TABLE ps_globals ADD COLUMN ignore_uri_user_options yesno_values;
+
+UPDATE alembic_version SET version_num='a6ef36f1309' WHERE alembic_version.version_num = '4e2493ef32e6';
 
 COMMIT;
 
