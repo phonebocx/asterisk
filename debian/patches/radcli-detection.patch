@@ -1,5 +1,6 @@
 Description: Autodetect radcli, favored over freeradius-client or radiusclient-ng
 Author: Jonas Smedegaard <dr@jones.dk>
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-26540
 Last-Update: 2016-05-18
 
 --- a/configure.ac

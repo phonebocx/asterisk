@@ -1,8 +1,7 @@
 Description: Fix OSARCH detection on all linux architectures
 Author: James Cowgill <james410@cowgill.org.uk>
 Reviewed-by: Matthias Klose <doko@debian.org>
-Forwarded: no
-Bug-Debian: https://bugs.debian.org/780287
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-26546
 Last-Update: 2016-03-19
 
 --- a/configure.ac

@@ -1,6 +1,7 @@
 Description: support HURD as well
  HURD is also GNU and should be considered as such.
 Author: Gabriele Giacone <1o5g4r8o@gmail.com>
+Origin: http://git.asterisk.org/gitweb/?p=asterisk/asterisk.git;a=commit;h=94c9496ed5a73a83ac26c58f8ae049acccc0fd51
 Bug-Debian: https://bugs.debian.org/784551
 Last-Update: 2016-04-02
 
