@@ -2437,17 +2437,16 @@ void DO_CRASH_NORETURN ast_do_crash(void)
 #endif	/* defined(DO_CRASH) */
 }
 
-#if defined(AST_DEVMODE)
 void DO_CRASH_NORETURN __ast_assert_failed(int condition, const char *condition_str, const char *file, int line, const char *function)
 {
 	/*
 	 * Attempt to put it into the logger, but hope that at least
 	 * someone saw the message on stderr ...
 	 */
-	ast_log(__LOG_ERROR, file, line, function, "FRACK!, Failed assertion %s (%d)\n",
-		condition_str, condition);
 	fprintf(stderr, "FRACK!, Failed assertion %s (%d) at line %d in %s of %s\n",
 		condition_str, condition, line, function, file);
+	ast_log(__LOG_ERROR, file, line, function, "FRACK!, Failed assertion %s (%d)\n",
+		condition_str, condition);
 
 	/* Generate a backtrace for the assert */
 	ast_log_backtrace();
@@ -2460,7 +2459,6 @@ void DO_CRASH_NORETURN __ast_assert_failed(int condition, const char *condition_
 	usleep(1);
 	ast_do_crash();
 }
-#endif	/* defined(AST_DEVMODE) */
 
 char *ast_eid_to_str(char *s, int maxlen, struct ast_eid *eid)
 {
@@ -2493,7 +2491,7 @@ void ast_set_default_eid(struct ast_eid *eid)
 		return;
 	}
 	for (x = 0; x < MAXIF; x++) {
-		static const char *prefixes[] = { "eth", "em" };
+		static const char *prefixes[] = { "eth", "em", "eno", "ens" };
 		unsigned int i;
 
 		for (i = 0; i < ARRAY_LEN(prefixes); i++) {
@@ -2544,7 +2542,7 @@ void ast_set_default_eid(struct ast_eid *eid)
 	}
 #endif
 #endif
-	ast_debug(1, "No ethernet interface found for seeding global EID. You will have to set it manually.\n");
+	ast_log(LOG_WARNING, "No ethernet interface found for seeding global EID. You will have to set it manually.\n");
 }
 
 int ast_str_to_eid(struct ast_eid *eid, const char *s)
@@ -2567,6 +2565,14 @@ int ast_str_to_eid(struct ast_eid *eid, const char *s)
 int ast_eid_cmp(const struct ast_eid *eid1, const struct ast_eid *eid2)
 {
 	return memcmp(eid1, eid2, sizeof(*eid1));
+}
+
+int ast_eid_is_empty(const struct ast_eid *eid)
+{
+	struct ast_eid empty_eid;
+
+	memset(&empty_eid, 0, sizeof(empty_eid));
+	return memcmp(eid, &empty_eid, sizeof(empty_eid)) ? 0 : 1;
 }
 
 int ast_file_is_readable(const char *filename)

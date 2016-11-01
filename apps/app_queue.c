@@ -4849,6 +4849,7 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 					char tmpchan[256];
 					char *stuff;
 					char *tech;
+					int failed = 0;
 
 					ast_copy_string(tmpchan, ast_channel_call_forward(o->chan), sizeof(tmpchan));
 					ast_copy_string(forwarder, ast_channel_name(o->chan), sizeof(forwarder));
@@ -4961,14 +4962,20 @@ static struct callattempt *wait_for_answer(struct queue_ent *qe, struct callatte
 						if (ast_call(o->chan, stuff, 0)) {
 							ast_log(LOG_NOTICE, "Forwarding failed to dial '%s/%s'\n",
 								tech, stuff);
-							do_hang(o);
-							numnochan++;
+							failed = 1;
 						}
 					}
 
-					ast_channel_publish_dial(qe->chan, o->chan, stuff, NULL);
 					ast_channel_publish_dial_forward(qe->chan, original, o->chan, NULL,
 						"CANCEL", ast_channel_call_forward(original));
+					if (o->chan) {
+						ast_channel_publish_dial(qe->chan, o->chan, stuff, NULL);
+					}
+
+					if (failed) {
+						do_hang(o);
+						numnochan++;
+					}
 
 					/* Hangup the original channel now, in case we needed it */
 					ast_hangup(winner);
@@ -5609,12 +5616,12 @@ static void send_agent_complete(const char *queuename, struct ast_channel_snapsh
 	}
 
 	blob = ast_json_pack("{s: s, s: s, s: s, s: i, s: i, s: s}",
-			     "Queue", queuename,
-			     "Interface", member->interface,
-			     "MemberName", member->membername,
-			     "HoldTime", (long)(callstart - holdstart),
-			     "TalkTime", (long)(time(NULL) - callstart),
-			     "Reason", reason);
+		"Queue", queuename,
+		"Interface", member->interface,
+		"MemberName", member->membername,
+		"HoldTime", (long)(callstart - holdstart),
+		"TalkTime", (long)(time(NULL) - callstart),
+		"Reason", reason ?: "");
 
 	queue_publish_multi_channel_snapshot_blob(ast_queue_topic(queuename), caller, peer,
 			queue_agent_complete_type(), blob);
@@ -7192,12 +7199,10 @@ static void set_queue_member_pause(struct call_queue *q, struct member *mem, con
 	}
 
 	mem->paused = paused;
-	if (paused) {
-		if (!ast_strlen_zero(reason)) {
-			ast_copy_string(mem->reason_paused, reason, sizeof(mem->reason_paused));
-		}
+	if (paused && !ast_strlen_zero(reason)) {
+		ast_copy_string(mem->reason_paused, reason, sizeof(mem->reason_paused));
 	} else {
-		ast_copy_string(mem->reason_paused, "", sizeof(mem->reason_paused));
+		mem->reason_paused[0] = '\0';
 	}
 
 	ast_devstate_changed(mem->paused ? QUEUE_PAUSED_DEVSTATE : QUEUE_UNPAUSED_DEVSTATE,
@@ -9190,7 +9195,7 @@ static void do_print(struct mansession *s, int fd, const char *str)
 static char *__queues_show(struct mansession *s, int fd, int argc, const char * const *argv)
 {
 	struct call_queue *q;
-	struct ast_str *out = ast_str_alloca(240);
+	struct ast_str *out = ast_str_alloca(512);
 	int found = 0;
 	time_t now = time(NULL);
 	struct ao2_iterator queue_iter;

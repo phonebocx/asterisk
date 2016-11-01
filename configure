@@ -639,6 +639,11 @@ PBX_SYSLOG_FACILITY_LOG_DAEMON
 PBX_SYSLOG_FACILITY_LOG_CRON
 PBX_SYSLOG_FACILITY_LOG_AUTHPRIV
 PBX_SYSLOG_FACILITY_LOG_AUTH
+SYSTEMD_LIBS
+SYSTEMD_CFLAGS
+SYSTEMD_INCLUDE
+SYSTEMD_LIB
+PBX_SYSTEMD
 PBX_GENERIC_ODBC
 GENERIC_ODBC_INCLUDE
 GENERIC_ODBC_LIB
@@ -802,7 +807,6 @@ PBX_SPANDSP
 SPANDSP_DIR
 SPANDSP_INCLUDE
 SPANDSP_LIB
-SOUNDS_CACHE_DIR
 PBX_SDL_IMAGE
 SDL_IMAGE_DIR
 SDL_IMAGE_INCLUDE
@@ -915,6 +919,10 @@ PBX_POPT
 POPT_DIR
 POPT_INCLUDE
 POPT_LIB
+PBX_PJSIP_INV_SESSION_REF
+PJSIP_INV_SESSION_REF_DIR
+PJSIP_INV_SESSION_REF_INCLUDE
+PJSIP_INV_SESSION_REF_LIB
 PBX_PJSIP_EVSUB_GRP_LOCK
 PJSIP_EVSUB_GRP_LOCK_DIR
 PJSIP_EVSUB_GRP_LOCK_INCLUDE
@@ -947,11 +955,6 @@ PBX_PJSIP_DLG_CREATE_UAS_AND_INC_LOCK
 PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_DIR
 PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_INCLUDE
 PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_LIB
-PJPROJECT_BUNDLED
-PBX_PJPROJECT
-PJPROJECT_DIR
-PJPROJECT_INCLUDE
-PJPROJECT_LIB
 PBX_PGSQL
 PGSQL_DIR
 PGSQL_INCLUDE
@@ -1164,11 +1167,18 @@ PBX_ALSA
 ALSA_DIR
 ALSA_INCLUDE
 ALSA_LIB
+PJPROJECT_INCLUDE
+PJPROJECT_LIB
+PBX_PJPROJECT
+PJPROJECT_DIR
+PJPROJECT_BUNDLED
 AST_C_COMPILER_FAMILY
 AST_CLANG_BLOCKS
 AST_CLANG_BLOCKS_LIBS
 AST_NESTED_FUNCTIONS
 AST_CODE_COVERAGE
+EXTERNALS_CACHE_DIR
+SOUNDS_CACHE_DIR
 AST_DEVMODE_STRICT
 AST_DEVMODE
 NOISY_BUILD
@@ -1178,15 +1188,23 @@ PTHREAD_CC
 ax_pthread_config
 MD5
 SOXMIX
+PBX_BASH
+PBX_XMLSTARLET
 PBX_FLEX
 PBX_BISON
 OPENSSL
 SHA1SUM
 LDCONFIG
+DOWNLOAD_TO_STDOUT
 DOWNLOAD
 FETCH
+NM
+PATCH
+TAR
+BZIP2
 ALEMBIC
 GIT
+BASH
 XMLSTARLET
 XMLLINT
 KPATHSEA
@@ -1312,7 +1330,10 @@ ac_user_opts='
 enable_option_checking
 with_gnu_ld
 enable_dev_mode
+with_sounds_cache
+with_externals_cache
 enable_coverage
+with_pjproject_bundled
 with_asound
 with_bfd
 with_execinfo
@@ -1363,7 +1384,6 @@ with_osptk
 with_oss
 with_postgres
 with_pjproject
-with_pjproject_bundled
 with_popt
 with_portaudio
 with_pri
@@ -1372,7 +1392,6 @@ with_radius
 with_resample
 with_sdl
 with_SDL_image
-with_sounds_cache
 with_spandsp
 with_ss7
 with_speex
@@ -1425,7 +1444,9 @@ PYTHONDEV_LIBS
 GMIME_CFLAGS
 GMIME_LIBS
 GTK2_CFLAGS
-GTK2_LIBS'
+GTK2_LIBS
+SYSTEMD_CFLAGS
+SYSTEMD_LIBS'
 
 
 # Initialize some variables set by options.
@@ -2051,6 +2072,12 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
+  --with-sounds-cache=PATH
+                          use cached sound tarfiles in PATH
+  --with-externals-cache=PATH
+                          use cached external module tarfiles in PATH
+  --with-pjproject-bundled
+                          Use bundled pjproject libraries
   --with-asound=PATH      use Advanced Linux Sound Architecture files in PATH
   --with-bfd=PATH         use Debug symbol decoding files in PATH
   --with-execinfo=PATH    use Stack Backtrace files in PATH
@@ -2105,8 +2132,6 @@ Optional Packages:
   --with-oss=PATH         use Open Sound System files in PATH
   --with-postgres=PATH    use PostgreSQL files in PATH
   --with-pjproject=PATH   use PJPROJECT files in PATH
-  --with-pjproject-bundled
-                          Use bundled pjproject libraries
   --with-popt=PATH        use popt files in PATH
   --with-portaudio=PATH   use PortAudio files in PATH
   --with-pri=PATH         use ISDN PRI files in PATH
@@ -2115,8 +2140,6 @@ Optional Packages:
   --with-resample=PATH    use LIBRESAMPLE files in PATH
   --with-sdl=PATH         use Sdl files in PATH
   --with-SDL_image=PATH   use Sdl Image files in PATH
-  --with-sounds-cache=PATH
-                          use cached sound tarfiles in PATH
   --with-spandsp=PATH     use SPANDSP files in PATH
   --with-ss7=PATH         use ISDN SS7 files in PATH
   --with-speex=PATH       use Speex files in PATH
@@ -2174,6 +2197,10 @@ Some influential environment variables:
   GMIME_LIBS  linker flags for GMIME, overriding pkg-config
   GTK2_CFLAGS C compiler flags for GTK2, overriding pkg-config
   GTK2_LIBS   linker flags for GTK2, overriding pkg-config
+  SYSTEMD_CFLAGS
+              C compiler flags for SYSTEMD, overriding pkg-config
+  SYSTEMD_LIBS
+              linker flags for SYSTEMD, overriding pkg-config
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -7458,6 +7485,47 @@ $as_echo "no" >&6; }
 fi
 
 
+# Extract the first word of "bash", so it can be a program name with args.
+set dummy bash; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_BASH+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $BASH in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_BASH="$BASH" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_BASH="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_BASH" && ac_cv_path_BASH=":"
+  ;;
+esac
+fi
+BASH=$ac_cv_path_BASH
+if test -n "$BASH"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $BASH" >&5
+$as_echo "$BASH" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
 # Extract the first word of "git", so it can be a program name with args.
 set dummy git; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
@@ -7540,10 +7608,218 @@ $as_echo "no" >&6; }
 fi
 
 
+# Extract the first word of "bzip2", so it can be a program name with args.
+set dummy bzip2; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_BZIP2+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $BZIP2 in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_BZIP2="$BZIP2" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_BZIP2="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_BZIP2" && ac_cv_path_BZIP2=":"
+  ;;
+esac
+fi
+BZIP2=$ac_cv_path_BZIP2
+if test -n "$BZIP2"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $BZIP2" >&5
+$as_echo "$BZIP2" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+# Extract the first word of "tar", so it can be a program name with args.
+set dummy tar; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_TAR+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $TAR in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_TAR="$TAR" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_TAR="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_TAR" && ac_cv_path_TAR=":"
+  ;;
+esac
+fi
+TAR=$ac_cv_path_TAR
+if test -n "$TAR"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $TAR" >&5
+$as_echo "$TAR" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+# Extract the first word of "patch", so it can be a program name with args.
+set dummy patch; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PATCH+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PATCH in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PATCH="$PATCH" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PATCH="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_PATCH" && ac_cv_path_PATCH=":"
+  ;;
+esac
+fi
+PATCH=$ac_cv_path_PATCH
+if test -n "$PATCH"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PATCH" >&5
+$as_echo "$PATCH" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+# Extract the first word of "sed", so it can be a program name with args.
+set dummy sed; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_SED+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $SED in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_SED="$SED" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_SED="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_SED" && ac_cv_path_SED=":"
+  ;;
+esac
+fi
+SED=$ac_cv_path_SED
+if test -n "$SED"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $SED" >&5
+$as_echo "$SED" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+# Extract the first word of "nm", so it can be a program name with args.
+set dummy nm; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_NM+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $NM in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_NM="$NM" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_NM="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_path_NM" && ac_cv_path_NM=":"
+  ;;
+esac
+fi
+NM=$ac_cv_path_NM
+if test -n "$NM"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $NM" >&5
+$as_echo "$NM" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+
 if test "${WGET}" != ":" ; then
   DOWNLOAD=${WGET}
+  DOWNLOAD_TO_STDOUT="${WGET} -O-"
 else if test "${CURL}" != ":" ; then
   DOWNLOAD="${CURL} -O --progress-bar -w \"%{url_effective}\n\""
+  DOWNLOAD_TO_STDOUT="${CURL} -L --progress-bar -w \"%{url_effective}\n\""
 else
   # Extract the first word of "fetch", so it can be a program name with args.
 set dummy fetch; ac_word=$2
@@ -7587,8 +7863,11 @@ fi
 
 
   DOWNLOAD=${FETCH}
+  DOWNLOAD_TO_STDOUT="${FETCH} -o-"
 fi
 fi
+
+
 
 # Extract the first word of "ldconfig", so it can be a program name with args.
 set dummy ldconfig; ac_word=$2
@@ -7762,6 +8041,20 @@ if test "x${FLEX}" = "x:" ; then
 	PBX_FLEX=0
 else
 	PBX_FLEX=1
+fi
+
+
+if test "x${XMLSTARLET}" = "x:" ; then
+	PBX_XMLSTARLET=0
+else
+	PBX_XMLSTARLET=1
+fi
+
+
+if test "x${BASH}" = "x:" ; then
+	PBX_BASH=0
+else
+	PBX_BASH=1
 fi
 
 
@@ -8649,6 +8942,55 @@ fi
 
 
 
+
+
+# Check whether --with-sounds-cache was given.
+if test "${with_sounds_cache+set}" = set; then :
+  withval=$with_sounds_cache;
+	case ${withval} in
+	n|no)
+		unset SOUNDS_CACHE_DIR
+		;;
+	*)
+		if test "x${withval}" = "x"; then
+			:
+		else
+			SOUNDS_CACHE_DIR="${withval}"
+		fi
+		;;
+	esac
+
+else
+  :
+fi
+
+
+
+
+
+# Check whether --with-externals-cache was given.
+if test "${with_externals_cache+set}" = set; then :
+  withval=$with_externals_cache;
+	case ${withval} in
+	n|no)
+		unset EXTERNALS_CACHE_DIR
+		;;
+	*)
+		if test "x${withval}" = "x"; then
+			:
+		else
+			EXTERNALS_CACHE_DIR="${withval}"
+		fi
+		;;
+	esac
+
+else
+  :
+fi
+
+
+
+
 AST_CODE_COVERAGE=no
 # Check whether --enable-coverage was given.
 if test "${enable_coverage+set}" = set; then :
@@ -8799,6 +9141,118 @@ $as_echo "prevent use of __string2_1bptr_p / strsep / strcmp from bits/string2.h
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 	CFLAGS="$save_CFLAGS"
+
+
+PJPROJECT_BUNDLED=no
+
+
+
+# Check whether --with-pjproject-bundled was given.
+if test "${with_pjproject_bundled+set}" = set; then :
+  withval=$with_pjproject_bundled; case "${enableval}" in
+	      n|no) PJPROJECT_BUNDLED=no ;;
+	      *) PJPROJECT_BUNDLED=yes ;;
+	esac
+fi
+
+
+
+
+	if test "$PJPROJECT_BUNDLED" = "yes" ; then
+
+	if test "${ac_mandatory_list#*PJPROJECT*}" != "$ac_mandatory_list" ; then
+		as_fn_error $? "--with-pjproject and --with-pjproject-bundled can't both be specified" "$LINENO" 5
+	fi
+
+	ac_mandatory_list="$ac_mandatory_list PJPROJECT"
+	PJPROJECT_DIR="${ac_top_build_prefix}third-party/pjproject"
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for embedded pjproject (may have to download)" >&5
+$as_echo_n "checking for embedded pjproject (may have to download)... " >&6; }
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: configuring" >&5
+$as_echo "configuring" >&6; }
+
+	if test "x${DOWNLOAD_TO_STDOUT}" = "x" ; then
+		as_fn_error $? "A download utility (wget, curl or fetch) is required to download bundled pjproject" "$LINENO" 5
+	fi
+	if test "${BZIP2}" = ":" ; then
+		as_fn_error $? "bzip2 is required to extract the pjproject tar file" "$LINENO" 5
+	fi
+	if test "${TAR}" = ":" ; then
+		as_fn_error $? "tar is required to extract the pjproject tar file" "$LINENO" 5
+	fi
+	if test "${PATCH}" = ":" ; then
+		as_fn_error $? "patch is required to configure bundled pjproject" "$LINENO" 5
+	fi
+	if test "${SED}" = ":" ; then
+		as_fn_error $? "sed is required to configure bundled pjproject" "$LINENO" 5
+	fi
+	if test "${NM}" = ":" ; then
+		as_fn_error $? "nm is required to build bundled pjproject" "$LINENO" 5
+	fi
+
+	export TAR PATCH SED NM EXTERNALS_CACHE_DIR DOWNLOAD_TO_STDOUT
+	${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} configure
+	if test $? -ne 0 ; then
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: failed" >&5
+$as_echo "failed" >&6; }
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: Unable to configure ${PJPROJECT_DIR}" >&5
+$as_echo "$as_me: Unable to configure ${PJPROJECT_DIR}" >&6;}
+		as_fn_error $? "Run \"${GNU_MAKE} -C ${PJPROJECT_DIR} NOISY_BUILD=yes configure\" to see error details." "$LINENO" 5
+	fi
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for bundled pjproject" >&5
+$as_echo_n "checking for bundled pjproject... " >&6; }
+
+	PJPROJECT_INCLUDE=$(${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} echo_cflags)
+	PJPROJECT_CFLAGS="$PJPROJECT_INCLUDE"
+	PBX_PJPROJECT=1
+
+
+$as_echo "#define HAVE_PJPROJECT 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJPROJECT_BUNDLED 1" >>confdefs.h
+
+
+
+$as_echo "#define HAVE_PJSIP_DLG_CREATE_UAS_AND_INC_LOCK 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJ_TRANSACTION_GRP_LOCK 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJSIP_REPLACE_MEDIA_STREAM 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJSIP_GET_DEST_INFO 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJ_SSL_CERT_LOAD_FROM_FILES2 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJSIP_EXTERNAL_RESOLVER 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJSIP_TLS_TRANSPORT_PROTO 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJSIP_EVSUB_GRP_LOCK 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJSIP_INV_SESSION_REF 1" >>confdefs.h
+
+
+
+
+
+
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+	fi
+
 
 
 # AST_EXT_LIB_SETUP is used to tell configure to handle variables for
@@ -10786,6 +11240,7 @@ fi
 
 
 
+if test "x${PBX_PJPROJECT}" != "x1" ; then
 
     PJPROJECT_DESCRIP="PJPROJECT"
     PJPROJECT_OPTION="pjproject"
@@ -10817,29 +11272,6 @@ fi
 
 
 
-
-PJPROJECT_BUNDLED=no
-
-
-
-# Check whether --with-pjproject-bundled was given.
-if test "${with_pjproject_bundled+set}" = set; then :
-  withval=$with_pjproject_bundled; case "${enableval}" in
-	      n|no) PJPROJECT_BUNDLED=no ;;
-	      *) PJPROJECT_BUNDLED=yes ;;
-	esac
-fi
-
-
-
-if test "$PJPROJECT_BUNDLED" = "yes" -a "${ac_mandatory_list#*PJPROJECT*}" != "$ac_mandatory_list" ; then
-   as_fn_error $? "--with-pjproject and --with-pjproject-bundled can't both be specified" "$LINENO" 5
-fi
-
-if test "$PJPROJECT_BUNDLED" = "yes" ; then
-   ac_mandatory_list="$ac_mandatory_list PJPROJECT"
-   PJPROJECT_DIR="${ac_top_build_prefix}third-party/pjproject"
-fi
 
 
 PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_DESCRIP="PJSIP Dialog Create UAS with Incremented Lock"
@@ -10937,6 +11369,19 @@ PBX_PJSIP_EVSUB_GRP_LOCK=0
 
 
 
+
+PJSIP_INV_SESSION_REF_DESCRIP="PJSIP INVITE Session Reference Count support"
+PJSIP_INV_SESSION_REF_OPTION=pjsip
+PJSIP_INV_SESSION_REF_DIR=${PJPROJECT_DIR}
+
+PBX_PJSIP_INV_SESSION_REF=0
+
+
+
+
+
+
+fi
 
 
     POPT_DESCRIP="popt"
@@ -11435,30 +11880,6 @@ fi
 
 
 
-
-
-
-
-
-# Check whether --with-sounds-cache was given.
-if test "${with_sounds_cache+set}" = set; then :
-  withval=$with_sounds_cache;
-	case ${withval} in
-	n|no)
-		unset SOUNDS_CACHE_DIR
-		;;
-	*)
-		if test "x${withval}" = "x"; then
-			:
-		else
-			SOUNDS_CACHE_DIR="${withval}"
-		fi
-		;;
-	esac
-
-else
-  :
-fi
 
 
 
@@ -24622,248 +25043,7 @@ $as_echo "$as_me: *** including --without-postgres" >&6;}
 fi
 
 if test "$USE_PJPROJECT" != "no" ; then
-   if test "$PJPROJECT_BUNDLED" = "yes" ; then
-
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for embedded pjproject (may have to download)" >&5
-$as_echo_n "checking for embedded pjproject (may have to download)... " >&6; }
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: configuring" >&5
-$as_echo "configuring" >&6; }
-	${GNU_MAKE} --quiet --no-print-directory -C $PJPROJECT_DIR configure
-	if test $? -ne 0 ; then
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: failed" >&5
-$as_echo "failed" >&6; }
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: Unable to configure $PJPROJECT_DIR" >&5
-$as_echo "$as_me: Unable to configure $PJPROJECT_DIR" >&6;}
-		as_fn_error $? "Run \"${GNU_MAKE} -C $PJPROJECT_DIR NOISY_BUILD=yes configure\" to see error details." "$LINENO" 5
-	fi
-
-	PJPROJECT_INCLUDE=$(${GNU_MAKE} --quiet --no-print-directory -C $PJPROJECT_DIR echo_cflags)
-	PJPROJECT_CFLAGS="$PJPROJECT_INCLUDE"
-	PBX_PJPROJECT=1
-	PJPROJECT_BUNDLED=yes
-
-$as_echo "#define HAVE_PJPROJECT 1" >>confdefs.h
-
-
-$as_echo "#define HAVE_PJPROJECT_BUNDLED 1" >>confdefs.h
-
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for embedded pjproject" >&5
-$as_echo_n "checking for embedded pjproject... " >&6; }
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-
-
-	PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_INCLUDE="$PJPROJECT_INCLUDE"
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pjsip_dlg_create_uas_and_inc_lock declared in pjsip.h" >&5
-$as_echo_n "checking for pjsip_dlg_create_uas_and_inc_lock declared in pjsip.h... " >&6; }
-
-	saved_cpp="$CPPFLAGS"
-	CPPFLAGS="$PJPROJECT_INCLUDE"
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <pjsip.h>
-
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "pjsip_dlg_create_uas_and_inc_lock" >/dev/null 2>&1; then :
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_PJSIP_DLG_CREATE_UAS_AND_INC_LOCK=1
-
-$as_echo "#define HAVE_PJSIP_DLG_CREATE_UAS_AND_INC_LOCK 1" >>confdefs.h
-
-
-else
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f conftest*
-
-
-	CPPGLAGS="$saved_cpp"
-	PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_INCLUDE="$PJPROJECT_INCLUDE"
-
-
-	PJ_TRANSACTION_GRP_LOCK_INCLUDE="$PJPROJECT_INCLUDE"
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pjsip_tsx_create_uac2 declared in pjsip.h" >&5
-$as_echo_n "checking for pjsip_tsx_create_uac2 declared in pjsip.h... " >&6; }
-
-	saved_cpp="$CPPFLAGS"
-	CPPFLAGS="$PJPROJECT_INCLUDE"
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <pjsip.h>
-
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "pjsip_tsx_create_uac2" >/dev/null 2>&1; then :
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_PJ_TRANSACTION_GRP_LOCK=1
-
-$as_echo "#define HAVE_PJ_TRANSACTION_GRP_LOCK 1" >>confdefs.h
-
-
-else
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f conftest*
-
-
-	CPPGLAGS="$saved_cpp"
-	PJ_TRANSACTION_GRP_LOCK_INCLUDE="$PJPROJECT_INCLUDE"
-
-
-	PJSIP_REPLACE_MEDIA_STREAM_INCLUDE="$PJPROJECT_INCLUDE"
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for PJMEDIA_SDP_NEG_ALLOW_MEDIA_CHANGE declared in pjmedia.h" >&5
-$as_echo_n "checking for PJMEDIA_SDP_NEG_ALLOW_MEDIA_CHANGE declared in pjmedia.h... " >&6; }
-
-	saved_cpp="$CPPFLAGS"
-	CPPFLAGS="$PJPROJECT_INCLUDE"
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <pjmedia.h>
-
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "PJMEDIA_SDP_NEG_ALLOW_MEDIA_CHANGE" >/dev/null 2>&1; then :
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_PJSIP_REPLACE_MEDIA_STREAM=1
-
-$as_echo "#define HAVE_PJSIP_REPLACE_MEDIA_STREAM 1" >>confdefs.h
-
-
-else
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f conftest*
-
-
-	CPPGLAGS="$saved_cpp"
-	PJSIP_REPLACE_MEDIA_STREAM_INCLUDE="$PJPROJECT_INCLUDE"
-
-
-	PJSIP_GET_DEST_INFO_INCLUDE="$PJPROJECT_INCLUDE"
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pjsip_get_dest_info declared in pjsip.h" >&5
-$as_echo_n "checking for pjsip_get_dest_info declared in pjsip.h... " >&6; }
-
-	saved_cpp="$CPPFLAGS"
-	CPPFLAGS="$PJPROJECT_INCLUDE"
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <pjsip.h>
-
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "pjsip_get_dest_info" >/dev/null 2>&1; then :
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_PJSIP_GET_DEST_INFO=1
-
-$as_echo "#define HAVE_PJSIP_GET_DEST_INFO 1" >>confdefs.h
-
-
-else
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f conftest*
-
-
-	CPPGLAGS="$saved_cpp"
-	PJSIP_GET_DEST_INFO_INCLUDE="$PJPROJECT_INCLUDE"
-
-
-	PJ_SSL_CERT_LOAD_FROM_FILES2_INCLUDE="$PJPROJECT_INCLUDE"
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pj_ssl_cert_load_from_files2 declared in pjlib.h" >&5
-$as_echo_n "checking for pj_ssl_cert_load_from_files2 declared in pjlib.h... " >&6; }
-
-	saved_cpp="$CPPFLAGS"
-	CPPFLAGS="$PJPROJECT_INCLUDE"
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <pjlib.h>
-
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "pj_ssl_cert_load_from_files2" >/dev/null 2>&1; then :
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_PJ_SSL_CERT_LOAD_FROM_FILES2=1
-
-$as_echo "#define HAVE_PJ_SSL_CERT_LOAD_FROM_FILES2 1" >>confdefs.h
-
-
-else
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f conftest*
-
-
-	CPPGLAGS="$saved_cpp"
-	PJ_SSL_CERT_LOAD_FROM_FILES2_INCLUDE="$PJPROJECT_INCLUDE"
-
-
-	PJSIP_EXTERNAL_RESOLVER_INCLUDE="$PJPROJECT_INCLUDE"
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pjsip_endpt_set_ext_resolver declared in pjsip.h" >&5
-$as_echo_n "checking for pjsip_endpt_set_ext_resolver declared in pjsip.h... " >&6; }
-
-	saved_cpp="$CPPFLAGS"
-	CPPFLAGS="$PJPROJECT_INCLUDE"
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-#include <pjsip.h>
-
-_ACEOF
-if (eval "$ac_cpp conftest.$ac_ext") 2>&5 |
-  $EGREP "pjsip_endpt_set_ext_resolver" >/dev/null 2>&1; then :
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_PJSIP_EXTERNAL_RESOLVER=1
-
-$as_echo "#define HAVE_PJSIP_EXTERNAL_RESOLVER 1" >>confdefs.h
-
-
-else
-
-		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f conftest*
-
-
-	CPPGLAGS="$saved_cpp"
-	PJSIP_EXTERNAL_RESOLVER_INCLUDE="$PJPROJECT_INCLUDE"
-
-
-$as_echo "#define HAVE_PJSIP_TLS_TRANSPORT_PROTO 1" >>confdefs.h
-
-
-$as_echo "#define HAVE_PJSIP_EVSUB_GRP_LOCK 1" >>confdefs.h
-
-
-   else
+   if test "$PJPROJECT_BUNDLED" = "no" ; then
 
    if test "x${PBX_PJPROJECT}" != "x1" -a "${USE_PJPROJECT}" != "no"; then
 
@@ -25329,7 +25509,7 @@ if test "x${PBX_PJ_SSL_CERT_LOAD_FROM_FILES2}" != "x1" -a "${USE_PJ_SSL_CERT_LOA
          pbxlibdir="-L${PJ_SSL_CERT_LOAD_FROM_FILES2_DIR}"
       fi
    fi
-   pbxfuncname="pjsip/include/pjsip/sip_util.h"
+   pbxfuncname="pj_ssl_cert_load_from_files2"
    if test "x${pbxfuncname}" = "x" ; then   # empty lib, assume only headers
       AST_PJ_SSL_CERT_LOAD_FROM_FILES2_FOUND=yes
    else
@@ -25676,6 +25856,110 @@ fi
          PBX_PJSIP_EVSUB_GRP_LOCK=1
          cat >>confdefs.h <<_ACEOF
 #define HAVE_PJSIP_EVSUB_GRP_LOCK 1
+_ACEOF
+
+      fi
+   fi
+fi
+
+
+
+if test "x${PBX_PJSIP_INV_SESSION_REF}" != "x1" -a "${USE_PJSIP_INV_SESSION_REF}" != "no"; then
+   pbxlibdir=""
+   # if --with-PJSIP_INV_SESSION_REF=DIR has been specified, use it.
+   if test "x${PJSIP_INV_SESSION_REF_DIR}" != "x"; then
+      if test -d ${PJSIP_INV_SESSION_REF_DIR}/lib; then
+         pbxlibdir="-L${PJSIP_INV_SESSION_REF_DIR}/lib"
+      else
+         pbxlibdir="-L${PJSIP_INV_SESSION_REF_DIR}"
+      fi
+   fi
+   pbxfuncname="pjsip_inv_add_ref"
+   if test "x${pbxfuncname}" = "x" ; then   # empty lib, assume only headers
+      AST_PJSIP_INV_SESSION_REF_FOUND=yes
+   else
+      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
+      CFLAGS="${CFLAGS} $PJPROJECT_CFLAGS"
+      as_ac_Lib=`$as_echo "ac_cv_lib_pjsip_${pbxfuncname}" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for ${pbxfuncname} in -lpjsip" >&5
+$as_echo_n "checking for ${pbxfuncname} in -lpjsip... " >&6; }
+if eval \${$as_ac_Lib+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lpjsip ${pbxlibdir} $PJPROJECT_LIB $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char ${pbxfuncname} ();
+int
+main ()
+{
+return ${pbxfuncname} ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  eval "$as_ac_Lib=yes"
+else
+  eval "$as_ac_Lib=no"
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+eval ac_res=\$$as_ac_Lib
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_Lib"\" = x"yes"; then :
+  AST_PJSIP_INV_SESSION_REF_FOUND=yes
+else
+  AST_PJSIP_INV_SESSION_REF_FOUND=no
+fi
+
+      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
+   fi
+
+   # now check for the header.
+   if test "${AST_PJSIP_INV_SESSION_REF_FOUND}" = "yes"; then
+      PJSIP_INV_SESSION_REF_LIB="${pbxlibdir} -lpjsip $PJPROJECT_LIB"
+      # if --with-PJSIP_INV_SESSION_REF=DIR has been specified, use it.
+      if test "x${PJSIP_INV_SESSION_REF_DIR}" != "x"; then
+         PJSIP_INV_SESSION_REF_INCLUDE="-I${PJSIP_INV_SESSION_REF_DIR}/include"
+      fi
+      PJSIP_INV_SESSION_REF_INCLUDE="${PJSIP_INV_SESSION_REF_INCLUDE} $PJPROJECT_CFLAGS"
+      if test "xpjsip.h" = "x" ; then	# no header, assume found
+         PJSIP_INV_SESSION_REF_HEADER_FOUND="1"
+      else				# check for the header
+         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
+         CPPFLAGS="${CPPFLAGS} ${PJSIP_INV_SESSION_REF_INCLUDE}"
+         ac_fn_c_check_header_mongrel "$LINENO" "pjsip.h" "ac_cv_header_pjsip_h" "$ac_includes_default"
+if test "x$ac_cv_header_pjsip_h" = xyes; then :
+  PJSIP_INV_SESSION_REF_HEADER_FOUND=1
+else
+  PJSIP_INV_SESSION_REF_HEADER_FOUND=0
+fi
+
+
+         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
+      fi
+      if test "x${PJSIP_INV_SESSION_REF_HEADER_FOUND}" = "x0" ; then
+         PJSIP_INV_SESSION_REF_LIB=""
+         PJSIP_INV_SESSION_REF_INCLUDE=""
+      else
+         if test "x${pbxfuncname}" = "x" ; then		# only checking headers -> no library
+            PJSIP_INV_SESSION_REF_LIB=""
+         fi
+         PBX_PJSIP_INV_SESSION_REF=1
+         cat >>confdefs.h <<_ACEOF
+#define HAVE_PJSIP_INV_SESSION_REF 1
 _ACEOF
 
       fi
@@ -33773,6 +34057,98 @@ fi
 
 
 
+
+
+
+
+
+
+   if test "x${PBX_SYSTEMD}" != "x1" -a "${USE_SYSTEMD}" != "no"; then
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for SYSTEMD" >&5
+$as_echo_n "checking for SYSTEMD... " >&6; }
+
+if test -n "$SYSTEMD_CFLAGS"; then
+    pkg_cv_SYSTEMD_CFLAGS="$SYSTEMD_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libsystemd\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libsystemd") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_SYSTEMD_CFLAGS=`$PKG_CONFIG --cflags "libsystemd" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$SYSTEMD_LIBS"; then
+    pkg_cv_SYSTEMD_LIBS="$SYSTEMD_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libsystemd\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libsystemd") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_SYSTEMD_LIBS=`$PKG_CONFIG --libs "libsystemd" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        SYSTEMD_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libsystemd" 2>&1`
+        else
+	        SYSTEMD_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libsystemd" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$SYSTEMD_PKG_ERRORS" >&5
+
+
+            PBX_SYSTEMD=0
+
+
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+            PBX_SYSTEMD=0
+
+
+else
+	SYSTEMD_CFLAGS=$pkg_cv_SYSTEMD_CFLAGS
+	SYSTEMD_LIBS=$pkg_cv_SYSTEMD_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+            PBX_SYSTEMD=1
+            SYSTEMD_INCLUDE="$SYSTEMD_CFLAGS"
+            SYSTEMD_LIB="$SYSTEMD_LIBS"
+
+$as_echo "#define HAVE_SYSTEMD 1" >>confdefs.h
+
+
+fi
+   fi
 
 
 PBX_SYSLOG=0

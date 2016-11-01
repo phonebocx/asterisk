@@ -12450,6 +12450,7 @@ static int vm_box_exists(struct ast_channel *chan, const char *data)
 		context++;
 	}
 
+	memset(&svm, 0, sizeof(svm));
 	vmu = find_user(&svm, context, args.mbox);
 	if (vmu) {
 		pbx_builtin_setvar_helper(chan, "VMBOXEXISTSSTATUS", "SUCCESS");
@@ -12481,6 +12482,7 @@ static int acf_mailbox_exists(struct ast_channel *chan, const char *cmd, char *a
 		ast_log(AST_LOG_WARNING, "MAILBOX_EXISTS is deprecated.  Please use ${VM_INFO(%s,exists)} instead.\n", args);
 	}
 
+	memset(&svm, 0, sizeof(svm));
 	vmu = find_user(&svm, ast_strlen_zero(arg.context) ? "default" : arg.context, arg.mbox);
 	ast_copy_string(buf, vmu ? "1" : "0", len);
 	free_user(vmu);
@@ -13453,6 +13455,8 @@ static int actual_load_config(int reload, struct ast_config *cfg, struct ast_con
 	int x;
 	unsigned int tmpadsi[4];
 	char secretfn[PATH_MAX] = "";
+	long tps_queue_low;
+	long tps_queue_high;
 
 #ifdef IMAP_STORAGE
 	ast_copy_string(imapparentfolder, "\0", sizeof(imapparentfolder));
@@ -14026,6 +14030,25 @@ static int actual_load_config(int reload, struct ast_config *cfg, struct ast_con
 		}
 		if ((val = ast_variable_retrieve(cfg, "general", "pagerbody"))) {
 			pagerbody = ast_strdup(substitute_escapes(val));
+		}
+
+		tps_queue_high = AST_TASKPROCESSOR_HIGH_WATER_LEVEL;
+		if ((val = ast_variable_retrieve(cfg, "general", "tps_queue_high"))) {
+			if (sscanf(val, "%30ld", &tps_queue_high) != 1 || tps_queue_high <= 0) {
+				ast_log(AST_LOG_WARNING, "Invalid the taskprocessor high water alert trigger level '%s'\n", val);
+				tps_queue_high = AST_TASKPROCESSOR_HIGH_WATER_LEVEL;
+			}
+		}
+		tps_queue_low = -1;
+		if ((val = ast_variable_retrieve(cfg, "general", "tps_queue_low"))) {
+			if (sscanf(val, "%30ld", &tps_queue_low) != 1 ||
+				tps_queue_low < -1 || tps_queue_high < tps_queue_low) {
+				ast_log(AST_LOG_WARNING, "Invalid the taskprocessor low water clear alert level '%s'\n", val);
+				tps_queue_low = -1;
+			}
+		}
+		if (ast_taskprocessor_alert_set_levels(mwi_subscription_tps, tps_queue_low, tps_queue_high)) {
+			ast_log(AST_LOG_WARNING, "Failed to set alert levels for voicemail taskprocessor.\n");
 		}
 
 		/* load mailboxes from users.conf */

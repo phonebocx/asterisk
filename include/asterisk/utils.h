@@ -849,8 +849,10 @@ int ast_parse_digest(const char *digest, struct ast_http_digest *d, int request,
 #define DO_CRASH_NORETURN
 #endif
 
+void DO_CRASH_NORETURN __ast_assert_failed(int condition, const char *condition_str,
+	const char *file, int line, const char *function);
+
 #ifdef AST_DEVMODE
-void DO_CRASH_NORETURN __ast_assert_failed(int condition, const char *condition_str, const char *file, int line, const char *function);
 #define ast_assert(a) _ast_assert(a, # a, __FILE__, __LINE__, __PRETTY_FUNCTION__)
 static void force_inline _ast_assert(int condition, const char *condition_str, const char *file, int line, const char *function)
 {
@@ -971,6 +973,14 @@ int ast_str_to_eid(struct ast_eid *eid, const char *s);
  * \since 1.6.1
  */
 int ast_eid_cmp(const struct ast_eid *eid1, const struct ast_eid *eid2);
+
+/*!
+ * \brief Check if EID is empty
+ *
+ * \return 1 if the EID is empty, zero otherwise
+ * \since 13.12.0
+ */
+int ast_eid_is_empty(const struct ast_eid *eid);
 
 /*!
  * \brief Get current thread ID

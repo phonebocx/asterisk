@@ -913,6 +913,12 @@
 						then the <replaceable>context</replaceable> setting is used.
 					</para></description>
 				</configOption>
+				<configOption name="contact_user" default="">
+					<synopsis>Force the user on the outgoing Contact header to this value.</synopsis>
+					<description><para>
+						On outbound requests, force the user portion of the Contact header to this value.
+					</para></description>
+				</configOption>
 			</configObject>
 			<configObject name="auth">
 				<synopsis>Authentication type</synopsis>
@@ -1495,6 +1501,72 @@
 					<synopsis>When Asterisk generates an challenge, the digest will be
 						set to this value if there is no better option (such as auth/realm) to be
 						used.</synopsis>
+				</configOption>
+				<configOption name="mwi_tps_queue_high" default="500">
+					<synopsis>MWI taskprocessor high water alert trigger level.</synopsis>
+					<description>
+						<para>On a heavily loaded system you may need to adjust the
+						taskprocessor queue limits.  If any taskprocessor queue size
+						reaches its high water level then pjsip will stop processing
+						new requests until the alert is cleared.  The alert clears
+						when all alerting taskprocessor queues have dropped to their
+						low water clear level.
+						</para>
+					</description>
+				</configOption>
+				<configOption name="mwi_tps_queue_low" default="-1">
+					<synopsis>MWI taskprocessor low water clear alert level.</synopsis>
+					<description>
+						<para>On a heavily loaded system you may need to adjust the
+						taskprocessor queue limits.  If any taskprocessor queue size
+						reaches its high water level then pjsip will stop processing
+						new requests until the alert is cleared.  The alert clears
+						when all alerting taskprocessor queues have dropped to their
+						low water clear level.
+						</para>
+						<note><para>Set to -1 for the low water level to be 90% of
+						the high water level.</para></note>
+					</description>
+				</configOption>
+				<configOption name="mwi_disable_initial_unsolicited" default="no">
+					<synopsis>Enable/Disable sending unsolicited MWI to all endpoints on startup.</synopsis>
+					<description>
+						<para>When the initial unsolicited MWI notification are
+						enabled on startup then the initial notifications
+						get sent at startup.  If you have a lot of endpoints
+						(thousands) that use unsolicited MWI then you may
+						want to consider disabling the initial startup
+						notifications.
+						</para>
+						<para>When the initial unsolicited MWI notifications are
+						disabled on startup then the notifications will start
+						on the endpoint's next contact update.
+						</para>
+					</description>
+				</configOption>
+				<configOption name="ignore_uri_user_options">
+					<synopsis>Enable/Disable ignoring SIP URI user field options.</synopsis>
+					<description>
+						<para>If you have this option enabled and there are semicolons
+						in the user field of a SIP URI then the field is truncated
+						at the first semicolon.  This effectively makes the semicolon
+						a non-usable character for PJSIP endpoint names, extensions,
+						and AORs.  This can be useful for improving compatability with
+						an ITSP that likes to use user options for whatever reason.
+						</para>
+						<example title="Sample SIP URI">
+							sip:1235557890;phone-context=national@x.x.x.x;user=phone
+						</example>
+						<example title="Sample SIP URI user field">
+							1235557890;phone-context=national
+						</example>
+						<example title="Sample SIP URI user field truncated">
+							1235557890
+						</example>
+						<note><para>The caller-id and redirecting number strings
+						obtained from incoming SIP URI user fields are always truncated
+						at the first semicolon.</para></note>
+					</description>
 				</configOption>
 			</configObject>
 		</configFile>
@@ -2138,13 +2210,13 @@ static struct ast_threadpool *sip_threadpool;
 static pj_sockaddr host_ip_ipv4;
 
 /*! Local host address for IPv4 (string form) */
-static char host_ip_ipv4_string[PJ_INET6_ADDRSTRLEN + 2];
+static char host_ip_ipv4_string[PJ_INET6_ADDRSTRLEN];
 
 /*! Local host address for IPv6 */
 static pj_sockaddr host_ip_ipv6;
 
 /*! Local host address for IPv6 (string form) */
-static char host_ip_ipv6_string[PJ_INET6_ADDRSTRLEN + 2];
+static char host_ip_ipv6_string[PJ_INET6_ADDRSTRLEN];
 
 static int register_service_noref(void *data)
 {
@@ -2827,7 +2899,15 @@ pjsip_dialog *ast_sip_create_dialog_uac(const struct ast_sip_endpoint *endpoint,
 	/* Update the dialog with the new local URI, we do it afterwards so we can use the dialog pool for construction */
 	pj_strdup_with_null(dlg->pool, &dlg->local.info_str, &local_uri);
 	dlg->local.info->uri = pjsip_parse_uri(dlg->pool, dlg->local.info_str.ptr, dlg->local.info_str.slen, 0);
+
 	dlg->local.contact = pjsip_parse_hdr(dlg->pool, &HCONTACT, local_uri.ptr, local_uri.slen, NULL);
+
+	if (!ast_strlen_zero(endpoint->contact_user)) {
+		pjsip_sip_uri *sip_uri;
+
+		sip_uri = pjsip_uri_get_uri(dlg->local.contact->uri);
+		pj_strdup2(dlg->pool, &sip_uri->user, endpoint->contact_user);
+	}
 
 	/* If a request user has been specified and we are permitted to change it, do so */
 	if (!ast_strlen_zero(request_user)) {
@@ -3128,6 +3208,18 @@ static int create_out_of_dialog_request(const pjsip_method *method, struct ast_s
 				endpoint ? ast_sorcery_object_get_id(endpoint) : "<none>");
 		pjsip_endpt_release_pool(ast_sip_get_pjsip_endpoint(), pool);
 		return -1;
+	}
+
+	if (endpoint && !ast_strlen_zero(endpoint->contact_user)){
+		pjsip_contact_hdr *contact_hdr;
+		pjsip_sip_uri *contact_uri;
+		static const pj_str_t HCONTACT = { "Contact", 7 };
+
+		contact_hdr = pjsip_msg_find_hdr_by_name((*tdata)->msg, &HCONTACT, NULL);
+		if (contact_hdr) {
+			contact_uri = pjsip_uri_get_uri(contact_hdr->uri);
+			pj_strdup2(pool, &contact_uri->user, endpoint->contact_user);
+		}
 	}
 
 	/* Add the user=phone parameter if applicable */
@@ -4229,6 +4321,7 @@ static int unload_pjsip(void *data)
 
 static int load_pjsip(void)
 {
+	const unsigned int flags = 0; /* no port, no brackets */
 	pj_status_t status;
 
 	/* The third parameter is just copied from
@@ -4253,12 +4346,12 @@ static int load_pjsip(void)
 	}
 
 	if (!pj_gethostip(pj_AF_INET(), &host_ip_ipv4)) {
-		pj_sockaddr_print(&host_ip_ipv4, host_ip_ipv4_string, sizeof(host_ip_ipv4_string), 2);
+		pj_sockaddr_print(&host_ip_ipv4, host_ip_ipv4_string, sizeof(host_ip_ipv4_string), flags);
 		ast_verb(3, "Local IPv4 address determined to be: %s\n", host_ip_ipv4_string);
 	}
 
 	if (!pj_gethostip(pj_AF_INET6(), &host_ip_ipv6)) {
-		pj_sockaddr_print(&host_ip_ipv6, host_ip_ipv6_string, sizeof(host_ip_ipv6_string), 2);
+		pj_sockaddr_print(&host_ip_ipv6, host_ip_ipv6_string, sizeof(host_ip_ipv6_string), flags);
 		ast_verb(3, "Local IPv6 address determined to be: %s\n", host_ip_ipv6_string);
 	}
 

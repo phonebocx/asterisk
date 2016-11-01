@@ -607,7 +607,10 @@ static void refer_blind_callback(struct ast_channel *chan, struct transfer_chann
 		ao2_ref(refer->progress, +1);
 
 		/* If we can't attach a frame hook for whatever reason send a notification of success immediately */
-		if ((refer->progress->framehook = ast_framehook_attach(chan, &hook)) < 0) {
+		ast_channel_lock(chan);
+		refer->progress->framehook = ast_framehook_attach(chan, &hook);
+		ast_channel_unlock(chan);
+		if (refer->progress->framehook < 0) {
 			struct refer_progress_notification *notification = refer_progress_notification_alloc(refer->progress, 200,
 				PJSIP_EVSUB_STATE_TERMINATED);
 
@@ -638,7 +641,9 @@ static void refer_blind_callback(struct ast_channel *chan, struct transfer_chann
 				refer_progress_notify(notification);
 			}
 
+			ast_channel_lock(chan);
 			ast_framehook_detach(chan, refer->progress->framehook);
+			ast_channel_unlock(chan);
 
 			ao2_cleanup(refer->progress);
 		}
@@ -809,6 +814,13 @@ static int refer_incoming_blind_request(struct ast_sip_session *session, pjsip_r
 
 	/* Using the user portion of the target URI see if it exists as a valid extension in their context */
 	ast_copy_pj_str(exten, &target->user, sizeof(exten));
+
+	/*
+	 * We may want to match in the dialplan without any user
+	 * options getting in the way.
+	 */
+	AST_SIP_USER_OPTIONS_TRUNCATE_CHECK(exten);
+
 	if (!ast_exists_extension(NULL, context, exten, 1, NULL)) {
 		ast_log(LOG_ERROR, "Channel '%s' from endpoint '%s' attempted blind transfer to '%s@%s' but target does not exist\n",
 			ast_channel_name(session->channel), ast_sorcery_object_get_id(session->endpoint), exten, context);

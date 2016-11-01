@@ -53,6 +53,9 @@ static const char *short_status_map [] = {
 	[REMOVED] = "Removed",
 };
 
+static void contact_deleted(const void *obj);
+static void qualify_and_schedule(struct ast_sip_contact *contact);
+
 const char *ast_sip_get_contact_status_label(const enum ast_sip_contact_status_type status)
 {
 	return status_map[status];
@@ -106,6 +109,29 @@ static void *contact_status_alloc(const char *name)
 	return status;
 }
 
+static int qualify_and_schedule_aor_contact(void *obj)
+{
+	struct ast_sip_contact *contact = obj;
+	struct ast_sip_aor *aor;
+
+	if (!contact || ast_strlen_zero(contact->aor) ||
+		!(aor = ast_sip_location_retrieve_aor(contact->aor))) {
+		ao2_ref(contact, -1);
+		return -1;
+	}
+
+	contact->qualify_frequency = aor->qualify_frequency;
+	contact->qualify_timeout = aor->qualify_timeout;
+	contact->authenticate_qualify = aor->authenticate_qualify;
+
+	ao2_ref(aor, -1);
+
+	qualify_and_schedule(contact);
+	ao2_ref(contact, -1);
+
+	return 0;
+}
+
 AST_MUTEX_DEFINE_STATIC(creation_lock);
 
 /*!
@@ -145,6 +171,18 @@ struct ast_sip_contact_status *ast_res_pjsip_find_or_create_contact_status(const
 			contact->uri);
 		ao2_ref(status, -1);
 		return NULL;
+	}
+
+	/* The permanent contact added after asterisk start should be qualified. */
+	if (ast_test_flag(&ast_options, AST_OPT_FLAG_FULLY_BOOTED) && ast_tvzero(contact->expiration_time)) {
+		/*
+		 * The FULLY_BOOTED to filter out contacts that already existed when asterisk started.
+		 * The zero expiration_time to select only permanent contacts.
+		 */
+		ao2_ref((struct ast_sip_contact *) contact, +1);
+		if (ast_sip_push_task(NULL, qualify_and_schedule_aor_contact, (struct ast_sip_contact *) contact)) {
+			ao2_ref((struct ast_sip_contact *) contact, -1);
+		}
 	}
 
 	ast_statsd_log_string_va("PJSIP.contacts.states.%s", AST_STATSD_GAUGE,
@@ -378,8 +416,9 @@ static int qualify_contact(struct ast_sip_endpoint *endpoint, struct ast_sip_con
 			endpoint_local = find_an_endpoint(contact);
 		}
 		if (!endpoint_local) {
-			ast_log(LOG_ERROR, "Unable to find an endpoint to qualify contact %s\n",
+			ast_log(LOG_WARNING, "Unable to find an endpoint to qualify contact %s. Deleting this contact\n",
 				contact->uri);
+			contact_deleted(contact);
 			return -1;
 		}
 	}
@@ -721,8 +760,7 @@ static pj_bool_t options_on_rx_request(pjsip_rx_data *rdata)
 	pjsip_sip_uri *sip_ruri;
 	char exten[AST_MAX_EXTENSION];
 
-	if (pjsip_method_cmp(&rdata->msg_info.msg->line.req.method,
-			     &pjsip_options_method)) {
+	if (pjsip_method_cmp(&rdata->msg_info.msg->line.req.method, &pjsip_options_method)) {
 		return PJ_FALSE;
 	}
 
@@ -739,13 +777,20 @@ static pj_bool_t options_on_rx_request(pjsip_rx_data *rdata)
 	sip_ruri = pjsip_uri_get_uri(ruri);
 	ast_copy_pj_str(exten, &sip_ruri->user, sizeof(exten));
 
+	/*
+	 * We may want to match in the dialplan without any user
+	 * options getting in the way.
+	 */
+	AST_SIP_USER_OPTIONS_TRUNCATE_CHECK(exten);
+
 	if (ast_shutting_down()) {
 		/*
 		 * Not taking any new calls at this time.
 		 * Likely a server availability OPTIONS poll.
 		 */
 		send_options_response(rdata, 503);
-	} else if (!ast_strlen_zero(exten) && !ast_exists_extension(NULL, endpoint->context, exten, 1, NULL)) {
+	} else if (!ast_strlen_zero(exten)
+		&& !ast_exists_extension(NULL, endpoint->context, exten, 1, NULL)) {
 		send_options_response(rdata, 404);
 	} else {
 		send_options_response(rdata, 200);

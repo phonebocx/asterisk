@@ -555,7 +555,8 @@ CREATE TABLE extensions (
     priority INTEGER NOT NULL, 
     app VARCHAR2(40 CHAR) NOT NULL, 
     appdata VARCHAR2(256 CHAR) NOT NULL, 
-    PRIMARY KEY (id, context, exten, priority), 
+    PRIMARY KEY (id), 
+    UNIQUE (context, exten, priority), 
     UNIQUE (id)
 )
 
@@ -1471,6 +1472,66 @@ ALTER TABLE ps_endpoints ADD fax_detect_timeout INTEGER
 /
 
 UPDATE alembic_version SET version_num='4a6c67fa9b7a' WHERE alembic_version.version_num = '9deac0ae4717'
+
+/
+
+-- Running upgrade 4a6c67fa9b7a -> c7a44a5a0851
+
+ALTER TABLE ps_globals ADD mwi_tps_queue_high INTEGER
+
+/
+
+ALTER TABLE ps_globals ADD mwi_tps_queue_low INTEGER
+
+/
+
+ALTER TABLE ps_globals ADD mwi_disable_initial_unsolicited VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_globals ADD CONSTRAINT yesno_values CHECK (mwi_disable_initial_unsolicited IN ('yes', 'no'))
+
+/
+
+UPDATE alembic_version SET version_num='c7a44a5a0851' WHERE alembic_version.version_num = '4a6c67fa9b7a'
+
+/
+
+-- Running upgrade c7a44a5a0851 -> 3772f8f828da
+
+ALTER TABLE ps_endpoints MODIFY identify_by VARCHAR(13 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD CONSTRAINT pjsip_identify_by_values CHECK (identify_by IN ('username', 'auth_username'))
+
+/
+
+UPDATE alembic_version SET version_num='3772f8f828da' WHERE alembic_version.version_num = 'c7a44a5a0851'
+
+/
+
+-- Running upgrade 3772f8f828da -> 4e2493ef32e6
+
+ALTER TABLE ps_endpoints ADD contact_user VARCHAR2(80 CHAR)
+
+/
+
+UPDATE alembic_version SET version_num='4e2493ef32e6' WHERE alembic_version.version_num = '3772f8f828da'
+
+/
+
+-- Running upgrade 4e2493ef32e6 -> a6ef36f1309
+
+ALTER TABLE ps_globals ADD ignore_uri_user_options VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_globals ADD CONSTRAINT yesno_values CHECK (ignore_uri_user_options IN ('yes', 'no'))
+
+/
+
+UPDATE alembic_version SET version_num='a6ef36f1309' WHERE alembic_version.version_num = '4e2493ef32e6'
 
 /
 

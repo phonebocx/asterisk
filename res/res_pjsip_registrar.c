@@ -525,12 +525,12 @@ static int register_aor(pjsip_rx_data *rdata,
 	struct ao2_container *contacts = NULL;
 	struct ast_named_lock *lock;
 
-	lock = ast_named_lock_get(AST_NAMED_LOCK_TYPE_RWLOCK, "aor", aor_name);
+	lock = ast_named_lock_get(AST_NAMED_LOCK_TYPE_MUTEX, "aor", aor_name);
 	if (!lock) {
 		return PJ_TRUE;
 	}
 
-	ao2_wrlock(lock);
+	ao2_lock(lock);
 	contacts = ast_sip_location_retrieve_aor_contacts_nolock(aor);
 	if (!contacts) {
 		ao2_unlock(lock);
@@ -563,6 +563,7 @@ static int match_aor(const char *aor_name, const char *id)
 static char *find_aor_name(const char *username, const char *domain, const char *aors)
 {
 	char *configured_aors;
+	char *aors_buf;
 	char *aor_name;
 	char *id_domain;
 	struct ast_sip_domain_alias *alias;
@@ -570,8 +571,10 @@ static char *find_aor_name(const char *username, const char *domain, const char 
 	id_domain = ast_alloca(strlen(username) + strlen(domain) + 2);
 	sprintf(id_domain, "%s@%s", username, domain);
 
+	aors_buf = ast_strdupa(aors);
+
 	/* Look for exact match on username@domain */
-	configured_aors = ast_strdupa(aors);
+	configured_aors = aors_buf;
 	while ((aor_name = ast_strip(strsep(&configured_aors, ",")))) {
 		if (match_aor(aor_name, id_domain)) {
 			return ast_strdup(aor_name);
@@ -586,7 +589,7 @@ static char *find_aor_name(const char *username, const char *domain, const char 
 		sprintf(id_domain, "%s@%s", username, alias->domain);
 		ao2_cleanup(alias);
 
-		configured_aors = ast_strdupa(aors);
+		configured_aors = strcpy(aors_buf, aors);/* Safe */
 		while ((aor_name = ast_strip(strsep(&configured_aors, ",")))) {
 			if (match_aor(aor_name, id_domain_alias)) {
 				return ast_strdup(aor_name);
@@ -594,8 +597,13 @@ static char *find_aor_name(const char *username, const char *domain, const char 
 		}
 	}
 
+	if (ast_strlen_zero(username)) {
+		/* No username, no match */
+		return NULL;
+	}
+
 	/* Look for exact match on username only */
-	configured_aors = ast_strdupa(aors);
+	configured_aors = strcpy(aors_buf, aors);/* Safe */
 	while ((aor_name = ast_strip(strsep(&configured_aors, ",")))) {
 		if (match_aor(aor_name, username)) {
 			return ast_strdup(aor_name);
@@ -625,6 +633,12 @@ static struct ast_sip_aor *find_registrar_aor(struct pjsip_rx_data *rdata, struc
 			ast_copy_pj_str(domain_name, &uri->host, uri->host.slen + 1);
 			username = ast_alloca(uri->user.slen + 1);
 			ast_copy_pj_str(username, &uri->user, uri->user.slen + 1);
+
+			/*
+			 * We may want to match without any user options getting
+			 * in the way.
+			 */
+			AST_SIP_USER_OPTIONS_TRUNCATE_CHECK(username);
 
 			aor_name = find_aor_name(username, domain_name, endpoint->aors);
 			if (aor_name) {

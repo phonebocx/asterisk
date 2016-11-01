@@ -2321,6 +2321,21 @@ static void chan_pjsip_incoming_response(struct ast_sip_session *session, struct
 		return;
 	}
 
+	/* Build and send the tech-specific cause information */
+	/* size of the string making up the cause code is "SIP " number + " " + reason length */
+	data_size += 4 + 4 + pj_strlen(&status.reason);
+	cause_code = ast_alloca(data_size);
+	memset(cause_code, 0, data_size);
+
+	ast_copy_string(cause_code->chan_name, ast_channel_name(session->channel), AST_CHANNEL_NAME);
+
+	snprintf(cause_code->code, data_size - sizeof(*cause_code) + 1, "SIP %d %.*s", status.code,
+	(int) pj_strlen(&status.reason), pj_strbuf(&status.reason));
+
+	cause_code->ast_cause = hangup_sip2cause(status.code);
+	ast_queue_control_data(session->channel, AST_CONTROL_PVT_CAUSE_CODE, cause_code, data_size);
+	ast_channel_hangupcause_hash_set(session->channel, cause_code, data_size);
+
 	switch (status.code) {
 	case 180:
 		ast_queue_control(session->channel, AST_CONTROL_RINGING);
@@ -2339,21 +2354,6 @@ static void chan_pjsip_incoming_response(struct ast_sip_session *session, struct
 	default:
 		break;
 	}
-
-	/* Build and send the tech-specific cause information */
-	/* size of the string making up the cause code is "SIP " number + " " + reason length */
-	data_size += 4 + 4 + pj_strlen(&status.reason);
-	cause_code = ast_alloca(data_size);
-	memset(cause_code, 0, data_size);
-
-	ast_copy_string(cause_code->chan_name, ast_channel_name(session->channel), AST_CHANNEL_NAME);
-
-	snprintf(cause_code->code, data_size - sizeof(*cause_code) + 1, "SIP %d %.*s", status.code,
-		(int) pj_strlen(&status.reason), pj_strbuf(&status.reason));
-
-	cause_code->ast_cause = hangup_sip2cause(status.code);
-	ast_queue_control_data(session->channel, AST_CONTROL_PVT_CAUSE_CODE, cause_code, data_size);
-	ast_channel_hangupcause_hash_set(session->channel, cause_code, data_size);
 }
 
 static int chan_pjsip_incoming_ack(struct ast_sip_session *session, struct pjsip_rx_data *rdata)
@@ -2382,6 +2382,11 @@ static struct ast_custom_function media_offer_function = {
 	.name = "PJSIP_MEDIA_OFFER",
 	.read = pjsip_acf_media_offer_read,
 	.write = pjsip_acf_media_offer_write
+};
+
+static struct ast_custom_function session_refresh_function = {
+	.name = "PJSIP_SEND_SESSION_REFRESH",
+	.write = pjsip_acf_session_refresh_write,
 };
 
 /*!
@@ -2420,6 +2425,11 @@ static int load_module(void)
 
 	if (ast_custom_function_register(&media_offer_function)) {
 		ast_log(LOG_WARNING, "Unable to register PJSIP_MEDIA_OFFER dialplan function\n");
+		goto end;
+	}
+
+	if (ast_custom_function_register(&session_refresh_function)) {
+		ast_log(LOG_WARNING, "Unable to register PJSIP_SEND_SESSION_REFRESH dialplan function\n");
 		goto end;
 	}
 
@@ -2479,6 +2489,7 @@ end:
 	pjsip_uids_onhold = NULL;
 	ast_custom_function_unregister(&media_offer_function);
 	ast_custom_function_unregister(&chan_pjsip_dial_contacts_function);
+	ast_custom_function_unregister(&session_refresh_function);
 	ast_channel_unregister(&chan_pjsip_tech);
 	ast_rtp_glue_unregister(&chan_pjsip_rtp_glue);
 
@@ -2500,6 +2511,7 @@ static int unload_module(void)
 
 	ast_custom_function_unregister(&media_offer_function);
 	ast_custom_function_unregister(&chan_pjsip_dial_contacts_function);
+	ast_custom_function_unregister(&session_refresh_function);
 
 	ast_channel_unregister(&chan_pjsip_tech);
 	ao2_ref(chan_pjsip_tech.capabilities, -1);
