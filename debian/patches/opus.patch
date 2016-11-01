@@ -13,8 +13,8 @@ Last-Update: 2016-04-02
  AST_LIBS+=$(CRYPT_LIB)
 +AST_LIBS+=$(OPUS_LIB)
  AST_LIBS+=$(AST_CLANG_BLOCKS_LIBS)
- 
- ifneq ($(findstring $(OSARCH), linux-gnu uclinux linux-uclibc kfreebsd-gnu),)
+ AST_LIBS+=$(RT_LIB)
+ AST_LIBS+=$(SYSTEMD_LIB)
 @@ -163,6 +164,7 @@
  bucket.o: _ASTCFLAGS+=$(URIPARSER_INCLUDE)
  crypt.o: _ASTCFLAGS+=$(CRYPT_INCLUDE)
