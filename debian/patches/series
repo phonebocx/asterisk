@@ -19,6 +19,7 @@ ilbc_disable
 astdatadir
 
 reenable
+no_native_arch.patch
 smsq_enable.patch
 aelparse_enable.patch
 systemd.patch
