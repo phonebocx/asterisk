@@ -1,62 +1,13 @@
 Description: Add Opus codec module supporting transcoding
-Origin: https://github.com/seanbright/asterisk-opus
+Origin: https://github.com/traud/asterisk-opus
 Author: Lorenzo Miniero <lorenzo@meetecho.com>
 Forwarded: yes
 Bug-Debian: http://bugs.debian.org/786972
-Last-Update: 2016-04-02
+Last-Update: 2016-11-02
 
---- a/main/Makefile
-+++ b/main/Makefile
-@@ -43,6 +43,7 @@
- AST_LIBS+=$(URIPARSER_LIB)
- AST_LIBS+=$(UUID_LIB)
- AST_LIBS+=$(CRYPT_LIB)
-+AST_LIBS+=$(OPUS_LIB)
- AST_LIBS+=$(AST_CLANG_BLOCKS_LIBS)
- AST_LIBS+=$(RT_LIB)
- AST_LIBS+=$(SYSTEMD_LIB)
-@@ -163,6 +164,7 @@
- bucket.o: _ASTCFLAGS+=$(URIPARSER_INCLUDE)
- crypt.o: _ASTCFLAGS+=$(CRYPT_INCLUDE)
- uuid.o: _ASTCFLAGS+=$(UUID_INCLUDE)
-+codec_builtin.o: _ASTCFLAGS+=$(OPUS_INCLUDE)
- 
- ifneq ($(findstring ENABLE_UPLOADS,$(MENUSELECT_CFLAGS)),)
- http.o: _ASTCFLAGS+=$(GMIME_INCLUDE)
---- a/main/codec_builtin.c
-+++ b/main/codec_builtin.c
-@@ -41,6 +41,8 @@
- int __ast_codec_register_with_format(struct ast_codec *codec, const char *format_name,
- 	struct ast_module *mod);
- 
-+#include <opus/opus.h>
-+
- enum frame_type {
- 	TYPE_HIGH,     /* 0x0 */
- 	TYPE_LOW,      /* 0x1 */
-@@ -701,6 +703,11 @@
- 	.get_length = g719_length,
- };
- 
-+static int opus_samples(struct ast_frame *frame)
-+{
-+	return opus_packet_get_nb_samples(frame->data.ptr, frame->datalen, 48000);
-+}
-+
- static struct ast_codec opus = {
- 	.name = "opus",
- 	.description = "Opus Codec",
-@@ -710,6 +717,7 @@
- 	.maximum_ms = 60,
- 	.default_ms = 20,
- 	.minimum_bytes = 10,
-+	.samples_count = opus_samples,
- };
- 
- static struct ast_codec jpeg = {
 --- /dev/null
 +++ b/codecs/ex_opus.h
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,38 @@
 +/*! \file
 + * \brief 8-bit data
 + *
@@ -65,6 +16,9 @@ Last-Update: 2016-04-02
 + * Distributed under the terms of the GNU General Public License
 + *
 + */
++
++#include "asterisk/format_cache.h"      /* for ast_format_opus */
++#include "asterisk/frame.h"             /* for ast_frame, etc */
 +
 +/* Opus, a 20ms sample */
 +static uint8_t ex_opus[] = {
@@ -81,7 +35,7 @@ Last-Update: 2016-04-02
 +	static struct ast_frame f = {
 +		.frametype = AST_FRAME_VOICE,
 +		.datalen = sizeof(ex_opus),
-+		.samples = 960,	// ARRAY_LEN(ex_opus),
++		.samples = OPUS_SAMPLES,
 +		.mallocd = 0,
 +		.offset = 0,
 +		.src = __PRETTY_FUNCTION__,
@@ -93,8 +47,8 @@ Last-Update: 2016-04-02
 +	return &f;
 +}
 --- /dev/null
-+++ b/codecs/codec_opus.c
-@@ -0,0 +1,604 @@
++++ b/codecs/codec_opus_open_source.c
+@@ -0,0 +1,853 @@
 +/*
 + * Asterisk -- An open source telephony toolkit.
 + *
@@ -123,32 +77,43 @@ Last-Update: 2016-04-02
 + *
 + * \ingroup codecs
 + *
-+ * \extref The Opus library - http://opus-codec.org
++ * \extref http://www.opus-codec.org/docs/html_api-1.1.0/
 + *
 + */
 +
 +/*** MODULEINFO
 +	 <depend>opus</depend>
-+	 <support_level>core</support_level>
++	 <conflict>codec_opus</conflict>
++	 <defaultenabled>yes</defaultenabled>
 +***/
 +
 +#include "asterisk.h"
 +
++#if defined(ASTERISK_REGISTER_FILE)
++ASTERISK_REGISTER_FILE()
++#elif defined(ASTERISK_FILE_VERSION)
 +ASTERISK_FILE_VERSION(__FILE__, "$Revision: $")
++#endif
++
++#include "asterisk/astobj2.h"           /* for ao2_ref */
++#include "asterisk/cli.h"               /* for ast_cli_entry, ast_cli, etc */
++#include "asterisk/codec.h"             /* for ast_codec_get */
++#include "asterisk/format.h"            /* for ast_format_get_attribute_data */
++#include "asterisk/frame.h"             /* for ast_frame, etc */
++#include "asterisk/linkedlists.h"       /* for AST_LIST_NEXT, etc */
++#include "asterisk/lock.h"              /* for ast_atomic_fetchadd_int */
++#include "asterisk/logger.h"            /* for ast_log, LOG_ERROR, etc */
++#include "asterisk/module.h"
++#include "asterisk/translate.h"         /* for ast_trans_pvt, etc */
++#include "asterisk/utils.h"             /* for ARRAY_LEN */
 +
 +#include <opus/opus.h>
 +
-+#include "asterisk/translate.h"
-+#include "asterisk/module.h"
-+#include "asterisk/cli.h"
-+#include "asterisk/config.h"
-+#include "asterisk/utils.h"
-+#include "asterisk/linkedlists.h"
++#include "asterisk/opus.h"              /* for CODEC_OPUS_DEFAULT_* */
 +
-+#define	BUFFER_SAMPLES	8000
-+#define	OPUS_SAMPLES	160
-+
-+#define USE_FEC		0
++#define	BUFFER_SAMPLES	5760
++#define	MAX_CHANNELS	2
++#define	OPUS_SAMPLES	960
 +
 +/* Sample frame data */
 +#include "asterisk/slin.h"
@@ -161,61 +126,81 @@ Last-Update: 2016-04-02
 +	int decoders;
 +} usage;
 +
++/*
++ * Stores the function pointer 'sample_count' of the cached ast_codec
++ * before this module was loaded. Allows to restore this previous
++ * function pointer, when this module in unloaded.
++ */
++static struct ast_codec *opus_codec; /* codec of the cached format */
++static int (*opus_samples_previous)(struct ast_frame *frame);
++
 +/* Private structures */
 +struct opus_coder_pvt {
 +	void *opus;	/* May be encoder or decoder */
 +	int sampling_rate;
 +	int multiplier;
-+	int fec;
 +	int id;
-+	int16_t buf[BUFFER_SAMPLES];	/* FIXME */
++	int16_t buf[BUFFER_SAMPLES];
 +	int framesize;
++	int inited;
++	int channels;
++	int decode_fec_incoming;
++	int previous_lost;
 +};
 +
-+static int valid_sampling_rate(int rate)
-+{
-+	return rate == 8000
-+		|| rate == 12000
-+		|| rate == 16000
-+		|| rate == 24000
-+		|| rate == 48000;
-+}
++struct opus_attr {
++	unsigned int maxbitrate;
++	unsigned int maxplayrate;
++	unsigned int unused; /* was minptime */
++	unsigned int stereo;
++	unsigned int cbr;
++	unsigned int fec;
++	unsigned int dtx;
++	unsigned int spropmaxcapturerate; /* FIXME: not utilised, yet */
++	unsigned int spropstereo; /* FIXME: currently, we are just mono */
++};
 +
 +/* Helper methods */
 +static int opus_encoder_construct(struct ast_trans_pvt *pvt, int sampling_rate)
 +{
 +	struct opus_coder_pvt *opvt = pvt->pvt;
-+	int error = 0;
++	struct opus_attr *attr = pvt->explicit_dst ? ast_format_get_attribute_data(pvt->explicit_dst) : NULL;
++	const opus_int32 bitrate = attr ? attr->maxbitrate  : CODEC_OPUS_DEFAULT_BITRATE;
++	const int maxplayrate    = attr ? attr->maxplayrate : CODEC_OPUS_DEFAULT_MAX_PLAYBACK_RATE;
++	const int channels       = attr ? attr->stereo + 1  : CODEC_OPUS_DEFAULT_STEREO + 1;
++	const opus_int32 vbr     = attr ? !(attr->cbr)      : !CODEC_OPUS_DEFAULT_CBR;
++	const opus_int32 fec     = attr ? attr->fec         : CODEC_OPUS_DEFAULT_FEC;
++	const opus_int32 dtx     = attr ? attr->dtx         : CODEC_OPUS_DEFAULT_DTX;
++	const int application    = OPUS_APPLICATION_VOIP;
++	int status = 0;
 +
-+	if (!valid_sampling_rate(sampling_rate)) {
++	opvt->opus = opus_encoder_create(sampling_rate, channels, application, &status);
++
++	if (status != OPUS_OK) {
++		ast_log(LOG_ERROR, "Error creating the Opus encoder: %s\n", opus_strerror(status));
 +		return -1;
 +	}
++
++	if (sampling_rate <= 8000 || maxplayrate <= 8000) {
++		status = opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_NARROWBAND));
++	} else if (sampling_rate <= 12000 || maxplayrate <= 12000) {
++		status = opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_MEDIUMBAND));
++	} else if (sampling_rate <= 16000 || maxplayrate <= 16000) {
++		status = opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
++	} else if (sampling_rate <= 24000 || maxplayrate <= 24000) {
++		status = opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_SUPERWIDEBAND));
++	} /* else we use the default: OPUS_BANDWIDTH_FULLBAND */
++
++	if (0 < bitrate && bitrate != 510000) {
++		status = opus_encoder_ctl(opvt->opus, OPUS_SET_BITRATE(bitrate));
++	} /* else we use the default: OPUS_AUTO */
++	status = opus_encoder_ctl(opvt->opus, OPUS_SET_VBR(vbr));
++	status = opus_encoder_ctl(opvt->opus, OPUS_SET_INBAND_FEC(fec));
++	status = opus_encoder_ctl(opvt->opus, OPUS_SET_DTX(dtx));
 +
 +	opvt->sampling_rate = sampling_rate;
-+	opvt->multiplier = 48000/sampling_rate;
-+	opvt->fec = USE_FEC;
-+
-+	opvt->opus = opus_encoder_create(sampling_rate, 1, OPUS_APPLICATION_VOIP, &error);
-+
-+	if (error != OPUS_OK) {
-+		ast_log(LOG_ERROR, "Error creating the Opus encoder: %s\n", opus_strerror(error));
-+		return -1;
-+	}
-+
-+	if (sampling_rate == 8000) {
-+		opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_NARROWBAND));
-+	} else if (sampling_rate == 12000) {
-+		opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_MEDIUMBAND));
-+	} else if (sampling_rate == 16000) {
-+		opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_WIDEBAND));
-+	} else if (sampling_rate == 24000) {
-+		opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_SUPERWIDEBAND));
-+	} else if (sampling_rate == 48000) {
-+		opus_encoder_ctl(opvt->opus, OPUS_SET_MAX_BANDWIDTH(OPUS_BANDWIDTH_FULLBAND));
-+	}
-+
-+	opus_encoder_ctl(opvt->opus, OPUS_SET_INBAND_FEC(opvt->fec));
-+	opvt->framesize = sampling_rate/50;
++	opvt->multiplier = 48000 / sampling_rate;
++	opvt->framesize = sampling_rate / 50;
 +	opvt->id = ast_atomic_fetchadd_int(&usage.encoder_id, 1) + 1;
 +
 +	ast_atomic_fetchadd_int(&usage.encoders, +1);
@@ -225,20 +210,17 @@ Last-Update: 2016-04-02
 +	return 0;
 +}
 +
-+static int opus_decoder_construct(struct ast_trans_pvt *pvt, int sampling_rate)
++static int opus_decoder_construct(struct ast_trans_pvt *pvt, struct ast_frame *f)
 +{
 +	struct opus_coder_pvt *opvt = pvt->pvt;
++	/* struct opus_attr *attr = ast_format_get_attribute_data(f->subclass.format); */
 +	int error = 0;
 +
-+	if (!valid_sampling_rate(sampling_rate)) {
-+		return -1;
-+	}
++	opvt->sampling_rate = pvt->t->dst_codec.sample_rate;
++	opvt->multiplier = 48000 / opvt->sampling_rate;
++	opvt->channels = /* attr ? attr->spropstereo + 1 :*/ 1; /* FIXME */;
 +
-+	opvt->sampling_rate = sampling_rate;
-+	opvt->multiplier = 48000/sampling_rate;
-+	opvt->fec = USE_FEC;	/* FIXME: should be triggered by chan_sip */
-+
-+	opvt->opus = opus_decoder_create(sampling_rate, 1, &error);
++	opvt->opus = opus_decoder_create(opvt->sampling_rate, opvt->channels, &error);
 +
 +	if (error != OPUS_OK) {
 +		ast_log(LOG_ERROR, "Error creating the Opus decoder: %s\n", opus_strerror(error));
@@ -249,7 +231,7 @@ Last-Update: 2016-04-02
 +
 +	ast_atomic_fetchadd_int(&usage.decoders, +1);
 +
-+	ast_debug(3, "Created decoder #%d (opus -> %d)\n", opvt->id, sampling_rate);
++	ast_debug(3, "Created decoder #%d (opus -> %d)\n", opvt->id, opvt->sampling_rate);
 +
 +	return 0;
 +}
@@ -262,7 +244,12 @@ Last-Update: 2016-04-02
 +
 +static int opustolin_new(struct ast_trans_pvt *pvt)
 +{
-+	return opus_decoder_construct(pvt, pvt->t->dst_codec.sample_rate);
++	struct opus_coder_pvt *opvt = pvt->pvt;
++
++	opvt->previous_lost = 0; /* we are new and have not lost anything */
++	opvt->inited = 0; /* we do not know the "sprop" values, yet */
++
++	return 0;
 +}
 +
 +static int lintoopus_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
@@ -293,12 +280,6 @@ Last-Update: 2016-04-02
 +			pvt->outbuf.uc,
 +			BUFFER_SAMPLES);
 +
-+		ast_debug(3, "[Encoder #%d (%d)] %d samples, %d bytes\n",
-+				  opvt->id,
-+				  opvt->sampling_rate,
-+				  opvt->framesize,
-+				  opvt->framesize * 2);
-+
 +		samples += opvt->framesize;
 +		pvt->samples -= opvt->framesize;
 +
@@ -307,13 +288,7 @@ Last-Update: 2016-04-02
 +		} else {
 +			struct ast_frame *current = ast_trans_frameout(pvt,
 +				status,
-+				opvt->multiplier * opvt->framesize);
-+
-+			ast_debug(3, "[Encoder #%d (%d)]   >> Got %d samples, %d bytes\n",
-+					  opvt->id,
-+					  opvt->sampling_rate,
-+					  opvt->multiplier * opvt->framesize,
-+					  status);
++				OPUS_SAMPLES);
 +
 +			if (!current) {
 +				continue;
@@ -337,30 +312,229 @@ Last-Update: 2016-04-02
 +static int opustolin_framein(struct ast_trans_pvt *pvt, struct ast_frame *f)
 +{
 +	struct opus_coder_pvt *opvt = pvt->pvt;
-+	int samples = 0;
++	int decode_fec;
++	int frame_size;
++	opus_int16 *dst;
++	opus_int32 len;
++	unsigned char *src;
++	int status;
 +
-+	/* Decode */
-+	ast_debug(3, "[Decoder #%d (%d)] %d samples, %d bytes\n",
-+		opvt->id,
-+		opvt->sampling_rate,
-+		f->samples,
-+		f->datalen);
-+
-+	if ((samples = opus_decode(opvt->opus, f->data.ptr, f->datalen, pvt->outbuf.i16, BUFFER_SAMPLES, opvt->fec)) < 0) {
-+		ast_log(LOG_ERROR, "Error decoding the Opus frame: %s\n", opus_strerror(samples));
-+		return -1;
++	if (!opvt->inited && f->datalen == 0) {
++		return 0; /* we cannot start without data */
++	} else if (!opvt->inited) { /* 0 < f->datalen */
++		status = opus_decoder_construct(pvt, f);
++		opvt->inited = 1;
++		if (status) {
++			return status;
++		}
 +	}
 +
-+	pvt->samples += samples;
-+	pvt->datalen += samples * 2;
++	/*
++	 * When we get a frame indicator (ast_null_frame), format is NULL. Because FEC
++	 * status can change any time (SDP re-negotiation), we save again and again.
++	 */
++	if (f->subclass.format) {
++		struct opus_attr *attr = ast_format_get_attribute_data(f->subclass.format);
 +
-+	ast_debug(3, "[Decoder #%d (%d)]   >> Got %d samples, %d bytes\n",
-+		opvt->id,
-+		opvt->sampling_rate,
-+		pvt->samples,
-+		pvt->datalen);
++		if (attr) {
++			opvt->decode_fec_incoming = attr->fec;
++		}
++	}
++	decode_fec = opvt->decode_fec_incoming;
 +
-+	return 0;
++	/*
++	 * The Opus Codec, actually its library allows
++	 * - Forward-Error Correction (FEC), and
++	 * - native Packet-Loss Concealment (PLC).
++	 * The sender might include FEC. If there is no FEC, because it was not send
++	 * or the FEC data got lost, the API of the Opus library does PLC instead.
++	 * Therefore we have three boolean variables:
++	 * - current frame got lost: f->datalen == 0,
++	 * - previous frame got lost: opvt->previous_lost, and
++	 * - FEC negotiated on SDP layer: decode_fec.
++	 * Now, we go through all cases. Because some cases use the same source code
++	 * we have less than 8 (2^3) cases.
++	 *
++	 * Some notes on the coding style of this section:
++	 * This code section is passed for each incoming frame, normally every
++	 * 20 milliseconds. For each channel, this code is passed individually.
++	 * Therefore, this code should be as performant as possible. On the other
++	 * hand, PLC plus FEC is complicated. Therefore, code readability is one
++	 * prerequisite to understand, debug, and review this code section. Because
++	 * we do have optimising compilers, we are able to sacrify optimised code
++	 * for code readability. If you find an error or unnecessary calculation
++	 * which is not optimised = removed by your compiler, please, create an
++	 * issue on <https://github.com/traud/asterisk-opus/issues>. I am just
++	 * a human and human do mistakes. However, humans love to learn.
++	 *
++	 * Source-code examples are
++	 * - <https://git.xiph.org/?p=opus.git;a=history;f=src/opus_demo.c>,
++	 * - <https://freeswitch.org/stash/projects/FS/repos/freeswitch/browse/src/mod/codecs/mod_opus/mod_opus.c>
++	 * and the official mailing list itself:
++	 * <https://www.google.de/search?q=site:lists.xiph.org+opus>.
++	 */
++
++	/* Case 1 and 2 */
++	if (f->datalen == 0 && opvt->previous_lost) {
++		/*
++		 * If this frame and the previous frame got lost, we do not have any
++		 * data for FEC. Therefore, we go for PLC on the previous frame. However,
++		 * the next frame could include FEC for the currently lost frame.
++		 * Therefore, we "wait" for the next frame to fix the current frame.
++		 */
++		decode_fec = 0; /* = do PLC */
++		opus_decoder_ctl(opvt->opus, OPUS_GET_LAST_PACKET_DURATION(&frame_size));
++		dst = pvt->outbuf.i16 + (pvt->samples * opvt->channels);
++		len = 0;
++		src = NULL;
++		status = opus_decode(opvt->opus, src, len, dst, frame_size, decode_fec);
++		if (status < 0) {
++			ast_log(LOG_ERROR, "%s\n", opus_strerror(status));
++		} else {
++			pvt->samples += status;
++			pvt->datalen += status * opvt->channels * sizeof(int16_t);
++		}
++		/*
++		 * Save the state of the current frame, whether it is lost = "wait".
++		 * That way, we are able to decide whether to do FEC next time.
++		 */
++		opvt->previous_lost = (f->datalen == 0 || status < 0);
++		return 0;
++	}
++
++	/* Case 3 */
++	if (f->datalen == 0 && !decode_fec) { /* !opvt->previous_lost */
++		/*
++		 * The sender stated in SDP: "I am not going to provide FEC". Therefore,
++		 * we do not wait for the next frame and do PLC right away.
++		 */
++		decode_fec = 0;
++		opus_decoder_ctl(opvt->opus, OPUS_GET_LAST_PACKET_DURATION(&frame_size));
++		dst = pvt->outbuf.i16 + (pvt->samples * opvt->channels);
++		len = f->datalen;
++		src = NULL;
++		status = opus_decode(opvt->opus, src, len, dst, frame_size, decode_fec);
++		if (status < 0) {
++			ast_log(LOG_ERROR, "%s\n", opus_strerror(status));
++		} else {
++			pvt->samples += status;
++			pvt->datalen += status * opvt->channels * sizeof(int16_t);
++		}
++		opvt->previous_lost = (f->datalen == 0 || status < 0);
++		return 0;
++	}
++
++	/* Case 4 */
++	if (f->datalen == 0) { /* decode_fec && !opvt->previous_lost */
++		/*
++		 * The previous frame was of no issue. Therefore, we do not have to
++		 * reconstruct it. We do not have any data in the current frame but the
++		 * sender might give us FEC with the next frame. We cannot do anything
++		 * but wait for the next frame. Till Asterisk 13.7, this creates the
++		 * warning "opustolin48 did not update samples 0". Please, ignore this
++		 * warning or apply the patch included in the GitHub repository.
++		 */
++		status = 0; /* no samples to add currently */
++		if (status < 0) {
++			ast_log(LOG_ERROR, "%s\n", opus_strerror(status));
++		} else {
++			pvt->samples += status;
++			pvt->datalen += status * opvt->channels * sizeof(int16_t);
++		}
++		opvt->previous_lost = (f->datalen == 0 || status < 0);
++		return 0;
++	}
++
++	/* Case 5 and 6 */
++	if (!opvt->previous_lost) { /* 0 < f->datalen */
++		/*
++		 * The perfect case - the previous frame was not lost and we have data
++		 * in the current frame. Therefore, neither FEC nor PLC are required.
++		 */
++		decode_fec = 0;
++		frame_size = BUFFER_SAMPLES / opvt->multiplier; /* parse everything */
++		dst = pvt->outbuf.i16 + (pvt->samples * opvt->channels);
++		len = f->datalen;
++		src = f->data.ptr;
++		status = opus_decode(opvt->opus, src, len, dst, frame_size, decode_fec);
++		if (status < 0) {
++			ast_log(LOG_ERROR, "%s\n", opus_strerror(status));
++		} else {
++			pvt->samples += status;
++			pvt->datalen += status * opvt->channels * sizeof(int16_t);
++		}
++		opvt->previous_lost = (f->datalen == 0 || status < 0);
++		return 0;
++	}
++
++	/* Case 7 */
++	if (!decode_fec) { /* 0 < f->datalen && opvt->previous_lost */
++		/*
++		 * The previous frame got lost and the sender stated in SDP: "I am not
++		 * going to provide FEC". Therefore, we do PLC. Furthermore, we try to
++		 * decode the current frame because we have data. This creates jitter
++		 * because we create double the amount of frames as normal, see
++		 * <https://issues.asterisk.org/jira/browse/ASTERISK-25483>. If this is
++		 * an issue for your use-case, please, file and issue report on
++		 * <https://github.com/traud/asterisk-opus/issues>.
++		 */
++		decode_fec = 0;
++		opus_decoder_ctl(opvt->opus, OPUS_GET_LAST_PACKET_DURATION(&frame_size));
++		dst = pvt->outbuf.i16 + (pvt->samples * opvt->channels);
++		len = 0;
++		src = NULL;
++		status = opus_decode(opvt->opus, src, len, dst, frame_size, decode_fec);
++		if (status < 0) {
++			ast_log(LOG_ERROR, "%s\n", opus_strerror(status));
++		} else {
++			pvt->samples += status;
++			pvt->datalen += status * opvt->channels * sizeof(int16_t);
++		}
++		decode_fec = 0;
++		frame_size = BUFFER_SAMPLES / opvt->multiplier; /* parse everything */
++		dst = pvt->outbuf.i16 + (pvt->samples * opvt->channels); /* append after PLC data */
++		len = f->datalen;
++		src = f->data.ptr;
++		status = opus_decode(opvt->opus, src, len, dst, frame_size, decode_fec);
++		if (status < 0) {
++			ast_log(LOG_ERROR, "%s\n", opus_strerror(status));
++		} else {
++			pvt->samples += status;
++			pvt->datalen += status * opvt->channels * sizeof(int16_t);
++		}
++		opvt->previous_lost = (f->datalen == 0 || status < 0);
++		return 0;
++	}
++
++	/* Case 8; Last Case */
++	{ /* 0 < f->datalen && opvt->previous_lost && decode_fec */
++		decode_fec = 1;
++		opus_decoder_ctl(opvt->opus, OPUS_GET_LAST_PACKET_DURATION(&frame_size));
++		dst = pvt->outbuf.i16 + (pvt->samples * opvt->channels);
++		len = f->datalen;
++		src = f->data.ptr;
++		status = opus_decode(opvt->opus, src, len, dst, frame_size, decode_fec);
++		if (status < 0) {
++			ast_log(LOG_ERROR, "%s\n", opus_strerror(status));
++		} else {
++			pvt->samples += status;
++			pvt->datalen += status * opvt->channels * sizeof(int16_t);
++		}
++		decode_fec = 0;
++		frame_size = BUFFER_SAMPLES / opvt->multiplier; /* parse everything */
++		dst = pvt->outbuf.i16 + (pvt->samples * opvt->channels); /* append after FEC data */
++		len = f->datalen;
++		src = f->data.ptr;
++		status = opus_decode(opvt->opus, src, len, dst, frame_size, decode_fec);
++		if (status < 0) {
++			ast_log(LOG_ERROR, "%s\n", opus_strerror(status));
++		} else {
++			pvt->samples += status;
++			pvt->datalen += status * opvt->channels * sizeof(int16_t);
++		}
++		opvt->previous_lost = (f->datalen == 0 || status < 0);
++		return 0;
++	}
 +}
 +
 +static void lintoopus_destroy(struct ast_trans_pvt *arg)
@@ -423,6 +597,7 @@ Last-Update: 2016-04-02
 +
 +/* Translators */
 +static struct ast_translator opustolin = {
++        .table_cost = AST_TRANS_COST_LY_LL_ORIGSAMP,
 +        .name = "opustolin",
 +        .src_codec = {
 +                .name = "opus",
@@ -440,11 +615,13 @@ Last-Update: 2016-04-02
 +        .destroy = opustolin_destroy,
 +        .sample = opus_sample,
 +        .desc_size = sizeof(struct opus_coder_pvt),
-+        .buffer_samples = BUFFER_SAMPLES,
-+        .buf_size = BUFFER_SAMPLES * 2,
++        .buffer_samples = (BUFFER_SAMPLES / (48000 / 8000)) * 2, /* because of possible FEC */
++        .buf_size = (BUFFER_SAMPLES / (48000 / 8000)) * MAX_CHANNELS * sizeof(opus_int16) * 2,
++        .native_plc = 1,
 +};
 +
 +static struct ast_translator lintoopus = {
++        .table_cost = AST_TRANS_COST_LL_LY_ORIGSAMP,
 +        .name = "lintoopus",
 +        .src_codec = {
 +                .name = "slin",
@@ -468,6 +645,7 @@ Last-Update: 2016-04-02
 +};
 +
 +static struct ast_translator opustolin12 = {
++        .table_cost = AST_TRANS_COST_LY_LL_ORIGSAMP - 1,
 +        .name = "opustolin12",
 +        .src_codec = {
 +                .name = "opus",
@@ -485,11 +663,13 @@ Last-Update: 2016-04-02
 +        .destroy = opustolin_destroy,
 +        .sample = opus_sample,
 +        .desc_size = sizeof(struct opus_coder_pvt),
-+        .buffer_samples = BUFFER_SAMPLES,
-+        .buf_size = BUFFER_SAMPLES * 2,
++        .buffer_samples = (BUFFER_SAMPLES / (48000 / 12000)) * 2, /* because of possible FEC */
++        .buf_size = (BUFFER_SAMPLES / (48000 / 12000)) * MAX_CHANNELS * sizeof(opus_int16) * 2,
++        .native_plc = 1,
 +};
 +
 +static struct ast_translator lin12toopus = {
++        .table_cost = AST_TRANS_COST_LL_LY_ORIGSAMP - 1,
 +        .name = "lin12toopus",
 +        .src_codec = {
 +                .name = "slin",
@@ -512,6 +692,7 @@ Last-Update: 2016-04-02
 +};
 +
 +static struct ast_translator opustolin16 = {
++        .table_cost = AST_TRANS_COST_LY_LL_ORIGSAMP - 2,
 +        .name = "opustolin16",
 +        .src_codec = {
 +                .name = "opus",
@@ -529,11 +710,13 @@ Last-Update: 2016-04-02
 +        .destroy = opustolin_destroy,
 +        .sample = opus_sample,
 +        .desc_size = sizeof(struct opus_coder_pvt),
-+        .buffer_samples = BUFFER_SAMPLES,
-+        .buf_size = BUFFER_SAMPLES * 2,
++        .buffer_samples = (BUFFER_SAMPLES / (48000 / 16000)) * 2, /* because of possible FEC */
++        .buf_size = (BUFFER_SAMPLES / (48000 / 16000)) * MAX_CHANNELS * sizeof(opus_int16) * 2,
++        .native_plc = 1,
 +};
 +
 +static struct ast_translator lin16toopus = {
++        .table_cost = AST_TRANS_COST_LL_LY_ORIGSAMP - 2,
 +        .name = "lin16toopus",
 +        .src_codec = {
 +                .name = "slin",
@@ -557,6 +740,7 @@ Last-Update: 2016-04-02
 +};
 +
 +static struct ast_translator opustolin24 = {
++        .table_cost = AST_TRANS_COST_LY_LL_ORIGSAMP - 4,
 +        .name = "opustolin24",
 +        .src_codec = {
 +                .name = "opus",
@@ -574,11 +758,13 @@ Last-Update: 2016-04-02
 +        .destroy = opustolin_destroy,
 +        .sample = opus_sample,
 +        .desc_size = sizeof(struct opus_coder_pvt),
-+        .buffer_samples = BUFFER_SAMPLES,
-+        .buf_size = BUFFER_SAMPLES * 2,
++        .buffer_samples = (BUFFER_SAMPLES / (48000 / 24000)) * 2, /* because of possible FEC */
++        .buf_size = (BUFFER_SAMPLES / (48000 / 24000)) * MAX_CHANNELS * sizeof(opus_int16) * 2,
++        .native_plc = 1,
 +};
 +
 +static struct ast_translator lin24toopus = {
++        .table_cost = AST_TRANS_COST_LL_LY_ORIGSAMP - 4,
 +        .name = "lin24toopus",
 +        .src_codec = {
 +                .name = "slin",
@@ -601,6 +787,7 @@ Last-Update: 2016-04-02
 +};
 +
 +static struct ast_translator opustolin48 = {
++        .table_cost = AST_TRANS_COST_LY_LL_ORIGSAMP - 8,
 +        .name = "opustolin48",
 +        .src_codec = {
 +                .name = "opus",
@@ -618,11 +805,13 @@ Last-Update: 2016-04-02
 +        .destroy = opustolin_destroy,
 +        .sample = opus_sample,
 +        .desc_size = sizeof(struct opus_coder_pvt),
-+        .buffer_samples = BUFFER_SAMPLES,
-+        .buf_size = BUFFER_SAMPLES * 2,
++        .buffer_samples = BUFFER_SAMPLES * 2, /* twice, because of possible FEC */
++        .buf_size = BUFFER_SAMPLES * MAX_CHANNELS * sizeof(opus_int16) * 2,
++        .native_plc = 1,
 +};
 +
 +static struct ast_translator lin48toopus = {
++        .table_cost = AST_TRANS_COST_LL_LY_ORIGSAMP - 8,
 +        .name = "lin48toopus",
 +        .src_codec = {
 +                .name = "slin",
@@ -648,6 +837,13 @@ Last-Update: 2016-04-02
 +	AST_CLI_DEFINE(handle_cli_opus_show, "Display Opus codec utilization.")
 +};
 +
++static int opus_samples(struct ast_frame *frame)
++{
++	opus_int32 sampling_rate = 48000; /* FIXME */
++
++	return opus_packet_get_nb_samples(frame->data.ptr, frame->datalen, sampling_rate);
++}
++
 +static int reload(void)
 +{
 +	/* Reload does nothing */
@@ -657,6 +853,9 @@ Last-Update: 2016-04-02
 +static int unload_module(void)
 +{
 +	int res;
++
++	opus_codec->samples_count = opus_samples_previous;
++	ao2_ref(opus_codec, -1);
 +
 +	res = ast_unregister_translator(&opustolin);
 +	res |= ast_unregister_translator(&lintoopus);
@@ -677,6 +876,10 @@ Last-Update: 2016-04-02
 +static int load_module(void)
 +{
 +	int res;
++
++	opus_codec = ast_codec_get("opus", AST_MEDIA_TYPE_AUDIO, 48000);
++	opus_samples_previous = opus_codec->samples_count;
++	opus_codec->samples_count = opus_samples;
 +
 +	res = ast_register_translator(&opustolin);
 +	res |= ast_register_translator(&lintoopus);
@@ -699,3 +902,810 @@ Last-Update: 2016-04-02
 +	.unload = unload_module,
 +	.reload = reload,
 +	);
+--- a/include/asterisk/opus.h
++++ b/include/asterisk/opus.h
+@@ -55,9 +55,9 @@
+ #define CODEC_OPUS_DEFAULT_MAX_PLAYBACK_RATE 48000
+ #define CODEC_OPUS_DEFAULT_MAX_PTIME 120
+ #define CODEC_OPUS_DEFAULT_PTIME 20
+-#define CODEC_OPUS_DEFAULT_BITRATE -1000 /* OPUS_AUTO */
++#define CODEC_OPUS_DEFAULT_BITRATE 510000
+ #define CODEC_OPUS_DEFAULT_CBR 0
+-#define CODEC_OPUS_DEFAULT_FEC 0
++#define CODEC_OPUS_DEFAULT_FEC 1
+ #define CODEC_OPUS_DEFAULT_DTX 0
+ #define CODEC_OPUS_DEFAULT_STEREO 0
+ 
+--- a/res/res_format_attr_opus.c
++++ b/res/res_format_attr_opus.c
+@@ -29,14 +29,18 @@
+ 
+ #include "asterisk.h"
+ 
+-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
++#if defined(ASTERISK_REGISTER_FILE)
++ASTERISK_REGISTER_FILE()
++#elif defined(ASTERISK_FILE_VERSION)
++ASTERISK_FILE_VERSION(__FILE__, "$Revision: $")
++#endif
+ 
+ #include "asterisk/module.h"
+ #include "asterisk/format.h"
+-#include "asterisk/logger.h"
+-#include "asterisk/strings.h"
+-#include "asterisk/utils.h"
+-#include "asterisk/opus.h"
++#include "asterisk/logger.h"            /* for ast_log, LOG_WARNING */
++#include "asterisk/opus.h"              /* for CODEC_OPUS_DEFAULT_* */
++#include "asterisk/strings.h"           /* for ast_str_append */
++#include "asterisk/utils.h"             /* for MIN, ast_malloc, ast_free */
+ 
+ /*!
+  * \brief Opus attribute structure.
+@@ -44,42 +48,32 @@
+  * \note http://tools.ietf.org/html/rfc7587#section-6
+  */
+ struct opus_attr {
+-	int maxbitrate;
+-	int maxplayrate;
+-	int ptime;
+-	int stereo;
+-	int cbr;
+-	int fec;
+-	int dtx;
+-	int spropmaxcapturerate;
+-	int spropstereo;
+-	int maxptime;
+-	/* Note data is expected to be an ao2_object type */
+-	void *data;
++	unsigned int maxbitrate;
++	unsigned int maxplayrate;
++	unsigned int unused; /* was minptime, kept for binary compatibility */
++	unsigned int stereo;
++	unsigned int cbr;
++	unsigned int fec;
++	unsigned int dtx;
++	unsigned int spropmaxcapturerate;
++	unsigned int spropstereo;
+ };
+ 
+ static struct opus_attr default_opus_attr = {
+-	.maxbitrate = CODEC_OPUS_DEFAULT_BITRATE,
+-	.maxplayrate = CODEC_OPUS_DEFAULT_SAMPLE_RATE,
+-	.ptime = CODEC_OPUS_DEFAULT_PTIME,
+-	.stereo = CODEC_OPUS_DEFAULT_STEREO,
+-	.cbr = CODEC_OPUS_DEFAULT_CBR,
+-	.fec = CODEC_OPUS_DEFAULT_FEC,
+-	.dtx = CODEC_OPUS_DEFAULT_DTX,
+-	.spropmaxcapturerate = CODEC_OPUS_DEFAULT_SAMPLE_RATE,
+-	.spropstereo = CODEC_OPUS_DEFAULT_STEREO,
+-	.maxptime = CODEC_OPUS_DEFAULT_MAX_PTIME
++	.maxplayrate         = CODEC_OPUS_DEFAULT_MAX_PLAYBACK_RATE,
++	.spropmaxcapturerate = CODEC_OPUS_DEFAULT_MAX_PLAYBACK_RATE,
++	.maxbitrate          = CODEC_OPUS_DEFAULT_BITRATE,
++	.stereo              = CODEC_OPUS_DEFAULT_STEREO,
++	.spropstereo         = CODEC_OPUS_DEFAULT_STEREO,
++	.cbr                 = CODEC_OPUS_DEFAULT_CBR,
++	.fec                 = CODEC_OPUS_DEFAULT_FEC,
++	.dtx                 = CODEC_OPUS_DEFAULT_DTX,
+ };
+ 
+ static void opus_destroy(struct ast_format *format)
+ {
+ 	struct opus_attr *attr = ast_format_get_attribute_data(format);
+ 
+-	if (!attr) {
+-		return;
+-	}
+-
+-	ao2_cleanup(attr->data);
+ 	ast_free(attr);
+ }
+ 
+@@ -92,129 +86,172 @@
+ 		return -1;
+ 	}
+ 
+-	*attr = original ? *original : default_opus_attr;
+-	ao2_bump(attr->data);
++	if (original) {
++		*attr = *original;
++	} else {
++		*attr = default_opus_attr;
++	}
+ 
+ 	ast_format_set_attribute_data(dst, attr);
+ 
+ 	return 0;
+ }
+ 
+-static void sdp_fmtp_get(const char *attributes, const char *name, int *attr)
+-{
+-	const char *kvp = "";
+-	int val;
+-
+-	if (attributes && !(kvp = strstr(attributes, name))) {
+-		return;
+-	}
+-
+-	/*
+-	 * If the named attribute is not at the start of the given attributes, and
+-	 * the preceding character is not a space or semicolon then it's not the
+-	 * attribute we are looking for. It's an attribute with the name embedded
+-	 * within it (e.g. ptime in maxptime, stereo in sprop-stereo).
+-	 */
+-	if (kvp != attributes && *(kvp - 1) != ' ' && *(kvp - 1) != ';') {
+-		/* Keep searching as it might still be in the attributes string */
+-		sdp_fmtp_get(strchr(kvp, ';'), name, attr);
+-	/*
+-	 * Otherwise it's a match, so retrieve the value and set the attribute.
+-	 */
+-	} else if (sscanf(kvp, "%*[^=]=%30d", &val) == 1) {
+-		*attr = val;
+-	}
+-}
+-
+ static struct ast_format *opus_parse_sdp_fmtp(const struct ast_format *format, const char *attributes)
+ {
+ 	struct ast_format *cloned;
+ 	struct opus_attr *attr;
++	const char *kvp;
++	unsigned int val;
+ 
+ 	cloned = ast_format_clone(format);
+ 	if (!cloned) {
+ 		return NULL;
+ 	}
+-
+ 	attr = ast_format_get_attribute_data(cloned);
+ 
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_MAX_PLAYBACK_RATE, &attr->maxplayrate);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_MAX_CODED_AUDIO_BANDWIDTH,
+-		&attr->maxplayrate);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_SPROP_MAX_CAPTURE_RATE,
+-		&attr->spropmaxcapturerate);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_MAX_PTIME, &attr->maxptime);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_PTIME, &attr->ptime);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_MAX_AVERAGE_BITRATE, &attr->maxbitrate);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_STEREO, &attr->stereo);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_SPROP_STEREO, &attr->spropstereo);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_CBR, &attr->cbr);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_FEC, &attr->fec);
+-	sdp_fmtp_get(attributes, CODEC_OPUS_ATTR_DTX, &attr->dtx);
+-
+-	return cloned;
+-}
+-
+-static void opus_generate_sdp_fmtp(const struct ast_format *format, unsigned int payload, struct ast_str **str)
+-{
+-	struct opus_attr *attr = ast_format_get_attribute_data(format);
+-	int size;
+-
+-	if (!attr) {
+-		/*
+-		 * (Only) cached formats do not have attribute data assigned because
+-		 * they were created before this attribute module was registered.
+-		 * Therefore, we assume the default attribute values here.
+-		 */
+-		attr = &default_opus_attr;
++	if ((kvp = strstr(attributes, "maxplaybackrate")) && sscanf(kvp, "maxplaybackrate=%30u", &val) == 1) {
++		attr->maxplayrate = val;
++	} else {
++		attr->maxplayrate = 48000;
+ 	}
+ 
+-	size = ast_str_append(str, 0, "a=fmtp:%u ", payload);
++	if ((kvp = strstr(attributes, "sprop-maxcapturerate")) && sscanf(kvp, "sprop-maxcapturerate=%30u", &val) == 1) {
++		attr->spropmaxcapturerate = val;
++	} else {
++		attr->spropmaxcapturerate = 48000;
++	}
+ 
+-	if (CODEC_OPUS_DEFAULT_SAMPLE_RATE != attr->maxplayrate) {
+-		ast_str_append(str, 0, "%s=%d;",
+-			CODEC_OPUS_ATTR_MAX_PLAYBACK_RATE, attr->maxplayrate);
++	if ((kvp = strstr(attributes, "maxaveragebitrate")) && sscanf(kvp, "maxaveragebitrate=%30u", &val) == 1) {
++		attr->maxbitrate = val;
++	} else {
++		attr->maxbitrate = 510000;
+ 	}
+ 
+-	if (CODEC_OPUS_DEFAULT_SAMPLE_RATE != attr->spropmaxcapturerate) {
+-		ast_str_append(str, 0, "%s=%d;",
+-			CODEC_OPUS_ATTR_SPROP_MAX_CAPTURE_RATE, attr->spropmaxcapturerate);
++	if (!strncmp(attributes, "stereo=1", 8)) {
++		attr->stereo = 1;
++	} else if (strstr(attributes, " stereo=1")) {
++		attr->stereo = 1;
++	} else if (strstr(attributes, ";stereo=1")) {
++		attr->stereo = 1;
++	} else {
++		attr->stereo = 0;
+ 	}
+ 
+-	if (CODEC_OPUS_DEFAULT_BITRATE != attr->maxbitrate || attr->maxbitrate > 0) {
+-		ast_str_append(str, 0, "%s=%d;",
+-			CODEC_OPUS_ATTR_MAX_AVERAGE_BITRATE, attr->maxbitrate);
++	if (strstr(attributes, "sprop-stereo=1")) {
++		attr->spropstereo = 1;
++	} else {
++		attr->spropstereo = 0;
+ 	}
+ 
+-	if (CODEC_OPUS_DEFAULT_STEREO != attr->stereo) {
+-		ast_str_append(str, 0, "%s=%d;",
+-			CODEC_OPUS_ATTR_STEREO, attr->stereo);
++	if (strstr(attributes, "cbr=1")) {
++		attr->cbr = 1;
++	} else {
++		attr->cbr = 0;
+ 	}
+ 
+-	if (CODEC_OPUS_DEFAULT_STEREO != attr->spropstereo) {
+-		ast_str_append(str, 0, "%s=%d;",
+-			CODEC_OPUS_ATTR_SPROP_STEREO, attr->spropstereo);
++	if (strstr(attributes, "useinbandfec=1")) {
++		attr->fec = 1;
++	} else {
++		attr->fec = 0;
+ 	}
+ 
+-	if (CODEC_OPUS_DEFAULT_CBR != attr->cbr) {
+-		ast_str_append(str, 0, "%s=%d;",
+-			CODEC_OPUS_ATTR_CBR, attr->cbr);
++	if (strstr(attributes, "usedtx=1")) {
++		attr->dtx = 1;
++	} else {
++		attr->dtx = 0;
+ 	}
+ 
+-	if (CODEC_OPUS_DEFAULT_FEC!= attr->fec) {
+-		ast_str_append(str, 0, "%s=%d;",
+-		       CODEC_OPUS_ATTR_FEC, attr->fec);
++	return cloned;
++}
++
++static void opus_generate_sdp_fmtp(const struct ast_format *format, unsigned int payload, struct ast_str **str)
++{
++	struct opus_attr *attr = ast_format_get_attribute_data(format);
++	int added = 0;
++
++	if (!attr) {
++		/*
++		 * (Only) cached formats do not have attribute data assigned because
++		 * they were created before this attribute module was registered.
++		 * Therefore, we assume the default attribute values here.
++		 */
++		attr = &default_opus_attr;
+ 	}
+ 
+-	if (CODEC_OPUS_DEFAULT_DTX != attr->dtx) {
+-		ast_str_append(str, 0, "%s=%d;",
+-			CODEC_OPUS_ATTR_DTX, attr->dtx);
++	if (48000 != attr->maxplayrate) {
++		if (added) {
++			ast_str_append(str, 0, ";");
++		} else if (0 < ast_str_append(str, 0, "a=fmtp:%u ", payload)) {
++			added = 1;
++		}
++		ast_str_append(str, 0, "maxplaybackrate=%u", attr->maxplayrate);
++	}
++
++	if (48000 != attr->spropmaxcapturerate) {
++		if (added) {
++			ast_str_append(str, 0, ";");
++		} else if (0 < ast_str_append(str, 0, "a=fmtp:%u ", payload)) {
++			added = 1;
++		}
++		ast_str_append(str, 0, "sprop-maxcapturerate=%u", attr->spropmaxcapturerate);
++	}
++
++	if (510000 != attr->maxbitrate) {
++		if (added) {
++			ast_str_append(str, 0, ";");
++		} else if (0 < ast_str_append(str, 0, "a=fmtp:%u ", payload)) {
++			added = 1;
++		}
++		ast_str_append(str, 0, "maxaveragebitrate=%u", attr->maxbitrate);
++	}
++
++	if (0 != attr->stereo) {
++		if (added) {
++			ast_str_append(str, 0, ";");
++		} else if (0 < ast_str_append(str, 0, "a=fmtp:%u ", payload)) {
++			added = 1;
++		}
++		ast_str_append(str, 0, "stereo=%u", attr->stereo);
++	}
++
++	if (0 != attr->spropstereo) {
++		if (added) {
++			ast_str_append(str, 0, ";");
++		} else if (0 < ast_str_append(str, 0, "a=fmtp:%u ", payload)) {
++			added = 1;
++		}
++		ast_str_append(str, 0, "sprop-stereo=%u", attr->spropstereo);
++	}
++
++	if (0 != attr->cbr) {
++		if (added) {
++			ast_str_append(str, 0, ";");
++		} else if (0 < ast_str_append(str, 0, "a=fmtp:%u ", payload)) {
++			added = 1;
++		}
++		ast_str_append(str, 0, "cbr=%u", attr->cbr);
++	}
++
++	if (0 != attr->fec) {
++		if (added) {
++			ast_str_append(str, 0, ";");
++		} else if (0 < ast_str_append(str, 0, "a=fmtp:%u ", payload)) {
++			added = 1;
++		}
++		ast_str_append(str, 0, "useinbandfec=%u", attr->fec);
++	}
++
++	if (0 != attr->dtx) {
++		if (added) {
++			ast_str_append(str, 0, ";");
++		} else if (0 < ast_str_append(str, 0, "a=fmtp:%u ", payload)) {
++			added = 1;
++		}
++		ast_str_append(str, 0, "usedtx=%u", attr->dtx);
+ 	}
+ 
+-	if (size == ast_str_strlen(*str)) {
+-		ast_str_reset(*str);
+-	} else {
+-		ast_str_truncate(*str, -1);
++	if (added) {
+ 		ast_str_append(str, 0, "\r\n");
+ 	}
+ }
+@@ -253,68 +290,49 @@
+ 	 * to receive stereo signals, it may be a waste of bandwidth. */
+ 	attr_res->stereo = attr1->stereo && attr2->stereo ? 1 : 0;
+ 
+-	if (attr1->maxbitrate < 0) {
+-		attr_res->maxbitrate = attr2->maxbitrate;
+-	} else if (attr2->maxbitrate < 0) {
+-		attr_res->maxbitrate = attr1->maxbitrate;
+-	} else {
+-		attr_res->maxbitrate = MIN(attr1->maxbitrate, attr2->maxbitrate);
+-	}
+-
++	attr_res->maxbitrate = MIN(attr1->maxbitrate, attr2->maxbitrate);
+ 	attr_res->spropmaxcapturerate = MIN(attr1->spropmaxcapturerate, attr2->spropmaxcapturerate);
+ 	attr_res->maxplayrate = MIN(attr1->maxplayrate, attr2->maxplayrate);
+ 
+ 	return jointformat;
+ }
+ 
+-static struct ast_format *opus_set(const struct ast_format *format,
+-	const char *name, const char *value)
++static struct ast_format *opus_set(const struct ast_format *format, const char *name, const char *value)
+ {
+ 	struct ast_format *cloned;
+ 	struct opus_attr *attr;
+-	int val;
++	unsigned int val;
+ 
+-	if (!(cloned = ast_format_clone(format))) {
++	if (sscanf(value, "%30u", &val) != 1) {
++		ast_log(LOG_WARNING, "Unknown value '%s' for attribute type '%s'\n",
++			value, name);
+ 		return NULL;
+ 	}
+ 
+-	attr = ast_format_get_attribute_data(cloned);
+-
+-	if (!strcmp(name, CODEC_OPUS_ATTR_DATA)) {
+-		ao2_cleanup(attr->data);
+-		attr->data = ao2_bump((void*)value);
+-		return cloned;
+-	}
+-
+-	if (sscanf(value, "%30d", &val) != 1) {
+-		ast_log(LOG_WARNING, "Unknown value '%s' for attribute type '%s'\n",
+-			value, name);
+-		ao2_ref(cloned, -1);
++	cloned = ast_format_clone(format);
++	if (!cloned) {
+ 		return NULL;
+ 	}
++	attr = ast_format_get_attribute_data(cloned);
+ 
+-	if (!strcasecmp(name, CODEC_OPUS_ATTR_MAX_PLAYBACK_RATE)) {
+-		attr->maxplayrate = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_MAX_CODED_AUDIO_BANDWIDTH)) {
+-		attr->maxplayrate = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_SPROP_MAX_CAPTURE_RATE)) {
+-		attr->spropmaxcapturerate = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_MAX_PTIME)) {
+-		attr->maxptime = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_PTIME)) {
+-		attr->ptime = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_MAX_AVERAGE_BITRATE)) {
++	if (!strcasecmp(name, "max_bitrate")) {
+ 		attr->maxbitrate = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_STEREO)) {
++	} else if (!strcasecmp(name, "max_playrate")) {
++		attr->maxplayrate = val;
++	} else if (!strcasecmp(name, "minptime")) {
++		attr->unused = val;
++	} else if (!strcasecmp(name, "stereo")) {
+ 		attr->stereo = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_SPROP_STEREO)) {
+-		attr->spropstereo = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_CBR)) {
++	} else if (!strcasecmp(name, "cbr")) {
+ 		attr->cbr = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_FEC)) {
++	} else if (!strcasecmp(name, "fec")) {
+ 		attr->fec = val;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_DTX)) {
++	} else if (!strcasecmp(name, "dtx")) {
+ 		attr->dtx = val;
++	} else if (!strcasecmp(name, "sprop_capture_rate")) {
++		attr->spropmaxcapturerate = val;
++	} else if (!strcasecmp(name, "sprop_stereo")) {
++		attr->spropstereo = val;
+ 	} else {
+ 		ast_log(LOG_WARNING, "unknown attribute type %s\n", name);
+ 	}
+@@ -322,44 +340,6 @@
+ 	return cloned;
+ }
+ 
+-static const void *opus_get(const struct ast_format *format, const char *name)
+-{
+-	struct opus_attr *attr = ast_format_get_attribute_data(format);
+-	int *val = NULL;
+-
+-	if (!attr) {
+-		return NULL;
+-	}
+-
+-	if (!strcasecmp(name, CODEC_OPUS_ATTR_DATA)) {
+-		return ao2_bump(attr->data);
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_MAX_PLAYBACK_RATE)) {
+-		val = &attr->maxplayrate;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_SPROP_MAX_CAPTURE_RATE)) {
+-		val = &attr->spropmaxcapturerate;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_MAX_PTIME)) {
+-		val = &attr->maxptime;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_PTIME)) {
+-		val = &attr->ptime;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_MAX_AVERAGE_BITRATE)) {
+-		val = &attr->maxbitrate;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_STEREO)) {
+-		val = &attr->stereo;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_SPROP_STEREO)) {
+-		val = &attr->spropstereo;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_CBR)) {
+-		val = &attr->cbr;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_FEC)) {
+-		val = &attr->fec;
+-	} else if (!strcasecmp(name, CODEC_OPUS_ATTR_DTX)) {
+-		val = &attr->dtx;
+-	} else {
+-		ast_log(LOG_WARNING, "unknown attribute type %s\n", name);
+-	}
+-
+-	return val;
+-}
+-
+ static struct ast_format_interface opus_interface = {
+ 	.format_destroy = opus_destroy,
+ 	.format_clone = opus_clone,
+@@ -367,12 +347,11 @@
+ 	.format_attribute_set = opus_set,
+ 	.format_parse_sdp_fmtp = opus_parse_sdp_fmtp,
+ 	.format_generate_sdp_fmtp = opus_generate_sdp_fmtp,
+-	.format_attribute_get = opus_get
+ };
+ 
+ static int load_module(void)
+ {
+-	if (__ast_format_interface_register("opus", &opus_interface, ast_module_info->self)) {
++	if (ast_format_interface_register("opus", &opus_interface)) {
+ 		return AST_MODULE_LOAD_DECLINE;
+ 	}
+ 
+@@ -384,9 +363,9 @@
+ 	return 0;
+ }
+ 
+-AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "Opus Format Attribute Module",
++AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Opus Format Attribute Module",
+ 	.support_level = AST_MODULE_SUPPORT_CORE,
+ 	.load = load_module,
+ 	.unload = unload_module,
+-	.load_pri = AST_MODPRI_REALTIME_DRIVER /* Needs to load before codec_opus */
++	.load_pri = AST_MODPRI_CHANNEL_DEPEND,
+ );
+--- a/build_tools/menuselect-deps.in
++++ b/build_tools/menuselect-deps.in
+@@ -44,6 +44,7 @@
+ OGG=@PBX_OGG@
+ OPENH323=@PBX_OPENH323@
+ OPUS=@PBX_OPUS@
++OPUSFILE=@PBX_OPUSFILE@
+ OSPTK=@PBX_OSPTK@
+ OSS=@PBX_OSS@
+ PGSQL=@PBX_PGSQL@
+--- a/configure.ac
++++ b/configure.ac
+@@ -495,6 +495,7 @@
+ AST_EXT_LIB_SETUP([OGG], [OGG], [ogg])
+ AST_EXT_LIB_SETUP([OPENR2], [MFR2], [openr2])
+ AST_EXT_LIB_SETUP([OPUS], [Opus], [opus])
++AST_EXT_LIB_SETUP([OPUSFILE], [Opusfile], [opusfile])
+ AST_EXT_LIB_SETUP([OSPTK], [OSP Toolkit], [osptk])
+ AST_EXT_LIB_SETUP([OSS], [Open Sound System], [oss])
+ AST_EXT_LIB_SETUP([PGSQL], [PostgreSQL], [postgres])
+@@ -2277,6 +2278,13 @@
+ AST_EXT_LIB_CHECK([OPENR2], [openr2], [openr2_chan_new], [openr2.h])
+ 
+ AST_EXT_LIB_CHECK([OPUS], [opus], [opus_encoder_create], [opus/opus.h])
++# opusfile.h includes <opus_multistream.h> so we need to make sure that
++# either $OPUS_INCLUDE or /usr/include/opus is added to the search path.
++__opus_include=${OPUS_INCLUDE}
++if test -z "$__opus_include" -o x"$__opus_include" = x" " ; then
++	__opus_include=-I/usr/include/opus
++fi
++AST_EXT_LIB_CHECK([OPUSFILE], [opusfile], [op_open_callbacks], [opus/opusfile.h], [], [$__opus_include])
+ 
+ if test "${USE_PWLIB}" != "no"; then
+ 	if test -n "${PWLIB_DIR}"; then
+--- /dev/null
++++ b/formats/format_ogg_opus_open_source.c
+@@ -0,0 +1,236 @@
++/*
++ * Asterisk -- An open source telephony toolkit.
++ *
++ * Copyright (C) 2016, Digium, Inc.
++ *
++ * Mark Michelson <mmichelson@digium.com>
++ *
++ * See http://www.asterisk.org for more information about
++ * the Asterisk project. Please do not directly contact
++ * any of the maintainers of this project for assistance;
++ * the project provides a web site, mailing lists and IRC
++ * channels for your use.
++ *
++ * This program is free software, distributed under the terms of
++ * the GNU General Public License Version 2. See the LICENSE file
++ * at the top of the source tree.
++ */
++
++/*** MODULEINFO
++	<depend>opusfile</depend>
++	<conflict>format_ogg_opus</conflict>
++	<defaultenabled>yes</defaultenabled>
++ ***/
++
++#include "asterisk.h"
++
++#if defined(ASTERISK_REGISTER_FILE)
++ASTERISK_REGISTER_FILE()
++#elif defined(ASTERISK_FILE_VERSION)
++ASTERISK_FILE_VERSION(__FILE__, "$Revision: $")
++#endif
++
++#include <opus/opus.h>
++#include <opus/opusfile.h>
++#include "asterisk/mod_format.h"
++#include "asterisk/utils.h"
++#include "asterisk/module.h"
++#include "asterisk/format_cache.h"
++
++/* 120ms of 48KHz audio */
++#define SAMPLES_MAX 5760
++#define BUF_SIZE (2 * SAMPLES_MAX)
++
++struct ogg_opus_desc {
++	OggOpusFile *of;
++};
++
++static int fread_wrapper(void *_stream, unsigned char *_ptr, int _nbytes)
++{
++	FILE *stream = _stream;
++	size_t bytes_read;
++
++	if (!stream || _nbytes < 0) {
++		return -1;
++	}
++
++	bytes_read = fread(_ptr, 1, _nbytes, stream);
++
++	return bytes_read > 0 || feof(stream) ? (int) bytes_read : OP_EREAD;
++}
++
++static int fseek_wrapper(void *_stream, opus_int64 _offset, int _whence)
++{
++	FILE *stream = _stream;
++
++	return fseeko(stream, (off_t) _offset, _whence);
++}
++
++static opus_int64 ftell_wrapper(void *_stream)
++{
++	FILE *stream = _stream;
++
++	return ftello(stream);
++}
++
++static int ogg_opus_open(struct ast_filestream *s)
++{
++	struct ogg_opus_desc *desc = (struct ogg_opus_desc *) s->_private;
++	OpusFileCallbacks cb = {
++		.read = fread_wrapper,
++		.seek = fseek_wrapper,
++		.tell = ftell_wrapper,
++		.close = NULL,
++	};
++
++	memset(desc, 0, sizeof(*desc));
++	desc->of = op_open_callbacks(s->f, &cb, NULL, 0, NULL);
++	if (!desc->of) {
++		return -1;
++	}
++
++	return 0;
++}
++
++static int ogg_opus_rewrite(struct ast_filestream *s, const char *comment)
++{
++	/* XXX Unimplemented. We currently only can read from OGG/Opus streams */
++	ast_log(LOG_ERROR, "Cannot write OGG/Opus streams. Sorry :(\n");
++	return -1;
++}
++
++static int ogg_opus_write(struct ast_filestream *fs, struct ast_frame *f)
++{
++	/* XXX Unimplemented. We currently only can read from OGG/Opus streams */
++	ast_log(LOG_ERROR, "Cannot write OGG/Opus streams. Sorry :(\n");
++	return -1;
++}
++
++static int ogg_opus_seek(struct ast_filestream *fs, off_t sample_offset, int whence)
++{
++	int seek_result = -1;
++	off_t relative_pcm_pos;
++	struct ogg_opus_desc *desc = fs->_private;
++
++	switch (whence) {
++	case SEEK_SET:
++		seek_result = op_pcm_seek(desc->of, sample_offset);
++		break;
++	case SEEK_CUR:
++		if ((relative_pcm_pos = op_pcm_tell(desc->of)) < 0) {
++			seek_result = -1;
++			break;
++		}
++		seek_result = op_pcm_seek(desc->of, relative_pcm_pos + sample_offset);
++		break;
++	case SEEK_END:
++		if ((relative_pcm_pos = op_pcm_total(desc->of, -1)) < 0) {
++			seek_result = -1;
++			break;
++		}
++		seek_result = op_pcm_seek(desc->of, relative_pcm_pos - sample_offset);
++		break;
++	default:
++		ast_log(LOG_WARNING, "Unknown *whence* to seek on OGG/Opus streams!\n");
++		break;
++	}
++
++	/* normalize error value to -1,0 */
++	return (seek_result == 0) ? 0 : -1;
++}
++
++static int ogg_opus_trunc(struct ast_filestream *fs)
++{
++	/* XXX Unimplemented. This is only used when recording, and we don't support that right now. */
++	ast_log(LOG_ERROR, "Truncation is not supported on OGG/Opus streams!\n");
++	return -1;
++}
++
++static off_t ogg_opus_tell(struct ast_filestream *fs)
++{
++	struct ogg_opus_desc *desc = fs->_private;
++	off_t pos;
++
++	pos = (off_t) op_pcm_tell(desc->of);
++	if (pos < 0) {
++		return -1;
++	}
++	return pos;
++}
++
++static struct ast_frame *ogg_opus_read(struct ast_filestream *fs, int *whennext)
++{
++	struct ogg_opus_desc *desc = fs->_private;
++	int hole = 1;
++	int samples_read;
++	opus_int16 *out_buf;
++
++	AST_FRAME_SET_BUFFER(&fs->fr, fs->buf, AST_FRIENDLY_OFFSET, BUF_SIZE);
++
++	out_buf = (opus_int16 *) fs->fr.data.ptr;
++
++	while (hole) {
++		samples_read = op_read(
++			desc->of,
++			out_buf,
++			SAMPLES_MAX,
++			NULL);
++
++		if (samples_read != OP_HOLE) {
++			hole = 0;
++		}
++	}
++
++	if (samples_read <= 0) {
++		return NULL;
++	}
++
++	fs->fr.datalen = samples_read * 2;
++	fs->fr.samples = samples_read;
++	*whennext = fs->fr.samples;
++
++	return &fs->fr;
++}
++
++static void ogg_opus_close(struct ast_filestream *fs)
++{
++	struct ogg_opus_desc *desc = fs->_private;
++
++	op_free(desc->of);
++}
++
++static struct ast_format_def opus_f = {
++	.name = "ogg_opus",
++	.exts = "opus",
++	.open = ogg_opus_open,
++	.rewrite = ogg_opus_rewrite,
++	.write = ogg_opus_write,
++	.seek = ogg_opus_seek,
++	.trunc = ogg_opus_trunc,
++	.tell = ogg_opus_tell,
++	.read = ogg_opus_read,
++	.close = ogg_opus_close,
++	.buf_size = BUF_SIZE + AST_FRIENDLY_OFFSET,
++	.desc_size = sizeof(struct ogg_opus_desc),
++};
++
++static int load_module(void)
++{
++	opus_f.format = ast_format_slin48;
++	if (ast_format_def_register(&opus_f)) {
++		return AST_MODULE_LOAD_FAILURE;
++	}
++	return AST_MODULE_LOAD_SUCCESS;
++}
++
++static int unload_module(void)
++{
++	return ast_format_def_unregister(opus_f.name);
++}
++
++AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "OGG/Opus audio",
++	.support_level = AST_MODULE_SUPPORT_CORE,
++	.load = load_module,
++	.unload = unload_module,
++	.load_pri = AST_MODPRI_APP_DEPEND
++);
+--- a/makeopts.in
++++ b/makeopts.in
+@@ -225,6 +225,9 @@
+ OPUS_INCLUDE=@OPUS_INCLUDE@
+ OPUS_LIB=@OPUS_LIB@
+ 
++OPUSFILE_INCLUDE=@OPUSFILE_INCLUDE@
++OPUSFILE_LIB=@OPUSFILE_LIB@
++
+ OSPTK_INCLUDE=@OSPTK_INCLUDE@
+ OSPTK_LIB=@OSPTK_LIB@
+ 
