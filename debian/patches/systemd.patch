@@ -81,7 +81,7 @@ Last-Update: 2016-04-02
 +fi
 --- /dev/null
 +++ b/contrib/asterisk.service
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,49 @@
 +[Unit]
 +Description=Asterisk PBX
 +Documentation=man:asterisk(8)
@@ -89,6 +89,7 @@ Last-Update: 2016-04-02
 +After=network-online.target
 +
 +[Service]
++Type=notify
 +ExecStart=__ASTERISK_SBIN_DIR__/asterisk -g -f -U asterisk
 +ExecReload=__ASTERISK_SBIN_DIR__/asterisk -rx 'core reload'
 +Restart=on-failure
