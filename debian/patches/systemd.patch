@@ -81,7 +81,7 @@ Last-Update: 2016-04-02
 +fi
 --- /dev/null
 +++ b/contrib/asterisk.service
-@@ -0,0 +1,49 @@
+@@ -0,0 +1,48 @@
 +[Unit]
 +Description=Asterisk PBX
 +Documentation=man:asterisk(8)
@@ -96,10 +96,9 @@ Last-Update: 2016-04-02
 +WorkingDirectory=__ASTERISK_VARLIB_DIR__
 +
 +# Extra settings:
-+# If you want to set them, you can generate the file
-+# /etc/systemd/system/asterisk.service that has the following lines
-+# (without the comments)
-+#include /lib/systemd/system/asterisk.service
++# If you want to set them, you can add them to a file in the directory
++# /lib/systemd/system/asterisk.service.d/ with the extension .conf.
++# Example content:
 +#[Service]
 +#
 +# and following those two lines add directives or override existing
