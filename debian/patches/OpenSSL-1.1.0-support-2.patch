@@ -1,0 +1,15 @@
+--- a/main/libasteriskssl.c
++++ b/main/libasteriskssl.c
+@@ -36,6 +36,12 @@
+ #include <openssl/err.h>
+ #endif
+ 
++#if defined(HAVE_OPENSSL) && OPENSSL_VERSION_NUMBER >= 0x10100000L
++/* No explicit initialization is needed with OpenSSL 1.1.0.
++ *    All the functions called or overridden in this file were removed. */
++#undef HAVE_OPENSSL
++#endif
++
+ #include <dlfcn.h>
+ 
+ #include "asterisk/_private.h" /* ast_ssl_init() */
