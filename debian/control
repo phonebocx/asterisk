@@ -14,7 +14,7 @@ Build-Depends:
  autotools-dev,
  binutils-dev,
  dahdi-source,
- debhelper (>= 9),
+ debhelper (>= 10),
  default-libmysqlclient-dev,
  dh-autoreconf,
  dh-systemd,
