@@ -1,8 +1,18 @@
-asterisk (1:13.12.1~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:13.12.1~dfsg-1) unstable; urgency=medium
 
   * New upstream release. 
+  * Update opus patch, add libopusfile-dev build-dep
+  * Use startup notification in systemd unit
+  * no_native_arch.patch: avoid -march=native (Closes: #842917)
+  * Preliminary OpenSSL 1.1.0 support (Closes: #828240)
+    - d/p/OpenSSL-1.1.0-support.patch from Tzafrir Cohen
+    - d/p/OpenSSL-1.1.0-support-2.patch suggested by Stepan Golosunov
+  * Install files for REST API (Closes: #836924)
+  * Bump to debhelper 10, enabling parallel build (Closes: #778751)
+  * Migrate to Automatic Debug Packages (-dbgsym)
+  * Add Bernhard Schmidt to uploaders
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Tue, 01 Nov 2016 10:41:43 +0200
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 09 Nov 2016 09:22:35 +0100
 
 asterisk (1:13.11.2~dfsg-1) unstable; urgency=medium
 
