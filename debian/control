@@ -327,20 +327,6 @@ Description: Development files for Asterisk
  This package contains the include files used if you wish to compile a
  package which requires Asterisk's source file headers.
 
-Package: asterisk-dbg
-Architecture: any
-Depends:
- asterisk (= ${binary:Version}),
- ${misc:Depends}
-Section: debug
-Priority: extra
-Description: Debugging symbols for Asterisk
- Asterisk is an Open Source PBX and telephony toolkit.
- .
- This package includes the debugging symbols useful for debugging
- Asterisk. The debugging symbols are used for execution tracing and core
- dump analysis.
-
 Package: asterisk-config
 Depends:
  ${misc:Depends}

@@ -168,6 +168,6 @@ override_dh_fixperms:
 	fi
 
 override_dh_strip:
-	dh_strip -a --dbg-package=asterisk-dbg
+	dh_strip -a --dbgsym-migration='asterisk-dbg (<< 1:13.12.1~dfsg-1~)'
 
 # .PHONY: binary-indep binary-arch binary install
