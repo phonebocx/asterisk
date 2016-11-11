@@ -61,6 +61,7 @@ Build-Depends:
  libsrtp-dev,
  libss7-dev,
  libssl-dev,
+ libsystemd-dev [linux-any],
  libswscale-dev,
  libtonezone-dev [linux-any],
  liburiparser-dev,
