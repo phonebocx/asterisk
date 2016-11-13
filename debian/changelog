@@ -1,3 +1,15 @@
+asterisk (1:13.12.2~dfsg-1) unstable; urgency=medium
+
+  [ Tzafrir Cohen ]
+  * libsystemd is needed for sd_notify support
+  * upstreaming radcli-detection.patch
+
+  [ Bernhard Schmidt ]
+  * Additional upstream signing key for Rusty Newton <rnewton@digium.com>
+  * New upstream version 13.12.2~dfsg
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 13 Nov 2016 20:58:36 +0100
+
 asterisk (1:13.12.1~dfsg-1) unstable; urgency=medium
 
   * New upstream release. 
