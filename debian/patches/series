@@ -39,3 +39,6 @@ ffmpeg-includes.patch
 radcli-detection.patch
 OpenSSL-1.1.0-support.patch
 OpenSSL-1.1.0-support-2.patch
+
+# Can be dropped with 13.13.0
+fix_libedit_unicode.patch
