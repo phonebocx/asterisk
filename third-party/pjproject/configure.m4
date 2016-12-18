@@ -30,7 +30,7 @@ AC_DEFUN([_PJPROJECT_CONFIGURE],
 	fi
 
 	export TAR PATCH SED NM EXTERNALS_CACHE_DIR DOWNLOAD_TO_STDOUT
-	${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} configure
+	${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} EXTERNALS_CACHE_DIR=${EXTERNALS_CACHE_DIR} configure
 	if test $? -ne 0 ; then
 		AC_MSG_RESULT(failed)
 		AC_MSG_NOTICE(Unable to configure ${PJPROJECT_DIR})
@@ -39,7 +39,7 @@ AC_DEFUN([_PJPROJECT_CONFIGURE],
 
 	AC_MSG_CHECKING(for bundled pjproject)
 
-	PJPROJECT_INCLUDE=$(${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} echo_cflags)
+	PJPROJECT_INCLUDE=$(${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} EXTERNALS_CACHE_DIR=${EXTERNALS_CACHE_DIR} echo_cflags)
 	PJPROJECT_CFLAGS="$PJPROJECT_INCLUDE"
 	PBX_PJPROJECT=1
 
@@ -55,6 +55,7 @@ AC_DEFUN([_PJPROJECT_CONFIGURE],
 	AC_DEFINE([HAVE_PJSIP_TLS_TRANSPORT_PROTO], 1, [Define if your system has PJSIP_TLS_TRANSPORT_PROTO])
 	AC_DEFINE([HAVE_PJSIP_EVSUB_GRP_LOCK], 1, [Define if your system has PJSIP_EVSUB_GRP_LOCK])
 	AC_DEFINE([HAVE_PJSIP_INV_SESSION_REF], 1, [Define if your system has PJSIP_INV_SESSION_REF])
+	AC_DEFINE([HAVE_PJSIP_AUTH_CLT_DEINIT], 1, [Define if your system has pjsip_auth_clt_deinit declared.])
 
 	AC_SUBST([PJPROJECT_BUNDLED])
 	AC_SUBST([PJPROJECT_DIR])

@@ -249,6 +249,7 @@ int daemon(int, int);  /* defined in libresolv of all places */
 #include "asterisk/codec.h"
 #include "asterisk/format_cache.h"
 #include "asterisk/astdb.h"
+#include "asterisk/options.h"
 
 #include "../defaults.h"
 
@@ -331,6 +332,7 @@ unsigned int option_dtmfminduration;		/*!< Minimum duration of DTMF. */
 #if defined(HAVE_SYSINFO)
 long option_minmemfree;				/*!< Minimum amount of free system memory - stop accepting calls if free memory falls below this watermark */
 #endif
+unsigned int ast_option_rtpptdynamic;
 
 /*! @} */
 
@@ -669,6 +671,19 @@ static char *handle_show_settings(struct ast_cli_entry *e, int cmd, struct ast_c
 	ast_cli(a->fd, "  Transmit silence during rec: %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_TRANSMIT_SILENCE) ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Generic PLC:                 %s\n", ast_test_flag(&ast_options, AST_OPT_FLAG_GENERIC_PLC) ? "Enabled" : "Disabled");
 	ast_cli(a->fd, "  Min DTMF duration::          %u\n", option_dtmfminduration);
+
+	if (ast_option_rtpptdynamic == AST_RTP_PT_LAST_REASSIGN) {
+		ast_cli(a->fd, "  RTP dynamic payload types:   %u,%u-%u\n",
+		        ast_option_rtpptdynamic,
+		        AST_RTP_PT_FIRST_DYNAMIC, AST_RTP_MAX_PT - 1);
+	} else if (ast_option_rtpptdynamic < AST_RTP_PT_LAST_REASSIGN) {
+		ast_cli(a->fd, "  RTP dynamic payload types:   %u-%u,%u-%u\n",
+		        ast_option_rtpptdynamic, AST_RTP_PT_LAST_REASSIGN,
+		        AST_RTP_PT_FIRST_DYNAMIC, AST_RTP_MAX_PT - 1);
+	} else {
+		ast_cli(a->fd, "  RTP dynamic payload types:   %u-%u\n",
+		        AST_RTP_PT_FIRST_DYNAMIC, AST_RTP_MAX_PT - 1);
+	}
 
 	ast_cli(a->fd, "\n* Subsystems\n");
 	ast_cli(a->fd, "  -------------\n");
@@ -2140,8 +2155,9 @@ static void really_quit(int num, shutdown_nice_t niceness, int restart)
 	struct ast_json *json_object = NULL;
 	int run_cleanups = niceness >= SHUTDOWN_NICE;
 
-	if (run_cleanups) {
-		ast_module_shutdown();
+	if (run_cleanups && modules_shutdown()) {
+		ast_verb(0, "Some modules could not be unloaded, switching to fast shutdown\n");
+		run_cleanups = 0;
 	}
 
 	if (!restart) {
@@ -2818,7 +2834,11 @@ static void send_rasterisk_connect_commands(void)
 	}
 }
 
+#ifdef HAVE_LIBEDIT_IS_UNICODE
+static int ast_el_read_char(EditLine *editline, wchar_t *cp)
+#else
 static int ast_el_read_char(EditLine *editline, char *cp)
+#endif
 {
 	int num_read = 0;
 	int lastpos = 0;
@@ -2848,10 +2868,16 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 		}
 
 		if (!ast_opt_exec && fds[1].revents) {
-			num_read = read(STDIN_FILENO, cp, 1);
+			char c = '\0';
+			num_read = read(STDIN_FILENO, &c, 1);
 			if (num_read < 1) {
 				break;
 			} else {
+#ifdef 	HAVE_LIBEDIT_IS_UNICODE
+				*cp = btowc(c);
+#else
+				*cp = c;
+#endif
 				return (num_read);
 			}
 		}
@@ -2895,7 +2921,11 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 			console_print(buf, 0);
 
 			if ((res < EL_BUF_SIZE - 1) && ((buf[res-1] == '\n') || (res >= 2 && buf[res-2] == '\n'))) {
+#ifdef 	HAVE_LIBEDIT_IS_UNICODE
+				*cp = btowc(CC_REFRESH);
+#else
 				*cp = CC_REFRESH;
+#endif
 				return(1);
 			} else {
 				lastpos = 1;
@@ -2903,7 +2933,12 @@ static int ast_el_read_char(EditLine *editline, char *cp)
 		}
 	}
 
+#ifdef 	HAVE_LIBEDIT_IS_UNICODE
+	*cp = btowc('\0');
+#else
 	*cp = '\0';
+#endif
+
 	return (0);
 }
 
@@ -3605,6 +3640,7 @@ static void ast_readconfig(void)
 
 	/* Set default value */
 	option_dtmfminduration = AST_MIN_DTMF_DURATION;
+	ast_option_rtpptdynamic = AST_RTP_PT_FIRST_DYNAMIC;
 
 	if (ast_opt_override_config) {
 		cfg = ast_config_load2(ast_config_AST_CONFIG_FILE, "" /* core, can't reload */, config_flags);
@@ -3754,6 +3790,12 @@ static void ast_readconfig(void)
 			if (sscanf(v->value, "%30u", &option_dtmfminduration) != 1) {
 				option_dtmfminduration = AST_MIN_DTMF_DURATION;
 			}
+		/* http://www.iana.org/assignments/rtp-parameters
+		 * RTP dynamic payload types start at 96 normally; extend down to 0 */
+		} else if (!strcasecmp(v->name, "rtp_pt_dynamic")) {
+			ast_parse_arg(v->value, PARSE_UINT32|PARSE_IN_RANGE|PARSE_DEFAULT,
+			              &ast_option_rtpptdynamic, AST_RTP_PT_FIRST_DYNAMIC,
+			              0, AST_RTP_PT_LAST_REASSIGN);
 		} else if (!strcasecmp(v->name, "maxcalls")) {
 			if ((sscanf(v->value, "%30d", &ast_option_maxcalls) != 1) || (ast_option_maxcalls < 0)) {
 				ast_option_maxcalls = 0;

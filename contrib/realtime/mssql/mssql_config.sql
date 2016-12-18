@@ -1537,6 +1537,20 @@ UPDATE alembic_version SET version_num='a6ef36f1309' WHERE alembic_version.versi
 
 GO
 
+-- Running upgrade a6ef36f1309 -> 4468b4a91372
+
+ALTER TABLE ps_endpoints ADD asymmetric_rtp_codec VARCHAR(3) NULL;
+
+GO
+
+ALTER TABLE ps_endpoints ADD CONSTRAINT yesno_values CHECK (asymmetric_rtp_codec IN ('yes', 'no'));
+
+GO
+
+UPDATE alembic_version SET version_num='4468b4a91372' WHERE alembic_version.version_num = 'a6ef36f1309';
+
+GO
+
 COMMIT;
 
 GO

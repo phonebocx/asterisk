@@ -8446,8 +8446,6 @@ static const char *__get_header(const struct sip_request *req, const char *name,
 	 * one afterwards.  If you shouldn't do it, what absolute idiot decided it was
 	 * a good idea to say you can do it, and if you can do it, why in the hell would.
 	 * you say you shouldn't.
-	 * Anyways, pedanticsipchecking controls whether we allow spaces before ':',
-	 * and we always allow spaces after that for compatibility.
 	 */
 	const char *sname = find_alias(name, NULL);
 	int x, len = strlen(name), slen = (sname ? 1 : 0);
@@ -8460,10 +8458,10 @@ static const char *__get_header(const struct sip_request *req, const char *name,
 		if (match || smatch) {
 			/* skip name */
 			const char *r = header + (match ? len : slen );
-			if (sip_cfg.pedanticsipchecking) {
-				r = ast_skip_blanks(r);
+			/* HCOLON has optional SP/HTAB; skip past those */
+			while (*r == ' ' || *r == '\t') {
+				++r;
 			}
-
 			if (*r == ':') {
 				*start = x+1;
 				return ast_skip_blanks(r+1);
@@ -20070,7 +20068,9 @@ static struct sip_peer *_sip_show_peers_one(int fd, struct mansession *s, struct
 		"ACL: %s\r\n"
 		"Status: %s\r\n"
 		"RealtimeDevice: %s\r\n"
-		"Description: %s\r\n\r\n",
+		"Description: %s\r\n"
+		"Accountcode: %s\r\n"
+		"\r\n",
 		cont->idtext,
 		peer->name,
 		ast_sockaddr_isnull(&peer->addr) ? "-none-" : tmp_host,
@@ -20085,7 +20085,8 @@ static struct sip_peer *_sip_show_peers_one(int fd, struct mansession *s, struct
 		ast_acl_list_is_empty(peer->acl) ? "no" : "yes",       /* permit/deny/acl */
 		status,
 		cont->realtimepeers ? (peer->is_realtime ? "yes" : "no") : "no",
-		peer->description);
+		peer->description,
+		peer->accountcode);
 	}
 	ao2_unlock(peer);
 
@@ -21583,7 +21584,7 @@ static char *sip_show_settings(struct ast_cli_entry *e, int cmd, struct ast_cli_
 	ast_cli(a->fd, "  Sub. max duration:      %d secs\n", max_subexpiry);
 	ast_cli(a->fd, "  Outbound reg. timeout:  %d secs\n", global_reg_timeout);
 	ast_cli(a->fd, "  Outbound reg. attempts: %d\n", global_regattempts_max);
-	ast_cli(a->fd, "  Outbound reg. retry 403:%d\n", global_reg_retry_403);
+	ast_cli(a->fd, "  Outbound reg. retry 403:%s\n", AST_CLI_YESNO(global_reg_retry_403));
 	ast_cli(a->fd, "  Notify ringing state:   %s\n", AST_CLI_YESNO(sip_cfg.notifyringing));
 	if (sip_cfg.notifyringing) {
 		ast_cli(a->fd, "    Include CID:          %s%s\n",
@@ -30386,9 +30387,10 @@ static struct ast_channel *sip_request_call(const char *type, struct ast_format_
 	if (p->relatedpeer) {
 
 		if (!ast_strlen_zero(p->relatedpeer->fullcontact) && !p->natdetected &&
-			(ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) && !ast_test_flag(&p->flags[0], SIP_NAT_FORCE_RPORT))) {
+		    ((ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_RPORT) && !ast_test_flag(&p->flags[0], SIP_NAT_FORCE_RPORT)) ||
+		     (ast_test_flag(&p->flags[2], SIP_PAGE3_NAT_AUTO_COMEDIA) && !ast_test_flag(&p->flags[1], SIP_PAGE2_SYMMETRICRTP)))) {
 			/* We need to make an attempt to determine if a peer is behind NAT
-			   if the peer has the auto_force_rport flag set. */
+			   if the peer has the flags auto_force_rport or auto_comedia set. */
 			struct ast_sockaddr tmpaddr;
 
 			__set_address_from_contact(p->relatedpeer->fullcontact, &tmpaddr, 0);

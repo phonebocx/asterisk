@@ -67,6 +67,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "stasis/app.h"
 #include "stasis/control.h"
 #include "stasis/messaging.h"
+#include "stasis/cli.h"
 #include "stasis/stasis_bridge.h"
 #include "asterisk/core_unreal.h"
 #include "asterisk/musiconhold.h"
@@ -797,6 +798,7 @@ struct ast_bridge *stasis_app_bridge_create(const char *type, const char *name, 
 
 	bridge = bridge_stasis_new(capabilities, flags, name, id);
 	if (bridge) {
+		ast_bridge_set_talker_src_video_mode(bridge);
 		if (!ao2_link(app_bridges, bridge)) {
 			ast_bridge_destroy(bridge, 0);
 			bridge = NULL;
@@ -1314,7 +1316,9 @@ int stasis_app_exec(struct ast_channel *chan, const char *app_name, int argc,
 		bridge = ao2_bump(stasis_app_get_bridge(control));
 
 		if (bridge != last_bridge) {
-			app_unsubscribe_bridge(app, last_bridge);
+			if (last_bridge) {
+				app_unsubscribe_bridge(app, last_bridge);
+			}
 			if (bridge) {
 				app_subscribe_bridge(app, bridge);
 			}
@@ -1375,7 +1379,9 @@ int stasis_app_exec(struct ast_channel *chan, const char *app_name, int argc,
 		ast_bridge_depart(chan);
 	}
 
-	app_unsubscribe_bridge(app, stasis_app_get_bridge(control));
+	if (stasis_app_get_bridge(control)) {
+		app_unsubscribe_bridge(app, stasis_app_get_bridge(control));
+	}
 	ao2_cleanup(bridge);
 
 	/* Only publish a stasis_end event if it hasn't already been published */
@@ -1473,6 +1479,11 @@ static struct stasis_app *find_app_by_name(const char *app_name)
 			app_name ? : "(null)");
 	}
 	return res;
+}
+
+struct stasis_app *stasis_app_get_by_name(const char *name)
+{
+	return find_app_by_name(name);
 }
 
 static int append_name(void *obj, void *arg, int flags)
@@ -1947,6 +1958,8 @@ static int unload_module(void)
 {
 	stasis_app_unregister_event_sources();
 
+	cli_cleanup();
+
 	messaging_cleanup();
 
 	cleanup();
@@ -2100,6 +2113,11 @@ static int load_module(void)
 	}
 
 	if (messaging_init()) {
+		unload_module();
+		return AST_MODULE_LOAD_FAILURE;
+	}
+
+	if (cli_init()) {
 		unload_module();
 		return AST_MODULE_LOAD_FAILURE;
 	}

@@ -950,3 +950,9 @@ ALTER TABLE ps_globals ADD COLUMN ignore_uri_user_options ENUM('yes','no');
 
 UPDATE alembic_version SET version_num='a6ef36f1309' WHERE alembic_version.version_num = '4e2493ef32e6';
 
+-- Running upgrade a6ef36f1309 -> 4468b4a91372
+
+ALTER TABLE ps_endpoints ADD COLUMN asymmetric_rtp_codec ENUM('yes','no');
+
+UPDATE alembic_version SET version_num='4468b4a91372' WHERE alembic_version.version_num = 'a6ef36f1309';
+
