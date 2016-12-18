@@ -1,3 +1,17 @@
+asterisk (1:13.13.1~dfsg-1) unstable; urgency=medium
+
+  [ Bernhard Schmidt ]
+  * New upstream version 13.13.1~dfsg
+    - Fix AST-2016-008 (Closes: #847666, but the Debian package was most
+      likely not vulnerable due to a patched Opus implementation)
+    - Fix AST-2016-009 / CVE-2016-9938 (Closes: #847668)
+  * Drop fix_libedit_unicode.patch, applied upstream
+  * Drop HURD patches, applied upstream
+  * Drop changes to res/res_format_attr_opus.c from opus.patch
+  * Add pjsip_unresolved_symbol.patch to fix unresolved symbol in chan_pjsip
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 18 Dec 2016 14:48:07 +0100
+
 asterisk (1:13.12.2~dfsg-2) unstable; urgency=medium
 
   [ Bernhard Schmidt ]
