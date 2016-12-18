@@ -26,8 +26,6 @@ systemd.patch
 #test_framework.patch
 
 configure-osarch
-hurd_osarch.patch
-hurd_path_max.patch
 
 opus.patch
 vp8.patch
