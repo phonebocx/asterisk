@@ -767,6 +767,27 @@ static const struct ast_channel_tech null_tech = {
 
 static void ast_channel_destructor(void *obj);
 static void ast_dummy_channel_destructor(void *obj);
+static int ast_channel_by_uniqueid_cb(void *obj, void *arg, void *data, int flags);
+
+static int does_id_conflict(const char *uniqueid)
+{
+	struct ast_channel *conflict;
+	int length = 0;
+
+	if (ast_strlen_zero(uniqueid)) {
+		return 0;
+	}
+
+	conflict = ast_channel_callback(ast_channel_by_uniqueid_cb, (char *) uniqueid, &length, OBJ_NOLOCK);
+	if (conflict) {
+		ast_log(LOG_ERROR, "Channel Unique ID '%s' already in use by channel %s(%p)\n",
+			uniqueid, ast_channel_name(conflict), conflict);
+		ast_channel_unref(conflict);
+		return 1;
+	}
+
+	return 0;
+}
 
 /*! \brief Create a new channel structure */
 static struct ast_channel * attribute_malloc __attribute__((format(printf, 15, 0)))
@@ -940,16 +961,33 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 		ast_channel_tech_set(tmp, &null_tech);
 	}
 
-	ast_channel_internal_finalize(tmp);
-
-	ast_atomic_fetchadd_int(&chancount, +1);
-
 	/* You might scream "locking inversion" at seeing this but it is actually perfectly fine.
 	 * Since the channel was just created nothing can know about it yet or even acquire it.
 	 */
 	ast_channel_lock(tmp);
 
-	ao2_link(channels, tmp);
+	ao2_lock(channels);
+
+	if (assignedids && (does_id_conflict(assignedids->uniqueid) || does_id_conflict(assignedids->uniqueid2))) {
+		ast_channel_internal_errno_set(AST_CHANNEL_ERROR_ID_EXISTS);
+		ao2_unlock(channels);
+		/* This is a bit unorthodox, but we can't just call ast_channel_stage_snapshot_done()
+		 * because that will result in attempting to publish the channel snapshot. That causes
+		 * badness in some places, such as CDRs. So we need to manually clear the flag on the
+		 * channel that says that a snapshot is being cleared.
+		 */
+		ast_clear_flag(ast_channel_flags(tmp), AST_FLAG_SNAPSHOT_STAGE);
+		ast_channel_unlock(tmp);
+		return ast_channel_unref(tmp);
+	}
+
+	ast_channel_internal_finalize(tmp);
+
+	ast_atomic_fetchadd_int(&chancount, +1);
+
+	ao2_link_flags(channels, tmp, OBJ_NOLOCK);
+
+	ao2_unlock(channels);
 
 	if (endpoint) {
 		ast_endpoint_add_channel(endpoint, tmp);
@@ -1021,6 +1059,26 @@ struct ast_channel *ast_dummy_channel_alloc(void)
 	AST_LIST_HEAD_INIT_NOLOCK(headp);
 
 	return tmp;
+}
+
+void ast_channel_start_defer_frames(struct ast_channel *chan, int defer_hangups)
+{
+	ast_set_flag(ast_channel_flags(chan), AST_FLAG_DEFER_FRAMES);
+	ast_set2_flag(ast_channel_flags(chan), defer_hangups, AST_FLAG_DEFER_HANGUP_FRAMES);
+}
+
+void ast_channel_stop_defer_frames(struct ast_channel *chan)
+{
+	ast_clear_flag(ast_channel_flags(chan), AST_FLAG_DEFER_FRAMES);
+
+	/* Move the deferred frames onto the channel read queue, ahead of other queued frames */
+	ast_queue_frame_head(chan, AST_LIST_FIRST(ast_channel_deferred_readq(chan)));
+	/* ast_frfree will mosey down the list and free them all */
+	if (!AST_LIST_EMPTY(ast_channel_deferred_readq(chan))) {
+		ast_frfree(AST_LIST_FIRST(ast_channel_deferred_readq(chan)));
+	}
+	/* Reset the list to be empty */
+	AST_LIST_HEAD_INIT_NOLOCK(ast_channel_deferred_readq(chan));
 }
 
 static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, int head, struct ast_frame *after)
@@ -1486,19 +1544,18 @@ int ast_safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*c
 	int res = 0;
 	struct timeval start;
 	int ms;
-	AST_LIST_HEAD_NOLOCK(, ast_frame) deferred_frames;
-
-	AST_LIST_HEAD_INIT_NOLOCK(&deferred_frames);
 
 	/* If no other generator is present, start silencegen while waiting */
 	if (ast_opt_transmit_silence && !ast_channel_generatordata(chan)) {
 		silgen = ast_channel_start_silence_generator(chan);
 	}
 
+	ast_channel_lock(chan);
+	ast_channel_start_defer_frames(chan, 0);
+	ast_channel_unlock(chan);
+
 	start = ast_tvnow();
 	while ((ms = ast_remaining_ms(start, timeout_ms))) {
-		struct ast_frame *dup_f = NULL;
-
 		if (cond && ((*cond)(data) == 0)) {
 			break;
 		}
@@ -1513,18 +1570,7 @@ int ast_safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*c
 				res = -1;
 				break;
 			}
-
-			if (!ast_is_deferrable_frame(f)) {
-				ast_frfree(f);
-				continue;
-			}
-
-			if ((dup_f = ast_frisolate(f))) {
-				if (dup_f != f) {
-					ast_frfree(f);
-				}
-				AST_LIST_INSERT_HEAD(&deferred_frames, dup_f, frame_list);
-			}
+			ast_frfree(f);
 		}
 	}
 
@@ -1533,17 +1579,8 @@ int ast_safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*c
 		ast_channel_stop_silence_generator(chan, silgen);
 	}
 
-	/* We need to free all the deferred frames, but we only need to
-	 * queue the deferred frames if there was no error and no
-	 * hangup was received
-	 */
 	ast_channel_lock(chan);
-	while ((f = AST_LIST_REMOVE_HEAD(&deferred_frames, frame_list))) {
-		if (!res) {
-			ast_queue_frame_head(chan, f);
-		}
-		ast_frfree(f);
-	}
+	ast_channel_stop_defer_frames(chan);
 	ast_channel_unlock(chan);
 
 	return res;
@@ -3846,6 +3883,36 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 	/* Check for pending read queue */
 	if (!AST_LIST_EMPTY(ast_channel_readq(chan))) {
 		int skip_dtmf = should_skip_dtmf(chan);
+
+		if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_DEFER_FRAMES)) {
+			AST_LIST_TRAVERSE_SAFE_BEGIN(ast_channel_readq(chan), f, frame_list) {
+				if (ast_is_deferrable_frame(f)) {
+					if(f->frametype == AST_FRAME_CONTROL && 
+						(f->subclass.integer == AST_CONTROL_HANGUP ||
+						 f->subclass.integer == AST_CONTROL_END_OF_Q)) {
+						/* Hangup is a special case. We want to defer the frame, but we also do not
+						 * want to remove it from the frame queue. So rather than just moving the frame
+						 * over, we duplicate it and move the copy to the deferred readq.
+						 *
+						 * The reason for this? This way, whoever calls ast_read() will get a NULL return
+						 * immediately and can tell the channel has hung up and do what it needs to. Also,
+						 * when frame deferral finishes, then whoever calls ast_read() next will also get
+						 * the hangup.
+						 */
+						if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_DEFER_HANGUP_FRAMES)) {
+							struct ast_frame *dup;
+
+							dup = ast_frdup(f);
+							AST_LIST_INSERT_TAIL(ast_channel_deferred_readq(chan), dup, frame_list);
+						}
+					} else {
+						AST_LIST_INSERT_TAIL(ast_channel_deferred_readq(chan), f, frame_list);
+						AST_LIST_REMOVE_CURRENT(frame_list);
+					}
+				}
+			}
+			AST_LIST_TRAVERSE_SAFE_END;
+		}
 
 		AST_LIST_TRAVERSE_SAFE_BEGIN(ast_channel_readq(chan), f, frame_list) {
 			/* We have to be picky about which frame we pull off of the readq because
@@ -10178,9 +10245,15 @@ int ast_channel_connected_line_macro(struct ast_channel *autoservice_chan, struc
 
 		ast_party_connected_line_copy(ast_channel_connected(macro_chan), connected);
 	}
+	ast_channel_start_defer_frames(macro_chan, 0);
 	ast_channel_unlock(macro_chan);
 
 	retval = ast_app_run_macro(autoservice_chan, macro_chan, macro, macro_args);
+
+	ast_channel_lock(macro_chan);
+	ast_channel_stop_defer_frames(macro_chan);
+	ast_channel_unlock(macro_chan);
+
 	if (!retval) {
 		struct ast_party_connected_line saved_connected;
 
@@ -10228,9 +10301,15 @@ int ast_channel_redirecting_macro(struct ast_channel *autoservice_chan, struct a
 
 		ast_party_redirecting_copy(ast_channel_redirecting(macro_chan), redirecting);
 	}
+	ast_channel_start_defer_frames(macro_chan, 0);
 	ast_channel_unlock(macro_chan);
 
 	retval = ast_app_run_macro(autoservice_chan, macro_chan, macro, macro_args);
+
+	ast_channel_lock(macro_chan);
+	ast_channel_stop_defer_frames(macro_chan);
+	ast_channel_unlock(macro_chan);
+
 	if (!retval) {
 		struct ast_party_redirecting saved_redirecting;
 
@@ -10271,9 +10350,15 @@ int ast_channel_connected_line_sub(struct ast_channel *autoservice_chan, struct 
 
 		ast_party_connected_line_copy(ast_channel_connected(sub_chan), connected);
 	}
+	ast_channel_start_defer_frames(sub_chan, 0);
 	ast_channel_unlock(sub_chan);
 
 	retval = ast_app_run_sub(autoservice_chan, sub_chan, sub, sub_args, 0);
+
+	ast_channel_lock(sub_chan);
+	ast_channel_stop_defer_frames(sub_chan);
+	ast_channel_unlock(sub_chan);
+
 	if (!retval) {
 		struct ast_party_connected_line saved_connected;
 
@@ -10314,9 +10399,15 @@ int ast_channel_redirecting_sub(struct ast_channel *autoservice_chan, struct ast
 
 		ast_party_redirecting_copy(ast_channel_redirecting(sub_chan), redirecting);
 	}
+	ast_channel_start_defer_frames(sub_chan, 0);
 	ast_channel_unlock(sub_chan);
 
 	retval = ast_app_run_sub(autoservice_chan, sub_chan, sub, sub_args, 0);
+
+	ast_channel_lock(sub_chan);
+	ast_channel_stop_defer_frames(sub_chan);
+	ast_channel_unlock(sub_chan);
+
 	if (!retval) {
 		struct ast_party_redirecting saved_redirecting;
 
@@ -10841,4 +10932,9 @@ int ast_channel_feature_hooks_append(struct ast_channel *chan, struct ast_bridge
 int ast_channel_feature_hooks_replace(struct ast_channel *chan, struct ast_bridge_features *features)
 {
 	return channel_feature_hooks_set_full(chan, features, 1);
+}
+
+enum ast_channel_error ast_channel_errno(void)
+{
+	return ast_channel_internal_errno();
 }

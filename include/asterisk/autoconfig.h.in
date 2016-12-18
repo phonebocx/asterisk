@@ -394,6 +394,9 @@
 /* Define if your system has the LIBEDIT libraries. */
 #undef HAVE_LIBEDIT
 
+/* Define if your system has the LIBEDIT_IS_UNICODE headers. */
+#undef HAVE_LIBEDIT_IS_UNICODE
+
 /* Define to 1 if you have the <libintl.h> header file. */
 #undef HAVE_LIBINTL_H
 
@@ -583,6 +586,9 @@
 
 /* Define if your system has PJPROJECT_BUNDLED */
 #undef HAVE_PJPROJECT_BUNDLED
+
+/* Define to 1 if PJPROJECT has the pjsip_auth_clt_deinit support feature. */
+#undef HAVE_PJSIP_AUTH_CLT_DEINIT
 
 /* Define to 1 if PJPROJECT has the PJSIP Dialog Create UAS with Incremented
    Lock feature. */
@@ -789,6 +795,9 @@
 
 /* Define to 1 if you have the `roundl' function. */
 #undef HAVE_ROUNDL
+
+/* Define to 1 if rt has the Realtime functions feature. */
+#undef HAVE_RT
 
 /* Define if your system has the RTLD_NOLOAD headers. */
 #undef HAVE_RTLD_NOLOAD

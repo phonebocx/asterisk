@@ -223,6 +223,7 @@ struct ast_channel {
 	struct stasis_cp_single *topics;		/*!< Topic for all channel's events */
 	struct stasis_forward *endpoint_forward;	/*!< Subscription for event forwarding to endpoint's topic */
 	struct stasis_forward *endpoint_cache_forward; /*!< Subscription for cache updates to endpoint's topic */
+	struct ast_readq_list deferred_readq;
 };
 
 /*! \brief The monotonically increasing integer counter for channel uniqueids */
@@ -1484,6 +1485,7 @@ static int pvt_cause_cmp_fn(void *obj, void *vstr, int flags)
 struct ast_channel *__ast_channel_internal_alloc(void (*destructor)(void *obj), const struct ast_assigned_ids *assignedids, const struct ast_channel *requestor, const char *file, int line, const char *function)
 {
 	struct ast_channel *tmp;
+
 #if defined(REF_DEBUG)
 	tmp = __ao2_alloc_debug(sizeof(*tmp), destructor,
 		AO2_ALLOC_OPT_LOCK_MUTEX, "", file, line, function, 1);
@@ -1674,4 +1676,31 @@ int ast_channel_internal_setup_topics(struct ast_channel *chan)
 	}
 
 	return 0;
+}
+
+AST_THREADSTORAGE(channel_errno);
+
+void ast_channel_internal_errno_set(enum ast_channel_error error)
+{
+	enum ast_channel_error *error_code = ast_threadstorage_get(&channel_errno, sizeof(*error_code));
+	if (!error_code) {
+		return;
+	}
+
+	*error_code = error;
+}
+
+enum ast_channel_error ast_channel_internal_errno(void)
+{
+	enum ast_channel_error *error_code = ast_threadstorage_get(&channel_errno, sizeof(*error_code));
+	if (!error_code) {
+		return AST_CHANNEL_ERROR_UNKNOWN;
+	}
+
+	return *error_code;
+}
+
+struct ast_readq_list *ast_channel_deferred_readq(struct ast_channel *chan)
+{
+	return &chan->deferred_readq;
 }

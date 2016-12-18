@@ -479,6 +479,7 @@ AST_EXT_LIB_SETUP([KQUEUE], [kqueue support], [kqueue])
 AST_EXT_LIB_SETUP([LDAP], [OpenLDAP], [ldap])
 AST_LIBCURL_CHECK_CONFIG([], [7.10.1])
 AST_EXT_LIB_SETUP([LIBEDIT], [NetBSD Editline library], [libedit], [, use 'internal' Editline otherwise])
+AST_EXT_LIB_SETUP_OPTIONAL([LIBEDIT_IS_UNICODE], [Libedit compiled for unicode], [LIBEDIT], [libedit])
 AST_EXT_LIB_SETUP([LIBXML2], [LibXML2], [libxml2])
 AST_EXT_LIB_SETUP([LIBXSLT], [LibXSLT], [libxslt])
 AST_EXT_LIB_SETUP_OPTIONAL([LIBXSLT_CLEANUP], [LibXSLT Library Cleanup Function], [LIBXSLT], [libxslt])
@@ -510,6 +511,7 @@ AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_EXTERNAL_RESOLVER], [PJSIP External Resolver S
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_TLS_TRANSPORT_PROTO], [PJSIP TLS Transport proto field support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_EVSUB_GRP_LOCK], [PJSIP EVSUB Group Lock support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_INV_SESSION_REF], [PJSIP INVITE Session Reference Count support], [PJPROJECT], [pjsip])
+AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_AUTH_CLT_DEINIT], [pjsip_auth_clt_deinit support], [PJPROJECT], [pjsip])
 fi
 
 AST_EXT_LIB_SETUP([POPT], [popt], [popt])
@@ -555,6 +557,7 @@ AST_EXT_LIB_SETUP([SQLITE3], [SQLite], [sqlite3])
 AST_EXT_LIB_SETUP([SRTP], [Secure RTP], [srtp])
 AST_EXT_LIB_SETUP_OPTIONAL([SRTP_SHUTDOWN], [SRTP Library Shutdown Function], [SRTP], [srtp])
 AST_EXT_LIB_SETUP([OPENSSL], [OpenSSL Secure Sockets Layer], [ssl])
+AST_EXT_LIB_SETUP_OPTIONAL([RT], [Realtime functions], [rt])
 AST_EXT_LIB_SETUP([SUPPSERV], [mISDN Supplemental Services], [suppserv])
 AST_EXT_LIB_SETUP([FREETDS], [FreeTDS], [tds])
 AST_EXT_LIB_SETUP([TERMCAP], [Termcap], [termcap])
@@ -625,6 +628,9 @@ AST_EXT_LIB_CHECK([JANSSON], [jansson], [json_dumps], [jansson.h])
 if test "x$JANSSON_LIB" == "x"; then
   AC_MSG_ERROR([*** JSON support not found (this typically means the libjansson development package is missing)])
 fi
+
+# See if clock_gettime is in librt
+AST_EXT_LIB_CHECK([RT], [rt], [clock_gettime])
 
 AST_EXT_TOOL_CHECK([LIBXML2], [xml2-config], , ,
         [#include <libxml/tree.h>
@@ -1106,7 +1112,7 @@ AC_COMPILE_IFELSE(
 	[AC_LANG_PROGRAM([], [int x = 1;])],
 	AC_MSG_RESULT(yes)
 	[AST_ADDRESS_SANITIZER=1],
-	[AST_ADDRESS_SANITIZER=]
+	[AST_ADDRESS_SANITIZER=0]
 	AC_MSG_RESULT(no)
 )
 CFLAGS="${saved_sanitize_CFLAGS}"
@@ -1122,7 +1128,7 @@ AC_COMPILE_IFELSE(
 	[AC_LANG_PROGRAM([], [int x = 1;])],
 	AC_MSG_RESULT(yes)
 	[AST_THREAD_SANITIZER=1],
-	[AST_THREAD_SANITIZER=]
+	[AST_THREAD_SANITIZER=0]
 	AC_MSG_RESULT(no)
 )
 CFLAGS="${saved_sanitize_CFLAGS}"
@@ -1519,11 +1525,14 @@ if test "${USE_LIBEDIT}" != "no"; then
    if test "${LIBEDIT_SYSTEM}" = "yes"; then
       AST_PKG_CONFIG_CHECK(LIBEDIT, libedit)
       if test "$PBX_LIBEDIT" = "1"; then
-	 LIBEDIT_INTERNAL="no"
+      LIBEDIT_INTERNAL="no"
       fi
    fi
    if test "${LIBEDIT_INTERNAL}" = "yes"; then
       PBX_LIBEDIT=1
+      LIBEDIT_IS_UNICODE=no
+   else
+      AST_C_COMPILE_CHECK([LIBEDIT_IS_UNICODE], [el_rfunc_t *callback;], [histedit.h], [], [Testing for libedit unicode support])
    fi
 fi
 
@@ -2212,6 +2221,7 @@ if test "$USE_PJPROJECT" != "no" ; then
 
       AST_EXT_LIB_CHECK([PJSIP_EVSUB_GRP_LOCK], [pjsip], [pjsip_evsub_add_ref], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
       AST_EXT_LIB_CHECK([PJSIP_INV_SESSION_REF], [pjsip], [pjsip_inv_add_ref], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
+      AST_EXT_LIB_CHECK([PJSIP_AUTH_CLT_DEINIT], [pjsip], [pjsip_auth_clt_deinit], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
    fi
 fi
 

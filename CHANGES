@@ -9,6 +9,89 @@
 ==============================================================================
 
 ------------------------------------------------------------------------------
+--- Functionality changes from Asterisk 13.12.0 to Asterisk 13.13.0 ----------
+------------------------------------------------------------------------------
+
+AMI
+------------------
+ * Events that reference a bridge may now contain two new optional fields:
+   - 'BridgeVideoSourceMode': the video source mode for the bridge.
+     Can be one of 'none', 'talker', or 'single'.
+   - 'BridgeVideoSource': the unique ID of the channel that is the video
+     source in this bridge, if one exists.
+
+ * A new event, BridgeVideoSourceUpdate, has been added with a class
+   authorization of CALL. The event is raised when the video source changes
+   in a multi-party mixing bridge.
+
+ARI
+------------------
+ * The bridges resource now exposes two new operations:
+   - POST /bridges/{bridgeId}/videoSource/{channelId}: Set a video source in a
+     multi-party mixing bridge
+   - DELETE /bridges/{bridgeId}/videoSource: Remove the set video source,
+     reverting to talk detection for the video source
+
+ * The bridge model in any returned response or event now contains the following
+   optional fields:
+   - video_mode: the video source mode for the bridge. Can be one of 'none',
+     'talker', or 'single'.
+   - video_source_id: the unique ID of the channel that is the video source
+     in this bridge, if one exists.
+
+ * A new event, BridgeVideoSourceChanged, has been added for bridges.
+   Applications subscribed to a bridge will receive this event when the source
+   of video changes in a mixing bridge.
+
+res_pjsip
+------------------
+ * Automatic dual stack support is now implemented. Depending on DNS resolution
+   and the transport used for sending a message the SIP signaling and SDP will
+   be updated with the correct IP address and protocol version. This means that
+   the rtp_ipv6 and t38_udptl_ipv6 options no longer have any effect. The
+   res_pjsip_multihomed module has also been moved into core res_pjsip to ensure
+   that messages are updated with the correct address information in all cases.
+
+chan_pjsip
+------------------
+ * The default behavior for RTP codecs has been changed. The sending codec will
+   now match the receiving codec. This can be turned off and behavior reverted
+   to asymmetric using the "asymmetric_rtp_codec" endpoint option. If this
+   option is set then the sending and received codec are allowed to differ.
+
+CLI Commands
+------------------
+ * Three new CLI commands have been added for ARI:
+   - ari show apps:
+      Displays a listing of all registered ARI applications.
+   - ari show app <name>:
+      Display detailed information about a registered ARI application.
+   - ari set debug <name> <on|off>:
+      Enable/disable debugging of an ARI application. When debugged, verbose
+      information will be sent to the Asterisk CLI.
+
+RTP
+------------------
+ * New setting "rtp_pt_dynamic = 96" in asterisk.conf:
+   Normally the Dynamic RTP Payload Type numbers are 96-127, which allow 32
+   formats. When you use more and receive the message "No Dynamic RTP mapping
+   available", extend the dynamic range by going for rtp_pt_dynamic = 35 (or 0)
+   instead of 96. This allows 29 (or 64) additional formats. On default this is
+   disabled and the range is 96-127 because any number below might be rejected
+   by a remote implementation; although no such broken implementation is known.
+
+Queue
+------------------
+ * A new dialplan variable, ABANDONED, is set when the call is not answered
+   by an agent.
+
+Core
+------------------
+ * The TLS core in Asterisk now supports X.509 certificate subject alternative
+   names. This way one X.509 certificate can be used for hosts that can be
+   reached under multiple DNS names or for multiple hosts.
+
+------------------------------------------------------------------------------
 --- Functionality changes from Asterisk 13.11.0 to Asterisk 13.12.0 ----------
 ------------------------------------------------------------------------------
 
@@ -71,6 +154,11 @@ res_pjsip
    Note: The caller-id and redirecting number strings obtained from incoming
    SIP URI user fields are now always truncated at the first semicolon.
 
+res_rtp_asterisk
+------------------
+  * An option, ice_blacklist, has been added which allows certain subnets to be
+    excluded from local ICE candidates.
+
 app_confbridge
 ------------------
   * Some sounds played into the bridge are played asynchronously. This, for
@@ -88,6 +176,13 @@ app_dial
  * Added the "Q" option which sets the Q.850/Q.931 cause on unanswered channels
    when another channel answers the call.  The default of ANSWERED_ELSEWHERE
    is unchanged.
+
+res_ari
+------------------
+ * ARI events will all now include a new field in the root of the JSON message,
+   'asterisk_id'.  This will be the unique ID for the Asterisk system
+   transmitting the event.  The value can be overridden using the 'entityid'
+   setting in asterisk.conf.
 
 ------------------------------------------------------------------------------
 --- Functionality changes from Asterisk 13.10.0 to Asterisk 13.11.0 ----------
