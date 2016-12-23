@@ -1,15 +1,15 @@
+From: Tzafrir Cohen <tzafrir@debian.org>
 Description: Enable the test framework
- Note that enabling this patch breaks the ABI hash. Take care.
- .
- Test modules are normally only enabled in development mode. This patch
- enables them without the need to enable dev-mode.
- .
- The modules provide simple tests. Try: asterisk -rx 'test execute all'
- .
- Those modules should not be confused with the tests in the
- asterisk-testsute package.
-Author: Tzafrir Cohen <tzafrir@debian.org>
-Last-Update: 2016-03-19
+Bug: https://issues.asterisk.org/jira/browse/ASTERISK-26676
+Last-Update: 2016-12-23
+
+Test modules are normally only enabled in development mode. This patch
+enables them without the need to enable dev-mode.
+
+The modules provide simple tests. Try: asterisk -rx 'test execute all'
+
+Those modules should not be confused with the tests in the
+asterisk-testsute package.
 
 --- a/build_tools/cflags-devmode.xml
 +++ b/build_tools/cflags-devmode.xml
@@ -32,3 +32,15 @@ Last-Update: 2016-03-19
 +			<support_level>extended</support_level>
 +		</member>
  	</category>
+diff --git a/build_tools/make_buildopts_h b/build_tools/make_buildopts_h
+index b9f9af2c..cb1bf459 100755
+--- a/build_tools/make_buildopts_h
++++ b/build_tools/make_buildopts_h
+@@ -29,6 +29,7 @@ for x in ${TMP}; do
+ 			-o "${x}" = "RADIO_RELAX" \
+ 			-o "${x}" = "DEBUG_SCHEDULER" \
+ 			-o "${x}" = "DETECT_DEADLOCKS" \
++			-o "${x}" = "TEST_FRAMEWORK" \
+ 			-o "${x}" = "DUMP_SCHEDULER" ; then
+ 		# These aren't ABI affecting options, keep them out of AST_BUILDOPTS
+ 		continue
