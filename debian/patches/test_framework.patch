@@ -1,7 +1,7 @@
 From: Tzafrir Cohen <tzafrir@debian.org>
 Description: Enable the test framework
-Bug: https://issues.asterisk.org/jira/browse/ASTERISK-26676
 Last-Update: 2016-12-23
+Forwarded: no
 
 Test modules are normally only enabled in development mode. This patch
 enables them without the need to enable dev-mode.
@@ -10,6 +10,12 @@ The modules provide simple tests. Try: asterisk -rx 'test execute all'
 
 Those modules should not be confused with the tests in the
 asterisk-testsute package.
+
+This breaks the modules ABI, but in a way that should not be an issue in
+our use case. Hence for now we prefer to keep the ABI unmodified for now,
+and hence the change of make_buildopts_h.
+
+Remove the make_buildopts_h change when switching to a new Asterisk version.
 
 --- a/build_tools/cflags-devmode.xml
 +++ b/build_tools/cflags-devmode.xml
