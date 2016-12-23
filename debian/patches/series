@@ -23,7 +23,7 @@ no_native_arch.patch
 smsq_enable.patch
 aelparse_enable.patch
 systemd.patch
-#test_framework.patch
+test_framework.patch
 
 # opus.patch
 # vp8.patch
