@@ -6,3 +6,20 @@ at http://honk.sigxcpu.org/projects/git-buildpackage/manual-html/gbp.html
 
 You find that doc also in /usr/share/doc/git-buildpackage/manual-html/gbp.html
 after installing the package  git-buildpackage
+
+== Tests ==
+Tests should be run with autopkgtest. If you have a local setup. As it
+needs to run an indeppendent instance of Asterisk, which may need to use
+its own ports, a schroot instance will not do.
+
+After a build use something along the lines of:
+
+  autopkgtest asterisk_13.13.1~dfsg-1_amd64.changes -- virt-server [whatever]
+
+If you want to run the tests manually: this should work. It requires
+installing the packages (including asterisk-tests) you built on the
+system, and from the same system, running
+
+  ./debian/tests/asttestmods
+
+Note that it needs to be run as root.
