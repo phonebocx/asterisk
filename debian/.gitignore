@@ -11,6 +11,7 @@ asterisk-modules/
 asterisk-mp3/
 asterisk-mysql/
 asterisk-ooh323/
+asterisk-tests/
 asterisk-voicemail-imapstorage/
 asterisk-voicemail-odbcstorage/
 asterisk-voicemail/

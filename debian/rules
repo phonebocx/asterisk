@@ -127,7 +127,7 @@ SUBPACKS_EXTRA = \
 		 voicemail voicemail-odbcstorage voicemail-imapstorage \
 		 ooh323 mysql mp3
 ifeq (linux,$(BUILD_OS))
-SUBPACKS_EXTRA += dahdi mobile vpb
+SUBPACKS_EXTRA += dahdi mobile tests vpb
 endif
 SUBPACKS_EXTRA_DIRS = $(SUBPACKS_EXTRA:%=$(CURDIR)/debian/asterisk-%)
 SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
