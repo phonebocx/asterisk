@@ -11,12 +11,6 @@ The modules provide simple tests. Try: asterisk -rx 'test execute all'
 Those modules should not be confused with the tests in the
 asterisk-testsute package.
 
-This breaks the modules ABI, but in a way that should not be an issue in
-our use case. Hence for now we prefer to keep the ABI unmodified for now,
-and hence the change of make_buildopts_h.
-
-Remove the make_buildopts_h change when switching to a new Asterisk version.
-
 --- a/build_tools/cflags-devmode.xml
 +++ b/build_tools/cflags-devmode.xml
 @@ -24,7 +24,4 @@
@@ -30,7 +24,7 @@ Remove the make_buildopts_h change when switching to a new Asterisk version.
 --- a/build_tools/cflags.xml
 +++ b/build_tools/cflags.xml
 @@ -101,4 +101,8 @@
- 			<defaultenabled>yes</defaultenabled>
+ 			<defaultenabled>no</defaultenabled>
  			<depend>native_arch</depend>
  		</member>
 +		<member name="TEST_FRAMEWORK" displayname="Enable Test Framework API">
@@ -38,15 +32,3 @@ Remove the make_buildopts_h change when switching to a new Asterisk version.
 +			<support_level>extended</support_level>
 +		</member>
  	</category>
-diff --git a/build_tools/make_buildopts_h b/build_tools/make_buildopts_h
-index b9f9af2c..cb1bf459 100755
---- a/build_tools/make_buildopts_h
-+++ b/build_tools/make_buildopts_h
-@@ -29,6 +29,7 @@ for x in ${TMP}; do
- 			-o "${x}" = "RADIO_RELAX" \
- 			-o "${x}" = "DEBUG_SCHEDULER" \
- 			-o "${x}" = "DETECT_DEADLOCKS" \
-+			-o "${x}" = "TEST_FRAMEWORK" \
- 			-o "${x}" = "DUMP_SCHEDULER" ; then
- 		# These aren't ABI affecting options, keep them out of AST_BUILDOPTS
- 		continue
