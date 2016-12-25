@@ -99,6 +99,7 @@ Suggests:
  asterisk-dev,
  asterisk-doc,
  asterisk-ooh323,
+ asterisk-opus,
  asterisk-vpb
 Description: Open Source Private Branch Exchange (PBX)
  Asterisk is an Open Source PBX and telephony toolkit.  It is, in a

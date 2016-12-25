@@ -27,8 +27,8 @@ systemd.patch
 
 configure-osarch
 
-opus.patch
-vp8.patch
+# opus.patch
+# vp8.patch
 amr.patch
 
 ffmpeg-detection.patch
