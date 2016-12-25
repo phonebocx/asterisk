@@ -1,3 +1,15 @@
+asterisk (1:13.13.1~dfsg-2) unstable; urgency=medium
+
+  [ Tzafrir Cohen ]
+  * test_framework.patch: fix ABI
+  * Add a DAHDI hook script for Asterisk (Closes: #848584)
+
+  [ Bernhard Schmidt ]
+  * disable the open-source Opus and VP8 codec
+    - these are built out-of-tree in asterisk-opus now, add Suggests
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 25 Dec 2016 19:54:12 +0100
+
 asterisk (1:13.13.1~dfsg-1) unstable; urgency=medium
 
   [ Bernhard Schmidt ]
