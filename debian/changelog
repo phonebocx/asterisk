@@ -4,6 +4,9 @@ asterisk (1:13.13.1~dfsg-3) unstable; urgency=medium
   * Patch from upstream: pjsip_improve_logging.patch to improve logging
     levels in pjproject/chan_pjsip (Closes: #849804).
     Thanks to Joerg Dorchain for testing.
+  * Disable SNMP support for now
+    libsnmp-dev pulls in libssl1.0-dev, which is not coinstallable with
+    libssl-dev needed by Asterisk and all other dependencies
 
  -- Bernhard Schmidt <berni@debian.org>  Tue, 17 Jan 2017 22:26:14 +0100
 
