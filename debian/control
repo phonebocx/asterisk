@@ -82,7 +82,7 @@ Architecture: any
 Depends:
  adduser,
  asterisk-config (= ${source:Version}) | asterisk-config-custom,
- asterisk-core-sounds-en-gsm | asterisk-prompt-en,
+ asterisk-core-sounds-en,
  asterisk-modules (= ${binary:Version}),
  lsb-base (>= 3.0-6),
  ${misc:Depends},
