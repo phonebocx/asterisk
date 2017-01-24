@@ -1,3 +1,9 @@
+asterisk (1:13.13.1~dfsg-4) unstable; urgency=medium
+
+  * Depend on asterisk-core-sounds-en instead of -gsm
+
+ -- Bernhard Schmidt <berni@debian.org>  Tue, 24 Jan 2017 14:14:03 +0100
+
 asterisk (1:13.13.1~dfsg-3) unstable; urgency=medium
 
   [ Bernhard Schmidt ]
