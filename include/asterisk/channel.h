@@ -966,16 +966,6 @@ enum {
 	 * The channel is executing a subroutine or macro
 	 */
 	AST_FLAG_SUBROUTINE_EXEC = (1 << 27),
-	/*!
-	 * The channel is currently in an operation where
-	 * frames should be deferred.
-	 */
-	AST_FLAG_DEFER_FRAMES = (1 << 28),
-	/*!
-	 * The channel is currently deferring hangup frames
-	 * in addition to other frame types.
-	 */
-	AST_FLAG_DEFER_HANGUP_FRAMES = (1 << 29),
 };
 
 /*! \brief ast_bridge_config flags */
@@ -2011,6 +2001,21 @@ int ast_prod(struct ast_channel *chan);
  * \retval -1 on error.
  */
 int ast_set_read_format_path(struct ast_channel *chan, struct ast_format *raw_format, struct ast_format *core_format);
+
+/*!
+ * \brief Set specific write path on channel.
+ * \since 13.13.0
+ *
+ * \param chan Channel to setup write path.
+ * \param core_format What the core wants to write.
+ * \param raw_format Raw write format.
+ *
+ * \pre chan is locked
+ *
+ * \retval 0 on success.
+ * \retval -1 on error.
+ */
+int ast_set_write_format_path(struct ast_channel *chan, struct ast_format *core_format, struct ast_format *raw_format);
 
 /*!
  * \brief Sets read format on channel chan from capabilities
@@ -4224,6 +4229,7 @@ typedef enum {
 } ast_alert_status_t;
 int ast_channel_alert_write(struct ast_channel *chan);
 int ast_channel_alert_writable(struct ast_channel *chan);
+ast_alert_status_t ast_channel_internal_alert_flush(struct ast_channel *chan);
 ast_alert_status_t ast_channel_internal_alert_read(struct ast_channel *chan);
 int ast_channel_internal_alert_readable(struct ast_channel *chan);
 void ast_channel_internal_alertpipe_clear(struct ast_channel *chan);
@@ -4692,42 +4698,20 @@ enum ast_channel_error {
 enum ast_channel_error ast_channel_errno(void);
 
 /*!
- * \brief Retrieve the deferred read queue.
+ * \brief Am I currently running an intercept dialplan routine.
+ * \since 13.14.0
+ *
+ * \details
+ * A dialplan intercept routine is equivalent to an interrupt
+ * routine.  As such, the routine must be done quickly and you
+ * do not have access to the media stream.  These restrictions
+ * are necessary because the media stream is the responsibility
+ * of some other code and interfering with or delaying that
+ * processing is bad.
+ *
+ * \retval 0 Not in an intercept routine.
+ * \retval 1 In an intercept routine.
  */
-struct ast_readq_list *ast_channel_deferred_readq(struct ast_channel *chan);
-
-/*!
- * \brief Start deferring deferrable frames on this channel
- *
- * Sometimes, a channel gets entered into a mode where a "main" application
- * is tasked with servicing frames on the channel, but that application does
- * not need to act on those frames. However, it would be imprudent to simply
- * drop important frames. This function can be called so that important frames
- * will be deferred, rather than placed in the channel frame queue as normal.
- *
- * Hangups are an interesting frame type. Hangups will always be detectable by
- * a reader when a channel is deferring frames. If the defer_hangups parameter
- * is non-zero, then the hangup frame will also be duplicated and deferred, so
- * that the next reader of the channel will get the hangup frame, too.
- *
- * \pre chan MUST be locked before calling
- *
- * \param chan The channel on which frames should be deferred
- * \param defer_hangups Defer hangups in addition to other deferrable frames
- */
-void ast_channel_start_defer_frames(struct ast_channel *chan, int defer_hangups);
-
-/*!
- * \brief Stop deferring deferrable frames on this channel
- *
- * When it is time to stop deferring frames on the channel, all deferred frames
- * will be queued onto the channel's read queue so that the next servicer of
- * the channel can handle those frames as necessary.
- *
- * \pre chan MUST be locked before calling
- *
- * \param chan The channel on which to stop deferring frames.
- */
-void ast_channel_stop_defer_frames(struct ast_channel *chan);
+int ast_channel_get_intercept_mode(void);
 
 #endif /* _ASTERISK_CHANNEL_H */

@@ -956,3 +956,9 @@ ALTER TABLE ps_endpoints ADD COLUMN asymmetric_rtp_codec ENUM('yes','no');
 
 UPDATE alembic_version SET version_num='4468b4a91372' WHERE alembic_version.version_num = 'a6ef36f1309';
 
+-- Running upgrade 4468b4a91372 -> 28ab27a7826d
+
+ALTER TABLE ps_endpoint_id_ips ADD COLUMN srv_lookups ENUM('yes','no');
+
+UPDATE alembic_version SET version_num='28ab27a7826d' WHERE alembic_version.version_num = '4468b4a91372';
+

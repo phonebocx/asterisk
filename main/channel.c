@@ -1061,26 +1061,6 @@ struct ast_channel *ast_dummy_channel_alloc(void)
 	return tmp;
 }
 
-void ast_channel_start_defer_frames(struct ast_channel *chan, int defer_hangups)
-{
-	ast_set_flag(ast_channel_flags(chan), AST_FLAG_DEFER_FRAMES);
-	ast_set2_flag(ast_channel_flags(chan), defer_hangups, AST_FLAG_DEFER_HANGUP_FRAMES);
-}
-
-void ast_channel_stop_defer_frames(struct ast_channel *chan)
-{
-	ast_clear_flag(ast_channel_flags(chan), AST_FLAG_DEFER_FRAMES);
-
-	/* Move the deferred frames onto the channel read queue, ahead of other queued frames */
-	ast_queue_frame_head(chan, AST_LIST_FIRST(ast_channel_deferred_readq(chan)));
-	/* ast_frfree will mosey down the list and free them all */
-	if (!AST_LIST_EMPTY(ast_channel_deferred_readq(chan))) {
-		ast_frfree(AST_LIST_FIRST(ast_channel_deferred_readq(chan)));
-	}
-	/* Reset the list to be empty */
-	AST_LIST_HEAD_INIT_NOLOCK(ast_channel_deferred_readq(chan));
-}
-
 static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, int head, struct ast_frame *after)
 {
 	struct ast_frame *f;
@@ -1167,6 +1147,9 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 				}
 				AST_LIST_REMOVE_CURRENT(frame_list);
 				ast_frfree(cur);
+
+				/* Read from the alert pipe for each flushed frame. */
+				ast_channel_internal_alert_read(chan);
 			}
 		}
 		AST_LIST_TRAVERSE_SAFE_END;
@@ -1183,9 +1166,13 @@ static int __ast_queue_frame(struct ast_channel *chan, struct ast_frame *fin, in
 	}
 
 	if (ast_channel_alert_writable(chan)) {
-		if (ast_channel_alert_write(chan)) {
-			ast_log(LOG_WARNING, "Unable to write to alert pipe on %s (qlen = %u): %s!\n",
-				ast_channel_name(chan), queued_frames, strerror(errno));
+		/* Write to the alert pipe for each added frame */
+		while (new_frames--) {
+			if (ast_channel_alert_write(chan)) {
+				ast_log(LOG_WARNING, "Unable to write to alert pipe on %s (qlen = %u): %s!\n",
+					ast_channel_name(chan), queued_frames, strerror(errno));
+				break;
+			}
 		}
 	} else if (ast_channel_timingfd(chan) > -1) {
 		ast_timer_enable_continuous(ast_channel_timer(chan));
@@ -1544,18 +1531,19 @@ int ast_safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*c
 	int res = 0;
 	struct timeval start;
 	int ms;
+	AST_LIST_HEAD_NOLOCK(, ast_frame) deferred_frames;
+
+	AST_LIST_HEAD_INIT_NOLOCK(&deferred_frames);
 
 	/* If no other generator is present, start silencegen while waiting */
 	if (ast_opt_transmit_silence && !ast_channel_generatordata(chan)) {
 		silgen = ast_channel_start_silence_generator(chan);
 	}
 
-	ast_channel_lock(chan);
-	ast_channel_start_defer_frames(chan, 0);
-	ast_channel_unlock(chan);
-
 	start = ast_tvnow();
 	while ((ms = ast_remaining_ms(start, timeout_ms))) {
+		struct ast_frame *dup_f = NULL;
+
 		if (cond && ((*cond)(data) == 0)) {
 			break;
 		}
@@ -1570,7 +1558,18 @@ int ast_safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*c
 				res = -1;
 				break;
 			}
-			ast_frfree(f);
+
+			if (!ast_is_deferrable_frame(f)) {
+				ast_frfree(f);
+				continue;
+			}
+
+			if ((dup_f = ast_frisolate(f))) {
+				if (dup_f != f) {
+					ast_frfree(f);
+				}
+				AST_LIST_INSERT_HEAD(&deferred_frames, dup_f, frame_list);
+			}
 		}
 	}
 
@@ -1579,8 +1578,17 @@ int ast_safe_sleep_conditional(struct ast_channel *chan, int timeout_ms, int (*c
 		ast_channel_stop_silence_generator(chan, silgen);
 	}
 
+	/* We need to free all the deferred frames, but we only need to
+	 * queue the deferred frames if there was no error and no
+	 * hangup was received
+	 */
 	ast_channel_lock(chan);
-	ast_channel_stop_defer_frames(chan);
+	while ((f = AST_LIST_REMOVE_HEAD(&deferred_frames, frame_list))) {
+		if (!res) {
+			ast_queue_frame_head(chan, f);
+		}
+		ast_frfree(f);
+	}
 	ast_channel_unlock(chan);
 
 	return res;
@@ -3884,36 +3892,6 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 	if (!AST_LIST_EMPTY(ast_channel_readq(chan))) {
 		int skip_dtmf = should_skip_dtmf(chan);
 
-		if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_DEFER_FRAMES)) {
-			AST_LIST_TRAVERSE_SAFE_BEGIN(ast_channel_readq(chan), f, frame_list) {
-				if (ast_is_deferrable_frame(f)) {
-					if(f->frametype == AST_FRAME_CONTROL && 
-						(f->subclass.integer == AST_CONTROL_HANGUP ||
-						 f->subclass.integer == AST_CONTROL_END_OF_Q)) {
-						/* Hangup is a special case. We want to defer the frame, but we also do not
-						 * want to remove it from the frame queue. So rather than just moving the frame
-						 * over, we duplicate it and move the copy to the deferred readq.
-						 *
-						 * The reason for this? This way, whoever calls ast_read() will get a NULL return
-						 * immediately and can tell the channel has hung up and do what it needs to. Also,
-						 * when frame deferral finishes, then whoever calls ast_read() next will also get
-						 * the hangup.
-						 */
-						if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_DEFER_HANGUP_FRAMES)) {
-							struct ast_frame *dup;
-
-							dup = ast_frdup(f);
-							AST_LIST_INSERT_TAIL(ast_channel_deferred_readq(chan), dup, frame_list);
-						}
-					} else {
-						AST_LIST_INSERT_TAIL(ast_channel_deferred_readq(chan), f, frame_list);
-						AST_LIST_REMOVE_CURRENT(frame_list);
-					}
-				}
-			}
-			AST_LIST_TRAVERSE_SAFE_END;
-		}
-
 		AST_LIST_TRAVERSE_SAFE_BEGIN(ast_channel_readq(chan), f, frame_list) {
 			/* We have to be picky about which frame we pull off of the readq because
 			 * there are cases where we want to leave DTMF frames on the queue until
@@ -4336,12 +4314,19 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 			 * at the end of the queue.
 			 */
 			if (AST_LIST_NEXT(f, frame_list)) {
-				if (!readq_tail) {
-					ast_queue_frame_head(chan, AST_LIST_NEXT(f, frame_list));
-				} else {
-					__ast_queue_frame(chan, AST_LIST_NEXT(f, frame_list), 0, readq_tail);
+				struct ast_frame *cur, *multi_frame = AST_LIST_NEXT(f, frame_list);
+
+				/* Mark these frames as being re-queued */
+				for (cur = multi_frame; cur; cur = AST_LIST_NEXT(cur, frame_list)) {
+					ast_set_flag(cur, AST_FRFLAG_REQUEUED);
 				}
-				ast_frfree(AST_LIST_NEXT(f, frame_list));
+
+				if (!readq_tail) {
+					ast_queue_frame_head(chan, multi_frame);
+				} else {
+					__ast_queue_frame(chan, multi_frame, 0, readq_tail);
+				}
+				ast_frfree(multi_frame);
 				AST_LIST_NEXT(f, frame_list) = NULL;
 			}
 
@@ -4883,16 +4868,18 @@ int ast_sendtext(struct ast_channel *chan, const char *text)
 	if (ast_channel_tech(chan)->write_text && (ast_format_cap_has_type(ast_channel_nativeformats(chan), AST_MEDIA_TYPE_TEXT))) {
 		struct ast_frame f;
 
+		memset(&f, 0, sizeof(f));
 		f.frametype = AST_FRAME_TEXT;
 		f.src = "DIALPLAN";
 		f.mallocd = AST_MALLOCD_DATA;
 		f.datalen = strlen(text);
 		f.data.ptr = ast_strdup(text);
-		f.offset = 0;
-		f.seqno = 0;
-
 		f.subclass.format = ast_format_t140;
-		res = ast_channel_tech(chan)->write_text(chan, &f);
+
+		if (f.data.ptr) {
+			res = ast_channel_tech(chan)->write_text(chan, &f);
+			ast_frfree(&f);
+		}
 	} else if (ast_channel_tech(chan)->send_text) {
 		res = ast_channel_tech(chan)->send_text(chan, text);
 	}
@@ -5473,6 +5460,42 @@ int ast_set_read_format_path(struct ast_channel *chan, struct ast_format *raw_fo
 	ast_channel_readtrans_set(chan, trans_new);
 	ast_channel_set_rawreadformat(chan, raw_format);
 	ast_channel_set_readformat(chan, core_format);
+	return 0;
+}
+
+int ast_set_write_format_path(struct ast_channel *chan, struct ast_format *core_format, struct ast_format *raw_format)
+{
+	struct ast_trans_pvt *trans_old;
+	struct ast_trans_pvt *trans_new;
+
+	if (ast_format_cmp(ast_channel_rawwriteformat(chan), raw_format) == AST_FORMAT_CMP_EQUAL
+		&& ast_format_cmp(ast_channel_writeformat(chan), core_format) == AST_FORMAT_CMP_EQUAL) {
+		/* Nothing to setup */
+		return 0;
+	}
+
+	ast_debug(1, "Channel %s setting write format path: %s -> %s\n",
+		ast_channel_name(chan),
+		ast_format_get_name(core_format),
+		ast_format_get_name(raw_format));
+
+	/* Setup new translation path. */
+	if (ast_format_cmp(raw_format, core_format) != AST_FORMAT_CMP_EQUAL) {
+		trans_new = ast_translator_build_path(raw_format, core_format);
+		if (!trans_new) {
+			return -1;
+		}
+	} else {
+		/* No translation needed. */
+		trans_new = NULL;
+	}
+	trans_old = ast_channel_writetrans(chan);
+	if (trans_old) {
+		ast_translator_free_path(trans_old);
+	}
+	ast_channel_writetrans_set(chan, trans_new);
+	ast_channel_set_rawwriteformat(chan, raw_format);
+	ast_channel_set_writeformat(chan, core_format);
 	return 0;
 }
 
@@ -10212,6 +10235,36 @@ void ast_channel_queue_redirecting_update(struct ast_channel *chan, const struct
 	ast_queue_control_data(chan, AST_CONTROL_REDIRECTING, data, datalen);
 }
 
+/*!
+ * Storage to determine if the current thread is running an intercept dialplan routine.
+ */
+AST_THREADSTORAGE_RAW(in_intercept_routine);
+
+/*!
+ * \internal
+ * \brief Set the current intercept dialplan routine status mode.
+ * \since 13.14.0
+ *
+ * \param in_intercept_mode New intercept mode.  (Non-zero if in intercept mode)
+ *
+ * \return Nothing
+ */
+static void channel_set_intercept_mode(int in_intercept_mode)
+{
+	int status;
+
+	status = ast_threadstorage_set_ptr(&in_intercept_routine,
+		in_intercept_mode ? (void *) 1 : (void *) 0);
+	if (status) {
+		ast_log(LOG_ERROR, "Failed to set dialplan intercept mode\n");
+	}
+}
+
+int ast_channel_get_intercept_mode(void)
+{
+	return ast_threadstorage_get_ptr(&in_intercept_routine) ? 1 : 0;
+}
+
 int ast_channel_connected_line_macro(struct ast_channel *autoservice_chan, struct ast_channel *macro_chan, const void *connected_info, int is_caller, int is_frame)
 {
 	static int deprecation_warning = 0;
@@ -10245,15 +10298,11 @@ int ast_channel_connected_line_macro(struct ast_channel *autoservice_chan, struc
 
 		ast_party_connected_line_copy(ast_channel_connected(macro_chan), connected);
 	}
-	ast_channel_start_defer_frames(macro_chan, 0);
 	ast_channel_unlock(macro_chan);
 
+	channel_set_intercept_mode(1);
 	retval = ast_app_run_macro(autoservice_chan, macro_chan, macro, macro_args);
-
-	ast_channel_lock(macro_chan);
-	ast_channel_stop_defer_frames(macro_chan);
-	ast_channel_unlock(macro_chan);
-
+	channel_set_intercept_mode(0);
 	if (!retval) {
 		struct ast_party_connected_line saved_connected;
 
@@ -10301,15 +10350,11 @@ int ast_channel_redirecting_macro(struct ast_channel *autoservice_chan, struct a
 
 		ast_party_redirecting_copy(ast_channel_redirecting(macro_chan), redirecting);
 	}
-	ast_channel_start_defer_frames(macro_chan, 0);
 	ast_channel_unlock(macro_chan);
 
+	channel_set_intercept_mode(1);
 	retval = ast_app_run_macro(autoservice_chan, macro_chan, macro, macro_args);
-
-	ast_channel_lock(macro_chan);
-	ast_channel_stop_defer_frames(macro_chan);
-	ast_channel_unlock(macro_chan);
-
+	channel_set_intercept_mode(0);
 	if (!retval) {
 		struct ast_party_redirecting saved_redirecting;
 
@@ -10350,15 +10395,11 @@ int ast_channel_connected_line_sub(struct ast_channel *autoservice_chan, struct 
 
 		ast_party_connected_line_copy(ast_channel_connected(sub_chan), connected);
 	}
-	ast_channel_start_defer_frames(sub_chan, 0);
 	ast_channel_unlock(sub_chan);
 
+	channel_set_intercept_mode(1);
 	retval = ast_app_run_sub(autoservice_chan, sub_chan, sub, sub_args, 0);
-
-	ast_channel_lock(sub_chan);
-	ast_channel_stop_defer_frames(sub_chan);
-	ast_channel_unlock(sub_chan);
-
+	channel_set_intercept_mode(0);
 	if (!retval) {
 		struct ast_party_connected_line saved_connected;
 
@@ -10399,15 +10440,11 @@ int ast_channel_redirecting_sub(struct ast_channel *autoservice_chan, struct ast
 
 		ast_party_redirecting_copy(ast_channel_redirecting(sub_chan), redirecting);
 	}
-	ast_channel_start_defer_frames(sub_chan, 0);
 	ast_channel_unlock(sub_chan);
 
+	channel_set_intercept_mode(1);
 	retval = ast_app_run_sub(autoservice_chan, sub_chan, sub, sub_args, 0);
-
-	ast_channel_lock(sub_chan);
-	ast_channel_stop_defer_frames(sub_chan);
-	ast_channel_unlock(sub_chan);
-
+	channel_set_intercept_mode(0);
 	if (!retval) {
 		struct ast_party_redirecting saved_redirecting;
 

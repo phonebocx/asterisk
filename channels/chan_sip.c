@@ -609,6 +609,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 	</managerEvent>
  ***/
 
+static int log_level = -1;
+
 static int min_expiry = DEFAULT_MIN_EXPIRY;        /*!< Minimum accepted registration time */
 static int max_expiry = DEFAULT_MAX_EXPIRY;        /*!< Maximum accepted registration time */
 static int default_expiry = DEFAULT_DEFAULT_EXPIRY;
@@ -1774,7 +1776,7 @@ static void destroy_escs(void)
 {
 	int i;
 	for (i = 0; i < ARRAY_LEN(event_state_compositors); i++) {
-		ao2_cleanup(event_state_compositors[i].compositor);
+		ao2_replace(event_state_compositors[i].compositor, NULL);
 	}
 }
 
@@ -2503,7 +2505,7 @@ static void sip_threadinfo_destructor(void *obj)
 	struct sip_threadinfo *th = obj;
 	struct tcptls_packet *packet;
 
-	if (th->alert_pipe[1] > -1) {
+	if (th->alert_pipe[0] > -1) {
 		close(th->alert_pipe[0]);
 	}
 	if (th->alert_pipe[1] > -1) {
@@ -2959,6 +2961,7 @@ static void *_sip_tcp_helper_thread(struct ast_tcptls_session_instance *tcptls_s
 		if (!(me = sip_threadinfo_create(tcptls_session, tcptls_session->ssl ? AST_TRANSPORT_TLS : AST_TRANSPORT_TCP))) {
 			goto cleanup;
 		}
+		me->threadid = pthread_self();
 		ao2_t_ref(me, +1, "Adding threadinfo ref for tcp_helper_thread");
 	} else {
 		struct sip_threadinfo tmp = {
@@ -2966,8 +2969,13 @@ static void *_sip_tcp_helper_thread(struct ast_tcptls_session_instance *tcptls_s
 		};
 
 		if ((!(ca = tcptls_session->parent)) ||
-			(!(me = ao2_t_find(threadt, &tmp, OBJ_POINTER, "ao2_find, getting sip_threadinfo in tcp helper thread"))) ||
-			(!(tcptls_session = ast_tcptls_client_start(tcptls_session)))) {
+			(!(me = ao2_t_find(threadt, &tmp, OBJ_POINTER, "ao2_find, getting sip_threadinfo in tcp helper thread")))) {
+			goto cleanup;
+		}
+
+		me->threadid = pthread_self();
+
+		if (!(tcptls_session = ast_tcptls_client_start(tcptls_session))) {
 			goto cleanup;
 		}
 	}
@@ -2978,7 +2986,6 @@ static void *_sip_tcp_helper_thread(struct ast_tcptls_session_instance *tcptls_s
 		goto cleanup;
 	}
 
-	me->threadid = pthread_self();
 	ast_debug(2, "Starting thread for %s server\n", tcptls_session->ssl ? "TLS" : "TCP");
 
 	/* set up pollfd to watch for reads on both the socket and the alert_pipe */
@@ -3929,6 +3936,9 @@ static __attribute__((format(printf, 2, 0))) void append_history_va(struct sip_p
 	}
 	AST_LIST_INSERT_TAIL(p->history, hist, list);
 	p->history_entries++;
+	if (log_level != -1) {
+		ast_log_dynamic_level(log_level, "%s\n", buf);
+	}
 }
 
 /*! \brief Append to SIP dialog history with arg list  */
@@ -6882,10 +6892,9 @@ static int update_call_counter(struct sip_pvt *fup, int event)
 		ast_log(LOG_ERROR, "update_call_counter(%s, %d) called with no event!\n", name, event);
 	}
 
-	if (p) {
-		ast_devstate_changed(AST_DEVICE_UNKNOWN, AST_DEVSTATE_CACHABLE, "SIP/%s", p->name);
-		sip_unref_peer(p, "update_call_counter: sip_unref_peer from call counter");
-	}
+	ast_devstate_changed(AST_DEVICE_UNKNOWN, AST_DEVSTATE_CACHABLE, "SIP/%s", p->name);
+	sip_unref_peer(p, "update_call_counter: sip_unref_peer from call counter");
+
 	return 0;
 }
 
@@ -7367,6 +7376,12 @@ static void try_suggested_sip_codec(struct sip_pvt *p)
 
 		ao2_ref(fmt, -1);
 	}
+
+	/* The original joint formats may have contained negotiated parameters (fmtp)
+	 * like the Opus Codec or iLBC 20. The cached formats contain the default
+	 * parameters, which could be different than the negotiated (joint) result. */
+	ast_format_cap_replace_from_cap(p->jointcaps, original_jointcaps, AST_MEDIA_TYPE_UNKNOWN);
+
 	ao2_ref(original_jointcaps, -1);
 	return;
  }
@@ -10795,6 +10810,9 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 		struct ast_str *vpeer_buf = ast_str_alloca(AST_FORMAT_CAP_NAMES_LEN);
 		struct ast_str *tpeer_buf = ast_str_alloca(AST_FORMAT_CAP_NAMES_LEN);
 		struct ast_str *joint_buf = ast_str_alloca(AST_FORMAT_CAP_NAMES_LEN);
+		struct ast_str *s1 = ast_str_alloca(SIPBUFSIZE);
+		struct ast_str *s2 = ast_str_alloca(SIPBUFSIZE);
+		struct ast_str *s3 = ast_str_alloca(SIPBUFSIZE);
 
 		ast_verbose("Capabilities: us - %s, peer - audio=%s/video=%s/text=%s, combined - %s\n",
 			    ast_format_cap_get_names(p->caps, &cap_buf),
@@ -10802,11 +10820,6 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 			    ast_format_cap_get_names(vpeercapability, &vpeer_buf),
 			    ast_format_cap_get_names(tpeercapability, &tpeer_buf),
 			    ast_format_cap_get_names(newjointcapability, &joint_buf));
-	}
-	if (debug) {
-		struct ast_str *s1 = ast_str_alloca(SIPBUFSIZE);
-		struct ast_str *s2 = ast_str_alloca(SIPBUFSIZE);
-		struct ast_str *s3 = ast_str_alloca(SIPBUFSIZE);
 
 		ast_verbose("Non-codec capabilities (dtmf): us - %s, peer - %s, combined - %s\n",
 			    ast_rtp_lookup_mime_multiple2(s1, NULL, p->noncodeccapability, 0, 0),
@@ -14136,6 +14149,7 @@ static void build_contact(struct sip_pvt *p, struct sip_request *req, int incomi
 	char tmp[SIPBUFSIZE];
 	char *user = ast_uri_encode(p->exten, tmp, sizeof(tmp), ast_uri_sip_user);
 	int use_sips;
+	char *transport = ast_strdupa(sip_get_transport(p->socket.type));
 
 	if (incoming) {
 		use_sips = uas_sips_contact(req);
@@ -14150,7 +14164,7 @@ static void build_contact(struct sip_pvt *p, struct sip_request *req, int incomi
 	} else {
 		ast_string_field_build(p, our_contact, "<%s:%s%s%s;transport=%s>",
 			use_sips ? "sips" : "sip", user, ast_strlen_zero(user) ? "" : "@",
-			ast_sockaddr_stringify_remote(&p->ourip), sip_get_transport(p->socket.type));
+			ast_sockaddr_stringify_remote(&p->ourip), ast_str_to_lower(transport));
 	}
 }
 
@@ -35071,6 +35085,10 @@ static int load_module(void)
 	struct sip_peer *bogus_peer;
 
 	ast_verbose("SIP channel loading...\n");
+	log_level = ast_logger_register_level("SIP_HISTORY");
+	if (log_level < 0) {
+		ast_log(LOG_WARNING, "Unable to register history log level\n");
+	}
 
 	if (STASIS_MESSAGE_TYPE_INIT(session_timeout_type)) {
 		unload_module();
@@ -35270,6 +35288,8 @@ static int unload_module(void)
 	struct ao2_iterator i;
 	struct timeval start;
 
+	ast_sched_dump(sched);
+
 	ast_sip_api_provider_unregister();
 
 	if (sip_cfg.websocket_enabled) {
@@ -35279,12 +35299,11 @@ static int unload_module(void)
 	network_change_stasis_unsubscribe();
 	acl_change_event_stasis_unsubscribe();
 
-	ast_sched_dump(sched);
-
 	/* First, take us out of the channel type list */
 	ast_channel_unregister(&sip_tech);
-
 	ast_msg_tech_unregister(&sip_msg_tech);
+	ast_cc_monitor_unregister(&sip_cc_monitor_callbacks);
+	ast_cc_agent_unregister(&sip_cc_agent_callbacks);
 
 	/* Unregister dial plan functions */
 	ast_custom_function_unregister(&sippeer_function);
@@ -35348,8 +35367,6 @@ static int unload_module(void)
 	}
 	ao2_iterator_destroy(&i);
 
-	unlink_all_peers_from_tables();
-
 	ast_mutex_lock(&monlock);
 	if (monitor_thread && (monitor_thread != AST_PTHREADT_STOP) && (monitor_thread != AST_PTHREADT_NULL)) {
 		pthread_t th = monitor_thread;
@@ -35363,7 +35380,12 @@ static int unload_module(void)
 		ast_mutex_unlock(&monlock);
 	}
 
+	/* Clear containers */
+	unlink_all_peers_from_tables();
 	cleanup_all_regs();
+	sip_epa_unregister_all();
+	destroy_escs();
+	clear_sip_domains();
 
 	{
 		struct ao2_iterator iter;
@@ -35392,25 +35414,6 @@ static int unload_module(void)
 	 */
 	ast_sched_runq(sched);
 
-	/* Free memory for local network address mask */
-	ast_free_ha(localaddr);
-
-	ast_mutex_lock(&authl_lock);
-	if (authl) {
-		ao2_t_cleanup(authl, "Removing global authentication");
-		authl = NULL;
-	}
-	ast_mutex_unlock(&authl_lock);
-
-	sip_epa_unregister_all();
-	destroy_escs();
-
-	ast_free(default_tls_cfg.certfile);
-	ast_free(default_tls_cfg.pvtfile);
-	ast_free(default_tls_cfg.cipher);
-	ast_free(default_tls_cfg.cafile);
-	ast_free(default_tls_cfg.capath);
-
 	/*
 	 * Wait awhile for the TCP/TLS thread container to become empty.
 	 *
@@ -35424,7 +35427,25 @@ static int unload_module(void)
 	}
 	if (ao2_container_count(threadt)) {
 		ast_debug(2, "TCP/TLS thread container did not become empty :(\n");
+
+		return -1;
 	}
+
+	/* Free memory for local network address mask */
+	ast_free_ha(localaddr);
+
+	ast_mutex_lock(&authl_lock);
+	if (authl) {
+		ao2_t_cleanup(authl, "Removing global authentication");
+		authl = NULL;
+	}
+	ast_mutex_unlock(&authl_lock);
+
+	ast_free(default_tls_cfg.certfile);
+	ast_free(default_tls_cfg.pvtfile);
+	ast_free(default_tls_cfg.cipher);
+	ast_free(default_tls_cfg.cafile);
+	ast_free(default_tls_cfg.capath);
 
 	ao2_cleanup(registry_list);
 	ao2_cleanup(subscription_mwi_list);
@@ -35439,7 +35460,6 @@ static int unload_module(void)
 	ao2_t_cleanup(threadt, "unref the thread table");
 	ao2_t_cleanup(sip_monitor_instances, "unref the sip_monitor_instances table");
 
-	clear_sip_domains();
 	sip_cfg.contact_acl = ast_free_acl_list(sip_cfg.contact_acl);
 	if (sipsock_read_id) {
 		ast_io_remove(io, sipsock_read_id);
@@ -35452,8 +35472,6 @@ static int unload_module(void)
 	ast_context_destroy_by_name(used_context, "SIP");
 	ast_unload_realtime("sipregs");
 	ast_unload_realtime("sippeers");
-	ast_cc_monitor_unregister(&sip_cc_monitor_callbacks);
-	ast_cc_agent_unregister(&sip_cc_agent_callbacks);
 
 	sip_reqresp_parser_exit();
 	sip_unregister_tests();
@@ -35469,6 +35487,9 @@ static int unload_module(void)
 	sip_cfg.caps = NULL;
 
 	STASIS_MESSAGE_TYPE_CLEANUP(session_timeout_type);
+	if (log_level != -1) {
+		ast_logger_unregister_level("SIP_HISTORY");
+	}
 
 	return 0;
 }

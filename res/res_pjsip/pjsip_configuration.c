@@ -1711,9 +1711,7 @@ static int cli_endpoint_print_body(void *obj, void *arg, int flags)
 
 	if (number) {
 		print_name_len = strlen(id) + strlen(number) + 2;
-		if (!(print_name = alloca(print_name_len))) {
-			return -1;
-		}
+		print_name = ast_alloca(print_name_len);
 		snprintf(print_name, print_name_len, "%s/%s", id, number);
 	}
 
@@ -2072,6 +2070,8 @@ static void endpoint_destructor(void* obj)
 	ast_variables_destroy(endpoint->channel_vars);
 	AST_VECTOR_FREE(&endpoint->ident_method_order);
 	ast_free(endpoint->contact_user);
+	ast_free_acl_list(endpoint->contact_acl);
+	ast_free_acl_list(endpoint->acl);
 }
 
 static int init_subscription_configuration(struct ast_sip_endpoint_subscription_configuration *subscription)

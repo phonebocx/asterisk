@@ -919,14 +919,14 @@
 						On outbound requests, force the user portion of the Contact header to this value.
 					</para></description>
 				</configOption>
-                                <configOption name="asymmetric_rtp_codec" default="no">
-                                        <synopsis>Allow the sending and receiving RTP codec to differ</synopsis>
-                                        <description><para>
-                                                When set to "yes" the codec in use for sending will be allowed to differ from
-                                                that of the received one. PJSIP will not automatically switch the sending one
-                                                to the receiving one.
-                                        </para></description>
-                                </configOption>
+				<configOption name="asymmetric_rtp_codec" default="no">
+					<synopsis>Allow the sending and receiving RTP codec to differ</synopsis>
+					<description><para>
+						When set to "yes" the codec in use for sending will be allowed to differ from
+						that of the received one. PJSIP will not automatically switch the sending one
+						to the receiving one.
+					</para></description>
+				</configOption>
 			</configObject>
 			<configObject name="auth">
 				<synopsis>Authentication type</synopsis>
@@ -2090,10 +2090,31 @@
 					<para>Absolute time that this contact is no longer valid after</para>
 				</parameter>
 				<parameter name="ViaAddress">
-					<para>IP address:port of the last Via header in REGISTER request</para>
+					<para>IP address:port of the last Via header in REGISTER request.
+					Will only appear in the event if available.</para>
 				</parameter>
 				<parameter name="CallID">
-					<para>Content of the Call-ID header in REGISTER request</para>
+					<para>Content of the Call-ID header in REGISTER request.
+					Will only appear in the event if available.</para>
+				</parameter>
+				<parameter name="ID">
+					<para>The sorcery ID of the contact.</para>
+				</parameter>
+				<parameter name="AuthenticateQualify">
+					<para>A boolean indicating whether a qualify should be authenticated.</para>
+				</parameter>
+				<parameter name="OutboundProxy">
+					<para>The contact's outbound proxy.</para>
+				</parameter>
+				<parameter name="Path">
+					<para>The Path header received on the REGISTER.</para>
+				</parameter>
+				<parameter name="QualifyFrequency">
+					<para>The interval in seconds at which the contact will be qualified.</para>
+				</parameter>
+				<parameter name="QualifyTimeout">
+					<para>The elapsed time in decimal seconds after which an OPTIONS
+					message is sent before the contact is considered unavailable.</para>
 				</parameter>
 			</syntax>
 		</managerEventInstance>
@@ -2888,7 +2909,8 @@ pjsip_dialog *ast_sip_create_dialog_uac(const struct ast_sip_endpoint *endpoint,
 	res = pjsip_dlg_create_uac(pjsip_ua_instance(), &local_uri, NULL, &remote_uri, &target_uri, &dlg);
 	if (res != PJ_SUCCESS) {
 		if (res == PJSIP_EINVALIDURI) {
-			ast_log(LOG_ERROR, "Could not create dialog to endpoint '%s' as URI '%s' is not valid\n",
+			ast_log(LOG_ERROR,
+				"Endpoint '%s': Could not create dialog to invalid URI '%s'.  Is endpoint registered?\n",
 				ast_sorcery_object_get_id(endpoint), uri);
 		}
 		return NULL;
@@ -3222,8 +3244,9 @@ static int create_out_of_dialog_request(const pjsip_method *method, struct ast_s
 		pjsip_contact_hdr *contact_hdr;
 		pjsip_sip_uri *contact_uri;
 		static const pj_str_t HCONTACT = { "Contact", 7 };
+		static const pj_str_t HCONTACTSHORT = { "m", 1 };
 
-		contact_hdr = pjsip_msg_find_hdr_by_name((*tdata)->msg, &HCONTACT, NULL);
+		contact_hdr = pjsip_msg_find_hdr_by_names((*tdata)->msg, &HCONTACT, &HCONTACTSHORT, NULL);
 		if (contact_hdr) {
 			contact_uri = pjsip_uri_get_uri(contact_hdr->uri);
 			pj_strdup2(pool, &contact_uri->user, endpoint->contact_user);
@@ -3379,6 +3402,8 @@ struct send_request_wrapper {
 	void (*callback)(void *token, pjsip_event *e);
 	/*! Non-zero when the callback is called. */
 	unsigned int cb_called;
+	/*! Non-zero if endpt_send_request_cb() was called. */
+	unsigned int send_cb_called;
 	/*! Timeout timer. */
 	pj_timer_entry *timeout_timer;
 	/*! Original timeout. */
@@ -3395,6 +3420,12 @@ static void endpt_send_request_cb(void *token, pjsip_event *e)
 {
 	struct send_request_wrapper *req_wrapper = token;
 	unsigned int cb_called;
+
+	/*
+	 * Needed because we cannot otherwise tell if this callback was
+	 * called when pjsip_endpt_send_request() returns error.
+	 */
+	req_wrapper->send_cb_called = 1;
 
 	if (e->body.tsx_state.type == PJSIP_EVENT_TIMER) {
 		ast_debug(2, "%p: PJSIP tsx timer expired\n", req_wrapper);
@@ -3579,12 +3610,10 @@ static pj_status_t endpt_send_request(struct ast_sip_endpoint *endpoint,
 	if (ret_val != PJ_SUCCESS) {
 		char errmsg[PJ_ERR_MSG_SIZE];
 
-		/*
-		 * endpt_send_request_cb is not expected to ever be called
-		 * because the request didn't get far enough to attempt
-		 * sending.
-		 */
-		ao2_ref(req_wrapper, -1);
+		if (!req_wrapper->send_cb_called) {
+			/* endpt_send_request_cb is not expected to ever be called now. */
+			ao2_ref(req_wrapper, -1);
+		}
 
 		/* Complain of failure to send the request. */
 		pj_strerror(ret_val, errmsg, sizeof(errmsg));
@@ -3621,6 +3650,13 @@ static pj_status_t endpt_send_request(struct ast_sip_endpoint *endpoint,
 				req_wrapper->cb_called = 1;
 			}
 			ao2_unlock(req_wrapper);
+		} else if (req_wrapper->cb_called) {
+			/*
+			 * We cannot report any error.  The callback has
+			 * already freed any resources associated with
+			 * token.
+			 */
+			ret_val = PJ_SUCCESS;
 		}
 	}
 
