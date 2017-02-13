@@ -1,5 +1,7 @@
 .PHONY: _all all _install install clean distclean echo_cflags configure
 
+.NOTPARALLEL:
+
 include ../versions.mak
 export PJDIR := $(shell pwd -P)/source
 
@@ -19,6 +21,11 @@ ifeq ($(findstring clean,$(MAKECMDGOALS)),clean)
 # clean or distclean
     SPECIAL_TARGETS += clean
 endif
+
+ifeq ($(findstring uninstall,$(MAKECMDGOALS)),uninstall)
+    SPECIAL_TARGETS += uninstall
+endif
+
 
 ifneq ($(wildcard ../../makeopts),)
     include ../../makeopts
@@ -56,15 +63,15 @@ ifeq ($(SPECIAL_TARGETS),)
         endif
         ifeq ($(findstring MALLOC_DEBUG,$(MENUSELECT_CFLAGS)),MALLOC_DEBUG)
             CF += -DMALLOC_DEBUG
-            MALLOC_DEBUG = yes
-            $(apps): export LDFLAGS += -L$(PJDIR)/pjsip-apps/lib -Wl,-whole-archive -lasterisk_malloc_debug -Wl,-no-whole-archive
-            $(apps): source/pjsip-apps/lib/libasterisk_malloc_debug.a
-            source/pjsip-apps/src/python/_pjsua.so: LDFLAGS += -L$(PJDIR)/pjsip-apps/lib -Wl,-whole-archive -lasterisk_malloc_debug -Wl,-no-whole-archive
-            source/pjsip-apps/src/python/_pjsua.so: source/pjsip-apps/lib/libasterisk_malloc_debug.a
+            MALLOC_DEBUG_LIBS = source/pjsip-apps/lib/libasterisk_malloc_debug.a
+            MALLOC_DEBUG_LDFLAGS = -L$(PJDIR)/pjsip-apps/lib -Wl,-whole-archive -lasterisk_malloc_debug -Wl,-no-whole-archive
         endif
-        TARGETS += pjproject.symbols
-        export CFLAGS += $(CF)
+        ifeq ($(findstring DONT_OPTIMIZE,$(MENUSELECT_CFLAGS)),)
+            CF += -O3
+        endif
+        export CFLAGS += $(CF) -g3
         export LDFLAGS += $(CC_LDFLAGS)
+        TARGETS += pjproject.symbols
     else
         all install:
     endif
@@ -75,16 +82,41 @@ include ../Makefile.rules
 include Makefile.rules
 
 ECHO_PREFIX := $(ECHO_PREFIX) echo '[pjproject] '
+SHELL_ECHO_PREFIX := echo '[pjproject] '
 
 _all: $(TARGETS)
 
-DOWNLOAD_DIR := $(or $(EXTERNALS_CACHE_DIR),$(TMPDIR),$(wildcard /tmp),.)
+define verify_tarball
+	($(SHELL_ECHO_PREFIX) Verifying $(TARBALL) &&\
+	tarball_sum=$$($(CAT) $(TARBALL) | $(MD5) | $(SED) -n -r -e "s/^([^ ]+)\s+.*/\1/gp") ;\
+	required_sum=$$($(SED) -n -r -e "s/^([^ ]+)\s+$(TARBALL_FILE)/\1/gp" $(PJMD5SUM)) ;\
+	if [ "$$tarball_sum" != "$$required_sum" ] ; then $(SHELL_ECHO_PREFIX) Verify failed ; exit 1 ;\
+	else $(SHELL_ECHO_PREFIX) Verify successful ; exit 0 ; fi; )
+endef
 
-$(DOWNLOAD_DIR)/pjproject-$(PJPROJECT_VERSION).tar.bz2: ../versions.mak
-	$(ECHO_PREFIX) Downloading $(PJPROJECT_URL)/$(@F) to $@
-	$(CMD_PREFIX) $(DOWNLOAD_TO_STDOUT) $(PJPROJECT_URL)/$(@F) > $@
+define download_from_pjproject
+	($(SHELL_ECHO_PREFIX) Downloading $(TARBALL_URL) to $(TARBALL) ;\
+	$(DOWNLOAD_TO_STDOUT) $(call DOWNLOAD_TIMEOUT,5,10) $(TARBALL_URL) > $(TARBALL) &&\
+	$(SHELL_ECHO_PREFIX) Downloading $(PJPROJECT_URL)/MD5SUM to $(PJMD5SUM) &&\
+	$(DOWNLOAD_TO_STDOUT) $(call DOWNLOAD_TIMEOUT,5,10) $(PJPROJECT_URL)/MD5SUM.TXT > $(PJMD5SUM) &&\
+	$(verify_tarball))
+endef
+
+.DELETE_ON_ERROR:
+
+DOWNLOAD_DIR := $(or $(EXTERNALS_CACHE_DIR),$(TMPDIR),$(wildcard /tmp),.)
+TARBALL_FILE = pjproject-$(PJPROJECT_VERSION).tar.bz2
+TARBALL = $(DOWNLOAD_DIR)/$(TARBALL_FILE)
+TARBALL_URL = $(PJPROJECT_URL)/$(TARBALL_FILE)
+PJMD5SUM = $(patsubst %.tar.bz2,%.md5,$(TARBALL))
+
+$(TARBALL): ../versions.mak
+	$(CMD_PREFIX) $(download_from_pjproject) || (rm -rf $@ ;\
+	$(SHELL_ECHO_PREFIX) Retrying download ; $(download_from_pjproject))
 
 source/.unpacked: $(DOWNLOAD_DIR)/pjproject-$(PJPROJECT_VERSION).tar.bz2
+	($(verify_tarball)) || (rm -rf $@ ;\
+	$(SHELL_ECHO_PREFIX) Retrying download ; $(download_from_pjproject))
 	$(ECHO_PREFIX) Unpacking $<
 	-@rm -rf source pjproject-* >/dev/null 2>&1
 	$(CMD_PREFIX) $(TAR) -xjf $<
@@ -106,7 +138,6 @@ source/pjlib/include/pj/%.h: patches/%.h
 .rebuild_needed: $(wildcard ../../makeopts) $(wildcard ../../menuselect.makeopts)
 	$(ECHO_PREFIX) Rebuilding
 	$(CMD_PREFIX) $(MAKE) clean $(REALLY_QUIET)
-	@touch  .rebuild_needed
 
 source/build.mak: Makefile.rules source/version.mak source/user.mak $(addprefix source/pjlib/include/pj/,$(notdir $(wildcard patches/*.h))) .rebuild_needed
 	$(ECHO_PREFIX) Configuring with $(PJPROJECT_CONFIG_OPTS)
@@ -123,13 +154,11 @@ echo_cflags: source/build.mak
 libpj%.a: source/build.mak
 	$(ECHO_PREFIX) Compiling lib $(@F)
 	$(CMD_PREFIX) $(MAKE) -C $(dir $(shell dirname $@))/build $(@F) $(REALLY_QUIET)
-	-@rm -rf .rebuild_needed
 
 # pjsua needs resample and g711 to successfully run the testsuite
-libresample%.a: .rebuild_needed source/build.mak
+libresample%.a: source/build.mak
 	$(ECHO_PREFIX) Compiling lib $(@F)
 	$(CMD_PREFIX) $(MAKE) -C $(dir $(shell dirname $@))/build/resample all $(REALLY_QUIET)
-	-@rm -rf .rebuild_needed
 
 # We need to compile pjlib, then pjlib-util, then the rest
 # so we separate them out and create the dependencies
@@ -158,7 +187,8 @@ source/pjsip-apps/lib/libasterisk_malloc_debug.a: source/pjsip-apps/lib/asterisk
 	$(CMD_PREFIX) ar qs $@ $< >/dev/null 2>&1
 
 $(apps): APP = $(filter pj%,$(subst -, ,$(notdir $@)))
-$(apps): pjproject.symbols $(APP_THIRD_PARTY_LIB_FILES)
+$(apps): LDFLAGS += $(MALLOC_DEBUG_LDFLAGS)
+$(apps): $(MALLOC_DEBUG_LIBS) pjproject.symbols $(APP_THIRD_PARTY_LIB_FILES)
 	$(ECHO_PREFIX) Compiling $(APP)
 	$(CMD_PREFIX) +$(MAKE) -C source/pjsip-apps/build $(filter pj%,$(subst -, ,$(notdir $@))) $(REALLY_QUIET)
 
@@ -166,6 +196,7 @@ source/pjsip-apps/src/python/_pjsua.o: source/pjsip-apps/src/python/_pjsua.c $(a
 	$(ECHO_PREFIX) Compiling python bindings
 	$(CMD_PREFIX) $(CC) -o $@ -c $< $(PYTHONDEV_INCLUDE) $(CFLAGS) $(PJ_CFLAGS)
 
+source/pjsip-apps/src/python/_pjsua.so: LDFLAGS += $(MALLOC_DEBUG_LDFLAGS)
 source/pjsip-apps/src/python/_pjsua.so: source/pjsip-apps/src/python/_pjsua.o
 	$(ECHO_PREFIX) Linking python bindings $(@F)
 	$(CMD_PREFIX) gcc -shared -pthread -o $@ $< $(LDFLAGS) $(PJ_LDFLAGS) $(APP_LDLIBS) $(PYTHONDEV_LIB) $(REALLY_QUIET)

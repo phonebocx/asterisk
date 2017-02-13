@@ -9,6 +9,56 @@
 ==============================================================================
 
 ------------------------------------------------------------------------------
+--- Functionality changes from Asterisk 13.13.0 to Asterisk 13.14.0 ----------
+------------------------------------------------------------------------------
+
+res_pjproject
+------------------
+ * Added new CLI command "pjproject set log level".  The new command allows
+   the maximum PJPROJECT log levels to be adjusted dynamically and
+   independently from the set debug logging level like many other similar
+   module debug logging commands.
+
+ * Added new companion CLI command "pjproject show log level" to allow the
+   user to see the current maximum pjproject logging level.
+
+ * Added new pjproject.conf startup section "log_level' option to set the
+   initial maximum PJPROJECT logging level.
+
+res_pjsip_outbound_registration
+------------------
+ * Statsd no longer logs redundant status PJSIP.registrations.state changes
+   for internal state transitions that don't change the reported public status
+   state.
+
+res_pjsip_registrar
+------------------
+ * The PJSIPShowRegistrationInboundContactStatuses AMI command has been added
+   to return ContactStatusDetail events as opposed to
+   PJSIPShowRegistrationsInbound which just a dumps every defined AOR.
+
+res_pjsip
+------------------
+ * Six existing contact fields have been added to the end of the
+   ContactStatusDetail AMI event:
+   ID, AuthenticateQualify, OutboundProxy, Path, QualifyFrequency and
+   QualifyTimeout.  Existing fields have not been disturbed.
+
+res_pjsip_endpoint_identifier_ip
+------------------
+ * SRV lookups can now be done on provided hostnames to determine additional
+   source IP addresses for requests. This is configurable using the
+   "srv_lookups" option on the identify and defaults to "yes".
+
+ARI
+------------------
+ * The 'ari set debug' command has been enhanced to accept 'all' as an
+   application name.  This allows dumping of all apps even if an app
+   hasn't registered yet.
+
+ * 'ari set debug' now displays requests and responses as well as events.
+ 
+------------------------------------------------------------------------------
 --- Functionality changes from Asterisk 13.12.0 to Asterisk 13.13.0 ----------
 ------------------------------------------------------------------------------
 

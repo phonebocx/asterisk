@@ -1549,3 +1549,17 @@ UPDATE alembic_version SET version_num='4468b4a91372' WHERE alembic_version.vers
 
 /
 
+-- Running upgrade 4468b4a91372 -> 28ab27a7826d
+
+ALTER TABLE ps_endpoint_id_ips ADD srv_lookups VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_endpoint_id_ips ADD CONSTRAINT yesno_values CHECK (srv_lookups IN ('yes', 'no'))
+
+/
+
+UPDATE alembic_version SET version_num='28ab27a7826d' WHERE alembic_version.version_num = '4468b4a91372'
+
+/
+
