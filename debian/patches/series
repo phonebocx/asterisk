@@ -25,8 +25,6 @@ aelparse_enable.patch
 systemd.patch
 #test_framework.patch
 
-configure-osarch
-
 # opus.patch
 # vp8.patch
 amr.patch
@@ -39,4 +37,3 @@ OpenSSL-1.1.0-support.patch
 OpenSSL-1.1.0-support-2.patch
 
 pjsip_unresolved_symbol.patch
-pjsip_improve_logging.patch
