@@ -35,5 +35,6 @@ ffmpeg-includes.patch
 radcli-detection.patch
 OpenSSL-1.1.0-support.patch
 OpenSSL-1.1.0-support-2.patch
+OpenSSL-1.1.0-support-3.patch
 
 pjsip_unresolved_symbol.patch

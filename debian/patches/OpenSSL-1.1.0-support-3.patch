@@ -1,0 +1,37 @@
+From e97e50b68b0497f906a73a1acc26c3a97d9c9d7f Mon Sep 17 00:00:00 2001
+From: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Date: Sat, 21 Jan 2017 07:59:15 +0200
+Subject: [PATCH] tcptls: use TLS_client_method with OpenSSL 1.1
+
+OpenSSL 1.1 introduced TLS_client_method() and deprecated the previous
+version-specific methods (such as TLSv1_client_method(). Other than
+being simpler to use and more correct (gain support for TLS newer that
+TLS1, in our case), the older ones produce a deprecation warning that
+fails the build in dev-mode.
+
+ASTERISK-26109 #close
+
+Change-Id: I257b1c8afd09dcb0d96cda3a41cb9f7a15d0ba07
+---
+
+diff --git a/main/tcptls.c b/main/tcptls.c
+index 71bd92e..36a6c96 100644
+--- a/main/tcptls.c
++++ b/main/tcptls.c
+@@ -833,12 +833,16 @@
+ 			cfg->ssl_ctx = SSL_CTX_new(SSLv3_client_method());
+ 		} else
+ #endif
++#if defined(OPENSSL_VERSION_NUMBER) && (OPENSSL_VERSION_NUMBER  >= 0x10100000L)
++		cfg->ssl_ctx = SSL_CTX_new(TLS_client_method());
++#else
+ 		if (ast_test_flag(&cfg->flags, AST_SSL_TLSV1_CLIENT)) {
+ 			cfg->ssl_ctx = SSL_CTX_new(TLSv1_client_method());
+ 		} else {
+ 			disable_ssl = 1;
+ 			cfg->ssl_ctx = SSL_CTX_new(SSLv23_client_method());
+ 		}
++#endif
+ 	} else {
+ 		disable_ssl = 1;
+ 		cfg->ssl_ctx = SSL_CTX_new(SSLv23_server_method());

@@ -1,88 +1,64 @@
-From e0f8222a7f4a0a2312d556375aaeed7790c08078 Mon Sep 17 00:00:00 2001
+From 0d555f0d81d3b04366a64c91acb89d24b90aead9 Mon Sep 17 00:00:00 2001
 From: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
-Date: Tue, 28 Jun 2016 23:26:59 +0200
-Subject: [PATCH] OpenSSL 1.1.0 support
-Bug: https://issues.asterisk.org/jira/browse/ASTERISK-26109
+Date: Sat, 21 Jan 2017 07:57:33 +0200
+Subject: [PATCH] openssl 1.1 support: use OPENSSL_VERSION_NUMBER
 
-OpenSSL 1.1.0 includes some major changes in the interface. See
-https://wiki.openssl.org/index.php/1.1_API_Changes .
+Use OPENSSL_VERSION_NUMBER instead of OPENSSL_API_COMPAT to detect
+the openssl 1.1 API.
 
-Status: Right now there are still a few deprecation notes with OpenSSL
-1.1.0. But it's a start.
+ASTERISK-26109 #close
 
-Changes:
-* CRYPTO_LOCK is no longer available. Replace it with its value for now.
-  I don't completely understand what it is used for there.
-* Remove several functions from libasteriskssl that seem to no longer be
-  needed.
-* Structures have become opaque and are accesses with accessors.
-* ERR_remove_thread_state() no longer needed.
-* SSLv2 code now could no longer be used. Do we need it?
-
-Change-Id: I5e29d477d486ca29b6aae0dc2f5dff960c1cb82b
+Change-Id: I4e448f55ef516aedf6ad154037c35577a421a458
 ---
- main/libasteriskssl.c | 4 +++-
- main/tcptls.c         | 6 ++++--
- 2 files changed, 7 insertions(+), 3 deletions(-)
 
 diff --git a/main/libasteriskssl.c b/main/libasteriskssl.c
-index 16a1aa7..381c6c3 100644
+index c4d4c56..bf5ecc1 100644
 --- a/main/libasteriskssl.c
 +++ b/main/libasteriskssl.c
-@@ -65,13 +65,14 @@ static void ssl_lock(int mode, int n, const char *file, int line)
- 		return;
- 	}
- 
--	if (mode & CRYPTO_LOCK) {
-+	if (mode & 0x1) {
- 		ast_mutex_lock(&ssl_locks[n]);
- 	} else {
- 		ast_mutex_unlock(&ssl_locks[n]);
+@@ -74,7 +74,7 @@
  	}
  }
  
-+#if OPENSSL_API_COMPAT < 0x10100000L
+-#if !defined(OPENSSL_API_COMPAT) || OPENSSL_API_COMPAT < 0x10100000L
++#if !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L
  int SSL_library_init(void)
  {
  #if defined(AST_DEVMODE)
-@@ -113,6 +114,7 @@ void ERR_free_strings(void)
+@@ -116,7 +116,7 @@
  {
  	/* we can't allow this to be called, ever */
  }
-+#endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
+-#endif /* !defined(OPENSSL_API_COMPAT) || OPENSSL_API_COMPAT < 0x10100000L */
++#endif /* !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L */
  
  #endif /* HAVE_OPENSSL */
  
 diff --git a/main/tcptls.c b/main/tcptls.c
-index 262fca0..b1217ef 100644
+index 21abd26..71bd92e 100644
 --- a/main/tcptls.c
 +++ b/main/tcptls.c
-@@ -395,13 +395,15 @@ static int tcptls_stream_close(void *cookie)
+@@ -400,19 +400,19 @@
  					SSL_get_error(stream->ssl, res));
  			}
  
--			if (!stream->ssl->server) {
-+			if (!SSL_is_server(stream->ssl)) {
+-#if defined(OPENSSL_API_COMPAT) && OPENSSL_API_COMPAT >= 0x10100000L
++#if defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10100000L
+ 			if (!SSL_is_server(stream->ssl)) {
+ #else
+ 			if (!stream->ssl->server) {
+ #endif
  				/* For client threads, ensure that the error stack is cleared */
-+#if OPENSSL_API_COMPAT < 0x10100000L
- #if OPENSSL_VERSION_NUMBER >= 0x10000000L
+-#if !defined(OPENSSL_API_COMPAT) || OPENSSL_API_COMPAT < 0x10100000L
+-#if OPENSSL_VERSION_NUMBER >= 0x10000000L
++#if !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L
++#if defined(OPENSSL_VERSION_NUMBER) && OPENSSL_VERSION_NUMBER >= 0x10000000L
  				ERR_remove_thread_state(NULL);
  #else
  				ERR_remove_state(0);
- #endif	/* OPENSSL_VERSION_NUMBER >= 0x10000000L */
-+#endif  /* OPENSSL_API_COMPAT < 0x10100000L */
+-#endif	/* OPENSSL_VERSION_NUMBER >= 0x10000000L */
+-#endif  /* !defined(OPENSSL_API_COMPAT) || OPENSSL_API_COMPAT < 0x10100000L */
++#endif	/* openssl == 1.0 */
++#endif  /* openssl >= 1.1 */
  			}
  
  			SSL_free(stream->ssl);
-@@ -828,7 +830,7 @@ static int __ssl_setup(struct ast_tls_config *cfg, int client)
- 	}
- 
- 	if (client) {
--#ifndef OPENSSL_NO_SSL2
-+#if !defined(OPENSSL_NO_SSL2) && (OPENSSL_VERSION_NUMBER < 0x10100000L)
- 		if (ast_test_flag(&cfg->flags, AST_SSL_SSLV2_CLIENT)) {
- 			ast_log(LOG_WARNING, "Usage of SSLv2 is discouraged due to known vulnerabilities. Please use 'tlsv1' or leave the TLS method unspecified!\n");
- 			cfg->ssl_ctx = SSL_CTX_new(SSLv2_client_method());
--- 
-2.10.1
-
