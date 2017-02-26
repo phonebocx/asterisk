@@ -1,3 +1,14 @@
+asterisk (1:13.14.0~dfsg-1) unstable; urgency=medium
+
+  [ Bernhard Schmidt ]
+  * New upstream version 13.14.0~dfsg
+    - Fixes RTP error on systems with disabled IPv6 (Closes: #853792)
+    - Fixes asymetric RTP codec selection (Closes: #855014)
+  * drop pjsip_improve_logging.patch, applied upstream
+  * drop configure-osarch, applied upstream
+
+ -- Bernhard Schmidt <berni@debian.org>  Tue, 14 Feb 2017 21:54:29 +0100
+
 asterisk (1:13.13.1~dfsg-4) unstable; urgency=medium
 
   * Depend on asterisk-core-sounds-en instead of -gsm
