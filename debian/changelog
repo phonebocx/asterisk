@@ -1,3 +1,12 @@
+asterisk (1:13.14.1~dfsg-1) unstable; urgency=medium
+
+  * New upstream version 13.14.1
+    - Fixes AST-2017-001 (Buffer overflow in CDR's set user) (Closes: #859910)
+  * Import upstream fix to set the RTP source address to the address bound by
+    the PJSIP transport (Closes: #859911)
+
+ -- Bernhard Schmidt <berni@debian.org>  Mon, 10 Apr 2017 12:53:03 +0200
+
 asterisk (1:13.14.0~dfsg-1) unstable; urgency=medium
 
   [ Bernhard Schmidt ]
