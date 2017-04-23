@@ -83,6 +83,8 @@ In this directory you can / should run
 
 to get your 'asterisk-config-custom' package build.
 
+If you don't have this package installed, install the package dpkg-dev .
+
 HERE
 
 cat << LastLine > my-asterisk-config/Makefile
