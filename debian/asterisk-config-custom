@@ -79,7 +79,7 @@ cat << HERE > my-asterisk-config/README
 
 In this directory you can / should run
 
-  dpkg-buildbuildpackage -uc -us
+  dpkg-buildpackage -uc -us
 
 to get your 'asterisk-config-custom' package build.
 
