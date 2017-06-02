@@ -1,3 +1,16 @@
+asterisk (1:13.14.1~dfsg-2) unstable; urgency=high
+
+  [ Tzafrir Cohen ]
+  * CVE-2017-9358 / AST-2017-004: Memory exhaustion on short SCCP packets
+    (Closes: #863906)
+  * Documentation updates in debian/:
+    - d/p/test_framework.patch: no longer an upstream issue
+    - d/asterisk-config-custom:
+      - fix typo: buildbuildpackage (Closes: #860902)
+      - add comment that dpkg-buildpackage comes from dpkg-dev
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 02 Jun 2017 14:40:15 +0200
+
 asterisk (1:13.14.1~dfsg-1) unstable; urgency=medium
 
   * New upstream version 13.14.1
