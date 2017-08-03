@@ -1,4 +1,4 @@
-asterisk (1:13.17.0~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:13.17.0~dfsg-1) unstable; urgency=medium
 
   * New upstream version 13.17.0
     - Dropped OpenSSL 1.0 patches: merged upstream.
@@ -6,8 +6,11 @@ asterisk (1:13.17.0~dfsg-1) UNRELEASED; urgency=medium
     - Dropped pjsip_unresolved_symbol.patch: merged upstream.
     - Dropped AST-2017-004.patch: merged upstream.
     - Closes: #856332 (specifically: just the example in pjsip.conf).
+  * Added asterisk-tests package: internal tests. Not otherwise useful.
+    - New ABI hash: 1fb7f5c06d7a2052e38d021b3d8ca151.
+  * Added autopkgtest test based on them.
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 02 Aug 2017 23:22:16 -0400
+ -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 03 Aug 2017 23:20:22 -0400
 
 asterisk (1:13.14.1~dfsg-2) unstable; urgency=high
 
