@@ -33,14 +33,5 @@ ffmpeg-detection.patch
 ffmpeg-includes.patch
 
 radcli-detection.patch
-OpenSSL-1.1.0-support.patch
-OpenSSL-1.1.0-support-2.patch
-OpenSSL-1.1.0-support-3.patch
 
 pjsip_unresolved_symbol.patch
-
-# Bug#859911 - res_pjsip_sdp_rtp: RTP instance does not use same IP as explicit transport
-859911-pjsip-set-rtp-source-address.patch
-859911-pjsip-set-rtp-source-address-part2.patch
-
-AST-2017-004.patch

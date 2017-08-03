@@ -1,3 +1,13 @@
+asterisk (1:13.17.0~dfsg-1) UNRELEASED; urgency=medium
+
+  * New upstream version 13.17.0
+    - Dropped OpenSSL 1.0 patches: merged upstream.
+    - Dropped 859911-pjsip-set-rtp-source-address patches: merged upstream.
+    - Dropped pjsip_unresolved_symbol.patch: merged upstream.
+    - Dropped AST-2017-004.patch: merged upstream.
+
+ -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 02 Aug 2017 23:22:16 -0400
+
 asterisk (1:13.14.1~dfsg-2) unstable; urgency=high
 
   [ Tzafrir Cohen ]
