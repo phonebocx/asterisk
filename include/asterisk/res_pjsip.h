@@ -194,6 +194,8 @@ struct ast_sip_transport {
 	int write_timeout;
 	/*! Allow reload */
 	int allow_reload;
+	/*! Automatically send requests out the same transport requests have come in on */
+	int symmetric_transport;
 };
 
 #define SIP_SORCERY_DOMAIN_ALIAS_TYPE "domain_alias"
@@ -361,6 +363,8 @@ enum ast_sip_dtmf_mode {
 	AST_SIP_DTMF_INFO,
 	/*! Use SIP 4733 if supported by the other side or INBAND if not */
 	AST_SIP_DTMF_AUTO,
+	/*! Use SIP 4733 if supported by the other side or INFO DTMF (blech) if not */
+	AST_SIP_DTMF_AUTO_INFO,
 };
 
 /*!
@@ -755,7 +759,19 @@ struct ast_sip_endpoint {
 	char *contact_user;
 	/*! Do we allow an asymmetric RTP codec? */
 	unsigned int asymmetric_rtp_codec;
+	/*! Use RTCP-MUX */
+	unsigned int rtcp_mux;
+	/*! Do we allow overlap dialling? */
+	unsigned int allow_overlap;
+	/*! Whether to notifies all the progress details on blind transfer */
+	unsigned int refer_blind_progress;
+	/*! Whether to notifies dialog-info 'early' on INUSE && RINGING state */
+	unsigned int notify_early_inuse_ringing;
 };
+
+/*! URI parameter for symmetric transport */
+#define AST_SIP_X_AST_TXP "x-ast-txp"
+#define AST_SIP_X_AST_TXP_LEN 9
 
 /*!
  * \brief Initialize an auth vector with the configured values.
@@ -856,6 +872,17 @@ struct ast_sip_endpoint_identifier {
      * See ast_sip_identify_endpoint for more details
      */
     struct ast_sip_endpoint *(*identify_endpoint)(pjsip_rx_data *rdata);
+};
+
+/*!
+ * \brief Contact retrieval filtering flags
+ */
+enum ast_sip_contact_filter {
+	/*! \brief Default filter flags */
+	AST_SIP_CONTACT_FILTER_DEFAULT = 0,
+
+	/*! \brief Return only reachable or unknown contacts */
+	AST_SIP_CONTACT_FILTER_REACHABLE = (1 << 0),
 };
 
 /*!
@@ -1044,6 +1071,18 @@ struct ast_sip_aor *ast_sip_location_retrieve_aor(const char *aor_name);
 struct ast_sip_contact *ast_sip_location_retrieve_first_aor_contact(const struct ast_sip_aor *aor);
 
 /*!
+ * \brief Retrieve the first bound contact for an AOR and filter based on flags
+ * \since 13.16.0
+ *
+ * \param aor Pointer to the AOR
+ * \param flags Filtering flags
+ * \retval NULL if no contacts available
+ * \retval non-NULL if contacts available
+ */
+struct ast_sip_contact *ast_sip_location_retrieve_first_aor_contact_filtered(const struct ast_sip_aor *aor,
+	unsigned int flags);
+
+/*!
  * \brief Retrieve all contacts currently available for an AOR
  *
  * \param aor Pointer to the AOR
@@ -1058,6 +1097,23 @@ struct ast_sip_contact *ast_sip_location_retrieve_first_aor_contact(const struct
 struct ao2_container *ast_sip_location_retrieve_aor_contacts(const struct ast_sip_aor *aor);
 
 /*!
+ * \brief Retrieve all contacts currently available for an AOR and filter based on flags
+ * \since 13.16.0
+ *
+ * \param aor Pointer to the AOR
+ * \param flags Filtering flags
+ *
+ * \retval NULL if no contacts available
+ * \retval non-NULL if contacts available
+ *
+ * \warning
+ * Since this function prunes expired contacts before returning, it holds a named write
+ * lock on the aor.  If you already hold the lock, call ast_sip_location_retrieve_aor_contacts_nolock instead.
+ */
+struct ao2_container *ast_sip_location_retrieve_aor_contacts_filtered(const struct ast_sip_aor *aor,
+	unsigned int flags);
+
+/*!
  * \brief Retrieve all contacts currently available for an AOR without locking the AOR
  * \since 13.9.0
  *
@@ -1070,6 +1126,22 @@ struct ao2_container *ast_sip_location_retrieve_aor_contacts(const struct ast_si
  * This function should only be called if you already hold a named write lock on the aor.
  */
 struct ao2_container *ast_sip_location_retrieve_aor_contacts_nolock(const struct ast_sip_aor *aor);
+
+/*!
+ * \brief Retrieve all contacts currently available for an AOR without locking the AOR and filter based on flags
+ * \since 13.16.0
+ *
+ * \param aor Pointer to the AOR
+ * \param flags Filtering flags
+ *
+ * \retval NULL if no contacts available
+ * \retval non-NULL if contacts available
+ *
+ * \warning
+ * This function should only be called if you already hold a named write lock on the aor.
+ */
+struct ao2_container *ast_sip_location_retrieve_aor_contacts_nolock_filtered(const struct ast_sip_aor *aor,
+	unsigned int flags);
 
 /*!
  * \brief Retrieve the first bound contact from a list of AORs
@@ -1098,6 +1170,18 @@ struct ao2_container *ast_sip_location_retrieve_contacts_from_aor_list(const cha
  */
  void ast_sip_location_retrieve_contact_and_aor_from_list(const char *aor_list, struct ast_sip_aor **aor,
 	struct ast_sip_contact **contact);
+
+/*!
+ * \brief Retrieve the first bound contact AND the AOR chosen from a list of AORs and filter based on flags
+ * \since 13.16.0
+ *
+ * \param aor_list A comma-separated list of AOR names
+ * \param flags Filtering flags
+ * \param aor The chosen AOR
+ * \param contact The chosen contact
+ */
+void ast_sip_location_retrieve_contact_and_aor_from_list_filtered(const char *aor_list, unsigned int flags,
+	struct ast_sip_aor **aor, struct ast_sip_contact **contact);
 
 /*!
  * \brief Retrieve a named contact
@@ -1366,6 +1450,16 @@ struct ast_taskprocessor *ast_sip_create_serializer_group_named(const char *name
  * \retval NULL on error.
  */
 struct ast_taskprocessor *ast_sip_get_distributor_serializer(pjsip_rx_data *rdata);
+
+/*!
+ * \brief Record the task's serializer name on the tdata structure.
+ * \since 13.15.0
+ *
+ * \param tdata The outgoing message.
+ *
+ * \retval PJ_SUCCESS.
+ */
+pj_status_t ast_sip_record_request_serializer(pjsip_tx_data *tdata);
 
 /*!
  * \brief Set a serializer on a SIP dialog so requests and responses are automatically serialized
@@ -1690,6 +1784,26 @@ pjsip_dialog *ast_sip_create_dialog_uas(const struct ast_sip_endpoint *endpoint,
 
 /*!
  * \brief General purpose method for creating an rdata structure using specific information
+ * \since 13.15.0
+ *
+ * \param rdata[out] The rdata structure that will be populated
+ * \param packet A SIP message
+ * \param src_name The source IP address of the message
+ * \param src_port The source port of the message
+ * \param transport_type The type of transport the message was received on
+ * \param local_name The local IP address the message was received on
+ * \param local_port The local port the message was received on
+ * \param contact_uri The contact URI of the message
+ *
+ * \retval 0 success
+ * \retval -1 failure
+ */
+int ast_sip_create_rdata_with_contact(pjsip_rx_data *rdata, char *packet,
+	const char *src_name, int src_port, char *transport_type, const char *local_name,
+	int local_port, const char *contact_uri);
+
+/*!
+ * \brief General purpose method for creating an rdata structure using specific information
  *
  * \param rdata[out] The rdata structure that will be populated
  * \param packet A SIP message
@@ -1702,8 +1816,8 @@ pjsip_dialog *ast_sip_create_dialog_uas(const struct ast_sip_endpoint *endpoint,
  * \retval 0 success
  * \retval -1 failure
  */
-int ast_sip_create_rdata(pjsip_rx_data *rdata, char *packet, const char *src_name, int src_port, char *transport_type,
-	const char *local_name, int local_port);
+int ast_sip_create_rdata(pjsip_rx_data *rdata, char *packet, const char *src_name,
+	int src_port, char *transport_type, const char *local_name, int local_port);
 
 /*!
  * \brief General purpose method for creating a SIP request
@@ -2741,5 +2855,55 @@ void ast_sip_modify_id_header(pj_pool_t *pool, pjsip_fromto_hdr *id_hdr,
  */
 void ast_sip_get_unidentified_request_thresholds(unsigned int *count, unsigned int *period,
 	unsigned int *prune_interval);
+
+/*!
+ * \brief Get the transport name from an endpoint or request uri
+ * \since 13.15.0
+ *
+ * \param endpoint
+ * \param sip_uri
+ * \param buf Buffer to receive transport name
+ * \param buf_len Buffer length
+ *
+ * \retval 0 Success
+ * \retval -1 Failure
+ *
+ * \note
+ * If endpoint->transport is not NULL, it is returned in buf.
+ * Otherwise if sip_uri has an 'x-ast-txp' parameter AND the sip_uri host is
+ * an ip4 or ip6 address, its value is returned,
+ */
+int ast_sip_get_transport_name(const struct ast_sip_endpoint *endpoint,
+	pjsip_sip_uri *sip_uri, char *buf, size_t buf_len);
+
+/*!
+ * \brief Sets pjsip_tpselector from an endpoint or uri
+ * \since 13.15.0
+ *
+ * \param endpoint If endpoint->transport is set, it's used
+ * \param sip_uri If sip_uri contains a x-ast-txp parameter, it's used
+ * \param selector The selector to be populated
+ *
+ * \retval 0 success
+ * \retval -1 failure
+ */
+int ast_sip_set_tpselector_from_ep_or_uri(const struct ast_sip_endpoint *endpoint,
+	pjsip_sip_uri *sip_uri, pjsip_tpselector *selector);
+
+/*!
+ * \brief Set the transport on a dialog
+ * \since 13.15.0
+ *
+ * \param endpoint
+ * \param dlg
+ * \param selector (optional)
+ *
+ * \note
+ * This API calls ast_sip_get_transport_name(endpoint, dlg->target) and if the result is
+ * non-NULL, calls pjsip_dlg_set_transport.  If 'selector' is non-NULL, it is updated with
+ * the selector used.
+ */
+int ast_sip_dlg_set_transport(const struct ast_sip_endpoint *endpoint, pjsip_dialog *dlg,
+	pjsip_tpselector *selector);
 
 #endif /* _RES_PJSIP_H */

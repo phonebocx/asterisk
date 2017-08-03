@@ -305,6 +305,11 @@ static char *decode_chunk(char *chunk)
 	return orig;
 }
 
+#define IS_SQL_LIKE_CLAUSE(x) ((x) && ast_ends_with(x, " LIKE"))
+
+/* MySQL requires us to escape the escape... yo dawg */
+static char *ESCAPE_CLAUSE = " ESCAPE '\\\\'";
+
 static struct ast_variable *realtime_mysql(const char *database, const char *table, const struct ast_variable *rt_fields)
 {
 	struct mysql_conn *dbh;
@@ -317,6 +322,7 @@ static struct ast_variable *realtime_mysql(const char *database, const char *tab
 	char *stringp;
 	char *chunk;
 	char *op;
+	char *escape = "";
 	const struct ast_variable *field = rt_fields;
 	struct ast_variable *var=NULL, *prev=NULL;
 
@@ -347,20 +353,29 @@ static struct ast_variable *realtime_mysql(const char *database, const char *tab
 	/* Create the first part of the query using the first parameter/value pairs we just extracted
 	   If there is only 1 set, then we have our query. Otherwise, loop thru the list and concat */
 
-	if (!strchr(field->name, ' ')) 
-		op = " ="; 
-	else 
+	if (!strchr(field->name, ' ')) {
+		op = " =";
+	} else {
 		op = "";
+		if (IS_SQL_LIKE_CLAUSE(field->name)) {
+			escape = ESCAPE_CLAUSE;
+		}
+	}
 
 	ESCAPE_STRING(buf, field->value);
-	ast_str_set(&sql, 0, "SELECT * FROM %s WHERE %s%s '%s'", table, field->name, op, ast_str_buffer(buf));
+	ast_str_set(&sql, 0, "SELECT * FROM %s WHERE %s%s '%s'%s", table, field->name, op, ast_str_buffer(buf), escape);
 	while ((field = field->next)) {
-		if (!strchr(field->name, ' ')) 
-			op = " ="; 
-		else
+		escape = "";
+		if (!strchr(field->name, ' ')) {
+			op = " =";
+		} else {
 			op = "";
+			if (IS_SQL_LIKE_CLAUSE(field->name)) {
+				escape = ESCAPE_CLAUSE;
+			}
+		}
 		ESCAPE_STRING(buf, field->value);
-		ast_str_append(&sql, 0, " AND %s%s '%s'", field->name, op, ast_str_buffer(buf));
+		ast_str_append(&sql, 0, " AND %s%s '%s'%s", field->name, op, ast_str_buffer(buf), escape);
 	}
 
 	ast_debug(1, "MySQL RealTime: Retrieve SQL: %s\n", ast_str_buffer(sql));
@@ -418,6 +433,7 @@ static struct ast_config *realtime_multi_mysql(const char *database, const char 
 	char *stringp;
 	char *chunk;
 	char *op;
+	char *escape = "";
 	const struct ast_variable *field = rt_fields;
 	struct ast_variable *var = NULL;
 	struct ast_config *cfg = NULL;
@@ -464,17 +480,29 @@ static struct ast_config *realtime_multi_mysql(const char *database, const char 
 	/* Create the first part of the query using the first parameter/value pairs we just extracted
 	   If there is only 1 set, then we have our query. Otherwise, loop thru the list and concat */
 
-	if (!strchr(field->name, ' '))
+	if (!strchr(field->name, ' ')) {
 		op = " =";
-	else
+	} else {
 		op = "";
+		if (IS_SQL_LIKE_CLAUSE(field->name)) {
+			escape = ESCAPE_CLAUSE;
+		}
+	}
 
 	ESCAPE_STRING(buf, field->value);
-	ast_str_set(&sql, 0, "SELECT * FROM %s WHERE %s%s '%s'", table, field->name, op, ast_str_buffer(buf));
+	ast_str_set(&sql, 0, "SELECT * FROM %s WHERE %s%s '%s'%s", table, field->name, op, ast_str_buffer(buf), escape);
 	while ((field = field->next)) {
-		if (!strchr(field->name, ' ')) op = " ="; else op = "";
+		escape = "";
+		if (!strchr(field->name, ' ')) {
+			op = " =";
+		} else {
+			op = "";
+			if (IS_SQL_LIKE_CLAUSE(field->name)) {
+				escape = ESCAPE_CLAUSE;
+			}
+		}
 		ESCAPE_STRING(buf, field->value);
-		ast_str_append(&sql, 0, " AND %s%s '%s'", field->name, op, ast_str_buffer(buf));
+		ast_str_append(&sql, 0, " AND %s%s '%s'%s", field->name, op, ast_str_buffer(buf), escape);
 	}
 
 	if (initfield) {
@@ -497,9 +525,8 @@ static struct ast_config *realtime_multi_mysql(const char *database, const char 
 
 		while ((row = mysql_fetch_row(result))) {
 			var = NULL;
-			cat = ast_category_new("", "", -1);
+			cat = ast_category_new_anonymous();
 			if (!cat) {
-				ast_log(LOG_WARNING, "Out of memory!\n");
 				continue;
 			}
 			for (i = 0; i < numFields; i++) {
@@ -908,8 +935,8 @@ static struct ast_config *config_mysql(const char *database, const char *table, 
 			}
 
 			if (strcmp(last, row[0]) || last_cat_metric != atoi(row[3])) {
-				if (!(cur_cat = ast_category_new(row[0], "", -1))) {
-					ast_log(LOG_WARNING, "Out of memory!\n");
+				cur_cat = ast_category_new_dynamic(row[0]);
+				if (!cur_cat) {
 					break;
 				}
 				strcpy(last, row[0]);

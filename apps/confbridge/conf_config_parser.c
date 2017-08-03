@@ -1343,7 +1343,7 @@ static char *handle_cli_confbridge_show_user_profiles(struct ast_cli_entry *e, i
 	case CLI_INIT:
 		e->command = "confbridge show profile users";
 		e->usage =
-			"Usage confbridge show profile users\n";
+			"Usage: confbridge show profile users\n";
 		return NULL;
 	case CLI_GENERATE:
 		return NULL;
@@ -1373,7 +1373,7 @@ static char *handle_cli_confbridge_show_user_profile(struct ast_cli_entry *e, in
 	case CLI_INIT:
 		e->command = "confbridge show profile user";
 		e->usage =
-			"Usage confbridge show profile user [<profile name>]\n";
+			"Usage: confbridge show profile user [<profile name>]\n";
 		return NULL;
 	case CLI_GENERATE:
 		if (a->pos == 4) {
@@ -1494,7 +1494,7 @@ static char *handle_cli_confbridge_show_bridge_profiles(struct ast_cli_entry *e,
 	case CLI_INIT:
 		e->command = "confbridge show profile bridges";
 		e->usage =
-			"Usage confbridge show profile bridges\n";
+			"Usage: confbridge show profile bridges\n";
 		return NULL;
 	case CLI_GENERATE:
 		return NULL;
@@ -1526,7 +1526,7 @@ static char *handle_cli_confbridge_show_bridge_profile(struct ast_cli_entry *e, 
 	case CLI_INIT:
 		e->command = "confbridge show profile bridge";
 		e->usage =
-			"Usage confbridge show profile bridge <profile name>\n";
+			"Usage: confbridge show profile bridge <profile name>\n";
 		return NULL;
 	case CLI_GENERATE:
 		if (a->pos == 4) {
@@ -1668,7 +1668,7 @@ static char *handle_cli_confbridge_show_menus(struct ast_cli_entry *e, int cmd, 
 	case CLI_INIT:
 		e->command = "confbridge show menus";
 		e->usage =
-			"Usage confbridge show profile menus\n";
+			"Usage: confbridge show profile menus\n";
 		return NULL;
 	case CLI_GENERATE:
 		return NULL;
@@ -1702,7 +1702,7 @@ static char *handle_cli_confbridge_show_menu(struct ast_cli_entry *e, int cmd, s
 	case CLI_INIT:
 		e->command = "confbridge show menu";
 		e->usage =
-			"Usage confbridge show menu [<menu name>]\n";
+			"Usage: confbridge show menu [<menu name>]\n";
 		return NULL;
 	case CLI_GENERATE:
 		if (a->pos == 3) {
@@ -2022,7 +2022,7 @@ static int conf_menu_profile_copy(struct conf_menu *dst, struct conf_menu *src)
 static int menu_template_handler(const struct aco_option *opt, struct ast_variable *var, void *obj)
 {
 	struct conf_menu *dst_menu = obj;
-	struct confbridge_cfg *cfg = aco_pending_config(&cfg_info);
+	RAII_VAR(struct confbridge_cfg *, cfg, ao2_global_obj_ref(cfg_handle), ao2_cleanup);
 	RAII_VAR(struct conf_menu *, src_menu, NULL, ao2_cleanup);
 
 	if (!cfg) {
@@ -2057,6 +2057,7 @@ static int verify_default_profiles(void)
 	RAII_VAR(struct user_profile *, user_profile, NULL, ao2_cleanup);
 	RAII_VAR(struct bridge_profile *, bridge_profile, NULL, ao2_cleanup);
 	RAII_VAR(struct conf_menu *, menu_profile, NULL, ao2_cleanup);
+	/* We can only be called as a result of an aco_process_config so this is safe */
 	struct confbridge_cfg *cfg = aco_pending_config(&cfg_info);
 
 	if (!cfg) {
@@ -2154,6 +2155,7 @@ int conf_load_config(void)
 
 	/* Menu options */
 	aco_option_register(&cfg_info, "type", ACO_EXACT, menu_types, NULL, OPT_NOOP_T, 0, 0);
+	/* This option should only be used with the CONFBRIDGE dialplan function */
 	aco_option_register_custom(&cfg_info, "template", ACO_EXACT, menu_types, NULL, menu_template_handler, 0);
 	aco_option_register_custom(&cfg_info, "^[0-9A-D*#]+$", ACO_REGEX, menu_types, NULL, menu_option_handler, 0);
 

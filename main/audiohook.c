@@ -186,7 +186,7 @@ int ast_audiohook_write_frame(struct ast_audiohook *audiohook, enum ast_audiohoo
 	other_factory_samples = ast_slinfactory_available(other_factory);
 	other_factory_ms = other_factory_samples / (audiohook->hook_internal_samp_rate / 1000);
 
-	if (ast_test_flag(audiohook, AST_AUDIOHOOK_TRIGGER_SYNC) && other_factory_samples && (our_factory_ms - other_factory_ms > AST_AUDIOHOOK_SYNC_TOLERANCE)) {
+	if (ast_test_flag(audiohook, AST_AUDIOHOOK_TRIGGER_SYNC) && (our_factory_ms - other_factory_ms > AST_AUDIOHOOK_SYNC_TOLERANCE)) {
 		ast_debug(1, "Flushing audiohook %p so it remains in sync\n", audiohook);
 		ast_slinfactory_flush(factory);
 		ast_slinfactory_flush(other_factory);
@@ -942,6 +942,15 @@ static struct ast_frame *audio_audiohook_write_list(struct ast_channel *chan, st
 	if (!(middle_frame = audiohook_list_translate_to_slin(audiohook_list, direction, start_frame))) {
 		return frame;
 	}
+
+	/* If the translation resulted in an interpolated frame then immediately return as audiohooks
+	 * rely on actual media being present to do things.
+	 */
+	if (!middle_frame->data.ptr) {
+		ast_frfree(middle_frame);
+		return start_frame;
+	}
+
 	samples = middle_frame->samples;
 
 	/*

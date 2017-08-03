@@ -74,7 +74,7 @@ static void ssl_lock(int mode, int n, const char *file, int line)
 	}
 }
 
-#if !defined(OPENSSL_API_COMPAT) || OPENSSL_API_COMPAT < 0x10100000L
+#if !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER)
 int SSL_library_init(void)
 {
 #if defined(AST_DEVMODE)
@@ -116,17 +116,20 @@ void ERR_free_strings(void)
 {
 	/* we can't allow this to be called, ever */
 }
-#endif /* !defined(OPENSSL_API_COMPAT) || OPENSSL_API_COMPAT < 0x10100000L */
+#endif /* !defined(OPENSSL_VERSION_NUMBER) || OPENSSL_VERSION_NUMBER < 0x10100000L */
 
 #endif /* HAVE_OPENSSL */
 
 /*!
  * \internal
  * \brief Common OpenSSL initialization for all of Asterisk.
+ *
+ * Not needed for OpenSSL versions >= 1.1.0
  */
 int ast_ssl_init(void)
 {
-#ifdef HAVE_OPENSSL
+#if defined(HAVE_OPENSSL) && defined(OPENSSL_VERSION_NUMBER) && \
+	(OPENSSL_VERSION_NUMBER < 0x10100000L || defined(LIBRESSL_VERSION_NUMBER))
 	unsigned int i;
 	int (*real_SSL_library_init)(void);
 	void (*real_CRYPTO_set_id_callback)(unsigned long (*)(void));
@@ -191,7 +194,7 @@ int ast_ssl_init(void)
 
 	startup_complete = 1;
 
-#endif /* HAVE_OPENSSL */
+#endif /* HAVE_OPENSSL and its version < 1.1 */
 	return 0;
 }
 

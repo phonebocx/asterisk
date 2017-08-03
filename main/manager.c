@@ -4819,14 +4819,10 @@ static int action_redirect(struct mansession *s, const struct message *m)
 
 	/* Release the bridge wait. */
 	if (chan1_wait) {
-		ast_channel_lock(chan);
-		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BRIDGE_DUAL_REDIRECT_WAIT);
-		ast_channel_unlock(chan);
+		ast_channel_clear_flag(chan, AST_FLAG_BRIDGE_DUAL_REDIRECT_WAIT);
 	}
 	if (chan2_wait) {
-		ast_channel_lock(chan2);
-		ast_clear_flag(ast_channel_flags(chan2), AST_FLAG_BRIDGE_DUAL_REDIRECT_WAIT);
-		ast_channel_unlock(chan2);
+		ast_channel_clear_flag(chan2, AST_FLAG_BRIDGE_DUAL_REDIRECT_WAIT);
 	}
 
 	chan2 = ast_channel_unref(chan2);
@@ -5096,13 +5092,15 @@ static void *fast_originate(void *data)
 
 	if (!ast_strlen_zero(in->app)) {
 		res = ast_pbx_outgoing_app(in->tech, in->cap, in->data,
-			in->timeout, in->app, in->appdata, &reason, 1,
+			in->timeout, in->app, in->appdata, &reason,
+			AST_OUTGOING_WAIT,
 			S_OR(in->cid_num, NULL),
 			S_OR(in->cid_name, NULL),
 			in->vars, in->account, &chan, &assignedids);
 	} else {
 		res = ast_pbx_outgoing_exten(in->tech, in->cap, in->data,
-			in->timeout, in->context, in->exten, in->priority, &reason, 1,
+			in->timeout, in->context, in->exten, in->priority, &reason,
+			AST_OUTGOING_WAIT,
 			S_OR(in->cid_num, NULL),
 			S_OR(in->cid_name, NULL),
 			in->vars, in->account, &chan, in->early_media, &assignedids);
@@ -5573,11 +5571,16 @@ static int action_originate(struct mansession *s, const struct message *m)
 			}
 		}
 	} else if (!ast_strlen_zero(app)) {
-		res = ast_pbx_outgoing_app(tech, cap, data, to, app, appdata, &reason, 1, l, n, vars, account, NULL, assignedids.uniqueid ? &assignedids : NULL);
+		res = ast_pbx_outgoing_app(tech, cap, data, to, app, appdata, &reason,
+				AST_OUTGOING_WAIT, l, n, vars, account, NULL,
+				assignedids.uniqueid ? &assignedids : NULL);
 		ast_variables_destroy(vars);
 	} else {
 		if (exten && context && pi) {
-			res = ast_pbx_outgoing_exten(tech, cap, data, to, context, exten, pi, &reason, 1, l, n, vars, account, NULL, bridge_early, assignedids.uniqueid ? &assignedids : NULL);
+			res = ast_pbx_outgoing_exten(tech, cap, data, to,
+					context, exten, pi, &reason, AST_OUTGOING_WAIT,
+					l, n, vars, account, NULL, bridge_early,
+					assignedids.uniqueid ? &assignedids : NULL);
 			ast_variables_destroy(vars);
 		} else {
 			astman_send_error(s, m, "Originate with 'Exten' requires 'Context' and 'Priority'");
@@ -5639,8 +5642,9 @@ static int action_extensionstate(struct mansession *s, const struct message *m)
 {
 	const char *exten = astman_get_header(m, "Exten");
 	const char *context = astman_get_header(m, "Context");
-	char hint[256] = "";
+	char hint[256];
 	int status;
+
 	if (ast_strlen_zero(exten)) {
 		astman_send_error(s, m, "Extension not specified");
 		return 0;
@@ -5649,16 +5653,18 @@ static int action_extensionstate(struct mansession *s, const struct message *m)
 		context = "default";
 	}
 	status = ast_extension_state(NULL, context, exten);
-	ast_get_hint(hint, sizeof(hint) - 1, NULL, 0, NULL, context, exten);
+	hint[0] = '\0';
+	ast_get_hint(hint, sizeof(hint), NULL, 0, NULL, context, exten);
 	astman_start_ack(s, m);
-	astman_append(s,   "Message: Extension Status\r\n"
-			   "Exten: %s\r\n"
-			   "Context: %s\r\n"
-			   "Hint: %s\r\n"
-			   "Status: %d\r\n"
-		           "StatusText: %s\r\n\r\n",
-		      exten, context, hint, status,
-		      ast_extension_state2str(status));
+	astman_append(s, "Message: Extension Status\r\n"
+		"Exten: %s\r\n"
+		"Context: %s\r\n"
+		"Hint: %s\r\n"
+		"Status: %d\r\n"
+		"StatusText: %s\r\n"
+		"\r\n",
+		exten, context, hint, status,
+		ast_extension_state2str(status));
 	return 0;
 }
 
@@ -6448,6 +6454,12 @@ static int get_input(struct mansession *s, char *output)
 	}
 
 	ao2_lock(s->session);
+	/*
+	 * It is worth noting here that you can all but ignore fread()'s documentation
+	 * for the purposes of this call. The FILE * we are working with here was created
+	 * as a result of a call to fopencookie() (or equivalent) in tcptls.c, and as such
+	 * the behavior of fread() is not as documented. Frankly, I think this is gross.
+	 */
 	res = fread(src + s->session->inlen, 1, maxlen - s->session->inlen, s->session->f);
 	if (res < 1) {
 		res = -1;	/* error return */
@@ -6581,10 +6593,9 @@ static void *session_do(void *data)
 	struct mansession s = {
 		.tcptls_session = data,
 	};
-	int flags;
+	int flags = 1;
 	int res;
 	struct ast_sockaddr ser_remote_address_tmp;
-	struct protoent *p;
 
 	if (ast_atomic_fetchadd_int(&unauth_sessions, +1) >= authlimit) {
 		fclose(ser->f);
@@ -6604,14 +6615,8 @@ static void *session_do(void *data)
 	/* here we set TCP_NODELAY on the socket to disable Nagle's algorithm.
 	 * This is necessary to prevent delays (caused by buffering) as we
 	 * write to the socket in bits and pieces. */
-	p = getprotobyname("tcp");
-	if (p) {
-		int arg = 1;
-		if( setsockopt(ser->fd, p->p_proto, TCP_NODELAY, (char *)&arg, sizeof(arg) ) < 0 ) {
-			ast_log(LOG_WARNING, "Failed to set manager tcp connection to TCP_NODELAY mode: %s\nSome manager actions may be slow to respond.\n", strerror(errno));
-		}
-	} else {
-		ast_log(LOG_WARNING, "Failed to set manager tcp connection to TCP_NODELAY, getprotobyname(\"tcp\") failed\nSome manager actions may be slow to respond.\n");
+	if (setsockopt(ser->fd, IPPROTO_TCP, TCP_NODELAY, (char *) &flags, sizeof(flags)) < 0) {
+		ast_log(LOG_WARNING, "Failed to set TCP_NODELAY on manager connection: %s\n", strerror(errno));
 	}
 
 	/* make sure socket is non-blocking */
@@ -6944,6 +6949,7 @@ static int manager_state_cb(char *context, char *exten, struct ast_state_cb_info
 	/* Notify managers of change */
 	char hint[512];
 
+	hint[0] = '\0';
 	ast_get_hint(hint, sizeof(hint), NULL, 0, NULL, context, exten);
 
 	switch(info->reason) {
@@ -8713,6 +8719,10 @@ static void manager_shutdown(void)
 	ami_tls_cfg.pvtfile = NULL;
 	ast_free(ami_tls_cfg.cipher);
 	ami_tls_cfg.cipher = NULL;
+	ast_free(ami_tls_cfg.cafile);
+	ami_tls_cfg.cafile = NULL;
+	ast_free(ami_tls_cfg.capath);
+	ami_tls_cfg.capath = NULL;
 
 	ao2_global_obj_release(mgr_sessions);
 
@@ -8813,6 +8823,10 @@ static void manager_set_defaults(void)
 	ami_tls_cfg.pvtfile = ast_strdup("");
 	ast_free(ami_tls_cfg.cipher);
 	ami_tls_cfg.cipher = ast_strdup("");
+	ast_free(ami_tls_cfg.cafile);
+	ami_tls_cfg.cafile = ast_strdup("");
+	ast_free(ami_tls_cfg.capath);
+	ami_tls_cfg.capath = ast_strdup("");
 }
 
 static int __init_manager(int reload, int by_external_config)
