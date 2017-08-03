@@ -210,6 +210,10 @@
 /* Define to 1 if you have the `euidaccess' function. */
 #undef HAVE_EUIDACCESS
 
+/* Define to 1 if your system supports eventfd and the EFD_NONBLOCK and
+   EFD_SEMAPHORE flags. */
+#undef HAVE_EVENTFD
+
 /* Define to 1 if you have the `exp' function. */
 #undef HAVE_EXP
 
@@ -597,6 +601,10 @@
 /* Define to 1 if PJPROJECT has the PJSIP EVSUB Group Lock support feature. */
 #undef HAVE_PJSIP_EVSUB_GRP_LOCK
 
+/* Define to 1 if PJPROJECT has the PJSIP EVSUB Set UAS Timeout support
+   feature. */
+#undef HAVE_PJSIP_EVSUB_SET_UAS_TIMEOUT
+
 /* Define to 1 if PJPROJECT has the PJSIP External Resolver Support feature.
    */
 #undef HAVE_PJSIP_EXTERNAL_RESOLVER
@@ -613,6 +621,10 @@
 
 /* Define if your system has the PJSIP_TLS_TRANSPORT_PROTO headers. */
 #undef HAVE_PJSIP_TLS_TRANSPORT_PROTO
+
+/* Define to 1 if PJPROJECT has the pjsip_tsx_layer_find_tsx2 support feature.
+   */
+#undef HAVE_PJSIP_TSX_LAYER_FIND_TSX2
 
 /* Define to 1 if PJPROJECT has the pj_ssl_cert_load_from_files2 support
    feature. */
@@ -858,6 +870,9 @@
 
 /* Define to 1 if SRTP has the SRTP Library Shutdown Function feature. */
 #undef HAVE_SRTP_SHUTDOWN
+
+/* Define to the version of the srtp library. */
+#undef HAVE_SRTP_VERSION
 
 /* Define to 1 if you have the ISDN SS7 library. */
 #undef HAVE_SS7

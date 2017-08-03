@@ -1038,5 +1038,115 @@ ALTER TABLE ps_endpoint_id_ips ADD COLUMN srv_lookups yesno_values;
 
 UPDATE alembic_version SET version_num='28ab27a7826d' WHERE alembic_version.version_num = '4468b4a91372';
 
+-- Running upgrade 28ab27a7826d -> 465e70e8c337
+
+ALTER TABLE ps_endpoint_id_ips ADD COLUMN match_header VARCHAR(255);
+
+UPDATE alembic_version SET version_num='465e70e8c337' WHERE alembic_version.version_num = '28ab27a7826d';
+
+-- Running upgrade 465e70e8c337 -> 15db7b91a97a
+
+ALTER TABLE ps_endpoints ADD COLUMN rtcp_mux yesno_values;
+
+UPDATE alembic_version SET version_num='15db7b91a97a' WHERE alembic_version.version_num = '465e70e8c337';
+
+-- Running upgrade 15db7b91a97a -> f638dbe2eb23
+
+ALTER TABLE ps_transports ADD COLUMN symmetric_transport yesno_values;
+
+ALTER TABLE ps_subscription_persistence ADD COLUMN contact_uri VARCHAR(256);
+
+UPDATE alembic_version SET version_num='f638dbe2eb23' WHERE alembic_version.version_num = '15db7b91a97a';
+
+-- Running upgrade f638dbe2eb23 -> 8fce4c573e15
+
+ALTER TABLE ps_endpoints ADD COLUMN allow_overlap yesno_values;
+
+UPDATE alembic_version SET version_num='8fce4c573e15' WHERE alembic_version.version_num = 'f638dbe2eb23';
+
+-- Running upgrade 8fce4c573e15 -> 2da192dbbc65
+
+CREATE TABLE ps_outbound_publishes (
+    id VARCHAR(40) NOT NULL, 
+    expiration INTEGER, 
+    outbound_auth VARCHAR(40), 
+    outbound_proxy VARCHAR(256), 
+    server_uri VARCHAR(256), 
+    from_uri VARCHAR(256), 
+    to_uri VARCHAR(256), 
+    event VARCHAR(40), 
+    max_auth_attempts INTEGER, 
+    transport VARCHAR(40), 
+    multi_user yesno_values, 
+    "@body" VARCHAR(40), 
+    "@context" VARCHAR(256), 
+    "@exten" VARCHAR(256), 
+    UNIQUE (id)
+);
+
+CREATE INDEX ps_outbound_publishes_id ON ps_outbound_publishes (id);
+
+CREATE TABLE ps_inbound_publications (
+    id VARCHAR(40) NOT NULL, 
+    endpoint VARCHAR(40), 
+    "event_asterisk-devicestate" VARCHAR(40), 
+    "event_asterisk-mwi" VARCHAR(40), 
+    UNIQUE (id)
+);
+
+CREATE INDEX ps_inbound_publications_id ON ps_inbound_publications (id);
+
+CREATE TABLE ps_asterisk_publications (
+    id VARCHAR(40) NOT NULL, 
+    devicestate_publish VARCHAR(40), 
+    mailboxstate_publish VARCHAR(40), 
+    device_state yesno_values, 
+    device_state_filter VARCHAR(256), 
+    mailbox_state yesno_values, 
+    mailbox_state_filter VARCHAR(256), 
+    UNIQUE (id)
+);
+
+CREATE INDEX ps_asterisk_publications_id ON ps_asterisk_publications (id);
+
+UPDATE alembic_version SET version_num='2da192dbbc65' WHERE alembic_version.version_num = '8fce4c573e15';
+
+-- Running upgrade 2da192dbbc65 -> 1d0e332c32af
+
+CREATE TABLE ps_resource_list (
+    id VARCHAR(40) NOT NULL, 
+    list_item VARCHAR(2048), 
+    event VARCHAR(40), 
+    full_state yesno_values, 
+    notification_batch_interval INTEGER, 
+    UNIQUE (id)
+);
+
+CREATE INDEX ps_resource_list_id ON ps_resource_list (id);
+
+UPDATE alembic_version SET version_num='1d0e332c32af' WHERE alembic_version.version_num = '2da192dbbc65';
+
+-- Running upgrade 1d0e332c32af -> 86bb1efa278d
+
+ALTER TABLE ps_endpoints ADD COLUMN refer_blind_progress yesno_values;
+
+UPDATE alembic_version SET version_num='86bb1efa278d' WHERE alembic_version.version_num = '1d0e332c32af';
+
+-- Running upgrade 86bb1efa278d -> d7983954dd96
+
+ALTER TABLE ps_endpoints ADD COLUMN notify_early_inuse_ringing yesno_values;
+
+UPDATE alembic_version SET version_num='d7983954dd96' WHERE alembic_version.version_num = '86bb1efa278d';
+
+-- Running upgrade d7983954dd96 -> 164abbd708c
+
+CREATE TYPE pjsip_dtmf_mode_values_v3 AS ENUM ('rfc4733', 'inband', 'info', 'auto', 'auto_info');
+
+ALTER TABLE ps_endpoints ALTER COLUMN dtmf_mode TYPE pjsip_dtmf_mode_values_v3 USING dtmf_mode::text::pjsip_dtmf_mode_values_v3;
+
+DROP TYPE pjsip_dtmf_mode_values_v2;
+
+UPDATE alembic_version SET version_num='164abbd708c' WHERE alembic_version.version_num = 'd7983954dd96';
+
 COMMIT;
 

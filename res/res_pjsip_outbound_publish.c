@@ -54,10 +54,21 @@
 					<synopsis>Expiration time for publications in seconds</synopsis>
 				</configOption>
 				<configOption name="outbound_auth" default="">
-					<synopsis>Authentication object to be used for outbound publishes.</synopsis>
+					<synopsis>Authentication object(s) to be used for outbound publishes.</synopsis>
+					<description><para>
+						This is a comma-delimited list of <replaceable>auth</replaceable>
+						sections defined in <filename>pjsip.conf</filename> used to respond
+						to outbound authentication challenges.</para>
+						<note><para>
+						Using the same auth section for inbound and outbound
+						authentication is not recommended.  There is a difference in
+						meaning for an empty realm setting between inbound and outbound
+						authentication uses.  See the auth realm description for details.
+						</para></note>
+					</description>
 				</configOption>
 				<configOption name="outbound_proxy" default="">
-					<synopsis>SIP URI of the outbound proxy used to send publishes</synopsis>
+					<synopsis>Full SIP URI of the outbound proxy used to send publishes</synopsis>
 				</configOption>
 				<configOption name="server_uri">
 					<synopsis>SIP URI of the server and entity to publish to</synopsis>
@@ -349,6 +360,7 @@ static int send_unpublish_task(void *data)
 			pjsip_tx_data_set_transport(tdata, &selector);
 		}
 
+		ast_sip_record_request_serializer(tdata);
 		pjsip_publishc_send(client->client, tdata);
 	}
 
@@ -598,6 +610,7 @@ static int sip_publish_client_service_queue(void *data)
 		pjsip_tx_data_set_transport(tdata, &selector);
 	}
 
+	ast_sip_record_request_serializer(tdata);
 	status = pjsip_publishc_send(client->client, tdata);
 	if (status == PJ_EBUSY) {
 		/* We attempted to send the message but something else got there first */
@@ -910,6 +923,7 @@ static void sip_outbound_publish_callback(struct pjsip_publishc_cbparam *param)
 				pjsip_tx_data_set_transport(tdata, &selector);
 			}
 
+			ast_sip_record_request_serializer(tdata);
 			pjsip_publishc_send(client->client, tdata);
 		}
 		client->auth_attempts++;
@@ -1255,7 +1269,7 @@ static int load_module(void)
 
 	shutdown_group = ast_serializer_shutdown_group_alloc();
 	if (!shutdown_group) {
-		return AST_MODULE_LOAD_FAILURE;
+		return AST_MODULE_LOAD_DECLINE;
 	}
 
 	ast_sorcery_apply_config(ast_sip_get_sorcery(), "res_pjsip_outbound_publish");

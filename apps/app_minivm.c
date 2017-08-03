@@ -856,16 +856,16 @@ static int b64_inbuf(struct b64_baseio *bio, FILE *fi)
 	if (bio->ateof)
 		return 0;
 
-	if ((l = fread(bio->iobuf, 1, B64_BASEMAXINLINE,fi)) <= 0) {
-		if (ferror(fi))
-			return -1;
-
+	if ((l = fread(bio->iobuf, 1, B64_BASEMAXINLINE, fi)) != B64_BASEMAXINLINE) {
 		bio->ateof = 1;
-		return 0;
+		if (l == 0) {
+			/* Assume EOF */
+			return 0;
+		}
 	}
 
-	bio->iolen= l;
-	bio->iocp= 0;
+	bio->iolen = l;
+	bio->iocp = 0;
 
 	return 1;
 }
@@ -3016,11 +3016,9 @@ static char *complete_minivm_show_users(const char *line, const char *word, int 
 	struct minivm_account *vmu;
 	const char *domain = "";
 
-	/* 0 - voicemail; 1 - list; 2 - accounts; 3 - for; 4 - <domain> */
+	/* 0 - minivm; 1 - list; 2 - accounts; 3 - for; 4 - <domain> */
 	if (pos > 4)
 		return NULL;
-	if (pos == 3)
-		return (state == 0) ? ast_strdup("for") : NULL;
 	wordlen = strlen(word);
 	AST_LIST_TRAVERSE(&minivm_accounts, vmu, list) {
 		if (!strncasecmp(word, vmu->domain, wordlen)) {
@@ -3042,9 +3040,9 @@ static char *handle_minivm_show_users(struct ast_cli_entry *e, int cmd, struct a
 
 	switch (cmd) {
 	case CLI_INIT:
-		e->command = "minivm list accounts";
+		e->command = "minivm list accounts [for]";
 		e->usage =
-			"Usage: minivm list accounts\n"
+			"Usage: minivm list accounts [for <domain>]\n"
 			"       Lists all mailboxes currently set up\n";
 		return NULL;
 	case CLI_GENERATE:

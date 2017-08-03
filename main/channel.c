@@ -820,7 +820,12 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 	ast_channel_stage_snapshot(tmp);
 
 	if (!(nativeformats = ast_format_cap_alloc(AST_FORMAT_CAP_FLAG_DEFAULT))) {
-		/* format capabilities structure allocation failure */
+		/*
+		 * Aborting the channel creation.  We do not need to complete staging
+		 * the channel snapshot because the channel has not been finalized or
+		 * linked into the channels container yet.  Nobody else knows about
+		 * this channel nor will anybody ever know about it.
+		 */
 		return ast_channel_unref(tmp);
 	}
 	ast_format_cap_append(nativeformats, ast_format_none, 0);
@@ -846,6 +851,7 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 
 	if (!(schedctx = ast_sched_context_create())) {
 		ast_log(LOG_WARNING, "Channel allocation failed: Unable to create schedule context\n");
+		/* See earlier channel creation abort comment above. */
 		return ast_channel_unref(tmp);
 	}
 	ast_channel_sched_set(tmp, schedctx);
@@ -860,6 +866,7 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 		ast_channel_caller(tmp)->id.name.valid = 1;
 		ast_channel_caller(tmp)->id.name.str = ast_strdup(cid_name);
 		if (!ast_channel_caller(tmp)->id.name.str) {
+			/* See earlier channel creation abort comment above. */
 			return ast_channel_unref(tmp);
 		}
 	}
@@ -867,6 +874,7 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 		ast_channel_caller(tmp)->id.number.valid = 1;
 		ast_channel_caller(tmp)->id.number.str = ast_strdup(cid_num);
 		if (!ast_channel_caller(tmp)->id.number.str) {
+			/* See earlier channel creation abort comment above. */
 			return ast_channel_unref(tmp);
 		}
 	}
@@ -880,6 +888,7 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 	}
 
 	if (needqueue && ast_channel_internal_alertpipe_init(tmp)) {
+		/* See earlier channel creation abort comment above. */
 		return ast_channel_unref(tmp);
 	}
 
@@ -971,20 +980,14 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 	if (assignedids && (does_id_conflict(assignedids->uniqueid) || does_id_conflict(assignedids->uniqueid2))) {
 		ast_channel_internal_errno_set(AST_CHANNEL_ERROR_ID_EXISTS);
 		ao2_unlock(channels);
-		/* This is a bit unorthodox, but we can't just call ast_channel_stage_snapshot_done()
-		 * because that will result in attempting to publish the channel snapshot. That causes
-		 * badness in some places, such as CDRs. So we need to manually clear the flag on the
-		 * channel that says that a snapshot is being cleared.
-		 */
-		ast_clear_flag(ast_channel_flags(tmp), AST_FLAG_SNAPSHOT_STAGE);
 		ast_channel_unlock(tmp);
+		/* See earlier channel creation abort comment above. */
 		return ast_channel_unref(tmp);
 	}
 
+	/* Finalize and link into the channels container. */
 	ast_channel_internal_finalize(tmp);
-
 	ast_atomic_fetchadd_int(&chancount, +1);
-
 	ao2_link_flags(channels, tmp, OBJ_NOLOCK);
 
 	ao2_unlock(channels);
@@ -998,6 +1001,9 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 	 * the world know of its existance
 	 */
 	ast_channel_stage_snapshot_done(tmp);
+
+	ast_debug(1, "Channel %p '%s' allocated\n", tmp, ast_channel_name(tmp));
+
 	return tmp;
 }
 
@@ -1293,8 +1299,10 @@ int ast_channel_defer_dtmf(struct ast_channel *chan)
 	int pre = 0;
 
 	if (chan) {
+		ast_channel_lock(chan);
 		pre = ast_test_flag(ast_channel_flags(chan), AST_FLAG_DEFER_DTMF);
 		ast_set_flag(ast_channel_flags(chan), AST_FLAG_DEFER_DTMF);
+		ast_channel_unlock(chan);
 	}
 	return pre;
 }
@@ -1302,8 +1310,9 @@ int ast_channel_defer_dtmf(struct ast_channel *chan)
 /*! \brief Unset defer DTMF flag on channel */
 void ast_channel_undefer_dtmf(struct ast_channel *chan)
 {
-	if (chan)
-		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_DEFER_DTMF);
+	if (chan) {
+		ast_channel_clear_flag(chan, AST_FLAG_DEFER_DTMF);
+	}
 }
 
 struct ast_channel *ast_channel_callback(ao2_callback_data_fn *cb_fn, void *arg,
@@ -2221,6 +2230,8 @@ static void ast_channel_destructor(void *obj)
 	char device_name[AST_CHANNEL_NAME];
 	struct ast_callid *callid;
 
+	ast_debug(1, "Channel %p '%s' destroying\n", chan, ast_channel_name(chan));
+
 	/* Stop monitoring */
 	if (ast_channel_monitor(chan)) {
 		ast_channel_monitor(chan)->stop(chan, 0);
@@ -2666,6 +2677,9 @@ void ast_hangup(struct ast_channel *chan)
 		return;
 	}
 
+	ast_debug(1, "Channel %p '%s' hanging up.  Refs: %d\n", chan, ast_channel_name(chan),
+		ao2_ref(chan, 0));
+
 	ast_autoservice_stop(chan);
 
 	ast_channel_lock(chan);
@@ -2725,7 +2739,6 @@ void ast_hangup(struct ast_channel *chan)
 		ast_assert(ast_test_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING) == 0);
 	}
 
-	ast_debug(1, "Hanging up channel '%s'\n", ast_channel_name(chan));
 	if (ast_channel_tech(chan)->hangup) {
 		ast_channel_tech(chan)->hangup(chan);
 	}
@@ -3130,7 +3143,9 @@ struct ast_channel *ast_waitfor_nandfds(struct ast_channel **c, int n, int *fds,
 			fdmap[max].chan = x;  /* channel x is linked to this pfds */
 			max += ast_add_fd(&pfds[max], ast_channel_fd(c[x], y));
 		}
+		ast_channel_lock(c[x]);
 		CHECK_BLOCKING(c[x]);
+		ast_channel_unlock(c[x]);
 	}
 	/* Add the individual fds */
 	for (x = 0; x < nfds; x++) {
@@ -3157,7 +3172,9 @@ struct ast_channel *ast_waitfor_nandfds(struct ast_channel **c, int n, int *fds,
 		res = ast_poll(pfds, max, rms);
 	}
 	for (x = 0; x < n; x++) {
+		ast_channel_lock(c[x]);
 		ast_clear_flag(ast_channel_flags(c[x]), AST_FLAG_BLOCKING);
+		ast_channel_unlock(c[x]);
 	}
 	if (res < 0) { /* Simulate a timeout if we were interrupted */
 		if (errno != EINTR) {
@@ -3193,12 +3210,14 @@ struct ast_channel *ast_waitfor_nandfds(struct ast_channel **c, int n, int *fds,
 		}
 		if (fdmap[x].chan >= 0) {	/* this is a channel */
 			winner = c[fdmap[x].chan];	/* override previous winners */
+			ast_channel_lock(winner);
 			if (res & POLLPRI) {
 				ast_set_flag(ast_channel_flags(winner), AST_FLAG_EXCEPTION);
 			} else {
 				ast_clear_flag(ast_channel_flags(winner), AST_FLAG_EXCEPTION);
 			}
 			ast_channel_fdno_set(winner, fdmap[x].fdno);
+			ast_channel_unlock(winner);
 		} else {			/* this is an fd */
 			if (outfd) {
 				*outfd = pfds[x].fd;
@@ -3509,7 +3528,7 @@ int ast_waitfordigit_full(struct ast_channel *c, int timeout_ms, int audiofd, in
 		return -1;
 
 	/* Only look for the end of DTMF, don't bother with the beginning and don't emulate things */
-	ast_set_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
+	ast_channel_set_flag(c, AST_FLAG_END_DTMF_ONLY);
 
 	/* Wait for a digit, no more than timeout_ms milliseconds total.
 	 * Or, wait indefinitely if timeout_ms is <0.
@@ -3528,18 +3547,22 @@ int ast_waitfordigit_full(struct ast_channel *c, int timeout_ms, int audiofd, in
 			if (errno == 0 || errno == EINTR)
 				continue;
 			ast_log(LOG_WARNING, "Wait failed (%s)\n", strerror(errno));
-			ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
+			ast_channel_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
 			return -1;
 		} else if (outfd > -1) {
 			/* The FD we were watching has something waiting */
 			ast_log(LOG_WARNING, "The FD we were waiting for has something waiting. Waitfordigit returning numeric 1\n");
-			ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
+			ast_channel_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
 			return 1;
 		} else if (rchan) {
 			int res;
 			struct ast_frame *f = ast_read(c);
-			if (!f)
+
+			if (!f) {
+				ast_channel_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
+
 				return -1;
+			}
 
 			switch (f->frametype) {
 			case AST_FRAME_DTMF_BEGIN:
@@ -3547,13 +3570,13 @@ int ast_waitfordigit_full(struct ast_channel *c, int timeout_ms, int audiofd, in
 			case AST_FRAME_DTMF_END:
 				res = f->subclass.integer;
 				ast_frfree(f);
-				ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
+				ast_channel_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
 				return res;
 			case AST_FRAME_CONTROL:
 				switch (f->subclass.integer) {
 				case AST_CONTROL_HANGUP:
 					ast_frfree(f);
-					ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
+					ast_channel_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
 					return -1;
 				case AST_CONTROL_STREAM_STOP:
 				case AST_CONTROL_STREAM_SUSPEND:
@@ -3564,7 +3587,7 @@ int ast_waitfordigit_full(struct ast_channel *c, int timeout_ms, int audiofd, in
 					 * that perform stream control will handle this. */
 					res = f->subclass.integer;
 					ast_frfree(f);
-					ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
+					ast_channel_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
 					return res;
 				case AST_CONTROL_PVT_CAUSE_CODE:
 				case AST_CONTROL_RINGING:
@@ -3599,7 +3622,7 @@ int ast_waitfordigit_full(struct ast_channel *c, int timeout_ms, int audiofd, in
 		}
 	}
 
-	ast_clear_flag(ast_channel_flags(c), AST_FLAG_END_DTMF_ONLY);
+	ast_channel_clear_flag(c, AST_FLAG_END_DTMF_ONLY);
 
 	return 0; /* Time is up */
 }
@@ -5222,26 +5245,21 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 			apply_plc(chan, fr);
 		}
 
+		f = fr;
+
 		/*
 		 * Send frame to audiohooks if present, if frametype is linear (else, later as per
 		 * previous behavior)
 		 */
 		if (ast_channel_audiohooks(chan)) {
 			if (ast_format_cache_is_slinear(fr->subclass.format)) {
-				struct ast_frame *old_frame;
 				hooked = 1;
-				old_frame = fr;
-				fr = ast_audiohook_write_list(chan, ast_channel_audiohooks(chan), AST_AUDIOHOOK_DIRECTION_WRITE, fr);
-				if (old_frame != fr) {
-					ast_frfree(old_frame);
-				}
+				f = ast_audiohook_write_list(chan, ast_channel_audiohooks(chan), AST_AUDIOHOOK_DIRECTION_WRITE, fr);
 			}
 		}
 
 		/* If the frame is in the raw write format, then it's easy... just use the frame - otherwise we will have to translate */
-		if (ast_format_cmp(fr->subclass.format, ast_channel_rawwriteformat(chan)) == AST_FORMAT_CMP_EQUAL) {
-			f = fr;
-		} else {
+		if (ast_format_cmp(fr->subclass.format, ast_channel_rawwriteformat(chan)) != AST_FORMAT_CMP_EQUAL) {
 			if (ast_format_cmp(ast_channel_writeformat(chan), fr->subclass.format) != AST_FORMAT_CMP_EQUAL) {
 				struct ast_str *codec_buf = ast_str_alloca(AST_FORMAT_CAP_NAMES_LEN);
 
@@ -5267,7 +5285,20 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 					break;
 				}
 			}
-			f = ast_channel_writetrans(chan) ? ast_translate(ast_channel_writetrans(chan), fr, 0) : fr;
+
+			if (ast_channel_writetrans(chan)) {
+				struct ast_frame *trans_frame = ast_translate(ast_channel_writetrans(chan), f, 0);
+
+				if (trans_frame != f && f != fr) {
+					/*
+					 * If translate gives us a new frame and so did the audio
+					 * hook then we need to free the one from the audio hook.
+					 */
+					ast_frfree(f);
+				}
+				f = trans_frame;
+			}
+
 		}
 
 		if (!f) {
@@ -5864,9 +5895,9 @@ struct ast_channel *ast_call_forward(struct ast_channel *caller, struct ast_chan
 	} else if (caller) { /* no outgoing helper so use caller if available */
 		call_forward_inherit(new_chan, caller, orig);
 	}
-	ast_set_flag(ast_channel_flags(new_chan), AST_FLAG_ORIGINATED);
 
 	ast_channel_lock_both(orig, new_chan);
+	ast_channel_set_flag(new_chan, AST_FLAG_ORIGINATED);
 	pbx_builtin_setvar_helper(new_chan, "FORWARDERNAME", forwarder);
 	ast_party_connected_line_copy(ast_channel_connected(new_chan), ast_channel_connected(orig));
 	ast_party_redirecting_copy(ast_channel_redirecting(new_chan), ast_channel_redirecting(orig));
@@ -9180,7 +9211,7 @@ static int redirecting_reason_build_data(unsigned char *data, size_t datalen,
 
 	if (reason->str) {
 		length = strlen(reason->str);
-		if (datalen < pos + sizeof(data[0] * 2) + length) {
+		if (datalen < pos + (sizeof(data[0]) * 2) + length) {
 			ast_log(LOG_WARNING, "No space left for %s string\n", label);
 			return -1;
 		}
@@ -10633,6 +10664,7 @@ struct ast_channel *ast_channel_yank(struct ast_channel *yankee)
 		char *context;
 		char *name;
 		int amaflags;
+		int priority;
 		struct ast_format *readformat;
 		struct ast_format *writeformat;
 	} my_vars = { 0, };
@@ -10643,6 +10675,16 @@ struct ast_channel *ast_channel_yank(struct ast_channel *yankee)
 	my_vars.context = ast_strdupa(ast_channel_context(yankee));
 	my_vars.name = ast_strdupa(ast_channel_name(yankee));
 	my_vars.amaflags = ast_channel_amaflags(yankee);
+	my_vars.priority = ast_channel_priority(yankee);
+	/* The priority as returned by ast_channel_yank is where the channel
+	 * should go if the dialplan is executed on it. If the channel is
+	 * already executing dialplan then the priority currently set is
+	 * where it is currently. We increment it so it becomes where it should
+	 * execute.
+	 */
+	if (ast_test_flag(ast_channel_flags(yankee), AST_FLAG_IN_AUTOLOOP)) {
+		my_vars.priority++;
+	}
 	my_vars.writeformat = ao2_bump(ast_channel_writeformat(yankee));
 	my_vars.readformat = ao2_bump(ast_channel_readformat(yankee));
 	ast_channel_unlock(yankee);
@@ -10662,6 +10704,7 @@ struct ast_channel *ast_channel_yank(struct ast_channel *yankee)
 	ast_channel_set_writeformat(yanked_chan, my_vars.writeformat);
 	ao2_cleanup(my_vars.readformat);
 	ao2_cleanup(my_vars.writeformat);
+	ast_channel_priority_set(yanked_chan, my_vars.priority);
 
 	ast_channel_unlock(yanked_chan);
 
@@ -10790,7 +10833,7 @@ static const struct ast_datastore_info *suppress_get_datastore_information(enum 
 
 int ast_channel_suppress(struct ast_channel *chan, unsigned int direction, enum ast_frame_type frametype)
 {
-	RAII_VAR(struct suppress_data *, suppress, NULL, ao2_cleanup);
+	struct suppress_data *suppress;
 	const struct ast_datastore_info *datastore_info = NULL;
 	struct ast_datastore *datastore = NULL;
 	struct ast_framehook_interface interface = {
@@ -10826,6 +10869,7 @@ int ast_channel_suppress(struct ast_channel *chan, unsigned int direction, enum 
 	if (framehook_id < 0) {
 		/* Hook attach failed.  Get rid of the evidence. */
 		ast_log(LOG_WARNING, "Failed to attach framehook while attempting to suppress a stream.\n");
+		ao2_ref(suppress, -1);
 		return -1;
 	}
 
@@ -10837,11 +10881,11 @@ int ast_channel_suppress(struct ast_channel *chan, unsigned int direction, enum 
 	if (!(datastore = ast_datastore_alloc(datastore_info, NULL))) {
 		ast_log(LOG_WARNING, "Failed to allocate datastore while attempting to suppress a stream.\n");
 		ast_framehook_detach(chan, framehook_id);
+		ao2_ref(suppress, -1);
 		return -1;
 	}
 
-	/* and another ref for the datastore */
-	ao2_ref(suppress, +1);
+	/* the ref provided by the allocation is taken by the datastore */
 	datastore->data = suppress;
 
 	ast_channel_datastore_add(chan, datastore);
@@ -10975,3 +11019,18 @@ enum ast_channel_error ast_channel_errno(void)
 {
 	return ast_channel_internal_errno();
 }
+
+void ast_channel_set_flag(struct ast_channel *chan, unsigned int flag)
+{
+	ast_channel_lock(chan);
+	ast_set_flag(ast_channel_flags(chan), flag);
+	ast_channel_unlock(chan);
+}
+
+void ast_channel_clear_flag(struct ast_channel *chan, unsigned int flag)
+{
+	ast_channel_lock(chan);
+	ast_clear_flag(ast_channel_flags(chan), flag);
+	ast_channel_unlock(chan);
+}
+
