@@ -5,6 +5,7 @@ asterisk (1:13.17.0~dfsg-1) UNRELEASED; urgency=medium
     - Dropped 859911-pjsip-set-rtp-source-address patches: merged upstream.
     - Dropped pjsip_unresolved_symbol.patch: merged upstream.
     - Dropped AST-2017-004.patch: merged upstream.
+    - Closes: #856332 (specifically: just the example in pjsip.conf).
 
  -- Tzafrir Cohen <tzafrir@debian.org>  Wed, 02 Aug 2017 23:22:16 -0400
 
