@@ -22,6 +22,7 @@ Build-Depends:
  freetds-dev,
  libasound2-dev,
  libavcodec-dev,
+ libavdevice-dev,
  libbluetooth-dev [linux-any],
  libc-client2007e-dev,
  libcap-dev [linux-any],
