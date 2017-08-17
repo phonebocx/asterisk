@@ -1,3 +1,12 @@
+asterisk (1:13.17.0~dfsg-2) unstable; urgency=medium
+
+  * Build with -Wl,--as-needed
+  * Add patch to (hopefully) build reproducibly
+  * Temporarily add libavdevice-dev to b-d to work around
+    pjproject issue
+
+ -- Bernhard Schmidt <berni@debian.org>  Thu, 17 Aug 2017 21:10:03 +0200
+
 asterisk (1:13.17.0~dfsg-1) unstable; urgency=medium
 
   * New upstream version 13.17.0
