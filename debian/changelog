@@ -1,3 +1,15 @@
+asterisk (1:13.17.1~dfsg-1) unstable; urgency=high
+
+  * New upstream version 13.17.1, fixing three CVEs
+    - CVE-2017-14099 / AST-2017-005
+      Media takeover in RTP stack ("RTP bleed") (Closes: #873907)
+    - CVE-2017-14100 / AST-2017-006
+      Shell access command injection in app_minivm (Closes: #873908)
+    - CVE-2017-14098 / AST-2017-007
+      Remote Crash Vulerability in res_pjsip (Closes: #873909)
+
+ -- Bernhard Schmidt <berni@debian.org>  Sat, 02 Sep 2017 22:34:09 +0200
+
 asterisk (1:13.17.0~dfsg-2) unstable; urgency=medium
 
   * Build with -Wl,--as-needed
