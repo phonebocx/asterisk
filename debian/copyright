@@ -177,7 +177,7 @@ Files: channels/misdn/Makefile
 Copyright: None
 License: None
 Comment:
- Makefiles listed explicitly to to counteract */Makefile elsewhere.
+ Makefiles listed explicitly to counteract */Makefile elsewhere.
 
 Files: include/solaris-compat/sys/queue.h
  main/editline/*
@@ -204,7 +204,7 @@ Copyright: 1992-1996, Carsten Bormann <cabo@cs.tu-berlin.de>
   1999, Stanley J. Brooks <stabro@megsinet.net>
 License: GSM
 Comment:
- Makefile listed explicitly to to counteract */Makefile elsewhere.
+ Makefile listed explicitly to counteract */Makefile elsewhere.
 
 Files: codecs/speex/*
 Copyright: 2002-2003,2007-2008, Jean-Marc Valin
