@@ -1,3 +1,13 @@
+asterisk (1:13.17.2~dfsg-1) unstable; urgency=high
+
+  * New upstream version 13.17.2~dfsg
+    - CVE-2017-14603 / AST-2017-008
+      This is a follow-up for AST-2017-005: RTP/RTCP information leak
+      improving robustness of the security fix and fixing a regression
+      with re-INVITEs (Closes: #876328)
+
+ -- Bernhard Schmidt <berni@debian.org>  Sat, 23 Sep 2017 20:41:06 +0200
+
 asterisk (1:13.17.1~dfsg-1) unstable; urgency=high
 
   * New upstream version 13.17.1, fixing three CVEs
