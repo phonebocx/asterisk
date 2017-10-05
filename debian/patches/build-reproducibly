@@ -1,12 +1,14 @@
 --- a/build_tools/make_build_h
 +++ b/build_tools/make_build_h
-@@ -5,6 +5,12 @@
+@@ -5,6 +5,14 @@
  OS=`uname -s`
  USER=`id | awk -F")" '{print $1}'| awk -F"(" '{print $2}' | sed 's/\\\\/\\\\\\\\/g'`
  DATE=`date -u "+%Y-%m-%d %H:%M:%S"`
 +if [ -n "${SOURCE_DATE_EPOCH}" ]; then
 +	# building reproducibly, faking some data
 +	HOSTNAME='buildd.debian.org'
++	KERNEL='unknown'
++	MACHINE='unknown'
 +	USER='nobody'
 +	DATE=`date -u "+%Y-%m-%d %H:%M:%S" -d @${SOURCE_DATE_EPOCH}`
 +fi
