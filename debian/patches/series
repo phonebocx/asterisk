@@ -36,3 +36,5 @@ radcli-detection.patch
 
 pjsip_unresolved_symbol.patch
 build-reproducibly
+
+libsrtp-2.1.x.patch
