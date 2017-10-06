@@ -29,7 +29,7 @@ Build-Depends:
  libcurl4-openssl-dev | libcurl-dev,
  libedit-dev,
  libradcli-dev | libfreeradius-client-dev | libradiusclient-ng-dev,
- libgmime-2.6-dev,
+ libgmime-3.0-dev,
  libgsm1-dev,
  libical-dev,
  libiksemel-dev,
