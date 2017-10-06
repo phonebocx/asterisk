@@ -12,13 +12,10 @@ Uploaders:
 Build-Depends:
  autoconf,
  automake,
- autotools-dev,
  binutils-dev,
  dahdi-source,
  debhelper (>= 10),
  default-libmysqlclient-dev,
- dh-autoreconf,
- dh-systemd,
  freetds-dev,
  libasound2-dev,
  libavcodec-dev,
@@ -73,7 +70,7 @@ Build-Depends:
  unixodbc-dev,
  uuid-dev,
  zlib1g-dev
-Standards-Version: 3.9.8
+Standards-Version: 4.1.1
 Homepage: http://www.asterisk.org/
 Vcs-Git: https://anonscm.debian.org/git/pkg-voip/asterisk.git
 Vcs-Browser: https://anonscm.debian.org/cgit/pkg-voip/asterisk.git
