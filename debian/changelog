@@ -1,3 +1,16 @@
+asterisk (1:13.17.2~dfsg-2) unstable; urgency=medium
+
+  * Build against libsrtp2
+    - Add versioned b-d to pjproject 2.7 built with libsrtp2
+    - d/p/libsrtp-2.1.x.patch: Upstream patch to support libsrtp 2.1.x
+  * Transition to gmime 3.0 (Closes: #867346)
+    - d/p/gmime-3.0.patch: Upstream patch to support gmime 3.0
+  * Bump Standards-Version to 4.1.1, drop obsolete build-deps
+  * Fix reproducible builds by overwriting kernel version and
+    machine architecture
+
+ -- Bernhard Schmidt <berni@debian.org>  Fri, 06 Oct 2017 23:27:22 +0200
+
 asterisk (1:13.17.2~dfsg-1) unstable; urgency=high
 
   * New upstream version 13.17.2~dfsg
