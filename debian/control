@@ -316,13 +316,14 @@ Description: internal test modules of the Asterisk PBX
  package.
 
 Package: asterisk-doc
+Architecture: all
+Multi-Arch: foreign
 Depends:
  ${misc:Depends}
 Recommends:
  asterisk
 Section: doc
 Priority: extra
-Architecture: all
 Description: Source code documentation for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -330,6 +331,7 @@ Description: Source code documentation for Asterisk
 
 Package: asterisk-dev
 Architecture: all
+Multi-Arch: foreign
 Depends:
  ${misc:Depends}
 Recommends:
