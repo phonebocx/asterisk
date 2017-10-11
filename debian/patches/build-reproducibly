@@ -15,3 +15,14 @@
  cat << END
  /*
   * build.h
+--- a/Makefile
++++ b/Makefile
+@@ -465,7 +465,7 @@
+ 	@echo "<docs xmlns:xi=\"http://www.w3.org/2001/XInclude\">" >> $@
+ 	@for x in $(MOD_SUBDIRS); do \
+ 		printf "$$x " ; \
+-		for i in `find $$x -name '*.c'`; do \
++		for i in `find $$x -name '*.c' | LC_ALL=C sort`; do \
+ 			$(AWK) -f build_tools/get_documentation $$i >> $@ ; \
+ 		done ; \
+ 	done
