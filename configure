@@ -701,6 +701,7 @@ BIND8_CFLAGS
 AST_RPATH
 AST_NATIVE_ARCH
 AST_SHADOW_WARNINGS
+AST_NO_FORMAT_TRUNCATION
 AST_NO_STRICT_OVERFLOW
 AST_FORTIFY_SOURCE
 AST_TRAMPOLINES
@@ -1199,6 +1200,7 @@ AST_NESTED_FUNCTIONS
 AST_CODE_COVERAGE
 EXTERNALS_CACHE_DIR
 SOUNDS_CACHE_DIR
+AST_DOWNLOAD_CACHE
 AST_DEVMODE_STRICT
 AST_DEVMODE
 NOISY_BUILD
@@ -1352,6 +1354,7 @@ ac_user_opts='
 enable_option_checking
 with_gnu_ld
 enable_dev_mode
+with_download_cache
 with_sounds_cache
 with_externals_cache
 enable_coverage
@@ -2095,6 +2098,9 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
+  --with-download-cache=PATH
+                          use cached sound AND external module tarfiles in
+                          PATH
   --with-sounds-cache=PATH
                           use cached sound tarfiles in PATH
   --with-externals-cache=PATH
@@ -9015,6 +9021,30 @@ fi
 
 
 
+# Check whether --with-download-cache was given.
+if test "${with_download_cache+set}" = set; then :
+  withval=$with_download_cache;
+	case ${withval} in
+	n|no)
+		unset AST_DOWNLOAD_CACHE
+		;;
+	*)
+		if test "x${withval}" = "x"; then
+			:
+		else
+			AST_DOWNLOAD_CACHE="${withval}"
+		fi
+		;;
+	esac
+
+else
+  :
+fi
+
+
+
+
+
 # Check whether --with-sounds-cache was given.
 if test "${with_sounds_cache+set}" = set; then :
   withval=$with_sounds_cache;
@@ -9277,11 +9307,11 @@ $as_echo "configuring" >&6; }
 		PJPROJECT_CONFIGURE_OPTS+=" --host=$host"
 	fi
 
-	export TAR PATCH SED NM EXTERNALS_CACHE_DIR DOWNLOAD_TO_STDOUT DOWNLOAD_TIMEOUT DOWNLOAD MD5 CAT
+	export TAR PATCH SED NM EXTERNALS_CACHE_DIR AST_DOWNLOAD_CACHE DOWNLOAD_TO_STDOUT DOWNLOAD_TIMEOUT DOWNLOAD MD5 CAT
 	export NOISY_BUILD
 	${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} \
 		PJPROJECT_CONFIGURE_OPTS="$PJPROJECT_CONFIGURE_OPTS" \
-		EXTERNALS_CACHE_DIR="${EXTERNALS_CACHE_DIR}" \
+		EXTERNALS_CACHE_DIR="${EXTERNALS_CACHE_DIR:-${AST_DOWNLOAD_CACHE}}" \
 		configure
 	if test $? -ne 0 ; then
 		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: failed" >&5
@@ -9294,7 +9324,7 @@ $as_echo "$as_me: Unable to configure ${PJPROJECT_DIR}" >&6;}
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for bundled pjproject" >&5
 $as_echo_n "checking for bundled pjproject... " >&6; }
 
-	PJPROJECT_INCLUDE=$(${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} PJPROJECT_CONFIGURE_OPTS="$PJPROJECT_CONFIGURE_OPTS" EXTERNALS_CACHE_DIR="${EXTERNALS_CACHE_DIR}" echo_cflags)
+	PJPROJECT_INCLUDE=$(${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} PJPROJECT_CONFIGURE_OPTS="$PJPROJECT_CONFIGURE_OPTS" EXTERNALS_CACHE_DIR="${EXTERNALS_CACHE_DIR:-${AST_DOWNLOAD_CACHE}}" echo_cflags)
 	PJPROJECT_CFLAGS="$PJPROJECT_INCLUDE"
 	PBX_PJPROJECT=1
 
@@ -18827,6 +18857,19 @@ else
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
 	AST_NO_STRICT_OVERFLOW=
+fi
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for -Wno-format-truncation" >&5
+$as_echo_n "checking for -Wno-format-truncation... " >&6; }
+if $(${CC} -O2 -Wno-format-truncation -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+	AST_NO_FORMAT_TRUNCATION=-Wno-format-truncation
+else
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	AST_NO_FORMAT_TRUNCATION=
 fi
 
 
@@ -31098,7 +31141,7 @@ if eval \${$as_ac_Lib+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lcpg ${pbxlibdir} -lcfg $LIBS"
+LIBS="-lcpg ${pbxlibdir} -lcpg $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -31140,7 +31183,7 @@ fi
 
    # now check for the header.
    if test "${AST_COROSYNC_FOUND}" = "yes"; then
-      COROSYNC_LIB="${pbxlibdir} -lcpg -lcfg"
+      COROSYNC_LIB="${pbxlibdir} -lcpg -lcpg"
       # if --with-COROSYNC=DIR has been specified, use it.
       if test "x${COROSYNC_DIR}" != "x"; then
          COROSYNC_INCLUDE="-I${COROSYNC_DIR}/include"
@@ -33238,7 +33281,7 @@ fi
     fi
 fi
 
-for ver in 2.0 2.2 2.4 2.6; do
+for ver in 2.0 2.2 2.4 2.6 3.0; do
 
    if test "x${PBX_GMIME}" != "x1" -a "${USE_GMIME}" != "no"; then
 

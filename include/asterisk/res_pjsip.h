@@ -98,21 +98,40 @@ struct ast_sip_transport_state {
 	 */
 	pj_ssl_cipher ciphers[SIP_TLS_MAX_CIPHERS];
 	/*!
-	 * Optional local network information, used for NAT purposes
+	 * Optional local network information, used for NAT purposes.
+	 * "deny" (set) means that it's in the local network. Use the
+	 * ast_sip_transport_is_nonlocal and ast_sip_transport_is_local
+	 * macro's.
 	 * \since 13.8.0
 	 */
 	struct ast_ha *localnet;
 	/*!
-	 * DNS manager for refreshing the external address
+	 * DNS manager for refreshing the external signaling address
 	 * \since 13.8.0
 	 */
-	struct ast_dnsmgr_entry *external_address_refresher;
+	struct ast_dnsmgr_entry *external_signaling_address_refresher;
 	/*!
-	 * Optional external address information
+	 * Optional external signaling address information
 	 * \since 13.8.0
 	 */
-	struct ast_sockaddr external_address;
+	struct ast_sockaddr external_signaling_address;
+	/*!
+	 * DNS manager for refreshing the external media address
+	 * \since 13.18.0
+	 */
+	struct ast_dnsmgr_entry *external_media_address_refresher;
+	/*!
+	 * Optional external signaling address information
+	 * \since 13.18.0
+	 */
+	struct ast_sockaddr external_media_address;
 };
+
+#define ast_sip_transport_is_nonlocal(transport_state, addr) \
+	(!transport_state->localnet || ast_apply_ha(transport_state->localnet, addr) == AST_SENSE_ALLOW)
+
+#define ast_sip_transport_is_local(transport_state, addr) \
+	(transport_state->localnet && ast_apply_ha(transport_state->localnet, addr) != AST_SENSE_ALLOW)
 
 /*
  * \brief Transport to bind to
@@ -260,6 +279,8 @@ struct ast_sip_contact {
 	AST_STRING_FIELD_EXTENDED(call_id);
 	/*! The name of the endpoint that added the contact */
 	AST_STRING_FIELD_EXTENDED(endpoint_name);
+	/*! If true delete the contact on Asterisk restart/boot */
+	int prune_on_boot;
 };
 
 #define CONTACT_STATUS "contact_status"
@@ -767,6 +788,8 @@ struct ast_sip_endpoint {
 	unsigned int refer_blind_progress;
 	/*! Whether to notifies dialog-info 'early' on INUSE && RINGING state */
 	unsigned int notify_early_inuse_ringing;
+	/*! If set, we'll push incoming MWI NOTIFYs to stasis using this mailbox */
+	AST_STRING_FIELD_EXTENDED(incoming_mwi_mailbox);
 };
 
 /*! URI parameter for symmetric transport */
@@ -1201,6 +1224,9 @@ struct ast_sip_contact *ast_sip_location_retrieve_contact(const char *contact_na
  * \param expiration_time Optional expiration time of the contact
  * \param path_info Path information
  * \param user_agent User-Agent header from REGISTER request
+ * \param via_addr
+ * \param via_port
+ * \param call_id
  * \param endpoint The endpoint that resulted in the contact being added
  *
  * \retval -1 failure
@@ -1224,6 +1250,9 @@ int ast_sip_location_add_contact(struct ast_sip_aor *aor, const char *uri,
  * \param expiration_time Optional expiration time of the contact
  * \param path_info Path information
  * \param user_agent User-Agent header from REGISTER request
+ * \param via_addr
+ * \param via_port
+ * \param call_id
  * \param endpoint The endpoint that resulted in the contact being added
  *
  * \retval -1 failure
@@ -1236,6 +1265,31 @@ int ast_sip_location_add_contact_nolock(struct ast_sip_aor *aor, const char *uri
 	struct timeval expiration_time, const char *path_info, const char *user_agent,
 	const char *via_addr, int via_port, const char *call_id,
 	struct ast_sip_endpoint *endpoint);
+
+/*!
+ * \brief Create a new contact for an AOR without locking the AOR
+ * \since 13.18.0
+ *
+ * \param aor Pointer to the AOR
+ * \param uri Full contact URI
+ * \param expiration_time Optional expiration time of the contact
+ * \param path_info Path information
+ * \param user_agent User-Agent header from REGISTER request
+ * \param via_addr
+ * \param via_port
+ * \param call_id
+ * \param prune_on_boot Non-zero if the contact cannot survive a restart/boot.
+ * \param endpoint The endpoint that resulted in the contact being added
+ *
+ * \return The created contact or NULL on failure.
+ *
+ * \warning
+ * This function should only be called if you already hold a named write lock on the aor.
+ */
+struct ast_sip_contact *ast_sip_location_create_contact(struct ast_sip_aor *aor,
+	const char *uri, struct timeval expiration_time, const char *path_info,
+	const char *user_agent, const char *via_addr, int via_port, const char *call_id,
+	int prune_on_boot, struct ast_sip_endpoint *endpoint);
 
 /*!
  * \brief Update a contact
@@ -1256,6 +1310,12 @@ int ast_sip_location_update_contact(struct ast_sip_contact *contact);
 * \retval 0 success
 */
 int ast_sip_location_delete_contact(struct ast_sip_contact *contact);
+
+/*!
+ * \brief Prune the prune_on_boot contacts
+ * \since 13.18.0
+ */
+void ast_sip_location_prune_boot_contacts(void);
 
 /*!
  * \brief Callback called when an outbound request with authentication credentials is to be sent in dialog
@@ -2905,5 +2965,119 @@ int ast_sip_set_tpselector_from_ep_or_uri(const struct ast_sip_endpoint *endpoin
  */
 int ast_sip_dlg_set_transport(const struct ast_sip_endpoint *endpoint, pjsip_dialog *dlg,
 	pjsip_tpselector *selector);
+
+/*!
+ * \brief Convert the DTMF mode enum value into a string
+ * \since 13.18.0
+ *
+ * \param dtmf the dtmf mode
+ * \param buf Buffer to receive dtmf mode string
+ * \param buf_len Buffer length
+ *
+ * \retval 0 Success
+ * \retval -1 Failure
+ *
+ */
+int ast_sip_dtmf_to_str(const enum ast_sip_dtmf_mode dtmf,
+	char *buf, size_t buf_len);
+
+/*!
+ * \brief Convert the DTMF mode name into an enum
+ * \since 13.18.0
+ *
+ * \param dtmf_mode dtmf mode as a string
+ *
+ * \retval  >= 0 The enum value
+ * \retval -1 Failure
+ *
+ */
+int ast_sip_str_to_dtmf(const char *dtmf_mode);
+
+/*!
+ * \brief Transport shutdown monitor callback.
+ * \since 13.18.0
+ *
+ * \param data User data to know what to do when transport shuts down.
+ *
+ * \note The callback does not need to care that data is an ao2 object.
+ *
+ * \return Nothing
+ */
+typedef void (*ast_transport_monitor_shutdown_cb)(void *data);
+
+enum ast_transport_monitor_reg {
+	/*! \brief Successfully registered the transport monitor */
+	AST_TRANSPORT_MONITOR_REG_SUCCESS,
+	/*! \brief Replaced the already existing transport monitor with new one. */
+	AST_TRANSPORT_MONITOR_REG_REPLACED,
+	/*!
+	 * \brief Transport not found to monitor.
+	 * \note Transport is either already shutdown or is not reliable.
+	 */
+	AST_TRANSPORT_MONITOR_REG_NOT_FOUND,
+	/*! \brief Error while registering transport monitor. */
+	AST_TRANSPORT_MONITOR_REG_FAILED,
+};
+
+/*!
+ * \brief Register a reliable transport shutdown monitor callback.
+ * \since 13.18.0
+ *
+ * \param transport Transport to monitor for shutdown.
+ * \param cb Who to call when transport is shutdown.
+ * \param ao2_data Data to pass with the callback.
+ *
+ * \return enum ast_transport_monitor_reg
+ */
+enum ast_transport_monitor_reg ast_sip_transport_monitor_register(pjsip_transport *transport,
+	ast_transport_monitor_shutdown_cb cb, void *ao2_data);
+
+/*!
+ * \brief Unregister a reliable transport shutdown monitor callback.
+ * \since 13.18.0
+ *
+ * \param transport Transport to monitor for shutdown.
+ * \param cb Who to call when transport is shutdown.
+ *
+ * \return Nothing
+ */
+void ast_sip_transport_monitor_unregister(pjsip_transport *transport, ast_transport_monitor_shutdown_cb cb);
+
+/*!
+ * \brief Unregister monitor callback from all reliable transports.
+ * \since 13.18.0
+ *
+ * \param cb Who to call when a transport is shutdown.
+ *
+ * \return Nothing
+ */
+void ast_sip_transport_monitor_unregister_all(ast_transport_monitor_shutdown_cb cb);
+
+/*! Transport state notification registration element.  */
+struct ast_sip_tpmgr_state_callback {
+	/*! PJPROJECT transport state notification callback */
+	pjsip_tp_state_callback cb;
+	AST_LIST_ENTRY(ast_sip_tpmgr_state_callback) node;
+};
+
+/*!
+ * \brief Register a transport state notification callback element.
+ * \since 13.18.0
+ *
+ * \param element What we are registering.
+ *
+ * \return Nothing
+ */
+void ast_sip_transport_state_register(struct ast_sip_tpmgr_state_callback *element);
+
+/*!
+ * \brief Unregister a transport state notification callback element.
+ * \since 13.18.0
+ *
+ * \param element What we are unregistering.
+ *
+ * \return Nothing
+ */
+void ast_sip_transport_state_unregister(struct ast_sip_tpmgr_state_callback *element);
 
 #endif /* _RES_PJSIP_H */

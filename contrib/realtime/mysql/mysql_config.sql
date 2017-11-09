@@ -1068,3 +1068,21 @@ ALTER TABLE ps_endpoints MODIFY dtmf_mode ENUM('rfc4733','inband','info','auto',
 
 UPDATE alembic_version SET version_num='164abbd708c' WHERE alembic_version.version_num = 'd7983954dd96';
 
+-- Running upgrade 164abbd708c -> f3d1c5d38b56
+
+ALTER TABLE ps_contacts ADD COLUMN prune_on_boot ENUM('yes','no');
+
+UPDATE alembic_version SET version_num='f3d1c5d38b56' WHERE alembic_version.version_num = '164abbd708c';
+
+-- Running upgrade f3d1c5d38b56 -> b83645976fdd
+
+ALTER TABLE ps_endpoints ADD COLUMN dtls_fingerprint ENUM('SHA-1','SHA-256');
+
+UPDATE alembic_version SET version_num='b83645976fdd' WHERE alembic_version.version_num = 'f3d1c5d38b56';
+
+-- Running upgrade b83645976fdd -> a1698e8bb9c5
+
+ALTER TABLE ps_endpoints ADD COLUMN incoming_mwi_mailbox VARCHAR(40);
+
+UPDATE alembic_version SET version_num='a1698e8bb9c5' WHERE alembic_version.version_num = 'b83645976fdd';
+

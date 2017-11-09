@@ -368,47 +368,29 @@ static int contact_acl_to_str(const void *obj, const intptr_t *args, char **buf)
 static int dtmf_handler(const struct aco_option *opt, struct ast_variable *var, void *obj)
 {
 	struct ast_sip_endpoint *endpoint = obj;
+	enum ast_sip_dtmf_mode dtmf = ast_sip_str_to_dtmf(var->value);
 
-	if (!strcasecmp(var->value, "rfc4733")) {
-		endpoint->dtmf = AST_SIP_DTMF_RFC_4733;
-	} else if (!strcasecmp(var->value, "inband")) {
-		endpoint->dtmf = AST_SIP_DTMF_INBAND;
-	} else if (!strcasecmp(var->value, "auto_info")) {
-		endpoint->dtmf = AST_SIP_DTMF_AUTO_INFO;
-	} else if (!strcasecmp(var->value, "info")) {
-		endpoint->dtmf = AST_SIP_DTMF_INFO;
-	} else if (!strcasecmp(var->value, "auto")) {
-		endpoint->dtmf = AST_SIP_DTMF_AUTO;
-	} else if (!strcasecmp(var->value, "none")) {
-		endpoint->dtmf = AST_SIP_DTMF_NONE;
-	} else {
+	if (dtmf == -1) {
 		return -1;
 	}
 
+	endpoint->dtmf = dtmf;
 	return 0;
 }
 
 static int dtmf_to_str(const void *obj, const intptr_t *args, char **buf)
 {
 	const struct ast_sip_endpoint *endpoint = obj;
+	char dtmf_str[20];
+	int result = -1;
 
-	switch (endpoint->dtmf) {
-	case AST_SIP_DTMF_RFC_4733 :
-		*buf = "rfc4733"; break;
-	case AST_SIP_DTMF_INBAND :
-		*buf = "inband"; break;
-	case AST_SIP_DTMF_INFO :
-		*buf = "info"; break;
-	case AST_SIP_DTMF_AUTO :
-		*buf = "auto"; break;
-	case AST_SIP_DTMF_AUTO_INFO :
-		*buf = "auto_info";
-		break;
-	default:
-		*buf = "none";
+	result = ast_sip_dtmf_to_str(endpoint->dtmf, dtmf_str, sizeof(dtmf_str));
+
+	if (result == 0) {
+		*buf = ast_strdup(dtmf_str);
+	} else {
+		*buf = ast_strdup("none");
 	}
-
-	*buf = ast_strdup(*buf);
 	return 0;
 }
 
@@ -1150,6 +1132,37 @@ static int tos_video_to_str(const void *obj, const intptr_t *args, char **buf)
 	return 0;
 }
 
+static int from_user_handler(const struct aco_option *opt,
+	struct ast_variable *var, void *obj)
+{
+	struct ast_sip_endpoint *endpoint = obj;
+	/* Valid non-alphanumeric characters for URI */
+	char *valid_uri_marks = "-_.!~*`()";
+	const char *val;
+
+	for (val = var->value; *val; val++) {
+		if (!strchr(valid_uri_marks, *val) && !isdigit(*val) && !isalpha(*val)) {
+			ast_log(LOG_ERROR, "Error configuring endpoint '%s' - '%s' field "
+			"contains invalid character '%c'\n",
+			ast_sorcery_object_get_id(endpoint), var->name, *val);
+			return -1;
+		}
+	}
+
+	ast_string_field_set(endpoint, fromuser, var->value);
+
+	return 0;
+}
+
+static int from_user_to_str(const void *obj, const intptr_t *args, char **buf)
+{
+	const struct ast_sip_endpoint *endpoint = obj;
+
+	*buf = ast_strdup(endpoint->fromuser);
+
+	return 0;
+}
+
 static int set_var_handler(const struct aco_option *opt,
 	struct ast_variable *var, void *obj)
 {
@@ -1304,6 +1317,14 @@ static struct ast_endpoint *persistent_endpoint_find_or_create(const struct ast_
 		ast_endpoint_set_state(persistent->endpoint, AST_ENDPOINT_OFFLINE);
 
 		ao2_link_flags(persistent_endpoints, persistent, OBJ_NOLOCK);
+	} else if (strcmp(persistent->aors, endpoint->aors)) {
+		char *new_aors = ast_strdup(endpoint->aors);
+
+		/* make sure we don't NULL persistent->aors if allocation fails. */
+		if (new_aors) {
+			ast_free(persistent->aors);
+			persistent->aors = new_aors;
+		}
 	}
 
 	ao2_ref(persistent->endpoint, +1);
@@ -1780,20 +1801,12 @@ static struct ast_cli_entry cli_commands[] = {
 struct ast_sip_cli_formatter_entry *channel_formatter;
 struct ast_sip_cli_formatter_entry *endpoint_formatter;
 
-static int on_load_endpoint(void *obj, void *arg, int flags)
-{
-	return sip_endpoint_apply_handler(sip_sorcery, obj);
-}
-
 static void load_all_endpoints(void)
 {
 	struct ao2_container *endpoints;
 
 	endpoints = ast_sorcery_retrieve_by_fields(sip_sorcery, "endpoint", AST_RETRIEVE_FLAG_MULTIPLE | AST_RETRIEVE_FLAG_ALL, NULL);
-	if (endpoints) {
-		ao2_callback(endpoints, OBJ_NODATA, on_load_endpoint, NULL);
-		ao2_ref(endpoints, -1);
-	}
+	ao2_cleanup(endpoints);
 }
 
 int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_module_info)
@@ -1914,7 +1927,7 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "cos_video", "0", OPT_UINT_T, 0, FLDSET(struct ast_sip_endpoint, media.cos_video));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "allow_subscribe", "yes", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, subscription.allow));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "sub_min_expiry", "0", OPT_UINT_T, 0, FLDSET(struct ast_sip_endpoint, subscription.minexpiry));
-	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "from_user", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, fromuser));
+	ast_sorcery_object_field_register_custom(sip_sorcery, "endpoint", "from_user", "", from_user_handler, from_user_to_str, NULL, 0, 0);
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "from_domain", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, fromdomain));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "mwi_from_user", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, subscription.mwi.fromuser));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "rtp_engine", "asterisk", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, media.rtp.engine));
@@ -1947,6 +1960,7 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "allow_overlap", "yes", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, allow_overlap));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "refer_blind_progress", "yes", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, refer_blind_progress));
 	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "notify_early_inuse_ringing", "no", OPT_BOOL_T, 1, FLDSET(struct ast_sip_endpoint, notify_early_inuse_ringing));
+	ast_sorcery_object_field_register(sip_sorcery, "endpoint", "incoming_mwi_mailbox", "", OPT_STRINGFIELD_T, 0, STRFLDSET(struct ast_sip_endpoint, incoming_mwi_mailbox));
 
 	if (ast_sip_initialize_sorcery_transport()) {
 		ast_log(LOG_ERROR, "Failed to register SIP transport support with sorcery\n");
@@ -2008,6 +2022,8 @@ int ast_res_pjsip_initialize_configuration(const struct ast_module_info *ast_mod
 	ast_sorcery_load(sip_sorcery);
 
 	load_all_endpoints();
+
+	ast_sip_location_prune_boot_contacts();
 
 	return 0;
 }
@@ -2108,6 +2124,9 @@ void *ast_sip_endpoint_alloc(const char *name)
 		ao2_cleanup(endpoint);
 		return NULL;
 	}
+
+	ast_string_field_init_extended(endpoint, incoming_mwi_mailbox);
+
 	if (!(endpoint->media.codecs = ast_format_cap_alloc(AST_FORMAT_CAP_FLAG_DEFAULT))) {
 		ao2_cleanup(endpoint);
 		return NULL;

@@ -408,6 +408,7 @@ AC_SUBST(NOISY_BUILD)
 AC_SUBST(AST_DEVMODE)
 AC_SUBST(AST_DEVMODE_STRICT)
 
+AST_OPTION_ONLY([download-cache], [AST_DOWNLOAD_CACHE], [cached sound AND external module tarfiles], [])
 AST_OPTION_ONLY([sounds-cache], [SOUNDS_CACHE_DIR], [cached sound tarfiles], [])
 AST_OPTION_ONLY([externals-cache], [EXTERNALS_CACHE_DIR], [cached external module tarfiles], [])
 
@@ -1224,6 +1225,16 @@ else
 	AST_NO_STRICT_OVERFLOW=
 fi
 AC_SUBST(AST_NO_STRICT_OVERFLOW)
+
+AC_MSG_CHECKING(for -Wno-format-truncation)
+if $(${CC} -O2 -Wno-format-truncation -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
+	AC_MSG_RESULT(yes)
+	AST_NO_FORMAT_TRUNCATION=-Wno-format-truncation
+else
+	AC_MSG_RESULT(no)
+	AST_NO_FORMAT_TRUNCATION=
+fi
+AC_SUBST(AST_NO_FORMAT_TRUNCATION)
 
 AC_MSG_CHECKING(for -Wshadow)
 if $(${CC} -Wshadow -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
@@ -2363,7 +2374,7 @@ else
 	AST_EXT_LIB_CHECK([RADIUS], [radiusclient-ng], [rc_read_config], [radiusclient-ng.h])
 fi
 
-AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcfg])
+AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcpg])
 AST_EXT_LIB_CHECK([COROSYNC_CFG_STATE_TRACK], [cfg], [corosync_cfg_state_track], [corosync/cfg.h], [-lcfg])
 
 AST_EXT_LIB_CHECK([SPEEX], [speex], [speex_encode], [speex/speex.h], [-lm])
@@ -2492,7 +2503,7 @@ then
     fi
 fi
 
-for ver in 2.0 2.2 2.4 2.6; do
+for ver in 2.0 2.2 2.4 2.6 3.0; do
 	AST_PKG_CONFIG_CHECK([GMIME], gmime-$ver)
 	if test "$PBX_GMIME" = 1; then
 		break;
