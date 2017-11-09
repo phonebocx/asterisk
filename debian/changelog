@@ -1,3 +1,20 @@
+asterisk (1:13.18.1~dfsg-1) unstable; urgency=medium
+
+  * New upstream version 13.18.1~dfsg
+    - CVE-2017-16671 / AST-2017-010
+      Buffer overflow in CDR's set user (Closes: #881257)
+    - CVE-2017-16672 / AST-2017-011
+      Memory/File Descriptor/RTP leak in pjsip session resource
+      (Closes: #881256)
+    - Drop gmime-3.x and srtp 2.1 support patches applied upstream
+    - Drop pjsip_unresolved_symbol.patch applied upstream
+  * reproducibility: Sort order of input files for core-en_US.xml generation
+  * Drop dh --with autotools_dev, default in compat 10
+  * Add Multi-Arch: foreign to -dev and -doc
+  * Remove deprecated priority extra
+
+ -- Bernhard Schmidt <berni@debian.org>  Thu, 09 Nov 2017 23:35:12 +0100
+
 asterisk (1:13.17.2~dfsg-2) unstable; urgency=medium
 
   * Build against libsrtp2
