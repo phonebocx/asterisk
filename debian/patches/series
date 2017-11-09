@@ -34,5 +34,4 @@ ffmpeg-includes.patch
 
 radcli-detection.patch
 
-pjsip_unresolved_symbol.patch
 build-reproducibly
