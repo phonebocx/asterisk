@@ -323,7 +323,6 @@ Depends:
 Recommends:
  asterisk
 Section: doc
-Priority: extra
 Description: Source code documentation for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
@@ -337,7 +336,6 @@ Depends:
 Recommends:
  asterisk
 Section: devel
-Priority: extra
 Description: Development files for Asterisk
  Asterisk is an Open Source PBX and telephony toolkit.
  .
