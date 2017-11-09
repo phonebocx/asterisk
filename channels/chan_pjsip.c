@@ -727,14 +727,11 @@ static struct ast_frame *chan_pjsip_read(struct ast_channel *ast)
 
 	session = channel->session;
 
-	if (ast_format_cap_iscompatible_format(ast_channel_nativeformats(ast), f->subclass.format) == AST_FORMAT_CMP_NOT_EQUAL) {
-		ast_debug(1, "Oooh, got a frame with format of %s on channel '%s' when it has not been negotiated\n",
-			ast_format_get_name(f->subclass.format), ast_channel_name(ast));
-
-		ast_frfree(f);
-		return &ast_null_frame;
-	}
-
+	/*
+	 * Asymmetric RTP only has one native format set at a time.
+	 * Therefore we need to update the native format to the current
+	 * raw read format BEFORE the native format check
+	 */
 	if (!session->endpoint->asymmetric_rtp_codec &&
 		ast_format_cmp(ast_channel_rawwriteformat(ast), f->subclass.format) == AST_FORMAT_CMP_NOT_EQUAL) {
 		struct ast_format_cap *caps;
@@ -759,6 +756,14 @@ static struct ast_frame *chan_pjsip_read(struct ast_channel *ast)
 		if (ast_channel_is_bridged(ast)) {
 			ast_channel_set_unbridged_nolock(ast, 1);
 		}
+	}
+
+	if (ast_format_cap_iscompatible_format(ast_channel_nativeformats(ast), f->subclass.format) == AST_FORMAT_CMP_NOT_EQUAL) {
+		ast_debug(1, "Oooh, got a frame with format of %s on channel '%s' when it has not been negotiated\n",
+			ast_format_get_name(f->subclass.format), ast_channel_name(ast));
+
+		ast_frfree(f);
+		return &ast_null_frame;
 	}
 
 	if (session->dsp) {
@@ -839,6 +844,8 @@ static int chan_pjsip_write(struct ast_channel *ast, struct ast_frame *frame)
 		}
 		break;
 	case AST_FRAME_MODEM:
+		break;
+	case AST_FRAME_CNG:
 		break;
 	default:
 		ast_log(LOG_WARNING, "Can't send %u type frames with PJSIP\n", frame->frametype);
@@ -1376,7 +1383,8 @@ static int chan_pjsip_indicate(struct ast_channel *ast, int condition, const voi
 			/* FIXME: Only use this for VP8. Additional work would have to be done to
 			 * fully support other video codecs */
 
-			if (ast_format_cap_iscompatible_format(ast_channel_nativeformats(ast), ast_format_vp8) != AST_FORMAT_CMP_NOT_EQUAL) {
+			if (ast_format_cap_iscompatible_format(ast_channel_nativeformats(ast), ast_format_vp8) != AST_FORMAT_CMP_NOT_EQUAL ||
+				ast_format_cap_iscompatible_format(ast_channel_nativeformats(ast), ast_format_vp9) != AST_FORMAT_CMP_NOT_EQUAL) {
 				/* FIXME Fake RTP write, this will be sent as an RTCP packet. Ideally the
 				 * RTP engine would provide a way to externally write/schedule RTCP
 				 * packets */
@@ -1700,7 +1708,7 @@ static int chan_pjsip_digit_begin(struct ast_channel *chan, char digit)
 	struct ast_sip_session_media *media = pvt->media[SIP_MEDIA_AUDIO];
 	int res = 0;
 
-	switch (channel->session->endpoint->dtmf) {
+	switch (channel->session->dtmf) {
 	case AST_SIP_DTMF_RFC_4733:
 		if (!media || !media->rtp) {
 			return -1;
@@ -1820,7 +1828,7 @@ static int chan_pjsip_digit_end(struct ast_channel *ast, char digit, unsigned in
 	struct ast_sip_session_media *media = pvt->media[SIP_MEDIA_AUDIO];
 	int res = 0;
 
-	switch (channel->session->endpoint->dtmf) {
+	switch (channel->session->dtmf) {
 	case AST_SIP_DTMF_AUTO_INFO:
 	{
 		if (!media || !media->rtp) {
@@ -2632,6 +2640,12 @@ static struct ast_custom_function media_offer_function = {
 	.write = pjsip_acf_media_offer_write
 };
 
+static struct ast_custom_function dtmf_mode_function = {
+	.name = "PJSIP_DTMF_MODE",
+	.read = pjsip_acf_dtmf_mode_read,
+	.write = pjsip_acf_dtmf_mode_write
+};
+
 static struct ast_custom_function session_refresh_function = {
 	.name = "PJSIP_SEND_SESSION_REFRESH",
 	.write = pjsip_acf_session_refresh_write,
@@ -2673,6 +2687,11 @@ static int load_module(void)
 
 	if (ast_custom_function_register(&media_offer_function)) {
 		ast_log(LOG_WARNING, "Unable to register PJSIP_MEDIA_OFFER dialplan function\n");
+		goto end;
+	}
+
+	if (ast_custom_function_register(&dtmf_mode_function)) {
+		ast_log(LOG_WARNING, "Unable to register PJSIP_DTMF_MODE dialplan function\n");
 		goto end;
 	}
 
@@ -2735,6 +2754,7 @@ static int load_module(void)
 end:
 	ao2_cleanup(pjsip_uids_onhold);
 	pjsip_uids_onhold = NULL;
+	ast_custom_function_unregister(&dtmf_mode_function);
 	ast_custom_function_unregister(&media_offer_function);
 	ast_custom_function_unregister(&chan_pjsip_dial_contacts_function);
 	ast_custom_function_unregister(&session_refresh_function);
@@ -2757,6 +2777,7 @@ static int unload_module(void)
 	ast_sip_session_unregister_supplement(&chan_pjsip_ack_supplement);
 	ast_sip_session_unregister_supplement(&call_pickup_supplement);
 
+	ast_custom_function_unregister(&dtmf_mode_function);
 	ast_custom_function_unregister(&media_offer_function);
 	ast_custom_function_unregister(&chan_pjsip_dial_contacts_function);
 	ast_custom_function_unregister(&session_refresh_function);

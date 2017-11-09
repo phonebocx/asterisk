@@ -1148,5 +1148,25 @@ DROP TYPE pjsip_dtmf_mode_values_v2;
 
 UPDATE alembic_version SET version_num='164abbd708c' WHERE alembic_version.version_num = 'd7983954dd96';
 
+-- Running upgrade 164abbd708c -> f3d1c5d38b56
+
+ALTER TABLE ps_contacts ADD COLUMN prune_on_boot yesno_values;
+
+UPDATE alembic_version SET version_num='f3d1c5d38b56' WHERE alembic_version.version_num = '164abbd708c';
+
+-- Running upgrade f3d1c5d38b56 -> b83645976fdd
+
+CREATE TYPE sha_hash_values AS ENUM ('SHA-1', 'SHA-256');
+
+ALTER TABLE ps_endpoints ADD COLUMN dtls_fingerprint sha_hash_values;
+
+UPDATE alembic_version SET version_num='b83645976fdd' WHERE alembic_version.version_num = 'f3d1c5d38b56';
+
+-- Running upgrade b83645976fdd -> a1698e8bb9c5
+
+ALTER TABLE ps_endpoints ADD COLUMN incoming_mwi_mailbox VARCHAR(40);
+
+UPDATE alembic_version SET version_num='a1698e8bb9c5' WHERE alembic_version.version_num = 'b83645976fdd';
+
 COMMIT;
 

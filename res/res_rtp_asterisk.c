@@ -89,13 +89,20 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 
 #define TURN_STATE_WAIT_TIME 2000
 
+/*! Full INTRA-frame Request / Fast Update Request (From RFC2032) */
 #define RTCP_PT_FUR     192
+/*! Sender Report (From RFC3550) */
 #define RTCP_PT_SR      AST_RTP_RTCP_SR
+/*! Receiver Report (From RFC3550) */
 #define RTCP_PT_RR      AST_RTP_RTCP_RR
+/*! Source Description (From RFC3550) */
 #define RTCP_PT_SDES    202
+/*! Goodbye (To remove SSRC's from tables) (From RFC3550) */
 #define RTCP_PT_BYE     203
+/*! Application defined (From RFC3550) */
 #define RTCP_PT_APP     204
 /* VP8: RTCP Feedback */
+/*! Payload Specific Feed Back (From RFC4585 also RFC5104) */
 #define RTCP_PT_PSFB    206
 
 #define RTP_MTU		1200
@@ -307,6 +314,7 @@ struct ast_rtp {
 	void *data;
 	struct ast_rtcp *rtcp;
 	struct ast_rtp *bridged;        /*!< Who we are Packet bridged to */
+	unsigned int asymmetric_codec;  /*!< Indicate if asymmetric send/receive codecs are allowed */
 
 	enum strict_rtp_state strict_rtp_state; /*!< Current state that strict RTP protection is in */
 	struct ast_sockaddr strict_rtp_address;  /*!< Remote address information for strict RTP purposes */
@@ -682,6 +690,37 @@ static void ice_wrap_dtor(void *vdoomed)
 	}
 }
 
+static void ast2pj_rtp_ice_role(enum ast_rtp_ice_role ast_role, enum pj_ice_sess_role *pj_role)
+{
+	switch (ast_role) {
+	case AST_RTP_ICE_ROLE_CONTROLLED:
+		*pj_role = PJ_ICE_SESS_ROLE_CONTROLLED;
+		break;
+	case AST_RTP_ICE_ROLE_CONTROLLING:
+		*pj_role = PJ_ICE_SESS_ROLE_CONTROLLING;
+		break;
+	}
+}
+
+static void pj2ast_rtp_ice_role(enum pj_ice_sess_role pj_role, enum ast_rtp_ice_role *ast_role)
+{
+	switch (pj_role) {
+	case PJ_ICE_SESS_ROLE_CONTROLLED:
+		*ast_role = AST_RTP_ICE_ROLE_CONTROLLED;
+		return;
+	case PJ_ICE_SESS_ROLE_CONTROLLING:
+		*ast_role = AST_RTP_ICE_ROLE_CONTROLLING;
+		return;
+	case PJ_ICE_SESS_ROLE_UNKNOWN:
+		/* Don't change anything */
+		return;
+	default:
+		/* If we aren't explicitly handling something, it's a bug */
+		ast_assert(0);
+		return;
+	}
+}
+
 /*! \pre instance is locked */
 static int ice_reset_session(struct ast_rtp_instance *instance)
 {
@@ -698,8 +737,9 @@ static int ice_reset_session(struct ast_rtp_instance *instance)
 	res = ice_create(instance, &rtp->ice_original_rtp_addr, rtp->ice_port, 1);
 	if (!res) {
 		/* Use the current expected role for the ICE session */
-		pj_ice_sess_change_role(rtp->ice->real_ice, rtp->role == AST_RTP_ICE_ROLE_CONTROLLED ?
-			PJ_ICE_SESS_ROLE_CONTROLLED : PJ_ICE_SESS_ROLE_CONTROLLING);
+		enum pj_ice_sess_role role = PJ_ICE_SESS_ROLE_UNKNOWN;
+		ast2pj_rtp_ice_role(rtp->role, &role);
+		pj_ice_sess_change_role(rtp->ice->real_ice, role);
 	}
 
 	/* If we only have one component now, and we previously set up TURN for RTCP,
@@ -771,7 +811,7 @@ static void ast_rtp_ice_start(struct ast_rtp_instance *instance)
 		ao2_cleanup(rtp->ice_proposed_remote_candidates);
 		rtp->ice_proposed_remote_candidates = NULL;
 		/* If this ICE session is being preserved then go back to the role it currently is */
-		rtp->role = rtp->ice->real_ice->role;
+		pj2ast_rtp_ice_role(rtp->ice->real_ice->role, &rtp->role);
 		return;
 	}
 
@@ -1295,6 +1335,8 @@ static void ast_rtp_ice_turn_request(struct ast_rtp_instance *instance, enum ast
 	pj_turn_session_info info;
 	struct ast_sockaddr local, loop;
 	pj_status_t status;
+	pj_turn_sock_cfg turn_sock_cfg;
+	struct ice_wrap *ice;
 
 	ast_rtp_instance_get_local_address(instance, &local);
 	if (ast_sockaddr_is_ipv4(&local)) {
@@ -1357,11 +1399,20 @@ static void ast_rtp_ice_turn_request(struct ast_rtp_instance *instance, enum ast
 
 	pj_stun_config_init(&stun_config, &cachingpool.factory, 0, rtp->ioqueue->ioqueue, rtp->ioqueue->timerheap);
 
+	/* Use ICE session group lock for TURN session to avoid deadlock */
+	pj_turn_sock_cfg_default(&turn_sock_cfg);
+	ice = rtp->ice;
+	if (ice) {
+		turn_sock_cfg.grp_lock = ice->real_ice->grp_lock;
+		ao2_ref(ice, +1);
+	}
+
 	/* Release the instance lock to avoid deadlock with PJPROJECT group lock */
 	ao2_unlock(instance);
 	status = pj_turn_sock_create(&stun_config,
 		ast_sockaddr_is_ipv4(&addr) ? pj_AF_INET() : pj_AF_INET6(), conn_type,
-		turn_cb, NULL, instance, turn_sock);
+		turn_cb, &turn_sock_cfg, instance, turn_sock);
+	ao2_cleanup(ice);
 	if (status != PJ_SUCCESS) {
 		ast_log(LOG_WARNING, "Could not create a TURN client socket\n");
 		ao2_lock(instance);
@@ -2580,8 +2631,14 @@ static int __rtp_sendto(struct ast_rtp_instance *instance, void *buf, size_t siz
 
 #ifdef HAVE_PJPROJECT
 	if (rtp->ice) {
+		enum ast_rtp_ice_component_type component = rtcp ? AST_RTP_ICE_COMPONENT_RTCP : AST_RTP_ICE_COMPONENT_RTP;
 		pj_status_t status;
 		struct ice_wrap *ice;
+
+		/* If RTCP is sharing the same socket then use the same component */
+		if (rtcp && rtp->rtcp->s == rtp->s) {
+			component = AST_RTP_ICE_COMPONENT_RTP;
+		}
 
 		pj_thread_register_check();
 
@@ -2589,8 +2646,7 @@ static int __rtp_sendto(struct ast_rtp_instance *instance, void *buf, size_t siz
 		ice = rtp->ice;
 		ao2_ref(ice, +1);
 		ao2_unlock(instance);
-		status = pj_ice_sess_send_data(ice->real_ice,
-			rtcp ? AST_RTP_ICE_COMPONENT_RTCP : AST_RTP_ICE_COMPONENT_RTP, temp, len);
+		status = pj_ice_sess_send_data(ice->real_ice, component, temp, len);
 		ao2_ref(ice, -1);
 		ao2_lock(instance);
 		if (status == PJ_SUCCESS) {
@@ -5007,7 +5063,7 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance,
 	struct ast_rtp_instance *instance1, unsigned int *rtpheader, int len, int hdrlen)
 {
 	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
-	struct ast_rtp *bridged = ast_rtp_instance_get_data(instance1);
+	struct ast_rtp *bridged;
 	int res = 0, payload = 0, bridged_payload = 0, mark;
 	RAII_VAR(struct ast_rtp_payload_type *, payload_type, NULL, ao2_cleanup);
 	int reconstruct = ntohl(rtpheader[0]);
@@ -5017,7 +5073,7 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance,
 
 	/* Get fields from packet */
 	payload = (reconstruct & 0x7f0000) >> 16;
-	mark = (((reconstruct & 0x800000) >> 23) != 0);
+	mark = (reconstruct & 0x800000) >> 23;
 
 	/* Check what the payload value should be */
 	payload_type = ast_rtp_codecs_get_payload(ast_rtp_instance_get_codecs(instance), payload);
@@ -5033,18 +5089,9 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance,
 		return -1;
 	}
 
-	rtp->rxcount++;
-	rtp->rxoctetcount += (len - hdrlen);
-
 	/* If the payload coming in is not one of the negotiated ones then send it to the core, this will cause formats to change and the bridge to break */
 	if (ast_rtp_codecs_find_payload_code(ast_rtp_instance_get_codecs(instance1), bridged_payload) == -1) {
 		ast_debug(1, "Unsupported payload type received \n");
-		return -1;
-	}
-
-	/* If bridged peer is in dtmf, feed all packets to core until it finishes to avoid infinite dtmf */
-	if (bridged->sending_digit) {
-		ast_debug(1, "Feeding packets to core until DTMF finishes\n");
 		return -1;
 	}
 
@@ -5058,17 +5105,9 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance,
 		return -1;
 	}
 
-	/* If the marker bit has been explicitly set turn it on */
-	if (ast_test_flag(rtp, FLAG_NEED_MARKER_BIT)) {
-		mark = 1;
-		ast_clear_flag(rtp, FLAG_NEED_MARKER_BIT);
+	if (payload_type->asterisk_format) {
+		ao2_replace(rtp->lastrxformat, payload_type->format);
 	}
-
-	/* Reconstruct part of the packet */
-	reconstruct &= 0xFF80FFFF;
-	reconstruct |= (bridged_payload << 16);
-	reconstruct |= (mark << 23);
-	rtpheader[0] = htonl(reconstruct);
 
 	/*
 	 * We have now determined that we need to send the RTP packet
@@ -5085,6 +5124,40 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance,
 	ao2_unlock(instance);
 	ao2_lock(instance1);
 
+	/*
+	 * Get the peer rtp pointer now to emphasize that using it
+	 * must happen while instance1 is locked.
+	 */
+	bridged = ast_rtp_instance_get_data(instance1);
+
+
+	/* If bridged peer is in dtmf, feed all packets to core until it finishes to avoid infinite dtmf */
+	if (bridged->sending_digit) {
+		ast_debug(1, "Feeding packet to core until DTMF finishes\n");
+		ao2_unlock(instance1);
+		ao2_lock(instance);
+		return -1;
+	}
+
+	if (payload_type->asterisk_format) {
+		/*
+		 * If bridged peer has already received rtp, perform the asymmetric codec check
+		 * if that feature has been activated
+		 */
+		if (!bridged->asymmetric_codec
+			&& bridged->lastrxformat != ast_format_none
+			&& ast_format_cmp(payload_type->format, bridged->lastrxformat) == AST_FORMAT_CMP_NOT_EQUAL) {
+			ast_debug(1, "Asymmetric RTP codecs detected (TX: %s, RX: %s) sending frame to core\n",
+				ast_format_get_name(payload_type->format),
+				ast_format_get_name(bridged->lastrxformat));
+			ao2_unlock(instance1);
+			ao2_lock(instance);
+			return -1;
+		}
+
+		ao2_replace(bridged->lasttxformat, payload_type->format);
+	}
+
 	ast_rtp_instance_get_remote_address(instance1, &remote_address);
 
 	if (ast_sockaddr_isnull(&remote_address)) {
@@ -5093,6 +5166,18 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance,
 		ao2_lock(instance);
 		return 0;
 	}
+
+	/* If the marker bit has been explicitly set turn it on */
+	if (ast_test_flag(bridged, FLAG_NEED_MARKER_BIT)) {
+		mark = 1;
+		ast_clear_flag(bridged, FLAG_NEED_MARKER_BIT);
+	}
+
+	/* Reconstruct part of the packet */
+	reconstruct &= 0xFF80FFFF;
+	reconstruct |= (bridged_payload << 16);
+	reconstruct |= (mark << 23);
+	rtpheader[0] = htonl(reconstruct);
 
 	/* Send the packet back out */
 	res = rtp_sendto(instance1, (void *)rtpheader, len, 0, &remote_address, &ice);
@@ -5371,13 +5456,6 @@ static struct ast_frame *ast_rtp_read(struct ast_rtp_instance *instance, int rtc
 		}
 	}
 
-	/* If we are directly bridged to another instance send the audio directly out */
-	instance1 = ast_rtp_instance_get_bridged(instance);
-	if (instance1
-		&& !bridge_p2p_rtp_write(instance, instance1, rtpheader, res, hdrlen)) {
-		return &ast_null_frame;
-	}
-
 	/* Pull out the various other fields we will need */
 	payloadtype = (seqno & 0x7f0000) >> 16;
 	padding = seqno & (1 << 29);
@@ -5472,6 +5550,28 @@ static struct ast_frame *ast_rtp_read(struct ast_rtp_instance *instance, int rtc
 
 	prev_seqno = rtp->lastrxseqno;
 	rtp->lastrxseqno = seqno;
+
+
+	/* If we are directly bridged to another instance send the audio directly out,
+	 * but only after updating core information about the received traffic so that
+	 * outgoing RTCP reflects it.
+	 */
+	instance1 = ast_rtp_instance_get_bridged(instance);
+	if (instance1
+		&& !bridge_p2p_rtp_write(instance, instance1, rtpheader, res, hdrlen)) {
+		struct timeval rxtime;
+		struct ast_frame *f;
+
+		/* Update statistics for jitter so they are correct in RTCP */
+		calc_rxstamp(&rxtime, rtp, timestamp, mark);
+
+		/* When doing P2P we don't need to raise any frames about SSRC change to the core */
+		while ((f = AST_LIST_REMOVE_HEAD(&frames, frame_list)) != NULL) {
+			ast_frfree(f);
+		}
+
+		return &ast_null_frame;
+	}
 
 	if (rtp_debug_test_addr(&addr)) {
 		ast_verbose("Got  RTP packet from    %s (type %-2.2d, seq %-6.6u, ts %-6.6u, len %-6.6d)\n",
@@ -5801,6 +5901,8 @@ static void ast_rtp_prop_set(struct ast_rtp_instance *instance, enum ast_rtp_pro
 				rtp->rtcp = NULL;
 			}
 		}
+	} else if (property == AST_RTP_PROPERTY_ASYMMETRIC_CODEC) {
+		rtp->asymmetric_codec = value;
 	}
 }
 

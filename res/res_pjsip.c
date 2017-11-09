@@ -367,9 +367,12 @@
 				<configOption name="rewrite_contact">
 					<synopsis>Allow Contact header to be rewritten with the source IP address-port</synopsis>
 					<description><para>
-						On inbound SIP messages from this endpoint, the Contact header or an appropriate Record-Route
-						header will be changed to have the source IP address and port. This option does not affect
-						outbound messages sent to this endpoint.
+						On inbound SIP messages from this endpoint, the Contact header or an
+						appropriate Record-Route header will be changed to have the source IP
+						address and port.  This option does not affect outbound messages sent to
+						this endpoint.  This option helps servers communicate with endpoints
+						that are behind NATs.  This option also helps reuse reliable transport
+						connections such as TCP and TLS.
 					</para></description>
 				</configOption>
 				<configOption name="rtp_ipv6" default="no">
@@ -982,6 +985,14 @@
 						on Ringing when already INUSE.
 					</para></description>
 				</configOption>
+				<configOption name="incoming_mwi_mailbox">
+					<synopsis>Mailbox name to use when incoming MWI NOTIFYs are received</synopsis>
+					<description><para>
+						If an MWI NOTIFY is received <emphasis>from</emphasis> this endpoint,
+						this mailbox will be used when notifying other modules of MWI status
+						changes.  If not set, incoming MWI NOTIFYs are ignored.
+					</para></description>
+				</configOption>
 			</configObject>
 			<configObject name="auth">
 				<synopsis>Authentication type</synopsis>
@@ -1324,6 +1335,13 @@
 						in incoming SIP REGISTER requests and is not intended to be configured manually.
 					</para></description>
 				</configOption>
+				<configOption name="prune_on_boot">
+					<synopsis>A contact that cannot survive a restart/boot.</synopsis>
+					<description><para>
+						The option is set if the incoming SIP REGISTER contact is rewritten
+						on a reliable transport and is not intended to be configured manually.
+					</para></description>
+				</configOption>
 			</configObject>
 			<configObject name="aor">
 				<synopsis>The configuration for a location of an endpoint</synopsis>
@@ -1390,6 +1408,18 @@
 						It only limits contacts added through external interaction, such as
 						registration.
 						</para>
+						<note><para>The <replaceable>rewrite_contact</replaceable> option
+						registers the source address as the contact address to help with
+						NAT and reusing connection oriented transports such as TCP and
+						TLS.  Unfortunately, refreshing a registration may register a
+						different contact address and exceed
+						<replaceable>max_contacts</replaceable>.  The
+						<replaceable>remove_existing</replaceable> option can help by
+						removing the soonest to expire contact(s) over
+						<replaceable>max_contacts</replaceable> which is likely the
+						old <replaceable>rewrite_contact</replaceable> contact source
+						address being refreshed.
+						</para></note>
 						<note><para>This should be set to <literal>1</literal> and
 						<replaceable>remove_existing</replaceable> set to <literal>yes</literal> if you
 						wish to stick with the older <literal>chan_sip</literal> behaviour.
@@ -1399,15 +1429,29 @@
 				<configOption name="minimum_expiration" default="60">
 					<synopsis>Minimum keep alive time for an AoR</synopsis>
 					<description><para>
-						Minimum time to keep a peer with an explict expiration. Time in seconds.
+						Minimum time to keep a peer with an explicit expiration. Time in seconds.
 					</para></description>
 				</configOption>
 				<configOption name="remove_existing" default="no">
 					<synopsis>Determines whether new contacts replace existing ones.</synopsis>
 					<description><para>
-						On receiving a new registration to the AoR should it remove
-						the existing contact that was registered against it?
+						On receiving a new registration to the AoR should it remove enough
+						existing contacts not added or updated by the registration to
+						satisfy <replaceable>max_contacts</replaceable>?  Any removed
+						contacts will expire the soonest.
 						</para>
+						<note><para>The <replaceable>rewrite_contact</replaceable> option
+						registers the source address as the contact address to help with
+						NAT and reusing connection oriented transports such as TCP and
+						TLS.  Unfortunately, refreshing a registration may register a
+						different contact address and exceed
+						<replaceable>max_contacts</replaceable>.  The
+						<replaceable>remove_existing</replaceable> option can help by
+						removing the soonest to expire contact(s) over
+						<replaceable>max_contacts</replaceable> which is likely the
+						old <replaceable>rewrite_contact</replaceable> contact source
+						address being refreshed.
+						</para></note>
 						<note><para>This should be set to <literal>yes</literal> and
 						<replaceable>max_contacts</replaceable> set to <literal>1</literal> if you
 						wish to stick with the older <literal>chan_sip</literal> behaviour.
@@ -3029,6 +3073,11 @@ void ast_sip_add_usereqphone(const struct ast_sip_endpoint *endpoint, pj_pool_t 
 		return;
 	}
 
+	if (pjsip_param_find(&sip_uri->other_param, &STR_USER)) {
+		/* Don't add it if it's already there */
+		return;
+	}
+
 	param = PJ_POOL_ALLOC_T(pool, pjsip_param);
 	param->name = STR_USER;
 	param->value = STR_PHONE;
@@ -3075,6 +3124,14 @@ pjsip_dialog *ast_sip_create_dialog_uac(const struct ast_sip_endpoint *endpoint,
 	/* Update the dialog with the new local URI, we do it afterwards so we can use the dialog pool for construction */
 	pj_strdup_with_null(dlg->pool, &dlg->local.info_str, &local_uri);
 	dlg->local.info->uri = pjsip_parse_uri(dlg->pool, dlg->local.info_str.ptr, dlg->local.info_str.slen, 0);
+	if (!dlg->local.info->uri) {
+		ast_log(LOG_ERROR,
+			"Could not parse URI '%s' for endpoint '%s'\n",
+			dlg->local.info_str.ptr, ast_sorcery_object_get_id(endpoint));
+		dlg->sess_count--;
+		pjsip_dlg_terminate(dlg);
+		return NULL;
+	}
 
 	dlg->local.contact = pjsip_parse_hdr(dlg->pool, &HCONTACT, local_uri.ptr, local_uri.slen, NULL);
 
@@ -3454,7 +3511,7 @@ int ast_sip_create_request(const char *method, struct pjsip_dialog *dlg,
 
 AST_RWLIST_HEAD_STATIC(supplements, ast_sip_supplement);
 
-int ast_sip_register_supplement(struct ast_sip_supplement *supplement)
+void internal_sip_register_supplement(struct ast_sip_supplement *supplement)
 {
 	struct ast_sip_supplement *iter;
 	int inserted = 0;
@@ -3472,22 +3529,39 @@ int ast_sip_register_supplement(struct ast_sip_supplement *supplement)
 	if (!inserted) {
 		AST_RWLIST_INSERT_TAIL(&supplements, supplement, next);
 	}
+}
+
+int ast_sip_register_supplement(struct ast_sip_supplement *supplement)
+{
+	internal_sip_register_supplement(supplement);
 	ast_module_ref(ast_module_info->self);
+
 	return 0;
 }
 
-void ast_sip_unregister_supplement(struct ast_sip_supplement *supplement)
+int internal_sip_unregister_supplement(struct ast_sip_supplement *supplement)
 {
 	struct ast_sip_supplement *iter;
 	SCOPED_LOCK(lock, &supplements, AST_RWLIST_WRLOCK, AST_RWLIST_UNLOCK);
+	int res = -1;
+
 	AST_RWLIST_TRAVERSE_SAFE_BEGIN(&supplements, iter, next) {
 		if (supplement == iter) {
 			AST_RWLIST_REMOVE_CURRENT(next);
-			ast_module_unref(ast_module_info->self);
+			res = 0;
 			break;
 		}
 	}
 	AST_RWLIST_TRAVERSE_SAFE_END;
+
+	return res;
+}
+
+void ast_sip_unregister_supplement(struct ast_sip_supplement *supplement)
+{
+	if (!internal_sip_unregister_supplement(supplement)) {
+		ast_module_unref(ast_module_info->self);
+	}
 }
 
 static int send_in_dialog_request(pjsip_tx_data *tdata, struct pjsip_dialog *dlg)
@@ -4389,6 +4463,56 @@ const char *ast_sip_get_host_ip_string(int af)
 	return NULL;
 }
 
+int ast_sip_dtmf_to_str(const enum ast_sip_dtmf_mode dtmf,
+		        char *buf, size_t buf_len)
+{
+	switch (dtmf) {
+	case AST_SIP_DTMF_NONE:
+		ast_copy_string(buf, "none", buf_len);
+		break;
+	case AST_SIP_DTMF_RFC_4733:
+		ast_copy_string(buf, "rfc4733", buf_len);
+		break;
+	case AST_SIP_DTMF_INBAND:
+		ast_copy_string(buf, "inband", buf_len);
+		break;
+	case AST_SIP_DTMF_INFO:
+		ast_copy_string(buf, "info", buf_len);
+		break;
+	case AST_SIP_DTMF_AUTO:
+		ast_copy_string(buf, "auto", buf_len);
+		break;
+	case AST_SIP_DTMF_AUTO_INFO:
+		ast_copy_string(buf, "auto_info", buf_len);
+		break;
+	default:
+		buf[0] = '\0';
+		return -1;
+	}
+	return 0;
+}
+
+int ast_sip_str_to_dtmf(const char * dtmf_mode)
+{
+	int result = -1;
+
+	if (!strcasecmp(dtmf_mode, "info")) {
+		result = AST_SIP_DTMF_INFO;
+	} else if (!strcasecmp(dtmf_mode, "rfc4733")) {
+		result = AST_SIP_DTMF_RFC_4733;
+	} else if (!strcasecmp(dtmf_mode, "inband")) {
+		result = AST_SIP_DTMF_INBAND;
+	} else if (!strcasecmp(dtmf_mode, "none")) {
+		result = AST_SIP_DTMF_NONE;
+	} else if (!strcasecmp(dtmf_mode, "auto")) {
+		result = AST_SIP_DTMF_AUTO;
+	} else if (!strcasecmp(dtmf_mode, "auto_info")) {
+		result = AST_SIP_DTMF_AUTO_INFO;
+	}
+
+	return result;
+}
+
 /*!
  * \brief Set name and number information on an identity header.
  *
@@ -4504,6 +4628,16 @@ static int reload_configuration_task(void *obj)
 	return 0;
 }
 
+void internal_res_pjsip_ref(void)
+{
+	ast_module_ref(ast_module_info->self);
+}
+
+void internal_res_pjsip_unref(void)
+{
+	ast_module_unref(ast_module_info->self);
+}
+
 static int unload_pjsip(void *data)
 {
 	/*
@@ -4513,12 +4647,13 @@ static int unload_pjsip(void *data)
 	if (ast_pjsip_endpoint && serializer_pool[0]) {
 		ast_res_pjsip_cleanup_options_handling();
 		internal_sip_destroy_outbound_authentication();
-		ast_res_pjsip_cleanup_message_ip_updater();
+		ast_res_pjsip_cleanup_message_filter();
 		ast_sip_destroy_distributor();
 		ast_res_pjsip_destroy_configuration();
 		ast_sip_destroy_system();
 		ast_sip_destroy_global_headers();
 		internal_sip_unregister_service(&supplement_module);
+		ast_sip_destroy_transport_events();
 	}
 
 	if (monitor_thread) {
@@ -4597,7 +4732,6 @@ static int load_pjsip(void)
 	return AST_MODULE_LOAD_SUCCESS;
 
 error:
-	unload_pjsip(NULL);
 	return AST_MODULE_LOAD_DECLINE;
 }
 
@@ -4663,6 +4797,11 @@ static int load_module(void)
 		goto error;
 	}
 
+	if (ast_sip_initialize_transport_events()) {
+		ast_log(LOG_ERROR, "Failed to initialize SIP transport monitor. Aborting load\n");
+		goto error;
+	}
+
 	ast_sip_initialize_dns();
 
 	ast_sip_initialize_global_headers();
@@ -4689,7 +4828,7 @@ static int load_module(void)
 
 	ast_res_pjsip_init_options_handling(0);
 
-	if (ast_res_pjsip_init_message_ip_updater()) {
+	if (ast_res_pjsip_init_message_filter()) {
 		ast_log(LOG_ERROR, "Failed to initialize message IP updating. Aborting load\n");
 		goto error;
 	}
