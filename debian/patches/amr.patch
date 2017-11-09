@@ -693,8 +693,8 @@ Last-Update: 2016-08-29
 --- a/main/rtp_engine.c
 +++ b/main/rtp_engine.c
 @@ -2199,6 +2199,9 @@
- 	set_next_mime_type(ast_format_opus, 0,  "audio", "opus", 48000);
  	set_next_mime_type(ast_format_vp8, 0,  "video", "VP8", 90000);
+ 	set_next_mime_type(ast_format_vp9, 0, "video", "VP9", 90000);
  
 +	set_next_mime_type(ast_format_amr, 0,  "audio", "AMR", 8000);
 +	set_next_mime_type(ast_format_amrwb, 0,  "audio", "AMR-WB", 16000);

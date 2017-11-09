@@ -68,7 +68,7 @@ index ea55df4..3bdf140 100644
 +	fi
  fi
  
- AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcfg])
+ AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcpg])
 -- 
 2.10.2
 
