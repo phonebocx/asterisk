@@ -1,3 +1,12 @@
+asterisk (1:13.18.3~dfsg-1) unstable; urgency=medium
+
+  * New upstream version 13.18.3~dfsg
+    - CVE-2017-17090 / AST-2017-013
+      DOS Vulnerability in Asterisk chan_skinny (Closes: #883342)
+  * Drop duplicate filter line from d/gbp.conf
+
+ -- Bernhard Schmidt <berni@debian.org>  Thu, 07 Dec 2017 15:20:29 +0100
+
 asterisk (1:13.18.1~dfsg-1) unstable; urgency=medium
 
   * New upstream version 13.18.1~dfsg
