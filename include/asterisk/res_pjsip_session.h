@@ -157,6 +157,8 @@ struct ast_sip_session {
 	unsigned int defer_end:1;
 	/*! Session end (remote hangup) requested while termination deferred */
 	unsigned int ended_while_deferred:1;
+	/*! DTMF mode to use with this session, from endpoint but can change */
+	enum ast_sip_dtmf_mode dtmf;
 };
 
 typedef int (*ast_sip_session_request_creation_cb)(struct ast_sip_session *session, pjsip_tx_data *tdata);
@@ -540,6 +542,13 @@ int ast_sip_session_register_supplement(struct ast_sip_session_supplement *suppl
 void ast_sip_session_unregister_supplement(struct ast_sip_session_supplement *supplement);
 
 /*!
+ * \brief Add supplements to a SIP session
+ *
+ * \param session The session to initialize
+ */
+int ast_sip_session_add_supplements(struct ast_sip_session *session);
+
+/*!
  * \brief Alternative for ast_datastore_alloc()
  *
  * There are two major differences between this and ast_datastore_alloc()
@@ -620,6 +629,23 @@ int ast_sip_session_refresh(struct ast_sip_session *session,
 		ast_sip_session_response_cb on_response,
 		enum ast_sip_session_refresh_method method,
 		int generate_new_sdp);
+
+/*!
+ * \brief Regenerate SDP Answer
+ *
+ * This method is used when an SDP offer has been received but an SDP answer
+ * has not been sent yet. It requests that a new local SDP be created and
+ * set as the SDP answer. As with any outgoing request in res_pjsip_session,
+ * this will call into registered supplements in case they wish to add anything.
+ *
+ * \param session The session on which the answer will be updated
+ * \param on_sdp_creation Callback called when SDP is created
+ * \param generate_new_sdp Boolean to indicate if a new SDP should be created
+ * \retval 0 Successfully updated the SDP answer
+ * \retval -1 Failure to updated the SDP answer
+ */
+int ast_sip_session_regenerate_answer(struct ast_sip_session *session,
+		ast_sip_session_sdp_creation_cb on_sdp_creation);
 
 /*!
  * \brief Send a SIP response

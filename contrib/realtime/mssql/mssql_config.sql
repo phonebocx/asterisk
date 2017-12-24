@@ -847,6 +847,14 @@ ALTER TABLE ps_transports ALTER COLUMN tos VARCHAR(10);
 
 GO
 
+declare @const_name varchar(256)
+select @const_name = [name] from sys.check_constraints
+where parent_object_id = object_id('ps_transports')
+and col_name(parent_object_id, parent_column_id) = 'cos'
+exec('alter table ps_transports drop constraint ' + @const_name);
+
+GO
+
 ALTER TABLE ps_transports DROP COLUMN cos;
 
 GO
@@ -1007,6 +1015,10 @@ GO
 
 -- Running upgrade d39508cb8d8 -> 5950038a6ead
 
+ALTER TABLE ps_transports DROP CONSTRAINT yesno_values;
+
+GO
+
 ALTER TABLE ps_transports ALTER COLUMN verifiy_server VARCHAR(3);
 
 GO
@@ -1015,7 +1027,11 @@ EXEC sp_rename 'ps_transports.verifiy_server', verify_server, 'COLUMN';
 
 GO
 
-ALTER TABLE ps_transports ADD CONSTRAINT yesno_values CHECK (verifiy_server IN ('yes', 'no'));
+ALTER TABLE ps_transports ALTER COLUMN verify_server VARCHAR(3);
+
+GO
+
+ALTER TABLE ps_transports ADD CONSTRAINT yesno_values CHECK (verify_server IN ('yes', 'no'));
 
 GO
 
@@ -1501,6 +1517,10 @@ GO
 
 -- Running upgrade c7a44a5a0851 -> 3772f8f828da
 
+ALTER TABLE ps_endpoints DROP CONSTRAINT ck_ps_endpoints_identify_by_pjsip_identify_by_values;
+
+GO
+
 ALTER TABLE ps_endpoints ALTER COLUMN identify_by VARCHAR(13);
 
 GO
@@ -1750,6 +1770,44 @@ ALTER TABLE ps_endpoints ADD CONSTRAINT pjsip_dtmf_mode_values_v3 CHECK (dtmf_mo
 GO
 
 UPDATE alembic_version SET version_num='164abbd708c' WHERE alembic_version.version_num = 'd7983954dd96';
+
+GO
+
+-- Running upgrade 164abbd708c -> f3d1c5d38b56
+
+ALTER TABLE ps_contacts ADD prune_on_boot VARCHAR(3) NULL;
+
+GO
+
+ALTER TABLE ps_contacts ADD CONSTRAINT yesno_values CHECK (prune_on_boot IN ('yes', 'no'));
+
+GO
+
+UPDATE alembic_version SET version_num='f3d1c5d38b56' WHERE alembic_version.version_num = '164abbd708c';
+
+GO
+
+-- Running upgrade f3d1c5d38b56 -> b83645976fdd
+
+ALTER TABLE ps_endpoints ADD dtls_fingerprint VARCHAR(7) NULL;
+
+GO
+
+ALTER TABLE ps_endpoints ADD CONSTRAINT sha_hash_values CHECK (dtls_fingerprint IN ('SHA-1', 'SHA-256'));
+
+GO
+
+UPDATE alembic_version SET version_num='b83645976fdd' WHERE alembic_version.version_num = 'f3d1c5d38b56';
+
+GO
+
+-- Running upgrade b83645976fdd -> a1698e8bb9c5
+
+ALTER TABLE ps_endpoints ADD incoming_mwi_mailbox VARCHAR(40) NULL;
+
+GO
+
+UPDATE alembic_version SET version_num='a1698e8bb9c5' WHERE alembic_version.version_num = 'b83645976fdd';
 
 GO
 

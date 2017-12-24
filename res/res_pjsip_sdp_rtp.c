@@ -241,15 +241,16 @@ static int create_rtp(struct ast_sip_session *session, struct ast_sip_session_me
 	}
 
 	ast_rtp_instance_set_prop(session_media->rtp, AST_RTP_PROPERTY_NAT, session->endpoint->media.rtp.symmetric);
+	ast_rtp_instance_set_prop(session_media->rtp, AST_RTP_PROPERTY_ASYMMETRIC_CODEC, session->endpoint->asymmetric_rtp_codec);
 
 	if (!session->endpoint->media.rtp.ice_support && (ice = ast_rtp_instance_get_ice(session_media->rtp))) {
 		ice->stop(session_media->rtp);
 	}
 
-	if (session->endpoint->dtmf == AST_SIP_DTMF_RFC_4733 || session->endpoint->dtmf == AST_SIP_DTMF_AUTO || session->endpoint->dtmf == AST_SIP_DTMF_AUTO_INFO) {
+	if (session->dtmf == AST_SIP_DTMF_RFC_4733 || session->dtmf == AST_SIP_DTMF_AUTO || session->dtmf == AST_SIP_DTMF_AUTO_INFO) {
 		ast_rtp_instance_dtmf_mode_set(session_media->rtp, AST_RTP_DTMF_MODE_RFC2833);
 		ast_rtp_instance_set_prop(session_media->rtp, AST_RTP_PROPERTY_DTMF, 1);
-	} else if (session->endpoint->dtmf == AST_SIP_DTMF_INBAND) {
+	} else if (session->dtmf == AST_SIP_DTMF_INBAND) {
 		ast_rtp_instance_dtmf_mode_set(session_media->rtp, AST_RTP_DTMF_MODE_INBAND);
 	}
 
@@ -332,11 +333,11 @@ static void get_codecs(struct ast_sip_session *session, const struct pjmedia_sdp
 			}
 		}
 	}
-	if (!tel_event && (session->endpoint->dtmf == AST_SIP_DTMF_AUTO)) {
+	if (!tel_event && (session->dtmf == AST_SIP_DTMF_AUTO)) {
 		ast_rtp_instance_dtmf_mode_set(session_media->rtp, AST_RTP_DTMF_MODE_INBAND);
 	}
 
-	if (session->endpoint->dtmf == AST_SIP_DTMF_AUTO_INFO) {
+	if (session->dtmf == AST_SIP_DTMF_AUTO_INFO) {
 		if  (tel_event) {
 			ast_rtp_instance_dtmf_mode_set(session_media->rtp, AST_RTP_DTMF_MODE_RFC2833);
 		} else {
@@ -440,7 +441,7 @@ static int set_caps(struct ast_sip_session *session, struct ast_sip_session_medi
 			ast_set_write_format(session->channel, ast_channel_writeformat(session->channel));
 		}
 
-		if ( ((session->endpoint->dtmf == AST_SIP_DTMF_AUTO) || (session->endpoint->dtmf == AST_SIP_DTMF_AUTO_INFO) )
+		if ( ((session->dtmf == AST_SIP_DTMF_AUTO) || (session->dtmf == AST_SIP_DTMF_AUTO_INFO) )
 		    && (ast_rtp_instance_dtmf_mode_get(session_media->rtp) == AST_RTP_DTMF_MODE_RFC2833)
 		    && (session->dsp)) {
 			dsp_features = ast_dsp_get_features(session->dsp);
@@ -1160,7 +1161,7 @@ static int create_outgoing_sdp_stream(struct ast_sip_session *session, struct as
 	pj_str_t stmp;
 	pjmedia_sdp_attr *attr;
 	int index = 0;
-	int noncodec = (session->endpoint->dtmf == AST_SIP_DTMF_RFC_4733 || session->endpoint->dtmf == AST_SIP_DTMF_AUTO || session->endpoint->dtmf == AST_SIP_DTMF_AUTO_INFO) ? AST_RTP_DTMF : 0;
+	int noncodec = (session->dtmf == AST_SIP_DTMF_RFC_4733 || session->dtmf == AST_SIP_DTMF_AUTO || session->dtmf == AST_SIP_DTMF_AUTO_INFO) ? AST_RTP_DTMF : 0;
 	int min_packet_size = 0, max_packet_size = 0;
 	int rtp_code;
 	RAII_VAR(struct ast_format_cap *, caps, NULL, ao2_cleanup);
@@ -1505,7 +1506,7 @@ static void change_outgoing_sdp_stream_media_address(pjsip_tx_data *tdata, struc
 {
 	RAII_VAR(struct ast_sip_transport_state *, transport_state, ast_sip_get_transport_state(ast_sorcery_object_get_id(transport)), ao2_cleanup);
 	char host[NI_MAXHOST];
-	struct ast_sockaddr addr = { { 0, } };
+	struct ast_sockaddr our_sdp_addr = { { 0, } };
 
 	/* If the stream has been rejected there will be no connection line */
 	if (!stream->conn || !transport_state) {
@@ -1513,15 +1514,17 @@ static void change_outgoing_sdp_stream_media_address(pjsip_tx_data *tdata, struc
 	}
 
 	ast_copy_pj_str(host, &stream->conn->addr, sizeof(host));
-	ast_sockaddr_parse(&addr, host, PARSE_PORT_FORBID);
+	ast_sockaddr_parse(&our_sdp_addr, host, PARSE_PORT_FORBID);
 
-	/* Is the address within the SDP inside the same network? */
-	if (transport_state->localnet
-		&& ast_apply_ha(transport_state->localnet, &addr) == AST_SENSE_ALLOW) {
+	/* Reversed check here. We don't check the remote endpoint being
+	 * in our local net, but whether our outgoing session IP is
+	 * local. If it is not, we won't do rewriting. No localnet
+	 * configured? Always rewrite. */
+	if (ast_sip_transport_is_nonlocal(transport_state, &our_sdp_addr) && transport_state->localnet) {
 		return;
 	}
-	ast_debug(5, "Setting media address to %s\n", transport->external_media_address);
-	pj_strdup2(tdata->pool, &stream->conn->addr, transport->external_media_address);
+	ast_debug(5, "Setting media address to %s\n", ast_sockaddr_stringify_host(&transport_state->external_media_address));
+	pj_strdup2(tdata->pool, &stream->conn->addr, ast_sockaddr_stringify_host(&transport_state->external_media_address));
 }
 
 /*! \brief Function which stops the RTP instance */

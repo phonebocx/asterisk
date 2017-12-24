@@ -386,6 +386,9 @@ static void ast_el_write_default_histfile(void);
 
 static void asterisk_daemon(int isroot, const char *runuser, const char *rungroup);
 
+#define DEFAULT_MONITOR_DIR DEFAULT_SPOOL_DIR "/monitor"
+#define DEFAULT_RECORDING_DIR DEFAULT_SPOOL_DIR "/recording"
+
 struct _cfg_paths {
 	char config_dir[PATH_MAX];
 	char module_dir[PATH_MAX];
@@ -1283,11 +1286,10 @@ void ast_unreplace_sigchld(void)
 	ast_mutex_unlock(&safe_system_lock);
 }
 
-int ast_safe_system(const char *s)
+/*! \brief fork and perform other preparations for spawning applications */
+static pid_t safe_exec_prep(int dualfork)
 {
 	pid_t pid;
-	int res;
-	int status;
 
 #if defined(HAVE_WORKING_FORK) || defined(HAVE_WORKING_VFORK)
 	ast_replace_sigchld();
@@ -1309,33 +1311,99 @@ int ast_safe_system(const char *s)
 		cap_free(cap);
 #endif
 #ifdef HAVE_WORKING_FORK
-		if (ast_opt_high_priority)
+		if (ast_opt_high_priority) {
 			ast_set_priority(0);
+		}
 		/* Close file descriptors and launch system command */
 		ast_close_fds_above_n(STDERR_FILENO);
 #endif
-		execl("/bin/sh", "/bin/sh", "-c", s, (char *) NULL);
-		_exit(1);
-	} else if (pid > 0) {
+		if (dualfork) {
+#ifdef HAVE_WORKING_FORK
+			pid = fork();
+#else
+			pid = vfork();
+#endif
+			if (pid < 0) {
+				/* Second fork failed. */
+				/* No logger available. */
+				_exit(1);
+			}
+
+			if (pid > 0) {
+				/* This is the first fork, exit so the reaper finishes right away. */
+				_exit(0);
+			}
+
+			/* This is the second fork.  The first fork will exit immediately so
+			 * Asterisk doesn't have to wait for completion.
+			 * ast_safe_system("cmd &") would run in the background, but the '&'
+			 * cannot be added with ast_safe_execvp, so we have to double fork.
+			 */
+		}
+	}
+
+	if (pid < 0) {
+		ast_log(LOG_WARNING, "Fork failed: %s\n", strerror(errno));
+	}
+#else
+	ast_log(LOG_WARNING, "Fork failed: %s\n", strerror(ENOTSUP));
+	pid = -1;
+#endif
+
+	return pid;
+}
+
+/*! \brief wait for spawned application to complete and unreplace sigchld */
+static int safe_exec_wait(pid_t pid)
+{
+	int res = -1;
+
+#if defined(HAVE_WORKING_FORK) || defined(HAVE_WORKING_VFORK)
+	if (pid > 0) {
 		for (;;) {
+			int status;
+
 			res = waitpid(pid, &status, 0);
 			if (res > -1) {
 				res = WIFEXITED(status) ? WEXITSTATUS(status) : -1;
 				break;
-			} else if (errno != EINTR)
+			}
+			if (errno != EINTR) {
 				break;
+			}
 		}
-	} else {
-		ast_log(LOG_WARNING, "Fork failed: %s\n", strerror(errno));
-		res = -1;
 	}
 
 	ast_unreplace_sigchld();
-#else /* !defined(HAVE_WORKING_FORK) && !defined(HAVE_WORKING_VFORK) */
-	res = -1;
 #endif
 
 	return res;
+}
+
+int ast_safe_execvp(int dualfork, const char *file, char *const argv[])
+{
+	pid_t pid = safe_exec_prep(dualfork);
+
+	if (pid == 0) {
+		execvp(file, argv);
+		_exit(1);
+		/* noreturn from _exit */
+	}
+
+	return safe_exec_wait(pid);
+}
+
+int ast_safe_system(const char *s)
+{
+	pid_t pid = safe_exec_prep(0);
+
+	if (pid == 0) {
+		execl("/bin/sh", "/bin/sh", "-c", s, (char *) NULL);
+		_exit(1);
+		/* noreturn from _exit */
+	}
+
+	return safe_exec_wait(pid);
 }
 
 /*!
@@ -3654,8 +3722,8 @@ static void ast_readconfig(void)
 	ast_copy_string(cfg_paths.config_dir, DEFAULT_CONFIG_DIR, sizeof(cfg_paths.config_dir));
 	ast_copy_string(cfg_paths.spool_dir, DEFAULT_SPOOL_DIR, sizeof(cfg_paths.spool_dir));
 	ast_copy_string(cfg_paths.module_dir, DEFAULT_MODULE_DIR, sizeof(cfg_paths.module_dir));
-	snprintf(cfg_paths.monitor_dir, sizeof(cfg_paths.monitor_dir), "%s/monitor", cfg_paths.spool_dir);
-	snprintf(cfg_paths.recording_dir, sizeof(cfg_paths.recording_dir), "%s/recording", cfg_paths.spool_dir);
+	ast_copy_string(cfg_paths.monitor_dir, DEFAULT_MONITOR_DIR, sizeof(cfg_paths.monitor_dir));
+	ast_copy_string(cfg_paths.recording_dir, DEFAULT_RECORDING_DIR, sizeof(cfg_paths.recording_dir));
 	ast_copy_string(cfg_paths.var_dir, DEFAULT_VAR_DIR, sizeof(cfg_paths.var_dir));
 	ast_copy_string(cfg_paths.data_dir, DEFAULT_DATA_DIR, sizeof(cfg_paths.data_dir));
 	ast_copy_string(cfg_paths.log_dir, DEFAULT_LOG_DIR, sizeof(cfg_paths.log_dir));
@@ -3811,7 +3879,9 @@ static void ast_readconfig(void)
 		/* Set the maximum amount of open files */
 		} else if (!strcasecmp(v->name, "maxfiles")) {
 			ast_option_maxfiles = atoi(v->value);
-			set_ulimit(ast_option_maxfiles);
+			if (!ast_opt_remote) {
+				set_ulimit(ast_option_maxfiles);
+			}
 		/* What user to run as */
 		} else if (!strcasecmp(v->name, "runuser")) {
 			ast_copy_string(cfg_paths.run_user, v->value, sizeof(cfg_paths.run_user));

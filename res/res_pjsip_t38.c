@@ -294,21 +294,22 @@ static int t38_reinvite_response_cb(struct ast_sip_session *session, pjsip_rx_da
 {
 	struct pjsip_status_line status = rdata->msg_info.msg->line.status;
 	struct t38_state *state;
-	RAII_VAR(struct ast_sip_session_media *, session_media, NULL, ao2_cleanup);
+	struct ast_sip_session_media *session_media = NULL;
 
 	if (status.code == 100) {
 		return 0;
 	}
 
-	if (!(state = t38_state_get_or_alloc(session)) ||
+	if (!session->channel || !(state = t38_state_get_or_alloc(session)) ||
 		!(session_media = ao2_find(session->media, "image", OBJ_KEY))) {
 		ast_log(LOG_WARNING, "Received response to T.38 re-invite on '%s' but state unavailable\n",
-			ast_channel_name(session->channel));
+			session->channel ? ast_channel_name(session->channel) : "unknown channel");
 		return 0;
 	}
 
 	t38_change_state(session, session_media, state, (status.code == 200) ? T38_ENABLED : T38_REJECTED);
 
+	ao2_cleanup(session_media);
 	return 0;
 }
 
@@ -403,16 +404,21 @@ static int t38_interpret_parameters(void *obj)
 static struct ast_frame *t38_framehook_write(struct ast_channel *chan,
 	struct ast_sip_session *session, struct ast_frame *f)
 {
-	if (f->frametype == AST_FRAME_CONTROL && f->subclass.integer == AST_CONTROL_T38_PARAMETERS &&
-		session->endpoint->media.t38.enabled) {
-		struct t38_parameters_task_data *data = t38_parameters_task_data_alloc(session, f);
+	if (f->frametype == AST_FRAME_CONTROL && f->subclass.integer == AST_CONTROL_T38_PARAMETERS) {
+		if (session->endpoint->media.t38.enabled) {
+			struct t38_parameters_task_data *data = t38_parameters_task_data_alloc(session, f);
 
-		if (!data) {
-			return f;
-		}
+			if (!data) {
+				return f;
+			}
 
-		if (ast_sip_push_task(session->serializer, t38_interpret_parameters, data)) {
-			ao2_ref(data, -1);
+			if (ast_sip_push_task(session->serializer, t38_interpret_parameters, data)) {
+				ao2_ref(data, -1);
+			}
+		} else {
+			struct ast_control_t38_parameters parameters = { .request_response = AST_T38_REFUSED, };
+			ast_debug(2, "T.38 support not enabled, rejecting T.38 control packet\n");
+			ast_queue_control_data(session->channel, AST_CONTROL_T38_PARAMETERS, &parameters, sizeof(parameters));
 		}
 	} else if (f->frametype == AST_FRAME_MODEM) {
 		struct ast_sip_session_media *session_media;
@@ -503,10 +509,7 @@ static void t38_attach_framehook(struct ast_sip_session *session)
 		return;
 	}
 
-	/* Only attach the framehook if t38 is enabled for the endpoint */
-	if (!session->endpoint->media.t38.enabled) {
-		return;
-	}
+	/* Always attach the framehook so we can quickly reject */
 
 	ast_channel_lock(session->channel);
 
@@ -868,7 +871,7 @@ static void change_outgoing_sdp_stream_media_address(pjsip_tx_data *tdata, struc
 {
 	RAII_VAR(struct ast_sip_transport_state *, transport_state, ast_sip_get_transport_state(ast_sorcery_object_get_id(transport)), ao2_cleanup);
 	char host[NI_MAXHOST];
-	struct ast_sockaddr addr = { { 0, } };
+	struct ast_sockaddr our_sdp_addr = { { 0, } };
 
 	/* If the stream has been rejected there will be no connection line */
 	if (!stream->conn || !transport_state) {
@@ -876,15 +879,17 @@ static void change_outgoing_sdp_stream_media_address(pjsip_tx_data *tdata, struc
 	}
 
 	ast_copy_pj_str(host, &stream->conn->addr, sizeof(host));
-	ast_sockaddr_parse(&addr, host, PARSE_PORT_FORBID);
+	ast_sockaddr_parse(&our_sdp_addr, host, PARSE_PORT_FORBID);
 
-	/* Is the address within the SDP inside the same network? */
-	if (transport_state->localnet
-		&& ast_apply_ha(transport_state->localnet, &addr) == AST_SENSE_ALLOW) {
+	/* Reversed check here. We don't check the remote endpoint being
+	 * in our local net, but whether our outgoing session IP is
+	 * local. If it is not, we won't do rewriting. No localnet
+	 * configured? Always rewrite. */
+	if (ast_sip_transport_is_nonlocal(transport_state, &our_sdp_addr) && transport_state->localnet) {
 		return;
 	}
-	ast_debug(5, "Setting media address to %s\n", transport->external_media_address);
-	pj_strdup2(tdata->pool, &stream->conn->addr, transport->external_media_address);
+	ast_debug(5, "Setting media address to %s\n", ast_sockaddr_stringify_host(&transport_state->external_media_address));
+	pj_strdup2(tdata->pool, &stream->conn->addr, ast_sockaddr_stringify_host(&transport_state->external_media_address));
 }
 
 /*! \brief Function which destroys the UDPTL instance when session ends */

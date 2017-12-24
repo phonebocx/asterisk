@@ -1751,3 +1751,41 @@ UPDATE alembic_version SET version_num='164abbd708c' WHERE alembic_version.versi
 
 /
 
+-- Running upgrade 164abbd708c -> f3d1c5d38b56
+
+ALTER TABLE ps_contacts ADD prune_on_boot VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_contacts ADD CONSTRAINT yesno_values CHECK (prune_on_boot IN ('yes', 'no'))
+
+/
+
+UPDATE alembic_version SET version_num='f3d1c5d38b56' WHERE alembic_version.version_num = '164abbd708c'
+
+/
+
+-- Running upgrade f3d1c5d38b56 -> b83645976fdd
+
+ALTER TABLE ps_endpoints ADD dtls_fingerprint VARCHAR(7 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD CONSTRAINT sha_hash_values CHECK (dtls_fingerprint IN ('SHA-1', 'SHA-256'))
+
+/
+
+UPDATE alembic_version SET version_num='b83645976fdd' WHERE alembic_version.version_num = 'f3d1c5d38b56'
+
+/
+
+-- Running upgrade b83645976fdd -> a1698e8bb9c5
+
+ALTER TABLE ps_endpoints ADD incoming_mwi_mailbox VARCHAR2(40 CHAR)
+
+/
+
+UPDATE alembic_version SET version_num='a1698e8bb9c5' WHERE alembic_version.version_num = 'b83645976fdd'
+
+/
+
