@@ -123,6 +123,8 @@ override_dh_gencontrol:
 	AST_BUILDOPT_SUM=`grep AST_BUILDOPT_SUM include/asterisk/buildopts.h  | sed -e 's/.\+ "\(.\+\)\"/\1/g'`; \
 		dh_gencontrol -- -Vasterisk:ABI=$$AST_BUILDOPT_SUM
 
+REMOVED_PROTO_CONFS = dundi mgcp skinny unistim
+REMOVED_PROTO_FILES = $(REMOVED_PROTO_CONFS:%=$(CURDIR)/debian/tmp/etc/asterisk/%.conf)
 SUBPACKS_EXTRA = \
 		 voicemail voicemail-odbcstorage voicemail-imapstorage \
 		 ooh323 mysql mp3
@@ -135,6 +137,7 @@ SUBPACKS_EXTRA_DIRS_MOD = $(SUBPACKS_EXTRA_DIRS:%=%/usr/lib/asterisk/modules)
 override_dh_auto_install:
 	$(FETCH_ENV) dh_auto_install -- $(BUILDFLAGS) config samples
 	cp -a configs $(CURDIR)/debian/tmp/usr/share/asterisk/conf
+	$(RM) -f $(REMOVED_PROTO_FILES)
 	mkdir -p $(CURDIR)/debian/tmp/usr/bin/
 	mkdir -p $(CURDIR)/debian/tmp/usr/share/man/man1
 	mkdir -p $(CURDIR)/debian/tmp/usr/share/dahdi/span_config.d

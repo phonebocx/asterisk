@@ -244,6 +244,25 @@ system at build time, that is copied to
 /usr/share/doc/asterisk/menuselect.makeopts .
 
 
+Extra Channels
+==============
+This package includes and enables by default a number of rather not so
+popular protocols. Having them enabled by default means that any
+security volnurability in them (such as CVE-2017-17090 / AST-2017-013 in
+chan_skinny) may open your system to attacks for no good reason.
+
+Thus the following configuration files have been removed from the default
+set of configuration files installed to /etc/asterisk:
+* dundi.conf (DUNDi call routing, UDP port 4520)
+* mgcp.conf (chan_mgcp: MGCP voip protocol, UDP port 2727)
+* skinny.conf (chan_skinny: SCCP voip protocol, TCP port 2000)
+* unistim.conf (chan_unistim: UNISTIM voip protocol, UDP port 5000)
+
+If you do need any of those protocols, copy the sample file from
+/usr/share/asterisk/conf/samples/FILE.conf.sample to
+/etc/asterisk/FILE.conf and resart asterisk (or the specific module).
+
+
 Missing Documentation
 =====================
 AST.pdf and AST.txt cannot be included due to incompatible license.
@@ -304,5 +323,3 @@ live/asterisk is a wrapper to that private copy of Asterisk.
 
 
 Enjoy your PBX!
-
- -- Lionel Elie Mamane <lmamane@debian.org>, Fri, 29 Jul 2011 19:21:06 +0200
