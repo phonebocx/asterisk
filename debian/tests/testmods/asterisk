@@ -15,4 +15,4 @@ if [ ! -r "$ast_conf" ]; then
 		echo "astspooldir   => $dir/spool"
 	) > "$ast_conf"
 fi
-exec /usr/sbin/asterisk -C "$ast_conf" "$@"
+exec /usr/sbin/asterisk -U asterisk -C "$ast_conf" "$@"
