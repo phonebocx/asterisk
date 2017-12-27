@@ -1,10 +1,17 @@
-asterisk (1:13.18.5~dfsg-1) UNRELEASED; urgency=medium
+asterisk (1:13.18.5~dfsg-1) unstable; urgency=medium
 
   * New upstream release:
     - CVE-2017-17850 / AST-2017-014 (closes: #885072)
     - AST-2017-012: Remote Crash Vulnerability in RTCP Stack
+  * Re-add support for snmp (Closes #851738)
+  * Don't load dundi, mgcp, skinny and unistim by default
+  * Avoid parallel build in 'make install'
+  * tests: realpath is now in coreutils
+  * asttestmods: enable res_pjsip_pubsub tests
+  * asttestmods: run asterisk as user asterisk
+  * asttestmods: disable module test_cel for now
 
- -- Tzafrir Cohen <tzafrir@debian.org>  Sun, 24 Dec 2017 10:55:35 +0200
+ -- Tzafrir Cohen <tzafrir@debian.org>  Thu, 28 Dec 2017 00:20:16 +0200
 
 asterisk (1:13.18.3~dfsg-1) unstable; urgency=medium
 
