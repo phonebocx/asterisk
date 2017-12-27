@@ -10,6 +10,7 @@ results_file="$PWD/$output_dir/results.txt"
 #   https://issues.asterisk.org/jira/browse/ASTERISK-27172
 disable_mods='
 	test_message
+	test_cel
 '
 
 setup() {
