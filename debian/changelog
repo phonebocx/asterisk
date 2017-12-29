@@ -1,9 +1,9 @@
 asterisk (1:13.18.5~dfsg-1) unstable; urgency=medium
 
   * New upstream release:
-    - CVE-2017-17850 / AST-2017-014 (closes: #885072)
-    - AST-2017-012: Remote Crash Vulnerability in RTCP Stack
-  * Re-add support for snmp (Closes #851738)
+    - CVE-2017-17850 / AST-2017-014 (Closes: #885072)
+    - AST-2017-012: Remote Crash Vulnerability in RTCP Stack (Closes: #884345)
+  * Re-add support for snmp (Closes: #851738)
   * Don't load dundi, mgcp, skinny and unistim by default
   * Avoid parallel build in 'make install'
   * tests: realpath is now in coreutils
