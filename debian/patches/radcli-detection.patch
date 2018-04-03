@@ -12,8 +12,6 @@ cdr_radius and cel_radius to use its header file in that case.
 
 ASTERISK-26540 #close
 
-diff --git a/cdr/cdr_radius.c b/cdr/cdr_radius.c
-index af434f6..f6b311d 100644
 --- a/cdr/cdr_radius.c
 +++ b/cdr/cdr_radius.c
 @@ -41,11 +41,7 @@
@@ -29,8 +27,6 @@ index af434f6..f6b311d 100644
  
  #include "asterisk/channel.h"
  #include "asterisk/cdr.h"
-diff --git a/cel/cel_radius.c b/cel/cel_radius.c
-index e31cb5e..250d6a7 100644
 --- a/cel/cel_radius.c
 +++ b/cel/cel_radius.c
 @@ -35,11 +35,7 @@
@@ -46,11 +42,9 @@ index e31cb5e..250d6a7 100644
  
  #include "asterisk/channel.h"
  #include "asterisk/cel.h"
-diff --git a/configure.ac b/configure.ac
-index ea55df4..3bdf140 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -2339,9 +2339,17 @@ AST_EXT_LIB_CHECK([LUA], [lua], [luaL_openlib], [lua.h], [-lm])
+@@ -2357,9 +2357,17 @@
  # just different header filenames and different SONAMEs
  AST_EXT_LIB_CHECK([RADIUS], [freeradius-client], [rc_read_config], [freeradius-client.h])
  if test "x${PBX_RADIUS}" = "x1"; then
@@ -68,7 +62,4 @@ index ea55df4..3bdf140 100644
 +	fi
  fi
  
- AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcpg])
--- 
-2.10.2
-
+ AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcpg -lcfg])
