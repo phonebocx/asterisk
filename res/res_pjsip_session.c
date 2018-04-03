@@ -473,7 +473,7 @@ enum delayed_method {
 
 /*!
  * \internal
- * \brief Convert delayed method enum value to to a string.
+ * \brief Convert delayed method enum value to a string.
  * \since 13.3.0
  *
  * \param method Delayed method enum value to convert to a string.
@@ -1083,7 +1083,9 @@ static pj_bool_t session_reinvite_on_rx_request(pjsip_rx_data *rdata)
 
 		/* Otherwise this is a new re-invite, so reject it */
 		if (pjsip_dlg_create_response(dlg, rdata, 491, NULL, &tdata) == PJ_SUCCESS) {
-			pjsip_endpt_send_response2(ast_sip_get_pjsip_endpoint(), rdata, tdata, NULL, NULL);
+			if (pjsip_endpt_send_response2(ast_sip_get_pjsip_endpoint(), rdata, tdata, NULL, NULL) != PJ_SUCCESS) {
+				pjsip_tx_data_dec_ref(tdata);
+			}
 		}
 
 		return PJ_TRUE;
@@ -1507,7 +1509,7 @@ static int sip_session_suspend_task(void *data)
 	suspender->suspended = 1;
 	ast_cond_signal(&suspender->cond_suspended);
 
-	/* Wait for the the serializer suspension to be completed. */
+	/* Wait for the serializer suspension to be completed. */
 	while (!suspender->complete) {
 		ast_cond_wait(&suspender->cond_complete, ao2_object_get_lockaddr(suspender));
 	}
@@ -2019,6 +2021,12 @@ static enum sip_get_destination_result get_destination(struct ast_sip_session *s
 		ast_copy_pj_str(domain, &sip_ruri->host, size);
 		pbx_builtin_setvar_helper(session->channel, "SIPDOMAIN", domain);
 
+		/*
+		 * Save off the INVITE Request-URI in case it is
+		 * needed: CHANNEL(pjsip,request_uri)
+		 */
+		session->request_uri = pjsip_uri_clone(session->inv_session->pool, ruri);
+
 		return SIP_GET_DEST_EXTEN_FOUND;
 	}
 
@@ -2045,7 +2053,9 @@ static pjsip_inv_session *pre_session_setup(pjsip_rx_data *rdata, const struct a
 
 	if (pjsip_inv_verify_request(rdata, &options, NULL, NULL, ast_sip_get_pjsip_endpoint(), &tdata) != PJ_SUCCESS) {
 		if (tdata) {
-			pjsip_endpt_send_response2(ast_sip_get_pjsip_endpoint(), rdata, tdata, NULL, NULL);
+			if (pjsip_endpt_send_response2(ast_sip_get_pjsip_endpoint(), rdata, tdata, NULL, NULL) != PJ_SUCCESS) {
+				pjsip_tx_data_dec_ref(tdata);
+			}
 		} else {
 			pjsip_endpt_respond_stateless(ast_sip_get_pjsip_endpoint(), rdata, 500, NULL, NULL, NULL);
 		}
@@ -2502,6 +2512,12 @@ static void handle_outgoing_response(struct ast_sip_session *session, pjsip_tx_d
 	struct ast_sip_session_supplement *supplement;
 	struct pjsip_status_line status = tdata->msg->line.status;
 	pjsip_cseq_hdr *cseq = pjsip_msg_find_hdr(tdata->msg, PJSIP_H_CSEQ, NULL);
+
+	if (!cseq) {
+		ast_log(LOG_ERROR, "Cannot send response due to missing sequence header");
+		return;
+	}
+
 	ast_debug(3, "Method is %.*s, Response is %d %.*s\n", (int) pj_strlen(&cseq->method.name),
 		pj_strbuf(&cseq->method.name), status.code, (int) pj_strlen(&status.reason),
 		pj_strbuf(&status.reason));
@@ -2589,8 +2605,12 @@ static void handle_incoming_before_media(pjsip_inv_session *inv,
 
 static void session_inv_on_state_changed(pjsip_inv_session *inv, pjsip_event *e)
 {
-	struct ast_sip_session *session = inv->mod_data[session_module.id];
+	struct ast_sip_session *session;
 	pjsip_event_id_e type;
+
+	if (ast_shutdown_final()) {
+		return;
+	}
 
 	if (e) {
 		print_debug_details(inv, NULL, e);
@@ -2599,6 +2619,7 @@ static void session_inv_on_state_changed(pjsip_inv_session *inv, pjsip_event *e)
 		type = PJSIP_EVENT_UNKNOWN;
 	}
 
+	session = inv->mod_data[session_module.id];
 	if (!session) {
 		return;
 	}
@@ -2691,13 +2712,7 @@ static void session_inv_on_tsx_state_changed(pjsip_inv_session *inv, pjsip_trans
 	struct ast_sip_session *session;
 	pjsip_tx_data *tdata;
 
-	/*
-	 * A race condition exists at shutdown where the res_pjsip_session can be
-	 * unloaded but this callback may still get called afterwards. In this case
-	 * the id may end up being -1 which is useless to us. To work around this
-	 * we store the current value and check/use it.
-	 */
-	if (id < 0) {
+	if (ast_shutdown_final()) {
 		return;
 	}
 
@@ -3009,9 +3024,14 @@ static struct pjmedia_sdp_session *create_local_sdp(pjsip_inv_session *inv, stru
 
 static void session_inv_on_rx_offer(pjsip_inv_session *inv, const pjmedia_sdp_session *offer)
 {
-	struct ast_sip_session *session = inv->mod_data[session_module.id];
+	struct ast_sip_session *session;
 	pjmedia_sdp_session *answer;
 
+	if (ast_shutdown_final()) {
+		return;
+	}
+
+	session = inv->mod_data[session_module.id];
 	if (handle_incoming_sdp(session, offer)) {
 		return;
 	}
@@ -3030,9 +3050,14 @@ static void session_inv_on_create_offer(pjsip_inv_session *inv, pjmedia_sdp_sess
 
 static void session_inv_on_media_update(pjsip_inv_session *inv, pj_status_t status)
 {
-	struct ast_sip_session *session = inv->mod_data[session_module.id];
+	struct ast_sip_session *session;
 	const pjmedia_sdp_session *local, *remote;
 
+	if (ast_shutdown_final()) {
+		return;
+	}
+
+	session = inv->mod_data[session_module.id];
 	if (!session || !session->channel) {
 		/*
 		 * If we don't have a session or channel then we really
@@ -3055,10 +3080,15 @@ static void session_inv_on_media_update(pjsip_inv_session *inv, pj_status_t stat
 
 static pjsip_redirect_op session_inv_on_redirected(pjsip_inv_session *inv, const pjsip_uri *target, const pjsip_event *e)
 {
-	struct ast_sip_session *session = inv->mod_data[session_module.id];
+	struct ast_sip_session *session;
 	const pjsip_sip_uri *uri;
 
-	if (!session->channel) {
+	if (ast_shutdown_final()) {
+		return PJSIP_REDIRECT_STOP;
+	}
+
+	session = inv->mod_data[session_module.id];
+	if (!session || !session->channel) {
 		return PJSIP_REDIRECT_STOP;
 	}
 
@@ -3140,6 +3170,7 @@ static void session_outgoing_nat_hook(pjsip_tx_data *tdata, struct ast_sip_trans
 		if (ast_sip_transport_is_local(transport_state, &our_sdp_addr) || !transport_state->localnet) {
 			ast_debug(5, "Setting external media address to %s\n", ast_sockaddr_stringify_host(&transport_state->external_media_address));
 			pj_strdup2(tdata->pool, &sdp->conn->addr, ast_sockaddr_stringify_host(&transport_state->external_media_address));
+			pj_strdup2(tdata->pool, &sdp->origin.addr, transport->external_media_address);
 		}
 	}
 

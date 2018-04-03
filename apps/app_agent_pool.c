@@ -74,7 +74,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 			when a new call comes in for the agent.  Login failures will continue in
 			the dialplan with <variable>AGENT_STATUS</variable> set.</para>
 			<para>Before logging in, you can setup on the real agent channel the
-			CHANNEL(dtmf-features) an agent will have when talking to a caller
+			CHANNEL(dtmf_features) an agent will have when talking to a caller
 			and you can setup on the channel running this application the
 			CONNECTEDLINE() information the agent will see while waiting for a
 			caller.</para>
@@ -83,7 +83,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 				<enum name = "INVALID"><para>The specified agent is invalid.</para></enum>
 				<enum name = "ALREADY_LOGGED_IN"><para>The agent is already logged in.</para></enum>
 			</enumlist>
-			<note><para>The Agents:<replaceable>AgentId</replaceable> device state is
+			<note><para>The Agent:<replaceable>AgentId</replaceable> device state is
 			available to monitor the status of the agent.</para></note>
 		</description>
 		<see-also>
@@ -94,7 +94,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 			<ref type="application">PauseQueueMember</ref>
 			<ref type="application">UnpauseQueueMember</ref>
 			<ref type="function">AGENT</ref>
-			<ref type="function">CHANNEL(dtmf-features)</ref>
+			<ref type="function">CHANNEL(dtmf_features)</ref>
 			<ref type="function">CONNECTEDLINE()</ref>
 			<ref type="filename">agents.conf</ref>
 			<ref type="filename">queues.conf</ref>
@@ -457,11 +457,17 @@ struct agents_cfg {
 	struct ao2_container *agents;
 };
 
+static const char *agent_type_blacklist[] = {
+	"general",
+	"agents",
+	NULL,
+};
+
 static struct aco_type agent_type = {
 	.type = ACO_ITEM,
 	.name = "agent-id",
-	.category_match = ACO_BLACKLIST,
-	.category = "^(general|agents)$",
+	.category_match = ACO_BLACKLIST_ARRAY,
+	.category = (const char *)agent_type_blacklist,
 	.item_alloc = agent_cfg_alloc,
 	.item_find = agent_cfg_find,
 	.item_offset = offsetof(struct agents_cfg, agents),
@@ -473,8 +479,8 @@ static struct aco_type *agent_types[] = ACO_TYPES(&agent_type);
 static struct aco_type general_type = {
 	.type = ACO_GLOBAL,
 	.name = "global",
-	.category_match = ACO_WHITELIST,
-	.category = "^general$",
+	.category_match = ACO_WHITELIST_EXACT,
+	.category = "general",
 };
 
 static struct aco_file agents_conf = {

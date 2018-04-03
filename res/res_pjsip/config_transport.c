@@ -618,6 +618,8 @@ static int transport_apply(const struct ast_sorcery *sorcery, void *obj)
 				&temp_state->state->factory);
 		}
 	} else if (transport->type == AST_TRANSPORT_TLS) {
+		static int option = 1;
+
 		if (transport->async_operations > 1 && ast_compare_versions(pj_get_version(), "2.5.0") < 0) {
 			ast_log(LOG_ERROR, "Transport: %s: When protocol=tls and pjproject version < 2.5.0, async_operations can't be > 1\n",
 					ast_sorcery_object_get_id(obj));
@@ -626,6 +628,13 @@ static int transport_apply(const struct ast_sorcery *sorcery, void *obj)
 
 		temp_state->state->tls.password = pj_str((char*)transport->password);
 		set_qos(transport, &temp_state->state->tls.qos_params);
+
+		/* sockopt_params.options is copied to each newly connected socket */
+		temp_state->state->tls.sockopt_params.options[0].level = pj_SOL_TCP();
+		temp_state->state->tls.sockopt_params.options[0].optname = pj_TCP_NODELAY();
+		temp_state->state->tls.sockopt_params.options[0].optval = &option;
+		temp_state->state->tls.sockopt_params.options[0].optlen = sizeof(option);
+		temp_state->state->tls.sockopt_params.cnt = 1;
 
 		for (i = 0; i < BIND_TRIES && res != PJ_SUCCESS; i++) {
 			if (perm_state && perm_state->state && perm_state->state->factory
@@ -681,6 +690,11 @@ static int transport_tls_file_handler(const struct aco_option *opt, struct ast_v
 
 	if (!state) {
 		return -1;
+	}
+
+	if (ast_strlen_zero(var->value)) {
+		/* Ignore empty options */
+		return 0;
 	}
 
 	if (!ast_file_is_readable(var->value)) {
@@ -912,6 +926,12 @@ static int transport_tls_method_handler(const struct aco_option *opt, struct ast
 		state->tls.method = PJSIP_SSL_UNSPECIFIED_METHOD;
 	} else if (!strcasecmp(var->value, "tlsv1")) {
 		state->tls.method = PJSIP_TLSV1_METHOD;
+#ifdef HAVE_PJSIP_TLS_TRANSPORT_PROTO
+	} else if (!strcasecmp(var->value, "tlsv1_1")) {
+		state->tls.method = PJSIP_TLSV1_1_METHOD;
+	} else if (!strcasecmp(var->value, "tlsv1_2")) {
+		state->tls.method = PJSIP_TLSV1_2_METHOD;
+#endif
 	} else if (!strcasecmp(var->value, "sslv2")) {
 		state->tls.method = PJSIP_SSLV2_METHOD;
 	} else if (!strcasecmp(var->value, "sslv3")) {
@@ -928,6 +948,10 @@ static int transport_tls_method_handler(const struct aco_option *opt, struct ast
 static const char *tls_method_map[] = {
 	[PJSIP_SSL_UNSPECIFIED_METHOD] = "unspecified",
 	[PJSIP_TLSV1_METHOD] = "tlsv1",
+#ifdef HAVE_PJSIP_TLS_TRANSPORT_PROTO
+	[PJSIP_TLSV1_1_METHOD] = "tlsv1_1",
+	[PJSIP_TLSV1_2_METHOD] = "tlsv1_2",
+#endif
 	[PJSIP_SSLV2_METHOD] = "sslv2",
 	[PJSIP_SSLV3_METHOD] = "sslv3",
 	[PJSIP_SSLV23_METHOD] = "sslv23",

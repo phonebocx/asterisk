@@ -2389,7 +2389,13 @@ int _ast_asprintf(char **ret, const char *file, int lineno, const char *func, co
 	va_list ap;
 
 	va_start(ap, fmt);
-	if ((res = vasprintf(ret, fmt, ap)) == -1) {
+	res = vasprintf(ret, fmt, ap);
+	if (res < 0) {
+		/*
+		 * *ret is undefined so set to NULL to ensure it is
+		 * initialized to something useful.
+		 */
+		*ret = NULL;
 		MALLOC_FAILURE_MSG;
 	}
 	va_end(ap);
@@ -2658,7 +2664,7 @@ void ast_set_default_eid(struct ast_eid *eid)
 	unsigned char full_mac[6]  = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
 	s = socket(AF_INET, SOCK_STREAM, 0);
-	if (s <= 0) {
+	if (s < 0) {
 		ast_log(LOG_WARNING, "Unable to open socket for seeding global EID. "
 			"You will have to set it manually.\n");
 		return;
@@ -2791,4 +2797,38 @@ int ast_compare_versions(const char *version1, const char *version2)
 		return res;
 	}
 	return extra[0] - extra[1];
+}
+
+int __ast_fd_set_flags(int fd, int flags, enum ast_fd_flag_operation op,
+	const char *file, int lineno, const char *function)
+{
+	int f;
+
+	f = fcntl(fd, F_GETFL);
+	if (f == -1) {
+		ast_log(__LOG_ERROR, file, lineno, function,
+			"Failed to get fcntl() flags for file descriptor: %s\n", strerror(errno));
+		return -1;
+	}
+
+	switch (op) {
+	case AST_FD_FLAG_SET:
+		f |= flags;
+		break;
+	case AST_FD_FLAG_CLEAR:
+		f &= ~flags;
+		break;
+	default:
+		ast_assert(0);
+		break;
+	}
+
+	f = fcntl(fd, F_SETFL, f);
+	if (f == -1) {
+		ast_log(__LOG_ERROR, file, lineno, function,
+			"Failed to set fcntl() flags for file descriptor: %s\n", strerror(errno));
+		return -1;
+	}
+
+	return 0;
 }

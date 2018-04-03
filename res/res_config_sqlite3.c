@@ -33,7 +33,7 @@
  * \addtogroup configuration_file Configuration Files
  */
 
-/*! 
+/*!
  * \page res_config_sqlite3.conf res_config_sqlite3.conf
  * \verbinclude res_config_sqlite3.conf.sample
  */
@@ -1171,7 +1171,7 @@ static int realtime_sqlite3_require(const char *database, const char *table, va_
 	struct realtime_sqlite3_db *db;
 
 	/* SQLite3 columns are dynamically typed, with type affinity. Built-in functions will
-	 * return the results as char * anyway. The only field that that cannot contain text
+	 * return the results as char * anyway. The only field that cannot contain text
 	 * data is an INTEGER PRIMARY KEY, which must be a 64-bit signed integer. So, for
 	 * the purposes here we really only care whether the column exists and not what its
 	 * type or length is. */
@@ -1352,8 +1352,8 @@ static void discover_sqlite3_caps(void)
  * Module loading including tests for configuration or dependencies.
  * This function can return AST_MODULE_LOAD_FAILURE, AST_MODULE_LOAD_DECLINE,
  * or AST_MODULE_LOAD_SUCCESS. If a dependency or environment variable fails
- * tests return AST_MODULE_LOAD_FAILURE. If the module can not load the 
- * configuration file or other non-critical problem return 
+ * tests return AST_MODULE_LOAD_FAILURE. If the module can not load the
+ * configuration file or other non-critical problem return
  * AST_MODULE_LOAD_DECLINE. On success return AST_MODULE_LOAD_SUCCESS.
  */
 static int load_module(void)

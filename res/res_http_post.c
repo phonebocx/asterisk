@@ -17,7 +17,7 @@
  */
 
 /*!
- * \file 
+ * \file
  * \brief HTTP POST upload support for Asterisk HTTP server
  *
  * \author Terry Wilson <twilson@digium.com
@@ -57,7 +57,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #ifdef GMIME_TYPE_CONTENT_TYPE
 #define AST_GMIME_VER_24
 #endif
-#if GMIME_MAJOR_VERSION >= 3
+#if defined(GMIME_MAJOR_VERSION) && (GMIME_MAJOR_VERSION >= 3)
 #define AST_GMIME_VER_30
 #endif
 
@@ -113,7 +113,7 @@ static GMimeMessage *parse_message(FILE *f)
 
 	parser = g_mime_parser_new_with_stream(stream);
 	g_mime_parser_set_respect_content_length(parser, 1);
-	
+
 	g_object_unref(stream);
 
 	message = g_mime_parser_construct_message(parser

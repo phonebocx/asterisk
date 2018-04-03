@@ -39,7 +39,7 @@
 				<para>The number of things</para>
 			</parameter>
 			<parameter name="filename" required="true">
-				<para>File name stem for the noun that is the the name of the things</para>
+				<para>File name stem for the noun that is the name of the things</para>
 			</parameter>
 		</syntax>
 		<description>
@@ -206,4 +206,3 @@ static int unload_module(void)
 }
 
 AST_MODULE_INFO_STANDARD_EXTENDED(ASTERISK_GPL_KEY, "Decline words according to channel language");
-

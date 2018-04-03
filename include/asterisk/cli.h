@@ -105,7 +105,7 @@ void ast_cli(int fd, const char *fmt, ...)
 	char *new_setdebug(const struct ast_cli_entry *e, int cmd, struct ast_cli_args *a);
 
 	...
-	// this is how we create the entry to register 
+	// this is how we create the entry to register
 	AST_CLI_DEFINE(new_setdebug, "short description")
 	...
 
@@ -132,7 +132,7 @@ static char *test_new_cli(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
                         return NULL;
         	return ast_cli_complete(a->word, choices, a->n);
 
-        default:        
+        default:
                 // we are guaranteed to be called with argc >= e->args;
                 if (a->argc > e->args + 1) // we accept one extra argument
                         return CLI_SHOWUSAGE;
@@ -142,10 +142,10 @@ static char *test_new_cli(struct ast_cli_entry *e, int cmd, struct ast_cli_args 
 }
 
 \endcode
- 
+
  */
 
-/*! \brief calling arguments for new-style handlers. 
+/*! \brief calling arguments for new-style handlers.
 * \arg \ref CLI_command_API
 */
 enum ast_cli_command {
@@ -165,7 +165,7 @@ struct ast_cli_args {
 	const int n;		/* the iteration count (n-th entry we generate) */
 };
 
-/*! \brief descriptor for a cli entry. 
+/*! \brief descriptor for a cli entry.
  * \arg \ref CLI_command_API
  */
 struct ast_cli_entry {
@@ -215,7 +215,7 @@ struct ast_cli_entry {
  */
 char *ast_cli_complete(const char *word, const char * const choices[], int pos);
 
-/*! 
+/*!
  * \brief Interprets a command
  * Interpret a command s, sending output to fd if uid:gid has permissions
  * to run this command. uid = CLI_NO_PERMS to avoid checking user permissions
@@ -229,9 +229,9 @@ char *ast_cli_complete(const char *word, const char * const choices[], int pos);
  */
 int ast_cli_command_full(int uid, int gid, int fd, const char *s);
 
-#define ast_cli_command(fd,s) ast_cli_command_full(CLI_NO_PERMS, CLI_NO_PERMS, fd, s) 
+#define ast_cli_command(fd,s) ast_cli_command_full(CLI_NO_PERMS, CLI_NO_PERMS, fd, s)
 
-/*! 
+/*!
  * \brief Executes multiple CLI commands
  * Interpret strings separated by NULL and execute each one, sending output to fd
  * if uid has permissions, uid = CLI_NO_PERMS to avoid checking users permissions.
@@ -262,7 +262,7 @@ int ast_cli_register(struct ast_cli_entry *e);
  */
 int ast_cli_register_multiple(struct ast_cli_entry *e, int len);
 
-/*! 
+/*!
  * \brief Unregisters a command or an array of commands
  * \param e which cli entry to unregister
  * Unregister your own command.  You must pass a completed ast_cli_entry structure
@@ -277,11 +277,14 @@ int ast_cli_unregister(struct ast_cli_entry *e);
  */
 int ast_cli_unregister_multiple(struct ast_cli_entry *e, int len);
 
-/*! 
+/*!
  * \brief Readline madness
  * Useful for readline, that's about it
  * \retval 0 on success
  * \retval -1 on failure
+ *
+ * Only call this function to proxy the CLI generator to
+ * another.
  */
 char *ast_cli_generator(const char *, const char *, int);
 
@@ -297,8 +300,52 @@ int ast_cli_generatornummatches(const char *, const char *);
  * Subsequent entries are all possible values, followed by a NULL.
  * All strings and the array itself are malloc'ed and must be freed
  * by the caller.
+ *
+ * \warning This function cannot be called recursively so it will always
+ *          fail if called from a CLI_GENERATE callback.
  */
 char **ast_cli_completion_matches(const char *, const char *);
+
+/*!
+ * \brief Generates a vector of strings for CLI completion.
+ *
+ * \param text Complete input being matched.
+ * \param word Current word being matched
+ *
+ * The results contain strings that both:
+ * 1) Begin with the string in \a word.
+ * 2) Are valid in a command after the string in \a text.
+ *
+ * The first entry (offset 0) of the result is the longest common substring
+ * in the results, useful to extend the string that has been completed.
+ * Subsequent entries are all possible values.
+ *
+ * \note All strings and the vector itself are malloc'ed and must be freed
+ *       by the caller.
+ *
+ * \note The vector is sorted and does not contain any duplicates.
+ *
+ * \warning This function cannot be called recursively so it will always
+ *          fail if called from a CLI_GENERATE callback.
+ */
+struct ast_vector_string *ast_cli_completion_vector(const char *text, const char *word);
+
+/*!
+ * \brief Add a result to a request for completion options.
+ *
+ * \param value A completion option text.
+ *
+ * \retval 0 Success
+ * \retval -1 Failure
+ *
+ * This is an alternative to returning individual values from CLI_GENERATE.  Instead
+ * of repeatedly being asked for the next match and having to start over, you can
+ * call this function repeatedly from your own stateful loop.  When all matches have
+ * been added you can return NULL from the CLI_GENERATE function.
+ *
+ * \note This function always eventually results in calling ast_free on \a value.
+ */
+int ast_cli_completion_add(char *value);
 
 /*!
  * \brief Command completion for the list of active channels.

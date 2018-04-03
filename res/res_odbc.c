@@ -22,7 +22,7 @@
 /*! \file
  *
  * \brief ODBC resource manager
- * 
+ *
  * \author Mark Spencer <markster@digium.com>
  * \author Anthony Minessale II <anthmct@yahoo.com>
  * \author Tilghman Lesher <tilghman@digium.com>
@@ -34,7 +34,7 @@
  * \addtogroup configuration_file Configuration Files
  */
 
-/*! 
+/*!
  * \page res_odbc.conf res_odbc.conf
  * \verbinclude res_odbc.conf.sample
  */
@@ -1068,16 +1068,6 @@ static int unload_module(void)
 	return -1;
 }
 
-/*!
- * \brief Load the module
- *
- * Module loading including tests for configuration or dependencies.
- * This function can return AST_MODULE_LOAD_FAILURE, AST_MODULE_LOAD_DECLINE,
- * or AST_MODULE_LOAD_SUCCESS. If a dependency or environment variable fails
- * tests return AST_MODULE_LOAD_FAILURE. If the module can not load the 
- * configuration file or other non-critical problem return 
- * AST_MODULE_LOAD_DECLINE. On success return AST_MODULE_LOAD_SUCCESS.
- */
 static int load_module(void)
 {
 	if (!(class_container = ao2_container_alloc(1, null_hash_fn, ao2_match_by_addr)))
@@ -1086,8 +1076,7 @@ static int load_module(void)
 		return AST_MODULE_LOAD_DECLINE;
 	ast_cli_register_multiple(cli_odbc, ARRAY_LEN(cli_odbc));
 	ast_data_register_multiple(odbc_providers, ARRAY_LEN(odbc_providers));
-	ast_log(LOG_NOTICE, "res_odbc loaded.\n");
-	return 0;
+	return AST_MODULE_LOAD_SUCCESS;
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "ODBC resource",

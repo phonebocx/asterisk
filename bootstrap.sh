@@ -13,13 +13,14 @@ check_for_app() {
 # On Linux, environment variables tell which one to use.
 
 case `uname -sr` in
-	'FreeBSD 4'*)	# FreeBSD 4.x has a different naming
-		MY_AC_VER=259
-		MY_AM_VER=19
+	FreeBSD*)
+		MY_AC_VER=
+		MY_AM_VER=
 		;;
 	OpenBSD*)
-		export AUTOCONF_VERSION=2.63
-		export AUTOMAKE_VERSION=1.9
+		# pkg_add autoconf%2.63 automake%1.9 metaauto
+		[ -z "$AUTOCONF_VERSION" ] && export AUTOCONF_VERSION=2.63
+		[ -z "$AUTOMAKE_VERSION" ] && export AUTOMAKE_VERSION=1.9
 		;;
 	*'BSD'*)
 		MY_AC_VER=-2.62
@@ -44,11 +45,18 @@ check_for_app autoheader${MY_AC_VER}
 check_for_app automake${MY_AM_VER}
 check_for_app aclocal${MY_AM_VER}
 
-echo "Generating the configure script ..."
+gen_configure() {
+	echo "Generating the configure script for $1 ..."
+	shift
 
-aclocal${MY_AM_VER} -I autoconf `find third-party -maxdepth 1 -type d | xargs -I {} echo -I {}`
-autoconf${MY_AC_VER}
-autoheader${MY_AC_VER}
-automake${MY_AM_VER} --add-missing --copy 2>/dev/null
+	aclocal${MY_AM_VER} -I "$@"
+	autoconf${MY_AC_VER}
+	autoheader${MY_AC_VER}
+	automake${MY_AM_VER} --add-missing --copy 2>/dev/null
+}
+
+gen_configure "Asterisk" autoconf `find third-party -maxdepth 1 -type d | xargs -I {} echo -I {}`
+cd menuselect
+gen_configure "menuselect" ../autoconf
 
 exit 0

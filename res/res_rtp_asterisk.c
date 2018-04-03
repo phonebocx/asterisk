@@ -29,6 +29,7 @@
  */
 
 /*** MODULEINFO
+	<use type="external">openssl</use>
 	<use type="external">pjproject</use>
 	<support_level>core</support_level>
  ***/
@@ -113,6 +114,20 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #define ZFONE_PROFILE_ID 0x505a
 
 #define DEFAULT_LEARNING_MIN_SEQUENTIAL 4
+/*!
+ * \brief Calculate the min learning duration in ms.
+ *
+ * \details
+ * The min supported packet size represents 10 ms and we need to account
+ * for some jitter and fast clocks while learning.  Some messed up devices
+ * have very bad jitter for a small packet sample size.  Jitter can also
+ * be introduced by the network itself.
+ *
+ * So we'll allow packets to come in every 9ms on average for fast clocking
+ * with the last one coming in 5ms early for jitter.
+ */
+#define CALC_LEARNING_MIN_DURATION(count) (((count) - 1) * 9 - 5)
+#define DEFAULT_LEARNING_MIN_DURATION CALC_LEARNING_MIN_DURATION(DEFAULT_LEARNING_MIN_SEQUENTIAL)
 
 #define SRTP_MASTER_KEY_LEN 16
 #define SRTP_MASTER_SALT_LEN 14
@@ -124,7 +139,14 @@ enum strict_rtp_state {
 	STRICT_RTP_CLOSED,   /*! Drop all RTP packets not coming from source that was learned */
 };
 
-#define STRICT_RTP_LEARN_TIMEOUT	1500	/*!< milliseconds */
+/*!
+ * \brief Strict RTP learning timeout time in milliseconds
+ *
+ * \note Set to 5 seconds to allow reinvite chains for direct media
+ * to settle before media actually starts to arrive.  There may be a
+ * reinvite collision involved on the other leg.
+ */
+#define STRICT_RTP_LEARN_TIMEOUT	5000
 
 #define DEFAULT_STRICT_RTP -1	/*!< Enabled */
 #define DEFAULT_ICESUPPORT 1
@@ -149,6 +171,7 @@ static int nochecksums;
 #endif
 static int strictrtp = DEFAULT_STRICT_RTP; /*!< Only accept RTP frames from a defined source. If we receive an indication of a changing source, enter learning mode. */
 static int learning_min_sequential = DEFAULT_LEARNING_MIN_SEQUENTIAL; /*!< Number of sequential RTP frames needed from a single source during learning mode to accept new source. */
+static int learning_min_duration = DEFAULT_LEARNING_MIN_DURATION; /*!< Lowest acceptable timeout between the first and the last sequential RTP frame. */
 #ifdef HAVE_PJPROJECT
 static int icesupport = DEFAULT_ICESUPPORT;
 static struct sockaddr_in stunaddr;
@@ -229,9 +252,11 @@ static AST_RWLIST_HEAD_STATIC(host_candidates, ast_ice_host_candidate);
 struct rtp_learning_info {
 	struct ast_sockaddr proposed_address;	/*!< Proposed remote address for strict RTP */
 	struct timeval start;	/*!< The time learning mode was started */
-	struct timeval received; /*!< The time of the last received packet */
+	struct timeval received; /*!< The time of the first received packet */
 	int max_seq;	/*!< The highest sequence number received */
 	int packets;	/*!< The number of remaining packets before the source is accepted */
+	/*! Type of media stream carried by the RTP instance */
+	enum ast_media_type stream_type;
 };
 
 #ifdef HAVE_OPENSSL_SRTP
@@ -2742,8 +2767,7 @@ static int create_new_socket(const char *type, int af)
 		}
 		ast_log(LOG_WARNING, "Unable to allocate %s socket: %s\n", type, strerror(errno));
 	} else {
-		long flags = fcntl(sock, F_GETFL);
-		fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+		ast_fd_set_flags(sock, O_NONBLOCK);
 #ifdef SO_NO_CHECK
 		if (nochecksums) {
 			setsockopt(sock, SOL_SOCKET, SO_NO_CHECK, &nochecksums, sizeof(nochecksums));
@@ -2781,25 +2805,39 @@ static void rtp_learning_seq_init(struct rtp_learning_info *info, uint16_t seq)
  */
 static int rtp_learning_rtp_seq_update(struct rtp_learning_info *info, uint16_t seq)
 {
-	/*
-	 * During the learning mode the minimum amount of media we'll accept is
-	 * 10ms so give a reasonable 5ms buffer just in case we get it sporadically.
-	 */
-	if (!ast_tvzero(info->received) && ast_tvdiff_ms(ast_tvnow(), info->received) < 5) {
-		/*
-		 * Reject a flood of packets as acceptable for learning.
-		 * Reset the needed packets.
-		 */
-		info->packets = learning_min_sequential - 1;
-	} else if (seq == (uint16_t) (info->max_seq + 1)) {
+	if (seq == (uint16_t) (info->max_seq + 1)) {
 		/* packet is in sequence */
 		info->packets--;
 	} else {
 		/* Sequence discontinuity; reset */
 		info->packets = learning_min_sequential - 1;
+		info->received = ast_tvnow();
 	}
+
+	switch (info->stream_type) {
+	case AST_MEDIA_TYPE_UNKNOWN:
+	case AST_MEDIA_TYPE_AUDIO:
+		/*
+		 * Protect against packet floods by checking that we
+		 * received the packet sequence in at least the minimum
+		 * allowed time.
+		 */
+		if (ast_tvzero(info->received)) {
+			info->received = ast_tvnow();
+		} else if (!info->packets
+			&& ast_tvdiff_ms(ast_tvnow(), info->received) < learning_min_duration) {
+			/* Packet flood; reset */
+			info->packets = learning_min_sequential - 1;
+			info->received = ast_tvnow();
+		}
+		break;
+	case AST_MEDIA_TYPE_VIDEO:
+	case AST_MEDIA_TYPE_IMAGE:
+	case AST_MEDIA_TYPE_TEXT:
+		break;
+	}
+
 	info->max_seq = seq;
-	info->received = ast_tvnow();
 
 	return info->packets;
 }
@@ -2909,8 +2947,8 @@ static void rtp_add_candidates_to_ice(struct ast_rtp_instance *instance, struct 
 	}
 
 	/* If configured to use a STUN server to get our external mapped address do so */
-	if (stunaddr.sin_addr.s_addr && count && ast_sockaddr_is_ipv4(addr)
-		&& !stun_address_is_blacklisted(addr)) {
+	if (count && stunaddr.sin_addr.s_addr && !stun_address_is_blacklisted(addr) &&
+		(ast_sockaddr_is_ipv4(addr) || ast_sockaddr_is_any(addr))) {
 		struct sockaddr_in answer;
 		int rsp;
 
@@ -2924,27 +2962,40 @@ static void rtp_add_candidates_to_ice(struct ast_rtp_instance *instance, struct 
 		ao2_lock(instance);
 		if (!rsp) {
 			pj_sockaddr base;
-			pj_sockaddr ext;
-			pj_str_t mapped = pj_str(ast_strdupa(ast_inet_ntoa(answer.sin_addr)));
-			int srflx = 1;
 
-			/* Use the first local host candidate as the base */
-			pj_sockaddr_cp(&base, &address[basepos]);
-
-			pj_sockaddr_init(pj_AF_INET(), &ext, &mapped, ntohs(answer.sin_port));
-
-			/* If the returned address is the same as one of our host candidates, don't send the srflx */
-			for (pos = 0; pos < count; pos++) {
-				if ((pj_sockaddr_cmp(&address[pos], &ext) == 0) && !rtp_address_is_ice_blacklisted(&address[pos])) {
-					srflx = 0;
+			/* Use the first local IPv4 host candidate as the base */
+			for (pos = basepos; pos < count; pos++) {
+				if (address[pos].addr.sa_family == PJ_AF_INET &&
+					!rtp_address_is_ice_blacklisted(&address[pos])) {
+					pj_sockaddr_cp(&base, &address[pos]);
 					break;
 				}
 			}
 
-			if (srflx) {
-				ast_rtp_ice_add_cand(instance, rtp, component, transport,
-					PJ_ICE_CAND_TYPE_SRFLX, 65535, &ext, &base, &base,
-					pj_sockaddr_get_len(&ext));
+			if (pos < count) {
+				pj_sockaddr ext;
+				pj_str_t mapped = pj_str(ast_strdupa(ast_inet_ntoa(answer.sin_addr)));
+				int srflx = 1;
+
+				pj_sockaddr_init(pj_AF_INET(), &ext, &mapped, ntohs(answer.sin_port));
+
+				/*
+				 * If the returned address is the same as one of our host
+				 * candidates, don't send the srflx
+				 */
+				for (pos = 0; pos < count; pos++) {
+					if (pj_sockaddr_cmp(&address[pos], &ext) == 0 &&
+						!rtp_address_is_ice_blacklisted(&address[pos])) {
+						srflx = 0;
+						break;
+					}
+				}
+
+				if (srflx) {
+					ast_rtp_ice_add_cand(instance, rtp, component, transport,
+						PJ_ICE_CAND_TYPE_SRFLX, 65535, &ext, &base, &base,
+						pj_sockaddr_get_len(&ext));
+				}
 			}
 		}
 	}
@@ -3196,7 +3247,9 @@ static int ast_rtp_destroy(struct ast_rtp_instance *instance)
 		 * entry at this point since it holds a reference to the
 		 * RTP instance while it's active.
 		 */
-		close(rtp->rtcp->s);
+		if (rtp->rtcp->s > -1 && rtp->s != rtp->rtcp->s) {
+			close(rtp->rtcp->s);
+		}
 		ast_free(rtp->rtcp->local_addr_str);
 		ast_free(rtp->rtcp);
 	}
@@ -5392,6 +5445,15 @@ static struct ast_frame *ast_rtp_read(struct ast_rtp_instance *instance, int rtc
 			 * source and we should switch to it.
 			 */
 			if (!ast_sockaddr_cmp(&rtp->rtp_source_learn.proposed_address, &addr)) {
+				if (rtp->rtp_source_learn.stream_type == AST_MEDIA_TYPE_UNKNOWN) {
+					struct ast_rtp_codecs *codecs;
+
+					codecs = ast_rtp_instance_get_codecs(instance);
+					rtp->rtp_source_learn.stream_type =
+						ast_rtp_codecs_get_stream_type(codecs);
+					ast_verb(4, "%p -- Strict RTP qualifying stream type: %s\n",
+						rtp, ast_codec_media_type2str(rtp->rtp_source_learn.stream_type));
+				}
 				if (!rtp_learning_rtp_seq_update(&rtp->rtp_source_learn, seqno)) {
 					/* Accept the new RTP stream */
 					ast_verb(4, "%p -- Strict RTP switching source address to %s\n",
@@ -6480,6 +6542,7 @@ static int rtp_reload(int reload)
 	dtmftimeout = DEFAULT_DTMF_TIMEOUT;
 	strictrtp = DEFAULT_STRICT_RTP;
 	learning_min_sequential = DEFAULT_LEARNING_MIN_SEQUENTIAL;
+	learning_min_duration = DEFAULT_LEARNING_MIN_DURATION;
 
 	/** This resource is not "reloaded" so much as unloaded and loaded again.
 	 * In the case of the TURN related variables, the memory referenced by a
@@ -6544,10 +6607,12 @@ static int rtp_reload(int reload)
 		strictrtp = ast_true(s);
 	}
 	if ((s = ast_variable_retrieve(cfg, "general", "probation"))) {
-		if ((sscanf(s, "%d", &learning_min_sequential) <= 0) || learning_min_sequential <= 0) {
+		if ((sscanf(s, "%d", &learning_min_sequential) != 1) || learning_min_sequential <= 1) {
 			ast_log(LOG_WARNING, "Value for 'probation' could not be read, using default of '%d' instead\n",
 				DEFAULT_LEARNING_MIN_SEQUENTIAL);
+			learning_min_sequential = DEFAULT_LEARNING_MIN_SEQUENTIAL;
 		}
+		learning_min_duration = CALC_LEARNING_MIN_DURATION(learning_min_sequential);
 	}
 #ifdef HAVE_PJPROJECT
 	if ((s = ast_variable_retrieve(cfg, "general", "icesupport"))) {

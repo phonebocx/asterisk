@@ -145,72 +145,66 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 					</para></description>
 				</configOption>
 				<configOption name="dsp_silence_threshold">
-					<synopsis>The number of milliseconds of detected silence necessary to trigger silence detection</synopsis>
-					<description><para>
-					The time in milliseconds of sound falling within the what
-					the dsp has established as baseline silence before a user
-					is considered be silent.  This value affects several
-					operations and should not be changed unless the impact
-					on call quality is fully understood.</para>
-					<para>What this value affects internally:</para>
-					<para>
-						1. When talk detection AMI events are enabled, this value
+					<synopsis>The number of milliseconds of silence necessary to declare talking stopped.</synopsis>
+					<description>
+						<para>The time in milliseconds of sound falling below the
+						<replaceable>dsp_talking_threshold</replaceable> option when
+						a user is considered to stop talking.  This value affects several
+						operations and should not be changed unless the impact on call
+						quality is fully understood.
+						</para>
+						<para>What this value affects internally:
+						</para>
+						<para>1. When talk detection AMI events are enabled, this value
 						determines when the user has stopped talking after a
 						period of talking.  If this value is set too low
 						AMI events indicating the user has stopped talking
 						may get falsely sent out when the user briefly pauses
 						during mid sentence.
-					</para>
-					<para>
-						2. The <replaceable>drop_silence</replaceable> option depends on this value to
-						determine when the user's audio should begin to be
-						dropped from the conference bridge after the user
+						</para>
+						<para>2. The <replaceable>drop_silence</replaceable> option
+						depends on this value to determine when the user's audio should
+						begin to be dropped from the conference bridge after the user
 						stops talking.  If this value is set too low the user's
-						audio stream may sound choppy to the other participants.
-						This is caused by the user transitioning constantly from
-						silence to talking during mid sentence.
-					</para>
-					<para>
-						The best way to approach this option is to set it slightly above
-						the maximum amount of ms of silence a user may generate during
-						natural speech.
-					</para>
-					<para>By default this value is 2500ms. Valid values are 1 through 2^31.</para>
+						audio stream may sound choppy to the other participants.  This
+						is caused by the user transitioning constantly from silence to
+						talking during mid sentence.
+						</para>
+						<para>The best way to approach this option is to set it slightly
+						above the maximum amount of milliseconds of silence a user may
+						generate during natural speech.
+						</para>
+						<para>Valid values are 1 through 2^31.</para>
 					</description>
 				</configOption>
 				<configOption name="dsp_talking_threshold">
-					<synopsis>The number of milliseconds of detected non-silence necessary to triger talk detection</synopsis>
-					<description><para>
-						The time in milliseconds of sound above what the dsp has
-						established as base line silence for a user before a user
-						is considered to be talking.  This value affects several
-						operations and should not be changed unless the impact on
-						call quality is fully understood.</para>
-						<para>
-						What this value affects internally:
+					<synopsis>Average magnitude threshold to determine talking.</synopsis>
+					<description>
+						<para>The minimum average magnitude per sample in a frame
+						for the DSP to consider talking/noise present.  A value below
+						this level is considered silence.  This value affects several
+						operations and should not be changed unless the impact on call
+						quality is fully understood.
 						</para>
-						<para>
-						1. Audio is only mixed out of a user's incoming audio stream
-						if talking is detected.  If this value is set too
-						loose the user will hear themselves briefly each
-						time they begin talking until the dsp has time to
-						establish that they are in fact talking.
+						<para>What this value affects internally:
 						</para>
-						<para>
-						2. When talk detection AMI events are enabled, this value
+						<para>1. Audio is only mixed out of a user's incoming audio
+						stream if talking is detected.  If this value is set too
+						high the user will hear himself talking.
+						</para>
+						<para>2. When talk detection AMI events are enabled, this value
 						determines when talking has begun which results in
-						an AMI event to fire.  If this value is set too tight
+						an AMI event to fire.  If this value is set too low
 						AMI events may be falsely triggered by variants in
 						room noise.
 						</para>
-						<para>
-						3. The <replaceable>drop_silence</replaceable> option depends on this value to determine
-						when the user's audio should be mixed into the bridge
-						after periods of silence.  If this value is too loose
-						the beginning of a user's speech will get cut off as they
-						transition from silence to talking.
+						<para>3. The <replaceable>drop_silence</replaceable> option
+						depends on this value to determine when the user's audio should
+						be mixed into the bridge after periods of silence.  If this value
+						is too high the user's speech will get discarded as they will
+						be considered silent.
 						</para>
-						<para>By default this value is 160 ms. Valid values are 1 through 2^31</para>
+						<para>Valid values are 1 through 2^15.</para>
 					</description>
 				</configOption>
 				<configOption name="jitterbuffer">
@@ -377,7 +371,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 						regardless if this limit is reached or not.
 					</para></description>
 				</configOption>
-				<configOption name="^sound_">
+				<configOption name="sound_">
 					<synopsis>Override the various conference bridge sound files</synopsis>
 					<description><para>
 						All sounds in the conference are customizable using the bridge profile options below.
@@ -592,8 +586,8 @@ static void *bridge_profile_find(struct ao2_container *container, const char *ca
 static struct aco_type bridge_type = {
 	.type = ACO_ITEM,
 	.name = "bridge_profile",
-	.category_match = ACO_BLACKLIST,
-	.category = "^general$",
+	.category_match = ACO_BLACKLIST_EXACT,
+	.category = "general",
 	.matchfield = "type",
 	.matchvalue = "bridge",
 	.item_alloc = bridge_profile_alloc,
@@ -629,8 +623,8 @@ static void *user_profile_find(struct ao2_container *container, const char *cate
 static struct aco_type user_type = {
 	.type = ACO_ITEM,
 	.name  = "user_profile",
-	.category_match = ACO_BLACKLIST,
-	.category = "^general$",
+	.category_match = ACO_BLACKLIST_EXACT,
+	.category = "general",
 	.matchfield = "type",
 	.matchvalue = "user",
 	.item_alloc = user_profile_alloc,
@@ -660,8 +654,8 @@ static void *menu_find(struct ao2_container *container, const char *category)
 static struct aco_type menu_type = {
 	.type = ACO_ITEM,
 	.name = "menu",
-	.category_match = ACO_BLACKLIST,
-	.category = "^general$",
+	.category_match = ACO_BLACKLIST_EXACT,
+	.category = "general",
 	.matchfield = "type",
 	.matchvalue = "menu",
 	.item_alloc = menu_alloc,
@@ -678,8 +672,8 @@ static struct aco_type *user_types[] = ACO_TYPES(&user_type);
 static struct aco_type general_type = {
 	.type = ACO_GLOBAL,
 	.name = "global",
-	.category_match = ACO_WHITELIST,
-	.category = "^general$",
+	.category_match = ACO_WHITELIST_EXACT,
+	.category = "general",
 };
 
 static struct aco_file confbridge_conf = {
@@ -1425,7 +1419,7 @@ static char *handle_cli_confbridge_show_user_profile(struct ast_cli_entry *e, in
 		"enabled" : "disabled");
 	ast_cli(a->fd,"Silence Threshold:       %ums\n",
 		u_profile.silence_threshold);
-	ast_cli(a->fd,"Talking Threshold:       %ums\n",
+	ast_cli(a->fd,"Talking Threshold:       %u\n",
 		u_profile.talking_threshold);
 	ast_cli(a->fd,"Denoise:                 %s\n",
 		u_profile.flags & USER_OPT_DENOISE ?
@@ -2149,7 +2143,7 @@ int conf_load_config(void)
 	aco_option_register(&cfg_info, "record_file", ACO_EXACT, bridge_types, NULL, OPT_CHAR_ARRAY_T, 0, CHARFLDSET(struct bridge_profile, rec_file));
 	aco_option_register(&cfg_info, "regcontext", ACO_EXACT, bridge_types, NULL, OPT_CHAR_ARRAY_T, 0, CHARFLDSET(struct bridge_profile, regcontext));
 	aco_option_register(&cfg_info, "language", ACO_EXACT, bridge_types, "en", OPT_CHAR_ARRAY_T, 0, CHARFLDSET(struct bridge_profile, language));
-	aco_option_register_custom(&cfg_info, "^sound_", ACO_REGEX, bridge_types, NULL, sound_option_handler, 0);
+	aco_option_register_custom(&cfg_info, "sound_", ACO_PREFIX, bridge_types, NULL, sound_option_handler, 0);
 	/* This option should only be used with the CONFBRIDGE dialplan function */
 	aco_option_register_custom(&cfg_info, "template", ACO_EXACT, bridge_types, NULL, bridge_template_handler, 0);
 

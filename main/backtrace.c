@@ -131,7 +131,7 @@ char **__ast_bt_get_symbols(void **addresses, size_t num_frames)
 			}
 
 			for (section = bfdobj->sections; section; section = section->next) {
-				if (!bfd_get_section_flags(bfdobj, section) & SEC_ALLOC ||
+				if (!(bfd_get_section_flags(bfdobj, section) & SEC_ALLOC) ||
 					section->vma > offset ||
 					section->size + section->vma < offset) {
 					continue;
@@ -173,6 +173,7 @@ char **__ast_bt_get_symbols(void **addresses, size_t num_frames)
 		if (bfdobj) {
 			bfd_close(bfdobj);
 			ast_std_free(syms);
+			syms = NULL;
 		}
 
 		/* Default output, if we cannot find the information within BFD */

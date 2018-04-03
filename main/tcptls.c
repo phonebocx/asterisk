@@ -26,6 +26,7 @@
  */
 
 /*** MODULEINFO
+	<use type="external">openssl</use>
 	<support_level>core</support_level>
  ***/
 
@@ -804,7 +805,7 @@ void *ast_tcptls_server_root(void *data)
 	pthread_t launched;
 
 	for (;;) {
-		int i, flags;
+		int i;
 
 		if (desc->periodic_fn) {
 			desc->periodic_fn(desc);
@@ -842,8 +843,7 @@ void *ast_tcptls_server_root(void *data)
 			close(fd);
 			continue;
 		}
-		flags = fcntl(fd, F_GETFL);
-		fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+		ast_fd_clear_flags(fd, O_NONBLOCK);
 		tcptls_session->fd = fd;
 		tcptls_session->parent = desc;
 		ast_sockaddr_copy(&tcptls_session->remote_address, &addr);
@@ -873,7 +873,10 @@ void *ast_tcptls_server_root(void *data)
 static int __ssl_setup(struct ast_tls_config *cfg, int client)
 {
 #ifndef DO_SSL
-	cfg->enabled = 0;
+	if (cfg->enabled) {
+		ast_log(LOG_NOTICE, "Configured without OpenSSL Development Headers");
+		cfg->enabled = 0;
+	}
 	return 0;
 #else
 	int disable_ssl = 0;
@@ -1047,7 +1050,7 @@ int ast_ssl_setup(struct ast_tls_config *cfg)
 void ast_ssl_teardown(struct ast_tls_config *cfg)
 {
 #ifdef DO_SSL
-	if (cfg->ssl_ctx) {
+	if (cfg && cfg->ssl_ctx) {
 		SSL_CTX_free(cfg->ssl_ctx);
 		cfg->ssl_ctx = NULL;
 	}
@@ -1057,7 +1060,6 @@ void ast_ssl_teardown(struct ast_tls_config *cfg)
 struct ast_tcptls_session_instance *ast_tcptls_client_start(struct ast_tcptls_session_instance *tcptls_session)
 {
 	struct ast_tcptls_session_args *desc;
-	int flags;
 
 	if (!(desc = tcptls_session->parent)) {
 		goto client_start_error;
@@ -1071,8 +1073,7 @@ struct ast_tcptls_session_instance *ast_tcptls_client_start(struct ast_tcptls_se
 		goto client_start_error;
 	}
 
-	flags = fcntl(desc->accept_fd, F_GETFL);
-	fcntl(desc->accept_fd, F_SETFL, flags & ~O_NONBLOCK);
+	ast_fd_clear_flags(desc->accept_fd, O_NONBLOCK);
 
 	if (desc->tls_cfg) {
 		desc->tls_cfg->enabled = 1;
@@ -1160,7 +1161,6 @@ error:
 
 void ast_tcptls_server_start(struct ast_tcptls_session_args *desc)
 {
-	int flags;
 	int x = 1;
 	int tls_changed = 0;
 
@@ -1263,8 +1263,7 @@ void ast_tcptls_server_start(struct ast_tcptls_session_args *desc)
 		ast_log(LOG_ERROR, "Unable to listen for %s!\n", desc->name);
 		goto error;
 	}
-	flags = fcntl(desc->accept_fd, F_GETFL);
-	fcntl(desc->accept_fd, F_SETFL, flags | O_NONBLOCK);
+	ast_fd_set_flags(desc->accept_fd, O_NONBLOCK);
 	if (ast_pthread_create_background(&desc->master, NULL, desc->accept_fn, desc)) {
 		ast_log(LOG_ERROR, "Unable to launch thread for %s on %s: %s\n",
 			desc->name,

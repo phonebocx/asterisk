@@ -1,12 +1,4 @@
-# Process this file with autoconf to produce a configure script.
-#
-# Make sure we use autoconf 2.60 to generate the "configure" script,
-# in case we want to commit it. Other than that, version 2.59 is
-# perfectly fine for our purposes, so people who want to modify
-# this file just have to remember to set the AC_PREREQ argument
-# to something that suits their needs.
-
-AC_PREREQ(2.60)
+AC_PREREQ(2.60a)
 
 AC_INIT([asterisk], [trunk], [https://issues.asterisk.org])
 
@@ -17,10 +9,7 @@ AC_CANONICAL_HOST
 # check existence of the package
 AC_CONFIG_SRCDIR([main/asterisk.c])
 
-AC_CONFIG_AUX_DIR(`pwd`)
-
 AC_COPYRIGHT("Asterisk")
-AC_REVISION($Revision$)
 
 # preserve any CFLAGS or LDFLAGS that may be set
 # NOTE: This must be done before calling any macros that end up
@@ -60,7 +49,7 @@ AC_SUBST([astvarrundir],      ['${localstatedir}/run/asterisk'])dnl
 
 case "${host_os}" in
      *bsd*)
-     if test ${prefix} = 'NONE'; then
+     if test ${prefix} != 'NONE'; then
         astvarlibdir='${prefix}/share/asterisk'
         astdbdir='${localstatedir}/db/asterisk'
      fi
@@ -265,6 +254,7 @@ AC_SUBST(GNU_LD)
 AC_PATH_PROG([BISON], [bison], :)
 AC_PATH_PROG([CMP], [cmp], :)
 AC_PATH_PROG([CAT], [cat], :)
+AC_PATH_PROG([CUT], [cut], :)
 AC_PATH_PROG([FLEX], [flex], :)
 AC_PATH_PROG([GREP], [grep], :)
 AC_PATH_PROG([PYTHON], [python], :)
@@ -282,7 +272,7 @@ AC_PATH_PROG([RUBBER], [rubber], :)
 AC_PATH_PROG([CATDVI], [catdvi], :)
 AC_PATH_PROG([KPATHSEA], [kpsewhich], :)
 AC_PATH_PROG([XMLLINT], [xmllint], :)
-AC_PATH_PROG([XMLSTARLET], [xmlstarlet], :)
+AC_PATH_PROGS([XMLSTARLET], [xmlstarlet xml], :)
 AC_PATH_PROG([BASH], [bash], :)
 AC_PATH_PROG([GIT], [git], :)
 AC_PATH_PROG([ALEMBIC], [alembic], :)
@@ -470,7 +460,6 @@ AST_EXT_LIB_SETUP([GSM], [External GSM], [gsm], [, use 'internal' GSM otherwise]
 AST_EXT_LIB_SETUP([ILBC], [System iLBC], [ilbc], [, use 'internal' iLBC otherwise])
 AST_EXT_LIB_SETUP([GTK2], [gtk2], [gtk2])
 AST_EXT_LIB_SETUP([GMIME], [GMime], [gmime])
-AST_EXT_LIB_SETUP([OPENH323], [OpenH323], [h323])
 AST_EXT_LIB_SETUP([HOARD], [Hoard Memory Allocator], [hoard])
 AST_EXT_LIB_SETUP([ICAL], [iCal], [ical])
 AST_EXT_LIB_SETUP([ICONV], [Iconv], [iconv])
@@ -503,6 +492,7 @@ AST_EXT_LIB_SETUP([NEWT], [newt], [newt])
 AST_EXT_LIB_SETUP([OGG], [OGG], [ogg])
 AST_EXT_LIB_SETUP([OPENR2], [MFR2], [openr2])
 AST_EXT_LIB_SETUP([OPUS], [Opus], [opus])
+AST_EXT_LIB_SETUP([OPUSFILE], [Opusfile], [opusfile])
 AST_EXT_LIB_SETUP([OSPTK], [OSP Toolkit], [osptk])
 AST_EXT_LIB_SETUP([OSS], [Open Sound System], [oss])
 AST_EXT_LIB_SETUP([PGSQL], [PostgreSQL], [postgres])
@@ -519,7 +509,6 @@ AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_TLS_TRANSPORT_PROTO], [PJSIP TLS Transport pro
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_EVSUB_GRP_LOCK], [PJSIP EVSUB Group Lock support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_INV_SESSION_REF], [PJSIP INVITE Session Reference Count support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_AUTH_CLT_DEINIT], [pjsip_auth_clt_deinit support], [PJPROJECT], [pjsip])
-AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_EVSUB_SET_UAS_TIMEOUT], [PJSIP EVSUB Set UAS Timeout support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_TSX_LAYER_FIND_TSX2], [pjsip_tsx_layer_find_tsx2 support], [PJPROJECT], [pjsip])
 fi
 
@@ -550,7 +539,6 @@ AST_EXT_LIB_SETUP_OPTIONAL([PRI_PROG_W_CAUSE], [ISDN progress with cause], [PRI]
 AST_EXT_LIB_SETUP_OPTIONAL([PRI_SERVICE_MESSAGES], [ISDN service messages], [PRI], [pri])
 AST_EXT_LIB_SETUP_OPTIONAL([PRI_REVERSE_CHARGE], [ISDN reverse charge], [PRI], [pri])
 # ------------------------------------^
-AST_EXT_LIB_SETUP([PWLIB], [PWlib], [pwlib])
 AST_EXT_LIB_SETUP([RADIUS], [Radius Client], [radius])
 AST_EXT_LIB_SETUP([RESAMPLE], [LIBRESAMPLE], [resample])
 AST_EXT_LIB_SETUP([SDL], [Sdl], [sdl])
@@ -659,12 +647,14 @@ AC_ARG_ENABLE([xmldoc],
 	[AS_HELP_STRING([--disable-xmldoc],
 		[Explicitly disable XML documentation])],
 	[case "${enableval}" in
-		y|ye|yes) disable_xmldoc=no ;;
-		n|no)  disable_xmldoc=yes ;;
+		y|ye|yes) DISABLE_XMLDOC=no ;;
+		n|no)  DISABLE_XMLDOC=yes ;;
 		*) AC_MSG_ERROR(bad value ${enableval} for --disable-xmldoc)  ;;
-	esac], [disable_xmldoc=no])
+	esac], [DISABLE_XMLDOC=no])
 
-if test "${disable_xmldoc}" != "yes"; then
+AC_SUBST([DISABLE_XMLDOC])
+if test "${DISABLE_XMLDOC}" != "yes"; then
+        AC_DEFINE([AST_XML_DOCS], 1, [Define to enable XML documentation.])
         AST_EXT_LIB_CHECK([LIBXSLT], [xslt], [xsltLoadStylesheetPI], [libxslt/xsltInternals.h], [${LIBXML2_LIB}], [${LIBXML2_INCLUDE}])
         AST_EXT_LIB_CHECK([LIBXSLT_CLEANUP], [xslt], [xsltCleanupGlobals], [libxslt/xsltInternals.h], [${LIBXML2_LIB}], [${LIBXML2_INCLUDE}])
 
@@ -1119,7 +1109,14 @@ AST_GCC_ATTRIBUTE(sentinel)
 AST_GCC_ATTRIBUTE(warn_unused_result)
 AST_GCC_ATTRIBUTE(may_alias)
 AST_GCC_ATTRIBUTE(constructor)
+if test "$ax_cv_have_func_attribute_constructor" != "1"; then
+	AC_MSG_ERROR([*** Function constructor attribute is not supported by your compiler.])
+fi
+
 AST_GCC_ATTRIBUTE(destructor)
+if test "$ax_cv_have_func_attribute_destructor" != "1"; then
+	AC_MSG_ERROR([*** Function destructor attribute is not supported by your compiler.])
+fi
 AST_GCC_ATTRIBUTE(noreturn,noreturn)
 
 AC_MSG_CHECKING(for -fsanitize=address support)
@@ -1187,7 +1184,7 @@ LDFLAGS="${saved_sanitize_LDFLAGS}"
 AC_SUBST(AST_UNDEFINED_SANITIZER)
 
 AC_MSG_CHECKING(for -Wdeclaration-after-statement support)
-if $(${CC} -Wdeclaration-after-statement -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
+if $(${CC} -Wdeclaration-after-statement -Werror -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
 	AC_MSG_RESULT(yes)
 	AST_DECLARATION_AFTER_STATEMENT=-Wdeclaration-after-statement
 else
@@ -1227,7 +1224,7 @@ fi
 AC_SUBST(AST_NO_STRICT_OVERFLOW)
 
 AC_MSG_CHECKING(for -Wno-format-truncation)
-if $(${CC} -O2 -Wno-format-truncation -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
+if $(${CC} -Wno-format-truncation -Werror -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
 	AC_MSG_RESULT(yes)
 	AST_NO_FORMAT_TRUNCATION=-Wno-format-truncation
 else
@@ -1237,7 +1234,7 @@ fi
 AC_SUBST(AST_NO_FORMAT_TRUNCATION)
 
 AC_MSG_CHECKING(for -Wshadow)
-if $(${CC} -Wshadow -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
+if $(${CC} -Wshadow -Werror -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
 	AC_MSG_RESULT(yes)
 	AST_SHADOW_WARNINGS=-Wshadow
 else
@@ -1542,6 +1539,10 @@ if test "${USE_LIBEDIT}" != "no"; then
    fi
    if test "${LIBEDIT_SYSTEM}" = "yes"; then
       AST_PKG_CONFIG_CHECK(LIBEDIT, libedit)
+      if test "$PBX_LIBEDIT" != "1"; then
+         # some platforms do not list libedit via pkg-config, for example OpenBSD 6.2
+         AST_EXT_LIB_CHECK([LIBEDIT], [edit], [history_init], [histedit.h], [-ltermcap])
+      fi
       if test "$PBX_LIBEDIT" = "1"; then
       LIBEDIT_INTERNAL="no"
       fi
@@ -1949,7 +1950,7 @@ if test "${USE_IMAP_TK}" != "no"; then
 			)
 		else #looking in imap directory didn't work, try c-client
 			imap_ldflags=""
-			imap_libs="-lc-client"
+			imap_libs="-lcrypto -lssl -lc-client"
 			imap_include="-DUSE_SYSTEM_CCLIENT"
 			CPPFLAGS="${saved_cppflags}"
 			LIBS="${saved_libs}"
@@ -2307,41 +2308,21 @@ AST_EXT_LIB_CHECK([SS7], [ss7], [ss7_set_isup_timer], [libss7.h])
 AST_EXT_LIB_CHECK([OPENR2], [openr2], [openr2_chan_new], [openr2.h])
 
 AST_EXT_LIB_CHECK([OPUS], [opus], [opus_encoder_create], [opus/opus.h])
-
-if test "${USE_PWLIB}" != "no"; then
-	if test -n "${PWLIB_DIR}"; then
-		PWLIBDIR="${PWLIB_DIR}"
-	fi
-	AST_CHECK_PWLIB()
-	AST_CHECK_PWLIB_VERSION([PWLib], [PWLIB], [ptbuildopts.h], [1], [9], [2], [P[[WT]]LIB_VERSION])
-
-	if test "${HAS_PWLIB:-unset}" != "unset"; then
-		AST_CHECK_PWLIB_PLATFORM()
-
-		PLATFORM_PWLIB="pt_${PWLIB_PLATFORM}_r"
-
-		AST_CHECK_PWLIB_BUILD([PWLib], [PWLIB],
-			[Define if your system has the PWLib libraries.],
-			[#include "ptlib.h"],
-			[int q = (int) PTime::IsDaylightSavings();])
-	fi
+# opusfile.h includes <opus_multistream.h> so we need to make sure that
+# either $OPUS_INCLUDE or /usr/include/opus is added to the search path.
+__opus_include=${OPUS_INCLUDE}
+if test -z "$__opus_include" -o x"$__opus_include" = x" " ; then
+	__opus_include=-I/usr/include/opus
 fi
+AST_EXT_LIB_CHECK([OPUSFILE], [opusfile], [op_open_callbacks], [opus/opusfile.h], [], [$__opus_include])
 
-if test "${PBX_PWLIB}" = "1" -a "${USE_OPENH323}" != "no" ; then
-	if test -n "${OPENH323_DIR}"; then
-		OPENH323DIR="${OPENH323_DIR}"
+AST_EXT_LIB_CHECK([LUA], [lua5.3], [luaL_newstate], [lua5.3/lua.h], [-lm])
+if test "x${PBX_LUA}" = "x1" ; then
+	if test x"${LUA_DIR}" = x; then
+		LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua5.3"
+	else
+		LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua5.3"
 	fi
-	AST_CHECK_OPENH323()
-	AST_CHECK_PWLIB_VERSION([OpenH323], [OPENH323], [openh323buildopts.h], [1], [17], [3], [], [1], [19], [0])
-	AST_CHECK_OPENH323_BUILD()
-	PLATFORM_OPENH323="h323_${PWLIB_PLATFORM}_${OPENH323_SUFFIX}"
-	AST_CHECK_PWLIB_BUILD([OpenH323], [OPENH323],
-		[Define if your system has the OpenH323 libraries.],
-		[#include "ptlib.h"
-		#include "h323.h"
-		#include "h323ep.h"],
-		[H323EndPoint ep = H323EndPoint();],
-		[${PWLIB_INCLUDE}], [${PWLIB_LIB}])
 fi
 
 AST_EXT_LIB_CHECK([LUA], [lua5.2], [luaL_newstate], [lua5.2/lua.h], [-lm])
@@ -2374,7 +2355,7 @@ else
 	AST_EXT_LIB_CHECK([RADIUS], [radiusclient-ng], [rc_read_config], [radiusclient-ng.h])
 fi
 
-AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcpg])
+AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcpg -lcfg])
 AST_EXT_LIB_CHECK([COROSYNC_CFG_STATE_TRACK], [cfg], [corosync_cfg_state_track], [corosync/cfg.h], [-lcfg])
 
 AST_EXT_LIB_CHECK([SPEEX], [speex], [speex_encode], [speex/speex.h], [-lm])

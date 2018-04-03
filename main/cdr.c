@@ -210,9 +210,16 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #define DEFAULT_BATCH_SCHEDULER_ONLY "0"
 #define DEFAULT_BATCH_SAFE_SHUTDOWN "1"
 
-#define CDR_DEBUG(mod_cfg, fmt, ...) \
+#define cdr_set_debug_mode(mod_cfg) \
 	do { \
-		if (ast_test_flag(&(mod_cfg)->general->settings, CDR_DEBUG)) { \
+		cdr_debug_enabled = ast_test_flag(&(mod_cfg)->general->settings, CDR_DEBUG); \
+	} while (0)
+
+static int cdr_debug_enabled;
+
+#define CDR_DEBUG(fmt, ...) \
+	do { \
+		if (cdr_debug_enabled) { \
 			ast_verbose((fmt), ##__VA_ARGS__); \
 		} \
 	} while (0)
@@ -234,25 +241,59 @@ static struct aco_type general_option = {
 	.type = ACO_GLOBAL,
 	.name = "general",
 	.item_offset = offsetof(struct module_config, general),
-	.category = "^general$",
-	.category_match = ACO_WHITELIST,
+	.category = "general",
+	.category_match = ACO_WHITELIST_EXACT,
+};
+
+/*! Config sections used by existing modules. Do not add to this list. */
+static const char *ignore_categories[] = {
+	"csv",
+	"custom",
+	"manager",
+	"odbc",
+	"pgsql",
+	"radius",
+	"sqlite",
+	"tds",
+	"mysql",
+	NULL,
+};
+
+static struct aco_type ignore_option = {
+	.type = ACO_IGNORE,
+	.name = "modules",
+	.category = (const char*)ignore_categories,
+	.category_match = ACO_WHITELIST_ARRAY,
 };
 
 static void *module_config_alloc(void);
 static void module_config_destructor(void *obj);
+static void module_config_post_apply(void);
 
 /*! \brief The file definition */
 static struct aco_file module_file_conf = {
 	.filename = "cdr.conf",
-	.skip_category = "(^csv$|^custom$|^manager$|^odbc$|^pgsql$|^radius$|^sqlite$|^tds$|^mysql$)",
-	.types = ACO_TYPES(&general_option),
+	.types = ACO_TYPES(&general_option, &ignore_option),
 };
 
 CONFIG_INFO_CORE("cdr", cfg_info, module_configs, module_config_alloc,
 	.files = ACO_FILES(&module_file_conf),
+	.post_apply_config = module_config_post_apply,
 );
 
 static struct aco_type *general_options[] = ACO_TYPES(&general_option);
+
+static void module_config_post_apply(void)
+{
+	struct module_config *mod_cfg;
+
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (!mod_cfg) {
+		return;
+	}
+	cdr_set_debug_mode(mod_cfg);
+	ao2_cleanup(mod_cfg);
+}
 
 /*! \brief Dispose of a module config object */
 static void module_config_destructor(void *obj)
@@ -327,8 +368,11 @@ AST_MUTEX_DEFINE_STATIC(cdr_batch_lock);
 AST_MUTEX_DEFINE_STATIC(cdr_pending_lock);
 static ast_cond_t cdr_pending_cond;
 
-/*! \brief A container of the active CDRs indexed by Party A channel id */
-static struct ao2_container *active_cdrs_by_channel;
+/*! \brief A container of the active master CDRs indexed by Party A channel uniqueid */
+static struct ao2_container *active_cdrs_master;
+
+/*! \brief A container of all active CDRs with a Party B indexed by Party B channel name */
+static struct ao2_container *active_cdrs_all;
 
 /*! \brief Message router for stasis messages regarding channel state */
 static struct stasis_message_router *stasis_router;
@@ -685,13 +729,14 @@ struct cdr_object {
 	struct ast_flags flags;                 /*!< Flags on the CDR */
 	AST_DECLARE_STRING_FIELDS(
 		AST_STRING_FIELD(linkedid);         /*!< Linked ID. Cached here as it may change out from party A, which must be immutable */
-		AST_STRING_FIELD(uniqueid);			/*!< Unique id of party A. Cached here as it is the primary key of this CDR */
+		AST_STRING_FIELD(uniqueid);			/*!< Unique id of party A. Cached here as it is the master CDR container key */
 		AST_STRING_FIELD(name);             /*!< Channel name of party A. Cached here as the party A address may change */
 		AST_STRING_FIELD(bridge);           /*!< The bridge the party A happens to be in. */
 		AST_STRING_FIELD(appl);             /*!< The last accepted application party A was in */
 		AST_STRING_FIELD(data);             /*!< The data for the last accepted application party A was in */
 		AST_STRING_FIELD(context);          /*!< The accepted context for Party A */
 		AST_STRING_FIELD(exten);            /*!< The accepted extension for Party A */
+		AST_STRING_FIELD(party_b_name);     /*!< Party B channel name. Cached here as it is the all CDRs container key */
 	);
 	struct cdr_object *next;                /*!< The next CDR object in the chain */
 	struct cdr_object *last;                /*!< The last CDR object in the chain */
@@ -764,9 +809,7 @@ static void cdr_object_snapshot_copy(struct cdr_object_snapshot *dst, struct cdr
  */
 static void cdr_object_transition_state(struct cdr_object *cdr, struct cdr_object_fn_table *fn_table)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-
-	CDR_DEBUG(mod_cfg, "%p - Transitioning CDR for %s from state %s to %s\n",
+	CDR_DEBUG("%p - Transitioning CDR for %s from state %s to %s\n",
 		cdr, cdr->party_a.snapshot->name,
 		cdr->fn_table ? cdr->fn_table->name : "NONE", fn_table->name);
 	cdr->fn_table = fn_table;
@@ -774,9 +817,12 @@ static void cdr_object_transition_state(struct cdr_object *cdr, struct cdr_objec
 		cdr->fn_table->init_function(cdr);
 	}
 }
-/*! \internal
- * \brief Hash function for containers of CDRs indexing by Party A uniqueid */
-static int cdr_object_channel_hash_fn(const void *obj, const int flags)
+
+/*!
+ * \internal
+ * \brief Hash function for master CDR container indexed by Party A uniqueid.
+ */
+static int cdr_master_hash_fn(const void *obj, const int flags)
 {
 	const struct cdr_object *cdr;
 	const char *key;
@@ -796,10 +842,11 @@ static int cdr_object_channel_hash_fn(const void *obj, const int flags)
 	return ast_str_case_hash(key);
 }
 
-/*! \internal
- * \brief Comparison function for containers of CDRs indexing by Party A uniqueid
+/*!
+ * \internal
+ * \brief Comparison function for master CDR container indexed by Party A uniqueid.
  */
-static int cdr_object_channel_cmp_fn(void *obj, void *arg, int flags)
+static int cdr_master_cmp_fn(void *obj, void *arg, int flags)
 {
     struct cdr_object *left = obj;
     struct cdr_object *right = arg;
@@ -827,6 +874,118 @@ static int cdr_object_channel_cmp_fn(void *obj, void *arg, int flags)
         break;
     }
     return cmp ? 0 : CMP_MATCH;
+}
+
+/*!
+ * \internal
+ * \brief Hash function for all CDR container indexed by Party B channel name.
+ */
+static int cdr_all_hash_fn(const void *obj, const int flags)
+{
+	const struct cdr_object *cdr;
+	const char *key;
+
+	switch (flags & OBJ_SEARCH_MASK) {
+	case OBJ_SEARCH_KEY:
+		key = obj;
+		break;
+	case OBJ_SEARCH_OBJECT:
+		cdr = obj;
+		key = cdr->party_b_name;
+		break;
+	default:
+		ast_assert(0);
+		return 0;
+	}
+	return ast_str_case_hash(key);
+}
+
+/*!
+ * \internal
+ * \brief Comparison function for all CDR container indexed by Party B channel name.
+ */
+static int cdr_all_cmp_fn(void *obj, void *arg, int flags)
+{
+    struct cdr_object *left = obj;
+    struct cdr_object *right = arg;
+    const char *right_key = arg;
+    int cmp;
+
+    switch (flags & OBJ_SEARCH_MASK) {
+    case OBJ_SEARCH_OBJECT:
+        right_key = right->party_b_name;
+        /* Fall through */
+    case OBJ_SEARCH_KEY:
+        cmp = strcasecmp(left->party_b_name, right_key);
+        break;
+    case OBJ_SEARCH_PARTIAL_KEY:
+        /*
+         * We could also use a partial key struct containing a length
+         * so strlen() does not get called for every comparison instead.
+         */
+        cmp = strncasecmp(left->party_b_name, right_key, strlen(right_key));
+        break;
+    default:
+        /* Sort can only work on something with a full or partial key. */
+        ast_assert(0);
+        cmp = 0;
+        break;
+    }
+    return cmp ? 0 : CMP_MATCH;
+}
+
+/*!
+ * \internal
+ * \brief Relink the CDR because Party B's snapshot changed.
+ * \since 13.19.0
+ *
+ * \return Nothing
+ */
+static void cdr_all_relink(struct cdr_object *cdr)
+{
+	ao2_lock(active_cdrs_all);
+	if (cdr->party_b.snapshot) {
+		if (strcasecmp(cdr->party_b_name, cdr->party_b.snapshot->name)) {
+			ao2_unlink_flags(active_cdrs_all, cdr, OBJ_NOLOCK);
+			ast_string_field_set(cdr, party_b_name, cdr->party_b.snapshot->name);
+			ao2_link_flags(active_cdrs_all, cdr, OBJ_NOLOCK);
+		}
+	} else {
+		ao2_unlink_flags(active_cdrs_all, cdr, OBJ_NOLOCK);
+		ast_string_field_set(cdr, party_b_name, "");
+	}
+	ao2_unlock(active_cdrs_all);
+}
+
+/*!
+ * \internal
+ * \brief Unlink the master CDR and chained records from the active_cdrs_all container.
+ * \since 13.19.0
+ *
+ * \return Nothing
+ */
+static void cdr_all_unlink(struct cdr_object *cdr)
+{
+	struct cdr_object *cur;
+	struct cdr_object *next;
+
+	ast_assert(cdr->is_root);
+
+	/* Hold a ref to the root CDR to ensure the list members don't go away on us. */
+	ao2_ref(cdr, +1);
+	ao2_lock(active_cdrs_all);
+	for (cur = cdr; cur; cur = next) {
+		next = cur->next;
+		ao2_unlink_flags(active_cdrs_all, cur, OBJ_NOLOCK);
+		/*
+		 * It is safe to still use cur after unlinking because the
+		 * root CDR holds a ref to all the CDRs in the list and we
+		 * have a ref to the root CDR.
+		 */
+		ast_string_field_set(cur, party_b_name, "");
+	}
+	ao2_unlock(active_cdrs_all);
+	ao2_ref(cdr, -1);
 }
 
 /*!
@@ -874,7 +1033,6 @@ static void cdr_object_dtor(void *obj)
  */
 static struct cdr_object *cdr_object_alloc(struct ast_channel_snapshot *chan)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
 	struct cdr_object *cdr;
 
 	ast_assert(chan != NULL);
@@ -897,7 +1055,7 @@ static struct cdr_object *cdr_object_alloc(struct ast_channel_snapshot *chan)
 	cdr->party_a.snapshot = chan;
 	ao2_t_ref(cdr->party_a.snapshot, +1, "bump snapshot during CDR creation");
 
-	CDR_DEBUG(mod_cfg, "%p - Created CDR for channel %s\n", cdr, chan->name);
+	CDR_DEBUG("%p - Created CDR for channel %s\n", cdr, chan->name);
 
 	cdr_object_transition_state(cdr, &single_state_fn_table);
 
@@ -950,6 +1108,28 @@ static struct cdr_object *cdr_object_create_and_append(struct cdr_object *cdr)
 }
 
 /*!
+ * \internal
+ * \brief Determine if CDR flag is configured.
+ *
+ * \param cdr_flag The configured CDR flag to check.
+ *
+ * \retval 0 if the CDR flag is not configured.
+ * \retval non-zero if the CDR flag is configured.
+ *
+ * \return Nothing
+ */
+static int is_cdr_flag_set(unsigned int cdr_flag)
+{
+	struct module_config *mod_cfg;
+	int flag_set;
+
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	flag_set = mod_cfg && ast_test_flag(&mod_cfg->general->settings, cdr_flag);
+	ao2_cleanup(mod_cfg);
+	return flag_set;
+}
+
+/*!
  * \brief Return whether or not a channel has changed its state in the dialplan, subject
  * to endbeforehexten logic
  *
@@ -962,12 +1142,9 @@ static struct cdr_object *cdr_object_create_and_append(struct cdr_object *cdr)
 static int snapshot_cep_changed(struct ast_channel_snapshot *old_snapshot,
 	struct ast_channel_snapshot *new_snapshot)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-		ao2_global_obj_ref(module_configs), ao2_cleanup);
-
 	/* If we ignore hangup logic, don't indicate that we're executing anything new */
-	if (ast_test_flag(&mod_cfg->general->settings, CDR_END_BEFORE_H_EXTEN)
-		&& ast_test_flag(&new_snapshot->softhangup_flags, AST_SOFTHANGUP_HANGUP_EXEC)) {
+	if (ast_test_flag(&new_snapshot->softhangup_flags, AST_SOFTHANGUP_HANGUP_EXEC)
+		&& is_cdr_flag_set(CDR_END_BEFORE_H_EXTEN)) {
 		return 0;
 	}
 
@@ -975,10 +1152,11 @@ static int snapshot_cep_changed(struct ast_channel_snapshot *old_snapshot,
 	 * will attempt to clear the application and restore the dummy originate application
 	 * of "AppDialX". Ignore application changes to AppDialX as a result.
 	 */
-	if (strcmp(new_snapshot->appl, old_snapshot->appl) && strncasecmp(new_snapshot->appl, "appdial", 7)
+	if (strcmp(new_snapshot->appl, old_snapshot->appl)
+		&& strncasecmp(new_snapshot->appl, "appdial", 7)
 		&& (strcmp(new_snapshot->context, old_snapshot->context)
-		|| strcmp(new_snapshot->exten, old_snapshot->exten)
-		|| new_snapshot->priority != old_snapshot->priority)) {
+			|| strcmp(new_snapshot->exten, old_snapshot->exten)
+			|| new_snapshot->priority != old_snapshot->priority)) {
 		return 1;
 	}
 
@@ -1050,15 +1228,15 @@ static long cdr_object_get_duration(struct cdr_object *cdr)
  */
 static long cdr_object_get_billsec(struct cdr_object *cdr)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
 	long int ms;
 
 	if (ast_tvzero(cdr->answer)) {
 		return 0;
 	}
+
 	ms = ast_tvdiff_ms(ast_tvzero(cdr->end) ? ast_tvnow() : cdr->end, cdr->answer);
-	if (ast_test_flag(&mod_cfg->general->settings, CDR_INITIATED_SECONDS)
-		&& (ms % 1000 >= 500)) {
+	if (ms % 1000 >= 500
+		&& is_cdr_flag_set(CDR_INITIATED_SECONDS)) {
 		ms = (ms / 1000) + 1;
 	} else {
 		ms = ms / 1000;
@@ -1201,13 +1379,11 @@ static struct ast_cdr *cdr_object_create_public_records(struct cdr_object *cdr)
  */
 static void cdr_object_dispatch(struct cdr_object *cdr)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-			ao2_global_obj_ref(module_configs), ao2_cleanup);
 	struct ast_cdr *pub_cdr;
 
-	CDR_DEBUG(mod_cfg, "%p - Dispatching CDR for Party A %s, Party B %s\n", cdr,
-			cdr->party_a.snapshot->name,
-			cdr->party_b.snapshot ? cdr->party_b.snapshot->name : "<none>");
+	CDR_DEBUG("%p - Dispatching CDR for Party A %s, Party B %s\n", cdr,
+		cdr->party_a.snapshot->name,
+		cdr->party_b.snapshot ? cdr->party_b.snapshot->name : "<none>");
 	pub_cdr = cdr_object_create_public_records(cdr);
 	cdr_detach(pub_cdr);
 }
@@ -1219,16 +1395,13 @@ static void cdr_object_dispatch(struct cdr_object *cdr)
  */
 static void cdr_object_set_disposition(struct cdr_object *cdr, int hangupcause)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-			ao2_global_obj_ref(module_configs), ao2_cleanup);
-
 	/* Change the disposition based on the hang up cause */
 	switch (hangupcause) {
 	case AST_CAUSE_BUSY:
 		cdr->disposition = AST_CDR_BUSY;
 		break;
 	case AST_CAUSE_CONGESTION:
-		if (!ast_test_flag(&mod_cfg->general->settings, CDR_CONGESTION)) {
+		if (!is_cdr_flag_set(CDR_CONGESTION)) {
 			cdr->disposition = AST_CDR_FAILED;
 		} else {
 			cdr->disposition = AST_CDR_CONGESTION;
@@ -1295,10 +1468,8 @@ static void cdr_object_finalize(struct cdr_object *cdr)
  */
 static void cdr_object_check_party_a_hangup(struct cdr_object *cdr)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-
-	if (ast_test_flag(&mod_cfg->general->settings, CDR_END_BEFORE_H_EXTEN)
-		&& ast_test_flag(&cdr->party_a.snapshot->softhangup_flags, AST_SOFTHANGUP_HANGUP_EXEC)) {
+	if (ast_test_flag(&cdr->party_a.snapshot->softhangup_flags, AST_SOFTHANGUP_HANGUP_EXEC)
+		&& is_cdr_flag_set(CDR_END_BEFORE_H_EXTEN)) {
 		cdr_object_finalize(cdr);
 	}
 
@@ -1312,13 +1483,12 @@ static void cdr_object_check_party_a_hangup(struct cdr_object *cdr)
  * \brief Check to see if a CDR needs to be answered based on its Party A.
  * Note that this is safe to call as much as you want - we won't answer twice
  */
-static void cdr_object_check_party_a_answer(struct cdr_object *cdr) {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-
+static void cdr_object_check_party_a_answer(struct cdr_object *cdr)
+{
 	if (cdr->party_a.snapshot->state == AST_STATE_UP && ast_tvzero(cdr->answer)) {
 		cdr->answer = ast_tvnow();
 		/* tv_usec is suseconds_t, which could be int or long */
-		CDR_DEBUG(mod_cfg, "%p - Set answered time to %ld.%06ld\n", cdr,
+		CDR_DEBUG("%p - Set answered time to %ld.%06ld\n", cdr,
 			(long)cdr->answer.tv_sec,
 			(long)cdr->answer.tv_usec);
 	}
@@ -1333,13 +1503,13 @@ static void cdr_object_update_cid(struct cdr_object_snapshot *old_snapshot, stru
 		set_variable(&old_snapshot->variables, "calledsubaddr", new_snapshot->dialed_subaddr);
 		return;
 	}
-	if (!strcmp(old_snapshot->snapshot->caller_dnid, new_snapshot->caller_dnid)) {
+	if (strcmp(old_snapshot->snapshot->caller_dnid, new_snapshot->caller_dnid)) {
 		set_variable(&old_snapshot->variables, "dnid", new_snapshot->caller_dnid);
 	}
-	if (!strcmp(old_snapshot->snapshot->caller_subaddr, new_snapshot->caller_subaddr)) {
+	if (strcmp(old_snapshot->snapshot->caller_subaddr, new_snapshot->caller_subaddr)) {
 		set_variable(&old_snapshot->variables, "callingsubaddr", new_snapshot->caller_subaddr);
 	}
-	if (!strcmp(old_snapshot->snapshot->dialed_subaddr, new_snapshot->dialed_subaddr)) {
+	if (strcmp(old_snapshot->snapshot->dialed_subaddr, new_snapshot->dialed_subaddr)) {
 		set_variable(&old_snapshot->variables, "calledsubaddr", new_snapshot->dialed_subaddr);
 	}
 }
@@ -1361,13 +1531,11 @@ static void cdr_object_swap_snapshot(struct cdr_object_snapshot *old_snapshot,
 
 static int base_process_party_a(struct cdr_object *cdr, struct ast_channel_snapshot *snapshot)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-
 	ast_assert(strcasecmp(snapshot->name, cdr->party_a.snapshot->name) == 0);
 
 	/* Finalize the CDR if we're in hangup logic and we're set to do so */
 	if (ast_test_flag(&snapshot->softhangup_flags, AST_SOFTHANGUP_HANGUP_EXEC)
-		&& ast_test_flag(&mod_cfg->general->settings, CDR_END_BEFORE_H_EXTEN)) {
+		&& is_cdr_flag_set(CDR_END_BEFORE_H_EXTEN)) {
 		cdr_object_finalize(cdr);
 		return 0;
 	}
@@ -1378,8 +1546,12 @@ static int base_process_party_a(struct cdr_object *cdr, struct ast_channel_snaps
 	 */
 	if (!ast_test_flag(&snapshot->flags, AST_FLAG_SUBROUTINE_EXEC)
 		|| ast_test_flag(&snapshot->softhangup_flags, AST_SOFTHANGUP_HANGUP_EXEC)) {
-		ast_string_field_set(cdr, context, snapshot->context);
-		ast_string_field_set(cdr, exten, snapshot->exten);
+		if (strcmp(cdr->context, snapshot->context)) {
+			ast_string_field_set(cdr, context, snapshot->context);
+		}
+		if (strcmp(cdr->exten, snapshot->exten)) {
+			ast_string_field_set(cdr, exten, snapshot->exten);
+		}
 	}
 
 	cdr_object_swap_snapshot(&cdr->party_a, snapshot);
@@ -1389,11 +1561,15 @@ static int base_process_party_a(struct cdr_object *cdr, struct ast_channel_snaps
 	 * of "AppDialX". Prevent that, and any other application changes we might not want
 	 * here.
 	 */
-	if (!ast_strlen_zero(snapshot->appl)
-			&& (strncasecmp(snapshot->appl, "appdial", 7) || ast_strlen_zero(cdr->appl))
-			&& !ast_test_flag(&cdr->flags, AST_CDR_LOCK_APP)) {
-		ast_string_field_set(cdr, appl, snapshot->appl);
-		ast_string_field_set(cdr, data, snapshot->data);
+	if (!ast_test_flag(&cdr->flags, AST_CDR_LOCK_APP)
+		&& !ast_strlen_zero(snapshot->appl)
+		&& (strncasecmp(snapshot->appl, "appdial", 7) || ast_strlen_zero(cdr->appl))) {
+		if (strcmp(cdr->appl, snapshot->appl)) {
+			ast_string_field_set(cdr, appl, snapshot->appl);
+		}
+		if (strcmp(cdr->data, snapshot->data)) {
+			ast_string_field_set(cdr, data, snapshot->data);
+		}
 
 		/* Dial (app_dial) is a special case. Because pre-dial handlers, which
 		 * execute before the dial begins, will alter the application/data to
@@ -1405,7 +1581,9 @@ static int base_process_party_a(struct cdr_object *cdr, struct ast_channel_snaps
 		}
 	}
 
-	ast_string_field_set(cdr, linkedid, snapshot->linkedid);
+	if (strcmp(cdr->linkedid, snapshot->linkedid)) {
+		ast_string_field_set(cdr, linkedid, snapshot->linkedid);
+	}
 	cdr_object_check_party_a_answer(cdr);
 	cdr_object_check_party_a_hangup(cdr);
 
@@ -1470,15 +1648,14 @@ static void single_state_process_party_b(struct cdr_object *cdr, struct ast_chan
 
 static int single_state_process_dial_begin(struct cdr_object *cdr, struct ast_channel_snapshot *caller, struct ast_channel_snapshot *peer)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-
 	if (caller && !strcasecmp(cdr->party_a.snapshot->name, caller->name)) {
 		base_process_party_a(cdr, caller);
-		CDR_DEBUG(mod_cfg, "%p - Updated Party A %s snapshot\n", cdr,
-				cdr->party_a.snapshot->name);
+		CDR_DEBUG("%p - Updated Party A %s snapshot\n", cdr,
+			cdr->party_a.snapshot->name);
 		cdr_object_swap_snapshot(&cdr->party_b, peer);
-		CDR_DEBUG(mod_cfg, "%p - Updated Party B %s snapshot\n", cdr,
-				cdr->party_b.snapshot->name);
+		cdr_all_relink(cdr);
+		CDR_DEBUG("%p - Updated Party B %s snapshot\n", cdr,
+			cdr->party_b.snapshot->name);
 
 		/* If we have two parties, lock the application that caused the
 		 * two parties to be associated. This prevents mid-call event
@@ -1488,8 +1665,8 @@ static int single_state_process_dial_begin(struct cdr_object *cdr, struct ast_ch
 	} else if (!strcasecmp(cdr->party_a.snapshot->name, peer->name)) {
 		/* We're the entity being dialed, i.e., outbound origination */
 		base_process_party_a(cdr, peer);
-		CDR_DEBUG(mod_cfg, "%p - Updated Party A %s snapshot\n", cdr,
-				cdr->party_a.snapshot->name);
+		CDR_DEBUG("%p - Updated Party A %s snapshot\n", cdr,
+			cdr->party_a.snapshot->name);
 	}
 
 	cdr_object_transition_state(cdr, &dial_state_fn_table);
@@ -1511,7 +1688,6 @@ static int single_state_process_dial_begin(struct cdr_object *cdr, struct ast_ch
 static int single_state_bridge_enter_comparison(struct cdr_object *cdr,
 		struct cdr_object *cand_cdr)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
 	struct cdr_object_snapshot *party_a;
 
 	/* Don't match on ourselves */
@@ -1522,9 +1698,10 @@ static int single_state_bridge_enter_comparison(struct cdr_object *cdr,
 	/* Try the candidate CDR's Party A first */
 	party_a = cdr_object_pick_party_a(&cdr->party_a, &cand_cdr->party_a);
 	if (!strcasecmp(party_a->snapshot->name, cdr->party_a.snapshot->name)) {
-		CDR_DEBUG(mod_cfg, "%p - Party A %s has new Party B %s\n",
+		CDR_DEBUG("%p - Party A %s has new Party B %s\n",
 			cdr, cdr->party_a.snapshot->name, cand_cdr->party_a.snapshot->name);
 		cdr_object_snapshot_copy(&cdr->party_b, &cand_cdr->party_a);
+		cdr_all_relink(cdr);
 		if (!cand_cdr->party_b.snapshot) {
 			/* We just stole them - finalize their CDR. Note that this won't
 			 * transition their state, it just sets the end time and the
@@ -1542,9 +1719,10 @@ static int single_state_bridge_enter_comparison(struct cdr_object *cdr,
 	}
 	party_a = cdr_object_pick_party_a(&cdr->party_a, &cand_cdr->party_b);
 	if (!strcasecmp(party_a->snapshot->name, cdr->party_a.snapshot->name)) {
-		CDR_DEBUG(mod_cfg, "%p - Party A %s has new Party B %s\n",
+		CDR_DEBUG("%p - Party A %s has new Party B %s\n",
 			cdr, cdr->party_a.snapshot->name, cand_cdr->party_b.snapshot->name);
 		cdr_object_snapshot_copy(&cdr->party_b, &cand_cdr->party_b);
+		cdr_all_relink(cdr);
 		return 0;
 	}
 
@@ -1571,7 +1749,7 @@ static enum process_bridge_enter_results single_state_process_bridge_enter(struc
 		struct cdr_object *cand_cdr_master;
 		struct cdr_object *cand_cdr;
 
-		cand_cdr_master = ao2_find(active_cdrs_by_channel, channel_id, OBJ_SEARCH_KEY);
+		cand_cdr_master = ao2_find(active_cdrs_master, channel_id, OBJ_SEARCH_KEY);
 		if (!cand_cdr_master) {
 			continue;
 		}
@@ -1645,9 +1823,6 @@ static int dial_state_process_dial_begin(struct cdr_object *cdr, struct ast_chan
  */
 static enum ast_cdr_disposition dial_status_to_disposition(const char *dial_status)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-		ao2_global_obj_ref(module_configs), ao2_cleanup);
-
 	if (!strcmp(dial_status, "ANSWER")) {
 		return AST_CDR_ANSWERED;
 	} else if (!strcmp(dial_status, "BUSY")) {
@@ -1655,7 +1830,7 @@ static enum ast_cdr_disposition dial_status_to_disposition(const char *dial_stat
 	} else if (!strcmp(dial_status, "CANCEL") || !strcmp(dial_status, "NOANSWER")) {
 		return AST_CDR_NOANSWER;
 	} else if (!strcmp(dial_status, "CONGESTION")) {
-		if (!ast_test_flag(&mod_cfg->general->settings, CDR_CONGESTION)) {
+		if (!is_cdr_flag_set(CDR_CONGESTION)) {
 			return AST_CDR_FAILED;
 		} else {
 			return AST_CDR_CONGESTION;
@@ -1700,8 +1875,6 @@ static int dial_state_process_dial_end(struct cdr_object *cdr, struct ast_channe
 
 static enum process_bridge_enter_results dial_state_process_bridge_enter(struct cdr_object *cdr, struct ast_bridge_snapshot *bridge, struct ast_channel_snapshot *channel)
 {
-	struct ao2_iterator it_cdrs;
-	char *channel_id;
 	int success = 0;
 
 	ast_string_field_set(cdr, bridge, bridge->uniqueid);
@@ -1713,50 +1886,51 @@ static enum process_bridge_enter_results dial_state_process_bridge_enter(struct 
 		return BRIDGE_ENTER_ONLY_PARTY;
 	}
 
-	for (it_cdrs = ao2_iterator_init(bridge->channels, 0);
-		!success && (channel_id = ao2_iterator_next(&it_cdrs));
-		ao2_ref(channel_id, -1)) {
-		struct cdr_object *cand_cdr_master;
-		struct cdr_object *cand_cdr;
+	/* If we don't have a Party B (originated channel), skip it */
+	if (cdr->party_b.snapshot) {
+		struct ao2_iterator it_cdrs;
+		char *channel_id;
 
-		cand_cdr_master = ao2_find(active_cdrs_by_channel, channel_id, OBJ_SEARCH_KEY);
-		if (!cand_cdr_master) {
-			continue;
+		for (it_cdrs = ao2_iterator_init(bridge->channels, 0);
+			!success && (channel_id = ao2_iterator_next(&it_cdrs));
+			ao2_ref(channel_id, -1)) {
+			struct cdr_object *cand_cdr_master;
+			struct cdr_object *cand_cdr;
+
+			cand_cdr_master = ao2_find(active_cdrs_master, channel_id, OBJ_SEARCH_KEY);
+			if (!cand_cdr_master) {
+				continue;
+			}
+
+			ao2_lock(cand_cdr_master);
+			for (cand_cdr = cand_cdr_master; cand_cdr; cand_cdr = cand_cdr->next) {
+				/* Skip any records that are not in a bridge or in this bridge.
+				 * I'm not sure how that would happen, but it pays to be careful. */
+				if (cand_cdr->fn_table != &bridge_state_fn_table
+					|| strcmp(cdr->bridge, cand_cdr->bridge)) {
+					continue;
+				}
+
+				/* Skip any records that aren't our Party B */
+				if (strcasecmp(cdr->party_b.snapshot->name, cand_cdr->party_a.snapshot->name)) {
+					continue;
+				}
+				cdr_object_snapshot_copy(&cdr->party_b, &cand_cdr->party_a);
+				/* If they have a Party B, they joined up with someone else as their
+				 * Party A. Don't finalize them as they're active. Otherwise, we
+				 * have stolen them so they need to be finalized.
+				 */
+				if (!cand_cdr->party_b.snapshot) {
+					cdr_object_finalize(cand_cdr);
+				}
+				success = 1;
+				break;
+			}
+			ao2_unlock(cand_cdr_master);
+			ao2_cleanup(cand_cdr_master);
 		}
-
-		ao2_lock(cand_cdr_master);
-		for (cand_cdr = cand_cdr_master; cand_cdr; cand_cdr = cand_cdr->next) {
-			/* Skip any records that are not in a bridge or in this bridge.
-			 * I'm not sure how that would happen, but it pays to be careful. */
-			if (cand_cdr->fn_table != &bridge_state_fn_table ||
-					strcmp(cdr->bridge, cand_cdr->bridge)) {
-				continue;
-			}
-
-			/* If we don't have a Party B (originated channel), skip it */
-			if (!cdr->party_b.snapshot) {
-				continue;
-			}
-
-			/* Skip any records that aren't our Party B */
-			if (strcasecmp(cdr->party_b.snapshot->name, cand_cdr->party_a.snapshot->name)) {
-				continue;
-			}
-			cdr_object_snapshot_copy(&cdr->party_b, &cand_cdr->party_a);
-			/* If they have a Party B, they joined up with someone else as their
-			 * Party A. Don't finalize them as they're active. Otherwise, we
-			 * have stolen them so they need to be finalized.
-			 */
-			if (!cand_cdr->party_b.snapshot) {
-				cdr_object_finalize(cand_cdr);
-			}
-			success = 1;
-			break;
-		}
-		ao2_unlock(cand_cdr_master);
-		ao2_cleanup(cand_cdr_master);
+		ao2_iterator_destroy(&it_cdrs);
 	}
-	ao2_iterator_destroy(&it_cdrs);
 
 	/* We always transition state, even if we didn't get a peer */
 	cdr_object_transition_state(cdr, &bridge_state_fn_table);
@@ -1865,11 +2039,8 @@ static void finalized_state_init_function(struct cdr_object *cdr)
 
 static int finalized_state_process_party_a(struct cdr_object *cdr, struct ast_channel_snapshot *snapshot)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-		ao2_global_obj_ref(module_configs), ao2_cleanup);
-
 	if (ast_test_flag(&snapshot->softhangup_flags, AST_SOFTHANGUP_HANGUP_EXEC)
-			&& ast_test_flag(&mod_cfg->general->settings, CDR_END_BEFORE_H_EXTEN)) {
+		&& is_cdr_flag_set(CDR_END_BEFORE_H_EXTEN)) {
 		return 0;
 	}
 
@@ -1917,7 +2088,6 @@ static int filter_channel_cache_message(struct ast_channel_snapshot *old_snapsho
  */
 static void handle_dial_message(void *data, struct stasis_subscription *sub, struct stasis_message *message)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
 	struct cdr_object *cdr;
 	struct ast_multi_channel_blob *payload = stasis_message_data(message);
 	struct ast_channel_snapshot *caller;
@@ -1932,7 +2102,12 @@ static void handle_dial_message(void *data, struct stasis_subscription *sub, str
 	if (!peer && !caller) {
 		return;
 	}
-	if (filter_channel_snapshot(peer) || (caller && filter_channel_snapshot(caller))) {
+
+	if (peer && filter_channel_snapshot(peer)) {
+		return;
+	}
+
+	if (caller && filter_channel_snapshot(caller)) {
 		return;
 	}
 
@@ -1941,18 +2116,18 @@ static void handle_dial_message(void *data, struct stasis_subscription *sub, str
 		dial_status = ast_json_string_get(dial_status_blob);
 	}
 
-	CDR_DEBUG(mod_cfg, "Dial %s message for %s, %s: %u.%08u\n",
-			ast_strlen_zero(dial_status) ? "Begin" : "End",
-			caller ? caller->name : "(none)",
-			peer ? peer->name : "(none)",
-			(unsigned int)stasis_message_timestamp(message)->tv_sec,
-			(unsigned int)stasis_message_timestamp(message)->tv_usec);
+	CDR_DEBUG("Dial %s message for %s, %s: %u.%08u\n",
+		ast_strlen_zero(dial_status) ? "Begin" : "End",
+		caller ? caller->name : "(none)",
+		peer ? peer->name : "(none)",
+		(unsigned int)stasis_message_timestamp(message)->tv_sec,
+		(unsigned int)stasis_message_timestamp(message)->tv_usec);
 
 	/* Figure out who is running this show */
 	if (caller) {
-		cdr = ao2_find(active_cdrs_by_channel, caller->uniqueid, OBJ_SEARCH_KEY);
+		cdr = ao2_find(active_cdrs_master, caller->uniqueid, OBJ_SEARCH_KEY);
 	} else {
-		cdr = ao2_find(active_cdrs_by_channel, peer->uniqueid, OBJ_SEARCH_KEY);
+		cdr = ao2_find(active_cdrs_master, peer->uniqueid, OBJ_SEARCH_KEY);
 	}
 	if (!cdr) {
 		ast_log(AST_LOG_WARNING, "No CDR for channel %s\n", caller ? caller->name : peer->name);
@@ -1966,10 +2141,10 @@ static void handle_dial_message(void *data, struct stasis_subscription *sub, str
 			if (!it_cdr->fn_table->process_dial_begin) {
 				continue;
 			}
-			CDR_DEBUG(mod_cfg, "%p - Processing Dial Begin message for channel %s, peer %s\n",
-					it_cdr,
-					caller ? caller->name : "(none)",
-					peer ? peer->name : "(none)");
+			CDR_DEBUG("%p - Processing Dial Begin message for channel %s, peer %s\n",
+				it_cdr,
+				caller ? caller->name : "(none)",
+				peer ? peer->name : "(none)");
 			res &= it_cdr->fn_table->process_dial_begin(it_cdr,
 					caller,
 					peer);
@@ -1977,10 +2152,10 @@ static void handle_dial_message(void *data, struct stasis_subscription *sub, str
 			if (!it_cdr->fn_table->process_dial_end) {
 				continue;
 			}
-			CDR_DEBUG(mod_cfg, "%p - Processing Dial End message for channel %s, peer %s\n",
-					it_cdr,
-					caller ? caller->name : "(none)",
-					peer ? peer->name : "(none)");
+			CDR_DEBUG("%p - Processing Dial End message for channel %s, peer %s\n",
+				it_cdr,
+				caller ? caller->name : "(none)",
+				peer ? peer->name : "(none)");
 			it_cdr->fn_table->process_dial_end(it_cdr,
 					caller,
 					peer,
@@ -2001,38 +2176,54 @@ static void handle_dial_message(void *data, struct stasis_subscription *sub, str
 	ao2_cleanup(cdr);
 }
 
-static int cdr_object_finalize_party_b(void *obj, void *arg, int flags)
+static int cdr_object_finalize_party_b(void *obj, void *arg, void *data, int flags)
 {
 	struct cdr_object *cdr = obj;
-	struct ast_channel_snapshot *party_b = arg;
-	struct cdr_object *it_cdr;
 
-	for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
-		if (it_cdr->party_b.snapshot
-			&& !strcasecmp(it_cdr->party_b.snapshot->name, party_b->name)) {
-			/* Don't transition to the finalized state - let the Party A do
-			 * that when its ready
-			 */
-			cdr_object_finalize(it_cdr);
-		}
+	if (!strcasecmp(cdr->party_b_name, arg)) {
+#ifdef AST_DEVMODE
+		struct ast_channel_snapshot *party_b = data;
+
+		/*
+		 * For sanity's sake we also assert the party_b snapshot
+		 * is consistent with the key.
+		 */
+		ast_assert(cdr->party_b.snapshot
+			&& !strcasecmp(cdr->party_b.snapshot->name, party_b->name));
+#endif
+
+		/* Don't transition to the finalized state - let the Party A do
+		 * that when its ready
+		 */
+		cdr_object_finalize(cdr);
 	}
 	return 0;
 }
 
-static int cdr_object_update_party_b(void *obj, void *arg, int flags)
+static int cdr_object_update_party_b(void *obj, void *arg, void *data, int flags)
 {
 	struct cdr_object *cdr = obj;
-	struct ast_channel_snapshot *party_b = arg;
-	struct cdr_object *it_cdr;
 
-	for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
-		if (!it_cdr->fn_table->process_party_b) {
-			continue;
+	if (cdr->fn_table->process_party_b
+		&& !strcasecmp(cdr->party_b_name, arg)) {
+		struct ast_channel_snapshot *party_b = data;
+
+		/*
+		 * For sanity's sake we also check the party_b snapshot
+		 * for consistency with the key.  The callback needs and
+		 * asserts the snapshot to be this way.
+		 */
+		if (!cdr->party_b.snapshot
+			|| strcasecmp(cdr->party_b.snapshot->name, party_b->name)) {
+			ast_log(LOG_NOTICE,
+				"CDR for Party A %s(%s) has inconsistent Party B %s name.  Message can be ignored but this shouldn't happen.\n",
+				cdr->linkedid,
+				cdr->party_a.snapshot->name,
+				cdr->party_b_name);
+			return 0;
 		}
-		if (it_cdr->party_b.snapshot
-			&& !strcasecmp(it_cdr->party_b.snapshot->name, party_b->name)) {
-			it_cdr->fn_table->process_party_b(it_cdr, party_b);
-		}
+
+		cdr->fn_table->process_party_b(cdr, party_b);
 	}
 	return 0;
 }
@@ -2041,13 +2232,10 @@ static int cdr_object_update_party_b(void *obj, void *arg, int flags)
 static int check_new_cdr_needed(struct ast_channel_snapshot *old_snapshot,
 		struct ast_channel_snapshot *new_snapshot)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-			ao2_global_obj_ref(module_configs), ao2_cleanup);
-
 	/* If we're dead, we don't need a new CDR */
 	if (!new_snapshot
 		|| (ast_test_flag(&new_snapshot->softhangup_flags, AST_SOFTHANGUP_HANGUP_EXEC)
-			&& ast_test_flag(&mod_cfg->general->settings, CDR_END_BEFORE_H_EXTEN))) {
+			&& is_cdr_flag_set(CDR_END_BEFORE_H_EXTEN))) {
 		return 0;
 	}
 
@@ -2073,7 +2261,6 @@ static int check_new_cdr_needed(struct ast_channel_snapshot *old_snapshot,
 static void handle_channel_cache_message(void *data, struct stasis_subscription *sub, struct stasis_message *message)
 {
 	struct cdr_object *cdr;
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
 	struct stasis_cache_update *update = stasis_message_data(message);
 	struct ast_channel_snapshot *old_snapshot;
 	struct ast_channel_snapshot *new_snapshot;
@@ -2095,12 +2282,12 @@ static void handle_channel_cache_message(void *data, struct stasis_subscription 
 			return;
 		}
 		cdr->is_root = 1;
-		ao2_link(active_cdrs_by_channel, cdr);
+		ao2_link(active_cdrs_master, cdr);
 	} else {
 		const char *uniqueid;
 
 		uniqueid = new_snapshot ? new_snapshot->uniqueid : old_snapshot->uniqueid;
-		cdr = ao2_find(active_cdrs_by_channel, uniqueid, OBJ_SEARCH_KEY);
+		cdr = ao2_find(active_cdrs_master, uniqueid, OBJ_SEARCH_KEY);
 	}
 
 	/* Handle Party A */
@@ -2110,44 +2297,46 @@ static void handle_channel_cache_message(void *data, struct stasis_subscription 
 		name = new_snapshot ? new_snapshot->name : old_snapshot->name;
 		ast_log(AST_LOG_WARNING, "No CDR for channel %s\n", name);
 		ast_assert(0);
-	} else {
+	} else if (new_snapshot) {
+		int all_reject = 1;
+
 		ao2_lock(cdr);
-		if (new_snapshot) {
-			int all_reject = 1;
+		for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
+			if (!it_cdr->fn_table->process_party_a) {
+				continue;
+			}
+			all_reject &= it_cdr->fn_table->process_party_a(it_cdr, new_snapshot);
+		}
+		if (all_reject && check_new_cdr_needed(old_snapshot, new_snapshot)) {
+			/* We're not hung up and we have a new snapshot - we need a new CDR */
+			struct cdr_object *new_cdr;
 
-			for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
-				if (!it_cdr->fn_table->process_party_a) {
-					continue;
-				}
-				all_reject &= it_cdr->fn_table->process_party_a(it_cdr, new_snapshot);
+			new_cdr = cdr_object_create_and_append(cdr);
+			if (new_cdr) {
+				new_cdr->fn_table->process_party_a(new_cdr, new_snapshot);
 			}
-			if (all_reject && check_new_cdr_needed(old_snapshot, new_snapshot)) {
-				/* We're not hung up and we have a new snapshot - we need a new CDR */
-				struct cdr_object *new_cdr;
-
-				new_cdr = cdr_object_create_and_append(cdr);
-				if (new_cdr) {
-					new_cdr->fn_table->process_party_a(new_cdr, new_snapshot);
-				}
-			}
-		} else {
-			CDR_DEBUG(mod_cfg, "%p - Beginning finalize/dispatch for %s\n", cdr, old_snapshot->name);
-			for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
-				cdr_object_finalize(it_cdr);
-			}
-			cdr_object_dispatch(cdr);
-			ao2_unlink(active_cdrs_by_channel, cdr);
 		}
 		ao2_unlock(cdr);
+	} else {
+		ao2_lock(cdr);
+		CDR_DEBUG("%p - Beginning finalize/dispatch for %s\n", cdr, old_snapshot->name);
+		for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
+			cdr_object_finalize(it_cdr);
+		}
+		cdr_object_dispatch(cdr);
+		ao2_unlock(cdr);
+
+		cdr_all_unlink(cdr);
+		ao2_unlink(active_cdrs_master, cdr);
 	}
 
 	/* Handle Party B */
 	if (new_snapshot) {
-		ao2_callback(active_cdrs_by_channel, OBJ_NODATA, cdr_object_update_party_b,
-			new_snapshot);
+		ao2_callback_data(active_cdrs_all, OBJ_NODATA | OBJ_MULTIPLE | OBJ_SEARCH_KEY,
+			cdr_object_update_party_b, (char *) new_snapshot->name, new_snapshot);
 	} else {
-		ao2_callback(active_cdrs_by_channel, OBJ_NODATA, cdr_object_finalize_party_b,
-			old_snapshot);
+		ao2_callback_data(active_cdrs_all, OBJ_NODATA | OBJ_MULTIPLE | OBJ_SEARCH_KEY,
+			cdr_object_finalize_party_b, (char *) old_snapshot->name, old_snapshot);
 	}
 
 	ao2_cleanup(cdr);
@@ -2159,29 +2348,25 @@ struct bridge_leave_data {
 };
 
 /*! \brief Callback used to notify CDRs of a Party B leaving the bridge */
-static int cdr_object_party_b_left_bridge_cb(void *obj, void *arg, int flags)
+static int cdr_object_party_b_left_bridge_cb(void *obj, void *arg, void *data, int flags)
 {
 	struct cdr_object *cdr = obj;
-	struct bridge_leave_data *leave_data = arg;
-	struct cdr_object *it_cdr;
+	struct bridge_leave_data *leave_data = data;
 
-	if (strcmp(cdr->bridge, leave_data->bridge->uniqueid)) {
-		return 0;
-	}
-	for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
-		if (it_cdr->fn_table != &bridge_state_fn_table) {
-			continue;
-		}
-		if (!it_cdr->party_b.snapshot) {
-			continue;
-		}
-		if (strcasecmp(it_cdr->party_b.snapshot->name, leave_data->channel->name)) {
-			continue;
-		}
+	if (cdr->fn_table == &bridge_state_fn_table
+		&& !strcmp(cdr->bridge, leave_data->bridge->uniqueid)
+		&& !strcasecmp(cdr->party_b_name, arg)) {
+		/*
+		 * For sanity's sake we also assert the party_b snapshot
+		 * is consistent with the key.
+		 */
+		ast_assert(cdr->party_b.snapshot
+			&& !strcasecmp(cdr->party_b.snapshot->name, leave_data->channel->name));
+
 		/* It is our Party B, in our bridge. Set the end time and let the handler
 		 * transition our CDR appropriately when we leave the bridge.
 		 */
-		cdr_object_finalize(it_cdr);
+		cdr_object_finalize(cdr);
 	}
 	return 0;
 }
@@ -2211,8 +2396,6 @@ static void handle_bridge_leave_message(void *data, struct stasis_subscription *
 	struct ast_bridge_blob *update = stasis_message_data(message);
 	struct ast_bridge_snapshot *bridge = update->bridge;
 	struct ast_channel_snapshot *channel = update->channel;
-	RAII_VAR(struct module_config *, mod_cfg,
-			ao2_global_obj_ref(module_configs), ao2_cleanup);
 	struct cdr_object *cdr;
 	struct cdr_object *it_cdr;
 	struct bridge_leave_data leave_data = {
@@ -2229,12 +2412,12 @@ static void handle_bridge_leave_message(void *data, struct stasis_subscription *
 		return;
 	}
 
-	CDR_DEBUG(mod_cfg, "Bridge Leave message for %s: %u.%08u\n",
-			channel->name,
-			(unsigned int)stasis_message_timestamp(message)->tv_sec,
-			(unsigned int)stasis_message_timestamp(message)->tv_usec);
+	CDR_DEBUG("Bridge Leave message for %s: %u.%08u\n",
+		channel->name,
+		(unsigned int)stasis_message_timestamp(message)->tv_sec,
+		(unsigned int)stasis_message_timestamp(message)->tv_usec);
 
-	cdr = ao2_find(active_cdrs_by_channel, channel->uniqueid, OBJ_SEARCH_KEY);
+	cdr = ao2_find(active_cdrs_master, channel->uniqueid, OBJ_SEARCH_KEY);
 	if (!cdr) {
 		ast_log(AST_LOG_WARNING, "No CDR for channel %s\n", channel->name);
 		ast_assert(0);
@@ -2247,8 +2430,8 @@ static void handle_bridge_leave_message(void *data, struct stasis_subscription *
 		if (!it_cdr->fn_table->process_bridge_leave) {
 			continue;
 		}
-		CDR_DEBUG(mod_cfg, "%p - Processing Bridge Leave for %s\n",
-				it_cdr, channel->name);
+		CDR_DEBUG("%p - Processing Bridge Leave for %s\n",
+			it_cdr, channel->name);
 		if (!it_cdr->fn_table->process_bridge_leave(it_cdr, bridge, channel)) {
 			ast_string_field_set(it_cdr, bridge, "");
 			left_bridge = 1;
@@ -2259,8 +2442,8 @@ static void handle_bridge_leave_message(void *data, struct stasis_subscription *
 	/* Party B */
 	if (left_bridge
 		&& strcmp(bridge->subclass, "parking")) {
-		ao2_callback(active_cdrs_by_channel, OBJ_NODATA,
-			cdr_object_party_b_left_bridge_cb,
+		ao2_callback_data(active_cdrs_all, OBJ_NODATA | OBJ_MULTIPLE | OBJ_SEARCH_KEY,
+			cdr_object_party_b_left_bridge_cb, (char *) leave_data.channel->name,
 			&leave_data);
 	}
 
@@ -2276,8 +2459,6 @@ static void handle_bridge_leave_message(void *data, struct stasis_subscription *
 static void bridge_candidate_add_to_cdr(struct cdr_object *cdr,
 		struct cdr_object_snapshot *party_b)
 {
-	RAII_VAR(struct module_config *,  mod_cfg,
-		ao2_global_obj_ref(module_configs), ao2_cleanup);
 	struct cdr_object *new_cdr;
 
 	new_cdr = cdr_object_create_and_append(cdr);
@@ -2285,10 +2466,11 @@ static void bridge_candidate_add_to_cdr(struct cdr_object *cdr,
 		return;
 	}
 	cdr_object_snapshot_copy(&new_cdr->party_b, party_b);
+	cdr_all_relink(new_cdr);
 	cdr_object_check_party_a_answer(new_cdr);
 	ast_string_field_set(new_cdr, bridge, cdr->bridge);
 	cdr_object_transition_state(new_cdr, &bridge_state_fn_table);
-	CDR_DEBUG(mod_cfg, "%p - Party A %s has new Party B %s\n",
+	CDR_DEBUG("%p - Party A %s has new Party B %s\n",
 		new_cdr, new_cdr->party_a.snapshot->name,
 		party_b->snapshot->name);
 }
@@ -2305,14 +2487,12 @@ static void bridge_candidate_add_to_cdr(struct cdr_object *cdr,
  * \param cand_cdr The \ref cdr_object that is a candidate
  *
  */
-static int bridge_candidate_process(struct cdr_object *cdr, struct cdr_object *base_cand_cdr)
+static void bridge_candidate_process(struct cdr_object *cdr, struct cdr_object *base_cand_cdr)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-		ao2_global_obj_ref(module_configs), ao2_cleanup);
 	struct cdr_object_snapshot *party_a;
 	struct cdr_object *cand_cdr;
 
-	SCOPED_AO2LOCK(lock, base_cand_cdr);
+	ao2_lock(base_cand_cdr);
 
 	for (cand_cdr = base_cand_cdr; cand_cdr; cand_cdr = cand_cdr->next) {
 		/* Skip any records that are not in this bridge */
@@ -2324,7 +2504,7 @@ static int bridge_candidate_process(struct cdr_object *cdr, struct cdr_object *b
 		if (!strcasecmp(cdr->party_a.snapshot->name, cand_cdr->party_a.snapshot->name)
 			|| (cdr->party_b.snapshot
 				&& !strcasecmp(cdr->party_b.snapshot->name, cand_cdr->party_a.snapshot->name))) {
-			return 0;
+			break;
 		}
 
 		party_a = cdr_object_pick_party_a(&cdr->party_a, &cand_cdr->party_a);
@@ -2332,7 +2512,7 @@ static int bridge_candidate_process(struct cdr_object *cdr, struct cdr_object *b
 		 * Party B */
 		if (!strcasecmp(party_a->snapshot->name, cdr->party_a.snapshot->name)) {
 			bridge_candidate_add_to_cdr(cdr, &cand_cdr->party_a);
-			return 0;
+			break;
 		}
 
 		/* We're Party B. Check if we can add ourselves immediately or if we need
@@ -2341,19 +2521,22 @@ static int bridge_candidate_process(struct cdr_object *cdr, struct cdr_object *b
 			&& strcasecmp(cand_cdr->party_b.snapshot->name, cdr->party_a.snapshot->name)) {
 			bridge_candidate_add_to_cdr(cand_cdr, &cdr->party_a);
 		} else {
-			CDR_DEBUG(mod_cfg, "%p - Party A %s has new Party B %s\n",
+			CDR_DEBUG("%p - Party A %s has new Party B %s\n",
 				cand_cdr, cand_cdr->party_a.snapshot->name,
 				cdr->party_a.snapshot->name);
 			cdr_object_snapshot_copy(&cand_cdr->party_b, &cdr->party_a);
+			cdr_all_relink(cand_cdr);
 			/* It's possible that this joined at one point and was never chosen
 			 * as party A. Clear their end time, as it would be set in such a
 			 * case.
 			 */
 			memset(&cand_cdr->end, 0, sizeof(cand_cdr->end));
 		}
-		return 0;
+
+		break;
 	}
-	return 0;
+
+	ao2_unlock(base_cand_cdr);
 }
 
 /*!
@@ -2371,7 +2554,7 @@ static void handle_bridge_pairings(struct cdr_object *cdr, struct ast_bridge_sna
 	while ((channel_id = ao2_iterator_next(&it_channels))) {
 		struct cdr_object *cand_cdr;
 
-		cand_cdr = ao2_find(active_cdrs_by_channel, channel_id, OBJ_SEARCH_KEY);
+		cand_cdr = ao2_find(active_cdrs_master, channel_id, OBJ_SEARCH_KEY);
 		if (cand_cdr) {
 			bridge_candidate_process(cdr, cand_cdr);
 			ao2_ref(cand_cdr, -1);
@@ -2391,8 +2574,6 @@ static void handle_parking_bridge_enter_message(struct cdr_object *cdr,
 		struct ast_bridge_snapshot *bridge,
 		struct ast_channel_snapshot *channel)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-			ao2_global_obj_ref(module_configs), ao2_cleanup);
 	int res = 1;
 	struct cdr_object *it_cdr;
 	struct cdr_object *new_cdr;
@@ -2404,8 +2585,8 @@ static void handle_parking_bridge_enter_message(struct cdr_object *cdr,
 			res &= it_cdr->fn_table->process_parking_bridge_enter(it_cdr, bridge, channel);
 		}
 		if (it_cdr->fn_table->process_party_a) {
-			CDR_DEBUG(mod_cfg, "%p - Updating Party A %s snapshot\n", it_cdr,
-					channel->name);
+			CDR_DEBUG("%p - Updating Party A %s snapshot\n", it_cdr,
+				channel->name);
 			it_cdr->fn_table->process_party_a(it_cdr, channel);
 		}
 	}
@@ -2431,8 +2612,6 @@ static void handle_standard_bridge_enter_message(struct cdr_object *cdr,
 		struct ast_bridge_snapshot *bridge,
 		struct ast_channel_snapshot *channel)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-			ao2_global_obj_ref(module_configs), ao2_cleanup);
 	enum process_bridge_enter_results result;
 	struct cdr_object *it_cdr;
 	struct cdr_object *new_cdr;
@@ -2440,17 +2619,18 @@ static void handle_standard_bridge_enter_message(struct cdr_object *cdr,
 
 	ao2_lock(cdr);
 
+try_again:
 	for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
 		if (it_cdr->fn_table->process_party_a) {
-			CDR_DEBUG(mod_cfg, "%p - Updating Party A %s snapshot\n", it_cdr,
-					channel->name);
+			CDR_DEBUG("%p - Updating Party A %s snapshot\n", it_cdr,
+				channel->name);
 			it_cdr->fn_table->process_party_a(it_cdr, channel);
 		}
 
 		/* Notify all states that they have entered a bridge */
 		if (it_cdr->fn_table->process_bridge_enter) {
-			CDR_DEBUG(mod_cfg, "%p - Processing bridge enter for %s\n", it_cdr,
-					channel->name);
+			CDR_DEBUG("%p - Processing bridge enter for %s\n", it_cdr,
+				channel->name);
 			result = it_cdr->fn_table->process_bridge_enter(it_cdr, bridge, channel);
 			switch (result) {
 			case BRIDGE_ENTER_ONLY_PARTY:
@@ -2492,7 +2672,7 @@ static void handle_standard_bridge_enter_message(struct cdr_object *cdr,
 			/* This is guaranteed to succeed: the new CDR is created in the single state
 			 * and will be able to handle the bridge enter message
 			 */
-			handle_standard_bridge_enter_message(cdr, bridge, channel);
+			goto try_again;
 		}
 	}
 	ao2_unlock(cdr);
@@ -2513,8 +2693,6 @@ static void handle_bridge_enter_message(void *data, struct stasis_subscription *
 	struct ast_bridge_snapshot *bridge = update->bridge;
 	struct ast_channel_snapshot *channel = update->channel;
 	struct cdr_object *cdr;
-	RAII_VAR(struct module_config *, mod_cfg,
-			ao2_global_obj_ref(module_configs), ao2_cleanup);
 
 	if (filter_bridge_messages(bridge)) {
 		return;
@@ -2524,12 +2702,12 @@ static void handle_bridge_enter_message(void *data, struct stasis_subscription *
 		return;
 	}
 
-	CDR_DEBUG(mod_cfg, "Bridge Enter message for channel %s: %u.%08u\n",
-			channel->name,
-			(unsigned int)stasis_message_timestamp(message)->tv_sec,
-			(unsigned int)stasis_message_timestamp(message)->tv_usec);
+	CDR_DEBUG("Bridge Enter message for channel %s: %u.%08u\n",
+		channel->name,
+		(unsigned int)stasis_message_timestamp(message)->tv_sec,
+		(unsigned int)stasis_message_timestamp(message)->tv_usec);
 
-	cdr = ao2_find(active_cdrs_by_channel, channel->uniqueid, OBJ_SEARCH_KEY);
+	cdr = ao2_find(active_cdrs_master, channel->uniqueid, OBJ_SEARCH_KEY);
 	if (!cdr) {
 		ast_log(AST_LOG_WARNING, "No CDR for channel %s\n", channel->name);
 		ast_assert(0);
@@ -2557,8 +2735,6 @@ static void handle_parked_call_message(void *data, struct stasis_subscription *s
 	struct ast_parked_call_payload *payload = stasis_message_data(message);
 	struct ast_channel_snapshot *channel = payload->parkee;
 	struct cdr_object *cdr;
-	RAII_VAR(struct module_config *, mod_cfg,
-			ao2_global_obj_ref(module_configs), ao2_cleanup);
 	int unhandled = 1;
 	struct cdr_object *it_cdr;
 
@@ -2576,12 +2752,12 @@ static void handle_parked_call_message(void *data, struct stasis_subscription *s
 		return;
 	}
 
-	CDR_DEBUG(mod_cfg, "Parked Call message for channel %s: %u.%08u\n",
-			channel->name,
-			(unsigned int)stasis_message_timestamp(message)->tv_sec,
-			(unsigned int)stasis_message_timestamp(message)->tv_usec);
+	CDR_DEBUG("Parked Call message for channel %s: %u.%08u\n",
+		channel->name,
+		(unsigned int)stasis_message_timestamp(message)->tv_sec,
+		(unsigned int)stasis_message_timestamp(message)->tv_usec);
 
-	cdr = ao2_find(active_cdrs_by_channel, channel->uniqueid, OBJ_SEARCH_KEY);
+	cdr = ao2_find(active_cdrs_master, channel->uniqueid, OBJ_SEARCH_KEY);
 	if (!cdr) {
 		ast_log(AST_LOG_WARNING, "No CDR for channel %s\n", channel->name);
 		ast_assert(0);
@@ -2629,26 +2805,42 @@ static void handle_cdr_sync_message(void *data, struct stasis_subscription *sub,
 
 struct ast_cdr_config *ast_cdr_get_config(void)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-	ao2_ref(mod_cfg->general, +1);
-	return mod_cfg->general;
+	struct ast_cdr_config *general;
+	struct module_config *mod_cfg;
+
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (!mod_cfg) {
+		return NULL;
+	}
+	general = ao2_bump(mod_cfg->general);
+	ao2_cleanup(mod_cfg);
+	return general;
 }
 
 void ast_cdr_set_config(struct ast_cdr_config *config)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
+	struct module_config *mod_cfg;
 
-	ao2_cleanup(mod_cfg->general);
-	mod_cfg->general = config;
-	ao2_ref(mod_cfg->general, +1);
+	if (!config) {
+		return;
+	}
 
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (!mod_cfg) {
+		return;
+	}
+
+	ao2_replace(mod_cfg->general, config);
+
+	cdr_set_debug_mode(mod_cfg);
 	cdr_toggle_runtime_options();
+
+	ao2_cleanup(mod_cfg);
 }
 
 int ast_cdr_is_enabled(void)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-	return ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED);
+	return is_cdr_flag_set(CDR_ENABLED);
 }
 
 int ast_cdr_backend_suspend(const char *name)
@@ -2689,31 +2881,38 @@ int ast_cdr_backend_unsuspend(const char *name)
 
 int ast_cdr_register(const char *name, const char *desc, ast_cdrbe be)
 {
-	struct cdr_beitem *i = NULL;
+	struct cdr_beitem *i;
+	struct cdr_beitem *cur;
 
-	if (!name)
+	if (!name) {
 		return -1;
+	}
 
 	if (!be) {
 		ast_log(LOG_WARNING, "CDR engine '%s' lacks backend\n", name);
+
 		return -1;
 	}
 
-	AST_RWLIST_WRLOCK(&be_list);
-	AST_RWLIST_TRAVERSE(&be_list, i, list) {
-		if (!strcasecmp(name, i->name)) {
-			ast_log(LOG_WARNING, "Already have a CDR backend called '%s'\n", name);
-			AST_RWLIST_UNLOCK(&be_list);
-			return -1;
-		}
-	}
-
-	if (!(i = ast_calloc(1, sizeof(*i))))
+	i = ast_calloc(1, sizeof(*i));
+	if (!i) {
 		return -1;
+	}
 
 	i->be = be;
 	ast_copy_string(i->name, name, sizeof(i->name));
 	ast_copy_string(i->desc, desc, sizeof(i->desc));
+
+	AST_RWLIST_WRLOCK(&be_list);
+	AST_RWLIST_TRAVERSE(&be_list, cur, list) {
+		if (!strcasecmp(name, cur->name)) {
+			ast_log(LOG_WARNING, "Already have a CDR backend called '%s'\n", name);
+			AST_RWLIST_UNLOCK(&be_list);
+			ast_free(i);
+
+			return -1;
+		}
+	}
 
 	AST_RWLIST_INSERT_HEAD(&be_list, i, list);
 	AST_RWLIST_UNLOCK(&be_list);
@@ -2738,7 +2937,7 @@ int ast_cdr_unregister(const char *name)
 		return 0;
 	}
 
-	active_count = ao2_container_count(active_cdrs_by_channel);
+	active_count = ao2_container_count(active_cdrs_master);
 
 	if (!match->suspended && active_count != 0) {
 		AST_RWLIST_UNLOCK(&be_list);
@@ -2951,7 +3150,7 @@ int ast_cdr_setvar(const char *channel_name, const char *name, const char *value
 		}
 	}
 
-	it_cdrs = ao2_callback(active_cdrs_by_channel, OBJ_MULTIPLE, cdr_object_select_all_by_name_cb, arg);
+	it_cdrs = ao2_callback(active_cdrs_master, OBJ_MULTIPLE, cdr_object_select_all_by_name_cb, arg);
 	if (!it_cdrs) {
 		ast_log(AST_LOG_ERROR, "Unable to find CDR for channel %s\n", channel_name);
 		return -1;
@@ -3079,7 +3278,7 @@ static struct cdr_object *cdr_object_get_by_name(const char *name)
 	}
 
 	param = ast_strdupa(name);
-	return ao2_callback(active_cdrs_by_channel, 0, cdr_object_get_by_name_cb, param);
+	return ao2_callback(active_cdrs_master, 0, cdr_object_get_by_name_cb, param);
 }
 
 int ast_cdr_getvar(const char *channel_name, const char *name, char *value, size_t length)
@@ -3122,13 +3321,9 @@ int ast_cdr_serialize_variables(const char *channel_name, struct ast_str **buf, 
 
 	cdr = cdr_object_get_by_name(channel_name);
 	if (!cdr) {
-		RAII_VAR(struct module_config *, mod_cfg,
-			 ao2_global_obj_ref(module_configs), ao2_cleanup);
-
-		if (ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED)) {
+		if (is_cdr_flag_set(CDR_ENABLED)) {
 			ast_log(AST_LOG_ERROR, "Unable to find CDR for channel %s\n", channel_name);
 		}
-
 		return 0;
 	}
 
@@ -3217,22 +3412,25 @@ struct party_b_userfield_update {
 };
 
 /*! \brief Callback used to update the userfield on Party B on all CDRs */
-static int cdr_object_update_party_b_userfield_cb(void *obj, void *arg, int flags)
+static int cdr_object_update_party_b_userfield_cb(void *obj, void *arg, void *data, int flags)
 {
 	struct cdr_object *cdr = obj;
-	struct party_b_userfield_update *info = arg;
-	struct cdr_object *it_cdr;
 
-	for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
-		if (it_cdr->fn_table == &finalized_state_fn_table && it_cdr->next != NULL) {
-			continue;
-		}
-		if (it_cdr->party_b.snapshot
-			&& !strcasecmp(it_cdr->party_b.snapshot->name, info->channel_name)) {
-			ast_copy_string(it_cdr->party_b.userfield, info->userfield,
-				sizeof(it_cdr->party_b.userfield));
-		}
+	if ((cdr->fn_table != &finalized_state_fn_table || !cdr->next)
+		&& !strcasecmp(cdr->party_b_name, arg)) {
+		struct party_b_userfield_update *info = data;
+
+		/*
+		 * For sanity's sake we also assert the party_b snapshot
+		 * is consistent with the key.
+		 */
+		ast_assert(cdr->party_b.snapshot
+			&& !strcasecmp(cdr->party_b.snapshot->name, info->channel_name));
+
+		ast_copy_string(cdr->party_b.userfield, info->userfield,
+			sizeof(cdr->party_b.userfield));
 	}
+
 	return 0;
 }
 
@@ -3240,8 +3438,8 @@ void ast_cdr_setuserfield(const char *channel_name, const char *userfield)
 {
 	struct cdr_object *cdr;
 	struct party_b_userfield_update party_b_info = {
-			.channel_name = channel_name,
-			.userfield = userfield,
+		.channel_name = channel_name,
+		.userfield = userfield,
 	};
 	struct cdr_object *it_cdr;
 
@@ -3260,24 +3458,29 @@ void ast_cdr_setuserfield(const char *channel_name, const char *userfield)
 	}
 
 	/* Handle Party B */
-	ao2_callback(active_cdrs_by_channel, OBJ_NODATA,
-			cdr_object_update_party_b_userfield_cb,
-			&party_b_info);
+	ao2_callback_data(active_cdrs_all, OBJ_NODATA | OBJ_MULTIPLE | OBJ_SEARCH_KEY,
+		cdr_object_update_party_b_userfield_cb, (char *) party_b_info.channel_name,
+		&party_b_info);
 
 	ao2_cleanup(cdr);
 }
 
 static void post_cdr(struct ast_cdr *cdr)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
+	struct module_config *mod_cfg;
 	struct cdr_beitem *i;
+
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (!mod_cfg) {
+		return;
+	}
 
 	for (; cdr ; cdr = cdr->next) {
 		/* For people, who don't want to see unanswered single-channel events */
 		if (!ast_test_flag(&mod_cfg->general->settings, CDR_UNANSWERED) &&
 				cdr->disposition < AST_CDR_ANSWERED &&
 				(ast_strlen_zero(cdr->channel) || ast_strlen_zero(cdr->dstchannel))) {
-			ast_debug(1, "Skipping CDR  for %s since we weren't answered\n", cdr->channel);
+			ast_debug(1, "Skipping CDR for %s since we weren't answered\n", cdr->channel);
 			continue;
 		}
 
@@ -3292,6 +3495,7 @@ static void post_cdr(struct ast_cdr *cdr)
 		}
 		AST_RWLIST_UNLOCK(&be_list);
 	}
+	ao2_cleanup(mod_cfg);
 }
 
 int ast_cdr_set_property(const char *channel_name, enum ast_cdr_options option)
@@ -3429,6 +3633,7 @@ int ast_cdr_fork(const char *channel_name, struct ast_flags *options)
 		if (cdr_obj->party_b.snapshot) {
 			new_cdr->party_b.snapshot = cdr_obj->party_b.snapshot;
 			ao2_ref(new_cdr->party_b.snapshot, +1);
+			cdr_all_relink(new_cdr);
 			strcpy(new_cdr->party_b.userfield, cdr_obj->party_b.userfield);
 			new_cdr->party_b.flags = cdr_obj->party_b.flags;
 			if (ast_test_flag(options, AST_CDR_FLAG_KEEP_VARS)) {
@@ -3510,7 +3715,7 @@ static void *do_batch_backend_process(void *data)
 
 static void cdr_submit_batch(int do_shutdown)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
+	struct module_config *mod_cfg;
 	struct cdr_batch_item *oldbatchitems = NULL;
 	pthread_t batch_post_thread = AST_PTHREADT_NULL;
 
@@ -3525,9 +3730,13 @@ static void cdr_submit_batch(int do_shutdown)
 	reset_batch();
 	ast_mutex_unlock(&cdr_batch_lock);
 
+	mod_cfg = ao2_global_obj_ref(module_configs);
+
 	/* if configured, spawn a new thread to post these CDRs,
 	   also try to save as much as possible if we are shutting down safely */
-	if (ast_test_flag(&mod_cfg->general->batch_settings.settings, BATCH_MODE_SCHEDULER_ONLY) || do_shutdown) {
+	if (!mod_cfg
+		|| ast_test_flag(&mod_cfg->general->batch_settings.settings, BATCH_MODE_SCHEDULER_ONLY)
+		|| do_shutdown) {
 		ast_debug(1, "CDR single-threaded batch processing begins now\n");
 		do_batch_backend_process(oldbatchitems);
 	} else {
@@ -3538,17 +3747,27 @@ static void cdr_submit_batch(int do_shutdown)
 			ast_debug(1, "CDR multi-threaded batch processing begins now\n");
 		}
 	}
+
+	ao2_cleanup(mod_cfg);
 }
 
 static int submit_scheduled_batch(const void *data)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-	cdr_submit_batch(0);
-	/* manually reschedule from this point in time */
+	struct module_config *mod_cfg;
 
+	cdr_submit_batch(0);
+
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (!mod_cfg) {
+		return 0;
+	}
+
+	/* manually reschedule from this point in time */
 	ast_mutex_lock(&cdr_sched_lock);
 	cdr_sched = ast_sched_add(sched, mod_cfg->general->batch_settings.time * 1000, submit_scheduled_batch, NULL);
 	ast_mutex_unlock(&cdr_sched_lock);
+
+	ao2_cleanup(mod_cfg);
 	/* returning zero so the scheduler does not automatically reschedule */
 	return 0;
 }
@@ -3582,7 +3801,7 @@ static void cdr_detach(struct ast_cdr *cdr)
 	}
 
 	/* maybe they disabled CDR stuff completely, so just drop it */
-	if (!ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED)) {
+	if (!mod_cfg || !ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED)) {
 		ast_debug(1, "Dropping CDR !\n");
 		ast_cdr_free(cdr);
 		return;
@@ -3660,7 +3879,7 @@ static void *do_cdr(void *data)
 
 static char *handle_cli_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
+	struct module_config *mod_cfg;
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -3678,6 +3897,11 @@ static char *handle_cli_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 		return CLI_SHOWUSAGE;
 	}
 
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (!mod_cfg) {
+		ast_cli(a->fd, "Could not set CDR debugging mode\n");
+		return CLI_SUCCESS;
+	}
 	if (!strcasecmp(a->argv[3], "on")
 		&& !ast_test_flag(&mod_cfg->general->settings, CDR_DEBUG)) {
 		ast_set_flag(&mod_cfg->general->settings, CDR_DEBUG);
@@ -3687,6 +3911,8 @@ static char *handle_cli_debug(struct ast_cli_entry *e, int cmd, struct ast_cli_a
 		ast_clear_flag(&mod_cfg->general->settings, CDR_DEBUG);
 		ast_cli(a->fd, "CDR debugging disabled\n");
 	}
+	cdr_set_debug_mode(mod_cfg);
+	ao2_cleanup(mod_cfg);
 
 	return CLI_SUCCESS;
 }
@@ -3700,7 +3926,7 @@ static char *cli_complete_show(struct ast_cli_args *a)
 	struct ao2_iterator it_cdrs;
 	struct cdr_object *cdr;
 
-	it_cdrs = ao2_iterator_init(active_cdrs_by_channel, 0);
+	it_cdrs = ao2_iterator_init(active_cdrs_master, 0);
 	while ((cdr = ao2_iterator_next(&it_cdrs))) {
 		if (!strncasecmp(a->word, cdr->party_a.snapshot->name, wordlen) &&
 			(++which > a->n)) {
@@ -3732,7 +3958,7 @@ static void cli_show_channels(struct ast_cli_args *a)
 	ast_cli(a->fd, "--------------------------------------------------\n");
 	ast_cli(a->fd, TITLE_STRING, "Channel", "Dst. Channel", "LastApp", "Start", "Answer", "End", "Billsec", "Duration");
 
-	it_cdrs = ao2_iterator_init(active_cdrs_by_channel, 0);
+	it_cdrs = ao2_iterator_init(active_cdrs_master, 0);
 	for (; (cdr = ao2_iterator_next(&it_cdrs)); ao2_cleanup(cdr)) {
 		struct cdr_object *it_cdr;
 		struct timeval start_time = { 0, };
@@ -3873,7 +4099,7 @@ static char *handle_cli_show(struct ast_cli_entry *e, int cmd, struct ast_cli_ar
 static char *handle_cli_status(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	struct cdr_beitem *beitem = NULL;
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
+	struct module_config *mod_cfg;
 	int cnt = 0;
 	long nextbatchtime = 0;
 
@@ -3890,6 +4116,11 @@ static char *handle_cli_status(struct ast_cli_entry *e, int cmd, struct ast_cli_
 
 	if (a->argc > 3) {
 		return CLI_SHOWUSAGE;
+	}
+
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (!mod_cfg) {
+		return CLI_FAILURE;
 	}
 
 	ast_cli(a->fd, "\n");
@@ -3928,12 +4159,13 @@ static char *handle_cli_status(struct ast_cli_entry *e, int cmd, struct ast_cli_
 		ast_cli(a->fd, "\n");
 	}
 
+	ao2_cleanup(mod_cfg);
 	return CLI_SUCCESS;
 }
 
 static char *handle_cli_submit(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	RAII_VAR(struct module_config *, mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
+	struct module_config *mod_cfg;
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -3950,18 +4182,20 @@ static char *handle_cli_submit(struct ast_cli_entry *e, int cmd, struct ast_cli_
 		return CLI_SHOWUSAGE;
 	}
 
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (!mod_cfg) {
+		return CLI_FAILURE;
+	}
+
 	if (!ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED)) {
 		ast_cli(a->fd, "Cannot submit CDR batch: CDR engine disabled.\n");
-		return CLI_SUCCESS;
-	}
-
-	if (ast_test_flag(&mod_cfg->general->settings, CDR_BATCHMODE)) {
+	} else if (!ast_test_flag(&mod_cfg->general->settings, CDR_BATCHMODE)) {
 		ast_cli(a->fd, "Cannot submit CDR batch: batch mode not enabled.\n");
-		return CLI_SUCCESS;
+	} else {
+		submit_unscheduled_batch();
+		ast_cli(a->fd, "Submitted CDRs to backend engines for processing.  This may take a while.\n");
 	}
-
-	submit_unscheduled_batch();
-	ast_cli(a->fd, "Submitted CDRs to backend engines for processing.  This may take a while.\n");
+	ao2_cleanup(mod_cfg);
 
 	return CLI_SUCCESS;
 }
@@ -3989,7 +4223,9 @@ static int cdr_object_dispatch_all_cb(void *obj, void *arg, int flags)
 	cdr_object_dispatch(cdr);
 	ao2_unlock(cdr);
 
-	return 0;
+	cdr_all_unlink(cdr);
+
+	return CMP_MATCH;
 }
 
 static void finalize_batch_mode(void)
@@ -4057,8 +4293,6 @@ static int create_subscriptions(void)
 
 static int process_config(int reload)
 {
-	RAII_VAR(struct module_config *, mod_cfg, module_config_alloc(), ao2_cleanup);
-
 	if (!reload) {
 		if (aco_info_init(&cfg_info)) {
 			return 1;
@@ -4077,19 +4311,26 @@ static int process_config(int reload)
 		aco_option_register(&cfg_info, "time", ACO_EXACT, general_options, DEFAULT_BATCH_TIME, OPT_UINT_T, PARSE_IN_RANGE, FLDSET(struct ast_cdr_config, batch_settings.time), 0, MAX_BATCH_TIME);
 	}
 
-	if (aco_process_config(&cfg_info, reload)) {
-		if (!mod_cfg) {
+	if (aco_process_config(&cfg_info, reload) == ACO_PROCESS_ERROR) {
+		struct module_config *mod_cfg;
+
+		if (reload) {
 			return 1;
 		}
+
 		/* If we couldn't process the configuration and this wasn't a reload,
 		 * create a default config
 		 */
-		if (!reload && !(aco_set_defaults(&general_option, "general", mod_cfg->general))) {
-			ast_log(LOG_NOTICE, "Failed to process CDR configuration; using defaults\n");
-			ao2_global_obj_replace_unref(module_configs, mod_cfg);
-			return 0;
+		mod_cfg = module_config_alloc();
+		if (!mod_cfg
+			|| aco_set_defaults(&general_option, "general", mod_cfg->general)) {
+			ao2_cleanup(mod_cfg);
+			return 1;
 		}
-		return 1;
+		ast_log(LOG_NOTICE, "Failed to process CDR configuration; using defaults\n");
+		ao2_global_obj_replace_unref(module_configs, mod_cfg);
+		cdr_set_debug_mode(mod_cfg);
+		ao2_cleanup(mod_cfg);
 	}
 
 	return 0;
@@ -4110,8 +4351,8 @@ static void cdr_engine_shutdown(void)
 
 	STASIS_MESSAGE_TYPE_CLEANUP(cdr_sync_message_type);
 
-	ao2_callback(active_cdrs_by_channel, OBJ_NODATA, cdr_object_dispatch_all_cb,
-		NULL);
+	ao2_callback(active_cdrs_master, OBJ_NODATA | OBJ_MULTIPLE | OBJ_UNLINK,
+		cdr_object_dispatch_all_cb, NULL);
 	finalize_batch_mode();
 	ast_cli_unregister_multiple(cli_commands, ARRAY_LEN(cli_commands));
 	ast_sched_context_destroy(sched);
@@ -4122,9 +4363,13 @@ static void cdr_engine_shutdown(void)
 	aco_info_destroy(&cfg_info);
 	ao2_global_obj_release(module_configs);
 
-	ao2_container_unregister("cdrs_by_channel");
-	ao2_ref(active_cdrs_by_channel, -1);
-	active_cdrs_by_channel = NULL;
+	ao2_container_unregister("cdrs_master");
+	ao2_cleanup(active_cdrs_master);
+	active_cdrs_master = NULL;
+
+	ao2_container_unregister("cdrs_all");
+	ao2_cleanup(active_cdrs_all);
+	active_cdrs_all = NULL;
 }
 
 static void cdr_enable_batch_mode(struct ast_cdr_config *config)
@@ -4149,26 +4394,53 @@ static void cdr_enable_batch_mode(struct ast_cdr_config *config)
 
 /*!
  * \internal
- * \brief Print channel object key (name).
+ * \brief Print master CDR container object.
  * \since 12.0.0
  *
- * \param v_obj A pointer to the object we want the key printed.
+ * \param v_obj A pointer to the object we want printed.
  * \param where User data needed by prnt to determine where to put output.
  * \param prnt Print output callback function to use.
  *
  * \return Nothing
  */
-static void cdr_container_print_fn(void *v_obj, void *where, ao2_prnt_fn *prnt)
+static void cdr_master_print_fn(void *v_obj, void *where, ao2_prnt_fn *prnt)
 {
 	struct cdr_object *cdr = v_obj;
 	struct cdr_object *it_cdr;
+
 	if (!cdr) {
 		return;
 	}
 	for (it_cdr = cdr; it_cdr; it_cdr = it_cdr->next) {
-		prnt(where, "Party A: %s; Party B: %s; Bridge %s\n", it_cdr->party_a.snapshot->name, it_cdr->party_b.snapshot ? it_cdr->party_b.snapshot->name : "<unknown>",
-				it_cdr->bridge);
+		prnt(where, "Party A: %s; Party B: %s; Bridge %s\n",
+			it_cdr->party_a.snapshot->name,
+			it_cdr->party_b.snapshot ? it_cdr->party_b.snapshot->name : "<unknown>",
+			it_cdr->bridge);
 	}
+}
+
+/*!
+ * \internal
+ * \brief Print all CDR container object.
+ * \since 13.19.0
+ *
+ * \param v_obj A pointer to the object we want printed.
+ * \param where User data needed by prnt to determine where to put output.
+ * \param prnt Print output callback function to use.
+ *
+ * \return Nothing
+ */
+static void cdr_all_print_fn(void *v_obj, void *where, ao2_prnt_fn *prnt)
+{
+	struct cdr_object *cdr = v_obj;
+
+	if (!cdr) {
+		return;
+	}
+	prnt(where, "Party A: %s; Party B: %s; Bridge %s",
+		cdr->party_a.snapshot->name,
+		cdr->party_b.snapshot ? cdr->party_b.snapshot->name : "<unknown>",
+		cdr->bridge);
 }
 
 /*!
@@ -4176,13 +4448,15 @@ static void cdr_container_print_fn(void *v_obj, void *where, ao2_prnt_fn *prnt)
  */
 static int cdr_toggle_runtime_options(void)
 {
-	RAII_VAR(struct module_config *, mod_cfg,
-		ao2_global_obj_ref(module_configs), ao2_cleanup);
+	struct module_config *mod_cfg;
 
-	if (ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED)) {
+	mod_cfg = ao2_global_obj_ref(module_configs);
+	if (mod_cfg
+		&& ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED)) {
 		if (create_subscriptions()) {
 			destroy_subscriptions();
 			ast_log(AST_LOG_ERROR, "Failed to create Stasis subscriptions\n");
+			ao2_cleanup(mod_cfg);
 			return -1;
 		}
 		if (ast_test_flag(&mod_cfg->general->settings, CDR_BATCHMODE)) {
@@ -4194,8 +4468,9 @@ static int cdr_toggle_runtime_options(void)
 		destroy_subscriptions();
 		ast_log(LOG_NOTICE, "CDR logging disabled.\n");
 	}
+	ao2_cleanup(mod_cfg);
 
-	return 0;
+	return mod_cfg ? 0 : -1;
 }
 
 int ast_cdr_engine_init(void)
@@ -4227,12 +4502,19 @@ int ast_cdr_engine_init(void)
 	stasis_message_router_add(stasis_router, ast_parked_call_type(), handle_parked_call_message, NULL);
 	stasis_message_router_add(stasis_router, cdr_sync_message_type(), handle_cdr_sync_message, NULL);
 
-	active_cdrs_by_channel = ao2_container_alloc_hash(AO2_ALLOC_OPT_LOCK_MUTEX, 0,
-		NUM_CDR_BUCKETS, cdr_object_channel_hash_fn, NULL, cdr_object_channel_cmp_fn);
-	if (!active_cdrs_by_channel) {
+	active_cdrs_master = ao2_container_alloc_hash(AO2_ALLOC_OPT_LOCK_MUTEX, 0,
+		NUM_CDR_BUCKETS, cdr_master_hash_fn, NULL, cdr_master_cmp_fn);
+	if (!active_cdrs_master) {
 		return -1;
 	}
-	ao2_container_register("cdrs_by_channel", active_cdrs_by_channel, cdr_container_print_fn);
+	ao2_container_register("cdrs_master", active_cdrs_master, cdr_master_print_fn);
+
+	active_cdrs_all = ao2_container_alloc_hash(AO2_ALLOC_OPT_LOCK_MUTEX, 0,
+		NUM_CDR_BUCKETS, cdr_all_hash_fn, NULL, cdr_all_cmp_fn);
+	if (!active_cdrs_all) {
+		return -1;
+	}
+	ao2_container_register("cdrs_all", active_cdrs_all, cdr_all_print_fn);
 
 	sched = ast_sched_context_create();
 	if (!sched) {
@@ -4289,22 +4571,27 @@ void ast_cdr_engine_term(void)
 
 int ast_cdr_engine_reload(void)
 {
-	RAII_VAR(struct module_config *, old_mod_cfg, ao2_global_obj_ref(module_configs), ao2_cleanup);
-	RAII_VAR(struct module_config *, mod_cfg, NULL, ao2_cleanup);
+	struct module_config *old_mod_cfg;
+	struct module_config *mod_cfg;
+
+	old_mod_cfg = ao2_global_obj_ref(module_configs);
 
 	if (!old_mod_cfg || process_config(1)) {
+		ao2_cleanup(old_mod_cfg);
 		return -1;
 	}
 
 	mod_cfg = ao2_global_obj_ref(module_configs);
-
-	if (!ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED) ||
-			!(ast_test_flag(&mod_cfg->general->settings, CDR_BATCHMODE))) {
+	if (!mod_cfg
+		|| !ast_test_flag(&mod_cfg->general->settings, CDR_ENABLED)
+		|| !ast_test_flag(&mod_cfg->general->settings, CDR_BATCHMODE)) {
 		/* If batch mode used to be enabled, finalize the batch */
 		if (ast_test_flag(&old_mod_cfg->general->settings, CDR_BATCHMODE)) {
 			finalize_batch_mode();
 		}
 	}
+	ao2_cleanup(mod_cfg);
 
+	ao2_cleanup(old_mod_cfg);
 	return cdr_toggle_runtime_options();
 }

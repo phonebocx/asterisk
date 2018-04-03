@@ -51,6 +51,7 @@
 	<depend>res_sorcery_config</depend>
 	<depend>res_sorcery_memory</depend>
 	<depend>res_sorcery_astdb</depend>
+	<use type="module">res_statsd</use>
 	<support_level>core</support_level>
  ***/
 
@@ -65,7 +66,7 @@
 					It contains the core SIP related options only, endpoints are <emphasis>NOT</emphasis>
 					dialable entries of their own. Communication with another SIP device is
 					accomplished via Addresses of Record (AoRs) which have one or more
-					contacts assicated with them. Endpoints <emphasis>NOT</emphasis> configured to
+					contacts associated with them. Endpoints <emphasis>NOT</emphasis> configured to
 					use a <literal>transport</literal> will default to first transport found
 					in <filename>pjsip.conf</filename> that matches its type.
 					</para>
@@ -268,38 +269,71 @@
 				<configOption name="ice_support" default="no">
 					<synopsis>Enable the ICE mechanism to help traverse NAT</synopsis>
 				</configOption>
-				<configOption name="identify_by" default="username,location">
-					<synopsis>Way(s) for Endpoint to be identified</synopsis>
-					<description><para>
-						Endpoints and aors can be identified in multiple ways. Currently, the supported
-						options are <literal>username</literal>, which matches the endpoint or aor id based on
-						the username and domain in the From header (or To header for aors), and
-						<literal>auth_username</literal>, which matches the endpoint or aor id based on the
-						username and realm in the Authentication header.  In all cases, if an exact match
-						on both username and domain/realm fails, the match will be retried with just the username.
+				<configOption name="identify_by">
+					<synopsis>Way(s) for the endpoint to be identified</synopsis>
+					<description>
+						<para>Endpoints and AORs can be identified in multiple ways.  This
+						option is a comma separated list of methods the endpoint can be
+						identified.
 						</para>
 						<note><para>
-						Identification by auth_username has some security considerations because an
-						Authentication header is not present on the first message of a dialog when
-						digest authentication is used.  The client can't generate it until the server
-						sends the challenge in a 401 response.  Since Asterisk normally sends a security
-						event when an incoming request can't be matched to an endpoint, using auth_username
-						requires that the security event be deferred until a request is received with
-						the Authentication header and only generated if the username doesn't result in a
-						match.  This may result in a delay before an attack is recognized.  You can control
-						how many unmatched requests are received from a single ip address before a security
-						event is generated using the unidentified_request parameters in the "global"
-						configuration object.
+						This option controls both how an endpoint is matched for incoming
+						traffic and also how an AOR is determined if a registration
+						occurs.  You must list at least one method that also matches for
+						AORs or the registration will fail.
 						</para></note>
-						<note><para>Endpoints can also be identified by IP address; however, that method
-						of identification is not handled by this configuration option. See the documentation
-						for the <literal>identify</literal> configuration section for more details on that
-						method of endpoint identification. If this option is set and an <literal>identify</literal>
-						configuration section exists for the endpoint, then the endpoint can be identified in
-						multiple ways.</para></note>
 						<enumlist>
-							<enum name="username" />
-							<enum name="auth_username" />
+							<enum name="username">
+								<para>Matches the endpoint or AOR ID based on the username
+								and domain in the From header (or To header for AORs).  If
+								an exact match on both username and domain/realm fails, the
+								match is retried with just the username.
+								</para>
+							</enum>
+							<enum name="auth_username">
+								<para>Matches the endpoint or AOR ID based on the username
+								and realm in the Authentication header.  If an exact match
+								on both username and domain/realm fails, the match is
+								retried with just the username.
+								</para>
+								<note><para>This method of identification has some security
+								considerations because an Authentication header is not
+								present on the first message of a dialog when digest
+								authentication is used.  The client can't generate it until
+								the server sends the challenge in a 401 response.  Since
+								Asterisk normally sends a security event when an incoming
+								request can't be matched to an endpoint, using this method
+								requires that the security event be deferred until a request
+								is received with the Authentication header and only
+								generated if the username doesn't result in a match.  This
+								may result in a delay before an attack is recognized.  You
+								can control how many unmatched requests are received from
+								a single ip address before a security event is generated
+								using the <literal>unidentified_request</literal>
+								parameters in the "global" configuration object.
+								</para></note>
+							</enum>
+							<enum name="ip">
+								<para>Matches the endpoint based on the source IP address.
+								</para>
+								<para>This method of identification is not configured here
+								but simply allowed by this configuration option.  See the
+								documentation for the <literal>identify</literal>
+								configuration section for more details on this method of
+								endpoint identification.
+								</para>
+							</enum>
+							<enum name="header">
+								<para>Matches the endpoint based on a configured SIP header
+								value.
+								</para>
+								<para>This method of identification is not configured here
+								but simply allowed by this configuration option.  See the
+								documentation for the <literal>identify</literal>
+								configuration section for more details on this method of
+								endpoint identification.
+								</para>
+							</enum>
 						</enumlist>
 					</description>
 				</configOption>
@@ -415,7 +449,7 @@
 				<configOption name="timers_min_se" default="90">
 					<synopsis>Minimum session timers expiration period</synopsis>
 					<description><para>
-						Minimium session timer expiration period. Time in seconds.
+						Minimum session timer expiration period. Time in seconds.
 					</para></description>
 				</configOption>
 				<configOption name="timers" default="yes">
@@ -433,7 +467,7 @@
 				<configOption name="timers_sess_expires" default="1800">
 					<synopsis>Maximum session timer expiration period</synopsis>
 					<description><para>
-						Maximium session timer expiration period. Time in seconds.
+						Maximum session timer expiration period. Time in seconds.
 					</para></description>
 				</configOption>
 				<configOption name="transport">
@@ -475,7 +509,7 @@
 					<synopsis>Must be of type 'endpoint'.</synopsis>
 				</configOption>
 				<configOption name="use_ptime" default="no">
-					<synopsis>Use Endpoint's requested packetisation interval</synopsis>
+					<synopsis>Use Endpoint's requested packetization interval</synopsis>
 				</configOption>
 				<configOption name="use_avpf" default="no">
 					<synopsis>Determines whether res_pjsip will use and enforce usage of AVPF for this
@@ -613,7 +647,7 @@
 								Forward error correction should be used.
 							</para></enum>
 							<enum name="redundancy"><para>
-								Redundacy error correction should be used.
+								Redundancy error correction should be used.
 							</para></enum>
 						</enumlist>
 					</description>
@@ -1024,7 +1058,7 @@
 					<description><para>Only used when auth_type is <literal>md5</literal>.</para></description>
 				</configOption>
 				<configOption name="password">
-					<synopsis>PlainText password used for authentication.</synopsis>
+					<synopsis>Plain text password used for authentication.</synopsis>
 					<description><para>Only used when auth_type is <literal>userpass</literal>.</para></description>
 				</configOption>
 				<configOption name="realm">
@@ -1151,6 +1185,8 @@
 								<para>This option is equivalent to setting 'default'</para>
 							</enum>
 							<enum name="tlsv1" />
+							<enum name="tlsv1_1" />
+							<enum name="tlsv1_2" />
 							<enum name="sslv2" />
 							<enum name="sslv3" />
 							<enum name="sslv23" />
@@ -1227,7 +1263,7 @@
 					</description>
 				</configOption>
 				<configOption name="symmetric_transport" default="no">
-					<synopsis>Use the same transport for outgoing reqests as incoming ones.</synopsis>
+					<synopsis>Use the same transport for outgoing requests as incoming ones.</synopsis>
 					<description>
 						<para>When a request from a dynamic contact
 							comes in on a transport with this option set to 'yes',
@@ -1272,7 +1308,7 @@
 				<configOption name="qualify_timeout" default="3.0">
 					<synopsis>Timeout for qualify</synopsis>
 					<description><para>
-						If the contact doesn't repond to the OPTIONS request before the timeout,
+						If the contact doesn't respond to the OPTIONS request before the timeout,
 						the contact is marked unavailable.
 						If <literal>0</literal> no timeout. Time in fractional seconds.
 					</para></description>
@@ -1356,8 +1392,8 @@
 					<literal>endpoint</literal> for calls.
 					</para><para>
 					This can be used as another way of grouping a list of contacts to dial
-					rather than specifing them each directly when dialing via the dialplan.
-					This must be used in conjuction with the <literal>PJSIP_DIAL_CONTACTS</literal>.
+					rather than specifying them each directly when dialing via the dialplan.
+					This must be used in conjunction with the <literal>PJSIP_DIAL_CONTACTS</literal>.
 					</para><para>
 					Registrations: For Asterisk to match an inbound registration to an endpoint,
 					the AoR object name must match the user portion of the SIP URI in the "To:"
@@ -1397,7 +1433,7 @@
 				<configOption name="maximum_expiration" default="7200">
 					<synopsis>Maximum time to keep an AoR</synopsis>
 					<description><para>
-						Maximium time to keep a peer with explicit expiration. Time in seconds.
+						Maximum time to keep a peer with explicit expiration. Time in seconds.
 					</para></description>
 				</configOption>
 				<configOption name="max_contacts" default="0">
@@ -1471,7 +1507,7 @@
 				<configOption name="qualify_timeout" default="3.0">
 					<synopsis>Timeout for qualify</synopsis>
 					<description><para>
-						If the contact doesn't repond to the OPTIONS request before the timeout,
+						If the contact doesn't respond to the OPTIONS request before the timeout,
 						the contact is marked unavailable.
 						If <literal>0</literal> no timeout. Time in fractional seconds.
 					</para></description>
@@ -1570,7 +1606,7 @@
 				<configOption name="disable_multi_domain" default="no">
 					<synopsis>Disable Multi Domain support</synopsis>
 					<description><para>
-						If disabled it can improve realtime performace by reducing number of database requsts.
+						If disabled it can improve realtime performance by reducing the number of database requests.
 					</para></description>
 				</configOption>
 				<configOption name="max_initial_qualify_time" default="0">
@@ -1615,7 +1651,7 @@
 					<synopsis>Enable/Disable SIP debug logging.  Valid options include yes|no or
 						a host address</synopsis>
 				</configOption>
-				<configOption name="endpoint_identifier_order" default="ip,username,anonymous">
+				<configOption name="endpoint_identifier_order">
 					<synopsis>The order by which endpoint identifiers are processed and checked.
 						Identifier names are usually derived from and can be found in the endpoint
 						identifier module itself (res_pjsip_endpoint_identifier_*).
@@ -1696,7 +1732,7 @@
 						in the user field of a SIP URI then the field is truncated
 						at the first semicolon.  This effectively makes the semicolon
 						a non-usable character for PJSIP endpoint names, extensions,
-						and AORs.  This can be useful for improving compatability with
+						and AORs.  This can be useful for improving compatibility with
 						an ITSP that likes to use user options for whatever reason.
 						</para>
 						<example title="Sample SIP URI">
@@ -1743,8 +1779,14 @@
 				<parameter name="Endpoint">
 					<para><xi:include xpointer="xpointer(/docs/configInfo[@name='res_pjsip_endpoint_identifier_ip']/configFile[@name='pjsip.conf']/configObject[@name='identify']/configOption[@name='endpoint']/synopsis/node())"/></para>
 				</parameter>
+				<parameter name="SrvLookups">
+					<para><xi:include xpointer="xpointer(/docs/configInfo[@name='res_pjsip_endpoint_identifier_ip']/configFile[@name='pjsip.conf']/configObject[@name='identify']/configOption[@name='srv_lookups']/synopsis/node())"/></para>
+				</parameter>
 				<parameter name="Match">
 					<para><xi:include xpointer="xpointer(/docs/configInfo[@name='res_pjsip_endpoint_identifier_ip']/configFile[@name='pjsip.conf']/configObject[@name='identify']/configOption[@name='match']/synopsis/node())"/></para>
+				</parameter>
+				<parameter name="MatchHeader">
+					<para><xi:include xpointer="xpointer(/docs/configInfo[@name='res_pjsip_endpoint_identifier_ip']/configFile[@name='pjsip.conf']/configObject[@name='identify']/configOption[@name='match_header']/synopsis/node())"/></para>
 				</parameter>
 				<parameter name="EndpointName">
 					<para>The name of the endpoint associated with this information.</para>
@@ -2565,13 +2607,13 @@ int ast_sip_register_endpoint_identifier_with_name(struct ast_sip_endpoint_ident
 
 	id_list_item = ast_calloc(1, sizeof(*id_list_item));
 	if (!id_list_item) {
-		ast_log(LOG_ERROR, "Unabled to add endpoint identifier. Out of memory.\n");
+		ast_log(LOG_ERROR, "Unable to add endpoint identifier. Out of memory.\n");
 		return -1;
 	}
 	id_list_item->identifier = identifier;
 	id_list_item->name = name;
 
-	ast_debug(1, "Register endpoint identifier %s (%p)\n", name, identifier);
+	ast_debug(1, "Register endpoint identifier %s(%p)\n", name ?: "", identifier);
 
 	if (ast_strlen_zero(name)) {
 		/* if an identifier has no name then place in front */
@@ -2594,7 +2636,8 @@ int ast_sip_register_endpoint_identifier_with_name(struct ast_sip_endpoint_ident
 	id_list_item->priority = 0;
 	while ((current = strchr(current, ','))) {
 		++id_list_item->priority;
-		if (!strncmp(prev, name, current - prev)) {
+		if (!strncmp(prev, name, current - prev)
+			&& strlen(name) == current - prev) {
 			break;
 		}
 		prev = ++current;
@@ -2851,6 +2894,45 @@ pjsip_endpoint *ast_sip_get_pjsip_endpoint(void)
 	return ast_pjsip_endpoint;
 }
 
+int ast_sip_will_uri_survive_restart(pjsip_sip_uri *uri, struct ast_sip_endpoint *endpoint,
+	pjsip_rx_data *rdata)
+{
+	pj_str_t host_name;
+	int result = 1;
+
+	/* Determine if the contact cannot survive a restart/boot. */
+	if (uri->port == rdata->pkt_info.src_port
+		&& !pj_strcmp(&uri->host,
+			pj_cstr(&host_name, rdata->pkt_info.src_name))
+		/* We have already checked if the URI scheme is sip: or sips: */
+		&& PJSIP_TRANSPORT_IS_RELIABLE(rdata->tp_info.transport)) {
+		pj_str_t type_name;
+
+		/* Determine the transport parameter value */
+		if (!strcasecmp("WSS", rdata->tp_info.transport->type_name)) {
+			/* WSS is special, as it needs to be ws. */
+			pj_cstr(&type_name, "ws");
+		} else {
+			pj_cstr(&type_name, rdata->tp_info.transport->type_name);
+		}
+
+		if (!pj_stricmp(&uri->transport_param, &type_name)
+			&& (endpoint->nat.rewrite_contact
+				/* Websockets are always rewritten */
+				|| !pj_stricmp(&uri->transport_param,
+					pj_cstr(&type_name, "ws")))) {
+			/*
+			 * The contact was rewritten to the reliable transport's
+			 * source address.  Disconnecting the transport for any
+			 * reason invalidates the contact.
+			 */
+			result = 0;
+		}
+	}
+
+	return result;
+}
+
 int ast_sip_get_transport_name(const struct ast_sip_endpoint *endpoint,
 	pjsip_sip_uri *sip_uri, char *buf, size_t buf_len)
 {
@@ -3044,8 +3126,6 @@ void ast_sip_add_usereqphone(const struct ast_sip_endpoint *endpoint, pj_pool_t 
 {
 	pjsip_sip_uri *sip_uri;
 	int i = 0;
-	pjsip_param *param;
-	static const pj_str_t STR_USER = { "user", 4 };
 	static const pj_str_t STR_PHONE = { "phone", 5 };
 
 	if (!endpoint || !endpoint->usereqphone || (!PJSIP_URI_SCHEME_IS_SIP(uri) && !PJSIP_URI_SCHEME_IS_SIPS(uri))) {
@@ -3073,15 +3153,7 @@ void ast_sip_add_usereqphone(const struct ast_sip_endpoint *endpoint, pj_pool_t 
 		return;
 	}
 
-	if (pjsip_param_find(&sip_uri->other_param, &STR_USER)) {
-		/* Don't add it if it's already there */
-		return;
-	}
-
-	param = PJ_POOL_ALLOC_T(pool, pjsip_param);
-	param->name = STR_USER;
-	param->value = STR_PHONE;
-	pj_list_insert_before(&sip_uri->other_param, param);
+	sip_uri->user_param = STR_PHONE;
 }
 
 pjsip_dialog *ast_sip_create_dialog_uac(const struct ast_sip_endpoint *endpoint,
@@ -4394,9 +4466,15 @@ static void supplement_outgoing_response(pjsip_tx_data *tdata, struct ast_sip_en
 
 int ast_sip_send_response(pjsip_response_addr *res_addr, pjsip_tx_data *tdata, struct ast_sip_endpoint *sip_endpoint)
 {
-	supplement_outgoing_response(tdata, sip_endpoint);
+	pj_status_t status;
 
-	return pjsip_endpt_send_response(ast_sip_get_pjsip_endpoint(), res_addr, tdata, NULL, NULL);
+	supplement_outgoing_response(tdata, sip_endpoint);
+	status = pjsip_endpt_send_response(ast_sip_get_pjsip_endpoint(), res_addr, tdata, NULL, NULL);
+	if (status != PJ_SUCCESS) {
+		pjsip_tx_data_dec_ref(tdata);
+	}
+
+	return status == PJ_SUCCESS ? 0 : -1;
 }
 
 int ast_sip_send_stateful_response(pjsip_rx_data *rdata, pjsip_tx_data *tdata, struct ast_sip_endpoint *sip_endpoint)
@@ -4649,6 +4727,7 @@ static int unload_pjsip(void *data)
 		internal_sip_destroy_outbound_authentication();
 		ast_res_pjsip_cleanup_message_filter();
 		ast_sip_destroy_distributor();
+		ast_sip_destroy_transport_management();
 		ast_res_pjsip_destroy_configuration();
 		ast_sip_destroy_system();
 		ast_sip_destroy_global_headers();
@@ -4808,6 +4887,11 @@ static int load_module(void)
 
 	if (ast_res_pjsip_initialize_configuration(ast_module_info)) {
 		ast_log(LOG_ERROR, "Failed to initialize SIP configuration. Aborting load\n");
+		goto error;
+	}
+
+	if (ast_sip_initialize_transport_management()) {
+		ast_log(LOG_ERROR, "Failed to initialize SIP transport management. Aborting load\n");
 		goto error;
 	}
 

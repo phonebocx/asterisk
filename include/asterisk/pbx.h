@@ -85,7 +85,7 @@ struct ast_exten;
 struct ast_include;
 struct ast_ignorepat;
 struct ast_sw;
- 
+
 enum ast_state_cb_update_reason {
 	/*! The extension state update is a result of a device state changing on the extension. */
 	AST_HINT_UPDATE_DEVICE = 1,
@@ -1094,7 +1094,7 @@ int ast_rdlock_context(struct ast_context *con);
 int ast_unlock_context(struct ast_context *con);
 
 /*!
- * \brief locks the macrolock in the given given context
+ * \brief locks the macrolock in the given context
  *
  * \param macrocontext name of the macro-context to lock
  *
@@ -1378,7 +1378,7 @@ void ast_str_substitute_variables_varshead(struct ast_str **buf, ssize_t maxlen,
  * \param c Channel variables from which to extract values, and channel to pass to any dialplan functions.
  * \param headp If no channel is specified, a channel list from which to extract variable values
  * \param templ Variable template to expand.
- * \param used Number of bytes read from the template.
+ * \param used Number of bytes read from the template.  (May be NULL)
  */
 void ast_str_substitute_variables_full(struct ast_str **buf, ssize_t maxlen, struct ast_channel *c, struct varshead *headp, const char *templ, size_t *used);
 /*! @} */

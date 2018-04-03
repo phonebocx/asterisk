@@ -39,6 +39,12 @@ AC_DEFUN([_PJPROJECT_CONFIGURE],
 	if test "${CAT}" = ":" ; then
 		AC_MSG_ERROR(cat is required to build bundled pjproject)
 	fi
+	if test "${CUT}" = ":" ; then
+		AC_MSG_ERROR(cut is required to build bundled pjproject)
+	fi
+	if test "${GREP}" = ":" ; then
+		AC_MSG_ERROR(grep is required to build bundled pjproject)
+	fi
 
 	AC_ARG_VAR([PJPROJECT_CONFIGURE_OPTS],[Additional configure options to pass to bundled pjproject])
 	this_host=$(./config.sub $(./config.guess))
@@ -49,7 +55,7 @@ AC_DEFUN([_PJPROJECT_CONFIGURE],
 		PJPROJECT_CONFIGURE_OPTS+=" --host=$host"
 	fi
 
-	export TAR PATCH SED NM EXTERNALS_CACHE_DIR AST_DOWNLOAD_CACHE DOWNLOAD_TO_STDOUT DOWNLOAD_TIMEOUT DOWNLOAD MD5 CAT
+	export TAR PATCH SED NM EXTERNALS_CACHE_DIR AST_DOWNLOAD_CACHE DOWNLOAD_TO_STDOUT DOWNLOAD_TIMEOUT DOWNLOAD MD5 CAT CUT GREP
 	export NOISY_BUILD
 	${GNU_MAKE} --quiet --no-print-directory -C ${PJPROJECT_DIR} \
 		PJPROJECT_CONFIGURE_OPTS="$PJPROJECT_CONFIGURE_OPTS" \
@@ -80,7 +86,6 @@ AC_DEFUN([_PJPROJECT_CONFIGURE],
 	AC_DEFINE([HAVE_PJSIP_EVSUB_GRP_LOCK], 1, [Define if your system has PJSIP_EVSUB_GRP_LOCK])
 	AC_DEFINE([HAVE_PJSIP_INV_SESSION_REF], 1, [Define if your system has PJSIP_INV_SESSION_REF])
 	AC_DEFINE([HAVE_PJSIP_AUTH_CLT_DEINIT], 1, [Define if your system has pjsip_auth_clt_deinit declared.])
-	AC_DEFINE([HAVE_PJSIP_EVSUB_SET_UAS_TIMEOUT], 1, [Define if your system has pjsip_evsub_set_uas_timeout declared.])
 	AC_DEFINE([HAVE_PJSIP_TSX_LAYER_FIND_TSX2], 1, [Define if your system has pjsip_tsx_layer_find_tsx2 declared.])
 
 	AC_SUBST([PJPROJECT_BUNDLED])

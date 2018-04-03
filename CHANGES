@@ -9,6 +9,105 @@
 ==============================================================================
 
 ------------------------------------------------------------------------------
+--- Functionality changes from Asterisk 13.19.0 to Asterisk 13.20.0 ----------
+------------------------------------------------------------------------------
+
+Core
+------------------
+ * During dialplan reload log messages are produced for each context,
+   extension and include.  These messages are no longer printed by the
+   verbose loggers, they are now only logged as debug messages.
+
+app_confbridge
+------------------
+ * Added the Muted header to the ConfbridgeJoin AMI event to indicate the
+   participant's starting mute status.
+
+ * Made the AMI ConfbridgeList action's ConfbridgeList events output all
+   the standard channel snapshot headers instead of a few hand-coded channel
+   snapshot headers.  The benefit is that the CallerIDName gets disruptive
+   characters like CR, LF, Tab, and a few others escaped.  However, an empty
+   CallerIDName is now output as "<unknown>" instead of "<no name>".
+
+app_followme
+------------------
+ * Added a new prompt, connecting-prompt, which will be played
+   (if configured) to the "winner" callee before connecting the call.
+
+res_pjsip
+------------------
+ * Users who are matching endpoints by SIP header need to reevaluate their
+   global "endpoint_identifier_order" option in light of the "ip" endpoint
+   identifier method split into the "ip" and "header" endpoint identifier
+   methods.
+
+ * The pjsip_transport_event feature introduced in 13.18.0 has been refactored.
+   Any external modules that may have used that feature (highly unlikey) will
+   need to be changed as the API has been altered slightly.
+
+res_pjsip_endpoint_identifier_ip
+------------------
+ * The endpoint identifier "ip" method previously recognized endpoints either
+   by IP address or a matching SIP header.  The "ip" endpoint identifier method
+   is now split into the "ip" and "header" endpoint identifier methods.  The
+   "ip" endpoint identifier method only matches by IP address and the "header"
+   endpoint identifier method only matches by SIP header.  The split allows the
+   user to control the relative priority of the IP address and the SIP header
+   identification methods in the global "endpoint_identifier_order" option.
+   e.g., If you have two type=identify sections where one matches by IP address
+   for endpoint alice and the other matches by SIP header for endpoint bob then
+   you can now predict which endpoint is matched when a request comes in that
+   matches both.
+
+res_pjsip_registrar_expire
+------------------
+ * The res_pjsip_registrar_expire module is now deprecated and will be removed
+   from Asterisk 16.  The existing functionality was moved into
+   res_pjsip_registrar.
+
+res_pjsip_pubsub
+------------------
+ * In an earlier release, inbound registrations on a reliable transport
+   were pruned on Asterisk restart since the TCP connection would have
+   been torn down and become unusable when Asterisk stopped.  This same
+   process is now also applied to inbound subscriptions.  Since this
+   required the addition of a new column to the ps_subscription_persistence
+   realtime table, users who store their subscriptions in a database will
+   need to run the "alembic upgrade head" process to add the column to
+   the schema.
+
+res_pjsip_transport_management
+------------------
+ * Since res_pjsip_transport_management provides several attack
+   mitigation features, its functionality moved to res_pjsip and
+   this module has been removed.  This way the features will always
+   be available if res_pjsip is loaded.
+
+------------------------------------------------------------------------------
+--- Functionality changes from Asterisk 13.18.0 to Asterisk 13.19.0 ----------
+------------------------------------------------------------------------------
+
+Core
+------------------
+ * Added the "cache_media_frames" option to asterisk.conf.  Disabling the option
+   helps track down media frame mismanagement when using valgrind or
+   MALLOC_DEBUG.  The cache gets in the way of determining if the frame is
+   used after free and who freed it.  NOTE: This option has no effect when
+   Asterisk is compiled with the LOW_MEMORY compile time option enabled because
+   the cache code does not exist.
+
+chan_sip
+------------------
+ * Calls to invalid extensions are now reported as an ACL failure security event
+   "no_extension_match".
+
+res_pjsip
+------------------
+ * The "identify_by" on endpoints can now be set to "ip" to restrict an endpoint
+   being matched based only on IP address. To ensure no behavior change the
+   default has been changed to "username,ip".
+
+------------------------------------------------------------------------------
 --- Functionality changes from Asterisk 13.17.0 to Asterisk 13.18.0 ----------
 ------------------------------------------------------------------------------
 
@@ -308,7 +407,7 @@ ARI
    hasn't registered yet.
 
  * 'ari set debug' now displays requests and responses as well as events.
- 
+
 ------------------------------------------------------------------------------
 --- Functionality changes from Asterisk 13.12.0 to Asterisk 13.13.0 ----------
 ------------------------------------------------------------------------------
@@ -1190,7 +1289,7 @@ res_pjsip_endpoint_identifer_ip
 ------------------
  * New CLI commands have been added: "pjsip show identif(y|ies)", which lists
    all configured PJSIP identify objects
-   
+
 ------------------------------------------------------------------------------
 --- Functionality changes from Asterisk 12 to Asterisk 13 --------------------
 ------------------------------------------------------------------------------
@@ -1458,7 +1557,7 @@ AMI
  * AMI action PJSIPNotify may now send to a URI instead of only to a PJSIP
    endpoint as long as a default outbound endpoint is set. This also applies
    to the equivalent CLI command (pjsip send notify)
- 
+
  * The AMI action PJSIPShowEndpoint now includes ContactStatusDetail sections
    that give information on Asterisk's attempts to qualify the endpoint.
 
@@ -2801,7 +2900,7 @@ chan_agent
    has also been removed, for the same reason.
 
  * The endcall and enddtmf configuration options are removed.  Use the
-   dialplan function CHANNEL(dtmf-features) to set DTMF features on the agent
+   dialplan function CHANNEL(dtmf_features) to set DTMF features on the agent
    channel before calling AgentLogin.
 
 chan_bridge
