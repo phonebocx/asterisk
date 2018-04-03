@@ -127,6 +127,11 @@
 				<configOption name="contact_uri">
 					<synopsis>The Contact URI of the dialog for the subscription</synopsis>
 				</configOption>
+				<configOption name="prune_on_boot">
+					<synopsis>If set, indicates that the contact used a reliable transport
+					and therefore the subscription must be deleted after an asterisk restart.
+					</synopsis>
+				</configOption>
 			</configObject>
 			<configObject name="resource_list">
 				<synopsis>Resource list configuration parameters.</synopsis>
@@ -382,6 +387,8 @@ struct subscription_persistence {
 	struct timeval expires;
 	/*! Contact URI */
 	char contact_uri[PJSIP_MAX_URL_SIZE];
+	/*! Prune subscription on restart */
+	int prune_on_boot;
 };
 
 /*!
@@ -446,6 +453,10 @@ struct sip_subscription_tree {
 	 * capable of restarting the timer.
 	 */
 	struct ast_sip_sched_task *expiration_task;
+	/*! The transport the subscription was received on.
+	 * Only used for reliable transports.
+	 */
+	pjsip_transport *transport;
 };
 
 /*!
@@ -525,7 +536,7 @@ static void pubsub_on_rx_notify(pjsip_evsub *sub, pjsip_rx_data *rdata, int *p_s
 		pj_str_t **p_st_text, pjsip_hdr *res_hdr, pjsip_msg_body **p_body);
 static void pubsub_on_client_refresh(pjsip_evsub *sub);
 static void pubsub_on_server_timeout(pjsip_evsub *sub);
- 
+
 static pjsip_evsub_user pubsub_cb = {
 	.on_evsub_state = pubsub_on_evsub_state,
 	.on_rx_refresh = pubsub_on_rx_refresh,
@@ -547,6 +558,17 @@ static void publication_resource_destroy(void *obj)
 static void *publication_resource_alloc(const char *name)
 {
 	return ast_sorcery_generic_alloc(sizeof(struct ast_sip_publication_resource), publication_resource_destroy);
+}
+
+static void sub_tree_transport_cb(void *data) {
+	struct sip_subscription_tree *sub_tree = data;
+
+	ast_debug(3, "Transport destroyed.  Removing subscription '%s->%s'  prune on restart: %d\n",
+		sub_tree->persistence->endpoint, sub_tree->root->resource,
+		sub_tree->persistence->prune_on_boot);
+
+	sub_tree->state = SIP_SUB_TREE_TERMINATE_IN_PROGRESS;
+	pjsip_evsub_terminate(sub_tree->evsub, PJ_TRUE);
 }
 
 /*! \brief Destructor for subscription persistence */
@@ -599,8 +621,9 @@ static void subscription_persistence_update(struct sip_subscription_tree *sub_tr
 		return;
 	}
 
-	ast_debug(3, "Updating persistence for '%s->%s'\n", sub_tree->persistence->endpoint,
-		sub_tree->root->resource);
+	ast_debug(3, "Updating persistence for '%s->%s'  prune on restart: %s\n",
+		sub_tree->persistence->endpoint, sub_tree->root->resource,
+		sub_tree->persistence->prune_on_boot ? "yes" : "no");
 
 	dlg = sub_tree->dlg;
 	sub_tree->persistence->cseq = dlg->local.cseq;
@@ -614,6 +637,28 @@ static void subscription_persistence_update(struct sip_subscription_tree *sub_tr
 		sub_tree->persistence->expires = ast_tvadd(ast_tvnow(), ast_samp2tv(expires, 1));
 
 		if (contact_hdr) {
+			if (contact_hdr) {
+				if (type == SUBSCRIPTION_PERSISTENCE_CREATED) {
+					sub_tree->persistence->prune_on_boot =
+						!ast_sip_will_uri_survive_restart(
+							(pjsip_sip_uri *)pjsip_uri_get_uri(contact_hdr->uri),
+							sub_tree->endpoint, rdata);
+
+					if (sub_tree->persistence->prune_on_boot) {
+						ast_debug(3, "adding transport monitor on %s for '%s->%s'  prune on restart: %d\n",
+							rdata->tp_info.transport->obj_name,
+							sub_tree->persistence->endpoint, sub_tree->root->resource,
+							sub_tree->persistence->prune_on_boot);
+						sub_tree->transport = rdata->tp_info.transport;
+						ast_sip_transport_monitor_register(rdata->tp_info.transport,
+							sub_tree_transport_cb, sub_tree);
+						/*
+						 * FYI: ast_sip_transport_monitor_register holds a reference to the sub_tree
+						 */
+					}
+				}
+			}
+
 			pjsip_uri_print(PJSIP_URI_IN_CONTACT_HDR, contact_hdr->uri,
 					sub_tree->persistence->contact_uri, sizeof(sub_tree->persistence->contact_uri));
 		} else {
@@ -654,6 +699,15 @@ static void subscription_persistence_remove(struct sip_subscription_tree *sub_tr
 {
 	if (!sub_tree->persistence) {
 		return;
+	}
+
+	if (sub_tree->persistence->prune_on_boot && sub_tree->transport) {
+		ast_debug(3, "Unregistering transport monitor on %s '%s->%s'\n",
+			sub_tree->transport->obj_name,
+			sub_tree->endpoint ? ast_sorcery_object_get_id(sub_tree->endpoint) : "Unknown",
+			sub_tree->root ? sub_tree->root->resource : "Unknown");
+		ast_sip_transport_monitor_unregister(sub_tree->transport,
+			sub_tree_transport_cb, sub_tree, NULL);
 	}
 
 	ast_sorcery_delete(ast_sip_get_sorcery(), sub_tree->persistence);
@@ -732,10 +786,11 @@ static struct ast_sip_pubsub_body_generator *subscription_get_generator_from_rda
 	char accept[AST_SIP_MAX_ACCEPT][64];
 	size_t num_accept_headers = 0;
 
-	while ((accept_header = pjsip_msg_find_hdr(rdata->msg_info.msg, PJSIP_H_ACCEPT, accept_header->next))) {
+	while ((accept_header = pjsip_msg_find_hdr(rdata->msg_info.msg, PJSIP_H_ACCEPT, accept_header->next)) &&
+		(num_accept_headers < AST_SIP_MAX_ACCEPT)) {
 		int i;
 
-		for (i = 0; i < accept_header->count; ++i) {
+		for (i = 0; i < accept_header->count && num_accept_headers < AST_SIP_MAX_ACCEPT; ++i) {
 			if (!exceptional_accept(&accept_header->values[i])) {
 				ast_copy_pj_str(accept[num_accept_headers], &accept_header->values[i], sizeof(accept[num_accept_headers]));
 				++num_accept_headers;
@@ -899,7 +954,7 @@ static int have_visited(const char *resource, struct resources *visited)
  * This iterates through the items on a resource list and creates tree nodes for each one. The
  * tree nodes created are children of the supplied parent node. If an item in the resource
  * list is itself a list, then this function is called recursively to provide children for
- * the the new node.
+ * the new node.
  *
  * If an item in a resource list is not a list, then the supplied subscription handler is
  * called into as if a new SUBSCRIBE for the list item were presented. The handler's response
@@ -942,7 +997,9 @@ static void build_node_children(struct ast_sip_endpoint *endpoint, const struct 
 				}
 				ast_debug(2, "Subscription to leaf resource %s resulted in success. Adding to parent %s\n",
 						resource, parent->resource);
-				AST_VECTOR_APPEND(&parent->children, current);
+				if (AST_VECTOR_APPEND(&parent->children, current)) {
+					tree_node_destroy(current);
+				}
 			} else {
 				ast_debug(2, "Subscription to leaf resource %s resulted in error response %d\n",
 						resource, resp);
@@ -957,7 +1014,9 @@ static void build_node_children(struct ast_sip_endpoint *endpoint, const struct 
 			build_node_children(endpoint, handler, child_list, current, visited);
 			if (AST_VECTOR_SIZE(&current->children) > 0) {
 				ast_debug(1, "List %s had no successful children.\n", resource);
-				AST_VECTOR_APPEND(&parent->children, current);
+				if (AST_VECTOR_APPEND(&parent->children, current)) {
+					tree_node_destroy(current);
+				}
 			} else {
 				ast_debug(2, "List %s had successful children. Adding to parent %s\n",
 						resource, parent->resource);
@@ -1115,7 +1174,7 @@ static void remove_subscription(struct sip_subscription_tree *obj)
 static void destroy_subscription(struct ast_sip_subscription *sub)
 {
 	ast_debug(3, "Destroying SIP subscription from '%s->%s'\n",
-		sub->tree->endpoint ? ast_sorcery_object_get_id(sub->tree->endpoint) : "Unknown",
+		sub->tree && sub->tree->endpoint ? ast_sorcery_object_get_id(sub->tree->endpoint) : "Unknown",
 		sub->resource);
 
 	ast_free(sub->body_text);
@@ -1220,6 +1279,10 @@ static struct ast_sip_subscription *create_virtual_subscriptions(const struct as
 		if (AST_VECTOR_APPEND(&sub->children, child)) {
 			ast_debug(1, "Child subscription to resource %s could not be appended\n",
 					child_node->resource);
+			destroy_subscription(child);
+			/* Have to release tree here too because a ref was added
+			 * to child that destroy_subscription() doesn't release. */
+			ao2_cleanup(tree);
 		}
 	}
 
@@ -1577,6 +1640,14 @@ static int subscription_persistence_recreate(void *obj, void *arg, int flags)
 	struct ast_taskprocessor *serializer;
 	pjsip_rx_data rdata;
 	struct persistence_recreate_data recreate_data;
+
+	/* If this subscription used a reliable transport it can't be reestablished so remove it */
+	if (persistence->prune_on_boot) {
+		ast_debug(3, "Deleting subscription marked as 'prune' from persistent store '%s' %s\n",
+			persistence->endpoint, persistence->tag);
+		ast_sorcery_delete(ast_sip_get_sorcery(), persistence);
+		return 0;
+	}
 
 	/* If this subscription has already expired remove it */
 	if (ast_tvdiff_ms(persistence->expires, ast_tvnow()) <= 0) {
@@ -2165,7 +2236,9 @@ static void build_body_part(pj_pool_t *pool, struct ast_sip_subscription *sub,
 	bp->part->body = body;
 	pj_list_insert_before(&bp->part->hdr, bp->cid);
 
-	AST_VECTOR_APPEND(parts, bp);
+	if (AST_VECTOR_APPEND(parts, bp)) {
+		ast_free(bp);
+	}
 }
 
 /*!
@@ -2226,6 +2299,7 @@ static pjsip_msg_body *generate_list_body(pj_pool_t *pool, struct ast_sip_subscr
 
 	/* This can happen if issuing partial state and no children of the list have changed state */
 	if (AST_VECTOR_SIZE(&body_parts) == 0) {
+		free_body_parts(&body_parts);
 		return NULL;
 	}
 
@@ -2233,6 +2307,7 @@ static pjsip_msg_body *generate_list_body(pj_pool_t *pool, struct ast_sip_subscr
 
 	rlmi_part = build_rlmi_body(pool, sub, &body_parts, use_full_state);
 	if (!rlmi_part) {
+		free_body_parts(&body_parts);
 		return NULL;
 	}
 	pjsip_multipart_add_part(pool, multipart, rlmi_part);
@@ -2467,9 +2542,14 @@ void ast_sip_subscription_get_local_uri(struct ast_sip_subscription *sub, char *
 void ast_sip_subscription_get_remote_uri(struct ast_sip_subscription *sub, char *buf, size_t size)
 {
 	pjsip_dialog *dlg;
+	pjsip_sip_uri *uri;
 
 	dlg = sub->tree->dlg;
-	ast_copy_pj_str(buf, &dlg->remote.info_str, size);
+	uri = pjsip_uri_get_uri(dlg->remote.info->uri);
+
+	if (pjsip_uri_print(PJSIP_URI_IN_FROMTO_HDR, uri, buf, size) < 0) {
+		*buf = '\0';
+	}
 }
 
 const char *ast_sip_subscription_get_resource_name(struct ast_sip_subscription *sub)
@@ -4666,7 +4746,10 @@ static int list_item_handler(const struct aco_option *opt,
 			ast_log(LOG_WARNING, "Ignoring duplicated list item '%s'\n", item);
 			continue;
 		}
-		if (AST_VECTOR_APPEND(&list->items, ast_strdup(item))) {
+
+		item = ast_strdup(item);
+		if (!item || AST_VECTOR_APPEND(&list->items, item)) {
+			ast_free(item);
 			return -1;
 		}
 	}
@@ -4802,7 +4885,10 @@ static int populate_list(struct resource_list *list, const char *event, const ch
 	ast_copy_string(list->event, event, sizeof(list->event));
 
 	for (i = 0; i < num_resources; ++i) {
-		if (AST_VECTOR_APPEND(&list->items, ast_strdup(resources[i]))) {
+		char *resource = ast_strdup(resources[i]);
+
+		if (!resource || AST_VECTOR_APPEND(&list->items, resource)) {
+			ast_free(resource);
 			return -1;
 		}
 	}
@@ -5419,25 +5505,13 @@ static int load_module(void)
 
 	sorcery = ast_sip_get_sorcery();
 
-	pjsip_evsub_init_module(ast_sip_get_pjsip_endpoint());
-
 	if (!(sched = ast_sched_context_create())) {
 		ast_log(LOG_ERROR, "Could not create scheduler for publication expiration\n");
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
-	pjsip_media_type_init2(&rlmi_media_type, "application", "rlmi+xml");
-
 	if (ast_sched_start_thread(sched)) {
 		ast_log(LOG_ERROR, "Could not start scheduler thread for publication expiration\n");
-		ast_sched_context_destroy(sched);
-		return AST_MODULE_LOAD_DECLINE;
-	}
-
-	pjsip_endpt_add_capability(ast_sip_get_pjsip_endpoint(), NULL, PJSIP_H_ALLOW, NULL, 1, &str_PUBLISH);
-
-	if (ast_sip_register_service(&pubsub_module)) {
-		ast_log(LOG_ERROR, "Could not register pubsub service\n");
 		ast_sched_context_destroy(sched);
 		return AST_MODULE_LOAD_DECLINE;
 	}
@@ -5447,7 +5521,6 @@ static int load_module(void)
 	if (ast_sorcery_object_register(sorcery, "subscription_persistence", subscription_persistence_alloc,
 		NULL, NULL)) {
 		ast_log(LOG_ERROR, "Could not register subscription persistence object support\n");
-		ast_sip_unregister_service(&pubsub_module);
 		ast_sched_context_destroy(sched);
 		return AST_MODULE_LOAD_DECLINE;
 	}
@@ -5473,9 +5546,10 @@ static int load_module(void)
 		persistence_expires_str2struct, persistence_expires_struct2str, NULL, 0, 0);
 	ast_sorcery_object_field_register(sorcery, "subscription_persistence", "contact_uri", "", OPT_CHAR_ARRAY_T, 0,
 		CHARFLDSET(struct subscription_persistence, contact_uri));
+	ast_sorcery_object_field_register(sorcery, "subscription_persistence", "prune_on_boot", "0", OPT_UINT_T, 0,
+		FLDSET(struct subscription_persistence, prune_on_boot));
 
 	if (apply_list_configuration(sorcery)) {
-		ast_sip_unregister_service(&pubsub_module);
 		ast_sched_context_destroy(sched);
 		return AST_MODULE_LOAD_DECLINE;
 	}
@@ -5484,7 +5558,6 @@ static int load_module(void)
 	if (ast_sorcery_object_register(sorcery, "inbound-publication", publication_resource_alloc,
 		NULL, NULL)) {
 		ast_log(LOG_ERROR, "Could not register subscription persistence object support\n");
-		ast_sip_unregister_service(&pubsub_module);
 		ast_sched_context_destroy(sched);
 		return AST_MODULE_LOAD_DECLINE;
 	}
@@ -5493,6 +5566,27 @@ static int load_module(void)
 		resource_endpoint_handler, NULL, NULL, 0, 0);
 	ast_sorcery_object_fields_register(sorcery, "inbound-publication", "^event_", resource_event_handler, NULL);
 	ast_sorcery_reload_object(sorcery, "inbound-publication");
+
+	if (ast_sip_register_service(&pubsub_module)) {
+		ast_log(LOG_ERROR, "Could not register pubsub service\n");
+		ast_sched_context_destroy(sched);
+		return AST_MODULE_LOAD_DECLINE;
+	}
+
+	if (pjsip_evsub_init_module(ast_sip_get_pjsip_endpoint()) != PJ_SUCCESS) {
+		ast_log(LOG_ERROR, "Could not initialize pjsip evsub module.\n");
+		ast_sip_unregister_service(&pubsub_module);
+		ast_sched_context_destroy(sched);
+		return AST_MODULE_LOAD_DECLINE;
+	}
+
+	/* Once pjsip_evsub_init_module succeeds we cannot unload.
+	 * Keep all module_load errors above this point. */
+	ast_module_shutdown_ref(ast_module_info->self);
+
+	pjsip_media_type_init2(&rlmi_media_type, "application", "rlmi+xml");
+
+	pjsip_endpt_add_capability(ast_sip_get_pjsip_endpoint(), NULL, PJSIP_H_ALLOW, NULL, 1, &str_PUBLISH);
 
 	if (ast_test_flag(&ast_options, AST_OPT_FLAG_FULLY_BOOTED)) {
 		ast_sip_push_task(NULL, subscription_persistence_load, NULL);
@@ -5529,6 +5623,8 @@ static int unload_module(void)
 	AST_TEST_UNREGISTER(duplicate_resource);
 	AST_TEST_UNREGISTER(loop);
 	AST_TEST_UNREGISTER(bad_event);
+
+	ast_sip_transport_monitor_unregister_all(sub_tree_transport_cb, NULL, NULL);
 
 	ast_cli_unregister_multiple(cli_commands, ARRAY_LEN(cli_commands));
 

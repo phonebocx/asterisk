@@ -428,7 +428,7 @@ term_alloc(EditLine *el, const struct termcapstr *t, const char *cap)
          */
 	tlen = 0;
 	for (tmp = tlist; tmp < &tlist[T_str]; tmp++)
-		if (*tmp != NULL && *tmp != '\0' && *tmp != *str) {
+		if (*tmp != NULL && **tmp != '\0' && *tmp != *str) {
 			char *ptr;
 
 			for (ptr = *tmp; *ptr != '\0'; termbuf[tlen++] = *ptr++)
@@ -640,7 +640,7 @@ mc_again:
 						    (el->el_cursor.h & 0370);
 						    i < (where & 0370);
 						    i += 8)
-							term__putc('\t');	
+							term__putc('\t');
 							/* then tab over */
 						el->el_cursor.h = where & 0370;
 					}

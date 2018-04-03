@@ -43,6 +43,15 @@ astsbindir => /usr/sbin
 ;minmemfree = 1			; In MBs, Asterisk stops accepting new calls if
 				; the amount of free memory falls below this
 				; watermark.
+;cache_media_frames = yes	; Cache media frames for performance
+				; Disable this option to help track down media frame
+				; mismanagement when using valgrind or MALLOC_DEBUG.
+				; The cache gets in the way of determining if the
+				; frame is used after being freed and who freed it.
+				; NOTE: This option has no effect when Asterisk is
+				; compiled with the LOW_MEMORY compile time option
+				; enabled because the cache code does not exist.
+				; Default yes
 ;cache_record_files = yes	; Cache recorded sound files to another
 				; directory during recording.
 ;record_cache_dir = /tmp	; Specify cache directory (used in conjunction
@@ -64,7 +73,7 @@ astsbindir => /usr/sbin
 ;rungroup = asterisk		; The group to run as.
 ;lightbackground = yes		; If your terminal is set for a light-colored
 				; background.
-;forceblackbackground = yes     ; Force the background of the terminal to be 
+;forceblackbackground = yes     ; Force the background of the terminal to be
                                 ; black, in order for terminal colors to show
                                 ; up properly.
 ;defaultlanguage = en           ; Default language

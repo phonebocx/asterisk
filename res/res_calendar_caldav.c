@@ -21,6 +21,7 @@
  */
 
 /*** MODULEINFO
+	<depend>res_calendar</depend>
 	<depend>neon</depend>
 	<depend>ical</depend>
 	<depend>libxml2</depend>
@@ -322,7 +323,7 @@ static struct ast_str *caldav_get_events_between(struct caldav_pvt *pvt, time_t 
 	return response;
 }
 
-static time_t icalfloat_to_timet(icaltimetype time) 
+static time_t icalfloat_to_timet(icaltimetype time)
 {
 	struct ast_tm tm = {0,};
 	struct timeval tv;

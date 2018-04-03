@@ -822,8 +822,8 @@ static struct aco_type global_option = {
 	.type = ACO_GLOBAL,
 	.name = "global",
 	.item_offset = offsetof(struct xmpp_config, global),
-	.category_match = ACO_WHITELIST,
-	.category = "^general$",
+	.category_match = ACO_WHITELIST_EXACT,
+	.category = "general",
 };
 
 struct aco_type *global_options[] = ACO_TYPES(&global_option);
@@ -831,8 +831,8 @@ struct aco_type *global_options[] = ACO_TYPES(&global_option);
 static struct aco_type client_option = {
 	.type = ACO_ITEM,
 	.name = "client",
-	.category_match = ACO_BLACKLIST,
-	.category = "^(general)$",
+	.category_match = ACO_BLACKLIST_EXACT,
+	.category = "general",
 	.item_alloc = ast_xmpp_client_config_alloc,
 	.item_find = xmpp_config_find,
 	.item_prelink = xmpp_config_prelink,
@@ -3911,8 +3911,11 @@ static int fetch_access_token(struct ast_xmpp_client_config *cfg)
 	struct ast_json_error error;
 	RAII_VAR(struct ast_json *, jobj, NULL, ast_json_unref);
 
-	ast_asprintf(&cmd, "CURL(%s,client_id=%s&client_secret=%s&refresh_token=%s&grant_type=refresh_token)",
-		     url, cfg->oauth_clientid, cfg->oauth_secret, cfg->refresh_token);
+	if (ast_asprintf(&cmd,
+		"CURL(%s,client_id=%s&client_secret=%s&refresh_token=%s&grant_type=refresh_token)",
+		url, cfg->oauth_clientid, cfg->oauth_secret, cfg->refresh_token) < 0) {
+		return -1;
+	}
 
 	ast_debug(2, "Performing OAuth 2.0 authentication for client '%s' using command: %s\n",
 		cfg->name, cmd);

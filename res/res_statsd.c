@@ -233,8 +233,8 @@ static struct aco_type global_option = {
 	.type = ACO_GLOBAL,
 	.name = "global",
 	.item_offset = offsetof(struct conf, global),
-	.category = "^general$",
-	.category_match = ACO_WHITELIST
+	.category = "general",
+	.category_match = ACO_WHITELIST_EXACT,
 };
 
 static struct aco_type *global_options[] = ACO_TYPES(&global_option);
@@ -354,6 +354,9 @@ static int load_module(void)
 		aco_info_destroy(&cfg_info);
 		return AST_MODULE_LOAD_DECLINE;
 	}
+
+	/* For Optional API. */
+	ast_module_shutdown_ref(ast_module_info->self);
 
 	return AST_MODULE_LOAD_SUCCESS;
 }

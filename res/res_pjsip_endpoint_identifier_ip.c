@@ -43,41 +43,50 @@
 					<para>This module provides alternatives to matching inbound requests to
 					a configured endpoint. At least one of the matching mechanisms
 					must be provided, or the object configuration will be invalid.</para>
-					<para>If multiple criteria are provided, an inbound request will
-					be matched if it matches <emphasis>any</emphasis> of the criteria.</para>
 					<para>The matching mechanisms are provided by the following
 					configuration options:</para>
 					<enumlist>
 						<enum name="match"><para>Match by source IP address.</para></enum>
 						<enum name="match_header"><para>Match by SIP header.</para></enum>
 					</enumlist>
+					<note><para>If multiple matching criteria are provided then an inbound
+					request will be matched to the endpoint if it matches
+					<emphasis>any</emphasis> of the criteria.</para></note>
 				</description>
 				<configOption name="endpoint">
-					<synopsis>Name of Endpoint</synopsis>
+					<synopsis>Name of endpoint identified</synopsis>
 				</configOption>
 				<configOption name="match">
 					<synopsis>IP addresses or networks to match against.</synopsis>
-					<description><para>
-						The value is a comma-delimited list of IP addresses. IP addresses may
-						have a subnet mask appended. The subnet mask may be written in either
-						CIDR or dot-decimal notation. Separate the IP address and subnet
-						mask with a slash ('/').
-					</para></description>
+					<description>
+						<para>The value is a comma-delimited list of IP addresses or
+						hostnames.  IP addresses may have a subnet mask appended.  The
+						subnet mask may be written in either CIDR or dotted-decimal
+						notation.  Separate the IP address and subnet mask with a slash
+						('/').
+						</para>
+					</description>
 				</configOption>
 				<configOption name="srv_lookups" default="yes">
 					<synopsis>Perform SRV lookups for provided hostnames.</synopsis>
-					<description><para>When enabled, <replaceable>srv_lookups</replaceable> will
-					perform SRV lookups for _sip._udp, _sip._tcp, and _sips._tcp of the given
-					hostnames to determine additional addresses that traffic may originate from.
-					</para></description>
+					<description>
+						<para>When enabled, <replaceable>srv_lookups</replaceable> will
+						perform SRV lookups for _sip._udp, _sip._tcp, and _sips._tcp of
+						the given hostnames to determine additional addresses that traffic
+						may originate from.
+						</para>
+					</description>
 				</configOption>
 				<configOption name="match_header">
 					<synopsis>Header/value pair to match against.</synopsis>
-					<description><para>A SIP header who value is used to match against. SIP
-					requests containing the header, along with the specified value, will be
-					mapped to the specified endpoint. The header must be specified with a
-					<literal>:</literal>, as in <literal>match_header = SIPHeader: value</literal>.
-					</para></description>
+					<description>
+						<para>A SIP header whose value is used to match against.  SIP
+						requests containing the header, along with the specified value,
+						will be mapped to the specified endpoint.  The header must be
+						specified with a <literal>:</literal>, as in
+						<literal>match_header = SIPHeader: value</literal>.
+						</para>
+					</description>
 				</configOption>
 				<configOption name="type">
 					<synopsis>Must be of type 'identify'.</synopsis>
@@ -105,7 +114,7 @@ struct ip_identify_match {
 	struct ast_ha *matches;
 	/*! \brief Perform SRV resolution of hostnames */
 	unsigned int srv_lookups;
-	/*! \brief Hosts to be resolved after applying configuration */
+	/*! \brief Hosts to be resolved when applying configuration */
 	struct ao2_container *hosts;
 };
 
@@ -150,8 +159,8 @@ static int header_identify_match_check(void *obj, void *arg, int flags)
 	c_header = ast_strdupa(identify->match_header);
 	c_value = strchr(c_header, ':');
 	if (!c_value) {
-		ast_log(LOG_WARNING, "Identify '%s' has invalid header_match: No ':' separator found!\n",
-			ast_sorcery_object_get_id(identify));
+		/* This should not be possible.  The object cannot be created if so. */
+		ast_assert(0);
 		return 0;
 	}
 	*c_value = '\0';
@@ -161,21 +170,23 @@ static int header_identify_match_check(void *obj, void *arg, int flags)
 	pj_header_name = pj_str(c_header);
 	header = pjsip_msg_find_hdr_by_name(rdata->msg_info.msg, &pj_header_name, NULL);
 	if (!header) {
-		ast_debug(3, "SIP message does not contain header '%s'\n", c_header);
+		ast_debug(3, "Identify '%s': SIP message does not have header '%s'\n",
+			ast_sorcery_object_get_id(identify),
+			c_header);
 		return 0;
 	}
 
 	pj_header_value = pj_str(c_value);
 	if (pj_strcmp(&pj_header_value, &header->hvalue)) {
-		ast_debug(3, "SIP message contains header '%s' but value '%.*s' does not match value '%s' for endpoint '%s'\n",
+		ast_debug(3, "Identify '%s': SIP message has header '%s' but value '%.*s' does not match '%s'\n",
+			ast_sorcery_object_get_id(identify),
 			c_header,
 			(int) pj_strlen(&header->hvalue), pj_strbuf(&header->hvalue),
-			c_value,
-			identify->endpoint_name);
+			c_value);
 		return 0;
 	}
 
-	return CMP_MATCH | CMP_STOP;
+	return CMP_MATCH;
 }
 
 /*! \brief Comparator function for matching an object by IP address */
@@ -190,7 +201,7 @@ static int ip_identify_match_check(void *obj, void *arg, int flags)
 		ast_debug(3, "Source address %s matches identify '%s'\n",
 				ast_sockaddr_stringify(addr),
 				ast_sorcery_object_get_id(identify));
-		return CMP_MATCH | CMP_STOP;
+		return CMP_MATCH;
 	} else {
 		ast_debug(3, "Source address %s does not match identify '%s'\n",
 				ast_sockaddr_stringify(addr),
@@ -199,46 +210,60 @@ static int ip_identify_match_check(void *obj, void *arg, int flags)
 	}
 }
 
-static struct ast_sip_endpoint *ip_identify(pjsip_rx_data *rdata)
+static struct ast_sip_endpoint *common_identify(ao2_callback_fn *identify_match_cb, void *arg)
 {
-	struct ast_sockaddr addr = { { 0, } };
 	RAII_VAR(struct ao2_container *, candidates, NULL, ao2_cleanup);
-	RAII_VAR(struct ip_identify_match *, match, NULL, ao2_cleanup);
+	struct ip_identify_match *match;
 	struct ast_sip_endpoint *endpoint;
 
 	/* If no possibilities exist return early to save some time */
-	if (!(candidates = ast_sorcery_retrieve_by_fields(ast_sip_get_sorcery(), "identify", AST_RETRIEVE_FLAG_MULTIPLE | AST_RETRIEVE_FLAG_ALL, NULL)) ||
-		!ao2_container_count(candidates)) {
+	candidates = ast_sorcery_retrieve_by_fields(ast_sip_get_sorcery(), "identify",
+		AST_RETRIEVE_FLAG_MULTIPLE | AST_RETRIEVE_FLAG_ALL, NULL);
+	if (!candidates || !ao2_container_count(candidates)) {
 		ast_debug(3, "No identify sections to match against\n");
 		return NULL;
 	}
 
+	match = ao2_callback(candidates, 0, identify_match_cb, arg);
+	if (!match) {
+		return NULL;
+	}
+
+	endpoint = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "endpoint",
+		match->endpoint_name);
+	if (endpoint) {
+		ast_debug(3, "Identify '%s' SIP message matched to endpoint %s\n",
+			ast_sorcery_object_get_id(match), match->endpoint_name);
+	} else {
+		ast_log(LOG_WARNING, "Identify '%s' points to endpoint '%s' but endpoint could not be found\n",
+			ast_sorcery_object_get_id(match), match->endpoint_name);
+	}
+
+	ao2_ref(match, -1);
+	return endpoint;
+}
+
+static struct ast_sip_endpoint *ip_identify(pjsip_rx_data *rdata)
+{
+	struct ast_sockaddr addr = { { 0, } };
+
 	ast_sockaddr_parse(&addr, rdata->pkt_info.src_name, PARSE_PORT_FORBID);
 	ast_sockaddr_set_port(&addr, rdata->pkt_info.src_port);
 
-	match = ao2_callback(candidates, 0, ip_identify_match_check, &addr);
-	if (!match) {
-		ast_debug(3, "Identify checks by IP address failed to find match: '%s' did not match any identify section rules\n",
-				ast_sockaddr_stringify(&addr));
-		match = ao2_callback(candidates, 0, header_identify_match_check, rdata);
-		if (!match) {
-			return NULL;
-		}
-	}
-
-	endpoint = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "endpoint", match->endpoint_name);
-	if (endpoint) {
-		ast_debug(3, "Retrieved endpoint %s\n", ast_sorcery_object_get_id(endpoint));
-	} else {
-		ast_log(LOG_WARNING, "Identify section '%s' points to endpoint '%s' but endpoint could not be looked up\n",
-				ast_sorcery_object_get_id(match), match->endpoint_name);
-	}
-
-	return endpoint;
+	return common_identify(ip_identify_match_check, &addr);
 }
 
 static struct ast_sip_endpoint_identifier ip_identifier = {
 	.identify_endpoint = ip_identify,
+};
+
+static struct ast_sip_endpoint *header_identify(pjsip_rx_data *rdata)
+{
+	return common_identify(header_identify_match_check, rdata);
+}
+
+static struct ast_sip_endpoint_identifier header_identifier = {
+	.identify_endpoint = header_identify,
 };
 
 /*! \brief Helper function which performs a host lookup and adds result to identify match */
@@ -254,7 +279,7 @@ static int ip_identify_match_host_lookup(struct ip_identify_match *identify, con
 	}
 
 	for (i = 0; i < num_addrs; ++i) {
-		/* Check if the address is already in the list, if so don't bother adding it again */
+		/* Check if the address is already in the list, if so don't add it again */
 		if (identify->matches && (ast_apply_ha(identify->matches, &addrs[i]) != AST_SENSE_ALLOW)) {
 			continue;
 		}
@@ -276,14 +301,13 @@ static int ip_identify_match_host_lookup(struct ip_identify_match *identify, con
 }
 
 /*! \brief Helper function which performs an SRV lookup and then resolves the hostname */
-static int ip_identify_match_srv_lookup(struct ip_identify_match *identify, const char *prefix, const char *host)
+static int ip_identify_match_srv_lookup(struct ip_identify_match *identify, const char *prefix, const char *host, int results)
 {
 	char service[NI_MAXHOST];
 	struct srv_context *context = NULL;
 	int srv_ret;
 	const char *srvhost;
 	unsigned short srvport;
-	int results = 0;
 
 	snprintf(service, sizeof(service), "%s.%s", prefix, host);
 
@@ -365,10 +389,33 @@ static int ip_identify_apply(const struct ast_sorcery *sorcery, void *obj)
 	char *current_string;
 	struct ao2_iterator i;
 
+	/* Validate the identify object configuration */
+	if (ast_strlen_zero(identify->endpoint_name)) {
+		ast_log(LOG_ERROR, "Identify '%s' missing required endpoint name.\n",
+			ast_sorcery_object_get_id(identify));
+		return -1;
+	}
+	if (ast_strlen_zero(identify->match_header) /* No header to match */
+		/* and no static IP addresses with a mask */
+		&& !identify->matches
+		/* and no addresses to resolve */
+		&& (!identify->hosts || !ao2_container_count(identify->hosts))) {
+		ast_log(LOG_ERROR, "Identify '%s' is not configured to match anything.\n",
+			ast_sorcery_object_get_id(identify));
+		return -1;
+	}
+	if (!ast_strlen_zero(identify->match_header)
+		&& !strchr(identify->match_header, ':')) {
+		ast_log(LOG_ERROR, "Identify '%s' missing ':' separator in match_header '%s'.\n",
+			ast_sorcery_object_get_id(identify), identify->match_header);
+		return -1;
+	}
+
 	if (!identify->hosts) {
 		return 0;
 	}
 
+	/* Resolve the match addresses now */
 	i = ao2_iterator_init(identify->hosts, 0);
 	while ((current_string = ao2_iterator_next(&i))) {
 		struct ast_sockaddr address;
@@ -376,26 +423,29 @@ static int ip_identify_apply(const struct ast_sorcery *sorcery, void *obj)
 
 		/* If the provided string is not an IP address perform SRV resolution on it */
 		if (identify->srv_lookups && !ast_sockaddr_parse(&address, current_string, 0)) {
-			results = ip_identify_match_srv_lookup(identify, "_sip._udp", current_string);
+			results = ip_identify_match_srv_lookup(identify, "_sip._udp", current_string,
+				results);
 			if (results != -1) {
-				results += ip_identify_match_srv_lookup(identify, "_sip._tcp", current_string);
+				results = ip_identify_match_srv_lookup(identify, "_sip._tcp",
+					current_string, results);
 			}
 			if (results != -1) {
-				results += ip_identify_match_srv_lookup(identify, "_sips._tcp", current_string);
+				results = ip_identify_match_srv_lookup(identify, "_sips._tcp",
+					current_string, results);
 			}
 		}
 
-		/* If SRV falls fall back to a normal lookup on the host itself */
+		/* If SRV fails fall back to a normal lookup on the host itself */
 		if (!results) {
 			results = ip_identify_match_host_lookup(identify, current_string);
 		}
 
 		if (results == 0) {
-			ast_log(LOG_ERROR, "Address '%s' provided on ip endpoint identifier '%s' did not resolve to any address\n",
-				current_string, ast_sorcery_object_get_id(obj));
+			ast_log(LOG_WARNING, "Identify '%s' provided address '%s' did not resolve to any address\n",
+				ast_sorcery_object_get_id(identify), current_string);
 		} else if (results == -1) {
-			ast_log(LOG_ERROR, "An error occurred when adding resolution results of '%s' on '%s'\n",
-				current_string, ast_sorcery_object_get_id(obj));
+			ast_log(LOG_ERROR, "Identify '%s' failed when adding resolution results of '%s'\n",
+				ast_sorcery_object_get_id(identify), current_string);
 			ao2_ref(current_string, -1);
 			ao2_iterator_destroy(&i);
 			return -1;
@@ -450,47 +500,54 @@ static int sip_identify_to_ami(const struct ip_identify_match *identify,
 	return ast_sip_sorcery_object_to_ami(identify, buf);
 }
 
-static int find_identify_by_endpoint(void *obj, void *arg, int flags)
+static int send_identify_ami_event(void *obj, void *arg, void *data, int flags)
 {
 	struct ip_identify_match *identify = obj;
 	const char *endpoint_name = arg;
+	struct ast_sip_ami *ami = data;
+	struct ast_str *buf;
 
-	return strcmp(identify->endpoint_name, endpoint_name) ? 0 : CMP_MATCH;
+	/* Build AMI event */
+	buf = ast_sip_create_ami_event("IdentifyDetail", ami);
+	if (!buf) {
+		return CMP_STOP;
+	}
+	if (sip_identify_to_ami(identify, &buf)) {
+		ast_free(buf);
+		return CMP_STOP;
+	}
+	ast_str_append(&buf, 0, "EndpointName: %s\r\n", endpoint_name);
+
+	/* Send AMI event */
+	astman_append(ami->s, "%s\r\n", ast_str_buffer(buf));
+	++ami->count;
+
+	ast_free(buf);
+	return 0;
 }
 
 static int format_ami_endpoint_identify(const struct ast_sip_endpoint *endpoint,
 					struct ast_sip_ami *ami)
 {
-	RAII_VAR(struct ao2_container *, identifies, NULL, ao2_cleanup);
-	RAII_VAR(struct ip_identify_match *, identify, NULL, ao2_cleanup);
-	RAII_VAR(struct ast_str *, buf, NULL, ast_free);
+	struct ao2_container *identifies;
+	struct ast_variable fields = {
+		.name = "endpoint",
+		.value = ast_sorcery_object_get_id(endpoint),
+	};
 
 	identifies = ast_sorcery_retrieve_by_fields(ast_sip_get_sorcery(), "identify",
-		AST_RETRIEVE_FLAG_MULTIPLE | AST_RETRIEVE_FLAG_ALL, NULL);
+		AST_RETRIEVE_FLAG_MULTIPLE, &fields);
 	if (!identifies) {
 		return -1;
 	}
 
-	identify = ao2_callback(identifies, 0, find_identify_by_endpoint,
-		(void *) ast_sorcery_object_get_id(endpoint));
-	if (!identify) {
-		return 1;
-	}
+	/* Build and send any found identify object's AMI IdentifyDetail event. */
+	ao2_callback_data(identifies, OBJ_MULTIPLE | OBJ_NODATA,
+		send_identify_ami_event,
+		(void *) ast_sorcery_object_get_id(endpoint),
+		ami);
 
-	if (!(buf = ast_sip_create_ami_event("IdentifyDetail", ami))) {
-		return -1;
-	}
-
-	if (sip_identify_to_ami(identify, &buf)) {
-		return -1;
-	}
-
-	ast_str_append(&buf, 0, "EndpointName: %s\r\n",
-		ast_sorcery_object_get_id(endpoint));
-
-	astman_append(ami->s, "%s\r\n", ast_str_buffer(buf));
-	ami->count++;
-
+	ao2_ref(identifies, -1);
 	return 0;
 }
 
@@ -677,6 +734,7 @@ static int load_module(void)
 	ast_sorcery_load_object(ast_sip_get_sorcery(), "identify");
 
 	ast_sip_register_endpoint_identifier_with_name(&ip_identifier, "ip");
+	ast_sip_register_endpoint_identifier_with_name(&header_identifier, "header");
 	ast_sip_register_endpoint_formatter(&endpoint_identify_formatter);
 
 	cli_formatter = ao2_alloc(sizeof(struct ast_sip_cli_formatter_entry), NULL);

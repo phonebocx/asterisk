@@ -104,8 +104,11 @@ export PATCH
 export SED
 export NM
 
-# makeopts is required unless the goal is clean or distclean
-ifeq ($(findstring clean,$(MAKECMDGOALS)),)
+# makeopts is required unless the goal is just {dist{-}}clean
+ifeq ($(MAKECMDGOALS),clean)
+else ifeq ($(MAKECMDGOALS),distclean)
+else ifeq ($(MAKECMDGOALS),dist-clean)
+else
 include makeopts
 endif
 
@@ -210,7 +213,9 @@ ifeq ($(AST_DEVMODE),yes)
   ifeq ($(AST_DEVMODE_STRICT),yes)
     _ASTCFLAGS+=-Wshadow
   endif
-  ADDL_TARGETS+=validate-docs
+  ifneq ($(DISABLE_XMLDOC),yes)
+    ADDL_TARGETS+=validate-docs
+  endif
 endif
 
 ifneq ($(findstring BSD,$(OSARCH)),)
@@ -246,6 +251,14 @@ endif
 
 ifneq ($(wildcard .svn),)
   ASTERISKVERSIONNUM:=999999
+endif
+
+ifneq ($(DISABLE_XMLDOC),yes)
+  CORE_XMLDOC=doc/core-en_US.xml
+  FULL_XMLDOC=doc/full-en_US.xml
+else
+  CORE_XMLDOC=
+  FULL_XMLDOC=
 endif
 
 _ASTCFLAGS+=$(OPTIONS)
@@ -328,9 +341,9 @@ full: _full
 	@echo " +-------------------------------------------+"
 
 
-_all: makeopts $(SUBDIRS) doc/core-en_US.xml $(ADDL_TARGETS)
+_all: makeopts $(SUBDIRS) $(CORE_XMLDOC) $(ADDL_TARGETS)
 
-_full: makeopts $(SUBDIRS) doc/full-en_US.xml $(ADDL_TARGETS)
+_full: makeopts $(SUBDIRS) $(FULL_XMLDOC) $(ADDL_TARGETS)
 
 makeopts: configure
 	@echo "****"
@@ -425,7 +438,7 @@ distclean: $(SUBDIRS_DIST_CLEAN) _clean
 	rm -f doc/asterisk-ng-doxygen
 	rm -f build_tools/menuselect-deps
 
-datafiles: _all doc/core-en_US.xml
+datafiles: _all $(CORE_XMLDOC)
 	CFLAGS="$(_ASTCFLAGS) $(ASTCFLAGS)" build_tools/mkpkgconfig "$(DESTDIR)$(libdir)/pkgconfig";
 
 #	# Recursively install contents of the static-http directory, in case
@@ -437,8 +450,10 @@ datafiles: _all doc/core-en_US.xml
 			$(INSTALL) -m 644 $$x "$(DESTDIR)$(ASTDATADIR)/$$x" ; \
 		fi \
 	done
+ifneq ($(DISABLE_XMLDOC),yes)
 	$(INSTALL) -m 644 doc/core-en_US.xml "$(DESTDIR)$(ASTDATADIR)/static-http";
 	$(INSTALL) -m 644 doc/appdocsxml.xslt "$(DESTDIR)$(ASTDATADIR)/static-http";
+endif
 	if [ -d doc/tex/asterisk ] ; then \
 		$(INSTALL) -d "$(DESTDIR)$(ASTDATADIR)/static-http/docs" ; \
 		for n in doc/tex/asterisk/* ; do \
@@ -567,9 +582,11 @@ bininstall: _all installdirs $(SUBDIRS_INSTALL) main-bininstall
 		for h in $(OLDHEADERS); do rm -f "$(DESTDIR)$(ASTHEADERDIR)/$$h"; done \
 	fi
 
+ifneq ($(DISABLE_XMLDOC),yes)
 	$(INSTALL) -m 644 doc/core-*.xml "$(DESTDIR)$(ASTDATADIR)/documentation"
 	$(INSTALL) -m 644 doc/appdocsxml.xslt "$(DESTDIR)$(ASTDATADIR)/documentation"
 	$(INSTALL) -m 644 doc/appdocsxml.dtd "$(DESTDIR)$(ASTDATADIR)/documentation"
+endif
 	$(INSTALL) -m 644 doc/asterisk.8 "$(DESTDIR)$(ASTMANDIR)/man8"
 	$(INSTALL) -m 644 doc/astdb*.8 "$(DESTDIR)$(ASTMANDIR)/man8"
 	$(INSTALL) -m 644 contrib/scripts/astgenkey.8 "$(DESTDIR)$(ASTMANDIR)/man8"
@@ -588,7 +605,12 @@ $(SUBDIRS_INSTALL):
 
 NEWMODS:=$(foreach d,$(MOD_SUBDIRS),$(notdir $(wildcard $(d)/*.so)))
 OLDMODS=$(filter-out $(NEWMODS) $(notdir $(DESTDIR)$(ASTMODDIR)),$(notdir $(wildcard $(DESTDIR)$(ASTMODDIR)/*.so)))
-BADMODS=$(strip $(filter-out $(shell ./build_tools/list_valid_installed_externals),$(OLDMODS)))
+ifneq ($(BASH),:)
+	FILMODS=$(filter-out $(shell ./build_tools/list_valid_installed_externals),$(OLDMODS))
+else
+	FILMODS=$(OLDMODS)
+endif
+BADMODS=$(strip $(FILMODS))
 
 oldmodcheck:
 	@if [ -n "$(BADMODS)" ]; then \
@@ -611,7 +633,7 @@ oldmodcheck:
 ld-cache-update:
 ifneq ($(LDCONFIG),)
 ifeq ($(DESTDIR),)  # DESTDIR means binary archive creation; ldconfig should be run on postinst
-	@if [ $${EUID} -eq 0 ] ; then \
+	@if [ $$(id -u) -eq 0 ] ; then \
 		$(LDCONFIG) "$(ASTLIBDIR)/" ; \
 	else \
 		echo " WARNING WARNING WARNING" ;\
@@ -956,7 +978,7 @@ ifeq ($(HAVE_DAHDI),1)
 endif
 	$(MAKE) -C sounds uninstall
 ifneq ($(LDCONFIG),)
-	$(LDCONFIG) || :
+	$(LDCONFIG) "$(ASTLIBDIR)/" || :
 endif
 
 uninstall: _uninstall
@@ -1076,11 +1098,9 @@ check-alembic: makeopts
 .PHONY: _all
 .PHONY: full
 .PHONY: _full
-.PHONY: prereqs
 .PHONY: uninstall
 .PHONY: _uninstall
 .PHONY: uninstall-all
-.PHONY: dont-optimize
 .PHONY: badshell
 .PHONY: installdirs
 .PHONY: validate-docs
@@ -1098,3 +1118,5 @@ check-alembic: makeopts
 
 FORCE:
 
+# This only stops targets within the root Makefile from building in parallel.
+.NOTPARALLEL:

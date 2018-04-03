@@ -511,6 +511,11 @@ static struct ast_channel *chan_pjsip_new(struct ast_sip_session *session, int s
 	ast_party_id_copy(&ast_channel_caller(chan)->id, &session->id);
 	ast_party_id_copy(&ast_channel_caller(chan)->ani, &session->id);
 
+	if (!ast_strlen_zero(exten)) {
+		/* Set provided DNID on the new channel. */
+		ast_channel_dialed(chan)->number.str = ast_strdup(exten);
+	}
+
 	ast_channel_priority_set(chan, 1);
 
 	ast_channel_callgroup_set(chan, session->endpoint->pickup.callgroup);
@@ -583,7 +588,19 @@ static int answer(void *data)
 	pjsip_inv_dec_ref(session->inv_session);
 #endif
 
-	return (status == PJ_SUCCESS) ? 0 : -1;
+	if (status != PJ_SUCCESS) {
+		char err[PJ_ERR_MSG_SIZE];
+
+		pj_strerror(status, err, sizeof(err));
+		ast_log(LOG_WARNING,"Cannot answer '%s': %s\n",
+			ast_channel_name(session->channel), err);
+		/*
+		 * Return this value so we can distinguish between this
+		 * failure and the threadpool synchronous push failing.
+		 */
+		return -2;
+	}
+	return 0;
 }
 
 /*! \brief Function called by core when we should answer a PJSIP session */
@@ -591,6 +608,7 @@ static int chan_pjsip_answer(struct ast_channel *ast)
 {
 	struct ast_sip_channel_pvt *channel = ast_channel_tech_pvt(ast);
 	struct ast_sip_session *session;
+	int res;
 
 	if (ast_channel_state(ast) == AST_STATE_UP) {
 		return 0;
@@ -611,11 +629,15 @@ static int chan_pjsip_answer(struct ast_channel *ast)
 	   can occur between this thread and bridging (specifically when native bridging
 	   attempts to do direct media) */
 	ast_channel_unlock(ast);
-	if (ast_sip_push_task_synchronous(session->serializer, answer, session)) {
-		ast_log(LOG_WARNING, "Unable to push answer task to the threadpool. Cannot answer call\n");
+	res = ast_sip_push_task_synchronous(session->serializer, answer, session);
+	if (res) {
+		if (res == -1) {
+			ast_log(LOG_ERROR,"Cannot answer '%s': Unable to push answer task to the threadpool.\n",
+				ast_channel_name(session->channel));
 #ifdef HAVE_PJSIP_INV_SESSION_REF
-		pjsip_inv_dec_ref(session->inv_session);
+			pjsip_inv_dec_ref(session->inv_session);
 #endif
+		}
 		ao2_ref(session, -1);
 		ast_channel_lock(ast);
 		return -1;
@@ -680,7 +702,7 @@ static struct ast_frame *chan_pjsip_cng_tone_detected(struct ast_sip_session *se
 }
 
 /*!
- * \brief Function called by core to read any waiting frames 
+ * \brief Function called by core to read any waiting frames
  *
  * \note The channel is already locked.
  */
@@ -2110,7 +2132,7 @@ static int request(void *obj)
 	struct request_data *req_data = obj;
 	struct ast_sip_session *session = NULL;
 	char *tmp = ast_strdupa(req_data->dest), *endpoint_name = NULL, *request_user = NULL;
-	RAII_VAR(struct ast_sip_endpoint *, endpoint, NULL, ao2_cleanup);
+	struct ast_sip_endpoint *endpoint;
 
 	AST_DECLARE_APP_ARGS(args,
 		AST_APP_ARG(endpoint);
@@ -2135,10 +2157,18 @@ static int request(void *obj)
 		}
 
 		if (ast_strlen_zero(endpoint_name)) {
-			ast_log(LOG_ERROR, "Unable to create PJSIP channel with empty endpoint name\n");
+			if (request_user) {
+				ast_log(LOG_ERROR, "Unable to create PJSIP channel with empty endpoint name: %s@<endpoint-name>\n",
+					request_user);
+			} else {
+				ast_log(LOG_ERROR, "Unable to create PJSIP channel with empty endpoint name\n");
+			}
 			req_data->cause = AST_CAUSE_CHANNEL_UNACCEPTABLE;
 			return -1;
-		} else if (!(endpoint = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "endpoint", endpoint_name))) {
+		}
+		endpoint = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "endpoint",
+			endpoint_name);
+		if (!endpoint) {
 			ast_log(LOG_ERROR, "Unable to create PJSIP channel - endpoint '%s' was not found\n", endpoint_name);
 			req_data->cause = AST_CAUSE_NO_ROUTE_DESTINATION;
 			return -1;
@@ -2150,23 +2180,38 @@ static int request(void *obj)
 			ast_log(LOG_ERROR, "Unable to create PJSIP channel with empty endpoint name\n");
 			req_data->cause = AST_CAUSE_CHANNEL_UNACCEPTABLE;
 			return -1;
-		} else if (!(endpoint = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "endpoint", endpoint_name))) {
+		}
+		endpoint = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "endpoint",
+			endpoint_name);
+		if (!endpoint) {
 			/* It seems it's not a multi-domain endpoint or single endpoint exact match,
 			 * it's possible that it's a SIP trunk with a specified user (user@trunkname),
 			 * so extract the user before @ sign.
 			 */
-			if ((endpoint_name = strchr(args.endpoint, '@'))) {
-				request_user = args.endpoint;
-				*endpoint_name++ = '\0';
+			endpoint_name = strchr(args.endpoint, '@');
+			if (!endpoint_name) {
+				/*
+				 * Couldn't find an '@' so it had to be an endpoint
+				 * name that doesn't exist.
+				 */
+				ast_log(LOG_ERROR, "Unable to create PJSIP channel - endpoint '%s' was not found\n",
+					args.endpoint);
+				req_data->cause = AST_CAUSE_NO_ROUTE_DESTINATION;
+				return -1;
 			}
+			request_user = args.endpoint;
+			*endpoint_name++ = '\0';
 
 			if (ast_strlen_zero(endpoint_name)) {
-				ast_log(LOG_ERROR, "Unable to create PJSIP channel with empty endpoint name\n");
+				ast_log(LOG_ERROR, "Unable to create PJSIP channel with empty endpoint name: %s@<endpoint-name>\n",
+					request_user);
 				req_data->cause = AST_CAUSE_CHANNEL_UNACCEPTABLE;
 				return -1;
 			}
 
-			if (!(endpoint = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "endpoint", endpoint_name))) {
+			endpoint = ast_sorcery_retrieve_by_id(ast_sip_get_sorcery(), "endpoint",
+				endpoint_name);
+			if (!endpoint) {
 				ast_log(LOG_ERROR, "Unable to create PJSIP channel - endpoint '%s' was not found\n", endpoint_name);
 				req_data->cause = AST_CAUSE_NO_ROUTE_DESTINATION;
 				return -1;
@@ -2174,7 +2219,10 @@ static int request(void *obj)
 		}
 	}
 
-	if (!(session = ast_sip_session_create_outgoing(endpoint, NULL, args.aor, request_user, req_data->caps))) {
+	session = ast_sip_session_create_outgoing(endpoint, NULL, args.aor, request_user,
+		req_data->caps);
+	ao2_ref(endpoint, -1);
+	if (!session) {
 		ast_log(LOG_ERROR, "Failed to create outgoing session to endpoint '%s'\n", endpoint_name);
 		req_data->cause = AST_CAUSE_NO_ROUTE_DESTINATION;
 		return -1;
@@ -2193,6 +2241,8 @@ static struct ast_channel *chan_pjsip_request(const char *type, struct ast_forma
 
 	req_data.caps = cap;
 	req_data.dest = data;
+	/* Default failure value in case ast_sip_push_task_synchronous() itself fails. */
+	req_data.cause = AST_CAUSE_FAILURE;
 
 	if (ast_sip_push_task_synchronous(NULL, request, &req_data)) {
 		*cause = req_data.cause;

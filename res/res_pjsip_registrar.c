@@ -25,6 +25,7 @@
 
 #include "asterisk.h"
 
+#include <signal.h>
 #include <pjsip.h>
 #include <pjsip_ua.h>
 
@@ -327,6 +328,15 @@ struct contact_transport_monitor {
 	char aor_name[0];
 };
 
+static int contact_transport_monitor_matcher(void *a, void *b)
+{
+	struct contact_transport_monitor *ma = a;
+	struct contact_transport_monitor *mb = b;
+
+	return strcmp(ma->aor_name, mb->aor_name) == 0
+		&& strcmp(ma->contact_name, mb->contact_name) == 0;
+}
+
 static void register_contact_transport_shutdown_cb(void *data)
 {
 	struct contact_transport_monitor *monitor = data;
@@ -578,8 +588,7 @@ static void register_aor_core(pjsip_rx_data *rdata,
 
 		contact = ao2_callback(contacts, OBJ_UNLINK, registrar_find_contact, &details);
 		if (!contact) {
-			int prune_on_boot = 0;
-			pj_str_t host_name;
+			int prune_on_boot;
 
 			/* If they are actually trying to delete a contact that does not exist... be forgiving */
 			if (!expiration) {
@@ -588,35 +597,7 @@ static void register_aor_core(pjsip_rx_data *rdata,
 				continue;
 			}
 
-			/* Determine if the contact cannot survive a restart/boot. */
-			if (details.uri->port == rdata->pkt_info.src_port
-				&& !pj_strcmp(&details.uri->host,
-					pj_cstr(&host_name, rdata->pkt_info.src_name))
-				/* We have already checked if the URI scheme is sip: or sips: */
-				&& PJSIP_TRANSPORT_IS_RELIABLE(rdata->tp_info.transport)) {
-				pj_str_t type_name;
-
-				/* Determine the transport parameter value */
-				if (!strcasecmp("WSS", rdata->tp_info.transport->type_name)) {
-					/* WSS is special, as it needs to be ws. */
-					pj_cstr(&type_name, "ws");
-				} else {
-					pj_cstr(&type_name, rdata->tp_info.transport->type_name);
-				}
-
-				if (!pj_stricmp(&details.uri->transport_param, &type_name)
-					&& (endpoint->nat.rewrite_contact
-						/* Websockets are always rewritten */
-						|| !pj_stricmp(&details.uri->transport_param,
-							pj_cstr(&type_name, "ws")))) {
-					/*
-					 * The contact was rewritten to the reliable transport's
-					 * source address.  Disconnecting the transport for any
-					 * reason invalidates the contact.
-					 */
-					prune_on_boot = 1;
-				}
-			}
+			prune_on_boot = !ast_sip_will_uri_survive_restart(details.uri, endpoint, rdata);
 
 			contact = ast_sip_location_create_contact(aor, contact_uri,
 				ast_tvadd(ast_tvnow(), ast_samp2tv(expiration, 1)),
@@ -703,6 +684,21 @@ static void register_aor_core(pjsip_rx_data *rdata,
 					contact_update->user_agent);
 			ao2_cleanup(contact_update);
 		} else {
+			if (contact->prune_on_boot) {
+				struct contact_transport_monitor *monitor;
+				const char *contact_name =
+					ast_sorcery_object_get_id(contact);
+
+				monitor = ast_alloca(sizeof(*monitor) + 2 + strlen(aor_name)
+					+ strlen(contact_name));
+				strcpy(monitor->aor_name, aor_name);/* Safe */
+				monitor->contact_name = monitor->aor_name + strlen(aor_name) + 1;
+				strcpy(monitor->contact_name, contact_name);/* Safe */
+
+				ast_sip_transport_monitor_unregister(rdata->tp_info.transport,
+					register_contact_transport_shutdown_cb, monitor, contact_transport_monitor_matcher);
+			}
+
 			/* We want to report the user agent that was actually in the removed contact */
 			ast_sip_location_delete_contact(contact);
 			ast_verb(3, "Removed contact '%s' from AOR '%s' due to request\n", contact_uri, aor_name);
@@ -1101,6 +1097,106 @@ static pjsip_module registrar_module = {
 	.on_rx_request = registrar_on_rx_request,
 };
 
+/*! \brief Thread keeping things alive */
+static pthread_t check_thread = AST_PTHREADT_NULL;
+
+/*! \brief The global interval at which to check for contact expiration */
+static unsigned int check_interval;
+
+/*! \brief Callback function which deletes a contact */
+static int expire_contact(void *obj, void *arg, int flags)
+{
+	struct ast_sip_contact *contact = obj;
+	struct ast_named_lock *lock;
+
+	lock = ast_named_lock_get(AST_NAMED_LOCK_TYPE_MUTEX, "aor", contact->aor);
+	if (!lock) {
+		return 0;
+	}
+
+	/*
+	 * We need to check the expiration again with the aor lock held
+	 * in case another thread is attempting to renew the contact.
+	 */
+	ao2_lock(lock);
+	if (ast_tvdiff_ms(ast_tvnow(), contact->expiration_time) > 0) {
+		if (contact->prune_on_boot) {
+			struct contact_transport_monitor *monitor;
+			const char *contact_name = ast_sorcery_object_get_id(contact);
+
+			monitor = ast_alloca(sizeof(*monitor) + 2 + strlen(contact->aor)
+				+ strlen(contact_name));
+			strcpy(monitor->aor_name, contact->aor);/* Safe */
+			monitor->contact_name = monitor->aor_name + strlen(contact->aor) + 1;
+			strcpy(monitor->contact_name, contact_name);/* Safe */
+
+			ast_sip_transport_monitor_unregister_all(register_contact_transport_shutdown_cb,
+				monitor, contact_transport_monitor_matcher);
+		}
+		ast_sip_location_delete_contact(contact);
+	}
+	ao2_unlock(lock);
+	ast_named_lock_put(lock);
+
+	return 0;
+}
+
+static void *check_expiration_thread(void *data)
+{
+	struct ao2_container *contacts;
+	struct ast_variable *var;
+	char *time = alloca(64);
+
+	while (check_interval) {
+		sleep(check_interval);
+
+		sprintf(time, "%ld", ast_tvnow().tv_sec);
+		var = ast_variable_new("expiration_time <=", time, "");
+
+		ast_debug(4, "Woke up at %s  Interval: %d\n", time, check_interval);
+
+		contacts = ast_sorcery_retrieve_by_fields(ast_sip_get_sorcery(), "contact",
+			AST_RETRIEVE_FLAG_MULTIPLE, var);
+
+		ast_variables_destroy(var);
+		if (contacts) {
+			ast_debug(3, "Expiring %d contacts\n", ao2_container_count(contacts));
+			ao2_callback(contacts, OBJ_NODATA, expire_contact, NULL);
+			ao2_ref(contacts, -1);
+		}
+	}
+
+	return NULL;
+}
+
+static void expiration_global_loaded(const char *object_type)
+{
+	check_interval = ast_sip_get_contact_expiration_check_interval();
+
+	/* Observer calls are serialized so this is safe without it's own lock */
+	if (check_interval) {
+		if (check_thread == AST_PTHREADT_NULL) {
+			if (ast_pthread_create_background(&check_thread, NULL, check_expiration_thread, NULL)) {
+				ast_log(LOG_ERROR, "Could not create thread for checking contact expiration.\n");
+				return;
+			}
+			ast_debug(3, "Interval = %d, starting thread\n", check_interval);
+		}
+	} else {
+		if (check_thread != AST_PTHREADT_NULL) {
+			pthread_kill(check_thread, SIGURG);
+			pthread_join(check_thread, NULL);
+			check_thread = AST_PTHREADT_NULL;
+			ast_debug(3, "Interval = 0, shutting thread down\n");
+		}
+	}
+}
+
+/*! \brief Observer which is used to update our interval when the global setting changes */
+static struct ast_sorcery_observer expiration_global_observer = {
+	.loaded = expiration_global_loaded,
+};
+
 static int load_module(void)
 {
 	const pj_str_t STR_REGISTER = { "REGISTER", 8 };
@@ -1127,15 +1223,28 @@ static int load_module(void)
 	ast_manager_register_xml(AMI_SHOW_REGISTRATION_CONTACT_STATUSES, EVENT_FLAG_SYSTEM,
 				 ami_show_registration_contact_statuses);
 
+	ast_sorcery_observer_add(ast_sip_get_sorcery(), "global", &expiration_global_observer);
+	ast_sorcery_reload_object(ast_sip_get_sorcery(), "global");
+
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
 static int unload_module(void)
 {
+	if (check_thread != AST_PTHREADT_NULL) {
+		check_interval = 0;
+		pthread_kill(check_thread, SIGURG);
+		pthread_join(check_thread, NULL);
+
+		check_thread = AST_PTHREADT_NULL;
+	}
+
+	ast_sorcery_observer_remove(ast_sip_get_sorcery(), "global", &expiration_global_observer);
+
 	ast_manager_unregister(AMI_SHOW_REGISTRATIONS);
 	ast_manager_unregister(AMI_SHOW_REGISTRATION_CONTACT_STATUSES);
 	ast_sip_unregister_service(&registrar_module);
-	ast_sip_transport_monitor_unregister_all(register_contact_transport_shutdown_cb);
+	ast_sip_transport_monitor_unregister_all(register_contact_transport_shutdown_cb, NULL, NULL);
 	return 0;
 }
 

@@ -1811,6 +1811,52 @@ UPDATE alembic_version SET version_num='a1698e8bb9c5' WHERE alembic_version.vers
 
 GO
 
+-- Running upgrade a1698e8bb9c5 -> 20abce6d1e3c
+
+ALTER TABLE ps_endpoints DROP CONSTRAINT ck_ps_endpoints_identify_by_pjsip_identify_by_values;
+
+GO
+
+ALTER TABLE ps_endpoints ALTER COLUMN identify_by VARCHAR(13);
+
+GO
+
+ALTER TABLE ps_endpoints ADD CONSTRAINT pjsip_identify_by_values CHECK (identify_by IN ('username', 'auth_username', 'ip'));
+
+GO
+
+UPDATE alembic_version SET version_num='20abce6d1e3c' WHERE alembic_version.version_num = 'a1698e8bb9c5';
+
+GO
+
+-- Running upgrade 20abce6d1e3c -> 52798ad97bdf
+
+ALTER TABLE ps_endpoints DROP CONSTRAINT ck_ps_endpoints_identify_by_pjsip_identify_by_values;
+
+GO
+
+ALTER TABLE ps_endpoints ALTER COLUMN identify_by VARCHAR(80);
+
+GO
+
+UPDATE alembic_version SET version_num='52798ad97bdf' WHERE alembic_version.version_num = '20abce6d1e3c';
+
+GO
+
+-- Running upgrade 52798ad97bdf -> d3e4284f8707
+
+ALTER TABLE ps_subscription_persistence ADD prune_on_boot VARCHAR(3) NULL;
+
+GO
+
+ALTER TABLE ps_subscription_persistence ADD CONSTRAINT yesno_values CHECK (prune_on_boot IN ('yes', 'no'));
+
+GO
+
+UPDATE alembic_version SET version_num='d3e4284f8707' WHERE alembic_version.version_num = '52798ad97bdf';
+
+GO
+
 COMMIT;
 
 GO

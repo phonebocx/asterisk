@@ -98,7 +98,7 @@ static void normalise_history(plc_state_t *s)
 	if (s->buf_ptr == 0)
 		return;
 	memcpy(tmp, s->history, sizeof(int16_t)*s->buf_ptr);
-	memcpy(s->history, s->history + s->buf_ptr, sizeof(int16_t) * (PLC_HISTORY_LEN - s->buf_ptr));
+	memmove(s->history, s->history + s->buf_ptr, sizeof(int16_t) * (PLC_HISTORY_LEN - s->buf_ptr));
 	memcpy(s->history + PLC_HISTORY_LEN - s->buf_ptr, tmp, sizeof(int16_t) * s->buf_ptr);
 	s->buf_ptr = 0;
 }
@@ -138,7 +138,7 @@ int plc_rx(plc_state_t *s, int16_t amp[], int len)
 	float old_weight;
 	float new_weight;
 	float gain;
-	
+
 	if (s->missing_samples) {
 		/* Although we have a real signal, we need to smooth it to fit well
 		with the synthetic signal we used for the previous block */

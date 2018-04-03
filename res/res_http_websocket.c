@@ -87,18 +87,19 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 
 /*! \brief Structure definition for session */
 struct ast_websocket {
-	FILE *f;                          /*!< Pointer to the file instance used for writing and reading */
-	int fd;                           /*!< File descriptor for the session, only used for polling */
-	struct ast_sockaddr address;      /*!< Address of the remote client */
-	enum ast_websocket_opcode opcode; /*!< Cached opcode for multi-frame messages */
-	size_t payload_len;               /*!< Length of the payload */
-	char *payload;                    /*!< Pointer to the payload */
-	size_t reconstruct;               /*!< Number of bytes before a reconstructed payload will be returned and a new one started */
-	int timeout;                      /*!< The timeout for operations on the socket */
-	unsigned int secure:1;            /*!< Bit to indicate that the transport is secure */
-	unsigned int closing:1;           /*!< Bit to indicate that the session is in the process of being closed */
-	unsigned int close_sent:1;        /*!< Bit to indicate that the session close opcode has been sent and no further data will be sent */
-	struct websocket_client *client;  /*!< Client object when connected as a client websocket */
+	FILE *f;                            /*!< Pointer to the file instance used for writing and reading */
+	int fd;                             /*!< File descriptor for the session, only used for polling */
+	struct ast_sockaddr remote_address; /*!< Address of the remote client */
+	struct ast_sockaddr local_address;  /*!< Our local address */
+	enum ast_websocket_opcode opcode;   /*!< Cached opcode for multi-frame messages */
+	size_t payload_len;                 /*!< Length of the payload */
+	char *payload;                      /*!< Pointer to the payload */
+	size_t reconstruct;                 /*!< Number of bytes before a reconstructed payload will be returned and a new one started */
+	int timeout;                        /*!< The timeout for operations on the socket */
+	unsigned int secure:1;              /*!< Bit to indicate that the transport is secure */
+	unsigned int closing:1;             /*!< Bit to indicate that the session is in the process of being closed */
+	unsigned int close_sent:1;          /*!< Bit to indicate that the session close opcode has been sent and no further data will be sent */
+	struct websocket_client *client;    /*!< Client object when connected as a client websocket */
 };
 
 /*! \brief Hashing function for protocols */
@@ -183,7 +184,7 @@ static void session_destroy_fn(void *obj)
 		if (session->f) {
 			fclose(session->f);
 			ast_verb(2, "WebSocket connection %s '%s' closed\n", session->client ? "to" : "from",
-				ast_sockaddr_stringify(&session->address));
+				ast_sockaddr_stringify(&session->remote_address));
 		}
 	}
 
@@ -290,6 +291,7 @@ int AST_OPTIONAL_API_NAME(ast_websocket_server_remove_protocol)(struct ast_webso
 /*! \brief Close function for websocket session */
 int AST_OPTIONAL_API_NAME(ast_websocket_close)(struct ast_websocket *session, uint16_t reason)
 {
+	enum ast_websocket_opcode opcode = AST_WEBSOCKET_OPCODE_CLOSE;
 	char frame[4] = { 0, }; /* The header is 2 bytes and the reason code takes up another 2 bytes */
 	int res;
 
@@ -297,7 +299,7 @@ int AST_OPTIONAL_API_NAME(ast_websocket_close)(struct ast_websocket *session, ui
 		return 0;
 	}
 
-	frame[0] = AST_WEBSOCKET_OPCODE_CLOSE | 0x80;
+	frame[0] = opcode | 0x80;
 	frame[1] = 2; /* The reason code is always 2 bytes */
 
 	/* If no reason has been specified assume 1000 which is normal closure */
@@ -316,7 +318,7 @@ int AST_OPTIONAL_API_NAME(ast_websocket_close)(struct ast_websocket *session, ui
 		fclose(session->f);
 		session->f = NULL;
 		ast_verb(2, "WebSocket connection %s '%s' forcefully closed due to fatal write error\n",
-			session->client ? "to" : "from", ast_sockaddr_stringify(&session->address));
+			session->client ? "to" : "from", ast_sockaddr_stringify(&session->remote_address));
 	}
 
 	ao2_unlock(session);
@@ -429,7 +431,12 @@ int AST_OPTIONAL_API_NAME(ast_websocket_fd)(struct ast_websocket *session)
 
 struct ast_sockaddr * AST_OPTIONAL_API_NAME(ast_websocket_remote_address)(struct ast_websocket *session)
 {
-	return &session->address;
+	return &session->remote_address;
+}
+
+struct ast_sockaddr * AST_OPTIONAL_API_NAME(ast_websocket_local_address)(struct ast_websocket *session)
+{
+	return &session->local_address;
 }
 
 int AST_OPTIONAL_API_NAME(ast_websocket_is_secure)(struct ast_websocket *session)
@@ -439,19 +446,7 @@ int AST_OPTIONAL_API_NAME(ast_websocket_is_secure)(struct ast_websocket *session
 
 int AST_OPTIONAL_API_NAME(ast_websocket_set_nonblock)(struct ast_websocket *session)
 {
-	int flags;
-
-	if ((flags = fcntl(session->fd, F_GETFL)) == -1) {
-		return -1;
-	}
-
-	flags |= O_NONBLOCK;
-
-	if ((flags = fcntl(session->fd, F_SETFL, flags)) == -1) {
-		return -1;
-	}
-
-	return 0;
+	return ast_fd_set_flags(session->fd, O_NONBLOCK);
 }
 
 int AST_OPTIONAL_API_NAME(ast_websocket_set_timeout)(struct ast_websocket *session, int timeout)
@@ -666,18 +661,27 @@ int AST_OPTIONAL_API_NAME(ast_websocket_read)(struct ast_websocket *session, cha
 			session->payload_len = 0;
 		}
 	} else if (*opcode == AST_WEBSOCKET_OPCODE_CLOSE) {
+		session->closing = 1;
+
 		/* Make the payload available so the user can look at the reason code if they so desire */
-		if ((*payload_len) && (new_payload = ast_realloc(session->payload, *payload_len))) {
-			if (ws_safe_read(session, &buf[frame_size], (*payload_len), opcode)) {
-				return -1;
-			}
-			session->payload = new_payload;
-			memcpy(session->payload, &buf[frame_size], *payload_len);
-			*payload = session->payload;
-			frame_size += (*payload_len);
+		if (!*payload_len) {
+			return 0;
 		}
 
-		session->closing = 1;
+		if (!(new_payload = ast_realloc(session->payload, *payload_len))) {
+			ast_log(LOG_WARNING, "Failed allocation: %p, %"PRIu64"\n",
+					session->payload, *payload_len);
+			*payload_len = 0;
+			return -1;
+		}
+
+		session->payload = new_payload;
+		if (ws_safe_read(session, &buf[frame_size], *payload_len, opcode)) {
+			return -1;
+		}
+		memcpy(session->payload, &buf[frame_size], *payload_len);
+		*payload = session->payload;
+		frame_size += *payload_len;
 	} else {
 		ast_log(LOG_WARNING, "WebSocket unknown opcode %u\n", *opcode);
 		/* We received an opcode that we don't understand, the RFC states that 1003 is for a type of data that can't be accepted... opcodes
@@ -890,12 +894,22 @@ int AST_OPTIONAL_API_NAME(ast_websocket_uri_cb)(struct ast_tcptls_session_instan
 		return 0;
 	}
 
+	/* Get our local address for the connected socket */
+	if (ast_getsockname(ser->fd, &session->local_address)) {
+		ast_log(LOG_WARNING, "WebSocket connection from '%s' could not be accepted - failed to get local address\n",
+			ast_sockaddr_stringify(&ser->remote_address));
+		websocket_bad_request(ser);
+		ao2_ref(session, -1);
+		ao2_ref(protocol_handler, -1);
+		return 0;
+	}
+
 	ast_verb(2, "WebSocket connection from '%s' for protocol '%s' accepted using version '%d'\n", ast_sockaddr_stringify(&ser->remote_address), protocol ? : "", version);
 
 	/* Populate the session with all the needed details */
 	session->f = ser->f;
 	session->fd = ser->fd;
-	ast_sockaddr_copy(&session->address, &ser->remote_address);
+	ast_sockaddr_copy(&session->remote_address, &ser->remote_address);
 	session->opcode = -1;
 	session->reconstruct = DEFAULT_RECONSTRUCTION_CEILING;
 	session->secure = ser->ssl ? 1 : 0;
@@ -928,17 +942,11 @@ static struct ast_http_uri websocketuri = {
 /*! \brief Simple echo implementation which echoes received text and binary frames */
 static void websocket_echo_callback(struct ast_websocket *session, struct ast_variable *parameters, struct ast_variable *headers)
 {
-	int flags, res;
+	int res;
 
 	ast_debug(1, "Entering WebSocket echo loop\n");
 
-	if ((flags = fcntl(ast_websocket_fd(session), F_GETFL)) == -1) {
-		goto end;
-	}
-
-	flags |= O_NONBLOCK;
-
-	if (fcntl(ast_websocket_fd(session), F_SETFL, flags) == -1) {
+	if (ast_fd_set_flags(ast_websocket_fd(session), O_NONBLOCK)) {
 		goto end;
 	}
 
@@ -1350,7 +1358,7 @@ static enum ast_websocket_result websocket_client_connect(struct ast_websocket *
 	ws->f = ws->client->ser->f;
 	ws->fd = ws->client->ser->fd;
 	ws->secure = ws->client->ser->ssl ? 1 : 0;
-	ast_sockaddr_copy(&ws->address, &ws->client->ser->remote_address);
+	ast_sockaddr_copy(&ws->remote_address, &ws->client->ser->remote_address);
 	return WS_OK;
 }
 
@@ -1438,6 +1446,9 @@ static int load_module(void)
 	}
 	ast_http_uri_link(&websocketuri);
 	websocket_add_protocol_internal("echo", websocket_echo_callback);
+
+	/* For Optional API. */
+	ast_module_shutdown_ref(ast_module_info->self);
 
 	return 0;
 }

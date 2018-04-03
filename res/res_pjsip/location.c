@@ -71,16 +71,17 @@ static void aor_deleted_observer(const void *object)
 {
 	const struct ast_sip_aor *aor = object;
 	const char *aor_id = ast_sorcery_object_get_id(object);
-	/* Give enough space for ^ at the beginning and ;@ at the end, since that is our object naming scheme */
-	char regex[strlen(aor_id) + 4];
+	/* Give enough space for ;@ at the end, since that is our object naming scheme */
+	size_t prefix_len = strlen(aor_id) + sizeof(";@") - 1;
+	char prefix[prefix_len + 1];
 	struct ao2_container *contacts;
 
 	if (aor->permanent_contacts) {
 		ao2_callback(aor->permanent_contacts, OBJ_NODATA | OBJ_MULTIPLE | OBJ_UNLINK, destroy_contact, NULL);
 	}
 
-	snprintf(regex, sizeof(regex), "^%s;@", aor_id);
-	if (!(contacts = ast_sorcery_retrieve_by_regex(ast_sip_get_sorcery(), "contact", regex))) {
+	sprintf(prefix, "%s;@", aor_id); /* Safe */
+	if (!(contacts = ast_sorcery_retrieve_by_prefix(ast_sip_get_sorcery(), "contact", prefix, prefix_len))) {
 		return;
 	}
 	/* Destroy any contacts that may still exist that were made for this AoR */
@@ -217,13 +218,13 @@ struct ao2_container *ast_sip_location_retrieve_aor_contacts_nolock(const struct
 struct ao2_container *ast_sip_location_retrieve_aor_contacts_nolock_filtered(const struct ast_sip_aor *aor,
 	unsigned int flags)
 {
-	/* Give enough space for ^ at the beginning and ;@ at the end, since that is our object naming scheme */
-	char regex[strlen(ast_sorcery_object_get_id(aor)) + 4];
+	/* Give enough space for ;@ at the end, since that is our object naming scheme */
+	size_t prefix_len = strlen(ast_sorcery_object_get_id(aor)) + sizeof(";@") - 1;
+	char prefix[prefix_len + 1];
 	struct ao2_container *contacts;
 
-	snprintf(regex, sizeof(regex), "^%s;@", ast_sorcery_object_get_id(aor));
-
-	if (!(contacts = ast_sorcery_retrieve_by_regex(ast_sip_get_sorcery(), "contact", regex))) {
+	sprintf(prefix, "%s;@", ast_sorcery_object_get_id(aor)); /* Safe */
+	if (!(contacts = ast_sorcery_retrieve_by_prefix(ast_sip_get_sorcery(), "contact", prefix, prefix_len))) {
 		return NULL;
 	}
 
@@ -1226,6 +1227,11 @@ static int contact_apply_handler(const struct ast_sorcery *sorcery, void *object
 	struct ast_sip_contact_status *status;
 	struct ast_sip_contact *contact = object;
 
+	if (ast_strlen_zero(contact->uri)) {
+		ast_log(LOG_ERROR, "A URI on dynamic contact '%s' is empty\n",
+			ast_sorcery_object_get_id(contact));
+		return -1;
+	}
 	status = ast_res_pjsip_find_or_create_contact_status(contact);
 	ao2_cleanup(status);
 
@@ -1341,4 +1347,3 @@ int ast_sip_destroy_sorcery_location(void)
 
 	return 0;
 }
-

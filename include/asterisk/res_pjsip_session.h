@@ -159,6 +159,8 @@ struct ast_sip_session {
 	unsigned int ended_while_deferred:1;
 	/*! DTMF mode to use with this session, from endpoint but can change */
 	enum ast_sip_dtmf_mode dtmf;
+	/*! Initial incoming INVITE Request-URI.  NULL otherwise. */
+	pjsip_uri *request_uri;
 };
 
 typedef int (*ast_sip_session_request_creation_cb)(struct ast_sip_session *session, pjsip_tx_data *tdata);
@@ -211,7 +213,7 @@ struct ast_sip_session_supplement {
 	 * This method will always be called from a SIP servant thread.
 	 */
 	void (*session_begin)(struct ast_sip_session *session);
-	/*! 
+	/*!
 	 * \brief Notification that the session has ended
 	 *
 	 * This method may or may not be called from a SIP servant thread. Do
@@ -241,7 +243,7 @@ struct ast_sip_session_supplement {
 	 * There is no guarantee that a channel will be present on the session when this is called.
 	 */
 	int (*incoming_request)(struct ast_sip_session *session, struct pjsip_rx_data *rdata);
-	/*! 
+	/*!
 	 * \brief Called on an incoming SIP response
 	 * This method is always called from a SIP servant thread.
 	 *
@@ -262,7 +264,7 @@ struct ast_sip_session_supplement {
 	 * This method is always called from a SIP servant thread.
 	 */
 	void (*outgoing_request)(struct ast_sip_session *session, struct pjsip_tx_data *tdata);
-	/*! 
+	/*!
 	 * \brief Called on an outgoing SIP response
 	 * This method is always called from a SIP servant thread.
 	 */
@@ -613,7 +615,7 @@ void ast_sip_session_remove_datastore(struct ast_sip_session *session, const cha
  * Note: The on_request_creation callback may or may not be called in the same
  * thread where this function is called. Request creation may need to be delayed
  * due to the current INVITE transaction state.
- * 
+ *
  * \param session The session on which the reinvite will be sent
  * \param on_request_creation Callback called when request is created
  * \param on_sdp_creation Callback called when SDP is created

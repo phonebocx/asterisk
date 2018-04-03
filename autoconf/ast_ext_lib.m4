@@ -39,7 +39,7 @@ AC_DEFUN([AST_EXT_LIB_SETUP],
 # AST_OPTION_ONLY([option name], [option variable], [option description], [default value])
 AC_DEFUN([AST_OPTION_ONLY],
 [
-AC_ARG_WITH([$1], AC_HELP_STRING([--with-$1=PATH], [use $3 in PATH]),
+AC_ARG_WITH([$1], AS_HELP_STRING([--with-$1=PATH], [use $3 in PATH]),
 	[
 	case ${withval} in
 	n|no)
@@ -117,15 +117,15 @@ if test "x${PBX_$1}" != "x1" -a "${USE_$1}" != "no"; then
          pbxlibdir="-L${$1_DIR}"
       fi
    fi
-   pbxfuncname="$3"
-   if test "x${pbxfuncname}" = "x" ; then   # empty lib, assume only headers
-      AST_$1_FOUND=yes
-   else
+   m4_ifval([$3], [
       ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
       CFLAGS="${CFLAGS} $6"
-      AC_CHECK_LIB([$2], [${pbxfuncname}], [AST_$1_FOUND=yes], [AST_$1_FOUND=no], [${pbxlibdir} $5])
+      AC_CHECK_LIB([$2], [$3], [AST_$1_FOUND=yes], [AST_$1_FOUND=no], [${pbxlibdir} $5])
       CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-   fi
+   ], [
+      # empty lib, assume only headers
+      AST_$1_FOUND=yes
+   ])
 
    # now check for the header.
    if test "${AST_$1_FOUND}" = "yes"; then
@@ -135,21 +135,24 @@ if test "x${PBX_$1}" != "x1" -a "${USE_$1}" != "no"; then
          $1_INCLUDE="-I${$1_DIR}/include"
       fi
       $1_INCLUDE="${$1_INCLUDE} $6"
-      if test "x$4" = "x" ; then	# no header, assume found
-         $1_HEADER_FOUND="1"
-      else				# check for the header
+      m4_ifval([$4], [
+         # check for the header
          ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
          CPPFLAGS="${CPPFLAGS} ${$1_INCLUDE}"
          AC_CHECK_HEADER([$4], [$1_HEADER_FOUND=1], [$1_HEADER_FOUND=0])
          CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-      fi
+      ], [
+         # no header, assume found
+         $1_HEADER_FOUND="1"
+      ])
       if test "x${$1_HEADER_FOUND}" = "x0" ; then
          $1_LIB=""
          $1_INCLUDE=""
       else
-         if test "x${pbxfuncname}" = "x" ; then		# only checking headers -> no library
+         m4_ifval([$3], [], [
+            # only checking headers -> no library
             $1_LIB=""
-         fi
+         ])
          PBX_$1=1
          cat >>confdefs.h <<_ACEOF
 [@%:@define] HAVE_$1 1

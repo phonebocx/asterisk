@@ -21,6 +21,7 @@
  */
 
 /*** MODULEINFO
+	<depend>res_calendar</depend>
 	<depend>neon</depend>
 	<depend>ical</depend>
 	<support_level>core</support_level>
@@ -161,7 +162,7 @@ static icalcomponent *fetch_icalendar(struct icalendar_pvt *pvt)
 	return comp;
 }
 
-static time_t icalfloat_to_timet(icaltimetype time) 
+static time_t icalfloat_to_timet(icaltimetype time)
 {
 	struct ast_tm tm = {0,};
 	struct timeval tv;

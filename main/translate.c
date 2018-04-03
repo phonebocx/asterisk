@@ -498,6 +498,7 @@ struct ast_trans_pvt *ast_translator_build_path(struct ast_format *dst, struct a
 			ast_log(LOG_WARNING, "No translator path from %s to %s\n",
 				ast_format_get_name(src), ast_format_get_name(dst));
 			AST_RWLIST_UNLOCK(&translators);
+			ast_translator_free_path(head);
 			return NULL;
 		}
 		if ((t->dst_codec.sample_rate == ast_format_get_sample_rate(dst)) && (t->dst_codec.type == ast_format_get_type(dst))) {
@@ -506,9 +507,7 @@ struct ast_trans_pvt *ast_translator_build_path(struct ast_format *dst, struct a
 		if (!(cur = newpvt(t, explicit_dst))) {
 			ast_log(LOG_WARNING, "Failed to build translator step from %s to %s\n",
 				ast_format_get_name(src), ast_format_get_name(dst));
-			if (head) {
-				ast_translator_free_path(head);
-			}
+			ast_translator_free_path(head);
 			AST_RWLIST_UNLOCK(&translators);
 			return NULL;
 		}
@@ -936,7 +935,8 @@ static void handle_cli_recalc(struct ast_cli_args *a)
 static char *handle_show_translation_table(struct ast_cli_args *a)
 {
 	int x, y, i, k;
-	int longest = 0, num_codecs = 0, curlen = 0;
+	int longest = 7; /* slin192 */
+	int num_codecs = 0, curlen = 0;
 	struct ast_str *out = ast_str_create(1024);
 	struct ast_codec *codec;
 
@@ -973,6 +973,7 @@ static char *handle_show_translation_table(struct ast_cli_args *a)
 
 		ast_str_set(&out, 0, " ");
 		for (k = 0; k < num_codecs; k++) {
+			int adjust = 0;
 			struct ast_codec *col = k ? ast_codec_get_by_id(k) : NULL;
 
 			y = -1;
@@ -988,6 +989,12 @@ static char *handle_show_translation_table(struct ast_cli_args *a)
 
 			if (k > 0) {
 				curlen = strlen(col->name);
+				if (!strcmp(col->name, "slin") ||
+					!strcmp(col->name, "speex") ||
+					!strcmp(col->name, "silk")) {
+					adjust = log10(col->sample_rate / 1000) + 1;
+					curlen = curlen + adjust;
+				}
 			}
 
 			if (curlen < 5) {
@@ -999,10 +1006,25 @@ static char *handle_show_translation_table(struct ast_cli_args *a)
 				ast_str_append(&out, 0, "%*u", curlen + 1, (matrix_get(x, y)->table_cost/100));
 			} else if (i == 0 && k > 0) {
 				/* Top row - use a dynamic size */
-				ast_str_append(&out, 0, "%*s", curlen + 1, col->name);
+				if (!strcmp(col->name, "slin") ||
+					!strcmp(col->name, "speex") ||
+					!strcmp(col->name, "silk")) {
+					ast_str_append(&out, 0, "%*s%u", curlen - adjust + 1,
+						col->name, col->sample_rate / 1000);
+				} else {
+					ast_str_append(&out, 0, "%*s", curlen + 1, col->name);
+				}
 			} else if (k == 0 && i > 0) {
 				/* Left column - use a static size. */
-				ast_str_append(&out, 0, "%*s", longest, row->name);
+				if (!strcmp(row->name, "slin") ||
+					!strcmp(row->name, "speex") ||
+					!strcmp(row->name, "silk")) {
+					int adjust_row = log10(row->sample_rate / 1000) + 1;
+					ast_str_append(&out, 0, "%*s%u", longest - adjust_row,
+						row->name, row->sample_rate / 1000);
+				} else {
+					ast_str_append(&out, 0, "%*s", longest, row->name);
+				}
 			} else if (x >= 0 && y >= 0) {
 				/* Codec not supported */
 				ast_str_append(&out, 0, "%*s", curlen + 1, "-");
@@ -1274,7 +1296,7 @@ int ast_unregister_translator(struct ast_translator *t)
 	}
 	AST_RWLIST_TRAVERSE_SAFE_END;
 
-	if (found) {
+	if (found && !ast_shutting_down()) {
 		matrix_rebuild(0);
 	}
 
@@ -1298,6 +1320,13 @@ void ast_translator_deactivate(struct ast_translator *t)
 	matrix_rebuild(0);
 	AST_RWLIST_UNLOCK(&translators);
 }
+
+/*! Calculate the absolute difference between sample rate of two formats. */
+#define format_sample_rate_absdiff(fmt1, fmt2) ({ \
+	unsigned int rate1 = ast_format_get_sample_rate(fmt1); \
+	unsigned int rate2 = ast_format_get_sample_rate(fmt2); \
+	(rate1 > rate2 ? rate1 - rate2 : rate2 - rate1); \
+})
 
 /*! \brief Calculate our best translator source format, given costs, and a desired destination */
 int ast_translator_best_choice(struct ast_format_cap *dst_cap,
@@ -1381,6 +1410,18 @@ int ast_translator_best_choice(struct ast_format_cap *dst_cap,
 				ao2_replace(bestdst, dst);
 				besttablecost = matrix_get(x, y)->table_cost;
 				beststeps = matrix_get(x, y)->multistep;
+			} else if (matrix_get(x, y)->table_cost == besttablecost
+					&& matrix_get(x, y)->multistep == beststeps) {
+				unsigned int gap_selected = format_sample_rate_absdiff(best, bestdst);
+				unsigned int gap_current = format_sample_rate_absdiff(src, dst);
+
+				if (gap_current < gap_selected) {
+					/* better than what we have so far */
+					ao2_replace(best, src);
+					ao2_replace(bestdst, dst);
+					besttablecost = matrix_get(x, y)->table_cost;
+					beststeps = matrix_get(x, y)->multistep;
+				}
 			}
 		}
 	}

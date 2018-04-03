@@ -61,10 +61,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include <signal.h>
 #else
 #include <sys/signal.h>
+#include <sys/sysmacros.h>
 #endif
 #include <sys/stat.h>
 #include <math.h>
-#include <sys/sysmacros.h>
 
 #include "sig_analog.h"
 /* Analog signaling is currently still present in chan_dahdi for use with
@@ -8077,7 +8077,7 @@ static struct ast_frame *dahdi_handle_event(struct ast_channel *ast)
 						p->subs[otherindex].needunhold = 1;
 						p->owner = p->subs[SUB_REAL].owner;
 					} else {
-						ast_verb(3, "Dumping incomplete call on on %s\n", ast_channel_name(p->subs[SUB_THREEWAY].owner));
+						ast_verb(3, "Dumping incomplete call on %s\n", ast_channel_name(p->subs[SUB_THREEWAY].owner));
 						swap_subs(p, SUB_THREEWAY, SUB_REAL);
 						ast_channel_softhangup_internal_flag_add(p->subs[SUB_THREEWAY].owner, AST_SOFTHANGUP_DEV);
 						p->owner = p->subs[SUB_REAL].owner;

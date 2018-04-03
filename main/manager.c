@@ -247,13 +247,15 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 				<parameter name="DNID">
 					<para>Dialed number identifier</para>
 				</parameter>
+				<parameter name="EffectiveConnectedLineNum">
+				</parameter>
+				<parameter name="EffectiveConnectedLineName">
+				</parameter>
 				<parameter name="TimeToHangup">
 					<para>Absolute lifetime of the channel</para>
 				</parameter>
 				<parameter name="BridgeID">
 					<para>Identifier of the bridge the channel is in, may be empty if not in one</para>
-				</parameter>
-				<parameter name="Linkedid">
 				</parameter>
 				<parameter name="Application">
 					<para>Application currently executing on the channel</para>
@@ -1649,8 +1651,10 @@ static AST_RWLIST_HEAD_STATIC(actions, manager_action);
 /*! \brief list of hooks registered */
 static AST_RWLIST_HEAD_STATIC(manager_hooks, manager_custom_hook);
 
+#ifdef AST_XML_DOCS
 /*! \brief A container of event documentation nodes */
 static AO2_GLOBAL_OBJ_STATIC(event_docs);
+#endif
 
 static int __attribute__((format(printf, 9, 0))) __manager_event_sessions(
 	struct ao2_container *sessions,
@@ -1762,7 +1766,12 @@ void manager_json_to_ast_str(struct ast_json *obj, const char *key,
 {
 	struct ast_json_iter *i;
 
-	if (!obj || (!res && !(*res) && (!(*res = ast_str_create(1024))))) {
+	/* If obj or res is not given, just return */
+	if (!obj || !res) {
+		return;
+	}
+
+	if (!*res && !(*res = ast_str_create(1024))) {
 		return;
 	}
 
@@ -1793,11 +1802,14 @@ void manager_json_to_ast_str(struct ast_json *obj, const char *key,
 	}
 }
 
-
 struct ast_str *ast_manager_str_from_json_object(struct ast_json *blob, key_exclusion_cb exclusion_cb)
 {
 	struct ast_str *res = ast_str_create(1024);
-	manager_json_to_ast_str(blob, NULL, &res, exclusion_cb);
+
+	if (!ast_json_is_null(blob)) {
+	   manager_json_to_ast_str(blob, NULL, &res, exclusion_cb);
+	}
+
 	return res;
 }
 
@@ -2306,7 +2318,9 @@ static int manager_displayconnects(struct mansession_session *session)
 	return ret;
 }
 
+#ifdef AST_XML_DOCS
 static void print_event_instance(struct ast_cli_args *a, struct ast_xml_doc_item *instance);
+#endif
 
 static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
@@ -2340,10 +2354,11 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 		AST_RWLIST_UNLOCK(&actions);
 		return ret;
 	}
-	authority = ast_str_alloca(MAX_AUTH_PERM_STRING);
 	if (a->argc < 4) {
 		return CLI_SHOWUSAGE;
 	}
+
+	authority = ast_str_alloca(MAX_AUTH_PERM_STRING);
 
 #ifdef AST_XML_DOCS
 	/* setup the titles */
@@ -2372,6 +2387,22 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 					char *seealso = ast_xmldoc_printable(S_OR(cur->seealso, "Not available"), 1);
 					char *privilege = ast_xmldoc_printable(S_OR(auth_str, "Not available"), 1);
 					char *responses = ast_xmldoc_printable("None", 1);
+
+					if (!syntax || !synopsis || !description || !arguments
+							|| !seealso || !privilege || !responses) {
+						ast_free(syntax);
+						ast_free(synopsis);
+						ast_free(description);
+						ast_free(arguments);
+						ast_free(seealso);
+						ast_free(privilege);
+						ast_free(responses);
+						ast_cli(a->fd, "Allocation failure.\n");
+						AST_RWLIST_UNLOCK(&actions);
+
+						return CLI_FAILURE;
+					}
+
 					ast_cli(a->fd, "%s%s\n\n%s%s\n\n%s%s\n\n%s%s\n\n%s%s\n\n%s%s\n\n%s",
 						syntax_title, syntax,
 						synopsis_title, synopsis,
@@ -2399,6 +2430,14 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 						ast_cli(a->fd, "Event: %s\n", cur->final_response->name);
 						print_event_instance(a, cur->final_response);
 					}
+
+					ast_free(syntax);
+					ast_free(synopsis);
+					ast_free(description);
+					ast_free(arguments);
+					ast_free(seealso);
+					ast_free(privilege);
+					ast_free(responses);
 				} else
 #endif
 				{
@@ -4554,6 +4593,7 @@ static int action_status(struct mansession *s, const struct message *m)
 		struct timeval now;
 		long elapsed_seconds;
 		struct ast_bridge *bridge;
+		struct ast_party_id effective_id;
 
 		ast_channel_lock(chan);
 
@@ -4582,10 +4622,12 @@ static int action_status(struct mansession *s, const struct message *m)
 		channels++;
 
 		bridge = ast_channel_get_bridge(chan);
+		effective_id = ast_channel_connected_effective_id(chan);
 
 		astman_append(s,
 			"Event: Status\r\n"
 			"Privilege: Call\r\n"
+			/* v-- Start channel snapshot headers */
 			"Channel: %s\r\n"
 			"ChannelState: %u\r\n"
 			"ChannelStateDesc: %s\r\n"
@@ -4598,13 +4640,14 @@ static int action_status(struct mansession *s, const struct message *m)
 			"Exten: %s\r\n"
 			"Priority: %d\r\n"
 			"Uniqueid: %s\r\n"
+			"Linkedid: %s\r\n"
+			/* ^-- End channel snapshot headers */
 			"Type: %s\r\n"
 			"DNID: %s\r\n"
 			"EffectiveConnectedLineNum: %s\r\n"
 			"EffectiveConnectedLineName: %s\r\n"
 			"TimeToHangup: %ld\r\n"
 			"BridgeID: %s\r\n"
-			"Linkedid: %s\r\n"
 			"Application: %s\r\n"
 			"Data: %s\r\n"
 			"Nativeformats: %s\r\n"
@@ -4618,6 +4661,7 @@ static int action_status(struct mansession *s, const struct message *m)
 			"%s"
 			"%s"
 			"\r\n",
+			/* v-- Start channel snapshot headers */
 			ast_channel_name(chan),
 			ast_channel_state(chan),
 			ast_state2str(ast_channel_state(chan)),
@@ -4630,13 +4674,14 @@ static int action_status(struct mansession *s, const struct message *m)
 			ast_channel_exten(chan),
 			ast_channel_priority(chan),
 			ast_channel_uniqueid(chan),
+			ast_channel_linkedid(chan),
+			/* ^-- End channel snapshot headers */
 			ast_channel_tech(chan)->type,
 			S_OR(ast_channel_dialed(chan)->number.str, ""),
-			S_COR(ast_channel_connected_effective_id(chan).number.valid, ast_channel_connected_effective_id(chan).number.str, "<unknown>"),
-			S_COR(ast_channel_connected_effective_id(chan).name.valid, ast_channel_connected_effective_id(chan).name.str, "<unknown>"),
+			S_COR(effective_id.number.valid, effective_id.number.str, "<unknown>"),
+			S_COR(effective_id.name.valid, effective_id.name.str, "<unknown>"),
 			(long)ast_channel_whentohangup(chan)->tv_sec,
 			bridge ? bridge->uniqueid : "",
-			ast_channel_linkedid(chan),
 			ast_channel_appl(chan),
 			ast_channel_data(chan),
 			ast_format_cap_get_names(ast_channel_nativeformats(chan), &codec_buf),
@@ -6680,9 +6725,7 @@ static void *session_do(void *data)
 	}
 
 	/* make sure socket is non-blocking */
-	flags = fcntl(ser->fd, F_GETFL);
-	flags |= O_NONBLOCK;
-	fcntl(ser->fd, F_SETFL, flags);
+	ast_fd_set_flags(ser->fd, O_NONBLOCK);
 
 	ao2_lock(session);
 	/* Hook to the tail of the event queue */
@@ -9440,23 +9483,16 @@ struct ast_datastore *astman_datastore_find(struct mansession *s, const struct a
 }
 
 int ast_str_append_event_header(struct ast_str **fields_string,
-					const char *header, const char *value)
+	const char *header, const char *value)
 {
-	struct ast_str *working_str = *fields_string;
-
-	if (!working_str) {
-		working_str = ast_str_create(128);
-		if (!working_str) {
+	if (!*fields_string) {
+		*fields_string = ast_str_create(128);
+		if (!*fields_string) {
 			return -1;
 		}
-		*fields_string = working_str;
 	}
 
-	ast_str_append(&working_str, 0,
-		"%s: %s\r\n",
-		header, value);
-
-	return 0;
+	return (ast_str_append(fields_string, 0, "%s: %s\r\n", header, value) < 0) ? -1 : 0;
 }
 
 static void manager_event_blob_dtor(void *obj)

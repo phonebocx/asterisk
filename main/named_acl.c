@@ -82,8 +82,8 @@ static void *named_acl_find(struct ao2_container *container, const char *cat);
 static struct aco_type named_acl_type = {
 	.type = ACO_ITEM,                  /*!< named_acls are items stored in containers, not individual global objects */
 	.name = "named_acl",
-	.category_match = ACO_BLACKLIST,
-	.category = "^general$",           /*!< Match everything but "general" */
+	.category_match = ACO_BLACKLIST_EXACT,
+	.category = "general",           /*!< Match everything but "general" */
 	.item_alloc = named_acl_alloc,     /*!< A callback to allocate a new named_acl based on category */
 	.item_find = named_acl_find,       /*!< A callback to find a named_acl in some container of named_acls */
 	.item_offset = offsetof(struct named_acl_config, named_acl_list), /*!< Could leave this out since 0 */
@@ -107,19 +107,8 @@ struct named_acl {
 	char name[ACL_NAME_LENGTH]; /* Same max length as a configuration category */
 };
 
-static int named_acl_hash_fn(const void *obj, const int flags)
-{
-	const struct named_acl *entry = obj;
-	return ast_str_hash(entry->name);
-}
-
-static int named_acl_cmp_fn(void *obj, void *arg, const int flags)
-{
-	struct named_acl *entry1 = obj;
-	struct named_acl *entry2 = arg;
-
-	return (!strcmp(entry1->name, entry2->name)) ? (CMP_MATCH | CMP_STOP) : 0;
-}
+AO2_STRING_FIELD_HASH_FN(named_acl, name)
+AO2_STRING_FIELD_CMP_FN(named_acl, name)
 
 /*! \brief destructor for named_acl_config */
 static void named_acl_config_destructor(void *obj)
@@ -403,7 +392,7 @@ static int publish_acl_change(const char *name)
 	return 0;
 
 publish_failure:
-	ast_log(LOG_ERROR, "Failed to to issue ACL change message for %s.\n",
+	ast_log(LOG_ERROR, "Failed to issue ACL change message for %s.\n",
 		ast_strlen_zero(name) ? "all named ACLs" : name);
 	return -1;
 }

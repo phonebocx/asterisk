@@ -336,101 +336,14 @@ static sorcery_field_handler sorcery_field_default_handler(enum aco_option_type 
 }
 
 /*! \brief Hashing function for sorcery wizards */
-static int sorcery_wizard_hash(const void *obj, const int flags)
-{
-	const struct ast_sorcery_internal_wizard *object;
-	const char *key;
-
-	switch (flags & OBJ_SEARCH_MASK) {
-	case OBJ_SEARCH_KEY:
-		key = obj;
-		break;
-	case OBJ_SEARCH_OBJECT:
-		object = obj;
-		key = object->callbacks.name;
-		break;
-	default:
-		ast_assert(0);
-		return 0;
-	}
-	return ast_str_hash(key);
-}
+AO2_STRING_FIELD_HASH_FN(ast_sorcery_internal_wizard, callbacks.name)
 
 /*! \brief Comparator function for sorcery wizards */
-static int sorcery_wizard_cmp(void *obj, void *arg, int flags)
-{
-	const struct ast_sorcery_internal_wizard *object_left = obj;
-	const struct ast_sorcery_internal_wizard *object_right = arg;
-	const char *right_key = arg;
-	int cmp;
-
-	switch (flags & OBJ_SEARCH_MASK) {
-	case OBJ_SEARCH_OBJECT:
-		right_key = object_right->callbacks.name;
-		/* Fall through */
-	case OBJ_SEARCH_KEY:
-		cmp = strcmp(object_left->callbacks.name, right_key);
-		break;
-	case OBJ_SEARCH_PARTIAL_KEY:
-		cmp = strncmp(object_left->callbacks.name, right_key, strlen(right_key));
-		break;
-	default:
-		cmp = 0;
-		break;
-	}
-	if (cmp) {
-		return 0;
-	}
-	return CMP_MATCH;
-}
+AO2_STRING_FIELD_CMP_FN(ast_sorcery_internal_wizard, callbacks.name)
 
 /*! \brief Hashing function for sorcery wizards */
-static int object_type_field_hash(const void *obj, const int flags)
-{
-	const struct ast_sorcery_object_field *object_field;
-	const char *key;
-
-	switch (flags & OBJ_SEARCH_MASK) {
-	case OBJ_SEARCH_KEY:
-		key = obj;
-		break;
-	case OBJ_SEARCH_OBJECT:
-		object_field = obj;
-		key = object_field->name;
-		break;
-	default:
-		ast_assert(0);
-		return 0;
-	}
-	return ast_str_hash(key);
-}
-
-static int object_type_field_cmp(void *obj, void *arg, int flags)
-{
-	const struct ast_sorcery_object_field *field_left = obj;
-	const struct ast_sorcery_object_field *field_right = arg;
-	const char *right_key = arg;
-	int cmp;
-
-	switch (flags & OBJ_SEARCH_MASK) {
-	case OBJ_SEARCH_OBJECT:
-		right_key = field_right->name;
-		/* Fall through */
-	case OBJ_SEARCH_KEY:
-		cmp = strcmp(field_left->name, right_key);
-		break;
-	case OBJ_SEARCH_PARTIAL_KEY:
-		cmp = strncmp(field_left->name, right_key, strlen(right_key));
-		break;
-	default:
-		cmp = 0;
-		break;
-	}
-	if (cmp) {
-		return 0;
-	}
-	return CMP_MATCH;
-}
+AO2_STRING_FIELD_HASH_FN(ast_sorcery_object_field, name)
+AO2_STRING_FIELD_CMP_FN(ast_sorcery_object_field, name)
 
 /*! \brief Cleanup function for graceful shutdowns */
 static void sorcery_cleanup(void)
@@ -446,53 +359,10 @@ static void sorcery_cleanup(void)
 }
 
 /*! \brief Compare function for sorcery instances */
-static int sorcery_instance_cmp(void *obj, void *arg, int flags)
-{
-	const struct ast_sorcery *object_left = obj;
-	const struct ast_sorcery *object_right = arg;
-	const char *right_key = arg;
-	int cmp;
-
-	switch (flags & OBJ_SEARCH_MASK) {
-	case OBJ_SEARCH_OBJECT:
-		right_key = object_right->module_name;
-		/* Fall through */
-	case OBJ_SEARCH_KEY:
-		cmp = strcmp(object_left->module_name, right_key);
-		break;
-	case OBJ_SEARCH_PARTIAL_KEY:
-		cmp = strncmp(object_left->module_name, right_key, strlen(right_key));
-		break;
-	default:
-		cmp = 0;
-		break;
-	}
-	if (cmp) {
-		return 0;
-	}
-	return CMP_MATCH;
-}
+AO2_STRING_FIELD_CMP_FN(ast_sorcery, module_name)
 
 /*! \brief Hashing function for sorcery instances */
-static int sorcery_instance_hash(const void *obj, const int flags)
-{
-	const struct ast_sorcery *object;
-	const char *key;
-
-	switch (flags & OBJ_SEARCH_MASK) {
-	case OBJ_SEARCH_KEY:
-		key = obj;
-		break;
-	case OBJ_SEARCH_OBJECT:
-		object = obj;
-		key = object->module_name;
-		break;
-	default:
-		ast_assert(0);
-		return 0;
-	}
-	return ast_str_hash(key);
-}
+AO2_STRING_FIELD_HASH_FN(ast_sorcery, module_name)
 
 int ast_sorcery_init(void)
 {
@@ -511,7 +381,7 @@ int ast_sorcery_init(void)
 	}
 
 	wizards = ao2_container_alloc_hash(AO2_ALLOC_OPT_LOCK_MUTEX, 0, WIZARD_BUCKETS,
-		sorcery_wizard_hash, NULL, sorcery_wizard_cmp);
+		ast_sorcery_internal_wizard_hash_fn, NULL, ast_sorcery_internal_wizard_cmp_fn);
 	if (!wizards) {
 		sorcery_cleanup();
 		return -1;
@@ -524,7 +394,7 @@ int ast_sorcery_init(void)
 	}
 
 	instances = ao2_container_alloc_hash(AO2_ALLOC_OPT_LOCK_RWLOCK, 0, INSTANCE_BUCKETS,
-		sorcery_instance_hash, NULL, sorcery_instance_cmp);
+		ast_sorcery_hash_fn, NULL, ast_sorcery_cmp_fn);
 	if (!instances) {
 		sorcery_cleanup();
 		return -1;
@@ -543,6 +413,27 @@ static void sorcery_internal_wizard_destructor(void *obj)
 }
 
 int __ast_sorcery_wizard_register(const struct ast_sorcery_wizard *interface, struct ast_module *module)
+{
+	struct ast_sorcery_wizard compat = {
+		.name = interface->name,
+		.open = interface->open,
+		.load = interface->load,
+		.reload = interface->reload,
+		.create = interface->create,
+		.retrieve_id = interface->retrieve_id,
+		.retrieve_regex = interface->retrieve_regex,
+		.retrieve_fields = interface->retrieve_fields,
+		.retrieve_multiple = interface->retrieve_multiple,
+		.update = interface->update,
+		.delete = interface->delete,
+		.close = interface->close,
+		.retrieve_prefix = NULL,
+	};
+
+	return __ast_sorcery_wizard_register_with_prefix(&compat, module);
+}
+
+int __ast_sorcery_wizard_register_with_prefix(const struct ast_sorcery_wizard *interface, struct ast_module *module)
 {
 	struct ast_sorcery_internal_wizard *wizard;
 	int res = -1;
@@ -703,53 +594,10 @@ static void sorcery_destructor(void *obj)
 }
 
 /*! \brief Hashing function for sorcery types */
-static int sorcery_type_hash(const void *obj, const int flags)
-{
-	const struct ast_sorcery_object_type *object;
-	const char *key;
-
-	switch (flags & OBJ_SEARCH_MASK) {
-	case OBJ_SEARCH_KEY:
-		key = obj;
-		break;
-	case OBJ_SEARCH_OBJECT:
-		object = obj;
-		key = object->name;
-		break;
-	default:
-		ast_assert(0);
-		return 0;
-	}
-	return ast_str_hash(key);
-}
+AO2_STRING_FIELD_HASH_FN(ast_sorcery_object_type, name)
 
 /*! \brief Comparator function for sorcery types */
-static int sorcery_type_cmp(void *obj, void *arg, int flags)
-{
-	const struct ast_sorcery_object_type *object_left = obj;
-	const struct ast_sorcery_object_type *object_right = arg;
-	const char *right_key = arg;
-	int cmp;
-
-	switch (flags & OBJ_SEARCH_MASK) {
-	case OBJ_SEARCH_OBJECT:
-		right_key = object_right->name;
-		/* Fall through */
-	case OBJ_SEARCH_KEY:
-		cmp = strcmp(object_left->name, right_key);
-		break;
-	case OBJ_SEARCH_PARTIAL_KEY:
-		cmp = strncmp(object_left->name, right_key, strlen(right_key));
-		break;
-	default:
-		cmp = 0;
-		break;
-	}
-	if (cmp) {
-		return 0;
-	}
-	return CMP_MATCH;
-}
+AO2_STRING_FIELD_CMP_FN(ast_sorcery_object_type, name)
 
 struct ast_sorcery *__ast_sorcery_open(const char *module_name)
 {
@@ -766,7 +614,9 @@ struct ast_sorcery *__ast_sorcery_open(const char *module_name)
 		goto done;
 	}
 
-	if (!(sorcery->types = ao2_container_alloc_options(AO2_ALLOC_OPT_LOCK_RWLOCK, TYPE_BUCKETS, sorcery_type_hash, sorcery_type_cmp))) {
+	sorcery->types = ao2_container_alloc_options(AO2_ALLOC_OPT_LOCK_RWLOCK, TYPE_BUCKETS,
+			ast_sorcery_object_type_hash_fn, ast_sorcery_object_type_cmp_fn);
+	if (!sorcery->types) {
 		ao2_ref(sorcery, -1);
 		sorcery = NULL;
 		goto done;
@@ -842,7 +692,7 @@ static struct ast_sorcery_object_type *sorcery_object_type_alloc(const char *typ
 	}
 
 	object_type->fields = ao2_container_alloc_hash(AO2_ALLOC_OPT_LOCK_NOLOCK, 0,
-		OBJECT_FIELD_BUCKETS, object_type_field_hash, NULL, object_type_field_cmp);
+		OBJECT_FIELD_BUCKETS, ast_sorcery_object_field_hash_fn, NULL, ast_sorcery_object_field_cmp_fn);
 	if (!object_type->fields) {
 		ao2_ref(object_type, -1);
 		return NULL;
@@ -1597,6 +1447,7 @@ struct ast_json *ast_sorcery_objectset_json_create(const struct ast_sorcery *sor
 	int res = 0;
 
 	if (!object_type || !json) {
+		ast_json_unref(json);
 		return NULL;
 	}
 
@@ -1971,6 +1822,36 @@ struct ao2_container *ast_sorcery_retrieve_by_regex(const struct ast_sorcery *so
 		}
 
 		wizard->wizard->callbacks.retrieve_regex(sorcery, wizard->data, object_type->name, objects, regex);
+
+		if (wizard->caching && ao2_container_count(objects)) {
+			break;
+		}
+	}
+	AST_VECTOR_RW_UNLOCK(&object_type->wizards);
+
+	return objects;
+}
+
+struct ao2_container *ast_sorcery_retrieve_by_prefix(const struct ast_sorcery *sorcery, const char *type, const char *prefix, const size_t prefix_len)
+{
+	RAII_VAR(struct ast_sorcery_object_type *, object_type, ao2_find(sorcery->types, type, OBJ_KEY), ao2_cleanup);
+	struct ao2_container *objects;
+	int i;
+
+	if (!object_type || !(objects = ao2_container_alloc_options(AO2_ALLOC_OPT_LOCK_NOLOCK, 1, NULL, NULL))) {
+		return NULL;
+	}
+
+	AST_VECTOR_RW_RDLOCK(&object_type->wizards);
+	for (i = 0; i < AST_VECTOR_SIZE(&object_type->wizards); i++) {
+		struct ast_sorcery_object_wizard *wizard =
+			AST_VECTOR_GET(&object_type->wizards, i);
+
+		if (!wizard->wizard->callbacks.retrieve_prefix) {
+			continue;
+		}
+
+		wizard->wizard->callbacks.retrieve_prefix(sorcery, wizard->data, object_type->name, objects, prefix, prefix_len);
 
 		if (wizard->caching && ao2_container_count(objects)) {
 			break;

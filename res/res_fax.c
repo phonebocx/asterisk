@@ -365,7 +365,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 					'gateway' and state is 'Uninitialized'.</para>
 				</parameter>
 				<parameter name="FileName" required="false">
-					<para>Filename of the image being sent/recieved for this FAX session. This field is not
+					<para>Filename of the image being sent/received for this FAX session. This field is not
 					included if Operation isn't 'send' or 'receive'.</para>
 				</parameter>
 				<parameter name="PagesTransmitted" required="false">
@@ -377,7 +377,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 					Operation is not 'send' or 'receive'. Will be 0 for 'send'.</para>
 				</parameter>
 				<parameter name="TotalBadLines" required="false">
-					<para>Total number of bad lines sent/recieved during this session. This field is not
+					<para>Total number of bad lines sent/received during this session. This field is not
 					included if Operation is not 'send' or 'received'.</para>
 				</parameter>
 			</syntax>
@@ -4563,12 +4563,7 @@ static int acf_faxopt_write(struct ast_channel *chan, const char *cmd, char *dat
 					unsigned int gwtimeout;
 
 					if (sscanf(timeout, "%30u", &gwtimeout) == 1) {
-						if (gwtimeout >= 0) {
-							details->gateway_timeout = gwtimeout * 1000;
-						} else {
-							ast_log(LOG_WARNING, "%s(%s) timeout cannot be negative.  Ignoring timeout\n",
-								cmd, data);
-						}
+						details->gateway_timeout = gwtimeout * 1000;
 					} else {
 						ast_log(LOG_WARNING, "Unsupported timeout '%s' passed to FAXOPT(%s).\n", timeout, data);
 					}
@@ -4607,13 +4602,7 @@ static int acf_faxopt_write(struct ast_channel *chan, const char *cmd, char *dat
 			if (details->faxdetect_id < 0) {
 				if (timeout) {
 					if (sscanf(timeout, "%30u", &fdtimeout) == 1) {
-						if (fdtimeout >= 0) {
-							fdtimeout *= 1000;
-						} else {
-							ast_log(LOG_WARNING, "%s(%s) timeout cannot be negative.  Ignoring timeout\n",
-								cmd, data);
-							fdtimeout = 0;
-						}
+						fdtimeout *= 1000;
 					} else {
 						ast_log(LOG_WARNING, "Unsupported timeout '%s' passed to FAXOPT(%s).\n",
 							timeout, data);

@@ -1028,9 +1028,9 @@ void ast_set_cc_callback_sub(struct ast_cc_config_params *config, const char * c
 
 static int cc_publish(struct stasis_message_type *message_type, int core_id, struct ast_json *extras)
 {
-	RAII_VAR(struct ast_json *, blob, NULL, ast_json_unref);
-	RAII_VAR(struct ast_json_payload *, payload, NULL, ao2_cleanup);
-	RAII_VAR(struct stasis_message *, message, NULL, ao2_cleanup);
+	struct ast_json *blob;
+	struct ast_json_payload *payload;
+	struct stasis_message *message;
 
 	if (!message_type) {
 		return -1;
@@ -1046,121 +1046,138 @@ static int cc_publish(struct stasis_message_type *message_type, int core_id, str
 		ast_json_object_update(blob, extras);
 	}
 
-	if (!(payload = ast_json_payload_create(blob))) {
+	payload = ast_json_payload_create(blob);
+	ast_json_unref(blob);
+
+	if (!payload) {
 		return -1;
 	}
 
-	if (!(message = stasis_message_create(message_type, payload))) {
+	message = stasis_message_create(message_type, payload);
+	ao2_ref(payload, -1);
+
+	if (!message) {
 		return -1;
 	}
 
 	stasis_publish(ast_system_topic(), message);
+	ao2_ref(message, -1);
 
 	return 0;
 }
 
 static void cc_publish_available(int core_id, const char *callee, const char *service)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s, s: s}",
 		"callee", callee,
 		"service", service);
 
 	cc_publish(ast_cc_available_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_offertimerstart(int core_id, const char *caller, unsigned int expires)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s, s: i}",
 		"caller", caller,
 		"expires", expires);
 
 	cc_publish(ast_cc_offertimerstart_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_requested(int core_id, const char *caller, const char *callee)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s, s: s}",
 		"caller", caller,
 		"callee", callee);
 
 	cc_publish(ast_cc_requested_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_requestacknowledged(int core_id, const char *caller)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s}",
 		"caller", caller);
 
 	cc_publish(ast_cc_requestacknowledged_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_callerstopmonitoring(int core_id, const char *caller)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s}",
 		"caller", caller);
 
 	cc_publish(ast_cc_callerstopmonitoring_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_callerstartmonitoring(int core_id, const char *caller)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s}",
 		"caller", caller);
 
 	cc_publish(ast_cc_callerstartmonitoring_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_callerrecalling(int core_id, const char *caller)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s}",
 		"caller", caller);
 
 	cc_publish(ast_cc_callerrecalling_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_recallcomplete(int core_id, const char *caller)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s}",
 		"caller", caller);
 
 	cc_publish(ast_cc_recallcomplete_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_failure(int core_id, const char *caller, const char *reason)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s, s: s}",
 		"caller", caller,
 		"reason", reason);
 
 	cc_publish(ast_cc_failure_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 static void cc_publish_monitorfailed(int core_id, const char *callee)
 {
-	RAII_VAR(struct ast_json *, extras, NULL, ast_json_unref);
+	struct ast_json *extras;
 
 	extras = ast_json_pack("{s: s}",
 		"callee", callee);
 
 	cc_publish(ast_cc_monitorfailed_type(), core_id, extras);
+	ast_json_unref(extras);
 }
 
 struct cc_monitor_backend {
@@ -1369,19 +1386,8 @@ struct generic_monitor_pvt {
 	int core_id;
 };
 
-static int generic_monitor_hash_fn(const void *obj, const int flags)
-{
-	const struct generic_monitor_instance_list *generic_list = obj;
-	return ast_str_hash(generic_list->device_name);
-}
-
-static int generic_monitor_cmp_fn(void *obj, void *arg, int flags)
-{
-	const struct generic_monitor_instance_list *generic_list1 = obj;
-	const struct generic_monitor_instance_list *generic_list2 = arg;
-
-	return !strcmp(generic_list1->device_name, generic_list2->device_name) ? CMP_MATCH | CMP_STOP : 0;
-}
+AO2_STRING_FIELD_HASH_FN(generic_monitor_instance_list, device_name)
+AO2_STRING_FIELD_CMP_FN(generic_monitor_instance_list, device_name)
 
 static struct generic_monitor_instance_list *find_generic_monitor_instance_list(const char * const device_name)
 {
@@ -2842,7 +2848,7 @@ static void *generic_recall(void *data)
 		return NULL;
 	}
 	ao2_ref(tmp_cap, -1);
-	
+
 	/* We have a channel. It's time now to set up the datastore of recalled CC interfaces.
 	 * This will be a common task for all recall functions. If it were possible, I'd have
 	 * the core do it automatically, but alas I cannot. Instead, I will provide a public
@@ -4654,8 +4660,8 @@ int ast_cc_init(void)
 		return -1;
 	}
 	if (!(generic_monitors = ao2_t_container_alloc(CC_CORE_INSTANCES_BUCKETS,
-					generic_monitor_hash_fn, generic_monitor_cmp_fn,
-					"Create generic monitor container"))) {
+			generic_monitor_instance_list_hash_fn, generic_monitor_instance_list_cmp_fn,
+			"Create generic monitor container"))) {
 		return -1;
 	}
 	if (!(cc_core_taskprocessor = ast_taskprocessor_get("CCSS_core", TPS_REF_DEFAULT))) {

@@ -38,7 +38,7 @@ ifneq ($(MODULE_PREFIX),)
     ALL_C_MODS+=$(foreach p,$(MODULE_PREFIX),$(patsubst %.c,%,$(wildcard $(p)_*.c)))
     ALL_CC_MODS+=$(foreach p,$(MODULE_PREFIX),$(patsubst %.cc,%,$(wildcard $(p)_*.cc)))
 endif
- 
+
 C_MODS:=$(filter-out $(MENUSELECT_$(MENUSELECT_CATEGORY)),$(ALL_C_MODS))
 CC_MODS:=$(filter-out $(MENUSELECT_$(MENUSELECT_CATEGORY)),$(ALL_CC_MODS))
 
@@ -93,7 +93,7 @@ ifneq ($(findstring :,$(XMLSTARLET)$(BASH)),:)
 	@if [ -f .moduleinfo ] ; then \
 		declare -A DISABLED_MODS ;\
 		for x in $(MENUSELECT_$(MENUSELECT_CATEGORY)) ; do DISABLED_MODS[$${x}]=1 ; done ;\
-		EXTERNAL_MODS=$$(xmlstarlet sel -t -m "/category/member[support_level = 'external']" -v "@name" -n .moduleinfo) ;\
+		EXTERNAL_MODS=$$($(XMLSTARLET) sel -t -m "/category/member[support_level = 'external']" -v "@name" -n .moduleinfo) ;\
 		for x in $${EXTERNAL_MODS} ; do \
 			if [ -z "$${DISABLED_MODS[$${x}]}" ] ; then \
 				$(ASTTOPDIR)/build_tools/download_externals $${x} ;\
