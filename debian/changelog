@@ -1,3 +1,17 @@
+asterisk (1:13.20.0~dfsg-1) unstable; urgency=medium
+
+  * New upstream version 13.20.0 (Closes: #891227, #891228)
+  * Reorganize upstream GPG keys
+    - Split individual signing keys in separate files
+    - Add new key for Ben Ford <bford@digium.com>: 0x073B0C1FC9B2E352
+    - Add new key for Joshua Colp <jcolp@digium.com>:
+      0xCDBEE4CC699E200EB4D46BB79E76E3A42341CE04
+  * Fix missing/broken Closes: in previous changelog
+  * Install realtime database schema into asterisk-doc
+  * Point Vcs-* to salsa
+
+ -- Bernhard Schmidt <berni@debian.org>  Tue, 03 Apr 2018 10:59:20 +0200
+
 asterisk (1:13.18.5~dfsg-1) unstable; urgency=medium
 
   * New upstream release:
