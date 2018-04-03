@@ -12,3 +12,5 @@ Zaptel-to-DAHDI.txt
 doc/*.txt
 doc/*.pdf
 configs
+contrib/ast-db-manage/
+contrib/realtime/
