@@ -9,9 +9,9 @@ Last-Update: 2016-03-19
 
 --- a/bootstrap.sh
 +++ b/bootstrap.sh
-@@ -21,10 +21,6 @@
- 		export AUTOCONF_VERSION=2.63
- 		export AUTOMAKE_VERSION=1.9
+@@ -22,10 +22,6 @@
+ 		[ -z "$AUTOCONF_VERSION" ] && export AUTOCONF_VERSION=2.63
+ 		[ -z "$AUTOMAKE_VERSION" ] && export AUTOMAKE_VERSION=1.9
  		;;
 -	*'BSD'*)
 -		MY_AC_VER=-2.62
