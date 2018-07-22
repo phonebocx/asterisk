@@ -42,10 +42,17 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include <signal.h>
 #include <fcntl.h>
 
-#ifdef HAVE_OPENSSL_SRTP
+#ifdef HAVE_OPENSSL
+#include <openssl/opensslconf.h>
+#include <openssl/opensslv.h>
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/bio.h>
+#ifndef OPENSSL_NO_DH
+#include <openssl/dh.h>
+#endif
+#endif
 #endif
 
 #ifdef HAVE_PJPROJECT
@@ -72,6 +79,9 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/rtp_engine.h"
 #include "asterisk/smoother.h"
 #include "asterisk/test.h"
+#ifdef HAVE_PJPROJECT
+#include "asterisk/res_pjproject.h"
+#endif
 
 #define MAX_TIMESTAMP_SKEW	640
 
@@ -242,6 +252,7 @@ static AST_RWLIST_HEAD_STATIC(host_candidates, ast_ice_host_candidate);
 #define FLAG_NAT_INACTIVE_NOWARN        (1 << 1)
 #define FLAG_NEED_MARKER_BIT            (1 << 3)
 #define FLAG_DTMF_COMPENSATE            (1 << 4)
+#define FLAG_REQ_LOCAL_BRIDGE_BIT       (1 << 5)
 
 #define TRANSPORT_SOCKET_RTP 0
 #define TRANSPORT_SOCKET_RTCP 1
@@ -259,7 +270,7 @@ struct rtp_learning_info {
 	enum ast_media_type stream_type;
 };
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 struct dtls_details {
 	SSL *ssl;         /*!< SSL session */
 	BIO *read_bio;    /*!< Memory buffer for reading */
@@ -382,7 +393,7 @@ struct ast_rtp {
 	unsigned int ice_num_components; /*!< The number of ICE components */
 #endif
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 	SSL_CTX *ssl_ctx; /*!< SSL context */
 	enum ast_rtp_dtls_verify dtls_verify; /*!< What to verify */
 	enum ast_srtp_suite suite;   /*!< SRTP crypto suite */
@@ -459,7 +470,7 @@ struct ast_rtcp {
 	/* VP8: sequence number for the RTCP FIR FCI */
 	int firseq;
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 	struct dtls_details dtls; /*!< DTLS state information */
 #endif
 
@@ -513,7 +524,7 @@ static void ast_rtp_stop(struct ast_rtp_instance *instance);
 static int ast_rtp_qos_set(struct ast_rtp_instance *instance, int tos, int cos, const char* desc);
 static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level);
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 static int ast_rtp_activate(struct ast_rtp_instance *instance);
 static void dtls_srtp_check_pending(struct ast_rtp_instance *instance, struct ast_rtp *rtp, int rtcp);
 static void dtls_srtp_start_timeout_timer(struct ast_rtp_instance *instance, struct ast_rtp *rtp, int rtcp);
@@ -1011,6 +1022,15 @@ static void ast_rtp_ice_set_role(struct ast_rtp_instance *instance, enum ast_rtp
 	}
 
 	rtp->role = role;
+
+	if (!rtp->ice->real_ice->is_nominating && !rtp->ice->real_ice->is_complete) {
+		pj_thread_register_check();
+
+		pj_ice_sess_change_role(rtp->ice->real_ice, role == AST_RTP_ICE_ROLE_CONTROLLED ?
+			PJ_ICE_SESS_ROLE_CONTROLLED : PJ_ICE_SESS_ROLE_CONTROLLING);
+	} else {
+		ast_debug(3, "Not setting ICE role because state is %s\n", rtp->ice->real_ice->is_nominating ? "nominating" : "complete" );
+	}
 }
 
 /*! \pre instance is locked */
@@ -1523,7 +1543,7 @@ static struct ast_rtp_engine_ice ast_rtp_ice = {
 };
 #endif
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 static int dtls_verify_callback(int preverify_ok, X509_STORE_CTX *ctx)
 {
 	/* We don't want to actually verify the certificate so just accept what they have provided */
@@ -1597,7 +1617,7 @@ static int ast_rtp_dtls_set_configuration(struct ast_rtp_instance *instance, con
 {
 	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
 	int res;
-#ifdef HAVE_OPENSSL_EC
+#if !defined(OPENSSL_NO_ECDH) && (OPENSSL_VERSION_NUMBER >= 0x10000000L) && (OPENSSL_VERSION_NUMBER < 0x10100000L)
 	EC_KEY *ecdh;
 #endif
 
@@ -1625,8 +1645,7 @@ static int ast_rtp_dtls_set_configuration(struct ast_rtp_instance *instance, con
 
 	SSL_CTX_set_read_ahead(rtp->ssl_ctx, 1);
 
-#ifdef HAVE_OPENSSL_EC
-
+#ifndef OPENSSL_NO_DH
 	if (!ast_strlen_zero(dtls_cfg->pvtfile)) {
 		BIO *bio = BIO_new_file(dtls_cfg->pvtfile, "r");
 		if (bio != NULL) {
@@ -1643,6 +1662,8 @@ static int ast_rtp_dtls_set_configuration(struct ast_rtp_instance *instance, con
 			BIO_free(bio);
 		}
 	}
+#endif /* !OPENSSL_NO_DH */
+#if !defined(OPENSSL_NO_ECDH) && (OPENSSL_VERSION_NUMBER >= 0x10000000L) && (OPENSSL_VERSION_NUMBER < 0x10100000L)
 	/* enables AES-128 ciphers, to get AES-256 use NID_secp384r1 */
 	ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
 	if (ecdh != NULL) {
@@ -1659,8 +1680,7 @@ static int ast_rtp_dtls_set_configuration(struct ast_rtp_instance *instance, con
 		}
 		EC_KEY_free(ecdh);
 	}
-
-#endif /* #ifdef HAVE_OPENSSL_EC */
+#endif /* !OPENSSL_NO_ECDH */
 
 	rtp->dtls_verify = dtls_cfg->verify;
 
@@ -1979,13 +1999,13 @@ static struct ast_rtp_engine asterisk_rtp_engine = {
 #ifdef HAVE_PJPROJECT
 	.ice = &ast_rtp_ice,
 #endif
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 	.dtls = &ast_rtp_dtls,
 	.activate = ast_rtp_activate,
 #endif
 };
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 /*! \pre instance is locked */
 static void dtls_perform_handshake(struct ast_rtp_instance *instance, struct dtls_details *dtls, int rtcp)
 {
@@ -2046,7 +2066,7 @@ static void ast_rtp_on_ice_complete(pj_ice_sess *ice, pj_status_t status)
 		}
 	}
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 	dtls_perform_handshake(instance, &rtp->dtls, 0);
 
 	if (rtp->rtcp && rtp->rtcp->type == AST_RTP_INSTANCE_RTCP_STANDARD) {
@@ -2177,7 +2197,7 @@ static inline int rtcp_debug_test_addr(struct ast_sockaddr *addr)
 	return 1;
 }
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 /*! \pre instance is locked */
 static int dtls_srtp_handle_timeout(struct ast_rtp_instance *instance, int rtcp)
 {
@@ -2501,7 +2521,7 @@ static int __rtp_recvfrom(struct ast_rtp_instance *instance, void *buf, size_t s
 	   return len;
 	}
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 	/* If this is an SSL packet pass it to OpenSSL for processing. RFC section for first byte value:
 	 * https://tools.ietf.org/html/rfc5764#section-5.1.2 */
 	if ((*in >= 20) && (*in <= 63)) {
@@ -3205,7 +3225,7 @@ static int ast_rtp_new(struct ast_rtp_instance *instance,
 	/* Record any information we may need */
 	rtp->sched = sched;
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 	rtp->rekeyid = -1;
 	rtp->dtls.timeout_timer = -1;
 #endif
@@ -3226,7 +3246,7 @@ static int ast_rtp_destroy(struct ast_rtp_instance *instance)
 	struct timespec ts = { .tv_sec = wait.tv_sec, .tv_nsec = wait.tv_usec * 1000, };
 #endif
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 	ast_rtp_dtls_stop(instance);
 #endif
 
@@ -4152,11 +4172,9 @@ static int ast_rtp_write(struct ast_rtp_instance *instance, struct ast_frame *fr
 	format = frame->subclass.format;
 	if (ast_format_cmp(rtp->lasttxformat, format) == AST_FORMAT_CMP_NOT_EQUAL) {
 		/* Oh dear, if the format changed we will have to set up a new smoother */
-		if (option_debug > 0) {
-			ast_debug(1, "Ooh, format changed from %s to %s\n",
-				ast_format_get_name(rtp->lasttxformat),
-				ast_format_get_name(frame->subclass.format));
-		}
+		ast_debug(1, "Ooh, format changed from %s to %s\n",
+			ast_format_get_name(rtp->lasttxformat),
+			ast_format_get_name(frame->subclass.format));
 		ao2_replace(rtp->lasttxformat, format);
 		if (rtp->smoother) {
 			ast_smoother_free(rtp->smoother);
@@ -5224,6 +5242,12 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance,
 		ast_clear_flag(bridged, FLAG_NEED_MARKER_BIT);
 	}
 
+	/* Set the marker bit for the first local bridged packet which has the first bridged peer's SSRC. */
+	if (ast_test_flag(bridged, FLAG_REQ_LOCAL_BRIDGE_BIT)) {
+		mark = 1;
+		ast_clear_flag(bridged, FLAG_REQ_LOCAL_BRIDGE_BIT);
+	}
+
 	/* Reconstruct part of the packet */
 	reconstruct &= 0xFF80FFFF;
 	reconstruct |= (bridged_payload << 16);
@@ -5239,7 +5263,7 @@ static int bridge_p2p_rtp_write(struct ast_rtp_instance *instance,
 				ast_sockaddr_stringify(&remote_address),
 				strerror(errno));
 		} else if (((ast_test_flag(bridged, FLAG_NAT_ACTIVE) == FLAG_NAT_INACTIVE) || rtpdebug) && !ast_test_flag(bridged, FLAG_NAT_INACTIVE_NOWARN)) {
-			if (option_debug || rtpdebug) {
+			if (rtpdebug || DEBUG_ATLEAST(1)) {
 				ast_log(LOG_WARNING,
 					"RTP NAT: Can't write RTP to private "
 					"address %s, waiting for other end to "
@@ -5573,13 +5597,14 @@ static struct ast_frame *ast_rtp_read(struct ast_rtp_instance *instance, int rtc
 	if (ext) {
 		hdrlen += (ntohl(rtpheader[hdrlen/4]) & 0xffff) << 2;
 		hdrlen += 4;
-		if (option_debug) {
+		if (DEBUG_ATLEAST(1)) {
 			unsigned int profile;
 			profile = (ntohl(rtpheader[3]) & 0xffff0000) >> 16;
-			if (profile == 0x505a)
-				ast_debug(1, "Found Zfone extension in RTP stream - zrtp - not supported.\n");
-			else
-				ast_debug(1, "Found unknown RTP Extensions %x\n", profile);
+			if (profile == 0x505a) {
+				ast_log(LOG_DEBUG, "Found Zfone extension in RTP stream - zrtp - not supported.\n");
+			} else {
+				ast_log(LOG_DEBUG, "Found unknown RTP Extensions %x\n", profile);
+			}
 		}
 	}
 
@@ -5836,7 +5861,7 @@ static void ast_rtp_prop_set(struct ast_rtp_instance *instance, enum ast_rtp_pro
 					return;
 				}
 				rtp->rtcp->s = -1;
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 				rtp->rtcp->dtls.timeout_timer = -1;
 #endif
 				rtp->rtcp->schedid = -1;
@@ -5899,7 +5924,7 @@ static void ast_rtp_prop_set(struct ast_rtp_instance *instance, enum ast_rtp_pro
 					rtp_add_candidates_to_ice(instance, rtp, &rtp->rtcp->us, ast_sockaddr_port(&rtp->rtcp->us), AST_RTP_ICE_COMPONENT_RTCP, TRANSPORT_SOCKET_RTCP);
 				}
 #endif
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 				dtls_setup_rtcp(instance);
 #endif
 			} else {
@@ -5919,7 +5944,7 @@ static void ast_rtp_prop_set(struct ast_rtp_instance *instance, enum ast_rtp_pro
 				rtp->rtcp->s = rtp->s;
 				ast_rtp_instance_get_remote_address(instance, &addr);
 				ast_sockaddr_copy(&rtp->rtcp->them, &addr);
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 				if (rtp->rtcp->dtls.ssl && rtp->rtcp->dtls.ssl != rtp->dtls.ssl) {
 					SSL_free(rtp->rtcp->dtls.ssl);
 				}
@@ -5947,7 +5972,7 @@ static void ast_rtp_prop_set(struct ast_rtp_instance *instance, enum ast_rtp_pro
 				if (rtp->rtcp->s > -1 && rtp->rtcp->s != rtp->s) {
 					close(rtp->rtcp->s);
 				}
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 				ao2_unlock(instance);
 				dtls_srtp_stop_timeout_timer(instance, rtp, 1);
 				ao2_lock(instance);
@@ -6093,7 +6118,7 @@ static int ast_rtp_local_bridge(struct ast_rtp_instance *instance0, struct ast_r
 	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance0);
 
 	ao2_lock(instance0);
-	ast_set_flag(rtp, FLAG_NEED_MARKER_BIT);
+	ast_set_flag(rtp, FLAG_NEED_MARKER_BIT | FLAG_REQ_LOCAL_BRIDGE_BIT);
 	ao2_unlock(instance0);
 
 	return 0;
@@ -6189,7 +6214,7 @@ static void ast_rtp_stop(struct ast_rtp_instance *instance)
 	struct ast_rtp *rtp = ast_rtp_instance_get_data(instance);
 	struct ast_sockaddr addr = { {0,} };
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 	ao2_unlock(instance);
 	AST_SCHED_DEL_UNREF(rtp->sched, rtp->rekeyid, ao2_ref(instance, -1));
 
@@ -6284,7 +6309,7 @@ static int ast_rtp_sendcng(struct ast_rtp_instance *instance, int level)
 	return res;
 }
 
-#ifdef HAVE_OPENSSL_SRTP
+#if !defined(OPENSSL_NO_SRTP) && (OPENSSL_VERSION_NUMBER >= 0x10001000L)
 static void dtls_perform_setup(struct dtls_details *dtls)
 {
 	if (!dtls->ssl || !SSL_is_init_finished(dtls->ssl)) {
@@ -6708,7 +6733,7 @@ static void rtp_terminate_pjproject(void)
 		pj_thread_destroy(timer_thread);
 	}
 
-	pj_caching_pool_destroy(&cachingpool);
+	ast_pjproject_caching_pool_destroy(&cachingpool);
 	pj_shutdown();
 }
 #endif
@@ -6733,7 +6758,7 @@ static int load_module(void)
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
-	pj_caching_pool_init(&cachingpool, &pj_pool_factory_default_policy, 0);
+	ast_pjproject_caching_pool_init(&cachingpool, &pj_pool_factory_default_policy, 0);
 
 	pool = pj_pool_create(&cachingpool.factory, "timer", 512, 512, NULL);
 

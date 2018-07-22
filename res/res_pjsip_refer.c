@@ -316,7 +316,15 @@ static void refer_progress_on_evsub_state(pjsip_evsub *sub, pjsip_event *event)
 		/* It's possible that a task is waiting to remove us already, so bump the refcount of progress so it doesn't get destroyed */
 		ao2_ref(progress, +1);
 		pjsip_dlg_dec_lock(progress->dlg);
-		ast_sip_push_task_synchronous(progress->serializer, refer_progress_terminate, progress);
+		/*
+		 * XXX We are always going to execute this inline rather than
+		 * in the serializer because this function is a PJPROJECT
+		 * callback and thus has to be a SIP servant thread.
+		 *
+		 * The likely remedy is to push most of this function into
+		 * refer_progress_terminate() with ast_sip_push_task().
+		 */
+		ast_sip_push_task_wait_servant(progress->serializer, refer_progress_terminate, progress);
 		pjsip_dlg_inc_lock(progress->dlg);
 		ao2_ref(progress, -1);
 
@@ -468,10 +476,20 @@ static struct refer_attended *refer_attended_alloc(struct ast_sip_session *trans
 	return attended;
 }
 
-static int defer_termination_cancel(void *data)
+static int session_end_if_deferred_task(void *data)
 {
 	struct ast_sip_session *session = data;
 
+	ast_sip_session_end_if_deferred(session);
+	ao2_ref(session, -1);
+	return 0;
+}
+
+static int defer_termination_cancel_task(void *data)
+{
+	struct ast_sip_session *session = data;
+
+	ast_sip_session_end_if_deferred(session);
 	ast_sip_session_defer_termination_cancel(session);
 	ao2_ref(session, -1);
 	return 0;
@@ -513,6 +531,7 @@ static int refer_attended_task(void *data)
 {
 	struct refer_attended *attended = data;
 	int response;
+	int (*task_cb)(void *data);
 
 	if (attended->transferer_second->channel) {
 		ast_debug(3, "Performing a REFER attended transfer - Transferer #1: %s Transferer #2: %s\n",
@@ -543,13 +562,18 @@ static int refer_attended_task(void *data)
 		}
 	}
 
-	ast_sip_session_end_if_deferred(attended->transferer);
-	if (response != 200) {
-		if (!ast_sip_push_task(attended->transferer->serializer,
-			defer_termination_cancel, attended->transferer)) {
-			/* Gave the ref to the pushed task. */
-			attended->transferer = NULL;
-		}
+	if (response == 200) {
+		task_cb = session_end_if_deferred_task;
+	} else {
+		task_cb = defer_termination_cancel_task;
+	}
+	if (!ast_sip_push_task(attended->transferer->serializer,
+		task_cb, attended->transferer)) {
+		/* Gave the ref to the pushed task. */
+		attended->transferer = NULL;
+	} else {
+		/* Do this anyway even though it is the wrong serializer. */
+		ast_sip_session_end_if_deferred(attended->transferer);
 	}
 
 	ao2_ref(attended, -1);
@@ -901,10 +925,7 @@ static int invite_replaces(void *data)
 	ast_channel_ref(invite->session->channel);
 	invite->channel = invite->session->channel;
 
-	ast_channel_lock(invite->channel);
-	invite->bridge = ast_channel_get_bridge(invite->channel);
-	ast_channel_unlock(invite->channel);
-
+	invite->bridge = ast_bridge_transfer_acquire_bridge(invite->channel);
 	return 0;
 }
 
@@ -947,7 +968,8 @@ static int refer_incoming_invite_request(struct ast_sip_session *session, struct
 
 	invite.session = other_session;
 
-	if (ast_sip_push_task_synchronous(other_session->serializer, invite_replaces, &invite)) {
+	if (ast_sip_push_task_wait_serializer(other_session->serializer, invite_replaces,
+		&invite)) {
 		response = 481;
 		goto inv_replace_failed;
 	}

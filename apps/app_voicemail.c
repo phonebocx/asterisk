@@ -63,7 +63,6 @@
 	</member>
 	<member name="ODBC_STORAGE" displayname="Storage of Voicemail using ODBC">
 		<depend>generic_odbc</depend>
-		<depend>ltdl</depend>
 		<conflict>IMAP_STORAGE</conflict>
 		<conflict>FILE_STORAGE</conflict>
 		<defaultenabled>no</defaultenabled>
@@ -1011,7 +1010,7 @@ struct mwi_sub {
 	int old_new;
 	int old_old;
 	char *uniqueid;
-	char mailbox[1];
+	char mailbox[0];
 };
 
 struct mwi_sub_task {
@@ -3640,7 +3639,7 @@ static void set_update(MAILSTREAM * stream)
 	char buf[1024] = "";
 
 	if (!(user = get_user_by_mailbox(mailbox, buf, sizeof(buf))) || !(vms = get_vm_state_by_imapuser(user, 0))) {
-		if (user && option_debug > 2)
+		if (user && DEBUG_ATLEAST(3))
 			ast_log(AST_LOG_WARNING, "User %s mailbox not found for update.\n", user);
 		return;
 	}
@@ -3962,6 +3961,10 @@ static int retrieve_file(char *dir, int msgnum)
 				generate_msg_id(msg_id);
 				snprintf(rowdata, sizeof(rowdata), "%s", msg_id);
 				odbc_update_msg_id(dir, msgnum, msg_id);
+			} else if (res == SQL_NULL_DATA && !strcasecmp(coltitle, "category")) {
+				/* Ignore null column value for category */
+				ast_debug(3, "Ignoring null category column in ODBC voicemail retrieve_file.\n");
+				continue;
 			} else if (!SQL_SUCCEEDED(res)) {
 				ast_log(AST_LOG_WARNING, "SQL Get Data error! coltitle=%s\n[%s]\n\n", coltitle, sql);
 				goto bail_with_handle;
@@ -4412,6 +4415,14 @@ static int store_file(const char *dir, const char *mailboxuser, const char *mail
 			snprintf(sql, sizeof(sql), "INSERT INTO %s (dir,msgnum,recording,context,macrocontext,callerid,origtime,duration,mailboxuser,mailboxcontext,flag,msg_id,category) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)", odbc_table);
 		else
 			snprintf(sql, sizeof(sql), "INSERT INTO %s (dir,msgnum,recording,context,macrocontext,callerid,origtime,duration,mailboxuser,mailboxcontext,flag,msg_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)", odbc_table);
+
+		if (ast_strlen_zero(idata.origtime)) {
+			idata.origtime = "0";
+		}
+
+		if (ast_strlen_zero(idata.duration)) {
+			idata.duration = "0";
+		}
 
 		if ((stmt = ast_odbc_direct_execute(obj, insert_data_cb, &idata))) {
 			SQLFreeHandle(SQL_HANDLE_STMT, stmt);
@@ -7837,7 +7848,8 @@ static int get_folder2(struct ast_channel *chan, char *fn, int start)
 		ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", '#', '#');
 		return '#';
 	}
-	ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", res, res);
+	ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+		isprint(res) ? res : '?', isprint(res) ? res : '?');
 	return res;
 }
 
@@ -8000,7 +8012,8 @@ static int vm_forwardoptions(struct ast_channel *chan, struct ast_vm_user *vmu, 
 			if (retries > 3) {
 				cmd = '*'; /* Let's cancel this beast */
 			}
-			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+				isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 		}
 	}
 
@@ -8228,7 +8241,8 @@ static int forward_message(struct ast_channel *chan, char *context, struct vm_st
 						cmd = 't';
 						done = 1;
 					}
-					ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+					ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+						isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 				}
 			}
 			if (cmd < 0 || cmd == 't')
@@ -8885,7 +8899,8 @@ static int play_message(struct ast_channel *chan, struct ast_vm_user *vmu, struc
 			ast_log(AST_LOG_WARNING, "Playback of message %s failed\n", vms->fn);
 			res = 0;
 		}
-		ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", res, res);
+		ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+			isprint(res) ? res : '?', isprint(res) ? res : '?');
 	}
 	DISPOSE(vms->curdir, vms->curmsg);
 	return res;
@@ -10669,7 +10684,8 @@ static int vm_options(struct ast_channel *chan, struct ast_vm_user *vmu, struct 
 			if (retries > 3) {
 				cmd = 't';
 			}
-			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+				isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 		}
 	}
 	if (cmd == 't')
@@ -10749,7 +10765,8 @@ static int vm_tempgreeting(struct ast_channel *chan, struct ast_vm_user *vmu, st
 				if (retries > 3) {
 					cmd = 't';
 				}
-				ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+				ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+					isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 			}
 		}
 		DISPOSE(prefile, -1);
@@ -11571,7 +11588,8 @@ static int vm_execmain(struct ast_channel *chan, const char *data)
 	} else {
 		cmd = vm_intro(chan, vmu, &vms);
 	}
-	ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+	ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+		isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 
 	vms.repeats = 0;
 	vms.starting = 1;
@@ -11591,7 +11609,8 @@ static int vm_execmain(struct ast_channel *chan, const char *data)
 				adsi_folders(chan, 0, "Change to folder...");
 
 			cmd = get_folder2(chan, "vm-changeto", 0);
-			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+				isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 			if (cmd == '#') {
 				cmd = 0;
 			} else if (cmd > 0) {
@@ -11723,7 +11742,8 @@ static int vm_execmain(struct ast_channel *chan, const char *data)
 					if (vms.repeats > 3) {
 						cmd = 't';
 					}
-					ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+					ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+						isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 				}
 			}
 			if (cmd == 't') {
@@ -11901,7 +11921,8 @@ static int vm_execmain(struct ast_channel *chan, const char *data)
 			if (useadsi)
 				adsi_folders(chan, 1, "Save to folder...");
 			cmd = get_folder2(chan, "vm-savefolder", 1);
-			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+				isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 			box = 0;	/* Shut up compiler */
 			if (cmd == '#') {
 				cmd = 0;
@@ -13158,7 +13179,7 @@ static int handle_subscribe(void *datap)
 	struct mwi_sub *mwi_sub;
 	struct mwi_sub_task *p = datap;
 
-	len = sizeof(*mwi_sub);
+	len = sizeof(*mwi_sub) + 1;
 	if (!ast_strlen_zero(p->mailbox))
 		len += strlen(p->mailbox);
 
@@ -15132,7 +15153,8 @@ static int dialout(struct ast_channel *chan, struct ast_vm_user *vmu, char *num,
 				else
 					cmd = 't';
 			}
-			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", cmd, cmd);
+			ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+				isprint(cmd) ? cmd : '?', isprint(cmd) ? cmd : '?');
 		}
 		if (retries >= 3) {
 			return 0;
@@ -15297,7 +15319,8 @@ static int advanced_options(struct ast_channel *chan, struct ast_vm_user *vmu, s
 						res = 't';
 					}
 				}
-				ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c", res, res);
+				ast_test_suite_event_notify("USERPRESS", "Message: User pressed %c\r\nDTMF: %c",
+					isprint(res) ? res : '?', isprint(res) ? res : '?');
 				break;
 
 			}

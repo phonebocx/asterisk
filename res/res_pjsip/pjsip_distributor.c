@@ -666,6 +666,26 @@ static void check_endpoint(pjsip_rx_data *rdata, struct unidentified_request *un
 	ao2_unlock(unid);
 }
 
+static int apply_endpoint_acl(pjsip_rx_data *rdata, struct ast_sip_endpoint *endpoint);
+static int apply_endpoint_contact_acl(pjsip_rx_data *rdata, struct ast_sip_endpoint *endpoint);
+
+static void apply_acls(pjsip_rx_data *rdata)
+{
+	struct ast_sip_endpoint *endpoint;
+
+	/* Is the endpoint allowed with the source or contact address? */
+	endpoint = rdata->endpt_info.mod_data[endpoint_mod.id];
+	if (endpoint != artificial_endpoint
+		&& (apply_endpoint_acl(rdata, endpoint)
+			|| apply_endpoint_contact_acl(rdata, endpoint))) {
+		ast_debug(1, "Endpoint '%s' not allowed by ACL\n",
+			ast_sorcery_object_get_id(endpoint));
+
+		/* Replace the rdata endpoint with the artificial endpoint. */
+		ao2_replace(rdata->endpt_info.mod_data[endpoint_mod.id], artificial_endpoint);
+	}
+}
+
 static pj_bool_t endpoint_lookup(pjsip_rx_data *rdata)
 {
 	struct ast_sip_endpoint *endpoint;
@@ -680,23 +700,25 @@ static pj_bool_t endpoint_lookup(pjsip_rx_data *rdata)
 		 * the find without OBJ_UNLINK to prevent the unnecessary write lock, then unlink
 		 * if needed.
 		 */
-		if ((unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY))) {
+		unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY);
+		if (unid) {
 			ao2_unlink(unidentified_requests, unid);
 			ao2_ref(unid, -1);
 		}
+		apply_acls(rdata);
 		return PJ_FALSE;
 	}
 
 	endpoint = ast_sip_identify_endpoint(rdata);
 	if (endpoint) {
-		if ((unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY))) {
+		unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY);
+		if (unid) {
 			ao2_unlink(unidentified_requests, unid);
 			ao2_ref(unid, -1);
 		}
 	}
 
 	if (!endpoint) {
-
 		/* always use an artificial endpoint - per discussion no reason
 		   to have "alwaysauthreject" as an option.  It is felt using it
 		   was a bug fix and it is not needed since we are not worried about
@@ -705,9 +727,10 @@ static pj_bool_t endpoint_lookup(pjsip_rx_data *rdata)
 		endpoint = ast_sip_get_artificial_endpoint();
 	}
 
+	/* endpoint ref held by mod_data[] */
 	rdata->endpt_info.mod_data[endpoint_mod.id] = endpoint;
 
-	if ((endpoint == artificial_endpoint) && !is_ack) {
+	if (endpoint == artificial_endpoint && !is_ack) {
 		char name[AST_UUID_STR_LEN] = "";
 		pjsip_uri *from = rdata->msg_info.from->uri;
 
@@ -716,19 +739,23 @@ static pj_bool_t endpoint_lookup(pjsip_rx_data *rdata)
 			ast_copy_pj_str(name, &sip_from->user, sizeof(name));
 		}
 
-		if ((unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY))) {
+		unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY);
+		if (unid) {
 			check_endpoint(rdata, unid, name);
 			ao2_ref(unid, -1);
 		} else if (using_auth_username) {
 			ao2_wrlock(unidentified_requests);
-			/* The check again with the write lock held allows us to eliminate the DUPS_REPLACE and sort_fn */
-			if ((unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY | OBJ_NOLOCK))) {
+			/* Checking again with the write lock held allows us to eliminate the DUPS_REPLACE and sort_fn */
+			unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name,
+				OBJ_SEARCH_KEY | OBJ_NOLOCK);
+			if (unid) {
 				check_endpoint(rdata, unid, name);
 			} else {
-				unid = ao2_alloc_options(sizeof(*unid) + strlen(rdata->pkt_info.src_name) + 1, NULL,
-					AO2_ALLOC_OPT_LOCK_RWLOCK);
+				unid = ao2_alloc_options(sizeof(*unid) + strlen(rdata->pkt_info.src_name) + 1,
+					NULL, AO2_ALLOC_OPT_LOCK_RWLOCK);
 				if (!unid) {
 					ao2_unlock(unidentified_requests);
+					pjsip_endpt_respond_stateless(ast_sip_get_pjsip_endpoint(), rdata, 500, NULL, NULL, NULL);
 					return PJ_TRUE;
 				}
 				strcpy(unid->src_name, rdata->pkt_info.src_name); /* Safe */
@@ -743,6 +770,8 @@ static pj_bool_t endpoint_lookup(pjsip_rx_data *rdata)
 			ast_sip_report_invalid_endpoint(name, rdata);
 		}
 	}
+
+	apply_acls(rdata);
 	return PJ_FALSE;
 }
 
@@ -826,16 +855,11 @@ static pj_bool_t authenticate(pjsip_rx_data *rdata)
 
 	ast_assert(endpoint != NULL);
 
-	if (endpoint!=artificial_endpoint) {
-		if (apply_endpoint_acl(rdata, endpoint) || apply_endpoint_contact_acl(rdata, endpoint)) {
-			if (!is_ack) {
-				pjsip_endpt_respond_stateless(ast_sip_get_pjsip_endpoint(), rdata, 403, NULL, NULL, NULL);
-			}
-			return PJ_TRUE;
-		}
+	if (is_ack) {
+		return PJ_FALSE;
 	}
 
-	if (!is_ack && ast_sip_requires_authentication(endpoint, rdata)) {
+	if (ast_sip_requires_authentication(endpoint, rdata)) {
 		pjsip_tx_data *tdata;
 		struct unidentified_request *unid;
 
@@ -850,7 +874,8 @@ static pj_bool_t authenticate(pjsip_rx_data *rdata)
 			return PJ_TRUE;
 		case AST_SIP_AUTHENTICATION_SUCCESS:
 			/* See note in endpoint_lookup about not holding an unnecessary write lock */
-			if ((unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY))) {
+			unid = ao2_find(unidentified_requests, rdata->pkt_info.src_name, OBJ_SEARCH_KEY);
+			if (unid) {
 				ao2_unlink(unidentified_requests, unid);
 				ao2_ref(unid, -1);
 			}
@@ -871,6 +896,10 @@ static pj_bool_t authenticate(pjsip_rx_data *rdata)
 			return PJ_TRUE;
 		}
 		pjsip_tx_data_dec_ref(tdata);
+	} else if (endpoint == artificial_endpoint) {
+		/* Uh. Oh.  The artificial endpoint couldn't challenge so block the request. */
+		pjsip_endpt_respond_stateless(ast_sip_get_pjsip_endpoint(), rdata, 500, NULL, NULL, NULL);
+		return PJ_TRUE;
 	}
 
 	return PJ_FALSE;

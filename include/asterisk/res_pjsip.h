@@ -261,7 +261,7 @@ struct ast_sip_contact {
 	struct timeval expiration_time;
 	/*! Frequency to send OPTIONS requests to contact. 0 is disabled. */
 	unsigned int qualify_frequency;
-	/*! If true authenticate the qualify if needed */
+	/*! If true authenticate the qualify challenge response if needed */
 	int authenticate_qualify;
 	/*! Qualify timeout. 0 is diabled. */
 	double qualify_timeout;
@@ -283,8 +283,6 @@ struct ast_sip_contact {
 	int prune_on_boot;
 };
 
-#define CONTACT_STATUS "contact_status"
-
 /*!
  * \brief Status type for a contact.
  */
@@ -303,21 +301,20 @@ enum ast_sip_contact_status_type {
  *         if available.
  */
 struct ast_sip_contact_status {
-	SORCERY_OBJECT(details);
-	/*! Current status for a contact (default - unavailable) */
-	enum ast_sip_contact_status_type status;
-	/*! The round trip start time set before sending a qualify request */
-	struct timeval rtt_start;
+	AST_DECLARE_STRING_FIELDS(
+		/*! The original contact's URI */
+		AST_STRING_FIELD(uri);
+		/*! The name of the aor this contact_status belongs to */
+		AST_STRING_FIELD(aor);
+	);
 	/*! The round trip time in microseconds */
 	int64_t rtt;
+	/*! Current status for a contact (default - unavailable) */
+	enum ast_sip_contact_status_type status;
 	/*! Last status for a contact (default - unavailable) */
 	enum ast_sip_contact_status_type last_status;
-	/*! The name of the aor this contact_status belongs to */
-	char *aor;
-	/*! The original contact's URI */
-	char *uri;
-	/*! TRUE if the contact was refreshed. e.g., re-registered */
-	unsigned int refresh:1;
+	/*! Name of the contact */
+	char name[0];
 };
 
 /*!
@@ -340,7 +337,7 @@ struct ast_sip_aor {
 	unsigned int default_expiration;
 	/*! Frequency to send OPTIONS requests to AOR contacts. 0 is disabled. */
 	unsigned int qualify_frequency;
-	/*! If true authenticate the qualify if needed */
+	/*! If true authenticate the qualify challenge response if needed */
 	int authenticate_qualify;
 	/*! Maximum number of external contacts, 0 to disable */
 	unsigned int max_contacts;
@@ -794,6 +791,10 @@ struct ast_sip_endpoint {
 	unsigned int notify_early_inuse_ringing;
 	/*! If set, we'll push incoming MWI NOTIFYs to stasis using this mailbox */
 	AST_STRING_FIELD_EXTENDED(incoming_mwi_mailbox);
+	/*! Follow forked media with a different To tag */
+	unsigned int follow_early_media_fork;
+	/*! Accept updated SDPs on non-100rel 18X and 2XX responses with the same To tag */
+	unsigned int accept_multiple_sdp_answers;
 };
 
 /*! URI parameter for symmetric transport */
@@ -1053,12 +1054,32 @@ void *ast_sip_endpoint_alloc(const char *name);
 /*!
  * \brief Change state of a persistent endpoint.
  *
- * \param endpoint The SIP endpoint name to change state.
+ * \param endpoint_name The SIP endpoint name to change state.
  * \param state The new state
  * \retval 0 Success
  * \retval -1 Endpoint not found
  */
 int ast_sip_persistent_endpoint_update_state(const char *endpoint_name, enum ast_endpoint_state state);
+
+/*!
+ * \brief Publish the change of state for a contact.
+ *
+ * \param endpoint_name The SIP endpoint name.
+ * \param contact_status The contact status.
+ */
+void ast_sip_persistent_endpoint_publish_contact_state(const char *endpoint_name, const struct ast_sip_contact_status *contact_status);
+
+/*!
+ * \brief Retrieve the current status for a contact.
+ *
+ * \param contact The contact.
+ *
+ * \retval non-NULL Success
+ * \retval NULL Status information not found
+ *
+ * \note The returned contact status object is immutable.
+ */
+struct ast_sip_contact_status *ast_sip_get_contact_status(const struct ast_sip_contact *contact);
 
 /*!
  * \brief Get a pointer to the PJSIP endpoint.
@@ -1399,7 +1420,7 @@ struct ast_sip_endpoint *ast_sip_get_artificial_endpoint(void);
  * the next item on the SIP socket(s) can be serviced. On incoming messages,
  * Asterisk automatically will push the request to a servant thread. When your
  * module callback is called, processing will already be in a servant. However,
- * for other PSJIP events, such as transaction state changes due to timer
+ * for other PJSIP events, such as transaction state changes due to timer
  * expirations, your module will be called into from a PJSIP thread. If you
  * are called into from a PJSIP thread, then you should push whatever processing
  * is needed to a servant as soon as possible. You can discern if you are currently
@@ -1572,26 +1593,90 @@ struct ast_sip_endpoint *ast_sip_dialog_get_endpoint(pjsip_dialog *dlg);
 int ast_sip_push_task(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data);
 
 /*!
- * \brief Push a task to SIP servants and wait for it to complete
+ * \brief Push a task to SIP servants and wait for it to complete.
  *
- * Like \ref ast_sip_push_task except that it blocks until the task completes.
+ * Like \ref ast_sip_push_task except that it blocks until the task
+ * completes.  If the current thread is a SIP servant thread then the
+ * task executes immediately.  Otherwise, the specified serializer
+ * executes the task and the current thread waits for it to complete.
  *
- * \warning \b Never use this function in a SIP servant thread. This can potentially
- * cause a deadlock. If you are in a SIP servant thread, just call your function
- * in-line.
+ * \note PJPROJECT callbacks tend to have locks already held when
+ * called.
  *
- * \warning \b Never hold locks that may be acquired by a SIP servant thread when
- * calling this function. Doing so may cause a deadlock if all SIP servant threads
- * are blocked waiting to acquire the lock while the thread holding the lock is
- * waiting for a free SIP servant thread.
+ * \warning \b Never hold locks that may be acquired by a SIP servant
+ * thread when calling this function.  Doing so may cause a deadlock
+ * if all SIP servant threads are blocked waiting to acquire the lock
+ * while the thread holding the lock is waiting for a free SIP servant
+ * thread.
  *
- * \param serializer The SIP serializer to which the task belongs. May be NULL.
+ * \warning \b Use of this function in an ao2 destructor callback is a
+ * bad idea.  You don't have control over which thread executes the
+ * destructor.  Attempting to shift execution to another thread with
+ * this function is likely to cause deadlock.
+ *
+ * \param serializer The SIP serializer to execute the task if the
+ * current thread is not a SIP servant.  NULL if any of the default
+ * serializers can be used.
  * \param sip_task The task to execute
  * \param task_data The parameter to pass to the task when it executes
- * \retval 0 Success
- * \retval -1 Failure
+ *
+ * \note The sip_task() return value may need to be distinguished from
+ * the failure to push the task.
+ *
+ * \return sip_task() return value on success.
+ * \retval -1 Failure to push the task.
+ */
+int ast_sip_push_task_wait_servant(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data);
+
+/*!
+ * \brief Push a task to SIP servants and wait for it to complete.
+ * \deprecated Replaced with ast_sip_push_task_wait_servant().
  */
 int ast_sip_push_task_synchronous(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data);
+
+/*!
+ * \brief Push a task to the serializer and wait for it to complete.
+ *
+ * Like \ref ast_sip_push_task except that it blocks until the task is
+ * completed by the specified serializer.  If the specified serializer
+ * is the current thread then the task executes immediately.
+ *
+ * \note PJPROJECT callbacks tend to have locks already held when
+ * called.
+ *
+ * \warning \b Never hold locks that may be acquired by a SIP servant
+ * thread when calling this function.  Doing so may cause a deadlock
+ * if all SIP servant threads are blocked waiting to acquire the lock
+ * while the thread holding the lock is waiting for a free SIP servant
+ * thread for the serializer to execute in.
+ *
+ * \warning \b Never hold locks that may be acquired by the serializer
+ * when calling this function.  Doing so will cause a deadlock.
+ *
+ * \warning \b Never use this function in the pjsip monitor thread (It
+ * is a SIP servant thread).  This is likely to cause a deadlock.
+ *
+ * \warning \b Use of this function in an ao2 destructor callback is a
+ * bad idea.  You don't have control over which thread executes the
+ * destructor.  Attempting to shift execution to another thread with
+ * this function is likely to cause deadlock.
+ *
+ * \param serializer The SIP serializer to execute the task.  NULL if
+ * any of the default serializers can be used.
+ * \param sip_task The task to execute
+ * \param task_data The parameter to pass to the task when it executes
+ *
+ * \note It is generally better to call
+ * ast_sip_push_task_wait_servant() if you pass NULL for the
+ * serializer parameter.
+ *
+ * \note The sip_task() return value may need to be distinguished from
+ * the failure to push the task.
+ *
+ * \return sip_task() return value on success.
+ * \retval -1 Failure to push the task.
+ */
+int ast_sip_push_task_wait_serializer(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data);
 
 /*!
  * \brief Determine if the current thread is a SIP servant thread
@@ -1617,13 +1702,13 @@ enum ast_sip_scheduler_task_flags {
 
 	/*!
 	 * Run at a fixed interval.
-	 * Stop scheduling if the callback returns 0.
+	 * Stop scheduling if the callback returns <= 0.
 	 * Any other value is ignored.
 	 */
 	AST_SIP_SCHED_TASK_FIXED = (0 << 0),
 	/*!
 	 * Run at a variable interval.
-	 * Stop scheduling if the callback returns 0.
+	 * Stop scheduling if the callback returns <= 0.
 	 * Any other return value is used as the new interval.
 	 */
 	AST_SIP_SCHED_TASK_VARIABLE = (1 << 0),
@@ -1649,16 +1734,23 @@ enum ast_sip_scheduler_task_flags {
 	 */
 	AST_SIP_SCHED_TASK_DATA_FREE = ( 1 << 3 ),
 
-	/*! \brief AST_SIP_SCHED_TASK_PERIODIC
-	 * The task is scheduled at multiples of interval
+	/*!
+	 * \brief The task is scheduled at multiples of interval
 	 * \see Interval
 	 */
 	AST_SIP_SCHED_TASK_PERIODIC = (0 << 4),
-	/*! \brief AST_SIP_SCHED_TASK_DELAY
-	 * The next invocation of the task is at last finish + interval
+	/*!
+	 * \brief The next invocation of the task is at last finish + interval
 	 * \see Interval
 	 */
 	AST_SIP_SCHED_TASK_DELAY = (1 << 4),
+	/*!
+	 * \brief The scheduled task's events are tracked in the debug log.
+	 * \details
+	 * Schedule events such as scheduling, running, rescheduling, canceling,
+	 * and destroying are logged about the task.
+	 */
+	AST_SIP_SCHED_TASK_TRACK = (1 << 5),
 };
 
 /*!
@@ -1702,7 +1794,7 @@ struct ast_sip_sched_task;
  *
  */
 struct ast_sip_sched_task *ast_sip_schedule_task(struct ast_taskprocessor *serializer,
-	int interval, ast_sip_task sip_task, char *name, void *task_data,
+	int interval, ast_sip_task sip_task, const char *name, void *task_data,
 	enum ast_sip_scheduler_task_flags flags);
 
 /*!

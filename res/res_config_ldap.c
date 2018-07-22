@@ -550,11 +550,11 @@ static struct ast_variable **realtime_ldap_result_to_vars(struct ldap_table_conf
 			} /*!< while (ldap_attribute_name) */
 			ber_free(ber, 0);
 			if (static_table_config == table_config) {
-				if (option_debug > 2) {
+				if (DEBUG_ATLEAST(3)) {
 					const struct ast_variable *tmpdebug = variable_named(var, "variable_name");
 					const struct ast_variable *tmpdebug2 = variable_named(var, "variable_value");
 					if (tmpdebug && tmpdebug2) {
-						ast_debug(3, "Added to vars - %s = %s\n", tmpdebug->value, tmpdebug2->value);
+						ast_log(LOG_DEBUG, "Added to vars - %s = %s\n", tmpdebug->value, tmpdebug2->value);
 					}
 				}
 				vars[entry_index++] = var;
@@ -1620,14 +1620,14 @@ static int update2_ldap(const char *basedn, const char *table_name, const struct
 
 	/* Ready to update */
 	ast_debug(3, "Modifying %zu matched entries\n", entry_count);
-	if (option_debug > 2) {
+	if (DEBUG_ATLEAST(3)) {
 		size_t i;
 		for (i = 0; modifications[i]; i++) {
 			if (modifications[i]->mod_op != LDAP_MOD_DELETE) {
-				ast_debug(3, "%s => %s\n", modifications[i]->mod_type,
-						modifications[i]->mod_values[0]);
+				ast_log(LOG_DEBUG, "%s => %s\n", modifications[i]->mod_type,
+					modifications[i]->mod_values[0]);
 			} else {
-				ast_debug(3, "deleting %s\n", modifications[i]->mod_type);
+				ast_log(LOG_DEBUG, "deleting %s\n", modifications[i]->mod_type);
 			}
 		}
 	}
@@ -1961,7 +1961,7 @@ static int ldap_reconnect(void)
  */
 static char *realtime_ldap_status(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
-	char status[256], credentials[100] = "";
+	struct ast_str *buf;
 	int ctimesec = time(NULL) - connect_time;
 
 	switch (cmd) {
@@ -1978,30 +1978,33 @@ static char *realtime_ldap_status(struct ast_cli_entry *e, int cmd, struct ast_c
 	if (!ldapConn)
 		return CLI_FAILURE;
 
-	if (!ast_strlen_zero(url))
-		snprintf(status, sizeof(status), "Connected to '%s', baseDN %s", url, base_distinguished_name);
+	buf = ast_str_create(512);
+	if (!ast_strlen_zero(url)) {
+		ast_str_append(&buf, 0, "Connected to '%s', baseDN %s", url, base_distinguished_name);
+	}
 
-	if (!ast_strlen_zero(user))
-		snprintf(credentials, sizeof(credentials), " with username %s", user);
+	if (!ast_strlen_zero(user)) {
+		ast_str_append(&buf, 0, " with username %s", user);
+	}
 
 	if (ctimesec > 31536000) {
-		ast_cli(a->fd, "%s%s for %d years, %d days, %d hours, %d minutes, %d seconds.\n",
-				status, credentials, ctimesec / 31536000,
+		ast_cli(a->fd, "%s for %d years, %d days, %d hours, %d minutes, %d seconds.\n",
+				ast_str_buffer(buf), ctimesec / 31536000,
 				(ctimesec % 31536000) / 86400, (ctimesec % 86400) / 3600,
 				(ctimesec % 3600) / 60, ctimesec % 60);
 	} else if (ctimesec > 86400) {
-		ast_cli(a->fd, "%s%s for %d days, %d hours, %d minutes, %d seconds.\n",
-				status, credentials, ctimesec / 86400, (ctimesec % 86400) / 3600,
+		ast_cli(a->fd, "%s for %d days, %d hours, %d minutes, %d seconds.\n",
+				ast_str_buffer(buf), ctimesec / 86400, (ctimesec % 86400) / 3600,
 				(ctimesec % 3600) / 60, ctimesec % 60);
 	} else if (ctimesec > 3600) {
-		ast_cli(a->fd, "%s%s for %d hours, %d minutes, %d seconds.\n",
-				status, credentials, ctimesec / 3600, (ctimesec % 3600) / 60,
+		ast_cli(a->fd, "%s for %d hours, %d minutes, %d seconds.\n",
+				ast_str_buffer(buf), ctimesec / 3600, (ctimesec % 3600) / 60,
 				ctimesec % 60);
 	} else if (ctimesec > 60) {
-		ast_cli(a->fd, "%s%s for %d minutes, %d seconds.\n", status, credentials,
+		ast_cli(a->fd, "%s for %d minutes, %d seconds.\n", ast_str_buffer(buf),
 					ctimesec / 60, ctimesec % 60);
 	} else {
-		ast_cli(a->fd, "%s%s for %d seconds.\n", status, credentials, ctimesec);
+		ast_cli(a->fd, "%s for %d seconds.\n", ast_str_buffer(buf), ctimesec);
 	}
 
 	return CLI_SUCCESS;

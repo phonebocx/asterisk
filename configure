@@ -655,8 +655,8 @@ PBX_MSG_NOSIGNAL
 PBX_IXJUSER
 GMIME_LIBS
 GMIME_CFLAGS
-PBX_SSL_OP_NO_TLSV1_2
-PBX_SSL_OP_NO_TLSV1_1
+PORTAUDIO_LIBS
+PORTAUDIO_CFLAGS
 PYTHONDEV_LIBS
 PYTHONDEV_CFLAGS
 PYTHONDEV_INCLUDE
@@ -670,17 +670,11 @@ CONFIG_NEON
 CONFIG_MYSQLCLIENT
 PBX_MISDN_FAC_ERROR
 PBX_MISDN_FAC_RESULT
-LIBEDIT_LIBS
-LIBEDIT_CFLAGS
-LIBEDIT_INTERNAL
 ILBC_LIBS
 ILBC_CFLAGS
 ILBC_INTERNAL
 GSM_INTERNAL
 PBX_DAHDI_HALF_FULL
-PKG_CONFIG_LIBDIR
-PKG_CONFIG_PATH
-PKG_CONFIG
 PBX_DLADDR
 PBX_IP_MTU_DISCOVER
 PBX_RTLD_NOLOAD
@@ -690,6 +684,7 @@ BIND8_CFLAGS
 AST_RPATH
 AST_NATIVE_ARCH
 AST_SHADOW_WARNINGS
+AST_NO_STRINGOP_TRUNCATION
 AST_NO_FORMAT_TRUNCATION
 AST_NO_STRICT_OVERFLOW
 AST_FORTIFY_SOURCE
@@ -712,6 +707,12 @@ CONFIG_LIBXML2
 UUID_LIB
 UUID_INCLUDE
 EDITLINE_LIB
+LIBEDIT_LIBS
+LIBEDIT_CFLAGS
+PKG_CONFIG_LIBDIR
+PKG_CONFIG_PATH
+PKG_CONFIG
+LIBEDIT_INTERNAL
 ALLOCA
 PBX_ZLIB
 ZLIB_DIR
@@ -909,6 +910,10 @@ PBX_POPT
 POPT_DIR
 POPT_INCLUDE
 POPT_LIB
+PBX_PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS
+PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_DIR
+PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_INCLUDE
+PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_LIB
 PBX_PJSIP_TSX_LAYER_FIND_TSX2
 PJSIP_TSX_LAYER_FIND_TSX2_DIR
 PJSIP_TSX_LAYER_FIND_TSX2_INCLUDE
@@ -1017,10 +1022,6 @@ PBX_LUA
 LUA_DIR
 LUA_INCLUDE
 LUA_LIB
-PBX_LTDL
-LTDL_DIR
-LTDL_INCLUDE
-LTDL_LIB
 PBX_LIBXSLT_CLEANUP
 LIBXSLT_CLEANUP_DIR
 LIBXSLT_CLEANUP_INCLUDE
@@ -1121,10 +1122,6 @@ PBX_DAHDI
 DAHDI_DIR
 DAHDI_INCLUDE
 DAHDI_LIB
-PBX_OPENSSL_EC
-OPENSSL_EC_DIR
-OPENSSL_EC_INCLUDE
-OPENSSL_EC_LIB
 PBX_OPENSSL_SRTP
 OPENSSL_SRTP_DIR
 OPENSSL_SRTP_INCLUDE
@@ -1374,7 +1371,6 @@ with_libcurl
 with_libedit
 with_libxml2
 with_libxslt
-with_ltdl
 with_lua
 with_misdn
 with_mysqlclient
@@ -1441,14 +1437,16 @@ PJPROJECT_CONFIGURE_OPTS
 PKG_CONFIG
 PKG_CONFIG_PATH
 PKG_CONFIG_LIBDIR
-ILBC_CFLAGS
-ILBC_LIBS
 LIBEDIT_CFLAGS
 LIBEDIT_LIBS
+ILBC_CFLAGS
+ILBC_LIBS
 PJPROJECT_CFLAGS
 PJPROJECT_LIBS
 PYTHONDEV_CFLAGS
 PYTHONDEV_LIBS
+PORTAUDIO_CFLAGS
+PORTAUDIO_LIBS
 GMIME_CFLAGS
 GMIME_LIBS
 GTK2_CFLAGS
@@ -2125,7 +2123,6 @@ Optional Packages:
                           'internal' Editline otherwise
   --with-libxml2=PATH     use LibXML2 files in PATH
   --with-libxslt=PATH     use LibXSLT files in PATH
-  --with-ltdl=PATH        use libtool files in PATH
   --with-lua=PATH         use Lua files in PATH
   --with-misdn=PATH       use mISDN user files in PATH
   --with-mysqlclient=PATH use MySQL client files in PATH
@@ -2190,12 +2187,12 @@ Some influential environment variables:
               directories to add to pkg-config's search path
   PKG_CONFIG_LIBDIR
               path overriding pkg-config's built-in search path
-  ILBC_CFLAGS C compiler flags for ILBC, overriding pkg-config
-  ILBC_LIBS   linker flags for ILBC, overriding pkg-config
   LIBEDIT_CFLAGS
               C compiler flags for LIBEDIT, overriding pkg-config
   LIBEDIT_LIBS
               linker flags for LIBEDIT, overriding pkg-config
+  ILBC_CFLAGS C compiler flags for ILBC, overriding pkg-config
+  ILBC_LIBS   linker flags for ILBC, overriding pkg-config
   PJPROJECT_CFLAGS
               C compiler flags for PJPROJECT, overriding pkg-config
   PJPROJECT_LIBS
@@ -2204,6 +2201,10 @@ Some influential environment variables:
               C compiler flags for PYTHONDEV, overriding pkg-config
   PYTHONDEV_LIBS
               linker flags for PYTHONDEV, overriding pkg-config
+  PORTAUDIO_CFLAGS
+              C compiler flags for PORTAUDIO, overriding pkg-config
+  PORTAUDIO_LIBS
+              linker flags for PORTAUDIO, overriding pkg-config
   GMIME_CFLAGS
               C compiler flags for GMIME, overriding pkg-config
   GMIME_LIBS  linker flags for GMIME, overriding pkg-config
@@ -4631,7 +4632,12 @@ case "${host_os}" in
 esac
 
 case "${host_os}" in
-     freebsd*)
+     netbsd*)
+     ac_default_prefix=/usr/pkg
+     CPPFLAGS=-I/usr/pkg/include
+     LDFLAGS=-L/usr/pkg/lib
+     ;;
+     dragonfly*|freebsd*)
      ac_default_prefix=/usr/local
      CPPFLAGS=-I/usr/local/include
      LDFLAGS=-L/usr/local/lib
@@ -4720,7 +4726,7 @@ HOST_OS=${host_os}
 PBX_WINARCH=0
 
 case "${host_os}" in
-     freebsd*)
+     dragonfly*|freebsd*)
      OSARCH=FreeBSD
      ;;
      netbsd*)
@@ -7760,11 +7766,14 @@ fi
 
 
 
+DOWNLOAD=":"
+DOWNLOAD_TO_STDOUT=
+DOWNLOAD_TIMEOUT=
 if test "${WGET}" != ":" ; then
   DOWNLOAD=${WGET}
   DOWNLOAD_TO_STDOUT="${WGET} -q -O-"
   DOWNLOAD_TIMEOUT='--timeout=$1'
-else if test "${CURL}" != ":" ; then
+elif test "${CURL}" != ":" ; then
   DOWNLOAD="${CURL} -O --progress-bar -w \"%{url_effective}\n\""
   DOWNLOAD_TO_STDOUT="${CURL} -Ls"
   DOWNLOAD_TIMEOUT='--max-time $(or $2,$1)'
@@ -7810,12 +7819,12 @@ $as_echo "no" >&6; }
 fi
 
 
-  DOWNLOAD=${FETCH}
-  DOWNLOAD_TO_STDOUT="${FETCH} -o-"
-  DOWNLOAD_TIMEOUT='--timeout=$(or $2,$1)'
+  if test "${FETCH}" != ":" ; then
+    DOWNLOAD=${FETCH}
+    DOWNLOAD_TO_STDOUT="${FETCH} -o-"
+    DOWNLOAD_TIMEOUT='--timeout=$(or $2,$1)'
+  fi
 fi
-fi
-
 
 
 
@@ -9040,12 +9049,12 @@ else
 
 			{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for clang -fblocks" >&5
 $as_echo_n "checking for clang -fblocks... " >&6; }
-			if test "`echo "int main(){return ^{return 42;}();}" | ${CC} -o /dev/null -fblocks -x c - 2>&1`" = ""; then
+			if test "`echo 'int main(){return ^{return 42;}();}' | ${CC} -o /dev/null -fblocks -x c - 2>&1`" = ""; then
 				AST_CLANG_BLOCKS_LIBS=""
 				AST_CLANG_BLOCKS="-Wno-unknown-warning-option -fblocks"
 				{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
-			elif test "`echo "int main(){return ^{return 42;}();}" | ${CC} -o /dev/null -fblocks -x c -lBlocksRuntime - 2>&1`" = ""; then
+			elif test "`echo 'int main(){return ^{return 42;}();}' | ${CC} -o /dev/null -fblocks -x c -lBlocksRuntime - 2>&1`" = ""; then
 				AST_CLANG_BLOCKS_LIBS="-lBlocksRuntime"
 				AST_CLANG_BLOCKS="-fblocks"
 				{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
@@ -9148,7 +9157,7 @@ $as_echo_n "checking for embedded pjproject (may have to download)... " >&6; }
 $as_echo "configuring" >&6; }
 
 	if test "x${DOWNLOAD_TO_STDOUT}" = "x" ; then
-		as_fn_error $? "A download utility (wget, curl or fetch) is required to download bundled pjproject" "$LINENO" 5
+		as_fn_error $? "A download utility (wget, curl, or fetch) is required to download bundled pjproject" "$LINENO" 5
 	fi
 	if test "${BZIP2}" = ":" ; then
 		as_fn_error $? "bzip2 is required to extract the pjproject tar file" "$LINENO" 5
@@ -9247,6 +9256,9 @@ $as_echo "#define HAVE_PJSIP_AUTH_CLT_DEINIT 1" >>confdefs.h
 
 
 $as_echo "#define HAVE_PJSIP_TSX_LAYER_FIND_TSX2 1" >>confdefs.h
+
+
+$as_echo "#define HAVE_PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS 1" >>confdefs.h
 
 
 
@@ -9580,18 +9592,6 @@ OPENSSL_SRTP_OPTION=crypto
 OPENSSL_SRTP_DIR=${CRYPTO_DIR}
 
 PBX_OPENSSL_SRTP=0
-
-
-
-
-
-
-
-OPENSSL_EC_DESCRIP="OpenSSL Elliptic Curve Support"
-OPENSSL_EC_OPTION=crypto
-OPENSSL_EC_DIR=${CRYPTO_DIR}
-
-PBX_OPENSSL_EC=0
 
 
 
@@ -10714,38 +10714,6 @@ PBX_LIBXSLT_CLEANUP=0
 
 
 
-    LTDL_DESCRIP="libtool"
-    LTDL_OPTION="ltdl"
-    PBX_LTDL=0
-
-# Check whether --with-ltdl was given.
-if test "${with_ltdl+set}" = set; then :
-  withval=$with_ltdl;
-	case ${withval} in
-	n|no)
-	USE_LTDL=no
-	# -1 is a magic value used by menuselect to know that the package
-	# was disabled, other than 'not found'
-	PBX_LTDL=-1
-	;;
-	y|ye|yes)
-	ac_mandatory_list="${ac_mandatory_list} LTDL"
-	;;
-	*)
-	LTDL_DIR="${withval}"
-	ac_mandatory_list="${ac_mandatory_list} LTDL"
-	;;
-	esac
-
-fi
-
-
-
-
-
-
-
-
     LUA_DESCRIP="Lua"
     LUA_OPTION="lua"
     PBX_LUA=0
@@ -11417,6 +11385,18 @@ PJSIP_TSX_LAYER_FIND_TSX2_OPTION=pjsip
 PJSIP_TSX_LAYER_FIND_TSX2_DIR=${PJPROJECT_DIR}
 
 PBX_PJSIP_TSX_LAYER_FIND_TSX2=0
+
+
+
+
+
+
+
+PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_DESCRIP="PJSIP INVITE Accept Multiple SDP Answers"
+PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_OPTION=pjsip
+PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_DIR=${PJPROJECT_DIR}
+
+PBX_PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS=0
 
 
 
@@ -13094,7 +13074,377 @@ fi
 done
 
 
-# Any one of these packages support a mandatory requirement, so we want to check on them as early as possible.
+# Find required NetBSD Editline library (libedit).
+EDITLINE_LIB=""
+LIBEDIT_INTERNAL="yes"
+
+LIBEDIT_SYSTEM="yes"
+if test "${USE_LIBEDIT}" != "no"; then
+   if test "${LIBEDIT_DIR}" = "internal"; then
+      LIBEDIT_SYSTEM="no"
+   elif test "${LIBEDIT_DIR}" != ""; then
+      LIBEDIT_INTERNAL="no"
+   fi
+   if test "${LIBEDIT_SYSTEM}" = "yes"; then
+
+
+
+
+
+
+
+if test "x$ac_cv_env_PKG_CONFIG_set" != "xset"; then
+	if test -n "$ac_tool_prefix"; then
+  # Extract the first word of "${ac_tool_prefix}pkg-config", so it can be a program name with args.
+set dummy ${ac_tool_prefix}pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_PKG_CONFIG="$PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+PKG_CONFIG=$ac_cv_path_PKG_CONFIG
+if test -n "$PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $PKG_CONFIG" >&5
+$as_echo "$PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+fi
+if test -z "$ac_cv_path_PKG_CONFIG"; then
+  ac_pt_PKG_CONFIG=$PKG_CONFIG
+  # Extract the first word of "pkg-config", so it can be a program name with args.
+set dummy pkg-config; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_path_ac_pt_PKG_CONFIG+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $ac_pt_PKG_CONFIG in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_ac_pt_PKG_CONFIG="$ac_pt_PKG_CONFIG" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_path_ac_pt_PKG_CONFIG="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+ac_pt_PKG_CONFIG=$ac_cv_path_ac_pt_PKG_CONFIG
+if test -n "$ac_pt_PKG_CONFIG"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_pt_PKG_CONFIG" >&5
+$as_echo "$ac_pt_PKG_CONFIG" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+  if test "x$ac_pt_PKG_CONFIG" = x; then
+    PKG_CONFIG=""
+  else
+    case $cross_compiling:$ac_tool_warned in
+yes:)
+{ $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: using cross tools not prefixed with host triplet" >&5
+$as_echo "$as_me: WARNING: using cross tools not prefixed with host triplet" >&2;}
+ac_tool_warned=yes ;;
+esac
+    PKG_CONFIG=$ac_pt_PKG_CONFIG
+  fi
+else
+  PKG_CONFIG="$ac_cv_path_PKG_CONFIG"
+fi
+
+fi
+if test -n "$PKG_CONFIG"; then
+	_pkg_min_version=0.9.0
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking pkg-config is at least version $_pkg_min_version" >&5
+$as_echo_n "checking pkg-config is at least version $_pkg_min_version... " >&6; }
+	if $PKG_CONFIG --atleast-pkgconfig-version $_pkg_min_version; then
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+	else
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+		PKG_CONFIG=""
+	fi
+fi
+
+   if test "x${PBX_LIBEDIT}" != "x1" -a "${USE_LIBEDIT}" != "no"; then
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for LIBEDIT" >&5
+$as_echo_n "checking for LIBEDIT... " >&6; }
+
+if test -n "$LIBEDIT_CFLAGS"; then
+    pkg_cv_LIBEDIT_CFLAGS="$LIBEDIT_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libedit\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libedit") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_LIBEDIT_CFLAGS=`$PKG_CONFIG --cflags "libedit" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$LIBEDIT_LIBS"; then
+    pkg_cv_LIBEDIT_LIBS="$LIBEDIT_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libedit\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "libedit") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_LIBEDIT_LIBS=`$PKG_CONFIG --libs "libedit" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        LIBEDIT_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libedit" 2>&1`
+        else
+	        LIBEDIT_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libedit" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$LIBEDIT_PKG_ERRORS" >&5
+
+
+            PBX_LIBEDIT=0
+
+
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+            PBX_LIBEDIT=0
+
+
+else
+	LIBEDIT_CFLAGS=$pkg_cv_LIBEDIT_CFLAGS
+	LIBEDIT_LIBS=$pkg_cv_LIBEDIT_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+            PBX_LIBEDIT=1
+            LIBEDIT_INCLUDE=$(echo ${LIBEDIT_CFLAGS} | $SED -e "s|-std=c99||g")
+            LIBEDIT_LIB="$LIBEDIT_LIBS"
+
+$as_echo "#define HAVE_LIBEDIT 1" >>confdefs.h
+
+
+fi
+   fi
+
+      # some platforms do not list libedit via pkg-config, for example OpenBSD 6.2
+
+if test "x${PBX_LIBEDIT}" != "x1" -a "${USE_LIBEDIT}" != "no"; then
+   pbxlibdir=""
+   # if --with-LIBEDIT=DIR has been specified, use it.
+   if test "x${LIBEDIT_DIR}" != "x"; then
+      if test -d ${LIBEDIT_DIR}/lib; then
+         pbxlibdir="-L${LIBEDIT_DIR}/lib"
+      else
+         pbxlibdir="-L${LIBEDIT_DIR}"
+      fi
+   fi
+
+      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
+      CFLAGS="${CFLAGS} "
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for history_init in -ledit" >&5
+$as_echo_n "checking for history_init in -ledit... " >&6; }
+if ${ac_cv_lib_edit_history_init+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-ledit ${pbxlibdir} -ltermcap $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char history_init ();
+int
+main ()
+{
+return history_init ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_edit_history_init=yes
+else
+  ac_cv_lib_edit_history_init=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_edit_history_init" >&5
+$as_echo "$ac_cv_lib_edit_history_init" >&6; }
+if test "x$ac_cv_lib_edit_history_init" = xyes; then :
+  AST_LIBEDIT_FOUND=yes
+else
+  AST_LIBEDIT_FOUND=no
+fi
+
+      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
+
+
+   # now check for the header.
+   if test "${AST_LIBEDIT_FOUND}" = "yes"; then
+      LIBEDIT_LIB="${pbxlibdir} -ledit -ltermcap"
+      # if --with-LIBEDIT=DIR has been specified, use it.
+      if test "x${LIBEDIT_DIR}" != "x"; then
+         LIBEDIT_INCLUDE="-I${LIBEDIT_DIR}/include"
+      fi
+      LIBEDIT_INCLUDE="${LIBEDIT_INCLUDE} "
+
+         # check for the header
+         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
+         CPPFLAGS="${CPPFLAGS} ${LIBEDIT_INCLUDE}"
+         ac_fn_c_check_header_mongrel "$LINENO" "histedit.h" "ac_cv_header_histedit_h" "$ac_includes_default"
+if test "x$ac_cv_header_histedit_h" = xyes; then :
+  LIBEDIT_HEADER_FOUND=1
+else
+  LIBEDIT_HEADER_FOUND=0
+fi
+
+
+         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
+
+      if test "x${LIBEDIT_HEADER_FOUND}" = "x0" ; then
+         LIBEDIT_LIB=""
+         LIBEDIT_INCLUDE=""
+      else
+
+         PBX_LIBEDIT=1
+         cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBEDIT 1
+_ACEOF
+
+      fi
+   fi
+fi
+
+
+      if test "$PBX_LIBEDIT" = "1"; then
+         LIBEDIT_INTERNAL="no"
+      fi
+   fi
+   if test "${LIBEDIT_INTERNAL}" = "yes"; then
+      PBX_LIBEDIT=1
+      LIBEDIT_IS_UNICODE=no
+   else
+
+    if test "x${PBX_LIBEDIT_IS_UNICODE}" != "x1" -a "${USE_LIBEDIT_IS_UNICODE}" != "no"; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Testing for libedit unicode support" >&5
+$as_echo_n "checking for Testing for libedit unicode support... " >&6; }
+	saved_cppflags="${CPPFLAGS}"
+	if test "x${LIBEDIT_IS_UNICODE_DIR}" != "x"; then
+	    LIBEDIT_IS_UNICODE_INCLUDE="-I${LIBEDIT_IS_UNICODE_DIR}/include"
+	fi
+	CPPFLAGS="${CPPFLAGS} ${LIBEDIT_IS_UNICODE_INCLUDE}"
+
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+ #include <histedit.h>
+int
+main ()
+{
+ el_rfunc_t *callback;;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+		PBX_LIBEDIT_IS_UNICODE=1
+
+$as_echo "#define HAVE_LIBEDIT_IS_UNICODE 1" >>confdefs.h
+
+
+
+else
+         { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CPPFLAGS="${saved_cppflags}"
+    fi
+
+   fi
+fi
+# If the Asterisk internal copy should be build (user said so) or
+# must be build (system does not have it), either -ltermcap,
+# -ltinfo, or -l{n}curses must be available.
+if test "${LIBEDIT_INTERNAL}" = "yes"; then
 
 if test "x${PBX_TERMCAP}" != "x1" -a "${USE_TERMCAP}" != "no"; then
    pbxlibdir=""
@@ -13181,6 +13531,9 @@ _ACEOF
 fi
 
 
+   if test "x$TERMCAP_LIB" != "x" ; then
+      EDITLINE_LIB="$TERMCAP_LIB"
+   else
 
 if test "x${PBX_TINFO}" != "x1" -a "${USE_TINFO}" != "no"; then
    pbxlibdir=""
@@ -13267,6 +13620,9 @@ _ACEOF
 fi
 
 
+      if test "x$TINFO_LIB" != "x" ; then
+         EDITLINE_LIB="$TINFO_LIB"
+      else
 
 if test "x${PBX_CURSES}" != "x1" -a "${USE_CURSES}" != "no"; then
    pbxlibdir=""
@@ -13363,6 +13719,9 @@ _ACEOF
 fi
 
 
+         if test "x$CURSES_LIB" != "x" ; then
+            EDITLINE_LIB="$CURSES_LIB"
+         else
 
 if test "x${PBX_NCURSES}" != "x1" -a "${USE_NCURSES}" != "no"; then
    pbxlibdir=""
@@ -13459,18 +13818,14 @@ _ACEOF
 fi
 
 
-
-EDITLINE_LIB=""
-if test "x$TERMCAP_LIB" != "x" ; then
-  EDITLINE_LIB="$TERMCAP_LIB"
-elif test "x$TINFO_LIB" != "x" ; then
-  EDITLINE_LIB="$TINFO_LIB"
-elif test "x$CURSES_LIB" != "x" ; then
-  EDITLINE_LIB="$CURSES_LIB"
-elif test "x$NCURSES_LIB" != "x" ; then
-  EDITLINE_LIB="$NCURSES_LIB"
-else
-  as_fn_error $? "*** termcap support not found (on modern systems, this typically means the ncurses development package is missing)" "$LINENO" 5
+            if test "x$NCURSES_LIB" != "x" ; then
+               EDITLINE_LIB="$NCURSES_LIB"
+            else
+               as_fn_error $? "*** termcap support not found (on modern systems, this typically means the ncurses development package is missing)" "$LINENO" 5
+            fi
+         fi
+      fi
+   fi
 fi
 
 
@@ -13574,6 +13929,10 @@ _ACEOF
 fi
 
 
+if test "x$LIBUUID_LIB" != "x" ; then
+  UUID_INCLUDE="$LIBUUID_INCLUDE"
+  UUID_LIB="$LIBUUID_LIB"
+else
 
 if test "x${PBX_E2FSUUID}" != "x1" -a "${USE_E2FSUUID}" != "no"; then
    pbxlibdir=""
@@ -13670,7 +14029,11 @@ _ACEOF
 fi
 
 
-for ac_func in uuid_generate_random
+  if test "x$E2FSUUID_LIB" != "x" ; then
+    UUID_INCLUDE="$E2FSUUID_INCLUDE"
+    UUID_LIB="$E2FSUUID_LIB"
+  else
+    for ac_func in uuid_generate_random
 do :
   ac_fn_c_check_func "$LINENO" "uuid_generate_random" "ac_cv_func_uuid_generate_random"
 if test "x$ac_cv_func_uuid_generate_random" = xyes; then :
@@ -13683,18 +14046,13 @@ else
 fi
 done
 
-
-if test "x$LIBUUID_LIB" != "x" ; then
-  UUID_INCLUDE="$LIBUUID_INCLUDE"
-  UUID_LIB="$LIBUUID_LIB"
-elif test "x$E2FSUUID_LIB" != "x" ; then
-  UUID_INCLUDE="$E2FSUUID_INCLUDE"
-  UUID_LIB="$E2FSUUID_LIB"
-elif test "x$SYSUUID" != "x" ; then
-  UUID_INCLUDE=""
-  UUID_LIB=""
-else
-  as_fn_error $? "*** uuid support not found (this typically means the uuid development package is missing)" "$LINENO" 5
+    if test "x$SYSUUID" != "x" ; then
+      UUID_INCLUDE=""
+      UUID_LIB=""
+    else
+      as_fn_error $? "*** uuid support not found (this typically means the uuid development package is missing)" "$LINENO" 5
+    fi
+  fi
 fi
 
 
@@ -13797,7 +14155,7 @@ fi
 
 
 
-if test "x$JANSSON_LIB" == "x"; then
+if test "${PBX_JANSSON}" != 1; then
   as_fn_error $? "*** JSON support not found (this typically means the libjansson development package is missing)" "$LINENO" 5
 fi
 
@@ -13994,7 +14352,7 @@ fi
 
 		if test ! "x${CONFIG_LIBXML2}" = xNo; then
 			LIBXML2_INCLUDE=$(${CONFIG_LIBXML2} --cflags)
-			LIBXML2_INCLUDE=$(echo ${LIBXML2_INCLUDE} | $SED -e "s|-I|-I${LIBXML2_DIR}|g")
+			LIBXML2_INCLUDE=$(echo ${LIBXML2_INCLUDE} | $SED -e "s|-I|-I${LIBXML2_DIR}|g" -e "s|-std=c99||g")
 
 			LIBXML2_LIB=$(${CONFIG_LIBXML2} --libs)
 			LIBXML2_LIB=$(echo ${LIBXML2_LIB} | $SED -e "s|-L|-L${LIBXML2_DIR}|g")
@@ -16393,7 +16751,7 @@ fi
 done
 
 
-for ac_func in asprintf atexit closefrom dup2 eaccess endpwent euidaccess ffsll ftruncate getcwd gethostbyname gethostname getloadavg gettimeofday glob ioperm inet_ntoa isascii memchr memmove memset mkdir mkdtemp munmap newlocale ppoll putenv re_comp regcomp select setenv socket strcasecmp strcasestr strchr strcspn strdup strerror strlcat strlcpy strncasecmp strndup strnlen strrchr strsep strspn strstr strtod strtol strtold strtoq unsetenv utime vasprintf getpeereid sysctl swapctl
+for ac_func in asprintf atexit closefrom dup2 eaccess endpwent euidaccess ffsll ftruncate getcwd gethostbyname gethostname getloadavg gettimeofday glob ioperm inet_ntoa isascii memchr memmove memset mkdir mkdtemp munmap newlocale ppoll putenv re_comp regcomp select setenv socket strcasecmp strcasestr strchr strcspn strdup strerror strlcat strlcpy strncasecmp strndup strnlen strrchr strsep strspn strstr strtod strtol strtold strtoq unsetenv uselocale utime vasprintf getpeereid sysctl swapctl
 do :
   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
 ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
@@ -18255,6 +18613,19 @@ $as_echo "no" >&6; }
 fi
 
 
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for -Wno-stringop-truncation" >&5
+$as_echo_n "checking for -Wno-stringop-truncation... " >&6; }
+if $(${CC} -Wno-stringop-truncation -Werror -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+	AST_NO_STRINGOP_TRUNCATION=-Wno-stringop-truncation
+else
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+	AST_NO_STRINGOP_TRUNCATION=
+fi
+
+
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for -Wshadow" >&5
 $as_echo_n "checking for -Wshadow... " >&6; }
 if $(${CC} -Wshadow -Werror -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
@@ -18297,6 +18668,9 @@ fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to use rpath" >&5
 $as_echo_n "checking whether to use rpath... " >&6; }
 AST_RPATH=
+if test "${OSARCH}" = "NetBSD"; then
+	AST_RPATH="-Wl,-rpath,/usr/pkg/lib"
+fi
 if test "${check_rpath}" != yes; then
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: skipped" >&5
 $as_echo "skipped" >&6; }
@@ -19084,15 +19458,15 @@ if test $ac_cv_sizeof_int = $ac_cv_sizeof_fd_set_fds_bits; then
 
 $as_echo "#define TYPEOF_FD_SET_FDS_BITS int" >>confdefs.h
 
-else if test $ac_cv_sizeof_long = $ac_cv_sizeof_fd_set_fds_bits; then
+elif test $ac_cv_sizeof_long = $ac_cv_sizeof_fd_set_fds_bits; then
 
 $as_echo "#define TYPEOF_FD_SET_FDS_BITS long" >>confdefs.h
 
-else if test $ac_cv_sizeof_long_long = $ac_cv_sizeof_fd_set_fds_bits; then
+elif test $ac_cv_sizeof_long_long = $ac_cv_sizeof_fd_set_fds_bits; then
 
 $as_echo "#define TYPEOF_FD_SET_FDS_BITS long long" >>confdefs.h
 
-fi ; fi ; fi
+fi
 
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for dladdr in dlfcn.h" >&5
 $as_echo_n "checking for dladdr in dlfcn.h... " >&6; }
@@ -19128,6 +19502,41 @@ fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=${old_LIBS}
+
+# re-check without -ldl
+# Non-Linux platforms like FreeBSD and NetBSD do not need a library libdl.so.
+if test "${PBX_DLADDR}" = "0"; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for dladdr in dlfcn.h without -ldl" >&5
+$as_echo_n "checking for dladdr in dlfcn.h without -ldl... " >&6; }
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#define _GNU_SOURCE 1
+#include <dlfcn.h>
+int
+main ()
+{
+dladdr((void *)0, (void *)0)
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+		PBX_DLADDR=1
+
+
+$as_echo "#define HAVE_DLADDR 1" >>confdefs.h
+
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
 
 # PKGCONFIG is used in later tests
 
@@ -19268,13 +19677,13 @@ if test "x${PBX_ALSA}" != "x1" -a "${USE_ALSA}" != "no"; then
 
       ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
       CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for snd_spcm_init in -lasound" >&5
-$as_echo_n "checking for snd_spcm_init in -lasound... " >&6; }
-if ${ac_cv_lib_asound_snd_spcm_init+:} false; then :
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for snd_pcm_open in -lasound" >&5
+$as_echo_n "checking for snd_pcm_open in -lasound... " >&6; }
+if ${ac_cv_lib_asound_snd_pcm_open+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lasound ${pbxlibdir} -lm -ldl $LIBS"
+LIBS="-lasound ${pbxlibdir}  $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -19284,27 +19693,27 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char snd_spcm_init ();
+char snd_pcm_open ();
 int
 main ()
 {
-return snd_spcm_init ();
+return snd_pcm_open ();
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_asound_snd_spcm_init=yes
+  ac_cv_lib_asound_snd_pcm_open=yes
 else
-  ac_cv_lib_asound_snd_spcm_init=no
+  ac_cv_lib_asound_snd_pcm_open=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_asound_snd_spcm_init" >&5
-$as_echo "$ac_cv_lib_asound_snd_spcm_init" >&6; }
-if test "x$ac_cv_lib_asound_snd_spcm_init" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_asound_snd_pcm_open" >&5
+$as_echo "$ac_cv_lib_asound_snd_pcm_open" >&6; }
+if test "x$ac_cv_lib_asound_snd_pcm_open" = xyes; then :
   AST_ALSA_FOUND=yes
 else
   AST_ALSA_FOUND=no
@@ -19315,7 +19724,7 @@ fi
 
    # now check for the header.
    if test "${AST_ALSA_FOUND}" = "yes"; then
-      ALSA_LIB="${pbxlibdir} -lasound -lm -ldl"
+      ALSA_LIB="${pbxlibdir} -lasound "
       # if --with-ALSA=DIR has been specified, use it.
       if test "x${ALSA_DIR}" != "x"; then
          ALSA_INCLUDE="-I${ALSA_DIR}/include"
@@ -19447,9 +19856,7 @@ _ACEOF
 fi
 
 
-
-if test "${PBX_BFD}" = "0"; then
-  # Fedora/RedHat/CentOS require extra libraries
+# Fedora/RedHat/CentOS require extra libraries
 
 if test "x${PBX_BFD}" != "x1" -a "${USE_BFD}" != "no"; then
    pbxlibdir=""
@@ -19464,9 +19871,9 @@ if test "x${PBX_BFD}" != "x1" -a "${USE_BFD}" != "no"; then
 
       ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
       CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for bfd_check_format in -lbfd" >&5
-$as_echo_n "checking for bfd_check_format in -lbfd... " >&6; }
-if ${ac_cv_lib_bfd_bfd_check_format+:} false; then :
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for bfd_openr in -lbfd" >&5
+$as_echo_n "checking for bfd_openr in -lbfd... " >&6; }
+if ${ac_cv_lib_bfd_bfd_openr+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -19480,27 +19887,27 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char bfd_check_format ();
+char bfd_openr ();
 int
 main ()
 {
-return bfd_check_format ();
+return bfd_openr ();
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_bfd_bfd_check_format=yes
+  ac_cv_lib_bfd_bfd_openr=yes
 else
-  ac_cv_lib_bfd_bfd_check_format=no
+  ac_cv_lib_bfd_bfd_openr=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_bfd_bfd_check_format" >&5
-$as_echo "$ac_cv_lib_bfd_bfd_check_format" >&6; }
-if test "x$ac_cv_lib_bfd_bfd_check_format" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_bfd_bfd_openr" >&5
+$as_echo "$ac_cv_lib_bfd_bfd_openr" >&6; }
+if test "x$ac_cv_lib_bfd_bfd_openr" = xyes; then :
   AST_BFD_FOUND=yes
 else
   AST_BFD_FOUND=no
@@ -19546,10 +19953,7 @@ _ACEOF
 fi
 
 
-fi
-
-if test "${PBX_BFD}" = "0"; then
-  # openSUSE requires -lz
+# openSUSE requires -lz
 
 if test "x${PBX_BFD}" != "x1" -a "${USE_BFD}" != "no"; then
    pbxlibdir=""
@@ -19564,9 +19968,9 @@ if test "x${PBX_BFD}" != "x1" -a "${USE_BFD}" != "no"; then
 
       ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
       CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for bfd_check_format in -lbfd" >&5
-$as_echo_n "checking for bfd_check_format in -lbfd... " >&6; }
-if ${ac_cv_lib_bfd_bfd_check_format+:} false; then :
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for bfd_openr in -lbfd" >&5
+$as_echo_n "checking for bfd_openr in -lbfd... " >&6; }
+if ${ac_cv_lib_bfd_bfd_openr+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -19580,27 +19984,27 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char bfd_check_format ();
+char bfd_openr ();
 int
 main ()
 {
-return bfd_check_format ();
+return bfd_openr ();
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_bfd_bfd_check_format=yes
+  ac_cv_lib_bfd_bfd_openr=yes
 else
-  ac_cv_lib_bfd_bfd_check_format=no
+  ac_cv_lib_bfd_bfd_openr=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_bfd_bfd_check_format" >&5
-$as_echo "$ac_cv_lib_bfd_bfd_check_format" >&6; }
-if test "x$ac_cv_lib_bfd_bfd_check_format" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_bfd_bfd_openr" >&5
+$as_echo "$ac_cv_lib_bfd_bfd_openr" >&6; }
+if test "x$ac_cv_lib_bfd_bfd_openr" = xyes; then :
   AST_BFD_FOUND=yes
 else
   AST_BFD_FOUND=no
@@ -19646,7 +20050,6 @@ _ACEOF
 fi
 
 
-fi
 
 if test "x${OSARCH}" = "xlinux-gnu" ; then
 
@@ -20225,15 +20628,13 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
             GSM_OK=1
-         else
-            if test "${GSM_GSM_HEADER_FOUND}" = "1" ; then
+         elif test "${GSM_GSM_HEADER_FOUND}" = "1" ; then
 
 cat >>confdefs.h <<_ACEOF
 #define HAVE_GSM_GSM_HEADER 1
 _ACEOF
 
-               GSM_OK=1
-            fi
+            GSM_OK=1
          fi
          if test "${GSM_OK}" = "1" ; then
             GSM_LIB="-lgsm"
@@ -20345,7 +20746,7 @@ else
 $as_echo "yes" >&6; }
 
             PBX_ILBC=1
-            ILBC_INCLUDE="$ILBC_CFLAGS"
+            ILBC_INCLUDE=$(echo ${ILBC_CFLAGS} | $SED -e "s|-std=c99||g")
             ILBC_LIB="$ILBC_LIBS"
 
 $as_echo "#define HAVE_ILBC 1" >>confdefs.h
@@ -20360,254 +20761,6 @@ fi
    fi
    if test "${ILBC_INTERNAL}" = "yes"; then
       PBX_ILBC=1
-   fi
-fi
-
-LIBEDIT_INTERNAL="yes"
-
-LIBEDIT_SYSTEM="yes"
-if test "${USE_LIBEDIT}" != "no"; then
-   if test "${LIBEDIT_DIR}" = "internal"; then
-      LIBEDIT_SYSTEM="no"
-   elif test "${LIBEDIT_DIR}" != ""; then
-      LIBEDIT_INTERNAL="no"
-   fi
-   if test "${LIBEDIT_SYSTEM}" = "yes"; then
-
-   if test "x${PBX_LIBEDIT}" != "x1" -a "${USE_LIBEDIT}" != "no"; then
-
-pkg_failed=no
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for LIBEDIT" >&5
-$as_echo_n "checking for LIBEDIT... " >&6; }
-
-if test -n "$LIBEDIT_CFLAGS"; then
-    pkg_cv_LIBEDIT_CFLAGS="$LIBEDIT_CFLAGS"
- elif test -n "$PKG_CONFIG"; then
-    if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libedit\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "libedit") 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }; then
-  pkg_cv_LIBEDIT_CFLAGS=`$PKG_CONFIG --cflags "libedit" 2>/dev/null`
-		      test "x$?" != "x0" && pkg_failed=yes
-else
-  pkg_failed=yes
-fi
- else
-    pkg_failed=untried
-fi
-if test -n "$LIBEDIT_LIBS"; then
-    pkg_cv_LIBEDIT_LIBS="$LIBEDIT_LIBS"
- elif test -n "$PKG_CONFIG"; then
-    if test -n "$PKG_CONFIG" && \
-    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libedit\""; } >&5
-  ($PKG_CONFIG --exists --print-errors "libedit") 2>&5
-  ac_status=$?
-  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
-  test $ac_status = 0; }; then
-  pkg_cv_LIBEDIT_LIBS=`$PKG_CONFIG --libs "libedit" 2>/dev/null`
-		      test "x$?" != "x0" && pkg_failed=yes
-else
-  pkg_failed=yes
-fi
- else
-    pkg_failed=untried
-fi
-
-
-
-if test $pkg_failed = yes; then
-   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
-        _pkg_short_errors_supported=yes
-else
-        _pkg_short_errors_supported=no
-fi
-        if test $_pkg_short_errors_supported = yes; then
-	        LIBEDIT_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libedit" 2>&1`
-        else
-	        LIBEDIT_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libedit" 2>&1`
-        fi
-	# Put the nasty error message in config.log where it belongs
-	echo "$LIBEDIT_PKG_ERRORS" >&5
-
-
-            PBX_LIBEDIT=0
-
-
-elif test $pkg_failed = untried; then
-     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-            PBX_LIBEDIT=0
-
-
-else
-	LIBEDIT_CFLAGS=$pkg_cv_LIBEDIT_CFLAGS
-	LIBEDIT_LIBS=$pkg_cv_LIBEDIT_LIBS
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-
-            PBX_LIBEDIT=1
-            LIBEDIT_INCLUDE="$LIBEDIT_CFLAGS"
-            LIBEDIT_LIB="$LIBEDIT_LIBS"
-
-$as_echo "#define HAVE_LIBEDIT 1" >>confdefs.h
-
-
-fi
-   fi
-
-      if test "$PBX_LIBEDIT" != "1"; then
-         # some platforms do not list libedit via pkg-config, for example OpenBSD 6.2
-
-if test "x${PBX_LIBEDIT}" != "x1" -a "${USE_LIBEDIT}" != "no"; then
-   pbxlibdir=""
-   # if --with-LIBEDIT=DIR has been specified, use it.
-   if test "x${LIBEDIT_DIR}" != "x"; then
-      if test -d ${LIBEDIT_DIR}/lib; then
-         pbxlibdir="-L${LIBEDIT_DIR}/lib"
-      else
-         pbxlibdir="-L${LIBEDIT_DIR}"
-      fi
-   fi
-
-      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
-      CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for history_init in -ledit" >&5
-$as_echo_n "checking for history_init in -ledit... " >&6; }
-if ${ac_cv_lib_edit_history_init+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ledit ${pbxlibdir} -ltermcap $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char history_init ();
-int
-main ()
-{
-return history_init ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_edit_history_init=yes
-else
-  ac_cv_lib_edit_history_init=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_edit_history_init" >&5
-$as_echo "$ac_cv_lib_edit_history_init" >&6; }
-if test "x$ac_cv_lib_edit_history_init" = xyes; then :
-  AST_LIBEDIT_FOUND=yes
-else
-  AST_LIBEDIT_FOUND=no
-fi
-
-      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-
-
-   # now check for the header.
-   if test "${AST_LIBEDIT_FOUND}" = "yes"; then
-      LIBEDIT_LIB="${pbxlibdir} -ledit -ltermcap"
-      # if --with-LIBEDIT=DIR has been specified, use it.
-      if test "x${LIBEDIT_DIR}" != "x"; then
-         LIBEDIT_INCLUDE="-I${LIBEDIT_DIR}/include"
-      fi
-      LIBEDIT_INCLUDE="${LIBEDIT_INCLUDE} "
-
-         # check for the header
-         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${LIBEDIT_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "histedit.h" "ac_cv_header_histedit_h" "$ac_includes_default"
-if test "x$ac_cv_header_histedit_h" = xyes; then :
-  LIBEDIT_HEADER_FOUND=1
-else
-  LIBEDIT_HEADER_FOUND=0
-fi
-
-
-         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-
-      if test "x${LIBEDIT_HEADER_FOUND}" = "x0" ; then
-         LIBEDIT_LIB=""
-         LIBEDIT_INCLUDE=""
-      else
-
-         PBX_LIBEDIT=1
-         cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBEDIT 1
-_ACEOF
-
-      fi
-   fi
-fi
-
-
-      fi
-      if test "$PBX_LIBEDIT" = "1"; then
-      LIBEDIT_INTERNAL="no"
-      fi
-   fi
-   if test "${LIBEDIT_INTERNAL}" = "yes"; then
-      PBX_LIBEDIT=1
-      LIBEDIT_IS_UNICODE=no
-   else
-
-    if test "x${PBX_LIBEDIT_IS_UNICODE}" != "x1" -a "${USE_LIBEDIT_IS_UNICODE}" != "no"; then
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for Testing for libedit unicode support" >&5
-$as_echo_n "checking for Testing for libedit unicode support... " >&6; }
-	saved_cppflags="${CPPFLAGS}"
-	if test "x${LIBEDIT_IS_UNICODE_DIR}" != "x"; then
-	    LIBEDIT_IS_UNICODE_INCLUDE="-I${LIBEDIT_IS_UNICODE_DIR}/include"
-	fi
-	CPPFLAGS="${CPPFLAGS} ${LIBEDIT_IS_UNICODE_INCLUDE}"
-
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
- #include <histedit.h>
-int
-main ()
-{
- el_rfunc_t *callback;;
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-     { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_LIBEDIT_IS_UNICODE=1
-
-$as_echo "#define HAVE_LIBEDIT_IS_UNICODE 1" >>confdefs.h
-
-
-
-else
-         { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-	CPPFLAGS="${saved_cppflags}"
-    fi
-
    fi
 fi
 
@@ -21414,7 +21567,7 @@ $as_echo_n "checking for system c-client library...... " >&6; }
 		CPPFLAGS="${saved_cppflags}"
 		LIBS="${saved_libs}"
 		imap_ldflags=""
-		imap_libs="-lc-client"
+		imap_libs="-lcrypto -lssl -lc-client"
 		imap_include="-DUSE_SYSTEM_IMAP" #Try the imap directory first
 		CPPFLAGS="${CPPFLAGS} ${imap_include}"
 		LIBS="${LIBS} ${imap_libs} "`echo ${imap_ldflags}`
@@ -21631,6 +21784,78 @@ else
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
+			if test "${ac_cv_imap_tk}" = "no"; then
+				imap_libs="-lcrypto -lssl -lc-client4"
+				LIBS="${saved_libs} ${imap_libs} "`echo ${imap_ldflags}`
+				cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+						#include <c-client/c-client.h>
+						void mm_searched (MAILSTREAM *stream,unsigned long number)
+						{
+						}
+						void mm_exists (MAILSTREAM *stream,unsigned long number)
+						{
+						}
+						void mm_expunged (MAILSTREAM *stream,unsigned long number)
+						{
+						}
+						void mm_flags (MAILSTREAM *stream,unsigned long number)
+						{
+						}
+						void mm_notify (MAILSTREAM *stream,char *string,long errflg)
+						{
+						}
+						void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
+						{
+						}
+						void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
+						{
+						}
+						void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
+						{
+						}
+						void mm_log (char *string,long errflg)
+						{
+						}
+						void mm_dlog (char *string)
+						{
+						}
+						void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
+						{
+						}
+						void mm_critical (MAILSTREAM *stream)
+						{
+						}
+						void mm_nocritical (MAILSTREAM *stream)
+						{
+						}
+						long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
+						{
+						}
+						void mm_fatal (char *string)
+						{
+						}
+int
+main ()
+{
+
+						MAILSTREAM *foo = mail_open(NULL, "", 0);
+
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_imap_tk="yes"
+else
+  ac_cv_imap_tk="no"
+
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+			fi
 			if test "${ac_cv_imap_tk}" = "yes"; then
 				cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -22125,104 +22350,6 @@ _ACEOF
 
 fi
 done
-
-
-# Needed by unixodbc
-
-if test "x${PBX_LTDL}" != "x1" -a "${USE_LTDL}" != "no"; then
-   pbxlibdir=""
-   # if --with-LTDL=DIR has been specified, use it.
-   if test "x${LTDL_DIR}" != "x"; then
-      if test -d ${LTDL_DIR}/lib; then
-         pbxlibdir="-L${LTDL_DIR}/lib"
-      else
-         pbxlibdir="-L${LTDL_DIR}"
-      fi
-   fi
-
-      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
-      CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for lt_dlinit in -lltdl" >&5
-$as_echo_n "checking for lt_dlinit in -lltdl... " >&6; }
-if ${ac_cv_lib_ltdl_lt_dlinit+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lltdl ${pbxlibdir}  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char lt_dlinit ();
-int
-main ()
-{
-return lt_dlinit ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ltdl_lt_dlinit=yes
-else
-  ac_cv_lib_ltdl_lt_dlinit=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ltdl_lt_dlinit" >&5
-$as_echo "$ac_cv_lib_ltdl_lt_dlinit" >&6; }
-if test "x$ac_cv_lib_ltdl_lt_dlinit" = xyes; then :
-  AST_LTDL_FOUND=yes
-else
-  AST_LTDL_FOUND=no
-fi
-
-      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-
-
-   # now check for the header.
-   if test "${AST_LTDL_FOUND}" = "yes"; then
-      LTDL_LIB="${pbxlibdir} -lltdl "
-      # if --with-LTDL=DIR has been specified, use it.
-      if test "x${LTDL_DIR}" != "x"; then
-         LTDL_INCLUDE="-I${LTDL_DIR}/include"
-      fi
-      LTDL_INCLUDE="${LTDL_INCLUDE} "
-
-         # check for the header
-         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${LTDL_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "ltdl.h" "ac_cv_header_ltdl_h" "$ac_includes_default"
-if test "x$ac_cv_header_ltdl_h" = xyes; then :
-  LTDL_HEADER_FOUND=1
-else
-  LTDL_HEADER_FOUND=0
-fi
-
-
-         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-
-      if test "x${LTDL_HEADER_FOUND}" = "x0" ; then
-         LTDL_LIB=""
-         LTDL_INCLUDE=""
-      else
-
-         PBX_LTDL=1
-         cat >>confdefs.h <<_ACEOF
-#define HAVE_LTDL 1
-_ACEOF
-
-      fi
-   fi
-fi
-
 
 
 
@@ -22829,7 +22956,7 @@ fi
 
 		if test ! "x${CONFIG_MYSQLCLIENT}" = xNo; then
 			MYSQLCLIENT_INCLUDE=$(${CONFIG_MYSQLCLIENT} --cflags)
-			MYSQLCLIENT_INCLUDE=$(echo ${MYSQLCLIENT_INCLUDE} | $SED -e "s|-I|-I${MYSQLCLIENT_DIR}|g")
+			MYSQLCLIENT_INCLUDE=$(echo ${MYSQLCLIENT_INCLUDE} | $SED -e "s|-I|-I${MYSQLCLIENT_DIR}|g" -e "s|-std=c99||g")
 
 			MYSQLCLIENT_LIB=$(${CONFIG_MYSQLCLIENT} --libs)
 			MYSQLCLIENT_LIB=$(echo ${MYSQLCLIENT_LIB} | $SED -e "s|-L|-L${MYSQLCLIENT_DIR}|g")
@@ -23046,7 +23173,7 @@ fi
 
 		if test ! "x${CONFIG_NEON}" = xNo; then
 			NEON_INCLUDE=$(${CONFIG_NEON} --cflags)
-			NEON_INCLUDE=$(echo ${NEON_INCLUDE} | $SED -e "s|-I|-I${NEON_DIR}|g")
+			NEON_INCLUDE=$(echo ${NEON_INCLUDE} | $SED -e "s|-I|-I${NEON_DIR}|g" -e "s|-std=c99||g")
 
 			NEON_LIB=$(${CONFIG_NEON} --libs)
 			NEON_LIB=$(echo ${NEON_LIB} | $SED -e "s|-L|-L${NEON_DIR}|g")
@@ -23166,7 +23293,7 @@ fi
 
 		if test ! "x${CONFIG_NEON29}" = xNo; then
 			NEON29_INCLUDE=$(${CONFIG_NEON29} --cflags)
-			NEON29_INCLUDE=$(echo ${NEON29_INCLUDE} | $SED -e "s|-I|-I${NEON29_DIR}|g")
+			NEON29_INCLUDE=$(echo ${NEON29_INCLUDE} | $SED -e "s|-I|-I${NEON29_DIR}|g" -e "s|-std=c99||g")
 
 			NEON29_LIB=$(${CONFIG_NEON29} --libs)
 			NEON29_LIB=$(echo ${NEON29_LIB} | $SED -e "s|-L|-L${NEON29_DIR}|g")
@@ -23310,7 +23437,7 @@ fi
 
 		if test ! "x${CONFIG_NETSNMP}" = xNo; then
 			NETSNMP_INCLUDE=$(${CONFIG_NETSNMP} --cflags)
-			NETSNMP_INCLUDE=$(echo ${NETSNMP_INCLUDE} | $SED -e "s|-I|-I${NETSNMP_DIR}|g")
+			NETSNMP_INCLUDE=$(echo ${NETSNMP_INCLUDE} | $SED -e "s|-I|-I${NETSNMP_DIR}|g" -e "s|-std=c99||g")
 
 			NETSNMP_LIB=$(${CONFIG_NETSNMP} --agent-libs)
 			NETSNMP_LIB=$(echo ${NETSNMP_LIB} | $SED -e "s|-L|-L${NETSNMP_DIR}|g")
@@ -23557,9 +23684,9 @@ if test "x${PBX_OGG}" != "x1" -a "${USE_OGG}" != "no"; then
 
       ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
       CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ogg_sync_init in -logg" >&5
-$as_echo_n "checking for ogg_sync_init in -logg... " >&6; }
-if ${ac_cv_lib_ogg_ogg_sync_init+:} false; then :
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for ogg_stream_init in -logg" >&5
+$as_echo_n "checking for ogg_stream_init in -logg... " >&6; }
+if ${ac_cv_lib_ogg_ogg_stream_init+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -23573,27 +23700,27 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char ogg_sync_init ();
+char ogg_stream_init ();
 int
 main ()
 {
-return ogg_sync_init ();
+return ogg_stream_init ();
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ogg_ogg_sync_init=yes
+  ac_cv_lib_ogg_ogg_stream_init=yes
 else
-  ac_cv_lib_ogg_ogg_sync_init=no
+  ac_cv_lib_ogg_ogg_stream_init=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ogg_ogg_sync_init" >&5
-$as_echo "$ac_cv_lib_ogg_ogg_sync_init" >&6; }
-if test "x$ac_cv_lib_ogg_ogg_sync_init" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ogg_ogg_stream_init" >&5
+$as_echo "$ac_cv_lib_ogg_ogg_stream_init" >&6; }
+if test "x$ac_cv_lib_ogg_ogg_stream_init" = xyes; then :
   AST_OGG_FOUND=yes
 else
   AST_OGG_FOUND=no
@@ -23611,8 +23738,18 @@ fi
       fi
       OGG_INCLUDE="${OGG_INCLUDE} "
 
-         # no header, assume found
-         OGG_HEADER_FOUND="1"
+         # check for the header
+         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
+         CPPFLAGS="${CPPFLAGS} ${OGG_INCLUDE}"
+         ac_fn_c_check_header_mongrel "$LINENO" "ogg/ogg.h" "ac_cv_header_ogg_ogg_h" "$ac_includes_default"
+if test "x$ac_cv_header_ogg_ogg_h" = xyes; then :
+  OGG_HEADER_FOUND=1
+else
+  OGG_HEADER_FOUND=0
+fi
+
+
+         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
 
       if test "x${OGG_HEADER_FOUND}" = "x0" ; then
          OGG_LIB=""
@@ -24542,7 +24679,7 @@ else
 $as_echo "yes" >&6; }
 
             PBX_PJPROJECT=1
-            PJPROJECT_INCLUDE="$PJPROJECT_CFLAGS"
+            PJPROJECT_INCLUDE=$(echo ${PJPROJECT_CFLAGS} | $SED -e "s|-std=c99||g")
             PJPROJECT_LIB="$PJPROJECT_LIBS"
 
 $as_echo "#define HAVE_PJPROJECT 1" >>confdefs.h
@@ -24572,7 +24709,7 @@ if ${ac_cv_lib_pjsip_pjsip_dlg_create_uas_and_inc_lock+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lpjsip ${pbxlibdir} $PJPROJECT_LIBS $LIBS"
+LIBS="-lpjsip ${pbxlibdir} $PJPROJECT_LIB $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -24613,7 +24750,7 @@ fi
 
    # now check for the header.
    if test "${AST_PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_FOUND}" = "yes"; then
-      PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_LIB="${pbxlibdir} -lpjsip $PJPROJECT_LIBS"
+      PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_LIB="${pbxlibdir} -lpjsip $PJPROJECT_LIB"
       # if --with-PJSIP_DLG_CREATE_UAS_AND_INC_LOCK=DIR has been specified, use it.
       if test "x${PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_DIR}" != "x"; then
          PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_INCLUDE="-I${PJSIP_DLG_CREATE_UAS_AND_INC_LOCK_DIR}/include"
@@ -25004,7 +25141,7 @@ if ${ac_cv_lib_pjsip_pjsip_endpt_set_ext_resolver+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-lpjsip ${pbxlibdir} $PJPROJECT_LIBS $LIBS"
+LIBS="-lpjsip ${pbxlibdir} $PJPROJECT_LIB $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -25045,7 +25182,7 @@ fi
 
    # now check for the header.
    if test "${AST_PJSIP_EXTERNAL_RESOLVER_FOUND}" = "yes"; then
-      PJSIP_EXTERNAL_RESOLVER_LIB="${pbxlibdir} -lpjsip $PJPROJECT_LIBS"
+      PJSIP_EXTERNAL_RESOLVER_LIB="${pbxlibdir} -lpjsip $PJPROJECT_LIB"
       # if --with-PJSIP_EXTERNAL_RESOLVER=DIR has been specified, use it.
       if test "x${PJSIP_EXTERNAL_RESOLVER_DIR}" != "x"; then
          PJSIP_EXTERNAL_RESOLVER_INCLUDE="-I${PJSIP_EXTERNAL_RESOLVER_DIR}/include"
@@ -25113,6 +25250,46 @@ $as_echo "yes" >&6; }
 		PBX_PJSIP_TLS_TRANSPORT_PROTO=1
 
 $as_echo "#define HAVE_PJSIP_TLS_TRANSPORT_PROTO 1" >>confdefs.h
+
+
+
+else
+         { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CPPFLAGS="${saved_cppflags}"
+    fi
+
+
+    if test "x${PBX_PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS}" != "x1" -a "${USE_PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS}" != "no"; then
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if \"pjsip_cfg()->endpt.accept_multiple_sdp_answers = 0;\" compiles using pjsip.h" >&5
+$as_echo_n "checking if \"pjsip_cfg()->endpt.accept_multiple_sdp_answers = 0;\" compiles using pjsip.h... " >&6; }
+	saved_cppflags="${CPPFLAGS}"
+	if test "x${PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_DIR}" != "x"; then
+	    PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_INCLUDE="-I${PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_DIR}/include"
+	fi
+	CPPFLAGS="${CPPFLAGS} ${PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS_INCLUDE}"
+
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+ #include <pjsip.h>
+int
+main ()
+{
+ pjsip_cfg()->endpt.accept_multiple_sdp_answers = 0;;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+		PBX_PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS=1
+
+$as_echo "#define HAVE_PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS 1" >>confdefs.h
 
 
 
@@ -25417,102 +25594,6 @@ fi
 
 
 
-if test "x${PBX_PJSIP_EVSUB_SET_UAS_TIMEOUT}" != "x1" -a "${USE_PJSIP_EVSUB_SET_UAS_TIMEOUT}" != "no"; then
-   pbxlibdir=""
-   # if --with-PJSIP_EVSUB_SET_UAS_TIMEOUT=DIR has been specified, use it.
-   if test "x${PJSIP_EVSUB_SET_UAS_TIMEOUT_DIR}" != "x"; then
-      if test -d ${PJSIP_EVSUB_SET_UAS_TIMEOUT_DIR}/lib; then
-         pbxlibdir="-L${PJSIP_EVSUB_SET_UAS_TIMEOUT_DIR}/lib"
-      else
-         pbxlibdir="-L${PJSIP_EVSUB_SET_UAS_TIMEOUT_DIR}"
-      fi
-   fi
-
-      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
-      CFLAGS="${CFLAGS} $PJPROJECT_CFLAGS"
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for pjsip_evsub_set_uas_timeout in -lpjsip" >&5
-$as_echo_n "checking for pjsip_evsub_set_uas_timeout in -lpjsip... " >&6; }
-if ${ac_cv_lib_pjsip_pjsip_evsub_set_uas_timeout+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lpjsip ${pbxlibdir} $PJPROJECT_LIB $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char pjsip_evsub_set_uas_timeout ();
-int
-main ()
-{
-return pjsip_evsub_set_uas_timeout ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_pjsip_pjsip_evsub_set_uas_timeout=yes
-else
-  ac_cv_lib_pjsip_pjsip_evsub_set_uas_timeout=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_pjsip_pjsip_evsub_set_uas_timeout" >&5
-$as_echo "$ac_cv_lib_pjsip_pjsip_evsub_set_uas_timeout" >&6; }
-if test "x$ac_cv_lib_pjsip_pjsip_evsub_set_uas_timeout" = xyes; then :
-  AST_PJSIP_EVSUB_SET_UAS_TIMEOUT_FOUND=yes
-else
-  AST_PJSIP_EVSUB_SET_UAS_TIMEOUT_FOUND=no
-fi
-
-      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-
-
-   # now check for the header.
-   if test "${AST_PJSIP_EVSUB_SET_UAS_TIMEOUT_FOUND}" = "yes"; then
-      PJSIP_EVSUB_SET_UAS_TIMEOUT_LIB="${pbxlibdir} -lpjsip $PJPROJECT_LIB"
-      # if --with-PJSIP_EVSUB_SET_UAS_TIMEOUT=DIR has been specified, use it.
-      if test "x${PJSIP_EVSUB_SET_UAS_TIMEOUT_DIR}" != "x"; then
-         PJSIP_EVSUB_SET_UAS_TIMEOUT_INCLUDE="-I${PJSIP_EVSUB_SET_UAS_TIMEOUT_DIR}/include"
-      fi
-      PJSIP_EVSUB_SET_UAS_TIMEOUT_INCLUDE="${PJSIP_EVSUB_SET_UAS_TIMEOUT_INCLUDE} $PJPROJECT_CFLAGS"
-
-         # check for the header
-         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${PJSIP_EVSUB_SET_UAS_TIMEOUT_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "pjsip.h" "ac_cv_header_pjsip_h" "$ac_includes_default"
-if test "x$ac_cv_header_pjsip_h" = xyes; then :
-  PJSIP_EVSUB_SET_UAS_TIMEOUT_HEADER_FOUND=1
-else
-  PJSIP_EVSUB_SET_UAS_TIMEOUT_HEADER_FOUND=0
-fi
-
-
-         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-
-      if test "x${PJSIP_EVSUB_SET_UAS_TIMEOUT_HEADER_FOUND}" = "x0" ; then
-         PJSIP_EVSUB_SET_UAS_TIMEOUT_LIB=""
-         PJSIP_EVSUB_SET_UAS_TIMEOUT_INCLUDE=""
-      else
-
-         PBX_PJSIP_EVSUB_SET_UAS_TIMEOUT=1
-         cat >>confdefs.h <<_ACEOF
-#define HAVE_PJSIP_EVSUB_SET_UAS_TIMEOUT 1
-_ACEOF
-
-      fi
-   fi
-fi
-
-
-
 if test "x${PBX_PJSIP_TSX_LAYER_FIND_TSX2}" != "x1" -a "${USE_PJSIP_TSX_LAYER_FIND_TSX2}" != "no"; then
    pbxlibdir=""
    # if --with-PJSIP_TSX_LAYER_FIND_TSX2=DIR has been specified, use it.
@@ -25692,7 +25773,7 @@ else
 $as_echo "yes" >&6; }
 
             PBX_PYTHONDEV=1
-            PYTHONDEV_INCLUDE="$PYTHONDEV_CFLAGS"
+            PYTHONDEV_INCLUDE=$(echo ${PYTHONDEV_CFLAGS} | $SED -e "s|-std=c99||g")
             PYTHONDEV_LIB="$PYTHONDEV_LIBS"
 
 $as_echo "#define HAVE_PYTHONDEV 1" >>confdefs.h
@@ -25798,6 +25879,94 @@ _ACEOF
 fi
 
 
+
+
+   if test "x${PBX_PORTAUDIO}" != "x1" -a "${USE_PORTAUDIO}" != "no"; then
+
+pkg_failed=no
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for PORTAUDIO" >&5
+$as_echo_n "checking for PORTAUDIO... " >&6; }
+
+if test -n "$PORTAUDIO_CFLAGS"; then
+    pkg_cv_PORTAUDIO_CFLAGS="$PORTAUDIO_CFLAGS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"portaudio-2.0\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "portaudio-2.0") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_PORTAUDIO_CFLAGS=`$PKG_CONFIG --cflags "portaudio-2.0" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+if test -n "$PORTAUDIO_LIBS"; then
+    pkg_cv_PORTAUDIO_LIBS="$PORTAUDIO_LIBS"
+ elif test -n "$PKG_CONFIG"; then
+    if test -n "$PKG_CONFIG" && \
+    { { $as_echo "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"portaudio-2.0\""; } >&5
+  ($PKG_CONFIG --exists --print-errors "portaudio-2.0") 2>&5
+  ac_status=$?
+  $as_echo "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+  test $ac_status = 0; }; then
+  pkg_cv_PORTAUDIO_LIBS=`$PKG_CONFIG --libs "portaudio-2.0" 2>/dev/null`
+		      test "x$?" != "x0" && pkg_failed=yes
+else
+  pkg_failed=yes
+fi
+ else
+    pkg_failed=untried
+fi
+
+
+
+if test $pkg_failed = yes; then
+   	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+        _pkg_short_errors_supported=yes
+else
+        _pkg_short_errors_supported=no
+fi
+        if test $_pkg_short_errors_supported = yes; then
+	        PORTAUDIO_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "portaudio-2.0" 2>&1`
+        else
+	        PORTAUDIO_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "portaudio-2.0" 2>&1`
+        fi
+	# Put the nasty error message in config.log where it belongs
+	echo "$PORTAUDIO_PKG_ERRORS" >&5
+
+
+            PBX_PORTAUDIO=0
+
+
+elif test $pkg_failed = untried; then
+     	{ $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+            PBX_PORTAUDIO=0
+
+
+else
+	PORTAUDIO_CFLAGS=$pkg_cv_PORTAUDIO_CFLAGS
+	PORTAUDIO_LIBS=$pkg_cv_PORTAUDIO_LIBS
+        { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+            PBX_PORTAUDIO=1
+            PORTAUDIO_INCLUDE=$(echo ${PORTAUDIO_CFLAGS} | $SED -e "s|-std=c99||g")
+            PORTAUDIO_LIB="$PORTAUDIO_LIBS"
+
+$as_echo "#define HAVE_PORTAUDIO 1" >>confdefs.h
+
+
+fi
+   fi
 
 
 if test "x${PBX_PORTAUDIO}" != "x1" -a "${USE_PORTAUDIO}" != "no"; then
@@ -28657,6 +28826,7 @@ fi
 
 
 
+for ver in 5.3 5.2 5.1; do
 
 if test "x${PBX_LUA}" != "x1" -a "${USE_LUA}" != "no"; then
    pbxlibdir=""
@@ -28671,13 +28841,14 @@ if test "x${PBX_LUA}" != "x1" -a "${USE_LUA}" != "no"; then
 
       ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
       CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua5.3" >&5
-$as_echo_n "checking for luaL_newstate in -llua5.3... " >&6; }
-if ${ac_cv_lib_lua5_3_luaL_newstate+:} false; then :
+      as_ac_Lib=`$as_echo "ac_cv_lib_lua${ver}''_luaL_newstate" | $as_tr_sh`
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua${ver}" >&5
+$as_echo_n "checking for luaL_newstate in -llua${ver}... " >&6; }
+if eval \${$as_ac_Lib+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-llua5.3 ${pbxlibdir} -lm $LIBS"
+LIBS="-llua${ver} ${pbxlibdir} -lm $LIBS"
 cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
@@ -28697,17 +28868,18 @@ return luaL_newstate ();
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua5_3_luaL_newstate=yes
+  eval "$as_ac_Lib=yes"
 else
-  ac_cv_lib_lua5_3_luaL_newstate=no
+  eval "$as_ac_Lib=no"
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua5_3_luaL_newstate" >&5
-$as_echo "$ac_cv_lib_lua5_3_luaL_newstate" >&6; }
-if test "x$ac_cv_lib_lua5_3_luaL_newstate" = xyes; then :
+eval ac_res=\$$as_ac_Lib
+	       { $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_res" >&5
+$as_echo "$ac_res" >&6; }
+if eval test \"x\$"$as_ac_Lib"\" = x"yes"; then :
   AST_LUA_FOUND=yes
 else
   AST_LUA_FOUND=no
@@ -28718,7 +28890,7 @@ fi
 
    # now check for the header.
    if test "${AST_LUA_FOUND}" = "yes"; then
-      LUA_LIB="${pbxlibdir} -llua5.3 -lm"
+      LUA_LIB="${pbxlibdir} -llua${ver} -lm"
       # if --with-LUA=DIR has been specified, use it.
       if test "x${LUA_DIR}" != "x"; then
          LUA_INCLUDE="-I${LUA_DIR}/include"
@@ -28728,8 +28900,9 @@ fi
          # check for the header
          ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
          CPPFLAGS="${CPPFLAGS} ${LUA_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "lua5.3/lua.h" "ac_cv_header_lua5_3_lua_h" "$ac_includes_default"
-if test "x$ac_cv_header_lua5_3_lua_h" = xyes; then :
+         as_ac_Header=`$as_echo "ac_cv_header_lua${ver}/lua.h" | $as_tr_sh`
+ac_fn_c_check_header_mongrel "$LINENO" "lua${ver}/lua.h" "$as_ac_Header" "$ac_includes_default"
+if eval test \"x\$"$as_ac_Header"\" = x"yes"; then :
   LUA_HEADER_FOUND=1
 else
   LUA_HEADER_FOUND=0
@@ -28753,14 +28926,17 @@ _ACEOF
 fi
 
 
-if test "x${PBX_LUA}" = "x1" ; then
-	if test x"${LUA_DIR}" = x; then
-		LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua5.3"
-	else
-		LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua5.3"
+	if test "x${PBX_LUA}" = "x1" ; then
+		if test x"${LUA_DIR}" = x; then
+			LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua${ver}"
+		else
+			LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua${ver}"
+		fi
+		break;
 	fi
-fi
+done
 
+# Some distributions (like openSUSE and NetBSD) remove the 5.x suffix.
 
 if test "x${PBX_LUA}" != "x1" -a "${USE_LUA}" != "no"; then
    pbxlibdir=""
@@ -28775,218 +28951,9 @@ if test "x${PBX_LUA}" != "x1" -a "${USE_LUA}" != "no"; then
 
       ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
       CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua5.2" >&5
-$as_echo_n "checking for luaL_newstate in -llua5.2... " >&6; }
-if ${ac_cv_lib_lua5_2_luaL_newstate+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llua5.2 ${pbxlibdir} -lm $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char luaL_newstate ();
-int
-main ()
-{
-return luaL_newstate ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua5_2_luaL_newstate=yes
-else
-  ac_cv_lib_lua5_2_luaL_newstate=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua5_2_luaL_newstate" >&5
-$as_echo "$ac_cv_lib_lua5_2_luaL_newstate" >&6; }
-if test "x$ac_cv_lib_lua5_2_luaL_newstate" = xyes; then :
-  AST_LUA_FOUND=yes
-else
-  AST_LUA_FOUND=no
-fi
-
-      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-
-
-   # now check for the header.
-   if test "${AST_LUA_FOUND}" = "yes"; then
-      LUA_LIB="${pbxlibdir} -llua5.2 -lm"
-      # if --with-LUA=DIR has been specified, use it.
-      if test "x${LUA_DIR}" != "x"; then
-         LUA_INCLUDE="-I${LUA_DIR}/include"
-      fi
-      LUA_INCLUDE="${LUA_INCLUDE} "
-
-         # check for the header
-         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${LUA_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "lua5.2/lua.h" "ac_cv_header_lua5_2_lua_h" "$ac_includes_default"
-if test "x$ac_cv_header_lua5_2_lua_h" = xyes; then :
-  LUA_HEADER_FOUND=1
-else
-  LUA_HEADER_FOUND=0
-fi
-
-
-         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-
-      if test "x${LUA_HEADER_FOUND}" = "x0" ; then
-         LUA_LIB=""
-         LUA_INCLUDE=""
-      else
-
-         PBX_LUA=1
-         cat >>confdefs.h <<_ACEOF
-#define HAVE_LUA 1
-_ACEOF
-
-      fi
-   fi
-fi
-
-
-if test "x${PBX_LUA}" = "x1" ; then
-	if test x"${LUA_DIR}" = x; then
-		LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua5.2"
-	else
-		LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua5.2"
-	fi
-fi
-
-
-if test "x${PBX_LUA}" != "x1" -a "${USE_LUA}" != "no"; then
-   pbxlibdir=""
-   # if --with-LUA=DIR has been specified, use it.
-   if test "x${LUA_DIR}" != "x"; then
-      if test -d ${LUA_DIR}/lib; then
-         pbxlibdir="-L${LUA_DIR}/lib"
-      else
-         pbxlibdir="-L${LUA_DIR}"
-      fi
-   fi
-
-      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
-      CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua5.1" >&5
-$as_echo_n "checking for luaL_newstate in -llua5.1... " >&6; }
-if ${ac_cv_lib_lua5_1_luaL_newstate+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-llua5.1 ${pbxlibdir} -lm $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char luaL_newstate ();
-int
-main ()
-{
-return luaL_newstate ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua5_1_luaL_newstate=yes
-else
-  ac_cv_lib_lua5_1_luaL_newstate=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua5_1_luaL_newstate" >&5
-$as_echo "$ac_cv_lib_lua5_1_luaL_newstate" >&6; }
-if test "x$ac_cv_lib_lua5_1_luaL_newstate" = xyes; then :
-  AST_LUA_FOUND=yes
-else
-  AST_LUA_FOUND=no
-fi
-
-      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-
-
-   # now check for the header.
-   if test "${AST_LUA_FOUND}" = "yes"; then
-      LUA_LIB="${pbxlibdir} -llua5.1 -lm"
-      # if --with-LUA=DIR has been specified, use it.
-      if test "x${LUA_DIR}" != "x"; then
-         LUA_INCLUDE="-I${LUA_DIR}/include"
-      fi
-      LUA_INCLUDE="${LUA_INCLUDE} "
-
-         # check for the header
-         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${LUA_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "lua5.1/lua.h" "ac_cv_header_lua5_1_lua_h" "$ac_includes_default"
-if test "x$ac_cv_header_lua5_1_lua_h" = xyes; then :
-  LUA_HEADER_FOUND=1
-else
-  LUA_HEADER_FOUND=0
-fi
-
-
-         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-
-      if test "x${LUA_HEADER_FOUND}" = "x0" ; then
-         LUA_LIB=""
-         LUA_INCLUDE=""
-      else
-
-         PBX_LUA=1
-         cat >>confdefs.h <<_ACEOF
-#define HAVE_LUA 1
-_ACEOF
-
-      fi
-   fi
-fi
-
-
-if test "x${PBX_LUA}" = "x1" ; then
-	if test x"${LUA_DIR}" = x; then
-		LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua5.1"
-	else
-		LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua5.1"
-	fi
-fi
-
-# Some distributions (like SuSE) remove the 5.1 suffix.
-
-if test "x${PBX_LUA}" != "x1" -a "${USE_LUA}" != "no"; then
-   pbxlibdir=""
-   # if --with-LUA=DIR has been specified, use it.
-   if test "x${LUA_DIR}" != "x"; then
-      if test -d ${LUA_DIR}/lib; then
-         pbxlibdir="-L${LUA_DIR}/lib"
-      else
-         pbxlibdir="-L${LUA_DIR}"
-      fi
-   fi
-
-      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
-      CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_openlib in -llua" >&5
-$as_echo_n "checking for luaL_openlib in -llua... " >&6; }
-if ${ac_cv_lib_lua_luaL_openlib+:} false; then :
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for luaL_newstate in -llua" >&5
+$as_echo_n "checking for luaL_newstate in -llua... " >&6; }
+if ${ac_cv_lib_lua_luaL_newstate+:} false; then :
   $as_echo_n "(cached) " >&6
 else
   ac_check_lib_save_LIBS=$LIBS
@@ -29000,27 +28967,27 @@ cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 #ifdef __cplusplus
 extern "C"
 #endif
-char luaL_openlib ();
+char luaL_newstate ();
 int
 main ()
 {
-return luaL_openlib ();
+return luaL_newstate ();
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_lua_luaL_openlib=yes
+  ac_cv_lib_lua_luaL_newstate=yes
 else
-  ac_cv_lib_lua_luaL_openlib=no
+  ac_cv_lib_lua_luaL_newstate=no
 fi
 rm -f core conftest.err conftest.$ac_objext \
     conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_luaL_openlib" >&5
-$as_echo "$ac_cv_lib_lua_luaL_openlib" >&6; }
-if test "x$ac_cv_lib_lua_luaL_openlib" = xyes; then :
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_lua_luaL_newstate" >&5
+$as_echo "$ac_cv_lib_lua_luaL_newstate" >&6; }
+if test "x$ac_cv_lib_lua_luaL_newstate" = xyes; then :
   AST_LUA_FOUND=yes
 else
   AST_LUA_FOUND=no
@@ -29167,7 +29134,7 @@ fi
 
 if test "x${PBX_RADIUS}" = "x1"; then
 
-$as_echo "#define FREERADIUS_CLIENT /**/" >>confdefs.h
+$as_echo "#define RADIUS_HEADER_STR <freeradius-client.h>" >>confdefs.h
 
 else
 
@@ -29266,6 +29233,113 @@ _ACEOF
 fi
 
 
+	if test "x${PBX_RADIUS}" = "x1"; then
+
+$as_echo "#define RADIUS_HEADER_STR <radiusclient-ng.h>" >>confdefs.h
+
+	else
+
+if test "x${PBX_RADIUS}" != "x1" -a "${USE_RADIUS}" != "no"; then
+   pbxlibdir=""
+   # if --with-RADIUS=DIR has been specified, use it.
+   if test "x${RADIUS_DIR}" != "x"; then
+      if test -d ${RADIUS_DIR}/lib; then
+         pbxlibdir="-L${RADIUS_DIR}/lib"
+      else
+         pbxlibdir="-L${RADIUS_DIR}"
+      fi
+   fi
+
+      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
+      CFLAGS="${CFLAGS} "
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for rc_read_config in -lradcli" >&5
+$as_echo_n "checking for rc_read_config in -lradcli... " >&6; }
+if ${ac_cv_lib_radcli_rc_read_config+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lradcli ${pbxlibdir}  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char rc_read_config ();
+int
+main ()
+{
+return rc_read_config ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_radcli_rc_read_config=yes
+else
+  ac_cv_lib_radcli_rc_read_config=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_radcli_rc_read_config" >&5
+$as_echo "$ac_cv_lib_radcli_rc_read_config" >&6; }
+if test "x$ac_cv_lib_radcli_rc_read_config" = xyes; then :
+  AST_RADIUS_FOUND=yes
+else
+  AST_RADIUS_FOUND=no
+fi
+
+      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
+
+
+   # now check for the header.
+   if test "${AST_RADIUS_FOUND}" = "yes"; then
+      RADIUS_LIB="${pbxlibdir} -lradcli "
+      # if --with-RADIUS=DIR has been specified, use it.
+      if test "x${RADIUS_DIR}" != "x"; then
+         RADIUS_INCLUDE="-I${RADIUS_DIR}/include"
+      fi
+      RADIUS_INCLUDE="${RADIUS_INCLUDE} "
+
+         # check for the header
+         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
+         CPPFLAGS="${CPPFLAGS} ${RADIUS_INCLUDE}"
+         ac_fn_c_check_header_mongrel "$LINENO" "radcli/radcli.h" "ac_cv_header_radcli_radcli_h" "$ac_includes_default"
+if test "x$ac_cv_header_radcli_radcli_h" = xyes; then :
+  RADIUS_HEADER_FOUND=1
+else
+  RADIUS_HEADER_FOUND=0
+fi
+
+
+         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
+
+      if test "x${RADIUS_HEADER_FOUND}" = "x0" ; then
+         RADIUS_LIB=""
+         RADIUS_INCLUDE=""
+      else
+
+         PBX_RADIUS=1
+         cat >>confdefs.h <<_ACEOF
+#define HAVE_RADIUS 1
+_ACEOF
+
+      fi
+   fi
+fi
+
+
+		if test "x${PBX_RADIUS}" = "x1"; then
+
+$as_echo "#define RADIUS_HEADER_STR <radcli/radcli.h>" >>confdefs.h
+
+		fi
+	fi
 fi
 
 
@@ -30455,298 +30529,6 @@ $as_echo "no" >&6; }
 		fi
 	fi
 
-
-if test "x${PBX_OPENSSL_SRTP}" != "x1" -a "${USE_OPENSSL_SRTP}" != "no"; then
-   pbxlibdir=""
-   # if --with-OPENSSL_SRTP=DIR has been specified, use it.
-   if test "x${OPENSSL_SRTP_DIR}" != "x"; then
-      if test -d ${OPENSSL_SRTP_DIR}/lib; then
-         pbxlibdir="-L${OPENSSL_SRTP_DIR}/lib"
-      else
-         pbxlibdir="-L${OPENSSL_SRTP_DIR}"
-      fi
-   fi
-
-      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
-      CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_CTX_set_tlsext_use_srtp in -lssl" >&5
-$as_echo_n "checking for SSL_CTX_set_tlsext_use_srtp in -lssl... " >&6; }
-if ${ac_cv_lib_ssl_SSL_CTX_set_tlsext_use_srtp+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lssl ${pbxlibdir} -lcrypto $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char SSL_CTX_set_tlsext_use_srtp ();
-int
-main ()
-{
-return SSL_CTX_set_tlsext_use_srtp ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ssl_SSL_CTX_set_tlsext_use_srtp=yes
-else
-  ac_cv_lib_ssl_SSL_CTX_set_tlsext_use_srtp=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ssl_SSL_CTX_set_tlsext_use_srtp" >&5
-$as_echo "$ac_cv_lib_ssl_SSL_CTX_set_tlsext_use_srtp" >&6; }
-if test "x$ac_cv_lib_ssl_SSL_CTX_set_tlsext_use_srtp" = xyes; then :
-  AST_OPENSSL_SRTP_FOUND=yes
-else
-  AST_OPENSSL_SRTP_FOUND=no
-fi
-
-      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-
-
-   # now check for the header.
-   if test "${AST_OPENSSL_SRTP_FOUND}" = "yes"; then
-      OPENSSL_SRTP_LIB="${pbxlibdir} -lssl -lcrypto"
-      # if --with-OPENSSL_SRTP=DIR has been specified, use it.
-      if test "x${OPENSSL_SRTP_DIR}" != "x"; then
-         OPENSSL_SRTP_INCLUDE="-I${OPENSSL_SRTP_DIR}/include"
-      fi
-      OPENSSL_SRTP_INCLUDE="${OPENSSL_SRTP_INCLUDE} "
-
-         # check for the header
-         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${OPENSSL_SRTP_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "openssl/ssl.h" "ac_cv_header_openssl_ssl_h" "$ac_includes_default"
-if test "x$ac_cv_header_openssl_ssl_h" = xyes; then :
-  OPENSSL_SRTP_HEADER_FOUND=1
-else
-  OPENSSL_SRTP_HEADER_FOUND=0
-fi
-
-
-         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-
-      if test "x${OPENSSL_SRTP_HEADER_FOUND}" = "x0" ; then
-         OPENSSL_SRTP_LIB=""
-         OPENSSL_SRTP_INCLUDE=""
-      else
-
-         PBX_OPENSSL_SRTP=1
-         cat >>confdefs.h <<_ACEOF
-#define HAVE_OPENSSL_SRTP 1
-_ACEOF
-
-      fi
-   fi
-fi
-
-
-fi
-
-if test "$PBX_OPENSSL" = "1";
-then
-
-if test "x${PBX_OPENSSL_EC}" != "x1" -a "${USE_OPENSSL_EC}" != "no"; then
-   pbxlibdir=""
-   # if --with-OPENSSL_EC=DIR has been specified, use it.
-   if test "x${OPENSSL_EC_DIR}" != "x"; then
-      if test -d ${OPENSSL_EC_DIR}/lib; then
-         pbxlibdir="-L${OPENSSL_EC_DIR}/lib"
-      else
-         pbxlibdir="-L${OPENSSL_EC_DIR}"
-      fi
-   fi
-
-      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
-      CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for EC_KEY_new_by_curve_name in -lssl" >&5
-$as_echo_n "checking for EC_KEY_new_by_curve_name in -lssl... " >&6; }
-if ${ac_cv_lib_ssl_EC_KEY_new_by_curve_name+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lssl ${pbxlibdir} -lcrypto $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char EC_KEY_new_by_curve_name ();
-int
-main ()
-{
-return EC_KEY_new_by_curve_name ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_ssl_EC_KEY_new_by_curve_name=yes
-else
-  ac_cv_lib_ssl_EC_KEY_new_by_curve_name=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_ssl_EC_KEY_new_by_curve_name" >&5
-$as_echo "$ac_cv_lib_ssl_EC_KEY_new_by_curve_name" >&6; }
-if test "x$ac_cv_lib_ssl_EC_KEY_new_by_curve_name" = xyes; then :
-  AST_OPENSSL_EC_FOUND=yes
-else
-  AST_OPENSSL_EC_FOUND=no
-fi
-
-      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-
-
-   # now check for the header.
-   if test "${AST_OPENSSL_EC_FOUND}" = "yes"; then
-      OPENSSL_EC_LIB="${pbxlibdir} -lssl -lcrypto"
-      # if --with-OPENSSL_EC=DIR has been specified, use it.
-      if test "x${OPENSSL_EC_DIR}" != "x"; then
-         OPENSSL_EC_INCLUDE="-I${OPENSSL_EC_DIR}/include"
-      fi
-      OPENSSL_EC_INCLUDE="${OPENSSL_EC_INCLUDE} "
-
-         # check for the header
-         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${OPENSSL_EC_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "openssl/ec.h" "ac_cv_header_openssl_ec_h" "$ac_includes_default"
-if test "x$ac_cv_header_openssl_ec_h" = xyes; then :
-  OPENSSL_EC_HEADER_FOUND=1
-else
-  OPENSSL_EC_HEADER_FOUND=0
-fi
-
-
-         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-
-      if test "x${OPENSSL_EC_HEADER_FOUND}" = "x0" ; then
-         OPENSSL_EC_LIB=""
-         OPENSSL_EC_INCLUDE=""
-      else
-
-         PBX_OPENSSL_EC=1
-         cat >>confdefs.h <<_ACEOF
-#define HAVE_OPENSSL_EC 1
-_ACEOF
-
-      fi
-   fi
-fi
-
-
-fi
-
-if test "$PBX_OPENSSL" = "1";
-then
-
-    if test "x${PBX_SSL_OP_NO_TLSV1_1}" != "x1"; then
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_OP_NO_TLSv1_1 in openssl/ssl.h" >&5
-$as_echo_n "checking for SSL_OP_NO_TLSv1_1 in openssl/ssl.h... " >&6; }
-	saved_cppflags="${CPPFLAGS}"
-	if test "x${SSL_OP_NO_TLSV1_1_DIR}" != "x"; then
-	    SSL_OP_NO_TLSV1_1_INCLUDE="-I${SSL_OP_NO_TLSV1_1_DIR}/include"
-	fi
-	CPPFLAGS="${CPPFLAGS} ${SSL_OP_NO_TLSV1_1_INCLUDE}"
-
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
- #include <openssl/ssl.h>
-int
-main ()
-{
-#if defined(SSL_OP_NO_TLSv1_1)
-				int foo = 0;
-			        #else
-			        int foo = bar;
-			        #endif
-				0
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-     { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_SSL_OP_NO_TLSV1_1=1
-
-$as_echo "#define HAVE_SSL_OP_NO_TLSV1_1 1" >>confdefs.h
-
-
-
-else
-     { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-	CPPFLAGS="${saved_cppflags}"
-    fi
-
-
-
-    if test "x${PBX_SSL_OP_NO_TLSV1_2}" != "x1"; then
-	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for SSL_OP_NO_TLSv1_2 in openssl/ssl.h" >&5
-$as_echo_n "checking for SSL_OP_NO_TLSv1_2 in openssl/ssl.h... " >&6; }
-	saved_cppflags="${CPPFLAGS}"
-	if test "x${SSL_OP_NO_TLSV1_2_DIR}" != "x"; then
-	    SSL_OP_NO_TLSV1_2_INCLUDE="-I${SSL_OP_NO_TLSV1_2_DIR}/include"
-	fi
-	CPPFLAGS="${CPPFLAGS} ${SSL_OP_NO_TLSV1_2_INCLUDE}"
-
-	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
- #include <openssl/ssl.h>
-int
-main ()
-{
-#if defined(SSL_OP_NO_TLSv1_2)
-				int foo = 0;
-			        #else
-			        int foo = bar;
-			        #endif
-				0
-
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-     { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-$as_echo "yes" >&6; }
-		PBX_SSL_OP_NO_TLSV1_2=1
-
-$as_echo "#define HAVE_SSL_OP_NO_TLSV1_2 1" >>confdefs.h
-
-
-
-else
-     { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-
-fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-	CPPFLAGS="${saved_cppflags}"
-    fi
-
-
 fi
 
 
@@ -31384,7 +31166,7 @@ else
 $as_echo "yes" >&6; }
 
             PBX_GMIME=1
-            GMIME_INCLUDE="$GMIME_CFLAGS"
+            GMIME_INCLUDE=$(echo ${GMIME_CFLAGS} | $SED -e "s|-std=c99||g")
             GMIME_LIB="$GMIME_LIBS"
 
 $as_echo "#define HAVE_GMIME 1" >>confdefs.h
@@ -31726,105 +31508,6 @@ fi
 
 
 
-if test "${OSARCH}" = "OpenBSD";
-then
-
-if test "x${PBX_VORBIS}" != "x1" -a "${USE_VORBIS}" != "no"; then
-   pbxlibdir=""
-   # if --with-VORBIS=DIR has been specified, use it.
-   if test "x${VORBIS_DIR}" != "x"; then
-      if test -d ${VORBIS_DIR}/lib; then
-         pbxlibdir="-L${VORBIS_DIR}/lib"
-      else
-         pbxlibdir="-L${VORBIS_DIR}"
-      fi
-   fi
-
-      ast_ext_lib_check_save_CFLAGS="${CFLAGS}"
-      CFLAGS="${CFLAGS} "
-      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for vorbis_info_init in -lvorbis" >&5
-$as_echo_n "checking for vorbis_info_init in -lvorbis... " >&6; }
-if ${ac_cv_lib_vorbis_vorbis_info_init+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lvorbis ${pbxlibdir} -lm -lvorbisenc -lvorbisfile -logg $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char vorbis_info_init ();
-int
-main ()
-{
-return vorbis_info_init ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_vorbis_vorbis_info_init=yes
-else
-  ac_cv_lib_vorbis_vorbis_info_init=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_vorbis_vorbis_info_init" >&5
-$as_echo "$ac_cv_lib_vorbis_vorbis_info_init" >&6; }
-if test "x$ac_cv_lib_vorbis_vorbis_info_init" = xyes; then :
-  AST_VORBIS_FOUND=yes
-else
-  AST_VORBIS_FOUND=no
-fi
-
-      CFLAGS="${ast_ext_lib_check_save_CFLAGS}"
-
-
-   # now check for the header.
-   if test "${AST_VORBIS_FOUND}" = "yes"; then
-      VORBIS_LIB="${pbxlibdir} -lvorbis -lm -lvorbisenc -lvorbisfile -logg"
-      # if --with-VORBIS=DIR has been specified, use it.
-      if test "x${VORBIS_DIR}" != "x"; then
-         VORBIS_INCLUDE="-I${VORBIS_DIR}/include"
-      fi
-      VORBIS_INCLUDE="${VORBIS_INCLUDE} "
-
-         # check for the header
-         ast_ext_lib_check_saved_CPPFLAGS="${CPPFLAGS}"
-         CPPFLAGS="${CPPFLAGS} ${VORBIS_INCLUDE}"
-         ac_fn_c_check_header_mongrel "$LINENO" "vorbis/codec.h" "ac_cv_header_vorbis_codec_h" "$ac_includes_default"
-if test "x$ac_cv_header_vorbis_codec_h" = xyes; then :
-  VORBIS_HEADER_FOUND=1
-else
-  VORBIS_HEADER_FOUND=0
-fi
-
-
-         CPPFLAGS="${ast_ext_lib_check_saved_CPPFLAGS}"
-
-      if test "x${VORBIS_HEADER_FOUND}" = "x0" ; then
-         VORBIS_LIB=""
-         VORBIS_INCLUDE=""
-      else
-
-         PBX_VORBIS=1
-         cat >>confdefs.h <<_ACEOF
-#define HAVE_VORBIS 1
-_ACEOF
-
-      fi
-   fi
-fi
-
-
-else
 
 if test "x${PBX_VORBIS}" != "x1" -a "${USE_VORBIS}" != "no"; then
    pbxlibdir=""
@@ -31921,7 +31604,6 @@ _ACEOF
 fi
 
 
-fi
 
     if test "x${PBX_VORBIS_OPEN_CALLBACKS}" != "x1" -a "${USE_VORBIS_OPEN_CALLBACKS}" != "no"; then
         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for OV_CALLBACKS_NOCLOSE declared in vorbis/vorbisfile.h" >&5
@@ -32393,7 +32075,7 @@ fi
 
 		if test ! "x${CONFIG_SDL}" = xNo; then
 			SDL_INCLUDE=$(${CONFIG_SDL} --cflags)
-			SDL_INCLUDE=$(echo ${SDL_INCLUDE} | $SED -e "s|-I|-I${SDL_DIR}|g")
+			SDL_INCLUDE=$(echo ${SDL_INCLUDE} | $SED -e "s|-I|-I${SDL_DIR}|g" -e "s|-std=c99||g")
 
 			SDL_LIB=$(${CONFIG_SDL} --libs)
 			SDL_LIB=$(echo ${SDL_LIB} | $SED -e "s|-L|-L${SDL_DIR}|g")
@@ -32921,7 +32603,7 @@ else
 $as_echo "yes" >&6; }
 
             PBX_GTK2=1
-            GTK2_INCLUDE="$GTK2_CFLAGS"
+            GTK2_INCLUDE=$(echo ${GTK2_CFLAGS} | $SED -e "s|-std=c99||g")
             GTK2_LIB="$GTK2_LIBS"
 
 $as_echo "#define HAVE_GTK2 1" >>confdefs.h
@@ -33032,7 +32714,7 @@ else
 $as_echo "yes" >&6; }
 
             PBX_SYSTEMD=1
-            SYSTEMD_INCLUDE="$SYSTEMD_CFLAGS"
+            SYSTEMD_INCLUDE=$(echo ${SYSTEMD_CFLAGS} | $SED -e "s|-std=c99||g")
             SYSTEMD_LIB="$SYSTEMD_LIBS"
 
 $as_echo "#define HAVE_SYSTEMD 1" >>confdefs.h
@@ -34886,9 +34568,9 @@ fi
 ${ac_cv_path_EGREP} 'CURSES|GTK2|OSARCH|NEWT' makeopts > makeopts.acbak2
 if test "x${ac_cv_path_CMP}" = "x:"; then
 	( cd `pwd`/menuselect && ./configure )
-else if ${ac_cv_path_CMP} -s makeopts.acbak makeopts.acbak2; then : ; else
+elif ${ac_cv_path_CMP} -s makeopts.acbak makeopts.acbak2; then : ; else
 	( cd `pwd`/menuselect && ./configure )
-fi ; fi
+fi
 
 rm makeopts.acbak makeopts.acbak2
 

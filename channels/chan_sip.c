@@ -10912,22 +10912,25 @@ static int process_sdp(struct sip_pvt *p, struct sip_request *req, int t38action
 	if (portno != -1 || vportno != -1 || tportno != -1) {
 		/* We are now ready to change the sip session and RTP structures with the offered codecs, since
 		   they are acceptable */
+		unsigned int framing;
 		ast_format_cap_remove_by_type(p->jointcaps, AST_MEDIA_TYPE_UNKNOWN);
 		ast_format_cap_append_from_cap(p->jointcaps, newjointcapability, AST_MEDIA_TYPE_UNKNOWN); /* Our joint codec profile for this call */
 		ast_format_cap_remove_by_type(p->peercaps, AST_MEDIA_TYPE_UNKNOWN);
 		ast_format_cap_append_from_cap(p->peercaps, newpeercapability, AST_MEDIA_TYPE_UNKNOWN); /* The other side's capability in latest offer */
 		p->jointnoncodeccapability = newnoncodeccapability;     /* DTMF capabilities */
 
+		tmp_fmt = ast_format_cap_get_format(p->jointcaps, 0);
+		framing = ast_format_cap_get_format_framing(p->jointcaps, tmp_fmt);
 		/* respond with single most preferred joint codec, limiting the other side's choice */
 		if (ast_test_flag(&p->flags[1], SIP_PAGE2_PREFERRED_CODEC)) {
-			unsigned int framing;
-
-			tmp_fmt = ast_format_cap_get_format(p->jointcaps, 0);
-			framing = ast_format_cap_get_format_framing(p->jointcaps, tmp_fmt);
 			ast_format_cap_remove_by_type(p->jointcaps, AST_MEDIA_TYPE_UNKNOWN);
 			ast_format_cap_append(p->jointcaps, tmp_fmt, framing);
-			ao2_ref(tmp_fmt, -1);
 		}
+		if (!ast_rtp_codecs_get_framing(&newaudiortp)) {
+			/* Peer did not force us to use a specific framing, so use our own */
+			ast_rtp_codecs_set_framing(&newaudiortp, framing);
+		}
+		ao2_ref(tmp_fmt, -1);
 	}
 
 	/* Setup audio address and port */
@@ -11436,6 +11439,7 @@ static int process_sdp_a_audio(const char *a, struct sip_pvt *p, struct ast_rtp_
 		if (framing && p->autoframing) {
 			ast_debug(1, "Setting framing to %ld\n", framing);
 			ast_format_cap_set_framing(p->caps, framing);
+			ast_rtp_codecs_set_framing(newaudiortp, framing);
 		}
 		found = TRUE;
 	} else if (sscanf(a, "rtpmap: %30u %127[^/]/%30u", &codec, mimeSubtype, &sample_rate) == 3) {
@@ -22332,7 +22336,7 @@ static void sip_dump_history(struct sip_pvt *dialog)
 		return;
 	}
 
-	if (!option_debug && !sipdebug) {
+	if (!sipdebug && !DEBUG_ATLEAST(1)) {
 		if (!errmsg) {
 			ast_log(LOG_NOTICE, "You must have debugging enabled (SIP or Asterisk) in order to dump SIP history.\n");
 			errmsg = 1;
@@ -22340,20 +22344,20 @@ static void sip_dump_history(struct sip_pvt *dialog)
 		return;
 	}
 
-	ast_debug(1, "\n---------- SIP HISTORY for '%s' \n", dialog->callid);
+	ast_log(LOG_DEBUG, "\n---------- SIP HISTORY for '%s' \n", dialog->callid);
 	if (dialog->subscribed) {
-		ast_debug(1, "  * Subscription\n");
+		ast_log(LOG_DEBUG, "  * Subscription\n");
 	} else {
-		ast_debug(1, "  * SIP Call\n");
+		ast_log(LOG_DEBUG, "  * SIP Call\n");
 	}
 	if (dialog->history) {
 		AST_LIST_TRAVERSE(dialog->history, hist, list)
-			ast_debug(1, "  %-3.3d. %s\n", ++x, hist->event);
+			ast_log(LOG_DEBUG, "  %-3.3d. %s\n", ++x, hist->event);
 	}
 	if (!x) {
-		ast_debug(1, "Call '%s' has no history\n", dialog->callid);
+		ast_log(LOG_DEBUG, "Call '%s' has no history\n", dialog->callid);
 	}
-	ast_debug(1, "\n---------- END SIP HISTORY for '%s' \n", dialog->callid);
+	ast_log(LOG_DEBUG, "\n---------- END SIP HISTORY for '%s' \n", dialog->callid);
 }
 
 
@@ -23755,6 +23759,9 @@ static void handle_response_invite(struct sip_pvt *p, int resp, const char *rest
 			ast_queue_control(p->owner, AST_CONTROL_RINGING);
 			if (ast_channel_state(p->owner) != AST_STATE_UP) {
 				ast_setstate(p->owner, AST_STATE_RINGING);
+				if (p->relatedpeer) {
+					ast_devstate_changed(AST_DEVICE_UNKNOWN, AST_DEVSTATE_NOT_CACHABLE, "SIP/%s", p->relatedpeer->name);
+				}
 			}
 		}
 		if (find_sdp(req)) {
@@ -25633,7 +25640,7 @@ static int handle_invite_replaces(struct sip_pvt *p, struct sip_request *req,
 		int *nounlock, struct sip_pvt *replaces_pvt, struct ast_channel *replaces_chan)
 {
 	struct ast_channel *c;
-	RAII_VAR(struct ast_bridge *, bridge, NULL, ao2_cleanup);
+	struct ast_bridge *bridge;
 
 	if (req->ignore) {
 		return 0;
@@ -25649,6 +25656,7 @@ static int handle_invite_replaces(struct sip_pvt *p, struct sip_request *req,
 	}
 	append_history(p, "Xfer", "INVITE/Replace received");
 
+	/* Get a ref to ensure the channel cannot go away on us. */
 	c = ast_channel_ref(p->owner);
 
 	/* Fake call progress */
@@ -25663,21 +25671,24 @@ static int handle_invite_replaces(struct sip_pvt *p, struct sip_request *req,
 
 	ast_raw_answer(c);
 
-	ast_channel_lock(replaces_chan);
-	bridge = ast_channel_get_bridge(replaces_chan);
-	ast_channel_unlock(replaces_chan);
-
+	bridge = ast_bridge_transfer_acquire_bridge(replaces_chan);
 	if (bridge) {
+		/*
+		 * We have two refs of the channel.  One is held in c and the other
+		 * is notionally represented by p->owner.  The impart is "stealing"
+		 * the p->owner ref on success so the bridging system can have
+		 * control of when the channel is hung up.
+		 */
 		if (ast_bridge_impart(bridge, c, replaces_chan, NULL,
 			AST_BRIDGE_IMPART_CHAN_INDEPENDENT)) {
 			ast_hangup(c);
-			ast_channel_unref(c);
 		}
+		ao2_ref(bridge, -1);
 	} else {
 		ast_channel_move(replaces_chan, c);
 		ast_hangup(c);
-		ast_channel_unref(c);
 	}
+	ast_channel_unref(c);
 	sip_pvt_lock(p);
 	return 0;
 }
@@ -34177,10 +34188,9 @@ static int peer_ipcmp_cb_full(void *obj, void *arg, void *data, int flags)
 	}
 
 	/* We matched the IP, check to see if we need to match by port as well. */
-	if ((peer->transports & peer2->transports) & (AST_TRANSPORT_TLS | AST_TRANSPORT_TCP)) {
-		/* peer matching on port is not possible with TCP/TLS */
-		return CMP_MATCH | CMP_STOP;
-	} else if (ast_test_flag(&peer2->flags[0], SIP_INSECURE_PORT)) {
+	if (((peer->transports & peer2->transports) &
+		(AST_TRANSPORT_UDP | AST_TRANSPORT_WS | AST_TRANSPORT_WSS)) &&
+		ast_test_flag(&peer2->flags[0], SIP_INSECURE_PORT)) {
 		/* We are allowing match without port for peers configured that
 		 * way in this pass through the peers. */
 		return ast_test_flag(&peer->flags[0], SIP_INSECURE_PORT) ?
@@ -34991,21 +35001,22 @@ AST_TEST_DEFINE(test_tcp_message_fragmentation)
 	struct ast_str *overflow;
 	struct {
 		char **fragments;
+		size_t fragment_count;
 		char **expected;
 		int num_expected;
 		const char *description;
 	} tests[] = {
-		{ normal, normal, 1, "normal" },
-		{ fragmented, normal, 1, "fragmented" },
-		{ fragmented_body, normal, 1, "fragmented_body" },
-		{ multi_fragment, normal, 1, "multi_fragment" },
-		{ multi_message, multi_message_divided, 2, "multi_message" },
-		{ multi_message_body, multi_message_body_divided, 2, "multi_message_body" },
-		{ multi_message_in_fragments, multi_message_divided, 2, "multi_message_in_fragments" },
-		{ compact, compact, 1, "compact" },
-		{ faux, faux, 1, "faux" },
-		{ folded, folded, 1, "folded" },
-		{ cl_in_body, cl_in_body, 1, "cl_in_body" },
+		{ normal, ARRAY_LEN(normal), normal, 1, "normal" },
+		{ fragmented, ARRAY_LEN(fragmented), normal, 1, "fragmented" },
+		{ fragmented_body, ARRAY_LEN(fragmented_body), normal, 1, "fragmented_body" },
+		{ multi_fragment, ARRAY_LEN(multi_fragment), normal, 1, "multi_fragment" },
+		{ multi_message, ARRAY_LEN(multi_message), multi_message_divided, 2, "multi_message" },
+		{ multi_message_body, ARRAY_LEN(multi_message_body), multi_message_body_divided, 2, "multi_message_body" },
+		{ multi_message_in_fragments, ARRAY_LEN(multi_message_in_fragments), multi_message_divided, 2, "multi_message_in_fragments" },
+		{ compact, ARRAY_LEN(compact), compact, 1, "compact" },
+		{ faux, ARRAY_LEN(faux), faux, 1, "faux" },
+		{ folded, ARRAY_LEN(folded), folded, 1, "folded" },
+		{ cl_in_body, ARRAY_LEN(cl_in_body), cl_in_body, 1, "cl_in_body" },
 	};
 	int i;
 	enum ast_test_result_state res = AST_TEST_PASS;
@@ -35033,7 +35044,7 @@ AST_TEST_DEFINE(test_tcp_message_fragmentation)
 	}
 	for (i = 0; i < ARRAY_LEN(tests); ++i) {
 		int num_messages = 0;
-		if (mock_tcp_loop(tests[i].fragments, ARRAY_LEN(tests[i].fragments),
+		if (mock_tcp_loop(tests[i].fragments, tests[i].fragment_count,
 					&overflow, tests[i].expected, &num_messages, test)) {
 			ast_test_status_update(test, "Failed to parse message '%s'\n", tests[i].description);
 			res = AST_TEST_FAIL;

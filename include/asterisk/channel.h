@@ -590,6 +590,11 @@ struct ast_assigned_ids {
 };
 
 /*!
+ * \brief Forward declaration
+ */
+struct ast_msg_data;
+
+/*!
  * \brief
  * Structure to describe a channel "technology", ie a channel driver
  * See for examples:
@@ -756,6 +761,9 @@ struct ast_channel_tech {
 	 * \retval -1 on error.
 	 */
 	int (*pre_call)(struct ast_channel *chan, const char *sub_args);
+
+	/*! \brief Display or transmit text with data*/
+	int (* const send_text_data)(struct ast_channel *chan, struct ast_msg_data *data);
 };
 
 /*! Kill the channel channel driver technology descriptor. */
@@ -883,6 +891,10 @@ enum {
 	 * world
 	 */
 	AST_CHAN_TP_INTERNAL = (1 << 2),
+	/*!
+	 * \brief Channels have this property if they implement send_text_data
+	 */
+	AST_CHAN_TP_SEND_TEXT_DATA = (1 << 3),
 };
 
 /*! \brief ast_channel flags */
@@ -1098,7 +1110,7 @@ enum ama_flags {
  * \deprecated You should use the ast_datastore_alloc() generic function instead.
  * \version 1.6.1 deprecated
  */
-struct ast_datastore * attribute_malloc ast_channel_datastore_alloc(const struct ast_datastore_info *info, const char *uid)
+struct ast_datastore *ast_channel_datastore_alloc(const struct ast_datastore_info *info, const char *uid)
 	__attribute__((deprecated));
 
 /*!
@@ -1157,7 +1169,7 @@ struct ast_datastore *ast_channel_datastore_find(struct ast_channel *chan, const
  *       and "default" context.
  * \note Since 12.0.0 this function returns with the newly created channel locked.
  */
-struct ast_channel * attribute_malloc __attribute__((format(printf, 15, 16)))
+struct ast_channel * __attribute__((format(printf, 15, 16)))
 	__ast_channel_alloc(int needqueue, int state, const char *cid_num,
 		const char *cid_name, const char *acctcode,
 		const char *exten, const char *context, const struct ast_assigned_ids *assignedids,
@@ -2068,6 +2080,26 @@ int ast_set_write_format(struct ast_channel *chan, struct ast_format *format);
 int ast_sendtext(struct ast_channel *chan, const char *text);
 
 /*!
+ * \brief Sends text to a channel in an ast_msg_data structure wrapper with ast_sendtext as fallback
+ * \since 13.22.0
+ * \since 15.5.0
+ *
+ * \param chan channel to act upon
+ * \param msg ast_msg_data structure
+ *
+ * \details
+ * Write text to a display on a channel.  If the channel driver doesn't support the
+ * send_text_data callback. then the original send_text callback will be used if
+ * available.
+ *
+ * \note The channel does not need to be locked before calling this function.
+ *
+ * \retval 0 on success
+ * \retval -1 on failure
+ */
+int ast_sendtext_data(struct ast_channel *chan, struct ast_msg_data *msg);
+
+/*!
  * \brief Receives a text character from a channel
  * \param chan channel to act upon
  * \param timeout timeout in milliseconds (0 for infinite wait)
@@ -2079,12 +2111,30 @@ int ast_recvchar(struct ast_channel *chan, int timeout);
 
 /*!
  * \brief Send a DTMF digit to a channel.
+ *
  * \param chan channel to act upon
  * \param digit the DTMF digit to send, encoded in ASCII
  * \param duration the duration of the digit ending in ms
+ *
+ * \pre This must only be called by the channel's media handler thread.
+ *
  * \return 0 on success, -1 on failure
  */
 int ast_senddigit(struct ast_channel *chan, char digit, unsigned int duration);
+
+/*!
+ * \brief Send a DTMF digit to a channel from an external thread.
+ *
+ * \param chan channel to act upon
+ * \param digit the DTMF digit to send, encoded in ASCII
+ * \param duration the duration of the digit ending in ms
+ *
+ * \pre This must only be called by threads that are not the channel's
+ * media handler thread.
+ *
+ * \return 0 on success, -1 on failure
+ */
+int ast_senddigit_external(struct ast_channel *chan, char digit, unsigned int duration);
 
 /*!
  * \brief Send a DTMF digit to a channel.
@@ -2599,15 +2649,31 @@ static inline enum ast_t38_state ast_channel_get_t38_state(struct ast_channel *c
 	return state;
 }
 
-#define CHECK_BLOCKING(c) do { 	 \
-	if (ast_test_flag(ast_channel_flags(c), AST_FLAG_BLOCKING)) {\
-		ast_debug(1, "Thread %p is blocking '%s', already blocked by thread %p in procedure %s\n", \
-			(void *) pthread_self(), ast_channel_name(c), (void *) ast_channel_blocker(c), ast_channel_blockproc(c)); \
-	} else { \
+/*!
+ * \brief Set the blocking indication on the channel.
+ *
+ * \details
+ * Indicate that the thread handling the channel is about to do a blocking
+ * operation to wait for media on the channel.  (poll, read, or write)
+ *
+ * Masquerading and ast_queue_frame() use this indication to wake up the thread.
+ *
+ * \pre The channel needs to be locked
+ */
+#define CHECK_BLOCKING(c) \
+	do { \
+		if (ast_test_flag(ast_channel_flags(c), AST_FLAG_BLOCKING)) { \
+			/* This should not happen as there should only be one thread handling a channel's media at a time. */ \
+			ast_log(LOG_DEBUG, "Thread LWP %d is blocking '%s', already blocked by thread LWP %d in procedure %s\n", \
+				ast_get_tid(), ast_channel_name(c), \
+				ast_channel_blocker_tid(c), ast_channel_blockproc(c)); \
+			ast_assert(0); \
+		} \
+		ast_channel_blocker_tid_set((c), ast_get_tid()); \
 		ast_channel_blocker_set((c), pthread_self()); \
 		ast_channel_blockproc_set((c), __PRETTY_FUNCTION__); \
 		ast_set_flag(ast_channel_flags(c), AST_FLAG_BLOCKING); \
-	} } while (0)
+	} while (0)
 
 ast_group_t ast_get_group(const char *s);
 
@@ -4250,6 +4316,9 @@ void ast_channel_internal_epfd_data_set(struct ast_channel *chan, int which , st
 
 pthread_t ast_channel_blocker(const struct ast_channel *chan);
 void ast_channel_blocker_set(struct ast_channel *chan, pthread_t value);
+
+int ast_channel_blocker_tid(const struct ast_channel *chan);
+void ast_channel_blocker_tid_set(struct ast_channel *chan, int tid);
 
 ast_timing_func_t ast_channel_timingfunc(const struct ast_channel *chan);
 void ast_channel_timingfunc_set(struct ast_channel *chan, ast_timing_func_t value);

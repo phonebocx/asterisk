@@ -331,7 +331,6 @@ static int ast_moh_files_next(struct ast_channel *chan)
 		}
 	} else {
 		state->announcement = 0;
-		state->samples = 0;
 	}
 
 	if (!state->class->total_files) {
@@ -1106,7 +1105,7 @@ static int moh_scan_files(struct mohclass *class) {
 
 	DIR *files_DIR;
 	struct dirent *files_dirent;
-	char dir_path[PATH_MAX];
+	char dir_path[PATH_MAX - sizeof(class->dir)];
 	char filepath[PATH_MAX];
 	char *ext;
 	struct stat statbuf;

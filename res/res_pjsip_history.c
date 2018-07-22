@@ -44,6 +44,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/netsock2.h"
 #include "asterisk/vector.h"
 #include "asterisk/lock.h"
+#include "asterisk/res_pjproject.h"
 
 #define HISTORY_INITIAL_SIZE 256
 
@@ -1134,7 +1135,8 @@ static struct vector_history_t *filter_history(struct ast_cli_args *a)
 		} else if (!res) {
 			continue;
 		} else {
-			if (AST_VECTOR_APPEND(output, ao2_bump(entry))) {
+			ao2_bump(entry);
+			if (AST_VECTOR_APPEND(output, entry)) {
 				ao2_cleanup(entry);
 			}
 		}
@@ -1373,7 +1375,7 @@ static int load_module(void)
 		ast_log(LOG_WARNING, "Unable to register history log level\n");
 	}
 
-	pj_caching_pool_init(&cachingpool, &pj_pool_factory_default_policy, 0);
+	ast_pjproject_caching_pool_init(&cachingpool, &pj_pool_factory_default_policy, 0);
 
 	AST_VECTOR_INIT(&vector_history, HISTORY_INITIAL_SIZE);
 
@@ -1388,10 +1390,10 @@ static int unload_module(void)
 	ast_cli_unregister_multiple(cli_pjsip, ARRAY_LEN(cli_pjsip));
 	ast_sip_unregister_service(&logging_module);
 
-	ast_sip_push_task_synchronous(NULL, clear_history_entries, NULL);
+	ast_sip_push_task_wait_servant(NULL, clear_history_entries, NULL);
 	AST_VECTOR_FREE(&vector_history);
 
-	pj_caching_pool_destroy(&cachingpool);
+	ast_pjproject_caching_pool_destroy(&cachingpool);
 
 	if (log_level != -1) {
 		ast_logger_unregister_level("PJSIP_HISTORY");

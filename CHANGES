@@ -9,6 +9,85 @@
 ==============================================================================
 
 ------------------------------------------------------------------------------
+--- Functionality changes from Asterisk 13.21.0 to Asterisk 13.22.0 ----------
+------------------------------------------------------------------------------
+
+Core
+------------------
+ * Core bridging and, more specifically, bridge_softmix have been enhanced to
+   relay received frames of type TEXT or TEXT_DATA to all participants in a
+   softmix bridge.  res_pjsip_messaging and chan_pjsip have been enhanced to
+   take advantage of this so when res_pjsip_messaging receives an in-dialog
+   MESSAGE message from a user in a conference call, it's relayed to all
+   other participants in the call.
+
+app_sendtext
+------------------
+    Support Enhanced Messaging.  SendText now accepts new channel variables
+    that can be used to override the To and From display names and set the
+    Content-Type of a message.  Since you can now set Content-Type, other
+    text/* content types are now valid.
+
+app_confbridge
+------------------
+  * ConfbridgeList now shows talking status. This utilizes the same voice
+    detection as the ConfbridgeTalking event, so bridges must be configured
+    with "talk_detection_events=yes" for this flag to have meaning.
+
+res_pjsip
+------------------
+  * Two new options have been added to the system and endpoint objects to
+    control whether, on outbound calls, Asterisk will accept updated SDP answers
+    during the initial INVITE transaction when 100rel is not in effect.
+    This usually happens when the INVITE is forked to multiple UASs and more
+    than one sends an SDP answer or when a single UAS needs to change a media
+    port to switch from custom ringback to the actual media destination.
+
+    The 'follow_early_media_forked' option sets whether Asterisk will accept
+    the updated SDP when the To tag on the subsequent response is different than
+    that on the the previous response.  This usually occurs in the forked INVITE
+    scenario. The default value is "yes" which is the current behavior.
+
+    The 'accept_multiple_sdp_answers' flag sets whether Asterisk will accept the
+    updated SDP when the To tag on the subsequent response is the same as that
+    on the previous response. This can occur when a UAS needs to switch media
+    ports from custom ringback to the final media path.  The default value is
+    "no" which is the current behavior.
+
+    These options have to be enabled system-wide in the system config section
+    of pjsip.conf as well as on individual endpoints that require the
+    functionality.
+
+------------------------------------------------------------------------------
+--- Functionality changes from Asterisk 13.20.0 to Asterisk 13.21.0 ----------
+------------------------------------------------------------------------------
+
+Build System
+------------------
+ * RADIUS backends for CEL and CDR can now also be built using the radcli
+   client library, in addition to the existing support for building them
+   using either freeradius or radiusclient-ng.
+
+Core
+------------------
+ * A new configuration option "genericplc_on_equal_codecs" was added to the
+   "plc" section of codecs.conf to allow generic packet loss concealment even
+   if no transcoding was originally needed.  Transcoding via SLIN is forced
+   in this case.
+
+res_pjproject
+------------------
+ * Added the "cache_pools" option to pjproject.conf.  Disabling the option
+   helps track down pool content mismanagement when using valgrind or
+   MALLOC_DEBUG.  The cache gets in the way of determining if the pool contents
+   are used after free and who freed it.
+
+res_pjsip_notify
+------------------
+ * Extend the PJSIPNotify AMI command to send an in-dialog notify on a
+   channel.
+
+------------------------------------------------------------------------------
 --- Functionality changes from Asterisk 13.19.0 to Asterisk 13.20.0 ----------
 ------------------------------------------------------------------------------
 
