@@ -13,7 +13,6 @@ sound_files
 #h323-extra-target
 mpglib
 enable_addons
-no_uname
 
 ilbc_disable
 astdatadir
