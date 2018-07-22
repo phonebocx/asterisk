@@ -26,7 +26,7 @@ Last-Update: 2016-03-19
  MENUSELECT_OPTS_app_directory:=$(MENUSELECT_OPTS_app_voicemail)
  ifneq ($(findstring ODBC_STORAGE,$(MENUSELECT_OPTS_app_voicemail)),)
    MENUSELECT_DEPENDS_app_voicemail+=$(MENUSELECT_DEPENDS_ODBC_STORAGE)
-@@ -25,6 +27,25 @@
+@@ -25,6 +27,24 @@
  
  all: _all
  
@@ -39,7 +39,6 @@ Last-Update: 2016-03-19
 +app_voicemail_odbcstorage.c: app_voicemail.c
 +	cp $< $@
 +	$(call add_depends_cmd,unixodbc) $@
-+	$(call add_depends_cmd,ltdl) $@
 +	cp app_voicemail.exports.in app_voicemail_odbcstorage.exports.in
 +
 +dist-clean::
