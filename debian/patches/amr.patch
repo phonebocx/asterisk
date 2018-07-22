@@ -523,7 +523,7 @@ Last-Update: 2016-08-29
 +}
 --- a/configure.ac
 +++ b/configure.ac
-@@ -401,6 +401,9 @@
+@@ -448,6 +448,9 @@
  # to make things easier for the users.
  
  AST_EXT_LIB_SETUP([ALSA], [Advanced Linux Sound Architecture], [asound])
@@ -533,17 +533,17 @@ Last-Update: 2016-08-29
  AST_EXT_LIB_SETUP([BFD], [Debug symbol decoding], [bfd])
  
  # BKTR is used for backtrace support on platforms that do not
-@@ -1369,6 +1372,10 @@
+@@ -1487,6 +1490,10 @@
  
- AST_EXT_LIB_CHECK([ALSA], [asound], [snd_spcm_init], [alsa/asoundlib.h], [-lm -ldl])
+ AST_EXT_LIB_CHECK([ALSA], [asound], [snd_pcm_open], [alsa/asoundlib.h])
  
 +AST_EXT_LIB_CHECK([AMR_NB], [opencore-amrnb], [Encoder_Interface_init], [opencore-amrnb/interf_enc.h])
 +AST_EXT_LIB_CHECK([AMR_WB_DECODER], [opencore-amrwb], [D_IF_init], [opencore-amrwb/dec_if.h])
 +AST_EXT_LIB_CHECK([AMR_WB_ENCODER], [vo-amrwbenc], [E_IF_init], [vo-amrwbenc/enc_if.h])
 +
  AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_openr], [bfd.h])
- 
- if test "${PBX_BFD}" = "0"; then
+ # Fedora/RedHat/CentOS require extra libraries
+ AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_openr], [bfd.h], [-ldl -liberty])
 --- /dev/null
 +++ b/include/asterisk/amr.h
 @@ -0,0 +1,19 @@
@@ -568,7 +568,7 @@ Last-Update: 2016-08-29
 +#endif /* _AST_FORMAT_AMR_H */
 --- a/include/asterisk/format_cache.h
 +++ b/include/asterisk/format_cache.h
-@@ -232,6 +232,16 @@
+@@ -237,6 +237,16 @@
  extern struct ast_format *ast_format_silk24;
  
  /*!
@@ -587,7 +587,7 @@ Last-Update: 2016-08-29
   * \retval 0 success
 --- a/main/codec_builtin.c
 +++ b/main/codec_builtin.c
-@@ -839,6 +839,54 @@
+@@ -861,6 +861,54 @@
  	.samples_count = silk_samples
  };
  
@@ -642,7 +642,7 @@ Last-Update: 2016-08-29
  #define CODEC_REGISTER_AND_CACHE(codec) \
  	({ \
  		int __res_ ## __LINE__ = 0; \
-@@ -871,6 +919,8 @@
+@@ -893,6 +941,8 @@
  {
  	int res = 0;
  
@@ -653,7 +653,7 @@ Last-Update: 2016-08-29
  	res |= CODEC_REGISTER_AND_CACHE(alaw);
 --- a/main/format_cache.c
 +++ b/main/format_cache.c
-@@ -218,6 +218,16 @@
+@@ -223,6 +223,16 @@
  struct ast_format *ast_format_opus;
  
  /*!
@@ -670,7 +670,7 @@ Last-Update: 2016-08-29
   * \brief Built-in cached t140 format.
   */
  struct ast_format *ast_format_t140;
-@@ -300,6 +310,8 @@
+@@ -305,6 +315,8 @@
  	ao2_cleanup(formats);
  	formats = NULL;
  
@@ -679,7 +679,7 @@ Last-Update: 2016-08-29
  	ao2_replace(ast_format_g723, NULL);
  	ao2_replace(ast_format_ulaw, NULL);
  	ao2_replace(ast_format_alaw, NULL);
-@@ -416,6 +428,10 @@
+@@ -422,6 +434,10 @@
  		ao2_replace(ast_format_g719, format);
  	} else if (!strcmp(name, "opus")) {
  		ao2_replace(ast_format_opus, format);
@@ -692,7 +692,7 @@ Last-Update: 2016-08-29
  	} else if (!strcmp(name, "png")) {
 --- a/main/rtp_engine.c
 +++ b/main/rtp_engine.c
-@@ -2199,6 +2199,9 @@
+@@ -2732,6 +2732,9 @@
  	set_next_mime_type(ast_format_vp8, 0,  "video", "VP8", 90000);
  	set_next_mime_type(ast_format_vp9, 0, "video", "VP9", 90000);
  
@@ -702,7 +702,7 @@ Last-Update: 2016-08-29
  	/* Define the static rtp payload mappings */
  	add_static_payload(0, ast_format_ulaw, 0);
  	#ifdef USE_DEPRECATED_G726
-@@ -2243,6 +2246,9 @@
+@@ -2778,6 +2781,9 @@
  	add_static_payload(100, ast_format_vp8, 0);
  	add_static_payload(107, ast_format_opus, 0);
  
@@ -714,7 +714,7 @@ Last-Update: 2016-08-29
  
 --- a/makeopts.in
 +++ b/makeopts.in
-@@ -120,6 +120,13 @@
+@@ -131,6 +131,13 @@
  ALSA_INCLUDE=@ALSA_INCLUDE@
  ALSA_LIB=@ALSA_LIB@
  
