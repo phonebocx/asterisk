@@ -24,7 +24,6 @@ aelparse_enable.patch
 systemd.patch
 test_framework.patch
 
-# opus.patch
 # vp8.patch
 amr.patch
 
