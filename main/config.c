@@ -1738,7 +1738,7 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat,
 	char *c;
 	char *cur = buf;
 	struct ast_variable *v;
-	char cmd[512], exec_file[512];
+	char exec_file[512];
 
 	/* Actually parse the entry */
 	if (cur[0] == '[') { /* A category header */
@@ -1911,10 +1911,16 @@ static int process_text_line(struct ast_config *cfg, struct ast_category **cat,
 		   We create a tmp file, then we #include it, then we delete it. */
 		if (!do_include) {
 			struct timeval now = ast_tvnow();
+			char cmd[1024];
+
 			if (!ast_test_flag(&flags, CONFIG_FLAG_NOCACHE))
 				config_cache_attribute(configfile, ATTRIBUTE_EXEC, NULL, who_asked);
 			snprintf(exec_file, sizeof(exec_file), "/var/tmp/exec.%d%d.%ld", (int)now.tv_sec, (int)now.tv_usec, (long)pthread_self());
-			snprintf(cmd, sizeof(cmd), "%s > %s 2>&1", cur, exec_file);
+			if (snprintf(cmd, sizeof(cmd), "%s > %s 2>&1", cur, exec_file) >= sizeof(cmd)) {
+				ast_log(LOG_ERROR, "Failed to construct command string to execute %s.\n", cur);
+
+				return -1;
+			}
 			ast_safe_system(cmd);
 			cur = exec_file;
 		} else {
@@ -2197,10 +2203,10 @@ static struct ast_config *config_text_file_load(const char *database, const char
 					lineno++;
 					if (fgets(buf, sizeof(buf), f)) {
 						/* Skip lines that are too long */
-						if (strlen(buf) == sizeof(buf) - 1 && buf[sizeof(buf) - 1] != '\n') {
+						if (strlen(buf) == sizeof(buf) - 1 && buf[sizeof(buf) - 2] != '\n') {
 							ast_log(LOG_WARNING, "Line %d too long, skipping. It begins with: %.32s...\n", lineno, buf);
 							while (fgets(buf, sizeof(buf), f)) {
-								if (strlen(buf) != sizeof(buf) - 1 || buf[sizeof(buf) - 1] == '\n') {
+								if (strlen(buf) != sizeof(buf) - 1 || buf[sizeof(buf) - 2] == '\n') {
 									break;
 								}
 							}
@@ -2787,9 +2793,7 @@ int ast_config_text_file_save2(const char *configfile, const struct ast_config *
 			}
 			cat = cat->next;
 		}
-		if (!option_debug) {
-			ast_verb(2, "Saving '%s': saved\n", fn);
-		}
+		ast_verb(2, "Saving '%s': saved\n", fn);
 	} else {
 		ast_debug(1, "Unable to open for writing: %s\n", fn);
 		ast_verb(2, "Unable to write '%s' (%s)\n", fn, strerror(errno));
@@ -3573,7 +3577,7 @@ int ast_destroy_realtime_fields(const char *family, const char *keyfield, const 
 
 	for (i = 1; ; i++) {
 		if ((eng = find_engine(family, i, db, sizeof(db), table, sizeof(table)))) {
-			if (eng->destroy_func && !(res = eng->destroy_func(db, table, keyfield, lookup, fields))) {
+			if (eng->destroy_func && ((res = eng->destroy_func(db, table, keyfield, lookup, fields)) >= 0)) {
 				break;
 			}
 		} else {
@@ -3936,8 +3940,8 @@ static char *handle_cli_core_show_config_mappings(struct ast_cli_entry *e, int c
 static char *handle_cli_config_reload(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	struct cache_file_mtime *cfmtime;
-	char *prev = "", *completion_value = NULL;
-	int wordlen, which = 0;
+	char *prev = "";
+	int wordlen;
 
 	switch (cmd) {
 	case CLI_INIT:
@@ -3955,19 +3959,20 @@ static char *handle_cli_config_reload(struct ast_cli_entry *e, int cmd, struct a
 
 		AST_LIST_LOCK(&cfmtime_head);
 		AST_LIST_TRAVERSE(&cfmtime_head, cfmtime, list) {
-			/* Skip duplicates - this only works because the list is sorted by filename */
-			if (strcmp(cfmtime->filename, prev) == 0) {
-				continue;
-			}
-
 			/* Core configs cannot be reloaded */
 			if (ast_strlen_zero(cfmtime->who_asked)) {
 				continue;
 			}
 
-			if (++which > a->n && strncmp(cfmtime->filename, a->word, wordlen) == 0) {
-				completion_value = ast_strdup(cfmtime->filename);
-				break;
+			/* Skip duplicates - this only works because the list is sorted by filename */
+			if (!strcmp(cfmtime->filename, prev)) {
+				continue;
+			}
+
+			if (!strncmp(cfmtime->filename, a->word, wordlen)) {
+				if (ast_cli_completion_add(ast_strdup(cfmtime->filename))) {
+					break;
+				}
 			}
 
 			/* Otherwise save that we've seen this filename */
@@ -3975,7 +3980,7 @@ static char *handle_cli_config_reload(struct ast_cli_entry *e, int cmd, struct a
 		}
 		AST_LIST_UNLOCK(&cfmtime_head);
 
-		return completion_value;
+		return NULL;
 	}
 
 	if (a->argc != 3) {

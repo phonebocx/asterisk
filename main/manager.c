@@ -2326,9 +2326,9 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 {
 	struct manager_action *cur;
 	struct ast_str *authority;
-	int num, l, which;
+	int num;
+	int l;
 	const char *auth_str;
-	char *ret = NULL;
 #ifdef AST_XML_DOCS
 	char syntax_title[64], description_title[64], synopsis_title[64], seealso_title[64];
 	char arguments_title[64], privilege_title[64], final_response_title[64], list_responses_title[64];
@@ -2343,16 +2343,16 @@ static char *handle_showmancmd(struct ast_cli_entry *e, int cmd, struct ast_cli_
 		return NULL;
 	case CLI_GENERATE:
 		l = strlen(a->word);
-		which = 0;
 		AST_RWLIST_RDLOCK(&actions);
 		AST_RWLIST_TRAVERSE(&actions, cur, list) {
-			if (!strncasecmp(a->word, cur->action, l) && ++which > a->n) {
-				ret = ast_strdup(cur->action);
-				break;	/* make sure we exit even if ast_strdup() returns NULL */
+			if (!strncasecmp(a->word, cur->action, l)) {
+				if (ast_cli_completion_add(ast_strdup(cur->action))) {
+					break;
+				}
 			}
 		}
 		AST_RWLIST_UNLOCK(&actions);
-		return ret;
+		return NULL;
 	}
 	if (a->argc < 4) {
 		return CLI_SHOWUSAGE;
@@ -2482,8 +2482,7 @@ static char *handle_mandebug(struct ast_cli_entry *e, int cmd, struct ast_cli_ar
 static char *handle_showmanager(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
 {
 	struct ast_manager_user *user = NULL;
-	int l, which;
-	char *ret = NULL;
+	int l;
 	struct ast_str *rauthority = ast_str_alloca(MAX_AUTH_PERM_STRING);
 	struct ast_str *wauthority = ast_str_alloca(MAX_AUTH_PERM_STRING);
 	struct ast_variable *v;
@@ -2497,19 +2496,19 @@ static char *handle_showmanager(struct ast_cli_entry *e, int cmd, struct ast_cli
 		return NULL;
 	case CLI_GENERATE:
 		l = strlen(a->word);
-		which = 0;
 		if (a->pos != 3) {
 			return NULL;
 		}
 		AST_RWLIST_RDLOCK(&users);
 		AST_RWLIST_TRAVERSE(&users, user, list) {
-			if ( !strncasecmp(a->word, user->username, l) && ++which > a->n ) {
-				ret = ast_strdup(user->username);
-				break;
+			if (!strncasecmp(a->word, user->username, l)) {
+				if (ast_cli_completion_add(ast_strdup(user->username))) {
+					break;
+				}
 			}
 		}
 		AST_RWLIST_UNLOCK(&users);
-		return ret;
+		return NULL;
 	}
 
 	if (a->argc != 4) {
@@ -4716,10 +4715,13 @@ static int action_status(struct mansession *s, const struct message *m)
 
 static int action_sendtext(struct mansession *s, const struct message *m)
 {
-	struct ast_channel *c = NULL;
+	struct ast_channel *c;
 	const char *name = astman_get_header(m, "Channel");
 	const char *textmsg = astman_get_header(m, "Message");
-	int res = 0;
+	struct ast_control_read_action_payload *frame_payload;
+	int payload_size;
+	int frame_size;
+	int res;
 
 	if (ast_strlen_zero(name)) {
 		astman_send_error(s, m, "No channel specified");
@@ -4731,13 +4733,29 @@ static int action_sendtext(struct mansession *s, const struct message *m)
 		return 0;
 	}
 
-	if (!(c = ast_channel_get_by_name(name))) {
+	c = ast_channel_get_by_name(name);
+	if (!c) {
 		astman_send_error(s, m, "No such channel");
 		return 0;
 	}
 
-	res = ast_sendtext(c, textmsg);
-	c = ast_channel_unref(c);
+	payload_size = strlen(textmsg) + 1;
+	frame_size = payload_size + sizeof(*frame_payload);
+
+	frame_payload = ast_malloc(frame_size);
+	if (!frame_payload) {
+		ast_channel_unref(c);
+		astman_send_error(s, m, "Failure");
+		return 0;
+	}
+
+	frame_payload->action = AST_FRAME_READ_ACTION_SEND_TEXT;
+	frame_payload->payload_size = payload_size;
+	memcpy(frame_payload->payload, textmsg, payload_size);
+	res = ast_queue_control_data(c, AST_CONTROL_READ_ACTION, frame_payload, frame_size);
+
+	ast_free(frame_payload);
+	ast_channel_unref(c);
 
 	if (res >= 0) {
 		astman_send_ack(s, m, "Success");
@@ -7989,13 +8007,21 @@ static int auth_http_callback(struct ast_tcptls_session_instance *ser,
 
 	/* compute the expected response to compare with what we received */
 	{
-		char a2[256];
-		char a2_hash[256];
+		char *a2;
+		/* ast_md5_hash outputs 32 characters plus NULL terminator. */
+		char a2_hash[33];
 		char resp[256];
 
 		/* XXX Now request method are hardcoded in A2 */
-		snprintf(a2, sizeof(a2), "%s:%s", ast_get_http_method(method), d.uri);
+		if (ast_asprintf(&a2, "%s:%s", ast_get_http_method(method), d.uri) < 0) {
+			AST_RWLIST_UNLOCK(&users);
+			ast_http_request_close_on_completion(ser);
+			ast_http_error(ser, 500, "Server Error", "Internal Server Error (out of memory)");
+			return 0;
+		}
+
 		ast_md5_hash(a2_hash, a2);
+		ast_free(a2);
 
 		if (d.qop) {
 			/* RFC 2617 */
@@ -8478,7 +8504,7 @@ static char *handle_manager_show_settings(struct ast_cli_entry *e, int cmd, stru
 	ast_cli(a->fd, FORMAT, "Manager (AMI):", AST_CLI_YESNO(manager_enabled));
 	ast_cli(a->fd, FORMAT, "Web Manager (AMI/HTTP):", AST_CLI_YESNO(webmanager_enabled));
 	ast_cli(a->fd, FORMAT, "TCP Bindaddress:", manager_enabled != 0 ? ast_sockaddr_stringify(&ami_desc.local_address) : "Disabled");
-	ast_cli(a->fd, FORMAT2, "HTTP Timeout (minutes):", httptimeout);
+	ast_cli(a->fd, FORMAT2, "HTTP Timeout (seconds):", httptimeout);
 	ast_cli(a->fd, FORMAT, "TLS Enable:", AST_CLI_YESNO(ami_tls_cfg.enabled));
 	ast_cli(a->fd, FORMAT, "TLS Bindaddress:", ami_tls_cfg.enabled != 0 ? ast_sockaddr_stringify(&amis_desc.local_address) : "Disabled");
 	ast_cli(a->fd, FORMAT, "TLS Certfile:", ami_tls_cfg.certfile);
@@ -8628,8 +8654,6 @@ static char *handle_manager_show_event(struct ast_cli_entry *e, int cmd, struct 
 	struct ao2_iterator it_events;
 	struct ast_xml_doc_item *item, *temp;
 	int length;
-	int which;
-	char *match = NULL;
 
 	if (cmd == CLI_INIT) {
 		e->command = "manager show event";
@@ -8646,19 +8670,24 @@ static char *handle_manager_show_event(struct ast_cli_entry *e, int cmd, struct 
 	}
 
 	if (cmd == CLI_GENERATE) {
+		if (a->pos != 3) {
+			return NULL;
+		}
+
 		length = strlen(a->word);
-		which = 0;
 		it_events = ao2_iterator_init(events, 0);
 		while ((item = ao2_iterator_next(&it_events))) {
-			if (!strncasecmp(a->word, item->name, length) && ++which > a->n) {
-				match = ast_strdup(item->name);
-				ao2_ref(item, -1);
-				break;
+			if (!strncasecmp(a->word, item->name, length)) {
+				if (ast_cli_completion_add(ast_strdup(item->name))) {
+					ao2_ref(item, -1);
+					break;
+				}
 			}
 			ao2_ref(item, -1);
 		}
 		ao2_iterator_destroy(&it_events);
-		return match;
+
+		return NULL;
 	}
 
 	if (a->argc != 4) {

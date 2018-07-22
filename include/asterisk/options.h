@@ -98,6 +98,8 @@ enum ast_option_flags {
 	AST_OPT_FLAG_LOCK_CONFIG_DIR = (1 << 29),
 	/*! Generic PLC */
 	AST_OPT_FLAG_GENERIC_PLC = (1 << 30),
+	/*! Generic PLC onm equal codecs */
+	AST_OPT_FLAG_GENERIC_PLC_ON_EQUAL_CODECS = (1 << 31),
 };
 
 /*! These are the options that set by default when Asterisk starts */
@@ -134,6 +136,7 @@ enum ast_option_flags {
 #define ast_opt_hide_connect		ast_test_flag(&ast_options, AST_OPT_FLAG_HIDE_CONSOLE_CONNECT)
 #define ast_opt_lock_confdir		ast_test_flag(&ast_options, AST_OPT_FLAG_LOCK_CONFIG_DIR)
 #define ast_opt_generic_plc         ast_test_flag(&ast_options, AST_OPT_FLAG_GENERIC_PLC)
+#define ast_opt_generic_plc_on_equal_codecs  ast_test_flag(&ast_options, AST_OPT_FLAG_GENERIC_PLC_ON_EQUAL_CODECS)
 
 /*! Maximum log level defined by PJPROJECT. */
 #define MAX_PJ_LOG_MAX_LEVEL		6
@@ -173,6 +176,11 @@ enum ast_option_flags {
 /*! Current linked pjproject maximum logging level */
 extern int ast_pjproject_max_log_level;
 
+#define DEFAULT_PJPROJECT_CACHE_POOLS	1
+
+/*! Current pjproject pool caching enable */
+extern int ast_option_pjproject_cache_pools;
+
 /*! Current pjproject logging level */
 extern int ast_option_pjproject_log_level;
 
@@ -194,8 +202,6 @@ extern struct timeval ast_lastreloadtime;
 extern pid_t ast_mainpid;
 
 extern char record_cache_dir[AST_CACHE_DIR_LEN];
-extern char dahdi_chan_name[AST_CHANNEL_NAME];
-extern int dahdi_chan_name_len;
 
 extern int ast_language_is_prefix;
 

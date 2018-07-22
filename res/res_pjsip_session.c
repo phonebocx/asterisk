@@ -1883,10 +1883,8 @@ int ast_sip_session_defer_termination(struct ast_sip_session *session)
 	session->defer_end = 1;
 	session->ended_while_deferred = 0;
 
-	session->scheduled_termination.id = 0;
 	ao2_ref(session, +1);
-	session->scheduled_termination.user_data = session;
-	session->scheduled_termination.cb = session_termination_cb;
+	pj_timer_entry_init(&session->scheduled_termination, 0, session, session_termination_cb);
 
 	res = (pjsip_endpt_schedule_timer(ast_sip_get_pjsip_endpoint(),
 		&session->scheduled_termination, &delay) != PJ_SUCCESS) ? -1 : 0;
@@ -1908,8 +1906,8 @@ int ast_sip_session_defer_termination(struct ast_sip_session *session)
  */
 static void sip_session_defer_termination_stop_timer(struct ast_sip_session *session)
 {
-	if (pj_timer_heap_cancel(pjsip_endpt_get_timer_heap(ast_sip_get_pjsip_endpoint()),
-		&session->scheduled_termination)) {
+	if (pj_timer_heap_cancel_if_active(pjsip_endpt_get_timer_heap(ast_sip_get_pjsip_endpoint()),
+		&session->scheduled_termination, session->scheduled_termination.id)) {
 		ao2_ref(session, -1);
 	}
 }
@@ -3067,6 +3065,42 @@ static void session_inv_on_media_update(pjsip_inv_session *inv, pj_status_t stat
 		return;
 	}
 
+	if (session->endpoint) {
+		int bail = 0;
+
+		/*
+		 * If following_fork is set, then this is probably the result of a
+		 * forked INVITE and SDP asnwers coming from the different fork UAS
+		 * destinations.  In this case updated_sdp_answer will also be set.
+		 *
+		 * If only updated_sdp_answer is set, then this is the non-forking
+		 * scenario where the same UAS just needs to change something like
+		 * the media port.
+		 */
+
+		if (inv->following_fork) {
+			if (session->endpoint->follow_early_media_fork) {
+				ast_debug(3, "Following early media fork with different To tags\n");
+			} else {
+				ast_debug(3, "Not following early media fork with different To tags\n");
+				bail = 1;
+			}
+		}
+#ifdef HAVE_PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS
+		else if (inv->updated_sdp_answer) {
+			if (session->endpoint->accept_multiple_sdp_answers) {
+				ast_debug(3, "Accepting updated SDP with same To tag\n");
+			} else {
+				ast_debug(3, "Ignoring updated SDP answer with same To tag\n");
+				bail = 1;
+			}
+		}
+#endif
+		if (bail) {
+			return;
+		}
+	}
+
 	if ((status != PJ_SUCCESS) || (pjmedia_sdp_neg_get_active_local(inv->neg, &local) != PJ_SUCCESS) ||
 		(pjmedia_sdp_neg_get_active_remote(inv->neg, &remote) != PJ_SUCCESS)) {
 		ast_channel_hangupcause_set(session->channel, AST_CAUSE_BEARERCAPABILITY_NOTAVAIL);
@@ -3170,7 +3204,7 @@ static void session_outgoing_nat_hook(pjsip_tx_data *tdata, struct ast_sip_trans
 		if (ast_sip_transport_is_local(transport_state, &our_sdp_addr) || !transport_state->localnet) {
 			ast_debug(5, "Setting external media address to %s\n", ast_sockaddr_stringify_host(&transport_state->external_media_address));
 			pj_strdup2(tdata->pool, &sdp->conn->addr, ast_sockaddr_stringify_host(&transport_state->external_media_address));
-			pj_strdup2(tdata->pool, &sdp->origin.addr, transport->external_media_address);
+			pj_strassign(&sdp->origin.addr, &sdp->conn->addr);
 		}
 	}
 

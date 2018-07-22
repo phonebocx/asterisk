@@ -1,16 +1,2137 @@
-2018-03-15 15:56 +0000  Asterisk Development Team <asteriskteam@digium.com>
+2018-07-12 16:19 +0000  Asterisk Development Team <asteriskteam@digium.com>
 
-	* asterisk 13.20.0 Released.
+	* asterisk 13.22.0 Released.
 
-2018-03-08 21:29 +0000  Asterisk Development Team <asteriskteam@digium.com>
+2018-07-03 18:07 +0000  Asterisk Development Team <asteriskteam@digium.com>
 
-	* asterisk 13.20.0-rc2 Released.
+	* asterisk 13.22.0-rc1 Released.
 
-2018-03-08 15:28 +0000 [0a6db522ba]  Kevin Harwell <kharwell@digium.com>
+2018-07-02 18:44 +0000 [62859ad526]  Joshua Colp <jcolp@digium.com>
 
-	* Update for 13.20.0-rc2
+	* pjsip: Clarify certificate configuration for Websocket.
 
-2018-03-06 19:08 +0000 [a4d6158730]  Sungtae Kim <pchero21@gmail.com>
+	  The Websocket transport uses the built-in HTTP server. As a result
+	  the TLS configuration is done in http.conf and not in pjsip.conf.
+
+	  This change adds a warning if this is configured in pjsip.conf and
+	  also clarifies in the sample configuration file.
+
+	  Change-Id: I187d994d328c3ed274b6754fd4c2a4955bdc6dd9
+
+2018-07-01 13:54 +0000 [5f3869608a]  Joshua Colp <jcolp@digium.com>
+
+	* res_pjsip_pubsub: Hold module reference for publications.
+
+	  Incoming publications need to ensure that the module remains
+	  loaded for the lifetime of them. This is now done by holding
+	  a reference to the module while the publication exists. This
+	  mirrors that of inbound subscriptions.
+
+	  ASTERISK-27783
+
+	  Change-Id: Ia98c95a15e11af25728d5fb3e56e12cda0cfc7c0
+
+2018-05-21 07:24 +0000 [447ec4e472]  Robert Mordec <r.mordec@slican.pl>
+
+	* app_confbridge: Bridge and announcers not removed if conference ends quickly
+
+	  If a conference is ended very quickly after it was created (i.e., the
+	  first user immediately hangs up) then the conference bridge and announcer
+	  channels are not removed.
+
+	  When a conference is created, the push_announcer() function is added to
+	  the playback queue task processor and the conference object reference is
+	  bumped.  If a conference is ended while the push_announcer() function is
+	  still going then the ao2_cleanup(conference) at the end of
+	  push_announcer() will call the destructor function -
+	  destroy_conference_bridge().
+
+	  The destroy_conference_bridge() function will then add the
+	  hangup_playback() task to the playback queue and will wait for it to end.
+	  Since it is already a current task of the playback queue it will wait
+	  forever.
+
+	  This patch makes the conference thread call push_announcer() directly.
+	  This way the conference object reference bump is not needed.  Since the
+	  playback queue task processor is only used by the conference thread
+	  itself, there is no danger of trying to play announcements before the
+	  announcer is pushed to the bridge.
+
+	  ASTERISK-27870 #close
+
+	  Change-Id: I947a50fb121422d90fd1816d643a54d75185a477
+
+2018-06-21 00:28 +0000 [33f4716d13]  Matthew Fredrickson <creslin@digium.com>
+
+	* main/cdr.c: Alleviate CDR deadlock
+
+	  There is a rare case (do to the infrequent timing involved) where
+	  CDR submission threads in batch mode can deadlock with a currently
+	  running CDR batch process.  This patch should remove the need for
+	  holding the lock in the scheduler and should clean a few code
+	  paths up that inconsistently submitted new work to the CDR batch
+	  processor.
+
+	  ASTERISK-27909
+
+	  Change-Id: I6333e865db7c593c102c2fd948cecdb96481974d
+	  Reported-by: Denis Lebedev
+
+2018-06-25 22:08 +0000 [3203c3491a]  Kirsty Tyerman <kirsty.tyerman@boeing.com>
+
+	* pbx_dundi: reordered unloading of module pbx_dundi
+
+	  Destroy scheduler after peers are pruned to stop dundi crashing when
+	  unloading module.
+
+	  ASTERISK-26987
+	  Reported-by: Kirsty Tyerman
+
+	  Change-Id: Ic12e562cd90d8d813a9e97f302045091f59e3c05
+
+2018-06-28 12:07 +0000 [d0e4cbfc51]  Richard Mudgett <rmudgett@digium.com>
+
+	* AMI SendText action: Fix to use correct thread to send the text.
+
+	  The AMI action was directly sending the text to the channel driver.
+	  However, this makes two threads attempt to handle media and runs afowl of
+	  CHECK_BLOCKING.
+
+	  * Queue a read action to make the channel's media handling thread actually
+	  send the text message.  This changes the AMI actions success/fail response
+	  to just mean the text was queued to be sent not that the text actually got
+	  sent.  The channel driver may not even support sending text messages.
+
+	  ASTERISK-27943
+
+	  Change-Id: I9dce343d8fa634ba5a416a1326d8a6340f98c379
+
+2018-06-25 07:37 +0000 [6087c1e575]  George Joseph <gjoseph@digium.com>
+
+	* res_pjsip_messaging:  Allow application/* for in-dialog MESSAGEs
+
+	  In addition to text/* content types, incoming_in_dialog_request now
+	  accepts application/* content types.
+
+	  Also fixed a length issue when copying the body text.  It was one
+	  character short.
+
+	  ASTERISK-27942
+
+	  Change-Id: I4e54d8cc6158dc47eb8fdd6ba0108c6fd53f2818
+
+2018-06-18 21:22 +0000 [06966e91fe]  George Joseph <gjoseph@digium.com>
+
+	* res_pjsip_session:  Add ability to accept multiple sdp answers
+
+	  pjproject by default currently will follow media forked during an INVITE
+	  on outbound calls if the To tag is different on a subsequent response as
+	  that on an earlier response.  We handle this correctly.  There have
+	  been reported cases where the To tag is the same but we still need to
+	  follow the media.  The pjproject patch in this commit adds the
+	  capability to sip_inv and also adds the capability to control it at
+	  runtime.  The original "different tag" behavior was always controllable
+	  at runtime but we never did anything with it and left it to default to
+	  TRUE.
+
+	  So, along with the pjproject patch, this commit adds options to both the
+	  system and endpoint objects to control the two behaviors, and a small
+	  logic change to session_inv_on_media_update in res_pjsip_session to
+	  control the behavior at the endpoint level.
+
+	  The default behavior for "different tags" remains the same at TRUE and
+	  the default for "same tag" is FALSE.
+
+	  Change-Id: I64d071942b79adb2f0a4e13137389b19404fe3d6
+	  ASTERISK-27936
+	  Reported-by: Ross Beer
+
+2018-06-21 11:45 +0000 [5e9230b528]  Alexander Traud <pabstraud@compuserve.com>
+
+	* uuid: Enable UUID in Solaris 11.
+
+	  ASTERISK-27933
+	  Reported by: bautsche
+
+	  Change-Id: I9b8362824efbfb2a16981e46e85f7c8322908c49
+
+2018-06-21 16:39 +0000 [cb9475eb3d]  Richard Mudgett <rmudgett@digium.com>
+
+	* VECTOR: Passing parameters with side effects to macros is dangerous.
+
+	  * Fix several instances where we were bumping a ref in the parameter and
+	  then unrefing the object if it failed.  The way the AST_VECTOR_APPEND()
+	  and AST_VECTOR_REPLACE() macros are implemented means if it fails the new
+	  value was never evaluated.
+
+	  Change-Id: I2847872a455b11ea7e5b7ce697c0a455a1d0ac9a
+
+2018-06-21 11:22 +0000 [6d201a5df4]  Alexander Traud <pabstraud@compuserve.com>
+
+	* smsq: Remove an left-over special case for Solaris.
+
+	  Actually, this case was never needed because the check below does the same.
+
+	  Change-Id: Ia2fca4ba6c58c644a8b7cb2d9db8539728c14ffb
+
+2018-06-21 11:17 +0000 [c8966b8c29]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_http_post: Enable GMime in Solaris 11.
+
+	  Change-Id: Ie434541f18f894c751d2e44bcb3efb3cac626019
+
+2018-06-21 05:08 +0000 [81f39649ea]  Alexander Traud <pabstraud@compuserve.com>
+
+	* codecs/ilbc: Compile in Solaris 11.
+
+	  The symbol FS is the sampling frequency. That symbol is not used in Asterisk at
+	  all and was a copy-and-paste of the iLBC reference code from the IETF RFC.
+	  However, in Solaris, that symbol is defined by another header already. To
+	  compile in Solaris, that symbol has to go.
+
+	  Change-Id: I91ddbe5be7c00069c3a25abd5f58d7b2f04c51b1
+
+2018-06-21 05:07 +0000 [78855e13e8]  Alexander Traud <pabstraud@compuserve.com>
+
+	* chan_oss: Compile in Solaris 11.
+
+	  M_READ existed already and was conflicting in name.
+
+	  Change-Id: I02108e07ae7d2dc314fe1e6c706c17731095a3e4
+
+2018-06-21 05:04 +0000 [0b3c090ada]  Alexander Traud <pabstraud@compuserve.com>
+
+	* func_env: Compile in Solaris 11.
+
+	  Change-Id: Idc9b36720f3d29c90a35a6a1ae79a7f9e1aaf50e
+
+2018-06-21 05:01 +0000 [a0445c7a3e]  Alexander Traud <pabstraud@compuserve.com>
+
+	* utils: Avoid an unused variable in Solaris 11.
+
+	  With ./configure --enable-dev-mode[=noisy], the build fails because every
+	  warning gets an error. Therefore, Asterisk has to be free of warnings and this
+	  variable must go.
+
+	  Change-Id: I63dd2bc4833b9bdb04602f83422d16caf289d46a
+
+2018-06-21 04:59 +0000 [d3fe2aceab]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable ./configure in Solaris 11.
+
+	  ASTERISK-27931
+
+	  Change-Id: If298ce7f03be227a3687b9c20d382c9c55a72404
+
+2018-06-20 13:24 +0000 [7686e674bf]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable autotools in Solaris 11.
+
+	  Because this was the last operating system which required a special case, a
+	  version appended to the autotools, the whole version stuff is removed by this
+	  change. This simplifies the script ./bootstrap.sh. Hopefully, this gives even
+	  broader platform compatibility.
+
+	  ASTERISK-27929
+	  ASTERISK-27926
+
+	  Change-Id: Id4cf433a1a7fa861d0210e1a2e16ca592b49fd5a
+
+2018-06-13 11:33 +0000 [f878de44af]  Richard Mudgett <rmudgett@digium.com>
+
+	* channel.c: Make CHECK_BLOCKING() save thread LWP id for messages.
+
+	  * Removed an unnecessary call to ast_channel_blocker_set() in
+	  __ast_read().
+
+	  ASTERISK-27625
+
+	  Change-Id: I342168b999984666fb869cd519fe779583a73834
+
+2018-06-13 16:41 +0000 [99f439dc01]  Richard Mudgett <rmudgett@digium.com>
+
+	* ARI POST DTMF: Make not compete with channel's media thread.
+
+	  There can be one and only one thread handling a channel's media at a time.
+	  Otherwise, we don't know which thread is going to handle the media frames.
+
+	  ASTERISK-27625
+
+	  Change-Id: I4d6a2fe7386ea447ee199003bf8ad681cb30454e
+
+2018-06-13 13:05 +0000 [6a1626c265]  Richard Mudgett <rmudgett@digium.com>
+
+	* AMI PlayDTMF Action: Make not compete with channel's media thread.
+
+	  There can be one and only one thread handling a channel's media at a time.
+	  Otherwise, we don't know which thread is going to handle the media frames.
+
+	  ASTERISK-27625
+
+	  Change-Id: Ia341f1a6f4d54f2022261abec9021fe5b2eb4905
+
+2018-06-12 14:09 +0000 [1abcc41fff]  Richard Mudgett <rmudgett@digium.com>
+
+	* channel.c: Fix usage of CHECK_BLOCKING()
+
+	  The CHECK_BLOCKING() macro is used to indicate if a channel's handling
+	  thread is about to do a blocking operation (poll, read, or write) of
+	  media.  A few operations such as ast_queue_frame(), soft hangup, and
+	  masquerades use the indication to wake up the blocked thread to reevaluate
+	  what is going on.
+
+	  ASTERISK-27625
+
+	  Change-Id: I4dfc33e01e60627d962efa29d0a4244cf151a84d
+
+2018-06-18 18:04 +0000 [5d34ca5b33]  Richard Mudgett <rmudgett@digium.com>
+
+	* autoservice: Don't start channel autoservice if the thread is a user interface.
+
+	  Executing dialplan functions from either AMI or ARI by getting a variable
+	  could place the channel into autoservice.  However, these user interface
+	  threads do not handle the channel's media so we wind up with two threads
+	  attempting to handle the media.
+
+	  There can be one and only one thread handling a channel's media at a time.
+	  Otherwise, we don't know which thread is going to handle the media frames.
+
+	  ASTERISK-27625
+
+	  Change-Id: If2dc94ce15ddabf923ed1e2a65ea0ef56e013e49
+
+2018-06-18 16:07 +0000 [a6edbc9be1]  Richard Mudgett <rmudgett@digium.com>
+
+	* Dialplan functions: Fix some channel autoservice misuse.
+
+	  * Fix off nominal paths leaving the channel in autoservice.
+	  * Remove unnecessary start/stop channel autoservice.
+	  * Fix channel locking around a channel datastore search.
+
+	  Change-Id: I7ff2e42388064fe3149034ecae57604040b8b540
+
+2018-06-19 10:43 +0000 [7b30158147]  Richard Mudgett <rmudgett@digium.com>
+
+	* Fix some doxygen and curly placement.
+
+	  Change-Id: I9a784a7c804120a8fa826c2a4cb9957e4b0b2fc8
+
+2018-06-15 15:21 +0000 [3570a62b32]  Matthew Fredrickson <creslin@digium.com>
+
+	* menuselect/menuselect_curses: Resolves sprintf usage error
+
+	  Acccording to the man page for sprintf, using the same buffer for
+	  output as one used as an input yields undefined behavior.
+	  This patch should work around this problem.
+
+	  ASTERISK-27903
+	  Reported-by: Alexander Traud
+
+	  Change-Id: I2213dcb454aff26457e2e4cc9c6821276463ae3a
+
+2018-06-12 15:13 +0000 [f94a310ca0]  Richard Mudgett <rmudgett@digium.com>
+
+	* channel: Fix some more unprotected channel flag setting.
+
+	  Change-Id: I34c3b1201b1de539945bcfdcb264fff30332d48c
+
+2018-06-12 09:30 +0000 [bb0ce22b2b]  Sam Wierema <sam@messagebird.com>
+
+	* app_mp3: remove 10 seconds of silence after mp3 playback
+
+	  This patch changes the way asterisk polls output from mpg123, instead
+	  of waiting for 10 seconds(when playing an http url) it now uses a
+	  timeout of one second and iterates 10 times using this same timeout.
+
+	  The main difference is that for every timeout asterisk receives it now
+	  checks if mpg123 is still running before poll again.
+
+	  ASTERISK-27752
+
+	  Change-Id: Ib7df8462e3e380cb328011890ad9270d9e9b4620
+
+2018-06-13 04:40 +0000 [b004b44a46]  Alexander Traud <pabstraud@compuserve.com>
+
+	* tests/test_utils: Repair ./configure --with-ssl=PATH.
+
+	  ASTERISK-27914
+
+	  Change-Id: Ibcab8f556ee77776f203cff8b06d776a673b7bc4
+
+2018-06-04 20:31 +0000 [c6116a3234]  Kirsty Tyerman <kirsty.tyerman@boeing.com>
+
+	* chan_iax2: better handling for timeout and EINTR
+
+	  The iax2 module is not handling timeout and EINTR case properly. Mainly when
+	  there is an interupt to the kernel thread. In case of ast_io_wait recieves a
+	  signal, or timeout it can be an error or return 0 which eventually escapes the
+	  thread loop, so that it cant recieve any data. This then causes the modules
+	  receive queue to build up on the kernel and stop any communications via iax in
+	  asterisk.
+
+	  The proposed patch is for the iax module, so that timeout and EINTR does not
+	  exit the thread.
+
+	  ASTERISK-27705
+	  Reported-by: Kirsty Tyerman
+
+	  Change-Id: Ib4c32562f69335869adc1783608e940c3535fbfb
+
+2018-06-13 05:14 +0000 [e3de4bc46e]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_rtp_asterisk: Instead of ./configure use OPENSSL_NO_SRTP.
+
+	  Previously, Asterisk used its script ./configure, to test whether OpenSSL was
+	  built with no-srtp (or was simply too old). However, the header file
+	  <openssl/opensslconf.h> is the preferred way to detect the local configuration
+	  of OpenSSL.
+
+	  As a positive side-effect the script ./configure does not interleave the
+	  detection of the Open Settlement Protocol Toolkit (OSPTK) with the detection of
+	  individual features of OpenSSL anymore.
+
+	  Change-Id: I3c77c7b00b2ffa2e935632097fa057b9fdf480c0
+
+2018-04-30 17:38 +0000 [034a04af2a]  Richard Mudgett <rmudgett@digium.com>
+
+	* AST-2018-008: Fix enumeration of endpoints from ACL rejected addresses.
+
+	  When endpoint specific ACL rules block a SIP request they respond with a
+	  403 forbidden.  However, if an endpoint is not identified then a 401
+	  unauthorized response is sent.  This vulnerability just discloses which
+	  requests hit a defined endpoint.  The ACL rules cannot be bypassed to gain
+	  access to the disclosed endpoints.
+
+	  * Made endpoint specific ACL rules now respond with a 401 unauthorized
+	  which is the same as if an endpoint were not identified.  The fix is
+	  accomplished by replacing the found endpoint with the artificial endpoint
+	  which always fails authentication.
+
+	  ASTERISK-27818
+
+	  Change-Id: Icb275a54ff8e2df6c671a6d9bda37b5d732b3b32
+
+2018-06-08 15:09 +0000 [ef2386fcd7]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_rtp_asterisk: Allow OpenSSL configured with no-deprecated.
+
+	  Furthermore, allow OpenSSL configured with no-dh. Additionally, this change
+	  allows auto-negotiation of the elliptic curve/group for servers, not only with
+	  OpenSSL 1.0.2 but also with OpenSSL 1.1.0 and newer. This enables X25519
+	  (since OpenSSL 1.1.0) and X448 (since OpenSSL 1.1.1) as a side-effect.
+
+	  ASTERISK-27910
+
+	  Change-Id: I5b0dd47c5194ee17f830f869d629d7ef212cf537
+
+2018-06-08 06:01 +0000 [2c3ad1e40d]  Alexander Traud <pabstraud@compuserve.com>
+
+	* crypto.h: Repair ./configure --with-ssl=PATH.
+
+	  ASTERISK-27908
+
+	  Change-Id: Iac49d9f82faeb8a4611c6805906bd6d650b1b1d8
+
+2018-06-08 04:06 +0000 [7763aa824e]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_crypto: Allow OpenSSL configured with no-deprecated.
+
+	  The header <openssl/rsa.h> had to be included explicitly.
+
+	  ASTERISK-27906
+
+	  Change-Id: I41743801eed998c039d73db7a0762d104a4f75b2
+
+2018-06-08 02:41 +0000 [e62e069705]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_srtp: Repair ./configure --with-ssl=PATH.
+
+	  ASTERISK-27905
+
+	  Change-Id: Ibb7dc148a0048f4f9c3b12937ba4240dff0d15e2
+
+2018-05-31 10:25 +0000 [d9d50396cf]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* func_odbc: NODATA if SQLNumResultCols returned 0 columns on readsql
+
+	  The functions acf_odbc_read/cli_odbc_read ignore a number of columns
+	  returned by the SQLNumResultCols.
+	  If the number of columns is zero it means no data.
+	  In this case, a SQLFetch function has to be not called,
+	  because it will cause an error.
+
+	  ASTERISK-27888 #close
+
+	  Change-Id: Ie0f7bdac6c405aa5bbd38932c7b831f90729ee19
+
+2018-06-07 08:46 +0000 [98da1971e3]  George Joseph <gjoseph@digium.com>
+
+	* chan_pjsip:  Register for "BEFORE_MEDIA" responses
+
+	  chan_pjsip wasn't registering for "BEFORE_MEDIA" responses which meant
+	  it was not updating HANGUPCAUSE for 4XX responses.  If the remote end
+	  sent a "180 Ringing", then a "486 Busy", the hangup cause was left at
+	  "180 Normal Clearing".
+
+	  * Removed chan_pjsip_incoming_response from the original session
+	    supplement (which was handling only "AFTER MEDIA") and added it to a
+	    new session supplement which accepts both "BEFORE_MEDIA" and
+	    "AFTER_MEDIA".
+
+	  * Also cleaned up some cleanup code in load module.
+
+	  ASTERISK-27902
+
+	  Change-Id: If9b860541887aca8ac2c9f2ed51ceb0550fb007a
+
+2018-06-07 07:19 +0000 [1205bcb69f]  Alexander Traud <pabstraud@compuserve.com>
+
+	* ooh323c: GCC 8.1 warned about output truncated before terminating nul.
+
+	  ASTERISK-27901
+
+	  Change-Id: I5a8e894f4924ef52e3094f6870656a559d67f3d7
+
+2018-06-04 09:50 +0000 [db2413b446]  George Joseph <gjoseph@digium.com>
+
+	* app_sendtext:  Allow content types other than text/plain
+
+	  There was no real reason to limit the conteny type to text/plain other
+	  than that's what it was limited to before.  Now any text/* content
+	  type will be allowed for channel drivers that don't support enhanced
+	  messaging and any type will be allowed for channel drivers that do
+	  support enhanced messaging.
+
+	  Change-Id: I94a90cfee98b4bc8e22aa5c0b6afb7b862f979d9
+
+2018-05-30 01:12 +0000 [8b67e2bd14]  Pirmin Walthert <infos@nappsoft.ch>
+
+	* bridge_channel.c: Fix Deadlock when using Local channels and fax gateway
+
+	  ast_indicate is invoked with the bridge locked. As ast_indicate locks the
+	  other end of the bridge as well this can lead to a deadlock in some situations.
+	  (Especially when a different thread does the same in the reverse order).
+	  This patch calls ast_indicate after unlocking the bridge which fixes the
+	  deadlock. Calling ast_indicate with these parameters without locking the
+	  bridge should be safe as this is done at different places without a
+	  bridge lock.
+
+	  ASTERISK-27094 #close
+	  Reported-by: David Brillert
+
+	  Change-Id: I5f86c1e2ce75b9929a36ab589b18c450e62ea35f
+
+2018-05-28 19:17 +0000 [9ff4779f03]  William McCall <william.mccall@gmail.com>
+
+	* app_confbridge: Add talking indicator for ConfBridgeList AMI response
+
+	  When an AMI client connects, it cannot determine if a user was talking
+	  prior to a transition in the user speaking state (which would generate
+	  a ConfbridgeTalking event). This patch causes app_confbridge to track the
+	  talking state and make this state available via ConfBridgeList.
+
+	  ASTERISK-27877 #close
+
+	  Change-Id: I19b5284f34966c3fda94f5b99a7e40e6b89767c6
+
+2018-05-29 12:28 +0000 [071232244a]  Richard Mudgett <rmudgett@digium.com>
+
+	* app_meetme: Fix manager event documentation for several events.
+
+	  The MeetmeJoin, MeetmeLeave, MeetmeEnd, MeetmeMute, MeetmeTalking, and
+	  MeetmeTalkRequest AMI events were documented with sending out a Usernum
+	  header when the User header was actually output.
+
+	  * Change the online documentation to match reality.
+
+	  ASTERISK-27873
+	  ASTERISK-25261
+
+	  Change-Id: I437bc70618d07c183c9624b7069c2fcae7f17a39
+
+2018-05-28 10:32 +0000 [8c78337479]  Alexander Traud <pabstraud@compuserve.com>
+
+	* tcptls.h: Repair ./configure --with-ssl=PATH.
+
+	  asterisk/tcptls.h was included (explicitly, implicitly, or transitively). Those
+	  inclusions got replaced by forward declarations. As side effect, the inclusions
+	  got completed.
+
+	  ASTERISK-27878
+
+	  Change-Id: I9d102728e30336d6522e5e4ae9e964013a0835f7
+
+2018-05-22 16:21 +0000 [9ad3918acd]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* pjsip_options: handle modification of qualify options in realtime
+
+	  Currentrly pjsip_options code does not handle the situation when the
+	  qualify options were changed in realtime database.
+	  Only 'module reload res_pjsip' helps.
+
+	  This patch add a check on contact add/update observers if the contact
+	  qualify options are different than local aor qualify options.
+	  If the qualify options were modified then synchronize
+	  the pjsip_options AOR local state.
+
+	  ASTERISK-27872
+
+	  Change-Id: Id55210a18e62ed5d35a88e408d5fe84a3c513c62
+
+2018-05-25 09:55 +0000 [6833c763c7]  Alexander Traud <pabstraud@compuserve.com>
+
+	* tcptls: Allow OpenSSL configured with no-dh.
+
+	  Additionally, this change allows auto-negotiation of the elliptic curve/group
+	  for servers, not only with OpenSSL 1.0.2 but also with OpenSSL 1.1.0 and newer.
+	  This enables X25519 (since OpenSSL 1.1.0) and X448 (since OpenSSL 1.1.1) as a
+	  side-effect.
+
+	  ASTERISK-27876
+
+	  Change-Id: I62c2aba4a630aefc231b71f646207e8c027d9497
+
+2018-05-25 07:24 +0000 [204cc25a27]  Alexander Traud <pabstraud@compuserve.com>
+
+	* tcptls: Allow OpenSSL 1.1.x configured with enable-ssl3-method no-deprecated.
+
+	  ASTERISK-27874
+
+	  Change-Id: Ica65113511c7a1c13f7988e7d9e7d9e7f3f620dd
+
+2018-05-15 08:45 +0000 [acfdfcd19e]  George Joseph <gjoseph@digium.com>
+
+	* ast_coredumper:  Fix output directory and variable precedence
+
+	  The OUTPUTDIR variable in ast_debug_tools.conf.sample is now set
+	  to "/tmp" instead of "/some/directory".
+
+	  Variables set on the command line or that are already in the
+	  environment now take predecence over variables set in the config files.
+
+	  ASTERISK-27846
+	  Reported by: Ted G
+
+	  Change-Id: Ie8baec52d531886bf5849ec1d59bb59dc87ad387
+
+2018-05-09 08:31 +0000 [4b7fd478d5]  Torrey Searle <torrey@voxbone.com>
+
+	* res/res_rtp_asterisk: ensure marker bit is correctly set on ssrc change
+
+	  Certain race conditions between changing bridge types and DTMF can
+	  cause the current FLAG_NEED_MARKER_BIT to send the marker bit before
+	  the actual first packet of native bridging.
+
+	  This logic keeps track of the ssrc the bridge is currently sending
+	  and will correctly ensure the marker bit is set if SSRC as changed
+	  from the previous sent packet.
+
+	  ASTERISK-27845
+
+	  Change-Id: I01858bd0235f1e5e629e20de71b422b16f55759b
+
+2018-05-23 16:20 +0000 [a576f50362]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* pjsip_options: show/reload AOR qualify options using CLI
+
+	  Currentrly pjsip_options code does not handle the situation when the
+	  AOR qualify options were changed.
+
+	  Also there is no way to find out what qualify options are using.
+
+	  This patch add CLI commands to show and synchronize Aor qualify options:
+	  pjsip show qualify endpoint <id>
+	      Show the current qualify options for all Aors on the PJSIP endpoint.
+	  pjsip show qualify aor <id>
+	      Show the PJSIP Aor current qualify options.
+	  pjsip reload qualify endpoint <id>
+	      Synchronize the qualify options for all Aors on the PJSIP endpoint.
+	  pjsip reload qualify aor <id>
+	      Synchronize the PJSIP Aor qualify options.
+
+	  ASTERISK-27872
+
+	  Change-Id: I1746d10ef2b7954f2293f2e606cdd7428068c38c
+
+2018-05-22 17:17 +0000 [90a075221b]  Richard Mudgett <rmudgett@digium.com>
+
+	* channel.c: Fix off nominal channel allocation failure path.
+
+	  __ast_channel_alloc_ap() had a failure exit path that hadn't setup the fd
+	  descriptors to -1 yet.  The destructor would then attempt to close these
+	  fd's that had never been opened.
+
+	  Change-Id: Icf21093f36c60781e8cf6ee9d586536302af33e3
+
+2018-05-18 16:45 +0000 [d6145087cf]  Alexei Gradinari <alex2grad@gmail.com>
+
+	* config.c: Fix successful DELETE treated as failure
+
+	  The config engine destroy_func callback function returns the number of
+	  rows deleted or -1 on error.  But the function
+	  ast_destroy_realtime_fields treated non-zero return values as error.
+
+	  ASTERISK-27863
+
+	  Change-Id: Ied02b38e8196cb03043e609a0679feebd288d17b
+
+2018-05-20 06:41 +0000 [ec40bd945c]  Alexander Traud <pabstraud@compuserve.com>
+
+	* libasteriskssl: Allow OpenSSL 1.0.2 configured with no-deprecated.
+
+	  Use CRYPTO_set_id_callback(.) only with OpenSSL 0.9.8 and older.
+
+	  ASTERISK-27867
+
+	  Change-Id: Iadd58d5bf6f538eb224203970a4e88e26f259655
+
+2018-05-19 08:23 +0000 [b6234f9577]  Alexander Traud <pabstraud@compuserve.com>
+
+	* tcptls: Repair ./configure --with-ssl=PATH.
+
+	  SSL_OP_NO_TLSv1_1 and SSL_OP_NO_TLSv1_2 got discovered without honoring a PATH.
+
+	  ASTERISK-27865
+
+	  Change-Id: I8cd358eed7411726d08fa7b01691bef122fbeb71
+
+2018-05-12 06:53 +0000 [436d17fa50]  Nic Colledge <nic@njcolledge.net>
+
+	* app_voicemail: Fix incorrect msg leaving/retrieving an ODBC voicemail
+
+	  Correct the log warning message shown when ODBC voicemail
+	  retrieve_file is called and there is a null value in the category
+	  column.
+	  A more meaningfull message is now written at debug level.
+
+	  ASTERISK-27853
+
+	  Change-Id: Ic36e97d5eb070a23a12ba45972f6b53e2182a3f4
+
+2018-04-17 21:15 +0000 [8c1202beb9]  Brian P. Martin <asterisk-forum@silverflash.net>
+
+	* chan_mobile: support handling of caller-id names ("cnam").
+
+	  Add support to handle caller-ID names ("cnam") in addition to caller-ID
+	  numbers.  The prior code ignored the caller-ID name altogether, and
+	  used the local name for the cell phone (e.g. "my-iphone") in its place.
+
+	  Note: as of this writing, at least some Android phones don't pass cnam to
+	  us. This can be seen by issuing "core set debug 2" in the CLI and watching
+	  the "CLIP" record when a call comes in.  If cnam isn't in the CLIP record,
+	  there's nothing we can do to provide one.  We'll provide a null cnam field,
+	  so later Asterisk processes know to try other sources (e.g. cidname database,
+	  OpenCNAM, etc.).
+
+	  Reported by: Brian Martin
+	  Tested by: Brian Martin
+	  ASTERISK-27726
+
+	  Change-Id: I89490d85fa406c36261879c50ae5e65595538ba5
+
+2018-05-17 01:58 +0000 [b615df06d3]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_pjsip_endpoint_identifier_ip: Unregister the module for headers.
+
+	  Asterisk uses Reference Counting to track whether a module can be unloaded.
+	  Every consumer who requires a module, increases the reference count. When the
+	  consumer goes, is unloaded itself, it has to decrease the reference count on
+	  all its used/required modules. That way
+	   core stop gracefully
+	  works on the command-line interface (CLI): One module after the other is
+	  unloaded. A recent change broke this for the module res_pjsip.
+
+	  ASTERISK-27861
+
+	  Change-Id: I261abcb411d026bbb0691cc78f28300bfd3103a3
+
+2018-05-17 00:34 +0000 [99b24dc63b]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_pjsip: Register pjsip_transport_management not externally but internally.
+
+	  The module (res_)pjsip_transport_management got moved into res_pjsip. It is no
+	  longer an independent/external module with (un)load_module and therefore has to
+	  register just internally with res_pjsip.
+
+	  ASTERISK-27860
+
+	  Change-Id: Icd0413be7d2e98b92f51e6d6c353f2570bb4be95
+
+2018-03-27 18:53 +0000 [36f08075da]  Nic Colledge <nic@njcolledge.net>
+
+	* app_voicemail: Fix data-type mismatch between app_voicemail and database
+
+	  Fix data-type mismatch between app_voicemail and database columns
+	  exposed by new version of MariaDB
+
+	  ASTERISK-27760
+
+	  Change-Id: I8543ad480a08c98be78bde1ee870e6e6c84b2c5b
+
+2018-05-11 12:49 +0000 [308a967470]  Alexander Traud <pabstraud@compuserve.com>
+
+	* rtp_engine: Remove the double assigned RTP payload ID of H.263+.
+
+	  Mantis-3709 (Commit 68ff3c3, Asterisk 1.2) added support for the video format
+	  H.263+. For this, the RTP payload ID 103 got assigned statically. Commit f1aadc8
+	  assigned another payload ID 98 for this format in Asterisk 1.6.
+
+	  Change-Id: I90e35b158487f8f1f8187da6241b54cd3b74e667
+
+2018-05-11 12:26 +0000 [67212eae87]  Corey Farrell <git@cfware.com>
+
+	* cli: Display correct unit for HTTP timeout in "manager show settings".
+
+	  HTTP timeout is in seconds, not minutes.
+
+	  ASTERISK-27852 #close
+
+	  Change-Id: Ie6640835cb07307555741f9b559c2eb876d9343e
+
+2018-05-11 10:37 +0000 [9fe4f99cba]  Alexander Traud <pabstraud@compuserve.com>
+
+	* rtp_engine: Avoid a typo error in Doxygen for ast_rtp_codecs_find_payload_code.
+
+	  Change-Id: Ica089d4507a27ddfc4ce3a88d697ffbef378de48
+
+2018-05-07 10:49 +0000 [d893e57c90]  Corey Farrell <git@cfware.com>
+
+	* Fix GCC 8 build issues.
+
+	  This fixes build warnings found by GCC 8.  In some cases format
+	  truncation is intentional so the warning is just suppressed.
+
+	  ASTERISK-27824 #close
+
+	  Change-Id: I724f146cbddba8b86619d4c4a9931ee877995c84
+
+2018-05-04 16:07 +0000 [316efcddb9]  Matthew Fredrickson <creslin@digium.com>
+
+	* res_hep: Adds hostname resolution support for capture_address
+
+	  Previously, only an IP address would be accepted for the capture_address config
+	  setting in hep.conf.  This change allows capture_address to be a resolvable
+	  hostname or an IP address.
+
+	  ASTERISK-27796 #close
+	  Reported-By: Sebastian Gutierrez
+
+	  Change-Id: I33e1a37a8b86e20505dadeda760b861a9ef51f6f
+
+2018-05-09 09:30 +0000 [19ebad0d30]  Corey Farrell <git@cfware.com>
+
+	* git: Ignore *.orig.
+
+	  This prevents accidental commit of files created by patch.
+
+	  Change-Id: I68380db61f0f9d620046f719ccd978811d0e9964
+
+2018-04-18 02:27 +0000 [c6a4d34b7f]  Alexander Traud <pabstraud@compuserve.com>
+
+	* sip_to_pjsip: Enable python3 compatibility.
+
+	  The script remains compatible with Python 2.7 but now also works with
+	  Python 3.3 and newer; to ease the migration from chan_sip to chan_pjsip.
+
+	  ASTERISK-27811
+
+	  Change-Id: I59cc6b52a1a89777eebcf25b3023bdf93babf835
+
+2018-05-08 14:28 +0000 [ba6034db48]  Corey Farrell <git@cfware.com>
+
+	* makeopts.in: Remove unused/undefined AST_MARCH_NATIVE.
+
+	  Change-Id: I617a96ebb83ec99f5d3176bbbee2d2a272ccb203
+
+2018-05-08 04:59 +0000 [47548ff485]  Jaco Kroon <jaco@uls.co.za>
+
+	* manager: fix digest auth for ami/http mechanism.
+
+	  Due to a fixed size buffer the digest authentication could be
+	  incorrectly calculated if a large URI was provided, causing
+	  authentication failure. The buffer is now dynamically allocated to allow
+	  any size URI within the normal limits of the HTTP request size.
+
+	  ASTERISK-27841
+
+	  Change-Id: I660609db13b8f9e5f9567f339dd804f4985d41b3
+
+2018-05-04 13:47 +0000 [5dffdf79d1]  Corey Farrell <git@cfware.com>
+
+	* app_macro: Prevent infinite loop in find_matching_priority.
+
+	  Use AST_PBX_MAX_STACK to escape if we recurse 128 times.  This will
+	  prevent crash if dialplan contains an include loop.  Log an error when
+	  this occurs, at most one message per call to Macro() so we avoid logger
+	  spam.
+
+	  ASTERISK-26570 #close
+
+	  Change-Id: I6c71b76998c31434391b150de055ae9a531e31da
+
+2018-05-03 06:34 +0000 [a36d6e3674]  Joshua Colp <jcolp@digium.com>
+
+	* res_ari: Remove requirement that body exists when debug is on.
+
+	  The "ari set debug" code for incoming requests incorrectly assumed
+	  that all requests would contain a body. If one did not exist the
+	  request would be incorrectly rejected. The response that was sent
+	  was also incomplete as an incorrect function was used to construct
+	  the response.
+
+	  The code has now been changed to no longer require a request to have
+	  a body and the response updated to use the correct function.
+
+	  ASTERISK-27801
+
+	  Change-Id: I4eef036ad54550a4368118cc348765ecac25e0f8
+
+2018-05-02 07:43 +0000 [850e554793]  Sean Bright <sean.bright@gmail.com>
+
+	* pjsip: Increase maximum number of usable ciphers & other cleanups
+
+	  * Increase maximum number of ciphers from 100 to 256 (or whatever
+	    PJ_SSL_SOCK_MAX_CIPHERS is #define'd to)
+
+	  * Simplify logic in cipher_name_to_id()
+
+	  * Make signed/unsigned comparison consistent
+
+	  Re: https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=897412
+
+	  Reported by: Ondřej Holas
+
+	  Change-Id: Iea620f03915a1b873e79743154255c3148a514e7
+
+2018-04-30 17:24 +0000 [51a6a986f1]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_pjsip/pjsip_distributor.c: Add missing off-nominal request response.
+
+	  Change-Id: I389579b39c523d1d1e8ce020ef549a8bb5781c9b
+
+2018-04-30 17:20 +0000 [3663968705]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_pjsip/pjsip_distributor.c: Pull some assignments out of if tests.
+
+	  Change-Id: I3d30d638b53a4bbe9bf9aad853c649d583894112
+
+2017-12-11 12:34 +0000 [bea52b3706]  Joshua Colp <jcolp@digium.com>
+
+	* pjsip: Rewrite OPTIONS support with new eyes.
+
+	  The OPTIONS support in PJSIP has organically grown, like many things in
+	  Asterisk.  It has been tweaked, changed, and adapted based on situations
+	  run into.  Unfortunately this has taken its toll.  Configuration file
+	  based objects have poor performance and even dynamic ones aren't that
+	  great.
+
+	  This change scraps the existing code and starts fresh with new eyes.  It
+	  leverages all of the APIs made available such as sorcery observers and
+	  serializers to provide a better implementation.
+
+	  1.  The state of contacts, AORs, and endpoints relevant to the qualify
+	  process is maintained.  This state can be updated by external forces (such
+	  as a device registering/unregistering) and also the reload process.  This
+	  state also includes the association between endpoints and AORs.
+
+	  2.  AORs are scheduled and not contacts.  This reduces the amount of work
+	  spent juggling scheduled items.
+
+	  3.  Manipulation of which AORs are being qualified and the endpoint states
+	  all occur within a serializer to reduce the conflict that can occur with
+	  multiple threads attempting to modify things.
+
+	  4.  Operations regarding an AOR use a serializer specific to that AOR.
+
+	  5.  AORs and endpoint state act as state compositors.  They take input
+	  from lower level objects (contacts feed AORs, AORs feed endpoint state)
+	  and determine if a sufficient enough change has occurred to be fed further
+	  up the chain.
+
+	  6.  Realtime is supported by using observers to know when a contact has
+	  been registered.  If state does not exist for the associated AOR then it
+	  is retrieved and becomes active as appropriate.
+
+	  The end result of all of this is best shown with a configuration file of
+	  3000 endpoints each with an AOR that has a static contact.  In the old
+	  code it would take over a minute to load and use all 8 of my cores.  This
+	  new code takes 2-3 seconds and barely touches the CPU even while dealing
+	  with all of the OPTIONS requests.
+
+	  ASTERISK-26806
+
+	  Change-Id: I6a5ebbfca9001dfe933eaeac4d3babd8d2e6f082
+
+2018-04-18 15:59 +0000 [63c68d023c]  Kevin Harwell <kharwell@digium.com>
+
+	* translate: generic plc not filled in after translation
+
+	  If during translation a codec could not handle a given frame the translation
+	  core would return NULL, thus not passing along the "missing" frame. Due to this
+	  there was no frame to apply generic plc to, thus rendering it useless.
+
+	  This patch makes it so the translation core produces an interpolated slin frame
+	  in the cases where an attempt was made to translate to slin, but failed. This
+	  interpolated frame is then passed along and can be used by the generic plc
+	  algorithms to fill in the frame.
+
+	  ASTERISK-27814 #close
+
+	  Change-Id: I133d084da87adef913bf2ecc9c9240e3eaf4f40a
+
+2018-04-20 14:07 +0000 [1593ff91fe]  Alexander Anikin <may213@yandex.ru>
+
+	* chan_ooh323: fix ooManualProgress/ooManualRingback on ooh323 debuggin on
+
+	  Call ooManualProgress/Ringback outside of ast_debug function
+	  when ooh323 debugging is on
+
+	  ASTERISK-27812 #close
+	  ASTERISK-26893 #close
+	  Reported by: Dimos, Marco Giordani
+
+	  Change-Id: I5873762e4f05824e7b6e94a19dd4eb56adbbbb79
+
+2018-04-20 07:13 +0000 [94c8b20f5f]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable IMAP storage on FreeBSD and DragonFly BSD.
+
+	  ASTERISK-27639
+
+	  Change-Id: I1347f3f2f3737010d0a80a5c30b5aaf71cf3ccb0
+
+2018-04-20 05:54 +0000 [7b219311eb]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Add DragonFly BSD.
+
+	  ASTERISK-27820
+
+	  Change-Id: I310896143e94d65da1c2be3bb448204a8b86d557
+
+2018-04-20 05:40 +0000 [00711bce99]  Alexander Traud <pabstraud@compuserve.com>
+
+	* menuselect: Add DragonFly BSD.
+
+	  In DragonFly BSD, added libraries from ports are placed into /usr/local.
+	  Therefore, this directory must be added for the preprocessor, compiler, and
+	  linker.
+
+	  Beside that, the script ./configure was updated:
+	  * OSARCH list was outdated and not used, removed.
+	  * AC_CANONICAL_BUILD was not used.
+	  * _REENTRANT, this feature test macro is obsolete.
+
+	  ASTERISK-27820
+
+	  Change-Id: I186d88d99cfa4de6569888e12ac97bd2f441c422
+
+2018-04-20 05:23 +0000 [866b884eab]  Alexander Traud <pabstraud@compuserve.com>
+
+	* install_prereq: Add DragonFly BSD.
+
+	  ASTERISK-27820
+
+	  Change-Id: I718ddb000fe5184b1bdc7759da67a370a7520144
+
+2018-04-18 16:24 +0000 [ea14243971]  Corey Farrell <git@cfware.com>
+
+	* res_pjsip: Fix initialization of extended stringfields.
+
+	  It is possible for initialization of extended stringfields to fail.  Add
+	  checks for this failure.
+
+	  Change-Id: I062e09852db3d37ceefaf6c2048958fa0118304f
+
+2018-04-18 13:40 +0000 [7b05184bca]  Sean Bright <sean.bright@gmail.com>
+
+	* format_pcm: Correct behavior of fseek and ftell for G.722
+
+	  There are twice as many samples in the same number of bytes, so redefine
+	  some of the G.722 format functions in terms of their PCM counterparts.
+
+	  Change-Id: I6a8c7352624b930a5f2d9e4857f75283fa5dd9f9
+
+2018-04-18 05:32 +0000 [8611135e96]  Alexander Anikin <may213@yandex.ru>
+
+	* chan_ooh323: Fix cppcheck warnings
+
+	  Fix cppcheck warnings about redundant conditions and possible
+	  null pointer usage
+
+	  ASTERISK-27793 #close
+	  Reported by: Ilya Shipitsin
+	  Tested by: Ilya Shipitsin
+
+	  Change-Id: I0b31933b062a23331dbac9a82b8bcfe345f406f6
+
+2018-04-10 16:09 +0000 [3c2249fd37]  George Joseph <gjoseph@digium.com>
+
+	* app_sendtext:  Enhance SendText to support Enhanced Messaging
+
+	  SendText now accepts new channel variables that can be used
+	  to override the To and From display names and set the Content-Type
+	  of a message.  Since you can now set Content-Type, other text/*
+	  content types are now valid.
+
+	  Change-Id: I648b4574478119f95de09d9f08e9595831b02830
+
+2017-09-27 11:44 +0000 [be7d4faed5]  George Joseph <gjoseph@digium.com>
+
+	* bridge_softmix:  Forward TEXT frames
+
+	  Core bridging and, more specifically, bridge_softmix have been
+	  enhanced to relay received frames of type TEXT or TEXT_DATA to all
+	  participants in a softmix bridge.  res_pjsip_messaging and
+	  chan_pjsip have been enhanced to take advantage of this so when
+	  res_pjsip_messaging receives an in-dialog MESSAGE message from a
+	  user in a conference call, it's relayed to all other participants
+	  in the call.
+
+	  res_pjsip_messaging already queues TEXT frames to the channel when
+	  it receives an in-dialog MESSAGE from an endpoint and chan_pjsip
+	  will send an MESSAGE when it gets a TEXT frame.  On a normal
+	  point-to-point call, the frames are forwarded between the two
+	  correctly.  bridge_softmix was not though so messages weren't
+	  getting forwarded to conference bridge participants.  Even if they
+	  were, the bridging code had no way to tell the participants who
+	  sent the message so it would look like it came from the bridge
+	  itself.
+
+	  * The TEXT frame type doesn't allow storage of any meta data, such
+	  as sender, on the frame so a new TEXT_DATA frame type was added that
+	  uses the new ast_msg_data structure as its payload.  A channel
+	  driver can queue a frame of that type when it receives a message
+	  from outside.  A channel driver can use it for sending messages
+	  by implementing the new send_text_data channel tech callback and
+	  setting the new AST_CHAN_TP_SEND_TEXT_DATA flag in its tech
+	  properties.  If set, the bridging/channel core will use it instead
+	  of the original send_text callback and it will get the ast_msg_data
+	  structure. Channel drivers aren't required to implement this.  Even
+	  if a TEXT_DATA enabled driver uses it for incoming messages, an
+	  outgoing channel driver that doesn't will still have it's send_text
+	  callback called with only the message text just as before.
+
+	  * res_pjsip_messaging now creates a TEXT_DATA frame for incoming
+	  in-dialog messages and sets the "from" to the display name in the
+	  "From" header, or if that's empty, the caller id name from the
+	  channel.  This allows the chat client user to set a friendly name
+	  for the chat.
+
+	  * bridge_softmix now forwards TEXT and TEXT_DATA frames to all
+	  participants (except the sender).
+
+	  * A new function "ast_sendtext_data" was added to channel which
+	  takes an ast_msg_data structure and calls a channel's
+	  send_text_data callback, or if that's not defined, the original
+	  send_text callback.
+
+	  * bridge_channel now calls ast_sendtext_data for TEXT_DATA frame
+	  types and ast_sendtext for TEXT frame types.
+
+	  * chan_pjsip now uses the "from" name in the ast_msg_data structure
+	  (if it exists) to set the "From" header display name on outgoing text
+	  messages.
+
+	  Change-Id: Idacf5900bfd5f22ab8cd235aa56dfad090d18489
+
+2018-04-17 05:31 +0000 [fb9634bcb3]  Alexander Traud <pabstraud@compuserve.com>
+
+	* chan_vpb: Avoid GNU old-style field designator extension.
+
+	  clang 6.0 warned about this. Beside that, this change removes the used variable
+	  'desc'.
+
+	  ASTERISK-27808
+
+	  Change-Id: Ia26bdcc0a562c058151814511cfcf70ecafa595b
+
+2018-04-19 18:28 +0000  Asterisk Development Team <asteriskteam@digium.com>
+
+	* asterisk 13.21.0-rc1 Released.
+
+2018-04-17 07:09 +0000 [92f88f164a]  Alexander Traud <pabstraud@compuserve.com>
+
+	* utils/pval: Add -lBlocksRuntime for compiler clang conditionally.
+
+	  ASTERISK-27809
+
+	  Change-Id: I930b364a33d54cc08dedfcd5bb45f7e83242f134
+
+2018-04-13 15:17 +0000 [39c51394c8]  George Joseph <gjoseph@digium.com>
+
+	* utils:  Add ast_assert_return
+
+	  Similar to pjproject's PJ_ASSERT_RETURN macro, this one will do the
+	  following...
+
+	  If the assert passes... NoOp
+
+	  If the assert fails and AST_DEVMODE is defined, execute ast_assert()
+	  then, if DO_CRASH isn't set, return from the calling function with
+	  the supplied value.
+
+	  If the assert fails and AST_DEVMODE is not defined, return from the
+	  calling function with the supplied value.
+
+	  The macro will execute a return without a value if one isn't suppled.
+
+	  Change-Id: I0003844affeab550d5ff5bca7aa7cf8a559b873e
+
+2018-04-13 14:32 +0000 [f2e140e8a7]  Ben Ford <bford@digium.com>
+
+	* res_musiconhold: Don't restart MOH from beginning after announcement.
+
+	  This reverts a problem introduced by the fix for ASTERISK_24329.
+	  Now, when an announcement is played while waiting in a queue, music on
+	  hold will not restart from the beginning of the sound file and will
+	  instead pick up where it left off. However, the incorrect behavior in
+	  ASTERISK_24329 is now present again; if an announcement X seconds
+	  long is played when music on hold starts, music on hold will start X
+	  seconds into the file.
+
+	  ASTERISK-27774 #close
+	  Reported by: lvl
+
+	  Change-Id: I86b2885ee7063268f9b9747eddb788336ade989b
+
+2018-03-28 15:13 +0000 [b92ebdba5f]  Richard Mudgett <rmudgett@digium.com>
+
+	* pjsip_scheduler.c: Add ability to trace scheduled tasks.
+
+	  When a scheduled task is created you can pass in the
+	  AST_SIP_SCHED_TASK_TRACK flag.  This new flag causes scheduling events to
+	  be logged.
+
+	  Change-Id: I91967eb3d5a220915ce86881a28af772f9a7f56b
+
+2018-03-27 11:04 +0000 [12aa25b2e1]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_pjsip.c: Split ast_sip_push_task_synchronous() to fit expectations.
+
+	  ast_sip_push_task_synchronous() did not necessarily execute the passed in
+	  task under the specified serializer.  If the current thread is any
+	  registered pjsip thread then it would execute the task immediately instead
+	  of under the specified serializer.  Reentrancy issues could result if the
+	  task does not execute with the right serializer.
+
+	  The original reason ast_sip_push_task_synchronous() checked to see if the
+	  current thread was a registered pjsip thread was because of a deadlock
+	  with masquerades and the channel technology's fixup callback
+	  (ASTERISK_22936).  A subsequent masquerade deadlock fix (ASTERISK_24356)
+	  involving call pickups avoided the original deadlock situation entirely.
+	  The PJSIP channel technology's fixup callback no longer needed to call
+	  ast_sip_push_task_synchronous().
+
+	  However, there are a few places where this unexpected behavior is still
+	  required to avoid deadlocks.  The pjsip monitor thread executes callbacks
+	  that do calls to ast_sip_push_task_synchronous() that would deadlock if
+	  the task were actually pushed to the specified serializer.  I ran into one
+	  dealing with the pubsub subscriptions where an ao2 destructor called
+	  ast_sip_push_task_synchronous().
+
+	  * Split ast_sip_push_task_synchronous() into
+	  ast_sip_push_task_wait_servant() and ast_sip_push_task_wait_serializer().
+	  ast_sip_push_task_wait_servant() has the old behavior of
+	  ast_sip_push_task_synchronous().  ast_sip_push_task_wait_serializer() has
+	  the new behavior where the task is always executed by the specified
+	  serializer or a picked serializer if one is not passed in.  Both functions
+	  behave the same if the current thread is not a SIP servant.
+
+	  * Redirected ast_sip_push_task_synchronous() to
+	  ast_sip_push_task_wait_servant() to preserve API for released branches.
+
+	  ASTERISK_26806
+
+	  Change-Id: Id040fa42c0e5972f4c8deef380921461d213b9f3
+
+2018-03-21 19:43 +0000 [dfdc9a2575]  Richard Mudgett <rmudgett@digium.com>
+
+	* pjsip_scheduler.c: Fix some corner cases.
+
+	  * Fix the periodic interval wander because it may take significant time
+	  between the sched thread queueing the task in the serializer and the
+	  serializer actually executing the task.  The time it takes to actually
+	  execute the task was already taken into account.
+
+	  * Pass a schtd ref to the serializer when we queue a scheduled task on
+	  the serializer.  We don't want it going away on us while it is in the
+	  serializer queue.
+
+	  * Skip the scheduled task if the task was canceled between queueing the
+	  task to the serializer and the serializer actually executing the task.
+
+	  * Reorder struct ast_sip_sched_task to avoid unnecessary padding.  Removed
+	  task_id and added next_periodic.
+
+	  * Hold a ref to the passed in serializer so the serializer cannot go away
+	  on the scheduled task.
+
+	  ASTERISK_26806
+
+	  Change-Id: I6c8046b75f6953792c8c30e55b836a4291143f24
+
+2018-03-22 19:09 +0000 [af36823907]  Richard Mudgett <rmudgett@digium.com>
+
+	* pjsip_scheduler.c: Sort "pjsip show scheduled_tasks" output.
+
+	  * A side benefit is that the scheduled tasks are not completely blocked
+	  while the CLI command executes.
+
+	  * Adjusted the "Task Name" column width to have more room for longer
+	  names.
+
+	  Change-Id: Iec64aa463ee8b10eef90120e00c38b1fb444087e
+
+2018-04-02 15:59 +0000 [7886354343]  Evandro Cesar Arruda <ecarruda@gmail.com>
+
+	* cdr_mysql: Compile error because MYSQL_PORT definition is missing
+
+	  If it is not defined, it will add MYSQL_PORT definition. After some
+	  research on MySQL/MariaDB development tree, I couldn't find any reference
+	  to MYSQL_PORT definition in include files.
+
+	  ASTERISK-27782 #close
+
+	  Change-Id: Ieee56c836fc2e8bd021c456145bba04c6068bb77
+
+2018-04-09 20:00 +0000 [724d926d46]  Chris-Savinovich <csavinovich@digium.com>
+
+	* res_pjsip_session: Rewrite o= with external_media_address.
+
+	  It now appends the external IP address on the
+	  o= line of the SDP packet.  The decision was made to write
+	  the numeric IP address as opposed to the RFC that states
+	  the FQDN should be used if and when available.  We believe
+	  the usage of literal IP address will help avoid
+	  potential problems.
+
+	  ASTERISK-27614 #close
+
+	  Change-Id: I84f3360f3606b8c4e8d161edb228799ec0b8a302
+
+2018-02-22 12:18 +0000 [6a4afe09ce]  Nathan Bruning <nathan@iperity.com>
+
+	* res_pjsip_notify.c: enable in-dialog NOTIFY
+
+	  This patch adds support to send in-dialog SIP NOTIFY commands on
+	  chan_pjsip channels, similar to the functionality recently added
+	  for chan_sip (ASTERISK_27461).
+
+	  This extends res_pjsip_notify to allow for in-dialog messages.
+
+	  ASTERISK-27697
+
+	  Change-Id: If7f3151a6d633e414d5dc319d5efc1443c43dd29
+
+2018-03-22 13:35 +0000 [c4f02c975b]  Richard Mudgett <rmudgett@digium.com>
+
+	* pjsip_scheduler.c: Fix ao2 usage errors.
+
+	  * Removed several invalid uses of OBJ_NOLOCK.  These uses resulted in the
+	  'tasks' container being accessed without a lock in a multi-threaded
+	  environment.  A recipe for crashes.
+
+	  * Removed needlessly obtaining schtd object references.  If the caller
+	  providing you a pointer to an object doesn't have a valid reference then
+	  you cannot safely get one from it.
+
+	  * Getting a ref to 'tasks' when you aren't copying the pointer into
+	  another location is useless.  The 'tasks' container pointer is global.
+
+	  * Removed many unnecessary uses of RAII_VAR.
+
+	  * Make ast_sip_schedule_task() name parameter const.
+
+	  ASTERISK_26806
+
+	  Change-Id: I5c62488e651314e2a1dbc01f5b078a15512d73db
+
+2018-03-23 06:49 +0000 [7593359787]  Corey Farrell <git@cfware.com>
+
+	* Build System: Enable python3 compatibility.
+
+	  * Consistently use spaces in rest-api-templates/asterisk_processor.py.
+	  * Exclude third-party from docs/full-en_US.xml.
+	  * Add docs/full-en_US.xml to .gitignore.
+	  * Use list() to convert python3 view.
+	  * Use python3 print function.
+	  * Replace cmp() with equivalent equation.
+	  * Replace reference to out of scope subtype variable with name
+	    parameter.
+	  * Use unescaping triple bracket notation in mustache templates where
+	    needed.  This causes behavior of Python2 to be maintained when using
+	    Python3.
+	  * Fix references to has_websocket / is_websocket in
+	    res_ari_resource.c.mustache.
+	  * Update calculation of has_websocket to use any().
+	  * Use unicode mode for writing output file in transform.py.
+	  * Replace 'from swagger_model import *' with explicit import of required
+	    symbols.
+	  * Add missing 'import os'
+	  * Fix invalid reference to swagger_version from exception handler.
+
+	  I have not tested voicemailpwcheck.py, only the print syntax has
+	  been fixed.
+
+	  Change-Id: If5c5b556a2800d41a3e2cfef080ac2e151178c33
+
+2018-04-05 18:33 +0000 [72b16ee400]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_pjsip_refer/chan_sip: Fix INVITE with replaces transfer to ConfBridge
+
+	  There is a problem when an INVITE-with-Replaces transfer targets a channel
+	  in a ConfBridge.  The transfer will unconditionally swap out the
+	  ConfBridge channel.  Unfortunately, the ConfBridge state will not be aware
+	  of this change.  Unexpected behavior will happen as a result since
+	  ConfBridge channels currently can only be replaced by a masquerade and not
+	  normal bridge channel moves.
+
+	  * We just need to pretend that the channel isn't in a bridge (like other
+	  transfer methods already do) so the transfer channel will masquerade into
+	  the ConfBridge channel.
+
+	  Change-Id: I209beb0e748fa4f4b92a576f36afa8f495ba4c82
+
+2018-04-05 17:40 +0000 [ea055386e0]  Richard Mudgett <rmudgett@digium.com>
+
+	* chan_sip.c: Fix INVITE with replaces channel ref leak.
+
+	  Given the below call scenario:
+	  A -> Ast1 -> B
+	  C <- Ast2 <- B
+
+	  1) A calls B through Ast1
+	  2) B calls C through Ast2
+	  3) B transfers A to C
+
+	  When party B transfers A to C, B sends a REFER to Ast1 causing Ast1 to
+	  send an INVITE with replaces to Ast2.  Ast2 then leaks a channel ref of
+	  the channel between Ast1 and Ast2.
+
+	  Channel ref leaks are easily seen in the CLI "core show channels" output.
+	  The leaked channels appear in the output but you can do nothing with them
+	  and they never go away unless you restart Asterisk.
+
+	  * Properly account for the channel refs when imparting a channel into a
+	  bridge when handling an INVITE with replaces in handle_invite_replaces().
+	  The ast_bridge_impart() function steals a channel ref but the code didn't
+	  account for how many refs were held by the code at the time and which ref
+	  was stolen.
+
+	  * Eliminated RAII_VAR in handle_invite_replaces().
+
+	  ASTERISK-27740
+
+	  Change-Id: I7edbed774314b55acf0067b2762bfe984ecaa9a4
+
+2018-03-21 19:40 +0000 [e94f8e4a24]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_pjsip: Update authenticate_qualify documentation.
+
+	  Change-Id: I3811de0014b1ffe96d4a3b49cddd5d4ca02ee5d4
+
+2018-04-02 16:49 +0000 [906db6a3ff]  Richard Mudgett <rmudgett@digium.com>
+
+	* app_agent_pool.c: Fix off nominal ref leak.
+
+	  Change-Id: Ib427ffc2c802620eaafb08b1c2a17dddd8fb8eb6
+
+2018-04-04 10:02 +0000 [07e408e588]  Corey Farrell <git@cfware.com>
+
+	* Build System: Strip '-std=c99' from CFLAGS provided by libraries.
+
+	  Asterisk requires GNU C extensions.  On some systems certain libraries
+	  may incorrectly push -std=c99 into CFLAGS, thus breaking the build.
+	  This change causes that flag to be stripped so the Asterisk build is not
+	  broken by those libraries.  This change is made for both pkgconfig and
+	  tool based libraries.
+
+	  ASTERISK-27629 #close
+
+	  Change-Id: I13389613b194abbac77becf90cd950dc168704db
+
+2018-04-03 14:39 +0000 [01b3c435d8]  Corey Farrell <git@cfware.com>
+
+	* Build System: Fixes for configure script.
+
+	  * Replace all 'else if' statements with 'elif'.
+	  * Use loop to detect versioned lua headers and libraries.
+
+	  The loop for detecting lua fixes a bug where LUA_INCLUDE would be
+	  appended with the directory of every lua version after the first one is
+	  found.
+
+	  Change-Id: I3276f9aee955014108345be6092f51c932b43a0f
+
+2018-01-02 07:54 +0000 [cea1a22ef3]  George Joseph <gjoseph@digium.com>
+
+	* res_pjsip:  Correct usages of pjproject's timer heap
+
+	  Fix some timer heap initializations and cancels to try and prevent
+	  crashes and timer heap issues.
+
+	  Change-Id: I64885d190fa22097d1b55987091375541e57a7ee
+
+2018-03-25 13:35 +0000 [158c0efd4f]  George Joseph <gjoseph@digium.com>
+
+	* pjroject_bundled:  Add already-destroyed check to tsx_timer_callback
+
+	  There have been cases that when the transaction timer callback is called
+	  the tsx is already destroyed.  This causes a crash.  We now check the
+	  tsx state and return if the tsx is already destroyed.
+
+	  Change-Id: If93acd5e48d9ca5bb553f2405d5afc836842fe1c
+
+2018-03-25 13:25 +0000 [69c61237cd]  George Joseph <gjoseph@digium.com>
+
+	* pjproject_bundled: timer: Clean up usage of timer heap
+
+	  Added a new pj_timer_entry_reset function that resets a timer_entry
+	  for re-use.
+
+	  Changed direct settings of timer_entry fields to use
+	  pj_timer_entry_init and pj_timer_entry_reset.
+
+	  Fixed issues where timers were being rescheduled incorrectly.
+
+	  Change-Id: I5b624bfbc5c1429117484b9b24567293002148e6
+
+2018-03-22 08:54 +0000 [83353997f4]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Add support for building RADIUS with radcli.
+
+	  Radcli is yet another RADIUS client library, generally compatible with
+	  freeradius and radiusclient-ng.
+
+	  This commit adds autoconf option for detecting it as well and changes
+	  cdr_radius and cel_radius to use its header file in that case.
+
+	  ASTERISK-26540
+	  Reported by: Tzafrir Cohen
+
+	  Change-Id: Icc056d476b7acf481309219e9abdca416866c6ec
+
+2018-03-29 17:07 +0000 [e1363283d7]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_pjsip: Fix deadlock on reliable transport shutdown.
+
+	  A deadlock can happen when the PJSIP monitor thread is shutting down a
+	  connection oriented transport (TCP/TLS) used by a subscription at the same
+	  time as another thread tries to send something for that subscription.  The
+	  deadlock is between the pjsip monitor thread attempting to get the dialog
+	  lock and another thread sending something for that dialog when it tries to
+	  get the transport manager lock.
+
+	  * res_pjsip_pubsub.c: Avoid the deadlock by pushing the subscription
+	  removal to the subscription serializer.
+
+	  * res_pjsip_registrar.c: Pushed off incoming registration contact removals
+	  to a default serializer as a precaution.  Removing the contacts involves
+	  sorcery access which in this case will involve database access.  Depending
+	  upon the setup, the database may not be on the same machine and could take
+	  awhile.  We don't want to hold up the pjsip monitor thread with
+	  potentially long access times.
+
+	  ASTERISK-27706
+
+	  Change-Id: I56b647aea565f24dba33e9e5ebeed4cd3f31f8c4
+
+2018-03-25 13:12 +0000 [c63a2e28f1]  George Joseph <gjoseph@digium.com>
+
+	* pjproject_bundled:  Add patch for pj_atomic crashes
+
+	  There have been some crashes in the past where something attempts
+	  to use a pj_atomic after it's already been destroyed.  This patch
+	  tries to prevent it by making sure that pj_atomic_destroy sets
+	  its mutex to NULL when it's done.  The pj_mutex functions already check
+	  for a NULL mutex and just return PJ_EINVAL.
+
+	  Teluu also added some checks to the win32 implementation as well.
+
+	  Change-Id: Id25f70b79fdedf44ead6e6e1763a4417d3b3f825
+
+2018-03-28 08:18 +0000 [5908c6753b]  Corey Farrell <git@cfware.com>
+
+	* core: Create main/options.c.
+
+	  This creates a separate source to 'own' symbols related to options.h and
+	  paths.h.  This significantly reduces the number of exports created by
+	  main/asterisk.o.  This change is required to eventually be able to
+	  link unmodified Asterisk sources to utilities and/or stand-alone tests.
+
+	  ASTERISK~26245
+
+	  Change-Id: I5cf184f4757f9363b80c9e678bdc35c477122380
+
+2018-03-23 13:15 +0000 [e8e4fc6202]  Alexander Traud <pabstraud@compuserve.com>
+
+	* install_prereq: Add Slackware (somehow).
+
+	  ASTERISK-27770
+
+	  Change-Id: Ib87e0483c785542238cfe34c1e884d5a31edfaab
+
+2018-03-23 09:18 +0000 [96a668e60b]  Alexander Traud <pabstraud@compuserve.com>
+
+	* install_prereq: Add Gentoo Linux.
+
+	  ASTERISK-27769
+
+	  Change-Id: Ieb13293cd67481f3a33f58f6f7c8c3ee1e338e7a
+
+2018-03-17 01:02 +0000 [6615469a05]  Corey Farrell <git@cfware.com>
+
+	* main/indications: Use ast_cli_completion_add for all completions.
+
+	  Change-Id: I371be01f178fb542a9fbe8d97e7ae21aa4d82c36
+
+2018-03-22 07:27 +0000 [de4e2c1de8]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: pjsip_evsub_set_uas_timeout was not used (part 2).
+
+	  The previous change was not complete.
+
+	  ASTERISK-27435
+
+	  Change-Id: I11082c14c0ef9c6af8c995084a6851337ea2a90f
+
+2018-03-22 05:52 +0000 [79bb956b69]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: With external editline, do not require libs for internal editline.
+
+	  ASTERISK-27761
+
+	  Change-Id: Ib17a7415297a210cfcdbf149e4df9b6edadbfab6
+
+2018-03-21 19:25 +0000 [3a4a441817]  George Joseph <gjoseph@digium.com>
+
+	* Revert "BuildSystem: In NetBSD, the Python Programming Language is python-X.Y."
+
+	  Something is causing a python2/python3 mismatch on Fedora27.
+
+	  PYTHON='/usr/bin/python2'
+	  PYTHONDEV_CFLAGS='-I/usr/include/python3.6m '
+	  PYTHONDEV_INCLUDE='-I/usr/include/python3.6m '
+	  PYTHONDEV_LIB='-lpython3.6m '
+	  PYTHONDEV_LIBS='-lpython3.6m '
+
+
+	  This reverts commit c0c537c1d3aab05358df697d8d259aa73f55a43c.
+
+	  Change-Id: I670a82aa7c872fa5facea1e3bc718e2d3124cc28
+
+2018-03-20 15:28 +0000 [17cd687679]  Kevin Harwell <kharwell@digium.com>
+
+	* bridge_softmix: Clear "talking" when a channel is put on hold
+
+	  This patch clears the talking flag from the channel (if already set), and
+	  notifies listeners when that channel is put on hold. Note however, if the
+	  endpoint continues to send audio frames and these are received by the bridge
+	  then that channel will be put back into a "talking" state even though they
+	  are on hold.
+
+	  ASTERISK-27755 #close
+
+	  Change-Id: I930e16c4662810f9f02043d69062f88173c5e2ef
+
+2018-03-07 06:15 +0000 [5955cdf5ae]  Ross Beer <ross.beer@voicehost.co.uk>
+
+	* pjsip_transport_events.c: Fix crash using stale transport pointer.
+
+	  Apparently it is possible for the transport to be destroyed without
+	  triggering the transport callback logic.  As a result the transport gets
+	  destroyed and we have a stale pointer in the active_transports container.
+
+	  * Invoke the transport monitor callback checks when the transport is
+	  destroyed in addition to when it is disconnected and shutdown.
+
+	  ASTERISK-27688
+
+	  Change-Id: Ia9b5469fea8f2b3f2d8476fae6b748a4d23e7261
+
+2018-03-20 09:58 +0000 [69de659224]  Ivan Poddubny <ivan.poddubny@gmail.com>
+
+	* func_channel: Delete dead CHANNEL_TRACE code
+
+	  The functions behind the flag and the flag itself were removed
+	  from Asterisk 12 as incompatible with the new architecture.
+
+	  Change-Id: I058493ef7a53ee290fd225bbcbb07bf46b623ccf
+
+2018-03-20 11:55 +0000 [7580d1e0bb]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: For consistency, avoid extra libs to be empty.
+
+	  AST_EXT_LIB_CHECK has several optional parameters. When an optional parameter
+	  is left empty, [] is used to indicate this. However, this is done in the script
+	  ./configure only then, when a further parameter is not empty. For example, when
+	  no extra libraries are needed to test the checked library, parameter 5 is not
+	  mentioned. Except parameter 6 and higher are used, then parameter 5 must be
+	  empty.
+
+	  However, this general rule was broken
+	  * three times for parameter 5 (extra libs) and
+	  * three times for parameter 4 (header)
+	  as found via the Regular Expression \[\]\). In case of parameter 5, all cases
+	  were changed, because that happened for no reason. In case of parameter 4, an
+	  [] improves readability actually. Therefore for parameter 4, the only case which
+	  did not do it was changed. All this aims to create more consistency: Only do
+	  something different if there is a reason to do so.
+
+	  Change-Id: I037ef170cf1ad94497151a9ea5071a31c656cafe
+
+2018-03-17 20:03 +0000 [6f304697b0]  Corey Farrell <git@cfware.com>
+
+	* core: Remove dead symbols from asterisk.exports.in.
+
+	  * dahdi_chan_name
+	  * dahdi_chan_name_len
+	  * dahdi_chan_mode
+	  * __manager_event
+	  * dialed_interface_info
+
+	  Added comment about __progname and environ being needed for FreeBSD to
+	  prevent accidental removal in the future.
+
+	  Change-Id: I3ae026bc541cd9cb572be2ffa95fc359547642b5
+
+2018-03-17 01:39 +0000 [8df4811cfa]  Corey Farrell <git@cfware.com>
+
+	* named_acl: Use ast_cli_completion_add.
+
+	  Change-Id: I317a82de976bbdbfe4352c243e32a7bb8f66c377
+
+2018-03-17 01:58 +0000 [a89323236f]  Corey Farrell <git@cfware.com>
+
+	* main/sounds: Use ast_cli_completion_add.
+
+	  Change-Id: I140e1137906bbfcdb61c0c6304159be459ad873e
+
+2018-03-17 01:09 +0000 [dc520b6d8f]  Corey Farrell <git@cfware.com>
+
+	* manager: Use ast_cli_completion_add for completion generators.
+
+	  Change-Id: I658141c6ec490a3e866b02d2afea757928ceaabf
+
+2018-03-17 02:16 +0000 [534fda0a59]  Corey Farrell <git@cfware.com>
+
+	* main/test: Use ast_cli_completion_add.
+
+	  Change-Id: I5133ff2ba4e030f9733fb3d050c863d72a22ae6b
+
+2018-03-16 10:19 +0000 [373e7e3fb0]  George Joseph <gjoseph@digium.com>
+
+	* channel.c:  Allow generic plc then channel formats are equal
+
+	  If the two formats on a channel are equal, we don't transcode and since
+	  the generic plc needs slin to work, it doesn't get invoked.
+
+	  * A new configuration option "genericplc_on_equal_codecs" was added
+	    to the "plc" section of codecs.conf to allow generic packet loss
+	    concealment even if no transcoding was originally needed.
+	    Transcoding via SLIN is forced in this case.
+
+	  ASTERISK-27743
+
+	  Change-Id: I0577026a179dea34232e63123254b4e0508378f4
+
+2018-03-17 02:25 +0000 [bd926539b0]  Corey Farrell <git@cfware.com>
+
+	* main/translate: Use ast_cli_completion_add.
+
+	  Change-Id: I0e2402660e54d91f74ab0804c62a5b1925577413
+
+2018-03-17 02:00 +0000 [d202b56a74]  Corey Farrell <git@cfware.com>
+
+	* main/taskprocessor: Use ast_cli_completion_add.
+
+	  Change-Id: Ie5f812a988ed811fd11967151932de62bc131b48
+
+2018-03-17 00:51 +0000 [18cbfcf4f0]  Corey Farrell <git@cfware.com>
+
+	* aco: Use ast_cli_completion_add for 'config show help'.
+
+	  In addition this removes:
+	  * RAII_VAR usage
+	  * Duplicate check of pos
+	  * Unneeded arguments.
+
+	  Change-Id: I2da8eac2670d1d8d6474c04037129804f55ebf39
+
+2018-03-15 15:06 +0000 [d57b58f5e9]  Corey Farrell <git@cfware.com>
+
+	* main/config: Use ast_cli_completion_add for reload completion.
+
+	  Change-Id: Ia3fa4c03f2285a1ec8814bbe7f4624ead9111ad1
+
+2018-03-17 04:31 +0000 [34e16cbf3a]  Corey Farrell <git@cfware.com>
+
+	* main/bridge: Use ast_cli_completion_add.
+
+	  Change-Id: I3775a696d6a57139fdf09651ecb786bcf1774509
+
+2018-03-17 16:41 +0000 [98a3baca70]  Corey Farrell <git@cfware.com>
+
+	* core: Minor cleanup of ast_el_read_char.
+
+	  * Define CHAR_T_LIBEDIT and CHAR_TO_LIBEDIT based on
+	    HAVE_LIBEDIT_IS_UNICODE.  This avoids needing to repeatedly use
+	    conditional blocks, eliminates having multiple function prototypes.
+	  * Remove parenthesis from return values.
+	  * Add missing code block brackets {}.
+	  * Reduce use of 'else' conditional statements where possible.
+
+	  Change-Id: I4315328ebea2f62641faf6881de2ac20a9f9d08e
+
+2018-03-17 10:54 +0000 [7b40605d8e]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Check for header file of OGG.
+
+	  Asterisk uses various symbols of the shared library libogg within the module
+	  format_ogg_vorbis. However, the source code of that module did not include the
+	  header file of libogg explicitly but implicitly. Because that header was not
+	  included before Asterisk 14, the script ./configure was told not to check for
+	  it.
+
+	  Anyway, even Asterisk 13 LTS uses symbols of libogg. Therefore, that header
+	  should be included explicitly. Therefore, ./configure should check for that
+	  header.
+
+	  Change-Id: I98c50d56311b68880d1084fcc62c35ab2f8692db
+
+2018-03-09 06:26 +0000 [06ba605988]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: When no download utility is available, display the explanation.
+
+	  ./configure --with-pjproject-bundled
+	  did not display an explanation, when no download utility like wget, curl, or
+	  fetch was installed beforehand, although an explanation existed in code. This
+	  happened because the code expected the variable DOWNLOAD_TO_STDOUT to be empty.
+	  However, the script ./configure set that variable always.
+
+	  Change-Id: I64c99b76a03525c69471e5055bf124b36a51bbd4
+
+2018-03-17 05:00 +0000 [0f634c1446]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Remove unused dependency on libltdl.
+
+	  Asterisk does not need the development package of libltdl, because it does not
+	  use any symbol of -lltdl directly. Instead, it uses the runtime package via the
+	  shared library -lodbc. On the supported platforms, that shared library declares
+	  its dependency on -lltdl correctly, otherwise AST_EXT_LIB_CHECK would have
+	  failed.
+
+	  ASTERISK-27745
+
+	  Change-Id: Icd315809b8e7978203431f3afb66240dd3a040ba
+
+2018-03-05 06:50 +0000 [c0c537c1d3]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: In NetBSD, the Python Programming Language is python-X.Y.
+
+	  ASTERISK-27717
+
+	  Change-Id: If90ddf9c396c32e7402a894f42dce215c30049d1
+
+2018-03-16 09:53 +0000 [afcd1dd8e5]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Avoid an extra case for OpenBSD.
+
+	  Nine years ago with Mantis 13639 (now ASTERISK-12841) an extra case for OpenBSD
+	  was introduced: Vorbis required Ogg to be specified manually, because the shared
+	  library libvorbis.so did not specify its required dependency on -logg itself.
+
+	  Today with OpenBSD 6.2, all libvorbis*.so declare their dependencies correctly.
+	  Therefore, an extra case is not required anymore.
+
+	  Change-Id: Ifd04e0994ce9f1e4ad29c3948a0398b91d1e97bc
+
+2018-03-05 10:17 +0000 [5b80e97fff]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable Advanced Linux Sound Architecture (ALSA) in NetBSD.
+
+	  In the script ./configure, AST_EXT_LIB_CHECK checks for external libraries. Some
+	  libraries do not specify all their dependencies and require additional shared
+	  libraries. In AST_EXT_LIB_CHECK, this is the fifth parameter. However, if a
+	  library is specified there, it must exist on the platform, because ./configure
+	  tries to compile/link/execute a small app using those statements. For example,
+	  the library libdl.so is Linux specific and does not exist on BSD-like platforms.
+
+	  Furthermore, no supported platform/version was found, which still (ever?)
+	  requires those additional libraries. Therefore, they were simply removed.
+
+	  Finally, this change adds the error code ESTRPIPE to the channel driver
+	  chan_alsa for those platforms which lack it, again for example NetBSD.
+
+	  ASTERISK-27720
+
+	  Change-Id: I3b21f2135f6cbfac7590ccdc2df753257f426e0b
+
+2018-03-16 09:02 +0000 [d5af24bb14]  George Joseph <gjoseph@digium.com>
+
+	* app_voicemail:  Fix json blob errors
+
+	  When app_voicemail calls ast_test_suite_notify with the results of
+	  a user keypress, it formats the keypress as '%c'.  If the user hung up
+	  or some other error occurrs, the result of the keypress is a non
+	  printable character.  This ultimately causes json_vpack_ex to think
+	  it's being passed a non utf-8 string and return an error.
+
+	  * Keypress results passed to ast_test_suite_notify are now checked with
+	    isprint() and a '?' is substituted if the check fails.
+
+	  Change-Id: I78ee188916bbac840f3d03f40201b692347ea865
+
+2018-02-27 03:01 +0000 [69463c612d]  Florian Floimair <f.floimair@commend.com>
+
+	* app_dial: Enable early-media video
+
+	  Certain applications (e.g. door-phone) require that also video is transmitted
+	  before a call is accepted.
+
+	  Change-Id: I9842e1dc2f6e1c2c49dc33fe615255007d2f821e
+
+2018-03-15 09:32 +0000 [a7ebb9409d]  Corey Farrell <git@cfware.com>
+
+	* main/cdr: Use ast_cli_completion_add for CDR channel completion.
+
+	  Change-Id: Ie81830647a23aad61c1162583b6d50adbe6e7822
+
+2018-03-15 08:19 +0000 [5ac64a4464]  Corey Farrell <git@cfware.com>
+
+	* main/ccss: Use ast_cli_completion_add for core id.
+
+	  Change-Id: I44b25d6d24c7d9bc1bb38a50774b38883162f98f
+
+2018-03-12 10:24 +0000 [e04be32fc5]  Alexander Traud <pabstraud@compuserve.com>
+
+	* install_prereq: Add Arch Linux.
+
+	  ASTERISK-27738
+
+	  Change-Id: I7ca620e3c4dfb4b064a19382c4915aeb42a2a09f
+
+2018-03-15 04:49 +0000 [eb699f3631]  Corey Farrell <git@cfware.com>
+
+	* core: Backport compatible MALLOC_DEBUG changes.
+
+	  * Add support for MALLOC_DEBUG and DEBUG_CHAOS to be used together.
+	  * Add utils/astmm.c to .gitignore.
+	  * Fix MALLOC_DEBUG variant of __ast_vasprintf.  This function called
+	    va_end(ap) upon allocation failure.  This is incorrect since ap is
+	    passed as an argument.
+
+	  Change-Id: I9f27ced4ce3cbe4b39547a67f994fdff491978c0
+
+2018-03-15 07:29 +0000 [7e0c56f800]  Corey Farrell <git@cfware.com>
+
+	* astobj2_container: Use ast_cli_completion_add for container names.
+
+	  Change-Id: I4f0fc09e820eb8d8da2354a177dbcf503c56ddd1
+
+2017-12-09 04:52 +0000 [7e041d6233]  Corey Farrell <git@cfware.com>
+
+	* main/channel: Use ast_cli_completion_add for channeltypes.
+
+	  Change-Id: Ia845fae6a84801cc7d9996767b99efb2753cbb48
+
+2018-03-14 12:38 +0000 [6539b89254]  Corey Farrell <git@cfware.com>
+
+	* cli: Enable ast_cli_completion_add on public completion generators.
+
+	  * ast_cli_complete
+	  * ast_complete_channels
+	  * ast_complete_applications
+
+	  These generators will now use ast_cli_completion_add if state == -1.
+
+	  Change-Id: I7ff311f0873099be0e43a3dc5415c0cd06d15756
+
+2018-03-14 11:17 +0000 [96eaabd920]  Ross Beer <ross.beer@voicehost.co.uk>
+
+	* res_pjsip_rfc3326.c: Account for more than one 'Reason' header
+
+	  ASTERISK-27741
+
+	  Change-Id: I0aa59a54735c6d20b95c54db1bd095dbf93e7adf
+
+2018-03-12 08:10 +0000 [b237ef7f27]  Alexander Traud <pabstraud@compuserve.com>
+
+	* install_prereq: Add SUSE.
+
+	  ASTERISK-27736
+
+	  Change-Id: I4cafc8973349d50a7cb7919ddf0bb1aaef4bfc3e
+
+2018-03-13 16:37 +0000 [dc738b145f]  Corey Farrell <git@cfware.com>
+
+	* core: Remove incorrect usage of attribute_malloc.
+
+	  GCC documentation states that when __attribute__((malloc)) is used it
+	  should not return storage which contains any valid pointers.  It
+	  specifically mentions that realloc functions should not have the malloc
+	  attribute, but this also means that complex initializers which could
+	  contain initialized pointers should not use this attribute.
+
+	  Change-Id: If507f33ffb3ca3b83b702196eb0e8215d27fc7d2
+
+2018-03-12 05:19 +0000 [7533d25e8d]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable IMAP storage on openSUSE and Arch Linux.
+
+	  ASTERISK-27734
+
+	  Change-Id: I8d6e6a1c08c031649764f5277fbbb85e57c3a9d4
+
+2018-03-12 04:22 +0000 [09c43fdc1a]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_srtp: Add support for libsrtp2.x on openSUSE.
+
+	  Since ASTERISK-26976, libSRTP 2.x can be used for sRTP. However, that change
+	  added a private header which is not available on openSUSE for example. To
+	  remain compatibility with very old libSRTP versions, the affected/missing
+	  symbols AES_128_ICM and HMAC_SHA1 are defined manually.
+
+	  ASTERISK-27733
+
+	  Change-Id: I25c5cb8fa966043d1506ebef449e5a724412b4b6
+
+2018-03-10 03:33 +0000 [c09a10bb1b]  Corey Farrell <git@cfware.com>
+
+	* core: Remove non-critical cleanup from startup aborts.
+
+	  When built-in components of Asterisk fail to start they cause the
+	  Asterisk startup to abort.  In these cases only the most critical
+	  cleanup should be performed - closing databases and terminating
+	  proceses.  These cleanups are registered using ast_register_atexit, all
+	  other cleanups should not be run during startup abort.
+
+	  The main reason for this change is that these cleanup procedures are
+	  untestable from the partially initialized states, if they fail it could
+	  prevent us from ever running the critical cleanup with ast_run_atexits.
+
+	  Change-Id: Iecc2df98008b21509925ff16740bd5fa29527db3
+
+2018-03-08 09:14 +0000 [bd6e0b1a72]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Add NetBSD.
+
+	  Headers, libraries, and rpath.
+
+	  ASTERISK-27728
+	  ASTERISK-11015
+	  Reported by: Curt Sampson
+
+	  Change-Id: I50aa5fcd095937df32a2e33307caac7e79a8b5b7
+
+2018-03-09 03:23 +0000 [ba88af8a25]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: For consistency, avoid double-checking via if clauses.
+
+	  In the script ./configure, AST_EXT_LIB_CHECK and AST_PKG_CONFIG_CHECK first test
+	  whether parameter 1 was already found. Consequently, an if-test on PBX_ just a
+	  line below is redundant, if exactly the same parameter 1 is used again.
+
+	  No performance gain is expected by this change. However, because this strategy
+	  is used all over in ./configure except for two places, this change aims to
+	  create more consistency: Only do something different if there is a reason to do
+	  so.
+
+	  Change-Id: I4a6f48127b7af3a48168c917e888be1f70625027
+
+2018-03-09 02:44 +0000 [c227462370]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable dladdr on non-Linux platforms like FreeBSD.
+
+	  ASTERISK-27641
+
+	  Change-Id: I587e8ba0123c70fc10cfd8b0ac3299551f61d84b
+
+2018-03-07 13:50 +0000 [9ae427c7fd]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_pjproject.c: Upgrade bundled PJPROJECT to 2.7.2
+
+	  Update patches included in bundled PJPROJECT for the new version.
+
+	  ASTERISK-27730
+
+	  Change-Id: Id3c8c8ad82126846bcd9768bc3d0a18d89be8944
+
+2018-03-08 12:05 +0000 [57e8754a3a]  Alexander Traud <pabstraud@compuserve.com>
+
+	* install_prereq: Add NetBSD.
+
+	  ASTERISK-27729
+
+	  Change-Id: I7a706d51375d54cf5e36d32397bfe09a48670804
+
+2018-03-08 09:04 +0000 [0d70a9a006]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Re-check for another UUID library only when previous check failed.
+
+	  As a side-effect, this avoids the ambiguous output:
+	   checking for uuid_generate_random... no
+	  which was printed always previously.
+
+	  ASTERISK-25586
+	  Reported by: John Nemeth
+
+	  Change-Id: I6d541dfcf453932a9856c5e251aa22e0e6c233c9
+
+2018-03-08 05:32 +0000 [7b6b6b0a7e]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Instead of $PJPROJECT_LIBS with s, use $PJPROJECT_LIB everywhere.
+
+	  In the script ./configure,
+	  xyz_LIB  is set by AST_PKG_CONFIG_CHECK and
+	  xyz_LIBS is set by PKG_CHECK_MODULES within
+	  AST_PKG_CONFIG_CHECK. Both are the same. In Asterisk normally the former and
+	  only three times the latter was used. Let us use xyz_LIB without s, for
+	  consistency with AST_EXT_LIB_CHECK. That eases understanding because now readers
+	  do not have to know that xyz_LIB equals xyz_LIBS.
+
+	  Change-Id: I7359860a5d730cdc784c2c48e501a082196434d3
+
+2018-03-06 06:28 +0000 [54874eb44d]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable PortAudio in NetBSD.
+
+	  In NetBSD, PortAudio 1 is still the default version. PortAudio 2 can be
+	  installed side by side but gets placed in a 'portaudio2' subdirectory. To
+	  find PortAudio 2 even in a subdirectory, the tool pkg-config is queried via
+	  AST_PKG_CONFIG_CHECK. For those platforms, which do not list PowerAudio 2
+	  via pkg-config, the previous check remains and is executed thereafter.
+
+	  ASTERISK-27721
+
+	  Change-Id: I4175500126909ad1b181fff8e11bb4a3a6ae4fa9
+
+2018-03-07 00:29 +0000 [b81eadcefc]  Corey Farrell <git@cfware.com>
+
+	* Replace direct checks of option_debug with DEBUG_ATLEAST macro.
+
+	  Checking option_debug directly is incorrect as it ignores file/module
+	  specific debug settings.  This system-wide change replaces nearly all
+	  direct checks for option_debug with the DEBUG_ATLEAST macro.
+
+	  Change-Id: Ic342d4799a945dbc40ac085ac142681094a4ebf0
+
+2018-03-07 13:13 +0000 [342aec5980]  Richard Mudgett <rmudgett@digium.com>
+
+	* BuildSystem regression: Fix errors reported by clean targets.
+
+	  Doing a 'make clean', 'make distclean', or 'make dist-clean' gets errors
+	  about an invalid shell option: "/bin/sh: 0: Illegal option -".
+
+	  The clean targets do not include the makeopts file which defines GREP and
+	  LDCONFIG because the file may not exist and the distclean/dist-clean
+	  targets will delete it anyway.
+
+	  ASTERISK-27715
+
+	  Change-Id: I33d40acdb03862bc89aeb6fb1ff497894a8ea7f5
+
+2018-03-06 19:08 +0000 [0597e72e1d]  Sungtae Kim <pchero21@gmail.com>
 
 	* voicemail: Fixed wrong voicemail message count
 
@@ -19,6 +2140,324 @@
 	  ASTERISK-27703
 
 	  Change-Id: I99bfec14bd4ae475b0fa1fac5a7992f3e2e8d64a
+
+2018-02-14 07:33 +0000 [a35a654a52]  Jean Aunis <jean.aunis@prescom.fr>
+
+	* chan_sip: Fix improper RTP framing on outgoing calls
+
+	  The "ptime" SDP parameter received in a SIP response was not honoured.
+	  Moreover, in the abscence of this "ptime" parameter, locally configured
+	  framing was lost during response processing.
+
+	  This patch systematically stores the framing information in the
+	  ast_rtp_codecs structure, taking it from the response or from the
+	  configuration as appropriate.
+
+	  ASTERISK-27674
+
+	  Change-Id: I828a6a98d27a45a8afd07236a2bd0aa3cbd3fb2c
+
+2018-03-06 13:31 +0000 [ecff05d51c]  Ross Beer <ross.beer@voicehost.co.uk>
+
+	* res_pjsip_rfc3326: Order of 'Reason' headers break many endpoints
+
+	  ASTERISK-27554
+
+	  Change-Id: If61c7faab7d2fa1031c056ed6268fe928e2391cf
+
+2018-03-07 09:32 +0000 [725fd32428]  Alexander Traud <pabstraud@compuserve.com>
+
+	* utils: In Solaris, avoid a warning about an unused variable.
+
+	  When HAVE_GETHOSTBYNAME_R_5 was set by the script ./configure, GCC 7.3.0 found
+	  an unused variable. Actually, the variable was used (set to a dummy value) but
+	  the compiler optimization might have removed that. Instead, this change ensures
+	  that the variable 'res' is only used when it is really required.
+
+	  Change-Id: Ic3ea23ccf84ac4bc2d501b514985b989030abab5
+
+2018-03-05 08:01 +0000 [93df498f4e]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable Lua in NetBSD.
+
+	  luaL_openlib got removed with Lua 5.2.
+	  luaL_newstate is available in all versions.
+
+	  ASTERISK-27718
+
+	  Change-Id: I9c8c8880315ee36ab740d7c40153306c0bfd6f71
+
+2018-03-06 07:33 +0000 [44dbb8251d]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Depend not implicitly but explicitly on external libraries.
+
+	  ASTERISK-27722
+
+	  Change-Id: Ie7b8c30d86cb00a54d6ac4e09e6f28f42d2bd52c
+
+2018-03-05 08:15 +0000 [2d63c185f0]  Alexander Traud <pabstraud@compuserve.com>
+
+	* res_http_post: Enable GMime in NetBSD.
+
+	  ASTERISK-27719
+
+	  Change-Id: I230c5f9f316b2e9465c093c13580f72ebbaf67a7
+
+2018-03-05 04:16 +0000 [0af1446d6e]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Enable autotools in NetBSD.
+
+	  ASTERISK-27716
+
+	  Change-Id: I52525e35e1620341272219911d054a1e3d3ec01e
+
+2018-03-05 03:42 +0000 [95ecbaa6b8]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: AC_PATH_PROG sets to colon character when not found.
+
+	  ASTERISK-27715
+	  Reported by: Corey Farrell
+
+	  Change-Id: I0d6d9572d1352dc7ad30c9917173f1e980d8c938
+
+2018-03-03 09:06 +0000 [7b5e0960ef]  Alexander Traud <pabstraud@compuserve.com>
+
+	* chan_unistim: NetBSD has an incompatible struct in_pktinfo.
+
+	  ASTERISK-27714
+	  Reported by: John Nemeth
+
+	  Change-Id: I1b84a89315a5f61222123d21bf35c59224da8990
+
+2018-03-03 08:30 +0000 [6b899b2849]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Cast any intptr_t explicitly to its proposed type.
+
+	  ASTERISK-27713
+
+	  Change-Id: I90c769e3c7f8c26de8a3af11335862cec15a1b22
+
+2018-03-03 06:56 +0000 [98e8e849da]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Detect whether uselocale(.) is available.
+
+	  ASTERISK-27712
+	  Reported by: Joerg Sonnenberger, D'Arcy Cain
+
+	  Change-Id: Idf1c9d43617a3e13028b95b313415903d80ef807
+
+2018-03-03 03:53 +0000 [8348862103]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Avoid re-defining of pthread_* on NetBSD.
+
+	  ASTERISK-27711
+
+	  Change-Id: Idc9194035b2958b99f6b01eb5b438d45a074565b
+
+2018-03-02 07:05 +0000 [47d45ba025]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Install init scripts on openSUSE Tumbleweed.
+
+	  ASTERISK-27710
+
+	  Change-Id: I4c777e41b31d4415bbe21cb435ad47b43ebb5467
+
+2018-03-02 05:12 +0000 [4035582b64]  Alexander Traud <pabstraud@compuserve.com>
+
+	* BuildSystem: Avoid == for comparison in ./configure.
+
+	  ASTERISK-27709
+	  Reported by: John Nemeth
+
+	  Change-Id: I11b1ae8fd404c04066f1458f5d71f9536359d58d
+
+2018-02-27 15:40 +0000 [104468ad3a]  Richard Mudgett <rmudgett@digium.com>
+
+	* pjproject: Add cache_pools debugging option.
+
+	  The pool cache gets in the way of finding use after free errors of memory
+	  pool contents.  Tools like valgrind and MALLOC_DEBUG don't know when a
+	  pool is released because it gets put into the cache instead of being
+	  freed.
+
+	  * Added the "cache_pools" option to pjproject.conf.  Disabling the option
+	  helps track down pool content mismanagement when using valgrind or
+	  MALLOC_DEBUG.  The cache gets in the way of determining if the pool
+	  contents are used after free and who freed it.
+
+	  To disable the pool caching simply disable the cache_pools option in
+	  pjproject.conf and restart Asterisk.
+
+	  Sample pjproject.conf setting:
+	  [startup]
+	  cache_pools=no
+
+	  * Made current users of the caching pool factory initialization and
+	  destruction calls call common routines to create and destroy cached pools.
+
+	  ASTERISK-27704
+
+	  Change-Id: I64d5befbaeed2532f93aa027a51eb52347d2b828
+
+2018-01-31 11:49 +0000 [41894965f2]  Corey Farrell <git@cfware.com>
+
+	* gitreview: Reorder and add padding.
+
+	  Change-Id: I459dc320a8c9452a01eed6f403d786741587c890
+
+2018-02-23 21:24 +0000 [bb973aeceb]  Michael Cargile <mikec@vicidial.com>
+
+	* apps/app_amd.c: Fixed total time and silence calculations
+
+	  Between Asterisk 11 and Asterisk 13 there was a significant increase
+	  in the number of AST_FRAME_NULL frames being processed by app_amd.c's
+	  main loop. Each AST_FRAME_NULL frame was being counted as 100ms
+	  towards the total time and silence. This may have been accurate
+	  when app_amd.c was orginally added, but it is not in Asterisk 13.
+	  As such the total analysis time and silence calculations were way
+	  off effectively breaking app_amd.c
+
+	  * Additional debug messages were added
+	  * AST_FRAME_NULL are now ignored
+
+	  ASTERISK-27610
+
+	  Change-Id: I18aca01af98f87c1e168e6ae0d85c136d1df5ea9
+
+2018-02-23 14:58 +0000 [68df9e609e]  George Joseph <gjoseph@digium.com>
+
+	* ast_coredumper:  Minor fixes
+
+	  * Fix --tarball-config so the option doesn't cause an error.
+
+	  * Allow for missing /etc/os-release.
+
+	  * Add a sleep between tarballing the coredump and removing the
+	    output directory to allow the filesystem to settle.
+
+	  Change-Id: I73e03b13087978bcc7f6bc9f45753990f82d9d77
+
+2018-02-23 10:09 +0000 [caad0c09cd]  Corey Farrell <git@cfware.com>
+
+	* core: Fix handling of maximum length lines in config files.
+
+	  When a line is the maximum length "\n" is found at sizeof(buf) - 2 since
+	  the last character is actually the null terminator.  In addition if a
+	  line was exactly 8190 plus a multiple of 8192 characters long the config
+	  parser would skip the following line.
+
+	  Additionally fix comment in voicemail.conf sample config.  It previously
+	  stated that emailbody can only contain up to 512 characters which is
+	  always wrong.  The buffer is normally 8192 characters unless LOW_MEMORY
+	  is enabled then it is 512 characters.  The updated comment states that
+	  the line can be up to 8190 or 510 characters since the line feed and
+	  NULL terminator each use a character.
+
+	  ASTERISK-26688 #close
+
+	  Change-Id: I80864a0d40d2e2d8cd79d72af52a8f0a3a99c015
+
+2018-02-22 13:53 +0000 [3e5864bcc8]  Richard Mudgett <rmudgett@digium.com>
+
+	* res_pjsip_refer.c: Fix attended transfer race condition crash.
+
+	  The transferrer's session channel was destroyed by the transferrer's
+	  serializer thread in a race condition with the transfer target's
+	  serializer thread during an attended transfer.  The transfer target's
+	  serializer was attempting to clean up a deferred end status on behalf of
+	  the transferrer's channel when it should have passed the action to the
+	  transferrer's serializer.  When the transfer target's serializer lost the
+	  race then both threads wind up trying to end the transferrer's session.
+
+	  * Push the ast_sip_session_end_if_deferred() call onto the transferrer's
+	  serializer to avoid a race condition that results in a crash.  The
+	  session_end() function that could be called by
+	  ast_sip_session_end_if_deferred() really must be executed by the
+	  transferrer's serializer to avoid this kind of crash.
+
+	  ASTERISK-27568
+
+	  Change-Id: Iacda724e7cb24d7520e49b2fd7e504aa398d7238
+
+2018-02-17 03:28 +0000 [05fc37bbc2]  Alexander Traud <pabstraud@compuserve.com>
+
+	* install_prereq: Update FreeBSD libraries.
+
+	  deleted
+	   autoconf gcc libsamplerate sqlite
+
+	  changed
+	   binutils to libbfd
+	   freetds-devel to freetds
+	   gmime2 to gmime26
+	   mysql55-client to mysql57-client
+
+	  added
+	   alsa-lib bison bzip2 cclient corosync doxygen libedit flex graphviz
+	   libhoard libical libilbc libltdl lua neon newt net-snmp
+	   openldap-client openssl patch pkgconf portaudio postgresql10-client
+	   python radcli speexdsp subversion uriparser xmlstarlet libzip
+
+	  ASTERISK-27686
+
+	  Change-Id: Ibe88c9b26e59c30d26cdb313a3ef01c9f37ac80d
+
+2018-02-22 10:46 +0000 [220accb461]  Sean Bright <sean.bright@gmail.com>
+
+	* modules: Set deprecated modules to not build by default
+
+	  Change-Id: I09090f70224866aead6b3207fa784cfefea7d539
+
+2018-02-20 10:33 +0000 [4da0e19b89]  Joshua Colp <jcolp@digium.com>
+
+	* chan_sip: Emit a second ringing event to ensure channel is found.
+
+	  When constructing a dialog-info+xml NOTIFY message a ringing channel
+	  is found if the state is ringing and further information is placed into
+	  the message. Due to the migration to the Stasis message bus this did
+	  not always work as expected.
+
+	  This change raises a second ringing event in such a way to guarantee
+	  that the event is received by chan_sip and another lookup is done to
+	  find the ringing channel.
+
+	  ASTERISK-24488
+
+	  Change-Id: I547a458fc59721c918cb48be060cbfc3c88bcf9c
+
+2018-02-19 04:21 +0000 [9325de11f8]  Thomas Guebels <tgu@escaux.com>
+
+	* res_rtp_asterisk: Fix ICE candidate nomination
+
+	  If the ICE role is not set right away, we might have a role conflict
+	  that stays undetected and ICE finishing with successful tests and no
+	  candidate nominated. This was introduced by ASTERISK-27088.
+
+	  To avoid this, we set the role as soon as before but only if the ICE
+	  state permits it: still checking and not yet nominating candidates or
+	  completed.
+
+	  ASTERISK-27646
+
+	  Change-Id: I5dbc69ad63cacbb067922850fbb113d479bd729c
+
+2017-12-04 05:27 +0000 [64942276d1]  Alexander Traud <pabstraud@compuserve.com>
+
+	* chan_sip: Peers with distinct source ports don't match, regardless of transport.
+
+	  Previously, peers connected via TCP (or TLS) were matched by ignoring their
+	  source port. One cannot say anything when protocol:IP:port match, yes (see
+	  <http://stackoverflow.com/q/3329641>). However, when the ports do not match, the
+	  peers do not match as well.
+
+	  This change allows two peers connected to an Asterisk server via TCP (or TLS)
+	  behind a NAT (= same source IP address) to be differentiated via their port as
+	  well.
+
+	  ASTERISK-27457
+	  Reported by: Stephane Chazelas
+
+	  Change-Id: Id190428bf1d931f2dbfd4b293f53ff8f20d98efa
 
 2018-02-22 23:15 +0000  Asterisk Development Team <asteriskteam@digium.com>
 

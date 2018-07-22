@@ -1827,3 +1827,41 @@ UPDATE alembic_version SET version_num='d3e4284f8707' WHERE alembic_version.vers
 
 /
 
+-- Running upgrade d3e4284f8707 -> 0be05c3a8225
+
+ALTER TABLE ps_systems ADD follow_early_media_fork VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_systems ADD CONSTRAINT yesno_values CHECK (follow_early_media_fork IN ('yes', 'no'))
+
+/
+
+ALTER TABLE ps_systems ADD accept_multiple_sdp_answers VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_systems ADD CONSTRAINT yesno_values CHECK (accept_multiple_sdp_answers IN ('yes', 'no'))
+
+/
+
+ALTER TABLE ps_endpoints ADD follow_early_media_fork VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD CONSTRAINT yesno_values CHECK (follow_early_media_fork IN ('yes', 'no'))
+
+/
+
+ALTER TABLE ps_endpoints ADD accept_multiple_sdp_answers VARCHAR(3 CHAR)
+
+/
+
+ALTER TABLE ps_endpoints ADD CONSTRAINT yesno_values CHECK (accept_multiple_sdp_answers IN ('yes', 'no'))
+
+/
+
+UPDATE alembic_version SET version_num='0be05c3a8225' WHERE alembic_version.version_num = 'd3e4284f8707'
+
+/
+

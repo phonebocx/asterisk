@@ -1174,8 +1174,7 @@ static int ooh323_answer(struct ast_channel *ast)
 				p->alertsent = 1;
 			}
 			ast_setstate(ast, AST_STATE_UP);
-      			if (option_debug)
-				ast_debug(1, "ooh323_answer(%s)\n", ast_channel_name(ast));
+			ast_debug(1, "ooh323_answer(%s)\n", ast_channel_name(ast));
 			ast_channel_unlock(ast);
 			ooAnswerCall(p->callToken);
 		}
@@ -1282,7 +1281,7 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 
 	struct ooh323_pvt *p = (struct ooh323_pvt *) ast_channel_tech_pvt(ast);
 	char *callToken = (char *)NULL;
-	int res = -1;
+	int res = -1, rres;
 
 	if (!p) return -1;
 
@@ -1329,11 +1328,9 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
 	case AST_CONTROL_PROGRESS:
 		if (ast_channel_state(ast) != AST_STATE_UP) {
 	    		if (!p->progsent) {
+				rres = ooManualProgress(callToken);
 	     			if (gH323Debug) {
-					ast_debug(1, "Sending manual progress for %s, res = %u\n", callToken,
-             				ooManualProgress(callToken));
-				} else {
-	     				ooManualProgress(callToken);
+					ast_debug(1, "Sending manual progress for %s, res = %u\n", callToken, rres);
 				}
 	     			p->progsent = 1;
 	    		}
@@ -1342,12 +1339,9 @@ static int ooh323_indicate(struct ast_channel *ast, int condition, const void *d
       case AST_CONTROL_RINGING:
 		if (ast_channel_state(ast) == AST_STATE_RING || ast_channel_state(ast) == AST_STATE_RINGING) {
 			if (!p->alertsent) {
+				rres = ooManualRingback(callToken);
 				if (gH323Debug) {
-					ast_debug(1, "Sending manual ringback for %s, res = %u\n",
-						callToken,
-						ooManualRingback(callToken));
-				} else {
-					ooManualRingback(callToken);
+					ast_debug(1, "Sending manual ringback for %s, res = %u\n", callToken, rres);
 				}
 				p->alertsent = 1;
 			}
@@ -5054,9 +5048,7 @@ struct ast_frame *ooh323_rtp_read(struct ast_channel *ast, struct ooh323_pvt *p)
 					ast_log(LOG_NOTICE, "Failed to async goto '%s' into fax of '%s'\n", ast_channel_name(p->owner),target_context);
 				}
 				p->faxdetected = 1;
-				if (dfr) {
-					ast_frfree(dfr);
-				}
+				ast_frfree(dfr);
 				return &ast_null_frame;
 			}
 		}

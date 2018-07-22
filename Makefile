@@ -218,7 +218,9 @@ ifeq ($(AST_DEVMODE),yes)
   endif
 endif
 
-ifneq ($(findstring BSD,$(OSARCH)),)
+ifeq ($(OSARCH),NetBSD)
+  _ASTCFLAGS+=-isystem /usr/pkg/include
+else ifneq ($(findstring BSD,$(OSARCH)),)
   _ASTCFLAGS+=-isystem /usr/local/include
 endif
 
@@ -229,7 +231,7 @@ ifeq ($(OSARCH),FreeBSD)
 endif
 
 ifeq ($(OSARCH),NetBSD)
-  _ASTCFLAGS+=-pthread -I/usr/pkg/include
+  _ASTCFLAGS+=-pthread -D__LIBPTHREAD_SOURCE__ -I/usr/pkg/include
 endif
 
 ifeq ($(OSARCH),OpenBSD)
@@ -240,7 +242,9 @@ ifeq ($(OSARCH),SunOS)
   _ASTCFLAGS+=-Wcast-align -DSOLARIS -I../include/solaris-compat -I/opt/ssl/include -I/usr/local/ssl/include -D_XPG4_2 -D__EXTENSIONS__
 endif
 
-ifneq ($(GREP),)
+ifeq ($(GREP),)
+else ifeq ($(GREP),:)
+else
   ASTERISKVERSION:=$(shell GREP=$(GREP) AWK=$(AWK) GIT=$(GIT) build_tools/make_version .)
 endif
 ifneq ($(AWK),)
@@ -283,7 +287,9 @@ else
 # These are used for all but Darwin
   SOLINK=-shared
   DYLINK=$(SOLINK)
-  ifneq ($(findstring BSD,$(OSARCH)),)
+  ifeq ($(OSARCH),NetBSD)
+    _ASTLDFLAGS+=-L/usr/pkg/lib
+  else ifneq ($(findstring BSD,$(OSARCH)),)
     _ASTLDFLAGS+=-L/usr/local/lib
   endif
 endif
@@ -468,7 +474,9 @@ endif
 		$(INSTALL) -m 644 $$x "$(DESTDIR)$(ASTDATADIR)/rest-api" ; \
 	done
 
-ifneq ($(GREP),)
+ifeq ($(GREP),)
+else ifeq ($(GREP),:)
+else
   XML_core_en_US = $(foreach dir,$(MOD_SUBDIRS),$(shell $(GREP) -l "language=\"en_US\"" $(dir)/*.c $(dir)/*.cc 2>/dev/null))
 endif
 
@@ -487,7 +495,9 @@ doc/core-en_US.xml: makeopts .lastclean $(XML_core_en_US)
 	@echo
 	@echo "</docs>" >> $@
 
-ifneq ($(GREP),)
+ifeq ($(GREP),)
+else ifeq ($(GREP),:)
+else
   XML_full_en_US = $(foreach dir,$(MOD_SUBDIRS),$(shell $(GREP) -l "language=\"en_US\"" $(dir)/*.c $(dir)/*.cc 2>/dev/null))
 endif
 
@@ -502,7 +512,7 @@ else
 	@echo "<!DOCTYPE docs SYSTEM \"appdocsxml.dtd\">" >> $@
 	@echo "<?xml-stylesheet type=\"text/xsl\" href=\"appdocsxml.xslt\"?>" >> $@
 	@echo "<docs xmlns:xi=\"http://www.w3.org/2001/XInclude\">" >> $@
-	@for x in $(MOD_SUBDIRS); do \
+	@for x in $(filter-out third-party,$(MOD_SUBDIRS)); do \
 		printf "$$x " ; \
 		for i in `find $$x -name '*.c'`; do \
 			$(PYTHON) build_tools/get_documentation.py < $$i >> $@ ; \
@@ -631,7 +641,9 @@ oldmodcheck:
 	fi
 
 ld-cache-update:
-ifneq ($(LDCONFIG),)
+ifeq ($(LDCONFIG),)
+else ifeq ($(LDCONFIG),:)
+else
 ifeq ($(DESTDIR),)  # DESTDIR means binary archive creation; ldconfig should be run on postinst
 	@if [ $$(id -u) -eq 0 ] ; then \
 		$(LDCONFIG) "$(ASTLIBDIR)/" ; \
@@ -930,8 +942,20 @@ config:
 		if [ -z "$(DESTDIR)" ] ; then \
 			/sbin/chkconfig --add asterisk ; \
 		fi ; \
+	elif [ -f /etc/os-release ] && [ "opensuse" = "$(shell . /etc/os-release && echo $$ID)" ] ; then \
+		./build_tools/install_subst contrib/init.d/rc.suse.asterisk  "$(DESTDIR)/etc/init.d/asterisk"; \
+		if [ ! -f /etc/sysconfig/asterisk ] ; then \
+			$(INSTALL) -m 644 contrib/init.d/etc_default_asterisk "$(DESTDIR)/etc/sysconfig/asterisk" ; \
+		fi ; \
+		if [ -z "$(DESTDIR)" ] ; then \
+			/sbin/chkconfig --add asterisk ; \
+		fi ; \
 	elif [ -f /etc/arch-release -o -f /etc/arch-release ] ; then \
 		./build_tools/install_subst contrib/init.d/rc.archlinux.asterisk  "$(DESTDIR)/etc/init.d/asterisk"; \
+	elif [ -f /etc/slackware-version ]; then \
+		./build_tools/install_subst contrib/init.d/rc.slackware.asterisk  "$(DESTDIR)/etc/rc.d/rc.asterisk"; \
+	elif [ -f /etc/os-release ] && [ "slackware" = "$(shell . /etc/os-release && echo $$ID)" ] ; then \
+		./build_tools/install_subst contrib/init.d/rc.slackware.asterisk  "$(DESTDIR)/etc/rc.d/rc.asterisk"; \
 	elif [ -d "$(DESTDIR)/Library/LaunchDaemons" ]; then \
 		if [ ! -f "$(DESTDIR)/Library/LaunchDaemons/org.asterisk.asterisk.plist" ]; then \
 			./build_tools/install_subst contrib/init.d/org.asterisk.asterisk.plist "$(DESTDIR)/Library/LaunchDaemons/org.asterisk.asterisk.plist"; \
@@ -939,8 +963,6 @@ config:
 		if [ ! -f "$(DESTDIR)/Library/LaunchDaemons/org.asterisk.muted.plist" ]; then \
 			./build_tools/install_subst contrib/init.d/org.asterisk.muted.plist "$(DESTDIR)/Library/LaunchDaemons/org.asterisk.muted.plist"; \
 		fi; \
-	elif [ -f /etc/slackware-version ]; then \
-		echo "Slackware is not currently supported, although an init script does exist for it."; \
 	else \
 		echo "We could not install init scripts for your distribution." ; \
 	fi
@@ -977,7 +999,9 @@ ifeq ($(HAVE_DAHDI),1)
 	rm -f $(DESTDIR)$(DAHDI_UDEV_HOOK_DIR)/40-asterisk
 endif
 	$(MAKE) -C sounds uninstall
-ifneq ($(LDCONFIG),)
+ifeq ($(LDCONFIG),)
+else ifeq ($(LDCONFIG),:)
+else
 	$(LDCONFIG) "$(ASTLIBDIR)/" || :
 endif
 

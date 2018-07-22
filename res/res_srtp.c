@@ -30,6 +30,7 @@
 
 /*** MODULEINFO
 	<depend>srtp</depend>
+	<use type="external">openssl</use>
 	<support_level>core</support_level>
 ***/
 
@@ -41,7 +42,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 
 #if HAVE_SRTP_VERSION > 1
 # include <srtp2/srtp.h>
-# include <srtp2/crypto_types.h>
 # include "srtp/srtp_compat.h"
 # include <openssl/rand.h>
 #else

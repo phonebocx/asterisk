@@ -312,7 +312,7 @@ static struct state *	sstate_alloc(void);
 static void		sstate_free(struct state *p);
 
 static AST_LIST_HEAD_STATIC(zonelist, state);
-#ifdef HAVE_NEWLOCALE
+#if defined(HAVE_NEWLOCALE) && defined(HAVE_USELOCALE)
 static AST_LIST_HEAD_STATIC(localelist, locale_entry);
 #endif
 
@@ -506,7 +506,7 @@ static void *kqueue_daemon(void *data)
 			continue;
 		}
 
-		sp = kev.udata;
+		sp = (struct state *) kev.udata;
 
 		AST_LIST_LOCK(&zonelist);
 		/* see comment near psx_sp in add_notify() */
@@ -2364,7 +2364,7 @@ struct timeval ast_mktime(struct ast_tm *tmp, const char *zone)
 	return time1(tmp, localsub, 0L, sp);
 }
 
-#ifdef HAVE_NEWLOCALE
+#if defined(HAVE_NEWLOCALE) && defined(HAVE_USELOCALE)
 static struct locale_entry *find_by_locale(locale_t locale)
 {
 	struct locale_entry *cur;

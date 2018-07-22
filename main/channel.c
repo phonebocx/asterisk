@@ -75,6 +75,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/test.h"
 #include "asterisk/stasis_channels.h"
 #include "asterisk/max_forwards.h"
+#include "asterisk/message.h"
 
 /*** DOCUMENTATION
  ***/
@@ -314,25 +315,23 @@ static char *handle_cli_core_show_channeltypes(struct ast_cli_entry *e, int cmd,
 static char *complete_channeltypes(struct ast_cli_args *a)
 {
 	struct chanlist *cl;
-	int which = 0;
 	int wordlen;
-	char *ret = NULL;
 
-	if (a->pos != 3)
+	if (a->pos != 3) {
 		return NULL;
+	}
 
 	wordlen = strlen(a->word);
 
 	AST_RWLIST_RDLOCK(&backends);
 	AST_RWLIST_TRAVERSE(&backends, cl, list) {
-		if (!strncasecmp(a->word, cl->tech->type, wordlen) && ++which > a->n) {
-			ret = ast_strdup(cl->tech->type);
-			break;
+		if (!strncasecmp(a->word, cl->tech->type, wordlen)) {
+			ast_cli_completion_add(ast_strdup(cl->tech->type));
 		}
 	}
 	AST_RWLIST_UNLOCK(&backends);
 
-	return ret;
+	return NULL;
 }
 
 /*! \brief Show details about a channel driver - CLI command */
@@ -790,7 +789,7 @@ static int does_id_conflict(const char *uniqueid)
 }
 
 /*! \brief Create a new channel structure */
-static struct ast_channel * attribute_malloc __attribute__((format(printf, 15, 0)))
+static struct ast_channel *__attribute__((format(printf, 15, 0)))
 __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char *cid_name,
 		       const char *acctcode, const char *exten, const char *context, const struct ast_assigned_ids *assignedids,
 		       const struct ast_channel *requestor, enum ama_flags amaflag, struct ast_endpoint *endpoint,
@@ -819,7 +818,20 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 
 	ast_channel_stage_snapshot(tmp);
 
-	if (!(nativeformats = ast_format_cap_alloc(AST_FORMAT_CAP_FLAG_DEFAULT))) {
+	/*
+	 * Init file descriptors to unopened state so
+	 * the destructor can know not to close them.
+	 */
+	ast_channel_timingfd_set(tmp, -1);
+	ast_channel_internal_alertpipe_clear(tmp);
+	ast_channel_internal_fd_clear_all(tmp);
+
+#ifdef HAVE_EPOLL
+	ast_channel_epfd_set(tmp, epoll_create(25));
+#endif
+
+	nativeformats = ast_format_cap_alloc(AST_FORMAT_CAP_FLAG_DEFAULT);
+	if (!nativeformats) {
 		/*
 		 * Aborting the channel creation.  We do not need to complete staging
 		 * the channel snapshot because the channel has not been finalized or
@@ -836,18 +848,6 @@ __ast_channel_alloc_ap(int needqueue, int state, const char *cid_num, const char
 	ast_channel_set_rawreadformat(tmp, ast_format_none);
 	ast_channel_set_writeformat(tmp, ast_format_none);
 	ast_channel_set_readformat(tmp, ast_format_none);
-
-	/*
-	 * Init file descriptors to unopened state so
-	 * the destructor can know not to close them.
-	 */
-	ast_channel_timingfd_set(tmp, -1);
-	ast_channel_internal_alertpipe_clear(tmp);
-	ast_channel_internal_fd_clear_all(tmp);
-
-#ifdef HAVE_EPOLL
-	ast_channel_epfd_set(tmp, epoll_create(25));
-#endif
 
 	if (!(schedctx = ast_sched_context_create())) {
 		ast_log(LOG_WARNING, "Channel allocation failed: Unable to create schedule context\n");
@@ -1515,6 +1515,7 @@ int ast_is_deferrable_frame(const struct ast_frame *frame)
 	case AST_FRAME_BRIDGE_ACTION_SYNC:
 	case AST_FRAME_CONTROL:
 	case AST_FRAME_TEXT:
+	case AST_FRAME_TEXT_DATA:
 	case AST_FRAME_IMAGE:
 	case AST_FRAME_HTML:
 		return 1;
@@ -1527,6 +1528,7 @@ int ast_is_deferrable_frame(const struct ast_frame *frame)
 	case AST_FRAME_IAX:
 	case AST_FRAME_CNG:
 	case AST_FRAME_MODEM:
+	case AST_FRAME_RTCP:
 		return 0;
 	}
 	return 0;
@@ -2733,10 +2735,10 @@ void ast_hangup(struct ast_channel *chan)
 	ast_channel_generator_set(chan, NULL);
 
 	if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING)) {
-		ast_log(LOG_WARNING, "Hard hangup called by thread %ld on %s, while fd "
-			"is blocked by thread %ld in procedure %s!  Expect a failure\n",
-			(long) pthread_self(), ast_channel_name(chan), (long)ast_channel_blocker(chan), ast_channel_blockproc(chan));
-		ast_assert(ast_test_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING) == 0);
+		ast_log(LOG_WARNING, "Hard hangup called by thread LWP %d on %s, while blocked by thread LWP %d in procedure %s!  Expect a failure\n",
+			ast_get_tid(), ast_channel_name(chan), ast_channel_blocker_tid(chan),
+			ast_channel_blockproc(chan));
+		ast_assert(0);
 	}
 
 	if (ast_channel_tech(chan)->hangup) {
@@ -2885,11 +2887,13 @@ int __ast_answer(struct ast_channel *chan, unsigned int delay)
 				case AST_FRAME_VOICE:
 				case AST_FRAME_VIDEO:
 				case AST_FRAME_TEXT:
+				case AST_FRAME_TEXT_DATA:
 				case AST_FRAME_DTMF_BEGIN:
 				case AST_FRAME_DTMF_END:
 				case AST_FRAME_IMAGE:
 				case AST_FRAME_HTML:
 				case AST_FRAME_MODEM:
+				case AST_FRAME_RTCP:
 					done = 1;
 					break;
 				case AST_FRAME_CONTROL:
@@ -3262,10 +3266,10 @@ static struct ast_channel *ast_waitfor_nandfds_simple(struct ast_channel *chan, 
 		}
 	}
 
-	ast_channel_unlock(chan);
-
 	/* Time to make this channel block... */
 	CHECK_BLOCKING(chan);
+
+	ast_channel_unlock(chan);
 
 	if (*ms > 0) {
 		start = ast_tvnow();
@@ -3275,7 +3279,9 @@ static struct ast_channel *ast_waitfor_nandfds_simple(struct ast_channel *chan, 
 	res = epoll_wait(ast_channel_epfd(chan), ev, 1, rms);
 
 	/* Stop blocking */
+	ast_channel_lock(chan);
 	ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
+	ast_channel_unlock(chan);
 
 	/* Simulate a timeout if we were interrupted */
 	if (res < 0) {
@@ -3301,12 +3307,14 @@ static struct ast_channel *ast_waitfor_nandfds_simple(struct ast_channel *chan, 
 
 	/* See what events are pending */
 	aed = ev[0].data.ptr;
+	ast_channel_lock(chan);
 	ast_channel_fdno_set(chan, aed->which);
 	if (ev[0].events & EPOLLPRI) {
 		ast_set_flag(ast_channel_flags(chan), AST_FLAG_EXCEPTION);
 	} else {
 		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_EXCEPTION);
 	}
+	ast_channel_unlock(chan);
 
 	if (*ms > 0) {
 		*ms -= ast_tvdiff_ms(ast_tvnow(), start);
@@ -3342,8 +3350,8 @@ static struct ast_channel *ast_waitfor_nandfds_complex(struct ast_channel **c, i
 				whentohangup = diff;
 			}
 		}
-		ast_channel_unlock(c[i]);
 		CHECK_BLOCKING(c[i]);
+		ast_channel_unlock(c[i]);
 	}
 
 	rms = *ms;
@@ -3361,7 +3369,9 @@ static struct ast_channel *ast_waitfor_nandfds_complex(struct ast_channel **c, i
 	res = epoll_wait(ast_channel_epfd(c[0]), ev, 25, rms);
 
 	for (i = 0; i < n; i++) {
+		ast_channel_lock(c[i]);
 		ast_clear_flag(ast_channel_flags(c[i]), AST_FLAG_BLOCKING);
+		ast_channel_unlock(c[i]);
 	}
 
 	if (res < 0) {
@@ -3396,12 +3406,14 @@ static struct ast_channel *ast_waitfor_nandfds_complex(struct ast_channel **c, i
 		}
 
 		winner = aed->chan;
+		ast_channel_lock(winner);
 		if (ev[i].events & EPOLLPRI) {
 			ast_set_flag(ast_channel_flags(winner), AST_FLAG_EXCEPTION);
 		} else {
 			ast_clear_flag(ast_channel_flags(winner), AST_FLAG_EXCEPTION);
 		}
 		ast_channel_fdno_set(winner, aed->which);
+		ast_channel_unlock(winner);
 	}
 
 	if (*ms > 0) {
@@ -3952,7 +3964,6 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 			}
 		}
 	} else {
-		ast_channel_blocker_set(chan, pthread_self());
 		if (ast_test_flag(ast_channel_flags(chan), AST_FLAG_EXCEPTION)) {
 			if (ast_channel_tech(chan)->exception)
 				f = ast_channel_tech(chan)->exception(chan);
@@ -4028,6 +4039,11 @@ static struct ast_frame *__ast_read(struct ast_channel *chan, int dropaudio)
 							read_action_payload->payload_size);
 					}
 					ast_party_connected_line_free(&connected);
+					ast_channel_lock(chan);
+					break;
+				case AST_FRAME_READ_ACTION_SEND_TEXT:
+					ast_channel_unlock(chan);
+					ast_sendtext(chan, (const char *) read_action_payload->payload);
 					ast_channel_lock(chan);
 					break;
 				}
@@ -4871,9 +4887,11 @@ char *ast_recvtext(struct ast_channel *chan, int timeout)
 	return buf;
 }
 
-int ast_sendtext(struct ast_channel *chan, const char *text)
+int ast_sendtext_data(struct ast_channel *chan, struct ast_msg_data *msg)
 {
 	int res = 0;
+	const char *body = ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_BODY);
+	const char *content_type = ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_CONTENT_TYPE);
 
 	ast_channel_lock(chan);
 	/* Stop if we're a zombie or need a soft hangup */
@@ -4882,33 +4900,74 @@ int ast_sendtext(struct ast_channel *chan, const char *text)
 		return -1;
 	}
 
-	if (ast_strlen_zero(text)) {
-		ast_channel_unlock(chan);
-		return 0;
-	}
-
 	CHECK_BLOCKING(chan);
-	if (ast_channel_tech(chan)->write_text && (ast_format_cap_has_type(ast_channel_nativeformats(chan), AST_MEDIA_TYPE_TEXT))) {
+	if (ast_channel_tech(chan)->write_text
+		&& (ast_strlen_zero(content_type) || ast_begins_with(content_type, "text/"))
+		&& (ast_format_cap_has_type(ast_channel_nativeformats(chan), AST_MEDIA_TYPE_TEXT))) {
 		struct ast_frame f;
+		size_t body_len = strlen(body) + 1;
 
+		/* Process as T.140 text (moved here from ast_sendtext() */
 		memset(&f, 0, sizeof(f));
-		f.frametype = AST_FRAME_TEXT;
 		f.src = "DIALPLAN";
-		f.mallocd = AST_MALLOCD_DATA;
-		f.datalen = strlen(text);
-		f.data.ptr = ast_strdup(text);
 		f.subclass.format = ast_format_t140;
-
+		f.frametype = AST_FRAME_TEXT;
+		f.datalen = body_len;
+		f.mallocd = AST_MALLOCD_DATA;
+		f.data.ptr = ast_strdup(body);
 		if (f.data.ptr) {
 			res = ast_channel_tech(chan)->write_text(chan, &f);
-			ast_frfree(&f);
+		} else {
+			res = -1;
 		}
-	} else if (ast_channel_tech(chan)->send_text) {
-		res = ast_channel_tech(chan)->send_text(chan, text);
+		ast_frfree(&f);
+	} else if ((ast_channel_tech(chan)->properties & AST_CHAN_TP_SEND_TEXT_DATA)
+		&& ast_channel_tech(chan)->send_text_data) {
+		/* Send enhanced message to a channel driver that supports it */
+		ast_debug(1, "Sending TEXT_DATA from '%s' to %s:%s %s\n",
+			ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_FROM),
+			ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_TO),
+			ast_channel_name(chan), body);
+		res = ast_channel_tech(chan)->send_text_data(chan, msg);
+	} else if (ast_channel_tech(chan)->send_text
+		&& (ast_strlen_zero(content_type) || ast_begins_with(content_type, "text/"))) {
+		/* Send the body of an enhanced message to a channel driver that supports only a char str */
+		ast_debug(1, "Sending TEXT to %s: %s\n", ast_channel_name(chan), body);
+		res = ast_channel_tech(chan)->send_text(chan, body);
+	} else {
+		ast_debug(1, "Channel technology does not support sending content type '%s' on channel '%s'\n",
+			S_OR(content_type, "text/plain"), ast_channel_name(chan));
+		res = -1;
 	}
 	ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 	ast_channel_unlock(chan);
 	return res;
+}
+
+int ast_sendtext(struct ast_channel *chan, const char *text)
+{
+	struct ast_msg_data *msg;
+	int rc;
+	struct ast_msg_data_attribute attrs[] =
+	{
+		{
+			.type = AST_MSG_DATA_ATTR_BODY,
+			.value = (char *)text,
+		}
+	};
+
+	if (ast_strlen_zero(text)) {
+		return 0;
+	}
+
+	msg = ast_msg_data_alloc(AST_MSG_DATA_SOURCE_TYPE_UNKNOWN, attrs, ARRAY_LEN(attrs));
+	if (!msg) {
+		return -1;
+	}
+	rc = ast_sendtext_data(chan, msg);
+	ast_free(msg);
+
+	return rc;
 }
 
 int ast_senddigit_begin(struct ast_channel *chan, char digit)
@@ -4982,12 +5041,28 @@ int ast_senddigit_end(struct ast_channel *chan, char digit, unsigned int duratio
 
 int ast_senddigit(struct ast_channel *chan, char digit, unsigned int duration)
 {
+	if (duration < AST_DEFAULT_EMULATE_DTMF_DURATION) {
+		duration = AST_DEFAULT_EMULATE_DTMF_DURATION;
+	}
 	if (ast_channel_tech(chan)->send_digit_begin) {
 		ast_senddigit_begin(chan, digit);
-		ast_safe_sleep(chan, (duration >= AST_DEFAULT_EMULATE_DTMF_DURATION ? duration : AST_DEFAULT_EMULATE_DTMF_DURATION));
+		ast_safe_sleep(chan, duration);
 	}
 
-	return ast_senddigit_end(chan, digit, (duration >= AST_DEFAULT_EMULATE_DTMF_DURATION ? duration : AST_DEFAULT_EMULATE_DTMF_DURATION));
+	return ast_senddigit_end(chan, digit, duration);
+}
+
+int ast_senddigit_external(struct ast_channel *chan, char digit, unsigned int duration)
+{
+	if (duration < AST_DEFAULT_EMULATE_DTMF_DURATION) {
+		duration = AST_DEFAULT_EMULATE_DTMF_DURATION;
+	}
+	if (ast_channel_tech(chan)->send_digit_begin) {
+		ast_senddigit_begin(chan, digit);
+		usleep(duration * 1000);
+	}
+
+	return ast_senddigit_end(chan, digit, duration);
 }
 
 int ast_prod(struct ast_channel *chan)
@@ -5157,11 +5232,9 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 				/* There is a generator running while we're in the middle of a digit.
 				 * It's probably inband DTMF, so go ahead and pass it so it can
 				 * stop the generator */
-				ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 				ast_channel_unlock(chan);
 				res = ast_senddigit_end(chan, fr->subclass.integer, fr->len);
 				ast_channel_lock(chan);
-				CHECK_BLOCKING(chan);
 			} else if (fr->frametype == AST_FRAME_CONTROL
 				&& fr->subclass.integer == AST_CONTROL_UNHOLD) {
 				/*
@@ -5179,7 +5252,6 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 	/* High bit prints debugging */
 	if (ast_channel_fout(chan) & DEBUGCHAN_FLAG)
 		ast_frame_dump(ast_channel_name(chan), fr, ">>");
-	CHECK_BLOCKING(chan);
 	switch (fr->frametype) {
 	case AST_FRAME_CONTROL:
 		indicate_data_internal(chan, fr->subclass.integer, fr->data.ptr, fr->datalen);
@@ -5193,11 +5265,9 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 				f = fr;
 		}
 		send_dtmf_begin_event(chan, DTMF_SENT, fr->subclass.integer);
-		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 		ast_channel_unlock(chan);
 		res = ast_senddigit_begin(chan, fr->subclass.integer);
 		ast_channel_lock(chan);
-		CHECK_BLOCKING(chan);
 		break;
 	case AST_FRAME_DTMF_END:
 		if (ast_channel_audiohooks(chan)) {
@@ -5209,13 +5279,12 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 			}
 		}
 		send_dtmf_end_event(chan, DTMF_SENT, fr->subclass.integer, fr->len);
-		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 		ast_channel_unlock(chan);
 		res = ast_senddigit_end(chan, fr->subclass.integer, fr->len);
 		ast_channel_lock(chan);
-		CHECK_BLOCKING(chan);
 		break;
 	case AST_FRAME_TEXT:
+		CHECK_BLOCKING(chan);
 		if (ast_format_cmp(fr->subclass.format, ast_format_t140) == AST_FORMAT_CMP_EQUAL) {
 			res = (ast_channel_tech(chan)->write_text == NULL) ? 0 :
 				ast_channel_tech(chan)->write_text(chan, fr);
@@ -5223,19 +5292,26 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 			res = (ast_channel_tech(chan)->send_text == NULL) ? 0 :
 				ast_channel_tech(chan)->send_text(chan, (char *) fr->data.ptr);
 		}
+		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 		break;
 	case AST_FRAME_HTML:
+		CHECK_BLOCKING(chan);
 		res = (ast_channel_tech(chan)->send_html == NULL) ? 0 :
 			ast_channel_tech(chan)->send_html(chan, fr->subclass.integer, (char *) fr->data.ptr, fr->datalen);
+		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 		break;
 	case AST_FRAME_VIDEO:
 		/* XXX Handle translation of video codecs one day XXX */
+		CHECK_BLOCKING(chan);
 		res = (ast_channel_tech(chan)->write_video == NULL) ? 0 :
 			ast_channel_tech(chan)->write_video(chan, fr);
+		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 		break;
 	case AST_FRAME_MODEM:
+		CHECK_BLOCKING(chan);
 		res = (ast_channel_tech(chan)->write == NULL) ? 0 :
 			ast_channel_tech(chan)->write(chan, fr);
+		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 		break;
 	case AST_FRAME_VOICE:
 		if (ast_channel_tech(chan)->write == NULL)
@@ -5396,6 +5472,7 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 		/* the translator on chan->writetrans may have returned multiple frames
 		   from the single frame we passed in; if so, feed each one of them to the
 		   channel, freeing each one after it has been written */
+		CHECK_BLOCKING(chan);
 		if ((f != fr) && AST_LIST_NEXT(f, frame_list)) {
 			struct ast_frame *cur, *next = NULL;
 			unsigned int skip = 0;
@@ -5424,6 +5501,7 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 		} else {
 			res = ast_channel_tech(chan)->write(chan, f);
 		}
+		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 		break;
 	case AST_FRAME_NULL:
 	case AST_FRAME_IAX:
@@ -5434,13 +5512,14 @@ int ast_write(struct ast_channel *chan, struct ast_frame *fr)
 		/* At this point, fr is the incoming frame and f is NULL.  Channels do
 		 * not expect to get NULL as a frame pointer and will segfault.  Hence,
 		 * we output the original frame passed in. */
+		CHECK_BLOCKING(chan);
 		res = ast_channel_tech(chan)->write(chan, fr);
+		ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 		break;
 	}
 
 	if (f && f != fr)
 		ast_frfree(f);
-	ast_clear_flag(ast_channel_flags(chan), AST_FLAG_BLOCKING);
 
 	/* Consider a write failure to force a soft hangup */
 	if (res < 0) {
@@ -5985,7 +6064,9 @@ struct ast_channel *__ast_request_and_dial(const char *type, struct ast_format_c
 	 */
 	ast_set_callerid(chan, cid_num, cid_name, cid_num);
 
+	ast_channel_lock(chan);
 	ast_set_flag(ast_channel_flags(chan), AST_FLAG_ORIGINATED);
+	ast_channel_unlock(chan);
 	ast_party_connected_line_set_init(&connected, ast_channel_connected(chan));
 	if (cid_num) {
 		connected.id.number.valid = 1;
@@ -6568,11 +6649,15 @@ static int ast_channel_make_compatible_helper(struct ast_channel *from, struct a
 	 * to use SLINEAR between channels, but only if there is
 	 * no direct conversion available. If generic PLC is
 	 * desired, then transcoding via SLINEAR is a requirement
+	 * even if the formats are the same.
 	 */
-	if (ast_format_cmp(best_dst_fmt, best_src_fmt) == AST_FORMAT_CMP_NOT_EQUAL
-		&& (ast_opt_generic_plc || ast_opt_transcode_via_slin)) {
+	if (ast_opt_generic_plc_on_equal_codecs
+		|| (ast_format_cmp(best_dst_fmt, best_src_fmt) == AST_FORMAT_CMP_NOT_EQUAL
+			&& (ast_opt_generic_plc || ast_opt_transcode_via_slin))) {
+
 		int use_slin = (ast_format_cache_is_slinear(best_src_fmt)
-			|| ast_format_cache_is_slinear(best_dst_fmt)) ? 1 : 0;
+			|| ast_format_cache_is_slinear(best_dst_fmt))
+			? 1 : ast_opt_generic_plc_on_equal_codecs;
 
 		if (use_slin || ast_translate_path_steps(best_dst_fmt, best_src_fmt) != 1) {
 			int best_sample_rate = (ast_format_get_sample_rate(best_src_fmt) > ast_format_get_sample_rate(best_dst_fmt)) ?
@@ -7666,7 +7751,16 @@ int ast_plc_reload(void)
 	for (var = ast_variable_browse(cfg, "plc"); var; var = var->next) {
 		if (!strcasecmp(var->name, "genericplc")) {
 			ast_set2_flag(&ast_options, ast_true(var->value), AST_OPT_FLAG_GENERIC_PLC);
+		} else if (!strcasecmp(var->name, "genericplc_on_equal_codecs")) {
+			ast_set2_flag(&ast_options, ast_true(var->value), AST_OPT_FLAG_GENERIC_PLC_ON_EQUAL_CODECS);
 		}
+	}
+
+	/*
+	 * Force on_equal_codecs to false if generic_plc is false.
+	 */
+	if (!ast_opt_generic_plc) {
+		ast_set2_flag(&ast_options, 0, AST_OPT_FLAG_GENERIC_PLC_ON_EQUAL_CODECS);
 	}
 	ast_config_destroy(cfg);
 	return 0;

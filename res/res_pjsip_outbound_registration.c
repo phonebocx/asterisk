@@ -512,7 +512,8 @@ static struct ast_sip_endpoint_identifier line_identifier = {
 /*! \brief Helper function which cancels the timer on a client */
 static void cancel_registration(struct sip_outbound_registration_client_state *client_state)
 {
-	if (pj_timer_heap_cancel(pjsip_endpt_get_timer_heap(ast_sip_get_pjsip_endpoint()), &client_state->timer)) {
+	if (pj_timer_heap_cancel_if_active(pjsip_endpt_get_timer_heap(ast_sip_get_pjsip_endpoint()),
+		&client_state->timer, client_state->timer.id)) {
 		/* The timer was successfully cancelled, drop the refcount of client_state */
 		ao2_ref(client_state, -1);
 	}
@@ -834,6 +835,8 @@ static int reregister_immediately_cb(void *obj)
  *
  * \param obj What is needed to initiate a reregister attempt.
  *
+ * \note Normally executed by the pjsip monitor thread.
+ *
  * \return Nothing
  */
 static void registration_transport_shutdown_cb(void *obj)
@@ -1130,8 +1133,8 @@ static struct sip_outbound_registration_state *sip_outbound_registration_state_a
 	}
 
 	state->client_state->status = SIP_REGISTRATION_UNREGISTERED;
-	state->client_state->timer.user_data = state->client_state;
-	state->client_state->timer.cb = sip_outbound_registration_timer_cb;
+	pj_timer_entry_init(&state->client_state->timer, 0, state->client_state,
+		sip_outbound_registration_timer_cb);
 	state->client_state->transport_name = ast_strdup(registration->transport);
 	state->client_state->registration_name =
 		ast_strdup(ast_sorcery_object_get_id(registration));
@@ -1480,7 +1483,7 @@ static int sip_outbound_registration_apply(const struct ast_sorcery *sorcery, vo
 		return -1;
 	}
 
-	if (ast_sip_push_task_synchronous(new_state->client_state->serializer,
+	if (ast_sip_push_task_wait_serializer(new_state->client_state->serializer,
 		sip_outbound_registration_regc_alloc, new_state)) {
 		return -1;
 	}
@@ -1850,8 +1853,7 @@ static int ami_outbound_registration_detail(void *obj, void *arg, int flags)
 	struct sip_ami_outbound *ami = arg;
 
 	ami->registration = obj;
-	return ast_sip_push_task_synchronous(
-		NULL, ami_outbound_registration_task, ami);
+	return ast_sip_push_task_wait_servant(NULL, ami_outbound_registration_task, ami);
 }
 
 static int ami_show_outbound_registrations(struct mansession *s,

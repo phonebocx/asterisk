@@ -57,6 +57,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/causes.h"
 #include "asterisk/test.h"
 #include "asterisk/sem.h"
+#include "asterisk/message.h"
 
 /*!
  * \brief Used to queue an action frame onto a bridge channel and write an action frame into a bridge.
@@ -997,6 +998,20 @@ int ast_bridge_channel_queue_frame(struct ast_bridge_channel *bridge_channel, st
 		ast_bridge_channel_unlock(bridge_channel);
 		bridge_frame_free(dup);
 		return 0;
+	}
+
+	if (DEBUG_ATLEAST(1)) {
+		if (fr->frametype == AST_FRAME_TEXT) {
+			ast_log(LOG_DEBUG, "Queuing TEXT frame to '%s': %*.s\n", ast_channel_name(bridge_channel->chan),
+				fr->datalen, (char *)fr->data.ptr);
+		} else if (fr->frametype == AST_FRAME_TEXT_DATA) {
+			struct ast_msg_data *msg = fr->data.ptr;
+			ast_log(LOG_DEBUG, "Queueing TEXT_DATA frame from '%s' to '%s:%s': %s\n",
+				ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_FROM),
+				ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_TO),
+				ast_channel_name(bridge_channel->chan),
+				ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_BODY));
+		}
 	}
 
 	AST_LIST_INSERT_TAIL(&bridge_channel->wr_queue, dup, frame_list);
@@ -2289,6 +2304,7 @@ static void bridge_channel_handle_write(struct ast_bridge_channel *bridge_channe
 {
 	struct ast_frame *fr;
 	struct sync_payload *sync_payload;
+	struct ast_msg_data *msg;
 
 	ast_bridge_channel_lock(bridge_channel);
 
@@ -2321,6 +2337,7 @@ static void bridge_channel_handle_write(struct ast_bridge_channel *bridge_channe
 	AST_LIST_TRAVERSE_SAFE_END;
 
 	ast_bridge_channel_unlock(bridge_channel);
+
 	if (!fr) {
 		/*
 		 * Wait some to reduce CPU usage from a tight loop
@@ -2343,6 +2360,20 @@ static void bridge_channel_handle_write(struct ast_bridge_channel *bridge_channe
 		bridge_channel_handle_control(bridge_channel, fr);
 		break;
 	case AST_FRAME_NULL:
+		break;
+	case AST_FRAME_TEXT:
+		ast_debug(1, "Sending TEXT frame to '%s': %*.s\n",
+			ast_channel_name(bridge_channel->chan), fr->datalen, (char *)fr->data.ptr);
+		ast_sendtext(bridge_channel->chan, fr->data.ptr);
+		break;
+	case AST_FRAME_TEXT_DATA:
+		msg = (struct ast_msg_data *)fr->data.ptr;
+		ast_debug(1, "Sending TEXT_DATA frame from '%s' to '%s:%s': %s\n",
+			ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_FROM),
+			ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_TO),
+			ast_channel_name(bridge_channel->chan),
+			ast_msg_data_get_attribute(msg, AST_MSG_DATA_ATTR_BODY));
+		ast_sendtext_data(bridge_channel->chan, msg);
 		break;
 	default:
 		/* Write the frame to the channel. */
@@ -2646,6 +2677,7 @@ static void bridge_channel_event_join_leave(struct ast_bridge_channel *bridge_ch
 int bridge_channel_internal_join(struct ast_bridge_channel *bridge_channel)
 {
 	int res = 0;
+	uint8_t indicate_src_change = 0;
 	struct ast_bridge_features *channel_features;
 	struct ast_channel *swap;
 
@@ -2715,7 +2747,7 @@ int bridge_channel_internal_join(struct ast_bridge_channel *bridge_channel)
 		 */
 		if (!(bridge_channel->bridge->technology->capabilities
 			& AST_BRIDGE_CAPABILITY_MULTIMIX)) {
-			ast_indicate(bridge_channel->chan, AST_CONTROL_SRCCHANGE);
+			indicate_src_change = 1;
 		}
 
 		bridge_channel_impart_signal(bridge_channel->chan);
@@ -2724,6 +2756,10 @@ int bridge_channel_internal_join(struct ast_bridge_channel *bridge_channel)
 		/* Must release any swap ref after unlocking the bridge. */
 		ao2_t_cleanup(swap, "Bridge push with swap successful");
 		swap = NULL;
+
+		if (indicate_src_change) {
+			ast_indicate(bridge_channel->chan, AST_CONTROL_SRCCHANGE);
+		}
 
 		bridge_channel_event_join_leave(bridge_channel, AST_BRIDGE_HOOK_TYPE_JOIN);
 

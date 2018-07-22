@@ -1104,3 +1104,15 @@ ALTER TABLE ps_subscription_persistence ADD COLUMN prune_on_boot ENUM('yes','no'
 
 UPDATE alembic_version SET version_num='d3e4284f8707' WHERE alembic_version.version_num = '52798ad97bdf';
 
+-- Running upgrade d3e4284f8707 -> 0be05c3a8225
+
+ALTER TABLE ps_systems ADD COLUMN follow_early_media_fork ENUM('yes','no');
+
+ALTER TABLE ps_systems ADD COLUMN accept_multiple_sdp_answers ENUM('yes','no');
+
+ALTER TABLE ps_endpoints ADD COLUMN follow_early_media_fork ENUM('yes','no');
+
+ALTER TABLE ps_endpoints ADD COLUMN accept_multiple_sdp_answers ENUM('yes','no');
+
+UPDATE alembic_version SET version_num='0be05c3a8225' WHERE alembic_version.version_num = 'd3e4284f8707';
+

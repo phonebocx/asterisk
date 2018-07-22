@@ -196,7 +196,9 @@ static int gethostbyname_r (const char *name, struct hostent *ret, char *buf,
 */
 struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp)
 {
+#ifndef HAVE_GETHOSTBYNAME_R_5
 	int res;
+#endif
 	int herrno;
 	int dots = 0;
 	const char *s;
@@ -206,7 +208,6 @@ struct hostent *ast_gethostbyname(const char *host, struct ast_hostent *hp)
 	   integers, we break with tradition and refuse to look up a
 	   pure integer */
 	s = host;
-	res = 0;
 	while (s && *s) {
 		if (*s == '.')
 			dots++;
@@ -2505,7 +2506,7 @@ char *ast_eid_to_str(char *s, int maxlen, struct ast_eid *eid)
 	return os;
 }
 
-#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__Darwin__)
+#if defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__Darwin__)
 #include <ifaddrs.h>
 #include <net/if_dl.h>
 
@@ -2567,7 +2568,6 @@ void ast_set_default_eid(struct ast_eid *eid)
 {
 	int s;
 	int x;
-	int res = 0;
 	struct lifreq *ifr = NULL;
 	struct lifnum ifn;
 	struct lifconf ifc;
@@ -2831,4 +2831,39 @@ int __ast_fd_set_flags(int fd, int flags, enum ast_fd_flag_operation op,
 	}
 
 	return 0;
+}
+
+/*!
+ * \brief A thread local indicating whether the current thread is a user interface.
+ */
+AST_THREADSTORAGE(thread_user_interface_tl);
+
+int ast_thread_user_interface_set(int is_user_interface)
+{
+	int *thread_user_interface;
+
+	thread_user_interface = ast_threadstorage_get(
+		&thread_user_interface_tl, sizeof(*thread_user_interface));
+	if (thread_user_interface == NULL) {
+		ast_log(LOG_ERROR, "Error setting user interface status for current thread\n");
+		return -1;
+	}
+
+	*thread_user_interface = !!is_user_interface;
+	return 0;
+}
+
+int ast_thread_is_user_interface(void)
+{
+	int *thread_user_interface;
+
+	thread_user_interface = ast_threadstorage_get(
+		&thread_user_interface_tl, sizeof(*thread_user_interface));
+	if (thread_user_interface == NULL) {
+		ast_log(LOG_ERROR, "Error checking thread's user interface status\n");
+		/* On error, assume that we are not a user interface thread */
+		return 0;
+	}
+
+	return *thread_user_interface;
 }

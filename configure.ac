@@ -62,7 +62,12 @@ case "${host_os}" in
 esac
 
 case "${host_os}" in
-     freebsd*)
+     netbsd*)
+     ac_default_prefix=/usr/pkg
+     CPPFLAGS=-I/usr/pkg/include
+     LDFLAGS=-L/usr/pkg/lib
+     ;;
+     dragonfly*|freebsd*)
      ac_default_prefix=/usr/local
      CPPFLAGS=-I/usr/local/include
      LDFLAGS=-L/usr/local/lib
@@ -147,7 +152,7 @@ AC_SUBST(HOST_OS)
 PBX_WINARCH=0
 
 case "${host_os}" in
-     freebsd*)
+     dragonfly*|freebsd*)
      OSARCH=FreeBSD
      ;;
      netbsd*)
@@ -282,22 +287,25 @@ AC_PATH_PROG([PATCH], [patch], :)
 AC_PATH_PROG([SED], [sed], :)
 AC_PATH_PROG([NM], [nm], :)
 
+DOWNLOAD=":"
+DOWNLOAD_TO_STDOUT=
+DOWNLOAD_TIMEOUT=
 if test "${WGET}" != ":" ; then
   DOWNLOAD=${WGET}
   DOWNLOAD_TO_STDOUT="${WGET} -q -O-"
   DOWNLOAD_TIMEOUT='--timeout=$1'
-else if test "${CURL}" != ":" ; then
+elif test "${CURL}" != ":" ; then
   DOWNLOAD="${CURL} -O --progress-bar -w \"%{url_effective}\n\""
   DOWNLOAD_TO_STDOUT="${CURL} -Ls"
   DOWNLOAD_TIMEOUT='--max-time $(or $2,$1)'
 else
-  AC_PATH_PROG([FETCH], [fetch], [:])
-  DOWNLOAD=${FETCH}
-  DOWNLOAD_TO_STDOUT="${FETCH} -o-"
-  DOWNLOAD_TIMEOUT='--timeout=$(or $2,$1)'
+  AC_PATH_PROG([FETCH], [fetch], :)
+  if test "${FETCH}" != ":" ; then
+    DOWNLOAD=${FETCH}
+    DOWNLOAD_TO_STDOUT="${FETCH} -o-"
+    DOWNLOAD_TIMEOUT='--timeout=$(or $2,$1)'
+  fi
 fi
-fi
-
 AC_SUBST(DOWNLOAD)
 AC_SUBST(DOWNLOAD_TO_STDOUT)
 AC_SUBST(DOWNLOAD_TIMEOUT)
@@ -453,7 +461,6 @@ AST_EXT_LIB_SETUP([CURSES], [curses], [curses])
 AST_EXT_LIB_SETUP([CRYPT], [password and data encryption], [crypt])
 AST_EXT_LIB_SETUP([CRYPTO], [OpenSSL Cryptography], [crypto])
 AST_EXT_LIB_SETUP_OPTIONAL([OPENSSL_SRTP], [OpenSSL SRTP Extension Support], [CRYPTO], [crypto])
-AST_EXT_LIB_SETUP_OPTIONAL([OPENSSL_EC], [OpenSSL Elliptic Curve Support], [CRYPTO], [crypto])
 AST_EXT_LIB_SETUP([DAHDI], [DAHDI], [dahdi])
 AST_EXT_LIB_SETUP([FFMPEG], [Ffmpeg and avcodec], [avcodec])
 AST_EXT_LIB_SETUP([GSM], [External GSM], [gsm], [, use 'internal' GSM otherwise])
@@ -479,7 +486,6 @@ AST_EXT_LIB_SETUP_OPTIONAL([LIBEDIT_IS_UNICODE], [Libedit compiled for unicode],
 AST_EXT_LIB_SETUP([LIBXML2], [LibXML2], [libxml2])
 AST_EXT_LIB_SETUP([LIBXSLT], [LibXSLT], [libxslt])
 AST_EXT_LIB_SETUP_OPTIONAL([LIBXSLT_CLEANUP], [LibXSLT Library Cleanup Function], [LIBXSLT], [libxslt])
-AST_EXT_LIB_SETUP([LTDL], [libtool], [ltdl])
 AST_EXT_LIB_SETUP([LUA], [Lua], [lua])
 AST_EXT_LIB_SETUP([MISDN], [mISDN user], [misdn])
 AST_EXT_LIB_SETUP([MYSQLCLIENT], [MySQL client], [mysqlclient])
@@ -510,6 +516,7 @@ AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_EVSUB_GRP_LOCK], [PJSIP EVSUB Group Lock suppo
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_INV_SESSION_REF], [PJSIP INVITE Session Reference Count support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_AUTH_CLT_DEINIT], [pjsip_auth_clt_deinit support], [PJPROJECT], [pjsip])
 AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_TSX_LAYER_FIND_TSX2], [pjsip_tsx_layer_find_tsx2 support], [PJPROJECT], [pjsip])
+AST_EXT_LIB_SETUP_OPTIONAL([PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS], [PJSIP INVITE Accept Multiple SDP Answers], [PJPROJECT], [pjsip])
 fi
 
 AST_EXT_LIB_SETUP([POPT], [popt], [popt])
@@ -576,23 +583,57 @@ AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h inttypes.h libintl.h limits.h locale.h malloc.h netdb.h netinet/in.h stddef.h stdint.h stdlib.h string.h strings.h sys/event.h sys/file.h sys/ioctl.h sys/param.h sys/socket.h sys/time.h syslog.h termios.h unistd.h utime.h arpa/nameser.h sys/io.h])
 
-# Any one of these packages support a mandatory requirement, so we want to check on them as early as possible.
-AST_EXT_LIB_CHECK([TERMCAP], [termcap], [tgetent], [])
-AST_EXT_LIB_CHECK([TINFO], [tinfo], [tgetent], [])
-AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
-AST_EXT_LIB_CHECK([NCURSES], [ncurses], [initscr], [curses.h])
-
+# Find required NetBSD Editline library (libedit).
 EDITLINE_LIB=""
-if test "x$TERMCAP_LIB" != "x" ; then
-  EDITLINE_LIB="$TERMCAP_LIB"
-elif test "x$TINFO_LIB" != "x" ; then
-  EDITLINE_LIB="$TINFO_LIB"
-elif test "x$CURSES_LIB" != "x" ; then
-  EDITLINE_LIB="$CURSES_LIB"
-elif test "x$NCURSES_LIB" != "x" ; then
-  EDITLINE_LIB="$NCURSES_LIB"
-else
-  AC_MSG_ERROR([*** termcap support not found (on modern systems, this typically means the ncurses development package is missing)])
+LIBEDIT_INTERNAL="yes"
+AC_SUBST(LIBEDIT_INTERNAL)
+LIBEDIT_SYSTEM="yes"
+if test "${USE_LIBEDIT}" != "no"; then
+   if test "${LIBEDIT_DIR}" = "internal"; then
+      LIBEDIT_SYSTEM="no"
+   elif test "${LIBEDIT_DIR}" != ""; then
+      LIBEDIT_INTERNAL="no"
+   fi
+   if test "${LIBEDIT_SYSTEM}" = "yes"; then
+      AST_PKG_CONFIG_CHECK(LIBEDIT, libedit)
+      # some platforms do not list libedit via pkg-config, for example OpenBSD 6.2
+      AST_EXT_LIB_CHECK([LIBEDIT], [edit], [history_init], [histedit.h], [-ltermcap])
+      if test "$PBX_LIBEDIT" = "1"; then
+         LIBEDIT_INTERNAL="no"
+      fi
+   fi
+   if test "${LIBEDIT_INTERNAL}" = "yes"; then
+      PBX_LIBEDIT=1
+      LIBEDIT_IS_UNICODE=no
+   else
+      AST_C_COMPILE_CHECK([LIBEDIT_IS_UNICODE], [el_rfunc_t *callback;], [histedit.h], [], [Testing for libedit unicode support])
+   fi
+fi
+# If the Asterisk internal copy should be build (user said so) or
+# must be build (system does not have it), either -ltermcap,
+# -ltinfo, or -l{n}curses must be available.
+if test "${LIBEDIT_INTERNAL}" = "yes"; then
+   AST_EXT_LIB_CHECK([TERMCAP], [termcap], [tgetent], [])
+   if test "x$TERMCAP_LIB" != "x" ; then
+      EDITLINE_LIB="$TERMCAP_LIB"
+   else
+      AST_EXT_LIB_CHECK([TINFO], [tinfo], [tgetent], [])
+      if test "x$TINFO_LIB" != "x" ; then
+         EDITLINE_LIB="$TINFO_LIB"
+      else
+         AST_EXT_LIB_CHECK([CURSES], [curses], [initscr], [curses.h])
+         if test "x$CURSES_LIB" != "x" ; then
+            EDITLINE_LIB="$CURSES_LIB"
+         else
+            AST_EXT_LIB_CHECK([NCURSES], [ncurses], [initscr], [curses.h])
+            if test "x$NCURSES_LIB" != "x" ; then
+               EDITLINE_LIB="$NCURSES_LIB"
+            else
+               AC_MSG_ERROR([*** termcap support not found (on modern systems, this typically means the ncurses development package is missing)])
+            fi
+         fi
+      fi
+   fi
 fi
 AC_SUBST(EDITLINE_LIB)
 
@@ -600,21 +641,24 @@ AC_SUBST(EDITLINE_LIB)
 #  * -luuid on Linux
 #  * -le2fs-uuid on OpenBSD
 #  * in libsystem on OS X
-AST_EXT_LIB_CHECK([LIBUUID], [uuid], [uuid_generate_random], [uuid/uuid.h], [])
-AST_EXT_LIB_CHECK([E2FSUUID], [e2fs-uuid], [uuid_generate_random], [uuid/uuid.h], [])
-AC_CHECK_FUNCS([uuid_generate_random], [SYSUUID=true], [SYSUUID=""])
-
+AST_EXT_LIB_CHECK([LIBUUID], [uuid], [uuid_generate_random], [uuid/uuid.h])
 if test "x$LIBUUID_LIB" != "x" ; then
   UUID_INCLUDE="$LIBUUID_INCLUDE"
   UUID_LIB="$LIBUUID_LIB"
-elif test "x$E2FSUUID_LIB" != "x" ; then
-  UUID_INCLUDE="$E2FSUUID_INCLUDE"
-  UUID_LIB="$E2FSUUID_LIB"
-elif test "x$SYSUUID" != "x" ; then
-  UUID_INCLUDE=""
-  UUID_LIB=""
 else
-  AC_MSG_ERROR([*** uuid support not found (this typically means the uuid development package is missing)])
+  AST_EXT_LIB_CHECK([E2FSUUID], [e2fs-uuid], [uuid_generate_random], [uuid/uuid.h])
+  if test "x$E2FSUUID_LIB" != "x" ; then
+    UUID_INCLUDE="$E2FSUUID_INCLUDE"
+    UUID_LIB="$E2FSUUID_LIB"
+  else
+    AC_CHECK_FUNCS([uuid_generate_random], [SYSUUID=true], [SYSUUID=""])
+    if test "x$SYSUUID" != "x" ; then
+      UUID_INCLUDE=""
+      UUID_LIB=""
+    else
+      AC_MSG_ERROR([*** uuid support not found (this typically means the uuid development package is missing)])
+    fi
+  fi
 fi
 AC_SUBST(UUID_INCLUDE)
 AC_SUBST(UUID_LIB)
@@ -622,12 +666,12 @@ AC_SUBST(UUID_LIB)
 # Find required JSON support.
 AST_EXT_LIB_CHECK([JANSSON], [jansson], [json_dumps], [jansson.h])
 
-if test "x$JANSSON_LIB" == "x"; then
+if test "${PBX_JANSSON}" != 1; then
   AC_MSG_ERROR([*** JSON support not found (this typically means the libjansson development package is missing)])
 fi
 
 # See if clock_gettime is in librt
-AST_EXT_LIB_CHECK([RT], [rt], [clock_gettime])
+AST_EXT_LIB_CHECK([RT], [rt], [clock_gettime], [])
 
 AST_EXT_TOOL_CHECK([LIBXML2], [xml2-config], , ,
         [#include <libxml/tree.h>
@@ -717,7 +761,7 @@ AC_FUNC_STRNLEN
 AC_FUNC_STRTOD
 AC_FUNC_UTIME_NULL
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS([asprintf atexit closefrom dup2 eaccess endpwent euidaccess ffsll ftruncate getcwd gethostbyname gethostname getloadavg gettimeofday glob ioperm inet_ntoa isascii memchr memmove memset mkdir mkdtemp munmap newlocale ppoll putenv re_comp regcomp select setenv socket strcasecmp strcasestr strchr strcspn strdup strerror strlcat strlcpy strncasecmp strndup strnlen strrchr strsep strspn strstr strtod strtol strtold strtoq unsetenv utime vasprintf getpeereid sysctl swapctl])
+AC_CHECK_FUNCS([asprintf atexit closefrom dup2 eaccess endpwent euidaccess ffsll ftruncate getcwd gethostbyname gethostname getloadavg gettimeofday glob ioperm inet_ntoa isascii memchr memmove memset mkdir mkdtemp munmap newlocale ppoll putenv re_comp regcomp select setenv socket strcasecmp strcasestr strchr strcspn strdup strerror strlcat strlcpy strncasecmp strndup strnlen strrchr strsep strspn strstr strtod strtol strtold strtoq unsetenv uselocale utime vasprintf getpeereid sysctl swapctl])
 
 AC_MSG_CHECKING(for htonll)
 AC_LINK_IFELSE(
@@ -1233,6 +1277,16 @@ else
 fi
 AC_SUBST(AST_NO_FORMAT_TRUNCATION)
 
+AC_MSG_CHECKING(for -Wno-stringop-truncation)
+if $(${CC} -Wno-stringop-truncation -Werror -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
+	AC_MSG_RESULT(yes)
+	AST_NO_STRINGOP_TRUNCATION=-Wno-stringop-truncation
+else
+	AC_MSG_RESULT(no)
+	AST_NO_STRINGOP_TRUNCATION=
+fi
+AC_SUBST(AST_NO_STRINGOP_TRUNCATION)
+
 AC_MSG_CHECKING(for -Wshadow)
 if $(${CC} -Wshadow -Werror -S -o /dev/null -xc /dev/null > /dev/null 2>&1); then
 	AC_MSG_RESULT(yes)
@@ -1266,6 +1320,9 @@ AC_ARG_ENABLE(rpath,
 
 AC_MSG_CHECKING(whether to use rpath)
 AST_RPATH=
+if test "${OSARCH}" = "NetBSD"; then
+	AST_RPATH="-Wl,-rpath,/usr/pkg/lib"
+fi
 if test "${check_rpath}" != yes; then
 	AC_MSG_RESULT(skipped)
 elif test "${prefix}" = /usr || test "${prefix}" = NONE; then
@@ -1382,11 +1439,11 @@ AC_CHECK_SIZEOF(fd_set.fds_bits)
 # correctly if the size is wrong.
 if test $ac_cv_sizeof_int = $ac_cv_sizeof_fd_set_fds_bits; then
   AC_DEFINE([TYPEOF_FD_SET_FDS_BITS], [int], [Define to a type of the same size as fd_set.fds_bits[[0]]])
-else if test $ac_cv_sizeof_long = $ac_cv_sizeof_fd_set_fds_bits; then
+elif test $ac_cv_sizeof_long = $ac_cv_sizeof_fd_set_fds_bits; then
   AC_DEFINE([TYPEOF_FD_SET_FDS_BITS], [long], [Define to a type of the same size as fd_set.fds_bits[[0]]])
-else if test $ac_cv_sizeof_long_long = $ac_cv_sizeof_fd_set_fds_bits; then
+elif test $ac_cv_sizeof_long_long = $ac_cv_sizeof_fd_set_fds_bits; then
   AC_DEFINE([TYPEOF_FD_SET_FDS_BITS], [long long], [Define to a type of the same size as fd_set.fds_bits[[0]]])
-fi ; fi ; fi
+fi
 
 AC_MSG_CHECKING(for dladdr in dlfcn.h)
 PBX_DLADDR=0
@@ -1405,25 +1462,36 @@ AC_LINK_IFELSE(
 )
 LIBS=${old_LIBS}
 
+# re-check without -ldl
+# Non-Linux platforms like FreeBSD and NetBSD do not need a library libdl.so.
+if test "${PBX_DLADDR}" = "0"; then
+	AC_MSG_CHECKING(for dladdr in dlfcn.h without -ldl)
+	AC_LINK_IFELSE(
+		[AC_LANG_PROGRAM([#define _GNU_SOURCE 1
+#include <dlfcn.h>],
+			[dladdr((void *)0, (void *)0)]
+		)],
+		AC_MSG_RESULT(yes)
+		PBX_DLADDR=1
+		AC_SUBST([PBX_DLADDR])
+		AC_DEFINE([HAVE_DLADDR], 1, [Define to 1 if your system has the dladdr() GNU extension]),
+		AC_MSG_RESULT(no)
+	)
+fi
+
 # PKGCONFIG is used in later tests
 PKG_PROG_PKG_CONFIG()
 
 
 # do the package library checks now
 
-AST_EXT_LIB_CHECK([ALSA], [asound], [snd_spcm_init], [alsa/asoundlib.h], [-lm -ldl])
+AST_EXT_LIB_CHECK([ALSA], [asound], [snd_pcm_open], [alsa/asoundlib.h])
 
 AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_openr], [bfd.h])
-
-if test "${PBX_BFD}" = "0"; then
-  # Fedora/RedHat/CentOS require extra libraries
-  AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_check_format], [bfd.h], [-ldl -liberty])
-fi
-
-if test "${PBX_BFD}" = "0"; then
-  # openSUSE requires -lz
-  AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_check_format], [bfd.h], [-ldl -liberty -lz])
-fi
+# Fedora/RedHat/CentOS require extra libraries
+AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_openr], [bfd.h], [-ldl -liberty])
+# openSUSE requires -lz
+AST_EXT_LIB_CHECK([BFD], [bfd], [bfd_openr], [bfd.h], [-ldl -liberty -lz])
 
 if test "x${OSARCH}" = "xlinux-gnu" ; then
   AST_EXT_LIB_CHECK([CAP], [cap], [cap_from_text], [sys/capability.h])
@@ -1485,11 +1553,9 @@ if test "${USE_GSM}" != "no"; then
          if test "${GSM_HEADER_FOUND}" = "1" ; then
             AC_DEFINE_UNQUOTED([HAVE_GSM_HEADER], 1, [Define to indicate that gsm.h has no prefix for its location])
             GSM_OK=1
-         else
-            if test "${GSM_GSM_HEADER_FOUND}" = "1" ; then
-               AC_DEFINE_UNQUOTED([HAVE_GSM_GSM_HEADER], 1, [Define to indicate that gsm.h is in gsm/gsm.h])
-               GSM_OK=1
-            fi
+         elif test "${GSM_GSM_HEADER_FOUND}" = "1" ; then
+            AC_DEFINE_UNQUOTED([HAVE_GSM_GSM_HEADER], 1, [Define to indicate that gsm.h is in gsm/gsm.h])
+            GSM_OK=1
          fi
          if test "${GSM_OK}" = "1" ; then
             GSM_LIB="-lgsm"
@@ -1525,33 +1591,6 @@ if test "${USE_ILBC}" != "no"; then
    fi
    if test "${ILBC_INTERNAL}" = "yes"; then
       PBX_ILBC=1
-   fi
-fi
-
-LIBEDIT_INTERNAL="yes"
-AC_SUBST(LIBEDIT_INTERNAL)
-LIBEDIT_SYSTEM="yes"
-if test "${USE_LIBEDIT}" != "no"; then
-   if test "${LIBEDIT_DIR}" = "internal"; then
-      LIBEDIT_SYSTEM="no"
-   elif test "${LIBEDIT_DIR}" != ""; then
-      LIBEDIT_INTERNAL="no"
-   fi
-   if test "${LIBEDIT_SYSTEM}" = "yes"; then
-      AST_PKG_CONFIG_CHECK(LIBEDIT, libedit)
-      if test "$PBX_LIBEDIT" != "1"; then
-         # some platforms do not list libedit via pkg-config, for example OpenBSD 6.2
-         AST_EXT_LIB_CHECK([LIBEDIT], [edit], [history_init], [histedit.h], [-ltermcap])
-      fi
-      if test "$PBX_LIBEDIT" = "1"; then
-      LIBEDIT_INTERNAL="no"
-      fi
-   fi
-   if test "${LIBEDIT_INTERNAL}" = "yes"; then
-      PBX_LIBEDIT=1
-      LIBEDIT_IS_UNICODE=no
-   else
-      AST_C_COMPILE_CHECK([LIBEDIT_IS_UNICODE], [el_rfunc_t *callback;], [histedit.h], [], [Testing for libedit unicode support])
    fi
 fi
 
@@ -1831,7 +1870,7 @@ if test "${USE_IMAP_TK}" != "no"; then
 		CPPFLAGS="${saved_cppflags}"
 		LIBS="${saved_libs}"
 		imap_ldflags=""
-		imap_libs="-lc-client"
+		imap_libs="-lcrypto -lssl -lc-client"
 		imap_include="-DUSE_SYSTEM_IMAP" #Try the imap directory first
 		CPPFLAGS="${CPPFLAGS} ${imap_include}"
 		LIBS="${LIBS} ${imap_libs} "`echo ${imap_ldflags}`
@@ -2012,6 +2051,66 @@ if test "${USE_IMAP_TK}" != "no"; then
 				[ac_cv_imap_tk="yes"],
 				[ac_cv_imap_tk="no"]
 	   		)
+			if test "${ac_cv_imap_tk}" = "no"; then
+				imap_libs="-lcrypto -lssl -lc-client4"
+				LIBS="${saved_libs} ${imap_libs} "`echo ${imap_ldflags}`
+				AC_LINK_IFELSE(
+					[AC_LANG_PROGRAM(
+						[#include <stdio.h>
+						#include <c-client/c-client.h>
+						void mm_searched (MAILSTREAM *stream,unsigned long number)
+						{
+						}
+						void mm_exists (MAILSTREAM *stream,unsigned long number)
+						{
+						}
+						void mm_expunged (MAILSTREAM *stream,unsigned long number)
+						{
+						}
+						void mm_flags (MAILSTREAM *stream,unsigned long number)
+						{
+						}
+						void mm_notify (MAILSTREAM *stream,char *string,long errflg)
+						{
+						}
+						void mm_list (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
+						{
+						}
+						void mm_lsub (MAILSTREAM *stream,int delimiter,char *mailbox,long attributes)
+						{
+						}
+						void mm_status (MAILSTREAM *stream,char *mailbox,MAILSTATUS *status)
+						{
+						}
+						void mm_log (char *string,long errflg)
+						{
+						}
+						void mm_dlog (char *string)
+						{
+						}
+						void mm_login (NETMBX *mb,char *user,char *pwd,long trial)
+						{
+						}
+						void mm_critical (MAILSTREAM *stream)
+						{
+						}
+						void mm_nocritical (MAILSTREAM *stream)
+						{
+						}
+						long mm_diskerror (MAILSTREAM *stream,long errcode,long serious)
+						{
+						}
+						void mm_fatal (char *string)
+						{
+						}],
+						[
+						MAILSTREAM *foo = mail_open(NULL, "", 0);
+						]
+					)],
+					[ac_cv_imap_tk="yes"],
+					[ac_cv_imap_tk="no"]
+				)
+			fi
 			if test "${ac_cv_imap_tk}" = "yes"; then
 				AC_LINK_IFELSE(
 					[AC_LANG_PROGRAM(
@@ -2100,9 +2199,6 @@ AST_EXT_LIB_CHECK([KQUEUE], [c], [kqueue], [sys/event.h])
 # 64-bit version of kevent (from kqueue) on OS X
 AC_CHECK_FUNCS([kevent64])
 
-# Needed by unixodbc
-AST_EXT_LIB_CHECK([LTDL], [ltdl], [lt_dlinit], [ltdl.h], [])
-
 AST_EXT_LIB_CHECK([LDAP], [ldap], [ldap_initialize], [ldap.h])
 
 AST_EXT_LIB_CHECK([MISDN], [mISDN], [mISDN_open], [mISDNuser/mISDNlib.h])
@@ -2136,9 +2232,9 @@ AST_EXT_TOOL_CHECK([NETSNMP], [net-snmp-config], , [--agent-libs],
 
 AST_EXT_LIB_CHECK([NEWT], [newt], [newtBell], [newt.h])
 
-AST_EXT_LIB_CHECK([UNIXODBC], [odbc], [SQLConnect], [sql.h], [])
+AST_EXT_LIB_CHECK([UNIXODBC], [odbc], [SQLConnect], [sql.h])
 
-AST_EXT_LIB_CHECK([OGG], [ogg], [ogg_sync_init], [])
+AST_EXT_LIB_CHECK([OGG], [ogg], [ogg_stream_init], [ogg/ogg.h])
 
 # Non-glibc platforms require libexecinfo for backtrace support
 AST_EXT_LIB_CHECK([BKTR], [execinfo], [backtrace], [execinfo.h])
@@ -2215,7 +2311,7 @@ if test "$USE_PJPROJECT" != "no" ; then
    if test "$PJPROJECT_BUNDLED" = "no" ; then
       AST_PKG_CONFIG_CHECK([PJPROJECT], [libpjproject])
 
-      AST_EXT_LIB_CHECK([PJSIP_DLG_CREATE_UAS_AND_INC_LOCK], [pjsip], [pjsip_dlg_create_uas_and_inc_lock], [pjsip.h], [$PJPROJECT_LIBS], [$PJPROJECT_CFLAGS])
+      AST_EXT_LIB_CHECK([PJSIP_DLG_CREATE_UAS_AND_INC_LOCK], [pjsip], [pjsip_dlg_create_uas_and_inc_lock], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
       AST_EXT_LIB_CHECK([PJ_TRANSACTION_GRP_LOCK], [pjsip], [pjsip_tsx_create_uac2], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
 
       saved_cppflags="${CPPFLAGS}"
@@ -2228,20 +2324,20 @@ if test "$USE_PJPROJECT" != "no" ; then
 
       AST_EXT_LIB_CHECK([PJSIP_GET_DEST_INFO], [pjsip], [pjsip_get_dest_info], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
       AST_EXT_LIB_CHECK([PJ_SSL_CERT_LOAD_FROM_FILES2], [pj], [pj_ssl_cert_load_from_files2], [pjlib.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
-      AST_EXT_LIB_CHECK([PJSIP_EXTERNAL_RESOLVER], [pjsip], [pjsip_endpt_set_ext_resolver], [pjsip.h], [$PJPROJECT_LIBS], [$PJPROJECT_CFLAGS])
+      AST_EXT_LIB_CHECK([PJSIP_EXTERNAL_RESOLVER], [pjsip], [pjsip_endpt_set_ext_resolver], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
 
       saved_cppflags="${CPPFLAGS}"
       saved_libs="${LIBS}"
       CPPFLAGS="${CPPFLAGS} ${PJPROJECT_CFLAGS}"
       LIBS="${LIBS} ${PJPROJECT_LIB}"
       AST_C_COMPILE_CHECK([PJSIP_TLS_TRANSPORT_PROTO], [struct pjsip_tls_setting setting; int proto; proto = setting.proto;], [pjsip.h])
+      AST_C_COMPILE_CHECK([PJSIP_INV_ACCEPT_MULTIPLE_SDP_ANSWERS], [pjsip_cfg()->endpt.accept_multiple_sdp_answers = 0;], [pjsip.h])
       LIBS="${saved_libs}"
       CPPFLAGS="${saved_cppflags}"
 
       AST_EXT_LIB_CHECK([PJSIP_EVSUB_GRP_LOCK], [pjsip], [pjsip_evsub_add_ref], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
       AST_EXT_LIB_CHECK([PJSIP_INV_SESSION_REF], [pjsip], [pjsip_inv_add_ref], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
       AST_EXT_LIB_CHECK([PJSIP_AUTH_CLT_DEINIT], [pjsip], [pjsip_auth_clt_deinit], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
-      AST_EXT_LIB_CHECK([PJSIP_EVSUB_SET_UAS_TIMEOUT], [pjsip], [pjsip_evsub_set_uas_timeout], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
       AST_EXT_LIB_CHECK([PJSIP_TSX_LAYER_FIND_TSX2], [pjsip], [pjsip_tsx_layer_find_tsx2], [pjsip.h], [$PJPROJECT_LIB], [$PJPROJECT_CFLAGS])
    fi
 fi
@@ -2252,6 +2348,7 @@ AST_PKG_CONFIG_CHECK([PYTHONDEV], [python])
 
 AST_EXT_LIB_CHECK([POPT], [popt], [poptStrerror], [popt.h])
 
+AST_PKG_CONFIG_CHECK([PORTAUDIO], [portaudio-2.0])
 AST_EXT_LIB_CHECK([PORTAUDIO], [portaudio], [Pa_GetDeviceCount], [portaudio.h])
 
 AST_EXT_LIB_CHECK([PRI], [pri], [pri_connected_line_update], [libpri.h])
@@ -2316,43 +2413,36 @@ if test -z "$__opus_include" -o x"$__opus_include" = x" " ; then
 fi
 AST_EXT_LIB_CHECK([OPUSFILE], [opusfile], [op_open_callbacks], [opus/opusfile.h], [], [$__opus_include])
 
-AST_EXT_LIB_CHECK([LUA], [lua5.3], [luaL_newstate], [lua5.3/lua.h], [-lm])
-if test "x${PBX_LUA}" = "x1" ; then
-	if test x"${LUA_DIR}" = x; then
-		LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua5.3"
-	else
-		LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua5.3"
+for ver in 5.3 5.2 5.1; do
+	AST_EXT_LIB_CHECK([LUA], lua${ver}, [luaL_newstate], lua${ver}/lua.h, [-lm])
+	if test "x${PBX_LUA}" = "x1" ; then
+		if test x"${LUA_DIR}" = x; then
+			LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua${ver}"
+		else
+			LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua${ver}"
+		fi
+		break;
 	fi
-fi
+done
 
-AST_EXT_LIB_CHECK([LUA], [lua5.2], [luaL_newstate], [lua5.2/lua.h], [-lm])
-if test "x${PBX_LUA}" = "x1" ; then
-	if test x"${LUA_DIR}" = x; then
-		LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua5.2"
-	else
-		LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua5.2"
-	fi
-fi
-
-AST_EXT_LIB_CHECK([LUA], [lua5.1], [luaL_newstate], [lua5.1/lua.h], [-lm])
-if test "x${PBX_LUA}" = "x1" ; then
-	if test x"${LUA_DIR}" = x; then
-		LUA_INCLUDE="${LUA_INCLUDE} -I/usr/include/lua5.1"
-	else
-		LUA_INCLUDE="${LUA_INCLUDE} -I${LUA_DIR}/lua5.1"
-	fi
-fi
-
-# Some distributions (like SuSE) remove the 5.1 suffix.
-AST_EXT_LIB_CHECK([LUA], [lua], [luaL_openlib], [lua.h], [-lm])
+# Some distributions (like openSUSE and NetBSD) remove the 5.x suffix.
+AST_EXT_LIB_CHECK([LUA], [lua], [luaL_newstate], [lua.h], [-lm])
 
 # Accept either RADIUS client library, their APIs are fully compatible,
 # just different header filenames and different SONAMEs
 AST_EXT_LIB_CHECK([RADIUS], [freeradius-client], [rc_read_config], [freeradius-client.h])
 if test "x${PBX_RADIUS}" = "x1"; then
-	AC_DEFINE(FREERADIUS_CLIENT, [], [Use the FreeRADIUS-client library])
+	AC_DEFINE(RADIUS_HEADER_STR, [<freeradius-client.h>], [Name of RADIUS library include header])
 else
 	AST_EXT_LIB_CHECK([RADIUS], [radiusclient-ng], [rc_read_config], [radiusclient-ng.h])
+	if test "x${PBX_RADIUS}" = "x1"; then
+		AC_DEFINE(RADIUS_HEADER_STR, [<radiusclient-ng.h>], [Name of RADIUS library include header])
+	else
+		AST_EXT_LIB_CHECK([RADIUS], [radcli], [rc_read_config], [radcli/radcli.h])
+		if test "x${PBX_RADIUS}" = "x1"; then
+			AC_DEFINE(RADIUS_HEADER_STR, [<radcli/radcli.h>], [Name of RADIUS library include header])
+		fi
+	fi
 fi
 
 AST_EXT_LIB_CHECK([COROSYNC], [cpg], [cpg_join], [corosync/cpg.h], [-lcpg -lcfg])
@@ -2416,18 +2506,6 @@ fi
 if test "$PBX_OPENSSL" = "1";
 then
         AST_CHECK_OSPTK([4], [0], [0])
-        AST_EXT_LIB_CHECK([OPENSSL_SRTP], [ssl], [SSL_CTX_set_tlsext_use_srtp], [openssl/ssl.h], [-lcrypto])
-fi
-
-if test "$PBX_OPENSSL" = "1";
-then
-	AST_EXT_LIB_CHECK([OPENSSL_EC], [ssl], [EC_KEY_new_by_curve_name], [openssl/ec.h], [-lcrypto])
-fi
-
-if test "$PBX_OPENSSL" = "1";
-then
-        AST_C_DEFINE_CHECK([SSL_OP_NO_TLSV1_1], [SSL_OP_NO_TLSv1_1], [openssl/ssl.h])
-        AST_C_DEFINE_CHECK([SSL_OP_NO_TLSV1_2], [SSL_OP_NO_TLSv1_2], [openssl/ssl.h])
 fi
 
 AST_EXT_LIB_CHECK([SRTP], [srtp2], [srtp_init], [srtp2/srtp.h], [], [], [2])
@@ -2503,12 +2581,7 @@ fi
 
 AST_EXT_LIB_CHECK([TONEZONE], [tonezone], [tone_zone_find], [dahdi/tonezone.h], [${tonezone_extra} ${DAHDI_INCLUDE}])
 
-if test "${OSARCH}" = "OpenBSD";
-then
-	AST_EXT_LIB_CHECK([VORBIS], [vorbis], [vorbis_info_init], [vorbis/codec.h], [-lm -lvorbisenc -lvorbisfile -logg])
-else
-	AST_EXT_LIB_CHECK([VORBIS], [vorbis], [vorbis_info_init], [vorbis/codec.h], [-lm -lvorbisenc -lvorbisfile])
-fi
+AST_EXT_LIB_CHECK([VORBIS], [vorbis], [vorbis_info_init], [vorbis/codec.h], [-lm -lvorbisenc -lvorbisfile])
 AST_C_DECLARE_CHECK([VORBIS_OPEN_CALLBACKS], [OV_CALLBACKS_NOCLOSE], [vorbis/vorbisfile.h])
 
 AC_LANG_PUSH(C++)
@@ -2678,9 +2751,9 @@ AC_OUTPUT
 ${ac_cv_path_EGREP} 'CURSES|GTK2|OSARCH|NEWT' makeopts > makeopts.acbak2
 if test "x${ac_cv_path_CMP}" = "x:"; then
 	( cd `pwd`/menuselect && ./configure )
-else if ${ac_cv_path_CMP} -s makeopts.acbak makeopts.acbak2; then : ; else
+elif ${ac_cv_path_CMP} -s makeopts.acbak makeopts.acbak2; then : ; else
 	( cd `pwd`/menuselect && ./configure )
-fi ; fi
+fi
 
 rm makeopts.acbak makeopts.acbak2
 

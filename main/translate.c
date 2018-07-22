@@ -526,6 +526,34 @@ struct ast_trans_pvt *ast_translator_build_path(struct ast_format *dst, struct a
 	return head;
 }
 
+static struct ast_frame *generate_interpolated_slin(struct ast_trans_pvt *p, struct ast_frame *f)
+{
+	struct ast_frame res = { AST_FRAME_VOICE };
+
+	/*
+	 * If we've gotten here then we should have an interpolated frame that was not handled
+	 * by the translation codec. So create an interpolated frame in the appropriate format
+	 * that was going to be written. This frame might be handled later by other resources.
+	 * For instance, generic plc.
+	 *
+	 * Note, generic plc is currently only available for the format type 'slin' (8KHz only -
+	 * The generic plc code appears to have been based around that). Generic plc is filled
+	 * in later on frame write.
+	 */
+	if (!ast_opt_generic_plc || f->datalen != 0 ||
+		ast_format_cmp(p->explicit_dst, ast_format_slin) == AST_FORMAT_CMP_NOT_EQUAL) {
+		return NULL;
+	}
+
+	res.subclass.format = ast_format_cache_get_slin_by_rate(8000); /* ref bumped on dup */
+	res.samples = f->samples;
+	res.datalen = 0;
+	res.data.ptr = NULL;
+	res.offset = AST_FRIENDLY_OFFSET;
+
+	return ast_frdup(&res);
+}
+
 /*! \brief do the actual translation */
 struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f, int consume)
 {
@@ -577,6 +605,11 @@ struct ast_frame *ast_translate(struct ast_trans_pvt *path, struct ast_frame *f,
 		}
 		out = p->t->frameout(p);
 	}
+
+	if (!out) {
+		out = generate_interpolated_slin(path, f);
+	}
+
 	if (out) {
 		/* we have a frame, play with times */
 		if (!ast_tvzero(delivery)) {
@@ -891,9 +924,9 @@ const char *ast_translate_path_to_str(struct ast_trans_pvt *p, struct ast_str **
 	return ast_str_buffer(*str);
 }
 
-static char *complete_trans_path_choice(const char *line, const char *word, int pos, int state)
+static char *complete_trans_path_choice(const char *word)
 {
-	int i = 1, which = 0;
+	int i = 1;
 	int wordlen = strlen(word);
 	struct ast_codec *codec;
 
@@ -903,13 +936,15 @@ static char *complete_trans_path_choice(const char *line, const char *word, int 
 			ao2_ref(codec, -1);
 			continue;
 		}
-		if (!strncasecmp(word, codec->name, wordlen) && ++which > state) {
-			char *res = ast_strdup(codec->name);
-			ao2_ref(codec, -1);
-			return res;
+		if (!strncasecmp(word, codec->name, wordlen)) {
+			if (ast_cli_completion_add(ast_strdup(codec->name))) {
+				ao2_ref(codec, -1);
+				break;
+			}
 		}
 		ao2_ref(codec, -1);
 	}
+
 	return NULL;
 }
 
@@ -1129,10 +1164,10 @@ static char *handle_cli_core_show_translation(struct ast_cli_entry *e, int cmd, 
 		return NULL;
 	case CLI_GENERATE:
 		if (a->pos == 3) {
-			return ast_cli_complete(a->word, option, a->n);
+			return ast_cli_complete(a->word, option, -1);
 		}
 		if (a->pos == 4 && !strcasecmp(a->argv[3], option[1])) {
-			return complete_trans_path_choice(a->line, a->word, a->pos, a->n);
+			return complete_trans_path_choice(a->word);
 		}
 		/* BUGBUG - add tab completion for sample rates */
 		return NULL;

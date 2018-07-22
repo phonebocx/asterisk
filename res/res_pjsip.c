@@ -1027,6 +1027,36 @@
 						changes.  If not set, incoming MWI NOTIFYs are ignored.
 					</para></description>
 				</configOption>
+				<configOption name="follow_early_media_fork">
+					<synopsis>Follow SDP forked media when To tag is different</synopsis>
+					<description><para>
+						On outgoing calls, if the UAS responds with different SDP attributes
+						on subsequent 18X or 2XX responses (such as a port update) AND the
+						To tag on the subsequent response is different than that on the previous
+						one, follow it. This usually happens when the INVITE is forked to multiple
+						UASs and more than one sends an SDP answer.
+						</para>
+						<note><para>
+							This option must also be enabled in the <literal>system</literal>
+							section for it to take effect here.
+						</para></note>
+					</description>
+				</configOption>
+				<configOption name="accept_multiple_sdp_answers" default="no">
+					<synopsis>Accept multiple SDP answers on non-100rel responses</synopsis>
+					<description><para>
+						On outgoing calls, if the UAS responds with different SDP attributes
+						on non-100rel 18X or 2XX responses (such as a port update) AND the
+						To tag on the subsequent response is the same as that on the previous one,
+						process the updated SDP.  This can happen when the UAS needs to change ports
+						for some reason such as using a separate port for custom ringback.
+						</para>
+						<note><para>
+							This option must also be enabled in the <literal>system</literal>
+							section for it to take effect here.
+						</para></note>
+					</description>
+				</configOption>
 			</configObject>
 			<configObject name="auth">
 				<synopsis>Authentication type</synopsis>
@@ -1128,13 +1158,13 @@
 					<synopsis>IP Address and optional port to bind to for this transport</synopsis>
 				</configOption>
 				<configOption name="ca_list_file">
-					<synopsis>File containing a list of certificates to read (TLS ONLY)</synopsis>
+					<synopsis>File containing a list of certificates to read (TLS ONLY, not WSS)</synopsis>
 				</configOption>
 				<configOption name="ca_list_path">
-					<synopsis>Path to directory containing a list of certificates to read (TLS ONLY)</synopsis>
+					<synopsis>Path to directory containing a list of certificates to read (TLS ONLY, not WSS)</synopsis>
 				</configOption>
 				<configOption name="cert_file">
-					<synopsis>Certificate file for endpoint (TLS ONLY)</synopsis>
+					<synopsis>Certificate file for endpoint (TLS ONLY, not WSS)</synopsis>
 					<description><para>
 						A path to a .crt or .pem file can be provided.  However, only
 						the certificate is read from the file, not the private key.
@@ -1143,7 +1173,7 @@
 					</para></description>
 				</configOption>
 				<configOption name="cipher">
-					<synopsis>Preferred cryptography cipher names (TLS ONLY)</synopsis>
+					<synopsis>Preferred cryptography cipher names (TLS ONLY, not WSS)</synopsis>
 					<description>
 					<para>Comma separated list of cipher names or numeric equivalents.
 						Numeric equivalents can be either decimal or hexadecimal (0xX).
@@ -1175,7 +1205,7 @@
 					<synopsis>External port for SIP signalling</synopsis>
 				</configOption>
 				<configOption name="method">
-					<synopsis>Method of SSL transport (TLS ONLY)</synopsis>
+					<synopsis>Method of SSL transport (TLS ONLY, not WSS)</synopsis>
 					<description>
 						<enumlist>
 							<enum name="default">
@@ -1202,7 +1232,7 @@
 					<synopsis>Password required for transport</synopsis>
 				</configOption>
 				<configOption name="priv_key_file">
-					<synopsis>Private key file (TLS ONLY)</synopsis>
+					<synopsis>Private key file (TLS ONLY, not WSS)</synopsis>
 				</configOption>
 				<configOption name="protocol" default="udp">
 					<synopsis>Protocol to use for SIP traffic</synopsis>
@@ -1217,16 +1247,16 @@
 					</description>
 				</configOption>
 				<configOption name="require_client_cert" default="false">
-					<synopsis>Require client certificate (TLS ONLY)</synopsis>
+					<synopsis>Require client certificate (TLS ONLY, not WSS)</synopsis>
 				</configOption>
 				<configOption name="type">
 					<synopsis>Must be of type 'transport'.</synopsis>
 				</configOption>
 				<configOption name="verify_client" default="false">
-					<synopsis>Require verification of client certificate (TLS ONLY)</synopsis>
+					<synopsis>Require verification of client certificate (TLS ONLY, not WSS)</synopsis>
 				</configOption>
 				<configOption name="verify_server" default="false">
-					<synopsis>Require verification of server certificate (TLS ONLY)</synopsis>
+					<synopsis>Require verification of server certificate (TLS ONLY, not WSS)</synopsis>
 				</configOption>
 				<configOption name="tos" default="false">
 					<synopsis>Enable TOS for the signalling sent over this transport</synopsis>
@@ -1313,12 +1343,17 @@
 						If <literal>0</literal> no timeout. Time in fractional seconds.
 					</para></description>
 				</configOption>
-				<configOption name="authenticate_qualify" default="no">
-					<synopsis>Authenticates a qualify request if needed</synopsis>
-					<description><para>
-						If true and a qualify request receives a challenge or authenticate response
+				<configOption name="authenticate_qualify">
+					<synopsis>Authenticates a qualify challenge response if needed</synopsis>
+					<description>
+						<para>If true and a qualify request receives a challenge response then
 						authentication is attempted before declaring the contact available.
-					</para></description>
+						</para>
+						<note><para>This option does nothing as we will always complete
+						the challenge response authentication if the qualify request is
+						challenged.
+						</para></note>
+					</description>
 				</configOption>
 				<configOption name="outbound_proxy">
 					<synopsis>Outbound proxy used when sending OPTIONS request</synopsis>
@@ -1512,12 +1547,17 @@
 						If <literal>0</literal> no timeout. Time in fractional seconds.
 					</para></description>
 				</configOption>
-				<configOption name="authenticate_qualify" default="no">
-					<synopsis>Authenticates a qualify request if needed</synopsis>
-					<description><para>
-						If true and a qualify request receives a challenge or authenticate response
+				<configOption name="authenticate_qualify">
+					<synopsis>Authenticates a qualify challenge response if needed</synopsis>
+					<description>
+						<para>If true and a qualify request receives a challenge response then
 						authentication is attempted before declaring the contact available.
-					</para></description>
+						</para>
+						<note><para>This option does nothing as we will always complete
+						the challenge response authentication if the qualify request is
+						challenged.
+						</para></note>
+					</description>
 				</configOption>
 				<configOption name="outbound_proxy">
 					<synopsis>Outbound proxy used when sending OPTIONS request</synopsis>
@@ -1583,6 +1623,34 @@
 						Disable automatic switching from UDP to TCP transports if outgoing
 						request is too large.  See RFC 3261 section 18.1.1.
 					</para></description>
+				</configOption>
+				<configOption name="follow_early_media_fork">
+					<synopsis>Follow SDP forked media when To tag is different</synopsis>
+					<description><para>
+						On outgoing calls, if the UAS responds with different SDP attributes
+						on subsequent 18X or 2XX responses (such as a port update) AND the
+						To tag on the subsequent response is different than that on the previous
+						one, follow it.
+						</para>
+						<note><para>
+							This option must also be enabled on endpoints that require
+							this functionality.
+						</para></note>
+					</description>
+				</configOption>
+				<configOption name="accept_multiple_sdp_answers">
+					<synopsis>Follow SDP forked media when To tag is the same</synopsis>
+					<description><para>
+						On outgoing calls, if the UAS responds with different SDP attributes
+						on non-100rel 18X or 2XX responses (such as a port update) AND the
+						To tag on the subsequent response is the same as that on the previous one,
+						process the updated SDP.
+						</para>
+						<note><para>
+							This option must also be enabled on endpoints that require
+							this functionality.
+						</para></note>
+					</description>
 				</configOption>
 				<configOption name="type">
 					<synopsis>Must be of type 'system'.</synopsis>
@@ -2457,12 +2525,12 @@ static int register_service(void *data)
 
 int internal_sip_register_service(pjsip_module *module)
 {
-	return ast_sip_push_task_synchronous(NULL, register_service_noref, &module);
+	return ast_sip_push_task_wait_servant(NULL, register_service_noref, &module);
 }
 
 int ast_sip_register_service(pjsip_module *module)
 {
-	return ast_sip_push_task_synchronous(NULL, register_service, &module);
+	return ast_sip_push_task_wait_servant(NULL, register_service, &module);
 }
 
 static int unregister_service_noref(void *data)
@@ -2489,12 +2557,12 @@ static int unregister_service(void *data)
 
 int internal_sip_unregister_service(pjsip_module *module)
 {
-	return ast_sip_push_task_synchronous(NULL, unregister_service_noref, &module);
+	return ast_sip_push_task_wait_servant(NULL, unregister_service_noref, &module);
 }
 
 void ast_sip_unregister_service(pjsip_module *module)
 {
-	ast_sip_push_task_synchronous(NULL, unregister_service, &module);
+	ast_sip_push_task_wait_servant(NULL, unregister_service, &module);
 }
 
 static struct ast_sip_authenticator *registered_authenticator;
@@ -2761,7 +2829,7 @@ static char *cli_dump_endpt(struct ast_cli_entry *e, int cmd, struct ast_cli_arg
 		return CLI_SHOWUSAGE;
 	}
 
-	ast_sip_push_task_synchronous(NULL, do_cli_dump_endpt, a);
+	ast_sip_push_task_wait_servant(NULL, do_cli_dump_endpt, a);
 
 	return CLI_SUCCESS;
 }
@@ -3567,8 +3635,6 @@ int ast_sip_create_request(const char *method, struct pjsip_dialog *dlg,
 {
 	const pjsip_method *pmethod = get_pjsip_method(method);
 
-	ast_assert(endpoint != NULL);
-
 	if (!pmethod) {
 		ast_log(LOG_WARNING, "Unknown method '%s'. Cannot send request\n", method);
 		return -1;
@@ -3577,6 +3643,7 @@ int ast_sip_create_request(const char *method, struct pjsip_dialog *dlg,
 	if (dlg) {
 		return create_in_dialog_request(pmethod, dlg, tdata);
 	} else {
+		ast_assert(endpoint != NULL);
 		return create_out_of_dialog_request(pmethod, endpoint, uri, contact, tdata);
 	}
 }
@@ -4231,21 +4298,30 @@ static int serializer_pool_setup(void)
 	return 0;
 }
 
+static struct ast_taskprocessor *serializer_pool_pick(void)
+{
+	struct ast_taskprocessor *serializer;
+
+	unsigned int pos;
+
+	/*
+	 * Pick a serializer to use from the pool.
+	 *
+	 * Note: We don't care about any reentrancy behavior
+	 * when incrementing serializer_pool_pos.  If it gets
+	 * incorrectly incremented it doesn't matter.
+	 */
+	pos = serializer_pool_pos++;
+	pos %= SERIALIZER_POOL_SIZE;
+	serializer = serializer_pool[pos];
+
+	return serializer;
+}
+
 int ast_sip_push_task(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data)
 {
 	if (!serializer) {
-		unsigned int pos;
-
-		/*
-		 * Pick a serializer to use from the pool.
-		 *
-		 * Note: We don't care about any reentrancy behavior
-		 * when incrementing serializer_pool_pos.  If it gets
-		 * incorrectly incremented it doesn't matter.
-		 */
-		pos = serializer_pool_pos++;
-		pos %= SERIALIZER_POOL_SIZE;
-		serializer = serializer_pool[pos];
+		serializer = serializer_pool_pick();
 	}
 
 	return ast_taskprocessor_push(serializer, sip_task, task_data);
@@ -4269,9 +4345,8 @@ static int sync_task(void *data)
 
 	/*
 	 * Once we unlock std->lock after signaling, we cannot access
-	 * std again.  The thread waiting within
-	 * ast_sip_push_task_synchronous() is free to continue and
-	 * release its local variable (std).
+	 * std again.  The thread waiting within ast_sip_push_task_wait()
+	 * is free to continue and release its local variable (std).
 	 */
 	ast_mutex_lock(&std->lock);
 	std->complete = 1;
@@ -4281,14 +4356,10 @@ static int sync_task(void *data)
 	return ret;
 }
 
-int ast_sip_push_task_synchronous(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data)
+static int ast_sip_push_task_wait(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data)
 {
 	/* This method is an onion */
 	struct sync_task_data std;
-
-	if (ast_sip_thread_is_servant()) {
-		return sip_task(task_data);
-	}
 
 	memset(&std, 0, sizeof(std));
 	ast_mutex_init(&std.lock);
@@ -4311,6 +4382,42 @@ int ast_sip_push_task_synchronous(struct ast_taskprocessor *serializer, int (*si
 	ast_mutex_destroy(&std.lock);
 	ast_cond_destroy(&std.cond);
 	return std.fail;
+}
+
+int ast_sip_push_task_wait_servant(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data)
+{
+	if (ast_sip_thread_is_servant()) {
+		return sip_task(task_data);
+	}
+
+	return ast_sip_push_task_wait(serializer, sip_task, task_data);
+}
+
+int ast_sip_push_task_synchronous(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data)
+{
+	return ast_sip_push_task_wait_servant(serializer, sip_task, task_data);
+}
+
+int ast_sip_push_task_wait_serializer(struct ast_taskprocessor *serializer, int (*sip_task)(void *), void *task_data)
+{
+	if (!serializer) {
+		/* Caller doesn't care which PJSIP serializer the task executes under. */
+		serializer = serializer_pool_pick();
+		if (!serializer) {
+			/* No serializer picked to execute the task */
+			return -1;
+		}
+	}
+	if (ast_taskprocessor_is_task(serializer)) {
+		/*
+		 * We are the requested serializer so we must execute
+		 * the task now or deadlock waiting on ourself to
+		 * execute it.
+		 */
+		return sip_task(task_data);
+	}
+
+	return ast_sip_push_task_wait(serializer, sip_task, task_data);
 }
 
 void ast_copy_pj_str(char *dest, const pj_str_t *src, size_t size)
@@ -4753,7 +4860,7 @@ static int unload_pjsip(void *data)
 	ast_pjsip_endpoint = NULL;
 
 	if (caching_pool.lock) {
-		pj_caching_pool_destroy(&caching_pool);
+		ast_pjproject_caching_pool_destroy(&caching_pool);
 	}
 
 	pj_shutdown();
@@ -4770,7 +4877,7 @@ static int load_pjsip(void)
 	 * example code from PJLIB. This can be adjusted
 	 * if necessary.
 	 */
-	pj_caching_pool_init(&caching_pool, NULL, 1024 * 1024);
+	ast_pjproject_caching_pool_init(&caching_pool, NULL, 1024 * 1024);
 	if (pjsip_endpt_create(&caching_pool.factory, "SIP", &ast_pjsip_endpoint) != PJ_SUCCESS) {
 		ast_log(LOG_ERROR, "Failed to create PJSIP endpoint structure. Aborting load\n");
 		goto error;
@@ -4882,8 +4989,12 @@ static int load_module(void)
 	}
 
 	ast_sip_initialize_dns();
-
 	ast_sip_initialize_global_headers();
+
+	if (ast_res_pjsip_preinit_options_handling()) {
+		ast_log(LOG_ERROR, "Failed to pre-initialize OPTIONS handling. Aborting load\n");
+		goto error;
+	}
 
 	if (ast_res_pjsip_initialize_configuration(ast_module_info)) {
 		ast_log(LOG_ERROR, "Failed to initialize SIP configuration. Aborting load\n");
@@ -4910,7 +5021,10 @@ static int load_module(void)
 		goto error;
 	}
 
-	ast_res_pjsip_init_options_handling(0);
+	if (ast_res_pjsip_init_options_handling(0)) {
+		ast_log(LOG_ERROR, "Failed to initialize OPTIONS handling. Aborting load\n");
+		goto error;
+	}
 
 	if (ast_res_pjsip_init_message_filter()) {
 		ast_log(LOG_ERROR, "Failed to initialize message IP updating. Aborting load\n");
@@ -4943,7 +5057,7 @@ static int reload_module(void)
 	 * We must wait for the reload to complete so multiple
 	 * reloads cannot happen at the same time.
 	 */
-	if (ast_sip_push_task_synchronous(NULL, reload_configuration_task, NULL)) {
+	if (ast_sip_push_task_wait_servant(NULL, reload_configuration_task, NULL)) {
 		ast_log(LOG_WARNING, "Failed to reload PJSIP\n");
 		return -1;
 	}
@@ -4960,7 +5074,7 @@ static int unload_module(void)
 	/* The thread this is called from cannot call PJSIP/PJLIB functions,
 	 * so we have to push the work to the threadpool to handle
 	 */
-	ast_sip_push_task_synchronous(NULL, unload_pjsip, NULL);
+	ast_sip_push_task_wait_servant(NULL, unload_pjsip, NULL);
 	ast_sip_destroy_scheduler();
 	serializer_pool_shutdown();
 	ast_threadpool_shutdown(sip_threadpool);

@@ -1864,7 +1864,7 @@ static void publish_dahdichannel(struct ast_channel *chan, int span, const char 
  */
 static void dahdi_ami_channel_event(struct dahdi_pvt *p, struct ast_channel *chan)
 {
-	char ch_name[20];
+	char ch_name[23];
 
 	if (p->channel < CHAN_PSEUDO) {
 		/* No B channel */
@@ -10112,7 +10112,9 @@ static void *analog_ss_thread(void *data)
 				 * emulation.  The DTMF digits can come so fast that emulation
 				 * can drop some of them.
 				 */
+				ast_channel_lock(chan);
 				ast_set_flag(ast_channel_flags(chan), AST_FLAG_END_DTMF_ONLY);
+				ast_channel_unlock(chan);
 				off_ms = 4000;/* This is a typical OFF time between rings. */
 				for (;;) {
 					struct ast_frame *f;
@@ -10145,7 +10147,9 @@ static void *analog_ss_thread(void *data)
 						ast_channel_state(chan) == AST_STATE_RINGING)
 						break; /* Got ring */
 				}
+				ast_channel_lock(chan);
 				ast_clear_flag(ast_channel_flags(chan), AST_FLAG_END_DTMF_ONLY);
+				ast_channel_unlock(chan);
 				dtmfbuf[k] = '\0';
 				dahdi_setlinear(p->subs[idx].dfd, p->subs[idx].linear);
 				/* Got cid and ring. */
@@ -15167,14 +15171,14 @@ retry:
 		ast_mutex_lock(&p->lock);
 		if (p->owner && !p->restartpending) {
 			if (ast_channel_trylock(p->owner)) {
-				if (option_debug > 2)
+				if (DEBUG_ATLEAST(3))
 					ast_verbose("Avoiding deadlock\n");
 				/* Avoid deadlock since you're not supposed to lock iflock or pvt before a channel */
 				ast_mutex_unlock(&p->lock);
 				ast_mutex_unlock(&iflock);
 				goto retry;
 			}
-			if (option_debug > 2)
+			if (DEBUG_ATLEAST(3))
 				ast_verbose("Softhanging up on %s\n", ast_channel_name(p->owner));
 			ast_softhangup_nolock(p->owner, AST_SOFTHANGUP_EXPLICIT);
 			p->restartpending = 1;
