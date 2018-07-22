@@ -1,3 +1,17 @@
+asterisk (1:13.22.0~dfsg-1) unstable; urgency=medium
+
+  * New upstream version 13.22.0~dfsg
+    - CVE-2018-12227 / AST-2018-008 (Closes: #902954)
+      PJSIP endpoint presence disclosure when using ACL
+    - pjsip: Increase maximum number of usable ciphers (Closes: #897412)
+  * Drop d/p/no_uname, not necessary anymore
+  * Drop d/p/radcli-detection.patch, applied upstream
+  * Fix d/p/hack-multiple-app-voicemail for upstream libtdl drop
+  * Unfuzz d/p/amr.patch and d/p/ffmpeg-detection.patch
+  * Fix FTBFS due to wrong filename for dh_installdocs (Closes: #903412)
+
+ -- Bernhard Schmidt <berni@debian.org>  Sun, 22 Jul 2018 23:31:23 +0200
+
 asterisk (1:13.20.0~dfsg-1) unstable; urgency=medium
 
   * New upstream version 13.20.0 (Closes: #891227, #891228)
