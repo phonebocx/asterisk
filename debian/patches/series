@@ -31,6 +31,4 @@ amr.patch
 ffmpeg-detection.patch
 ffmpeg-includes.patch
 
-radcli-detection.patch
-
 build-reproducibly
