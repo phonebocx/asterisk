@@ -45,8 +45,8 @@ run() {
 		| sort  > "$output_dir/mods_loaded"
 	ls /usr/lib/asterisk/modules/ | sort | grep ^test_ > "$output_dir/mods_all"
 	if ! cmp -s "$output_dir/mods_loaded" "$output_dir/mods_all"; then
-		echo >&2 "Some test modules were not loaded:"
-		diff "$output_dir/mods_loaded" "$output_dir/mods_all" >&2
+		echo "Some test modules were not loaded:"
+		diff "$output_dir/mods_loaded" "$output_dir/mods_all"
 		echo "Manually disabled: $disable_mods"
 	fi
 	header=`cat "$results_file" | sed -e '/^$/,$d' `
