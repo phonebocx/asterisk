@@ -50,7 +50,7 @@ run() {
 		echo "Manually disabled: $disable_mods"
 	fi
 	header=`cat "$results_file" | sed -e '/^$/,$d' `
-	failed=`echo "$header" | awk '/^Passed/ {print $3}'`
+	failed=`echo "$header" | awk '/^Failed/ {print $3}'`
 	test_in_source=`grep AST_TEST_REGISTER tests/test_*.c | wc -l`
 	if [ "$failed" != '0' ]; then
 		echo >&2 "Some tests failed:"
