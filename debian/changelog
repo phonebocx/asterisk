@@ -1,3 +1,11 @@
+asterisk (1:13.22.0~dfsg-2) unstable; urgency=medium
+
+  * Fix/enable autopkgtest
+    - Do not log disabled tests to stderr
+    - Look at the correct line in the summary for failed tests
+
+ -- Bernhard Schmidt <berni@debian.org>  Wed, 05 Sep 2018 11:30:36 +0200
+
 asterisk (1:13.22.0~dfsg-1) unstable; urgency=medium
 
   * New upstream version 13.22.0~dfsg
