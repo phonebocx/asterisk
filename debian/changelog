@@ -1,3 +1,12 @@
+asterisk (1:13.23.1~dfsg-1) unstable; urgency=medium
+
+  * New upstream version 13.23.1~dfsg
+    - CVE-2018-17281 / AST-2018-009 (Closes: #909554)
+      Remote crash vulnerability in HTTP websocket upgrade
+  * Add lintian overrides for modules
+
+ -- Bernhard Schmidt <berni@debian.org>  Tue, 25 Sep 2018 09:59:08 +0200
+
 asterisk (1:13.22.0~dfsg-2) unstable; urgency=medium
 
   * Fix/enable autopkgtest
