@@ -32,5 +32,13 @@ CREATE TABLE cdr (
 
 INSERT INTO alembic_version (version_num) VALUES ('210693f3123d');
 
+-- Running upgrade 210693f3123d -> 54cde9847798
+
+ALTER TABLE cdr ALTER COLUMN accountcode TYPE VARCHAR(80);
+
+ALTER TABLE cdr ALTER COLUMN peeraccount TYPE VARCHAR(80);
+
+UPDATE alembic_version SET version_num='54cde9847798' WHERE alembic_version.version_num = '210693f3123d';
+
 COMMIT;
 

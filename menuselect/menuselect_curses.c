@@ -31,15 +31,7 @@
 #include <string.h>
 #include <signal.h>
 #include <time.h>
-#ifdef HAVE_NCURSES
-#ifdef HAVE_NCURSES_SUBDIR
-#include <ncurses/ncurses.h>
-#else
-#include <ncurses.h>
-#endif
-#else
 #include <curses.h>
-#endif
 
 #include "menuselect.h"
 

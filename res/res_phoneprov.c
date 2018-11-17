@@ -52,7 +52,6 @@
 #ifdef SOLARIS
 #include <sys/sockio.h>
 #endif
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 
 #include "asterisk/channel.h"
 #include "asterisk/file.h"
@@ -393,7 +392,7 @@ static void provider_destructor(void *obj)
 static void delete_file(struct phoneprov_file *file)
 {
 	ast_string_field_free_memory(file);
-	free(file);
+	ast_free(file);
 }
 
 /*! \brief Read a TEXT file into a string and return the length */
@@ -417,7 +416,7 @@ static int load_file(const char *filename, char **ret)
 
 	if (len != fread(*ret, sizeof(char), len, f)) {
 		fclose(f);
-		free(*ret);
+		ast_free(*ret);
 		*ret = NULL;
 		return -3;
 	}
@@ -950,7 +949,7 @@ static int phoneprov_callback(struct ast_tcptls_session_instance *ser, const str
 			socklen_t namelen = sizeof(name.sa);
 			int res;
 
-			if ((res = getsockname(ser->fd, &name.sa, &namelen))) {
+			if ((res = getsockname(ast_iostream_get_fd(ser->stream), &name.sa, &namelen))) {
 				ast_log(LOG_WARNING, "Could not get server IP, breakage likely.\n");
 			} else {
 				struct extension *exten_iter;
@@ -1238,7 +1237,7 @@ static struct varshead *get_defaults(void)
 		}
 	}
 	var = ast_var_assign(variable_lookup[AST_PHONEPROV_STD_SERVER_PORT], S_OR(value, "5060"));
-	if(cfg && cfg != CONFIG_STATUS_FILEINVALID) {
+	if (cfg && cfg != CONFIG_STATUS_FILEINVALID) {
 		ast_config_destroy(cfg);
 	}
 	AST_VAR_LIST_INSERT_TAIL(defaults, var);
@@ -1494,12 +1493,13 @@ static int reload(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "HTTP Phone Provisioning",
-		.support_level = AST_MODULE_SUPPORT_EXTENDED,
-		.load = load_module,
-		.unload = unload_module,
-		.reload = reload,
-		.load_pri = AST_MODPRI_CHANNEL_DEPEND,
-	);
+	.support_level = AST_MODULE_SUPPORT_EXTENDED,
+	.load = load_module,
+	.unload = unload_module,
+	.reload = reload,
+	.load_pri = AST_MODPRI_CHANNEL_DEPEND,
+	.requires = "http",
+);
 
 /****  Public API for register/unregister, set defaults, and add extension. ****/
 

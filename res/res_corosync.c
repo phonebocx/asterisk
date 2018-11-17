@@ -32,8 +32,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$");
-
 #include <corosync/cpg.h>
 #include <corosync/cfg.h>
 

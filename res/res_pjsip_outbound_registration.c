@@ -545,7 +545,6 @@ static pj_status_t registration_client_send(struct sip_outbound_registration_cli
 	 */
 	ast_sip_set_tpselector_from_transport_name(client_state->transport_name, &selector);
 	pjsip_regc_set_transport(client_state->client, &selector);
-	ast_sip_record_request_serializer(tdata);
 	status = pjsip_regc_send(client_state->client, tdata);
 
 	/* If the attempt to send the message failed and the callback was not invoked we need to
@@ -913,7 +912,7 @@ static int handle_registration_response(void *data)
 		pjsip_cseq_hdr *cseq_hdr;
 		pjsip_tx_data *tdata;
 
-		if (!ast_sip_create_request_with_auth_from_old(&response->client_state->outbound_auths,
+		if (!ast_sip_create_request_with_auth(&response->client_state->outbound_auths,
 				response->rdata, response->old_request, &tdata)) {
 			response->client_state->auth_attempted = 1;
 			ast_debug(1, "Sending authenticated REGISTER to server '%s' from client '%s'\n",
@@ -1153,7 +1152,7 @@ static struct sip_outbound_registration_state *sip_outbound_registration_state_a
 	ast_taskprocessor_build_name(tps_name, sizeof(tps_name), "pjsip/outreg/%s",
 		ast_sorcery_object_get_id(registration));
 
-	state->client_state->serializer = ast_sip_create_serializer_group_named(tps_name,
+	state->client_state->serializer = ast_sip_create_serializer_group(tps_name,
 		shutdown_group);
 	if (!state->client_state->serializer) {
 		ao2_cleanup(state);
@@ -2189,8 +2188,6 @@ static int load_module(void)
 {
 	struct ao2_container *new_states;
 
-	CHECK_PJSIP_MODULE_LOADED();
-
 	shutdown_group = ast_serializer_shutdown_group_alloc();
 	if (!shutdown_group) {
 		return AST_MODULE_LOAD_DECLINE;
@@ -2296,9 +2293,11 @@ static int reload_module(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "PJSIP Outbound Registration Support",
-		.support_level = AST_MODULE_SUPPORT_CORE,
-		.load = load_module,
-		.reload = reload_module,
-		.unload = unload_module,
-		.load_pri = AST_MODPRI_APP_DEPEND,
-	       );
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.reload = reload_module,
+	.unload = unload_module,
+	.load_pri = AST_MODPRI_APP_DEPEND,
+	.requires = "res_pjsip",
+	.optional_modules = "res_statsd",
+);

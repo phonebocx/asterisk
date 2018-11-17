@@ -65,8 +65,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include "asterisk/io.h"
 #include "asterisk/file.h"
 #include "asterisk/logger.h"
@@ -980,7 +978,6 @@ int ast_fax_tech_register(struct ast_fax_tech *tech)
 	AST_RWLIST_WRLOCK(&faxmodules);
 	AST_RWLIST_INSERT_TAIL(&faxmodules, fax, list);
 	AST_RWLIST_UNLOCK(&faxmodules);
-	ast_module_ref(ast_module_info->self);
 
 	ast_verb(3, "Registered handler for '%s' (%s)\n", fax->tech->type, fax->tech->description);
 
@@ -1000,7 +997,6 @@ void ast_fax_tech_unregister(struct ast_fax_tech *tech)
 			continue;
 		}
 		AST_RWLIST_REMOVE_CURRENT(list);
-		ast_module_unref(ast_module_info->self);
 		ast_free(fax);
 		ast_verb(4, "Unregistered FAX module type '%s'\n", tech->type);
 		break;
@@ -1163,8 +1159,10 @@ static struct ast_fax_session *fax_session_reserve(struct ast_fax_session_detail
 		if ((faxmod->tech->caps & details->caps) != details->caps) {
 			continue;
 		}
+		if (!ast_module_running_ref(faxmod->tech->module)) {
+			continue;
+		}
 		ast_debug(4, "Reserving a FAX session from '%s'.\n", faxmod->tech->description);
-		ast_module_ref(faxmod->tech->module);
 		s->tech = faxmod->tech;
 		break;
 	}
@@ -1281,8 +1279,10 @@ static struct ast_fax_session *fax_session_new(struct ast_fax_session_details *d
 			if ((faxmod->tech->caps & details->caps) != details->caps) {
 				continue;
 			}
+			if (!ast_module_running_ref(faxmod->tech->module)) {
+				continue;
+			}
 			ast_debug(4, "Requesting a new FAX session from '%s'.\n", faxmod->tech->description);
-			ast_module_ref(faxmod->tech->module);
 			if (reserved) {
 				/* Balance module ref from reserved session */
 				ast_module_unref(reserved->tech->module);
@@ -4784,9 +4784,9 @@ static int reload_module(void)
 
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "Generic FAX Applications",
-		.support_level = AST_MODULE_SUPPORT_CORE,
-		.load = load_module,
-		.unload = unload_module,
-		.reload = reload_module,
-		.load_pri = AST_MODPRI_APP_DEPEND,
-	       );
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.unload = unload_module,
+	.reload = reload_module,
+	.load_pri = AST_MODPRI_APP_DEPEND,
+);

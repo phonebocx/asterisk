@@ -29,11 +29,12 @@
 
 static int distribute(void *data);
 static pj_bool_t distributor(pjsip_rx_data *rdata);
+static pj_status_t record_serializer(pjsip_tx_data *tdata);
 
 static pjsip_module distributor_mod = {
 	.name = {"Request Distributor", 19},
 	.priority = PJSIP_MOD_PRIORITY_TSX_LAYER - 6,
-	.on_tx_request = ast_sip_record_request_serializer,
+	.on_tx_request = record_serializer,
 	.on_rx_request = distributor,
 	.on_rx_response = distributor,
 };
@@ -63,7 +64,16 @@ struct unidentified_request{
 /*! Pool of serializers to use if not supplied. */
 static struct ast_taskprocessor *distributor_pool[DISTRIBUTOR_POOL_SIZE];
 
-pj_status_t ast_sip_record_request_serializer(pjsip_tx_data *tdata)
+/*!
+ * \internal
+ * \brief Record the task's serializer name on the tdata structure.
+ * \since 14.0.0
+ *
+ * \param tdata The outgoing message.
+ *
+ * \retval PJ_SUCCESS.
+ */
+static pj_status_t record_serializer(pjsip_tx_data *tdata)
 {
 	struct ast_taskprocessor *serializer;
 
@@ -1218,7 +1228,7 @@ static int distributor_pool_setup(void)
 		/* Create name with seq number appended. */
 		ast_taskprocessor_build_name(tps_name, sizeof(tps_name), "pjsip/distributor");
 
-		distributor_pool[idx] = ast_sip_create_serializer_named(tps_name);
+		distributor_pool[idx] = ast_sip_create_serializer(tps_name);
 		if (!distributor_pool[idx]) {
 			return -1;
 		}
@@ -1266,15 +1276,15 @@ int ast_sip_initialize_distributor(void)
 		return -1;
 	}
 
-	if (internal_sip_register_service(&distributor_mod)) {
+	if (ast_sip_register_service(&distributor_mod)) {
 		ast_sip_destroy_distributor();
 		return -1;
 	}
-	if (internal_sip_register_service(&endpoint_mod)) {
+	if (ast_sip_register_service(&endpoint_mod)) {
 		ast_sip_destroy_distributor();
 		return -1;
 	}
-	if (internal_sip_register_service(&auth_mod)) {
+	if (ast_sip_register_service(&auth_mod)) {
 		ast_sip_destroy_distributor();
 		return -1;
 	}
@@ -1305,9 +1315,9 @@ void ast_sip_destroy_distributor(void)
 	ast_cli_unregister_multiple(cli_commands, ARRAY_LEN(cli_commands));
 	ast_sip_unregister_cli_formatter(unid_formatter);
 
-	internal_sip_unregister_service(&auth_mod);
-	internal_sip_unregister_service(&endpoint_mod);
-	internal_sip_unregister_service(&distributor_mod);
+	ast_sip_unregister_service(&auth_mod);
+	ast_sip_unregister_service(&endpoint_mod);
+	ast_sip_unregister_service(&distributor_mod);
 
 	ao2_global_obj_release(artificial_auth);
 	ao2_cleanup(artificial_endpoint);

@@ -33,8 +33,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_REGISTER_FILE()
-
 #include <pjsip.h>
 #include "asterisk/test.h"
 #include "asterisk/module.h"
@@ -129,7 +127,7 @@ static int scheduler(struct ast_test *test, int serialized)
 	if (serialized) {
 		ast_test_status_update(test, "This test will take about %3.1f seconds\n",
 			(test_data1->interval + test_data1->sleep + (MAX(test_data1->interval - test_data2->interval, 0)) + test_data2->sleep) / 1000.0);
-		tp1 = ast_sip_create_serializer();
+		tp1 = ast_sip_create_serializer("test-scheduler-serializer");
 		ast_test_validate(test, (tp1 != NULL));
 	} else {
 		ast_test_status_update(test, "This test will take about %3.1f seconds\n",
@@ -378,8 +376,6 @@ AST_TEST_DEFINE(scheduler_policy)
 
 static int load_module(void)
 {
-	CHECK_PJSIP_MODULE_LOADED();
-
 	AST_TEST_REGISTER(serialized_scheduler);
 	AST_TEST_REGISTER(unserialized_scheduler);
 	AST_TEST_REGISTER(scheduler_cleanup);
@@ -398,4 +394,9 @@ static int unload_module(void)
 	return 0;
 }
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "res_pjsip scheduler test module");
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "res_pjsip scheduler test module",
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.unload = unload_module,
+	.requires = "res_pjsip",
+);

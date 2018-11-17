@@ -45,8 +45,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include <math.h> /* log10 */
 #include "asterisk/file.h"
 #include "asterisk/channel.h"

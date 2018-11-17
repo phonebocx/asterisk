@@ -19,7 +19,6 @@
 /*** MODULEINFO
 	<depend>pjproject</depend>
 	<depend>res_pjsip</depend>
-	<depend>res_pjsip_session</depend>
 	<support_level>core</support_level>
  ***/
 
@@ -545,33 +544,6 @@ static void add_pai_header(const struct ast_sip_session *session, pjsip_tx_data 
 
 /*!
  * \internal
- * \brief Add party parameter to a Remote-Party-ID header.
- *
- * \param tdata The message where the Remote-Party-ID header is
- * \param hdr The header on which the parameters are being added
- * \param session The session involved
- */
-static void add_party_param(pjsip_tx_data *tdata, pjsip_fromto_hdr *hdr, const struct ast_sip_session *session)
-{
-	static const pj_str_t party_str = { "party", 5 };
-	static const pj_str_t calling_str = { "calling", 7 };
-	static const pj_str_t called_str = { "called", 6 };
-	pjsip_param *party;
-
-	/* The party value can't change throughout the lifetime, so it is set only once */
-	party = pjsip_param_find(&hdr->other_param, &party_str);
-	if (party) {
-		return;
-	}
-
-	party = PJ_POOL_ALLOC_T(tdata->pool, pjsip_param);
-	party->name = party_str;
-	party->value = (session->inv_session->role == PJSIP_ROLE_UAC) ? calling_str : called_str;
-	pj_list_insert_before(&hdr->other_param, party);
-}
-
-/*!
- * \internal
  * \brief Add privacy and screen parameters to a Remote-Party-ID header.
  *
  * If privacy is requested, then the privacy and screen parameters need to
@@ -659,7 +631,6 @@ static void add_rpid_header(const struct ast_sip_session *session, pjsip_tx_data
 			pj_list_erase(old_rpid);
 		} else {
 			ast_sip_modify_id_header(tdata->pool, old_rpid, id);
-			add_party_param(tdata, old_rpid, session);
 			add_privacy_params(tdata, old_rpid, id);
 			return;
 		}
@@ -675,7 +646,6 @@ static void add_rpid_header(const struct ast_sip_session *session, pjsip_tx_data
 	if (!rpid_hdr) {
 		return;
 	}
-	add_party_param(tdata, rpid_hdr, session);
 	add_privacy_params(tdata, rpid_hdr, id);
 	pjsip_msg_add_hdr(tdata->msg, (pjsip_hdr *)rpid_hdr);
 }
@@ -776,8 +746,6 @@ static struct ast_sip_session_supplement caller_id_supplement = {
 
 static int load_module(void)
 {
-	CHECK_PJSIP_SESSION_MODULE_LOADED();
-
 	ast_sip_session_register_supplement(&caller_id_supplement);
 	return AST_MODULE_LOAD_SUCCESS;
 }
@@ -789,8 +757,9 @@ static int unload_module(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "PJSIP Caller ID Support",
-		.support_level = AST_MODULE_SUPPORT_CORE,
-		.load = load_module,
-		.unload = unload_module,
-		.load_pri = AST_MODPRI_APP_DEPEND,
-	       );
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.unload = unload_module,
+	.load_pri = AST_MODPRI_APP_DEPEND,
+	.requires = "res_pjsip",
+);

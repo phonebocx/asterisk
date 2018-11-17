@@ -30,8 +30,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include <regex.h>
 
 #include "asterisk/module.h"
@@ -210,7 +208,8 @@ static void sorcery_realtime_retrieve_multiple(const struct ast_sorcery *sorcery
 			return;
 		}
 		if (config->fetch == UNQUALIFIED_FETCH_WARN) {
-			ast_log(LOG_WARNING, "Unqualified fetch requested on %s\n", config->family);
+			ast_log(LOG_WARNING, "Unqualified fetch attempted on %s\n", config->family);
+			return;
 		}
 
 		/* If no fields have been specified we want all rows, so trick realtime into doing it */

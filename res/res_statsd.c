@@ -52,8 +52,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include "asterisk/config_options.h"
 #include "asterisk/module.h"
 #include "asterisk/netsock2.h"
@@ -355,9 +353,6 @@ static int load_module(void)
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
-	/* For Optional API. */
-	ast_module_shutdown_ref(ast_module_info->self);
-
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
@@ -383,13 +378,13 @@ static int reload_module(void)
 	}
 }
 
-/* The priority of this module is set to be as low as possible, since it could
- * be used by any other sort of module.
+/* The priority of this module is set just after realtime, since it loads
+ * configuration and could be used by any other sort of module.
  */
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "Statsd client support",
 	.support_level = AST_MODULE_SUPPORT_EXTENDED,
 	.load = load_module,
 	.unload = unload_module,
 	.reload = reload_module,
-	.load_pri = 0,
-	);
+	.load_pri = AST_MODPRI_REALTIME_DRIVER + 5,
+);

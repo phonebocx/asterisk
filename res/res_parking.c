@@ -233,8 +233,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include "parking/res_parking.h"
 #include "asterisk/config.h"
 #include "asterisk/config_options.h"
@@ -723,7 +721,7 @@ static int parking_add_extension(struct ast_context *context, int replace, const
 	}
 
 	if (ast_add_extension2_nolock(context, replace, extension, priority, NULL, NULL,
-			application, data_duplicate, ast_free_ptr, registrar)) {
+			application, data_duplicate, ast_free_ptr, registrar, NULL, 0)) {
 		ast_free(data_duplicate);
 		return -1;
 	}
@@ -1191,11 +1189,6 @@ static void link_configured_disable_marked_lots(void)
 	disable_marked_lots();
 }
 
-const struct ast_module_info *parking_get_module_info(void)
-{
-	return ast_module_info;
-}
-
 static int unload_module(void)
 {
 	unload_parking_bridge_features();
@@ -1300,5 +1293,5 @@ AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Call Parking Resource
 	.load = load_module,
 	.unload = unload_module,
 	.reload = reload_module,
-	.load_pri = 0,
+	.load_pri = AST_MODPRI_DEVSTATE_PROVIDER,
 );

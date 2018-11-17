@@ -17,7 +17,8 @@
  */
 
 /*!
- * \file \brief Test infrastructure for dealing with Stasis.
+ * \file
+ * \brief Test infrastructure for dealing with Stasis.
  *
  * \author David M. Lee, II <dlee@digium.com>
  */
@@ -28,8 +29,6 @@
  ***/
 
 #include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$");
 
 #include "asterisk/astobj2.h"
 #include "asterisk/module.h"
@@ -284,4 +283,4 @@ AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_
 	.load = load_module,
 	.unload = unload_module,
 	.load_pri = AST_MODPRI_APP_DEPEND,
-	);
+);

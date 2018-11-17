@@ -27,7 +27,6 @@
  ***/
 
 #include "asterisk.h"
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$");
 
 #include "asterisk/backtrace.h"
 #include "asterisk/utils.h"

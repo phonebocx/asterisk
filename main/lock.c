@@ -27,7 +27,14 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
+#ifdef HAVE_MTX_PROFILE
+/* profile mutex */
+static int mtx_prof = -1;
+static void __attribute__((constructor)) __mtx_init(void)
+{
+	mtx_prof = ast_add_profile("mtx_lock_" __FILE__, 0);
+}
+#endif
 
 #include "asterisk/utils.h"
 #include "asterisk/lock.h"
@@ -238,9 +245,7 @@ int __ast_pthread_mutex_lock(const char *filename, int lineno, const char *func,
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
 	int canlog = t->tracking && strcmp(filename, "logger.c");
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 	if (t->tracking) {
 		lt = ast_get_reentrancy(&t->track);
@@ -261,11 +266,8 @@ int __ast_pthread_mutex_lock(const char *filename, int lineno, const char *func,
 			bt = &lt->backtrace[lt->reentrancy];
 		}
 		ast_reentrancy_unlock(lt);
-
-		ast_store_lock_info(AST_MUTEX, filename, lineno, func, mutex_name, t, bt);
-#else
-		ast_store_lock_info(AST_MUTEX, filename, lineno, func, mutex_name, t);
 #endif
+		ast_store_lock_info(AST_MUTEX, filename, lineno, func, mutex_name, t, bt);
 	}
 #endif /* DEBUG_THREADS */
 
@@ -339,10 +341,8 @@ int __ast_pthread_mutex_lock(const char *filename, int lineno, const char *func,
 		} else {
 			bt = NULL;
 		}
-		ast_remove_lock_info(t, bt);
-#else
-		ast_remove_lock_info(t);
 #endif
+		ast_remove_lock_info(t, bt);
 	}
 	if (res) {
 		__ast_mutex_logger("%s line %d (%s): Error obtaining mutex: %s\n",
@@ -362,9 +362,7 @@ int __ast_pthread_mutex_trylock(const char *filename, int lineno, const char *fu
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
 	int canlog = t->tracking && strcmp(filename, "logger.c");
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 	if (t->tracking) {
 		lt = ast_get_reentrancy(&t->track);
@@ -385,11 +383,8 @@ int __ast_pthread_mutex_trylock(const char *filename, int lineno, const char *fu
 			bt = &lt->backtrace[lt->reentrancy];
 		}
 		ast_reentrancy_unlock(lt);
-
-		ast_store_lock_info(AST_MUTEX, filename, lineno, func, mutex_name, t, bt);
-#else
-		ast_store_lock_info(AST_MUTEX, filename, lineno, func, mutex_name, t);
 #endif
+		ast_store_lock_info(AST_MUTEX, filename, lineno, func, mutex_name, t, bt);
 	}
 #endif /* DEBUG_THREADS */
 
@@ -426,9 +421,7 @@ int __ast_pthread_mutex_unlock(const char *filename, int lineno, const char *fun
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
 	int canlog = t->tracking && strcmp(filename, "logger.c");
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 #if defined(AST_MUTEX_INIT_W_CONSTRUCTORS) && defined(CAN_COMPARE_MUTEX_TO_INIT_VALUE)
 	if ((t->mutex) == ((pthread_mutex_t) PTHREAD_MUTEX_INITIALIZER)) {
@@ -476,11 +469,7 @@ int __ast_pthread_mutex_unlock(const char *filename, int lineno, const char *fun
 #endif
 		ast_reentrancy_unlock(lt);
 
-#ifdef HAVE_BKTR
 		ast_remove_lock_info(t, bt);
-#else
-		ast_remove_lock_info(t);
-#endif
 	}
 #endif /* DEBUG_THREADS */
 
@@ -766,9 +755,7 @@ int __ast_rwlock_unlock(const char *filename, int line, const char *func, ast_rw
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
 	int canlog = t->tracking && strcmp(filename, "logger.c");
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 	int lock_found = 0;
 
 #if defined(AST_MUTEX_INIT_W_CONSTRUCTORS) && defined(CAN_COMPARE_MUTEX_TO_INIT_VALUE)
@@ -818,11 +805,7 @@ int __ast_rwlock_unlock(const char *filename, int line, const char *func, ast_rw
 
 		ast_reentrancy_unlock(lt);
 
-#ifdef HAVE_BKTR
 		ast_remove_lock_info(t, bt);
-#else
-		ast_remove_lock_info(t);
-#endif
 	}
 #endif /* DEBUG_THREADS */
 
@@ -846,9 +829,7 @@ int __ast_rwlock_rdlock(const char *filename, int line, const char *func, ast_rw
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
 	int canlog = t->tracking && strcmp(filename, "logger.c");
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 	if (t->tracking) {
 		lt = ast_get_reentrancy(&t->track);
@@ -869,11 +850,8 @@ int __ast_rwlock_rdlock(const char *filename, int line, const char *func, ast_rw
 			bt = &lt->backtrace[lt->reentrancy];
 		}
 		ast_reentrancy_unlock(lt);
-
-		ast_store_lock_info(AST_RDLOCK, filename, line, func, name, t, bt);
-#else
-		ast_store_lock_info(AST_RDLOCK, filename, line, func, name, t);
 #endif
+		ast_store_lock_info(AST_RDLOCK, filename, line, func, name, t, bt);
 	}
 #endif /* DEBUG_THREADS */
 
@@ -932,10 +910,8 @@ int __ast_rwlock_rdlock(const char *filename, int line, const char *func, ast_rw
 		} else {
 			bt = NULL;
 		}
-		ast_remove_lock_info(t, bt);
-#else
-		ast_remove_lock_info(t);
 #endif
+		ast_remove_lock_info(t, bt);
 	}
 
 	if (res) {
@@ -955,9 +931,7 @@ int __ast_rwlock_wrlock(const char *filename, int line, const char *func, ast_rw
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
 	int canlog = t->tracking && strcmp(filename, "logger.c");
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 	if (t->tracking) {
 		lt = ast_get_reentrancy(&t->track);
@@ -978,11 +952,8 @@ int __ast_rwlock_wrlock(const char *filename, int line, const char *func, ast_rw
 			bt = &lt->backtrace[lt->reentrancy];
 		}
 		ast_reentrancy_unlock(lt);
-
-		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t, bt);
-#else
-		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t);
 #endif
+		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t, bt);
 	}
 #endif /* DEBUG_THREADS */
 
@@ -1041,10 +1012,8 @@ int __ast_rwlock_wrlock(const char *filename, int line, const char *func, ast_rw
 		} else {
 			bt = NULL;
 		}
-		ast_remove_lock_info(t, bt);
-#else
-		ast_remove_lock_info(t);
 #endif
+		ast_remove_lock_info(t, bt);
 	}
 	if (res) {
 		__ast_mutex_logger("%s line %d (%s): Error obtaining write lock: %s\n",
@@ -1064,9 +1033,7 @@ int __ast_rwlock_timedrdlock(const char *filename, int line, const char *func, a
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
 	int canlog = t->tracking && strcmp(filename, "logger.c");
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 	if (t->tracking) {
 		lt = ast_get_reentrancy(&t->track);
@@ -1087,11 +1054,8 @@ int __ast_rwlock_timedrdlock(const char *filename, int line, const char *func, a
 			bt = &lt->backtrace[lt->reentrancy];
 		}
 		ast_reentrancy_unlock(lt);
-
-		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t, bt);
-#else
-		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t);
 #endif
+		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t, bt);
 	}
 #endif /* DEBUG_THREADS */
 
@@ -1134,10 +1098,8 @@ int __ast_rwlock_timedrdlock(const char *filename, int line, const char *func, a
 		} else {
 			bt = NULL;
 		}
-		ast_remove_lock_info(t, bt);
-#else
-		ast_remove_lock_info(t);
 #endif
+		ast_remove_lock_info(t, bt);
 	}
 	if (res) {
 		__ast_mutex_logger("%s line %d (%s): Error obtaining read lock: %s\n",
@@ -1157,9 +1119,7 @@ int __ast_rwlock_timedwrlock(const char *filename, int line, const char *func, a
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
 	int canlog = t->tracking && strcmp(filename, "logger.c");
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 	if (t->tracking) {
 		lt = ast_get_reentrancy(&t->track);
@@ -1180,11 +1140,8 @@ int __ast_rwlock_timedwrlock(const char *filename, int line, const char *func, a
 			bt = &lt->backtrace[lt->reentrancy];
 		}
 		ast_reentrancy_unlock(lt);
-
-		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t, bt);
-#else
-		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t);
 #endif
+		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t, bt);
 	}
 #endif /* DEBUG_THREADS */
 
@@ -1227,10 +1184,8 @@ int __ast_rwlock_timedwrlock(const char *filename, int line, const char *func, a
 		} else {
 			bt = NULL;
 		}
-		ast_remove_lock_info(t, bt);
-#else
-		ast_remove_lock_info(t);
 #endif
+		ast_remove_lock_info(t, bt);
 	}
 	if (res) {
 		__ast_mutex_logger("%s line %d (%s): Error obtaining read lock: %s\n",
@@ -1248,9 +1203,7 @@ int __ast_rwlock_tryrdlock(const char *filename, int line, const char *func, ast
 
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 	if (t->tracking) {
 		lt = ast_get_reentrancy(&t->track);
@@ -1271,11 +1224,8 @@ int __ast_rwlock_tryrdlock(const char *filename, int line, const char *func, ast
 			bt = &lt->backtrace[lt->reentrancy];
 		}
 		ast_reentrancy_unlock(lt);
-
-		ast_store_lock_info(AST_RDLOCK, filename, line, func, name, t, bt);
-#else
-		ast_store_lock_info(AST_RDLOCK, filename, line, func, name, t);
 #endif
+		ast_store_lock_info(AST_RDLOCK, filename, line, func, name, t, bt);
 	}
 #endif /* DEBUG_THREADS */
 
@@ -1307,9 +1257,7 @@ int __ast_rwlock_trywrlock(const char *filename, int line, const char *func, ast
 
 #ifdef DEBUG_THREADS
 	struct ast_lock_track *lt = NULL;
-#ifdef HAVE_BKTR
 	struct ast_bt *bt = NULL;
-#endif
 
 	if (t->tracking) {
 		lt = ast_get_reentrancy(&t->track);
@@ -1330,11 +1278,8 @@ int __ast_rwlock_trywrlock(const char *filename, int line, const char *func, ast
 			bt = &lt->backtrace[lt->reentrancy];
 		}
 		ast_reentrancy_unlock(lt);
-
-		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t, bt);
-#else
-		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t);
 #endif
+		ast_store_lock_info(AST_WRLOCK, filename, line, func, name, t, bt);
 	}
 #endif /* DEBUG_THREADS */
 

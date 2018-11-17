@@ -98,8 +98,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_REGISTER_FILE()
-
 #include <stdarg.h>
 #include <pjlib.h>
 #include <pjsip.h>
@@ -280,16 +278,6 @@ void ast_pjproject_log_intercept_end(void)
 	pjproject_log_intercept.thread = AST_PTHREADT_NULL;
 
 	ast_mutex_unlock(&pjproject_log_intercept_lock);
-}
-
-void ast_pjproject_ref(void)
-{
-	ast_module_ref(ast_module_info->self);
-}
-
-void ast_pjproject_unref(void)
-{
-	ast_module_unref(ast_module_info->self);
 }
 
 static char *handle_pjproject_show_buildopts(struct ast_cli_entry *e, int cmd, struct ast_cli_args *a)
@@ -593,4 +581,4 @@ AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_
 	.unload = unload_module,
 	.reload = reload_module,
 	.load_pri = AST_MODPRI_CHANNEL_DEPEND - 6,
-	);
+);

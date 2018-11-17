@@ -22,14 +22,6 @@
 #include <pj/types.h>
 #include <pj/pool.h>
 
-/*! \brief Determines whether the res_pjproject module is loaded */
-#define CHECK_PJPROJECT_MODULE_LOADED()                 \
-	do {                                                \
-		if (!ast_module_check("res_pjproject.so")) {    \
-			return AST_MODULE_LOAD_DECLINE;             \
-		}                                               \
-	} while(0)
-
 /*!
  * \brief Retrieve a pjproject build option
  *
@@ -81,20 +73,6 @@ void ast_pjproject_log_intercept_begin(int fd);
  * \return Nothing
  */
 void ast_pjproject_log_intercept_end(void);
-
-/*!
- * \brief Increment the res_pjproject reference count.
- *
- * This ensures graceful shutdown happens in the proper order.
- */
-void ast_pjproject_ref(void);
-
-/*!
- * \brief Decrement the res_pjproject reference count.
- *
- * This ensures graceful shutdown happens in the proper order.
- */
-void ast_pjproject_unref(void);
 
 /*!
  * \brief Initialize the caching pool factory.

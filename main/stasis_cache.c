@@ -29,8 +29,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include "asterisk/astobj2.h"
 #include "asterisk/hashtab.h"
 #include "asterisk/stasis_internal.h"
@@ -176,7 +174,7 @@ static void cache_entry_dtor(void *obj)
 
 static void cache_entry_compute_hash(struct cache_entry_key *key)
 {
-	key->hash = stasis_message_type_hash(key->type);
+	key->hash = ast_hashtab_hash_string(stasis_message_type_name(key->type));
 	key->hash += ast_hashtab_hash_string(key->id);
 }
 

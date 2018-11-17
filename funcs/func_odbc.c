@@ -35,8 +35,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include "asterisk/module.h"
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
@@ -102,7 +100,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 
 static char *config = "func_odbc.conf";
 
-#define DEFAULT_SINGLE_DB_CONNECTION 1
+#define DEFAULT_SINGLE_DB_CONNECTION 0
 
 static int single_db_connection;
 
@@ -1941,8 +1939,8 @@ reload_out:
 /* XXX need to revise usecount - set if query_lock is set */
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "ODBC lookups",
-		.support_level = AST_MODULE_SUPPORT_CORE,
-		.load = load_module,
-		.unload = unload_module,
-		.reload = reload,
-	       );
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.unload = unload_module,
+	.reload = reload,
+);

@@ -47,8 +47,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include "asterisk/file.h"
 #include "asterisk/channel.h"
 #include "asterisk/config.h"
@@ -62,7 +60,6 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/app.h"
 #include "asterisk/strings.h"
 #include "asterisk/threadstorage.h"
-#include "asterisk/data.h"
 
 struct odbc_class
 {
@@ -119,15 +116,6 @@ struct odbc_txn_frame {
 	unsigned int isolation;         /*!< Flags for how the DB should deal with data in other, uncommitted transactions */
 	char name[0];                   /*!< Name of this transaction ID */
 };
-
-#define DATA_EXPORT_ODBC_CLASS(MEMBER)				\
-	MEMBER(odbc_class, name, AST_DATA_STRING)		\
-	MEMBER(odbc_class, dsn, AST_DATA_STRING)		\
-	MEMBER(odbc_class, username, AST_DATA_STRING)		\
-	MEMBER(odbc_class, password, AST_DATA_PASSWORD)		\
-	MEMBER(odbc_class, forcecommit, AST_DATA_BOOLEAN)
-
-AST_DATA_STRUCTURE(odbc_class, DATA_EXPORT_ODBC_CLASS);
 
 const char *ast_odbc_isolation2text(int iso)
 {
@@ -668,10 +656,14 @@ static char *handle_cli_odbc_show(struct ast_cli_entry *e, int cmd, struct ast_c
 			char timestr[80];
 			struct ast_tm tm;
 
-			ast_localtime(&class->last_negative_connect, &tm, NULL);
-			ast_strftime(timestr, sizeof(timestr), "%Y-%m-%d %T", &tm);
 			ast_cli(a->fd, "  Name:   %s\n  DSN:    %s\n", class->name, class->dsn);
-			ast_cli(a->fd, "    Last connection attempt: %s\n", timestr);
+
+			if (class->last_negative_connect.tv_sec > 0) {
+				ast_localtime(&class->last_negative_connect, &tm, NULL);
+				ast_strftime(timestr, sizeof(timestr), "%Y-%m-%d %T", &tm);
+				ast_cli(a->fd, "    Last fail connection attempt: %s\n", timestr);
+			}
+
 			ast_cli(a->fd, "    Number of active connections: %zd (out of %d)\n", class->connection_cnt, class->maxconnections);
 			ast_cli(a->fd, "\n");
 		}
@@ -968,65 +960,6 @@ static odbc_status odbc_obj_connect(struct odbc_obj *obj)
 	return ODBC_SUCCESS;
 }
 
-/*!
- * \internal
- * \brief Implements the channels provider.
- */
-static int data_odbc_provider_handler(const struct ast_data_search *search,
-		struct ast_data *root)
-{
-	struct ao2_iterator aoi;
-	struct odbc_class *class;
-	struct ast_data *data_odbc_class, *data_odbc_connections;
-	struct ast_data *enum_node;
-
-	aoi = ao2_iterator_init(class_container, 0);
-	while ((class = ao2_iterator_next(&aoi))) {
-		data_odbc_class = ast_data_add_node(root, "class");
-		if (!data_odbc_class) {
-			ao2_ref(class, -1);
-			continue;
-		}
-
-		ast_data_add_structure(odbc_class, data_odbc_class, class);
-
-		data_odbc_connections = ast_data_add_node(data_odbc_class, "connections");
-		if (!data_odbc_connections) {
-			ao2_ref(class, -1);
-			continue;
-		}
-
-		/* isolation */
-		enum_node = ast_data_add_node(data_odbc_class, "isolation");
-		if (!enum_node) {
-			ao2_ref(class, -1);
-			continue;
-		}
-		ast_data_add_int(enum_node, "value", class->isolation);
-		ast_data_add_str(enum_node, "text", ast_odbc_isolation2text(class->isolation));
-		ao2_ref(class, -1);
-
-		if (!ast_data_search_match(search, data_odbc_class)) {
-			ast_data_remove_node(root, data_odbc_class);
-		}
-	}
-	ao2_iterator_destroy(&aoi);
-	return 0;
-}
-
-/*!
- * \internal
- * \brief /asterisk/res/odbc/listprovider.
- */
-static const struct ast_data_handler odbc_provider = {
-	.version = AST_DATA_HANDLER_VERSION,
-	.get = data_odbc_provider_handler
-};
-
-static const struct ast_data_entry odbc_providers[] = {
-	AST_DATA_ENTRY("/asterisk/res/odbc", &odbc_provider),
-};
-
 static int reload(void)
 {
 	struct odbc_cache_tables *table;
@@ -1074,14 +1007,13 @@ static int load_module(void)
 	if (load_odbc_config() == -1)
 		return AST_MODULE_LOAD_DECLINE;
 	ast_cli_register_multiple(cli_odbc, ARRAY_LEN(cli_odbc));
-	ast_data_register_multiple(odbc_providers, ARRAY_LEN(odbc_providers));
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "ODBC resource",
-		.support_level = AST_MODULE_SUPPORT_CORE,
-		.load = load_module,
-		.unload = unload_module,
-		.reload = reload,
-		.load_pri = AST_MODPRI_REALTIME_DEPEND,
-	       );
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.unload = unload_module,
+	.reload = reload,
+	.load_pri = AST_MODPRI_REALTIME_DEPEND,
+);

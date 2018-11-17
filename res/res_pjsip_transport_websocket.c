@@ -348,7 +348,7 @@ static struct ast_taskprocessor *create_websocket_serializer(void)
 	/* Create name with seq number appended. */
 	ast_taskprocessor_build_name(tps_name, sizeof(tps_name), "pjsip/websocket");
 
-	return ast_sip_create_serializer_named(tps_name);
+	return ast_sip_create_serializer(tps_name);
 }
 
 /*! \brief WebSocket connection handler. */
@@ -471,8 +471,6 @@ static struct ast_sip_session_supplement websocket_supplement = {
 
 static int load_module(void)
 {
-	CHECK_PJSIP_MODULE_LOADED();
-
 	/*
 	 * We only need one transport type name (ws) defined.  Firefox
 	 * and Chrome do not support anything other than secure websockets
@@ -490,10 +488,7 @@ static int load_module(void)
 		return AST_MODULE_LOAD_DECLINE;
 	}
 
-	if (ast_sip_session_register_supplement(&websocket_supplement)) {
-		ast_sip_unregister_service(&websocket_module);
-		return AST_MODULE_LOAD_DECLINE;
-	}
+	ast_sip_session_register_supplement(&websocket_supplement);
 
 	if (ast_websocket_add_protocol("sip", websocket_cb)) {
 		ast_sip_session_unregister_supplement(&websocket_supplement);
@@ -514,8 +509,9 @@ static int unload_module(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "PJSIP WebSocket Transport Support",
-		.support_level = AST_MODULE_SUPPORT_CORE,
-		.load = load_module,
-		.unload = unload_module,
-		.load_pri = AST_MODPRI_APP_DEPEND,
-	   );
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.unload = unload_module,
+	.load_pri = AST_MODPRI_APP_DEPEND,
+	.requires = "res_pjsip,res_http_websocket",
+);

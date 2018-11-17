@@ -43,8 +43,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -73,6 +71,8 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/json.h"
 #include "asterisk/format_cache.h"
 #include "asterisk/taskprocessor.h"
+#include "asterisk/stream.h"
+#include "asterisk/message.h"
 
 /*** DOCUMENTATION
 	<application name="ConfBridge" language="en_US">
@@ -504,6 +504,10 @@ const char *conf_get_sound(enum conf_sounds sound, struct bridge_profile_sounds 
 		return S_OR(custom_sounds->muted, "conf-muted");
 	case CONF_SOUND_UNMUTED:
 		return S_OR(custom_sounds->unmuted, "conf-unmuted");
+	case CONF_SOUND_BINAURAL_ON:
+		return S_OR(custom_sounds->binauralon, "confbridge-binaural-on");
+	case CONF_SOUND_BINAURAL_OFF:
+		return S_OR(custom_sounds->binauraloff, "confbridge-binaural-off");
 	case CONF_SOUND_ONLY_ONE:
 		return S_OR(custom_sounds->onlyone, "conf-onlyone");
 	case CONF_SOUND_THERE_ARE:
@@ -544,6 +548,7 @@ const char *conf_get_sound(enum conf_sounds sound, struct bridge_profile_sounds 
 
 	return "";
 }
+
 
 static void send_conf_stasis(struct confbridge_conference *conference, struct ast_channel *chan,
 	struct stasis_message_type *type, struct ast_json *extras, int channel_topic)
@@ -672,7 +677,7 @@ static void set_rec_filename(struct confbridge_conference *conference, struct as
 	if (ast_strlen_zero(rec_file)) {
 		ast_str_set(filename, 0, "confbridge-%s-%u.wav", conference->name,
 			(unsigned int) now);
-	} else {
+	} else if (ast_test_flag(&conference->b_profile, BRIDGE_OPT_RECORD_FILE_TIMESTAMP)) {
 		/* insert time before file extension */
 		ext = strrchr(rec_file, '.');
 		if (ext) {
@@ -681,10 +686,13 @@ static void set_rec_filename(struct confbridge_conference *conference, struct as
 		} else {
 			ast_str_set(filename, 0, "%s-%u", rec_file, (unsigned int) now);
 		}
+	} else {
+		ast_str_set(filename, 0, "%s", rec_file);
 	}
-	if (ast_test_flag(&conference->b_profile, BRIDGE_OPT_RECORD_FILE_APPEND)) {
-		ast_str_append(filename, 0, ",a");
-	}
+	ast_str_append(filename, 0, ",%s%s,%s",
+		ast_test_flag(&conference->b_profile, BRIDGE_OPT_RECORD_FILE_APPEND) ? "a" : "",
+		conference->b_profile.rec_options,
+		conference->b_profile.rec_command);
 }
 
 static int is_new_rec_file(const char *rec_file, struct ast_str **orig_rec_file)
@@ -701,6 +709,11 @@ static int is_new_rec_file(const char *rec_file, struct ast_str **orig_rec_file)
 		}
 	}
 	return 0;
+}
+
+struct confbridge_conference *conf_find_bridge(const char *conference_name)
+{
+	return ao2_find(conference_bridges, conference_name, OBJ_KEY);
 }
 
 /*!
@@ -1532,9 +1545,21 @@ static struct confbridge_conference *join_conference_bridge(const char *conferen
 		ast_bridge_set_internal_sample_rate(conference->bridge, conference->b_profile.internal_sample_rate);
 		/* Set the internal mixing interval on the bridge from the bridge profile */
 		ast_bridge_set_mixing_interval(conference->bridge, conference->b_profile.mix_interval);
+		ast_bridge_set_binaural_active(conference->bridge, ast_test_flag(&conference->b_profile, BRIDGE_OPT_BINAURAL_ACTIVE));
 
 		if (ast_test_flag(&conference->b_profile, BRIDGE_OPT_VIDEO_SRC_FOLLOW_TALKER)) {
 			ast_bridge_set_talker_src_video_mode(conference->bridge);
+		} else if (ast_test_flag(&conference->b_profile, BRIDGE_OPT_VIDEO_SRC_SFU)) {
+			ast_bridge_set_sfu_video_mode(conference->bridge);
+			ast_bridge_set_video_update_discard(conference->bridge, conference->b_profile.video_update_discard);
+			ast_bridge_set_remb_send_interval(conference->bridge, conference->b_profile.remb_send_interval);
+			if (ast_test_flag(&conference->b_profile, BRIDGE_OPT_REMB_BEHAVIOR_AVERAGE)) {
+				ast_brige_set_remb_behavior(conference->bridge, AST_BRIDGE_VIDEO_SFU_REMB_AVERAGE);
+			} else if (ast_test_flag(&conference->b_profile, BRIDGE_OPT_REMB_BEHAVIOR_LOWEST)) {
+				ast_brige_set_remb_behavior(conference->bridge, AST_BRIDGE_VIDEO_SFU_REMB_LOWEST);
+			} else if (ast_test_flag(&conference->b_profile, BRIDGE_OPT_REMB_BEHAVIOR_HIGHEST)) {
+				ast_brige_set_remb_behavior(conference->bridge, AST_BRIDGE_VIDEO_SFU_REMB_HIGHEST);
+			}
 		}
 
 		/* Link it into the conference bridges container */
@@ -2439,11 +2464,11 @@ static int confbridge_exec(struct ast_channel *chan, const char *data)
 		user.tech_args.drop_silence = 1;
 	}
 
-	if (ast_test_flag(&user.u_profile, USER_OPT_JITTERBUFFER) && ast_module_check("func_jitterbuffer.so")) {
+	if (ast_test_flag(&user.u_profile, USER_OPT_JITTERBUFFER)) {
 		ast_func_write(chan, "JITTERBUFFER(adaptive)", "default");
 	}
 
-	if (ast_test_flag(&user.u_profile, USER_OPT_DENOISE) && ast_module_check("codec_speex.so")) {
+	if (ast_test_flag(&user.u_profile, USER_OPT_DENOISE)) {
 		ast_func_write(chan, "DENOISE(rx)", "on");
 	}
 
@@ -2582,6 +2607,20 @@ static int action_toggle_mute(struct confbridge_conference *conference,
 	return play_file(bridge_channel, NULL,
 		conf_get_sound(mute ? CONF_SOUND_MUTED : CONF_SOUND_UNMUTED,
 			conference->b_profile.sounds)) < 0;
+}
+
+static int action_toggle_binaural(struct confbridge_conference *conference,
+		struct confbridge_user *user,
+		struct ast_bridge_channel *bridge_channel)
+{
+	unsigned int binaural;
+	ast_bridge_channel_lock_bridge(bridge_channel);
+	binaural = !bridge_channel->binaural_suspended;
+	bridge_channel->binaural_suspended = binaural;
+	ast_bridge_unlock(bridge_channel->bridge);
+	return play_file(bridge_channel, NULL, (binaural ?
+				conf_get_sound(CONF_SOUND_BINAURAL_OFF, user->b_profile.sounds) :
+				conf_get_sound(CONF_SOUND_BINAURAL_ON, user->b_profile.sounds))) < 0;
 }
 
 static int action_toggle_mute_participants(struct confbridge_conference *conference, struct confbridge_user *user)
@@ -2808,6 +2847,9 @@ static int execute_menu_entry(struct confbridge_conference *conference,
 		case MENU_ACTION_TOGGLE_MUTE:
 			res |= action_toggle_mute(conference, user, bridge_channel);
 			break;
+		case MENU_ACTION_TOGGLE_BINAURAL:
+			action_toggle_binaural(conference, user, bridge_channel);
+			break;
 		case MENU_ACTION_ADMIN_TOGGLE_MUTE_PARTICIPANTS:
 			if (!isadmin) {
 				break;
@@ -2887,7 +2929,9 @@ static int execute_menu_entry(struct confbridge_conference *conference,
 			break;
 		case MENU_ACTION_SET_SINGLE_VIDEO_SRC:
 			ao2_lock(conference);
-			ast_bridge_set_single_src_video_mode(conference->bridge, bridge_channel->chan);
+			if (!ast_test_flag(&conference->b_profile, BRIDGE_OPT_VIDEO_SRC_SFU)) {
+				ast_bridge_set_single_src_video_mode(conference->bridge, bridge_channel->chan);
+			}
 			ao2_unlock(conference);
 			break;
 		case MENU_ACTION_RELEASE_SINGLE_VIDEO_SRC:
@@ -4116,7 +4160,7 @@ static int load_module(void)
 	res |= ast_manager_register_xml("ConfbridgeUnlock", EVENT_FLAG_CALL, action_confbridgeunlock);
 	res |= ast_manager_register_xml("ConfbridgeLock", EVENT_FLAG_CALL, action_confbridgelock);
 	res |= ast_manager_register_xml("ConfbridgeStartRecord", EVENT_FLAG_SYSTEM, action_confbridgestartrecord);
-	res |= ast_manager_register_xml("ConfbridgeStopRecord", EVENT_FLAG_CALL, action_confbridgestoprecord);
+	res |= ast_manager_register_xml("ConfbridgeStopRecord", EVENT_FLAG_SYSTEM, action_confbridgestoprecord);
 	res |= ast_manager_register_xml("ConfbridgeSetSingleVideoSrc", EVENT_FLAG_CALL, action_confbridgesetsinglevideosrc);
 	if (res) {
 		unload_module();
@@ -4137,4 +4181,5 @@ AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "Conference Bridge App
 	.unload = unload_module,
 	.reload = reload,
 	.load_pri = AST_MODPRI_DEVSTATE_PROVIDER,
+	.optional_modules = "codec_speex,func_jitterbuffer",
 );

@@ -855,8 +855,6 @@ static int regex_filter_handler(const struct aco_option *opt, struct ast_variabl
 
 static int load_module(void)
 {
-	CHECK_PJSIP_PUBSUB_MODULE_LOADED();
-
 	if (ast_eid_is_empty(&ast_eid_default)) {
 		ast_log(LOG_ERROR, "Entity ID is not set.\n");
 		return AST_MODULE_LOAD_DECLINE;
@@ -934,4 +932,5 @@ AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "PJSIP Asterisk Event 
 	.reload = reload_module,
 	.unload = unload_module,
 	.load_pri = AST_MODPRI_CHANNEL_DEPEND + 5,
+	.requires = "res_pjsip,res_pjsip_outbound_publish,res_pjsip_pubsub",
 );

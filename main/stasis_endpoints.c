@@ -29,8 +29,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include "asterisk/astobj2.h"
 #include "asterisk/stasis.h"
 #include "asterisk/stasis_endpoints.h"
@@ -84,7 +82,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 						<enum name="Unknown"/>
 						<enum name="Unreachable"/>
 						<enum name="Reachable"/>
-						<enum name="Created"/>
+						<enum name="Unqualified"/>
 						<enum name="Removed"/>
 						<enum name="Updated"/>
 					</enumlist>
@@ -97,6 +95,18 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 				</parameter>
 				<parameter name="RoundtripUsec">
 					<para>The RTT measured during the last qualify.</para>
+				</parameter>
+				<parameter name="UserAgent">
+					<para>Content of the User-Agent header in REGISTER request</para>
+				</parameter>
+				<parameter name="RegExpire">
+					<para>Absolute time that this contact is no longer valid after</para>
+				</parameter>
+				<parameter name="ViaAddress">
+					<para>IP address:port of the last Via header in REGISTER request</para>
+				</parameter>
+				<parameter name="CallID">
+					<para>Content of the Call-ID header in REGISTER request</para>
 				</parameter>
 			</syntax>
 		</managerEventInstance>

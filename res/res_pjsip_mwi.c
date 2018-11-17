@@ -160,7 +160,7 @@ static int mwi_serializer_pool_setup(void)
 		/* Create name with seq number appended. */
 		ast_taskprocessor_build_name(tps_name, sizeof(tps_name), "pjsip/mwi");
 
-		mwi_serializer_pool[idx] = ast_sip_create_serializer_named(tps_name);
+		mwi_serializer_pool[idx] = ast_sip_create_serializer(tps_name);
 		if (!mwi_serializer_pool[idx]) {
 			mwi_serializer_pool_shutdown();
 			return -1;
@@ -1339,8 +1339,6 @@ static int reload(void)
 
 static int load_module(void)
 {
-	CHECK_PJSIP_MODULE_LOADED();
-
 	if (ast_sip_register_subscription_handler(&mwi_handler)) {
 		return AST_MODULE_LOAD_DECLINE;
 	}
@@ -1397,4 +1395,5 @@ AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_LOAD_ORDER, "PJSIP MWI resource",
 	.unload = unload_module,
 	.reload = reload,
 	.load_pri = AST_MODPRI_CHANNEL_DEPEND + 5,
+	.requires = "res_pjsip,res_pjsip_pubsub",
 );

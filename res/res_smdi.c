@@ -41,12 +41,10 @@
  */
 
 /*** MODULEINFO
-	<support_level>core</support_level>
+	<support_level>extended</support_level>
  ***/
 
 #include "asterisk.h"
-
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 
 #include <termios.h>
 #include <sys/time.h>
@@ -246,7 +244,7 @@ static void smdi_interface_destroy(void *obj)
 	ast_mutex_destroy(&iface->mwi_q_lock);
 	ast_cond_destroy(&iface->mwi_q_cond);
 
-	free(iface);
+	ast_free(iface);
 
 	ast_module_unref(ast_module_info->self);
 }
@@ -796,7 +794,7 @@ static void destroy_mailbox_mapping(struct mailbox_mapping *mm)
 {
 	ast_string_field_free_memory(mm);
 	ao2_ref(mm->iface, -1);
-	free(mm);
+	ast_free(mm);
 }
 
 static void destroy_all_mailbox_mappings(void)
@@ -1177,7 +1175,7 @@ static void smdi_msg_datastore_destroy(void *data)
 	ao2_cleanup(smd->iface);
 	ao2_cleanup(smd->md_msg);
 
-	free(smd);
+	ast_free(smd);
 }
 
 static const struct ast_datastore_info smdi_msg_datastore_info = {
@@ -1407,9 +1405,6 @@ static int load_module(void)
 	ast_custom_function_register(&smdi_msg_retrieve_function);
 	ast_custom_function_register(&smdi_msg_function);
 
-	/* For Optional API. */
-	ast_module_shutdown_ref(ast_module_info->self);
-
 	return AST_MODULE_LOAD_SUCCESS;
 }
 
@@ -1463,9 +1458,9 @@ static int reload(void)
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS | AST_MODFLAG_LOAD_ORDER, "Simplified Message Desk Interface (SMDI) Resource",
-		.support_level = AST_MODULE_SUPPORT_CORE,
-		.load = load_module,
-		.unload = unload_module,
-		.reload = reload,
-		.load_pri = AST_MODPRI_CHANNEL_DEPEND,
-	       );
+	.support_level = AST_MODULE_SUPPORT_EXTENDED,
+	.load = load_module,
+	.unload = unload_module,
+	.reload = reload,
+	.load_pri = AST_MODPRI_CHANNEL_DEPEND,
+);

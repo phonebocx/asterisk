@@ -35,8 +35,6 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include "asterisk/module.h"
 #include "asterisk/channel.h"
 #include "asterisk/pbx.h"
@@ -139,8 +137,6 @@ static void hook_datastore_destroy_callback(void *data)
 	ast_free(state->context);
 	ast_free(state->exten);
 	ast_free(state);
-
-	ast_module_unref(ast_module_info->self);
 }
 
 static const struct ast_datastore_info hook_datastore = {
@@ -307,7 +303,7 @@ static int init_hook(struct ast_channel *chan, const char *context, const char *
 	if (!(datastore = ast_datastore_alloc(&hook_datastore, uid))) {
 		return -1;
 	}
-	ast_module_ref(ast_module_info->self);
+
 	if (!(state = hook_state_alloc(context, exten, interval, hook_id))) {
 		ast_datastore_free(datastore);
 		return -1;
@@ -490,11 +486,6 @@ static int load_module(void)
 
 	res = ast_custom_function_register_escalating(&hook_function, AST_CFE_BOTH);
 
-	if (!res) {
-		/* For Optional API. */
-		ast_module_shutdown_ref(ast_module_info->self);
-	}
-
 	return res ? AST_MODULE_LOAD_DECLINE : AST_MODULE_LOAD_SUCCESS;
 }
 
@@ -520,7 +511,7 @@ int AST_OPTIONAL_API_NAME(ast_beep_stop)(struct ast_channel *chan, const char *b
 }
 
 AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_GLOBAL_SYMBOLS, "Periodic dialplan hooks.",
-		.support_level = AST_MODULE_SUPPORT_CORE,
-		.load = load_module,
-		.unload = unload_module,
-		);
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.unload = unload_module,
+);

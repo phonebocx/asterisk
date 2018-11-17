@@ -173,8 +173,6 @@
 #include "asterisk/utils.h"
 #include "asterisk/event.h"
 
-/*! @{ */
-
 /*!
  * \brief Metadata about a \ref stasis_message.
  * \since 12
@@ -321,14 +319,6 @@ enum stasis_message_type_result stasis_message_type_create(const char *name,
 const char *stasis_message_type_name(const struct stasis_message_type *type);
 
 /*!
- * \brief Gets the hash of a given message type
- * \param type The type to get the hash of.
- * \return The hash
- * \since 13.24.0
- */
-unsigned int stasis_message_type_hash(const struct stasis_message_type *type);
-
-/*!
  * \brief Check whether a message type is declined
  *
  * \param name The name of the message type to check
@@ -467,10 +457,6 @@ int stasis_message_can_be_ami(struct stasis_message *msg);
  */
 struct ast_event *stasis_message_to_event(struct stasis_message *msg);
 
-/*! @} */
-
-/*! @{ */
-
 /*!
  * \brief A topic to which messages may be posted, and subscribers, well, subscribe
  * \since 12
@@ -523,10 +509,6 @@ void stasis_publish(struct stasis_topic *topic, struct stasis_message *message);
  * \since 12.1.0
  */
 void stasis_publish_sync(struct stasis_subscription *sub, struct stasis_message *message);
-
-/*! @} */
-
-/*! @{ */
 
 /*!
  * \brief Callback function type for Stasis subscriptions.
@@ -740,8 +722,6 @@ struct stasis_message_type *stasis_subscription_change_type(void);
 
 /*! @} */
 
-/*! @{ */
-
 /*!
  * \brief Pool for topic aggregation
  */
@@ -763,18 +743,6 @@ struct stasis_topic_pool *stasis_topic_pool_create(struct stasis_topic *pooled_t
  * \return \c NULL if the topic was not found and could not be allocated
  */
 struct stasis_topic *stasis_topic_pool_get_topic(struct stasis_topic_pool *pool, const char *topic_name);
-
-/*!
- * \brief Check if a topic exists in a pool
- * \param pool Pool to check
- * \param topic_name Name of the topic to check
- * \retval 1 exists
- * \retval 0 does not exist
- * \since 13.23.0
- */
-int stasis_topic_pool_topic_exists(const struct stasis_topic_pool *pool, const char *topic_name);
-
-/*! @} */
 
 /*! \addtogroup StasisTopicsAndMessages
  * @{
@@ -807,8 +775,6 @@ struct stasis_cache_update {
 struct stasis_message_type *stasis_cache_clear_type(void);
 
 /*! @} */
-
-/*! @{ */
 
 /*!
  * \brief A message cache, for use with \ref stasis_caching_topic.
@@ -1141,6 +1107,10 @@ struct ao2_container *stasis_cache_dump_by_eid(struct stasis_cache *cache, struc
  */
 struct ao2_container *stasis_cache_dump_all(struct stasis_cache *cache, struct stasis_message_type *type);
 
+/*! \addtogroup StasisTopicsAndMessages
+ * @{
+ */
+
 /*!
  * \brief Object type code for multi user object snapshots
  */
@@ -1213,8 +1183,6 @@ void ast_multi_object_blob_single_channel_publish(struct ast_channel *chan, stru
 
 
 /*! @} */
-
-/*! @{ */
 
 /*!
  * \internal
@@ -1318,10 +1286,6 @@ void stasis_log_bad_type_access(const char *name);
 		_priv_ ## name = NULL;		\
 	})
 
-/*! @} */
-
-/*! @{ */
-
 /*!
  * \brief Initialize the Stasis subsystem.
  * \return 0 on success.
@@ -1329,10 +1293,6 @@ void stasis_log_bad_type_access(const char *name);
  * \since 12
  */
 int stasis_init(void);
-
-/*! @} */
-
-/*! @{ */
 
 /*!
  * \internal
@@ -1352,12 +1312,10 @@ int stasis_cache_init(void);
  */
 int stasis_config_init(void);
 
-/*! @} */
-
 /*!
  * \defgroup StasisTopicsAndMessages Stasis topics, and their messages.
  *
- * This group contains the topics, messages and corresponding message types
+ * \brief This group contains the topics, messages and corresponding message types
  * found within Asterisk.
  */
 

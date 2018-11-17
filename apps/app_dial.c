@@ -32,10 +32,8 @@
 
 #include "asterisk.h"
 
-ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
-
 #include <sys/time.h>
-#include <sys/signal.h>
+#include <signal.h>
 #include <sys/stat.h>
 #include <netinet/in.h>
 
@@ -68,6 +66,7 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 #include "asterisk/bridge_after.h"
 #include "asterisk/features_config.h"
 #include "asterisk/max_forwards.h"
+#include "asterisk/stream.h"
 
 /*** DOCUMENTATION
 	<application name="Dial" language="en_US">
@@ -325,6 +324,10 @@ ASTERISK_FILE_VERSION(__FILE__, "$Revision$")
 					<warning><para>Be aware of the limitations that macros have, specifically with regards to use of
 					the <literal>WaitExten</literal> application. For more information, see the documentation for
 					<literal>Macro()</literal>.</para></warning>
+					<note>
+						<para>Macros are deprecated, GoSub should be used instead,
+						see the <literal>U</literal> option.</para>
+					</note>
 				</option>
 				<option name="n">
 					<argument name="delete">
@@ -967,19 +970,21 @@ static void do_forward(struct chanlist *o, struct cause_args *num,
 	/* If we have been told to ignore forwards, just set this channel to null and continue processing extensions normally */
 	if (ast_test_flag64(peerflags, OPT_IGNORE_FORWARDING)) {
 		ast_verb(3, "Forwarding %s to '%s/%s' prevented.\n", ast_channel_name(in), tech, stuff);
+		ast_channel_publish_dial_forward(in, original, NULL, NULL, "CANCEL",
+			ast_channel_call_forward(original));
 		c = o->chan = NULL;
 		cause = AST_CAUSE_BUSY;
 	} else {
-		struct ast_format_cap *nativeformats;
+		struct ast_stream_topology *topology;
 
 		ast_channel_lock(in);
-		nativeformats = ao2_bump(ast_channel_nativeformats(in));
+		topology = ast_stream_topology_clone(ast_channel_get_stream_topology(in));
 		ast_channel_unlock(in);
 
 		/* Setup parameters */
-		c = o->chan = ast_request(tech, nativeformats, NULL, in, stuff, &cause);
+		c = o->chan = ast_request_with_stream_topology(tech, topology, NULL, in, stuff, &cause);
 
-		ao2_cleanup(nativeformats);
+		ast_stream_topology_free(topology);
 
 		if (c) {
 			if (single && !caller_entertained) {
@@ -1186,9 +1191,6 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 	int prestart = num.busy + num.congestion + num.nochan;
 	int orig = *to;
 	struct ast_channel *peer = NULL;
-#ifdef HAVE_EPOLL
-	struct chanlist *epollo;
-#endif
 	struct chanlist *outgoing = AST_LIST_FIRST(out_chans);
 	/* single is set if only one destination is enabled */
 	int single = outgoing && !AST_LIST_NEXT(outgoing, node);
@@ -1226,12 +1228,6 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 	}
 
 	is_cc_recall = ast_cc_is_recall(in, &cc_recall_core_id, NULL);
-
-#ifdef HAVE_EPOLL
-	AST_LIST_TRAVERSE(out_chans, epollo, node) {
-		ast_poll_channel_add(in, epollo->chan);
-	}
-#endif
 
 	while ((*to = ast_remaining_ms(start, orig)) && !peer) {
 		struct chanlist *o;
@@ -1359,9 +1355,6 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 			f = ast_read(winner);
 			if (!f) {
 				ast_channel_hangupcause_set(in, ast_channel_hangupcause(c));
-#ifdef HAVE_EPOLL
-				ast_poll_channel_del(in, c);
-#endif
 				ast_channel_publish_dial(in, c, NULL, ast_hangup_cause_to_dial_status(ast_channel_hangupcause(c)));
 				ast_hangup(c);
 				c = o->chan = NULL;
@@ -1482,6 +1475,7 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 							pa->sentringing++;
 						}
 					}
+					ast_channel_publish_dial(in, c, NULL, "RINGING");
 					break;
 				case AST_CONTROL_PROGRESS:
 					ast_verb(3, "%s is making progress passing it to %s\n", ast_channel_name(c), ast_channel_name(in));
@@ -1501,6 +1495,7 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 							dtmf_progress);
 						ast_dtmf_stream(c, in, dtmf_progress, 250, 0);
 					}
+					ast_channel_publish_dial(in, c, NULL, "PROGRESS");
 					break;
 				case AST_CONTROL_VIDUPDATE:
 				case AST_CONTROL_SRCUPDATE:
@@ -1573,6 +1568,7 @@ static struct ast_channel *wait_for_answer(struct ast_channel *in,
 					}
 					if (!ast_test_flag64(outgoing, OPT_RINGBACK))
 						ast_indicate(in, AST_CONTROL_PROCEEDING);
+					ast_channel_publish_dial(in, c, NULL, "PROCEEDING");
 					break;
 				case AST_CONTROL_HOLD:
 					/* XXX this should be saved like AST_CONTROL_CONNECTED_LINE for !single || caller_entertained */
@@ -1784,13 +1780,6 @@ skip_frame:;
 		ast_verb(3, "Nobody picked up in %d ms\n", orig);
 		publish_dial_end_event(in, out_chans, NULL, "NOANSWER");
 	}
-
-#ifdef HAVE_EPOLL
-	AST_LIST_TRAVERSE(out_chans, epollo, node) {
-		if (epollo->chan)
-			ast_poll_channel_del(in, epollo->chan);
-	}
-#endif
 
 	if (is_cc_recall) {
 		ast_cc_completed(in, "Recall completed!");
@@ -2462,7 +2451,7 @@ static int dial_exec_full(struct ast_channel *chan, const char *data, struct ast
 		char *tech = strsep(&number, "/");
 		size_t tech_len;
 		size_t number_len;
-		struct ast_format_cap *nativeformats;
+		struct ast_stream_topology *topology;
 
 		num_dialed++;
 		if (ast_strlen_zero(number)) {
@@ -2514,13 +2503,13 @@ static int dial_exec_full(struct ast_channel *chan, const char *data, struct ast
 		 */
 		ast_party_connected_line_copy(&tmp->connected, ast_channel_connected(chan));
 
-		nativeformats = ao2_bump(ast_channel_nativeformats(chan));
+		topology = ast_stream_topology_clone(ast_channel_get_stream_topology(chan));
 
 		ast_channel_unlock(chan);
 
-		tc = ast_request(tmp->tech, nativeformats, NULL, chan, tmp->number, &cause);
+		tc = ast_request_with_stream_topology(tmp->tech, topology, NULL, chan, tmp->number, &cause);
 
-		ao2_cleanup(nativeformats);
+		ast_stream_topology_free(topology);
 
 		if (!tc) {
 			/* If we can't, just go on to the next call */
@@ -3391,4 +3380,9 @@ static int load_module(void)
 	return res;
 }
 
-AST_MODULE_INFO_STANDARD(ASTERISK_GPL_KEY, "Dialing Application");
+AST_MODULE_INFO(ASTERISK_GPL_KEY, AST_MODFLAG_DEFAULT, "Dialing Application",
+	.support_level = AST_MODULE_SUPPORT_CORE,
+	.load = load_module,
+	.unload = unload_module,
+	.requires = "ccss",
+);

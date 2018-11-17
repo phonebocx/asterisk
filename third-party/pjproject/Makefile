@@ -61,11 +61,14 @@ ifeq ($(SPECIAL_TARGETS),)
                 TARGETS += source/pjsip-apps/src/python/_pjsua.so
             endif
         endif
+        ifeq ($(AST_DEVMODE),yes)
+            CF += -DPJPROJECT_BUNDLED_ASSERTIONS=yes
+        endif
         ifeq ($(findstring MALLOC_DEBUG,$(MENUSELECT_CFLAGS)),MALLOC_DEBUG)
             CF += -DMALLOC_DEBUG
-            MALLOC_DEBUG_LIBS = source/pjsip-apps/lib/libasterisk_malloc_debug.a
-            MALLOC_DEBUG_LDFLAGS = -L$(PJDIR)/pjsip-apps/lib -Wl,-whole-archive -lasterisk_malloc_debug -Wl,-no-whole-archive
         endif
+        MALLOC_DEBUG_LIBS = source/pjsip-apps/lib/libasterisk_malloc_debug.a
+        MALLOC_DEBUG_LDFLAGS = -L$(PJDIR)/pjsip-apps/lib -Wl,-whole-archive -lasterisk_malloc_debug -Wl,-no-whole-archive
         ifeq ($(findstring DONT_OPTIMIZE,$(MENUSELECT_CFLAGS)),)
             CF += -O3
         endif
