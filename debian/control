@@ -13,6 +13,8 @@ Build-Depends:
  autoconf,
  automake,
  binutils-dev,
+ ca-certificates,
+ curl,
  dahdi-source,
  debhelper (>= 10),
  default-libmysqlclient-dev,
