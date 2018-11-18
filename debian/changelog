@@ -1,3 +1,9 @@
+asterisk (1:16.0.1-1ubuntu5) bionic; urgency=medium
+
+  * Add libunbound for async DNS
+
+ -- Rob Thomas <xrobau@linux.com>  Sun, 18 Nov 2018 13:11:43 +1000
+
 asterisk (1:16.0.1-1ubuntu4) bionic; urgency=medium
 
   * Re-Enable app_macro for compatibility
