@@ -1,8 +1,15 @@
-asterisk (1:16.0.1-1) unstable; urgency=medium
+asterisk (1:16.0.1-1ubuntu1) bionic; urgency=medium
+
+  * Update for Ubuntu bionic
+    - Add pjproject package binary, as launchpad builders do not have internet access
+
+ -- Rob Thomas <xrobau@linux.com>  Sun, 18 Nov 2018 10:49:17 +1000
+
+asterisk (1:16.0.1-1) bionic; urgency=medium
 
   * New upstream version 16.0.1
 
- -- Rob Thomas <xrobau@linux.com>  Sat, 17 Nov 2018 16:00:00 +1000
+ -- Rob Thomas <xrobau@gmail.com>  Sat, 17 Nov 2018 16:00:00 +1000
 
 asterisk (1:13.23.1~dfsg-1) unstable; urgency=medium
 
