@@ -89,7 +89,8 @@ Depends:
  ${misc:Depends},
  ${shlibs:Depends}
 Provides:
- asterisk-${asterisk:ABI}
+ asterisk-${asterisk:ABI},
+ libasteriskpj
 Recommends:
  asterisk-moh-opsound-gsm,
  asterisk-voicemail | asterisk-voicemail-storage,
