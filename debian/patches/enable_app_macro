@@ -1,0 +1,14 @@
+Re-enable app_macro, which has been deprecated
+as of Asterisk 16.
+
+--- a/apps/app_macro.c
++++ b/apps/app_macro.c
+@@ -26,7 +26,7 @@
+  */
+ 
+ /*** MODULEINFO
+-	<defaultenabled>no</defaultenabled>
++	<defaultenabled>yes</defaultenabled>
+ 	<support_level>deprecated</support_level>
+ 	<replacement>app_stack (GoSub)</replacement>
+  ***/
